@@ -10,8 +10,6 @@ import (
 	"go.viam.com/rdk/spatialmath"
 )
 
-const defaultMinPTGlen = 10.
-
 // ptgFrame wraps a tpspace.PTG so that it fills the Frame interface and can be used by IK.
 type ptgIKFrame struct {
 	PTG

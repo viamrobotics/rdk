@@ -10,6 +10,7 @@ import (
 
 	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/protoutils"
+	"go.viam.com/rdk/spatialmath"
 )
 
 type method int64
@@ -99,10 +100,15 @@ func newPositionCollector(resource interface{}, params data.CollectorParams) (da
 			}
 			return nil, data.FailedToReadErr(params.ComponentName, linearVelocity.String(), err)
 		}
+		var lat, lng float64
+		if pos != nil {
+			lat = pos.Lat()
+			lng = pos.Lng()
+		}
 		return pb.GetPositionResponse{
 			Coordinate: &v1.GeoPoint{
-				Latitude:  pos.Lat(),
-				Longitude: pos.Lng(),
+				Latitude:  lat,
+				Longitude: lng,
 			},
 			AltitudeM: float32(altitude),
 		}, nil
@@ -211,13 +217,16 @@ func newOrientationCollector(resource interface{}, params data.CollectorParams) 
 			}
 			return nil, data.FailedToReadErr(params.ComponentName, orientation.String(), err)
 		}
-		axisAng := orient.AxisAngles()
+		var orientVector *spatialmath.OrientationVectorDegrees
+		if orient != nil {
+			orientVector = orient.OrientationVectorDegrees()
+		}
 		return pb.GetOrientationResponse{
 			Orientation: &v1.Orientation{
-				OX:    axisAng.RX,
-				OY:    axisAng.RY,
-				OZ:    axisAng.RZ,
-				Theta: axisAng.Theta,
+				OX:    orientVector.OX,
+				OY:    orientVector.OY,
+				OZ:    orientVector.OZ,
+				Theta: orientVector.Theta,
 			},
 		}, nil
 	})

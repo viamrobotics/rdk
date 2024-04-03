@@ -54,7 +54,7 @@ func TestBoundingBoxFromPointCloud(t *testing.T) {
 		box, err := BoundingBoxFromPointCloudWithLabel(c.pc, "box")
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, box, test.ShouldNotBeNil)
-		test.That(t, box.AlmostEqual(expectedBox), test.ShouldBeTrue)
+		test.That(t, spatialmath.GeometriesAlmostEqual(box, expectedBox), test.ShouldBeTrue)
 		test.That(t, box.Label(), test.ShouldEqual, "box")
 	}
 }

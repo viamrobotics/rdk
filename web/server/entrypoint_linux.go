@@ -1,4 +1,4 @@
-//go:build cgo && !(arm || android)
+//go:build cgo && !android
 
 package server
 
@@ -10,8 +10,7 @@ import (
 
 func makeStreamConfig() gostream.StreamConfig {
 	var streamConfig gostream.StreamConfig
-	// TODO(RSDK-5916): support v4l2m2m codec on arm64/rpi
-	streamConfig.VideoEncoderFactory = x264.NewEncoderFactory()
 	streamConfig.AudioEncoderFactory = opus.NewEncoderFactory()
+	streamConfig.VideoEncoderFactory = x264.NewEncoderFactory()
 	return streamConfig
 }

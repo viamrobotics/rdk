@@ -95,7 +95,7 @@ func TestMotorABPWM(t *testing.T) {
 		on, powerPct, err = m.IsPowered(ctx, nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, on, test.ShouldBeTrue)
-		test.That(t, powerPct, test.ShouldEqual, 0.44)
+		test.That(t, powerPct, test.ShouldEqual, -0.44)
 
 		test.That(t, m.SetPower(ctx, 0, nil), test.ShouldBeNil)
 		test.That(t, mustGetGPIOPinByName(b, "1").Get(context.Background()), test.ShouldEqual, false)

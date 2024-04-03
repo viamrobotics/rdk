@@ -1,4 +1,4 @@
-// Package xarm implements some xArms.
+// Package xarm implements some UFactory arms (xArm 6, xArm 7, and Lite 6).
 package xarm
 
 import (
@@ -69,13 +69,13 @@ var xArm6modeljson []byte
 //go:embed xarm7_kinematics.json
 var xArm7modeljson []byte
 
-//go:embed xarmlite_kinematics.json
-var xArmLitemodeljson []byte
+//go:embed lite6_kinematics.json
+var lite6modeljson []byte
 
 const (
-	ModelName6DOF = "xArm6"    // ModelName6DOF is the name of an xArm6
-	ModelName7DOF = "xArm7"    // ModelName7DOF is the name of an xArm7
-	ModelNameLite = "xArmLite" // ModelNameLite is the name of an xArmLite
+	ModelName6DOF = "xArm6" // ModelName6DOF is the name of a UFactory xArm 6
+	ModelName7DOF = "xArm7" // ModelName7DOF is the name of a UFactory xArm 7
+	ModelNameLite = "lite6" // ModelNameLite is the name of a UFactory Lite 6
 )
 
 // MakeModelFrame returns the kinematics model of the xarm arm, which has all Frame information.
@@ -84,7 +84,7 @@ func MakeModelFrame(name, modelName string) (referenceframe.Model, error) {
 	case ModelName6DOF:
 		return referenceframe.UnmarshalModelJSON(xArm6modeljson, name)
 	case ModelNameLite:
-		return referenceframe.UnmarshalModelJSON(xArmLitemodeljson, name)
+		return referenceframe.UnmarshalModelJSON(lite6modeljson, name)
 	case ModelName7DOF:
 		return referenceframe.UnmarshalModelJSON(xArm7modeljson, name)
 	default:
@@ -188,13 +188,18 @@ func (x *xArm) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error
 	return x.model.InputFromProtobuf(res), nil
 }
 
-func (x *xArm) GoToInputs(ctx context.Context, goal []referenceframe.Input) error {
-	// check that joint positions are not out of bounds
-	positionDegs := x.model.ProtobufFromInput(goal)
-	if err := arm.CheckDesiredJointPositions(ctx, x, positionDegs); err != nil {
-		return err
+func (x *xArm) GoToInputs(ctx context.Context, inputSteps ...[]referenceframe.Input) error {
+	for _, goal := range inputSteps {
+		// check that joint positions are not out of bounds
+		if err := arm.CheckDesiredJointPositions(ctx, x, goal); err != nil {
+			return err
+		}
+		err := x.MoveToJointPositions(ctx, x.model.ProtobufFromInput(goal), nil)
+		if err != nil {
+			return err
+		}
 	}
-	return x.MoveToJointPositions(ctx, positionDegs, nil)
+	return nil
 }
 
 func (x *xArm) Geometries(ctx context.Context, extra map[string]interface{}) ([]spatialmath.Geometry, error) {

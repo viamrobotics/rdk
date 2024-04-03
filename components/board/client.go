@@ -34,6 +34,10 @@ type client struct {
 	info           boardInfo
 	cachedStatus   *commonpb.BoardStatus
 	cachedStatusMu sync.Mutex
+
+	interruptStreams []*interruptStream
+
+	mu sync.Mutex
 }
 
 type boardInfo struct {
@@ -245,16 +249,46 @@ func (dic *digitalInterruptClient) Tick(ctx context.Context, high bool, nanoseco
 	panic(errUnimplemented)
 }
 
-func (dic *digitalInterruptClient) AddCallback(c chan Tick) {
+func (dic *digitalInterruptClient) AddCallback(ch chan Tick) {
 	panic(errUnimplemented)
 }
 
-func (dic *digitalInterruptClient) RemoveCallback(c chan Tick) {
-	panic(errUnimplemented)
+func (dic *digitalInterruptClient) RemoveCallback(ch chan Tick) {
 }
 
-func (dic *digitalInterruptClient) AddPostProcessor(pp PostProcessor) {
-	panic(errUnimplemented)
+func (c *client) StreamTicks(ctx context.Context, interrupts []string, ch chan Tick, extra map[string]interface{}) error {
+	ext, err := protoutils.StructToStructPb(extra)
+	if err != nil {
+		return err
+	}
+	stream := &interruptStream{
+		extra:  ext,
+		client: c,
+	}
+
+	c.mu.Lock()
+	c.interruptStreams = append(c.interruptStreams, stream)
+	c.mu.Unlock()
+
+	err = stream.startStream(ctx, interrupts, ch)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (c *client) removeStream(s *interruptStream) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	for i, stream := range s.interruptStreams {
+		if stream == s {
+			// To remove this item, we replace it with the last item in the list, then truncate the
+			// list by 1.
+			s.client.interruptStreams[i] = s.client.interruptStreams[len(s.client.interruptStreams)-1]
+			s.client.interruptStreams = s.client.interruptStreams[:len(s.client.interruptStreams)-1]
+			break
+		}
+	}
 }
 
 // gpioPinClient satisfies a gRPC based board.GPIOPin. Refer to the interface

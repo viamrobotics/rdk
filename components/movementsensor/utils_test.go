@@ -40,6 +40,18 @@ func TestTwoErrors(t *testing.T) {
 	test.That(t, err.Error(), test.ShouldEqual, "second")
 }
 
+func TestSetGetTwice(t *testing.T) {
+	le := NewLastError(1, 1)
+
+	le.Set(errors.New("first"))
+	err := le.Get()
+	test.That(t, err.Error(), test.ShouldEqual, "first")
+
+	le.Set(errors.New("second"))
+	err = le.Get()
+	test.That(t, err.Error(), test.ShouldEqual, "second")
+}
+
 func TestSuppressRareErrors(t *testing.T) {
 	le := NewLastError(2, 2) // Only report if 2 of the last 2 are non-nil errors
 
@@ -71,16 +83,14 @@ func TestLastPosition(t *testing.T) {
 }
 
 func TestPositionLogic(t *testing.T) {
-	lp := NewLastPosition()
+	test.That(t, ArePointsEqual(testPos2, testPos2), test.ShouldBeTrue)
+	test.That(t, ArePointsEqual(testPos2, testPos1), test.ShouldBeFalse)
 
-	test.That(t, lp.ArePointsEqual(testPos2, testPos2), test.ShouldBeTrue)
-	test.That(t, lp.ArePointsEqual(testPos2, testPos1), test.ShouldBeFalse)
+	test.That(t, IsZeroPosition(zeroPos), test.ShouldBeTrue)
+	test.That(t, IsZeroPosition(testPos2), test.ShouldBeFalse)
 
-	test.That(t, lp.IsZeroPosition(zeroPos), test.ShouldBeTrue)
-	test.That(t, lp.IsZeroPosition(testPos2), test.ShouldBeFalse)
-
-	test.That(t, lp.IsPositionNaN(nanPos), test.ShouldBeTrue)
-	test.That(t, lp.IsPositionNaN(testPos1), test.ShouldBeFalse)
+	test.That(t, IsPositionNaN(nanPos), test.ShouldBeTrue)
+	test.That(t, IsPositionNaN(testPos1), test.ShouldBeFalse)
 }
 
 func TestPMTKFunctions(t *testing.T) {

@@ -1,4 +1,4 @@
-//go:build cgo && linux && !(arm || android)
+//go:build cgo && ((linux && !android) || (darwin && arm64))
 
 // Package avcodec is a wrapper around FFmpeg/release6.1.
 // See: https://github.com/FFmpeg/FFmpeg/tree/release/6.1
@@ -7,6 +7,8 @@ package avcodec
 //#cgo CFLAGS: -I${SRCDIR}/../include
 //#cgo linux,arm64 LDFLAGS: -L${SRCDIR}/../Linux-aarch64/lib -lavformat -lavcodec -lavutil -lm
 //#cgo linux,amd64 LDFLAGS: -L${SRCDIR}/../Linux-x86_64/lib -lavformat -lavcodec -lavutil -lm
+//#cgo linux,arm LDFLAGS: -L${SRCDIR}/../Linux-armv7l/lib -lavformat -lavcodec -lavutil -lm
+//#cgo darwin,arm64 LDFLAGS: -L${SRCDIR}/../Darwin-arm64/lib -lavformat -lavcodec -lavutil -lm
 //#include <libavformat/avformat.h>
 //#include <libavcodec/avcodec.h>
 //#include <libavcodec/packet.h>
@@ -19,8 +21,15 @@ import (
 	"go.viam.com/rdk/gostream/ffmpeg/avlog"
 )
 
-// AvPixFmtYuv420p the pixel format AV_PIX_FMT_YUV420P
-const AvPixFmtYuv420p = C.AV_PIX_FMT_YUV420P
+const (
+	// AvPixFmtYuv420p the pixel format AV_PIX_FMT_YUV420P
+	AvPixFmtYuv420p = C.AV_PIX_FMT_YUV420P
+	// Target bitrate in bits per second.
+	bitrate = 1_200_000
+	// Target bitrate tolerance factor.
+	// E.g., 2.0 gives 100% deviation from the target bitrate.
+	bitrateDeviation = 2
+)
 
 type (
 	// Codec an AVCodec
@@ -74,11 +83,19 @@ func (c *Codec) AllocContext3() *Context {
 	return (*Context)(C.avcodec_alloc_context3((*C.struct_AVCodec)(c)))
 }
 
+// FreeContext Free the codec context and everything associated with it and write NULL to
+// the provided pointer.
+func (ctxt *Context) FreeContext() {
+	pCtxt := (*C.struct_AVCodecContext)(ctxt)
+	//nolint:gocritic // suppresses "dupSubExpr: suspicious identical LHS and RHS for `==` operator"
+	C.avcodec_free_context(&pCtxt)
+}
+
 // SetEncodeParams sets the context's width, height, pixel format (pxlFmt), if it has b-frames and GOP size.
 func (ctxt *Context) SetEncodeParams(width, height int, pxlFmt PixelFormat, hasBFrames bool, gopSize int) {
 	ctxt.width = C.int(width)
 	ctxt.height = C.int(height)
-	ctxt.bit_rate = 2000000
+	ctxt.bit_rate = bitrate
 	ctxt.gop_size = C.int(gopSize)
 	if hasBFrames {
 		ctxt.has_b_frames = 1
@@ -86,6 +103,7 @@ func (ctxt *Context) SetEncodeParams(width, height int, pxlFmt PixelFormat, hasB
 		ctxt.has_b_frames = 0
 	}
 	ctxt.pix_fmt = int32(pxlFmt)
+	ctxt.rc_buffer_size = bitrate * bitrateDeviation
 }
 
 // SetFramerate sets the context's framerate
@@ -288,6 +306,7 @@ func EncoderIsAvailable(enc string) bool {
 	if context == nil {
 		return false
 	}
+	defer context.FreeContext()
 
 	// Only need positive values
 	context.SetEncodeParams(1, 1, AvPixFmtYuv420p, false, 1)

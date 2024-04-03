@@ -16,7 +16,13 @@ import (
 var UploadChunkSize = 64 * 1024
 
 // Default time to wait in milliseconds to check if a file has been modified.
-const defaultFileLastModifiedMillis = 10000.0
+var fileLastModifiedMillis = 10000
+
+// SetFileLastModifiedMillis allows configuring the time to wait in milliseconds
+// to check if a file has been modified for arbitrary file uploads.
+func SetFileLastModifiedMillis(lastModifiedMillis int) {
+	fileLastModifiedMillis = lastModifiedMillis
+}
 
 var clock = clk.New()
 
@@ -39,7 +45,7 @@ func uploadArbitraryFile(ctx context.Context, client v1.DataSyncServiceClient, f
 		return err
 	}
 	timeSinceMod := clock.Since(info.ModTime())
-	if timeSinceMod >= defaultFileLastModifiedMillis*time.Millisecond {
+	if timeSinceMod < time.Duration(fileLastModifiedMillis)*time.Millisecond {
 		return errors.New("file modified too recently")
 	}
 

@@ -158,7 +158,7 @@ func (app *robotWebApp) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// Two known auth handlers (LocationSecret, WebOauth).
+// Three known auth handlers (LocationSecret, External, APIKey).
 func hasManagedAuthHandlers(handlers []config.AuthHandlerConfig) bool {
 	hasLocationSecretHandler := false
 	for _, h := range handlers {
@@ -890,6 +890,11 @@ func (svc *webService) initMux(options weboptions.Options) (*goji.Mux, error) {
 		mux.HandleFunc(pat.New("/debug/pprof/symbol"), pprof.Symbol)
 		mux.HandleFunc(pat.New("/debug/pprof/trace"), pprof.Trace)
 	}
+
+	// serve resource graph visualization
+	// TODO: hide behind option
+	// TODO: accept params to display different formats
+	mux.HandleFunc(pat.New("/debug/graph"), svc.handleVisualizeResourceGraph)
 
 	prefix := "/viam"
 	addPrefix := func(h http.Handler) http.Handler {

@@ -100,6 +100,7 @@ jobs:
         parent: false
         gzip: false
 
+  # this job builds the 32-bit RDK binary
   appimage-static-32bit:
     name: static 32-bit for appimage
     runs-on: buildjet-2vcpu-ubuntu-2204-arm
@@ -130,6 +131,7 @@ jobs:
           bin/*/viam-server
           bin/*/aix
 
+  # this job bundles the 32-bit appimage
   # note: this is a separate job because 1) appimage-builder doesn't work on 32-bit, 2) setup-python doesn't work on arm64
   appimage-32bit:
     runs-on: ubuntu-latest
@@ -149,6 +151,7 @@ jobs:
       run: pip install appimage-builder git+https://github.com/AppImageCrafters/appimage-builder.git@42d32f11496de43a9f6a9ada7882a11296e357ca
     - name: build
       env:
+        RELEASE_TYPE: ${{ inputs.release_type }}
         BUILD_CHANNEL: ${{ github.ref_name == 'main' && 'latest' || github.ref_name }}
         UNAME_M: armv7l
         DPKG_ARCH: armhf
@@ -247,7 +250,7 @@ jobs:
       with:
         headers: "cache-control: no-cache"
         path: etc/packaging/appimages/deploy
-        glob: viam-server-${{ env.channel }}-armhf.AppImage*
+        glob: viam-server-*-armhf.AppImage*
         destination: 'packages.viam.com/apps/viam-server/'
         parent: false
 

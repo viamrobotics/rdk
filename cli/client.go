@@ -3,19 +3,24 @@ package cli
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net"
+	"net/http"
 	"net/url"
 	"os"
 	"os/exec"
+	"os/signal"
 	"runtime/debug"
 	"strings"
 	"time"
 
+	"github.com/Masterminds/semver/v3"
 	"github.com/fullstorydev/grpcurl"
 	"github.com/google/uuid"
 	"github.com/jhump/protoreflect/grpcreflect"
+	"github.com/nathan-fiscaletti/consolesize-go"
 	"github.com/pkg/errors"
 	"github.com/urfave/cli/v2"
 	"go.uber.org/zap"
@@ -25,11 +30,13 @@ import (
 	mltrainingpb "go.viam.com/api/app/mltraining/v1"
 	packagepb "go.viam.com/api/app/packages/v1"
 	apppb "go.viam.com/api/app/v1"
+	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
 	reflectpb "google.golang.org/grpc/reflection/grpc_reflection_v1alpha"
+	"google.golang.org/protobuf/types/known/structpb"
 
 	rconfig "go.viam.com/rdk/config"
 	"go.viam.com/rdk/grpc"
@@ -37,6 +44,16 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot/client"
 	"go.viam.com/rdk/services/shell"
+)
+
+const (
+	rdkReleaseURL = "https://api.github.com/repos/viamrobotics/rdk/releases/latest"
+	// defaultNumLogs is the same as the number of logs currently returned by app
+	// in a single GetRobotPartLogsResponse.
+	defaultNumLogs = 100
+	// maxNumLogs is an arbitrary limit used to stop CLI users from overwhelming
+	// our logs DB with heavy reads.
+	maxNumLogs = 10000
 )
 
 // viamClient wraps a cli.Context and provides all the CLI command functionality
@@ -204,6 +221,21 @@ func RobotsStatusAction(c *cli.Context) error {
 	return nil
 }
 
+func getNumLogs(c *cli.Context) (int, error) {
+	numLogs := c.Int(logsFlagCount)
+	if numLogs < 0 {
+		warningf(c.App.ErrWriter, "Provided negative %q value. Defaulting to %d", logsFlagCount, defaultNumLogs)
+		return defaultNumLogs, nil
+	}
+	if numLogs == 0 {
+		return defaultNumLogs, nil
+	}
+	if numLogs > maxNumLogs {
+		return 0, errors.Errorf("provided too high of a %q value. Maximum is %d", logsFlagCount, maxNumLogs)
+	}
+	return numLogs, nil
+}
+
 // RobotsLogsAction is the corresponding Action for 'machines logs'.
 func RobotsLogsAction(c *cli.Context) error {
 	client, err := newViamClient(c)
@@ -235,11 +267,16 @@ func RobotsLogsAction(c *cli.Context) error {
 		} else {
 			header = part.Name
 		}
+		numLogs, err := getNumLogs(c)
+		if err != nil {
+			return err
+		}
 		if err := client.printRobotPartLogs(
 			orgStr, locStr, robotStr, part.Id,
 			c.Bool(logsFlagErrors),
 			"\t",
 			header,
+			numLogs,
 		); err != nil {
 			return errors.Wrap(err, "could not print machine logs")
 		}
@@ -295,31 +332,40 @@ func RobotsPartLogsAction(c *cli.Context) error {
 		return err
 	}
 
-	orgStr := c.String(organizationFlag)
-	locStr := c.String(locationFlag)
-	robotStr := c.String(machineFlag)
-	robot, err := client.robot(orgStr, locStr, robotStr)
+	return client.robotsPartLogsAction(c)
+}
+
+func (c *viamClient) robotsPartLogsAction(cCtx *cli.Context) error {
+	orgStr := cCtx.String(organizationFlag)
+	locStr := cCtx.String(locationFlag)
+	robotStr := cCtx.String(machineFlag)
+	robot, err := c.robot(orgStr, locStr, robotStr)
 	if err != nil {
 		return errors.Wrap(err, "could not get machine")
 	}
 
 	var header string
 	if orgStr == "" || locStr == "" || robotStr == "" {
-		header = fmt.Sprintf("%s -> %s -> %s", client.selectedOrg.Name, client.selectedLoc.Name, robot.Name)
+		header = fmt.Sprintf("%s -> %s -> %s", c.selectedOrg.Name, c.selectedLoc.Name, robot.Name)
 	}
-	if c.Bool(logsFlagTail) {
-		return client.tailRobotPartLogs(
-			orgStr, locStr, robotStr, c.String(partFlag),
-			c.Bool(logsFlagErrors),
+	if cCtx.Bool(logsFlagTail) {
+		return c.tailRobotPartLogs(
+			orgStr, locStr, robotStr, cCtx.String(partFlag),
+			cCtx.Bool(logsFlagErrors),
 			"",
 			header,
 		)
 	}
-	return client.printRobotPartLogs(
-		orgStr, locStr, robotStr, c.String(partFlag),
-		c.Bool(logsFlagErrors),
+	numLogs, err := getNumLogs(cCtx)
+	if err != nil {
+		return err
+	}
+	return c.printRobotPartLogs(
+		orgStr, locStr, robotStr, cCtx.String(partFlag),
+		cCtx.Bool(logsFlagErrors),
 		"",
 		header,
+		numLogs,
 	)
 }
 
@@ -379,6 +425,129 @@ func RobotsPartShellAction(c *cli.Context) error {
 	)
 }
 
+// checkUpdateResponse holds the values used to hold release information.
+type getLatestReleaseResponse struct {
+	Name       string `json:"name"`
+	TagName    string `json:"tag_name"`
+	TarballURL string `json:"tarball_url"`
+}
+
+func getLatestReleaseVersion() (string, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+
+	resp := getLatestReleaseResponse{}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, rdkReleaseURL, nil)
+	if err != nil {
+		return "", err
+	}
+
+	client := http.DefaultClient
+	res, err := client.Do(req)
+	if err != nil {
+		return "", err
+	}
+
+	err = json.NewDecoder(res.Body).Decode(&resp)
+	if err != nil {
+		return "", err
+	}
+
+	defer utils.UncheckedError(res.Body.Close())
+	return resp.TagName, err
+}
+
+// CheckUpdateAction is the corresponding Action for 'check-update'.
+func CheckUpdateAction(c *cli.Context) error {
+	if c.Bool(quietFlag) {
+		return nil
+	}
+
+	dateCompiledRaw := rconfig.DateCompiled
+
+	// `go build` will not set the compilation flags needed for this check
+	if dateCompiledRaw == "" {
+		return nil
+	}
+
+	dateCompiled, err := time.Parse("2006-01-02", dateCompiledRaw)
+	if err != nil {
+		warningf(c.App.ErrWriter, "CLI Update Check: failed to parse compilation date: %w", err)
+		return nil
+	}
+
+	// install is less than six weeks old
+	if time.Since(dateCompiled) < time.Hour*24*7*6 {
+		return nil
+	}
+
+	conf, err := configFromCache()
+	if err != nil {
+		if !os.IsNotExist(err) {
+			utils.UncheckedError(err)
+			return nil
+		}
+		conf = &config{}
+	}
+
+	var lastCheck time.Time
+	if conf.LastUpdateCheck == "" {
+		conf.LastUpdateCheck = time.Now().Format("2006-01-02")
+	} else {
+		lastCheck, err = time.Parse("2006-01-02", conf.LastUpdateCheck)
+		if err != nil {
+			warningf(c.App.ErrWriter, "CLI Update Check: failed to parse date of last check: %w", err)
+			return nil
+		}
+	}
+
+	// The latest version info is cached to limit api calls to once every three days
+	if time.Since(lastCheck) < time.Hour*24*3 && conf.LatestVersion != "" {
+		warningf(c.App.ErrWriter, "CLI Update Check: Your CLI is more than 6 weeks old. "+
+			"Consider updating to version: %s", conf.LatestVersion)
+		return nil
+	}
+
+	latestRelease, err := getLatestReleaseVersion()
+	if err != nil {
+		warningf(c.App.ErrWriter, "CLI Update Check: failed to get latest release information: %w", err)
+		return nil
+	}
+
+	latestVersion, err := semver.NewVersion(latestRelease)
+	if err != nil {
+		warningf(c.App.ErrWriter, "CLI Update Check: failed to parse latest version: %w", err)
+		return nil
+	}
+
+	conf.LatestVersion = latestVersion.String()
+
+	err = storeConfigToCache(conf)
+	if err != nil {
+		utils.UncheckedError(err)
+	}
+
+	appVersion := rconfig.Version
+	if appVersion == "" {
+		warningf(c.App.ErrWriter, "CLI Update Check: Your CLI is more than 6 weeks old. "+
+			"Consider updating to version: %s", latestVersion.Original())
+		return nil
+	}
+
+	localVersion, err := semver.NewVersion(appVersion)
+	if err != nil {
+		warningf(c.App.ErrWriter, "CLI Update Check: failed to parse compiled version: %w", err)
+		return nil
+	}
+
+	if localVersion.LessThan(latestVersion) {
+		warningf(c.App.ErrWriter, "CLI Update Check: Your CLI is out of date. Consider updating to version %s", latestVersion.Original())
+	}
+
+	return nil
+}
+
 // VersionAction is the corresponding Action for 'version'.
 func VersionAction(c *cli.Context) error {
 	info, ok := debug.ReadBuildInfo()
@@ -407,6 +576,7 @@ func VersionAction(c *cli.Context) error {
 	if dep, ok := deps["go.viam.com/api"]; ok {
 		apiVersion = dep.Version
 	}
+
 	appVersion := rconfig.Version
 	if appVersion == "" {
 		appVersion = "(dev)"
@@ -751,23 +921,69 @@ func (c *viamClient) robotPart(orgStr, locStr, robotStr, partStr string) (*apppb
 			return part, nil
 		}
 	}
-	return nil, errors.Errorf("no machine part found for %q", partStr)
+
+	// if we can't find the part via org/location, see if this is an id, and try to find it directly that way
+	if robotStr != "" {
+		resp, err := c.client.GetRobotParts(c.c.Context, &apppb.GetRobotPartsRequest{
+			RobotId: robotStr,
+		})
+		if err != nil {
+			return nil, err
+		}
+		for _, part := range resp.Parts {
+			if part.Id == partStr || part.Name == partStr {
+				return part, nil
+			}
+		}
+		if partStr == "" && len(resp.Parts) == 1 {
+			return resp.Parts[0], nil
+		}
+	}
+
+	return nil, errors.Errorf("no machine part found for machine: %q part: %q", robotStr, partStr)
 }
 
-func (c *viamClient) robotPartLogs(orgStr, locStr, robotStr, partStr string, errorsOnly bool) ([]*apppb.LogEntry, error) {
+func (c *viamClient) robotPartLogs(orgStr, locStr, robotStr, partStr string, errorsOnly bool,
+	numLogs int,
+) ([]*commonpb.LogEntry, error) {
 	part, err := c.robotPart(orgStr, locStr, robotStr, partStr)
 	if err != nil {
 		return nil, err
 	}
-	resp, err := c.client.GetRobotPartLogs(c.c.Context, &apppb.GetRobotPartLogsRequest{
-		Id:         part.Id,
-		ErrorsOnly: errorsOnly,
-	})
-	if err != nil {
-		return nil, err
+
+	// Use page tokens to get batches of 100 up to numLogs and throw away any
+	// extra logs in last batch.
+	logs := make([]*commonpb.LogEntry, 0, numLogs)
+	var pageToken string
+	for i := 0; i < numLogs; {
+		resp, err := c.client.GetRobotPartLogs(c.c.Context, &apppb.GetRobotPartLogsRequest{
+			Id:         part.Id,
+			ErrorsOnly: errorsOnly,
+			PageToken:  &pageToken,
+		})
+		if err != nil {
+			return nil, err
+		}
+
+		pageToken = resp.NextPageToken
+		// Break in the event of no logs in GetRobotPartLogsResponse or when
+		// page token is empty (no more pages).
+		if resp.Logs == nil || pageToken == "" {
+			break
+		}
+
+		// Truncate this intermediate slice of resp.Logs based on how many logs
+		// are still required by numLogs.
+		remainingLogsNeeded := numLogs - i
+		if remainingLogsNeeded < len(resp.Logs) {
+			resp.Logs = resp.Logs[:remainingLogsNeeded]
+		}
+		logs = append(logs, resp.Logs...)
+
+		i += len(resp.Logs)
 	}
 
-	return resp.Logs, nil
+	return logs, nil
 }
 
 func (c *viamClient) robotParts(orgStr, locStr, robotStr string) ([]*apppb.RobotPart, error) {
@@ -787,22 +1003,33 @@ func (c *viamClient) robotParts(orgStr, locStr, robotStr string) ([]*apppb.Robot
 	return resp.Parts, nil
 }
 
-func (c *viamClient) printRobotPartLogsInner(logs []*apppb.LogEntry, indent string) {
-	for _, log := range logs {
+func (c *viamClient) printRobotPartLogsInner(logs []*commonpb.LogEntry, indent string) {
+	// Iterate over logs in reverse because they are returned in
+	// order of latest to oldest but we should print from oldest -> newest
+	for i := len(logs) - 1; i >= 0; i-- {
+		log := logs[i]
+		fieldsString, err := logEntryFieldsToString(log.Fields)
+		if err != nil {
+			warningf(c.c.App.ErrWriter, "%v", err)
+			fieldsString = ""
+		}
 		printf(
 			c.c.App.Writer,
-			"%s%s\t%s\t%s\t%s",
+			"%s%s\t%s\t%s\t%s\t%s",
 			indent,
-			log.Time.AsTime().Format("2006-01-02T15:04:05.000Z0700"),
+			log.Time.AsTime().Format(logging.DefaultTimeFormatStr),
 			log.Level,
 			log.LoggerName,
 			log.Message,
+			fieldsString,
 		)
 	}
 }
 
-func (c *viamClient) printRobotPartLogs(orgStr, locStr, robotStr, partStr string, errorsOnly bool, indent, header string) error {
-	logs, err := c.robotPartLogs(orgStr, locStr, robotStr, partStr, errorsOnly)
+func (c *viamClient) printRobotPartLogs(orgStr, locStr, robotStr, partStr string,
+	errorsOnly bool, indent, header string, numLogs int,
+) error {
+	logs, err := c.robotPartLogs(orgStr, locStr, robotStr, partStr, errorsOnly, numLogs)
 	if err != nil {
 		return err
 	}
@@ -990,18 +1217,47 @@ func (c *viamClient) startRobotPartShell(
 		return errors.New("could not get shell service from machine part")
 	}
 
-	input, output, err := shellSvc.Shell(c.c.Context, map[string]interface{}{})
+	getWinChMsg := func() map[string]interface{} {
+		cols, rows := consolesize.GetConsoleSize()
+		return map[string]interface{}{
+			"message": "window-change",
+			"cols":    cols,
+			"rows":    rows,
+		}
+	}
+
+	input, inputOOB, output, err := shellSvc.Shell(c.c.Context, map[string]interface{}{
+		"messages": []interface{}{getWinChMsg()},
+	})
 	if err != nil {
 		return err
+	}
+
+	if sig, ok := sigwinchSignal(); ok {
+		winchCh := make(chan os.Signal, 1)
+		signal.Notify(winchCh, sig)
+		utils.PanicCapturingGo(func() {
+			defer close(inputOOB)
+			for {
+				if !utils.SelectContextOrWaitChan(c.c.Context, winchCh) {
+					return
+				}
+				select {
+				case <-c.c.Context.Done():
+					return
+				case inputOOB <- getWinChMsg():
+				}
+			}
+		})
 	}
 
 	setRaw := func(isRaw bool) error {
 		// NOTE(benjirewis): Linux systems seem to need both "raw" (no processing) and "-echo"
 		// (no echoing back inputted characters) in order to allow the input and output loops
 		// below to completely control the terminal.
-		args := []string{"raw", "-echo"}
+		args := []string{"raw", "-echo", "-echoctl"}
 		if !isRaw {
-			args = []string{"-raw", "echo"}
+			args = []string{"-raw", "echo", "echoctl"}
 		}
 
 		rawMode := exec.Command("stty", args...)
@@ -1064,4 +1320,31 @@ func (c *viamClient) startRobotPartShell(
 
 	outputLoop()
 	return nil
+}
+
+func logEntryFieldsToString(fields []*structpb.Struct) (string, error) {
+	// if there are no fields, don't return anything, otherwise we add lots of {}'s
+	// to the logs
+	if len(fields) == 0 {
+		return "", nil
+	}
+	// we have to manually format these fields as json because
+	// marshalling a go object will not preserve the order of the fields
+	message := "{"
+	for i, field := range fields {
+		key, value, err := logging.FieldKeyAndValueFromProto(field)
+		if err != nil {
+			return "", err
+		}
+		if i > 0 {
+			// split fields with space and comma after first entry
+			message += ", "
+		}
+		if _, isStr := value.(string); isStr {
+			message += fmt.Sprintf("%q: %q", key, value)
+		} else {
+			message += fmt.Sprintf("%q: %v", key, value)
+		}
+	}
+	return message + "}", nil
 }

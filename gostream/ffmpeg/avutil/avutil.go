@@ -1,4 +1,4 @@
-//go:build cgo && linux && !(arm || android)
+//go:build cgo && ((linux && !android) || (darwin && arm64))
 
 // Package avutil is a wrapper around FFmpeg/release6.1.
 // See: https://github.com/FFmpeg/FFmpeg/tree/release/6.1
@@ -7,6 +7,8 @@ package avutil
 //#cgo CFLAGS: -I${SRCDIR}/../include
 //#cgo linux,arm64 LDFLAGS: -L${SRCDIR}/../Linux-aarch64/lib -lavformat -lavcodec -lavutil -lm
 //#cgo linux,amd64 LDFLAGS: -L${SRCDIR}/../Linux-x86_64/lib -lavformat -lavcodec -lavutil -lm
+//#cgo linux,arm LDFLAGS: -L${SRCDIR}/../Linux-armv7l/lib -lavformat -lavcodec -lavutil -lm
+//#cgo darwin,arm64 LDFLAGS: -L${SRCDIR}/../Darwin-arm64/lib -lavformat -lavcodec -lavutil -lm
 //#include <libswresample/swresample.h>
 //#include <libavutil/error.h>
 //#include <stdlib.h>
@@ -69,6 +71,42 @@ func FrameUnref(f *Frame) {
 func ptr(buf []byte) *C.uint8_t {
 	h := (*reflect.SliceHeader)(unsafe.Pointer(&buf))
 	return (*C.uint8_t)(unsafe.Pointer(h.Data))
+}
+
+// SetFrameFromImgMacroAlign sets the frame from the given image.YCbCr adding
+// line padding to the image to ensure that the data is aligned to the given boundary.
+// For example see alignment requirements for the Raspberry Pi GPU codec:
+// https://github.com/raspberrypi/linux/blob/rpi-6.1.y/drivers/staging/vc04_services/bcm2835-codec/bcm2835-v4l2-codec.c#L174
+func (f *Frame) SetFrameFromImgMacroAlign(img *image.YCbCr, boundary int) {
+	// Calculating padded strides
+	// Rounding up to next multiple of boundary value
+	paddedYStride := ((img.YStride + boundary - 1) / boundary) * boundary
+	// UV half the Y stride for 4:2:0
+	paddedCbCrStride := paddedYStride / 2
+
+	// Allocate new buffers with padding
+	// These will be freed by the GC
+	paddedY := make([]byte, paddedYStride*img.Rect.Dy())
+	paddedCb := make([]byte, paddedCbCrStride*img.Rect.Dy()/2)
+	paddedCr := make([]byte, paddedCbCrStride*img.Rect.Dy()/2)
+
+	// Copy data from img to padded buffers line by line
+	for i := 0; i < img.Rect.Dy(); i++ {
+		copy(paddedY[i*paddedYStride:(i+1)*paddedYStride], img.Y[i*img.YStride:])
+	}
+	for i := 0; i < img.Rect.Dy()/2; i++ {
+		copy(paddedCb[i*paddedCbCrStride:(i+1)*paddedCbCrStride], img.Cb[i*img.CStride:])
+		copy(paddedCr[i*paddedCbCrStride:(i+1)*paddedCbCrStride], img.Cr[i*img.CStride:])
+	}
+
+	// Update AVFrame data pointers and linesize
+	// Casting from go slice to C array without changing memory
+	f.data[0] = (*C.uchar)(unsafe.Pointer(&paddedY[0]))
+	f.data[1] = (*C.uchar)(unsafe.Pointer(&paddedCb[0]))
+	f.data[2] = (*C.uchar)(unsafe.Pointer(&paddedCr[0]))
+	f.linesize[0] = C.int(paddedYStride)
+	f.linesize[1] = C.int(paddedCbCrStride)
+	f.linesize[2] = C.int(paddedCbCrStride)
 }
 
 // SetFrameFromImg sets the frame from the given image.YCbCr

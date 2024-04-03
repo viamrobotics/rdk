@@ -90,12 +90,17 @@ func TestClient(t *testing.T) {
 		return nil
 	}
 
-	var receviedPaths []*navigation.Path
+	var receivedPaths []*navigation.Path
 	workingNavigationService.PathsFunc = func(ctx context.Context, extra map[string]interface{}) ([]*navigation.Path, error) {
 		path, err := navigation.NewPath(primitive.NewObjectID(), []*geo.Point{geo.NewPoint(0, 0)})
 		test.That(t, err, test.ShouldBeNil)
-		receviedPaths = []*navigation.Path{path}
-		return receviedPaths, nil
+		receivedPaths = []*navigation.Path{path}
+		return receivedPaths, nil
+	}
+
+	receivedProp := navigation.Properties{MapType: navigation.NoMap}
+	workingNavigationService.PropertiesFunc = func(ctx context.Context) (navigation.Properties, error) {
+		return receivedProp, nil
 	}
 
 	failingNavigationService.ModeFunc = func(ctx context.Context, extra map[string]interface{}) (navigation.Mode, error) {
@@ -124,6 +129,10 @@ func TestClient(t *testing.T) {
 	}
 	failingNavigationService.PathsFunc = func(ctx context.Context, extra map[string]interface{}) ([]*navigation.Path, error) {
 		return nil, errors.New("unimplemented")
+	}
+
+	failingNavigationService.PropertiesFunc = func(ctx context.Context) (navigation.Properties, error) {
+		return navigation.Properties{}, errors.New("unimplemented")
 	}
 
 	workingSvc, err := resource.NewAPIResourceCollection(navigation.API, map[resource.Name]navigation.Service{
@@ -202,7 +211,12 @@ func TestClient(t *testing.T) {
 		ctx := context.Background()
 		paths, err := workingNavClient.Paths(ctx, nil)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, paths, test.ShouldResemble, receviedPaths)
+		test.That(t, paths, test.ShouldResemble, receivedPaths)
+
+		// test Properties
+		prop, err := workingNavClient.Properties(ctx)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, prop.MapType, test.ShouldEqual, receivedProp.MapType)
 
 		// test do command
 		workingNavigationService.DoCommandFunc = testutils.EchoFunc
@@ -282,6 +296,12 @@ func TestClient(t *testing.T) {
 		paths, err := failingNavClient.Paths(context.Background(), nil)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, paths, test.ShouldBeNil)
+
+		// test Properties
+		prop, err := failingNavClient.Properties(context.Background())
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, prop, test.ShouldResemble, navigation.Properties{})
+
 		test.That(t, conn.Close(), test.ShouldBeNil)
 	})
 

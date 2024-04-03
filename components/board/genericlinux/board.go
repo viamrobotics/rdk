@@ -77,7 +77,7 @@ func (b *Board) Reconfigure(
 	_ resource.Dependencies,
 	conf resource.Config,
 ) error {
-	newConf, err := b.convertConfig(conf)
+	newConf, err := b.convertConfig(conf, b.logger)
 	if err != nil {
 		return err
 	}
@@ -361,7 +361,7 @@ func (a *wrappedAnalogReader) Read(ctx context.Context, extra map[string]interfa
 }
 
 func (a *wrappedAnalogReader) Close(ctx context.Context) error {
-	return nil
+	return a.reader.Close(ctx)
 }
 
 func (a *wrappedAnalogReader) reset(ctx context.Context, chipSelect string, reader *board.AnalogSmoother) {
@@ -419,11 +419,9 @@ func (b *Board) DigitalInterruptByName(name string) (board.DigitalInterrupt, boo
 		return nil, false
 	}
 
-	const defaultInterruptType = "basic"
 	defaultInterruptConfig := board.DigitalInterruptConfig{
 		Name: name,
 		Pin:  name,
-		Type: defaultInterruptType,
 	}
 	interrupt, err := b.createDigitalInterrupt(
 		b.cancelCtx, defaultInterruptConfig, b.gpioMappings, nil)
@@ -494,6 +492,23 @@ func (b *Board) WriteAnalog(ctx context.Context, pin string, value int32, extra 
 	return nil
 }
 
+// StreamTicks starts a stream of digital interrupt ticks.
+func (b *Board) StreamTicks(ctx context.Context, interruptNames []string, ch chan board.Tick, extra map[string]interface{}) error {
+	var interrupts []board.DigitalInterrupt
+	for _, name := range interruptNames {
+		interrupt, ok := b.DigitalInterruptByName(name)
+		if !ok {
+			return errors.Errorf("unknown digital interrupt: %s", name)
+		}
+		interrupts = append(interrupts, interrupt)
+	}
+
+	for _, i := range interrupts {
+		i.AddCallback(ch)
+	}
+	return nil
+}
+
 // Close attempts to cleanly close each part of the board.
 func (b *Board) Close(ctx context.Context) error {
 	b.mu.Lock()
@@ -507,6 +522,9 @@ func (b *Board) Close(ctx context.Context) error {
 	}
 	for _, interrupt := range b.interrupts {
 		err = multierr.Combine(err, interrupt.Close())
+	}
+	for _, reader := range b.analogReaders {
+		err = multierr.Combine(err, reader.Close(ctx))
 	}
 	return err
 }

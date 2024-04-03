@@ -1,10 +1,9 @@
 <script lang="ts">
-
-import { onMount } from 'svelte';
 import { displayError } from '@/lib/error';
 import { CameraClient, type ServiceError } from '@viamrobotics/sdk';
 import { selectedMap } from '@/lib/camera-state';
-import { useRobotClient, useDisconnect } from '@/hooks/robot-client';
+import { useRobotClient, useConnect } from '@/hooks/robot-client';
+import LiveCamera from './live-camera.svelte';
 
 export let cameraName: string;
 export let showExportScreenshot: boolean;
@@ -14,10 +13,8 @@ export let triggerRefresh = false;
 const { robotClient, streamManager } = useRobotClient();
 
 let imgEl: HTMLImageElement;
-let videoEl: HTMLVideoElement;
 
 let cameraFrameIntervalId = -1;
-let isLive = false;
 
 const cameraManager = $streamManager.setCameraManager(cameraName);
 
@@ -29,9 +26,12 @@ const viewCameraFrame = (time: number) => {
   clearFrameInterval();
   cameraManager.setImageSrc(imgEl);
   if (time > 0) {
-    cameraFrameIntervalId = window.setInterval(() => {
-      cameraManager.setImageSrc(imgEl);
-    }, Number(time) * 1000);
+    cameraFrameIntervalId = window.setInterval(
+      () => {
+        cameraManager.setImageSrc(imgEl);
+      },
+      Number(time) * 1000
+    );
   }
 };
 
@@ -55,40 +55,10 @@ const exportScreenshot = async () => {
   window.open(URL.createObjectURL(blob), '_blank');
 };
 
-onMount(() => {
-  videoEl.srcObject = cameraManager.videoStream;
-
-  cameraManager.onOpen = () => {
-    videoEl.srcObject = cameraManager.videoStream;
-  };
-});
-
-useDisconnect(() => {
-  if (isLive) {
-    cameraManager.removeStream();
-  }
-
-  cameraManager.onOpen = undefined;
-
-  isLive = false;
-
-  clearFrameInterval();
-});
-
-// on refreshRate change update camera and manage live connections
-$: {
-  if (isLive && refreshRate !== 'Live') {
-    isLive = false;
-    cameraManager.removeStream();
-  }
-
-  if (!isLive && refreshRate === 'Live') {
-    isLive = true;
-    cameraManager.addStream();
-  }
-
+useConnect(() => {
   updateCameraRefreshRate();
-}
+  return () => clearFrameInterval();
+});
 
 // Refresh camera when the trigger changes
 let lastTriggerRefresh = triggerRefresh;
@@ -96,7 +66,6 @@ $: if (lastTriggerRefresh !== triggerRefresh) {
   lastTriggerRefresh = triggerRefresh;
   updateCameraRefreshRate();
 }
-
 </script>
 
 <div class="flex flex-col gap-2">
@@ -111,22 +80,18 @@ $: if (lastTriggerRefresh !== triggerRefresh) {
   {/if}
 
   <div class="max-w-screen-md">
-    <video
-      bind:this={videoEl}
-      muted
-      autoplay
-      controls={false}
-      playsinline
-      aria-label={`${cameraName} stream`}
-      class:hidden={refreshRate !== 'Live'}
-      class="clear-both h-fit transition-all duration-300 ease-in-out"
-    />
+    {#if refreshRate === 'Live'}
+      <LiveCamera
+        {cameraName}
+        {cameraManager}
+      />
+    {/if}
 
     <img
-      alt='Camera stream'
+      alt="Camera stream"
       bind:this={imgEl}
       class:hidden={refreshRate === 'Live'}
       aria-label={`${cameraName} stream`}
-    >
+    />
   </div>
 </div>

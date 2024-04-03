@@ -45,6 +45,7 @@ import (
 	fakeservo "go.viam.com/rdk/components/servo/fake"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/grpc"
+	"go.viam.com/rdk/internal/cloud"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/module/modmaninterface"
 	"go.viam.com/rdk/operation"
@@ -158,7 +159,7 @@ func setupInjectRobot(logger logging.Logger) *inject.Robot {
 				case camera.API:
 					conf := resource.NewEmptyConfig(name, resource.DefaultModelFamily.WithModel("fake"))
 					conf.ConvertedAttributes = &fakecamera.Config{}
-					return fakecamera.NewCamera(context.Background(), conf, logger)
+					return fakecamera.NewCamera(context.Background(), resource.Dependencies{}, conf, logger)
 				case gripper.API:
 					return &fakegripper.Gripper{Named: name.AsNamed()}, nil
 				case input.API:
@@ -1301,17 +1302,19 @@ func TestConfigRemoteAllowInsecureCreds(t *testing.T) {
 		tlsConfig: remoteTLSConfig,
 	}, logger)
 
-	_, err = manager.processRemote(context.Background(), remote)
+	gNode := resource.NewUninitializedNode()
+	gNode.InitializeLogger(logger, "remote", logger.GetLevel())
+	_, err = manager.processRemote(context.Background(), remote, gNode)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "authentication required")
 
 	remote.Auth.Entity = "wrong"
-	_, err = manager.processRemote(context.Background(), remote)
+	_, err = manager.processRemote(context.Background(), remote, gNode)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "authentication required")
 
 	remote.Auth.Entity = options.FQDN
-	_, err = manager.processRemote(context.Background(), remote)
+	_, err = manager.processRemote(context.Background(), remote, gNode)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "authentication required")
 }
@@ -1383,6 +1386,10 @@ func (fp *fakeProcess) Start(ctx context.Context) error {
 }
 
 func (fp *fakeProcess) Stop() error {
+	return nil
+}
+
+func (fp *fakeProcess) Status() error {
 	return nil
 }
 
@@ -1834,6 +1841,10 @@ func (rr *dummyRobot) PackageManager() packages.Manager {
 
 func (rr *dummyRobot) Logger() logging.Logger {
 	return rr.robot.Logger()
+}
+
+func (rr *dummyRobot) CloudMetadata(ctx context.Context) (cloud.Metadata, error) {
+	return rr.robot.CloudMetadata(ctx)
 }
 
 func (rr *dummyRobot) Close(ctx context.Context) error {

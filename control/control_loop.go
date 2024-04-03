@@ -2,7 +2,9 @@ package control
 
 import (
 	"context"
+	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/pkg/errors"
@@ -37,8 +39,8 @@ type Loop struct {
 	activeBackgroundWorkers sync.WaitGroup
 	cancelCtx               context.Context
 	cancel                  context.CancelFunc
-	running                 bool
-	tuning                  bool
+	running                 atomic.Bool
+	pidBlocks               []*basicPID
 }
 
 // NewLoop construct a new control loop for a specific endpoint.
@@ -54,14 +56,14 @@ func createLoop(logger logging.Logger, cfg Config, m Controllable) (*Loop, error
 		blocks:    make(map[string]*controlBlockInternal),
 		cancelCtx: cancelCtx,
 		cancel:    cancel,
-		running:   false,
 	}
+	l.running.Store(false)
 	if l.cfg.Frequency == 0.0 || l.cfg.Frequency > 200 {
 		return nil, errors.New("loop frequency shouldn't be 0 or above 200Hz")
 	}
 	l.dt = time.Duration(float64(time.Second) * (1.0 / (l.cfg.Frequency)))
 	for _, bcfg := range cfg.Blocks {
-		blk, err := createBlock(bcfg, logger)
+		blk, err := l.createBlock(bcfg, logger)
 		if err != nil {
 			return nil, err
 		}
@@ -113,31 +115,39 @@ func createLoop(logger logging.Logger, cfg Config, m Controllable) (*Loop, error
 			l.activeBackgroundWorkers.Add(1)
 			utils.ManagedGo(func() {
 				b := b
-				nInputs := len(b.ins)
 				close(waitCh)
 				for {
-					sw := make([]*Signal, nInputs)
-					for i, c := range b.ins {
+					sw := []*Signal{}
+					s := []*Signal{}
+					for _, c := range b.ins {
 						r, ok := <-c
 						if !ok {
 							b.mu.Lock()
 							for _, out := range b.outs {
 								close(out)
 							}
-							// logger.Debugf("Closing outs for block %s %+v\r\n", b.blk.Config(ctx).Name, r)
 							b.outs = nil
 							b.mu.Unlock()
 							return
 						}
-						if len(r) == 1 {
-							sw[i] = r[0]
-						} else {
-							// TODO(npmenard) do we want to support multidimentional signals?
-							//nolint: makezero
-							sw = append(sw, r...)
+						for j := 0; j < len(r); j++ {
+							if r[j] != nil {
+								sw = append(sw, r[j])
+							}
 						}
+						// TODO(npmenard) do we want to support multidimentional signals?
 					}
-					v, ok := b.blk.Next(l.cancelCtx, sw, l.dt)
+					if strings.Contains(b.blk.Config(l.cancelCtx).Name, "PID") {
+						if strings.Contains(b.blk.Config(l.cancelCtx).Name, "ang") {
+							s = append(s, sw[1])
+						} else {
+							s = append(s, sw[0])
+						}
+					} else {
+						s = sw
+					}
+
+					v, ok := b.blk.Next(l.cancelCtx, s, l.dt)
 					if ok {
 						for _, out := range b.outs {
 							out <- v
@@ -155,25 +165,36 @@ func createLoop(logger logging.Logger, cfg Config, m Controllable) (*Loop, error
 func (l *Loop) OutputAt(ctx context.Context, name string) ([]*Signal, error) {
 	blk, ok := l.blocks[name]
 	if !ok {
-		return []*Signal{}, errors.Errorf("cannot return Signals for non existing block %s", name)
+		return []*Signal{}, errors.Errorf("cannot return Signals for nonexistent %s", name)
 	}
 	return blk.blk.Output(ctx), nil
 }
 
-// ConfigAt returns the Configl at the block name, error when the block doesn't exist.
+// ConfigAt returns the Config at the block name, error when the block doesn't exist.
 func (l *Loop) ConfigAt(ctx context.Context, name string) (BlockConfig, error) {
 	blk, ok := l.blocks[name]
 	if !ok {
-		return BlockConfig{}, errors.Errorf("cannot return Config for non existing block %s", name)
+		return BlockConfig{}, errors.Errorf("cannot return Config for nonexistent %s", name)
 	}
 	return blk.blk.Config(ctx), nil
+}
+
+// ConfigsAtType returns the Config(s) at the block type, error when the block doesn't exist.
+func (l *Loop) ConfigsAtType(ctx context.Context, bType string) []BlockConfig {
+	var blocks []BlockConfig
+	for _, b := range l.blocks {
+		if b.blockType == controlBlockType(bType) {
+			blocks = append(blocks, b.blk.Config(ctx))
+		}
+	}
+	return blocks
 }
 
 // SetConfigAt returns the Configl at the block name, error when the block doesn't exist.
 func (l *Loop) SetConfigAt(ctx context.Context, name string, config BlockConfig) error {
 	blk, ok := l.blocks[name]
 	if !ok {
-		return errors.Errorf("cannot return Config for non existing block %s", name)
+		return errors.Errorf("cannot return Config for nonexistent %s", name)
 	}
 	return blk.blk.UpdateConfig(ctx, config)
 }
@@ -234,7 +255,7 @@ func (l *Loop) Start() error {
 		}
 	}, l.activeBackgroundWorkers.Done)
 	<-waitCh
-	l.running = true
+	l.running.Store(true)
 	return nil
 }
 
@@ -269,13 +290,27 @@ func (l *Loop) startBenchmark(loops int) error {
 
 // Stop stops then loop.
 func (l *Loop) Stop() {
-	if l.running {
-		l.logger.Debug("closing loop")
-		l.ct.ticker.Stop()
-		close(l.ct.stop)
-		l.activeBackgroundWorkers.Wait()
-		l.running = false
-	}
+	l.running.Store(false)
+	l.logger.Debug("closing loop")
+	l.ct.ticker.Stop()
+	close(l.ct.stop)
+	l.cancel()
+	l.activeBackgroundWorkers.Wait()
+}
+
+// Pause sets l.running to false to pause the loop.
+func (l *Loop) Pause() {
+	l.running.Store(false)
+}
+
+// Resume sets l.running to true to resume the loop.
+func (l *Loop) Resume() {
+	l.running.Store(true)
+}
+
+// Running returns the value of l.running.
+func (l *Loop) Running() bool {
+	return l.running.Load()
 }
 
 // GetConfig return the control loop config.
@@ -283,12 +318,30 @@ func (l *Loop) GetConfig(ctx context.Context) Config {
 	return l.cfg
 }
 
-// GetTuning returns the current tuning value.
-func (l *Loop) GetTuning(ctx context.Context) bool {
-	return l.tuning
+// MonitorTuning waits for tuning to start, and then returns once it's done.
+func (l *Loop) MonitorTuning(ctx context.Context) {
+	// wait until tuning has started
+	for {
+		tuning := l.GetTuning(ctx)
+		if tuning {
+			break
+		}
+	}
+	// wait until tuning is done
+	for {
+		tuning := l.GetTuning(ctx)
+		if !tuning {
+			break
+		}
+	}
 }
 
-// SetTuning sets the tuning variable.
-func (l *Loop) SetTuning(ctx context.Context, val bool) {
-	l.tuning = val
+// GetTuning returns the current tuning value.
+func (l *Loop) GetTuning(ctx context.Context) bool {
+	for _, b := range l.pidBlocks {
+		if b.GetTuning() {
+			return true
+		}
+	}
+	return false
 }

@@ -66,7 +66,7 @@ func (conf *Config) Validate(path string) ([]string, error) {
 
 func init() {
 	resource.RegisterComponent(movementsensor.API, model, resource.Registration[movementsensor.MovementSensor, *Config]{
-		Constructor: NewMpu6050,
+		Constructor: newMpu6050,
 	})
 }
 
@@ -101,8 +101,8 @@ func unexpectedDeviceError(address, defaultAddress byte) error {
 		address, defaultAddress)
 }
 
-// NewMpu6050 constructs a new Mpu6050 object.
-func NewMpu6050(
+// newMpu6050 constructs a new Mpu6050 object.
+func newMpu6050(
 	ctx context.Context,
 	deps resource.Dependencies,
 	conf resource.Config,
@@ -321,8 +321,8 @@ func (mpu *mpu6050) Position(ctx context.Context, extra map[string]interface{}) 
 	return geo.NewPoint(0, 0), 0, movementsensor.ErrMethodUnimplementedPosition
 }
 
-func (mpu *mpu6050) Accuracy(ctx context.Context, extra map[string]interface{}) (map[string]float32, error) {
-	return map[string]float32{}, movementsensor.ErrMethodUnimplementedAccuracy
+func (mpu *mpu6050) Accuracy(ctx context.Context, extra map[string]interface{}) (*movementsensor.Accuracy, error) {
+	return movementsensor.UnimplementedAccuracies()
 }
 
 func (mpu *mpu6050) Readings(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {

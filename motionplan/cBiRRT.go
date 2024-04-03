@@ -90,17 +90,17 @@ func newCBiRRTMotionPlanner(
 	}, nil
 }
 
-func (mp *cBiRRTMotionPlanner) plan(ctx context.Context,
-	goal spatialmath.Pose,
-	seed []referenceframe.Input,
-) ([]node, error) {
+func (mp *cBiRRTMotionPlanner) plan(ctx context.Context, goal spatialmath.Pose, seed []referenceframe.Input) ([]node, error) {
 	mp.planOpts.SetGoal(goal)
-	solutionChan := make(chan *rrtPlanReturn, 1)
+	solutionChan := make(chan *rrtSolution, 1)
 	utils.PanicCapturingGo(func() {
 		mp.rrtBackgroundRunner(ctx, seed, &rrtParallelPlannerShared{nil, nil, solutionChan})
 	})
-	plan := <-solutionChan
-	return plan.steps, plan.err()
+	solution := <-solutionChan
+	if solution.err != nil {
+		return nil, solution.err
+	}
+	return solution.steps, nil
 }
 
 // rrtBackgroundRunner will execute the plan. Plan() will call rrtBackgroundRunner in a separate thread and wait for results.
@@ -114,7 +114,7 @@ func (mp *cBiRRTMotionPlanner) rrtBackgroundRunner(
 
 	// setup planner options
 	if mp.planOpts == nil {
-		rrt.solutionChan <- &rrtPlanReturn{planerr: errNoPlannerOptions}
+		rrt.solutionChan <- &rrtSolution{err: errNoPlannerOptions}
 		return
 	}
 	// initialize maps
@@ -127,7 +127,7 @@ func (mp *cBiRRTMotionPlanner) rrtBackgroundRunner(
 
 	if rrt.maps == nil || len(rrt.maps.goalMap) == 0 {
 		planSeed := initRRTSolutions(ctx, mp, seed)
-		if planSeed.planerr != nil || planSeed.steps != nil {
+		if planSeed.err != nil || planSeed.steps != nil {
 			rrt.solutionChan <- planSeed
 			return
 		}
@@ -150,7 +150,7 @@ func (mp *cBiRRTMotionPlanner) rrtBackgroundRunner(
 
 	seedPos, err := mp.frame.Transform(seed)
 	if err != nil {
-		rrt.solutionChan <- &rrtPlanReturn{planerr: err}
+		rrt.solutionChan <- &rrtSolution{err: err}
 		return
 	}
 
@@ -165,7 +165,7 @@ func (mp *cBiRRTMotionPlanner) rrtBackgroundRunner(
 		select {
 		case <-ctx.Done():
 			mp.logger.CDebugf(ctx, "CBiRRT timed out after %d iterations", i)
-			rrt.solutionChan <- &rrtPlanReturn{planerr: fmt.Errorf("cbirrt timeout %w", ctx.Err()), maps: rrt.maps}
+			rrt.solutionChan <- &rrtSolution{err: fmt.Errorf("cbirrt timeout %w", ctx.Err()), maps: rrt.maps}
 			return
 		default:
 		}
@@ -209,7 +209,7 @@ func (mp *cBiRRTMotionPlanner) rrtBackgroundRunner(
 
 		map1reached, map2reached, err := tryExtend(target)
 		if err != nil {
-			rrt.solutionChan <- &rrtPlanReturn{planerr: err, maps: rrt.maps}
+			rrt.solutionChan <- &rrtSolution{err: err, maps: rrt.maps}
 			return
 		}
 
@@ -225,7 +225,7 @@ func (mp *cBiRRTMotionPlanner) rrtBackgroundRunner(
 			target = newConfigurationNode(targetConf)
 			map1reached, map2reached, err = tryExtend(target)
 			if err != nil {
-				rrt.solutionChan <- &rrtPlanReturn{planerr: err, maps: rrt.maps}
+				rrt.solutionChan <- &rrtSolution{err: err, maps: rrt.maps}
 				return
 			}
 			reachedDelta = mp.planOpts.DistanceFunc(&ik.Segment{StartConfiguration: map1reached.Q(), EndConfiguration: map2reached.Q()})
@@ -236,19 +236,19 @@ func (mp *cBiRRTMotionPlanner) rrtBackgroundRunner(
 			mp.logger.CDebugf(ctx, "CBiRRT found solution after %d iterations", i)
 			cancel()
 			path := extractPath(rrt.maps.startMap, rrt.maps.goalMap, &nodePair{map1reached, map2reached}, true)
-			rrt.solutionChan <- &rrtPlanReturn{steps: path, maps: rrt.maps}
+			rrt.solutionChan <- &rrtSolution{steps: path, maps: rrt.maps}
 			return
 		}
 
 		// sample near map 1 and switch which map is which to keep adding to them even
 		target, err = mp.sample(map1reached, i)
 		if err != nil {
-			rrt.solutionChan <- &rrtPlanReturn{planerr: err, maps: rrt.maps}
+			rrt.solutionChan <- &rrtSolution{err: err, maps: rrt.maps}
 			return
 		}
 		map1, map2 = map2, map1
 	}
-	rrt.solutionChan <- &rrtPlanReturn{planerr: errPlannerFailed, maps: rrt.maps}
+	rrt.solutionChan <- &rrtSolution{err: errPlannerFailed, maps: rrt.maps}
 }
 
 // constrainedExtend will try to extend the map towards the target while meeting constraints along the way. It will
@@ -405,10 +405,7 @@ func (mp *cBiRRTMotionPlanner) constrainNear(
 
 // smoothPath will pick two points at random along the path and attempt to do a fast gradient descent directly between
 // them, which will cut off randomly-chosen points with odd joint angles into something that is a more intuitive motion.
-func (mp *cBiRRTMotionPlanner) smoothPath(
-	ctx context.Context,
-	inputSteps []node,
-) []node {
+func (mp *cBiRRTMotionPlanner) smoothPath(ctx context.Context, inputSteps []node) []node {
 	toIter := int(math.Min(float64(len(inputSteps)*len(inputSteps)), float64(mp.planOpts.SmoothIter)))
 
 	schan := make(chan node, 1)
@@ -473,8 +470,8 @@ func (mp *cBiRRTMotionPlanner) smoothPath(
 }
 
 // getFrameSteps will return a slice of positive values representing the largest amount a particular DOF of a frame should
-// move in any given step.
-func getFrameSteps(f referenceframe.Frame, by float64) []float64 {
+// move in any given step. The second argument is a float describing the percentage of the total movement.
+func getFrameSteps(f referenceframe.Frame, percentTotalMovement float64) []float64 {
 	dof := f.DoF()
 	pos := make([]float64, len(dof))
 	for i, lim := range dof {
@@ -489,7 +486,7 @@ func getFrameSteps(f referenceframe.Frame, by float64) []float64 {
 		}
 
 		jRange := math.Abs(u - l)
-		pos[i] = jRange * by
+		pos[i] = jRange * percentTotalMovement
 	}
 	return pos
 }

@@ -28,8 +28,8 @@ func TestClient(t *testing.T) {
 	rpcServer, err := rpc.NewServer(logger.AsZap(), rpc.WithUnauthenticated())
 	test.That(t, err, test.ShouldBeNil)
 
-	workingGeneric := &inject.Generic{}
-	failingGeneric := &inject.Generic{}
+	workingGeneric := &inject.GenericComponent{}
+	failingGeneric := &inject.GenericComponent{}
 
 	workingGeneric.DoFunc = testutils.EchoFunc
 	failingGeneric.DoFunc = func(

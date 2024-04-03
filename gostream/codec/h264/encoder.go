@@ -1,4 +1,4 @@
-//go:build cgo && linux && !(arm || android)
+//go:build cgo && linux && !android
 
 // Package h264 uses a V4L2-compatible h.264 hardware encoder (h264_v4l2m2m) to encode images.
 package h264
@@ -8,6 +8,7 @@ import "C"
 import (
 	"context"
 	"image"
+	"time"
 	"unsafe"
 
 	"github.com/edaniels/golog"
@@ -25,6 +26,10 @@ const (
 	pixelFormat = avcodec.AvPixFmtYuv420p
 	// V4l2m2m Is a V4L2 memory-to-memory H.264 hardware encoder.
 	V4l2m2m = "h264_v4l2m2m"
+	// macroBlock is the encoder boundary block size in bytes.
+	macroBlock = 64
+	// warmupTime is the time to wait for the encoder to warm up in milliseconds.
+	warmupTime = 1000 // 1 second
 )
 
 type encoder struct {
@@ -66,9 +71,14 @@ func NewEncoder(width, height, keyFrameInterval int, logger golog.Logger) (codec
 	}
 
 	if h.frame = avutil.FrameAlloc(); h.frame == nil {
-		h.context.Close()
+		if err := h.Close(); err != nil {
+			return nil, errors.Wrap(err, "cannot close codec")
+		}
 		return nil, errors.New("cannot alloc frame")
 	}
+
+	// give the encoder some time to warm up
+	time.Sleep(warmupTime * time.Millisecond)
 
 	return h, nil
 }
@@ -96,7 +106,7 @@ func (h *encoder) Encode(ctx context.Context, img image.Image) ([]byte, error) {
 		return nil, errors.Wrap(err, "cannot read image")
 	}
 
-	h.frame.SetFrameFromImg(yuvImg.(*image.YCbCr))
+	h.frame.SetFrameFromImgMacroAlign(yuvImg.(*image.YCbCr), macroBlock)
 	h.frame.SetFramePTS(h.pts)
 	h.pts++
 
@@ -145,4 +155,19 @@ loop:
 	}
 
 	return bytes, nil
+}
+
+// Close closes the encoder. It is safe to call this method multiple times.
+// It is also safe to call this method after a call to Encode.
+func (h *encoder) Close() error {
+	if h.frame != nil {
+		avutil.FrameUnref(h.frame)
+		h.frame = nil
+	}
+	if h.context != nil {
+		h.context.FreeContext()
+		h.context = nil
+	}
+
+	return nil
 }

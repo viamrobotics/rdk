@@ -11,6 +11,7 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/zap/zapcore"
 	apppb "go.viam.com/api/app/v1"
+	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/utils"
 	"go.viam.com/utils/protoutils"
 	"go.viam.com/utils/rpc"
@@ -18,7 +19,7 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
-const (
+var (
 	defaultMaxQueueSize = 20000
 	writeBatchSize      = 100
 )
@@ -51,6 +52,7 @@ func NewNetAppender(config *CloudConfig) (*NetAppender, error) {
 		maxQueueSize:     defaultMaxQueueSize,
 		loggerWithoutNet: NewLogger("netlogger"),
 	}
+
 	nl.activeBackgroundWorkers.Add(1)
 	utils.ManagedGo(nl.backgroundWorker, nl.activeBackgroundWorkers.Done)
 	return nl, nil
@@ -61,8 +63,11 @@ type NetAppender struct {
 	hostname     string
 	remoteWriter *remoteLogWriterGRPC
 
-	toLogMutex   sync.Mutex
-	toLog        []*apppb.LogEntry
+	// toLogMutex guards toLog and toLogOverflowsSinceLastSync.
+	toLogMutex                  sync.Mutex
+	toLog                       []*commonpb.LogEntry
+	toLogOverflowsSinceLastSync int
+
 	maxQueueSize int
 
 	cancelCtx               context.Context
@@ -106,7 +111,7 @@ type wrappedEntryCaller struct {
 }
 
 func (nl *NetAppender) Write(e zapcore.Entry, f []zapcore.Field) error {
-	log := &apppb.LogEntry{
+	log := &commonpb.LogEntry{
 		Host:       nl.hostname,
 		Level:      e.Level.String(),
 		Time:       timestamppb.New(e.Time),
@@ -147,24 +152,32 @@ func (nl *NetAppender) Write(e zapcore.Entry, f []zapcore.Field) error {
 
 	if e.Level == zapcore.FatalLevel || e.Level == zapcore.DPanicLevel || e.Level == zapcore.PanicLevel {
 		// program is going to go away, let's try and sync all our messages before then
-		return nl.Sync()
+		return nl.sync()
 	}
 
 	return nil
 }
 
-func (nl *NetAppender) addToQueue(logEntry *apppb.LogEntry) {
+// addToQueue adds a LogEntry to the net appender's queue, discarding the
+// oldest entry in the queue if the size of the queue has overflowed.
+func (nl *NetAppender) addToQueue(logEntry *commonpb.LogEntry) {
 	nl.toLogMutex.Lock()
 	defer nl.toLogMutex.Unlock()
 
 	if len(nl.toLog) >= nl.maxQueueSize {
-		// TODO(erh): sample?
+		// TODO(RSDK-7000): Selectively kick logs out of the queue based on log
+		// content (i.e. don't maintain 20000 trivial logs of "Foo" when other,
+		// potentially important information is being logged).
 		nl.toLog = nl.toLog[1:]
+		nl.toLogOverflowsSinceLastSync++
 	}
 	nl.toLog = append(nl.toLog, logEntry)
 }
 
-func (nl *NetAppender) addBatchToQueue(batch []*apppb.LogEntry) {
+// addBatchToQueue adds a slice of LogEntrys to the net appender's queue,
+// trimming the front of the batch to be less than maxQueueSize, and discarding
+// the oldest len(batch) entries in the queue if the queue has overflowed.
+func (nl *NetAppender) addBatchToQueue(batch []*commonpb.LogEntry) {
 	if len(batch) == 0 {
 		return
 	}
@@ -177,8 +190,12 @@ func (nl *NetAppender) addBatchToQueue(batch []*apppb.LogEntry) {
 	}
 
 	if len(nl.toLog)+len(batch) >= nl.maxQueueSize {
-		// TODO(erh): sample?
-		nl.toLog = nl.toLog[len(nl.toLog)+len(batch)-nl.maxQueueSize:]
+		// TODO(RSDK-7000): Selectively kick logs out of the queue based on log
+		// content (i.e. don't maintain 20000 trivial logs of "Foo" when other,
+		// potentially important information is being logged).
+		overflow := len(nl.toLog) + len(batch) - nl.maxQueueSize
+		nl.toLog = nl.toLog[overflow:]
+		nl.toLogOverflowsSinceLastSync += overflow
 	}
 
 	nl.toLog = append(nl.toLog, batch...)
@@ -193,7 +210,7 @@ func (nl *NetAppender) backgroundWorker() {
 		if !utils.SelectContextOrWait(nl.cancelCtx, interval) {
 			cancelled = true
 		}
-		err := nl.Sync()
+		err := nl.sync()
 		if err != nil && !errors.Is(err, context.Canceled) {
 			interval = abnormalInterval
 			nl.loggerWithoutNet.Infof("error logging to network: %s", err)
@@ -206,41 +223,64 @@ func (nl *NetAppender) backgroundWorker() {
 	}
 }
 
-// Sync will flush the internal buffer of logs.
-func (nl *NetAppender) Sync() error {
+// Returns whether there is more work to do or if an error was encountered
+// while trying to ship logs over the network.
+func (nl *NetAppender) syncOnce() (bool, error) {
+	nl.toLogMutex.Lock()
+
+	if len(nl.toLog) == 0 {
+		nl.toLogMutex.Unlock()
+		return false, nil
+	}
+
+	batchSize := writeBatchSize
+	if len(nl.toLog) < writeBatchSize {
+		batchSize = len(nl.toLog)
+	}
+
+	// Read a batch from the queue, unlock mutex, and return an error if write
+	// fails. Lock mutex again to remove batch from queue only if write succeeded
+	// and front of queue was not mutated by addToQueue/addBatchToQueue throwing
+	// away the oldest logs due to overflows beyond maxQueueSize.
+	batch := nl.toLog[:batchSize]
+	nl.toLogMutex.Unlock()
+
+	if err := nl.remoteWriter.write(batch); err != nil {
+		return false, err
+	}
+
+	nl.toLogMutex.Lock()
+	defer nl.toLogMutex.Unlock()
+
+	// Remove successfully synced logs from the queue. If we've overflowed more times than the size of the batch
+	// we wrote, do not mutate toLog at all. If we've synced more logs than there are logs left, set idx to length
+	// of array to prevent panics.
+	if batchSize > nl.toLogOverflowsSinceLastSync {
+		idx := min(batchSize-nl.toLogOverflowsSinceLastSync, len(nl.toLog))
+		nl.toLog = nl.toLog[idx:]
+	}
+	nl.toLogOverflowsSinceLastSync = 0
+	return len(nl.toLog) > 0, nil
+}
+
+// sync will flush the internal buffer of logs. This is not exposed as multiple calls to sync at
+// the same time will cause double logs and panics.
+func (nl *NetAppender) sync() error {
 	for {
-		batch := func() []*apppb.LogEntry {
-			nl.toLogMutex.Lock()
-			defer nl.toLogMutex.Unlock()
-
-			if len(nl.toLog) == 0 {
-				return nil
-			}
-
-			batchSize := writeBatchSize
-			if len(nl.toLog) < writeBatchSize {
-				batchSize = len(nl.toLog)
-			}
-
-			ret := nl.toLog[:batchSize]
-			nl.toLog = nl.toLog[batchSize:]
-
-			return ret
-		}()
-
-		if len(batch) == 0 {
-			return nil
-		}
-
-		err := nl.remoteWriter.write(batch)
+		moreToDo, err := nl.syncOnce()
 		if err != nil {
-			// On an error, the failed batch gets put on the back of the queue. Logs can be sent out
-			// of order. We depend on log front-ends to sort the results by time if they care about
-			// order.
-			nl.addBatchToQueue(batch)
 			return err
 		}
+
+		if !moreToDo {
+			return nil
+		}
 	}
+}
+
+// Sync is a no-op. sync is not exposed as multiple calls at the same time will cause double logs and panics.
+func (nl *NetAppender) Sync() error {
+	return nil
 }
 
 type remoteLogWriterGRPC struct {
@@ -253,7 +293,7 @@ type remoteLogWriterGRPC struct {
 	clientMutex sync.Mutex
 }
 
-func (w *remoteLogWriterGRPC) write(logs []*apppb.LogEntry) error {
+func (w *remoteLogWriterGRPC) write(logs []*commonpb.LogEntry) error {
 	// we specifically don't use a parented cancellable context here so we can make sure we finish writing but
 	// we will only give it up to 5 seconds to do so in case we are trying to shutdown.
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)

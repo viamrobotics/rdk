@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/golang/geo/r3"
+	"github.com/pkg/errors"
 	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/test"
 )
@@ -57,7 +58,7 @@ func TestGeometrySerializationJSON(t *testing.T) {
 			test.That(t, err, test.ShouldBeNil)
 			newVc, err := config.ParseConfig()
 			test.That(t, err, test.ShouldBeNil)
-			test.That(t, gc.Transform(pose).AlmostEqual(newVc.Transform(pose)), test.ShouldBeTrue)
+			test.That(t, GeometriesAlmostEqual(gc.Transform(pose), newVc.Transform(pose)), test.ShouldBeTrue)
 			test.That(t, config.Label, test.ShouldEqual, testCase.name)
 		})
 	}
@@ -77,7 +78,7 @@ func TestGeometryToFromProtobuf(t *testing.T) {
 		t.Run(testCase.name, func(t *testing.T) {
 			newVol, err := NewGeometryFromProto(testCase.geometry.ToProtobuf())
 			test.That(t, err, test.ShouldBeNil)
-			test.That(t, testCase.geometry.AlmostEqual(newVol), test.ShouldBeTrue)
+			test.That(t, GeometriesAlmostEqual(testCase.geometry, newVol), test.ShouldBeTrue)
 			test.That(t, testCase.geometry.Label(), test.ShouldEqual, testCase.name)
 		})
 	}
@@ -99,10 +100,10 @@ func testGeometryCollision(t *testing.T, cases []geometryComparisonTestCase) {
 		for i := 0; i < 2; i++ {
 			t.Run(fmt.Sprintf("%s %T %T collision", c.testname, c.geometries[i], c.geometries[(i+1)%2]), func(t *testing.T) {
 				fn := test.ShouldBeFalse
-				if c.expected <= CollisionBuffer {
+				if c.expected <= defaultCollisionBufferMM {
 					fn = test.ShouldBeTrue
 				}
-				collides, err := c.geometries[i].CollidesWith(c.geometries[(i+1)%2])
+				collides, err := c.geometries[i].CollidesWith(c.geometries[(i+1)%2], defaultCollisionBufferMM)
 				test.That(t, err, test.ShouldBeNil)
 				test.That(t, collides, fn)
 			})
@@ -799,4 +800,25 @@ func TestCapsuleVsPointEncompassed(t *testing.T) {
 		},
 	}
 	testGeometryEncompassed(t, cases)
+}
+
+func TestNewGeometryFromProto(t *testing.T) {
+	malformedGeom := commonpb.Geometry{}
+	viamGeom, err := NewGeometryFromProto(&malformedGeom)
+	test.That(t, viamGeom, test.ShouldBeNil)
+	test.That(t, err, test.ShouldBeError, errors.New("cannot have nil pose for geometry"))
+
+	properGeom := commonpb.Geometry{
+		Center: &commonpb.Pose{OZ: 1},
+		GeometryType: &commonpb.Geometry_Sphere{
+			Sphere: &commonpb.Sphere{
+				RadiusMm: 1,
+			},
+		},
+	}
+	viamGeom, err = NewGeometryFromProto(&properGeom)
+	test.That(t, err, test.ShouldBeNil)
+	sphereGeom, err := NewSphere(NewZeroPose(), 1, "")
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, viamGeom, test.ShouldResemble, sphereGeom)
 }

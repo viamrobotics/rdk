@@ -235,7 +235,6 @@ func MakeBoard(t *testing.T) *fakeboard.Board {
 	interrupt, _ := fakeboard.NewDigitalInterruptWrapper(board.DigitalInterruptConfig{
 		Name: "10",
 		Pin:  "10",
-		Type: "basic",
 	})
 
 	interrupts := map[string]*fakeboard.DigitalInterruptWrapper{

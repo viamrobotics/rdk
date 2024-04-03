@@ -18,9 +18,9 @@ import (
 
 var errDoFailed = errors.New("do failed")
 
-func newServer() (genericpb.GenericServiceServer, *inject.Generic, *inject.Generic, error) {
-	injectGeneric := &inject.Generic{}
-	injectGeneric2 := &inject.Generic{}
+func newServer() (genericpb.GenericServiceServer, *inject.GenericComponent, *inject.GenericComponent, error) {
+	injectGeneric := &inject.GenericComponent{}
+	injectGeneric2 := &inject.GenericComponent{}
 	resourceMap := map[resource.Name]resource.Resource{
 		generic.Named(testGenericName): injectGeneric,
 		generic.Named(failGenericName): injectGeneric2,

@@ -220,19 +220,31 @@ func TestResourceNameNewFromString(t *testing.T) {
 			"malformed name",
 			"rdk/components/arm/arm1",
 			resource.Name{},
-			"string \"rdk/components/arm/arm1\" is not a valid resource name",
+			"string \"rdk/components/arm/arm1\" is not a fully qualified resource name",
 		},
 		{
 			"too many colons",
 			"rdk::component::arm/arm1",
 			resource.Name{},
-			"string \"rdk::component::arm/arm1\" is not a valid resource name",
+			"string \"rdk::component::arm/arm1\" is not a fully qualified resource name",
 		},
 		{
 			"too few colons",
 			"rdk.component.arm/arm1",
 			resource.Name{},
-			"string \"rdk.component.arm/arm1\" is not a valid resource name",
+			"string \"rdk.component.arm/arm1\" is not a fully qualified resource name",
+		},
+		{
+			"simple name",
+			"arm1",
+			resource.Name{},
+			"string \"arm1\" is not a fully qualified resource name",
+		},
+		{
+			"short name",
+			"robot1:robot2:robot3:arm1",
+			resource.Name{},
+			"string \"robot1:robot2:robot3:arm1\" is not a fully qualified resource name",
 		},
 		{
 			"missing name",
@@ -519,6 +531,85 @@ func TestRemoteResource(t *testing.T) {
 	test.That(t, n5.String(), test.ShouldResemble, "test:component:mycomponent/remote1:")
 	n5 = resource.NewName(resourceAPI, "remote2:remote1:")
 	test.That(t, n5.String(), test.ShouldResemble, "test:component:mycomponent/remote2:remote1:")
+}
+
+func TestResourceNamePartID(t *testing.T) {
+	api := resource.NewAPI("foo", "bar", "baz")
+	name := "hello"
+	remoteName := "remote1"
+	partID := "abcde"
+	for _, tc := range []struct {
+		TestName string
+		Observed resource.Name
+		Expected resource.Name
+	}{
+		{
+			"name with part id",
+			resource.NewNameWithPartID(api, name, partID),
+			resource.Name{
+				API: resource.API{
+					Type: resource.APIType{
+						Namespace: api.Type.Namespace,
+						Name:      api.Type.Name,
+					},
+					SubtypeName: api.SubtypeName,
+				},
+				Name:          name,
+				MachinePartID: partID,
+			},
+		},
+		{
+			"name with part id added",
+			resource.NewName(api, name).WithPartID(partID),
+			resource.Name{
+				API: resource.API{
+					Type: resource.APIType{
+						Namespace: api.Type.Namespace,
+						Name:      api.Type.Name,
+					},
+					SubtypeName: api.SubtypeName,
+				},
+				Name:          name,
+				MachinePartID: partID,
+			},
+		},
+		{
+			"remote name with part id",
+			resource.NewNameWithPartID(api, name, partID).PrependRemote(remoteName),
+			resource.Name{
+				API: resource.API{
+					Type: resource.APIType{
+						Namespace: api.Type.Namespace,
+						Name:      api.Type.Name,
+					},
+					SubtypeName: api.SubtypeName,
+				},
+				Remote:        remoteName,
+				Name:          name,
+				MachinePartID: partID,
+			},
+		},
+		{
+			"remote name with part id added",
+			resource.NewName(api, name).PrependRemote(remoteName).WithPartID(partID),
+			resource.Name{
+				API: resource.API{
+					Type: resource.APIType{
+						Namespace: api.Type.Namespace,
+						Name:      api.Type.Name,
+					},
+					SubtypeName: api.SubtypeName,
+				},
+				Remote:        remoteName,
+				Name:          name,
+				MachinePartID: partID,
+			},
+		},
+	} {
+		t.Run(tc.TestName, func(t *testing.T) {
+			test.That(t, tc.Observed, test.ShouldResemble, tc.Expected)
+		})
+	}
 }
 
 func TestNewPossibleRDKServiceAPIFromString(t *testing.T) {

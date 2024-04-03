@@ -68,6 +68,9 @@ var (
 	// errSessionClosed represents that the session has ended.
 	errSessionClosed = errors.New("session closed")
 
+	// errBadData represents that the replay sensor data does not match the expected format.
+	errBadData = errors.New("data does not match expected format")
+
 	// ererMessageNoDataAvailable indicates that no data was available for the given filter.
 	errMessageNoDataAvailable = "no data available for given filter"
 
@@ -214,16 +217,18 @@ func (replay *replayMovementSensor) Position(ctx context.Context, extra map[stri
 		return nil, 0, err
 	}
 
-	if isNewPositionFormat(data) {
-		coordStruct := data.GetFields()["coordinate"].GetStructValue()
-		return geo.NewPoint(
-				coordStruct.GetFields()["latitude"].GetNumberValue(),
-				coordStruct.GetFields()["longitude"].GetNumberValue()),
-			data.GetFields()["altitude_m"].GetNumberValue(), nil
+	coordStruct, ok := data.GetFields()["coordinate"]
+	if !ok {
+		return nil, 0, errBadData
+	}
+	altitude, ok := data.GetFields()["altitude_m"]
+	if !ok {
+		return nil, 0, errBadData
 	}
 	return geo.NewPoint(
-		data.GetFields()["Latitude"].GetNumberValue(),
-		data.GetFields()["Longitude"].GetNumberValue()), data.GetFields()["Altitude"].GetNumberValue(), nil
+			coordStruct.GetStructValue().GetFields()["latitude"].GetNumberValue(),
+			coordStruct.GetStructValue().GetFields()["longitude"].GetNumberValue()),
+		altitude.GetNumberValue(), nil
 }
 
 // LinearVelocity returns the next linear velocity from the cache in the form of an r3.Vector.
@@ -238,19 +243,16 @@ func (replay *replayMovementSensor) LinearVelocity(ctx context.Context, extra ma
 		return r3.Vector{}, movementsensor.ErrMethodUnimplementedLinearVelocity
 	}
 
-	data, err := replay.getDataFromCache(ctx, linearVelocity)
+	dataStruct, err := replay.getDataFromCache(ctx, linearVelocity)
 	if err != nil {
 		return r3.Vector{}, err
 	}
-
-	if isNewLinearVelocityFormat(data) {
-		return newFormatStructToVector(data.GetFields()["linear_velocity"].GetStructValue()), nil
+	data, ok := dataStruct.GetFields()["linear_velocity"]
+	if !ok {
+		return r3.Vector{}, errBadData
 	}
-	return r3.Vector{
-		X: data.GetFields()["X"].GetNumberValue(),
-		Y: data.GetFields()["Y"].GetNumberValue(),
-		Z: data.GetFields()["Z"].GetNumberValue(),
-	}, nil
+
+	return structToVector(data.GetStructValue()), nil
 }
 
 // AngularVelocity returns the next angular velocity from the cache in the form of a spatialmath.AngularVelocity (r3.Vector).
@@ -267,23 +269,19 @@ func (replay *replayMovementSensor) AngularVelocity(ctx context.Context, extra m
 		return spatialmath.AngularVelocity{}, movementsensor.ErrMethodUnimplementedAngularVelocity
 	}
 
-	data, err := replay.getDataFromCache(ctx, angularVelocity)
+	dataStruct, err := replay.getDataFromCache(ctx, angularVelocity)
 	if err != nil {
 		return spatialmath.AngularVelocity{}, err
 	}
-
-	if isNewAngularVelocityFormat(data) {
-		angularStruct := data.GetFields()["angular_velocity"].GetStructValue()
-		return spatialmath.AngularVelocity{
-			X: angularStruct.GetFields()["x"].GetNumberValue(),
-			Y: angularStruct.GetFields()["y"].GetNumberValue(),
-			Z: angularStruct.GetFields()["z"].GetNumberValue(),
-		}, nil
+	data, ok := dataStruct.GetFields()["angular_velocity"]
+	if !ok {
+		return spatialmath.AngularVelocity{}, errBadData
 	}
+
 	return spatialmath.AngularVelocity{
-		X: data.GetFields()["X"].GetNumberValue(),
-		Y: data.GetFields()["Y"].GetNumberValue(),
-		Z: data.GetFields()["Z"].GetNumberValue(),
+		X: data.GetStructValue().GetFields()["x"].GetNumberValue(),
+		Y: data.GetStructValue().GetFields()["y"].GetNumberValue(),
+		Z: data.GetStructValue().GetFields()["z"].GetNumberValue(),
 	}, nil
 }
 
@@ -299,19 +297,16 @@ func (replay *replayMovementSensor) LinearAcceleration(ctx context.Context, extr
 		return r3.Vector{}, movementsensor.ErrMethodUnimplementedLinearAcceleration
 	}
 
-	data, err := replay.getDataFromCache(ctx, linearAcceleration)
+	dataStruct, err := replay.getDataFromCache(ctx, linearAcceleration)
 	if err != nil {
 		return r3.Vector{}, err
 	}
-
-	if isNewLinearAccelerationFormat(data) {
-		return newFormatStructToVector(data.GetFields()["linear_acceleration"].GetStructValue()), nil
+	data, ok := dataStruct.GetFields()["linear_acceleration"]
+	if !ok {
+		return r3.Vector{}, errBadData
 	}
-	return r3.Vector{
-		X: data.GetFields()["X"].GetNumberValue(),
-		Y: data.GetFields()["Y"].GetNumberValue(),
-		Z: data.GetFields()["Z"].GetNumberValue(),
-	}, nil
+
+	return structToVector(data.GetStructValue()), nil
 }
 
 // CompassHeading returns the next compass heading from the cache as a float64.
@@ -330,11 +325,12 @@ func (replay *replayMovementSensor) CompassHeading(ctx context.Context, extra ma
 	if err != nil {
 		return 0., err
 	}
-
-	if isNewCompassHeadingFormat(data) {
-		return data.GetFields()["value"].GetNumberValue(), nil
+	value, ok := data.GetFields()["value"]
+	if !ok {
+		return 0, errBadData
 	}
-	return data.GetFields()["Compass"].GetNumberValue(), nil
+
+	return value.GetNumberValue(), nil
 }
 
 // Orientation returns the next orientation from the cache as a spatialmath.Orientation created from a spatialmath.OrientationVector.
@@ -349,25 +345,20 @@ func (replay *replayMovementSensor) Orientation(ctx context.Context, extra map[s
 		return nil, movementsensor.ErrMethodUnimplementedOrientation
 	}
 
-	data, err := replay.getDataFromCache(ctx, orientation)
+	dataStruct, err := replay.getDataFromCache(ctx, orientation)
 	if err != nil {
 		return nil, err
 	}
-
-	if isNewOrientationFormat(data) {
-		orientationStruct := data.GetFields()["orientation"].GetStructValue()
-		return &spatialmath.OrientationVector{
-			OX:    orientationStruct.GetFields()["o_x"].GetNumberValue(),
-			OY:    orientationStruct.GetFields()["o_y"].GetNumberValue(),
-			OZ:    orientationStruct.GetFields()["o_z"].GetNumberValue(),
-			Theta: orientationStruct.GetFields()["theta"].GetNumberValue(),
-		}, nil
+	data, ok := dataStruct.GetFields()["orientation"]
+	if !ok {
+		return nil, errBadData
 	}
-	return &spatialmath.OrientationVector{
-		OX:    data.GetFields()["OX"].GetNumberValue(),
-		OY:    data.GetFields()["OY"].GetNumberValue(),
-		OZ:    data.GetFields()["OZ"].GetNumberValue(),
-		Theta: data.GetFields()["Theta"].GetNumberValue(),
+
+	return &spatialmath.OrientationVectorDegrees{
+		OX:    data.GetStructValue().GetFields()["o_x"].GetNumberValue(),
+		OY:    data.GetStructValue().GetFields()["o_y"].GetNumberValue(),
+		OZ:    data.GetStructValue().GetFields()["o_z"].GetNumberValue(),
+		Theta: data.GetStructValue().GetFields()["theta"].GetNumberValue(),
 	}, nil
 }
 
@@ -379,8 +370,9 @@ func (replay *replayMovementSensor) Properties(ctx context.Context, extra map[st
 }
 
 // Accuracy is currently not defined for replay movement sensors.
-func (replay *replayMovementSensor) Accuracy(ctx context.Context, extra map[string]interface{}) (map[string]float32, error) {
-	return map[string]float32{}, movementsensor.ErrMethodUnimplementedAccuracy
+func (replay *replayMovementSensor) Accuracy(ctx context.Context, extra map[string]interface{}) (*movementsensor.Accuracy, error,
+) {
+	return movementsensor.UnimplementedAccuracies()
 }
 
 // Close stops the replay movement sensor, closes its channels and its connections to the cloud.
@@ -511,7 +503,6 @@ func (replay *replayMovementSensor) updateCache(ctx context.Context, method meth
 		return ErrEndOfDataset
 	}
 	replay.lastData[method] = resp.GetLast()
-
 	// Add data to associated cache
 	for _, dataResponse := range resp.Data {
 		entry := &cacheEntry{
@@ -663,38 +654,7 @@ func (replay *replayMovementSensor) initCloudConnection(ctx context.Context) err
 	return nil
 }
 
-func isNewPositionFormat(data *structpb.Struct) bool {
-	// if coordinate key exists in map, assume it is new format
-	_, ok := data.GetFields()["coordinate"]
-	return ok
-}
-
-func isNewLinearVelocityFormat(data *structpb.Struct) bool {
-	_, ok := data.GetFields()["linear_velocity"]
-	return ok
-}
-
-func isNewAngularVelocityFormat(data *structpb.Struct) bool {
-	_, ok := data.GetFields()["angular_velocity"]
-	return ok
-}
-
-func isNewLinearAccelerationFormat(data *structpb.Struct) bool {
-	_, ok := data.GetFields()["linear_acceleration"]
-	return ok
-}
-
-func isNewCompassHeadingFormat(data *structpb.Struct) bool {
-	_, ok := data.GetFields()["value"]
-	return ok
-}
-
-func isNewOrientationFormat(data *structpb.Struct) bool {
-	_, ok := data.GetFields()["orientation"]
-	return ok
-}
-
-func newFormatStructToVector(data *structpb.Struct) r3.Vector {
+func structToVector(data *structpb.Struct) r3.Vector {
 	return r3.Vector{
 		X: data.GetFields()["x"].GetNumberValue(),
 		Y: data.GetFields()["y"].GetNumberValue(),

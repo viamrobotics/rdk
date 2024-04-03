@@ -14,6 +14,7 @@ import (
 
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/grpc"
+	"go.viam.com/rdk/internal/cloud"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/pointcloud"
@@ -80,6 +81,9 @@ type Robot interface {
 	// Status takes a list of resource names and returns their corresponding statuses. If no names are passed in, return all statuses.
 	Status(ctx context.Context, resourceNames []resource.Name) ([]Status, error)
 
+	// CloudMetadata returns app-related information about the robot.
+	CloudMetadata(ctx context.Context) (cloud.Metadata, error)
+
 	// Close attempts to cleanly close down all constituent parts of the robot.
 	Close(ctx context.Context) error
 
@@ -109,6 +113,11 @@ type LocalRobot interface {
 
 	// ModuleAddress returns the address (path) of the unix socket modules use to contact the parent.
 	ModuleAddress() (string, error)
+
+	// ExportResourcesAsDot exports the resource graph as a DOT representation for
+	// visualization.
+	// DOT reference: https://graphviz.org/doc/info/lang.html
+	ExportResourcesAsDot(index int) (resource.GetSnapshotInfo, error)
 }
 
 // A RemoteRobot is a Robot that was created through a connection.

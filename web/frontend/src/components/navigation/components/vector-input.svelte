@@ -1,5 +1,4 @@
-<script lang='ts'>
-
+<script lang="ts">
 import { createEventDispatcher } from 'svelte';
 
 export let readonly = false;
@@ -17,17 +16,16 @@ const handleInput = (index: number) => {
     dispatch('input', values);
   };
 };
-
 </script>
 
-<div class='flex flex-wrap gap-1.5 items-end'>
+<div class="flex flex-wrap items-end gap-1.5">
   {#each labels as label, index (label)}
     <v-input
       {type}
       {step}
       {label}
       placeholder={placeholders[index]}
-      class='max-w-[5.5rem]'
+      class="max-w-[5.5rem]"
       readonly={readonly ? 'readonly' : undefined}
       value={values[index] ?? ''}
       incrementor={readonly ? '' : 'slider'}

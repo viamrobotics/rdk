@@ -45,7 +45,7 @@ type LastError struct {
 // NewLastError creates a LastError object which will let you retrieve the most recent error if at
 // least `threshold` of the most recent `size` items put into it are non-nil.
 func NewLastError(size, threshold int) LastError {
-	return LastError{errs: make([]error, size), threshold: threshold}
+	return LastError{errs: make([]error, size), threshold: threshold, size: size}
 }
 
 // Set stores an error to be retrieved later.
@@ -120,7 +120,7 @@ func (lp *LastPosition) SetLastPosition(position *geo.Point) {
 }
 
 // ArePointsEqual checks if two geo.Point instances are equal.
-func (lp *LastPosition) ArePointsEqual(p1, p2 *geo.Point) bool {
+func ArePointsEqual(p1, p2 *geo.Point) bool {
 	if p1 == nil || p2 == nil {
 		return p1 == p2
 	}
@@ -128,12 +128,12 @@ func (lp *LastPosition) ArePointsEqual(p1, p2 *geo.Point) bool {
 }
 
 // IsZeroPosition checks if a geo.Point represents the zero position (0, 0).
-func (lp *LastPosition) IsZeroPosition(p *geo.Point) bool {
+func IsZeroPosition(p *geo.Point) bool {
 	return p.Lng() == 0 && p.Lat() == 0
 }
 
 // IsPositionNaN checks if a geo.Point in math.NaN().
-func (lp *LastPosition) IsPositionNaN(p *geo.Point) bool {
+func IsPositionNaN(p *geo.Point) bool {
 	return math.IsNaN(p.Lng()) && math.IsNaN(p.Lat())
 }
 

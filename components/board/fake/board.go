@@ -226,6 +226,23 @@ func (b *Board) WriteAnalog(ctx context.Context, pin string, value int32, extra 
 	return nil
 }
 
+// StreamTicks starts a stream of digital interrupt ticks.
+func (b *Board) StreamTicks(ctx context.Context, interruptNames []string, ch chan board.Tick, extra map[string]interface{}) error {
+	var interrupts []board.DigitalInterrupt
+	for _, name := range interruptNames {
+		interrupt, ok := b.DigitalInterruptByName(name)
+		if !ok {
+			return errors.Errorf("unknown digital interrupt: %s", name)
+		}
+		interrupts = append(interrupts, interrupt)
+	}
+
+	for _, i := range interrupts {
+		i.AddCallback(ch)
+	}
+	return nil
+}
+
 // Close attempts to cleanly close each part of the board.
 func (b *Board) Close(ctx context.Context) error {
 	b.mu.Lock()
@@ -349,7 +366,6 @@ type DigitalInterruptWrapper struct {
 	di        board.DigitalInterrupt
 	conf      board.DigitalInterruptConfig
 	callbacks map[chan board.Tick]struct{}
-	pps       []board.PostProcessor
 }
 
 // NewDigitalInterruptWrapper returns a new digital interrupt to be used for testing.
@@ -379,9 +395,6 @@ func (s *DigitalInterruptWrapper) reset(conf board.DigitalInterruptConfig) error
 		s.di = di
 		for c := range s.callbacks {
 			s.di.AddCallback(c)
-		}
-		for _, pp := range s.pps {
-			s.di.AddPostProcessor(pp)
 		}
 		return nil
 	}
@@ -418,15 +431,6 @@ func (s *DigitalInterruptWrapper) AddCallback(c chan board.Tick) {
 	defer s.mu.Unlock()
 	s.callbacks[c] = struct{}{}
 	s.di.AddCallback(c)
-}
-
-// AddPostProcessor adds a post processor that should be used to modify
-// what is returned by Value.
-func (s *DigitalInterruptWrapper) AddPostProcessor(pp board.PostProcessor) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	s.pps = append(s.pps, pp)
-	s.di.AddPostProcessor(pp)
 }
 
 // RemoveCallback removes a listener for interrupts.

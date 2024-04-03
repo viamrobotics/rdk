@@ -5,6 +5,7 @@ import (
 
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/board/mcp3008helper"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 )
 
@@ -46,14 +47,14 @@ type LinuxBoardConfig struct {
 // reconfiguration into a LinuxBoardConfig, so that we can reconfigure based on that. We return a
 // pointer to a LinuxBoardConfig instead of the struct itself so that we can return nil if we
 // encounter an error.
-type ConfigConverter = func(resource.Config) (*LinuxBoardConfig, error)
+type ConfigConverter = func(resource.Config, logging.Logger) (*LinuxBoardConfig, error)
 
 // ConstPinDefs takes in a map from pin names to GPIOBoardMapping structs, and returns a
 // ConfigConverter that will use these pin definitions in the underlying config. It is intended to
 // be used for board components whose pin definitions are built into the RDK, such as the
 // BeagleBone or Jetson boards.
 func ConstPinDefs(gpioMappings map[string]GPIOBoardMapping) ConfigConverter {
-	return func(conf resource.Config) (*LinuxBoardConfig, error) {
+	return func(conf resource.Config, logger logging.Logger) (*LinuxBoardConfig, error) {
 		newConf, err := resource.NativeConfig[*Config](conf)
 		if err != nil {
 			return nil, err

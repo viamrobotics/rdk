@@ -8,7 +8,6 @@ import (
 	"net"
 	"os"
 	"path/filepath"
-	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -17,7 +16,6 @@ import (
 	"github.com/a8m/envsubst"
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
-	"go.uber.org/zap/zaptest/observer"
 	"go.viam.com/test"
 	"go.viam.com/utils"
 	"go.viam.com/utils/pexec"
@@ -27,14 +25,12 @@ import (
 	"go.viam.com/rdk/components/arm/fake"
 	"go.viam.com/rdk/components/audioinput"
 	"go.viam.com/rdk/components/base"
-	"go.viam.com/rdk/components/base/wheeled"
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/components/encoder"
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/components/gripper"
 	"go.viam.com/rdk/components/motor"
-	fakemotor "go.viam.com/rdk/components/motor/fake"
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/components/sensor"
 	"go.viam.com/rdk/components/servo"
@@ -1645,6 +1641,8 @@ func TestRobotReconfigure(t *testing.T) {
 		test.That(t, ok, test.ShouldBeTrue)
 	})
 
+	// test starts with a working config, then reconfigures into a config where dependencies
+	// fail to reconfigure, and then to a working config again.
 	t.Run("child component fails dep", func(t *testing.T) {
 		resetComponentFailureState()
 		testReconfiguringMismatch = true
@@ -1952,9 +1950,12 @@ func TestRobotReconfigure(t *testing.T) {
 		_, err = board.FromRobot(robot, "board2")
 		test.That(t, err, test.ShouldBeNil)
 
+		// resources which failed previous reconfiguration attempts because of missing dependencies will be rebuilt,
+		// so reconfCount should be 0. resources which failed previous reconfiguration attempts because of an error
+		// during reconfiguration would not have its reconfCount reset, so reconfCount for mock4 should be 1.
 		mock1, err = robot.ResourceByName(mockNamed("mock1"))
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, mock1.(*mockFake).reconfCount, test.ShouldEqual, 1)
+		test.That(t, mock1.(*mockFake).reconfCount, test.ShouldEqual, 0)
 
 		mock2, err = robot.ResourceByName(mockNamed("mock2"))
 		test.That(t, err, test.ShouldBeNil)
@@ -1970,7 +1971,7 @@ func TestRobotReconfigure(t *testing.T) {
 
 		mock5, err = robot.ResourceByName(mockNamed("mock5"))
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, mock5.(*mockFake).reconfCount, test.ShouldEqual, 1)
+		test.That(t, mock5.(*mockFake).reconfCount, test.ShouldEqual, 0)
 
 		// `mock6` is configured to be in a "failing" state.
 		_, err = robot.ResourceByName(mockNamed("mock6"))
@@ -3583,119 +3584,100 @@ func TestReconfigureRename(t *testing.T) {
 	test.That(t, res2.(*mockFake).closeCount, test.ShouldEqual, 0)
 }
 
+// tests that the resource configuration timeout is passed into each resource constructor.
 func TestResourceConstructTimeout(t *testing.T) {
-	cfg := &config.Config{}
-	ctx := context.Background()
-	logger, logs := logging.NewObservedTestLogger(t)
-	fakeModel := resource.DefaultModelFamily.WithModel("fake")
+	logger := logging.NewTestLogger(t)
 
-	timeOutErrorCount := func() int {
-		return logs.Filter(func(o observer.LoggedEntry) bool {
-			return strings.Contains(
-				o.Entry.Message,
-				"resource build error: resource rdk:component:base/fakewheel timed out after 1ns during reconfigure.")
-		}).Len()
-	}
+	mockAPI := resource.APINamespaceRDK.WithComponentType("mock")
+	modelName1 := utils.RandomAlphaString(5)
+	model1 := resource.DefaultModelFamily.WithModel(modelName1)
 
-	r, err := New(ctx, cfg, logger)
-	defer func() {
-		test.That(t, r.Close(context.Background()), test.ShouldBeNil)
-	}()
-	test.That(t, err, test.ShouldBeNil)
+	var timeout time.Duration
 
-	// test no error logging with default config
-	testutils.WaitForAssertion(t, func(tb testing.TB) {
-		test.That(tb, timeOutErrorCount(), test.ShouldEqual, 0)
+	resource.RegisterComponent(mockAPI, model1, resource.Registration[resource.Resource, resource.NoNativeConfig]{
+		Constructor: func(
+			ctx context.Context,
+			deps resource.Dependencies,
+			conf resource.Config,
+			logger logging.Logger,
+		) (resource.Resource, error) {
+			deadline, ok := ctx.Deadline()
+			test.That(t, ok, test.ShouldBeTrue)
+			test.That(t, time.Now().Add(timeout), test.ShouldHappenOnOrAfter, deadline)
+			return &mockFake{Named: conf.ResourceName().AsNamed()}, nil
+		},
 	})
+	defer func() {
+		resource.Deregister(mockAPI, model1)
+	}()
 
-	// create new config with resource that conceivably could time out
-	newCfg := &config.Config{
+	cfg := &config.Config{
 		Components: []resource.Config{
 			{
-				Name:  "fakewheel",
-				API:   base.API,
-				Model: wheeled.Model,
-				ConvertedAttributes: &wheeled.Config{
-					Right:                []string{"left", "right"},
-					Left:                 []string{"left", "right"},
-					WheelCircumferenceMM: 1,
-					WidthMM:              2,
-				},
-				DependsOn: []string{"left", "right"},
+				Name:  "one",
+				Model: model1,
+				API:   mockAPI,
 			},
 			{
-				Name:                "left",
-				API:                 motor.API,
-				Model:               fakeModel,
-				ConvertedAttributes: &fakemotor.Config{},
-			},
-			{
-				Name:                "right",
-				API:                 motor.API,
-				Model:               fakeModel,
-				ConvertedAttributes: &fakemotor.Config{},
+				Name:  "two",
+				Model: model1,
+				API:   mockAPI,
 			},
 		},
 	}
-
-	r.Reconfigure(ctx, newCfg)
-	// test no error logging with default timeout window and wheeled base
-	testutils.WaitForAssertion(t, func(tb testing.TB) {
-		test.That(tb, timeOutErrorCount(), test.ShouldEqual, 0)
-	})
-
-	// create new cfg with wheeled base modified to trigger Reconfigure, set timeout
-	// to the shortest possible window to ensure timeout
-	defer func() {
-		test.That(t, os.Unsetenv(rutils.ResourceConfigurationTimeoutEnvVar),
+	t.Run("new", func(t *testing.T) {
+		timeout = 50 * time.Millisecond
+		test.That(t, os.Setenv(rutils.ResourceConfigurationTimeoutEnvVar, timeout.String()),
 			test.ShouldBeNil)
-	}()
-	test.That(t, os.Setenv(rutils.ResourceConfigurationTimeoutEnvVar, "1ns"),
-		test.ShouldBeNil)
+		defer func() {
+			test.That(t, os.Unsetenv(rutils.ResourceConfigurationTimeoutEnvVar),
+				test.ShouldBeNil)
+		}()
 
-	newestCfg := &config.Config{
-		Components: []resource.Config{
-			{
-				Name:  "fakewheel",
-				API:   base.API,
-				Model: wheeled.Model,
-				// Added to force a component reconfigure.
-				Attributes: rutils.AttributeMap{"version": 1},
-				ConvertedAttributes: &wheeled.Config{
-					Right:                []string{"right"},
-					Left:                 []string{"left"},
-					WheelCircumferenceMM: 1,
-					WidthMM:              2,
-				},
-				DependsOn: []string{"left", "right"},
-			},
-			{
-				Name:                "left",
-				API:                 motor.API,
-				Model:               fakeModel,
-				ConvertedAttributes: &fakemotor.Config{},
-			},
-			{
-				Name:                "right",
-				API:                 motor.API,
-				Model:               fakeModel,
-				ConvertedAttributes: &fakemotor.Config{},
-			},
-		},
-	}
-
-	r.Reconfigure(ctx, newestCfg)
-	// test that an error is logged when using arbitrarily short timeout window
-	testutils.WaitForAssertion(t, func(tb testing.TB) {
-		test.That(tb, timeOutErrorCount(), test.ShouldEqual, 1)
+		r, err := New(context.Background(), cfg, logger)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, r.Close(context.Background()), test.ShouldBeNil)
 	})
+	t.Run("reconfigure", func(t *testing.T) {
+		timeout = rutils.DefaultResourceConfigurationTimeout
+		r, err := New(context.Background(), cfg, logger)
+		test.That(t, err, test.ShouldBeNil)
 
-	rr, ok := r.(*localRobot)
-	test.That(t, ok, test.ShouldBeTrue)
+		timeout = 200 * time.Millisecond
+		test.That(t, os.Setenv(rutils.ResourceConfigurationTimeoutEnvVar, timeout.String()),
+			test.ShouldBeNil)
+		defer func() {
+			test.That(t, os.Unsetenv(rutils.ResourceConfigurationTimeoutEnvVar),
+				test.ShouldBeNil)
+		}()
 
-	rr.reconfigureWorkers.Wait()
+		newCfg := &config.Config{
+			Components: []resource.Config{
+				{
+					Name:  "one",
+					Model: model1,
+					API:   mockAPI,
+				},
+				{
+					Name:  "two",
+					Model: model1,
+					API:   mockAPI,
+				},
+				{
+					Name:  "three",
+					Model: model1,
+					API:   mockAPI,
+				},
+			},
+		}
+
+		r.Reconfigure(context.Background(), newCfg)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, r.Close(context.Background()), test.ShouldBeNil)
+	})
 }
 
+// tests that on context cancellation, the resource re/configuration loop never gets inside the resource constructor.
 func TestResourceConstructCtxCancel(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 
@@ -3772,16 +3754,56 @@ func TestResourceConstructCtxCancel(t *testing.T) {
 	})
 }
 
+func TestResourceCloseNoHang(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+
+	mockAPI := resource.APINamespaceRDK.WithComponentType("mock")
+	modelName1 := utils.RandomAlphaString(5)
+	model1 := resource.DefaultModelFamily.WithModel(modelName1)
+
+	mf := &mockFake{Named: resource.NewName(mockAPI, "mock").AsNamed()}
+	resource.RegisterComponent(mockAPI, model1, resource.Registration[resource.Resource, resource.NoNativeConfig]{
+		Constructor: func(
+			ctx context.Context,
+			deps resource.Dependencies,
+			conf resource.Config,
+			logger logging.Logger,
+		) (resource.Resource, error) {
+			return mf, nil
+		},
+	})
+	defer func() {
+		resource.Deregister(mockAPI, model1)
+	}()
+
+	cfg := &config.Config{
+		Components: []resource.Config{
+			{
+				Name:  "mock",
+				Model: model1,
+				API:   mockAPI,
+			},
+		},
+	}
+	r, err := New(context.Background(), cfg, logger)
+	test.That(t, err, test.ShouldBeNil)
+
+	test.That(t, r.Close(context.Background()), test.ShouldBeNil)
+	test.That(t, mf.closeCtxDeadline, test.ShouldNotBeNil)
+	test.That(t, time.Now().Add(resourceCloseTimeout), test.ShouldHappenOnOrAfter, mf.closeCtxDeadline)
+}
+
 type mockFake struct {
 	resource.Named
-	createdAt      int
-	reconfCount    int
-	reconfiguredAt int64
-	failCount      int
-	shouldRebuild  bool
-	closeCount     int
-	closedAt       int64
-	logicalClock   *atomic.Int64
+	createdAt        int
+	reconfCount      int
+	reconfiguredAt   int64
+	failCount        int
+	shouldRebuild    bool
+	closedAt         int64
+	closeCount       int
+	closeCtxDeadline time.Time
+	logicalClock     *atomic.Int64
 }
 
 type mockFakeConfig struct {
@@ -3814,6 +3836,9 @@ func (m *mockFake) Close(ctx context.Context) error {
 		m.closedAt = m.logicalClock.Add(1)
 	}
 	m.closeCount++
+	if dl, exists := ctx.Deadline(); exists {
+		m.closeCtxDeadline = dl
+	}
 	return nil
 }
 

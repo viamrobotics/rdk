@@ -1,6 +1,6 @@
+<?xml version="1.0" ?>
 <!-- This URDF is based off of a minimal UR5 URDF which can be found at the link below -->
 <!-- http://hades.mech.northwestern.edu/images/4/47/UR5-URDF.txt -->
-<?xml version="1.0" ?>
 <robot name="ur5">
   <joint name="world_joint" type="fixed">
     <parent link="world"/>

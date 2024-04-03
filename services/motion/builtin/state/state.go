@@ -11,22 +11,22 @@ import (
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	"go.viam.com/utils"
+	"golang.org/x/exp/maps"
+	"golang.org/x/exp/slices"
 
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan"
-	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/motion"
+	"go.viam.com/rdk/spatialmath"
+	rutils "go.viam.com/rdk/utils"
 )
 
-// Waypoints represent the waypoints of the plan.
-type Waypoints [][]referenceframe.Input
-
-// PlanResponse is the response from Plan.
-type PlanResponse struct {
-	Waypoints        Waypoints
-	Motionplan       motionplan.Plan
-	PosesByComponent []motion.PlanStep
+// PlannerExecutor implements Plan and Execute.
+type PlannerExecutor interface {
+	Plan(ctx context.Context) (motionplan.Plan, error)
+	Execute(context.Context, motionplan.Plan) (ExecuteResponse, error)
+	AnchorGeoPose() *spatialmath.GeoPose
 }
 
 // ExecuteResponse is the response from Execute.
@@ -37,7 +37,7 @@ type ExecuteResponse struct {
 	ReplanReason string
 }
 
-// PlanExecutorConstructor creates a PlannerExecutor
+// PlannerExecutorConstructor creates a PlannerExecutor
 // if ctx is cancelled then all PlannerExecutor interface
 // methods must terminate & return errors
 // req is the request that will be used during planning & execution
@@ -46,18 +46,12 @@ type ExecuteResponse struct {
 // replanCount is the number of times replanning has occurred,
 // zero the first time planning occurs.
 // R is a genric type which is able to be used to create a PlannerExecutor.
-type PlanExecutorConstructor[R any] func(
+type PlannerExecutorConstructor[R any] func(
 	ctx context.Context,
 	req R,
 	seedPlan motionplan.Plan,
 	replanCount int,
-) (PlanExecutor, error)
-
-// PlanExecutor implements Plan and Execute.
-type PlanExecutor interface {
-	Plan(ctx context.Context) (PlanResponse, error)
-	Execute(context.Context, Waypoints) (ExecuteResponse, error)
-}
+) (PlannerExecutor, error)
 
 type componentState struct {
 	executionIDHistory []motion.ExecutionID
@@ -65,7 +59,7 @@ type componentState struct {
 }
 
 type planMsg struct {
-	plan       motion.Plan
+	plan       motion.PlanWithMetadata
 	planStatus motion.PlanStatus
 }
 
@@ -104,42 +98,42 @@ func (cs componentState) lastExecutionID() motion.ExecutionID {
 // execution represents the state of a motion planning execution.
 // it only ever exists in state.StartExecution function & the go routine created.
 type execution[R any] struct {
-	id                      motion.ExecutionID
-	state                   *State
-	waitGroup               *sync.WaitGroup
-	cancelCtx               context.Context
-	cancelFunc              context.CancelFunc
-	logger                  logging.Logger
-	componentName           resource.Name
-	req                     R
-	planExecutorConstructor PlanExecutorConstructor[R]
+	id                         motion.ExecutionID
+	state                      *State
+	waitGroup                  *sync.WaitGroup
+	cancelCtx                  context.Context
+	cancelFunc                 context.CancelFunc
+	logger                     logging.Logger
+	componentName              resource.Name
+	req                        R
+	plannerExecutorConstructor PlannerExecutorConstructor[R]
 }
 
 type planWithExecutor struct {
-	plan         motion.Plan
-	planExecutor PlanExecutor
-	waypoints    Waypoints
-	motionplan   motionplan.Plan
+	plan     motion.PlanWithMetadata
+	executor PlannerExecutor
 }
 
 // NewPlan creates a new motion.Plan from an execution & returns an error if one was not able to be created.
 func (e *execution[R]) newPlanWithExecutor(ctx context.Context, seedPlan motionplan.Plan, replanCount int) (planWithExecutor, error) {
-	pe, err := e.planExecutorConstructor(e.cancelCtx, e.req, seedPlan, replanCount)
+	pe, err := e.plannerExecutorConstructor(e.cancelCtx, e.req, seedPlan, replanCount)
 	if err != nil {
 		return planWithExecutor{}, err
 	}
-	resp, err := pe.Plan(ctx)
+	plan, err := pe.Plan(ctx)
 	if err != nil {
 		return planWithExecutor{}, err
 	}
-
-	plan := motion.Plan{
-		ID:            uuid.New(),
-		ExecutionID:   e.id,
-		ComponentName: e.componentName,
-		Steps:         resp.PosesByComponent,
-	}
-	return planWithExecutor{plan: plan, planExecutor: pe, waypoints: resp.Waypoints, motionplan: resp.Motionplan}, nil
+	return planWithExecutor{
+		plan: motion.PlanWithMetadata{
+			Plan:          plan,
+			ID:            uuid.New(),
+			ExecutionID:   e.id,
+			ComponentName: e.componentName,
+			AnchorGeoPose: pe.AnchorGeoPose(),
+		},
+		executor: pe,
+	}, nil
 }
 
 // Start starts an execution with a given plan.
@@ -173,7 +167,7 @@ func (e *execution[R]) start(ctx context.Context) error {
 		// 3. the execution failed
 		// 4. replanning failed
 		for {
-			resp, err := lastPWE.planExecutor.Execute(e.cancelCtx, lastPWE.waypoints)
+			resp, err := lastPWE.executor.Execute(e.cancelCtx, lastPWE.plan.Plan)
 
 			switch {
 			// stoped
@@ -194,7 +188,7 @@ func (e *execution[R]) start(ctx context.Context) error {
 			// replan
 			default:
 				replanCount++
-				newPWE, err := e.newPlanWithExecutor(e.cancelCtx, lastPWE.motionplan, replanCount)
+				newPWE, err := e.newPlanWithExecutor(e.cancelCtx, lastPWE.plan.Plan, replanCount)
 				// replan failed
 				if err != nil {
 					msg := "failed to replan for execution %s and component: %s, " +
@@ -224,7 +218,7 @@ func (e *execution[R]) toStateExecution() stateExecution {
 	}
 }
 
-func (e *execution[R]) notifyStateNewExecution(execution stateExecution, plan motion.Plan, time time.Time) {
+func (e *execution[R]) notifyStateNewExecution(execution stateExecution, plan motion.PlanWithMetadata, time time.Time) {
 	e.state.mu.Lock()
 	defer e.state.mu.Unlock()
 	// NOTE: We hold the lock for both updateStateNewExecution & updateStateNewPlan to ensure no readers
@@ -236,7 +230,7 @@ func (e *execution[R]) notifyStateNewExecution(execution stateExecution, plan mo
 	})
 }
 
-func (e *execution[R]) notifyStateReplan(lastPlan motion.Plan, reason string, newPlan motion.Plan, time time.Time) {
+func (e *execution[R]) notifyStateReplan(lastPlan motion.PlanWithMetadata, reason string, newPlan motion.PlanWithMetadata, time time.Time) {
 	e.state.mu.Lock()
 	defer e.state.mu.Unlock()
 	// NOTE: We hold the lock for both updateStateNewExecution & updateStateNewPlan to ensure no readers
@@ -254,7 +248,7 @@ func (e *execution[R]) notifyStateReplan(lastPlan motion.Plan, reason string, ne
 	})
 }
 
-func (e *execution[R]) notifyStatePlanFailed(plan motion.Plan, reason string, time time.Time) {
+func (e *execution[R]) notifyStatePlanFailed(plan motion.PlanWithMetadata, reason string, time time.Time) {
 	e.state.mu.Lock()
 	defer e.state.mu.Unlock()
 	e.state.updateStateStatusUpdate(stateUpdateMsg{
@@ -265,7 +259,7 @@ func (e *execution[R]) notifyStatePlanFailed(plan motion.Plan, reason string, ti
 	})
 }
 
-func (e *execution[R]) notifyStatePlanSucceeded(plan motion.Plan, time time.Time) {
+func (e *execution[R]) notifyStatePlanSucceeded(plan motion.PlanWithMetadata, time time.Time) {
 	e.state.mu.Lock()
 	defer e.state.mu.Unlock()
 	e.state.updateStateStatusUpdate(stateUpdateMsg{
@@ -276,7 +270,7 @@ func (e *execution[R]) notifyStatePlanSucceeded(plan motion.Plan, time time.Time
 	})
 }
 
-func (e *execution[R]) notifyStatePlanStopped(plan motion.Plan, time time.Time) {
+func (e *execution[R]) notifyStatePlanStopped(plan motion.PlanWithMetadata, time time.Time) {
 	e.state.mu.Lock()
 	defer e.state.mu.Unlock()
 	e.state.updateStateStatusUpdate(stateUpdateMsg{
@@ -294,22 +288,67 @@ type State struct {
 	cancelCtx  context.Context
 	cancelFunc context.CancelFunc
 	logger     logging.Logger
+	ttl        time.Duration
 	// mu protects the componentStateByComponent
 	mu                        sync.RWMutex
 	componentStateByComponent map[resource.Name]componentState
 }
 
 // NewState creates a new state.
-func NewState(ctx context.Context, logger logging.Logger) *State {
-	cancelCtx, cancelFunc := context.WithCancel(ctx)
+// Takes a [TTL](https://en.wikipedia.org/wiki/Time_to_live)
+// and an interval to delete any State data that is older than
+// the TTL.
+func NewState(
+	ttl time.Duration,
+	ttlCheckInterval time.Duration,
+	logger logging.Logger,
+) (*State, error) {
+	if ttl == 0 {
+		return nil, errors.New("TTL can't be unset")
+	}
+
+	if ttlCheckInterval == 0 {
+		return nil, errors.New("TTLCheckInterval can't be unset")
+	}
+
+	if logger == nil {
+		return nil, errors.New("Logger can't be nil")
+	}
+
+	if ttl < ttlCheckInterval {
+		return nil, errors.New("TTL can't be lower than the TTLCheckInterval")
+	}
+
+	cancelCtx, cancelFunc := context.WithCancel(context.Background())
 	s := State{
 		cancelCtx:                 cancelCtx,
 		cancelFunc:                cancelFunc,
 		waitGroup:                 &sync.WaitGroup{},
 		componentStateByComponent: make(map[resource.Name]componentState),
+		ttl:                       ttl,
 		logger:                    logger,
 	}
-	return &s
+	s.waitGroup.Add(1)
+	utils.ManagedGo(func() {
+		ticker := time.NewTicker(ttlCheckInterval)
+		defer ticker.Stop()
+		for {
+			if cancelCtx.Err() != nil {
+				return
+			}
+
+			select {
+			case <-cancelCtx.Done():
+				return
+			case <-ticker.C:
+				err := s.purgeOlderThanTTL()
+				if err != nil {
+					s.logger.Error(err.Error())
+				}
+			}
+		}
+	}, s.waitGroup.Done)
+	return &s, nil
 }
 
 // StartExecution creates a new execution from a state.
@@ -318,7 +357,7 @@ func StartExecution[R any](
 	s *State,
 	componentName resource.Name,
 	req R,
-	planExecutorConstructor PlanExecutorConstructor[R],
+	plannerExecutorConstructor PlannerExecutorConstructor[R],
 ) (motion.ExecutionID, error) {
 	if s == nil {
 		return uuid.Nil, errors.New("state is nil")
@@ -331,15 +370,15 @@ func StartExecution[R any](
 	// the state being cancelled should cause all executions derived from that state to also be cancelled
 	cancelCtx, cancelFunc := context.WithCancel(s.cancelCtx)
 	e := execution[R]{
-		id:                      uuid.New(),
-		state:                   s,
-		cancelCtx:               cancelCtx,
-		cancelFunc:              cancelFunc,
-		waitGroup:               &sync.WaitGroup{},
-		logger:                  s.logger,
-		req:                     req,
-		componentName:           componentName,
-		planExecutorConstructor: planExecutorConstructor,
+		id:                         uuid.New(),
+		state:                      s,
+		cancelCtx:                  cancelCtx,
+		cancelFunc:                 cancelFunc,
+		waitGroup:                  &sync.WaitGroup{},
+		logger:                     s.logger,
+		req:                        req,
+		componentName:              componentName,
+		plannerExecutorConstructor: plannerExecutorConstructor,
 	}
 
 	if err := e.start(ctx); err != nil {
@@ -400,16 +439,12 @@ func (s *State) PlanHistory(req motion.PlanHistoryReq) ([]motion.PlanWithStatus,
 	// last plan only
 	if req.LastPlanOnly {
 		if ex := cs.lastExecution(); executionID == uuid.Nil || executionID == ex.id {
-			history := make([]motion.PlanWithStatus, 1)
-			copy(history, ex.history)
-			return history, nil
+			return renderableHistory(ex.history[:1]), nil
 		}
 
 		// if executionID is provided & doesn't match the last execution for the component
 		if ex, exists := cs.executionsByID[executionID]; exists {
-			history := make([]motion.PlanWithStatus, 1)
-			copy(history, ex.history)
-			return history, nil
+			return renderableHistory(ex.history[:1]), nil
 		}
 		return nil, resource.NewNotFoundError(req.ComponentName)
 	}
@@ -417,17 +452,22 @@ func (s *State) PlanHistory(req motion.PlanHistoryReq) ([]motion.PlanWithStatus,
 	// specific execution id when lastPlanOnly is NOT enabled
 	if executionID != uuid.Nil {
 		if ex, exists := cs.executionsByID[executionID]; exists {
-			history := make([]motion.PlanWithStatus, len(ex.history))
-			copy(history, ex.history)
-			return history, nil
+			return renderableHistory(ex.history), nil
 		}
 		return nil, resource.NewNotFoundError(req.ComponentName)
 	}
 
-	ex := cs.lastExecution()
-	history := make([]motion.PlanWithStatus, len(cs.lastExecution().history))
-	copy(history, ex.history)
-	return history, nil
+	return renderableHistory(cs.lastExecution().history), nil
+}
+
+// visualHistory returns the history struct that has had its plans Offset by.
+func renderableHistory(history []motion.PlanWithStatus) []motion.PlanWithStatus {
+	newHistory := make([]motion.PlanWithStatus, len(history))
+	copy(newHistory, history)
+	for i := range newHistory {
+		newHistory[i].Plan = newHistory[i].Plan.Renderable()
+	}
+	return newHistory
 }
 
 // ListPlanStatuses returns the status of plans created by MoveOnGlobe requests
@@ -439,8 +479,13 @@ func (s *State) ListPlanStatuses(req motion.ListPlanStatusesReq) ([]motion.PlanS
 	defer s.mu.RUnlock()
 
 	statuses := []motion.PlanStatusWithID{}
+	componentNames := maps.Keys(s.componentStateByComponent)
+	slices.SortFunc(componentNames, func(a, b resource.Name) int {
+		return rutils.Compare(a.String(), b.String())
+	})
+
 	if req.OnlyActivePlans {
-		for name := range s.componentStateByComponent {
+		for _, name := range componentNames {
 			if e, err := s.activeExecution(name); err == nil {
 				statuses = append(statuses, motion.PlanStatusWithID{
 					ExecutionID:   e.id,
@@ -453,7 +498,11 @@ func (s *State) ListPlanStatuses(req motion.ListPlanStatusesReq) ([]motion.PlanS
 		return statuses, nil
 	}
 
-	for _, cs := range s.componentStateByComponent {
+	for _, name := range componentNames {
+		cs, ok := s.componentStateByComponent[name]
+		if !ok {
+			return nil, errors.New("state is corrupted")
+		}
 		for _, executionID := range cs.executionIDHistory {
 			e, exists := cs.executionsByID[executionID]
 			if !exists {
@@ -570,4 +619,56 @@ func (s *State) activeExecution(name resource.Name) (stateExecution, error) {
 		return es, nil
 	}
 	return stateExecution{}, resource.NewNotFoundError(name)
+}
+
+func (s *State) purgeOlderThanTTL() error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	purgeCutoff := time.Now().Add(-s.ttl)
+
+	for resource, componentState := range s.componentStateByComponent {
+		keepIndex, err := findKeepIndex(componentState, purgeCutoff)
+		if err != nil {
+			return err
+		}
+		// If there are no executions to keep, then delete the resource.
+		if keepIndex == -1 {
+			delete(s.componentStateByComponent, resource)
+			continue
+		}
+
+		executionIdsToKeep := componentState.executionIDHistory[:keepIndex+1]
+		executionIdsToDelete := componentState.executionIDHistory[keepIndex+1:]
+
+		for _, executionID := range executionIdsToDelete {
+			delete(componentState.executionsByID, executionID)
+		}
+		componentState.executionIDHistory = executionIdsToKeep
+		s.componentStateByComponent[resource] = componentState
+	}
+	return nil
+}
+
+// findKeepIndex returns the index of the executionHistory slice which should be kept
+// after purging i.e. are after the purgeCutoff
+// returns -1 if none of the executions are after the cutoff i.e. if all need to be purged.
+func findKeepIndex(componentState componentState, purgeCutoff time.Time) (int, error) {
+	// iterate in reverse order (i.e. from oldest execution to newest execution)
+	for executionIndex := len(componentState.executionIDHistory) - 1; executionIndex >= 0; executionIndex-- {
+		executionID := componentState.executionIDHistory[executionIndex]
+		execution, ok := componentState.executionsByID[executionID]
+		if !ok {
+			msg := "executionID %s exists at index %d of executionIDHistory but is not present in executionsByID"
+			return 0, fmt.Errorf(msg, executionID, executionIndex)
+		}
+
+		mostRecentStatus := execution.history[0].StatusHistory[0]
+		_, terminated := motion.TerminalStateSet[mostRecentStatus.State]
+		withinTTL := mostRecentStatus.Timestamp.After(purgeCutoff)
+		if withinTTL || !terminated {
+			return executionIndex, nil
+		}
+	}
+	return -1, nil
 }

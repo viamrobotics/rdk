@@ -7,6 +7,8 @@ import (
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/components/camera"
+	"go.viam.com/rdk/logging"
+	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage/transform"
 )
 
@@ -95,4 +97,46 @@ func cameraTest(
 	}
 	err = cam.Close(context.Background())
 	test.That(t, err, test.ShouldBeNil)
+}
+
+func TestCameraValidationAndCreation(t *testing.T) {
+	attrCfg := &Config{Width: 200000, Height: 10}
+	cfg := resource.Config{
+		Name:                "test1",
+		API:                 camera.API,
+		Model:               model,
+		ConvertedAttributes: attrCfg,
+	}
+
+	// error with a ridiculously large pixel value
+	deps, err := cfg.Validate("", camera.API.SubtypeName)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, deps, test.ShouldBeNil)
+
+	// error with a zero pixel value
+	attrCfg.Width = 0
+	cfg.ConvertedAttributes = attrCfg
+	deps, err = cfg.Validate("", camera.API.SubtypeName)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, deps, test.ShouldBeNil)
+
+	// error with a negative pixel value
+	attrCfg.Width = -20
+	cfg.ConvertedAttributes = attrCfg
+	deps, err = cfg.Validate("", camera.API.SubtypeName)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, deps, test.ShouldBeNil)
+
+	attrCfg.Width = 10
+	cfg.ConvertedAttributes = attrCfg
+	deps, err = cfg.Validate("", camera.API.SubtypeName)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, deps, test.ShouldBeNil)
+
+	logger := logging.NewTestLogger(t)
+	camera, err := NewCamera(context.Background(), nil, cfg, logger)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, camera, test.ShouldNotBeNil)
+
+	test.That(t, camera.Close(context.Background()), test.ShouldBeNil)
 }

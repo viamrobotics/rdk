@@ -3,6 +3,7 @@ package cli
 import (
 	"fmt"
 	"io"
+	"strings"
 	"text/tabwriter"
 	"time"
 
@@ -11,9 +12,11 @@ import (
 	"go.uber.org/multierr"
 	buildpb "go.viam.com/api/app/build/v1"
 	"go.viam.com/utils/pexec"
+	"golang.org/x/exp/maps"
 	"golang.org/x/exp/slices"
 
 	"go.viam.com/rdk/logging"
+	"go.viam.com/rdk/utils"
 )
 
 type jobStatus string
@@ -50,10 +53,15 @@ func (c *viamClient) moduleBuildStartAction(cCtx *cli.Context) error {
 	if manifest.Build == nil || manifest.Build.Build == "" {
 		return errors.New("your meta.json cannot have an empty build step. See 'viam module build --help' for more information")
 	}
+
+	// Clean the version argument to ensure compatibility with github tag standards
+	version = strings.TrimPrefix(version, "v")
+
 	platforms := manifest.Build.Arch
 	if len(platforms) == 0 {
 		platforms = defaultBuildInfo.Arch
 	}
+
 	gitRef := cCtx.String(moduleBuildFlagRef)
 	res, err := c.startBuild(manifest.URL, gitRef, manifest.ModuleID, platforms, version)
 	if err != nil {
@@ -66,8 +74,16 @@ func (c *viamClient) moduleBuildStartAction(cCtx *cli.Context) error {
 }
 
 // ModuleBuildLocalAction runs the module's build commands locally.
-func ModuleBuildLocalAction(c *cli.Context) error {
-	manifestPath := c.String(moduleFlagPath)
+func ModuleBuildLocalAction(cCtx *cli.Context) error {
+	c, err := newViamClient(cCtx)
+	if err != nil {
+		return err
+	}
+	return c.moduleBuildLocalAction(cCtx)
+}
+
+func (c *viamClient) moduleBuildLocalAction(cCtx *cli.Context) error {
+	manifestPath := cCtx.String(moduleFlagPath)
 	manifest, err := loadManifest(manifestPath)
 	if err != nil {
 		return err
@@ -75,30 +91,30 @@ func ModuleBuildLocalAction(c *cli.Context) error {
 	if manifest.Build == nil || manifest.Build.Build == "" {
 		return errors.New("your meta.json cannot have an empty build step. See 'viam module build --help' for more information")
 	}
-	infof(c.App.Writer, "Starting build")
+	infof(cCtx.App.Writer, "Starting build")
 	processConfig := pexec.ProcessConfig{
 		Name:      "bash",
 		OneShot:   true,
 		Log:       true,
-		LogWriter: c.App.Writer,
+		LogWriter: cCtx.App.Writer,
 	}
 	// Required logger for the ManagedProcess. Not used
 	logger := logging.NewLogger("x")
 	if manifest.Build.Setup != "" {
-		infof(c.App.Writer, "Starting setup step: %q", manifest.Build.Setup)
+		infof(cCtx.App.Writer, "Starting setup step: %q", manifest.Build.Setup)
 		processConfig.Args = []string{"-c", manifest.Build.Setup}
 		proc := pexec.NewManagedProcess(processConfig, logger.AsZap())
-		if err = proc.Start(c.Context); err != nil {
+		if err = proc.Start(cCtx.Context); err != nil {
 			return err
 		}
 	}
-	infof(c.App.Writer, "Starting build step: %q", manifest.Build.Build)
+	infof(cCtx.App.Writer, "Starting build step: %q", manifest.Build.Build)
 	processConfig.Args = []string{"-c", manifest.Build.Build}
 	proc := pexec.NewManagedProcess(processConfig, logger.AsZap())
-	if err = proc.Start(c.Context); err != nil {
+	if err = proc.Start(cCtx.Context); err != nil {
 		return err
 	}
-	infof(c.App.Writer, "Completed build")
+	infof(cCtx.App.Writer, "Completed build")
 	return nil
 }
 
@@ -159,6 +175,18 @@ func (c *viamClient) moduleBuildListAction(cCtx *cli.Context) error {
 	return nil
 }
 
+// anyFailed returns a useful error based on which platforms failed, or nil if all good.
+func buildError(statuses map[string]jobStatus) error {
+	failedPlatforms := utils.FilterMap(
+		statuses,
+		func(_ string, s jobStatus) bool { return s != jobStatusDone },
+	)
+	if len(failedPlatforms) == 0 {
+		return nil
+	}
+	return fmt.Errorf("some platforms failed to build: %s", strings.Join(maps.Keys(failedPlatforms), ", "))
+}
+
 // ModuleBuildLogsAction retrieves the logs for a specific build step.
 func ModuleBuildLogsAction(c *cli.Context) error {
 	buildID := c.String(moduleBuildFlagBuildID)
@@ -170,8 +198,10 @@ func ModuleBuildLogsAction(c *cli.Context) error {
 		return err
 	}
 
+	var statuses map[string]jobStatus
 	if shouldWait {
-		if err := client.waitForBuildToFinish(buildID, platform); err != nil {
+		statuses, err = client.waitForBuildToFinish(buildID, platform)
+		if err != nil {
 			return err
 		}
 	}
@@ -197,6 +227,9 @@ func ModuleBuildLogsAction(c *cli.Context) error {
 		}
 	}
 
+	if err := buildError(statuses); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -265,38 +298,40 @@ func (c *viamClient) listModuleBuildJobs(moduleIDFilter string, count *int32, bu
 // waitForBuildToFinish calls listModuleBuildJobs every moduleBuildPollingInterval
 // Will wait until the status of the specified job is DONE or FAILED
 // if platform is empty, it waits for all jobs associated with the ID.
-func (c *viamClient) waitForBuildToFinish(buildID, platform string) error {
+func (c *viamClient) waitForBuildToFinish(buildID, platform string) (map[string]jobStatus, error) {
 	// If the platform is not empty, we should check that the platform is actually present on the build
 	// this is mostly to protect against users misspelling the platform
 	if platform != "" {
 		platformsForBuild, err := c.getPlatformsForModuleBuild(buildID)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		if !slices.Contains(platformsForBuild, platform) {
-			return fmt.Errorf("platform %q is not present on build %q", platform, buildID)
+			return nil, fmt.Errorf("platform %q is not present on build %q", platform, buildID)
 		}
 	}
+	statuses := make(map[string]jobStatus)
 	ticker := time.NewTicker(moduleBuildPollingInterval)
 	defer ticker.Stop()
 
 	for {
 		select {
 		case <-c.c.Context.Done():
-			return c.c.Context.Err()
+			return nil, c.c.Context.Err()
 		case <-ticker.C:
 			jobsResponse, err := c.listModuleBuildJobs("", nil, &buildID)
 			if err != nil {
-				return errors.Wrap(err, "failed to list module build jobs")
+				return nil, errors.Wrap(err, "failed to list module build jobs")
 			}
 			if len(jobsResponse.Jobs) == 0 {
-				return fmt.Errorf("build id %q returned no jobs", buildID)
+				return nil, fmt.Errorf("build id %q returned no jobs", buildID)
 			}
 			// Loop through all the jobs and check if all the matching jobs are done
 			allDone := true
 			for _, job := range jobsResponse.Jobs {
 				if platform == "" || job.Platform == platform {
 					status := jobStatusFromProto(job.Status)
+					statuses[job.Platform] = status
 					if status != jobStatusDone && status != jobStatusFailed {
 						allDone = false
 						break
@@ -305,7 +340,7 @@ func (c *viamClient) waitForBuildToFinish(buildID, platform string) error {
 			}
 			// If all jobs are done, return
 			if allDone {
-				return nil
+				return statuses, nil
 			}
 		}
 	}

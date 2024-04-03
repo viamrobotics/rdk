@@ -37,7 +37,7 @@ const (
 
 var (
 	reservedChars     = [...]string{":", "+"} // colons are delimiters for remote names, plus signs are used for WebRTC track names.
-	resRegexValidator = regexp.MustCompile(`^([\w-]+:[\w-]+:(?:[\w-]+))\/?([\w-]+:(?:[\w-]+:)*)?(.+)?$`)
+	resRegexValidator = regexp.MustCompile(`^([\w-]+:[\w-]+:(?:[\w-]+))\/([\w-]+:(?:[\w-]+:)*)?(.+)?$`)
 )
 
 // A Resource is the fundamental building block of a robot; it is either a component or a service
@@ -164,7 +164,7 @@ func (t TriviallyReconfigurable) Reconfigure(ctx context.Context, deps Dependenc
 
 // TriviallyCloseable is to be embedded by any resource that does not care about
 // handling Closes. When is used, it is assumed that the resource does not need
-// to return errors when furture non-Close methods are called.
+// to return errors when future non-Close methods are called.
 type TriviallyCloseable struct{}
 
 // Close always returns no error.

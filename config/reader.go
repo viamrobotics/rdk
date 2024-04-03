@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"time"
 
 	"github.com/a8m/envsubst"
 	"github.com/pkg/errors"
@@ -26,8 +27,14 @@ import (
 
 // RDK versioning variables which are replaced by LD flags.
 var (
-	Version     = ""
-	GitRevision = ""
+	Version      = ""
+	GitRevision  = ""
+	DateCompiled = ""
+)
+
+const (
+	initialReadTimeout = 1 * time.Second
+	readTimeout        = 5 * time.Second
 )
 
 func getAgentInfo() (*apppb.AgentInfo, error) {
@@ -129,10 +136,10 @@ func readCertificateDataFromCloudGRPC(ctx context.Context,
 	signalingInsecure bool,
 	cloudConfigFromDisk *Cloud,
 	logger logging.Logger,
-) (*Cloud, error) {
+) (tlsConfig, error) {
 	conn, err := CreateNewGRPCClient(ctx, cloudConfigFromDisk, logger)
 	if err != nil {
-		return nil, err
+		return tlsConfig{}, err
 	}
 	defer utils.UncheckedErrorFunc(conn.Close)
 
@@ -140,22 +147,21 @@ func readCertificateDataFromCloudGRPC(ctx context.Context,
 	res, err := service.Certificate(ctx, &apppb.CertificateRequest{Id: cloudConfigFromDisk.ID})
 	if err != nil {
 		// Check cache?
-		return nil, err
+		return tlsConfig{}, err
 	}
 
 	if !signalingInsecure {
 		if res.TlsCertificate == "" {
-			return nil, errors.New("no TLS certificate yet from cloud; try again later")
+			return tlsConfig{}, errors.New("no TLS certificate yet from cloud; try again later")
 		}
 		if res.TlsPrivateKey == "" {
-			return nil, errors.New("no TLS private key yet from cloud; try again later")
+			return tlsConfig{}, errors.New("no TLS private key yet from cloud; try again later")
 		}
 	}
 
-	// TODO(RSDK-539): we might want to use an internal type here. The gRPC api will not return a Cloud json struct.
-	return &Cloud{
-		TLSCertificate: res.TlsCertificate,
-		TLSPrivateKey:  res.TlsPrivateKey,
+	return tlsConfig{
+		certificate: res.TlsCertificate,
+		privateKey:  res.TlsPrivateKey,
 	}, nil
 }
 
@@ -188,6 +194,21 @@ func isLocationSecretsEqual(prevCloud, cloud *Cloud) bool {
 	}
 
 	return true
+}
+
+func getTimeoutCtx(ctx context.Context, shouldReadFromCache bool, id string) (context.Context, func()) {
+	timeout := readTimeout
+
+	// use shouldReadFromCache to determine whether this is part of initial read or not, but only shorten timeout
+	// if cached config exists
+	cachedConfigExists := false
+	if _, err := os.Stat(getCloudCacheFilePath(id)); err == nil {
+		cachedConfigExists = true
+	}
+	if shouldReadFromCache && cachedConfigExists {
+		timeout = initialReadTimeout
+	}
+	return context.WithTimeout(ctx, timeout)
 }
 
 // readFromCloud fetches a robot config from the cloud based
@@ -225,28 +246,16 @@ func readFromCloud(
 		return nil, errors.New("expected config to have cloud section")
 	}
 
-	// empty if not cached, since its a separate request, which we check next
-	tlsCertificate := cfg.Cloud.TLSCertificate
-	tlsPrivateKey := cfg.Cloud.TLSPrivateKey
+	tls := tlsConfig{
+		// both fields are empty if not cached, since its a separate request, which we
+		// check next
+		certificate: cfg.Cloud.TLSCertificate,
+		privateKey:  cfg.Cloud.TLSPrivateKey,
+	}
 	if !cached {
-		// get cached certificate data
-		// read cached config from fs.
-		// process the config with fromReader() use processed config as cachedConfig to update the cert data.
-		unproccessedCachedConfig, err := readFromCache(cloudCfg.ID)
-		if err == nil {
-			cachedConfig, err := processConfigFromCloud(unproccessedCachedConfig, logger)
-			if err != nil {
-				// clear cache
-				logger.Warn("Detected failure to process the cached config when retrieving TLS config, clearing cache.")
-				clearCache(cloudCfg.ID)
-				return nil, err
-			}
-
-			if cachedConfig.Cloud != nil {
-				tlsCertificate = cachedConfig.Cloud.TLSCertificate
-				tlsPrivateKey = cachedConfig.Cloud.TLSPrivateKey
-			}
-		} else if !os.IsNotExist(err) {
+		// Try to get TLS information from the cached config (if it exists) even if we
+		// got a new config from the cloud.
+		if err := tls.readFromCache(cloudCfg.ID, logger); err != nil {
 			return nil, err
 		}
 	}
@@ -255,22 +264,24 @@ func readFromCloud(
 		checkForNewCert = true
 	}
 
-	if checkForNewCert || tlsCertificate == "" || tlsPrivateKey == "" {
+	if checkForNewCert || tls.certificate == "" || tls.privateKey == "" {
 		logger.Debug("reading tlsCertificate from the cloud")
-		// Use the SignalingInsecure from the Cloud config returned from the app not the initial config.
 
-		certData, err := readCertificateDataFromCloudGRPC(ctx, cfg.Cloud.SignalingInsecure, cloudCfg, logger)
+		ctxWithTimeout, cancel := getTimeoutCtx(ctx, shouldReadFromCache, cloudCfg.ID)
+		// Use the SignalingInsecure from the Cloud config returned from the app not the initial config.
+		certData, err := readCertificateDataFromCloudGRPC(ctxWithTimeout, cfg.Cloud.SignalingInsecure, cloudCfg, logger)
 		if err != nil {
-			if !errors.Is(err, context.DeadlineExceeded) {
+			cancel()
+			if !errors.As(err, &context.DeadlineExceeded) {
 				return nil, err
 			}
-			if tlsCertificate == "" || tlsPrivateKey == "" {
+			if tls.certificate == "" || tls.privateKey == "" {
 				return nil, errors.Wrap(err, "error getting certificate data from cloud; try again later")
 			}
 			logger.Warnw("failed to refresh certificate data; using cached for now", "error", err)
 		} else {
-			tlsCertificate = certData.TLSCertificate
-			tlsPrivateKey = certData.TLSPrivateKey
+			tls = certData
+			cancel()
 		}
 	}
 
@@ -281,6 +292,8 @@ func readFromCloud(
 	managedBy := cfg.Cloud.ManagedBy
 	locationSecret := cfg.Cloud.LocationSecret
 	locationSecrets := cfg.Cloud.LocationSecrets
+	primaryOrgID := cfg.Cloud.PrimaryOrgID
+	locationID := cfg.Cloud.LocationID
 
 	mergeCloudConfig := func(to *Config) {
 		*to.Cloud = *cloudCfg
@@ -291,20 +304,48 @@ func readFromCloud(
 		to.Cloud.ManagedBy = managedBy
 		to.Cloud.LocationSecret = locationSecret
 		to.Cloud.LocationSecrets = locationSecrets
-		to.Cloud.TLSCertificate = tlsCertificate
-		to.Cloud.TLSPrivateKey = tlsPrivateKey
+		to.Cloud.TLSCertificate = tls.certificate
+		to.Cloud.TLSPrivateKey = tls.privateKey
+		to.Cloud.PrimaryOrgID = primaryOrgID
+		to.Cloud.LocationID = locationID
 	}
 
 	mergeCloudConfig(cfg)
-	// TODO(RSDK-1960): add more tests around config caching
-	unprocessedConfig.Cloud.TLSCertificate = tlsCertificate
-	unprocessedConfig.Cloud.TLSPrivateKey = tlsPrivateKey
+	unprocessedConfig.Cloud.TLSCertificate = tls.certificate
+	unprocessedConfig.Cloud.TLSPrivateKey = tls.privateKey
 
 	if err := storeToCache(cloudCfg.ID, unprocessedConfig); err != nil {
 		logger.Errorw("failed to cache config", "error", err)
 	}
 
 	return cfg, nil
+}
+
+type tlsConfig struct {
+	certificate string
+	privateKey  string
+}
+
+func (tls *tlsConfig) readFromCache(id string, logger logging.Logger) error {
+	cachedCfg, err := readFromCache(id)
+	switch {
+	case os.IsNotExist(err):
+		logger.Warn("No cached config, using cloud TLS config.")
+	case err != nil:
+		return err
+	case cachedCfg.Cloud == nil:
+		logger.Warn("Cached config is not a cloud config, using cloud TLS config.")
+	default:
+		if err := cachedCfg.Cloud.ValidateTLS("cloud"); err != nil {
+			logger.Warn("Detected failure to process the cached config when retrieving TLS config, clearing cache.")
+			clearCache(id)
+			return err
+		}
+
+		tls.certificate = cachedCfg.Cloud.TLSCertificate
+		tls.privateKey = cachedCfg.Cloud.TLSPrivateKey
+	}
+	return nil
 }
 
 // Read reads a config from the given file.
@@ -355,7 +396,7 @@ func fromReader(
 	logger logging.Logger,
 	shouldReadFromCloud bool,
 ) (*Config, error) {
-	// First read and processes config from disk
+	// First read and process config from disk
 	unprocessedConfig := Config{
 		ConfigFilePath: originalPath,
 	}
@@ -390,24 +431,37 @@ func processConfigLocalConfig(unprocessedConfig *Config, logger logging.Logger) 
 	return processConfig(unprocessedConfig, false, logger)
 }
 
+// processConfig processes the config passed in. The config can be either JSON or gRPC derived.
+// If any part of this function errors, the function will exit and no part of the new config will be returned
+// until it is corrected.
 func processConfig(unprocessedConfig *Config, fromCloud bool, logger logging.Logger) (*Config, error) {
+	// Ensure validates the config but also substitutes in some defaults. Implicit dependencies for builtin resource
+	// models are not filled in until attributes are converted.
 	if err := unprocessedConfig.Ensure(fromCloud, logger); err != nil {
 		return nil, err
 	}
 
+	// The unprocessed config is cached, so make a deep copy before continuing. By caching a relatively
+	// unchanged config, changes to the way RDK processes configs between versions will not cause a cache to be broken.
+	// Also ensures validation happens again on resources, remotes, and modules since the cached validation fields are not public.
 	cfg, err := unprocessedConfig.CopyOnlyPublicFields()
 	if err != nil {
 		return nil, errors.Wrap(err, "error copying config")
 	}
 
+	// Copy does not preserve ConfigFilePath since it preserves only JSON-exported fields and so we need
+	// to pass it along manually. ConfigFilePath needs to be preserved so the correct config watcher can
+	// be instantiated later in the flow.
+	cfg.ConfigFilePath = unprocessedConfig.ConfigFilePath
+
+	// replacement can happen in resource attributes and in the module config. look at config/placeholder_replace.go
+	// for available substitution types.
 	if err := cfg.ReplacePlaceholders(); err != nil {
 		logger.Errorw("error during placeholder replacement", "err", err)
 	}
 
-	// Copy does not presve ConfigFilePath and we need to pass it along manually
-	cfg.ConfigFilePath = unprocessedConfig.ConfigFilePath
-
-	// See if default service already exists in the config
+	// See if default service already exists in the config and add them in if not. This code allows for default services to be
+	// defined under a name other than "builtin".
 	defaultServices := resource.DefaultServices()
 	unconfiguredDefaultServices := make(map[resource.API]resource.Name, len(defaultServices))
 	for _, name := range defaultServices {
@@ -427,7 +481,8 @@ func processConfig(unprocessedConfig *Config, fromCloud bool, logger logging.Log
 
 	// We keep track of resource configs per API to facilitate linking resource configs to
 	// its associated resource configs. Associated resource configs are configs that are
-	// linked to and used by a different resource config.
+	// linked to and used by a different resource config. See the data manager
+	// service for an example of a resource that uses associated resource configs.
 	resCfgsPerAPI := map[resource.API][]*resource.Config{}
 
 	processResources := func(confs []resource.Config) error {
@@ -438,6 +493,10 @@ func processConfig(unprocessedConfig *Config, fromCloud bool, logger logging.Log
 			resCfgsPerAPI[copied.API] = append(resCfgsPerAPI[copied.API], &confs[idx])
 			resName := copied.ResourceName()
 
+			// Look up if a resource model registered an attribute map converter. Attribute conversion converts
+			// an untyped, JSON-like object to a typed Go struct. There is a default converter if no
+			// AttributeMapConverter is registered during resource model registration. Lookup will fail for
+			// non-builtin models (so lookup will fail for modular resources) but conversion will happen on the module-side.
 			reg, ok := resource.LookupRegistration(resName.API, copied.Model)
 			if !ok || reg.AttributeMapConverter == nil {
 				continue
@@ -445,6 +504,8 @@ func processConfig(unprocessedConfig *Config, fromCloud bool, logger logging.Log
 
 			converted, err := reg.AttributeMapConverter(conf.Attributes)
 			if err != nil {
+				// if any of the conversion errors, the function will exit and no part of the new config will be returned
+				// until it is corrected.
 				return errors.Wrapf(err, "error converting attributes for (%s, %s)", resName.API, copied.Model)
 			}
 			confs[idx].ConvertedAttributes = converted
@@ -459,18 +520,19 @@ func processConfig(unprocessedConfig *Config, fromCloud bool, logger logging.Log
 		return nil, err
 	}
 
+	// Look through all associated configs for a resource config and link it to the configs that each associated config is linked to
 	convertAndAssociateResourceConfigs := func(
 		resName *resource.Name,
 		remoteName *string,
 		associatedCfgs []resource.AssociatedResourceConfig,
 	) error {
 		for subIdx, associatedConf := range associatedCfgs {
+			// there is no default converter for associated config converters. custom ones can be supplied through registering it on the API level.
 			conv, ok := resource.LookupAssociatedConfigRegistration(associatedConf.API)
 			if !ok {
 				continue
 			}
 
-			var convertedAttrs interface{} = associatedConf.Attributes
 			if conv.AttributeMapConverter != nil {
 				converted, err := conv.AttributeMapConverter(associatedConf.Attributes)
 				if err != nil {
@@ -491,18 +553,10 @@ func processConfig(unprocessedConfig *Config, fromCloud bool, logger logging.Log
 					return newName
 				})
 				associatedCfgs[subIdx].ConvertedAttributes = converted
-				convertedAttrs = converted
-			}
 
-			// for APIs with an associated config linker, link the current associated config with
-			// each resource config of that API.
-			for _, assocConf := range resCfgsPerAPI[associatedConf.API] {
-				reg, ok := resource.LookupRegistration(associatedConf.API, assocConf.Model)
-				if !ok || reg.AssociatedConfigLinker == nil {
-					continue
-				}
-				if err := reg.AssociatedConfigLinker(assocConf.ConvertedAttributes, convertedAttrs); err != nil {
-					return errors.Wrapf(err, "error associating resource association config to resource %q", assocConf.Model)
+				// for APIs with an associated config linker, link the current associated config with each resource config of that API.
+				for _, assocConf := range resCfgsPerAPI[associatedConf.API] {
+					converted.Link(assocConf)
 				}
 			}
 		}
@@ -514,6 +568,7 @@ func processConfig(unprocessedConfig *Config, fromCloud bool, logger logging.Log
 			copied := conf
 			resName := copied.ResourceName()
 
+			// convert and associate user-written associated resource configs here.
 			if err := convertAndAssociateResourceConfigs(&resName, nil, conf.AssociatedResourceConfigs); err != nil {
 				return errors.Wrapf(err, "error processing associated service configs for %q", resName)
 			}
@@ -528,12 +583,14 @@ func processConfig(unprocessedConfig *Config, fromCloud bool, logger logging.Log
 		return nil, err
 	}
 
+	// associated configs can be put on resources in remotes as well, so check remote configs
 	for _, c := range cfg.Remotes {
 		if err := convertAndAssociateResourceConfigs(nil, &c.Name, c.AssociatedResourceConfigs); err != nil {
 			return nil, errors.Wrapf(err, "error processing associated service configs for remote %q", c.Name)
 		}
 	}
 
+	// now that the attribute maps are converted, validate configs and get implicit dependencies for builtin resource models
 	if err := cfg.Ensure(fromCloud, logger); err != nil {
 		return nil, err
 	}
@@ -545,7 +602,11 @@ func processConfig(unprocessedConfig *Config, fromCloud bool, logger logging.Log
 // local cache if the error indicates it should.
 func getFromCloudOrCache(ctx context.Context, cloudCfg *Cloud, shouldReadFromCache bool, logger logging.Logger) (*Config, bool, error) {
 	var cached bool
-	cfg, errorShouldCheckCache, err := getFromCloudGRPC(ctx, cloudCfg, logger)
+
+	ctxWithTimeout, cancel := getTimeoutCtx(ctx, shouldReadFromCache, cloudCfg.ID)
+	defer cancel()
+
+	cfg, errorShouldCheckCache, err := getFromCloudGRPC(ctxWithTimeout, cloudCfg, logger)
 	if err != nil {
 		if shouldReadFromCache && errorShouldCheckCache {
 			logger.Warnw("failed to read config from cloud, checking cache", "error", err)
@@ -558,7 +619,13 @@ func getFromCloudOrCache(ctx context.Context, cloudCfg *Cloud, shouldReadFromCac
 				// return cache err
 				return nil, cached, cacheErr
 			}
-			logger.Warnw("unable to get cloud config; using cached version", "error", err)
+
+			lastUpdated := "unknown"
+			if fInfo, err := os.Stat(getCloudCacheFilePath(cloudCfg.ID)); err == nil {
+				// Use logging.DefaultTimeFormatStr since this time will be logged.
+				lastUpdated = fInfo.ModTime().Format(logging.DefaultTimeFormatStr)
+			}
+			logger.Warnw("unable to get cloud config; using cached version", "config last updated", lastUpdated, "error", err)
 			cached = true
 			return cachedConfig, cached, nil
 		}

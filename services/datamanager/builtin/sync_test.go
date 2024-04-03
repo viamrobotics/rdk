@@ -74,7 +74,7 @@ func TestSyncEnabled(t *testing.T) {
 				fail:                &atomic.Bool{},
 			}
 			dmsvc.SetSyncerConstructor(getTestSyncerConstructorMock(mockClient))
-			cfg, deps := setupConfig(t, enabledBinaryCollectorConfigPath)
+			cfg, associations, deps := setupConfig(t, enabledBinaryCollectorConfigPath)
 
 			// Set up service config.
 			cfg.CaptureDisabled = false
@@ -84,7 +84,8 @@ func TestSyncEnabled(t *testing.T) {
 
 			resources := resourcesFromDeps(t, r, deps)
 			err := dmsvc.Reconfigure(context.Background(), resources, resource.Config{
-				ConvertedAttributes: cfg,
+				ConvertedAttributes:  cfg,
+				AssociatedAttributes: associations,
 			})
 			test.That(t, err, test.ShouldBeNil)
 			mockClock.Add(captureInterval)
@@ -112,7 +113,8 @@ func TestSyncEnabled(t *testing.T) {
 
 			resources = resourcesFromDeps(t, r, deps)
 			err = dmsvc.Reconfigure(context.Background(), resources, resource.Config{
-				ConvertedAttributes: cfg,
+				ConvertedAttributes:  cfg,
+				AssociatedAttributes: associations,
 			})
 			test.That(t, err, test.ShouldBeNil)
 
@@ -208,15 +210,16 @@ func TestDataCaptureUploadIntegration(t *testing.T) {
 			dmsvc, r := newTestDataManager(t)
 			defer dmsvc.Close(context.Background())
 			var cfg *Config
+			var associations map[resource.Name]resource.AssociatedConfig
 			var deps []string
 			captureInterval := time.Millisecond * 10
 			if tc.emptyFile {
-				cfg, deps = setupConfig(t, infrequentCaptureTabularCollectorConfigPath)
+				cfg, associations, deps = setupConfig(t, infrequentCaptureTabularCollectorConfigPath)
 			} else {
 				if tc.dataType == v1.DataType_DATA_TYPE_TABULAR_SENSOR {
-					cfg, deps = setupConfig(t, enabledTabularCollectorConfigPath)
+					cfg, associations, deps = setupConfig(t, enabledTabularCollectorConfigPath)
 				} else {
-					cfg, deps = setupConfig(t, enabledBinaryCollectorConfigPath)
+					cfg, associations, deps = setupConfig(t, enabledBinaryCollectorConfigPath)
 				}
 			}
 
@@ -228,7 +231,8 @@ func TestDataCaptureUploadIntegration(t *testing.T) {
 
 			resources := resourcesFromDeps(t, r, deps)
 			err := dmsvc.Reconfigure(context.Background(), resources, resource.Config{
-				ConvertedAttributes: cfg,
+				ConvertedAttributes:  cfg,
+				AssociatedAttributes: associations,
 			})
 			test.That(t, err, test.ShouldBeNil)
 
@@ -262,7 +266,8 @@ func TestDataCaptureUploadIntegration(t *testing.T) {
 			cfg.SyncIntervalMins = syncIntervalMins
 			resources = resourcesFromDeps(t, r, deps)
 			err = newDMSvc.Reconfigure(context.Background(), resources, resource.Config{
-				ConvertedAttributes: cfg,
+				ConvertedAttributes:  cfg,
+				AssociatedAttributes: associations,
 			})
 			test.That(t, err, test.ShouldBeNil)
 
@@ -327,7 +332,9 @@ func TestArbitraryFileUpload(t *testing.T) {
 	datasync.RetryExponentialFactor.Store(int32(1))
 	fileName := "some_file_name.txt"
 	fileExt := ".txt"
-
+	// Disable the check to see if the file was modified recently,
+	// since we are testing instanteous arbitrary file uploads.
+	datasync.SetFileLastModifiedMillis(0)
 	tests := []struct {
 		name                 string
 		manualSync           bool
@@ -377,7 +384,7 @@ func TestArbitraryFileUpload(t *testing.T) {
 				fail:                &f,
 			}
 			dmsvc.SetSyncerConstructor(getTestSyncerConstructorMock(mockClient))
-			cfg, deps := setupConfig(t, disabledTabularCollectorConfigPath)
+			cfg, associations, deps := setupConfig(t, disabledTabularCollectorConfigPath)
 			cfg.ScheduledSyncDisabled = tc.scheduleSyncDisabled
 			cfg.SyncIntervalMins = syncIntervalMins
 			cfg.AdditionalSyncPaths = []string{additionalPathsDir}
@@ -386,7 +393,8 @@ func TestArbitraryFileUpload(t *testing.T) {
 			// Start dmsvc.
 			resources := resourcesFromDeps(t, r, deps)
 			err := dmsvc.Reconfigure(context.Background(), resources, resource.Config{
-				ConvertedAttributes: cfg,
+				ConvertedAttributes:  cfg,
+				AssociatedAttributes: associations,
 			})
 			test.That(t, err, test.ShouldBeNil)
 			// Ensure that we don't wait to sync files.
@@ -492,9 +500,10 @@ func TestStreamingDCUpload(t *testing.T) {
 			dmsvc, r := newTestDataManager(t)
 			defer dmsvc.Close(context.Background())
 			var cfg *Config
+			var associations map[resource.Name]resource.AssociatedConfig
 			var deps []string
 			captureInterval := time.Millisecond * 10
-			cfg, deps = setupConfig(t, enabledBinaryCollectorConfigPath)
+			cfg, associations, deps = setupConfig(t, enabledBinaryCollectorConfigPath)
 
 			// Set up service config with just capture enabled.
 			cfg.CaptureDisabled = false
@@ -504,7 +513,8 @@ func TestStreamingDCUpload(t *testing.T) {
 
 			resources := resourcesFromDeps(t, r, deps)
 			err := dmsvc.Reconfigure(context.Background(), resources, resource.Config{
-				ConvertedAttributes: cfg,
+				ConvertedAttributes:  cfg,
+				AssociatedAttributes: associations,
 			})
 			test.That(t, err, test.ShouldBeNil)
 
@@ -534,7 +544,8 @@ func TestStreamingDCUpload(t *testing.T) {
 			cfg.ScheduledSyncDisabled = true
 			resources = resourcesFromDeps(t, r, deps)
 			err = newDMSvc.Reconfigure(context.Background(), resources, resource.Config{
-				ConvertedAttributes: cfg,
+				ConvertedAttributes:  cfg,
+				AssociatedAttributes: associations,
 			})
 			test.That(t, err, test.ShouldBeNil)
 
@@ -646,7 +657,7 @@ func TestSyncConfigUpdateBehavior(t *testing.T) {
 				fail:                &atomic.Bool{},
 			}
 			dmsvc.SetSyncerConstructor(getTestSyncerConstructorMock(mockClient))
-			cfg, deps := setupConfig(t, enabledBinaryCollectorConfigPath)
+			cfg, associations, deps := setupConfig(t, enabledBinaryCollectorConfigPath)
 
 			// Set up service config.
 			cfg.CaptureDisabled = false
@@ -656,7 +667,8 @@ func TestSyncConfigUpdateBehavior(t *testing.T) {
 
 			resources := resourcesFromDeps(t, r, deps)
 			err := dmsvc.Reconfigure(context.Background(), resources, resource.Config{
-				ConvertedAttributes: cfg,
+				ConvertedAttributes:  cfg,
+				AssociatedAttributes: associations,
 			})
 			test.That(t, err, test.ShouldBeNil)
 
@@ -668,7 +680,8 @@ func TestSyncConfigUpdateBehavior(t *testing.T) {
 			cfg.SyncIntervalMins = tc.newSyncIntervalMins
 
 			err = dmsvc.Reconfigure(context.Background(), resources, resource.Config{
-				ConvertedAttributes: cfg,
+				ConvertedAttributes:  cfg,
+				AssociatedAttributes: associations,
 			})
 			test.That(t, err, test.ShouldBeNil)
 

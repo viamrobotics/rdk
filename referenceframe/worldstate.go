@@ -1,6 +1,7 @@
 package referenceframe
 
 import (
+	"fmt"
 	"strconv"
 
 	"github.com/jedib0t/go-pretty/v6/table"
@@ -115,7 +116,7 @@ func (ws *WorldState) String() string {
 		for _, geometry := range geometries.geometries {
 			t.AppendRow([]interface{}{
 				geometry.Label(),
-				geometry.String(),
+				fmt.Sprint(geometry),
 				geometries.frame,
 			})
 		}

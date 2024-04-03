@@ -11,6 +11,7 @@ import (
 	"go.viam.com/utils/pexec"
 
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/internal/cloud"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/pointcloud"
@@ -47,6 +48,7 @@ type Robot struct {
 	TransformPointCloudFunc func(ctx context.Context, srcpc pointcloud.PointCloud, srcName, dstName string) (pointcloud.PointCloud, error)
 	StatusFunc              func(ctx context.Context, resourceNames []resource.Name) ([]robot.Status, error)
 	ModuleAddressFunc       func() (string, error)
+	CloudMetadataFunc       func(ctx context.Context) (cloud.Metadata, error)
 
 	ops        *operation.Manager
 	SessMgr    session.Manager
@@ -55,20 +57,28 @@ type Robot struct {
 
 // MockResourcesFromMap mocks ResourceNames and ResourceByName based on a resource map.
 func (r *Robot) MockResourcesFromMap(rs map[resource.Name]resource.Resource) {
-	r.ResourceNamesFunc = func() []resource.Name {
-		result := []resource.Name{}
-		for name := range rs {
-			result = append(result, name)
+	func() {
+		r.Mu.Lock()
+		defer r.Mu.Unlock()
+		r.ResourceNamesFunc = func() []resource.Name {
+			result := []resource.Name{}
+			for name := range rs {
+				result = append(result, name)
+			}
+			return result
 		}
-		return result
-	}
-	r.ResourceByNameFunc = func(name resource.Name) (resource.Resource, error) {
-		result, ok := rs[name]
-		if ok {
-			return result, nil
+	}()
+	func() {
+		r.Mu.Lock()
+		defer r.Mu.Unlock()
+		r.ResourceByNameFunc = func(name resource.Name) (resource.Resource, error) {
+			result, ok := rs[name]
+			if ok {
+				return result, nil
+			}
+			return nil, errors.New("not found")
 		}
-		return nil, errors.New("not found")
-	}
+	}()
 }
 
 // RemoteByName calls the injected RemoteByName or the real version.
@@ -272,6 +282,16 @@ func (r *Robot) ModuleAddress() (string, error) {
 		return r.LocalRobot.ModuleAddress()
 	}
 	return r.ModuleAddressFunc()
+}
+
+// CloudMetadata calls the injected CloudMetadata or the real one.
+func (r *Robot) CloudMetadata(ctx context.Context) (cloud.Metadata, error) {
+	r.Mu.RLock()
+	defer r.Mu.RUnlock()
+	if r.CloudMetadataFunc == nil {
+		return r.LocalRobot.CloudMetadata(ctx)
+	}
+	return r.CloudMetadataFunc(ctx)
 }
 
 type noopSessionManager struct{}

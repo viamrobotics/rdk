@@ -6,7 +6,6 @@ import (
 	"bytes"
 	"context"
 	"io"
-	"time"
 
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
@@ -39,10 +38,44 @@ func init() {
 }
 
 // SubtypeName is the name of the type of service.
-const SubtypeName = "slam"
+const (
+	SubtypeName       = "slam"
+	MappingModeNewMap = MappingMode(iota)
+	MappingModeLocalizationOnly
+	MappingModeUpdateExistingMap
+)
+
+// SensorTypeCamera is a camera sensor.
+const (
+	SensorTypeCamera = SensorType(iota)
+	SensorTypeMovementSensor
+)
 
 // API is a variable that identifies the slam resource API.
 var API = resource.APINamespaceRDK.WithServiceType(SubtypeName)
+
+// MappingMode describes what mapping mode the slam service is in, including
+// creating a new map, localizing on an existing map or updating an existing map.
+type MappingMode uint8
+
+// SensorType describes what sensor type the sensor is, including
+// camera or movement sensor.
+type SensorType uint8
+
+// SensorInfo holds information about the sensor name and sensor type.
+type SensorInfo struct {
+	Name string
+	Type SensorType
+}
+
+// Properties returns various information regarding the current slam service,
+// including whether the slam process is running in the cloud and its mapping mode.
+type Properties struct {
+	CloudSlam             bool
+	MappingMode           MappingMode
+	InternalStateFileType string
+	SensorInfo            []SensorInfo
+}
 
 // Named is a helper for getting the named service's typed resource name.
 func Named(name string) resource.Name {
@@ -54,13 +87,19 @@ func FromRobot(r robot.Robot, name string) (Service, error) {
 	return robot.ResourceFromRobot[Service](r, Named(name))
 }
 
+// FromDependencies is a helper for getting the named SLAM service from a collection of
+// dependencies.
+func FromDependencies(deps resource.Dependencies, name string) (Service, error) {
+	return resource.FromDependencies[Service](deps, Named(name))
+}
+
 // Service describes the functions that are available to the service.
 type Service interface {
 	resource.Resource
 	Position(ctx context.Context) (spatialmath.Pose, string, error)
-	PointCloudMap(ctx context.Context) (func() ([]byte, error), error)
+	PointCloudMap(ctx context.Context, returnEditedMap bool) (func() ([]byte, error), error)
 	InternalState(ctx context.Context) (func() ([]byte, error), error)
-	LatestMapInfo(ctx context.Context) (time.Time, error)
+	Properties(ctx context.Context) (Properties, error)
 }
 
 // HelperConcatenateChunksToFull concatenates the chunks from a streamed grpc endpoint.
@@ -80,10 +119,10 @@ func HelperConcatenateChunksToFull(f func() ([]byte, error)) ([]byte, error) {
 }
 
 // PointCloudMapFull concatenates the streaming responses from PointCloudMap into a full point cloud.
-func PointCloudMapFull(ctx context.Context, slamSvc Service) ([]byte, error) {
+func PointCloudMapFull(ctx context.Context, slamSvc Service, returnEditedMap bool) ([]byte, error) {
 	ctx, span := trace.StartSpan(ctx, "slam::PointCloudMapFull")
 	defer span.End()
-	callback, err := slamSvc.PointCloudMap(ctx)
+	callback, err := slamSvc.PointCloudMap(ctx, returnEditedMap)
 	if err != nil {
 		return nil, err
 	}
@@ -103,8 +142,8 @@ func InternalStateFull(ctx context.Context, slamSvc Service) ([]byte, error) {
 }
 
 // Limits returns the bounds of the slam map as a list of referenceframe.Limits.
-func Limits(ctx context.Context, svc Service) ([]referenceframe.Limit, error) {
-	data, err := PointCloudMapFull(ctx, svc)
+func Limits(ctx context.Context, svc Service, useEditedMap bool) ([]referenceframe.Limit, error) {
+	data, err := PointCloudMapFull(ctx, svc, useEditedMap)
 	if err != nil {
 		return nil, err
 	}

@@ -75,7 +75,10 @@ func TestWrapWithDifferentialDriveKinematics(t *testing.T) {
 			test.That(t, limits[1].Max, test.ShouldBeGreaterThan, 0)
 			geometry, err := ddk.executionFrame.(*referenceframe.SimpleModel).Geometries(make([]referenceframe.Input, len(limits)))
 			test.That(t, err, test.ShouldBeNil)
-			equivalent := geometry.GeometryByName(testCfg.Name + ":" + testCfg.Frame.Geometry.Label).AlmostEqual(expectedSphere)
+			equivalent := spatialmath.GeometriesAlmostEqual(
+				geometry.GeometryByName(testCfg.Name+":"+testCfg.Frame.Geometry.Label),
+				expectedSphere,
+			)
 			test.That(t, equivalent, test.ShouldBeTrue)
 		})
 	}
@@ -167,7 +170,7 @@ func buildTestDDK(
 	var limits []referenceframe.Limit
 	if hasLocalizer {
 		fakeSLAM := fake.NewSLAM(slam.Named("test"), logger)
-		limits, err = fakeSLAM.Limits(ctx)
+		limits, err = fakeSLAM.Limits(ctx, true)
 		if err != nil {
 			return nil, err
 		}
@@ -206,14 +209,14 @@ func TestNewValidRegionCapsule(t *testing.T) {
 	c, err := ddk.newValidRegionCapsule(starting, desired)
 	test.That(t, err, test.ShouldBeNil)
 
-	col, err := c.CollidesWith(spatialmath.NewPoint(r3.Vector{X: -176, Y: 576, Z: 0}, ""))
+	col, err := c.CollidesWith(spatialmath.NewPoint(r3.Vector{X: -176, Y: 576, Z: 0}, ""), defaultCollisionBufferMM)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, col, test.ShouldBeTrue)
 
 	col, err = c.CollidesWith(spatialmath.NewPoint(
 		r3.Vector{X: -defaultPlanDeviationThresholdMM, Y: -defaultPlanDeviationThresholdMM, Z: 0},
 		"",
-	))
+	), defaultCollisionBufferMM)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, col, test.ShouldBeFalse)
 }

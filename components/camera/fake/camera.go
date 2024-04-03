@@ -6,6 +6,7 @@ import (
 	"image"
 	"image/color"
 	"math"
+	"time"
 
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
@@ -29,21 +30,14 @@ func init() {
 	resource.RegisterComponent(
 		camera.API,
 		model,
-		resource.Registration[camera.Camera, *Config]{
-			Constructor: func(
-				ctx context.Context,
-				_ resource.Dependencies,
-				cfg resource.Config,
-				logger logging.Logger,
-			) (camera.Camera, error) {
-				return NewCamera(ctx, cfg, logger)
-			},
-		})
+		resource.Registration[camera.Camera, *Config]{Constructor: NewCamera},
+	)
 }
 
 // NewCamera returns a new fake camera.
 func NewCamera(
 	ctx context.Context,
+	_ resource.Dependencies,
 	conf resource.Config,
 	logger logging.Logger,
 ) (camera.Camera, error) {
@@ -57,11 +51,12 @@ func NewCamera(
 	}
 	resModel, width, height := fakeModel(newConf.Width, newConf.Height)
 	cam := &Camera{
-		Named:  conf.ResourceName().AsNamed(),
-		Model:  resModel,
-		Width:  width,
-		Height: height,
-		logger: logger,
+		Named:    conf.ResourceName().AsNamed(),
+		Model:    resModel,
+		Width:    width,
+		Height:   height,
+		Animated: newConf.Animated,
+		logger:   logger,
 	}
 	src, err := camera.NewVideoSourceFromReader(ctx, cam, resModel, camera.ColorStream)
 	if err != nil {
@@ -72,18 +67,29 @@ func NewCamera(
 
 // Config are the attributes of the fake camera config.
 type Config struct {
-	Width  int `json:"width,omitempty"`
-	Height int `json:"height,omitempty"`
+	Width    int  `json:"width,omitempty"`
+	Height   int  `json:"height,omitempty"`
+	Animated bool `json:"animated,omitempty"`
 }
 
 // Validate checks that the config attributes are valid for a fake camera.
 func (conf *Config) Validate(path string) ([]string, error) {
+	if conf.Height > 10000 || conf.Width > 10000 {
+		return nil, errors.New("maximum supported pixel height or width for fake cameras is 10000 pixels")
+	}
+
+	if conf.Height < 0 || conf.Width < 0 {
+		return nil, errors.New("cannot use negative pixel height and width for fake cameras")
+	}
+
 	if conf.Height%2 != 0 {
 		return nil, errors.Errorf("odd-number resolutions cannot be rendered, cannot use a height of %d", conf.Height)
 	}
+
 	if conf.Width%2 != 0 {
 		return nil, errors.Errorf("odd-number resolutions cannot be rendered, cannot use a width of %d", conf.Width)
 	}
+
 	return nil, nil
 }
 
@@ -167,6 +173,7 @@ type Camera struct {
 	Model           *transform.PinholeCameraModel
 	Width           int
 	Height          int
+	Animated        bool
 	cacheImage      *image.RGBA
 	cachePointCloud pointcloud.PointCloud
 	logger          logging.Logger
@@ -183,16 +190,27 @@ func (c *Camera) Read(ctx context.Context) (image.Image, func(), error) {
 
 	totalDist := math.Sqrt(math.Pow(0-width, 2) + math.Pow(0-height, 2))
 
+	tick := time.Now().UnixMilli() / 20
 	var x, y float64
 	for x = 0; x < width; x++ {
 		for y = 0; y < height; y++ {
 			dist := math.Sqrt(math.Pow(0-x, 2) + math.Pow(0-y, 2))
 			dist /= totalDist
 			thisColor := color.RGBA{uint8(255 - (255 * dist)), uint8(255 - (255 * dist)), uint8(0 + (255 * dist)), 255}
-			img.Set(int(x), int(y), thisColor)
+
+			var px, py int
+			if c.Animated {
+				px = int(int64(x)+tick) % int(width)
+				py = int(y)
+			} else {
+				px, py = int(x), int(y)
+			}
+			img.Set(px, py, thisColor)
 		}
 	}
-	c.cacheImage = img
+	if !c.Animated {
+		c.cacheImage = img
+	}
 	return rimage.ConvertImage(img), func() {}, nil
 }
 

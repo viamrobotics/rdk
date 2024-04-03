@@ -9,6 +9,7 @@ import (
 	"os/exec"
 	"runtime"
 	"sync"
+	"time"
 
 	"github.com/creack/pty"
 	"go.viam.com/utils"
@@ -44,10 +45,13 @@ type builtIn struct {
 	activeBackgroundWorkers sync.WaitGroup
 }
 
-func (svc *builtIn) Shell(ctx context.Context, extra map[string]interface{}) (chan<- string, <-chan shell.Output, error) {
+func (svc *builtIn) Shell(ctx context.Context, extra map[string]interface{}) (
+	chan<- string, chan<- map[string]interface{}, <-chan shell.Output, error,
+) {
 	if runtime.GOOS == "windows" {
-		return nil, nil, errors.New("shell not supported on windows yet; sorry")
+		return nil, nil, nil, errors.New("shell not supported on windows yet; sorry")
 	}
+
 	defaultShellPath, ok := os.LookupEnv("SHELL")
 	if !ok {
 		defaultShellPath = "/bin/sh"
@@ -56,11 +60,58 @@ func (svc *builtIn) Shell(ctx context.Context, extra map[string]interface{}) (ch
 	ctxCancel, cancel := context.WithCancel(ctx)
 	//nolint:gosec
 	cmd := exec.CommandContext(ctxCancel, defaultShellPath, "-i")
+	cmd.Env = []string{"TERM=xterm-256color"}
 	f, err := pty.Start(cmd)
 	if err != nil {
 		cancel()
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
+
+	var sizeLock sync.Mutex
+	lastSet := time.Time{}
+	procOOB := func(data map[string]interface{}) {
+		if len(data) == 0 {
+			return
+		}
+		switch data["message"] {
+		case "window-change":
+			cols, ok := data["cols"].(float64)
+			if !ok {
+				svc.logger.CErrorw(ctx, "invalid window-change message; expected cols to be float64", "value", data["cols"])
+				return
+			}
+			rows, ok := data["rows"].(float64)
+			if !ok {
+				svc.logger.CErrorw(ctx, "invalid window-change message; expected rows to be float64", "value", data["rows"])
+				return
+			}
+			sizeLock.Lock()
+			defer sizeLock.Unlock()
+			if time.Since(lastSet) < 200*time.Millisecond {
+				svc.logger.CDebug(ctx, "too many resizes")
+				return
+			}
+			lastSet = time.Now()
+			if err := pty.Setsize(f, &pty.Winsize{
+				Rows: uint16(rows),
+				Cols: uint16(cols),
+			}); err != nil {
+				svc.logger.CErrorw(ctx, "error setting pty window size", "error", err)
+			}
+		default:
+			svc.logger.CDebugw(ctx, "will not process OOB data")
+		}
+	}
+	if msgs, ok := extra["messages"].([]interface{}); ok {
+		for _, msg := range msgs {
+			msgM, ok := msg.(map[string]interface{})
+			if !ok {
+				continue
+			}
+			procOOB(msgM)
+		}
+	}
+
 	svc.activeBackgroundWorkers.Add(2)
 	utils.PanicCapturingGo(func() {
 		defer svc.activeBackgroundWorkers.Done()
@@ -79,6 +130,7 @@ func (svc *builtIn) Shell(ctx context.Context, extra map[string]interface{}) (ch
 	})
 
 	input := make(chan string)
+	oobInput := make(chan map[string]interface{})
 	output := make(chan shell.Output)
 
 	utils.PanicCapturingGo(func() {
@@ -138,7 +190,21 @@ func (svc *builtIn) Shell(ctx context.Context, extra map[string]interface{}) (ch
 		}
 	})
 
-	return input, output, nil
+	utils.PanicCapturingGo(func() {
+		for {
+			select {
+			case oobInputData, ok := <-oobInput:
+				if !ok {
+					return
+				}
+				procOOB(oobInputData)
+			case <-ctxCancel.Done():
+				return
+			}
+		}
+	})
+
+	return input, oobInput, output, nil
 }
 
 func (svc *builtIn) Close(ctx context.Context) error {

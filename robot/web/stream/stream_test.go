@@ -10,6 +10,7 @@ import (
 
 	"github.com/pion/mediadevices/pkg/prop"
 	"github.com/pion/mediadevices/pkg/wave"
+	"github.com/pion/rtp"
 	"github.com/pion/webrtc/v3"
 	"go.viam.com/test"
 
@@ -69,6 +70,10 @@ func (mS *mockStream) Start() {
 }
 
 func (mS *mockStream) Stop() {
+}
+
+func (mS *mockStream) WriteRTP(*rtp.Packet) error {
+	return nil
 }
 
 func (mS *mockStream) VideoTrackLocal() (webrtc.TrackLocal, bool) {
