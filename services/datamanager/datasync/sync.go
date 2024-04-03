@@ -4,6 +4,7 @@ package datasync
 import (
 	"context"
 	"fmt"
+	"io/fs"
 	"os"
 	"path"
 	"path/filepath"
@@ -135,8 +136,19 @@ func (s *syncer) SyncFile(path string) {
 			return
 		}
 		s.logger.Debugf("Free space: %d\nAvailable: %d\t\nUsage: %x\t\nDir size bytes: %d", usage.Free(), usage.Available(), usage.Usage(), fileInfo.Size())
-		files, _ := os.ReadDir(s.captureDir)
-		s.logger.Debugf("Number of files: %d", len(files))
+		count := 0
+		filepath.WalkDir(s.captureDir, func(path string, file fs.DirEntry, err error) error {
+			if err != nil {
+				return err
+			}
+			if !file.IsDir() {
+				fmt.Println(path)
+				count++
+			}
+
+			return nil
+		})
+		s.logger.Debugf("Number of files: %d", count)
 	}()
 
 	fsWg.Wait()
