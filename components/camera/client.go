@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"image"
+	"slices"
 	"sync"
 
 	"github.com/pkg/errors"
@@ -15,7 +16,6 @@ import (
 	"go.viam.com/utils/rpc"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/structpb"
-	"slices"
 
 	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/gostream"
