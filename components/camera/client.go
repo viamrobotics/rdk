@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"image"
+	"slices"
 	"sync"
 
 	"github.com/pkg/errors"
@@ -59,6 +60,7 @@ func NewClientFromConn(
 }
 
 func getExtra(ctx context.Context) (*structpb.Struct, error) {
+	slices.Clone([]int{})
 	ext := &structpb.Struct{}
 	if extra, ok := FromContext(ctx); ok {
 		var err error

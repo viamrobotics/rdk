@@ -63,6 +63,7 @@ lint: lint-go lint-web
 lint-go: tool-install
 	go mod tidy
 	export pkgs="`go list -f '{{.Dir}}' ./... | grep -v /proto/`" && echo "$$pkgs" | xargs go vet -vettool=$(TOOL_BIN)/combined
+	$(TOOL_BIN)/golangci-lint --version
 	GOGC=50 $(TOOL_BIN)/golangci-lint run -v --fix --config=./etc/.golangci.yaml
 
 lint-web: check-web
