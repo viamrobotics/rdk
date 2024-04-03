@@ -10,11 +10,7 @@ Viam provides an open source robot architecture that provides robotics functiona
 
 **Documentation**: [docs.viam.com](https://docs.viam.com)
 
-**Cloud App**: [app.viam.com](https://app.viam.com)
-
-## Contact
-
-* Discord: <https://discord.gg/viam>
+**Cloud App**: [app.viam.com](https
 * Support: <https://support.viam.com>
 
 If you have a bug or an idea, please open an issue in our [JIRA project](https://viam.atlassian.net/).
