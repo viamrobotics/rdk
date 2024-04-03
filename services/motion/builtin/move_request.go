@@ -33,8 +33,6 @@ const (
 	baseStopTimeout         = time.Second * 5
 )
 
-var errGoalWithinPlanDeviation = errors.New("no need to move, already within planDeviationMM")
-
 // validatedMotionConfiguration is a copy of the motion.MotionConfiguration type
 // which has been validated to conform to the expectations of the builtin
 // motion servicl.
@@ -718,13 +716,10 @@ func (ms *builtIn) createBaseMoveRequest(
 	// current & desired orientation
 	if valExtra.motionProfile == motionplan.PositionOnlyMotionProfile {
 		if spatialmath.PoseAlmostCoincidentEps(goal.Pose(), startPose, motionCfg.planDeviationMM) {
-			return nil, errGoalWithinPlanDeviation
+			return nil, motion.ErrGoalWithinPlanDeviation
 		}
-	} else {
-		if spatialmath.OrientationAlmostEqual(goal.Pose().Orientation(), spatialmath.NewZeroPose().Orientation()) &&
-			spatialmath.PoseAlmostCoincidentEps(goal.Pose(), startPose, motionCfg.planDeviationMM) {
-			return nil, errGoalWithinPlanDeviation
-		}
+	} else if spatialmath.PoseAlmostEqualEps(goal.Pose(), startPose, motionCfg.planDeviationMM) {
+		return nil, motion.ErrGoalWithinPlanDeviation
 	}
 
 	gif := referenceframe.NewGeometriesInFrame(referenceframe.World, worldObstacles)
