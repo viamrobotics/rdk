@@ -283,6 +283,11 @@ func TestMotorEncoder1(t *testing.T) {
 
 		test.That(t, ctx.Err(), test.ShouldNotBeNil)
 	})
+
+	t.Run("close", func(t *testing.T) {
+		test.That(t, motorDep.goForInternal(context.Background(), 1000, 1, 1), test.ShouldBeNil)
+		test.That(t, motorDep.Close(ctx), test.ShouldBeNil)
+	})
 }
 
 func TestMotorEncoderIncremental(t *testing.T) {

@@ -74,14 +74,11 @@ func newEncodedMotor(
 		motorConfig.TicksPerRotation = 1
 	}
 
-	cancelCtx, cancel := context.WithCancel(context.Background())
 	em := &EncodedMotor{
 		Named:             name.AsNamed(),
 		cfg:               motorConfig,
 		ticksPerRotation:  float64(motorConfig.TicksPerRotation),
 		real:              localReal,
-		cancelCtx:         cancelCtx,
-		cancel:            cancel,
 		rampRate:          motorConfig.RampRate,
 		maxPowerPct:       motorConfig.MaxPowerPct,
 		logger:            logger,
@@ -149,10 +146,8 @@ type EncodedMotor struct {
 	maxPowerPct      float64
 	ticksPerRotation float64
 
-	logger    logging.Logger
-	cancelCtx context.Context
-	cancel    func()
-	opMgr     *operation.SingleOperationManager
+	logger logging.Logger
+	opMgr  *operation.SingleOperationManager
 
 	controlLoopConfig control.Config
 	blockNames        map[string][]string
@@ -332,6 +327,7 @@ func (m *EncodedMotor) goForMath(ctx context.Context, rpm, revolutions float64) 
 // If revolutions is 0, this will run the motor at rpm indefinitely
 // If revolutions != 0, this will block until the number of revolutions has been completed or another operation comes in.
 func (m *EncodedMotor) GoFor(ctx context.Context, rpm, revolutions float64, extra map[string]interface{}) error {
+	m.opMgr.CancelRunning(ctx)
 	ctx, done := m.opMgr.New(ctx)
 	defer done()
 
@@ -392,9 +388,8 @@ func (m *EncodedMotor) goForInternal(ctx context.Context, rpm, goalPos, directio
 			}
 
 			// start a new rpmMonitor
-			// create rpmCtx from the motor cancelCtx
 			var rpmCtx context.Context
-			rpmCtx, m.rpmMonitorDone = context.WithCancel(m.cancelCtx)
+			rpmCtx, m.rpmMonitorDone = context.WithCancel(context.Background())
 			m.activeBackgroundWorkers.Add(1)
 			utils.ManagedGo(func() {
 				m.rpmMonitor(rpmCtx, rpm, goalPos, direction)
@@ -515,7 +510,6 @@ func (m *EncodedMotor) Close(ctx context.Context) error {
 		m.loop.Stop()
 		m.loop = nil
 	}
-	m.cancel()
 	m.activeBackgroundWorkers.Wait()
 	return nil
 }
