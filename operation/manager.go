@@ -3,6 +3,7 @@ package operation
 import (
 	"context"
 	"errors"
+	"fmt"
 	"sync"
 	"time"
 
@@ -43,6 +44,7 @@ func (sm *SingleOperationManager) CancelRunning(ctx context.Context) {
 	sm.mu.Lock()
 	defer sm.mu.Unlock()
 	if sm.currentOp != nil {
+		fmt.Println("CANCELING")
 		sm.currentOp.cancelAndWaitFunc()
 	}
 }

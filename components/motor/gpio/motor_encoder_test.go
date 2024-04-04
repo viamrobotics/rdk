@@ -285,7 +285,9 @@ func TestMotorEncoder1(t *testing.T) {
 	})
 
 	t.Run("close", func(t *testing.T) {
-		test.That(t, motorDep.goForInternal(context.Background(), 1000, 1, 1), test.ShouldBeNil)
+		ctx, done := motorDep.opMgr.New(ctx)
+		defer done()
+		test.That(t, motorDep.goForInternal(ctx, 1000, 1, 1), test.ShouldBeNil)
 		test.That(t, motorDep.Close(ctx), test.ShouldBeNil)
 	})
 }
