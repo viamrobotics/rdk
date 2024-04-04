@@ -101,8 +101,8 @@ func goToProto(v interface{}) (*structpb.Value, error) {
 	// parsing of those requires that they must be entirely ASCII. So, we need to ensure that any
 	// errors from here do not contain non-breaking spaces.
 	if err != nil {
-		ascii := strings.Replace(
-			err.Error(), " " /* non-breaking space */, " " /* normal space */, -1 /* replace all */)
+		ascii := strings.ReplaceAll(
+			err.Error(), " " /* non-breaking space */, " " /* normal space */)
 		err = errors.New(ascii)
 	}
 	return vv, err
