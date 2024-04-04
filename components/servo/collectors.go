@@ -41,6 +41,14 @@ func newPositionCollector(resource interface{}, params data.CollectorParams) (da
 			}
 			return nil, data.FailedToReadErr(params.ComponentName, position.String(), err)
 		}
+		if params.WebhookConfig != nil {
+			if params.WebhookConfig.Comparator(pos, pos) { //make them always equal to make webhook URL included
+				return pb.GetPositionResponse{
+					PositionDeg: pos,
+					WebhookUrl:  params.WebhookConfig.URL,
+				}, nil
+			}
+		}
 		return pb.GetPositionResponse{
 			PositionDeg: pos,
 		}, nil

@@ -12,6 +12,7 @@ import (
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/datamanager/datacapture"
+	"go.viam.com/rdk/webhook"
 )
 
 // CollectorConstructor contains a function for constructing an instance of a Collector.
@@ -27,6 +28,7 @@ type CollectorParams struct {
 	BufferSize    int
 	Logger        logging.Logger
 	Clock         clock.Clock
+	WebhookConfig *webhook.DataCaptureWebhook[uint32]
 }
 
 // Validate validates that p contains all required parameters.
