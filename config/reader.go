@@ -196,6 +196,21 @@ func isLocationSecretsEqual(prevCloud, cloud *Cloud) bool {
 	return true
 }
 
+func getTimeoutCtx(ctx context.Context, shouldReadFromCache bool, id string) (context.Context, func()) {
+	timeout := readTimeout
+
+	// use shouldReadFromCache to determine whether this is part of initial read or not, but only shorten timeout
+	// if cached config exists
+	cachedConfigExists := false
+	if _, err := os.Stat(getCloudCacheFilePath(id)); err == nil {
+		cachedConfigExists = true
+	}
+	if shouldReadFromCache && cachedConfigExists {
+		timeout = initialReadTimeout
+	}
+	return context.WithTimeout(ctx, timeout)
+}
+
 // readFromCloud fetches a robot config from the cloud based
 // on the given config.
 func readFromCloud(
@@ -251,16 +266,8 @@ func readFromCloud(
 
 	if checkForNewCert || tls.certificate == "" || tls.privateKey == "" {
 		logger.Debug("reading tlsCertificate from the cloud")
-		var (
-			ctxWithTimeout context.Context
-			cancel         func()
-		)
-		// use shouldReadFromCache determine whether this is part of initial read or not
-		if shouldReadFromCache {
-			ctxWithTimeout, cancel = context.WithTimeout(ctx, initialReadTimeout)
-		} else {
-			ctxWithTimeout, cancel = context.WithTimeout(ctx, readTimeout)
-		}
+
+		ctxWithTimeout, cancel := getTimeoutCtx(ctx, shouldReadFromCache, cloudCfg.ID)
 		// Use the SignalingInsecure from the Cloud config returned from the app not the initial config.
 		certData, err := readCertificateDataFromCloudGRPC(ctxWithTimeout, cfg.Cloud.SignalingInsecure, cloudCfg, logger)
 		if err != nil {
@@ -594,18 +601,9 @@ func processConfig(unprocessedConfig *Config, fromCloud bool, logger logging.Log
 // getFromCloudOrCache returns the config from the gRPC endpoint. If failures during cloud lookup fallback to the
 // local cache if the error indicates it should.
 func getFromCloudOrCache(ctx context.Context, cloudCfg *Cloud, shouldReadFromCache bool, logger logging.Logger) (*Config, bool, error) {
-	var (
-		cached bool
+	var cached bool
 
-		ctxWithTimeout context.Context
-		cancel         func()
-	)
-	// use shouldReadFromCache determine whether this is part of initial read or not
-	if shouldReadFromCache {
-		ctxWithTimeout, cancel = context.WithTimeout(ctx, initialReadTimeout)
-	} else {
-		ctxWithTimeout, cancel = context.WithTimeout(ctx, readTimeout)
-	}
+	ctxWithTimeout, cancel := getTimeoutCtx(ctx, shouldReadFromCache, cloudCfg.ID)
 	defer cancel()
 
 	cfg, errorShouldCheckCache, err := getFromCloudGRPC(ctxWithTimeout, cloudCfg, logger)
@@ -621,7 +619,13 @@ func getFromCloudOrCache(ctx context.Context, cloudCfg *Cloud, shouldReadFromCac
 				// return cache err
 				return nil, cached, cacheErr
 			}
-			logger.Warnw("unable to get cloud config; using cached version", "error", err)
+
+			lastUpdated := "unknown"
+			if fInfo, err := os.Stat(getCloudCacheFilePath(cloudCfg.ID)); err == nil {
+				// Use logging.DefaultTimeFormatStr since this time will be logged.
+				lastUpdated = fInfo.ModTime().Format(logging.DefaultTimeFormatStr)
+			}
+			logger.Warnw("unable to get cloud config; using cached version", "config last updated", lastUpdated, "error", err)
 			cached = true
 			return cachedConfig, cached, nil
 		}

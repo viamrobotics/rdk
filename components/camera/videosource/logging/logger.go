@@ -245,7 +245,6 @@ func (l *Logger) init(ctx context.Context) {
 		"processor": runCommand(ctx, "uname", "--processor"),
 		"platform":  runCommand(ctx, "uname", "--hardware-platform"),
 		"OS":        runCommand(ctx, "uname", "--operating-system"),
-		"lscpu":     runCommand(ctx, "lscpu"),
 		"model":     runCommand(ctx, "cat", "/proc/device-tree/model"),
 	})
 }

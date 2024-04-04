@@ -102,7 +102,7 @@ func NewPTGFrameFromKinematicOptions(
 		shortPtgsToUse = append(shortPtgsToUse, defaultShortPtgs...)
 		// Use Circle PTG for course correction. Ensure it is last.
 		shortPtgsToUse = append(shortPtgsToUse, defaultCorrectionPtg)
-		pf.correctionIdx = (len(longPtgsToUse)-1) + (len(shortPtgsToUse)-1)
+		pf.correctionIdx = len(longPtgsToUse) + (len(shortPtgsToUse) - 1)
 	} else {
 		// Use diff drive PTG for course correction
 		pf.correctionIdx = 0
@@ -174,6 +174,20 @@ func (pf *ptgGroupFrame) Transform(inputs []referenceframe.Input) (spatialmath.P
 	}
 
 	return pose, nil
+}
+
+func (pf *ptgGroupFrame) Interpolate(from, to []referenceframe.Input, by float64) ([]referenceframe.Input, error) {
+	if len(to) != len(pf.DoF()) {
+		return nil, referenceframe.NewIncorrectInputLengthError(len(to), len(pf.DoF()))
+	}
+	for i, input := range from {
+		if input.Value != to[i].Value {
+			return nil, NewNonMatchingInputError(from[i].Value, to[i].Value)
+		}
+	}
+
+	changeVal := (to[endDistanceAlongTrajectoryIndex].Value - to[startDistanceAlongTrajectoryIndex].Value) * by
+	return []referenceframe.Input{to[ptgIndex], to[trajectoryAlphaWithinPTG], {to[startDistanceAlongTrajectoryIndex].Value + changeVal}}, nil
 }
 
 func (pf *ptgGroupFrame) InputFromProtobuf(jp *pb.JointPositions) []referenceframe.Input {

@@ -11,6 +11,7 @@ import (
 	"net/url"
 	"os"
 	"os/exec"
+	"os/signal"
 	"runtime/debug"
 	"strings"
 	"time"
@@ -19,6 +20,7 @@ import (
 	"github.com/fullstorydev/grpcurl"
 	"github.com/google/uuid"
 	"github.com/jhump/protoreflect/grpcreflect"
+	"github.com/nathan-fiscaletti/consolesize-go"
 	"github.com/pkg/errors"
 	"github.com/urfave/cli/v2"
 	"go.uber.org/zap"
@@ -46,6 +48,12 @@ import (
 
 const (
 	rdkReleaseURL = "https://api.github.com/repos/viamrobotics/rdk/releases/latest"
+	// defaultNumLogs is the same as the number of logs currently returned by app
+	// in a single GetRobotPartLogsResponse.
+	defaultNumLogs = 100
+	// maxNumLogs is an arbitrary limit used to stop CLI users from overwhelming
+	// our logs DB with heavy reads.
+	maxNumLogs = 10000
 )
 
 // viamClient wraps a cli.Context and provides all the CLI command functionality
@@ -213,6 +221,21 @@ func RobotsStatusAction(c *cli.Context) error {
 	return nil
 }
 
+func getNumLogs(c *cli.Context) (int, error) {
+	numLogs := c.Int(logsFlagCount)
+	if numLogs < 0 {
+		warningf(c.App.ErrWriter, "Provided negative %q value. Defaulting to %d", logsFlagCount, defaultNumLogs)
+		return defaultNumLogs, nil
+	}
+	if numLogs == 0 {
+		return defaultNumLogs, nil
+	}
+	if numLogs > maxNumLogs {
+		return 0, errors.Errorf("provided too high of a %q value. Maximum is %d", logsFlagCount, maxNumLogs)
+	}
+	return numLogs, nil
+}
+
 // RobotsLogsAction is the corresponding Action for 'machines logs'.
 func RobotsLogsAction(c *cli.Context) error {
 	client, err := newViamClient(c)
@@ -244,11 +267,16 @@ func RobotsLogsAction(c *cli.Context) error {
 		} else {
 			header = part.Name
 		}
+		numLogs, err := getNumLogs(c)
+		if err != nil {
+			return err
+		}
 		if err := client.printRobotPartLogs(
 			orgStr, locStr, robotStr, part.Id,
 			c.Bool(logsFlagErrors),
 			"\t",
 			header,
+			numLogs,
 		); err != nil {
 			return errors.Wrap(err, "could not print machine logs")
 		}
@@ -304,31 +332,40 @@ func RobotsPartLogsAction(c *cli.Context) error {
 		return err
 	}
 
-	orgStr := c.String(organizationFlag)
-	locStr := c.String(locationFlag)
-	robotStr := c.String(machineFlag)
-	robot, err := client.robot(orgStr, locStr, robotStr)
+	return client.robotsPartLogsAction(c)
+}
+
+func (c *viamClient) robotsPartLogsAction(cCtx *cli.Context) error {
+	orgStr := cCtx.String(organizationFlag)
+	locStr := cCtx.String(locationFlag)
+	robotStr := cCtx.String(machineFlag)
+	robot, err := c.robot(orgStr, locStr, robotStr)
 	if err != nil {
 		return errors.Wrap(err, "could not get machine")
 	}
 
 	var header string
 	if orgStr == "" || locStr == "" || robotStr == "" {
-		header = fmt.Sprintf("%s -> %s -> %s", client.selectedOrg.Name, client.selectedLoc.Name, robot.Name)
+		header = fmt.Sprintf("%s -> %s -> %s", c.selectedOrg.Name, c.selectedLoc.Name, robot.Name)
 	}
-	if c.Bool(logsFlagTail) {
-		return client.tailRobotPartLogs(
-			orgStr, locStr, robotStr, c.String(partFlag),
-			c.Bool(logsFlagErrors),
+	if cCtx.Bool(logsFlagTail) {
+		return c.tailRobotPartLogs(
+			orgStr, locStr, robotStr, cCtx.String(partFlag),
+			cCtx.Bool(logsFlagErrors),
 			"",
 			header,
 		)
 	}
-	return client.printRobotPartLogs(
-		orgStr, locStr, robotStr, c.String(partFlag),
-		c.Bool(logsFlagErrors),
+	numLogs, err := getNumLogs(cCtx)
+	if err != nil {
+		return err
+	}
+	return c.printRobotPartLogs(
+		orgStr, locStr, robotStr, cCtx.String(partFlag),
+		cCtx.Bool(logsFlagErrors),
 		"",
 		header,
+		numLogs,
 	)
 }
 
@@ -906,20 +943,47 @@ func (c *viamClient) robotPart(orgStr, locStr, robotStr, partStr string) (*apppb
 	return nil, errors.Errorf("no machine part found for machine: %q part: %q", robotStr, partStr)
 }
 
-func (c *viamClient) robotPartLogs(orgStr, locStr, robotStr, partStr string, errorsOnly bool) ([]*commonpb.LogEntry, error) {
+func (c *viamClient) robotPartLogs(orgStr, locStr, robotStr, partStr string, errorsOnly bool,
+	numLogs int,
+) ([]*commonpb.LogEntry, error) {
 	part, err := c.robotPart(orgStr, locStr, robotStr, partStr)
 	if err != nil {
 		return nil, err
 	}
-	resp, err := c.client.GetRobotPartLogs(c.c.Context, &apppb.GetRobotPartLogsRequest{
-		Id:         part.Id,
-		ErrorsOnly: errorsOnly,
-	})
-	if err != nil {
-		return nil, err
+
+	// Use page tokens to get batches of 100 up to numLogs and throw away any
+	// extra logs in last batch.
+	logs := make([]*commonpb.LogEntry, 0, numLogs)
+	var pageToken string
+	for i := 0; i < numLogs; {
+		resp, err := c.client.GetRobotPartLogs(c.c.Context, &apppb.GetRobotPartLogsRequest{
+			Id:         part.Id,
+			ErrorsOnly: errorsOnly,
+			PageToken:  &pageToken,
+		})
+		if err != nil {
+			return nil, err
+		}
+
+		pageToken = resp.NextPageToken
+		// Break in the event of no logs in GetRobotPartLogsResponse or when
+		// page token is empty (no more pages).
+		if resp.Logs == nil || pageToken == "" {
+			break
+		}
+
+		// Truncate this intermediate slice of resp.Logs based on how many logs
+		// are still required by numLogs.
+		remainingLogsNeeded := numLogs - i
+		if remainingLogsNeeded < len(resp.Logs) {
+			resp.Logs = resp.Logs[:remainingLogsNeeded]
+		}
+		logs = append(logs, resp.Logs...)
+
+		i += len(resp.Logs)
 	}
 
-	return resp.Logs, nil
+	return logs, nil
 }
 
 func (c *viamClient) robotParts(orgStr, locStr, robotStr string) ([]*apppb.RobotPart, error) {
@@ -962,8 +1026,10 @@ func (c *viamClient) printRobotPartLogsInner(logs []*commonpb.LogEntry, indent s
 	}
 }
 
-func (c *viamClient) printRobotPartLogs(orgStr, locStr, robotStr, partStr string, errorsOnly bool, indent, header string) error {
-	logs, err := c.robotPartLogs(orgStr, locStr, robotStr, partStr, errorsOnly)
+func (c *viamClient) printRobotPartLogs(orgStr, locStr, robotStr, partStr string,
+	errorsOnly bool, indent, header string, numLogs int,
+) error {
+	logs, err := c.robotPartLogs(orgStr, locStr, robotStr, partStr, errorsOnly, numLogs)
 	if err != nil {
 		return err
 	}
@@ -1151,9 +1217,38 @@ func (c *viamClient) startRobotPartShell(
 		return errors.New("could not get shell service from machine part")
 	}
 
-	input, output, err := shellSvc.Shell(c.c.Context, map[string]interface{}{})
+	getWinChMsg := func() map[string]interface{} {
+		cols, rows := consolesize.GetConsoleSize()
+		return map[string]interface{}{
+			"message": "window-change",
+			"cols":    cols,
+			"rows":    rows,
+		}
+	}
+
+	input, inputOOB, output, err := shellSvc.Shell(c.c.Context, map[string]interface{}{
+		"messages": []interface{}{getWinChMsg()},
+	})
 	if err != nil {
 		return err
+	}
+
+	if sig, ok := sigwinchSignal(); ok {
+		winchCh := make(chan os.Signal, 1)
+		signal.Notify(winchCh, sig)
+		utils.PanicCapturingGo(func() {
+			defer close(inputOOB)
+			for {
+				if !utils.SelectContextOrWaitChan(c.c.Context, winchCh) {
+					return
+				}
+				select {
+				case <-c.c.Context.Done():
+					return
+				case inputOOB <- getWinChMsg():
+				}
+			}
+		})
 	}
 
 	setRaw := func(isRaw bool) error {

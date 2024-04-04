@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/mitchellh/mapstructure"
+	"github.com/go-viper/mapstructure/v2"
 	"github.com/pkg/errors"
 	pb "go.viam.com/api/component/motor/v1"
 	"go.viam.com/test"

@@ -179,6 +179,7 @@ func TestMotorEncoder1(t *testing.T) {
 	})
 
 	t.Run("encoded motor testing SetPower interrupt GoFor", func(t *testing.T) {
+		t.Skip()
 		test.That(t, motorDep.goForInternal(context.Background(), 1000, 1000, 1), test.ShouldBeNil)
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()

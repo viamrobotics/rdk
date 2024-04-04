@@ -76,7 +76,7 @@ func TestRobotAPIKeyCreateAction(t *testing.T) {
 		CreateKeyFunc: createKeyFunc,
 	}
 
-	flags := make(map[string]string)
+	flags := make(map[string]any)
 	flags[generalFlagOrgID] = fakeOrgID
 	flags[generalFlagMachineID] = fakeRobotID
 	flags[apiKeyCreateFlagName] = "my-name"
@@ -131,7 +131,7 @@ func TestRobotAPIKeyCreateAction(t *testing.T) {
 		CreateKeyFunc: createKeyFunc,
 	}
 
-	flags = make(map[string]string)
+	flags = make(map[string]any)
 	flags[generalFlagMachineID] = fakeRobotID
 	flags[generalFlagOrgID] = ""
 	flags[apiKeyCreateFlagName] = "test-me"
@@ -157,7 +157,7 @@ func TestLocationAPIKeyCreateAction(t *testing.T) {
 		CreateKeyFunc: createKeyFunc,
 	}
 
-	flags := make(map[string]string)
+	flags := make(map[string]any)
 	flags[generalFlagLocationID] = ""
 	flags[generalFlagOrgID] = ""
 	flags[apiKeyCreateFlagName] = "" // testing no locationID
@@ -198,7 +198,7 @@ func TestLocationAPIKeyCreateAction(t *testing.T) {
 		CreateKeyFunc: createKeyFunc,
 	}
 
-	flags = make(map[string]string)
+	flags = make(map[string]any)
 	flags[generalFlagLocationID] = fakeLocID
 	flags[generalFlagOrgID] = ""
 	flags[apiKeyCreateFlagName] = "test-name"

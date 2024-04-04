@@ -102,6 +102,9 @@ type Frame interface {
 	// Transform is the pose (rotation and translation) that goes FROM current frame TO parent's referenceframe.
 	Transform([]Input) (spatial.Pose, error)
 
+	// Interpolate interpolates the given amount between the two sets of inputs.
+	Interpolate([]Input, []Input, float64) ([]Input, error)
+
 	// Geometries returns a map between names and geometries for the reference frame and any intermediate frames that
 	// may be defined for it, e.g. links in an arm. If a frame does not have a geometry it will not be added into the map
 	Geometries([]Input) (*GeometriesInFrame, error)
@@ -129,6 +132,19 @@ func (bf *baseFrame) Name() string {
 // DoF will return a slice with length equal to the number of joints/degrees of freedom.
 func (bf *baseFrame) DoF() []Limit {
 	return bf.limits
+}
+
+// Interpolate interpolates the given amount between the two sets of inputs.
+func (bf *baseFrame) Interpolate(from, to []Input, by float64) ([]Input, error) {
+	err := bf.validInputs(from)
+	if err != nil {
+		return nil, err
+	}
+	err = bf.validInputs(to)
+	if err != nil {
+		return nil, err
+	}
+	return interpolateInputs(from, to, by), nil
 }
 
 // validInputs checks whether the given array of joint positions violates any joint limits.

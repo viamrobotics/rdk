@@ -22,19 +22,23 @@ import (
 
 // ResourceNameToProto converts a resource.Name to its proto counterpart.
 func ResourceNameToProto(name resource.Name) *commonpb.ResourceName {
-	return &commonpb.ResourceName{
+	rName := &commonpb.ResourceName{
 		Namespace: string(name.API.Type.Namespace),
 		Type:      name.API.Type.Name,
 		Subtype:   name.API.SubtypeName,
 		Name:      name.ShortName(),
 	}
+	if name.MachinePartID != "" {
+		rName.MachinePartId = &name.MachinePartID
+	}
+	return rName
 }
 
 // ResourceNameFromProto converts a proto ResourceName to its rdk counterpart.
 func ResourceNameFromProto(name *commonpb.ResourceName) resource.Name {
-	return resource.NewName(
+	return resource.NewNameWithPartID(
 		resource.APINamespace(name.Namespace).WithType(name.Type).WithSubtype(name.Subtype),
-		name.Name,
+		name.Name, name.GetMachinePartId(),
 	)
 }
 

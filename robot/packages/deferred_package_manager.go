@@ -76,7 +76,7 @@ func NewDeferredPackageManager(
 //
 // Sync is the core state-setting operation of the package manager so if we sync with one manager,
 // all subsequent operations should use the same manager until the next sync.
-func (m *deferredPackageManager) Sync(ctx context.Context, packages []config.PackageConfig) error {
+func (m *deferredPackageManager) Sync(ctx context.Context, packages []config.PackageConfig, modules []config.Module) error {
 	m.lastSyncedManagerLock.Lock()
 	defer m.lastSyncedManagerLock.Unlock()
 	mgr, err := m.getManagerForSync(ctx, packages)
@@ -84,7 +84,7 @@ func (m *deferredPackageManager) Sync(ctx context.Context, packages []config.Pac
 		return err
 	}
 	m.lastSyncedManager = mgr
-	return mgr.Sync(ctx, packages)
+	return mgr.Sync(ctx, packages, modules)
 }
 
 // Cleanup removes all unknown packages from the working directory.

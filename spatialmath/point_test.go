@@ -24,6 +24,6 @@ func TestPointAlmostEqual(t *testing.T) {
 	original := NewPoint(r3.Vector{}, "")
 	good := NewPoint(r3.Vector{1e-18, 1e-18, 1e-18}, "")
 	bad := NewPoint(r3.Vector{1e-2, 1e-2, 1e-2}, "")
-	test.That(t, original.AlmostEqual(good), test.ShouldBeTrue)
-	test.That(t, original.AlmostEqual(bad), test.ShouldBeFalse)
+	test.That(t, original.(*point).almostEqual(good), test.ShouldBeTrue)
+	test.That(t, original.(*point).almostEqual(bad), test.ShouldBeFalse)
 }

@@ -44,7 +44,10 @@ type PTG interface {
 	Transform([]referenceframe.Input) (spatialmath.Pose, error)
 }
 
+// PTGCourseCorrection offers an interface permitting a PTGSolver to also provide an index pointing to one of their PTGSolvers which may
+// be used for course correction maneuvers. Usually this is the Circle PTG as it will permit the largest success rate for corrections.
 type PTGCourseCorrection interface {
+	PTGProvider
 	CorrectionSolverIdx() int
 }
 

@@ -250,6 +250,11 @@
             "name": "dm",
             "type": "data_manager",
             "model": "builtin"
-        }       
+        },
+        {
+            "name": "generic1",
+            "type": "generic",
+            "model": "fake"
+        }
     ]
 }
