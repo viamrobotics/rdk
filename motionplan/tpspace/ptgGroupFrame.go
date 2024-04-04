@@ -167,6 +167,26 @@ func (pf *ptgGroupFrame) Transform(inputs []referenceframe.Input) (spatialmath.P
 	return pose, nil
 }
 
+func (pf *ptgGroupFrame) Interpolate(from, to []referenceframe.Input, by float64) ([]referenceframe.Input, error) {
+	if len(to) != len(pf.DoF()) {
+		return nil, referenceframe.NewIncorrectInputLengthError(len(to), len(pf.DoF()))
+	}
+	if len(from) != len(pf.DoF()) {
+		// We also want to always support 2 inputs
+		return nil, referenceframe.NewIncorrectInputLengthError(len(from), len(pf.DoF()))
+	}
+
+	if from[ptgIndex].Value != to[ptgIndex].Value {
+		return nil, NewNonMatchingInputError(from[ptgIndex].Value, to[ptgIndex].Value)
+	}
+	if from[trajectoryAlphaWithinPTG].Value != to[trajectoryAlphaWithinPTG].Value {
+		return nil, NewNonMatchingInputError(from[trajectoryAlphaWithinPTG].Value, to[trajectoryAlphaWithinPTG].Value)
+	}
+
+	changeVal := (to[distanceAlongTrajectoryIndex].Value - from[distanceAlongTrajectoryIndex].Value) * by
+	return []referenceframe.Input{to[ptgIndex], to[trajectoryAlphaWithinPTG], {from[distanceAlongTrajectoryIndex].Value + changeVal}}, nil
+}
+
 func (pf *ptgGroupFrame) InputFromProtobuf(jp *pb.JointPositions) []referenceframe.Input {
 	n := make([]referenceframe.Input, len(jp.Values))
 	for idx, d := range jp.Values {
