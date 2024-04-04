@@ -678,6 +678,7 @@ func CloudConfigToProto(cloud *Cloud) (*pb.CloudConfig, error) {
 		SignalingInsecure: cloud.SignalingInsecure,
 		PrimaryOrgId:      cloud.PrimaryOrgID,
 		LocationId:        cloud.LocationID,
+		MachineId:         cloud.MachineID,
 	}, nil
 }
 
@@ -696,6 +697,7 @@ func CloudConfigFromProto(proto *pb.CloudConfig) (*Cloud, error) {
 		LocationSecrets:   locationSecrets,
 		LocationID:        proto.GetLocationId(),
 		PrimaryOrgID:      proto.GetPrimaryOrgId(),
+		MachineID:         proto.GetMachineId(),
 		ManagedBy:         proto.GetManagedBy(),
 		FQDN:              proto.GetFqdn(),
 		LocalFQDN:         proto.GetLocalFqdn(),

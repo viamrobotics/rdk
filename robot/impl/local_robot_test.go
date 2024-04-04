@@ -31,6 +31,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
+	"go.viam.com/rdk/cloud"
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/components/arm/fake"
 	"go.viam.com/rdk/components/audioinput"
@@ -49,7 +50,6 @@ import (
 	"go.viam.com/rdk/examples/customresources/apis/gizmoapi"
 	"go.viam.com/rdk/examples/customresources/apis/summationapi"
 	rgrpc "go.viam.com/rdk/grpc"
-	"go.viam.com/rdk/internal/cloud"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
@@ -3421,6 +3421,7 @@ func TestCloudMetadata(t *testing.T) {
 				ID:           "the-robot-part",
 				LocationID:   "the-location",
 				PrimaryOrgID: "the-primary-org",
+				MachineID:    "the-machine",
 			},
 		}
 		robot, shutdown := initTestRobot(t, ctx, cfg, logger)
@@ -3428,9 +3429,10 @@ func TestCloudMetadata(t *testing.T) {
 		md, err := robot.CloudMetadata(ctx)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, md, test.ShouldResemble, cloud.Metadata{
-			RobotPartID:  "the-robot-part",
-			PrimaryOrgID: "the-primary-org",
-			LocationID:   "the-location",
+			PrimaryOrgID:  "the-primary-org",
+			LocationID:    "the-location",
+			MachineID:     "the-machine",
+			MachinePartID: "the-robot-part",
 		})
 	})
 }
