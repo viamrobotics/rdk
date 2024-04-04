@@ -136,7 +136,7 @@ func (mp *cBiRRTMotionPlanner) rrtBackgroundRunner(
 	mp.logger.CInfof(ctx, "goal node: %v\n", rrt.maps.optNode.Q())
 	interpConfig, err := mp.frame.Interpolate(seed, rrt.maps.optNode.Q(), 0.5)
 	if err != nil {
-		rrt.solutionChan <- &rrtPlanReturn{planerr: err}
+		rrt.solutionChan <- &rrtSolution{err: err}
 		return
 	}
 	target := newConfigurationNode(interpConfig)
@@ -219,7 +219,7 @@ func (mp *cBiRRTMotionPlanner) rrtBackgroundRunner(
 		if reachedDelta > mp.planOpts.JointSolveDist {
 			targetConf, err := mp.frame.Interpolate(map1reached.Q(), map2reached.Q(), 0.5)
 			if err != nil {
-				rrt.solutionChan <- &rrtPlanReturn{planerr: err, maps: rrt.maps}
+				rrt.solutionChan <- &rrtSolution{err: err, maps: rrt.maps}
 				return
 			}
 			target = newConfigurationNode(targetConf)

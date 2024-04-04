@@ -236,11 +236,13 @@ func (sf *staticFrame) Transform(input []Input) (spatial.Pose, error) {
 
 // Interpolate interpolates the given amount between the two sets of inputs.
 func (sf *staticFrame) Interpolate(from, to []Input, by float64) ([]Input, error) {
-	if len(from) != 0 {
-		return nil, NewIncorrectInputLengthError(len(from), 0)
+	err := sf.validInputs(from)
+	if err != nil {
+		return nil, err
 	}
-	if len(to) != 0 {
-		return nil, NewIncorrectInputLengthError(len(to), 0)
+	err = sf.validInputs(to)
+	if err != nil {
+		return nil, err
 	}
 	return []Input{}, nil
 }
@@ -328,12 +330,6 @@ func (pf *translationalFrame) Transform(input []Input) (spatial.Pose, error) {
 
 // Interpolate interpolates the given amount between the two sets of inputs.
 func (pf *translationalFrame) Interpolate(from, to []Input, by float64) ([]Input, error) {
-	if len(from) != 0 {
-		return nil, NewIncorrectInputLengthError(len(from), 0)
-	}
-	if len(to) != 0 {
-		return nil, NewIncorrectInputLengthError(len(to), 0)
-	}
 	err := pf.validInputs(from)
 	if err != nil {
 		return nil, err
@@ -426,12 +422,6 @@ func (rf *rotationalFrame) Transform(input []Input) (spatial.Pose, error) {
 
 // Interpolate interpolates the given amount between the two sets of inputs.
 func (rf *rotationalFrame) Interpolate(from, to []Input, by float64) ([]Input, error) {
-	if len(from) != 0 {
-		return nil, NewIncorrectInputLengthError(len(from), 0)
-	}
-	if len(to) != 0 {
-		return nil, NewIncorrectInputLengthError(len(to), 0)
-	}
 	err := rf.validInputs(from)
 	if err != nil {
 		return nil, err

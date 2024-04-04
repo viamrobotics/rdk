@@ -122,7 +122,7 @@ func (mp *rrtStarConnectMotionPlanner) rrtBackgroundRunner(ctx context.Context,
 	targetConf, err := mp.frame.Interpolate(seed, rrt.maps.optNode.Q(), 0.5)
 	target := newConfigurationNode(targetConf)
 	if err != nil {
-		rrt.solutionChan <- &rrtPlanReturn{planerr: err}
+		rrt.solutionChan <- &rrtSolution{err: err}
 		return
 	}
 	map1, map2 := rrt.maps.startMap, rrt.maps.goalMap
@@ -185,7 +185,7 @@ func (mp *rrtStarConnectMotionPlanner) rrtBackgroundRunner(ctx context.Context,
 		if reachedDelta > mp.planOpts.JointSolveDist {
 			targetConf, err = mp.frame.Interpolate(map1reached.Q(), map2reached.Q(), 0.5)
 			if err != nil {
-				rrt.solutionChan <- &rrtPlanReturn{planerr: err, maps: rrt.maps}
+				rrt.solutionChan <- &rrtSolution{err: err, maps: rrt.maps}
 				return
 			}
 			target = newConfigurationNode(targetConf)

@@ -524,6 +524,7 @@ func CheckPlan(
 				{Value: checkFrameCurrentInputs[2].Value},
 			},
 			EndConfiguration: checkFrameGoalInputs,
+			Frame:            sf,
 		})
 	}
 
