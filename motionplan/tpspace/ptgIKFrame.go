@@ -75,5 +75,9 @@ func (pf *ptgIKFrame) Transform(inputs []referenceframe.Input) (spatialmath.Pose
 }
 
 func (pf *ptgIKFrame) Interpolate(from, to []referenceframe.Input, by float64) ([]referenceframe.Input, error) {
+	// PTG IK frames are private and are not possible to surface outside of this package aside from how they are explicitly used within
+	// the package, so this is not necessary to implement.
+	// Furthermore, the multi-trajectory nature of these frames makes correct interpolation difficult. To avoid bad data, this should
+	// not be implemented until/unless it is guided by a specific need.
 	return nil, errors.New("cannot interpolate ptg IK frames")
 }
