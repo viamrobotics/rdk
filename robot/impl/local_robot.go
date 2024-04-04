@@ -19,8 +19,9 @@ import (
 	"go.viam.com/utils/pexec"
 	"go.viam.com/utils/rpc"
 
+	"go.viam.com/rdk/cloud"
 	"go.viam.com/rdk/config"
-	"go.viam.com/rdk/internal/cloud"
+	icloud "go.viam.com/rdk/internal/cloud"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/pointcloud"
@@ -49,7 +50,7 @@ type localRobot struct {
 	operations                 *operation.Manager
 	sessionManager             session.Manager
 	packageManager             packages.ManagerSyncer
-	cloudConnSvc               cloud.ConnectionService
+	cloudConnSvc               icloud.ConnectionService
 	logger                     logging.Logger
 	activeBackgroundWorkers    sync.WaitGroup
 	reconfigureWorkers         sync.WaitGroup
@@ -104,11 +105,8 @@ func (r *localRobot) ResourceNames() []resource.Name {
 	}
 	rNames := make([]resource.Name, 0, len(names))
 	for _, n := range names {
-		n.MachinePartID = md.RobotPartID
-		rNames = append(
-			rNames,
-			n,
-		)
+		n.MachinePartID = md.MachinePartID
+		rNames = append(rNames, n)
 	}
 	return rNames
 }
@@ -397,7 +395,7 @@ func newWithResources(
 		triggerConfig:              make(chan struct{}),
 		configTicker:               nil,
 		revealSensitiveConfigDiffs: rOpts.revealSensitiveConfigDiffs,
-		cloudConnSvc:               cloud.NewCloudConnectionService(cfg.Cloud, logger),
+		cloudConnSvc:               icloud.NewCloudConnectionService(cfg.Cloud, logger),
 	}
 	r.mostRecentCfg.Store(config.Config{})
 	var heartbeatWindow time.Duration
@@ -732,7 +730,7 @@ func (r *localRobot) updateWeakDependents(ctx context.Context) {
 				if err := res.Reconfigure(ctxWithTimeout, components, resource.Config{ConvertedAttributes: fsCfg}); err != nil {
 					r.Logger().CErrorw(ctx, "failed to reconfigure internal service during weak dependencies update", "service", resName, "error", err)
 				}
-			case packages.InternalServiceName, packages.DeferredServiceName, cloud.InternalServiceName:
+			case packages.InternalServiceName, packages.DeferredServiceName, icloud.InternalServiceName:
 			default:
 				r.logger.CWarnw(ctx, "do not know how to reconfigure internal service during weak dependencies update", "service", resName)
 			}
@@ -1202,8 +1200,9 @@ func (r *localRobot) CloudMetadata(ctx context.Context) (cloud.Metadata, error) 
 	if cloud == nil {
 		return md, errors.New("cloud metadata not available")
 	}
-	md.RobotPartID = cloud.ID
 	md.PrimaryOrgID = cloud.PrimaryOrgID
 	md.LocationID = cloud.LocationID
+	md.MachineID = cloud.MachineID
+	md.MachinePartID = cloud.ID
 	return md, nil
 }

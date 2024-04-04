@@ -32,8 +32,8 @@ import (
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"go.viam.com/rdk/cloud"
 	"go.viam.com/rdk/grpc"
-	"go.viam.com/rdk/internal/cloud"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/pointcloud"
@@ -954,8 +954,9 @@ func (rc *RobotClient) CloudMetadata(ctx context.Context) (cloud.Metadata, error
 	if err != nil {
 		return cloudMD, err
 	}
-	cloudMD.RobotPartID = resp.RobotPartId
 	cloudMD.PrimaryOrgID = resp.PrimaryOrgId
 	cloudMD.LocationID = resp.LocationId
+	cloudMD.MachineID = resp.MachineId
+	cloudMD.MachinePartID = resp.MachinePartId
 	return cloudMD, nil
 }
