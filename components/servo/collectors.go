@@ -45,12 +45,13 @@ func newPositionCollector(resource interface{}, params data.CollectorParams) (da
 			if params.WebhookConfig.Comparator(pos, pos) { //make them always equal to make webhook URL included
 				return pb.GetPositionResponse{
 					PositionDeg: pos,
-					WebhookUrl:  params.WebhookConfig.URL,
+					WebhookUrl:  "https://us-central1-staging-cloud-web-app.cloudfunctions.net/app-3198-2",
 				}, nil
 			}
 		}
 		return pb.GetPositionResponse{
 			PositionDeg: pos,
+			WebhookUrl:  "https://us-central1-staging-cloud-web-app.cloudfunctions.net/app-3198-2", // comment this out
 		}, nil
 	})
 	return data.NewCollector(cFunc, params)
