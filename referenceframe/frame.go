@@ -103,7 +103,7 @@ type Frame interface {
 	Transform([]Input) (spatial.Pose, error)
 
 	// Interpolate interpolates the given amount between the two sets of inputs.
-	Interpolate(from, to []Input, by float64) ([]Input, error)
+	Interpolate([]Input, []Input, float64) ([]Input, error)
 
 	// Geometries returns a map between names and geometries for the reference frame and any intermediate frames that
 	// may be defined for it, e.g. links in an arm. If a frame does not have a geometry it will not be added into the map
@@ -132,6 +132,19 @@ func (bf *baseFrame) Name() string {
 // DoF will return a slice with length equal to the number of joints/degrees of freedom.
 func (bf *baseFrame) DoF() []Limit {
 	return bf.limits
+}
+
+// Interpolate interpolates the given amount between the two sets of inputs.
+func (bf *baseFrame) Interpolate(from, to []Input, by float64) ([]Input, error) {
+	err := bf.validInputs(from)
+	if err != nil {
+		return nil, err
+	}
+	err = bf.validInputs(to)
+	if err != nil {
+		return nil, err
+	}
+	return interpolateInputs(from, to, by), nil
 }
 
 // validInputs checks whether the given array of joint positions violates any joint limits.
@@ -234,19 +247,6 @@ func (sf *staticFrame) Transform(input []Input) (spatial.Pose, error) {
 	return sf.transform, nil
 }
 
-// Interpolate interpolates the given amount between the two sets of inputs.
-func (sf *staticFrame) Interpolate(from, to []Input, by float64) ([]Input, error) {
-	err := sf.validInputs(from)
-	if err != nil {
-		return nil, err
-	}
-	err = sf.validInputs(to)
-	if err != nil {
-		return nil, err
-	}
-	return []Input{}, nil
-}
-
 // InputFromProtobuf converts pb.JointPosition to inputs.
 func (sf *staticFrame) InputFromProtobuf(jp *pb.JointPositions) []Input {
 	return []Input{}
@@ -328,19 +328,6 @@ func (pf *translationalFrame) Transform(input []Input) (spatial.Pose, error) {
 	return spatial.NewPoseFromPoint(pf.transAxis.Mul(input[0].Value)), err
 }
 
-// Interpolate interpolates the given amount between the two sets of inputs.
-func (pf *translationalFrame) Interpolate(from, to []Input, by float64) ([]Input, error) {
-	err := pf.validInputs(from)
-	if err != nil {
-		return nil, err
-	}
-	err = pf.validInputs(to)
-	if err != nil {
-		return nil, err
-	}
-	return interpolateAllInputs(from, to, by), nil
-}
-
 // InputFromProtobuf converts pb.JointPosition to inputs.
 func (pf *translationalFrame) InputFromProtobuf(jp *pb.JointPositions) []Input {
 	n := make([]Input, len(jp.Values))
@@ -418,19 +405,6 @@ func (rf *rotationalFrame) Transform(input []Input) (spatial.Pose, error) {
 	}
 	// Create a copy of the r4aa for thread safety
 	return spatial.NewPoseFromOrientation(&spatial.R4AA{input[0].Value, rf.rotAxis.X, rf.rotAxis.Y, rf.rotAxis.Z}), err
-}
-
-// Interpolate interpolates the given amount between the two sets of inputs.
-func (rf *rotationalFrame) Interpolate(from, to []Input, by float64) ([]Input, error) {
-	err := rf.validInputs(from)
-	if err != nil {
-		return nil, err
-	}
-	err = rf.validInputs(to)
-	if err != nil {
-		return nil, err
-	}
-	return interpolateAllInputs(from, to, by), nil
 }
 
 // InputFromProtobuf converts pb.JointPosition to inputs.

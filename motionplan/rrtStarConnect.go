@@ -120,11 +120,11 @@ func (mp *rrtStarConnectMotionPlanner) rrtBackgroundRunner(ctx context.Context,
 		rrt.maps = planSeed.maps
 	}
 	targetConf, err := mp.frame.Interpolate(seed, rrt.maps.optNode.Q(), 0.5)
-	target := newConfigurationNode(targetConf)
 	if err != nil {
 		rrt.solutionChan <- &rrtSolution{err: err}
 		return
 	}
+	target := newConfigurationNode(targetConf)
 	map1, map2 := rrt.maps.startMap, rrt.maps.goalMap
 
 	// Keep a list of the node pairs that have the same inputs

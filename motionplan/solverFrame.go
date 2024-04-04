@@ -210,13 +210,13 @@ func (sf *solverFrame) Interpolate(from, to []frame.Input, by float64) ([]frame.
 	}
 	interp := make([]frame.Input, 0, len(to))
 	posIdx := 0
-	for _, transform := range sf.frames {
-		dof := len(transform.DoF()) + posIdx
+	for _, frame := range sf.frames {
+		dof := len(frame.DoF()) + posIdx
 		fromSubset := from[posIdx:dof]
 		toSubset := to[posIdx:dof]
 		posIdx = dof
 
-		interpSub, err := transform.Interpolate(fromSubset, toSubset, by)
+		interpSub, err := frame.Interpolate(fromSubset, toSubset, by)
 		if err != nil {
 			return nil, err
 		}
