@@ -135,14 +135,13 @@ func (s *syncer) SyncFile(path string) {
 			s.logger.Error("Error getting capture directory stats")
 			return
 		}
-		s.logger.Debugf("Free space: %d\nAvailable: %d\t\nUsage: %x\t\nDir size bytes: %d", usage.Free(), usage.Available(), usage.Usage(), fileInfo.Size())
+		s.logger.Debugf("Free space: %d\nAvailable: %d\t\nUsage: %f\t\nDir size bytes: %d", usage.Free(), usage.Available(), usage.Usage(), fileInfo.Size())
 		count := 0
 		filepath.WalkDir(s.captureDir, func(path string, file fs.DirEntry, err error) error {
 			if err != nil {
 				return err
 			}
 			if !file.IsDir() {
-				fmt.Println(path)
 				count++
 			}
 
@@ -153,7 +152,7 @@ func (s *syncer) SyncFile(path string) {
 
 	fsWg.Wait()
 	duration := time.Since(start)
-	s.logger.Debugf("Time taken for syscall: %x", duration.Seconds())
+	s.logger.Debugf("Time taken for syscall: %f seconds", duration.Seconds())
 	select {
 	case <-s.cancelCtx.Done():
 		return
