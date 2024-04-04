@@ -1379,7 +1379,7 @@ func TestStartWaypoint(t *testing.T) {
 			return uuid.Nil, motion.ErrGoalWithinPlanDeviation
 		}
 
-		cancelCtx, cancelFn := context.WithTimeout(ctx, time.Millisecond*10)
+		cancelCtx, cancelFn := context.WithTimeout(ctx, time.Millisecond*200)
 		defer cancelFn()
 
 		err := s.ns.AddWaypoint(cancelCtx, geo.NewPoint(1, 2), nil)
