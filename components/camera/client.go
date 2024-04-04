@@ -420,7 +420,7 @@ func (c *client) SubscribeRTP(ctx context.Context, bufferSize int, packetsCB Pac
 
 	if len(c.subAndCallbackByID) == 1 {
 		if _, err := c.streamClient.AddStream(ctx, &streampb.AddStreamRequest{Name: c.Name().String()}); err != nil {
-			c.logger.CWarnw(ctx, "SubscribeRTP AddStream hit error", "subID", sub.ID().String(), "name", c.Name(), "err", err)
+			c.logger.CDebugw(ctx, "SubscribeRTP AddStream hit error", "subID", sub.ID().String(), "name", c.Name(), "err", err)
 			sub.Close()
 			delete(c.subAndCallbackByID, sub.ID())
 			sc.RemoveOnTrackSub(c.Name())
