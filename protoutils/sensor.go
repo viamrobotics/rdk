@@ -1,6 +1,9 @@
 package protoutils
 
 import (
+	"errors"
+	"strings"
+
 	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
 	"google.golang.org/protobuf/types/known/structpb"
@@ -91,7 +94,18 @@ func goToProto(v interface{}) (*structpb.Value, error) {
 		}
 	}
 
-	return structpb.NewValue(v)
+	vv, err := structpb.NewValue(v)
+	// The structpb package sometimes inserts non-breaking spaces into their error messages (see
+	// https://github.com/protocolbuffers/protobuf-go/blob/master/internal/errors/errors.go#L30).
+	// However, we put error messages into the headers/trailers of GRPC responses, and client-side
+	// parsing of those requires that they must be entirely ASCII. So, we need to ensure that any
+	// errors from here do not contain non-breaking spaces.
+	if err != nil {
+		ascii := strings.Replace(
+			err.Error(), " " /* non-breaking space */, " " /* normal space */, -1 /* replace all */)
+		err = errors.New(ascii)
+	}
+	return vv, err
 }
 
 // ReadingGoToProto converts go readings to proto readings.
