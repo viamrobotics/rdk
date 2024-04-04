@@ -718,7 +718,8 @@ func (ms *builtIn) createBaseMoveRequest(
 		if spatialmath.PoseAlmostCoincidentEps(goal.Pose(), startPose, motionCfg.planDeviationMM) {
 			return nil, motion.ErrGoalWithinPlanDeviation
 		}
-	} else if spatialmath.PoseAlmostEqualEps(goal.Pose(), startPose, motionCfg.planDeviationMM) {
+	} else if spatialmath.OrientationAlmostEqual(goal.Pose().Orientation(), spatialmath.NewZeroPose().Orientation()) &&
+		spatialmath.PoseAlmostCoincidentEps(goal.Pose(), startPose, motionCfg.planDeviationMM) {
 		return nil, motion.ErrGoalWithinPlanDeviation
 	}
 
