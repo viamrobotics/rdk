@@ -167,15 +167,24 @@ func (pf *ptgGroupFrame) Transform(inputs []referenceframe.Input) (spatialmath.P
 	return pose, nil
 }
 
-// For PTGs, Interpolate is used to interpolate along the `to` arc after the `from` arc has completed. So we disregard `from` and just
-// interpolate along the dist of `to`.
-func (pf *ptgGroupFrame) Interpolate(_, to []referenceframe.Input, by float64) ([]referenceframe.Input, error) {
+func (pf *ptgGroupFrame) Interpolate(from, to []referenceframe.Input, by float64) ([]referenceframe.Input, error) {
 	if len(to) != len(pf.DoF()) {
 		return nil, referenceframe.NewIncorrectInputLengthError(len(to), len(pf.DoF()))
 	}
+	if len(from) != len(pf.DoF()) {
+		// We also want to always support 2 inputs
+		return nil, referenceframe.NewIncorrectInputLengthError(len(from), len(pf.DoF()))
+	}
 
-	distTo := to[distanceAlongTrajectoryIndex].Value
-	return []referenceframe.Input{to[ptgIndex], to[trajectoryAlphaWithinPTG], {distTo * by}}, nil
+	if from[ptgIndex].Value != to[ptgIndex].Value {
+		return nil, NewNonMatchingInputError(from[ptgIndex].Value, to[ptgIndex].Value)
+	}
+	if from[trajectoryAlphaWithinPTG].Value != to[trajectoryAlphaWithinPTG].Value {
+		return nil, NewNonMatchingInputError(from[trajectoryAlphaWithinPTG].Value, to[trajectoryAlphaWithinPTG].Value)
+	}
+
+	changeVal := (to[distanceAlongTrajectoryIndex].Value - from[distanceAlongTrajectoryIndex].Value) * by
+	return []referenceframe.Input{to[ptgIndex], to[trajectoryAlphaWithinPTG], {from[distanceAlongTrajectoryIndex].Value + changeVal}}, nil
 }
 
 func (pf *ptgGroupFrame) InputFromProtobuf(jp *pb.JointPositions) []referenceframe.Input {
