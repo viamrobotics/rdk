@@ -21,10 +21,11 @@ endif
 DROID_CC ?= $(PLATFORM_NDK_ROOT)/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android28-clang
 DROID_PREFIX = $(PWD)/etc/android/prefix
 
-etc/android/prefix/%:
-	TARGET_ARCH=$* etc/android/build-x264.sh
+# etc/android/prefix/%:
+# 	TARGET_ARCH=$* etc/android/build-x264.sh
 
-droid-rdk.%.aar: etc/android/prefix/aarch64 etc/android/prefix/x86_64
+# droid-rdk.%.aar: etc/android/prefix/aarch64 etc/android/prefix/x86_64
+droid-rdk.%.aar:
 	# creates a per-platform android library that can be imported by native code
 	$(eval JNI_ARCH := $(if $(filter arm64,$*),arm64-v8a,x86_64))
 	$(eval CPU_ARCH := $(if $(filter arm64,$*),aarch64,x86_64))
@@ -34,7 +35,7 @@ droid-rdk.%.aar: etc/android/prefix/aarch64 etc/android/prefix/x86_64
 		-o $@ ./web/cmd/droid
 	rm -rf droidtmp/jni/$(JNI_ARCH)
 	mkdir -p droidtmp/jni/$(JNI_ARCH)
-	cp etc/android/prefix/$(CPU_ARCH)/lib/*.so droidtmp/jni/$(JNI_ARCH)
+	# cp etc/android/prefix/$(CPU_ARCH)/lib/*.so droidtmp/jni/$(JNI_ARCH)
 	cd droidtmp && zip -r ../$@ jni/$(JNI_ARCH)
 	cd ./services/mlmodel/tflitecpu/android/ && zip -r ../../../../$@ jni/$(JNI_ARCH)
 
@@ -49,14 +50,3 @@ droid-rdk.aar: droid-rdk.amd64.aar droid-rdk.arm64.aar
 clean-droid:
 	# note: this doesn't clean x264 checkout
 	rm -rvf droid-rdk*.aar droid-rdk*.jar etc/android/prefix droidtmp
-
-# export PKG_CONFIG_PATH=~/viamrtsp/x264-android/lib/pkgconfig
-# CC_ARCH=aarch64
-# API_LEVEL=29
-# NDK_ROOT=$HOME/Android/Sdk/ndk/26.1.10909125
-# TOOLCHAIN=$NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64
-# CC=$TOOLCHAIN/bin/$CC_ARCH-linux-android$API_LEVEL-clang
-
-# GOOS=android GOARCH=arm64 CGO_ENABLED=1 CC=$CC \
-# 	go build -v -tags no_cgo ./gostream/codec/x264
-# # go build -v github.com/pion/mediadevices/pkg/codec/x264
