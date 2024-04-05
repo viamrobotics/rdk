@@ -161,6 +161,7 @@ do_brew(){
 
 	# pinned
 	brew "node@18", link: true, conflicts_with: ["node"]
+	brew "go@1.21", link: true, conflicts_with: ["go"]
 
 	# unpinned
 	brew "canon"
@@ -181,8 +182,8 @@ do_brew(){
 		exit 1
 	fi
 
-	# replace default go (1.22+, from canon build) with pinned go@1.21
-	brew unlink go && brew install go@1.21 && brew link go@1.21
+	# replace default go (currently 1.22, from canon build) with pinned go@1.21
+	brew link --overwrite go@1.21
 
 	# due to a missing bottle in homebrew, this has to be installed on its own
 	brew install upx
