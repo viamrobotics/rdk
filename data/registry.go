@@ -28,7 +28,7 @@ type CollectorParams struct {
 	BufferSize    int
 	Logger        logging.Logger
 	Clock         clock.Clock
-	WebhookConfig *webhook.DataCaptureWebhook[uint32]
+	WebhookConfig *webhook.WebhookConfig
 }
 
 // Validate validates that p contains all required parameters.

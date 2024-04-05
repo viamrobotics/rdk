@@ -66,17 +66,7 @@ func newAssociatedConfig(attributes utils.AttributeMap) (*AssociatedConfig, erro
 	if err := json.Unmarshal(md, &conf); err != nil {
 		return nil, err
 	}
-	// Will be able to remove, this just generates an AssociatedConfig that includes
-	// a WebhookConfig values that are non-nil.
-	confWithDataCaptureWebhooks := &AssociatedConfig{
-		CaptureMethods: make([]*DataCaptureConfig, len(conf.CaptureMethods)),
-	}
-	for i, cm := range conf.CaptureMethods {
-		confWithDataCaptureWebhooks.CaptureMethods[i] = cm
-		confWithDataCaptureWebhooks.CaptureMethods[i].WebhookConfig =
-			webhook.NewDataCaptureWebhook[uint32]("https://us-central1-staging-cloud-web-app.cloudfunctions.net/app-3198-2")
-	}
-	return confWithDataCaptureWebhooks, nil
+	return &conf, nil
 }
 
 // Equals describes if an DataCaptureConfigs is equal to a given AssociatedConfig.
@@ -126,16 +116,16 @@ func (ac *AssociatedConfig) Link(conf *resource.Config) {
 
 // DataCaptureConfig is used to initialize a collector for a component or remote.
 type DataCaptureConfig struct {
-	Name               resource.Name                       `json:"name"`
-	Method             string                              `json:"method"`
-	CaptureFrequencyHz float32                             `json:"capture_frequency_hz"`
-	CaptureQueueSize   int                                 `json:"capture_queue_size"`
-	CaptureBufferSize  int                                 `json:"capture_buffer_size"`
-	AdditionalParams   map[string]string                   `json:"additional_params"`
-	Disabled           bool                                `json:"disabled"`
-	Tags               []string                            `json:"tags,omitempty"`
-	CaptureDirectory   string                              `json:"capture_directory"`
-	WebhookConfig      *webhook.DataCaptureWebhook[uint32] `json:"webhook_config,omitempty"`
+	Name               resource.Name          `json:"name"`
+	Method             string                 `json:"method"`
+	CaptureFrequencyHz float32                `json:"capture_frequency_hz"`
+	CaptureQueueSize   int                    `json:"capture_queue_size"`
+	CaptureBufferSize  int                    `json:"capture_buffer_size"`
+	AdditionalParams   map[string]string      `json:"additional_params"`
+	Disabled           bool                   `json:"disabled"`
+	Tags               []string               `json:"tags,omitempty"`
+	CaptureDirectory   string                 `json:"capture_directory"`
+	WebhookConfig      *webhook.WebhookConfig `json:"webhook_config,omitempty"`
 }
 
 // Equals checks if one capture config is equal to another.

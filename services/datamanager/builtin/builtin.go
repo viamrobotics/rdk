@@ -316,6 +316,7 @@ func (svc *builtIn) initializeOrUpdateCollector(
 		BufferSize:    captureBufferSize,
 		Logger:        svc.logger,
 		Clock:         clock,
+		WebhookConfig: config.WebhookConfig,
 	}
 	collector, err := (*collectorConstructor)(res, params)
 	if err != nil {
@@ -615,7 +616,7 @@ func (svc *builtIn) sync() {
 	}
 }
 
-//nolint
+// nolint
 func getAllFilesToSync(dir string, lastModifiedMillis int) []string {
 	var filePaths []string
 	_ = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {

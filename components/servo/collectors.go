@@ -8,6 +8,7 @@ import (
 	"google.golang.org/protobuf/types/known/anypb"
 
 	"go.viam.com/rdk/data"
+	"go.viam.com/rdk/webhook"
 )
 
 type method int64
@@ -30,7 +31,7 @@ func newPositionCollector(resource interface{}, params data.CollectorParams) (da
 	if err != nil {
 		return nil, err
 	}
-
+	datacaptureWebhook := webhook.NewDataCaptureWebhook[uint32](params.WebhookConfig)
 	cFunc := data.CaptureFunc(func(ctx context.Context, _ map[string]*anypb.Any) (interface{}, error) {
 		pos, err := servo.Position(ctx, data.FromDMExtraMap)
 		if err != nil {
@@ -41,17 +42,9 @@ func newPositionCollector(resource interface{}, params data.CollectorParams) (da
 			}
 			return nil, data.FailedToReadErr(params.ComponentName, position.String(), err)
 		}
-		if params.WebhookConfig != nil {
-			if params.WebhookConfig.Comparator(pos, pos) { //make them always equal to make webhook URL included
-				return pb.GetPositionResponse{
-					PositionDeg: pos,
-					WebhookUrl:  "https://us-central1-staging-cloud-web-app.cloudfunctions.net/app-3198-2",
-				}, nil
-			}
-		}
 		return pb.GetPositionResponse{
 			PositionDeg: pos,
-			WebhookUrl:  "https://us-central1-staging-cloud-web-app.cloudfunctions.net/app-3198-2", // comment this out
+			WebhookUrl:  datacaptureWebhook.Compare(pos, pos),
 		}, nil
 	})
 	return data.NewCollector(cFunc, params)
