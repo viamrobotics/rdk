@@ -83,10 +83,8 @@ func (r *localRobot) RemoteByName(name string) (robot.Robot, bool) {
 }
 
 // ResourceByName returns a resource by name. If it does not exist
-// nil is returned. Machine part id is optional and will not be used for comparison.
+// nil is returned.
 func (r *localRobot) ResourceByName(name resource.Name) (resource.Resource, error) {
-	// strip part id to make comparisons easier
-	name = name.WithoutPartID()
 	return r.manager.ResourceByName(name)
 }
 
@@ -97,18 +95,7 @@ func (r *localRobot) RemoteNames() []string {
 
 // ResourceNames returns the names of all known resources.
 func (r *localRobot) ResourceNames() []resource.Name {
-	names := r.manager.ResourceNames()
-
-	md, err := r.CloudMetadata(context.Background())
-	if err != nil {
-		return names
-	}
-	rNames := make([]resource.Name, 0, len(names))
-	for _, n := range names {
-		n.MachinePartID = md.MachinePartID
-		rNames = append(rNames, n)
-	}
-	return rNames
+	return r.manager.ResourceNames()
 }
 
 // ResourceRPCAPIs returns all known resource RPC APIs in use.
@@ -1194,8 +1181,10 @@ func (r *localRobot) checkMaxInstance(api resource.API, max int) error {
 // CloudMetadata returns app-related information about the robot.
 func (r *localRobot) CloudMetadata(ctx context.Context) (cloud.Metadata, error) {
 	md := cloud.Metadata{}
-	// use the stored config for this lookup to avoid locking issues in Config() while in re(configuration).
-	cfg := r.mostRecentCfg.Load().(config.Config)
+	cfg := r.Config()
+	if cfg == nil {
+		return md, errors.New("no config available")
+	}
 	cloud := cfg.Cloud
 	if cloud == nil {
 		return md, errors.New("cloud metadata not available")

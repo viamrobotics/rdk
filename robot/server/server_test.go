@@ -44,7 +44,7 @@ var emptyResources = &pb.ResourceNamesResponse{
 	Resources: []*commonpb.ResourceName{},
 }
 
-var serverNewResource = arm.Named("abc")
+var serverNewResource = arm.Named("")
 
 var serverOneResourceResponse = []*commonpb.ResourceName{
 	{
@@ -56,7 +56,7 @@ var serverOneResourceResponse = []*commonpb.ResourceName{
 }
 
 func TestServer(t *testing.T) {
-	t.Run("ResourceNames", func(t *testing.T) {
+	t.Run("Metadata", func(t *testing.T) {
 		injectRobot := &inject.Robot{}
 		injectRobot.ResourceRPCAPIsFunc = func() []resource.RPCAPI { return nil }
 		injectRobot.ResourceNamesFunc = func() []resource.Name { return []resource.Name{} }
@@ -72,23 +72,6 @@ func TestServer(t *testing.T) {
 		resourceResp, err = server.ResourceNames(context.Background(), &pb.ResourceNamesRequest{})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, resourceResp.Resources, test.ShouldResemble, serverOneResourceResponse)
-
-		partID := "abcde"
-		nameWithPartID := serverNewResource.WithPartID(partID)
-		injectRobot.ResourceRPCAPIsFunc = func() []resource.RPCAPI { return nil }
-		injectRobot.ResourceNamesFunc = func() []resource.Name { return []resource.Name{nameWithPartID} }
-
-		resourceResp, err = server.ResourceNames(context.Background(), &pb.ResourceNamesRequest{})
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, resourceResp.Resources, test.ShouldResemble, []*commonpb.ResourceName{
-			{
-				Namespace:     string(nameWithPartID.API.Type.Namespace),
-				Type:          nameWithPartID.API.Type.Name,
-				Subtype:       nameWithPartID.API.SubtypeName,
-				Name:          nameWithPartID.Name,
-				MachinePartId: &nameWithPartID.MachinePartID,
-			},
-		})
 	})
 
 	t.Run("GetCloudMetadata", func(t *testing.T) {
