@@ -367,6 +367,7 @@ func (c *client) Close(ctx context.Context) error {
 	}
 	c.healthyClientCh = nil
 
+	// unsubscribe from all video streams that have been established with modular cameras
 	if err := c.unsubscribeAll(); err != nil {
 		c.logger.CErrorw(ctx, "Close > unsubscribeAll", "err", err, "name", c.Name())
 		return err
@@ -376,6 +377,8 @@ func (c *client) Close(ctx context.Context) error {
 }
 
 func (c *client) VideoCodecStreamSource(ctx context.Context) (VideoCodecStreamSource, error) {
+	// check if a peer connection is available with the camera
+	// otherwise no webrtc passthrough streams are available
 	_, ok := c.conn.(*rdkgrpc.SharedConn)
 	if c.conn.PeerConn() != nil && ok {
 		return c, nil
@@ -400,6 +403,7 @@ func (c *client) SubscribeRTP(ctx context.Context, bufferSize int, packetsCB Pac
 		return uuid.Nil, ErrNoPeerConnection
 	}
 
+	// check if we have established a connection that can be shared by multiple clients asking for cameras streams from viam server.
 	sc, ok := c.conn.(*rdkgrpc.SharedConn)
 	if !ok {
 		return uuid.Nil, ErrNoSharedPeerConnection
@@ -410,14 +414,30 @@ func (c *client) SubscribeRTP(ctx context.Context, bufferSize int, packetsCB Pac
 			"name", c.Name(), "subAndCallbackByID", c.subAndCallbackByID.String())
 	}()
 
+	// add the subscription to subAndCallbackByID so the goroutine spawned by
+	// addOnTrackSubFunc can forward the packets it receives from the modular camera
+	// over WebRTC to the SubscribeRTP caller via the packetsCB callback
 	c.subAndCallbackByID[sub.ID()] = subAndCallback{
 		cb:  func(p *rtp.Packet) error { return packetsCB([]*rtp.Packet{p}) },
 		sub: sub,
 	}
 
+	// Start the subscription to process calls to sub.Publish
 	sub.Start()
+	// add the camera model's addOnTrackSubFunc to the shared peer connection's
+	// slice of OnTrack callbacks. This is what allows
+	// all the subAndCallbackByID's callback functions to be called with the
+	// RTP packets from the module's peer connection's track
 	sc.AddOnTrackSub(c.Name(), c.addOnTrackSubFunc)
 
+	// B/c there is only ever either 0 or 1 peer connections between a module & a viam-server
+	// once AddStream is called on the module for a given camera model instance & succeeds, we shouldn't
+	// call it again until RemoveStream is called for a few reasons:
+	// 1. doing so would result in 2 webrtc tracks for the same camera sending the exact same RTP packets which would
+	// needlessly waste resources
+	// 2. b/c the signature of RemoveStream just takes the camera name, if there are 2 streams for the same camera
+	// & the module receives a call to RemoveStream, there is no way for the module to know which camera stream
+	// should be removed
 	if len(c.subAndCallbackByID) == 1 {
 		if _, err := c.streamClient.AddStream(ctx, &streampb.AddStreamRequest{Name: c.Name().String()}); err != nil {
 			c.logger.CDebugw(ctx, "SubscribeRTP AddStream hit error", "subID", sub.ID().String(), "name", c.Name(), "err", err)

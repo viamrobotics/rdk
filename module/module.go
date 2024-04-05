@@ -466,6 +466,7 @@ func (m *Module) AddResource(ctx context.Context, req *pb.AddResourceRequest) (*
 
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	// add the video stream resources upon creation
 	if vcss != nil {
 		m.streamSourceByName[res.Name()] = vcss
 	}
@@ -625,6 +626,7 @@ func (m *Module) RemoveResource(ctx context.Context, req *pb.RemoveResourceReque
 		return nil, err
 	}
 
+	// remove vidostreams when the camera resource implementing a passthrough is removed.
 	vcss, streamSourceByNameOk := m.streamSourceByName[name]
 	prs, activeResourceStreamsOk := m.activeResourceStreams[name]
 	if streamSourceByNameOk && activeResourceStreamsOk {
