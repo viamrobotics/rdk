@@ -122,7 +122,7 @@ func (c *Camera) VideoCodecStreamSource(ctx context.Context) (rtppassthrough.Sou
 		return c.VideoCodecStreamSourceFunc(ctx)
 	}
 	if c.Camera != nil {
-		return c.Camera.VideoCodecStreamSource(ctx)
+		return c.Camera.RTPPassthroughSource(ctx)
 	}
 	return nil, errors.New("VideoCodecStreamSource unimplemented")
 }

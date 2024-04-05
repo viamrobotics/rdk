@@ -167,7 +167,7 @@ func newPCDCamera(
 	return cam, nil
 }
 
-func (replay *pcdCamera) VideoCodecStreamSource(ctx context.Context) (rtppassthrough.Source, error) {
+func (replay *pcdCamera) RTPPassthroughSource(ctx context.Context) (rtppassthrough.Source, error) {
 	return nil, errors.New("pcdCamera does not implement VideoCodecStreamSource")
 }
 

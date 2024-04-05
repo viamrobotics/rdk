@@ -316,7 +316,7 @@ func NewWebcam(
 	return cam, nil
 }
 
-func (c *monitoredWebcam) VideoCodecStreamSource(ctx context.Context) (rtppassthrough.Source, error) {
+func (c *monitoredWebcam) RTPPassthroughSource(ctx context.Context) (rtppassthrough.Source, error) {
 	return nil, errors.New("monitoredWebcam does not implement VideoCodecStreamSource")
 }
 

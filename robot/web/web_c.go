@@ -321,7 +321,7 @@ func (svc *webService) videoCodecStreamSource(ctx context.Context, stream gostre
 		return nil, errors.Errorf("expected %s to implement camera.Camera", stream.Name())
 	}
 
-	return cam.VideoCodecStreamSource(ctx)
+	return cam.RTPPassthroughSource(ctx)
 }
 
 func subscribeRTP(

@@ -377,7 +377,7 @@ func (c *client) Close(ctx context.Context) error {
 	return nil
 }
 
-func (c *client) VideoCodecStreamSource(ctx context.Context) (rtppassthrough.Source, error) {
+func (c *client) RTPPassthroughSource(ctx context.Context) (rtppassthrough.Source, error) {
 	// check if a peer connection is available with the camera
 	// otherwise no webrtc passthrough streams are available
 	_, ok := c.conn.(*rdkgrpc.SharedConn)

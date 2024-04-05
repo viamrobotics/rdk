@@ -117,7 +117,7 @@ func TestNewVideoSourceFromReader(t *testing.T) {
 		reader := &dummyvcss{}
 		cam1, err := camera.NewVideoSourceFromReader(context.Background(), reader, nil, camera.UnspecifiedStream)
 		test.That(t, err, test.ShouldBeNil)
-		vcss, err := cam1.VideoCodecStreamSource(context.Background())
+		vcss, err := cam1.RTPPassthroughSource(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, vcss, test.ShouldEqual, reader)
 	})
@@ -126,7 +126,7 @@ func TestNewVideoSourceFromReader(t *testing.T) {
 		reader := &simpleSource{"rimage/board1_small"}
 		cam1, err := camera.NewVideoSourceFromReader(context.Background(), reader, nil, camera.UnspecifiedStream)
 		test.That(t, err, test.ShouldBeNil)
-		vcss, err := cam1.VideoCodecStreamSource(context.Background())
+		vcss, err := cam1.RTPPassthroughSource(context.Background())
 		test.That(t, err, test.ShouldBeError, errors.New("VideoCodecStreamSource unimplemented"))
 		test.That(t, vcss, test.ShouldBeNil)
 	})

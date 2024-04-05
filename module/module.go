@@ -460,7 +460,7 @@ func (m *Module) AddResource(ctx context.Context, req *pb.AddResourceRequest) (*
 
 	var vcss rtppassthrough.Source
 	if cam, ok := res.(camera.VideoSource); ok {
-		if v, err := cam.VideoCodecStreamSource(ctx); err == nil {
+		if v, err := cam.RTPPassthroughSource(ctx); err == nil {
 			vcss = v
 		}
 	}
@@ -566,7 +566,7 @@ func (m *Module) ReconfigureResource(ctx context.Context, req *pb.ReconfigureRes
 	}
 	var vcss rtppassthrough.Source
 	if cam, ok := newRes.(camera.VideoSource); ok {
-		if v, err := cam.VideoCodecStreamSource(ctx); err == nil {
+		if v, err := cam.RTPPassthroughSource(ctx); err == nil {
 			vcss = v
 		}
 	}

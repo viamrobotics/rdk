@@ -835,7 +835,7 @@ func TestVideoCodecStreamSource(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	defer serverClose()
 	test.That(t, replayCamera, test.ShouldNotBeNil)
-	vcss, err := replayCamera.VideoCodecStreamSource(ctx)
+	vcss, err := replayCamera.RTPPassthroughSource(ctx)
 	test.That(t, err, test.ShouldBeError, errors.New("pcdCamera does not implement VideoCodecStreamSource"))
 	test.That(t, vcss, test.ShouldBeNil)
 }

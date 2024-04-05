@@ -85,9 +85,9 @@ type Camera interface {
 // A VideoSource represents anything that can capture frames.
 type VideoSource interface {
 	projectorProvider
-	// A VideoCodecStreamSource allows modules to passthrough RTP packets over used by viam-server's camera client to stream video over webrtc.
+	// A RTPPassthroughSource allows modules to passthrough RTP packets over used by viam-server's camera client to stream video over webrtc.
 	// currently only available to go modules.
-	VideoCodecStreamSource(ctx context.Context) (rtppassthrough.Source, error)
+	RTPPassthroughSource(ctx context.Context) (rtppassthrough.Source, error)
 	// Images is used for getting simultaneous images from different imagers,
 	// along with associated metadata (just timestamp for now). It's not for getting a time series of images from the same imager.
 	Images(ctx context.Context) ([]NamedImage, resource.ResponseMetadata, error)
@@ -188,7 +188,7 @@ func NewVideoSourceFromReader(
 	}, nil
 }
 
-func (vs *videoSource) VideoCodecStreamSource(ctx context.Context) (rtppassthrough.Source, error) {
+func (vs *videoSource) RTPPassthroughSource(ctx context.Context) (rtppassthrough.Source, error) {
 	if vs.videoCodecStreamSource != nil {
 		return vs.videoCodecStreamSource, nil
 	}
