@@ -5,6 +5,7 @@ import (
 	"image"
 	"testing"
 
+	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	"go.viam.com/test"
 	"go.viam.com/utils/artifact"
@@ -57,6 +58,28 @@ func (s *simpleSourceWithPCD) Close(ctx context.Context) error {
 	return nil
 }
 
+type dummyvcss struct{}
+
+func (s *dummyvcss) SubscribeRTP(
+	ctx context.Context,
+	bufferSize int,
+	packetsCB camera.PacketCallback,
+) (camera.StreamSubscriptionID, error) {
+	return uuid.Nil, errors.New("SubscribeRTP error")
+}
+
+func (s *dummyvcss) Unsubscribe(ctx context.Context, id camera.StreamSubscriptionID) error {
+	return errors.New("Unsubscribe error")
+}
+
+func (s *dummyvcss) Read(ctx context.Context) (image.Image, func(), error) {
+	return nil, func() {}, errors.New("Read error")
+}
+
+func (s *dummyvcss) Close(ctx context.Context) error {
+	return nil
+}
+
 func TestNewPinholeModelWithBrownConradyDistortion(t *testing.T) {
 	intrinsics := &transform.PinholeCameraIntrinsics{
 		Width:  10,
@@ -85,6 +108,27 @@ func TestNewPinholeModelWithBrownConradyDistortion(t *testing.T) {
 	pinholeCameraModel4 := camera.NewPinholeModelWithBrownConradyDistortion(nil, nil)
 	test.That(t, pinholeCameraModel4, test.ShouldResemble, expected4)
 	test.That(t, pinholeCameraModel4.Distortion, test.ShouldBeNil)
+}
+
+func TestNewVideoSourceFromReader(t *testing.T) {
+	t.Run("if reader is a VideoCodecStreamSource, returns a VideoSource "+
+		"whose VideoCodecStreamSource method returns the reader", func(t *testing.T) {
+		reader := &dummyvcss{}
+		cam1, err := camera.NewVideoSourceFromReader(context.Background(), reader, nil, camera.UnspecifiedStream)
+		test.That(t, err, test.ShouldBeNil)
+		vcss, err := cam1.VideoCodecStreamSource(context.Background())
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, vcss, test.ShouldEqual, reader)
+	})
+
+	t.Run("otherwise returns a VideoSource whose VideoCodecStreamSource method returns an error", func(t *testing.T) {
+		reader := &simpleSource{"rimage/board1_small"}
+		cam1, err := camera.NewVideoSourceFromReader(context.Background(), reader, nil, camera.UnspecifiedStream)
+		test.That(t, err, test.ShouldBeNil)
+		vcss, err := cam1.VideoCodecStreamSource(context.Background())
+		test.That(t, err, test.ShouldBeError, errors.New("VideoCodecStreamSource unimplemented"))
+		test.That(t, vcss, test.ShouldBeNil)
+	})
 }
 
 func TestNewCamera(t *testing.T) {
