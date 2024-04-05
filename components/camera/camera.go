@@ -95,6 +95,8 @@ type (
 // A VideoSource represents anything that can capture frames.
 type VideoSource interface {
 	projectorProvider
+	// A VideoCodecStreamSource allows modules to passthrough RTP packets over used by viam-server's camera client to stream video over webrtc.
+	// currently only available to go modules.
 	VideoCodecStreamSource(ctx context.Context) (VideoCodecStreamSource, error)
 	// Images is used for getting simultaneous images from different imagers,
 	// along with associated metadata (just timestamp for now). It's not for getting a time series of images from the same imager.
