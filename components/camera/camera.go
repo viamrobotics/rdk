@@ -146,7 +146,11 @@ type sourceBasedCamera struct {
 	logging.Logger
 }
 
-func (vs *sourceBasedCamera) SubscribeRTP(ctx context.Context, bufferSize int, packetsCB rtppassthrough.PacketCallback) (rtppassthrough.SubscriptionID, error) {
+func (vs *sourceBasedCamera) SubscribeRTP(
+	ctx context.Context,
+	bufferSize int,
+	packetsCB rtppassthrough.PacketCallback,
+) (rtppassthrough.SubscriptionID, error) {
 	if vs.rtpPassthroughSource != nil {
 		return vs.rtpPassthroughSource.SubscribeRTP(ctx, bufferSize, packetsCB)
 	}
