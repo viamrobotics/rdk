@@ -170,11 +170,9 @@ func (m *EncodedMotor) rpmMonitor(ctx context.Context, goalRPM, goalPos, directi
 
 	timer := time.NewTimer(50 * time.Millisecond)
 	for {
-		fmt.Printf("ERR = %v\n", ctx.Err())
 		select {
 		case <-ctx.Done():
 			timer.Stop()
-			fmt.Println("returning")
 			return
 		case <-timer.C:
 		}
@@ -217,7 +215,7 @@ func (m *EncodedMotor) makeAdjustments(
 	now, lastTime int64,
 ) (float64, error) {
 	m.mu.Lock()
-	defer m.mu.Unlock()
+	// defer m.mu.Unlock()
 
 	newPowerPct := lastPowerPct
 
@@ -245,6 +243,7 @@ func (m *EncodedMotor) makeAdjustments(
 		newPowerPct = lastPowerPct
 	}
 
+	m.mu.Unlock()
 	if err := m.setPower(ctx, newPowerPct); err != nil {
 		return 0, err
 	}
@@ -385,18 +384,17 @@ func (m *EncodedMotor) goForInternal(ctx context.Context, rpm, goalPos, directio
 			}
 		} else {
 			// cancel rpmMonitor if it already exists
-			// if m.rpmMonitorDone != nil {
-			// 	m.rpmMonitorDone()
-			// }
-
+			if m.rpmMonitorDone != nil {
+				m.rpmMonitorDone()
+			}
 			// start a new rpmMonitor
-			// var rpmCtx context.Context
-			// rpmCtx, m.rpmMonitorDone = context.WithCancel(ctx)
+			var rpmCtx context.Context
+			rpmCtx, m.rpmMonitorDone = context.WithCancel(ctx)
 			m.activeBackgroundWorkers.Add(1)
-			utils.ManagedGo(func() {
-				m.rpmMonitor(ctx, rpm, goalPos, direction)
-				fmt.Println("rpmMonitor done")
-			}, m.activeBackgroundWorkers.Done)
+			go func() {
+				defer m.activeBackgroundWorkers.Done()
+				m.rpmMonitor(rpmCtx, rpm, goalPos, direction)
+			}()
 
 			return nil
 		}
@@ -493,21 +491,19 @@ func (m *EncodedMotor) IsMoving(ctx context.Context) (bool, error) {
 
 // Stop stops rpmMonitor and stops the real motor.
 func (m *EncodedMotor) Stop(ctx context.Context, extra map[string]interface{}) error {
-	m.opMgr.CancelRunning(context.Background())
 	// after the motor is created, Stop is called, but if the PID controller
 	// is auto-tuning, the loop needs to keep running
 	if m.loop != nil && !m.loop.GetTuning(ctx) {
 		m.loop.Pause()
 	}
-	// if m.rpmMonitorDone != nil {
-	// 	m.rpmMonitorDone()
-	// }
+	if m.rpmMonitorDone != nil {
+		m.rpmMonitorDone()
+	}
 	return m.real.Stop(ctx, nil)
 }
 
 // Close cleanly shuts down the motor.
 func (m *EncodedMotor) Close(ctx context.Context) error {
-	// m.opMgr.CancelRunning(context.Background())
 	if err := m.Stop(ctx, nil); err != nil {
 		return err
 	}
