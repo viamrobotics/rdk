@@ -35,7 +35,7 @@ func (m *noopManager) Close(ctx context.Context) error {
 }
 
 // SyncAll syncs all given packages and removes any not in the list from the local file system.
-func (m *noopManager) Sync(ctx context.Context, packages []config.PackageConfig) error {
+func (m *noopManager) Sync(ctx context.Context, packages []config.PackageConfig, modules []config.Module) error {
 	return nil
 }
 

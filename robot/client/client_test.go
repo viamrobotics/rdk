@@ -16,10 +16,10 @@ import (
 	"time"
 
 	"github.com/edaniels/golog"
+	"github.com/go-viper/mapstructure/v2"
 	"github.com/golang/geo/r3"
 	"github.com/google/uuid"
 	"github.com/jhump/protoreflect/grpcreflect"
-	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
 	commonpb "go.viam.com/api/common/v1"
 	armpb "go.viam.com/api/component/arm/v1"
@@ -43,6 +43,7 @@ import (
 	"google.golang.org/grpc/reflection"
 	"google.golang.org/grpc/status"
 
+	"go.viam.com/rdk/cloud"
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/components/board"
@@ -56,7 +57,6 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/gostream"
 	rgrpc "go.viam.com/rdk/grpc"
-	"go.viam.com/rdk/internal/cloud"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/referenceframe"
@@ -1785,7 +1785,8 @@ func TestRemoteClientMatch(t *testing.T) {
 	listener1, err := net.Listen("tcp", "localhost:0")
 	test.That(t, err, test.ShouldBeNil)
 	gServer1 := grpc.NewServer()
-	validResources := []resource.Name{arm.Named("remote:arm1")}
+	partID := "abcde"
+	validResources := []resource.Name{arm.Named("remote:arm1").WithPartID(partID)}
 	injectRobot1 := &inject.Robot{
 		ResourceNamesFunc:   func() []resource.Name { return validResources },
 		ResourceRPCAPIsFunc: func() []resource.RPCAPI { return nil },
@@ -1819,9 +1820,16 @@ func TestRemoteClientMatch(t *testing.T) {
 	)
 	test.That(t, err, test.ShouldBeNil)
 
+	// test that missing part id still works
 	resource1, err := client.ResourceByName(arm.Named("arm1"))
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, client.resourceClients[arm.Named("remote:arm1")], test.ShouldEqual, resource1)
+
+	// test that with part id works as well
+	resource1, err = client.ResourceByName(arm.Named("arm1").WithPartID(partID))
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, client.resourceClients[arm.Named("remote:arm1")], test.ShouldEqual, resource1)
+
 	pos, err := resource1.(arm.Arm).EndPosition(context.Background(), nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, spatialmath.PoseAlmostEqual(pos, pose1), test.ShouldBeTrue)
@@ -1947,6 +1955,11 @@ func TestGetUnknownResource(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, myArm, test.ShouldNotBeNil)
 
+	// grabbing known resource with mismatched part id is fine
+	myArm, err = client.ResourceByName(arm.Named("myArm").WithPartID("abcde"))
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, myArm, test.ShouldNotBeNil)
+
 	// grabbing unknown resource returns error
 	_, err = client.ResourceByName(base.Named("notABase"))
 	test.That(t, err, test.ShouldBeError, resource.NewNotFoundError(base.Named("notABase")))
@@ -2019,9 +2032,10 @@ func TestCloudMetadata(t *testing.T) {
 	gServer := grpc.NewServer()
 
 	injectCloudMD := cloud.Metadata{
-		RobotPartID:  "the-robot-part",
-		LocationID:   "the-location",
-		PrimaryOrgID: "the-primary-org",
+		LocationID:    "the-location",
+		PrimaryOrgID:  "the-primary-org",
+		MachineID:     "the-machine",
+		MachinePartID: "the-robot-part",
 	}
 	injectRobot := &inject.Robot{
 		ResourceNamesFunc:   func() []resource.Name { return nil },

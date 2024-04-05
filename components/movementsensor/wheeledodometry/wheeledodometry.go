@@ -59,6 +59,7 @@ type odometry struct {
 	lastRightPos       float64
 	baseWidth          float64
 	wheelCircumference float64
+	base               base.Base
 	timeIntervalMSecs  float64
 
 	motors []motorPair
@@ -164,6 +165,7 @@ func (o *odometry) Reconfigure(ctx context.Context, deps resource.Dependencies, 
 	if o.baseWidth == 0 || o.wheelCircumference == 0 {
 		return errors.New("base width or wheel circumference are 0, movement sensor cannot be created")
 	}
+	o.base = newBase
 	o.logger.Debugf("using base %v for wheeled_odometry sensor", newBase.Name().ShortName())
 
 	// check if new motors have been added, or the existing motors have been changed, and update the motorPairs accorodingly
@@ -335,6 +337,23 @@ func (o *odometry) Close(ctx context.Context) error {
 	return nil
 }
 
+func (o *odometry) checkBaseProps(ctx context.Context) {
+	props, err := o.base.Properties(ctx, nil)
+	if err != nil {
+		if !errors.Is(err, context.Canceled) {
+			o.logger.Error(err)
+			return
+		}
+	}
+	if (o.baseWidth != props.WidthMeters) || (o.wheelCircumference != props.WheelCircumferenceMeters) {
+		o.baseWidth = props.WidthMeters
+		o.wheelCircumference = props.WheelCircumferenceMeters
+		o.logger.Warnf("Base %v's properties have changed: baseWidth = %v and wheelCirumference = %v.",
+			"Odometry can optionally be reset using DoCommand",
+			o.base.Name().ShortName(), o.baseWidth, o.wheelCircumference)
+	}
+}
+
 // trackPosition uses the motor positions to calculate an estimation of the position, orientation,
 // linear velocity, and angular velocity of the wheeled base.
 // The estimations in this function are based on the math outlined in this article:
@@ -386,6 +405,11 @@ func (o *odometry) trackPosition(ctx context.Context) {
 			}
 			left := positions[0]
 			right := positions[1]
+
+			// Base properties need to be checked every time because dependent components reconfiguring does not trigger
+			// the parent component to reconfigure. In this case, that means if the base properties change, the wheeled
+			// odometry movement sensor will not be aware of these changes and will continue to use the old values
+			o.checkBaseProps(ctx)
 
 			// Difference in the left and right motors since the last iteration, in mm.
 			leftDist := (left - o.lastLeftPos) * o.wheelCircumference

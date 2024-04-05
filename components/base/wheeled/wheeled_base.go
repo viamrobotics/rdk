@@ -126,7 +126,9 @@ func (wb *wheeledBase) Reconfigure(ctx context.Context, deps resource.Dependenci
 		if err != nil {
 			return err
 		}
-		wb.geometries = append(wb.geometries, frame.Geometry())
+		if geom := frame.Geometry(); geom != nil {
+			wb.geometries = append(wb.geometries, geom)
+		}
 	}
 
 	newConf, err := resource.NativeConfig[*Config](conf)

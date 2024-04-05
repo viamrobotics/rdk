@@ -416,7 +416,7 @@ func TestObstacleReplanningGlobe(t *testing.T) {
 
 	extra := map[string]interface{}{"max_replans": 0, "max_ik_solutions": 1, "smooth_iter": 1}
 
-	i := 0
+	// ~ i := 0
 	j := 0
 
 	testCases := []testCase{
@@ -438,25 +438,27 @@ func TestObstacleReplanningGlobe(t *testing.T) {
 			},
 			expectedSuccess: true,
 		},
-		{
-			name: "ensure replan due to obstacle collision",
-			getPCfunc: func(ctx context.Context, cameraName string, extra map[string]interface{}) ([]*viz.Object, error) {
-				if i == 0 {
-					i++
-					return []*viz.Object{}, nil
-				}
-				obstaclePosition := spatialmath.NewPoseFromPoint(r3.Vector{X: 300, Y: 0, Z: 0})
-				box, err := spatialmath.NewBox(obstaclePosition, r3.Vector{X: 20, Y: 20, Z: 10}, "test-case-1")
-				test.That(t, err, test.ShouldBeNil)
+		// TODO(pl): This was disabled as part of course correction. It will need to be re-enabled once a method is developed to surface
+		// course-corrected plans from the kinematic base to the motion service.
+		// {
+		//  name: "ensure replan due to obstacle collision",
+		//  getPCfunc: func(ctx context.Context, cameraName string, extra map[string]interface{}) ([]*viz.Object, error) {
+		//  if i == 0 {
+		//  i++
+		//  return []*viz.Object{}, nil
+		// }
+		// obstaclePosition := spatialmath.NewPoseFromPoint(r3.Vector{X: 300, Y: 0, Z: 0})
+		// box, err := spatialmath.NewBox(obstaclePosition, r3.Vector{X: 20, Y: 20, Z: 10}, "test-case-1")
+		// test.That(t, err, test.ShouldBeNil)
 
-				detection, err := viz.NewObjectWithLabel(pointcloud.New(), "test-case-1-detection", box.ToProtobuf())
-				test.That(t, err, test.ShouldBeNil)
+		//  detection, err := viz.NewObjectWithLabel(pointcloud.New(), "test-case-1-detection", box.ToProtobuf())
+		//  test.That(t, err, test.ShouldBeNil)
 
-				return []*viz.Object{detection}, nil
-			},
-			expectedSuccess: false,
-			expectedErr:     fmt.Sprintf("exceeded maximum number of replans: %d: plan failed", 0),
-		},
+		//  return []*viz.Object{detection}, nil
+		//  },
+		//  expectedSuccess: false,
+		//  expectedErr:     fmt.Sprintf("exceeded maximum number of replans: %d: plan failed", 0),
+		//  },
 	}
 
 	testFn := func(t *testing.T, tc testCase) {
@@ -1784,7 +1786,7 @@ func TestMoveOnMap(t *testing.T) {
 		timeoutCtx, timeoutFn := context.WithTimeout(ctx, time.Second*5)
 		defer timeoutFn()
 		executionID, err := ms.(*builtIn).MoveOnMap(timeoutCtx, req)
-		test.That(t, err, test.ShouldBeError, errors.New("no need to move, already within planDeviationMM"))
+		test.That(t, err, test.ShouldBeError, motion.ErrGoalWithinPlanDeviation)
 		test.That(t, executionID, test.ShouldResemble, uuid.Nil)
 	})
 
