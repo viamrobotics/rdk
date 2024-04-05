@@ -160,7 +160,6 @@ do_brew(){
 	tap  "viamrobotics/brews"
 
 	# pinned
-	brew "go@1.20", link: true, conflicts_with: ["go"]
 	brew "node@18", link: true, conflicts_with: ["node"]
 
 	# unpinned
@@ -181,6 +180,9 @@ do_brew(){
 		echo "Package installation failed when running brew command, please retry."
 		exit 1
 	fi
+
+	# replace default go (1.22+, from canon build) with pinned go@1.21
+	brew unlink go && brew install go@1.21 && brew link go@1.21
 
 	# due to a missing bottle in homebrew, this has to be installed on its own
 	brew install upx
