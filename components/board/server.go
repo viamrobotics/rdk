@@ -161,11 +161,11 @@ func (s *serviceServer) ReadAnalogReader(
 		return nil, errors.Errorf("unknown analog reader: %s", req.AnalogReaderName)
 	}
 
-	val, err := theReader.Read(ctx, req.Extra.AsMap())
+	val, minRange, maxRange, err := theReader.Read(ctx, req.Extra.AsMap())
 	if err != nil {
 		return nil, err
 	}
-	return &pb.ReadAnalogReaderResponse{Value: int32(val)}, nil
+	return &pb.ReadAnalogReaderResponse{Value: int32(val), MinRange: minRange, MaxRange: maxRange}, nil
 }
 
 // WriteAnalog writes the analog value to the analog writer pin of the underlying robot.

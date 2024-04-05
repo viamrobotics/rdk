@@ -205,10 +205,10 @@ type analogReaderClient struct {
 	analogReaderName string
 }
 
-func (arc *analogReaderClient) Read(ctx context.Context, extra map[string]interface{}) (int, error) {
+func (arc *analogReaderClient) Read(ctx context.Context, extra map[string]interface{}) (int, float32, float32, error) {
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
-		return 0, err
+		return 0, 0, 0, err
 	}
 	resp, err := arc.client.client.ReadAnalogReader(ctx, &pb.ReadAnalogReaderRequest{
 		BoardName:        arc.boardName,
@@ -216,9 +216,9 @@ func (arc *analogReaderClient) Read(ctx context.Context, extra map[string]interf
 		Extra:            ext,
 	})
 	if err != nil {
-		return 0, err
+		return 0, 0, 0, err
 	}
-	return int(resp.Value), nil
+	return int(resp.Value), resp.MinRange, resp.MaxRange, nil
 }
 
 // digitalInterruptClient satisfies a gRPC based board.DigitalInterrupt. Refer to the

@@ -88,7 +88,7 @@ type Board interface {
 // An AnalogReader represents an analog pin reader that resides on a board.
 type AnalogReader interface {
 	// Read reads off the current value.
-	Read(ctx context.Context, extra map[string]interface{}) (int, error)
+	Read(ctx context.Context, extra map[string]interface{}) (int, float32, float32, error)
 	Close(ctx context.Context) error
 }
 
