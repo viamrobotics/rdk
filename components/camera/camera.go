@@ -126,10 +126,15 @@ type ImagesSource interface {
 // If needed, implement the Camera another way. For example, a webcam
 // implements a Camera manually so that it can atomically reconfigure itself.
 func FromVideoSource(name resource.Name, src VideoSource, logger logging.Logger) Camera {
+	var rtpPassthroughSource rtppassthrough.Source
+	if ps, ok := src.(rtppassthrough.Source); ok {
+		rtpPassthroughSource = ps
+	}
 	return &sourceBasedCamera{
-		Named:       name.AsNamed(),
-		VideoSource: src,
-		Logger:      logger,
+		rtpPassthroughSource: rtpPassthroughSource,
+		Named:                name.AsNamed(),
+		VideoSource:          src,
+		Logger:               logger,
 	}
 }
 
@@ -137,7 +142,22 @@ type sourceBasedCamera struct {
 	resource.Named
 	resource.AlwaysRebuild
 	VideoSource
+	rtpPassthroughSource rtppassthrough.Source
 	logging.Logger
+}
+
+func (vs *sourceBasedCamera) SubscribeRTP(ctx context.Context, bufferSize int, packetsCB rtppassthrough.PacketCallback) (rtppassthrough.SubscriptionID, error) {
+	if vs.rtpPassthroughSource != nil {
+		return vs.rtpPassthroughSource.SubscribeRTP(ctx, bufferSize, packetsCB)
+	}
+	return uuid.Nil, errors.New("SubscribeRTP unimplemented")
+}
+
+func (vs *sourceBasedCamera) Unsubscribe(ctx context.Context, id rtppassthrough.SubscriptionID) error {
+	if vs.rtpPassthroughSource != nil {
+		return vs.rtpPassthroughSource.Unsubscribe(ctx, id)
+	}
+	return errors.New("Unsubscribe unimplemented")
 }
 
 // NewVideoSourceFromReader creates a VideoSource either with or without a projector. The stream type
