@@ -21,7 +21,7 @@ func CreateStatus(ctx context.Context, b Board, extra map[string]interface{}) (*
 			if !ok {
 				return nil, fmt.Errorf("analog %q not found", name)
 			}
-			val, err := x.Read(ctx, extra)
+			val, _, _, err := x.Read(ctx, extra)
 			if err != nil {
 				return nil, errors.Wrapf(err, "couldn't read analog (%s)", name)
 			}

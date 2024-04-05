@@ -115,7 +115,7 @@ func (as *AnalogSmoother) Start(ctx context.Context) {
 			default:
 			}
 			start := time.Now()
-			reading, err := as.Raw.Read(ctx, nil)
+			reading, _, _, err := as.Raw.Read(ctx, nil)
 			as.lastError.Store(&errValue{err != nil, err})
 			if err != nil {
 				if errors.Is(err, errStopReading) {
