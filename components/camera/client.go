@@ -24,6 +24,7 @@ import (
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/structpb"
 
+	"go.viam.com/rdk/components/camera/rtppassthrough"
 	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/gostream"
 	rdkgrpc "go.viam.com/rdk/grpc"
@@ -50,9 +51,9 @@ type (
 	singlePacketCallback func(*rtp.Packet) error
 	subAndCallback       struct {
 		cb  singlePacketCallback
-		sub *StreamSubscription
+		sub *rtppassthrough.StreamSubscription
 	}
-	subAndCallbackByID map[StreamSubscriptionID]subAndCallback
+	subAndCallbackByID map[rtppassthrough.SubscriptionID]subAndCallback
 )
 
 // client implements CameraServiceClient.
@@ -87,7 +88,7 @@ func NewClientFromConn(
 		conn:               conn,
 		streamClient:       streamClient,
 		client:             c,
-		subAndCallbackByID: map[StreamSubscriptionID]subAndCallback{},
+		subAndCallbackByID: map[rtppassthrough.SubscriptionID]subAndCallback{},
 		logger:             logger,
 	}, nil
 }
@@ -376,7 +377,7 @@ func (c *client) Close(ctx context.Context) error {
 	return nil
 }
 
-func (c *client) VideoCodecStreamSource(ctx context.Context) (VideoCodecStreamSource, error) {
+func (c *client) VideoCodecStreamSource(ctx context.Context) (rtppassthrough.Source, error) {
 	// check if a peer connection is available with the camera
 	// otherwise no webrtc passthrough streams are available
 	_, ok := c.conn.(*rdkgrpc.SharedConn)
@@ -387,14 +388,18 @@ func (c *client) VideoCodecStreamSource(ctx context.Context) (VideoCodecStreamSo
 	return nil, errors.New("no WebRTC peer connection")
 }
 
-func (c *client) SubscribeRTP(ctx context.Context, bufferSize int, packetsCB PacketCallback) (StreamSubscriptionID, error) {
+func (c *client) SubscribeRTP(
+	ctx context.Context,
+	bufferSize int,
+	packetsCB rtppassthrough.PacketCallback,
+) (rtppassthrough.SubscriptionID, error) {
 	ctx, span := trace.StartSpan(ctx, "camera::client::SubscribeRTP")
 	defer span.End()
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
 	onError := func(err error) { c.logger.CErrorw(ctx, "StreamSubscription returned hit an error", "err", err) }
-	sub, err := NewStreamSubscription(bufferSize, onError)
+	sub, err := rtppassthrough.NewStreamSubscription(bufferSize, onError)
 	if err != nil {
 		return uuid.Nil, err
 	}
@@ -499,7 +504,7 @@ func (c *client) addOnTrackSubFunc(tr *webrtc.TrackRemote, r *webrtc.RTPReceiver
 	}, c.activeBackgroundWorkers.Done)
 }
 
-func (c *client) Unsubscribe(ctx context.Context, id StreamSubscriptionID) error {
+func (c *client) Unsubscribe(ctx context.Context, id rtppassthrough.SubscriptionID) error {
 	ctx, span := trace.StartSpan(ctx, "camera::client::Unsubscribe")
 	defer span.End()
 	c.mu.Lock()

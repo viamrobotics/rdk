@@ -6,6 +6,7 @@ import (
 	"github.com/pkg/errors"
 
 	"go.viam.com/rdk/components/camera"
+	"go.viam.com/rdk/components/camera/rtppassthrough"
 	"go.viam.com/rdk/gostream"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/resource"
@@ -25,7 +26,7 @@ type Camera struct {
 	NextPointCloudFunc         func(ctx context.Context) (pointcloud.PointCloud, error)
 	ProjectorFunc              func(ctx context.Context) (transform.Projector, error)
 	PropertiesFunc             func(ctx context.Context) (camera.Properties, error)
-	VideoCodecStreamSourceFunc func(ctx context.Context) (camera.VideoCodecStreamSource, error)
+	VideoCodecStreamSourceFunc func(ctx context.Context) (rtppassthrough.Source, error)
 	CloseFunc                  func(ctx context.Context) error
 }
 
@@ -116,7 +117,7 @@ func (c *Camera) DoCommand(ctx context.Context, cmd map[string]interface{}) (map
 }
 
 // VideoCodecStreamSource calls the injected VideoCodecStreamSource or the real version.
-func (c *Camera) VideoCodecStreamSource(ctx context.Context) (camera.VideoCodecStreamSource, error) {
+func (c *Camera) VideoCodecStreamSource(ctx context.Context) (rtppassthrough.Source, error) {
 	if c.VideoCodecStreamSourceFunc != nil {
 		return c.VideoCodecStreamSourceFunc(ctx)
 	}

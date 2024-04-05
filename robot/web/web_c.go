@@ -24,6 +24,7 @@ import (
 
 	"go.viam.com/rdk/components/audioinput"
 	"go.viam.com/rdk/components/camera"
+	"go.viam.com/rdk/components/camera/rtppassthrough"
 	"go.viam.com/rdk/gostream"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
@@ -310,7 +311,7 @@ func (svc *webService) startVideoStream(
 	}, svc.webWorkers.Done)
 }
 
-func (svc *webService) videoCodecStreamSource(ctx context.Context, stream gostream.Stream) (camera.VideoCodecStreamSource, error) {
+func (svc *webService) videoCodecStreamSource(ctx context.Context, stream gostream.Stream) (rtppassthrough.Source, error) {
 	res, err := svc.r.ResourceByName(camera.Named(stream.Name()))
 	if err != nil {
 		return nil, err
@@ -326,8 +327,8 @@ func (svc *webService) videoCodecStreamSource(ctx context.Context, stream gostre
 func subscribeRTP(
 	ctx context.Context,
 	stream gostream.Stream,
-	h264Stream camera.VideoCodecStreamSource,
-	packetCallback camera.PacketCallback,
+	h264Stream rtppassthrough.Source,
+	packetCallback rtppassthrough.PacketCallback,
 	logger logging.Logger,
 ) (context.CancelFunc, error) {
 	timeoutCtx, timeoutCancel := context.WithTimeout(ctx, subscribeRTPTimeout)

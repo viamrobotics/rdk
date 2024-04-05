@@ -11,6 +11,7 @@ import (
 	"go.viam.com/utils/artifact"
 
 	"go.viam.com/rdk/components/camera"
+	"go.viam.com/rdk/components/camera/rtppassthrough"
 	"go.viam.com/rdk/gostream"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/resource"
@@ -63,12 +64,12 @@ type dummyvcss struct{}
 func (s *dummyvcss) SubscribeRTP(
 	ctx context.Context,
 	bufferSize int,
-	packetsCB camera.PacketCallback,
-) (camera.StreamSubscriptionID, error) {
+	packetsCB rtppassthrough.PacketCallback,
+) (rtppassthrough.SubscriptionID, error) {
 	return uuid.Nil, errors.New("SubscribeRTP error")
 }
 
-func (s *dummyvcss) Unsubscribe(ctx context.Context, id camera.StreamSubscriptionID) error {
+func (s *dummyvcss) Unsubscribe(ctx context.Context, id rtppassthrough.SubscriptionID) error {
 	return errors.New("Unsubscribe error")
 }
 

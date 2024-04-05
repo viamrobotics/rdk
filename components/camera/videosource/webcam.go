@@ -24,6 +24,7 @@ import (
 
 	"go.viam.com/rdk/components/camera"
 	jetsoncamera "go.viam.com/rdk/components/camera/platforms/jetson"
+	"go.viam.com/rdk/components/camera/rtppassthrough"
 	debugLogger "go.viam.com/rdk/components/camera/videosource/logging"
 	"go.viam.com/rdk/gostream"
 	"go.viam.com/rdk/logging"
@@ -315,7 +316,7 @@ func NewWebcam(
 	return cam, nil
 }
 
-func (c *monitoredWebcam) VideoCodecStreamSource(ctx context.Context) (camera.VideoCodecStreamSource, error) {
+func (c *monitoredWebcam) VideoCodecStreamSource(ctx context.Context) (rtppassthrough.Source, error) {
 	return nil, errors.New("monitoredWebcam does not implement VideoCodecStreamSource")
 }
 

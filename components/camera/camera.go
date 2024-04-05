@@ -8,13 +8,13 @@ import (
 	"time"
 
 	"github.com/pion/mediadevices/pkg/prop"
-	"github.com/pion/rtp"
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
 	"go.uber.org/multierr"
 	pb "go.viam.com/api/component/camera/v1"
 	viamutils "go.viam.com/utils"
 
+	"go.viam.com/rdk/components/camera/rtppassthrough"
 	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/gostream"
 	"go.viam.com/rdk/logging"
@@ -82,22 +82,12 @@ type Camera interface {
 	VideoSource
 }
 
-type (
-	// PacketCallback is the signature of the SubscribeRTP callback.
-	PacketCallback func(pkts []*rtp.Packet) error
-	// VideoCodecStreamSource is a source of video codec data.
-	VideoCodecStreamSource interface {
-		SubscribeRTP(ctx context.Context, bufferSize int, packetsCB PacketCallback) (StreamSubscriptionID, error)
-		Unsubscribe(ctx context.Context, id StreamSubscriptionID) error
-	}
-)
-
 // A VideoSource represents anything that can capture frames.
 type VideoSource interface {
 	projectorProvider
 	// A VideoCodecStreamSource allows modules to passthrough RTP packets over used by viam-server's camera client to stream video over webrtc.
 	// currently only available to go modules.
-	VideoCodecStreamSource(ctx context.Context) (VideoCodecStreamSource, error)
+	VideoCodecStreamSource(ctx context.Context) (rtppassthrough.Source, error)
 	// Images is used for getting simultaneous images from different imagers,
 	// along with associated metadata (just timestamp for now). It's not for getting a time series of images from the same imager.
 	Images(ctx context.Context) ([]NamedImage, resource.ResponseMetadata, error)
@@ -164,8 +154,8 @@ func NewVideoSourceFromReader(
 	if reader == nil {
 		return nil, errors.New("cannot have a nil reader")
 	}
-	var videoCodecStreamSource VideoCodecStreamSource
-	vcs, isVideoCodecStreamSource := reader.(VideoCodecStreamSource)
+	var videoCodecStreamSource rtppassthrough.Source
+	vcs, isVideoCodecStreamSource := reader.(rtppassthrough.Source)
 	if isVideoCodecStreamSource {
 		videoCodecStreamSource = vcs
 	}
@@ -198,7 +188,7 @@ func NewVideoSourceFromReader(
 	}, nil
 }
 
-func (vs *videoSource) VideoCodecStreamSource(ctx context.Context) (VideoCodecStreamSource, error) {
+func (vs *videoSource) VideoCodecStreamSource(ctx context.Context) (rtppassthrough.Source, error) {
 	if vs.videoCodecStreamSource != nil {
 		return vs.videoCodecStreamSource, nil
 	}
@@ -268,7 +258,7 @@ func WrapVideoSourceWithProjector(
 
 // videoSource implements a Camera with a gostream.VideoSource.
 type videoSource struct {
-	videoCodecStreamSource VideoCodecStreamSource
+	videoCodecStreamSource rtppassthrough.Source
 	videoSource            gostream.VideoSource
 	videoStream            gostream.VideoStream
 	actualSource           interface{}

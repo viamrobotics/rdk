@@ -1,4 +1,4 @@
-package camera
+package rtppassthrough
 
 // heavily inspired by https://github.com/bluenviron/mediamtx/blob/main/internal/asyncwriter/async_writer.go
 
@@ -26,8 +26,8 @@ import (
 	"go.viam.com/utils"
 )
 
-// StreamSubscriptionID is the id of a StreamSubscription.
-type StreamSubscriptionID = uuid.UUID
+// SubscriptionID is the id of a StreamSubscription.
+type SubscriptionID = uuid.UUID
 
 var (
 	// ErrQueueFull indicates the StreamSubscription's queue is full and that
@@ -47,7 +47,7 @@ var (
 // dropping stale packets is desirable to minimize latency.
 type StreamSubscription struct {
 	buffer  *ringbuffer.RingBuffer
-	id      StreamSubscriptionID
+	id      SubscriptionID
 	onError func(error)
 	err     atomic.Value
 	wg      sync.WaitGroup

@@ -29,6 +29,7 @@ import (
 	reflectpb "google.golang.org/grpc/reflection/grpc_reflection_v1alpha"
 
 	"go.viam.com/rdk/components/camera"
+	"go.viam.com/rdk/components/camera/rtppassthrough"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/operation"
@@ -151,7 +152,7 @@ func NewHandlerMapFromProto(ctx context.Context, pMap *pb.HandlerMap, conn rpc.C
 type peerResourceState struct {
 	// NOTE As I'm only suppporting video to start this will always be a single element
 	// once we add audio we will need to make this a slice / map
-	subID camera.StreamSubscriptionID
+	subID rtppassthrough.SubscriptionID
 	// NOTE As I'm only suppporting video to start this will always be a single element
 	// once we add audio we will need to make this a slice
 	sender *webrtc.RTPSender
@@ -164,7 +165,7 @@ type Module struct {
 	logger                  logging.Logger
 	mu                      sync.Mutex
 	activeResourceStreams   map[resource.Name]peerResourceState
-	streamSourceByName      map[resource.Name]camera.VideoCodecStreamSource
+	streamSourceByName      map[resource.Name]rtppassthrough.Source
 	operations              *operation.Manager
 	ready                   bool
 	addr                    string
@@ -195,7 +196,7 @@ func NewModule(ctx context.Context, address string, logger logging.Logger) (*Mod
 		logger:                logger,
 		addr:                  address,
 		operations:            opMgr,
-		streamSourceByName:    map[resource.Name]camera.VideoCodecStreamSource{},
+		streamSourceByName:    map[resource.Name]rtppassthrough.Source{},
 		activeResourceStreams: map[resource.Name]peerResourceState{},
 		server:                NewServer(unaries, streams),
 		ready:                 true,
@@ -457,7 +458,7 @@ func (m *Module) AddResource(ctx context.Context, req *pb.AddResourceRequest) (*
 		return nil, err
 	}
 
-	var vcss camera.VideoCodecStreamSource
+	var vcss rtppassthrough.Source
 	if cam, ok := res.(camera.VideoSource); ok {
 		if v, err := cam.VideoCodecStreamSource(ctx); err == nil {
 			vcss = v
@@ -563,7 +564,7 @@ func (m *Module) ReconfigureResource(ctx context.Context, req *pb.ReconfigureRes
 	if err != nil {
 		return nil, err
 	}
-	var vcss camera.VideoCodecStreamSource
+	var vcss rtppassthrough.Source
 	if cam, ok := newRes.(camera.VideoSource); ok {
 		if v, err := cam.VideoCodecStreamSource(ctx); err == nil {
 			vcss = v
