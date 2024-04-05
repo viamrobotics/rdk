@@ -18,7 +18,6 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"go.viam.com/rdk/components/camera"
-	"go.viam.com/rdk/components/camera/rtppassthrough"
 	"go.viam.com/rdk/gostream"
 	"go.viam.com/rdk/internal/cloud"
 	"go.viam.com/rdk/logging"
@@ -165,10 +164,6 @@ func newPCDCamera(
 	}
 
 	return cam, nil
-}
-
-func (replay *pcdCamera) RTPPassthroughSource(ctx context.Context) (rtppassthrough.Source, error) {
-	return nil, errors.New("pcdCamera does not implement VideoCodecStreamSource")
 }
 
 // NextPointCloud returns the next point cloud retrieved from cloud storage based on the applied filter.

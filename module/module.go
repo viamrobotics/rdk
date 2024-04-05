@@ -28,7 +28,6 @@ import (
 	"google.golang.org/grpc"
 	reflectpb "google.golang.org/grpc/reflection/grpc_reflection_v1alpha"
 
-	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/components/camera/rtppassthrough"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
@@ -458,18 +457,16 @@ func (m *Module) AddResource(ctx context.Context, req *pb.AddResourceRequest) (*
 		return nil, err
 	}
 
-	var vcss rtppassthrough.Source
-	if cam, ok := res.(camera.VideoSource); ok {
-		if v, err := cam.RTPPassthroughSource(ctx); err == nil {
-			vcss = v
-		}
+	var passthroughSource rtppassthrough.Source
+	if p, ok := res.(rtppassthrough.Source); ok {
+		passthroughSource = p
 	}
 
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	// add the video stream resources upon creation
-	if vcss != nil {
-		m.streamSourceByName[res.Name()] = vcss
+	if passthroughSource != nil {
+		m.streamSourceByName[res.Name()] = passthroughSource
 	}
 	coll, ok := m.collections[conf.API]
 	if !ok {
@@ -564,15 +561,13 @@ func (m *Module) ReconfigureResource(ctx context.Context, req *pb.ReconfigureRes
 	if err != nil {
 		return nil, err
 	}
-	var vcss rtppassthrough.Source
-	if cam, ok := newRes.(camera.VideoSource); ok {
-		if v, err := cam.RTPPassthroughSource(ctx); err == nil {
-			vcss = v
-		}
+	var passthroughSource rtppassthrough.Source
+	if p, ok := newRes.(rtppassthrough.Source); ok {
+		passthroughSource = p
 	}
 
-	if vcss != nil {
-		m.streamSourceByName[res.Name()] = vcss
+	if passthroughSource != nil {
+		m.streamSourceByName[res.Name()] = passthroughSource
 	}
 	return &pb.ReconfigureResourceResponse{}, coll.ReplaceOne(conf.ResourceName(), newRes)
 }

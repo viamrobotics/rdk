@@ -821,21 +821,3 @@ func TestReplayPCDReconfigure(t *testing.T) {
 
 	test.That(t, serverClose(), test.ShouldBeNil)
 }
-
-func TestVideoCodecStreamSource(t *testing.T) {
-	ctx := context.Background()
-	cfg := &Config{
-		Source:         validSource,
-		RobotID:        validRobotID,
-		LocationID:     validLocationID,
-		OrganizationID: validOrganizationID,
-		BatchSize:      &batchSize1,
-	}
-	replayCamera, _, serverClose, err := createNewReplayPCDCamera(ctx, t, cfg, true)
-	test.That(t, err, test.ShouldBeNil)
-	defer serverClose()
-	test.That(t, replayCamera, test.ShouldNotBeNil)
-	vcss, err := replayCamera.RTPPassthroughSource(ctx)
-	test.That(t, err, test.ShouldBeError, errors.New("pcdCamera does not implement VideoCodecStreamSource"))
-	test.That(t, vcss, test.ShouldBeNil)
-}

@@ -311,17 +311,17 @@ func (svc *webService) startVideoStream(
 	}, svc.webWorkers.Done)
 }
 
-func (svc *webService) videoCodecStreamSource(ctx context.Context, stream gostream.Stream) (rtppassthrough.Source, error) {
+func (svc *webService) videoCodecStreamSource(stream gostream.Stream) (rtppassthrough.Source, error) {
 	res, err := svc.r.ResourceByName(camera.Named(stream.Name()))
 	if err != nil {
 		return nil, err
 	}
-	cam, ok := res.(camera.Camera)
+	rtpPassthroughSource, ok := res.(rtppassthrough.Source)
 	if !ok {
-		return nil, errors.Errorf("expected %s to implement camera.Camera", stream.Name())
+		return nil, errors.Errorf("expected %s to implement rtppassthrough.Source", stream.Name())
 	}
 
-	return cam.RTPPassthroughSource(ctx)
+	return rtpPassthroughSource, nil
 }
 
 func subscribeRTP(
@@ -364,7 +364,7 @@ func (svc *webService) streamH264Passthrough(
 	case <-readyCh:
 	}
 
-	h264Stream, err := svc.videoCodecStreamSource(ctx, stream)
+	h264Stream, err := svc.videoCodecStreamSource(stream)
 	if err != nil {
 		return errors.Wrap(errH264PassthroughNotSupported, err.Error())
 	}

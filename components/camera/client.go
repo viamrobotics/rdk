@@ -377,17 +377,6 @@ func (c *client) Close(ctx context.Context) error {
 	return nil
 }
 
-func (c *client) RTPPassthroughSource(ctx context.Context) (rtppassthrough.Source, error) {
-	// check if a peer connection is available with the camera
-	// otherwise no webrtc passthrough streams are available
-	_, ok := c.conn.(*rdkgrpc.SharedConn)
-	if c.conn.PeerConn() != nil && ok {
-		return c, nil
-	}
-
-	return nil, errors.New("no WebRTC peer connection")
-}
-
 func (c *client) SubscribeRTP(
 	ctx context.Context,
 	bufferSize int,

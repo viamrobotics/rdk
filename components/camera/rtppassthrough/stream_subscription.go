@@ -53,7 +53,7 @@ type StreamSubscription struct {
 	wg      sync.WaitGroup
 }
 
-// NewStreamSubscription allocates a VideoCodecStreamSubscription.
+// NewStreamSubscription allocates an rtp passthrough stream subscription.
 func NewStreamSubscription(queueSize int, onError func(error)) (*StreamSubscription, error) {
 	if queueSize < 0 {
 		return nil, ErrNegativeQueueSize
