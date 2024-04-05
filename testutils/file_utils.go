@@ -3,6 +3,7 @@ package testutils
 import (
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"sync"
 	"testing"
 
@@ -21,7 +22,13 @@ func BuildTempModule(tb testing.TB, dir string) string {
 	builder := exec.Command("go", "build", "-o", modPath, ".")
 	builder.Dir = utils.ResolveFile(dir)
 	out, err := builder.CombinedOutput()
-	if len(out) != 0 {
+	// NOTE (Nick S): Workaround for the tickets below:
+	// https://viam.atlassian.net/browse/RSDK-7145
+	// https://viam.atlassian.net/browse/RSDK-7144
+	// Don't fail build if platform has known compile warnings (due to C deps)
+	isPlatformWithKnownCompileWarnings := runtime.GOARCH == "arm" || runtime.GOOS == "darwin"
+	hasCompilerWarnings := len(out) != 0
+	if hasCompilerWarnings && !isPlatformWithKnownCompileWarnings {
 		tb.Errorf(`output from "go build .": %s`, out)
 	}
 	if err != nil {
