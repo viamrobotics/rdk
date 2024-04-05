@@ -7,7 +7,6 @@ package kinematicbase
 import (
 	"context"
 	"errors"
-	"fmt"
 	"math"
 	"sync"
 	"time"
@@ -17,7 +16,6 @@ import (
 
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/logging"
-	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/motionplan/ik"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/services/motion"
@@ -104,6 +102,8 @@ type differentialDriveKinematics struct {
 	planningFrame, executionFrame referenceframe.Model
 	options                       Options
 	noLocalizerCacheInputs        []referenceframe.Input
+	currentTrajectory             [][]referenceframe.Input
+	currentIdx                    int
 	mutex                         sync.RWMutex
 }
 
@@ -139,7 +139,13 @@ func (ddk *differentialDriveKinematics) CurrentInputs(ctx context.Context) ([]re
 }
 
 func (ddk *differentialDriveKinematics) GoToInputs(ctx context.Context, desiredSteps ...[]referenceframe.Input) error {
-	for _, desired := range desiredSteps {
+	ddk.mutex.Lock()
+	ddk.currentTrajectory = desiredSteps
+	ddk.mutex.Unlock()
+	for i, desired := range desiredSteps {
+		ddk.mutex.Lock()
+		ddk.currentIdx = i
+		ddk.mutex.Unlock()
 		err := ddk.goToInputs(ctx, desired)
 		if err != nil {
 			return err
@@ -356,14 +362,11 @@ func (ddk *differentialDriveKinematics) newValidRegionCapsule(starting, desired 
 	return capsule, nil
 }
 
-func (ddk *differentialDriveKinematics) ErrorState(ctx context.Context, plan motionplan.Plan, currentNode int) (spatialmath.Pose, error) {
-	waypoints, err := plan.Trajectory().GetFrameInputs(ddk.Name().ShortName())
-	if err != nil {
-		return nil, err
-	}
-	if currentNode <= 0 || currentNode >= len(waypoints) {
-		return nil, fmt.Errorf("cannot get ErrorState for node %d, must be > 0 and less than plan length %d", currentNode, len(waypoints))
-	}
+func (ddk *differentialDriveKinematics) ErrorState(ctx context.Context) (spatialmath.Pose, error) {
+	ddk.mutex.RLock()
+	waypoints := ddk.currentTrajectory
+	currentNode := ddk.currentIdx
+	ddk.mutex.RUnlock()
 
 	// Get pose-in-frame of the base via its localizer. The offset between the localizer and its base should already be accounted for.
 	actualPIF, err := ddk.CurrentPosition(ctx)

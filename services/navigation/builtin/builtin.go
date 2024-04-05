@@ -3,7 +3,6 @@ package builtin
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"math"
 	"strconv"
@@ -77,20 +76,6 @@ const (
 func init() {
 	resource.RegisterService(navigation.API, resource.DefaultServiceModel, resource.Registration[navigation.Service, *Config]{
 		Constructor: NewBuiltIn,
-		// TODO: We can move away from using AttributeMapConverter if we change the way
-		// that we allow orientations to be specified within orientation_json.go
-		AttributeMapConverter: func(attributes rdkutils.AttributeMap) (*Config, error) {
-			b, err := json.Marshal(attributes)
-			if err != nil {
-				return nil, err
-			}
-
-			var cfg Config
-			if err := json.Unmarshal(b, &cfg); err != nil {
-				return nil, err
-			}
-			return &cfg, nil
-		},
 	})
 }
 
@@ -544,7 +529,10 @@ func (svc *builtIn) moveToWaypoint(ctx context.Context, wp navigation.Waypoint, 
 	cancelCtx, cancelFn := context.WithCancel(ctx)
 	defer cancelFn()
 	executionID, err := svc.motionService.MoveOnGlobe(cancelCtx, req)
-	if err != nil {
+	if errors.Is(err, motion.ErrGoalWithinPlanDeviation) {
+		// make an exception for the error that is raised when motion is not possible because already at goal.
+		return svc.waypointReached(cancelCtx)
+	} else if err != nil {
 		return err
 	}
 
@@ -576,8 +564,8 @@ func (svc *builtIn) moveToWaypoint(ctx context.Context, wp navigation.Waypoint, 
 			ComponentName: req.ComponentName,
 			ExecutionID:   executionID,
 			LastPlanOnly:  true,
-		})
-
+		},
+	)
 	if err != nil {
 		return err
 	}

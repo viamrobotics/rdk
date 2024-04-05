@@ -36,8 +36,9 @@ type ptgFactory func(float64) PTG
 var defaultShortPtgs = []ptgFactory{
 	NewCCPTG,
 	NewCCSPTG,
-	NewCirclePTG,
 }
+
+var defaultCorrectionPtg = NewCirclePTG
 
 // These PTGs curve at the beginning and then have a straight line of arbitrary length, which is allowed to extend to defaultRefDistLong.
 var defaultPTGs = []ptgFactory{
@@ -54,6 +55,7 @@ type ptgGroupFrame struct {
 	solvers            []PTGSolver
 	turnRadMillimeters float64
 	trajCount          int
+	correctionIdx      int
 	logger             logging.Logger
 }
 
@@ -87,6 +89,8 @@ func NewPTGFrameFromKinematicOptions(
 		defaultRefDistShortMin,
 	)
 
+	pf := &ptgGroupFrame{name: name}
+
 	longPtgsToUse := []ptgFactory{}
 	shortPtgsToUse := []ptgFactory{}
 	if canRotateInPlace {
@@ -95,9 +99,13 @@ func NewPTGFrameFromKinematicOptions(
 	if !diffDriveOnly {
 		longPtgsToUse = append(longPtgsToUse, defaultPTGs...)
 		shortPtgsToUse = append(shortPtgsToUse, defaultShortPtgs...)
+		// Use Circle PTG for course correction. Ensure it is last.
+		shortPtgsToUse = append(shortPtgsToUse, defaultCorrectionPtg)
+		pf.correctionIdx = len(longPtgsToUse) + (len(shortPtgsToUse) - 1)
+	} else {
+		// Use diff drive PTG for course correction
+		pf.correctionIdx = 0
 	}
-
-	pf := &ptgGroupFrame{name: name}
 
 	longPtgs := initializePTGs(turnRadMillimeters, longPtgsToUse)
 	longSolvers, err := initializeSolvers(logger, refDistLong, refDistShort, trajCount, longPtgs)
@@ -124,6 +132,10 @@ func NewPTGFrameFromKinematicOptions(
 	}
 
 	return pf, nil
+}
+
+func (pf *ptgGroupFrame) CorrectionSolverIdx() int {
+	return pf.correctionIdx
 }
 
 func (pf *ptgGroupFrame) DoF() []referenceframe.Limit {
@@ -153,6 +165,26 @@ func (pf *ptgGroupFrame) Transform(inputs []referenceframe.Input) (spatialmath.P
 	}
 
 	return pose, nil
+}
+
+func (pf *ptgGroupFrame) Interpolate(from, to []referenceframe.Input, by float64) ([]referenceframe.Input, error) {
+	if len(to) != len(pf.DoF()) {
+		return nil, referenceframe.NewIncorrectInputLengthError(len(to), len(pf.DoF()))
+	}
+	if len(from) != len(pf.DoF()) {
+		// We also want to always support 2 inputs
+		return nil, referenceframe.NewIncorrectInputLengthError(len(from), len(pf.DoF()))
+	}
+
+	if from[ptgIndex].Value != to[ptgIndex].Value {
+		return nil, NewNonMatchingInputError(from[ptgIndex].Value, to[ptgIndex].Value)
+	}
+	if from[trajectoryAlphaWithinPTG].Value != to[trajectoryAlphaWithinPTG].Value {
+		return nil, NewNonMatchingInputError(from[trajectoryAlphaWithinPTG].Value, to[trajectoryAlphaWithinPTG].Value)
+	}
+
+	changeVal := (to[distanceAlongTrajectoryIndex].Value - from[distanceAlongTrajectoryIndex].Value) * by
+	return []referenceframe.Input{to[ptgIndex], to[trajectoryAlphaWithinPTG], {from[distanceAlongTrajectoryIndex].Value + changeVal}}, nil
 }
 
 func (pf *ptgGroupFrame) InputFromProtobuf(jp *pb.JointPositions) []referenceframe.Input {

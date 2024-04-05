@@ -3,12 +3,12 @@ package gpio
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"sync"
 	"time"
 
 	"github.com/bep/debounce"
+	"github.com/pkg/errors"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/board"
@@ -255,16 +255,16 @@ func (c *Controller) sendConnectionStatus(ctx context.Context, connected bool) {
 }
 
 func (c *Controller) newButton(ctx context.Context, brd board.Board, intName string, cfg ButtonConfig) error {
-	interrupt, ok := brd.DigitalInterruptByName(intName)
-	if !ok {
-		return fmt.Errorf("can't find DigitalInterrupt (%s)", intName)
-	}
 	tickChan := make(chan board.Tick)
-	interrupt.AddCallback(tickChan)
+	err := brd.StreamTicks(ctx, []string{intName}, tickChan, nil)
+	if err != nil {
+		return errors.Wrap(err, "error getting digital interrupt ticks")
+	}
 
 	c.activeBackgroundWorkers.Add(1)
 	utils.ManagedGo(func() {
-		defer interrupt.RemoveCallback(tickChan)
+		// Remove the callbacks added by the interrupt stream once we are done.
+		defer utils.UncheckedErrorFunc(func() error { return board.RemoveCallbacks(brd, []string{intName}, tickChan) })
 		debounced := debounce.New(time.Millisecond * time.Duration(cfg.DebounceMs))
 		for {
 			var val bool

@@ -45,25 +45,29 @@ func NewClientFromConn(
 	return c, nil
 }
 
-func (c *client) Shell(ctx context.Context, extra map[string]interface{}) (chan<- string, <-chan Output, error) {
+func (c *client) Shell(
+	ctx context.Context,
+	extra map[string]interface{},
+) (chan<- string, chan<- map[string]interface{}, <-chan Output, error) {
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	client, err := c.client.Shell(ctx)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
-	c.activeBackgroundWorkers.Add(2)
+	c.activeBackgroundWorkers.Add(3)
 	// prime the right service
 	if err := client.Send(&pb.ShellRequest{
 		Name:  c.name,
-		Extra: ext,
+		Extra: ext, // send this once; all others are OOB
 	}); err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 
 	input := make(chan string)
+	oobInput := make(chan map[string]interface{})
 	output := make(chan Output)
 
 	utils.PanicCapturingGo(func() {
@@ -76,7 +80,6 @@ func (c *client) Shell(ctx context.Context, extra map[string]interface{}) (chan<
 					if err := client.Send(&pb.ShellRequest{
 						Name:   c.name,
 						DataIn: dataIn,
-						Extra:  ext,
 					}); err != nil {
 						c.logger.CErrorw(ctx, "error sending data", "error", err)
 						return
@@ -87,6 +90,33 @@ func (c *client) Shell(ctx context.Context, extra map[string]interface{}) (chan<
 						return
 					}
 					return
+				}
+			case <-ctx.Done():
+				return
+			}
+		}
+	})
+
+	utils.PanicCapturingGo(func() {
+		defer c.activeBackgroundWorkers.Done()
+
+		for {
+			select {
+			case oob, ok := <-oobInput:
+				if ok {
+					oobExt, err := protoutils.StructToStructPb(oob)
+					if err != nil {
+						c.logger.CErrorw(ctx, "error sending out-of-band data", "error", err)
+						continue
+					}
+
+					if err := client.Send(&pb.ShellRequest{
+						Name:  c.name,
+						Extra: oobExt,
+					}); err != nil {
+						c.logger.CErrorw(ctx, "error sending out-of-band data", "error", err)
+						return
+					}
 				}
 			case <-ctx.Done():
 				return
@@ -123,7 +153,7 @@ func (c *client) Shell(ctx context.Context, extra map[string]interface{}) (chan<
 		}
 	})
 
-	return input, output, nil
+	return input, oobInput, output, nil
 }
 
 func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {

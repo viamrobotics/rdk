@@ -35,6 +35,7 @@ require (
 	github.com/go-gl/mathgl v1.0.0
 	github.com/go-gnss/rtcm v0.0.3
 	github.com/go-nlopt/nlopt v0.0.0-20230219125344-443d3362dcb5
+	github.com/go-viper/mapstructure/v2 v2.0.0-alpha.1
 	github.com/goccy/go-graphviz v0.1.3-0.20240305010347-606fdf55b06d
 	github.com/golang-jwt/jwt/v4 v4.5.0
 	github.com/golang/freetype v0.0.0-20170609003504-e2365dfdc4a0
@@ -58,11 +59,11 @@ require (
 	github.com/mattn/go-tflite v1.0.4
 	github.com/matttproud/golang_protobuf_extensions v1.0.4
 	github.com/mitchellh/copystructure v1.2.0
-	github.com/mitchellh/mapstructure v1.5.0
 	github.com/mkch/gpio v0.0.0-20190919032813-8327cd97d95e
 	github.com/montanaflynn/stats v0.7.0
 	github.com/muesli/clusters v0.0.0-20200529215643-2700303c1762
 	github.com/muesli/kmeans v0.3.1
+	github.com/nathan-fiscaletti/consolesize-go v0.0.0-20220204101620-317176b6684d
 	github.com/nfnt/resize v0.0.0-20180221191011-83c6a9932646
 	github.com/pion/mediadevices v0.5.1-0.20231017204133-3c9fee958efe
 	github.com/pion/rtp v1.8.2
@@ -82,12 +83,12 @@ require (
 	go.uber.org/atomic v1.10.0
 	go.uber.org/multierr v1.11.0
 	go.uber.org/zap v1.24.0
-	go.viam.com/api v0.1.277
+	go.viam.com/api v0.1.281
 	go.viam.com/test v1.1.1-0.20220913152726-5da9916c08a2
 	go.viam.com/utils v0.1.71
 	goji.io v2.0.2+incompatible
 	golang.org/x/image v0.14.0
-	golang.org/x/sys v0.13.0
+	golang.org/x/sys v0.18.0
 	golang.org/x/term v0.13.0
 	golang.org/x/time v0.3.0
 	golang.org/x/tools v0.10.0
@@ -191,6 +192,7 @@ require (
 	github.com/go-xmlfmt/xmlfmt v1.1.2 // indirect
 	github.com/goburrow/serial v0.1.0 // indirect
 	github.com/gobwas/glob v0.2.3 // indirect
+	github.com/gobwas/ws v1.2.1 // indirect
 	github.com/goccy/go-json v0.10.2 // indirect
 	github.com/gofrs/flock v0.8.1 // indirect
 	github.com/gofrs/uuid v4.2.0+incompatible // indirect
@@ -266,6 +268,7 @@ require (
 	github.com/mgechev/revive v1.2.5 // indirect
 	github.com/miekg/dns v1.1.53 // indirect
 	github.com/mitchellh/go-homedir v1.1.0 // indirect
+	github.com/mitchellh/mapstructure v1.5.0 // indirect
 	github.com/mitchellh/reflectwalk v1.0.2 // indirect
 	github.com/moricho/tparallel v0.2.1 // indirect
 	github.com/nakabonne/nestif v0.3.1 // indirect

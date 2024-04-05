@@ -50,7 +50,7 @@ func (pt *point) Pose() Pose {
 }
 
 // AlmostEqual compares the point with another geometry and checks if they are equivalent.
-func (pt *point) AlmostEqual(g Geometry) bool {
+func (pt *point) almostEqual(g Geometry) bool {
 	other, ok := g.(*point)
 	if !ok {
 		return false
@@ -88,7 +88,7 @@ func (pt *point) CollidesWith(g Geometry, collisionBufferMM float64) (bool, erro
 		return capsuleVsPointDistance(other, pt.position) <= 0, nil
 	}
 	if other, ok := g.(*point); ok {
-		return pt.AlmostEqual(other), nil
+		return pt.almostEqual(other), nil
 	}
 	return true, newCollisionTypeUnsupportedError(pt, g)
 }

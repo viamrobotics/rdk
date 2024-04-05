@@ -106,7 +106,7 @@ func (fk *fakeDiffDriveKinematics) GoToInputs(ctx context.Context, inputSteps ..
 	return nil
 }
 
-func (fk *fakeDiffDriveKinematics) ErrorState(ctx context.Context, plan motionplan.Plan, currentNode int) (spatialmath.Pose, error) {
+func (fk *fakeDiffDriveKinematics) ErrorState(ctx context.Context) (spatialmath.Pose, error) {
 	return fk.sensorNoise, nil
 }
 
@@ -253,39 +253,6 @@ func (fk *fakePTGKinematics) GoToInputs(ctx context.Context, inputSteps ...[]ref
 	}()
 
 	for _, inputs := range inputSteps {
-
-		err := fk.goToInputs(ctx, inputs)
-		if err != nil {
-			return err
-		}
-		// we could do a setUpdateMe function to control when inputs are composed
-		// the frame's starting position
-		newPose, err := fk.Kinematics().Transform(inputs)
-		if err != nil {
-			return err
-		}
-		fmt.Println("newPose: ", spatialmath.PoseToProtobuf(newPose))
-		// if tpFrame, ok := fk.Kinematics().(*tpspace.PtgGroupFrame); ok {
-		// 	tpFrame.SetStartPose(newPose)
-		// } else {
-		// 	return errors.New("something bad happened2")
-		// }
-
-	}
-	return nil
-}
-
-func (fk *fakePTGKinematics) goToInputs(ctx context.Context, inputs []referenceframe.Input) error {
-	defer func() {
-		fk.inputLock.Lock()
-		fk.currentInput = zeroInput
-		fk.inputLock.Unlock()
-	}()
-
-	fk.positionlock.RLock()
-	startingPose := fk.origin
-	fk.positionlock.RUnlock()
-
 	fk.inputLock.Lock()
 	fk.currentInput = []referenceframe.Input{inputs[0], inputs[1], {Value: 0}}
 	fk.inputLock.Unlock()
@@ -295,23 +262,26 @@ func (fk *fakePTGKinematics) goToInputs(ctx context.Context, inputs []referencef
 		return err
 	}
 
-	steps := motionplan.PathStepCount(spatialmath.NewZeroPose(), finalPose, 2)
-	startCfg := referenceframe.FloatsToInputs([]float64{inputs[0].Value, inputs[1].Value, 0})
-	var interpolatedConfigurations [][]referenceframe.Input
-	for i := 0; i <= steps; i++ {
-		interp := float64(i) / float64(steps)
-		interpConfig := referenceframe.InterpolateInputs(startCfg, inputs, interp)
-		interpolatedConfigurations = append(interpolatedConfigurations, interpConfig)
-	}
-	for _, inter := range interpolatedConfigurations {
-		if ctx.Err() != nil {
-			return ctx.Err()
+		steps := motionplan.PathStepCount(spatialmath.NewZeroPose(), finalPose, 2)
+		startCfg := referenceframe.FloatsToInputs([]float64{inputs[0].Value, inputs[1].Value, 0})
+		var interpolatedConfigurations [][]referenceframe.Input
+		for i := 0; i <= steps; i++ {
+			interp := float64(i) / float64(steps)
+			interpConfig, err := fk.frame.Interpolate(startCfg, inputs, interp)
+			if err != nil {
+				return err
+			}
+			interpolatedConfigurations = append(interpolatedConfigurations, interpConfig)
 		}
-		relativePose, err := fk.planning.Transform(inter)
-		if err != nil {
-			return err
-		}
-		newPose := spatialmath.Compose(startingPose.Pose(), relativePose)
+		for _, inter := range interpolatedConfigurations {
+			if ctx.Err() != nil {
+				return ctx.Err()
+			}
+			relativePose, err := fk.frame.Transform(inter)
+			if err != nil {
+				return err
+			}
+			newPose := spatialmath.Compose(startingPose.Pose(), relativePose)
 
 		fk.positionlock.Lock()
 		fk.origin = referenceframe.NewPoseInFrame(fk.origin.Parent(), newPose)
@@ -326,7 +296,7 @@ func (fk *fakePTGKinematics) goToInputs(ctx context.Context, inputs []referencef
 	return nil
 }
 
-func (fk *fakePTGKinematics) ErrorState(ctx context.Context, plan motionplan.Plan, currentNode int) (spatialmath.Pose, error) {
+func (fk *fakePTGKinematics) ErrorState(ctx context.Context) (spatialmath.Pose, error) {
 	return fk.sensorNoise, nil
 }
 
