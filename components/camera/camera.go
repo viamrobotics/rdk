@@ -7,14 +7,15 @@ import (
 	"sync"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/pion/mediadevices/pkg/prop"
-	"github.com/pion/rtp"
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
 	"go.uber.org/multierr"
 	pb "go.viam.com/api/component/camera/v1"
 	viamutils "go.viam.com/utils"
 
+	"go.viam.com/rdk/components/camera/rtppassthrough"
 	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/gostream"
 	"go.viam.com/rdk/logging"
@@ -82,22 +83,9 @@ type Camera interface {
 	VideoSource
 }
 
-type (
-	// PacketCallback is the signature of the SubscribeRTP callback.
-	PacketCallback func(pkts []*rtp.Packet) error
-	// VideoCodecStreamSource is a source of video codec data.
-	VideoCodecStreamSource interface {
-		SubscribeRTP(ctx context.Context, bufferSize int, packetsCB PacketCallback) (StreamSubscriptionID, error)
-		Unsubscribe(ctx context.Context, id StreamSubscriptionID) error
-	}
-)
-
 // A VideoSource represents anything that can capture frames.
 type VideoSource interface {
 	projectorProvider
-	// A VideoCodecStreamSource allows modules to passthrough RTP packets over used by viam-server's camera client to stream video over webrtc.
-	// currently only available to go modules.
-	VideoCodecStreamSource(ctx context.Context) (VideoCodecStreamSource, error)
 	// Images is used for getting simultaneous images from different imagers,
 	// along with associated metadata (just timestamp for now). It's not for getting a time series of images from the same imager.
 	Images(ctx context.Context) ([]NamedImage, resource.ResponseMetadata, error)
@@ -138,10 +126,15 @@ type ImagesSource interface {
 // If needed, implement the Camera another way. For example, a webcam
 // implements a Camera manually so that it can atomically reconfigure itself.
 func FromVideoSource(name resource.Name, src VideoSource, logger logging.Logger) Camera {
+	var rtpPassthroughSource rtppassthrough.Source
+	if ps, ok := src.(rtppassthrough.Source); ok {
+		rtpPassthroughSource = ps
+	}
 	return &sourceBasedCamera{
-		Named:       name.AsNamed(),
-		VideoSource: src,
-		Logger:      logger,
+		rtpPassthroughSource: rtpPassthroughSource,
+		Named:                name.AsNamed(),
+		VideoSource:          src,
+		Logger:               logger,
 	}
 }
 
@@ -149,7 +142,26 @@ type sourceBasedCamera struct {
 	resource.Named
 	resource.AlwaysRebuild
 	VideoSource
+	rtpPassthroughSource rtppassthrough.Source
 	logging.Logger
+}
+
+func (vs *sourceBasedCamera) SubscribeRTP(
+	ctx context.Context,
+	bufferSize int,
+	packetsCB rtppassthrough.PacketCallback,
+) (rtppassthrough.SubscriptionID, error) {
+	if vs.rtpPassthroughSource != nil {
+		return vs.rtpPassthroughSource.SubscribeRTP(ctx, bufferSize, packetsCB)
+	}
+	return uuid.Nil, errors.New("SubscribeRTP unimplemented")
+}
+
+func (vs *sourceBasedCamera) Unsubscribe(ctx context.Context, id rtppassthrough.SubscriptionID) error {
+	if vs.rtpPassthroughSource != nil {
+		return vs.rtpPassthroughSource.Unsubscribe(ctx, id)
+	}
+	return errors.New("Unsubscribe unimplemented")
 }
 
 // NewVideoSourceFromReader creates a VideoSource either with or without a projector. The stream type
@@ -164,10 +176,10 @@ func NewVideoSourceFromReader(
 	if reader == nil {
 		return nil, errors.New("cannot have a nil reader")
 	}
-	var videoCodecStreamSource VideoCodecStreamSource
-	vcs, isVideoCodecStreamSource := reader.(VideoCodecStreamSource)
-	if isVideoCodecStreamSource {
-		videoCodecStreamSource = vcs
+	var rtpPassthroughSource rtppassthrough.Source
+	passthrough, isRTPPassthrough := reader.(rtppassthrough.Source)
+	if isRTPPassthrough {
+		rtpPassthroughSource = passthrough
 	}
 	vs := gostream.NewVideoSource(reader, prop.Video{})
 	actualSystem := syst
@@ -189,20 +201,31 @@ func NewVideoSourceFromReader(
 		}
 	}
 	return &videoSource{
-		videoCodecStreamSource: videoCodecStreamSource,
-		system:                 actualSystem,
-		videoSource:            vs,
-		videoStream:            gostream.NewEmbeddedVideoStream(vs),
-		actualSource:           reader,
-		imageType:              imageType,
+		rtpPassthroughSource: rtpPassthroughSource,
+		system:               actualSystem,
+		videoSource:          vs,
+		videoStream:          gostream.NewEmbeddedVideoStream(vs),
+		actualSource:         reader,
+		imageType:            imageType,
 	}, nil
 }
 
-func (vs *videoSource) VideoCodecStreamSource(ctx context.Context) (VideoCodecStreamSource, error) {
-	if vs.videoCodecStreamSource != nil {
-		return vs.videoCodecStreamSource, nil
+func (vs *videoSource) SubscribeRTP(
+	ctx context.Context,
+	bufferSize int,
+	packetsCB rtppassthrough.PacketCallback,
+) (rtppassthrough.SubscriptionID, error) {
+	if vs.rtpPassthroughSource != nil {
+		return vs.rtpPassthroughSource.SubscribeRTP(ctx, bufferSize, packetsCB)
 	}
-	return nil, errors.New("VideoCodecStreamSource unimplemented")
+	return uuid.Nil, errors.New("SubscribeRTP unimplemented")
+}
+
+func (vs *videoSource) Unsubscribe(ctx context.Context, id rtppassthrough.SubscriptionID) error {
+	if vs.rtpPassthroughSource != nil {
+		return vs.rtpPassthroughSource.Unsubscribe(ctx, id)
+	}
+	return errors.New("Unsubscribe unimplemented")
 }
 
 // NewPinholeModelWithBrownConradyDistortion creates a transform.PinholeCameraModel from
@@ -268,12 +291,12 @@ func WrapVideoSourceWithProjector(
 
 // videoSource implements a Camera with a gostream.VideoSource.
 type videoSource struct {
-	videoCodecStreamSource VideoCodecStreamSource
-	videoSource            gostream.VideoSource
-	videoStream            gostream.VideoStream
-	actualSource           interface{}
-	system                 *transform.PinholeCameraModel
-	imageType              ImageType
+	rtpPassthroughSource rtppassthrough.Source
+	videoSource          gostream.VideoSource
+	videoStream          gostream.VideoStream
+	actualSource         interface{}
+	system               *transform.PinholeCameraModel
+	imageType            ImageType
 }
 
 func (vs *videoSource) Stream(ctx context.Context, errHandlers ...gostream.ErrorHandler) (gostream.VideoStream, error) {

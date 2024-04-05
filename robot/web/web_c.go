@@ -24,6 +24,7 @@ import (
 
 	"go.viam.com/rdk/components/audioinput"
 	"go.viam.com/rdk/components/camera"
+	"go.viam.com/rdk/components/camera/rtppassthrough"
 	"go.viam.com/rdk/gostream"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
@@ -310,24 +311,24 @@ func (svc *webService) startVideoStream(
 	}, svc.webWorkers.Done)
 }
 
-func (svc *webService) videoCodecStreamSource(ctx context.Context, stream gostream.Stream) (camera.VideoCodecStreamSource, error) {
+func (svc *webService) videoCodecStreamSource(stream gostream.Stream) (rtppassthrough.Source, error) {
 	res, err := svc.r.ResourceByName(camera.Named(stream.Name()))
 	if err != nil {
 		return nil, err
 	}
-	cam, ok := res.(camera.Camera)
+	rtpPassthroughSource, ok := res.(rtppassthrough.Source)
 	if !ok {
-		return nil, errors.Errorf("expected %s to implement camera.Camera", stream.Name())
+		return nil, errors.Errorf("expected %s to implement rtppassthrough.Source", stream.Name())
 	}
 
-	return cam.VideoCodecStreamSource(ctx)
+	return rtpPassthroughSource, nil
 }
 
 func subscribeRTP(
 	ctx context.Context,
 	stream gostream.Stream,
-	h264Stream camera.VideoCodecStreamSource,
-	packetCallback camera.PacketCallback,
+	h264Stream rtppassthrough.Source,
+	packetCallback rtppassthrough.PacketCallback,
 	logger logging.Logger,
 ) (context.CancelFunc, error) {
 	timeoutCtx, timeoutCancel := context.WithTimeout(ctx, subscribeRTPTimeout)
@@ -363,7 +364,7 @@ func (svc *webService) streamH264Passthrough(
 	case <-readyCh:
 	}
 
-	h264Stream, err := svc.videoCodecStreamSource(ctx, stream)
+	h264Stream, err := svc.videoCodecStreamSource(stream)
 	if err != nil {
 		return errors.Wrap(errH264PassthroughNotSupported, err.Error())
 	}
