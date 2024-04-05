@@ -184,6 +184,7 @@ func (manager *resourceManager) updateRemoteResourceNames(
 	anythingChanged := false
 
 	for _, resName := range newResources {
+		resName = resName.WithoutPartID()
 		remoteResName := resName
 		res, err := rr.ResourceByName(remoteResName) // this returns a remote known OR foreign resource client
 		if err != nil {

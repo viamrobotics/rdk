@@ -255,13 +255,13 @@ func TestManagerMergeNamesWithRemotes(t *testing.T) {
 	}()
 	manager.addRemote(
 		context.Background(),
-		newDummyRobot(setupInjectRobot(logger)),
+		newDummyRobot(setupInjectRobot(logger), ""),
 		nil,
 		config.Remote{Name: "remote1"},
 	)
 	manager.addRemote(
 		context.Background(),
-		newDummyRobot(setupInjectRobot(logger)),
+		newDummyRobot(setupInjectRobot(logger), ""),
 		nil,
 		config.Remote{Name: "remote2"},
 	)
@@ -378,7 +378,6 @@ func TestManagerResourceRemoteName(t *testing.T) {
 		return rdktestutils.NewUnimplementedResource(name), nil
 	}
 	injectRobot.LoggerFunc = func() logging.Logger { return logger }
-
 	manager := managerForDummyRobot(injectRobot)
 	defer func() {
 		test.That(t, manager.Close(context.Background()), test.ShouldBeNil)
@@ -386,19 +385,17 @@ func TestManagerResourceRemoteName(t *testing.T) {
 
 	injectRemote := &inject.Robot{}
 	injectRemote.ResourceNamesFunc = func() []resource.Name { return rdktestutils.AddSuffixes(armNames, "") }
-	injectRobot.ResourceRPCAPIsFunc = func() []resource.RPCAPI { return nil }
+	injectRemote.ResourceRPCAPIsFunc = func() []resource.RPCAPI { return nil }
 	injectRemote.ResourceByNameFunc = func(name resource.Name) (resource.Resource, error) {
 		return rdktestutils.NewUnimplementedResource(name), nil
 	}
 	injectRemote.LoggerFunc = func() logging.Logger { return logger }
 	manager.addRemote(
 		context.Background(),
-		newDummyRobot(injectRemote),
+		newDummyRobot(injectRemote, "abcde"),
 		nil,
 		config.Remote{Name: "remote1"},
 	)
-
-	manager.updateRemotesResourceNames(context.Background())
 
 	res := manager.remoteResourceNames(fromRemoteNameToRemoteNodeName("remote1"))
 
@@ -408,6 +405,9 @@ func TestManagerResourceRemoteName(t *testing.T) {
 		test.ShouldResemble,
 		rdktestutils.NewResourceNameSet([]resource.Name{arm.Named("remote1:arm1"), arm.Named("remote1:arm2")}...),
 	)
+
+	// double check that we do not update more than necessary
+	test.That(t, manager.updateRemotesResourceNames(context.Background()), test.ShouldBeFalse)
 }
 
 func TestManagerWithSameNameInRemoteNoPrefix(t *testing.T) {
@@ -420,13 +420,13 @@ func TestManagerWithSameNameInRemoteNoPrefix(t *testing.T) {
 	}()
 	manager.addRemote(
 		context.Background(),
-		newDummyRobot(setupInjectRobot(logger)),
+		newDummyRobot(setupInjectRobot(logger), ""),
 		nil,
 		config.Remote{Name: "remote1"},
 	)
 	manager.addRemote(
 		context.Background(),
-		newDummyRobot(setupInjectRobot(logger)),
+		newDummyRobot(setupInjectRobot(logger), ""),
 		nil,
 		config.Remote{Name: "remote2"},
 	)
@@ -447,7 +447,7 @@ func TestManagerWithSameNameInBaseAndRemote(t *testing.T) {
 	}()
 	manager.addRemote(
 		context.Background(),
-		newDummyRobot(setupInjectRobot(logger)),
+		newDummyRobot(setupInjectRobot(logger), ""),
 		nil,
 		config.Remote{Name: "remote1"},
 	)
@@ -744,13 +744,13 @@ func managerForTest(ctx context.Context, t *testing.T, l logging.Logger) *resour
 
 	manager.addRemote(
 		context.Background(),
-		newDummyRobot(setupInjectRobot(l)),
+		newDummyRobot(setupInjectRobot(l), ""),
 		nil,
 		config.Remote{Name: "remote1"},
 	)
 	manager.addRemote(
 		context.Background(),
-		newDummyRobot(setupInjectRobot(l)),
+		newDummyRobot(setupInjectRobot(l), ""),
 		nil,
 		config.Remote{Name: "remote2"},
 	)
@@ -1478,7 +1478,7 @@ func TestManagerResourceRPCAPIs(t *testing.T) {
 
 	manager.addRemote(
 		context.Background(),
-		newDummyRobot(injectRobotRemote1),
+		newDummyRobot(injectRobotRemote1, ""),
 		nil,
 		config.Remote{Name: "remote1"},
 	)
@@ -1520,7 +1520,7 @@ func TestManagerResourceRPCAPIs(t *testing.T) {
 
 	manager.addRemote(
 		context.Background(),
-		newDummyRobot(injectRobotRemote2),
+		newDummyRobot(injectRobotRemote2, ""),
 		nil,
 		config.Remote{Name: "remote2"},
 	)
@@ -1745,16 +1745,18 @@ type dummyRobot struct {
 	robot      robot.Robot
 	manager    *resourceManager
 	modmanager modmaninterface.ModuleManager
+	partID     string
 }
 
 // newDummyRobot returns a new dummy robot wrapping a given robot.Robot
 // and its configuration.
-func newDummyRobot(robot robot.Robot) *dummyRobot {
+func newDummyRobot(robot robot.Robot, partID string) *dummyRobot {
 	remoteManager := managerForDummyRobot(robot)
 	remote := &dummyRobot{
 		Named:   resource.NewName(client.RemoteAPI, "something").AsNamed(),
 		robot:   robot,
 		manager: remoteManager,
+		partID:  partID,
 	}
 	return remote
 }
@@ -1778,7 +1780,10 @@ func (rr *dummyRobot) ResourceNames() []resource.Name {
 	defer rr.mu.Unlock()
 	names := rr.manager.ResourceNames()
 	newNames := make([]resource.Name, 0, len(names))
-	newNames = append(newNames, names...)
+	for _, n := range names {
+		newNames = append(newNames, n.WithPartID(rr.partID))
+	}
+
 	return newNames
 }
 
