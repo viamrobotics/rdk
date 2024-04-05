@@ -540,6 +540,7 @@ func (m *Module) ReconfigureResource(ctx context.Context, req *pb.ReconfigureRes
 		m.logger.Error(err)
 	}
 
+	// check if our streams have been removed by reconfiguring and remove them if so
 	prs, ok := m.activeResourceStreams[res.Name()]
 	if ok {
 		m.logger.CInfow(ctx, "Cleaning up orphaned activeResourceStreams for resource: ", "name", res.Name())
