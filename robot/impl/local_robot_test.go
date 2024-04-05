@@ -1163,7 +1163,10 @@ func TestStatusRemote(t *testing.T) {
 
 	gServer1 := grpc.NewServer()
 	gServer2 := grpc.NewServer()
-	resourcesFunc := func() []resource.Name { return []resource.Name{arm.Named("arm1"), arm.Named("arm2")} }
+	partID := "abcde"
+	resourcesFunc := func() []resource.Name {
+		return []resource.Name{arm.Named("arm1").WithPartID(partID), arm.Named("arm2").WithPartID(partID)}
+	}
 	statusCallCount := 0
 
 	// TODO: RSDK-882 will update this so that this is not necessary
@@ -1198,7 +1201,7 @@ func TestStatusRemote(t *testing.T) {
 		statuses := make([]robot.Status, 0, len(resourceNames))
 		for _, n := range resourceNames {
 			statuses = append(statuses, robot.Status{
-				Name:             n,
+				Name:             n.WithPartID("12345"),
 				LastReconfigured: lastReconfigured,
 				Status:           armStatus,
 			})
@@ -1215,7 +1218,7 @@ func TestStatusRemote(t *testing.T) {
 		statuses := make([]robot.Status, 0, len(resourceNames))
 		for _, n := range resourceNames {
 			statuses = append(statuses, robot.Status{
-				Name:             n,
+				Name:             n.WithPartID("67890"),
 				LastReconfigured: lastReconfigured,
 				Status:           armStatus,
 			})
@@ -1326,6 +1329,8 @@ func TestGetRemoteResourceAndGrandFather(t *testing.T) {
 	err := r0.StartWeb(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
 
+	_, err = r0.ResourceByName(arm.Named("arm1").WithPartID("abcde"))
+	test.That(t, err, test.ShouldBeNil)
 	r0arm1, err := r0.ResourceByName(arm.Named("arm1"))
 	test.That(t, err, test.ShouldBeNil)
 	r0Arm, ok := r0arm1.(arm.Arm)

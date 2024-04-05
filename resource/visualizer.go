@@ -165,7 +165,7 @@ func getRemoteNames(nodes graphNodes) []string {
 func nodesSortedByName(nodes graphNodes) []nameNode {
 	var ret []nameNode
 	for name, node := range nodes {
-		ret = append(ret, nameNode{name, node})
+		ret = append(ret, nameNode{name.toName(), node})
 	}
 	slices.SortFunc(ret, func(left, right nameNode) int {
 		return utils.Compare(left.Name.String(), right.Name.String())
@@ -234,7 +234,7 @@ func edgesSortedByName(deps resourceDependencies) []edge {
 		for childName := range children {
 			// In our vernacular, children depend on parents. Edges are drawn leaving children and
 			// arriving at parents.
-			ret = append(ret, edge{childName, parentName})
+			ret = append(ret, edge{childName.toName(), parentName.toName()})
 		}
 	}
 

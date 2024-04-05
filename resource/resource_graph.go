@@ -1,6 +1,7 @@
 package resource
 
 import (
+	"fmt"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -11,11 +12,37 @@ import (
 	"go.viam.com/rdk/logging"
 )
 
-type graphNodes map[Name]*GraphNode
+type nameWithoutPartID struct {
+	API    API
+	Remote string
+	Name   string
+}
 
-type resourceDependencies map[Name]graphNodes
+func fromName(n Name) nameWithoutPartID {
+	return nameWithoutPartID{n.API, n.Remote, n.Name}
+}
 
-type transitiveClosureMatrix map[Name]map[Name]int
+func (n nameWithoutPartID) toName() Name {
+	return NewName(n.API, n.shortName())
+}
+
+func (n nameWithoutPartID) shortName() string {
+	nameR := n.Name
+	if n.Remote != "" {
+		nameR = fmt.Sprintf("%s:%s", n.Remote, nameR)
+	}
+	return nameR
+}
+
+func (n nameWithoutPartID) String() string {
+	return n.toName().String()
+}
+
+type graphNodes map[nameWithoutPartID]*GraphNode
+
+type resourceDependencies map[nameWithoutPartID]graphNodes
+
+type transitiveClosureMatrix map[nameWithoutPartID]map[nameWithoutPartID]int
 
 // Graph The Graph maintains a collection of resources and their dependencies between each other.
 type Graph struct {
@@ -46,20 +73,20 @@ func (g *Graph) CurrLogicalClockValue() int64 {
 	return g.logicalClock.Load()
 }
 
-func (g *Graph) getAllChildrenOf(node Name) []Name {
+func (g *Graph) getAllChildrenOf(node nameWithoutPartID) []Name {
 	children := g.children[node]
 	out := make([]Name, 0, len(children))
 	for childName := range children {
-		out = append(out, childName)
+		out = append(out, childName.toName())
 	}
 	return out
 }
 
-func (g *Graph) getAllParentOf(node Name) []Name {
+func (g *Graph) getAllParentOf(node nameWithoutPartID) []Name {
 	parents := g.parents[node]
 	out := make([]Name, 0, len(parents))
 	for parentName := range parents {
-		out = append(out, parentName)
+		out = append(out, parentName.toName())
 	}
 	return out
 }
@@ -83,7 +110,7 @@ func copyNodeMap(m resourceDependencies) resourceDependencies {
 func copyTransitiveClosureMatrix(m transitiveClosureMatrix) transitiveClosureMatrix {
 	out := make(transitiveClosureMatrix, len(m))
 	for i := range m {
-		out[i] = make(map[Name]int, len(m[i]))
+		out[i] = make(map[nameWithoutPartID]int, len(m[i]))
 		for j, v := range m[i] {
 			out[i][j] = v
 		}
@@ -91,7 +118,7 @@ func copyTransitiveClosureMatrix(m transitiveClosureMatrix) transitiveClosureMat
 	return out
 }
 
-func removeNodeFromNodeMap(dm resourceDependencies, key, node Name) {
+func removeNodeFromNodeMap(dm resourceDependencies, key, node nameWithoutPartID) {
 	if nodes := dm[key]; len(nodes) == 1 {
 		delete(dm, key)
 	} else {
@@ -99,8 +126,8 @@ func removeNodeFromNodeMap(dm resourceDependencies, key, node Name) {
 	}
 }
 
-func (g *Graph) leaves() []Name {
-	leaves := make([]Name, 0)
+func (g *Graph) leaves() []nameWithoutPartID {
+	leaves := make([]nameWithoutPartID, 0)
 
 	for node := range g.nodes {
 		if _, ok := g.children[node]; !ok {
@@ -128,7 +155,7 @@ func (g *Graph) clone() *Graph {
 	}
 }
 
-func addResToSet(rd resourceDependencies, key, node Name) {
+func addResToSet(rd resourceDependencies, key, node nameWithoutPartID) {
 	// check if a graphNodes exists for a key, otherwise create one
 	nodes, ok := rd[key]
 	if !ok {
@@ -138,7 +165,7 @@ func addResToSet(rd resourceDependencies, key, node Name) {
 	nodes[node] = &GraphNode{}
 }
 
-func removeResFromSet(rd resourceDependencies, key, node Name) {
+func removeResFromSet(rd resourceDependencies, key, node nameWithoutPartID) {
 	if nodes, ok := rd[key]; ok {
 		delete(nodes, node)
 		if len(nodes) == 0 {
@@ -159,14 +186,14 @@ func (g *Graph) IsNodeDependingOn(node, child Name) bool {
 func (g *Graph) AddNode(node Name, nodeVal *GraphNode) error {
 	g.mu.Lock()
 	defer g.mu.Unlock()
-	return g.addNode(node, nodeVal)
+	return g.addNode(fromName(node), nodeVal)
 }
 
 // Node returns the node named name.
 func (g *Graph) Node(node Name) (*GraphNode, bool) {
 	g.mu.Lock()
 	defer g.mu.Unlock()
-	rNode, ok := g.nodes[node]
+	rNode, ok := g.nodes[fromName(node)]
 	return rNode, ok
 }
 
@@ -177,7 +204,7 @@ func (g *Graph) Names() []Name {
 	names := make([]Name, len(g.nodes))
 	i := 0
 	for k := range g.nodes {
-		names[i] = k
+		names[i] = k.toName()
 		i++
 	}
 	return names
@@ -190,7 +217,7 @@ func (g *Graph) FindNodesByShortNameAndAPI(name Name) []Name {
 	var ret []Name
 	for k, v := range g.nodes {
 		if name.Name == k.Name && name.API == k.API && v != nil {
-			ret = append(ret, k)
+			ret = append(ret, k.toName())
 		}
 	}
 	return ret
@@ -203,7 +230,7 @@ func (g *Graph) FindNodesByAPI(api API) []Name {
 	var ret []Name
 	for k := range g.nodes {
 		if k.API == api {
-			ret = append(ret, k)
+			ret = append(ret, k.toName())
 		}
 	}
 	return ret
@@ -220,15 +247,15 @@ func (g *Graph) findNodesByShortName(name string) []Name {
 		if hasRemote {
 			// check the whole remote. we could technically check
 			// a prefix of the remote but thats excluded for now.
-			if nodeName.ShortName() == name {
-				matches = append(matches, nodeName)
+			if nodeName.shortName() == name {
+				matches = append(matches, nodeName.toName())
 			}
 			continue
 		}
 
 		// check without the remote name
 		if nodeName.Name == name {
-			matches = append(matches, nodeName)
+			matches = append(matches, nodeName.toName())
 		}
 	}
 	return matches
@@ -238,17 +265,17 @@ func (g *Graph) findNodesByShortName(name string) []Name {
 func (g *Graph) GetAllChildrenOf(node Name) []Name {
 	g.mu.Lock()
 	defer g.mu.Unlock()
-	return g.getAllChildrenOf(node)
+	return g.getAllChildrenOf(fromName(node))
 }
 
 // GetAllParentsOf returns all parents of a given node.
 func (g *Graph) GetAllParentsOf(node Name) []Name {
 	g.mu.Lock()
 	defer g.mu.Unlock()
-	return g.getAllParentOf(node)
+	return g.getAllParentOf(fromName(node))
 }
 
-func (g *Graph) addNode(node Name, nodeVal *GraphNode) error {
+func (g *Graph) addNode(node nameWithoutPartID, nodeVal *GraphNode) error {
 	if nodeVal == nil {
 		logging.Global().Errorw("addNode called with a nil value; setting to uninitialized", "name", node)
 		nodeVal = NewUninitializedNode()
@@ -263,7 +290,7 @@ func (g *Graph) addNode(node Name, nodeVal *GraphNode) error {
 	g.nodes[node] = nodeVal
 
 	if _, ok := g.transitiveClosureMatrix[node]; !ok {
-		g.transitiveClosureMatrix[node] = map[Name]int{}
+		g.transitiveClosureMatrix[node] = map[nameWithoutPartID]int{}
 	}
 	for n := range g.nodes {
 		for v := range g.transitiveClosureMatrix {
@@ -280,17 +307,17 @@ func (g *Graph) addNode(node Name, nodeVal *GraphNode) error {
 func (g *Graph) AddChild(child, parent Name) error {
 	g.mu.Lock()
 	defer g.mu.Unlock()
-	return g.addChild(child, parent)
+	return g.addChild(fromName(child), fromName(parent))
 }
 
 // RemoveChild unlink a child from its parent.
 func (g *Graph) RemoveChild(child, parent Name) {
 	g.mu.Lock()
 	defer g.mu.Unlock()
-	g.removeChild(child, parent)
+	g.removeChild(fromName(child), fromName(parent))
 }
 
-func (g *Graph) addChild(child, parent Name) error {
+func (g *Graph) addChild(child, parent nameWithoutPartID) error {
 	if child == parent {
 		return errors.Errorf("%q cannot depend on itself", child.Name)
 	}
@@ -312,14 +339,14 @@ func (g *Graph) addChild(child, parent Name) error {
 	return nil
 }
 
-func (g *Graph) removeChild(child, parent Name) {
+func (g *Graph) removeChild(child, parent nameWithoutPartID) {
 	// Link nodes
 	removeResFromSet(g.children, parent, child)
 	removeResFromSet(g.parents, child, parent)
 	g.removeTransitiveClosure(child, parent)
 }
 
-func (g *Graph) addTransitiveClosure(child, parent Name) {
+func (g *Graph) addTransitiveClosure(child, parent nameWithoutPartID) {
 	for u := range g.transitiveClosureMatrix {
 		for v := range g.transitiveClosureMatrix[u] {
 			g.transitiveClosureMatrix[u][v] += g.transitiveClosureMatrix[u][child] * g.transitiveClosureMatrix[parent][v]
@@ -327,7 +354,7 @@ func (g *Graph) addTransitiveClosure(child, parent Name) {
 	}
 }
 
-func (g *Graph) removeTransitiveClosure(child, parent Name) {
+func (g *Graph) removeTransitiveClosure(child, parent nameWithoutPartID) {
 	for u := range g.transitiveClosureMatrix {
 		for v := range g.transitiveClosureMatrix[u] {
 			g.transitiveClosureMatrix[u][v] -= g.transitiveClosureMatrix[u][child] * g.transitiveClosureMatrix[parent][v]
@@ -335,7 +362,7 @@ func (g *Graph) removeTransitiveClosure(child, parent Name) {
 	}
 }
 
-func (g *Graph) remove(node Name) {
+func (g *Graph) remove(node nameWithoutPartID) {
 	for k := range g.parents[node] {
 		g.removeTransitiveClosure(node, k)
 	}
@@ -384,7 +411,7 @@ func (g *Graph) RemoveMarked() []Resource {
 
 	var toClose []Resource
 	for _, name := range sorted {
-		rNode, ok := g.nodes[name]
+		rNode, ok := g.nodes[fromName(name)]
 		if !ok {
 			// will never happen
 			logging.Global().Errorw("invariant: expected to find node during removal", "name", name)
@@ -392,7 +419,7 @@ func (g *Graph) RemoveMarked() []Resource {
 		}
 		if rNode.MarkedForRemoval() {
 			toClose = append(toClose, NewCloseOnlyResource(name, rNode.Close))
-			g.remove(name)
+			g.remove(fromName(name))
 		}
 	}
 	return toClose
@@ -406,16 +433,16 @@ func (g *Graph) MergeAdd(toAdd *Graph) error {
 	g.mu.Lock()
 	defer g.mu.Unlock()
 	for _, node := range sorted {
-		if i, ok := g.nodes[node]; ok && i != nil {
-			g.remove(node)
+		if i, ok := g.nodes[fromName(node)]; ok && i != nil {
+			g.remove(fromName(node))
 		}
-		if err := g.addNode(node, toAdd.nodes[node]); err != nil {
+		if err := g.addNode(fromName(node), toAdd.nodes[fromName(node)]); err != nil {
 			return err
 		}
 
-		childrenToAdd := toAdd.getAllChildrenOf(node)
+		childrenToAdd := toAdd.getAllChildrenOf(fromName(node))
 		for _, childName := range childrenToAdd {
-			if err := g.addChild(childName, node); err != nil {
+			if err := g.addChild(fromName(childName), fromName(node)); err != nil {
 				return err
 			}
 		}
@@ -429,24 +456,24 @@ func (g *Graph) ReplaceNodesParents(node Name, other *Graph) error {
 	defer other.mu.Unlock()
 	g.mu.Lock()
 	defer g.mu.Unlock()
-	if _, ok := g.nodes[node]; !ok {
+	if _, ok := g.nodes[fromName(node)]; !ok {
 		return errors.Errorf("cannot copy parents to non existing node %q", node.Name)
 	}
 
 	// Clear cached values
-	for k := range g.parents[node] {
-		g.removeTransitiveClosure(node, k)
+	for k := range g.parents[fromName(node)] {
+		g.removeTransitiveClosure(fromName(node), k)
 	}
 	for parentName, vertice := range g.parents {
-		if _, ok := vertice[node]; ok {
-			removeNodeFromNodeMap(g.parents, parentName, node)
+		if _, ok := vertice[fromName(node)]; ok {
+			removeNodeFromNodeMap(g.parents, parentName, fromName(node))
 		}
 	}
 
 	// For each child of `parentName` in the `other` graph, add a corresponding child into this graph
-	otherChildren := other.getAllChildrenOf(node)
+	otherChildren := other.getAllChildrenOf(fromName(node))
 	for _, childName := range otherChildren {
-		if err := g.addChild(childName, node); err != nil {
+		if err := g.addChild(fromName(childName), fromName(node)); err != nil {
 			return err
 		}
 	}
@@ -459,18 +486,18 @@ func (g *Graph) CopyNodeAndChildren(node Name, origin *Graph) error {
 	defer origin.mu.Unlock()
 	g.mu.Lock()
 	defer g.mu.Unlock()
-	if r, ok := origin.nodes[node]; ok {
-		if err := g.addNode(node, r); err != nil {
+	if r, ok := origin.nodes[fromName(node)]; ok {
+		if err := g.addNode(fromName(node), r); err != nil {
 			return err
 		}
-		children := origin.getAllChildrenOf(node)
+		children := origin.getAllChildrenOf(fromName(node))
 		for _, childName := range children {
-			if _, ok := g.nodes[childName]; !ok {
-				if err := g.addNode(childName, NewUninitializedNode()); err != nil {
+			if _, ok := g.nodes[fromName(childName)]; !ok {
+				if err := g.addNode(fromName(childName), NewUninitializedNode()); err != nil {
 					return err
 				}
 			}
-			if err := g.addChild(childName, node); err != nil {
+			if err := g.addChild(fromName(childName), fromName(node)); err != nil {
 				return err
 			}
 		}
@@ -491,14 +518,18 @@ func (g *Graph) topologicalSortInLevels() ([][]Name, []Name) {
 	var orderedFlattened []Name
 	temp := g.Clone()
 	for {
-		leaves := temp.leaves()
-		if len(leaves) == 0 {
+		leaveNames := temp.leaves()
+		if len(leaveNames) == 0 {
 			break
+		}
+		leaves := make([]Name, 0)
+		for _, n := range leaveNames {
+			leaves = append(leaves, n.toName())
 		}
 		ordered = append(ordered, leaves)
 		orderedFlattened = append(orderedFlattened, leaves...)
 		for _, leaf := range leaves {
-			temp.remove(leaf)
+			temp.remove(fromName(leaf))
 		}
 	}
 	return ordered, orderedFlattened
@@ -581,7 +612,7 @@ func (g *Graph) ResolveDependencies(logger logging.Logger) error {
 
 			resolvedName, resolved := tryResolve()
 			if resolved {
-				if err := g.addChild(nodeName, resolvedName); err != nil {
+				if err := g.addChild(nodeName, fromName(resolvedName)); err != nil {
 					allErrs = multierr.Combine(allErrs, err)
 					logger.Errorw(
 						"error adding dependency for resource as a child to parent",
@@ -605,27 +636,27 @@ func (g *Graph) ResolveDependencies(logger logging.Logger) error {
 }
 
 func (g *Graph) isNodeDependingOn(node, child Name) bool {
-	if _, ok := g.nodes[node]; !ok {
+	if _, ok := g.nodes[fromName(node)]; !ok {
 		return false
 	}
-	if _, ok := g.nodes[child]; !ok {
+	if _, ok := g.nodes[fromName(child)]; !ok {
 		return false
 	}
-	return g.transitiveClosureMatrix[child][node] != 0
+	return g.transitiveClosureMatrix[fromName(child)][fromName(node)] != 0
 }
 
 // SubGraphFrom returns a Sub-Graph containing all linked dependencies starting with node Name.
 func (g *Graph) SubGraphFrom(node Name) (*Graph, error) {
 	g.mu.Lock()
 	defer g.mu.Unlock()
-	if _, ok := g.nodes[node]; !ok {
+	if _, ok := g.nodes[fromName(node)]; !ok {
 		return nil, errors.Errorf("cannot create sub-graph from non existing node %q ", node.Name)
 	}
 	subGraph := g.clone()
 	sorted := subGraph.ReverseTopologicalSort()
 	for _, n := range sorted {
 		if !subGraph.isNodeDependingOn(node, n) {
-			subGraph.remove(n)
+			subGraph.remove(fromName(n))
 		}
 	}
 	return subGraph, nil

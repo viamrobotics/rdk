@@ -186,9 +186,9 @@ func TestResourceGraphGetParentsAndChildren(t *testing.T) {
 		NewName(apiA, "Z")), test.ShouldBeFalse)
 
 	for _, p := range g.GetAllParentsOf(NewName(apiA, "F")) {
-		g.removeChild(NewName(apiA, "F"), p)
+		g.removeChild(fromName(NewName(apiA, "F")), fromName(p))
 	}
-	g.remove(NewName(apiA, "F"))
+	g.remove(fromName(NewName(apiA, "F")))
 	out = g.TopologicalSort()
 	test.That(t, newResourceNameSet(out[0:3]...), test.ShouldResemble,
 		newResourceNameSet([]Name{
@@ -742,7 +742,7 @@ func TestResourceGraphReplaceNodesParents(t *testing.T) {
 		}
 	}
 	for n := range gB.nodes {
-		test.That(t, gA.ReplaceNodesParents(n, gB), test.ShouldBeNil)
+		test.That(t, gA.ReplaceNodesParents(n.toName(), gB), test.ShouldBeNil)
 	}
 	out = gA.TopologicalSort()
 	test.That(t, newResourceNameSet(out[0:3]...), test.ShouldResemble,
@@ -816,7 +816,7 @@ func TestResourceGraphCopyNodeAndChildren(t *testing.T) {
 	}...))
 
 	for n := range gA.nodes {
-		test.That(t, gB.CopyNodeAndChildren(n, gA), test.ShouldBeNil)
+		test.That(t, gB.CopyNodeAndChildren(n.toName(), gA), test.ShouldBeNil)
 	}
 	out = gB.TopologicalSort()
 	test.That(t, newResourceNameSet(out[0:4]...), test.ShouldResemble,
@@ -863,7 +863,7 @@ func TestResourceGraphRandomRemoval(t *testing.T) {
 		}
 	}
 
-	g.remove(name)
+	g.remove(fromName(name))
 	test.That(t, g.GetAllParentsOf(name), test.ShouldBeEmpty)
 	test.That(t, g.GetAllChildrenOf(name), test.ShouldBeEmpty)
 }
@@ -1033,7 +1033,7 @@ func TestResourceGraphResolveDependencies(t *testing.T) {
 	test.That(t, node3.hasUnresolvedDependencies(), test.ShouldBeTrue)
 	test.That(t, node4.hasUnresolvedDependencies(), test.ShouldBeTrue)
 
-	g.remove(name3)
+	g.remove(fromName(name3))
 	test.That(t, g.ResolveDependencies(logger), test.ShouldBeNil)
 
 	test.That(t, node1.UnresolvedDependencies(), test.ShouldResemble, []string{"d"})

@@ -85,8 +85,6 @@ func (r *localRobot) RemoteByName(name string) (robot.Robot, bool) {
 // ResourceByName returns a resource by name. If it does not exist
 // nil is returned. Machine part id is optional and will not be used for comparison.
 func (r *localRobot) ResourceByName(name resource.Name) (resource.Resource, error) {
-	// strip part id to make comparisons easier
-	name = name.WithoutPartID()
 	return r.manager.ResourceByName(name)
 }
 
@@ -267,7 +265,7 @@ func (r *localRobot) Status(ctx context.Context, resourceNames []resource.Name) 
 	// Dedupe resources.
 	resourceNameSet := make(map[resource.Name]struct{}, len(namesToDedupe))
 	for _, name := range namesToDedupe {
-		resourceNameSet[name] = struct{}{}
+		resourceNameSet[name.WithoutPartID()] = struct{}{}
 	}
 
 	// Group remote resource names by owning remote and map those names to
@@ -307,7 +305,7 @@ func (r *localRobot) Status(ctx context.Context, resourceNames []resource.Name) 
 			return nil, err
 		}
 		for _, remoteResourceStatus := range remoteResourceStatuses {
-			mappedName, ok := resourceNameMappings[remoteResourceStatus.Name]
+			mappedName, ok := resourceNameMappings[remoteResourceStatus.Name.WithoutPartID()]
 			if !ok {
 				// should never happen
 				r.Logger().CErrorw(ctx,
@@ -322,13 +320,19 @@ func (r *localRobot) Status(ctx context.Context, resourceNames []resource.Name) 
 		}
 	}
 
+	partID := ""
+	md, err := r.CloudMetadata(ctx)
+	if err == nil {
+		partID = md.MachinePartID
+	}
+
 	// Loop through entire resourceNameSet and get status for any local resources.
 	combinedResourceStatuses := make([]robot.Status, 0, len(resourceNameSet))
 	for name := range resourceNameSet {
 		// Just append status if it was a remote resource.
 		resourceStatus, ok := combinedRemoteResourceStatuses[name]
 		if !ok {
-			res, err := r.manager.ResourceByName(name)
+			res, err := r.ResourceByName(name)
 			if err != nil {
 				return nil, err
 			}
@@ -353,7 +357,7 @@ func (r *localRobot) Status(ctx context.Context, resourceNames []resource.Name) 
 					name)
 			}
 			resourceStatus = robot.Status{
-				Name:             name,
+				Name:             name.WithPartID(partID),
 				LastReconfigured: *lastReconfigured,
 				Status:           status,
 			}
