@@ -23,7 +23,7 @@ type KinematicBase interface {
 	referenceframe.InputEnabled
 
 	Kinematics() referenceframe.Frame // this should be remaned to PlanningFrame()?
-	ExecutionFrame() referenceframe.Frame
+	// ExecutionFrame() referenceframe.Frame
 	// we should add ExecutionFrame() as a method on this interface
 	// ErrorState takes a complete motionplan, as well as the index of the currently-executing set of inputs, and computes the pose
 	// difference between where the robot in fact is, and where it ought to be.

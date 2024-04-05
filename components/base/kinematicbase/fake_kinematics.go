@@ -5,7 +5,6 @@ package kinematicbase
 import (
 	"context"
 	"errors"
-	"fmt"
 	"sync"
 	"time"
 
@@ -80,10 +79,6 @@ func (fk *fakeDiffDriveKinematics) Kinematics() referenceframe.Frame {
 	return fk.planningFrame
 }
 
-func (fk *fakeDiffDriveKinematics) ExecutionFrame() referenceframe.Frame {
-	return fk.executionFrame
-}
-
 func (fk *fakeDiffDriveKinematics) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
 	fk.lock.RLock()
 	defer fk.lock.RUnlock()
@@ -123,17 +118,17 @@ func (fk *fakeDiffDriveKinematics) CurrentPosition(ctx context.Context) (*refere
 
 type fakePTGKinematics struct {
 	*fake.Base
-	localizer           motion.Localizer
-	planning, execution referenceframe.Frame
-	options             Options
-	sensorNoise         spatialmath.Pose
-	ptgs                []tpspace.PTGSolver
-	currentInput        []referenceframe.Input
-	origin              *referenceframe.PoseInFrame
-	positionlock        sync.RWMutex
-	inputLock           sync.RWMutex
-	logger              logging.Logger
-	sleepTime           int
+	localizer    motion.Localizer
+	frame        referenceframe.Frame
+	options      Options
+	sensorNoise  spatialmath.Pose
+	ptgs         []tpspace.PTGSolver
+	currentInput []referenceframe.Input
+	origin       *referenceframe.PoseInFrame
+	positionlock sync.RWMutex
+	inputLock    sync.RWMutex
+	logger       logging.Logger
+	sleepTime    int
 }
 
 // WrapWithFakePTGKinematics creates a PTG KinematicBase from the fake Base so that it satisfies the ModelFramer and InputEnabled
@@ -179,9 +174,7 @@ func WrapWithFakePTGKinematics(
 
 	nonzeroBaseTurningRadiusMeters := (baseMillimetersPerSecond / rdkutils.DegToRad(angVelocityDegsPerSecond)) / 1000.
 
-	// create planning frame
-	fmt.Println("b.Name().ShortName(): ", b.Name().ShortName())
-	planningFrame, err := tpspace.NewPTGFrameFromKinematicOptions(
+	frame, err := tpspace.NewPTGFrameFromKinematicOptions(
 		b.Name().ShortName(),
 		logger,
 		nonzeroBaseTurningRadiusMeters,
@@ -194,31 +187,21 @@ func WrapWithFakePTGKinematics(
 		return nil, err
 	}
 
-	// create execution frame
-	// should i change this so that it takes in a list of geometries?
-	executionFrame, err := referenceframe.New2DMobileModelFrame(
-		b.Name().ShortName()+"ExecutionFrame",
-		planningFrame.DoF(), geometries[0])
-	if err != nil {
-		return nil, err
-	}
-
-	// set other params
 	if sensorNoise == nil {
 		sensorNoise = spatialmath.NewZeroPose()
 	}
 
-	ptgProv, ok := planningFrame.(tpspace.PTGProvider)
+	ptgProv, ok := frame.(tpspace.PTGProvider)
 	if !ok {
 		return nil, errors.New("unable to cast ptgk frame to a PTG Provider")
 	}
+	ptgs := ptgProv.PTGSolvers()
 
 	fk := &fakePTGKinematics{
 		Base:         b,
-		planning:     planningFrame,
-		execution:    executionFrame,
+		frame:        frame,
 		origin:       origin,
-		ptgs:         ptgProv.PTGSolvers(),
+		ptgs:         ptgs,
 		currentInput: zeroInput,
 		sensorNoise:  sensorNoise,
 		logger:       logger,
@@ -232,11 +215,7 @@ func WrapWithFakePTGKinematics(
 }
 
 func (fk *fakePTGKinematics) Kinematics() referenceframe.Frame {
-	return fk.planning
-}
-
-func (fk *fakePTGKinematics) ExecutionFrame() referenceframe.Frame {
-	return fk.execution
+	return fk.frame
 }
 
 func (fk *fakePTGKinematics) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
@@ -253,14 +232,18 @@ func (fk *fakePTGKinematics) GoToInputs(ctx context.Context, inputSteps ...[]ref
 	}()
 
 	for _, inputs := range inputSteps {
-	fk.inputLock.Lock()
-	fk.currentInput = []referenceframe.Input{inputs[0], inputs[1], {Value: 0}}
-	fk.inputLock.Unlock()
+		fk.positionlock.RLock()
+		startingPose := fk.origin
+		fk.positionlock.RUnlock()
 
-	finalPose, err := fk.planning.Transform(inputs)
-	if err != nil {
-		return err
-	}
+		fk.inputLock.Lock()
+		fk.currentInput = []referenceframe.Input{inputs[0], inputs[1], {Value: 0}}
+		fk.inputLock.Unlock()
+
+		finalPose, err := fk.frame.Transform(inputs)
+		if err != nil {
+			return err
+		}
 
 		steps := motionplan.PathStepCount(spatialmath.NewZeroPose(), finalPose, 2)
 		startCfg := referenceframe.FloatsToInputs([]float64{inputs[0].Value, inputs[1].Value, 0})
@@ -283,15 +266,16 @@ func (fk *fakePTGKinematics) GoToInputs(ctx context.Context, inputSteps ...[]ref
 			}
 			newPose := spatialmath.Compose(startingPose.Pose(), relativePose)
 
-		fk.positionlock.Lock()
-		fk.origin = referenceframe.NewPoseInFrame(fk.origin.Parent(), newPose)
-		fk.positionlock.Unlock()
+			fk.positionlock.Lock()
+			fk.origin = referenceframe.NewPoseInFrame(fk.origin.Parent(), newPose)
+			fk.positionlock.Unlock()
 
-		fk.inputLock.Lock()
-		fk.currentInput = []referenceframe.Input{inputs[0], inputs[1], inter[2]}
-		fk.inputLock.Unlock()
+			fk.inputLock.Lock()
+			fk.currentInput = []referenceframe.Input{inputs[0], inputs[1], inter[2]}
+			fk.inputLock.Unlock()
 
-		time.Sleep(time.Duration(fk.sleepTime) * time.Microsecond * 10)
+			time.Sleep(time.Duration(fk.sleepTime) * time.Microsecond * 10)
+		}
 	}
 	return nil
 }

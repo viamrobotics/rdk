@@ -67,7 +67,6 @@ type moveRequest struct {
 	obstacleDetectors map[vision.Service][]resource.Name
 	replanCostFactor  float64
 	fsService         framesystem.Service
-	collisionFS       referenceframe.FrameSystem
 
 	executeBackgroundWorkers *sync.WaitGroup
 	responseChan             chan moveResponse
@@ -280,15 +279,6 @@ func (mr *moveRequest) obstaclesIntersectPlan(
 			// Note: the value of wayPointIndex is subject to change between when this function is first entered
 			// versus when CheckPlan is actually called.
 			// We load the wayPointIndex value to ensure that all information is up to date.
-
-			for _, pif := range plan.Path()[waypointIndex-1] {
-				inputMap[mr.kinematicBase.Name().ShortName()+"ExecutionFrame"] =
-					referenceframe.FloatsToInputs([]float64{
-						pif.Pose().Point().X,
-						pif.Pose().Point().Y,
-						pif.Pose().Orientation().OrientationVectorDegrees().Theta,
-					})
-			}
 
 			// get the pose difference between where the robot is versus where it ought to be.
 			errorState, err := mr.kinematicBase.ErrorState(ctx)
@@ -679,20 +669,8 @@ func (ms *builtIn) createBaseMoveRequest(
 			return nil, err
 		}
 	}
-	// Construct framesystem used for planning
 	// We want to disregard anything in the FS whose eventual parent is not the base, because we don't know where it is.
 	baseOnlyFS, err := fs.FrameSystemSubset(kinematicFrame)
-	if err != nil {
-		return nil, err
-	}
-
-	// Construct framesystem used for CheckPlan
-	collisionFS := referenceframe.NewEmptyFrameSystem("collisionFS")
-	err = collisionFS.AddFrame(kb.ExecutionFrame(), collisionFS.World())
-	if err != nil {
-		return nil, err
-	}
-	err = collisionFS.MergeFrameSystem(baseOnlyFS, kb.ExecutionFrame())
 	if err != nil {
 		return nil, err
 	}
@@ -780,7 +758,6 @@ func (ms *builtIn) createBaseMoveRequest(
 		replanCostFactor:  valExtra.replanCostFactor,
 		obstacleDetectors: obstacleDetectors,
 		fsService:         ms.fsService,
-		collisionFS:       collisionFS,
 
 		executeBackgroundWorkers: &backgroundWorkers,
 
