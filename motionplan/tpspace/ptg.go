@@ -11,7 +11,7 @@ import (
 
 const (
 	floatEpsilon      = 0.0001 // If floats are closer than this consider them equal
-	defaultPTGSeedAdj = 0.45
+	defaultPTGSeedAdj = 0.2
 	defaultResolution = 5.
 )
 
