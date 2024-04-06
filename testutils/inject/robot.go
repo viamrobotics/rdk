@@ -289,7 +289,7 @@ func (r *Robot) CloudMetadata(ctx context.Context) (cloud.Metadata, error) {
 	r.Mu.RLock()
 	defer r.Mu.RUnlock()
 	if r.CloudMetadataFunc == nil {
-		return r.CloudMetadata(ctx)
+		return r.LocalRobot.CloudMetadata(ctx)
 	}
 	return r.CloudMetadataFunc(ctx)
 }
