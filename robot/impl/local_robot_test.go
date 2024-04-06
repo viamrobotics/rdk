@@ -914,7 +914,7 @@ func TestMetadataUpdate(t *testing.T) {
 	test.That(t, len(resources), test.ShouldEqual, 9)
 	test.That(t, err, test.ShouldBeNil)
 
-	// 5 declared resources + default services
+	// 5 declared resources + default sensors
 	resourceNames := []resource.Name{
 		arm.Named("pieceArm"),
 		audioinput.Named("mic1"),
@@ -3434,76 +3434,6 @@ func TestCloudMetadata(t *testing.T) {
 			MachineID:     "the-machine",
 			MachinePartID: "the-robot-part",
 		})
-	})
-}
-
-func TestResourceNames(t *testing.T) {
-	logger := logging.NewTestLogger(t)
-	ctx := context.Background()
-	t.Run("no cloud data", func(t *testing.T) {
-		cfg := &config.Config{
-			Components: []resource.Config{
-				{
-					Name:  "foo",
-					API:   base.API,
-					Model: fakeModel,
-				},
-				{
-					Name:  "bar",
-					API:   base.API,
-					Model: fakeModel,
-				},
-			},
-		}
-		robot, shutdown := initTestRobot(t, ctx, cfg, logger)
-		defer shutdown()
-
-		// 2 declared resources + default services
-		resourceNames := []resource.Name{
-			base.Named("foo"),
-			base.Named("bar"),
-			motion.Named(resource.DefaultServiceName),
-			sensors.Named(resource.DefaultServiceName),
-			datamanager.Named(resource.DefaultServiceName),
-		}
-		resources := robot.ResourceNames()
-		test.That(t, len(resources), test.ShouldEqual, len(resourceNames))
-		test.That(t, rtestutils.NewResourceNameSet(resources...), test.ShouldResemble, rtestutils.NewResourceNameSet(resourceNames...))
-	})
-	t.Run("with cloud data", func(t *testing.T) {
-		partID := "the-robot-part"
-		cfg := &config.Config{
-			Components: []resource.Config{
-				{
-					Name:  "foo",
-					API:   base.API,
-					Model: fakeModel,
-				},
-				{
-					Name:  "bar",
-					API:   base.API,
-					Model: fakeModel,
-				},
-			},
-			Cloud: &config.Cloud{
-				ID:           partID,
-				LocationID:   "the-location",
-				PrimaryOrgID: "the-primary-org",
-			},
-		}
-		robot, shutdown := initTestRobot(t, ctx, cfg, logger)
-		defer shutdown()
-		// 2 declared resources + default services
-		resourceNames := []resource.Name{
-			base.Named("foo").WithPartID(partID),
-			base.Named("bar").WithPartID(partID),
-			motion.Named(resource.DefaultServiceName).WithPartID(partID),
-			sensors.Named(resource.DefaultServiceName).WithPartID(partID),
-			datamanager.Named(resource.DefaultServiceName).WithPartID(partID),
-		}
-		resources := robot.ResourceNames()
-		test.That(t, len(resources), test.ShouldEqual, len(resourceNames))
-		test.That(t, rtestutils.NewResourceNameSet(resources...), test.ShouldResemble, rtestutils.NewResourceNameSet(resourceNames...))
 	})
 }
 

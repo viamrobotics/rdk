@@ -89,7 +89,7 @@ require (
 	go.viam.com/utils v0.1.71
 	goji.io v2.0.2+incompatible
 	golang.org/x/image v0.14.0
-	golang.org/x/sys v0.18.0
+	golang.org/x/sys v0.17.0
 	golang.org/x/term v0.17.0
 	golang.org/x/time v0.3.0
 	golang.org/x/tools v0.10.0
@@ -193,7 +193,6 @@ require (
 	github.com/go-xmlfmt/xmlfmt v1.1.2 // indirect
 	github.com/goburrow/serial v0.1.0 // indirect
 	github.com/gobwas/glob v0.2.3 // indirect
-	github.com/gobwas/ws v1.2.1 // indirect
 	github.com/goccy/go-json v0.10.2 // indirect
 	github.com/gofrs/flock v0.8.1 // indirect
 	github.com/gofrs/uuid v4.2.0+incompatible // indirect
