@@ -2,6 +2,7 @@ package protoutils
 
 import (
 	"testing"
+	"time"
 
 	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
@@ -30,4 +31,14 @@ func TestRoundtrip(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	test.That(t, m2, test.ShouldResemble, m1)
+}
+
+func TestInvalidValue(t *testing.T) {
+	data := map[string]interface{}{
+		"now": time.Now(),
+	}
+
+	_, err := ReadingGoToProto(data)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldEqual, "proto: invalid type: time.Time")
 }

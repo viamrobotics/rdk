@@ -26,6 +26,7 @@ import (
 	"go.viam.com/utils/testutils"
 	"google.golang.org/protobuf/testing/protocmp"
 
+	"go.viam.com/rdk/cloud"
 	"go.viam.com/rdk/components/arm"
 	fakearm "go.viam.com/rdk/components/arm/fake"
 	"go.viam.com/rdk/components/base"
@@ -45,7 +46,6 @@ import (
 	fakeservo "go.viam.com/rdk/components/servo/fake"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/grpc"
-	"go.viam.com/rdk/internal/cloud"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/module/modmaninterface"
 	"go.viam.com/rdk/operation"
