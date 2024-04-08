@@ -542,6 +542,8 @@ func TestServerReadAnalogReader(t *testing.T) {
 		injectAnalogReader     *inject.AnalogReader
 		injectAnalogReaderOk   bool
 		injectResult           int
+		injectMinRange         float32
+		injectMaxRange         float32
 		injectErr              error
 		req                    *request
 		expCapAnalogReaderArgs []interface{}
@@ -553,6 +555,8 @@ func TestServerReadAnalogReader(t *testing.T) {
 			injectAnalogReader:     nil,
 			injectAnalogReaderOk:   false,
 			injectResult:           0,
+			injectMinRange:         0,
+			injectMaxRange:         5,
 			injectErr:              nil,
 			req:                    &request{BoardName: missingBoardName},
 			expCapAnalogReaderArgs: []interface{}(nil),
@@ -564,6 +568,8 @@ func TestServerReadAnalogReader(t *testing.T) {
 			injectAnalogReader:     nil,
 			injectAnalogReaderOk:   false,
 			injectResult:           0,
+			injectMinRange:         0,
+			injectMaxRange:         5,
 			injectErr:              nil,
 			req:                    &request{BoardName: testBoardName, AnalogReaderName: "analog1"},
 			expCapAnalogReaderArgs: []interface{}{"analog1"},
@@ -575,6 +581,8 @@ func TestServerReadAnalogReader(t *testing.T) {
 			injectAnalogReader:     &inject.AnalogReader{},
 			injectAnalogReaderOk:   true,
 			injectResult:           0,
+			injectMinRange:         0,
+			injectMaxRange:         5,
 			injectErr:              errFoo,
 			req:                    &request{BoardName: testBoardName, AnalogReaderName: "analog1"},
 			expCapAnalogReaderArgs: []interface{}{"analog1"},
@@ -586,6 +594,8 @@ func TestServerReadAnalogReader(t *testing.T) {
 			injectAnalogReader:     &inject.AnalogReader{},
 			injectAnalogReaderOk:   true,
 			injectResult:           8,
+			injectMinRange:         0,
+			injectMaxRange:         5,
 			injectErr:              nil,
 			req:                    &request{BoardName: testBoardName, AnalogReaderName: "analog1", Extra: pbExpectedExtra},
 			expCapAnalogReaderArgs: []interface{}{"analog1"},
@@ -606,9 +616,9 @@ func TestServerReadAnalogReader(t *testing.T) {
 			}
 
 			if tc.injectAnalogReader != nil {
-				tc.injectAnalogReader.ReadFunc = func(ctx context.Context, extra map[string]interface{}) (int, error) {
+				tc.injectAnalogReader.ReadFunc = func(ctx context.Context, extra map[string]interface{}) (int, float32, float32, error) {
 					actualExtra = extra
-					return tc.injectResult, tc.injectErr
+					return tc.injectResult, tc.injectMinRange, tc.injectMaxRange, tc.injectErr
 				}
 			}
 

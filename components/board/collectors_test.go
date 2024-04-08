@@ -96,8 +96,8 @@ func TestCollectors(t *testing.T) {
 func newBoard() board.Board {
 	b := &inject.Board{}
 	analogReader := &inject.AnalogReader{}
-	analogReader.ReadFunc = func(ctx context.Context, extra map[string]interface{}) (int, error) {
-		return 1, nil
+	analogReader.ReadFunc = func(ctx context.Context, extra map[string]interface{}) (int, float32, float32, error) {
+		return 1, 0, 5, nil
 	}
 	b.AnalogReaderByNameFunc = func(name string) (board.AnalogReader, bool) {
 		return analogReader, true

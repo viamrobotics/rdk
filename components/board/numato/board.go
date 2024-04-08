@@ -28,6 +28,9 @@ import (
 	"go.viam.com/rdk/resource"
 )
 
+const minRange = 0.0
+const maxRange = 5.0
+
 var model = resource.DefaultModelFamily.WithModel("numato")
 
 var errNoBoard = errors.New("no numato boards found")
@@ -359,12 +362,13 @@ type analogReader struct {
 	pin string
 }
 
-func (ar *analogReader) Read(ctx context.Context, extra map[string]interface{}) (int, error) {
+func (ar *analogReader) Read(ctx context.Context, extra map[string]interface{}) (int, float32, float32, error) {
 	res, err := ar.b.doSendReceive(ctx, fmt.Sprintf("adc read %s", ar.pin))
 	if err != nil {
-		return 0, err
+		return 0, 0, 0, err
 	}
-	return strconv.Atoi(res)
+	val, err := strconv.Atoi(res)
+	return val, minRange, maxRange, err
 }
 
 func (ar *analogReader) Close(ctx context.Context) error {

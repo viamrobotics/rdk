@@ -158,13 +158,15 @@ func TestWorkingClient(t *testing.T) {
 		test.That(t, injectBoard.AnalogReaderByNameCap(), test.ShouldResemble, []interface{}{"analog1"})
 
 		// Analog Reader:Read
-		injectAnalogReader.ReadFunc = func(ctx context.Context, extra map[string]interface{}) (int, error) {
+		injectAnalogReader.ReadFunc = func(ctx context.Context, extra map[string]interface{}) (int, float32, float32, error) {
 			actualExtra = extra
-			return 6, nil
+			return 6, 0, 5, nil
 		}
-		readVal, err := analog1.Read(context.Background(), expectedExtra)
+		readVal, readMinRange, readMaxRange, err := analog1.Read(context.Background(), expectedExtra)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, readVal, test.ShouldEqual, 6)
+		test.That(t, readMinRange, test.ShouldEqual, 0)
+		test.That(t, readMaxRange, test.ShouldEqual, 5)
 		test.That(t, actualExtra, test.ShouldResemble, expectedExtra)
 		actualExtra = nil
 

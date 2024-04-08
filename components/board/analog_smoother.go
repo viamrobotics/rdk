@@ -60,21 +60,21 @@ func (as *AnalogSmoother) Close(ctx context.Context) error {
 }
 
 // Read returns the smoothed out reading.
-func (as *AnalogSmoother) Read(ctx context.Context, extra map[string]interface{}) (int, error) {
+func (as *AnalogSmoother) Read(ctx context.Context, extra map[string]interface{}) (int, float32, float32, error) {
 	if as.data == nil { // We're using raw data, and not averaging
-		return as.lastData, nil
+		return as.lastData, 0, 0, nil
 	}
 
 	avg := as.data.Average()
 	lastErr := as.lastError.Load()
 	if lastErr == nil {
-		return avg, nil
+		return avg, 0, 0, nil
 	}
 	//nolint:forcetypeassert
 	if lastErr.present {
-		return avg, lastErr.err
+		return avg, 0, 0, lastErr.err
 	}
-	return avg, nil
+	return avg, 0, 0, nil
 }
 
 // Start begins the smoothing routine that reads from the underlying
