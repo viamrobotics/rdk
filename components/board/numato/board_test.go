@@ -91,23 +91,29 @@ func TestNumato1(t *testing.T) {
 	ar, ok := b.AnalogReaderByName("foo")
 	test.That(t, ok, test.ShouldEqual, true)
 
-	res2, err := ar.Read(ctx, nil)
+	res2, minRange2, maxRange2, err := ar.Read(ctx, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, res2, test.ShouldBeLessThan, 100)
+	test.That(t, minRange2, test.ShouldEqual, 0)
+	test.That(t, maxRange2, test.ShouldEqual, 5)
 
 	err = zeroPin.Set(context.Background(), true, nil)
 	test.That(t, err, test.ShouldBeNil)
 
-	res2, err = ar.Read(ctx, nil)
+	res2, minRange2, maxRange2, err = ar.Read(ctx, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, res2, test.ShouldBeGreaterThan, 1000)
+	test.That(t, minRange2, test.ShouldEqual, 0)
+	test.That(t, maxRange2, test.ShouldEqual, 5)
 
 	err = zeroPin.Set(context.Background(), false, nil)
 	test.That(t, err, test.ShouldBeNil)
 
-	res2, err = ar.Read(ctx, nil)
+	res2, minRange2, maxRange2, err = ar.Read(ctx, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, res2, test.ShouldBeLessThan, 100)
+	test.That(t, minRange2, test.ShouldEqual, 0)
+	test.That(t, maxRange2, test.ShouldEqual, 5)
 }
 
 func TestConfigValidate(t *testing.T) {

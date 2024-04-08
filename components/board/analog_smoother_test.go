@@ -21,14 +21,14 @@ type testReader struct {
 	stop bool
 }
 
-func (t *testReader) Read(ctx context.Context, extra map[string]interface{}) (int, error) {
+func (t *testReader) Read(ctx context.Context, extra map[string]interface{}) (int, float32, float32, error) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	if t.stop || t.n >= t.lim {
-		return 0, errStopReading
+		return 0, 0, 0, errStopReading
 	}
 	t.n++
-	return t.r.Intn(100), nil
+	return t.r.Intn(100), 0, 0, nil
 }
 
 func (t *testReader) Close(ctx context.Context) error {
@@ -54,7 +54,7 @@ func TestAnalogSmoother1(t *testing.T) {
 
 	testutils.WaitForAssertionWithSleep(t, 10*time.Millisecond, 200, func(tb testing.TB) {
 		tb.Helper()
-		v, err := as.Read(context.Background(), nil)
+		v, _, _, err := as.Read(context.Background(), nil)
 		test.That(tb, err, test.ShouldEqual, errStopReading)
 		test.That(tb, v, test.ShouldEqual, 52)
 

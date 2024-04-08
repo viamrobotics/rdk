@@ -320,7 +320,7 @@ func (c *Controller) newAxis(ctx context.Context, brd board.Board, analogName st
 				return
 			case <-ticker.C:
 			}
-			rawVal, err := reader.Read(ctx, nil)
+			rawVal, _, _, err := reader.Read(ctx, nil)
 			if err != nil {
 				c.logger.CError(ctx, err)
 			}

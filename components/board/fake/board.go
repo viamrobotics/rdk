@@ -264,6 +264,8 @@ func (b *Board) Close(ctx context.Context) error {
 type AnalogReader struct {
 	pin        string
 	Value      int
+	MinRange   float32
+	MaxRange   float32
 	CloseCount int
 	Mu         sync.RWMutex
 }
@@ -276,13 +278,16 @@ func (a *AnalogReader) reset(pin string) {
 	a.Mu.Lock()
 	a.pin = pin
 	a.Value = 0
+	a.MinRange = 0
+	a.MaxRange = 5
 	a.Mu.Unlock()
 }
 
-func (a *AnalogReader) Read(ctx context.Context, extra map[string]interface{}) (int, error) {
+func (a *AnalogReader) Read(ctx context.Context, extra map[string]interface{}) (int, float32, float32, error) {
 	a.Mu.RLock()
 	defer a.Mu.RUnlock()
-	return a.Value, nil
+
+	return a.Value, a.MinRange, a.MaxRange, nil
 }
 
 // Set is used during testing.
