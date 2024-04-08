@@ -33,7 +33,7 @@ const (
 	loginFlagKeyID          = "key-id"
 	loginFlagKey            = "key"
 
-	// Flags shared by api-key, module and data subcommands.
+	// Flags shared by api-key, module, ml-training and data subcommands.
 	generalFlagOrgID        = "org-id"
 	generalFlagLocationID   = "location-id"
 	generalFlagMachineID    = "machine-id"
@@ -56,6 +56,10 @@ const (
 	moduleBuildFlagBuildID  = "id"
 	moduleBuildFlagPlatform = "platform"
 	moduleBuildFlagWait     = "wait"
+
+	mlTrainingFlagPath    = "path"
+	mlTrainingFlagVersion = "version"
+	mlTrainingFlagName    = "name"
 
 	dataFlagDestination                    = "destination"
 	dataFlagDataType                       = "data-type"
@@ -1365,6 +1369,55 @@ Example:
 							Action: ModuleBuildLogsAction,
 						},
 					},
+				},
+			},
+		},
+		{
+			Name:  "training-script",
+			Usage: "manage training scripts for custom ML training",
+			Subcommands: []*cli.Command{
+				{
+					Name:      "upload",
+					Aliases:   []string{"upload"},
+					Usage:     "upload ML training scripts for custom ML training",
+					UsageText: createUsageText("training-script upload", []string{mlTrainingFlagPath, mlTrainingFlagName}, true),
+					Flags: []cli.Flag{
+						&cli.StringFlag{
+							Name:     mlTrainingFlagPath,
+							Usage:    "path to ML training scripts for upload",
+							Required: true,
+						},
+						&cli.StringFlag{
+							Name:     mlTrainingFlagName,
+							Usage:    "name of the ML training script to upload",
+							Required: true,
+						},
+						// Add name, version, type, framework, draft, visibility
+						// If draft is set, cannot set visibility; automatically set to private
+					},
+					// Update action
+					Action: ModuleBuildLogsAction,
+				},
+				{
+					// update?
+					Name:      "upload",
+					Aliases:   []string{"upload"},
+					Usage:     "upload ML training scripts for custom ML training",
+					UsageText: createUsageText("training-script upload", []string{mlTrainingFlagPath}, true),
+					Flags: []cli.Flag{
+						&cli.StringFlag{
+							Name:     mlTrainingFlagPath,
+							Usage:    "path to ML training scripts for upload",
+							Required: true,
+						},
+						// Add name, version, type, framework, draft, visibility
+						// If draft is set, cannot set visibility; automatically set to private
+					},
+					// Update action
+					Action: ModuleBuildLogsAction,
+				},
+				{
+					// TODO - Add actions for submitting training job
 				},
 			},
 		},
