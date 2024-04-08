@@ -33,21 +33,7 @@ let detections: Detection[] = [];
 let classifications: Classification[] = [];
 let ranOnce = false;
 
-// from https://stackoverflow.com/a/15666143
-let pixelRatio: number;
-{
-  const ctx = document.createElement('canvas').getContext('2d')!;
-  const dpr = window.devicePixelRatio || 1;
-  /* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access */
-  const bsr = ((ctx as any).webkitBackingStorePixelRatio ||
-    (ctx as any).mozBackingStorePixelRatio ||
-    (ctx as any).msBackingStorePixelRatio ||
-    (ctx as any).oBackingStorePixelRatio ||
-    (ctx as any).backingStorePixelRatio ||
-    1) as number;
-  /* eslint-enable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access */
-  pixelRatio = dpr / bsr;
-}
+let pixelRatio: number = window.devicePixelRatio || 1;
 
 const autoRun = async () => {
   if (ranOnce) {
