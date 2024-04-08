@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -19,6 +20,10 @@ import (
 	"github.com/pkg/errors"
 	"github.com/urfave/cli/v2"
 	datapb "go.viam.com/api/app/data/v1"
+	"go.viam.com/utils"
+	"go.viam.com/utils/rpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
@@ -264,7 +269,7 @@ func (c *viamClient) binaryData(dst string, filter *datapb.Filter, parallelDownl
 
 	return c.performActionOnBinaryDataFromFilter(
 		func(id *datapb.BinaryID) error {
-			return downloadBinary(c.c.Context, c.dataClient, dst, id)
+			return downloadBinary(c.c.Context, c.dataClient, dst, id, c.authFlow.httpClient, c.conf.Auth)
 		},
 		filter, parallelDownloads,
 		func(i int32) {
@@ -405,27 +410,45 @@ func getMatchingBinaryIDs(ctx context.Context, client datapb.DataServiceClient, 
 	}
 }
 
-func downloadBinary(ctx context.Context, client datapb.DataServiceClient, dst string, id *datapb.BinaryID) error {
+func downloadBinary(ctx context.Context, client datapb.DataServiceClient, dst string, id *datapb.BinaryID,
+	httpClient *http.Client, auth authMethod,
+) error {
 	var resp *datapb.BinaryDataByIDsResponse
 	var err error
+	largeFile := false
+	// To begin, we assume the file is small and downloadable, so we try getting the binary directly
 	for count := 0; count < maxRetryCount; count++ {
 		resp, err = client.BinaryDataByIDs(ctx, &datapb.BinaryDataByIDsRequest{
 			BinaryIds:     []*datapb.BinaryID{id},
-			IncludeBinary: true,
+			IncludeBinary: !largeFile,
 		})
-		if err == nil {
+		// If the file is too large, we break and try a different pathway for downloading
+		if err == nil || status.Code(err) == codes.ResourceExhausted {
 			break
+		}
+	}
+	// For large files, we get the metadata but not the binary itself
+	// Resource exhausted is returned when the message we're receiving exceeds the GRPC maximum limit
+	if err != nil && status.Code(err) == codes.ResourceExhausted {
+		largeFile = true
+		for count := 0; count < maxRetryCount; count++ {
+			resp, err = client.BinaryDataByIDs(ctx, &datapb.BinaryDataByIDsRequest{
+				BinaryIds:     []*datapb.BinaryID{id},
+				IncludeBinary: !largeFile,
+			})
+			if err == nil {
+				break
+			}
 		}
 	}
 	if err != nil {
 		return errors.Wrapf(err, serverErrorMessage)
 	}
-	data := resp.GetData()
 
+	data := resp.GetData()
 	if len(data) != 1 {
 		return errors.Errorf("expected a single response, received %d", len(data))
 	}
-
 	datum := data[0]
 
 	fileName := filenameForDownload(datum.GetMetadata())
@@ -450,7 +473,46 @@ func downloadBinary(ctx context.Context, client datapb.DataServiceClient, dst st
 		return err
 	}
 
-	bin := datum.GetBinary()
+	var bin []byte
+	if largeFile {
+		// Make request to the URI for large files since we exceed the message limit for gRPC
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, datum.GetMetadata().GetUri(), nil)
+		if err != nil {
+			return errors.Wrapf(err, serverErrorMessage)
+		}
+
+		// Set the headers so HTTP requests that are not gRPC calls can still be authenticated in app
+		// We can authenticate via token or API key, so we try both.
+		token, ok := auth.(*token)
+		if ok {
+			req.Header.Add(rpc.MetadataFieldAuthorization, rpc.AuthorizationValuePrefixBearer+token.AccessToken)
+		}
+		apiKey, ok := auth.(*apiKey)
+		if ok {
+			req.Header.Add("key_id", apiKey.KeyID)
+			req.Header.Add("key", apiKey.KeyCrypto)
+		}
+
+		res, err := httpClient.Do(req)
+		if err != nil {
+			return errors.Wrapf(err, serverErrorMessage)
+		}
+		if res.StatusCode != http.StatusOK {
+			return errors.New(serverErrorMessage)
+		}
+		defer func() {
+			utils.UncheckedError(res.Body.Close())
+		}()
+
+		bin, err = io.ReadAll(res.Body)
+		if err != nil {
+			return errors.Wrapf(err, serverErrorMessage)
+		}
+	} else {
+		// If the binary has not already been populated as large file download,
+		// get the binary data from the response.
+		bin = datum.GetBinary()
+	}
 
 	r := io.NopCloser(bytes.NewReader(bin))
 

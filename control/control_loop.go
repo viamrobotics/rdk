@@ -4,6 +4,7 @@ import (
 	"context"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/pkg/errors"
@@ -38,7 +39,7 @@ type Loop struct {
 	activeBackgroundWorkers sync.WaitGroup
 	cancelCtx               context.Context
 	cancel                  context.CancelFunc
-	running                 bool
+	running                 atomic.Bool
 	pidBlocks               []*basicPID
 }
 
@@ -55,8 +56,8 @@ func createLoop(logger logging.Logger, cfg Config, m Controllable) (*Loop, error
 		blocks:    make(map[string]*controlBlockInternal),
 		cancelCtx: cancelCtx,
 		cancel:    cancel,
-		running:   false,
 	}
+	l.running.Store(false)
 	if l.cfg.Frequency == 0.0 || l.cfg.Frequency > 200 {
 		return nil, errors.New("loop frequency shouldn't be 0 or above 200Hz")
 	}
@@ -254,7 +255,7 @@ func (l *Loop) Start() error {
 		}
 	}, l.activeBackgroundWorkers.Done)
 	<-waitCh
-	l.running = true
+	l.running.Store(true)
 	return nil
 }
 
@@ -289,14 +290,27 @@ func (l *Loop) startBenchmark(loops int) error {
 
 // Stop stops then loop.
 func (l *Loop) Stop() {
-	if l.running {
-		l.logger.Debug("closing loop")
-		l.ct.ticker.Stop()
-		close(l.ct.stop)
-		l.cancel()
-		l.activeBackgroundWorkers.Wait()
-		l.running = false
-	}
+	l.running.Store(false)
+	l.logger.Debug("closing loop")
+	l.ct.ticker.Stop()
+	close(l.ct.stop)
+	l.cancel()
+	l.activeBackgroundWorkers.Wait()
+}
+
+// Pause sets l.running to false to pause the loop.
+func (l *Loop) Pause() {
+	l.running.Store(false)
+}
+
+// Resume sets l.running to true to resume the loop.
+func (l *Loop) Resume() {
+	l.running.Store(true)
+}
+
+// Running returns the value of l.running.
+func (l *Loop) Running() bool {
+	return l.running.Load()
 }
 
 // GetConfig return the control loop config.

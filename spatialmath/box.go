@@ -106,7 +106,7 @@ func (b *box) Pose() Pose {
 }
 
 // AlmostEqual compares the box with another geometry and checks if they are equivalent.
-func (b *box) AlmostEqual(g Geometry) bool {
+func (b *box) almostEqual(g Geometry) bool {
 	other, ok := g.(*box)
 	if !ok {
 		return false

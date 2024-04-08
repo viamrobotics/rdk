@@ -101,7 +101,7 @@ func (fk *fakeDiffDriveKinematics) GoToInputs(ctx context.Context, inputSteps ..
 	return nil
 }
 
-func (fk *fakeDiffDriveKinematics) ErrorState(ctx context.Context, plan motionplan.Plan, currentNode int) (spatialmath.Pose, error) {
+func (fk *fakeDiffDriveKinematics) ErrorState(ctx context.Context) (spatialmath.Pose, error) {
 	return fk.sensorNoise, nil
 }
 
@@ -250,7 +250,10 @@ func (fk *fakePTGKinematics) GoToInputs(ctx context.Context, inputSteps ...[]ref
 		var interpolatedConfigurations [][]referenceframe.Input
 		for i := 0; i <= steps; i++ {
 			interp := float64(i) / float64(steps)
-			interpConfig := referenceframe.InterpolateInputs(startCfg, inputs, interp)
+			interpConfig, err := fk.frame.Interpolate(startCfg, inputs, interp)
+			if err != nil {
+				return err
+			}
 			interpolatedConfigurations = append(interpolatedConfigurations, interpConfig)
 		}
 		for _, inter := range interpolatedConfigurations {
@@ -277,7 +280,7 @@ func (fk *fakePTGKinematics) GoToInputs(ctx context.Context, inputSteps ...[]ref
 	return nil
 }
 
-func (fk *fakePTGKinematics) ErrorState(ctx context.Context, plan motionplan.Plan, currentNode int) (spatialmath.Pose, error) {
+func (fk *fakePTGKinematics) ErrorState(ctx context.Context) (spatialmath.Pose, error) {
 	return fk.sensorNoise, nil
 }
 

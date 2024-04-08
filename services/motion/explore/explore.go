@@ -363,6 +363,7 @@ func (ms *explore) checkForObstacles(
 			err = motionplan.CheckPlan(
 				kb.Kinematics(),
 				plan,
+				0,
 				worldState,
 				ms.frameSystem,
 				currentPose,

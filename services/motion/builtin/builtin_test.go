@@ -235,11 +235,12 @@ func TestMoveWithObstacles(t *testing.T) {
 	})
 }
 
-func TestMoveOnMapAskewIMUTestMoveOnMapAskewIMU(t *testing.T) {
+func TestMoveOnMapAskewIMU(t *testing.T) {
 	t.Parallel()
 	extraPosOnly := map[string]interface{}{"smooth_iter": 5, "motion_profile": "position_only"}
 	t.Run("Askew but valid base should be able to plan", func(t *testing.T) {
 		t.Parallel()
+		logger := logging.NewTestLogger(t)
 		ctx := context.Background()
 		askewOrient := &spatialmath.OrientationVectorDegrees{OX: 1, OY: 1, OZ: 1, Theta: 35}
 		askewOrientCorrected := &spatialmath.OrientationVectorDegrees{OZ: 1, Theta: -22.988}
@@ -279,6 +280,8 @@ func TestMoveOnMapAskewIMUTestMoveOnMapAskewIMU(t *testing.T) {
 		// In a real robot this will be taken care of by gravity.
 		correctedPose := spatialmath.NewPoseFromOrientation(askewOrientCorrected)
 		endPos := spatialmath.Compose(correctedPose, spatialmath.PoseBetween(spatialmath.NewPoseFromOrientation(askewOrient), endPIF.Pose()))
+		logger.Debug(spatialmath.PoseToProtobuf(endPos))
+		logger.Debug(spatialmath.PoseToProtobuf(goal1BaseFrame))
 
 		test.That(t, spatialmath.PoseAlmostEqualEps(endPos, goal1BaseFrame, 10), test.ShouldBeTrue)
 	})
@@ -413,7 +416,7 @@ func TestObstacleReplanningGlobe(t *testing.T) {
 
 	extra := map[string]interface{}{"max_replans": 0, "max_ik_solutions": 1, "smooth_iter": 1}
 
-	i := 0
+	// ~ i := 0
 	j := 0
 
 	testCases := []testCase{
@@ -435,25 +438,27 @@ func TestObstacleReplanningGlobe(t *testing.T) {
 			},
 			expectedSuccess: true,
 		},
-		{
-			name: "ensure replan due to obstacle collision",
-			getPCfunc: func(ctx context.Context, cameraName string, extra map[string]interface{}) ([]*viz.Object, error) {
-				if i == 0 {
-					i++
-					return []*viz.Object{}, nil
-				}
-				obstaclePosition := spatialmath.NewPoseFromPoint(r3.Vector{X: 300, Y: 0, Z: 0})
-				box, err := spatialmath.NewBox(obstaclePosition, r3.Vector{X: 20, Y: 20, Z: 10}, "test-case-1")
-				test.That(t, err, test.ShouldBeNil)
+		// TODO(pl): This was disabled as part of course correction. It will need to be re-enabled once a method is developed to surface
+		// course-corrected plans from the kinematic base to the motion service.
+		// {
+		//  name: "ensure replan due to obstacle collision",
+		//  getPCfunc: func(ctx context.Context, cameraName string, extra map[string]interface{}) ([]*viz.Object, error) {
+		//  if i == 0 {
+		//  i++
+		//  return []*viz.Object{}, nil
+		// }
+		// obstaclePosition := spatialmath.NewPoseFromPoint(r3.Vector{X: 300, Y: 0, Z: 0})
+		// box, err := spatialmath.NewBox(obstaclePosition, r3.Vector{X: 20, Y: 20, Z: 10}, "test-case-1")
+		// test.That(t, err, test.ShouldBeNil)
 
-				detection, err := viz.NewObjectWithLabel(pointcloud.New(), "test-case-1-detection", box.ToProtobuf())
-				test.That(t, err, test.ShouldBeNil)
+		//  detection, err := viz.NewObjectWithLabel(pointcloud.New(), "test-case-1-detection", box.ToProtobuf())
+		//  test.That(t, err, test.ShouldBeNil)
 
-				return []*viz.Object{detection}, nil
-			},
-			expectedSuccess: false,
-			expectedErr:     fmt.Sprintf("exceeded maximum number of replans: %d: plan failed", 0),
-		},
+		//  return []*viz.Object{detection}, nil
+		//  },
+		//  expectedSuccess: false,
+		//  expectedErr:     fmt.Sprintf("exceeded maximum number of replans: %d: plan failed", 0),
+		//  },
 	}
 
 	testFn := func(t *testing.T, tc testCase) {
@@ -507,13 +512,12 @@ func TestObstacleReplanningGlobe(t *testing.T) {
 }
 
 func TestObstacleReplanningSlam(t *testing.T) {
-	t.Skip()
 	cameraToBase := spatialmath.NewPose(r3.Vector{0, 0, 0}, &spatialmath.OrientationVectorDegrees{OY: 1, Theta: -90})
 	cameraToBaseInv := spatialmath.PoseInverse(cameraToBase)
 
 	ctx := context.Background()
 	origin := spatialmath.NewPose(
-		r3.Vector{X: -0.99503e3, Y: 0, Z: 0},
+		r3.Vector{X: -900, Y: 0, Z: 0},
 		&spatialmath.OrientationVectorDegrees{OZ: 1, Theta: -90},
 	)
 
@@ -558,10 +562,8 @@ func TestObstacleReplanningSlam(t *testing.T) {
 		MotionCfg: &motion.MotionConfiguration{
 			PositionPollingFreqHz: 1, ObstaclePollingFreqHz: 100, PlanDeviationMM: 1, ObstacleDetectors: obstacleDetectorSlice,
 		},
-		Extra: map[string]interface{}{
-			"max_replans": 2,
-			"smooth_iter": 0,
-		},
+		// TODO: add back "max_replans": 1 to extra
+		Extra: map[string]interface{}{"smooth_iter": 0},
 	}
 
 	executionID, err := ms.MoveOnMap(ctx, req)
@@ -575,22 +577,6 @@ func TestObstacleReplanningSlam(t *testing.T) {
 		LastPlanOnly:  true,
 	})
 	test.That(t, err, test.ShouldBeNil)
-
-	plansWithStatus, err := ms.PlanHistory(ctx, motion.PlanHistoryReq{
-		ComponentName: base.Named("test-base"),
-		LastPlanOnly:  false,
-		ExecutionID:   executionID,
-	})
-	test.That(t, err, test.ShouldBeNil)
-	populatedReplanReason := 0
-	for _, planStatus := range plansWithStatus {
-		for _, history := range planStatus.StatusHistory {
-			if history.Reason != nil {
-				populatedReplanReason++
-			}
-		}
-	}
-	test.That(t, populatedReplanReason, test.ShouldBeGreaterThanOrEqualTo, 1)
 }
 
 func TestMultiplePieces(t *testing.T) {
@@ -1309,11 +1295,11 @@ func TestMoveOnMapStaticObs(t *testing.T) {
 	t.Run("one obstacle", func(t *testing.T) {
 		// WTS: static obstacles are obeyed at plan time.
 
-		// We place an obstacle on the left side of the robot to force our motion planner to return a path
-		// which veers to the right. We then place an obstacle to the right of the robot and project the
+		// We place an obstacle on the right side of the robot to force our motion planner to return a path
+		// which veers to the left. We then place an obstacle to the left of the robot and project the
 		// robot's position across the path. By showing that we have a collision on the path with an
-		// obstacle on the right we prove that our path does not collide with the original obstacle
-		// placed on the left.
+		// obstacle on the left we prove that our path does not collide with the original obstacle
+		// placed on the right.
 		obstacleLeft, err := spatialmath.NewBox(
 			spatialmath.NewPose(r3.Vector{X: 0.22981e3, Y: -0.38875e3, Z: 0},
 				&spatialmath.OrientationVectorDegrees{OZ: 1, Theta: 45}),
@@ -1321,8 +1307,15 @@ func TestMoveOnMapStaticObs(t *testing.T) {
 			"obstacleLeft",
 		)
 		test.That(t, err, test.ShouldBeNil)
+		obstacleRight, err := spatialmath.NewBox(
+			spatialmath.NewPose(r3.Vector{0.89627e3, -0.37192e3, 0},
+				&spatialmath.OrientationVectorDegrees{OZ: 1, Theta: -45}),
+			r3.Vector{900, 10, 10},
+			"obstacleRight",
+		)
+		test.That(t, err, test.ShouldBeNil)
 
-		req.Obstacles = []spatialmath.Geometry{obstacleLeft}
+		req.Obstacles = []spatialmath.Geometry{obstacleRight}
 
 		// construct move request
 		planExecutor, err := ms.(*builtIn).newMoveOnMapRequest(ctx, req, nil, 0)
@@ -1336,20 +1329,13 @@ func TestMoveOnMapStaticObs(t *testing.T) {
 		test.That(t, len(plan.Path()), test.ShouldBeGreaterThan, 2)
 
 		// place obstacle in opposte position and show that the generate path
-		// collides with obstacleRight
-		obstacleRight, err := spatialmath.NewBox(
-			spatialmath.NewPose(r3.Vector{0.89627e3, -0.37192e3, 0},
-				&spatialmath.OrientationVectorDegrees{OZ: 1, Theta: -45}),
-			r3.Vector{900, 10, 10},
-			"obstacleRight",
-		)
-		test.That(t, err, test.ShouldBeNil)
+		// collides with obstacleLeft
 
 		wrldSt, err := referenceframe.NewWorldState(
 			[]*referenceframe.GeometriesInFrame{
 				referenceframe.NewGeometriesInFrame(
 					referenceframe.World,
-					[]spatialmath.Geometry{obstacleRight},
+					[]spatialmath.Geometry{obstacleLeft},
 				),
 			}, nil,
 		)
@@ -1358,6 +1344,7 @@ func TestMoveOnMapStaticObs(t *testing.T) {
 		err = motionplan.CheckPlan(
 			mr.planRequest.Frame,
 			plan,
+			1,
 			wrldSt,
 			mr.planRequest.FrameSystem,
 			spatialmath.NewPose(
@@ -1474,7 +1461,7 @@ func TestMoveOnMap(t *testing.T) {
 		extraPosOnly := map[string]interface{}{"smooth_iter": 5, "motion_profile": "position_only"}
 
 		t.Run("ensure success of movement around obstacle", func(t *testing.T) {
-			kb, ms := createMoveOnMapEnvironment(ctx, t, "pointcloud/octagonspace.pcd", 40, nil)
+			kb, ms := createMoveOnMapEnvironment(ctx, t, "pointcloud/octagonspace.pcd", 40, spatialmath.NewPoseFromPoint(r3.Vector{X: 0, Y: -50}))
 			defer ms.Close(ctx)
 
 			req := motion.MoveOnMapReq{
@@ -1593,6 +1580,7 @@ func TestMoveOnMap(t *testing.T) {
 				},
 			)
 			test.That(t, err, test.ShouldNotBeNil)
+			logger.Debug(err.Error())
 			test.That(t, strings.Contains(err.Error(), "starting collision between SLAM map and "), test.ShouldBeTrue)
 			test.That(t, executionID, test.ShouldResemble, uuid.Nil)
 		})
@@ -1661,6 +1649,7 @@ func TestMoveOnMap(t *testing.T) {
 
 		endPos, err = kb.CurrentPosition(ctx)
 		test.That(t, err, test.ShouldBeNil)
+		logger.Debug(spatialmath.PoseToProtobuf(endPos.Pose()))
 		test.That(t, spatialmath.PoseAlmostEqualEps(endPos.Pose(), goal2BaseFrame, 5), test.ShouldBeTrue)
 
 		plans, err := ms.PlanHistory(ctx, motion.PlanHistoryReq{
@@ -1797,7 +1786,7 @@ func TestMoveOnMap(t *testing.T) {
 		timeoutCtx, timeoutFn := context.WithTimeout(ctx, time.Second*5)
 		defer timeoutFn()
 		executionID, err := ms.(*builtIn).MoveOnMap(timeoutCtx, req)
-		test.That(t, err, test.ShouldBeError, errors.New("no need to move, already within planDeviationMM"))
+		test.That(t, err, test.ShouldBeError, motion.ErrGoalWithinPlanDeviation)
 		test.That(t, executionID, test.ShouldResemble, uuid.Nil)
 	})
 

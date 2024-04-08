@@ -26,6 +26,7 @@ import PowerSensor from './power-sensor/index.svelte';
 import Servo from './servo/index.svelte';
 import Sensors from './sensors/index.svelte';
 import Slam from './slam/index.svelte';
+import Vision from './vision/index.svelte';
 import Client from '@/lib/components/robot-client.svelte';
 import type { RCOverrides } from '@/types/overrides';
 
@@ -208,6 +209,11 @@ const getStatus = (
     {#each filterSubtype($components, 'audio_input') as { name } (name)}
       <AudioInput {name} />
     {/each}
+
+    <!-- ******* VISION *******  -->
+    {#if filterSubtype($services, 'vision').length > 0}
+      <Vision names={filterSubtype($services, 'vision').map((v) => v.name)} />
+    {/if}
 
     <!-- ******* DO *******  -->
     <DoCommand resources={[...$components, ...$services]} />

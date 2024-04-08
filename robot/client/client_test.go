@@ -16,10 +16,10 @@ import (
 	"time"
 
 	"github.com/edaniels/golog"
+	"github.com/go-viper/mapstructure/v2"
 	"github.com/golang/geo/r3"
 	"github.com/google/uuid"
 	"github.com/jhump/protoreflect/grpcreflect"
-	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
 	commonpb "go.viam.com/api/common/v1"
 	armpb "go.viam.com/api/component/arm/v1"
@@ -43,6 +43,7 @@ import (
 	"google.golang.org/grpc/reflection"
 	"google.golang.org/grpc/status"
 
+	"go.viam.com/rdk/cloud"
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/components/board"
@@ -56,7 +57,6 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/gostream"
 	rgrpc "go.viam.com/rdk/grpc"
-	"go.viam.com/rdk/internal/cloud"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/referenceframe"
@@ -2019,9 +2019,10 @@ func TestCloudMetadata(t *testing.T) {
 	gServer := grpc.NewServer()
 
 	injectCloudMD := cloud.Metadata{
-		RobotPartID:  "the-robot-part",
-		LocationID:   "the-location",
-		PrimaryOrgID: "the-primary-org",
+		LocationID:    "the-location",
+		PrimaryOrgID:  "the-primary-org",
+		MachineID:     "the-machine",
+		MachinePartID: "the-robot-part",
 	}
 	injectRobot := &inject.Robot{
 		ResourceNamesFunc:   func() []resource.Name { return nil },

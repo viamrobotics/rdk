@@ -48,8 +48,7 @@ func TestComplexModule(t *testing.T) {
 		port = portLocal
 		test.That(t, err, test.ShouldBeNil)
 
-		serverPath, err := testutils.BuildTempModule(t, "web/cmd/server/")
-		test.That(t, err, test.ShouldBeNil)
+		serverPath := testutils.BuildTempModule(t, "web/cmd/server/")
 
 		// start the viam server with a temporary home directory so that it doesn't collide with
 		// the user's real viam home directory
@@ -332,10 +331,7 @@ func connect(port int, logger logging.Logger) (robot.Robot, error) {
 }
 
 func modifyCfg(t *testing.T, cfgIn string, logger logging.Logger) (string, int, error) {
-	modPath, err := testutils.BuildTempModule(t, "examples/customresources/demos/complexmodule")
-	if err != nil {
-		return "", 0, err
-	}
+	modPath := testutils.BuildTempModule(t, "examples/customresources/demos/complexmodule")
 
 	port, err := goutils.TryReserveRandomPort()
 	if err != nil {
@@ -388,8 +384,7 @@ func TestValidationFailure(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		port = localPort
 
-		serverPath, err := testutils.BuildTempModule(t, "web/cmd/server/")
-		test.That(t, err, test.ShouldBeNil)
+		serverPath := testutils.BuildTempModule(t, "web/cmd/server/")
 
 		// start the viam server with a temporary home directory so that it doesn't collide with
 		// the user's real viam home directory

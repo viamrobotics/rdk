@@ -47,6 +47,7 @@ type PlanRequest struct {
 	Goal               *frame.PoseInFrame
 	Frame              frame.Frame
 	FrameSystem        frame.FrameSystem
+	StartPose          spatialmath.Pose
 	StartConfiguration map[string][]frame.Input
 	WorldState         *frame.WorldState
 	ConstraintSpecs    *pb.Constraints
@@ -148,31 +149,7 @@ func Replan(ctx context.Context, request *PlanRequest, currentPlan Plan, replanC
 	if len(sf.DoF()) == 0 {
 		return nil, errors.New("solver frame has no degrees of freedom, cannot perform inverse kinematics")
 	}
-	seed, err := sf.mapToSlice(request.StartConfiguration)
-	if err != nil {
-		return nil, err
-	}
-	startPose, err := sf.Transform(seed)
-	if err != nil {
-		return nil, err
-	}
-	// make sure there is no transformation between the PTG frame and World frame in the Solver frame
-	// TODO: RSDK-5391 this will trigger currently if we try to call Plan() on a robot which is currently executing another motion plan.
-	// Additionally, when RSDK-5391 is done, we will need to alter this such that the pose returned by `CurrentInputs` does not
-	// break this. We may want to as part of that ticket migrate the functionality of service/motion/builtin/relativeMoveRequestFromAbsolute
-	// to this package.
-	if len(sf.PTGSolvers()) > 0 && !spatialmath.PoseAlmostEqual(startPose, spatialmath.NewZeroPose()) {
-		return nil, errors.New("cannot have non-zero transformation between the PTG frame and World frame in the Solver frame")
-	}
 
-	request.Logger.CInfof(ctx,
-		"planning motion for frame %s\nGoal: %v\nStarting seed map %v\n, startPose %v\n, worldstate: %v\n",
-		request.Frame.Name(),
-		frame.PoseInFrameToProtobuf(request.Goal),
-		request.StartConfiguration,
-		spatialmath.PoseToProtobuf(startPose),
-		request.WorldState.String(),
-	)
 	request.Logger.CDebugf(ctx, "constraint specs for this step: %v", request.ConstraintSpecs)
 	request.Logger.CDebugf(ctx, "motion config for this step: %v", request.Options)
 
@@ -185,15 +162,7 @@ func Replan(ctx context.Context, request *PlanRequest, currentPlan Plan, replanC
 		return nil, err
 	}
 
-	newPlan, err := sfPlanner.PlanSingleWaypoint(
-		ctx,
-		request.StartConfiguration,
-		request.Goal.Pose(),
-		request.WorldState,
-		request.ConstraintSpecs,
-		currentPlan,
-		request.Options,
-	)
+	newPlan, err := sfPlanner.PlanSingleWaypoint(ctx, request, currentPlan)
 	if err != nil {
 		return nil, err
 	}
@@ -304,8 +273,14 @@ func (mp *planner) smoothPath(ctx context.Context, path []node) []node {
 		firstEdge := mp.randseed.Intn(len(path) - 2)
 		secondEdge := firstEdge + 1 + mp.randseed.Intn((len(path)-2)-firstEdge)
 
-		wayPoint1 := frame.InterpolateInputs(path[firstEdge].Q(), path[firstEdge+1].Q(), waypoints[mp.randseed.Intn(3)])
-		wayPoint2 := frame.InterpolateInputs(path[secondEdge].Q(), path[secondEdge+1].Q(), waypoints[mp.randseed.Intn(3)])
+		wayPoint1, err := mp.frame.Interpolate(path[firstEdge].Q(), path[firstEdge+1].Q(), waypoints[mp.randseed.Intn(3)])
+		if err != nil {
+			return path
+		}
+		wayPoint2, err := mp.frame.Interpolate(path[secondEdge].Q(), path[secondEdge+1].Q(), waypoints[mp.randseed.Intn(3)])
+		if err != nil {
+			return path
+		}
 
 		if mp.checkPath(wayPoint1, wayPoint2) {
 			newpath := []node{}
@@ -460,6 +435,7 @@ IK:
 func CheckPlan(
 	checkFrame frame.Frame,
 	plan Plan,
+	wayPointIdx int,
 	worldState *frame.WorldState,
 	fs frame.FrameSystem,
 	currentPose spatialmath.Pose,
@@ -501,9 +477,19 @@ func CheckPlan(
 		return err
 	}
 
+	var startPose spatialmath.Pose
+	if relative {
+		// A frame's transformation based on a relative input will position it relative to the
+		// frame's origin, giving us a relative pose. To put it with respect to the world
+		// we compose the relative pose with the most recent former pose we have already reached.
+		startPose = poses[wayPointIdx-1]
+	} else {
+		startPose = currentPose
+	}
+
 	// setup the planOpts
 	if sfPlanner.planOpts, err = sfPlanner.plannerSetupFromMoveRequest(
-		currentPose,
+		startPose,
 		poses[len(poses)-1],
 		currentInputs,
 		worldState,
@@ -514,12 +500,10 @@ func CheckPlan(
 	}
 
 	// create a list of segments to iterate through
-	var segments []*ik.Segment
+	segments := make([]*ik.Segment, 0, len(poses)-wayPointIdx)
 	if relative {
-		segments = make([]*ik.Segment, 0, len(poses)+1)
-
 		// get the inputs we were partway through executing
-		checkFrameGoalInputs, err := sf.mapToSlice(plan.Trajectory()[0])
+		checkFrameGoalInputs, err := sf.mapToSlice(plan.Trajectory()[wayPointIdx])
 		if err != nil {
 			return err
 		}
@@ -530,27 +514,18 @@ func CheckPlan(
 			return err
 		}
 
-		// get pose of robot along the current trajectory it is executing
-		lastPose, err := sf.Transform(checkFrameCurrentInputs)
-		if err != nil {
-			return err
-		}
-
-		// where ought the robot be on the plan
-		pathPosition := spatialmath.PoseBetweenInverse(errorState, currentPose)
-
-		// absolute pose of the previous node we've passed
-		formerRunningPose := spatialmath.PoseBetweenInverse(lastPose, pathPosition)
-
 		// pre-pend to segments so we can connect to the input we have not finished actuating yet
 		segments = append(segments, &ik.Segment{
-			StartPosition:      formerRunningPose,
-			EndPosition:        poses[0],
-			StartConfiguration: checkFrameCurrentInputs,
-			EndConfiguration:   checkFrameGoalInputs,
+			StartPosition: poses[wayPointIdx-1],
+			EndPosition:   poses[wayPointIdx],
+			StartConfiguration: []frame.Input{
+				{Value: checkFrameGoalInputs[0].Value},
+				{Value: checkFrameGoalInputs[1].Value},
+				{Value: checkFrameCurrentInputs[2].Value},
+			},
+			EndConfiguration: checkFrameGoalInputs,
+			Frame:            sf,
 		})
-	} else {
-		segments = make([]*ik.Segment, 0, len(poses))
 	}
 
 	// function to ease further segment creation
@@ -581,7 +556,7 @@ func CheckPlan(
 	}
 
 	// iterate through remaining plan and append remaining segments to check
-	for i := 0; i < len(offsetPlan.Path())-1; i++ {
+	for i := wayPointIdx; i < len(offsetPlan.Path())-1; i++ {
 		segment, err := createSegment(poses[i], poses[i+1], offsetPlan.Trajectory()[i], offsetPlan.Trajectory()[i+1])
 		if err != nil {
 			return err

@@ -170,7 +170,7 @@ func (e *execution[R]) start(ctx context.Context) error {
 			resp, err := lastPWE.executor.Execute(e.cancelCtx, lastPWE.plan.Plan)
 
 			switch {
-			// stoped
+			// stopped
 			case errors.Is(err, context.Canceled):
 				e.notifyStatePlanStopped(lastPWE.plan, time.Now())
 				return

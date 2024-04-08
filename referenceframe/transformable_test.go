@@ -35,9 +35,9 @@ func TestGeometriesInFrame(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	gF := NewGeometriesInFrame("frame", geometryList)
 	test.That(t, gF.Parent(), test.ShouldEqual, "frame")
-	test.That(t, one.AlmostEqual(gF.GeometryByName("one")), test.ShouldBeTrue)
+	test.That(t, spatial.GeometriesAlmostEqual(one, gF.GeometryByName("one")), test.ShouldBeTrue)
 	convertedGF, err := ProtobufToGeometriesInFrame(GeometriesInFrameToProtobuf(gF))
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, gF.Parent(), test.ShouldEqual, convertedGF.Parent())
-	test.That(t, one.AlmostEqual(convertedGF.GeometryByName("one")), test.ShouldBeTrue)
+	test.That(t, spatial.GeometriesAlmostEqual(one, convertedGF.GeometryByName("one")), test.ShouldBeTrue)
 }

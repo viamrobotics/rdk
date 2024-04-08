@@ -104,7 +104,7 @@ func (c *capsule) Pose() Pose {
 }
 
 // AlmostEqual compares the capsule with another geometry and checks if they are equivalent.
-func (c *capsule) AlmostEqual(g Geometry) bool {
+func (c *capsule) almostEqual(g Geometry) bool {
 	other, ok := g.(*capsule)
 	if !ok {
 		return false

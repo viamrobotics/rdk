@@ -23,9 +23,9 @@ import (
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"go.viam.com/rdk/cloud"
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/components/movementsensor"
-	"go.viam.com/rdk/internal/cloud"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/protoutils"
@@ -80,9 +80,10 @@ func TestServer(t *testing.T) {
 		req := pb.GetCloudMetadataRequest{}
 		injectRobot.CloudMetadataFunc = func(ctx context.Context) (cloud.Metadata, error) {
 			return cloud.Metadata{
-				RobotPartID:  "the-robot-part",
-				PrimaryOrgID: "the-primary-org",
-				LocationID:   "the-location",
+				PrimaryOrgID:  "the-primary-org",
+				LocationID:    "the-location",
+				MachineID:     "the-machine",
+				MachinePartID: "the-robot-part",
 			}, nil
 		}
 		resp, err := server.GetCloudMetadata(context.Background(), &req)
@@ -90,6 +91,8 @@ func TestServer(t *testing.T) {
 		test.That(t, resp.GetRobotPartId(), test.ShouldEqual, "the-robot-part")
 		test.That(t, resp.GetLocationId(), test.ShouldEqual, "the-location")
 		test.That(t, resp.GetPrimaryOrgId(), test.ShouldEqual, "the-primary-org")
+		test.That(t, resp.GetMachineId(), test.ShouldEqual, "the-machine")
+		test.That(t, resp.GetMachinePartId(), test.ShouldEqual, "the-robot-part")
 	})
 
 	t.Run("Discovery", func(t *testing.T) {

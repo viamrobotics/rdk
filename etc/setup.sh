@@ -61,9 +61,19 @@ do_piOS(){
 }
 
 do_linux(){
+	COLOR_RED='\033[0;31m'
+	COLOR_NULL='\033[0m'
 	if apt-get --version > /dev/null 2>&1; then
 		# Debian/Ubuntu
 		INSTALL_CMD="apt-get install --assume-yes build-essential procps curl file git debianutils"
+		if [ $(source /etc/os-release && echo $VERSION_CODENAME) = focal ]; then
+			echo -e ${COLOR_RED}WARNING:${COLOR_NULL} Ubuntu focal has known issues. Your build may fail.
+			read -p "Continue? (y/n) " yesno
+			if [ $yesno != y ]; then
+				echo Okay, quitting
+				exit 0
+			fi
+		fi
 	elif pacman --version > /dev/null 2>&1; then
 		# Arch
 		INSTALL_CMD="pacman -Sy --needed --noconfirm base-devel procps-ng curl git which"
@@ -150,7 +160,7 @@ do_brew(){
 	tap  "viamrobotics/brews"
 
 	# pinned
-	brew "go@1.20", link: true, conflicts_with: ["go"]
+	brew "go@1.21", link: true, conflicts_with: ["go"]
 	brew "node@18", link: true, conflicts_with: ["node"]
 
 	# unpinned
@@ -171,6 +181,9 @@ do_brew(){
 		echo "Package installation failed when running brew command, please retry."
 		exit 1
 	fi
+
+	# replace default go (currently 1.22, from canon build) with pinned go@1.21
+	brew link --overwrite go@1.21
 
 	# due to a missing bottle in homebrew, this has to be installed on its own
 	brew install upx

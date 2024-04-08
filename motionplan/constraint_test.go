@@ -217,8 +217,39 @@ func TestCollisionConstraints(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	sf, err := newSolverFrame(fs, model.Name(), frame.World, frame.StartPositions(fs))
 	test.That(t, err, test.ShouldBeNil)
+	seedMap := frame.StartPositions(fs)
+	frameInputs, err := sf.mapToSlice(seedMap)
+	test.That(t, err, test.ShouldBeNil)
 	handler := &ConstraintHandler{}
-	collisionConstraints, err := createAllCollisionConstraints(sf, fs, worldState, frame.StartPositions(fs), nil, defaultCollisionBufferMM)
+
+	// create robot collision entities
+	movingGeometriesInFrame, err := sf.Geometries(frameInputs)
+	movingRobotGeometries := movingGeometriesInFrame.Geometries() // solver frame returns geoms in frame World
+	test.That(t, err, test.ShouldBeNil)
+
+	// find all geometries that are not moving but are in the frame system
+	staticRobotGeometries := make([]spatial.Geometry, 0)
+	frameSystemGeometries, err := frame.FrameSystemGeometries(fs, seedMap)
+	test.That(t, err, test.ShouldBeNil)
+	for name, geometries := range frameSystemGeometries {
+		if !sf.movingFrame(name) {
+			staticRobotGeometries = append(staticRobotGeometries, geometries.Geometries()...)
+		}
+	}
+
+	// Note that all obstacles in worldState are assumed to be static so it is ok to transform them into the world frame
+	// TODO(rb) it is bad practice to assume that the current inputs of the robot correspond to the passed in world state
+	// the state that observed the worldState should ultimately be included as part of the worldState message
+	worldGeometries, err := worldState.ObstaclesInWorldFrame(fs, seedMap)
+	test.That(t, err, test.ShouldBeNil)
+
+	collisionConstraints, err := createAllCollisionConstraints(
+		movingRobotGeometries,
+		staticRobotGeometries,
+		worldGeometries.Geometries(),
+		nil,
+		defaultCollisionBufferMM,
+	)
 	test.That(t, err, test.ShouldBeNil)
 	for name, constraint := range collisionConstraints {
 		handler.AddStateConstraint(name, constraint)
@@ -254,8 +285,39 @@ func BenchmarkCollisionConstraints(b *testing.B) {
 	test.That(b, err, test.ShouldBeNil)
 	sf, err := newSolverFrame(fs, model.Name(), frame.World, frame.StartPositions(fs))
 	test.That(b, err, test.ShouldBeNil)
+	seedMap := frame.StartPositions(fs)
+	frameInputs, err := sf.mapToSlice(seedMap)
+	test.That(b, err, test.ShouldBeNil)
 	handler := &ConstraintHandler{}
-	collisionConstraints, err := createAllCollisionConstraints(sf, fs, worldState, frame.StartPositions(fs), nil, defaultCollisionBufferMM)
+
+	// create robot collision entities
+	movingGeometriesInFrame, err := sf.Geometries(frameInputs)
+	movingRobotGeometries := movingGeometriesInFrame.Geometries() // solver frame returns geoms in frame World
+	test.That(b, err, test.ShouldBeNil)
+
+	// find all geometries that are not moving but are in the frame system
+	staticRobotGeometries := make([]spatial.Geometry, 0)
+	frameSystemGeometries, err := frame.FrameSystemGeometries(fs, seedMap)
+	test.That(b, err, test.ShouldBeNil)
+	for name, geometries := range frameSystemGeometries {
+		if !sf.movingFrame(name) {
+			staticRobotGeometries = append(staticRobotGeometries, geometries.Geometries()...)
+		}
+	}
+
+	// Note that all obstacles in worldState are assumed to be static so it is ok to transform them into the world frame
+	// TODO(rb) it is bad practice to assume that the current inputs of the robot correspond to the passed in world state
+	// the state that observed the worldState should ultimately be included as part of the worldState message
+	worldGeometries, err := worldState.ObstaclesInWorldFrame(fs, seedMap)
+	test.That(b, err, test.ShouldBeNil)
+
+	collisionConstraints, err := createAllCollisionConstraints(
+		movingRobotGeometries,
+		staticRobotGeometries,
+		worldGeometries.Geometries(),
+		nil,
+		defaultCollisionBufferMM,
+	)
 	test.That(b, err, test.ShouldBeNil)
 	for name, constraint := range collisionConstraints {
 		handler.AddStateConstraint(name, constraint)

@@ -44,6 +44,13 @@ type PTG interface {
 	Transform([]referenceframe.Input) (spatialmath.Pose, error)
 }
 
+// PTGCourseCorrection offers an interface permitting a PTGSolver to also provide an index pointing to one of their PTGSolvers which may
+// be used for course correction maneuvers. Usually this is the Circle PTG as it will permit the largest success rate for corrections.
+type PTGCourseCorrection interface {
+	PTGProvider
+	CorrectionSolverIdx() int
+}
+
 // TrajNode is a snapshot of a single point in time along a PTG trajectory, including the distance along that trajectory,
 // the elapsed time along the trajectory, and the linear and angular velocity at that point.
 type TrajNode struct {
