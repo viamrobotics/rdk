@@ -33,7 +33,7 @@ let detections: Detection[] = [];
 let classifications: Classification[] = [];
 let ranOnce = false;
 
-let pixelRatio: number = window.devicePixelRatio || 1;
+const pixelRatio: number = window.devicePixelRatio || 1;
 
 const autoRun = async () => {
   if (ranOnce) {
