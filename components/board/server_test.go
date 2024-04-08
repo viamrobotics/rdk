@@ -528,7 +528,7 @@ func TestServerSetPWMFrequency(t *testing.T) {
 	}
 }
 
-//nolint:dupl
+
 func TestServerReadAnalogReader(t *testing.T) {
 	type request = pb.ReadAnalogReaderRequest
 	type response = pb.ReadAnalogReaderResponse
@@ -701,7 +701,7 @@ func TestServerWriteAnalog(t *testing.T) {
 	}
 }
 
-//nolint:dupl
+
 func TestServerGetDigitalInterruptValue(t *testing.T) {
 	type request = pb.GetDigitalInterruptValueRequest
 	type response = pb.GetDigitalInterruptValueResponse

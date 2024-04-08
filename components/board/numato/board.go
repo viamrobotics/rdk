@@ -28,8 +28,10 @@ import (
 	"go.viam.com/rdk/resource"
 )
 
-const minRange = 0.0
-const maxRange = 5.0
+const (
+	minRange = 0.0
+	maxRange = 5.0
+)
 
 var model = resource.DefaultModelFamily.WithModel("numato")
 
