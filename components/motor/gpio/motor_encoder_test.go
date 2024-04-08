@@ -5,13 +5,14 @@ import (
 	"sync"
 	"testing"
 
+	"go.viam.com/test"
+	"go.viam.com/utils/testutils"
+
 	"go.viam.com/rdk/components/encoder"
 	"go.viam.com/rdk/components/motor"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/testutils/inject"
-	"go.viam.com/test"
-	"go.viam.com/utils/testutils"
 )
 
 const (
@@ -168,8 +169,7 @@ func TestEncodedMotor(t *testing.T) {
 	})
 
 	t.Run("encoded motor test GoFor forward", func(t *testing.T) {
-		ctx, done := m.opMgr.New(context.Background())
-		test.That(t, m.goForInternal(ctx, 10, 1, 1), test.ShouldBeNil)
+		test.That(t, m.goForInternal(context.Background(), 10, 1, 1), test.ShouldBeNil)
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
 			on, powerPct, err := m.IsPowered(context.Background(), nil)
@@ -177,12 +177,10 @@ func TestEncodedMotor(t *testing.T) {
 			test.That(tb, powerPct, test.ShouldBeGreaterThan, 0)
 			test.That(tb, err, test.ShouldBeNil)
 		})
-		done()
 	})
 
 	t.Run("encoded motor test GoFor backwards", func(t *testing.T) {
-		ctx, done := m.opMgr.New(context.Background())
-		test.That(t, m.goForInternal(ctx, -10, -1, -1), test.ShouldBeNil)
+		test.That(t, m.goForInternal(context.Background(), -10, -1, -1), test.ShouldBeNil)
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
 			on, powerPct, err := m.IsPowered(context.Background(), nil)
@@ -190,22 +188,47 @@ func TestEncodedMotor(t *testing.T) {
 			test.That(tb, powerPct, test.ShouldBeLessThan, 0)
 			test.That(tb, err, test.ShouldBeNil)
 		})
-		done()
+	})
+
+	t.Run("encoded motor test goForMath", func(t *testing.T) {
+		testutils.WaitForAssertion(t, func(tb testing.TB) {
+			tb.Helper()
+			test.That(tb, m.ResetZeroPosition(context.Background(), 0, nil), test.ShouldBeNil)
+		})
+
+		expectedGoalPos, expectedGoalRPM, expectedDirection := 4.0, 10.0, 1.0
+		goalPos, goalRPM, direction := m.goForMath(context.Background(), 10, 4)
+
+		testutils.WaitForAssertion(t, func(tb testing.TB) {
+			tb.Helper()
+			test.That(tb, goalPos, test.ShouldEqual, expectedGoalPos)
+			test.That(tb, goalRPM, test.ShouldEqual, expectedGoalRPM)
+			test.That(tb, direction, test.ShouldEqual, expectedDirection)
+		})
+
+		expectedGoalPos, expectedGoalRPM, expectedDirection = -4.0, -10.0, -1.0
+		goalPos, goalRPM, direction = m.goForMath(context.Background(), 10, -4)
+
+		testutils.WaitForAssertion(t, func(tb testing.TB) {
+			tb.Helper()
+			test.That(tb, goalPos, test.ShouldEqual, expectedGoalPos)
+			test.That(tb, goalRPM, test.ShouldEqual, expectedGoalRPM)
+			test.That(tb, direction, test.ShouldEqual, expectedDirection)
+		})
 	})
 
 	t.Run("encoded motor test SetPower interrupts GoFor", func(t *testing.T) {
 		go func() {
-			ctx, done := m.opMgr.New(context.Background())
-			test.That(t, m.goForInternal(ctx, 10, 1, 1), test.ShouldBeNil)
-			testutils.WaitForAssertion(t, func(tb testing.TB) {
-				tb.Helper()
-				on, powerPct, err := m.IsPowered(context.Background(), nil)
-				test.That(tb, on, test.ShouldBeTrue)
-				test.That(tb, powerPct, test.ShouldBeGreaterThan, 0)
-				test.That(tb, err, test.ShouldBeNil)
-			})
-			done()
+			test.That(t, m.goForInternal(context.Background(), 10, 1, 1), test.ShouldBeNil)
 		}()
+
+		testutils.WaitForAssertion(t, func(tb testing.TB) {
+			tb.Helper()
+			on, powerPct, err := m.IsPowered(context.Background(), nil)
+			test.That(tb, on, test.ShouldBeTrue)
+			test.That(tb, powerPct, test.ShouldBeGreaterThan, 0)
+			test.That(tb, err, test.ShouldBeNil)
+		})
 
 		test.That(t, m.SetPower(context.Background(), -0.5, nil), test.ShouldBeNil)
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
@@ -214,6 +237,46 @@ func TestEncodedMotor(t *testing.T) {
 			test.That(tb, on, test.ShouldBeTrue)
 			test.That(tb, powerPct, test.ShouldBeLessThan, 0)
 			test.That(tb, err, test.ShouldBeNil)
+		})
+	})
+}
+
+func TestEncodedMotorControls(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+
+	// create inject motor
+	fakeMotor := injectMotor()
+
+	// create an inject encoder
+	enc := injectEncoder()
+
+	// create an encoded motor
+	conf := resource.Config{
+		Name:                motorName,
+		ConvertedAttributes: &Config{},
+	}
+	motorConf := Config{
+		TicksPerRotation: 1,
+		ControlParameters: &motorPIDConfig{
+			P: 1,
+			I: 2,
+			D: 0,
+		},
+	}
+	wrappedMotor, err := WrapMotorWithEncoder(context.Background(), enc, conf, motorConf, fakeMotor, logger)
+	test.That(t, err, test.ShouldBeNil)
+	m, ok := wrappedMotor.(*EncodedMotor)
+	test.That(t, ok, test.ShouldBeTrue)
+
+	defer func() {
+		test.That(t, m.Close(context.Background()), test.ShouldBeNil)
+	}()
+
+	t.Run("encoded motor controls test loop exists", func(t *testing.T) {
+		test.That(t, m.goForInternal(context.Background(), 10, 1, 1), test.ShouldBeNil)
+		testutils.WaitForAssertion(t, func(tb testing.TB) {
+			tb.Helper()
+			test.That(tb, m.loop, test.ShouldNotBeNil)
 		})
 	})
 }

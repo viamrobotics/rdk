@@ -215,7 +215,7 @@ func (m *EncodedMotor) makeAdjustments(
 	now, lastTime int64,
 ) (float64, error) {
 	m.mu.Lock()
-	// defer m.mu.Unlock()
+	defer m.mu.Unlock()
 
 	newPowerPct := lastPowerPct
 
@@ -243,7 +243,6 @@ func (m *EncodedMotor) makeAdjustments(
 		newPowerPct = lastPowerPct
 	}
 
-	m.mu.Unlock()
 	if err := m.setPower(ctx, newPowerPct); err != nil {
 		return 0, err
 	}
