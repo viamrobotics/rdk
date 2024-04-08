@@ -481,7 +481,7 @@ func TestManagerAdd(t *testing.T) {
 		return &fakeboard.AnalogReader{}, true
 	}
 	injectBoard.DigitalInterruptByNameFunc = func(name string) (board.DigitalInterrupt, bool) {
-		return &board.BasicDigitalInterrupt{}, true
+		return &fakeboard.DigitalInterruptWrapper{}, true
 	}
 
 	cfg = &resource.Config{

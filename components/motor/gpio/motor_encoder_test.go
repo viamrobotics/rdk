@@ -11,6 +11,7 @@ import (
 
 	"go.viam.com/rdk/components/board"
 	fakeboard "go.viam.com/rdk/components/board/fake"
+	"go.viam.com/rdk/components/board/pinwrappers"
 	"go.viam.com/rdk/components/encoder"
 	"go.viam.com/rdk/components/encoder/incremental"
 	"go.viam.com/rdk/components/encoder/single"
@@ -124,7 +125,7 @@ func TestMotorEncoder1(t *testing.T) {
 		TicksPerRotation: 100,
 		OpMgr:            operation.NewSingleOperationManager(),
 	}
-	interrupt := &board.BasicDigitalInterrupt{}
+	interrupt := &pinwrappers.BasicDigitalInterrupt{}
 
 	ctx := context.Background()
 	b := MakeSingleBoard(t)
