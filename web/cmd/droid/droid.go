@@ -1,5 +1,4 @@
-// Package main provides a server offering gRPC/REST/GUI APIs to control and monitor
-// a robot.
+// Package droid is the entrypoint for gomobile.
 package droid
 
 import (
@@ -11,7 +10,6 @@ import (
 	// registers all components.
 	_ "go.viam.com/rdk/components/register"
 	"go.viam.com/rdk/logging"
-
 	// registers all services.
 	_ "go.viam.com/rdk/services/register"
 	"go.viam.com/rdk/web/server"
@@ -19,16 +17,17 @@ import (
 
 var logger = logging.NewDebugLogger("robot_server")
 
-// android harness uses this to stop the thread
-func DroidStopHook() {
+// DroidStopHook used by android harness to stop the RDK.
+func DroidStopHook() { //nolint:revive
 	server.ForceRestart = true
 }
 
+// MainEntry is called by our android app to start the RDK.
 func MainEntry(configPath, writeablePath, osEnv string) {
 	os.Args = append(os.Args, "-config", configPath)
 	for _, envEntry := range strings.Split(osEnv, "\n") {
 		entryParts := strings.SplitN(envEntry, "=", 2)
-		os.Setenv(entryParts[0], entryParts[1])
+		os.Setenv(entryParts[0], entryParts[1]) //nolint:errcheck,gosec
 	}
 	utils.ContextualMain(server.RunServer, logger)
 }

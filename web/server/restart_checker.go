@@ -36,7 +36,7 @@ func (c *needsRestartCheckerGRPC) close() {
 }
 
 // ForceRestart lets random other parts of the app request an exit.
-var ForceRestart bool = false
+var ForceRestart bool
 
 func (c *needsRestartCheckerGRPC) needsRestart(ctx context.Context) (bool, time.Duration, error) {
 	if ForceRestart {

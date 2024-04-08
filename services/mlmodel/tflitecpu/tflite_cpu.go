@@ -246,7 +246,7 @@ func getTensorInfo(inputT *tflite_metadata.TensorMetadataT) mlmodel.TensorInfo {
 			Name:        inputT.AssociatedFiles[i].Name,
 			Description: inputT.AssociatedFiles[i].Description,
 		}
-		switch inputT.AssociatedFiles[i].Type { //nolint:exhaustive
+		switch inputT.AssociatedFiles[i].Type {
 		case tflite_metadata.AssociatedFileTypeTENSOR_AXIS_LABELS:
 			outFile.LabelType = mlmodel.LabelTypeTensorAxis
 		case tflite_metadata.AssociatedFileTypeTENSOR_VALUE_LABELS:

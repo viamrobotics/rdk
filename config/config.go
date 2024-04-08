@@ -140,16 +140,18 @@ func droidModuleHack(conf *Module, logger logging.Logger) error {
 		logger.Debug("skipping copy, source is not newer")
 	} else {
 		logger.Warnw("copying module from android sdcard to app cache", "source", sourcePath, "dest", destPath)
-		source, err := os.Open(sourcePath)
+		source, err := os.Open(sourcePath) //nolint:gosec
 		if err != nil {
 			return err
 		}
-		defer source.Close()
-		dest, err := os.OpenFile(destPath, os.O_WRONLY|os.O_CREATE|os.O_APPEND|os.O_TRUNC, 0700)
+		defer source.Close() //nolint:errcheck,gosec
+
+		dest, err := os.OpenFile(destPath, os.O_WRONLY|os.O_CREATE|os.O_APPEND|os.O_TRUNC, 0o700) //nolint:gosec
 		if err != nil {
 			return err
 		}
-		defer dest.Close()
+		defer dest.Close() //nolint:errcheck,gosec
+
 		_, err = io.Copy(dest, source)
 		if err != nil {
 			return err

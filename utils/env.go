@@ -26,7 +26,7 @@ const (
 	// that modules are allowed to startup.
 	ModuleStartupTimeoutEnvVar = "VIAM_MODULE_STARTUP_TIMEOUT"
 
-	// note: this is hardcoded because golang inits before android code can Os.setenv(HOME). Fix.
+	// AndroidFilesDir is hardcoded because golang inits before android code can Os.setenv(HOME).
 	AndroidFilesDir = "/data/user/0/com.viam.rdk.fgservice/cache"
 )
 
@@ -61,10 +61,10 @@ func PlatformHomeDir() string {
 	if runtime.GOOS == "android" {
 		return AndroidFilesDir
 	}
-	path, err := os.UserHomeDir()
-	if err != nil {
-		println("warning: PlatformHomeDir error", err.Error())
-	}
+	path, _ := os.UserHomeDir() //nolint:errcheck
+	// if err != nil {
+	// 	println("warning: PlatformHomeDir error", err.Error())
+	// }
 	return path
 }
 
