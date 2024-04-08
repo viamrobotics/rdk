@@ -20,13 +20,13 @@ const (
 	motorName   = "motor"
 )
 
-type stuff struct {
+type injectedState struct {
 	mu       sync.Mutex
 	position float64
 	powerPct float64
 }
 
-var vals = stuff{
+var vals = injectedState{
 	position: 0.0,
 	powerPct: 0.0,
 }
