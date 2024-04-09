@@ -168,8 +168,8 @@ func (m *EncodedMotor) rpmMonitor(ctx context.Context, goalRPM, goalPos, directi
 	}
 	lastPowerPct = math.Abs(lastPowerPct) * direction
 
-	timer := time.NewTimer(50 * time.Millisecond)
 	for {
+		timer := time.NewTimer(50 * time.Millisecond)
 		select {
 		case <-ctx.Done():
 			timer.Stop()
