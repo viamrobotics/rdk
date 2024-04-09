@@ -3,8 +3,8 @@
 default: run-module
 
 module:
-	go build -o summation ./summationmodule
-	go build -o gizmo ./gizmomodule
+	go build -o summationmodule/summationmodule ./summationmodule
+	go build -o gizmomodule/gizmomodule ./gizmomodule
 
 run-module: module
 	go run ../../../../web/cmd/server/main.go -config module.json
