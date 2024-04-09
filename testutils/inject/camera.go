@@ -3,9 +3,11 @@ package inject
 import (
 	"context"
 
+	"github.com/google/uuid"
 	"github.com/pkg/errors"
 
 	"go.viam.com/rdk/components/camera"
+	"go.viam.com/rdk/components/camera/rtppassthrough"
 	"go.viam.com/rdk/gostream"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/resource"
@@ -15,18 +17,18 @@ import (
 // Camera is an injected camera.
 type Camera struct {
 	camera.Camera
-	name       resource.Name
-	DoFunc     func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
-	ImagesFunc func(ctx context.Context) ([]camera.NamedImage, resource.ResponseMetadata, error)
-	StreamFunc func(
+	name                 resource.Name
+	RTPPassthroughSource rtppassthrough.Source
+	DoFunc               func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
+	ImagesFunc           func(ctx context.Context) ([]camera.NamedImage, resource.ResponseMetadata, error)
+	StreamFunc           func(
 		ctx context.Context,
 		errHandlers ...gostream.ErrorHandler,
 	) (gostream.VideoStream, error)
-	NextPointCloudFunc         func(ctx context.Context) (pointcloud.PointCloud, error)
-	ProjectorFunc              func(ctx context.Context) (transform.Projector, error)
-	PropertiesFunc             func(ctx context.Context) (camera.Properties, error)
-	VideoCodecStreamSourceFunc func(ctx context.Context) (camera.VideoCodecStreamSource, error)
-	CloseFunc                  func(ctx context.Context) error
+	NextPointCloudFunc func(ctx context.Context) (pointcloud.PointCloud, error)
+	ProjectorFunc      func(ctx context.Context) (transform.Projector, error)
+	PropertiesFunc     func(ctx context.Context) (camera.Properties, error)
+	CloseFunc          func(ctx context.Context) error
 }
 
 // NewCamera returns a new injected camera.
@@ -115,13 +117,22 @@ func (c *Camera) DoCommand(ctx context.Context, cmd map[string]interface{}) (map
 	return c.Camera.DoCommand(ctx, cmd)
 }
 
-// VideoCodecStreamSource calls the injected VideoCodecStreamSource or the real version.
-func (c *Camera) VideoCodecStreamSource(ctx context.Context) (camera.VideoCodecStreamSource, error) {
-	if c.VideoCodecStreamSourceFunc != nil {
-		return c.VideoCodecStreamSourceFunc(ctx)
+// SubscribeRTP calls the injected RTPPassthroughSource or returns an error if unimplemented.
+func (c *Camera) SubscribeRTP(
+	ctx context.Context,
+	bufferSize int,
+	packetsCB rtppassthrough.PacketCallback,
+) (rtppassthrough.SubscriptionID, error) {
+	if c.RTPPassthroughSource != nil {
+		return c.RTPPassthroughSource.SubscribeRTP(ctx, bufferSize, packetsCB)
 	}
-	if c.Camera != nil {
-		return c.Camera.VideoCodecStreamSource(ctx)
+	return uuid.Nil, errors.New("SubscribeRTP unimplemented")
+}
+
+// Unsubscribe calls the injected RTPPassthroughSource or returns an error if unimplemented.
+func (c *Camera) Unsubscribe(ctx context.Context, id rtppassthrough.SubscriptionID) error {
+	if c.RTPPassthroughSource != nil {
+		return c.RTPPassthroughSource.Unsubscribe(ctx, id)
 	}
-	return nil, errors.New("VideoCodecStreamSource unimplemented")
+	return errors.New("Unsubscribe unimplemented")
 }
