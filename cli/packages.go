@@ -54,9 +54,10 @@ func (c *viamClient) packageExportAction(orgID, name, version, packageType, dest
 	if err := c.ensureLoggedIn(); err != nil {
 		return err
 	}
-
+	// Package ID is the <organization-ID>/<package-name>
 	packageID := path.Join(orgID, name)
 
+	// Convert PackageType to proto
 	var packageTypeProto packagespb.PackageType
 	switch PackageType(packageType) {
 	case PackageTypeUnspecified:
@@ -91,6 +92,7 @@ func (c *viamClient) packageExportAction(orgID, name, version, packageType, dest
 func downloadPackageFromURL(ctx context.Context, httpClient *http.Client,
 	destination, name, version, packageURL string,
 ) error {
+	// All packages are stored as .tar.gz
 	packagePath := filepath.Join(destination, version, name+".tar.gz")
 	if err := os.MkdirAll(filepath.Dir(packagePath), 0o700); err != nil {
 		return err

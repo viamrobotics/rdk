@@ -1381,7 +1381,7 @@ Example:
 				{
 					Name:  "export",
 					Usage: "download a package from Viam cloud",
-					UsageText: createUsageText("package export",
+					UsageText: createUsageText("packages export",
 						[]string{
 							packageFlagDestination, generalFlagOrgID, packageFlagName,
 							packageFlagVersion, packageFlagType,
