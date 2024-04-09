@@ -84,6 +84,12 @@ func (lei *LazyEncodedImage) RawData() []byte {
 	return lei.imgBytes
 }
 
+// DecodedImage returns the decoded image.
+func (lei *LazyEncodedImage) DecodedImage() image.Image {
+	lei.decode()
+	return lei.decodedImage
+}
+
 // ColorModel returns the Image's color model.
 func (lei *LazyEncodedImage) ColorModel() color.Model {
 	lei.decodeConfig()
