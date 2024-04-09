@@ -58,7 +58,6 @@ type moveRequest struct {
 	requestType requestType
 	// geoPoseOrigin is only set if requestType == requestTypeMoveOnGlobe
 	geoPoseOrigin     *spatialmath.GeoPose
-	poseOrigin        spatialmath.Pose
 	logger            logging.Logger
 	config            *validatedMotionConfiguration
 	planRequest       *motionplan.PlanRequest
@@ -67,6 +66,7 @@ type moveRequest struct {
 	obstacleDetectors map[vision.Service][]resource.Name
 	replanCostFactor  float64
 	fsService         framesystem.Service
+	components        map[resource.Name]resource.Resource
 
 	executeBackgroundWorkers *sync.WaitGroup
 	responseChan             chan moveResponse
@@ -97,7 +97,7 @@ func (mr *moveRequest) Plan(ctx context.Context) (motionplan.Plan, error) {
 	gifs := []*referenceframe.GeometriesInFrame{}
 	for visSrvc, cameraNames := range mr.obstacleDetectors {
 		for _, camName := range cameraNames {
-			transientGifs, err := mr.getTransientDetections(ctx, visSrvc, camName, mr.poseOrigin)
+			transientGifs, err := mr.getTransientDetections(ctx, visSrvc, camName)
 			if err != nil {
 				return nil, err
 			}
@@ -173,7 +173,6 @@ func (mr *moveRequest) getTransientDetections(
 	ctx context.Context,
 	visSrvc vision.Service,
 	camName resource.Name,
-	transformBy spatialmath.Pose,
 ) (*referenceframe.GeometriesInFrame, error) {
 	mr.logger.CDebugf(ctx,
 		"proceeding to get detections from vision service: %s with camera: %s",
@@ -187,17 +186,30 @@ func (mr *moveRequest) getTransientDetections(
 	}
 
 	cameraOrigin := referenceframe.NewPoseInFrame(camName.ShortName(), spatialmath.NewZeroPose())
-	cameraToBase, err := mr.fsService.TransformPose(ctx, cameraOrigin, mr.kinematicBase.Name().ShortName(), nil)
+	cameraToWorld, err := mr.fsService.TransformPose(ctx, cameraOrigin, mr.kinematicBase.Name().ShortName(), nil)
 	if err != nil {
 		mr.logger.CDebugf(ctx,
 			"we assume the base named: %s is coincident with the camera named: %s due to err: %v",
 			mr.kinematicBase.Name().ShortName(), camName.ShortName(), err.Error(),
 		)
-		cameraToBase = cameraOrigin
+		cameraToWorld = cameraOrigin
 	}
 
+	// mr.planRequest.FrameSystem.Transform()
+	// positions map[string][]referenceframe.Input,
+	// object referenceframe.Transformable,
+	// dst string
+	// here we want to be using the framesystem to place the detection into the world frame
+	// to do this we will need to know what the current inputs are for the custom frame system we have built
+	// this is annoying and i think that i should just make a helper functipn for this?
+
+	// currentInputs, _, err := mr.fsService.CurrentInputs(ctx)
+	// if err != nil {
+	// 	return nil, err
+	// }
+
 	// transformed detections
-	transformedGeoms := []spatialmath.Geometry{}
+	transientGeoms := []spatialmath.Geometry{}
 	for i, detection := range detections {
 		geometry := detection.Geometry
 		// update the label of the geometry so we know it is transient
@@ -206,15 +218,10 @@ func (mr *moveRequest) getTransientDetections(
 			label += "_" + geometry.Label()
 		}
 		geometry.SetLabel(label)
-
-		// transform the geometry to be relative to the base frame which is +Y forwards
-		relativeGeom := geometry.Transform(cameraToBase.Pose())
-
-		// apply any transformation on the geometry defined a priori by the caller
-		transformedGeom := relativeGeom.Transform(transformBy)
-		transformedGeoms = append(transformedGeoms, transformedGeom)
+		worldGeom := geometry.Transform(cameraToWorld.Pose())
+		transientGeoms = append(transientGeoms, worldGeom)
 	}
-	return referenceframe.NewGeometriesInFrame(referenceframe.World, transformedGeoms), nil
+	return referenceframe.NewGeometriesInFrame(referenceframe.World, transientGeoms), nil
 }
 
 // obstaclesIntersectPlan takes a list of waypoints and an index of a waypoint on that Plan and reports an error indicating
@@ -237,23 +244,17 @@ func (mr *moveRequest) obstaclesIntersectPlan(
 		return state.ExecuteResponse{}, err
 	}
 
-	// get the current position of the base
-	currentPosition, err := mr.kinematicBase.CurrentPosition(ctx)
-	if err != nil {
-		return state.ExecuteResponse{}, err
-	}
-
 	for visSrvc, cameraNames := range mr.obstacleDetectors {
 		for _, camName := range cameraNames {
 			// Note: detections are initially observed from the camera frame but must be transformed to be in
 			// world frame. We cannot use the inputs of the base to transform the detections since they are relative.
-			gifs, err := mr.getTransientDetections(ctx, visSrvc, camName, currentPosition.Pose())
+			gifs, err := mr.getTransientDetections(ctx, visSrvc, camName)
 			if err != nil {
 				return state.ExecuteResponse{}, err
 			}
 			if len(gifs.Geometries()) == 0 {
 				mr.logger.CDebug(ctx, "will not check if obstacles intersect path since nothing was detected")
-				return state.ExecuteResponse{}, nil
+				continue
 			}
 
 			// construct new worldstate
@@ -753,7 +754,6 @@ func (ms *builtIn) createBaseMoveRequest(
 			WorldState:         worldState,
 			Options:            valExtra.extra,
 		},
-		poseOrigin:        startPose,
 		kinematicBase:     kb,
 		replanCostFactor:  valExtra.replanCostFactor,
 		obstacleDetectors: obstacleDetectors,

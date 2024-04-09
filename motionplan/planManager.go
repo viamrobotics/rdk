@@ -521,7 +521,6 @@ func (pm *planManager) plannerSetupFromMoveRequest(
 	}
 	fmt.Println("PRINTING movingRobotGeometries")
 	for _, g := range movingRobotGeometries {
-		fmt.Println("g.String(): ", g.String())
 		fmt.Println("g.Label(): ", g.Label())
 		fmt.Println("g.Pose(): ", spatialmath.PoseToProtobuf(g.Pose()))
 		fmt.Println("-----------------------")
