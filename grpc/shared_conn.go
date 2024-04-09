@@ -108,7 +108,7 @@ func (sc *SharedConn) GrpcConn() *ReconfigurableClientConn {
 
 // PeerConn returns a WebRTC PeerConnection capable of sending video/audio data.
 func (sc *SharedConn) PeerConn() *webrtc.PeerConnection {
-	// Block until the peer connection is established, or
+	// Block until the peer connection result is known.
 	select {
 	case <-sc.peerConnReady:
 	case <-sc.peerConnFailed:
