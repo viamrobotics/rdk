@@ -8,6 +8,7 @@ import (
 
 	"github.com/pion/webrtc/v3"
 	"go.uber.org/multierr"
+	rutils "go.viam.com/rdk/utils"
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 	googlegrpc "google.golang.org/grpc"
@@ -47,14 +48,18 @@ type OnTrackCB func(tr *webrtc.TrackRemote, r *webrtc.RTPReceiver)
 // 4) `ResetConn`
 // ...
 // 5) Object destruction (at shutdown or resource removed from config).
+//
+// Each call to `ResetConn` is a new "generation" of connections.
 type SharedConn struct {
 	grpcConn ReconfigurableClientConn
 
-	// `peerConnMu` protects the `peerConn` connection pointer only. `grpcConn` is not overwritten
-	// after initialization and is internally synchronized.
-	peerConnMu    sync.Mutex
-	peerConn      *webrtc.PeerConnection
-	peerConnReady <-chan struct{}
+	// `peerConnMu` synchronizes changes to the underlying `peerConn`. Such that calls consecutive
+	// calls to `GrpcConn` and `PeerConn` will return connections from the same (or newer, but not
+	// prior) "generations".
+	peerConnMu     sync.Mutex
+	peerConn       *webrtc.PeerConnection
+	peerConnReady  <-chan struct{}
+	peerConnFailed chan struct{}
 
 	resOnTrackMu  sync.Mutex
 	resOnTrackCBs map[resource.Name]OnTrackCB
@@ -103,6 +108,12 @@ func (sc *SharedConn) GrpcConn() *ReconfigurableClientConn {
 
 // PeerConn returns a WebRTC PeerConnection capable of sending video/audio data.
 func (sc *SharedConn) PeerConn() *webrtc.PeerConnection {
+	// Block until the peer connection is established, or
+	select {
+	case <-sc.peerConnReady:
+	case <-sc.peerConnFailed:
+	}
+
 	sc.peerConnMu.Lock()
 	defer sc.peerConnMu.Unlock()
 	return sc.peerConn
@@ -116,9 +127,8 @@ func (sc *SharedConn) PeerConn() *webrtc.PeerConnection {
 // `SharedConn` for connection objects.
 func (sc *SharedConn) ResetConn(conn rpc.ClientConn, moduleLogger logging.Logger) {
 	sc.grpcConn.ReplaceConn(conn)
-
 	if sc.logger == nil {
-		// The first call to `ResetConn` hapens before anything can access `sc.logger`. So long as
+		// The first call to `ResetConn` happens before anything can access `sc.logger`. So long as
 		// we never write to the member variable, everything can continue to access this without
 		// locks.
 		sc.logger = moduleLogger.Sublogger("conn")
@@ -145,11 +155,19 @@ func (sc *SharedConn) ResetConn(conn rpc.ClientConn, moduleLogger logging.Logger
 	}
 
 	sc.peerConn = peerConn
+	sc.peerConnFailed = make(chan struct{})
+	// If initializing a PeerConnection fails for any reason, we perform the following cleanup
+	// steps.
+	guard := rutils.NewGuard(func() {
+		utils.UncheckedError(sc.peerConn.Close())
+		sc.peerConn = nil
+		close(sc.peerConnFailed)
+	})
+	defer guard.OnFail()
+
 	sc.peerConnReady, err = rpc.ConfigureForRenegotiation(peerConn, sc.logger.AsZap())
 	if err != nil {
 		sc.logger.Warnw("Unable to create optional renegotiation channel for module. Ignoring.", "err", err)
-		utils.UncheckedError(sc.peerConn.Close())
-		sc.peerConn = nil
 		return
 	}
 
@@ -168,18 +186,22 @@ func (sc *SharedConn) ResetConn(conn rpc.ClientConn, moduleLogger logging.Logger
 		}
 		onTrackCB(trackRemote, rtpReceiver)
 	})
+
+	guard.Success()
 }
 
 // GenerateEncodedOffer creates a WebRTC offer that's JSON + base64 encoded. If an error is
 // returned, `SharedConn.PeerConn` will return nil until a following `Reset`.
 func (sc *SharedConn) GenerateEncodedOffer() (string, error) {
-	success := false
-	defer func() {
-		// Only keep the `peerConn` pointer active if we believe the connection is useable.
-		if !success {
-			sc.peerConn = nil
-		}
-	}()
+	// If this generating an offer fails for any reason, we perform the following cleanup steps.
+	guard := rutils.NewGuard(func() {
+		sc.peerConnMu.Lock()
+		utils.UncheckedError(sc.peerConn.Close())
+		sc.peerConn = nil
+		close(sc.peerConnFailed)
+		sc.peerConnMu.Unlock()
+	})
+	defer guard.OnFail()
 
 	pc := sc.PeerConn()
 	if pc == nil {
@@ -196,8 +218,13 @@ func (sc *SharedConn) GenerateEncodedOffer() (string, error) {
 	}
 
 	<-webrtc.GatheringCompletePromise(pc)
-	success = true
-	return rpc.EncodeSDP(pc.LocalDescription())
+	ret, err := rpc.EncodeSDP(pc.LocalDescription())
+	if err != nil {
+		return "", err
+	}
+
+	guard.Success()
+	return ret, nil
 }
 
 // ProcessEncodedAnswer sets the remote description to the answer and waits for the connection to be
@@ -205,13 +232,14 @@ func (sc *SharedConn) GenerateEncodedOffer() (string, error) {
 // encoded. If an error is returned, `SharedConn.PeerConn` will return nil until a following
 // `Reset`.
 func (sc *SharedConn) ProcessEncodedAnswer(encodedAnswer string) error {
-	success := false
-	defer func() {
-		// Only keep the `peerConn` pointer active if we believe the connection is useable.
-		if !success {
-			sc.peerConn = nil
-		}
-	}()
+	guard := rutils.NewGuard(func() {
+		sc.peerConnMu.Lock()
+		utils.UncheckedError(sc.peerConn.Close())
+		sc.peerConn = nil
+		close(sc.peerConnFailed)
+		sc.peerConnMu.Unlock()
+	})
+	defer guard.OnFail()
 
 	pc := sc.PeerConn()
 	if pc == nil {
@@ -227,8 +255,7 @@ func (sc *SharedConn) ProcessEncodedAnswer(encodedAnswer string) error {
 		return err
 	}
 
-	<-sc.peerConnReady
-	success = true
+	guard.Success()
 	return nil
 }
 
@@ -239,6 +266,7 @@ func (sc *SharedConn) Close() error {
 	if sc.peerConn != nil {
 		err = sc.peerConn.Close()
 		sc.peerConn = nil
+		close(sc.peerConnFailed)
 	}
 	sc.peerConnMu.Unlock()
 
