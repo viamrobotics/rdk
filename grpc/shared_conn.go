@@ -70,8 +70,8 @@ type SharedConn struct {
 	peerConnMu    sync.Mutex
 	peerConn      *webrtc.PeerConnection
 	peerConnReady <-chan struct{}
-	// peerConnFailed gets closed creating a PeerConnection fails. The peerConn pointer is set to
-	// nil before this channel is closed.
+	// peerConnFailed gets closed when a PeerConnection fails to connect. The peerConn pointer is
+	// set to nil before this channel is closed.
 	peerConnFailed chan struct{}
 
 	resOnTrackMu  sync.Mutex
@@ -122,6 +122,7 @@ func (sc *SharedConn) GrpcConn() *ReconfigurableClientConn {
 // PeerConn returns a WebRTC PeerConnection capable of sending video/audio data.  A call to PeerConn
 // concurrent with `ResetConn` or `Close` is allowed to return either the old or new connection.
 func (sc *SharedConn) PeerConn() *webrtc.PeerConnection {
+	// Grab a snapshot of the SharedConn state. Release locks before blocking on channel reads.
 	sc.peerConnMu.Lock()
 	readyCh := sc.peerConnReady
 	failCh := sc.peerConnFailed
@@ -222,8 +223,11 @@ func (sc *SharedConn) GenerateEncodedOffer() (string, error) {
 	})
 	defer guard.OnFail()
 
-	// Only `ResetConn`, `GenerateEncodedOffer`, `ProcessEncodedAnswer` and `Close` can change the
-	// `peerConn` pointer. Users of SharedConn must serialize calls to those methods.
+	// Accessing the pointer without a lock is safe. Only `ResetConn`, `GenerateEncodedOffer`,
+	// `ProcessEncodedAnswer` and `Close` can change the `peerConn` pointer. Users of SharedConn
+	// must serialize calls to those methods.
+	//
+	// We copy this pointer for convenience, not correctness.
 	pc := sc.peerConn
 	if pc == nil {
 		return "", errors.New("peer connections disabled")
@@ -262,6 +266,11 @@ func (sc *SharedConn) ProcessEncodedAnswer(encodedAnswer string) error {
 	})
 	defer guard.OnFail()
 
+	// Accessing the pointer without a lock is safe. Only `ResetConn`, `GenerateEncodedOffer`,
+	// `ProcessEncodedAnswer` and `Close` can change the `peerConn` pointer. Users of SharedConn
+	// must serialize calls to those methods.
+	//
+	// We copy this pointer for convenience, not correctness.
 	pc := sc.peerConn
 	if pc == nil {
 		return errors.New("PeerConnection was not initialized")
