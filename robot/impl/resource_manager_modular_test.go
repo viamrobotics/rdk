@@ -49,8 +49,7 @@ func TestModularResources(t *testing.T) {
 			state:      make(map[resource.Name]bool),
 		}
 
-		r, err := New(context.Background(), &config.Config{}, logger)
-		test.That(t, err, test.ShouldBeNil)
+		r := setupLocalRobot(t, context.Background(), &config.Config{}, logger)
 		actualR := r.(*localRobot)
 		actualR.manager.moduleManager = mod
 
@@ -574,12 +573,7 @@ func TestTwoModulesSameName(t *testing.T) {
 		// duplicate module name, but still start up the first of the two modules.
 		DisablePartialStart: false,
 	}
-	r, err := New(ctx, cfg, logger)
-	test.That(t, r, test.ShouldNotBeNil)
-	test.That(t, err, test.ShouldBeNil)
-	defer func() {
-		test.That(t, r.Close(ctx), test.ShouldBeNil)
-	}()
+	r := setupLocalRobot(t, ctx, cfg, logger)
 
 	rr, ok := r.(*localRobot)
 	test.That(t, ok, test.ShouldBeTrue)

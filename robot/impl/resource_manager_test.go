@@ -1228,11 +1228,7 @@ func TestConfigRemoteAllowInsecureCreds(t *testing.T) {
 
 	ctx := context.Background()
 
-	r, err := New(ctx, cfg, logger)
-	test.That(t, err, test.ShouldBeNil)
-	defer func() {
-		test.That(t, r.Close(context.Background()), test.ShouldBeNil)
-	}()
+	r := setupLocalRobot(t, ctx, cfg, logger)
 
 	altName := primitive.NewObjectID().Hex()
 	cert, certFile, keyFile, certPool, err := testutils.GenerateSelfSignedCertificate("somename", altName)
@@ -1571,10 +1567,7 @@ func TestReconfigure(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	ctx := context.Background()
-
-	r, err := New(ctx, cfg, logger)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, r, test.ShouldNotBeNil)
+	r := setupLocalRobot(t, ctx, cfg, logger)
 
 	resource.RegisterAPI(api, resource.APIRegistration[resource.Resource]{})
 	defer func() {
@@ -1630,13 +1623,8 @@ func TestResourceCreationPanic(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 	ctx := context.Background()
 
-	r, err := New(ctx, &config.Config{}, logger)
-	test.That(t, err, test.ShouldBeNil)
-
+	r := setupLocalRobot(t, ctx, &config.Config{}, logger)
 	manager := managerForDummyRobot(t, r)
-	defer func() {
-		test.That(t, r.Close(ctx), test.ShouldBeNil)
-	}()
 
 	t.Run("component", func(t *testing.T) {
 		subtypeName := "testComponentAPI"
@@ -1662,7 +1650,7 @@ func TestResourceCreationPanic(t *testing.T) {
 
 		local, ok := r.(*localRobot)
 		test.That(t, ok, test.ShouldBeTrue)
-		_, _, err = manager.processResource(ctx, svc1, resource.NewUninitializedNode(), local)
+		_, _, err := manager.processResource(ctx, svc1, resource.NewUninitializedNode(), local)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "hello")
 	})
 
@@ -1697,7 +1685,7 @@ func TestResourceCreationPanic(t *testing.T) {
 
 		local, ok := r.(*localRobot)
 		test.That(t, ok, test.ShouldBeTrue)
-		_, _, err = manager.processResource(ctx, svc1, resource.NewUninitializedNode(), local)
+		_, _, err := manager.processResource(ctx, svc1, resource.NewUninitializedNode(), local)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "hello")
 	})
 }
@@ -1856,4 +1844,21 @@ func managerForDummyRobot(t *testing.T, robot robot.Robot) *resourceManager {
 		test.That(t, manager.resources.AddNode(name, gNode), test.ShouldBeNil)
 	}
 	return manager
+}
+
+func setupLocalRobot(
+	t *testing.T,
+	ctx context.Context,
+	cfg *config.Config,
+	logger logging.Logger,
+) robot.LocalRobot {
+	t.Helper()
+
+	r, err := New(ctx, cfg, logger)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, r, test.ShouldNotBeNil)
+	t.Cleanup(func() {
+		test.That(t, r.Close(ctx), test.ShouldBeNil)
+	})
+	return r
 }
