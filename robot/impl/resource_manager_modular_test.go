@@ -37,7 +37,9 @@ func TestModularResources(t *testing.T) {
 		svcModel = resource.ModelNamespace("acme").WithFamily("signage").WithModel("handheld")
 	)
 
-	setupTest := func(t *testing.T) (*localRobot, *dummyModMan, func()) {
+	setupTest := func(t *testing.T) (*localRobot, *dummyModMan) {
+		t.Helper()
+
 		logger := logging.NewTestLogger(t)
 		compAPISvc, err := resource.NewAPIResourceCollection[resource.Resource](compAPI, nil)
 		test.That(t, err, test.ShouldBeNil)
@@ -55,6 +57,9 @@ func TestModularResources(t *testing.T) {
 
 		resource.RegisterAPI(compAPI,
 			resource.APIRegistration[resource.Resource]{ReflectRPCServiceDesc: &desc.ServiceDescriptor{}})
+		t.Cleanup(func() {
+			resource.DeregisterAPI(compAPI)
+		})
 		resource.RegisterComponent(compAPI, compModel, resource.Registration[resource.Resource, resource.NoNativeConfig]{
 			Constructor: func(
 				ctx context.Context,
@@ -64,6 +69,9 @@ func TestModularResources(t *testing.T) {
 			) (resource.Resource, error) {
 				return mod.AddResource(ctx, conf, modmanager.DepsToNames(deps))
 			},
+		})
+		t.Cleanup(func() {
+			resource.Deregister(compAPI, compModel)
 		})
 		resource.RegisterComponent(compAPI, compModel2, resource.Registration[resource.Resource, resource.NoNativeConfig]{
 			Constructor: func(
@@ -75,9 +83,15 @@ func TestModularResources(t *testing.T) {
 				return mod.AddResource(ctx, conf, modmanager.DepsToNames(deps))
 			},
 		})
+		t.Cleanup(func() {
+			resource.Deregister(compAPI, compModel2)
+		})
 
 		resource.RegisterAPI(svcAPI,
 			resource.APIRegistration[resource.Resource]{ReflectRPCServiceDesc: &desc.ServiceDescriptor{}})
+		t.Cleanup(func() {
+			resource.DeregisterAPI(svcAPI)
+		})
 		resource.Register(svcAPI, svcModel, resource.Registration[resource.Resource, resource.NoNativeConfig]{
 			Constructor: func(
 				ctx context.Context,
@@ -88,21 +102,15 @@ func TestModularResources(t *testing.T) {
 				return mod.AddResource(ctx, conf, modmanager.DepsToNames(deps))
 			},
 		})
-
-		return actualR, mod, func() {
-			// deregister to not interfere with other tests or when test.count > 1
-			resource.Deregister(compAPI, compModel)
-			resource.Deregister(compAPI, compModel2)
+		t.Cleanup(func() {
 			resource.Deregister(svcAPI, svcModel)
-			resource.DeregisterAPI(compAPI)
-			resource.DeregisterAPI(svcAPI)
-			test.That(t, r.Close(context.Background()), test.ShouldBeNil)
-		}
+		})
+
+		return actualR, mod
 	}
 
 	t.Run("process component", func(t *testing.T) {
-		r, mod, teardown := setupTest(t)
-		defer teardown()
+		r, mod := setupTest(t)
 
 		// modular
 		cfg := resource.Config{Name: "oneton", API: compAPI, Model: compModel, Attributes: utils.AttributeMap{"arg1": "one"}}
@@ -176,8 +184,7 @@ func TestModularResources(t *testing.T) {
 	})
 
 	t.Run("process service", func(t *testing.T) {
-		r, mod, teardown := setupTest(t)
-		defer teardown()
+		r, mod := setupTest(t)
 
 		// modular
 		cfg := resource.Config{
@@ -244,8 +251,7 @@ func TestModularResources(t *testing.T) {
 	})
 
 	t.Run("close", func(t *testing.T) {
-		r, mod, teardown := setupTest(t)
-		defer teardown()
+		r, mod := setupTest(t)
 
 		compCfg := resource.Config{Name: "oneton", API: compAPI, Model: compModel, Attributes: utils.AttributeMap{"arg1": "one"}}
 		_, err := compCfg.Validate("test", resource.APITypeComponentName)
@@ -287,8 +293,7 @@ func TestModularResources(t *testing.T) {
 	})
 
 	t.Run("builtin depends on previously removed but now added modular", func(t *testing.T) {
-		r, _, teardown := setupTest(t)
-		defer teardown()
+		r, _ := setupTest(t)
 
 		// modular we do not want
 		cfg := resource.Config{Name: "oneton2", API: compAPI, Model: compModel, Attributes: utils.AttributeMap{"arg1": "one"}}
@@ -344,8 +349,7 @@ func TestModularResources(t *testing.T) {
 	})
 
 	t.Run("change model", func(t *testing.T) {
-		r, _, teardown := setupTest(t)
-		defer teardown()
+		r, _ := setupTest(t)
 
 		cfg := resource.Config{Name: "oneton", API: compAPI, Model: compModel, Attributes: utils.AttributeMap{"arg1": "one"}}
 		_, err := cfg.Validate("test", resource.APITypeComponentName)
