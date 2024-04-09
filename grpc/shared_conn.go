@@ -158,6 +158,7 @@ func (sc *SharedConn) ResetConn(conn rpc.ClientConn, moduleLogger logging.Logger
 	sc.peerConnFailed = make(chan struct{})
 	// If initializing a PeerConnection fails for any reason, we perform the following cleanup
 	// steps.
+
 	guard := rutils.NewGuard(func() {
 		utils.UncheckedError(sc.peerConn.Close())
 		sc.peerConn = nil
@@ -203,7 +204,7 @@ func (sc *SharedConn) GenerateEncodedOffer() (string, error) {
 	})
 	defer guard.OnFail()
 
-	pc := sc.PeerConn()
+	pc := sc.peerConn
 	if pc == nil {
 		return "", errors.New("peer connections disabled")
 	}
@@ -241,7 +242,7 @@ func (sc *SharedConn) ProcessEncodedAnswer(encodedAnswer string) error {
 	})
 	defer guard.OnFail()
 
-	pc := sc.PeerConn()
+	pc := sc.peerConn
 	if pc == nil {
 		return errors.New("PeerConnection was not initialized")
 	}
