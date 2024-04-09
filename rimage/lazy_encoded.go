@@ -84,7 +84,7 @@ func (lei *LazyEncodedImage) RawData() []byte {
 	return lei.imgBytes
 }
 
-// DecodedImage returns the decoded image
+// DecodedImage returns the decoded image.
 func (lei *LazyEncodedImage) DecodedImage() image.Image {
 	lei.decode()
 	return lei.decodedImage
