@@ -26,6 +26,9 @@ type OnTrackCB func(tr *webrtc.TrackRemote, r *webrtc.RTPReceiver)
 // separately. The `SharedConn` continues to implement the `rpc.ClientConn` interface by pairing up
 // the two underlying connections a client may want to communicate over.
 //
+// Users of SharedConn must serialize calls to `ResetConn`, `GenerateEncodedOffer`,
+// `ProcessEncodedAnswer` and `Close`.
+//
 // The lifetime of SharedConn objects are a bit nuanced. SharedConn objects are expected to be
 // handed to resource Client objects. When connections break and become reestablished, those client
 // objects are not recreated, but rather we swap in new connection objects under the hood.
@@ -49,16 +52,26 @@ type OnTrackCB func(tr *webrtc.TrackRemote, r *webrtc.RTPReceiver)
 // ...
 // 5) Object destruction (at shutdown or resource removed from config).
 //
-// Each call to `ResetConn` is a new "generation" of connections.
+// Each call to `ResetConn` is a new "generation" of connections. When a new gRPC connection is
+// handed to a SharedConn, the SharedConn will start the process of establishing a new
+// PeerConnection. A call to access the PeerConnection will block until this process completes,
+// either successfully or not.
+//
+// When a PeerConnection cannot be established, the SharedConn is in a degraded state where the gRPC
+// connection is still valid. The caller has the option of either disabling functionality intended
+// for the PeerConnection, or implementing that functionality over gRPC (which would presumably be
+// less performant).
 type SharedConn struct {
 	grpcConn ReconfigurableClientConn
 
 	// `peerConnMu` synchronizes changes to the underlying `peerConn`. Such that calls consecutive
 	// calls to `GrpcConn` and `PeerConn` will return connections from the same (or newer, but not
 	// prior) "generations".
-	peerConnMu     sync.Mutex
-	peerConn       *webrtc.PeerConnection
-	peerConnReady  <-chan struct{}
+	peerConnMu    sync.Mutex
+	peerConn      *webrtc.PeerConnection
+	peerConnReady <-chan struct{}
+	// peerConnFailed gets closed creating a PeerConnection fails. The peerConn pointer is set to
+	// nil before this channel is closed.
 	peerConnFailed chan struct{}
 
 	resOnTrackMu  sync.Mutex
@@ -106,17 +119,22 @@ func (sc *SharedConn) GrpcConn() *ReconfigurableClientConn {
 	return &sc.grpcConn
 }
 
-// PeerConn returns a WebRTC PeerConnection capable of sending video/audio data.
+// PeerConn returns a WebRTC PeerConnection capable of sending video/audio data.  A call to PeerConn
+// concurrent with `ResetConn` or `Close` is allowed to return either the old or new connection.
 func (sc *SharedConn) PeerConn() *webrtc.PeerConnection {
+	sc.peerConnMu.Lock()
+	readyCh := sc.peerConnReady
+	failCh := sc.peerConnFailed
+	ret := sc.peerConn
+	sc.peerConnMu.Unlock()
+
 	// Block until the peer connection result is known.
 	select {
-	case <-sc.peerConnReady:
-	case <-sc.peerConnFailed:
+	case <-readyCh:
+	case <-failCh:
 	}
 
-	sc.peerConnMu.Lock()
-	defer sc.peerConnMu.Unlock()
-	return sc.peerConn
+	return ret
 }
 
 // ResetConn acts as a constructor for `SharedConn`. ResetConn replaces the underlying
@@ -156,9 +174,9 @@ func (sc *SharedConn) ResetConn(conn rpc.ClientConn, moduleLogger logging.Logger
 
 	sc.peerConn = peerConn
 	sc.peerConnFailed = make(chan struct{})
+
 	// If initializing a PeerConnection fails for any reason, we perform the following cleanup
 	// steps.
-
 	guard := rutils.NewGuard(func() {
 		utils.UncheckedError(sc.peerConn.Close())
 		sc.peerConn = nil
@@ -196,14 +214,16 @@ func (sc *SharedConn) ResetConn(conn rpc.ClientConn, moduleLogger logging.Logger
 func (sc *SharedConn) GenerateEncodedOffer() (string, error) {
 	// If this generating an offer fails for any reason, we perform the following cleanup steps.
 	guard := rutils.NewGuard(func() {
-		sc.peerConnMu.Lock()
 		utils.UncheckedError(sc.peerConn.Close())
+		sc.peerConnMu.Lock()
 		sc.peerConn = nil
-		close(sc.peerConnFailed)
 		sc.peerConnMu.Unlock()
+		close(sc.peerConnFailed)
 	})
 	defer guard.OnFail()
 
+	// Only `ResetConn`, `GenerateEncodedOffer`, `ProcessEncodedAnswer` and `Close` can change the
+	// `peerConn` pointer. Users of SharedConn must serialize calls to those methods.
 	pc := sc.peerConn
 	if pc == nil {
 		return "", errors.New("peer connections disabled")
@@ -234,11 +254,11 @@ func (sc *SharedConn) GenerateEncodedOffer() (string, error) {
 // `Reset`.
 func (sc *SharedConn) ProcessEncodedAnswer(encodedAnswer string) error {
 	guard := rutils.NewGuard(func() {
-		sc.peerConnMu.Lock()
 		utils.UncheckedError(sc.peerConn.Close())
+		sc.peerConnMu.Lock()
 		sc.peerConn = nil
-		close(sc.peerConnFailed)
 		sc.peerConnMu.Unlock()
+		close(sc.peerConnFailed)
 	})
 	defer guard.OnFail()
 
