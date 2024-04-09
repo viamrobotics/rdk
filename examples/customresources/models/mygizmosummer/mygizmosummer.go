@@ -1,4 +1,4 @@
-// Package mygizmoadder implements an acme:component:gizmo and depends on another custom API.
+// Package mygizmosummer implements an acme:component:gizmo and depends on another custom API.
 package mygizmosummer
 
 import (
