@@ -178,6 +178,9 @@ func WriteImageToFile(path string, img image.Image) (err error) {
 
 // ConvertImage converts a go image into our Image type.
 func ConvertImage(img image.Image) *Image {
+	if lazyImg, ok := img.(*LazyEncodedImage); ok {
+		img = lazyImg.DecodedImage()
+	}
 	ii, ok := img.(*Image)
 	if ok {
 		return ii
@@ -234,7 +237,9 @@ func SaveImage(pic image.Image, loc string) error {
 			panic(err)
 		}
 	}()
-
+	if lazyImg, ok := pic.(*LazyEncodedImage); ok {
+		pic = lazyImg.DecodedImage()
+	}
 	if err = EncodeJPEG(f, pic); err != nil {
 		return errors.Wrapf(err, "the 'image' will not encode")
 	}
