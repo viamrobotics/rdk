@@ -2,7 +2,7 @@
 	"modules": [
 		{
 			"name": "AcmeModule",
-			"executable_path": "./run.sh",
+			"executable_path": "./complexmodule",
 			"log_level": "debug"
 		}
 	],
