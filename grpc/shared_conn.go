@@ -8,13 +8,13 @@ import (
 
 	"github.com/pion/webrtc/v3"
 	"go.uber.org/multierr"
-	rutils "go.viam.com/rdk/utils"
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 	googlegrpc "google.golang.org/grpc"
 
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
+	rutils "go.viam.com/rdk/utils"
 )
 
 // OnTrackCB is the signature of the OnTrack callback function
