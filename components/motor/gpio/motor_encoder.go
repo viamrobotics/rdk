@@ -157,9 +157,9 @@ func (m *EncodedMotor) rpmMonitor(ctx context.Context, goalRPM, goalPos, directi
 
 	for {
 		timer := time.NewTimer(50 * time.Millisecond)
+		defer timer.Stop()
 		select {
 		case <-ctx.Done():
-			timer.Stop()
 			return
 		case <-timer.C:
 		}
@@ -288,15 +288,11 @@ func (m *EncodedMotor) setPower(ctx context.Context, powerPct float64) error {
 	return m.real.SetPower(ctx, powerPct, nil)
 }
 
-// goForMath calculates goalPos, goalRPM, and direction based on the given GoFor rpm and revolutions, and the current position.
-func (m *EncodedMotor) goForMath(ctx context.Context, rpm, revolutions float64) (float64, float64, float64) {
+// goForMathEncoded calculates goalPos, goalRPM, and direction based on the given GoFor rpm and revolutions, and the current position.
+func goForMathEncoded(rpm, revolutions, currentPos, ticksPerRotation float64) (float64, float64, float64) {
 	direction := sign(rpm * revolutions)
 
-	currentPos, err := m.position(ctx, nil)
-	if err != nil {
-		m.logger.CError(ctx, err)
-	}
-	goalPos := (math.Abs(revolutions) * m.ticksPerRotation * direction) + currentPos
+	goalPos := (math.Abs(revolutions) * ticksPerRotation * direction) + currentPos
 	goalRPM := math.Abs(rpm) * direction
 
 	if revolutions == 0 {
@@ -317,7 +313,12 @@ func (m *EncodedMotor) GoFor(ctx context.Context, rpm, revolutions float64, extr
 	ctx, done := m.opMgr.New(ctx)
 	defer done()
 
-	goalPos, goalRPM, direction := m.goForMath(ctx, rpm, revolutions)
+	currentPos, err := m.Position(ctx, nil)
+	if err != nil {
+		return err
+	}
+
+	goalPos, goalRPM, direction := goForMathEncoded(rpm, revolutions, currentPos, m.ticksPerRotation)
 
 	if err := m.goForInternal(ctx, goalRPM, goalPos, direction); err != nil {
 		return err
@@ -338,7 +339,7 @@ func (m *EncodedMotor) GoFor(ctx context.Context, rpm, revolutions float64, extr
 		}
 		return false, errs
 	}
-	err := m.opMgr.WaitForSuccess(
+	err = m.opMgr.WaitForSuccess(
 		ctx,
 		10*time.Millisecond,
 		positionReached,

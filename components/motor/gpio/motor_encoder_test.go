@@ -2,7 +2,6 @@ package gpio
 
 import (
 	"context"
-	"fmt"
 	"sync"
 	"testing"
 
@@ -50,7 +49,7 @@ func injectEncoder(vals *injectedState) encoder.Encoder {
 	) (float64, encoder.PositionType, error) {
 		vals.mu.Lock()
 		defer vals.mu.Unlock()
-		fmt.Println("encoder vals", vals.position)
+		// fmt.Println("encoder vals", vals.position)
 		return vals.position, encoder.PositionTypeTicks, nil
 	}
 	enc.PropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (encoder.Properties, error) {
@@ -65,9 +64,9 @@ func injectMotor(vals *injectedState) motor.Motor {
 		vals.mu.Lock()
 		defer vals.mu.Unlock()
 		vals.powerPct = powerPct
-		fmt.Println("setting power to   ", vals.powerPct)
+		// fmt.Println("setting power to   ", vals.powerPct)
 		vals.position++
-		fmt.Println("getting position aso   ", vals.powerPct)
+		// fmt.Println("getting position also   ", vals.powerPct)
 		return nil
 	}
 	m.PropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (motor.Properties, error) {
@@ -185,32 +184,19 @@ func TestEncodedMotor(t *testing.T) {
 	})
 
 	t.Run("encoded motor test goForMath", func(t *testing.T) {
-		// reset the motor's zero position immediately for the math tests
-		testutils.WaitForAssertion(t, func(tb testing.TB) {
-			// reset the motor's zero position immediately for the math tests
-			tb.Helper()
-			test.That(tb, m.ResetZeroPosition(context.Background(), 0, nil), test.ShouldBeNil)
-		})
-
 		expectedGoalPos, expectedGoalRPM, expectedDirection := 4.0, 10.0, 1.0
-		goalPos, goalRPM, direction := m.goForMath(context.Background(), 10, 4)
+		goalPos, goalRPM, direction := goForMathEncoded(10, 4, 0, 1)
 
-		testutils.WaitForAssertion(t, func(tb testing.TB) {
-			tb.Helper()
-			test.That(tb, goalPos, test.ShouldEqual, expectedGoalPos)
-			test.That(tb, goalRPM, test.ShouldEqual, expectedGoalRPM)
-			test.That(tb, direction, test.ShouldEqual, expectedDirection)
-		})
+		test.That(t, goalPos, test.ShouldEqual, expectedGoalPos)
+		test.That(t, goalRPM, test.ShouldEqual, expectedGoalRPM)
+		test.That(t, direction, test.ShouldEqual, expectedDirection)
 
 		expectedGoalPos, expectedGoalRPM, expectedDirection = -4.0, -10.0, -1.0
-		goalPos, goalRPM, direction = m.goForMath(context.Background(), 10, -4)
+		goalPos, goalRPM, direction = goForMathEncoded(10, -4, 0, 1)
 
-		testutils.WaitForAssertion(t, func(tb testing.TB) {
-			tb.Helper()
-			test.That(tb, goalPos, test.ShouldEqual, expectedGoalPos)
-			test.That(tb, goalRPM, test.ShouldEqual, expectedGoalRPM)
-			test.That(tb, direction, test.ShouldEqual, expectedDirection)
-		})
+		test.That(t, goalPos, test.ShouldEqual, expectedGoalPos)
+		test.That(t, goalRPM, test.ShouldEqual, expectedGoalRPM)
+		test.That(t, direction, test.ShouldEqual, expectedDirection)
 	})
 
 	t.Run("encoded motor test SetPower interrupts GoFor", func(t *testing.T) {
