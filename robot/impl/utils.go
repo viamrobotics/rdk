@@ -10,7 +10,10 @@ import (
 	"go.viam.com/test"
 )
 
-// TODO: this duplicates robotimpltest.LocalRobot
+// TODO: this duplicates `robotimpltest.LocalRobot` for tests that are in the `robotimpl`
+// package. Importing `robotimpl.LocalRobot` for those tests creates a circular import,
+// and changing those tests to be in the `robotimpl_test` package causes failures because
+// they test private methods.
 //
 //revive:disable-next-line:context-as-argument
 func setupLocalRobot(
