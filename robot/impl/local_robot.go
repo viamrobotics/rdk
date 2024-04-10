@@ -1195,3 +1195,7 @@ func (r *localRobot) CloudMetadata(ctx context.Context) (cloud.Metadata, error) 
 	md.MachinePartID = cloud.ID
 	return md, nil
 }
+
+func (r *localRobot) RestartModule(req robot.RestartModuleRequest) (robot.RestartModuleResponse, error) {
+	panic("hello")
+}

@@ -474,3 +474,8 @@ func (s *Server) GetCloudMetadata(ctx context.Context, _ *pb.GetCloudMetadataReq
 		MachinePartId: md.MachinePartID,
 	}, nil
 }
+
+func (s *Server) RestartModule(ctx context.Context, req *pb.RestartModuleRequest) (*pb.RestartModuleResponse, error) {
+	println("RestartModule pls", req.GetIdOrName(), req.GetModuleId(), req.GetModuleName())
+	return nil, nil
+}
