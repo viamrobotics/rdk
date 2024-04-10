@@ -2,6 +2,7 @@ package gpio
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"testing"
 
@@ -24,14 +25,18 @@ type injectedState struct {
 	mu       sync.Mutex
 	position float64
 	powerPct float64
+	enc      encoder.Encoder
+	m        motor.Motor
 }
 
-var vals = injectedState{
-	position: 0.0,
-	powerPct: 0.0,
+func newInjectedState() *injectedState {
+	return &injectedState{
+		position: 0.0,
+		powerPct: 0.0,
+	}
 }
 
-func injectEncoder() encoder.Encoder {
+func injectEncoder(vals *injectedState) encoder.Encoder {
 	enc := inject.NewEncoder(encoderName)
 	enc.ResetPositionFunc = func(ctx context.Context, extra map[string]interface{}) error {
 		vals.mu.Lock()
@@ -45,6 +50,7 @@ func injectEncoder() encoder.Encoder {
 	) (float64, encoder.PositionType, error) {
 		vals.mu.Lock()
 		defer vals.mu.Unlock()
+		fmt.Println("encoder vals", vals.position)
 		return vals.position, encoder.PositionTypeTicks, nil
 	}
 	enc.PropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (encoder.Properties, error) {
@@ -53,26 +59,16 @@ func injectEncoder() encoder.Encoder {
 	return enc
 }
 
-func injectMotor() motor.Motor {
+func injectMotor(vals *injectedState) motor.Motor {
 	m := inject.NewMotor(motorName)
 	m.SetPowerFunc = func(ctx context.Context, powerPct float64, extra map[string]interface{}) error {
 		vals.mu.Lock()
 		defer vals.mu.Unlock()
 		vals.powerPct = powerPct
+		fmt.Println("setting power to   ", vals.powerPct)
 		vals.position++
+		fmt.Println("getting position aso   ", vals.powerPct)
 		return nil
-	}
-	m.GoForFunc = func(ctx context.Context, rpm, rotations float64, extra map[string]interface{}) error {
-		return nil
-	}
-	m.GoToFunc = func(ctx context.Context, rpm, position float64, extra map[string]interface{}) error {
-		return nil
-	}
-	m.ResetZeroPositionFunc = func(ctx context.Context, offset float64, extra map[string]interface{}) error {
-		return nil
-	}
-	m.PositionFunc = func(ctx context.Context, extra map[string]interface{}) (float64, error) {
-		return 0.0, nil
 	}
 	m.PropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (motor.Properties, error) {
 		return motor.Properties{}, nil
@@ -86,13 +82,10 @@ func injectMotor() motor.Motor {
 	m.IsPoweredFunc = func(ctx context.Context, extra map[string]interface{}) (bool, float64, error) {
 		vals.mu.Lock()
 		defer vals.mu.Unlock()
-		if vals.powerPct != 0 {
-			return true, vals.powerPct, nil
-		}
-		return false, 0.0, nil
+		return vals.powerPct != 0, vals.powerPct, nil
 	}
 	m.IsMovingFunc = func(context.Context) (bool, error) {
-		return false, nil
+		return vals.powerPct != 0, nil
 	}
 	return m
 }
@@ -100,11 +93,12 @@ func injectMotor() motor.Motor {
 func TestEncodedMotor(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 
+	vals := newInjectedState()
 	// create inject motor
-	fakeMotor := injectMotor()
+	fakeMotor := injectMotor(vals)
 
 	// create an inject encoder
-	enc := injectEncoder()
+	enc := injectEncoder(vals)
 
 	// create an encoded motor
 	conf := resource.Config{
@@ -169,7 +163,7 @@ func TestEncodedMotor(t *testing.T) {
 	})
 
 	t.Run("encoded motor test GoFor forward", func(t *testing.T) {
-		test.That(t, m.goForInternal(context.Background(), 10, 1, 1), test.ShouldBeNil)
+		test.That(t, m.GoFor(context.Background(), 10, 1, nil), test.ShouldBeNil)
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
 			on, powerPct, err := m.IsPowered(context.Background(), nil)
@@ -180,7 +174,7 @@ func TestEncodedMotor(t *testing.T) {
 	})
 
 	t.Run("encoded motor test GoFor backwards", func(t *testing.T) {
-		test.That(t, m.goForInternal(context.Background(), -10, -1, -1), test.ShouldBeNil)
+		test.That(t, m.GoFor(context.Background(), -10, 1, nil), test.ShouldBeNil)
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
 			on, powerPct, err := m.IsPowered(context.Background(), nil)
@@ -191,10 +185,8 @@ func TestEncodedMotor(t *testing.T) {
 	})
 
 	t.Run("encoded motor test goForMath", func(t *testing.T) {
-		testutils.WaitForAssertion(t, func(tb testing.TB) {
-			tb.Helper()
-			test.That(tb, m.ResetZeroPosition(context.Background(), 0, nil), test.ShouldBeNil)
-		})
+		// reset the motor's zero position immediately for the math tests
+		test.That(t, m.ResetZeroPosition(context.Background(), 0, nil), test.ShouldBeNil)
 
 		expectedGoalPos, expectedGoalRPM, expectedDirection := 4.0, 10.0, 1.0
 		goalPos, goalRPM, direction := m.goForMath(context.Background(), 10, 4)
@@ -218,9 +210,8 @@ func TestEncodedMotor(t *testing.T) {
 	})
 
 	t.Run("encoded motor test SetPower interrupts GoFor", func(t *testing.T) {
-		go func() {
-			test.That(t, m.goForInternal(context.Background(), 10, 1, 1), test.ShouldBeNil)
-		}()
+		test.That(t, m.ResetZeroPosition(context.Background(), 0, nil), test.ShouldBeNil)
+		test.That(t, m.GoFor(context.Background(), 10, 1, nil), test.ShouldBeNil)
 
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
@@ -244,11 +235,12 @@ func TestEncodedMotor(t *testing.T) {
 func TestEncodedMotorControls(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 
+	vals := newInjectedState()
 	// create inject motor
-	fakeMotor := injectMotor()
+	fakeMotor := injectMotor(vals)
 
 	// create an inject encoder
-	enc := injectEncoder()
+	enc := injectEncoder(vals)
 
 	// create an encoded motor
 	conf := resource.Config{
