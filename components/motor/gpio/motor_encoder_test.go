@@ -196,18 +196,18 @@ func TestEncodedMotor(t *testing.T) {
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
 			on, powerPct, err := m.IsPowered(context.Background(), nil)
-			test.That(tb, on, test.ShouldBeTrue)
-			test.That(tb, powerPct, test.ShouldBeGreaterThan, 0)
-			test.That(tb, err, test.ShouldBeNil)
+			test.That(t, on, test.ShouldBeTrue)
+			test.That(t, powerPct, test.ShouldBeGreaterThan, 0)
+			test.That(t, err, test.ShouldBeNil)
 		})
 
 		test.That(t, m.SetPower(context.Background(), -0.5, nil), test.ShouldBeNil)
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
 			on, powerPct, err := m.IsPowered(context.Background(), nil)
-			test.That(tb, on, test.ShouldBeTrue)
-			test.That(tb, powerPct, test.ShouldBeLessThan, 0)
-			test.That(tb, err, test.ShouldBeNil)
+			test.That(t, on, test.ShouldBeTrue)
+			test.That(t, powerPct, test.ShouldBeLessThan, 0)
+			test.That(t, err, test.ShouldBeNil)
 		})
 	})
 }

@@ -188,8 +188,6 @@ func (m *EncodedMotor) makeAdjustments(ctx context.Context, goalRPM, goalPos, di
 		currentRPM := calculateCurrentRpm(pos, lastPos, m.ticksPerRotation, now, lastTime)
 		newPower := calculateNewPower(currentRPM, goalRPM, lastPowerPct, direction, m.rampRate)
 
-		m.mu.Unlock()
-		defer m.mu.Lock()
 		if err := m.setPower(ctx, newPower); err != nil {
 			m.logger.CError(ctx, err)
 			return
