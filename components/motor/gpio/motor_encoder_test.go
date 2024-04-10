@@ -186,7 +186,11 @@ func TestEncodedMotor(t *testing.T) {
 
 	t.Run("encoded motor test goForMath", func(t *testing.T) {
 		// reset the motor's zero position immediately for the math tests
-		test.That(t, m.ResetZeroPosition(context.Background(), 0, nil), test.ShouldBeNil)
+		testutils.WaitForAssertion(t, func(tb testing.TB) {
+			// reset the motor's zero position immediately for the math tests
+			tb.Helper()
+			test.That(tb, m.ResetZeroPosition(context.Background(), 0, nil), test.ShouldBeNil)
+		})
 
 		expectedGoalPos, expectedGoalRPM, expectedDirection := 4.0, 10.0, 1.0
 		goalPos, goalRPM, direction := m.goForMath(context.Background(), 10, 4)
@@ -211,7 +215,9 @@ func TestEncodedMotor(t *testing.T) {
 
 	t.Run("encoded motor test SetPower interrupts GoFor", func(t *testing.T) {
 		test.That(t, m.ResetZeroPosition(context.Background(), 0, nil), test.ShouldBeNil)
-		test.That(t, m.GoFor(context.Background(), 10, 1, nil), test.ShouldBeNil)
+		go func() {
+			test.That(t, m.GoFor(context.Background(), 10, 1, nil), test.ShouldBeNil)
+		}()
 
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
