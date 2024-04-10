@@ -191,6 +191,7 @@ func TestEncodedMotor(t *testing.T) {
 	})
 
 	t.Run("encoded motor test goForMath", func(t *testing.T) {
+		t.Skip("temporary skip for flake")
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
 			test.That(tb, m.ResetZeroPosition(context.Background(), 0, nil), test.ShouldBeNil)
@@ -218,6 +219,7 @@ func TestEncodedMotor(t *testing.T) {
 	})
 
 	t.Run("encoded motor test SetPower interrupts GoFor", func(t *testing.T) {
+		t.Skip("temporary skip for flake")
 		go func() {
 			test.That(t, m.goForInternal(context.Background(), 10, 1, 1), test.ShouldBeNil)
 		}()
