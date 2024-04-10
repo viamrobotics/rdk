@@ -76,7 +76,7 @@ jobs:
     - name: Build (Latest)
       if: inputs.release_type == 'latest'
       run: |
-        sudo -Hu testbot bash -lc 'make BUILD_CHANNEL="latest" static-release'
+        sudo -Hu testbot bash -lc 'make RELEASE_TYPE="latest" BUILD_CHANNEL="${{date +%Y%m%d%H%M%S}}" static-release'
 
     - name: Build (Tagged)
       if: inputs.release_type == 'stable' || inputs.release_type == 'rc'
