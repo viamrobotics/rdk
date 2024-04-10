@@ -66,7 +66,7 @@ type moveRequest struct {
 	obstacleDetectors map[vision.Service][]resource.Name
 	replanCostFactor  float64
 	fsService         framesystem.Service
-	components        map[resource.Name]resource.Resource
+	absoluteFS        referenceframe.FrameSystem
 
 	executeBackgroundWorkers *sync.WaitGroup
 	responseChan             chan moveResponse
@@ -180,33 +180,15 @@ func (mr *moveRequest) getTransientDetections(
 		camName.ShortName(),
 	)
 
-	detections, err := visSrvc.GetObjectPointClouds(ctx, camName.Name, nil)
+	currentInputs, _, err := mr.getCurrentInputsAndPosition(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	cameraOrigin := referenceframe.NewPoseInFrame(camName.ShortName(), spatialmath.NewZeroPose())
-	cameraToWorld, err := mr.fsService.TransformPose(ctx, cameraOrigin, mr.kinematicBase.Name().ShortName(), nil)
+	detections, err := visSrvc.GetObjectPointClouds(ctx, camName.Name, nil)
 	if err != nil {
-		mr.logger.CDebugf(ctx,
-			"we assume the base named: %s is coincident with the camera named: %s due to err: %v",
-			mr.kinematicBase.Name().ShortName(), camName.ShortName(), err.Error(),
-		)
-		cameraToWorld = cameraOrigin
+		return nil, err
 	}
-
-	// mr.planRequest.FrameSystem.Transform()
-	// positions map[string][]referenceframe.Input,
-	// object referenceframe.Transformable,
-	// dst string
-	// here we want to be using the framesystem to place the detection into the world frame
-	// to do this we will need to know what the current inputs are for the custom frame system we have built
-	// this is annoying and i think that i should just make a helper functipn for this?
-
-	// currentInputs, _, err := mr.fsService.CurrentInputs(ctx)
-	// if err != nil {
-	// 	return nil, err
-	// }
 
 	// transformed detections
 	transientGeoms := []spatialmath.Geometry{}
@@ -218,8 +200,22 @@ func (mr *moveRequest) getTransientDetections(
 			label += "_" + geometry.Label()
 		}
 		geometry.SetLabel(label)
-		worldGeom := geometry.Transform(cameraToWorld.Pose())
-		transientGeoms = append(transientGeoms, worldGeom)
+
+		tf, err := mr.absoluteFS.Transform(
+			currentInputs,
+			referenceframe.NewGeometriesInFrame(
+				camName.ShortName(), []spatialmath.Geometry{geometry},
+			),
+			referenceframe.World,
+		)
+		if err != nil {
+			return nil, err
+		}
+		worldGifs, ok := tf.(*referenceframe.GeometriesInFrame)
+		if !ok {
+			return nil, errors.New("unable to assert referenceframe.Transformable into *referenceframe.GeometriesInFrame")
+		}
+		transientGeoms = append(transientGeoms, worldGifs.Geometries()...)
 	}
 	return referenceframe.NewGeometriesInFrame(referenceframe.World, transientGeoms), nil
 }
@@ -263,23 +259,11 @@ func (mr *moveRequest) obstaclesIntersectPlan(
 				return state.ExecuteResponse{}, err
 			}
 
-			// build representation of frame system's inputs
-			currentInputs, err := mr.kinematicBase.CurrentInputs(ctx)
+			// build representation of frame system's inputs and get the current position of the base
+			inputMap, currentPosition, err := mr.getCurrentInputsAndPosition(ctx)
 			if err != nil {
 				return state.ExecuteResponse{}, err
 			}
-			inputMap := referenceframe.StartPositions(mr.planRequest.FrameSystem)
-			inputMap[mr.kinematicBase.Name().ShortName()] = currentInputs
-
-			// get the current position of the base
-			currentPosition, err := mr.kinematicBase.CurrentPosition(ctx)
-			if err != nil {
-				return state.ExecuteResponse{}, err
-			}
-
-			// Note: the value of wayPointIndex is subject to change between when this function is first entered
-			// versus when CheckPlan is actually called.
-			// We load the wayPointIndex value to ensure that all information is up to date.
 
 			// get the pose difference between where the robot is versus where it ought to be.
 			errorState, err := mr.kinematicBase.ErrorState(ctx)
@@ -289,7 +273,7 @@ func (mr *moveRequest) obstaclesIntersectPlan(
 
 			mr.logger.CDebugf(ctx, "CheckPlan inputs: \n currentPosition: %v\n currentInputs: %v\n errorState: %v\n worldstate: %s",
 				spatialmath.PoseToProtobuf(currentPosition.Pose()),
-				currentInputs,
+				inputMap,
 				spatialmath.PoseToProtobuf(errorState),
 				worldState.String(),
 			)
@@ -301,7 +285,7 @@ func (mr *moveRequest) obstaclesIntersectPlan(
 			// plan,
 			// waypointIndex,
 			// worldState, // detected obstacles by this instance of camera + service
-			// mr.planRequest.FrameSystem,
+			// mr.absoluteFS
 			// currentPosition.Pose(), // currentPosition of robot accounts for errorState
 			// inputMap,
 			// errorState, // deviation of robot from plan
@@ -314,6 +298,22 @@ func (mr *moveRequest) obstaclesIntersectPlan(
 		}
 	}
 	return state.ExecuteResponse{}, nil
+}
+
+func (mr *moveRequest) getCurrentInputsAndPosition(ctx context.Context) (map[string][]referenceframe.Input, *referenceframe.PoseInFrame, error) {
+	currentInputs := referenceframe.StartPositions(mr.absoluteFS)
+	pif, err := mr.kinematicBase.CurrentPosition(ctx)
+	if err != nil {
+		return nil, nil, err
+	}
+	currentInputs[mr.kinematicBase.Name().ShortName()+"ExecutionFrame"] = referenceframe.FloatsToInputs(
+		[]float64{
+			pif.Pose().Point().X,
+			pif.Pose().Point().Y,
+			pif.Pose().Orientation().OrientationVectorRadians().Theta,
+		},
+	)
+	return currentInputs, pif, nil
 }
 
 func kbOptionsFromCfg(motionCfg *validatedMotionConfiguration, validatedExtra validatedExtra) kinematicbase.Options {
@@ -676,6 +676,17 @@ func (ms *builtIn) createBaseMoveRequest(
 		return nil, err
 	}
 
+	// create checking fs
+	collisionFS := referenceframe.NewEmptyFrameSystem("collisionFS")
+	err = collisionFS.AddFrame(kb.ExecutionFrame(), collisionFS.World())
+	if err != nil {
+		return nil, err
+	}
+	err = collisionFS.MergeFrameSystem(baseOnlyFS, kb.ExecutionFrame())
+	if err != nil {
+		return nil, err
+	}
+
 	startPoseIF, err := kb.CurrentPosition(ctx)
 	if err != nil {
 		return nil, err
@@ -758,6 +769,7 @@ func (ms *builtIn) createBaseMoveRequest(
 		replanCostFactor:  valExtra.replanCostFactor,
 		obstacleDetectors: obstacleDetectors,
 		fsService:         ms.fsService,
+		absoluteFS:        collisionFS,
 
 		executeBackgroundWorkers: &backgroundWorkers,
 

@@ -3,6 +3,7 @@ package motionplan
 import (
 	"errors"
 	"fmt"
+	"strings"
 
 	"go.uber.org/multierr"
 	pb "go.viam.com/api/component/arm/v1"
@@ -271,14 +272,11 @@ func (sf *solverFrame) Geometries(inputs []frame.Input) (*frame.GeometriesInFram
 	inputMap := sf.sliceToMap(inputs)
 	sfGeometries := []spatial.Geometry{}
 
-	// i think this function will need to be changed
-	// if we are relative we know so
-	// we then assume that sf.name is the name of the kinematic base and anything above it should be
-	// treated as a static transform frame
-
-	// all other frame, we do not need to worry about and they should be treated as normal
-
 	for _, fName := range sf.movingFS.FrameNames() {
+		// if we have an execution frame no need to transform it
+		if strings.Contains(fName, "ExecutionFrame") {
+			continue
+		}
 		f := sf.fss.Frame(fName)
 		if f == nil {
 			return nil, frame.NewFrameMissingError(fName)

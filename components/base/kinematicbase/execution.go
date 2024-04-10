@@ -308,13 +308,13 @@ func (ptgk *ptgBaseKinematics) courseCorrect(
 	if err != nil {
 		return nil, err
 	}
-	trajPose, err := ptgk.frame.Transform(currentInputs)
+	trajPose, err := ptgk.planningFrame.Transform(currentInputs)
 	if err != nil {
 		return nil, err
 	}
 	// Note that the arcSegment start position corresponds to the start configuration, which may not be at pose distance 0, so we must
 	// account for this.
-	trajStartPose, err := ptgk.frame.Transform(arcSteps[arcIdx].arcSegment.StartConfiguration)
+	trajStartPose, err := ptgk.planningFrame.Transform(arcSteps[arcIdx].arcSegment.StartConfiguration)
 	if err != nil {
 		return nil, err
 	}

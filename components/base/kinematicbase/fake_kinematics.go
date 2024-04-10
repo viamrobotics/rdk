@@ -79,6 +79,10 @@ func (fk *fakeDiffDriveKinematics) Kinematics() referenceframe.Frame {
 	return fk.planningFrame
 }
 
+func (fk *fakeDiffDriveKinematics) ExecutionFrame() referenceframe.Frame {
+	return fk.executionFrame
+}
+
 func (fk *fakeDiffDriveKinematics) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
 	fk.lock.RLock()
 	defer fk.lock.RUnlock()
@@ -118,17 +122,17 @@ func (fk *fakeDiffDriveKinematics) CurrentPosition(ctx context.Context) (*refere
 
 type fakePTGKinematics struct {
 	*fake.Base
-	localizer    motion.Localizer
-	frame        referenceframe.Frame
-	options      Options
-	sensorNoise  spatialmath.Pose
-	ptgs         []tpspace.PTGSolver
-	currentInput []referenceframe.Input
-	origin       *referenceframe.PoseInFrame
-	positionlock sync.RWMutex
-	inputLock    sync.RWMutex
-	logger       logging.Logger
-	sleepTime    int
+	localizer                     motion.Localizer
+	planningFrame, executionFrame referenceframe.Frame
+	options                       Options
+	sensorNoise                   spatialmath.Pose
+	ptgs                          []tpspace.PTGSolver
+	currentInput                  []referenceframe.Input
+	origin                        *referenceframe.PoseInFrame
+	positionlock                  sync.RWMutex
+	inputLock                     sync.RWMutex
+	logger                        logging.Logger
+	sleepTime                     int
 }
 
 // WrapWithFakePTGKinematics creates a PTG KinematicBase from the fake Base so that it satisfies the ModelFramer and InputEnabled
@@ -174,7 +178,8 @@ func WrapWithFakePTGKinematics(
 
 	nonzeroBaseTurningRadiusMeters := (baseMillimetersPerSecond / rdkutils.DegToRad(angVelocityDegsPerSecond)) / 1000.
 
-	frame, err := tpspace.NewPTGFrameFromKinematicOptions(
+	// construct planning frame
+	planningFrame, err := tpspace.NewPTGFrameFromKinematicOptions(
 		b.Name().ShortName(),
 		logger,
 		nonzeroBaseTurningRadiusMeters,
@@ -187,25 +192,36 @@ func WrapWithFakePTGKinematics(
 		return nil, err
 	}
 
+	// construct execution frame
+	executionFrame, err := referenceframe.New2DMobileModelFrame(
+		b.Name().ShortName()+"ExecutionFrame",
+		planningFrame.DoF(),
+		geometries[0],
+	)
+	if err != nil {
+		return nil, err
+	}
+
 	if sensorNoise == nil {
 		sensorNoise = spatialmath.NewZeroPose()
 	}
 
-	ptgProv, ok := frame.(tpspace.PTGProvider)
+	ptgProv, ok := planningFrame.(tpspace.PTGProvider)
 	if !ok {
 		return nil, errors.New("unable to cast ptgk frame to a PTG Provider")
 	}
 	ptgs := ptgProv.PTGSolvers()
 
 	fk := &fakePTGKinematics{
-		Base:         b,
-		frame:        frame,
-		origin:       origin,
-		ptgs:         ptgs,
-		currentInput: zeroInput,
-		sensorNoise:  sensorNoise,
-		logger:       logger,
-		sleepTime:    sleepTime,
+		Base:           b,
+		planningFrame:  planningFrame,
+		executionFrame: executionFrame,
+		origin:         origin,
+		ptgs:           ptgs,
+		currentInput:   zeroInput,
+		sensorNoise:    sensorNoise,
+		logger:         logger,
+		sleepTime:      sleepTime,
 	}
 	initLocalizer := &fakePTGKinematicsLocalizer{fk}
 	fk.localizer = motion.TwoDLocalizer(initLocalizer)
@@ -215,7 +231,11 @@ func WrapWithFakePTGKinematics(
 }
 
 func (fk *fakePTGKinematics) Kinematics() referenceframe.Frame {
-	return fk.frame
+	return fk.planningFrame
+}
+
+func (fk *fakePTGKinematics) ExecutionFrame() referenceframe.Frame {
+	return fk.executionFrame
 }
 
 func (fk *fakePTGKinematics) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
@@ -240,7 +260,7 @@ func (fk *fakePTGKinematics) GoToInputs(ctx context.Context, inputSteps ...[]ref
 		fk.currentInput = []referenceframe.Input{inputs[0], inputs[1], {Value: 0}}
 		fk.inputLock.Unlock()
 
-		finalPose, err := fk.frame.Transform(inputs)
+		finalPose, err := fk.planningFrame.Transform(inputs)
 		if err != nil {
 			return err
 		}
@@ -250,7 +270,7 @@ func (fk *fakePTGKinematics) GoToInputs(ctx context.Context, inputSteps ...[]ref
 		var interpolatedConfigurations [][]referenceframe.Input
 		for i := 0; i <= steps; i++ {
 			interp := float64(i) / float64(steps)
-			interpConfig, err := fk.frame.Interpolate(startCfg, inputs, interp)
+			interpConfig, err := fk.planningFrame.Interpolate(startCfg, inputs, interp)
 			if err != nil {
 				return err
 			}
@@ -260,7 +280,7 @@ func (fk *fakePTGKinematics) GoToInputs(ctx context.Context, inputSteps ...[]ref
 			if ctx.Err() != nil {
 				return ctx.Err()
 			}
-			relativePose, err := fk.frame.Transform(inter)
+			relativePose, err := fk.planningFrame.Transform(inter)
 			if err != nil {
 				return err
 			}

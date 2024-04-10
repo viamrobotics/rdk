@@ -30,7 +30,7 @@ type ptgBaseKinematics struct {
 	base.Base
 	motion.Localizer
 	logger                         logging.Logger
-	frame                          referenceframe.Frame
+	planningFrame, executionFrame  referenceframe.Frame
 	ptgs                           []tpspace.PTGSolver
 	courseCorrectionIdx            int
 	linVelocityMMPerSecond         float64
@@ -99,7 +99,7 @@ func wrapWithPTGKinematics(
 	}
 
 	nonzeroBaseTurningRadiusMeters := (linVelocityMMPerSecond / rdkutils.DegToRad(angVelocityDegsPerSecond)) / 1000.
-	frame, err := tpspace.NewPTGFrameFromKinematicOptions(
+	planningFrame, err := tpspace.NewPTGFrameFromKinematicOptions(
 		b.Name().ShortName(),
 		logger,
 		nonzeroBaseTurningRadiusMeters,
@@ -111,14 +111,14 @@ func wrapWithPTGKinematics(
 	if err != nil {
 		return nil, err
 	}
-	ptgProv, err := rdkutils.AssertType[tpspace.PTGProvider](frame)
+	ptgProv, err := rdkutils.AssertType[tpspace.PTGProvider](planningFrame)
 	if err != nil {
 		return nil, err
 	}
 	ptgs := ptgProv.PTGSolvers()
 	origin := spatialmath.NewZeroPose()
 
-	ptgCourseCorrection, err := rdkutils.AssertType[tpspace.PTGCourseCorrection](frame)
+	ptgCourseCorrection, err := rdkutils.AssertType[tpspace.PTGCourseCorrection](planningFrame)
 	if err != nil {
 		return nil, err
 	}
@@ -132,11 +132,22 @@ func wrapWithPTGKinematics(
 		origin = originPIF.Pose()
 	}
 
+	// construct executionFrame
+	executionFrame, err := referenceframe.New2DMobileModelFrame(
+		b.Name().ShortName()+"ExecutionFrame",
+		planningFrame.DoF(),
+		geometries[0],
+	)
+	if err != nil {
+		return nil, err
+	}
+
 	return &ptgBaseKinematics{
 		Base:                           b,
 		Localizer:                      localizer,
 		logger:                         logger,
-		frame:                          frame,
+		planningFrame:                  planningFrame,
+		executionFrame:                 executionFrame,
 		ptgs:                           ptgs,
 		courseCorrectionIdx:            courseCorrectionIdx,
 		linVelocityMMPerSecond:         linVelocityMMPerSecond,
@@ -149,7 +160,11 @@ func wrapWithPTGKinematics(
 }
 
 func (ptgk *ptgBaseKinematics) Kinematics() referenceframe.Frame {
-	return ptgk.frame
+	return ptgk.planningFrame
+}
+
+func (ptgk *ptgBaseKinematics) ExecutionFrame() referenceframe.Frame {
+	return ptgk.executionFrame
 }
 
 func (ptgk *ptgBaseKinematics) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
@@ -179,7 +194,7 @@ func (ptgk *ptgBaseKinematics) ErrorState(ctx context.Context) (spatialmath.Pose
 		return nil, err
 	}
 
-	currPoseInArc, err := ptgk.frame.Transform(currentInputs)
+	currPoseInArc, err := ptgk.planningFrame.Transform(currentInputs)
 	if err != nil {
 		return nil, err
 	}
