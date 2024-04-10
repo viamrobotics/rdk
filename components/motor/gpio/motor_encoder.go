@@ -3,7 +3,6 @@ package gpio
 
 import (
 	"context"
-	"fmt"
 	"math"
 	"sync"
 	"time"
@@ -80,7 +79,6 @@ func newEncodedMotor(
 		ticksPerRotation:  float64(motorConfig.TicksPerRotation),
 		real:              localReal,
 		rampRate:          motorConfig.RampRate,
-		maxPowerPct:       motorConfig.MaxPowerPct,
 		logger:            logger,
 		opMgr:             operation.NewSingleOperationManager(),
 		loop:              nil,
@@ -108,18 +106,8 @@ func newEncodedMotor(
 			"recommended: for more accurate motor control, configure 'control_parameters' in the motor config")
 	}
 
-	if em.rampRate < 0 || em.rampRate > 1 {
-		return nil, fmt.Errorf("ramp rate needs to be (0, 1] but is %v", em.rampRate)
-	}
 	if em.rampRate == 0 {
 		em.rampRate = 0.05 // Use a conservative value by default.
-	}
-
-	if em.maxPowerPct < 0 || em.maxPowerPct > 1 {
-		return nil, fmt.Errorf("max power pct needs to be (0, 1] but is %v", em.maxPowerPct)
-	}
-	if em.maxPowerPct == 0 {
-		em.maxPowerPct = 1.0
 	}
 
 	return em, nil
@@ -143,7 +131,6 @@ type EncodedMotor struct {
 	// valid numbers are (0, 1]
 	// .01 would ramp very slowly, 1 would ramp instantaneously
 	rampRate         float64
-	maxPowerPct      float64
 	ticksPerRotation float64
 
 	logger logging.Logger
@@ -298,7 +285,6 @@ func (m *EncodedMotor) SetPower(ctx context.Context, powerPct float64, extra map
 
 // setPower assumes the state lock is held.
 func (m *EncodedMotor) setPower(ctx context.Context, powerPct float64) error {
-	powerPct = fixPowerPct(powerPct, m.maxPowerPct)
 	return m.real.SetPower(ctx, powerPct, nil)
 }
 

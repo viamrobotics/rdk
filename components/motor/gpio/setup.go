@@ -2,6 +2,7 @@ package gpio
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/pkg/errors"
 
@@ -141,6 +142,10 @@ func (conf *Config) Validate(path string) ([]string, error) {
 		if conf.TicksPerRotation <= 0 {
 			return nil, resource.NewConfigValidationError(path, errors.New("ticks_per_rotation should be positive or zero"))
 		}
+
+		if conf.RampRate < 0 || conf.RampRate > 1 {
+			return nil, fmt.Errorf("ramp rate needs to be (0, 1] but is %v", conf.RampRate)
+		}
 		deps = append(deps, conf.Encoder)
 	} else if conf.MaxRPM <= 0 {
 		return nil, resource.NewConfigValidationFieldRequiredError(path, "max_rpm")
@@ -155,30 +160,20 @@ func init() {
 	})
 }
 
-func getBoardFromRobotConfig(deps resource.Dependencies, conf resource.Config) (board.Board, *Config, error) {
-	motorConfig, err := resource.NativeConfig[*Config](conf)
-	if err != nil {
-		return nil, nil, err
-	}
-	if motorConfig.BoardName == "" {
-		return nil, nil, errors.New("expected board name in config for motor")
-	}
-	b, err := board.FromDependencies(deps, motorConfig.BoardName)
-	if err != nil {
-		return nil, nil, err
-	}
-	return b, motorConfig, nil
-}
-
 func createNewMotor(
 	ctx context.Context, deps resource.Dependencies, cfg resource.Config, logger logging.Logger,
 ) (motor.Motor, error) {
-	actualBoard, motorConfig, err := getBoardFromRobotConfig(deps, cfg)
+	motorConfig, err := resource.NativeConfig[*Config](cfg)
 	if err != nil {
 		return nil, err
 	}
 
-	m, err := NewMotor(actualBoard, *motorConfig, cfg.ResourceName(), logger)
+	b, err := board.FromDependencies(deps, motorConfig.BoardName)
+	if err != nil {
+		return nil, err
+	}
+
+	m, err := NewMotor(b, *motorConfig, cfg.ResourceName(), logger)
 	if err != nil {
 		return nil, err
 	}
