@@ -161,6 +161,18 @@ func (sc *SharedConn) ResetConn(conn rpc.ClientConn, moduleLogger logging.Logger
 	sc.peerConnMu.Lock()
 	defer sc.peerConnMu.Unlock()
 
+	sc.peerConnFailed = make(chan struct{})
+	// If initializing a PeerConnection fails for any reason, we perform the following cleanup
+	// steps.
+	guard := rutils.NewGuard(func() {
+		if sc.peerConn != nil {
+			utils.UncheckedError(sc.peerConn.Close())
+		}
+		sc.peerConn = nil
+		close(sc.peerConnFailed)
+	})
+	defer guard.OnFail()
+
 	if sc.peerConn != nil {
 		sc.logger.Warn("SharedConn is being reset with an active peer connection.")
 		utils.UncheckedError(sc.peerConn.Close())
@@ -174,17 +186,6 @@ func (sc *SharedConn) ResetConn(conn rpc.ClientConn, moduleLogger logging.Logger
 	}
 
 	sc.peerConn = peerConn
-	sc.peerConnFailed = make(chan struct{})
-
-	// If initializing a PeerConnection fails for any reason, we perform the following cleanup
-	// steps.
-	guard := rutils.NewGuard(func() {
-		utils.UncheckedError(sc.peerConn.Close())
-		sc.peerConn = nil
-		close(sc.peerConnFailed)
-	})
-	defer guard.OnFail()
-
 	sc.peerConnReady, err = rpc.ConfigureForRenegotiation(peerConn, sc.logger.AsZap())
 	if err != nil {
 		sc.logger.Warnw("Unable to create optional renegotiation channel for module. Ignoring.", "err", err)
