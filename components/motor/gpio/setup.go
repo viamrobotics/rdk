@@ -144,11 +144,16 @@ func (conf *Config) Validate(path string) ([]string, error) {
 		}
 
 		if conf.RampRate < 0 || conf.RampRate > 1 {
-			return nil, fmt.Errorf("ramp rate needs to be (0, 1] but is %v", conf.RampRate)
+			return nil, fmt.Errorf("ramp_rate needs to be (0, 1] but is %v", conf.RampRate)
 		}
+
+		if conf.MaxPowerPct < 0 || conf.MaxPowerPct > 1 {
+			return nil, fmt.Errorf("max_power_pctneeds to be (0, 1] but is %v", conf.RampRate)
+		}
+
 		deps = append(deps, conf.Encoder)
 	} else if conf.MaxRPM <= 0 {
-		return nil, resource.NewConfigValidationFieldRequiredError(path, "max_rpm")
+		return nil, fmt.Errorf("max_rpm needs to be (0, 1] but is %v", conf.RampRate)
 	}
 	return deps, nil
 }
