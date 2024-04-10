@@ -141,8 +141,8 @@ type EncodedMotor struct {
 	loop              *control.Loop
 }
 
-// rpmMonitor keeps track of the desired RPM and position.
-func (m *EncodedMotor) rpmMonitor(ctx context.Context, goalRPM, goalPos, direction float64) {
+// makeAdjustments keeps track of the desired RPM and position.
+func (m *EncodedMotor) makeAdjustments(ctx context.Context, goalRPM, goalPos, direction float64) {
 	lastPos, err := m.position(ctx, nil)
 	if err != nil {
 		panic(err)
@@ -183,8 +183,14 @@ func (m *EncodedMotor) rpmMonitor(ctx context.Context, goalRPM, goalPos, directi
 			return
 		}
 
-		newPower, err := m.makeAdjustments(ctx, pos, lastPos, goalRPM, goalPos, lastPowerPct, direction, now, lastTime)
-		if err != nil {
+		m.logger.CDebug(ctx, "making adjustments")
+
+		currentRPM := calculateCurrentRpm(pos, lastPos, m.ticksPerRotation, now, lastTime)
+		newPower := calculateNewPower(currentRPM, goalRPM, lastPowerPct, direction, m.rampRate)
+
+		m.mu.Unlock()
+		defer m.mu.Lock()
+		if err := m.setPower(ctx, newPower); err != nil {
 			m.logger.CError(ctx, err)
 			return
 		}
@@ -192,22 +198,17 @@ func (m *EncodedMotor) rpmMonitor(ctx context.Context, goalRPM, goalPos, directi
 		lastPos = pos
 		lastTime = now
 		lastPowerPct = newPower
+		m.logger.CDebugf(ctx, "lastPos: %v, pos: %v, goalPos: %v", lastPos, pos, goalPos)
+		m.logger.CDebugf(ctx, "lastTime: %v, now: %v", lastTime, now)
+		m.logger.CDebugf(ctx, "currentRPM: %v, goalRPM: %v", currentRPM, goalRPM)
+
 	}
 }
 
-// makeAdjustments does the math required to see if the RPM is too high or too low,
-// and if the goal position has been reached.
-func (m *EncodedMotor) makeAdjustments(
-	ctx context.Context, pos, lastPos, goalRPM, goalPos, lastPowerPct, direction float64,
-	now, lastTime int64,
-) (float64, error) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	newPowerPct := lastPowerPct
-
+func calculateCurrentRpm(pos, lastPos, ticksPerRotation float64,
+	now, lastTime int64) float64 {
 	// calculate RPM based on change in position and change in time
-	deltaPos := (pos - lastPos) / m.ticksPerRotation
+	deltaPos := (pos - lastPos) / ticksPerRotation
 	// time is polled in nanoseconds, convert to minutes for rpm
 	deltaTime := (float64(now) - float64(lastTime)) / float64(6e10)
 	var currentRPM float64
@@ -216,24 +217,25 @@ func (m *EncodedMotor) makeAdjustments(
 	} else {
 		currentRPM = deltaPos / deltaTime
 	}
+	return currentRPM
 
-	m.logger.CDebug(ctx, "making adjustments")
-	m.logger.CDebugf(ctx, "lastPos: %v, pos: %v, goalPos: %v", lastPos, pos, goalPos)
-	m.logger.CDebugf(ctx, "lastTime: %v, now: %v", lastTime, now)
-	m.logger.CDebugf(ctx, "currentRPM: %v, goalRPM: %v", currentRPM, goalRPM)
+}
+
+// makeAdjustments does the math required to see if the RPM is too high or too low,
+// and if the goal position has been reached.
+func calculateNewPower(
+	currentRPM, goalRPM, lastPowerPct, direction, rampRate float64,
+) float64 {
+	newPowerPct := lastPowerPct
 
 	rpmErr := goalRPM - currentRPM
 	// adjust our power based on the error in rpm
-	newPowerPct += (m.rampRate * sign(rpmErr))
+	newPowerPct += (rampRate * sign(rpmErr))
 
 	if sign(newPowerPct) != direction {
 		newPowerPct = lastPowerPct
 	}
-
-	if err := m.setPower(ctx, newPowerPct); err != nil {
-		return 0, err
-	}
-	return newPowerPct, nil
+	return newPowerPct
 }
 
 func fixPowerPct(powerPct, max float64) float64 {
@@ -379,7 +381,7 @@ func (m *EncodedMotor) goForInternal(ctx context.Context, rpm, goalPos, directio
 			m.activeBackgroundWorkers.Add(1)
 			go func() {
 				defer m.activeBackgroundWorkers.Done()
-				m.rpmMonitor(rpmCtx, rpm, goalPos, direction)
+				m.makeAdjustments(rpmCtx, rpm, goalPos, direction)
 			}()
 
 			return nil

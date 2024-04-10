@@ -162,7 +162,9 @@ func TestEncodedMotor(t *testing.T) {
 	})
 
 	t.Run("encoded motor test GoFor forward", func(t *testing.T) {
-		test.That(t, m.GoFor(context.Background(), 10, 1, nil), test.ShouldBeNil)
+		go func() {
+			test.That(t, m.GoFor(context.Background(), 10, 1, nil), test.ShouldBeNil)
+		}()
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
 			on, powerPct, err := m.IsPowered(context.Background(), nil)
@@ -173,7 +175,9 @@ func TestEncodedMotor(t *testing.T) {
 	})
 
 	t.Run("encoded motor test GoFor backwards", func(t *testing.T) {
-		test.That(t, m.GoFor(context.Background(), -10, 1, nil), test.ShouldBeNil)
+		go func() {
+			test.That(t, m.GoFor(context.Background(), 10, 1, nil), test.ShouldBeNil)
+		}()
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
 			on, powerPct, err := m.IsPowered(context.Background(), nil)
@@ -181,22 +185,6 @@ func TestEncodedMotor(t *testing.T) {
 			test.That(tb, powerPct, test.ShouldBeLessThan, 0)
 			test.That(tb, err, test.ShouldBeNil)
 		})
-	})
-
-	t.Run("encoded motor test goForMath", func(t *testing.T) {
-		expectedGoalPos, expectedGoalRPM, expectedDirection := 4.0, 10.0, 1.0
-		goalPos, goalRPM, direction := goForMathEncoded(10, 4, 0, 1)
-
-		test.That(t, goalPos, test.ShouldEqual, expectedGoalPos)
-		test.That(t, goalRPM, test.ShouldEqual, expectedGoalRPM)
-		test.That(t, direction, test.ShouldEqual, expectedDirection)
-
-		expectedGoalPos, expectedGoalRPM, expectedDirection = -4.0, -10.0, -1.0
-		goalPos, goalRPM, direction = goForMathEncoded(10, -4, 0, 1)
-
-		test.That(t, goalPos, test.ShouldEqual, expectedGoalPos)
-		test.That(t, goalRPM, test.ShouldEqual, expectedGoalRPM)
-		test.That(t, direction, test.ShouldEqual, expectedDirection)
 	})
 
 	t.Run("encoded motor test SetPower interrupts GoFor", func(t *testing.T) {
@@ -262,5 +250,58 @@ func TestEncodedMotorControls(t *testing.T) {
 			tb.Helper()
 			test.That(tb, m.loop, test.ShouldNotBeNil)
 		})
+	})
+}
+
+func TestMathHelpers(t *testing.T) {
+	t.Run("encoded motor test goForMath", func(t *testing.T) {
+		expectedGoalPos, expectedGoalRPM, expectedDirection := 4.0, 10.0, 1.0
+		goalPos, goalRPM, direction := goForMathEncoded(10, 4, 0, 1)
+
+		test.That(t, goalPos, test.ShouldEqual, expectedGoalPos)
+		test.That(t, goalRPM, test.ShouldEqual, expectedGoalRPM)
+		test.That(t, direction, test.ShouldEqual, expectedDirection)
+
+		expectedGoalPos, expectedGoalRPM, expectedDirection = -4.0, -10.0, -1.0
+		goalPos, goalRPM, direction = goForMathEncoded(10, -4, 0, 1)
+
+		test.That(t, goalPos, test.ShouldEqual, expectedGoalPos)
+		test.That(t, goalRPM, test.ShouldEqual, expectedGoalRPM)
+		test.That(t, direction, test.ShouldEqual, expectedDirection)
+	})
+
+	t.Run("calculate currentRPM", func(t *testing.T) {
+		zeroSec := int64(0)
+		sixtySec := int64(6e10)
+		oneSec := int64(1)
+		// ticks per rotation
+		tpr := 1.0
+		// last time equals current time, set rpm to zero
+		currentRpm := calculateCurrentRpm(10, 0, tpr, oneSec, oneSec)
+		test.That(t, currentRpm, test.ShouldEqual, 0.)
+
+		// forwards
+		currentRpm = calculateCurrentRpm(10, 0, tpr, sixtySec, zeroSec)
+		test.That(t, currentRpm, test.ShouldEqual, 10.0)
+
+		// backwards
+		currentRpm = calculateCurrentRpm(-10, 0, tpr, sixtySec, zeroSec)
+		test.That(t, currentRpm, test.ShouldEqual, -10.0)
+	})
+
+	t.Run("calculateNewPower", func(t *testing.T) {
+		rampRate := 1.0
+
+		newPower := calculateNewPower(1, 10, 10, 1, rampRate)
+		test.That(t, newPower, test.ShouldEqual, 11)
+
+		newPower = calculateNewPower(-10, 10, 1, 1, rampRate)
+		test.That(t, newPower, test.ShouldEqual, 2)
+
+		newPower = calculateNewPower(-10, -10, 1, -1, rampRate)
+		test.That(t, newPower, test.ShouldEqual, 1)
+
+		newPower = calculateNewPower(10, -10, 1, -1, rampRate)
+		test.That(t, newPower, test.ShouldEqual, 1)
 	})
 }
