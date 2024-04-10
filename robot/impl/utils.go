@@ -4,10 +4,11 @@ import (
 	"context"
 	"testing"
 
+	"go.viam.com/test"
+
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/robot"
-	"go.viam.com/test"
 )
 
 // TODO: this duplicates `robotimpltest.LocalRobot` for tests that are in the `robotimpl`
@@ -15,7 +16,7 @@ import (
 // and changing those tests to be in the `robotimpl_test` package causes failures because
 // they test private methods.
 //
-//revive:disable-next-line:context-as-argument
+//nolint:revive
 func setupLocalRobot(
 	t *testing.T,
 	ctx context.Context,
