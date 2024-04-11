@@ -449,6 +449,7 @@ func (ptgk *ptgBaseKinematics) makeCourseCorrectionGoals(
 	steps []arcStep,
 	currentInputs []referenceframe.Input,
 ) []courseCorrectionGoal {
+	ptgk.logger.Debug("WE ARE INSIDE MAKE COURSE CORRECTION GOALS")
 	goals := []courseCorrectionGoal{}
 	currDist := currentInputs[distanceAlongTrajectoryIndex].Value
 	stepsPerGoal := int((ptgk.nonzeroBaseTurningRadiusMeters*lookaheadDistMult*1000)/stepDistResolution) / nGoals
@@ -476,14 +477,19 @@ func (ptgk *ptgBaseKinematics) makeCourseCorrectionGoals(
 	}
 
 	stepsRemainingThisGoal := stepsPerGoal
+	ptgk.logger.Debugf("currPose: %v", spatialmath.PoseToProtobuf(currPose))
 	for i := currStep; i < len(steps); i++ {
 		for len(steps[i].subTraj)-startingTrajPt > stepsRemainingThisGoal {
 			goalTrajPtIdx := startingTrajPt + stepsRemainingThisGoal
-
+			ptgk.logger.Debugf("steps[i].arcSegment.StartPosition: %v", spatialmath.PoseToProtobuf(steps[i].arcSegment.StartPosition))
+			ptgk.logger.Debugf("steps[i].subTraj[goalTrajPtIdx].Pose: %v", spatialmath.PoseToProtobuf(steps[i].subTraj[goalTrajPtIdx].Pose))
+			together := spatialmath.Compose(steps[i].arcSegment.StartPosition, steps[i].subTraj[goalTrajPtIdx].Pose)
+			ptgk.logger.Debugf("together: %v", spatialmath.PoseToProtobuf(together))
 			goalPose := spatialmath.PoseBetween(
 				currPose,
-				spatialmath.Compose(steps[i].arcSegment.StartPosition, steps[i].subTraj[goalTrajPtIdx].Pose),
+				together,
 			)
+			ptgk.logger.Debugf("goalPose: %v\n", spatialmath.PoseToProtobuf(goalPose))
 			goals = append(goals, courseCorrectionGoal{Goal: goalPose, stepIdx: i, trajIdx: goalTrajPtIdx})
 			if len(goals) == nGoals {
 				return goals
@@ -495,5 +501,6 @@ func (ptgk *ptgBaseKinematics) makeCourseCorrectionGoals(
 		stepsRemainingThisGoal -= len(steps[i].subTraj) - startingTrajPt
 		startingTrajPt = 0
 	}
+	ptgk.logger.Debug("DONE WITH MAKING COURSE CORRECTION GOALS\n")
 	return goals
 }
