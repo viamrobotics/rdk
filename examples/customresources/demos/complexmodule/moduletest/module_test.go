@@ -338,7 +338,6 @@ func modifyCfg(t *testing.T, cfgIn string, logger logging.Logger) (string, int, 
 		return "", 0, err
 	}
 
-	// workaround because config.Read can't validate a module config with a "missing" ExePath
 	cfg, err := config.Read(context.Background(), cfgIn, logger)
 	if err != nil {
 		return "", 0, err

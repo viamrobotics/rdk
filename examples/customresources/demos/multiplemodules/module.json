@@ -2,12 +2,12 @@
 	"modules": [
 		{
 			"name": "GizmoModule",
-			"executable_path": "gizmomodule/gizmomodule",
+			"executable_path": "gizmomodule/run.sh",
 			"log_level": "debug"
 		},
 		{
 			"name": "SummationModule",
-			"executable_path": "summationmodule/summationmodule",
+			"executable_path": "summationmodule/run.sh",
 			"log_level": "debug"
 		}
 	],
