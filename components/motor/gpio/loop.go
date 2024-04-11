@@ -124,7 +124,7 @@ type controlledMotor struct {
 	resource.AlwaysRebuild
 	logger                  logging.Logger
 	opMgr                   *operation.SingleOperationManager
-	activeBackGroundWorkers sync.WaitGroup
+	activeBackgroundWorkers sync.WaitGroup
 
 	offsetInTicks    float64
 	ticksPerRotation float64
@@ -137,4 +137,50 @@ type controlledMotor struct {
 	blockNames        map[string][]string
 	loop              *control.Loop
 	cfg               Config
+}
+
+// SetPower sets the percentage of power the motor should employ between -1 and 1.
+// Negative power implies a backward directional rotational.
+func (cm *controlledMotor) SetPower(ctx context.Context, powerPct float64, extra map[string]interface{}) error {
+	cm.opMgr.CancelRunning(ctx)
+	if cm.loop != nil {
+		cm.loop.Pause()
+	}
+	cm.mu.Lock()
+	defer cm.mu.Unlock()
+	return cm.real.SetPower(ctx, powerPct, nil)
+}
+
+// IsPowered returns whether or not the motor is currently on, and the percent power (between 0
+// and 1, if the motor is off then the percent power will be 0).
+func (cm *controlledMotor) IsPowered(ctx context.Context, extra map[string]interface{}) (bool, float64, error) {
+	return cm.real.IsPowered(ctx, extra)
+}
+
+// IsMoving returns if the motor is moving or not.
+func (cm *controlledMotor) IsMoving(ctx context.Context) (bool, error) {
+	return cm.real.IsMoving(ctx)
+}
+
+// Stop stops rpmMonitor and stops the real motor.
+func (cm *controlledMotor) Stop(ctx context.Context, extra map[string]interface{}) error {
+	// after the motor is created, Stop is called, but if the PID controller
+	// is auto-tuning, the loop needs to keep running
+	if cm.loop != nil && !cm.loop.GetTuning(ctx) {
+		cm.loop.Pause()
+	}
+	return cm.real.Stop(ctx, nil)
+}
+
+// Close cleanly shuts down the motor.
+func (cm *controlledMotor) Close(ctx context.Context) error {
+	if err := cm.Stop(ctx, nil); err != nil {
+		return err
+	}
+	if cm.loop != nil {
+		cm.loop.Stop()
+		cm.loop = nil
+	}
+	cm.activeBackgroundWorkers.Wait()
+	return nil
 }
