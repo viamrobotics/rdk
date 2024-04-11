@@ -1,4 +1,4 @@
-// Package main tests out all 2 custom models in the complexmodules.
+// Package main tests out all 2 custom models in the multiplemodules.
 package main
 
 import (

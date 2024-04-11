@@ -1,6 +1,6 @@
 //go:build !no_tflite
 
-// Package main tests out all the custom models in the complexmodules.
+// Package main tests out all the custom models in the multiplemodules.
 package main_test
 
 import (
@@ -35,7 +35,7 @@ func TestComplexModules(t *testing.T) {
 	success := false
 	for portTryNum := 0; portTryNum < 10; portTryNum++ {
 		// Modify the example config to run directly, without compiling the module first.
-		cfgFilename, portLocal, err := modifyCfg(t, utils.ResolveFile("examples/customresources/demos/complexmodules/module.json"), logger)
+		cfgFilename, portLocal, err := modifyCfg(t, utils.ResolveFile("examples/customresources/demos/multiplemodules/module.json"), logger)
 		port = portLocal
 		test.That(t, err, test.ShouldBeNil)
 
@@ -138,15 +138,14 @@ func connect(port int, logger logging.Logger) (robot.Robot, error) {
 }
 
 func modifyCfg(t *testing.T, cfgIn string, logger logging.Logger) (string, int, error) {
-	gizmoModPath := testutils.BuildTempModule(t, "examples/customresources/demos/complexmodules/gizmomodule")
-	summationModPath := testutils.BuildTempModule(t, "examples/customresources/demos/complexmodules/summationmodule")
+	gizmoModPath := testutils.BuildTempModule(t, "examples/customresources/demos/multiplemodules/gizmomodule")
+	summationModPath := testutils.BuildTempModule(t, "examples/customresources/demos/multiplemodules/summationmodule")
 
 	port, err := goutils.TryReserveRandomPort()
 	if err != nil {
 		return "", 0, err
 	}
 
-	// workaround because config.Read can't validate a module config with a "missing" ExePath
 	cfg, err := config.Read(context.Background(), cfgIn, logger)
 	if err != nil {
 		return "", 0, err
