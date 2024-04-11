@@ -77,14 +77,6 @@ func newEncodedMotor(
 		opMgr:            operation.NewSingleOperationManager(),
 	}
 
-	props, err := realEncoder.Properties(context.Background(), nil)
-	if err != nil {
-		return nil, errors.New("cannot get encoder properties")
-	}
-	if !props.TicksCountSupported {
-		return nil,
-			encoder.NewEncodedMotorPositionTypeUnsupportedError(props)
-	}
 	em.encoder = realEncoder
 
 	// TODO DOCS-1524: link to docs that explain control parameters

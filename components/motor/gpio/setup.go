@@ -191,6 +191,15 @@ func createNewMotor(
 			return nil, err
 		}
 
+		props, err := e.Properties(context.Background(), nil)
+		if err != nil {
+			return nil, errors.New("cannot get encoder properties")
+		}
+		if !props.TicksCountSupported {
+			return nil,
+				encoder.NewEncodedMotorPositionTypeUnsupportedError(props)
+		}
+
 		single, isSingle := e.(*single.Encoder)
 		if isSingle {
 			single.AttachDirectionalAwareness(basic)
