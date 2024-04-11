@@ -2222,10 +2222,6 @@ func TestSensorsServiceReconfigure(t *testing.T) {
 
 	t.Run("empty to two sensors", func(t *testing.T) {
 		robot := setupLocalRobot(t, context.Background(), emptyCfg, logger)
-		test.That(t, err, test.ShouldBeNil)
-		defer func() {
-			test.That(t, robot.Close(context.Background()), test.ShouldBeNil)
-		}()
 
 		svc, err := sensors.FromRobot(robot, resource.DefaultServiceName)
 		test.That(t, err, test.ShouldBeNil)
@@ -2243,10 +2239,6 @@ func TestSensorsServiceReconfigure(t *testing.T) {
 
 	t.Run("two sensors to empty", func(t *testing.T) {
 		robot := setupLocalRobot(t, context.Background(), cfg, logger)
-		test.That(t, err, test.ShouldBeNil)
-		defer func() {
-			test.That(t, robot.Close(context.Background()), test.ShouldBeNil)
-		}()
 
 		svc, err := sensors.FromRobot(robot, resource.DefaultServiceName)
 		test.That(t, err, test.ShouldBeNil)
@@ -2264,10 +2256,6 @@ func TestSensorsServiceReconfigure(t *testing.T) {
 
 	t.Run("two sensors to two sensors", func(t *testing.T) {
 		robot := setupLocalRobot(t, context.Background(), cfg, logger)
-		test.That(t, err, test.ShouldBeNil)
-		defer func() {
-			test.That(t, robot.Close(context.Background()), test.ShouldBeNil)
-		}()
 
 		svc, err := sensors.FromRobot(robot, resource.DefaultServiceName)
 		test.That(t, err, test.ShouldBeNil)
@@ -2603,8 +2591,8 @@ func TestStatusServiceUpdate(t *testing.T) {
 
 	emptyCfg, err := config.Read(context.Background(), "data/diff_config_empty.json", logger)
 	test.That(t, err, test.ShouldBeNil)
-	cfg, err := config.Read(context.Background(), "data/fake.json", logger)
-	test.That(t, err, test.ShouldBeNil)
+	cfg, cfgErr := config.Read(context.Background(), "data/fake.json", logger)
+	test.That(t, cfgErr, test.ShouldBeNil)
 
 	resourceNames := []resource.Name{
 		movementsensor.Named("movement_sensor1"),
@@ -2617,12 +2605,8 @@ func TestStatusServiceUpdate(t *testing.T) {
 
 	t.Run("empty to not empty", func(t *testing.T) {
 		robot := setupLocalRobot(t, context.Background(), emptyCfg, logger)
-		test.That(t, err, test.ShouldBeNil)
-		defer func() {
-			test.That(t, robot.Close(context.Background()), test.ShouldBeNil)
-		}()
 
-		_, err = robot.Status(context.Background(), resourceNames)
+		_, err := robot.Status(context.Background(), resourceNames)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
 
 		robot.Reconfigure(context.Background(), cfg)
@@ -2636,10 +2620,6 @@ func TestStatusServiceUpdate(t *testing.T) {
 
 	t.Run("not empty to empty", func(t *testing.T) {
 		robot := setupLocalRobot(t, context.Background(), cfg, logger)
-		test.That(t, err, test.ShouldBeNil)
-		defer func() {
-			test.That(t, robot.Close(context.Background()), test.ShouldBeNil)
-		}()
 
 		statuses, err := robot.Status(context.Background(), resourceNames)
 		test.That(t, err, test.ShouldBeNil)
@@ -2655,10 +2635,6 @@ func TestStatusServiceUpdate(t *testing.T) {
 
 	t.Run("no change", func(t *testing.T) {
 		robot := setupLocalRobot(t, context.Background(), cfg, logger)
-		test.That(t, err, test.ShouldBeNil)
-		defer func() {
-			test.That(t, robot.Close(context.Background()), test.ShouldBeNil)
-		}()
 
 		statuses, err := robot.Status(context.Background(), resourceNames)
 		test.That(t, err, test.ShouldBeNil)
@@ -2684,17 +2660,12 @@ func TestRemoteRobotsGold(t *testing.T) {
 	ctx := context.Background()
 
 	remote1 := setupLocalRobot(t, ctx, cfg, logger.Sublogger("remote1"))
-	test.That(t, err, test.ShouldBeNil)
-	defer func() {
-		test.That(t, remote1.Close(context.Background()), test.ShouldBeNil)
-	}()
 
 	options, _, addr1 := robottestutils.CreateBaseOptionsAndListener(t)
 	err = remote1.StartWeb(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
 
 	remote2 := setupLocalRobot(t, ctx, cfg, logger.Sublogger("remote2"))
-	test.That(t, err, test.ShouldBeNil)
 
 	options, listener2, addr2 := robottestutils.CreateBaseOptionsAndListener(t)
 
@@ -2732,10 +2703,6 @@ func TestRemoteRobotsGold(t *testing.T) {
 		},
 	}
 	r := setupLocalRobot(t, ctx, localConfig, logger.Sublogger("local"))
-	defer func() {
-		test.That(t, r.Close(context.Background()), test.ShouldBeNil)
-	}()
-	test.That(t, err, test.ShouldBeNil)
 	test.That(
 		t,
 		rdktestutils.NewResourceNameSet(r.ResourceNames()...),
@@ -2819,11 +2786,6 @@ func TestRemoteRobotsGold(t *testing.T) {
 	})
 
 	remote3 := setupLocalRobot(t, ctx, cfg, logger.Sublogger("remote3"))
-	test.That(t, err, test.ShouldBeNil)
-
-	defer func() {
-		test.That(t, remote3.Close(context.Background()), test.ShouldBeNil)
-	}()
 
 	// Note: There's a slight chance this test can fail if someone else
 	// claims the port we just released by closing the server.
@@ -2887,10 +2849,6 @@ func TestInferRemoteRobotDependencyConnectAtStartup(t *testing.T) {
 		},
 	}
 	r := setupLocalRobot(t, ctx, localConfig, logger.Sublogger("local"))
-	defer func() {
-		test.That(t, r.Close(context.Background()), test.ShouldBeNil)
-	}()
-	test.That(t, err, test.ShouldBeNil)
 	test.That(
 		t,
 		rdktestutils.NewResourceNameSet(r.ResourceNames()...),
@@ -2944,11 +2902,6 @@ func TestInferRemoteRobotDependencyConnectAtStartup(t *testing.T) {
 	})
 
 	foo2 := setupLocalRobot(t, ctx, fooCfg, logger.Sublogger("foo2"))
-	test.That(t, err, test.ShouldBeNil)
-
-	defer func() {
-		test.That(t, foo2.Close(context.Background()), test.ShouldBeNil)
-	}()
 
 	// Note: There's a slight chance this test can fail if someone else
 	// claims the port we just released by closing the server.
@@ -3112,10 +3065,6 @@ func TestInferRemoteRobotDependencyAmbiguous(t *testing.T) {
 		},
 	}
 	r := setupLocalRobot(t, ctx, localConfig, logger.Sublogger("local"))
-	defer func() {
-		test.That(t, r.Close(context.Background()), test.ShouldBeNil)
-	}()
-	test.That(t, err, test.ShouldBeNil)
 
 	expectedSet := rdktestutils.NewResourceNameSet(
 		motion.Named(resource.DefaultServiceName),
