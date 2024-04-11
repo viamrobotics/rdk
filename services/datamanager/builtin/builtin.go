@@ -242,9 +242,7 @@ func (svc *builtIn) initializeOrUpdateCollector(
 	res resource.Resource,
 	md resourceMethodMetadata,
 	config datamanager.DataCaptureConfig,
-) (
-	*collectorAndConfig, error,
-) {
+) (*collectorAndConfig, error) {
 	// Build metadata.
 	captureMetadata, err := datacapture.BuildCaptureMetadata(
 		config.Name.API,
@@ -673,7 +671,6 @@ func (svc *builtIn) updateDataCaptureConfigs(
 			method.CaptureDirectory = captureDir
 			captureCopies = append(captureCopies, method)
 		}
-		svc.logger.Warn(captureCopies)
 		resourceCaptureConfigMap[res] = captureCopies
 	}
 	return resourceCaptureConfigMap, nil
