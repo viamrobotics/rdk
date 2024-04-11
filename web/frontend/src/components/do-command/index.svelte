@@ -29,8 +29,9 @@ const handleDoCommand = async (
     return;
   }
 
-  const client = getClientByType($robotClient, type);
+  const client = getClientByType($robotClient, type, name);
   if (!client) {
+    notify.danger(`Could not find client for ${name}`);
     return;
   }
 
