@@ -73,10 +73,15 @@ jobs:
         parent: false
         gzip: false
 
+    - name: Set Date Version (Latest)
+      id: date_version
+      if: inputs.release_type == 'latest'
+      run: echo "date=`date +%Y%m%d%H%M%S`" >> $GITHUB_OUTPUT
+
     - name: Build (Latest)
       if: inputs.release_type == 'latest'
       run: |
-        sudo -Hu testbot bash -lc 'make RELEASE_TYPE="latest" BUILD_CHANNEL="${{date +%Y%m%d%H%M%S}}" static-release'
+        sudo -Hu testbot bash -lc 'make RELEASE_TYPE="latest" BUILD_CHANNEL="${{steps.date_version.outputs.date}}" static-release'
 
     - name: Build (Tagged)
       if: inputs.release_type == 'stable' || inputs.release_type == 'rc'
