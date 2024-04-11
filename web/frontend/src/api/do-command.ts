@@ -1,4 +1,5 @@
 import {
+  CameraClient,
   commonApi,
   doCommandFromClient,
   SensorClient,
@@ -29,7 +30,7 @@ export interface DoCommandClient {
 }
 
 export const doCommand = async (
-  client: DoCommandClient | SensorClient,
+  client: DoCommandClient | SensorClient | CameraClient,
   name: string,
   command: string
 ) => {
@@ -43,7 +44,7 @@ export const doCommand = async (
   });
 
   // TODO(RSDK-7272): Figure out long-term solution for DoCommand in RC
-  if (client instanceof SensorClient) {
+  if (client instanceof SensorClient || client instanceof CameraClient) {
     return client.doCommand(parsedCommand);
   }
   return doCommandFromClient(client, name, parsedCommand);

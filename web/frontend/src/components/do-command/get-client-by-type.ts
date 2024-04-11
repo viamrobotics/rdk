@@ -1,4 +1,8 @@
-import { SensorClient, type RobotClient } from '@viamrobotics/sdk';
+import {
+  SensorClient,
+  type RobotClient,
+  CameraClient,
+} from '@viamrobotics/sdk';
 
 const CLIENT_TYPES = {
   arm: 'armService',
@@ -32,6 +36,8 @@ export const getClientByType = (
   // TODO(RSDK-7272): Figure out long-term solution for DoCommand in RC
   if (type === 'sensor') {
     return new SensorClient(robotClient, name);
+  } else if (type === 'camera') {
+    return new CameraClient(robotClient, name);
   }
 
   return null;
