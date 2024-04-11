@@ -114,7 +114,19 @@ func (mr *moveRequest) Plan(ctx context.Context) (motionplan.Plan, error) {
 	}
 
 	// TODO(RSDK-5634): this should pass in mr.seedplan and the appropriate replanCostFactor once this bug is found and fixed.
-	return motionplan.Replan(ctx, &planRequestCopy, nil, 0)
+	plan, err := motionplan.Replan(ctx, &planRequestCopy, nil, 0)
+	if err != nil {
+		return nil, err
+	}
+	mr.logger.Debug("ABOUT TO PRINT THE PLAN POSES WE HAVE CONSTRUCTED")
+	for _, s := range plan.Path() {
+		mr.logger.Debugf("%v", s)
+	}
+	mr.logger.Debug("ABOUT TO PRINT THE PLAN TRAJ")
+	for _, t := range plan.Trajectory() {
+		mr.logger.Debugf("%v", t)
+	}
+	return plan, nil
 }
 
 func (mr *moveRequest) Execute(ctx context.Context, plan motionplan.Plan) (state.ExecuteResponse, error) {
@@ -604,6 +616,8 @@ func (ms *builtIn) newMoveOnMapRequest(
 
 	// build kinematic options
 	kinematicsOptions := kbOptionsFromCfg(motionCfg, valExtra)
+	kinematicsOptions.NoSkidSteer = true
+	kinematicsOptions.PositionOnlyMode = false
 
 	fs, err := ms.fsService.FrameSystem(ctx, nil)
 	if err != nil {
