@@ -388,7 +388,7 @@ func (m *EncodedMotor) goForInternal(ctx context.Context, rpm, goalPos, directio
 			}
 			// start a new rpmMonitor
 			var rpmCtx context.Context
-			rpmCtx, m.rpmMonitorDone = context.WithCancel(ctx)
+			rpmCtx, m.rpmMonitorDone = context.WithCancel(context.Background())
 			m.activeBackgroundWorkers.Add(1)
 			go func() {
 				defer m.activeBackgroundWorkers.Done()
