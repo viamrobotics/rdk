@@ -17,7 +17,10 @@ type StoppableWorkers interface {
 	Context() context.Context
 }
 
-// stoppableWorkersImpl is the implementation of StoppableWorkers.
+// stoppableWorkersImpl is the implementation of StoppableWorkers. The linter will complain if you
+// try to make a copy of something that contains a sync.WaitGroup (and returning a value at the end
+// of NewStoppableWorkers() would make a copy of it), so we do everything through the
+// StoppableWorkers interface to avoid making copies (since interfaces do everything by pointer).
 type stoppableWorkersImpl struct {
 	cancelCtx               context.Context
 	cancelFunc              func()
