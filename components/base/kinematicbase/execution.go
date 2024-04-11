@@ -49,11 +49,11 @@ type arcStep struct {
 }
 
 func (step *arcStep) String() string {
-	return fmt.Sprintf("Step: lin velocity: %f, ang velocity: %f, duration: %f s, arcSegment %+v, arc start pose %s",
+	return fmt.Sprintf("Step: lin velocity: %f,\n\t ang velocity: %f,\n\t duration: %f s,\n\t arcSegment %s,\n\t arc start pose %v",
 		step.linVelMMps,
 		step.angVelDegps,
 		step.durationSeconds,
-		step.arcSegment,
+		step.arcSegment.String(),
 		spatialmath.PoseToProtobuf(step.arcSegment.StartPosition),
 	)
 }
@@ -153,7 +153,7 @@ func (ptgk *ptgBaseKinematics) GoToInputs(ctx context.Context, inputSteps ...[]r
 			currentInputs := []referenceframe.Input{
 				step.arcSegment.StartConfiguration[0],
 				step.arcSegment.StartConfiguration[1],
-				{step.arcSegment.StartConfiguration[2].Value + math.Abs(distIncVel)*timeElapsedSeconds},
+				{Value: step.arcSegment.StartConfiguration[2].Value + math.Abs(distIncVel)*timeElapsedSeconds},
 			}
 			ptgk.inputLock.Lock()
 			ptgk.currentInputs = currentInputs
