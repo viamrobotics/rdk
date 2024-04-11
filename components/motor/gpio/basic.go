@@ -331,3 +331,22 @@ func (m *Motor) GoTo(ctx context.Context, rpm, positionRevolutions float64, extr
 func (m *Motor) ResetZeroPosition(ctx context.Context, offset float64, extra map[string]interface{}) error {
 	return motor.NewResetZeroPositionUnsupportedError(m.Name().ShortName())
 }
+
+// DirectionMoving returns the direction we are currently moving in, with 1 representing
+// forward and  -1 representing backwards.
+func (m *Motor) DirectionMoving() int64 {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return int64(m.directionMovingInLock())
+}
+
+func (m *Motor) directionMovingInLock() float64 {
+	move, powerPct, err := m.IsPowered(context.Background(), nil)
+	if move {
+		return sign(powerPct)
+	}
+	if err != nil {
+		m.logger.Error(err)
+	}
+	return 0
+}

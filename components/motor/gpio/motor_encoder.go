@@ -13,7 +13,6 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/encoder"
-	"go.viam.com/rdk/components/encoder/single"
 	"go.viam.com/rdk/components/motor"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/operation"
@@ -45,12 +44,6 @@ func WrapMotorWithEncoder(
 	mm, err := newEncodedMotor(c.ResourceName(), mc, m, e, logger)
 	if err != nil {
 		return nil, err
-	}
-
-	single, isSingle := e.(*single.Encoder)
-	if isSingle {
-		single.AttachDirectionalAwareness(mm)
-		logger.CInfo(ctx, "direction attached to single encoder from encoded motor")
 	}
 
 	return mm, nil
@@ -233,25 +226,6 @@ func (m *EncodedMotor) makeAdjustments(
 		return 0, err
 	}
 	return newPowerPct, nil
-}
-
-// DirectionMoving returns the direction we are currently moving in, with 1 representing
-// forward and  -1 representing backwards.
-func (m *EncodedMotor) DirectionMoving() int64 {
-	m.mu.RLock()
-	defer m.mu.RUnlock()
-	return int64(m.directionMovingInLock())
-}
-
-func (m *EncodedMotor) directionMovingInLock() float64 {
-	move, powerPct, err := m.real.IsPowered(context.Background(), nil)
-	if move {
-		return sign(powerPct)
-	}
-	if err != nil {
-		m.logger.Error(err)
-	}
-	return 0
 }
 
 // SetPower sets the percentage of power the motor should employ between -1 and 1.
