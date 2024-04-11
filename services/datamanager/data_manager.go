@@ -53,7 +53,7 @@ func FromDependencies(deps resource.Dependencies, name string) (Service, error) 
 
 // AssociatedConfig specify a list of methods to capture on resources and implements the resource.AssociatedConfig interface.
 type AssociatedConfig struct {
-	CaptureMethods []*DataCaptureConfig `json:"capture_methods"`
+	CaptureMethods []DataCaptureConfig `json:"capture_methods"`
 }
 
 func newAssociatedConfig(attributes utils.AttributeMap) (*AssociatedConfig, error) {
@@ -80,7 +80,7 @@ func (ac *AssociatedConfig) Equals(other resource.AssociatedConfig) bool {
 	// naively iterate over the list of capture methods and determine if they are the same
 	// note that two lists with capture methods [a, b] and [b, a] will not be equal as they are out of order
 	for i := 0; i < len(ac.CaptureMethods); i++ {
-		if !ac.CaptureMethods[i].Equals(ac2.CaptureMethods[i]) {
+		if !ac.CaptureMethods[i].Equals(&ac2.CaptureMethods[i]) {
 			return false
 		}
 	}
@@ -102,7 +102,7 @@ func (ac *AssociatedConfig) Link(conf *resource.Config) {
 
 	// infer name from first index in CaptureMethods
 	name := ac.CaptureMethods[0].Name
-	captureMethodCopies := make([]*DataCaptureConfig, 0, len(ac.CaptureMethods))
+	captureMethodCopies := make([]DataCaptureConfig, 0, len(ac.CaptureMethods))
 	for _, method := range ac.CaptureMethods {
 		methodCopy := method
 		captureMethodCopies = append(captureMethodCopies, methodCopy)

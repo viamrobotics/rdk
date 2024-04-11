@@ -241,7 +241,7 @@ var metadataToAdditionalParamFields = map[string]string{
 func (svc *builtIn) initializeOrUpdateCollector(
 	res resource.Resource,
 	md resourceMethodMetadata,
-	config *datamanager.DataCaptureConfig,
+	config datamanager.DataCaptureConfig,
 ) (
 	*collectorAndConfig, error,
 ) {
@@ -260,7 +260,7 @@ func (svc *builtIn) initializeOrUpdateCollector(
 	// TODO(DATA-451): validate method params
 
 	if storedCollectorAndConfig, ok := svc.collectors[md]; ok {
-		if storedCollectorAndConfig.Config.Equals(config) && res == storedCollectorAndConfig.Resource {
+		if storedCollectorAndConfig.Config.Equals(&config) && res == storedCollectorAndConfig.Resource {
 			// If the attributes have not changed, do nothing and leave the existing collector.
 			return svc.collectors[md], nil
 		}
@@ -323,7 +323,7 @@ func (svc *builtIn) initializeOrUpdateCollector(
 	}
 	collector.Collect()
 
-	return &collectorAndConfig{res, collector, *config}, nil
+	return &collectorAndConfig{res, collector, config}, nil
 }
 
 func (svc *builtIn) closeSyncer() {
@@ -534,7 +534,6 @@ func (svc *builtIn) Reconfigure(
 			svc.closeSyncer()
 		}
 	}
-
 	return nil
 }
 
@@ -615,7 +614,7 @@ func (svc *builtIn) sync() {
 	}
 }
 
-//nolint
+// nolint
 func getAllFilesToSync(dir string, lastModifiedMillis int) []string {
 	var filePaths []string
 	_ = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
@@ -655,8 +654,8 @@ func (svc *builtIn) updateDataCaptureConfigs(
 	resources resource.Dependencies,
 	conf resource.Config,
 	captureDir string,
-) (map[resource.Resource][]*datamanager.DataCaptureConfig, error) {
-	resourceCaptureConfigMap := make(map[resource.Resource][]*datamanager.DataCaptureConfig)
+) (map[resource.Resource][]datamanager.DataCaptureConfig, error) {
+	resourceCaptureConfigMap := make(map[resource.Resource][]datamanager.DataCaptureConfig)
 	for name, assocCfg := range conf.AssociatedAttributes {
 		associatedConf, err := utils.AssertType[*datamanager.AssociatedConfig](assocCfg)
 		if err != nil {
