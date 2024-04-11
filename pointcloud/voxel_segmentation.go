@@ -80,13 +80,12 @@ func (vg *VoxelGrid) GetPlanesFromLabels() ([]Plane, PointCloud, error) {
 			for p, d := range vox.Points {
 				if _, ok := seen[p]; ok { // already assigned point to another label
 					continue
-				} else {
-					seen[p] = true
-					if _, ok := pointsByLabel[vox.Label]; !ok {
-						pointsByLabel[vox.Label] = make(map[r3.Vector]Data)
-					}
-					pointsByLabel[vox.Label][p] = d
 				}
+				seen[p] = true
+				if _, ok := pointsByLabel[vox.Label]; !ok {
+					pointsByLabel[vox.Label] = make(map[r3.Vector]Data)
+				}
+				pointsByLabel[vox.Label][p] = d
 			}
 		} else if len(vox.Points) == len(vox.PointLabels) {
 			// voxel has points for either no plane or at least two planes
@@ -95,14 +94,13 @@ func (vg *VoxelGrid) GetPlanesFromLabels() ([]Plane, PointCloud, error) {
 			for p, d := range vox.Points {
 				if _, ok := seen[p]; ok { // already assigned point to another label
 					continue
-				} else {
-					seen[p] = true
-					ptLabel := vox.PointLabels[i]
-					if _, ok := pointsByLabel[ptLabel]; !ok {
-						pointsByLabel[ptLabel] = make(map[r3.Vector]Data)
-					}
-					pointsByLabel[ptLabel][p] = d
 				}
+				seen[p] = true
+				ptLabel := vox.PointLabels[i]
+				if _, ok := pointsByLabel[ptLabel]; !ok {
+					pointsByLabel[ptLabel] = make(map[r3.Vector]Data)
+				}
+				pointsByLabel[ptLabel][p] = d
 				i++
 			}
 		}

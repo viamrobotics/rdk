@@ -70,11 +70,10 @@ func TestEntrypoint(t *testing.T) {
 					test.That(t, server.Stop(), test.ShouldBeNil)
 				}()
 				break
-			} else {
-				logger.Infow("Port in use. Restarting on new port.", "port", port, "err", err)
-				server.Stop()
-				continue
 			}
+			logger.Infow("Port in use. Restarting on new port.", "port", port, "err", err)
+			server.Stop()
+			continue
 		}
 		test.That(t, success, test.ShouldBeTrue)
 

@@ -99,7 +99,7 @@ linters-settings:
       - name: range
       - name: receiver-naming
       - name: redefines-builtin-id
-      # - name: superfluous-else
+      - name: superfluous-else
       - name: time-naming
       - name: unexported-return
       # - name: unreachable-code
