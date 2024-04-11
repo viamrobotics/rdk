@@ -10,6 +10,7 @@ import (
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/resource"
+	rdkutils "go.viam.com/rdk/utils"
 )
 
 // SetState sets the state of the motor for the built-in control loop.
@@ -221,4 +222,24 @@ func (cm *controlledMotor) ResetZeroPosition(ctx context.Context, offset float64
 	defer cm.mu.Unlock()
 	cm.offsetInTicks = -1 * offset * cm.ticksPerRotation
 	return nil
+}
+
+// GoTo instructs the motor to go to a specific position (provided in revolutions from home/zero),
+// at a specific speed. Regardless of the directionality of the RPM this function will move the motor
+// towards the specified target/position
+// This will block until the position has been reached.
+func (cm *controlledMotor) GoTo(ctx context.Context, rpm, targetPosition float64, extra map[string]interface{}) error {
+	pos, err := cm.Position(ctx, extra)
+	if err != nil {
+		return err
+	}
+	currRotations := pos / cm.ticksPerRotation
+	rotations := targetPosition - currRotations
+	// if you call GoFor with 0 revolutions, the motor will spin forever. If we are at the target,
+	// we must avoid this by not calling GoFor.
+	if rdkutils.Float64AlmostEqual(rotations, 0, 0.1) {
+		cm.logger.CDebug(ctx, "GoTo distance nearly zero, not moving")
+		return nil
+	}
+	return cm.GoFor(ctx, rpm, rotations, extra)
 }
