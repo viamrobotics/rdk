@@ -614,7 +614,7 @@ func (svc *builtIn) sync() {
 	}
 }
 
-// nolint
+//nolint
 func getAllFilesToSync(dir string, lastModifiedMillis int) []string {
 	var filePaths []string
 	_ = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
@@ -668,10 +668,13 @@ func (svc *builtIn) updateDataCaptureConfigs(
 			continue
 		}
 
+		captureCopies := make([]datamanager.DataCaptureConfig, len(associatedConf.CaptureMethods))
 		for _, method := range associatedConf.CaptureMethods {
 			method.CaptureDirectory = captureDir
+			captureCopies = append(captureCopies, method)
 		}
-		resourceCaptureConfigMap[res] = associatedConf.CaptureMethods
+		svc.logger.Warn(captureCopies)
+		resourceCaptureConfigMap[res] = captureCopies
 	}
 	return resourceCaptureConfigMap, nil
 }
