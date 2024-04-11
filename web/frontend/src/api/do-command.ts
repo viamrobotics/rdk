@@ -1,6 +1,7 @@
 import {
   commonApi,
   doCommandFromClient,
+  SensorClient,
   type ServiceError,
   type StructType,
 } from '@viamrobotics/sdk';
@@ -28,7 +29,7 @@ export interface DoCommandClient {
 }
 
 export const doCommand = async (
-  client: DoCommandClient,
+  client: DoCommandClient | SensorClient,
   name: string,
   command: string
 ) => {
@@ -41,5 +42,9 @@ export const doCommand = async (
     command: parsedCommand,
   });
 
+  // TODO(RSDK-7272): Figure out long-term solution for DoCommand in RC
+  if (client instanceof SensorClient) {
+    return client.doCommand(parsedCommand);
+  }
   return doCommandFromClient(client, name, parsedCommand);
 };
