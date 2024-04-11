@@ -184,3 +184,41 @@ func (cm *controlledMotor) Close(ctx context.Context) error {
 	cm.activeBackgroundWorkers.Wait()
 	return nil
 }
+
+// Properties returns whether or not the motor supports certain optional properties.
+func (cm *controlledMotor) Properties(ctx context.Context, extra map[string]interface{}) (motor.Properties, error) {
+	return motor.Properties{
+		PositionReporting: true,
+	}, nil
+}
+
+// Position reports the position of the motor based on its encoder. If it's not supported, the returned
+// data is undefined. The unit returned is the number of revolutions which is intended to be fed
+// back into calls of GoFor.
+func (cm *controlledMotor) Position(ctx context.Context, extra map[string]interface{}) (float64, error) {
+	ticks, _, err := cm.enc.Position(ctx, encoder.PositionTypeTicks, extra)
+	if err != nil {
+		return 0, err
+	}
+
+	// offsetTicks in Rotation can be changed by ResetPosition
+	cm.mu.RLock()
+	defer cm.mu.RUnlock()
+	return (ticks + cm.offsetInTicks) / cm.ticksPerRotation, nil
+}
+
+// ResetZeroPosition sets the current position (+/- offset) to be the new zero (home) position.
+func (cm *controlledMotor) ResetZeroPosition(ctx context.Context, offset float64, extra map[string]interface{}) error {
+	// Stop the motor if resetting position
+	if err := cm.Stop(ctx, extra); err != nil {
+		return err
+	}
+	if err := cm.enc.ResetPosition(ctx, extra); err != nil {
+		return err
+	}
+
+	cm.mu.Lock()
+	defer cm.mu.Unlock()
+	cm.offsetInTicks = -1 * offset * cm.ticksPerRotation
+	return nil
+}
