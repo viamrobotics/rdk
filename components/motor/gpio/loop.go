@@ -4,7 +4,10 @@ import (
 	"context"
 	"math"
 	"sync"
+	"time"
 
+	"github.com/pkg/errors"
+	"go.uber.org/multierr"
 	"go.viam.com/rdk/components/encoder"
 	"go.viam.com/rdk/components/motor"
 	"go.viam.com/rdk/control"
@@ -288,6 +291,30 @@ func (cm *controlledMotor) GoFor(ctx context.Context, rpm, revolutions float64, 
 	// when rev = 0, only velocity is controlled
 	// setPoint is +/- infinity, maxVel is calculated velVal
 	if err := cm.updateControlBlock(ctx, goalPos, velVal); err != nil {
+		return err
+	}
+
+	// we can probably use something in controls to make GoFor blockign without this
+	// helper function
+	positionReached := func(ctx context.Context) (bool, error) {
+		var errs error
+		pos, _, posErr := cm.enc.Position(ctx, encoder.PositionTypeTicks, extra)
+		errs = multierr.Combine(errs, posErr)
+		if rdkutils.Float64AlmostEqual(pos, goalPos, 10.0) {
+			stopErr := cm.Stop(ctx, extra)
+			errs = multierr.Combine(errs, stopErr)
+			return true, errs
+		}
+		return false, errs
+	}
+	err = cm.opMgr.WaitForSuccess(
+		ctx,
+		10*time.Millisecond,
+		positionReached,
+	)
+	// Ignore the context canceled error - this occurs when the motor is stopped
+	// at the beginning of goForInternal
+	if !errors.Is(err, context.Canceled) {
 		return err
 	}
 
