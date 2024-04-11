@@ -249,19 +249,6 @@ func (m *EncodedMotor) makeAdjustments(
 	return newPowerPct, nil
 }
 
-func fixPowerPct(powerPct, max float64) float64 {
-	powerPct = math.Min(powerPct, max)
-	powerPct = math.Max(powerPct, -1*max)
-	return powerPct
-}
-
-func sign(x float64) float64 { // A quick helper function
-	if math.Signbit(x) {
-		return -1.0
-	}
-	return 1.0
-}
-
 // DirectionMoving returns the direction we are currently moving in, with 1 representing
 // forward and  -1 representing backwards.
 func (m *EncodedMotor) DirectionMoving() int64 {
