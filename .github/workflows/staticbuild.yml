@@ -16,8 +16,20 @@ on:
         required: true
 
 jobs:
+  build_timestamp:
+    name: Set Build Timestamp 
+    runs-on: ubuntu-latest
+    outputs:
+      date: ${{ steps.build_time.outputs.date }}
+    steps:
+    - name: Build Time
+      id: build_time
+      if: inputs.release_type == 'latest'
+      run: echo "date=`date +%Y%m%d%H%M%S`" >> $GITHUB_OUTPUT
+
   static:
     name: Antique Build
+    needs: build_timestamp
     strategy:
       fail-fast: false
       matrix:
@@ -73,15 +85,10 @@ jobs:
         parent: false
         gzip: false
 
-    - name: Set Date Version (Latest)
-      id: date_version
-      if: inputs.release_type == 'latest'
-      run: echo "date=`date +%Y%m%d%H%M%S`" >> $GITHUB_OUTPUT
-
     - name: Build (Latest)
       if: inputs.release_type == 'latest'
       run: |
-        sudo -Hu testbot bash -lc 'make RELEASE_TYPE="latest" BUILD_CHANNEL="${{steps.date_version.outputs.date}}" static-release'
+        sudo -Hu testbot bash -lc 'make RELEASE_TYPE="latest" BUILD_CHANNEL="${{needs.build_timestamp.outputs.date}}" static-release'
 
     - name: Build (Tagged)
       if: inputs.release_type == 'stable' || inputs.release_type == 'rc'
