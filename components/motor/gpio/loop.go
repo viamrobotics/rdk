@@ -2,6 +2,7 @@ package gpio
 
 import (
 	"context"
+	"math"
 	"sync"
 
 	"go.viam.com/rdk/components/encoder"
@@ -229,6 +230,7 @@ func (cm *controlledMotor) ResetZeroPosition(ctx context.Context, offset float64
 // towards the specified target/position
 // This will block until the position has been reached.
 func (cm *controlledMotor) GoTo(ctx context.Context, rpm, targetPosition float64, extra map[string]interface{}) error {
+	// no op manager added, we're relying on GoFor's oepration manager in this driver
 	pos, err := cm.Position(ctx, extra)
 	if err != nil {
 		return err
@@ -242,4 +244,52 @@ func (cm *controlledMotor) GoTo(ctx context.Context, rpm, targetPosition float64
 		return nil
 	}
 	return cm.GoFor(ctx, rpm, rotations, extra)
+}
+
+// GoFor instructs the motor to go in a specific direction for a specific amount of
+// revolutions at a given speed in revolutions per minute. Both the RPM and the revolutions
+// can be assigned negative values to move in a backwards direction. Note: if both are
+// negative the motor will spin in the forward direction.
+// If revolutions is 0, this will run the motor at rpm indefinitely
+// If revolutions != 0, this will block until the number of revolutions has been completed or another operation comes in.
+func (cm *controlledMotor) GoFor(ctx context.Context, rpm, revolutions float64, extra map[string]interface{}) error {
+	cm.opMgr.CancelRunning(ctx)
+	ctx, done := cm.opMgr.New(ctx)
+	defer done()
+
+	switch speed := math.Abs(rpm); {
+	case speed < 0.1:
+		cm.logger.CWarn(ctx, "motor speed is nearly 0 rev_per_min")
+		return motor.NewZeroRPMError()
+	case cm.cfg.MaxRPM > 0 && speed > cm.cfg.MaxRPM-0.1:
+		cm.logger.CWarnf(ctx, "motor speed is nearly the max rev_per_min (%f)", cm.cfg.MaxRPM)
+	default:
+	}
+
+	currentTicks, _, err := cm.enc.Position(ctx, encoder.PositionTypeTicks, extra)
+	if err != nil {
+		return err
+	}
+
+	goalPos, _, _ := encodedGoForMath(rpm, revolutions, currentTicks, cm.ticksPerRotation)
+
+	if cm.loop == nil {
+		// create new control loop if control config exists
+		if len(cm.controlLoopConfig.Blocks) != 0 {
+			if err := cm.startControlLoop(); err != nil {
+				return err
+			}
+		}
+	}
+
+	cm.loop.Resume()
+	// set control loop values
+	velVal := math.Abs(rpm * cm.ticksPerRotation / 60)
+	// when rev = 0, only velocity is controlled
+	// setPoint is +/- infinity, maxVel is calculated velVal
+	if err := cm.updateControlBlock(ctx, goalPos, velVal); err != nil {
+		return err
+	}
+
+	return nil
 }
