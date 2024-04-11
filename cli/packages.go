@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"bytes"
 	"context"
 	"io"
 	"net/http"
@@ -16,6 +15,8 @@ import (
 )
 
 var boolTrue = true
+
+const bufferSize = 512
 
 // PackageType refers to the type of the package.
 type PackageType string
@@ -118,17 +119,14 @@ func downloadPackageFromURL(ctx context.Context, httpClient *http.Client,
 		utils.UncheckedError(res.Body.Close())
 	}()
 
-	bin, err := io.ReadAll(res.Body)
-	if err != nil {
-		return errors.Wrapf(err, serverErrorMessage)
-	}
-	r := io.NopCloser(bytes.NewReader(bin))
-
-	if _, err := io.Copy(packageFile, r); err != nil {
-		return err
-	}
-	if err := r.Close(); err != nil {
-		return err
+	for {
+		_, err := io.CopyN(packageFile, res.Body, bufferSize)
+		if err != nil {
+			if errors.Is(err, io.EOF) {
+				break
+			}
+			return err
+		}
 	}
 
 	return nil
