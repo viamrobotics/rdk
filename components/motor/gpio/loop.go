@@ -53,7 +53,7 @@ func (cm *controlledMotor) updateControlBlock(ctx context.Context, setPoint, max
 	return nil
 }
 
-func (cm *controlledMotor) setupControlLoop() error {
+func (cm *controlledMotor) setupControlLoop(conf *Config) error {
 	// set the necessary options for an encoded motor
 	options := control.Options{
 		PositionControlUsingTrapz: true,
@@ -63,9 +63,9 @@ func (cm *controlledMotor) setupControlLoop() error {
 	// convert the motor config ControlParameters to the control.PIDConfig structure for use in setup_control.go
 	convertedControlParams := []control.PIDConfig{{
 		Type: "",
-		P:    cm.cfg.ControlParameters.P,
-		I:    cm.cfg.ControlParameters.I,
-		D:    cm.cfg.ControlParameters.D,
+		P:    conf.ControlParameters.P,
+		I:    conf.ControlParameters.I,
+		D:    conf.ControlParameters.D,
 	}}
 
 	// auto tune motor if all ControlParameters are 0
@@ -101,7 +101,7 @@ func (cm *controlledMotor) startControlLoop() error {
 
 func setupMotorWithControls(
 	ctx context.Context,
-	m motor.Motor,
+	m *Motor,
 	enc encoder.Encoder,
 	cfg resource.Config,
 	logger logging.Logger,
@@ -117,8 +117,19 @@ func setupMotorWithControls(
 	}
 
 	cm := &controlledMotor{
-		Named:  cfg.ResourceName().AsNamed(),
-		logger: logger,
+		Named:            cfg.ResourceName().AsNamed(),
+		logger:           logger,
+		opMgr:            operation.NewSingleOperationManager(),
+		ticksPerRotation: tpr,
+		real:             m,
+		enc:              enc,
+	}
+
+	// setup control loop
+	if conf.ControlParameters != nil {
+		if err := cm.setupControlLoop(conf); err != nil {
+			return nil, err
+		}
 	}
 
 	return cm, nil
@@ -135,13 +146,12 @@ type controlledMotor struct {
 	ticksPerRotation float64
 
 	mu   sync.RWMutex
-	real motor.Motor
+	real *Motor
 	enc  encoder.Encoder
 
 	controlLoopConfig control.Config
 	blockNames        map[string][]string
 	loop              *control.Loop
-	cfg               Config
 }
 
 // SetPower sets the percentage of power the motor should employ between -1 and 1.
@@ -264,8 +274,8 @@ func (cm *controlledMotor) GoFor(ctx context.Context, rpm, revolutions float64, 
 	case speed < 0.1:
 		cm.logger.CWarn(ctx, "motor speed is nearly 0 rev_per_min")
 		return motor.NewZeroRPMError()
-	case cm.cfg.MaxRPM > 0 && speed > cm.cfg.MaxRPM-0.1:
-		cm.logger.CWarnf(ctx, "motor speed is nearly the max rev_per_min (%f)", cm.cfg.MaxRPM)
+	case cm.real.maxRPM > 0 && speed > cm.real.maxRPM-0.1:
+		cm.logger.CWarnf(ctx, "motor speed is nearly the max rev_per_min (%f)", cm.real.maxRPM)
 	default:
 	}
 

@@ -182,16 +182,24 @@ func createNewMotor(
 	if err != nil {
 		return nil, err
 	}
+
 	if motorConfig.Encoder != "" {
+		basic := m.(*Motor)
 		e, err := encoder.FromDependencies(deps, motorConfig.Encoder)
 		if err != nil {
 			return nil, err
 		}
+		switch {
+		case motorConfig.ControlParameters == nil:
+			m, err = WrapMotorWithEncoder(ctx, e, cfg, *motorConfig, m, logger)
+			if err != nil {
+				return nil, err
+			}
+		default:
+			m, err = setupMotorWithControls(ctx, basic, e, cfg, logger)
 
-		m, err = WrapMotorWithEncoder(ctx, e, cfg, *motorConfig, m, logger)
-		if err != nil {
-			return nil, err
 		}
+
 	}
 
 	err = m.Stop(ctx, nil)
