@@ -8,6 +8,7 @@ import (
 
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
+
 	"go.viam.com/rdk/components/encoder"
 	"go.viam.com/rdk/components/motor"
 	"go.viam.com/rdk/control"
@@ -100,7 +101,7 @@ func (cm *controlledMotor) startControlLoop() error {
 }
 
 func setupMotorWithControls(
-	ctx context.Context,
+	_ context.Context,
 	m *Motor,
 	enc encoder.Encoder,
 	cfg resource.Config,

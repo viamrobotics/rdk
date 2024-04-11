@@ -197,9 +197,10 @@ func createNewMotor(
 			}
 		default:
 			m, err = setupMotorWithControls(ctx, basic, e, cfg, logger)
-
+			if err != nil {
+				return nil, err
+			}
 		}
-
 	}
 
 	err = m.Stop(ctx, nil)

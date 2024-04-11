@@ -359,8 +359,6 @@ func (m *EncodedMotor) goForInternal(ctx context.Context, rpm, goalPos, directio
 	}()
 
 	return nil
-
-	return nil
 }
 
 // GoTo instructs the motor to go to a specific position (provided in revolutions from home/zero),
