@@ -131,8 +131,7 @@ func TestState(t *testing.T) {
 				return nil, errors.New("planning failed")
 			},
 			executeFunc: func(ctx context.Context, plan motionplan.Plan) (state.ExecuteResponse, error) {
-				t.Log("should not be called as planning failed")
-				t.FailNow()
+				t.Error("should not be called as planning failed")
 
 				if err := ctx.Err(); err != nil {
 					return state.ExecuteResponse{}, err
