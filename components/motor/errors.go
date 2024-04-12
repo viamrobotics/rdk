@@ -24,3 +24,9 @@ func NewZeroRPMError() error {
 func NewGoToUnsupportedError(motorName string) error {
 	return errors.Errorf("motor with name %s does not support GoTo", motorName)
 }
+
+// NewControlParametersUnimplementedError returns an error when a control parameters are
+// unimplemented in the config being used of a controlledMotor
+func NewControlParametersUnimplementedError() error {
+	return errors.New("control parameters must be configured to setup a motor with controls")
+}

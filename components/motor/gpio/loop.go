@@ -24,8 +24,6 @@ func (cm *controlledMotor) SetState(ctx context.Context, state []*control.Signal
 		return nil
 	}
 	power := state[0].GetSignalValueAt(0)
-	cm.mu.Lock()
-	defer cm.mu.Unlock()
 	return cm.real.SetPower(ctx, power, nil)
 }
 
@@ -127,10 +125,11 @@ func setupMotorWithControls(
 	}
 
 	// setup control loop
-	if conf.ControlParameters != nil {
-		if err := cm.setupControlLoop(conf); err != nil {
-			return nil, err
-		}
+	if conf.ControlParameters == nil {
+		return nil, motor.NewControlParametersUnimplementedError()
+	}
+	if err := cm.setupControlLoop(conf); err != nil {
+		return nil, err
 	}
 
 	return cm, nil
@@ -162,8 +161,6 @@ func (cm *controlledMotor) SetPower(ctx context.Context, powerPct float64, extra
 	if cm.loop != nil {
 		cm.loop.Pause()
 	}
-	cm.mu.Lock()
-	defer cm.mu.Unlock()
 	return cm.real.SetPower(ctx, powerPct, nil)
 }
 
@@ -288,11 +285,9 @@ func (cm *controlledMotor) GoFor(ctx context.Context, rpm, revolutions float64, 
 	goalPos, _, _ := encodedGoForMath(rpm, revolutions, currentTicks, cm.ticksPerRotation)
 
 	if cm.loop == nil {
-		// create new control loop if control config exists
-		if len(cm.controlLoopConfig.Blocks) != 0 {
-			if err := cm.startControlLoop(); err != nil {
-				return err
-			}
+		// create new control loop
+		if err := cm.startControlLoop(); err != nil {
+			return err
 		}
 	}
 
