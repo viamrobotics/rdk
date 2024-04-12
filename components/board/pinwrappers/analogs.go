@@ -27,6 +27,7 @@ type AnalogSmoother struct {
 	logger            logging.Logger
 	workers           utils.StoppableWorkers
 }
+
 // SmoothAnalogReader wraps the given reader in a smoother.
 func SmoothAnalogReader(r board.Analog, c board.AnalogReaderConfig, logger logging.Logger) *AnalogSmoother {
 	smoother := &AnalogSmoother{
