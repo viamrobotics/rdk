@@ -26,7 +26,7 @@ func NewGoToUnsupportedError(motorName string) error {
 }
 
 // NewControlParametersUnimplementedError returns an error when a control parameters are
-// unimplemented in the config being used of a controlledMotor
+// unimplemented in the config being used of a controlledMotor.
 func NewControlParametersUnimplementedError() error {
 	return errors.New("control parameters must be configured to setup a motor with controls")
 }
