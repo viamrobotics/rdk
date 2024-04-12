@@ -1,4 +1,4 @@
-package board
+package pinwrappers
 
 import (
 	"context"
@@ -10,6 +10,7 @@ import (
 	"go.viam.com/test"
 	"go.viam.com/utils/testutils"
 
+	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/logging"
 )
 
@@ -47,7 +48,7 @@ func TestAnalogSmoother1(t *testing.T) {
 	}()
 
 	logger := logging.NewTestLogger(t)
-	as := SmoothAnalogReader(&testReader, AnalogReaderConfig{
+	as := SmoothAnalogReader(&testReader, board.AnalogReaderConfig{
 		AverageOverMillis: 10,
 		SamplesPerSecond:  10000,
 	}, logger)
