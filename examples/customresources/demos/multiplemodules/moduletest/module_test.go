@@ -61,9 +61,8 @@ func TestComplexModules(t *testing.T) {
 				test.That(t, server.Stop(), test.ShouldBeNil)
 			}()
 			break
-		} else {
-			server.Stop()
 		}
+		server.Stop()
 	}
 	test.That(t, success, test.ShouldBeTrue)
 
