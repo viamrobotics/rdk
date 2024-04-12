@@ -1,4 +1,4 @@
-package board
+package pinwrappers
 
 import (
 	"context"
@@ -9,6 +9,7 @@ import (
 	"github.com/pkg/errors"
 	goutils "go.viam.com/utils"
 
+	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/utils"
 )
@@ -17,7 +18,7 @@ var errStopReading = errors.New("stop reading")
 
 // An AnalogSmoother smooths the readings out from an underlying reader.
 type AnalogSmoother struct {
-	Raw                     AnalogReader
+	Raw                     board.AnalogReader
 	AverageOverMillis       int
 	SamplesPerSecond        int
 	data                    *utils.RollingAverage
@@ -29,7 +30,7 @@ type AnalogSmoother struct {
 }
 
 // SmoothAnalogReader wraps the given reader in a smoother.
-func SmoothAnalogReader(r AnalogReader, c AnalogReaderConfig, logger logging.Logger) *AnalogSmoother {
+func SmoothAnalogReader(r board.AnalogReader, c board.AnalogReaderConfig, logger logging.Logger) *AnalogSmoother {
 	cancelCtx, cancel := context.WithCancel(context.Background())
 	smoother := &AnalogSmoother{
 		Raw:               r,

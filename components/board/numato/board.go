@@ -23,6 +23,7 @@ import (
 	"go.viam.com/utils/serial"
 
 	"go.viam.com/rdk/components/board"
+	"go.viam.com/rdk/components/board/pinwrappers"
 	"go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
@@ -406,7 +407,7 @@ func connect(ctx context.Context, name resource.Name, conf *Config, logger loggi
 	b.analogs = map[string]board.AnalogReader{}
 	for _, c := range conf.Analogs {
 		r := &analogReader{b, c.Pin}
-		b.analogs[c.Name] = board.SmoothAnalogReader(r, c, logger)
+		b.analogs[c.Name] = pinwrappers.SmoothAnalogReader(r, c, logger)
 	}
 
 	b.lines = make(chan string)

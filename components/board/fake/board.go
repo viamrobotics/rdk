@@ -15,6 +15,7 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/board"
+	"go.viam.com/rdk/components/board/pinwrappers"
 	"go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
@@ -370,7 +371,7 @@ type DigitalInterruptWrapper struct {
 
 // NewDigitalInterruptWrapper returns a new digital interrupt to be used for testing.
 func NewDigitalInterruptWrapper(conf board.DigitalInterruptConfig) (*DigitalInterruptWrapper, error) {
-	di, err := board.CreateDigitalInterrupt(conf)
+	di, err := pinwrappers.CreateDigitalInterrupt(conf)
 	if err != nil {
 		return nil, err
 	}
@@ -384,10 +385,10 @@ func NewDigitalInterruptWrapper(conf board.DigitalInterruptConfig) (*DigitalInte
 func (s *DigitalInterruptWrapper) reset(conf board.DigitalInterruptConfig) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	reconf, isReconf := s.di.(board.ReconfigurableDigitalInterrupt)
+	reconf, isReconf := s.di.(pinwrappers.ReconfigurableDigitalInterrupt)
 	if conf.Name != s.conf.Name || !isReconf {
 		// rebuild
-		di, err := board.CreateDigitalInterrupt(conf)
+		di, err := pinwrappers.CreateDigitalInterrupt(conf)
 		if err != nil {
 			return err
 		}
