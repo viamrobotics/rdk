@@ -148,8 +148,6 @@ func PackageUploadAction(c *cli.Context) error {
 		return err
 	}
 
-	// If draft is set, cannot set visibility; automatically set to private
-
 	return client.packageExportAction(
 		c.String(generalFlagOrgID),
 		c.String(packageFlagName),
