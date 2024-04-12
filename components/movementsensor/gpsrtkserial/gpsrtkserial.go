@@ -701,10 +701,9 @@ func (g *rtkSerial) getNtripFromVRS() error {
 		if strings.HasPrefix(string(line), "HTTP/1.1 ") {
 			if strings.Contains(string(line), "200 OK") {
 				break
-			} else {
-				g.logger.Errorf("Bad HTTP response: %v", string(line))
-				return err
 			}
+			g.logger.Errorf("Bad HTTP response: %v", string(line))
+			return err
 		}
 	}
 

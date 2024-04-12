@@ -20,7 +20,7 @@ import (
 
 // SetState sets the state of the motor for the built-in control loop.
 func (cm *controlledMotor) SetState(ctx context.Context, state []*control.Signal) error {
-	if !cm.loop.Running() {
+	if cm.loop != nil && !cm.loop.Running() {
 		return nil
 	}
 	power := state[0].GetSignalValueAt(0)
