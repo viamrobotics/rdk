@@ -33,6 +33,7 @@ import (
 	fakebase "go.viam.com/rdk/components/base/fake"
 	"go.viam.com/rdk/components/board"
 	fakeboard "go.viam.com/rdk/components/board/fake"
+	"go.viam.com/rdk/components/board/pinwrappers"
 	"go.viam.com/rdk/components/camera"
 	fakecamera "go.viam.com/rdk/components/camera/fake"
 	"go.viam.com/rdk/components/gripper"
@@ -481,7 +482,7 @@ func TestManagerAdd(t *testing.T) {
 		return &fakeboard.AnalogReader{}, true
 	}
 	injectBoard.DigitalInterruptByNameFunc = func(name string) (board.DigitalInterrupt, bool) {
-		return &fakeboard.DigitalInterruptWrapper{}, true
+		return &pinwrappers.BasicDigitalInterrupt{}, true
 	}
 
 	cfg = &resource.Config{
