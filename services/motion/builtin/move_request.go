@@ -618,7 +618,6 @@ func (ms *builtIn) newMoveOnMapRequest(
 
 	// build kinematic options
 	kinematicsOptions := kbOptionsFromCfg(motionCfg, valExtra)
-	kinematicsOptions.NoSkidSteer = true
 	kinematicsOptions.PositionOnlyMode = false
 
 	fs, err := ms.fsService.FrameSystem(ctx, nil)
