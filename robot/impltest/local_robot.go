@@ -16,8 +16,6 @@ import (
 // LocalRobot returns a new robot with parts sourced from the given config, or fails the
 // test if it cannot. It automatically closes itself after the test and all subtests
 // complete.
-//
-//nolint:revive
 func LocalRobot(
 	t *testing.T,
 	ctx context.Context,

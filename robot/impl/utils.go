@@ -15,8 +15,6 @@ import (
 // package. Importing `robotimpl.LocalRobot` for those tests creates a circular import,
 // and changing those tests to be in the `robotimpl_test` package causes failures because
 // they test private methods.
-//
-//nolint:revive
 func setupLocalRobot(
 	t *testing.T,
 	ctx context.Context,
