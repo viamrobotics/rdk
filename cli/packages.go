@@ -161,6 +161,7 @@ func PackageUploadAction(c *cli.Context) error {
 
 func (c *viamClient) uploadPackage(
 	orgID, name, version, packageType, tarballPath string,
+	metadata MLMetadata,
 ) (*packagespb.CreatePackageResponse, error) {
 	if err := c.ensureLoggedIn(); err != nil {
 		return nil, err
@@ -181,12 +182,16 @@ func (c *viamClient) uploadPackage(
 	if err != nil {
 		return nil, err
 	}
+	metadataStruct, err := convertMetadataToStruct(metadata)
+	if err != nil {
+		return nil, err
+	}
 	pkgInfo := packagespb.PackageInfo{
 		OrganizationId: orgID,
 		Name:           name,
 		Version:        version,
 		Type:           *packageTypeProto,
-		// TODO: parse metadata
+		Metadata:       metadataStruct,
 	}
 	req := &packagespb.CreatePackageRequest{
 		Package: &packagespb.CreatePackageRequest_Info{

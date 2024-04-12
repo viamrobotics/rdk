@@ -1481,9 +1481,9 @@ Example:
 				},
 				{
 					// update?
-					Name:      "upload",
-					Aliases:   []string{"upload"},
-					Usage:     "upload ML training scripts for custom ML training",
+					Name:      "update",
+					Aliases:   []string{"update"},
+					Usage:     "update existing ML training scripts for custom ML training",
 					UsageText: createUsageText("training-script upload", []string{mlTrainingFlagPath}, true),
 					Flags: []cli.Flag{
 						&cli.StringFlag{
@@ -1491,7 +1491,21 @@ Example:
 							Usage:    "path to ML training scripts for upload",
 							Required: true,
 						},
-						// Add name, version, type, framework, draft, visibility
+						&cli.StringFlag{
+							Name:     generalFlagOrgID,
+							Required: true,
+							Usage:    "organization ID that will host the scripts",
+						},
+						&cli.StringFlag{
+							Name:     mlTrainingFlagName,
+							Usage:    "name of the ML training script to upload",
+							Required: true,
+						},
+						&cli.StringFlag{
+							Name:     mlTrainingFlagVersion,
+							Usage:    "version of the ML training script to upload",
+							Required: false,
+						},
 					},
 					// Update action
 					Action: ModuleBuildLogsAction,
