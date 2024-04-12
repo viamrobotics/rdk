@@ -161,6 +161,9 @@ func (p *PIDLoop) TunePIDLoop(ctx context.Context, cancelFunc context.CancelFunc
 			}
 
 			p.ControlLoop.MonitorTuning(ctx)
+
+			p.ControlLoop.Stop()
+			p.ControlLoop = nil
 		}
 		if p.Options.SensorFeedback2DVelocityControl {
 			// check if linear needs to be tuned

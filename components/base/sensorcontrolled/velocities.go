@@ -114,7 +114,7 @@ func (sb *sensorBase) SetState(ctx context.Context, state []*control.Signal) err
 	sb.mu.Lock()
 	defer sb.mu.Unlock()
 
-	if !sb.loop.Running() {
+	if sb.loop != nil && !sb.loop.Running() {
 		return nil
 	}
 

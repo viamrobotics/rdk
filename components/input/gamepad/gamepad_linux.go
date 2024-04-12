@@ -65,10 +65,9 @@ func createController(_ context.Context, name resource.Name, logger logging.Logg
 						g.logger.Error(err)
 					}
 					continue
-				} else {
-					g.logger.Error(err)
-					return
 				}
+				g.logger.Error(err)
+				return
 			}
 			g.eventDispatcher(ctxWithCancel)
 		}
@@ -310,10 +309,9 @@ func (g *gamepad) connectDev(ctx context.Context) error {
 			g.Model = g.dev.Name()
 			g.Mapping = mapping
 			break
-		} else {
-			if err := dev.Close(); err != nil {
-				return err
-			}
+		}
+		if err := dev.Close(); err != nil {
+			return err
 		}
 	}
 
@@ -332,10 +330,9 @@ func (g *gamepad) connectDev(ctx context.Context) error {
 				g.Model = g.dev.Name()
 				g.Mapping, _ = MappingForModel(defaultMapping)
 				break
-			} else {
-				if err := dev.Close(); err != nil {
-					return err
-				}
+			}
+			if err := dev.Close(); err != nil {
+				return err
 			}
 		}
 	}
