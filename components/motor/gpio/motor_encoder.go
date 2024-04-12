@@ -214,7 +214,7 @@ func (m *EncodedMotor) makeAdjustments(
 		newPowerPct = lastPowerPct
 	}
 
-	if err := m.setPower(ctx, newPowerPct); err != nil {
+	if err := m.real.SetPower(ctx, newPowerPct, nil); err != nil {
 		return 0, err
 	}
 	return newPowerPct, nil
@@ -229,11 +229,6 @@ func (m *EncodedMotor) SetPower(ctx context.Context, powerPct float64, extra map
 	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	return m.setPower(ctx, powerPct)
-}
-
-// setPower assumes the state lock is held.
-func (m *EncodedMotor) setPower(ctx context.Context, powerPct float64) error {
 	powerPct = fixPowerPct(powerPct, m.maxPowerPct)
 	return m.real.SetPower(ctx, powerPct, nil)
 }

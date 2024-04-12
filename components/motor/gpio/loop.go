@@ -249,8 +249,8 @@ func (cm *controlledMotor) GoTo(ctx context.Context, rpm, targetPosition float64
 	if err != nil {
 		return err
 	}
-	currRotations := pos / cm.ticksPerRotation
-	rotations := targetPosition - currRotations
+	// currRotations := pos / cm.ticksPerRotation
+	rotations := targetPosition - pos
 	// if you call GoFor with 0 revolutions, the motor will spin forever. If we are at the target,
 	// we must avoid this by not calling GoFor.
 	if rdkutils.Float64AlmostEqual(rotations, 0, 0.1) {
