@@ -57,9 +57,13 @@ const (
 	moduleBuildFlagPlatform = "platform"
 	moduleBuildFlagWait     = "wait"
 
-	mlTrainingFlagPath    = "path"
-	mlTrainingFlagVersion = "version"
-	mlTrainingFlagName    = "name"
+	mlTrainingFlagPath      = "path"
+	mlTrainingFlagName      = "name"
+	mlTrainingFlagVersion   = "version"
+	mlTrainingFlagFramework = "framework"
+	mlTrainingFlagType      = "type"
+	mlTrainingFlagDraft     = "draft"
+	mlTrainingFlagPublic    = "public"
 
 	dataFlagDestination                    = "destination"
 	dataFlagDataType                       = "data-type"
@@ -1437,15 +1441,43 @@ Example:
 							Required: true,
 						},
 						&cli.StringFlag{
+							Name:     generalFlagOrgID,
+							Required: true,
+							Usage:    "organization ID that will host the scripts",
+						},
+						&cli.StringFlag{
 							Name:     mlTrainingFlagName,
 							Usage:    "name of the ML training script to upload",
 							Required: true,
 						},
-						// Add name, version, type, framework, draft, visibility
-						// If draft is set, cannot set visibility; automatically set to private
+						&cli.StringFlag{
+							Name:     mlTrainingFlagVersion,
+							Usage:    "version of the ML training script to upload",
+							Required: false,
+						},
+						&cli.StringFlag{
+							Name:     mlTrainingFlagFramework,
+							Usage:    "framework of the ML training script to upload, can be: ",
+							Required: false,
+						},
+						&cli.StringFlag{
+							Name:     mlTrainingFlagType,
+							Usage:    "version of the ML training script to upload, can be: ",
+							Required: false,
+						},
+						&cli.BoolFlag{
+							Name:     mlTrainingFlagDraft,
+							Usage:    "indicate draft mode",
+							Required: false,
+						},
+						&cli.BoolFlag{
+							Name:     mlTrainingFlagPublic,
+							Usage:    "indicate draft mode",
+							Required: false,
+						},
 					},
 					// Update action
-					Action: ModuleBuildLogsAction,
+					Action: PackageUploadAction,
 				},
 				{
 					// update?
@@ -1460,7 +1492,6 @@ Example:
 							Required: true,
 						},
 						// Add name, version, type, framework, draft, visibility
-						// If draft is set, cannot set visibility; automatically set to private
 					},
 					// Update action
 					Action: ModuleBuildLogsAction,

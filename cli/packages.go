@@ -2,7 +2,9 @@ package cli
 
 import (
 	"context"
+	"fmt"
 	"io"
+	"math"
 	"net/http"
 	"os"
 	"path"
@@ -10,6 +12,7 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/urfave/cli/v2"
+	"go.uber.org/multierr"
 	packagespb "go.viam.com/api/app/packages/v1"
 	"go.viam.com/utils"
 )
@@ -51,13 +54,7 @@ func PackageExportAction(c *cli.Context) error {
 	)
 }
 
-func (c *viamClient) packageExportAction(orgID, name, version, packageType, destination string) error {
-	if err := c.ensureLoggedIn(); err != nil {
-		return err
-	}
-	// Package ID is the <organization-ID>/<package-name>
-	packageID := path.Join(orgID, name)
-
+func convertPackageTypeToProto(packageType string) (*packagespb.PackageType, error) {
 	// Convert PackageType to proto
 	var packageTypeProto packagespb.PackageType
 	switch PackageType(packageType) {
@@ -72,14 +69,26 @@ func (c *viamClient) packageExportAction(orgID, name, version, packageType, dest
 	case PackageTypeSLAMMap:
 		packageTypeProto = packagespb.PackageType_PACKAGE_TYPE_SLAM_MAP
 	default:
-		return errors.New("invalid package type " + packageType)
+		return nil, errors.New("invalid package type " + packageType)
 	}
+	return &packageTypeProto, nil
+}
 
+func (c *viamClient) packageExportAction(orgID, name, version, packageType, destination string) error {
+	if err := c.ensureLoggedIn(); err != nil {
+		return err
+	}
+	// Package ID is the <organization-ID>/<package-name>
+	packageID := path.Join(orgID, name)
+	packageTypeProto, err := convertPackageTypeToProto(packageType)
+	if err != nil {
+		return err
+	}
 	resp, err := c.packageClient.GetPackage(c.c.Context,
 		&packagespb.GetPackageRequest{
 			Id:         packageID,
 			Version:    version,
-			Type:       &packageTypeProto,
+			Type:       packageTypeProto,
 			IncludeUrl: &boolTrue,
 		},
 	)
@@ -131,25 +140,27 @@ func downloadPackageFromURL(ctx context.Context, httpClient *http.Client,
 
 	return nil
 }
-package cli
 
-import (
-	"context"
-	"fmt"
-	"io"
-	"math"
-	"os"
+// PackageUploadAction is the corresponding action for 'package upload'.
+func PackageUploadAction(c *cli.Context) error {
+	client, err := newViamClient(c)
+	if err != nil {
+		return err
+	}
 
-	"github.com/pkg/errors"
-	"go.uber.org/multierr"
-	packagespb "go.viam.com/api/app/packages/v1"
-)
+	// If draft is set, cannot set visibility; automatically set to private
+
+	return client.packageExportAction(
+		c.String(generalFlagOrgID),
+		c.String(packageFlagName),
+		c.String(packageFlagVersion),
+		c.String(packageFlagType),
+		c.Path(packageFlagDestination),
+	)
+}
 
 func (c *viamClient) uploadPackage(
-	moduleID moduleID,
-	version,
-	platform string,
-	tarballPath string,
+	orgID, name, version, packageType, tarballPath string,
 ) (*packagespb.CreatePackageResponse, error) {
 	if err := c.ensureLoggedIn(); err != nil {
 		return nil, err
@@ -166,10 +177,16 @@ func (c *viamClient) uploadPackage(
 	if err != nil {
 		return nil, err
 	}
+	packageTypeProto, err := convertPackageTypeToProto(packageType)
+	if err != nil {
+		return nil, err
+	}
 	pkgInfo := packagespb.PackageInfo{
-		OrganizationId: "",
-		Name:           "",
-		Version:        "",
+		OrganizationId: orgID,
+		Name:           name,
+		Version:        version,
+		Type:           *packageTypeProto,
+		// TODO: parse metadata
 	}
 	req := &packagespb.CreatePackageRequest{
 		Package: &packagespb.CreatePackageRequest_Info{
