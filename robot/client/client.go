@@ -955,3 +955,30 @@ func (rc *RobotClient) CloudMetadata(ctx context.Context) (cloud.Metadata, error
 	cloudMD.MachinePartID = resp.MachinePartId
 	return cloudMD, nil
 }
+
+// restartModuleRequestIdNamePb is a serialization helper.
+func setModuleRequestIdName(req *robot.RestartModuleRequest, reqPb *pb.RestartModuleRequest) {
+	// note: we mutate the pb request rather than returning a ModuleIdOrName because the type for the oneOf is private to pb.
+	if len(req.ModuleID) > 0 {
+		reqPb.IdOrName = &pb.RestartModuleRequest_ModuleId{ModuleId: req.ModuleID}
+	} else {
+		reqPb.IdOrName = &pb.RestartModuleRequest_ModuleName{ModuleName: req.ModuleName}
+	}
+}
+
+func (rc *RobotClient) RestartModule(ctx context.Context, req robot.RestartModuleRequest) (robot.RestartModuleResponse, error) {
+	reqPb := &pb.RestartModuleRequest{
+		Signal:         req.Signal,
+		TimeoutSeconds: req.TimeoutSeconds,
+	}
+	setModuleRequestIdName(&req, reqPb)
+	res, err := rc.client.RestartModule(ctx, reqPb)
+	if err != nil {
+		return robot.RestartModuleResponse{}, err
+	}
+	return robot.RestartModuleResponse{
+		ModuleFound: res.ModuleFound,
+		TimedOut:    res.TimedOut,
+		ExitCode:    res.ExitCode,
+	}, nil
+}

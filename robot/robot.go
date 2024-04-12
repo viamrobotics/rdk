@@ -90,7 +90,7 @@ type Robot interface {
 	// StopAll cancels all current and outstanding operations for the robot and stops all actuators and movement
 	StopAll(ctx context.Context, extra map[resource.Name]map[string]interface{}) error
 
-	RestartModule(req RestartModuleRequest) (RestartModuleResponse, error)
+	RestartModule(ctx context.Context, req RestartModuleRequest) (RestartModuleResponse, error)
 }
 
 // A LocalRobot is a Robot that can have its parts modified.
