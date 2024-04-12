@@ -485,6 +485,7 @@ func (ptgk *ptgBaseKinematics) makeCourseCorrectionGoals(
 			ptgk.logger.Debugf("steps[i].subTraj[goalTrajPtIdx].Pose: %v", spatialmath.PoseToProtobuf(steps[i].subTraj[goalTrajPtIdx].Pose))
 			together := spatialmath.Compose(steps[i].arcSegment.StartPosition, steps[i].subTraj[goalTrajPtIdx].Pose)
 			ptgk.logger.Debugf("together: %v", spatialmath.PoseToProtobuf(together))
+			// this has been switched, so IDK if this works
 			goalPose := spatialmath.PoseBetween(
 				currPose,
 				together,

@@ -120,7 +120,9 @@ func (mr *moveRequest) Plan(ctx context.Context) (motionplan.Plan, error) {
 	}
 	mr.logger.Debug("ABOUT TO PRINT THE PLAN POSES WE HAVE CONSTRUCTED")
 	for _, s := range plan.Path() {
-		mr.logger.Debugf("%v", s)
+		for _, p := range s {
+			mr.logger.Debugf("%v", spatialmath.PoseToProtobuf(p.Pose()))
+		}
 	}
 	mr.logger.Debug("ABOUT TO PRINT THE PLAN TRAJ")
 	for _, t := range plan.Trajectory() {
@@ -616,7 +618,7 @@ func (ms *builtIn) newMoveOnMapRequest(
 
 	// build kinematic options
 	kinematicsOptions := kbOptionsFromCfg(motionCfg, valExtra)
-	kinematicsOptions.NoSkidSteer = true
+	// kinematicsOptions.NoSkidSteer = true
 	kinematicsOptions.PositionOnlyMode = false
 
 	fs, err := ms.fsService.FrameSystem(ctx, nil)
