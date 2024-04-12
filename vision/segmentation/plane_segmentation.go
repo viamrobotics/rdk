@@ -325,9 +325,8 @@ func (pcps *pointCloudPlaneSegmentation) FindPlanes(ctx context.Context) ([]pc.P
 			// this cloud is not valid so revert to last
 			nonPlaneCloud = lastNonPlaneCloud
 			break
-		} else {
-			nonPlaneCloud = smallerNonPlaneCloud
 		}
+		nonPlaneCloud = smallerNonPlaneCloud
 		planes = append(planes, smallerPlane)
 	}
 	return planes, nonPlaneCloud, nil
