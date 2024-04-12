@@ -77,6 +77,11 @@ const (
 	dataFlagDeleteTabularDataOlderThanDays = "delete-older-than-days"
 	dataFlagDatabasePassword               = "password"
 	dataFlagFilterTags                     = "filter-tags"
+
+	packageFlagName        = "name"
+	packageFlagVersion     = "version"
+	packageFlagType        = "type"
+	packageFlagDestination = "destination"
 )
 
 var commonFilterFlags = []cli.Flag{
@@ -1365,6 +1370,50 @@ Example:
 							Action: ModuleBuildLogsAction,
 						},
 					},
+				},
+			},
+		},
+		{
+			Name:            "packages",
+			Usage:           "work with packages",
+			HideHelpCommand: true,
+			Subcommands: []*cli.Command{
+				{
+					Name:  "export",
+					Usage: "download a package from Viam cloud",
+					UsageText: createUsageText("packages export",
+						[]string{
+							packageFlagDestination, generalFlagOrgID, packageFlagName,
+							packageFlagVersion, packageFlagType,
+						}, false),
+					Flags: []cli.Flag{
+						&cli.PathFlag{
+							Name:     packageFlagDestination,
+							Required: true,
+							Usage:    "output directory for downloaded package",
+						},
+						&cli.StringFlag{
+							Name:     generalFlagOrgID,
+							Required: true,
+							Usage:    "organization ID of the requested package",
+						},
+						&cli.StringFlag{
+							Name:     packageFlagName,
+							Required: true,
+							Usage:    "name of the requested package",
+						},
+						&cli.StringFlag{
+							Name:     packageFlagVersion,
+							Required: true,
+							Usage:    "version of the requested package, can be `latest` to get the most recent version",
+						},
+						&cli.StringFlag{
+							Name:     packageFlagType,
+							Required: true,
+							Usage:    "type of the requested package, can be: " + strings.Join(packageTypes, ", "),
+						},
+					},
+					Action: PackageExportAction,
 				},
 			},
 		},
