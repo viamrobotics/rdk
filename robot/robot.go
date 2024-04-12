@@ -254,3 +254,12 @@ func ResourceFromRobot[T resource.Resource](robot Robot, name resource.Name) (T,
 	}
 	return part, nil
 }
+
+// ConfigName returns a name to look up in the conf.Modules slice.
+func (rmr *RestartModuleRequest) ConfigName() string {
+	if len(rmr.ModuleID) > 0 {
+		return rmr.ModuleID
+	} else {
+		return rmr.ModuleName
+	}
+}
