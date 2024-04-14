@@ -18,6 +18,7 @@ const (
 	machineFlag      = "machine"
 	aliasRobotFlag   = "robot"
 	partFlag         = "part"
+	robotFqdnFlag    = "fqdn"
 
 	// TODO: RSDK-6683.
 	quietFlag = "quiet"
@@ -32,6 +33,7 @@ const (
 	loginFlagDisableBrowser = "disable-browser-open"
 	loginFlagKeyID          = "key-id"
 	loginFlagKey            = "key"
+	loginFlagKeyIDVal       = "key-id-val"
 
 	// Flags shared by api-key, module and data subcommands.
 	generalFlagOrgID        = "org-id"
@@ -1366,6 +1368,7 @@ Example:
 						},
 					},
 				},
+				&restartCommand,
 			},
 		},
 		{

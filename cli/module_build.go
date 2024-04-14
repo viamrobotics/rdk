@@ -3,6 +3,7 @@ package cli
 import (
 	"fmt"
 	"io"
+	"os"
 	"strings"
 	"text/tabwriter"
 	"time"
@@ -12,10 +13,13 @@ import (
 	"go.uber.org/multierr"
 	buildpb "go.viam.com/api/app/build/v1"
 	"go.viam.com/utils/pexec"
+	"go.viam.com/utils/rpc"
 	"golang.org/x/exp/maps"
 	"golang.org/x/exp/slices"
 
 	"go.viam.com/rdk/logging"
+	"go.viam.com/rdk/robot"
+	"go.viam.com/rdk/robot/client"
 	"go.viam.com/rdk/utils"
 )
 
@@ -34,6 +38,38 @@ const (
 )
 
 var moduleBuildPollingInterval = 2 * time.Second
+
+var apiKeyFlags = []cli.Flag{
+	&cli.StringFlag{
+		Name:  loginFlagKeyIDVal,
+		Usage: "colon-delimited api_key:secret string. alternative to `--key-id api_key --key secret`. If it starts with $, will be fetched from environment.",
+		Value: "$VIAM_API_KEY_PAIR",
+	},
+	&cli.StringFlag{Name: loginFlagKeyID, Usage: "uuid ID of an API key"},
+	&cli.StringFlag{Name: loginFlagKey, Usage: "value corresponding to key-id"},
+}
+
+var restartCommand = cli.Command{
+	Name:  "restart",
+	Usage: "restart a module on a running robot",
+	Flags: append(
+		[]cli.Flag{
+			&cli.StringFlag{
+				Name:     robotFqdnFlag,
+				Usage:    "FQDN of robot ('remote address' or 'local link' from Control tab in app)",
+				Required: true,
+			},
+			&cli.StringFlag{
+				Name: moduleFlagName,
+				// todo: name? or id
+				Usage:    "name of module to restart",
+				Required: true,
+			},
+		},
+		apiKeyFlags...,
+	),
+	Action: RestartModuleAction,
+}
 
 // ModuleBuildStartAction starts a cloud build.
 func ModuleBuildStartAction(cCtx *cli.Context) error {
@@ -371,4 +407,57 @@ func jobStatusFromProto(s buildpb.JobStatus) jobStatus {
 	default:
 		return jobStatusUnspecified
 	}
+}
+
+// envOrValue does os.Getenv if input starts with $, otherwise returns value directly.
+func envOrValue(orig string) string {
+	if len(orig) > 0 && orig[0] == '$' {
+		return os.Getenv(orig[1:])
+	}
+	return orig
+}
+
+// flagToCredentials constructs entity credentials option from apiKeyFlags in cli.Context.
+func flagToCredentials(cCtx *cli.Context) (rpc.DialOption, error) {
+	var keyId, key string
+	// careful: envOrValue resolution must come before length check, or else default env var will always override.
+	pair := envOrValue(cCtx.String(loginFlagKeyIDVal))
+	if len(pair) > 0 {
+		keyId, key, _ = strings.Cut(pair, ":")
+	} else {
+		keyId = cCtx.String(loginFlagKeyID)
+		key = cCtx.String(loginFlagKey)
+		if len(keyId) == 0 || len(key) == 0 {
+			return nil, errors.New("pass either --key-id-val, or both of --key-id, --key")
+		}
+	}
+	return rpc.WithEntityCredentials(keyId, rpc.Credentials{
+		Type:    rpc.CredentialsTypeAPIKey,
+		Payload: key,
+	}), nil
+}
+
+// strippedFqdn removes leading 'https://' prefix + trailing '/' from fqdn in case user copied from local link.
+func strippedFqdn(orig string) string {
+	return strings.TrimSuffix(strings.TrimPrefix(orig, "https://"), "/")
+}
+
+// RestartModuleAction restarts a module on a robot.
+func RestartModuleAction(c *cli.Context) error {
+	logger := logging.Global()
+	dialOpt, err := flagToCredentials(c)
+	if err != nil {
+		return err
+	}
+	robotClient, err := client.New(c.Context, strippedFqdn(c.String(robotFqdnFlag)), logger, client.WithDialOptions(dialOpt))
+	if err != nil {
+		return err
+	}
+	defer robotClient.Close(c.Context)
+	res, err := robotClient.RestartModule(c.Context, robot.RestartModuleRequest{ModuleName: c.String(moduleFlagName)})
+	if err != nil {
+		return err
+	}
+	logger.Infof("response %v", res)
+	return nil
 }
