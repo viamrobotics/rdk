@@ -255,11 +255,11 @@ func ResourceFromRobot[T resource.Resource](robot Robot, name resource.Name) (T,
 	return part, nil
 }
 
-// ConfigName returns a name to look up in the conf.Modules slice.
-func (rmr *RestartModuleRequest) ConfigName() string {
+// MatchesModule returns true if the passed-in module matches its name / ID.
+func (rmr *RestartModuleRequest) MatchesModule(mod *config.Module) bool {
 	if len(rmr.ModuleID) > 0 {
-		return rmr.ModuleID
+		return mod.ModuleID == rmr.ModuleID
 	} else {
-		return rmr.ModuleName
+		return mod.Name == rmr.ModuleName
 	}
 }

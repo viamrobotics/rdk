@@ -1198,34 +1198,33 @@ func (r *localRobot) CloudMetadata(ctx context.Context) (cloud.Metadata, error) 
 }
 
 // findInSlice returns the first item in items which satisfies predicate, or nil.
-func findInSlice[T any](items []T, predicate func(T) bool) *T {
+func findInSlice[T any](items []T, predicate func(*T) bool) *T {
 	for _, item := range items {
-		if predicate(item) {
+		if predicate(&item) {
 			return &item
 		}
 	}
 	return nil
 }
 
-func (r *localRobot) RestartModule(ctx context.Context, req robot.RestartModuleRequest) (robot.RestartModuleResponse, error) {
-	// todo: is there a lock to worry about here?
-	// note: an alternative is to mark needs reconfigure, but we want it to happen asap
-	mod := findInSlice(r.Config().Modules, func(mod config.Module) bool {
-		return mod.Name == req.ConfigName()
-	})
-	var res robot.RestartModuleResponse
-	if mod == nil {
-		return res, fmt.Errorf("module not found with id=%s, name=%s", req.ModuleID, req.ModuleName)
-	}
-	// todo: might want to add a 'restarted' int so we can use normal diff mechanism here.
+func (r *localRobot) restartSingleModule(ctx context.Context, mod config.Module) error {
 	diff := config.Diff{
 		Left:     r.Config(),
 		Right:    r.Config(),
 		Added:    &config.Config{},
-		Modified: &config.ModifiedConfigDiff{Modules: []config.Module{*mod}},
+		Modified: &config.ModifiedConfigDiff{Modules: []config.Module{mod}},
 		Removed:  &config.Config{},
 	}
-	err := r.manager.updateResources(ctx, &diff)
+	return r.manager.updateResources(ctx, &diff)
+}
+
+func (r *localRobot) RestartModule(ctx context.Context, req robot.RestartModuleRequest) (robot.RestartModuleResponse, error) {
+	mod := findInSlice(r.Config().Modules, req.MatchesModule)
+	var res robot.RestartModuleResponse
+	if mod == nil {
+		return res, fmt.Errorf("module not found with id=%s, name=%s", req.ModuleID, req.ModuleName)
+	}
+	err := r.restartSingleModule(ctx, *mod)
 	if err != nil {
 		return res, errors.Wrapf(err, "while restarting module id=%s, name=%s", req.ModuleID, req.ModuleName)
 	}
