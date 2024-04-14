@@ -44,6 +44,7 @@ const (
 	apiKeyCreateFlagName = "name"
 
 	moduleFlagName            = "name"
+	moduleFlagID              = "id"
 	moduleFlagPublicNamespace = "public-namespace"
 	moduleFlagPath            = "module"
 	moduleFlagVersion         = "version"

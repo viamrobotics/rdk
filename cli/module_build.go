@@ -60,10 +60,12 @@ var restartCommand = cli.Command{
 				Required: true,
 			},
 			&cli.StringFlag{
-				Name: moduleFlagName,
-				// todo: name? or id
-				Usage:    "name of module to restart",
-				Required: true,
+				Name:  moduleFlagName,
+				Usage: "name of module to restart (one of this or --module-id is required)",
+			},
+			&cli.StringFlag{
+				Name:  moduleFlagID,
+				Usage: "id of module to restart, for example viam:wifi-sensor",
 			},
 		},
 		apiKeyFlags...,
@@ -445,6 +447,13 @@ func strippedFqdn(orig string) string {
 // RestartModuleAction restarts a module on a robot.
 func RestartModuleAction(c *cli.Context) error {
 	logger := logging.Global()
+	modName := c.String(moduleFlagName)
+	modID := c.String(moduleFlagID)
+	// note: this is xor
+	// todo: use MutuallyExclusiveFlags for this when urfave/cli 3.x is stable
+	if (len(modName) == 0) == (len(modID) == 0) {
+		return fmt.Errorf("provide exactly one of --%s and --%s", moduleFlagName, moduleFlagID)
+	}
 	dialOpt, err := flagToCredentials(c)
 	if err != nil {
 		return err
@@ -456,7 +465,11 @@ func RestartModuleAction(c *cli.Context) error {
 	}
 	defer robotClient.Close(c.Context)
 	// todo: make this a stream so '--wait' can tell user what's happening
-	res, err := robotClient.RestartModule(c.Context, robot.RestartModuleRequest{ModuleName: c.String(moduleFlagName)})
+	req := robot.RestartModuleRequest{
+		ModuleName: modName,
+		ModuleID:   modID,
+	}
+	res, err := robotClient.RestartModule(c.Context, req)
 	if err != nil {
 		return err
 	}
