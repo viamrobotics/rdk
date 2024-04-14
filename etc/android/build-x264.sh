@@ -38,6 +38,7 @@ else
 fi
 
 cd $X264_ROOT
+# note: patchelf can also change the soname
 if git apply --check ../unversion-soname.patch; then
 	git apply ../unversion-soname.patch
 elif git apply --reverse --check ../unversion-soname.patch; then
