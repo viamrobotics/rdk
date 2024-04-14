@@ -437,7 +437,7 @@ func flagToCredentials(cCtx *cli.Context) (rpc.DialOption, error) {
 	}), nil
 }
 
-// strippedFqdn removes leading 'https://' prefix + trailing '/' from fqdn in case user copied from local link.
+// strippedFqdn removes leading 'https://' prefix + trailing '/' from fqdn in case user copied from 'local link' in app.
 func strippedFqdn(orig string) string {
 	return strings.TrimSuffix(strings.TrimPrefix(orig, "https://"), "/")
 }
@@ -449,11 +449,13 @@ func RestartModuleAction(c *cli.Context) error {
 	if err != nil {
 		return err
 	}
+	// todo: warn if fqdn is 'localhost' + give directions.
 	robotClient, err := client.New(c.Context, strippedFqdn(c.String(robotFqdnFlag)), logger, client.WithDialOptions(dialOpt))
 	if err != nil {
 		return err
 	}
 	defer robotClient.Close(c.Context)
+	// todo: make this a stream so '--wait' can tell user what's happening
 	res, err := robotClient.RestartModule(c.Context, robot.RestartModuleRequest{ModuleName: c.String(moduleFlagName)})
 	if err != nil {
 		return err

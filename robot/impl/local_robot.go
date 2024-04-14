@@ -1217,7 +1217,15 @@ func (r *localRobot) RestartModule(ctx context.Context, req robot.RestartModuleR
 	if mod == nil {
 		return res, fmt.Errorf("module not found with id=%s, name=%s", req.ModuleID, req.ModuleName)
 	}
-	_, err := r.manager.moduleManager.Reconfigure(ctx, *mod)
+	// todo: might want to add a 'restarted' int so we can use normal diff mechanism here.
+	diff := config.Diff{
+		Left:     r.Config(),
+		Right:    r.Config(),
+		Added:    &config.Config{},
+		Modified: &config.ModifiedConfigDiff{Modules: []config.Module{*mod}},
+		Removed:  &config.Config{},
+	}
+	err := r.manager.updateResources(ctx, &diff)
 	if err != nil {
 		return res, errors.Wrapf(err, "while restarting module id=%s, name=%s", req.ModuleID, req.ModuleName)
 	}
