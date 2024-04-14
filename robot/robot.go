@@ -90,7 +90,7 @@ type Robot interface {
 	// StopAll cancels all current and outstanding operations for the robot and stops all actuators and movement
 	StopAll(ctx context.Context, extra map[resource.Name]map[string]interface{}) error
 
-	RestartModule(ctx context.Context, req RestartModuleRequest) (RestartModuleResponse, error)
+	RestartModule(ctx context.Context, req RestartModuleRequest) error
 }
 
 // A LocalRobot is a Robot that can have its parts modified.
@@ -143,16 +143,8 @@ type Status struct {
 }
 
 type RestartModuleRequest struct {
-	ModuleID       string
-	ModuleName     string
-	Signal         int32
-	TimeoutSeconds int32
-}
-
-type RestartModuleResponse struct {
-	ModuleFound bool
-	TimedOut    bool
-	ExitCode    int32
+	ModuleID   string
+	ModuleName string
 }
 
 // AllResourcesByName returns an array of all resources that have this short name.

@@ -469,10 +469,5 @@ func RestartModuleAction(c *cli.Context) error {
 		ModuleName: modName,
 		ModuleID:   modID,
 	}
-	res, err := robotClient.RestartModule(c.Context, req)
-	if err != nil {
-		return err
-	}
-	logger.Infof("response %v", res)
-	return nil
+	return robotClient.RestartModule(c.Context, req)
 }

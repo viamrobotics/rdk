@@ -1218,18 +1218,15 @@ func (r *localRobot) restartSingleModule(ctx context.Context, mod config.Module)
 	return r.manager.updateResources(ctx, &diff)
 }
 
-func (r *localRobot) RestartModule(ctx context.Context, req robot.RestartModuleRequest) (robot.RestartModuleResponse, error) {
+func (r *localRobot) RestartModule(ctx context.Context, req robot.RestartModuleRequest) error {
 	mod := findInSlice(r.Config().Modules, req.MatchesModule)
-	var res robot.RestartModuleResponse
 	if mod == nil {
-		return res, fmt.Errorf("module not found with id=%s, name=%s", req.ModuleID, req.ModuleName)
+		return fmt.Errorf("module not found with id=%s, name=%s", req.ModuleID, req.ModuleName)
 	}
 	err := r.restartSingleModule(ctx, *mod)
 	if err != nil {
-		return res, errors.Wrapf(err, "while restarting module id=%s, name=%s", req.ModuleID, req.ModuleName)
+		return errors.Wrapf(err, "while restarting module id=%s, name=%s", req.ModuleID, req.ModuleName)
 	}
 	// todo: capture timeout + exit code? need lower level access
-	return robot.RestartModuleResponse{
-		ModuleFound: true,
-	}, nil
+	return nil
 }

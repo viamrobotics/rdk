@@ -477,18 +477,12 @@ func (s *Server) GetCloudMetadata(ctx context.Context, _ *pb.GetCloudMetadataReq
 
 func (s *Server) RestartModule(ctx context.Context, req *pb.RestartModuleRequest) (*pb.RestartModuleResponse, error) {
 	goReq := robot.RestartModuleRequest{
-		ModuleID:       req.GetModuleId(),
-		ModuleName:     req.GetModuleName(),
-		Signal:         req.Signal,
-		TimeoutSeconds: req.TimeoutSeconds,
+		ModuleID:   req.GetModuleId(),
+		ModuleName: req.GetModuleName(),
 	}
-	res, err := s.robot.RestartModule(ctx, goReq)
+	err := s.robot.RestartModule(ctx, goReq)
 	if err != nil {
 		return nil, err
 	}
-	return &pb.RestartModuleResponse{
-		ModuleFound: res.ModuleFound,
-		TimedOut:    res.TimedOut,
-		ExitCode:    res.ExitCode,
-	}, nil
+	return &pb.RestartModuleResponse{}, nil
 }
