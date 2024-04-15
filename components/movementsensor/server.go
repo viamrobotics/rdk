@@ -175,7 +175,7 @@ func (s *serviceServer) GetAccuracy(
 	if accuracy != nil {
 		return accuracyToProtoResponse(accuracy)
 	}
-	return accuracyToProtoResponse(UnimplementedAccuracies())
+	return accuracyToProtoResponse(UnimplementedOptionalAccuracies())
 }
 
 // DoCommand receives arbitrary commands.

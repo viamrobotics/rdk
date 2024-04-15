@@ -3,6 +3,7 @@ package movementsensor_test
 import (
 	"context"
 	"errors"
+	"math"
 	"testing"
 
 	"github.com/golang/geo/r3"
@@ -250,5 +251,17 @@ func TestServer(t *testing.T) {
 		_, err = gpsServer.GetAccuracy(context.Background(), &pb.GetAccuracyRequest{Name: missingMovementSensorName})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, resource.IsNotFoundError(err), test.ShouldBeTrue)
+
+		injectMovementSensor2.AccuracyFunc = func(ctx context.Context, extra map[string]interface{}) (*movementsensor.Accuracy, error) {
+			return nil, nil
+		}
+		uacc, err := gpsServer.GetAccuracy(context.Background(), &pb.GetAccuracyRequest{Name: failMovementSensorName})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, uacc.Accuracy, test.ShouldResemble, map[string]float32(nil))
+		test.That(t, math.IsNaN(float64(*uacc.PositionHdop)), test.ShouldBeTrue)
+		test.That(t, math.IsNaN(float64(*uacc.PositionVdop)), test.ShouldBeTrue)
+		test.That(t, math.IsNaN(float64(*uacc.CompassDegreesError)), test.ShouldBeTrue)
+		test.That(t, *uacc.PositionNmeaGgaFix, test.ShouldResemble, int32(-1))
+
 	})
 }
