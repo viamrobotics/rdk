@@ -172,10 +172,24 @@ func (s *serviceServer) GetAccuracy(
 		return nil, err
 	}
 
+	uacc := UnimplementedOptionalAccuracies()
+
 	if accuracy != nil {
+		// check optional accuracies
+		switch {
+		case &accuracy.Hdop == nil:
+			accuracy.Hdop = uacc.Hdop
+		case &accuracy.Vdop == nil:
+			accuracy.Vdop = uacc.Vdop
+		case &accuracy.CompassDegreeError == nil:
+			accuracy.CompassDegreeError = uacc.CompassDegreeError
+		case &accuracy.NmeaFix == nil:
+			accuracy.NmeaFix = uacc.NmeaFix
+		}
+
 		return accuracyToProtoResponse(accuracy)
 	}
-	return accuracyToProtoResponse(UnimplementedOptionalAccuracies())
+	return accuracyToProtoResponse(uacc)
 }
 
 // DoCommand receives arbitrary commands.

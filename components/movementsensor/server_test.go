@@ -252,6 +252,7 @@ func TestServer(t *testing.T) {
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, resource.IsNotFoundError(err), test.ShouldBeTrue)
 
+		// test that server protext client against a nil accuracy return
 		injectMovementSensor2.AccuracyFunc = func(ctx context.Context, extra map[string]interface{}) (*movementsensor.Accuracy, error) {
 			//nolint:nilnil
 			return nil, nil
@@ -260,6 +261,19 @@ func TestServer(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, uacc.Accuracy, test.ShouldResemble, map[string]float32(nil))
 		test.That(t, math.IsNaN(float64(*uacc.PositionHdop)), test.ShouldBeTrue)
+		test.That(t, math.IsNaN(float64(*uacc.PositionVdop)), test.ShouldBeTrue)
+		test.That(t, math.IsNaN(float64(*uacc.CompassDegreesError)), test.ShouldBeTrue)
+		test.That(t, *uacc.PositionNmeaGgaFix, test.ShouldResemble, int32(-1))
+
+		// check that server populates optionals correctly if they are undefined
+		injectMovementSensor2.AccuracyFunc = func(ctx context.Context, extra map[string]interface{}) (*movementsensor.Accuracy, error) {
+			nilOptionals := &movementsensor.Accuracy{AccuracyMap: map[string]float32{"foo": 1.1}}
+			return nilOptionals, nil
+		}
+		uacc, err = gpsServer.GetAccuracy(context.Background(), &pb.GetAccuracyRequest{Name: failMovementSensorName})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, uacc.Accuracy, test.ShouldResemble, map[string]float32{"foo": 1.1})
+		test.That(t, uacc., test.ShouldBeEqual, )
 		test.That(t, math.IsNaN(float64(*uacc.PositionVdop)), test.ShouldBeTrue)
 		test.That(t, math.IsNaN(float64(*uacc.CompassDegreesError)), test.ShouldBeTrue)
 		test.That(t, *uacc.PositionNmeaGgaFix, test.ShouldResemble, int32(-1))

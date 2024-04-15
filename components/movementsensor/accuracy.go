@@ -39,24 +39,48 @@ type Accuracy struct {
 
 // ProtoFeaturesToAccuracy converts a GetAccuracyResponse from a protocol buffer (protobuf)
 // into an Accuracy struct.
+// used by the client.
 func protoFeaturesToAccuracy(resp *pb.GetAccuracyResponse) *Accuracy {
+	uacc := UnimplementedOptionalAccuracies()
 	if resp == nil {
 		return UnimplementedOptionalAccuracies()
 	}
 
+	hdop := resp.PositionHdop
+	if &hdop == nil {
+		hdop = &uacc.Hdop
+	}
+
+	vdop := resp.PositionVdop
+	if &vdop == nil {
+		vdop = &uacc.Vdop
+	}
+
+	compass := resp.CompassDegreesError
+	if &compass == nil {
+		compass = &uacc.CompassDegreeError
+	}
+
+	nmeaFix := resp.PositionNmeaGgaFix
+	if &nmeaFix == nil {
+		nmeaFix = &uacc.NmeaFix
+	}
+
 	return &Accuracy{
 		AccuracyMap:        resp.Accuracy,
-		Hdop:               *resp.PositionHdop,
-		Vdop:               *resp.PositionVdop,
-		NmeaFix:            *resp.PositionNmeaGgaFix,
-		CompassDegreeError: *resp.CompassDegreesError,
+		Hdop:               *hdop,
+		Vdop:               *vdop,
+		NmeaFix:            *nmeaFix,
+		CompassDegreeError: *compass,
 	}
 }
 
 // AccuracyToProtoResponse converts an Accuracy struct into a protobuf GetAccuracyResponse.
+// used by the server
 func accuracyToProtoResponse(acc *Accuracy) (*pb.GetAccuracyResponse, error) {
+	uacc := UnimplementedOptionalAccuracies()
+
 	if acc == nil {
-		uacc := UnimplementedOptionalAccuracies()
 		return &pb.GetAccuracyResponse{
 			Accuracy:            map[string]float32{},
 			PositionHdop:        &uacc.Hdop,
@@ -65,6 +89,7 @@ func accuracyToProtoResponse(acc *Accuracy) (*pb.GetAccuracyResponse, error) {
 			CompassDegreesError: &uacc.CompassDegreeError,
 		}, nil
 	}
+
 	return &pb.GetAccuracyResponse{
 		Accuracy:            acc.AccuracyMap,
 		PositionHdop:        &acc.Hdop,
