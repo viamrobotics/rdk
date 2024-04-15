@@ -273,9 +273,10 @@ func TestServer(t *testing.T) {
 		uacc, err = gpsServer.GetAccuracy(context.Background(), &pb.GetAccuracyRequest{Name: failMovementSensorName})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, uacc.Accuracy, test.ShouldResemble, map[string]float32{"foo": 1.1})
-		test.That(t, uacc., test.ShouldBeEqual, )
+		test.That(t, math.IsNaN(float64(*uacc.PositionHdop)), test.ShouldBeTrue)
 		test.That(t, math.IsNaN(float64(*uacc.PositionVdop)), test.ShouldBeTrue)
 		test.That(t, math.IsNaN(float64(*uacc.CompassDegreesError)), test.ShouldBeTrue)
-		test.That(t, *uacc.PositionNmeaGgaFix, test.ShouldResemble, int32(-1))
+		// zero is an invlaid fix, and our default fix if accuracy is implemented
+		test.That(t, *uacc.PositionNmeaGgaFix, test.ShouldResemble, int32(0))
 	})
 }

@@ -3,6 +3,7 @@ package movementsensor_test
 import (
 	"context"
 	"errors"
+	"math"
 	"net"
 	"testing"
 
@@ -186,7 +187,8 @@ func TestClient(t *testing.T) {
 
 		acc1, err := gps1Client.Accuracy(context.Background(), map[string]interface{}{"foo": "bar"})
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, acc1, test.ShouldResemble, acy)
+		test.That(t, acc1.AccuracyMap, test.ShouldResemble, acy.AccuracyMap)
+		test.That(t, math.IsNaN(float64(acc1.Hdop)), test.ShouldBeTrue)
 		test.That(t, injectMovementSensor.AccuracyFuncExtraCap, test.ShouldResemble, map[string]interface{}{"foo": "bar"})
 
 		la1, err := gps1Client.LinearAcceleration(context.Background(), map[string]interface{}{"foo": "bar"})

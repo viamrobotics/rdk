@@ -79,7 +79,6 @@ func protoFeaturesToAccuracy(resp *pb.GetAccuracyResponse) *Accuracy {
 // used by the server
 func accuracyToProtoResponse(acc *Accuracy) (*pb.GetAccuracyResponse, error) {
 	uacc := UnimplementedOptionalAccuracies()
-
 	if acc == nil {
 		return &pb.GetAccuracyResponse{
 			Accuracy:            map[string]float32{},
@@ -90,11 +89,31 @@ func accuracyToProtoResponse(acc *Accuracy) (*pb.GetAccuracyResponse, error) {
 		}, nil
 	}
 
+	hdop := uacc.Hdop
+	if acc.Hdop > 0 {
+		hdop = acc.Hdop
+	}
+
+	vdop := uacc.Vdop
+	if acc.Vdop > 0 {
+		vdop = acc.Vdop
+	}
+
+	compass := uacc.CompassDegreeError
+	if acc.CompassDegreeError > 0 {
+		compass = acc.CompassDegreeError
+	}
+
+	nmeaFix := uacc.NmeaFix
+	if &acc.NmeaFix != nil {
+		nmeaFix = acc.NmeaFix
+	}
+
 	return &pb.GetAccuracyResponse{
 		Accuracy:            acc.AccuracyMap,
-		PositionHdop:        &acc.Hdop,
-		PositionVdop:        &acc.Vdop,
-		PositionNmeaGgaFix:  &acc.NmeaFix,
-		CompassDegreesError: &acc.CompassDegreeError,
+		PositionHdop:        &hdop,
+		PositionVdop:        &vdop,
+		PositionNmeaGgaFix:  &nmeaFix,
+		CompassDegreesError: &compass,
 	}, nil
 }
