@@ -393,7 +393,7 @@ type Board struct {
 	activeBackgroundWorkers sync.WaitGroup
 }
 
-// AnalogReaderByName returns the analog reader by the given name if it exists.
+// AnalogByName returns the analog reader by the given name if it exists.
 func (b *Board) AnalogByName(name string) (board.Analog, bool) {
 	a, ok := b.analogReaders[name]
 	return a, ok
