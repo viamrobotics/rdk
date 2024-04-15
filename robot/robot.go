@@ -142,6 +142,7 @@ type Status struct {
 	Status           interface{}
 }
 
+// RestartModuleRequest is a go mirror of a proto message.
 type RestartModuleRequest struct {
 	ModuleID   string
 	ModuleName string
@@ -248,10 +249,9 @@ func ResourceFromRobot[T resource.Resource](robot Robot, name resource.Name) (T,
 }
 
 // MatchesModule returns true if the passed-in module matches its name / ID.
-func (rmr *RestartModuleRequest) MatchesModule(mod *config.Module) bool {
+func (rmr *RestartModuleRequest) MatchesModule(mod config.Module) bool {
 	if len(rmr.ModuleID) > 0 {
 		return mod.ModuleID == rmr.ModuleID
-	} else {
-		return mod.Name == rmr.ModuleName
 	}
+	return mod.Name == rmr.ModuleName
 }

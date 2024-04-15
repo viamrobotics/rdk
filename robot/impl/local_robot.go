@@ -1198,9 +1198,9 @@ func (r *localRobot) CloudMetadata(ctx context.Context) (cloud.Metadata, error) 
 }
 
 // findInSlice returns the first item in items which satisfies predicate, or nil.
-func findInSlice[T any](items []T, predicate func(*T) bool) *T {
+func findInSlice[T any](items []T, predicate func(T) bool) *T {
 	for _, item := range items {
-		if predicate(&item) {
+		if predicate(item) {
 			return &item
 		}
 	}

@@ -956,6 +956,7 @@ func (rc *RobotClient) CloudMetadata(ctx context.Context) (cloud.Metadata, error
 	return cloudMD, nil
 }
 
+// RestartModule restarts a running module by name or ID.
 func (rc *RobotClient) RestartModule(ctx context.Context, req robot.RestartModuleRequest) error {
 	reqPb := &pb.RestartModuleRequest{}
 	if len(req.ModuleID) > 0 {

@@ -475,6 +475,7 @@ func (s *Server) GetCloudMetadata(ctx context.Context, _ *pb.GetCloudMetadataReq
 	}, nil
 }
 
+// RestartModule restarts a module by name or ID.
 func (s *Server) RestartModule(ctx context.Context, req *pb.RestartModuleRequest) (*pb.RestartModuleResponse, error) {
 	goReq := robot.RestartModuleRequest{
 		ModuleID:   req.GetModuleId(),

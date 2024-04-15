@@ -41,8 +41,9 @@ var moduleBuildPollingInterval = 2 * time.Second
 
 var apiKeyFlags = []cli.Flag{
 	&cli.StringFlag{
-		Name:  loginFlagKeyIDVal,
-		Usage: "colon-delimited api_key:secret string. alternative to `--key-id api_key --key secret`. If it starts with $, will be fetched from environment.",
+		Name: loginFlagKeyIDVal,
+		Usage: `colon-delimited api_key:secret string. alternative to providing both --key-id and --key.
+If it starts with $, will be fetched from environment.`,
 		Value: "$VIAM_API_KEY_PAIR",
 	},
 	&cli.StringFlag{Name: loginFlagKeyID, Usage: "uuid ID of an API key"},
@@ -421,19 +422,19 @@ func envOrValue(orig string) string {
 
 // flagToCredentials constructs entity credentials option from apiKeyFlags in cli.Context.
 func flagToCredentials(cCtx *cli.Context) (rpc.DialOption, error) {
-	var keyId, key string
+	var keyID, key string
 	// careful: envOrValue resolution must come before length check, or else default env var will always override.
 	pair := envOrValue(cCtx.String(loginFlagKeyIDVal))
 	if len(pair) > 0 {
-		keyId, key, _ = strings.Cut(pair, ":")
+		keyID, key, _ = strings.Cut(pair, ":")
 	} else {
-		keyId = cCtx.String(loginFlagKeyID)
+		keyID = cCtx.String(loginFlagKeyID)
 		key = cCtx.String(loginFlagKey)
-		if len(keyId) == 0 || len(key) == 0 {
+		if len(keyID) == 0 || len(key) == 0 {
 			return nil, errors.New("pass either --key-id-val, or both of --key-id, --key")
 		}
 	}
-	return rpc.WithEntityCredentials(keyId, rpc.Credentials{
+	return rpc.WithEntityCredentials(keyID, rpc.Credentials{
 		Type:    rpc.CredentialsTypeAPIKey,
 		Payload: key,
 	}), nil
@@ -446,7 +447,6 @@ func strippedFqdn(orig string) string {
 
 // RestartModuleAction restarts a module on a robot.
 func RestartModuleAction(c *cli.Context) error {
-	logger := logging.Global()
 	modName := c.String(moduleFlagName)
 	modID := c.String(moduleFlagID)
 	// note: this is xor
@@ -459,11 +459,11 @@ func RestartModuleAction(c *cli.Context) error {
 		return err
 	}
 	// todo: warn if fqdn is 'localhost' + give directions.
-	robotClient, err := client.New(c.Context, strippedFqdn(c.String(robotFqdnFlag)), logger, client.WithDialOptions(dialOpt))
+	robotClient, err := client.New(c.Context, strippedFqdn(c.String(robotFqdnFlag)), logging.Global(), client.WithDialOptions(dialOpt))
 	if err != nil {
 		return err
 	}
-	defer robotClient.Close(c.Context)
+	defer robotClient.Close(c.Context) //nolint: errcheck
 	// todo: make this a stream so '--wait' can tell user what's happening
 	req := robot.RestartModuleRequest{
 		ModuleName: modName,
