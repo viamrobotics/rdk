@@ -187,7 +187,12 @@ func (pf *ptgGroupFrame) Interpolate(from, to []referenceframe.Input, by float64
 	}
 
 	changeVal := (to[endDistanceAlongTrajectoryIndex].Value - to[startDistanceAlongTrajectoryIndex].Value) * by
-	return []referenceframe.Input{to[ptgIndex], to[trajectoryAlphaWithinPTG], {to[startDistanceAlongTrajectoryIndex].Value + changeVal}}, nil
+	return []referenceframe.Input{
+		to[ptgIndex],
+		to[trajectoryAlphaWithinPTG],
+		to[startDistanceAlongTrajectoryIndex],
+		{to[startDistanceAlongTrajectoryIndex].Value + changeVal},
+	}, nil
 }
 
 func (pf *ptgGroupFrame) InputFromProtobuf(jp *pb.JointPositions) []referenceframe.Input {

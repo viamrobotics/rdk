@@ -809,13 +809,6 @@ func (pm *planManager) planRelativeWaypoint(ctx context.Context, request *PlanRe
 	pm.planOpts = opt
 	opt.SetGoal(goalPos)
 
-	// TODO (pl): Swapping to solving with 4dof may improve solvability. Perf impact unclear.
-	oldFrame, err := pm.ptgFrame4dofTo3dof()
-	if err != nil {
-		return nil, err
-	}
-	fmt.Println("swapped to 3")
-
 	// Build planner
 	//nolint: gosec
 	pathPlanner, err := opt.PlannerConstructor(
@@ -856,73 +849,8 @@ func (pm *planManager) planRelativeWaypoint(ctx context.Context, request *PlanRe
 	if err != nil {
 		return nil, err
 	}
-	
-	// Convert back to 4dof
-	for i, step := range steps {
-		newStep := &basicNode{
-			q: []referenceframe.Input{step.Q()[0], step.Q()[1], {0}, step.Q()[2]},
-			pose: step.Pose(),
-			cost: step.Cost(),
-			corner: step.Corner(),
-		}
-		steps[i] = newStep
-		
-	}
-	fmt.Println("swapping back to 4")
-	err = pm.ptgFrame3dofTo4dof(oldFrame)
-	if err != nil {
-		return nil, err
-	}
 
 	return newRRTPlan(steps, pm.frame, pm.useTPspace)
-}
-
-func (pm *planManager) ptgFrame4dofTo3dof() (referenceframe.Frame, error) {
-	var ptgFrame referenceframe.Frame
-	frameIdx := -1
-	for i, f := range pm.frame.frames {
-		// Only one non-zero dof frame for PTGs
-		if len(f.DoF()) == 0 {
-			continue
-		}
-		ptgFrame = f
-		frameIdx = i
-	}
-	ptgFrame3dof, err := tpspace.WrapPTGWith3dof(ptgFrame)
-	if err != nil {
-		return nil, err
-	}
-	err = pm.frame.fss.ReplaceFrame(ptgFrame3dof)
-	if err != nil {
-		return nil, err
-	}
-	err = pm.frame.movingFS.ReplaceFrame(ptgFrame3dof)
-	if err != nil {
-		return nil, err
-	}
-	pm.frame.frames[frameIdx] = ptgFrame3dof
-	return ptgFrame, nil
-}
-
-func (pm *planManager) ptgFrame3dofTo4dof(oldFrame referenceframe.Frame) error {
-	frameIdx := -1
-	for i, f := range pm.frame.frames {
-		// Only one non-zero dof frame for PTGs
-		if len(f.DoF()) == 0 {
-			continue
-		}
-		frameIdx = i
-	}
-	err := pm.frame.fss.ReplaceFrame(oldFrame)
-	if err != nil {
-		return err
-	}
-	err = pm.frame.movingFS.ReplaceFrame(oldFrame)
-	if err != nil {
-		return err
-	}
-	pm.frame.frames[frameIdx] = oldFrame
-	return nil
 }
 
 // Copy any atomic values.

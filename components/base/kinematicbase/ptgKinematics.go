@@ -23,7 +23,8 @@ var zeroInput = make([]referenceframe.Input, 4)
 const (
 	ptgIndex int = iota
 	trajectoryIndexWithinPTG
-	distanceAlongTrajectoryIndex
+	startDistanceAlongTrajectoryIndex
+	endDistanceAlongTrajectoryIndex
 )
 
 type ptgBaseKinematics struct {

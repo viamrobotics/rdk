@@ -7,6 +7,7 @@ import (
 	"math"
 	"math/rand"
 	"testing"
+	"fmt"
 
 	"github.com/golang/geo/r3"
 	"go.viam.com/test"
@@ -221,7 +222,6 @@ func TestTPsmoothing(t *testing.T) {
 	for _, inp := range planInputs {
 		thisNode := &basicNode{
 			q:    inp,
-			//~ cost: inp[3].Value - inp[2].Value,
 			cost: inp[3].Value - inp[2].Value,
 		}
 		plan = append(plan, thisNode)

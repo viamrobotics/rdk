@@ -191,13 +191,13 @@ func (ptgk *ptgBaseKinematics) arcStepsFromInputs(inputSteps [][]referenceframe.
 
 		selectedTraj, err := selectedPTG.Trajectory(
 			inputs[trajectoryIndexWithinPTG].Value,
-			inputs[distanceAlongTrajectoryIndex].Value,
+			inputs[endDistanceAlongTrajectoryIndex].Value,
 			stepDistResolution,
 		)
 		if err != nil {
 			return nil, err
 		}
-		trajArcSteps, err := ptgk.trajectoryToArcSteps(selectedTraj, runningPose, inputs)
+		trajArcSteps, err := ptgk.trajectoryArcSteps(selectedTraj, runningPose, inputs)
 		if err != nil {
 			return nil, err
 		}
@@ -208,19 +208,28 @@ func (ptgk *ptgBaseKinematics) arcStepsFromInputs(inputSteps [][]referenceframe.
 	return arcSteps, nil
 }
 
-func (ptgk *ptgBaseKinematics) trajectoryToArcSteps(
-	traj []*tpspace.TrajNode,
+func (ptgk *ptgBaseKinematics) trajectoryArcSteps(
 	startPose spatialmath.Pose,
 	inputs []referenceframe.Input,
 ) ([]arcStep, error) {
+	
+	correctiveTraj, err := ptgk.ptgs[ptgk.courseCorrectionIdx].Trajectory(
+		inputs[0].Value,
+					solution.Solution[i+1].Value,
+					stepDistResolution,
+				)
+				if err != nil {
+					return nil, err
+				}
+	
 	finalSteps := []arcStep{}
 	timeStep := 0.
 	curDist := 0.
 	curInputs := []referenceframe.Input{
-		inputs[0],
-		inputs[1],
+		inputs[ptgIndex],
+		inputs[trajectoryIndexWithinPTG],
 		{curDist},
-		inputs[3],
+		inputs[endDistanceAlongTrajectoryIndex],
 	}
 	runningPose := startPose
 	segment := ik.Segment{
@@ -356,16 +365,7 @@ func (ptgk *ptgBaseKinematics) courseCorrect(
 			correctiveArcSteps := []arcStep{}
 			for i := 0; i < len(solution.Solution); i += 2 {
 				// We've got a course correction solution. Swap out the relevant arcsteps.
-				correctiveTraj, err := ptgk.ptgs[ptgk.courseCorrectionIdx].Trajectory(
-					solution.Solution[i].Value,
-					solution.Solution[i+1].Value,
-					stepDistResolution,
-				)
-				if err != nil {
-					return nil, err
-				}
-				newArcSteps, err := ptgk.trajectoryToArcSteps(
-					correctiveTraj,
+				newArcSteps, err := ptgk.trajectoryArcSteps(
 					actualPose.Pose(),
 					[]referenceframe.Input{{float64(ptgk.courseCorrectionIdx)}, solution.Solution[i], solution.Solution[i+1]},
 				)

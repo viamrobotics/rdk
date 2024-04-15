@@ -509,21 +509,24 @@ func CheckPlan(
 		}
 
 		// get checkFrame's currentInputs
+		// *currently* it is guaranteed that a relative frame will constitute 100% of a solver frame's dof
 		checkFrameCurrentInputs, err := sf.mapToSlice(currentInputs)
 		if err != nil {
 			return err
+		}
+		interpolateConfig := []frame.Input{
+			{Value: checkFrameGoalInputs[0].Value},
+			{Value: checkFrameGoalInputs[1].Value},
+			{Value: checkFrameCurrentInputs[2].Value},
+			{Value: checkFrameGoalInputs[3].Value},
 		}
 
 		// pre-pend to segments so we can connect to the input we have not finished actuating yet
 		segments = append(segments, &ik.Segment{
 			StartPosition: poses[wayPointIdx-1],
 			EndPosition:   poses[wayPointIdx],
-			StartConfiguration: []frame.Input{
-				{Value: checkFrameGoalInputs[0].Value},
-				{Value: checkFrameGoalInputs[1].Value},
-				{Value: checkFrameCurrentInputs[2].Value},
-			},
-			EndConfiguration: checkFrameGoalInputs,
+			StartConfiguration: interpolateConfig,
+			EndConfiguration: interpolateConfig,
 			Frame:            sf,
 		})
 	}
@@ -544,7 +547,7 @@ func CheckPlan(
 		// If we are working with a PTG plan we redefine the startConfiguration in terms of the endConfiguration.
 		// This allows us the properly interpolate along the same arc family and sub-arc within that family.
 		if relative {
-			currInputSlice = []frame.Input{{Value: nextInputSlice[0].Value}, {Value: nextInputSlice[1].Value}, {Value: 0}}
+			currInputSlice = nextInputSlice
 		}
 		return &ik.Segment{
 			StartPosition:      currPose,
