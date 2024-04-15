@@ -1,6 +1,10 @@
 package movementsensor
 
-import pb "go.viam.com/api/component/movementsensor/v1"
+import (
+	"math"
+
+	pb "go.viam.com/api/component/movementsensor/v1"
+)
 
 // Accuracy defines the precision and reliability metrics of a movement sensor.
 // It includes various parameters to assess the sensor's accuracy in different dimensions.
@@ -38,22 +42,67 @@ type Accuracy struct {
 // ProtoFeaturesToAccuracy converts a GetAccuracyResponse from a protocol buffer (protobuf)
 // into an Accuracy struct.
 func protoFeaturesToAccuracy(resp *pb.GetAccuracyResponse) *Accuracy {
+	hdop, vdop, compass, nmeaFix := checkForEmptyOptionals(
+		resp.PositionHdop, resp.PositionVdop,
+		resp.CompassDegreesError, resp.PositionNmeaGgaFix,
+	)
 	return &Accuracy{
 		AccuracyMap:        resp.Accuracy,
-		Hdop:               *resp.PositionHdop,
-		Vdop:               *resp.PositionVdop,
-		NmeaFix:            *resp.PositionNmeaGgaFix,
-		CompassDegreeError: *resp.CompassDegreesError,
+		Hdop:               *hdop,
+		Vdop:               *vdop,
+		NmeaFix:            *nmeaFix,
+		CompassDegreeError: *compass,
 	}
 }
 
 // AccuracyToProtoResponse converts an Accuracy struct into a protobuf GetAccuracyResponse.
 func accuracyToProtoResponse(acc *Accuracy) (*pb.GetAccuracyResponse, error) {
+	if acc == nil {
+		uacc := UnimplementedAccuracies()
+		return &pb.GetAccuracyResponse{
+			Accuracy:            acc.AccuracyMap,
+			PositionHdop:        &uacc.Hdop,
+			PositionVdop:        &uacc.Vdop,
+			PositionNmeaGgaFix:  &uacc.NmeaFix,
+			CompassDegreesError: &uacc.CompassDegreeError,
+		}, nil
+	}
 	return &pb.GetAccuracyResponse{
-		Accuracy:            acc.AccuracyMap,
+		Accuracy:            map[string]float32{},
 		PositionHdop:        &acc.Hdop,
 		PositionVdop:        &acc.Vdop,
 		PositionNmeaGgaFix:  &acc.NmeaFix,
 		CompassDegreesError: &acc.CompassDegreeError,
 	}, nil
+}
+
+func checkForEmptyOptionals(
+	hdop, vdop, compass *float32, nmeaFix *int32,
+) (*float32, *float32, *float32, *int32) {
+	nan32 := convertNaN64to32()
+
+	if hdop == nil {
+		hdop = nan32
+	}
+
+	if vdop == nil {
+		vdop = nan32
+	}
+
+	if nmeaFix == nil {
+		invalidFix32 := int32(-1)
+		nmeaFix = &invalidFix32
+	}
+
+	if compass == nil {
+		compass = nan32
+	}
+
+	return hdop, vdop, compass, nmeaFix
+}
+
+func convertNaN64to32() *float32 {
+	nan := math.NaN()
+	nan32 := float32(nan)
+	return &nan32
 }

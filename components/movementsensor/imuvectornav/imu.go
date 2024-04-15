@@ -282,7 +282,7 @@ func (vn *vectornav) Position(ctx context.Context, extra map[string]interface{})
 func (vn *vectornav) Accuracy(ctx context.Context, extra map[string]interface{}) (*movementsensor.Accuracy, error) {
 	// TODO:  RSDK-6389 check the vectornav's datasheet to determine what is best to return from the vector nav.
 	// can be done in a seprate ticket from the one mentioned in this comment.
-	return movementsensor.UnimplementedAccuracies()
+	return movementsensor.UnimplementedAccuracies(), nil
 }
 
 func (vn *vectornav) GetMagnetometer(ctx context.Context) (r3.Vector, error) {

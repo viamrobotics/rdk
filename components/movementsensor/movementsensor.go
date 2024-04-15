@@ -161,12 +161,12 @@ func DefaultAPIReadings(ctx context.Context, g MovementSensor, extra map[string]
 // so a nil error must be rturned from the GetAccuracies call.
 // It contains NaN definitiions for accuracies returned in floats, an invalid integer value for the NMEAFix of a gps
 // and an empty map of other accuracies.
-func UnimplementedAccuracies() (*Accuracy, error) {
+func UnimplementedAccuracies() *Accuracy {
 	return &Accuracy{
 		AccuracyMap:        map[string]float32{},
 		Hdop:               float32(math.NaN()),
 		Vdop:               float32(math.NaN()),
 		NmeaFix:            int32(-1),
 		CompassDegreeError: float32(math.NaN()),
-	}, nil
+	}
 }

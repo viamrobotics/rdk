@@ -12,7 +12,6 @@ import (
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/components/movementsensor"
-	"go.viam.com/rdk/components/sensor"
 	viamgrpc "go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
@@ -110,6 +109,12 @@ func TestClient(t *testing.T) {
 	}
 	injectMovementSensor2.ReadingsFunc = func(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
 		return nil, errReadingsFailed
+	}
+	injectMovementSensor2.AccuracyFunc = func(ctx context.Context, extra map[string]interface{}) (*movementsensor.Accuracy, error) {
+		return nil, errAccuracy
+	}
+	injectMovementSensor2.PropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (*movementsensor.Properties, error) {
+		return nil, errProperties
 	}
 
 	gpsSvc, err := resource.NewAPIResourceCollection(movementsensor.API, map[resource.Name]movementsensor.MovementSensor{
@@ -226,9 +231,17 @@ func TestClient(t *testing.T) {
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, errAngularVelocity.Error())
 
-		_, err = client2.(sensor.Sensor).Readings(context.Background(), make(map[string]interface{}))
+		_, err = client2.Readings(context.Background(), make(map[string]interface{}))
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, errReadingsFailed.Error())
+
+		_, err = client2.Accuracy(context.Background(), make(map[string]interface{}))
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, errAccuracy.Error())
+
+		_, err = client2.Properties(context.Background(), make(map[string]interface{}))
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, errProperties.Error())
 
 		test.That(t, client2.Close(context.Background()), test.ShouldBeNil)
 		test.That(t, conn.Close(), test.ShouldBeNil)
