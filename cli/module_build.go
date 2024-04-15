@@ -15,6 +15,7 @@ import (
 	"golang.org/x/exp/maps"
 	"golang.org/x/exp/slices"
 
+	rdkConfig "go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/utils"
 )
@@ -34,6 +35,17 @@ const (
 )
 
 var moduleBuildPollingInterval = 2 * time.Second
+
+var reloadCommand = cli.Command{
+	Name:  "reload",
+	Usage: "run this module on a robot (only works on local robot for now)",
+	Flags: []cli.Flag{
+		&cli.StringFlag{Name: moduleFlagPath, Value: "meta.json"},
+		&cli.StringFlag{Name: generalFlagAliasRobotID},
+		&cli.StringFlag{Name: configFlag},
+	},
+	Action: ModuleReloadAction,
+}
 
 // ModuleBuildStartAction starts a cloud build.
 func ModuleBuildStartAction(cCtx *cli.Context) error {
@@ -371,4 +383,27 @@ func jobStatusFromProto(s buildpb.JobStatus) jobStatus {
 	default:
 		return jobStatusUnspecified
 	}
+}
+
+func ModuleReloadAction(cCtx *cli.Context) error {
+	robotId := cCtx.String(generalFlagAliasRobotID)
+	configPath := cCtx.String(configFlag)
+	// todo: switch to MutuallyExclusiveFlags when available
+	if (len(robotId) == 0) && (len(configPath) == 0) {
+		return fmt.Errorf("provide exactly one of --%s or --%s", generalFlagAliasRobotID, configFlag)
+	}
+	var conf *rdkConfig.Config
+	var err error
+	if len(robotId) != 0 {
+		return errors.New("robot-id not implemented yet")
+	} else {
+		conf, err = rdkConfig.Read(cCtx.Context, configPath, logging.Global())
+		if err != nil {
+			return err
+		}
+	}
+	for _, mod := range conf.Modules {
+		fmt.Printf("module %v\n", mod)
+	}
+	return nil
 }

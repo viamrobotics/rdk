@@ -1371,6 +1371,7 @@ Example:
 						},
 					},
 				},
+				&reloadCommand,
 			},
 		},
 		{
