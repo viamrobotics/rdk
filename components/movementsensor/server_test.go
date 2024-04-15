@@ -253,6 +253,7 @@ func TestServer(t *testing.T) {
 		test.That(t, resource.IsNotFoundError(err), test.ShouldBeTrue)
 
 		injectMovementSensor2.AccuracyFunc = func(ctx context.Context, extra map[string]interface{}) (*movementsensor.Accuracy, error) {
+			//nolint:nilnil
 			return nil, nil
 		}
 		uacc, err := gpsServer.GetAccuracy(context.Background(), &pb.GetAccuracyRequest{Name: failMovementSensorName})
@@ -262,6 +263,5 @@ func TestServer(t *testing.T) {
 		test.That(t, math.IsNaN(float64(*uacc.PositionVdop)), test.ShouldBeTrue)
 		test.That(t, math.IsNaN(float64(*uacc.CompassDegreesError)), test.ShouldBeTrue)
 		test.That(t, *uacc.PositionNmeaGgaFix, test.ShouldResemble, int32(-1))
-
 	})
 }

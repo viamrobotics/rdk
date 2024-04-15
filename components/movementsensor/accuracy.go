@@ -58,7 +58,7 @@ func accuracyToProtoResponse(acc *Accuracy) (*pb.GetAccuracyResponse, error) {
 	if acc == nil {
 		uacc := UnimplementedOptionalAccuracies()
 		return &pb.GetAccuracyResponse{
-			Accuracy:            acc.AccuracyMap,
+			Accuracy:            map[string]float32{},
 			PositionHdop:        &uacc.Hdop,
 			PositionVdop:        &uacc.Vdop,
 			PositionNmeaGgaFix:  &uacc.NmeaFix,
