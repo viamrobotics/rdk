@@ -14,6 +14,10 @@ func MLTrainingUploadAction(c *cli.Context) error {
 
 	metadata := createMetadata(c.Bool(mlTrainingFlagDraft), c.String(mlTrainingFlagType),
 		c.String(mlTrainingFlagFramework))
+	metadataStruct, err := convertMetadataToStruct(metadata)
+	if err != nil {
+		return err
+	}
 
 	// TODO: If draft is set, cannot set visibility; automatically set to private
 	resp, err := client.uploadPackage(c.String(generalFlagOrgID),
@@ -21,7 +25,7 @@ func MLTrainingUploadAction(c *cli.Context) error {
 		c.String(packageFlagVersion),
 		c.String(packageFlagType),
 		c.Path(packageFlagDestination),
-		metadata,
+		metadataStruct,
 	)
 	if err != nil {
 		return err
@@ -43,8 +47,8 @@ const (
 )
 
 var modelTypes = []string{
-	string(PackageTypeUnspecified), string(PackageTypeArchive), string(PackageTypeMLModel),
-	string(PackageTypeModule), string(PackageTypeSLAMMap),
+	string(ModelTypeUnspecified), string(ModelTypeSingleLabelClassification),
+	string(ModelTypeMultiLabelClassification), string(ModelTypeObjectDetection),
 }
 
 // ModelFramework refers to the backend framework of the model.

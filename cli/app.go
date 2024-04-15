@@ -1457,22 +1457,22 @@ Example:
 						},
 						&cli.StringFlag{
 							Name:     mlTrainingFlagFramework,
-							Usage:    "framework of the ML training script to upload, can be: ",
+							Usage:    "framework of the ML training script to upload, can be: " + strings.Join(modelFrameworks, ", "),
 							Required: false,
 						},
 						&cli.StringFlag{
 							Name:     mlTrainingFlagType,
-							Usage:    "version of the ML training script to upload, can be: ",
+							Usage:    "task type of the ML training script to upload, can be: " + strings.Join(modelTypes, ", "),
 							Required: false,
 						},
 						&cli.BoolFlag{
 							Name:     mlTrainingFlagDraft,
-							Usage:    "indicate draft mode",
+							Usage:    "indicate draft mode, drafts will not be viewable in the registry",
 							Required: false,
 						},
 						&cli.BoolFlag{
 							Name:     mlTrainingFlagPublic,
-							Usage:    "indicate draft mode",
+							Usage:    "indicate visibility of the package",
 							Required: false,
 						},
 					},

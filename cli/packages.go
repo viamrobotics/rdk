@@ -15,6 +15,7 @@ import (
 	"go.uber.org/multierr"
 	packagespb "go.viam.com/api/app/packages/v1"
 	"go.viam.com/utils"
+	"google.golang.org/protobuf/types/known/structpb"
 )
 
 var boolTrue = true
@@ -159,7 +160,7 @@ func PackageUploadAction(c *cli.Context) error {
 
 func (c *viamClient) uploadPackage(
 	orgID, name, version, packageType, tarballPath string,
-	metadata MLMetadata,
+	metadataStruct *structpb.Struct,
 ) (*packagespb.CreatePackageResponse, error) {
 	if err := c.ensureLoggedIn(); err != nil {
 		return nil, err
@@ -177,10 +178,6 @@ func (c *viamClient) uploadPackage(
 		return nil, err
 	}
 	packageTypeProto, err := convertPackageTypeToProto(packageType)
-	if err != nil {
-		return nil, err
-	}
-	metadataStruct, err := convertMetadataToStruct(metadata)
 	if err != nil {
 		return nil, err
 	}
