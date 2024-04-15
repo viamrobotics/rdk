@@ -394,7 +394,7 @@ type Board struct {
 }
 
 // AnalogReaderByName returns the analog reader by the given name if it exists.
-func (b *Board) AnalogReaderByName(name string) (board.AnalogReader, bool) {
+func (b *Board) AnalogByName(name string) (board.Analog, bool) {
 	a, ok := b.analogReaders[name]
 	return a, ok
 }
@@ -436,8 +436,8 @@ func (b *Board) DigitalInterruptByName(name string) (board.DigitalInterrupt, boo
 	return interrupt.interrupt, true
 }
 
-// AnalogReaderNames returns the names of all known analog readers.
-func (b *Board) AnalogReaderNames() []string {
+// AnalogNames returns the names of all known analog readers.
+func (b *Board) AnalogNames() []string {
 	names := []string{}
 	for k := range b.analogReaders {
 		names = append(names, k)

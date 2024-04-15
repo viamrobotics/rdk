@@ -16,7 +16,7 @@ type Board struct {
 	board.Board
 	name                       resource.Name
 	DoFunc                     func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
-	AnalogReaderByNameFunc     func(name string) (board.AnalogReader, bool)
+	AnalogReaderByNameFunc     func(name string) (board.Analog, bool)
 	analogReaderByNameCap      []interface{}
 	DigitalInterruptByNameFunc func(name string) (board.DigitalInterrupt, bool)
 	digitalInterruptByNameCap  []interface{}
@@ -43,10 +43,10 @@ func (b *Board) Name() resource.Name {
 }
 
 // AnalogReaderByName calls the injected AnalogReaderByName or the real version.
-func (b *Board) AnalogReaderByName(name string) (board.AnalogReader, bool) {
+func (b *Board) AnalogReaderByName(name string) (board.Analog, bool) {
 	b.analogReaderByNameCap = []interface{}{name}
 	if b.AnalogReaderByNameFunc == nil {
-		return b.Board.AnalogReaderByName(name)
+		return b.Board.AnalogByName(name)
 	}
 	return b.AnalogReaderByNameFunc(name)
 }
@@ -99,7 +99,7 @@ func (b *Board) GPIOPinByNameCap() []interface{} {
 // AnalogReaderNames calls the injected AnalogReaderNames or the real version.
 func (b *Board) AnalogReaderNames() []string {
 	if b.AnalogReaderNamesFunc == nil {
-		return b.Board.AnalogReaderNames()
+		return b.Board.AnalogNames()
 	}
 	return b.AnalogReaderNamesFunc()
 }

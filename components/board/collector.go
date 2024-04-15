@@ -43,7 +43,7 @@ func newAnalogCollector(resource interface{}, params data.CollectorParams) (data
 			return nil, data.FailedToReadErr(params.ComponentName, analogs.String(),
 				errors.New("Must supply reader_name in additional_params for analog collector"))
 		}
-		if reader, ok := board.AnalogReaderByName(arg[analogReaderNameKey].String()); ok {
+		if reader, ok := board.AnalogByName(arg[analogReaderNameKey].String()); ok {
 			value, err = reader.Read(ctx, data.FromDMExtraMap)
 			if err != nil {
 				// A modular filter component can be created to filter the readings from a component. The error ErrNoCaptureToStore

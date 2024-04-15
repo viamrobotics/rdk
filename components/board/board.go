@@ -53,8 +53,8 @@ func Named(name string) resource.Name {
 type Board interface {
 	resource.Resource
 
-	// AnalogReaderByName returns an analog reader by name.
-	AnalogReaderByName(name string) (AnalogReader, bool)
+	// AnalogByName returns an analog reader by name.
+	AnalogByName(name string) (Analog, bool)
 
 	// DigitalInterruptByName returns a digital interrupt by name.
 	DigitalInterruptByName(name string) (DigitalInterrupt, bool)
@@ -62,8 +62,8 @@ type Board interface {
 	// GPIOPinByName returns a GPIOPin by name.
 	GPIOPinByName(name string) (GPIOPin, error)
 
-	// AnalogReaderNames returns the names of all known analog readers.
-	AnalogReaderNames() []string
+	// AnalogNames returns the names of all known analog readers.
+	AnalogNames() []string
 
 	// DigitalInterruptNames returns the names of all known digital interrupts.
 	DigitalInterruptNames() []string
@@ -85,8 +85,8 @@ type Board interface {
 	StreamTicks(ctx context.Context, interrupts []string, ch chan Tick, extra map[string]interface{}) error
 }
 
-// An AnalogReader represents an analog pin reader that resides on a board.
-type AnalogReader interface {
+// An Analog represents an analog pin reader that resides on a board.
+type Analog interface {
 	// Read reads off the current value.
 	Read(ctx context.Context, extra map[string]interface{}) (int, error)
 	Close(ctx context.Context) error

@@ -150,10 +150,10 @@ func TestWorkingClient(t *testing.T) {
 
 		// Analog Reader
 		injectAnalogReader := &inject.AnalogReader{}
-		injectBoard.AnalogReaderByNameFunc = func(name string) (board.AnalogReader, bool) {
+		injectBoard.AnalogReaderByNameFunc = func(name string) (board.Analog, bool) {
 			return injectAnalogReader, true
 		}
-		analog1, ok := injectBoard.AnalogReaderByName("analog1")
+		analog1, ok := injectBoard.AnalogByName("analog1")
 		test.That(t, ok, test.ShouldBeTrue)
 		test.That(t, injectBoard.AnalogReaderByNameCap(), test.ShouldResemble, []interface{}{"analog1"})
 
@@ -258,7 +258,7 @@ func TestClientWithStatus(t *testing.T) {
 
 	test.That(t, injectBoard.StatusCap()[1:], test.ShouldResemble, []interface{}{})
 
-	respAnalogReaders := client.AnalogReaderNames()
+	respAnalogReaders := client.AnalogNames()
 	test.That(t, respAnalogReaders, test.ShouldResemble, []string{"analog1"})
 
 	respDigitalInterrupts := client.DigitalInterruptNames()
@@ -296,7 +296,7 @@ func TestClientWithoutStatus(t *testing.T) {
 
 	test.That(t, injectBoard.StatusCap()[1:], test.ShouldResemble, []interface{}{})
 
-	test.That(t, rClient.AnalogReaderNames(), test.ShouldResemble, []string{})
+	test.That(t, rClient.AnalogNames(), test.ShouldResemble, []string{})
 	test.That(t, rClient.DigitalInterruptNames(), test.ShouldResemble, []string{})
 
 	err = rClient.Close(context.Background())

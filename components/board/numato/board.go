@@ -104,7 +104,7 @@ type numatoBoard struct {
 	resource.Named
 	resource.AlwaysRebuild
 	pins    int
-	analogs map[string]board.AnalogReader
+	analogs map[string]board.Analog
 
 	port   io.ReadWriteCloser
 	closed int32
@@ -236,8 +236,8 @@ func (b *numatoBoard) StreamTicks(ctx context.Context, interrupts []string, ch c
 	return grpc.UnimplementedError
 }
 
-// AnalogReaderByName returns an analog reader by name.
-func (b *numatoBoard) AnalogReaderByName(name string) (board.AnalogReader, bool) {
+// AnalogByName returns an analog reader by name.
+func (b *numatoBoard) AnalogByName(name string) (board.Analog, bool) {
 	ar, ok := b.analogs[name]
 	return ar, ok
 }
@@ -247,8 +247,8 @@ func (b *numatoBoard) DigitalInterruptByName(name string) (board.DigitalInterrup
 	return nil, false
 }
 
-// AnalogReaderNames returns the names of all known analog readers.
-func (b *numatoBoard) AnalogReaderNames() []string {
+// AnalogNames returns the names of all known analog readers.
+func (b *numatoBoard) AnalogNames() []string {
 	names := []string{}
 	for n := range b.analogs {
 		names = append(names, n)
@@ -404,7 +404,7 @@ func connect(ctx context.Context, name resource.Name, conf *Config, logger loggi
 		logger: logger,
 	}
 
-	b.analogs = map[string]board.AnalogReader{}
+	b.analogs = map[string]board.Analog{}
 	for _, c := range conf.Analogs {
 		r := &analogReader{b, c.Pin}
 		b.analogs[c.Name] = pinwrappers.SmoothAnalogReader(r, c, logger)

@@ -18,7 +18,7 @@ var errStopReading = errors.New("stop reading")
 
 // An AnalogSmoother smooths the readings out from an underlying reader.
 type AnalogSmoother struct {
-	Raw                     board.AnalogReader
+	Raw                     board.Analog
 	AverageOverMillis       int
 	SamplesPerSecond        int
 	data                    *utils.RollingAverage
@@ -30,7 +30,7 @@ type AnalogSmoother struct {
 }
 
 // SmoothAnalogReader wraps the given reader in a smoother.
-func SmoothAnalogReader(r board.AnalogReader, c board.AnalogReaderConfig, logger logging.Logger) *AnalogSmoother {
+func SmoothAnalogReader(r board.Analog, c board.AnalogReaderConfig, logger logging.Logger) *AnalogSmoother {
 	cancelCtx, cancel := context.WithCancel(context.Background())
 	smoother := &AnalogSmoother{
 		Raw:               r,

@@ -68,7 +68,7 @@ func NewClientFromConn(
 	return c, nil
 }
 
-func (c *client) AnalogReaderByName(name string) (AnalogReader, bool) {
+func (c *client) AnalogByName(name string) (Analog, bool) {
 	return &analogReaderClient{
 		client:           c,
 		boardName:        c.info.name,
@@ -92,7 +92,7 @@ func (c *client) GPIOPinByName(name string) (GPIOPin, error) {
 	}, nil
 }
 
-func (c *client) AnalogReaderNames() []string {
+func (c *client) AnalogNames() []string {
 	if c.getCachedStatus() == nil {
 		c.logger.Debugw("no cached status")
 		return []string{}

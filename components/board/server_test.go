@@ -601,7 +601,7 @@ func TestServerReadAnalogReader(t *testing.T) {
 			test.That(t, err, test.ShouldBeNil)
 			var actualExtra map[string]interface{}
 
-			injectBoard.AnalogReaderByNameFunc = func(name string) (board.AnalogReader, bool) {
+			injectBoard.AnalogReaderByNameFunc = func(name string) (board.Analog, bool) {
 				return tc.injectAnalogReader, tc.injectAnalogReaderOk
 			}
 

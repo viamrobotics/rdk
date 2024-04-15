@@ -8,7 +8,7 @@ import (
 
 // AnalogReader is an injected analog reader.
 type AnalogReader struct {
-	board.AnalogReader
+	board.Analog
 	ReadFunc func(ctx context.Context, extra map[string]interface{}) (int, error)
 	readCap  []interface{}
 }
@@ -17,7 +17,7 @@ type AnalogReader struct {
 func (a *AnalogReader) Read(ctx context.Context, extra map[string]interface{}) (int, error) {
 	a.readCap = []interface{}{ctx}
 	if a.ReadFunc == nil {
-		return a.AnalogReader.Read(ctx, extra)
+		return a.Analog.Read(ctx, extra)
 	}
 	return a.ReadFunc(ctx, extra)
 }

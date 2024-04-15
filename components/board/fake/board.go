@@ -157,8 +157,8 @@ type Board struct {
 	CloseCount    int
 }
 
-// AnalogReaderByName returns the analog reader by the given name if it exists.
-func (b *Board) AnalogReaderByName(name string) (board.AnalogReader, bool) {
+// AnalogByName returns the analog reader by the given name if it exists.
+func (b *Board) AnalogByName(name string) (board.Analog, bool) {
 	b.mu.RLock()
 	defer b.mu.RUnlock()
 	a, ok := b.AnalogReaders[name]
@@ -186,8 +186,8 @@ func (b *Board) GPIOPinByName(name string) (board.GPIOPin, error) {
 	return p, nil
 }
 
-// AnalogReaderNames returns the names of all known analog readers.
-func (b *Board) AnalogReaderNames() []string {
+// AnalogNames returns the names of all known analog readers.
+func (b *Board) AnalogNames() []string {
 	b.mu.RLock()
 	defer b.mu.RUnlock()
 	names := []string{}
