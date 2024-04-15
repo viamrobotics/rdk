@@ -1,8 +1,10 @@
 package cli
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
+	"path/filepath"
 	"strings"
 	"text/tabwriter"
 	"time"
@@ -11,9 +13,11 @@ import (
 	"github.com/urfave/cli/v2"
 	"go.uber.org/multierr"
 	buildpb "go.viam.com/api/app/build/v1"
+	apppb "go.viam.com/api/app/v1"
 	"go.viam.com/utils/pexec"
 	"golang.org/x/exp/maps"
 	"golang.org/x/exp/slices"
+	"google.golang.org/protobuf/types/known/structpb"
 
 	rdkConfig "go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
@@ -386,14 +390,18 @@ func jobStatusFromProto(s buildpb.JobStatus) jobStatus {
 }
 
 func ModuleReloadAction(cCtx *cli.Context) error {
+	logger := logging.Global()
 	robotId := cCtx.String(generalFlagAliasRobotID)
 	configPath := cCtx.String(configFlag)
 	// todo: switch to MutuallyExclusiveFlags when available
 	if (len(robotId) == 0) && (len(configPath) == 0) {
 		return fmt.Errorf("provide exactly one of --%s or --%s", generalFlagAliasRobotID, configFlag)
 	}
+	manifest, err := loadManifest(cCtx.String(moduleFlagPath))
+	if err != nil {
+		return err
+	}
 	var conf *rdkConfig.Config
-	var err error
 	if len(robotId) != 0 {
 		return errors.New("robot-id not implemented yet")
 	} else {
@@ -402,8 +410,97 @@ func ModuleReloadAction(cCtx *cli.Context) error {
 			return err
 		}
 	}
+	localName := "hr_" + strings.ReplaceAll(manifest.ModuleID, ":", "_")
+	var foundMod *rdkConfig.Module
+	dirty := false
 	for _, mod := range conf.Modules {
-		fmt.Printf("module %v\n", mod)
+		if mod.ModuleID == manifest.ModuleID {
+			foundMod = &mod
+			break
+		} else if mod.Name == localName {
+			foundMod = &mod
+			break
+		}
+	}
+	absEntrypoint, err := filepath.Abs(manifest.Entrypoint)
+	if err != nil {
+		return err
+	}
+	if foundMod == nil {
+		logger.Debug("module not found, inserting")
+		dirty = true
+		newMod := rdkConfig.Module{
+			Name:    localName,
+			ExePath: absEntrypoint,
+			Type:    rdkConfig.ModuleTypeLocal,
+			// todo: let user pass through LogLevel and Environment
+		}
+		conf.Modules = append(conf.Modules, newMod)
+	} else {
+		if same, err := compareExePath(foundMod, &manifest); err != nil {
+			return err
+		} else if !same {
+			dirty = true
+			logger.Debug("replacing entrypoint")
+			foundMod.ExePath = absEntrypoint
+		}
+	}
+	if dirty {
+		logger.Debug("writing back config changes")
+		vc, err := newViamClient(cCtx)
+		if err != nil {
+			return err
+		}
+		err = vc.updateRobotPart(conf.Cloud.ID, conf)
+		if err != nil {
+			return err
+		}
 	}
 	return nil
+}
+
+// compareExePath returns true if mod.ExePath and manifest.Entrypoint are the same path.
+func compareExePath(mod *rdkConfig.Module, manifest *moduleManifest) (bool, error) {
+	exePath, err := filepath.Abs(mod.ExePath)
+	if err != nil {
+		return false, err
+	}
+	entrypoint, err := filepath.Abs(manifest.Entrypoint)
+	if err != nil {
+		return false, err
+	}
+	return exePath == entrypoint, nil
+}
+
+// marshalToMap does json ser/des to convert a struct to a map.
+func marshalToMap(orig interface{}) (map[string]interface{}, error) {
+	encoded, err := json.Marshal(orig)
+	if err != nil {
+		return nil, err
+	}
+	var ret map[string]interface{}
+	json.Unmarshal(encoded, &err)
+	return ret, nil
+}
+
+func (c *viamClient) updateRobotPart(partId string, conf *rdkConfig.Config) error {
+	if err := c.ensureLoggedIn(); err != nil {
+		return err
+	}
+	confMap, err := marshalToMap(conf)
+	if err != nil {
+		return err
+	}
+	confStruct, err := structpb.NewStruct(confMap)
+	if err != nil {
+		return err
+	}
+	logging.Global().Warn("pls get actual name pls")
+	req := apppb.UpdateRobotPartRequest{
+		Id:          partId,
+		Name:        "TODO DONT OVERWRITE NAME PLS",
+		RobotConfig: confStruct,
+	}
+	_, err = c.client.UpdateRobotPart(c.c.Context, &req)
+	return err
 }
