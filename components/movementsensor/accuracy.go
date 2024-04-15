@@ -47,22 +47,22 @@ func protoFeaturesToAccuracy(resp *pb.GetAccuracyResponse) *Accuracy {
 	}
 
 	hdop := resp.PositionHdop
-	if &hdop == nil {
+	if hdop == nil {
 		hdop = &uacc.Hdop
 	}
 
 	vdop := resp.PositionVdop
-	if &vdop == nil {
+	if vdop == nil {
 		vdop = &uacc.Vdop
 	}
 
 	compass := resp.CompassDegreesError
-	if &compass == nil {
+	if compass == nil {
 		compass = &uacc.CompassDegreeError
 	}
 
 	nmeaFix := resp.PositionNmeaGgaFix
-	if &nmeaFix == nil {
+	if nmeaFix == nil {
 		nmeaFix = &uacc.NmeaFix
 	}
 
@@ -76,7 +76,7 @@ func protoFeaturesToAccuracy(resp *pb.GetAccuracyResponse) *Accuracy {
 }
 
 // AccuracyToProtoResponse converts an Accuracy struct into a protobuf GetAccuracyResponse.
-// used by the server
+// used by the server.
 func accuracyToProtoResponse(acc *Accuracy) (*pb.GetAccuracyResponse, error) {
 	uacc := UnimplementedOptionalAccuracies()
 	if acc == nil {
@@ -84,8 +84,9 @@ func accuracyToProtoResponse(acc *Accuracy) (*pb.GetAccuracyResponse, error) {
 			Accuracy:            map[string]float32{},
 			PositionHdop:        &uacc.Hdop,
 			PositionVdop:        &uacc.Vdop,
-			PositionNmeaGgaFix:  &uacc.NmeaFix,
 			CompassDegreesError: &uacc.CompassDegreeError,
+			// default value of the GGA NMEA Fix when Accuracy struct is nil is -1 - a meaningless value in terms of GGA Fixes.
+			PositionNmeaGgaFix: &uacc.NmeaFix,
 		}, nil
 	}
 
@@ -104,16 +105,12 @@ func accuracyToProtoResponse(acc *Accuracy) (*pb.GetAccuracyResponse, error) {
 		compass = acc.CompassDegreeError
 	}
 
-	nmeaFix := uacc.NmeaFix
-	if &acc.NmeaFix != nil {
-		nmeaFix = acc.NmeaFix
-	}
-
 	return &pb.GetAccuracyResponse{
 		Accuracy:            acc.AccuracyMap,
 		PositionHdop:        &hdop,
 		PositionVdop:        &vdop,
-		PositionNmeaGgaFix:  &nmeaFix,
 		CompassDegreesError: &compass,
+		// default value of the GGA NMEA Fix when Accuracy struct is non-nil is 0 - invalid GGA Fix.
+		PositionNmeaGgaFix: &acc.NmeaFix,
 	}, nil
 }
