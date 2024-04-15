@@ -702,6 +702,9 @@ func (ms *builtIn) createBaseMoveRequest(
 	// If our motion profile is position_only then, we only check against our current & desired position
 	// Conversely if our motion profile is anything else, then we also need to check again our
 	// current & desired orientation
+	ms.logger.Debugf("valExtra.motionProfile %s", valExtra.motionProfile)
+	ms.logger.Debugf("spatialmath.PoseAlmostCoincidentEps(goal.Pose(), startPose, motionCfg.planDeviationMM) %t", spatialmath.PoseAlmostCoincidentEps(goal.Pose(), startPose, motionCfg.planDeviationMM))
+	ms.logger.Debugf("spatialmath.OrientationAlmostEqual(goal.Pose().Orientation(), spatialmath.NewZeroPose().Orientation()) %t", spatialmath.OrientationAlmostEqual(goal.Pose().Orientation(), spatialmath.NewZeroPose().Orientation()))
 	if valExtra.motionProfile == motionplan.PositionOnlyMotionProfile {
 		if spatialmath.PoseAlmostCoincidentEps(goal.Pose(), startPose, motionCfg.planDeviationMM) {
 			return nil, motion.ErrGoalWithinPlanDeviation

@@ -405,7 +405,8 @@ func (ptgk *ptgBaseKinematics) courseCorrect(
 }
 
 func (ptgk *ptgBaseKinematics) getCorrectionSolution(ctx context.Context, goals []courseCorrectionGoal) (courseCorrectionGoal, error) {
-	for _, goal := range goals {
+	for i := len(goals) - 1; i >= 0; i-- {
+		goal := goals[i]
 		solveMetric := ik.NewSquaredNormMetric(goal.Goal)
 		solutionChan := make(chan *ik.Solution, 1)
 		ptgk.logger.Debug("attempting goal ", spatialmath.PoseToProtobuf(goal.Goal))
