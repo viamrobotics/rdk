@@ -9,6 +9,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"time"
 
 	"github.com/pkg/errors"
 	"github.com/urfave/cli/v2"
@@ -32,11 +33,12 @@ const (
 	PackageTypeMLModel     = PackageType("ml_model")
 	PackageTypeModule      = PackageType("module")
 	PackageTypeSLAMMap     = PackageType("slam_map")
+	PackageTypeMLTraining  = PackageType("ml_training")
 )
 
 var packageTypes = []string{
 	string(PackageTypeUnspecified), string(PackageTypeArchive), string(PackageTypeMLModel),
-	string(PackageTypeModule), string(PackageTypeSLAMMap),
+	string(PackageTypeMLTraining), string(PackageTypeModule), string(PackageTypeSLAMMap),
 }
 
 // PackageExportAction is the corresponding action for 'package export'.
@@ -69,6 +71,8 @@ func convertPackageTypeToProto(packageType string) (*packagespb.PackageType, err
 		packageTypeProto = packagespb.PackageType_PACKAGE_TYPE_MODULE
 	case PackageTypeSLAMMap:
 		packageTypeProto = packagespb.PackageType_PACKAGE_TYPE_SLAM_MAP
+	case PackageTypeMLTraining:
+		packageTypeProto = packagespb.PackageType_PACKAGE_TYPE_ML_TRAINING
 	default:
 		return nil, errors.New("invalid package type " + packageType)
 	}
@@ -181,6 +185,11 @@ func (c *viamClient) uploadPackage(
 	if err != nil {
 		return nil, err
 	}
+	// If version is empty, set to some default
+	if version == "" {
+		version = fmt.Sprint(time.Now().UnixMilli())
+	}
+	fmt.Println(version)
 	pkgInfo := packagespb.PackageInfo{
 		OrganizationId: orgID,
 		Name:           name,

@@ -19,12 +19,11 @@ func MLTrainingUploadAction(c *cli.Context) error {
 		return err
 	}
 
-	// TODO: If draft is set, cannot set visibility; automatically set to private
 	resp, err := client.uploadPackage(c.String(generalFlagOrgID),
-		c.String(packageFlagName),
-		c.String(packageFlagVersion),
-		c.String(packageFlagType),
-		c.Path(packageFlagDestination),
+		c.String(mlTrainingFlagName),
+		c.String(mlTrainingFlagVersion),
+		string(PackageTypeMLTraining),
+		c.Path(mlTrainingFlagPath),
 		metadataStruct,
 	)
 	if err != nil {

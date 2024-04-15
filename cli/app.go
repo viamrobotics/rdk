@@ -1470,48 +1470,9 @@ Example:
 							Usage:    "indicate draft mode, drafts will not be viewable in the registry",
 							Required: false,
 						},
-						&cli.BoolFlag{
-							Name:     mlTrainingFlagPublic,
-							Usage:    "indicate visibility of the package",
-							Required: false,
-						},
 					},
-					// Update action
-					Action: PackageUploadAction,
-				},
-				{
-					// update?
-					Name:      "update",
-					Aliases:   []string{"update"},
-					Usage:     "update existing ML training scripts for custom ML training",
-					UsageText: createUsageText("training-script upload", []string{mlTrainingFlagPath}, true),
-					Flags: []cli.Flag{
-						&cli.StringFlag{
-							Name:     mlTrainingFlagPath,
-							Usage:    "path to ML training scripts for upload",
-							Required: true,
-						},
-						&cli.StringFlag{
-							Name:     generalFlagOrgID,
-							Required: true,
-							Usage:    "organization ID that will host the scripts",
-						},
-						&cli.StringFlag{
-							Name:     mlTrainingFlagName,
-							Usage:    "name of the ML training script to upload",
-							Required: true,
-						},
-						&cli.StringFlag{
-							Name:     mlTrainingFlagVersion,
-							Usage:    "version of the ML training script to upload",
-							Required: false,
-						},
-					},
-					// Update action
-					Action: ModuleBuildLogsAction,
-				},
-				{
-					// TODO - Add actions for submitting training job
+					// Upload action
+					Action: MLTrainingUploadAction,
 				},
 			},
 		},
