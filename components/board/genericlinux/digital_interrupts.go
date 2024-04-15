@@ -14,11 +14,12 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/board"
+	"go.viam.com/rdk/components/board/pinwrappers"
 )
 
 type digitalInterrupt struct {
 	boardWorkers *sync.WaitGroup
-	interrupt    board.ReconfigurableDigitalInterrupt
+	interrupt    pinwrappers.ReconfigurableDigitalInterrupt
 	line         *gpio.LineWithEvent
 	cancelCtx    context.Context
 	cancelFunc   func()
@@ -32,7 +33,7 @@ func (b *Board) createDigitalInterrupt(
 	// If we are reconfiguring a board, we might already have channels subscribed and listening for
 	// updates from an old interrupt that we're creating on a new pin. In that case, reuse the part
 	// that holds the callbacks.
-	oldCallbackHolder board.ReconfigurableDigitalInterrupt,
+	oldCallbackHolder pinwrappers.ReconfigurableDigitalInterrupt,
 ) (*digitalInterrupt, error) {
 	mapping, ok := gpioMappings[config.Pin]
 	if !ok {
@@ -51,9 +52,9 @@ func (b *Board) createDigitalInterrupt(
 		return nil, err
 	}
 
-	var interrupt board.ReconfigurableDigitalInterrupt
+	var interrupt pinwrappers.ReconfigurableDigitalInterrupt
 	if oldCallbackHolder == nil {
-		interrupt, err = board.CreateDigitalInterrupt(config)
+		interrupt, err = pinwrappers.CreateDigitalInterrupt(config)
 		if err != nil {
 			return nil, multierr.Combine(err, line.Close())
 		}

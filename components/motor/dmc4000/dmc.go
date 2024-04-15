@@ -369,15 +369,15 @@ func (c *controller) sendCmd(cmd string) (string, error) {
 		if c.testChan != nil {
 			ret = []byte(<-c.testChan)
 			break
-		} else {
-			n, err := c.port.Read(buf)
-			if err != nil {
-				return string(ret), err
-			}
-			ret = append(ret, buf[:n]...)
-			if bytes.ContainsAny(buf[:n], ":?") {
-				break
-			}
+		}
+
+		n, err := c.port.Read(buf)
+		if err != nil {
+			return string(ret), err
+		}
+		ret = append(ret, buf[:n]...)
+		if bytes.ContainsAny(buf[:n], ":?") {
+			break
 		}
 	}
 	if bytes.LastIndexByte(ret, []byte(":")[0]) == len(ret)-1 {

@@ -8,9 +8,11 @@ import (
 	"go.viam.com/test"
 	"go.viam.com/utils/testutils"
 
+	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/encoder"
 	"go.viam.com/rdk/components/motor"
 	"go.viam.com/rdk/logging"
+	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/testutils/inject"
 )
@@ -18,6 +20,7 @@ import (
 const (
 	encoderName = "encoder"
 	motorName   = "motor"
+	boardName   = "board"
 )
 
 type injectedState struct {
@@ -51,6 +54,21 @@ func injectEncoder() encoder.Encoder {
 		return encoder.Properties{TicksCountSupported: true}, nil
 	}
 	return enc
+}
+
+func injectBoard() board.Board {
+	gpioPin := inject.GPIOPin{
+		SetFunc:    func(ctx context.Context, high bool, extra map[string]interface{}) error { return nil },
+		GetFunc:    func(ctx context.Context, extra map[string]interface{}) (bool, error) { return true, nil },
+		SetPWMFunc: func(ctx context.Context, dutyCyclePct float64, extra map[string]interface{}) error { return nil },
+	}
+
+	b := inject.NewBoard(boardName)
+	b.GPIOPinByNameFunc = func(name string) (board.GPIOPin, error) {
+		return &gpioPin, nil
+	}
+
+	return b
 }
 
 func injectMotor() motor.Motor {
@@ -249,38 +267,81 @@ func TestEncodedMotorControls(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 
 	// create inject motor
-	fakeMotor := injectMotor()
+	// note, all test files should have an inject motor and an inject
+	// board in the future
+	fakeMotor := &Motor{
+		maxRPM:    100,
+		logger:    logger,
+		opMgr:     operation.NewSingleOperationManager(),
+		motorType: DirectionPwm,
+	}
 
 	// create an inject encoder
 	enc := injectEncoder()
 
 	// create an encoded motor
 	conf := resource.Config{
-		Name:                motorName,
-		ConvertedAttributes: &Config{},
-	}
-	motorConf := Config{
-		TicksPerRotation: 1,
-		ControlParameters: &motorPIDConfig{
-			P: 1,
-			I: 2,
-			D: 0,
+		Name: motorName,
+		ConvertedAttributes: &Config{
+			Encoder:          encoderName,
+			TicksPerRotation: 1,
+			ControlParameters: &motorPIDConfig{
+				P: 1,
+				I: 2,
+				D: 0,
+			},
 		},
 	}
-	wrappedMotor, err := WrapMotorWithEncoder(context.Background(), enc, conf, motorConf, fakeMotor, logger)
+
+	m, err := setupMotorWithControls(context.Background(), fakeMotor, enc, conf, logger)
 	test.That(t, err, test.ShouldBeNil)
-	m, ok := wrappedMotor.(*EncodedMotor)
+	cm, ok := m.(*controlledMotor)
 	test.That(t, ok, test.ShouldBeTrue)
 
 	defer func() {
-		test.That(t, m.Close(context.Background()), test.ShouldBeNil)
+		test.That(t, cm.Close(context.Background()), test.ShouldBeNil)
 	}()
 
 	t.Run("encoded motor controls test loop exists", func(t *testing.T) {
-		test.That(t, m.goForInternal(context.Background(), 10, 1, 1), test.ShouldBeNil)
+		test.That(t, cm.GoFor(context.Background(), 10, 1, nil), test.ShouldBeNil)
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
-			test.That(tb, m.loop, test.ShouldNotBeNil)
+			test.That(tb, cm.loop, test.ShouldNotBeNil)
 		})
 	})
+}
+
+func TestControlledMotorCreation(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+	// create an encoded motor
+	conf := resource.Config{
+		Name: motorName,
+		ConvertedAttributes: &Config{
+			BoardName: boardName,
+			Pins: PinConfig{
+				Direction: "1",
+				PWM:       "2",
+			},
+			Encoder:          encoderName,
+			TicksPerRotation: 1,
+			ControlParameters: &motorPIDConfig{
+				P: 1,
+				I: 2,
+				D: 0,
+			},
+		},
+	}
+
+	deps := make(resource.Dependencies)
+
+	deps[encoder.Named(encoderName)] = injectEncoder()
+	deps[board.Named(boardName)] = injectBoard()
+
+	m, err := createNewMotor(context.Background(), deps, conf, logger)
+	test.That(t, err, test.ShouldBeNil)
+	cm, ok := m.(*controlledMotor)
+	test.That(t, ok, test.ShouldBeTrue)
+
+	test.That(t, cm.enc.Name().ShortName(), test.ShouldEqual, encoderName)
+	test.That(t, cm.real.Name().ShortName(), test.ShouldEqual, motorName)
 }

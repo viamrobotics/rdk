@@ -73,6 +73,38 @@ linters-settings:
       - fieldalignment
       - shadow
       - composites
+  revive:
+    # Unfortunately configuring a single rules disables all other rules, even
+    # if we set `enable-all: true`
+    #
+    # To get around this, we include default rules:
+    # https://github.com/mgechev/revive/blob/master/defaults.toml
+    rules:
+      - name: blank-imports
+      - name: context-as-argument
+        disabled: false
+        arguments:
+          - allowTypesBefore: "testing.TB,*testing.T,*testing.B,*testing.F"
+      - name: context-keys-type
+      - name: dot-imports
+      - name: empty-block
+      - name: error-naming
+      - name: error-return
+      - name: error-strings
+      - name: errorf
+      - name: exported
+      - name: increment-decrement
+      - name: indent-error-flow
+      - name: package-comments
+      - name: range
+      - name: receiver-naming
+      - name: redefines-builtin-id
+      - name: superfluous-else
+      - name: time-naming
+      - name: unexported-return
+      - name: unreachable-code
+      - name: var-declaration
+      - name: var-naming
   lll:
     line-length: 140
 issues:
