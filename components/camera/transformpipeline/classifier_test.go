@@ -56,7 +56,6 @@ func buildRobotWithClassifier(logger logging.Logger) (robot.Robot, error) {
 		Attributes: rutils.AttributeMap{
 			"color_image_file_path": artifact.MustPath("vision/classification/keyboard.jpg"),
 			"depth_image_file_path": "",
-			
 		},
 	}
 	cfg.Components = append(cfg.Components, cameraComp)
