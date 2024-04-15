@@ -12,7 +12,7 @@ func MLTrainingUploadAction(c *cli.Context) error {
 		return err
 	}
 
-	metadata := createMetadata(c.Bool(mlTrainingFlagDraft), c.Bool(mlTrainingFlagPublic), c.String(mlTrainingFlagType),
+	metadata := createMetadata(c.Bool(mlTrainingFlagDraft), c.String(mlTrainingFlagType),
 		c.String(mlTrainingFlagFramework))
 
 	// TODO: If draft is set, cannot set visibility; automatically set to private
@@ -71,12 +71,11 @@ type MLMetadata struct {
 	Public    bool
 }
 
-func createMetadata(draft, public bool, modelType, framework string) MLMetadata {
+func createMetadata(draft bool, modelType, framework string) MLMetadata {
 	return MLMetadata{
 		Draft:     draft,
 		ModelType: findValueOrSetDefault(modelTypes, modelType, string(ModelTypeUnspecified)),
 		Framework: findValueOrSetDefault(modelFrameworks, framework, string(ModelFrameworkUnspecified)),
-		Public:    public,
 	}
 }
 
@@ -93,7 +92,6 @@ var (
 	modelTypeKey      = "model_type"
 	modelFrameworkKey = "model_framework"
 	draftKey          = "draft"
-	publicKey         = "public"
 )
 
 func convertMetadataToStruct(metadata MLMetadata) (*structpb.Struct, error) {
@@ -101,7 +99,6 @@ func convertMetadataToStruct(metadata MLMetadata) (*structpb.Struct, error) {
 	metadataMap[modelTypeKey] = metadata.ModelType
 	metadataMap[modelFrameworkKey] = metadata.Framework
 	metadataMap[draftKey] = metadata.Draft
-	metadataMap[publicKey] = metadata.Public
 	metadataStruct, err := structpb.NewStruct(metadataMap)
 	if err != nil {
 		return nil, err
