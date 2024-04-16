@@ -19,18 +19,25 @@ func MLTrainingUploadAction(c *cli.Context) error {
 		return err
 	}
 
-	resp, err := client.uploadPackage(c.String(generalFlagOrgID),
+	if _, err := client.uploadPackage(c.String(generalFlagOrgID),
 		c.String(mlTrainingFlagName),
 		c.String(mlTrainingFlagVersion),
 		string(PackageTypeMLTraining),
 		c.Path(mlTrainingFlagPath),
 		metadataStruct,
-	)
-	if err != nil {
+	); err != nil {
 		return err
 	}
 
-	printf(c.App.Writer, "Version successfully uploaded! you can view your changes online here: %s", resp.GetId())
+	url, err := client.getRegistryURLForPackage(
+		moduleID{
+			prefix: c.String(generalFlagOrgID),
+			name:   c.String(mlTrainingFlagName),
+		})
+	if err != nil {
+		return err
+	}
+	printf(c.App.Writer, "Version successfully uploaded! you can view your changes online here: %s", url)
 	return nil
 }
 

@@ -749,10 +749,10 @@ func sendUploadRequests(ctx context.Context, moduleStream apppb.AppService_Uploa
 	defer printf(stdout, "")
 
 	if moduleStream != nil {
-		defer vutils.UncheckedError(moduleStream.CloseSend())
+		defer vutils.UncheckedErrorFunc(moduleStream.CloseSend)
 	}
 	if pkgStream != nil {
-		defer vutils.UncheckedError(pkgStream.CloseSend())
+		defer vutils.UncheckedErrorFunc(pkgStream.CloseSend)
 	}
 	// Loop until there is no more content to be read from file or the context expires.
 	for {
