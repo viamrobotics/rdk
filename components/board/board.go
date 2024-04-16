@@ -89,7 +89,6 @@ type Board interface {
 type Analog interface {
 	// Read reads off the current value.
 	Read(ctx context.Context, extra map[string]interface{}) (int, error)
-	Close(ctx context.Context) error
 }
 
 // FromDependencies is a helper for getting the named board from a collection of

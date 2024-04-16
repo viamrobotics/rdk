@@ -104,7 +104,7 @@ type numatoBoard struct {
 	resource.Named
 	resource.AlwaysRebuild
 	pins    int
-	analogs map[string]board.Analog
+	analogs map[string]*pinwrappers.AnalogSmoother
 
 	port   io.ReadWriteCloser
 	closed int32
@@ -404,7 +404,7 @@ func connect(ctx context.Context, name resource.Name, conf *Config, logger loggi
 		logger: logger,
 	}
 
-	b.analogs = map[string]board.Analog{}
+	b.analogs = map[string]*pinwrappers.AnalogSmoother{}
 	for _, c := range conf.Analogs {
 		r := &analog{b, c.Pin}
 		b.analogs[c.Name] = pinwrappers.SmoothAnalogReader(r, c, logger)
