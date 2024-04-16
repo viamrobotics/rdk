@@ -444,7 +444,7 @@ func checkIfDetectorWorks(ctx context.Context, df objectdetection.Detector) erro
 	return nil
 }
 
-// createDetectionFilter creates a post processer function that filters on the outputs of the model.
+// createDetectionFilter creates a post processor function that filters on the outputs of the model.
 func createDetectionFilter(minConf float64, labelMap map[string]float64) objectdetection.Postprocessor {
 	if len(labelMap) != 0 {
 		return objectdetection.NewLabelConfidenceFilter(labelMap)
