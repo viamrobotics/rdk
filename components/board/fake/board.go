@@ -69,11 +69,11 @@ func init() {
 // NewBoard returns a new fake board.
 func NewBoard(ctx context.Context, conf resource.Config, logger logging.Logger) (*Board, error) {
 	b := &Board{
-		Named:         conf.ResourceName().AsNamed(),
-		AnalogReaders: map[string]*AnalogReader{},
-		Digitals:      map[string]*DigitalInterruptWrapper{},
-		GPIOPins:      map[string]*GPIOPin{},
-		logger:        logger,
+		Named:    conf.ResourceName().AsNamed(),
+		Analogs:  map[string]*Analog{},
+		Digitals: map[string]*DigitalInterruptWrapper{},
+		GPIOPins: map[string]*GPIOPin{},
+		logger:   logger,
 	}
 
 	if err := b.processConfig(conf); err != nil {
@@ -99,19 +99,19 @@ func (b *Board) processConfig(conf resource.Config) error {
 
 	for _, c := range newConf.AnalogReaders {
 		stillExists[c.Name] = struct{}{}
-		if curr, ok := b.AnalogReaders[c.Name]; ok {
+		if curr, ok := b.Analogs[c.Name]; ok {
 			if curr.pin != c.Pin {
 				curr.reset(c.Pin)
 			}
 			continue
 		}
-		b.AnalogReaders[c.Name] = newAnalogReader(c.Pin)
+		b.Analogs[c.Name] = newAnalogReader(c.Pin)
 	}
-	for name := range b.AnalogReaders {
+	for name := range b.Analogs {
 		if _, ok := stillExists[name]; ok {
 			continue
 		}
-		delete(b.AnalogReaders, name)
+		delete(b.Analogs, name)
 	}
 	stillExists = map[string]struct{}{}
 
@@ -140,7 +140,7 @@ func (b *Board) processConfig(conf resource.Config) error {
 	return nil
 }
 
-// Reconfigure atomically reconfigures this board© in place based on the new config.
+// Reconfigure atomically reconfigures this board in place based on the new config.
 func (b *Board) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
 	return b.processConfig(conf)
 }
@@ -149,19 +149,19 @@ func (b *Board) Reconfigure(ctx context.Context, deps resource.Dependencies, con
 type Board struct {
 	resource.Named
 
-	mu            sync.RWMutex
-	AnalogReaders map[string]*AnalogReader
-	Digitals      map[string]*DigitalInterruptWrapper
-	GPIOPins      map[string]*GPIOPin
-	logger        logging.Logger
-	CloseCount    int
+	mu         sync.RWMutex
+	Analogs    map[string]*Analog
+	Digitals   map[string]*DigitalInterruptWrapper
+	GPIOPins   map[string]*GPIOPin
+	logger     logging.Logger
+	CloseCount int
 }
 
-// AnalogReaderByName returns the analog reader by the given name if it exists.
-func (b *Board) AnalogReaderByName(name string) (board.AnalogReader, bool) {
+// AnalogByName returns the analog pin by the given name if it exists.
+func (b *Board) AnalogByName(name string) (board.Analog, bool) {
 	b.mu.RLock()
 	defer b.mu.RUnlock()
-	a, ok := b.AnalogReaders[name]
+	a, ok := b.Analogs[name]
 	return a, ok
 }
 
@@ -186,12 +186,12 @@ func (b *Board) GPIOPinByName(name string) (board.GPIOPin, error) {
 	return p, nil
 }
 
-// AnalogReaderNames returns the names of all known analog readers.
-func (b *Board) AnalogReaderNames() []string {
+// AnalogNames returns the names of all known analog pins.
+func (b *Board) AnalogNames() []string {
 	b.mu.RLock()
 	defer b.mu.RUnlock()
 	names := []string{}
-	for k := range b.AnalogReaders {
+	for k := range b.Analogs {
 		names = append(names, k)
 	}
 	return names
@@ -222,8 +222,8 @@ func (b *Board) SetPowerMode(ctx context.Context, mode pb.PowerMode, duration *t
 
 // WriteAnalog writes the value to the given pin, which can be read back by adding it to AnalogReaders.
 func (b *Board) WriteAnalog(ctx context.Context, pin string, value int32, extra map[string]interface{}) error {
-	alg := &AnalogReader{pin: pin, Value: int(value)}
-	b.AnalogReaders[pin] = alg
+	alg := &Analog{pin: pin, Value: int(value)}
+	b.Analogs[pin] = alg
 	return nil
 }
 
@@ -252,7 +252,7 @@ func (b *Board) Close(ctx context.Context) error {
 	b.CloseCount++
 	var err error
 
-	for _, analog := range b.AnalogReaders {
+	for _, analog := range b.Analogs {
 		err = multierr.Combine(err, analog.Close(ctx))
 	}
 	for _, digital := range b.Digitals {
@@ -261,40 +261,40 @@ func (b *Board) Close(ctx context.Context) error {
 	return err
 }
 
-// An AnalogReader reads back the same set value.
-type AnalogReader struct {
+// An Analog reads back the same set value.
+type Analog struct {
 	pin        string
 	Value      int
 	CloseCount int
 	Mu         sync.RWMutex
 }
 
-func newAnalogReader(pin string) *AnalogReader {
-	return &AnalogReader{pin: pin}
+func newAnalogReader(pin string) *Analog {
+	return &Analog{pin: pin}
 }
 
-func (a *AnalogReader) reset(pin string) {
+func (a *Analog) reset(pin string) {
 	a.Mu.Lock()
 	a.pin = pin
 	a.Value = 0
 	a.Mu.Unlock()
 }
 
-func (a *AnalogReader) Read(ctx context.Context, extra map[string]interface{}) (int, error) {
+func (a *Analog) Read(ctx context.Context, extra map[string]interface{}) (int, error) {
 	a.Mu.RLock()
 	defer a.Mu.RUnlock()
 	return a.Value, nil
 }
 
 // Set is used during testing.
-func (a *AnalogReader) Set(value int) {
+func (a *Analog) Set(value int) {
 	a.Mu.Lock()
 	defer a.Mu.Unlock()
 	a.Value = value
 }
 
 // Close does nothing.
-func (a *AnalogReader) Close(ctx context.Context) error {
+func (a *Analog) Close(ctx context.Context) error {
 	a.CloseCount++
 	return nil
 }

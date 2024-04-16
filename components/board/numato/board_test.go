@@ -88,7 +88,7 @@ func TestNumato1(t *testing.T) {
 	test.That(t, res, test.ShouldEqual, false)
 
 	// test analog
-	ar, ok := b.AnalogReaderByName("foo")
+	ar, ok := b.AnalogByName("foo")
 	test.That(t, ok, test.ShouldEqual, true)
 
 	res2, err := ar.Read(ctx, nil)
