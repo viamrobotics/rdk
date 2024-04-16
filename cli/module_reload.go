@@ -1,0 +1,205 @@
+package cli
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"path/filepath"
+	"strings"
+
+	"github.com/pkg/errors"
+	"github.com/urfave/cli/v2"
+	apppb "go.viam.com/api/app/v1"
+	rdkConfig "go.viam.com/rdk/config"
+	"go.viam.com/rdk/logging"
+	"google.golang.org/protobuf/types/known/structpb"
+)
+
+var reloadCommand = cli.Command{
+	Name:  "reload",
+	Usage: "run this module on a robot (only works on local robot for now)",
+	Flags: []cli.Flag{
+		&cli.StringFlag{Name: moduleFlagPath, Value: "meta.json"},
+		&cli.StringFlag{Name: generalFlagAliasRobotID},
+		&cli.StringFlag{Name: configFlag},
+	},
+	Action: ModuleReloadAction,
+}
+
+// mapOver applies fn() to a slice of items and returns a slice of the return values.
+func mapOver[T, U any](items []T, fn func(T) (U, error)) ([]U, error) {
+	ret := make([]U, 0, len(items))
+	for _, item := range items {
+		newItem, err := fn(item)
+		if err != nil {
+			return nil, err
+		}
+		ret = append(ret, newItem)
+	}
+	return ret, nil
+}
+
+// mapToStructJson converts a map to a struct via json. The `mapstructure` package doesn't use json tags.
+func mapToStructJson(raw map[string]interface{}, target interface{}) error {
+	encoded, err := json.Marshal(raw)
+	if err != nil {
+		return err
+	}
+	return json.Unmarshal(encoded, target)
+}
+
+// structToMapJson does json ser/des to convert a struct to a map.
+func structToMapJson(orig interface{}) (map[string]interface{}, error) {
+	encoded, err := json.Marshal(orig)
+	if err != nil {
+		return nil, err
+	}
+	var ret map[string]interface{}
+	err = json.Unmarshal(encoded, &ret)
+	return ret, err
+}
+
+func getPartId(ctx context.Context, configPath string) (string, error) {
+	conf, err := rdkConfig.ReadLocalConfig(ctx, configPath, logging.Global())
+	if err != nil {
+		return "", err
+	}
+	return conf.Cloud.ID, nil
+}
+
+func ModuleReloadAction(cCtx *cli.Context) error {
+	logger := logging.Global()
+	robotId := cCtx.String(generalFlagAliasRobotID)
+	configPath := cCtx.String(configFlag)
+	// todo: switch to MutuallyExclusiveFlags when available
+	if (len(robotId) == 0) && (len(configPath) == 0) {
+		return fmt.Errorf("provide exactly one of --%s or --%s", generalFlagAliasRobotID, configFlag)
+	}
+	manifest, err := loadManifest(cCtx.String(moduleFlagPath))
+	if err != nil {
+		return err
+	}
+	var partId string
+	if len(robotId) != 0 {
+		return errors.New("robot-id not implemented yet")
+	} else {
+		partId, err = getPartId(cCtx.Context, configPath)
+		if err != nil {
+			return err
+		}
+	}
+
+	vc, err := newViamClient(cCtx)
+	if err != nil {
+		return err
+	}
+	part, err := vc.getRobotPart(partId)
+	if err != nil {
+		return err
+	}
+	partMap := part.Part.RobotConfig.AsMap()
+	modules, err := mapOver(
+		partMap["modules"].([]interface{}),
+		func(raw interface{}) (*rdkConfig.Module, error) {
+			var mod rdkConfig.Module
+			err := mapToStructJson(raw.(map[string]interface{}), &mod)
+			if err != nil {
+				return nil, err
+			}
+			return &mod, nil
+		},
+	)
+	if err != nil {
+		return err
+	}
+
+	localName := "hr_" + strings.ReplaceAll(manifest.ModuleID, ":", "_")
+	var foundMod *rdkConfig.Module
+	dirty := false
+	for _, mod := range modules {
+		if mod.ModuleID == manifest.ModuleID {
+			foundMod = mod
+			break
+		} else if mod.Name == localName {
+			foundMod = mod
+			break
+		}
+	}
+	absEntrypoint, err := filepath.Abs(manifest.Entrypoint)
+	if err != nil {
+		return err
+	}
+	if foundMod == nil {
+		logger.Debug("module not found, inserting")
+		dirty = true
+		newMod := &rdkConfig.Module{
+			Name:    localName,
+			ExePath: absEntrypoint,
+			Type:    rdkConfig.ModuleTypeLocal,
+			// todo: let user pass through LogLevel and Environment
+		}
+		modules = append(modules, newMod)
+	} else {
+		if same, err := compareExePath(foundMod, &manifest); err != nil {
+			logger.Debug("ExePath is right, doing nothing")
+			return err
+		} else if !same {
+			dirty = true
+			logger.Debug("replacing entrypoint")
+			foundMod.ExePath = absEntrypoint
+		}
+	}
+	mapModules, err := mapOver(modules, func(mod *rdkConfig.Module) (interface{}, error) {
+		ret, err := structToMapJson(mod)
+		return ret, err
+	})
+	if err != nil {
+		return err
+	}
+	partMap["modules"] = mapModules
+	if dirty {
+		logger.Debug("writing back config changes")
+		err = vc.updateRobotPart(part.Part, partMap)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// compareExePath returns true if mod.ExePath and manifest.Entrypoint are the same path.
+func compareExePath(mod *rdkConfig.Module, manifest *moduleManifest) (bool, error) {
+	exePath, err := filepath.Abs(mod.ExePath)
+	if err != nil {
+		return false, err
+	}
+	entrypoint, err := filepath.Abs(manifest.Entrypoint)
+	if err != nil {
+		return false, err
+	}
+	return exePath == entrypoint, nil
+}
+
+func (c *viamClient) getRobotPart(partId string) (*apppb.GetRobotPartResponse, error) {
+	if err := c.ensureLoggedIn(); err != nil {
+		return nil, err
+	}
+	return c.client.GetRobotPart(c.c.Context, &apppb.GetRobotPartRequest{Id: partId})
+}
+
+func (c *viamClient) updateRobotPart(part *apppb.RobotPart, confMap map[string]interface{}) error {
+	if err := c.ensureLoggedIn(); err != nil {
+		return err
+	}
+	confStruct, err := structpb.NewStruct(confMap)
+	if err != nil {
+		return err
+	}
+	req := apppb.UpdateRobotPartRequest{
+		Id:          part.Id,
+		Name:        part.Name,
+		RobotConfig: confStruct,
+	}
+	_, err = c.client.UpdateRobotPart(c.c.Context, &req)
+	return err
+}
