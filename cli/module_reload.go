@@ -68,6 +68,18 @@ func getPartId(ctx context.Context, configPath string) (string, error) {
 }
 
 func ModuleReloadAction(cCtx *cli.Context) error {
+	vc, err := newViamClient(cCtx)
+	if err != nil {
+		return err
+	}
+	if err := configureModule(cCtx, vc); err != nil {
+		return err
+	}
+	return nil
+}
+
+// configureModule is the configuration step of module reloading.
+func configureModule(cCtx *cli.Context, vc *viamClient) error {
 	logger := logging.Global()
 	robotId := cCtx.String(generalFlagAliasRobotID)
 	configPath := cCtx.String(configFlag)
@@ -75,6 +87,7 @@ func ModuleReloadAction(cCtx *cli.Context) error {
 	if (len(robotId) == 0) && (len(configPath) == 0) {
 		return fmt.Errorf("provide exactly one of --%s or --%s", generalFlagAliasRobotID, configFlag)
 	}
+
 	manifest, err := loadManifest(cCtx.String(moduleFlagPath))
 	if err != nil {
 		return err
@@ -89,10 +102,6 @@ func ModuleReloadAction(cCtx *cli.Context) error {
 		}
 	}
 
-	vc, err := newViamClient(cCtx)
-	if err != nil {
-		return err
-	}
 	part, err := vc.getRobotPart(partId)
 	if err != nil {
 		return err
@@ -140,7 +149,7 @@ func ModuleReloadAction(cCtx *cli.Context) error {
 		}
 		modules = append(modules, newMod)
 	} else {
-		if same, err := compareExePath(foundMod, &manifest); err != nil {
+		if same, err := samePath(foundMod.ExePath, manifest.Entrypoint); err != nil {
 			logger.Debug("ExePath is right, doing nothing")
 			return err
 		} else if !same {
@@ -167,17 +176,17 @@ func ModuleReloadAction(cCtx *cli.Context) error {
 	return nil
 }
 
-// compareExePath returns true if mod.ExePath and manifest.Entrypoint are the same path.
-func compareExePath(mod *rdkConfig.Module, manifest *moduleManifest) (bool, error) {
-	exePath, err := filepath.Abs(mod.ExePath)
+// samePath returns true if abs(path1) and abs(path2) are the same.
+func samePath(path1, path2 string) (bool, error) {
+	abs1, err := filepath.Abs(path1)
 	if err != nil {
 		return false, err
 	}
-	entrypoint, err := filepath.Abs(manifest.Entrypoint)
+	abs2, err := filepath.Abs(path2)
 	if err != nil {
 		return false, err
 	}
-	return exePath == entrypoint, nil
+	return abs1 == abs2, nil
 }
 
 func (c *viamClient) getRobotPart(partId string) (*apppb.GetRobotPartResponse, error) {
