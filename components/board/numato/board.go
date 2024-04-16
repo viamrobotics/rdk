@@ -360,16 +360,16 @@ type analog struct {
 	pin string
 }
 
-func (ar *analog) Read(ctx context.Context, extra map[string]interface{}) (int, error) {
-	res, err := ar.b.doSendReceive(ctx, fmt.Sprintf("adc read %s", ar.pin))
+func (a *analog) Read(ctx context.Context, extra map[string]interface{}) (int, error) {
+	res, err := a.b.doSendReceive(ctx, fmt.Sprintf("adc read %s", a.pin))
 	if err != nil {
 		return 0, err
 	}
 	return strconv.Atoi(res)
 }
 
-func (ar *analog) Close(ctx context.Context) error {
-	return nil
+func (a *analog) Write(ctx context.Context, value int, extra map[string]interface{}) error {
+	return grpc.UnimplementedError
 }
 
 func connect(ctx context.Context, name resource.Name, conf *Config, logger logging.Logger) (board.Board, error) {

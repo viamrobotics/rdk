@@ -11,6 +11,7 @@ import (
 	"go.viam.com/utils/testutils"
 
 	"go.viam.com/rdk/components/board"
+	"go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
 )
 
@@ -30,6 +31,10 @@ func (t *testReader) Read(ctx context.Context, extra map[string]interface{}) (in
 	}
 	t.n++
 	return t.r.Intn(100), nil
+}
+
+func (t *testReader) Write(ctx context.Context, value int, extra map[string]interface{}) error {
+	return grpc.UnimplementedError
 }
 
 func (t *testReader) Close(ctx context.Context) error {
