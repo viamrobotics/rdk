@@ -257,7 +257,7 @@ func (pca *PCA9685) SetFrequency(ctx context.Context, frequency float64) error {
 	return nil
 }
 
-// AnalogNames returns the names of all known analog readers.
+// AnalogNames returns the names of all known analog pins.
 func (pca *PCA9685) AnalogNames() []string {
 	return nil
 }
@@ -267,7 +267,7 @@ func (pca *PCA9685) DigitalInterruptNames() []string {
 	return nil
 }
 
-// AnalogByName returns the analog reader by the given name if it exists.
+// AnalogByName returns the analog pin by the given name if it exists.
 func (pca *PCA9685) AnalogByName(name string) (board.Analog, bool) {
 	return nil, false
 }

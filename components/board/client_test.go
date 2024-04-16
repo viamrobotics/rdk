@@ -148,17 +148,17 @@ func TestWorkingClient(t *testing.T) {
 		test.That(t, actualExtra, test.ShouldResemble, expectedExtra)
 		actualExtra = nil
 
-		// Analog Reader
-		injectAnalogReader := &inject.AnalogReader{}
+		// Analog
+		injectAnalog := &inject.Analog{}
 		injectBoard.AnaloByNameFunc = func(name string) (board.Analog, bool) {
-			return injectAnalogReader, true
+			return injectAnalog, true
 		}
 		analog1, ok := injectBoard.AnalogByName("analog1")
 		test.That(t, ok, test.ShouldBeTrue)
 		test.That(t, injectBoard.AnalogByNameCap(), test.ShouldResemble, []interface{}{"analog1"})
 
-		// Analog Reader:Read
-		injectAnalogReader.ReadFunc = func(ctx context.Context, extra map[string]interface{}) (int, error) {
+		// Analog: Read
+		injectAnalog.ReadFunc = func(ctx context.Context, extra map[string]interface{}) (int, error) {
 			actualExtra = extra
 			return 6, nil
 		}
@@ -258,8 +258,8 @@ func TestClientWithStatus(t *testing.T) {
 
 	test.That(t, injectBoard.StatusCap()[1:], test.ShouldResemble, []interface{}{})
 
-	respAnalogReaders := client.AnalogNames()
-	test.That(t, respAnalogReaders, test.ShouldResemble, []string{"analog1"})
+	respAnalogs := client.AnalogNames()
+	test.That(t, respAnalogs, test.ShouldResemble, []string{"analog1"})
 
 	respDigitalInterrupts := client.DigitalInterruptNames()
 	test.That(t, respDigitalInterrupts, test.ShouldResemble, []string{"digital1"})

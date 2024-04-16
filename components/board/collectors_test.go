@@ -95,12 +95,12 @@ func TestCollectors(t *testing.T) {
 
 func newBoard() board.Board {
 	b := &inject.Board{}
-	analogReader := &inject.AnalogReader{}
-	analogReader.ReadFunc = func(ctx context.Context, extra map[string]interface{}) (int, error) {
+	analog := &inject.Analog{}
+	analog.ReadFunc = func(ctx context.Context, extra map[string]interface{}) (int, error) {
 		return 1, nil
 	}
 	b.AnaloByNameFunc = func(name string) (board.Analog, bool) {
-		return analogReader, true
+		return analog, true
 	}
 	gpioPin := &inject.GPIOPin{}
 	gpioPin.GetFunc = func(ctx context.Context, extra map[string]interface{}) (bool, error) {

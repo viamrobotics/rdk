@@ -464,7 +464,7 @@ func TestManagerAdd(t *testing.T) {
 		return []string{"digital1"}
 	}
 	injectBoard.AnaloByNameFunc = func(name string) (board.Analog, bool) {
-		return &fakeboard.AnalogReader{}, true
+		return &fakeboard.Analog{}, true
 	}
 	injectBoard.DigitalInterruptByNameFunc = func(name string) (board.DigitalInterrupt, bool) {
 		return &pinwrappers.BasicDigitalInterrupt{}, true

@@ -1,7 +1,7 @@
 // Package board defines the interfaces that typically live on a single-board computer
 // such as a Raspberry Pi.
 //
-// Besides the board itself, some other interfaces it defines are analog readers and digital interrupts.
+// Besides the board itself, some other interfaces it defines are analog pins and digital interrupts.
 package board
 
 import (
@@ -49,11 +49,11 @@ func Named(name string) resource.Name {
 }
 
 // A Board represents a physical general purpose board that contains various
-// components such as analog readers, and digital interrupts.
+// components such as analogs, and digital interrupts.
 type Board interface {
 	resource.Resource
 
-	// AnalogByName returns an analog reader by name.
+	// AnalogByName returns an analog pin by name.
 	AnalogByName(name string) (Analog, bool)
 
 	// DigitalInterruptByName returns a digital interrupt by name.
@@ -62,7 +62,7 @@ type Board interface {
 	// GPIOPinByName returns a GPIOPin by name.
 	GPIOPinByName(name string) (GPIOPin, error)
 
-	// AnalogNames returns the names of all known analog readers.
+	// AnalogNames returns the names of all known analog pins.
 	AnalogNames() []string
 
 	// DigitalInterruptNames returns the names of all known digital interrupts.
@@ -85,7 +85,7 @@ type Board interface {
 	StreamTicks(ctx context.Context, interrupts []string, ch chan Tick, extra map[string]interface{}) error
 }
 
-// An Analog represents an analog pin reader that resides on a board.
+// An Analog represents an analog pin that resides on a board.
 type Analog interface {
 	// Read reads off the current value.
 	Read(ctx context.Context, extra map[string]interface{}) (int, error)

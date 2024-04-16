@@ -6,15 +6,15 @@ import (
 	"go.viam.com/rdk/components/board"
 )
 
-// AnalogReader is an injected analog reader.
-type AnalogReader struct {
+// Analog is an injected analog pin.
+type Analog struct {
 	board.Analog
 	ReadFunc func(ctx context.Context, extra map[string]interface{}) (int, error)
 	readCap  []interface{}
 }
 
 // Read calls the injected Read or the real version.
-func (a *AnalogReader) Read(ctx context.Context, extra map[string]interface{}) (int, error) {
+func (a *Analog) Read(ctx context.Context, extra map[string]interface{}) (int, error) {
 	a.readCap = []interface{}{ctx}
 	if a.ReadFunc == nil {
 		return a.Analog.Read(ctx, extra)
@@ -23,7 +23,7 @@ func (a *AnalogReader) Read(ctx context.Context, extra map[string]interface{}) (
 }
 
 // ReadCap returns the last parameters received by Read, and then clears them.
-func (a *AnalogReader) ReadCap() []interface{} {
+func (a *Analog) ReadCap() []interface{} {
 	if a == nil {
 		return nil
 	}
