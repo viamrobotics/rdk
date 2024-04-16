@@ -418,7 +418,6 @@ func structToMapJson(orig interface{}) (map[string]interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
-	println("encoded", string(encoded))
 	var ret map[string]interface{}
 	err = json.Unmarshal(encoded, &ret)
 	return ret, err
@@ -444,24 +443,49 @@ func ModuleReloadAction(cCtx *cli.Context) error {
 	if err != nil {
 		return err
 	}
-	var conf *rdkConfig.Config
+	var partId string
 	if len(robotId) != 0 {
 		return errors.New("robot-id not implemented yet")
 	} else {
-		conf, err = rdkConfig.Read(cCtx.Context, configPath, logging.Global())
+		partId, err = getPartId(cCtx.Context, configPath)
 		if err != nil {
 			return err
 		}
 	}
+
+	vc, err := newViamClient(cCtx)
+	if err != nil {
+		return err
+	}
+	part, err := vc.getRobotPart(partId)
+	if err != nil {
+		return err
+	}
+	partMap := part.Part.RobotConfig.AsMap()
+	modules, err := mapOver(
+		partMap["modules"].([]interface{}),
+		func(raw interface{}) (*rdkConfig.Module, error) {
+			var mod rdkConfig.Module
+			err := mapToStructJson(raw.(map[string]interface{}), &mod)
+			if err != nil {
+				return nil, err
+			}
+			return &mod, nil
+		},
+	)
+	if err != nil {
+		return err
+	}
+
 	localName := "hr_" + strings.ReplaceAll(manifest.ModuleID, ":", "_")
 	var foundMod *rdkConfig.Module
 	dirty := false
-	for _, mod := range conf.Modules {
+	for _, mod := range modules {
 		if mod.ModuleID == manifest.ModuleID {
-			foundMod = &mod
+			foundMod = mod
 			break
 		} else if mod.Name == localName {
-			foundMod = &mod
+			foundMod = mod
 			break
 		}
 	}
@@ -472,15 +496,16 @@ func ModuleReloadAction(cCtx *cli.Context) error {
 	if foundMod == nil {
 		logger.Debug("module not found, inserting")
 		dirty = true
-		newMod := rdkConfig.Module{
+		newMod := &rdkConfig.Module{
 			Name:    localName,
 			ExePath: absEntrypoint,
 			Type:    rdkConfig.ModuleTypeLocal,
 			// todo: let user pass through LogLevel and Environment
 		}
-		conf.Modules = append(conf.Modules, newMod)
+		modules = append(modules, newMod)
 	} else {
 		if same, err := compareExePath(foundMod, &manifest); err != nil {
+			logger.Debug("ExePath is right, doing nothing")
 			return err
 		} else if !same {
 			dirty = true
@@ -488,13 +513,17 @@ func ModuleReloadAction(cCtx *cli.Context) error {
 			foundMod.ExePath = absEntrypoint
 		}
 	}
+	mapModules, err := mapOver(modules, func(mod *rdkConfig.Module) (interface{}, error) {
+		ret, err := structToMapJson(mod)
+		return ret, err
+	})
+	if err != nil {
+		return err
+	}
+	partMap["modules"] = mapModules
 	if dirty {
 		logger.Debug("writing back config changes")
-		vc, err := newViamClient(cCtx)
-		if err != nil {
-			return err
-		}
-		err = vc.updateRobotPart(conf.Cloud.ID, conf)
+		err = vc.updateRobotPart(part.Part, partMap)
 		if err != nil {
 			return err
 		}
@@ -515,33 +544,24 @@ func compareExePath(mod *rdkConfig.Module, manifest *moduleManifest) (bool, erro
 	return exePath == entrypoint, nil
 }
 
-// marshalToMap does json ser/des to convert a struct to a map.
-func marshalToMap(orig interface{}) (map[string]interface{}, error) {
-	encoded, err := json.Marshal(orig)
-	if err != nil {
+func (c *viamClient) getRobotPart(partId string) (*apppb.GetRobotPartResponse, error) {
+	if err := c.ensureLoggedIn(); err != nil {
 		return nil, err
 	}
-	var ret map[string]interface{}
-	json.Unmarshal(encoded, &err)
-	return ret, nil
+	return c.client.GetRobotPart(c.c.Context, &apppb.GetRobotPartRequest{Id: partId})
 }
 
-func (c *viamClient) updateRobotPart(partId string, conf *rdkConfig.Config) error {
+func (c *viamClient) updateRobotPart(part *apppb.RobotPart, confMap map[string]interface{}) error {
 	if err := c.ensureLoggedIn(); err != nil {
-		return err
-	}
-	confMap, err := marshalToMap(conf)
-	if err != nil {
 		return err
 	}
 	confStruct, err := structpb.NewStruct(confMap)
 	if err != nil {
 		return err
 	}
-	logging.Global().Warn("pls get actual name pls")
 	req := apppb.UpdateRobotPartRequest{
-		Id:          partId,
-		Name:        "TODO DONT OVERWRITE NAME PLS",
+		Id:          part.Id,
+		Name:        part.Name,
 		RobotConfig: confStruct,
 	}
 	_, err = c.client.UpdateRobotPart(c.c.Context, &req)
