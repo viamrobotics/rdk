@@ -14,7 +14,6 @@ import (
 	"github.com/urfave/cli/v2"
 	"go.uber.org/multierr"
 	packagespb "go.viam.com/api/app/packages/v1"
-	v1 "go.viam.com/api/app/v1"
 	"go.viam.com/utils"
 	"google.golang.org/protobuf/types/known/structpb"
 )
@@ -219,18 +218,6 @@ func getNextPackageUploadRequest(file *os.File) (*packagespb.CreatePackageReques
 	}, nil
 }
 
-func (c *viamClient) getRegistryURLForPackage(moduleID moduleID) (string, error) {
-	if err := c.ensureLoggedIn(); err != nil {
-		return "", err
-	}
-	ctx := c.c.Context
-
-	resp, err := c.client.GetRegistryItem(ctx, &v1.GetRegistryItemRequest{
-		ItemId: moduleID.String(),
-	})
-	if err != nil {
-		return "", err
-	}
-
-	return resp.GetItem().GetUrl(), nil
+func (m *moduleID) ToDetailURL(baseURL string, packageType PackageType) string {
+	return fmt.Sprintf("https://%s/%s/%s/%s", baseURL, packageType, m.prefix, m.name)
 }

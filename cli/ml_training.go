@@ -29,14 +29,11 @@ func MLTrainingUploadAction(c *cli.Context) error {
 		return err
 	}
 
-	url, err := client.getRegistryURLForPackage(
-		moduleID{
-			prefix: c.String(generalFlagOrgID),
-			name:   c.String(mlTrainingFlagName),
-		})
-	if err != nil {
-		return err
+	moduleID := moduleID{
+		prefix: c.String(generalFlagOrgID),
+		name:   c.String(mlTrainingFlagName),
 	}
+	url := moduleID.ToDetailURL(client.baseURL.Hostname(), PackageTypeMLTraining)
 	printf(c.App.Writer, "Version successfully uploaded! you can view your changes online here: %s", url)
 	return nil
 }
