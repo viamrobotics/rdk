@@ -1,0 +1,37 @@
+{
+	"modules": [
+		{
+			"name": "GizmoModule",
+			"executable_path": "gizmomodule/run.sh",
+			"log_level": "debug"
+		},
+		{
+			"name": "SummationModule",
+			"executable_path": "summationmodule/run.sh",
+			"log_level": "debug"
+		}
+	],
+	"services": [
+		{
+			"namespace": "acme",
+			"type": "summation",
+			"name": "adder",
+			"model": "acme:demo:mysum",
+			"attributes" : {}
+		}
+	],
+	"components": [
+		{
+			"model": "acme:demo:mygizmosummer",
+			"name": "gizmo1",
+			"namespace": "acme",
+			"type": "gizmo",
+			"attributes": {
+				"summer": "adder"
+			}
+		}
+	],
+	"network": {
+		"bind_address": ":8080"
+	}
+}

@@ -32,12 +32,11 @@ const (
 	PackageTypeMLModel     = PackageType("ml_model")
 	PackageTypeModule      = PackageType("module")
 	PackageTypeSLAMMap     = PackageType("slam_map")
-	PackageTypeMLTraining  = PackageType("ml_training")
 )
 
 var packageTypes = []string{
 	string(PackageTypeUnspecified), string(PackageTypeArchive), string(PackageTypeMLModel),
-	string(PackageTypeMLTraining), string(PackageTypeModule), string(PackageTypeSLAMMap),
+	string(PackageTypeModule), string(PackageTypeSLAMMap),
 }
 
 // PackageExportAction is the corresponding action for 'package export'.
@@ -88,6 +87,7 @@ func (c *viamClient) packageExportAction(orgID, name, version, packageType, dest
 	if err != nil {
 		return err
 	}
+
 	resp, err := c.packageClient.GetPackage(c.c.Context,
 		&packagespb.GetPackageRequest{
 			Id:         packageID,
