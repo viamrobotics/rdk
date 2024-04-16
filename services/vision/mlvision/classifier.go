@@ -171,7 +171,7 @@ func checkIfClassifierWorks(ctx context.Context, cf classification.Classifier) e
 	return nil
 }
 
-// createClassificationFilter creates a post processer function that filters on the outputs of the model
+// createClassificationFilter creates a post processer function that filters on the outputs of the model.
 func createClassificationFilter(minConf float64, labelMap map[string]float64) classification.Postprocessor {
 	if len(labelMap) != 0 {
 		return classification.NewLabelConfidenceFilter(labelMap)
