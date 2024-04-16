@@ -67,11 +67,11 @@ var modelFrameworks = []string{
 	string(PackageTypeModule), string(PackageTypeSLAMMap),
 }
 
+// MLMetadata struct stores package info for ML training packages.
 type MLMetadata struct {
 	Draft     bool
 	ModelType string
 	Framework string
-	Public    bool
 }
 
 func createMetadata(draft bool, modelType, framework string) MLMetadata {
@@ -82,7 +82,7 @@ func createMetadata(draft bool, modelType, framework string) MLMetadata {
 	}
 }
 
-func findValueOrSetDefault(arr []string, val string, defaultVal string) string {
+func findValueOrSetDefault(arr []string, val, defaultVal string) string {
 	for _, str := range arr {
 		if str == val {
 			return val

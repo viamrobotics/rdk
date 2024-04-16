@@ -63,7 +63,6 @@ const (
 	mlTrainingFlagFramework = "framework"
 	mlTrainingFlagType      = "type"
 	mlTrainingFlagDraft     = "draft"
-	mlTrainingFlagPublic    = "public"
 
 	dataFlagDestination                    = "destination"
 	dataFlagDataType                       = "data-type"

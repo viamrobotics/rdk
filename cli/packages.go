@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"math"
 	"net/http"
 	"os"
 	"path"
@@ -189,7 +188,6 @@ func (c *viamClient) uploadPackage(
 	if version == "" {
 		version = fmt.Sprint(time.Now().UnixMilli())
 	}
-	fmt.Println(version)
 	pkgInfo := packagespb.PackageInfo{
 		OrganizationId: orgID,
 		Name:           name,
@@ -199,7 +197,8 @@ func (c *viamClient) uploadPackage(
 	}
 	req := &packagespb.CreatePackageRequest{
 		Package: &packagespb.CreatePackageRequest_Info{
-			Info: &pkgInfo},
+			Info: &pkgInfo,
+		},
 	}
 	if err := stream.Send(req); err != nil {
 		return nil, err
@@ -208,54 +207,13 @@ func (c *viamClient) uploadPackage(
 	var errs error
 	// We do not add the EOF as an error because all server-side errors trigger an EOF on the stream
 	// This results in extra clutter to the error msg
-	if err := sendPackageUploadRequests(ctx, stream, file, c.c.App.Writer); err != nil && !errors.Is(err, io.EOF) {
+	if err := sendUploadRequests(ctx, nil, stream, file, c.c.App.Writer); err != nil && !errors.Is(err, io.EOF) {
 		errs = multierr.Combine(errs, errors.Wrapf(err, "could not upload %s", file.Name()))
 	}
 
 	resp, closeErr := stream.CloseAndRecv()
 	errs = multierr.Combine(errs, closeErr)
 	return resp, errs
-
-}
-
-func sendPackageUploadRequests(ctx context.Context, stream packagespb.PackageService_CreatePackageClient,
-	file *os.File, stdout io.Writer) error {
-	stat, err := file.Stat()
-	if err != nil {
-		return err
-	}
-	fileSize := stat.Size()
-	uploadedBytes := 0
-	// Close the line with the progress reading
-	defer printf(stdout, "")
-
-	//nolint:errcheck
-	defer stream.CloseSend()
-	// Loop until there is no more content to be read from file or the context expires.
-	for {
-		if ctx.Err() != nil {
-			return ctx.Err()
-		}
-		// Get the next UploadRequest from the file.
-		uploadReq, err := getNextPackageUploadRequest(file)
-
-		// EOF means we've completed successfully.
-		if errors.Is(err, io.EOF) {
-			return nil
-		}
-
-		if err != nil {
-			return errors.Wrap(err, "could not read file")
-		}
-
-		if err = stream.Send(uploadReq); err != nil {
-			return err
-		}
-		uploadedBytes += len(uploadReq.GetContents())
-		// Simple progress reading until we have a proper tui library
-		uploadPercent := int(math.Ceil(100 * float64(uploadedBytes) / float64(fileSize)))
-		fmt.Fprintf(stdout, "\rUploading... %d%% (%d/%d bytes)", uploadPercent, uploadedBytes, fileSize) // no newline
-	}
 }
 
 func getNextPackageUploadRequest(file *os.File) (*packagespb.CreatePackageRequest, error) {
