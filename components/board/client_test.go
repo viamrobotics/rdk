@@ -150,12 +150,12 @@ func TestWorkingClient(t *testing.T) {
 
 		// Analog Reader
 		injectAnalogReader := &inject.AnalogReader{}
-		injectBoard.AnalogReaderByNameFunc = func(name string) (board.Analog, bool) {
+		injectBoard.AnaloByNameFunc = func(name string) (board.Analog, bool) {
 			return injectAnalogReader, true
 		}
 		analog1, ok := injectBoard.AnalogByName("analog1")
 		test.That(t, ok, test.ShouldBeTrue)
-		test.That(t, injectBoard.AnalogReaderByNameCap(), test.ShouldResemble, []interface{}{"analog1"})
+		test.That(t, injectBoard.AnalogByNameCap(), test.ShouldResemble, []interface{}{"analog1"})
 
 		// Analog Reader:Read
 		injectAnalogReader.ReadFunc = func(ctx context.Context, extra map[string]interface{}) (int, error) {

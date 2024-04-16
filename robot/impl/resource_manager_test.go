@@ -457,13 +457,13 @@ func TestManagerAdd(t *testing.T) {
 	test.That(t, arm1, test.ShouldEqual, injectArm)
 
 	injectBoard := &inject.Board{}
-	injectBoard.AnalogReaderNamesFunc = func() []string {
+	injectBoard.AnalogNamesFunc = func() []string {
 		return []string{"analog1"}
 	}
 	injectBoard.DigitalInterruptNamesFunc = func() []string {
 		return []string{"digital1"}
 	}
-	injectBoard.AnalogReaderByNameFunc = func(name string) (board.Analog, bool) {
+	injectBoard.AnaloByNameFunc = func(name string) (board.Analog, bool) {
 		return &fakeboard.AnalogReader{}, true
 	}
 	injectBoard.DigitalInterruptByNameFunc = func(name string) (board.DigitalInterrupt, bool) {
