@@ -318,7 +318,6 @@ func (ptgk *ptgBaseKinematics) courseCorrect(
 	if err != nil {
 		return nil, err
 	}
-
 	expectedPoseRel := spatialmath.PoseBetween(trajStartPose, trajPose)
 
 	// This is where we expected to be on the trajectory.
@@ -488,12 +487,10 @@ func (ptgk *ptgBaseKinematics) makeCourseCorrectionGoals(
 	for i := currStep; i < len(steps); i++ {
 		for len(steps[i].subTraj)-startingTrajPt > stepsRemainingThisGoal {
 			goalTrajPtIdx := startingTrajPt + stepsRemainingThisGoal
-			// this has been switched, so IDK if this works
 			goalPose := spatialmath.PoseBetween(
 				currPose,
 				spatialmath.Compose(steps[i].arcSegment.StartPosition, steps[i].subTraj[goalTrajPtIdx].Pose),
 			)
-			ptgk.logger.Debugf("goalPose: %v\n", spatialmath.PoseToProtobuf(goalPose))
 			goals = append(goals, courseCorrectionGoal{Goal: goalPose, stepIdx: i, trajIdx: goalTrajPtIdx})
 			if len(goals) == nGoals {
 				return goals
