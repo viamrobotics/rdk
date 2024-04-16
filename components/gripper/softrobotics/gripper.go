@@ -81,7 +81,7 @@ type softGripper struct {
 
 	theBoard board.Board
 
-	psi board.AnalogReader
+	psi board.Analog
 
 	pinOpen, pinClose, pinPower board.GPIOPin
 
@@ -97,7 +97,7 @@ func newGripper(b board.Board, conf resource.Config, logger logging.Logger) (gri
 		return nil, err
 	}
 
-	psi, ok := b.AnalogReaderByName("psi")
+	psi, ok := b.AnalogByName("psi")
 	if !ok {
 		return nil, errors.New("failed to find analog reader 'psi'")
 	}
