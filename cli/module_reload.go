@@ -122,45 +122,9 @@ func configureModule(cCtx *cli.Context, vc *viamClient) error {
 		return err
 	}
 
-	localName := "hr_" + strings.ReplaceAll(manifest.ModuleID, ":", "_")
-	var foundMod *rdkConfig.Module
-	dirty := false
-	for _, mod := range modules {
-		if (mod.ModuleID == manifest.ModuleID) || (mod.Name == localName) {
-			foundMod = mod
-			break
-		}
-	}
-	absEntrypoint, err := filepath.Abs(manifest.Entrypoint)
+	modules, dirty, err := mutateModuleConfig(modules, manifest)
 	if err != nil {
 		return err
-	}
-	if foundMod == nil {
-		logger.Debug("module not found, inserting")
-		dirty = true
-		newMod := &rdkConfig.Module{
-			Name:    localName,
-			ExePath: absEntrypoint,
-			Type:    rdkConfig.ModuleTypeLocal,
-			// todo: let user pass through LogLevel and Environment
-		}
-		modules = append(modules, newMod)
-	} else {
-		if same, err := samePath(foundMod.ExePath, manifest.Entrypoint); err != nil {
-			logger.Debug("ExePath is right, doing nothing")
-			return err
-		} else if !same {
-			dirty = true
-			logger.Debug("replacing entrypoint")
-			if foundMod.Type == rdkConfig.ModuleTypeRegistry {
-				// warning: there's a chance of inserting a dupe name here in odd cases
-				// todo: prompt user
-				logger.Warnf("you're replacing a registry module. we're converting it to a local module")
-				foundMod.Type = rdkConfig.ModuleTypeLocal
-				foundMod.ModuleID = ""
-			}
-			foundMod.ExePath = absEntrypoint
-		}
 	}
 	mapModules, err := mapOver(modules, func(mod *rdkConfig.Module) (interface{}, error) {
 		ret, err := structToMapJson(mod)
@@ -178,6 +142,56 @@ func configureModule(cCtx *cli.Context, vc *viamClient) error {
 		}
 	}
 	return nil
+}
+
+// mutateModuleConfig edits the modules list to hot-reload with the given manifest.
+func mutateModuleConfig(modules []*rdkConfig.Module, manifest moduleManifest) ([]*rdkConfig.Module, bool, error) {
+	var dirty bool
+	logger := logging.Global()
+	localName := "hr_" + strings.ReplaceAll(manifest.ModuleID, ":", "_")
+
+	var foundMod *rdkConfig.Module
+	for _, mod := range modules {
+		if (mod.ModuleID == manifest.ModuleID) || (mod.Name == localName) {
+			foundMod = mod
+			break
+		}
+	}
+
+	absEntrypoint, err := filepath.Abs(manifest.Entrypoint)
+	if err != nil {
+		return nil, dirty, err
+	}
+
+	if foundMod == nil {
+		logger.Debug("module not found, inserting")
+		dirty = true
+		newMod := &rdkConfig.Module{
+			Name:    localName,
+			ExePath: absEntrypoint,
+			Type:    rdkConfig.ModuleTypeLocal,
+			// todo: let user pass through LogLevel and Environment
+		}
+		modules = append(modules, newMod)
+	} else {
+		if same, err := samePath(foundMod.ExePath, absEntrypoint); err != nil {
+			logger.Debug("ExePath is right, doing nothing")
+			return nil, dirty, err
+		} else if !same {
+			dirty = true
+			logger.Debug("replacing entrypoint")
+			if foundMod.Type == rdkConfig.ModuleTypeRegistry {
+				// warning: there's a chance of inserting a dupe name here in odd cases
+				// todo: prompt user
+				logger.Warnf("you're replacing a registry module. we're converting it to a local module")
+				foundMod.Type = rdkConfig.ModuleTypeLocal
+				foundMod.Name = localName
+				foundMod.ModuleID = ""
+			}
+			foundMod.ExePath = absEntrypoint
+		}
+	}
+	return modules, dirty, nil
 }
 
 // samePath returns true if abs(path1) and abs(path2) are the same.
