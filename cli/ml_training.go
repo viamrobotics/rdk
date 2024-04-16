@@ -70,8 +70,8 @@ const (
 )
 
 var modelFrameworks = []string{
-	string(PackageTypeUnspecified), string(PackageTypeArchive), string(PackageTypeMLModel),
-	string(PackageTypeModule), string(PackageTypeSLAMMap),
+	string(ModelFrameworkUnspecified), string(ModelFrameworkTFLite), string(ModelFrameworkTensorFlow),
+	string(ModelFrameworkPyTorch), string(ModelFrameworkONNX),
 }
 
 // MLMetadata struct stores package info for ML training packages.
