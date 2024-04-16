@@ -361,10 +361,41 @@ func TestMoreMLDetectors(t *testing.T) {
 
 	gotDetections, err := gotDetector(ctx, pic)
 	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(gotDetections), test.ShouldEqual, 10)
 	test.That(t, gotDetections[0].Score(), test.ShouldBeGreaterThan, 0.82)
 	test.That(t, gotDetections[1].Score(), test.ShouldBeGreaterThan, 0.8)
 	test.That(t, gotDetections[0].Label(), test.ShouldResemble, "Dog")
 	test.That(t, gotDetections[1].Label(), test.ShouldResemble, "Dog")
+
+	// test filters
+	// add min confidence first
+	minConf := 0.81
+	conf = &MLModelConfig{DefaultConfidence: minConf}
+	gotDetector, err = attemptToBuildDetector(outModel, inNameMap, outNameMap, conf)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, gotDetector, test.ShouldNotBeNil)
+
+	gotDetections, err = gotDetector(ctx, pic)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(gotDetections), test.ShouldEqual, 3)
+	test.That(t, gotDetections[0].Score(), test.ShouldBeGreaterThan, minConf)
+
+	// then add label filter
+	labelMap := map[string]float64{"DOG": 0.8, "CARROT": 0.3}
+	conf = &MLModelConfig{DefaultConfidence: minConf, LabelConfidenceMap: labelMap}
+	gotDetector, err = attemptToBuildDetector(outModel, inNameMap, outNameMap, conf)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, gotDetector, test.ShouldNotBeNil)
+
+	gotDetections, err = gotDetector(ctx, pic)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(gotDetections), test.ShouldEqual, 3)
+	test.That(t, gotDetections[0].Score(), test.ShouldBeGreaterThan, labelMap["DOG"])
+	test.That(t, gotDetections[0].Label(), test.ShouldResemble, "Dog")
+	test.That(t, gotDetections[1].Score(), test.ShouldBeGreaterThan, labelMap["DOG"])
+	test.That(t, gotDetections[1].Label(), test.ShouldResemble, "Dog")
+	test.That(t, gotDetections[2].Score(), test.ShouldBeGreaterThan, labelMap["CARROT"])
+	test.That(t, gotDetections[2].Label(), test.ShouldResemble, "Carrot")
 }
 
 func TestMoreMLClassifiers(t *testing.T) {
