@@ -114,21 +114,7 @@ func (mr *moveRequest) Plan(ctx context.Context) (motionplan.Plan, error) {
 	}
 
 	// TODO(RSDK-5634): this should pass in mr.seedplan and the appropriate replanCostFactor once this bug is found and fixed.
-	plan, err := motionplan.Replan(ctx, &planRequestCopy, nil, 0)
-	if err != nil {
-		return nil, err
-	}
-	mr.logger.Debug("ABOUT TO PRINT THE PLAN POSES WE HAVE CONSTRUCTED")
-	for _, s := range plan.Path() {
-		for _, p := range s {
-			mr.logger.Debugf("%v", spatialmath.PoseToProtobuf(p.Pose()))
-		}
-	}
-	mr.logger.Debug("ABOUT TO PRINT THE PLAN TRAJ")
-	for _, t := range plan.Trajectory() {
-		mr.logger.Debugf("%v", t)
-	}
-	return plan, nil
+	return motionplan.Replan(ctx, &planRequestCopy, nil, 0)
 }
 
 func (mr *moveRequest) Execute(ctx context.Context, plan motionplan.Plan) (state.ExecuteResponse, error) {
@@ -618,7 +604,6 @@ func (ms *builtIn) newMoveOnMapRequest(
 
 	// build kinematic options
 	kinematicsOptions := kbOptionsFromCfg(motionCfg, valExtra)
-	kinematicsOptions.PositionOnlyMode = false
 
 	fs, err := ms.fsService.FrameSystem(ctx, nil)
 	if err != nil {
@@ -702,9 +687,6 @@ func (ms *builtIn) createBaseMoveRequest(
 	// If our motion profile is position_only then, we only check against our current & desired position
 	// Conversely if our motion profile is anything else, then we also need to check again our
 	// current & desired orientation
-	ms.logger.Debugf("valExtra.motionProfile %s", valExtra.motionProfile)
-	ms.logger.Debugf("spatialmath.PoseAlmostCoincidentEps(goal.Pose(), startPose, motionCfg.planDeviationMM) %t", spatialmath.PoseAlmostCoincidentEps(goal.Pose(), startPose, motionCfg.planDeviationMM))
-	ms.logger.Debugf("spatialmath.OrientationAlmostEqual(goal.Pose().Orientation(), spatialmath.NewZeroPose().Orientation()) %t", spatialmath.OrientationAlmostEqual(goal.Pose().Orientation(), spatialmath.NewZeroPose().Orientation()))
 	if valExtra.motionProfile == motionplan.PositionOnlyMotionProfile {
 		if spatialmath.PoseAlmostCoincidentEps(goal.Pose(), startPose, motionCfg.planDeviationMM) {
 			return nil, motion.ErrGoalWithinPlanDeviation

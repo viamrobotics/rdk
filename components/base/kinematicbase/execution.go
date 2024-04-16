@@ -126,7 +126,6 @@ func (ptgk *ptgBaseKinematics) GoToInputs(ctx context.Context, inputSteps ...[]r
 			return tryStop(err)
 		}
 		arcStartTime := time.Now()
-
 		// Now we are moving. We need to do several things simultaneously:
 		// - move until we think we have finished the arc, then move on to the next step
 		// - update our CurrentInputs tracking where we are through the arc
@@ -319,7 +318,6 @@ func (ptgk *ptgBaseKinematics) courseCorrect(
 	if err != nil {
 		return nil, err
 	}
-	// if spatialmath.PoseAlmostCoincident(arcSteps[arcIdx].arcSegment.StartPosition, spatialmath.NewZeroPose())
 
 	expectedPoseRel := spatialmath.PoseBetween(trajStartPose, trajPose)
 
@@ -416,8 +414,7 @@ func (ptgk *ptgBaseKinematics) courseCorrect(
 }
 
 func (ptgk *ptgBaseKinematics) getCorrectionSolution(ctx context.Context, goals []courseCorrectionGoal) (courseCorrectionGoal, error) {
-	for i := 0; i <= len(goals)-1; i++ {
-		goal := goals[i]
+	for _, goal := range goals {
 		solveMetric := ik.NewSquaredNormMetric(goal.Goal)
 		solutionChan := make(chan *ik.Solution, 1)
 		ptgk.logger.Debug("attempting goal ", spatialmath.PoseToProtobuf(goal.Goal))
@@ -461,7 +458,6 @@ func (ptgk *ptgBaseKinematics) makeCourseCorrectionGoals(
 	steps []arcStep,
 	currentInputs []referenceframe.Input,
 ) []courseCorrectionGoal {
-	ptgk.logger.Debug("WE ARE INSIDE MAKE COURSE CORRECTION GOALS")
 	goals := []courseCorrectionGoal{}
 	currDist := currentInputs[distanceAlongTrajectoryIndex].Value
 	stepsPerGoal := int((ptgk.nonzeroBaseTurningRadiusMeters*lookaheadDistMult*1000)/stepDistResolution) / nGoals
@@ -489,18 +485,13 @@ func (ptgk *ptgBaseKinematics) makeCourseCorrectionGoals(
 	}
 
 	stepsRemainingThisGoal := stepsPerGoal
-	ptgk.logger.Debugf("currPose: %v", spatialmath.PoseToProtobuf(currPose))
 	for i := currStep; i < len(steps); i++ {
 		for len(steps[i].subTraj)-startingTrajPt > stepsRemainingThisGoal {
 			goalTrajPtIdx := startingTrajPt + stepsRemainingThisGoal
-			ptgk.logger.Debugf("steps[i].arcSegment.StartPosition: %v", spatialmath.PoseToProtobuf(steps[i].arcSegment.StartPosition))
-			ptgk.logger.Debugf("steps[i].subTraj[goalTrajPtIdx].Pose: %v", spatialmath.PoseToProtobuf(steps[i].subTraj[goalTrajPtIdx].Pose))
-			together := spatialmath.Compose(steps[i].arcSegment.StartPosition, steps[i].subTraj[goalTrajPtIdx].Pose)
-			ptgk.logger.Debugf("together: %v", spatialmath.PoseToProtobuf(together))
 			// this has been switched, so IDK if this works
 			goalPose := spatialmath.PoseBetween(
 				currPose,
-				together,
+				spatialmath.Compose(steps[i].arcSegment.StartPosition, steps[i].subTraj[goalTrajPtIdx].Pose),
 			)
 			ptgk.logger.Debugf("goalPose: %v\n", spatialmath.PoseToProtobuf(goalPose))
 			goals = append(goals, courseCorrectionGoal{Goal: goalPose, stepIdx: i, trajIdx: goalTrajPtIdx})
@@ -514,6 +505,5 @@ func (ptgk *ptgBaseKinematics) makeCourseCorrectionGoals(
 		stepsRemainingThisGoal -= len(steps[i].subTraj) - startingTrajPt
 		startingTrajPt = 0
 	}
-	ptgk.logger.Debug("DONE WITH MAKING COURSE CORRECTION GOALS\n")
 	return goals
 }
