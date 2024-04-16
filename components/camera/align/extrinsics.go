@@ -95,14 +95,18 @@ func (cfg *extrinsicsConfig) Validate(path string) ([]string, error) {
 	if cfg.Color == "" {
 		return nil, resource.NewConfigValidationFieldRequiredError(path, "color_camera_name")
 	}
-	if cfg.CameraParameters.Height < 0 || cfg.CameraParameters.Width < 0 {
-		return nil, fmt.Errorf(
-			"align_color_depth_extrinsics needs Width and Height fields set in intrinsic_parameters."+
-				"Got illegal zero or negative dimensions (%d, %d)",
-			cfg.CameraParameters.Width,
-			cfg.CameraParameters.Height,
-		)
+
+	if cfg.CameraParameters != nil {
+		if cfg.CameraParameters.Height < 0 || cfg.CameraParameters.Width < 0 {
+			return nil, fmt.Errorf(
+				"align_color_depth_extrinsics needs Width and Height fields set in intrinsic_parameters."+
+					"Got illegal zero or negative dimensions (%d, %d)",
+				cfg.CameraParameters.Width,
+				cfg.CameraParameters.Height,
+			)
+		}
 	}
+
 	deps = append(deps, cfg.Color)
 	if cfg.Depth == "" {
 		return nil, resource.NewConfigValidationFieldRequiredError(path, "depth_camera_name")

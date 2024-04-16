@@ -53,12 +53,14 @@ func (cfg *Config) Validate(path string) ([]string, error) {
 		return nil, resource.NewConfigValidationFieldRequiredError(path, "source_cameras")
 	}
 
-	if cfg.CameraParameters.Height < 0 || cfg.CameraParameters.Width < 0 {
-		return nil, fmt.Errorf(
-			"join_pointclouds camera needs Width and Height fields set in intrinsic_parameters. Got illegal zero or negative dimensions (%d, %d",
-			cfg.CameraParameters.Width,
-			cfg.CameraParameters.Height,
-		)
+	if cfg.CameraParameters != nil {
+		if cfg.CameraParameters.Height < 0 || cfg.CameraParameters.Width < 0 {
+			return nil, fmt.Errorf(
+				"join_pointclouds camera needs Width and Height fields set in intrinsic_parameters. Got illegal zero or negative dimensions (%d, %d",
+				cfg.CameraParameters.Width,
+				cfg.CameraParameters.Height,
+			)
+		}
 	}
 
 	deps = append(deps, cfg.SourceCameras...)

@@ -75,9 +75,11 @@ type fileSourceConfig struct {
 
 // Validate ensures all parts of the config are valid.
 func (c fileSourceConfig) Validate(path string) ([]string, error) {
-	if c.CameraParameters.Width < 0 || c.CameraParameters.Height < 0 {
-		return nil, fmt.Errorf(" webcam width %v, and height %v must be non-zero and positive",
-			c.CameraParameters.Height, c.CameraParameters.Width)
+	if c.CameraParameters != nil {
+		if c.CameraParameters.Width < 0 || c.CameraParameters.Height < 0 {
+			return nil, fmt.Errorf(" webcam width %v, and height %v must be non-zero and positive",
+				c.CameraParameters.Height, c.CameraParameters.Width)
+		}
 	}
 
 	return []string{}, nil
