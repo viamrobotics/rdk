@@ -4,6 +4,7 @@ package videosource
 
 import (
 	"context"
+	"fmt"
 	"image"
 	"time"
 
@@ -64,13 +65,22 @@ type fileSource struct {
 
 // fileSourceConfig is the attribute struct for fileSource.
 type fileSourceConfig struct {
-	resource.TriviallyValidateConfig
 	CameraParameters     *transform.PinholeCameraIntrinsics `json:"intrinsic_parameters,omitempty"`
 	DistortionParameters *transform.BrownConrady            `json:"distortion_parameters,omitempty"`
 	Debug                bool                               `json:"debug,omitempty"`
 	Color                string                             `json:"color_image_file_path,omitempty"`
 	Depth                string                             `json:"depth_image_file_path,omitempty"`
 	PointCloud           string                             `json:"pointcloud_file_path,omitempty"`
+}
+
+// Validate ensures all parts of the config are valid.
+func (c fileSourceConfig) Validate(path string) ([]string, error) {
+	if c.CameraParameters.Width < 0 || c.CameraParameters.Height < 0 {
+		return nil, fmt.Errorf(" webcam width %v, and height %v must be non-zero and positive",
+			c.CameraParameters.Height, c.CameraParameters.Width)
+	}
+
+	return []string{}, nil
 }
 
 // Read returns just the RGB image if it is present, or the depth map if the RGB image is not present.

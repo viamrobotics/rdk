@@ -77,7 +77,7 @@ func (cfg *transformConfig) Validate(path string) ([]string, error) {
 
 	if cfg.CameraParameters.Height < 0 || cfg.CameraParameters.Width < 0 {
 		return nil, errors.Errorf(
-			"transform camera needs Width and Height fields set in intrinsic_parameters. Got illegal dimensions (%d, %d)",
+			"transform camera needs Width and Height fields set in intrinsic_parameters. Got illegal zero or negative dimensions (%d, %d",
 			cfg.CameraParameters.Width,
 			cfg.CameraParameters.Height,
 		)

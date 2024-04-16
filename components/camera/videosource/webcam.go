@@ -178,7 +178,7 @@ type WebcamConfig struct {
 // Validate ensures all parts of the config are valid.
 func (c WebcamConfig) Validate(path string) ([]string, error) {
 	if c.Width < 0 || c.Height < 0 {
-		return nil, fmt.Errorf(" webcam width %v, and height %v must be non-zero", c.Height, c.Width)
+		return nil, fmt.Errorf(" webcam width %v, and height %v must be non-zero and positive", c.Height, c.Width)
 	}
 
 	return []string{}, nil
