@@ -429,6 +429,30 @@ func TestMoreMLClassifiers(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, bestClass[0].Label(), test.ShouldResemble, "390")
 	test.That(t, bestClass[0].Score(), test.ShouldBeGreaterThan, 0.93)
+	// add min confidence first
+	minConf := 0.05
+	conf = &MLModelConfig{DefaultConfidence: minConf}
+	gotClassifier, err = attemptToBuildClassifier(outModel, inNameMap, outNameMap, conf)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, gotClassifier, test.ShouldNotBeNil)
+
+	gotClassifications, err = gotClassifier(ctx, pic)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(gotClassifications), test.ShouldEqual, 1)
+	test.That(t, gotClassifications[0].Score(), test.ShouldBeGreaterThan, minConf)
+
+	// then add label filter
+	labelMap := map[string]float64{"390": 0.8}
+	conf = &MLModelConfig{DefaultConfidence: minConf, LabelConfidenceMap: labelMap}
+	gotClassifier, err = attemptToBuildClassifier(outModel, inNameMap, outNameMap, conf)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, gotClassifier, test.ShouldNotBeNil)
+
+	gotClassifications, err = gotClassifier(ctx, pic)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(gotClassifications), test.ShouldEqual, 1)
+	test.That(t, gotClassifications[0].Score(), test.ShouldBeGreaterThan, labelMap["390"])
+	test.That(t, gotClassifications[0].Label(), test.ShouldResemble, "390")
 
 	// Test that mobileNet imageNet classifier gives expected output on lion image
 	modelLoc = artifact.MustPath("vision/tflite/mobilenetv2_imagenet.tflite")
