@@ -393,7 +393,7 @@ type Board struct {
 	activeBackgroundWorkers sync.WaitGroup
 }
 
-// AnalogByName returns the analog reader by the given name if it exists.
+// AnalogByName returns the analog pin by the given name if it exists.
 func (b *Board) AnalogByName(name string) (board.Analog, bool) {
 	a, ok := b.analogReaders[name]
 	return a, ok
@@ -436,7 +436,7 @@ func (b *Board) DigitalInterruptByName(name string) (board.DigitalInterrupt, boo
 	return interrupt.interrupt, true
 }
 
-// AnalogNames returns the names of all known analog readers.
+// AnalogNames returns the names of all known analog pins.
 func (b *Board) AnalogNames() []string {
 	names := []string{}
 	for k := range b.analogReaders {

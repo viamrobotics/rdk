@@ -13,8 +13,8 @@ import (
 type method int64
 
 const (
-	// we need analog pins that are readers not writiers
-	// to get data off off.
+	// we need analog pins that are readers, not writers,
+	// to collect data from.
 	analogReaderNameKey        = "reader_name"
 	gpioPinNameKey             = "pin_name"
 	analogs             method = iota

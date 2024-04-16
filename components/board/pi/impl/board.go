@@ -642,7 +642,7 @@ func (s *piPigpioSPIHandle) Close() error {
 	return nil
 }
 
-// AnalogNames returns the names of all known analog readers.
+// AnalogNames returns the names of all known analog pins.
 func (pi *piPigpio) AnalogNames() []string {
 	pi.mu.Lock()
 	defer pi.mu.Unlock()
@@ -664,7 +664,7 @@ func (pi *piPigpio) DigitalInterruptNames() []string {
 	return names
 }
 
-// AnalogByName returns an analog reader by name.
+// AnalogByName returns an analog pin by name.
 func (pi *piPigpio) AnalogByName(name string) (board.Analog, bool) {
 	pi.mu.Lock()
 	defer pi.mu.Unlock()

@@ -140,7 +140,7 @@ func (b *Board) processConfig(conf resource.Config) error {
 	return nil
 }
 
-// Reconfigure atomically reconfigures this board© in place based on the new config.
+// Reconfigure atomically reconfigures this board in place based on the new config.
 func (b *Board) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
 	return b.processConfig(conf)
 }
@@ -157,7 +157,7 @@ type Board struct {
 	CloseCount int
 }
 
-// AnalogByName returns the analog reader by the given name if it exists.
+// AnalogByName returns the analog pin by the given name if it exists.
 func (b *Board) AnalogByName(name string) (board.Analog, bool) {
 	b.mu.RLock()
 	defer b.mu.RUnlock()
@@ -186,7 +186,7 @@ func (b *Board) GPIOPinByName(name string) (board.GPIOPin, error) {
 	return p, nil
 }
 
-// AnalogNames returns the names of all known analog readers.
+// AnalogNames returns the names of all known analog pins.
 func (b *Board) AnalogNames() []string {
 	b.mu.RLock()
 	defer b.mu.RUnlock()
