@@ -60,7 +60,6 @@ func init() {
 
 // transformConfig specifies a stream and list of transforms to apply on images/pointclouds coming from a source camera.
 type transformConfig struct {
-	resource.TriviallyValidateConfig
 	CameraParameters     *transform.PinholeCameraIntrinsics `json:"intrinsic_parameters,omitempty"`
 	DistortionParameters *transform.BrownConrady            `json:"distortion_parameters,omitempty"`
 	Debug                bool                               `json:"debug,omitempty"`
