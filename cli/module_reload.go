@@ -126,10 +126,7 @@ func configureModule(cCtx *cli.Context, vc *viamClient) error {
 	var foundMod *rdkConfig.Module
 	dirty := false
 	for _, mod := range modules {
-		if mod.ModuleID == manifest.ModuleID {
-			foundMod = mod
-			break
-		} else if mod.Name == localName {
+		if (mod.ModuleID == manifest.ModuleID) || (mod.Name == localName) {
 			foundMod = mod
 			break
 		}
@@ -155,6 +152,13 @@ func configureModule(cCtx *cli.Context, vc *viamClient) error {
 		} else if !same {
 			dirty = true
 			logger.Debug("replacing entrypoint")
+			if foundMod.Type == rdkConfig.ModuleTypeRegistry {
+				// warning: there's a chance of inserting a dupe name here in odd cases
+				// todo: prompt user
+				logger.Warnf("you're replacing a registry module. we're converting it to a local module")
+				foundMod.Type = rdkConfig.ModuleTypeLocal
+				foundMod.ModuleID = ""
+			}
 			foundMod.ExePath = absEntrypoint
 		}
 	}
