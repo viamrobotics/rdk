@@ -32,6 +32,7 @@ const (
 	PackageTypeMLModel     = PackageType("ml_model")
 	PackageTypeModule      = PackageType("module")
 	PackageTypeSLAMMap     = PackageType("slam_map")
+	PackageTypeMLTraining  = PackageType("ml_training")
 )
 
 var packageTypes = []string{
