@@ -286,9 +286,6 @@ func TestServiceWithRemote(t *testing.T) {
 	ctx := context.Background()
 	remoteRobot, err := robotimpl.New(ctx, remoteConfig, logger)
 	test.That(t, err, test.ShouldBeNil)
-	defer func() {
-		test.That(t, remoteRobot.Close(context.Background()), test.ShouldBeNil)
-	}()
 
 	options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
 	err = remoteRobot.StartWeb(ctx, options)
@@ -376,4 +373,68 @@ func TestServiceWithRemote(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	t.Logf("frame system:\n%v", allParts)
 	test.That(t, r2.Close(context.Background()), test.ShouldBeNil)
+
+	// close remote
+	test.That(t, remoteRobot.Close(context.Background()), test.ShouldBeNil)
+	fsCfg, err = r2.FrameSystemConfig(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+
+	// expected error as remote component is missing
+	_, err = referenceframe.NewFrameSystem("test", fsCfg.Parts, transforms)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "references non-existent parent")
+
+	// but without transforms, expect no errors
+	transforms = []*referenceframe.LinkInFrame{
+		referenceframe.NewLinkInFrame(referenceframe.World, testPose, "frame3", nil),
+	}
+	fs, err = referenceframe.NewFrameSystem("test", fsCfg.Parts, transforms)
+	test.That(t, err, test.ShouldBeNil)
+	t.Logf("frame system:\n%v", fsCfg)
+	test.That(t, fs.FrameNames(), test.ShouldHaveLength, 2)
+}
+
+func TestServiceWithUnavailableRemote(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+	o1 := &spatialmath.R4AA{math.Pi / 2., 0, 0, 1}
+	o1Cfg, err := spatialmath.NewOrientationConfig(o1)
+	test.That(t, err, test.ShouldBeNil)
+
+	// make the local robot
+	localConfig := &config.Config{
+		Components: []resource.Config{
+			{
+				Name:  "foo",
+				API:   base.API,
+				Model: resource.DefaultModelFamily.WithModel("fake"),
+				Frame: &referenceframe.LinkConfig{
+					Parent: referenceframe.World,
+				},
+			},
+		},
+		Remotes: []config.Remote{
+			{
+				Name:    "bar",
+				Address: "addr",
+				Frame: &referenceframe.LinkConfig{
+					Parent:      "foo",
+					Translation: r3.Vector{100, 200, 300},
+					Orientation: o1Cfg,
+				},
+			},
+		},
+	}
+
+	// make local robot
+	r, err := robotimpl.New(context.Background(), localConfig, logger)
+	test.That(t, err, test.ShouldBeNil)
+
+	// make sure calling into remotes don't error
+	fsCfg, err := r.FrameSystemConfig(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+
+	fs, err := referenceframe.NewFrameSystem("test", fsCfg.Parts, nil)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, fs.FrameNames(), test.ShouldHaveLength, 2)
+
+	test.That(t, r.Close(context.Background()), test.ShouldBeNil)
 }
