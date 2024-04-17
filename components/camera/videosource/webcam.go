@@ -179,7 +179,7 @@ type WebcamConfig struct {
 func (c WebcamConfig) Validate(path string) ([]string, error) {
 	if c.Width < 0 || c.Height < 0 {
 		return nil, fmt.Errorf(
-			"Got illegal negative dimensions for width_px and height_px (%d, %d) fields set for webcam camera",
+			"got illegal negative dimensions for width_px and height_px (%d, %d) fields set for webcam camera",
 			c.Height, c.Width)
 	}
 
