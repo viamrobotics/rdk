@@ -322,7 +322,7 @@ func (mpu *mpu6050) Position(ctx context.Context, extra map[string]interface{}) 
 }
 
 func (mpu *mpu6050) Accuracy(ctx context.Context, extra map[string]interface{}) (*movementsensor.Accuracy, error) {
-	return movementsensor.UnimplementedAccuracies()
+	return movementsensor.UnimplementedOptionalAccuracies(), nil
 }
 
 func (mpu *mpu6050) Readings(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {

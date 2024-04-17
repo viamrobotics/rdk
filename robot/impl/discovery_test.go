@@ -15,16 +15,14 @@ import (
 	rtestutils "go.viam.com/rdk/testutils"
 )
 
-func setupNewLocalRobot(t *testing.T) robot.LocalRobot {
+func setupLocalRobotWithFakeConfig(t *testing.T) robot.LocalRobot {
 	t.Helper()
 
 	logger := logging.NewTestLogger(t)
-	cfg, err := config.Read(context.Background(), "data/fake.json", logger)
+	ctx := context.Background()
+	cfg, err := config.Read(ctx, "data/fake.json", logger)
 	test.That(t, err, test.ShouldBeNil)
-
-	r, err := New(context.Background(), cfg, logger)
-	test.That(t, err, test.ShouldBeNil)
-	return r
+	return setupLocalRobot(t, ctx, cfg, logger)
 }
 
 var (
@@ -75,21 +73,14 @@ func init() {
 
 func TestDiscovery(t *testing.T) {
 	t.Run("not found", func(t *testing.T) {
-		r := setupNewLocalRobot(t)
-		defer func() {
-			test.That(t, r.Close(context.Background()), test.ShouldBeNil)
-		}()
+		r := setupLocalRobotWithFakeConfig(t)
 		discoveries, err := r.DiscoverComponents(context.Background(), []resource.DiscoveryQuery{missingQ})
 		test.That(t, discoveries, test.ShouldBeEmpty)
 		test.That(t, err, test.ShouldBeNil)
 	})
 
 	t.Run("no Discover", func(t *testing.T) {
-		r := setupNewLocalRobot(t)
-		defer func() {
-			test.That(t, r.Close(context.Background()), test.ShouldBeNil)
-		}()
-
+		r := setupLocalRobotWithFakeConfig(t)
 		discoveries, err := r.DiscoverComponents(context.Background(), []resource.DiscoveryQuery{noDiscoverQ})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, discoveries, test.ShouldBeEmpty)
@@ -97,54 +88,35 @@ func TestDiscovery(t *testing.T) {
 	})
 
 	t.Run("failing Discover", func(t *testing.T) {
-		r := setupNewLocalRobot(t)
-		defer func() {
-			test.That(t, r.Close(context.Background()), test.ShouldBeNil)
-		}()
-
+		r := setupLocalRobotWithFakeConfig(t)
 		_, err := r.DiscoverComponents(context.Background(), []resource.DiscoveryQuery{failQ})
 		test.That(t, err, test.ShouldBeError, &resource.DiscoverError{failQ})
 	})
 
 	t.Run("working Discover", func(t *testing.T) {
-		r := setupNewLocalRobot(t)
-		defer func() {
-			test.That(t, r.Close(context.Background()), test.ShouldBeNil)
-		}()
-
+		r := setupLocalRobotWithFakeConfig(t)
 		discoveries, err := r.DiscoverComponents(context.Background(), []resource.DiscoveryQuery{workingQ})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, discoveries, test.ShouldResemble, []resource.Discovery{{Query: workingQ, Results: workingDiscovery}})
 	})
 
 	t.Run("duplicated working Discover", func(t *testing.T) {
-		r := setupNewLocalRobot(t)
-		defer func() {
-			test.That(t, r.Close(context.Background()), test.ShouldBeNil)
-		}()
-
+		r := setupLocalRobotWithFakeConfig(t)
 		discoveries, err := r.DiscoverComponents(context.Background(), []resource.DiscoveryQuery{workingQ, workingQ, workingQ})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, discoveries, test.ShouldResemble, []resource.Discovery{{Query: workingQ, Results: workingDiscovery}})
 	})
 
 	t.Run("working and missing Discover", func(t *testing.T) {
-		r := setupNewLocalRobot(t)
-		defer func() {
-			test.That(t, r.Close(context.Background()), test.ShouldBeNil)
-		}()
-
+		r := setupLocalRobotWithFakeConfig(t)
 		discoveries, err := r.DiscoverComponents(context.Background(), []resource.DiscoveryQuery{workingQ, missingQ})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, discoveries, test.ShouldResemble, []resource.Discovery{{Query: workingQ, Results: workingDiscovery}})
 	})
 
 	t.Run("internal module manager Discover", func(t *testing.T) {
-		r := setupNewLocalRobot(t)
+		r := setupLocalRobotWithFakeConfig(t)
 		ctx := context.Background()
-		defer func() {
-			test.That(t, r.Close(context.Background()), test.ShouldBeNil)
-		}()
 
 		// test with empty modmanager
 		discoveries, err := r.DiscoverComponents(context.Background(), []resource.DiscoveryQuery{modManagerQ})

@@ -11,6 +11,7 @@ interface SensorName {
   namespace: string;
   type: string;
   subtype: string;
+  machinePartId: string;
 }
 
 export let name: string;

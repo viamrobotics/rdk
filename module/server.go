@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"sync"
 
-	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	"github.com/pkg/errors"
 	"go.viam.com/utils/rpc"
 	"google.golang.org/grpc"
@@ -15,11 +14,8 @@ import (
 )
 
 // NewServer returns a new (module specific) rpc.Server.
-func NewServer(unary []grpc.UnaryServerInterceptor, stream []grpc.StreamServerInterceptor) rpc.Server {
-	s := &Server{server: grpc.NewServer(
-		grpc.UnaryInterceptor(grpc_middleware.ChainUnaryServer(unary...)),
-		grpc.StreamInterceptor(grpc_middleware.ChainStreamServer(stream...)),
-	)}
+func NewServer(opts ...grpc.ServerOption) rpc.Server {
+	s := &Server{server: grpc.NewServer(opts...)}
 	reflection.Register(s.server)
 	return s
 }

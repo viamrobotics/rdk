@@ -309,12 +309,11 @@ func (mp *cBiRRTMotionPlanner) constrainedExtend(
 						qstep[i] = q * 2.0
 					}
 					continue
-				} else {
-					// We've arrived back at very nearly the same configuration again; stop solving and send back oldNear.
-					// Do not add the near-identical configuration to the RRT map
-					mchan <- oldNear
-					return
 				}
+				// We've arrived back at very nearly the same configuration again; stop solving and send back oldNear.
+				// Do not add the near-identical configuration to the RRT map
+				mchan <- oldNear
+				return
 			}
 			if doubled {
 				copy(qstep, mp.planOpts.qstep)

@@ -435,14 +435,12 @@ func (rc *RobotClient) checkConnection(ctx context.Context, checkEvery, reconnec
 					// if pipe is closed, we know for sure we lost connection
 					if isClosedPipeError(err) {
 						break
-					} else {
-						// otherwise retry
-						continue
 					}
-				} else {
-					outerError = nil
-					break
+					// otherwise retry
+					continue
 				}
+				outerError = nil
+				break
 			}
 			if outerError != nil {
 				rc.Logger().CErrorw(ctx,

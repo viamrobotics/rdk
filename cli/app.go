@@ -35,7 +35,7 @@ const (
 	loginFlagKey            = "key"
 	loginFlagKeyIDVal       = "key-id-val"
 
-	// Flags shared by api-key, module and data subcommands.
+	// Flags shared by api-key, module, ml-training and data subcommands.
 	generalFlagOrgID        = "org-id"
 	generalFlagLocationID   = "location-id"
 	generalFlagMachineID    = "machine-id"
@@ -60,6 +60,13 @@ const (
 	moduleBuildFlagPlatform = "platform"
 	moduleBuildFlagWait     = "wait"
 
+	mlTrainingFlagPath      = "path"
+	mlTrainingFlagName      = "name"
+	mlTrainingFlagVersion   = "version"
+	mlTrainingFlagFramework = "framework"
+	mlTrainingFlagType      = "type"
+	mlTrainingFlagDraft     = "draft"
+
 	dataFlagDestination                    = "destination"
 	dataFlagDataType                       = "data-type"
 	dataFlagOrgIDs                         = "org-ids"
@@ -80,6 +87,11 @@ const (
 	dataFlagDeleteTabularDataOlderThanDays = "delete-older-than-days"
 	dataFlagDatabasePassword               = "password"
 	dataFlagFilterTags                     = "filter-tags"
+
+	packageFlagName        = "name"
+	packageFlagVersion     = "version"
+	packageFlagType        = "type"
+	packageFlagDestination = "destination"
 )
 
 var commonFilterFlags = []cli.Flag{
@@ -1370,6 +1382,100 @@ Example:
 					},
 				},
 				&restartCommand,
+			},
+		},
+		{
+			Name:            "packages",
+			Usage:           "work with packages",
+			HideHelpCommand: true,
+			Subcommands: []*cli.Command{
+				{
+					Name:  "export",
+					Usage: "download a package from Viam cloud",
+					UsageText: createUsageText("packages export",
+						[]string{
+							packageFlagDestination, generalFlagOrgID, packageFlagName,
+							packageFlagVersion, packageFlagType,
+						}, false),
+					Flags: []cli.Flag{
+						&cli.PathFlag{
+							Name:     packageFlagDestination,
+							Required: true,
+							Usage:    "output directory for downloaded package",
+						},
+						&cli.StringFlag{
+							Name:     generalFlagOrgID,
+							Required: true,
+							Usage:    "organization ID of the requested package",
+						},
+						&cli.StringFlag{
+							Name:     packageFlagName,
+							Required: true,
+							Usage:    "name of the requested package",
+						},
+						&cli.StringFlag{
+							Name:     packageFlagVersion,
+							Required: true,
+							Usage:    "version of the requested package, can be `latest` to get the most recent version",
+						},
+						&cli.StringFlag{
+							Name:     packageFlagType,
+							Required: true,
+							Usage:    "type of the requested package, can be: " + strings.Join(packageTypes, ", "),
+						},
+					},
+					Action: PackageExportAction,
+				},
+			},
+		},
+		{
+			Name:  "training-script",
+			Usage: "manage training scripts for custom ML training",
+			Subcommands: []*cli.Command{
+				{
+					Name:      "upload",
+					Usage:     "upload ML training scripts for custom ML training",
+					UsageText: createUsageText("training-script upload", []string{mlTrainingFlagPath, mlTrainingFlagName}, true),
+					Flags: []cli.Flag{
+						&cli.StringFlag{
+							Name:     mlTrainingFlagPath,
+							Usage:    "path to ML training scripts for upload",
+							Required: true,
+						},
+						&cli.StringFlag{
+							Name:     generalFlagOrgID,
+							Required: true,
+							Usage:    "organization ID that will host the scripts",
+						},
+						&cli.StringFlag{
+							Name:     mlTrainingFlagName,
+							Usage:    "name of the ML training script to upload",
+							Required: true,
+						},
+						&cli.StringFlag{
+							Name:     mlTrainingFlagVersion,
+							Usage:    "version of the ML training script to upload",
+							Required: false,
+						},
+						&cli.StringFlag{
+							Name:     mlTrainingFlagFramework,
+							Usage:    "framework of the ML training script to upload, can be: " + strings.Join(modelFrameworks, ", "),
+							Required: false,
+						},
+						&cli.StringFlag{
+							Name:     mlTrainingFlagType,
+							Usage:    "task type of the ML training script to upload, can be: " + strings.Join(modelTypes, ", "),
+							Required: false,
+						},
+						&cli.BoolFlag{
+							Name:     mlTrainingFlagDraft,
+							Usage:    "indicate draft mode, drafts will not be viewable in the registry",
+							Required: false,
+						},
+					},
+					// Upload action
+					Action: MLTrainingUploadAction,
+				},
 			},
 		},
 		{

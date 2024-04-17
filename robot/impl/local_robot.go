@@ -698,6 +698,11 @@ func (r *localRobot) updateWeakDependents(ctx context.Context) {
 	processInternalResources := func(resName resource.Name, res resource.Resource, resChan chan struct{}) {
 		ctxWithTimeout, timeoutCancel := context.WithTimeout(ctx, timeout)
 		defer timeoutCancel()
+
+		cleanup := utils.SlowStartupLogger(
+			ctx, "Waiting for internal resource to complete reconfiguration during weak dependencies update", "resource", resName.String(), r.logger)
+		defer cleanup()
+
 		r.reconfigureWorkers.Add(1)
 		goutils.PanicCapturingGo(func() {
 			defer func() {
@@ -781,10 +786,19 @@ func (r *localRobot) updateWeakDependents(ctx context.Context) {
 		conf := conf
 		ctxWithTimeout, timeoutCancel := context.WithTimeout(ctx, timeout)
 		defer timeoutCancel()
+
+		cleanup := utils.SlowStartupLogger(
+			ctx,
+			"Waiting for resource to complete reconfiguration during weak dependencies update",
+			"resource",
+			conf.ResourceName().String(),
+			r.logger,
+		)
 		resChan := make(chan struct{}, 1)
 		r.reconfigureWorkers.Add(1)
 		goutils.PanicCapturingGo(func() {
 			defer func() {
+				cleanup()
 				resChan <- struct{}{}
 				r.reconfigureWorkers.Done()
 			}()
