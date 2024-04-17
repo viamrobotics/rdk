@@ -33,7 +33,7 @@ const (
 	loginFlagKeyID          = "key-id"
 	loginFlagKey            = "key"
 
-	// Flags shared by api-key, module and data subcommands.
+	// Flags shared by api-key, module, ml-training and data subcommands.
 	generalFlagOrgID        = "org-id"
 	generalFlagLocationID   = "location-id"
 	generalFlagMachineID    = "machine-id"
@@ -56,6 +56,13 @@ const (
 	moduleBuildFlagBuildID  = "id"
 	moduleBuildFlagPlatform = "platform"
 	moduleBuildFlagWait     = "wait"
+
+	mlTrainingFlagPath      = "path"
+	mlTrainingFlagName      = "name"
+	mlTrainingFlagVersion   = "version"
+	mlTrainingFlagFramework = "framework"
+	mlTrainingFlagType      = "type"
+	mlTrainingFlagDraft     = "draft"
 
 	dataFlagDestination                    = "destination"
 	dataFlagDataType                       = "data-type"
@@ -1414,6 +1421,56 @@ Example:
 						},
 					},
 					Action: PackageExportAction,
+				},
+			},
+		},
+		{
+			Name:  "training-script",
+			Usage: "manage training scripts for custom ML training",
+			Subcommands: []*cli.Command{
+				{
+					Name:      "upload",
+					Usage:     "upload ML training scripts for custom ML training",
+					UsageText: createUsageText("training-script upload", []string{mlTrainingFlagPath, mlTrainingFlagName}, true),
+					Flags: []cli.Flag{
+						&cli.StringFlag{
+							Name:     mlTrainingFlagPath,
+							Usage:    "path to ML training scripts for upload",
+							Required: true,
+						},
+						&cli.StringFlag{
+							Name:     generalFlagOrgID,
+							Required: true,
+							Usage:    "organization ID that will host the scripts",
+						},
+						&cli.StringFlag{
+							Name:     mlTrainingFlagName,
+							Usage:    "name of the ML training script to upload",
+							Required: true,
+						},
+						&cli.StringFlag{
+							Name:     mlTrainingFlagVersion,
+							Usage:    "version of the ML training script to upload",
+							Required: false,
+						},
+						&cli.StringFlag{
+							Name:     mlTrainingFlagFramework,
+							Usage:    "framework of the ML training script to upload, can be: " + strings.Join(modelFrameworks, ", "),
+							Required: false,
+						},
+						&cli.StringFlag{
+							Name:     mlTrainingFlagType,
+							Usage:    "task type of the ML training script to upload, can be: " + strings.Join(modelTypes, ", "),
+							Required: false,
+						},
+						&cli.BoolFlag{
+							Name:     mlTrainingFlagDraft,
+							Usage:    "indicate draft mode, drafts will not be viewable in the registry",
+							Required: false,
+						},
+					},
+					// Upload action
+					Action: MLTrainingUploadAction,
 				},
 			},
 		},
