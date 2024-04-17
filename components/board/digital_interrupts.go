@@ -33,8 +33,5 @@ type DigitalInterrupt interface {
 	// happens.
 	AddCallback(c chan Tick)
 
-	// RemoveCallback removes a listener for interrupts.
-	RemoveCallback(c chan Tick)
-
 	Close(ctx context.Context) error
 }
