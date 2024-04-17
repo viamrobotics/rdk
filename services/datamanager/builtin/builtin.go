@@ -55,6 +55,9 @@ const defaultCaptureBufferSize = 4096
 // Default time to wait in milliseconds to check if a file has been modified.
 const defaultFileLastModifiedMillis = 10000.0
 
+// Default time between disk size checks
+const filesystemPollInterval = 30 * time.Second
+
 var clock = clk.New()
 
 var errCaptureDirectoryConfigurationDisabled = errors.New("changing the capture directory is prohibited in this environment")
@@ -439,6 +442,9 @@ func (svc *builtIn) Reconfigure(
 	if svc.fileDeletionRoutineCancelFn != nil {
 		svc.fileDeletionRoutineCancelFn()
 	}
+	if svc.fileDeletionWg != nil {
+		svc.fileDeletionWg.Wait()
+	}
 
 	// Initialize or add collectors based on changes to the component configurations.
 	newCollectors := make(map[resourceMethodMetadata]*collectorAndConfig)
@@ -706,13 +712,14 @@ func generateMetadataKey(component, method string) string {
 
 func pollFilesystem(ctx context.Context, wg *sync.WaitGroup, captureDir string, logger logging.Logger) {
 	for {
+		t := time.NewTimer(filesystemPollInterval)
 		select {
 		case <-ctx.Done():
+			t.Stop()
 			logger.Debug("Exiting fs polling thread")
 			wg.Done()
 			return
-		default:
-			time.Sleep(30 * time.Second)
+		case <-t.C:
 			logger.Debug("Polling")
 		}
 	}
