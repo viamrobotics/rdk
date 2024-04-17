@@ -77,7 +77,8 @@ type fileSourceConfig struct {
 func (c fileSourceConfig) Validate(path string) ([]string, error) {
 	if c.CameraParameters != nil {
 		if c.CameraParameters.Width < 0 || c.CameraParameters.Height < 0 {
-			return nil, fmt.Errorf(" webcam width %v, and height %v must be non-zero and positive",
+			return nil, fmt.Errorf(
+				"Got illegal negative dimensions for width_px and height_px (%d, %d) fields set in intrinsic_parameters for image_file camera",
 				c.CameraParameters.Height, c.CameraParameters.Width)
 		}
 	}
