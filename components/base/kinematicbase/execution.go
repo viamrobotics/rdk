@@ -353,6 +353,7 @@ func (ptgk *ptgBaseKinematics) courseCorrect(
 			ptgk.logger.Debug("successful course correction", solution.Solution)
 
 			correctiveArcSteps := []arcStep{}
+			actualPoseTracked := actualPose.Pose()
 			for i := 0; i < len(solution.Solution); i += 2 {
 				// We've got a course correction solution. Swap out the relevant arcsteps.
 				correctiveTraj, err := ptgk.ptgs[ptgk.courseCorrectionIdx].Trajectory(
@@ -363,13 +364,20 @@ func (ptgk *ptgBaseKinematics) courseCorrect(
 				if err != nil {
 					return nil, err
 				}
+
 				newArcSteps, err := ptgk.trajectoryToArcSteps(
 					correctiveTraj,
-					actualPose.Pose(),
+					actualPoseTracked,
 					[]referenceframe.Input{{float64(ptgk.courseCorrectionIdx)}, solution.Solution[i], solution.Solution[i+1]},
 				)
 				if err != nil {
 					return nil, err
+				}
+				for _, newArcStep := range newArcSteps {
+					actualPoseTracked = spatialmath.Compose(
+						actualPoseTracked,
+						spatialmath.PoseBetween(newArcStep.arcSegment.StartPosition, newArcStep.arcSegment.EndPosition),
+					)
 				}
 				correctiveArcSteps = append(correctiveArcSteps, newArcSteps...)
 			}
@@ -479,7 +487,6 @@ func (ptgk *ptgBaseKinematics) makeCourseCorrectionGoals(
 	for i := currStep; i < len(steps); i++ {
 		for len(steps[i].subTraj)-startingTrajPt > stepsRemainingThisGoal {
 			goalTrajPtIdx := startingTrajPt + stepsRemainingThisGoal
-
 			goalPose := spatialmath.PoseBetween(
 				currPose,
 				spatialmath.Compose(steps[i].arcSegment.StartPosition, steps[i].subTraj[goalTrajPtIdx].Pose),
