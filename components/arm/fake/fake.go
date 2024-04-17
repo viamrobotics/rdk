@@ -111,6 +111,12 @@ func (a *Arm) Reconfigure(ctx context.Context, deps resource.Dependencies, conf 
 		return err
 	}
 
+	if len(model.DoF()) == 0 {
+		a.logger.Info("fakre arm built but no degrees of freedom detected, nothing will show up on the Control tab" +
+			"you have either given a kinematics file that resulted in a zero degree of freedom arm or omitted both" +
+			"the arm-model and model path from attributes")
+	}
+
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	a.joints = &pb.JointPositions{Values: make([]float64, len(model.DoF()))}
