@@ -400,7 +400,6 @@ func (svc *builtIn) Reconfigure(
 	deps resource.Dependencies,
 	conf resource.Config,
 ) error {
-	svc.logger.Debug("reconfiguring data")
 	svc.lock.Lock()
 	defer svc.lock.Unlock()
 	svcConfig, err := resource.NativeConfig[*Config](conf)
@@ -439,8 +438,9 @@ func (svc *builtIn) Reconfigure(
 	}
 
 	if svc.fileDeletionRoutineCancelFn != nil {
-		svc.logger.Debug("cancelling file deletion in reconfigure beef")
 		svc.fileDeletionRoutineCancelFn()
+	}
+	if svc.fileDeletionWg != nil {
 		svc.fileDeletionWg.Wait()
 	}
 
@@ -448,13 +448,10 @@ func (svc *builtIn) Reconfigure(
 	newCollectors := make(map[resourceMethodMetadata]*collectorAndConfig)
 	if !svc.captureDisabled {
 		fileDeletionCtx, cancelFunc := context.WithCancel(context.Background())
-		svc.logger.Debug("made cancel context")
 		svc.fileDeletionRoutineCancelFn = cancelFunc
-		svc.logger.Debug("set cancel context")
 		svc.fileDeletionWg = &sync.WaitGroup{}
 		svc.fileDeletionWg.Add(1)
 		go pollFilesystem(fileDeletionCtx, svc.fileDeletionWg, svc.captureDir, svc.logger)
-		svc.logger.Debug("kicked off cancelfunc")
 
 		for res, resConfs := range captureConfigs {
 			for _, resConf := range resConfs {
