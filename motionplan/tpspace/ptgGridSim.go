@@ -2,6 +2,7 @@ package tpspace
 
 import (
 	"context"
+	"fmt"
 	"math"
 
 	"go.viam.com/rdk/motionplan/ik"
@@ -108,8 +109,32 @@ func (ptg *ptgGridSim) MaxDistance() float64 {
 	return ptg.refDist
 }
 
-func (ptg *ptgGridSim) Trajectory(alpha, dist, resolution float64) ([]*TrajNode, error) {
-	return ComputePTG(ptg, alpha, dist, resolution)
+func (ptg *ptgGridSim) Trajectory(alpha, start, end, resolution float64) ([]*TrajNode, error) {
+	if math.Abs(start) > math.Abs(end) {
+		return nil, fmt.Errorf("cannot calculate trajectory, start %d cannot be greater than end %d", start, end)
+	}
+	if end == 0 {
+		return ComputePTG(ptg, alpha, end, resolution)
+	}
+	traj, err := ComputePTG(ptg, alpha, end, resolution)
+	if err != nil {
+		return nil, err
+	}
+	if start > 0 {
+		firstNode, err := computePTGNode(ptg, alpha, start)
+		if err != nil {
+			return nil, err
+		}
+		first := -1
+		for i, wp := range traj {
+			if wp.Dist > start {
+				first = i
+				break
+			}
+		}
+		return append([]*TrajNode{firstNode}, traj[first:len(traj)-1]...), nil
+	}
+	return traj, nil
 }
 
 // DoF returns the DoF of the associated referenceframe.

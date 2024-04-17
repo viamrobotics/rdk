@@ -5,6 +5,7 @@ package tpspace
 import (
 	"context"
 	"errors"
+	"fmt"
 	"math"
 	"sync"
 
@@ -127,7 +128,14 @@ func (ptg *ptgIK) MaxDistance() float64 {
 	return ptg.refDist
 }
 
-func (ptg *ptgIK) Trajectory(alpha, dist, resolution float64) ([]*TrajNode, error) {
+func (ptg *ptgIK) Trajectory(alpha, start, end, resolution float64) ([]*TrajNode, error) {
+	if math.Abs(start) > math.Abs(end) {
+		return nil, fmt.Errorf("cannot calculate trajectory, start %d cannot be greater than end %d", start, end)
+	}
+	if end == 0 {
+		return ComputePTG(ptg, alpha, end, resolution)
+	}
+	
 	var precomp, traj []*TrajNode
 	ptg.mu.RLock()
 	thisRes := ptg.trajCache[resolution]
@@ -135,40 +143,53 @@ func (ptg *ptgIK) Trajectory(alpha, dist, resolution float64) ([]*TrajNode, erro
 		precomp = thisRes[alpha]
 	}
 	ptg.mu.RUnlock()
-	if precomp != nil && precomp[len(precomp)-1].Dist >= dist && dist > 0 {
-		exact := false
-		for _, wp := range precomp {
-			if wp.Dist <= dist {
-				if wp.Dist == dist {
-					exact = true
-				}
-				traj = append(traj, wp)
-			} else {
-				break
-			}
-		}
-		if !exact {
-			lastNode, err := computePTGNode(ptg, alpha, dist)
-			if err != nil {
-				return nil, err
-			}
-			traj = append(traj, lastNode)
-		}
-	} else {
+	
+	// If we have not computed this PTG out to the desired end yet, do so
+	if !(precomp != nil && precomp[len(precomp)-1].Dist >= end) {
 		var err error
-		traj, err = ComputePTG(ptg, alpha, dist, resolution)
+		traj, err = ComputePTG(ptg, alpha, end, resolution)
 		if err != nil {
 			return nil, err
 		}
-		if dist > 0 {
-			ptg.mu.Lock()
-			// Caching here provides a ~33% speedup to a solve call
-			if ptg.trajCache[resolution] == nil {
-				ptg.trajCache[resolution] = map[float64][]*TrajNode{}
-			}
-			ptg.trajCache[resolution][alpha] = traj
-			ptg.mu.Unlock()
+		ptg.mu.Lock()
+		// Caching here provides a ~33% speedup to a solve call
+		if ptg.trajCache[resolution] == nil {
+			ptg.trajCache[resolution] = map[float64][]*TrajNode{}
 		}
+		ptg.trajCache[resolution][alpha] = traj
+		ptg.mu.Unlock()
+		precomp = traj
+	}
+	// We have already computed out this strajectory to at least the distance requested, so we can pull from cache
+	started := false
+	exactEnd := false
+	for _, wp := range precomp {
+		if !started {
+			if wp.Dist >= math.Abs(start) {
+				if wp.Dist != math.Abs(start) {
+					firstNode, err := computePTGNode(ptg, alpha, start)
+					if err != nil {
+						return nil, err
+					}
+					traj = append(traj, firstNode)
+				}
+				traj = append(traj, wp)
+			}
+		} else if wp.Dist <= end {
+			if wp.Dist == end {
+				exactEnd = true
+			}
+			traj = append(traj, wp)
+		} else {
+			break
+		}
+	}
+	if !exactEnd {
+		lastNode, err := computePTGNode(ptg, alpha, end)
+		if err != nil {
+			return nil, err
+		}
+		traj = append(traj, lastNode)
 	}
 
 	return traj, nil

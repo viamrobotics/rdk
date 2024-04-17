@@ -259,7 +259,12 @@ func (mp *tpSpaceRRTMotionPlanner) rrtBackgroundRunner(
 			allPtgs := mp.tpFrame.PTGSolvers()
 			lastPose := startPose
 			for _, mynode := range correctedPath {
-				trajPts, err := allPtgs[int(mynode.Q()[0].Value)].Trajectory(mynode.Q()[1].Value, mynode.Q()[3].Value, mp.planOpts.Resolution)
+				trajPts, err := allPtgs[int(mynode.Q()[0].Value)].Trajectory(
+					mynode.Q()[1].Value,
+					mynode.Q()[2].Value,
+					mynode.Q()[3].Value,
+					mp.planOpts.Resolution,
+				)
 				if err != nil {
 					// Unimportant; this is just for debug visualization
 					break
@@ -295,7 +300,6 @@ func (mp *tpSpaceRRTMotionPlanner) rrtBackgroundRunner(
 	var randPosNode node = midptNode
 
 	for iter := 0; iter < mp.planOpts.PlanIter; iter++ {
-	//~ for iter := 0; iter < 1; iter++ {
 		if pathdebug {
 			mp.logger.Debugf("$RRTGOAL,%f,%f", randPosNode.Pose().Point().X, randPosNode.Pose().Point().Y)
 		}
@@ -492,7 +496,7 @@ func (mp *tpSpaceRRTMotionPlanner) getExtensionCandidate(
 		subNode := newConfigurationNode(solution.Configuration[i : i+2])
 
 		// Check collisions along this traj and get the longest distance viable
-		trajK, err := curPtg.Trajectory(subNode.Q()[0].Value, subNode.Q()[1].Value, mp.planOpts.Resolution)
+		trajK, err := curPtg.Trajectory(subNode.Q()[0].Value, 0, subNode.Q()[1].Value, mp.planOpts.Resolution)
 		if err != nil {
 			return nil, err
 		}
@@ -721,7 +725,7 @@ func (mp *tpSpaceRRTMotionPlanner) extendMap(
 		randAlpha := newNode.Q()[1].Value
 		randDist := newNode.Q()[3].Value - newNode.Q()[2].Value
 
-		trajK, err := mp.tpFrame.PTGSolvers()[ptgNum].Trajectory(randAlpha, randDist, mp.planOpts.Resolution/5)
+		trajK, err := mp.tpFrame.PTGSolvers()[ptgNum].Trajectory(randAlpha, 0, randDist, mp.planOpts.Resolution/5)
 		if err != nil {
 			return nil, err
 		}
@@ -892,7 +896,12 @@ func (mp *tpSpaceRRTMotionPlanner) smoothPath(ctx context.Context, path []node) 
 		allPtgs := mp.tpFrame.PTGSolvers()
 		lastPose := path[0].Pose()
 		for _, mynode := range path {
-			trajPts, err := allPtgs[int(mynode.Q()[0].Value)].Trajectory(mynode.Q()[1].Value, mynode.Q()[3].Value, mp.planOpts.Resolution)
+			trajPts, err := allPtgs[int(mynode.Q()[0].Value)].Trajectory(
+				mynode.Q()[1].Value,
+				mynode.Q()[2].Value,
+				mynode.Q()[3].Value,
+				mp.planOpts.Resolution,
+			)
 			if err != nil {
 				// Unimportant; this is just for debug visualization
 				break
@@ -935,6 +944,7 @@ func (mp *tpSpaceRRTMotionPlanner) attemptSmooth(
 			newQ := []referenceframe.Input{fullQ[0], fullQ[1], {0}, {fullQ[3].Value * adj}}
 			trajK, err := smoother.tpFrame.PTGSolvers()[int(math.Round(newQ[0].Value))].Trajectory(
 				newQ[1].Value,
+				newQ[2].Value,
 				newQ[3].Value,
 				mp.planOpts.Resolution,
 			)

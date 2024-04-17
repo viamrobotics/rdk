@@ -89,15 +89,7 @@ func TestPTGKinematicsNoGeom(t *testing.T) {
 	runningPose := spatialmath.NewZeroPose()
 	for i, inputMap := range plan.Trajectory() {
 		inputs := inputMap[""]
-		selectedPTG := ptgBase.ptgs[int(math.Round(inputs[ptgIndex].Value))]
-
-		selectedTraj, err := selectedPTG.Trajectory(
-			inputs[trajectoryIndexWithinPTG].Value,
-			inputs[distanceAlongTrajectoryIndex].Value,
-			stepDistResolution,
-		)
-		test.That(t, err, test.ShouldBeNil)
-		arcSteps, err := ptgBase.trajectoryToArcSteps(selectedTraj, runningPose, inputs)
+		arcSteps, err := ptgBase.trajectoryArcSteps(runningPose, inputs)
 		test.That(t, err, test.ShouldBeNil)
 
 		if i == 0 || i == len(plan.Trajectory())-1 {
@@ -190,15 +182,7 @@ func TestPTGKinematicsWithGeom(t *testing.T) {
 	for i, inputMap := range plan.Trajectory() {
 		inputs := inputMap[""]
 		allInputs = append(allInputs, inputs)
-		selectedPTG := ptgBase.ptgs[int(math.Round(inputs[ptgIndex].Value))]
-
-		selectedTraj, err := selectedPTG.Trajectory(
-			inputs[trajectoryIndexWithinPTG].Value,
-			inputs[distanceAlongTrajectoryIndex].Value,
-			stepDistResolution,
-		)
-		test.That(t, err, test.ShouldBeNil)
-		arcSteps, err := ptgBase.trajectoryToArcSteps(selectedTraj, runningPose, inputs)
+		arcSteps, err := ptgBase.trajectoryArcSteps(runningPose, inputs)
 		test.That(t, err, test.ShouldBeNil)
 
 		if i == 0 || i == len(plan.Trajectory())-1 {

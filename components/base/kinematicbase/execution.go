@@ -187,23 +187,13 @@ func (ptgk *ptgBaseKinematics) arcStepsFromInputs(inputSteps [][]referenceframe.
 	var arcSteps []arcStep
 	runningPose := startPose
 	for _, inputs := range inputSteps {
-		selectedPTG := ptgk.ptgs[int(math.Round(inputs[ptgIndex].Value))]
-
-		selectedTraj, err := selectedPTG.Trajectory(
-			inputs[trajectoryIndexWithinPTG].Value,
-			inputs[endDistanceAlongTrajectoryIndex].Value,
-			stepDistResolution,
-		)
-		if err != nil {
-			return nil, err
-		}
-		trajArcSteps, err := ptgk.trajectoryArcSteps(selectedTraj, runningPose, inputs)
+		trajArcSteps, err := ptgk.trajectoryArcSteps(runningPose, inputs)
 		if err != nil {
 			return nil, err
 		}
 
 		arcSteps = append(arcSteps, trajArcSteps...)
-		runningPose = spatialmath.Compose(runningPose, selectedTraj[len(selectedTraj)-1].Pose)
+		runningPose = trajArcSteps[len(trajArcSteps)-1].arcSegment.EndPosition
 	}
 	return arcSteps, nil
 }
@@ -213,14 +203,17 @@ func (ptgk *ptgBaseKinematics) trajectoryArcSteps(
 	inputs []referenceframe.Input,
 ) ([]arcStep, error) {
 	
-	correctiveTraj, err := ptgk.ptgs[ptgk.courseCorrectionIdx].Trajectory(
-		inputs[0].Value,
-					solution.Solution[i+1].Value,
-					stepDistResolution,
-				)
-				if err != nil {
-					return nil, err
-				}
+	selectedPTG := int(math.Round(inputs[ptgIndex].Value))
+	
+	traj, err := ptgk.ptgs[selectedPTG].Trajectory(
+		inputs[trajectoryIndexWithinPTG].Value,
+		inputs[startDistanceAlongTrajectoryIndex].Value,
+		inputs[endDistanceAlongTrajectoryIndex].Value,
+		stepDistResolution,
+	)
+	if err != nil {
+		return nil, err
+	}
 	
 	finalSteps := []arcStep{}
 	timeStep := 0.
@@ -451,7 +444,7 @@ func (ptgk *ptgBaseKinematics) makeCourseCorrectionGoals(
 	currentInputs []referenceframe.Input,
 ) []courseCorrectionGoal {
 	goals := []courseCorrectionGoal{}
-	currDist := currentInputs[distanceAlongTrajectoryIndex].Value
+	currDist := currentInputs[startDistanceAlongTrajectoryIndex].Value
 	stepsPerGoal := int((ptgk.nonzeroBaseTurningRadiusMeters*lookaheadDistMult*1000)/stepDistResolution) / nGoals
 
 	if stepsPerGoal < 1 {
