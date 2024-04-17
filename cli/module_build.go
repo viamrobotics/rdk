@@ -3,6 +3,7 @@ package cli
 import (
 	"fmt"
 	"io"
+	"os"
 	"strings"
 	"text/tabwriter"
 	"time"
@@ -192,6 +193,7 @@ func ModuleBuildLogsAction(c *cli.Context) error {
 	buildID := c.String(moduleBuildFlagBuildID)
 	platform := c.String(moduleBuildFlagPlatform)
 	shouldWait := c.Bool(moduleBuildFlagWait)
+	groupLogs := c.Bool(moduleBuildFlagGroupLogs)
 
 	client, err := newViamClient(c)
 	if err != nil {
@@ -216,10 +218,23 @@ func ModuleBuildLogsAction(c *cli.Context) error {
 		}
 		var combinedErr error
 		for _, platform := range platforms {
+			if groupLogs {
+				statusEmoji := "❓"
+				switch statuses[platform] { //nolint: exhaustive
+				case jobStatusDone:
+					statusEmoji = "✅"
+				case jobStatusFailed:
+					statusEmoji = "❌"
+				}
+				printf(os.Stdout, "::group::{%s %s}", statusEmoji, platform)
+			}
 			infof(c.App.Writer, "Logs for %q", platform)
 			err := client.printModuleBuildLogs(buildID, platform)
 			if err != nil {
 				combinedErr = multierr.Combine(combinedErr, client.printModuleBuildLogs(buildID, platform))
+			}
+			if groupLogs {
+				printf(os.Stdout, "::endgroup::")
 			}
 		}
 		if combinedErr != nil {

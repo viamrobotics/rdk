@@ -49,13 +49,14 @@ const (
 	moduleFlagForce           = "force"
 	moduleFlagBinary          = "binary"
 
-	moduleBuildFlagPath     = "module"
-	moduleBuildFlagRef      = "ref"
-	moduleBuildFlagCount    = "count"
-	moduleBuildFlagVersion  = "version"
-	moduleBuildFlagBuildID  = "id"
-	moduleBuildFlagPlatform = "platform"
-	moduleBuildFlagWait     = "wait"
+	moduleBuildFlagPath      = "module"
+	moduleBuildFlagRef       = "ref"
+	moduleBuildFlagCount     = "count"
+	moduleBuildFlagVersion   = "version"
+	moduleBuildFlagBuildID   = "id"
+	moduleBuildFlagPlatform  = "platform"
+	moduleBuildFlagWait      = "wait"
+	moduleBuildFlagGroupLogs = "group-logs"
 
 	mlTrainingFlagPath      = "path"
 	mlTrainingFlagName      = "name"
@@ -1372,6 +1373,10 @@ Example:
 								&cli.BoolFlag{
 									Name:  moduleBuildFlagWait,
 									Usage: "wait for the build to finish before outputting any logs",
+								},
+								&cli.BoolFlag{
+									Name:  moduleBuildFlagGroupLogs,
+									Usage: "write ::group:: commands so github action logs collapse",
 								},
 							},
 							Action: ModuleBuildLogsAction,
