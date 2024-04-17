@@ -41,8 +41,7 @@ func (s *interruptStream) startStream(ctx context.Context, interrupts []DigitalI
 	}
 	names := []string{}
 	for _, i := range interrupts {
-		name := i.Name()
-		names = append(names, name)
+		names = append(names, i.Name())
 	}
 
 	req := &pb.StreamTicksRequest{

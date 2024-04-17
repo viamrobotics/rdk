@@ -136,7 +136,7 @@ func (i *BasicDigitalInterrupt) RemoveCallback(c chan board.Tick) {
 	}
 }
 
-// Close does nothing.
+// Name returns the name of the interrupt.
 func (i *BasicDigitalInterrupt) Name() string {
 	return i.cfg.Name
 }
@@ -209,7 +209,7 @@ func (i *ServoDigitalInterrupt) RemoveCallback(c chan board.Tick) {
 	panic("servos can't have callback")
 }
 
-// RemoveCallback currently panics.
+// Name returns the name of the interrupt.
 func (i *ServoDigitalInterrupt) Name() string {
 	i.mu.Lock()
 	defer i.mu.Unlock()

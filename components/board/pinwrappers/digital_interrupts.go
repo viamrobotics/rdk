@@ -98,6 +98,7 @@ func (i *BasicDigitalInterrupt) RemoveCallback(c chan board.Tick) {
 	}
 }
 
+// Name returns the name of the digital interrupt.
 func (i *BasicDigitalInterrupt) Name() string {
 	return i.cfg.Name
 }
@@ -114,20 +115,4 @@ func (i *BasicDigitalInterrupt) Reconfigure(conf board.DigitalInterruptConfig) e
 
 	i.cfg = conf
 	return nil
-}
-
-// RemoveCallback removes a listener for interrupts.
-func RemoveCallback(di board.DigitalInterrupt, c chan board.Tick) {
-	i := di.(*BasicDigitalInterrupt)
-	i.mu.Lock()
-	defer i.mu.Unlock()
-	for id := range i.callbacks {
-		if i.callbacks[id] == c {
-			// To remove this item, we replace it with the last item in the list, then truncate the
-			// list by 1.
-			i.callbacks[id] = i.callbacks[len(i.callbacks)-1]
-			i.callbacks = i.callbacks[:len(i.callbacks)-1]
-			break
-		}
-	}
 }
