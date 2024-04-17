@@ -193,3 +193,18 @@ func TestLocalBuild(t *testing.T) {
 	test.That(t, outMsg, test.ShouldContainSubstring, "setup step msg")
 	test.That(t, outMsg, test.ShouldContainSubstring, "build step msg")
 }
+
+func TestBuildUtils(t *testing.T) {
+	t.Run("envOrValue", func(t *testing.T) {
+		key := "TEST_ENV_OR_VALUE"
+		prev := os.Getenv(key)
+		os.Setenv(key, "hello")
+		defer os.Setenv(key, prev)
+		test.That(t, envOrValue("$"+key), test.ShouldEqual, "hello")
+		test.That(t, envOrValue("normal"), test.ShouldEqual, "normal")
+	})
+
+	t.Run("strippedFqdn", func(t *testing.T) {
+		test.That(t, strippedFqdn("https://hello/"), test.ShouldEqual, "hello")
+	})
+}

@@ -1221,6 +1221,7 @@ func findInSlice[T any](items []T, predicate func(T) bool) *T {
 	return nil
 }
 
+// restartSingleModule constructs a single-module diff and calls updateResources with it.
 func (r *localRobot) restartSingleModule(ctx context.Context, mod config.Module) error {
 	diff := config.Diff{
 		Left:     r.Config(),
