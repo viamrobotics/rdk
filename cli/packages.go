@@ -2,16 +2,20 @@ package cli
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"net/http"
 	"os"
 	"path"
 	"path/filepath"
+	"time"
 
 	"github.com/pkg/errors"
 	"github.com/urfave/cli/v2"
+	"go.uber.org/multierr"
 	packagespb "go.viam.com/api/app/packages/v1"
 	"go.viam.com/utils"
+	"google.golang.org/protobuf/types/known/structpb"
 )
 
 var boolTrue = true
@@ -28,6 +32,7 @@ const (
 	PackageTypeMLModel     = PackageType("ml_model")
 	PackageTypeModule      = PackageType("module")
 	PackageTypeSLAMMap     = PackageType("slam_map")
+	PackageTypeMLTraining  = PackageType("ml_training")
 )
 
 var packageTypes = []string{
@@ -51,13 +56,7 @@ func PackageExportAction(c *cli.Context) error {
 	)
 }
 
-func (c *viamClient) packageExportAction(orgID, name, version, packageType, destination string) error {
-	if err := c.ensureLoggedIn(); err != nil {
-		return err
-	}
-	// Package ID is the <organization-ID>/<package-name>
-	packageID := path.Join(orgID, name)
-
+func convertPackageTypeToProto(packageType string) (*packagespb.PackageType, error) {
 	// Convert PackageType to proto
 	var packageTypeProto packagespb.PackageType
 	switch PackageType(packageType) {
@@ -71,15 +70,30 @@ func (c *viamClient) packageExportAction(orgID, name, version, packageType, dest
 		packageTypeProto = packagespb.PackageType_PACKAGE_TYPE_MODULE
 	case PackageTypeSLAMMap:
 		packageTypeProto = packagespb.PackageType_PACKAGE_TYPE_SLAM_MAP
+	case PackageTypeMLTraining:
+		packageTypeProto = packagespb.PackageType_PACKAGE_TYPE_ML_TRAINING
 	default:
-		return errors.New("invalid package type " + packageType)
+		return nil, errors.New("invalid package type " + packageType)
+	}
+	return &packageTypeProto, nil
+}
+
+func (c *viamClient) packageExportAction(orgID, name, version, packageType, destination string) error {
+	if err := c.ensureLoggedIn(); err != nil {
+		return err
+	}
+	// Package ID is the <organization-ID>/<package-name>
+	packageID := path.Join(orgID, name)
+	packageTypeProto, err := convertPackageTypeToProto(packageType)
+	if err != nil {
+		return err
 	}
 
 	resp, err := c.packageClient.GetPackage(c.c.Context,
 		&packagespb.GetPackageRequest{
 			Id:         packageID,
 			Version:    version,
-			Type:       &packageTypeProto,
+			Type:       packageTypeProto,
 			IncludeUrl: &boolTrue,
 		},
 	)
@@ -130,4 +144,80 @@ func downloadPackageFromURL(ctx context.Context, httpClient *http.Client,
 	}
 
 	return nil
+}
+
+func (c *viamClient) uploadPackage(
+	orgID, name, version, packageType, tarballPath string,
+	metadataStruct *structpb.Struct,
+) (*packagespb.CreatePackageResponse, error) {
+	if err := c.ensureLoggedIn(); err != nil {
+		return nil, err
+	}
+
+	//nolint:gosec
+	file, err := os.Open(tarballPath)
+	if err != nil {
+		return nil, err
+	}
+	ctx := c.c.Context
+
+	stream, err := c.packageClient.CreatePackage(ctx)
+	if err != nil {
+		return nil, err
+	}
+	packageTypeProto, err := convertPackageTypeToProto(packageType)
+	if err != nil {
+		return nil, err
+	}
+	// If version is empty, set to some default
+	if version == "" {
+		version = fmt.Sprint(time.Now().UnixMilli())
+	}
+	pkgInfo := packagespb.PackageInfo{
+		OrganizationId: orgID,
+		Name:           name,
+		Version:        version,
+		Type:           *packageTypeProto,
+		Metadata:       metadataStruct,
+	}
+	req := &packagespb.CreatePackageRequest{
+		Package: &packagespb.CreatePackageRequest_Info{
+			Info: &pkgInfo,
+		},
+	}
+	if err := stream.Send(req); err != nil {
+		return nil, err
+	}
+
+	var errs error
+	// We do not add the EOF as an error because all server-side errors trigger an EOF on the stream
+	// This results in extra clutter to the error msg
+	if err := sendUploadRequests(ctx, nil, stream, file, c.c.App.Writer); err != nil && !errors.Is(err, io.EOF) {
+		errs = multierr.Combine(errs, errors.Wrapf(err, "could not upload %s", file.Name()))
+	}
+
+	resp, closeErr := stream.CloseAndRecv()
+	errs = multierr.Combine(errs, closeErr)
+	return resp, errs
+}
+
+func getNextPackageUploadRequest(file *os.File) (*packagespb.CreatePackageRequest, error) {
+	// get the next chunk of bytes from the file
+	byteArr := make([]byte, moduleUploadChunkSize)
+	numBytesRead, err := file.Read(byteArr)
+	if err != nil {
+		return nil, err
+	}
+	if numBytesRead < moduleUploadChunkSize {
+		byteArr = byteArr[:numBytesRead]
+	}
+	return &packagespb.CreatePackageRequest{
+		Package: &packagespb.CreatePackageRequest_Contents{
+			Contents: byteArr,
+		},
+	}, nil
+}
+
+func (m *moduleID) ToDetailURL(baseURL string, packageType PackageType) string {
+	return fmt.Sprintf("https://%s/%s/%s/%s", baseURL, packageType, m.prefix, m.name)
 }
