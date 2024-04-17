@@ -54,7 +54,7 @@ type Board interface {
 	resource.Resource
 
 	// AnalogByName returns an analog pin by name.
-	AnalogByName(name string) (Analog, bool)
+	AnalogByName(name string) (Analog, error)
 
 	// DigitalInterruptByName returns a digital interrupt by name.
 	DigitalInterruptByName(name string) (DigitalInterrupt, bool)

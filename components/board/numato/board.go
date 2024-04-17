@@ -5,7 +5,6 @@ import (
 	"bufio"
 	"context"
 	"encoding/hex"
-	"errors"
 	"fmt"
 	"io"
 	"math"
@@ -16,6 +15,7 @@ import (
 	"time"
 
 	goserial "github.com/jacobsa/go-serial/serial"
+	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/board/v1"
@@ -237,9 +237,12 @@ func (b *numatoBoard) StreamTicks(ctx context.Context, interrupts []string, ch c
 }
 
 // AnalogByName returns an analog pin by name.
-func (b *numatoBoard) AnalogByName(name string) (board.Analog, bool) {
+func (b *numatoBoard) AnalogByName(name string) (board.Analog, error) {
 	ar, ok := b.analogs[name]
-	return ar, ok
+	if !ok {
+		return ar, errors.Errorf("analog reader by name %v does not exist", name)
+	}
+	return ar, nil
 }
 
 // DigitalInterruptByName returns a digital interrupt by name.

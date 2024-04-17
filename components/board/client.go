@@ -68,12 +68,12 @@ func NewClientFromConn(
 	return c, nil
 }
 
-func (c *client) AnalogByName(name string) (Analog, bool) {
+func (c *client) AnalogByName(name string) (Analog, error) {
 	return &analogClient{
 		client:     c,
 		boardName:  c.info.name,
 		analogName: name,
-	}, true
+	}, nil
 }
 
 func (c *client) DigitalInterruptByName(name string) (DigitalInterrupt, bool) {

@@ -97,8 +97,8 @@ func newGripper(b board.Board, conf resource.Config, logger logging.Logger) (gri
 		return nil, err
 	}
 
-	psi, ok := b.AnalogByName("psi")
-	if !ok {
+	psi, err := b.AnalogByName("psi")
+	if err != nil {
 		return nil, errors.New("failed to find analog reader 'psi'")
 	}
 	pinOpen, err := b.GPIOPinByName(newConf.Open)

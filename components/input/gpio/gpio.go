@@ -304,8 +304,8 @@ func (c *Controller) newButton(ctx context.Context, brd board.Board, intName str
 }
 
 func (c *Controller) newAxis(ctx context.Context, brd board.Board, analogName string, cfg AxisConfig) error {
-	reader, ok := brd.AnalogByName(analogName)
-	if !ok {
+	reader, err := brd.AnalogByName(analogName)
+	if err != nil {
 		return fmt.Errorf("can't find AnalogReader (%s)", analogName)
 	}
 
