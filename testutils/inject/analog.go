@@ -35,8 +35,8 @@ func (a *Analog) ReadCap() []interface{} {
 
 // Write calls the injected Write or the real version.
 func (a *Analog) Write(ctx context.Context, value int, extra map[string]interface{}) error {
-	a.readCap = []interface{}{ctx}
-	if a.ReadFunc == nil {
+	a.writeCap = []interface{}{ctx}
+	if a.WriteFunc == nil {
 		return a.Analog.Write(ctx, value, extra)
 	}
 	return a.WriteFunc(ctx, value, extra)
