@@ -173,7 +173,6 @@ func (svc *builtIn) Close(_ context.Context) error {
 		svc.syncRoutineCancelFn()
 	}
 	if svc.fileDeletionRoutineCancelFn != nil {
-		svc.logger.Debug("cancelling file deletion in close")
 		svc.fileDeletionRoutineCancelFn()
 	}
 
@@ -439,9 +438,6 @@ func (svc *builtIn) Reconfigure(
 
 	if svc.fileDeletionRoutineCancelFn != nil {
 		svc.fileDeletionRoutineCancelFn()
-	}
-	if svc.fileDeletionWg != nil {
-		svc.fileDeletionWg.Wait()
 	}
 
 	// Initialize or add collectors based on changes to the component configurations.
