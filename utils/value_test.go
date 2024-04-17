@@ -63,3 +63,9 @@ func TestSafeRand(t *testing.T) {
 	test.That(t, cmp.Compare("b", "b"), test.ShouldEqual, Compare("b", "b"))
 	test.That(t, cmp.Compare("b", "a"), test.ShouldEqual, Compare("b", "a"))
 } */
+
+func TestFindInSlice(t *testing.T) {
+	filtered := FindInSlice([]int{1, 2, 3}, func(x int) bool { return x > 2 })
+	test.That(t, filtered, test.ShouldNotBeNil)
+	test.That(t, *filtered, test.ShouldEqual, 3)
+}

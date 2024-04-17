@@ -1211,16 +1211,6 @@ func (r *localRobot) CloudMetadata(ctx context.Context) (cloud.Metadata, error) 
 	return md, nil
 }
 
-// findInSlice returns the first item in items which satisfies predicate, or nil.
-func findInSlice[T any](items []T, predicate func(T) bool) *T {
-	for _, item := range items {
-		if predicate(item) {
-			return &item
-		}
-	}
-	return nil
-}
-
 // restartSingleModule constructs a single-module diff and calls updateResources with it.
 func (r *localRobot) restartSingleModule(ctx context.Context, mod config.Module) error {
 	diff := config.Diff{
@@ -1234,7 +1224,7 @@ func (r *localRobot) restartSingleModule(ctx context.Context, mod config.Module)
 }
 
 func (r *localRobot) RestartModule(ctx context.Context, req robot.RestartModuleRequest) error {
-	mod := findInSlice(r.Config().Modules, req.MatchesModule)
+	mod := utils.FindInSlice(r.Config().Modules, req.MatchesModule)
 	if mod == nil {
 		return fmt.Errorf("module not found with id=%s, name=%s", req.ModuleID, req.ModuleName)
 	}

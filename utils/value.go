@@ -72,3 +72,13 @@ func Compare[T Ordered](a, b T) int {
 	}
 	return 1
 }
+
+// FindInSlice returns the first item in items which satisfies predicate, or nil.
+func FindInSlice[T any](items []T, predicate func(T) bool) *T {
+	for _, item := range items {
+		if predicate(item) {
+			return &item
+		}
+	}
+	return nil
+}
