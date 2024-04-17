@@ -150,7 +150,7 @@ func TestWorkingClient(t *testing.T) {
 
 		// Analog
 		injectAnalog := &inject.Analog{}
-		injectBoard.AnaloByNameFunc = func(name string) (board.Analog, error) {
+		injectBoard.AnalogByNameFunc = func(name string) (board.Analog, error) {
 			return injectAnalog, nil
 		}
 		analog1, err := injectBoard.AnalogByName("analog1")
