@@ -146,7 +146,8 @@ func newColorDepthExtrinsics(
 	}
 	if conf.CameraParameters.Height <= 0 || conf.CameraParameters.Width <= 0 {
 		return nil, errors.Errorf(
-			"got illegal negative dimensions for width_px and height_px (%d, %d) fields set in intrinsic_parameters for align_color_depth_extrinsics camera",
+			"got illegal negative dimensions for width_px and height_px (%d, %d) fields set"+
+				"in intrinsic_parameters for align_color_depth_extrinsics camera",
 			conf.CameraParameters.Width, conf.CameraParameters.Height)
 	}
 	// get the projector for the alignment camera
