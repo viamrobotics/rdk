@@ -177,7 +177,7 @@ func TestInterrupts(t *testing.T) {
 
 	mockBoard := &inject.Board{}
 	mockBoard.DigitalInterruptByNameFunc = func(name string) (board.DigitalInterrupt, bool) { return interrupt, true }
-	mockBoard.StreamTicksFunc = func(ctx context.Context, interrupts []string, ch chan board.Tick, extra map[string]interface{}) error {
+	mockBoard.StreamTicksFunc = func(ctx context.Context, interrupts []board.DigitalInterrupt, ch chan board.Tick, extra map[string]interface{}) error {
 		callbacks = append(callbacks, ch)
 		return nil
 	}
