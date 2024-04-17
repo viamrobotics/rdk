@@ -2,7 +2,6 @@ package cli
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"path/filepath"
 	"strings"
@@ -42,26 +41,6 @@ func mapOver[T, U any](items []T, fn func(T) (U, error)) ([]U, error) {
 		ret = append(ret, newItem)
 	}
 	return ret, nil
-}
-
-// mapToStructJson converts a map to a struct via json. The `mapstructure` package doesn't use json tags.
-func mapToStructJson(raw map[string]interface{}, target interface{}) error {
-	encoded, err := json.Marshal(raw)
-	if err != nil {
-		return err
-	}
-	return json.Unmarshal(encoded, target)
-}
-
-// structToMapJson does json ser/des to convert a struct to a map.
-func structToMapJson(orig interface{}) (map[string]interface{}, error) {
-	encoded, err := json.Marshal(orig)
-	if err != nil {
-		return nil, err
-	}
-	var ret map[string]interface{}
-	err = json.Unmarshal(encoded, &ret)
-	return ret, err
 }
 
 func getPartId(ctx context.Context, configPath string) (string, error) {

@@ -15,9 +15,9 @@ const reservedModuleName = "parent"
 // Module represents an external resource module, with a path to the binary module file.
 type Module struct {
 	// Name is an arbitrary name used to identify the module, and is used to name it's socket as well.
-	Name string `json:"name,omitempty"`
+	Name string `json:"name"`
 	// ExePath is the path (either absolute, or relative to the working directory) to the executable module file.
-	ExePath string `json:"executable_path,omitempty"`
+	ExePath string `json:"executable_path"`
 	// LogLevel represents the level at which the module should log its messages. It will be passed as a commandline
 	// argument "log-level" (i.e. preceded by "--log-level=") to the module executable. If unset or set to an empty
 	// string, "--log-level=debug" will be passed to the module executable if the server was started with "-debug".
@@ -25,7 +25,7 @@ type Module struct {
 	// SDK logger-creation utilities, such as module.NewLoggerFromArgs, will create an "Info" level logger when any
 	// value besides "" or "debug" is used for LogLevel ("log_level" in JSON). In other words, setting a LogLevel
 	// of something like "info" will ignore the debug setting on the server.
-	LogLevel string `json:"log_level,omitempty"`
+	LogLevel string `json:"log_level"`
 	// Type indicates whether this is a local or registry module.
 	Type ModuleType `json:"type"`
 	// ModuleID is the id of the module in the registry. It is empty on non-registry modules.
@@ -33,10 +33,9 @@ type Module struct {
 	// Environment contains additional variables that are passed to the module process when it is started.
 	// They overwrite existing environment variables.
 	Environment map[string]string `json:"env,omitempty"`
-	Version     string            `json:"version,omitempty"`
 
 	// Status refers to the validations done in the APP to make sure a module is configured correctly
-	Status           *AppValidationStatus `json:"status,omitempty"`
+	Status           *AppValidationStatus `json:"status"`
 	alreadyValidated bool
 	cachedErr        error
 }
