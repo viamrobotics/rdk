@@ -220,13 +220,13 @@ func ModuleBuildLogsAction(c *cli.Context) error {
 		for _, platform := range platforms {
 			if groupLogs {
 				statusEmoji := "❓"
-				switch statuses[platform] {
+				switch statuses[platform] { //nolint: exhaustive
 				case jobStatusDone:
 					statusEmoji = "✅"
 				case jobStatusFailed:
 					statusEmoji = "❌"
 				}
-				fmt.Fprintf(os.Stdout, "::group::{%s %s}\n", statusEmoji, platform)
+				printf(os.Stdout, "::group::{%s %s}", statusEmoji, platform)
 			}
 			infof(c.App.Writer, "Logs for %q", platform)
 			err := client.printModuleBuildLogs(buildID, platform)
@@ -234,7 +234,7 @@ func ModuleBuildLogsAction(c *cli.Context) error {
 				combinedErr = multierr.Combine(combinedErr, client.printModuleBuildLogs(buildID, platform))
 			}
 			if groupLogs {
-				fmt.Fprint(os.Stdout, "::endgroup::\n")
+				printf(os.Stdout, "::endgroup::")
 			}
 		}
 		if combinedErr != nil {
