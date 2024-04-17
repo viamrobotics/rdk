@@ -54,13 +54,12 @@ func TestGizmo(t *testing.T) {
 			logger.Infow("Port in use. Restarting on new port.", "port", port, "err", err)
 			test.That(t, remoteB.Close(context.Background()), test.ShouldBeNil)
 			continue
-		} else {
-			test.That(t, err, test.ShouldBeNil)
-			defer func() {
-				test.That(t, remoteB.Close(context.Background()), test.ShouldBeNil)
-			}()
-			break
 		}
+		test.That(t, err, test.ShouldBeNil)
+		defer func() {
+			test.That(t, remoteB.Close(context.Background()), test.ShouldBeNil)
+		}()
+		break
 	}
 
 	// Create remote A. Loop to ensure we find an available port.
@@ -102,11 +101,10 @@ func TestGizmo(t *testing.T) {
 				test.That(t, pmgr.Stop(), test.ShouldBeNil)
 			}()
 			break
-		} else {
-			logger.Infow("Port in use. Restarting on new port.", "port", port, "err", err)
-			pmgr.Stop()
-			continue
 		}
+		logger.Infow("Port in use. Restarting on new port.", "port", port, "err", err)
+		pmgr.Stop()
+		continue
 	}
 	test.That(t, success, test.ShouldBeTrue)
 

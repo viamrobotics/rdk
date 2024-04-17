@@ -241,10 +241,8 @@ var metadataToAdditionalParamFields = map[string]string{
 func (svc *builtIn) initializeOrUpdateCollector(
 	res resource.Resource,
 	md resourceMethodMetadata,
-	config *datamanager.DataCaptureConfig,
-) (
-	*collectorAndConfig, error,
-) {
+	config datamanager.DataCaptureConfig,
+) (*collectorAndConfig, error) {
 	// Build metadata.
 	captureMetadata, err := datacapture.BuildCaptureMetadata(
 		config.Name.API,
@@ -260,7 +258,7 @@ func (svc *builtIn) initializeOrUpdateCollector(
 	// TODO(DATA-451): validate method params
 
 	if storedCollectorAndConfig, ok := svc.collectors[md]; ok {
-		if storedCollectorAndConfig.Config.Equals(config) && res == storedCollectorAndConfig.Resource {
+		if storedCollectorAndConfig.Config.Equals(&config) && res == storedCollectorAndConfig.Resource {
 			// If the attributes have not changed, do nothing and leave the existing collector.
 			return svc.collectors[md], nil
 		}
@@ -323,7 +321,7 @@ func (svc *builtIn) initializeOrUpdateCollector(
 	}
 	collector.Collect()
 
-	return &collectorAndConfig{res, collector, *config}, nil
+	return &collectorAndConfig{res, collector, config}, nil
 }
 
 func (svc *builtIn) closeSyncer() {
@@ -534,7 +532,6 @@ func (svc *builtIn) Reconfigure(
 			svc.closeSyncer()
 		}
 	}
-
 	return nil
 }
 
@@ -655,8 +652,8 @@ func (svc *builtIn) updateDataCaptureConfigs(
 	resources resource.Dependencies,
 	conf resource.Config,
 	captureDir string,
-) (map[resource.Resource][]*datamanager.DataCaptureConfig, error) {
-	resourceCaptureConfigMap := make(map[resource.Resource][]*datamanager.DataCaptureConfig)
+) (map[resource.Resource][]datamanager.DataCaptureConfig, error) {
+	resourceCaptureConfigMap := make(map[resource.Resource][]datamanager.DataCaptureConfig)
 	for name, assocCfg := range conf.AssociatedAttributes {
 		associatedConf, err := utils.AssertType[*datamanager.AssociatedConfig](assocCfg)
 		if err != nil {
@@ -669,10 +666,12 @@ func (svc *builtIn) updateDataCaptureConfigs(
 			continue
 		}
 
+		captureCopies := make([]datamanager.DataCaptureConfig, len(associatedConf.CaptureMethods))
 		for _, method := range associatedConf.CaptureMethods {
 			method.CaptureDirectory = captureDir
+			captureCopies = append(captureCopies, method)
 		}
-		resourceCaptureConfigMap[res] = associatedConf.CaptureMethods
+		resourceCaptureConfigMap[res] = captureCopies
 	}
 	return resourceCaptureConfigMap, nil
 }

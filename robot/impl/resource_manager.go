@@ -597,10 +597,14 @@ func (manager *resourceManager) completeConfig(
 		resName := resName
 		ctxWithTimeout, timeoutCancel := context.WithTimeout(ctx, timeout)
 		defer timeoutCancel()
-		robot.reconfigureWorkers.Add(1)
 
+		cleanup := rutils.SlowStartupLogger(
+			ctx, "Waiting for resource to complete (re)configuration", "resource", resName.String(), manager.logger)
+
+		robot.reconfigureWorkers.Add(1)
 		goutils.PanicCapturingGo(func() {
 			defer func() {
+				cleanup()
 				resChan <- struct{}{}
 				robot.reconfigureWorkers.Done()
 			}()

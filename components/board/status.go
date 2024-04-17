@@ -14,10 +14,10 @@ import (
 func CreateStatus(ctx context.Context, b Board, extra map[string]interface{}) (*commonpb.BoardStatus, error) {
 	var status commonpb.BoardStatus
 
-	if names := b.AnalogReaderNames(); len(names) != 0 {
+	if names := b.AnalogNames(); len(names) != 0 {
 		status.Analogs = make(map[string]*commonpb.AnalogStatus, len(names))
 		for _, name := range names {
-			x, ok := b.AnalogReaderByName(name)
+			x, ok := b.AnalogByName(name)
 			if !ok {
 				return nil, fmt.Errorf("analog %q not found", name)
 			}
