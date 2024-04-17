@@ -1,7 +1,11 @@
 package cli
 
 import (
+	"strings"
+
+	"github.com/pkg/errors"
 	"github.com/urfave/cli/v2"
+	"go.uber.org/multierr"
 	"google.golang.org/protobuf/types/known/structpb"
 )
 
@@ -12,9 +16,12 @@ func MLTrainingUploadAction(c *cli.Context) error {
 		return err
 	}
 
-	metadata := createMetadata(c.Bool(mlTrainingFlagDraft), c.String(mlTrainingFlagType),
+	metadata, err := createMetadata(c.Bool(mlTrainingFlagDraft), c.String(mlTrainingFlagType),
 		c.String(mlTrainingFlagFramework))
-	metadataStruct, err := convertMetadataToStruct(metadata)
+	if err != nil {
+		return err
+	}
+	metadataStruct, err := convertMetadataToStruct(*metadata)
 	if err != nil {
 		return err
 	}
@@ -78,21 +85,33 @@ type MLMetadata struct {
 	Framework string
 }
 
-func createMetadata(draft bool, modelType, framework string) MLMetadata {
-	return MLMetadata{
-		Draft:     draft,
-		ModelType: findValueOrSetDefault(modelTypes, modelType, string(ModelTypeUnspecified)),
-		Framework: findValueOrSetDefault(modelFrameworks, framework, string(ModelFrameworkUnspecified)),
+func createMetadata(draft bool, modelType, framework string) (*MLMetadata, error) {
+	t, typeErr := findValueOrSetDefault(modelTypes, modelType, string(ModelTypeUnspecified))
+	f, frameWorkErr := findValueOrSetDefault(modelFrameworks, framework, string(ModelFrameworkUnspecified))
+
+	if typeErr != nil || frameWorkErr != nil {
+		return nil, errors.Wrap(multierr.Combine(typeErr, frameWorkErr), "failed to set metadata")
 	}
+
+	return &MLMetadata{
+		Draft:     draft,
+		ModelType: t,
+		Framework: f,
+	}, nil
 }
 
-func findValueOrSetDefault(arr []string, val, defaultVal string) string {
+// findValueOrSetDefault either finds the matching value from all possible values,
+// sets a default if the value is not present, or errors if the value is not permissible.
+func findValueOrSetDefault(arr []string, val, defaultVal string) (string, error) {
+	if val == "" {
+		return defaultVal, nil
+	}
 	for _, str := range arr {
 		if str == val {
-			return val
+			return val, nil
 		}
 	}
-	return defaultVal
+	return "", errors.New("value must be one of: " + strings.Join(arr, ", "))
 }
 
 var (

@@ -1430,7 +1430,6 @@ Example:
 			Subcommands: []*cli.Command{
 				{
 					Name:      "upload",
-					Aliases:   []string{"upload"},
 					Usage:     "upload ML training scripts for custom ML training",
 					UsageText: createUsageText("training-script upload", []string{mlTrainingFlagPath, mlTrainingFlagName}, true),
 					Flags: []cli.Flag{
