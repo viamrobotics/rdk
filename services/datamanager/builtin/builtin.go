@@ -709,7 +709,6 @@ func generateMetadataKey(component, method string) string {
 }
 
 func pollFilesystem(ctx context.Context, wg *sync.WaitGroup, captureDir string, logger logging.Logger) {
-	logger.Debug("Starting to poll fs")
 	for {
 		select {
 		case <-ctx.Done():
