@@ -29,7 +29,7 @@ const (
 
 	// Used to determine minimum linear deviation allowed before correction attempt. Determined by multiplying max linear speed by
 	// inputUpdateStepSeconds, and will correct if deviation is larger than this percent of that amount.
-	minDeviationToCorrectPct = 70.
+	minDeviationToCorrectPct = 50.
 
 	microsecondsPerSecond = 1e6
 )
@@ -331,9 +331,9 @@ func (ptgk *ptgBaseKinematics) courseCorrect(
 		"allowable diff ", allowableDiff, " diff now ", poseDiff.Point().Norm(), " angle diff ", poseDiff.Orientation().AxisAngles().Theta,
 	)
 
-	ptgk.logger.Debug("expected to be at ", spatialmath.PoseToProtobuf(expectedPose))
-	ptgk.logger.Debug("Localizer says at ", spatialmath.PoseToProtobuf(actualPose.Pose()))
 	if poseDiff.Point().Norm() > allowableDiff || poseDiff.Orientation().AxisAngles().Theta > 0.25 {
+		ptgk.logger.Debug("expected to be at ", spatialmath.PoseToProtobuf(expectedPose))
+		ptgk.logger.Debug("Localizer says at ", spatialmath.PoseToProtobuf(actualPose.Pose()))
 		// Accumulate list of points along the path to try to connect to
 		goals := ptgk.makeCourseCorrectionGoals(
 			goalsToAttempt,
