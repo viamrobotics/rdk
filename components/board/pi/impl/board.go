@@ -668,8 +668,9 @@ func (pi *piPigpio) DigitalInterruptNames() []string {
 func (pi *piPigpio) AnalogByName(name string) (board.Analog, error) {
 	pi.mu.Lock()
 	defer pi.mu.Unlock()
+	a, ok := pi.analogReaders[name]
 	if !ok {
-		return a, errors.Errorf("analog reader by name %v does not exist", name)
+		return a, errors.Errorf("can't find AnalogReader (%s)", analogName)
 	}
 	return a, nil
 }

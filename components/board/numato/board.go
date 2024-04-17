@@ -240,7 +240,7 @@ func (b *numatoBoard) StreamTicks(ctx context.Context, interrupts []string, ch c
 func (b *numatoBoard) AnalogByName(name string) (board.Analog, error) {
 	ar, ok := b.analogs[name]
 	if !ok {
-		return ar, errors.Errorf("analog reader by name %v does not exist", name)
+		return ar, errors.Errorf("can't find AnalogReader (%s)", name)
 	}
 	return ar, nil
 }
