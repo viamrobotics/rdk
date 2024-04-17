@@ -129,6 +129,9 @@ type builtIn struct {
 	selectiveSyncEnabled bool
 
 	componentMethodFrequencyHz map[resourceMethodMetadata]float32
+
+	fileDeletionRoutineCancelFn context.CancelFunc
+	fileDeletionWg              *sync.WaitGroup
 }
 
 var viamCaptureDotDir = filepath.Join(os.Getenv("HOME"), ".viam", "capture")
@@ -169,9 +172,18 @@ func (svc *builtIn) Close(_ context.Context) error {
 	if svc.syncRoutineCancelFn != nil {
 		svc.syncRoutineCancelFn()
 	}
+	if svc.fileDeletionRoutineCancelFn != nil {
+		svc.logger.Debug("cancelling file deletion in close")
+		svc.fileDeletionRoutineCancelFn()
+	}
 
 	svc.lock.Unlock()
 	svc.backgroundWorkers.Wait()
+
+	if svc.fileDeletionWg != nil {
+		svc.fileDeletionWg.Wait()
+	}
+
 	return nil
 }
 
@@ -388,6 +400,7 @@ func (svc *builtIn) Reconfigure(
 	deps resource.Dependencies,
 	conf resource.Config,
 ) error {
+	svc.logger.Debug("reconfiguring data")
 	svc.lock.Lock()
 	defer svc.lock.Unlock()
 	svcConfig, err := resource.NativeConfig[*Config](conf)
@@ -425,9 +438,24 @@ func (svc *builtIn) Reconfigure(
 		svc.collectors = make(map[resourceMethodMetadata]*collectorAndConfig)
 	}
 
+	if svc.fileDeletionRoutineCancelFn != nil {
+		svc.logger.Debug("cancelling file deletion in reconfigure beef")
+		svc.fileDeletionRoutineCancelFn()
+		svc.fileDeletionWg.Wait()
+	}
+
 	// Initialize or add collectors based on changes to the component configurations.
 	newCollectors := make(map[resourceMethodMetadata]*collectorAndConfig)
 	if !svc.captureDisabled {
+		fileDeletionCtx, cancelFunc := context.WithCancel(context.Background())
+		svc.logger.Debug("made cancel context")
+		svc.fileDeletionRoutineCancelFn = cancelFunc
+		svc.logger.Debug("set cancel context")
+		svc.fileDeletionWg = &sync.WaitGroup{}
+		svc.fileDeletionWg.Add(1)
+		go pollFilesystem(fileDeletionCtx, svc.fileDeletionWg, svc.captureDir, svc.logger)
+		svc.logger.Debug("kicked off cancelfunc")
+
 		for res, resConfs := range captureConfigs {
 			for _, resConf := range resConfs {
 				// Create component/method metadata
@@ -472,6 +500,9 @@ func (svc *builtIn) Reconfigure(
 				}
 			}
 		}
+	} else {
+		svc.fileDeletionRoutineCancelFn = nil
+		svc.fileDeletionWg = nil
 	}
 
 	// If a component/method has been removed from the config, close the collector.
@@ -612,7 +643,7 @@ func (svc *builtIn) sync() {
 	}
 }
 
-//nolint
+// nolint
 func getAllFilesToSync(dir string, lastModifiedMillis int) []string {
 	var filePaths []string
 	_ = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
@@ -678,4 +709,19 @@ func (svc *builtIn) updateDataCaptureConfigs(
 
 func generateMetadataKey(component, method string) string {
 	return fmt.Sprintf("%s/%s", component, method)
+}
+
+func pollFilesystem(ctx context.Context, wg *sync.WaitGroup, captureDir string, logger logging.Logger) {
+	logger.Debug("Starting to poll fs")
+	for {
+		select {
+		case <-ctx.Done():
+			logger.Debug("Exiting fs polling thread")
+			wg.Done()
+			return
+		default:
+			time.Sleep(30 * time.Second)
+			logger.Debug("Polling")
+		}
+	}
 }
