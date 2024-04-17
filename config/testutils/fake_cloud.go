@@ -44,7 +44,7 @@ type configAndCerts struct {
 }
 
 // NewFakeCloudServer creates and starts a new grpc server for the Viam Cloud.
-func NewFakeCloudServer(t *testing.T, ctx context.Context, logger logging.Logger) (*FakeCloudServer, func()) { //nolint:revive
+func NewFakeCloudServer(t *testing.T, ctx context.Context, logger logging.Logger) (*FakeCloudServer, func()) {
 	t.Helper()
 
 	listener, err := net.ListenTCP("tcp", &net.TCPAddr{Port: 0})

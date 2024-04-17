@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/fullstorydev/grpcurl"
+	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	"github.com/jhump/protoreflect/desc"
 	"github.com/jhump/protoreflect/grpcreflect"
 	"github.com/pion/rtp"
@@ -191,13 +192,17 @@ func NewModule(ctx context.Context, address string, logger logging.Logger) (*Mod
 	streams := []grpc.StreamServerInterceptor{
 		opMgr.StreamServerInterceptor,
 	}
+	opts := []grpc.ServerOption{
+		grpc.UnaryInterceptor(grpc_middleware.ChainUnaryServer(unaries...)),
+		grpc.StreamInterceptor(grpc_middleware.ChainStreamServer(streams...)),
+	}
 	m := &Module{
 		logger:                logger,
 		addr:                  address,
 		operations:            opMgr,
 		streamSourceByName:    map[resource.Name]rtppassthrough.Source{},
 		activeResourceStreams: map[resource.Name]peerResourceState{},
-		server:                NewServer(unaries, streams),
+		server:                NewServer(opts...),
 		ready:                 true,
 		handlers:              HandlerMap{},
 		collections:           map[resource.API]resource.APIResourceCollection[resource.Resource]{},

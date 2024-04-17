@@ -7,6 +7,7 @@ import (
 
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/encoder"
+	"go.viam.com/rdk/components/encoder/single"
 	"go.viam.com/rdk/components/motor"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
@@ -182,15 +183,40 @@ func createNewMotor(
 	if err != nil {
 		return nil, err
 	}
+
 	if motorConfig.Encoder != "" {
+		basic := m.(*Motor)
 		e, err := encoder.FromDependencies(deps, motorConfig.Encoder)
 		if err != nil {
 			return nil, err
 		}
 
-		m, err = WrapMotorWithEncoder(ctx, e, cfg, *motorConfig, m, logger)
+		props, err := e.Properties(context.Background(), nil)
 		if err != nil {
-			return nil, err
+			return nil, errors.New("cannot get encoder properties")
+		}
+		if !props.TicksCountSupported {
+			return nil,
+				encoder.NewEncodedMotorPositionTypeUnsupportedError(props)
+		}
+
+		single, isSingle := e.(*single.Encoder)
+		if isSingle {
+			single.AttachDirectionalAwareness(basic)
+			logger.CInfo(ctx, "direction attached to single encoder from encoded motor")
+		}
+
+		switch {
+		case motorConfig.ControlParameters == nil:
+			m, err = WrapMotorWithEncoder(ctx, e, cfg, *motorConfig, m, logger)
+			if err != nil {
+				return nil, err
+			}
+		default:
+			m, err = setupMotorWithControls(ctx, basic, e, cfg, logger)
+			if err != nil {
+				return nil, err
+			}
 		}
 	}
 

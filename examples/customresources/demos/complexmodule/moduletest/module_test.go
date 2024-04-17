@@ -70,9 +70,8 @@ func TestComplexModule(t *testing.T) {
 				test.That(t, server.Stop(), test.ShouldBeNil)
 			}()
 			break
-		} else {
-			server.Stop()
 		}
+		server.Stop()
 	}
 	test.That(t, success, test.ShouldBeTrue)
 
@@ -338,9 +337,6 @@ func modifyCfg(t *testing.T, cfgIn string, logger logging.Logger) (string, int, 
 		return "", 0, err
 	}
 
-	// workaround because config.Read can't validate a module config with a "missing" ExePath
-	touchFile("./complexmodule")
-	defer os.Remove("./complexmodule")
 	cfg, err := config.Read(context.Background(), cfgIn, logger)
 	if err != nil {
 		return "", 0, err
@@ -361,14 +357,6 @@ func modifyCfg(t *testing.T, cfgIn string, logger logging.Logger) (string, int, 
 		return "", 0, err
 	}
 	return cfgFilename, port, file.Close()
-}
-
-func touchFile(path string) error {
-	f, err := os.Create(path)
-	if err != nil {
-		return err
-	}
-	return f.Close()
 }
 
 func TestValidationFailure(t *testing.T) {
@@ -406,9 +394,8 @@ func TestValidationFailure(t *testing.T) {
 				test.That(t, server.Stop(), test.ShouldBeNil)
 			}()
 			break
-		} else {
-			server.Stop()
 		}
+		server.Stop()
 	}
 	test.That(t, success, test.ShouldBeTrue)
 

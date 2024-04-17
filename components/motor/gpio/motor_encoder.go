@@ -13,9 +13,7 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/encoder"
-	"go.viam.com/rdk/components/encoder/single"
 	"go.viam.com/rdk/components/motor"
-	"go.viam.com/rdk/control"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/resource"
@@ -48,12 +46,6 @@ func WrapMotorWithEncoder(
 		return nil, err
 	}
 
-	single, isSingle := e.(*single.Encoder)
-	if isSingle {
-		single.AttachDirectionalAwareness(mm)
-		logger.CInfo(ctx, "direction attached to single encoder from encoded motor")
-	}
-
 	return mm, nil
 }
 
@@ -75,38 +67,21 @@ func newEncodedMotor(
 	}
 
 	em := &EncodedMotor{
-		Named:             name.AsNamed(),
-		cfg:               motorConfig,
-		ticksPerRotation:  float64(motorConfig.TicksPerRotation),
-		real:              localReal,
-		rampRate:          motorConfig.RampRate,
-		maxPowerPct:       motorConfig.MaxPowerPct,
-		logger:            logger,
-		opMgr:             operation.NewSingleOperationManager(),
-		loop:              nil,
-		controlLoopConfig: control.Config{},
+		Named:            name.AsNamed(),
+		cfg:              motorConfig,
+		ticksPerRotation: float64(motorConfig.TicksPerRotation),
+		real:             localReal,
+		rampRate:         motorConfig.RampRate,
+		maxPowerPct:      motorConfig.MaxPowerPct,
+		logger:           logger,
+		opMgr:            operation.NewSingleOperationManager(),
 	}
 
-	props, err := realEncoder.Properties(context.Background(), nil)
-	if err != nil {
-		return nil, errors.New("cannot get encoder properties")
-	}
-	if !props.TicksCountSupported {
-		return nil,
-			encoder.NewEncodedMotorPositionTypeUnsupportedError(props)
-	}
 	em.encoder = realEncoder
 
-	// setup control loop
-	if motorConfig.ControlParameters != nil {
-		if err := em.setupControlLoop(); err != nil {
-			return nil, err
-		}
-	} else {
-		// TODO DOCS-1524: link to docs that explain control parameters
-		em.logger.Warn(
-			"recommended: for more accurate motor control, configure 'control_parameters' in the motor config")
-	}
+	// TODO DOCS-1524: link to docs that explain control parameters
+	em.logger.Warn(
+		"recommended: for more accurate motor control, configure 'control_parameters' in the motor config")
 
 	if em.rampRate < 0 || em.rampRate > 1 {
 		return nil, fmt.Errorf("ramp rate needs to be (0, 1] but is %v", em.rampRate)
@@ -148,10 +123,6 @@ type EncodedMotor struct {
 
 	logger logging.Logger
 	opMgr  *operation.SingleOperationManager
-
-	controlLoopConfig control.Config
-	blockNames        map[string][]string
-	loop              *control.Loop
 }
 
 // rpmMonitor keeps track of the desired RPM and position.
@@ -243,42 +214,10 @@ func (m *EncodedMotor) makeAdjustments(
 		newPowerPct = lastPowerPct
 	}
 
-	if err := m.setPower(ctx, newPowerPct); err != nil {
+	if err := m.real.SetPower(ctx, newPowerPct, nil); err != nil {
 		return 0, err
 	}
 	return newPowerPct, nil
-}
-
-func fixPowerPct(powerPct, max float64) float64 {
-	powerPct = math.Min(powerPct, max)
-	powerPct = math.Max(powerPct, -1*max)
-	return powerPct
-}
-
-func sign(x float64) float64 { // A quick helper function
-	if math.Signbit(x) {
-		return -1.0
-	}
-	return 1.0
-}
-
-// DirectionMoving returns the direction we are currently moving in, with 1 representing
-// forward and  -1 representing backwards.
-func (m *EncodedMotor) DirectionMoving() int64 {
-	m.mu.RLock()
-	defer m.mu.RUnlock()
-	return int64(m.directionMovingInLock())
-}
-
-func (m *EncodedMotor) directionMovingInLock() float64 {
-	move, powerPct, err := m.real.IsPowered(context.Background(), nil)
-	if move {
-		return sign(powerPct)
-	}
-	if err != nil {
-		m.logger.Error(err)
-	}
-	return 0
 }
 
 // SetPower sets the percentage of power the motor should employ between -1 and 1.
@@ -288,16 +227,8 @@ func (m *EncodedMotor) SetPower(ctx context.Context, powerPct float64, extra map
 	if m.rpmMonitorDone != nil {
 		m.rpmMonitorDone()
 	}
-	if m.loop != nil {
-		m.loop.Pause()
-	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	return m.setPower(ctx, powerPct)
-}
-
-// setPower assumes the state lock is held.
-func (m *EncodedMotor) setPower(ctx context.Context, powerPct float64) error {
 	powerPct = fixPowerPct(powerPct, m.maxPowerPct)
 	return m.real.SetPower(ctx, powerPct, nil)
 }
@@ -375,38 +306,18 @@ func (m *EncodedMotor) goForInternal(ctx context.Context, rpm, goalPos, directio
 	default:
 	}
 
-	if m.loop == nil {
-		// create new control loop if control config exists
-		if len(m.controlLoopConfig.Blocks) != 0 {
-			if err := m.startControlLoop(); err != nil {
-				return err
-			}
-		} else {
-			// cancel rpmMonitor if it already exists
-			if m.rpmMonitorDone != nil {
-				m.rpmMonitorDone()
-			}
-			// start a new rpmMonitor
-			var rpmCtx context.Context
-			rpmCtx, m.rpmMonitorDone = context.WithCancel(ctx)
-			m.activeBackgroundWorkers.Add(1)
-			go func() {
-				defer m.activeBackgroundWorkers.Done()
-				m.rpmMonitor(rpmCtx, rpm, goalPos, direction)
-			}()
-
-			return nil
-		}
+	// cancel rpmMonitor if it already exists
+	if m.rpmMonitorDone != nil {
+		m.rpmMonitorDone()
 	}
-
-	m.loop.Resume()
-	// set control loop values
-	velVal := math.Abs(rpm * m.ticksPerRotation / 60)
-	// when rev = 0, only velocity is controlled
-	// setPoint is +/- infinity, maxVel is calculated velVal
-	if err := m.updateControlBlock(ctx, goalPos, velVal); err != nil {
-		return err
-	}
+	// start a new rpmMonitor
+	var rpmCtx context.Context
+	rpmCtx, m.rpmMonitorDone = context.WithCancel(context.Background())
+	m.activeBackgroundWorkers.Add(1)
+	go func() {
+		defer m.activeBackgroundWorkers.Done()
+		m.rpmMonitor(rpmCtx, rpm, goalPos, direction)
+	}()
 
 	return nil
 }
@@ -490,11 +401,6 @@ func (m *EncodedMotor) IsMoving(ctx context.Context) (bool, error) {
 
 // Stop stops rpmMonitor and stops the real motor.
 func (m *EncodedMotor) Stop(ctx context.Context, extra map[string]interface{}) error {
-	// after the motor is created, Stop is called, but if the PID controller
-	// is auto-tuning, the loop needs to keep running
-	if m.loop != nil && !m.loop.GetTuning(ctx) {
-		m.loop.Pause()
-	}
 	if m.rpmMonitorDone != nil {
 		m.rpmMonitorDone()
 	}
@@ -505,10 +411,6 @@ func (m *EncodedMotor) Stop(ctx context.Context, extra map[string]interface{}) e
 func (m *EncodedMotor) Close(ctx context.Context) error {
 	if err := m.Stop(ctx, nil); err != nil {
 		return err
-	}
-	if m.loop != nil {
-		m.loop.Stop()
-		m.loop = nil
 	}
 	m.activeBackgroundWorkers.Wait()
 	return nil
