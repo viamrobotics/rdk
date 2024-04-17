@@ -275,14 +275,18 @@ func (manager *resourceManager) updateRemotesResourceNames(ctx context.Context) 
 	return anythingChanged
 }
 
-// RemoteNames returns the names of all remotes in the manager.
+// RemoteNames returns the names of all available remotes in the manager.
 func (manager *resourceManager) RemoteNames() []string {
 	names := []string{}
 	for _, k := range manager.resources.Names() {
-		res, _ := manager.resources.Node(k)
-		if k.API == client.RemoteAPI && res != nil {
-			names = append(names, k.Name)
+		if k.API != client.RemoteAPI {
+			continue
 		}
+		gNode, ok := manager.resources.Node(k)
+		if !ok || !gNode.HasResource() {
+			continue
+		}
+		names = append(names, k.Name)
 	}
 	return names
 }
