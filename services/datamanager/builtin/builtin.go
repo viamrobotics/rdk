@@ -55,7 +55,7 @@ const defaultCaptureBufferSize = 4096
 // Default time to wait in milliseconds to check if a file has been modified.
 const defaultFileLastModifiedMillis = 10000.0
 
-// Default time between disk size checks
+// Default time between disk size checks.
 const filesystemPollInterval = 30 * time.Second
 
 var clock = clk.New()
@@ -642,7 +642,7 @@ func (svc *builtIn) sync() {
 	}
 }
 
-// nolint
+//nolint
 func getAllFilesToSync(dir string, lastModifiedMillis int) []string {
 	var filePaths []string
 	_ = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
@@ -710,6 +710,7 @@ func generateMetadataKey(component, method string) string {
 	return fmt.Sprintf("%s/%s", component, method)
 }
 
+//nolint:unparam
 func pollFilesystem(ctx context.Context, wg *sync.WaitGroup, captureDir string, logger logging.Logger) {
 	for {
 		t := time.NewTimer(filesystemPollInterval)
