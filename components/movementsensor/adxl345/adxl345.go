@@ -1,5 +1,3 @@
-//go:build linux
-
 // Package adxl345 implements the MovementSensor interface for the ADXL345 accelerometer.
 package adxl345
 
@@ -329,21 +327,29 @@ func makeAdxl345(
 		if err != nil {
 			return nil, err
 		}
+		interrupts := []board.DigitalInterrupt{}
+		for _, name := range interruptList {
+			interrupt, ok := b.DigitalInterruptByName(name)
+			if !ok {
+				return nil, errors.Errorf("cannot find interrupt pin %s", name)
+			}
+			interrupts = append(interrupts, interrupt)
+		}
 		ticksChan := make(chan board.Tick)
-		err = b.StreamTicks(sensor.cancelContext, interruptList, ticksChan, nil)
+		err = b.StreamTicks(sensor.cancelContext, interrupts, ticksChan, nil)
 		if err != nil {
 			return nil, err
 		}
-		sensor.startInterruptMonitoring(b, ticksChan, interruptList)
+		sensor.startInterruptMonitoring(b, ticksChan, interrupts)
 	}
 
 	return sensor, nil
 }
 
-func (adxl *adxl345) startInterruptMonitoring(b board.Board, ticksChan chan board.Tick, interruptList []string) {
+func (adxl *adxl345) startInterruptMonitoring(b board.Board, ticksChan chan board.Tick, interrupts []board.DigitalInterrupt) {
 	utils.PanicCapturingGo(func() {
 		// Remove the callbacks added by the interrupt stream once we are done.
-		defer utils.UncheckedErrorFunc(func() error { return board.RemoveCallbacks(b, interruptList, ticksChan) })
+		defer utils.UncheckedErrorFunc(func() error { return board.RemoveCallbacks(b, interrupts, ticksChan) })
 		for {
 			select {
 			case <-adxl.cancelContext.Done():

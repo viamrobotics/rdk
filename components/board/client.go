@@ -251,6 +251,10 @@ func (dic *digitalInterruptClient) Tick(ctx context.Context, high bool, nanoseco
 	panic(errUnimplemented)
 }
 
+func (dic *digitalInterruptClient) Name() string {
+	return dic.digitalInterruptName
+}
+
 func (dic *digitalInterruptClient) AddCallback(ch chan Tick) {
 	panic(errUnimplemented)
 }
@@ -258,7 +262,7 @@ func (dic *digitalInterruptClient) AddCallback(ch chan Tick) {
 func (dic *digitalInterruptClient) RemoveCallback(ch chan Tick) {
 }
 
-func (c *client) StreamTicks(ctx context.Context, interrupts []string, ch chan Tick, extra map[string]interface{}) error {
+func (c *client) StreamTicks(ctx context.Context, interrupts []DigitalInterrupt, ch chan Tick, extra map[string]interface{}) error {
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
 		return err

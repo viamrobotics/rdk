@@ -98,6 +98,10 @@ func (i *BasicDigitalInterrupt) RemoveCallback(c chan board.Tick) {
 	}
 }
 
+func (i *BasicDigitalInterrupt) Name() string {
+	return i.cfg.Name
+}
+
 // Close does nothing.
 func (i *BasicDigitalInterrupt) Close(ctx context.Context) error {
 	return nil

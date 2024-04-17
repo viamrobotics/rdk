@@ -198,11 +198,11 @@ func TestWorkingClient(t *testing.T) {
 		test.That(t, actualExtra, test.ShouldResemble, expectedExtra)
 		actualExtra = nil
 
-		// StreamTicks
-		injectBoard.StreamTicksFunc = func(ctx context.Context, interrupts []string, ch chan board.Tick, extra map[string]interface{}) error {
-			actualExtra = extra
-			return nil
-		}
+		// // StreamTicks
+		// injectBoard.StreamTicksFunc = func(ctx context.Context, interrupts []board.DigitalInterrupt, ch chan board.Tick, extra map[string]interface{}) error {
+		// 	actualExtra = extra
+		// 	return nil
+		// }
 		err = injectBoard.StreamTicks(context.Background(), []string{"pin1"}, make(chan board.Tick), expectedExtra)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, actualExtra, test.ShouldResemble, expectedExtra)

@@ -218,7 +218,16 @@ func (s *serviceServer) StreamTicks(
 	}
 
 	ticksChan := make(chan Tick)
-	err = b.StreamTicks(server.Context(), req.PinNames, ticksChan, req.Extra.AsMap())
+	dis := []DigitalInterrupt{}
+
+	for _, name := range req.PinNames {
+		di, ok := b.DigitalInterruptByName(name)
+		if !ok {
+			return errors.Errorf("unknown digital interrupt: %s", name)
+		}
+		dis = append(dis, di)
+	}
+	err = b.StreamTicks(server.Context(), dis, ticksChan, req.Extra.AsMap())
 	if err != nil {
 		return err
 	}
@@ -229,7 +238,7 @@ func (s *serviceServer) StreamTicks(
 		return err
 	}
 
-	defer utils.UncheckedErrorFunc(func() error { return RemoveCallbacks(b, req.PinNames, ticksChan) })
+	defer utils.UncheckedErrorFunc(func() error { return RemoveCallbacks(b, dis, ticksChan) })
 	for {
 		select {
 		case <-server.Context().Done():

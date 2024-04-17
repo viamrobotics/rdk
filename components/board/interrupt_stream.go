@@ -20,7 +20,7 @@ type interruptStream struct {
 	extra                   *structpb.Struct
 }
 
-func (s *interruptStream) startStream(ctx context.Context, interrupts []string, ch chan Tick) error {
+func (s *interruptStream) startStream(ctx context.Context, interrupts []DigitalInterrupt, ch chan Tick) error {
 	s.streamMu.Lock()
 	defer s.streamMu.Unlock()
 
@@ -39,10 +39,15 @@ func (s *interruptStream) startStream(ctx context.Context, interrupts []string, 
 		return ctx.Err()
 	default:
 	}
+	names := []string{}
+	for _, i := range interrupts {
+		name := i.Name()
+		names = append(names, name)
+	}
 
 	req := &pb.StreamTicksRequest{
 		Name:     s.client.info.name,
-		PinNames: interrupts,
+		PinNames: names,
 		Extra:    s.extra,
 	}
 
