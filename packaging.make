@@ -43,7 +43,7 @@ static-release: server-static-compressed
 	rm -rf etc/packaging/static/deploy/
 	mkdir -p etc/packaging/static/deploy/
 	cp $(BIN_OUTPUT_PATH)/viam-server etc/packaging/static/deploy/viam-server-${BUILD_CHANNEL}-${UNAME_M}
-	if [ "${RELEASE_TYPE}" = "stable" || "${RELEASE_TYPE}" = "latest" ]; then \
+	if [ "${RELEASE_TYPE}" = "stable" ] || [ "${RELEASE_TYPE}" = "latest" ]; then \
 		cp $(BIN_OUTPUT_PATH)/viam-server etc/packaging/static/deploy/viam-server-${RELEASE_TYPE}-${UNAME_M}; \
 	fi
 	rm -rf etc/packaging/static/manifest/
