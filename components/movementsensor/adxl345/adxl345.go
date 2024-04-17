@@ -1,4 +1,7 @@
+//go:build linux
+
 // Package adxl345 implements the MovementSensor interface for the ADXL345 accelerometer.
+
 package adxl345
 
 /*
