@@ -204,7 +204,8 @@ func (pi *piPigpio) Reconfigure(
 }
 
 // StreamTicks starts a stream of digital interrupt ticks.
-func (pi *piPigpio) StreamTicks(ctx context.Context, interrupts []board.DigitalInterrupt, ch chan board.Tick, extra map[string]interface{}) error {
+func (pi *piPigpio) StreamTicks(ctx context.Context, interrupts []board.DigitalInterrupt, ch chan board.Tick,
+	extra map[string]interface{}) error {
 	for _, i := range interrupts {
 		i.AddCallback(ch)
 	}

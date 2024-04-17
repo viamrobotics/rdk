@@ -228,7 +228,9 @@ func (b *Board) WriteAnalog(ctx context.Context, pin string, value int32, extra 
 }
 
 // StreamTicks starts a stream of digital interrupt ticks.
-func (b *Board) StreamTicks(ctx context.Context, interrupts []board.DigitalInterrupt, ch chan board.Tick, extra map[string]interface{}) error {
+func (b *Board) StreamTicks(ctx context.Context, interrupts []board.DigitalInterrupt, ch chan board.Tick,
+	extra map[string]interface{},
+) error {
 	for _, i := range interrupts {
 		i.AddCallback(ch)
 	}
@@ -433,6 +435,7 @@ func (s *DigitalInterruptWrapper) RemoveCallback(c chan board.Tick) {
 	s.di.RemoveCallback(c)
 }
 
+// Name returns the name of the digital interrupt.
 func (s *DigitalInterruptWrapper) Name() string {
 	return s.conf.Name
 }

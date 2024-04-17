@@ -199,7 +199,9 @@ func TestWorkingClient(t *testing.T) {
 		actualExtra = nil
 
 		// StreamTicks
-		injectBoard.StreamTicksFunc = func(ctx context.Context, interrupts []board.DigitalInterrupt, ch chan board.Tick, extra map[string]interface{}) error {
+		injectBoard.StreamTicksFunc = func(ctx context.Context, interrupts []board.DigitalInterrupt, ch chan board.Tick,
+			extra map[string]interface{},
+		) error {
 			actualExtra = extra
 			return nil
 		}
