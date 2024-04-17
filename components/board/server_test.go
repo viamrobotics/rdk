@@ -886,7 +886,9 @@ func TestStreamTicks(t *testing.T) {
 			callbacks := []chan board.Tick{}
 
 			injectBoard.StreamTicksFunc = func(
-				ctx context.Context, interrupts []board.DigitalInterrupt, ch chan board.Tick, extra map[string]interface{}) error {
+				ctx context.Context, interrupts []board.DigitalInterrupt, ch chan board.Tick,
+				extra map[string]interface{},
+			) error {
 				actualExtra = extra
 				callbacks = append(callbacks, ch)
 				return tc.streamTicksErr
