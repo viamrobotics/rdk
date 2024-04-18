@@ -108,8 +108,8 @@ func TestFrameSystemConfigWithRemote(t *testing.T) {
 		referenceframe.NewLinkInFrame("frame2", testPose, "frame2c", nil),
 		referenceframe.NewLinkInFrame(referenceframe.World, testPose, "frame3", nil),
 	}
+	r2 := setupLocalRobot(t, ctx, localConfig, logger)
 
-	r2, err := New(context.Background(), localConfig, logger)
 	test.That(t, err, test.ShouldBeNil)
 	fsCfg, err := r2.FrameSystemConfig(context.Background())
 	test.That(t, err, test.ShouldBeNil)
@@ -201,8 +201,6 @@ func TestFrameSystemConfigWithRemote(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	t.Logf("frame system:\n%v", fsCfg)
 	test.That(t, fs.FrameNames(), test.ShouldHaveLength, 4)
-
-	test.That(t, r2.Close(context.Background()), test.ShouldBeNil)
 }
 
 func TestServiceWithUnavailableRemote(t *testing.T) {
@@ -236,8 +234,7 @@ func TestServiceWithUnavailableRemote(t *testing.T) {
 		},
 	}
 
-	r, err := New(context.Background(), localConfig, logger)
-	test.That(t, err, test.ShouldBeNil)
+	r := setupLocalRobot(t, context.Background(), localConfig, logger)
 
 	// make sure calling into remotes don't error
 	fsCfg, err := r.FrameSystemConfig(context.Background())
@@ -246,6 +243,4 @@ func TestServiceWithUnavailableRemote(t *testing.T) {
 	fs, err := referenceframe.NewFrameSystem("test", fsCfg.Parts, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, fs.FrameNames(), test.ShouldHaveLength, 2)
-
-	test.That(t, r.Close(context.Background()), test.ShouldBeNil)
 }
