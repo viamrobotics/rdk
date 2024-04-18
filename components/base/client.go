@@ -44,15 +44,6 @@ func NewClientFromConn(
 	}, nil
 }
 
-// MoveStraight moves the base in a straight line across the given distance at the given velocity.
-//
-//    myBase, err := base.FromRobot(robot, "my_base")
-//
-//    // Move the base forward 40 mm at a velocity of 90 mm/s.
-//    myBase.MoveStraight(context.Background(), distanceMm: 40, mmPerSec: 90, nil)
-//
-//    // Move the base backward 40 mm at a velocity of -90 mm/s.
-//    myBase.MoveStraight(context.Background(), distanceMm: 40, mmPerSec: -90, nil)
 func (c *client) MoveStraight(ctx context.Context, distanceMm int, mmPerSec float64, extra map[string]interface{}) error {
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
@@ -70,12 +61,6 @@ func (c *client) MoveStraight(ctx context.Context, distanceMm int, mmPerSec floa
 	return nil
 }
 
-// Spin turns the base in place, rotating it to the given angle (degrees) at the given angular velocity (degrees/sec).
-//
-//    myBase, err := base.FromRobot(robot, "my_base")
-//
-//    // Spin the base 10 degrees at an angular velocity of 15 deg/sec.
-//    myBase.Spin(context.Background(), angleDeg: 10, degsPerSec: 15, nil)
 func (c *client) Spin(ctx context.Context, angleDeg, degsPerSec float64, extra map[string]interface{}) error {
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
@@ -93,25 +78,6 @@ func (c *client) Spin(ctx context.Context, angleDeg, degsPerSec float64, extra m
 	return nil
 }
 
-// SetPower sets the linear and angular power of the base, represented as a percentage of max power for each direction in the range of [-1.0 to 1.0].
-//
-//    myBase, err := base.FromRobot(robot, "my_base")
-//
-//    // Make your wheeled base move forward. Set linear power to 75%.
-//    logger.Info("move forward")
-//    err = myBase.SetPower(context.Background(), linear: r3.Vector{Y: .75}, angular: r3.Vector{}, nil)
-//
-//    // Make your wheeled base move backward. Set linear power to -100%.
-//    logger.Info("move backward")
-//    err = myBase.SetPower(context.Background(), linear: r3.Vector{Y: -1}, angular: r3.Vector{}, nil)
-//
-//    // Make your wheeled base spin left. Set angular power to 100%.
-//    logger.Info("spin left")
-//    err = myBase.SetPower(context.Background(), linear: r3.Vector{}, angular: r3.Vector{Z: 1}, nil)
-//
-//    // Make your wheeled base spin right. Set angular power to -75%.
-//    logger.Info("spin right")
-//    err = mybase.SetPower(context.Background(), r3.Vector{}, r3.Vector{Z: -.75}, nil)
 func (c *client) SetPower(ctx context.Context, linear, angular r3.Vector, extra map[string]interface{}) error {
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
