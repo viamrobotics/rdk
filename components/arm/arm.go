@@ -71,17 +71,44 @@ type Arm interface {
 	resource.Actuator
 	referenceframe.InputEnabled
 
-	// EndPosition returns the current position of the arm.
+
+	// EndPosition gets the current position of the arm as a Pose.
 	//
 	//    myArm, err := arm.FromRobot(robot, "my_arm")
-	//    Get the end position of the arm as a Pose.
+	//    // Get the end position of the arm as a Pose.
 	//    err, pos := myArm.EndPosition(context.Background(), nil)
 	EndPosition(ctx context.Context, extra map[string]interface{}) (spatialmath.Pose, error)
 
+	// MoveToPosition moves the end of the arm to the desired Pose, relative to the base of the arm.
+	//
+	//    myArm, err := arm.FromRobot(robot, "my_arm")
+	//    // Create a Pose for the arm.
+	//    examplePose = []float64{x: 5, y: 5, z: 5, o_x: 5, o_y: 5, o_z: 5, theta:20}
+	//
+	//    // Move your arm to the Pose.
+	//    err := myArm.MoveToPosition(context.Background(), pose: examplePose, nil)
 	MoveToPosition(ctx context.Context, pose spatialmath.Pose, extra map[string]interface{}) error
 
+	// MoveToJointPositions moves the end of the arm to the desired Pose, relative to the base of the arm.
+	//
+	//    myArm, err := arm.FromRobot(robot, "my_arm")
+	//
+	//    // Declare an array of values with your desired rotational value for each joint on the arm.
+	//    degrees := []float64{4.0, 5.0, 6.0}
+	//
+	//    // Declare a new JointPositions with these values.
+	//    jointPos := componentpb.JointPositions{degrees}
+	//
+	//    // Move each joint of the arm to the position these values specify.
+	//    err := myArm.MoveToJointPositions(context.Background(), jointPos, nil)
 	MoveToJointPositions(ctx context.Context, positionDegs *pb.JointPositions, extra map[string]interface{}) error
 
+	// JointPositions gets the current position of each joint on the arm.
+	// 
+	//    my_arm, err := arm.FromRobot(robot, "my_arm")
+	//
+	//    // Get the current position of each joint on the arm as JointPositions.
+	//    pos, err := my_arm.JointPositions(context.Background(), nil)
 	JointPositions(ctx context.Context, extra map[string]interface{}) (*pb.JointPositions, error)
 }
 
