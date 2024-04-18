@@ -158,11 +158,14 @@ type Board struct {
 }
 
 // AnalogByName returns the analog pin by the given name if it exists.
-func (b *Board) AnalogByName(name string) (board.Analog, bool) {
+func (b *Board) AnalogByName(name string) (board.Analog, error) {
 	b.mu.RLock()
 	defer b.mu.RUnlock()
 	a, ok := b.Analogs[name]
-	return a, ok
+	if !ok {
+		return nil, errors.Errorf("can't find AnalogReader (%s)", name)
+	}
+	return a, nil
 }
 
 // DigitalInterruptByName returns the interrupt by the given name if it exists.

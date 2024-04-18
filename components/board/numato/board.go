@@ -237,9 +237,12 @@ func (b *numatoBoard) StreamTicks(ctx context.Context, interrupts []string, ch c
 }
 
 // AnalogByName returns an analog pin by name.
-func (b *numatoBoard) AnalogByName(name string) (board.Analog, bool) {
+func (b *numatoBoard) AnalogByName(name string) (board.Analog, error) {
 	ar, ok := b.analogs[name]
-	return ar, ok
+	if !ok {
+		return nil, fmt.Errorf("can't find AnalogReader (%s)", name)
+	}
+	return ar, nil
 }
 
 // DigitalInterruptByName returns a digital interrupt by name.

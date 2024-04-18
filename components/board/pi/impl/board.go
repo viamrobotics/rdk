@@ -665,11 +665,14 @@ func (pi *piPigpio) DigitalInterruptNames() []string {
 }
 
 // AnalogByName returns an analog pin by name.
-func (pi *piPigpio) AnalogByName(name string) (board.Analog, bool) {
+func (pi *piPigpio) AnalogByName(name string) (board.Analog, error) {
 	pi.mu.Lock()
 	defer pi.mu.Unlock()
 	a, ok := pi.analogReaders[name]
-	return a, ok
+	if !ok {
+		return nil, errors.Errorf("can't find AnalogReader (%s)", name)
+	}
+	return a, nil
 }
 
 // DigitalInterruptByName returns a digital interrupt by name.

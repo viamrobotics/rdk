@@ -156,9 +156,9 @@ func (s *serviceServer) ReadAnalogReader(
 		return nil, err
 	}
 
-	theReader, ok := b.AnalogByName(req.AnalogReaderName)
-	if !ok {
-		return nil, errors.Errorf("unknown analog reader: %s", req.AnalogReaderName)
+	theReader, err := b.AnalogByName(req.AnalogReaderName)
+	if err != nil {
+		return nil, err
 	}
 
 	val, err := theReader.Read(ctx, req.Extra.AsMap())
