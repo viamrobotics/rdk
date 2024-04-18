@@ -22,7 +22,7 @@ var (
 	errFoo        = errors.New("whoops")
 	errNotFound   = errors.New("not found")
 	errSendFailed = errors.New("send fail")
-	errAnalog     = errors.New("analog error")
+	errAnalog     = errors.New("unknown analog error")
 )
 
 func newServer() (pb.BoardServiceServer, *inject.Board, error) {
@@ -570,7 +570,7 @@ func TestServerReadAnalogReader(t *testing.T) {
 			expCapAnalogArgs: []interface{}{"analog1"},
 			expCapArgs:       []interface{}(nil),
 			expResp:          nil,
-			expRespErr:       "unknown analog reader: analog1",
+			expRespErr:       "unknown analog error",
 		},
 		{
 			injectAnalog:     &inject.Analog{},
