@@ -943,6 +943,33 @@ func (c *viamClient) robotPart(orgStr, locStr, robotStr, partStr string) (*apppb
 	return nil, errors.Errorf("no machine part found for machine: %q part: %q", robotStr, partStr)
 }
 
+// getRobotPart wraps GetRobotPart API.
+// note: overlaps with viamClient.robotPart, which wraps GetRobotParts.
+// Use this variant if you don't know the robot ID.
+func (c *viamClient) getRobotPart(partId string) (*apppb.GetRobotPartResponse, error) {
+	if err := c.ensureLoggedIn(); err != nil {
+		return nil, err
+	}
+	return c.client.GetRobotPart(c.c.Context, &apppb.GetRobotPartRequest{Id: partId})
+}
+
+func (c *viamClient) updateRobotPart(part *apppb.RobotPart, confMap map[string]interface{}) error {
+	if err := c.ensureLoggedIn(); err != nil {
+		return err
+	}
+	confStruct, err := structpb.NewStruct(confMap)
+	if err != nil {
+		return errors.Wrap(err, "in NewStruct")
+	}
+	req := apppb.UpdateRobotPartRequest{
+		Id:          part.Id,
+		Name:        part.Name,
+		RobotConfig: confStruct,
+	}
+	_, err = c.client.UpdateRobotPart(c.c.Context, &req)
+	return err
+}
+
 func (c *viamClient) robotPartLogs(orgStr, locStr, robotStr, partStr string, errorsOnly bool,
 	numLogs int,
 ) ([]*commonpb.LogEntry, error) {

@@ -8,10 +8,8 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/urfave/cli/v2"
-	apppb "go.viam.com/api/app/v1"
 	rdkConfig "go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
-	"google.golang.org/protobuf/types/known/structpb"
 )
 
 // ModuleMap is a type alias to indicate where a map represents a module config.
@@ -28,19 +26,6 @@ var reloadCommand = cli.Command{
 		&cli.StringFlag{Name: configFlag},
 	},
 	Action: ModuleReloadAction,
-}
-
-// mapOver applies fn() to a slice of items and returns a slice of the return values.
-func mapOver[T, U any](items []T, fn func(T) (U, error)) ([]U, error) {
-	ret := make([]U, 0, len(items))
-	for _, item := range items {
-		newItem, err := fn(item)
-		if err != nil {
-			return nil, err
-		}
-		ret = append(ret, newItem)
-	}
-	return ret, nil
 }
 
 func getPartId(ctx context.Context, configPath string) (string, error) {
@@ -168,56 +153,4 @@ func mutateModuleConfig(modules []ModuleMap, manifest moduleManifest) ([]ModuleM
 		}
 	}
 	return modules, dirty, nil
-}
-
-// samePath returns true if abs(path1) and abs(path2) are the same.
-func samePath(path1, path2 string) (bool, error) {
-	abs1, err := filepath.Abs(path1)
-	if err != nil {
-		return false, err
-	}
-	abs2, err := filepath.Abs(path2)
-	if err != nil {
-		return false, err
-	}
-	return abs1 == abs2, nil
-}
-
-// getString is a helper that returns map_[key] if it exists and is a string, otherwise empty string.
-func getString(map_ map[string]interface{}, key string) string {
-	if val, ok := map_[key]; ok {
-		switch v := val.(type) {
-		case string:
-			return v
-		case []byte:
-			return string(v)
-		default:
-			return ""
-		}
-	}
-	return ""
-}
-
-func (c *viamClient) getRobotPart(partId string) (*apppb.GetRobotPartResponse, error) {
-	if err := c.ensureLoggedIn(); err != nil {
-		return nil, err
-	}
-	return c.client.GetRobotPart(c.c.Context, &apppb.GetRobotPartRequest{Id: partId})
-}
-
-func (c *viamClient) updateRobotPart(part *apppb.RobotPart, confMap map[string]interface{}) error {
-	if err := c.ensureLoggedIn(); err != nil {
-		return err
-	}
-	confStruct, err := structpb.NewStruct(confMap)
-	if err != nil {
-		return errors.Wrap(err, "in NewStruct")
-	}
-	req := apppb.UpdateRobotPartRequest{
-		Id:          part.Id,
-		Name:        part.Name,
-		RobotConfig: confStruct,
-	}
-	_, err = c.client.UpdateRobotPart(c.c.Context, &req)
-	return err
 }
