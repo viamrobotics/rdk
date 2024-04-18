@@ -48,6 +48,8 @@ func attemptToBuildClassifier(mlm mlmodel.Service,
 	} else {
 		inHeight, inWidth = shape[1], shape[2]
 	}
+	// creates postprocessor to filter on labels and confidences
+	postprocessor := createClassificationFilter(params.DefaultConfidence, params.LabelConfidenceMap)
 
 	return func(ctx context.Context, img image.Image) (classification.Classifications, error) {
 		origW, origH := img.Bounds().Dx(), img.Bounds().Dy()
@@ -143,6 +145,9 @@ func attemptToBuildClassifier(mlm mlmodel.Service,
 				classifications = append(classifications, classification.NewClassification(confs[i], labels[i]))
 			}
 		}
+		if postprocessor != nil {
+			classifications = postprocessor(classifications)
+		}
 		return classifications, nil
 	}, nil
 }
@@ -162,6 +167,17 @@ func checkIfClassifierWorks(ctx context.Context, cf classification.Classifier) e
 	_, err := cf(ctx, img)
 	if err != nil {
 		return errors.Wrap(err, "cannot use model as a classifier")
+	}
+	return nil
+}
+
+// createClassificationFilter creates a post processor function that filters on the outputs of the model.
+func createClassificationFilter(minConf float64, labelMap map[string]float64) classification.Postprocessor {
+	if len(labelMap) != 0 {
+		return classification.NewLabelConfidenceFilter(labelMap)
+	}
+	if minConf != 0.0 {
+		return classification.NewScoreFilter(minConf)
 	}
 	return nil
 }
