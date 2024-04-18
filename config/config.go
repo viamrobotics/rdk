@@ -492,6 +492,7 @@ type Cloud struct {
 	LocationSecrets   []LocationSecret
 	LocationID        string
 	PrimaryOrgID      string
+	MachineID         string
 	ManagedBy         string
 	FQDN              string
 	LocalFQDN         string
@@ -518,6 +519,7 @@ type cloudData struct {
 	LocationSecrets   []LocationSecret `json:"location_secrets"`
 	LocationID        string           `json:"location_id"`
 	PrimaryOrgID      string           `json:"primary_org_id"`
+	MachineID         string           `json:"machine_id"`
 	ManagedBy         string           `json:"managed_by"`
 	FQDN              string           `json:"fqdn"`
 	LocalFQDN         string           `json:"local_fqdn"`
@@ -545,6 +547,7 @@ func (config *Cloud) UnmarshalJSON(data []byte) error {
 		LocationSecrets:   temp.LocationSecrets,
 		LocationID:        temp.LocationID,
 		PrimaryOrgID:      temp.PrimaryOrgID,
+		MachineID:         temp.MachineID,
 		ManagedBy:         temp.ManagedBy,
 		FQDN:              temp.FQDN,
 		LocalFQDN:         temp.LocalFQDN,
@@ -575,6 +578,7 @@ func (config Cloud) MarshalJSON() ([]byte, error) {
 		LocationSecrets:   config.LocationSecrets,
 		LocationID:        config.LocationID,
 		PrimaryOrgID:      config.PrimaryOrgID,
+		MachineID:         config.MachineID,
 		ManagedBy:         config.ManagedBy,
 		FQDN:              config.FQDN,
 		LocalFQDN:         config.LocalFQDN,

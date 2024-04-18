@@ -7,6 +7,32 @@ import (
 	"go.viam.com/test"
 )
 
+func TestLabelConfidencePostprocessor(t *testing.T) {
+	d := []Detection{
+		NewDetection(image.Rect(0, 0, 30, 30), 0.5, "A"),
+		NewDetection(image.Rect(0, 0, 30, 30), 0.1, "a"),
+		NewDetection(image.Rect(0, 0, 300, 300), 0.1, "B"),
+		NewDetection(image.Rect(0, 0, 300, 300), 0.6, "b"),
+		NewDetection(image.Rect(150, 150, 310, 310), 1, "C"),
+		NewDetection(image.Rect(50, 50, 200, 200), 0.8773934448, "D"),
+	}
+
+	postNoFilter := NewLabelConfidenceFilter(nil) // no filtering
+	results := postNoFilter(d)
+	test.That(t, len(results), test.ShouldEqual, len(d))
+
+	label := map[string]float64{"a": 0.5, "B": 0.5}
+	postFilter := NewLabelConfidenceFilter(label)
+	results = postFilter(d)
+	test.That(t, len(results), test.ShouldEqual, 2)
+	labelList := make([]string, 2)
+	for _, g := range results {
+		labelList = append(labelList, g.Label())
+	}
+	test.That(t, labelList, test.ShouldContain, "A")
+	test.That(t, labelList, test.ShouldContain, "b")
+}
+
 func TestPostprocessors(t *testing.T) {
 	d := []Detection{
 		NewDetection(image.Rect(0, 0, 30, 30), 0.5, "A"),

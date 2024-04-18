@@ -1,6 +1,8 @@
 package movementsensor
 
-import pb "go.viam.com/api/component/movementsensor/v1"
+import (
+	pb "go.viam.com/api/component/movementsensor/v1"
+)
 
 // Accuracy defines the precision and reliability metrics of a movement sensor.
 // It includes various parameters to assess the sensor's accuracy in different dimensions.
@@ -37,23 +39,78 @@ type Accuracy struct {
 
 // ProtoFeaturesToAccuracy converts a GetAccuracyResponse from a protocol buffer (protobuf)
 // into an Accuracy struct.
+// used by the client.
 func protoFeaturesToAccuracy(resp *pb.GetAccuracyResponse) *Accuracy {
+	uacc := UnimplementedOptionalAccuracies()
+	if resp == nil {
+		return UnimplementedOptionalAccuracies()
+	}
+
+	hdop := resp.PositionHdop
+	if hdop == nil {
+		hdop = &uacc.Hdop
+	}
+
+	vdop := resp.PositionVdop
+	if vdop == nil {
+		vdop = &uacc.Vdop
+	}
+
+	compass := resp.CompassDegreesError
+	if compass == nil {
+		compass = &uacc.CompassDegreeError
+	}
+
+	nmeaFix := resp.PositionNmeaGgaFix
+	if nmeaFix == nil {
+		nmeaFix = &uacc.NmeaFix
+	}
+
 	return &Accuracy{
 		AccuracyMap:        resp.Accuracy,
-		Hdop:               *resp.PositionHdop,
-		Vdop:               *resp.PositionVdop,
-		NmeaFix:            *resp.PositionNmeaGgaFix,
-		CompassDegreeError: *resp.CompassDegreesError,
+		Hdop:               *hdop,
+		Vdop:               *vdop,
+		NmeaFix:            *nmeaFix,
+		CompassDegreeError: *compass,
 	}
 }
 
 // AccuracyToProtoResponse converts an Accuracy struct into a protobuf GetAccuracyResponse.
+// used by the server.
 func accuracyToProtoResponse(acc *Accuracy) (*pb.GetAccuracyResponse, error) {
+	uacc := UnimplementedOptionalAccuracies()
+	if acc == nil {
+		return &pb.GetAccuracyResponse{
+			Accuracy:            map[string]float32{},
+			PositionHdop:        &uacc.Hdop,
+			PositionVdop:        &uacc.Vdop,
+			CompassDegreesError: &uacc.CompassDegreeError,
+			// default value of the GGA NMEA Fix when Accuracy struct is nil is -1 - a meaningless value in terms of GGA Fixes.
+			PositionNmeaGgaFix: &uacc.NmeaFix,
+		}, nil
+	}
+
+	hdop := uacc.Hdop
+	if acc.Hdop > 0 {
+		hdop = acc.Hdop
+	}
+
+	vdop := uacc.Vdop
+	if acc.Vdop > 0 {
+		vdop = acc.Vdop
+	}
+
+	compass := uacc.CompassDegreeError
+	if acc.CompassDegreeError > 0 {
+		compass = acc.CompassDegreeError
+	}
+
 	return &pb.GetAccuracyResponse{
 		Accuracy:            acc.AccuracyMap,
-		PositionHdop:        &acc.Hdop,
-		PositionVdop:        &acc.Vdop,
-		PositionNmeaGgaFix:  &acc.NmeaFix,
-		CompassDegreesError: &acc.CompassDegreeError,
+		PositionHdop:        &hdop,
+		PositionVdop:        &vdop,
+		CompassDegreesError: &compass,
+		// default value of the GGA NMEA Fix when Accuracy struct is non-nil is 0 - invalid GGA Fix.
+		PositionNmeaGgaFix: &acc.NmeaFix,
 	}, nil
 }

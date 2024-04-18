@@ -20,6 +20,7 @@ import (
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/board/genericlinux/buses"
 	"go.viam.com/rdk/components/board/mcp3008helper"
+	"go.viam.com/rdk/components/board/pinwrappers"
 	"go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
@@ -210,7 +211,7 @@ func (b *Board) reconfigureAnalogReaders(ctx context.Context, newConf *LinuxBoar
 			if curr.chipSelect != c.ChipSelect {
 				ar := &mcp3008helper.MCP3008AnalogReader{channel, bus, c.ChipSelect}
 				curr.reset(ctx, curr.chipSelect,
-					board.SmoothAnalogReader(ar, board.AnalogReaderConfig{
+					pinwrappers.SmoothAnalogReader(ar, board.AnalogReaderConfig{
 						AverageOverMillis: c.AverageOverMillis, SamplesPerSecond: c.SamplesPerSecond,
 					}, b.logger))
 			}
@@ -218,7 +219,7 @@ func (b *Board) reconfigureAnalogReaders(ctx context.Context, newConf *LinuxBoar
 		}
 		ar := &mcp3008helper.MCP3008AnalogReader{channel, bus, c.ChipSelect}
 		b.analogReaders[c.Name] = newWrappedAnalogReader(ctx, c.ChipSelect,
-			board.SmoothAnalogReader(ar, board.AnalogReaderConfig{
+			pinwrappers.SmoothAnalogReader(ar, board.AnalogReaderConfig{
 				AverageOverMillis: c.AverageOverMillis, SamplesPerSecond: c.SamplesPerSecond,
 			}, b.logger))
 	}
@@ -323,7 +324,7 @@ func (b *Board) reconfigureInterrupts(newConf *LinuxBoardConfig) error {
 		// If there was an old interrupt pin with this same name, reuse the part that holds its
 		// callbacks. Anything subscribed to the old pin will expect to still be subscribed to the
 		// new one.
-		var oldCallbackHolder board.ReconfigurableDigitalInterrupt
+		var oldCallbackHolder pinwrappers.ReconfigurableDigitalInterrupt
 		if oldInterrupt, ok := oldInterrupts[config.Name]; ok {
 			oldCallbackHolder = oldInterrupt.interrupt
 		}
@@ -341,10 +342,10 @@ func (b *Board) reconfigureInterrupts(newConf *LinuxBoardConfig) error {
 type wrappedAnalogReader struct {
 	mu         sync.RWMutex
 	chipSelect string
-	reader     *board.AnalogSmoother
+	reader     *pinwrappers.AnalogSmoother
 }
 
-func newWrappedAnalogReader(ctx context.Context, chipSelect string, reader *board.AnalogSmoother) *wrappedAnalogReader {
+func newWrappedAnalogReader(ctx context.Context, chipSelect string, reader *pinwrappers.AnalogSmoother) *wrappedAnalogReader {
 	var wrapped wrappedAnalogReader
 	wrapped.reset(ctx, chipSelect, reader)
 	return &wrapped
@@ -363,7 +364,7 @@ func (a *wrappedAnalogReader) Close(ctx context.Context) error {
 	return a.reader.Close(ctx)
 }
 
-func (a *wrappedAnalogReader) reset(ctx context.Context, chipSelect string, reader *board.AnalogSmoother) {
+func (a *wrappedAnalogReader) reset(ctx context.Context, chipSelect string, reader *pinwrappers.AnalogSmoother) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	if a.reader != nil {
@@ -391,10 +392,13 @@ type Board struct {
 	activeBackgroundWorkers sync.WaitGroup
 }
 
-// AnalogReaderByName returns the analog reader by the given name if it exists.
-func (b *Board) AnalogReaderByName(name string) (board.AnalogReader, bool) {
+// AnalogByName returns the analog pin by the given name if it exists.
+func (b *Board) AnalogByName(name string) (board.Analog, error) {
 	a, ok := b.analogReaders[name]
-	return a, ok
+	if !ok {
+		return nil, errors.Errorf("can't find AnalogReader (%s)", name)
+	}
+	return a, nil
 }
 
 // DigitalInterruptByName returns the interrupt by the given name if it exists.
@@ -434,8 +438,8 @@ func (b *Board) DigitalInterruptByName(name string) (board.DigitalInterrupt, boo
 	return interrupt.interrupt, true
 }
 
-// AnalogReaderNames returns the names of all known analog readers.
-func (b *Board) AnalogReaderNames() []string {
+// AnalogNames returns the names of all known analog pins.
+func (b *Board) AnalogNames() []string {
 	names := []string{}
 	for k := range b.analogReaders {
 		names = append(names, k)

@@ -114,6 +114,10 @@ func (sb *sensorBase) SetState(ctx context.Context, state []*control.Signal) err
 	sb.mu.Lock()
 	defer sb.mu.Unlock()
 
+	if sb.loop != nil && !sb.loop.Running() {
+		return nil
+	}
+
 	sb.logger.CDebug(ctx, "setting state")
 	linvel := state[0].GetSignalValueAt(0)
 	// multiply by the direction of the linear velocity so that angular direction

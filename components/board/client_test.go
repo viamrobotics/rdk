@@ -130,17 +130,17 @@ func TestWorkingClient(t *testing.T) {
 		test.That(t, actualExtra, test.ShouldResemble, expectedExtra)
 		actualExtra = nil
 
-		// Analog Reader
-		injectAnalogReader := &inject.AnalogReader{}
-		injectBoard.AnalogReaderByNameFunc = func(name string) (board.AnalogReader, bool) {
-			return injectAnalogReader, true
+		// Analog
+		injectAnalog := &inject.Analog{}
+		injectBoard.AnalogByNameFunc = func(name string) (board.Analog, error) {
+			return injectAnalog, nil
 		}
-		analog1, ok := injectBoard.AnalogReaderByName("analog1")
-		test.That(t, ok, test.ShouldBeTrue)
-		test.That(t, injectBoard.AnalogReaderByNameCap(), test.ShouldResemble, []interface{}{"analog1"})
+		analog1, err := injectBoard.AnalogByName("analog1")
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, injectBoard.AnalogByNameCap(), test.ShouldResemble, []interface{}{"analog1"})
 
-		// Analog Reader:Read
-		injectAnalogReader.ReadFunc = func(ctx context.Context, extra map[string]interface{}) (int, error) {
+		// Analog: Read
+		injectAnalog.ReadFunc = func(ctx context.Context, extra map[string]interface{}) (int, error) {
 			actualExtra = extra
 			return 6, nil
 		}
@@ -228,8 +228,8 @@ func TestClientWithStatus(t *testing.T) {
 
 	test.That(t, injectBoard.StatusCap()[1:], test.ShouldResemble, []interface{}{})
 
-	respAnalogReaders := client.AnalogReaderNames()
-	test.That(t, respAnalogReaders, test.ShouldResemble, []string{"analog1"})
+	respAnalogs := client.AnalogNames()
+	test.That(t, respAnalogs, test.ShouldResemble, []string{"analog1"})
 
 	respDigitalInterrupts := client.DigitalInterruptNames()
 	test.That(t, respDigitalInterrupts, test.ShouldResemble, []string{"digital1"})
@@ -266,7 +266,7 @@ func TestClientWithoutStatus(t *testing.T) {
 
 	test.That(t, injectBoard.StatusCap()[1:], test.ShouldResemble, []interface{}{})
 
-	test.That(t, rClient.AnalogReaderNames(), test.ShouldResemble, []string{})
+	test.That(t, rClient.AnalogNames(), test.ShouldResemble, []string{})
 	test.That(t, rClient.DigitalInterruptNames(), test.ShouldResemble, []string{})
 
 	err = rClient.Close(context.Background())

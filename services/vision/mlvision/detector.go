@@ -63,6 +63,8 @@ func attemptToBuildDetector(mlm mlmodel.Service,
 	} else {
 		inHeight, inWidth = shape[1], shape[2]
 	}
+	// creates postprocessor to filter on labels and confidences
+	postprocessor := createDetectionFilter(params.DefaultConfidence, params.LabelConfidenceMap)
 
 	return func(ctx context.Context, img image.Image) ([]objectdetection.Detection, error) {
 		origW, origH := img.Bounds().Dx(), img.Bounds().Dy()
@@ -192,6 +194,9 @@ func attemptToBuildDetector(mlm mlmodel.Service,
 				}
 				detections = append(detections, objectdetection.NewDetection(rect, scores[i], labels[labelNum]))
 			}
+		}
+		if postprocessor != nil {
+			detections = postprocessor(detections)
 		}
 		return detections, nil
 	}, nil
@@ -435,6 +440,17 @@ func checkIfDetectorWorks(ctx context.Context, df objectdetection.Detector) erro
 	_, err := df(ctx, img)
 	if err != nil {
 		return errors.Wrap(err, "cannot use model as a detector")
+	}
+	return nil
+}
+
+// createDetectionFilter creates a post processor function that filters on the outputs of the model.
+func createDetectionFilter(minConf float64, labelMap map[string]float64) objectdetection.Postprocessor {
+	if len(labelMap) != 0 {
+		return objectdetection.NewLabelConfidenceFilter(labelMap)
+	}
+	if minConf != 0.0 {
+		return objectdetection.NewScoreFilter(minConf)
 	}
 	return nil
 }

@@ -21,6 +21,7 @@ var (
 	errFoo        = errors.New("whoops")
 	errNotFound   = errors.New("not found")
 	errSendFailed = errors.New("send fail")
+	errAnalog     = errors.New("unknown analog error")
 )
 
 func newServer() (pb.BoardServiceServer, *inject.Board, error) {
@@ -460,59 +461,59 @@ func TestServerReadAnalogReader(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	tests := []struct {
-		injectAnalogReader     *inject.AnalogReader
-		injectAnalogReaderOk   bool
-		injectResult           int
-		injectErr              error
-		req                    *request
-		expCapAnalogReaderArgs []interface{}
-		expCapArgs             []interface{}
-		expResp                *response
-		expRespErr             string
+		injectAnalog     *inject.Analog
+		injectAnalogErr  error
+		injectResult     int
+		injectErr        error
+		req              *request
+		expCapAnalogArgs []interface{}
+		expCapArgs       []interface{}
+		expResp          *response
+		expRespErr       string
 	}{
 		{
-			injectAnalogReader:     nil,
-			injectAnalogReaderOk:   false,
-			injectResult:           0,
-			injectErr:              nil,
-			req:                    &request{BoardName: missingBoardName},
-			expCapAnalogReaderArgs: []interface{}(nil),
-			expCapArgs:             []interface{}(nil),
-			expResp:                nil,
-			expRespErr:             errNotFound.Error(),
+			injectAnalog:     nil,
+			injectAnalogErr:  errAnalog,
+			injectResult:     0,
+			injectErr:        nil,
+			req:              &request{BoardName: missingBoardName},
+			expCapAnalogArgs: []interface{}(nil),
+			expCapArgs:       []interface{}(nil),
+			expResp:          nil,
+			expRespErr:       errNotFound.Error(),
 		},
 		{
-			injectAnalogReader:     nil,
-			injectAnalogReaderOk:   false,
-			injectResult:           0,
-			injectErr:              nil,
-			req:                    &request{BoardName: testBoardName, AnalogReaderName: "analog1"},
-			expCapAnalogReaderArgs: []interface{}{"analog1"},
-			expCapArgs:             []interface{}(nil),
-			expResp:                nil,
-			expRespErr:             "unknown analog reader: analog1",
+			injectAnalog:     nil,
+			injectAnalogErr:  errAnalog,
+			injectResult:     0,
+			injectErr:        nil,
+			req:              &request{BoardName: testBoardName, AnalogReaderName: "analog1"},
+			expCapAnalogArgs: []interface{}{"analog1"},
+			expCapArgs:       []interface{}(nil),
+			expResp:          nil,
+			expRespErr:       "unknown analog error",
 		},
 		{
-			injectAnalogReader:     &inject.AnalogReader{},
-			injectAnalogReaderOk:   true,
-			injectResult:           0,
-			injectErr:              errFoo,
-			req:                    &request{BoardName: testBoardName, AnalogReaderName: "analog1"},
-			expCapAnalogReaderArgs: []interface{}{"analog1"},
-			expCapArgs:             []interface{}{ctx},
-			expResp:                nil,
-			expRespErr:             errFoo.Error(),
+			injectAnalog:     &inject.Analog{},
+			injectAnalogErr:  nil,
+			injectResult:     0,
+			injectErr:        errFoo,
+			req:              &request{BoardName: testBoardName, AnalogReaderName: "analog1"},
+			expCapAnalogArgs: []interface{}{"analog1"},
+			expCapArgs:       []interface{}{ctx},
+			expResp:          nil,
+			expRespErr:       errFoo.Error(),
 		},
 		{
-			injectAnalogReader:     &inject.AnalogReader{},
-			injectAnalogReaderOk:   true,
-			injectResult:           8,
-			injectErr:              nil,
-			req:                    &request{BoardName: testBoardName, AnalogReaderName: "analog1", Extra: pbExpectedExtra},
-			expCapAnalogReaderArgs: []interface{}{"analog1"},
-			expCapArgs:             []interface{}{ctx},
-			expResp:                &response{Value: 8},
-			expRespErr:             "",
+			injectAnalog:     &inject.Analog{},
+			injectAnalogErr:  nil,
+			injectResult:     8,
+			injectErr:        nil,
+			req:              &request{BoardName: testBoardName, AnalogReaderName: "analog1", Extra: pbExpectedExtra},
+			expCapAnalogArgs: []interface{}{"analog1"},
+			expCapArgs:       []interface{}{ctx},
+			expResp:          &response{Value: 8},
+			expRespErr:       "",
 		},
 	}
 
@@ -522,12 +523,12 @@ func TestServerReadAnalogReader(t *testing.T) {
 			test.That(t, err, test.ShouldBeNil)
 			var actualExtra map[string]interface{}
 
-			injectBoard.AnalogReaderByNameFunc = func(name string) (board.AnalogReader, bool) {
-				return tc.injectAnalogReader, tc.injectAnalogReaderOk
+			injectBoard.AnalogByNameFunc = func(name string) (board.Analog, error) {
+				return tc.injectAnalog, tc.injectAnalogErr
 			}
 
-			if tc.injectAnalogReader != nil {
-				tc.injectAnalogReader.ReadFunc = func(ctx context.Context, extra map[string]interface{}) (int, error) {
+			if tc.injectAnalog != nil {
+				tc.injectAnalog.ReadFunc = func(ctx context.Context, extra map[string]interface{}) (int, error) {
 					actualExtra = extra
 					return tc.injectResult, tc.injectErr
 				}
@@ -542,8 +543,8 @@ func TestServerReadAnalogReader(t *testing.T) {
 				test.That(t, err, test.ShouldNotBeNil)
 				test.That(t, err.Error(), test.ShouldContainSubstring, tc.expRespErr)
 			}
-			test.That(t, injectBoard.AnalogReaderByNameCap(), test.ShouldResemble, tc.expCapAnalogReaderArgs)
-			test.That(t, tc.injectAnalogReader.ReadCap(), test.ShouldResemble, tc.expCapArgs)
+			test.That(t, injectBoard.AnalogByNameCap(), test.ShouldResemble, tc.expCapAnalogArgs)
+			test.That(t, tc.injectAnalog.ReadCap(), test.ShouldResemble, tc.expCapArgs)
 		})
 	}
 }

@@ -64,6 +64,7 @@ func TestModManagerFunctions(t *testing.T) {
 			Environment: map[string]string{"SMART": "MACHINES"},
 		},
 		dataDir: "module-data-dir",
+		logger:  logger,
 	}
 
 	err = mod.startProcess(ctx, parentAddr, nil, logger, viamHomeTemp)
