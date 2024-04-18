@@ -57,28 +57,57 @@ type Board interface {
 	AnalogByName(name string) (Analog, bool)
 
 	// DigitalInterruptByName returns a digital interrupt by name.
+	//
+	//    myBoard, err := board.FromRobot(robot, "my_board")
+	//
+	//    // Get the DigitalInterrupt "my_example_digital_interrupt".
+	//    interrupt, ok := myBoard.DigitalInterruptByName("my_example_digital_interrupt")
 	DigitalInterruptByName(name string) (DigitalInterrupt, bool)
 
 	// GPIOPinByName returns a GPIOPin by name.
+	//
+	//    myBoard, err := board.FromRobot(robot, "my_board")
+	//
+	//    // Get the GPIOPin with pin number 15.
+	//    pin, err := myBoard.GPIOPinByName("15")
 	GPIOPinByName(name string) (GPIOPin, error)
 
 	// AnalogNames returns the names of all known analog pins.
 	AnalogNames() []string
 
 	// DigitalInterruptNames returns the names of all known digital interrupts.
+	//
+	//    myBoard, err := board.FromRobot(robot, "my_board")
+	//
+	//    // Get the name of every DigitalInterrupt configured on the board.
+	//    names := myBoard.DigitalInterruptNames()
 	DigitalInterruptNames() []string
 
 	// Status returns the current status of the board. Usually you
 	// should use the CreateStatus helper instead of directly calling
 	// this.
+	//
+	//    myBoard, err := board.FromRobot(robot, "my_board")
+	//
+	//    // Get the current status of the board.
+	//    err := myBoard.Status(context.Background(), nil)
 	Status(ctx context.Context, extra map[string]interface{}) (*commonpb.BoardStatus, error)
 
 	// SetPowerMode sets the board to the given power mode. If
 	// provided, the board will exit the given power mode after
 	// the specified duration.
+	//
+	//    myBoard, err := board.FromRobot(robot, "my_board")
+	//    // Set the power mode of the board to OFFLINE_DEEP.
+	//    err := myBoard.Status(context.Background(), nil)
+	//    myBoard.SetPowerMode(context.Background(), boardpb.PowerMode_POWER_MODE_OFFLINE_DEEP, nil)
 	SetPowerMode(ctx context.Context, mode pb.PowerMode, duration *time.Duration) error
 
 	// WriteAnalog writes an analog value to a pin on the board.
+	//    myBoard, err := board.FromRobot(robot, "my_board")
+	//
+	//    // Set pin 11 to value 48.
+	//    err := myBoard.WriteAnalog(context.Background(), "11", 48, nil)
 	WriteAnalog(ctx context.Context, pin string, value int32, extra map[string]interface{}) error
 
 	// StreamTicks starts a stream of digital interrupt ticks.
