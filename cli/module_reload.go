@@ -135,13 +135,13 @@ func mutateModuleConfig(modules []ModuleMap, manifest moduleManifest) ([]ModuleM
 		})
 		modules = append(modules, newMod)
 	} else {
-		if same, err := samePath(getString(foundMod, "executable_path"), absEntrypoint); err != nil {
+		if same, err := samePath(getMapString(foundMod, "executable_path"), absEntrypoint); err != nil {
 			logger.Debug("ExePath is right, doing nothing")
 			return nil, dirty, err
 		} else if !same {
 			dirty = true
 			logger.Debug("replacing entrypoint")
-			if getString(foundMod, "type") == string(rdkConfig.ModuleTypeRegistry) {
+			if getMapString(foundMod, "type") == string(rdkConfig.ModuleTypeRegistry) {
 				// warning: there's a chance of inserting a dupe name here in odd cases
 				// todo: prompt user
 				logger.Warnf("you're replacing a registry module. we're converting it to a local module")
