@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"slices"
 	"strings"
 	"text/tabwriter"
 	"time"
@@ -14,7 +15,6 @@ import (
 	buildpb "go.viam.com/api/app/build/v1"
 	"go.viam.com/utils/pexec"
 	"golang.org/x/exp/maps"
-	"golang.org/x/exp/slices"
 
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/utils"
