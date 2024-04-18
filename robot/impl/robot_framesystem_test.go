@@ -95,7 +95,6 @@ func TestFrameSystemConfigWithRemote(t *testing.T) {
 		},
 	}
 
-	// make local robot
 	testPose := spatialmath.NewPose(
 		r3.Vector{X: 1., Y: 2., Z: 3.},
 		&spatialmath.R4AA{Theta: math.Pi / 2, RX: 0., RY: 1., RZ: 0.},
