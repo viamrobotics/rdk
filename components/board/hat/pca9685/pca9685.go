@@ -268,8 +268,8 @@ func (pca *PCA9685) DigitalInterruptNames() []string {
 }
 
 // AnalogByName returns the analog pin by the given name if it exists.
-func (pca *PCA9685) AnalogByName(name string) (board.Analog, bool) {
-	return nil, false
+func (pca *PCA9685) AnalogByName(name string) (board.Analog, error) {
+	return nil, nil
 }
 
 // DigitalInterruptByName returns the interrupt by the given name if it exists.

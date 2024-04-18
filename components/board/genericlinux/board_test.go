@@ -44,13 +44,13 @@ func TestGenericLinux(t *testing.T) {
 		ans := b.AnalogNames()
 		test.That(t, ans, test.ShouldResemble, []string{"an"})
 
-		an1, ok := b.AnalogByName("an")
+		an1, err := b.AnalogByName("an")
 		test.That(t, an1, test.ShouldHaveSameTypeAs, &wrappedAnalogReader{})
-		test.That(t, ok, test.ShouldBeTrue)
+		test.That(t, err, test.ShouldBeNil)
 
-		an2, ok := b.AnalogByName("missing")
+		an2, err := b.AnalogByName("missing")
 		test.That(t, an2, test.ShouldBeNil)
-		test.That(t, ok, test.ShouldBeFalse)
+		test.That(t, err, test.ShouldNotBeNil)
 
 		dns := b.DigitalInterruptNames()
 		test.That(t, dns, test.ShouldBeNil)

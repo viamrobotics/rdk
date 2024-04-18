@@ -52,7 +52,7 @@ func (sb *sensorBase) Spin(ctx context.Context, angleDeg, degsPerSec float64, ex
 		}
 	}
 	sb.loop.Resume()
-	angErr := 0.
+	var angErr float64
 	prevMovedAng := 0.
 
 	// to keep the signs simple, ensure degsPerSec is positive and let angleDeg handle the direction of the spin

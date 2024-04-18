@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"slices"
 	"strings"
 	"text/tabwriter"
 	"time"
@@ -15,7 +16,6 @@ import (
 	"go.viam.com/utils/pexec"
 	"go.viam.com/utils/rpc"
 	"golang.org/x/exp/maps"
-	"golang.org/x/exp/slices"
 
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/robot"
@@ -231,6 +231,7 @@ func ModuleBuildLogsAction(c *cli.Context) error {
 	buildID := c.String(moduleBuildFlagBuildID)
 	platform := c.String(moduleBuildFlagPlatform)
 	shouldWait := c.Bool(moduleBuildFlagWait)
+	groupLogs := c.Bool(moduleBuildFlagGroupLogs)
 
 	client, err := newViamClient(c)
 	if err != nil {
@@ -255,10 +256,23 @@ func ModuleBuildLogsAction(c *cli.Context) error {
 		}
 		var combinedErr error
 		for _, platform := range platforms {
+			if groupLogs {
+				statusEmoji := "❓"
+				switch statuses[platform] { //nolint: exhaustive
+				case jobStatusDone:
+					statusEmoji = "✅"
+				case jobStatusFailed:
+					statusEmoji = "❌"
+				}
+				printf(os.Stdout, "::group::{%s %s}", statusEmoji, platform)
+			}
 			infof(c.App.Writer, "Logs for %q", platform)
 			err := client.printModuleBuildLogs(buildID, platform)
 			if err != nil {
 				combinedErr = multierr.Combine(combinedErr, client.printModuleBuildLogs(buildID, platform))
+			}
+			if groupLogs {
+				printf(os.Stdout, "::endgroup::")
 			}
 		}
 		if combinedErr != nil {

@@ -10,6 +10,7 @@ import (
 	goutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/components/board"
+	"go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/utils"
 )
@@ -139,4 +140,8 @@ func (as *AnalogSmoother) Start(ctx context.Context) {
 			}
 		}
 	}, as.activeBackgroundWorkers.Done)
+}
+
+func (as *AnalogSmoother) Write(ctx context.Context, value int, extra map[string]interface{}) error {
+	return grpc.UnimplementedError
 }

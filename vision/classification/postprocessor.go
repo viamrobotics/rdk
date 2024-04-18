@@ -35,3 +35,27 @@ func NewLabelFilter(labels map[string]interface{}) Postprocessor {
 		return out
 	}
 }
+
+// NewLabelConfidenceFilter returns a function that filters out classifications based on label map.
+// Does not filter when input is empty.
+func NewLabelConfidenceFilter(labels map[string]float64) Postprocessor {
+	// ensure all the label names are lower case
+	theLabels := make(map[string]float64)
+	for name, conf := range labels {
+		theLabels[strings.ToLower(name)] = conf
+	}
+	return func(in Classifications) Classifications {
+		if len(theLabels) < 1 {
+			return in
+		}
+		out := make(Classifications, 0, len(in))
+		for _, c := range in {
+			if conf, ok := theLabels[strings.ToLower(c.Label())]; ok {
+				if c.Score() >= conf {
+					out = append(out, c)
+				}
+			}
+		}
+		return out
+	}
+}
