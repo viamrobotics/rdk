@@ -163,7 +163,7 @@ func (b *Board) AnalogByName(name string) (board.Analog, error) {
 	defer b.mu.RUnlock()
 	a, ok := b.Analogs[name]
 	if !ok {
-		return a, errors.Errorf("can't find AnalogReader (%s)", name)
+		return nil, errors.Errorf("can't find AnalogReader (%s)", name)
 	}
 	return a, nil
 }

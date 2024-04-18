@@ -397,7 +397,7 @@ type Board struct {
 func (b *Board) AnalogByName(name string) (board.Analog, error) {
 	a, ok := b.analogReaders[name]
 	if !ok {
-		return a, errors.Errorf("can't find AnalogReader (%s)", name)
+		return nil, errors.Errorf("can't find AnalogReader (%s)", name)
 	}
 	return a, nil
 }

@@ -5,6 +5,7 @@ import (
 	"bufio"
 	"context"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"io"
 	"math"
@@ -15,7 +16,6 @@ import (
 	"time"
 
 	goserial "github.com/jacobsa/go-serial/serial"
-	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/board/v1"
@@ -240,7 +240,7 @@ func (b *numatoBoard) StreamTicks(ctx context.Context, interrupts []string, ch c
 func (b *numatoBoard) AnalogByName(name string) (board.Analog, error) {
 	ar, ok := b.analogs[name]
 	if !ok {
-		return ar, errors.Errorf("can't find AnalogReader (%s)", name)
+		return nil, fmt.Errorf("can't find AnalogReader (%s)", name)
 	}
 	return ar, nil
 }

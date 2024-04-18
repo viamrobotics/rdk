@@ -670,7 +670,7 @@ func (pi *piPigpio) AnalogByName(name string) (board.Analog, error) {
 	defer pi.mu.Unlock()
 	a, ok := pi.analogReaders[name]
 	if !ok {
-		return a, errors.Errorf("can't find AnalogReader (%s)", name)
+		return nil, errors.Errorf("can't find AnalogReader (%s)", name)
 	}
 	return a, nil
 }

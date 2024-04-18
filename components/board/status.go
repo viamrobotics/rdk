@@ -19,7 +19,7 @@ func CreateStatus(ctx context.Context, b Board, extra map[string]interface{}) (*
 		for _, name := range names {
 			x, err := b.AnalogByName(name)
 			if err != nil {
-				return nil, fmt.Errorf("analog %q not found", name)
+				return nil, err
 			}
 			val, err := x.Read(ctx, extra)
 			if err != nil {
