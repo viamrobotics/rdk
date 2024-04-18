@@ -96,7 +96,7 @@ type piPigpio struct {
 	cancelFunc    context.CancelFunc
 	duty          int // added for mutex
 	gpioConfigSet map[int]bool
-	analogReaders map[string]board.Analog
+	analogReaders map[string]*pinwrappers.AnalogSmoother
 	// `interrupts` maps interrupt names to the interrupts. `interruptsHW` maps broadcom addresses
 	// to these same values. The two should always have the same set of values.
 	interrupts   map[string]ReconfigurableDigitalInterrupt
@@ -222,7 +222,7 @@ func (pi *piPigpio) StreamTicks(ctx context.Context, interruptNames []string, ch
 
 func (pi *piPigpio) reconfigureAnalogReaders(ctx context.Context, cfg *Config) error {
 	// No need to reconfigure the old analog readers; just throw them out and make new ones.
-	pi.analogReaders = map[string]board.Analog{}
+	pi.analogReaders = map[string]*pinwrappers.AnalogSmoother{}
 	for _, ac := range cfg.AnalogReaders {
 		channel, err := strconv.Atoi(ac.Pin)
 		if err != nil {
@@ -737,7 +737,7 @@ func (pi *piPigpio) Close(ctx context.Context) error {
 	for _, analog := range pi.analogReaders {
 		err = multierr.Combine(err, analog.Close(ctx))
 	}
-	pi.analogReaders = map[string]board.Analog{}
+	pi.analogReaders = map[string]*pinwrappers.AnalogSmoother{}
 
 	for bcom, interrupt := range pi.interruptsHW {
 		err = multierr.Combine(err, interrupt.Close(ctx))

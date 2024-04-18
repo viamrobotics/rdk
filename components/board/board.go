@@ -89,7 +89,9 @@ type Board interface {
 type Analog interface {
 	// Read reads off the current value.
 	Read(ctx context.Context, extra map[string]interface{}) (int, error)
-	Close(ctx context.Context) error
+
+	// Write writes a value to the analog pin.
+	Write(ctx context.Context, value int, extra map[string]interface{}) error
 }
 
 // FromDependencies is a helper for getting the named board from a collection of

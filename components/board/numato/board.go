@@ -104,7 +104,7 @@ type numatoBoard struct {
 	resource.Named
 	resource.AlwaysRebuild
 	pins    int
-	analogs map[string]board.Analog
+	analogs map[string]*pinwrappers.AnalogSmoother
 
 	port   io.ReadWriteCloser
 	closed int32
@@ -363,16 +363,16 @@ type analog struct {
 	pin string
 }
 
-func (ar *analog) Read(ctx context.Context, extra map[string]interface{}) (int, error) {
-	res, err := ar.b.doSendReceive(ctx, fmt.Sprintf("adc read %s", ar.pin))
+func (a *analog) Read(ctx context.Context, extra map[string]interface{}) (int, error) {
+	res, err := a.b.doSendReceive(ctx, fmt.Sprintf("adc read %s", a.pin))
 	if err != nil {
 		return 0, err
 	}
 	return strconv.Atoi(res)
 }
 
-func (ar *analog) Close(ctx context.Context) error {
-	return nil
+func (a *analog) Write(ctx context.Context, value int, extra map[string]interface{}) error {
+	return grpc.UnimplementedError
 }
 
 func connect(ctx context.Context, name resource.Name, conf *Config, logger logging.Logger) (board.Board, error) {
@@ -407,7 +407,7 @@ func connect(ctx context.Context, name resource.Name, conf *Config, logger loggi
 		logger: logger,
 	}
 
-	b.analogs = map[string]board.Analog{}
+	b.analogs = map[string]*pinwrappers.AnalogSmoother{}
 	for _, c := range conf.Analogs {
 		r := &analog{b, c.Pin}
 		b.analogs[c.Name] = pinwrappers.SmoothAnalogReader(r, c, logger)

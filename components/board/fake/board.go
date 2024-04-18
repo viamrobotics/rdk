@@ -289,6 +289,11 @@ func (a *Analog) Read(ctx context.Context, extra map[string]interface{}) (int, e
 	return a.Value, nil
 }
 
+func (a *Analog) Write(ctx context.Context, value int, extra map[string]interface{}) error {
+	a.Set(value)
+	return nil
+}
+
 // Set is used during testing.
 func (a *Analog) Set(value int) {
 	a.Mu.Lock()

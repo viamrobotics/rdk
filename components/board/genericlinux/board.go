@@ -375,6 +375,10 @@ func (a *wrappedAnalogReader) reset(ctx context.Context, chipSelect string, read
 	a.chipSelect = chipSelect
 }
 
+func (a *wrappedAnalogReader) Write(ctx context.Context, value int, extra map[string]interface{}) error {
+	return grpc.UnimplementedError
+}
+
 // Board implements a component for a Linux machine.
 type Board struct {
 	resource.Named
