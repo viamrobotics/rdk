@@ -67,7 +67,9 @@ type MLModelConfig struct {
 	// optional parameter used to normalize the input image if the ML Model expects it
 	StdDev []float32 `json:"input_image_std_dev"`
 	// optional parameter used to change the input image to BGR format if the ML Model expects it
-	IsBGR bool `json:"input_image_bgr"`
+	IsBGR              bool               `json:"input_image_bgr"`
+	DefaultConfidence  float64            `json:"default_minimum_confidence"`
+	LabelConfidenceMap map[string]float64 `json:"label_confidences"`
 }
 
 // Validate will add the ModelName as an implicit dependency to the robot.
