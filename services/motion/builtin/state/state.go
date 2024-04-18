@@ -3,12 +3,12 @@
 package state
 
 import (
+	"cmp"
 	"context"
 	"fmt"
 	"sync"
 	"time"
 
-	"cmp"
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	"go.viam.com/utils"

@@ -65,7 +65,7 @@ linters-settings:
       - default
       - prefix(go.viam.com/rdk)
   gofumpt:
-    lang-version: "1.19"
+    lang-version: "1.21"
     extra-rules: true
   govet:
     enable-all: true

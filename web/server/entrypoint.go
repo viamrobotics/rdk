@@ -2,6 +2,7 @@
 package server
 
 import (
+	"cmp"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -13,7 +14,6 @@ import (
 	"runtime/pprof"
 	"time"
 
-	"cmp"
 	"github.com/invopop/jsonschema"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
