@@ -449,12 +449,6 @@ func (svc *builtIn) Reconfigure(
 	// Initialize or add collectors based on changes to the component configurations.
 	newCollectors := make(map[resourceMethodMetadata]*collectorAndConfig)
 	if !svc.captureDisabled {
-		fileDeletionCtx, cancelFunc := context.WithCancel(context.Background())
-		svc.fileDeletionRoutineCancelFn = cancelFunc
-		svc.fileDeletionWg = &sync.WaitGroup{}
-		svc.fileDeletionWg.Add(1)
-		go pollFilesystem(fileDeletionCtx, svc.fileDeletionWg, svc.captureDir, svc.logger)
-
 		for res, resConfs := range captureConfigs {
 			for _, resConf := range resConfs {
 				// Create component/method metadata
@@ -562,6 +556,15 @@ func (svc *builtIn) Reconfigure(
 			svc.closeSyncer()
 		}
 	}
+
+	if !svc.captureDisabled {
+		fileDeletionCtx, cancelFunc := context.WithCancel(context.Background())
+		svc.fileDeletionRoutineCancelFn = cancelFunc
+		svc.fileDeletionWg = &sync.WaitGroup{}
+		svc.fileDeletionWg.Add(1)
+		go pollFilesystem(fileDeletionCtx, svc.fileDeletionWg, svc.captureDir, &svc.syncer, svc.logger)
+	}
+
 	return nil
 }
 
@@ -642,7 +645,7 @@ func (svc *builtIn) sync() {
 	}
 }
 
-//nolint
+// nolint
 func getAllFilesToSync(dir string, lastModifiedMillis int) []string {
 	var filePaths []string
 	_ = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
@@ -711,7 +714,7 @@ func generateMetadataKey(component, method string) string {
 }
 
 //nolint:unparam
-func pollFilesystem(ctx context.Context, wg *sync.WaitGroup, captureDir string, logger logging.Logger) {
+func pollFilesystem(ctx context.Context, wg *sync.WaitGroup, captureDir string, syncer *datasync.Manager, logger logging.Logger) {
 	for {
 		t := time.NewTimer(filesystemPollInterval)
 		select {
