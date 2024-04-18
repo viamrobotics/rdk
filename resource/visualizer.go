@@ -2,13 +2,13 @@ package resource
 
 import (
 	"bytes"
-	"cmp"
 	"container/list"
 	"errors"
 	"fmt"
 	"strings"
 	"time"
 
+	"cmp"
 	"golang.org/x/exp/slices"
 )
 
