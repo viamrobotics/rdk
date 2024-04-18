@@ -71,7 +71,6 @@ type Arm interface {
 	resource.Actuator
 	referenceframe.InputEnabled
 
-
 	// EndPosition returns the current position of the arm.
 	//
 	//    myArm, err := arm.FromRobot(robot, "my_arm")
