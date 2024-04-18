@@ -896,15 +896,7 @@ func (r *localRobot) getRemoteFrameSystemParts(ctx context.Context) ([]*referenc
 			r.logger.CDebugf(ctx, "remote %q has no frame config info, skipping", remoteCfg.Name)
 			continue
 		}
-		lif, err := remoteCfg.Frame.ParseConfig()
-		if err != nil {
-			return nil, err
-		}
-		parentName := remoteCfg.Name + "_" + referenceframe.World
-		lif.SetName(parentName)
-		remoteParts = append(remoteParts, &referenceframe.FrameSystemPart{FrameConfig: lif})
 
-		// get the parts from the remote itself
 		remoteRobot, ok := r.RemoteByName(remoteCfg.Name)
 		if !ok {
 			return nil, errors.Errorf("cannot find remote robot %q", remoteCfg.Name)
@@ -920,6 +912,15 @@ func (r *localRobot) getRemoteFrameSystemParts(ctx context.Context) ([]*referenc
 			continue
 		}
 
+		lif, err := remoteCfg.Frame.ParseConfig()
+		if err != nil {
+			return nil, err
+		}
+		parentName := remoteCfg.Name + "_" + referenceframe.World
+		lif.SetName(parentName)
+		remoteParts = append(remoteParts, &referenceframe.FrameSystemPart{FrameConfig: lif})
+
+		// get the parts from the remote itself
 		remoteFsCfg, err := remote.FrameSystemConfig(ctx)
 		if err != nil {
 			return nil, errors.Wrapf(err, "error from remote %q", remoteCfg.Name)
