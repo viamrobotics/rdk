@@ -42,22 +42,73 @@ type Base interface {
 	// MoveStraight moves the robot straight a given distance at a given speed.
 	// If a distance or speed of zero is given, the base will stop.
 	// This method blocks until completed or cancelled
+	// 
+	//    myBase, err := base.FromRobot(robot, "my_base")
+	//    // Move the base forward 40 mm at a velocity of 90 mm/s.
+	//    myBase.MoveStraight(context.Background(), distanceMm: 40, mmPerSec: 90, nil)
+	//
+	//    // Move the base backward 40 mm at a velocity of -90 mm/s.
+	//    myBase.MoveStraight(context.Background(), distanceMm: 40, mmPerSec: -90, nil)
 	MoveStraight(ctx context.Context, distanceMm int, mmPerSec float64, extra map[string]interface{}) error
 
 	// Spin spins the robot by a given angle in degrees at a given speed.
 	// If a speed of 0 the base will stop.
 	// Given a positive speed and a positive angle, the base turns to the left (for built-in RDK drivers)
 	// This method blocks until completed or cancelled
+	//
+	//    myBase, err := base.FromRobot(robot, "my_base")
+	//
+	//    // Spin the base 10 degrees at an angular velocity of 15 deg/sec.
+	//    myBase.Spin(context.Background(), angleDeg: 10, degsPerSec: 15, nil)
 	Spin(ctx context.Context, angleDeg, degsPerSec float64, extra map[string]interface{}) error
 
 	// For linear power, positive Y moves forwards for built-in RDK drivers
 	// For angular power, positive Z turns to the left for built-in RDK drivers
+	//    myBase, err := base.FromRobot(robot, "my_base")
+	//
+	//    // Make your wheeled base move forward. Set linear power to 75%.
+	//    logger.Info("move forward")
+	//    err = myBase.SetPower(context.Background(), linear: r3.Vector{Y: .75}, angular: r3.Vector{}, nil)
+	//
+	//    // Make your wheeled base move backward. Set linear power to -100%.
+	//    logger.Info("move backward")
+	//    err = myBase.SetPower(context.Background(), linear: r3.Vector{Y: -1}, angular: r3.Vector{}, nil)
+	//
+	//    // Make your wheeled base spin left. Set angular power to 100%.
+	//    logger.Info("spin left")
+	//    err = myBase.SetPower(context.Background(), linear: r3.Vector{}, angular: r3.Vector{Z: 1}, nil)
+	//
+	//    // Make your wheeled base spin right. Set angular power to -75%.
+	//    logger.Info("spin right")
+	//    err = mybase.SetPower(context.Background(), r3.Vector{}, r3.Vector{Z: -.75}, nil)
 	SetPower(ctx context.Context, linear, angular r3.Vector, extra map[string]interface{}) error
 
 	// linear is in mmPerSec (positive Y moves forwards for built-in RDK drivers)
 	// angular is in degsPerSec (positive Z turns to the left for built-in RDK drivers)
+	//
+	//    // import "github.com/golang/geo/r3" ...
+	//
+	//    myBase, err := base.FromRobot(robot, "my_base")
+	//
+	//    // Set the linear velocity to 50 mm/sec and the angular velocity to 15 deg/sec.
+	//    myBase.SetVelocity(context.Background(), linear: r3.Vector{Y: 50}, angular: r3.Vector{Z: 15}, nil)
 	SetVelocity(ctx context.Context, linear, angular r3.Vector, extra map[string]interface{}) error
 
+	// Properties returns the width, turning radius, and wheel circumference of the physical base in meters.
+	//
+	//    myBase, err := base.FromRobot(robot, "my_base")
+	//
+	//    // Get the width and turning radius of the base
+	//    properties, err := myBase.Properties(context.Background(), nil)
+	//
+	//    // Get the width
+	//    myBaseWidth := properties.WidthMeters
+	//
+	//    // Get the turning radius
+	//    myBaseTurningRadius := properties.TurningRadiusMeters
+	//
+	//    // Get the wheel circumference
+	//    myBaseWheelCircumference := properties.WheelCircumferenceMeters
 	Properties(ctx context.Context, extra map[string]interface{}) (Properties, error)
 }
 

@@ -72,17 +72,16 @@ type Arm interface {
 	referenceframe.InputEnabled
 
 	// EndPosition returns the current position of the arm.
+	//
+	//    myArm, err := arm.FromRobot(robot, "my_arm")
+	//    Get the end position of the arm as a Pose.
+	//    err, pos := myArm.EndPosition(context.Background(), nil)
 	EndPosition(ctx context.Context, extra map[string]interface{}) (spatialmath.Pose, error)
 
-	// MoveToPosition moves the arm to the given absolute position.
-	// This will block until done or a new operation cancels this one
 	MoveToPosition(ctx context.Context, pose spatialmath.Pose, extra map[string]interface{}) error
 
-	// MoveToJointPositions moves the arm's joints to the given positions.
-	// This will block until done or a new operation cancels this one
 	MoveToJointPositions(ctx context.Context, positionDegs *pb.JointPositions, extra map[string]interface{}) error
 
-	// JointPositions returns the current joint positions of the arm.
 	JointPositions(ctx context.Context, extra map[string]interface{}) (*pb.JointPositions, error)
 }
 
