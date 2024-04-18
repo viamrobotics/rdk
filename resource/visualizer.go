@@ -6,10 +6,9 @@ import (
 	"container/list"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 	"time"
-
-	"golang.org/x/exp/slices"
 )
 
 const snapshotLimit = 500
