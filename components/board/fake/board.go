@@ -287,7 +287,7 @@ func (a *Analog) reset(pin string) {
 func (a *Analog) Read(ctx context.Context, extra map[string]interface{}) (int, error) {
 	a.Mu.RLock()
 	defer a.Mu.RUnlock()
-	a.Value = rand.Intn(100)
+	a.Set(rand.Intn(100))
 	return a.Value, nil
 }
 
