@@ -15,7 +15,6 @@ import (
 	"go.viam.com/rdk/components/input"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/testutils/inject"
 )
 
 type setupResult struct {
@@ -23,35 +22,10 @@ type setupResult struct {
 	axis1Callbacks, axis2Callbacks, axis3Callbacks int64
 	ctx                                            context.Context
 	logger                                         logging.Logger
-	b                                              *inject.Board
+	b                                              *fakeboard.Board
 	dev                                            input.Controller
 	axis1Time, axis2Time                           time.Time
 	axisMu                                         sync.RWMutex
-}
-
-type analogValue struct {
-	mu    sync.Mutex
-	value int
-}
-
-var analogVal = analogValue{
-	value: 0,
-}
-
-func newInjectedAnalog() *inject.Analog {
-	return &inject.Analog{
-		ReadFunc: func(ctx context.Context, extra map[string]interface{}) (int, error) {
-			analogVal.mu.Lock()
-			defer analogVal.mu.Unlock()
-			return analogVal.value, nil
-		},
-		WriteFunc: func(ctx context.Context, value int, extra map[string]interface{}) error {
-			analogVal.mu.Lock()
-			defer analogVal.mu.Unlock()
-			analogVal.value = value
-			return nil
-		},
-	}
 }
 
 func setup(t *testing.T) *setupResult {
@@ -61,14 +35,14 @@ func setup(t *testing.T) *setupResult {
 	s.ctx = context.Background()
 	s.logger = logging.NewTestLogger(t)
 
-	s.b = &inject.Board{
+	s.b = &fakeboard.Board{
 		Digitals: map[string]*fakeboard.DigitalInterruptWrapper{},
-		Analogs:  map[string]*inject.Analog{},
+		Analogs:  map[string]*fakeboard.Analog{},
 	}
 
-	s.b.Analogs["analog1"] = newInjectedAnalog()
-	s.b.Analogs["analog2"] = newInjectedAnalog()
-	s.b.Analogs["analog3"] = newInjectedAnalog()
+	s.b.Analogs["analog1"] = &fakeboard.Analog{}
+	s.b.Analogs["analog2"] = &fakeboard.Analog{}
+	s.b.Analogs["analog3"] = &fakeboard.Analog{}
 
 	var err error
 	s.b.Digitals["interrupt1"], err = fakeboard.NewDigitalInterruptWrapper(board.DigitalInterruptConfig{})
@@ -408,7 +382,7 @@ func TestGPIOInput(t *testing.T) {
 			test.That(tb, atomic.LoadInt64(&s.axis1Callbacks), test.ShouldEqual, 0)
 		})
 
-		s.b.Analogs["analog1"].Write(context.Background(), 1023, nil)
+		s.b.Analogs["analog1"].Set(1023)
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
 			state, err := s.dev.Events(s.ctx, map[string]interface{}{})
@@ -418,7 +392,7 @@ func TestGPIOInput(t *testing.T) {
 			test.That(tb, atomic.LoadInt64(&s.axis1Callbacks), test.ShouldEqual, 1)
 		})
 
-		s.b.Analogs["analog1"].Write(context.Background(), 511, nil)
+		s.b.Analogs["analog1"].Set(511)
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
 			state, err := s.dev.Events(s.ctx, map[string]interface{}{})
@@ -433,7 +407,7 @@ func TestGPIOInput(t *testing.T) {
 		s := setup(t)
 		defer teardown(t, s)
 
-		s.b.Analogs["analog2"].Write(context.Background(), 511, nil)
+		s.b.Analogs["analog2"].Set(511)
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
 			state, err := s.dev.Events(s.ctx, map[string]interface{}{})
@@ -443,7 +417,7 @@ func TestGPIOInput(t *testing.T) {
 			test.That(tb, atomic.LoadInt64(&s.axis2Callbacks), test.ShouldEqual, 1)
 		})
 
-		s.b.Analogs["analog2"].Write(context.Background(), 511+20, nil)
+		s.b.Analogs["analog2"].Set(511 + 20)
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
 			state, err := s.dev.Events(s.ctx, map[string]interface{}{})
@@ -453,7 +427,7 @@ func TestGPIOInput(t *testing.T) {
 			test.That(tb, atomic.LoadInt64(&s.axis2Callbacks), test.ShouldEqual, 2)
 		})
 
-		s.b.Analogs["analog2"].Write(context.Background(), 511-20, nil)
+		s.b.Analogs["analog2"].Set(511 - 20)
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
 			state, err := s.dev.Events(s.ctx, map[string]interface{}{})
@@ -463,7 +437,7 @@ func TestGPIOInput(t *testing.T) {
 			test.That(tb, atomic.LoadInt64(&s.axis2Callbacks), test.ShouldEqual, 3)
 		})
 
-		s.b.Analogs["analog2"].Write(context.Background(), 511+19, nil)
+		s.b.Analogs["analog2"].Set(511 + 19)
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
 			state, err := s.dev.Events(s.ctx, map[string]interface{}{})
@@ -473,7 +447,7 @@ func TestGPIOInput(t *testing.T) {
 			test.That(tb, atomic.LoadInt64(&s.axis2Callbacks), test.ShouldEqual, 4)
 		})
 
-		s.b.Analogs["analog2"].Write(context.Background(), 511-19, nil)
+		s.b.Analogs["analog2"].Set(511 - 19)
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
 			state, err := s.dev.Events(s.ctx, map[string]interface{}{})
@@ -488,7 +462,7 @@ func TestGPIOInput(t *testing.T) {
 		s := setup(t)
 		defer teardown(t, s)
 
-		s.b.Analogs["analog2"].Write(context.Background(), 600, nil)
+		s.b.Analogs["analog2"].Set(600)
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
 			state, err := s.dev.Events(s.ctx, map[string]interface{}{})
@@ -498,7 +472,7 @@ func TestGPIOInput(t *testing.T) {
 			test.That(tb, atomic.LoadInt64(&s.axis2Callbacks), test.ShouldEqual, 1)
 		})
 
-		s.b.Analogs["analog2"].Write(context.Background(), 600+14, nil)
+		s.b.Analogs["analog2"].Set(600 + 14)
 		time.Sleep(time.Millisecond * 30)
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
@@ -509,7 +483,7 @@ func TestGPIOInput(t *testing.T) {
 			test.That(tb, atomic.LoadInt64(&s.axis2Callbacks), test.ShouldEqual, 1)
 		})
 
-		s.b.Analogs["analog2"].Write(context.Background(), 600-14, nil)
+		s.b.Analogs["analog2"].Set(600 - 14)
 		time.Sleep(time.Millisecond * 30)
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
@@ -520,7 +494,7 @@ func TestGPIOInput(t *testing.T) {
 			test.That(tb, atomic.LoadInt64(&s.axis2Callbacks), test.ShouldEqual, 1)
 		})
 
-		s.b.Analogs["analog2"].Write(context.Background(), 600-15, nil)
+		s.b.Analogs["analog2"].Set(600 - 15)
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
 			state, err := s.dev.Events(s.ctx, map[string]interface{}{})
@@ -535,7 +509,7 @@ func TestGPIOInput(t *testing.T) {
 		s := setup(t)
 		defer teardown(t, s)
 
-		s.b.Analogs["analog3"].Write(context.Background(), 5000, nil)
+		s.b.Analogs["analog3"].Set(5000)
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
 			state, err := s.dev.Events(s.ctx, map[string]interface{}{})
@@ -545,7 +519,7 @@ func TestGPIOInput(t *testing.T) {
 			test.That(tb, atomic.LoadInt64(&s.axis3Callbacks), test.ShouldEqual, 1)
 		})
 
-		s.b.Analogs["analog3"].Write(context.Background(), -1000, nil)
+		s.b.Analogs["analog3"].Set(-1000)
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
 			state, err := s.dev.Events(s.ctx, map[string]interface{}{})
@@ -560,7 +534,7 @@ func TestGPIOInput(t *testing.T) {
 		s := setup(t)
 		defer teardown(t, s)
 
-		s.b.Analogs["analog3"].Write(context.Background(), -6000, nil)
+		s.b.Analogs["analog3"].Set(-6000)
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
 			state, err := s.dev.Events(s.ctx, map[string]interface{}{})
@@ -570,7 +544,7 @@ func TestGPIOInput(t *testing.T) {
 			test.That(tb, atomic.LoadInt64(&s.axis3Callbacks), test.ShouldEqual, 1)
 		})
 
-		s.b.Analogs["analog3"].Write(context.Background(), 6000, nil)
+		s.b.Analogs["analog3"].Set(6000)
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
 			state, err := s.dev.Events(s.ctx, map[string]interface{}{})
@@ -580,7 +554,7 @@ func TestGPIOInput(t *testing.T) {
 			test.That(tb, atomic.LoadInt64(&s.axis3Callbacks), test.ShouldEqual, 2)
 		})
 
-		s.b.Analogs["analog3"].Write(context.Background(), 0, nil)
+		s.b.Analogs["analog3"].Set(0)
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
 			state, err := s.dev.Events(s.ctx, map[string]interface{}{})
