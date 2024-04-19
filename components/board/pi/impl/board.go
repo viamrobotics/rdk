@@ -687,7 +687,7 @@ func (pi *piPigpio) DigitalInterruptByName(name string) (board.DigitalInterrupt,
 		var err error
 		if bcom, have := broadcomPinFromHardwareLabel(name); have {
 			if d, ok := pi.interruptsHW[bcom]; ok {
-				return d, ok
+				return d, nil
 			}
 			d, err = CreateDigitalInterrupt(DigitalInterruptConfig{
 				Name: name,
@@ -705,10 +705,10 @@ func (pi *piPigpio) DigitalInterruptByName(name string) (board.DigitalInterrupt,
 
 			pi.interrupts[name] = d
 			pi.interruptsHW[bcom] = d
-			return d, true
+			return d, nil
 		}
 	}
-	return d, ok
+	return d, nil
 }
 
 func (pi *piPigpio) SetPowerMode(ctx context.Context, mode pb.PowerMode, duration *time.Duration) error {
