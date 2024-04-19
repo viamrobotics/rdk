@@ -24,7 +24,7 @@ export let name: string;
 export let status:
   | {
       is_moving: boolean;
-      end_position: Record<string, number>;
+      end_position?: Record<string, number>;
       joint_positions: { values: number[] };
     }
   | undefined;
@@ -47,7 +47,7 @@ $: posPieces = fieldSetters.map((setter) => {
   const [endPositionField] = setter;
   return {
     endPosition: setter,
-    endPositionValue: status?.end_position[endPositionField] ?? 0,
+    endPositionValue: status?.end_position?.[endPositionField] ?? 0,
   };
 });
 
@@ -171,7 +171,7 @@ const armEndPositionInc = async (
   };
 
   for (const [endPositionField, poseField] of fieldMap) {
-    const endPositionValue = old[endPositionField] ?? 0;
+    const endPositionValue = old?.[endPositionField] ?? 0;
     const field: Field = poseField;
     newPose[field] = Number(endPositionValue);
   }

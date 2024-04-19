@@ -22,6 +22,7 @@ var (
 	errFoo        = errors.New("whoops")
 	errNotFound   = errors.New("not found")
 	errSendFailed = errors.New("send fail")
+	errAnalog     = errors.New("unknown analog error")
 )
 
 func newServer() (pb.BoardServiceServer, *inject.Board, error) {
@@ -540,7 +541,7 @@ func TestServerReadAnalogReader(t *testing.T) {
 
 	tests := []struct {
 		injectAnalog     *inject.Analog
-		injectAnalogOk   bool
+		injectAnalogErr  error
 		injectResult     int
 		injectErr        error
 		req              *request
@@ -551,7 +552,7 @@ func TestServerReadAnalogReader(t *testing.T) {
 	}{
 		{
 			injectAnalog:     nil,
-			injectAnalogOk:   false,
+			injectAnalogErr:  errAnalog,
 			injectResult:     0,
 			injectErr:        nil,
 			req:              &request{BoardName: missingBoardName},
@@ -562,18 +563,18 @@ func TestServerReadAnalogReader(t *testing.T) {
 		},
 		{
 			injectAnalog:     nil,
-			injectAnalogOk:   false,
+			injectAnalogErr:  errAnalog,
 			injectResult:     0,
 			injectErr:        nil,
 			req:              &request{BoardName: testBoardName, AnalogReaderName: "analog1"},
 			expCapAnalogArgs: []interface{}{"analog1"},
 			expCapArgs:       []interface{}(nil),
 			expResp:          nil,
-			expRespErr:       "unknown analog reader: analog1",
+			expRespErr:       "unknown analog error",
 		},
 		{
 			injectAnalog:     &inject.Analog{},
-			injectAnalogOk:   true,
+			injectAnalogErr:  nil,
 			injectResult:     0,
 			injectErr:        errFoo,
 			req:              &request{BoardName: testBoardName, AnalogReaderName: "analog1"},
@@ -584,7 +585,7 @@ func TestServerReadAnalogReader(t *testing.T) {
 		},
 		{
 			injectAnalog:     &inject.Analog{},
-			injectAnalogOk:   true,
+			injectAnalogErr:  nil,
 			injectResult:     8,
 			injectErr:        nil,
 			req:              &request{BoardName: testBoardName, AnalogReaderName: "analog1", Extra: pbExpectedExtra},
@@ -601,8 +602,8 @@ func TestServerReadAnalogReader(t *testing.T) {
 			test.That(t, err, test.ShouldBeNil)
 			var actualExtra map[string]interface{}
 
-			injectBoard.AnaloByNameFunc = func(name string) (board.Analog, bool) {
-				return tc.injectAnalog, tc.injectAnalogOk
+			injectBoard.AnalogByNameFunc = func(name string) (board.Analog, error) {
+				return tc.injectAnalog, tc.injectAnalogErr
 			}
 
 			if tc.injectAnalog != nil {
