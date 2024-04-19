@@ -483,7 +483,7 @@ func restartModule(c *cli.Context, vc *viamClient, partID string, manifest *modu
 		return err
 	}
 	if len(apiRes.ApiKeys) == 0 {
-		return errors.New("API keys list for this machine is empty")
+		return errors.New("API keys list for this machine is empty. You can create one with \"viam machine api-key create\"")
 	}
 	key := apiRes.ApiKeys[0]
 	if len(key.Authorizations) == 0 || key.Authorizations[0].AuthorizationType != "robot" {
