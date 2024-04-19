@@ -210,6 +210,13 @@ func TestWorkingClient(t *testing.T) {
 		test.That(t, actualExtra, test.ShouldResemble, expectedExtra)
 		actualExtra = nil
 
+		//Name
+		injectDigitalInterrupt.NameFunc = func() string {
+			return "digital1"
+		}
+		name := digital1.Name()
+		test.That(t, name, test.ShouldEqual, "digital1")
+
 		// SetPowerMode (currently unimplemented in RDK)
 		injectBoard.SetPowerModeFunc = func(ctx context.Context, mode boardpb.PowerMode, duration *time.Duration) error {
 			return viamgrpc.UnimplementedError
@@ -219,6 +226,7 @@ func TestWorkingClient(t *testing.T) {
 		test.That(t, err, test.ShouldHaveSameTypeAs, viamgrpc.UnimplementedError)
 
 		test.That(t, client.Close(context.Background()), test.ShouldBeNil)
+
 	}
 
 	t.Run("New client from connection", func(t *testing.T) {

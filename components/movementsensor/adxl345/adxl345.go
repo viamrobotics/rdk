@@ -342,13 +342,13 @@ func makeAdxl345(
 		if err != nil {
 			return nil, err
 		}
-		sensor.startInterruptMonitoring(b, ticksChan, interrupts)
+		sensor.startInterruptMonitoring(ticksChan, interrupts)
 	}
 
 	return sensor, nil
 }
 
-func (adxl *adxl345) startInterruptMonitoring(b board.Board, ticksChan chan board.Tick, interrupts []board.DigitalInterrupt) {
+func (adxl *adxl345) startInterruptMonitoring(ticksChan chan board.Tick, interrupts []board.DigitalInterrupt) {
 	utils.PanicCapturingGo(func() {
 		defer func() {
 			for _, i := range interrupts {

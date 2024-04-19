@@ -438,7 +438,7 @@ func (s *DigitalInterruptWrapper) RemoveCallback(c chan board.Tick) {
 // Name returns the name of the digital interrupt.
 func (s *DigitalInterruptWrapper) Name() string {
 	s.mu.Lock()
-	s.mu.Unlock()
+	defer s.mu.Unlock()
 	return s.conf.Name
 }
 
