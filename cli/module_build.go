@@ -476,13 +476,17 @@ func restartModule(c *cli.Context, vc *viamClient, partId string, manifest *modu
 	if err != nil {
 		return err
 	}
-	println("TODO can I use part.Secrets?")
-	println("WARNING don't blindly use first key or assume non-empty")
-	key := apiRes.ApiKeys[0].ApiKey
-	logger.Debugf("using apikey: %s", key.Name)
-	creds := rpc.WithEntityCredentials(key.Id, rpc.Credentials{
+	if len(apiRes.ApiKeys) == 0 {
+		return errors.New("API keys list for this machine is empty")
+	}
+	key := apiRes.ApiKeys[0]
+	if len(key.Authorizations) == 0 || key.Authorizations[0].AuthorizationType != "robot" {
+		logger.Warnf("key 0 authorization is \"%s\", not \"robot\"; this command may fail", key.Authorizations[0].AuthorizationType)
+	}
+	logger.Debugf("using apikey: %s %s", key.ApiKey.Id, key.ApiKey.Name)
+	creds := rpc.WithEntityCredentials(key.ApiKey.Id, rpc.Credentials{
 		Type:    rpc.CredentialsTypeAPIKey,
-		Payload: key.Key,
+		Payload: key.ApiKey.Key,
 	})
 	robotClient, err := client.New(c.Context, part.Part.LocalFqdn, logger, client.WithDialOptions(creds))
 	if err != nil {
