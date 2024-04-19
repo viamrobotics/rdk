@@ -2,7 +2,6 @@ package board
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/pkg/errors"
 	commonpb "go.viam.com/api/common/v1"
@@ -32,9 +31,9 @@ func CreateStatus(ctx context.Context, b Board, extra map[string]interface{}) (*
 	if names := b.DigitalInterruptNames(); len(names) != 0 {
 		status.DigitalInterrupts = make(map[string]*commonpb.DigitalInterruptStatus, len(names))
 		for _, name := range names {
-			x, ok := b.DigitalInterruptByName(name)
-			if !ok {
-				return nil, fmt.Errorf("digital interrupt %q not found", name)
+			x, err := b.DigitalInterruptByName(name)
+			if err != nil {
+				return nil, err
 			}
 			intVal, err := x.Value(ctx, extra)
 			if err != nil {

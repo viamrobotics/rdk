@@ -23,6 +23,7 @@ var (
 	errNotFound   = errors.New("not found")
 	errSendFailed = errors.New("send fail")
 	errAnalog     = errors.New("unknown analog error")
+	errDigital    = errors.New("unkown digital interrupt error")
 )
 
 func newServer() (pb.BoardServiceServer, *inject.Board, error) {
@@ -704,7 +705,7 @@ func TestServerGetDigitalInterruptValue(t *testing.T) {
 
 	tests := []struct {
 		injectDigitalInterrupt     *inject.DigitalInterrupt
-		injectDigitalInterruptOk   bool
+		injectDigitalInterruptErr  error
 		injectResult               int64
 		injectErr                  error
 		req                        *request
@@ -715,7 +716,7 @@ func TestServerGetDigitalInterruptValue(t *testing.T) {
 	}{
 		{
 			injectDigitalInterrupt:     nil,
-			injectDigitalInterruptOk:   false,
+			injectDigitalInterruptErr:  errDigital,
 			injectResult:               0,
 			injectErr:                  nil,
 			req:                        &request{BoardName: missingBoardName},
@@ -726,7 +727,7 @@ func TestServerGetDigitalInterruptValue(t *testing.T) {
 		},
 		{
 			injectDigitalInterrupt:     nil,
-			injectDigitalInterruptOk:   false,
+			injectDigitalInterruptErr:  errDigital,
 			injectResult:               0,
 			injectErr:                  nil,
 			req:                        &request{BoardName: testBoardName, DigitalInterruptName: "digital1"},
@@ -737,7 +738,7 @@ func TestServerGetDigitalInterruptValue(t *testing.T) {
 		},
 		{
 			injectDigitalInterrupt:     &inject.DigitalInterrupt{},
-			injectDigitalInterruptOk:   true,
+			injectDigitalInterruptErr:  nil,
 			injectResult:               0,
 			injectErr:                  errFoo,
 			req:                        &request{BoardName: testBoardName, DigitalInterruptName: "digital1"},
@@ -748,7 +749,7 @@ func TestServerGetDigitalInterruptValue(t *testing.T) {
 		},
 		{
 			injectDigitalInterrupt:     &inject.DigitalInterrupt{},
-			injectDigitalInterruptOk:   true,
+			injectDigitalInterruptErr:  nil,
 			injectResult:               42,
 			injectErr:                  nil,
 			req:                        &request{BoardName: testBoardName, DigitalInterruptName: "digital1", Extra: pbExpectedExtra},
@@ -765,8 +766,8 @@ func TestServerGetDigitalInterruptValue(t *testing.T) {
 			test.That(t, err, test.ShouldBeNil)
 			var actualExtra map[string]interface{}
 
-			injectBoard.DigitalInterruptByNameFunc = func(name string) (board.DigitalInterrupt, bool) {
-				return tc.injectDigitalInterrupt, tc.injectDigitalInterruptOk
+			injectBoard.DigitalInterruptByNameFunc = func(name string) (board.DigitalInterrupt, error) {
+				return tc.injectDigitalInterrupt, tc.injectDigitalInterruptErr
 			}
 
 			if tc.injectDigitalInterrupt != nil {
@@ -823,32 +824,32 @@ func TestStreamTicks(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	tests := []struct {
-		name                     string
-		injectDigitalInterrupts  []*inject.DigitalInterrupt
-		injectDigitalInterruptOk bool
-		streamTicksErr           error
-		req                      *request
-		expResp                  *response
-		expRespErr               string
-		sendFail                 bool
+		name                      string
+		injectDigitalInterrupts   []*inject.DigitalInterrupt
+		injectDigitalInterruptErr error
+		streamTicksErr            error
+		req                       *request
+		expResp                   *response
+		expRespErr                string
+		sendFail                  bool
 	}{
 		{
-			name:                     "successful stream with multiple interrupts",
-			injectDigitalInterrupts:  []*inject.DigitalInterrupt{{}, {}},
-			injectDigitalInterruptOk: true,
-			streamTicksErr:           nil,
-			req:                      &request{Name: testBoardName, PinNames: []string{"digital1", "digital2"}, Extra: pbExpectedExtra},
-			expResp:                  &response{PinName: "digital1", Time: uint64(time.Nanosecond), High: true},
-			sendFail:                 false,
+			name:                      "successful stream with multiple interrupts",
+			injectDigitalInterrupts:   []*inject.DigitalInterrupt{{}, {}},
+			injectDigitalInterruptErr: errDigital,
+			streamTicksErr:            nil,
+			req:                       &request{Name: testBoardName, PinNames: []string{"digital1", "digital2"}, Extra: pbExpectedExtra},
+			expResp:                   &response{PinName: "digital1", Time: uint64(time.Nanosecond), High: true},
+			sendFail:                  false,
 		},
 		{
-			name:                     "successful stream with one interrupt",
-			injectDigitalInterrupts:  []*inject.DigitalInterrupt{{}},
-			injectDigitalInterruptOk: true,
-			streamTicksErr:           nil,
-			req:                      &request{Name: testBoardName, PinNames: []string{"digital1"}, Extra: pbExpectedExtra},
-			expResp:                  &response{PinName: "digital1", Time: uint64(time.Nanosecond), High: true},
-			sendFail:                 false,
+			name:                      "successful stream with one interrupt",
+			injectDigitalInterrupts:   []*inject.DigitalInterrupt{{}},
+			injectDigitalInterruptErr: errDigital,
+			streamTicksErr:            nil,
+			req:                       &request{Name: testBoardName, PinNames: []string{"digital1"}, Extra: pbExpectedExtra},
+			expResp:                   &response{PinName: "digital1", Time: uint64(time.Nanosecond), High: true},
+			sendFail:                  false,
 		},
 		{
 			name:           "missing board name should return error",
@@ -858,24 +859,24 @@ func TestStreamTicks(t *testing.T) {
 			expRespErr:     errNotFound.Error(),
 		},
 		{
-			name:                     "unknown digital interrupt should return error",
-			injectDigitalInterrupts:  nil,
-			injectDigitalInterruptOk: false,
-			streamTicksErr:           errors.New("unknown digital interrupt: digital1"),
-			req:                      &request{Name: testBoardName, PinNames: []string{"digital1"}},
-			expResp:                  nil,
-			expRespErr:               "unknown digital interrupt: digital1",
-			sendFail:                 false,
+			name:                      "unknown digital interrupt should return error",
+			injectDigitalInterrupts:   nil,
+			injectDigitalInterruptErr: nil,
+			streamTicksErr:            errors.New("unknown digital interrupt: digital1"),
+			req:                       &request{Name: testBoardName, PinNames: []string{"digital1"}},
+			expResp:                   nil,
+			expRespErr:                "unknown digital interrupt: digital1",
+			sendFail:                  false,
 		},
 		{
-			name:                     "failing to send tick should return error",
-			injectDigitalInterrupts:  []*inject.DigitalInterrupt{{}},
-			injectDigitalInterruptOk: true,
-			streamTicksErr:           nil,
-			req:                      &request{Name: testBoardName, PinNames: []string{"digital1"}, Extra: pbExpectedExtra},
-			expResp:                  &response{PinName: "digital1", Time: uint64(time.Nanosecond), High: true},
-			expRespErr:               "send fail",
-			sendFail:                 true,
+			name:                      "failing to send tick should return error",
+			injectDigitalInterrupts:   []*inject.DigitalInterrupt{{}},
+			injectDigitalInterruptErr: nil,
+			streamTicksErr:            nil,
+			req:                       &request{Name: testBoardName, PinNames: []string{"digital1"}, Extra: pbExpectedExtra},
+			expResp:                   &response{PinName: "digital1", Time: uint64(time.Nanosecond), High: true},
+			expRespErr:                "send fail",
+			sendFail:                  true,
 		},
 	}
 
@@ -892,11 +893,11 @@ func TestStreamTicks(t *testing.T) {
 				return tc.streamTicksErr
 			}
 
-			injectBoard.DigitalInterruptByNameFunc = func(name string) (board.DigitalInterrupt, bool) {
+			injectBoard.DigitalInterruptByNameFunc = func(name string) (board.DigitalInterrupt, error) {
 				if name == "digital1" {
-					return tc.injectDigitalInterrupts[0], tc.injectDigitalInterruptOk
+					return tc.injectDigitalInterrupts[0], tc.injectDigitalInterruptErr
 				}
-				return tc.injectDigitalInterrupts[1], tc.injectDigitalInterruptOk
+				return tc.injectDigitalInterrupts[1], tc.injectDigitalInterruptErr
 			}
 			if tc.injectDigitalInterrupts != nil {
 				for _, i := range tc.injectDigitalInterrupts {

@@ -6,7 +6,6 @@ package board
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	commonpb "go.viam.com/api/common/v1"
@@ -57,7 +56,7 @@ type Board interface {
 	AnalogByName(name string) (Analog, error)
 
 	// DigitalInterruptByName returns a digital interrupt by name.
-	DigitalInterruptByName(name string) (DigitalInterrupt, bool)
+	DigitalInterruptByName(name string) (DigitalInterrupt, error)
 
 	// GPIOPinByName returns a GPIOPin by name.
 	GPIOPinByName(name string) (GPIOPin, error)
@@ -113,9 +112,9 @@ func NamesFromRobot(r robot.Robot) []string {
 // RemoveCallbacks removes the callbacks from the given interrupts.
 func RemoveCallbacks(b Board, interrupts []string, ch chan Tick) error {
 	for _, name := range interrupts {
-		i, ok := b.DigitalInterruptByName(name)
-		if !ok {
-			return fmt.Errorf("unknown digitial interrupt: %s", name)
+		i, err := b.DigitalInterruptByName(name)
+		if err != nil {
+			return err
 		}
 		i.RemoveCallback(ch)
 	}

@@ -76,12 +76,12 @@ func (c *client) AnalogByName(name string) (Analog, error) {
 	}, nil
 }
 
-func (c *client) DigitalInterruptByName(name string) (DigitalInterrupt, bool) {
+func (c *client) DigitalInterruptByName(name string) (DigitalInterrupt, error) {
 	return &digitalInterruptClient{
 		client:               c,
 		boardName:            c.info.name,
 		digitalInterruptName: name,
-	}, true
+	}, nil
 }
 
 func (c *client) GPIOPinByName(name string) (GPIOPin, error) {

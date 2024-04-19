@@ -169,11 +169,14 @@ func (b *Board) AnalogByName(name string) (board.Analog, error) {
 }
 
 // DigitalInterruptByName returns the interrupt by the given name if it exists.
-func (b *Board) DigitalInterruptByName(name string) (board.DigitalInterrupt, bool) {
+func (b *Board) DigitalInterruptByName(name string) (board.DigitalInterrupt, error) {
 	b.mu.RLock()
 	defer b.mu.RUnlock()
 	d, ok := b.Digitals[name]
-	return d, ok
+	if !ok {
+		return nil, errors.Errorf("cant find DigitalInterrupt (%s)", name)
+	}
+	return d, nil
 }
 
 // GPIOPinByName returns the GPIO pin by the given name if it exists.
@@ -234,9 +237,9 @@ func (b *Board) WriteAnalog(ctx context.Context, pin string, value int32, extra 
 func (b *Board) StreamTicks(ctx context.Context, interruptNames []string, ch chan board.Tick, extra map[string]interface{}) error {
 	var interrupts []board.DigitalInterrupt
 	for _, name := range interruptNames {
-		interrupt, ok := b.DigitalInterruptByName(name)
-		if !ok {
-			return errors.Errorf("unknown digital interrupt: %s", name)
+		interrupt, err := b.DigitalInterruptByName(name)
+		if err != nil {
+			return err
 		}
 		interrupts = append(interrupts, interrupt)
 	}

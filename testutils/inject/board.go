@@ -18,7 +18,7 @@ type Board struct {
 	DoFunc                     func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
 	AnalogByNameFunc           func(name string) (board.Analog, error)
 	analogByNameCap            []interface{}
-	DigitalInterruptByNameFunc func(name string) (board.DigitalInterrupt, bool)
+	DigitalInterruptByNameFunc func(name string) (board.DigitalInterrupt, error)
 	digitalInterruptByNameCap  []interface{}
 	GPIOPinByNameFunc          func(name string) (board.GPIOPin, error)
 	gpioPinByNameCap           []interface{}
@@ -61,7 +61,7 @@ func (b *Board) AnalogByNameCap() []interface{} {
 }
 
 // DigitalInterruptByName calls the injected DigitalInterruptByName or the real version.
-func (b *Board) DigitalInterruptByName(name string) (board.DigitalInterrupt, bool) {
+func (b *Board) DigitalInterruptByName(name string) (board.DigitalInterrupt, error) {
 	b.digitalInterruptByNameCap = []interface{}{name}
 	if b.DigitalInterruptByNameFunc == nil {
 		return b.Board.DigitalInterruptByName(name)

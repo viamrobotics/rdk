@@ -246,8 +246,8 @@ func (b *numatoBoard) AnalogByName(name string) (board.Analog, error) {
 }
 
 // DigitalInterruptByName returns a digital interrupt by name.
-func (b *numatoBoard) DigitalInterruptByName(name string) (board.DigitalInterrupt, bool) {
-	return nil, false
+func (b *numatoBoard) DigitalInterruptByName(name string) (board.DigitalInterrupt, error) {
+	return nil, nil
 }
 
 // AnalogNames returns the names of all known analog pins.

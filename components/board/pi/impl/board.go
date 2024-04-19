@@ -207,9 +207,9 @@ func (pi *piPigpio) Reconfigure(
 func (pi *piPigpio) StreamTicks(ctx context.Context, interruptNames []string, ch chan board.Tick, extra map[string]interface{}) error {
 	var interrupts []board.DigitalInterrupt
 	for _, name := range interruptNames {
-		interrupt, ok := pi.DigitalInterruptByName(name)
-		if !ok {
-			return errors.Errorf("unknown digital interrupt: %s", name)
+		interrupt, err := pi.DigitalInterruptByName(name)
+		if err != nil {
+			return err
 		}
 		interrupts = append(interrupts, interrupt)
 	}
@@ -679,7 +679,7 @@ func (pi *piPigpio) AnalogByName(name string) (board.Analog, error) {
 // NOTE: During board setup, if a digital interrupt has not been created
 // for a pin, then this function will attempt to create one with the pin
 // number as the name.
-func (pi *piPigpio) DigitalInterruptByName(name string) (board.DigitalInterrupt, bool) {
+func (pi *piPigpio) DigitalInterruptByName(name string) (board.DigitalInterrupt, error) {
 	pi.mu.Lock()
 	defer pi.mu.Unlock()
 	d, ok := pi.interrupts[name]
@@ -695,12 +695,12 @@ func (pi *piPigpio) DigitalInterruptByName(name string) (board.DigitalInterrupt,
 				Type: "basic",
 			})
 			if err != nil {
-				return nil, false
+				return nil, err
 			}
 			if result := C.setupInterrupt(C.int(bcom)); result != 0 {
 				err := picommon.ConvertErrorCodeToMessage(int(result), "error")
-				pi.logger.Errorf("Unable to set up interrupt on pin %s: %s", name, err)
-				return nil, false
+				err1 := errors.Errorf("Unable to set up interrupt on pin %s: %s", name, err)
+				return nil, err1
 			}
 
 			pi.interrupts[name] = d
