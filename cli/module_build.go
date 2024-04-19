@@ -13,10 +13,12 @@ import (
 	"github.com/urfave/cli/v2"
 	"go.uber.org/multierr"
 	buildpb "go.viam.com/api/app/build/v1"
+	apppb "go.viam.com/api/app/v1"
 	"go.viam.com/utils/pexec"
 	"go.viam.com/utils/rpc"
 	"golang.org/x/exp/maps"
 
+	rdkConfig "go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/robot/client"
@@ -391,62 +393,106 @@ func jobStatusFromProto(s buildpb.JobStatus) jobStatus {
 	}
 }
 
-// envOrValue does os.Getenv if input starts with $, otherwise returns value directly.
-func envOrValue(orig string) string {
-	if len(orig) > 0 && orig[0] == '$' {
-		return os.Getenv(orig[1:])
+// ReloadModuleAction builds a module, configures it on a robot, and starts or restarts it.
+func ReloadModuleAction(c *cli.Context) error {
+	if !c.Bool(moduleBuildRestartOnly) {
+		return fmt.Errorf("only %s mode is supported for now", moduleBuildRestartOnly)
 	}
-	return orig
-}
-
-// flagToCredentials constructs entity credentials option from apiKeyFlags in cli.Context.
-func flagToCredentials(cCtx *cli.Context) (rpc.DialOption, error) {
-	var keyID, key string
-	// careful: envOrValue resolution must come before length check, or else default env var will always override.
-	pair := envOrValue(cCtx.String(loginFlagKeyIDVal))
-	if len(pair) > 0 {
-		keyID, key, _ = strings.Cut(pair, ":")
-	} else {
-		keyID = cCtx.String(loginFlagKeyID)
-		key = cCtx.String(loginFlagKey)
-		if len(keyID) == 0 || len(key) == 0 {
-			return nil, errors.New("pass either --key-id-val, or both of --key-id, --key")
-		}
-	}
-	return rpc.WithEntityCredentials(keyID, rpc.Credentials{
-		Type:    rpc.CredentialsTypeAPIKey,
-		Payload: key,
-	}), nil
-}
-
-// strippedFqdn removes leading 'https://' prefix + trailing '/' from fqdn in case user copied from 'local link' in app.
-func strippedFqdn(orig string) string {
-	return strings.TrimSuffix(strings.TrimPrefix(orig, "https://"), "/")
-}
-
-// RestartModuleAction restarts a module on a robot.
-func RestartModuleAction(c *cli.Context) error {
-	modName := c.String(moduleFlagName)
-	modID := c.String(moduleFlagID)
-	// note: this is xor
-	// todo: use MutuallyExclusiveFlags for this when urfave/cli 3.x is stable
-	if (len(modName) == 0) == (len(modID) == 0) {
-		return fmt.Errorf("provide exactly one of --%s and --%s", moduleFlagName, moduleFlagID)
-	}
-	dialOpt, err := flagToCredentials(c)
+	partId, err := resolvePartId(c, "/etc/viam.json")
 	if err != nil {
 		return err
 	}
-	// todo: warn if fqdn is 'localhost' + give directions.
-	robotClient, err := client.New(c.Context, strippedFqdn(c.String(robotFqdnFlag)), logging.Global(), client.WithDialOptions(dialOpt))
+	manifest, err := loadManifestOrNil(c.String(moduleFlagPath))
+	if err != nil {
+		return err
+	}
+	vc, err := newViamClient(c)
+	if err != nil {
+		return err
+	}
+	return restartModule(c, vc, partId, manifest)
+}
+
+// loadManifestOrNil doesn't throw error on missing.
+func loadManifestOrNil(path string) (*moduleManifest, error) {
+	manifest, err := loadManifest(path)
+	if err == nil {
+		return &manifest, nil
+	}
+	if os.IsNotExist(err) {
+		return nil, nil
+	}
+	return nil, err
+}
+
+// resolvePartId takes an optional provided part ID and an optional default viam.json, and returns a part ID to use.
+func resolvePartId(c *cli.Context, cloudJson string) (string, error) {
+	partId := c.String(partFlag)
+	if len(partId) > 0 {
+		return partId, nil
+	}
+	if len(cloudJson) == 0 {
+		return "", errors.New("no --part and no default json")
+	}
+	conf, err := rdkConfig.ReadLocalConfig(c.Context, cloudJson, logging.Global())
+	if err != nil {
+		return "", err
+	}
+	return conf.Cloud.ID, nil
+}
+
+// resolveTargetModule looks at path / name / id flags and packs a RestartModuleRequest.
+func resolveTargetModule(c *cli.Context, manifest *moduleManifest) (*robot.RestartModuleRequest, error) {
+	modName := c.String(moduleFlagName)
+	modID := c.String(moduleFlagID)
+	// todo: use MutuallyExclusiveFlags for this when urfave/cli 3.x is stable
+	if (len(modName) > 0) && (len(modID) > 0) {
+		return nil, fmt.Errorf("provide at most one of --%s and --%s", moduleFlagName, moduleFlagID)
+	}
+	request := &robot.RestartModuleRequest{}
+	if len(modName) > 0 {
+		request.ModuleName = modName
+	} else if len(modID) > 0 {
+		request.ModuleID = modID
+	} else if manifest != nil {
+		request.ModuleID = manifest.ModuleID
+	} else {
+		return nil, fmt.Errorf("if there is no meta.json, provide one of %s or %s", moduleFlagName, moduleFlagID)
+	}
+	return request, nil
+}
+
+// restartModule restarts a module on a robot.
+func restartModule(c *cli.Context, vc *viamClient, partId string, manifest *moduleManifest) error {
+	logger := logging.Global()
+	if err := vc.ensureLoggedIn(); err != nil {
+		return err
+	}
+	part, err := vc.client.GetRobotPart(c.Context, &apppb.GetRobotPartRequest{Id: partId})
+	if err != nil {
+		return err
+	}
+	apiRes, err := vc.client.GetRobotAPIKeys(c.Context, &apppb.GetRobotAPIKeysRequest{RobotId: part.Part.Robot})
+	if err != nil {
+		return err
+	}
+	println("TODO can I use part.Secrets?")
+	println("WARNING don't blindly use first key or assume non-empty")
+	key := apiRes.ApiKeys[0].ApiKey
+	logger.Debugf("using apikey: %s", key.Name)
+	creds := rpc.WithEntityCredentials(key.Id, rpc.Credentials{
+		Type:    rpc.CredentialsTypeAPIKey,
+		Payload: key.Key,
+	})
+	robotClient, err := client.New(c.Context, part.Part.LocalFqdn, logger, client.WithDialOptions(creds))
 	if err != nil {
 		return err
 	}
 	defer robotClient.Close(c.Context) //nolint: errcheck
-	// todo: make this a stream so '--wait' can tell user what's happening
-	req := robot.RestartModuleRequest{
-		ModuleName: modName,
-		ModuleID:   modID,
+	restartReq, err := resolveTargetModule(c, manifest)
+	if err != nil {
+		return err
 	}
-	return robotClient.RestartModule(c.Context, req)
+	// todo: make this a stream so '--wait' can tell user what's happening
+	return robotClient.RestartModule(c.Context, *restartReq)
 }
