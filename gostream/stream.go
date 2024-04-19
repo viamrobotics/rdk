@@ -19,7 +19,7 @@ import (
 
 	"go.viam.com/rdk/gostream/codec"
 	"go.viam.com/rdk/rimage"
-	"go.viam.com/rdk/utils"
+	utils2 "go.viam.com/rdk/utils"
 )
 
 // A Stream is sink that accepts any image frames for the purpose
@@ -137,7 +137,7 @@ type basicStream struct {
 	audioLatency    time.Duration
 	audioLatencySet bool
 
-	workers utils.StoppableWorkers
+	workers utils2.StoppableWorkers
 	logger  golog.Logger
 }
 
@@ -154,7 +154,7 @@ func (bs *basicStream) Start() {
 	}
 	bs.started = true
 	close(bs.streamingReadyCh)
-	bs.workers = utils.NewStoppableWorkers(
+	bs.workers = utils2.NewStoppableWorkers(
 		bs.processInputFrames,
 		bs.processOutputFrames,
 		bs.processInputAudioChunks,
@@ -262,7 +262,7 @@ func (bs *basicStream) processInputFrames(shutdownCtx context.Context) {
 
 			var encodedFrame []byte
 
-			if frame, ok := framePair.Media.(*rimage.LazyEncodedImage); ok && frame.MIMEType() == utils.MimeTypeH264 {
+			if frame, ok := framePair.Media.(*rimage.LazyEncodedImage); ok && frame.MIMEType() == utils2.MimeTypeH264 {
 				encodedFrame = frame.RawData() // nothing to do; already encoded
 			} else {
 				bounds := framePair.Media.Bounds()
