@@ -99,9 +99,7 @@ type wit struct {
 	mu                      sync.Mutex
 	reconfigMu              sync.Mutex
 	port                    io.ReadWriteCloser
-	cancelFunc              func()
-	cancelCtx               context.Context
-	activeBackgroundWorkers sync.WaitGroup
+	workers                 rutils.StoppableWorkers
 	logger                  logging.Logger
 	baudRate                uint
 	serialPath              string
@@ -300,9 +298,7 @@ func newWit(
 
 func (imu *wit) startUpdateLoop(ctx context.Context, portReader *bufio.Reader, logger logging.Logger) {
 	imu.hasMagnetometer = false
-	ctx, imu.cancelFunc = context.WithCancel(ctx)
-	imu.activeBackgroundWorkers.Add(1)
-	utils.PanicCapturingGo(func() {
+	imu.workers = rutils.NewStoppableWorkers(func(ctx context.Context) {
 		defer utils.UncheckedErrorFunc(func() error {
 			if imu.port != nil {
 				if err := imu.port.Close(); err != nil {
@@ -313,7 +309,6 @@ func (imu *wit) startUpdateLoop(ctx context.Context, portReader *bufio.Reader, l
 			}
 			return nil
 		})
-		defer imu.activeBackgroundWorkers.Done()
 
 		for {
 			if ctx.Err() != nil {
@@ -411,8 +406,7 @@ func (imu *wit) parseWIT(line string) error {
 // Close shuts down wit and closes imu.port.
 func (imu *wit) Close(ctx context.Context) error {
 	imu.logger.CDebug(ctx, "Closing wit motion imu")
-	imu.cancelFunc()
-	imu.activeBackgroundWorkers.Wait()
+	imu.workers.Stop()
 	imu.logger.CDebug(ctx, "Closed wit motion imu")
 	return imu.err.Get()
 }
