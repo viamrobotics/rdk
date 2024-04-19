@@ -734,7 +734,7 @@ func TestServerGetDigitalInterruptValue(t *testing.T) {
 			expCapDigitalInterruptArgs: []interface{}{"digital1"},
 			expCapArgs:                 []interface{}(nil),
 			expResp:                    nil,
-			expRespErr:                 "unknown digital interrupt: digital1",
+			expRespErr:                 "unknown digital interrupt error",
 		},
 		{
 			injectDigitalInterrupt:     &inject.DigitalInterrupt{},
