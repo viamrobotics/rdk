@@ -6,6 +6,7 @@ package robotimpl
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -1231,4 +1232,28 @@ func (r *localRobot) CloudMetadata(ctx context.Context) (cloud.Metadata, error) 
 	md.MachineID = cloud.MachineID
 	md.MachinePartID = cloud.ID
 	return md, nil
+}
+
+// restartSingleModule constructs a single-module diff and calls updateResources with it.
+func (r *localRobot) restartSingleModule(ctx context.Context, mod config.Module) error {
+	diff := config.Diff{
+		Left:     r.Config(),
+		Right:    r.Config(),
+		Added:    &config.Config{},
+		Modified: &config.ModifiedConfigDiff{Modules: []config.Module{mod}},
+		Removed:  &config.Config{},
+	}
+	return r.manager.updateResources(ctx, &diff)
+}
+
+func (r *localRobot) RestartModule(ctx context.Context, req robot.RestartModuleRequest) error {
+	mod := utils.FindInSlice(r.Config().Modules, req.MatchesModule)
+	if mod == nil {
+		return fmt.Errorf("module not found with id=%s, name=%s", req.ModuleID, req.ModuleName)
+	}
+	err := r.restartSingleModule(ctx, *mod)
+	if err != nil {
+		return errors.Wrapf(err, "while restarting module id=%s, name=%s", req.ModuleID, req.ModuleName)
+	}
+	return nil
 }

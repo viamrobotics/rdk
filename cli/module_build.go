@@ -13,10 +13,15 @@ import (
 	"github.com/urfave/cli/v2"
 	"go.uber.org/multierr"
 	buildpb "go.viam.com/api/app/build/v1"
+	apppb "go.viam.com/api/app/v1"
 	"go.viam.com/utils/pexec"
+	"go.viam.com/utils/rpc"
 	"golang.org/x/exp/maps"
 
+	rdkConfig "go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
+	"go.viam.com/rdk/robot"
+	"go.viam.com/rdk/robot/client"
 	"go.viam.com/rdk/utils"
 )
 
@@ -386,4 +391,104 @@ func jobStatusFromProto(s buildpb.JobStatus) jobStatus {
 	default:
 		return jobStatusUnspecified
 	}
+}
+
+// ReloadModuleAction builds a module, configures it on a robot, and starts or restarts it.
+func ReloadModuleAction(c *cli.Context) error {
+	if !c.Bool(moduleBuildRestartOnly) {
+		return fmt.Errorf("only %s mode is supported for now", moduleBuildRestartOnly)
+	}
+	partID, err := resolvePartID(c, "/etc/viam.json")
+	if err != nil {
+		return err
+	}
+	manifest, err := loadManifestOrNil(c.String(moduleFlagPath))
+	if err != nil {
+		return err
+	}
+	vc, err := newViamClient(c)
+	if err != nil {
+		return err
+	}
+	return restartModule(c, vc, partID, manifest)
+}
+
+// resolvePartID takes an optional provided part ID and an optional default viam.json, and returns a part ID to use.
+func resolvePartID(c *cli.Context, cloudJSON string) (string, error) {
+	partID := c.String(partFlag)
+	if len(partID) > 0 {
+		return partID, nil
+	}
+	if len(cloudJSON) == 0 {
+		return "", errors.New("no --part and no default json")
+	}
+	conf, err := rdkConfig.ReadLocalConfig(c.Context, cloudJSON, logging.Global())
+	if err != nil {
+		return "", err
+	}
+	if conf.Cloud == nil {
+		return "", fmt.Errorf("unknown failure opening viam.json at: %s", cloudJSON)
+	}
+	return conf.Cloud.ID, nil
+}
+
+// resolveTargetModule looks at name / id flags and packs a RestartModuleRequest.
+func resolveTargetModule(c *cli.Context, manifest *moduleManifest) (*robot.RestartModuleRequest, error) {
+	modName := c.String(moduleFlagName)
+	modID := c.String(moduleBuildFlagBuildID)
+	// todo: use MutuallyExclusiveFlags for this when urfave/cli 3.x is stable
+	if (len(modName) > 0) && (len(modID) > 0) {
+		return nil, fmt.Errorf("provide at most one of --%s and --%s", moduleFlagName, moduleBuildFlagBuildID)
+	}
+	request := &robot.RestartModuleRequest{}
+	//nolint:gocritic
+	if len(modName) > 0 {
+		request.ModuleName = modName
+	} else if len(modID) > 0 {
+		request.ModuleID = modID
+	} else if manifest != nil {
+		request.ModuleID = manifest.ModuleID
+	} else {
+		return nil, fmt.Errorf("if there is no meta.json, provide one of --%s or --%s", moduleFlagName, moduleBuildFlagBuildID)
+	}
+	return request, nil
+}
+
+// restartModule restarts a module on a robot.
+func restartModule(c *cli.Context, vc *viamClient, partID string, manifest *moduleManifest) error {
+	logger := logging.Global()
+	restartReq, err := resolveTargetModule(c, manifest)
+	if err != nil {
+		return err
+	}
+	if err := vc.ensureLoggedIn(); err != nil {
+		return err
+	}
+	part, err := vc.client.GetRobotPart(c.Context, &apppb.GetRobotPartRequest{Id: partID})
+	if err != nil {
+		return err
+	}
+	apiRes, err := vc.client.GetRobotAPIKeys(c.Context, &apppb.GetRobotAPIKeysRequest{RobotId: part.Part.Robot})
+	if err != nil {
+		return err
+	}
+	if len(apiRes.ApiKeys) == 0 {
+		return errors.New("API keys list for this machine is empty. You can create one with \"viam machine api-key create\"")
+	}
+	key := apiRes.ApiKeys[0]
+	if len(key.Authorizations) == 0 || key.Authorizations[0].AuthorizationType != "robot" {
+		logger.Warnf("key 0 authorization is \"%s\", not \"robot\"; this command may fail", key.Authorizations[0].AuthorizationType)
+	}
+	logger.Debugf("using API key: %s %s", key.ApiKey.Id, key.ApiKey.Name)
+	creds := rpc.WithEntityCredentials(key.ApiKey.Id, rpc.Credentials{
+		Type:    rpc.CredentialsTypeAPIKey,
+		Payload: key.ApiKey.Key,
+	})
+	robotClient, err := client.New(c.Context, part.Part.Fqdn, logger, client.WithDialOptions(creds))
+	if err != nil {
+		return err
+	}
+	defer robotClient.Close(c.Context) //nolint: errcheck
+	// todo: make this a stream so '--wait' can tell user what's happening
+	return robotClient.RestartModule(c.Context, *restartReq)
 }
