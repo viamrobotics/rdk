@@ -1387,7 +1387,7 @@ Example:
 				{
 					Name:      "reload",
 					Usage:     "build a module locally and run it on a target device. rebuild & restart if already running",
-					UsageText: createUsageText("module reload", []string{partFlag}, true),
+					UsageText: createUsageText("module reload", []string{}, true),
 					Flags: []cli.Flag{
 						&cli.StringFlag{
 							Name:  partFlag,
