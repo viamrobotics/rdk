@@ -53,22 +53,3 @@ func SafeTestingRand() Rand {
 	}
 	return randWrapper{}
 }
-
-// Ordered is a clone of cmp.Ordered. Delete me after go1.12.
-type Ordered interface {
-	~int | ~int8 | ~int16 | ~int32 | ~int64 |
-		~uint | ~uint8 | ~uint16 | ~uint32 | ~uint64 | ~uintptr |
-		~float32 | ~float64 |
-		~string
-}
-
-// Compare is a clone of cmp.Compare. Delete me after go1.21 and use the original.
-func Compare[T Ordered](a, b T) int {
-	if a < b {
-		return -1
-	}
-	if a == b {
-		return 0
-	}
-	return 1
-}
