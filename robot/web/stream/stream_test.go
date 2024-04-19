@@ -1,3 +1,5 @@
+//go:build !no_cgo
+
 package webstream_test
 
 import (
