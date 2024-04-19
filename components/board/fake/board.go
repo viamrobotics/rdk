@@ -285,9 +285,9 @@ func (a *Analog) reset(pin string) {
 }
 
 func (a *Analog) Read(ctx context.Context, extra map[string]interface{}) (int, error) {
+	a.Set(rand.Intn(100))
 	a.Mu.RLock()
 	defer a.Mu.RUnlock()
-	a.Set(rand.Intn(100))
 	return a.Value, nil
 }
 
@@ -296,7 +296,7 @@ func (a *Analog) Write(ctx context.Context, value int, extra map[string]interfac
 	return nil
 }
 
-// Set is used during testing.
+// Set is used to set the value of an Analog.
 func (a *Analog) Set(value int) {
 	a.Mu.Lock()
 	defer a.Mu.Unlock()
@@ -420,9 +420,15 @@ func (s *DigitalInterruptWrapper) reset(conf board.DigitalInterruptConfig) error
 // Value returns the current value of the interrupt which is
 // based on the type of interrupt.
 func (s *DigitalInterruptWrapper) Value(ctx context.Context, extra map[string]interface{}) (int64, error) {
+	if err := s.Tick(ctx, true, 1); err != nil {
+		return 0, err
+	}
+	if err := s.Tick(ctx, false, 2); err != nil {
+		return 0, err
+	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	return rand.Int63n(100), nil
+	return s.di.Value(ctx, extra)
 }
 
 // Tick is to be called either manually if the interrupt is a proxy to some real
