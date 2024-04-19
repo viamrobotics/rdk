@@ -67,7 +67,7 @@ type Gantry interface {
 	//    exampleSpeeds = []float64{3, 9, 12}
 	//
 	//    // Move the axes of the gantry to the positions specified.
-    //    myGantry.MoveToPosition(context.Background(), examplePositions, exampleSpeeds, nil)
+	//    myGantry.MoveToPosition(context.Background(), examplePositions, exampleSpeeds, nil)
 	MoveToPosition(ctx context.Context, positionsMm, speedsMmPerSec []float64, extra map[string]interface{}) error
 
 	// Lengths is the length of gantries in meters
