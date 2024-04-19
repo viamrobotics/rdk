@@ -1,4 +1,5 @@
 //go:build (darwin || android) && !no_cgo
+SYNTAX ERROR
 
 package server
 
