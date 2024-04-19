@@ -209,8 +209,6 @@ func TestWorkingClient(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, actualExtra, test.ShouldResemble, expectedExtra)
 		actualExtra = nil
-
-		//Name
 		injectDigitalInterrupt.NameFunc = func() string {
 			return "digital1"
 		}
@@ -226,7 +224,6 @@ func TestWorkingClient(t *testing.T) {
 		test.That(t, err, test.ShouldHaveSameTypeAs, viamgrpc.UnimplementedError)
 
 		test.That(t, client.Close(context.Background()), test.ShouldBeNil)
-
 	}
 
 	t.Run("New client from connection", func(t *testing.T) {

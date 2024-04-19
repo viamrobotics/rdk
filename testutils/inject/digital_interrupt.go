@@ -72,7 +72,7 @@ func (d *DigitalInterrupt) RemoveCallback(c chan board.Tick) {
 	d.RemoveCallbackFunc(c)
 }
 
-// Name calls the injected name or the real version
+// Name calls the injected name or the real version.
 func (d *DigitalInterrupt) Name() string {
 	if d.NameFunc == nil {
 		return d.DigitalInterrupt.Name()
