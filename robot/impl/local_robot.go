@@ -902,10 +902,10 @@ func (r *localRobot) getRemoteFrameSystemParts(ctx context.Context) ([]*referenc
 			return nil, errors.Errorf("cannot find remote robot %q", remoteCfg.Name)
 		}
 
-		remote, ok := remoteRobot.(robot.RemoteRobot)
-		if !ok {
+		remote, err := utils.AssertType[robot.RemoteRobot](remoteRobot)
+		if err != nil {
 			// should never happen
-			return nil, errors.Errorf("remote robot %q does not fulfill RemoteRobot interface", remoteCfg.Name)
+			return nil, err
 		}
 		if !remote.Connected() {
 			r.logger.CDebugf(ctx, "remote %q is not connected, skipping", remoteCfg.Name)

@@ -31,10 +31,10 @@ import (
 func TestFrameSystemConfigWithRemote(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 	// make the remote robots
-	remoteConfig, err := config.Read(context.Background(), rutils.ResolveFile("robot/impl/data/fake.json"), logger)
+	remoteConfig, err := config.Read(context.Background(), rutils.ResolveFile("robot/impl/data/fake.json"), logger.Sublogger("remote"))
 	test.That(t, err, test.ShouldBeNil)
 	ctx := context.Background()
-	remoteRobot, err := New(ctx, remoteConfig, logger)
+	remoteRobot := setupLocalRobot(t, ctx, remoteConfig, logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
@@ -107,7 +107,7 @@ func TestFrameSystemConfigWithRemote(t *testing.T) {
 		referenceframe.NewLinkInFrame("frame2", testPose, "frame2c", nil),
 		referenceframe.NewLinkInFrame(referenceframe.World, testPose, "frame3", nil),
 	}
-	r2 := setupLocalRobot(t, ctx, localConfig, logger)
+	r2 := setupLocalRobot(t, ctx, localConfig, logger.Sublogger("local"))
 
 	test.That(t, err, test.ShouldBeNil)
 	fsCfg, err := r2.FrameSystemConfig(context.Background())
@@ -137,7 +137,7 @@ func TestFrameSystemConfigWithRemote(t *testing.T) {
 		gripper.Named("myParentIsRemote"),
 	)
 	testutils.WaitForAssertionWithSleep(t, time.Millisecond*100, 300, func(tb testing.TB) {
-		test.That(tb, rdktestutils.NewResourceNameSet(rr.ResourceNames()...), test.ShouldResemble, finalSet)
+		test.That(tb, rdktestutils.NewResourceNameSet(r2.ResourceNames()...), test.ShouldResemble, finalSet)
 	})
 
 	fsCfg, err = r2.FrameSystemConfig(context.Background())
@@ -192,7 +192,7 @@ func TestFrameSystemConfigWithRemote(t *testing.T) {
 			},
 		},
 	}
-	rr.Reconfigure(context.Background(), localConfig)
+	r2.Reconfigure(context.Background(), localConfig)
 
 	fsCfg, err = r2.FrameSystemConfig(context.Background())
 	test.That(t, err, test.ShouldBeNil)

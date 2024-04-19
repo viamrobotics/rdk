@@ -2805,6 +2805,96 @@ func TestRemoteRobotsGold(t *testing.T) {
 	})
 }
 
+func TestRemoteRobotsUpdate(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+	ctx := context.Background()
+	remoteConfig := &config.Config{
+		Components: []resource.Config{
+			{
+				Name:  "arm1",
+				Model: resource.DefaultModelFamily.WithModel("fake"),
+				ConvertedAttributes: &fake.Config{
+					ModelFilePath: "../../components/arm/fake/fake_model.json",
+				},
+				API: arm.API,
+			},
+		},
+	}
+
+	remote := setupLocalRobot(t, ctx, remoteConfig, logger.Sublogger("remote"))
+
+	options, _, addr1 := robottestutils.CreateBaseOptionsAndListener(t)
+	err := remote.StartWeb(ctx, options)
+	test.That(t, err, test.ShouldBeNil)
+
+	localConfig := &config.Config{
+		Remotes: []config.Remote{
+			{
+				Name:    "foo",
+				Address: addr1,
+			},
+			{
+				Name:    "bar",
+				Address: addr1,
+			},
+			{
+				Name:    "hello",
+				Address: addr1,
+			},
+			{
+				Name:    "world",
+				Address: addr1,
+			},
+		},
+	}
+	r := setupLocalRobot(t, ctx, localConfig, logger.Sublogger("local"))
+
+	expectedSet := rdktestutils.NewResourceNameSet(
+		motion.Named(resource.DefaultServiceName),
+		sensors.Named(resource.DefaultServiceName),
+		datamanager.Named(resource.DefaultServiceName),
+		arm.Named("foo:arm1"),
+		motion.Named("foo:builtin"),
+		sensors.Named("foo:builtin"),
+		datamanager.Named("foo:builtin"),
+		arm.Named("bar:arm1"),
+		motion.Named("bar:builtin"),
+		sensors.Named("bar:builtin"),
+		datamanager.Named("bar:builtin"),
+		arm.Named("hello:arm1"),
+		motion.Named("hello:builtin"),
+		sensors.Named("hello:builtin"),
+		datamanager.Named("hello:builtin"),
+		arm.Named("world:arm1"),
+		motion.Named("world:builtin"),
+		sensors.Named("world:builtin"),
+		datamanager.Named("world:builtin"),
+	)
+	testutils.WaitForAssertionWithSleep(t, time.Millisecond*100, 300, func(tb testing.TB) {
+		test.That(tb, rdktestutils.NewResourceNameSet(r.ResourceNames()...), test.ShouldResemble, expectedSet)
+	})
+	test.That(t, remote.Close(context.Background()), test.ShouldBeNil)
+
+	rr, ok := r.(*localRobot)
+	test.That(t, ok, test.ShouldBeTrue)
+
+	rr.triggerConfig <- struct{}{}
+
+	// wait for local_robot to detect that the remote is now offline
+	testutils.WaitForAssertionWithSleep(t, time.Millisecond*100, 300, func(tb testing.TB) {
+		test.That(
+			tb,
+			rdktestutils.NewResourceNameSet(r.ResourceNames()...),
+			test.ShouldResemble,
+			rdktestutils.NewResourceNameSet(
+				motion.Named(resource.DefaultServiceName),
+				sensors.Named(resource.DefaultServiceName),
+				datamanager.Named(resource.DefaultServiceName),
+			),
+		)
+	})
+}
+
 func TestInferRemoteRobotDependencyConnectAtStartup(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 
