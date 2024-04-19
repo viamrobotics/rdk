@@ -7,7 +7,6 @@ import (
 	"math"
 	"math/rand"
 	"testing"
-	"fmt"
 
 	"github.com/golang/geo/r3"
 	"go.viam.com/test"
@@ -406,7 +405,7 @@ func planToTpspaceRec(plan Plan, f referenceframe.Frame) ([]node, error) {
 	for _, inp := range plan.Trajectory() {
 		thisNode := &basicNode{
 			q:    inp[f.Name()],
-			cost: inp[f.Name()][2].Value,
+			cost: inp[f.Name()][3].Value,
 		}
 		nodes = append(nodes, thisNode)
 	}

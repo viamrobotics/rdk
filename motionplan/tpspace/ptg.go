@@ -2,6 +2,7 @@
 package tpspace
 
 import (
+	"errors"
 	"math"
 
 	"go.viam.com/rdk/motionplan/ik"
@@ -79,9 +80,9 @@ func wrapTo2Pi(theta float64) float64 {
 }
 
 // ComputePTG will compute all nodes of simPTG at the requested alpha, out to the requested distance, at the specified resolution.
-func ComputePTG(simPTG PTG, alpha, dist, resolution float64) ([]*TrajNode, error) {
+func computePTG(simPTG PTG, alpha, dist, resolution float64) ([]*TrajNode, error) {
 	if dist < 0 {
-		return computeInvertedPTG(simPTG, alpha, dist, resolution)
+		return nil, errors.New("computePTG can only be used with dist values >= zero")
 	}
 	if resolution <= 0 {
 		resolution = defaultResolution
@@ -142,11 +143,7 @@ func computePTGNode(simPTG PTG, alpha, dist float64) (*TrajNode, error) {
 	return &TrajNode{pose, dist, alpha, v, w}, nil
 }
 
-func computeInvertedPTG(simPTG PTG, alpha, dist, resolution float64) ([]*TrajNode, error) {
-	forwardsPTG, err := ComputePTG(simPTG, alpha, dist*-1, resolution)
-	if err != nil {
-		return nil, err
-	}
+func invertComputedPTG(forwardsPTG []*TrajNode) []*TrajNode {
 	flippedTraj := make([]*TrajNode, 0, len(forwardsPTG))
 	startNode := forwardsPTG[len(forwardsPTG)-1] // Cache for convenience
 
@@ -164,7 +161,7 @@ func computeInvertedPTG(simPTG PTG, alpha, dist, resolution float64) ([]*TrajNod
 				fwdNode.AngVel * -1,
 			})
 	}
-	return flippedTraj, nil
+	return flippedTraj
 }
 
 // PTGSegmentMetric is a metric which returns the TP-space distance traversed in a segment. Since PTG inputs are relative, the distance

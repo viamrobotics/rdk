@@ -974,6 +974,7 @@ func (mp *tpSpaceRRTMotionPlanner) attemptSmooth(
 	if reachedDelta > mp.planOpts.GoalThreshold {
 		return nil, errors.New("could not precisely reach smoothing destination")
 	}
+	
 	newInputSteps := extractPath(startMap, nil, &nodePair{a: reached.node, b: nil}, false)
 
 	if secondEdge < len(path)-1 {

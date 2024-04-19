@@ -111,28 +111,34 @@ func (ptg *ptgGridSim) MaxDistance() float64 {
 
 func (ptg *ptgGridSim) Trajectory(alpha, start, end, resolution float64) ([]*TrajNode, error) {
 	if math.Abs(start) > math.Abs(end) {
-		return nil, fmt.Errorf("cannot calculate trajectory, start %d cannot be greater than end %d", start, end)
+		return nil, fmt.Errorf("cannot calculate trajectory, start %f cannot be greater than end %f", start, end)
 	}
 	if end == 0 {
-		return ComputePTG(ptg, alpha, end, resolution)
+		return computePTG(ptg, alpha, end, resolution)
 	}
-	traj, err := ComputePTG(ptg, alpha, end, resolution)
+	startPos := math.Abs(start)
+	endPos := math.Abs(end)
+	traj, err := computePTG(ptg, alpha, endPos, resolution)
 	if err != nil {
 		return nil, err
 	}
-	if start > 0 {
-		firstNode, err := computePTGNode(ptg, alpha, start)
+
+	if startPos > 0 {
+		firstNode, err := computePTGNode(ptg, alpha, startPos)
 		if err != nil {
 			return nil, err
 		}
 		first := -1
 		for i, wp := range traj {
-			if wp.Dist > start {
+			if wp.Dist > startPos {
 				first = i
 				break
 			}
 		}
 		return append([]*TrajNode{firstNode}, traj[first:len(traj)-1]...), nil
+	}
+	if end < 0 {
+		return invertComputedPTG(traj), nil
 	}
 	return traj, nil
 }
@@ -151,7 +157,7 @@ func (ptg *ptgGridSim) simulateTrajectories() ([][]*TrajNode, error) {
 
 	for k := uint(0); k < ptg.alphaCnt; k++ {
 		alpha := index2alpha(k, ptg.alphaCnt)
-		alphaTraj, err := ComputePTG(ptg, alpha, ptg.refDist, defaultSimulationResolution)
+		alphaTraj, err := computePTG(ptg, alpha, ptg.refDist, defaultSimulationResolution)
 		if err != nil {
 			return nil, err
 		}

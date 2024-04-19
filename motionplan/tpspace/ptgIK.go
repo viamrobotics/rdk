@@ -128,15 +128,8 @@ func (ptg *ptgIK) MaxDistance() float64 {
 	return ptg.refDist
 }
 
-func (ptg *ptgIK) Trajectory(alpha, start, end, resolution float64) ([]*TrajNode, error) {
-	if math.Abs(start) > math.Abs(end) {
-		return nil, fmt.Errorf("cannot calculate trajectory, start %d cannot be greater than end %d", start, end)
-	}
-	if end == 0 {
-		return ComputePTG(ptg, alpha, end, resolution)
-	}
-	
-	var precomp, traj []*TrajNode
+func (ptg *ptgIK) cachedTraj(alpha, end, resolution float64) ([]*TrajNode, error) {
+	var precomp []*TrajNode
 	ptg.mu.RLock()
 	thisRes := ptg.trajCache[resolution]
 	if thisRes != nil {
@@ -145,9 +138,9 @@ func (ptg *ptgIK) Trajectory(alpha, start, end, resolution float64) ([]*TrajNode
 	ptg.mu.RUnlock()
 	
 	// If we have not computed this PTG out to the desired end yet, do so
-	if !(precomp != nil && precomp[len(precomp)-1].Dist >= end) {
+	if precomp == nil || precomp[len(precomp)-1].Dist < end {
 		var err error
-		traj, err = ComputePTG(ptg, alpha, end, resolution)
+		traj, err := computePTG(ptg, alpha, end, resolution)
 		if err != nil {
 			return nil, err
 		}
@@ -160,14 +153,33 @@ func (ptg *ptgIK) Trajectory(alpha, start, end, resolution float64) ([]*TrajNode
 		ptg.mu.Unlock()
 		precomp = traj
 	}
+	return precomp, nil
+}
+
+func (ptg *ptgIK) Trajectory(alpha, start, end, resolution float64) ([]*TrajNode, error) {
+	// TODO: For inverted trajectories, it would probably make more sense to allow this, replacing the current convention of negative dists.
+	if math.Abs(start) > math.Abs(end) {
+		return nil, fmt.Errorf("cannot calculate trajectory, start %f cannot be greater than end %f", start, end)
+	}
+	if end == 0 {
+		return computePTG(ptg, alpha, end, resolution)
+	}
+	
+	startPos := math.Abs(start)
+	endPos := math.Abs(end)
+	traj, err := ptg.cachedTraj(alpha, endPos, resolution)
+	if err != nil {
+		return nil, err
+	}
+
 	// We have already computed out this strajectory to at least the distance requested, so we can pull from cache
 	started := false
 	exactEnd := false
-	for _, wp := range precomp {
+	for _, wp := range traj {
 		if !started {
-			if wp.Dist >= math.Abs(start) {
-				if wp.Dist != math.Abs(start) {
-					firstNode, err := computePTGNode(ptg, alpha, start)
+			if wp.Dist >= startPos {
+				if wp.Dist != startPos {
+					firstNode, err := computePTGNode(ptg, alpha, startPos)
 					if err != nil {
 						return nil, err
 					}
@@ -185,11 +197,14 @@ func (ptg *ptgIK) Trajectory(alpha, start, end, resolution float64) ([]*TrajNode
 		}
 	}
 	if !exactEnd {
-		lastNode, err := computePTGNode(ptg, alpha, end)
+		lastNode, err := computePTGNode(ptg, alpha, endPos)
 		if err != nil {
 			return nil, err
 		}
 		traj = append(traj, lastNode)
+	}
+	if end < 0 {
+		return invertComputedPTG(traj), nil
 	}
 
 	return traj, nil
