@@ -133,8 +133,8 @@ type builtIn struct {
 
 	componentMethodFrequencyHz map[resourceMethodMetadata]float32
 
-	fileDeletionRoutineCancelFn context.CancelFunc
-	fileDeletionWg              *sync.WaitGroup
+	fileDeletionRoutineCancelFn   context.CancelFunc
+	fileDeletionBackgroundWorkers *sync.WaitGroup
 }
 
 var viamCaptureDotDir = filepath.Join(os.Getenv("HOME"), ".viam", "capture")
@@ -182,8 +182,8 @@ func (svc *builtIn) Close(_ context.Context) error {
 	svc.lock.Unlock()
 	svc.backgroundWorkers.Wait()
 
-	if svc.fileDeletionWg != nil {
-		svc.fileDeletionWg.Wait()
+	if svc.fileDeletionBackgroundWorkers != nil {
+		svc.fileDeletionBackgroundWorkers.Wait()
 	}
 
 	return nil
@@ -442,8 +442,8 @@ func (svc *builtIn) Reconfigure(
 	if svc.fileDeletionRoutineCancelFn != nil {
 		svc.fileDeletionRoutineCancelFn()
 	}
-	if svc.fileDeletionWg != nil {
-		svc.fileDeletionWg.Wait()
+	if svc.fileDeletionBackgroundWorkers != nil {
+		svc.fileDeletionBackgroundWorkers.Wait()
 	}
 
 	// Initialize or add collectors based on changes to the component configurations.
@@ -495,7 +495,7 @@ func (svc *builtIn) Reconfigure(
 		}
 	} else {
 		svc.fileDeletionRoutineCancelFn = nil
-		svc.fileDeletionWg = nil
+		svc.fileDeletionBackgroundWorkers = nil
 	}
 
 	// If a component/method has been removed from the config, close the collector.
@@ -556,13 +556,14 @@ func (svc *builtIn) Reconfigure(
 			svc.closeSyncer()
 		}
 	}
-
+	// if datacapture is enabled, kick off a go routine to check if disk space is filling due to
+	// cached datacapture files
 	if !svc.captureDisabled {
 		fileDeletionCtx, cancelFunc := context.WithCancel(context.Background())
 		svc.fileDeletionRoutineCancelFn = cancelFunc
-		svc.fileDeletionWg = &sync.WaitGroup{}
-		svc.fileDeletionWg.Add(1)
-		go pollFilesystem(fileDeletionCtx, svc.fileDeletionWg, svc.captureDir, &svc.syncer, svc.logger)
+		svc.fileDeletionBackgroundWorkers = &sync.WaitGroup{}
+		svc.fileDeletionBackgroundWorkers.Add(1)
+		go pollFilesystem(fileDeletionCtx, svc.fileDeletionBackgroundWorkers, svc.captureDir, &svc.syncer, svc.logger)
 	}
 
 	return nil
@@ -645,7 +646,7 @@ func (svc *builtIn) sync() {
 	}
 }
 
-//nolint
+// nolint
 func getAllFilesToSync(dir string, lastModifiedMillis int) []string {
 	var filePaths []string
 	_ = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
@@ -715,13 +716,19 @@ func generateMetadataKey(component, method string) string {
 
 //nolint:unparam
 func pollFilesystem(ctx context.Context, wg *sync.WaitGroup, captureDir string, syncer *datasync.Manager, logger logging.Logger) {
+	t := clock.Ticker(filesystemPollInterval)
+	defer t.Stop()
+	defer wg.Done()
 	for {
-		t := time.NewTimer(filesystemPollInterval)
+		if err := ctx.Err(); err != nil {
+			if !errors.Is(err, context.Canceled) {
+				logger.Errorw("data manager context closed unexpectedly in filesystem polling", "error", err)
+			}
+			return
+		}
 		select {
 		case <-ctx.Done():
-			t.Stop()
 			logger.Debug("Exiting fs polling thread")
-			wg.Done()
 			return
 		case <-t.C:
 			logger.Debug("Polling")
