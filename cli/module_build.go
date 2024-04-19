@@ -426,6 +426,9 @@ func resolvePartID(c *cli.Context, cloudJSON string) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	if conf.Cloud == nil {
+		return "", fmt.Errorf("unknown failure opening viam.json at: %s", cloudJSON)
+	}
 	return conf.Cloud.ID, nil
 }
 
