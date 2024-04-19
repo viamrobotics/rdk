@@ -60,7 +60,8 @@ type Gantry interface {
 	//
 	//    myGantry, err := gantry.FromRobot(robot, "my_gantry")
 	//
-	//    // Create a list of positions for the axes of the gantry to move to. Assume in this example that the gantry is multi-axis, with 3 axes.
+	//    // Create a list of positions for the axes of the gantry to move to.
+	//    // Assume in this example that the gantry is multi-axis, with 3 axes.
 	//    examplePositions = []float64{1, 2, 3}
 	//
 	//    exampleSpeeds = []float64{3, 9, 12}
