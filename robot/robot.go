@@ -90,7 +90,7 @@ type Robot interface {
 	// StopAll cancels all current and outstanding operations for the robot and stops all actuators and movement
 	StopAll(ctx context.Context, extra map[resource.Name]map[string]interface{}) error
 
-        // RestartModule reloads a module as if its config changed
+	// RestartModule reloads a module as if its config changed
 	RestartModule(ctx context.Context, req RestartModuleRequest) error
 }
 
