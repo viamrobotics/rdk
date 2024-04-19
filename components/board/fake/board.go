@@ -22,6 +22,8 @@ import (
 	"go.viam.com/rdk/resource"
 )
 
+var randomPin = "4"
+
 // A Config describes the configuration of a fake board and all of its connected parts.
 type Config struct {
 	AnalogReaders     []board.AnalogReaderConfig     `json:"analogs,omitempty"`
@@ -286,7 +288,9 @@ func (a *Analog) reset(pin string) {
 
 //nolint:gosec
 func (a *Analog) Read(ctx context.Context, extra map[string]interface{}) (int, error) {
-	a.Set(rand.Intn(100))
+	if a.pin == randomPin {
+		a.Set(rand.Intn(100))
+	}
 	a.Mu.RLock()
 	defer a.Mu.RUnlock()
 	return a.Value, nil
