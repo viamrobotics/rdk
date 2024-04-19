@@ -488,7 +488,7 @@ func restartModule(c *cli.Context, vc *viamClient, partId string, manifest *modu
 		Type:    rpc.CredentialsTypeAPIKey,
 		Payload: key.ApiKey.Key,
 	})
-	robotClient, err := client.New(c.Context, part.Part.LocalFqdn, logger, client.WithDialOptions(creds))
+	robotClient, err := client.New(c.Context, part.Part.Fqdn, logger, client.WithDialOptions(creds))
 	if err != nil {
 		return err
 	}
