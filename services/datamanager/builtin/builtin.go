@@ -646,7 +646,7 @@ func (svc *builtIn) sync() {
 	}
 }
 
-//nolint
+// nolint
 func getAllFilesToSync(dir string, lastModifiedMillis int) []string {
 	var filePaths []string
 	_ = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
@@ -732,6 +732,13 @@ func pollFilesystem(ctx context.Context, wg *sync.WaitGroup, captureDir string, 
 			return
 		case <-t.C:
 			logger.Debug("Polling")
+			shouldDelete, err := checkFileSystemStats(captureDir)
+			if err != nil {
+
+			}
+			if shouldDelete {
+				//delet
+			}
 		}
 	}
 }
