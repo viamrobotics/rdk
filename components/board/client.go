@@ -53,7 +53,7 @@ func NewClientFromConn(
 ) (Board, error) {
 	info := boardInfo{
 		name:                  name.ShortName(),
-		analogReaderNames:     []string{},
+		analogNames:           []string{},
 		digitalInterruptNames: []string{},
 	}
 	bClient := pb.NewBoardServiceClient(conn)
@@ -67,6 +67,7 @@ func NewClientFromConn(
 }
 
 func (c *client) AnalogByName(name string) (Analog, error) {
+	c.info.analogNames = append(c.info.analogNames, name)
 	return &analogClient{
 		client:     c,
 		boardName:  c.info.name,
@@ -92,8 +93,8 @@ func (c *client) GPIOPinByName(name string) (GPIOPin, error) {
 }
 
 func (c *client) AnalogNames() []string {
-	if c.getCachedStatus() == nil {
-		c.logger.Debugw("no cached status")
+	if len(c.info.analogNames) == 0 {
+		c.logger.Debugw("no cached analog readers")
 		return []string{}
 	}
 	return copyStringSlice(c.info.analogNames)
