@@ -4,6 +4,7 @@ package fake
 import (
 	"context"
 	"fmt"
+	"math/rand"
 	"reflect"
 	"sync"
 	"time"
@@ -286,6 +287,7 @@ func (a *Analog) reset(pin string) {
 func (a *Analog) Read(ctx context.Context, extra map[string]interface{}) (int, error) {
 	a.Mu.RLock()
 	defer a.Mu.RUnlock()
+	a.Value = rand.Intn(100)
 	return a.Value, nil
 }
 
@@ -420,7 +422,7 @@ func (s *DigitalInterruptWrapper) reset(conf board.DigitalInterruptConfig) error
 func (s *DigitalInterruptWrapper) Value(ctx context.Context, extra map[string]interface{}) (int64, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	return s.di.Value(ctx, extra)
+	return rand.Int63n(100), nil
 }
 
 // Tick is to be called either manually if the interrupt is a proxy to some real
