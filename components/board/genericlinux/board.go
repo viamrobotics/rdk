@@ -420,7 +420,7 @@ func (b *Board) DigitalInterruptByName(name string) (board.DigitalInterrupt, err
 	// remove its GPIO capabilities and turn it into a digital interrupt.
 	gpio, ok := b.gpios[name]
 	if !ok {
-		return nil, errors.Errorf("cant find GPIO (%s)", name)
+		return nil, fmt.Errorf("cant find GPIO (%s)", name)
 	}
 	if err := gpio.Close(); err != nil {
 		return nil, err

@@ -274,7 +274,7 @@ func (pca *PCA9685) AnalogByName(name string) (board.Analog, error) {
 
 // DigitalInterruptByName returns the interrupt by the given name if it exists.
 func (pca *PCA9685) DigitalInterruptByName(name string) (board.DigitalInterrupt, error) {
-	return nil, nil
+	return nil, grpc.UnimplementedError
 }
 
 // A gpioPin in PCA9685 is the combination of a PWM's T_on and T_off
