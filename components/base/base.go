@@ -42,7 +42,7 @@ type Base interface {
 	// MoveStraight moves the robot straight a given distance at a given speed.
 	// If a distance or speed of zero is given, the base will stop.
 	// This method blocks until completed or cancelled
-	// 
+	//
 	//    myBase, err := base.FromRobot(robot, "my_base")
 	//    // Move the base forward 40 mm at a velocity of 90 mm/s.
 	//    myBase.MoveStraight(context.Background(), distanceMm: 40, mmPerSec: 90, nil)
