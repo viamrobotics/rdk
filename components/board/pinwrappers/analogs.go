@@ -2,7 +2,6 @@ package pinwrappers
 
 import (
 	"context"
-	"sync"
 	"sync/atomic"
 	"time"
 
@@ -19,32 +18,29 @@ var errStopReading = errors.New("stop reading")
 
 // An AnalogSmoother smooths the readings out from an underlying reader.
 type AnalogSmoother struct {
-	Raw                     board.Analog
-	AverageOverMillis       int
-	SamplesPerSecond        int
-	data                    *utils.RollingAverage
-	lastData                int
-	lastError               atomic.Pointer[errValue]
-	logger                  logging.Logger
-	cancel                  func()
-	activeBackgroundWorkers sync.WaitGroup
+	Raw               board.Analog
+	AverageOverMillis int
+	SamplesPerSecond  int
+	data              *utils.RollingAverage
+	lastData          int
+	lastError         atomic.Pointer[errValue]
+	logger            logging.Logger
+	workers           utils.StoppableWorkers
 }
 
 // SmoothAnalogReader wraps the given reader in a smoother.
 func SmoothAnalogReader(r board.Analog, c board.AnalogReaderConfig, logger logging.Logger) *AnalogSmoother {
-	cancelCtx, cancel := context.WithCancel(context.Background())
 	smoother := &AnalogSmoother{
 		Raw:               r,
 		AverageOverMillis: c.AverageOverMillis,
 		SamplesPerSecond:  c.SamplesPerSecond,
 		logger:            logger,
-		cancel:            cancel,
 	}
 	if smoother.SamplesPerSecond <= 0 {
 		logger.Debug("Can't read nonpositive samples per second; defaulting to 1 instead")
 		smoother.SamplesPerSecond = 1
 	}
-	smoother.Start(cancelCtx)
+	smoother.Start()
 	return smoother
 }
 
@@ -56,8 +52,7 @@ type errValue struct {
 
 // Close stops the smoothing routine.
 func (as *AnalogSmoother) Close(ctx context.Context) error {
-	as.cancel()
-	as.activeBackgroundWorkers.Wait()
+	as.workers.Stop()
 	return nil
 }
 
@@ -81,7 +76,7 @@ func (as *AnalogSmoother) Read(ctx context.Context, extra map[string]interface{}
 
 // Start begins the smoothing routine that reads from the underlying
 // analog reader.
-func (as *AnalogSmoother) Start(ctx context.Context) {
+func (as *AnalogSmoother) Start() {
 	// examples 1
 	//    AverageOverMillis 10
 	//    SamplesPerSecond  1000
@@ -103,13 +98,12 @@ func (as *AnalogSmoother) Start(ctx context.Context) {
 		as.data = utils.NewRollingAverage(numSamples)
 		nanosBetween = 1e9 / as.SamplesPerSecond
 	} else {
-		as.logger.CDebug(ctx, "Too few samples to smooth over; defaulting to raw data.")
+		as.logger.Debug("Too few samples to smooth over; defaulting to raw data.")
 		as.data = nil
 		nanosBetween = as.AverageOverMillis * 1e6
 	}
 
-	as.activeBackgroundWorkers.Add(1)
-	goutils.ManagedGo(func() {
+	as.workers = utils.NewStoppableWorkers(func(ctx context.Context) {
 		for {
 			select {
 			case <-ctx.Done():
@@ -139,7 +133,7 @@ func (as *AnalogSmoother) Start(ctx context.Context) {
 				return
 			}
 		}
-	}, as.activeBackgroundWorkers.Done)
+	})
 }
 
 func (as *AnalogSmoother) Write(ctx context.Context, value int, extra map[string]interface{}) error {
