@@ -29,10 +29,10 @@ func TestFakeBoard(t *testing.T) {
 	b, err := NewBoard(context.Background(), cfg, logger)
 	test.That(t, err, test.ShouldBeNil)
 
-	_, ok := b.AnalogByName("blue")
-	test.That(t, ok, test.ShouldBeTrue)
+	_, err = b.AnalogByName("blue")
+	test.That(t, err, test.ShouldBeNil)
 
-	_, ok = b.DigitalInterruptByName("i1")
+	_, ok := b.DigitalInterruptByName("i1")
 	test.That(t, ok, test.ShouldBeTrue)
 	_, ok = b.DigitalInterruptByName("i2")
 	test.That(t, ok, test.ShouldBeTrue)

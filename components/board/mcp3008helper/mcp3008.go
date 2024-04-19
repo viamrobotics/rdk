@@ -8,6 +8,7 @@ import (
 	"go.uber.org/multierr"
 
 	"go.viam.com/rdk/components/board/genericlinux/buses"
+	"go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/resource"
 )
 
@@ -64,4 +65,8 @@ func (mar *MCP3008AnalogReader) Read(ctx context.Context, extra map[string]inter
 // Close does nothing.
 func (mar *MCP3008AnalogReader) Close(ctx context.Context) error {
 	return nil
+}
+
+func (mar *MCP3008AnalogReader) Write(ctx context.Context, value int, extra map[string]interface{}) error {
+	return grpc.UnimplementedError
 }

@@ -8,6 +8,7 @@ import (
 	"math"
 	"net/http"
 	"runtime"
+	"slices"
 	"sync"
 	"time"
 
@@ -16,7 +17,6 @@ import (
 	streampb "go.viam.com/api/stream/v1"
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
-	"golang.org/x/exp/slices"
 
 	"go.viam.com/rdk/components/audioinput"
 	"go.viam.com/rdk/components/camera"
