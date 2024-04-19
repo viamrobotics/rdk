@@ -413,19 +413,6 @@ func ReloadModuleAction(c *cli.Context) error {
 	return restartModule(c, vc, partID, manifest)
 }
 
-// loadManifestOrNil doesn't throw error on missing.
-func loadManifestOrNil(path string) (*moduleManifest, error) {
-	manifest, err := loadManifest(path)
-	if err == nil {
-		return &manifest, nil
-	}
-	if os.IsNotExist(err) {
-		//nolint:nilnil
-		return nil, nil
-	}
-	return nil, err
-}
-
 // resolvePartID takes an optional provided part ID and an optional default viam.json, and returns a part ID to use.
 func resolvePartID(c *cli.Context, cloudJSON string) (string, error) {
 	partID := c.String(partFlag)
