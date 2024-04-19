@@ -496,6 +496,13 @@ func CheckPlan(
 	// create a list of segments to iterate through
 	// doesn't this need to also happen for absolute plans??
 	segments := make([]*ik.Segment, 0, len(poses)-wayPointIdx)
+	// current inputs for the execution frame would be [x, y, theta]
+	// current inputs for the planning frame would be [i, alpha, di, df]
+	// want interpolations to be
+	// [x, y, theta, 0, 0, 0, 0],
+	// [x, y, theta, i, alpha, di, di + eplison]
+	// ...
+	// [x, y, thetha, i, alpha, df, df]???
 	if relative {
 		// get the inputs we were partway through executing
 		checkFrameGoalInputs, err := sf.mapToSlice(plan.Trajectory()[wayPointIdx])

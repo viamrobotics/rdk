@@ -273,7 +273,6 @@ func (sf *solverFrame) Geometries(inputs []frame.Input) (*frame.GeometriesInFram
 	sfGeometries := []spatial.Geometry{}
 
 	for _, fName := range sf.movingFS.FrameNames() {
-		// if we have an execution frame no need to transform it
 		if strings.Contains(fName, "ExecutionFrame") {
 			continue
 		}
@@ -286,80 +285,6 @@ func (sf *solverFrame) Geometries(inputs []frame.Input) (*frame.GeometriesInFram
 			return nil, err
 		}
 		gf, err := f.Geometries(inputs)
-		fmt.Println("about to print f.Geometries(inputs)")
-		for _, g := range gf.Geometries() {
-			fmt.Println("g.Label(): ", g.Label())
-		}
-		if gf == nil {
-			// only propagate errors that result in nil geometry
-			multierr.AppendInto(&errAll, err)
-			continue
-		}
-		var tf frame.Transformable
-		tf, err = sf.fss.Transform(inputMap, gf, frame.World)
-		if err != nil {
-			return nil, err
-		}
-		sfGeometries = append(sfGeometries, tf.(*frame.GeometriesInFrame).Geometries()...)
-	}
-	return frame.NewGeometriesInFrame(frame.World, sfGeometries), errAll
-}
-
-func (sf *solverFrame) MYGeometries(inputs []frame.Input) (*frame.GeometriesInFrame, error) {
-	if len(inputs) != len(sf.DoF()) {
-		return nil, frame.NewIncorrectInputLengthError(len(inputs), len(sf.DoF()))
-	}
-	var errAll error
-	inputMap := sf.sliceToMap(inputs)
-	sfGeometries := []spatial.Geometry{}
-
-	// first we check if this is a solverFrame which with we need to concern ourselves with for Ptgs
-	isRelative := len(sf.ptgs) > 0
-	if isRelative {
-		solveFrameList, err := sf.fss.TracebackFrame(sf.solveFrame)
-		if err != nil {
-			return nil, err
-		}
-		// we can probably just explicitly check the length of the list here
-		// it should only be wrld -- executionFrame -- planningFrame
-		// further, I believe that the indicies at which these frames are found shall remain constant
-		// hence, we can simplifify our code here
-		// todo: need to figure out the inidicied which are proper
-		for _, f := range solveFrameList {
-			inputs, err := frame.GetFrameInputs(f, inputMap)
-			if err != nil {
-				return nil, err
-			}
-			gf, err := f.Geometries(inputs)
-			if gf == nil {
-				// only propagate errors that result in nil geometry
-				multierr.AppendInto(&errAll, err)
-				continue
-			}
-		}
-	}
-
-	// i think this function will need to be changed
-	// if we are relative we know so
-	// we then assume that sf.name is the name of the kinematic base and anything above it should be
-	// treated as a static transform frame
-
-	// all other frame, we do not need to worry about and they should be treated as normal
-
-	for _, fName := range sf.movingFS.FrameNames() {
-		f := sf.fss.Frame(fName)
-		if f == nil {
-			return nil, frame.NewFrameMissingError(fName)
-		}
-		inputs, err := frame.GetFrameInputs(f, inputMap)
-		if err != nil {
-			return nil, err
-		}
-		gf, err := f.Geometries(inputs)
-		fmt.Println("about to print f.Geometries(inputs)")
-		for _, g := range gf.Geometries() {
-			fmt.Println("g.Label(): ", g.Label())
-		}
 		if gf == nil {
 			// only propagate errors that result in nil geometry
 			multierr.AppendInto(&errAll, err)
