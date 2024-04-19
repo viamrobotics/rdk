@@ -1386,7 +1386,7 @@ Example:
 						},
 					},
 				},
-				&cli.Command{
+				{
 					Name:  "reload",
 					Usage: "build a module locally and run it on a target device. rebuild + restart if already running",
 					Flags: []cli.Flag{

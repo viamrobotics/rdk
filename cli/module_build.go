@@ -398,7 +398,7 @@ func ReloadModuleAction(c *cli.Context) error {
 	if !c.Bool(moduleBuildRestartOnly) {
 		return fmt.Errorf("only %s mode is supported for now", moduleBuildRestartOnly)
 	}
-	partId, err := resolvePartId(c, "/etc/viam.json")
+	partID, err := resolvePartID(c, "/etc/viam.json")
 	if err != nil {
 		return err
 	}
@@ -410,7 +410,7 @@ func ReloadModuleAction(c *cli.Context) error {
 	if err != nil {
 		return err
 	}
-	return restartModule(c, vc, partId, manifest)
+	return restartModule(c, vc, partID, manifest)
 }
 
 // loadManifestOrNil doesn't throw error on missing.
@@ -420,21 +420,22 @@ func loadManifestOrNil(path string) (*moduleManifest, error) {
 		return &manifest, nil
 	}
 	if os.IsNotExist(err) {
+		//nolint:nilnil
 		return nil, nil
 	}
 	return nil, err
 }
 
-// resolvePartId takes an optional provided part ID and an optional default viam.json, and returns a part ID to use.
-func resolvePartId(c *cli.Context, cloudJson string) (string, error) {
-	partId := c.String(partFlag)
-	if len(partId) > 0 {
-		return partId, nil
+// resolvePartID takes an optional provided part ID and an optional default viam.json, and returns a part ID to use.
+func resolvePartID(c *cli.Context, cloudJSON string) (string, error) {
+	partID := c.String(partFlag)
+	if len(partID) > 0 {
+		return partID, nil
 	}
-	if len(cloudJson) == 0 {
+	if len(cloudJSON) == 0 {
 		return "", errors.New("no --part and no default json")
 	}
-	conf, err := rdkConfig.ReadLocalConfig(c.Context, cloudJson, logging.Global())
+	conf, err := rdkConfig.ReadLocalConfig(c.Context, cloudJSON, logging.Global())
 	if err != nil {
 		return "", err
 	}
@@ -450,6 +451,7 @@ func resolveTargetModule(c *cli.Context, manifest *moduleManifest) (*robot.Resta
 		return nil, fmt.Errorf("provide at most one of --%s and --%s", moduleFlagName, moduleFlagID)
 	}
 	request := &robot.RestartModuleRequest{}
+	//nolint:gocritic
 	if len(modName) > 0 {
 		request.ModuleName = modName
 	} else if len(modID) > 0 {
@@ -463,12 +465,12 @@ func resolveTargetModule(c *cli.Context, manifest *moduleManifest) (*robot.Resta
 }
 
 // restartModule restarts a module on a robot.
-func restartModule(c *cli.Context, vc *viamClient, partId string, manifest *moduleManifest) error {
+func restartModule(c *cli.Context, vc *viamClient, partID string, manifest *moduleManifest) error {
 	logger := logging.Global()
 	if err := vc.ensureLoggedIn(); err != nil {
 		return err
 	}
-	part, err := vc.client.GetRobotPart(c.Context, &apppb.GetRobotPartRequest{Id: partId})
+	part, err := vc.client.GetRobotPart(c.Context, &apppb.GetRobotPartRequest{Id: partID})
 	if err != nil {
 		return err
 	}
