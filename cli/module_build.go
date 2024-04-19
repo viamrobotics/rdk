@@ -442,13 +442,13 @@ func resolvePartID(c *cli.Context, cloudJSON string) (string, error) {
 	return conf.Cloud.ID, nil
 }
 
-// resolveTargetModule looks at path / name / id flags and packs a RestartModuleRequest.
+// resolveTargetModule looks at name / id flags and packs a RestartModuleRequest.
 func resolveTargetModule(c *cli.Context, manifest *moduleManifest) (*robot.RestartModuleRequest, error) {
 	modName := c.String(moduleFlagName)
-	modID := c.String(moduleFlagID)
+	modID := c.String(moduleBuildFlagBuildID)
 	// todo: use MutuallyExclusiveFlags for this when urfave/cli 3.x is stable
 	if (len(modName) > 0) && (len(modID) > 0) {
-		return nil, fmt.Errorf("provide at most one of --%s and --%s", moduleFlagName, moduleFlagID)
+		return nil, fmt.Errorf("provide at most one of --%s and --%s", moduleFlagName, moduleBuildFlagBuildID)
 	}
 	request := &robot.RestartModuleRequest{}
 	//nolint:gocritic
@@ -459,7 +459,7 @@ func resolveTargetModule(c *cli.Context, manifest *moduleManifest) (*robot.Resta
 	} else if manifest != nil {
 		request.ModuleID = manifest.ModuleID
 	} else {
-		return nil, fmt.Errorf("if there is no meta.json, provide one of %s or %s", moduleFlagName, moduleFlagID)
+		return nil, fmt.Errorf("if there is no meta.json, provide one of --%s or --%s", moduleFlagName, moduleBuildFlagBuildID)
 	}
 	return request, nil
 }
@@ -467,6 +467,10 @@ func resolveTargetModule(c *cli.Context, manifest *moduleManifest) (*robot.Resta
 // restartModule restarts a module on a robot.
 func restartModule(c *cli.Context, vc *viamClient, partID string, manifest *moduleManifest) error {
 	logger := logging.Global()
+	restartReq, err := resolveTargetModule(c, manifest)
+	if err != nil {
+		return err
+	}
 	if err := vc.ensureLoggedIn(); err != nil {
 		return err
 	}
@@ -485,7 +489,7 @@ func restartModule(c *cli.Context, vc *viamClient, partID string, manifest *modu
 	if len(key.Authorizations) == 0 || key.Authorizations[0].AuthorizationType != "robot" {
 		logger.Warnf("key 0 authorization is \"%s\", not \"robot\"; this command may fail", key.Authorizations[0].AuthorizationType)
 	}
-	logger.Debugf("using apikey: %s %s", key.ApiKey.Id, key.ApiKey.Name)
+	logger.Debugf("using API key: %s %s", key.ApiKey.Id, key.ApiKey.Name)
 	creds := rpc.WithEntityCredentials(key.ApiKey.Id, rpc.Credentials{
 		Type:    rpc.CredentialsTypeAPIKey,
 		Payload: key.ApiKey.Key,
@@ -495,10 +499,6 @@ func restartModule(c *cli.Context, vc *viamClient, partID string, manifest *modu
 		return err
 	}
 	defer robotClient.Close(c.Context) //nolint: errcheck
-	restartReq, err := resolveTargetModule(c, manifest)
-	if err != nil {
-		return err
-	}
 	// todo: make this a stream so '--wait' can tell user what's happening
 	return robotClient.RestartModule(c.Context, *restartReq)
 }

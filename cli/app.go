@@ -32,7 +32,6 @@ const (
 	loginFlagDisableBrowser = "disable-browser-open"
 	loginFlagKeyID          = "key-id"
 	loginFlagKey            = "key"
-	loginFlagKeyIDVal       = "key-id-val"
 
 	// Flags shared by api-key, module, ml-training and data subcommands.
 	generalFlagOrgID        = "org-id"
@@ -43,7 +42,6 @@ const (
 	apiKeyCreateFlagName = "name"
 
 	moduleFlagName            = "name"
-	moduleFlagID              = "id"
 	moduleFlagPublicNamespace = "public-namespace"
 	moduleFlagPath            = "module"
 	moduleFlagVersion         = "version"
@@ -1388,7 +1386,7 @@ Example:
 				},
 				{
 					Name:  "reload",
-					Usage: "build a module locally and run it on a target device. rebuild + restart if already running",
+					Usage: "build a module locally and run it on a target device. rebuild & restart if already running",
 					Flags: []cli.Flag{
 						&cli.StringFlag{
 							Name:  partFlag,
@@ -1404,12 +1402,12 @@ Example:
 							Usage: "name of module to restart. pass at most one of --name, --module-id",
 						},
 						&cli.StringFlag{
-							Name:  moduleFlagID,
+							Name:  moduleBuildFlagBuildID,
 							Usage: "ID of module to restart, for example viam:wifi-sensor",
 						},
 						&cli.BoolFlag{
 							Name:  moduleBuildRestartOnly,
-							Usage: "just restart the module on the target system, don't do other load steps",
+							Usage: "just restart the module on the target system, don't do other reload steps",
 						},
 					},
 					Action: ReloadModuleAction,
