@@ -16,6 +16,7 @@ import (
 	"github.com/pion/mediadevices/pkg/wave"
 	"github.com/pion/rtp"
 	"github.com/pion/webrtc/v3"
+	"go.viam.com/utils"
 
 	"go.viam.com/rdk/gostream/codec"
 	"go.viam.com/rdk/rimage"
@@ -96,6 +97,7 @@ func NewStream(config StreamConfig) (Stream, error) {
 		)
 	}
 
+	ctx, cancelFunc := context.WithCancel(context.Background())
 	bs := &basicStream{
 		name:             name,
 		config:           config,
@@ -109,7 +111,9 @@ func NewStream(config StreamConfig) (Stream, error) {
 		inputAudioChan:  make(chan MediaReleasePair[wave.Audio]),
 		outputAudioChan: make(chan []byte),
 
-		logger: logger,
+		logger:            logger,
+		shutdownCtx:       ctx,
+		shutdownCtxCancel: cancelFunc,
 	}
 
 	return bs, nil
@@ -137,8 +141,10 @@ type basicStream struct {
 	audioLatency    time.Duration
 	audioLatencySet bool
 
-	workers utils2.StoppableWorkers
-	logger  golog.Logger
+	shutdownCtx             context.Context
+	shutdownCtxCancel       func()
+	activeBackgroundWorkers sync.WaitGroup
+	logger                  golog.Logger
 }
 
 func (bs *basicStream) Name() string {
@@ -154,12 +160,11 @@ func (bs *basicStream) Start() {
 	}
 	bs.started = true
 	close(bs.streamingReadyCh)
-	bs.workers = utils2.NewStoppableWorkers(
-		bs.processInputFrames,
-		bs.processOutputFrames,
-		bs.processInputAudioChunks,
-		bs.processOutputAudioChunks,
-	)
+	bs.activeBackgroundWorkers.Add(4)
+	utils.ManagedGo(bs.processInputFrames, bs.activeBackgroundWorkers.Done)
+	utils.ManagedGo(bs.processOutputFrames, bs.activeBackgroundWorkers.Done)
+	utils.ManagedGo(bs.processInputAudioChunks, bs.activeBackgroundWorkers.Done)
+	utils.ManagedGo(bs.processOutputAudioChunks, bs.activeBackgroundWorkers.Done)
 }
 
 func (bs *basicStream) WriteRTP(pkt *rtp.Packet) error {
@@ -175,9 +180,8 @@ func (bs *basicStream) Stop() {
 	}
 
 	bs.started = false
-	if bs.workers != nil { // bs.workers might not be initialized if Start() is never called.
-		bs.workers.Stop()
-	}
+	bs.shutdownCtxCancel()
+	bs.activeBackgroundWorkers.Wait()
 	if bs.audioEncoder != nil {
 		bs.audioEncoder.Close()
 	}
@@ -190,13 +194,16 @@ func (bs *basicStream) Stop() {
 	// reset
 	bs.outputVideoChan = make(chan []byte)
 	bs.outputAudioChan = make(chan []byte)
+	ctx, cancelFunc := context.WithCancel(context.Background())
+	bs.shutdownCtx = ctx
+	bs.shutdownCtxCancel = cancelFunc
 	bs.streamingReadyCh = make(chan struct{})
 }
 
 func (bs *basicStream) StreamingReady() (<-chan struct{}, context.Context) {
 	bs.mu.RLock()
 	defer bs.mu.RUnlock()
-	return bs.streamingReadyCh, bs.workers.Context()
+	return bs.streamingReadyCh, bs.shutdownCtx
 }
 
 func (bs *basicStream) InputVideoFrames(props prop.Video) (chan<- MediaReleasePair[image.Image], error) {
@@ -228,7 +235,7 @@ func (bs *basicStream) AudioTrackLocal() (webrtc.TrackLocal, bool) {
 	return bs.audioTrackLocal, bs.audioTrackLocal != nil
 }
 
-func (bs *basicStream) processInputFrames(shutdownCtx context.Context) {
+func (bs *basicStream) processInputFrames() {
 	frameLimiterDur := time.Second / time.Duration(bs.config.TargetFrameRate)
 	defer close(bs.outputVideoChan)
 	var dx, dy int
@@ -236,19 +243,19 @@ func (bs *basicStream) processInputFrames(shutdownCtx context.Context) {
 	defer ticker.Stop()
 	for {
 		select {
-		case <-shutdownCtx.Done():
+		case <-bs.shutdownCtx.Done():
 			return
 		default:
 		}
 		select {
-		case <-shutdownCtx.Done():
+		case <-bs.shutdownCtx.Done():
 			return
 		case <-ticker.C:
 		}
 		var framePair MediaReleasePair[image.Image]
 		select {
 		case framePair = <-bs.inputImageChan:
-		case <-shutdownCtx.Done():
+		case <-bs.shutdownCtx.Done():
 			return
 		}
 		if framePair.Media == nil {
@@ -280,7 +287,7 @@ func (bs *basicStream) processInputFrames(shutdownCtx context.Context) {
 
 				// thread-safe because the size is static
 				var err error
-				encodedFrame, err = bs.videoEncoder.Encode(shutdownCtx, framePair.Media)
+				encodedFrame, err = bs.videoEncoder.Encode(bs.shutdownCtx, framePair.Media)
 				if err != nil {
 					bs.logger.Error(err)
 					return
@@ -289,7 +296,7 @@ func (bs *basicStream) processInputFrames(shutdownCtx context.Context) {
 
 			if encodedFrame != nil {
 				select {
-				case <-shutdownCtx.Done():
+				case <-bs.shutdownCtx.Done():
 					return
 				case bs.outputVideoChan <- encodedFrame:
 				}
@@ -301,19 +308,19 @@ func (bs *basicStream) processInputFrames(shutdownCtx context.Context) {
 	}
 }
 
-func (bs *basicStream) processInputAudioChunks(shutdownCtx context.Context) {
+func (bs *basicStream) processInputAudioChunks() {
 	defer close(bs.outputAudioChan)
 	var samplingRate, channels int
 	for {
 		select {
-		case <-shutdownCtx.Done():
+		case <-bs.shutdownCtx.Done():
 			return
 		default:
 		}
 		var audioChunkPair MediaReleasePair[wave.Audio]
 		select {
 		case audioChunkPair = <-bs.inputAudioChan:
-		case <-shutdownCtx.Done():
+		case <-bs.shutdownCtx.Done():
 			return
 		}
 		if audioChunkPair.Media == nil {
@@ -339,14 +346,14 @@ func (bs *basicStream) processInputAudioChunks(shutdownCtx context.Context) {
 				}
 			}
 
-			encodedChunk, ready, err := bs.audioEncoder.Encode(shutdownCtx, audioChunkPair.Media)
+			encodedChunk, ready, err := bs.audioEncoder.Encode(bs.shutdownCtx, audioChunkPair.Media)
 			if err != nil {
 				bs.logger.Error(err)
 				return
 			}
 			if ready && encodedChunk != nil {
 				select {
-				case <-shutdownCtx.Done():
+				case <-bs.shutdownCtx.Done():
 					return
 				case bs.outputAudioChan <- encodedChunk:
 				}
@@ -358,11 +365,11 @@ func (bs *basicStream) processInputAudioChunks(shutdownCtx context.Context) {
 	}
 }
 
-func (bs *basicStream) processOutputFrames(shutdownCtx context.Context) {
+func (bs *basicStream) processOutputFrames() {
 	framesSent := 0
 	for outputFrame := range bs.outputVideoChan {
 		select {
-		case <-shutdownCtx.Done():
+		case <-bs.shutdownCtx.Done():
 			return
 		default:
 		}
@@ -377,11 +384,11 @@ func (bs *basicStream) processOutputFrames(shutdownCtx context.Context) {
 	}
 }
 
-func (bs *basicStream) processOutputAudioChunks(shutdownCtx context.Context) {
+func (bs *basicStream) processOutputAudioChunks() {
 	chunksSent := 0
 	for outputChunk := range bs.outputAudioChan {
 		select {
-		case <-shutdownCtx.Done():
+		case <-bs.shutdownCtx.Done():
 			return
 		default:
 		}
