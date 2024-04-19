@@ -284,6 +284,7 @@ func (a *Analog) reset(pin string) {
 	a.Mu.Unlock()
 }
 
+//nolint:gosec
 func (a *Analog) Read(ctx context.Context, extra map[string]interface{}) (int, error) {
 	a.Set(rand.Intn(100))
 	a.Mu.RLock()
