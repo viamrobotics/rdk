@@ -100,6 +100,8 @@ func (i *BasicDigitalInterrupt) RemoveCallback(c chan board.Tick) {
 
 // Name returns the name of the digital interrupt.
 func (i *BasicDigitalInterrupt) Name() string {
+	i.mu.Lock()
+	defer i.mu.Unlock()
 	return i.cfg.Name
 }
 

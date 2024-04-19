@@ -228,7 +228,8 @@ func (e *Encoder) Start(ctx context.Context, b board.Board) {
 
 	utils.ManagedGo(func() {
 		// Remove the callbacks added by the interrupt stream.
-		defer utils.UncheckedErrorFunc(func() error { return board.RemoveCallbacks(b, []board.DigitalInterrupt{e.A, e.B}, ch) })
+		defer e.A.RemoveCallback(ch)
+		defer e.B.RemoveCallback(ch)
 		for {
 			// This looks redundant with the other select statement below, but it's not: if we're
 			// supposed to return, we need to do that even if chanA and chanB are full of data, and
@@ -247,7 +248,7 @@ func (e *Encoder) Start(ctx context.Context, b board.Board) {
 			case <-e.cancelCtx.Done():
 				return
 			case tick = <-ch:
-				if tick.Name == e.encAName {
+				if tick.Name == e.A.Name() {
 					aLevel = 0
 					if tick.High {
 						aLevel = 1

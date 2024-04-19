@@ -7,7 +7,6 @@ import (
 	"github.com/pkg/errors"
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/board/v1"
-	"go.viam.com/utils"
 
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
@@ -218,19 +217,25 @@ func (s *serviceServer) StreamTicks(
 	}
 
 	ticksChan := make(chan Tick)
-	dis := []DigitalInterrupt{}
+	interrupts := []DigitalInterrupt{}
 
 	for _, name := range req.PinNames {
 		di, ok := b.DigitalInterruptByName(name)
 		if !ok {
 			return errors.Errorf("unknown digital interrupt: %s", name)
 		}
-		dis = append(dis, di)
+		interrupts = append(interrupts, di)
 	}
-	err = b.StreamTicks(server.Context(), dis, ticksChan, req.Extra.AsMap())
+	err = b.StreamTicks(server.Context(), interrupts, ticksChan, req.Extra.AsMap())
 	if err != nil {
 		return err
 	}
+
+	defer func() {
+		for _, i := range interrupts {
+			i.RemoveCallback(ticksChan)
+		}
+	}()
 
 	// Send an empty response first so the client doesn't block while checking for errors.
 	err = server.Send(&pb.StreamTicksResponse{})
@@ -238,7 +243,6 @@ func (s *serviceServer) StreamTicks(
 		return err
 	}
 
-	defer utils.UncheckedErrorFunc(func() error { return RemoveCallbacks(b, dis, ticksChan) })
 	for {
 		select {
 		case <-server.Context().Done():

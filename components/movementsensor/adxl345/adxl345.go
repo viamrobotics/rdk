@@ -350,8 +350,10 @@ func makeAdxl345(
 
 func (adxl *adxl345) startInterruptMonitoring(b board.Board, ticksChan chan board.Tick, interrupts []board.DigitalInterrupt) {
 	utils.PanicCapturingGo(func() {
-		// Remove the callbacks added by the interrupt stream once we are done.
-		defer utils.UncheckedErrorFunc(func() error { return board.RemoveCallbacks(b, interrupts, ticksChan) })
+		defer func() {
+			for _, i := range interrupts:
+				i.RemoveCallback(ticksChan)
+		}()
 		for {
 			select {
 			case <-adxl.cancelContext.Done():

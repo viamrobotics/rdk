@@ -267,8 +267,7 @@ func (c *Controller) newButton(ctx context.Context, brd board.Board, interrupt b
 
 	c.activeBackgroundWorkers.Add(1)
 	utils.ManagedGo(func() {
-		// Remove the callbacks added by the interrupt stream once we are done.
-		defer utils.UncheckedErrorFunc(func() error { return board.RemoveCallbacks(brd, []board.DigitalInterrupt{interrupt}, tickChan) })
+		defer interrupt.RemoveCallback(tickChan)
 		debounced := debounce.New(time.Millisecond * time.Duration(cfg.DebounceMs))
 		for {
 			var val bool
