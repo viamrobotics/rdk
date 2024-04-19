@@ -39,41 +39,6 @@ const (
 
 var moduleBuildPollingInterval = 2 * time.Second
 
-var apiKeyFlags = []cli.Flag{
-	&cli.StringFlag{
-		Name: loginFlagKeyIDVal,
-		Usage: `colon-delimited api_key:secret string. alternative to providing both --key-id and --key.
-If it starts with $, will be fetched from environment.`,
-		Value: "$VIAM_API_KEY_PAIR",
-	},
-	&cli.StringFlag{Name: loginFlagKeyID, Usage: "uuid ID of an API key"},
-	&cli.StringFlag{Name: loginFlagKey, Usage: "value corresponding to key-id"},
-}
-
-var restartCommand = cli.Command{
-	Name:  "restart",
-	Usage: "restart a module on a running robot",
-	Flags: append(
-		[]cli.Flag{
-			&cli.StringFlag{
-				Name:     robotFqdnFlag,
-				Usage:    "FQDN of robot ('remote address' or 'local link' from Control tab in app)",
-				Required: true,
-			},
-			&cli.StringFlag{
-				Name:  moduleFlagName,
-				Usage: "name of module to restart (one of this or --module-id is required)",
-			},
-			&cli.StringFlag{
-				Name:  moduleFlagID,
-				Usage: "id of module to restart, for example viam:wifi-sensor",
-			},
-		},
-		apiKeyFlags...,
-	),
-	Action: RestartModuleAction,
-}
-
 // ModuleBuildStartAction starts a cloud build.
 func ModuleBuildStartAction(cCtx *cli.Context) error {
 	c, err := newViamClient(cCtx)
