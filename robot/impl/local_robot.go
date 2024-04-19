@@ -1232,6 +1232,5 @@ func (r *localRobot) RestartModule(ctx context.Context, req robot.RestartModuleR
 	if err != nil {
 		return errors.Wrapf(err, "while restarting module id=%s, name=%s", req.ModuleID, req.ModuleName)
 	}
-	// todo: capture timeout + exit code? need lower level access
 	return nil
 }
