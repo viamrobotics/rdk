@@ -88,21 +88,21 @@ func init() {
 type wit struct {
 	resource.Named
 	resource.AlwaysRebuild
-	angularVelocity         spatialmath.AngularVelocity
-	orientation             spatialmath.EulerAngles
-	acceleration            r3.Vector
-	magnetometer            r3.Vector
-	compassheading          float64
-	numBadReadings          uint32
-	err                     movementsensor.LastError
-	hasMagnetometer         bool
-	mu                      sync.Mutex
-	reconfigMu              sync.Mutex
-	port                    io.ReadWriteCloser
-	workers                 rutils.StoppableWorkers
-	logger                  logging.Logger
-	baudRate                uint
-	serialPath              string
+	angularVelocity spatialmath.AngularVelocity
+	orientation     spatialmath.EulerAngles
+	acceleration    r3.Vector
+	magnetometer    r3.Vector
+	compassheading  float64
+	numBadReadings  uint32
+	err             movementsensor.LastError
+	hasMagnetometer bool
+	mu              sync.Mutex
+	reconfigMu      sync.Mutex
+	port            io.ReadWriteCloser
+	workers         rutils.StoppableWorkers
+	logger          logging.Logger
+	baudRate        uint
+	serialPath      string
 }
 
 func (imu *wit) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
