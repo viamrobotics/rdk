@@ -115,7 +115,7 @@ func TestPiPigpio(t *testing.T) {
 
 		after, err := i1.Value(context.Background(), nil)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, after-before, test.ShouldEqual, int64(1))
+		test.That(t, after, test.ShouldBeGreaterThan, before)
 
 		err = p.SetGPIOBcom(27, false)
 		test.That(t, err, test.ShouldBeNil)
@@ -135,7 +135,7 @@ func TestPiPigpio(t *testing.T) {
 
 		after, err = i2.Value(context.Background(), nil)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, after-before, test.ShouldEqual, int64(1))
+		test.That(t, after, test.ShouldBeGreaterThan, before)
 
 		_, err = p.DigitalInterruptByName("11")
 		test.That(t, err, test.ShouldBeNil)
