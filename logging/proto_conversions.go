@@ -45,7 +45,7 @@ func FieldKeyAndValueFromProto(field *structpb.Struct) (string, any, error) {
 
 	// This code is modeled after zapcore.Field.AddTo:
 	// https://github.com/uber-go/zap/blob/fcf8ee58669e358bbd6460bef5c2ee7a53c0803a/zapcore/field.go#L114
-	//nolint:exhaustive
+
 	switch zf.Type {
 	case zapcore.BoolType:
 		fieldValue = zf.Integer == 1

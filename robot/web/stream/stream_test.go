@@ -15,11 +15,12 @@ import (
 	"github.com/pion/mediadevices/pkg/wave"
 	"github.com/pion/rtp"
 	"github.com/pion/webrtc/v3"
+	streampb "go.viam.com/api/stream/v1"
 	"go.viam.com/test"
+	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 	"go.viam.com/utils/testutils"
 
-	streampb "go.viam.com/api/stream/v1"
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/components/camera/fake"
 	"go.viam.com/rdk/config"
@@ -145,6 +146,8 @@ func TestStreamSourceErrorBackoff(t *testing.T) {
 
 // setupRealRobot creates a robot from the input config and starts a WebRTC server with video
 // streaming capabilities.
+//
+//nolint:lll
 func setupRealRobot(t *testing.T, robotConfig *config.Config, logger logging.Logger) (context.Context, robot.LocalRobot, string, web.Service) {
 	t.Helper()
 
@@ -189,13 +192,13 @@ func TestAudioTrackIsNotCreatedForVideoStream(t *testing.T) {
 
 	// Create a robot with a single fake camera.
 	ctx, robot, addr, webSvc := setupRealRobot(t, origCfg, logger)
-	defer robot.Close(ctx)
+	defer utils.UncheckedError(robot.Close(ctx))
 	defer webSvc.Close(ctx)
 
 	// Create a client connection to the robot. Disable direct GRPC to force a WebRTC
 	// connection. Fail if a WebRTC connection cannot be made.
 	conn, err := rgrpc.Dial(context.Background(), addr, logger.Sublogger("TestDial"), rpc.WithDisableDirectGRPC())
-	defer conn.Close()
+	defer utils.UncheckedError(conn.Close())
 	test.That(t, err, test.ShouldBeNil)
 
 	// Get a handle on the camera client named in the robot config.
