@@ -95,6 +95,16 @@ func (cfg *extrinsicsConfig) Validate(path string) ([]string, error) {
 	if cfg.Color == "" {
 		return nil, resource.NewConfigValidationFieldRequiredError(path, "color_camera_name")
 	}
+
+	if cfg.CameraParameters != nil {
+		if cfg.CameraParameters.Height <= 0 || cfg.CameraParameters.Width <= 0 {
+			return nil, fmt.Errorf(
+				"got illegal zero or negative dimensions for width_px and height_px (%d, %d) fields set in intrinsic_parameters"+
+					" for align_color_depth_extrinsics camera",
+				cfg.CameraParameters.Width, cfg.CameraParameters.Height)
+		}
+	}
+
 	deps = append(deps, cfg.Color)
 	if cfg.Depth == "" {
 		return nil, resource.NewConfigValidationFieldRequiredError(path, "depth_camera_name")
@@ -136,10 +146,9 @@ func newColorDepthExtrinsics(
 	}
 	if conf.CameraParameters.Height <= 0 || conf.CameraParameters.Width <= 0 {
 		return nil, errors.Errorf(
-			"colorDepthExtrinsics needs Width and Height fields set in intrinsic_parameters. Got illegal dimensions (%d, %d)",
-			conf.CameraParameters.Width,
-			conf.CameraParameters.Height,
-		)
+			"got illegal negative dimensions for width_px and height_px (%d, %d) fields set"+
+				"in intrinsic_parameters for align_color_depth_extrinsics camera",
+			conf.CameraParameters.Width, conf.CameraParameters.Height)
 	}
 	// get the projector for the alignment camera
 	imgType := camera.ImageType(conf.ImageType)
