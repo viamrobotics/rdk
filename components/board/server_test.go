@@ -23,7 +23,7 @@ var (
 	errNotFound   = errors.New("not found")
 	errSendFailed = errors.New("send fail")
 	errAnalog     = errors.New("unknown analog error")
-	errDigital    = errors.New("unkown digital interrupt error")
+	errDigital    = errors.New("unknown digital interrupt error")
 )
 
 func newServer() (pb.BoardServiceServer, *inject.Board, error) {
