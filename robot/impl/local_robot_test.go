@@ -807,7 +807,7 @@ func (db *dummyBoard) Name() resource.Name {
 	return board.Named("bad")
 }
 
-func (db *dummyBoard) AnalogReaderNames() []string {
+func (db *dummyBoard) AnalogNames() []string {
 	return nil
 }
 

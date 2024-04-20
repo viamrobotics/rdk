@@ -269,7 +269,7 @@ func (dg *dualGPS) Accuracy(ctx context.Context, extra map[string]interface{}) (
 	// of the two positions.
 	// return the NMEA Fix that appears from either gps in this order: (worst) 0, 1, 2, 5, 4 (best), or -1 if
 	// it is not any of these (other nmea GGA fixes indicate simulated or deadreckoning gps devices)
-	return movementsensor.UnimplementedAccuracies()
+	return movementsensor.UnimplementedOptionalAccuracies(), nil
 }
 
 func (dg *dualGPS) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {

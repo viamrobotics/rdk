@@ -71,6 +71,18 @@ func (cfg *homographyConfig) Validate(path string) ([]string, error) {
 	if cfg.Depth == "" {
 		return nil, resource.NewConfigValidationFieldRequiredError(path, "depth_camera_name")
 	}
+
+	if cfg.CameraParameters != nil {
+		if cfg.CameraParameters.Height <= 0 || cfg.CameraParameters.Width <= 0 {
+			return nil, fmt.Errorf(
+				"align_color_depth_homography needs Width and Height fields set in intrinsic_parameters."+
+					"got illegal zero or negative dimensions (%d, %d",
+				cfg.CameraParameters.Width,
+				cfg.CameraParameters.Height,
+			)
+		}
+	}
+
 	deps = append(deps, cfg.Depth)
 	return deps, nil
 }
@@ -99,10 +111,9 @@ func newColorDepthHomography(ctx context.Context, color, depth camera.VideoSourc
 	}
 	if conf.CameraParameters.Height <= 0 || conf.CameraParameters.Width <= 0 {
 		return nil, errors.Errorf(
-			"colorDepthHomography needs Width and Height fields set in intrinsic_parameters. Got illegal dimensions (%d, %d)",
-			conf.CameraParameters.Width,
-			conf.CameraParameters.Height,
-		)
+			"got illegal zero or negative dimensions for width_px and height_px (%d, %d) fields set in intrinsic_parameters"+
+				" for align_color_depth_homography camera",
+			conf.CameraParameters.Width, conf.CameraParameters.Height)
 	}
 	homography, err := transform.NewDepthColorHomography(conf.Homography)
 	if err != nil {

@@ -170,7 +170,7 @@ func (svc *builtIn) Shell(ctx context.Context, extra map[string]interface{}) (
 			select {
 			case inputData, ok := <-input:
 				if ok {
-					if _, err := f.Write([]byte(inputData)); err != nil {
+					if _, err := f.WriteString(inputData); err != nil {
 						svc.logger.CErrorw(ctx, "error writing data", "error", err)
 						return
 					}

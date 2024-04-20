@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"math"
+	"slices"
 	"strconv"
 	"sync"
 	"sync/atomic"
@@ -15,7 +16,6 @@ import (
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.viam.com/utils"
-	"golang.org/x/exp/slices"
 
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/components/camera"

@@ -104,7 +104,7 @@ type numatoBoard struct {
 	resource.Named
 	resource.AlwaysRebuild
 	pins    int
-	analogs map[string]board.AnalogReader
+	analogs map[string]*pinwrappers.AnalogSmoother
 
 	port   io.ReadWriteCloser
 	closed int32
@@ -236,10 +236,13 @@ func (b *numatoBoard) StreamTicks(ctx context.Context, interrupts []string, ch c
 	return grpc.UnimplementedError
 }
 
-// AnalogReaderByName returns an analog reader by name.
-func (b *numatoBoard) AnalogReaderByName(name string) (board.AnalogReader, bool) {
+// AnalogByName returns an analog pin by name.
+func (b *numatoBoard) AnalogByName(name string) (board.Analog, error) {
 	ar, ok := b.analogs[name]
-	return ar, ok
+	if !ok {
+		return nil, fmt.Errorf("can't find AnalogReader (%s)", name)
+	}
+	return ar, nil
 }
 
 // DigitalInterruptByName returns a digital interrupt by name.
@@ -247,8 +250,8 @@ func (b *numatoBoard) DigitalInterruptByName(name string) (board.DigitalInterrup
 	return nil, false
 }
 
-// AnalogReaderNames returns the names of all known analog readers.
-func (b *numatoBoard) AnalogReaderNames() []string {
+// AnalogNames returns the names of all known analog pins.
+func (b *numatoBoard) AnalogNames() []string {
 	names := []string{}
 	for n := range b.analogs {
 		names = append(names, n)
@@ -355,21 +358,21 @@ func (b *numatoBoard) Close(ctx context.Context) error {
 	return nil
 }
 
-type analogReader struct {
+type analog struct {
 	b   *numatoBoard
 	pin string
 }
 
-func (ar *analogReader) Read(ctx context.Context, extra map[string]interface{}) (int, error) {
-	res, err := ar.b.doSendReceive(ctx, fmt.Sprintf("adc read %s", ar.pin))
+func (a *analog) Read(ctx context.Context, extra map[string]interface{}) (int, error) {
+	res, err := a.b.doSendReceive(ctx, fmt.Sprintf("adc read %s", a.pin))
 	if err != nil {
 		return 0, err
 	}
 	return strconv.Atoi(res)
 }
 
-func (ar *analogReader) Close(ctx context.Context) error {
-	return nil
+func (a *analog) Write(ctx context.Context, value int, extra map[string]interface{}) error {
+	return grpc.UnimplementedError
 }
 
 func connect(ctx context.Context, name resource.Name, conf *Config, logger logging.Logger) (board.Board, error) {
@@ -404,9 +407,9 @@ func connect(ctx context.Context, name resource.Name, conf *Config, logger loggi
 		logger: logger,
 	}
 
-	b.analogs = map[string]board.AnalogReader{}
+	b.analogs = map[string]*pinwrappers.AnalogSmoother{}
 	for _, c := range conf.Analogs {
-		r := &analogReader{b, c.Pin}
+		r := &analog{b, c.Pin}
 		b.analogs[c.Name] = pinwrappers.SmoothAnalogReader(r, c, logger)
 	}
 

@@ -7,6 +7,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -20,7 +21,6 @@ import (
 	"go.viam.com/utils"
 	"go.viam.com/utils/pexec"
 	"go.viam.com/utils/rpc"
-	"golang.org/x/exp/slices"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
@@ -290,32 +290,6 @@ func (mgr *Manager) startModuleProcess(mod *module) error {
 	)
 }
 
-func (mgr *Manager) startSlowStartupLogTicker(ctx context.Context, msg, modName string) func() {
-	slowTicker := time.NewTicker(2 * time.Second)
-	firstTick := true
-
-	ctxWithCancel, cancel := context.WithCancel(ctx)
-	startTime := time.Now()
-	go func() {
-		for {
-			select {
-			case <-slowTicker.C:
-				elapsed := time.Since(startTime).Seconds()
-				mgr.logger.CWarnw(ctx, msg, "module", modName, "time elapsed", elapsed)
-				if firstTick {
-					slowTicker.Reset(3 * time.Second)
-					firstTick = false
-				} else {
-					slowTicker.Reset(5 * time.Second)
-				}
-			case <-ctxWithCancel.Done():
-				return
-			}
-		}
-	}()
-	return func() { slowTicker.Stop(); cancel() }
-}
-
 func (mgr *Manager) startModule(ctx context.Context, mod *module) error {
 	// add calls startProcess, which can also be called by the OUE handler in the attemptRestart
 	// call. Both of these involve owning a lock, so in unhappy cases of malformed modules
@@ -339,7 +313,8 @@ func (mgr *Manager) startModule(ctx context.Context, mod *module) error {
 		}
 	}
 
-	cleanup := mgr.startSlowStartupLogTicker(ctx, "Waiting for module to complete startup and registration", mod.cfg.Name)
+	cleanup := rutils.SlowStartupLogger(
+		ctx, "Waiting for module to complete startup and registration", "module", mod.cfg.Name, mgr.logger)
 	defer cleanup()
 
 	if err := mgr.startModuleProcess(mod); err != nil {
@@ -898,7 +873,8 @@ func (mgr *Manager) attemptRestart(ctx context.Context, mod *module) []resource.
 	// No need to check mgr.untrustedEnv, as we're restarting the same
 	// executable we were given for initial module addition.
 
-	cleanup := mgr.startSlowStartupLogTicker(ctx, "Waiting for module to complete restart and re-registration", mod.cfg.Name)
+	cleanup := rutils.SlowStartupLogger(
+		ctx, "Waiting for module to complete restart and re-registration", "module", mod.cfg.Name, mgr.logger)
 	defer cleanup()
 
 	// Attempt to restart module process 3 times.

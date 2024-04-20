@@ -16,13 +16,13 @@ type Board struct {
 	board.Board
 	name                       resource.Name
 	DoFunc                     func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
-	AnalogReaderByNameFunc     func(name string) (board.AnalogReader, bool)
-	analogReaderByNameCap      []interface{}
+	AnalogByNameFunc           func(name string) (board.Analog, error)
+	analogByNameCap            []interface{}
 	DigitalInterruptByNameFunc func(name string) (board.DigitalInterrupt, bool)
 	digitalInterruptByNameCap  []interface{}
 	GPIOPinByNameFunc          func(name string) (board.GPIOPin, error)
 	gpioPinByNameCap           []interface{}
-	AnalogReaderNamesFunc      func() []string
+	AnalogNamesFunc            func() []string
 	DigitalInterruptNamesFunc  func() []string
 	CloseFunc                  func(ctx context.Context) error
 	StatusFunc                 func(ctx context.Context, extra map[string]interface{}) (*commonpb.BoardStatus, error)
@@ -42,22 +42,22 @@ func (b *Board) Name() resource.Name {
 	return b.name
 }
 
-// AnalogReaderByName calls the injected AnalogReaderByName or the real version.
-func (b *Board) AnalogReaderByName(name string) (board.AnalogReader, bool) {
-	b.analogReaderByNameCap = []interface{}{name}
-	if b.AnalogReaderByNameFunc == nil {
-		return b.Board.AnalogReaderByName(name)
+// AnalogByName calls the injected AnalogByName or the real version.
+func (b *Board) AnalogByName(name string) (board.Analog, error) {
+	b.analogByNameCap = []interface{}{name}
+	if b.AnalogByNameFunc == nil {
+		return b.Board.AnalogByName(name)
 	}
-	return b.AnalogReaderByNameFunc(name)
+	return b.AnalogByNameFunc(name)
 }
 
-// AnalogReaderByNameCap returns the last parameters received by AnalogReaderByName, and then clears them.
-func (b *Board) AnalogReaderByNameCap() []interface{} {
+// AnalogByNameCap returns the last parameters received by AnalogByName, and then clears them.
+func (b *Board) AnalogByNameCap() []interface{} {
 	if b == nil {
 		return nil
 	}
-	defer func() { b.analogReaderByNameCap = nil }()
-	return b.analogReaderByNameCap
+	defer func() { b.analogByNameCap = nil }()
+	return b.analogByNameCap
 }
 
 // DigitalInterruptByName calls the injected DigitalInterruptByName or the real version.
@@ -96,12 +96,12 @@ func (b *Board) GPIOPinByNameCap() []interface{} {
 	return b.gpioPinByNameCap
 }
 
-// AnalogReaderNames calls the injected AnalogReaderNames or the real version.
-func (b *Board) AnalogReaderNames() []string {
-	if b.AnalogReaderNamesFunc == nil {
-		return b.Board.AnalogReaderNames()
+// AnalogNames calls the injected AnalogNames or the real version.
+func (b *Board) AnalogNames() []string {
+	if b.AnalogNamesFunc == nil {
+		return b.Board.AnalogNames()
 	}
-	return b.AnalogReaderNamesFunc()
+	return b.AnalogNamesFunc()
 }
 
 // DigitalInterruptNames calls the injected DigitalInterruptNames or the real version.

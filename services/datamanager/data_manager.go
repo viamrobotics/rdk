@@ -5,9 +5,9 @@ import (
 	"context"
 	"encoding/json"
 	"reflect"
+	"slices"
 
 	servicepb "go.viam.com/api/service/datamanager/v1"
-	"golang.org/x/exp/slices"
 
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/utils"

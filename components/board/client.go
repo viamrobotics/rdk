@@ -42,7 +42,7 @@ type client struct {
 
 type boardInfo struct {
 	name                  string
-	analogReaderNames     []string
+	analogNames           []string
 	digitalInterruptNames []string
 }
 
@@ -68,12 +68,12 @@ func NewClientFromConn(
 	return c, nil
 }
 
-func (c *client) AnalogReaderByName(name string) (AnalogReader, bool) {
-	return &analogReaderClient{
-		client:           c,
-		boardName:        c.info.name,
-		analogReaderName: name,
-	}, true
+func (c *client) AnalogByName(name string) (Analog, error) {
+	return &analogClient{
+		client:     c,
+		boardName:  c.info.name,
+		analogName: name,
+	}, nil
 }
 
 func (c *client) DigitalInterruptByName(name string) (DigitalInterrupt, bool) {
@@ -92,12 +92,12 @@ func (c *client) GPIOPinByName(name string) (GPIOPin, error) {
 	}, nil
 }
 
-func (c *client) AnalogReaderNames() []string {
+func (c *client) AnalogNames() []string {
 	if c.getCachedStatus() == nil {
 		c.logger.Debugw("no cached status")
 		return []string{}
 	}
-	return copyStringSlice(c.info.analogReaderNames)
+	return copyStringSlice(c.info.analogNames)
 }
 
 func (c *client) DigitalInterruptNames() []string {
@@ -133,9 +133,9 @@ func (c *client) refresh(ctx context.Context) error {
 	}
 	c.storeStatus(status)
 
-	c.info.analogReaderNames = []string{}
+	c.info.analogNames = []string{}
 	for name := range status.Analogs {
-		c.info.analogReaderNames = append(c.info.analogReaderNames, name)
+		c.info.analogNames = append(c.info.analogNames, name)
 	}
 	c.info.digitalInterruptNames = []string{}
 	for name := range status.DigitalInterrupts {
@@ -197,28 +197,34 @@ func (c *client) WriteAnalog(ctx context.Context, pin string, value int32, extra
 	return err
 }
 
-// analogReaderClient satisfies a gRPC based board.AnalogReader. Refer to the interface
+// analogClient satisfies a gRPC based board.AnalogReader. Refer to the interface
 // for descriptions of its methods.
-type analogReaderClient struct {
+type analogClient struct {
 	*client
-	boardName        string
-	analogReaderName string
+	boardName  string
+	analogName string
 }
 
-func (arc *analogReaderClient) Read(ctx context.Context, extra map[string]interface{}) (int, error) {
+func (ac *analogClient) Read(ctx context.Context, extra map[string]interface{}) (int, error) {
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
 		return 0, err
 	}
-	resp, err := arc.client.client.ReadAnalogReader(ctx, &pb.ReadAnalogReaderRequest{
-		BoardName:        arc.boardName,
-		AnalogReaderName: arc.analogReaderName,
+	// the api method is named ReadAnalogReader, it is named differenlty than
+	// the board interface functions.
+	resp, err := ac.client.client.ReadAnalogReader(ctx, &pb.ReadAnalogReaderRequest{
+		BoardName:        ac.boardName,
+		AnalogReaderName: ac.analogName,
 		Extra:            ext,
 	})
 	if err != nil {
 		return 0, err
 	}
 	return int(resp.Value), nil
+}
+
+func (ac *analogClient) Write(ctx context.Context, value int, extra map[string]interface{}) error {
+	return errors.New("unimplemented")
 }
 
 // digitalInterruptClient satisfies a gRPC based board.DigitalInterrupt. Refer to the

@@ -375,6 +375,10 @@ func (a *wrappedAnalogReader) reset(ctx context.Context, chipSelect string, read
 	a.chipSelect = chipSelect
 }
 
+func (a *wrappedAnalogReader) Write(ctx context.Context, value int, extra map[string]interface{}) error {
+	return grpc.UnimplementedError
+}
+
 // Board implements a component for a Linux machine.
 type Board struct {
 	resource.Named
@@ -393,10 +397,13 @@ type Board struct {
 	activeBackgroundWorkers sync.WaitGroup
 }
 
-// AnalogReaderByName returns the analog reader by the given name if it exists.
-func (b *Board) AnalogReaderByName(name string) (board.AnalogReader, bool) {
+// AnalogByName returns the analog pin by the given name if it exists.
+func (b *Board) AnalogByName(name string) (board.Analog, error) {
 	a, ok := b.analogReaders[name]
-	return a, ok
+	if !ok {
+		return nil, errors.Errorf("can't find AnalogReader (%s)", name)
+	}
+	return a, nil
 }
 
 // DigitalInterruptByName returns the interrupt by the given name if it exists.
@@ -436,8 +443,8 @@ func (b *Board) DigitalInterruptByName(name string) (board.DigitalInterrupt, boo
 	return interrupt.interrupt, true
 }
 
-// AnalogReaderNames returns the names of all known analog readers.
-func (b *Board) AnalogReaderNames() []string {
+// AnalogNames returns the names of all known analog pins.
+func (b *Board) AnalogNames() []string {
 	names := []string{}
 	for k := range b.analogReaders {
 		names = append(names, k)
