@@ -1,13 +1,12 @@
 package cli
 
 import (
-	"context"
 	"fmt"
 	"path/filepath"
 	"strings"
 
-	"github.com/pkg/errors"
-	"github.com/urfave/cli/v2"
+	apppb "go.viam.com/api/app/v1"
+
 	rdkConfig "go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
 )
@@ -17,93 +16,48 @@ import (
 // Using maps directly also saves a lot of high-maintenance ser/des work.
 type ModuleMap map[string]interface{}
 
-var reloadCommand = cli.Command{
-	Name:  "reload",
-	Usage: "run this module on a robot (only works on local robot for now)",
-	Flags: []cli.Flag{
-		&cli.StringFlag{Name: moduleFlagPath, Value: "meta.json"},
-		&cli.StringFlag{Name: generalFlagAliasRobotID},
-		&cli.StringFlag{Name: configFlag},
-	},
-	Action: ModuleReloadAction,
-}
-
-func getPartId(ctx context.Context, configPath string) (string, error) {
-	conf, err := rdkConfig.ReadLocalConfig(ctx, configPath, logging.Global())
-	if err != nil {
-		return "", err
-	}
-	return conf.Cloud.ID, nil
-}
-
-func ModuleReloadAction(cCtx *cli.Context) error {
-	vc, err := newViamClient(cCtx)
-	if err != nil {
-		return err
-	}
-	if err := configureModule(cCtx, vc); err != nil {
-		return err
-	}
-	return nil
-}
-
-// configureModule is the configuration step of module reloading.
-func configureModule(cCtx *cli.Context, vc *viamClient) error {
+// configureModule is the configuration step of module reloading. Returns (needsRestart, error).
+func configureModule(vc *viamClient, manifest *moduleManifest, part *apppb.RobotPart) (bool, error) {
 	logger := logging.Global()
-	robotId := cCtx.String(generalFlagAliasRobotID)
-	configPath := cCtx.String(configFlag)
-	// todo: switch to MutuallyExclusiveFlags when available
-	if (len(robotId) == 0) && (len(configPath) == 0) {
-		return fmt.Errorf("provide exactly one of --%s or --%s", generalFlagAliasRobotID, configFlag)
+	// robotId := cCtx.String(generalFlagAliasRobotID)
+	// configPath := cCtx.String(configFlag)
+	// // todo: switch to MutuallyExclusiveFlags when available
+	// if (len(robotId) == 0) && (len(configPath) == 0) {
+	// 	return fmt.Errorf("provide exactly one of --%s or --%s", generalFlagAliasRobotID, configFlag)
+	// }
+	if manifest == nil {
+		return false, fmt.Errorf("reconfiguration requires valid manifest json passed to --%s", moduleFlagPath)
 	}
-
-	manifest, err := loadManifest(cCtx.String(moduleFlagPath))
-	if err != nil {
-		return err
-	}
-	var partId string
-	if len(robotId) != 0 {
-		return errors.New("robot-id not implemented yet")
-	} else {
-		partId, err = getPartId(cCtx.Context, configPath)
-		if err != nil {
-			return err
-		}
-	}
-
-	part, err := vc.getRobotPart(partId)
-	if err != nil {
-		return err
-	}
-	partMap := part.Part.RobotConfig.AsMap()
+	partMap := part.RobotConfig.AsMap()
 	modules, err := mapOver(
 		partMap["modules"].([]interface{}),
 		func(raw interface{}) (ModuleMap, error) { return ModuleMap(raw.(map[string]interface{})), nil },
 	)
 	if err != nil {
-		return err
+		return false, err
 	}
 
-	modules, dirty, err := mutateModuleConfig(modules, manifest)
+	modules, dirty, err := mutateModuleConfig(modules, *manifest)
 	if err != nil {
-		return err
+		return false, err
 	}
 	// note: converting to interface{} or else proto serializer will fail downstream in NewStruct.
-	serializable, err := mapOver(modules, func(mod ModuleMap) (interface{}, error) {
+	modulesAsInterfaces, err := mapOver(modules, func(mod ModuleMap) (interface{}, error) {
 		return map[string]interface{}(mod), nil
 	})
 	if err != nil {
-		return err
+		return false, err
 	}
-	partMap["modules"] = serializable
+	partMap["modules"] = modulesAsInterfaces
 	if dirty {
 		logger.Debug("writing back config changes")
-		err = vc.updateRobotPart(part.Part, partMap)
+		err = vc.updateRobotPart(part, partMap)
 		if err != nil {
-			return err
+			return false, err
 		}
 	}
-	return nil
+	// if we modified config, caller doesn't need to restart module.
+	return !dirty, nil
 }
 
 // mutateModuleConfig edits the modules list to hot-reload with the given manifest.
@@ -144,7 +98,7 @@ func mutateModuleConfig(modules []ModuleMap, manifest moduleManifest) ([]ModuleM
 			if getMapString(foundMod, "type") == string(rdkConfig.ModuleTypeRegistry) {
 				// warning: there's a chance of inserting a dupe name here in odd cases
 				// todo: prompt user
-				logger.Warnf("you're replacing a registry module. we're converting it to a local module")
+				logger.Warn("you're replacing a registry module. we're converting it to a local module")
 				foundMod["type"] = string(rdkConfig.ModuleTypeLocal)
 				foundMod["name"] = localName
 				foundMod["module_id"] = ""

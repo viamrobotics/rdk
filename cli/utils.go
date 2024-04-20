@@ -29,8 +29,8 @@ func samePath(path1, path2 string) (bool, error) {
 }
 
 // getMapString is a helper that returns map_[key] if it exists and is a string, otherwise empty string.
-func getMapString(map_ map[string]interface{}, key string) string {
-	if val, ok := map_[key]; ok {
+func getMapString(m map[string]interface{}, key string) string {
+	if val, ok := m[key]; ok {
 		switch v := val.(type) {
 		case string:
 			return v

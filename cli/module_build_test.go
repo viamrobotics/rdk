@@ -16,8 +16,11 @@ import (
 	"go.viam.com/rdk/testutils/inject"
 )
 
-func createTestManifest(t *testing.T, path string) {
+func createTestManifest(t *testing.T, path string) string {
 	t.Helper()
+	if len(path) == 0 {
+		path = filepath.Join(t.TempDir(), "meta.json")
+	}
 	fi, err := os.Create(path)
 	test.That(t, err, test.ShouldBeNil)
 	_, err = fi.WriteString(`{
@@ -43,6 +46,7 @@ func createTestManifest(t *testing.T, path string) {
 	test.That(t, err, test.ShouldBeNil)
 	err = fi.Close()
 	test.That(t, err, test.ShouldBeNil)
+	return path
 }
 
 func TestStartBuild(t *testing.T) {

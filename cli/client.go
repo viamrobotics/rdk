@@ -946,11 +946,11 @@ func (c *viamClient) robotPart(orgStr, locStr, robotStr, partStr string) (*apppb
 // getRobotPart wraps GetRobotPart API.
 // note: overlaps with viamClient.robotPart, which wraps GetRobotParts.
 // Use this variant if you don't know the robot ID.
-func (c *viamClient) getRobotPart(partId string) (*apppb.GetRobotPartResponse, error) {
+func (c *viamClient) getRobotPart(partID string) (*apppb.GetRobotPartResponse, error) {
 	if err := c.ensureLoggedIn(); err != nil {
 		return nil, err
 	}
-	return c.client.GetRobotPart(c.c.Context, &apppb.GetRobotPartRequest{Id: partId})
+	return c.client.GetRobotPart(c.c.Context, &apppb.GetRobotPartRequest{Id: partID})
 }
 
 func (c *viamClient) updateRobotPart(part *apppb.RobotPart, confMap map[string]interface{}) error {

@@ -410,10 +410,25 @@ func ReloadModuleAction(c *cli.Context) error {
 	if err != nil {
 		return err
 	}
-	return restartModule(c, vc, partID, manifest)
+	part, err := vc.getRobotPart(partID)
+	if err != nil {
+		return err
+	}
+	needsRestart := true
+	if !c.Bool(moduleBuildRestartOnly) {
+		logging.Global().Warn("TODO BUILD FIRST")
+		needsRestart, err = configureModule(vc, manifest, part.Part)
+		if err != nil {
+			return err
+		}
+	}
+	if needsRestart {
+		return restartModule(c, vc, part.Part, manifest)
+	}
+	return nil
 }
 
-// resolvePartID takes an optional provided part ID and an optional default viam.json, and returns a part ID to use.
+// resolvePartID takes an optional provided part ID (from partFlag), and an optional default viam.json, and returns a part ID to use.
 func resolvePartID(c *cli.Context, cloudJSON string) (string, error) {
 	partID := c.String(partFlag)
 	if len(partID) > 0 {
@@ -455,7 +470,7 @@ func resolveTargetModule(c *cli.Context, manifest *moduleManifest) (*robot.Resta
 }
 
 // restartModule restarts a module on a robot.
-func restartModule(c *cli.Context, vc *viamClient, partID string, manifest *moduleManifest) error {
+func restartModule(c *cli.Context, vc *viamClient, part *apppb.RobotPart, manifest *moduleManifest) error {
 	logger := logging.Global()
 	restartReq, err := resolveTargetModule(c, manifest)
 	if err != nil {
@@ -464,11 +479,7 @@ func restartModule(c *cli.Context, vc *viamClient, partID string, manifest *modu
 	if err := vc.ensureLoggedIn(); err != nil {
 		return err
 	}
-	part, err := vc.client.GetRobotPart(c.Context, &apppb.GetRobotPartRequest{Id: partID})
-	if err != nil {
-		return err
-	}
-	apiRes, err := vc.client.GetRobotAPIKeys(c.Context, &apppb.GetRobotAPIKeysRequest{RobotId: part.Part.Robot})
+	apiRes, err := vc.client.GetRobotAPIKeys(c.Context, &apppb.GetRobotAPIKeysRequest{RobotId: part.Robot})
 	if err != nil {
 		return err
 	}
@@ -484,7 +495,7 @@ func restartModule(c *cli.Context, vc *viamClient, partID string, manifest *modu
 		Type:    rpc.CredentialsTypeAPIKey,
 		Payload: key.ApiKey.Key,
 	})
-	robotClient, err := client.New(c.Context, part.Part.Fqdn, logger, client.WithDialOptions(creds))
+	robotClient, err := client.New(c.Context, part.Fqdn, logger, client.WithDialOptions(creds))
 	if err != nil {
 		return err
 	}
