@@ -19,12 +19,6 @@ type ModuleMap map[string]interface{}
 // configureModule is the configuration step of module reloading. Returns (needsRestart, error).
 func configureModule(vc *viamClient, manifest *moduleManifest, part *apppb.RobotPart) (bool, error) {
 	logger := logging.Global()
-	// robotId := cCtx.String(generalFlagAliasRobotID)
-	// configPath := cCtx.String(configFlag)
-	// // todo: switch to MutuallyExclusiveFlags when available
-	// if (len(robotId) == 0) && (len(configPath) == 0) {
-	// 	return fmt.Errorf("provide exactly one of --%s or --%s", generalFlagAliasRobotID, configFlag)
-	// }
 	if manifest == nil {
 		return false, fmt.Errorf("reconfiguration requires valid manifest json passed to --%s", moduleFlagPath)
 	}

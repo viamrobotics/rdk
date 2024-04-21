@@ -81,19 +81,15 @@ func (c *viamClient) moduleBuildStartAction(cCtx *cli.Context) error {
 
 // ModuleBuildLocalAction runs the module's build commands locally.
 func ModuleBuildLocalAction(cCtx *cli.Context) error {
-	c, err := newViamClient(cCtx)
-	if err != nil {
-		return err
-	}
-	return c.moduleBuildLocalAction(cCtx)
-}
-
-func (c *viamClient) moduleBuildLocalAction(cCtx *cli.Context) error {
 	manifestPath := cCtx.String(moduleFlagPath)
 	manifest, err := loadManifest(manifestPath)
 	if err != nil {
 		return err
 	}
+	return moduleBuildLocalAction(cCtx, &manifest)
+}
+
+func moduleBuildLocalAction(cCtx *cli.Context, manifest *moduleManifest) error {
 	if manifest.Build == nil || manifest.Build.Build == "" {
 		return errors.New("your meta.json cannot have an empty build step. See 'viam module build --help' for more information")
 	}
@@ -110,14 +106,14 @@ func (c *viamClient) moduleBuildLocalAction(cCtx *cli.Context) error {
 		infof(cCtx.App.Writer, "Starting setup step: %q", manifest.Build.Setup)
 		processConfig.Args = []string{"-c", manifest.Build.Setup}
 		proc := pexec.NewManagedProcess(processConfig, logger.AsZap())
-		if err = proc.Start(cCtx.Context); err != nil {
+		if err := proc.Start(cCtx.Context); err != nil {
 			return err
 		}
 	}
 	infof(cCtx.App.Writer, "Starting build step: %q", manifest.Build.Build)
 	processConfig.Args = []string{"-c", manifest.Build.Build}
 	proc := pexec.NewManagedProcess(processConfig, logger.AsZap())
-	if err = proc.Start(cCtx.Context); err != nil {
+	if err := proc.Start(cCtx.Context); err != nil {
 		return err
 	}
 	infof(cCtx.App.Writer, "Completed build")
@@ -416,7 +412,10 @@ func ReloadModuleAction(c *cli.Context) error {
 	}
 	needsRestart := true
 	if !c.Bool(moduleBuildRestartOnly) {
-		logging.Global().Warn("TODO BUILD FIRST")
+		if manifest == nil {
+			return fmt.Errorf(`manifest not found at "%s". manifest required for build`, moduleFlagPath)
+		}
+		moduleBuildLocalAction(c, manifest)
 		needsRestart, err = configureModule(vc, manifest, part.Part)
 		if err != nil {
 			return err
