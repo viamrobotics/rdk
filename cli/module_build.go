@@ -391,9 +391,6 @@ func jobStatusFromProto(s buildpb.JobStatus) jobStatus {
 
 // ReloadModuleAction builds a module, configures it on a robot, and starts or restarts it.
 func ReloadModuleAction(c *cli.Context) error {
-	if !c.Bool(moduleBuildRestartOnly) {
-		return fmt.Errorf("only %s mode is supported for now", moduleBuildRestartOnly)
-	}
 	partID, err := resolvePartID(c, "/etc/viam.json")
 	if err != nil {
 		return err
@@ -412,10 +409,12 @@ func ReloadModuleAction(c *cli.Context) error {
 	}
 	needsRestart := true
 	if !c.Bool(moduleBuildRestartOnly) {
-		if manifest == nil {
-			return fmt.Errorf(`manifest not found at "%s". manifest required for build`, moduleFlagPath)
+		if !c.Bool(moduleBuildFlagNoBuild) {
+			if manifest == nil {
+				return fmt.Errorf(`manifest not found at "%s". manifest required for build`, moduleFlagPath)
+			}
+			moduleBuildLocalAction(c, manifest)
 		}
-		moduleBuildLocalAction(c, manifest)
 		needsRestart, err = configureModule(vc, manifest, part.Part)
 		if err != nil {
 			return err
@@ -461,7 +460,8 @@ func resolveTargetModule(c *cli.Context, manifest *moduleManifest) (*robot.Resta
 	} else if len(modID) > 0 {
 		request.ModuleID = modID
 	} else if manifest != nil {
-		request.ModuleID = manifest.ModuleID
+		// TODO(RSDK-6712): remove localize call
+		request.ModuleName = localizeModuleID(manifest.ModuleID)
 	} else {
 		return nil, fmt.Errorf("if there is no meta.json, provide one of --%s or --%s", moduleFlagName, moduleBuildFlagBuildID)
 	}
