@@ -1,6 +1,7 @@
 BIN_OUTPUT_PATH = bin/$(shell uname -s)-$(shell uname -m)
 
-TOOL_BIN = bin/gotools/$(shell uname -s)-$(shell uname -m)
+# note: tools are linked to go version because our linter is not compatible across versions
+TOOL_BIN = bin/gotools/$(shell uname -s)-$(shell uname -m)-$(shell go env GOVERSION)
 
 NDK_ROOT ?= etc/android-ndk-r26
 BUILD_CHANNEL ?= local
