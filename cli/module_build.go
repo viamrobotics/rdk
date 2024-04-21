@@ -391,6 +391,10 @@ func jobStatusFromProto(s buildpb.JobStatus) jobStatus {
 
 // ReloadModuleAction builds a module, configures it on a robot, and starts or restarts it.
 func ReloadModuleAction(c *cli.Context) error {
+	if len(c.String(partFlag)) > 0 && !c.Bool(moduleBuildRestartOnly) {
+		// todo: remove this warning after remote reloading
+		warningf(c.App.Writer, "You have passed in a part ID -- if it's for a remote device and your module isn't in the expected path, this will fail")
+	}
 	partID, err := resolvePartID(c, "/etc/viam.json")
 	if err != nil {
 		return err
