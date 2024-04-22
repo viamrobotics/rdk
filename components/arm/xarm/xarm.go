@@ -23,22 +23,19 @@ import (
 // Config is used for converting config attributes.
 type Config struct {
 	Host         string  `json:"host"`
-	Port         int     `json:"port"`
-	Speed        float32 `json:"speed_degs_per_sec"`
-	Acceleration float32 `json:"acceleration_degs_per_sec_per_sec"`
+	Port         int     `json:"port,omitempty" jsonschema="default=502"`
+	Speed        float32 `json:"speed_degs_per_sec,omitempty" jsonschema=default=20"`
+	Acceleration float32 `json:"acceleration_degs_per_sec_per_sec,omitempty"`
 
 	parsedPort string
 }
 
 // Validate validates the config.
 func (cfg *Config) Validate(path string) ([]string, error) {
-	var deps []string
-	if cfg.Port == 0 {
-		cfg.parsedPort = defaultPort
-	} else {
-		cfg.parsedPort = fmt.Sprintf("%d", cfg.Port)
+	if cfg.Host == "" {
+		return nil, resource.NewConfigValidationFieldRequiredError(path, "host")
 	}
-	return deps, nil
+	return []string{}, nil
 }
 
 const (
@@ -153,10 +150,15 @@ func (x *xArm) Reconfigure(ctx context.Context, deps resource.Dependencies, conf
 		return fmt.Errorf("given speed %f cannot be negative", speed)
 	}
 
+	port := fmt.Sprintf("%d", newConf.Port)
+	if newConf.Port == 0 {
+		port = defaultPort
+	}
+
 	x.mu.Lock()
 	defer x.mu.Unlock()
 
-	newAddr := net.JoinHostPort(newConf.Host, newConf.parsedPort)
+	newAddr := net.JoinHostPort(newConf.Host, port)
 	if x.conn == nil || x.conn.RemoteAddr().String() != newAddr {
 		// Need a new or replacement connection
 		var d net.Dialer
