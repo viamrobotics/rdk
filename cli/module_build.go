@@ -468,7 +468,7 @@ func resolveTargetModule(c *cli.Context, manifest *moduleManifest) (*robot.Resta
 	} else if len(modID) > 0 {
 		request.ModuleID = modID
 	} else if manifest != nil {
-		// TODO(RSDK-6712): remove localize call
+		// TODO(APP-4019): remove localize call
 		request.ModuleName = localizeModuleID(manifest.ModuleID)
 	} else {
 		return nil, fmt.Errorf("if there is no meta.json, provide one of --%s or --%s", moduleFlagName, moduleBuildFlagBuildID)

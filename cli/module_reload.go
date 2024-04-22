@@ -55,7 +55,7 @@ func configureModule(vc *viamClient, manifest *moduleManifest, part *apppb.Robot
 }
 
 // localizeModuleID converts a module ID to its 'local mode' name.
-// TODO(RSDK-6712): remove this logic after registry modules can have local ExecPath.
+// TODO(APP-4019): remove this logic after registry modules can have local ExecPath.
 func localizeModuleID(moduleID string) string {
 	return "hr_" + strings.ReplaceAll(moduleID, ":", "_")
 }
