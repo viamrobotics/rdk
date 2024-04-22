@@ -64,6 +64,8 @@ func setup(
 				flags.Int(name, v, "")
 			case string:
 				flags.String(name, v, "")
+			case bool:
+				flags.Bool(name, v, "")
 			default:
 				// non-int and non-string flags not yet supported
 				continue
