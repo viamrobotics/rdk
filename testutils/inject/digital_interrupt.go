@@ -15,6 +15,7 @@ type DigitalInterrupt struct {
 	tickCap            []interface{}
 	AddCallbackFunc    func(c chan board.Tick)
 	RemoveCallbackFunc func(c chan board.Tick)
+	NameFunc           func() string
 }
 
 // Value calls the injected Value or the real version.
@@ -69,4 +70,12 @@ func (d *DigitalInterrupt) RemoveCallback(c chan board.Tick) {
 		return
 	}
 	d.RemoveCallbackFunc(c)
+}
+
+// Name calls the injected name or the real version.
+func (d *DigitalInterrupt) Name() string {
+	if d.NameFunc == nil {
+		return d.DigitalInterrupt.Name()
+	}
+	return d.NameFunc()
 }

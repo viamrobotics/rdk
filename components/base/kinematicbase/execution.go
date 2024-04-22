@@ -48,11 +48,11 @@ type arcStep struct {
 }
 
 func (step *arcStep) String() string {
-	return fmt.Sprintf("Step: lin velocity: %f, ang velocity: %f, duration: %f s, arcSegment %+v, arc start pose %s",
+	return fmt.Sprintf("Step: lin velocity: %f,\n\t ang velocity: %f,\n\t duration: %f s,\n\t arcSegment %s,\n\t arc start pose %v",
 		step.linVelMMps,
 		step.angVelDegps,
 		step.durationSeconds,
-		step.arcSegment,
+		step.arcSegment.String(),
 		spatialmath.PoseToProtobuf(step.arcSegment.StartPosition),
 	)
 }
@@ -360,14 +360,21 @@ func (ptgk *ptgBaseKinematics) courseCorrect(
 			ptgk.logger.Debug("successful course correction", solution.Solution)
 
 			correctiveArcSteps := []arcStep{}
+			actualPoseTracked := actualPose.Pose()
 			for i := 0; i < len(solution.Solution); i += 2 {
 				// We've got a course correction solution. Swap out the relevant arcsteps.
 				newArcSteps, err := ptgk.trajectoryArcSteps(
-					actualPose.Pose(),
+					actualPoseTracked,
 					[]referenceframe.Input{{float64(ptgk.courseCorrectionIdx)}, solution.Solution[i], {0}, solution.Solution[i+1]},
 				)
 				if err != nil {
 					return nil, err
+				}
+				for _, newArcStep := range newArcSteps {
+					actualPoseTracked = spatialmath.Compose(
+						actualPoseTracked,
+						spatialmath.PoseBetween(newArcStep.arcSegment.StartPosition, newArcStep.arcSegment.EndPosition),
+					)
 				}
 				correctiveArcSteps = append(correctiveArcSteps, newArcSteps...)
 			}
@@ -477,7 +484,6 @@ func (ptgk *ptgBaseKinematics) makeCourseCorrectionGoals(
 	for i := currStep; i < len(steps); i++ {
 		for len(steps[i].subTraj)-startingTrajPt > stepsRemainingThisGoal {
 			goalTrajPtIdx := startingTrajPt + stepsRemainingThisGoal
-
 			goalPose := spatialmath.PoseBetween(
 				currPose,
 				spatialmath.Compose(steps[i].arcSegment.StartPosition, steps[i].subTraj[goalTrajPtIdx].Pose),

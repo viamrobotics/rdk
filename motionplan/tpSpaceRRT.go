@@ -810,6 +810,9 @@ func (mp *tpSpaceRRTMotionPlanner) ptgSolutionAndMetric(ptg tpspace.PTGSolver,
 	if seedDist < dof[1].Max {
 		seed[1].Value = seedDist
 	}
+	if relPose.Point().X < 0 {
+		seed[0].Value *= -1
+	}
 
 	solutionChan := make(chan *ik.Solution, 1)
 	err := ptg.Solve(context.Background(), solutionChan, seed, targetFunc, 0)

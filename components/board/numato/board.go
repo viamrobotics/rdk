@@ -17,12 +17,12 @@ import (
 
 	goserial "github.com/jacobsa/go-serial/serial"
 	"go.uber.org/multierr"
-	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/board/v1"
 	"go.viam.com/utils"
 	"go.viam.com/utils/serial"
 
 	"go.viam.com/rdk/components/board"
+	"go.viam.com/rdk/components/board/pinwrappers"
 	"go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
@@ -103,7 +103,7 @@ type numatoBoard struct {
 	resource.Named
 	resource.AlwaysRebuild
 	pins    int
-	analogs map[string]board.AnalogReader
+	analogs map[string]*pinwrappers.AnalogSmoother
 
 	port   io.ReadWriteCloser
 	closed int32
@@ -231,14 +231,19 @@ func (b *numatoBoard) readThread() {
 
 // StreamTicks streams digital interrupt ticks.
 // The numato board does not have the systems hardware to implement a Tick counter.
-func (b *numatoBoard) StreamTicks(ctx context.Context, interrupts []string, ch chan board.Tick, extra map[string]interface{}) error {
+func (b *numatoBoard) StreamTicks(ctx context.Context, interrupts []board.DigitalInterrupt, ch chan board.Tick,
+	extra map[string]interface{},
+) error {
 	return grpc.UnimplementedError
 }
 
-// AnalogReaderByName returns an analog reader by name.
-func (b *numatoBoard) AnalogReaderByName(name string) (board.AnalogReader, bool) {
+// AnalogByName returns an analog pin by name.
+func (b *numatoBoard) AnalogByName(name string) (board.Analog, error) {
 	ar, ok := b.analogs[name]
-	return ar, ok
+	if !ok {
+		return nil, fmt.Errorf("can't find AnalogReader (%s)", name)
+	}
+	return ar, nil
 }
 
 // DigitalInterruptByName returns a digital interrupt by name.
@@ -246,8 +251,8 @@ func (b *numatoBoard) DigitalInterruptByName(name string) (board.DigitalInterrup
 	return nil, false
 }
 
-// AnalogReaderNames returns the names of all known analog readers.
-func (b *numatoBoard) AnalogReaderNames() []string {
+// AnalogNames returns the names of all known analog pins.
+func (b *numatoBoard) AnalogNames() []string {
 	names := []string{}
 	for n := range b.analogs {
 		names = append(names, n)
@@ -312,13 +317,6 @@ func (gp *gpioPin) SetPWMFreq(ctx context.Context, freqHz uint, extra map[string
 	return errors.New("numato doesn't support pwm")
 }
 
-// Status returns the current status of the board. Usually you
-// should use the CreateStatus helper instead of directly calling
-// this.
-func (b *numatoBoard) Status(ctx context.Context, extra map[string]interface{}) (*commonpb.BoardStatus, error) {
-	return board.CreateStatus(ctx, b, extra)
-}
-
 func (b *numatoBoard) SetPowerMode(ctx context.Context, mode pb.PowerMode, duration *time.Duration) error {
 	return grpc.UnimplementedError
 }
@@ -354,21 +352,21 @@ func (b *numatoBoard) Close(ctx context.Context) error {
 	return nil
 }
 
-type analogReader struct {
+type analog struct {
 	b   *numatoBoard
 	pin string
 }
 
-func (ar *analogReader) Read(ctx context.Context, extra map[string]interface{}) (int, error) {
-	res, err := ar.b.doSendReceive(ctx, fmt.Sprintf("adc read %s", ar.pin))
+func (a *analog) Read(ctx context.Context, extra map[string]interface{}) (int, error) {
+	res, err := a.b.doSendReceive(ctx, fmt.Sprintf("adc read %s", a.pin))
 	if err != nil {
 		return 0, err
 	}
 	return strconv.Atoi(res)
 }
 
-func (ar *analogReader) Close(ctx context.Context) error {
-	return nil
+func (a *analog) Write(ctx context.Context, value int, extra map[string]interface{}) error {
+	return grpc.UnimplementedError
 }
 
 func connect(ctx context.Context, name resource.Name, conf *Config, logger logging.Logger) (board.Board, error) {
@@ -403,10 +401,10 @@ func connect(ctx context.Context, name resource.Name, conf *Config, logger loggi
 		logger: logger,
 	}
 
-	b.analogs = map[string]board.AnalogReader{}
+	b.analogs = map[string]*pinwrappers.AnalogSmoother{}
 	for _, c := range conf.Analogs {
-		r := &analogReader{b, c.Pin}
-		b.analogs[c.Name] = board.SmoothAnalogReader(r, c, logger)
+		r := &analog{b, c.Pin}
+		b.analogs[c.Name] = pinwrappers.SmoothAnalogReader(r, c, logger)
 	}
 
 	b.lines = make(chan string)

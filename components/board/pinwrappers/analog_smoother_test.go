@@ -1,4 +1,4 @@
-package board
+package pinwrappers
 
 import (
 	"context"
@@ -10,10 +10,12 @@ import (
 	"go.viam.com/test"
 	"go.viam.com/utils/testutils"
 
+	"go.viam.com/rdk/components/board"
+	"go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
 )
 
-type testReader struct {
+type testAnalog struct {
 	mu   sync.Mutex
 	r    *rand.Rand
 	n    int64
@@ -21,7 +23,7 @@ type testReader struct {
 	stop bool
 }
 
-func (t *testReader) Read(ctx context.Context, extra map[string]interface{}) (int, error) {
+func (t *testAnalog) Read(ctx context.Context, extra map[string]interface{}) (int, error) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	if t.stop || t.n >= t.lim {
@@ -31,12 +33,16 @@ func (t *testReader) Read(ctx context.Context, extra map[string]interface{}) (in
 	return t.r.Intn(100), nil
 }
 
-func (t *testReader) Close(ctx context.Context) error {
+func (t *testAnalog) Write(ctx context.Context, value int, extra map[string]interface{}) error {
+	return grpc.UnimplementedError
+}
+
+func (t *testAnalog) Close(ctx context.Context) error {
 	return nil
 }
 
 func TestAnalogSmoother1(t *testing.T) {
-	testReader := testReader{
+	testReader := testAnalog{
 		r:   rand.New(rand.NewSource(11)),
 		lim: 200,
 	}
@@ -47,7 +53,7 @@ func TestAnalogSmoother1(t *testing.T) {
 	}()
 
 	logger := logging.NewTestLogger(t)
-	as := SmoothAnalogReader(&testReader, AnalogReaderConfig{
+	as := SmoothAnalogReader(&testReader, board.AnalogReaderConfig{
 		AverageOverMillis: 10,
 		SamplesPerSecond:  10000,
 	}, logger)

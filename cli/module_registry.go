@@ -18,6 +18,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/urfave/cli/v2"
 	"go.uber.org/multierr"
+	packagespb "go.viam.com/api/app/packages/v1"
 	apppb "go.viam.com/api/app/v1"
 	vutils "go.viam.com/utils"
 
@@ -392,7 +393,7 @@ func (c *viamClient) uploadModuleFile(
 	var errs error
 	// We do not add the EOF as an error because all server-side errors trigger an EOF on the stream
 	// This results in extra clutter to the error msg
-	if err := sendModuleUploadRequests(ctx, stream, file, c.c.App.Writer); err != nil && !errors.Is(err, io.EOF) {
+	if err := sendUploadRequests(ctx, stream, nil, file, c.c.App.Writer); err != nil && !errors.Is(err, io.EOF) {
 		errs = multierr.Combine(errs, errors.Wrapf(err, "could not upload %s", file.Name()))
 	}
 
@@ -617,6 +618,19 @@ func loadManifest(manifestPath string) (moduleManifest, error) {
 	return manifest, nil
 }
 
+// loadManifestOrNil doesn't throw error on missing.
+func loadManifestOrNil(path string) (*moduleManifest, error) {
+	manifest, err := loadManifest(path)
+	if err == nil {
+		return &manifest, nil
+	}
+	if os.IsNotExist(err) {
+		//nolint:nilnil
+		return nil, nil
+	}
+	return nil, err
+}
+
 func writeManifest(manifestPath string, manifest moduleManifest) error {
 	manifestBytes, err := json.MarshalIndent(manifest, "", "  ")
 	if err != nil {
@@ -732,7 +746,12 @@ func sameModels(a, b []ModuleComponent) bool {
 	return true
 }
 
-func sendModuleUploadRequests(ctx context.Context, stream apppb.AppService_UploadModuleFileClient, file *os.File, stdout io.Writer) error {
+func sendUploadRequests(ctx context.Context, moduleStream apppb.AppService_UploadModuleFileClient,
+	pkgStream packagespb.PackageService_CreatePackageClient, file *os.File, stdout io.Writer,
+) error {
+	if moduleStream != nil && pkgStream != nil {
+		return errors.New("can use either module or package client, not both")
+	}
 	stat, err := file.Stat()
 	if err != nil {
 		return err
@@ -742,15 +761,26 @@ func sendModuleUploadRequests(ctx context.Context, stream apppb.AppService_Uploa
 	// Close the line with the progress reading
 	defer printf(stdout, "")
 
-	//nolint:errcheck
-	defer stream.CloseSend()
+	if moduleStream != nil {
+		defer vutils.UncheckedErrorFunc(moduleStream.CloseSend)
+	}
+	if pkgStream != nil {
+		defer vutils.UncheckedErrorFunc(pkgStream.CloseSend)
+	}
 	// Loop until there is no more content to be read from file or the context expires.
 	for {
 		if ctx.Err() != nil {
 			return ctx.Err()
 		}
 		// Get the next UploadRequest from the file.
-		uploadReq, err := getNextModuleUploadRequest(file)
+		var moduleUploadReq *apppb.UploadModuleFileRequest
+		if moduleStream != nil {
+			moduleUploadReq, err = getNextModuleUploadRequest(file)
+		}
+		var pkgUploadReq *packagespb.CreatePackageRequest
+		if pkgStream != nil {
+			pkgUploadReq, err = getNextPackageUploadRequest(file)
+		}
 
 		// EOF means we've completed successfully.
 		if errors.Is(err, io.EOF) {
@@ -761,10 +791,19 @@ func sendModuleUploadRequests(ctx context.Context, stream apppb.AppService_Uploa
 			return errors.Wrap(err, "could not read file")
 		}
 
-		if err = stream.Send(uploadReq); err != nil {
-			return err
+		if moduleUploadReq != nil {
+			if err = moduleStream.Send(moduleUploadReq); err != nil {
+				return err
+			}
+			uploadedBytes += len(moduleUploadReq.GetFile())
 		}
-		uploadedBytes += len(uploadReq.GetFile())
+		if pkgUploadReq != nil {
+			if err = pkgStream.Send(pkgUploadReq); err != nil {
+				return err
+			}
+			uploadedBytes += len(pkgUploadReq.GetContents())
+		}
+
 		// Simple progress reading until we have a proper tui library
 		uploadPercent := int(math.Ceil(100 * float64(uploadedBytes) / float64(fileSize)))
 		fmt.Fprintf(stdout, "\rUploading... %d%% (%d/%d bytes)", uploadPercent, uploadedBytes, fileSize) // no newline

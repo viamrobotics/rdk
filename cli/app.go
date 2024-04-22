@@ -33,7 +33,7 @@ const (
 	loginFlagKeyID          = "key-id"
 	loginFlagKey            = "key"
 
-	// Flags shared by api-key, module and data subcommands.
+	// Flags shared by api-key, module, ml-training and data subcommands.
 	generalFlagOrgID        = "org-id"
 	generalFlagLocationID   = "location-id"
 	generalFlagMachineID    = "machine-id"
@@ -49,13 +49,22 @@ const (
 	moduleFlagForce           = "force"
 	moduleFlagBinary          = "binary"
 
-	moduleBuildFlagPath     = "module"
-	moduleBuildFlagRef      = "ref"
-	moduleBuildFlagCount    = "count"
-	moduleBuildFlagVersion  = "version"
-	moduleBuildFlagBuildID  = "id"
-	moduleBuildFlagPlatform = "platform"
-	moduleBuildFlagWait     = "wait"
+	moduleBuildFlagPath      = "module"
+	moduleBuildFlagRef       = "ref"
+	moduleBuildFlagCount     = "count"
+	moduleBuildFlagVersion   = "version"
+	moduleBuildFlagBuildID   = "id"
+	moduleBuildFlagPlatform  = "platform"
+	moduleBuildFlagWait      = "wait"
+	moduleBuildFlagGroupLogs = "group-logs"
+	moduleBuildRestartOnly   = "restart-only"
+
+	mlTrainingFlagPath      = "path"
+	mlTrainingFlagName      = "name"
+	mlTrainingFlagVersion   = "version"
+	mlTrainingFlagFramework = "framework"
+	mlTrainingFlagType      = "type"
+	mlTrainingFlagDraft     = "draft"
 
 	dataFlagDestination                    = "destination"
 	dataFlagDataType                       = "data-type"
@@ -77,6 +86,11 @@ const (
 	dataFlagDeleteTabularDataOlderThanDays = "delete-older-than-days"
 	dataFlagDatabasePassword               = "password"
 	dataFlagFilterTags                     = "filter-tags"
+
+	packageFlagName        = "name"
+	packageFlagVersion     = "version"
+	packageFlagType        = "type"
+	packageFlagDestination = "destination"
 )
 
 var commonFilterFlags = []cli.Flag{
@@ -1361,10 +1375,137 @@ Example:
 									Name:  moduleBuildFlagWait,
 									Usage: "wait for the build to finish before outputting any logs",
 								},
+								&cli.BoolFlag{
+									Name:  moduleBuildFlagGroupLogs,
+									Usage: "write ::group:: commands so github action logs collapse",
+								},
 							},
 							Action: ModuleBuildLogsAction,
 						},
 					},
+				},
+				{
+					Name:      "reload",
+					Usage:     "build a module locally and run it on a target device. rebuild & restart if already running",
+					UsageText: createUsageText("module reload", []string{}, true),
+					Flags: []cli.Flag{
+						&cli.StringFlag{
+							Name:  partFlag,
+							Usage: "part ID of machine. get from 'Live/Offline' dropdown in the web app, or leave it blank to use /etc/viam.json",
+						},
+						&cli.StringFlag{
+							Name:  moduleFlagPath,
+							Usage: "path to a meta.json. used for module ID. can be overridden with --module-id or --name",
+							Value: "meta.json",
+						},
+						&cli.StringFlag{
+							Name:  moduleFlagName,
+							Usage: "name of module to restart. pass at most one of --name, --module-id",
+						},
+						&cli.StringFlag{
+							Name:  moduleBuildFlagBuildID,
+							Usage: "ID of module to restart, for example viam:wifi-sensor",
+						},
+						&cli.BoolFlag{
+							Name:  moduleBuildRestartOnly,
+							Usage: "just restart the module on the target system, don't do other reload steps",
+						},
+					},
+					Action: ReloadModuleAction,
+				},
+			},
+		},
+		{
+			Name:            "packages",
+			Usage:           "work with packages",
+			HideHelpCommand: true,
+			Subcommands: []*cli.Command{
+				{
+					Name:  "export",
+					Usage: "download a package from Viam cloud",
+					UsageText: createUsageText("packages export",
+						[]string{
+							packageFlagDestination, generalFlagOrgID, packageFlagName,
+							packageFlagVersion, packageFlagType,
+						}, false),
+					Flags: []cli.Flag{
+						&cli.PathFlag{
+							Name:     packageFlagDestination,
+							Required: true,
+							Usage:    "output directory for downloaded package",
+						},
+						&cli.StringFlag{
+							Name:     generalFlagOrgID,
+							Required: true,
+							Usage:    "organization ID of the requested package",
+						},
+						&cli.StringFlag{
+							Name:     packageFlagName,
+							Required: true,
+							Usage:    "name of the requested package",
+						},
+						&cli.StringFlag{
+							Name:     packageFlagVersion,
+							Required: true,
+							Usage:    "version of the requested package, can be `latest` to get the most recent version",
+						},
+						&cli.StringFlag{
+							Name:     packageFlagType,
+							Required: true,
+							Usage:    "type of the requested package, can be: " + strings.Join(packageTypes, ", "),
+						},
+					},
+					Action: PackageExportAction,
+				},
+			},
+		},
+		{
+			Name:  "training-script",
+			Usage: "manage training scripts for custom ML training",
+			Subcommands: []*cli.Command{
+				{
+					Name:      "upload",
+					Usage:     "upload ML training scripts for custom ML training",
+					UsageText: createUsageText("training-script upload", []string{mlTrainingFlagPath, mlTrainingFlagName}, true),
+					Flags: []cli.Flag{
+						&cli.StringFlag{
+							Name:     mlTrainingFlagPath,
+							Usage:    "path to ML training scripts for upload",
+							Required: true,
+						},
+						&cli.StringFlag{
+							Name:     generalFlagOrgID,
+							Required: true,
+							Usage:    "organization ID that will host the scripts",
+						},
+						&cli.StringFlag{
+							Name:     mlTrainingFlagName,
+							Usage:    "name of the ML training script to upload",
+							Required: true,
+						},
+						&cli.StringFlag{
+							Name:     mlTrainingFlagVersion,
+							Usage:    "version of the ML training script to upload",
+							Required: false,
+						},
+						&cli.StringFlag{
+							Name:     mlTrainingFlagFramework,
+							Usage:    "framework of the ML training script to upload, can be: " + strings.Join(modelFrameworks, ", "),
+							Required: false,
+						},
+						&cli.StringFlag{
+							Name:     mlTrainingFlagType,
+							Usage:    "task type of the ML training script to upload, can be: " + strings.Join(modelTypes, ", "),
+							Required: false,
+						},
+						&cli.BoolFlag{
+							Name:     mlTrainingFlagDraft,
+							Usage:    "indicate draft mode, drafts will not be viewable in the registry",
+							Required: false,
+						},
+					},
+					// Upload action
+					Action: MLTrainingUploadAction,
 				},
 			},
 		},

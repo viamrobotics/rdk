@@ -255,9 +255,8 @@ func (c *client) connectStream(ctx context.Context) {
 			c.logger.CError(ctx, err)
 			if utils.SelectContextOrWait(ctx, 3*time.Second) {
 				continue
-			} else {
-				return
 			}
+			return
 		}
 
 		c.mu.RLock()
@@ -292,9 +291,8 @@ func (c *client) connectStream(ctx context.Context) {
 				if utils.SelectContextOrWait(ctx, 3*time.Second) {
 					c.logger.CError(ctx, err)
 					break
-				} else {
-					return
 				}
+				return
 			}
 			if err != nil {
 				c.logger.CError(ctx, err)

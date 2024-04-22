@@ -466,8 +466,24 @@ func (s *Server) GetCloudMetadata(ctx context.Context, _ *pb.GetCloudMetadataReq
 		return nil, err
 	}
 	return &pb.GetCloudMetadataResponse{
-		RobotPartId:  md.RobotPartID,
-		LocationId:   md.LocationID,
-		PrimaryOrgId: md.PrimaryOrgID,
+		// TODO: RSDK-7181 remove RobotPartId
+		RobotPartId:   md.MachinePartID, // Deprecated: Duplicates MachinePartId
+		PrimaryOrgId:  md.PrimaryOrgID,
+		LocationId:    md.LocationID,
+		MachineId:     md.MachineID,
+		MachinePartId: md.MachinePartID,
 	}, nil
+}
+
+// RestartModule restarts a module by name or ID.
+func (s *Server) RestartModule(ctx context.Context, req *pb.RestartModuleRequest) (*pb.RestartModuleResponse, error) {
+	goReq := robot.RestartModuleRequest{
+		ModuleID:   req.GetModuleId(),
+		ModuleName: req.GetModuleName(),
+	}
+	err := s.robot.RestartModule(ctx, goReq)
+	if err != nil {
+		return nil, err
+	}
+	return &pb.RestartModuleResponse{}, nil
 }

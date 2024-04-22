@@ -228,11 +228,12 @@ func urArmConnect(ctx context.Context, conf resource.Config, logger logging.Logg
 						newArm.isConnected = true
 						newArm.mu.Unlock()
 						break
-					} else {
-						newArm.mu.Lock()
-						newArm.isConnected = false
-						newArm.mu.Unlock()
 					}
+
+					newArm.mu.Lock()
+					newArm.isConnected = false
+					newArm.mu.Unlock()
+
 					if !goutils.SelectContextOrWait(cancelCtx, 1*time.Second) {
 						return
 					}

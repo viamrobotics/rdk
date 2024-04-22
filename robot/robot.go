@@ -12,9 +12,9 @@ import (
 	"github.com/pkg/errors"
 	"go.viam.com/utils/pexec"
 
+	"go.viam.com/rdk/cloud"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/grpc"
-	"go.viam.com/rdk/internal/cloud"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/pointcloud"
@@ -89,6 +89,9 @@ type Robot interface {
 
 	// StopAll cancels all current and outstanding operations for the robot and stops all actuators and movement
 	StopAll(ctx context.Context, extra map[resource.Name]map[string]interface{}) error
+
+	// RestartModule reloads a module as if its config changed
+	RestartModule(ctx context.Context, req RestartModuleRequest) error
 }
 
 // A LocalRobot is a Robot that can have its parts modified.
@@ -138,6 +141,12 @@ type Status struct {
 	Name             resource.Name
 	LastReconfigured time.Time
 	Status           interface{}
+}
+
+// RestartModuleRequest is a go mirror of a proto message.
+type RestartModuleRequest struct {
+	ModuleID   string
+	ModuleName string
 }
 
 // AllResourcesByName returns an array of all resources that have this short name.
@@ -238,4 +247,12 @@ func ResourceFromRobot[T resource.Resource](robot Robot, name resource.Name) (T,
 		return zero, resource.TypeError[T](res)
 	}
 	return part, nil
+}
+
+// MatchesModule returns true if the passed-in module matches its name / ID.
+func (rmr *RestartModuleRequest) MatchesModule(mod config.Module) bool {
+	if len(rmr.ModuleID) > 0 {
+		return mod.ModuleID == rmr.ModuleID
+	}
+	return mod.Name == rmr.ModuleName
 }

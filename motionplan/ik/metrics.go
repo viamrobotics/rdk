@@ -1,6 +1,7 @@
 package ik
 
 import (
+	"fmt"
 	"math"
 
 	"go.viam.com/rdk/referenceframe"
@@ -19,6 +20,16 @@ type Segment struct {
 	StartConfiguration []referenceframe.Input
 	EndConfiguration   []referenceframe.Input
 	Frame              referenceframe.Frame
+}
+
+func (s *Segment) String() string {
+	return fmt.Sprintf("Segment: StartPosition: %v,\n\t EndPosition: %v,\n\t StartConfiguration:%v,\n\t EndConfiguration:%v,\n\t Frame: %v",
+		spatial.PoseToProtobuf(s.StartPosition),
+		spatial.PoseToProtobuf(s.EndPosition),
+		s.StartConfiguration,
+		s.EndConfiguration,
+		s.Frame,
+	)
 }
 
 // State contains all the information a constraint needs to determine validity for a movement.

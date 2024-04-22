@@ -130,7 +130,7 @@ func TestNewWatcherFile(t *testing.T) {
 		defer func() {
 			test.That(t, f.Close(), test.ShouldBeNil)
 		}()
-		_, err = f.Write([]byte("blahblah"))
+		_, err = f.WriteString("blahblah")
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, f.Sync(), test.ShouldBeNil)
 	}()
@@ -229,6 +229,7 @@ func TestNewWatcherCloud(t *testing.T) {
 			LocationSecrets: []config.LocationSecret{{ID: "1", Secret: "secret"}},
 			PrimaryOrgID:    "the-primary-org",
 			LocationID:      "the-location",
+			MachineID:       "the-machine",
 		}
 	}
 

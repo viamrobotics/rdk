@@ -213,7 +213,7 @@ func (m *uln28byj) doStep(ctx context.Context, forward bool) error {
 		m.stepPosition--
 	}
 
-	nextStepSequence := 0
+	var nextStepSequence int
 	if m.stepPosition < 0 {
 		nextStepSequence = 7 + int(m.stepPosition%8)
 	} else {

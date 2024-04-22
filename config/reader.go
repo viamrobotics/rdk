@@ -294,6 +294,7 @@ func readFromCloud(
 	locationSecrets := cfg.Cloud.LocationSecrets
 	primaryOrgID := cfg.Cloud.PrimaryOrgID
 	locationID := cfg.Cloud.LocationID
+	machineID := cfg.Cloud.MachineID
 
 	mergeCloudConfig := func(to *Config) {
 		*to.Cloud = *cloudCfg
@@ -308,6 +309,7 @@ func readFromCloud(
 		to.Cloud.TLSPrivateKey = tls.privateKey
 		to.Cloud.PrimaryOrgID = primaryOrgID
 		to.Cloud.LocationID = locationID
+		to.Cloud.MachineID = machineID
 	}
 
 	mergeCloudConfig(cfg)

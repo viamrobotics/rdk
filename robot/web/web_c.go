@@ -5,24 +5,22 @@ package web
 import (
 	"bytes"
 	"context"
-	"fmt"
 	"math"
 	"net/http"
 	"runtime"
-	"strconv"
-	"strings"
+	"slices"
 	"sync"
 	"time"
 
-	"github.com/goccy/go-graphviz"
+	"github.com/pion/rtp"
 	"github.com/pkg/errors"
 	streampb "go.viam.com/api/stream/v1"
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
-	"golang.org/x/exp/slices"
 
 	"go.viam.com/rdk/components/audioinput"
 	"go.viam.com/rdk/components/camera"
+	"go.viam.com/rdk/components/camera/rtppassthrough"
 	"go.viam.com/rdk/gostream"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
@@ -31,6 +29,14 @@ import (
 	webstream "go.viam.com/rdk/robot/web/stream"
 	rutils "go.viam.com/rdk/utils"
 )
+
+var (
+	subscribeRTPTimeout            = time.Second
+	unsubscribeTimeout             = time.Second
+	errH264PassthroughNotSupported = errors.New("h264PassthroughNotSupported")
+)
+
+const rtpBufferSize int = 512
 
 // StreamServer manages streams and displays.
 type StreamServer struct {
@@ -259,16 +265,127 @@ func (svc *webService) propertiesFromStream(ctx context.Context, stream gostream
 	return cam.Properties(ctx)
 }
 
-func (svc *webService) startVideoStream(ctx context.Context, source gostream.VideoSource, stream gostream.Stream) {
-	svc.startStream(func(opts *webstream.BackoffTuningOptions) error {
+func (svc *webService) startVideoStream(
+	ctx context.Context,
+	source gostream.VideoSource,
+	stream gostream.Stream,
+) {
+	svc.webWorkers.Add(1)
+	utils.ManagedGo(func() {
 		streamVideoCtx, _ := utils.MergeContext(svc.cancelCtx, ctx)
+
+		// Try to use h264 passthrough until it is found that the stream doesn't support it
+		// then fall back to the GetImage code path
+		for {
+			if err := svc.streamH264Passthrough(streamVideoCtx, stream, svc.logger); err != nil {
+				if errors.Is(err, errH264PassthroughNotSupported) {
+					break
+				}
+
+				if utils.FilterOutError(err, context.Canceled) != nil {
+					svc.logger.CErrorw(streamVideoCtx, "streamH264Passthrough ", "name", stream.Name(), "err", err)
+					return
+				}
+				return
+			}
+		}
+
 		// Use H264 for cameras that support it; but do not override upstream values.
 		if props, err := svc.propertiesFromStream(ctx, stream); err == nil && slices.Contains(props.MimeTypes, rutils.MimeTypeH264) {
 			streamVideoCtx = gostream.WithMIMETypeHint(streamVideoCtx, rutils.WithLazyMIMEType(rutils.MimeTypeH264))
 		}
 
-		return webstream.StreamVideoSource(streamVideoCtx, source, stream, opts, svc.logger)
-	})
+		opts := &webstream.BackoffTuningOptions{
+			BaseSleep: 50 * time.Microsecond,
+			MaxSleep:  2 * time.Second,
+			Cooldown:  5 * time.Second,
+		}
+		err := webstream.StreamVideoSource(streamVideoCtx, source, stream, opts, svc.logger)
+		if utils.FilterOutError(err, context.Canceled) != nil {
+			svc.logger.CErrorw(streamVideoCtx, "error streaming", "error", err, "name", stream.Name())
+		}
+	}, svc.webWorkers.Done)
+}
+
+func (svc *webService) videoCodecStreamSource(stream gostream.Stream) (rtppassthrough.Source, error) {
+	res, err := svc.r.ResourceByName(camera.Named(stream.Name()))
+	if err != nil {
+		return nil, err
+	}
+	rtpPassthroughSource, ok := res.(rtppassthrough.Source)
+	if !ok {
+		return nil, errors.Errorf("expected %s to implement rtppassthrough.Source", stream.Name())
+	}
+
+	return rtpPassthroughSource, nil
+}
+
+func subscribeRTP(
+	ctx context.Context,
+	stream gostream.Stream,
+	h264Stream rtppassthrough.Source,
+	packetCallback rtppassthrough.PacketCallback,
+	logger logging.Logger,
+) (context.CancelFunc, error) {
+	timeoutCtx, timeoutCancel := context.WithTimeout(ctx, subscribeRTPTimeout)
+	defer timeoutCancel()
+	subID, err := h264Stream.SubscribeRTP(timeoutCtx, rtpBufferSize, packetCallback)
+	if err != nil {
+		logger.CDebugw(ctx, "SubscribeRTP", "name", stream.Name(), "err", err)
+		return nil, err
+	}
+
+	return func() {
+		// NOTE: This needs to be a timeout that is separate from ctx or we won't
+		// unsubscribe if the reason why we are tring to unsubcribe is b/c the ctx
+		// is cancelled
+		timeoutCtx, timeoutCancel := context.WithTimeout(context.Background(), unsubscribeTimeout)
+		defer timeoutCancel()
+		logger.CInfow(ctx, "Calling Unsubscribe", "name", stream.Name(), "subID", subID.String())
+		if err := h264Stream.Unsubscribe(timeoutCtx, subID); err != nil {
+			logger.CInfow(ctx, "Unsubscribe", "name", stream.Name(), "err", err)
+		}
+	}, nil
+}
+
+func (svc *webService) streamH264Passthrough(
+	ctx context.Context,
+	stream gostream.Stream,
+	logger logging.Logger,
+) error {
+	readyCh, readyCtx := stream.StreamingReady()
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-readyCh:
+	}
+
+	h264Stream, err := svc.videoCodecStreamSource(stream)
+	if err != nil {
+		return errors.Wrap(errH264PassthroughNotSupported, err.Error())
+	}
+
+	cb := func(pkts []*rtp.Packet) error {
+		for _, pkt := range pkts {
+			if err := stream.WriteRTP(pkt); err != nil {
+				logger.CWarnw(ctx, "stream.WriteRTP", "name", stream.Name(), "err", err)
+			}
+		}
+		return nil
+	}
+	cancel, err := subscribeRTP(ctx, stream, h264Stream, cb, logger)
+	if err != nil {
+		return errors.Wrap(errH264PassthroughNotSupported, err.Error())
+	}
+	defer cancel()
+	logger.CWarnw(ctx, "Stream using experimental H264 passthrough", "name", stream.Name())
+
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-readyCtx.Done():
+		return nil
+	}
 }
 
 func (svc *webService) startAudioStream(ctx context.Context, source gostream.AudioSource, stream gostream.Stream) {
@@ -353,120 +470,6 @@ func (svc *webService) initStreamServer(ctx context.Context, options *weboptions
 		options.WebRTC = true
 	}
 	return nil
-}
-
-func (svc *webService) handleVisualizeResourceGraph(w http.ResponseWriter, r *http.Request) {
-	localRobot, isLocal := svc.r.(robot.LocalRobot)
-	if !isLocal {
-		return
-	}
-	const lookupParam = "history"
-	redirectToLatestSnapshot := func() {
-		url := *r.URL
-		q := r.URL.Query()
-		q.Del(lookupParam)
-		url.RawQuery = q.Encode()
-
-		http.Redirect(w, r, url.String(), http.StatusSeeOther)
-	}
-
-	lookupRawValue := strings.TrimSpace(r.URL.Query().Get(lookupParam))
-	var (
-		lookup int
-		err    error
-	)
-	switch {
-	case lookupRawValue == "":
-		lookup = 0
-	case lookupRawValue == "0":
-		redirectToLatestSnapshot()
-		return
-	default:
-		lookup, err = strconv.Atoi(lookupRawValue)
-		if err != nil {
-			redirectToLatestSnapshot()
-			return
-		}
-	}
-
-	snapshot, err := localRobot.ExportResourcesAsDot(lookup)
-	if snapshot.Count == 0 {
-		return
-	}
-	if err != nil {
-		redirectToLatestSnapshot()
-		return
-	}
-
-	write := func(s string) {
-		//nolint:errcheck
-		_, _ = w.Write([]byte(s))
-	}
-
-	layout := r.URL.Query().Get("layout")
-	if layout == "text" {
-		write(snapshot.Snapshot.Dot)
-		return
-	}
-
-	gv := graphviz.New()
-	defer func() {
-		closeErr := gv.Close()
-		if closeErr != nil {
-			svc.r.Logger().Warn("failed to close graph visualizer")
-		}
-	}()
-
-	graph, err := graphviz.ParseBytes([]byte(snapshot.Snapshot.Dot))
-	if err != nil {
-		return
-	}
-	if layout != "" {
-		gv.SetLayout(graphviz.Layout(layout))
-	}
-
-	navButton := func(index int, label string) {
-		url := *r.URL
-		q := r.URL.Query()
-		q.Set(lookupParam, strconv.Itoa(index))
-		url.RawQuery = q.Encode()
-		var html string
-		if index < 0 || index >= snapshot.Count || index == lookup {
-			html = fmt.Sprintf(`<a>%s</a>`, label)
-		} else {
-			html = fmt.Sprintf(`<a href=%q>%s</a>`, url.String(), label)
-		}
-		write(html)
-	}
-
-	// Navigation buttons
-	write(`<html><div>`)
-	navButton(0, "Latest")
-	write(`|`)
-	navButton(snapshot.Index-1, "Later")
-	// Index counts from 0, but we want to show pages starting from 1
-	write(fmt.Sprintf(`| %d / %d |`, snapshot.Index+1, snapshot.Count))
-	navButton(snapshot.Index+1, "Earlier")
-	write(`|`)
-	navButton(snapshot.Count-1, "Earliest")
-	write(`</div>`)
-
-	// Snapshot capture timestamp
-	write(fmt.Sprintf("<p>%s</p>", snapshot.Snapshot.CreatedAt.Format(time.UnixDate)))
-
-	// HACK: We create a custom writer that removes the first 6 lines of XML written by
-	// `gv.Render` - we exclude these lines of XML since they prevent us from adding HTML
-	// elements to the rendered HTML. We depend on `gv.Render` calling fxml.Write exactly
-	// one time.
-	//
-	// TODO(RSDK-6797): Parse the html text returned by `gv.Render` using an HTML parser
-	// (https://pkg.go.dev/golang.org/x/net/html or equivalent) and remove the nodes that
-	// prevent us from adding additional HTML.
-	fxml := &filterXML{w: w}
-	if err = gv.Render(graph, graphviz.SVG, fxml); err != nil {
-		return
-	}
-	write(`</html>`)
 }
 
 type filterXML struct {
