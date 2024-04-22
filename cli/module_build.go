@@ -417,7 +417,10 @@ func ReloadModuleAction(c *cli.Context) error {
 			if manifest == nil {
 				return fmt.Errorf(`manifest not found at "%s". manifest required for build`, moduleFlagPath)
 			}
-			moduleBuildLocalAction(c, manifest)
+			err = moduleBuildLocalAction(c, manifest)
+			if err != nil {
+				return err
+			}
 		}
 		needsRestart, err = configureModule(vc, manifest, part.Part)
 		if err != nil {

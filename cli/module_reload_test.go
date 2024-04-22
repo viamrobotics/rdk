@@ -2,6 +2,8 @@ package cli
 
 import (
 	"context"
+	"os"
+	"path/filepath"
 	"testing"
 
 	v1 "go.viam.com/api/app/build/v1"
@@ -77,4 +79,41 @@ func TestFullReloadFlow(t *testing.T) {
 	// test.That(t, err, test.ShouldBeNil)
 	// err = ReloadModuleAction(cCtx)
 	// test.That(t, err, test.ShouldBeNil)
+}
+
+func TestRestartModule(t *testing.T) {
+	t.Skip("todo: pass in fake client")
+}
+
+func TestResolvePartId(t *testing.T) {
+	c := newTestContext(t, map[string]any{})
+	// empty flag, no path
+	partId, err := resolvePartID(c, "")
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, partId, test.ShouldBeEmpty)
+
+	// empty flag, fake path
+	missingPath := filepath.Join(t.TempDir(), "MISSING.json")
+	_, err = resolvePartID(c, missingPath)
+	test.That(t, err, test.ShouldNotBeNil)
+
+	// empty flag, valid path
+	path := filepath.Join(t.TempDir(), "viam.json")
+	fi, err := os.Create(path)
+	test.That(t, err, test.ShouldBeNil)
+	_, err = fi.WriteString(`{"cloud":{"app_address":"https://app.viam.com:443","id":"JSON-PART","secret":"SECRET"}}`)
+	test.That(t, err, test.ShouldBeNil)
+	partId, err = resolvePartID(c, path)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, partId, test.ShouldEqual, "JSON-PART")
+
+	// given flag, valid path
+	c = newTestContext(t, map[string]any{partFlag: "FLAG-PART"})
+	partId, err = resolvePartID(c, path)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, partId, test.ShouldEqual, "FLAG-PART")
+}
+
+func TestMutateModuleConfig(t *testing.T) {
+	t.Error("todo")
 }
