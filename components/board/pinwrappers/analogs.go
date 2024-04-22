@@ -104,7 +104,6 @@ func (as *AnalogSmoother) Start() {
 	}
 
 	as.workers = utils.NewStoppableWorkers(func(ctx context.Context) {
-		var consecutiveErrors int
 		for {
 			select {
 			case <-ctx.Done():
@@ -119,14 +118,8 @@ func (as *AnalogSmoother) Start() {
 					break
 				}
 				as.logger.CInfow(ctx, "error reading analog", "error", err)
-				consecutiveErrors++
-				if consecutiveErrors > 100 {
-					as.logger.CError(ctx, "too many errors on analog reader, giving up")
-					return // Stop spamming the logs
-				}
 				continue
 			}
-			consecutiveErrors = 0
 
 			as.lastData = reading
 			if as.data != nil {
