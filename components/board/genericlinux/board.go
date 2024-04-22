@@ -505,7 +505,7 @@ func (b *Board) StreamTicks(ctx context.Context, interruptNames []string, ch cha
 	}
 
 	for _, i := range interrupts {
-		i.AddCallback(ch)
+		pinwrappers.AddCallback(i, ch)
 	}
 	return nil
 }

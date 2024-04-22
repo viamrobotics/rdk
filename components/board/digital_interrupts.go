@@ -29,10 +29,6 @@ type DigitalInterrupt interface {
 	// to be accurate.
 	Tick(ctx context.Context, high bool, nanoseconds uint64) error
 
-	// AddCallback adds a callback to be sent a low/high value to when a tick
-	// happens.
-	AddCallback(c chan Tick)
-
 	// RemoveCallback removes a listener for interrupts.
 	RemoveCallback(c chan Tick)
 

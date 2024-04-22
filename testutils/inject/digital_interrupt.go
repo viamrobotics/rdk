@@ -53,20 +53,20 @@ func (d *DigitalInterrupt) TickCap() []interface{} {
 	return d.tickCap
 }
 
-// AddCallback calls the injected AddCallback or the real version.
-func (d *DigitalInterrupt) AddCallback(c chan board.Tick) {
-	if d.AddCallbackFunc == nil {
-		d.DigitalInterrupt.AddCallback(c)
-		return
-	}
-	d.AddCallbackFunc(c)
-}
+// // AddCallback calls the injected AddCallback or the real version.
+// func (d *DigitalInterrupt) AddCallback(c chan board.Tick) {
+// 	if d.AddCallbackFunc == nil {
+// 		d.DigitalInterrupt.AddCallback(c)
+// 		return
+// 	}
+// 	d.AddCallbackFunc(c)
+// }
 
-// RemoveCallback calls the injected AddCallback or the real version.
-func (d *DigitalInterrupt) RemoveCallback(c chan board.Tick) {
-	if d.RemoveCallbackFunc == nil {
-		d.DigitalInterrupt.RemoveCallback(c)
-		return
-	}
-	d.RemoveCallbackFunc(c)
-}
+// // RemoveCallback calls the injected AddCallback or the real version.
+// func (d *DigitalInterrupt) RemoveCallback(c chan board.Tick) {
+// 	if d.RemoveCallbackFunc == nil {
+// 		d.DigitalInterrupt.RemoveCallback(c)
+// 		return
+// 	}
+// 	d.RemoveCallbackFunc(c)
+// }

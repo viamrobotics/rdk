@@ -251,10 +251,6 @@ func (dic *digitalInterruptClient) Tick(ctx context.Context, high bool, nanoseco
 	panic(errUnimplemented)
 }
 
-func (dic *digitalInterruptClient) AddCallback(ch chan Tick) {
-	panic(errUnimplemented)
-}
-
 func (dic *digitalInterruptClient) RemoveCallback(ch chan Tick) {
 }
 

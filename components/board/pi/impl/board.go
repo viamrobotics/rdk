@@ -215,7 +215,7 @@ func (pi *piPigpio) StreamTicks(ctx context.Context, interruptNames []string, ch
 	}
 
 	for _, i := range interrupts {
-		i.AddCallback(ch)
+		AddCallback(i.(*BasicDigitalInterrupt), ch)
 	}
 	return nil
 }

@@ -77,7 +77,7 @@ func (i *BasicDigitalInterrupt) Tick(ctx context.Context, high bool, nanoseconds
 }
 
 // AddCallback adds a listener for interrupts.
-func (i *BasicDigitalInterrupt) AddCallback(c chan board.Tick) {
+func AddCallback(i *BasicDigitalInterrupt, c chan board.Tick) {
 	i.mu.Lock()
 	defer i.mu.Unlock()
 	i.callbacks = append(i.callbacks, c)
