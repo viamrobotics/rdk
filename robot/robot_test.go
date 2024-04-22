@@ -10,6 +10,7 @@ import (
 	"go.viam.com/rdk/components/gantry"
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/components/sensor"
+	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/testutils"
@@ -96,4 +97,16 @@ func TestResourceFromRobot(t *testing.T) {
 	res, err = robot.ResourceFromRobot[arm.Arm](r, arm.Named("arm2"))
 	test.That(t, err, test.ShouldBeError, resource.NewNotFoundError(arm.Named("arm2")))
 	test.That(t, res, test.ShouldBeNil)
+}
+
+func TestMatchesModule(t *testing.T) {
+	idRequest := robot.RestartModuleRequest{ModuleID: "matching-id"}
+	test.That(t, idRequest.MatchesModule(config.Module{ModuleID: "matching-id"}), test.ShouldBeTrue)
+	test.That(t, idRequest.MatchesModule(config.Module{Name: "matching-id"}), test.ShouldBeFalse)
+	test.That(t, idRequest.MatchesModule(config.Module{ModuleID: "other"}), test.ShouldBeFalse)
+
+	nameRequest := robot.RestartModuleRequest{ModuleName: "matching-name"}
+	test.That(t, nameRequest.MatchesModule(config.Module{Name: "matching-name"}), test.ShouldBeTrue)
+	test.That(t, nameRequest.MatchesModule(config.Module{ModuleID: "matching-name"}), test.ShouldBeFalse)
+	test.That(t, nameRequest.MatchesModule(config.Module{Name: "other"}), test.ShouldBeFalse)
 }

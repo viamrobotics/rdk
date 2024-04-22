@@ -158,11 +158,14 @@ type Board struct {
 }
 
 // AnalogByName returns the analog pin by the given name if it exists.
-func (b *Board) AnalogByName(name string) (board.Analog, bool) {
+func (b *Board) AnalogByName(name string) (board.Analog, error) {
 	b.mu.RLock()
 	defer b.mu.RUnlock()
 	a, ok := b.Analogs[name]
-	return a, ok
+	if !ok {
+		return nil, errors.Errorf("can't find AnalogReader (%s)", name)
+	}
+	return a, nil
 }
 
 // DigitalInterruptByName returns the interrupt by the given name if it exists.
@@ -228,16 +231,9 @@ func (b *Board) WriteAnalog(ctx context.Context, pin string, value int32, extra 
 }
 
 // StreamTicks starts a stream of digital interrupt ticks.
-func (b *Board) StreamTicks(ctx context.Context, interruptNames []string, ch chan board.Tick, extra map[string]interface{}) error {
-	var interrupts []board.DigitalInterrupt
-	for _, name := range interruptNames {
-		interrupt, ok := b.DigitalInterruptByName(name)
-		if !ok {
-			return errors.Errorf("unknown digital interrupt: %s", name)
-		}
-		interrupts = append(interrupts, interrupt)
-	}
-
+func (b *Board) StreamTicks(ctx context.Context, interrupts []board.DigitalInterrupt, ch chan board.Tick,
+	extra map[string]interface{},
+) error {
 	for _, i := range interrupts {
 		pinwrappers.AddCallback(i.(*pinwrappers.BasicDigitalInterrupt), ch)
 	}
@@ -284,6 +280,11 @@ func (a *Analog) Read(ctx context.Context, extra map[string]interface{}) (int, e
 	a.Mu.RLock()
 	defer a.Mu.RUnlock()
 	return a.Value, nil
+}
+
+func (a *Analog) Write(ctx context.Context, value int, extra map[string]interface{}) error {
+	a.Set(value)
+	return nil
 }
 
 // Set is used during testing.
@@ -440,6 +441,13 @@ func (s *DigitalInterruptWrapper) RemoveCallback(c chan board.Tick) {
 	defer s.mu.Unlock()
 	delete(s.callbacks, c)
 	s.di.RemoveCallback(c)
+}
+
+// Name returns the name of the digital interrupt.
+func (s *DigitalInterruptWrapper) Name() string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.conf.Name
 }
 
 // Close does nothing.

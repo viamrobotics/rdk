@@ -68,12 +68,12 @@ func NewClientFromConn(
 	return c, nil
 }
 
-func (c *client) AnalogByName(name string) (Analog, bool) {
+func (c *client) AnalogByName(name string) (Analog, error) {
 	return &analogClient{
 		client:     c,
 		boardName:  c.info.name,
 		analogName: name,
-	}, true
+	}, nil
 }
 
 func (c *client) DigitalInterruptByName(name string) (DigitalInterrupt, bool) {
@@ -205,22 +205,26 @@ type analogClient struct {
 	analogName string
 }
 
-func (arc *analogClient) Read(ctx context.Context, extra map[string]interface{}) (int, error) {
+func (ac *analogClient) Read(ctx context.Context, extra map[string]interface{}) (int, error) {
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
 		return 0, err
 	}
 	// the api method is named ReadAnalogReader, it is named differenlty than
 	// the board interface functions.
-	resp, err := arc.client.client.ReadAnalogReader(ctx, &pb.ReadAnalogReaderRequest{
-		BoardName:        arc.boardName,
-		AnalogReaderName: arc.analogName,
+	resp, err := ac.client.client.ReadAnalogReader(ctx, &pb.ReadAnalogReaderRequest{
+		BoardName:        ac.boardName,
+		AnalogReaderName: ac.analogName,
 		Extra:            ext,
 	})
 	if err != nil {
 		return 0, err
 	}
 	return int(resp.Value), nil
+}
+
+func (ac *analogClient) Write(ctx context.Context, value int, extra map[string]interface{}) error {
+	return errors.New("unimplemented")
 }
 
 // digitalInterruptClient satisfies a gRPC based board.DigitalInterrupt. Refer to the
@@ -251,10 +255,20 @@ func (dic *digitalInterruptClient) Tick(ctx context.Context, high bool, nanoseco
 	panic(errUnimplemented)
 }
 
+func (dic *digitalInterruptClient) Name() string {
+	return dic.digitalInterruptName
+}
+
+func (dic *digitalInterruptClient) AddCallback(ch chan Tick) {
+	panic(errUnimplemented)
+}
+
 func (dic *digitalInterruptClient) RemoveCallback(ch chan Tick) {
 }
 
-func (c *client) StreamTicks(ctx context.Context, interrupts []string, ch chan Tick, extra map[string]interface{}) error {
+func (c *client) StreamTicks(ctx context.Context, interrupts []DigitalInterrupt, ch chan Tick,
+	extra map[string]interface{},
+) error {
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
 		return err

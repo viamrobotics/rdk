@@ -6,6 +6,7 @@ package robotimpl
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -878,13 +879,40 @@ func (r *localRobot) getLocalFrameSystemParts() ([]*referenceframe.FrameSystemPa
 func (r *localRobot) getRemoteFrameSystemParts(ctx context.Context) ([]*referenceframe.FrameSystemPart, error) {
 	cfg := r.Config()
 
+	remoteNames := r.RemoteNames()
+	remoteNameSet := make(map[string]struct{}, len(remoteNames))
+	for _, val := range remoteNames {
+		remoteNameSet[val] = struct{}{}
+	}
+
 	remoteParts := make([]*referenceframe.FrameSystemPart, 0)
 	for _, remoteCfg := range cfg.Remotes {
+		// remote could be in config without being available (remotes could be down or otherwise unavailable)
+		if _, ok := remoteNameSet[remoteCfg.Name]; !ok {
+			r.logger.CDebugf(ctx, "remote %q is not available, skipping", remoteCfg.Name)
+			continue
+		}
 		// build the frame system part that connects remote world to base world
 		if remoteCfg.Frame == nil { // skip over remote if it has no frame info
 			r.logger.CDebugf(ctx, "remote %q has no frame config info, skipping", remoteCfg.Name)
 			continue
 		}
+
+		remoteRobot, ok := r.RemoteByName(remoteCfg.Name)
+		if !ok {
+			return nil, errors.Errorf("cannot find remote robot %q", remoteCfg.Name)
+		}
+
+		remote, err := utils.AssertType[robot.RemoteRobot](remoteRobot)
+		if err != nil {
+			// should never happen
+			return nil, err
+		}
+		if !remote.Connected() {
+			r.logger.CDebugf(ctx, "remote %q is not connected, skipping", remoteCfg.Name)
+			continue
+		}
+
 		lif, err := remoteCfg.Frame.ParseConfig()
 		if err != nil {
 			return nil, err
@@ -894,10 +922,6 @@ func (r *localRobot) getRemoteFrameSystemParts(ctx context.Context) ([]*referenc
 		remoteParts = append(remoteParts, &referenceframe.FrameSystemPart{FrameConfig: lif})
 
 		// get the parts from the remote itself
-		remote, ok := r.RemoteByName(remoteCfg.Name)
-		if !ok {
-			return nil, errors.Errorf("cannot find remote robot %q", remoteCfg.Name)
-		}
 		remoteFsCfg, err := remote.FrameSystemConfig(ctx)
 		if err != nil {
 			return nil, errors.Wrapf(err, "error from remote %q", remoteCfg.Name)
@@ -1208,4 +1232,28 @@ func (r *localRobot) CloudMetadata(ctx context.Context) (cloud.Metadata, error) 
 	md.MachineID = cloud.MachineID
 	md.MachinePartID = cloud.ID
 	return md, nil
+}
+
+// restartSingleModule constructs a single-module diff and calls updateResources with it.
+func (r *localRobot) restartSingleModule(ctx context.Context, mod config.Module) error {
+	diff := config.Diff{
+		Left:     r.Config(),
+		Right:    r.Config(),
+		Added:    &config.Config{},
+		Modified: &config.ModifiedConfigDiff{Modules: []config.Module{mod}},
+		Removed:  &config.Config{},
+	}
+	return r.manager.updateResources(ctx, &diff)
+}
+
+func (r *localRobot) RestartModule(ctx context.Context, req robot.RestartModuleRequest) error {
+	mod := utils.FindInSlice(r.Config().Modules, req.MatchesModule)
+	if mod == nil {
+		return fmt.Errorf("module not found with id=%s, name=%s", req.ModuleID, req.ModuleName)
+	}
+	err := r.restartSingleModule(ctx, *mod)
+	if err != nil {
+		return errors.Wrapf(err, "while restarting module id=%s, name=%s", req.ModuleID, req.ModuleName)
+	}
+	return nil
 }

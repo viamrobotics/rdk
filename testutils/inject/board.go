@@ -16,7 +16,7 @@ type Board struct {
 	board.Board
 	name                       resource.Name
 	DoFunc                     func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
-	AnaloByNameFunc            func(name string) (board.Analog, bool)
+	AnalogByNameFunc           func(name string) (board.Analog, error)
 	analogByNameCap            []interface{}
 	DigitalInterruptByNameFunc func(name string) (board.DigitalInterrupt, bool)
 	digitalInterruptByNameCap  []interface{}
@@ -29,7 +29,8 @@ type Board struct {
 	statusCap                  []interface{}
 	SetPowerModeFunc           func(ctx context.Context, mode boardpb.PowerMode, duration *time.Duration) error
 	WriteAnalogFunc            func(ctx context.Context, pin string, value int32, extra map[string]interface{}) error
-	StreamTicksFunc            func(ctx context.Context, interrupts []string, ch chan board.Tick, extra map[string]interface{}) error
+	StreamTicksFunc            func(ctx context.Context,
+		interrupts []board.DigitalInterrupt, ch chan board.Tick, extra map[string]interface{}) error
 }
 
 // NewBoard returns a new injected board.
@@ -43,12 +44,12 @@ func (b *Board) Name() resource.Name {
 }
 
 // AnalogByName calls the injected AnalogByName or the real version.
-func (b *Board) AnalogByName(name string) (board.Analog, bool) {
+func (b *Board) AnalogByName(name string) (board.Analog, error) {
 	b.analogByNameCap = []interface{}{name}
-	if b.AnaloByNameFunc == nil {
+	if b.AnalogByNameFunc == nil {
 		return b.Board.AnalogByName(name)
 	}
-	return b.AnaloByNameFunc(name)
+	return b.AnalogByNameFunc(name)
 }
 
 // AnalogByNameCap returns the last parameters received by AnalogByName, and then clears them.
@@ -168,7 +169,9 @@ func (b *Board) WriteAnalog(ctx context.Context, pin string, value int32, extra 
 }
 
 // StreamTicks calls the injected StreamTicks or the real version.
-func (b *Board) StreamTicks(ctx context.Context, interrupts []string, ch chan board.Tick, extra map[string]interface{}) error {
+func (b *Board) StreamTicks(ctx context.Context,
+	interrupts []board.DigitalInterrupt, ch chan board.Tick, extra map[string]interface{},
+) error {
 	if b.StreamTicksFunc == nil {
 		return b.Board.StreamTicks(ctx, interrupts, ch, extra)
 	}

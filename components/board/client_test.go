@@ -150,11 +150,11 @@ func TestWorkingClient(t *testing.T) {
 
 		// Analog
 		injectAnalog := &inject.Analog{}
-		injectBoard.AnaloByNameFunc = func(name string) (board.Analog, bool) {
-			return injectAnalog, true
+		injectBoard.AnalogByNameFunc = func(name string) (board.Analog, error) {
+			return injectAnalog, nil
 		}
-		analog1, ok := injectBoard.AnalogByName("analog1")
-		test.That(t, ok, test.ShouldBeTrue)
+		analog1, err := injectBoard.AnalogByName("analog1")
+		test.That(t, err, test.ShouldBeNil)
 		test.That(t, injectBoard.AnalogByNameCap(), test.ShouldResemble, []interface{}{"analog1"})
 
 		// Analog: Read
@@ -199,14 +199,21 @@ func TestWorkingClient(t *testing.T) {
 		actualExtra = nil
 
 		// StreamTicks
-		injectBoard.StreamTicksFunc = func(ctx context.Context, interrupts []string, ch chan board.Tick, extra map[string]interface{}) error {
+		injectBoard.StreamTicksFunc = func(ctx context.Context, interrupts []board.DigitalInterrupt, ch chan board.Tick,
+			extra map[string]interface{},
+		) error {
 			actualExtra = extra
 			return nil
 		}
-		err = injectBoard.StreamTicks(context.Background(), []string{"pin1"}, make(chan board.Tick), expectedExtra)
+		err = injectBoard.StreamTicks(context.Background(), []board.DigitalInterrupt{digital1}, make(chan board.Tick), expectedExtra)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, actualExtra, test.ShouldResemble, expectedExtra)
 		actualExtra = nil
+		injectDigitalInterrupt.NameFunc = func() string {
+			return "digital1"
+		}
+		name := digital1.Name()
+		test.That(t, name, test.ShouldEqual, "digital1")
 
 		// SetPowerMode (currently unimplemented in RDK)
 		injectBoard.SetPowerModeFunc = func(ctx context.Context, mode boardpb.PowerMode, duration *time.Duration) error {

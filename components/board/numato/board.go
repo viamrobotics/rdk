@@ -104,7 +104,7 @@ type numatoBoard struct {
 	resource.Named
 	resource.AlwaysRebuild
 	pins    int
-	analogs map[string]board.Analog
+	analogs map[string]*pinwrappers.AnalogSmoother
 
 	port   io.ReadWriteCloser
 	closed int32
@@ -232,14 +232,19 @@ func (b *numatoBoard) readThread() {
 
 // StreamTicks streams digital interrupt ticks.
 // The numato board does not have the systems hardware to implement a Tick counter.
-func (b *numatoBoard) StreamTicks(ctx context.Context, interrupts []string, ch chan board.Tick, extra map[string]interface{}) error {
+func (b *numatoBoard) StreamTicks(ctx context.Context, interrupts []board.DigitalInterrupt, ch chan board.Tick,
+	extra map[string]interface{},
+) error {
 	return grpc.UnimplementedError
 }
 
 // AnalogByName returns an analog pin by name.
-func (b *numatoBoard) AnalogByName(name string) (board.Analog, bool) {
+func (b *numatoBoard) AnalogByName(name string) (board.Analog, error) {
 	ar, ok := b.analogs[name]
-	return ar, ok
+	if !ok {
+		return nil, fmt.Errorf("can't find AnalogReader (%s)", name)
+	}
+	return ar, nil
 }
 
 // DigitalInterruptByName returns a digital interrupt by name.
@@ -360,16 +365,16 @@ type analog struct {
 	pin string
 }
 
-func (ar *analog) Read(ctx context.Context, extra map[string]interface{}) (int, error) {
-	res, err := ar.b.doSendReceive(ctx, fmt.Sprintf("adc read %s", ar.pin))
+func (a *analog) Read(ctx context.Context, extra map[string]interface{}) (int, error) {
+	res, err := a.b.doSendReceive(ctx, fmt.Sprintf("adc read %s", a.pin))
 	if err != nil {
 		return 0, err
 	}
 	return strconv.Atoi(res)
 }
 
-func (ar *analog) Close(ctx context.Context) error {
-	return nil
+func (a *analog) Write(ctx context.Context, value int, extra map[string]interface{}) error {
+	return grpc.UnimplementedError
 }
 
 func connect(ctx context.Context, name resource.Name, conf *Config, logger logging.Logger) (board.Board, error) {
@@ -404,7 +409,7 @@ func connect(ctx context.Context, name resource.Name, conf *Config, logger loggi
 		logger: logger,
 	}
 
-	b.analogs = map[string]board.Analog{}
+	b.analogs = map[string]*pinwrappers.AnalogSmoother{}
 	for _, c := range conf.Analogs {
 		r := &analog{b, c.Pin}
 		b.analogs[c.Name] = pinwrappers.SmoothAnalogReader(r, c, logger)

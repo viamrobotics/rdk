@@ -214,7 +214,9 @@ func (pca *PCA9685) frequency(ctx context.Context) (float64, error) {
 
 // StreamTicks streams digital interrupt ticks.
 // The pca9685 board does not have the systems hardware to implement a Tick counter.
-func (pca *PCA9685) StreamTicks(ctx context.Context, interrupts []string, ch chan board.Tick, extra map[string]interface{}) error {
+func (pca *PCA9685) StreamTicks(ctx context.Context, interrupts []board.DigitalInterrupt, ch chan board.Tick,
+	extra map[string]interface{},
+) error {
 	return grpc.UnimplementedError
 }
 
@@ -268,8 +270,8 @@ func (pca *PCA9685) DigitalInterruptNames() []string {
 }
 
 // AnalogByName returns the analog pin by the given name if it exists.
-func (pca *PCA9685) AnalogByName(name string) (board.Analog, bool) {
-	return nil, false
+func (pca *PCA9685) AnalogByName(name string) (board.Analog, error) {
+	return nil, nil
 }
 
 // DigitalInterruptByName returns the interrupt by the given name if it exists.

@@ -22,6 +22,7 @@ var (
 	errFoo        = errors.New("whoops")
 	errNotFound   = errors.New("not found")
 	errSendFailed = errors.New("send fail")
+	errAnalog     = errors.New("unknown analog error")
 )
 
 func newServer() (pb.BoardServiceServer, *inject.Board, error) {
@@ -540,7 +541,7 @@ func TestServerReadAnalogReader(t *testing.T) {
 
 	tests := []struct {
 		injectAnalog     *inject.Analog
-		injectAnalogOk   bool
+		injectAnalogErr  error
 		injectResult     int
 		injectErr        error
 		req              *request
@@ -551,7 +552,7 @@ func TestServerReadAnalogReader(t *testing.T) {
 	}{
 		{
 			injectAnalog:     nil,
-			injectAnalogOk:   false,
+			injectAnalogErr:  errAnalog,
 			injectResult:     0,
 			injectErr:        nil,
 			req:              &request{BoardName: missingBoardName},
@@ -562,18 +563,18 @@ func TestServerReadAnalogReader(t *testing.T) {
 		},
 		{
 			injectAnalog:     nil,
-			injectAnalogOk:   false,
+			injectAnalogErr:  errAnalog,
 			injectResult:     0,
 			injectErr:        nil,
 			req:              &request{BoardName: testBoardName, AnalogReaderName: "analog1"},
 			expCapAnalogArgs: []interface{}{"analog1"},
 			expCapArgs:       []interface{}(nil),
 			expResp:          nil,
-			expRespErr:       "unknown analog reader: analog1",
+			expRespErr:       "unknown analog error",
 		},
 		{
 			injectAnalog:     &inject.Analog{},
-			injectAnalogOk:   true,
+			injectAnalogErr:  nil,
 			injectResult:     0,
 			injectErr:        errFoo,
 			req:              &request{BoardName: testBoardName, AnalogReaderName: "analog1"},
@@ -584,7 +585,7 @@ func TestServerReadAnalogReader(t *testing.T) {
 		},
 		{
 			injectAnalog:     &inject.Analog{},
-			injectAnalogOk:   true,
+			injectAnalogErr:  nil,
 			injectResult:     8,
 			injectErr:        nil,
 			req:              &request{BoardName: testBoardName, AnalogReaderName: "analog1", Extra: pbExpectedExtra},
@@ -601,8 +602,8 @@ func TestServerReadAnalogReader(t *testing.T) {
 			test.That(t, err, test.ShouldBeNil)
 			var actualExtra map[string]interface{}
 
-			injectBoard.AnaloByNameFunc = func(name string) (board.Analog, bool) {
-				return tc.injectAnalog, tc.injectAnalogOk
+			injectBoard.AnalogByNameFunc = func(name string) (board.Analog, error) {
+				return tc.injectAnalog, tc.injectAnalogErr
 			}
 
 			if tc.injectAnalog != nil {
@@ -860,10 +861,10 @@ func TestStreamTicks(t *testing.T) {
 			name:                     "unknown digital interrupt should return error",
 			injectDigitalInterrupts:  nil,
 			injectDigitalInterruptOk: false,
-			streamTicksErr:           errors.New("unknown digital interrupt: digital1"),
-			req:                      &request{Name: testBoardName, PinNames: []string{"digital1"}},
+			streamTicksErr:           errors.New("unknown digital interrupt: digital3"),
+			req:                      &request{Name: testBoardName, PinNames: []string{"digital3"}},
 			expResp:                  nil,
-			expRespErr:               "unknown digital interrupt: digital1",
+			expRespErr:               "unknown digital interrupt: digital3",
 			sendFail:                 false,
 		},
 		{
@@ -885,7 +886,10 @@ func TestStreamTicks(t *testing.T) {
 			var actualExtra map[string]interface{}
 			callbacks := []chan board.Tick{}
 
-			injectBoard.StreamTicksFunc = func(ctx context.Context, interrupts []string, ch chan board.Tick, extra map[string]interface{}) error {
+			injectBoard.StreamTicksFunc = func(
+				ctx context.Context, interrupts []board.DigitalInterrupt, ch chan board.Tick,
+				extra map[string]interface{},
+			) error {
 				actualExtra = extra
 				callbacks = append(callbacks, ch)
 				return tc.streamTicksErr
@@ -894,8 +898,10 @@ func TestStreamTicks(t *testing.T) {
 			injectBoard.DigitalInterruptByNameFunc = func(name string) (board.DigitalInterrupt, bool) {
 				if name == "digital1" {
 					return tc.injectDigitalInterrupts[0], tc.injectDigitalInterruptOk
+				} else if name == "digital2" {
+					return tc.injectDigitalInterrupts[1], tc.injectDigitalInterruptOk
 				}
-				return tc.injectDigitalInterrupts[1], tc.injectDigitalInterruptOk
+				return nil, false
 			}
 			if tc.injectDigitalInterrupts != nil {
 				for _, i := range tc.injectDigitalInterrupts {

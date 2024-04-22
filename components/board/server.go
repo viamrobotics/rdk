@@ -7,7 +7,6 @@ import (
 	"github.com/pkg/errors"
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/board/v1"
-	"go.viam.com/utils"
 
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
@@ -156,9 +155,9 @@ func (s *serviceServer) ReadAnalogReader(
 		return nil, err
 	}
 
-	theReader, ok := b.AnalogByName(req.AnalogReaderName)
-	if !ok {
-		return nil, errors.Errorf("unknown analog reader: %s", req.AnalogReaderName)
+	theReader, err := b.AnalogByName(req.AnalogReaderName)
+	if err != nil {
+		return nil, err
 	}
 
 	val, err := theReader.Read(ctx, req.Extra.AsMap())
@@ -218,10 +217,25 @@ func (s *serviceServer) StreamTicks(
 	}
 
 	ticksChan := make(chan Tick)
-	err = b.StreamTicks(server.Context(), req.PinNames, ticksChan, req.Extra.AsMap())
+	interrupts := []DigitalInterrupt{}
+
+	for _, name := range req.PinNames {
+		di, ok := b.DigitalInterruptByName(name)
+		if !ok {
+			return errors.Errorf("unknown digital interrupt: %s", name)
+		}
+		interrupts = append(interrupts, di)
+	}
+	err = b.StreamTicks(server.Context(), interrupts, ticksChan, req.Extra.AsMap())
 	if err != nil {
 		return err
 	}
+
+	defer func() {
+		for _, i := range interrupts {
+			i.RemoveCallback(ticksChan)
+		}
+	}()
 
 	// Send an empty response first so the client doesn't block while checking for errors.
 	err = server.Send(&pb.StreamTicksResponse{})
@@ -229,7 +243,6 @@ func (s *serviceServer) StreamTicks(
 		return err
 	}
 
-	defer utils.UncheckedErrorFunc(func() error { return RemoveCallbacks(b, req.PinNames, ticksChan) })
 	for {
 		select {
 		case <-server.Context().Done():

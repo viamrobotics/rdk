@@ -128,7 +128,7 @@ func sha256sum(path string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	//nolint:errcheck,gosec
+	//nolint:errcheck
 	defer f.Close()
 
 	h := sha256.New()

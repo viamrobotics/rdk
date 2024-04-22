@@ -6,7 +6,6 @@ package board
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	commonpb "go.viam.com/api/common/v1"
@@ -54,7 +53,7 @@ type Board interface {
 	resource.Resource
 
 	// AnalogByName returns an analog pin by name.
-	AnalogByName(name string) (Analog, bool)
+	AnalogByName(name string) (Analog, error)
 
 	// DigitalInterruptByName returns a digital interrupt by name.
 	DigitalInterruptByName(name string) (DigitalInterrupt, bool)
@@ -82,14 +81,17 @@ type Board interface {
 	WriteAnalog(ctx context.Context, pin string, value int32, extra map[string]interface{}) error
 
 	// StreamTicks starts a stream of digital interrupt ticks.
-	StreamTicks(ctx context.Context, interrupts []string, ch chan Tick, extra map[string]interface{}) error
+	StreamTicks(ctx context.Context, interrupts []DigitalInterrupt, ch chan Tick,
+		extra map[string]interface{}) error
 }
 
 // An Analog represents an analog pin that resides on a board.
 type Analog interface {
 	// Read reads off the current value.
 	Read(ctx context.Context, extra map[string]interface{}) (int, error)
-	Close(ctx context.Context) error
+
+	// Write writes a value to the analog pin.
+	Write(ctx context.Context, value int, extra map[string]interface{}) error
 }
 
 // FromDependencies is a helper for getting the named board from a collection of
@@ -106,16 +108,4 @@ func FromRobot(r robot.Robot, name string) (Board, error) {
 // NamesFromRobot is a helper for getting all board names from the given Robot.
 func NamesFromRobot(r robot.Robot) []string {
 	return robot.NamesByAPI(r, API)
-}
-
-// RemoveCallbacks removes the callbacks from the given interrupts.
-func RemoveCallbacks(b Board, interrupts []string, ch chan Tick) error {
-	for _, name := range interrupts {
-		i, ok := b.DigitalInterruptByName(name)
-		if !ok {
-			return fmt.Errorf("unknown digitial interrupt: %s", name)
-		}
-		i.RemoveCallback(ch)
-	}
-	return nil
 }

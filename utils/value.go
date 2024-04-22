@@ -54,21 +54,12 @@ func SafeTestingRand() Rand {
 	return randWrapper{}
 }
 
-// Ordered is a clone of cmp.Ordered. Delete me after go1.12.
-type Ordered interface {
-	~int | ~int8 | ~int16 | ~int32 | ~int64 |
-		~uint | ~uint8 | ~uint16 | ~uint32 | ~uint64 | ~uintptr |
-		~float32 | ~float64 |
-		~string
-}
-
-// Compare is a clone of cmp.Compare. Delete me after go1.21 and use the original.
-func Compare[T Ordered](a, b T) int {
-	if a < b {
-		return -1
+// FindInSlice returns the first item in items which satisfies predicate, or nil.
+func FindInSlice[T any](items []T, predicate func(T) bool) *T {
+	for _, item := range items {
+		if predicate(item) {
+			return &item
+		}
 	}
-	if a == b {
-		return 0
-	}
-	return 1
+	return nil
 }
