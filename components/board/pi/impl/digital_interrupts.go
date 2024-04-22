@@ -136,6 +136,13 @@ func (i *BasicDigitalInterrupt) RemoveCallback(c chan board.Tick) {
 	}
 }
 
+// Name returns the name of the interrupt.
+func (i *BasicDigitalInterrupt) Name() string {
+	i.mu.Lock()
+	defer i.mu.Unlock()
+	return i.cfg.Name
+}
+
 // Close does nothing.
 func (i *BasicDigitalInterrupt) Close(ctx context.Context) error {
 	return nil
@@ -202,6 +209,13 @@ func (i *ServoDigitalInterrupt) RemoveCallback(c chan board.Tick) {
 	i.mu.Lock()
 	defer i.mu.Unlock()
 	panic("servos can't have callback")
+}
+
+// Name returns the name of the interrupt.
+func (i *ServoDigitalInterrupt) Name() string {
+	i.mu.Lock()
+	defer i.mu.Unlock()
+	return i.cfg.Name
 }
 
 // Reconfigure reconfigures this digital interrupt.
