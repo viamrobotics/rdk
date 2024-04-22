@@ -24,7 +24,7 @@ import (
 type Config struct {
 	Host         string  `json:"host"`
 	Port         int     `json:"port,omitempty" jsonschema="default=502"`
-	Speed        float32 `json:"speed_degs_per_sec,omitempty" jsonschema=default=20"`
+	Speed        float32 `json:"speed_degs_per_sec,omitempty" jsonschema="default=20"`
 	Acceleration float32 `json:"acceleration_degs_per_sec_per_sec,omitempty"`
 }
 
