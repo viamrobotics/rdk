@@ -21,9 +21,9 @@ import (
 	"go.viam.com/rdk/resource"
 )
 
-// In order to maintain test functionality, pin 0 will always return an analog value of 0.
+// In order to maintain test functionality, testPin will always return an analog value of 0.
 // To see non-zero fake analog values on a fake board, add an analog reader to any other pin.
-var testPin = "0"
+var testPin = ""
 
 // A Config describes the configuration of a fake board and all of its connected parts.
 type Config struct {
