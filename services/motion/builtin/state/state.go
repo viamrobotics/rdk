@@ -3,8 +3,10 @@
 package state
 
 import (
+	"cmp"
 	"context"
 	"fmt"
+	"slices"
 	"sync"
 	"time"
 
@@ -12,14 +14,12 @@ import (
 	"github.com/pkg/errors"
 	"go.viam.com/utils"
 	"golang.org/x/exp/maps"
-	"golang.org/x/exp/slices"
 
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/motion"
 	"go.viam.com/rdk/spatialmath"
-	rutils "go.viam.com/rdk/utils"
 )
 
 // PlannerExecutor implements Plan and Execute.
@@ -481,7 +481,7 @@ func (s *State) ListPlanStatuses(req motion.ListPlanStatusesReq) ([]motion.PlanS
 	statuses := []motion.PlanStatusWithID{}
 	componentNames := maps.Keys(s.componentStateByComponent)
 	slices.SortFunc(componentNames, func(a, b resource.Name) int {
-		return rutils.Compare(a.String(), b.String())
+		return cmp.Compare(a.String(), b.String())
 	})
 
 	if req.OnlyActivePlans {

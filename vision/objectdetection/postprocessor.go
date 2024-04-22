@@ -51,6 +51,30 @@ func NewLabelFilter(labels map[string]interface{}) Postprocessor {
 	}
 }
 
+// NewLabelConfidenceFilter returns a function that filters out detections based on label map.
+// Does not filter when input is empty.
+func NewLabelConfidenceFilter(labels map[string]float64) Postprocessor {
+	// ensure all the label names are lower case
+	theLabels := make(map[string]float64)
+	for name, conf := range labels {
+		theLabels[strings.ToLower(name)] = conf
+	}
+	return func(in []Detection) []Detection {
+		if len(theLabels) < 1 {
+			return in
+		}
+		out := make([]Detection, 0, len(in))
+		for _, d := range in {
+			if conf, ok := theLabels[strings.ToLower(d.Label())]; ok {
+				if d.Score() >= conf {
+					out = append(out, d)
+				}
+			}
+		}
+		return out
+	}
+}
+
 // SortByArea returns a function that sorts the list of detections by area (largest first).
 func SortByArea() Postprocessor {
 	return func(in []Detection) []Detection {

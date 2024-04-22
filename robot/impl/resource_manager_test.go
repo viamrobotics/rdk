@@ -463,8 +463,8 @@ func TestManagerAdd(t *testing.T) {
 	injectBoard.DigitalInterruptNamesFunc = func() []string {
 		return []string{"digital1"}
 	}
-	injectBoard.AnaloByNameFunc = func(name string) (board.Analog, bool) {
-		return &fakeboard.Analog{}, true
+	injectBoard.AnalogByNameFunc = func(name string) (board.Analog, error) {
+		return &fakeboard.Analog{}, nil
 	}
 	injectBoard.DigitalInterruptByNameFunc = func(name string) (board.DigitalInterrupt, bool) {
 		return &pinwrappers.BasicDigitalInterrupt{}, true
@@ -1819,6 +1819,10 @@ func (rr *dummyRobot) Close(ctx context.Context) error {
 
 func (rr *dummyRobot) StopAll(ctx context.Context, extra map[resource.Name]map[string]interface{}) error {
 	return rr.robot.StopAll(ctx, extra)
+}
+
+func (rr *dummyRobot) RestartModule(ctx context.Context, req robot.RestartModuleRequest) error {
+	return rr.robot.RestartModule(ctx, req)
 }
 
 // managerForDummyRobot integrates all parts from a given robot except for its remotes.

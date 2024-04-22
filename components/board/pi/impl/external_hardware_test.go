@@ -54,8 +54,8 @@ func TestPiHardware(t *testing.T) {
 	}()
 
 	t.Run("analog test", func(t *testing.T) {
-		reader, ok := p.AnalogByName("blue")
-		test.That(t, ok, test.ShouldBeTrue)
+		reader, err := p.AnalogByName("blue")
+		test.That(t, err, test.ShouldBeNil)
 		if reader == nil {
 			t.Skip("no blue? analog")
 			return

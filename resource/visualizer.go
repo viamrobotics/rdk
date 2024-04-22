@@ -2,15 +2,13 @@ package resource
 
 import (
 	"bytes"
+	"cmp"
 	"container/list"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 	"time"
-
-	"golang.org/x/exp/slices"
-
-	"go.viam.com/rdk/utils"
 )
 
 const snapshotLimit = 500
@@ -168,7 +166,7 @@ func nodesSortedByName(nodes graphNodes) []nameNode {
 		ret = append(ret, nameNode{name, node})
 	}
 	slices.SortFunc(ret, func(left, right nameNode) int {
-		return utils.Compare(left.Name.String(), right.Name.String())
+		return cmp.Compare(left.Name.String(), right.Name.String())
 	})
 
 	return ret
@@ -240,10 +238,10 @@ func edgesSortedByName(deps resourceDependencies) []edge {
 
 	slices.SortFunc(ret, func(left, right edge) int {
 		if left.source == right.source {
-			return utils.Compare(left.dest.String(), right.dest.String())
+			return cmp.Compare(left.dest.String(), right.dest.String())
 		}
 
-		return utils.Compare(left.source.String(), right.source.String())
+		return cmp.Compare(left.source.String(), right.source.String())
 	})
 
 	return ret

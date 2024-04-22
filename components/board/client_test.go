@@ -150,11 +150,11 @@ func TestWorkingClient(t *testing.T) {
 
 		// Analog
 		injectAnalog := &inject.Analog{}
-		injectBoard.AnaloByNameFunc = func(name string) (board.Analog, bool) {
-			return injectAnalog, true
+		injectBoard.AnalogByNameFunc = func(name string) (board.Analog, error) {
+			return injectAnalog, nil
 		}
-		analog1, ok := injectBoard.AnalogByName("analog1")
-		test.That(t, ok, test.ShouldBeTrue)
+		analog1, err := injectBoard.AnalogByName("analog1")
+		test.That(t, err, test.ShouldBeNil)
 		test.That(t, injectBoard.AnalogByNameCap(), test.ShouldResemble, []interface{}{"analog1"})
 
 		// Analog: Read

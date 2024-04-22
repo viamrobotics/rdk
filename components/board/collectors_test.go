@@ -99,8 +99,8 @@ func newBoard() board.Board {
 	analog.ReadFunc = func(ctx context.Context, extra map[string]interface{}) (int, error) {
 		return 1, nil
 	}
-	b.AnaloByNameFunc = func(name string) (board.Analog, bool) {
-		return analog, true
+	b.AnalogByNameFunc = func(name string) (board.Analog, error) {
+		return analog, nil
 	}
 	gpioPin := &inject.GPIOPin{}
 	gpioPin.GetFunc = func(ctx context.Context, extra map[string]interface{}) (bool, error) {

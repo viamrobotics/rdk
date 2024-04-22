@@ -165,7 +165,6 @@ func getProperties(d driver.Driver) (_ []prop.Media, err error) {
 
 // WebcamConfig is the attribute struct for webcams.
 type WebcamConfig struct {
-	resource.TriviallyValidateConfig
 	CameraParameters     *transform.PinholeCameraIntrinsics `json:"intrinsic_parameters,omitempty"`
 	DistortionParameters *transform.BrownConrady            `json:"distortion_parameters,omitempty"`
 	Debug                bool                               `json:"debug,omitempty"`
@@ -174,6 +173,17 @@ type WebcamConfig struct {
 	Width                int                                `json:"width_px,omitempty"`
 	Height               int                                `json:"height_px,omitempty"`
 	FrameRate            float32                            `json:"frame_rate,omitempty"`
+}
+
+// Validate ensures all parts of the config are valid.
+func (c WebcamConfig) Validate(path string) ([]string, error) {
+	if c.Width < 0 || c.Height < 0 {
+		return nil, fmt.Errorf(
+			"got illegal negative dimensions for width_px and height_px (%d, %d) fields set for webcam camera",
+			c.Height, c.Width)
+	}
+
+	return []string{}, nil
 }
 
 func (c WebcamConfig) needsDriverReinit(other WebcamConfig) bool {

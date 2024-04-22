@@ -53,7 +53,7 @@ type Board interface {
 	resource.Resource
 
 	// AnalogByName returns an analog pin by name.
-	AnalogByName(name string) (Analog, bool)
+	AnalogByName(name string) (Analog, error)
 
 	// DigitalInterruptByName returns a digital interrupt by name.
 	DigitalInterruptByName(name string) (DigitalInterrupt, bool)
@@ -89,7 +89,9 @@ type Board interface {
 type Analog interface {
 	// Read reads off the current value.
 	Read(ctx context.Context, extra map[string]interface{}) (int, error)
-	Close(ctx context.Context) error
+
+	// Write writes a value to the analog pin.
+	Write(ctx context.Context, value int, extra map[string]interface{}) error
 }
 
 // FromDependencies is a helper for getting the named board from a collection of

@@ -49,13 +49,15 @@ const (
 	moduleFlagForce           = "force"
 	moduleFlagBinary          = "binary"
 
-	moduleBuildFlagPath     = "module"
-	moduleBuildFlagRef      = "ref"
-	moduleBuildFlagCount    = "count"
-	moduleBuildFlagVersion  = "version"
-	moduleBuildFlagBuildID  = "id"
-	moduleBuildFlagPlatform = "platform"
-	moduleBuildFlagWait     = "wait"
+	moduleBuildFlagPath      = "module"
+	moduleBuildFlagRef       = "ref"
+	moduleBuildFlagCount     = "count"
+	moduleBuildFlagVersion   = "version"
+	moduleBuildFlagBuildID   = "id"
+	moduleBuildFlagPlatform  = "platform"
+	moduleBuildFlagWait      = "wait"
+	moduleBuildFlagGroupLogs = "group-logs"
+	moduleBuildRestartOnly   = "restart-only"
 
 	mlTrainingFlagPath      = "path"
 	mlTrainingFlagName      = "name"
@@ -1373,10 +1375,43 @@ Example:
 									Name:  moduleBuildFlagWait,
 									Usage: "wait for the build to finish before outputting any logs",
 								},
+								&cli.BoolFlag{
+									Name:  moduleBuildFlagGroupLogs,
+									Usage: "write ::group:: commands so github action logs collapse",
+								},
 							},
 							Action: ModuleBuildLogsAction,
 						},
 					},
+				},
+				{
+					Name:      "reload",
+					Usage:     "build a module locally and run it on a target device. rebuild & restart if already running",
+					UsageText: createUsageText("module reload", []string{}, true),
+					Flags: []cli.Flag{
+						&cli.StringFlag{
+							Name:  partFlag,
+							Usage: "part ID of machine. get from 'Live/Offline' dropdown in the web app, or leave it blank to use /etc/viam.json",
+						},
+						&cli.StringFlag{
+							Name:  moduleFlagPath,
+							Usage: "path to a meta.json. used for module ID. can be overridden with --module-id or --name",
+							Value: "meta.json",
+						},
+						&cli.StringFlag{
+							Name:  moduleFlagName,
+							Usage: "name of module to restart. pass at most one of --name, --module-id",
+						},
+						&cli.StringFlag{
+							Name:  moduleBuildFlagBuildID,
+							Usage: "ID of module to restart, for example viam:wifi-sensor",
+						},
+						&cli.BoolFlag{
+							Name:  moduleBuildRestartOnly,
+							Usage: "just restart the module on the target system, don't do other reload steps",
+						},
+					},
+					Action: ReloadModuleAction,
 				},
 			},
 		},
