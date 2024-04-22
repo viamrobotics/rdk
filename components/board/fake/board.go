@@ -21,9 +21,9 @@ import (
 	"go.viam.com/rdk/resource"
 )
 
-// To see fake analog values on a fake board, add an analog reader on pin 4.
-// Only pin 4 is used for fake values in order to maintain test functionality.
-var fakePin = "4"
+// In order to maintain test functionality, pin 0 will always return an analog value of 0.
+// To see non-zero fake analog values on a fake board, add an analog reader to any other pin.
+var testPin = "0"
 
 // A Config describes the configuration of a fake board and all of its connected parts.
 type Config struct {
@@ -291,7 +291,7 @@ func (a *Analog) reset(pin string) {
 func (a *Analog) Read(ctx context.Context, extra map[string]interface{}) (int, error) {
 	a.Mu.RLock()
 	defer a.Mu.RUnlock()
-	if a.pin == fakePin {
+	if a.pin != testPin {
 		a.Value = a.fakeValue
 		a.fakeValue++
 	}
