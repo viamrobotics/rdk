@@ -19,7 +19,7 @@ func TestConfigureModule(t *testing.T) {
 		StartBuildFunc: func(ctx context.Context, in *v1.StartBuildRequest, opts ...grpc.CallOption) (*v1.StartBuildResponse, error) {
 			return &v1.StartBuildResponse{BuildId: "xyz123"}, nil
 		},
-	}, &map[string]any{moduleBuildFlagPath: manifestPath, moduleBuildFlagVersion: "1.2.3"}, "token")
+	}, map[string]any{moduleBuildFlagPath: manifestPath, moduleBuildFlagVersion: "1.2.3"}, "token")
 	err := ac.moduleBuildStartAction(cCtx)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, out.messages, test.ShouldHaveLength, 1)
@@ -55,7 +55,7 @@ func TestFullReloadFlow(t *testing.T) {
 			}}, nil
 		},
 	}, nil, &inject.BuildServiceClient{},
-		&map[string]any{moduleBuildFlagPath: manifestPath, moduleBuildFlagVersion: "1.2.3"}, "token")
+		map[string]any{moduleBuildFlagPath: manifestPath, partFlag: "part-123", moduleBuildFlagNoBuild: true}, "token")
 	test.That(t, vc.loginAction(cCtx), test.ShouldBeNil)
 	globalTestClient = vc
 	t.Cleanup(func() { globalTestClient = nil })
