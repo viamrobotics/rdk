@@ -31,7 +31,6 @@ import (
 
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
-	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/board/v1"
 
 	"go.viam.com/rdk/components/board"
@@ -759,11 +758,6 @@ func (pi *piPigpio) Close(ctx context.Context) error {
 
 	pi.isClosed = true
 	return err
-}
-
-// Status returns the current status of the board.
-func (pi *piPigpio) Status(ctx context.Context, extra map[string]interface{}) (*commonpb.BoardStatus, error) {
-	return board.CreateStatus(ctx, pi, extra)
 }
 
 var (
