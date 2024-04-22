@@ -44,7 +44,7 @@ func TestFakeBoard(t *testing.T) {
 	status, err := b.Status(context.Background(), nil)
 	test.That(t, err, test.ShouldBeNil)
 
-	test.That(t, int(status.Analogs["blue"].Value), test.ShouldBeBetween, 0, 100)
+	test.That(t, int(status.Analogs["blue"].Value), test.ShouldEqual, 0)
 	test.That(t, int(status.DigitalInterrupts["i1"].Value), test.ShouldEqual, 1)
 	test.That(t, int(status.DigitalInterrupts["i2"].Value), test.ShouldEqual, 1)
 	test.That(t, int(status.DigitalInterrupts["a"].Value), test.ShouldEqual, 1)
