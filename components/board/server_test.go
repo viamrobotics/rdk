@@ -860,10 +860,10 @@ func TestStreamTicks(t *testing.T) {
 			name:                     "unknown digital interrupt should return error",
 			injectDigitalInterrupts:  nil,
 			injectDigitalInterruptOk: false,
-			streamTicksErr:           errors.New("unknown digital interrupt: digital1"),
-			req:                      &request{Name: testBoardName, PinNames: []string{"digital1"}},
+			streamTicksErr:           errors.New("unknown digital interrupt: digital3"),
+			req:                      &request{Name: testBoardName, PinNames: []string{"digital3"}},
 			expResp:                  nil,
-			expRespErr:               "unknown digital interrupt: digital1",
+			expRespErr:               "unknown digital interrupt: digital3",
 			sendFail:                 false,
 		},
 		{
@@ -897,8 +897,10 @@ func TestStreamTicks(t *testing.T) {
 			injectBoard.DigitalInterruptByNameFunc = func(name string) (board.DigitalInterrupt, bool) {
 				if name == "digital1" {
 					return tc.injectDigitalInterrupts[0], tc.injectDigitalInterruptOk
+				} else if name == "digital2" {
+					return tc.injectDigitalInterrupts[1], tc.injectDigitalInterruptOk
 				}
-				return tc.injectDigitalInterrupts[1], tc.injectDigitalInterruptOk
+				return nil, false
 			}
 			if tc.injectDigitalInterrupts != nil {
 				for _, i := range tc.injectDigitalInterrupts {
