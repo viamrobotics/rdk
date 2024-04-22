@@ -62,11 +62,11 @@ func (d *DigitalInterrupt) TickCap() []interface{} {
 // 	d.AddCallbackFunc(c)
 // }
 
-// // RemoveCallback calls the injected AddCallback or the real version.
-// func (d *DigitalInterrupt) RemoveCallback(c chan board.Tick) {
-// 	if d.RemoveCallbackFunc == nil {
-// 		d.DigitalInterrupt.RemoveCallback(c)
-// 		return
-// 	}
-// 	d.RemoveCallbackFunc(c)
-// }
+// RemoveCallback calls the injected AddCallback or the real version.
+func (d *DigitalInterrupt) RemoveCallback(c chan board.Tick) {
+	if d.RemoveCallbackFunc == nil {
+		d.DigitalInterrupt.RemoveCallback(c)
+		return
+	}
+	d.RemoveCallbackFunc(c)
+}

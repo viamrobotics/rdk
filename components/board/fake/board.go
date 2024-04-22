@@ -239,7 +239,7 @@ func (b *Board) StreamTicks(ctx context.Context, interruptNames []string, ch cha
 	}
 
 	for _, i := range interrupts {
-		pinwrappers.AddCallback(i, ch)
+		pinwrappers.AddCallback(i.(*pinwrappers.BasicDigitalInterrupt), ch)
 	}
 	return nil
 }
@@ -395,7 +395,7 @@ func (s *DigitalInterruptWrapper) reset(conf board.DigitalInterruptConfig) error
 		s.conf = conf
 		s.di = di
 		for c := range s.callbacks {
-			s.di.AddCallback(c)
+			pinwrappers.AddCallback(di.(*pinwrappers.BasicDigitalInterrupt), c)
 		}
 		return nil
 	}
