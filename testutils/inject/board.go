@@ -24,7 +24,6 @@ type Board struct {
 	AnalogNamesFunc            func() []string
 	DigitalInterruptNamesFunc  func() []string
 	CloseFunc                  func(ctx context.Context) error
-	statusCap                  []interface{}
 	SetPowerModeFunc           func(ctx context.Context, mode boardpb.PowerMode, duration *time.Duration) error
 	WriteAnalogFunc            func(ctx context.Context, pin string, value int32, extra map[string]interface{}) error
 	StreamTicksFunc            func(ctx context.Context, interrupts []string, ch chan board.Tick, extra map[string]interface{}) error
@@ -119,15 +118,6 @@ func (b *Board) Close(ctx context.Context) error {
 		return b.Board.Close(ctx)
 	}
 	return b.CloseFunc(ctx)
-}
-
-// StatusCap returns the last parameters received by Status, and then clears them.
-func (b *Board) StatusCap() []interface{} {
-	if b == nil {
-		return nil
-	}
-	defer func() { b.statusCap = nil }()
-	return b.statusCap
 }
 
 // DoCommand calls the injected DoCommand or the real version.
