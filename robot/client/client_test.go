@@ -505,8 +505,9 @@ func TestStatusClient(t *testing.T) {
 	board1, err := board.FromRobot(client, "board1")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, board1, test.ShouldNotBeNil)
-	_, err = board1.GPIOPinByName("pin")
-	// test.That(t, err, test.ShouldNotBeNil)
+	pin, err := board1.GPIOPinByName("pin")
+	test.That(t, err, test.ShouldBeNil)
+	_, err = pin.Get(context.Background(), nil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
 
 	camera1, err := camera.FromRobot(client, "camera1")
