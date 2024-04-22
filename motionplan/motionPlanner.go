@@ -502,31 +502,19 @@ func CheckPlan(
 	// create a list of segments to iterate through
 	segments := make([]*ik.Segment, 0, len(poses)-wayPointIdx)
 	if relative {
-		// get the inputs we were partway through executing
-		checkFrameGoalInputs, err := sf.mapToSlice(plan.Trajectory()[wayPointIdx])
-		if err != nil {
-			return err
-		}
-
 		// get checkFrame's currentInputs
 		// *currently* it is guaranteed that a relative frame will constitute 100% of a solver frame's dof
 		checkFrameCurrentInputs, err := sf.mapToSlice(currentInputs)
 		if err != nil {
 			return err
 		}
-		interpolateConfig := []frame.Input{
-			{Value: checkFrameGoalInputs[0].Value},
-			{Value: checkFrameGoalInputs[1].Value},
-			{Value: checkFrameCurrentInputs[2].Value},
-			{Value: checkFrameGoalInputs[3].Value},
-		}
 
 		// pre-pend to segments so we can connect to the input we have not finished actuating yet
 		segments = append(segments, &ik.Segment{
 			StartPosition:      poses[wayPointIdx-1],
 			EndPosition:        poses[wayPointIdx],
-			StartConfiguration: interpolateConfig,
-			EndConfiguration:   interpolateConfig,
+			StartConfiguration: checkFrameCurrentInputs,
+			EndConfiguration:   checkFrameCurrentInputs,
 			Frame:              sf,
 		})
 	}

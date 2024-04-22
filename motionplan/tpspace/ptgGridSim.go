@@ -135,6 +135,9 @@ func (ptg *ptgGridSim) Trajectory(alpha, start, end, resolution float64) ([]*Tra
 				break
 			}
 		}
+		if first == -1 {
+			return nil, fmt.Errorf("failure in trajectory calculation, found no nodes with dist greater than %f", startPos)
+		}
 		return append([]*TrajNode{firstNode}, traj[first:len(traj)-1]...), nil
 	}
 	if end < 0 {

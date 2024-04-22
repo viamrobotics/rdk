@@ -662,7 +662,7 @@ func (mp *tpSpaceRRTMotionPlanner) attemptExtension(
 		endNode := reseedCandidate.newNodes[len(reseedCandidate.newNodes)-1]
 		distTravelledByCandidate := 0.
 		for _, newNode := range reseedCandidate.newNodes {
-			distTravelledByCandidate += (newNode.Q()[3].Value - newNode.Q()[2].Value)
+			distTravelledByCandidate += math.Abs(newNode.Q()[3].Value - newNode.Q()[2].Value)
 		}
 		distToGoal := endNode.Pose().Point().Distance(goalNode.Pose().Point())
 		if distToGoal < mp.planOpts.GoalThreshold || lastIteration {
@@ -725,7 +725,7 @@ func (mp *tpSpaceRRTMotionPlanner) extendMap(
 		randAlpha := newNode.Q()[1].Value
 		randDist := newNode.Q()[3].Value - newNode.Q()[2].Value
 
-		trajK, err := mp.tpFrame.PTGSolvers()[ptgNum].Trajectory(randAlpha, 0, randDist, mp.planOpts.Resolution/5)
+		trajK, err := mp.tpFrame.PTGSolvers()[ptgNum].Trajectory(randAlpha, 0, randDist, mp.planOpts.Resolution)
 		if err != nil {
 			return nil, err
 		}
