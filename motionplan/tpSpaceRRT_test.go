@@ -287,7 +287,7 @@ func TestPtgCheckPlan(t *testing.T) {
 	inputs := plan.Trajectory()[0]
 
 	t.Run("base case - validate plan without obstacles", func(t *testing.T) {
-		err := CheckPlan(ackermanFrame, plan, 1, nil, fs, startPose, inputs, errorState, math.Inf(1), logger)
+		err := CheckPlan(ackermanFrame, plan, 0, nil, fs, startPose, inputs, errorState, math.Inf(1), logger)
 		test.That(t, err, test.ShouldBeNil)
 	})
 
@@ -301,7 +301,7 @@ func TestPtgCheckPlan(t *testing.T) {
 		worldState, err := referenceframe.NewWorldState(gifs, nil)
 		test.That(t, err, test.ShouldBeNil)
 
-		err = CheckPlan(ackermanFrame, plan, 1, worldState, fs, startPose, inputs, errorState, math.Inf(1), logger)
+		err = CheckPlan(ackermanFrame, plan, 0, worldState, fs, startPose, inputs, errorState, math.Inf(1), logger)
 		test.That(t, err, test.ShouldNotBeNil)
 	})
 

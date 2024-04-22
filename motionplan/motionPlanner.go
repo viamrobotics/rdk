@@ -482,7 +482,12 @@ func CheckPlan(
 		// A frame's transformation based on a relative input will position it relative to the
 		// frame's origin, giving us a relative pose. To put it with respect to the world
 		// we compose the relative pose with the most recent former pose we have already reached.
-		startPose = poses[wayPointIdx-1]
+		if wayPointIdx > 0 {
+			startPose = poses[wayPointIdx-1]
+		} else {
+			// If waypointIdx is 0, we have not begun the plan yet and thus the start pose will be the first pose.
+			startPose = poses[wayPointIdx]
+		}
 	} else {
 		startPose = currentPose
 	}
@@ -511,7 +516,7 @@ func CheckPlan(
 
 		// pre-pend to segments so we can connect to the input we have not finished actuating yet
 		segments = append(segments, &ik.Segment{
-			StartPosition:      poses[wayPointIdx-1],
+			StartPosition:      startPose,
 			EndPosition:        poses[wayPointIdx],
 			StartConfiguration: checkFrameCurrentInputs,
 			EndConfiguration:   checkFrameCurrentInputs,
