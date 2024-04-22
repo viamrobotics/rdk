@@ -14,7 +14,6 @@ import (
 
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
-	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/board/v1"
 	goutils "go.viam.com/utils"
 
@@ -477,11 +476,6 @@ func (b *Board) GPIOPinByName(pinName string) (board.GPIOPin, error) {
 	}
 
 	return nil, errors.Errorf("cannot find GPIO for unknown pin: %s", pinName)
-}
-
-// Status returns the current status of the board.
-func (b *Board) Status(ctx context.Context, extra map[string]interface{}) (*commonpb.BoardStatus, error) {
-	return board.CreateStatus(ctx, b, extra)
 }
 
 // SetPowerMode sets the board to the given power mode. If provided,

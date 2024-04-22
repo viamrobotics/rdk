@@ -10,7 +10,6 @@ import (
 
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
-	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/board/v1"
 	"go.viam.com/utils"
 
@@ -209,11 +208,6 @@ func (b *Board) DigitalInterruptNames() []string {
 		names = append(names, k)
 	}
 	return names
-}
-
-// Status returns the current status of the board.
-func (b *Board) Status(ctx context.Context, extra map[string]interface{}) (*commonpb.BoardStatus, error) {
-	return board.CreateStatus(ctx, b, extra)
 }
 
 // SetPowerMode sets the board to the given power mode. If provided,
