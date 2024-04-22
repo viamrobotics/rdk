@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"image"
 	"io"
+	"slices"
 	"sync"
 	"time"
 
@@ -20,7 +21,6 @@ import (
 	goutils "go.viam.com/utils"
 	goprotoutils "go.viam.com/utils/protoutils"
 	"go.viam.com/utils/rpc"
-	"golang.org/x/exp/slices"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/structpb"
 

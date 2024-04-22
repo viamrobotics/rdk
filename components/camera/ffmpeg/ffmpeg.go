@@ -4,6 +4,7 @@ package ffmpeg
 import (
 	"context"
 	"errors"
+	"fmt"
 	"image"
 	"image/jpeg"
 	"io"
@@ -23,7 +24,6 @@ import (
 
 // Config is the attribute struct for ffmpeg cameras.
 type Config struct {
-	resource.TriviallyValidateConfig
 	CameraParameters     *transform.PinholeCameraIntrinsics `json:"intrinsic_parameters,omitempty"`
 	DistortionParameters *transform.BrownConrady            `json:"distortion_parameters,omitempty"`
 	Debug                bool                               `json:"debug,omitempty"`
@@ -40,6 +40,18 @@ type FilterConfig struct {
 	KWArgs map[string]interface{} `json:"kw_args"`
 }
 
+// Validate ensures all parts of the config are valid.
+func (cfg *Config) Validate(path string) ([]string, error) {
+	if cfg.CameraParameters != nil {
+		if cfg.CameraParameters.Height < 0 || cfg.CameraParameters.Width < 0 {
+			return nil, fmt.Errorf(
+				"got illegal negative dimensions for width_px and height_px (%d, %d) fields set in intrinsic_parameters for ffmpeg camera",
+				cfg.CameraParameters.Width, cfg.CameraParameters.Height)
+		}
+	}
+	return []string{}, nil
+}
+
 var model = resource.DefaultModelFamily.WithModel("ffmpeg")
 
 func init() {
@@ -51,6 +63,7 @@ func init() {
 			if err != nil {
 				return nil, err
 			}
+
 			src, err := NewFFMPEGCamera(ctx, newConf, logger)
 			if err != nil {
 				return nil, err

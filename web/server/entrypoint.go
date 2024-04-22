@@ -2,6 +2,7 @@
 package server
 
 import (
+	"cmp"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -11,6 +12,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"runtime/pprof"
+	"slices"
 	"time"
 
 	"github.com/invopop/jsonschema"
@@ -19,7 +21,6 @@ import (
 	"go.viam.com/utils"
 	"go.viam.com/utils/perf"
 	"go.viam.com/utils/rpc"
-	"golang.org/x/exp/slices"
 
 	vlogging "go.viam.com/rdk/components/camera/videosource/logging"
 	"go.viam.com/rdk/config"
@@ -467,9 +468,9 @@ func dumpResourceRegistrations(outputPath string) error {
 	// sort the list alphabetically by API+Model
 	slices.SortFunc(resources, func(a, b resourceRegistration) int {
 		if a.API != b.API {
-			return rutils.Compare(a.API, b.API)
+			return cmp.Compare(a.API, b.API)
 		}
-		return rutils.Compare(a.Model, b.Model)
+		return cmp.Compare(a.Model, b.Model)
 	})
 
 	// marshall and print the registrations to the provided file

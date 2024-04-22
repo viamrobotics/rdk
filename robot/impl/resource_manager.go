@@ -174,6 +174,7 @@ func (manager *resourceManager) updateRemoteResourceNames(
 	remoteName resource.Name,
 	rr internalRemoteRobot,
 ) bool {
+	manager.logger.CDebugw(ctx, "updating remote resource names", "remote", remoteName)
 	activeResourceNames := map[resource.Name]bool{}
 	newResources := rr.ResourceNames()
 	oldResources := manager.remoteResourceNames(remoteName)
@@ -233,19 +234,19 @@ func (manager *resourceManager) updateRemoteResourceNames(
 		if isActive {
 			continue
 		}
-		manager.logger.CDebugw(ctx, "removing remote resource", "name", resName)
+		manager.logger.CDebugw(ctx, "attempting to remove remote resource", "name", resName)
+		gNode, ok := manager.resources.Node(resName)
+		if !ok || gNode.IsUninitialized() {
+			manager.logger.CDebugw(ctx,
+				"remote resource already removed",
+				"resource", resName)
+			continue
+		}
 		if err := manager.markChildrenForUpdate(resName); err != nil {
 			manager.logger.CErrorw(ctx,
 				"failed to mark children of remote for update",
 				"resource", resName,
 				"reason", err)
-			continue
-		}
-		gNode, ok := manager.resources.Node(resName)
-		if !ok {
-			manager.logger.CErrorw(ctx,
-				"failed to find remote node for closure",
-				"resource", resName)
 			continue
 		}
 		if err := gNode.Close(ctx); err != nil {
@@ -267,7 +268,8 @@ func (manager *resourceManager) updateRemotesResourceNames(ctx context.Context) 
 			res, err := gNode.Resource()
 			if err == nil {
 				if rr, ok := res.(internalRemoteRobot); ok {
-					anythingChanged = anythingChanged || manager.updateRemoteResourceNames(ctx, name, rr)
+					// updateRemoteResourceNames must be first, otherwise there's a chance it will not be evaluated
+					anythingChanged = manager.updateRemoteResourceNames(ctx, name, rr) || anythingChanged
 				}
 			}
 		}
@@ -275,14 +277,18 @@ func (manager *resourceManager) updateRemotesResourceNames(ctx context.Context) 
 	return anythingChanged
 }
 
-// RemoteNames returns the names of all remotes in the manager.
+// RemoteNames returns the names of all available remotes in the manager.
 func (manager *resourceManager) RemoteNames() []string {
 	names := []string{}
 	for _, k := range manager.resources.Names() {
-		res, _ := manager.resources.Node(k)
-		if k.API == client.RemoteAPI && res != nil {
-			names = append(names, k.Name)
+		if k.API != client.RemoteAPI {
+			continue
 		}
+		gNode, ok := manager.resources.Node(k)
+		if !ok || !gNode.HasResource() {
+			continue
+		}
+		names = append(names, k.Name)
 	}
 	return names
 }

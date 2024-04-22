@@ -25,7 +25,7 @@ var (
 // Model represents an individual model within a family.
 // It consists of a Namespace, Family, and Name.
 type Model struct {
-	Family ModelFamily `json:","`
+	Family ModelFamily `json:""`
 	Name   string      `json:"name"`
 }
 
