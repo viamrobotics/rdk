@@ -4,7 +4,6 @@ package fake
 import (
 	"context"
 	"fmt"
-	"math/rand"
 	"reflect"
 	"sync"
 	"time"
@@ -22,7 +21,9 @@ import (
 	"go.viam.com/rdk/resource"
 )
 
-var randomPin = "4"
+// To see fake analog values on a fake board, add an analog reader on pin 4.
+// Only pin 4 is used for fake values in order to maintain test functionality.
+var fakePin = "4"
 
 // A Config describes the configuration of a fake board and all of its connected parts.
 type Config struct {
@@ -273,6 +274,7 @@ type Analog struct {
 	Value      int
 	CloseCount int
 	Mu         sync.RWMutex
+	fakeValue  int
 }
 
 func newAnalogReader(pin string) *Analog {
@@ -286,13 +288,13 @@ func (a *Analog) reset(pin string) {
 	a.Mu.Unlock()
 }
 
-//nolint:gosec
 func (a *Analog) Read(ctx context.Context, extra map[string]interface{}) (int, error) {
-	if a.pin == randomPin {
-		a.Set(rand.Intn(100))
-	}
 	a.Mu.RLock()
 	defer a.Mu.RUnlock()
+	if a.pin == fakePin {
+		a.Value = a.fakeValue
+		a.fakeValue++
+	}
 	return a.Value, nil
 }
 
@@ -378,10 +380,11 @@ func (gp *GPIOPin) SetPWMFreq(ctx context.Context, freqHz uint, extra map[string
 
 // DigitalInterruptWrapper is a wrapper around a digital interrupt for testing fake boards.
 type DigitalInterruptWrapper struct {
-	mu        sync.Mutex
-	di        board.DigitalInterrupt
-	conf      board.DigitalInterruptConfig
-	callbacks map[chan board.Tick]struct{}
+	mu          sync.Mutex
+	di          board.DigitalInterrupt
+	conf        board.DigitalInterruptConfig
+	currentTime uint64
+	callbacks   map[chan board.Tick]struct{}
 }
 
 // NewDigitalInterruptWrapper returns a new digital interrupt to be used for testing.
@@ -425,14 +428,16 @@ func (s *DigitalInterruptWrapper) reset(conf board.DigitalInterruptConfig) error
 // Value returns the current value of the interrupt which is
 // based on the type of interrupt.
 func (s *DigitalInterruptWrapper) Value(ctx context.Context, extra map[string]interface{}) (int64, error) {
-	if err := s.Tick(ctx, true, 1); err != nil {
-		return 0, err
-	}
-	if err := s.Tick(ctx, false, 2); err != nil {
-		return 0, err
-	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	s.currentTime++
+	if err := s.di.Tick(ctx, true, s.currentTime); err != nil {
+		return 0, err
+	}
+	s.currentTime++
+	if err := s.di.Tick(ctx, false, s.currentTime); err != nil {
+		return 0, err
+	}
 	return s.di.Value(ctx, extra)
 }
 
