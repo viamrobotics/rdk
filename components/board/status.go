@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/pkg/errors"
+	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/board/v1"
 )
 
@@ -15,7 +16,7 @@ func CreateStatus(ctx context.Context, b Board) (*pb.Status, error) {
 	var status pb.Status
 
 	if names := b.AnalogNames(); len(names) != 0 {
-		status.Analogs = make(map[string]int32, len(names))
+		status.Analogs = make(map[string]*commonpb.AnalogStatus, len(names))
 		for _, name := range names {
 			x, err := b.AnalogByName(name)
 			if err != nil {
@@ -25,12 +26,12 @@ func CreateStatus(ctx context.Context, b Board) (*pb.Status, error) {
 			if err != nil {
 				return nil, errors.Wrapf(err, "couldn't read analog (%s)", name)
 			}
-			status.Analogs[name] = int32(val)
+			status.Analogs[name] = &commonpb.AnalogStatus{Value: int32(val)}
 		}
 	}
 
 	if names := b.DigitalInterruptNames(); len(names) != 0 {
-		status.DigitalInterrupts = make(map[string]int64, len(names))
+		status.DigitalInterrupts = make(map[string]*commonpb.DigitalInterruptStatus, len(names))
 		for _, name := range names {
 			x, ok := b.DigitalInterruptByName(name)
 			if !ok {
@@ -40,7 +41,7 @@ func CreateStatus(ctx context.Context, b Board) (*pb.Status, error) {
 			if err != nil {
 				return nil, err
 			}
-			status.DigitalInterrupts[name] = intVal
+			status.DigitalInterrupts[name] = &commonpb.DigitalInterruptStatus{Value: intVal}
 		}
 	}
 
