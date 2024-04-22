@@ -21,10 +21,10 @@ import (
 var zeroInput = make([]referenceframe.Input, 4)
 
 const (
-	ptgIndex int = iota
-	trajectoryIndexWithinPTG
-	startDistanceAlongTrajectoryIndex
-	endDistanceAlongTrajectoryIndex
+	ptgIndex int = iota // The first input is the index of the associated PTG in the `ptgs` array
+	trajectoryAlphaWithinPTG // The second input is the alpha value of the ptg to use
+	startDistanceAlongTrajectoryIndex // The third input is the start distance of the arc that will be executed
+	endDistanceAlongTrajectoryIndex // The fourth input is the end distance of the arc that will be executed
 )
 
 type ptgBaseKinematics struct {

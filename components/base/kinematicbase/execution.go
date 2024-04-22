@@ -150,10 +150,10 @@ func (ptgk *ptgBaseKinematics) GoToInputs(ctx context.Context, inputSteps ...[]r
 				distIncVel = step.angVelDegps.Z
 			}
 			currentInputs := []referenceframe.Input{
-				step.arcSegment.StartConfiguration[0],
-				step.arcSegment.StartConfiguration[1],
-				{step.arcSegment.StartConfiguration[2].Value + math.Abs(distIncVel)*timeElapsedSeconds},
-				step.arcSegment.StartConfiguration[3],
+				step.arcSegment.StartConfiguration[ptgIndex],
+				step.arcSegment.StartConfiguration[trajectoryAlphaWithinPTG],
+				{step.arcSegment.StartConfiguration[startDistanceAlongTrajectoryIndex].Value + math.Abs(distIncVel)*timeElapsedSeconds},
+				step.arcSegment.StartConfiguration[endDistanceAlongTrajectoryIndex],
 			}
 			ptgk.inputLock.Lock()
 			ptgk.currentInputs = currentInputs
@@ -199,6 +199,8 @@ func (ptgk *ptgBaseKinematics) arcStepsFromInputs(inputSteps [][]referenceframe.
 	return arcSteps, nil
 }
 
+// trajectoryArcSteps takes a set of inputs and breaks the trajectory apart into steps of velocities. It returns the list of
+// steps to execute, including the timing of how long to maintain each velocity, and the expected starting and ending positions.
 func (ptgk *ptgBaseKinematics) trajectoryArcSteps(
 	startPose spatialmath.Pose,
 	inputs []referenceframe.Input,
@@ -206,7 +208,7 @@ func (ptgk *ptgBaseKinematics) trajectoryArcSteps(
 	selectedPTG := int(math.Round(inputs[ptgIndex].Value))
 
 	traj, err := ptgk.ptgs[selectedPTG].Trajectory(
-		inputs[trajectoryIndexWithinPTG].Value,
+		inputs[trajectoryAlphaWithinPTG].Value,
 		inputs[startDistanceAlongTrajectoryIndex].Value,
 		inputs[endDistanceAlongTrajectoryIndex].Value,
 		stepDistResolution,
@@ -220,7 +222,7 @@ func (ptgk *ptgBaseKinematics) trajectoryArcSteps(
 	curDist := 0.
 	curInputs := []referenceframe.Input{
 		inputs[ptgIndex],
-		inputs[trajectoryIndexWithinPTG],
+		inputs[trajectoryAlphaWithinPTG],
 		{curDist},
 		inputs[endDistanceAlongTrajectoryIndex],
 	}
@@ -261,7 +263,7 @@ func (ptgk *ptgBaseKinematics) trajectoryArcSteps(
 
 			curInputs = []referenceframe.Input{
 				inputs[ptgIndex],
-				inputs[trajectoryIndexWithinPTG],
+				inputs[trajectoryAlphaWithinPTG],
 				{curDist},
 				inputs[endDistanceAlongTrajectoryIndex],
 			}
@@ -300,6 +302,8 @@ func (ptgk *ptgBaseKinematics) trajectoryArcSteps(
 	return finalSteps, nil
 }
 
+// courseCorrect will check whether the base is sufficiently off-course, and if so, attempt to calculate a set of corrective arcs to arrive
+// back at a point along the planned path. If successful will return the new set of steps to execute to reflect the correction.
 func (ptgk *ptgBaseKinematics) courseCorrect(
 	ctx context.Context,
 	currentInputs []referenceframe.Input,
@@ -314,7 +318,7 @@ func (ptgk *ptgBaseKinematics) courseCorrect(
 	// to get the pose travelled along the arc.
 	execInputs := []referenceframe.Input{
 		currentInputs[ptgIndex],
-		currentInputs[trajectoryIndexWithinPTG],
+		currentInputs[trajectoryAlphaWithinPTG],
 		arcSteps[arcIdx].arcSegment.StartConfiguration[startDistanceAlongTrajectoryIndex],
 		currentInputs[startDistanceAlongTrajectoryIndex],
 	}
