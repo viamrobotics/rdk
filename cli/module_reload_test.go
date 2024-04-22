@@ -42,17 +42,23 @@ func TestFullReloadFlow(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	updateCount := 0
 	cCtx, vc, _, _ := setup(&inject.AppServiceClient{
-		GetRobotPartFunc: func(ctx context.Context, req *apppb.GetRobotPartRequest, opts ...grpc.CallOption) (*apppb.GetRobotPartResponse, error) {
+		GetRobotPartFunc: func(ctx context.Context, req *apppb.GetRobotPartRequest,
+			opts ...grpc.CallOption,
+		) (*apppb.GetRobotPartResponse, error) {
 			return &apppb.GetRobotPartResponse{Part: &apppb.RobotPart{
 				RobotConfig: confStruct,
 				Fqdn:        "restart-module-robot.local",
 			}, ConfigJson: ``}, nil
 		},
-		UpdateRobotPartFunc: func(ctx context.Context, req *apppb.UpdateRobotPartRequest, opts ...grpc.CallOption) (*apppb.UpdateRobotPartResponse, error) {
+		UpdateRobotPartFunc: func(ctx context.Context, req *apppb.UpdateRobotPartRequest,
+			opts ...grpc.CallOption,
+		) (*apppb.UpdateRobotPartResponse, error) {
 			updateCount++
 			return &apppb.UpdateRobotPartResponse{Part: &apppb.RobotPart{}}, nil
 		},
-		GetRobotAPIKeysFunc: func(ctx context.Context, in *apppb.GetRobotAPIKeysRequest, opts ...grpc.CallOption) (*apppb.GetRobotAPIKeysResponse, error) {
+		GetRobotAPIKeysFunc: func(ctx context.Context, in *apppb.GetRobotAPIKeysRequest,
+			opts ...grpc.CallOption,
+		) (*apppb.GetRobotAPIKeysResponse, error) {
 			return &apppb.GetRobotAPIKeysResponse{ApiKeys: []*apppb.APIKeyWithAuthorizations{
 				{ApiKey: &apppb.APIKey{}},
 			}}, nil
@@ -65,21 +71,6 @@ func TestFullReloadFlow(t *testing.T) {
 	err = ReloadModuleAction(cCtx)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, updateCount, test.ShouldEqual, 1)
-
-	// todo: uncomment or delete before merging
-	// send correct config, test restart flow
-	// wd, _ := os.Getwd()
-	// confStruct, err = structpb.NewStruct(map[string]interface{}{
-	// 	"modules": []interface{}{
-	// 		map[string]interface{}{
-	// 			"name":            "hr_test_test",
-	// 			"executable_path": wd + "/bin/module",
-	// 		},
-	// 	},
-	// })
-	// test.That(t, err, test.ShouldBeNil)
-	// err = ReloadModuleAction(cCtx)
-	// test.That(t, err, test.ShouldBeNil)
 }
 
 func TestRestartModule(t *testing.T) {
@@ -89,9 +80,9 @@ func TestRestartModule(t *testing.T) {
 func TestResolvePartId(t *testing.T) {
 	c := newTestContext(t, map[string]any{})
 	// empty flag, no path
-	partId, err := resolvePartID(c, "")
+	partID, err := resolvePartID(c, "")
 	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, partId, test.ShouldBeEmpty)
+	test.That(t, partID, test.ShouldBeEmpty)
 
 	// empty flag, fake path
 	missingPath := filepath.Join(t.TempDir(), "MISSING.json")
@@ -104,15 +95,15 @@ func TestResolvePartId(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	_, err = fi.WriteString(`{"cloud":{"app_address":"https://app.viam.com:443","id":"JSON-PART","secret":"SECRET"}}`)
 	test.That(t, err, test.ShouldBeNil)
-	partId, err = resolvePartID(c, path)
+	partID, err = resolvePartID(c, path)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, partId, test.ShouldEqual, "JSON-PART")
+	test.That(t, partID, test.ShouldEqual, "JSON-PART")
 
 	// given flag, valid path
 	c = newTestContext(t, map[string]any{partFlag: "FLAG-PART"})
-	partId, err = resolvePartID(c, path)
+	partID, err = resolvePartID(c, path)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, partId, test.ShouldEqual, "FLAG-PART")
+	test.That(t, partID, test.ShouldEqual, "FLAG-PART")
 }
 
 func TestMutateModuleConfig(t *testing.T) {

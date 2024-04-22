@@ -70,6 +70,7 @@ func (asc *AppServiceClient) CreateKey(ctx context.Context, in *apppb.CreateKeyR
 	return asc.CreateKeyFunc(ctx, in, opts...)
 }
 
+// GetRobotAPIKeys wraps GetRobotAPIKeys.
 func (asc *AppServiceClient) GetRobotAPIKeys(ctx context.Context, in *apppb.GetRobotAPIKeysRequest,
 	opts ...grpc.CallOption,
 ) (*apppb.GetRobotAPIKeysResponse, error) {
@@ -79,6 +80,7 @@ func (asc *AppServiceClient) GetRobotAPIKeys(ctx context.Context, in *apppb.GetR
 	return asc.GetRobotAPIKeysFunc(ctx, in, opts...)
 }
 
+// GetRobotPart wraps GetRobotPart.
 func (asc *AppServiceClient) GetRobotPart(ctx context.Context, in *apppb.GetRobotPartRequest,
 	opts ...grpc.CallOption,
 ) (*apppb.GetRobotPartResponse, error) {
@@ -88,6 +90,7 @@ func (asc *AppServiceClient) GetRobotPart(ctx context.Context, in *apppb.GetRobo
 	return asc.GetRobotPartFunc(ctx, in, opts...)
 }
 
+// UpdateRobotPart wraps UpdateRobotPart.
 func (asc *AppServiceClient) UpdateRobotPart(ctx context.Context, in *apppb.UpdateRobotPartRequest,
 	opts ...grpc.CallOption,
 ) (*apppb.UpdateRobotPartResponse, error) {
