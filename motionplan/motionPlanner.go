@@ -523,11 +523,11 @@ func CheckPlan(
 
 		// pre-pend to segments so we can connect to the input we have not finished actuating yet
 		segments = append(segments, &ik.Segment{
-			StartPosition: poses[wayPointIdx-1],
-			EndPosition:   poses[wayPointIdx],
+			StartPosition:      poses[wayPointIdx-1],
+			EndPosition:        poses[wayPointIdx],
 			StartConfiguration: interpolateConfig,
-			EndConfiguration: interpolateConfig,
-			Frame:            sf,
+			EndConfiguration:   interpolateConfig,
+			Frame:              sf,
 		})
 	}
 

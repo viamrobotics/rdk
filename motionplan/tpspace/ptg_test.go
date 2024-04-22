@@ -46,16 +46,16 @@ func TestPtgTransform(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	p, ok := pFrame.(*ptgGroupFrame)
 	test.That(t, ok, test.ShouldBeTrue)
-	pose, err := p.Transform([]referenceframe.Input{{0}, {math.Pi/2}, {0}, {200}})
+	pose, err := p.Transform([]referenceframe.Input{{0}, {math.Pi / 2}, {0}, {200}})
 	test.That(t, err, test.ShouldBeNil)
 	traj, err := p.PTGSolvers()[0].Trajectory(math.Pi/2, 0, 200, defaultResolution)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, spatialmath.PoseAlmostEqual(pose, traj[len(traj)-1].Pose), test.ShouldBeTrue)
 
-	poseInv, err := p.Transform([]referenceframe.Input{{0}, {math.Pi/2}, {0}, {-200}})
+	poseInv, err := p.Transform([]referenceframe.Input{{0}, {math.Pi / 2}, {0}, {-200}})
 	test.That(t, err, test.ShouldBeNil)
 	trajInv, err := p.PTGSolvers()[0].Trajectory(math.Pi/2, 0, -200, defaultResolution)
 	test.That(t, err, test.ShouldBeNil)
-	
+
 	test.That(t, spatialmath.PoseAlmostEqual(poseInv, trajInv[len(trajInv)-1].Pose), test.ShouldBeTrue)
 }

@@ -60,7 +60,7 @@ func TestPTGKinematicsNoGeom(t *testing.T) {
 		test.That(t, f.Name(), test.ShouldEqual, b.Name().ShortName())
 		test.That(t, f.DoF(), test.ShouldResemble, frame.DoF())
 
-		gifs, err := f.Geometries(referenceframe.FloatsToInputs([]float64{0, 0, 0}))
+		gifs, err := f.Geometries(referenceframe.FloatsToInputs([]float64{0, 0, 0, 0}))
 		test.That(t, err, test.ShouldBeNil)
 
 		test.That(t, gifs.Geometries(), test.ShouldResemble, []spatialmath.Geometry{defaultBaseGeom})
@@ -206,6 +206,7 @@ func TestPTGKinematicsWithGeom(t *testing.T) {
 		currInputs := []referenceframe.Input{
 			arcSteps[arcIdx].arcSegment.StartConfiguration[0],
 			arcSteps[arcIdx].arcSegment.StartConfiguration[1],
+			{0},
 			{1},
 		}
 		ptgBase.inputLock.Lock()
@@ -215,10 +216,10 @@ func TestPTGKinematicsWithGeom(t *testing.T) {
 		ptgBase.inputLock.Unlock()
 		// Mock up being off course and try to correct
 		skewPose := spatialmath.NewPose(r3.Vector{5, -300, 0}, &spatialmath.OrientationVectorDegrees{OZ: 1, Theta: -4})
+		newPose, err := kb.Kinematics().Transform(currInputs)
+		test.That(t, err, test.ShouldBeNil)
 
 		ms.PositionFunc = func(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
-			newPose, err := kb.Kinematics().Transform(currInputs)
-			test.That(t, err, test.ShouldBeNil)
 			newGeoPose := spatialmath.PoseToGeoPose(spatialmath.NewGeoPose(gpOrigin, 0), spatialmath.Compose(newPose, skewPose))
 			return newGeoPose.Location(), 0, nil
 		}
@@ -269,6 +270,7 @@ func TestPTGKinematicsWithGeom(t *testing.T) {
 				arcSteps[arcIdx].arcSegment.StartConfiguration[0],
 				arcSteps[arcIdx].arcSegment.StartConfiguration[1],
 				{0},
+				{0},
 			}
 			ptgBase.inputLock.Lock()
 			ptgBase.currentIdx = arcIdx
@@ -283,28 +285,10 @@ func TestPTGKinematicsWithGeom(t *testing.T) {
 		})
 	})
 
-	ms.PositionFunc = func(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
-		ptgBase.inputLock.RLock()
-		newPose, err := kb.Kinematics().Transform(ptgBase.currentInputs)
-		ptgBase.inputLock.RUnlock()
-		test.That(t, err, test.ShouldBeNil)
-		newGeoPose := spatialmath.PoseToGeoPose(spatialmath.NewGeoPose(gpOrigin, 0), newPose)
-		return newGeoPose.Location(), 0, nil
-	}
-	ms.CompassHeadingFunc = func(ctx context.Context, extra map[string]interface{}) (float64, error) {
-		ptgBase.inputLock.RLock()
-		newPose, err := kb.Kinematics().Transform(ptgBase.currentInputs)
-		ptgBase.inputLock.RUnlock()
-		test.That(t, err, test.ShouldBeNil)
-		headingRightHanded := newPose.Orientation().OrientationVectorDegrees().Theta
-		return math.Abs(headingRightHanded) - 360, nil
-	}
-
 	t.Run("EasyGoal", func(t *testing.T) {
 		goal := courseCorrectionGoal{
 			Goal: spatialmath.NewPose(r3.Vector{X: -0.8564, Y: 234.}, &spatialmath.OrientationVectorDegrees{OZ: 1., Theta: 4.4}),
 		}
-
 		solution, err := ptgBase.getCorrectionSolution(ctx, []courseCorrectionGoal{goal})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, solution.Solution, test.ShouldNotBeNil) // Irrelevant what this is as long as filled in
@@ -321,13 +305,47 @@ func TestPTGKinematicsWithGeom(t *testing.T) {
 		test.That(t, kinematics.Name(), test.ShouldEqual, b.Name().ShortName())
 		test.That(t, kinematics.DoF(), test.ShouldResemble, f.DoF())
 
-		gifs, err := kinematics.Geometries(referenceframe.FloatsToInputs([]float64{0, 0, 0}))
+		gifs, err := kinematics.Geometries(referenceframe.FloatsToInputs([]float64{0, 0, 0, 0}))
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, gifs.Geometries(), test.ShouldResemble, []spatialmath.Geometry{baseGeom})
 	})
 
 	t.Run("GoToInputs", func(t *testing.T) {
+		// The transform of current inputs is the remaining step, i.e. where the base will go when the current inputs are done executing.
+		// To mock this up correctly, we need to alter the inputs here to simulate the base moving without a localizer
+		ms.PositionFunc = func(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
+			ptgBase.inputLock.RLock()
+			execInputs := []referenceframe.Input{
+				ptgBase.currentInputs[0],
+				ptgBase.currentInputs[1],
+				{0},
+				ptgBase.currentInputs[2],
+			}
+			ptgBase.inputLock.RUnlock()
+			newPose, err := kb.Kinematics().Transform(execInputs)
+			test.That(t, err, test.ShouldBeNil)
+			newGeoPose := spatialmath.PoseToGeoPose(spatialmath.NewGeoPose(gpOrigin, 0), newPose)
+			return newGeoPose.Location(), 0, nil
+		}
+		ms.CompassHeadingFunc = func(ctx context.Context, extra map[string]interface{}) (float64, error) {
+			ptgBase.inputLock.RLock()
+			execInputs := []referenceframe.Input{
+				ptgBase.currentInputs[0],
+				ptgBase.currentInputs[1],
+				{0},
+				ptgBase.currentInputs[2],
+			}
+			ptgBase.inputLock.RUnlock()
+			newPose, err := kb.Kinematics().Transform(execInputs)
+			test.That(t, err, test.ShouldBeNil)
+			headingRightHanded := newPose.Orientation().OrientationVectorDegrees().Theta
+			return math.Abs(headingRightHanded) - 360, nil
+		}
+
 		waypoints, err := plan.Trajectory().GetFrameInputs(kb.Name().ShortName())
+		test.That(t, err, test.ShouldBeNil)
+		// Start by resetting current inputs to 0
+		err = kb.GoToInputs(ctx, waypoints[0])
 		test.That(t, err, test.ShouldBeNil)
 		err = kb.GoToInputs(ctx, waypoints[1])
 		test.That(t, err, test.ShouldBeNil)
@@ -336,8 +354,8 @@ func TestPTGKinematicsWithGeom(t *testing.T) {
 	t.Run("CurrentInputs", func(t *testing.T) {
 		currentInputs, err := kb.CurrentInputs(ctx)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, len(currentInputs), test.ShouldEqual, 3)
-		expectedInputs := referenceframe.FloatsToInputs([]float64{0, 0, 0})
+		test.That(t, len(currentInputs), test.ShouldEqual, 4)
+		expectedInputs := referenceframe.FloatsToInputs([]float64{0, 0, 0, 0})
 		test.That(t, currentInputs, test.ShouldResemble, expectedInputs)
 	})
 

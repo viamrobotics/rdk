@@ -153,6 +153,10 @@ func (ptgk *ptgBaseKinematics) Kinematics() referenceframe.Frame {
 	return ptgk.frame
 }
 
+// For a ptgBaseKinematics, `CurrentInputs` returns inputs which reflect what the base is currently doing.
+// If the base is not moving, the CurrentInputs will all be zeros, and a `Transform()` will yield the zero pose.
+// If the base is moving, then the inputs will be nonzero and the `Transform()` of the CurrentInputs will yield the pose at which the base
+// is expected to arrive after completing execution of the current set of inputs.
 func (ptgk *ptgBaseKinematics) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
 	ptgk.inputLock.RLock()
 	defer ptgk.inputLock.RUnlock()

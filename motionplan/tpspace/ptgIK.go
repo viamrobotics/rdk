@@ -136,7 +136,7 @@ func (ptg *ptgIK) cachedTraj(alpha, end, resolution float64) ([]*TrajNode, error
 		precomp = thisRes[alpha]
 	}
 	ptg.mu.RUnlock()
-	
+
 	// If we have not computed this PTG out to the desired end yet, do so
 	if precomp == nil || precomp[len(precomp)-1].Dist < end {
 		var err error
@@ -164,21 +164,26 @@ func (ptg *ptgIK) Trajectory(alpha, start, end, resolution float64) ([]*TrajNode
 	if end == 0 {
 		return computePTG(ptg, alpha, end, resolution)
 	}
-	
+
 	startPos := math.Abs(start)
 	endPos := math.Abs(end)
-	traj, err := ptg.cachedTraj(alpha, endPos, resolution)
+	trajPrecompute, err := ptg.cachedTraj(alpha, endPos, resolution)
 	if err != nil {
 		return nil, err
 	}
+	traj := []*TrajNode{}
 
 	// We have already computed out this strajectory to at least the distance requested, so we can pull from cache
 	started := false
 	exactEnd := false
-	for _, wp := range traj {
-		if !started {
-			if wp.Dist >= startPos {
+	for _, wp := range trajPrecompute {
+		// gocritic prefers there be a switch statement here, but doing so makes this much messier, as the `break` would break the
+		// switch statement and we would require label loops to break the for loop.
+		//nolint: gocritic
+		if !started { // First, skip ahead to the start distance
+			if wp.Dist >= startPos { // Check if we have entered the trajectory
 				if wp.Dist != startPos {
+					// Compute the first node if we don't have an exact match for the starting distance
 					firstNode, err := computePTGNode(ptg, alpha, startPos)
 					if err != nil {
 						return nil, err
@@ -186,9 +191,10 @@ func (ptg *ptgIK) Trajectory(alpha, start, end, resolution float64) ([]*TrajNode
 					traj = append(traj, firstNode)
 				}
 				traj = append(traj, wp)
+				started = true
 			}
-		} else if wp.Dist <= end {
-			if wp.Dist == end {
+		} else if wp.Dist <= endPos { // Add the node if we are still within the trajectory
+			if wp.Dist == endPos {
 				exactEnd = true
 			}
 			traj = append(traj, wp)
@@ -196,7 +202,7 @@ func (ptg *ptgIK) Trajectory(alpha, start, end, resolution float64) ([]*TrajNode
 			break
 		}
 	}
-	if !exactEnd {
+	if !exactEnd { // If our final node does not match our end distance, compute the ending node.
 		lastNode, err := computePTGNode(ptg, alpha, endPos)
 		if err != nil {
 			return nil, err
