@@ -1557,6 +1557,7 @@ func TestRobotReconfigure(t *testing.T) {
 		test.That(t, c, test.ShouldEqual, 1)
 
 		test.That(t, eB.Tick(context.Background(), false, uint64(time.Now().UnixNano())), test.ShouldBeNil)
+		time.Sleep(1 * time.Second)
 		test.That(t, eA.Tick(context.Background(), false, uint64(time.Now().UnixNano())), test.ShouldBeNil)
 
 		testutils.WaitForAssertion(t, func(tb testing.TB) {

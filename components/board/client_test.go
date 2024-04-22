@@ -199,14 +199,21 @@ func TestWorkingClient(t *testing.T) {
 		actualExtra = nil
 
 		// StreamTicks
-		injectBoard.StreamTicksFunc = func(ctx context.Context, interrupts []string, ch chan board.Tick, extra map[string]interface{}) error {
+		injectBoard.StreamTicksFunc = func(ctx context.Context, interrupts []board.DigitalInterrupt, ch chan board.Tick,
+			extra map[string]interface{},
+		) error {
 			actualExtra = extra
 			return nil
 		}
-		err = injectBoard.StreamTicks(context.Background(), []string{"pin1"}, make(chan board.Tick), expectedExtra)
+		err = injectBoard.StreamTicks(context.Background(), []board.DigitalInterrupt{digital1}, make(chan board.Tick), expectedExtra)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, actualExtra, test.ShouldResemble, expectedExtra)
 		actualExtra = nil
+		injectDigitalInterrupt.NameFunc = func() string {
+			return "digital1"
+		}
+		name := digital1.Name()
+		test.That(t, name, test.ShouldEqual, "digital1")
 
 		// SetPowerMode (currently unimplemented in RDK)
 		injectBoard.SetPowerModeFunc = func(ctx context.Context, mode boardpb.PowerMode, duration *time.Duration) error {
