@@ -6,6 +6,7 @@ on:
     secrets:
       GCP_CREDENTIALS:
         required: true
+  pull_request: # DONOTMERGE
 
 jobs:
   full-static:
