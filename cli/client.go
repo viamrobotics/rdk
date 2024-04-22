@@ -79,6 +79,9 @@ type viamClient struct {
 	locs *[]*apppb.Location
 }
 
+// globalTestClient allows test suite to run actions that run newViamClient.
+var globalTestClient *viamClient
+
 // ListOrganizationsAction is the corresponding Action for 'organizations list'.
 func ListOrganizationsAction(cCtx *cli.Context) error {
 	c, err := newViamClient(cCtx)
@@ -640,6 +643,9 @@ func isProdBaseURL(baseURL *url.URL) bool {
 }
 
 func newViamClient(c *cli.Context) (*viamClient, error) {
+	if globalTestClient != nil {
+		return globalTestClient, nil
+	}
 	conf, err := configFromCache()
 	if err != nil {
 		if !os.IsNotExist(err) {

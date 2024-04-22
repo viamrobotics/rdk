@@ -18,10 +18,14 @@ type AppServiceClient struct {
 		opts ...grpc.CallOption) (*apppb.ListRobotsResponse, error)
 	CreateKeyFunc func(ctx context.Context, in *apppb.CreateKeyRequest,
 		opts ...grpc.CallOption) (*apppb.CreateKeyResponse, error)
+	GetRobotPartFunc func(ctx context.Context, in *apppb.GetRobotPartRequest,
+		opts ...grpc.CallOption) (*apppb.GetRobotPartResponse, error)
 	GetRobotPartsFunc func(ctx context.Context, in *apppb.GetRobotPartsRequest,
 		opts ...grpc.CallOption) (*apppb.GetRobotPartsResponse, error)
 	GetRobotPartLogsFunc func(ctx context.Context, in *apppb.GetRobotPartLogsRequest,
 		opts ...grpc.CallOption) (*apppb.GetRobotPartLogsResponse, error)
+	UpdateRobotPartFunc func(ctx context.Context, in *apppb.UpdateRobotPartRequest,
+		opts ...grpc.CallOption) (*apppb.UpdateRobotPartResponse, error)
 }
 
 // ListOrganizations calls the injected ListOrganizationsFunc or the real version.
@@ -62,6 +66,24 @@ func (asc *AppServiceClient) CreateKey(ctx context.Context, in *apppb.CreateKeyR
 		return asc.AppServiceClient.CreateKey(ctx, in, opts...)
 	}
 	return asc.CreateKeyFunc(ctx, in, opts...)
+}
+
+func (asc *AppServiceClient) GetRobotPart(ctx context.Context, in *apppb.GetRobotPartRequest,
+	opts ...grpc.CallOption,
+) (*apppb.GetRobotPartResponse, error) {
+	if asc.GetRobotPartFunc == nil {
+		return asc.AppServiceClient.GetRobotPart(ctx, in, opts...)
+	}
+	return asc.GetRobotPartFunc(ctx, in, opts...)
+}
+
+func (asc *AppServiceClient) UpdateRobotPart(ctx context.Context, in *apppb.UpdateRobotPartRequest,
+	opts ...grpc.CallOption,
+) (*apppb.UpdateRobotPartResponse, error) {
+	if asc.GetRobotPartFunc == nil {
+		return asc.AppServiceClient.UpdateRobotPart(ctx, in, opts...)
+	}
+	return asc.UpdateRobotPartFunc(ctx, in, opts...)
 }
 
 // GetRobotParts calls the injected GetRobotPartsFunc or the real version.

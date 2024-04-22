@@ -164,13 +164,12 @@ func TestLocalBuild(t *testing.T) {
 	testDir := t.TempDir()
 	err := os.Chdir(testDir)
 	test.That(t, err, test.ShouldBeNil)
-	manifest := filepath.Join(testDir, "meta.json")
 
 	// write manifest and setup.sh
 	// the manifest contains a:
 	// "setup": "./setup.sh"
 	// and a "build": "make build"
-	createTestManifest(t, manifest)
+	manifestPath := createTestManifest(t, "")
 	err = os.WriteFile(
 		filepath.Join(testDir, "setup.sh"),
 		[]byte("echo setup step msg"),
@@ -186,10 +185,11 @@ func TestLocalBuild(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	// run the build local action
-	cCtx, ac, out, errOut := setup(&inject.AppServiceClient{}, nil, &inject.BuildServiceClient{},
-		&map[string]any{moduleBuildFlagPath: manifest, moduleBuildFlagVersion: "1.2.3"}, "token")
-
-	err = ac.moduleBuildLocalAction(cCtx)
+	cCtx, _, out, errOut := setup(&inject.AppServiceClient{}, nil, &inject.BuildServiceClient{},
+		&map[string]any{moduleBuildFlagPath: manifestPath, moduleBuildFlagVersion: "1.2.3"}, "token")
+	manifest, err := loadManifest(manifestPath)
+	test.That(t, err, test.ShouldBeNil)
+	err = moduleBuildLocalAction(cCtx, &manifest)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, errOut.messages, test.ShouldHaveLength, 0)
 
