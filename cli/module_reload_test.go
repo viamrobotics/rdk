@@ -30,10 +30,6 @@ func TestConfigureModule(t *testing.T) {
 	test.That(t, errOut.messages, test.ShouldHaveLength, 1)
 }
 
-// func TestMutateModuleConfig(t *testing.T) {
-// 	panic("hi")
-// }
-
 func TestFullReloadFlow(t *testing.T) {
 	manifestPath := createTestManifest(t, "")
 	confStruct, err := structpb.NewStruct(map[string]interface{}{
