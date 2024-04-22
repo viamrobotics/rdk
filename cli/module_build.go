@@ -494,9 +494,6 @@ func restartModule(c *cli.Context, vc *viamClient, part *apppb.RobotPart, manife
 		return errors.New("API keys list for this machine is empty. You can create one with \"viam machine api-key create\"")
 	}
 	key := apiRes.ApiKeys[0]
-	if len(key.Authorizations) == 0 || key.Authorizations[0].AuthorizationType != "robot" {
-		logger.Warn("key 0 authorization is not \"robot\"; this command may fail")
-	}
 	logger.Debugf("using API key: %s %s", key.ApiKey.Id, key.ApiKey.Name)
 	creds := rpc.WithEntityCredentials(key.ApiKey.Id, rpc.Credentials{
 		Type:    rpc.CredentialsTypeAPIKey,
