@@ -23,8 +23,6 @@ import (
 	utils2 "go.viam.com/rdk/utils"
 )
 
-I am a syntax error
-
 // A Stream is sink that accepts any image frames for the purpose
 // of displaying in a WebRTC video track.
 type Stream interface {
