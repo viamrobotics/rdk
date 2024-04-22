@@ -18,6 +18,8 @@ type AppServiceClient struct {
 		opts ...grpc.CallOption) (*apppb.ListRobotsResponse, error)
 	CreateKeyFunc func(ctx context.Context, in *apppb.CreateKeyRequest,
 		opts ...grpc.CallOption) (*apppb.CreateKeyResponse, error)
+	GetRobotAPIKeysFunc func(ctx context.Context, in *apppb.GetRobotAPIKeysRequest,
+		opts ...grpc.CallOption) (*apppb.GetRobotAPIKeysResponse, error)
 	GetRobotPartFunc func(ctx context.Context, in *apppb.GetRobotPartRequest,
 		opts ...grpc.CallOption) (*apppb.GetRobotPartResponse, error)
 	GetRobotPartsFunc func(ctx context.Context, in *apppb.GetRobotPartsRequest,
@@ -66,6 +68,15 @@ func (asc *AppServiceClient) CreateKey(ctx context.Context, in *apppb.CreateKeyR
 		return asc.AppServiceClient.CreateKey(ctx, in, opts...)
 	}
 	return asc.CreateKeyFunc(ctx, in, opts...)
+}
+
+func (asc *AppServiceClient) GetRobotAPIKeys(ctx context.Context, in *apppb.GetRobotAPIKeysRequest,
+	opts ...grpc.CallOption,
+) (*apppb.GetRobotAPIKeysResponse, error) {
+	if asc.GetRobotAPIKeysFunc == nil {
+		return asc.AppServiceClient.GetRobotAPIKeys(ctx, in, opts...)
+	}
+	return asc.GetRobotAPIKeysFunc(ctx, in, opts...)
 }
 
 func (asc *AppServiceClient) GetRobotPart(ctx context.Context, in *apppb.GetRobotPartRequest,

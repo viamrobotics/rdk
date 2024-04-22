@@ -37,14 +37,22 @@ func TestFullReloadFlow(t *testing.T) {
 		"modules": []interface{}{},
 	})
 	test.That(t, err, test.ShouldBeNil)
+	updateCount := 0
 	cCtx, vc, _, _ := setup(&inject.AppServiceClient{
 		GetRobotPartFunc: func(ctx context.Context, req *apppb.GetRobotPartRequest, opts ...grpc.CallOption) (*apppb.GetRobotPartResponse, error) {
 			return &apppb.GetRobotPartResponse{Part: &apppb.RobotPart{
 				RobotConfig: confStruct,
+				Fqdn:        "restart-module-robot.local",
 			}, ConfigJson: ``}, nil
 		},
 		UpdateRobotPartFunc: func(ctx context.Context, req *apppb.UpdateRobotPartRequest, opts ...grpc.CallOption) (*apppb.UpdateRobotPartResponse, error) {
+			updateCount++
 			return &apppb.UpdateRobotPartResponse{Part: &apppb.RobotPart{}}, nil
+		},
+		GetRobotAPIKeysFunc: func(ctx context.Context, in *apppb.GetRobotAPIKeysRequest, opts ...grpc.CallOption) (*apppb.GetRobotAPIKeysResponse, error) {
+			return &apppb.GetRobotAPIKeysResponse{ApiKeys: []*apppb.APIKeyWithAuthorizations{
+				{ApiKey: &apppb.APIKey{}},
+			}}, nil
 		},
 	}, nil, &inject.BuildServiceClient{},
 		&map[string]any{moduleBuildFlagPath: manifestPath, moduleBuildFlagVersion: "1.2.3"}, "token")
@@ -53,4 +61,20 @@ func TestFullReloadFlow(t *testing.T) {
 	t.Cleanup(func() { globalTestClient = nil })
 	err = ReloadModuleAction(cCtx)
 	test.That(t, err, test.ShouldBeNil)
+	test.That(t, updateCount, test.ShouldEqual, 1)
+
+	// todo: uncomment or delete before merging
+	// send correct config, test restart flow
+	// wd, _ := os.Getwd()
+	// confStruct, err = structpb.NewStruct(map[string]interface{}{
+	// 	"modules": []interface{}{
+	// 		map[string]interface{}{
+	// 			"name":            "hr_test_test",
+	// 			"executable_path": wd + "/bin/module",
+	// 		},
+	// 	},
+	// })
+	// test.That(t, err, test.ShouldBeNil)
+	// err = ReloadModuleAction(cCtx)
+	// test.That(t, err, test.ShouldBeNil)
 }

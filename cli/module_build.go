@@ -491,7 +491,7 @@ func restartModule(c *cli.Context, vc *viamClient, part *apppb.RobotPart, manife
 	}
 	key := apiRes.ApiKeys[0]
 	if len(key.Authorizations) == 0 || key.Authorizations[0].AuthorizationType != "robot" {
-		logger.Warnf("key 0 authorization is \"%s\", not \"robot\"; this command may fail", key.Authorizations[0].AuthorizationType)
+		logger.Warn("key 0 authorization is not \"robot\"; this command may fail")
 	}
 	logger.Debugf("using API key: %s %s", key.ApiKey.Id, key.ApiKey.Name)
 	creds := rpc.WithEntityCredentials(key.ApiKey.Id, rpc.Credentials{
