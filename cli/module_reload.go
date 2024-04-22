@@ -96,7 +96,6 @@ func mutateModuleConfig(modules []ModuleMap, manifest moduleManifest) ([]ModuleM
 			logger.Debug("replacing entrypoint")
 			if getMapString(foundMod, "type") == string(rdkConfig.ModuleTypeRegistry) {
 				// warning: there's a chance of inserting a dupe name here in odd cases
-				// todo: prompt user
 				logger.Warn("you're replacing a registry module. we're converting it to a local module")
 				foundMod["type"] = string(rdkConfig.ModuleTypeLocal)
 				foundMod["name"] = localName
