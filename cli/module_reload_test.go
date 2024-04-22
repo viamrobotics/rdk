@@ -12,6 +12,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/structpb"
 
+	rdkConfig "go.viam.com/rdk/config"
 	"go.viam.com/rdk/testutils/inject"
 )
 
@@ -82,7 +83,7 @@ func TestFullReloadFlow(t *testing.T) {
 }
 
 func TestRestartModule(t *testing.T) {
-	t.Skip("todo: pass in fake client")
+	t.Skip("restartModule test requires fake robot client")
 }
 
 func TestResolvePartId(t *testing.T) {
@@ -115,5 +116,34 @@ func TestResolvePartId(t *testing.T) {
 }
 
 func TestMutateModuleConfig(t *testing.T) {
-	t.Error("todo")
+	manifest := moduleManifest{ModuleID: "viam-labs:test-module", Entrypoint: "/bin/mod"}
+
+	// correct ExePath (do nothing)
+	modules := []ModuleMap{{"module_id": manifest.ModuleID, "executable_path": manifest.Entrypoint}}
+	_, dirty, err := mutateModuleConfig(modules, manifest)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, dirty, test.ShouldBeFalse)
+
+	// wrong ExePath
+	modules = []ModuleMap{{"module_id": manifest.ModuleID, "executable_path": "WRONG"}}
+	_, dirty, err = mutateModuleConfig(modules, manifest)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, dirty, test.ShouldBeTrue)
+	test.That(t, modules[0]["executable_path"], test.ShouldEqual, manifest.Entrypoint)
+
+	// wrong ExePath with localName
+	modules = []ModuleMap{{"name": localizeModuleID(manifest.ModuleID)}}
+	mutateModuleConfig(modules, manifest)
+	test.That(t, modules[0]["executable_path"], test.ShouldEqual, manifest.Entrypoint)
+
+	// insert case
+	modules = []ModuleMap{}
+	modules, _, _ = mutateModuleConfig(modules, manifest)
+	test.That(t, modules[0]["executable_path"], test.ShouldEqual, manifest.Entrypoint)
+
+	// registry to local
+	// todo(RSDK-6712): this goes away once we reconcile registry + local modules
+	modules = []ModuleMap{{"module_id": manifest.ModuleID, "executable_path": "WRONG", "type": string(rdkConfig.ModuleTypeRegistry)}}
+	mutateModuleConfig(modules, manifest)
+	test.That(t, modules[0]["name"], test.ShouldEqual, localizeModuleID(manifest.ModuleID))
 }
