@@ -3,9 +3,8 @@ package gpio
 
 import (
 	"context"
-	"testing"
-
 	"errors"
+	"testing"
 
 	"go.viam.com/test"
 

@@ -3,12 +3,11 @@ package gpio
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math"
 	"sync"
 	"time"
-
-	"errors"
 
 	viamutils "go.viam.com/utils"
 
@@ -145,12 +144,12 @@ func (s *servoGPIO) Reconfigure(ctx context.Context, deps resource.Dependencies,
 
 	b, err := board.FromDependencies(deps, boardName)
 	if err != nil {
-		return errors.Join(err, fmt.Errorf("board doesn't exist"))
+		return errors.Join(err, errors.New("board doesn't exist"))
 	}
 
 	s.pin, err = b.GPIOPinByName(newConf.Pin)
 	if err != nil {
-		return errors.Join(err, fmt.Errorf("couldn't get servo pin"))
+		return errors.Join(err, errors.New("couldn't get servo pin"))
 	}
 
 	s.minDeg = defaultMinDeg
@@ -181,7 +180,7 @@ func (s *servoGPIO) Reconfigure(ctx context.Context, deps resource.Dependencies,
 	// instead. If it's currently set to 0, we'll default to using 300 Hz.
 	s.frequency, err = s.pin.PWMFreq(ctx, nil)
 	if err != nil {
-		return errors.Join(err, fmt.Errorf("couldn't get servo pin pwm frequency"))
+		return errors.Join(err, errors.New("couldn't get servo pin pwm frequency"))
 	}
 
 	if s.frequency == 0 {
@@ -208,20 +207,20 @@ func (s *servoGPIO) Reconfigure(ctx context.Context, deps resource.Dependencies,
 	}
 
 	if err := s.pin.SetPWMFreq(ctx, s.frequency, nil); err != nil {
-		return errors.Join(err, fmt.Errorf("error setting servo pin frequency"))
+		return errors.Join(err, errors.New("error setting servo pin frequency"))
 	}
 
 	// Try to detect the PWM resolution.
 	if err := s.Move(ctx, uint32(startPos), nil); err != nil {
-		return errors.Join(err, fmt.Errorf("couldn't move servo to start position"))
+		return errors.Join(err, errors.New("couldn't move servo to start position"))
 	}
 
 	if err := s.findPWMResolution(ctx); err != nil {
-		return errors.Join(err, fmt.Errorf("failed to guess the pwm resolution"))
+		return errors.Join(err, errors.New("failed to guess the pwm resolution"))
 	}
 
 	if err := s.Move(ctx, uint32(startPos), nil); err != nil {
-		return errors.Join(err, fmt.Errorf("couldn't move servo back to start position"))
+		return errors.Join(err, errors.New("couldn't move servo back to start position"))
 	}
 
 	return nil
@@ -268,7 +267,7 @@ func (s *servoGPIO) findPWMResolution(ctx context.Context) error {
 	currPct := s.currPct
 	realPct, err := s.pin.PWM(ctx, nil)
 	if err != nil {
-		return errors.Join(err, fmt.Errorf("cannot find PWM resolution"))
+		return errors.Join(err, errors.New("cannot find PWM resolution"))
 	}
 
 	// The direction will be towards whichever extreme duration (minUs or maxUs) is farther away.
@@ -281,11 +280,11 @@ func (s *servoGPIO) findPWMResolution(ctx context.Context) error {
 
 	if realPct != currPct {
 		if err := s.pin.SetPWM(ctx, realPct, nil); err != nil {
-			return errors.Join(err, fmt.Errorf("couldn't set PWM to realPct"))
+			return errors.Join(err, errors.New("couldn't set PWM to realPct"))
 		}
 		r2, err := s.pin.PWM(ctx, nil)
 		if err != nil {
-			return errors.Join(err, fmt.Errorf("couldn't find PWM resolution"))
+			return errors.Join(err, errors.New("couldn't find PWM resolution"))
 		}
 		if r2 == realPct {
 			currPct = r2
@@ -300,7 +299,7 @@ func (s *servoGPIO) findPWMResolution(ctx context.Context) error {
 		pct := currPct + dir/float64(val)
 		err := s.pin.SetPWM(ctx, pct, nil)
 		if err != nil {
-			return errors.Join(err, fmt.Errorf("couldn't search for PWM resolution"))
+			return errors.Join(err, errors.New("couldn't search for PWM resolution"))
 		}
 		if !viamutils.SelectContextOrWait(ctx, 3*time.Millisecond) {
 			return errors.New("context canceled while looking for servo's PWM resolution")
@@ -308,7 +307,7 @@ func (s *servoGPIO) findPWMResolution(ctx context.Context) error {
 		realPct, err := s.pin.PWM(ctx, nil)
 		s.logger.CDebugf(ctx, "starting step %d currPct %.7f target Pct %.14f realPct %.14f", val, currPct, pct, realPct)
 		if err != nil {
-			return errors.Join(err, fmt.Errorf("couldn't find servo PWM resolution"))
+			return errors.Join(err, errors.New("couldn't find servo PWM resolution"))
 		}
 		if realPct != currPct {
 			if realPct == pct {
@@ -347,7 +346,7 @@ func (s *servoGPIO) Move(ctx context.Context, ang uint32, extra map[string]inter
 	}
 
 	if err := s.pin.SetPWM(ctx, pct, nil); err != nil {
-		return errors.Join(err, fmt.Errorf("couldn't move the servo"))
+		return errors.Join(err, errors.New("couldn't move the servo"))
 	}
 
 	s.currPct = pct
@@ -358,7 +357,7 @@ func (s *servoGPIO) Move(ctx context.Context, ang uint32, extra map[string]inter
 func (s *servoGPIO) Position(ctx context.Context, extra map[string]interface{}) (uint32, error) {
 	pct, err := s.pin.PWM(ctx, nil)
 	if err != nil {
-		return 0, errors.Join(err, fmt.Errorf("couldn't get servo pin duty cycle"))
+		return 0, errors.Join(err, errors.New("couldn't get servo pin duty cycle"))
 	}
 	// Since Stop() sets the dutyCycle to 0.0 in order to maintain the position of the servo,
 	// we are setting the dutyCycle back to the last known dutyCycle to prevent the servo
@@ -367,7 +366,7 @@ func (s *servoGPIO) Position(ctx context.Context, extra map[string]interface{}) 
 		pct = s.currPct
 		err := s.pin.SetPWM(ctx, pct, extra)
 		if err != nil {
-			return 0, errors.Join(err, fmt.Errorf("couldn't get servo pin duty cycle"))
+			return 0, errors.Join(err, errors.New("couldn't get servo pin duty cycle"))
 		}
 	}
 
@@ -381,7 +380,7 @@ func (s *servoGPIO) Stop(ctx context.Context, extra map[string]interface{}) erro
 	// Turning the pin all the way off (i.e., setting the duty cycle to 0%) will cut power to the
 	// motor. If you wanted to send it to position 0, you should set it to `minUs` instead.
 	if err := s.pin.SetPWM(ctx, 0.0, nil); err != nil {
-		return errors.Join(err, fmt.Errorf("couldn't stop servo"))
+		return errors.Join(err, errors.New("couldn't stop servo"))
 	}
 	return nil
 }
@@ -390,7 +389,7 @@ func (s *servoGPIO) Stop(ctx context.Context, extra map[string]interface{}) erro
 func (s *servoGPIO) IsMoving(ctx context.Context) (bool, error) {
 	res, err := s.pin.PWM(ctx, nil)
 	if err != nil {
-		return false, errors.Join(err, fmt.Errorf("servo error while checking if moving"))
+		return false, errors.Join(err, errors.New("servo error while checking if moving"))
 	}
 	if int(res) == 0 {
 		return false, nil
