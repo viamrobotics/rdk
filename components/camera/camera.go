@@ -3,12 +3,11 @@ package camera
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"image"
 	"sync"
 	"time"
-
-	"errors"
 
 	"github.com/google/uuid"
 	"github.com/pion/mediadevices/pkg/prop"
@@ -316,7 +315,7 @@ func (vs *videoSource) Images(ctx context.Context) ([]NamedImage, resource.Respo
 	}
 	img, release, err := ReadImage(ctx, vs.videoSource)
 	if err != nil {
-		return nil, resource.ResponseMetadata{}, errors.Join(err, fmt.Errorf("videoSource: call to get Images failed"))
+		return nil, resource.ResponseMetadata{}, errors.Join(err, errors.New("videoSource: call to get Images failed"))
 	}
 	defer func() {
 		if release != nil {
@@ -344,7 +343,7 @@ func (vs *videoSource) NextPointCloud(ctx context.Context) (pointcloud.PointClou
 	}
 	dm, err := rimage.ConvertImageToDepthMap(ctx, img)
 	if err != nil {
-		return nil, errors.Join(err, fmt.Errorf("cannot project to a point cloud"))
+		return nil, errors.Join(err, errors.New("cannot project to a point cloud"))
 	}
 	return depthadapter.ToPointCloud(dm, vs.system.PinholeCameraIntrinsics), nil
 }

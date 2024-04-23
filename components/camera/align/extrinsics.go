@@ -3,10 +3,9 @@ package align
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"image"
-
-	"errors"
 
 	"go.opencensus.io/trace"
 	"go.uber.org/multierr"

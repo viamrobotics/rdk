@@ -2,6 +2,7 @@ package replaypcd
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math"
 	"net"
@@ -12,8 +13,6 @@ import (
 	"strconv"
 	"testing"
 	"time"
-
-	"errors"
 
 	datapb "go.viam.com/api/app/data/v1"
 	"go.viam.com/test"

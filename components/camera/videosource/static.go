@@ -4,11 +4,10 @@ package videosource
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"image"
 	"time"
-
-	"errors"
 
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/logging"

@@ -5,6 +5,7 @@ package logging
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io/fs"
 	"os"
@@ -15,8 +16,6 @@ import (
 	"strings"
 	"sync/atomic"
 	"time"
-
-	"errors"
 
 	"github.com/jedib0t/go-pretty/v6/table"
 	"go.viam.com/utils"
@@ -73,19 +72,19 @@ func NewLogger() (*Logger, error) {
 
 	dir := filepath.Dir(filePath)
 	if err := os.MkdirAll(dir, os.ModePerm); err != nil {
-		return nil, errors.Join(err, fmt.Errorf("camera logger: cannot mkdir "+dir))
+		return nil, errors.Join(err, fmt.Errorf("camera logger: cannot mkdir %s", dir))
 	}
 
 	// remove enough entries to keep the number of files <= maxFiles
 	for entries, err := os.ReadDir(dir); len(entries) >= maxFiles; entries, err = os.ReadDir(dir) {
 		if err != nil {
-			utils.UncheckedError(errors.Join(err, fmt.Errorf("camera logger: cannot read directory "+dir)))
+			utils.UncheckedError(errors.Join(err, fmt.Errorf("camera logger: cannot read directory %s", dir)))
 			break
 		}
 
 		// because entries are sorted by name (timestamp), earlier entries are removed first
 		if err = os.Remove(filepath.Join(dir, entries[0].Name())); err != nil {
-			utils.UncheckedError(errors.Join(err, fmt.Errorf("camera logger: cannot remove file "+filepath.Join(dir, entries[0].Name()))))
+			utils.UncheckedError(errors.Join(err, fmt.Errorf("camera logger: cannot remove file %s", filepath.Join(dir, entries[0].Name()))))
 			break
 		}
 	}

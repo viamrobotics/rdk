@@ -4,12 +4,11 @@ package replaypcd
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"sync"
 	"time"
-
-	"errors"
 
 	"go.uber.org/multierr"
 	datapb "go.viam.com/api/app/data/v1"

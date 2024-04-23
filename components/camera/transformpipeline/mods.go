@@ -2,10 +2,9 @@ package transformpipeline
 
 import (
 	"context"
+	"errors"
 	"image"
 	"image/color"
-
-	"errors"
 
 	"github.com/disintegration/imaging"
 	"go.opencensus.io/trace"

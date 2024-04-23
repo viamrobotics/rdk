@@ -2,10 +2,9 @@ package transformpipeline
 
 import (
 	"context"
+	"errors"
 	"image"
 	"strings"
-
-	"errors"
 
 	"go.opencensus.io/trace"
 

@@ -3,9 +3,8 @@ package camera
 import (
 	"bytes"
 	"context"
-	"fmt"
-
 	"errors"
+	"fmt"
 
 	"go.opencensus.io/trace"
 	pb "go.viam.com/api/component/camera/v1"
@@ -68,7 +67,7 @@ func newNextPointCloudCollector(resource interface{}, params data.CollectorParam
 			buf.Grow(headerSize + v.Size()*4*4) // 4 numbers per point, each 4 bytes
 			err = pointcloud.ToPCD(v, &buf, pointcloud.PCDBinary)
 			if err != nil {
-				return nil, fmt.Errorf("failed to convert returned point cloud to PCD: %v", err)
+				return nil, fmt.Errorf("failed to convert returned point cloud to PCD: %w", err)
 			}
 		}
 		return buf.Bytes(), nil

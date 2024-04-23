@@ -3,9 +3,8 @@ package camera
 import (
 	"bytes"
 	"context"
-	"image"
-
 	"errors"
+	"image"
 
 	"go.opencensus.io/trace"
 	commonpb "go.viam.com/api/common/v1"

@@ -1,9 +1,8 @@
 package rtppassthrough
 
 import (
-	"testing"
-
 	"errors"
+	"testing"
 
 	"go.viam.com/test"
 )

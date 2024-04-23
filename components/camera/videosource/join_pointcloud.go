@@ -2,11 +2,10 @@ package videosource
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"image"
 	"math"
-
-	"errors"
 
 	"github.com/golang/geo/r3"
 	"go.opencensus.io/trace"

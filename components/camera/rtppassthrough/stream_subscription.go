@@ -17,10 +17,9 @@ package rtppassthrough
 // As a result, at time of writing StreamSubscriptions only ever have a single publisher and a single subscriber.
 
 import (
+	"errors"
 	"sync"
 	"sync/atomic"
-
-	"errors"
 
 	"github.com/bluenviron/gortsplib/v4/pkg/ringbuffer"
 	"github.com/google/uuid"

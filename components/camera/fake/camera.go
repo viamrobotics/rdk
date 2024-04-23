@@ -3,13 +3,12 @@ package fake
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"image"
 	"image/color"
 	"math"
 	"time"
-
-	"errors"
 
 	"github.com/golang/geo/r3"
 

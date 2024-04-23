@@ -3,13 +3,12 @@ package videosource
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"image"
 	"io"
 	"net/http"
 	"strings"
-
-	"errors"
 
 	viamutils "go.viam.com/utils"
 

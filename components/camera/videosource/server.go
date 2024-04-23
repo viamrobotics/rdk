@@ -5,16 +5,16 @@ package videosource
 
 import (
 	"context"
-	"fmt"
 	// for embedding camera parameters.
 	_ "embed"
+	// register ppm.
+	"errors"
+	"fmt"
 	"image"
 	"net/http"
 	"sync"
 
-	// register ppm.
-	"errors"
-
+	// imported for ppm.
 	_ "github.com/lmittmann/ppm"
 	"go.opencensus.io/trace"
 	viamutils "go.viam.com/utils"

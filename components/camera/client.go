@@ -3,14 +3,13 @@ package camera
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"image"
 	"io"
 	"slices"
 	"sync"
 	"time"
-
-	"errors"
 
 	"github.com/google/uuid"
 	"github.com/pion/rtp"
@@ -40,11 +39,11 @@ import (
 
 var (
 	// ErrNoPeerConnection indicates there was no peer connection.
-	ErrNoPeerConnection = errors.New("No PeerConnection")
+	ErrNoPeerConnection = errors.New("no PeerConnection")
 	// ErrNoSharedPeerConnection indicates there was no shared peer connection.
-	ErrNoSharedPeerConnection = errors.New("No Shared PeerConnection")
+	ErrNoSharedPeerConnection = errors.New("no Shared PeerConnection")
 	// ErrUnknownStreamSubscriptionID indicates that a StreamSubscriptionID is unknown.
-	ErrUnknownStreamSubscriptionID    = errors.New("StreamSubscriptionID Unknown")
+	ErrUnknownStreamSubscriptionID    = errors.New("unknown StreamSubscriptionID")
 	unsubscribeAllRemoveStreamTimeout = time.Second
 )
 

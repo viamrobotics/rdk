@@ -4,10 +4,9 @@ package align
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"image"
-
-	"errors"
 
 	"go.opencensus.io/trace"
 	"go.uber.org/multierr"
@@ -195,7 +194,7 @@ func (jcd *joinColorDepth) nextPointCloudFromImages(ctx context.Context) (pointc
 		if img.SourceName == "depth" {
 			dm, err = rimage.ConvertImageToDepthMap(ctx, img.Image)
 			if err != nil {
-				return nil, errors.Join(err, fmt.Errorf("image called 'depth' from Images not actually a depth map"))
+				return nil, errors.Join(err, errors.New("image called 'depth' from Images not actually a depth map"))
 			}
 		}
 	}

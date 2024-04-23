@@ -2,10 +2,9 @@ package align
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"image"
-
-	"errors"
 
 	"go.opencensus.io/trace"
 	"go.uber.org/multierr"

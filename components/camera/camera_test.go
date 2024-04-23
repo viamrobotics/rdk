@@ -2,10 +2,9 @@ package camera_test
 
 import (
 	"context"
+	"errors"
 	"image"
 	"testing"
-
-	"errors"
 
 	"go.viam.com/test"
 	"go.viam.com/utils/artifact"

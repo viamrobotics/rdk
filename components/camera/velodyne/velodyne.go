@@ -3,13 +3,12 @@ package velodyne
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"image"
 	"image/color"
 	"sync"
 	"time"
-
-	"errors"
 
 	"github.com/golang/geo/r3"
 	"go.einride.tech/vlp16"

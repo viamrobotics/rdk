@@ -2,11 +2,10 @@ package replaypcd
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math/rand"
 	"testing"
-
-	"errors"
 
 	"go.viam.com/test"
 	"google.golang.org/grpc"

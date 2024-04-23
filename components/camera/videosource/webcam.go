@@ -4,14 +4,13 @@ import (
 	"context"
 	_ "embed"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"image"
 	"path/filepath"
 	"strings"
 	"sync"
 	"time"
-
-	"errors"
 
 	"github.com/pion/mediadevices"
 	"github.com/pion/mediadevices/pkg/driver"
