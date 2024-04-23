@@ -27,7 +27,7 @@ func TestParseURDFFile(t *testing.T) {
 	test.That(t, len(u.DoF()), test.ShouldEqual, 6)
 	modelGeo, err := model.Geometries(make([]referenceframe.Input, len(model.DoF())))
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, len(modelGeo.Geometries()), test.ShouldEqual, 6)
+	test.That(t, len(modelGeo.Geometries()), test.ShouldEqual, 5) // notably we only have 5 geometries for this model
 
 	// Test naming of a URDF to something other than the robot's name element
 	u, err = ParseModelXMLFile(utils.ResolveFile("referenceframe/urdf/testfiles/ur5e.urdf"), "foo")
