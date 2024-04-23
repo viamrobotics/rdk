@@ -16,6 +16,9 @@ let imgEl: HTMLImageElement;
 
 let cameraFrameIntervalId = -1;
 
+// operationActive provides simple overlap protection in the setInterval callback.
+let operationActive = false;
+
 const cameraManager = $streamManager.setCameraManager(cameraName);
 
 const clearFrameInterval = () => {
@@ -27,8 +30,15 @@ const viewCameraFrame = (time: number) => {
   cameraManager.setImageSrc(imgEl);
   if (time > 0) {
     cameraFrameIntervalId = window.setInterval(
-      () => {
-        cameraManager.setImageSrc(imgEl);
+      async () => {
+        if (operationActive) return;
+        operationActive = true;
+        try {
+          await cameraManager.setImageSrc(imgEl);
+        } finally {
+          operationActive = false;
+        }
+
       },
       Number(time) * 1000
     );
