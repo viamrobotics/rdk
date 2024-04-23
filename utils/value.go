@@ -65,10 +65,12 @@ func FindInSlice[T any](items []T, predicate func(T) bool) *T {
 	return nil
 }
 
+// Ordered wraps cmp.Ordered. Please use cmp.Ordered directly if possible. This is here to avoid breaking downstream code.
 type Ordered interface {
 	cmp.Ordered
 }
 
+// Compare wraps cmp.Compare. Please use cmp.Compare directly if possible. This is here to avoid breaking downstream code.
 func Compare[T Ordered](a, b T) int {
 	return cmp.Compare(a, b)
 }
