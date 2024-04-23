@@ -366,9 +366,6 @@ func (pi *piPigpio) reconfigureInterrupts(ctx context.Context, cfg *Config) erro
 			newInterruptsHW[bcom] = interrupt
 		} else {
 			// This digital interrupt is no longer used.
-			if err := interrupt.Close(ctx); err != nil {
-				return err // This should never happen, but it makes the linter happy.
-			}
 			if result := C.teardownInterrupt(C.int(bcom)); result != 0 {
 				return picommon.ConvertErrorCodeToMessage(int(result), "error")
 			}
@@ -731,8 +728,7 @@ func (pi *piPigpio) Close(ctx context.Context) error {
 	}
 	pi.analogReaders = map[string]*pinwrappers.AnalogSmoother{}
 
-	for bcom, interrupt := range pi.interruptsHW {
-		err = multierr.Combine(err, interrupt.Close(ctx))
+	for bcom, _ := range pi.interruptsHW {
 		if result := C.teardownInterrupt(C.int(bcom)); result != 0 {
 			err = multierr.Combine(err, picommon.ConvertErrorCodeToMessage(int(result), "error"))
 		}

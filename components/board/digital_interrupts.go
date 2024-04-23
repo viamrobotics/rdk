@@ -38,6 +38,4 @@ type DigitalInterrupt interface {
 
 	// Name returns the name of the interrupt.
 	Name() string
-
-	Close(ctx context.Context) error
 }
