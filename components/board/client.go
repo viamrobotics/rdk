@@ -259,11 +259,7 @@ func (dic *digitalInterruptClient) Name() string {
 	return dic.digitalInterruptName
 }
 
-func (dic *digitalInterruptClient) AddCallback(ch chan Tick) {
-	panic(errUnimplemented)
-}
-
-func (dic *digitalInterruptClient) RemoveCallback(ch chan Tick) {
+func RemoveCallback(dic *digitalInterruptClient chan Tick) {
 }
 
 func (c *client) StreamTicks(ctx context.Context, interrupts []DigitalInterrupt, ch chan Tick,

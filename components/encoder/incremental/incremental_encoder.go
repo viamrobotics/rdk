@@ -228,7 +228,7 @@ func (e *Encoder) Start(ctx context.Context, b board.Board) {
 
 	utils.ManagedGo(func() {
 		// Remove the callbacks added by the interrupt stream.
-		defer e.A.RemoveCallback(ch)
+		defer e.A.RemoveCallback(e.A, ch)
 		defer e.B.RemoveCallback(ch)
 		for {
 			// This looks redundant with the other select statement below, but it's not: if we're
