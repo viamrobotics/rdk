@@ -788,7 +788,7 @@ func pigpioInterruptCallback(gpio, level int, rawTick uint32) {
 		}
 		// this should *not* block for long otherwise the lock
 		// will be held
-		err := i.Tick(instance.cancelCtx, high, tick*1000)
+		err := Tick(instance.cancelCtx, i.(*BasicDigitalInterrupt), high, tick*1000)
 		if err != nil {
 			instance.logger.Error(err)
 		}

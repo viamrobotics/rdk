@@ -414,10 +414,10 @@ func (s *DigitalInterruptWrapper) Value(ctx context.Context, extra map[string]in
 // hardware interrupt or for tests.
 // nanoseconds is from an arbitrary point in time, but always increasing and always needs
 // to be accurate.
-func (s *DigitalInterruptWrapper) Tick(ctx context.Context, high bool, nanoseconds uint64) error {
+func Tick(ctx context.Context, s *DigitalInterruptWrapper, high bool, nanoseconds uint64) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	return s.di.Tick(ctx, high, nanoseconds)
+	return pinwrappers.Tick(ctx, s.di.(*pinwrappers.BasicDigitalInterrupt), high, nanoseconds)
 }
 
 // AddCallback adds a callback to be sent a low/high value to when a tick

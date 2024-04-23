@@ -26,6 +26,7 @@ import (
 	"go.viam.com/rdk/components/audioinput"
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/components/board"
+	fakeboard "go.viam.com/rdk/components/board/fake"
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/components/encoder"
 	"go.viam.com/rdk/components/generic"
@@ -1425,9 +1426,9 @@ func TestRobotReconfigure(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, c, test.ShouldEqual, 0)
 
-		test.That(t, eA.Tick(context.Background(), false, uint64(time.Now().UnixNano())), test.ShouldBeNil)
-		test.That(t, eB.Tick(context.Background(), true, uint64(time.Now().UnixNano())), test.ShouldBeNil)
-		test.That(t, eA.Tick(context.Background(), true, uint64(time.Now().UnixNano())), test.ShouldBeNil)
+		test.That(t, fakeboard.Tick(context.Background(), eA.(*fakeboard.DigitalInterruptWrapper), false, uint64(time.Now().UnixNano())), test.ShouldBeNil)
+		test.That(t, fakeboard.Tick(context.Background(), eB.(*fakeboard.DigitalInterruptWrapper), true, uint64(time.Now().UnixNano())), test.ShouldBeNil)
+		test.That(t, fakeboard.Tick(context.Background(), eA.(*fakeboard.DigitalInterruptWrapper), true, uint64(time.Now().UnixNano())), test.ShouldBeNil)
 
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			c, err = m.Position(context.Background(), nil)
@@ -1556,9 +1557,9 @@ func TestRobotReconfigure(t *testing.T) {
 		t.Log("the underlying pins changed but not the encoder names, so we keep the value")
 		test.That(t, c, test.ShouldEqual, 1)
 
-		test.That(t, eB.Tick(context.Background(), false, uint64(time.Now().UnixNano())), test.ShouldBeNil)
-		time.Sleep(1 * time.Second)
-		test.That(t, eA.Tick(context.Background(), false, uint64(time.Now().UnixNano())), test.ShouldBeNil)
+		test.That(t, fakeboard.Tick(context.Background(), eB.(*fakeboard.DigitalInterruptWrapper), false, uint64(time.Now().UnixNano())), test.ShouldBeNil)
+		time.Sleep(2 * time.Second)
+		test.That(t, fakeboard.Tick(context.Background(), eA.(*fakeboard.DigitalInterruptWrapper), false, uint64(time.Now().UnixNano())), test.ShouldBeNil)
 
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			c, err = m.Position(context.Background(), nil)
@@ -1673,9 +1674,9 @@ func TestRobotReconfigure(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, c, test.ShouldEqual, 0)
 
-		test.That(t, eA.Tick(context.Background(), false, uint64(time.Now().UnixNano())), test.ShouldBeNil)
-		test.That(t, eB.Tick(context.Background(), true, uint64(time.Now().UnixNano())), test.ShouldBeNil)
-		test.That(t, eA.Tick(context.Background(), true, uint64(time.Now().UnixNano())), test.ShouldBeNil)
+		test.That(t, fakeboard.Tick(context.Background(), eA.(*fakeboard.DigitalInterruptWrapper), false, uint64(time.Now().UnixNano())), test.ShouldBeNil)
+		test.That(t, fakeboard.Tick(context.Background(), eB.(*fakeboard.DigitalInterruptWrapper), true, uint64(time.Now().UnixNano())), test.ShouldBeNil)
+		test.That(t, fakeboard.Tick(context.Background(), eA.(*fakeboard.DigitalInterruptWrapper), true, uint64(time.Now().UnixNano())), test.ShouldBeNil)
 
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			c, err = m.Position(context.Background(), nil)
@@ -1780,9 +1781,9 @@ func TestRobotReconfigure(t *testing.T) {
 		b, err = board.FromRobot(robot, "board1")
 		test.That(t, err, test.ShouldBeNil)
 
-		eA, ok = b.DigitalInterruptByName("encoder")
+		_, ok = b.DigitalInterruptByName("encoder")
 		test.That(t, ok, test.ShouldBeTrue)
-		eB, ok = b.DigitalInterruptByName("encoder-b")
+		_, ok = b.DigitalInterruptByName("encoder-b")
 		test.That(t, ok, test.ShouldBeTrue)
 
 		m, err = motor.FromRobot(robot, "m1")
@@ -1791,9 +1792,9 @@ func TestRobotReconfigure(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, c, test.ShouldEqual, 1)
 
-		test.That(t, eA.Tick(context.Background(), true, uint64(time.Now().UnixNano())), test.ShouldBeNil)
-		test.That(t, eB.Tick(context.Background(), false, uint64(time.Now().UnixNano())), test.ShouldBeNil)
-		test.That(t, eA.Tick(context.Background(), false, uint64(time.Now().UnixNano())), test.ShouldBeNil)
+		test.That(t, fakeboard.Tick(context.Background(), eA.(*fakeboard.DigitalInterruptWrapper), true, uint64(time.Now().UnixNano())), test.ShouldBeNil)
+		test.That(t, fakeboard.Tick(context.Background(), eB.(*fakeboard.DigitalInterruptWrapper), false, uint64(time.Now().UnixNano())), test.ShouldBeNil)
+		test.That(t, fakeboard.Tick(context.Background(), eA.(*fakeboard.DigitalInterruptWrapper), false, uint64(time.Now().UnixNano())), test.ShouldBeNil)
 
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			c, err = m.Position(context.Background(), nil)
@@ -1892,9 +1893,9 @@ func TestRobotReconfigure(t *testing.T) {
 		b, err = board.FromRobot(robot, "board1")
 		test.That(t, err, test.ShouldBeNil)
 
-		eA, ok = b.DigitalInterruptByName("encoder")
+		_, ok = b.DigitalInterruptByName("encoder")
 		test.That(t, ok, test.ShouldBeTrue)
-		eB, ok = b.DigitalInterruptByName("encoder-b")
+		_, ok = b.DigitalInterruptByName("encoder-b")
 		test.That(t, ok, test.ShouldBeTrue)
 
 		m, err = motor.FromRobot(robot, "m1")
@@ -1903,9 +1904,9 @@ func TestRobotReconfigure(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, c, test.ShouldEqual, 2)
 
-		test.That(t, eA.Tick(context.Background(), false, uint64(time.Now().UnixNano())), test.ShouldBeNil)
-		test.That(t, eB.Tick(context.Background(), true, uint64(time.Now().UnixNano())), test.ShouldBeNil)
-		test.That(t, eA.Tick(context.Background(), true, uint64(time.Now().UnixNano())), test.ShouldBeNil)
+		test.That(t, fakeboard.Tick(context.Background(), eA.(*fakeboard.DigitalInterruptWrapper), false, uint64(time.Now().UnixNano())), test.ShouldBeNil)
+		test.That(t, fakeboard.Tick(context.Background(), eB.(*fakeboard.DigitalInterruptWrapper), true, uint64(time.Now().UnixNano())), test.ShouldBeNil)
+		test.That(t, fakeboard.Tick(context.Background(), eA.(*fakeboard.DigitalInterruptWrapper), true, uint64(time.Now().UnixNano())), test.ShouldBeNil)
 
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			c, err = m.Position(context.Background(), nil)

@@ -9,6 +9,7 @@ import (
 	"go.viam.com/utils/testutils"
 
 	"go.viam.com/rdk/components/board"
+	"go.viam.com/rdk/components/board/fake"
 	fakeboard "go.viam.com/rdk/components/board/fake"
 	"go.viam.com/rdk/components/encoder"
 	"go.viam.com/rdk/logging"
@@ -69,9 +70,9 @@ func TestEncoder(t *testing.T) {
 		enc2 := enc.(*Encoder)
 		defer enc2.Close(context.Background())
 
-		err = enc2.B.Tick(context.Background(), true, uint64(time.Now().UnixNano()))
+		err = fake.Tick(context.Background(), enc2.B.(*fake.DigitalInterruptWrapper), true, uint64(time.Now().UnixNano()))
 		test.That(t, err, test.ShouldBeNil)
-		err = enc2.A.Tick(context.Background(), true, uint64(time.Now().UnixNano()))
+		err = fake.Tick(context.Background(), enc2.A.(*fake.DigitalInterruptWrapper), true, uint64(time.Now().UnixNano()))
 		test.That(t, err, test.ShouldBeNil)
 
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
@@ -88,9 +89,9 @@ func TestEncoder(t *testing.T) {
 		enc2 := enc.(*Encoder)
 		defer enc2.Close(context.Background())
 
-		err = enc2.A.Tick(context.Background(), false, uint64(time.Now().UnixNano()))
+		err = fake.Tick(context.Background(), enc2.A.(*fake.DigitalInterruptWrapper), false, uint64(time.Now().UnixNano()))
 		test.That(t, err, test.ShouldBeNil)
-		err = enc2.B.Tick(context.Background(), false, uint64(time.Now().UnixNano()))
+		err = fake.Tick(context.Background(), enc2.B.(*fake.DigitalInterruptWrapper), false, uint64(time.Now().UnixNano()))
 		test.That(t, err, test.ShouldBeNil)
 
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
