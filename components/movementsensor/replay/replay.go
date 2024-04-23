@@ -3,14 +3,16 @@ package replay
 
 import (
 	"context"
+	"fmt"
 	"slices"
 	"strings"
 	"sync"
 	"time"
 
+	"errors"
+
 	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
-	"github.com/pkg/errors"
 	datapb "go.viam.com/api/app/data/v1"
 	goutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
@@ -72,7 +74,7 @@ var (
 	errBadData = errors.New("data does not match expected format")
 
 	// ererMessageNoDataAvailable indicates that no data was available for the given filter.
-	errMessageNoDataAvailable = "no data available for given filter"
+	errMessageNoDataAvailable = errors.New("no data available for given filter")
 
 	// methodList is a list of all the base methods possible for a movement sensor to implement.
 	methodList = []method{position, linearVelocity, angularVelocity, linearAcceleration, compassHeading, orientation}
@@ -130,7 +132,7 @@ func (cfg *Config) Validate(path string) ([]string, error) {
 	}
 
 	if cfg.BatchSize != nil && (*cfg.BatchSize > uint64(maxCacheSize) || *cfg.BatchSize == 0) {
-		return nil, errors.Errorf("batch_size must be between 1 and %d", maxCacheSize)
+		return nil, fmt.Errorf("batch_size must be between 1 and %d", maxCacheSize)
 	}
 
 	return []string{cloud.InternalServiceName.String()}, nil
@@ -419,7 +421,7 @@ func (replay *replayMovementSensor) Reconfigure(ctx context.Context, deps resour
 
 		if err := replay.initCloudConnection(ctx); err != nil {
 			replay.closeCloudConnection(ctx)
-			return errors.Wrap(err, errCloudConnectionFailure.Error())
+			return errors.Join(err, errCloudConnectionFailure)
 		}
 	}
 
@@ -468,9 +470,9 @@ func (replay *replayMovementSensor) Reconfigure(ctx context.Context, deps resour
 	ctxWithTimeout, cancel := context.WithTimeout(ctx, initializePropertiesTimeout)
 	defer cancel()
 	if err := replay.initializeProperties(ctxWithTimeout); err != nil {
-		err = errors.Wrap(err, errPropertiesFailedToInitialize.Error())
+		err = errors.Join(err, errPropertiesFailedToInitialize)
 		if errors.Is(err, context.DeadlineExceeded) {
-			err = errors.Wrap(err, errMessageNoDataAvailable)
+			err = errors.Join(err, errMessageNoDataAvailable)
 		}
 		return err
 	}
@@ -563,7 +565,7 @@ func (replay *replayMovementSensor) attemptToGetData(method method) (bool, error
 	cancelCtx, cancel := context.WithTimeout(context.Background(), tabularDataByFilterTimeout)
 	defer cancel()
 	if err := replay.updateCache(cancelCtx, method); err != nil && !strings.Contains(err.Error(), ErrEndOfDataset.Error()) {
-		return false, errors.Wrap(err, "could not update the cache")
+		return false, errors.Join(err, errors.New("could not update the cache"))
 	}
 	return len(replay.cache[method]) != 0, nil
 }
@@ -611,7 +613,7 @@ func (replay *replayMovementSensor) getDataFromCache(ctx context.Context, method
 	// If no data remains in the cache, download a new batch of data
 	if len(replay.cache[method]) == 0 {
 		if err := replay.updateCache(ctx, method); err != nil {
-			return nil, errors.Wrapf(err, "could not update the cache")
+			return nil, errors.Join(err, errors.New("could not update the cache"))
 		}
 	}
 
@@ -621,7 +623,7 @@ func (replay *replayMovementSensor) getDataFromCache(ctx context.Context, method
 	replay.cache[method] = methodCache[1:]
 
 	if err := addGRPCMetadata(ctx, entry.timeRequested, entry.timeReceived); err != nil {
-		return nil, errors.Wrapf(err, "adding GRPC metadata failed")
+		return nil, errors.Join(err, errors.New("adding GRPC metadata failed"))
 	}
 
 	return entry.data, nil

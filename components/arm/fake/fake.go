@@ -3,10 +3,12 @@ package fake
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"sync"
 
-	"github.com/pkg/errors"
+	"errors"
+
 	pb "go.viam.com/api/component/arm/v1"
 
 	"go.viam.com/rdk/components/arm"
@@ -239,7 +241,7 @@ func modelFromName(model, name string) (referenceframe.Model, error) {
 	case eva.Model.Name:
 		return eva.MakeModelFrame(name)
 	default:
-		return nil, errors.Errorf("fake arm cannot be created, unsupported arm-model: %s", model)
+		return nil, fmt.Errorf("fake arm cannot be created, unsupported arm-model: %s", model)
 	}
 }
 

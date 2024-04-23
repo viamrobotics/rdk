@@ -10,8 +10,9 @@ import (
 	"sync"
 	"time"
 
+	"errors"
+
 	"github.com/jacobsa/go-serial/serial"
-	"github.com/pkg/errors"
 
 	"go.viam.com/rdk/components/motor"
 	"go.viam.com/rdk/logging"
@@ -383,7 +384,7 @@ func (m *Motor) SetPower(ctx context.Context, powerPct float64, extra map[string
 	}
 	c, err := newCommand(m.c.address, cmd, m.Channel, byte(int(rawSpeed)))
 	if err != nil {
-		return errors.Wrap(err, "error in SetPower")
+		return errors.Join(err, errors.New("error in SetPower"))
 	}
 	err = m.c.sendCmd(c)
 	return err
@@ -400,7 +401,7 @@ func (m *Motor) GoFor(ctx context.Context, rpm, revolutions float64, extra map[s
 	powerPct, waitDur := goForMath(m.maxRPM, rpm, revolutions)
 	err := m.SetPower(ctx, powerPct, extra)
 	if err != nil {
-		return errors.Wrap(err, "error in GoFor")
+		return errors.Join(err, errors.New("error in GoFor"))
 	}
 
 	if revolutions == 0 {

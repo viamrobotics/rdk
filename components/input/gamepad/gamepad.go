@@ -7,7 +7,7 @@ package gamepad
 import (
 	"context"
 
-	"github.com/pkg/errors"
+	"errors"
 
 	"go.viam.com/rdk/components/input"
 	"go.viam.com/rdk/logging"

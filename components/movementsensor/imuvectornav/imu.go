@@ -6,12 +6,14 @@ package imuvectornav
 import (
 	"context"
 	"encoding/binary"
+	"fmt"
 	"sync"
 	"time"
 
+	"errors"
+
 	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
-	"github.com/pkg/errors"
 	goutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/components/board/genericlinux/buses"
@@ -170,7 +172,7 @@ func newVectorNav(
 	refvec = append(refvec, utils.BytesFromFloat64LE(10.0)...)
 	err = v.writeRegisterSPI(ctx, referenceVectorConfiguration, refvec)
 	if err != nil {
-		return nil, errors.Wrap(err, "couldn't set reference vector")
+		return nil, errors.Join(err, errors.New("couldn't set reference vector"))
 	}
 	// enforce acceleration tuinning and reduce "trust" in acceleration data
 	accVpeTunning := []byte{}
@@ -186,11 +188,11 @@ func newVectorNav(
 
 	err = v.writeRegisterSPI(ctx, vpeAccTunning, accVpeTunning)
 	if err != nil {
-		return nil, errors.Wrap(err, "couldn't set vpe adaptive tunning")
+		return nil, errors.Join(err, errors.New("couldn't set vpe adaptive tunning"))
 	}
 	err = v.writeRegisterSPI(ctx, deltaVDeltaThetaConfig, []byte{0, 0, 0, 0, 0, 0})
 	if err != nil {
-		return nil, errors.Wrap(err, "couldn't configure deltaV register")
+		return nil, errors.Join(err, errors.New("couldn't configure deltaV register"))
 	}
 	// tare the heading
 	err = v.vectornavTareSPI(ctx)
@@ -364,7 +366,7 @@ func (vn *vectornav) readRegisterSPI(ctx context.Context, reg vectornavRegister,
 		return nil, err
 	}
 	if out[3] != 0 {
-		return nil, errors.Errorf("vectornav read error returned %d speed was %d", out[3], vn.speed)
+		return nil, fmt.Errorf("vectornav read error returned %d speed was %d", out[3], vn.speed)
 	}
 	err = hnd.Close()
 	if err != nil {
@@ -397,7 +399,7 @@ func (vn *vectornav) writeRegisterSPI(ctx context.Context, reg vectornavRegister
 		return err
 	}
 	if out[3] != 0 {
-		return errors.Errorf("vectornav write error returned %d", out[3])
+		return fmt.Errorf("vectornav write error returned %d", out[3])
 	}
 	err = hnd.Close()
 	if err != nil {
@@ -429,7 +431,7 @@ func (vn *vectornav) vectornavTareSPI(ctx context.Context) error {
 		return err
 	}
 	if out[3] != 0 {
-		return errors.Errorf("vectornav write error returned %d", out[3])
+		return fmt.Errorf("vectornav write error returned %d", out[3])
 	}
 	err = hnd.Close()
 	if err != nil {
@@ -458,18 +460,18 @@ func (vn *vectornav) compensateAccelBias(ctx context.Context, smpSize uint) erro
 	msg = append(msg, utils.BytesFromFloat32LE(0.0)...)
 	err := vn.writeRegisterSPI(ctx, accCompensationConfiguration, msg)
 	if err != nil {
-		return errors.Wrap(err, "couldn't write the acceleration compensation register")
+		return errors.Join(err, errors.New("couldn't write the acceleration compensation register"))
 	}
 	mdlG, err := vn.readRegisterSPI(ctx, magAccRefVectors, 24)
 	if err != nil {
-		return errors.Wrap(err, "couldn't calculate acceleration bias")
+		return errors.Join(err, errors.New("couldn't calculate acceleration bias"))
 	}
 	accZ := utils.Float32FromBytesLE(mdlG[20:24])
 	var accMX, accMY, accMZ float32
 	for i := uint(0); i < smpSize; i++ {
 		acc, err := vn.readRegisterSPI(ctx, acceleration, 12)
 		if err != nil {
-			return errors.Wrap(err, "error reading acceleration register during bias compensation")
+			return errors.Join(err, errors.New("error reading acceleration register during bias compensation"))
 		}
 		accMX += utils.Float32FromBytesLE(acc[0:4])
 		accMY += utils.Float32FromBytesLE(acc[4:8])
@@ -500,7 +502,7 @@ func (vn *vectornav) compensateAccelBias(ctx context.Context, smpSize uint) erro
 
 	err = vn.writeRegisterSPI(ctx, accCompensationConfiguration, msg)
 	if err != nil {
-		return errors.Wrap(err, "could not write the acceleration register")
+		return errors.Join(err, errors.New("could not write the acceleration register"))
 	}
 	vn.logger.CInfof(ctx, "Acceleration compensated with %1.6f %1.6f %1.6f ref accZ %1.6f", accMX, accMY, accMZ, accZ)
 	return nil
@@ -510,7 +512,7 @@ func (vn *vectornav) compensateDVBias(ctx context.Context, smpSize uint) error {
 	var bX, bY, bZ float32
 	_, err := vn.readRegisterSPI(ctx, deltaVDeltaTheta, 28)
 	if err != nil {
-		return errors.Wrap(err, "error reading dV register during bias compensation")
+		return errors.Join(err, errors.New("error reading dV register during bias compensation"))
 	}
 	dt := 10 * time.Millisecond
 	if vn.polling > 0 {
@@ -523,7 +525,7 @@ func (vn *vectornav) compensateDVBias(ctx context.Context, smpSize uint) error {
 		}
 		dv, err := vn.readRegisterSPI(ctx, deltaVDeltaTheta, 28)
 		if err != nil {
-			return errors.Wrap(err, "error reading dV register during bias compensation")
+			return errors.Join(err, errors.New("error reading dV register during bias compensation"))
 		}
 		bX += utils.Float32FromBytesLE(dv[16:20])
 		bY += utils.Float32FromBytesLE(dv[20:24])

@@ -7,7 +7,8 @@ import (
 	"fmt"
 	"image"
 
-	"github.com/pkg/errors"
+	"errors"
+
 	"go.opencensus.io/trace"
 	"go.uber.org/multierr"
 
@@ -120,9 +121,9 @@ func newJoinColorDepth(ctx context.Context, color, depth camera.VideoSource, con
 	err := camParams.CheckValid()
 	if err != nil {
 		if conf.CameraParameters != nil {
-			return nil, errors.Wrap(err, "error in the intrinsic_parameters field of the attributes")
+			return nil, errors.Join(err, errors.New("error in the intrinsic_parameters field of the attributes"))
 		}
-		return nil, errors.Wrap(err, "error in the intrinsic parameters of the underlying camera")
+		return nil, errors.Join(err, errors.New("error in the intrinsic parameters of the underlying camera"))
 	}
 	videoSrc := &joinColorDepth{
 		colorName: conf.Color,
@@ -172,10 +173,10 @@ func (jcd *joinColorDepth) NextPointCloud(ctx context.Context) (pointcloud.Point
 	}
 	col, dm := camera.SimultaneousColorDepthNext(ctx, jcd.color, jcd.depth)
 	if col == nil {
-		return nil, errors.Errorf("could not get color image from source camera %q for join_color_depth camera", jcd.colorName)
+		return nil, fmt.Errorf("could not get color image from source camera %q for join_color_depth camera", jcd.colorName)
 	}
 	if dm == nil {
-		return nil, errors.Errorf("could not get depth image from source camera %q for join_color_depth camera", jcd.depthName)
+		return nil, fmt.Errorf("could not get depth image from source camera %q for join_color_depth camera", jcd.depthName)
 	}
 	return jcd.projector.RGBDToPointCloud(rimage.ConvertImage(col), dm)
 }
@@ -183,7 +184,7 @@ func (jcd *joinColorDepth) NextPointCloud(ctx context.Context) (pointcloud.Point
 func (jcd *joinColorDepth) nextPointCloudFromImages(ctx context.Context) (pointcloud.PointCloud, error) {
 	imgs, _, err := jcd.underlyingCamera.Images(ctx)
 	if err != nil {
-		return nil, errors.Wrapf(err, "could not call Images on underlying camera %q", jcd.colorName)
+		return nil, errors.Join(err, fmt.Errorf("could not call Images on underlying camera %q", jcd.colorName))
 	}
 	var col *rimage.Image
 	var dm *rimage.DepthMap
@@ -194,7 +195,7 @@ func (jcd *joinColorDepth) nextPointCloudFromImages(ctx context.Context) (pointc
 		if img.SourceName == "depth" {
 			dm, err = rimage.ConvertImageToDepthMap(ctx, img.Image)
 			if err != nil {
-				return nil, errors.Wrap(err, "image called 'depth' from Images not actually a depth map")
+				return nil, errors.Join(err, fmt.Errorf("image called 'depth' from Images not actually a depth map"))
 			}
 		}
 	}

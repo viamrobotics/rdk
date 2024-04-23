@@ -2,13 +2,15 @@ package audioinput
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"math"
 	"sync"
 
+	"errors"
+
 	"github.com/pion/mediadevices/pkg/prop"
 	"github.com/pion/mediadevices/pkg/wave"
-	"github.com/pkg/errors"
 	pb "go.viam.com/api/component/audioinput/v1"
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
@@ -166,7 +168,7 @@ func (c *client) Stream(
 				case pb.SampleFormat_SAMPLE_FORMAT_UNSPECIFIED:
 					fallthrough
 				default:
-					nextErr = errors.Errorf("unknown type of audio sample format %v", infoProto.SampleFormat)
+					nextErr = fmt.Errorf("unknown type of audio sample format %v", infoProto.SampleFormat)
 				}
 			}
 

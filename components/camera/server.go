@@ -5,7 +5,8 @@ import (
 	"context"
 	"image"
 
-	"github.com/pkg/errors"
+	"errors"
+
 	"go.opencensus.io/trace"
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/camera/v1"
@@ -105,19 +106,19 @@ func (s *serviceServer) GetImages(
 	defer span.End()
 	cam, err := s.coll.Resource(req.Name)
 	if err != nil {
-		return nil, errors.Wrap(err, "camera server GetImages had an error getting the camera component")
+		return nil, errors.Join(err, errors.New("camera server GetImages had an error getting the camera component"))
 	}
 	// request the images, and then check to see what the underlying type is to determine
 	// what to encode as. If it's color, just encode as JPEG.
 	imgs, metadata, err := cam.Images(ctx)
 	if err != nil {
-		return nil, errors.Wrap(err, "camera server GetImages could not call Images on the camera")
+		return nil, errors.Join(err, errors.New("camera server GetImages could not call Images on the camera"))
 	}
 	imagesMessage := make([]*pb.Image, 0, len(imgs))
 	for _, img := range imgs {
 		format, outBytes, err := encodeImageFromUnderlyingType(ctx, img.Image)
 		if err != nil {
-			return nil, errors.Wrap(err, "camera server GetImages could not encode the images")
+			return nil, errors.Join(err, errors.New("camera server GetImages could not encode the images"))
 		}
 		imgMes := &pb.Image{
 			SourceName: img.SourceName,

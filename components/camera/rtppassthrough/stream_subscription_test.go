@@ -3,7 +3,8 @@ package rtppassthrough
 import (
 	"testing"
 
-	"github.com/pkg/errors"
+	"errors"
+
 	"go.viam.com/test"
 )
 

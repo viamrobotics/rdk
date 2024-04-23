@@ -3,12 +3,14 @@ package videosource
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"image"
 	"io"
 	"net/http"
 	"strings"
 
-	"github.com/pkg/errors"
+	"errors"
+
 	viamutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/gostream"
@@ -24,14 +26,14 @@ import (
 func getMIMETypeFromData(ctx context.Context, data []byte, logger logging.Logger) (string, error) {
 	detectedMimeType := http.DetectContentType(data)
 	if !strings.Contains(detectedMimeType, "image") {
-		return "", errors.Errorf("cannot decode image from MIME type '%s'", detectedMimeType)
+		return "", fmt.Errorf("cannot decode image from MIME type '%s'", detectedMimeType)
 	}
 
 	requestedMime := gostream.MIMETypeHint(ctx, "")
 	actualMime, isLazy := utils.CheckLazyMIMEType(requestedMime)
 	if actualMime == utils.MimeTypeRawRGBA {
 		if detectedMimeType != utils.MimeTypeDefault {
-			return "", errors.Errorf(
+			return "", fmt.Errorf(
 				"attempted to decode data using %s format as raw rgba data, "+
 					" raw rgba data must be encoded with our custom header",
 				detectedMimeType,
@@ -88,7 +90,7 @@ func readyBytesFromURL(ctx context.Context, client http.Client, url string) ([]b
 func readColorURL(ctx context.Context, client http.Client, url string, logger logging.Logger) (image.Image, error) {
 	colorData, err := readyBytesFromURL(ctx, client, url)
 	if err != nil {
-		return nil, errors.Wrap(err, "couldn't ready color url")
+		return nil, errors.Join(err, errors.New("couldn't ready color url"))
 	}
 	mimeType, err := getMIMETypeFromData(ctx, colorData, logger)
 	if err != nil {
@@ -107,7 +109,7 @@ func readColorURL(ctx context.Context, client http.Client, url string, logger lo
 func readDepthURL(ctx context.Context, client http.Client, url string, immediate bool, logger logging.Logger) (image.Image, error) {
 	depthData, err := readyBytesFromURL(ctx, client, url)
 	if err != nil {
-		return nil, errors.Wrap(err, "couldn't ready depth url")
+		return nil, errors.Join(err, errors.New("couldn't ready depth url"))
 	}
 	mimeType, err := getMIMETypeFromData(ctx, depthData, logger)
 	if err != nil {

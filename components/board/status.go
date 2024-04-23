@@ -4,7 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/pkg/errors"
+	"errors"
+
 	commonpb "go.viam.com/api/common/v1"
 )
 
@@ -23,7 +24,7 @@ func CreateStatus(ctx context.Context, b Board, extra map[string]interface{}) (*
 			}
 			val, err := x.Read(ctx, extra)
 			if err != nil {
-				return nil, errors.Wrapf(err, "couldn't read analog (%s)", name)
+				return nil, errors.Join(err, fmt.Errorf("couldn't read analog (%s)", name))
 			}
 			status.Analogs[name] = &commonpb.AnalogStatus{Value: int32(val)}
 		}

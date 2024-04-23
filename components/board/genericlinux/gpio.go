@@ -6,11 +6,13 @@ package genericlinux
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"time"
 
+	"errors"
+
 	"github.com/mkch/gpio"
-	"github.com/pkg/errors"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/logging"
@@ -40,7 +42,7 @@ type gpioPin struct {
 }
 
 func (pin *gpioPin) wrapError(err error) error {
-	return errors.Wrapf(err, "from GPIO device %s line %d", pin.devicePath, pin.offset)
+	return errors.Join(err, fmt.Errorf("from GPIO device %s line %d", pin.devicePath, pin.offset))
 }
 
 // This is a private helper function that should only be called when the mutex is locked. It sets

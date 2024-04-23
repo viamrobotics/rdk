@@ -19,11 +19,13 @@ package uln28byj
 
 import (
 	"context"
+	"fmt"
 	"math"
 	"sync"
 	"time"
 
-	"github.com/pkg/errors"
+	"errors"
+
 	"go.uber.org/multierr"
 
 	"go.viam.com/rdk/components/board"
@@ -109,7 +111,7 @@ func new28byj(
 
 	b, err := board.FromDependencies(deps, mc.BoardName)
 	if err != nil {
-		return nil, errors.Wrap(err, "expected board name in config for motor")
+		return nil, errors.Join(err, errors.New("expected board name in config for motor"))
 	}
 
 	if mc.TicksPerRotation <= 0 {
@@ -127,25 +129,25 @@ func new28byj(
 
 	in1, err := b.GPIOPinByName(mc.Pins.In1)
 	if err != nil {
-		return nil, errors.Wrapf(err, "in in1 in motor (%s)", m.motorName)
+		return nil, errors.Join(err, fmt.Errorf("in in1 in motor (%s)", m.motorName))
 	}
 	m.in1 = in1
 
 	in2, err := b.GPIOPinByName(mc.Pins.In2)
 	if err != nil {
-		return nil, errors.Wrapf(err, "in in2 in motor (%s)", m.motorName)
+		return nil, errors.Join(err, fmt.Errorf("in in2 in motor (%s)", m.motorName))
 	}
 	m.in2 = in2
 
 	in3, err := b.GPIOPinByName(mc.Pins.In3)
 	if err != nil {
-		return nil, errors.Wrapf(err, "in in3 in motor (%s)", m.motorName)
+		return nil, errors.Join(err, fmt.Errorf("in in3 in motor (%s)", m.motorName))
 	}
 	m.in3 = in3
 
 	in4, err := b.GPIOPinByName(mc.Pins.In4)
 	if err != nil {
-		return nil, errors.Wrapf(err, "in in4 in motor (%s)", m.motorName)
+		return nil, errors.Join(err, fmt.Errorf("in in4 in motor (%s)", m.motorName))
 	}
 	m.in4 = in4
 
@@ -188,7 +190,7 @@ func (m *uln28byj) doRun(ctx context.Context) error {
 		if m.stepPosition == m.targetStepPosition {
 			err := m.setPins(ctx, [4]bool{false, false, false, false})
 			if err != nil {
-				return errors.Wrapf(err, "error while disabling motor (%s)", m.motorName)
+				return errors.Join(err, fmt.Errorf("error while disabling motor (%s)", m.motorName))
 			}
 			m.lock.Unlock()
 			break
@@ -197,7 +199,7 @@ func (m *uln28byj) doRun(ctx context.Context) error {
 		err := m.doStep(ctx, m.stepPosition < m.targetStepPosition)
 		m.lock.Unlock()
 		if err != nil {
-			return errors.Errorf("error stepping %v", err)
+			return fmt.Errorf("error stepping %v", err)
 		}
 	}
 	return nil
@@ -266,7 +268,7 @@ func (m *uln28byj) GoFor(ctx context.Context, rpm, revolutions float64, extra ma
 
 	err := m.doRun(ctx)
 	if err != nil {
-		return errors.Errorf(" error while running motor %v", err)
+		return fmt.Errorf(" error while running motor %v", err)
 	}
 	return nil
 }
@@ -298,7 +300,7 @@ func (m *uln28byj) goMath(ctx context.Context, rpm, revolutions float64) (int64,
 func (m *uln28byj) GoTo(ctx context.Context, rpm, positionRevolutions float64, extra map[string]interface{}) error {
 	curPos, err := m.Position(ctx, extra)
 	if err != nil {
-		return errors.Wrapf(err, "error in GoTo from motor (%s)", m.motorName)
+		return errors.Join(err, fmt.Errorf("error in GoTo from motor (%s)", m.motorName))
 	}
 	moveDistance := positionRevolutions - curPos
 
@@ -322,7 +324,7 @@ func (m *uln28byj) ResetZeroPosition(ctx context.Context, offset float64, extra 
 
 // SetPower is invalid for this motor.
 func (m *uln28byj) SetPower(ctx context.Context, powerPct float64, extra map[string]interface{}) error {
-	return errors.Errorf("raw power not supported in stepper motor (%s)", m.motorName)
+	return fmt.Errorf("raw power not supported in stepper motor (%s)", m.motorName)
 }
 
 // Position reports the current step position of the motor. If it's not supported, the returned
@@ -361,7 +363,7 @@ func (m *uln28byj) Stop(ctx context.Context, extra map[string]interface{}) error
 func (m *uln28byj) IsPowered(ctx context.Context, extra map[string]interface{}) (bool, float64, error) {
 	on, err := m.IsMoving(ctx)
 	if err != nil {
-		return on, 0.0, errors.Wrapf(err, "error in IsPowered from motor (%s)", m.motorName)
+		return on, 0.0, errors.Join(err, fmt.Errorf("error in IsPowered from motor (%s)", m.motorName))
 	}
 	percent := 0.0
 	if on {

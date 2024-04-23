@@ -2,9 +2,11 @@ package transformpipeline
 
 import (
 	"context"
+	"fmt"
 	"image"
 
-	"github.com/pkg/errors"
+	"errors"
+
 	"go.opencensus.io/trace"
 
 	"go.viam.com/rdk/components/camera"
@@ -36,7 +38,7 @@ func newUndistortTransform(
 		return nil, camera.UnspecifiedStream, err
 	}
 	if conf.CameraParams == nil {
-		return nil, camera.UnspecifiedStream, errors.Wrapf(transform.ErrNoIntrinsics, "cannot create undistort transform")
+		return nil, camera.UnspecifiedStream, errors.Join(transform.ErrNoIntrinsics, errors.New("cannot create undistort transform"))
 	}
 	cameraModel := camera.NewPinholeModelWithBrownConradyDistortion(conf.CameraParams, conf.DistortionParams)
 	reader := &undistortSource{
@@ -78,7 +80,7 @@ func (us *undistortSource) Read(ctx context.Context) (image.Image, func(), error
 		}
 		return depth, release, nil
 	default:
-		return nil, nil, errors.Errorf("do not know how to decode stream type %q", string(us.stream))
+		return nil, nil, fmt.Errorf("do not know how to decode stream type %q", string(us.stream))
 	}
 }
 

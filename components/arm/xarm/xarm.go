@@ -9,7 +9,7 @@ import (
 	"net"
 	"sync"
 
-	"github.com/pkg/errors"
+	"errors"
 
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/logging"
@@ -172,7 +172,7 @@ func (x *xArm) Reconfigure(ctx context.Context, deps resource.Dependencies, conf
 		x.conn = newConn
 
 		if err := x.start(ctx); err != nil {
-			return errors.Wrap(err, "failed to start on reconfigure")
+			return errors.Join(err, errors.New("failed to start on reconfigure"))
 		}
 	}
 

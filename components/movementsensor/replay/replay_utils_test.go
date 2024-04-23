@@ -9,8 +9,9 @@ import (
 	"testing"
 	"time"
 
+	"errors"
+
 	"github.com/golang/geo/r3"
-	"github.com/pkg/errors"
 	datapb "go.viam.com/api/app/data/v1"
 	"go.viam.com/test"
 	"go.viam.com/utils/rpc"
@@ -96,7 +97,7 @@ func (mDServer *mockDataServiceServer) TabularDataByFilter(ctx context.Context, 
 func timestampsFromIndex(index int) (*timestamppb.Timestamp, *timestamppb.Timestamp, error) {
 	timeReq, err := time.Parse(time.RFC3339, fmt.Sprintf(testTime, index))
 	if err != nil {
-		return nil, nil, errors.Wrap(err, "failed parsing time")
+		return nil, nil, errors.Join(err, errors.New("failed parsing time"))
 	}
 	timeRec := timeReq.Add(time.Second)
 	return timestamppb.New(timeReq), timestamppb.New(timeRec), nil

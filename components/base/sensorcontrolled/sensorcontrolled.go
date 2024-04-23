@@ -3,11 +3,13 @@ package sensorcontrolled
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"time"
 
+	"errors"
+
 	"github.com/golang/geo/r3"
-	"github.com/pkg/errors"
 
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/components/movementsensor"
@@ -130,7 +132,7 @@ func (sb *sensorBase) Reconfigure(ctx context.Context, deps resource.Dependencie
 	for _, name := range newConf.MovementSensor {
 		ms, err := movementsensor.FromDependencies(deps, name)
 		if err != nil {
-			return errors.Wrapf(err, "no movement sensor named (%s)", name)
+			return errors.Join(err, fmt.Errorf("no movement sensor named (%s)", name))
 		}
 		sb.allSensors = append(sb.allSensors, ms)
 	}
@@ -182,7 +184,7 @@ func (sb *sensorBase) Reconfigure(ctx context.Context, deps resource.Dependencie
 
 	sb.controlledBase, err = base.FromDependencies(deps, newConf.Base)
 	if err != nil {
-		return errors.Wrapf(err, "no base named (%s)", newConf.Base)
+		return errors.Join(err, fmt.Errorf("no base named (%s)", newConf.Base))
 	}
 
 	if sb.velocities != nil && len(newConf.ControlParameters) != 0 {

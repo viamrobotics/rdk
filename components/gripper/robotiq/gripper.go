@@ -10,7 +10,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/pkg/errors"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/gripper"
@@ -153,7 +152,7 @@ func (g *robotiqGripper) Set(what, to string) error {
 		return err
 	}
 	if res != "ack" {
-		return errors.Errorf("didn't get ack back, got [%s]", res)
+		return fmt.Errorf("didn't get ack back, got [%s]", res)
 	}
 	return nil
 }
@@ -170,7 +169,7 @@ func (g *robotiqGripper) read() (string, error) {
 		return "", err
 	}
 	if x > 100 {
-		return "", errors.Errorf("read too much: %d", x)
+		return "", fmt.Errorf("read too much: %d", x)
 	}
 	if x == 0 {
 		return "", nil

@@ -5,8 +5,9 @@ import (
 	"math"
 	"testing"
 
+	"errors"
+
 	"github.com/golang/geo/r3"
-	"github.com/pkg/errors"
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/components/board"

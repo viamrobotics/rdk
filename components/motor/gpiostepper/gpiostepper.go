@@ -34,7 +34,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/pkg/errors"
+	"errors"
+
 	"go.uber.org/multierr"
 	"go.viam.com/utils"
 
@@ -213,7 +214,7 @@ func (m *gpioStepper) SetPower(ctx context.Context, powerPct float64, extra map[
 	}
 
 	if m.minDelay == 0 {
-		return errors.Errorf(
+		return fmt.Errorf(
 			"if you want to set the power, set 'stepper_delay_usec' in the motor config at "+
 				"the minimum time delay between pulses for your stepper motor (%s)",
 			m.Name().Name)
@@ -321,14 +322,14 @@ func (m *gpioStepper) GoFor(ctx context.Context, rpm, revolutions float64, extra
 
 	err := m.enable(ctx, true)
 	if err != nil {
-		return errors.Wrapf(err, "error enabling motor in GoFor from motor (%s)", m.Name().Name)
+		return errors.Join(err, fmt.Errorf("error enabling motor in GoFor from motor (%s)", m.Name().Name))
 	}
 
 	err = m.goForInternal(ctx, rpm, revolutions)
 	if err != nil {
 		return multierr.Combine(
 			m.enable(ctx, false),
-			errors.Wrapf(err, "error in GoFor from motor (%s)", m.Name().Name))
+			errors.Join(err, fmt.Errorf("error in GoFor from motor (%s)", m.Name().Name)))
 	}
 
 	// this is a long-running operation, do not wait for Stop, do not disable enable pins
@@ -385,7 +386,7 @@ func (m *gpioStepper) goForInternal(ctx context.Context, rpm, revolutions float6
 func (m *gpioStepper) GoTo(ctx context.Context, rpm, positionRevolutions float64, extra map[string]interface{}) error {
 	curPos, err := m.Position(ctx, extra)
 	if err != nil {
-		return errors.Wrapf(err, "error in GoTo from motor (%s)", m.Name().Name)
+		return errors.Join(err, fmt.Errorf("error in GoTo from motor (%s)", m.Name().Name))
 	}
 	moveDistance := positionRevolutions - curPos
 
@@ -452,7 +453,7 @@ func (m *gpioStepper) stop() {
 func (m *gpioStepper) IsPowered(ctx context.Context, extra map[string]interface{}) (bool, float64, error) {
 	on, err := m.IsMoving(ctx)
 	if err != nil {
-		return on, 0.0, errors.Wrapf(err, "error in IsPowered from motor (%s)", m.Name().Name)
+		return on, 0.0, errors.Join(err, fmt.Errorf("error in IsPowered from motor (%s)", m.Name().Name))
 	}
 	percent := 0.0
 	if on {

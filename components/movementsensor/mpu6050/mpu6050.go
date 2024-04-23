@@ -26,9 +26,10 @@ import (
 	"sync"
 	"time"
 
+	"errors"
+
 	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
-	"github.com/pkg/errors"
 
 	"go.viam.com/rdk/components/board/genericlinux/buses"
 	"go.viam.com/rdk/components/movementsensor"
@@ -88,12 +89,12 @@ type mpu6050 struct {
 }
 
 func addressReadError(err error, address byte, bus string) error {
-	msg := fmt.Sprintf("can't read from I2C address %d on bus %s", address, bus)
-	return errors.Wrap(err, msg)
+	msg := fmt.Errorf("can't read from I2C address %d on bus %s", address, bus)
+	return errors.Join(err, msg)
 }
 
 func unexpectedDeviceError(address, defaultAddress byte) error {
-	return errors.Errorf("unexpected non-MPU6050 device at address %d: response '%d'",
+	return fmt.Errorf("unexpected non-MPU6050 device at address %d: response '%d'",
 		address, defaultAddress)
 }
 
@@ -162,7 +163,7 @@ func makeMpu6050(
 	// To do this, we set register 107 to 0.
 	err = sensor.writeByte(ctx, 107, 0)
 	if err != nil {
-		return nil, errors.Errorf("Unable to wake up MPU6050: '%s'", err.Error())
+		return nil, fmt.Errorf("Unable to wake up MPU6050: '%s'", err.Error())
 	}
 
 	// Now, turn on the background goroutine that constantly reads from the chip and stores data in

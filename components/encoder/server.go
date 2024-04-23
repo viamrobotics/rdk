@@ -2,8 +2,8 @@ package encoder
 
 import (
 	"context"
+	"fmt"
 
-	"github.com/pkg/errors"
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/encoder/v1"
 
@@ -50,7 +50,7 @@ func (s *serviceServer) ResetPosition(
 	encName := req.GetName()
 	enc, err := s.coll.Resource(encName)
 	if err != nil {
-		return nil, errors.Errorf("no encoder (%s) found", encName)
+		return nil, fmt.Errorf("no encoder (%s) found", encName)
 	}
 
 	return &pb.ResetPositionResponse{}, enc.ResetPosition(ctx, req.Extra.AsMap())
@@ -64,7 +64,7 @@ func (s *serviceServer) GetProperties(
 	encoderName := req.GetName()
 	enc, err := s.coll.Resource(encoderName)
 	if err != nil {
-		return nil, errors.Errorf("no encoder (%s) found", encoderName)
+		return nil, fmt.Errorf("no encoder (%s) found", encoderName)
 	}
 	features, err := enc.Properties(ctx, req.Extra.AsMap())
 	if err != nil {

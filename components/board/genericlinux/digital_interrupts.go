@@ -6,10 +6,12 @@ package genericlinux
 
 import (
 	"context"
+	"fmt"
 	"sync"
 
+	"errors"
+
 	"github.com/mkch/gpio"
-	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 	"go.viam.com/utils"
 
@@ -37,7 +39,7 @@ func (b *Board) createDigitalInterrupt(
 ) (*digitalInterrupt, error) {
 	mapping, ok := gpioMappings[config.Pin]
 	if !ok {
-		return nil, errors.Errorf("unknown interrupt pin %s", config.Pin)
+		return nil, fmt.Errorf("unknown interrupt pin %s", config.Pin)
 	}
 
 	chip, err := gpio.OpenChip(mapping.GPIOChipDev)

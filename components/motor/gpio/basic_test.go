@@ -6,7 +6,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/pkg/errors"
+	"errors"
+
 	"go.viam.com/test"
 	"go.viam.com/utils/testutils"
 

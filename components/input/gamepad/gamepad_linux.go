@@ -13,7 +13,8 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/pkg/errors"
+	"errors"
+
 	"github.com/viamrobotics/evdev"
 	"go.viam.com/utils"
 

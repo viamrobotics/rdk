@@ -5,8 +5,9 @@ import (
 	"image"
 	"image/color"
 
+	"errors"
+
 	"github.com/disintegration/imaging"
-	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
 	"golang.org/x/image/draw"
 
@@ -35,7 +36,7 @@ func newRotateTransform(ctx context.Context, source gostream.VideoSource, stream
 ) (gostream.VideoSource, camera.ImageType, error) {
 	conf, err := resource.TransformAttributeMap[*rotateConfig](am)
 	if err != nil {
-		return nil, camera.UnspecifiedStream, errors.Wrap(err, "cannot parse rotate attribute map")
+		return nil, camera.UnspecifiedStream, errors.Join(err, errors.New("cannot parse rotate attribute map"))
 	}
 
 	if !am.Has("angle_degs") {

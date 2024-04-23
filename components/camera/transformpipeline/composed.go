@@ -2,9 +2,11 @@ package transformpipeline
 
 import (
 	"context"
+	"fmt"
 	"image"
 
-	"github.com/pkg/errors"
+	"errors"
+
 	"go.opencensus.io/trace"
 
 	"go.viam.com/rdk/components/camera"
@@ -43,7 +45,7 @@ func newDepthToPrettyTransform(
 ) (gostream.VideoSource, camera.ImageType, error) {
 	if stream != camera.DepthStream {
 		return nil, camera.UnspecifiedStream,
-			errors.Errorf("source has stream type %s, depth_to_pretty only supports depth stream inputs", stream)
+			fmt.Errorf("source has stream type %s, depth_to_pretty only supports depth stream inputs", stream)
 	}
 	props, err := propsFromVideoSource(ctx, source)
 	if err != nil {
@@ -76,7 +78,7 @@ func (dtp *depthToPretty) Read(ctx context.Context) (image.Image, func(), error)
 	}
 	dm, err := rimage.ConvertImageToDepthMap(ctx, i)
 	if err != nil {
-		return nil, nil, errors.Wrapf(err, "source camera does not make depth maps")
+		return nil, nil, errors.Join(err, errors.New("source camera does not make depth maps"))
 	}
 	return dm.ToPrettyPicture(0, rimage.MaxDepth), release, nil
 }
@@ -89,7 +91,7 @@ func (dtp *depthToPretty) PointCloud(ctx context.Context) (pointcloud.PointCloud
 	ctx, span := trace.StartSpan(ctx, "camera::transformpipeline::depthToPretty::PointCloud")
 	defer span.End()
 	if dtp.cameraModel == nil || dtp.cameraModel.PinholeCameraIntrinsics == nil {
-		return nil, errors.Wrapf(transform.ErrNoIntrinsics, "depthToPretty transform cannot project to pointcloud")
+		return nil, errors.Join(transform.ErrNoIntrinsics, errors.New("depthToPretty transform cannot project to pointcloud"))
 	}
 	i, release, err := dtp.originalStream.Next(ctx)
 	if err != nil {
@@ -98,7 +100,7 @@ func (dtp *depthToPretty) PointCloud(ctx context.Context) (pointcloud.PointCloud
 	defer release()
 	dm, err := rimage.ConvertImageToDepthMap(ctx, i)
 	if err != nil {
-		return nil, errors.Wrapf(err, "source camera does not make depth maps")
+		return nil, errors.Join(err, errors.New("source camera does not make depth maps"))
 	}
 	img := dm.ToPrettyPicture(0, rimage.MaxDepth)
 	return dtp.cameraModel.RGBDToPointCloud(img, dm)

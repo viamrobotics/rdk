@@ -14,9 +14,8 @@ package gpsnmea
 
 import (
 	"context"
+	"fmt"
 	"strings"
-
-	"github.com/pkg/errors"
 
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/components/movementsensor/gpsutils"
@@ -25,7 +24,7 @@ import (
 )
 
 func connectionTypeError(connType, serialConn, i2cConn string) error {
-	return errors.Errorf("%s is not a valid connection_type of %s, %s",
+	return fmt.Errorf("%s is not a valid connection_type of %s, %s",
 		connType,
 		serialConn,
 		i2cConn)

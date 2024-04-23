@@ -4,8 +4,9 @@ import (
 	"context"
 	"testing"
 
+	"errors"
+
 	"github.com/golang/geo/r3"
-	"github.com/pkg/errors"
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/arm/v1"
 	"go.viam.com/test"

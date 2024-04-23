@@ -13,7 +13,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/pkg/errors"
+	"errors"
+
 	"go.viam.com/utils"
 
 	picommon "go.viam.com/rdk/components/board/pi/common"
@@ -48,7 +49,7 @@ func init() {
 
 				bcom, have := broadcomPinFromHardwareLabel(newConf.Pin)
 				if !have {
-					return nil, errors.Errorf("no hw mapping for %s", newConf.Pin)
+					return nil, fmt.Errorf("no hw mapping for %s", newConf.Pin)
 				}
 
 				theServo := &piPigpioServo{
@@ -147,7 +148,7 @@ func (s *piPigpioServo) Move(ctx context.Context, angle uint32, extra map[string
 		time.Sleep(time.Duration(holdTime)) // time before a stop is sent
 		setPos := C.gpioServo(s.pin, C.uint(0))
 		if setPos < 0 {
-			return errors.Errorf("servo on pin %s failed with code %d", s.pinname, setPos)
+			return fmt.Errorf("servo on pin %s failed with code %d", s.pinname, setPos)
 		}
 	}
 	return nil
@@ -157,9 +158,9 @@ func (s *piPigpioServo) Move(ctx context.Context, angle uint32, extra map[string
 func (s *piPigpioServo) pigpioErrors(res int) error {
 	switch {
 	case res == C.PI_NOT_SERVO_GPIO:
-		return errors.Errorf("gpioservo pin %s is not set up to send and receive pulsewidths", s.pinname)
+		return fmt.Errorf("gpioservo pin %s is not set up to send and receive pulsewidths", s.pinname)
 	case res == C.PI_BAD_PULSEWIDTH:
-		return errors.Errorf("gpioservo on pin %s trying to reach out of range position", s.pinname)
+		return fmt.Errorf("gpioservo on pin %s trying to reach out of range position", s.pinname)
 	case res == 0:
 		return nil
 	case res < 0 && res != C.PI_BAD_PULSEWIDTH && res != C.PI_NOT_SERVO_GPIO:

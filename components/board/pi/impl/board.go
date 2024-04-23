@@ -29,7 +29,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/pkg/errors"
+	"errors"
+
 	"go.uber.org/multierr"
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/board/v1"
@@ -209,7 +210,7 @@ func (pi *piPigpio) StreamTicks(ctx context.Context, interruptNames []string, ch
 	for _, name := range interruptNames {
 		interrupt, ok := pi.DigitalInterruptByName(name)
 		if !ok {
-			return errors.Errorf("unknown digital interrupt: %s", name)
+			return fmt.Errorf("unknown digital interrupt: %s", name)
 		}
 		interrupts = append(interrupts, interrupt)
 	}
@@ -226,7 +227,7 @@ func (pi *piPigpio) reconfigureAnalogReaders(ctx context.Context, cfg *Config) e
 	for _, ac := range cfg.AnalogReaders {
 		channel, err := strconv.Atoi(ac.Pin)
 		if err != nil {
-			return errors.Errorf("bad analog pin (%s)", ac.Pin)
+			return fmt.Errorf("bad analog pin (%s)", ac.Pin)
 		}
 
 		bus := &piPigpioSPI{pi: pi, busSelect: ac.SPIBus}
@@ -323,7 +324,7 @@ func (pi *piPigpio) reconfigureInterrupts(ctx context.Context, cfg *Config) erro
 	for _, newConfig := range cfg.DigitalInterrupts {
 		bcom, ok := broadcomPinFromHardwareLabel(newConfig.Pin)
 		if !ok {
-			return errors.Errorf("no hw mapping for %s", newConfig.Pin)
+			return fmt.Errorf("no hw mapping for %s", newConfig.Pin)
 		}
 
 		// Try reusing an interrupt with the same pin
@@ -359,13 +360,13 @@ func (pi *piPigpio) reconfigureInterrupts(ctx context.Context, cfg *Config) erro
 		name, ok := findInterruptName(interrupt, oldInterrupts)
 		if !ok {
 			// This should never happen
-			return errors.Errorf("Logic bug: found old interrupt %s without old name!?", interrupt)
+			return fmt.Errorf("Logic bug: found old interrupt %s without old name!?", interrupt)
 		}
 
 		bcom, ok := findInterruptBcom(interrupt, oldInterruptsHW)
 		if !ok {
 			// This should never happen, either
-			return errors.Errorf("Logic bug: found old interrupt %s without old bcom!?", interrupt)
+			return fmt.Errorf("Logic bug: found old interrupt %s without old bcom!?", interrupt)
 		}
 
 		if expectedBcom, ok := broadcomPinFromHardwareLabel(name); ok && bcom == expectedBcom {
@@ -394,7 +395,7 @@ func (pi *piPigpio) GPIOPinByName(pin string) (board.GPIOPin, error) {
 	defer pi.mu.Unlock()
 	bcom, have := broadcomPinFromHardwareLabel(pin)
 	if !have {
-		return nil, errors.Errorf("no hw pin for (%s)", pin)
+		return nil, fmt.Errorf("no hw pin for (%s)", pin)
 	}
 	return gpioPin{pi, int(bcom)}, nil
 }
@@ -482,7 +483,7 @@ func (pi *piPigpio) SetPWMBcom(bcom int, dutyCyclePct float64) error {
 	dutyCycle := rdkutils.ScaleByPct(255, dutyCyclePct)
 	pi.duty = int(C.gpioPWM(C.uint(bcom), C.uint(dutyCycle)))
 	if pi.duty != 0 {
-		return errors.Errorf("pwm set fail %d", pi.duty)
+		return fmt.Errorf("pwm set fail %d", pi.duty)
 	}
 	return nil
 }
@@ -620,7 +621,7 @@ func (s *piPigpioSPIHandle) Xfer(ctx context.Context, baud uint, chipSelect stri
 	}
 
 	if int(ret) != count {
-		return nil, errors.Errorf("error with spiXfer: Wanted %d bytes, got %d bytes", count, ret)
+		return nil, fmt.Errorf("error with spiXfer: Wanted %d bytes, got %d bytes", count, ret)
 	}
 
 	return C.GoBytes(rxPtr, (C.int)(count)), nil
@@ -670,7 +671,7 @@ func (pi *piPigpio) AnalogByName(name string) (board.Analog, error) {
 	defer pi.mu.Unlock()
 	a, ok := pi.analogReaders[name]
 	if !ok {
-		return nil, errors.Errorf("can't find AnalogReader (%s)", name)
+		return nil, fmt.Errorf("can't find AnalogReader (%s)", name)
 	}
 	return a, nil
 }

@@ -3,8 +3,8 @@ package input
 
 import (
 	"context"
+	"fmt"
 
-	"github.com/pkg/errors"
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/inputcontroller/v1"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -88,7 +88,7 @@ func (s *serviceServer) TriggerEvent(
 	}
 	injectController, ok := controller.(Triggerable)
 	if !ok {
-		return nil, errors.Errorf("input controller is not of type Triggerable (%s)", req.Controller)
+		return nil, fmt.Errorf("input controller is not of type Triggerable (%s)", req.Controller)
 	}
 
 	err = injectController.TriggerEvent(

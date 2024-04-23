@@ -5,10 +5,12 @@ package tmcstepper
 
 import (
 	"context"
+	"fmt"
 	"math"
 	"time"
 
-	"github.com/pkg/errors"
+	"errors"
+
 	"go.uber.org/multierr"
 	"go.viam.com/utils"
 
@@ -271,7 +273,7 @@ func makeMotor(ctx context.Context, deps resource.Dependencies, c TMC5072Config,
 	if c.Pins.EnablePinLow != "" {
 		b, err := board.FromDependencies(deps, c.BoardName)
 		if err != nil {
-			return nil, errors.Errorf("%q is not a board", c.BoardName)
+			return nil, fmt.Errorf("%q is not a board", c.BoardName)
 		}
 
 		m.enLowPin, err = b.GPIOPinByName(c.Pins.EnablePinLow)
@@ -391,7 +393,7 @@ func (m *Motor) GetSG(ctx context.Context) (int32, error) {
 func (m *Motor) Position(ctx context.Context, extra map[string]interface{}) (float64, error) {
 	rawPos, err := m.readReg(ctx, xActual)
 	if err != nil {
-		return 0, errors.Wrapf(err, "error in Position from motor (%s)", m.motorName)
+		return 0, errors.Join(err, fmt.Errorf("error in Position from motor (%s)", m.motorName))
 	}
 	return float64(rawPos) / float64(m.stepsPerRev), nil
 }
@@ -449,7 +451,7 @@ func (m *Motor) GoFor(ctx context.Context, rpm, rotations float64, extra map[str
 
 	curPos, err := m.Position(ctx, extra)
 	if err != nil {
-		return errors.Wrapf(err, "error in GoFor from motor (%s)", m.motorName)
+		return errors.Join(err, fmt.Errorf("error in GoFor from motor (%s)", m.motorName))
 	}
 
 	var d int64 = 1
@@ -506,7 +508,7 @@ func (m *Motor) GoTo(ctx context.Context, rpm, positionRevolutions float64, extr
 		m.writeReg(ctx, xTarget, int32(positionRevolutions)),
 	)
 	if err != nil {
-		return errors.Wrapf(err, "error in GoTo from motor (%s)", m.motorName)
+		return errors.Join(err, fmt.Errorf("error in GoTo from motor (%s)", m.motorName))
 	}
 
 	return m.opMgr.WaitForSuccess(
@@ -520,7 +522,7 @@ func (m *Motor) GoTo(ctx context.Context, rpm, positionRevolutions float64, extr
 func (m *Motor) IsPowered(ctx context.Context, extra map[string]interface{}) (bool, float64, error) {
 	on, err := m.IsMoving(ctx)
 	if err != nil {
-		return on, m.powerPct, errors.Wrapf(err, "error in IsPowered from motor (%s)", m.motorName)
+		return on, m.powerPct, errors.Join(err, fmt.Errorf("error in IsPowered from motor (%s)", m.motorName))
 	}
 	return on, m.powerPct, err
 }
@@ -529,7 +531,7 @@ func (m *Motor) IsPowered(ctx context.Context, extra map[string]interface{}) (bo
 func (m *Motor) IsStopped(ctx context.Context) (bool, error) {
 	stat, err := m.readReg(ctx, rampStat)
 	if err != nil {
-		return false, errors.Wrapf(err, "error in IsStopped from motor (%s)", m.motorName)
+		return false, errors.Join(err, fmt.Errorf("error in IsStopped from motor (%s)", m.motorName))
 	}
 	// Look for vzero flag
 	return stat&0x400 == 0x400, nil
@@ -666,9 +668,9 @@ func (m *Motor) goTillStop(ctx context.Context, rpm float64, stopFunc func(ctx c
 func (m *Motor) ResetZeroPosition(ctx context.Context, offset float64, extra map[string]interface{}) error {
 	on, _, err := m.IsPowered(ctx, extra)
 	if err != nil {
-		return errors.Wrapf(err, "error in ResetZeroPosition from motor (%s)", m.motorName)
+		return errors.Join(err, fmt.Errorf("error in ResetZeroPosition from motor (%s)", m.motorName))
 	} else if on {
-		return errors.Errorf("can't zero motor (%s) while moving", m.motorName)
+		return fmt.Errorf("can't zero motor (%s) while moving", m.motorName)
 	}
 	return multierr.Combine(
 		m.writeReg(ctx, rampMode, modeHold),
@@ -689,7 +691,7 @@ const (
 func (m *Motor) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 	name, ok := cmd["command"]
 	if !ok {
-		return nil, errors.Errorf("missing %s value", Command)
+		return nil, fmt.Errorf("missing %s value", Command)
 	}
 	switch name {
 	case Home:
@@ -697,7 +699,7 @@ func (m *Motor) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[
 	case Jog:
 		rpmRaw, ok := cmd[RPMVal]
 		if !ok {
-			return nil, errors.Errorf("need %s value for jog", RPMVal)
+			return nil, fmt.Errorf("need %s value for jog", RPMVal)
 		}
 		rpm, ok := rpmRaw.(float64)
 		if !ok {
@@ -705,6 +707,6 @@ func (m *Motor) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[
 		}
 		return nil, m.Jog(ctx, rpm)
 	default:
-		return nil, errors.Errorf("no such command: %s", name)
+		return nil, fmt.Errorf("no such command: %s", name)
 	}
 }

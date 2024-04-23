@@ -12,8 +12,9 @@ import (
 	"sync"
 	"time"
 
+	"errors"
+
 	"github.com/jacobsa/go-serial/serial"
-	"github.com/pkg/errors"
 	"go.viam.com/utils"
 	"go.viam.com/utils/usb"
 
@@ -561,7 +562,7 @@ func (m *Motor) ResetZeroPosition(ctx context.Context, offset float64, extra map
 	defer m.c.mu.Unlock()
 	_, err := m.c.sendCmd(fmt.Sprintf("DP%s=%d", m.Axis, int(-1*offset*float64(m.TicksPerRotation))))
 	if err != nil {
-		return errors.Wrap(err, "error in ResetZeroPosition")
+		return errors.Join(err, errors.New("error in ResetZeroPosition"))
 	}
 	return err
 }
@@ -584,7 +585,7 @@ func (m *Motor) Stop(ctx context.Context, extra map[string]interface{}) error {
 	m.jogging = false
 	_, err := m.c.sendCmd(fmt.Sprintf("ST%s", m.Axis))
 	if err != nil {
-		return errors.Wrap(err, "error in Stop function")
+		return errors.Join(err, errors.New("error in Stop function"))
 	}
 
 	return m.opMgr.WaitForSuccess(
@@ -609,7 +610,7 @@ func (m *Motor) IsMoving(ctx context.Context) (bool, error) {
 func (m *Motor) IsPowered(ctx context.Context, extra map[string]interface{}) (bool, float64, error) {
 	on, err := m.IsMoving(ctx)
 	if err != nil {
-		return on, m.powerPct, errors.Wrap(err, "error in IsPowered")
+		return on, m.powerPct, errors.Join(err, errors.New("error in IsPowered"))
 	}
 	return on, m.powerPct, err
 }

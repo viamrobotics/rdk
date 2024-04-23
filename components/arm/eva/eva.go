@@ -6,6 +6,7 @@ package eva
 import (
 	"bytes"
 	"context"
+
 	// for embedding model file.
 	_ "embed"
 	"encoding/json"
@@ -16,7 +17,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/pkg/errors"
+	"errors"
+
 	"go.uber.org/multierr"
 	pb "go.viam.com/api/component/arm/v1"
 	"go.viam.com/utils"
@@ -174,7 +176,7 @@ func (e *eva) MoveToJointPositions(ctx context.Context, newPositions *pb.JointPo
 	}
 
 	if err2 := e.resetErrors(ctx); err2 != nil {
-		return errors.Wrapf(multierr.Combine(err, err2), "move failure, and couldn't reset errors")
+		return errors.Join(err, err2, errors.New("move failure, and couldn't reset errors"))
 	}
 
 	return e.doMoveJoints(ctx, radians)
@@ -260,7 +262,7 @@ func (e *eva) apiRequestRetry(
 			}
 		}
 
-		return errors.Errorf("got unexpected response code: %d for %s %s", res.StatusCode, fullPath, more)
+		return fmt.Errorf("got unexpected response code: %d for %s %s", res.StatusCode, fullPath, more)
 	}
 
 	if out == nil {
@@ -268,7 +270,7 @@ func (e *eva) apiRequestRetry(
 	}
 
 	if !strings.HasPrefix(res.Header["Content-Type"][0], "application/json") {
-		return errors.Errorf("expected json response from eva, got: %v", res.Header["Content-Type"])
+		return fmt.Errorf("expected json response from eva, got: %v", res.Header["Content-Type"])
 	}
 
 	decoder := json.NewDecoder(res.Body)

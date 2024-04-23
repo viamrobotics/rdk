@@ -5,7 +5,8 @@ import (
 	"fmt"
 	"image"
 
-	"github.com/pkg/errors"
+	"errors"
+
 	"go.opencensus.io/trace"
 	"go.uber.org/multierr"
 
@@ -107,10 +108,10 @@ func newColorDepthHomography(ctx context.Context, color, depth camera.VideoSourc
 		return nil, errors.New("homography field in attributes cannot be empty")
 	}
 	if conf.CameraParameters == nil {
-		return nil, errors.Wrap(transform.ErrNoIntrinsics, "intrinsic_parameters field in attributes cannot be empty")
+		return nil, transform.ErrNoIntrinsics
 	}
 	if conf.CameraParameters.Height <= 0 || conf.CameraParameters.Width <= 0 {
-		return nil, errors.Errorf(
+		return nil, fmt.Errorf(
 			"got illegal zero or negative dimensions for width_px and height_px (%d, %d) fields set in intrinsic_parameters"+
 				" for align_color_depth_homography camera",
 			conf.CameraParameters.Width, conf.CameraParameters.Height)
@@ -181,10 +182,10 @@ func (acd *colorDepthHomography) NextPointCloud(ctx context.Context) (pointcloud
 	}
 	col, dm := camera.SimultaneousColorDepthNext(ctx, acd.color, acd.depth)
 	if col == nil {
-		return nil, errors.Errorf("could not get color image from source camera %q for join_color_depth camera", acd.colorName)
+		return nil, fmt.Errorf("could not get color image from source camera %q for join_color_depth camera", acd.colorName)
 	}
 	if dm == nil {
-		return nil, errors.Errorf("could not get depth image from source camera %q for join_color_depth camera", acd.depthName)
+		return nil, fmt.Errorf("could not get depth image from source camera %q for join_color_depth camera", acd.depthName)
 	}
 	if acd.aligner == nil {
 		return acd.projector.RGBDToPointCloud(rimage.ConvertImage(col), dm)

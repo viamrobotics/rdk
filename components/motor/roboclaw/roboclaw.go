@@ -27,8 +27,9 @@ import (
 	"math"
 	"time"
 
+	"errors"
+
 	"github.com/CPRT/roboclaw"
-	"github.com/pkg/errors"
 
 	"go.viam.com/rdk/components/motor"
 	"go.viam.com/rdk/logging"
@@ -77,7 +78,7 @@ func (conf *Config) Validate(path string) ([]string, error) {
 	}
 
 	if !rutils.ValidateBaudRate(validBaudRates, conf.SerialBaud) {
-		return nil, resource.NewConfigValidationError(path, errors.Errorf("Baud rate invalid, must be one of these values: %v", validBaudRates))
+		return nil, resource.NewConfigValidationError(path, fmt.Errorf("Baud rate invalid, must be one of these values: %v", validBaudRates))
 	}
 	return nil, nil
 }
@@ -270,7 +271,7 @@ func (m *roboclawMotor) GoFor(ctx context.Context, rpm, revolutions float64, ext
 		m.logger.CInfo(ctx, "distance traveled is a time based estimation with max RPM 250. For increased accuracy, connect encoders")
 		err := m.SetPower(ctx, powerPct, extra)
 		if err != nil {
-			return errors.Wrap(err, "error in GoFor")
+			return errors.Join(err, errors.New("error in GoFor"))
 		}
 		if revolutions == 0 {
 			return nil

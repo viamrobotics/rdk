@@ -4,7 +4,8 @@ import (
 	"context"
 	"image"
 
-	"github.com/pkg/errors"
+	"errors"
+
 	"go.opencensus.io/trace"
 
 	"go.viam.com/rdk/components/camera"
@@ -63,7 +64,7 @@ func (os *depthEdgesSource) Read(ctx context.Context) (image.Image, func(), erro
 	}
 	dm, err := rimage.ConvertImageToDepthMap(ctx, i)
 	if err != nil {
-		return nil, nil, errors.Wrapf(err, "cannot transform for depth edges")
+		return nil, nil, errors.Join(err, errors.New("cannot transform for depth edges"))
 	}
 	edges, err := os.detector.DetectDepthEdges(dm, os.blurRadius)
 	if err != nil {

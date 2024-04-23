@@ -10,10 +10,11 @@ import (
 	"sync"
 	"time"
 
+	"errors"
+
 	"github.com/google/uuid"
 	"github.com/pion/rtp"
 	"github.com/pion/webrtc/v3"
-	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
 	"go.uber.org/multierr"
 	pb "go.viam.com/api/component/camera/v1"
@@ -232,7 +233,7 @@ func (c *client) Images(ctx context.Context) ([]NamedImage, resource.ResponseMet
 		Name: c.name,
 	})
 	if err != nil {
-		return nil, resource.ResponseMetadata{}, errors.Wrap(err, "camera client: could not gets images from the camera")
+		return nil, resource.ResponseMetadata{}, errors.Join(err, errors.New("camera client: could not gets images from the camera"))
 	}
 
 	images := make([]NamedImage, 0, len(resp.Images))
@@ -549,7 +550,7 @@ func (c *client) unsubscribeAll() error {
 		timeoutCancel()
 		if err != nil {
 			c.logger.Warnw("unsubscribeAll RemoveStream returned err", "name", c.Name(), "err", err)
-			errAgg = multierr.Combine(errAgg, errors.Wrapf(err, "error calling RemoveStream with name: %s", c.Name()))
+			errAgg = multierr.Combine(errAgg, errors.Join(err, fmt.Errorf("error calling RemoveStream with name: %s", c.Name())))
 		}
 	}
 

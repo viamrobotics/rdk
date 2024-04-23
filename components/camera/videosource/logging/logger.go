@@ -16,8 +16,9 @@ import (
 	"sync/atomic"
 	"time"
 
+	"errors"
+
 	"github.com/jedib0t/go-pretty/v6/table"
-	"github.com/pkg/errors"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/config"
@@ -67,24 +68,24 @@ const (
 func NewLogger() (*Logger, error) {
 	// TODO: support non-Linux platforms
 	if runtime.GOOS != linux {
-		return nil, errors.Errorf("camera logger not supported on OS %s", runtime.GOOS)
+		return nil, fmt.Errorf("camera logger not supported on OS %s", runtime.GOOS)
 	}
 
 	dir := filepath.Dir(filePath)
 	if err := os.MkdirAll(dir, os.ModePerm); err != nil {
-		return nil, errors.Wrap(err, "camera logger: cannot mkdir "+dir)
+		return nil, errors.Join(err, fmt.Errorf("camera logger: cannot mkdir "+dir))
 	}
 
 	// remove enough entries to keep the number of files <= maxFiles
 	for entries, err := os.ReadDir(dir); len(entries) >= maxFiles; entries, err = os.ReadDir(dir) {
 		if err != nil {
-			utils.UncheckedError(errors.Wrap(err, "camera logger: cannot read directory "+dir))
+			utils.UncheckedError(errors.Join(err, fmt.Errorf("camera logger: cannot read directory "+dir)))
 			break
 		}
 
 		// because entries are sorted by name (timestamp), earlier entries are removed first
 		if err = os.Remove(filepath.Join(dir, entries[0].Name())); err != nil {
-			utils.UncheckedError(errors.Wrap(err, "camera logger: cannot remove file "+filepath.Join(dir, entries[0].Name())))
+			utils.UncheckedError(errors.Join(err, fmt.Errorf("camera logger: cannot remove file "+filepath.Join(dir, entries[0].Name()))))
 			break
 		}
 	}

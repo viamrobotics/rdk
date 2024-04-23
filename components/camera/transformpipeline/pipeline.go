@@ -8,7 +8,8 @@ import (
 	"fmt"
 	"image"
 
-	"github.com/pkg/errors"
+	"errors"
+
 	"go.opencensus.io/trace"
 	"go.uber.org/multierr"
 
@@ -76,7 +77,7 @@ func (cfg *transformConfig) Validate(path string) ([]string, error) {
 
 	if cfg.CameraParameters != nil {
 		if cfg.CameraParameters.Height < 0 || cfg.CameraParameters.Width < 0 {
-			return nil, errors.Errorf(
+			return nil, fmt.Errorf(
 				"got illegal negative dimensions for width_px and height_px (%d, %d) fields set in intrinsic_parameters for transform camera",
 				cfg.CameraParameters.Width, cfg.CameraParameters.Height,
 			)
@@ -157,7 +158,7 @@ func (tp transformPipeline) NextPointCloud(ctx context.Context) (pointcloud.Poin
 	if lastElem, ok := tp.pipeline[len(tp.pipeline)-1].(camera.PointCloudSource); ok {
 		pc, err := lastElem.NextPointCloud(ctx)
 		if err != nil {
-			return nil, errors.Wrap(err, "function NextPointCloud not defined for last videosource in transform pipeline")
+			return nil, errors.Join(err, errors.New("function NextPointCloud not defined for last videosource in transform pipeline"))
 		}
 		return pc, nil
 	}
@@ -170,7 +171,7 @@ func (tp transformPipeline) Close(ctx context.Context) error {
 		errs = multierr.Combine(errs, func() (err error) {
 			defer func() {
 				if panicErr := recover(); panicErr != nil {
-					err = multierr.Combine(err, errors.Errorf("panic: %v", panicErr))
+					err = multierr.Combine(err, fmt.Errorf("panic: %v", panicErr))
 				}
 			}()
 			return src.Close(ctx)

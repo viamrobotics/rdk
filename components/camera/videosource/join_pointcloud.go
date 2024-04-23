@@ -6,8 +6,9 @@ import (
 	"image"
 	"math"
 
+	"errors"
+
 	"github.com/golang/geo/r3"
-	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
 
 	"go.viam.com/rdk/components/camera"
@@ -85,7 +86,7 @@ const (
 )
 
 func newMergeMethodUnsupportedError(method string) MergeMethodUnsupportedError {
-	return errors.Errorf("merge method %s not supported", method)
+	return fmt.Errorf("merge method %s not supported", method)
 }
 
 // joinPointCloudSource takes image sources that can produce point clouds and merges them together from
@@ -222,7 +223,7 @@ func (jpcc *joinPointCloudCamera) NextPointCloudNaive(ctx context.Context) (poin
 				return nil, nil, err
 			}
 			if pc == nil {
-				return nil, nil, errors.Errorf("camera %q returned a nil point cloud", jpcc.sourceNames[iCopy])
+				return nil, nil, fmt.Errorf("camera %q returned a nil point cloud", jpcc.sourceNames[iCopy])
 			}
 			return pc, framePose, nil
 		}

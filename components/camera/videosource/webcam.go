@@ -11,13 +11,14 @@ import (
 	"sync"
 	"time"
 
+	"errors"
+
 	"github.com/pion/mediadevices"
 	"github.com/pion/mediadevices/pkg/driver"
 	"github.com/pion/mediadevices/pkg/driver/availability"
 	mediadevicescamera "github.com/pion/mediadevices/pkg/driver/camera"
 	"github.com/pion/mediadevices/pkg/frame"
 	"github.com/pion/mediadevices/pkg/prop"
-	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 	pb "go.viam.com/api/component/camera/v1"
 	goutils "go.viam.com/utils"
@@ -250,14 +251,14 @@ func findAndMakeVideoSource(
 	if label != "" {
 		cam, err := tryWebcamOpen(ctx, conf, label, false, constraints, logger)
 		if err != nil {
-			return nil, "", errors.Wrap(err, "cannot open webcam")
+			return nil, "", errors.Join(err, errors.New("cannot open webcam"))
 		}
 		return cam, label, nil
 	}
 
 	source, err := gostream.GetAnyVideoSource(constraints, logger.AsZap())
 	if err != nil {
-		return nil, "", errors.Wrap(err, "found no webcams")
+		return nil, "", errors.Join(err, errors.New("found no webcams"))
 	}
 
 	if label == "" {
@@ -405,7 +406,7 @@ func tryWebcamOpen(
 			return nil, err
 		}
 		if img.Bounds().Dx() != conf.Width || img.Bounds().Dy() != conf.Height {
-			return nil, errors.Errorf("requested width and height (%dx%d) are not available for this webcam"+
+			return nil, fmt.Errorf("requested width and height (%dx%d) are not available for this webcam"+
 				" (closest driver found by gostream supports resolution %dx%d)",
 				conf.Width, conf.Height, img.Bounds().Dx(), img.Bounds().Dy())
 		}
@@ -475,7 +476,7 @@ func (c *monitoredWebcam) isCameraConnected() (bool, error) {
 	}
 	d, err := gostream.DriverFromMediaSource[image.Image, prop.Video](c.underlyingSource)
 	if err != nil {
-		return true, errors.Wrap(err, "cannot get driver from media source")
+		return true, errors.Join(err, errors.New("cannot get driver from media source"))
 	}
 
 	// TODO(RSDK-1959): this only works for linux
@@ -503,7 +504,7 @@ func (c *monitoredWebcam) reconnectCamera(conf *WebcamConfig) error {
 			jetsoncamera.AR0234,
 			err,
 		)
-		return errors.Wrap(err, "failed to find camera")
+		return errors.Join(err, errors.New("failed to find camera"))
 	}
 
 	if c.exposedSwapper == nil {
@@ -595,7 +596,7 @@ func (c *monitoredWebcam) Images(ctx context.Context) ([]camera.NamedImage, reso
 	}
 	img, release, err := camera.ReadImage(ctx, c.underlyingSource)
 	if err != nil {
-		return nil, resource.ResponseMetadata{}, errors.Wrap(err, "monitoredWebcam: call to get Images failed")
+		return nil, resource.ResponseMetadata{}, errors.Join(err, errors.New("monitoredWebcam: call to get Images failed"))
 	}
 	defer func() {
 		if release != nil {
@@ -631,7 +632,7 @@ func (c *monitoredWebcam) driverInfo() (driver.Info, error) {
 	}
 	d, err := gostream.DriverFromMediaSource[image.Image, prop.Video](c.underlyingSource)
 	if err != nil {
-		return driver.Info{}, errors.Wrap(err, "cannot get driver from media source")
+		return driver.Info{}, errors.Join(err, errors.New("cannot get driver from media source"))
 	}
 	return d.Info(), nil
 }

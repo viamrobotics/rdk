@@ -20,9 +20,10 @@ import (
 	"sync"
 	"sync/atomic"
 
+	"errors"
+
 	"github.com/bluenviron/gortsplib/v4/pkg/ringbuffer"
 	"github.com/google/uuid"
-	"github.com/pkg/errors"
 	"go.viam.com/utils"
 )
 

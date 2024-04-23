@@ -6,7 +6,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/pkg/errors"
+	"errors"
+
 	"go.uber.org/multierr"
 
 	"go.viam.com/rdk/components/encoder"

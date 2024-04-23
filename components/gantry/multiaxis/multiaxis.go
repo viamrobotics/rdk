@@ -3,9 +3,11 @@ package multiaxis
 
 import (
 	"context"
+	"fmt"
 	"sync"
 
-	"github.com/pkg/errors"
+	"errors"
+
 	"go.uber.org/multierr"
 	"go.viam.com/utils"
 
@@ -76,7 +78,7 @@ func newMultiAxis(
 	for _, s := range newConf.SubAxes {
 		subAx, err := gantry.FromDependencies(deps, s)
 		if err != nil {
-			return nil, errors.Wrapf(err, "no axes named [%s]", s)
+			return nil, errors.Join(err, fmt.Errorf("no axes named [%s]", s))
 		}
 		mAx.subAxes = append(mAx.subAxes, subAx)
 	}
@@ -114,11 +116,11 @@ func (g *multiAxis) MoveToPosition(ctx context.Context, positions, speeds []floa
 	defer done()
 
 	if len(positions) == 0 {
-		return errors.Errorf("need position inputs for %v-axis gantry, have %v positions", len(g.subAxes), len(positions))
+		return fmt.Errorf("need position inputs for %v-axis gantry, have %v positions", len(g.subAxes), len(positions))
 	}
 
 	if len(positions) != len(g.lengthsMm) {
-		return errors.Errorf(
+		return fmt.Errorf(
 			"number of input positions %v does not match total gantry axes count %v",
 			len(positions), len(g.lengthsMm),
 		)

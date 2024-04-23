@@ -4,11 +4,13 @@ package replaypcd
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"net/http"
 	"sync"
 	"time"
 
-	"github.com/pkg/errors"
+	"errors"
+
 	"go.uber.org/multierr"
 	datapb "go.viam.com/api/app/data/v1"
 	goutils "go.viam.com/utils"
@@ -122,7 +124,7 @@ func (cfg *Config) Validate(path string) ([]string, error) {
 	}
 
 	if cfg.BatchSize != nil && (*cfg.BatchSize > uint64(maxCacheSize) || *cfg.BatchSize == 0) {
-		return nil, errors.Errorf("batch_size must be between 1 and %d", maxCacheSize)
+		return nil, fmt.Errorf("batch_size must be between 1 and %d", maxCacheSize)
 	}
 
 	return []string{cloud.InternalServiceName.String()}, nil
@@ -236,7 +238,7 @@ func (replay *pcdCamera) NextPointCloud(ctx context.Context) (pointcloud.PointCl
 	defer cancelTimeout()
 	replay.downloadBatch(ctxTimeout)
 	if ctxTimeout.Err() != nil {
-		return nil, errors.Wrap(ctxTimeout.Err(), "failed to download batch")
+		return nil, errors.Join(ctxTimeout.Err(), errors.New("failed to download batch"))
 	}
 
 	return replay.getDataFromCache(ctx)
@@ -299,7 +301,7 @@ func (replay *pcdCamera) getDataFromCache(ctx context.Context) (pointcloud.Point
 	data := replay.cache[0]
 	replay.cache = replay.cache[1:]
 	if data.err != nil {
-		return nil, errors.Wrap(data.err, "cache data contained an error")
+		return nil, errors.Join(data.err, errors.New("cache data contained an error"))
 	}
 
 	if err := addGRPCMetadata(ctx, data.timeRequested, data.timeReceived); err != nil {
@@ -392,7 +394,7 @@ func (replay *pcdCamera) Reconfigure(ctx context.Context, deps resource.Dependen
 
 		if err := replay.initCloudConnection(ctx); err != nil {
 			replay.closeCloudConnection(ctx)
-			return errors.Wrap(err, "failure to connect to the cloud")
+			return errors.Join(err, errors.New("failure to connect to the cloud"))
 		}
 	}
 

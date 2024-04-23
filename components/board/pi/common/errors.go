@@ -1,6 +1,8 @@
 package picommon
 
-import "github.com/pkg/errors"
+import (
+	"fmt"
+)
 
 // PiGPIOErrorMap maps the error codes to the human readable error names. This can be found at the pigpio C interface.
 var PiGPIOErrorMap = map[int]string{
@@ -160,7 +162,7 @@ var PiGPIOErrorMap = map[int]string{
 func ConvertErrorCodeToMessage(errorCode int, message string) error {
 	errorMessage, exists := PiGPIOErrorMap[errorCode]
 	if exists {
-		return errors.Errorf("%s: %s", message, errorMessage)
+		return fmt.Errorf("%s: %s", message, errorMessage)
 	}
-	return errors.Errorf("%s: %d", message, errorCode)
+	return fmt.Errorf("%s: %d", message, errorCode)
 }

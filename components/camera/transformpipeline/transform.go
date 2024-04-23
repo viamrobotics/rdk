@@ -2,9 +2,9 @@ package transformpipeline
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/invopop/jsonschema"
-	"github.com/pkg/errors"
 
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/gostream"
@@ -168,6 +168,6 @@ func buildTransform(
 	case transformTypeDepthPreprocess:
 		return newDepthPreprocessTransform(ctx, source)
 	default:
-		return nil, camera.UnspecifiedStream, errors.Errorf("do not know camera transform of type %q", tr.Type)
+		return nil, camera.UnspecifiedStream, fmt.Errorf("do not know camera transform of type %q", tr.Type)
 	}
 }

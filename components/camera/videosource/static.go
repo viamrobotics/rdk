@@ -8,7 +8,7 @@ import (
 	"image"
 	"time"
 
-	"github.com/pkg/errors"
+	"errors"
 
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/logging"

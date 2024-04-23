@@ -2,7 +2,8 @@
 package jetson
 
 import (
-	"github.com/pkg/errors"
+	"errors"
+
 	"periph.io/x/host/v3"
 
 	"go.viam.com/rdk/components/board/genericlinux"

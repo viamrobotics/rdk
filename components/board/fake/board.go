@@ -8,7 +8,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/pkg/errors"
+	"errors"
+
 	"go.uber.org/multierr"
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/board/v1"
@@ -163,7 +164,7 @@ func (b *Board) AnalogByName(name string) (board.Analog, error) {
 	defer b.mu.RUnlock()
 	a, ok := b.Analogs[name]
 	if !ok {
-		return nil, errors.Errorf("can't find AnalogReader (%s)", name)
+		return nil, fmt.Errorf("can't find AnalogReader (%s)", name)
 	}
 	return a, nil
 }
@@ -236,7 +237,7 @@ func (b *Board) StreamTicks(ctx context.Context, interruptNames []string, ch cha
 	for _, name := range interruptNames {
 		interrupt, ok := b.DigitalInterruptByName(name)
 		if !ok {
-			return errors.Errorf("unknown digital interrupt: %s", name)
+			return fmt.Errorf("unknown digital interrupt: %s", name)
 		}
 		interrupts = append(interrupts, interrupt)
 	}

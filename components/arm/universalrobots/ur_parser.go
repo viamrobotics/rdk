@@ -8,7 +8,7 @@ import (
 	"io"
 	"time"
 
-	"github.com/pkg/errors"
+	"errors"
 
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/utils"
@@ -286,7 +286,7 @@ func readURRobotMessage(ctx context.Context, buf []byte, logger logging.Logger) 
 		scriptLineNumber := binary.BigEndian.Uint32(buf)
 		scriptColumnNumber := binary.BigEndian.Uint32(buf[4:])
 		msg := string(buf[9:])
-		runtimeErr := errors.Errorf("runtime error at line: %d col: %d msg: %s", scriptLineNumber, scriptColumnNumber, msg)
+		runtimeErr := fmt.Errorf("runtime error at line: %d col: %d msg: %s", scriptLineNumber, scriptColumnNumber, msg)
 		return runtimeErr
 	default:
 		logger.CDebugf(ctx, "unknown robotMessageType: %d ts: %v %v\n", robotMessageType, ts, buf)

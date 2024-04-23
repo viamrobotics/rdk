@@ -6,9 +6,10 @@ import (
 	"testing"
 	"time"
 
+	"errors"
+
 	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
-	"github.com/pkg/errors"
 	"go.viam.com/test"
 	"google.golang.org/grpc"
 
@@ -109,8 +110,9 @@ var (
 		OrientationSupported:        true,
 	}
 
-	errPropertiesFailedToInitializeTest = errors.Wrap(
-		errors.Wrap(context.DeadlineExceeded, errPropertiesFailedToInitialize.Error()),
+	errPropertiesFailedToInitializeTest = errors.Join(
+		context.DeadlineExceeded,
+		errPropertiesFailedToInitialize,
 		errMessageNoDataAvailable)
 )
 
@@ -149,7 +151,7 @@ func TestNewReplayMovementSensor(t *testing.T) {
 				APIKeyID:       validAPIKeyID,
 			},
 			validCloudConnection: false,
-			expectedErr:          errors.Wrap(errTestCloudConnection, errCloudConnectionFailure.Error()),
+			expectedErr:          errors.Join(errTestCloudConnection, errCloudConnectionFailure),
 		},
 		{
 			description: "Bad start timestamp",

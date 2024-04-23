@@ -5,7 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/pkg/errors"
+	"errors"
+
 	pb "go.viam.com/api/component/inputcontroller/v1"
 	"go.viam.com/test"
 	"google.golang.org/protobuf/types/known/timestamppb"

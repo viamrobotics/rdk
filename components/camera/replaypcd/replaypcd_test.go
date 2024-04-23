@@ -6,7 +6,8 @@ import (
 	"math/rand"
 	"testing"
 
-	"github.com/pkg/errors"
+	"errors"
+
 	"go.viam.com/test"
 	"google.golang.org/grpc"
 

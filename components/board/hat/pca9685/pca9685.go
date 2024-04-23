@@ -6,11 +6,13 @@ package pca9685
 
 import (
 	"context"
+	"fmt"
 	"strconv"
 	"sync"
 	"time"
 
-	"github.com/pkg/errors"
+	"errors"
+
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/board/v1"
 	"go.viam.com/utils"
@@ -146,7 +148,7 @@ func (pca *PCA9685) parsePin(pin string) (int, error) {
 		return 0, err
 	}
 	if pinInt < 0 || int(pinInt) >= len(pca.gpioPins) {
-		return 0, errors.Errorf("channel number must be between [0, %d)", len(pca.gpioPins))
+		return 0, fmt.Errorf("channel number must be between [0, %d)", len(pca.gpioPins))
 	}
 	return int(pinInt), nil
 }

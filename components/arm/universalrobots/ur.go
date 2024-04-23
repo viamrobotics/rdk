@@ -4,6 +4,7 @@ package universalrobots
 import (
 	"bufio"
 	"context"
+
 	// for embedding model file.
 	_ "embed"
 	"encoding/binary"
@@ -17,7 +18,8 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/pkg/errors"
+	"errors"
+
 	"go.uber.org/multierr"
 	pb "go.viam.com/api/component/arm/v1"
 	goutils "go.viam.com/utils"
@@ -290,7 +292,7 @@ func urArmConnect(ctx context.Context, conf resource.Config, logger logging.Logg
 	case <-ctx.Done():
 		return nil, multierr.Combine(ctx.Err(), newArm.Close(ctx))
 	case <-timer.C:
-		return nil, multierr.Combine(errors.Errorf("arm failed to respond in time (%s)", respondTimeout), newArm.Close(ctx))
+		return nil, multierr.Combine(fmt.Errorf("arm failed to respond in time (%s)", respondTimeout), newArm.Close(ctx))
 	case <-onData:
 		return newArm, nil
 	}
@@ -475,7 +477,7 @@ func (ua *urArm) moveToJointPositionRadians(ctx context.Context, radians []float
 		}
 
 		if time.Since(now) > timeout {
-			return errors.Errorf("can't reach joint position.\n want: %f %f %f %f %f %f\n   at: %f %f %f %f %f %f",
+			return fmt.Errorf("can't reach joint position.\n want: %f %f %f %f %f %f\n   at: %f %f %f %f %f %f",
 				radians[0], radians[1], radians[2], radians[3], radians[4], radians[5],
 				state.Joints[0].Qactual,
 				state.Joints[1].Qactual,
@@ -574,7 +576,7 @@ func dashboardReader(ctx context.Context, conn bufio.ReadWriter, ua *urArm) erro
 					var d net.Dialer
 					connControl, err := d.DialContext(ctx, "tcp", ua.host+":30001")
 					if err != nil {
-						return errors.Wrapf(err, "while the arm is not in local mode couldn't connect to ur arm (%s)", ua.host)
+						return errors.Join(err, fmt.Errorf("while the arm is not in local mode couldn't connect to ur arm (%s)", ua.host))
 					}
 					ua.connControl = connControl
 				} else if ua.connControl != nil {
@@ -611,7 +613,7 @@ func reader(ctx context.Context, conn net.Conn, ua *urArm, onHaveData func()) er
 		}
 		msgSize := binary.BigEndian.Uint32(sizeBuf)
 		if msgSize <= 4 || msgSize > 10000 {
-			return errors.Errorf("invalid msg size: %d", msgSize)
+			return fmt.Errorf("invalid msg size: %d", msgSize)
 		}
 
 		buf, err := goutils.ReadBytes(ctx, conn, int(msgSize-4))
@@ -711,7 +713,7 @@ func (ua *urArm) moveWithURHostedKinematics(ctx context.Context, pose spatialmat
 
 		if time.Since(now) > defaultTimeout {
 			delta = spatialmath.PoseDelta(pose, cur)
-			return errors.Errorf("can't reach position.\n want: %v\n\tat: %v\n diffs: %f %f",
+			return fmt.Errorf("can't reach position.\n want: %v\n\tat: %v\n diffs: %f %f",
 				pose, cur, delta.Point().Norm(), delta.Orientation().AxisAngles().ToR3().Norm(),
 			)
 		}

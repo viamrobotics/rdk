@@ -1,7 +1,7 @@
 package picommon
 
 import (
-	"github.com/pkg/errors"
+	"errors"
 
 	"go.viam.com/rdk/resource"
 )

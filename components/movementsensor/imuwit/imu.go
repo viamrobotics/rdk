@@ -35,7 +35,6 @@ import (
 	"github.com/golang/geo/r3"
 	slib "github.com/jacobsa/go-serial/serial"
 	geo "github.com/kellydunn/golang-geo"
-	"github.com/pkg/errors"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/movementsensor"
@@ -73,7 +72,7 @@ func (cfg *Config) Validate(path string) ([]string, error) {
 
 	// Validating baud rate
 	if !rutils.ValidateBaudRate(baudRateList, int(cfg.BaudRate)) {
-		return nil, resource.NewConfigValidationError(path, errors.Errorf("Baud rate is not in %v", baudRateList))
+		return nil, resource.NewConfigValidationError(path, fmt.Errorf("Baud rate is not in %v", baudRateList))
 	}
 
 	return nil, nil

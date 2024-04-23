@@ -3,13 +3,15 @@ package camera
 
 import (
 	"context"
+	"fmt"
 	"image"
 	"sync"
 	"time"
 
+	"errors"
+
 	"github.com/google/uuid"
 	"github.com/pion/mediadevices/pkg/prop"
-	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
 	"go.uber.org/multierr"
 	pb "go.viam.com/api/component/camera/v1"
@@ -246,7 +248,7 @@ func NewPinholeModelWithBrownConradyDistortion(pinholeCameraIntrinsics *transfor
 
 // NewPropertiesError returns an error specific to a failure in Properties.
 func NewPropertiesError(cameraIdentifier string) error {
-	return errors.Errorf("failed to get properties from %s", cameraIdentifier)
+	return fmt.Errorf("failed to get properties from %s", cameraIdentifier)
 }
 
 // WrapVideoSourceWithProjector creates a Camera either with or without a projector. The stream type
@@ -314,7 +316,7 @@ func (vs *videoSource) Images(ctx context.Context) ([]NamedImage, resource.Respo
 	}
 	img, release, err := ReadImage(ctx, vs.videoSource)
 	if err != nil {
-		return nil, resource.ResponseMetadata{}, errors.Wrap(err, "videoSource: call to get Images failed")
+		return nil, resource.ResponseMetadata{}, errors.Join(err, fmt.Errorf("videoSource: call to get Images failed"))
 	}
 	defer func() {
 		if release != nil {
@@ -342,7 +344,7 @@ func (vs *videoSource) NextPointCloud(ctx context.Context) (pointcloud.PointClou
 	}
 	dm, err := rimage.ConvertImageToDepthMap(ctx, img)
 	if err != nil {
-		return nil, errors.Wrapf(err, "cannot project to a point cloud")
+		return nil, errors.Join(err, fmt.Errorf("cannot project to a point cloud"))
 	}
 	return depthadapter.ToPointCloud(dm, vs.system.PinholeCameraIntrinsics), nil
 }

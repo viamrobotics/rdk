@@ -5,6 +5,7 @@ package videosource
 
 import (
 	"context"
+	"fmt"
 	// for embedding camera parameters.
 	_ "embed"
 	"image"
@@ -12,8 +13,9 @@ import (
 	"sync"
 
 	// register ppm.
+	"errors"
+
 	_ "github.com/lmittmann/ppm"
-	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
 	viamutils "go.viam.com/utils"
 
@@ -228,7 +230,7 @@ func (s *serverSource) NextPointCloud(ctx context.Context) (pointcloud.PointClou
 		return depthadapter.ToPointCloud(depth.(*rimage.DepthMap), s.Intrinsics), nil
 	}
 	return nil,
-		errors.Errorf("no depth information in stream %q, cannot project to point cloud", s.stream)
+		fmt.Errorf("no depth information in stream %q, cannot project to point cloud", s.stream)
 }
 
 // NewServerSource creates the VideoSource that streams color/depth data from an external server at a given URL.

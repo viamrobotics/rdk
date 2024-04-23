@@ -3,13 +3,15 @@ package fake
 
 import (
 	"context"
+	"fmt"
 	"image"
 	"image/color"
 	"math"
 	"time"
 
+	"errors"
+
 	"github.com/golang/geo/r3"
-	"github.com/pkg/errors"
 
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/logging"
@@ -83,11 +85,11 @@ func (conf *Config) Validate(path string) ([]string, error) {
 	}
 
 	if conf.Height%2 != 0 {
-		return nil, errors.Errorf("odd-number resolutions cannot be rendered, cannot use a height of %d", conf.Height)
+		return nil, fmt.Errorf("odd-number resolutions cannot be rendered, cannot use a height of %d", conf.Height)
 	}
 
 	if conf.Width%2 != 0 {
-		return nil, errors.Errorf("odd-number resolutions cannot be rendered, cannot use a width of %d", conf.Width)
+		return nil, fmt.Errorf("odd-number resolutions cannot be rendered, cannot use a width of %d", conf.Width)
 	}
 
 	return nil, nil

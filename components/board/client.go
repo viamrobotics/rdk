@@ -7,7 +7,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/pkg/errors"
+	"errors"
+
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/board/v1"
 	"go.viam.com/utils/protoutils"
@@ -129,7 +130,7 @@ func (c *client) Status(ctx context.Context, extra map[string]interface{}) (*com
 func (c *client) refresh(ctx context.Context) error {
 	status, err := c.status(ctx)
 	if err != nil {
-		return errors.Wrap(err, "status call failed")
+		return errors.Join(err, errors.New("status call failed"))
 	}
 	c.storeStatus(status)
 

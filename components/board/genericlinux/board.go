@@ -12,7 +12,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/pkg/errors"
+	"errors"
+
 	"go.uber.org/multierr"
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/board/v1"
@@ -202,7 +203,7 @@ func (b *Board) reconfigureAnalogReaders(ctx context.Context, newConf *LinuxBoar
 	for _, c := range newConf.AnalogReaders {
 		channel, err := strconv.Atoi(c.Pin)
 		if err != nil {
-			return errors.Errorf("bad analog pin (%s)", c.Pin)
+			return fmt.Errorf("bad analog pin (%s)", c.Pin)
 		}
 
 		bus := buses.NewSpiBus(c.SPIBus)
@@ -401,7 +402,7 @@ type Board struct {
 func (b *Board) AnalogByName(name string) (board.Analog, error) {
 	a, ok := b.analogReaders[name]
 	if !ok {
-		return nil, errors.Errorf("can't find AnalogReader (%s)", name)
+		return nil, fmt.Errorf("can't find AnalogReader (%s)", name)
 	}
 	return a, nil
 }
@@ -476,7 +477,7 @@ func (b *Board) GPIOPinByName(pinName string) (board.GPIOPin, error) {
 		return &gpioInterruptWrapperPin{*interrupt}, nil
 	}
 
-	return nil, errors.Errorf("cannot find GPIO for unknown pin: %s", pinName)
+	return nil, fmt.Errorf("cannot find GPIO for unknown pin: %s", pinName)
 }
 
 // Status returns the current status of the board.
@@ -506,7 +507,7 @@ func (b *Board) StreamTicks(ctx context.Context, interruptNames []string, ch cha
 	for _, name := range interruptNames {
 		interrupt, ok := b.DigitalInterruptByName(name)
 		if !ok {
-			return errors.Errorf("unknown digital interrupt: %s", name)
+			return fmt.Errorf("unknown digital interrupt: %s", name)
 		}
 		interrupts = append(interrupts, interrupt)
 	}

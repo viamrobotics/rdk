@@ -6,12 +6,13 @@ package ezopmp
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"math"
 	"strconv"
 	"strings"
 	"time"
 
-	"github.com/pkg/errors"
+	"errors"
 
 	"go.viam.com/rdk/components/board/genericlinux/buses"
 	"go.viam.com/rdk/components/motor"
@@ -111,7 +112,7 @@ func NewMotor(ctx context.Context, deps resource.Dependencies, c *Config, name r
 
 	flowRate, err := m.findMaxFlowRate(ctx)
 	if err != nil {
-		return nil, errors.Errorf("can't find max flow rate: %v", err)
+		return nil, fmt.Errorf("can't find max flow rate: %v", err)
 	}
 	m.maxFlowRate = flowRate
 
@@ -208,7 +209,7 @@ func (m *Ezopmp) readReg(ctx context.Context) ([]byte, error) {
 	case 254:
 		return nil, errors.New("data not ready, code: 254")
 	default:
-		return nil, errors.Errorf("error code not understood %b", readVal[0])
+		return nil, fmt.Errorf("error code not understood %b", readVal[0])
 	}
 }
 
@@ -267,7 +268,7 @@ func (m *Ezopmp) GoFor(ctx context.Context, mLPerMin, mins float64, extra map[st
 	commandString := "DC," + strconv.FormatFloat(mLPerMin, 'f', -1, 64) + "," + strconv.FormatFloat(mins, 'f', -1, 64)
 	command := []byte(commandString)
 	if err := m.writeRegWithCheck(ctx, command); err != nil {
-		return errors.Wrap(err, "error in GoFor")
+		return errors.Join(err, errors.New("error in GoFor"))
 	}
 
 	return m.opMgr.WaitTillNotPowered(ctx, time.Millisecond, m, m.Stop)
@@ -286,7 +287,7 @@ func (m *Ezopmp) GoTo(ctx context.Context, mLPerMin, mins float64, extra map[str
 	commandString := "D," + strconv.FormatFloat(mLPerMin, 'f', -1, 64) + "," + strconv.FormatFloat(mins, 'f', -1, 64)
 	command := []byte(commandString)
 	if err := m.writeRegWithCheck(ctx, command); err != nil {
-		return errors.Wrap(err, "error in GoTo")
+		return errors.Join(err, errors.New("error in GoTo"))
 	}
 	return m.opMgr.WaitTillNotPowered(ctx, time.Millisecond, m, m.Stop)
 }
@@ -302,11 +303,11 @@ func (m *Ezopmp) Position(ctx context.Context, extra map[string]interface{}) (fl
 	command := []byte(totVolDispensed)
 	writeErr := m.writeReg(ctx, command)
 	if writeErr != nil {
-		return 0, errors.Wrap(writeErr, "error in Position")
+		return 0, errors.Join(writeErr, errors.New("error in Position"))
 	}
 	val, err := m.readReg(ctx)
 	if err != nil {
-		return 0, errors.Wrap(err, "error in Position")
+		return 0, errors.Join(err, errors.New("error in Position"))
 	}
 	splitMsg := strings.Split(string(val), ",")
 	floatVal, err := strconv.ParseFloat(splitMsg[1], 64)
@@ -338,18 +339,18 @@ func (m *Ezopmp) IsPowered(ctx context.Context, extra map[string]interface{}) (b
 	command := []byte(dispenseStatus)
 	writeErr := m.writeReg(ctx, command)
 	if writeErr != nil {
-		return false, 0, errors.Wrap(writeErr, "error in IsPowered")
+		return false, 0, errors.Join(writeErr, errors.New("error in IsPowered"))
 	}
 	val, err := m.readReg(ctx)
 	if err != nil {
-		return false, 0, errors.Wrap(err, "error in IsPowered")
+		return false, 0, errors.Join(err, errors.New("error in IsPowered"))
 	}
 
 	splitMsg := strings.Split(string(val), ",")
 
 	pumpStatus, err := strconv.ParseFloat(splitMsg[2], 64)
 	if err != nil {
-		return false, 0, errors.Wrap(err, "error in IsPowered")
+		return false, 0, errors.Join(err, errors.New("error in IsPowered"))
 	}
 
 	if pumpStatus == 1 || pumpStatus == -1 {

@@ -4,10 +4,11 @@ package piimpl
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"sync/atomic"
 
-	"github.com/pkg/errors"
+	"errors"
 
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/resource"
@@ -57,7 +58,7 @@ func CreateDigitalInterrupt(cfg DigitalInterruptConfig) (ReconfigurableDigitalIn
 	case "servo":
 		i = &ServoDigitalInterrupt{ra: utils.NewRollingAverage(ServoRollingAverageWindow)}
 	default:
-		panic(errors.Errorf("unknown interrupt type (%s)", cfg.Type))
+		panic(fmt.Errorf("unknown interrupt type (%s)", cfg.Type))
 	}
 
 	if err := i.Reconfigure(cfg); err != nil {

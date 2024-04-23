@@ -5,7 +5,8 @@ import (
 	"image"
 	"testing"
 
-	"github.com/pkg/errors"
+	"errors"
+
 	"go.viam.com/test"
 	"go.viam.com/utils/artifact"
 

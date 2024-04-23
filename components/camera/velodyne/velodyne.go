@@ -9,8 +9,9 @@ import (
 	"sync"
 	"time"
 
+	"errors"
+
 	"github.com/golang/geo/r3"
-	"github.com/pkg/errors"
 	"go.einride.tech/vlp16"
 	gutils "go.viam.com/utils"
 

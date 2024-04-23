@@ -12,7 +12,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/pkg/errors"
+	"errors"
 
 	"go.viam.com/rdk/components/board/genericlinux/buses"
 	picommon "go.viam.com/rdk/components/board/pi/common"

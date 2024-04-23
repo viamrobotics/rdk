@@ -37,8 +37,9 @@ import (
 	"math"
 	"sync"
 
+	"errors"
+
 	"github.com/golang/geo/r3"
-	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 
 	"go.viam.com/rdk/components/base"
@@ -153,7 +154,7 @@ func (wb *wheeledBase) Reconfigure(ctx context.Context, deps resource.Dependenci
 				}
 				m, err := motor.FromDependencies(deps, name)
 				if err != nil {
-					return newMotors, errors.Wrapf(err, "no %s motor named (%s)", whichMotor, name)
+					return newMotors, errors.Join(err, fmt.Errorf("no %s motor named (%s)", whichMotor, name))
 				}
 				newMotors = append(newMotors, m)
 			}
@@ -169,7 +170,7 @@ func (wb *wheeledBase) Reconfigure(ctx context.Context, deps resource.Dependenci
 					for _, name := range fromConfig {
 						m, err := motor.FromDependencies(deps, name)
 						if err != nil {
-							return newMotors, errors.Wrapf(err, "no %s motor named (%s)", whichMotor, name)
+							return newMotors, errors.Join(err, fmt.Errorf("no %s motor named (%s)", whichMotor, name))
 						}
 						newMotors = append(newMotors, m)
 					}
@@ -244,7 +245,7 @@ func (wb *wheeledBase) Spin(ctx context.Context, angleDeg, degsPerSec float64, e
 	if math.Abs(degsPerSec) < 0.0001 {
 		err := wb.Stop(ctx, nil)
 		if err != nil {
-			return errors.Errorf("error when trying to spin at a speed of 0: %v", err)
+			return fmt.Errorf("error when trying to spin at a speed of 0: %v", err)
 		}
 		return err
 	}
@@ -263,7 +264,7 @@ func (wb *wheeledBase) MoveStraight(ctx context.Context, distanceMm int, mmPerSe
 	if math.Abs(mmPerSec) < 0.0001 || distanceMm == 0 {
 		err := wb.Stop(ctx, nil)
 		if err != nil {
-			return errors.Errorf("error when trying to move straight at a speed and/or distance of 0: %v", err)
+			return fmt.Errorf("error when trying to move straight at a speed and/or distance of 0: %v", err)
 		}
 		return err
 	}

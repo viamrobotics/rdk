@@ -23,11 +23,11 @@ package single
 
 import (
 	"context"
+	"fmt"
 	"math"
 	"sync"
 	"sync/atomic"
 
-	"github.com/pkg/errors"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/board"
@@ -155,7 +155,7 @@ func (e *Encoder) Reconfigure(
 
 	di, ok := board.DigitalInterruptByName(newConf.Pins.I)
 	if !ok {
-		return errors.Errorf("cannot find pin (%s) for Encoder", newConf.Pins.I)
+		return fmt.Errorf("cannot find pin (%s) for Encoder", newConf.Pins.I)
 	}
 
 	if !needRestart {

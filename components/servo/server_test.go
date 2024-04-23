@@ -4,7 +4,8 @@ import (
 	"context"
 	"testing"
 
-	"github.com/pkg/errors"
+	"errors"
+
 	pb "go.viam.com/api/component/servo/v1"
 	"go.viam.com/test"
 	"go.viam.com/utils/protoutils"

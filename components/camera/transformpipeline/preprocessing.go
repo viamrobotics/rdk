@@ -4,7 +4,8 @@ import (
 	"context"
 	"image"
 
-	"github.com/pkg/errors"
+	"errors"
+
 	"go.opencensus.io/trace"
 
 	"go.viam.com/rdk/components/camera"
@@ -49,7 +50,7 @@ func (os *preprocessDepthTransform) Read(ctx context.Context) (image.Image, func
 	}
 	dm, err := rimage.ConvertImageToDepthMap(ctx, i)
 	if err != nil {
-		return nil, nil, errors.Wrap(err, "transform source does not provide depth image")
+		return nil, nil, errors.Join(err, errors.New("transform source does not provide depth image"))
 	}
 	dm, err = rimage.PreprocessDepthMap(dm, nil)
 	if err != nil {

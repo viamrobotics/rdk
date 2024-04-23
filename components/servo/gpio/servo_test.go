@@ -5,7 +5,8 @@ import (
 	"context"
 	"testing"
 
-	"github.com/pkg/errors"
+	"errors"
+
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/components/board"

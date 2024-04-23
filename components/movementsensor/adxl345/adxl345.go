@@ -25,9 +25,10 @@ import (
 	"sync"
 	"time"
 
+	"errors"
+
 	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
-	"github.com/pkg/errors"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/board"
@@ -192,8 +193,8 @@ func newAdxl345(
 
 	bus, err := buses.NewI2cBus(newConf.I2cBus)
 	if err != nil {
-		msg := fmt.Sprintf("can't find I2C bus '%q' for ADXL345 sensor", newConf.I2cBus)
-		return nil, errors.Wrap(err, msg)
+		msg := fmt.Errorf("can't find I2C bus '%q' for ADXL345 sensor", newConf.I2cBus)
+		return nil, errors.Join(err, msg)
 	}
 
 	// The rest of the constructor is separated out so that you can pass in a mock I2C bus during
@@ -261,7 +262,7 @@ func makeAdxl345(
 	// The chip starts out in standby mode. Set it to measurement mode so we can get data from it.
 	// To do this, we set the Power Control register (0x2D) to turn on the 8's bit.
 	if err = sensor.writeByte(ctx, powerControlRegister, 0x08); err != nil {
-		return nil, errors.Wrap(err, "unable to put ADXL345 into measurement mode")
+		return nil, errors.Join(err, errors.New("unable to put ADXL345 into measurement mode"))
 	}
 
 	// Now, turn on the background goroutine that constantly reads from the chip and stores data in

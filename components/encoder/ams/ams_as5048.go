@@ -10,7 +10,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/pkg/errors"
+	"errors"
+
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/board/genericlinux/buses"
@@ -66,7 +67,7 @@ func (conf *Config) Validate(path string) ([]string, error) {
 	}
 	_, isSupported := supportedConnections[connType]
 	if !isSupported {
-		return nil, errors.Errorf("%s is not a supported connection type", connType)
+		return nil, fmt.Errorf("%s is not a supported connection type", connType)
 	}
 	if connType == i2cConn {
 		if conf.I2CConfig == nil {
@@ -176,8 +177,8 @@ func (enc *Encoder) Reconfigure(
 	if enc.i2cBusName != newConf.I2CBus || enc.i2cBus == nil {
 		bus, err := buses.NewI2cBus(newConf.I2CBus)
 		if err != nil {
-			msg := fmt.Sprintf("can't find I2C bus '%q' for AMS encoder", newConf.I2CBus)
-			return errors.Wrap(err, msg)
+			msg := fmt.Errorf("can't find I2C bus '%q' for AMS encoder", newConf.I2CBus)
+			return errors.Join(err, msg)
 		}
 		enc.i2cBusName = newConf.I2CBus
 		enc.i2cBus = bus

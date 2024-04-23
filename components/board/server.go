@@ -3,8 +3,8 @@ package board
 
 import (
 	"context"
+	"fmt"
 
-	"github.com/pkg/errors"
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/board/v1"
 	"go.viam.com/utils"
@@ -198,7 +198,7 @@ func (s *serviceServer) GetDigitalInterruptValue(
 
 	interrupt, ok := b.DigitalInterruptByName(req.DigitalInterruptName)
 	if !ok {
-		return nil, errors.Errorf("unknown digital interrupt: %s", req.DigitalInterruptName)
+		return nil, fmt.Errorf("unknown digital interrupt: %s", req.DigitalInterruptName)
 	}
 
 	val, err := interrupt.Value(ctx, req.Extra.AsMap())
