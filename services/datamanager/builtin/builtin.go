@@ -56,7 +56,7 @@ const defaultCaptureBufferSize = 4096
 const defaultFileLastModifiedMillis = 10000.0
 
 // Default time between disk size checks.
-const filesystemPollInterval = 30 * time.Second
+const filesystemPollInterval = 10 * time.Second
 
 var clock = clk.New()
 
@@ -563,7 +563,7 @@ func (svc *builtIn) Reconfigure(
 		svc.fileDeletionRoutineCancelFn = cancelFunc
 		svc.fileDeletionBackgroundWorkers = &sync.WaitGroup{}
 		svc.fileDeletionBackgroundWorkers.Add(1)
-		go pollFilesystem(fileDeletionCtx, svc.fileDeletionBackgroundWorkers, svc.captureDir, &svc.syncer, svc.logger)
+		go pollFilesystem(fileDeletionCtx, svc.fileDeletionBackgroundWorkers, svc.captureDir, svc.syncer, svc.logger)
 	}
 
 	return nil
@@ -715,7 +715,7 @@ func generateMetadataKey(component, method string) string {
 }
 
 //nolint:unparam
-func pollFilesystem(ctx context.Context, wg *sync.WaitGroup, captureDir string, syncer *datasync.Manager, logger logging.Logger) {
+func pollFilesystem(ctx context.Context, wg *sync.WaitGroup, captureDir string, syncer datasync.Manager, logger logging.Logger) {
 	t := time.NewTicker(filesystemPollInterval)
 	defer t.Stop()
 	defer wg.Done()
@@ -731,12 +731,12 @@ func pollFilesystem(ctx context.Context, wg *sync.WaitGroup, captureDir string, 
 			return
 		case <-t.C:
 			logger.Debug("Polling")
-			shouldDelete, err := checkFileSystemStats(captureDir)
+			shouldDelete, err := checkFileSystemStats(captureDir, logger)
 			if err != nil {
-
+				return
 			}
 			if shouldDelete {
-				//delet
+				deleteFiles(syncer, captureDir, logger)
 			}
 		}
 	}
