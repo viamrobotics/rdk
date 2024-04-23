@@ -183,8 +183,17 @@ func (ptgk *ptgBaseKinematics) ErrorState(ctx context.Context) (spatialmath.Pose
 	if err != nil {
 		return nil, err
 	}
+	// The inputs representing the arc we have already executed can be computed as below.
+	// The return of CurrentInputs() represents the amount left on the arc, as an external caller will be more interested in where a base
+	// is going than where it has been.
+	executedInputs := []referenceframe.Input{
+		currentInputs[ptgIndex],
+		currentInputs[trajectoryAlphaWithinPTG],
+		currentExecutingSteps[currentIdx].arcSegment.StartConfiguration[startDistanceAlongTrajectoryIndex],
+		currentInputs[startDistanceAlongTrajectoryIndex],
+	}
 
-	currPoseInArc, err := ptgk.frame.Transform(currentInputs)
+	currPoseInArc, err := ptgk.frame.Transform(executedInputs)
 	if err != nil {
 		return nil, err
 	}
