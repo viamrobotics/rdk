@@ -728,7 +728,7 @@ func (pi *piPigpio) Close(ctx context.Context) error {
 	}
 	pi.analogReaders = map[string]*pinwrappers.AnalogSmoother{}
 
-	for bcom, _ := range pi.interruptsHW {
+	for bcom := range pi.interruptsHW {
 		if result := C.teardownInterrupt(C.int(bcom)); result != 0 {
 			err = multierr.Combine(err, picommon.ConvertErrorCodeToMessage(int(result), "error"))
 		}
