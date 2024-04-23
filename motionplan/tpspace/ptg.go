@@ -2,6 +2,7 @@
 package tpspace
 
 import (
+	"errors"
 	"math"
 
 	"go.viam.com/rdk/motionplan/ik"
@@ -24,8 +25,8 @@ type PTGSolver interface {
 	PTG
 
 	// Returns the set of trajectory nodes along the given trajectory, out to the requested distance.
-	// This will return `TrajNode`s starting at dist=0, and every `resolution` dist increments thereafter, and finally at `dist` exactly.
-	Trajectory(alpha, dist, resolution float64) ([]*TrajNode, error)
+	// This will return `TrajNode`s starting at dist=start, and every `resolution` increments thereafter, and finally at `end` exactly.
+	Trajectory(alpha, start, end, resolution float64) ([]*TrajNode, error)
 }
 
 // PTGProvider is something able to provide a set of PTGs associsated with it. For example, a frame which precomputes
@@ -79,9 +80,9 @@ func wrapTo2Pi(theta float64) float64 {
 }
 
 // ComputePTG will compute all nodes of simPTG at the requested alpha, out to the requested distance, at the specified resolution.
-func ComputePTG(simPTG PTG, alpha, dist, resolution float64) ([]*TrajNode, error) {
+func computePTG(simPTG PTG, alpha, dist, resolution float64) ([]*TrajNode, error) {
 	if dist < 0 {
-		return computeInvertedPTG(simPTG, alpha, dist, resolution)
+		return nil, errors.New("computePTG can only be used with dist values >= zero")
 	}
 	if resolution <= 0 {
 		resolution = defaultResolution
@@ -142,11 +143,7 @@ func computePTGNode(simPTG PTG, alpha, dist float64) (*TrajNode, error) {
 	return &TrajNode{pose, dist, alpha, v, w}, nil
 }
 
-func computeInvertedPTG(simPTG PTG, alpha, dist, resolution float64) ([]*TrajNode, error) {
-	forwardsPTG, err := ComputePTG(simPTG, alpha, dist*-1, resolution)
-	if err != nil {
-		return nil, err
-	}
+func invertComputedPTG(forwardsPTG []*TrajNode) []*TrajNode {
 	flippedTraj := make([]*TrajNode, 0, len(forwardsPTG))
 	startNode := forwardsPTG[len(forwardsPTG)-1] // Cache for convenience
 
@@ -164,13 +161,13 @@ func computeInvertedPTG(simPTG PTG, alpha, dist, resolution float64) ([]*TrajNod
 				fwdNode.AngVel * -1,
 			})
 	}
-	return flippedTraj, nil
+	return flippedTraj
 }
 
 // PTGSegmentMetric is a metric which returns the TP-space distance traversed in a segment. Since PTG inputs are relative, the distance
 // travelled is the distance field of the ending configuration.
 func PTGSegmentMetric(segment *ik.Segment) float64 {
-	return segment.EndConfiguration[distanceAlongTrajectoryIndex].Value
+	return segment.EndConfiguration[len(segment.EndConfiguration)-1].Value
 }
 
 // PTGIKSeed will generate a consistent set of valid, in-bounds inputs to be used with a PTGSolver as a seed for gradient descent.
