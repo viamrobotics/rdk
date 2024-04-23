@@ -38,6 +38,8 @@ const viewCameraFrame = (time: number) => {
 const updateCameraRefreshRate = () => {
   if (refreshRate !== 'Live') {
     viewCameraFrame(selectedMap[refreshRate as keyof typeof selectedMap]);
+  } else {
+    clearFrameInterval();
   }
 };
 
