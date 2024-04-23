@@ -30,7 +30,7 @@ var (
 
 // Config describes a PCA9685 board attached to some other board via I2C.
 type Config struct {
-	I2CBus     string `json:"i2c_bus,omitempty"`
+	I2CBus     string `json:"i2c_bus"`
 	I2CAddress *int   `json:"i2c_address,omitempty"`
 }
 
