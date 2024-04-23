@@ -3,12 +3,11 @@ package incremental
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math"
 	"sync"
 	"sync/atomic"
-
-	"errors"
 
 	"go.viam.com/utils"
 
