@@ -2,9 +2,8 @@ package gantry_test
 
 import (
 	"context"
-	"testing"
-
 	"errors"
+	"testing"
 
 	pb "go.viam.com/api/component/gantry/v1"
 	"go.viam.com/test"

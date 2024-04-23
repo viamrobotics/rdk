@@ -2,9 +2,8 @@ package gantry_test
 
 import (
 	"context"
-	"testing"
-
 	"errors"
+	"testing"
 
 	"github.com/go-viper/mapstructure/v2"
 	pb "go.viam.com/api/component/gantry/v1"

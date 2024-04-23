@@ -2,10 +2,9 @@ package singleaxis
 
 import (
 	"context"
+	"errors"
 	"math"
 	"testing"
-
-	"errors"
 
 	"github.com/golang/geo/r3"
 	"go.viam.com/test"

@@ -3,10 +3,9 @@ package multiaxis
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
-
-	"errors"
 
 	"go.uber.org/multierr"
 	"go.viam.com/utils"

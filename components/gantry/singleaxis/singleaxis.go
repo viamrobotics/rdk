@@ -3,12 +3,11 @@ package singleaxis
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math"
 	"sync"
 	"time"
-
-	"errors"
 
 	"github.com/golang/geo/r3"
 	"go.uber.org/multierr"
