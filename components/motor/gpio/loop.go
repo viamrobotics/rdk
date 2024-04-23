@@ -2,11 +2,10 @@ package gpio
 
 import (
 	"context"
+	"errors"
 	"math"
 	"sync"
 	"time"
-
-	"errors"
 
 	"go.uber.org/multierr"
 

@@ -4,6 +4,7 @@ package dmc4000
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"math"
@@ -11,8 +12,6 @@ import (
 	"strings"
 	"sync"
 	"time"
-
-	"errors"
 
 	"github.com/jacobsa/go-serial/serial"
 	"go.viam.com/utils"

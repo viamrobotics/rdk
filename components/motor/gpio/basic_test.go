@@ -2,11 +2,10 @@ package gpio
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"testing"
 	"time"
-
-	"errors"
 
 	"go.viam.com/test"
 	"go.viam.com/utils/testutils"

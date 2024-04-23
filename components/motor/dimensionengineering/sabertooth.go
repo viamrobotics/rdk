@@ -3,14 +3,13 @@ package dimensionengineering
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"math"
 	"strings"
 	"sync"
 	"time"
-
-	"errors"
 
 	"github.com/jacobsa/go-serial/serial"
 

@@ -2,11 +2,9 @@ package gpio
 
 import (
 	"context"
-	"fmt"
+	"errors"
 	"math"
 	"sync"
-
-	"errors"
 
 	"go.uber.org/multierr"
 
@@ -160,13 +158,13 @@ func (m *Motor) turnOff(ctx context.Context, extra map[string]interface{}) error
 	}
 
 	if m.A != nil && m.B != nil {
-		aErr := errors.Join(m.A.Set(ctx, false, extra), fmt.Errorf("could not set A pin to low"))
-		bErr := errors.Join(m.B.Set(ctx, false, extra), fmt.Errorf("could not set B pin to low"))
+		aErr := errors.Join(m.A.Set(ctx, false, extra), errors.New("could not set A pin to low"))
+		bErr := errors.Join(m.B.Set(ctx, false, extra), errors.New("could not set B pin to low"))
 		errs = multierr.Combine(errs, aErr, bErr)
 	}
 
 	if m.PWM != nil {
-		pwmErr := errors.Join(m.PWM.Set(ctx, false, extra), fmt.Errorf("could not set PWM pin to low"))
+		pwmErr := errors.Join(m.PWM.Set(ctx, false, extra), errors.New("could not set PWM pin to low"))
 		errs = multierr.Combine(errs, pwmErr)
 	}
 	return errs

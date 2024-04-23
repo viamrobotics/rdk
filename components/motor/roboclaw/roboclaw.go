@@ -23,11 +23,10 @@ Serial path: path to serial file
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math"
 	"time"
-
-	"errors"
 
 	"github.com/CPRT/roboclaw"
 
@@ -74,11 +73,13 @@ func (conf *Config) Validate(path string) ([]string, error) {
 	}
 
 	if conf.TicksPerRotation < 0 {
-		return nil, resource.NewConfigValidationError(path, errors.New("Ticks Per Rotation must be a positive number"))
+		return nil, resource.NewConfigValidationError(path, errors.New("ticks_per_rotation must be a positive number"))
 	}
 
 	if !rutils.ValidateBaudRate(validBaudRates, conf.SerialBaud) {
-		return nil, resource.NewConfigValidationError(path, fmt.Errorf("Baud rate invalid, must be one of these values: %v", validBaudRates))
+		return nil, resource.NewConfigValidationError(
+			path,
+			fmt.Errorf("serial_baud_rate invalid, must be one of these values: %d", validBaudRates))
 	}
 	return nil, nil
 }

@@ -3,12 +3,11 @@ package gpio
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math"
 	"sync"
 	"time"
-
-	"errors"
 
 	"go.uber.org/multierr"
 	"go.viam.com/utils"

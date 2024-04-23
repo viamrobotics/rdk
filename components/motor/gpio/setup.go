@@ -2,7 +2,6 @@ package gpio
 
 import (
 	"context"
-
 	"errors"
 
 	"go.viam.com/rdk/components/board"

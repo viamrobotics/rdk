@@ -19,12 +19,11 @@ package uln28byj
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math"
 	"sync"
 	"time"
-
-	"errors"
 
 	"go.uber.org/multierr"
 
@@ -199,7 +198,7 @@ func (m *uln28byj) doRun(ctx context.Context) error {
 		err := m.doStep(ctx, m.stepPosition < m.targetStepPosition)
 		m.lock.Unlock()
 		if err != nil {
-			return fmt.Errorf("error stepping %v", err)
+			return fmt.Errorf("error stepping %w", err)
 		}
 	}
 	return nil
@@ -268,7 +267,7 @@ func (m *uln28byj) GoFor(ctx context.Context, rpm, revolutions float64, extra ma
 
 	err := m.doRun(ctx)
 	if err != nil {
-		return fmt.Errorf(" error while running motor %v", err)
+		return fmt.Errorf(" error while running motor %w", err)
 	}
 	return nil
 }
