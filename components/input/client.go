@@ -126,6 +126,22 @@ func (c *client) TriggerEvent(ctx context.Context, event Event, extra map[string
 	return err
 }
 
+func (c *client) checkReady(ctx context.Context) error {
+	c.mu.RLock()
+	ready := c.streamReady
+	c.mu.RUnlock()
+
+	for !ready {
+		c.mu.RLock()
+		ready = c.streamReady
+		c.mu.RUnlock()
+		if !utils.SelectContextOrWait(ctx, 50*time.Millisecond) {
+			return ctx.Err()
+		}
+	}
+	return nil
+}
+
 func (c *client) RegisterControlCallback(
 	ctx context.Context,
 	control Control,
@@ -159,16 +175,18 @@ func (c *client) RegisterControlCallback(
 	if err != nil {
 		return err
 	}
+	c.mu.Lock()
 	c.extra = ext
+	c.mu.Unlock()
 	if c.streamRunning {
-		for !c.streamReady {
-			if !utils.SelectContextOrWait(ctx, 50*time.Millisecond) {
-				return ctx.Err()
-			}
+		if err := c.checkReady(ctx); err != nil {
+			return err
 		}
+		c.mu.Lock()
 		c.streamHUP = true
 		c.streamReady = false
 		c.streamCancel()
+		c.mu.Unlock()
 	} else {
 		c.streamRunning = true
 		c.activeBackgroundWorkers.Add(1)
@@ -178,17 +196,8 @@ func (c *client) RegisterControlCallback(
 			defer c.activeBackgroundWorkers.Done()
 			c.connectStream(closeContext)
 		})
-		c.mu.RLock()
-		ready := c.streamReady
-		c.mu.RUnlock()
-
-		for !ready {
-			c.mu.RLock()
-			ready = c.streamReady
-			c.mu.RUnlock()
-			if !utils.SelectContextOrWait(ctx, 50*time.Millisecond) {
-				return ctx.Err()
-			}
+		if err := c.checkReady(ctx); err != nil {
+			return err
 		}
 	}
 
@@ -246,9 +255,10 @@ func (c *client) connectStream(ctx context.Context) {
 		if !haveCallbacks {
 			return
 		}
-
+		c.mu.Lock()
 		streamCtx, cancel := context.WithCancel(ctx)
 		c.streamCancel = cancel
+		c.mu.Unlock()
 
 		stream, err := c.client.StreamEvents(streamCtx, req)
 		if err != nil {
