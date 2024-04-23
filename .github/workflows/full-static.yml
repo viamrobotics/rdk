@@ -2,7 +2,17 @@ name: full-static
 
 on:
   workflow_dispatch:
+    inputs:
+      version:
+        description: a channel or version tag for upload
+        required: false
+        type: string
   workflow_call:
+    inputs:
+      version:
+        description: a channel or version tag for upload
+        required: false
+        type: string
     secrets:
       GCP_CREDENTIALS:
         required: true
@@ -15,7 +25,7 @@ jobs:
       matrix:
         include:
         - arch: ubuntu-latest
-          platform: linux-amd64
+          cpu: x86_64
         # - arch: buildjet-2vcpu-ubuntu-2204-arm
         #   image: ghcr.io/viamrobotics/antique2:arm64-cache
         #   platform: linux/arm64
@@ -29,11 +39,6 @@ jobs:
       with:
         go-version: '1.21'
 
-    # - name: Authorize GCP Upload
-    #   uses: google-github-actions/auth@v1.1.1
-    #   with:
-    #     credentials_json: '${{ secrets.GCP_CREDENTIALS }}'
-
     - name: build
       run: make full-static
 
@@ -44,11 +49,19 @@ jobs:
       with:
         name: full-static-${{ matrix.platform }}
         path: server
-    # - name: Authorize GCP
-    #   uses: google-github-actions/auth@v1.1.1
-    #   with:
-    #     credentials_json: '${{ secrets.GCP_CREDENTIALS }}'
 
+    - uses: google-github-actions/auth@v2
+      if: inputs.version
+      with:
+        credentials_json: '${{ secrets.GCP_CREDENTIALS }}'
+
+    - uses: google-github-actions/upload-cloud-storage@v2
+      if: inputs.version
+      with:
+        headers: "cache-control: no-cache"
+        path: server
+        destination: packages.viam.com/apps/viam-server/viam-server-portable-${{ inputs.version }}-${{ matrix.cpu }}
+        parent: false
     # - name: Set up Cloud SDK
     #   uses: google-github-actions/setup-gcloud@v1
 
@@ -56,6 +69,7 @@ jobs:
     #   run: |
     #     gsutil mv "gs://packages.viam.com/apps/viam-server/testing/static/${{ needs.static_test.outputs.date }}/${{ github.sha }}/*" "gs://packages.viam.com/apps/viam-server/"
 
+    # todo: what is this / do I need it for this build?
     # - name: Publish Subsystem Metadata
     #   run: |
     #     gsutil mv "gs://packages.viam.com/apps/viam-subsystems/testing/viam-server/${{ needs.static_test.outputs.date }}/${{ github.sha }}/*" "gs://packages.viam.com/apps/viam-subsystems/"
