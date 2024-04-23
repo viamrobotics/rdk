@@ -5,11 +5,10 @@ import (
 	"context"
 	// for embedding model file.
 	_ "embed"
+	"errors"
 	"fmt"
 	"net"
 	"sync"
-
-	"errors"
 
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/logging"

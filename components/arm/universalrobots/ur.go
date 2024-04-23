@@ -4,10 +4,10 @@ package universalrobots
 import (
 	"bufio"
 	"context"
-
 	// for embedding model file.
 	_ "embed"
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"io"
 	"math"
@@ -17,8 +17,6 @@ import (
 	"sync"
 	"syscall"
 	"time"
-
-	"errors"
 
 	"go.uber.org/multierr"
 	pb "go.viam.com/api/component/arm/v1"

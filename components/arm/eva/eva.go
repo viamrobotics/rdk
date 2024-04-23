@@ -6,18 +6,16 @@ package eva
 import (
 	"bytes"
 	"context"
-
 	// for embedding model file.
 	_ "embed"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"strings"
 	"sync"
 	"time"
-
-	"errors"
 
 	"go.uber.org/multierr"
 	pb "go.viam.com/api/component/arm/v1"

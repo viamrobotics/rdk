@@ -4,11 +4,10 @@ import (
 	"bytes"
 	"context"
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"io"
 	"time"
-
-	"errors"
 
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/utils"
