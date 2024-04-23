@@ -3,11 +3,10 @@ package sensorcontrolled
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 	"time"
-
-	"errors"
 
 	"github.com/golang/geo/r3"
 

@@ -2,9 +2,8 @@ package base_test
 
 import (
 	"context"
-	"testing"
-
 	"errors"
+	"testing"
 
 	pb "go.viam.com/api/component/base/v1"
 	"go.viam.com/test"
