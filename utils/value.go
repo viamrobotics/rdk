@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"cmp"
 	"flag"
 	"math/rand"
 )
@@ -62,4 +63,12 @@ func FindInSlice[T any](items []T, predicate func(T) bool) *T {
 		}
 	}
 	return nil
+}
+
+type Ordered interface {
+	cmp.Ordered
+}
+
+func Compare[T Ordered](a, b T) int {
+	return cmp.Compare(a, b)
 }
