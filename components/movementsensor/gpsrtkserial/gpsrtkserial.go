@@ -105,6 +105,7 @@ type rtkSerial struct {
 
 	activeBackgroundWorkers sync.WaitGroup
 	mu                      sync.Mutex
+	ntripMu                 sync.Mutex
 
 	ntripClient        *gpsutils.NtripInfo
 	isConnectedToNtrip bool
@@ -229,19 +230,15 @@ func (g *rtkSerial) start() error {
 
 // getStream attempts to connect to ntrip stream. We give up after maxAttempts unsuccessful tries.
 func (g *rtkSerial) getStream(mountPoint string, maxAttempts int) error {
-	g.mu.Lock()
-	defer g.mu.Unlock()
+	success := false
+	attempts := 0
 
 	var rc io.ReadCloser
 	var err error
 
 	g.logger.Debug("Getting NTRIP stream")
 
-	for attempts := 0; attempts < maxAttempts; attempts++ {
-		if g.isClosed {
-			return g.err.Get()
-		}
-
+	for !success && attempts < maxAttempts {
 		select {
 		case <-g.cancelCtx.Done():
 			return errors.New("Canceled")
@@ -249,27 +246,27 @@ func (g *rtkSerial) getStream(mountPoint string, maxAttempts int) error {
 		}
 
 		rc, err = func() (io.ReadCloser, error) {
+			g.ntripMu.Lock()
+			defer g.ntripMu.Unlock()
 			return g.ntripClient.Client.GetStream(mountPoint)
 		}()
 		if err == nil {
-			g.logger.Debug("Connected to stream")
-
-			g.ntripClient.Stream = rc
-			return g.err.Get()
+			success = true
 		}
+		attempts++
 	}
-	// If we get here, we had errors on every connection attempt.
 
-	// Errors about the old ICY protocol are not "real" errors, but all others are.
-	if !strings.Contains(err.Error(), "ICY") {
+	if err != nil {
 		g.logger.Errorf("Can't connect to NTRIP stream: %s", err)
 		return err
 	}
 
-	// The error was related to the old ICY protocol. Try storing the ReadCloser anyway.
-	g.logger.Warnf("Detected old HTTP protocol: %s", err)
+	g.logger.Debug("Connected to stream")
+	g.ntripMu.Lock()
+	defer g.ntripMu.Unlock()
+
 	g.ntripClient.Stream = rc
-	return err
+	return g.err.Get()
 }
 
 // openPort opens the serial port for writing.
@@ -478,6 +475,7 @@ func (g *rtkSerial) Position(ctx context.Context, extra map[string]interface{}) 
 		}
 		return geo.NewPoint(math.NaN(), math.NaN()), math.NaN(), lastError
 	}
+	//maybe defer this
 	g.mu.Unlock()
 
 	position, alt, err := g.cachedData.Position(ctx, extra)
