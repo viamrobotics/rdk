@@ -146,8 +146,6 @@ func NewBuiltIn(
 		captureDir:                 viamCaptureDotDir,
 		collectors:                 make(map[resourceMethodMetadata]*collectorAndConfig),
 		syncIntervalMins:           0,
-		syncDisabled:               true,
-		captureDisabled:            true,
 		additionalSyncPaths:        []string{},
 		tags:                       []string{},
 		fileLastModifiedMillis:     defaultFileLastModifiedMillis,
@@ -614,7 +612,7 @@ func (svc *builtIn) sync() {
 	}
 }
 
-// nolint
+//nolint
 func getAllFilesToSync(dir string, lastModifiedMillis int) []string {
 	var filePaths []string
 	_ = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
