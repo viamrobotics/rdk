@@ -3,11 +3,10 @@ package board
 
 import (
 	"context"
+	"errors"
 	"math"
 	"sync"
 	"time"
-
-	"errors"
 
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/board/v1"

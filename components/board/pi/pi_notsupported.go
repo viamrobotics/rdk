@@ -4,7 +4,6 @@ package pi
 
 import (
 	"context"
-
 	"errors"
 
 	"go.viam.com/rdk/components/board"

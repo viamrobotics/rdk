@@ -2,11 +2,10 @@ package board_test
 
 import (
 	"context"
+	"errors"
 	"sync"
 	"testing"
 	"time"
-
-	"errors"
 
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/board/v1"

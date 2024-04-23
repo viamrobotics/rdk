@@ -2,9 +2,8 @@ package board
 
 import (
 	"context"
-	"fmt"
-
 	"errors"
+	"fmt"
 
 	commonpb "go.viam.com/api/common/v1"
 )

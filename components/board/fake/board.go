@@ -3,12 +3,11 @@ package fake
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"reflect"
 	"sync"
 	"time"
-
-	"errors"
 
 	"go.uber.org/multierr"
 	commonpb "go.viam.com/api/common/v1"

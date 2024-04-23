@@ -6,7 +6,6 @@ package genericlinux
 
 import (
 	"context"
-
 	"errors"
 
 	"go.viam.com/rdk/components/board"
