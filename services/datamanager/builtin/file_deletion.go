@@ -73,17 +73,16 @@ func deleteFiles(syncer datasync.Manager, captureDirPath string, logger logging.
 			logger.Debug(fileInfo.Name())
 			isFileInProgress := strings.Contains(fileInfo.Name(), ".prog")
 			if index != 0 && index%n == 0 && !isFileInProgress {
-				//mark path as inprogress if syncer is not nil
-				if (syncer != nil && syncer.MarkInProgress(fileInfo.Name())) || syncer == nil {
-					logger.Debugw("Would delete file (not doing currently)", "file name", path)
-					logger.Debug(path)
-					err := os.Remove(path)
-					if err != nil {
-						logger.Debugw("error deleting file", "error", err)
-						return err
-					}
+				//mark path as inprogress
+				if syncer != nil {
+					syncer.MarkInProgress(path)
 				}
-
+				logger.Debugw("Deleting file ", "name", fileInfo.Name())
+				err := os.Remove(path)
+				if err != nil {
+					logger.Debugw("error deleting file", "error", err)
+					return err
+				}
 			}
 			// only increment on completed files
 			if !isFileInProgress {
@@ -92,7 +91,5 @@ func deleteFiles(syncer datasync.Manager, captureDirPath string, logger logging.
 		}
 		return nil
 	}
-
-	err := filepath.WalkDir(captureDirPath, delete)
-	return err
+	return filepath.WalkDir(captureDirPath, delete)
 }
