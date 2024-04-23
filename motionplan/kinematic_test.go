@@ -1,7 +1,6 @@
 package motionplan
 
 import (
-	"fmt"
 	"math"
 	"math/rand"
 	"testing"
@@ -304,20 +303,16 @@ func TestKinematicsJSONvsURDF(t *testing.T) {
 
 	mJSON, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/universalrobots/ur5e.json"), "")
 	test.That(t, err, test.ShouldBeNil)
-	mURDF, err := urdf.ParseModelXMLFile(utils.ResolveFile("referenceframe/urdf/testfiles/ur5_viam.urdf"), "")
+	mURDF, err := urdf.ParseModelXMLFile(utils.ResolveFile("referenceframe/urdf/testfiles/ur5e.urdf"), "")
 	test.That(t, err, test.ShouldBeNil)
 
 	seed := rand.New(rand.NewSource(50))
 	for i := 0; i < numTests; i++ {
 		joints := frame.JointPositionsFromRadians(frame.GenerateRandomConfiguration(mURDF, seed))
-
 		posJSON, err := ComputePosition(mJSON, joints)
 		test.That(t, err, test.ShouldBeNil)
 		posURDF, err := ComputePosition(mURDF, joints)
 		test.That(t, err, test.ShouldBeNil)
-
-		fmt.Println(posJSON.Point())
-		fmt.Println(posURDF.Point())
 		test.That(t, spatial.PoseAlmostEqual(posJSON, posURDF), test.ShouldBeTrue)
 	}
 }
