@@ -1,11 +1,7 @@
 <?xml version="1.0" ?>
-<!-- This URDF is an (almost) exact conversion of our ModelJSON representation of a UR5 -->
-<!-- See components/arm/universalrobots/ur5e.json for the original content -->
 <robot name="ur5">
-  <!-- This does not actually feature in the original ModelJSON, but is important to anchor the world_joint -->
   <link name="world"/>
 
-  <!-- This does not actually feature in the original ModelJSON, but is important to anchor the world_joint -->
   <joint name="base_joint" type="fixed"> 
     <parent link="world"/>
     <child link="base_link"/>
