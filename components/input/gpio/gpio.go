@@ -3,11 +3,10 @@ package gpio
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 	"time"
-
-	"errors"
 
 	"github.com/bep/debounce"
 	"go.viam.com/utils"

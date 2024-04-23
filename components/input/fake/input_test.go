@@ -2,10 +2,9 @@ package fake
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
-
-	"errors"
 
 	"go.viam.com/test"
 

@@ -2,10 +2,9 @@ package input_test
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
-
-	"errors"
 
 	pb "go.viam.com/api/component/inputcontroller/v1"
 	"go.viam.com/test"

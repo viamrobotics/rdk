@@ -6,7 +6,6 @@ package gamepad
 
 import (
 	"context"
-
 	"errors"
 
 	"go.viam.com/rdk/components/input"

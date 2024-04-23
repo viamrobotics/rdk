@@ -3,11 +3,10 @@ package fake
 
 import (
 	"context"
+	"errors"
 	"math/rand"
 	"sync"
 	"time"
-
-	"errors"
 
 	"go.viam.com/utils"
 
