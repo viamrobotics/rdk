@@ -4,10 +4,9 @@ package adxl345
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
-
-	"errors"
 
 	"go.viam.com/test"
 	"go.viam.com/utils/testutils"

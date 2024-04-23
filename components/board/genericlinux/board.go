@@ -7,12 +7,11 @@ package genericlinux
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strconv"
 	"sync"
 	"time"
-
-	"errors"
 
 	"go.uber.org/multierr"
 	commonpb "go.viam.com/api/common/v1"

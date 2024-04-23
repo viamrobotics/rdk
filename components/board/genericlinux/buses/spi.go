@@ -4,11 +4,10 @@ package buses
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 	"sync/atomic"
-
-	"errors"
 
 	"go.uber.org/multierr"
 	"periph.io/x/conn/v3/physic"

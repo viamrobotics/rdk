@@ -6,13 +6,12 @@ package ezopmp
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"math"
 	"strconv"
 	"strings"
 	"time"
-
-	"errors"
 
 	"go.viam.com/rdk/components/board/genericlinux/buses"
 	"go.viam.com/rdk/components/motor"
@@ -112,7 +111,7 @@ func NewMotor(ctx context.Context, deps resource.Dependencies, c *Config, name r
 
 	flowRate, err := m.findMaxFlowRate(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("can't find max flow rate: %v", err)
+		return nil, fmt.Errorf("can't find max flow rate: %w", err)
 	}
 	m.maxFlowRate = flowRate
 

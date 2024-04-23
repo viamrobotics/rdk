@@ -6,12 +6,11 @@
 package genericlinux
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"sync"
 	"time"
-
-	"errors"
 
 	goutils "go.viam.com/utils"
 

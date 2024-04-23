@@ -10,9 +10,8 @@ import "C"
 
 import (
 	"context"
-	"fmt"
-
 	"errors"
+	"fmt"
 
 	"go.viam.com/rdk/components/board/genericlinux/buses"
 	picommon "go.viam.com/rdk/components/board/pi/common"
@@ -76,7 +75,7 @@ func (s *piPigpioI2CHandle) WriteByteData(ctx context.Context, register, data by
 
 func (s *piPigpioI2CHandle) ReadBlockData(ctx context.Context, register byte, numBytes uint8) ([]byte, error) {
 	if numBytes > 32 { // A limitation from the underlying pigpio.h library
-		return nil, errors.New("Cannot read more than 32 bytes from I2C")
+		return nil, errors.New("cannot read more than 32 bytes from I2C")
 	}
 
 	data := make([]byte, numBytes)
@@ -91,7 +90,7 @@ func (s *piPigpioI2CHandle) ReadBlockData(ctx context.Context, register byte, nu
 func (s *piPigpioI2CHandle) WriteBlockData(ctx context.Context, register byte, data []byte) error {
 	numBytes := len(data)
 	if numBytes > 32 { // A limitation from the underlying pigpio.h library
-		return errors.New("Cannot write more than 32 bytes from I2C")
+		return errors.New("cannot write more than 32 bytes from I2C")
 	}
 
 	response := C.i2cWriteI2CBlockData(

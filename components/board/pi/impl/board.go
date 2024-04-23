@@ -22,14 +22,13 @@ import "C"
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math"
 	"os"
 	"strconv"
 	"sync"
 	"time"
-
-	"errors"
 
 	"go.uber.org/multierr"
 	commonpb "go.viam.com/api/common/v1"
@@ -360,13 +359,13 @@ func (pi *piPigpio) reconfigureInterrupts(ctx context.Context, cfg *Config) erro
 		name, ok := findInterruptName(interrupt, oldInterrupts)
 		if !ok {
 			// This should never happen
-			return fmt.Errorf("Logic bug: found old interrupt %s without old name!?", interrupt)
+			return fmt.Errorf("logic bug: found old interrupt %s without old name!?", interrupt)
 		}
 
 		bcom, ok := findInterruptBcom(interrupt, oldInterruptsHW)
 		if !ok {
 			// This should never happen, either
-			return fmt.Errorf("Logic bug: found old interrupt %s without old bcom!?", interrupt)
+			return fmt.Errorf("logic bug: found old interrupt %s without old bcom!?", interrupt)
 		}
 
 		if expectedBcom, ok := broadcomPinFromHardwareLabel(name); ok && bcom == expectedBcom {

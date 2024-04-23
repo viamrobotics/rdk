@@ -5,12 +5,11 @@ package ams
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math"
 	"sync"
 	"time"
-
-	"errors"
 
 	"go.viam.com/utils"
 

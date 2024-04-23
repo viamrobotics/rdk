@@ -4,11 +4,10 @@ package piimpl
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 	"sync/atomic"
-
-	"errors"
 
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/resource"

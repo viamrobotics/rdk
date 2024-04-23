@@ -6,10 +6,9 @@ package genericlinux
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
-
-	"errors"
 
 	"github.com/mkch/gpio"
 	"go.uber.org/multierr"

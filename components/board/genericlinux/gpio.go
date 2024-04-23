@@ -6,11 +6,10 @@ package genericlinux
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 	"time"
-
-	"errors"
 
 	"github.com/mkch/gpio"
 	"go.viam.com/utils"

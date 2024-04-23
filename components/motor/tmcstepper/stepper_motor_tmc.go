@@ -5,11 +5,10 @@ package tmcstepper
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math"
 	"time"
-
-	"errors"
 
 	"go.uber.org/multierr"
 	"go.viam.com/utils"

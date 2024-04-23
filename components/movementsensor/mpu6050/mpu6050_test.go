@@ -4,9 +4,8 @@ package mpu6050
 
 import (
 	"context"
-	"testing"
-
 	"errors"
+	"testing"
 
 	"go.viam.com/test"
 	"go.viam.com/utils/testutils"

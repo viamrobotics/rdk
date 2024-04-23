@@ -6,11 +6,10 @@ package imuvectornav
 import (
 	"context"
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"sync"
 	"time"
-
-	"errors"
 
 	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
@@ -348,7 +347,7 @@ func (vn *vectornav) readRegisterSPI(ctx context.Context, reg vectornavRegister,
 	vn.spiMu.Lock()
 	defer vn.spiMu.Unlock()
 	if vn.busClosed {
-		return nil, errors.New("C=cannot read spi register the bus is closed")
+		return nil, errors.New("cannot read spi register the bus is closed")
 	}
 	hnd, err := vn.bus.OpenHandle()
 	if err != nil {
@@ -380,7 +379,7 @@ func (vn *vectornav) writeRegisterSPI(ctx context.Context, reg vectornavRegister
 	vn.spiMu.Lock()
 	defer vn.spiMu.Unlock()
 	if vn.busClosed {
-		return errors.New("Cannot write spi register the bus is closed")
+		return errors.New("cannot write spi register the bus is closed")
 	}
 	hnd, err := vn.bus.OpenHandle()
 	if err != nil {
@@ -413,7 +412,7 @@ func (vn *vectornav) vectornavTareSPI(ctx context.Context) error {
 	vn.spiMu.Lock()
 	defer vn.spiMu.Unlock()
 	if vn.busClosed {
-		return errors.New("Cannot write spi register the bus is closed")
+		return errors.New("cannot write spi register the bus is closed")
 	}
 	hnd, err := vn.bus.OpenHandle()
 	if err != nil {

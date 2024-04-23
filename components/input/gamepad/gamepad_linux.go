@@ -6,14 +6,13 @@ package gamepad
 
 import (
 	"context"
+	"errors"
 	"math"
 	"path/filepath"
 	"strings"
 	"sync"
 	"syscall"
 	"time"
-
-	"errors"
 
 	"github.com/viamrobotics/evdev"
 	"go.viam.com/utils"

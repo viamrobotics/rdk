@@ -21,11 +21,10 @@ package adxl345
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 	"time"
-
-	"errors"
 
 	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
@@ -81,16 +80,16 @@ type FreeFallConfig struct {
 // validateTapConfigs validates the tap piece of the config.
 func (tapCfg *TapConfig) validateTapConfigs() error {
 	if tapCfg.AccelerometerPin != 1 && tapCfg.AccelerometerPin != 2 {
-		return errors.New("Accelerometer pin on the ADXL345 must be 1 or 2")
+		return errors.New("accelerometer pin on the ADXL345 must be 1 or 2")
 	}
 	if tapCfg.Threshold != 0 {
 		if tapCfg.Threshold < 0 || tapCfg.Threshold > (255*threshTapScaleFactor) {
-			return errors.New("Tap threshold on the ADXL345 must be 0 between and 15,937mg")
+			return errors.New("tap threshold on the ADXL345 must be 0 between and 15,937mg")
 		}
 	}
 	if tapCfg.Dur != 0 {
 		if tapCfg.Dur < 0 || tapCfg.Dur > (255*durScaleFactor) {
-			return errors.New("Tap dur on the ADXL345 must be between 0 and 160,000µs")
+			return errors.New("tap dur on the ADXL345 must be between 0 and 160,000µs")
 		}
 	}
 	return nil
@@ -99,16 +98,16 @@ func (tapCfg *TapConfig) validateTapConfigs() error {
 // validateFreeFallConfigs validates the freefall piece of the config.
 func (freefallCfg *FreeFallConfig) validateFreeFallConfigs() error {
 	if freefallCfg.AccelerometerPin != 1 && freefallCfg.AccelerometerPin != 2 {
-		return errors.New("Accelerometer pin on the ADXL345 must be 1 or 2")
+		return errors.New("accelerometer pin on the ADXL345 must be 1 or 2")
 	}
 	if freefallCfg.Threshold != 0 {
 		if freefallCfg.Threshold < 0 || freefallCfg.Threshold > (255*threshFfScaleFactor) {
-			return errors.New("Accelerometer tap threshold on the ADXL345 must be 0 between and 15,937mg")
+			return errors.New("accelerometer tap threshold on the ADXL345 must be 0 between and 15,937mg")
 		}
 	}
 	if freefallCfg.Time != 0 {
 		if freefallCfg.Time < 0 || freefallCfg.Time > (255*timeFfScaleFactor) {
-			return errors.New("Accelerometer tap time on the ADXL345 must be between 0 and 1,275ms")
+			return errors.New("accelerometer tap time on the ADXL345 must be between 0 and 1,275ms")
 		}
 	}
 	return nil

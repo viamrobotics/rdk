@@ -10,10 +10,9 @@ import "C"
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
-
-	"errors"
 
 	"go.viam.com/utils"
 
