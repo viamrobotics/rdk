@@ -11,7 +11,6 @@ import (
 	"go.viam.com/utils/testutils"
 
 	"go.viam.com/rdk/components/board"
-	"go.viam.com/rdk/components/board/fake"
 	fakeboard "go.viam.com/rdk/components/board/fake"
 	"go.viam.com/rdk/components/input"
 	"go.viam.com/rdk/logging"
@@ -27,7 +26,7 @@ type setupResult struct {
 	dev                                            input.Controller
 	axis1Time, axis2Time                           time.Time
 	axisMu                                         sync.RWMutex
-	interrupt1, interrupt2                         *fake.DigitalInterruptWrapper
+	interrupt1, interrupt2                         *fakeboard.DigitalInterruptWrapper
 }
 
 func setup(t *testing.T) *setupResult {
@@ -266,7 +265,7 @@ func TestGPIOInput(t *testing.T) {
 		s := setup(t)
 		defer teardown(t, s)
 
-		err := fake.Tick(s.ctx, s.interrupt1, true, uint64(time.Now().UnixNano()))
+		err := fakeboard.Tick(s.ctx, s.interrupt1, true, uint64(time.Now().UnixNano()))
 		test.That(t, err, test.ShouldBeNil)
 
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
@@ -278,7 +277,7 @@ func TestGPIOInput(t *testing.T) {
 			test.That(tb, atomic.LoadInt64(&s.btn1Callbacks), test.ShouldEqual, 1)
 		})
 
-		err = fake.Tick(s.ctx, s.interrupt1, false, uint64(time.Now().UnixNano()))
+		err = fakeboard.Tick(s.ctx, s.interrupt1, false, uint64(time.Now().UnixNano()))
 		test.That(t, err, test.ShouldBeNil)
 
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
@@ -299,9 +298,9 @@ func TestGPIOInput(t *testing.T) {
 
 		// this loop must complete within the debounce time
 		for i := 0; i < 20; i++ {
-			err := fake.Tick(s.ctx, s.interrupt1, false, uint64(time.Now().UnixNano()))
+			err := fakeboard.Tick(s.ctx, s.interrupt1, false, uint64(time.Now().UnixNano()))
 			test.That(t, err, test.ShouldBeNil)
-			err = fake.Tick(s.ctx, s.interrupt1, true, uint64(time.Now().UnixNano()))
+			err = fakeboard.Tick(s.ctx, s.interrupt1, true, uint64(time.Now().UnixNano()))
 			test.That(t, err, test.ShouldBeNil)
 		}
 
@@ -323,7 +322,7 @@ func TestGPIOInput(t *testing.T) {
 		s := setup(t)
 		defer teardown(t, s)
 
-		err := fake.Tick(s.ctx, s.interrupt2, true, uint64(time.Now().UnixNano()))
+		err := fakeboard.Tick(s.ctx, s.interrupt2, true, uint64(time.Now().UnixNano()))
 		test.That(t, err, test.ShouldBeNil)
 
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
@@ -335,7 +334,7 @@ func TestGPIOInput(t *testing.T) {
 			test.That(tb, atomic.LoadInt64(&s.btn2Callbacks), test.ShouldEqual, 1)
 		})
 
-		err = fake.Tick(s.ctx, s.interrupt2, false, uint64(time.Now().UnixNano()))
+		err = fakeboard.Tick(s.ctx, s.interrupt2, false, uint64(time.Now().UnixNano()))
 		test.That(t, err, test.ShouldBeNil)
 
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
@@ -355,9 +354,9 @@ func TestGPIOInput(t *testing.T) {
 		iterations := 50
 
 		for i := 0; i < iterations; i++ {
-			err := fake.Tick(s.ctx, s.interrupt2, true, uint64(time.Now().UnixNano()))
+			err := fakeboard.Tick(s.ctx, s.interrupt2, true, uint64(time.Now().UnixNano()))
 			test.That(t, err, test.ShouldBeNil)
-			err = fake.Tick(s.ctx, s.interrupt2, false, uint64(time.Now().UnixNano()))
+			err = fakeboard.Tick(s.ctx, s.interrupt2, false, uint64(time.Now().UnixNano()))
 			test.That(t, err, test.ShouldBeNil)
 		}
 

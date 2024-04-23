@@ -1426,9 +1426,12 @@ func TestRobotReconfigure(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, c, test.ShouldEqual, 0)
 
-		test.That(t, fakeboard.Tick(context.Background(), eA.(*fakeboard.DigitalInterruptWrapper), false, uint64(time.Now().UnixNano())), test.ShouldBeNil)
-		test.That(t, fakeboard.Tick(context.Background(), eB.(*fakeboard.DigitalInterruptWrapper), true, uint64(time.Now().UnixNano())), test.ShouldBeNil)
-		test.That(t, fakeboard.Tick(context.Background(), eA.(*fakeboard.DigitalInterruptWrapper), true, uint64(time.Now().UnixNano())), test.ShouldBeNil)
+		test.That(t, fakeboard.Tick(
+			context.Background(), eA.(*fakeboard.DigitalInterruptWrapper), false, uint64(time.Now().UnixNano())), test.ShouldBeNil)
+		test.That(t, fakeboard.Tick(
+			context.Background(), eB.(*fakeboard.DigitalInterruptWrapper), true, uint64(time.Now().UnixNano())), test.ShouldBeNil)
+		test.That(t, fakeboard.Tick(
+			context.Background(), eA.(*fakeboard.DigitalInterruptWrapper), true, uint64(time.Now().UnixNano())), test.ShouldBeNil)
 
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			c, err = m.Position(context.Background(), nil)
@@ -1557,9 +1560,11 @@ func TestRobotReconfigure(t *testing.T) {
 		t.Log("the underlying pins changed but not the encoder names, so we keep the value")
 		test.That(t, c, test.ShouldEqual, 1)
 
-		test.That(t, fakeboard.Tick(context.Background(), eB.(*fakeboard.DigitalInterruptWrapper), false, uint64(time.Now().UnixNano())), test.ShouldBeNil)
+		test.That(t, fakeboard.Tick(
+			context.Background(), eB.(*fakeboard.DigitalInterruptWrapper), false, uint64(time.Now().UnixNano())), test.ShouldBeNil)
 		time.Sleep(2 * time.Second)
-		test.That(t, fakeboard.Tick(context.Background(), eA.(*fakeboard.DigitalInterruptWrapper), false, uint64(time.Now().UnixNano())), test.ShouldBeNil)
+		test.That(t, fakeboard.Tick(
+			context.Background(), eA.(*fakeboard.DigitalInterruptWrapper), false, uint64(time.Now().UnixNano())), test.ShouldBeNil)
 
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			c, err = m.Position(context.Background(), nil)
@@ -1674,9 +1679,12 @@ func TestRobotReconfigure(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, c, test.ShouldEqual, 0)
 
-		test.That(t, fakeboard.Tick(context.Background(), eA.(*fakeboard.DigitalInterruptWrapper), false, uint64(time.Now().UnixNano())), test.ShouldBeNil)
-		test.That(t, fakeboard.Tick(context.Background(), eB.(*fakeboard.DigitalInterruptWrapper), true, uint64(time.Now().UnixNano())), test.ShouldBeNil)
-		test.That(t, fakeboard.Tick(context.Background(), eA.(*fakeboard.DigitalInterruptWrapper), true, uint64(time.Now().UnixNano())), test.ShouldBeNil)
+		test.That(t, fakeboard.Tick(
+			context.Background(), eA.(*fakeboard.DigitalInterruptWrapper), false, uint64(time.Now().UnixNano())), test.ShouldBeNil)
+		test.That(t, fakeboard.Tick(
+			context.Background(), eB.(*fakeboard.DigitalInterruptWrapper), true, uint64(time.Now().UnixNano())), test.ShouldBeNil)
+		test.That(t, fakeboard.Tick(
+			context.Background(), eA.(*fakeboard.DigitalInterruptWrapper), true, uint64(time.Now().UnixNano())), test.ShouldBeNil)
 
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			c, err = m.Position(context.Background(), nil)
@@ -1792,9 +1800,12 @@ func TestRobotReconfigure(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, c, test.ShouldEqual, 1)
 
-		test.That(t, fakeboard.Tick(context.Background(), eA.(*fakeboard.DigitalInterruptWrapper), true, uint64(time.Now().UnixNano())), test.ShouldBeNil)
-		test.That(t, fakeboard.Tick(context.Background(), eB.(*fakeboard.DigitalInterruptWrapper), false, uint64(time.Now().UnixNano())), test.ShouldBeNil)
-		test.That(t, fakeboard.Tick(context.Background(), eA.(*fakeboard.DigitalInterruptWrapper), false, uint64(time.Now().UnixNano())), test.ShouldBeNil)
+		test.That(t, fakeboard.Tick(
+			context.Background(), eA.(*fakeboard.DigitalInterruptWrapper), true, uint64(time.Now().UnixNano())), test.ShouldBeNil)
+		test.That(t, fakeboard.Tick(
+			context.Background(), eB.(*fakeboard.DigitalInterruptWrapper), false, uint64(time.Now().UnixNano())), test.ShouldBeNil)
+		test.That(t, fakeboard.Tick(
+			context.Background(), eA.(*fakeboard.DigitalInterruptWrapper), false, uint64(time.Now().UnixNano())), test.ShouldBeNil)
 
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			c, err = m.Position(context.Background(), nil)
@@ -1904,9 +1915,12 @@ func TestRobotReconfigure(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, c, test.ShouldEqual, 2)
 
-		test.That(t, fakeboard.Tick(context.Background(), eA.(*fakeboard.DigitalInterruptWrapper), false, uint64(time.Now().UnixNano())), test.ShouldBeNil)
-		test.That(t, fakeboard.Tick(context.Background(), eB.(*fakeboard.DigitalInterruptWrapper), true, uint64(time.Now().UnixNano())), test.ShouldBeNil)
-		test.That(t, fakeboard.Tick(context.Background(), eA.(*fakeboard.DigitalInterruptWrapper), true, uint64(time.Now().UnixNano())), test.ShouldBeNil)
+		test.That(t, fakeboard.Tick(
+			context.Background(), eA.(*fakeboard.DigitalInterruptWrapper), false, uint64(time.Now().UnixNano())), test.ShouldBeNil)
+		test.That(t, fakeboard.Tick(
+			context.Background(), eB.(*fakeboard.DigitalInterruptWrapper), true, uint64(time.Now().UnixNano())), test.ShouldBeNil)
+		test.That(t, fakeboard.Tick(
+			context.Background(), eA.(*fakeboard.DigitalInterruptWrapper), true, uint64(time.Now().UnixNano())), test.ShouldBeNil)
 
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			c, err = m.Position(context.Background(), nil)

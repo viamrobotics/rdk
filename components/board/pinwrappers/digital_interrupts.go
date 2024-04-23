@@ -5,7 +5,6 @@ package pinwrappers
 import (
 	"context"
 	"errors"
-	"fmt"
 	"sync"
 	"sync/atomic"
 
@@ -62,20 +61,16 @@ func (i *BasicDigitalInterrupt) Ticks(ctx context.Context, num int, now uint64) 
 // Tick records an interrupt and notifies any interested callbacks. See comment on
 // the DigitalInterrupt interface for caveats.
 func Tick(ctx context.Context, i *BasicDigitalInterrupt, high bool, nanoseconds uint64) error {
-	fmt.Println("here ticking")
-	fmt.Println(i.Name())
 	if high {
 		atomic.AddInt64(&i.count, 1)
 	}
 	i.mu.RLock()
 	defer i.mu.RUnlock()
 	for _, c := range i.callbacks {
-		fmt.Println("has callbacks")
 		select {
 		case <-ctx.Done():
 			return errors.New("context cancelled")
 		case c <- board.Tick{Name: i.cfg.Name, High: high, TimestampNanosec: nanoseconds}:
-			fmt.Println("sending to callback")
 		}
 	}
 	return nil

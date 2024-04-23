@@ -176,9 +176,9 @@ func (i *ServoDigitalInterrupt) Value(ctx context.Context, extra map[string]inte
 	return v, nil
 }
 
-// Tick records the time between two successive low signals (pulse width). How it is
+// ServoTick records the time between two successive low signals (pulse width). How it is
 // interpreted is based off the consumer of Value.
-func (i *ServoDigitalInterrupt) Tick(ctx context.Context, high bool, now uint64) error {
+func ServoTick(ctx context.Context, i *ServoDigitalInterrupt, high bool, now uint64) error {
 	i.mu.RLock()
 	defer i.mu.RUnlock()
 	diff := now - i.last
