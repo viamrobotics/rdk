@@ -4,12 +4,11 @@ import (
 	"bytes"
 	"context"
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"io"
 	"time"
 	"unsafe"
-
-	"errors"
 
 	"github.com/go-audio/audio"
 	"github.com/go-audio/transforms"

@@ -2,12 +2,11 @@ package audioinput
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"math"
 	"sync"
-
-	"errors"
 
 	"github.com/pion/mediadevices/pkg/prop"
 	"github.com/pion/mediadevices/pkg/wave"
