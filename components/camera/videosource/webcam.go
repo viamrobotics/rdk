@@ -169,7 +169,7 @@ type WebcamConfig struct {
 	DistortionParameters *transform.BrownConrady            `json:"distortion_parameters,omitempty"`
 	Debug                bool                               `json:"debug,omitempty"`
 	Format               string                             `json:"format,omitempty"`
-	Path                 string                             `json:"video_path,omitempty"`
+	Path                 string                             `json:"video_path"`
 	Width                int                                `json:"width_px,omitempty"`
 	Height               int                                `json:"height_px,omitempty"`
 	FrameRate            float32                            `json:"frame_rate,omitempty"`

@@ -132,7 +132,6 @@ func TestReconfigure(t *testing.T) {
 			Speed:        0.3,
 			Host:         host1,
 			Port:         int(port1),
-			parsedPort:   port1Str,
 			Acceleration: 0.1,
 		},
 	}
@@ -143,7 +142,6 @@ func TestReconfigure(t *testing.T) {
 			Speed:        0.5,
 			Host:         host1,
 			Port:         int(port1),
-			parsedPort:   port1Str,
 			Acceleration: 0.3,
 		},
 	}
@@ -154,7 +152,6 @@ func TestReconfigure(t *testing.T) {
 			Speed:        0.6,
 			Host:         host2,
 			Port:         int(port2),
-			parsedPort:   port2Str,
 			Acceleration: 0.34,
 		},
 	}
