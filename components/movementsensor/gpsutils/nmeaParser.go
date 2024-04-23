@@ -1,12 +1,11 @@
 package gpsutils
 
 import (
+	"errors"
 	"fmt"
 	"math"
 	"strconv"
 	"strings"
-
-	"errors"
 
 	"github.com/adrianmo/go-nmea"
 	geo "github.com/kellydunn/golang-geo"

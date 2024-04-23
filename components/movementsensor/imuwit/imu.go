@@ -72,7 +72,7 @@ func (cfg *Config) Validate(path string) ([]string, error) {
 
 	// Validating baud rate
 	if !rutils.ValidateBaudRate(baudRateList, int(cfg.BaudRate)) {
-		return nil, resource.NewConfigValidationError(path, fmt.Errorf("Baud rate is not in %v", baudRateList))
+		return nil, resource.NewConfigValidationError(path, fmt.Errorf("serial_baud_rate is not in %v", baudRateList))
 	}
 
 	return nil, nil

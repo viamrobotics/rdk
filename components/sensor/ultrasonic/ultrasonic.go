@@ -3,12 +3,11 @@ package ultrasonic
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math"
 	"sync"
 	"time"
-
-	"errors"
 
 	rdkutils "go.viam.com/utils"
 
@@ -103,7 +102,7 @@ func NewSensor(ctx context.Context, deps resource.Dependencies,
 		return nil, errors.Join(err, fmt.Errorf("ultrasonic: cannot grab gpio %q", config.TriggerPin))
 	}
 	if err := triggerPin.Set(ctx, false, nil); err != nil {
-		return nil, errors.Join(err, fmt.Errorf("ultrasonic: cannot set trigger pin to low"))
+		return nil, errors.Join(err, errors.New("ultrasonic: cannot set trigger pin to low"))
 	}
 
 	return s, nil
@@ -125,7 +124,7 @@ type Sensor struct {
 
 func (s *Sensor) namedError(err error) error {
 	return errors.Join(
-		err, fmt.Errorf("Error in ultrasonic sensor with name %s: ", s.Name()),
+		err, fmt.Errorf("error in ultrasonic sensor with name %s: ", s.Name()),
 	)
 }
 
@@ -147,7 +146,7 @@ func (s *Sensor) Readings(ctx context.Context, extra map[string]interface{}) (ma
 
 	err = s.board.StreamTicks(ctx, []string{s.config.EchoInterrupt}, s.ticksChan, nil)
 	if err != nil {
-		return nil, errors.Join(err, fmt.Errorf("ultrasonic: error getting digital interrupt ticks"))
+		return nil, errors.Join(err, errors.New("ultrasonic: error getting digital interrupt ticks"))
 	}
 
 	// Remove the callbacks added by the interrupt stream once we are done reading.

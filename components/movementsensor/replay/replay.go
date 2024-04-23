@@ -3,13 +3,12 @@ package replay
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"slices"
 	"strings"
 	"sync"
 	"time"
-
-	"errors"
 
 	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"

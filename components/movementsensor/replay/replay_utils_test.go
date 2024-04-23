@@ -2,14 +2,13 @@ package replay
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math"
 	"net"
 	"strconv"
 	"testing"
 	"time"
-
-	"errors"
 
 	"github.com/golang/geo/r3"
 	datapb "go.viam.com/api/app/data/v1"

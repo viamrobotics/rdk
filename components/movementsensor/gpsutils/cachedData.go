@@ -2,10 +2,9 @@ package gpsutils
 
 import (
 	"context"
+	"errors"
 	"math"
 	"sync"
-
-	"errors"
 
 	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
