@@ -3,10 +3,9 @@ package softrobotics
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
-
-	"errors"
 
 	"go.uber.org/multierr"
 	"go.viam.com/utils"
