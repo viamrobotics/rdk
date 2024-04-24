@@ -58,6 +58,7 @@ const (
 	moduleBuildFlagWait      = "wait"
 	moduleBuildFlagGroupLogs = "group-logs"
 	moduleBuildRestartOnly   = "restart-only"
+	moduleBuildFlagNoBuild   = "no-build"
 
 	mlTrainingFlagPath      = "path"
 	mlTrainingFlagName      = "name"
@@ -1409,6 +1410,10 @@ Example:
 						&cli.BoolFlag{
 							Name:  moduleBuildRestartOnly,
 							Usage: "just restart the module on the target system, don't do other reload steps",
+						},
+						&cli.BoolFlag{
+							Name:  moduleBuildFlagNoBuild,
+							Usage: "don't do build step",
 						},
 					},
 					Action: ReloadModuleAction,

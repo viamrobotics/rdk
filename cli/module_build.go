@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"os"
@@ -81,19 +82,15 @@ func (c *viamClient) moduleBuildStartAction(cCtx *cli.Context) error {
 
 // ModuleBuildLocalAction runs the module's build commands locally.
 func ModuleBuildLocalAction(cCtx *cli.Context) error {
-	c, err := newViamClient(cCtx)
-	if err != nil {
-		return err
-	}
-	return c.moduleBuildLocalAction(cCtx)
-}
-
-func (c *viamClient) moduleBuildLocalAction(cCtx *cli.Context) error {
 	manifestPath := cCtx.String(moduleFlagPath)
 	manifest, err := loadManifest(manifestPath)
 	if err != nil {
 		return err
 	}
+	return moduleBuildLocalAction(cCtx, &manifest)
+}
+
+func moduleBuildLocalAction(cCtx *cli.Context, manifest *moduleManifest) error {
 	if manifest.Build == nil || manifest.Build.Build == "" {
 		return errors.New("your meta.json cannot have an empty build step. See 'viam module build --help' for more information")
 	}
@@ -110,14 +107,14 @@ func (c *viamClient) moduleBuildLocalAction(cCtx *cli.Context) error {
 		infof(cCtx.App.Writer, "Starting setup step: %q", manifest.Build.Setup)
 		processConfig.Args = []string{"-c", manifest.Build.Setup}
 		proc := pexec.NewManagedProcess(processConfig, logger.AsZap())
-		if err = proc.Start(cCtx.Context); err != nil {
+		if err := proc.Start(cCtx.Context); err != nil {
 			return err
 		}
 	}
 	infof(cCtx.App.Writer, "Starting build step: %q", manifest.Build.Build)
 	processConfig.Args = []string{"-c", manifest.Build.Build}
 	proc := pexec.NewManagedProcess(processConfig, logger.AsZap())
-	if err = proc.Start(cCtx.Context); err != nil {
+	if err := proc.Start(cCtx.Context); err != nil {
 		return err
 	}
 	infof(cCtx.App.Writer, "Completed build")
@@ -395,10 +392,21 @@ func jobStatusFromProto(s buildpb.JobStatus) jobStatus {
 
 // ReloadModuleAction builds a module, configures it on a robot, and starts or restarts it.
 func ReloadModuleAction(c *cli.Context) error {
-	if !c.Bool(moduleBuildRestartOnly) {
-		return fmt.Errorf("only %s mode is supported for now", moduleBuildRestartOnly)
+	vc, err := newViamClient(c)
+	if err != nil {
+		return err
 	}
-	partID, err := resolvePartID(c, "/etc/viam.json")
+	return reloadModuleAction(c, vc)
+}
+
+// reloadModuleAction is the testable inner reload logic.
+func reloadModuleAction(c *cli.Context, vc *viamClient) error {
+	if len(c.String(partFlag)) > 0 && !c.Bool(moduleBuildRestartOnly) {
+		// todo: remove this warning after remote reloading
+		warningf(c.App.Writer,
+			"You have passed in a part ID -- if it's for a remote device and your module isn't in the expected path, this will fail")
+	}
+	partID, err := resolvePartID(c.Context, c.String(partFlag), "/etc/viam.json")
 	if err != nil {
 		return err
 	}
@@ -406,23 +414,46 @@ func ReloadModuleAction(c *cli.Context) error {
 	if err != nil {
 		return err
 	}
-	vc, err := newViamClient(c)
+	part, err := vc.getRobotPart(partID)
 	if err != nil {
 		return err
 	}
-	return restartModule(c, vc, partID, manifest)
+	// note: configureModule and restartModule signal the robot via different channels.
+	// Running this command in rapid succession can cause an extra restart because the
+	// CLI will see configuration changes before the robot, and skip to the needsRestart
+	// case on the second call. Because these are triggered by user actions, we're okay
+	// with this behavior, and the robot will eventually converge to what is in config.
+	needsRestart := true
+	if !c.Bool(moduleBuildRestartOnly) {
+		if !c.Bool(moduleBuildFlagNoBuild) {
+			if manifest == nil {
+				return fmt.Errorf(`manifest not found at "%s". manifest required for build`, moduleFlagPath)
+			}
+			err = moduleBuildLocalAction(c, manifest)
+			if err != nil {
+				return err
+			}
+		}
+		needsRestart, err = configureModule(c, vc, manifest, part.Part)
+		if err != nil {
+			return err
+		}
+	}
+	if needsRestart {
+		return restartModule(c, vc, part.Part, manifest)
+	}
+	return nil
 }
 
-// resolvePartID takes an optional provided part ID and an optional default viam.json, and returns a part ID to use.
-func resolvePartID(c *cli.Context, cloudJSON string) (string, error) {
-	partID := c.String(partFlag)
-	if len(partID) > 0 {
-		return partID, nil
+// resolvePartID takes an optional provided part ID (from partFlag), and an optional default viam.json, and returns a part ID to use.
+func resolvePartID(ctx context.Context, partIDFromFlag, cloudJSON string) (string, error) {
+	if len(partIDFromFlag) > 0 {
+		return partIDFromFlag, nil
 	}
 	if len(cloudJSON) == 0 {
 		return "", errors.New("no --part and no default json")
 	}
-	conf, err := rdkConfig.ReadLocalConfig(c.Context, cloudJSON, logging.Global())
+	conf, err := rdkConfig.ReadLocalConfig(ctx, cloudJSON, logging.NewLogger("config"))
 	if err != nil {
 		return "", err
 	}
@@ -447,7 +478,8 @@ func resolveTargetModule(c *cli.Context, manifest *moduleManifest) (*robot.Resta
 	} else if len(modID) > 0 {
 		request.ModuleID = modID
 	} else if manifest != nil {
-		request.ModuleID = manifest.ModuleID
+		// TODO(APP-4019): remove localize call
+		request.ModuleName = localizeModuleID(manifest.ModuleID)
 	} else {
 		return nil, fmt.Errorf("if there is no meta.json, provide one of --%s or --%s", moduleFlagName, moduleBuildFlagBuildID)
 	}
@@ -455,8 +487,7 @@ func resolveTargetModule(c *cli.Context, manifest *moduleManifest) (*robot.Resta
 }
 
 // restartModule restarts a module on a robot.
-func restartModule(c *cli.Context, vc *viamClient, partID string, manifest *moduleManifest) error {
-	logger := logging.Global()
+func restartModule(c *cli.Context, vc *viamClient, part *apppb.RobotPart, manifest *moduleManifest) error {
 	restartReq, err := resolveTargetModule(c, manifest)
 	if err != nil {
 		return err
@@ -464,11 +495,7 @@ func restartModule(c *cli.Context, vc *viamClient, partID string, manifest *modu
 	if err := vc.ensureLoggedIn(); err != nil {
 		return err
 	}
-	part, err := vc.client.GetRobotPart(c.Context, &apppb.GetRobotPartRequest{Id: partID})
-	if err != nil {
-		return err
-	}
-	apiRes, err := vc.client.GetRobotAPIKeys(c.Context, &apppb.GetRobotAPIKeysRequest{RobotId: part.Part.Robot})
+	apiRes, err := vc.client.GetRobotAPIKeys(c.Context, &apppb.GetRobotAPIKeysRequest{RobotId: part.Robot})
 	if err != nil {
 		return err
 	}
@@ -476,19 +503,17 @@ func restartModule(c *cli.Context, vc *viamClient, partID string, manifest *modu
 		return errors.New("API keys list for this machine is empty. You can create one with \"viam machine api-key create\"")
 	}
 	key := apiRes.ApiKeys[0]
-	if len(key.Authorizations) == 0 || key.Authorizations[0].AuthorizationType != "robot" {
-		logger.Warnf("key 0 authorization is \"%s\", not \"robot\"; this command may fail", key.Authorizations[0].AuthorizationType)
-	}
-	logger.Debugf("using API key: %s %s", key.ApiKey.Id, key.ApiKey.Name)
+	debugf(c.App.Writer, c.Bool(debugFlag), "using API key: %s %s", key.ApiKey.Id, key.ApiKey.Name)
 	creds := rpc.WithEntityCredentials(key.ApiKey.Id, rpc.Credentials{
 		Type:    rpc.CredentialsTypeAPIKey,
 		Payload: key.ApiKey.Key,
 	})
-	robotClient, err := client.New(c.Context, part.Part.Fqdn, logger, client.WithDialOptions(creds))
+	robotClient, err := client.New(c.Context, part.Fqdn, logging.NewLogger("robot"), client.WithDialOptions(creds))
 	if err != nil {
 		return err
 	}
 	defer robotClient.Close(c.Context) //nolint: errcheck
+	debugf(c.App.Writer, c.Bool(debugFlag), "restarting module %v", restartReq)
 	// todo: make this a stream so '--wait' can tell user what's happening
 	return robotClient.RestartModule(c.Context, *restartReq)
 }
