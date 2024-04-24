@@ -291,12 +291,12 @@ func newWit(
 	}
 
 	portReader := bufio.NewReader(i.port)
-	i.startUpdateLoop(context.Background(), portReader, logger)
+	i.startUpdateLoop(portReader, logger)
 
 	return &i, nil
 }
 
-func (imu *wit) startUpdateLoop(ctx context.Context, portReader *bufio.Reader, logger logging.Logger) {
+func (imu *wit) startUpdateLoop(portReader *bufio.Reader, logger logging.Logger) {
 	imu.hasMagnetometer = false
 	imu.workers = rutils.NewStoppableWorkers(func(ctx context.Context) {
 		defer utils.UncheckedErrorFunc(func() error {
