@@ -233,7 +233,7 @@ func (s *serviceServer) StreamTicks(
 
 	defer func() {
 		for _, i := range interrupts {
-			pinwrappers.RemoveCallback(i, ticksChan)
+			i.RemoveCallback(ticksChan)
 		}
 	}()
 

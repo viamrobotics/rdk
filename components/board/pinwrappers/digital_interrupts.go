@@ -86,7 +86,7 @@ func AddCallback(i *BasicDigitalInterrupt, c chan board.Tick) {
 }
 
 // RemoveCallback removes a listener for interrupts.
-func RemoveCallback(i *board.DigitalInterrupt, c chan board.Tick) {
+func (i *BasicDigitalInterrupt) RemoveCallback(c chan board.Tick) {
 	i.mu.Lock()
 	defer i.mu.Unlock()
 	for id := range i.callbacks {
