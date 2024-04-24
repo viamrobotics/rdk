@@ -1788,9 +1788,9 @@ func TestRobotReconfigure(t *testing.T) {
 		b, err = board.FromRobot(robot, "board1")
 		test.That(t, err, test.ShouldBeNil)
 
-		_, ok = b.DigitalInterruptByName("encoder")
+		eA, ok = b.DigitalInterruptByName("encoder")
 		test.That(t, ok, test.ShouldBeTrue)
-		_, ok = b.DigitalInterruptByName("encoder-b")
+		eB, ok = b.DigitalInterruptByName("encoder-b")
 		test.That(t, ok, test.ShouldBeTrue)
 
 		m, err = motor.FromRobot(robot, "m1")
@@ -1903,9 +1903,9 @@ func TestRobotReconfigure(t *testing.T) {
 		b, err = board.FromRobot(robot, "board1")
 		test.That(t, err, test.ShouldBeNil)
 
-		_, ok = b.DigitalInterruptByName("encoder")
+		eA, ok = b.DigitalInterruptByName("encoder")
 		test.That(t, ok, test.ShouldBeTrue)
-		_, ok = b.DigitalInterruptByName("encoder-b")
+		eB, ok = b.DigitalInterruptByName("encoder-b")
 		test.That(t, ok, test.ShouldBeTrue)
 
 		m, err = motor.FromRobot(robot, "m1")
