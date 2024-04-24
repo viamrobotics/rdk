@@ -5,7 +5,6 @@ package pinwrappers
 import (
 	"context"
 	"errors"
-	"fmt"
 	"sync"
 	"sync/atomic"
 
@@ -79,7 +78,6 @@ func (i *BasicDigitalInterrupt) Tick(ctx context.Context, high bool, nanoseconds
 
 // AddCallback adds a listener for interrupts.
 func AddCallback(i *BasicDigitalInterrupt, c chan board.Tick) {
-	fmt.Println("in basic digital interrupt add callback")
 	i.mu.Lock()
 	defer i.mu.Unlock()
 	i.callbacks = append(i.callbacks, c)

@@ -504,7 +504,6 @@ func (b *Board) WriteAnalog(ctx context.Context, pin string, value int32, extra 
 func (b *Board) StreamTicks(ctx context.Context, interrupts []board.DigitalInterrupt, ch chan board.Tick,
 	extra map[string]interface{},
 ) error {
-	fmt.Println("IN STREAM TICKS HERE GENERLIC LUNUX")
 	for _, i := range interrupts {
 		pinwrappers.AddCallback(i.(*pinwrappers.BasicDigitalInterrupt), ch)
 	}
