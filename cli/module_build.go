@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"os"
@@ -405,7 +406,7 @@ func reloadModuleAction(c *cli.Context, vc *viamClient) error {
 		warningf(c.App.Writer,
 			"You have passed in a part ID -- if it's for a remote device and your module isn't in the expected path, this will fail")
 	}
-	partID, err := resolvePartID(c, "/etc/viam.json")
+	partID, err := resolvePartID(c.Context, c.String(partFlag), "/etc/viam.json")
 	if err != nil {
 		return err
 	}
@@ -440,15 +441,14 @@ func reloadModuleAction(c *cli.Context, vc *viamClient) error {
 }
 
 // resolvePartID takes an optional provided part ID (from partFlag), and an optional default viam.json, and returns a part ID to use.
-func resolvePartID(c *cli.Context, cloudJSON string) (string, error) {
-	partID := c.String(partFlag)
-	if len(partID) > 0 {
-		return partID, nil
+func resolvePartID(ctx context.Context, partIDFromFlag, cloudJSON string) (string, error) {
+	if len(partIDFromFlag) > 0 {
+		return partIDFromFlag, nil
 	}
 	if len(cloudJSON) == 0 {
 		return "", errors.New("no --part and no default json")
 	}
-	conf, err := rdkConfig.ReadLocalConfig(c.Context, cloudJSON, logging.NewLogger("config"))
+	conf, err := rdkConfig.ReadLocalConfig(ctx, cloudJSON, logging.NewLogger("config"))
 	if err != nil {
 		return "", err
 	}
