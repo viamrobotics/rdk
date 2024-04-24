@@ -143,11 +143,6 @@ func (i *BasicDigitalInterrupt) Name() string {
 	return i.cfg.Name
 }
 
-// Close does nothing.
-func (i *BasicDigitalInterrupt) Close(ctx context.Context) error {
-	return nil
-}
-
 // Reconfigure reconfigures this digital interrupt.
 func (i *BasicDigitalInterrupt) Reconfigure(conf DigitalInterruptConfig) error {
 	i.mu.Lock()
@@ -224,10 +219,5 @@ func (i *ServoDigitalInterrupt) Reconfigure(conf DigitalInterruptConfig) error {
 	defer i.mu.Unlock()
 
 	i.cfg = conf
-	return nil
-}
-
-// Close does nothing.
-func (i *ServoDigitalInterrupt) Close(ctx context.Context) error {
 	return nil
 }
