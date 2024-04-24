@@ -34,7 +34,6 @@ const (
 type planManager struct {
 	*planner
 	frame                   *solverFrame
-	fs                      referenceframe.FrameSystem
 	activeBackgroundWorkers sync.WaitGroup
 
 	useTPspace bool
@@ -42,7 +41,6 @@ type planManager struct {
 
 func newPlanManager(
 	frame *solverFrame,
-	fs referenceframe.FrameSystem,
 	logger logging.Logger,
 	seed int,
 ) (*planManager, error) {
@@ -51,7 +49,7 @@ func newPlanManager(
 	if err != nil {
 		return nil, err
 	}
-	return &planManager{planner: p, frame: frame, fs: fs, useTPspace: len(frame.PTGSolvers()) > 0}, nil
+	return &planManager{planner: p, frame: frame, useTPspace: len(frame.PTGSolvers()) > 0}, nil
 }
 
 // PlanSingleWaypoint will solve the solver frame to one individual pose. If you have multiple waypoints to hit, call this multiple times.
@@ -521,7 +519,7 @@ func (pm *planManager) plannerSetupFromMoveRequest(
 
 	// find all geometries that are not moving but are in the frame system
 	staticRobotGeometries := make([]spatialmath.Geometry, 0)
-	frameSystemGeometries, err := referenceframe.FrameSystemGeometries(pm.fs, seedMap)
+	frameSystemGeometries, err := referenceframe.FrameSystemGeometries(pm.frame.fss, seedMap)
 	if err != nil {
 		return nil, err
 	}
@@ -534,7 +532,7 @@ func (pm *planManager) plannerSetupFromMoveRequest(
 	// Note that all obstacles in worldState are assumed to be static so it is ok to transform them into the world frame
 	// TODO(rb) it is bad practice to assume that the current inputs of the robot correspond to the passed in world state
 	// the state that observed the worldState should ultimately be included as part of the worldState message
-	worldGeometries, err := worldState.ObstaclesInWorldFrame(pm.fs, seedMap)
+	worldGeometries, err := worldState.ObstaclesInWorldFrame(pm.frame.fss, seedMap)
 	if err != nil {
 		return nil, err
 	}
@@ -775,7 +773,7 @@ func (pm *planManager) planRelativeWaypoint(ctx context.Context, request *PlanRe
 		pm.logger.Debug("$type,X,Y")
 		pm.logger.Debugf("$SG,%f,%f", startPose.Point().X, startPose.Point().Y)
 		pm.logger.Debugf("$SG,%f,%f", request.Goal.Pose().Point().X, request.Goal.Pose().Point().Y)
-		gifs, err := request.WorldState.ObstaclesInWorldFrame(pm.fs, request.StartConfiguration)
+		gifs, err := request.WorldState.ObstaclesInWorldFrame(pm.frame.fss, request.StartConfiguration)
 		if err == nil {
 			for _, geom := range gifs.Geometries() {
 				pts := geom.ToPoints(1.)

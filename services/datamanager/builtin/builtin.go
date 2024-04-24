@@ -55,6 +55,9 @@ const defaultCaptureBufferSize = 4096
 // Default time to wait in milliseconds to check if a file has been modified.
 const defaultFileLastModifiedMillis = 10000.0
 
+// Default time between disk size checks.
+const filesystemPollInterval = 30 * time.Second
+
 var clock = clk.New()
 
 var errCaptureDirectoryConfigurationDisabled = errors.New("changing the capture directory is prohibited in this environment")
@@ -129,6 +132,9 @@ type builtIn struct {
 	selectiveSyncEnabled bool
 
 	componentMethodFrequencyHz map[resourceMethodMetadata]float32
+
+	fileDeletionRoutineCancelFn   context.CancelFunc
+	fileDeletionBackgroundWorkers *sync.WaitGroup
 }
 
 var viamCaptureDotDir = filepath.Join(os.Getenv("HOME"), ".viam", "capture")
@@ -169,9 +175,17 @@ func (svc *builtIn) Close(_ context.Context) error {
 	if svc.syncRoutineCancelFn != nil {
 		svc.syncRoutineCancelFn()
 	}
+	if svc.fileDeletionRoutineCancelFn != nil {
+		svc.fileDeletionRoutineCancelFn()
+	}
 
 	svc.lock.Unlock()
 	svc.backgroundWorkers.Wait()
+
+	if svc.fileDeletionBackgroundWorkers != nil {
+		svc.fileDeletionBackgroundWorkers.Wait()
+	}
+
 	return nil
 }
 
@@ -425,6 +439,13 @@ func (svc *builtIn) Reconfigure(
 		svc.collectors = make(map[resourceMethodMetadata]*collectorAndConfig)
 	}
 
+	if svc.fileDeletionRoutineCancelFn != nil {
+		svc.fileDeletionRoutineCancelFn()
+	}
+	if svc.fileDeletionBackgroundWorkers != nil {
+		svc.fileDeletionBackgroundWorkers.Wait()
+	}
+
 	// Initialize or add collectors based on changes to the component configurations.
 	newCollectors := make(map[resourceMethodMetadata]*collectorAndConfig)
 	if !svc.captureDisabled {
@@ -472,6 +493,9 @@ func (svc *builtIn) Reconfigure(
 				}
 			}
 		}
+	} else {
+		svc.fileDeletionRoutineCancelFn = nil
+		svc.fileDeletionBackgroundWorkers = nil
 	}
 
 	// If a component/method has been removed from the config, close the collector.
@@ -532,6 +556,16 @@ func (svc *builtIn) Reconfigure(
 			svc.closeSyncer()
 		}
 	}
+	// if datacapture is enabled, kick off a go routine to check if disk space is filling due to
+	// cached datacapture files
+	if !svc.captureDisabled {
+		fileDeletionCtx, cancelFunc := context.WithCancel(context.Background())
+		svc.fileDeletionRoutineCancelFn = cancelFunc
+		svc.fileDeletionBackgroundWorkers = &sync.WaitGroup{}
+		svc.fileDeletionBackgroundWorkers.Add(1)
+		go pollFilesystem(fileDeletionCtx, svc.fileDeletionBackgroundWorkers, svc.captureDir, &svc.syncer, svc.logger)
+	}
+
 	return nil
 }
 
@@ -678,4 +712,26 @@ func (svc *builtIn) updateDataCaptureConfigs(
 
 func generateMetadataKey(component, method string) string {
 	return fmt.Sprintf("%s/%s", component, method)
+}
+
+//nolint:unparam
+func pollFilesystem(ctx context.Context, wg *sync.WaitGroup, captureDir string, syncer *datasync.Manager, logger logging.Logger) {
+	t := time.NewTicker(filesystemPollInterval)
+	defer t.Stop()
+	defer wg.Done()
+	for {
+		if err := ctx.Err(); err != nil {
+			if !errors.Is(err, context.Canceled) {
+				logger.Errorw("data manager context closed unexpectedly in filesystem polling", "error", err)
+			}
+			return
+		}
+		select {
+		case <-ctx.Done():
+			logger.Debug("Exiting fs polling thread")
+			return
+		case <-t.C:
+			logger.Debug("Polling")
+		}
+	}
 }

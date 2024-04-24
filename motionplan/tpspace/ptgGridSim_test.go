@@ -21,7 +21,7 @@ func TestSim(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		for i := uint(0); i < alphaCnt; i++ {
-			traj, err := grid.Trajectory(index2alpha(i, alphaCnt), simDist, resolution)
+			traj, err := grid.Trajectory(index2alpha(i, alphaCnt), 0, simDist, resolution)
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, traj, test.ShouldNotBeNil)
 		}

@@ -91,7 +91,8 @@ func TestComplexModule(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, ret1, test.ShouldBeFalse)
 
-		ret2, err := giz.DoOneClientStream(context.Background(), []string{"hello", "arg1", "foo"})
+		// also tests that the ForeignServiceHandler does not drop the first message
+		ret2, err := giz.DoOneClientStream(context.Background(), []string{"hello", "arg1", "arg1"})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, ret2, test.ShouldBeFalse)
 
@@ -105,11 +106,11 @@ func TestComplexModule(t *testing.T) {
 
 		ret3, err = giz.DoOneBiDiStream(context.Background(), []string{"hello", "arg1", "foo"})
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, ret3, test.ShouldResemble, []bool{true, false})
+		test.That(t, ret3, test.ShouldResemble, []bool{false, true, false})
 
 		ret3, err = giz.DoOneBiDiStream(context.Background(), []string{"arg1", "arg1", "arg1"})
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, ret3, test.ShouldResemble, []bool{true, true})
+		test.That(t, ret3, test.ShouldResemble, []bool{true, true, true})
 	})
 
 	// Summation is a custom service model and API.

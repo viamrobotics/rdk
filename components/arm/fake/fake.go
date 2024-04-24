@@ -111,9 +111,16 @@ func (a *Arm) Reconfigure(ctx context.Context, deps resource.Dependencies, conf 
 		return err
 	}
 
+	dof := len(model.DoF())
+	if dof == 0 {
+		a.logger.Info("fake arm built with zero degrees-of-freedom, nothing will show up on the Control tab " +
+			"you have either given a kinematics file that resulted in a zero degrees-of-freedom arm or omitted both" +
+			"the arm-model and model-path from attributes")
+	}
+
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	a.joints = &pb.JointPositions{Values: make([]float64, len(model.DoF()))}
+	a.joints = &pb.JointPositions{Values: make([]float64, dof)}
 	a.model = model
 
 	return nil

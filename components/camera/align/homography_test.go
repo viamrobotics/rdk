@@ -65,7 +65,7 @@ func TestAlignHomography(t *testing.T) {
 	homConf.CameraParameters = &transform.PinholeCameraIntrinsics{Width: -1, Height: -1}
 	_, err = newColorDepthHomography(context.Background(), colorVideoSrc, depthVideoSrc, homConf, logger)
 	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "Got illegal dimensions")
+	test.That(t, err.Error(), test.ShouldContainSubstring, "got illegal")
 
 	homConf.Homography = nil
 	_, err = newColorDepthHomography(context.Background(), colorVideoSrc, depthVideoSrc, homConf, logger)

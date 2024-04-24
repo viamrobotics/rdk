@@ -52,3 +52,9 @@ func TestSafeRand(t *testing.T) {
 	source := rand.New(rand.NewSource(0))
 	test.That(t, instance.Float64(), test.ShouldEqual, source.Float64())
 }
+
+func TestFindInSlice(t *testing.T) {
+	filtered := FindInSlice([]int{1, 2, 3}, func(x int) bool { return x > 2 })
+	test.That(t, filtered, test.ShouldNotBeNil)
+	test.That(t, *filtered, test.ShouldEqual, 3)
+}

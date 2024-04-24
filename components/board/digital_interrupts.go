@@ -36,5 +36,6 @@ type DigitalInterrupt interface {
 	// RemoveCallback removes a listener for interrupts.
 	RemoveCallback(c chan Tick)
 
-	Close(ctx context.Context) error
+	// Name returns the name of the interrupt.
+	Name() string
 }
