@@ -1562,7 +1562,6 @@ func TestRobotReconfigure(t *testing.T) {
 
 		test.That(t, fakeboard.Tick(
 			context.Background(), eB.(*fakeboard.DigitalInterruptWrapper), false, uint64(time.Now().UnixNano())), test.ShouldBeNil)
-		time.Sleep(2 * time.Second)
 		test.That(t, fakeboard.Tick(
 			context.Background(), eA.(*fakeboard.DigitalInterruptWrapper), false, uint64(time.Now().UnixNano())), test.ShouldBeNil)
 
