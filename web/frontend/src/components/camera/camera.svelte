@@ -31,14 +31,15 @@ const viewCameraFrame = (time: number) => {
   if (time > 0) {
     cameraFrameIntervalId = window.setInterval(
       async () => {
-        if (operationActive) return;
-        operationActive = true;
+        if (operationActive) {
+          return;
+        }
+        operationActive = true; // eslint-disable-line require-atomic-updates
         try {
           await cameraManager.setImageSrc(imgEl);
         } finally {
-          operationActive = false;
+          operationActive = false; // eslint-disable-line require-atomic-updates
         }
-
       },
       Number(time) * 1000
     );
@@ -46,10 +47,10 @@ const viewCameraFrame = (time: number) => {
 };
 
 const updateCameraRefreshRate = () => {
-  if (refreshRate !== 'Live') {
-    viewCameraFrame(selectedMap[refreshRate as keyof typeof selectedMap]);
-  } else {
+  if (refreshRate === 'Live') {
     clearFrameInterval();
+  } else {
+    viewCameraFrame(selectedMap[refreshRate as keyof typeof selectedMap]);
   }
 };
 
@@ -75,7 +76,10 @@ useConnect(() => {
 // Refresh camera when the trigger changes
 let lastTriggerRefresh = triggerRefresh;
 let lastRefreshRate = refreshRate;
-$: if (lastTriggerRefresh !== triggerRefresh || lastRefreshRate !== refreshRate) {
+$: if (
+  lastTriggerRefresh !== triggerRefresh ||
+  lastRefreshRate !== refreshRate
+) {
   lastTriggerRefresh = triggerRefresh;
   lastRefreshRate = refreshRate;
   updateCameraRefreshRate();
