@@ -62,9 +62,7 @@ func TestFullReloadFlow(t *testing.T) {
 	}, nil, &inject.BuildServiceClient{},
 		map[string]any{moduleBuildFlagPath: manifestPath, partFlag: "part-123", moduleBuildFlagNoBuild: true}, "token")
 	test.That(t, vc.loginAction(cCtx), test.ShouldBeNil)
-	globalTestClient = vc
-	t.Cleanup(func() { globalTestClient = nil })
-	err = ReloadModuleAction(cCtx)
+	err = reloadModuleAction(cCtx, vc)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, updateCount, test.ShouldEqual, 1)
 }

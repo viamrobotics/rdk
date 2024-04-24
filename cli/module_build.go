@@ -391,6 +391,15 @@ func jobStatusFromProto(s buildpb.JobStatus) jobStatus {
 
 // ReloadModuleAction builds a module, configures it on a robot, and starts or restarts it.
 func ReloadModuleAction(c *cli.Context) error {
+	vc, err := newViamClient(c)
+	if err != nil {
+		return err
+	}
+	return reloadModuleAction(c, vc)
+}
+
+// reloadModuleAction is the testable inner reload logic.
+func reloadModuleAction(c *cli.Context, vc *viamClient) error {
 	if len(c.String(partFlag)) > 0 && !c.Bool(moduleBuildRestartOnly) {
 		// todo: remove this warning after remote reloading
 		warningf(c.App.Writer,
@@ -401,10 +410,6 @@ func ReloadModuleAction(c *cli.Context) error {
 		return err
 	}
 	manifest, err := loadManifestOrNil(c.String(moduleFlagPath))
-	if err != nil {
-		return err
-	}
-	vc, err := newViamClient(c)
 	if err != nil {
 		return err
 	}
