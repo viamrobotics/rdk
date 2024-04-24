@@ -46,7 +46,7 @@ func configureModule(c *cli.Context, vc *viamClient, manifest *moduleManifest, p
 	}
 	partMap["modules"] = modulesAsInterfaces
 	if dirty {
-		debugf(c, "writing back config changes")
+		debugf(c.App.Writer, c.Bool(debugFlag), "writing back config changes")
 		err = vc.updateRobotPart(part, partMap)
 		if err != nil {
 			return false, err
@@ -80,7 +80,7 @@ func mutateModuleConfig(c *cli.Context, modules []ModuleMap, manifest moduleMani
 	}
 
 	if foundMod == nil {
-		debugf(c, "module not found, inserting")
+		debugf(c.App.Writer, c.Bool(debugFlag), "module not found, inserting")
 		dirty = true
 		newMod := ModuleMap(map[string]any{
 			"name":            localName,
@@ -90,11 +90,11 @@ func mutateModuleConfig(c *cli.Context, modules []ModuleMap, manifest moduleMani
 		modules = append(modules, newMod)
 	} else {
 		if same, err := samePath(getMapString(foundMod, "executable_path"), absEntrypoint); err != nil {
-			debugf(c, "ExePath is right, doing nothing")
+			debugf(c.App.Writer, c.Bool(debugFlag), "ExePath is right, doing nothing")
 			return nil, dirty, err
 		} else if !same {
 			dirty = true
-			debugf(c, "replacing entrypoint")
+			debugf(c.App.Writer, c.Bool(debugFlag), "replacing entrypoint")
 			if getMapString(foundMod, "type") == string(rdkConfig.ModuleTypeRegistry) {
 				// warning: there's a chance of inserting a dupe name here in odd cases
 				warningf(c.App.Writer, "you're replacing a registry module. we're converting it to a local module")

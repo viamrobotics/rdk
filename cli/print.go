@@ -9,7 +9,6 @@ import (
 	"unicode/utf8"
 
 	"github.com/fatih/color"
-	"github.com/urfave/cli/v2"
 )
 
 const asciiViam = `
@@ -28,14 +27,14 @@ func printf(w io.Writer, format string, a ...interface{}) {
 }
 
 // debugf prints a message prefixed with a bold grey "Debug: ".
-func debugf(c *cli.Context, format string, a ...interface{}) {
-	if !c.Bool(debugFlag) {
+func debugf(w io.Writer, debugMode bool, format string, a ...interface{}) {
+	if !debugMode {
 		return
 	}
-	if _, err := color.New(color.Bold, color.FgHiBlack).Fprint(c.App.Writer, "Debug: "); err != nil {
+	if _, err := color.New(color.Bold, color.FgHiBlack).Fprint(w, "Debug: "); err != nil {
 		log.Fatal(err)
 	}
-	fmt.Fprintf(c.App.Writer, format+"\n", a...)
+	fmt.Fprintf(w, format+"\n", a...)
 }
 
 // infof prints a message prefixed with a bold cyan "Info: ".

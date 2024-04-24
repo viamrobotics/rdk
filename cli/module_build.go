@@ -503,7 +503,7 @@ func restartModule(c *cli.Context, vc *viamClient, part *apppb.RobotPart, manife
 		return errors.New("API keys list for this machine is empty. You can create one with \"viam machine api-key create\"")
 	}
 	key := apiRes.ApiKeys[0]
-	debugf(c, "using API key: %s %s", key.ApiKey.Id, key.ApiKey.Name)
+	debugf(c.App.Writer, c.Bool(debugFlag), "using API key: %s %s", key.ApiKey.Id, key.ApiKey.Name)
 	creds := rpc.WithEntityCredentials(key.ApiKey.Id, rpc.Credentials{
 		Type:    rpc.CredentialsTypeAPIKey,
 		Payload: key.ApiKey.Key,
@@ -513,7 +513,7 @@ func restartModule(c *cli.Context, vc *viamClient, part *apppb.RobotPart, manife
 		return err
 	}
 	defer robotClient.Close(c.Context) //nolint: errcheck
-	debugf(c, "restarting module %v", restartReq)
+	debugf(c.App.Writer, c.Bool(debugFlag), "restarting module %v", restartReq)
 	// todo: make this a stream so '--wait' can tell user what's happening
 	return robotClient.RestartModule(c.Context, *restartReq)
 }
