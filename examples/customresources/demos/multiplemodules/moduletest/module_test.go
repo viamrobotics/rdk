@@ -28,7 +28,7 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
-func TestComplexModules(t *testing.T) {
+func TestMultipleModules(t *testing.T) {
 	logger, observer := logging.NewObservedTestLogger(t)
 
 	var port int
@@ -82,7 +82,12 @@ func TestComplexModules(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, ret1, test.ShouldBeTrue)
 
+		// also tests that the ForeignServiceHandler does not drop the first message
 		ret2, err := giz.DoOneClientStream(context.Background(), []string{"1.0", "2.0", "3.0"})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, ret2, test.ShouldBeFalse)
+
+		ret2, err = giz.DoOneClientStream(context.Background(), []string{"0", "2.0", "3.0"})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, ret2, test.ShouldBeTrue)
 
@@ -92,7 +97,7 @@ func TestComplexModules(t *testing.T) {
 
 		ret3, err = giz.DoOneBiDiStream(context.Background(), []string{"1.0", "2.0", "3.0"})
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, ret3, test.ShouldResemble, []bool{true, true})
+		test.That(t, ret3, test.ShouldResemble, []bool{true, true, true})
 
 		ret4, err := giz.DoTwo(context.Background(), true)
 		test.That(t, err, test.ShouldBeNil)
