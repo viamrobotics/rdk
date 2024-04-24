@@ -22,6 +22,9 @@ func configureModule(c *cli.Context, vc *viamClient, manifest *moduleManifest, p
 		return false, fmt.Errorf("reconfiguration requires valid manifest json passed to --%s", moduleFlagPath)
 	}
 	partMap := part.RobotConfig.AsMap()
+	if _, ok := partMap["modules"]; !ok {
+		partMap["modules"] = make([]any, 0)
+	}
 	modules, err := mapOver(
 		partMap["modules"].([]any),
 		func(raw any) (ModuleMap, error) { return ModuleMap(raw.(map[string]any)), nil },

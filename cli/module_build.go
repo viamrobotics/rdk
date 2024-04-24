@@ -513,6 +513,7 @@ func restartModule(c *cli.Context, vc *viamClient, part *apppb.RobotPart, manife
 		return err
 	}
 	defer robotClient.Close(c.Context) //nolint: errcheck
+	debugf(c, "restarting module %v", restartReq)
 	// todo: make this a stream so '--wait' can tell user what's happening
 	return robotClient.RestartModule(c.Context, *restartReq)
 }
