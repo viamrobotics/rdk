@@ -28,7 +28,7 @@ var (
 	InitialWaitTimeMillis = atomic.NewInt32(1000)
 	// RetryExponentialFactor defines the factor by which the retry wait time increases.
 	RetryExponentialFactor = atomic.NewInt32(2)
-	maxRetryInterval       = time.Hour
+	maxRetryInterval       = 24 * time.Hour
 )
 
 // FailedDir is a subdirectory of the capture directory that holds any files that could not be synced.
