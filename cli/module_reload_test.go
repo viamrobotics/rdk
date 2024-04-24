@@ -32,8 +32,8 @@ func TestConfigureModule(t *testing.T) {
 
 func TestFullReloadFlow(t *testing.T) {
 	manifestPath := createTestManifest(t, "")
-	confStruct, err := structpb.NewStruct(map[string]interface{}{
-		"modules": []interface{}{},
+	confStruct, err := structpb.NewStruct(map[string]any{
+		"modules": []any{},
 	})
 	test.That(t, err, test.ShouldBeNil)
 	updateCount := 0

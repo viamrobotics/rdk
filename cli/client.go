@@ -959,7 +959,7 @@ func (c *viamClient) getRobotPart(partID string) (*apppb.GetRobotPartResponse, e
 	return c.client.GetRobotPart(c.c.Context, &apppb.GetRobotPartRequest{Id: partID})
 }
 
-func (c *viamClient) updateRobotPart(part *apppb.RobotPart, confMap map[string]interface{}) error {
+func (c *viamClient) updateRobotPart(part *apppb.RobotPart, confMap map[string]any) error {
 	if err := c.ensureLoggedIn(); err != nil {
 		return err
 	}

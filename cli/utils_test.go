@@ -19,7 +19,7 @@ func TestSamePath(t *testing.T) {
 }
 
 func TestGetMapString(t *testing.T) {
-	m := map[string]interface{}{
+	m := map[string]any{
 		"x": "x",
 		"y": 10,
 	}

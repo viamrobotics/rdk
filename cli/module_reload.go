@@ -14,7 +14,7 @@ import (
 // ModuleMap is a type alias to indicate where a map represents a module config.
 // We don't convert to rdkConfig.Module because it can get out of date with what's in the db.
 // Using maps directly also saves a lot of high-maintenance ser/des work.
-type ModuleMap map[string]interface{}
+type ModuleMap map[string]any
 
 // configureModule is the configuration step of module reloading. Returns (needsRestart, error).
 func configureModule(vc *viamClient, manifest *moduleManifest, part *apppb.RobotPart) (bool, error) {
@@ -24,8 +24,8 @@ func configureModule(vc *viamClient, manifest *moduleManifest, part *apppb.Robot
 	}
 	partMap := part.RobotConfig.AsMap()
 	modules, err := mapOver(
-		partMap["modules"].([]interface{}),
-		func(raw interface{}) (ModuleMap, error) { return ModuleMap(raw.(map[string]interface{})), nil },
+		partMap["modules"].([]any),
+		func(raw any) (ModuleMap, error) { return ModuleMap(raw.(map[string]any)), nil },
 	)
 	if err != nil {
 		return false, err
@@ -35,9 +35,9 @@ func configureModule(vc *viamClient, manifest *moduleManifest, part *apppb.Robot
 	if err != nil {
 		return false, err
 	}
-	// note: converting to interface{} or else proto serializer will fail downstream in NewStruct.
-	modulesAsInterfaces, err := mapOver(modules, func(mod ModuleMap) (interface{}, error) {
-		return map[string]interface{}(mod), nil
+	// note: converting to any or else proto serializer will fail downstream in NewStruct.
+	modulesAsInterfaces, err := mapOver(modules, func(mod ModuleMap) (any, error) {
+		return map[string]any(mod), nil
 	})
 	if err != nil {
 		return false, err
@@ -81,7 +81,7 @@ func mutateModuleConfig(modules []ModuleMap, manifest moduleManifest) ([]ModuleM
 	if foundMod == nil {
 		logger.Debug("module not found, inserting")
 		dirty = true
-		newMod := ModuleMap(map[string]interface{}{
+		newMod := ModuleMap(map[string]any{
 			"name":            localName,
 			"executable_path": absEntrypoint,
 			"type":            string(rdkConfig.ModuleTypeLocal),
