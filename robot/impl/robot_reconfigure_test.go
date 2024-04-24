@@ -2853,23 +2853,18 @@ func TestRemoteRobotsUpdate(t *testing.T) {
 	expectedSet := rdktestutils.NewResourceNameSet(
 		motion.Named(resource.DefaultServiceName),
 		sensors.Named(resource.DefaultServiceName),
-		datamanager.Named(resource.DefaultServiceName),
 		arm.Named("foo:arm1"),
 		motion.Named("foo:builtin"),
 		sensors.Named("foo:builtin"),
-		datamanager.Named("foo:builtin"),
 		arm.Named("bar:arm1"),
 		motion.Named("bar:builtin"),
 		sensors.Named("bar:builtin"),
-		datamanager.Named("bar:builtin"),
 		arm.Named("hello:arm1"),
 		motion.Named("hello:builtin"),
 		sensors.Named("hello:builtin"),
-		datamanager.Named("hello:builtin"),
 		arm.Named("world:arm1"),
 		motion.Named("world:builtin"),
 		sensors.Named("world:builtin"),
-		datamanager.Named("world:builtin"),
 	)
 	testutils.WaitForAssertionWithSleep(t, time.Millisecond*100, 300, func(tb testing.TB) {
 		test.That(tb, rdktestutils.NewResourceNameSet(r.ResourceNames()...), test.ShouldResemble, expectedSet)
@@ -2890,7 +2885,6 @@ func TestRemoteRobotsUpdate(t *testing.T) {
 			rdktestutils.NewResourceNameSet(
 				motion.Named(resource.DefaultServiceName),
 				sensors.Named(resource.DefaultServiceName),
-				datamanager.Named(resource.DefaultServiceName),
 			),
 		)
 	})
@@ -2947,12 +2941,10 @@ func TestInferRemoteRobotDependencyConnectAtStartup(t *testing.T) {
 		rdktestutils.NewResourceNameSet(
 			motion.Named(resource.DefaultServiceName),
 			sensors.Named(resource.DefaultServiceName),
-			datamanager.Named(resource.DefaultServiceName),
 			arm.Named("arm1"),
 			arm.Named("foo:pieceArm"),
 			motion.Named("foo:builtin"),
 			sensors.Named("foo:builtin"),
-			datamanager.Named("foo:builtin"),
 		),
 	)
 
@@ -2964,12 +2956,10 @@ func TestInferRemoteRobotDependencyConnectAtStartup(t *testing.T) {
 	expectedSet := rdktestutils.NewResourceNameSet(
 		motion.Named(resource.DefaultServiceName),
 		sensors.Named(resource.DefaultServiceName),
-		datamanager.Named(resource.DefaultServiceName),
 		arm.Named("arm1"),
 		arm.Named("foo:pieceArm"),
 		motion.Named("foo:builtin"),
 		sensors.Named("foo:builtin"),
-		datamanager.Named("foo:builtin"),
 	)
 
 	testutils.WaitForAssertionWithSleep(t, time.Millisecond*100, 300, func(tb testing.TB) {
@@ -2987,7 +2977,6 @@ func TestInferRemoteRobotDependencyConnectAtStartup(t *testing.T) {
 			rdktestutils.NewResourceNameSet(
 				motion.Named(resource.DefaultServiceName),
 				sensors.Named(resource.DefaultServiceName),
-				datamanager.Named(resource.DefaultServiceName),
 			),
 		)
 	})
@@ -3061,7 +3050,6 @@ func TestInferRemoteRobotDependencyConnectAfterStartup(t *testing.T) {
 		rdktestutils.NewResourceNameSet(
 			motion.Named(resource.DefaultServiceName),
 			sensors.Named(resource.DefaultServiceName),
-			datamanager.Named(resource.DefaultServiceName),
 		),
 	)
 	err := foo.StartWeb(ctx, options)
@@ -3075,12 +3063,10 @@ func TestInferRemoteRobotDependencyConnectAfterStartup(t *testing.T) {
 	expectedSet := rdktestutils.NewResourceNameSet(
 		motion.Named(resource.DefaultServiceName),
 		sensors.Named(resource.DefaultServiceName),
-		datamanager.Named(resource.DefaultServiceName),
 		arm.Named("arm1"),
 		arm.Named("foo:pieceArm"),
 		motion.Named("foo:builtin"),
 		sensors.Named("foo:builtin"),
-		datamanager.Named("foo:builtin"),
 	)
 	testutils.WaitForAssertionWithSleep(t, time.Millisecond*100, 300, func(tb testing.TB) {
 		test.That(tb, rdktestutils.NewResourceNameSet(r.ResourceNames()...), test.ShouldResemble, expectedSet)
@@ -3097,7 +3083,6 @@ func TestInferRemoteRobotDependencyConnectAfterStartup(t *testing.T) {
 			rdktestutils.NewResourceNameSet(
 				motion.Named(resource.DefaultServiceName),
 				sensors.Named(resource.DefaultServiceName),
-				datamanager.Named(resource.DefaultServiceName),
 			),
 		)
 	})
@@ -3160,15 +3145,12 @@ func TestInferRemoteRobotDependencyAmbiguous(t *testing.T) {
 	expectedSet := rdktestutils.NewResourceNameSet(
 		motion.Named(resource.DefaultServiceName),
 		sensors.Named(resource.DefaultServiceName),
-		datamanager.Named(resource.DefaultServiceName),
 		arm.Named("foo:pieceArm"),
 		motion.Named("foo:builtin"),
 		sensors.Named("foo:builtin"),
-		datamanager.Named("foo:builtin"),
 		arm.Named("bar:pieceArm"),
 		motion.Named("bar:builtin"),
 		sensors.Named("bar:builtin"),
-		datamanager.Named("bar:builtin"),
 	)
 
 	test.That(t, rdktestutils.NewResourceNameSet(r.ResourceNames()...), test.ShouldResemble, expectedSet)
@@ -3211,15 +3193,12 @@ func TestInferRemoteRobotDependencyAmbiguous(t *testing.T) {
 	finalSet := rdktestutils.NewResourceNameSet(
 		motion.Named(resource.DefaultServiceName),
 		sensors.Named(resource.DefaultServiceName),
-		datamanager.Named(resource.DefaultServiceName),
 		arm.Named("foo:pieceArm"),
 		motion.Named("foo:builtin"),
 		sensors.Named("foo:builtin"),
-		datamanager.Named("foo:builtin"),
 		arm.Named("bar:pieceArm"),
 		motion.Named("bar:builtin"),
 		sensors.Named("bar:builtin"),
-		datamanager.Named("bar:builtin"),
 		arm.Named("arm1"),
 	)
 
