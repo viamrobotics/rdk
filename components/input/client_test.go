@@ -97,6 +97,11 @@ func TestClient(t *testing.T) {
 		inputController1Client, err := input.NewClientFromConn(context.Background(), conn, "", input.Named(testInputControllerName), logger)
 		test.That(t, err, test.ShouldBeNil)
 
+		defer func() {
+			test.That(t, inputController1Client.Close(context.Background()), test.ShouldBeNil)
+			test.That(t, conn.Close(), test.ShouldBeNil)
+		}()
+
 		// DoCommand
 		resp, err := inputController1Client.DoCommand(context.Background(), testutils.TestCommand)
 		test.That(t, err, test.ShouldBeNil)
@@ -232,9 +237,6 @@ func TestClient(t *testing.T) {
 		test.That(t, injectedEvent, test.ShouldResemble, event1)
 		test.That(t, extraOptions, test.ShouldResemble, extra)
 		injectInputController.TriggerEventFunc = nil
-
-		test.That(t, inputController1Client.Close(context.Background()), test.ShouldBeNil)
-		test.That(t, conn.Close(), test.ShouldBeNil)
 	})
 
 	t.Run("input controller client 2", func(t *testing.T) {
@@ -242,6 +244,11 @@ func TestClient(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		client2, err := resourceAPI.RPCClient(context.Background(), conn, "", input.Named(failInputControllerName), logger)
 		test.That(t, err, test.ShouldBeNil)
+
+		defer func() {
+			test.That(t, client2.Close(context.Background()), test.ShouldBeNil)
+			test.That(t, conn.Close(), test.ShouldBeNil)
+		}()
 
 		_, err = client2.Controls(context.Background(), map[string]interface{}{})
 		test.That(t, err, test.ShouldNotBeNil)
@@ -262,9 +269,6 @@ func TestClient(t *testing.T) {
 		err = injectable.TriggerEvent(context.Background(), event1, map[string]interface{}{})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "not of type Triggerable")
-
-		test.That(t, client2.Close(context.Background()), test.ShouldBeNil)
-		test.That(t, conn.Close(), test.ShouldBeNil)
 	})
 }
 
@@ -304,6 +308,11 @@ func TestClientRace(t *testing.T) {
 	inputController1Client, err := input.NewClientFromConn(context.Background(), conn, "", input.Named(testInputControllerName), logger)
 	test.That(t, err, test.ShouldBeNil)
 
+	defer func() {
+		test.That(t, inputController1Client.Close(context.Background()), test.ShouldBeNil)
+		test.That(t, conn.Close(), test.ShouldBeNil)
+	}()
+
 	extra := map[string]interface{}{"foo": "RegisterControlCallback"}
 	ctrlFuncIn := func(ctx context.Context, event input.Event) {}
 	err = inputController1Client.RegisterControlCallback(
@@ -332,7 +341,4 @@ func TestClientRace(t *testing.T) {
 		extra,
 	)
 	test.That(t, err, test.ShouldBeNil)
-
-	test.That(t, inputController1Client.Close(context.Background()), test.ShouldBeNil)
-	test.That(t, conn.Close(), test.ShouldBeNil)
 }

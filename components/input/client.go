@@ -31,8 +31,12 @@ type client struct {
 	streamHUP     bool
 	streamRunning bool
 	streamReady   bool
-	streamMu      sync.Mutex
-	mu            sync.RWMutex
+
+	// streamMu ensures that only one stream at most is active at any given time
+	streamMu sync.Mutex
+
+	// mu guards access to other members of the struct
+	mu sync.RWMutex
 
 	closeContext            context.Context
 	activeBackgroundWorkers sync.WaitGroup
