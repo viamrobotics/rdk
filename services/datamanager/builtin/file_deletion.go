@@ -3,18 +3,22 @@ package builtin
 import (
 	"errors"
 	"io/fs"
+	"math"
+	"os"
 	"path/filepath"
 	"strings"
 
 	"go.viam.com/rdk/logging"
 
 	"github.com/ricochet2200/go-disk-usage/du"
+	"go.viam.com/rdk/services/datamanager/datacapture"
 	"go.viam.com/rdk/services/datamanager/datasync"
 )
 
+// TODO change these values back to what they should be
 const (
-	fileDeletionThreshold    = .95
-	captureDirRatioThreshold = .5
+	fileDeletionThreshold    = .1
+	captureDirRatioThreshold = .01
 	n                        = 4
 )
 
@@ -23,6 +27,9 @@ var errAtSizeThreshold = errors.New("capture dir is at correct size")
 func checkFileSystemStats(captureDirPath string, logger logging.Logger) (bool, error) {
 	usage := du.NewDiskUsage(captureDirPath)
 	usedSpace := usage.Usage()
+	if math.IsNaN(float64(usedSpace)) {
+		return false, nil
+	}
 	if usedSpace < fileDeletionThreshold {
 		logger.Debug("Should exit thread, disk not full enough ignoring for now")
 		// return false, nil
@@ -33,22 +40,27 @@ func checkFileSystemStats(captureDirPath string, logger logging.Logger) (bool, e
 
 func checkCaptureDirSize(captureDirPath string, fsSize float64, logger logging.Logger) (bool, error) {
 	var dirSize int64 = 0
-	logger.Warn("checking size")
 
 	readSize := func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			if errors.Is(err, fs.ErrNotExist) {
+				return nil
+			}
+			return err
+		}
+
 		if !d.IsDir() {
 			fileInfo, err := d.Info()
 			if err != nil {
 				return err
 			}
-			// logger.Warn(fileInfo.Name())
 			dirSize += fileInfo.Size()
-			if float64(dirSize)/fsSize < captureDirRatioThreshold {
+			if float64(dirSize)/fsSize > captureDirRatioThreshold {
 				logger.Warnw("At threshold to delete, going to delete", "size", float64(dirSize)/fsSize, "threshold", captureDirRatioThreshold)
 				return errAtSizeThreshold
-			} //else {
-			// 	logger.Warnw("Not at threshold", "size", float64(dirSize)/fsSize, "threshold", captureDirRatioThreshold)
-			// }
+			} else {
+				logger.Debugw("Not at threshold", "size", float64(dirSize)/fsSize, "threshold", captureDirRatioThreshold)
+			}
 		}
 		return nil
 	}
@@ -62,6 +74,7 @@ func checkCaptureDirSize(captureDirPath string, fsSize float64, logger logging.L
 
 func deleteFiles(syncer datasync.Manager, captureDirPath string, logger logging.Logger) error {
 	index := 0
+	deletedFileCount := 0
 	delete := func(path string, d fs.DirEntry, err error) error {
 		if !d.IsDir() {
 			fileInfo, err := d.Info()
@@ -69,15 +82,16 @@ func deleteFiles(syncer datasync.Manager, captureDirPath string, logger logging.
 				return err
 			}
 			logger.Debug(fileInfo.Name())
-			isFileInProgress := strings.Contains(fileInfo.Name(), ".prog")
+			isFileInProgress := strings.Contains(fileInfo.Name(), datacapture.InProgressFileExt)
 			// if at nth file, the file is not currenlty being written, the syncer isnt nil and isnt uploading the file or there is no syncer
 			if index%n == 0 && !isFileInProgress && ((syncer != nil && syncer.MarkInProgress(path)) || syncer == nil) {
 				logger.Debugw("Deleting file ", "name", fileInfo.Name())
-				// err := os.Remove(path)
+				err := os.Remove(path)
 				if err != nil {
 					logger.Debugw("error deleting file", "error", err)
 					return err
 				}
+				deletedFileCount++
 			}
 			// only increment on completed files
 			if !isFileInProgress {
@@ -86,5 +100,7 @@ func deleteFiles(syncer datasync.Manager, captureDirPath string, logger logging.
 		}
 		return nil
 	}
-	return filepath.WalkDir(captureDirPath, delete)
+	err := filepath.WalkDir(captureDirPath, delete)
+	logger.Infof("%d files have been deleted to avoid the disk filling up", deletedFileCount)
+	return err
 }
