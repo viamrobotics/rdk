@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"io/fs"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -30,6 +31,11 @@ var (
 	Version      = ""
 	GitRevision  = ""
 	DateCompiled = ""
+)
+
+var (
+	errNoTLSCertificate = errors.New("no TLS certificate yet from cloud; try again later")
+	errNoTLSPrivateKey  = errors.New("no TLS private key yet from cloud; try again later")
 )
 
 const (
@@ -152,10 +158,10 @@ func readCertificateDataFromCloudGRPC(ctx context.Context,
 
 	if !signalingInsecure {
 		if res.TlsCertificate == "" {
-			return tlsConfig{}, errors.New("no TLS certificate yet from cloud; try again later")
+			return tlsConfig{}, errNoTLSCertificate
 		}
 		if res.TlsPrivateKey == "" {
-			return tlsConfig{}, errors.New("no TLS private key yet from cloud; try again later")
+			return tlsConfig{}, errNoTLSPrivateKey
 		}
 	}
 
@@ -252,6 +258,7 @@ func readFromCloud(
 		certificate: cfg.Cloud.TLSCertificate,
 		privateKey:  cfg.Cloud.TLSPrivateKey,
 	}
+
 	if !cached {
 		// Try to get TLS information from the cached config (if it exists) even if we
 		// got a new config from the cloud.
@@ -275,7 +282,7 @@ func readFromCloud(
 			if !errors.As(err, &context.DeadlineExceeded) {
 				return nil, err
 			}
-			if tls.certificate == "" || tls.privateKey == "" {
+			if errors.Is(err, errNoTLSCertificate) || errors.Is(err, errNoTLSPrivateKey) {
 				return nil, errors.Wrap(err, "error getting certificate data from cloud; try again later")
 			}
 			logger.Warnw("failed to refresh certificate data; using cached for now", "error", err)
@@ -331,14 +338,14 @@ type tlsConfig struct {
 func (tls *tlsConfig) readFromCache(id string, logger logging.Logger) error {
 	cachedCfg, err := readFromCache(id)
 	switch {
-	case os.IsNotExist(err):
+	case errors.Is(err, fs.ErrNotExist):
 		logger.Warn("No cached config, using cloud TLS config.")
 	case err != nil:
 		return err
 	case cachedCfg.Cloud == nil:
 		logger.Warn("Cached config is not a cloud config, using cloud TLS config.")
 	default:
-		if err := cachedCfg.Cloud.ValidateTLS("cloud"); err != nil {
+		if err := cachedCfg.Cloud.ValidateTLS("cloud"); err != nil && !cachedCfg.Cloud.SignalingInsecure {
 			logger.Warn("Detected failure to process the cached config when retrieving TLS config, clearing cache.")
 			clearCache(id)
 			return err
