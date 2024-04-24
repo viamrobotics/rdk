@@ -56,7 +56,7 @@ const defaultCaptureBufferSize = 4096
 const defaultFileLastModifiedMillis = 10000.0
 
 // Default time between disk size checks.
-const filesystemPollInterval = 10 * time.Second
+const filesystemPollInterval = 30 * time.Second
 
 var clock = clk.New()
 
@@ -731,12 +731,12 @@ func pollFilesystem(ctx context.Context, wg *sync.WaitGroup, captureDir string, 
 			return
 		case <-t.C:
 			logger.Debug("Polling")
-			shouldDelete, err := checkFileSystemStats(captureDir, logger)
+			shouldDelete, err := checkFileSystemStats(ctx, captureDir, logger)
 			if err != nil {
 				return
 			}
 			if shouldDelete {
-				deleteFiles(syncer, captureDir, logger)
+				deleteFiles(ctx, syncer, captureDir, logger)
 			}
 		}
 	}
