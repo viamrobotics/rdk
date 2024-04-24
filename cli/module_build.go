@@ -423,7 +423,7 @@ func ReloadModuleAction(c *cli.Context) error {
 				return err
 			}
 		}
-		needsRestart, err = configureModule(vc, manifest, part.Part)
+		needsRestart, err = configureModule(c, vc, manifest, part.Part)
 		if err != nil {
 			return err
 		}
@@ -443,7 +443,7 @@ func resolvePartID(c *cli.Context, cloudJSON string) (string, error) {
 	if len(cloudJSON) == 0 {
 		return "", errors.New("no --part and no default json")
 	}
-	conf, err := rdkConfig.ReadLocalConfig(c.Context, cloudJSON, logging.Global())
+	conf, err := rdkConfig.ReadLocalConfig(c.Context, cloudJSON, logging.NewLogger("config"))
 	if err != nil {
 		return "", err
 	}
@@ -478,7 +478,6 @@ func resolveTargetModule(c *cli.Context, manifest *moduleManifest) (*robot.Resta
 
 // restartModule restarts a module on a robot.
 func restartModule(c *cli.Context, vc *viamClient, part *apppb.RobotPart, manifest *moduleManifest) error {
-	logger := logging.Global()
 	restartReq, err := resolveTargetModule(c, manifest)
 	if err != nil {
 		return err
@@ -494,12 +493,12 @@ func restartModule(c *cli.Context, vc *viamClient, part *apppb.RobotPart, manife
 		return errors.New("API keys list for this machine is empty. You can create one with \"viam machine api-key create\"")
 	}
 	key := apiRes.ApiKeys[0]
-	logger.Debugf("using API key: %s %s", key.ApiKey.Id, key.ApiKey.Name)
+	debugf(c, "using API key: %s %s", key.ApiKey.Id, key.ApiKey.Name)
 	creds := rpc.WithEntityCredentials(key.ApiKey.Id, rpc.Credentials{
 		Type:    rpc.CredentialsTypeAPIKey,
 		Payload: key.ApiKey.Key,
 	})
-	robotClient, err := client.New(c.Context, part.Fqdn, logger, client.WithDialOptions(creds))
+	robotClient, err := client.New(c.Context, part.Fqdn, logging.NewLogger("robot"), client.WithDialOptions(creds))
 	if err != nil {
 		return err
 	}

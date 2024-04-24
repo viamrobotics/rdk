@@ -5,10 +5,10 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/urfave/cli/v2"
 	apppb "go.viam.com/api/app/v1"
 
 	rdkConfig "go.viam.com/rdk/config"
-	"go.viam.com/rdk/logging"
 )
 
 // ModuleMap is a type alias to indicate where a map represents a module config.
@@ -17,8 +17,7 @@ import (
 type ModuleMap map[string]any
 
 // configureModule is the configuration step of module reloading. Returns (needsRestart, error).
-func configureModule(vc *viamClient, manifest *moduleManifest, part *apppb.RobotPart) (bool, error) {
-	logger := logging.Global()
+func configureModule(c *cli.Context, vc *viamClient, manifest *moduleManifest, part *apppb.RobotPart) (bool, error) {
 	if manifest == nil {
 		return false, fmt.Errorf("reconfiguration requires valid manifest json passed to --%s", moduleFlagPath)
 	}
@@ -31,7 +30,7 @@ func configureModule(vc *viamClient, manifest *moduleManifest, part *apppb.Robot
 		return false, err
 	}
 
-	modules, dirty, err := mutateModuleConfig(modules, *manifest)
+	modules, dirty, err := mutateModuleConfig(c, modules, *manifest)
 	if err != nil {
 		return false, err
 	}
@@ -44,7 +43,7 @@ func configureModule(vc *viamClient, manifest *moduleManifest, part *apppb.Robot
 	}
 	partMap["modules"] = modulesAsInterfaces
 	if dirty {
-		logger.Debug("writing back config changes")
+		debugf(c, "writing back config changes")
 		err = vc.updateRobotPart(part, partMap)
 		if err != nil {
 			return false, err
@@ -61,9 +60,8 @@ func localizeModuleID(moduleID string) string {
 }
 
 // mutateModuleConfig edits the modules list to hot-reload with the given manifest.
-func mutateModuleConfig(modules []ModuleMap, manifest moduleManifest) ([]ModuleMap, bool, error) {
+func mutateModuleConfig(c *cli.Context, modules []ModuleMap, manifest moduleManifest) ([]ModuleMap, bool, error) {
 	var dirty bool
-	logger := logging.Global()
 	localName := localizeModuleID(manifest.ModuleID)
 	var foundMod ModuleMap
 	for _, mod := range modules {
@@ -79,7 +77,7 @@ func mutateModuleConfig(modules []ModuleMap, manifest moduleManifest) ([]ModuleM
 	}
 
 	if foundMod == nil {
-		logger.Debug("module not found, inserting")
+		debugf(c, "module not found, inserting")
 		dirty = true
 		newMod := ModuleMap(map[string]any{
 			"name":            localName,
@@ -89,14 +87,14 @@ func mutateModuleConfig(modules []ModuleMap, manifest moduleManifest) ([]ModuleM
 		modules = append(modules, newMod)
 	} else {
 		if same, err := samePath(getMapString(foundMod, "executable_path"), absEntrypoint); err != nil {
-			logger.Debug("ExePath is right, doing nothing")
+			debugf(c, "ExePath is right, doing nothing")
 			return nil, dirty, err
 		} else if !same {
 			dirty = true
-			logger.Debug("replacing entrypoint")
+			debugf(c, "replacing entrypoint")
 			if getMapString(foundMod, "type") == string(rdkConfig.ModuleTypeRegistry) {
 				// warning: there's a chance of inserting a dupe name here in odd cases
-				logger.Warn("you're replacing a registry module. we're converting it to a local module")
+				warningf(c.App.Writer, "you're replacing a registry module. we're converting it to a local module")
 				foundMod["type"] = string(rdkConfig.ModuleTypeLocal)
 				foundMod["name"] = localName
 				foundMod["module_id"] = ""
