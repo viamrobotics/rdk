@@ -56,7 +56,7 @@ func configureModule(c *cli.Context, vc *viamClient, manifest *moduleManifest, p
 // localizeModuleID converts a module ID to its 'local mode' name.
 // TODO(APP-4019): remove this logic after registry modules can have local ExecPath.
 func localizeModuleID(moduleID string) string {
-	return "hr_" + strings.ReplaceAll(moduleID, ":", "_")
+	return strings.ReplaceAll(moduleID, ":", "_") + "_from_reload"
 }
 
 // mutateModuleConfig edits the modules list to hot-reload with the given manifest.
