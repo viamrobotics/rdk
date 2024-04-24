@@ -105,11 +105,6 @@ func (i *BasicDigitalInterrupt) Name() string {
 	return i.cfg.Name
 }
 
-// Close does nothing.
-func (i *BasicDigitalInterrupt) Close(ctx context.Context) error {
-	return nil
-}
-
 // Reconfigure reconfigures this digital interrupt with a new formula.
 func (i *BasicDigitalInterrupt) Reconfigure(conf board.DigitalInterruptConfig) error {
 	i.mu.Lock()

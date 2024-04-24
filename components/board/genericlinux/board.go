@@ -127,7 +127,7 @@ func (b *Board) reconfigureGpios(newConf *LinuxBoardConfig) error {
 		// If we get here, the old pin definition exists, but the old pin does not. Check if it's a
 		// digital interrupt.
 		if interrupt, ok := b.interrupts[oldName]; ok {
-			if err := interrupt.Close(); err != nil {
+			if err := closeInterrupt(interrupt); err != nil {
 				return err
 			}
 			delete(b.interrupts, oldName)
@@ -273,7 +273,7 @@ func (b *Board) reconfigureInterrupts(newConf *LinuxBoardConfig) error {
 	for _, oldInterrupt := range b.interrupts {
 		if newConfig := findNewDigIntConfig(oldInterrupt, newConf.DigitalInterrupts, b.logger); newConfig == nil {
 			// The old interrupt shouldn't exist any more, but it probably became a GPIO pin.
-			if err := oldInterrupt.Close(); err != nil {
+			if err := closeInterrupt(oldInterrupt); err != nil {
 				return err // This should never happen, but the linter worries anyway.
 			}
 			if newGpioConfig, ok := b.gpioMappings[oldInterrupt.config.Pin]; ok {
@@ -305,7 +305,7 @@ func (b *Board) reconfigureInterrupts(newConf *LinuxBoardConfig) error {
 			// though it was not explicitly mentioned in the old board config), but the new config
 			// is explicit (e.g., its name is still "38" but it's been moved to pin 37). Close the
 			// old one and initialize it anew.
-			if err := interrupt.Close(); err != nil {
+			if err := closeInterrupt(interrupt); err != nil {
 				return err
 			}
 			// Although we delete the implicit interrupt from b.interrupts, it's still in
@@ -516,7 +516,7 @@ func (b *Board) Close(ctx context.Context) error {
 		err = multierr.Combine(err, pin.Close())
 	}
 	for _, interrupt := range b.interrupts {
-		err = multierr.Combine(err, interrupt.Close())
+		err = multierr.Combine(err, closeInterrupt(interrupt))
 	}
 	for _, reader := range b.analogReaders {
 		err = multierr.Combine(err, reader.Close(ctx))

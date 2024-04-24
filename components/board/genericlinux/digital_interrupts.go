@@ -93,7 +93,7 @@ func (di *digitalInterrupt) startMonitor() {
 	}, di.boardWorkers.Done)
 }
 
-func (di *digitalInterrupt) Close() error {
+func closeInterrupt(di *digitalInterrupt) error {
 	// We shut down the background goroutine that monitors this interrupt, but don't need to wait
 	// for it to finish shutting down because it doesn't use anything in the line itself (just a
 	// channel of events that the line generates). It will shut down sometime soon, and if that's
