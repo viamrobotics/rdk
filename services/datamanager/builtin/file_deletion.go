@@ -1,6 +1,7 @@
 package builtin
 
 import (
+	"context"
 	"errors"
 	"io/fs"
 	"math"
@@ -18,13 +19,13 @@ import (
 // TODO change these values back to what they should be
 const (
 	fileDeletionThreshold    = .1
-	captureDirRatioThreshold = .01
+	captureDirRatioThreshold = .001
 	n                        = 4
 )
 
 var errAtSizeThreshold = errors.New("capture dir is at correct size")
 
-func checkFileSystemStats(captureDirPath string, logger logging.Logger) (bool, error) {
+func checkFileSystemStats(ctx context.Context, captureDirPath string, logger logging.Logger) (bool, error) {
 	usage := du.NewDiskUsage(captureDirPath)
 	usedSpace := usage.Usage()
 	if math.IsNaN(float64(usedSpace)) {
@@ -35,14 +36,14 @@ func checkFileSystemStats(captureDirPath string, logger logging.Logger) (bool, e
 		// return false, nil
 	}
 	//walk the dir to get capture stats
-	return checkCaptureDirSize(captureDirPath, float64(usage.Size()), logger)
+	return checkCaptureDirSize(ctx, captureDirPath, float64(usage.Size()), logger)
 }
 
-func checkCaptureDirSize(captureDirPath string, fsSize float64, logger logging.Logger) (bool, error) {
+func checkCaptureDirSize(ctx context.Context, captureDirPath string, fsSize float64, logger logging.Logger) (bool, error) {
 	var dirSize int64 = 0
 
 	readSize := func(path string, d fs.DirEntry, err error) error {
-		if err != nil {
+		if err != nil || ctx.Err() != nil {
 			if errors.Is(err, fs.ErrNotExist) {
 				return nil
 			}
@@ -72,10 +73,13 @@ func checkCaptureDirSize(captureDirPath string, fsSize float64, logger logging.L
 	return err != nil && errors.Is(err, errAtSizeThreshold), nil
 }
 
-func deleteFiles(syncer datasync.Manager, captureDirPath string, logger logging.Logger) error {
+func deleteFiles(ctx context.Context, syncer datasync.Manager, captureDirPath string, logger logging.Logger) error {
 	index := 0
 	deletedFileCount := 0
 	delete := func(path string, d fs.DirEntry, err error) error {
+		if err != nil || ctx.Err() != nil {
+			return err
+		}
 		if !d.IsDir() {
 			fileInfo, err := d.Info()
 			if err != nil {
