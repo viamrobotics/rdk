@@ -175,23 +175,24 @@ func (e *Encoder) Reconfigure(
 	atomic.StoreInt64(&e.position, 0)
 	e.mu.Unlock()
 
-	e.Start(ctx, board, []string{e.diPinName})
+	e.Start(ctx, board)
 
 	return nil
 }
 
 // Start starts the Encoder background thread.
-func (e *Encoder) Start(ctx context.Context, b board.Board, interrupts []string) {
+func (e *Encoder) Start(ctx context.Context, b board.Board) {
 	encoderChannel := make(chan board.Tick)
-	err := b.StreamTicks(e.cancelCtx, interrupts, encoderChannel, nil)
+	err := b.StreamTicks(e.cancelCtx, []board.DigitalInterrupt{e.I}, encoderChannel, nil)
 	if err != nil {
 		utils.Logger.Errorw("error getting interrupt ticks", "error", err)
 		return
 	}
 	e.activeBackgroundWorkers.Add(1)
+
 	utils.ManagedGo(func() {
-		// Remove the callbacks added by the interrupt stream once we are done.
-		defer utils.UncheckedErrorFunc(func() error { return board.RemoveCallbacks(b, interrupts, encoderChannel) })
+		defer e.I.RemoveCallback(encoderChannel)
+
 		for {
 			select {
 			case <-e.cancelCtx.Done():

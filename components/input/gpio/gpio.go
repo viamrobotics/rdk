@@ -116,7 +116,11 @@ func NewGPIOController(
 		return nil, err
 	}
 
-	for interrupt, control := range newConf.Buttons {
+	for interruptName, control := range newConf.Buttons {
+		interrupt, ok := brd.DigitalInterruptByName(interruptName)
+		if !ok {
+			return nil, errors.Errorf("cannot find digital interrupt %s", interruptName)
+		}
 		err := c.newButton(ctx, brd, interrupt, *control)
 		if err != nil {
 			return nil, err
@@ -254,17 +258,16 @@ func (c *Controller) sendConnectionStatus(ctx context.Context, connected bool) {
 	}
 }
 
-func (c *Controller) newButton(ctx context.Context, brd board.Board, intName string, cfg ButtonConfig) error {
+func (c *Controller) newButton(ctx context.Context, brd board.Board, interrupt board.DigitalInterrupt, cfg ButtonConfig) error {
 	tickChan := make(chan board.Tick)
-	err := brd.StreamTicks(ctx, []string{intName}, tickChan, nil)
+	err := brd.StreamTicks(ctx, []board.DigitalInterrupt{interrupt}, tickChan, nil)
 	if err != nil {
 		return errors.Wrap(err, "error getting digital interrupt ticks")
 	}
 
 	c.activeBackgroundWorkers.Add(1)
 	utils.ManagedGo(func() {
-		// Remove the callbacks added by the interrupt stream once we are done.
-		defer utils.UncheckedErrorFunc(func() error { return board.RemoveCallbacks(brd, []string{intName}, tickChan) })
+		defer interrupt.RemoveCallback(tickChan)
 		debounced := debounce.New(time.Millisecond * time.Duration(cfg.DebounceMs))
 		for {
 			var val bool

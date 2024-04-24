@@ -60,7 +60,6 @@ func init() {
 
 // transformConfig specifies a stream and list of transforms to apply on images/pointclouds coming from a source camera.
 type transformConfig struct {
-	resource.TriviallyValidateConfig
 	CameraParameters     *transform.PinholeCameraIntrinsics `json:"intrinsic_parameters,omitempty"`
 	DistortionParameters *transform.BrownConrady            `json:"distortion_parameters,omitempty"`
 	Debug                bool                               `json:"debug,omitempty"`
@@ -74,6 +73,16 @@ func (cfg *transformConfig) Validate(path string) ([]string, error) {
 	if len(cfg.Source) == 0 {
 		return nil, resource.NewConfigValidationFieldRequiredError(path, "source")
 	}
+
+	if cfg.CameraParameters != nil {
+		if cfg.CameraParameters.Height < 0 || cfg.CameraParameters.Width < 0 {
+			return nil, errors.Errorf(
+				"got illegal negative dimensions for width_px and height_px (%d, %d) fields set in intrinsic_parameters for transform camera",
+				cfg.CameraParameters.Width, cfg.CameraParameters.Height,
+			)
+		}
+	}
+
 	deps = append(deps, cfg.Source)
 	return deps, nil
 }

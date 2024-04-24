@@ -98,9 +98,11 @@ func (i *BasicDigitalInterrupt) RemoveCallback(c chan board.Tick) {
 	}
 }
 
-// Close does nothing.
-func (i *BasicDigitalInterrupt) Close(ctx context.Context) error {
-	return nil
+// Name returns the name of the digital interrupt.
+func (i *BasicDigitalInterrupt) Name() string {
+	i.mu.Lock()
+	defer i.mu.Unlock()
+	return i.cfg.Name
 }
 
 // Reconfigure reconfigures this digital interrupt with a new formula.

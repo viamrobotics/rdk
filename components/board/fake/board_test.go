@@ -32,23 +32,14 @@ func TestFakeBoard(t *testing.T) {
 	_, err = b.AnalogByName("blue")
 	test.That(t, err, test.ShouldBeNil)
 
-	_, err = b.DigitalInterruptByName("i1")
-	test.That(t, err, test.ShouldBeNil)
-	_, err = b.DigitalInterruptByName("i2")
-	test.That(t, err, test.ShouldBeNil)
-	_, err = b.DigitalInterruptByName("a")
-	test.That(t, err, test.ShouldBeNil)
-	_, err = b.DigitalInterruptByName("b")
-	test.That(t, err, test.ShouldBeNil)
-
-	status, err := b.Status(context.Background(), nil)
-	test.That(t, err, test.ShouldBeNil)
-
-	test.That(t, int(status.Analogs["blue"].Value), test.ShouldEqual, 0)
-	test.That(t, int(status.DigitalInterrupts["i1"].Value), test.ShouldEqual, 0)
-	test.That(t, int(status.DigitalInterrupts["i2"].Value), test.ShouldEqual, 0)
-	test.That(t, int(status.DigitalInterrupts["a"].Value), test.ShouldEqual, 0)
-	test.That(t, int(status.DigitalInterrupts["b"].Value), test.ShouldEqual, 0)
+	_, ok := b.DigitalInterruptByName("i1")
+	test.That(t, ok, test.ShouldBeTrue)
+	_, ok = b.DigitalInterruptByName("i2")
+	test.That(t, ok, test.ShouldBeTrue)
+	_, ok = b.DigitalInterruptByName("a")
+	test.That(t, ok, test.ShouldBeTrue)
+	_, ok = b.DigitalInterruptByName("b")
+	test.That(t, ok, test.ShouldBeTrue)
 }
 
 func TestConfigValidate(t *testing.T) {

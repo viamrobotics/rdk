@@ -618,6 +618,19 @@ func loadManifest(manifestPath string) (moduleManifest, error) {
 	return manifest, nil
 }
 
+// loadManifestOrNil doesn't throw error on missing.
+func loadManifestOrNil(path string) (*moduleManifest, error) {
+	manifest, err := loadManifest(path)
+	if err == nil {
+		return &manifest, nil
+	}
+	if os.IsNotExist(err) {
+		//nolint:nilnil
+		return nil, nil
+	}
+	return nil, err
+}
+
 func writeManifest(manifestPath string, manifest moduleManifest) error {
 	manifestBytes, err := json.MarshalIndent(manifest, "", "  ")
 	if err != nil {

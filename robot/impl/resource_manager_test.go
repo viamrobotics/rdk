@@ -1821,6 +1821,10 @@ func (rr *dummyRobot) StopAll(ctx context.Context, extra map[resource.Name]map[s
 	return rr.robot.StopAll(ctx, extra)
 }
 
+func (rr *dummyRobot) RestartModule(ctx context.Context, req robot.RestartModuleRequest) error {
+	return rr.robot.RestartModule(ctx, req)
+}
+
 // managerForDummyRobot integrates all parts from a given robot except for its remotes.
 // It also close itself when the test and all subtests complete.
 func managerForDummyRobot(t *testing.T, robot robot.Robot) *resourceManager {

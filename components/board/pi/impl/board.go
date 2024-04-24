@@ -31,7 +31,6 @@ import (
 
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
-	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/board/v1"
 
 	"go.viam.com/rdk/components/board"
@@ -204,16 +203,9 @@ func (pi *piPigpio) Reconfigure(
 }
 
 // StreamTicks starts a stream of digital interrupt ticks.
-func (pi *piPigpio) StreamTicks(ctx context.Context, interruptNames []string, ch chan board.Tick, extra map[string]interface{}) error {
-	var interrupts []board.DigitalInterrupt
-	for _, name := range interruptNames {
-		interrupt, err := pi.DigitalInterruptByName(name)
-		if err != nil {
-			return err
-		}
-		interrupts = append(interrupts, interrupt)
-	}
-
+func (pi *piPigpio) StreamTicks(ctx context.Context, interrupts []board.DigitalInterrupt, ch chan board.Tick,
+	extra map[string]interface{},
+) error {
 	for _, i := range interrupts {
 		i.AddCallback(ch)
 	}
@@ -374,9 +366,6 @@ func (pi *piPigpio) reconfigureInterrupts(ctx context.Context, cfg *Config) erro
 			newInterruptsHW[bcom] = interrupt
 		} else {
 			// This digital interrupt is no longer used.
-			if err := interrupt.Close(ctx); err != nil {
-				return err // This should never happen, but it makes the linter happy.
-			}
 			if result := C.teardownInterrupt(C.int(bcom)); result != 0 {
 				return picommon.ConvertErrorCodeToMessage(int(result), "error")
 			}
@@ -738,8 +727,7 @@ func (pi *piPigpio) Close(ctx context.Context) error {
 	}
 	pi.analogReaders = map[string]*pinwrappers.AnalogSmoother{}
 
-	for bcom, interrupt := range pi.interruptsHW {
-		err = multierr.Combine(err, interrupt.Close(ctx))
+	for bcom := range pi.interruptsHW {
 		if result := C.teardownInterrupt(C.int(bcom)); result != 0 {
 			err = multierr.Combine(err, picommon.ConvertErrorCodeToMessage(int(result), "error"))
 		}
@@ -765,11 +753,6 @@ func (pi *piPigpio) Close(ctx context.Context) error {
 
 	pi.isClosed = true
 	return err
-}
-
-// Status returns the current status of the board.
-func (pi *piPigpio) Status(ctx context.Context, extra map[string]interface{}) (*commonpb.BoardStatus, error) {
-	return board.CreateStatus(ctx, pi, extra)
 }
 
 var (

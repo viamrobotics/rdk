@@ -73,5 +73,5 @@ func TestAlignExtrinsics(t *testing.T) {
 	extConf.CameraParameters = &transform.PinholeCameraIntrinsics{Width: -1, Height: -1}
 	_, err = newColorDepthExtrinsics(context.Background(), colorVideoSrc, depthVideoSrc, extConf, intrinsicExtrinsic, logger)
 	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "Got illegal dimensions")
+	test.That(t, err.Error(), test.ShouldContainSubstring, "got illegal")
 }

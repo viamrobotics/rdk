@@ -5,13 +5,14 @@ import (
 
 	"github.com/pkg/errors"
 	commonpb "go.viam.com/api/common/v1"
+	pb "go.viam.com/api/component/board/v1"
 )
 
 // CreateStatus constructs a new up to date status from the given board.
 // The operation can take time and be expensive, so it can be cancelled by the
 // given context.
-func CreateStatus(ctx context.Context, b Board, extra map[string]interface{}) (*commonpb.BoardStatus, error) {
-	var status commonpb.BoardStatus
+func CreateStatus(ctx context.Context, b Board) (*pb.Status, error) {
+	var status pb.Status
 
 	if names := b.AnalogNames(); len(names) != 0 {
 		status.Analogs = make(map[string]*commonpb.AnalogStatus, len(names))
@@ -20,7 +21,7 @@ func CreateStatus(ctx context.Context, b Board, extra map[string]interface{}) (*
 			if err != nil {
 				return nil, err
 			}
-			val, err := x.Read(ctx, extra)
+			val, err := x.Read(ctx, nil)
 			if err != nil {
 				return nil, errors.Wrapf(err, "couldn't read analog (%s)", name)
 			}
@@ -35,7 +36,7 @@ func CreateStatus(ctx context.Context, b Board, extra map[string]interface{}) (*
 			if err != nil {
 				return nil, err
 			}
-			intVal, err := x.Value(ctx, extra)
+			intVal, err := x.Value(ctx, nil)
 			if err != nil {
 				return nil, err
 			}

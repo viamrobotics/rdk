@@ -688,11 +688,12 @@ func TestSyncConfigUpdateBehavior(t *testing.T) {
 			newBuildInSvc := dmsvc.(*builtIn)
 			newTicker := newBuildInSvc.syncTicker
 			newSyncer := newBuildInSvc.syncer
+			newFileDeletionBackgroundWorker := newBuildInSvc.fileDeletionBackgroundWorkers
 
 			if tc.newSyncDisabled {
 				test.That(t, newSyncer, test.ShouldBeNil)
 			}
-
+			test.That(t, newFileDeletionBackgroundWorker, test.ShouldNotBeNil)
 			if tc.initSyncDisabled != tc.newSyncDisabled ||
 				tc.initSyncIntervalMins != tc.newSyncIntervalMins {
 				test.That(t, initTicker, test.ShouldNotEqual, newTicker)

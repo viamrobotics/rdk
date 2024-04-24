@@ -17,7 +17,6 @@ import (
 
 	goserial "github.com/jacobsa/go-serial/serial"
 	"go.uber.org/multierr"
-	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/board/v1"
 	"go.viam.com/utils"
 	"go.viam.com/utils/serial"
@@ -232,7 +231,9 @@ func (b *numatoBoard) readThread() {
 
 // StreamTicks streams digital interrupt ticks.
 // The numato board does not have the systems hardware to implement a Tick counter.
-func (b *numatoBoard) StreamTicks(ctx context.Context, interrupts []string, ch chan board.Tick, extra map[string]interface{}) error {
+func (b *numatoBoard) StreamTicks(ctx context.Context, interrupts []board.DigitalInterrupt, ch chan board.Tick,
+	extra map[string]interface{},
+) error {
 	return grpc.UnimplementedError
 }
 
@@ -314,13 +315,6 @@ func (gp *gpioPin) SetPWMFreq(ctx context.Context, freqHz uint, extra map[string
 		return nil
 	}
 	return errors.New("numato doesn't support pwm")
-}
-
-// Status returns the current status of the board. Usually you
-// should use the CreateStatus helper instead of directly calling
-// this.
-func (b *numatoBoard) Status(ctx context.Context, extra map[string]interface{}) (*commonpb.BoardStatus, error) {
-	return board.CreateStatus(ctx, b, extra)
 }
 
 func (b *numatoBoard) SetPowerMode(ctx context.Context, mode pb.PowerMode, duration *time.Duration) error {
