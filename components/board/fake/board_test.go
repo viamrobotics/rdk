@@ -15,7 +15,7 @@ func TestFakeBoard(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 	boardConfig := Config{
 		AnalogReaders: []board.AnalogReaderConfig{
-			{Name: "blue", Pin: testPin},
+			{Name: "blue", Pin: analogTestPin},
 		},
 		DigitalInterrupts: []board.DigitalInterruptConfig{
 			{Name: "i1", Pin: "35"},

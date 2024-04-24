@@ -22,7 +22,12 @@ import (
 
 // In order to maintain test functionality, testPin will always return an analog value of 0.
 // To see non-zero fake analog values on a fake board, add an analog reader to any other pin.
-var testPin = ""
+var analogTestPin = ""
+
+// In order to maintain test functionality, digital interrtups on any pin except nonZeroInterruptPin
+// will always return a digital interrupt value of 0. To see non-zero fake interrupt values on a fake board,
+// add an digital interrupt to pin 4.
+var nonZeroInterruptPin = "4"
 
 // A Config describes the configuration of a fake board and all of its connected parts.
 type Config struct {
@@ -278,7 +283,7 @@ func (a *Analog) reset(pin string) {
 func (a *Analog) Read(ctx context.Context, extra map[string]interface{}) (int, error) {
 	a.Mu.RLock()
 	defer a.Mu.RUnlock()
-	if a.pin != testPin {
+	if a.pin != analogTestPin {
 		a.Value = a.fakeValue
 		a.fakeValue++
 	}
@@ -367,11 +372,11 @@ func (gp *GPIOPin) SetPWMFreq(ctx context.Context, freqHz uint, extra map[string
 
 // DigitalInterruptWrapper is a wrapper around a digital interrupt for testing fake boards.
 type DigitalInterruptWrapper struct {
-	mu          sync.Mutex
-	di          board.DigitalInterrupt
-	conf        board.DigitalInterruptConfig
-	currentTime uint64
-	callbacks   map[chan board.Tick]struct{}
+	mu        sync.Mutex
+	di        board.DigitalInterrupt
+	conf      board.DigitalInterruptConfig
+	value     int64
+	callbacks map[chan board.Tick]struct{}
 }
 
 // NewDigitalInterruptWrapper returns a new digital interrupt to be used for testing.
@@ -417,13 +422,9 @@ func (s *DigitalInterruptWrapper) reset(conf board.DigitalInterruptConfig) error
 func (s *DigitalInterruptWrapper) Value(ctx context.Context, extra map[string]interface{}) (int64, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.currentTime++
-	if err := s.di.Tick(ctx, true, s.currentTime); err != nil {
-		return 0, err
-	}
-	s.currentTime++
-	if err := s.di.Tick(ctx, false, s.currentTime); err != nil {
-		return 0, err
+	if s.conf.Pin == nonZeroInterruptPin {
+		s.value++
+		return s.value, nil
 	}
 	return s.di.Value(ctx, extra)
 }
