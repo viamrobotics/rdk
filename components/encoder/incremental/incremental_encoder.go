@@ -159,20 +159,19 @@ func (e *Encoder) Reconfigure(
 	e.boardName = newConf.BoardName
 	e.encAName = newConf.Pins.A
 	e.encBName = newConf.Pins.B
-	interrupts := []string{e.encAName, e.encBName}
 	// state is not really valid anymore
 	atomic.StoreInt64(&e.position, 0)
 	atomic.StoreInt64(&e.pRaw, 0)
 	atomic.StoreInt64(&e.pState, 0)
 	e.mu.Unlock()
 
-	e.Start(ctx, board, interrupts)
+	e.Start(ctx, board)
 
 	return nil
 }
 
 // Start starts the Encoder background thread.
-func (e *Encoder) Start(ctx context.Context, b board.Board, interrupts []string) {
+func (e *Encoder) Start(ctx context.Context, b board.Board) {
 	/**
 	  a rotary encoder looks like
 
@@ -209,7 +208,7 @@ func (e *Encoder) Start(ctx context.Context, b board.Board, interrupts []string)
 	// x -> impossible state
 
 	ch := make(chan board.Tick)
-	err := b.StreamTicks(e.cancelCtx, interrupts, ch, nil)
+	err := b.StreamTicks(e.cancelCtx, []board.DigitalInterrupt{e.A, e.B}, ch, nil)
 	if err != nil {
 		utils.Logger.Errorw("error getting digital interrupt ticks", "error", err)
 		return
@@ -229,7 +228,8 @@ func (e *Encoder) Start(ctx context.Context, b board.Board, interrupts []string)
 
 	utils.ManagedGo(func() {
 		// Remove the callbacks added by the interrupt stream.
-		defer utils.UncheckedErrorFunc(func() error { return board.RemoveCallbacks(b, interrupts, ch) })
+		defer e.A.RemoveCallback(ch)
+		defer e.B.RemoveCallback(ch)
 		for {
 			// This looks redundant with the other select statement below, but it's not: if we're
 			// supposed to return, we need to do that even if chanA and chanB are full of data, and
@@ -248,7 +248,7 @@ func (e *Encoder) Start(ctx context.Context, b board.Board, interrupts []string)
 			case <-e.cancelCtx.Done():
 				return
 			case tick = <-ch:
-				if tick.Name == e.encAName {
+				if tick.Name == e.A.Name() {
 					aLevel = 0
 					if tick.High {
 						aLevel = 1

@@ -10,7 +10,6 @@ import (
 
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
-	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/board/v1"
 	"go.viam.com/utils"
 
@@ -211,11 +210,6 @@ func (b *Board) DigitalInterruptNames() []string {
 	return names
 }
 
-// Status returns the current status of the board.
-func (b *Board) Status(ctx context.Context, extra map[string]interface{}) (*commonpb.BoardStatus, error) {
-	return board.CreateStatus(ctx, b, extra)
-}
-
 // SetPowerMode sets the board to the given power mode. If provided,
 // the board will exit the given power mode after the specified
 // duration.
@@ -231,16 +225,9 @@ func (b *Board) WriteAnalog(ctx context.Context, pin string, value int32, extra 
 }
 
 // StreamTicks starts a stream of digital interrupt ticks.
-func (b *Board) StreamTicks(ctx context.Context, interruptNames []string, ch chan board.Tick, extra map[string]interface{}) error {
-	var interrupts []board.DigitalInterrupt
-	for _, name := range interruptNames {
-		interrupt, ok := b.DigitalInterruptByName(name)
-		if !ok {
-			return errors.Errorf("unknown digital interrupt: %s", name)
-		}
-		interrupts = append(interrupts, interrupt)
-	}
-
+func (b *Board) StreamTicks(ctx context.Context, interrupts []board.DigitalInterrupt, ch chan board.Tick,
+	extra map[string]interface{},
+) error {
 	for _, i := range interrupts {
 		i.AddCallback(ch)
 	}
@@ -448,6 +435,13 @@ func (s *DigitalInterruptWrapper) RemoveCallback(c chan board.Tick) {
 	defer s.mu.Unlock()
 	delete(s.callbacks, c)
 	s.di.RemoveCallback(c)
+}
+
+// Name returns the name of the digital interrupt.
+func (s *DigitalInterruptWrapper) Name() string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.conf.Name
 }
 
 // Close does nothing.
