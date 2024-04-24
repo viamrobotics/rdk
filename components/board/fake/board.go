@@ -22,12 +22,12 @@ import (
 
 // In order to maintain test functionality, testPin will always return an analog value of 0.
 // To see non-zero fake analog values on a fake board, add an analog reader to any other pin.
-var analogTestPin = ""
+var analogTestPin = "0"
 
 // In order to maintain test functionality, digital interrtups on any pin except nonZeroInterruptPin
 // will always return a digital interrupt value of 0. To see non-zero fake interrupt values on a fake board,
-// add an digital interrupt to pin 4.
-var nonZeroInterruptPin = "4"
+// add an digital interrupt to pin 0.
+var nonZeroInterruptPin = "0"
 
 // A Config describes the configuration of a fake board and all of its connected parts.
 type Config struct {
