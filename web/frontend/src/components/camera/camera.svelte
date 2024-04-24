@@ -74,8 +74,10 @@ useConnect(() => {
 
 // Refresh camera when the trigger changes
 let lastTriggerRefresh = triggerRefresh;
-$: if (lastTriggerRefresh !== triggerRefresh) {
+let lastRefreshRate = refreshRate;
+$: if (lastTriggerRefresh !== triggerRefresh || lastRefreshRate !== refreshRate) {
   lastTriggerRefresh = triggerRefresh;
+  lastRefreshRate = refreshRate;
   updateCameraRefreshRate();
 }
 </script>

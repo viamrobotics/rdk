@@ -33,7 +33,6 @@ const handleRefreshInput = (name: string) => {
     }
 
     refreshFrequency[name] = event.detail.value;
-    triggerRefresh = !triggerRefresh;
   };
 };
 </script>
