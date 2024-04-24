@@ -799,6 +799,8 @@ func pigpioInterruptCallback(gpio, level int, rawTick uint32) {
 			if err != nil {
 				instance.logger.Error(err)
 			}
+		default:
+			instance.logger.Error("unknown digital interrupt type")
 		}
 	}
 }
