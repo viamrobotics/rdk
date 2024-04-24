@@ -3,7 +3,6 @@ package builtin
 import (
 	"errors"
 	"io/fs"
-	"os"
 	"path/filepath"
 	"strings"
 
@@ -42,14 +41,14 @@ func checkCaptureDirSize(captureDirPath string, fsSize float64, logger logging.L
 			if err != nil {
 				return err
 			}
-			logger.Warn(fileInfo.Name())
+			// logger.Warn(fileInfo.Name())
 			dirSize += fileInfo.Size()
 			if float64(dirSize)/fsSize < captureDirRatioThreshold {
 				logger.Warnw("At threshold to delete, going to delete", "size", float64(dirSize)/fsSize, "threshold", captureDirRatioThreshold)
 				return errAtSizeThreshold
-			} else {
-				logger.Warnw("Not at threshold", "size", float64(dirSize)/fsSize, "threshold", captureDirRatioThreshold)
-			}
+			} //else {
+			// 	logger.Warnw("Not at threshold", "size", float64(dirSize)/fsSize, "threshold", captureDirRatioThreshold)
+			// }
 		}
 		return nil
 	}
@@ -69,16 +68,12 @@ func deleteFiles(syncer datasync.Manager, captureDirPath string, logger logging.
 			if err != nil {
 				return err
 			}
-			// if its the nth file, is not currently in progress of being synced and is not currently being written to by datacapture
 			logger.Debug(fileInfo.Name())
 			isFileInProgress := strings.Contains(fileInfo.Name(), ".prog")
-			if index != 0 && index%n == 0 && !isFileInProgress {
-				//mark path as inprogress
-				if syncer != nil {
-					syncer.MarkInProgress(path)
-				}
+			// if at nth file, the file is not currenlty being written, the syncer isnt nil and isnt uploading the file or there is no syncer
+			if index%n == 0 && !isFileInProgress && ((syncer != nil && syncer.MarkInProgress(path)) || syncer == nil) {
 				logger.Debugw("Deleting file ", "name", fileInfo.Name())
-				err := os.Remove(path)
+				// err := os.Remove(path)
 				if err != nil {
 					logger.Debugw("error deleting file", "error", err)
 					return err
