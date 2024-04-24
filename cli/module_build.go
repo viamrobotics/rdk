@@ -418,6 +418,11 @@ func reloadModuleAction(c *cli.Context, vc *viamClient) error {
 	if err != nil {
 		return err
 	}
+	// note: configureModule and restartModule signal the robot via different channels.
+	// Running this command in rapid succession can cause an extra restart because the
+	// CLI will see configuration changes before the robot, and skip to the needsRestart
+	// case on the second call. Because these are triggered by user actions, we're okay
+	// with this behavior, and the robot will eventually converge to what is in config.
 	needsRestart := true
 	if !c.Bool(moduleBuildRestartOnly) {
 		if !c.Bool(moduleBuildFlagNoBuild) {
