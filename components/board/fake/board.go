@@ -22,7 +22,7 @@ import (
 
 // In order to maintain test functionality, testPin will always return an analog value of 0.
 // To see non-zero fake analog values on a fake board, add an analog reader to any other pin.
-var analogTestPin = "0"
+var analogTestPin = ""
 
 // In order to maintain test functionality, digital interrtups on any pin except nonZeroInterruptPin
 // will always return a digital interrupt value of 0. To see non-zero fake interrupt values on a fake board,
