@@ -235,7 +235,7 @@ func (b *Board) StreamTicks(ctx context.Context, interrupts []board.DigitalInter
 	extra map[string]interface{},
 ) error {
 	for _, i := range interrupts {
-		pinwrappers.AddCallback(i.(*pinwrappers.BasicDigitalInterrupt), ch)
+		AddCallback(i.(*DigitalInterruptWrapper), ch)
 	}
 	return nil
 }

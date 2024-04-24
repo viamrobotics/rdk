@@ -112,7 +112,7 @@ func TestRemoveCallbackDigitalInterrupt(t *testing.T) {
 	test.That(t, ret, test.ShouldBeTrue)
 
 	i.RemoveCallback(c1)
-	i.RemoveCallback(c2)
+	i.RemoveCallback(c1)
 
 	ret2 := false
 	result := make(chan bool, 1)
