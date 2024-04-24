@@ -3154,7 +3154,7 @@ func TestModularResourceReconfigurationCount(t *testing.T) {
 
 	testutils.WaitForAssertion(t, func(tb testing.TB) {
 		tb.Helper()
-		test.That(tb, logs.FilterMessageSnippet("Module successfully restarted").Len(), test.ShouldEqual, 1)
+		test.That(tb, logs.FilterMessageSnippet("Module resources successfully re-added after module restart").Len(), test.ShouldEqual, 1)
 	})
 
 	resp, err = h.DoCommand(ctx, map[string]any{"command": "get_num_reconfigurations"})
