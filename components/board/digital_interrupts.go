@@ -23,12 +23,6 @@ type DigitalInterrupt interface {
 	// based on the type of interrupt.
 	Value(ctx context.Context, extra map[string]interface{}) (int64, error)
 
-	// Tick is to be called either manually if the interrupt is a proxy to some real
-	// hardware interrupt or for tests.
-	// nanoseconds is from an arbitrary point in time, but always increasing and always needs
-	// to be accurate.
-	Tick(ctx context.Context, high bool, nanoseconds uint64) error
-
 	// RemoveCallback removes a listener for interrupts.
 	RemoveCallback(c chan Tick)
 
