@@ -714,7 +714,6 @@ func generateMetadataKey(component, method string) string {
 	return fmt.Sprintf("%s/%s", component, method)
 }
 
-//nolint:unparam
 func pollFilesystem(ctx context.Context, wg *sync.WaitGroup, captureDir string, syncer datasync.Manager, logger logging.Logger) {
 	t := time.NewTicker(filesystemPollInterval)
 	defer t.Stop()
@@ -736,7 +735,10 @@ func pollFilesystem(ctx context.Context, wg *sync.WaitGroup, captureDir string, 
 				return
 			}
 			if shouldDelete {
+				start := time.Now()
 				deleteFiles(ctx, syncer, captureDir, logger)
+				duration := time.Since(start)
+				logger.Infow("Finished deleting files", "execution time", duration.Seconds())
 			}
 		}
 	}

@@ -19,7 +19,7 @@ import (
 // TODO change these values back to what they should be
 const (
 	fileDeletionThreshold    = .1
-	captureDirRatioThreshold = .001
+	captureDirRatioThreshold = .01
 	n                        = 4
 )
 
@@ -85,7 +85,6 @@ func deleteFiles(ctx context.Context, syncer datasync.Manager, captureDirPath st
 			if err != nil {
 				return err
 			}
-			logger.Debug(fileInfo.Name())
 			isFileInProgress := strings.Contains(fileInfo.Name(), datacapture.InProgressFileExt)
 			// if at nth file, the file is not currenlty being written, the syncer isnt nil and isnt uploading the file or there is no syncer
 			if index%n == 0 && !isFileInProgress && ((syncer != nil && syncer.MarkInProgress(path)) || syncer == nil) {
