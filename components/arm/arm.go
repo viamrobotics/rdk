@@ -105,10 +105,10 @@ type Arm interface {
 	//    degrees := []float64{4.0, 5.0, 6.0}
 	//
 	//    // Declare a new JointPositions with these values.
-	//    jointPos := componentpb.JointPositions{degrees}
+	//    jointPos := componentpb.JointPositions{Values: degrees}
 	//
 	//    // Move each joint of the arm to the position these values specify.
-	//    err := myArm.MoveToJointPositions(context.Background(), jointPos, nil)
+	//    err := myArm.MoveToJointPositions(context.Background(), Value: jointPos, nil)
 	MoveToJointPositions(ctx context.Context, positionDegs *pb.JointPositions, extra map[string]interface{}) error
 
 	// JointPositions returns the current joint positions of the arm.
