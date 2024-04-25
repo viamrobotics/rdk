@@ -182,7 +182,7 @@ func (b *Board) DigitalInterruptByName(name string) (board.DigitalInterrupt, err
 	defer b.mu.RUnlock()
 	d, ok := b.Digitals[name]
 	if !ok {
-		return nil, errors.Errorf("cant find DigitalInterrupt (%s)", name)
+		return nil, fmt.Errorf("cant find DigitalInterrupt (%s)", name)
 	}
 	return d, nil
 }
