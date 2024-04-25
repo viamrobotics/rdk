@@ -134,7 +134,6 @@ func clearCache(id string) {
 }
 
 func readCertificateDataFromCloudGRPC(ctx context.Context,
-	signalingInsecure bool,
 	cloudConfigFromDisk *Cloud,
 	logger logging.Logger,
 ) (tlsConfig, error) {
@@ -149,15 +148,6 @@ func readCertificateDataFromCloudGRPC(ctx context.Context,
 	if err != nil {
 		// Check cache?
 		return tlsConfig{}, err
-	}
-
-	if !signalingInsecure {
-		if res.TlsCertificate == "" {
-			return tlsConfig{}, errors.New("no TLS certificate yet from cloud; try again later")
-		}
-		if res.TlsPrivateKey == "" {
-			return tlsConfig{}, errors.New("no TLS private key yet from cloud; try again later")
-		}
 	}
 
 	return tlsConfig{
@@ -266,22 +256,26 @@ func readFromCloud(
 		checkForNewCert = true
 	}
 
-	if checkForNewCert || tls.certificate == "" || tls.privateKey == "" {
+	// It is expected to have empty certificate and private key if we are using insecure signaling
+	// Use the SignalingInsecure from the Cloud config returned from the app not the initial config.
+	if !cfg.Cloud.SignalingInsecure && (checkForNewCert || tls.certificate == "" || tls.privateKey == "") {
 		logger.Debug("reading tlsCertificate from the cloud")
 
 		ctxWithTimeout, cancel := getTimeoutCtx(ctx, shouldReadFromCache, cloudCfg.ID)
-		// Use the SignalingInsecure from the Cloud config returned from the app not the initial config.
-		certData, err := readCertificateDataFromCloudGRPC(ctxWithTimeout, cfg.Cloud.SignalingInsecure, cloudCfg, logger)
+		certData, err := readCertificateDataFromCloudGRPC(ctxWithTimeout, cloudCfg, logger)
 		if err != nil {
 			cancel()
 			if !errors.As(err, &context.DeadlineExceeded) {
 				return nil, err
 			}
-			if !cfg.Cloud.SignalingInsecure && (tls.certificate == "" || tls.privateKey == "") {
-				return nil, errors.Wrap(err, "error getting certificate data from cloud; try again later")
-			}
 			logger.Warnw("failed to refresh certificate data; using cached for now", "error", err)
 		} else {
+			if certData.certificate == "" {
+				return nil, errors.New("no TLS certificate yet from cloud; try again later")
+			}
+			if certData.privateKey == "" {
+				return nil, errors.New("no TLS private key yet from cloud; try again later")
+			}
 			tls = certData
 			cancel()
 		}
