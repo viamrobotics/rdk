@@ -819,11 +819,11 @@ func TestStreamTicks(t *testing.T) {
 
 			injectBoard.DigitalInterruptByNameFunc = func(name string) (board.DigitalInterrupt, error) {
 				if name == "digital1" {
-					return tc.injectDigitalInterrupts[0], tc.injectDigitalInterruptOk
+					return tc.injectDigitalInterrupts[0], tc.injectDigitalInterruptErr
 				} else if name == "digital2" {
-					return tc.injectDigitalInterrupts[1], tc.injectDigitalInterruptOk
+					return tc.injectDigitalInterrupts[1], tc.injectDigitalInterruptErr
 				}
-				return nil, false
+				return nil, nil
 			}
 			if tc.injectDigitalInterrupts != nil {
 				for _, i := range tc.injectDigitalInterrupts {

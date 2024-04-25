@@ -204,9 +204,9 @@ func (s *serviceServer) StreamTicks(
 	interrupts := []DigitalInterrupt{}
 
 	for _, name := range req.PinNames {
-		di, ok := b.DigitalInterruptByName(name)
-		if !ok {
-			return errors.Errorf("unknown digital interrupt: %s", name)
+		di, err := b.DigitalInterruptByName(name)
+		if err != nil {
+			return err
 		}
 		interrupts = append(interrupts, di)
 	}
