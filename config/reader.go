@@ -149,6 +149,12 @@ func readCertificateDataFromCloudGRPC(ctx context.Context,
 		// Check cache?
 		return tlsConfig{}, err
 	}
+	if res.TlsCertificate == "" {
+		return tlsConfig{}, errors.New("no TLS certificate yet from cloud; try again later")
+	}
+	if res.TlsPrivateKey == "" {
+		return tlsConfig{}, errors.New("no TLS private key yet from cloud; try again later")
+	}
 
 	return tlsConfig{
 		certificate: res.TlsCertificate,
@@ -270,12 +276,6 @@ func readFromCloud(
 			}
 			logger.Warnw("failed to refresh certificate data; using cached for now", "error", err)
 		} else {
-			if certData.certificate == "" {
-				return nil, errors.New("no TLS certificate yet from cloud; try again later")
-			}
-			if certData.privateKey == "" {
-				return nil, errors.New("no TLS private key yet from cloud; try again later")
-			}
 			tls = certData
 			cancel()
 		}
