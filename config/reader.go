@@ -33,11 +33,6 @@ var (
 	DateCompiled = ""
 )
 
-var (
-	errNoTLSCertificate = errors.New("no TLS certificate yet from cloud; try again later")
-	errNoTLSPrivateKey  = errors.New("no TLS private key yet from cloud; try again later")
-)
-
 const (
 	initialReadTimeout = 1 * time.Second
 	readTimeout        = 5 * time.Second
@@ -158,10 +153,10 @@ func readCertificateDataFromCloudGRPC(ctx context.Context,
 
 	if !signalingInsecure {
 		if res.TlsCertificate == "" {
-			return tlsConfig{}, errNoTLSCertificate
+			return tlsConfig{}, errors.New("no TLS certificate yet from cloud; try again later")
 		}
 		if res.TlsPrivateKey == "" {
-			return tlsConfig{}, errNoTLSPrivateKey
+			return tlsConfig{}, errors.New("no TLS private key yet from cloud; try again later")
 		}
 	}
 
@@ -282,7 +277,7 @@ func readFromCloud(
 			if !errors.As(err, &context.DeadlineExceeded) {
 				return nil, err
 			}
-			if errors.Is(err, errNoTLSCertificate) || errors.Is(err, errNoTLSPrivateKey) {
+			if !cfg.Cloud.SignalingInsecure && (tls.certificate == "" || tls.privateKey == "") {
 				return nil, errors.Wrap(err, "error getting certificate data from cloud; try again later")
 			}
 			logger.Warnw("failed to refresh certificate data; using cached for now", "error", err)
