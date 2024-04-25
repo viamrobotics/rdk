@@ -345,10 +345,14 @@ func (tls *tlsConfig) readFromCache(id string, logger logging.Logger) error {
 	case cachedCfg.Cloud == nil:
 		logger.Warn("Cached config is not a cloud config, using cloud TLS config.")
 	default:
-		if err := cachedCfg.Cloud.ValidateTLS("cloud"); err != nil && !cachedCfg.Cloud.SignalingInsecure {
-			logger.Warn("Detected failure to process the cached config when retrieving TLS config, clearing cache.")
-			clearCache(id)
-			return err
+		// In secure signaling mode, we need to ensure the cache is populated with a valid TLS entry
+		// however, empty TLS creds are allowed when we have insecure signaling
+		if !cachedCfg.Cloud.SignalingInsecure {
+			if err := cachedCfg.Cloud.ValidateTLS("cloud"); err != nil {
+				logger.Warn("Detected failure to process the cached config when retrieving TLS config, clearing cache.")
+				clearCache(id)
+				return err
+			}
 		}
 
 		tls.certificate = cachedCfg.Cloud.TLSCertificate
