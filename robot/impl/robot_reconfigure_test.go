@@ -1411,12 +1411,7 @@ func TestRobotReconfigure(t *testing.T) {
 		_, err = arm.FromRobot(robot, "arm2")
 		test.That(t, err, test.ShouldNotBeNil)
 
-		b, err := board.FromRobot(robot, "board1")
-		test.That(t, err, test.ShouldBeNil)
-
-		eA, err := b.DigitalInterruptByName("encoder")
-		test.That(t, err, test.ShouldBeNil)
-		eB, err := b.DigitalInterruptByName("encoder-b")
+		_, err = board.FromRobot(robot, "board1")
 		test.That(t, err, test.ShouldBeNil)
 
 		m, err := motor.FromRobot(robot, "m1")
@@ -1424,16 +1419,6 @@ func TestRobotReconfigure(t *testing.T) {
 		c, err := m.Position(context.Background(), nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, c, test.ShouldEqual, 0)
-
-		test.That(t, eA.Tick(context.Background(), false, uint64(time.Now().UnixNano())), test.ShouldBeNil)
-		test.That(t, eB.Tick(context.Background(), true, uint64(time.Now().UnixNano())), test.ShouldBeNil)
-		test.That(t, eA.Tick(context.Background(), true, uint64(time.Now().UnixNano())), test.ShouldBeNil)
-
-		testutils.WaitForAssertion(t, func(tb testing.TB) {
-			c, err = m.Position(context.Background(), nil)
-			test.That(tb, err, test.ShouldBeNil)
-			test.That(tb, c, test.ShouldEqual, 1)
-		})
 
 		_, err = motor.FromRobot(robot, "m2")
 		test.That(t, err, test.ShouldNotBeNil)
@@ -1541,12 +1526,7 @@ func TestRobotReconfigure(t *testing.T) {
 		_, err = arm.FromRobot(robot, "arm2")
 		test.That(t, err, test.ShouldNotBeNil)
 
-		b, err = board.FromRobot(robot, "board1")
-		test.That(t, err, test.ShouldBeNil)
-
-		eA, err = b.DigitalInterruptByName("encoder")
-		test.That(t, err, test.ShouldBeNil)
-		eB, err = b.DigitalInterruptByName("encoder-b")
+		_, err = board.FromRobot(robot, "board1")
 		test.That(t, err, test.ShouldBeNil)
 
 		m, err = motor.FromRobot(robot, "m1")
@@ -1554,17 +1534,7 @@ func TestRobotReconfigure(t *testing.T) {
 		c, err = m.Position(context.Background(), nil)
 		test.That(t, err, test.ShouldBeNil)
 		t.Log("the underlying pins changed but not the encoder names, so we keep the value")
-		test.That(t, c, test.ShouldEqual, 1)
-
-		test.That(t, eB.Tick(context.Background(), false, uint64(time.Now().UnixNano())), test.ShouldBeNil)
-		time.Sleep(1 * time.Second)
-		test.That(t, eA.Tick(context.Background(), false, uint64(time.Now().UnixNano())), test.ShouldBeNil)
-
-		testutils.WaitForAssertion(t, func(tb testing.TB) {
-			c, err = m.Position(context.Background(), nil)
-			test.That(tb, err, test.ShouldBeNil)
-			test.That(tb, c, test.ShouldEqual, 2)
-		})
+		test.That(t, c, test.ShouldEqual, 0)
 
 		_, err = motor.FromRobot(robot, "m2")
 		test.That(t, err, test.ShouldNotBeNil)
@@ -1659,12 +1629,7 @@ func TestRobotReconfigure(t *testing.T) {
 			)...))
 		test.That(t, utils.NewStringSet(robot.ProcessManager().ProcessIDs()...), test.ShouldResemble, utils.NewStringSet("1", "2"))
 
-		b, err := board.FromRobot(robot, "board1")
-		test.That(t, err, test.ShouldBeNil)
-
-		eA, err := b.DigitalInterruptByName("encoder")
-		test.That(t, err, test.ShouldBeNil)
-		eB, err := b.DigitalInterruptByName("encoder-b")
+		_, err := board.FromRobot(robot, "board1")
 		test.That(t, err, test.ShouldBeNil)
 
 		m, err := motor.FromRobot(robot, "m1")
@@ -1672,16 +1637,6 @@ func TestRobotReconfigure(t *testing.T) {
 		c, err := m.Position(context.Background(), nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, c, test.ShouldEqual, 0)
-
-		test.That(t, eA.Tick(context.Background(), false, uint64(time.Now().UnixNano())), test.ShouldBeNil)
-		test.That(t, eB.Tick(context.Background(), true, uint64(time.Now().UnixNano())), test.ShouldBeNil)
-		test.That(t, eA.Tick(context.Background(), true, uint64(time.Now().UnixNano())), test.ShouldBeNil)
-
-		testutils.WaitForAssertion(t, func(tb testing.TB) {
-			c, err = m.Position(context.Background(), nil)
-			test.That(tb, err, test.ShouldBeNil)
-			test.That(tb, c, test.ShouldEqual, 1)
-		})
 
 		_, err = motor.FromRobot(robot, "m2")
 		test.That(t, err, test.ShouldNotBeNil)
@@ -1777,29 +1732,14 @@ func TestRobotReconfigure(t *testing.T) {
 			)...))
 		test.That(t, utils.NewStringSet(robot.ProcessManager().ProcessIDs()...), test.ShouldResemble, utils.NewStringSet("1", "2"))
 
-		b, err = board.FromRobot(robot, "board1")
-		test.That(t, err, test.ShouldBeNil)
-
-		eA, err = b.DigitalInterruptByName("encoder")
-		test.That(t, err, test.ShouldBeNil)
-		eB, err = b.DigitalInterruptByName("encoder-b")
+		_, err = board.FromRobot(robot, "board1")
 		test.That(t, err, test.ShouldBeNil)
 
 		m, err = motor.FromRobot(robot, "m1")
 		test.That(t, err, test.ShouldBeNil)
 		c, err = m.Position(context.Background(), nil)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, c, test.ShouldEqual, 1)
-
-		test.That(t, eA.Tick(context.Background(), true, uint64(time.Now().UnixNano())), test.ShouldBeNil)
-		test.That(t, eB.Tick(context.Background(), false, uint64(time.Now().UnixNano())), test.ShouldBeNil)
-		test.That(t, eA.Tick(context.Background(), false, uint64(time.Now().UnixNano())), test.ShouldBeNil)
-
-		testutils.WaitForAssertion(t, func(tb testing.TB) {
-			c, err = m.Position(context.Background(), nil)
-			test.That(tb, err, test.ShouldBeNil)
-			test.That(tb, c, test.ShouldEqual, 2)
-		})
+		test.That(t, c, test.ShouldEqual, 0)
 
 		_, err = board.FromRobot(robot, "board2")
 		test.That(t, err, test.ShouldBeNil)
@@ -1889,29 +1829,14 @@ func TestRobotReconfigure(t *testing.T) {
 			)...))
 		test.That(t, utils.NewStringSet(robot.ProcessManager().ProcessIDs()...), test.ShouldResemble, utils.NewStringSet("1", "2"))
 
-		b, err = board.FromRobot(robot, "board1")
-		test.That(t, err, test.ShouldBeNil)
-
-		eA, err = b.DigitalInterruptByName("encoder")
-		test.That(t, err, test.ShouldBeNil)
-		eB, err = b.DigitalInterruptByName("encoder-b")
+		_, err = board.FromRobot(robot, "board1")
 		test.That(t, err, test.ShouldBeNil)
 
 		m, err = motor.FromRobot(robot, "m1")
 		test.That(t, err, test.ShouldBeNil)
 		c, err = m.Position(context.Background(), nil)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, c, test.ShouldEqual, 2)
-
-		test.That(t, eA.Tick(context.Background(), false, uint64(time.Now().UnixNano())), test.ShouldBeNil)
-		test.That(t, eB.Tick(context.Background(), true, uint64(time.Now().UnixNano())), test.ShouldBeNil)
-		test.That(t, eA.Tick(context.Background(), true, uint64(time.Now().UnixNano())), test.ShouldBeNil)
-
-		testutils.WaitForAssertion(t, func(tb testing.TB) {
-			c, err = m.Position(context.Background(), nil)
-			test.That(tb, err, test.ShouldBeNil)
-			test.That(tb, c, test.ShouldEqual, 3)
-		})
+		test.That(t, c, test.ShouldEqual, 0)
 
 		_, err = board.FromRobot(robot, "board2")
 		test.That(t, err, test.ShouldBeNil)

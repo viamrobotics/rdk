@@ -247,7 +247,7 @@ func (e *Encoder) Start(ctx context.Context, b board.Board) {
 			case <-e.cancelCtx.Done():
 				return
 			case tick = <-ch:
-				if tick.Name == e.A.Name() {
+				if tick.Name == e.encAName {
 					aLevel = 0
 					if tick.High {
 						aLevel = 1

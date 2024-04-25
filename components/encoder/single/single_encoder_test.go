@@ -72,7 +72,7 @@ func TestEncoder(t *testing.T) {
 		m := &FakeDir{1} // forward
 		enc2.AttachDirectionalAwareness(m)
 
-		err = enc2.I.Tick(context.Background(), true, uint64(time.Now().UnixNano()))
+		err = fakeboard.Tick(context.Background(), enc2.I.(*fakeboard.DigitalInterruptWrapper), true, uint64(time.Now().UnixNano()))
 		test.That(t, err, test.ShouldBeNil)
 
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
@@ -92,7 +92,7 @@ func TestEncoder(t *testing.T) {
 		m := &FakeDir{-1} // backward
 		enc2.AttachDirectionalAwareness(m)
 
-		err = enc2.I.Tick(context.Background(), true, uint64(time.Now().UnixNano()))
+		err = fakeboard.Tick(context.Background(), enc2.I.(*fakeboard.DigitalInterruptWrapper), true, uint64(time.Now().UnixNano()))
 		test.That(t, err, test.ShouldBeNil)
 
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
@@ -111,7 +111,7 @@ func TestEncoder(t *testing.T) {
 		enc2 := enc.(*Encoder)
 		defer enc2.Close(context.Background())
 
-		err = enc2.I.Tick(context.Background(), true, uint64(time.Now().UnixNano()))
+		err = fakeboard.Tick(context.Background(), enc2.I.(*fakeboard.DigitalInterruptWrapper), true, uint64(time.Now().UnixNano()))
 		test.That(t, err, test.ShouldBeNil)
 
 		// Give the tick time to propagate to encoder
@@ -148,7 +148,7 @@ func TestEncoder(t *testing.T) {
 		enc2.AttachDirectionalAwareness(m)
 
 		// move forward
-		err = enc2.I.Tick(context.Background(), true, uint64(time.Now().UnixNano()))
+		err = fakeboard.Tick(context.Background(), enc2.I.(*fakeboard.DigitalInterruptWrapper), true, uint64(time.Now().UnixNano()))
 		test.That(t, err, test.ShouldBeNil)
 
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
@@ -166,7 +166,7 @@ func TestEncoder(t *testing.T) {
 		test.That(t, ticks, test.ShouldEqual, 0)
 
 		// now tick up again
-		err = enc2.I.Tick(context.Background(), true, uint64(time.Now().UnixNano()))
+		err = fakeboard.Tick(context.Background(), enc2.I.(*fakeboard.DigitalInterruptWrapper), true, uint64(time.Now().UnixNano()))
 		test.That(t, err, test.ShouldBeNil)
 
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
@@ -185,7 +185,7 @@ func TestEncoder(t *testing.T) {
 		m := &FakeDir{1} // forward
 		enc2.AttachDirectionalAwareness(m)
 
-		err = enc2.I.Tick(context.Background(), true, uint64(time.Now().UnixNano()))
+		err = fakeboard.Tick(context.Background(), enc2.I.(*fakeboard.DigitalInterruptWrapper), true, uint64(time.Now().UnixNano()))
 		test.That(t, err, test.ShouldBeNil)
 
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
@@ -205,7 +205,7 @@ func TestEncoder(t *testing.T) {
 		m := &FakeDir{-1} // backward
 		enc2.AttachDirectionalAwareness(m)
 
-		err = enc2.I.Tick(context.Background(), true, uint64(time.Now().UnixNano()))
+		err = fakeboard.Tick(context.Background(), enc2.I.(*fakeboard.DigitalInterruptWrapper), true, uint64(time.Now().UnixNano()))
 		test.That(t, err, test.ShouldBeNil)
 
 		testutils.WaitForAssertion(t, func(tb testing.TB) {

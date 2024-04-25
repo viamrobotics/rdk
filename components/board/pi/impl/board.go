@@ -784,9 +784,19 @@ func pigpioInterruptCallback(gpio, level int, rawTick uint32) {
 		}
 		// this should *not* block for long otherwise the lock
 		// will be held
-		err := i.Tick(instance.cancelCtx, high, tick*1000)
-		if err != nil {
-			instance.logger.Error(err)
+		switch di := i.(type) {
+		case *BasicDigitalInterrupt:
+			err := Tick(instance.cancelCtx, di, high, tick*1000)
+			if err != nil {
+				instance.logger.Error(err)
+			}
+		case *ServoDigitalInterrupt:
+			err := ServoTick(instance.cancelCtx, di, high, tick*1000)
+			if err != nil {
+				instance.logger.Error(err)
+			}
+		default:
+			instance.logger.Error("unknown digital interrupt type")
 		}
 	}
 }
