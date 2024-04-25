@@ -18,8 +18,8 @@ import (
 
 // TODO change these values back to what they should be
 const (
-	fileDeletionThreshold    = .1
-	captureDirRatioThreshold = .01
+	fileDeletionThreshold    = .2
+	captureDirRatioThreshold = .1
 	n                        = 4
 )
 
@@ -32,8 +32,8 @@ func checkFileSystemStats(ctx context.Context, captureDirPath string, logger log
 		return false, nil
 	}
 	if usedSpace < fileDeletionThreshold {
-		logger.Debug("Should exit thread, disk not full enough ignoring for now")
-		// return false, nil
+		logger.Warn("disk not full enough, exiting")
+		return false, nil
 	}
 	//walk the dir to get capture stats
 	return checkCaptureDirSize(ctx, captureDirPath, float64(usage.Size()), logger)
@@ -59,8 +59,6 @@ func checkCaptureDirSize(ctx context.Context, captureDirPath string, fsSize floa
 			if float64(dirSize)/fsSize > captureDirRatioThreshold {
 				logger.Warnw("At threshold to delete, going to delete", "size", float64(dirSize)/fsSize, "threshold", captureDirRatioThreshold)
 				return errAtSizeThreshold
-			} else {
-				logger.Debugw("Not at threshold", "size", float64(dirSize)/fsSize, "threshold", captureDirRatioThreshold)
 			}
 		}
 		return nil
@@ -69,6 +67,10 @@ func checkCaptureDirSize(ctx context.Context, captureDirPath string, fsSize floa
 	err := filepath.WalkDir(captureDirPath, readSize)
 	if err != nil && !errors.Is(err, errAtSizeThreshold) {
 		return false, err
+	}
+	if err == nil {
+		logger.Warnw("Not at threshold", "size", float64(dirSize)/fsSize, "threshold", captureDirRatioThreshold)
+
 	}
 	return err != nil && errors.Is(err, errAtSizeThreshold), nil
 }
@@ -91,7 +93,7 @@ func deleteFiles(ctx context.Context, syncer datasync.Manager, captureDirPath st
 				logger.Debugw("Deleting file ", "name", fileInfo.Name())
 				err := os.Remove(path)
 				if err != nil {
-					logger.Debugw("error deleting file", "error", err)
+					logger.Warnw("error deleting file", "error", err)
 					return err
 				}
 				deletedFileCount++
