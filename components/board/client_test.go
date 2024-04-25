@@ -6,7 +6,6 @@ import (
 	"testing"
 	"time"
 
-	commonpb "go.viam.com/api/common/v1"
 	boardpb "go.viam.com/api/component/board/v1"
 	"go.viam.com/test"
 	"go.viam.com/utils/rpc"
@@ -63,10 +62,6 @@ func TestWorkingClient(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 	injectBoard := &inject.Board{}
 
-	injectBoard.StatusFunc = func(ctx context.Context, extra map[string]interface{}) (*commonpb.BoardStatus, error) {
-		return nil, viamgrpc.UnimplementedError
-	}
-
 	listener, cleanup := setupService(t, injectBoard)
 	defer cleanup()
 
@@ -82,19 +77,6 @@ func TestWorkingClient(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, resp["command"], test.ShouldEqual, testutils.TestCommand["command"])
 		test.That(t, resp["data"], test.ShouldEqual, testutils.TestCommand["data"])
-
-		// Status
-		injectStatus := &commonpb.BoardStatus{}
-		injectBoard.StatusFunc = func(ctx context.Context, extra map[string]interface{}) (*commonpb.BoardStatus, error) {
-			actualExtra = extra
-			return injectStatus, nil
-		}
-		respStatus, err := client.Status(context.Background(), expectedExtra)
-		test.That(t, respStatus, test.ShouldResemble, injectStatus)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, injectBoard.StatusCap()[1:], test.ShouldResemble, []interface{}{})
-		test.That(t, actualExtra, test.ShouldResemble, expectedExtra)
-		actualExtra = nil
 
 		injectGPIOPin := &inject.GPIOPin{}
 		injectBoard.GPIOPinByNameFunc = func(name string) (board.GPIOPin, error) {
@@ -236,77 +218,4 @@ func TestWorkingClient(t *testing.T) {
 		testWorkingClient(t, client)
 		test.That(t, conn.Close(), test.ShouldBeNil)
 	})
-}
-
-func TestClientWithStatus(t *testing.T) {
-	logger := logging.NewTestLogger(t)
-
-	injectStatus := &commonpb.BoardStatus{
-		Analogs: map[string]*commonpb.AnalogStatus{
-			"analog1": {},
-		},
-		DigitalInterrupts: map[string]*commonpb.DigitalInterruptStatus{
-			"digital1": {},
-		},
-	}
-
-	injectBoard := &inject.Board{}
-	injectBoard.StatusFunc = func(ctx context.Context, extra map[string]interface{}) (*commonpb.BoardStatus, error) {
-		return injectStatus, nil
-	}
-
-	listener, cleanup := setupService(t, injectBoard)
-	defer cleanup()
-
-	conn, err := viamgrpc.Dial(context.Background(), listener.Addr().String(), logger)
-	test.That(t, err, test.ShouldBeNil)
-	client, err := board.NewClientFromConn(context.Background(), conn, "", board.Named(testBoardName), logger)
-	test.That(t, err, test.ShouldBeNil)
-
-	test.That(t, injectBoard.StatusCap()[1:], test.ShouldResemble, []interface{}{})
-
-	respAnalogs := client.AnalogNames()
-	test.That(t, respAnalogs, test.ShouldResemble, []string{"analog1"})
-
-	respDigitalInterrupts := client.DigitalInterruptNames()
-	test.That(t, respDigitalInterrupts, test.ShouldResemble, []string{"digital1"})
-
-	err = client.Close(context.Background())
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, conn.Close(), test.ShouldBeNil)
-}
-
-func TestClientWithoutStatus(t *testing.T) {
-	logger := logging.NewTestLogger(t)
-
-	injectBoard := &inject.Board{}
-
-	listener1, err := net.Listen("tcp", "localhost:0")
-	test.That(t, err, test.ShouldBeNil)
-	rpcServer, err := rpc.NewServer(logger.AsZap(), rpc.WithUnauthenticated())
-	test.That(t, err, test.ShouldBeNil)
-
-	boardSvc, err := resource.NewAPIResourceCollection(board.API, map[resource.Name]board.Board{board.Named(testBoardName): injectBoard})
-	test.That(t, err, test.ShouldBeNil)
-	resourceAPI, ok, err := resource.LookupAPIRegistration[board.Board](board.API)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, resourceAPI.RegisterRPCService(context.Background(), rpcServer, boardSvc), test.ShouldBeNil)
-
-	go rpcServer.Serve(listener1)
-	defer rpcServer.Stop()
-
-	conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
-	test.That(t, err, test.ShouldBeNil)
-	rClient, err := resourceAPI.RPCClient(context.Background(), conn, "", board.Named(testBoardName), logger)
-	test.That(t, err, test.ShouldBeNil)
-
-	test.That(t, injectBoard.StatusCap()[1:], test.ShouldResemble, []interface{}{})
-
-	test.That(t, rClient.AnalogNames(), test.ShouldResemble, []string{})
-	test.That(t, rClient.DigitalInterruptNames(), test.ShouldResemble, []string{})
-
-	err = rClient.Close(context.Background())
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, conn.Close(), test.ShouldBeNil)
 }

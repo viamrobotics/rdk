@@ -4,7 +4,6 @@ import (
 	"context"
 	"time"
 
-	commonpb "go.viam.com/api/common/v1"
 	boardpb "go.viam.com/api/component/board/v1"
 
 	"go.viam.com/rdk/components/board"
@@ -25,8 +24,6 @@ type Board struct {
 	AnalogNamesFunc            func() []string
 	DigitalInterruptNamesFunc  func() []string
 	CloseFunc                  func(ctx context.Context) error
-	StatusFunc                 func(ctx context.Context, extra map[string]interface{}) (*commonpb.BoardStatus, error)
-	statusCap                  []interface{}
 	SetPowerModeFunc           func(ctx context.Context, mode boardpb.PowerMode, duration *time.Duration) error
 	WriteAnalogFunc            func(ctx context.Context, pin string, value int32, extra map[string]interface{}) error
 	StreamTicksFunc            func(ctx context.Context,
@@ -122,24 +119,6 @@ func (b *Board) Close(ctx context.Context) error {
 		return b.Board.Close(ctx)
 	}
 	return b.CloseFunc(ctx)
-}
-
-// Status calls the injected Status or the real version.
-func (b *Board) Status(ctx context.Context, extra map[string]interface{}) (*commonpb.BoardStatus, error) {
-	b.statusCap = []interface{}{ctx}
-	if b.StatusFunc == nil {
-		return b.Board.Status(ctx, extra)
-	}
-	return b.StatusFunc(ctx, extra)
-}
-
-// StatusCap returns the last parameters received by Status, and then clears them.
-func (b *Board) StatusCap() []interface{} {
-	if b == nil {
-		return nil
-	}
-	defer func() { b.statusCap = nil }()
-	return b.statusCap
 }
 
 // DoCommand calls the injected DoCommand or the real version.

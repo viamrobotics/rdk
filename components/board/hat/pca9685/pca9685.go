@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
-	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/board/v1"
 	"go.viam.com/utils"
 
@@ -31,7 +30,7 @@ var (
 
 // Config describes a PCA9685 board attached to some other board via I2C.
 type Config struct {
-	I2CBus     string `json:"i2c_bus,omitempty"`
+	I2CBus     string `json:"i2c_bus"`
 	I2CAddress *int   `json:"i2c_address,omitempty"`
 }
 
@@ -161,11 +160,6 @@ func (pca *PCA9685) SetPowerMode(ctx context.Context, mode pb.PowerMode, duratio
 // WriteAnalog writes the value to the given pin.
 func (pca *PCA9685) WriteAnalog(ctx context.Context, pin string, value int32, extra map[string]interface{}) error {
 	return grpc.UnimplementedError
-}
-
-// Status returns the board status which is always empty.
-func (pca *PCA9685) Status(ctx context.Context, extra map[string]interface{}) (*commonpb.BoardStatus, error) {
-	return &commonpb.BoardStatus{}, nil
 }
 
 // GPIOPinByName returns a GPIOPin by name.

@@ -97,6 +97,11 @@ func TestClient(t *testing.T) {
 		inputController1Client, err := input.NewClientFromConn(context.Background(), conn, "", input.Named(testInputControllerName), logger)
 		test.That(t, err, test.ShouldBeNil)
 
+		defer func() {
+			test.That(t, inputController1Client.Close(context.Background()), test.ShouldBeNil)
+			test.That(t, conn.Close(), test.ShouldBeNil)
+		}()
+
 		// DoCommand
 		resp, err := inputController1Client.DoCommand(context.Background(), testutils.TestCommand)
 		test.That(t, err, test.ShouldBeNil)
@@ -232,9 +237,6 @@ func TestClient(t *testing.T) {
 		test.That(t, injectedEvent, test.ShouldResemble, event1)
 		test.That(t, extraOptions, test.ShouldResemble, extra)
 		injectInputController.TriggerEventFunc = nil
-
-		test.That(t, inputController1Client.Close(context.Background()), test.ShouldBeNil)
-		test.That(t, conn.Close(), test.ShouldBeNil)
 	})
 
 	t.Run("input controller client 2", func(t *testing.T) {
@@ -242,6 +244,11 @@ func TestClient(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		client2, err := resourceAPI.RPCClient(context.Background(), conn, "", input.Named(failInputControllerName), logger)
 		test.That(t, err, test.ShouldBeNil)
+
+		defer func() {
+			test.That(t, client2.Close(context.Background()), test.ShouldBeNil)
+			test.That(t, conn.Close(), test.ShouldBeNil)
+		}()
 
 		_, err = client2.Controls(context.Background(), map[string]interface{}{})
 		test.That(t, err, test.ShouldNotBeNil)
@@ -262,8 +269,76 @@ func TestClient(t *testing.T) {
 		err = injectable.TriggerEvent(context.Background(), event1, map[string]interface{}{})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "not of type Triggerable")
-
-		test.That(t, client2.Close(context.Background()), test.ShouldBeNil)
-		test.That(t, conn.Close(), test.ShouldBeNil)
 	})
+}
+
+func TestClientRace(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+	listener1, err := net.Listen("tcp", "localhost:0")
+	test.That(t, err, test.ShouldBeNil)
+	rpcServer, err := rpc.NewServer(logger.AsZap(), rpc.WithUnauthenticated())
+	test.That(t, err, test.ShouldBeNil)
+
+	injectInputController := &inject.TriggerableInputController{}
+	injectInputController.RegisterControlCallbackFunc = func(
+		ctx context.Context,
+		control input.Control,
+		triggers []input.EventType,
+		ctrlFunc input.ControlFunction,
+		extra map[string]interface{},
+	) error {
+		return nil
+	}
+
+	resources := map[resource.Name]input.Controller{
+		input.Named(testInputControllerName): injectInputController,
+	}
+	inputControllerSvc, err := resource.NewAPIResourceCollection(input.API, resources)
+	test.That(t, err, test.ShouldBeNil)
+	resourceAPI, ok, err := resource.LookupAPIRegistration[input.Controller](input.API)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, ok, test.ShouldBeTrue)
+	test.That(t, resourceAPI.RegisterRPCService(context.Background(), rpcServer, inputControllerSvc), test.ShouldBeNil)
+
+	go rpcServer.Serve(listener1)
+	defer rpcServer.Stop()
+
+	conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
+	test.That(t, err, test.ShouldBeNil)
+	inputController1Client, err := input.NewClientFromConn(context.Background(), conn, "", input.Named(testInputControllerName), logger)
+	test.That(t, err, test.ShouldBeNil)
+
+	defer func() {
+		test.That(t, inputController1Client.Close(context.Background()), test.ShouldBeNil)
+		test.That(t, conn.Close(), test.ShouldBeNil)
+	}()
+
+	extra := map[string]interface{}{"foo": "RegisterControlCallback"}
+	ctrlFuncIn := func(ctx context.Context, event input.Event) {}
+	err = inputController1Client.RegisterControlCallback(
+		context.Background(),
+		input.ButtonStart,
+		[]input.EventType{input.ButtonRelease},
+		ctrlFuncIn,
+		extra,
+	)
+	test.That(t, err, test.ShouldBeNil)
+
+	err = inputController1Client.RegisterControlCallback(
+		context.Background(),
+		input.AbsoluteX,
+		[]input.EventType{input.PositionChangeAbs},
+		ctrlFuncIn,
+		extra,
+	)
+	test.That(t, err, test.ShouldBeNil)
+
+	err = inputController1Client.RegisterControlCallback(
+		context.Background(),
+		input.AbsoluteX,
+		[]input.EventType{input.PositionChangeAbs},
+		ctrlFuncIn,
+		extra,
+	)
+	test.That(t, err, test.ShouldBeNil)
 }

@@ -26,7 +26,6 @@ func LocalRobot(
 
 	r, err := robotimpl.New(ctx, cfg, logger)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, r, test.ShouldNotBeNil)
 	t.Cleanup(func() {
 		test.That(t, r.Close(ctx), test.ShouldBeNil)
 	})
