@@ -252,10 +252,7 @@ func (b *Board) Close(ctx context.Context) error {
 	var err error
 
 	for _, analog := range b.Analogs {
-		err = multierr.Combine(err, analog.Close(ctx))
-	}
-	for _, digital := range b.Digitals {
-		err = multierr.Combine(err, digital.Close(ctx))
+		err = multierr.Combine(err, analog.close())
 	}
 	return err
 }
@@ -302,8 +299,8 @@ func (a *Analog) Set(value int) {
 	a.Value = value
 }
 
-// Close does nothing.
-func (a *Analog) Close(ctx context.Context) error {
+// close does nothing.
+func (a *Analog) close() error {
 	a.CloseCount++
 	return nil
 }
@@ -461,9 +458,4 @@ func (s *DigitalInterruptWrapper) Name() string {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return s.conf.Name
-}
-
-// Close does nothing.
-func (s *DigitalInterruptWrapper) Close(ctx context.Context) error {
-	return nil
 }
