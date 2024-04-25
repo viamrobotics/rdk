@@ -43,7 +43,7 @@ type Base interface {
 	// If a distance or speed of zero is given, the base will stop.
 	// This method blocks until completed or cancelled
 	//
-	//    myBase, err := base.FromRobot(robot, "my_base")
+	//    myBase, err := base.FromRobot(machine, "my_base")
 	//    // Move the base forward 40 mm at a velocity of 90 mm/s.
 	//    myBase.MoveStraight(context.Background(), 40, 90, nil)
 	//
@@ -56,7 +56,7 @@ type Base interface {
 	// Given a positive speed and a positive angle, the base turns to the left (for built-in RDK drivers)
 	// This method blocks until completed or cancelled
 	//
-	//    myBase, err := base.FromRobot(robot, "my_base")
+	//    myBase, err := base.FromRobot(machine, "my_base")
 	//
 	//    // Spin the base 10 degrees at an angular velocity of 15 deg/sec.
 	//    myBase.Spin(context.Background(), 10, 15, nil)
@@ -64,7 +64,7 @@ type Base interface {
 
 	// For linear power, positive Y moves forwards for built-in RDK drivers
 	// For angular power, positive Z turns to the left for built-in RDK drivers
-	//    myBase, err := base.FromRobot(robot, "my_base")
+	//    myBase, err := base.FromRobot(machine, "my_base")
 	//
 	//    // Make your wheeled base move forward. Set linear power to 75%.
 	//    logger.Info("move forward")
@@ -88,7 +88,7 @@ type Base interface {
 	//
 	//    // import "github.com/golang/geo/r3" ...
 	//
-	//    myBase, err := base.FromRobot(robot, "my_base")
+	//    myBase, err := base.FromRobot(machine, "my_base")
 	//
 	//    // Set the linear velocity to 50 mm/sec and the angular velocity to 15 deg/sec.
 	//    myBase.SetVelocity(context.Background(), r3.Vector{Y: 50}, r3.Vector{Z: 15}, nil)
@@ -96,7 +96,7 @@ type Base interface {
 
 	// Properties returns the width, turning radius, and wheel circumference of the physical base in meters.
 	//
-	//    myBase, err := base.FromRobot(robot, "my_base")
+	//    myBase, err := base.FromRobot(machine, "my_base")
 	//
 	//    // Get the width and turning radius of the base
 	//    properties, err := myBase.Properties(context.Background(), nil)
