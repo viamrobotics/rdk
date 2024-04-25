@@ -81,12 +81,19 @@ type Arm interface {
 	// MoveToPosition moves the arm to the given absolute position.
 	// This will block until done or a new operation cancels this one
 	//
-	//    myArm, err := arm.FromRobot(robot, "my_arm")
+	//    myArm, err := arm.FromRobot(machine, "my_arm")
 	//    // Create a Pose for the arm.
-	//    examplePose = []float64{x: 5, y: 5, z: 5, o_x: 5, o_y: 5, o_z: 5, theta:20}
+	//    examplePose := spatialmath.NewPose(
+	//            r3.Vector{X: 5, Y: 5, Z: 5},
+	//            &spatialmath.OrientationVectorDegrees{0X: 5, 0Y: 5, Theta: 20}
+	//    )
 	//
 	//    // Move your arm to the Pose.
-	//    err := myArm.MoveToPosition(context.Background(), pose: examplePose, nil)
+	//    err = myArm.MoveToPosition(context.Background(), examplePose, nil)
+	//	  if err!=nil {
+	//        logger.Error(err)
+	//        return
+	//    }
 	MoveToPosition(ctx context.Context, pose spatialmath.Pose, extra map[string]interface{}) error
 
 	// MoveToJointPositions moves the arm's joints to the given positions.
