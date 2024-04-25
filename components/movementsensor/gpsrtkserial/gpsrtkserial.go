@@ -510,7 +510,6 @@ func (g *rtkSerial) LinearAcceleration(ctx context.Context, extra map[string]int
 
 // AngularVelocity passthrough.
 func (g *rtkSerial) AngularVelocity(ctx context.Context, extra map[string]interface{}) (spatialmath.AngularVelocity, error) {
-
 	lastError := g.err.Get()
 	if lastError != nil {
 		return spatialmath.AngularVelocity{}, lastError
@@ -521,7 +520,6 @@ func (g *rtkSerial) AngularVelocity(ctx context.Context, extra map[string]interf
 
 // CompassHeading passthrough.
 func (g *rtkSerial) CompassHeading(ctx context.Context, extra map[string]interface{}) (float64, error) {
-
 	lastError := g.err.Get()
 	if lastError != nil {
 		return 0, lastError
@@ -531,7 +529,6 @@ func (g *rtkSerial) CompassHeading(ctx context.Context, extra map[string]interfa
 
 // Orientation passthrough.
 func (g *rtkSerial) Orientation(ctx context.Context, extra map[string]interface{}) (spatialmath.Orientation, error) {
-
 	lastError := g.err.Get()
 	if lastError != nil {
 		return spatialmath.NewZeroOrientation(), lastError
@@ -541,7 +538,6 @@ func (g *rtkSerial) Orientation(ctx context.Context, extra map[string]interface{
 
 // readFix passthrough.
 func (g *rtkSerial) readFix(ctx context.Context) (int, error) {
-
 	lastError := g.err.Get()
 	if lastError != nil {
 		return 0, lastError
@@ -551,7 +547,6 @@ func (g *rtkSerial) readFix(ctx context.Context) (int, error) {
 
 // readSatsInView returns the number of satellites in view.
 func (g *rtkSerial) readSatsInView(ctx context.Context) (int, error) {
-
 	lastError := g.err.Get()
 	if lastError != nil {
 		return 0, lastError
