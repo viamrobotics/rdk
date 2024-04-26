@@ -236,28 +236,11 @@ func TestClientNames(t *testing.T) {
 		client, err := board.NewClientFromConn(ctx, conn, "", board.Named(testBoardName), logger)
 		test.That(t, err, test.ShouldBeNil)
 
-		// AnalogNames Client Tests
-		names := client.AnalogNames()
-		test.That(t, len(names), test.ShouldEqual, 0)
-
-		_, err = client.AnalogByName("analog1client")
-		test.That(t, err, test.ShouldBeNil)
-		names = client.AnalogNames()
-		test.That(t, len(names), test.ShouldEqual, 1)
-		test.That(t, slices.Contains(names, "analog1client"), test.ShouldBeTrue)
-
-		_, err = client.AnalogByName("analog2client")
-		test.That(t, err, test.ShouldBeNil)
-
-		names = client.AnalogNames()
-		test.That(t, len(names), test.ShouldEqual, 2)
-		test.That(t, slices.Contains(names, "analog2client"), test.ShouldBeTrue)
-
-		_, err = client.AnalogByName("analog1client")
-		test.That(t, err, test.ShouldBeNil)
-		names = client.AnalogNames()
-		test.That(t, len(names), test.ShouldEqual, 2)
-		test.That(t, slices.Contains(names, "analog1client"), test.ShouldBeTrue)
+		nameFunc := func(name string) error {
+			_, err = client.AnalogByName(name)
+			return err
+		}
+		testNamesAPI(t, client.AnalogNames, nameFunc, "Analog")
 
 		test.That(t, conn.Close(), test.ShouldBeNil)
 	})
@@ -268,29 +251,38 @@ func TestClientNames(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		client, err := board.NewClientFromConn(ctx, conn, "", board.Named(testBoardName), logger)
 		test.That(t, err, test.ShouldBeNil)
-		// DigitalInterruptNames Client Tests
-		names := client.DigitalInterruptNames()
-		test.That(t, len(names), test.ShouldEqual, 0)
 
-		_, err = client.DigitalInterruptByName("DigitalInterrupt1client")
-		test.That(t, err, test.ShouldBeNil)
-		names = client.DigitalInterruptNames()
-		test.That(t, len(names), test.ShouldEqual, 1)
-		test.That(t, slices.Contains(names, "DigitalInterrupt1client"), test.ShouldBeTrue)
-
-		_, err = client.DigitalInterruptByName("DigitalInterrupt2client")
-		test.That(t, err, test.ShouldBeNil)
-
-		names = client.DigitalInterruptNames()
-		test.That(t, len(names), test.ShouldEqual, 2)
-		test.That(t, slices.Contains(names, "DigitalInterrupt2client"), test.ShouldBeTrue)
-
-		_, err = client.DigitalInterruptByName("DigitalInterrupt1client")
-		test.That(t, err, test.ShouldBeNil)
-		names = client.DigitalInterruptNames()
-		test.That(t, len(names), test.ShouldEqual, 2)
-		test.That(t, slices.Contains(names, "DigitalInterrupt1client"), test.ShouldBeTrue)
-
+		nameFunc := func(name string) error {
+			_, err = client.DigitalInterruptByName(name)
+			return err
+		}
+		testNamesAPI(t, client.DigitalInterruptNames, nameFunc, "DigitalInterrupt")
 		test.That(t, conn.Close(), test.ShouldBeNil)
 	})
+}
+
+func testNamesAPI(t *testing.T, namesFunc func() []string, nameFunc func(string) error, name string) {
+	t.Helper()
+	names := namesFunc()
+	test.That(t, len(names), test.ShouldEqual, 0)
+	name1 := name + "1"
+	err := nameFunc(name1)
+	test.That(t, err, test.ShouldBeNil)
+	names = namesFunc()
+	test.That(t, len(names), test.ShouldEqual, 1)
+	test.That(t, slices.Contains(names, name1), test.ShouldBeTrue)
+
+	name2 := name + "2"
+	err = nameFunc(name2)
+	test.That(t, err, test.ShouldBeNil)
+
+	names = namesFunc()
+	test.That(t, len(names), test.ShouldEqual, 2)
+	test.That(t, slices.Contains(names, name2), test.ShouldBeTrue)
+
+	err = nameFunc(name1)
+	test.That(t, err, test.ShouldBeNil)
+	names = namesFunc()
+	test.That(t, len(names), test.ShouldEqual, 2)
+	test.That(t, slices.Contains(names, name1), test.ShouldBeTrue)
 }
