@@ -757,7 +757,7 @@ func TestStreamTicks(t *testing.T) {
 		{
 			name:                      "successful stream with multiple interrupts",
 			injectDigitalInterrupts:   []*inject.DigitalInterrupt{{}, {}},
-			injectDigitalInterruptErr: errDigital,
+			injectDigitalInterruptErr: nil,
 			streamTicksErr:            nil,
 			req:                       &request{Name: testBoardName, PinNames: []string{"digital1", "digital2"}, Extra: pbExpectedExtra},
 			expResp:                   &response{PinName: "digital1", Time: uint64(time.Nanosecond), High: true},
@@ -766,7 +766,7 @@ func TestStreamTicks(t *testing.T) {
 		{
 			name:                      "successful stream with one interrupt",
 			injectDigitalInterrupts:   []*inject.DigitalInterrupt{{}},
-			injectDigitalInterruptErr: errDigital,
+			injectDigitalInterruptErr: nil,
 			streamTicksErr:            nil,
 			req:                       &request{Name: testBoardName, PinNames: []string{"digital1"}, Extra: pbExpectedExtra},
 			expResp:                   &response{PinName: "digital1", Time: uint64(time.Nanosecond), High: true},
@@ -782,17 +782,17 @@ func TestStreamTicks(t *testing.T) {
 		{
 			name:                      "unknown digital interrupt should return error",
 			injectDigitalInterrupts:   nil,
-			injectDigitalInterruptErr: nil,
+			injectDigitalInterruptErr: errDigital,
 			streamTicksErr:            errors.New("unknown digital interrupt: digital3"),
 			req:                       &request{Name: testBoardName, PinNames: []string{"digital3"}},
 			expResp:                   nil,
-			expRespErr:                "unknown digital interrupt: digital1",
+			expRespErr:                "unknown digital interrupt: digital3",
 			sendFail:                  false,
 		},
 		{
 			name:                      "failing to send tick should return error",
 			injectDigitalInterrupts:   []*inject.DigitalInterrupt{{}},
-			injectDigitalInterruptErr: nil,
+			injectDigitalInterruptErr: errSendFailed,
 			streamTicksErr:            nil,
 			req:                       &request{Name: testBoardName, PinNames: []string{"digital1"}, Extra: pbExpectedExtra},
 			expResp:                   &response{PinName: "digital1", Time: uint64(time.Nanosecond), High: true},
