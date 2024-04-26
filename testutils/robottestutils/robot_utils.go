@@ -92,7 +92,7 @@ func MakeTempConfig(t *testing.T, cfg *config.Config, logger logging.Logger) (st
 }
 
 // ServerAsSeparateProcess builds the viam server and returns an unstarted ManagedProcess for
-// the built binary with a temporary home directory.
+// the built binary.
 func ServerAsSeparateProcess(t *testing.T, cfgFileName string, logger logging.Logger) pexec.ManagedProcess {
 	serverPath := rtestutils.BuildTempModule(t, "web/cmd/server/")
 

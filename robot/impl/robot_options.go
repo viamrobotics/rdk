@@ -1,11 +1,16 @@
 package robotimpl
 
-import "go.viam.com/rdk/robot/web"
+import (
+	"go.viam.com/rdk/robot/web"
+)
 
 // options configures a Robot.
 type options struct {
 	// webOptions are used to initially configure the web service.
 	webOptions []web.Option
+
+	// moduleHomeDir is used to configure the module manager's home directory.
+	moduleHomeDir string
 
 	// revealSensitiveConfigDiffs will display config diffs - which may contain secret
 	// information - in log statements
@@ -48,5 +53,12 @@ func WithWebOptions(opts ...web.Option) Option {
 func WithRevealSensitiveConfigDiffs() Option {
 	return newFuncOption(func(o *options) {
 		o.revealSensitiveConfigDiffs = true
+	})
+}
+
+// WithModHomeDir returns a Option which sets the module home directory. Expected to only be used in tests.
+func WithModHomeDir(homeDir string) Option {
+	return newFuncOption(func(o *options) {
+		o.moduleHomeDir = homeDir
 	})
 }

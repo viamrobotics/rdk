@@ -460,13 +460,18 @@ func newWithResources(
 	if cfg.Cloud != nil {
 		cloudID = cfg.Cloud.ID
 	}
+
+	homeDir := config.ViamDotDir
+	if rOpts.moduleHomeDir != "" {
+		homeDir = rOpts.moduleHomeDir
+	}
 	// Once web service is started, start module manager
 	r.manager.startModuleManager(
 		closeCtx,
 		r.webSvc.ModuleAddress(),
 		r.removeOrphanedResources,
 		cfg.UntrustedEnv,
-		config.ViamDotDir,
+		homeDir,
 		cloudID,
 		logger,
 	)
