@@ -105,6 +105,10 @@ func (fk *fakeDiffDriveKinematics) ErrorState(ctx context.Context) (spatialmath.
 	return fk.sensorNoise, nil
 }
 
+func (fk *fakeDiffDriveKinematics) ExecutionState(ctx context.Context) (motionplan.ExecutionState, error) {
+	return motionplan.ExecutionState{}, nil
+}
+
 func (fk *fakeDiffDriveKinematics) CurrentPosition(ctx context.Context) (*referenceframe.PoseInFrame, error) {
 	fk.lock.RLock()
 	inputs := fk.inputs
@@ -282,6 +286,10 @@ func (fk *fakePTGKinematics) GoToInputs(ctx context.Context, inputSteps ...[]ref
 
 func (fk *fakePTGKinematics) ErrorState(ctx context.Context) (spatialmath.Pose, error) {
 	return fk.sensorNoise, nil
+}
+
+func (fk *fakePTGKinematics) ExecutionState(ctx context.Context) (motionplan.ExecutionState, error) {
+	return motionplan.ExecutionState{}, nil
 }
 
 func (fk *fakePTGKinematics) CurrentPosition(ctx context.Context) (*referenceframe.PoseInFrame, error) {

@@ -75,7 +75,7 @@ func (ptgk *ptgBaseKinematics) GoToInputs(ctx context.Context, inputSteps ...[]r
 
 	defer func() {
 		ptgk.inputLock.Lock()
-		ptgk.currentInputs = zeroInput
+		ptgk.currentState.currentInputs = zeroInput
 		ptgk.inputLock.Unlock()
 	}()
 
@@ -96,8 +96,8 @@ func (ptgk *ptgBaseKinematics) GoToInputs(ctx context.Context, inputSteps ...[]r
 
 	// Pre-process all steps into a series of velocities
 	ptgk.inputLock.Lock()
-	ptgk.currentExecutingSteps, err = ptgk.arcStepsFromInputs(inputSteps, startPose)
-	arcSteps := ptgk.currentExecutingSteps
+	ptgk.currentState.currentExecutingSteps, err = ptgk.arcStepsFromInputs(inputSteps, startPose)
+	arcSteps := ptgk.currentState.currentExecutingSteps
 	ptgk.inputLock.Unlock()
 	if err != nil {
 		return tryStop(err)
@@ -109,8 +109,8 @@ func (ptgk *ptgBaseKinematics) GoToInputs(ctx context.Context, inputSteps ...[]r
 		}
 		step := arcSteps[i]
 		ptgk.inputLock.Lock() // In the case where there's actual contention here, this could cause timing issues; how to solve?
-		ptgk.currentIdx = i
-		ptgk.currentInputs = step.arcSegment.StartConfiguration
+		ptgk.currentState.currentIdx = i
+		ptgk.currentState.currentInputs = step.arcSegment.StartConfiguration
 		ptgk.inputLock.Unlock()
 
 		ptgk.logger.Debugf("step, i %d \n %s", i, step.String())
@@ -156,7 +156,7 @@ func (ptgk *ptgBaseKinematics) GoToInputs(ctx context.Context, inputSteps ...[]r
 				step.arcSegment.StartConfiguration[endDistanceAlongTrajectoryIndex],
 			}
 			ptgk.inputLock.Lock()
-			ptgk.currentInputs = currentInputs
+			ptgk.currentState.currentInputs = currentInputs
 			ptgk.inputLock.Unlock()
 
 			// If we have a localizer, we are able to attempt to correct to stay on the path.
@@ -173,7 +173,7 @@ func (ptgk *ptgBaseKinematics) GoToInputs(ctx context.Context, inputSteps ...[]r
 				if newArcSteps != nil {
 					// newArcSteps will be nil if there is no course correction needed
 					ptgk.inputLock.Lock()
-					ptgk.currentExecutingSteps = newArcSteps
+					ptgk.currentState.currentExecutingSteps = newArcSteps
 					ptgk.inputLock.Unlock()
 					arcSteps = newArcSteps
 					break

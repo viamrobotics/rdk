@@ -433,26 +433,31 @@ IK:
 // detected, the interpolated position of the rover when a collision is detected is returned along
 // with an error with additional collision details.
 func CheckPlan(
-	checkFrame frame.Frame,
-	plan Plan,
-	wayPointIdx int,
+	checkFrame frame.Frame, // TODO(RSDK-7421): remove this
+	executionState ExecutionState,
 	worldState *frame.WorldState,
 	fs frame.FrameSystem,
-	currentPose spatialmath.Pose,
-	currentInputs map[string][]frame.Input,
-	errorState spatialmath.Pose,
 	lookAheadDistanceMM float64,
 	logger logging.Logger,
 ) error {
+	plan := executionState.Plan()
+	startingInputs := plan.Trajectory()[0]
+	currentInputs := executionState.CurrentInputs()
+	currentPoseIF := executionState.CurrentPoses()[checkFrame.Name()]
+	wayPointIdx := executionState.Index()
+	
 	// ensure that we can actually perform the check
 	if len(plan.Path()) < 1 {
 		return errors.New("plan must have at least one element")
+	}
+	if len(plan.Path()) <= wayPointIdx || wayPointIdx < 0 {
+		return errors.New("wayPointIdx outside of plan bounds")
 	}
 
 	// construct solverFrame
 	// Note that this requires all frames which move as part of the plan, to have an
 	// entry in the very first plan waypoint
-	sf, err := newSolverFrame(fs, checkFrame.Name(), frame.World, currentInputs)
+	sf, err := newSolverFrame(fs, checkFrame.Name(), frame.World, startingInputs)
 	if err != nil {
 		return err
 	}
@@ -467,6 +472,29 @@ func CheckPlan(
 	// Currently this is only TP-space, so we check if the PTG length is >0.
 	// The solver frame will have had its PTGs filled in the newPlanManager() call, if applicable.
 	relative := len(sf.PTGSolvers()) > 0
+
+	var errorState spatialmath.Pose
+	checkFramePiF := frame.NewPoseInFrame(checkFrame.Name(), spatialmath.NewZeroPose())
+	if relative {
+		// Relative current inputs will give us the arc the base is left executing. Calculating that transform and subtracting it from the
+		// arc end position (that is, the same-index node in plan.Path()) gives us our expected location.
+		waypoint := plan.Path()[wayPointIdx]
+		
+		remainingArcPose := 
+		
+	} else {
+		// Non-relative inputs yield the expected position directly from `Transform()` on the inputs
+		expectedPoseTf, err := fs.Transform(currentInputs, checkFramePiF, frame.World)
+		if err != nil {
+			return err
+		}
+		expectedPose, ok := expectedPoseTf.(*frame.PoseInFrame)
+		if !ok {
+			// Should never happen
+			return errors.New("could not convert transformable to a PoseInFrame")
+		}
+		errorState = spatialmath.PoseBetween(expectedPose.Pose(), currentPose)
+	}
 
 	// offset the plan using the errorState
 	offsetPlan := OffsetPlan(plan, errorState)
@@ -496,7 +524,7 @@ func CheckPlan(
 	if sfPlanner.planOpts, err = sfPlanner.plannerSetupFromMoveRequest(
 		startPose,
 		poses[len(poses)-1],
-		currentInputs,
+		startingInputs,
 		worldState,
 		nil, // no pb.Constraints
 		nil, // no plannOpts

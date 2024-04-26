@@ -11,6 +11,7 @@ import (
 
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/logging"
+	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/services/motion"
 	"go.viam.com/rdk/spatialmath"
@@ -23,9 +24,11 @@ type KinematicBase interface {
 	referenceframe.InputEnabled
 
 	Kinematics() referenceframe.Frame
+
 	// ErrorState takes a complete motionplan, as well as the index of the currently-executing set of inputs, and computes the pose
-	// difference between where the robot in fact is, and where it ought to be.
+	// difference between where the robot in fact is, and where it ought to be, i.e. PoseBetween(expected, actual)
 	ErrorState(context.Context) (spatialmath.Pose, error)
+	ExecutionState(context.Context) (motionplan.ExecutionState, error)
 }
 
 const (

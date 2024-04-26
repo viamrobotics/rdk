@@ -250,3 +250,45 @@ func (plan *SimplePlan) Path() Path {
 func (plan *SimplePlan) Trajectory() Trajectory {
 	return plan.traj
 }
+
+func NewExecutionState(
+	plan Plan,
+	index int,
+	inputs map[string][]referenceframe.Input,
+	currentPose map[string]spatialmath.Pose,
+) ExecutionState {
+	return ExecutionState {
+		plan: plan,
+		index: index,
+		inputs: inputs,
+		currentPose: currentPose,
+	}
+}
+
+// ExecutionState describes a plan and a particular state along it.
+type ExecutionState struct {
+	plan Plan
+	index int
+	
+	// The current inputs of input-enabled elements described by the plan
+	inputs map[string][]referenceframe.Input
+
+	// The current PoseInFrames of input-enabled elements described by this plan.
+	currentPose map[string]referenceframe.PoseInFrame
+}
+
+func (e *ExecutionState) Plan() Plan {
+	return e.plan
+}
+
+func (e *ExecutionState) Index() int {
+	return e.index
+}
+
+func (e *ExecutionState) CurrentInputs() map[string][]referenceframe.Input {
+	return e.inputs
+}
+
+func (e *ExecutionState) CurrentPoses() map[string]referenceframe.PoseInFrame {
+	return e.currentPose
+}
