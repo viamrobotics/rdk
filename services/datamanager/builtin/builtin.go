@@ -730,15 +730,19 @@ func pollFilesystem(ctx context.Context, wg *sync.WaitGroup, captureDir string, 
 			return
 		case <-t.C:
 			logger.Debug("Polling")
-			shouldDelete, err := checkFileSystemStats(ctx, captureDir, logger)
+			shouldDelete, err := shouldDeleteBasedOnDiskUsage(ctx, captureDir, logger)
 			if err != nil {
-				return
+				logger.Errorw("Error checking file system stats", "error", err)
 			}
 			if shouldDelete {
 				start := time.Now()
-				deleteFiles(ctx, syncer, captureDir, logger)
-				duration := time.Since(start)
-				logger.Infow("Finished deleting files", "execution time", duration.Seconds())
+				err := deleteFiles(ctx, syncer, captureDir, logger)
+				if err != nil {
+					duration := time.Since(start)
+					logger.Errorw("Error deleting cached datacapture files", "error", err, "execution time", duration.Seconds())
+				} else {
+					logger.Info("Finished deleting files")
+				}
 			}
 		}
 	}

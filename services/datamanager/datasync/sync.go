@@ -43,6 +43,7 @@ type Manager interface {
 	SetArbitraryFileTags(tags []string)
 	Close()
 	MarkInProgress(path string) bool
+	UnmarkInProgress(path string)
 }
 
 // syncer is responsible for uploading files in captureDir to the cloud.
@@ -136,7 +137,7 @@ func (s *syncer) SyncFile(path string) {
 				if !s.MarkInProgress(path) {
 					return
 				}
-				defer s.unmarkInProgress(path)
+				defer s.UnmarkInProgress(path)
 				//nolint:gosec
 				f, err := os.Open(path)
 				if err != nil {
@@ -242,7 +243,7 @@ func (s *syncer) MarkInProgress(path string) bool {
 	return true
 }
 
-func (s *syncer) unmarkInProgress(path string) {
+func (s *syncer) UnmarkInProgress(path string) {
 	s.progressLock.Lock()
 	defer s.progressLock.Unlock()
 	delete(s.inProgress, path)

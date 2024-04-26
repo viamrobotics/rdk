@@ -18,3 +18,5 @@ func (m *noopManager) Close() {}
 func (m *noopManager) MarkInProgress(path string) bool {
 	return true
 }
+
+func (m *noopManager) UnmarkInProgress(path string) {}
