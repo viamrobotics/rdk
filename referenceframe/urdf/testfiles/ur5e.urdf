@@ -25,8 +25,18 @@
     <limit effort="150" lower="-6.283185" upper="6.283185" velocity="3.141592" />
   </joint>
 
-  <link name="shoulder_link"> 
-      <collision>
+  <link name="shoulder_link" />
+
+  <joint name="shoulder_lift_joint" type="revolute">
+    <parent link="shoulder_link"/>
+    <child link="upper_arm_link"/>
+    <origin rpy="0.0 0.0 0.0" xyz="0.0 0.0 0.0"/>
+    <axis xyz="0 -1 0"/>
+    <limit effort="150" lower="-6.283185" upper="6.283185" velocity="3.141592" />
+  </joint>
+
+  <link name="upper_arm_link">
+    <collision>
       <origin rpy="0.0 0.0 0.0" xyz="-0.215 -0.130 0.0"/>
       <geometry>
         <box size="0.550 0.150 0.120" />
@@ -34,15 +44,15 @@
     </collision>
   </link>
 
-  <joint name="shoulder_lift_joint" type="revolute">
-    <parent link="shoulder_link"/>
-    <child link="upper_arm_link"/>
+  <joint name="elbow_joint" type="revolute">
+    <parent link="upper_arm_link"/>
+    <child link="forearm_link"/>
     <origin rpy="0.0 0.0 0.0" xyz="-0.425 0.0 0.0"/>
     <axis xyz="0 -1 0"/>
-    <limit effort="150" lower="-6.283185" upper="6.283185" velocity="3.141592" />
+    <limit effort="150" lower="-3.141592" upper="3.141592" velocity="3.141592" />
   </joint>
 
-  <link name="upper_arm_link">
+  <link name="forearm_link">
     <collision>
       <origin rpy="0.0 0.0 0.0" xyz="-0.190 0.0 0.0"/>
       <geometry>
@@ -51,32 +61,22 @@
     </collision>
   </link>
 
-  <joint name="elbow_joint" type="revolute">
-    <parent link="upper_arm_link"/>
-    <child link="forearm_link"/>
-    <origin rpy="0.0 0.0 0.0" xyz="-0.3922 0.0 0.0"/>
+  <joint name="wrist_1_joint" type="revolute">
+    <parent link="forearm_link"/>
+    <child link="wrist_1_link"/>
+    <origin rpy="0.0 0.0 0.0" xyz="-.3922 -0.1333 0"/>
     <axis xyz="0 -1 0"/>
-    <limit effort="150" lower="-3.141592" upper="3.141592" velocity="3.141592" />
+    <limit effort="28" lower="-6.283185" upper="6.283185" velocity="3.141592" />
   </joint>
 
-  <link name="forearm_link">
+  <link name="wrist_1_link">
     <collision>
-      <origin rpy="0.0 0.0 0.0" xyz="0.0 -0.110 0.0"/>
+      <origin rpy="0.0 0.0 0.0" xyz="0.0 0.01 0.0"/>
       <geometry>
         <box size="0.090 0.130 0.130" />
       </geometry>
     </collision>
   </link>
-
-  <joint name="wrist_1_joint" type="revolute">
-    <parent link="forearm_link"/>
-    <child link="wrist_1_link"/>
-    <origin rpy="0.0 0.0 0.0" xyz="0.0 -0.1333 0.0"/>
-    <axis xyz="0 -1 0"/>
-    <limit effort="28" lower="-6.283185" upper="6.283185" velocity="3.141592" />
-  </joint>
-
-  <link name="wrist_1_link"/>
 
   <joint name="wrist_2_joint" type="revolute">
     <parent link="wrist_1_link"/>
@@ -88,9 +88,9 @@
 
   <link name="wrist_2_link">
     <collision>
-      <origin rpy="0.0 0.0 0.0" xyz="0.0 0.0 0.0"/>
+      <origin rpy="0.0 0.0 0.0" xyz="0.0 -0.02 0.0"/>
       <geometry>
-        <box size="0.080 0.150 0.100" />
+        <box size="0.080 0.180 0.100" />
       </geometry>
     </collision>
   </link>
