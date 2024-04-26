@@ -9,8 +9,8 @@ type options struct {
 	// webOptions are used to initially configure the web service.
 	webOptions []web.Option
 
-	// moduleHomeDir is used to configure the module manager's home directory.
-	moduleHomeDir string
+	// viamHomeDir is used to configure the Viam home directory.
+	viamHomeDir string
 
 	// revealSensitiveConfigDiffs will display config diffs - which may contain secret
 	// information - in log statements
@@ -56,9 +56,9 @@ func WithRevealSensitiveConfigDiffs() Option {
 	})
 }
 
-// WithModHomeDir returns a Option which sets the module home directory. Expected to only be used in tests.
-func WithModHomeDir(homeDir string) Option {
+// WithViamHomeDir returns a Option which sets the Viam home directory.
+func WithViamHomeDir(homeDir string) Option {
 	return newFuncOption(func(o *options) {
-		o.moduleHomeDir = homeDir
+		o.viamHomeDir = homeDir
 	})
 }

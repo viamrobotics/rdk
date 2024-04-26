@@ -462,8 +462,8 @@ func newWithResources(
 	}
 
 	homeDir := config.ViamDotDir
-	if rOpts.moduleHomeDir != "" {
-		homeDir = rOpts.moduleHomeDir
+	if rOpts.viamHomeDir != "" {
+		homeDir = rOpts.viamHomeDir
 	}
 	// Once web service is started, start module manager
 	r.manager.startModuleManager(
