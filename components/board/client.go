@@ -4,6 +4,7 @@ package board
 import (
 	"context"
 	"math"
+	"slices"
 	"sync"
 	"time"
 
@@ -67,13 +68,7 @@ func NewClientFromConn(
 }
 
 func (c *client) AnalogByName(name string) (Analog, error) {
-	inList := false
-	for _, analog := range c.info.analogNames {
-		if analog == name {
-			inList = true
-		}
-	}
-	if !inList {
+	if !slices.Contains(c.info.analogNames, name) {
 		c.info.analogNames = append(c.info.analogNames, name)
 	}
 	return &analogClient{
@@ -84,13 +79,7 @@ func (c *client) AnalogByName(name string) (Analog, error) {
 }
 
 func (c *client) DigitalInterruptByName(name string) (DigitalInterrupt, error) {
-	inList := false
-	for _, interrupt := range c.info.digitalInterruptNames {
-		if interrupt == name {
-			inList = true
-		}
-	}
-	if !inList {
+	if !slices.Contains(c.info.digitalInterruptNames, name) {
 		c.info.digitalInterruptNames = append(c.info.digitalInterruptNames, name)
 	}
 	return &digitalInterruptClient{
