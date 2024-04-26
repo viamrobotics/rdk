@@ -177,11 +177,14 @@ func (b *Board) AnalogByName(name string) (board.Analog, error) {
 }
 
 // DigitalInterruptByName returns the interrupt by the given name if it exists.
-func (b *Board) DigitalInterruptByName(name string) (board.DigitalInterrupt, bool) {
+func (b *Board) DigitalInterruptByName(name string) (board.DigitalInterrupt, error) {
 	b.mu.RLock()
 	defer b.mu.RUnlock()
 	d, ok := b.Digitals[name]
-	return d, ok
+	if !ok {
+		return nil, fmt.Errorf("cant find DigitalInterrupt (%s)", name)
+	}
+	return d, nil
 }
 
 // GPIOPinByName returns the GPIO pin by the given name if it exists.
