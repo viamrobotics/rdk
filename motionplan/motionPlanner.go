@@ -472,28 +472,42 @@ func CheckPlan(
 	// Currently this is only TP-space, so we check if the PTG length is >0.
 	// The solver frame will have had its PTGs filled in the newPlanManager() call, if applicable.
 	relative := len(sf.PTGSolvers()) > 0
+	checkFramePiF := frame.NewPoseInFrame(checkFrame.Name(), spatialmath.NewZeroPose())
+	expectedPoseTf, err := fs.Transform(currentInputs, checkFramePiF, frame.World)
+	if err != nil {
+		return err
+	}
+	expectedPoseInWorld, ok := expectedPoseTf.(*frame.PoseInFrame)
+	if !ok {
+		// Should never happen
+		return errors.New("could not convert transformable to a PoseInFrame")
+	}
+	
+	// This will actually have the 
+	currentPoseTf, err := fs.Transform(currentInputs, currentPoseIF, frame.World)
+	if err != nil {
+		return err
+	}
+	currentPoseInWorld, ok := currentPoseTf.(*frame.PoseInFrame)
+	if !ok {
+		// Should never happen
+		return errors.New("could not convert transformable to a PoseInFrame")
+	}
 
 	var errorState spatialmath.Pose
-	checkFramePiF := frame.NewPoseInFrame(checkFrame.Name(), spatialmath.NewZeroPose())
 	if relative {
 		// Relative current inputs will give us the arc the base is left executing. Calculating that transform and subtracting it from the
 		// arc end position (that is, the same-index node in plan.Path()) gives us our expected location.
 		waypoint := plan.Path()[wayPointIdx]
-		
-		remainingArcPose := 
-		
-	} else {
-		// Non-relative inputs yield the expected position directly from `Transform()` on the inputs
-		expectedPoseTf, err := fs.Transform(currentInputs, checkFramePiF, frame.World)
+		remainingArcPose, err := checkFrame.Transform(currentInputs)
 		if err != nil {
 			return err
 		}
-		expectedPose, ok := expectedPoseTf.(*frame.PoseInFrame)
-		if !ok {
-			// Should never happen
-			return errors.New("could not convert transformable to a PoseInFrame")
-		}
-		errorState = spatialmath.PoseBetween(expectedPose.Pose(), currentPose)
+		
+	} else {
+		// Non-relative inputs yield the expected position directly from `Transform()` on the inputs
+
+		errorState = spatialmath.PoseBetween(expectedPoseInWorld.Pose(), currentPose)
 	}
 
 	// offset the plan using the errorState
