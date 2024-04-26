@@ -117,11 +117,11 @@ func NewGPIOController(
 	}
 
 	for interruptName, control := range newConf.Buttons {
-		interrupt, ok := brd.DigitalInterruptByName(interruptName)
-		if !ok {
-			return nil, errors.Errorf("cannot find digital interrupt %s", interruptName)
+		interrupt, err := brd.DigitalInterruptByName(interruptName)
+		if err != nil {
+			return nil, err
 		}
-		err := c.newButton(ctx, brd, interrupt, *control)
+		err = c.newButton(ctx, brd, interrupt, *control)
 		if err != nil {
 			return nil, err
 		}

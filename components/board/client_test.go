@@ -162,11 +162,11 @@ func TestWorkingClient(t *testing.T) {
 
 		// Digital Interrupt
 		injectDigitalInterrupt := &inject.DigitalInterrupt{}
-		injectBoard.DigitalInterruptByNameFunc = func(name string) (board.DigitalInterrupt, bool) {
-			return injectDigitalInterrupt, true
+		injectBoard.DigitalInterruptByNameFunc = func(name string) (board.DigitalInterrupt, error) {
+			return injectDigitalInterrupt, nil
 		}
-		digital1, ok := injectBoard.DigitalInterruptByName("digital1")
-		test.That(t, ok, test.ShouldBeTrue)
+		digital1, err := injectBoard.DigitalInterruptByName("digital1")
+		test.That(t, err, test.ShouldBeNil)
 		test.That(t, injectBoard.DigitalInterruptByNameCap(), test.ShouldResemble, []interface{}{"digital1"})
 
 		// Digital Interrupt:Value
