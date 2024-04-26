@@ -68,13 +68,69 @@ func Named(name string) resource.Name {
 type MovementSensor interface {
 	resource.Sensor
 	resource.Resource
+	// Position returns the current GeoPoint (latitude, longitude) and altitude (in meters).
+	// Supported by GPS models.
+	//
+	//    // myMovementSensor, err := movementsensor.FromRobot(machine, "my_movement_sensor")
+	//
+	//    // Get the current position of the movement sensor.
+	//    position, altitude, err := myMovementSensor.Position(context.Background(), nil)
 	Position(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error)                // (lat, long), altitude (m)
+	// LinearVelocity returns the current linear velocity as a 3D vector in meters per second.
+	//
+	//    myMovementSensor, err := movementsensor.FromRobot(machine, "my_movement_sensor")
+	//
+	//    // Get the current linear velocity of the movement sensor.
+	//    linVel, err := myMovementSensor.LinearVelocity(context.Background(), nil)
 	LinearVelocity(ctx context.Context, extra map[string]interface{}) (r3.Vector, error)                    // m / sec
+	// AngularVelcoity returns the current angular velocity as a 3D vector in degrees per second.
+	//
+	//
+	//    myMovementSensor, err := movementsensor.FromRobot(machine, "my_movement_sensor")
+	//
+	//    // Get the current angular velocity of the movement sensor.
+	//    angVel, err := myMovementSensor.AngularVelocity(context.Background(), nil)
+	//
+	//    // Get the y component of angular velocity.
+	//    yAngVel := angVel.Y
 	AngularVelocity(ctx context.Context, extra map[string]interface{}) (spatialmath.AngularVelocity, error) // deg / sec
+	// LinearAcceleration returns the current linear acceleration as a 3D vector in meters per second per second.
+	//
+    //    myMovementSensor, err := movementsensor.FromRobot(machine, "my_movement_sensor")
+	//
+	//    // Get the current linear acceleration of the movement sensor.
+	//    linAccel, err := myMovementSensor.LinearAcceleration(context.Background(), nil)
+	//
+	//    // Get the x component of linear acceleration
+	//    xAngVel := linAccel.X
 	LinearAcceleration(ctx context.Context, extra map[string]interface{}) (r3.Vector, error)
+	// CompassHeading returns the current compass heading in degrees.
+	//
+	//    myMovementSensor, err := movementsensor.FromRobot(machine, "my_movement_sensor")
+	//
+
 	CompassHeading(ctx context.Context, extra map[string]interface{}) (float64, error) // [0->360)
+	// Orientation returns the current orientation of the movement sensor.
+	//
+	//    myMovementSensor, err := movementsensor.FromRobot(machine, "my_movement_sensor")
+	//
+	//    // Get the current compass heading of the movement sensor.
+	//    heading, err := myMovementSensor.CompassHeading(context.Background(), nil)
 	Orientation(ctx context.Context, extra map[string]interface{}) (spatialmath.Orientation, error)
+	// Properties returns the supported properties of the movement sensor.
+	//
+	//    myMovementSensor, err := movementsensor.FromRobot(machine, "my_movement_sensor")
+	//
+	//    // Get the supported properties of the movement sensor.
+	//    properties, err := myMovementSensor.Properties(context.Background(), nil)
 	Properties(ctx context.Context, extra map[string]interface{}) (*Properties, error)
+	// Accuracy returns the reliability metrics of the movement sensor,
+	// including various parameters to access the sensor's accuracy and precision in different dimensions.
+	//
+	//    myMovementSensor, err := movementsensor.FromRobot(machine, "my_movement_sensor")
+	//
+	//    // Get the accuracy of the movement sensor.
+	//    accuracy, err := myMovementSensor.Accuracy(context.Background(), nil)
 	Accuracy(ctx context.Context, extra map[string]interface{}) (*Accuracy, error)
 }
 
