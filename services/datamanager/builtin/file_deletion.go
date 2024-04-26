@@ -27,12 +27,14 @@ var errAtSizeThreshold = errors.New("capture dir is at correct size")
 
 func shouldDeleteBasedOnDiskUsage(ctx context.Context, captureDirPath string, logger logging.Logger) (bool, error) {
 	usage := du.NewDiskUsage(captureDirPath)
-	usedSpace := usage.Usage()
+	// we get usage this way to ensure we get the amount of remaining space in the partition.
+	// calling usage.Usage() returns the usage of the whole disk, not the user partition
+	usedSpace := 1.0 - float64(usage.Available())/float64(usage.Size())
 	if math.IsNaN(float64(usedSpace)) {
 		return false, nil
 	}
 	if usedSpace < fsThresholdToTriggerDeletion {
-		logger.Warn("disk not full enough, exiting")
+		logger.Warnw("disk not full enough, exiting", "used space", usedSpace)
 		return false, nil
 	}
 	// Walk the dir to get capture stats
@@ -83,6 +85,12 @@ func deleteFiles(ctx context.Context, syncer datasync.Manager, captureDirPath st
 	deletedFileCount := 0
 	delete := func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
+			// this can happen if after we start walking the dir, the file changes from .prog to .capture
+			// which throws a file not found error when we try to get the fileinfo. If we hit this, just
+			// swallow the error and continue walking
+			if errors.Is(err, fs.ErrNotExist) {
+				return nil
+			}
 			return err
 		}
 		if ctx.Err() != nil {
@@ -92,6 +100,10 @@ func deleteFiles(ctx context.Context, syncer datasync.Manager, captureDirPath st
 		if !d.IsDir() {
 			fileInfo, err := d.Info()
 			if err != nil {
+				// same reason as above
+				if errors.Is(err, fs.ErrNotExist) {
+					return nil
+				}
 				return err
 			}
 			isFileInProgress := strings.Contains(fileInfo.Name(), datacapture.InProgressFileExt)
