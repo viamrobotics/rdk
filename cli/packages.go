@@ -8,6 +8,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/pkg/errors"
@@ -219,5 +220,5 @@ func getNextPackageUploadRequest(file *os.File) (*packagespb.CreatePackageReques
 }
 
 func (m *moduleID) ToDetailURL(baseURL string, packageType PackageType) string {
-	return fmt.Sprintf("https://%s/%s/%s/%s", baseURL, packageType, m.prefix, m.name)
+	return fmt.Sprintf("https://%s/%s/%s/%s", baseURL, strings.ReplaceAll(string(packageType), "_", "-"), m.prefix, m.name)
 }

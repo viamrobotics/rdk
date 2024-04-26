@@ -241,7 +241,7 @@ func (b *Board) StreamTicks(ctx context.Context, interrupts []board.DigitalInter
 	extra map[string]interface{},
 ) error {
 	for _, i := range interrupts {
-		i.AddCallback(ch)
+		AddCallback(i.(*DigitalInterruptWrapper), ch)
 	}
 	return nil
 }
@@ -408,7 +408,7 @@ func (s *DigitalInterruptWrapper) reset(conf board.DigitalInterruptConfig) error
 		s.conf = conf
 		s.di = di
 		for c := range s.callbacks {
-			s.di.AddCallback(c)
+			pinwrappers.AddCallback(di.(*pinwrappers.BasicDigitalInterrupt), c)
 		}
 		return nil
 	}
@@ -444,11 +444,11 @@ func Tick(ctx context.Context, s *DigitalInterruptWrapper, high bool, nanosecond
 
 // AddCallback adds a callback to be sent a low/high value to when a tick
 // happens.
-func (s *DigitalInterruptWrapper) AddCallback(c chan board.Tick) {
+func AddCallback(s *DigitalInterruptWrapper, c chan board.Tick) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.callbacks[c] = struct{}{}
-	s.di.AddCallback(c)
+	pinwrappers.AddCallback(s.di.(*pinwrappers.BasicDigitalInterrupt), c)
 }
 
 // RemoveCallback removes a listener for interrupts.

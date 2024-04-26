@@ -199,10 +199,6 @@ func (dic *digitalInterruptClient) Name() string {
 	return dic.digitalInterruptName
 }
 
-func (dic *digitalInterruptClient) AddCallback(ch chan Tick) {
-	panic(errUnimplemented)
-}
-
 func (dic *digitalInterruptClient) RemoveCallback(ch chan Tick) {
 }
 
