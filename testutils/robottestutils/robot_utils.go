@@ -12,7 +12,9 @@ import (
 	"time"
 
 	"go.uber.org/zap/zaptest/observer"
+	rtestutils "go.viam.com/rdk/testutils"
 	"go.viam.com/test"
+	"go.viam.com/utils/pexec"
 	"go.viam.com/utils/testutils"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -21,6 +23,7 @@ import (
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/robot/client"
 	weboptions "go.viam.com/rdk/robot/web/options"
+	"go.viam.com/rdk/utils"
 )
 
 // CreateBaseOptionsAndListener creates a new web options with random port as listener.
@@ -88,13 +91,31 @@ func MakeTempConfig(t *testing.T, cfg *config.Config, logger logging.Logger) (st
 	return file.Name(), file.Close()
 }
 
+// ServerAsSeparateProcess builds the viam server and returns an unstarted ManagedProcess for
+// the built binary with a temporary home directory.
+func ServerAsSeparateProcess(t *testing.T, cfgFileName string, logger logging.Logger) pexec.ManagedProcess {
+	serverPath := rtestutils.BuildTempModule(t, "web/cmd/server/")
+
+	// use a temporary home directory so that it doesn't collide with
+	// the user's/other tests' viam home directory
+	testTempHome := t.TempDir()
+	server := pexec.NewManagedProcess(pexec.ProcessConfig{
+		Name:        serverPath,
+		Args:        []string{"-config", cfgFileName},
+		CWD:         utils.ResolveFile("./"),
+		Environment: map[string]string{"HOME": testTempHome},
+		Log:         true,
+	}, logger.AsZap())
+	return server
+}
+
 // WaitForServing will scan the logs in the `observer` input until seeing a "serving" or "error
 // serving web" message. For added accuracy, it also checks that the port a test is expecting to
 // start a server on matches the one in the log message.
 //
 // WaitForServing will return true if the server has started successfully in the allotted time, and
 // false otherwise.
-//nolint
+// nolint
 func WaitForServing(observer *observer.ObservedLogs, port int) bool {
 	// Message:"\n\\_ 2024-02-07T20:47:03.576Z\tINFO\trobot_server\tweb/web.go:598\tserving\t{\"url\":\"http://127.0.0.1:20000\"}"
 	successRegex := regexp.MustCompile(fmt.Sprintf("\tserving\t.*:%d\"", port))
