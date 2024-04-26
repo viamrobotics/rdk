@@ -4,6 +4,7 @@ package fake
 import (
 	"context"
 	"fmt"
+	"math/rand"
 	"reflect"
 	"sync"
 	"time"
@@ -238,9 +239,21 @@ func (b *Board) StreamTicks(ctx context.Context, interrupts []board.DigitalInter
 	extra map[string]interface{},
 ) error {
 	for _, i := range interrupts {
-		AddCallback(i.(*DigitalInterruptWrapper), ch)
+		name := i.Name()
+		d, ok := b.Digitals[name]
+		if ok {
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			case ch <- board.Tick{Name: d.conf.Name, High: randomBool(), TimestampNanosec: uint64(time.Now().Unix())}:
+			}
+		}
 	}
 	return nil
+}
+
+func randomBool() bool {
+	return rand.Int()%2%2 == 0
 }
 
 // Close attempts to cleanly close each part of the board.
@@ -254,6 +267,7 @@ func (b *Board) Close(ctx context.Context) error {
 	for _, analog := range b.Analogs {
 		err = multierr.Combine(err, analog.close())
 	}
+
 	return err
 }
 
@@ -373,19 +387,13 @@ type DigitalInterruptWrapper struct {
 	di        board.DigitalInterrupt
 	conf      board.DigitalInterruptConfig
 	value     int64
-	callbacks map[chan board.Tick]struct{}
+	callbacks chan board.Tick
 }
 
 // NewDigitalInterruptWrapper returns a new digital interrupt to be used for testing.
 func NewDigitalInterruptWrapper(conf board.DigitalInterruptConfig) (*DigitalInterruptWrapper, error) {
-	di, err := pinwrappers.CreateDigitalInterrupt(conf)
-	if err != nil {
-		return nil, err
-	}
 	return &DigitalInterruptWrapper{
-		di:        di,
-		callbacks: map[chan board.Tick]struct{}{},
-		conf:      conf,
+		conf: conf,
 	}, nil
 }
 
@@ -401,9 +409,6 @@ func (s *DigitalInterruptWrapper) reset(conf board.DigitalInterruptConfig) error
 		}
 		s.conf = conf
 		s.di = di
-		for c := range s.callbacks {
-			pinwrappers.AddCallback(di.(*pinwrappers.BasicDigitalInterrupt), c)
-		}
 		return nil
 	}
 	// reconf
@@ -426,32 +431,8 @@ func (s *DigitalInterruptWrapper) Value(ctx context.Context, extra map[string]in
 	return s.di.Value(ctx, extra)
 }
 
-// Tick is to be called either manually if the interrupt is a proxy to some real
-// hardware interrupt or for tests.
-// nanoseconds is from an arbitrary point in time, but always increasing and always needs
-// to be accurate.
-func Tick(ctx context.Context, s *DigitalInterruptWrapper, high bool, nanoseconds uint64) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	return pinwrappers.Tick(ctx, s.di.(*pinwrappers.BasicDigitalInterrupt), high, nanoseconds)
-}
-
-// AddCallback adds a callback to be sent a low/high value to when a tick
-// happens.
-func AddCallback(s *DigitalInterruptWrapper, c chan board.Tick) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	s.callbacks[c] = struct{}{}
-	pinwrappers.AddCallback(s.di.(*pinwrappers.BasicDigitalInterrupt), c)
-}
-
-// RemoveCallback removes a listener for interrupts.
-func (s *DigitalInterruptWrapper) RemoveCallback(c chan board.Tick) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	delete(s.callbacks, c)
-	s.di.RemoveCallback(c)
-}
+// RemoveCallback does nothing, remove after RSKD-7009 is done.
+func (s *DigitalInterruptWrapper) RemoveCallback(c chan board.Tick) {}
 
 // Name returns the name of the digital interrupt.
 func (s *DigitalInterruptWrapper) Name() string {
