@@ -736,12 +736,12 @@ func pollFilesystem(ctx context.Context, wg *sync.WaitGroup, captureDir string, 
 			}
 			if shouldDelete {
 				start := time.Now()
-				err := deleteFiles(ctx, syncer, captureDir, logger)
+				deletedFileCount, err := deleteFiles(ctx, syncer, captureDir, logger)
 				if err != nil {
 					duration := time.Since(start)
 					logger.Errorw("Error deleting cached datacapture files", "error", err, "execution time", duration.Seconds())
 				} else {
-					logger.Info("Finished deleting files")
+					logger.Infof("%f files have been deleted to avoid the disk filling up", deletedFileCount)
 				}
 			}
 		}

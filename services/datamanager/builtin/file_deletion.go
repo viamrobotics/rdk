@@ -80,7 +80,7 @@ func exceedsDeletionThreshold(ctx context.Context, captureDirPath string, fsSize
 	return err != nil && errors.Is(err, errAtSizeThreshold), nil
 }
 
-func deleteFiles(ctx context.Context, syncer datasync.Manager, captureDirPath string, logger logging.Logger) error {
+func deleteFiles(ctx context.Context, syncer datasync.Manager, captureDirPath string, logger logging.Logger) (int, error) {
 	index := 0
 	deletedFileCount := 0
 	delete := func(path string, d fs.DirEntry, err error) error {
@@ -114,7 +114,6 @@ func deleteFiles(ctx context.Context, syncer datasync.Manager, captureDirPath st
 					index++
 					return nil
 				}
-				logger.Debugw("Deleting file ", "name", fileInfo.Name())
 				if err := os.Remove(path); err != nil {
 					logger.Warnw("error deleting file", "error", err)
 					if syncer != nil {
@@ -132,6 +131,5 @@ func deleteFiles(ctx context.Context, syncer datasync.Manager, captureDirPath st
 		return nil
 	}
 	err := filepath.WalkDir(captureDirPath, delete)
-	logger.Infof("%d files have been deleted to avoid the disk filling up", deletedFileCount)
-	return err
+	return deletedFileCount, err
 }
