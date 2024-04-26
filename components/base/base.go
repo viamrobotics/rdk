@@ -86,8 +86,6 @@ type Base interface {
 	// linear is in mmPerSec (positive Y moves forwards for built-in RDK drivers)
 	// angular is in degsPerSec (positive Z turns to the left for built-in RDK drivers)
 	//
-	//    import "github.com/golang/geo/r3" ...
-	//
 	//    myBase, err := base.FromRobot(machine, "my_base")
 	//
 	//    // Set the linear velocity to 50 mm/sec and the angular velocity to 15 deg/sec.
