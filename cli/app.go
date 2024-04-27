@@ -92,6 +92,9 @@ const (
 	packageFlagVersion     = "version"
 	packageFlagType        = "type"
 	packageFlagDestination = "destination"
+
+	cpFlagRecursive = "recursive"
+	cpFlagPreserve  = "preserve"
 )
 
 var commonFilterFlags = []cli.Flag{
@@ -1143,6 +1146,45 @@ var app = &cli.App{
 								},
 							},
 							Action: RobotsPartShellAction,
+						},
+						{
+							Name:        "cp",
+							Usage:       "copy files to and from a machine part",
+							Description: `In order to use the cp command, the machine must have a valid shell type service.`,
+							UsageText: createUsageText(
+								"machines part cp",
+								[]string{organizationFlag, locationFlag, machineFlag, partFlag},
+								true,
+								"[-p] [-r] source ([machine:]files) ... target ([machine:]files"),
+							Flags: []cli.Flag{
+								&cli.StringFlag{
+									Name: organizationFlag,
+								},
+								&cli.StringFlag{
+									Name: locationFlag,
+								},
+								&AliasStringFlag{
+									cli.StringFlag{
+										Name:    machineFlag,
+										Aliases: []string{aliasRobotFlag},
+									},
+								},
+								&cli.StringFlag{
+									Name: partFlag,
+								},
+								&cli.BoolFlag{
+									Name:    cpFlagRecursive,
+									Aliases: []string{"r"},
+									Usage:   "recursively copy files",
+								},
+								&cli.BoolFlag{
+									Name:    cpFlagPreserve,
+									Aliases: []string{"p"},
+									// Note(erd): maybe support access time in the future if needed
+									Usage: "preserve modification times and file mode bits from the source files",
+								},
+							},
+							Action: MachinesPartCopyFilesAction,
 						},
 					},
 				},
