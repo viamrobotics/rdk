@@ -43,7 +43,6 @@ jobs:
     - name: build
       shell: bash
       run: |
-        # todo: set goarm?
         for goarch in ${{ env.GOARCHES }}; do
           GOARCH=$goarch make full-static
         done
@@ -104,5 +103,3 @@ jobs:
         for arch in arm64 amd64 arm; do
           echo "- $arch https://storage.googleapis.com/${{ env.BUCKET }}/viam-server-${{ inputs.channel }}-static-$arch" >> $GITHUB_STEP_SUMMARY
         done
-
-    # todo: do I need the viam-subsystems metadata too? or handled by main build
