@@ -1,27 +1,37 @@
 name: full-static
 
 on:
+  # inputs note: we expect no inputs for pull request, channel=latest for main, (channel=stable, version=x) for release
   workflow_dispatch:
     inputs:
+      channel:
+        description: a channel for file naming
+        required: false
+        type: choice
+        # test channel is for manual runs
+        options: [latest, stable, test]
       version:
-        description: a channel or version tag for upload
+        description: a vX.X.X version string to use for file naming
         required: false
         type: string
-  workflow_call:
-    inputs:
-      version:
-        description: a channel or version tag for upload
-        required: false
-        type: string
-    secrets:
-      GCP_CREDENTIALS:
-        required: true
+  # workflow_call: # todo: add this back when attaching latest/stable
+  #   inputs:
+  #     version:
+  #       description: a channel or version tag for upload
+  #       required: false
+  #       type: string
+  #   secrets:
+  #     GCP_CREDENTIALS:
+  #       required: true
   pull_request: # DONOTMERGE
 
 jobs:
   full-static:
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    env:
+      BINS_DIR: bin/static # must agree with makefile
+      BUCKET: packages.viam.com/apps/viam-server
     steps:
     - uses: actions/checkout@v4
       with:
@@ -40,53 +50,59 @@ jobs:
 
     - name: test with musl
       # todo: install qemu and iterate over platforms
-      run: docker run --rm -v $PWD:/ext-mnt alpine:latest /ext-mnt/bin/static/viam-server-amd64
+      run: docker run --rm -v $PWD:/ext-mnt alpine:latest /ext-mnt/$BINS_DIR/viam-server-amd64
 
     - uses: actions/upload-artifact@v4
       with:
         name: static-amd64
-        path: bin/static/*-amd64
+        path: ${{ env.BINS_DIR }}/*-amd64
     - uses: actions/upload-artifact@v4
       with:
         name: static-arm64
-        path: bin/static/*-arm64
+        path: ${{ env.BINS_DIR }}/*-arm64
     - uses: actions/upload-artifact@v4
       with:
         name: static-arm32
-        path: bin/static/*-arm
+        path: ${{ env.BINS_DIR }}/*-arm
+
+    - name: rename for channel
+      if: inputs.channel
+      shell: bash
+      working-directory: ${{ env.BINS_DIR }}
+      run: |
+        for arch in amd64 arm64 arm; do
+          mv viam*.$arch viam-server-${{ inputs.channel }}-static-$arch
+        done
+
+    - name: rename for channel+version
+      if: inputs.channel && inputs.version
+      shell: bash
+      working-directory: ${{ env.BINS_DIR }}
+      run: |
+        for arch in amd64 arm64 arm; do
+          cp viam*.$arch viam-server-${{ inputs.channel }}-${{ inputs.version }}-static-$arch
+        done
 
     - uses: google-github-actions/auth@v2
-      if: inputs.version # DONOTMERGE
+      if: inputs.channel
       with:
         credentials_json: '${{ secrets.GCP_CREDENTIALS }}'
 
     - uses: google-github-actions/upload-cloud-storage@v2
-      if: inputs.version # DONOTMERGE
+      if: inputs.channel
       with:
         headers: "cache-control: no-cache"
-        path: server
-        destination: packages.viam.com/apps/viam-server/viam-server-portable-${{ inputs.version }}-${{ matrix.cpu }}
+        path: ${{ env.BINS_DIR }}
+        glob: viam-server-*
+        destination: ${{ env.BUCKET }}/
         parent: false
-    # - name: Set up Cloud SDK
-    #   uses: google-github-actions/setup-gcloud@v1
 
-    # - name: Publish Static Binary
-    #   run: |
-    #     gsutil mv "gs://packages.viam.com/apps/viam-server/testing/static/${{ needs.static_test.outputs.date }}/${{ github.sha }}/*" "gs://packages.viam.com/apps/viam-server/"
+    - name: URLs to summary
+      if: inputs.channel
+      shell: bash
+      run: |
+        for arch in arm64 amd64 arm; do
+          echo "- $arch https://storage.googleapis.com/${{ env.BUCKET }}/viam-server-${{ inputs.channel }}-static-$arch" >> $GITHUB_STEP_SUMMARY
+        done
 
-    # todo: what is this / do I need it for this build?
-    # - name: Publish Subsystem Metadata
-    #   run: |
-    #     gsutil mv "gs://packages.viam.com/apps/viam-subsystems/testing/viam-server/${{ needs.static_test.outputs.date }}/${{ github.sha }}/*" "gs://packages.viam.com/apps/viam-subsystems/"
-
-    # - name: Output Summary
-    #   run: |
-    #     channel="${{ github.ref_name }}"
-    #     # we call our main branch releases "latest"
-    #     if [ "$channel" == "main" ]; then
-    #       channel="latest"
-    #     fi
-    #     echo "### Built Static Binaries for ${channel}" >> $GITHUB_STEP_SUMMARY
-    #     echo "- arm64: https://storage.googleapis.com/packages.viam.com/apps/viam-server/viam-server-${channel}-aarch64" >> $GITHUB_STEP_SUMMARY
-    #     echo "- x86_64: https://storage.googleapis.com/packages.viam.com/apps/viam-server/viam-server-${channel}-x86_64" >> $GITHUB_STEP_SUMMARY
-    #     echo "" >> $GITHUB_STEP_SUMMARY
+    # todo: do I need the viam-subsystems metadata too? or handled by main build
