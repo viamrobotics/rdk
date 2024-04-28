@@ -32,6 +32,7 @@ jobs:
     env:
       BINS_DIR: bin/static # must agree with makefile
       BUCKET: packages.viam.com/apps/viam-server
+      GOARCHES: amd64 arm64 arm
     steps:
     - uses: actions/checkout@v4
       with:
@@ -44,7 +45,7 @@ jobs:
       shell: bash
       run: |
         # todo: set goarm?
-        for goarch in amd64 arm64 arm; do
+        for goarch in ${{ env.GOARCHES }}; do
           GOARCH=$goarch make full-static
         done
 
@@ -70,16 +71,16 @@ jobs:
       shell: bash
       working-directory: ${{ env.BINS_DIR }}
       run: |
-        for arch in amd64 arm64 arm; do
+        for arch in ${{ env.GOARCHES }}; do
           mv viam*.$arch viam-server-${{ inputs.channel }}-static-$arch
         done
 
-    - name: rename for channel+version
+    - name: copy for channel+version
       if: inputs.channel && inputs.version
       shell: bash
       working-directory: ${{ env.BINS_DIR }}
       run: |
-        for arch in amd64 arm64 arm; do
+        for arch in ${{ env.GOARCHES }}; do
           cp viam*.$arch viam-server-${{ inputs.channel }}-${{ inputs.version }}-static-$arch
         done
 
