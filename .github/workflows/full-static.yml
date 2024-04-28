@@ -40,12 +40,20 @@ jobs:
 
     - name: test with musl
       # todo: install qemu and iterate over platforms
-      run: docker run --rm -v $PWD:/ext-mnt alpine:latest /ext-mnt/server
+      run: docker run --rm -v $PWD:/ext-mnt alpine:latest /ext-mnt/bin/static/viam-server-amd64
 
     - uses: actions/upload-artifact@v4
       with:
-        name: full-static-${{ matrix.platform }}
-        path: bin/static
+        name: static-amd64
+        path: bin/static/*-amd64
+    - uses: actions/upload-artifact@v4
+      with:
+        name: static-arm64
+        path: bin/static/*-arm64
+    - uses: actions/upload-artifact@v4
+      with:
+        name: static-arm32
+        path: bin/static/*-arm
 
     - uses: google-github-actions/auth@v2
       if: inputs.version # DONOTMERGE
