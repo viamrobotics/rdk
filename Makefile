@@ -112,8 +112,8 @@ server-static: build-web
 	VIAM_STATIC_BUILD=1 GOFLAGS=$(GOFLAGS) go build $(LDFLAGS) -o $(BIN_OUTPUT_PATH)/viam-server web/cmd/server/main.go
 
 full-static:
-	# wip fully static build
-	go build -tags no_cgo,osusergo,netgo -ldflags="-extldflags=-static "$(COMMON_LDFLAGS) ./web/cmd/server
+	mkdir -p bin/static
+	go build -tags no_cgo,osusergo,netgo -ldflags="-extldflags=-static "$(COMMON_LDFLAGS) -o bin/static/viam-server-$(shell go env GOARCH) ./web/cmd/server
 
 server-static-compressed: server-static
 	upx --best --lzma $(BIN_OUTPUT_PATH)/viam-server

@@ -20,17 +20,8 @@ on:
 
 jobs:
   full-static:
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-        - arch: ubuntu-latest
-          cpu: x86_64
-        # - arch: buildjet-2vcpu-ubuntu-2204-arm
-        #   image: ghcr.io/viamrobotics/antique2:arm64-cache
-        #   platform: linux/arm64
-    runs-on: ${{ matrix.arch }}
-    timeout-minutes: 15
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
     - uses: actions/checkout@v4
       with:
@@ -40,23 +31,29 @@ jobs:
         go-version: '1.21'
 
     - name: build
-      run: make full-static
+      shell: bash
+      run: |
+        # todo: set goarm?
+        for goarch in amd64 arm64 arm; do
+          GOARCH=$goarch make full-static
+        done
 
     - name: test with musl
+      # todo: install qemu and iterate over platforms
       run: docker run --rm -v $PWD:/ext-mnt alpine:latest /ext-mnt/server
 
     - uses: actions/upload-artifact@v4
       with:
         name: full-static-${{ matrix.platform }}
-        path: server
+        path: bin/static
 
     - uses: google-github-actions/auth@v2
-      if: inputs.version
+      if: inputs.version # DONOTMERGE
       with:
         credentials_json: '${{ secrets.GCP_CREDENTIALS }}'
 
     - uses: google-github-actions/upload-cloud-storage@v2
-      if: inputs.version
+      if: inputs.version # DONOTMERGE
       with:
         headers: "cache-control: no-cache"
         path: server
