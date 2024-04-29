@@ -2,6 +2,7 @@ package incremental
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
 
@@ -9,10 +10,10 @@ import (
 	"go.viam.com/utils/testutils"
 
 	"go.viam.com/rdk/components/board"
-	fakeboard "go.viam.com/rdk/components/board/fake"
 	"go.viam.com/rdk/components/encoder"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/testutils/inject"
 )
 
 func TestConfig(t *testing.T) {
@@ -56,6 +57,11 @@ func TestEncoder(t *testing.T) {
 	deps := make(resource.Dependencies)
 	deps[board.Named("main")] = b
 
+	i1, err := b.DigitalInterruptByName("11")
+	test.That(t, err, test.ShouldBeNil)
+	i2, err := b.DigitalInterruptByName("13")
+	test.That(t, err, test.ShouldBeNil)
+
 	ic := Config{
 		BoardName: "main",
 		Pins:      Pins{A: "11", B: "13"},
@@ -69,9 +75,9 @@ func TestEncoder(t *testing.T) {
 		enc2 := enc.(*Encoder)
 		defer enc2.Close(context.Background())
 
-		err = fakeboard.Tick(context.Background(), enc2.B.(*fakeboard.DigitalInterruptWrapper), true, uint64(time.Now().UnixNano()))
+		err = i2.(*inject.DigitalInterrupt).Tick(context.Background(), true, uint64(time.Now().UnixNano()))
 		test.That(t, err, test.ShouldBeNil)
-		err = fakeboard.Tick(context.Background(), enc2.A.(*fakeboard.DigitalInterruptWrapper), true, uint64(time.Now().UnixNano()))
+		err = i1.(*inject.DigitalInterrupt).Tick(context.Background(), true, uint64(time.Now().UnixNano()))
 		test.That(t, err, test.ShouldBeNil)
 
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
@@ -88,10 +94,14 @@ func TestEncoder(t *testing.T) {
 		enc2 := enc.(*Encoder)
 		defer enc2.Close(context.Background())
 
-		err = fakeboard.Tick(context.Background(), enc2.A.(*fakeboard.DigitalInterruptWrapper), false, uint64(time.Now().UnixNano()))
+		fmt.Println("about to tick")
+
+		err = i1.(*inject.DigitalInterrupt).Tick(context.Background(), true, uint64(time.Now().UnixNano()))
 		test.That(t, err, test.ShouldBeNil)
-		err = fakeboard.Tick(context.Background(), enc2.B.(*fakeboard.DigitalInterruptWrapper), false, uint64(time.Now().UnixNano()))
+		err = i2.(*inject.DigitalInterrupt).Tick(context.Background(), true, uint64(time.Now().UnixNano()))
 		test.That(t, err, test.ShouldBeNil)
+
+		fmt.Println("ticked")
 
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
@@ -160,26 +170,61 @@ func TestEncoder(t *testing.T) {
 	})
 }
 
-func MakeBoard(t *testing.T) *fakeboard.Board {
-	interrupt11, _ := fakeboard.NewDigitalInterruptWrapper(board.DigitalInterruptConfig{
-		Name: "11",
-		Pin:  "11",
-	})
+func MakeBoard(t *testing.T) board.Board {
 
-	interrupt13, _ := fakeboard.NewDigitalInterruptWrapper(board.DigitalInterruptConfig{
-		Name: "13",
-		Pin:  "13",
-	})
-
-	interrupts := map[string]*fakeboard.DigitalInterruptWrapper{
-		"11": interrupt11,
-		"13": interrupt13,
+	b := inject.NewBoard("test-board")
+	i1 := inject.DigitalInterrupt{}
+	i2 := inject.DigitalInterrupt{}
+	i1.NameFunc = func() string {
+		return "11"
+	}
+	i2.NameFunc = func() string {
+		return "13"
+	}
+	i1.TickFunc = func(ctx context.Context, high bool, nanoseconds uint64) error {
+		for _, ch := range i1.Callbacks {
+			fmt.Println("waiting here 1")
+			ch <- board.Tick{Name: i1.Name(), High: high, TimestampNanosec: nanoseconds}
+		}
+		return nil
+	}
+	i2.TickFunc = func(ctx context.Context, high bool, nanoseconds uint64) error {
+		for _, ch := range i2.Callbacks {
+			fmt.Println("waiting here 2")
+			ch <- board.Tick{Name: i2.Name(), High: high, TimestampNanosec: nanoseconds}
+		}
+		return nil
 	}
 
-	b := fakeboard.Board{
-		GPIOPins: map[string]*fakeboard.GPIOPin{},
-		Digitals: interrupts,
+	i1.ValueFunc = func(ctx context.Context, extra map[string]interface{}) (int64, error) {
+		return 0, nil
+	}
+	i2.ValueFunc = func(ctx context.Context, extra map[string]interface{}) (int64, error) {
+		return 0, nil
+	}
+	i1.RemoveCallbackFunc = func(c chan board.Tick) {
+		i1.Callbacks = nil
+	}
+	i2.RemoveCallbackFunc = func(c chan board.Tick) {
+		i2.Callbacks = nil
 	}
 
-	return &b
+	b.DigitalInterruptByNameFunc = func(name string) (board.DigitalInterrupt, bool) {
+		if name == "11" {
+			return &i1, true
+		} else {
+			return &i2, true
+		}
+	}
+	b.StreamTicksFunc = func(ctx context.Context, interrupts []board.DigitalInterrupt, ch chan board.Tick, extra map[string]interface{}) error {
+
+		for _, i := range interrupts {
+			di := i.(*inject.DigitalInterrupt)
+			di.Callbacks = append(di.Callbacks, ch)
+		}
+
+		return nil
+	}
+
+	return b
 }
