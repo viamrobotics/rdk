@@ -2,7 +2,6 @@ package incremental
 
 import (
 	"context"
-	"fmt"
 	"testing"
 	"time"
 
@@ -57,10 +56,10 @@ func TestEncoder(t *testing.T) {
 	deps := make(resource.Dependencies)
 	deps[board.Named("main")] = b
 
-	i1, err := b.DigitalInterruptByName("11")
-	test.That(t, err, test.ShouldBeNil)
-	i2, err := b.DigitalInterruptByName("13")
-	test.That(t, err, test.ShouldBeNil)
+	i1, ok := b.DigitalInterruptByName("11")
+	test.That(t, ok, test.ShouldBeTrue)
+	i2, ok := b.DigitalInterruptByName("13")
+	test.That(t, ok, test.ShouldBeTrue)
 
 	ic := Config{
 		BoardName: "main",
@@ -94,14 +93,10 @@ func TestEncoder(t *testing.T) {
 		enc2 := enc.(*Encoder)
 		defer enc2.Close(context.Background())
 
-		fmt.Println("about to tick")
-
 		err = i1.(*inject.DigitalInterrupt).Tick(context.Background(), true, uint64(time.Now().UnixNano()))
 		test.That(t, err, test.ShouldBeNil)
 		err = i2.(*inject.DigitalInterrupt).Tick(context.Background(), true, uint64(time.Now().UnixNano()))
 		test.That(t, err, test.ShouldBeNil)
-
-		fmt.Println("ticked")
 
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
@@ -171,10 +166,10 @@ func TestEncoder(t *testing.T) {
 }
 
 func MakeBoard(t *testing.T) board.Board {
-
 	b := inject.NewBoard("test-board")
-	i1 := inject.DigitalInterrupt{}
-	i2 := inject.DigitalInterrupt{}
+	i1 := &inject.DigitalInterrupt{}
+	i2 := &inject.DigitalInterrupt{}
+	callbacks := make(map[board.DigitalInterrupt]chan board.Tick)
 	i1.NameFunc = func() string {
 		return "11"
 	}
@@ -182,20 +177,17 @@ func MakeBoard(t *testing.T) board.Board {
 		return "13"
 	}
 	i1.TickFunc = func(ctx context.Context, high bool, nanoseconds uint64) error {
-		for _, ch := range i1.Callbacks {
-			fmt.Println("waiting here 1")
-			ch <- board.Tick{Name: i1.Name(), High: high, TimestampNanosec: nanoseconds}
-		}
+		ch, ok := callbacks[i1]
+		test.That(t, ok, test.ShouldBeTrue)
+		ch <- board.Tick{Name: i1.Name(), High: high, TimestampNanosec: nanoseconds}
 		return nil
 	}
 	i2.TickFunc = func(ctx context.Context, high bool, nanoseconds uint64) error {
-		for _, ch := range i2.Callbacks {
-			fmt.Println("waiting here 2")
-			ch <- board.Tick{Name: i2.Name(), High: high, TimestampNanosec: nanoseconds}
-		}
+		ch, ok := callbacks[i2]
+		test.That(t, ok, test.ShouldBeTrue)
+		ch <- board.Tick{Name: i2.Name(), High: high, TimestampNanosec: nanoseconds}
 		return nil
 	}
-
 	i1.ValueFunc = func(ctx context.Context, extra map[string]interface{}) (int64, error) {
 		return 0, nil
 	}
@@ -203,24 +195,25 @@ func MakeBoard(t *testing.T) board.Board {
 		return 0, nil
 	}
 	i1.RemoveCallbackFunc = func(c chan board.Tick) {
-		i1.Callbacks = nil
+		delete(callbacks, i1)
 	}
 	i2.RemoveCallbackFunc = func(c chan board.Tick) {
-		i2.Callbacks = nil
+		delete(callbacks, i2)
 	}
 
 	b.DigitalInterruptByNameFunc = func(name string) (board.DigitalInterrupt, bool) {
 		if name == "11" {
-			return &i1, true
-		} else {
-			return &i2, true
+			return i1, true
+		} else if name == "13" {
+			return i2, true
 		}
+		return nil, false
 	}
-	b.StreamTicksFunc = func(ctx context.Context, interrupts []board.DigitalInterrupt, ch chan board.Tick, extra map[string]interface{}) error {
-
+	b.StreamTicksFunc = func(
+		ctx context.Context, interrupts []board.DigitalInterrupt, ch chan board.Tick, extra map[string]interface{},
+	) error {
 		for _, i := range interrupts {
-			di := i.(*inject.DigitalInterrupt)
-			di.Callbacks = append(di.Callbacks, ch)
+			callbacks[i] = ch
 		}
 
 		return nil

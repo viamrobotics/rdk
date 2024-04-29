@@ -41,28 +41,36 @@ func setup(t *testing.T) *setupResult {
 	b := inject.NewBoard("test-board")
 	s.b = b
 	s.interrupt1 = &inject.DigitalInterrupt{}
+	s.interrupt2 = &inject.DigitalInterrupt{}
+
+	callbacks := make(map[board.DigitalInterrupt]chan board.Tick)
+
 	s.interrupt1.NameFunc = func() string {
 		return "interrupt1"
 	}
 	s.interrupt1.TickFunc = func(ctx context.Context, high bool, nanoseconds uint64) error {
-		for _, ch := range s.interrupt1.Callbacks {
-			ch <- board.Tick{Name: s.interrupt1.Name(), High: high, TimestampNanosec: nanoseconds}
-		}
+		ch, ok := callbacks[s.interrupt1]
+		test.That(t, ok, test.ShouldBeTrue)
+		ch <- board.Tick{Name: s.interrupt1.Name(), High: high, TimestampNanosec: nanoseconds}
 		return nil
 	}
-	s.interrupt1.RemoveCallbackFunc = func(c chan board.Tick) {}
+	s.interrupt1.RemoveCallbackFunc = func(c chan board.Tick) {
+		delete(callbacks, s.interrupt1)
+	}
 
-	s.interrupt2 = &inject.DigitalInterrupt{}
+	// interrupt2 funcs
 	s.interrupt2.NameFunc = func() string {
 		return "interrupt2"
 	}
 	s.interrupt2.TickFunc = func(ctx context.Context, high bool, nanoseconds uint64) error {
-		for _, ch := range s.interrupt2.Callbacks {
-			ch <- board.Tick{Name: s.interrupt2.Name(), High: high, TimestampNanosec: nanoseconds}
-		}
+		ch, ok := callbacks[s.interrupt2]
+		test.That(t, ok, test.ShouldBeTrue)
+		ch <- board.Tick{Name: s.interrupt2.Name(), High: high, TimestampNanosec: nanoseconds}
 		return nil
 	}
-	s.interrupt2.RemoveCallbackFunc = func(c chan board.Tick) {}
+	s.interrupt2.RemoveCallbackFunc = func(c chan board.Tick) {
+		delete(callbacks, s.interrupt2)
+	}
 
 	b.DigitalInterruptByNameFunc = func(name string) (board.DigitalInterrupt, bool) {
 		if name == "interrupt1" {
@@ -71,12 +79,12 @@ func setup(t *testing.T) *setupResult {
 			return s.interrupt2, true
 		}
 		return nil, false
-
 	}
-	b.StreamTicksFunc = func(ctx context.Context, interrupts []board.DigitalInterrupt, ch chan board.Tick, extra map[string]interface{}) error {
+	b.StreamTicksFunc = func(
+		ctx context.Context, interrupts []board.DigitalInterrupt, ch chan board.Tick, extra map[string]interface{},
+	) error {
 		for _, i := range interrupts {
-			di := i.(*inject.DigitalInterrupt)
-			di.Callbacks = append(di.Callbacks, ch)
+			callbacks[i] = ch
 		}
 		return nil
 	}
@@ -84,43 +92,44 @@ func setup(t *testing.T) *setupResult {
 	s.analog1 = &inject.Analog{}
 	s.analog2 = &inject.Analog{}
 	s.analog3 = &inject.Analog{}
+	analog1Val, analog2Val, analog3Val := 0, 0, 0
 
 	s.analog1.WriteFunc = func(ctx context.Context, value int, extra map[string]interface{}) error {
-		fmt.Println("analog write func")
-		s.analog1.Value = value
-		fmt.Println(value)
+		analog1Val = value
 		return nil
 	}
 
 	s.analog1.ReadFunc = func(ctx context.Context, extra map[string]interface{}) (int, error) {
-		return s.analog1.Value, nil
+		return analog1Val, nil
 	}
 	s.analog2.ReadFunc = func(ctx context.Context, extra map[string]interface{}) (int, error) {
-		return s.analog2.Value, nil
+		return analog2Val, nil
 	}
 	s.analog3.ReadFunc = func(ctx context.Context, extra map[string]interface{}) (int, error) {
-		return s.analog3.Value, nil
+		return analog3Val, nil
 	}
 
 	s.analog2.WriteFunc = func(ctx context.Context, value int, extra map[string]interface{}) error {
-		s.analog2.Value = value
+		analog2Val = value
 		return nil
 	}
 
 	s.analog3.WriteFunc = func(ctx context.Context, value int, extra map[string]interface{}) error {
-		s.analog3.Value = value
+		analog3Val = value
 		return nil
 	}
 
 	b.AnalogByNameFunc = func(name string) (board.Analog, error) {
-		if name == "analog1" {
+		switch name {
+		case "analog1":
 			return s.analog1, nil
-		} else if name == "analog2" {
+		case "analog2":
 			return s.analog2, nil
-		} else {
+		case "analog3":
 			return s.analog3, nil
+		default:
+			return nil, fmt.Errorf("unknown analog: %s", name)
 		}
-
 	}
 
 	deps := make(resource.Dependencies)

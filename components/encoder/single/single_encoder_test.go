@@ -195,7 +195,7 @@ func TestEncoder(t *testing.T) {
 			tb.Helper()
 			ticks, positionType, err := enc.Position(context.Background(), encoder.PositionTypeTicks, nil)
 			test.That(tb, err, test.ShouldBeNil)
-			test.That(tb, ticks, test.ShouldBeTrue)
+			test.That(tb, ticks, test.ShouldEqual, 1)
 			test.That(tb, positionType, test.ShouldEqual, encoder.PositionTypeTicks)
 		})
 	})
@@ -232,28 +232,28 @@ func TestEncoder(t *testing.T) {
 }
 
 func MakeBoard(t *testing.T, name, pinname string) board.Board {
-
 	b := inject.NewBoard(name)
-	i := inject.DigitalInterrupt{}
+	i := &inject.DigitalInterrupt{}
+	callbacks := make(map[board.DigitalInterrupt]chan board.Tick)
 	i.NameFunc = func() string {
 		return testPinName
 	}
 	i.TickFunc = func(ctx context.Context, high bool, nanoseconds uint64) error {
-		for _, ch := range i.Callbacks {
-			ch <- board.Tick{Name: i.Name(), High: high, TimestampNanosec: nanoseconds}
-		}
+		ch, ok := callbacks[i]
+		test.That(t, ok, test.ShouldBeTrue)
+		ch <- board.Tick{Name: i.Name(), High: high, TimestampNanosec: nanoseconds}
 		return nil
 	}
 	i.RemoveCallbackFunc = func(c chan board.Tick) {}
 
 	b.DigitalInterruptByNameFunc = func(name string) (board.DigitalInterrupt, bool) {
-		return &i, true
+		return i, true
 	}
-	b.StreamTicksFunc = func(ctx context.Context, interrupts []board.DigitalInterrupt, ch chan board.Tick, extra map[string]interface{}) error {
-
+	b.StreamTicksFunc = func(
+		ctx context.Context, interrupts []board.DigitalInterrupt, ch chan board.Tick, extra map[string]interface{},
+	) error {
 		for _, i := range interrupts {
-			di := i.(*inject.DigitalInterrupt)
-			di.Callbacks = append(di.Callbacks, ch)
+			callbacks[i] = ch
 		}
 
 		return nil

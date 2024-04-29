@@ -16,8 +16,6 @@ type DigitalInterrupt struct {
 	AddCallbackFunc    func(c chan board.Tick)
 	RemoveCallbackFunc func(c chan board.Tick)
 	NameFunc           func() string
-
-	Callbacks []chan board.Tick
 }
 
 // Value calls the injected Value or the real version.

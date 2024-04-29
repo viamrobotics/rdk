@@ -253,6 +253,7 @@ func (b *Board) StreamTicks(ctx context.Context, interrupts []board.DigitalInter
 }
 
 func randomBool() bool {
+	//nolint:gosec
 	return rand.Int()%2%2 == 0
 }
 
@@ -262,13 +263,11 @@ func (b *Board) Close(ctx context.Context) error {
 	defer b.mu.Unlock()
 
 	b.CloseCount++
-	var err error
 
 	for _, analog := range b.Analogs {
-		err = multierr.Combine(err, analog.close())
+		analog.close()
 	}
-
-	return err
+	return nil
 }
 
 // An Analog reads back the same set value.
@@ -314,9 +313,8 @@ func (a *Analog) Set(value int) {
 }
 
 // close does nothing.
-func (a *Analog) close() error {
+func (a *Analog) close() {
 	a.CloseCount++
-	return nil
 }
 
 // A GPIOPin reads back the same set values.
@@ -383,11 +381,10 @@ func (gp *GPIOPin) SetPWMFreq(ctx context.Context, freqHz uint, extra map[string
 
 // DigitalInterruptWrapper is a wrapper around a digital interrupt for testing fake boards.
 type DigitalInterruptWrapper struct {
-	mu        sync.Mutex
-	di        board.DigitalInterrupt
-	conf      board.DigitalInterruptConfig
-	value     int64
-	callbacks chan board.Tick
+	mu    sync.Mutex
+	di    board.DigitalInterrupt
+	conf  board.DigitalInterruptConfig
+	value int64
 }
 
 // NewDigitalInterruptWrapper returns a new digital interrupt to be used for testing.
