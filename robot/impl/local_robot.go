@@ -124,7 +124,8 @@ func (r *localRobot) PackageManager() packages.Manager {
 	return r.packageManager
 }
 
-// Close attempts to cleanly close down all constituent parts of the robot.
+// Close attempts to cleanly close down all constituent parts of the robot. It does not wait on reconfigureWorkers,
+// as they may be running outside code and have unexpected behavior.
 func (r *localRobot) Close(ctx context.Context) error {
 	// we will stop and close web ourselves since modules need it to be
 	// removed properly and in the right order, so grab it before its removed
