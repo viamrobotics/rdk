@@ -53,7 +53,7 @@ func OffsetPlan(plan Plan, offset spatialmath.Pose) Plan {
 	for _, step := range path {
 		newStep := make(PathStep, len(step))
 		for frame, pose := range step {
-			newStep[frame] = referenceframe.NewPoseInFrame(referenceframe.World, spatialmath.Compose(offset, pose.Pose()))
+			newStep[frame] = referenceframe.NewPoseInFrame(pose.Parent(), spatialmath.Compose(offset, pose.Pose()))
 		}
 		newPath = append(newPath, newStep)
 	}
@@ -114,6 +114,7 @@ func (traj Trajectory) EvaluateCost(distFunc ik.SegmentMetric) float64 {
 }
 
 // Path is a slice of PathSteps describing a series of Poses for a robot to travel to in the course of following a Plan.
+// The pose of the PathStep is the pose at the end of the corresponding set of inputs in the Trajectory.
 type Path []PathStep
 
 func newPath(solution []node, sf *solverFrame) (Path, error) {
@@ -255,7 +256,7 @@ func NewExecutionState(
 	plan Plan,
 	index int,
 	inputs map[string][]referenceframe.Input,
-	currentPose map[string]spatialmath.Pose,
+	currentPose map[string]*referenceframe.PoseInFrame ,
 ) ExecutionState {
 	return ExecutionState {
 		plan: plan,
@@ -274,7 +275,7 @@ type ExecutionState struct {
 	inputs map[string][]referenceframe.Input
 
 	// The current PoseInFrames of input-enabled elements described by this plan.
-	currentPose map[string]referenceframe.PoseInFrame
+	currentPose map[string]*referenceframe.PoseInFrame 
 }
 
 func (e *ExecutionState) Plan() Plan {
@@ -289,6 +290,6 @@ func (e *ExecutionState) CurrentInputs() map[string][]referenceframe.Input {
 	return e.inputs
 }
 
-func (e *ExecutionState) CurrentPoses() map[string]referenceframe.PoseInFrame {
+func (e *ExecutionState) CurrentPoses() map[string]*referenceframe.PoseInFrame {
 	return e.currentPose
 }
