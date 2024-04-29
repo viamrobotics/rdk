@@ -75,40 +75,40 @@ type MovementSensor interface {
 	//
 	//    // Get the current position of the movement sensor.
 	//    position, altitude, err := myMovementSensor.Position(context.Background(), nil)
-    Position(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error)                // (lat, long), altitude (m)
-    // LinearVelocity returns the current linear velocity as a 3D vector in meters per second.
-    //
-    //    myMovementSensor, err := movementsensor.FromRobot(machine, "my_movement_sensor")
-    //
-    //    // Get the current linear velocity of the movement sensor.
-    //    linVel, err := myMovementSensor.LinearVelocity(context.Background(), nil)
-	LinearVelocity(ctx context.Context, extra map[string]interface{}) (r3.Vector, error)                    // m / sec
+	Position(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) // (lat, long), altitude (m)
+	// LinearVelocity returns the current linear velocity as a 3D vector in meters per second.
+	//
+	//    myMovementSensor, err := movementsensor.FromRobot(machine, "my_movement_sensor")
+	//
+	//    // Get the current linear velocity of the movement sensor.
+	//    linVel, err := myMovementSensor.LinearVelocity(context.Background(), nil)
+	LinearVelocity(ctx context.Context, extra map[string]interface{}) (r3.Vector, error) // m / sec
 	// AngularVelcoity returns the current angular velocity as a 3D vector in degrees per second.
-    //
-    //    myMovementSensor, err := movementsensor.FromRobot(machine, "my_movement_sensor")
-    //
-    //    // Get the current angular velocity of the movement sensor.
-    //    angVel, err := myMovementSensor.AngularVelocity(context.Background(), nil)
-    //
-    //    // Get the y component of angular velocity.
-    //    yAngVel := angVel.Y
+	//
+	//    myMovementSensor, err := movementsensor.FromRobot(machine, "my_movement_sensor")
+	//
+	//    // Get the current angular velocity of the movement sensor.
+	//    angVel, err := myMovementSensor.AngularVelocity(context.Background(), nil)
+	//
+	//    // Get the y component of angular velocity.
+	//    yAngVel := angVel.Y
 	AngularVelocity(ctx context.Context, extra map[string]interface{}) (spatialmath.AngularVelocity, error) // deg / sec
 	// LinearAcceleration returns the current linear acceleration as a 3D vector in meters per second per second.
 	//
-    //    myMovementSensor, err := movementsensor.FromRobot(machine, "my_movement_sensor")
-    //
-    //    // Get the current linear acceleration of the movement sensor.
-    //    linAccel, err := myMovementSensor.LinearAcceleration(context.Background(), nil)
-    //
-    //    // Get the x component of linear acceleration
-    //    xAngVel := linAccel.X
+	//    myMovementSensor, err := movementsensor.FromRobot(machine, "my_movement_sensor")
+	//
+	//    // Get the current linear acceleration of the movement sensor.
+	//    linAccel, err := myMovementSensor.LinearAcceleration(context.Background(), nil)
+	//
+	//    // Get the x component of linear acceleration
+	//    xAngVel := linAccel.X
 	LinearAcceleration(ctx context.Context, extra map[string]interface{}) (r3.Vector, error)
 	// CompassHeading returns the current compass heading in degrees.
 	//
 	//    myMovementSensor, err := movementsensor.FromRobot(machine, "my_movement_sensor")
 	//
 	//    // Get the current compass heading of the movement sensor.
-    //    heading, err := myMovementSensor.CompassHeading(context.Background(), nil)
+	//    heading, err := myMovementSensor.CompassHeading(context.Background(), nil)
 	CompassHeading(ctx context.Context, extra map[string]interface{}) (float64, error) // [0->360)
 	// Orientation returns the current orientation of the movement sensor.
 	//
