@@ -20,7 +20,7 @@ jobs:
       uses: actions/cache@v4
       with:
         path: /opt/homebrew
-        key: ${{ runner.os }}-${{ hashFiles('/etc/Brewfile') }}
+        key: ${{ runner.os }}-${{ hashFiles('etc/Brewfile') }}
     - name: brew
       if: steps.cache-brew.outputs.cache-hit != 'true'
       run: brew bundle install --file=etc/Brewfile
