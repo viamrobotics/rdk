@@ -23,8 +23,7 @@ jobs:
         path: |
           /usr/local/**/tensorflow*
           /usr/local/**/nlopt*
-          /usr/local/**/ffmpeg*
-        key: ${{ hashFiles('etc/Brewfile') }}-v2
+        key: ${{ hashFiles('etc/Brewfile') }}
     - name: brew
       run: brew bundle install --file=etc/Brewfile
     - name: say config
