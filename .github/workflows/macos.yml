@@ -19,7 +19,10 @@ jobs:
     - id: cache-brew
       uses: actions/cache@v4
       with:
-        path: /usr/local/Caskroom,/usr/local/Cellar,/usr/local/Homebrew
+        path: |
+          /usr/local/Caskroom
+          /usr/local/Cellar
+          /usr/local/Homebrew
         key: ${{ runner.os }}-${{ hashFiles('etc/Brewfile') }}
     - name: brew
       if: steps.cache-brew.outputs.cache-hit != 'true'
