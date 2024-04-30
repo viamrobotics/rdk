@@ -12,7 +12,6 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 	pb "go.viam.com/api/component/board/v1"
-	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/grpc"
@@ -128,7 +127,7 @@ func (b *Board) processConfig(conf resource.Config) error {
 		stillExists[c.Name] = struct{}{}
 		if curr, ok := b.Digitals[c.Name]; ok {
 			if !reflect.DeepEqual(curr.conf, c) {
-				utils.UncheckedError(curr.reset(c))
+				curr.reset(c)
 			}
 			continue
 		}
@@ -385,22 +384,21 @@ type DigitalInterrupt struct {
 	value int64
 }
 
-// NewDigitialInterrupt returns a new digital interrupt to be used for testing.
+// NewDigitalInterrupt returns a new digital interrupt to be used for testing.
 func NewDigitalInterrupt(conf board.DigitalInterruptConfig) (*DigitalInterrupt, error) {
 	return &DigitalInterrupt{
 		conf: conf,
 	}, nil
 }
 
-func (s *DigitalInterrupt) reset(conf board.DigitalInterruptConfig) error {
+func (s *DigitalInterrupt) reset(conf board.DigitalInterruptConfig) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.conf = conf
-	return nil
 }
 
-func (*DigitalInterrupt) RemoveCallback(chan board.Tick) {
-
+// RemoveCallback removes a listener for interrupts.
+func (s *DigitalInterrupt) RemoveCallback(c chan board.Tick) {
 }
 
 // Value returns the current value of the interrupt which is
