@@ -111,7 +111,6 @@ func deleteFiles(ctx context.Context, syncer datasync.Manager, captureDirPath st
 			if index%deleteEveryNth == 0 && !isFileInProgress {
 				if syncer != nil && !syncer.MarkInProgress(path) {
 					logger.Warnw("Tried to mark file as in progress but lock already held", "file", d.Name())
-					index++
 					return nil
 				}
 				if err := os.Remove(path); err != nil {
