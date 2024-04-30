@@ -17,10 +17,10 @@ import (
 )
 
 // TODO change these values back to what they should be
-const (
-	fsThresholdToTriggerDeletion = .8
+var (
+	fsThresholdToTriggerDeletion = .95
 	captureDirToFSUsageRatio     = .5
-	n                            = 4
+	deleteEveryNth               = 4
 )
 
 var errAtSizeThreshold = errors.New("capture dir is at correct size")
@@ -108,7 +108,7 @@ func deleteFiles(ctx context.Context, syncer datasync.Manager, captureDirPath st
 			}
 			isFileInProgress := strings.Contains(fileInfo.Name(), datacapture.InProgressFileExt)
 			// if at nth file and the file is not currently being written, mark as in progress if possible
-			if index%n == 0 && !isFileInProgress {
+			if index%deleteEveryNth == 0 && !isFileInProgress {
 				if syncer != nil && !syncer.MarkInProgress(path) {
 					logger.Warnw("Tried to mark file as in progress but lock already held", "file", d.Name())
 					index++
