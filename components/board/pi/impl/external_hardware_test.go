@@ -92,8 +92,8 @@ func TestPiHardware(t *testing.T) {
 
 		time.Sleep(5 * time.Millisecond)
 
-		i1, ok := p.DigitalInterruptByName("i1")
-		test.That(t, ok, test.ShouldBeTrue)
+		i1, err := p.DigitalInterruptByName("i1")
+		test.That(t, err, test.ShouldBeNil)
 		before, err := i1.Value(context.Background(), nil)
 		test.That(t, err, test.ShouldBeNil)
 
@@ -132,8 +132,8 @@ func TestPiHardware(t *testing.T) {
 
 		time.Sleep(300 * time.Millisecond)
 
-		servoI, ok := p.DigitalInterruptByName("servo-i")
-		test.That(t, ok, test.ShouldBeTrue)
+		servoI, err := p.DigitalInterruptByName("servo-i")
+		test.That(t, err, test.ShouldBeNil)
 		val, err := servoI.Value(context.Background(), nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, val, test.ShouldAlmostEqual, int64(1500), 500) // this is a tad noisy
@@ -191,10 +191,10 @@ func TestPiHardware(t *testing.T) {
 		test.That(t, on, test.ShouldBeTrue)
 		test.That(t, powerPct, test.ShouldEqual, 1.0)
 
-		encA, ok := p.DigitalInterruptByName("a")
-		test.That(t, ok, test.ShouldBeTrue)
-		encB, ok := p.DigitalInterruptByName("b")
-		test.That(t, ok, test.ShouldBeTrue)
+		encA, err := p.DigitalInterruptByName("a")
+		test.That(t, err, test.ShouldBeNil)
+		encB, err := p.DigitalInterruptByName("b")
+		test.That(t, err, test.ShouldBeNil)
 
 		loops := 0
 		for {
@@ -233,10 +233,10 @@ func TestPiHardware(t *testing.T) {
 		test.That(t, on, test.ShouldBeTrue)
 		test.That(t, powerPct, test.ShouldEqual, 1.0)
 
-		encA, ok := p.DigitalInterruptByName("a")
-		test.That(t, ok, test.ShouldBeTrue)
-		encB, ok := p.DigitalInterruptByName("b")
-		test.That(t, ok, test.ShouldBeTrue)
+		encA, err := p.DigitalInterruptByName("a")
+		test.That(t, err, test.ShouldBeNil)
+		encB, err := p.DigitalInterruptByName("b")
+		test.That(t, err, test.ShouldBeNil)
 
 		loops := 0
 		for {

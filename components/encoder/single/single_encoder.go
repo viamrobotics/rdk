@@ -28,6 +28,7 @@ import (
 	"sync/atomic"
 
 	"github.com/pkg/errors"
+	"go.uber.org/multierr"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/board"
@@ -153,9 +154,9 @@ func (e *Encoder) Reconfigure(
 		return err
 	}
 
-	di, ok := board.DigitalInterruptByName(newConf.Pins.I)
-	if !ok {
-		return errors.Errorf("cannot find pin (%s) for Encoder", newConf.Pins.I)
+	di, err := board.DigitalInterruptByName(newConf.Pins.I)
+	if err != nil {
+		return multierr.Combine(errors.Errorf("cannot find pin (%s) for Encoder", newConf.Pins.I), err)
 	}
 
 	if !needRestart {

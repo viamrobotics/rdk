@@ -592,8 +592,8 @@ func TestRobotReconfigure(t *testing.T) {
 		pwmF, err := pin.PWMFreq(context.Background(), nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, pwmF, test.ShouldEqual, 4000)
-		_, ok := b.DigitalInterruptByName("encoder")
-		test.That(t, ok, test.ShouldBeFalse)
+		_, err = b.DigitalInterruptByName("encoder")
+		test.That(t, err, test.ShouldNotBeNil)
 
 		robot.Reconfigure(context.Background(), conf2)
 		test.That(t, utils.NewStringSet(robot.RemoteNames()...), test.ShouldBeEmpty)
@@ -671,10 +671,10 @@ func TestRobotReconfigure(t *testing.T) {
 		pwmF, err = pin.PWMFreq(context.Background(), nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, pwmF, test.ShouldEqual, 1000) // TODO double check this is the expected result
-		_, ok = b.DigitalInterruptByName("encoder")
-		test.That(t, ok, test.ShouldBeTrue)
+		_, err = b.DigitalInterruptByName("encoder")
+		test.That(t, err, test.ShouldBeNil)
 
-		_, ok = robot.ProcessManager().ProcessByID("1")
+		_, ok := robot.ProcessManager().ProcessByID("1")
 		test.That(t, ok, test.ShouldBeTrue)
 		_, ok = robot.ProcessManager().ProcessByID("2")
 		test.That(t, ok, test.ShouldBeTrue)
@@ -889,8 +889,8 @@ func TestRobotReconfigure(t *testing.T) {
 		pwmF, err := pin.PWMFreq(context.Background(), nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, pwmF, test.ShouldEqual, 1000)
-		_, ok := b.DigitalInterruptByName("encoder")
-		test.That(t, ok, test.ShouldBeTrue)
+		_, err = b.DigitalInterruptByName("encoder")
+		test.That(t, err, test.ShouldBeNil)
 
 		armNames = []resource.Name{arm.Named("arm1"), arm.Named("arm3")}
 		baseNames = []resource.Name{base.Named("base1"), base.Named("base2")}
@@ -977,15 +977,15 @@ func TestRobotReconfigure(t *testing.T) {
 		pwmF, err = pin.PWMFreq(context.Background(), nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, pwmF, test.ShouldEqual, 0)
-		_, ok = b.DigitalInterruptByName("encoder")
-		test.That(t, ok, test.ShouldBeFalse)
-		_, ok = b.DigitalInterruptByName("encoderC")
-		test.That(t, ok, test.ShouldBeTrue)
+		_, err = b.DigitalInterruptByName("encoder")
+		test.That(t, err, test.ShouldNotBeNil)
+		_, err = b.DigitalInterruptByName("encoderC")
+		test.That(t, err, test.ShouldBeNil)
 
 		_, err = board.FromRobot(robot, "board3")
 		test.That(t, err, test.ShouldBeNil)
 
-		_, ok = robot.ProcessManager().ProcessByID("1")
+		_, ok := robot.ProcessManager().ProcessByID("1")
 		test.That(t, ok, test.ShouldBeTrue)
 		_, ok = robot.ProcessManager().ProcessByID("2")
 		test.That(t, ok, test.ShouldBeTrue)
@@ -1114,15 +1114,15 @@ func TestRobotReconfigure(t *testing.T) {
 		pwmF, err := pin.PWMFreq(context.Background(), nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, pwmF, test.ShouldEqual, 0)
-		_, ok := b.DigitalInterruptByName("encoder")
-		test.That(t, ok, test.ShouldBeFalse)
-		_, ok = b.DigitalInterruptByName("encoderC")
-		test.That(t, ok, test.ShouldBeTrue)
+		_, err = b.DigitalInterruptByName("encoder")
+		test.That(t, err, test.ShouldNotBeNil)
+		_, err = b.DigitalInterruptByName("encoderC")
+		test.That(t, err, test.ShouldBeNil)
 
 		_, err = board.FromRobot(robot, "board3")
 		test.That(t, err, test.ShouldBeNil)
 
-		_, ok = robot.ProcessManager().ProcessByID("1")
+		_, ok := robot.ProcessManager().ProcessByID("1")
 		test.That(t, ok, test.ShouldBeTrue)
 		_, ok = robot.ProcessManager().ProcessByID("2")
 		test.That(t, ok, test.ShouldBeTrue)

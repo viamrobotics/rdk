@@ -15,7 +15,6 @@ import (
 	robotpb "go.viam.com/api/robot/v1"
 	"go.viam.com/test"
 	goutils "go.viam.com/utils"
-	"go.viam.com/utils/pexec"
 
 	_ "go.viam.com/rdk/components/register"
 	"go.viam.com/rdk/config"
@@ -35,7 +34,6 @@ func TestEntrypoint(t *testing.T) {
 	if runtime.GOARCH == "arm" {
 		t.Skip("skipping on 32-bit ARM, subprocess build warnings cause failure")
 	}
-	serverPath := testutils.BuildTempModule(t, "web/cmd/server/")
 
 	t.Run("number of resources", func(t *testing.T) {
 		logger, logObserver := logging.NewObservedTestLogger(t)
@@ -54,13 +52,7 @@ func TestEntrypoint(t *testing.T) {
 			cfgFilename, err = robottestutils.MakeTempConfig(t, cfg, logger)
 			test.That(t, err, test.ShouldBeNil)
 
-			serverPath := testutils.BuildTempModule(t, "web/cmd/server/")
-			server := pexec.NewManagedProcess(pexec.ProcessConfig{
-				Name: serverPath,
-				Args: []string{"-config", cfgFilename},
-				CWD:  utils.ResolveFile("./"),
-				Log:  true,
-			}, logger.AsZap())
+			server := robottestutils.ServerAsSeparateProcess(t, cfgFilename, logger)
 
 			err = server.Start(context.Background())
 			test.That(t, err, test.ShouldBeNil)
@@ -92,6 +84,7 @@ func TestEntrypoint(t *testing.T) {
 	t.Run("dump resource registrations", func(t *testing.T) {
 		tempDir := t.TempDir()
 		outputFile := filepath.Join(tempDir, "resources.json")
+		serverPath := testutils.BuildTempModule(t, "web/cmd/server/")
 		command := exec.Command(serverPath, "--dump-resources", outputFile)
 		err := command.Run()
 		test.That(t, err, test.ShouldBeNil)
