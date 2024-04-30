@@ -26,21 +26,21 @@ func TestFileDeletionUsageCheck(t *testing.T) {
 		captureDirExists     bool
 	}{
 		{
-			name:                 "if not at file system capactiy threshold, we should return false from deletion check",
+			name:                 "if not at file system capacity threshold, we should return false from deletion check",
 			expectedFsCheckValue: false,
 			testThreshold:        .99,
 			testCaptureDirRatio:  .99,
 			captureDirExists:     true,
 		},
 		{
-			name:                 "if at file system capactiy threshold, we return true from deletion check",
+			name:                 "if at file system capacity threshold, we return true from deletion check",
 			expectedFsCheckValue: true,
 			testThreshold:        math.SmallestNonzeroFloat64,
 			testCaptureDirRatio:  math.SmallestNonzeroFloat64,
 			captureDirExists:     true,
 		},
 		{
-			name: "if at file system capactiy threshold but not capture dir threshold," +
+			name: "if at file system capacity threshold but not capture dir threshold," +
 				"we return false from deletion check",
 			expectedFsCheckValue: false,
 			testThreshold:        math.SmallestNonzeroFloat64,
@@ -84,12 +84,13 @@ func TestFileDeletionUsageCheck(t *testing.T) {
 
 func TestFileDeletion(t *testing.T) {
 	tests := []struct {
-		name                 string
-		syncEnabled          bool
-		markAllInProgress    bool
-		writeProgFiles       bool
-		shouldCancelContext  bool
-		expectedDeletedCount int
+		name                      string
+		syncEnabled               bool
+		markAllInProgress         bool
+		markToBeDeletedInProgress bool
+		writeProgFiles            bool
+		shouldCancelContext       bool
+		expectedDeletedCount      int
 	}{
 		{
 			name:                 "deletion with sync disabled should delete every 4th file",
@@ -102,9 +103,10 @@ func TestFileDeletion(t *testing.T) {
 			expectedDeletedCount: 0,
 		},
 		{
-			name:                 "deletion with sync disabled and files still being written to should not delete any files",
-			writeProgFiles:       true,
-			expectedDeletedCount: 0,
+			name:                      "deletion with sync enabled and a single file marked as inprogress should result in a lower deletion count",
+			syncEnabled:               true,
+			markToBeDeletedInProgress: true,
+			expectedDeletedCount:      2,
 		},
 		{
 			name:                 "deletion with sync disabled and files still being written to should not delete any files",
@@ -135,7 +137,21 @@ func TestFileDeletion(t *testing.T) {
 				defer syncer.Close()
 			}
 
-			writeFilesAndMarkInProgress(t, tempCaptureDir, tc.writeProgFiles, syncer)
+			files := writeFiles(t, tempCaptureDir, tc.writeProgFiles)
+			for i, file := range files {
+				if syncer != nil {
+					if tc.markAllInProgress {
+						ret := syncer.MarkInProgress(file)
+						test.That(t, ret, test.ShouldBeTrue)
+						// we mark the first 4 files of the 10 as in progress to make sure
+						// deleted is less than it would be if none were deleted
+					} else if tc.markToBeDeletedInProgress && i < 4 {
+						ret := syncer.MarkInProgress(file)
+						test.That(t, ret, test.ShouldBeTrue)
+					}
+
+				}
+			}
 
 			ctx, cancelFunc := context.WithCancel(context.Background())
 			defer cancelFunc()
@@ -169,15 +185,4 @@ func writeFiles(t *testing.T, dir string, writeFilesAsUnfinished bool) []string 
 		filenames = append(filenames, filename)
 	}
 	return filenames
-}
-
-func writeFilesAndMarkInProgress(t *testing.T, dir string, writeFilesAsUnfinished bool, syncer datasync.Manager) {
-	t.Helper()
-	files := writeFiles(t, dir, writeFilesAsUnfinished)
-	for _, file := range files {
-		if syncer != nil {
-			ret := syncer.MarkInProgress(file)
-			test.That(t, ret, test.ShouldBeTrue)
-		}
-	}
 }
