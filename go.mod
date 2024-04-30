@@ -66,7 +66,7 @@ require (
 	github.com/muesli/kmeans v0.3.1
 	github.com/nathan-fiscaletti/consolesize-go v0.0.0-20220204101620-317176b6684d
 	github.com/nfnt/resize v0.0.0-20180221191011-83c6a9932646
-	github.com/pion/mediadevices v0.6.2
+	github.com/pion/mediadevices v0.6.3
 	github.com/pion/rtp v1.8.5
 	github.com/pion/webrtc/v3 v3.2.36
 	github.com/rhysd/actionlint v1.6.24
@@ -140,7 +140,7 @@ require (
 	github.com/bamiaux/iobit v0.0.0-20170418073505-498159a04883 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/bkielbasa/cyclop v1.2.1 // indirect
-	github.com/blackjack/webcam v0.5.0 // indirect
+	github.com/blackjack/webcam v0.6.0 // indirect
 	github.com/blizzy78/varnamelen v0.8.0 // indirect
 	github.com/bombsimon/wsl/v3 v3.4.0 // indirect
 	github.com/breml/bidichk v0.2.4 // indirect
