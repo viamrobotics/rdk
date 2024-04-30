@@ -87,17 +87,27 @@ func checkPlanRelative(
 	if err != nil {
 		return err
 	}
-
-	// Relative current inputs will give us the arc the base is left executing. Calculating that transform and subtracting it from the
-	// arc end position (that is, the same-index node in plan.Path()) gives us our expected location.
-	frameInputs, ok := currentInputs[checkFrame.Name()]
+	
+	arcInputs, ok := plan.Trajectory()[wayPointIdx][checkFrame.Name()]
 	if !ok {
-		return errors.New("given checkFrame had no inputs in CurrentInputs map")
+		return errors.New("given checkFrame had no inputs in trajectory map at current index")
 	}
-	poseThroughArc, err := checkFrame.Transform(frameInputs)
+	fullArcPose, err := checkFrame.Transform(arcInputs)
 	if err != nil {
 		return err
 	}
+
+	// Relative current inputs will give us the arc the base has executed. Calculating that transform and subtracting it from the
+	// arc end position (that is, the same-index node in plan.Path()) gives us our expected location.
+	frameCurrentInputs, ok := currentInputs[checkFrame.Name()]
+	if !ok {
+		return errors.New("given checkFrame had no inputs in CurrentInputs map")
+	}
+	poseThroughArc, err := checkFrame.Transform(frameCurrentInputs)
+	if err != nil {
+		return err
+	}
+	remainingArcPose := spatialmath.PoseBetween(poseThroughArc, fullArcPose)
 	expectedCurrentPose := spatialmath.PoseBetweenInverse(remainingArcPose, expectedArcEndInWorld.Pose())
 	errorState := spatialmath.PoseBetween(expectedCurrentPose, currentPoseInWorld.Pose())
 
@@ -105,7 +115,7 @@ func checkPlanRelative(
 	if !ok {
 		return errors.New("check frame given not in plan Path map")
 	}
-	planStartPoseWorld, err := toWorld(planStartPiF, plan.Trajectory()[0])
+	planStartPoseWorld, err := toWorld(planStartPiF, startingInputs)
 	if err != nil {
 		return err
 	}
@@ -143,18 +153,29 @@ func checkPlanRelative(
 		return err
 	}
 
+	currentArcEndPose := spatialmath.Compose(expectedArcEndInWorld.Pose(), errorState)
 	// pre-pend to segments so we can connect to the input we have not finished actuating yet
 	segments = append(segments, &ik.Segment{
 		StartPosition:      currentPoseInWorld.Pose(),
-		EndPosition:        spatialmath.Compose(expectedArcEndInWorld.Pose(), errorState),
+		EndPosition:        currentArcEndPose,
 		StartConfiguration: checkFrameCurrentInputs,
 		EndConfiguration:   arcEndInputs,
 		Frame:              sf,
 	})
 
+	lastArcEndPose := currentArcEndPose
 	// iterate through remaining plan and append remaining segments to check
-	for i := wayPointIdx + 1; i < len(offsetPlan.Path())-1; i++ {
-		segment, err := createSegment(sf, poses[i], poses[i+1], offsetPlan.Trajectory()[i], offsetPlan.Trajectory()[i])
+	for i := wayPointIdx + 1; i <= len(plan.Path())-1; i++ {
+		thisArcEndPoseTf, ok := plan.Path()[i][checkFrame.Name()]
+		if !ok {
+			return errors.New("check frame given not in plan Path map")
+		}
+		thisArcEndPoseInWorld, err := toWorld(thisArcEndPoseTf, plan.Trajectory()[i])
+		if err != nil {
+			return err
+		}
+		thisArcEndPose := spatialmath.Compose(thisArcEndPoseInWorld.Pose(), errorState)
+		segment, err := createSegment(sf, lastArcEndPose, thisArcEndPose, nil, plan.Trajectory()[i])
 		if err != nil {
 			return err
 		}

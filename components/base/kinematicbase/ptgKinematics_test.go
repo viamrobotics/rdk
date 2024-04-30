@@ -210,9 +210,9 @@ func TestPTGKinematicsWithGeom(t *testing.T) {
 			{1},
 		}
 		ptgBase.inputLock.Lock()
-		ptgBase.currentIdx = arcIdx
-		ptgBase.currentExecutingSteps = arcSteps
-		ptgBase.currentInputs = currInputs
+		ptgBase.currentState.currentIdx = arcIdx
+		ptgBase.currentState.currentExecutingSteps = arcSteps
+		ptgBase.currentState.currentInputs = currInputs
 		ptgBase.inputLock.Unlock()
 		// Mock up being off course and try to correct
 		skewPose := spatialmath.NewPose(r3.Vector{5, -300, 0}, &spatialmath.OrientationVectorDegrees{OZ: 1, Theta: -4})
@@ -246,7 +246,7 @@ func TestPTGKinematicsWithGeom(t *testing.T) {
 			test.That(t, err, test.ShouldBeNil)
 
 			arcStartPosition := arcSteps[arcIdx].arcSegment.StartPosition
-			onArcPosition, err := kb.Kinematics().Transform(ptgBase.currentInputs)
+			onArcPosition, err := kb.Kinematics().Transform(ptgBase.currentState.currentInputs)
 			test.That(t, err, test.ShouldBeNil)
 			arcPose := spatialmath.Compose(arcStartPosition, onArcPosition)
 
@@ -273,9 +273,9 @@ func TestPTGKinematicsWithGeom(t *testing.T) {
 				{0},
 			}
 			ptgBase.inputLock.Lock()
-			ptgBase.currentIdx = arcIdx
-			ptgBase.currentExecutingSteps = newArcSteps
-			ptgBase.currentInputs = newInputs
+			ptgBase.currentState.currentIdx = arcIdx
+			ptgBase.currentState.currentExecutingSteps = newArcSteps
+			ptgBase.currentState.currentInputs = newInputs
 			ptgBase.inputLock.Unlock()
 			// After course correction, error state should always be zero
 			errorState, err := kb.ErrorState(ctx)
@@ -316,10 +316,10 @@ func TestPTGKinematicsWithGeom(t *testing.T) {
 		ms.PositionFunc = func(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
 			ptgBase.inputLock.RLock()
 			execInputs := []referenceframe.Input{
-				ptgBase.currentInputs[0],
-				ptgBase.currentInputs[1],
+				ptgBase.currentState.currentInputs[0],
+				ptgBase.currentState.currentInputs[1],
 				{0},
-				ptgBase.currentInputs[2],
+				ptgBase.currentState.currentInputs[2],
 			}
 			ptgBase.inputLock.RUnlock()
 			newPose, err := kb.Kinematics().Transform(execInputs)
@@ -330,10 +330,10 @@ func TestPTGKinematicsWithGeom(t *testing.T) {
 		ms.CompassHeadingFunc = func(ctx context.Context, extra map[string]interface{}) (float64, error) {
 			ptgBase.inputLock.RLock()
 			execInputs := []referenceframe.Input{
-				ptgBase.currentInputs[0],
-				ptgBase.currentInputs[1],
+				ptgBase.currentState.currentInputs[0],
+				ptgBase.currentState.currentInputs[1],
 				{0},
-				ptgBase.currentInputs[2],
+				ptgBase.currentState.currentInputs[2],
 			}
 			ptgBase.inputLock.RUnlock()
 			newPose, err := kb.Kinematics().Transform(execInputs)
@@ -363,7 +363,7 @@ func TestPTGKinematicsWithGeom(t *testing.T) {
 		currentPosition, err := kb.CurrentPosition(ctx)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, currentPosition, test.ShouldNotBeNil)
-		expectedPosition, err := kb.Kinematics().Transform(ptgBase.currentInputs)
+		expectedPosition, err := kb.Kinematics().Transform(ptgBase.currentState.currentInputs)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, spatialmath.PoseAlmostCoincidentEps(currentPosition.Pose(), expectedPosition, 1e-5), test.ShouldBeTrue)
 	})

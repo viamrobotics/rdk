@@ -11,8 +11,8 @@ import (
 
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/logging"
-	"go.viam.com/rdk/motionplan/tpspace"
 	"go.viam.com/rdk/motionplan"
+	"go.viam.com/rdk/motionplan/tpspace"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/services/motion"
 	"go.viam.com/rdk/spatialmath"
@@ -39,6 +39,7 @@ type ptgBaseKinematics struct {
 	angVelocityDegsPerSecond       float64
 	nonzeroBaseTurningRadiusMeters float64
 
+	// All changeable state of the base is here
 	inputLock            sync.RWMutex
 	currentState         baseState
 
@@ -169,20 +170,10 @@ func (ptgk *ptgBaseKinematics) CurrentInputs(ctx context.Context) ([]referencefr
 	return ptgk.currentState.currentInputs, nil
 }
 
-
-// ExecutionState describes a plan and a particular state along it.
-//~ type ExecutionState struct {
-	//~ plan Plan
-	//~ index int
-	
-	//~ // The current inputs of input-enabled elements described by the plan
-	//~ inputs map[string][]referenceframe.Input
-
-	//~ // The current pose of input-enabled elements described by this plan.
-	//~ currentPose map[string]spatialmath.Pose
-//~ }
-
 func (ptgk *ptgBaseKinematics) ExecutionState(ctx context.Context) (motionplan.ExecutionState, error) {
+	if ptgk.Localizer == nil {
+		return motionplan.ExecutionState{}, errors.New("cannot call ExecutionState on a base without a localizer")
+	}
 	ptgk.inputLock.RLock()
 	currentIdx := ptgk.currentState.currentIdx
 	currentInputs := ptgk.currentState.currentInputs
@@ -194,8 +185,16 @@ func (ptgk *ptgBaseKinematics) ExecutionState(ctx context.Context) (motionplan.E
 		return motionplan.ExecutionState{}, err
 	}
 
-	currentPlan := ptgk.stepsToPlan(currentExecutingSteps)
-	currState := motionplan.NewExecutionState(currentPlan, currentIdx, inputMap, poseMap)
+	currentPlan, err := ptgk.stepsToPlan(currentExecutingSteps, actualPIF.Parent())
+	if err != nil {
+		return motionplan.ExecutionState{}, err
+	}
+	currState := motionplan.NewExecutionState(
+		currentPlan,
+		currentIdx,
+		map[string][]referenceframe.Input{ptgk.Kinematics().Name(): currentInputs},
+		map[string]*referenceframe.PoseInFrame{ptgk.Kinematics().Name(): actualPIF},
+	)
 
 	return currState, nil
 }

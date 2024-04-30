@@ -241,7 +241,7 @@ func (fk *fakePTGKinematics) GoToInputs(ctx context.Context, inputSteps ...[]ref
 		fk.positionlock.RUnlock()
 
 		fk.inputLock.Lock()
-		fk.currentInput = []referenceframe.Input{inputs[0], inputs[1], {Value: 0}}
+		fk.currentInput = []referenceframe.Input{inputs[0], inputs[1], inputs[2], inputs[2]}
 		fk.inputLock.Unlock()
 
 		finalPose, err := fk.frame.Transform(inputs)
@@ -250,11 +250,10 @@ func (fk *fakePTGKinematics) GoToInputs(ctx context.Context, inputSteps ...[]ref
 		}
 
 		steps := motionplan.PathStepCount(spatialmath.NewZeroPose(), finalPose, 2)
-		startCfg := referenceframe.FloatsToInputs([]float64{inputs[0].Value, inputs[1].Value, 0})
 		var interpolatedConfigurations [][]referenceframe.Input
 		for i := 0; i <= steps; i++ {
 			interp := float64(i) / float64(steps)
-			interpConfig, err := fk.frame.Interpolate(startCfg, inputs, interp)
+			interpConfig, err := fk.frame.Interpolate(nil, inputs, interp)
 			if err != nil {
 				return err
 			}
@@ -275,7 +274,7 @@ func (fk *fakePTGKinematics) GoToInputs(ctx context.Context, inputSteps ...[]ref
 			fk.positionlock.Unlock()
 
 			fk.inputLock.Lock()
-			fk.currentInput = []referenceframe.Input{inputs[0], inputs[1], inter[2]}
+			fk.currentInput = inter
 			fk.inputLock.Unlock()
 
 			time.Sleep(time.Duration(fk.sleepTime) * time.Microsecond * 10)

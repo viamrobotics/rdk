@@ -13,6 +13,7 @@ import (
 	"go.uber.org/multierr"
 	utils "go.viam.com/utils"
 
+	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/motionplan/ik"
 	"go.viam.com/rdk/motionplan/tpspace"
 	"go.viam.com/rdk/referenceframe"
@@ -152,7 +153,7 @@ func (ptgk *ptgBaseKinematics) GoToInputs(ctx context.Context, inputSteps ...[]r
 			currentInputs := []referenceframe.Input{
 				step.arcSegment.StartConfiguration[ptgIndex],
 				step.arcSegment.StartConfiguration[trajectoryAlphaWithinPTG],
-				{step.arcSegment.StartConfiguration[startDistanceAlongTrajectoryIndex],
+				step.arcSegment.StartConfiguration[startDistanceAlongTrajectoryIndex],
 				{step.arcSegment.StartConfiguration[startDistanceAlongTrajectoryIndex].Value + math.Abs(distIncVel)*timeElapsedSeconds},
 			}
 			ptgk.inputLock.Lock()
@@ -220,7 +221,7 @@ func (ptgk *ptgBaseKinematics) trajectoryArcSteps(
 	finalSteps := []arcStep{}
 	timeStep := 0.
 	curDist := inputs[startDistanceAlongTrajectoryIndex].Value
-	curInputs := []referenceframe.Input{
+	startInputs := []referenceframe.Input{
 		inputs[ptgIndex],
 		inputs[trajectoryAlphaWithinPTG],
 		inputs[startDistanceAlongTrajectoryIndex],
@@ -228,7 +229,7 @@ func (ptgk *ptgBaseKinematics) trajectoryArcSteps(
 	}
 	runningPose := startPose
 	segment := ik.Segment{
-		StartConfiguration: curInputs,
+		StartConfiguration: startInputs,
 		StartPosition:      runningPose,
 		Frame:              ptgk.Kinematics(),
 	}
@@ -250,25 +251,30 @@ func (ptgk *ptgBaseKinematics) trajectoryArcSteps(
 			// Changed velocity, make a new step
 			nextStep.durationSeconds = timeStep
 
-			curInputs = []referenceframe.Input{
+			stepEndInputs := []referenceframe.Input{
 				inputs[ptgIndex],
 				inputs[trajectoryAlphaWithinPTG],
-				inputs[startDistanceAlongTrajectoryIndex],
+				nextStep.arcSegment.StartConfiguration[startDistanceAlongTrajectoryIndex],
 				{curDist},
 			}
-			nextStep.arcSegment.EndConfiguration = curInputs
+			nextStep.arcSegment.EndConfiguration = stepEndInputs
 			
-			arcPose, err := ptgk.Kinematics().Transform(curInputs)
+			arcPose, err := ptgk.Kinematics().Transform(stepEndInputs)
 			if err != nil {
 				return nil, err
 			}
 			runningPose = spatialmath.Compose(runningPose, arcPose)
-
 			nextStep.arcSegment.EndPosition = runningPose
 			finalSteps = append(finalSteps, nextStep)
 
+			stepStartInputs := []referenceframe.Input{
+				inputs[ptgIndex],
+				inputs[trajectoryAlphaWithinPTG],
+				{curDist},
+				{curDist},
+			}
 			segment = ik.Segment{
-				StartConfiguration: curInputs,
+				StartConfiguration: stepStartInputs,
 				StartPosition:      runningPose,
 				Frame:              ptgk.Kinematics(),
 			}
@@ -289,19 +295,18 @@ func (ptgk *ptgBaseKinematics) trajectoryArcSteps(
 		}
 	}
 	nextStep.durationSeconds = timeStep
-	curInputs = []referenceframe.Input{
+	finalInputs := []referenceframe.Input{
 		inputs[ptgIndex],
 		inputs[trajectoryAlphaWithinPTG],
-		inputs[startDistanceAlongTrajectoryIndex],
+		nextStep.arcSegment.StartConfiguration[startDistanceAlongTrajectoryIndex],
 		{curDist},
 	}
-	nextStep.arcSegment.EndConfiguration = curInputs
-	arcPose, err := ptgk.Kinematics().Transform(curInputs)
+	nextStep.arcSegment.EndConfiguration = finalInputs
+	arcPose, err := ptgk.Kinematics().Transform(finalInputs)
 	if err != nil {
 		return nil, err
 	}
 	runningPose = spatialmath.Compose(runningPose, arcPose)
-	nextStep.arcSegment.EndConfiguration = curInputs
 	nextStep.arcSegment.EndPosition = runningPose
 	finalSteps = append(finalSteps, nextStep)
 
@@ -498,4 +503,17 @@ func (ptgk *ptgBaseKinematics) makeCourseCorrectionGoals(
 		startingTrajPt = 0
 	}
 	return goals
+}
+
+func (ptgk *ptgBaseKinematics) stepsToPlan(steps []arcStep, parentFrame string) (motionplan.Plan, error) {
+	traj := motionplan.Trajectory{}
+	path := motionplan.Path{}
+	for _, step := range steps {
+		traj = append(traj, map[string][]referenceframe.Input{ptgk.Kinematics().Name(): step.arcSegment.EndConfiguration})
+		path = append(path, map[string]*referenceframe.PoseInFrame{
+			ptgk.Kinematics().Name(): referenceframe.NewPoseInFrame(parentFrame, step.arcSegment.EndPosition),
+		})
+	}
+	
+	return motionplan.NewSimplePlan(path, traj), nil
 }

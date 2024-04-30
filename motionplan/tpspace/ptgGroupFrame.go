@@ -190,7 +190,17 @@ func (pf *ptgGroupFrame) Transform(inputs []referenceframe.Input) (spatialmath.P
 // Some current intermediate input may be [1, pi/2, 20, 150]. If we were to try to interpolate the remainder of the arc, then that would be
 // the `from`, while the `to` remains the same. Thus a point along the interpolated path might be [1, pi/2, 150, 170], which would yield
 // the Transform from the current position that would be expected during the next 20 distance to be executed.
+// If we are interpolating against a hypothetical arc, there is no true "from", so `nil` should be passed instead if coming from somewhere
+// which does not have knowledge of specific inputs.
 func (pf *ptgGroupFrame) Interpolate(from, to []referenceframe.Input, by float64) ([]referenceframe.Input, error) {
+	if from == nil {
+		from = []referenceframe.Input{
+			to[ptgIndex],
+			to[trajectoryAlphaWithinPTG],
+			to[startDistanceAlongTrajectoryIndex],
+			to[startDistanceAlongTrajectoryIndex],
+		}
+	}
 	if len(from) != len(pf.DoF()) {
 		return nil, referenceframe.NewIncorrectInputLengthError(len(from), len(pf.DoF()))
 	}
