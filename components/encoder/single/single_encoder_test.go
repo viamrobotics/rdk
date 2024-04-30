@@ -57,8 +57,8 @@ func TestEncoder(t *testing.T) {
 	ctx := context.Background()
 
 	b := MakeBoard(t, testBoardName, testPinName)
-	i, ok := b.DigitalInterruptByName(testPinName)
-	test.That(t, ok, test.ShouldBeTrue)
+	i, err := b.DigitalInterruptByName(testPinName)
+	test.That(t, err, test.ShouldBeNil)
 	ii, ok := i.(*inject.DigitalInterrupt)
 	test.That(t, ok, test.ShouldBeTrue)
 
@@ -255,8 +255,8 @@ func MakeBoard(t *testing.T, name, pinname string) board.Board {
 	}
 	i.RemoveCallbackFunc = func(c chan board.Tick) {}
 
-	b.DigitalInterruptByNameFunc = func(name string) (board.DigitalInterrupt, bool) {
-		return i, true
+	b.DigitalInterruptByNameFunc = func(name string) (board.DigitalInterrupt, error) {
+		return i, nil
 	}
 	b.StreamTicksFunc = func(
 		ctx context.Context, interrupts []board.DigitalInterrupt, ch chan board.Tick, extra map[string]interface{},

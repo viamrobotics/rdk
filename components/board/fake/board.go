@@ -242,22 +242,27 @@ func (b *Board) StreamTicks(ctx context.Context, interrupts []board.DigitalInter
 	for _, i := range interrupts {
 		name := i.Name()
 		d, ok := b.Digitals[name]
-		if ok {
-			select {
-			case <-ctx.Done():
-				return ctx.Err()
-			case ch <- board.Tick{Name: d.conf.Name, High: randomBool(), TimestampNanosec: uint64(time.Now().Unix())}:
-			default:
-				// if nothing is listening to the channel just do nothing.
-			}
+		if !ok {
+			return fmt.Errorf("could not find digital interrupt: %s", name)
+		}
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+			// Keep going
+		}
+		// Get a random bool for the high tick value.
+		// linter complans about security but we don't care if someone
+		// can predict if the fake interrupts will be high or low.
+		//nolint:gosec
+		randBool := rand.Int()%2 == 0
+		select {
+		case ch <- board.Tick{Name: d.conf.Name, High: randBool, TimestampNanosec: uint64(time.Now().Unix())}:
+		default:
+			// if nothing is listening to the channel just do nothing.
 		}
 	}
 	return nil
-}
-
-func randomBool() bool {
-	//nolint:gosec
-	return rand.Int()%2 == 0
 }
 
 // Close attempts to cleanly close each part of the board.
@@ -267,9 +272,6 @@ func (b *Board) Close(ctx context.Context) error {
 
 	b.CloseCount++
 
-	for _, analog := range b.Analogs {
-		analog.close()
-	}
 	return nil
 }
 
@@ -313,11 +315,6 @@ func (a *Analog) Set(value int) {
 	a.Mu.Lock()
 	defer a.Mu.Unlock()
 	a.Value = value
-}
-
-// close does nothing.
-func (a *Analog) close() {
-	a.CloseCount++
 }
 
 // A GPIOPin reads back the same set values.
@@ -382,7 +379,7 @@ func (gp *GPIOPin) SetPWMFreq(ctx context.Context, freqHz uint, extra map[string
 	return nil
 }
 
-// DigitalInterrupt is a fake digital interrupt for testing.
+// DigitalInterrupt is a fake digital interrupt.
 type DigitalInterrupt struct {
 	mu    sync.Mutex
 	conf  board.DigitalInterruptConfig

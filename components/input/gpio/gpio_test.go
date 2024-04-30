@@ -77,13 +77,13 @@ func setup(t *testing.T) *setupResult {
 		delete(callbacks, s.interrupt2)
 	}
 
-	b.DigitalInterruptByNameFunc = func(name string) (board.DigitalInterrupt, bool) {
+	b.DigitalInterruptByNameFunc = func(name string) (board.DigitalInterrupt, error) {
 		if name == "interrupt1" {
-			return s.interrupt1, true
+			return s.interrupt1, nil
 		} else if name == "interrupt2" {
-			return s.interrupt2, true
+			return s.interrupt2, nil
 		}
-		return nil, false
+		return nil, fmt.Errorf("unknown digital interrupt: %s", name)
 	}
 	b.StreamTicksFunc = func(
 		ctx context.Context, interrupts []board.DigitalInterrupt, ch chan board.Tick, extra map[string]interface{},
@@ -449,9 +449,9 @@ func TestGPIOInput(t *testing.T) {
 		iterations := 50
 
 		for i := 0; i < iterations; i++ {
-			err := s.interrupt2.Tick(context.Background(), true, uint64(time.Now().UnixNano()))
+			err := s.interrupt2.Tick(s.ctx, true, uint64(time.Now().UnixNano()))
 			test.That(t, err, test.ShouldBeNil)
-			err = s.interrupt2.Tick(context.Background(), false, uint64(time.Now().UnixNano()))
+			err = s.interrupt2.Tick(s.ctx, false, uint64(time.Now().UnixNano()))
 			test.That(t, err, test.ShouldBeNil)
 		}
 

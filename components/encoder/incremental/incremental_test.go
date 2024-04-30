@@ -2,6 +2,7 @@ package incremental
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
 
@@ -56,10 +57,10 @@ func TestEncoder(t *testing.T) {
 	deps := make(resource.Dependencies)
 	deps[board.Named("main")] = b
 
-	i1, ok := b.DigitalInterruptByName("11")
-	test.That(t, ok, test.ShouldBeTrue)
-	i2, ok := b.DigitalInterruptByName("13")
-	test.That(t, ok, test.ShouldBeTrue)
+	i1, err := b.DigitalInterruptByName("11")
+	test.That(t, err, test.ShouldBeNil)
+	i2, err := b.DigitalInterruptByName("13")
+	test.That(t, err, test.ShouldBeNil)
 
 	ic := Config{
 		BoardName: "main",
@@ -201,13 +202,13 @@ func MakeBoard(t *testing.T) board.Board {
 		delete(callbacks, i2)
 	}
 
-	b.DigitalInterruptByNameFunc = func(name string) (board.DigitalInterrupt, bool) {
+	b.DigitalInterruptByNameFunc = func(name string) (board.DigitalInterrupt, error) {
 		if name == "11" {
-			return i1, true
+			return i1, nil
 		} else if name == "13" {
-			return i2, true
+			return i2, nil
 		}
-		return nil, false
+		return nil, fmt.Errorf("unknown digital interrupt: %s", name)
 	}
 	b.StreamTicksFunc = func(
 		ctx context.Context, interrupts []board.DigitalInterrupt, ch chan board.Tick, extra map[string]interface{},
