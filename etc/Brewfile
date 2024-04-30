@@ -1,0 +1,11 @@
+# deps for our macos.yml CI job
+
+tap "viamrobotics/brews"
+
+brew "pkg-config"
+brew "nlopt-static"
+brew "x264"
+brew "jpeg-turbo"
+brew "ffmpeg"
+# tflite needs to be last (why?)
+brew "tensorflowlite"
