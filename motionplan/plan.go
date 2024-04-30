@@ -172,7 +172,7 @@ func (path Path) String() string {
 	for _, step := range path {
 		str += "\n"
 		for frame, pose := range step {
-			str += fmt.Sprintf("%s: %v %v\t", frame, pose.Pose().Point(), pose.Pose().Orientation().OrientationVectorDegrees())
+			str += fmt.Sprintf("%s: %v %v\t", frame, pose.Pose().Point(), *pose.Pose().Orientation().OrientationVectorDegrees())
 		}
 	}
 	return str
