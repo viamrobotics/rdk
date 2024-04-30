@@ -9,14 +9,14 @@ import (
 	"path/filepath"
 	"strings"
 
-	"go.viam.com/rdk/logging"
-
 	"github.com/ricochet2200/go-disk-usage/du"
+
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/services/datamanager/datacapture"
 	"go.viam.com/rdk/services/datamanager/datasync"
 )
 
-// TODO change these values back to what they should be
+// TODO change these values back to what they should be.
 var (
 	fsThresholdToTriggerDeletion = .95
 	captureDirToFSUsageRatio     = .5

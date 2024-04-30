@@ -11,9 +11,10 @@ import (
 	"testing"
 
 	v1 "go.viam.com/api/app/datasync/v1"
+	"go.viam.com/test"
+
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/services/datamanager/datasync"
-	"go.viam.com/test"
 )
 
 func TestFileDeletionUsageCheck(t *testing.T) {
@@ -57,7 +58,6 @@ func TestFileDeletionUsageCheck(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-
 			var tempCaptureDir string
 			if tc.captureDirExists {
 				tempCaptureDir = t.TempDir()
@@ -164,7 +164,7 @@ func writeFiles(t *testing.T, dir string, writeFilesAsUnfinished bool) []string 
 		} else {
 			filename = fmt.Sprintf("%s/file_%d.capture", dir, i)
 		}
-		err := os.WriteFile(filename, fileContents, 0755)
+		err := os.WriteFile(filename, fileContents, 0o755)
 		test.That(t, err, test.ShouldBeNil)
 		filenames = append(filenames, filename)
 	}
