@@ -14,22 +14,19 @@ jobs:
     - uses: actions/setup-go@v5
       with:
         go-version: '1.21.x'
-    - name: say config
-      run: |
-        brew config
-        ls /usr/local
-        find /usr/local
-        exit 1
 
     # note: this caching is brittle but we are okay with periodic build failures in exchange for speed
     - id: cache-brew
       uses: actions/cache@v4
       with:
-        path: /opt/homebrew
+        path: /usr/local/Caskroom,/usr/local/Cellar,/usr/local/Homebrew
         key: ${{ runner.os }}-${{ hashFiles('etc/Brewfile') }}
     - name: brew
       if: steps.cache-brew.outputs.cache-hit != 'true'
       run: brew bundle install --file=etc/Brewfile
+    - name: say config
+      # note: don't move this into the install step. we want to see this even when cache hits.
+      run: brew config
 
     - name: build
       run: go build ./web/cmd/server
