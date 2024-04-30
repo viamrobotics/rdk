@@ -29,6 +29,7 @@ type setupResult struct {
 	axisMu                                         sync.RWMutex
 	interrupt1, interrupt2                         *inject.DigitalInterrupt
 	analog1, analog2, analog3                      *inject.Analog
+	mu                                             sync.Mutex
 }
 
 func setup(t *testing.T) *setupResult {
@@ -55,6 +56,8 @@ func setup(t *testing.T) *setupResult {
 		return nil
 	}
 	s.interrupt1.RemoveCallbackFunc = func(c chan board.Tick) {
+		s.mu.Lock()
+		defer s.mu.Unlock()
 		delete(callbacks, s.interrupt1)
 	}
 
@@ -69,6 +72,8 @@ func setup(t *testing.T) *setupResult {
 		return nil
 	}
 	s.interrupt2.RemoveCallbackFunc = func(c chan board.Tick) {
+		s.mu.Lock()
+		defer s.mu.Unlock()
 		delete(callbacks, s.interrupt2)
 	}
 
@@ -95,26 +100,38 @@ func setup(t *testing.T) *setupResult {
 	analog1Val, analog2Val, analog3Val := 0, 0, 0
 
 	s.analog1.WriteFunc = func(ctx context.Context, value int, extra map[string]interface{}) error {
+		s.mu.Lock()
+		defer s.mu.Unlock()
 		analog1Val = value
 		return nil
 	}
 
 	s.analog1.ReadFunc = func(ctx context.Context, extra map[string]interface{}) (int, error) {
+		s.mu.Lock()
+		defer s.mu.Unlock()
 		return analog1Val, nil
 	}
 	s.analog2.ReadFunc = func(ctx context.Context, extra map[string]interface{}) (int, error) {
+		s.mu.Lock()
+		defer s.mu.Unlock()
 		return analog2Val, nil
 	}
 	s.analog3.ReadFunc = func(ctx context.Context, extra map[string]interface{}) (int, error) {
+		s.mu.Lock()
+		defer s.mu.Unlock()
 		return analog3Val, nil
 	}
 
 	s.analog2.WriteFunc = func(ctx context.Context, value int, extra map[string]interface{}) error {
+		s.mu.Lock()
+		defer s.mu.Unlock()
 		analog2Val = value
 		return nil
 	}
 
 	s.analog3.WriteFunc = func(ctx context.Context, value int, extra map[string]interface{}) error {
+		s.mu.Lock()
+		defer s.mu.Unlock()
 		analog3Val = value
 		return nil
 	}

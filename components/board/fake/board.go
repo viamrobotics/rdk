@@ -15,7 +15,6 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/board"
-	"go.viam.com/rdk/components/board/pinwrappers"
 	"go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
@@ -80,7 +79,7 @@ func NewBoard(ctx context.Context, conf resource.Config, logger logging.Logger) 
 	b := &Board{
 		Named:    conf.ResourceName().AsNamed(),
 		Analogs:  map[string]*Analog{},
-		Digitals: map[string]*DigitalInterruptWrapper{},
+		Digitals: map[string]*DigitalInterrupt{},
 		GPIOPins: map[string]*GPIOPin{},
 		logger:   logger,
 	}
@@ -134,7 +133,7 @@ func (b *Board) processConfig(conf resource.Config) error {
 			continue
 		}
 		var err error
-		b.Digitals[c.Name], err = NewDigitalInterruptWrapper(c)
+		b.Digitals[c.Name], err = NewDigitalInterrupt(c)
 		if err != nil {
 			errs = multierr.Combine(errs, err)
 		}
@@ -160,7 +159,7 @@ type Board struct {
 
 	mu         sync.RWMutex
 	Analogs    map[string]*Analog
-	Digitals   map[string]*DigitalInterruptWrapper
+	Digitals   map[string]*DigitalInterrupt
 	GPIOPins   map[string]*GPIOPin
 	logger     logging.Logger
 	CloseCount int
@@ -254,7 +253,7 @@ func (b *Board) StreamTicks(ctx context.Context, interrupts []board.DigitalInter
 
 func randomBool() bool {
 	//nolint:gosec
-	return rand.Int()%2%2 == 0
+	return rand.Int()%2 == 0
 }
 
 // Close attempts to cleanly close each part of the board.
@@ -379,60 +378,45 @@ func (gp *GPIOPin) SetPWMFreq(ctx context.Context, freqHz uint, extra map[string
 	return nil
 }
 
-// DigitalInterruptWrapper is a wrapper around a digital interrupt for testing fake boards.
-type DigitalInterruptWrapper struct {
+// DigitalInterrupt is a fake digital interrupt for testing.
+type DigitalInterrupt struct {
 	mu    sync.Mutex
-	di    board.DigitalInterrupt
 	conf  board.DigitalInterruptConfig
 	value int64
 }
 
-// NewDigitalInterruptWrapper returns a new digital interrupt to be used for testing.
-func NewDigitalInterruptWrapper(conf board.DigitalInterruptConfig) (*DigitalInterruptWrapper, error) {
-	return &DigitalInterruptWrapper{
+// NewDigitialInterrupt returns a new digital interrupt to be used for testing.
+func NewDigitalInterrupt(conf board.DigitalInterruptConfig) (*DigitalInterrupt, error) {
+	return &DigitalInterrupt{
 		conf: conf,
 	}, nil
 }
 
-func (s *DigitalInterruptWrapper) reset(conf board.DigitalInterruptConfig) error {
+func (s *DigitalInterrupt) reset(conf board.DigitalInterruptConfig) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	reconf, isReconf := s.di.(pinwrappers.ReconfigurableDigitalInterrupt)
-	if conf.Name != s.conf.Name || !isReconf {
-		// rebuild
-		di, err := pinwrappers.CreateDigitalInterrupt(conf)
-		if err != nil {
-			return err
-		}
-		s.conf = conf
-		s.di = di
-		return nil
-	}
-	// reconf
-	if err := reconf.Reconfigure(conf); err != nil {
-		return err
-	}
 	s.conf = conf
 	return nil
 }
 
+func (*DigitalInterrupt) RemoveCallback(chan board.Tick) {
+
+}
+
 // Value returns the current value of the interrupt which is
 // based on the type of interrupt.
-func (s *DigitalInterruptWrapper) Value(ctx context.Context, extra map[string]interface{}) (int64, error) {
+func (s *DigitalInterrupt) Value(ctx context.Context, extra map[string]interface{}) (int64, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if s.conf.Pin == nonZeroInterruptPin {
 		s.value++
 		return s.value, nil
 	}
-	return s.di.Value(ctx, extra)
+	return 0, nil
 }
 
-// RemoveCallback does nothing, remove after RSKD-7009 is done.
-func (s *DigitalInterruptWrapper) RemoveCallback(c chan board.Tick) {}
-
 // Name returns the name of the digital interrupt.
-func (s *DigitalInterruptWrapper) Name() string {
+func (s *DigitalInterrupt) Name() string {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return s.conf.Name
