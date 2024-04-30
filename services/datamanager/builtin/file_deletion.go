@@ -70,20 +70,23 @@ func exceedsDeletionThreshold(ctx context.Context, captureDirPath string, fsSize
 	}
 
 	err := filepath.WalkDir(captureDirPath, readSize)
-	if err != nil && !errors.Is(err, errAtSizeThreshold) {
+	if err != nil {
+		if errors.Is(err, errAtSizeThreshold) {
+			return true, nil
+		}
 		return false, err
 	}
-	if err == nil {
-		logger.Warnw("Not at threshold", "size", float64(dirSize)/fsSize, "threshold", captureDirToFSUsageRatio)
-
-	}
-	return err != nil && errors.Is(err, errAtSizeThreshold), nil
+	logger.Warnw("Not at threshold", "size", float64(dirSize)/fsSize, "threshold", captureDirToFSUsageRatio)
+	return false, nil
 }
 
 func deleteFiles(ctx context.Context, syncer datasync.Manager, captureDirPath string, logger logging.Logger) (int, error) {
 	index := 0
 	deletedFileCount := 0
 	delete := func(path string, d fs.DirEntry, err error) error {
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
 		if err != nil {
 			// this can happen if after we start walking the dir, the file changes from .prog to .capture
 			// which throws a file not found error when we try to get the fileinfo. If we hit this, just
@@ -92,9 +95,6 @@ func deleteFiles(ctx context.Context, syncer datasync.Manager, captureDirPath st
 				return nil
 			}
 			return err
-		}
-		if ctx.Err() != nil {
-			return ctx.Err()
 		}
 
 		if !d.IsDir() {
