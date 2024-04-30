@@ -61,15 +61,11 @@ func TestFileDeletionUsageCheck(t *testing.T) {
 			var tempCaptureDir string
 			if tc.captureDirExists {
 				tempCaptureDir = t.TempDir()
-				fileContents := []byte("never gonna give you up")
 				// overwrite thresholds
 				fsThresholdToTriggerDeletion = tc.testThreshold
 				captureDirToFSUsageRatio = tc.testCaptureDirRatio
 				// write testing files
-				for i := 0; i < 10; i++ {
-					err := os.WriteFile(fmt.Sprintf("%s/file_%d", tempCaptureDir, i), fileContents, 0755)
-					test.That(t, err, test.ShouldBeNil)
-				}
+				writeFiles(t, tempCaptureDir, false)
 			} else {
 				// make a random dir name to make sure it doesn't exist
 				randomName := make([]byte, 4)
@@ -86,8 +82,6 @@ func TestFileDeletionUsageCheck(t *testing.T) {
 	}
 }
 
-// delete w/ syncer, delete w/o syncer, only .prog files, context cancellation?
-// make files, mark some in progress? then call delete, then walk and see whats been deletd
 func TestFileDeletion(t *testing.T) {
 	tests := []struct {
 		name                 string
@@ -132,6 +126,7 @@ func TestFileDeletion(t *testing.T) {
 				failedDCRequests:    make(chan *v1.DataCaptureUploadRequest, 100),
 				fail:                &atomic.Bool{},
 			}
+
 			var syncer datasync.Manager = nil
 			if tc.syncEnabled {
 				s, err := datasync.NewManager("rick astley", mockClient, logger, tempCaptureDir)
@@ -139,21 +134,9 @@ func TestFileDeletion(t *testing.T) {
 				syncer = s
 				defer syncer.Close()
 			}
-			fileContents := []byte("never gonna let you down")
-			for i := 0; i < 10; i++ {
-				var filename string
-				if tc.writeProgFiles {
-					filename = fmt.Sprintf("%s/file_%d.prog", tempCaptureDir, i)
-				} else {
-					filename = fmt.Sprintf("%s/file_%d.capture", tempCaptureDir, i)
-				}
-				err := os.WriteFile(filename, fileContents, 0755)
-				test.That(t, err, test.ShouldBeNil)
-				if tc.markAllInProgress {
-					ret := syncer.MarkInProgress(filename)
-					test.That(t, ret, test.ShouldBeTrue)
-				}
-			}
+
+			writeFilesAndMarkInProgress(t, tempCaptureDir, tc.writeProgFiles, syncer)
+
 			ctx, cancelFunc := context.WithCancel(context.Background())
 			defer cancelFunc()
 			if tc.shouldCancelContext {
@@ -167,5 +150,34 @@ func TestFileDeletion(t *testing.T) {
 				test.That(t, deletedFileCount, test.ShouldEqual, tc.expectedDeletedCount)
 			}
 		})
+	}
+}
+
+func writeFiles(t *testing.T, dir string, writeFilesAsUnfinished bool) []string {
+	t.Helper()
+	filenames := []string{}
+	fileContents := []byte("never gonna let you down")
+	for i := 0; i < 10; i++ {
+		var filename string
+		if writeFilesAsUnfinished {
+			filename = fmt.Sprintf("%s/file_%d.prog", dir, i)
+		} else {
+			filename = fmt.Sprintf("%s/file_%d.capture", dir, i)
+		}
+		err := os.WriteFile(filename, fileContents, 0755)
+		test.That(t, err, test.ShouldBeNil)
+		filenames = append(filenames, filename)
+	}
+	return filenames
+}
+
+func writeFilesAndMarkInProgress(t *testing.T, dir string, writeFilesAsUnfinished bool, syncer datasync.Manager) {
+	t.Helper()
+	files := writeFiles(t, dir, writeFilesAsUnfinished)
+	for _, file := range files {
+		if syncer != nil {
+			ret := syncer.MarkInProgress(file)
+			test.That(t, ret, test.ShouldBeTrue)
+		}
 	}
 }
