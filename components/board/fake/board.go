@@ -386,7 +386,7 @@ type DigitalInterrupt struct {
 	value int64
 }
 
-// NewDigitalInterrupt returns a new digital interrupt to be used for testing.
+// NewDigitalInterrupt returns a new fake digital interrupt.
 func NewDigitalInterrupt(conf board.DigitalInterruptConfig) (*DigitalInterrupt, error) {
 	return &DigitalInterrupt{
 		conf: conf,
