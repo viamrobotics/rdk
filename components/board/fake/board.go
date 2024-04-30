@@ -244,6 +244,8 @@ func (b *Board) StreamTicks(ctx context.Context, interrupts []board.DigitalInter
 			case <-ctx.Done():
 				return ctx.Err()
 			case ch <- board.Tick{Name: d.conf.Name, High: randomBool(), TimestampNanosec: uint64(time.Now().Unix())}:
+			default:
+				// if nothing is listening to the channel just do nothing.
 			}
 		}
 	}

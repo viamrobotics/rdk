@@ -123,6 +123,11 @@ func TestEncoder(t *testing.T) {
 		err = ii.Tick(context.Background(), true, uint64(time.Now().UnixNano()))
 		test.That(t, err, test.ShouldBeNil)
 
+		// Give the tick time to propagate to encoder
+		// Warning: theres a race condition if the tick has not been processed
+		// by the encoder worker
+		time.Sleep(50 * time.Millisecond)
+
 		ticks, _, err := enc.Position(context.Background(), encoder.PositionTypeUnspecified, nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, ticks, test.ShouldEqual, 0)
@@ -151,10 +156,10 @@ func TestEncoder(t *testing.T) {
 		m := &FakeDir{1} // forward
 		enc2.AttachDirectionalAwareness(m)
 
+		// move forward
 		err = ii.Tick(context.Background(), true, uint64(time.Now().UnixNano()))
 		test.That(t, err, test.ShouldBeNil)
 
-		// move forward
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
 			ticks, _, err := enc.Position(context.Background(), encoder.PositionTypeUnspecified, nil)
@@ -169,6 +174,7 @@ func TestEncoder(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, ticks, test.ShouldEqual, 0)
 
+		// now tick up again
 		err = ii.Tick(context.Background(), true, uint64(time.Now().UnixNano()))
 		test.That(t, err, test.ShouldBeNil)
 
@@ -207,6 +213,9 @@ func TestEncoder(t *testing.T) {
 
 		m := &FakeDir{-1} // backward
 		enc2.AttachDirectionalAwareness(m)
+
+		err = ii.Tick(context.Background(), true, uint64(time.Now().UnixNano()))
+		test.That(t, err, test.ShouldBeNil)
 
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
