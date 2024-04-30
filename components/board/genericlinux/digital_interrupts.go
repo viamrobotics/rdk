@@ -86,8 +86,8 @@ func (di *digitalInterrupt) startMonitor() {
 			case <-di.cancelCtx.Done():
 				return
 			case event := <-di.line.Events():
-				utils.UncheckedError(di.interrupt.Tick(
-					di.cancelCtx, event.RisingEdge, uint64(event.Time.UnixNano())))
+				utils.UncheckedError(pinwrappers.Tick(
+					di.cancelCtx, di.interrupt.(*pinwrappers.BasicDigitalInterrupt), event.RisingEdge, uint64(event.Time.UnixNano())))
 			}
 		}
 	}, di.boardWorkers.Done)

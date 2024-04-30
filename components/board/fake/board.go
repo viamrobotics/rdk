@@ -20,6 +20,15 @@ import (
 	"go.viam.com/rdk/resource"
 )
 
+// In order to maintain test functionality, testPin will always return an analog value of 0.
+// To see non-zero fake analog values on a fake board, add an analog reader to any other pin.
+var analogTestPin = ""
+
+// In order to maintain test functionality, digital interrtups on any pin except nonZeroInterruptPin
+// will always return a digital interrupt value of 0. To see non-zero fake interrupt values on a fake board,
+// add an digital interrupt to pin 0.
+var nonZeroInterruptPin = "0"
+
 // A Config describes the configuration of a fake board and all of its connected parts.
 type Config struct {
 	AnalogReaders     []board.AnalogReaderConfig     `json:"analogs,omitempty"`
@@ -168,11 +177,14 @@ func (b *Board) AnalogByName(name string) (board.Analog, error) {
 }
 
 // DigitalInterruptByName returns the interrupt by the given name if it exists.
-func (b *Board) DigitalInterruptByName(name string) (board.DigitalInterrupt, bool) {
+func (b *Board) DigitalInterruptByName(name string) (board.DigitalInterrupt, error) {
 	b.mu.RLock()
 	defer b.mu.RUnlock()
 	d, ok := b.Digitals[name]
-	return d, ok
+	if !ok {
+		return nil, fmt.Errorf("cant find DigitalInterrupt (%s)", name)
+	}
+	return d, nil
 }
 
 // GPIOPinByName returns the GPIO pin by the given name if it exists.
@@ -229,7 +241,7 @@ func (b *Board) StreamTicks(ctx context.Context, interrupts []board.DigitalInter
 	extra map[string]interface{},
 ) error {
 	for _, i := range interrupts {
-		i.AddCallback(ch)
+		AddCallback(i.(*DigitalInterruptWrapper), ch)
 	}
 	return nil
 }
@@ -257,6 +269,7 @@ type Analog struct {
 	Value      int
 	CloseCount int
 	Mu         sync.RWMutex
+	fakeValue  int
 }
 
 func newAnalogReader(pin string) *Analog {
@@ -273,6 +286,10 @@ func (a *Analog) reset(pin string) {
 func (a *Analog) Read(ctx context.Context, extra map[string]interface{}) (int, error) {
 	a.Mu.RLock()
 	defer a.Mu.RUnlock()
+	if a.pin != analogTestPin {
+		a.Value = a.fakeValue
+		a.fakeValue++
+	}
 	return a.Value, nil
 }
 
@@ -281,7 +298,7 @@ func (a *Analog) Write(ctx context.Context, value int, extra map[string]interfac
 	return nil
 }
 
-// Set is used during testing.
+// Set is used to set the value of an Analog.
 func (a *Analog) Set(value int) {
 	a.Mu.Lock()
 	defer a.Mu.Unlock()
@@ -361,6 +378,7 @@ type DigitalInterruptWrapper struct {
 	mu        sync.Mutex
 	di        board.DigitalInterrupt
 	conf      board.DigitalInterruptConfig
+	value     int64
 	callbacks map[chan board.Tick]struct{}
 }
 
@@ -390,7 +408,7 @@ func (s *DigitalInterruptWrapper) reset(conf board.DigitalInterruptConfig) error
 		s.conf = conf
 		s.di = di
 		for c := range s.callbacks {
-			s.di.AddCallback(c)
+			pinwrappers.AddCallback(di.(*pinwrappers.BasicDigitalInterrupt), c)
 		}
 		return nil
 	}
@@ -407,6 +425,10 @@ func (s *DigitalInterruptWrapper) reset(conf board.DigitalInterruptConfig) error
 func (s *DigitalInterruptWrapper) Value(ctx context.Context, extra map[string]interface{}) (int64, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if s.conf.Pin == nonZeroInterruptPin {
+		s.value++
+		return s.value, nil
+	}
 	return s.di.Value(ctx, extra)
 }
 
@@ -414,19 +436,19 @@ func (s *DigitalInterruptWrapper) Value(ctx context.Context, extra map[string]in
 // hardware interrupt or for tests.
 // nanoseconds is from an arbitrary point in time, but always increasing and always needs
 // to be accurate.
-func (s *DigitalInterruptWrapper) Tick(ctx context.Context, high bool, nanoseconds uint64) error {
+func Tick(ctx context.Context, s *DigitalInterruptWrapper, high bool, nanoseconds uint64) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	return s.di.Tick(ctx, high, nanoseconds)
+	return pinwrappers.Tick(ctx, s.di.(*pinwrappers.BasicDigitalInterrupt), high, nanoseconds)
 }
 
 // AddCallback adds a callback to be sent a low/high value to when a tick
 // happens.
-func (s *DigitalInterruptWrapper) AddCallback(c chan board.Tick) {
+func AddCallback(s *DigitalInterruptWrapper, c chan board.Tick) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.callbacks[c] = struct{}{}
-	s.di.AddCallback(c)
+	pinwrappers.AddCallback(s.di.(*pinwrappers.BasicDigitalInterrupt), c)
 }
 
 // RemoveCallback removes a listener for interrupts.

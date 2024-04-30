@@ -331,9 +331,9 @@ func makeAdxl345(
 		}
 		interrupts := []board.DigitalInterrupt{}
 		for _, name := range interruptList {
-			interrupt, ok := b.DigitalInterruptByName(name)
-			if !ok {
-				return nil, errors.Errorf("cannot find interrupt pin %s", name)
+			interrupt, err := b.DigitalInterruptByName(name)
+			if err != nil {
+				return nil, err
 			}
 			interrupts = append(interrupts, interrupt)
 		}

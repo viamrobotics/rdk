@@ -48,16 +48,41 @@ type Gantry interface {
 	referenceframe.InputEnabled
 
 	// Position returns the position in meters
+	//
+	//    myGantry, err := gantry.FromRobot(machine, "my_gantry")
+	//
+	//    // Get the current positions of the axes of the gantry in millimeters.
+	//    position, err := myGantry.Position(context.Background(), nil)
 	Position(ctx context.Context, extra map[string]interface{}) ([]float64, error)
 
 	// MoveToPosition is in meters
 	// This will block until done or a new operation cancels this one
+	//
+	//    myGantry, err := gantry.FromRobot(machine, "my_gantry")
+	//
+	//    // Create a list of positions for the axes of the gantry to move to.
+	//    // Assume in this example that the gantry is multi-axis, with 3 axes.
+	//    examplePositions := []float64{1, 2, 3}
+	//
+	//    exampleSpeeds := []float64{3, 9, 12}
+	//
+	//    // Move the axes of the gantry to the positions specified.
+	//    myGantry.MoveToPosition(context.Background(), examplePositions, exampleSpeeds, nil)
 	MoveToPosition(ctx context.Context, positionsMm, speedsMmPerSec []float64, extra map[string]interface{}) error
 
 	// Lengths is the length of gantries in meters
+	//
+	//    myGantry, err := gantry.FromRobot(machine, "my_gantry")
+	//
+	//    // Get the lengths of the axes of the gantry in millimeters.
+	//    lengths_mm, err := myGantry.Lengths(context.Background(), nil)
 	Lengths(ctx context.Context, extra map[string]interface{}) ([]float64, error)
 
 	// Home runs the homing sequence of the gantry and returns true once completed
+	//
+	//    myGantry, err := gantry.FromRobot(machine, "my_gantry")
+	//
+	//    myGantry.Home(context.Background(), nil)
 	Home(ctx context.Context, extra map[string]interface{}) (bool, error)
 }
 
