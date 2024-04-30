@@ -13,6 +13,7 @@ import (
 
 	"go.uber.org/multierr"
 	"go.viam.com/utils"
+	"google.golang.org/genproto/googleapis/rpc/errdetails"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -41,14 +42,14 @@ type localFileCopyFactory struct {
 	preserve    bool
 }
 
-// MakeFileCopier makes a new FileCopier that is ready for to copy files into the factory's
+// MakeFileCopier makes a new FileCopier that is ready to copy files into the factory's
 // file destination.
 func (f *localFileCopyFactory) MakeFileCopier(ctx context.Context, sourceType CopyFilesSourceType) (FileCopier, error) {
 	finalDestination := f.destination
 	var overrideName string
 	switch sourceType {
 	case CopyFilesSourceTypeMultipleFiles:
-		// for multiple files (a b c machine:~/some/dir), ~/some/dir neds to already exist
+		// for multiple files (a b c machine:~/some/dir), ~/some/dir needs to already exist
 		// as a directory
 		dstInfo, err := os.Stat(f.destination)
 		if err != nil || dstInfo == nil || !dstInfo.IsDir() {
@@ -61,7 +62,7 @@ func (f *localFileCopyFactory) MakeFileCopier(ctx context.Context, sourceType Co
 		// for single files (a machine:~/some/dir_or_file):
 		// if destination exists and
 		// 		it is a directory, then put the source file/directory in it.
-		//		it is a file and the source is a file, overwrrite.
+		//		it is a file and the source is a file, overwrite.
 		//      it is a file and the source is a directory, error.
 		// or if destination does not exist and
 		//		if the parent exists and
@@ -81,7 +82,7 @@ func (f *localFileCopyFactory) MakeFileCopier(ctx context.Context, sourceType Co
 				// it is a directory, then put the source file/directory in it
 				// destination stays the same
 			case sourceType == CopyFilesSourceTypeSingleFile:
-				// it is a file and the source is a file, overwrrite
+				// it is a file and the source is a file, overwrite
 				// destination becomes parent
 				rename = true
 			default:
@@ -194,9 +195,9 @@ func (copier *localFileCopier) Copy(ctx context.Context, file File) error {
 		modTime = fileInfo.ModTime()
 		fileMode = fileInfo.Mode()
 	case fileInfo.IsDir():
-		fileMode = 0o755
+		fileMode = 0o750
 	default:
-		fileMode = 0o644
+		fileMode = 0o640
 	}
 
 	if fileInfo.IsDir() {
@@ -274,7 +275,15 @@ func NewLocalFileReadCopier(
 				return nil, err
 			}
 			if fileInfo.IsDir() {
-				return nil, status.Error(codes.InvalidArgument, fmt.Sprintf("local %q is a directory but copy recursion not used", p))
+				details := &errdetails.BadRequest_FieldViolation{
+					Field:       "paths",
+					Description: fmt.Sprintf("local %q is a directory but copy recursion not used", p),
+				}
+				s, err := status.New(codes.InvalidArgument, ErrMsgDirectoryCopyRequestNoRecursion).WithDetails(details)
+				if err != nil {
+					return nil, err
+				}
+				return nil, s.Err()
 			}
 		}
 		filesToCopy = append(filesToCopy, fileToCopy)
@@ -284,6 +293,10 @@ func NewLocalFileReadCopier(
 	}
 	return &localFileReadCopier{filesToCopy: filesToCopy, copyFactory: copyFactory}, nil
 }
+
+// ErrMsgDirectoryCopyRequestNoRecursion should be returned when a file is included in a path for a copy request
+// where recursion is not enabled.
+var ErrMsgDirectoryCopyRequestNoRecursion = "file is a directory but copy recursion not used"
 
 // ReadAll processes and copies each file one by one into a newly constructed FileCopier until
 // complete.

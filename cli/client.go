@@ -36,6 +36,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
 	reflectpb "google.golang.org/grpc/reflection/grpc_reflection_v1alpha"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/structpb"
 
 	rconfig "go.viam.com/rdk/config"
@@ -498,8 +499,23 @@ func MachinesPartCopyFilesAction(c *cli.Context) error {
 		return err
 	}
 
-	if isFrom {
-		return client.copyFilesFromMachine(
+	doCopy := func() error {
+		if isFrom {
+			return client.copyFilesFromMachine(
+				c.String(organizationFlag),
+				c.String(locationFlag),
+				c.String(machineFlag),
+				c.String(partFlag),
+				c.Bool(debugFlag),
+				c.Bool(cpFlagRecursive),
+				c.Bool(cpFlagPreserve),
+				paths,
+				destination,
+				logger,
+			)
+		}
+
+		return client.copyFilesToMachine(
 			c.String(organizationFlag),
 			c.String(locationFlag),
 			c.String(machineFlag),
@@ -512,20 +528,20 @@ func MachinesPartCopyFilesAction(c *cli.Context) error {
 			logger,
 		)
 	}
-
-	return client.copyFilesToMachine(
-		c.String(organizationFlag),
-		c.String(locationFlag),
-		c.String(machineFlag),
-		c.String(partFlag),
-		c.Bool(debugFlag),
-		c.Bool(cpFlagRecursive),
-		c.Bool(cpFlagPreserve),
-		paths,
-		destination,
-		logger,
-	)
+	if err := doCopy(); err != nil {
+		if statusErr := status.Convert(err); statusErr != nil &&
+			statusErr.Code() == codes.InvalidArgument &&
+			statusErr.Message() == shell.ErrMsgDirectoryCopyRequestNoRecursion {
+			return errors.New(errMsgDirectoryCopyRequestNoRecursionForCLI)
+		}
+		return err
+	}
+	return nil
 }
+
+// errMsgDirectoryCopyRequestNoRecursionForCLI should be returned when a file is included in a path for a copy request
+// where recursion is not enabled.
+var errMsgDirectoryCopyRequestNoRecursionForCLI = "file is a directory but copy recursion not used (you can use -r to enable this)"
 
 // checkUpdateResponse holds the values used to hold release information.
 type getLatestReleaseResponse struct {
@@ -1510,7 +1526,7 @@ func (c *viamClient) copyFilesToMachine(
 		}
 	}()
 
-	// ReadAl the files into the copier.
+	// ReadAll the files into the copier.
 	return readCopier.ReadAll(c.c.Context)
 }
 
