@@ -23,7 +23,7 @@ jobs:
         path: |
           /usr/local/**/tensorflow*
           /usr/local/**/nlopt*
-        key: ${{ runner.os }}-${{ hashFiles('etc/Brewfile') }}
+        key: ${{ hashFiles('etc/Brewfile') }}
     - name: brew
       if: steps.cache-brew.outputs.cache-hit != 'true'
       run: brew bundle install --file=etc/Brewfile
