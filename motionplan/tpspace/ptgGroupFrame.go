@@ -183,22 +183,36 @@ func (pf *ptgGroupFrame) Transform(inputs []referenceframe.Input) (spatialmath.P
 	return pose, nil
 }
 
+// Interpolate on a PTG group frame follows the following framework:
+// Let us say we are executing a set on inputs, for example [1, pi/2, 20, 2000].
+// The starting configuration would be [1, pi/2, 20, 20], and Transform() would yield a zero pose. Interpolating from this to the final set
+// of inputs above would yield things like [1, pi/2, 20, 50] and so on, the Transform() of each giving the amount moved from the start.
+// Some current intermediate input may be [1, pi/2, 20, 150]. If we were to try to interpolate the remainder of the arc, then that would be
+// the `from`, while the `to` remains the same. Thus a point along the interpolated path might be [1, pi/2, 150, 170], which would yield
+// the Transform from the current position that would be expected during the next 20 distance to be executed.
 func (pf *ptgGroupFrame) Interpolate(from, to []referenceframe.Input, by float64) ([]referenceframe.Input, error) {
+	if len(from) != len(pf.DoF()) {
+		return nil, referenceframe.NewIncorrectInputLengthError(len(from), len(pf.DoF()))
+	}
 	if len(to) != len(pf.DoF()) {
 		return nil, referenceframe.NewIncorrectInputLengthError(len(to), len(pf.DoF()))
 	}
 	for i, input := range from {
+		if i == endDistanceAlongTrajectoryIndex {
+			// When interpolating, end distance is the only thing allowed to differ
+			break
+		}
 		if input.Value != to[i].Value {
 			return nil, NewNonMatchingInputError(from[i].Value, to[i].Value)
 		}
 	}
 
-	changeVal := (to[endDistanceAlongTrajectoryIndex].Value - to[startDistanceAlongTrajectoryIndex].Value) * by
+	changeVal := (to[endDistanceAlongTrajectoryIndex].Value - from[endDistanceAlongTrajectoryIndex].Value) * by
 	return []referenceframe.Input{
 		to[ptgIndex],
 		to[trajectoryAlphaWithinPTG],
-		to[startDistanceAlongTrajectoryIndex],
-		{to[startDistanceAlongTrajectoryIndex].Value + changeVal},
+		from[endDistanceAlongTrajectoryIndex],
+		{from[endDistanceAlongTrajectoryIndex].Value + changeVal},
 	}, nil
 }
 

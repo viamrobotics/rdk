@@ -246,14 +246,7 @@ func TestPTGKinematicsWithGeom(t *testing.T) {
 			test.That(t, err, test.ShouldBeNil)
 
 			arcStartPosition := arcSteps[arcIdx].arcSegment.StartPosition
-			executedInputs := []referenceframe.Input{
-				ptgBase.currentInputs[0],
-				ptgBase.currentInputs[1],
-				arcSteps[arcIdx].arcSegment.StartConfiguration[2],
-				ptgBase.currentInputs[2],
-			}
-			
-			onArcPosition, err := kb.Kinematics().Transform(executedInputs)
+			onArcPosition, err := kb.Kinematics().Transform(ptgBase.currentInputs)
 			test.That(t, err, test.ShouldBeNil)
 			arcPose := spatialmath.Compose(arcStartPosition, onArcPosition)
 

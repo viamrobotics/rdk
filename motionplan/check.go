@@ -27,7 +27,6 @@ func checkPlanRelative(
 	currentPoseIF := executionState.CurrentPoses()[checkFrame.Name()]
 	wayPointIdx := executionState.Index()
 	sf := sfPlanner.frame
-	var relative bool
 
 	// Validate the given PoseInFrame of the relative frame. Relative frame poses cannot be given in their own frame, or the frame of
 	// any of their children.
@@ -56,13 +55,13 @@ func checkPlanRelative(
 		return nil
 	}
 	
-	toWorld := func(pif *referenceframe.PoseInFrame) (*referenceframe.PoseInFrame, error) {
+	toWorld := func(pif *referenceframe.PoseInFrame, inputs map[string][]referenceframe.Input) (*referenceframe.PoseInFrame, error) {
 		// Check our current position is valid
-		err := validateRelPiF(currentPoseIF)
+		err := validateRelPiF(pif)
 		if err != nil {
 			return nil, err
 		}
-		transformable, err := fs.Transform(currentInputs, pif, referenceframe.World)
+		transformable, err := fs.Transform(inputs, pif, referenceframe.World)
 		if err != nil {
 			return nil, err
 		}
@@ -75,18 +74,16 @@ func checkPlanRelative(
 	}
 
 	// Check out path pose is valid
-	waypoint := plan.Path()[wayPointIdx]
-	stepEndPiF, ok := waypoint[checkFrame.Name()]
+	stepEndPiF, ok := plan.Path()[wayPointIdx][checkFrame.Name()]
 	if !ok {
 		return errors.New("check frame given not in plan Path map")
 	}
-
-	expectedArcEndInWorld, err := toWorld(stepEndPiF)
+	expectedArcEndInWorld, err := toWorld(stepEndPiF, plan.Trajectory()[wayPointIdx])
 	if err != nil {
 		return err
 	}
 
-	currentPoseInWorld, err := toWorld(currentPoseIF)
+	currentPoseInWorld, err := toWorld(currentPoseIF, currentInputs)
 	if err != nil {
 		return err
 	}
@@ -97,27 +94,34 @@ func checkPlanRelative(
 	if !ok {
 		return errors.New("given checkFrame had no inputs in CurrentInputs map")
 	}
-	remainingArcPose, err := checkFrame.Transform(frameInputs)
+	poseThroughArc, err := checkFrame.Transform(frameInputs)
 	if err != nil {
 		return err
 	}
 	expectedCurrentPose := spatialmath.PoseBetweenInverse(remainingArcPose, expectedArcEndInWorld.Pose())
 	errorState := spatialmath.PoseBetween(expectedCurrentPose, currentPoseInWorld.Pose())
 
-	// offset the plan using the errorState
-	// TODO(RSDK-7421): this will need to be done per frame with nonzero dof
-	offsetPlan := OffsetPlan(plan, errorState)
-
-	// get plan poses for checkFrame
-	poses, err := offsetPlan.Path().GetFramePoses(checkFrame.Name())
+	planStartPiF, ok := plan.Path()[0][checkFrame.Name()]
+	if !ok {
+		return errors.New("check frame given not in plan Path map")
+	}
+	planStartPoseWorld, err := toWorld(planStartPiF, plan.Trajectory()[0])
+	if err != nil {
+		return err
+	}
+	planEndPiF, ok := plan.Path()[len(plan.Path()) - 1][checkFrame.Name()]
+	if !ok {
+		return errors.New("check frame given not in plan Path map")
+	}
+	planEndPoseWorld, err := toWorld(planEndPiF, plan.Trajectory()[len(plan.Path()) - 1])
 	if err != nil {
 		return err
 	}
 
-	// setup the planOpts. Poses should be in world frame.
+	// setup the planOpts. Poses should be in world frame. This allows us to know e.g. which obstacles may ephemerally collide.
 	if sfPlanner.planOpts, err = sfPlanner.plannerSetupFromMoveRequest(
-		currentPoseInWorld.Pose(),
-		poses[len(poses)-1],
+		planStartPoseWorld.Pose(),
+		planEndPoseWorld.Pose(),
 		startingInputs,
 		worldState,
 		nil, // no pb.Constraints
@@ -127,10 +131,14 @@ func checkPlanRelative(
 	}
 
 	// create a list of segments to iterate through
-	segments := make([]*ik.Segment, 0, len(poses)-wayPointIdx)
+	segments := make([]*ik.Segment, 0, len(plan.Path())-wayPointIdx)
 	// get checkFrame's currentInputs
 	// *currently* it is guaranteed that a relative frame will constitute 100% of a solver frame's dof
 	checkFrameCurrentInputs, err := sf.mapToSlice(currentInputs)
+	if err != nil {
+		return err
+	}
+	arcEndInputs, err := sf.mapToSlice(plan.Trajectory()[wayPointIdx])
 	if err != nil {
 		return err
 	}
@@ -138,42 +146,15 @@ func checkPlanRelative(
 	// pre-pend to segments so we can connect to the input we have not finished actuating yet
 	segments = append(segments, &ik.Segment{
 		StartPosition:      currentPoseInWorld.Pose(),
-		EndPosition:        poses[wayPointIdx],
+		EndPosition:        spatialmath.Compose(expectedArcEndInWorld.Pose(), errorState),
 		StartConfiguration: checkFrameCurrentInputs,
-		EndConfiguration:   checkFrameCurrentInputs,
+		EndConfiguration:   arcEndInputs,
 		Frame:              sf,
 	})
 
-	// function to ease further segment creation
-	createSegment := func(
-		currPose, nextPose spatialmath.Pose,
-		currInput, nextInput map[string][]referenceframe.Input,
-	) (*ik.Segment, error) {
-		currInputSlice, err := sf.mapToSlice(currInput)
-		if err != nil {
-			return nil, err
-		}
-		nextInputSlice, err := sf.mapToSlice(nextInput)
-		if err != nil {
-			return nil, err
-		}
-		// If we are working with a PTG plan we redefine the startConfiguration in terms of the endConfiguration.
-		// This allows us the properly interpolate along the same arc family and sub-arc within that family.
-		if relative {
-			currInputSlice = nextInputSlice
-		}
-		return &ik.Segment{
-			StartPosition:      currPose,
-			EndPosition:        nextPose,
-			StartConfiguration: currInputSlice,
-			EndConfiguration:   nextInputSlice,
-			Frame:              sf,
-		}, nil
-	}
-
 	// iterate through remaining plan and append remaining segments to check
-	for i := wayPointIdx; i < len(offsetPlan.Path())-1; i++ {
-		segment, err := createSegment(poses[i], poses[i+1], offsetPlan.Trajectory()[i], offsetPlan.Trajectory()[i+1])
+	for i := wayPointIdx + 1; i < len(offsetPlan.Path())-1; i++ {
+		segment, err := createSegment(sf, poses[i], poses[i+1], offsetPlan.Trajectory()[i], offsetPlan.Trajectory()[i])
 		if err != nil {
 			return err
 		}
@@ -206,11 +187,7 @@ func checkPlanRelative(
 			//  i.e. relative to where the robot started executing the arc,
 			// we must compose poseInPath with segment.StartPosition to get the absolute position.
 			interpolatedState := &ik.State{Frame: sf}
-			if relative {
-				interpolatedState.Position = spatialmath.Compose(segment.StartPosition, poseInPath)
-			} else {
-				interpolatedState.Configuration = interpConfig
-			}
+			interpolatedState.Position = spatialmath.Compose(segment.StartPosition, poseInPath)
 
 			// Checks for collision along the interpolated route and returns a the first interpolated pose where a collision is detected.
 			if isValid, err := sfPlanner.planOpts.CheckStateConstraints(interpolatedState); !isValid {
@@ -285,33 +262,10 @@ func checkPlanAbsolute(
 	// create a list of segments to iterate through
 	segments := make([]*ik.Segment, 0, len(poses)-wayPointIdx)
 
-	// function to ease further segment creation
-	createSegment := func(
-		currPose, nextPose spatialmath.Pose,
-		currInput, nextInput map[string][]referenceframe.Input,
-	) (*ik.Segment, error) {
-		currInputSlice, err := sf.mapToSlice(currInput)
-		if err != nil {
-			return nil, err
-		}
-		nextInputSlice, err := sf.mapToSlice(nextInput)
-		if err != nil {
-			return nil, err
-		}
-		// If we are working with a PTG plan we redefine the startConfiguration in terms of the endConfiguration.
-		// This allows us the properly interpolate along the same arc family and sub-arc within that family.
-		return &ik.Segment{
-			StartPosition:      currPose,
-			EndPosition:        nextPose,
-			StartConfiguration: currInputSlice,
-			EndConfiguration:   nextInputSlice,
-			Frame:              sf,
-		}, nil
-	}
 
 	// iterate through remaining plan and append remaining segments to check
 	for i := wayPointIdx; i < len(offsetPlan.Path())-1; i++ {
-		segment, err := createSegment(poses[i], poses[i+1], offsetPlan.Trajectory()[i], offsetPlan.Trajectory()[i+1])
+		segment, err := createSegment(sf, poses[i], poses[i+1], offsetPlan.Trajectory()[i], offsetPlan.Trajectory()[i+1])
 		if err != nil {
 			return err
 		}
@@ -362,3 +316,27 @@ func checkPlanAbsolute(
 	return nil
 }
 
+
+// createSegment is a function to ease segment creation for solver frames
+func createSegment (
+	sf *solverFrame,
+	currPose, nextPose spatialmath.Pose,
+	currInput, nextInput map[string][]referenceframe.Input,
+) (*ik.Segment, error) {
+	currInputSlice, err := sf.mapToSlice(currInput)
+	if err != nil {
+		return nil, err
+	}
+	nextInputSlice, err := sf.mapToSlice(nextInput)
+	if err != nil {
+		return nil, err
+	}
+
+	return &ik.Segment{
+		StartPosition:      currPose,
+		EndPosition:        nextPose,
+		StartConfiguration: currInputSlice,
+		EndConfiguration:   nextInputSlice,
+		Frame:              sf,
+	}, nil
+}

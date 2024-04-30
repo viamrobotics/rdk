@@ -220,14 +220,8 @@ func (ptgk *ptgBaseKinematics) ErrorState(ctx context.Context) (spatialmath.Pose
 	if err != nil {
 		return nil, err
 	}
-	executedInputs := []referenceframe.Input{
-		currentInputs[0],
-		currentInputs[1],
-		currentExecutingSteps[currentIdx].arcSegment.StartConfiguration[2],
-		currentInputs[2],
-	}
 
-	currPoseInArc, err := ptgk.frame.Transform(executedInputs)
+	currPoseInArc, err := ptgk.frame.Transform(currentInputs)
 	if err != nil {
 		return nil, err
 	}
