@@ -25,7 +25,6 @@ jobs:
           /usr/local/**/nlopt*
         key: ${{ hashFiles('etc/Brewfile') }}
     - name: brew
-      if: steps.cache-brew.outputs.cache-hit != 'true'
       run: brew bundle install --file=etc/Brewfile
     - name: say config
       # note: don't move this into the install step. we want to see this even when cache hits.
