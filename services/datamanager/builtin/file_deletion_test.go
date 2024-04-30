@@ -127,7 +127,7 @@ func TestFileDeletion(t *testing.T) {
 				fail:                &atomic.Bool{},
 			}
 
-			var syncer datasync.Manager = nil
+			var syncer datasync.Manager
 			if tc.syncEnabled {
 				s, err := datasync.NewManager("rick astley", mockClient, logger, tempCaptureDir)
 				test.That(t, err, test.ShouldBeNil)

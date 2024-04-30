@@ -30,7 +30,7 @@ func shouldDeleteBasedOnDiskUsage(ctx context.Context, captureDirPath string, lo
 	// we get usage this way to ensure we get the amount of remaining space in the partition.
 	// calling usage.Usage() returns the usage of the whole disk, not the user partition
 	usedSpace := 1.0 - float64(usage.Available())/float64(usage.Size())
-	if math.IsNaN(float64(usedSpace)) {
+	if math.IsNaN(usedSpace) {
 		return false, nil
 	}
 	if usedSpace < fsThresholdToTriggerDeletion {
@@ -42,7 +42,7 @@ func shouldDeleteBasedOnDiskUsage(ctx context.Context, captureDirPath string, lo
 }
 
 func exceedsDeletionThreshold(ctx context.Context, captureDirPath string, fsSize float64, logger logging.Logger) (bool, error) {
-	var dirSize int64 = 0
+	var dirSize int64
 
 	readSize := func(path string, d fs.DirEntry, err error) error {
 		if ctx.Err() != nil {
@@ -83,7 +83,7 @@ func exceedsDeletionThreshold(ctx context.Context, captureDirPath string, fsSize
 func deleteFiles(ctx context.Context, syncer datasync.Manager, captureDirPath string, logger logging.Logger) (int, error) {
 	index := 0
 	deletedFileCount := 0
-	delete := func(path string, d fs.DirEntry, err error) error {
+	fileDeletion := func(path string, d fs.DirEntry, err error) error {
 		if ctx.Err() != nil {
 			return ctx.Err()
 		}
@@ -129,6 +129,6 @@ func deleteFiles(ctx context.Context, syncer datasync.Manager, captureDirPath st
 		}
 		return nil
 	}
-	err := filepath.WalkDir(captureDirPath, delete)
+	err := filepath.WalkDir(captureDirPath, fileDeletion)
 	return deletedFileCount, err
 }
