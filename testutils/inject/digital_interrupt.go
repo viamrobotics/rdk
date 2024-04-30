@@ -15,6 +15,7 @@ type DigitalInterrupt struct {
 	tickCap            []interface{}
 	AddCallbackFunc    func(c chan board.Tick)
 	RemoveCallbackFunc func(c chan board.Tick)
+	NameFunc           func() string
 }
 
 // Value calls the injected Value or the real version.
@@ -35,12 +36,10 @@ func (d *DigitalInterrupt) ValueCap() []interface{} {
 	return d.valueCap
 }
 
-// Tick calls the injected Tick or the real version.
+// Tick calls the injected Tick.
 func (d *DigitalInterrupt) Tick(ctx context.Context, high bool, nanoseconds uint64) error {
 	d.tickCap = []interface{}{ctx, high, nanoseconds}
-	if d.TickFunc == nil {
-		return d.DigitalInterrupt.Tick(ctx, high, nanoseconds)
-	}
+
 	return d.TickFunc(ctx, high, nanoseconds)
 }
 
@@ -53,15 +52,6 @@ func (d *DigitalInterrupt) TickCap() []interface{} {
 	return d.tickCap
 }
 
-// AddCallback calls the injected AddCallback or the real version.
-func (d *DigitalInterrupt) AddCallback(c chan board.Tick) {
-	if d.AddCallbackFunc == nil {
-		d.DigitalInterrupt.AddCallback(c)
-		return
-	}
-	d.AddCallbackFunc(c)
-}
-
 // RemoveCallback calls the injected AddCallback or the real version.
 func (d *DigitalInterrupt) RemoveCallback(c chan board.Tick) {
 	if d.RemoveCallbackFunc == nil {
@@ -69,4 +59,12 @@ func (d *DigitalInterrupt) RemoveCallback(c chan board.Tick) {
 		return
 	}
 	d.RemoveCallbackFunc(c)
+}
+
+// Name calls the injected name or the real version.
+func (d *DigitalInterrupt) Name() string {
+	if d.NameFunc == nil {
+		return d.DigitalInterrupt.Name()
+	}
+	return d.NameFunc()
 }

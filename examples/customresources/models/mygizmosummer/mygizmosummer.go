@@ -109,19 +109,19 @@ func (g *myActualGizmo) DoOneClientStream(ctx context.Context, arg1 []string) (b
 	if len(arg1) == 0 {
 		return false, nil
 	}
-	ret := true
+	ns := []float64{}
 	for _, arg := range arg1 {
 		n, err := strconv.ParseFloat(arg, 64)
 		if err != nil {
 			return false, err
 		}
-		sum, err := g.mySummer.Sum(ctx, []float64{n})
-		if err != nil {
-			return false, err
-		}
-		ret = ret && sum == n
+		ns = append(ns, n)
 	}
-	return ret, nil
+	sum, err := g.mySummer.Sum(ctx, ns)
+	if err != nil {
+		return false, err
+	}
+	return sum == 5, nil
 }
 
 func (g *myActualGizmo) DoOneServerStream(ctx context.Context, arg1 string) ([]bool, error) {

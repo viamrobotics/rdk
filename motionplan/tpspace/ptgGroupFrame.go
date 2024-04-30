@@ -19,7 +19,8 @@ import (
 const (
 	ptgIndex int = iota
 	trajectoryAlphaWithinPTG
-	distanceAlongTrajectoryIndex
+	startDistanceAlongTrajectoryIndex
+	endDistanceAlongTrajectoryIndex
 )
 
 // If refDist is not explicitly set, default to pi radians times this adjustment value.
@@ -108,7 +109,7 @@ func NewPTGFrameFromKinematicOptions(
 	}
 
 	longPtgs := initializePTGs(turnRadMillimeters, longPtgsToUse)
-	longSolvers, err := initializeSolvers(logger, refDistLong, refDistShort, trajCount, longPtgs)
+	allSolvers, err := initializeSolvers(logger, refDistLong, refDistShort, trajCount, longPtgs)
 	if err != nil {
 		return nil, err
 	}
@@ -117,9 +118,9 @@ func NewPTGFrameFromKinematicOptions(
 	if err != nil {
 		return nil, err
 	}
+	allSolvers = append(allSolvers, shortSolvers...)
 
-	longSolvers = append(longSolvers, shortSolvers...)
-	pf.solvers = longSolvers
+	pf.solvers = allSolvers
 	pf.geometries = geoms
 	pf.turnRadMillimeters = turnRadMillimeters
 	pf.trajCount = trajCount
@@ -128,7 +129,8 @@ func NewPTGFrameFromKinematicOptions(
 	pf.limits = []referenceframe.Limit{
 		{Min: 0, Max: float64(len(pf.solvers) - 1)},
 		{Min: -math.Pi, Max: math.Pi},
-		{Min: -refDistLong, Max: refDistLong},
+		{Min: 0, Max: refDistLong},
+		{Min: 0, Max: refDistLong},
 	}
 
 	return pf, nil
@@ -151,7 +153,8 @@ func (pf *ptgGroupFrame) MarshalJSON() ([]byte, error) {
 	return nil, nil
 }
 
-// Inputs are: [0] index of PTG to use, [1] index of the trajectory within that PTG, and [2] distance to travel along that trajectory.
+// Inputs are: [0] index of PTG to use, [1] index of the trajectory within that PTG, [2] starting point on the trajectory, and [3] distance
+// to travel along that trajectory.
 func (pf *ptgGroupFrame) Transform(inputs []referenceframe.Input) (spatialmath.Pose, error) {
 	if len(inputs) != len(pf.DoF()) {
 		return nil, referenceframe.NewIncorrectInputLengthError(len(inputs), len(pf.DoF()))
@@ -159,9 +162,22 @@ func (pf *ptgGroupFrame) Transform(inputs []referenceframe.Input) (spatialmath.P
 
 	ptgIdx := int(math.Round(inputs[ptgIndex].Value))
 
-	pose, err := pf.solvers[ptgIdx].Transform([]referenceframe.Input{inputs[trajectoryAlphaWithinPTG], inputs[distanceAlongTrajectoryIndex]})
+	pose, err := pf.solvers[ptgIdx].Transform([]referenceframe.Input{
+		inputs[trajectoryAlphaWithinPTG],
+		inputs[endDistanceAlongTrajectoryIndex],
+	})
 	if err != nil {
 		return nil, err
+	}
+	if inputs[startDistanceAlongTrajectoryIndex].Value != 0 {
+		startPose, err := pf.solvers[ptgIdx].Transform([]referenceframe.Input{
+			inputs[trajectoryAlphaWithinPTG],
+			inputs[startDistanceAlongTrajectoryIndex],
+		})
+		if err != nil {
+			return nil, err
+		}
+		pose = spatialmath.PoseBetween(startPose, pose)
 	}
 
 	return pose, nil
@@ -171,20 +187,19 @@ func (pf *ptgGroupFrame) Interpolate(from, to []referenceframe.Input, by float64
 	if len(to) != len(pf.DoF()) {
 		return nil, referenceframe.NewIncorrectInputLengthError(len(to), len(pf.DoF()))
 	}
-	if len(from) != len(pf.DoF()) {
-		// We also want to always support 2 inputs
-		return nil, referenceframe.NewIncorrectInputLengthError(len(from), len(pf.DoF()))
+	for i, input := range from {
+		if input.Value != to[i].Value {
+			return nil, NewNonMatchingInputError(from[i].Value, to[i].Value)
+		}
 	}
 
-	if from[ptgIndex].Value != to[ptgIndex].Value {
-		return nil, NewNonMatchingInputError(from[ptgIndex].Value, to[ptgIndex].Value)
-	}
-	if from[trajectoryAlphaWithinPTG].Value != to[trajectoryAlphaWithinPTG].Value {
-		return nil, NewNonMatchingInputError(from[trajectoryAlphaWithinPTG].Value, to[trajectoryAlphaWithinPTG].Value)
-	}
-
-	changeVal := (to[distanceAlongTrajectoryIndex].Value - from[distanceAlongTrajectoryIndex].Value) * by
-	return []referenceframe.Input{to[ptgIndex], to[trajectoryAlphaWithinPTG], {from[distanceAlongTrajectoryIndex].Value + changeVal}}, nil
+	changeVal := (to[endDistanceAlongTrajectoryIndex].Value - to[startDistanceAlongTrajectoryIndex].Value) * by
+	return []referenceframe.Input{
+		to[ptgIndex],
+		to[trajectoryAlphaWithinPTG],
+		to[startDistanceAlongTrajectoryIndex],
+		{to[startDistanceAlongTrajectoryIndex].Value + changeVal},
+	}, nil
 }
 
 func (pf *ptgGroupFrame) InputFromProtobuf(jp *pb.JointPositions) []referenceframe.Input {

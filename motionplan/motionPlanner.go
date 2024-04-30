@@ -157,7 +157,7 @@ func Replan(ctx context.Context, request *PlanRequest, currentPlan Plan, replanC
 	if seed, ok := request.Options["rseed"].(int); ok {
 		rseed = seed
 	}
-	sfPlanner, err := newPlanManager(sf, request.FrameSystem, request.Logger, rseed)
+	sfPlanner, err := newPlanManager(sf, request.Logger, rseed)
 	if err != nil {
 		return nil, err
 	}
@@ -462,7 +462,7 @@ func CheckPlan(
 	}
 
 	// construct planager
-	sfPlanner, err := newPlanManager(sf, fs, logger, defaultRandomSeed)
+	sfPlanner, err := newPlanManager(sf, logger, defaultRandomSeed)
 	if err != nil {
 		return err
 	}
@@ -504,13 +504,8 @@ func CheckPlan(
 	// ...
 	// [x, y, thetha, i, alpha, df, df]???
 	if relative {
-		// get the inputs we were partway through executing
-		checkFrameGoalInputs, err := sf.mapToSlice(plan.Trajectory()[wayPointIdx])
-		if err != nil {
-			return err
-		}
-
 		// get checkFrame's currentInputs
+		// *currently* it is guaranteed that a relative frame will constitute 100% of a solver frame's dof
 		checkFrameCurrentInputs, err := sf.mapToSlice(currentInputs)
 		if err != nil {
 			return err
@@ -518,15 +513,11 @@ func CheckPlan(
 
 		// pre-pend to segments so we can connect to the input we have not finished actuating yet
 		segments = append(segments, &ik.Segment{
-			StartPosition: poses[wayPointIdx-1],
-			EndPosition:   poses[wayPointIdx],
-			StartConfiguration: []frame.Input{
-				{Value: checkFrameGoalInputs[0].Value},
-				{Value: checkFrameGoalInputs[1].Value},
-				{Value: checkFrameCurrentInputs[2].Value},
-			},
-			EndConfiguration: checkFrameGoalInputs,
-			Frame:            sf,
+			StartPosition:      startPose,
+			EndPosition:        poses[wayPointIdx],
+			StartConfiguration: checkFrameCurrentInputs,
+			EndConfiguration:   checkFrameCurrentInputs,
+			Frame:              sf,
 		})
 	}
 
@@ -546,7 +537,7 @@ func CheckPlan(
 		// If we are working with a PTG plan we redefine the startConfiguration in terms of the endConfiguration.
 		// This allows us the properly interpolate along the same arc family and sub-arc within that family.
 		if relative {
-			currInputSlice = []frame.Input{{Value: nextInputSlice[0].Value}, {Value: nextInputSlice[1].Value}, {Value: 0}}
+			currInputSlice = nextInputSlice
 		}
 		return &ik.Segment{
 			StartPosition:      currPose,

@@ -1,4 +1,4 @@
-//go:build cgo && !android
+//go:build !no_cgo && !android
 
 package server
 

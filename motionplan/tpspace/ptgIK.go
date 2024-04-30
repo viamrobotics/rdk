@@ -5,6 +5,7 @@ package tpspace
 import (
 	"context"
 	"errors"
+	"fmt"
 	"math"
 	"sync"
 
@@ -127,48 +128,89 @@ func (ptg *ptgIK) MaxDistance() float64 {
 	return ptg.refDist
 }
 
-func (ptg *ptgIK) Trajectory(alpha, dist, resolution float64) ([]*TrajNode, error) {
-	var precomp, traj []*TrajNode
+func (ptg *ptgIK) cachedTraj(alpha, end, resolution float64) ([]*TrajNode, error) {
+	var precomp []*TrajNode
 	ptg.mu.RLock()
 	thisRes := ptg.trajCache[resolution]
 	if thisRes != nil {
 		precomp = thisRes[alpha]
 	}
 	ptg.mu.RUnlock()
-	if precomp != nil && precomp[len(precomp)-1].Dist >= dist && dist > 0 {
-		exact := false
-		for _, wp := range precomp {
-			if wp.Dist <= dist {
-				if wp.Dist == dist {
-					exact = true
-				}
-				traj = append(traj, wp)
-			} else {
-				break
-			}
-		}
-		if !exact {
-			lastNode, err := computePTGNode(ptg, alpha, dist)
-			if err != nil {
-				return nil, err
-			}
-			traj = append(traj, lastNode)
-		}
-	} else {
+
+	// If we have not computed this PTG out to the desired end yet, do so
+	if precomp == nil || precomp[len(precomp)-1].Dist < end {
 		var err error
-		traj, err = ComputePTG(ptg, alpha, dist, resolution)
+		traj, err := computePTG(ptg, alpha, end, resolution)
 		if err != nil {
 			return nil, err
 		}
-		if dist > 0 {
-			ptg.mu.Lock()
-			// Caching here provides a ~33% speedup to a solve call
-			if ptg.trajCache[resolution] == nil {
-				ptg.trajCache[resolution] = map[float64][]*TrajNode{}
-			}
-			ptg.trajCache[resolution][alpha] = traj
-			ptg.mu.Unlock()
+		ptg.mu.Lock()
+		// Caching here provides a ~33% speedup to a solve call
+		if ptg.trajCache[resolution] == nil {
+			ptg.trajCache[resolution] = map[float64][]*TrajNode{}
 		}
+		ptg.trajCache[resolution][alpha] = traj
+		ptg.mu.Unlock()
+		precomp = traj
+	}
+	return precomp, nil
+}
+
+func (ptg *ptgIK) Trajectory(alpha, start, end, resolution float64) ([]*TrajNode, error) {
+	// TODO: For inverted trajectories, it would probably make more sense to allow this, replacing the current convention of negative dists.
+	if math.Abs(start) > math.Abs(end) {
+		return nil, fmt.Errorf("cannot calculate trajectory, start %f cannot be greater than end %f", start, end)
+	}
+	if end == 0 {
+		return computePTG(ptg, alpha, end, resolution)
+	}
+
+	startPos := math.Abs(start)
+	endPos := math.Abs(end)
+	trajPrecompute, err := ptg.cachedTraj(alpha, endPos, resolution)
+	if err != nil {
+		return nil, err
+	}
+	traj := []*TrajNode{}
+
+	// We have already computed out this strajectory to at least the distance requested, so we can pull from cache
+	started := false
+	exactEnd := false
+	for _, wp := range trajPrecompute {
+		// gocritic prefers there be a switch statement here, but doing so makes this much messier, as the `break` would break the
+		// switch statement and we would require label loops to break the for loop.
+		//nolint: gocritic
+		if !started { // First, skip ahead to the start distance
+			if wp.Dist >= startPos { // Check if we have entered the trajectory
+				if wp.Dist != startPos {
+					// Compute the first node if we don't have an exact match for the starting distance
+					firstNode, err := computePTGNode(ptg, alpha, startPos)
+					if err != nil {
+						return nil, err
+					}
+					traj = append(traj, firstNode)
+				}
+				traj = append(traj, wp)
+				started = true
+			}
+		} else if wp.Dist <= endPos { // Add the node if we are still within the trajectory
+			if wp.Dist == endPos {
+				exactEnd = true
+			}
+			traj = append(traj, wp)
+		} else {
+			break
+		}
+	}
+	if !exactEnd { // If our final node does not match our end distance, compute the ending node.
+		lastNode, err := computePTGNode(ptg, alpha, endPos)
+		if err != nil {
+			return nil, err
+		}
+		traj = append(traj, lastNode)
+	}
+	if end < 0 {
+		return invertComputedPTG(traj), nil
 	}
 
 	return traj, nil

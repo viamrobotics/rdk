@@ -20,10 +20,10 @@ type solverFrame struct {
 	fss  frame.FrameSystem
 	// List of names of all frames that could move, used for collision detection
 	// As an example a gripper attached to an arm which is moving relative to World, would not be in frames below but in this object
-	movingFS   frame.FrameSystem
-	frames     []frame.Frame // all frames directly between and including solveFrame and goalFrame. Order not important.
-	solveFrame frame.Frame
-	goalFrame  frame.Frame
+	movingFS       frame.FrameSystem
+	frames         []frame.Frame // all frames directly between and including solveFrame and goalFrame. Order not important.
+	solveFrameName string
+	goalFrameName  string
 	// If this is true, then goals are translated to their position in `World` before solving.
 	// This is useful when e.g. moving a gripper relative to a point seen by a camera built into that gripper
 	// TODO(pl): explore allowing this to be frames other than world
@@ -176,15 +176,15 @@ func newSolverFrame(fs frame.FrameSystem, solveFrameName, goalFrameName string, 
 	}
 
 	return &solverFrame{
-		name:        solveFrame.Name() + "_" + goalFrame.Name(),
-		fss:         fs,
-		movingFS:    moving,
-		frames:      frames,
-		solveFrame:  solveFrame,
-		goalFrame:   goalFrame,
-		worldRooted: worldRooted,
-		origSeed:    origSeed,
-		ptgs:        ptgs,
+		name:           solveFrame.Name() + "_" + goalFrame.Name(),
+		fss:            fs,
+		movingFS:       moving,
+		frames:         frames,
+		solveFrameName: solveFrame.Name(),
+		goalFrameName:  goalFrame.Name(),
+		worldRooted:    worldRooted,
+		origSeed:       origSeed,
+		ptgs:           ptgs,
 	}, nil
 }
 
@@ -198,8 +198,8 @@ func (sf *solverFrame) Transform(inputs []frame.Input) (spatial.Pose, error) {
 	if len(inputs) != len(sf.DoF()) {
 		return nil, frame.NewIncorrectInputLengthError(len(inputs), len(sf.DoF()))
 	}
-	pf := frame.NewPoseInFrame(sf.solveFrame.Name(), spatial.NewZeroPose())
-	solveName := sf.goalFrame.Name()
+	pf := frame.NewPoseInFrame(sf.solveFrameName, spatial.NewZeroPose())
+	solveName := sf.goalFrameName
 	if sf.worldRooted {
 		solveName = frame.World
 	}

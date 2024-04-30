@@ -43,6 +43,33 @@ func (tw *testWriter) Write(b []byte) (int, error) {
 	return len(b), nil
 }
 
+// populateFlags populates a FlagSet from a map.
+func populateFlags(m map[string]any) *flag.FlagSet {
+	flags := &flag.FlagSet{}
+	// init all the default flags from the input
+	for name, val := range m {
+		switch v := val.(type) {
+		case int:
+			flags.Int(name, v, "")
+		case string:
+			flags.String(name, v, "")
+		case bool:
+			flags.Bool(name, v, "")
+		default:
+			// non-int and non-string flags not yet supported
+			continue
+		}
+	}
+	return flags
+}
+
+func newTestContext(t *testing.T, flags map[string]any) *cli.Context {
+	t.Helper()
+	out := &testWriter{}
+	errOut := &testWriter{}
+	return cli.NewContext(NewApp(out, errOut), populateFlags(flags), nil)
+}
+
 // setup creates a new cli.Context and viamClient with fake auth and the passed
 // in AppServiceClient and DataServiceClient. It also returns testWriters that capture Stdout and
 // Stdin.
@@ -50,26 +77,12 @@ func setup(
 	asc apppb.AppServiceClient,
 	dataClient datapb.DataServiceClient,
 	buildClient buildpb.BuildServiceClient,
-	defaultFlags *map[string]any,
+	defaultFlags map[string]any,
 	authMethod string,
 ) (*cli.Context, *viamClient, *testWriter, *testWriter) {
 	out := &testWriter{}
 	errOut := &testWriter{}
-	flags := &flag.FlagSet{}
-	// init all the default flags from the input
-	if defaultFlags != nil {
-		for name, val := range *defaultFlags {
-			switch v := val.(type) {
-			case int:
-				flags.Int(name, v, "")
-			case string:
-				flags.String(name, v, "")
-			default:
-				// non-int and non-string flags not yet supported
-				continue
-			}
-		}
-	}
+	flags := populateFlags(defaultFlags)
 
 	if dataClient != nil {
 		// these flags are only relevant when testing a dataClient
@@ -351,7 +364,7 @@ func TestGetRobotPartLogs(t *testing.T) {
 	})
 	t.Run("178 count", func(t *testing.T) {
 		flags := map[string]any{"count": 178}
-		cCtx, ac, out, errOut := setup(asc, nil, nil, &flags, "")
+		cCtx, ac, out, errOut := setup(asc, nil, nil, flags, "")
 
 		test.That(t, ac.robotsPartLogsAction(cCtx), test.ShouldBeNil)
 
@@ -372,7 +385,7 @@ func TestGetRobotPartLogs(t *testing.T) {
 	})
 	t.Run("max count", func(t *testing.T) {
 		flags := map[string]any{logsFlagCount: maxNumLogs}
-		cCtx, ac, out, errOut := setup(asc, nil, nil, &flags, "")
+		cCtx, ac, out, errOut := setup(asc, nil, nil, flags, "")
 
 		test.That(t, ac.robotsPartLogsAction(cCtx), test.ShouldBeNil)
 
@@ -394,7 +407,7 @@ func TestGetRobotPartLogs(t *testing.T) {
 	})
 	t.Run("negative count", func(t *testing.T) {
 		flags := map[string]any{"count": -1}
-		cCtx, ac, out, errOut := setup(asc, nil, nil, &flags, "")
+		cCtx, ac, out, errOut := setup(asc, nil, nil, flags, "")
 
 		test.That(t, ac.robotsPartLogsAction(cCtx), test.ShouldBeNil)
 
@@ -417,7 +430,7 @@ func TestGetRobotPartLogs(t *testing.T) {
 	})
 	t.Run("count too high", func(t *testing.T) {
 		flags := map[string]any{"count": 1000000}
-		cCtx, ac, _, _ := setup(asc, nil, nil, &flags, "")
+		cCtx, ac, _, _ := setup(asc, nil, nil, flags, "")
 
 		err := ac.robotsPartLogsAction(cCtx)
 		test.That(t, err, test.ShouldNotBeNil)

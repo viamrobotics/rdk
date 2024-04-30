@@ -26,6 +26,17 @@ func printf(w io.Writer, format string, a ...interface{}) {
 	fmt.Fprintf(w, format+"\n", a...)
 }
 
+// debugf prints a message prefixed with a bold grey "Debug: ".
+func debugf(w io.Writer, debugMode bool, format string, a ...interface{}) {
+	if !debugMode {
+		return
+	}
+	if _, err := color.New(color.Bold, color.FgHiBlack).Fprint(w, "Debug: "); err != nil {
+		log.Fatal(err)
+	}
+	fmt.Fprintf(w, format+"\n", a...)
+}
+
 // infof prints a message prefixed with a bold cyan "Info: ".
 func infof(w io.Writer, format string, a ...interface{}) {
 	// NOTE(benjirewis): for some reason, both errcheck and gosec complain about

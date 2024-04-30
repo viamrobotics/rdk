@@ -18,12 +18,13 @@ import (
 	rdkutils "go.viam.com/rdk/utils"
 )
 
-var zeroInput = make([]referenceframe.Input, 3)
+var zeroInput = make([]referenceframe.Input, 4)
 
 const (
-	ptgIndex int = iota
-	trajectoryIndexWithinPTG
-	distanceAlongTrajectoryIndex
+	ptgIndex                          int = iota // The first input is the index of the associated PTG in the `ptgs` array
+	trajectoryAlphaWithinPTG                     // The second input is the alpha value of the ptg to use
+	startDistanceAlongTrajectoryIndex            // The third input is the start distance of the arc that will be executed
+	endDistanceAlongTrajectoryIndex              // The fourth input is the end distance of the arc that will be executed
 )
 
 type ptgBaseKinematics struct {
@@ -160,13 +161,13 @@ func wrapWithPTGKinematics(
 }
 
 func (ptgk *ptgBaseKinematics) Kinematics() referenceframe.Frame {
-	return ptgk.planningFrame
+	return ptgk.frame
 }
 
-func (ptgk *ptgBaseKinematics) ExecutionFrame() referenceframe.Frame {
-	return ptgk.executionFrame
-}
-
+// For a ptgBaseKinematics, `CurrentInputs` returns inputs which reflect what the base is currently doing.
+// If the base is not moving, the CurrentInputs will all be zeros, and a `Transform()` will yield the zero pose.
+// If the base is moving, then the inputs will be nonzero and the `Transform()` of the CurrentInputs will yield the pose at which the base
+// is expected to arrive after completing execution of the current set of inputs.
 func (ptgk *ptgBaseKinematics) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
 	ptgk.inputLock.RLock()
 	defer ptgk.inputLock.RUnlock()
@@ -193,8 +194,17 @@ func (ptgk *ptgBaseKinematics) ErrorState(ctx context.Context) (spatialmath.Pose
 	if err != nil {
 		return nil, err
 	}
+	// The inputs representing the arc we have already executed can be computed as below.
+	// The return of CurrentInputs() represents the amount left on the arc, as an external caller will be more interested in where a base
+	// is going than where it has been.
+	executedInputs := []referenceframe.Input{
+		currentInputs[ptgIndex],
+		currentInputs[trajectoryAlphaWithinPTG],
+		currentExecutingSteps[currentIdx].arcSegment.StartConfiguration[startDistanceAlongTrajectoryIndex],
+		currentInputs[startDistanceAlongTrajectoryIndex],
+	}
 
-	currPoseInArc, err := ptgk.planningFrame.Transform(currentInputs)
+	currPoseInArc, err := ptgk.frame.Transform(executedInputs)
 	if err != nil {
 		return nil, err
 	}

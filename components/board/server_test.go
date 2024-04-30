@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
-	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/board/v1"
 	"go.viam.com/test"
 	"go.viam.com/utils/protoutils"
@@ -23,6 +22,7 @@ var (
 	errNotFound   = errors.New("not found")
 	errSendFailed = errors.New("send fail")
 	errAnalog     = errors.New("unknown analog error")
+	errDigital    = errors.New("unknown digital interrupt error")
 )
 
 func newServer() (pb.BoardServiceServer, *inject.Board, error) {
@@ -35,84 +35,6 @@ func newServer() (pb.BoardServiceServer, *inject.Board, error) {
 		return nil, nil, err
 	}
 	return board.NewRPCServiceServer(boardSvc).(pb.BoardServiceServer), injectBoard, nil
-}
-
-func TestServerStatus(t *testing.T) {
-	type request = pb.StatusRequest
-	type response = pb.StatusResponse
-	ctx := context.Background()
-
-	status := &commonpb.BoardStatus{
-		Analogs: map[string]*commonpb.AnalogStatus{
-			"analog1": {},
-		},
-		DigitalInterrupts: map[string]*commonpb.DigitalInterruptStatus{
-			"encoder": {},
-		},
-	}
-
-	expectedExtra := map[string]interface{}{"foo": "bar", "baz": []interface{}{1., 2., 3.}}
-	pbExpectedExtra, err := protoutils.StructToStructPb(expectedExtra)
-	test.That(t, err, test.ShouldBeNil)
-
-	tests := []struct {
-		injectResult *commonpb.BoardStatus
-		injectErr    error
-		req          *request
-		expCapArgs   []interface{}
-		expResp      *response
-		expRespErr   string
-	}{
-		{
-			injectResult: status,
-			injectErr:    nil,
-			req:          &request{Name: missingBoardName},
-			expCapArgs:   []interface{}(nil),
-			expResp:      nil,
-			expRespErr:   errNotFound.Error(),
-		},
-		{
-			injectResult: status,
-			injectErr:    errFoo,
-			req:          &request{Name: testBoardName},
-			expCapArgs:   []interface{}{ctx},
-			expResp:      nil,
-			expRespErr:   errFoo.Error(),
-		},
-		{
-			injectResult: status,
-			injectErr:    nil,
-			req:          &request{Name: testBoardName, Extra: pbExpectedExtra},
-			expCapArgs:   []interface{}{ctx},
-			expResp:      &response{Status: status},
-			expRespErr:   "",
-		},
-	}
-
-	for _, tc := range tests {
-		t.Run("", func(t *testing.T) {
-			server, injectBoard, err := newServer()
-			test.That(t, err, test.ShouldBeNil)
-
-			var actualExtra map[string]interface{}
-
-			injectBoard.StatusFunc = func(ctx context.Context, extra map[string]interface{}) (*commonpb.BoardStatus, error) {
-				actualExtra = extra
-				return tc.injectResult, tc.injectErr
-			}
-
-			resp, err := server.Status(ctx, tc.req)
-			if tc.expRespErr == "" {
-				test.That(t, err, test.ShouldBeNil)
-				test.That(t, resp, test.ShouldResemble, tc.expResp)
-				test.That(t, actualExtra, test.ShouldResemble, expectedExtra)
-			} else {
-				test.That(t, err, test.ShouldNotBeNil)
-				test.That(t, err.Error(), test.ShouldContainSubstring, tc.expRespErr)
-			}
-			test.That(t, injectBoard.StatusCap(), test.ShouldResemble, tc.expCapArgs)
-		})
-	}
 }
 
 func TestServerSetGPIO(t *testing.T) {
@@ -704,7 +626,7 @@ func TestServerGetDigitalInterruptValue(t *testing.T) {
 
 	tests := []struct {
 		injectDigitalInterrupt     *inject.DigitalInterrupt
-		injectDigitalInterruptOk   bool
+		injectDigitalInterruptErr  error
 		injectResult               int64
 		injectErr                  error
 		req                        *request
@@ -715,7 +637,7 @@ func TestServerGetDigitalInterruptValue(t *testing.T) {
 	}{
 		{
 			injectDigitalInterrupt:     nil,
-			injectDigitalInterruptOk:   false,
+			injectDigitalInterruptErr:  errDigital,
 			injectResult:               0,
 			injectErr:                  nil,
 			req:                        &request{BoardName: missingBoardName},
@@ -726,18 +648,18 @@ func TestServerGetDigitalInterruptValue(t *testing.T) {
 		},
 		{
 			injectDigitalInterrupt:     nil,
-			injectDigitalInterruptOk:   false,
+			injectDigitalInterruptErr:  errDigital,
 			injectResult:               0,
 			injectErr:                  nil,
 			req:                        &request{BoardName: testBoardName, DigitalInterruptName: "digital1"},
 			expCapDigitalInterruptArgs: []interface{}{"digital1"},
 			expCapArgs:                 []interface{}(nil),
 			expResp:                    nil,
-			expRespErr:                 "unknown digital interrupt: digital1",
+			expRespErr:                 "unknown digital interrupt error",
 		},
 		{
 			injectDigitalInterrupt:     &inject.DigitalInterrupt{},
-			injectDigitalInterruptOk:   true,
+			injectDigitalInterruptErr:  nil,
 			injectResult:               0,
 			injectErr:                  errFoo,
 			req:                        &request{BoardName: testBoardName, DigitalInterruptName: "digital1"},
@@ -748,7 +670,7 @@ func TestServerGetDigitalInterruptValue(t *testing.T) {
 		},
 		{
 			injectDigitalInterrupt:     &inject.DigitalInterrupt{},
-			injectDigitalInterruptOk:   true,
+			injectDigitalInterruptErr:  nil,
 			injectResult:               42,
 			injectErr:                  nil,
 			req:                        &request{BoardName: testBoardName, DigitalInterruptName: "digital1", Extra: pbExpectedExtra},
@@ -765,8 +687,8 @@ func TestServerGetDigitalInterruptValue(t *testing.T) {
 			test.That(t, err, test.ShouldBeNil)
 			var actualExtra map[string]interface{}
 
-			injectBoard.DigitalInterruptByNameFunc = func(name string) (board.DigitalInterrupt, bool) {
-				return tc.injectDigitalInterrupt, tc.injectDigitalInterruptOk
+			injectBoard.DigitalInterruptByNameFunc = func(name string) (board.DigitalInterrupt, error) {
+				return tc.injectDigitalInterrupt, tc.injectDigitalInterruptErr
 			}
 
 			if tc.injectDigitalInterrupt != nil {
@@ -823,32 +745,32 @@ func TestStreamTicks(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	tests := []struct {
-		name                     string
-		injectDigitalInterrupts  []*inject.DigitalInterrupt
-		injectDigitalInterruptOk bool
-		streamTicksErr           error
-		req                      *request
-		expResp                  *response
-		expRespErr               string
-		sendFail                 bool
+		name                      string
+		injectDigitalInterrupts   []*inject.DigitalInterrupt
+		injectDigitalInterruptErr error
+		streamTicksErr            error
+		req                       *request
+		expResp                   *response
+		expRespErr                string
+		sendFail                  bool
 	}{
 		{
-			name:                     "successful stream with multiple interrupts",
-			injectDigitalInterrupts:  []*inject.DigitalInterrupt{{}, {}},
-			injectDigitalInterruptOk: true,
-			streamTicksErr:           nil,
-			req:                      &request{Name: testBoardName, PinNames: []string{"digital1", "digital2"}, Extra: pbExpectedExtra},
-			expResp:                  &response{PinName: "digital1", Time: uint64(time.Nanosecond), High: true},
-			sendFail:                 false,
+			name:                      "successful stream with multiple interrupts",
+			injectDigitalInterrupts:   []*inject.DigitalInterrupt{{}, {}},
+			injectDigitalInterruptErr: nil,
+			streamTicksErr:            nil,
+			req:                       &request{Name: testBoardName, PinNames: []string{"digital1", "digital2"}, Extra: pbExpectedExtra},
+			expResp:                   &response{PinName: "digital1", Time: uint64(time.Nanosecond), High: true},
+			sendFail:                  false,
 		},
 		{
-			name:                     "successful stream with one interrupt",
-			injectDigitalInterrupts:  []*inject.DigitalInterrupt{{}},
-			injectDigitalInterruptOk: true,
-			streamTicksErr:           nil,
-			req:                      &request{Name: testBoardName, PinNames: []string{"digital1"}, Extra: pbExpectedExtra},
-			expResp:                  &response{PinName: "digital1", Time: uint64(time.Nanosecond), High: true},
-			sendFail:                 false,
+			name:                      "successful stream with one interrupt",
+			injectDigitalInterrupts:   []*inject.DigitalInterrupt{{}},
+			injectDigitalInterruptErr: nil,
+			streamTicksErr:            nil,
+			req:                       &request{Name: testBoardName, PinNames: []string{"digital1"}, Extra: pbExpectedExtra},
+			expResp:                   &response{PinName: "digital1", Time: uint64(time.Nanosecond), High: true},
+			sendFail:                  false,
 		},
 		{
 			name:           "missing board name should return error",
@@ -858,24 +780,24 @@ func TestStreamTicks(t *testing.T) {
 			expRespErr:     errNotFound.Error(),
 		},
 		{
-			name:                     "unknown digital interrupt should return error",
-			injectDigitalInterrupts:  nil,
-			injectDigitalInterruptOk: false,
-			streamTicksErr:           errors.New("unknown digital interrupt: digital1"),
-			req:                      &request{Name: testBoardName, PinNames: []string{"digital1"}},
-			expResp:                  nil,
-			expRespErr:               "unknown digital interrupt: digital1",
-			sendFail:                 false,
+			name:                      "unknown digital interrupt should return error",
+			injectDigitalInterrupts:   nil,
+			injectDigitalInterruptErr: errDigital,
+			streamTicksErr:            errors.New("unknown digital interrupt: digital3"),
+			req:                       &request{Name: testBoardName, PinNames: []string{"digital3"}},
+			expResp:                   nil,
+			expRespErr:                "unknown digital interrupt: digital3",
+			sendFail:                  false,
 		},
 		{
-			name:                     "failing to send tick should return error",
-			injectDigitalInterrupts:  []*inject.DigitalInterrupt{{}},
-			injectDigitalInterruptOk: true,
-			streamTicksErr:           nil,
-			req:                      &request{Name: testBoardName, PinNames: []string{"digital1"}, Extra: pbExpectedExtra},
-			expResp:                  &response{PinName: "digital1", Time: uint64(time.Nanosecond), High: true},
-			expRespErr:               "send fail",
-			sendFail:                 true,
+			name:                      "failing to send tick should return error",
+			injectDigitalInterrupts:   []*inject.DigitalInterrupt{{}},
+			injectDigitalInterruptErr: errSendFailed,
+			streamTicksErr:            nil,
+			req:                       &request{Name: testBoardName, PinNames: []string{"digital1"}, Extra: pbExpectedExtra},
+			expResp:                   &response{PinName: "digital1", Time: uint64(time.Nanosecond), High: true},
+			expRespErr:                "send fail",
+			sendFail:                  true,
 		},
 	}
 
@@ -886,17 +808,22 @@ func TestStreamTicks(t *testing.T) {
 			var actualExtra map[string]interface{}
 			callbacks := []chan board.Tick{}
 
-			injectBoard.StreamTicksFunc = func(ctx context.Context, interrupts []string, ch chan board.Tick, extra map[string]interface{}) error {
+			injectBoard.StreamTicksFunc = func(
+				ctx context.Context, interrupts []board.DigitalInterrupt, ch chan board.Tick,
+				extra map[string]interface{},
+			) error {
 				actualExtra = extra
 				callbacks = append(callbacks, ch)
 				return tc.streamTicksErr
 			}
 
-			injectBoard.DigitalInterruptByNameFunc = func(name string) (board.DigitalInterrupt, bool) {
+			injectBoard.DigitalInterruptByNameFunc = func(name string) (board.DigitalInterrupt, error) {
 				if name == "digital1" {
-					return tc.injectDigitalInterrupts[0], tc.injectDigitalInterruptOk
+					return tc.injectDigitalInterrupts[0], tc.injectDigitalInterruptErr
+				} else if name == "digital2" {
+					return tc.injectDigitalInterrupts[1], tc.injectDigitalInterruptErr
 				}
-				return tc.injectDigitalInterrupts[1], tc.injectDigitalInterruptOk
+				return nil, nil
 			}
 			if tc.injectDigitalInterrupts != nil {
 				for _, i := range tc.injectDigitalInterrupts {

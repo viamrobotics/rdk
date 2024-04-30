@@ -28,6 +28,7 @@ import (
 	"sync/atomic"
 
 	"github.com/pkg/errors"
+	"go.uber.org/multierr"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/board"
@@ -153,9 +154,9 @@ func (e *Encoder) Reconfigure(
 		return err
 	}
 
-	di, ok := board.DigitalInterruptByName(newConf.Pins.I)
-	if !ok {
-		return errors.Errorf("cannot find pin (%s) for Encoder", newConf.Pins.I)
+	di, err := board.DigitalInterruptByName(newConf.Pins.I)
+	if err != nil {
+		return multierr.Combine(errors.Errorf("cannot find pin (%s) for Encoder", newConf.Pins.I), err)
 	}
 
 	if !needRestart {
@@ -174,23 +175,24 @@ func (e *Encoder) Reconfigure(
 	atomic.StoreInt64(&e.position, 0)
 	e.mu.Unlock()
 
-	e.Start(ctx, board, []string{e.diPinName})
+	e.Start(ctx, board)
 
 	return nil
 }
 
 // Start starts the Encoder background thread.
-func (e *Encoder) Start(ctx context.Context, b board.Board, interrupts []string) {
+func (e *Encoder) Start(ctx context.Context, b board.Board) {
 	encoderChannel := make(chan board.Tick)
-	err := b.StreamTicks(e.cancelCtx, interrupts, encoderChannel, nil)
+	err := b.StreamTicks(e.cancelCtx, []board.DigitalInterrupt{e.I}, encoderChannel, nil)
 	if err != nil {
 		utils.Logger.Errorw("error getting interrupt ticks", "error", err)
 		return
 	}
 	e.activeBackgroundWorkers.Add(1)
+
 	utils.ManagedGo(func() {
-		// Remove the callbacks added by the interrupt stream once we are done.
-		defer utils.UncheckedErrorFunc(func() error { return board.RemoveCallbacks(b, interrupts, encoderChannel) })
+		defer e.I.RemoveCallback(encoderChannel)
+
 		for {
 			select {
 			case <-e.cancelCtx.Done():

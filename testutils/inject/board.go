@@ -4,7 +4,6 @@ import (
 	"context"
 	"time"
 
-	commonpb "go.viam.com/api/common/v1"
 	boardpb "go.viam.com/api/component/board/v1"
 
 	"go.viam.com/rdk/components/board"
@@ -18,18 +17,17 @@ type Board struct {
 	DoFunc                     func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
 	AnalogByNameFunc           func(name string) (board.Analog, error)
 	analogByNameCap            []interface{}
-	DigitalInterruptByNameFunc func(name string) (board.DigitalInterrupt, bool)
+	DigitalInterruptByNameFunc func(name string) (board.DigitalInterrupt, error)
 	digitalInterruptByNameCap  []interface{}
 	GPIOPinByNameFunc          func(name string) (board.GPIOPin, error)
 	gpioPinByNameCap           []interface{}
 	AnalogNamesFunc            func() []string
 	DigitalInterruptNamesFunc  func() []string
 	CloseFunc                  func(ctx context.Context) error
-	StatusFunc                 func(ctx context.Context, extra map[string]interface{}) (*commonpb.BoardStatus, error)
-	statusCap                  []interface{}
 	SetPowerModeFunc           func(ctx context.Context, mode boardpb.PowerMode, duration *time.Duration) error
 	WriteAnalogFunc            func(ctx context.Context, pin string, value int32, extra map[string]interface{}) error
-	StreamTicksFunc            func(ctx context.Context, interrupts []string, ch chan board.Tick, extra map[string]interface{}) error
+	StreamTicksFunc            func(ctx context.Context,
+		interrupts []board.DigitalInterrupt, ch chan board.Tick, extra map[string]interface{}) error
 }
 
 // NewBoard returns a new injected board.
@@ -61,7 +59,7 @@ func (b *Board) AnalogByNameCap() []interface{} {
 }
 
 // DigitalInterruptByName calls the injected DigitalInterruptByName or the real version.
-func (b *Board) DigitalInterruptByName(name string) (board.DigitalInterrupt, bool) {
+func (b *Board) DigitalInterruptByName(name string) (board.DigitalInterrupt, error) {
 	b.digitalInterruptByNameCap = []interface{}{name}
 	if b.DigitalInterruptByNameFunc == nil {
 		return b.Board.DigitalInterruptByName(name)
@@ -123,24 +121,6 @@ func (b *Board) Close(ctx context.Context) error {
 	return b.CloseFunc(ctx)
 }
 
-// Status calls the injected Status or the real version.
-func (b *Board) Status(ctx context.Context, extra map[string]interface{}) (*commonpb.BoardStatus, error) {
-	b.statusCap = []interface{}{ctx}
-	if b.StatusFunc == nil {
-		return b.Board.Status(ctx, extra)
-	}
-	return b.StatusFunc(ctx, extra)
-}
-
-// StatusCap returns the last parameters received by Status, and then clears them.
-func (b *Board) StatusCap() []interface{} {
-	if b == nil {
-		return nil
-	}
-	defer func() { b.statusCap = nil }()
-	return b.statusCap
-}
-
 // DoCommand calls the injected DoCommand or the real version.
 func (b *Board) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 	if b.DoFunc == nil {
@@ -168,7 +148,9 @@ func (b *Board) WriteAnalog(ctx context.Context, pin string, value int32, extra 
 }
 
 // StreamTicks calls the injected StreamTicks or the real version.
-func (b *Board) StreamTicks(ctx context.Context, interrupts []string, ch chan board.Tick, extra map[string]interface{}) error {
+func (b *Board) StreamTicks(ctx context.Context,
+	interrupts []board.DigitalInterrupt, ch chan board.Tick, extra map[string]interface{},
+) error {
 	if b.StreamTicksFunc == nil {
 		return b.Board.StreamTicks(ctx, interrupts, ch, extra)
 	}
