@@ -37,7 +37,6 @@ type planManager struct {
 	activeBackgroundWorkers sync.WaitGroup
 
 	useTPspace bool
-	// ugh, we might need to add another bool here???
 }
 
 func newPlanManager(
