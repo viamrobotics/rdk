@@ -161,7 +161,11 @@ func wrapWithPTGKinematics(
 }
 
 func (ptgk *ptgBaseKinematics) Kinematics() referenceframe.Frame {
-	return ptgk.frame
+	return ptgk.planningFrame
+}
+
+func (ptgk *ptgBaseKinematics) ExecutionFrame() referenceframe.Frame {
+	return ptgk.executionFrame
 }
 
 // For a ptgBaseKinematics, `CurrentInputs` returns inputs which reflect what the base is currently doing.
@@ -204,7 +208,7 @@ func (ptgk *ptgBaseKinematics) ErrorState(ctx context.Context) (spatialmath.Pose
 		currentInputs[startDistanceAlongTrajectoryIndex],
 	}
 
-	currPoseInArc, err := ptgk.frame.Transform(executedInputs)
+	currPoseInArc, err := ptgk.planningFrame.Transform(executedInputs)
 	if err != nil {
 		return nil, err
 	}

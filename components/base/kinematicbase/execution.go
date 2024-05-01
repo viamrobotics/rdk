@@ -322,7 +322,7 @@ func (ptgk *ptgBaseKinematics) courseCorrect(
 		arcSteps[arcIdx].arcSegment.StartConfiguration[startDistanceAlongTrajectoryIndex],
 		currentInputs[startDistanceAlongTrajectoryIndex],
 	}
-	trajPose, err := ptgk.frame.Transform(execInputs)
+	trajPose, err := ptgk.planningFrame.Transform(execInputs)
 	if err != nil {
 		return nil, err
 	}
