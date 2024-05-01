@@ -159,7 +159,6 @@ func newPigpio(ctx context.Context, name resource.Name, cfg resource.Config, log
 	piInstance := &piPigpio{
 		Named:      name.AsNamed(),
 		logger:     logger,
-		isClosed:   false,
 		cancelCtx:  cancelCtx,
 		cancelFunc: cancelFunc,
 	}
@@ -214,14 +213,18 @@ func (pi *piPigpio) StreamTicks(ctx context.Context, interrupts []board.DigitalI
 		AddCallback(i.(*BasicDigitalInterrupt), ch)
 	}
 
+	// Create a background routine to wait until the context is canceled and remove the callbacks.
 	pi.activeBackgroundWorkers.Add(1)
 	utils.ManagedGo(func() {
 		select {
 		case <-ctx.Done():
 			return
+		case <-pi.cancelCtx.Done():
+			return
 		}
 	}, func() {
 		for _, i := range interrupts {
+			fmt.Println("removing callbacks")
 			RemoveCallback(i.(*BasicDigitalInterrupt), ch)
 		}
 		pi.activeBackgroundWorkers.Done()
