@@ -441,7 +441,7 @@ func TestObstacleReplanningGlobe(t *testing.T) {
 		{
 			name: "ensure replan due to obstacle collision",
 			getPCfunc: func(ctx context.Context, cameraName string, extra map[string]interface{}) ([]*viz.Object, error) {
-					if i == 0 {
+				if i == 0 {
 					i++
 					return []*viz.Object{}, nil
 				}
@@ -456,7 +456,7 @@ func TestObstacleReplanningGlobe(t *testing.T) {
 			},
 			expectedSuccess: false,
 			expectedErr:     fmt.Sprintf("exceeded maximum number of replans: %d: plan failed", 0),
-		 },
+		},
 	}
 
 	testFn := func(t *testing.T, tc testCase) {
