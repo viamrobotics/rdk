@@ -505,24 +505,6 @@ func (pm *planManager) plannerSetupFromMoveRequest(
 		return nil, err // no geometries defined for frame
 	}
 	movingRobotGeometries := movingGeometriesInFrame.Geometries() // solver frame returns geoms in frame World
-	if pm.useTPspace {
-		// If we are starting a ptg plan at a different place than the origin, then that translation must be represented in the geometries,
-		// all of which need to be in the "correct" position when transformed to the world frame.
-		// At this point in the plan manager, a ptg plan is moving to a goal in the world frame, and the start pose is the base's location
-		// relative to world. Since nothing providing a geometry knows anything about where the base is relative to world, any geometries
-		// need to be transformed by the start position to place them correctly in world.
-		startGeoms := make([]spatialmath.Geometry, 0, len(movingRobotGeometries))
-		for _, geometry := range movingRobotGeometries {
-			startGeoms = append(startGeoms, geometry.Transform(from))
-		}
-		movingRobotGeometries = startGeoms
-	}
-	fmt.Println("PRINTING movingRobotGeometries")
-	for _, g := range movingRobotGeometries {
-		fmt.Println("g.Label(): ", g.Label())
-		fmt.Println("g.Pose(): ", spatialmath.PoseToProtobuf(g.Pose()))
-		fmt.Println("-----------------------")
-	}
 
 	// find all geometries that are not moving but are in the frame system
 	staticRobotGeometries := make([]spatialmath.Geometry, 0)
