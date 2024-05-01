@@ -54,6 +54,7 @@ type Server struct {
 	nameToStream            map[string]gostream.Stream
 	activePeerStreams       map[*webrtc.PeerConnection]map[string]*peerState
 	activeBackgroundWorkers sync.WaitGroup
+	isAlive                 bool
 }
 
 // NewServer returns a server that will run on the given port and initially starts with the given
@@ -62,6 +63,7 @@ func NewServer(streams ...gostream.Stream) (*Server, error) {
 	ss := &Server{
 		nameToStream:      map[string]gostream.Stream{},
 		activePeerStreams: map[*webrtc.PeerConnection]map[string]*peerState{},
+		isAlive:           true,
 	}
 
 	for _, stream := range streams {
@@ -149,16 +151,32 @@ func (ss *Server) AddStream(ctx context.Context, req *streampb.AddStreamRequest)
 				webrtc.PeerConnectionStateFailed,
 				webrtc.PeerConnectionStateClosed:
 
-				ss.activeBackgroundWorkers.Add(1)
-				utils.PanicCapturingGo(func() {
-					defer ss.activeBackgroundWorkers.Done()
-					ss.mu.Lock()
-					defer ss.mu.Unlock()
-					defer delete(ss.activePeerStreams, pc)
-					for _, ps := range ss.activePeerStreams[pc] {
-						ps.stream.Stop()
-					}
-				})
+				ss.mu.Lock()
+				defer ss.mu.Unlock()
+
+				if ss.isAlive {
+					// Dan: This conditional closing on `isAlive` is a hack to avoid a data
+					// race. Shutting down a robot causes the PeerConnection to be closed
+					// concurrently with this `stream.Server`. Thus, `stream.Server.Close` waiting
+					// on the `activeBackgroundWorkers` WaitGroup can race with adding a new
+					// "worker". Given `Close` is expected to `Stop` remaining streams, we can elide
+					// spinning off the below goroutine.
+					//
+					// Given this is an existing race, I'm choosing to add to the tech
+					// debt rather than architect how shutdown should holistically work. Revert this
+					// change and run `TestRobotPeerConnect` (double check the test name at PR time)
+					// to reproduce the race.
+					ss.activeBackgroundWorkers.Add(1)
+					utils.PanicCapturingGo(func() {
+						defer ss.activeBackgroundWorkers.Done()
+						ss.mu.Lock()
+						defer ss.mu.Unlock()
+						defer delete(ss.activePeerStreams, pc)
+						for _, ps := range ss.activePeerStreams[pc] {
+							ps.stream.Stop()
+						}
+					})
+				}
 			case webrtc.PeerConnectionStateConnected,
 				webrtc.PeerConnectionStateConnecting,
 				webrtc.PeerConnectionStateNew:
@@ -257,13 +275,14 @@ func (ss *Server) RemoveStream(ctx context.Context, req *streampb.RemoveStreamRe
 
 // Close closes the Server and waits for spun off goroutines to complete.
 func (ss *Server) Close() error {
-	ss.mu.RLock()
-	defer ss.mu.RUnlock()
+	ss.mu.Lock()
+	ss.isAlive = false
 
 	for _, stream := range ss.streams {
 		stream.stream.Stop()
 		stream.activePeers = 0
 	}
+	ss.mu.Unlock()
 	ss.activeBackgroundWorkers.Wait()
 	return nil
 }

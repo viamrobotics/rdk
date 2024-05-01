@@ -502,9 +502,7 @@ func TestDynamicModuleLogging(t *testing.T) {
 		}},
 	}
 
-	myRobot, err := RobotFromConfig(ctx, cfg, logger)
-	test.That(t, err, test.ShouldBeNil)
-	defer myRobot.Close(ctx)
+	myRobot := setupLocalRobot(t, ctx, cfg, logger)
 
 	client, err := generic.FromRobot(myRobot, "helper")
 	test.That(t, err, test.ShouldBeNil)

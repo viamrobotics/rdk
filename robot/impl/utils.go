@@ -19,7 +19,9 @@ func setupLocalRobot(
 ) robot.LocalRobot {
 	t.Helper()
 
-	r, err := New(ctx, cfg, logger)
+	// use a temporary home directory so that it doesn't collide with
+	// the user's/other tests' viam home directory
+	r, err := New(ctx, cfg, logger, WithViamHomeDir(t.TempDir()))
 	test.That(t, err, test.ShouldBeNil)
 	t.Cleanup(func() {
 		test.That(t, r.Close(ctx), test.ShouldBeNil)

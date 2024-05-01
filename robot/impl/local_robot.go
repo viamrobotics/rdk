@@ -461,13 +461,18 @@ func newWithResources(
 	if cfg.Cloud != nil {
 		cloudID = cfg.Cloud.ID
 	}
+
+	homeDir := config.ViamDotDir
+	if rOpts.viamHomeDir != "" {
+		homeDir = rOpts.viamHomeDir
+	}
 	// Once web service is started, start module manager
 	r.manager.startModuleManager(
 		closeCtx,
 		r.webSvc.ModuleAddress(),
 		r.removeOrphanedResources,
 		cfg.UntrustedEnv,
-		config.ViamDotDir,
+		homeDir,
 		cloudID,
 		logger,
 	)
@@ -1199,7 +1204,7 @@ func (r *localRobot) Reconfigure(ctx context.Context, newConfig *config.Config) 
 	if allErrs != nil {
 		r.logger.CErrorw(ctx, "The following errors were gathered during reconfiguration", "errors", allErrs)
 	} else {
-		r.logger.CInfow(ctx, "Robot successfully (re)configured")
+		r.logger.CInfow(ctx, "Robot (re)configured")
 	}
 }
 
