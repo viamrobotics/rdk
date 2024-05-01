@@ -159,6 +159,7 @@ func newPigpio(ctx context.Context, name resource.Name, cfg resource.Config, log
 	piInstance := &piPigpio{
 		Named:      name.AsNamed(),
 		logger:     logger,
+		isClosed:   false,
 		cancelCtx:  cancelCtx,
 		cancelFunc: cancelFunc,
 	}
@@ -208,7 +209,6 @@ func (pi *piPigpio) Reconfigure(
 func (pi *piPigpio) StreamTicks(ctx context.Context, interrupts []board.DigitalInterrupt, ch chan board.Tick,
 	extra map[string]interface{},
 ) error {
-
 	for _, i := range interrupts {
 		AddCallback(i.(*BasicDigitalInterrupt), ch)
 	}
