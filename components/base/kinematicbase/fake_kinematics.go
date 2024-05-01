@@ -202,7 +202,10 @@ func WrapWithFakePTGKinematics(
 		return nil, errors.New("unable to cast ptgk frame to a PTG Provider")
 	}
 	ptgs := ptgProv.PTGSolvers()
-
+	traj := motionplan.Trajectory{{frame.Name(): zeroInput}}
+	path := motionplan.Path{{frame.Name(): referenceframe.NewPoseInFrame(origin.Parent(), spatialmath.Compose(origin.Pose(), sensorNoise))}}
+	zeroPlan := motionplan.NewSimplePlan(path, traj)
+	
 	fk := &fakePTGKinematics{
 		Base:         b,
 		frame:        frame,
@@ -210,6 +213,7 @@ func WrapWithFakePTGKinematics(
 		ptgs:         ptgs,
 		currentInput: zeroInput,
 		currentIndex: 0,
+		plan:         zeroPlan,
 		sensorNoise:  sensorNoise,
 		logger:       logger,
 		sleepTime:    sleepTime,
@@ -236,7 +240,12 @@ func (fk *fakePTGKinematics) GoToInputs(ctx context.Context, inputSteps ...[]ref
 		fk.inputLock.Lock()
 		fk.currentInput = zeroInput
 		fk.currentIndex = 0
-		fk.plan = nil
+		
+		traj := motionplan.Trajectory{{fk.frame.Name(): zeroInput}}
+		path := motionplan.Path{
+			{fk.frame.Name(): referenceframe.NewPoseInFrame(fk.origin.Parent(), spatialmath.Compose(fk.origin.Pose(), fk.sensorNoise))},
+		}
+		fk.plan = motionplan.NewSimplePlan(path, traj)
 		fk.inputLock.Unlock()
 	}()
 
@@ -246,7 +255,7 @@ func (fk *fakePTGKinematics) GoToInputs(ctx context.Context, inputSteps ...[]ref
 	}
 
 	fk.inputLock.Lock()
-	fk.plan, err = inputsToPlan(inputSteps, currPos.Pose(), fk.Kinematics())
+	fk.plan, err = inputsToPlan(inputSteps, currPos, fk.Kinematics())
 	fk.inputLock.Unlock()
 	if err != nil {
 		return err
@@ -336,8 +345,12 @@ func (fkl *fakePTGKinematicsLocalizer) CurrentPosition(ctx context.Context) (*re
 	return referenceframe.NewPoseInFrame(origin.Parent(), spatialmath.Compose(origin.Pose(), fkl.fk.sensorNoise)), nil
 }
 
-func inputsToPlan(inputs [][]referenceframe.Input, startPose spatialmath.Pose, frame referenceframe.Frame) (motionplan.Plan, error) {
-	runningPose := startPose
+func inputsToPlan(
+	inputs [][]referenceframe.Input,
+	startPose *referenceframe.PoseInFrame,
+	frame referenceframe.Frame,
+) (motionplan.Plan, error) {
+	runningPose := startPose.Pose()
 	traj := motionplan.Trajectory{}
 	path := motionplan.Path{}
 	for _, input := range inputs {
@@ -348,7 +361,7 @@ func inputsToPlan(inputs [][]referenceframe.Input, startPose spatialmath.Pose, f
 		runningPose = spatialmath.Compose(runningPose, inputPose)
 		traj = append(traj, map[string][]referenceframe.Input{frame.Name(): input})
 		path = append(path, map[string]*referenceframe.PoseInFrame{
-			frame.Name(): referenceframe.NewPoseInFrame(referenceframe.World, runningPose),
+			frame.Name(): referenceframe.NewPoseInFrame(startPose.Parent(), runningPose),
 		})
 	}
 
