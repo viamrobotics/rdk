@@ -532,16 +532,12 @@ func MachinesPartCopyFilesAction(c *cli.Context) error {
 		if statusErr := status.Convert(err); statusErr != nil &&
 			statusErr.Code() == codes.InvalidArgument &&
 			statusErr.Message() == shell.ErrMsgDirectoryCopyRequestNoRecursion {
-			return errors.New(errMsgDirectoryCopyRequestNoRecursionForCLI)
+			return errors.New("file is a directory but copy recursion not used (you can use -r to enable this)")
 		}
 		return err
 	}
 	return nil
 }
-
-// errMsgDirectoryCopyRequestNoRecursionForCLI should be returned when a file is included in a path for a copy request
-// where recursion is not enabled.
-var errMsgDirectoryCopyRequestNoRecursionForCLI = "file is a directory but copy recursion not used (you can use -r to enable this)"
 
 // checkUpdateResponse holds the values used to hold release information.
 type getLatestReleaseResponse struct {
