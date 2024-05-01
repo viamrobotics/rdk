@@ -335,10 +335,6 @@ func NewCollisionConstraint(
 				return false
 			}
 			internalGeoms = internal.Geometries()
-			// for _, g := range internalGeoms {
-			// 	fmt.Println("g.String(): ", g.String())
-			// 	fmt.Println("g.Pose(): ", spatial.PoseToProtobuf(g.Pose()))
-			// }
 		case state.Position != nil:
 			// If we didn't pass a Configuration, but we do have a Position, then get the geometries at the zero state and
 			// transform them to the Position
