@@ -427,9 +427,10 @@ func RobotsPartShellAction(c *cli.Context) error {
 }
 
 var (
-	errNoFiles              = errors.New("must provide files to copy")
-	errLastArgOfFromMissing = errors.New("expected last argument to be <copy to path>")
-	errLastArgOfToMissing   = errors.New("expected last argument to be machine:<copy to path>")
+	errNoFiles                         = errors.New("must provide files to copy")
+	errLastArgOfFromMissing            = errors.New("expected last argument to be <copy to path>")
+	errLastArgOfToMissing              = errors.New("expected last argument to be machine:<copy to path>")
+	errDirectoryCopyRequestNoRecursion = errors.New("file is a directory but copy recursion not used (you can use -r to enable this)")
 )
 
 type copyFromPathInvalidError struct {
@@ -532,7 +533,7 @@ func MachinesPartCopyFilesAction(c *cli.Context) error {
 		if statusErr := status.Convert(err); statusErr != nil &&
 			statusErr.Code() == codes.InvalidArgument &&
 			statusErr.Message() == shell.ErrMsgDirectoryCopyRequestNoRecursion {
-			return errors.New("file is a directory but copy recursion not used (you can use -r to enable this)")
+			return errDirectoryCopyRequestNoRecursion
 		}
 		return err
 	}

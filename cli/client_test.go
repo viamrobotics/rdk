@@ -24,8 +24,6 @@ import (
 	"go.viam.com/test"
 	"go.viam.com/utils/protoutils"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/structpb"
 
 	robotconfig "go.viam.com/rdk/config"
@@ -612,11 +610,7 @@ func TestShellFileCopy(t *testing.T) {
 				t, asc, nil, nil, partFlags, "token", partFqdn, args...)
 			defer teardown1()
 			err := MachinesPartCopyFilesAction(cCtx)
-			test.That(t, err, test.ShouldNotBeNil)
-			s, ok := status.FromError(err)
-			test.That(t, ok, test.ShouldBeTrue)
-			test.That(t, s.Code(), test.ShouldEqual, codes.InvalidArgument)
-			test.That(t, s.Message(), test.ShouldContainSubstring, "recursion")
+			test.That(t, errors.Is(err, errDirectoryCopyRequestNoRecursion), test.ShouldBeTrue)
 			_, err = os.ReadFile(filepath.Join(tempDir, filepath.Base(tfs.SingleFileNested)))
 			test.That(t, errors.Is(err, fs.ErrNotExist), test.ShouldBeTrue)
 
@@ -741,11 +735,7 @@ func TestShellFileCopy(t *testing.T) {
 				t, asc, nil, nil, partFlags, "token", partFqdn, args...)
 			defer teardown1()
 			err := MachinesPartCopyFilesAction(cCtx)
-			test.That(t, err, test.ShouldNotBeNil)
-			s, ok := status.FromError(err)
-			test.That(t, ok, test.ShouldBeTrue)
-			test.That(t, s.Code(), test.ShouldEqual, codes.InvalidArgument)
-			test.That(t, s.Message(), test.ShouldContainSubstring, "recursion")
+			test.That(t, errors.Is(err, errDirectoryCopyRequestNoRecursion), test.ShouldBeTrue)
 			_, err = os.ReadFile(filepath.Join(tempDir, filepath.Base(tfs.SingleFileNested)))
 			test.That(t, errors.Is(err, fs.ErrNotExist), test.ShouldBeTrue)
 
