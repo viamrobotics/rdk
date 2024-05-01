@@ -512,8 +512,8 @@ func TestObstacleReplanningGlobe(t *testing.T) {
 }
 
 func TestObstacleReplanningSlam(t *testing.T) {
-	// cameraToBase := spatialmath.NewPose(r3.Vector{0, 0, 0}, &spatialmath.OrientationVectorDegrees{OY: 1, Theta: -90})
-	// cameraToBaseInv := spatialmath.PoseInverse(cameraToBase)
+	cameraToBase := spatialmath.NewPose(r3.Vector{0, 0, 0}, &spatialmath.OrientationVectorDegrees{OY: 1, Theta: -90})
+	cameraToBaseInv := spatialmath.PoseInverse(cameraToBase)
 
 	ctx := context.Background()
 	origin := spatialmath.NewPose(
@@ -521,68 +521,62 @@ func TestObstacleReplanningSlam(t *testing.T) {
 		&spatialmath.OrientationVectorDegrees{OZ: 1, Theta: -90},
 	)
 
-	// boxWrld, err := spatialmath.NewBox(
-	// 	spatialmath.NewPoseFromPoint(r3.Vector{X: 0, Y: 0, Z: 0}),
-	// 	r3.Vector{X: 50, Y: 50, Z: 50}, "box-obstacle",
-	// )
-	// test.That(t, err, test.ShouldBeNil)
+	boxWrld, err := spatialmath.NewBox(
+		spatialmath.NewPoseFromPoint(r3.Vector{X: 0, Y: 0, Z: 0}),
+		r3.Vector{X: 50, Y: 50, Z: 50}, "box-obstacle",
+	)
+	test.That(t, err, test.ShouldBeNil)
 
-	_, ms := createMoveOnMapEnvironment(
+	kb, ms := createMoveOnMapEnvironment(
 		ctx, t,
 		"pointcloud/cardboardOcto.pcd",
 		50, origin,
 	)
 	defer ms.Close(ctx)
 
-	cI, _, err := ms.(*builtIn).fsService.CurrentInputs(ctx)
+	visSrvc, ok := ms.(*builtIn).visionServices[vision.Named("test-vision")].(*inject.VisionService)
+	test.That(t, ok, test.ShouldBeTrue)
+	i := 0
+	visSrvc.GetObjectPointCloudsFunc = func(ctx context.Context, cameraName string, extra map[string]interface{}) ([]*viz.Object, error) {
+		if i == 0 {
+			i++
+			return []*viz.Object{}, nil
+		}
+		currentPif, err := kb.CurrentPosition(ctx)
+		test.That(t, err, test.ShouldBeNil)
+
+		relativeBox := boxWrld.Transform(spatialmath.PoseInverse(currentPif.Pose())).Transform(cameraToBaseInv)
+		detection, err := viz.NewObjectWithLabel(pointcloud.New(), "test-case-1-detection", relativeBox.ToProtobuf())
+		test.That(t, err, test.ShouldBeNil)
+
+		return []*viz.Object{detection}, nil
+	}
+
+	obstacleDetectorSlice := []motion.ObstacleDetectorName{
+		{VisionServiceName: vision.Named("test-vision"), CameraName: camera.Named("test-camera")},
+	}
+	req := motion.MoveOnMapReq{
+		ComponentName: base.Named("test-base"),
+		Destination:   spatialmath.NewPoseFromPoint(r3.Vector{X: 800, Y: 0, Z: 0}),
+		SlamName:      slam.Named("test_slam"),
+		MotionCfg: &motion.MotionConfiguration{
+			PositionPollingFreqHz: 1, ObstaclePollingFreqHz: 100, PlanDeviationMM: 1, ObstacleDetectors: obstacleDetectorSlice,
+		},
+		// TODO: add back "max_replans": 1 to extra
+		Extra: map[string]interface{}{"smooth_iter": 0},
+	}
+
+	executionID, err := ms.MoveOnMap(ctx, req)
 	test.That(t, err, test.ShouldBeNil)
-	fmt.Println("cI: ", cI)
 
-	// 	visSrvc, ok := ms.(*builtIn).visionServices[vision.Named("test-vision")].(*inject.VisionService)
-	// 	test.That(t, ok, test.ShouldBeTrue)
-	// 	i := 0
-	// 	visSrvc.GetObjectPointCloudsFunc = func(ctx context.Context, cameraName string, extra map[string]interface{}) ([]*viz.Object, error) {
-	// 		if i == 0 {
-	// 			i++
-	// 			return []*viz.Object{}, nil
-	// 		}
-	// 		currentPif, err := kb.CurrentPosition(ctx)
-	// 		test.That(t, err, test.ShouldBeNil)
-
-	// 		relativeBox := boxWrld.Transform(spatialmath.PoseInverse(currentPif.Pose())).Transform(cameraToBaseInv)
-	// 		detection, err := viz.NewObjectWithLabel(pointcloud.New(), "test-case-1-detection", relativeBox.ToProtobuf())
-	// 		test.That(t, err, test.ShouldBeNil)
-
-	// 		return []*viz.Object{detection}, nil
-	// 	}
-
-	// 	obstacleDetectorSlice := []motion.ObstacleDetectorName{
-	// 		{VisionServiceName: vision.Named("test-vision"), CameraName: camera.Named("test-camera")},
-	// 	}
-	// 	req := motion.MoveOnMapReq{
-	// 		ComponentName: base.Named("test-base"),
-	// 		Destination:   spatialmath.NewPoseFromPoint(r3.Vector{X: 800, Y: 0, Z: 0}),
-	// 		SlamName:      slam.Named("test_slam"),
-	// 		MotionCfg: &motion.MotionConfiguration{
-	// 			PositionPollingFreqHz: 1, ObstaclePollingFreqHz: 100, PlanDeviationMM: 1, ObstacleDetectors: obstacleDetectorSlice,
-	// 		},
-	// 		// TODO: add back "max_replans": 1 to extra
-	// 		Extra: map[string]interface{}{"smooth_iter": 0},
-	// 	}
-
-	// 	executionID, err := ms.MoveOnMap(ctx, req)
-	// 	test.That(t, err, test.ShouldBeNil)
-
-	// timeoutCtx, timeoutFn := context.WithTimeout(ctx, time.Second*15)
-	// defer timeoutFn()
-	//
-	//	err = motion.PollHistoryUntilSuccessOrError(timeoutCtx, ms, time.Millisecond, motion.PlanHistoryReq{
-	//		ComponentName: req.ComponentName,
-	//		ExecutionID:   executionID,
-	//		LastPlanOnly:  true,
-	//	})
-	//
-	// test.That(t, err, test.ShouldBeNil)
+	timeoutCtx, timeoutFn := context.WithTimeout(ctx, time.Second*15)
+	defer timeoutFn()
+	err = motion.PollHistoryUntilSuccessOrError(timeoutCtx, ms, time.Millisecond, motion.PlanHistoryReq{
+		ComponentName: req.ComponentName,
+		ExecutionID:   executionID,
+		LastPlanOnly:  true,
+	})
+	test.That(t, err, test.ShouldBeNil)
 }
 
 func TestMultiplePieces(t *testing.T) {
@@ -2619,33 +2613,27 @@ func TestGetTransientDetections(t *testing.T) {
 
 	type testCase struct {
 		name          string
-		f             spatialmath.Pose
 		detectionPose spatialmath.Pose
 	}
 	testCases := []testCase{
 		{
 			name:          "relative - SLAM/base theta does not matter",
-			f:             spatialmath.NewZeroPose(),
 			detectionPose: spatialmath.NewPose(r3.Vector{4, 10, -8}, &spatialmath.OrientationVectorDegrees{OY: 1, Theta: -90}),
 		},
 		{
 			name:          "absolute - SLAM theta: 0, base theta: -90 == 270",
-			f:             spatialmath.NewPose(r3.Vector{-4, -10, 0}, &spatialmath.OrientationVectorDegrees{OZ: 1, Theta: -90}),
 			detectionPose: spatialmath.NewPose(r3.Vector{6, -14, -8}, &spatialmath.OrientationVectorDegrees{OX: 1, Theta: -90}),
 		},
 		{
 			name:          "absolute - SLAM theta: 90, base theta: 0",
-			f:             spatialmath.NewPose(r3.Vector{-4, -10, 0}, &spatialmath.OrientationVectorDegrees{OZ: 1, Theta: 0}),
 			detectionPose: spatialmath.NewPose(r3.Vector{0, 0, -8}, &spatialmath.OrientationVectorDegrees{OY: 1, Theta: -90}),
 		},
 		{
 			name:          "absolute - SLAM theta: 180, base theta: 90",
-			f:             spatialmath.NewPose(r3.Vector{-4, -10, 0}, &spatialmath.OrientationVectorDegrees{OZ: 1, Theta: 90}),
 			detectionPose: spatialmath.NewPose(r3.Vector{-14, -6, -8}, &spatialmath.OrientationVectorDegrees{OX: -1, Theta: -90}),
 		},
 		{
 			name:          "absolute - SLAM theta: 270, base theta: 180",
-			f:             spatialmath.NewPose(r3.Vector{-4, -10, 0}, &spatialmath.OrientationVectorDegrees{OZ: 1, Theta: 180}),
 			detectionPose: spatialmath.NewPose(r3.Vector{-8, -20, -8}, &spatialmath.OrientationVectorDegrees{OY: -1, Theta: -90}),
 		},
 	}
