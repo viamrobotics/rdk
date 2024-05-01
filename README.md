@@ -1,29 +1,4 @@
-# RDK (Robot Development Kit)
 
-<p align="center">
-  <a href="https://pkg.go.dev/go.viam.com/rdk"><img src="https://pkg.go.dev/badge/go.viam.com/rdk" alt="PkgGoDev"></a>
-</p>
-
-Viam provides an open source robot architecture that provides robotics functionality via simple APIs
-
-**Website**: [viam.com](https://www.viam.com)
-
-**Documentation**: [docs.viam.com](https://docs.viam.com)
-
-**Cloud App**: [app.viam.com](https://app.viam.com)
-
-## Contact
-
-* Discord: <https://discord.gg/viam>
-* Support: <https://support.viam.com>
-
-If you have a bug or an idea, please open an issue [here](https://viam.atlassian.net/servicedesk/customer/portal/7).
-
-## Building and Using
-
-### Dependencies
-
-* Install `make`.
 * Run `make setup` to install dev environment requirements.
   * This also installs some client side git hooks.
 
