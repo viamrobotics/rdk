@@ -17,7 +17,6 @@ import (
 
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan/ik"
-	"go.viam.com/rdk/referenceframe"
 	frame "go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
 )
@@ -544,10 +543,10 @@ func CheckPlan(
 		currInput := offsetPlan.Trajectory()[i]
 		nextInput := offsetPlan.Trajectory()[i+1]
 		if relative {
-			currInput[checkFrame.Name()+"ExecutionFrame"] = referenceframe.FloatsToInputs(
+			currInput[checkFrame.Name()+"ExecutionFrame"] = frame.FloatsToInputs(
 				[]float64{poses[i].Point().X, poses[i].Point().Y, poses[i].Orientation().OrientationVectorRadians().Theta},
 			)
-			nextInput[checkFrame.Name()+"ExecutionFrame"] = referenceframe.FloatsToInputs(
+			nextInput[checkFrame.Name()+"ExecutionFrame"] = frame.FloatsToInputs(
 				[]float64{poses[i+1].Point().X, poses[i+1].Point().Y, poses[i+1].Orientation().OrientationVectorRadians().Theta},
 			)
 		}
