@@ -279,7 +279,7 @@ type ExecutionState struct {
 	currentPose map[string]*referenceframe.PoseInFrame
 }
 
-// Plan returns the plan associated with teh execution state.
+// Plan returns the plan associated with the execution state.
 func (e *ExecutionState) Plan() Plan {
 	return e.plan
 }

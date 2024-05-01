@@ -397,5 +397,5 @@ func (ddk *differentialDriveKinematics) ErrorState(ctx context.Context) (spatial
 }
 
 func (ddk *differentialDriveKinematics) ExecutionState(ctx context.Context) (motionplan.ExecutionState, error) {
-	return motionplan.ExecutionState{}, nil
+	return motionplan.ExecutionState{}, errors.New("differentialDriveKinematics does not support executionState")
 }
