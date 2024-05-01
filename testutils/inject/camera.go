@@ -3,7 +3,6 @@ package inject
 import (
 	"context"
 
-	"github.com/google/uuid"
 	"github.com/pkg/errors"
 
 	"go.viam.com/rdk/components/camera"
@@ -122,11 +121,11 @@ func (c *Camera) SubscribeRTP(
 	ctx context.Context,
 	bufferSize int,
 	packetsCB rtppassthrough.PacketCallback,
-) (rtppassthrough.SubscriptionID, error) {
+) (rtppassthrough.Subscription, error) {
 	if c.RTPPassthroughSource != nil {
 		return c.RTPPassthroughSource.SubscribeRTP(ctx, bufferSize, packetsCB)
 	}
-	return uuid.Nil, errors.New("SubscribeRTP unimplemented")
+	return rtppassthrough.NilSubscription, errors.New("SubscribeRTP unimplemented")
 }
 
 // Unsubscribe calls the injected RTPPassthroughSource or returns an error if unimplemented.

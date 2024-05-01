@@ -26,9 +26,6 @@ import (
 	"go.viam.com/utils"
 )
 
-// SubscriptionID is the id of a StreamSubscription.
-type SubscriptionID = uuid.UUID
-
 var (
 	// ErrQueueFull indicates the StreamSubscription's queue is full and that
 	// the callback passed to Publish will not be executed.
@@ -46,15 +43,14 @@ var (
 // This is desirable behavior for streaming protocols where
 // dropping stale packets is desirable to minimize latency.
 type StreamSubscription struct {
-	buffer  *ringbuffer.RingBuffer
-	id      SubscriptionID
-	onError func(error)
-	err     atomic.Value
-	wg      sync.WaitGroup
+	buffer *ringbuffer.RingBuffer
+	id     SubscriptionID
+	err    atomic.Value
+	wg     sync.WaitGroup
 }
 
 // NewStreamSubscription allocates an rtp passthrough stream subscription.
-func NewStreamSubscription(queueSize int, onError func(error)) (*StreamSubscription, error) {
+func NewStreamSubscription(queueSize int) (*StreamSubscription, error) {
 	if queueSize < 0 {
 		return nil, ErrNegativeQueueSize
 	}
@@ -64,9 +60,8 @@ func NewStreamSubscription(queueSize int, onError func(error)) (*StreamSubscript
 	}
 
 	return &StreamSubscription{
-		buffer:  buffer,
-		id:      uuid.New(),
-		onError: onError,
+		buffer: buffer,
+		id:     uuid.New(),
 	}, nil
 }
 
@@ -90,7 +85,7 @@ func (w *StreamSubscription) Close() {
 // Publish publishes the callback to the subscriber
 // If there are too many queued messages
 // return an error and does not publish.
-func (w *StreamSubscription) Publish(cb func() error) error {
+func (w *StreamSubscription) Publish(cb func()) error {
 	rawErr := w.err.Load()
 
 	if err, ok := rawErr.(error); ok && err != nil {
@@ -104,23 +99,13 @@ func (w *StreamSubscription) Publish(cb func() error) error {
 }
 
 func (w *StreamSubscription) run() {
-	if err := w.runInner(); err != nil && w.onError != nil {
-		w.onError(err)
-	}
-}
-
-func (w *StreamSubscription) runInner() error {
 	for {
 		cb, ok := w.buffer.Pull()
 		if !ok {
 			w.err.Store(ErrClosed)
-			return nil
+			return
 		}
 
-		err := cb.(func() error)()
-		if err != nil {
-			w.err.Store(err)
-			return err
-		}
+		cb.(func())()
 	}
 }
