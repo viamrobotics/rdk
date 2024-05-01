@@ -54,7 +54,7 @@ func checkPlanRelative(
 		}
 		return nil
 	}
-	
+
 	toWorld := func(pif *referenceframe.PoseInFrame, inputs map[string][]referenceframe.Input) (*referenceframe.PoseInFrame, error) {
 		// Check our current position is valid
 		err := validateRelPiF(pif)
@@ -87,7 +87,7 @@ func checkPlanRelative(
 	if err != nil {
 		return err
 	}
-	
+
 	arcInputs, ok := plan.Trajectory()[wayPointIdx][checkFrame.Name()]
 	if !ok {
 		return errors.New("given checkFrame had no inputs in trajectory map at current index")
@@ -119,11 +119,11 @@ func checkPlanRelative(
 	if err != nil {
 		return err
 	}
-	planEndPiF, ok := plan.Path()[len(plan.Path()) - 1][checkFrame.Name()]
+	planEndPiF, ok := plan.Path()[len(plan.Path())-1][checkFrame.Name()]
 	if !ok {
 		return errors.New("check frame given not in plan Path map")
 	}
-	planEndPoseWorld, err := toWorld(planEndPiF, plan.Trajectory()[len(plan.Path()) - 1])
+	planEndPoseWorld, err := toWorld(planEndPiF, plan.Trajectory()[len(plan.Path())-1])
 	if err != nil {
 		return err
 	}
@@ -175,8 +175,8 @@ func checkPlanRelative(
 			return err
 		}
 		thisArcEndPose := spatialmath.Compose(thisArcEndPoseInWorld.Pose(), errorState)
-		//~ fmt.Println(plan.Trajectory())
-		//~ fmt.Println("i", plan.Trajectory()[i])
+		// ~ fmt.Println(plan.Trajectory())
+		// ~ fmt.Println("i", plan.Trajectory()[i])
 		// Starting inputs for relative frames should be all-zero
 		startInputs := map[string][]referenceframe.Input{}
 		for k, v := range plan.Trajectory()[i] {
@@ -199,13 +199,13 @@ func checkPlanRelative(
 	// able to call CheckStateConstraintsAcrossSegment directly.
 	var totalTravelDistanceMM float64
 	for _, segment := range segments {
-		//~ fmt.Println("interping", segment)
+		// ~ fmt.Println("interping", segment)
 		interpolatedConfigurations, err := interpolateSegment(segment, sfPlanner.planOpts.Resolution)
 		if err != nil {
 			return err
 		}
 		for _, interpConfig := range interpolatedConfigurations {
-			//~ fmt.Println("interpconfig", interpConfig)
+			// ~ fmt.Println("interpconfig", interpConfig)
 			poseInPath, err := sf.Transform(interpConfig)
 			if err != nil {
 				return err
@@ -241,7 +241,6 @@ func checkPlanRelative(
 	return nil
 }
 
-
 func checkPlanAbsolute(
 	checkFrame referenceframe.Frame, // TODO(RSDK-7421): remove this
 	executionState ExecutionState,
@@ -256,7 +255,7 @@ func checkPlanAbsolute(
 	currentInputs := executionState.CurrentInputs()
 	currentPoseIF := executionState.CurrentPoses()[checkFrame.Name()]
 	wayPointIdx := executionState.Index()
-	
+
 	checkFramePiF := referenceframe.NewPoseInFrame(checkFrame.Name(), spatialmath.NewZeroPose())
 	expectedPoseTf, err := fs.Transform(currentInputs, checkFramePiF, currentPoseIF.Parent())
 	if err != nil {
@@ -296,7 +295,6 @@ func checkPlanAbsolute(
 
 	// create a list of segments to iterate through
 	segments := make([]*ik.Segment, 0, len(poses)-wayPointIdx)
-
 
 	// iterate through remaining plan and append remaining segments to check
 	for i := wayPointIdx; i < len(offsetPlan.Path())-1; i++ {
@@ -351,9 +349,8 @@ func checkPlanAbsolute(
 	return nil
 }
 
-
-// createSegment is a function to ease segment creation for solver frames
-func createSegment (
+// createSegment is a function to ease segment creation for solver frames.
+func createSegment(
 	sf *solverFrame,
 	currPose, nextPose spatialmath.Pose,
 	currInput, nextInput map[string][]referenceframe.Input,
@@ -371,16 +368,16 @@ func createSegment (
 		return nil, err
 	}
 
-	segment :=  &ik.Segment{
-		StartPosition:      currPose,
-		EndPosition:        nextPose,
-		EndConfiguration:   nextInputSlice,
-		Frame:              sf,
+	segment := &ik.Segment{
+		StartPosition:    currPose,
+		EndPosition:      nextPose,
+		EndConfiguration: nextInputSlice,
+		Frame:            sf,
 	}
-	
+
 	if currInputSlice != nil {
 		segment.StartConfiguration = currInputSlice
 	}
-	
+
 	return segment, nil
 }

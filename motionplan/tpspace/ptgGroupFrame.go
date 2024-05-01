@@ -193,7 +193,6 @@ func (pf *ptgGroupFrame) Transform(inputs []referenceframe.Input) (spatialmath.P
 // If we are interpolating against a hypothetical arc, there is no true "from", so `nil` should be passed instead if coming from somewhere
 // which does not have knowledge of specific inputs.
 func (pf *ptgGroupFrame) Interpolate(from, to []referenceframe.Input, by float64) ([]referenceframe.Input, error) {
-
 	if len(from) != len(pf.DoF()) {
 		return nil, referenceframe.NewIncorrectInputLengthError(len(from), len(pf.DoF()))
 	}
@@ -207,7 +206,7 @@ func (pf *ptgGroupFrame) Interpolate(from, to []referenceframe.Input, by float64
 		if input.Value != 0 {
 			zeroInputFrom = false
 		}
-		
+
 		if !zeroInputFrom {
 			if i == endDistanceAlongTrajectoryIndex {
 				// When interpolating, end distance is the only thing allowed to differ

@@ -442,7 +442,7 @@ func CheckPlan(
 	plan := executionState.Plan()
 	startingInputs := plan.Trajectory()[0]
 	wayPointIdx := executionState.Index()
-	
+
 	// ensure that we can actually perform the check
 	if len(plan.Path()) < 1 {
 		return errors.New("plan must have at least one element")
@@ -468,7 +468,6 @@ func CheckPlan(
 	// The solver frame will have had its PTGs filled in the newPlanManager() call, if applicable.
 	if sfPlanner.useTPspace {
 		return checkPlanRelative(checkFrame, executionState, worldState, fs, lookAheadDistanceMM, sfPlanner)
-	} else {
-		return checkPlanAbsolute(checkFrame, executionState, worldState, fs, lookAheadDistanceMM, sfPlanner)
 	}
+	return checkPlanAbsolute(checkFrame, executionState, worldState, fs, lookAheadDistanceMM, sfPlanner)
 }

@@ -317,7 +317,7 @@ func TestPTGKinematicsWithGeom(t *testing.T) {
 			ptgBase.inputLock.RLock()
 			newPose, err := kb.Kinematics().Transform(ptgBase.currentState.currentInputs)
 			ptgBase.inputLock.RUnlock()
-			
+
 			test.That(t, err, test.ShouldBeNil)
 			newGeoPose := spatialmath.PoseToGeoPose(spatialmath.NewGeoPose(gpOrigin, 0), newPose)
 			return newGeoPose.Location(), 0, nil

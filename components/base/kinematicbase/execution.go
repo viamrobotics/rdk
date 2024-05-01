@@ -258,7 +258,7 @@ func (ptgk *ptgBaseKinematics) trajectoryArcSteps(
 				{curDist},
 			}
 			nextStep.arcSegment.EndConfiguration = stepEndInputs
-			
+
 			arcPose, err := ptgk.Kinematics().Transform(stepEndInputs)
 			if err != nil {
 				return nil, err
@@ -505,7 +505,7 @@ func (ptgk *ptgBaseKinematics) makeCourseCorrectionGoals(
 	return goals
 }
 
-func (ptgk *ptgBaseKinematics) stepsToPlan(steps []arcStep, parentFrame string) (motionplan.Plan, error) {
+func (ptgk *ptgBaseKinematics) stepsToPlan(steps []arcStep, parentFrame string) motionplan.Plan {
 	traj := motionplan.Trajectory{}
 	path := motionplan.Path{}
 	for _, step := range steps {
@@ -514,6 +514,6 @@ func (ptgk *ptgBaseKinematics) stepsToPlan(steps []arcStep, parentFrame string) 
 			ptgk.Kinematics().Name(): referenceframe.NewPoseInFrame(parentFrame, step.arcSegment.EndPosition),
 		})
 	}
-	
-	return motionplan.NewSimplePlan(path, traj), nil
+
+	return motionplan.NewSimplePlan(path, traj)
 }

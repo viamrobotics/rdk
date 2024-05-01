@@ -359,16 +359,21 @@ func (ms *explore) checkForObstacles(
 			planTraj[0][kb.Name().ShortName()] = currentInputs
 			ms.logger.Debugf("Current transient worldState: ", worldState.String())
 
+			executionState := motionplan.NewExecutionState(
+				plan,
+				0,
+				plan.Trajectory()[0],
+				map[string]*referenceframe.PoseInFrame{
+					kb.Kinematics().Name(): referenceframe.NewPoseInFrame(referenceframe.World, currentPose),
+				},
+			)
+
 			// Check plan for transient obstacles
 			err = motionplan.CheckPlan(
 				kb.Kinematics(),
-				plan,
-				0,
+				executionState,
 				worldState,
 				ms.frameSystem,
-				currentPose,
-				plan.Trajectory()[0],
-				spatialmath.NewZeroPose(),
 				lookAheadDistanceMM,
 				ms.logger,
 			)

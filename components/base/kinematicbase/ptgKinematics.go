@@ -40,8 +40,8 @@ type ptgBaseKinematics struct {
 	nonzeroBaseTurningRadiusMeters float64
 
 	// All changeable state of the base is here
-	inputLock            sync.RWMutex
-	currentState         baseState
+	inputLock    sync.RWMutex
+	currentState baseState
 
 	origin     spatialmath.Pose
 	geometries []spatialmath.Geometry
@@ -185,10 +185,7 @@ func (ptgk *ptgBaseKinematics) ExecutionState(ctx context.Context) (motionplan.E
 		return motionplan.ExecutionState{}, err
 	}
 
-	currentPlan, err := ptgk.stepsToPlan(currentExecutingSteps, actualPIF.Parent())
-	if err != nil {
-		return motionplan.ExecutionState{}, err
-	}
+	currentPlan := ptgk.stepsToPlan(currentExecutingSteps, actualPIF.Parent())
 	currState := motionplan.NewExecutionState(
 		currentPlan,
 		currentIdx,
