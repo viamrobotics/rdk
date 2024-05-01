@@ -3,7 +3,6 @@ package referenceframe
 import (
 	"encoding/binary"
 	"encoding/json"
-	"fmt"
 	"math"
 	"math/rand"
 	"strings"
@@ -124,7 +123,6 @@ func (m *SimpleModel) ProtobufFromInput(input []Input) *pb.JointPositions {
 
 // Geometries returns an object representing the 3D space associeted with the staticFrame.
 func (m *SimpleModel) Geometries(inputs []Input) (*GeometriesInFrame, error) {
-	// should I add a check here to just return nothing if we have no geoms?
 	frames, err := m.inputsToFrames(inputs, true)
 	if err != nil && frames == nil {
 		return nil, err
@@ -143,7 +141,6 @@ func (m *SimpleModel) Geometries(inputs []Input) (*GeometriesInFrame, error) {
 			geometries = append(geometries, placedGeom)
 		}
 	}
-	fmt.Println("geometries[0].Label(): ", geometries[0].Label())
 	return NewGeometriesInFrame(m.name, geometries), errAll
 }
 
