@@ -313,11 +313,7 @@ func (mr *moveRequest) getCurrentInputsAndPosition(ctx context.Context) (map[str
 		return nil, nil, err
 	}
 	currentInputs[mr.kinematicBase.Name().ShortName()+"ExecutionFrame"] = referenceframe.FloatsToInputs(
-		[]float64{
-			pif.Pose().Point().X,
-			pif.Pose().Point().Y,
-			pif.Pose().Orientation().OrientationVectorRadians().Theta,
-		},
+		[]float64{pif.Pose().Point().X, pif.Pose().Point().Y, pif.Pose().Orientation().OrientationVectorRadians().Theta},
 	)
 	return currentInputs, pif, nil
 }

@@ -17,6 +17,7 @@ import (
 
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan/ik"
+	"go.viam.com/rdk/referenceframe"
 	frame "go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
 )
@@ -449,10 +450,6 @@ func CheckPlan(
 		return errors.New("plan must have at least one element")
 	}
 
-	fmt.Println("have the following FrameSystem")
-	fmt.Println("fs.FrameNames(): ", fs.FrameNames())
-	fmt.Println("currentInputs: ", currentInputs)
-
 	// construct solverFrame
 	// Note that this requires all frames which move as part of the plan, to have an
 	// entry in the very first plan waypoint
@@ -494,15 +491,7 @@ func CheckPlan(
 	}
 
 	// create a list of segments to iterate through
-	// doesn't this need to also happen for absolute plans??
 	segments := make([]*ik.Segment, 0, len(poses)-wayPointIdx)
-	// current inputs for the execution frame would be [x, y, theta]
-	// current inputs for the planning frame would be [i, alpha, di, df]
-	// want interpolations to be
-	// [x, y, theta, 0, 0, 0, 0],
-	// [x, y, theta, i, alpha, di, di + eplison]
-	// ...
-	// [x, y, thetha, i, alpha, df, df]???
 	if relative {
 		// get checkFrame's currentInputs
 		// *currently* it is guaranteed that a relative frame will constitute 100% of a solver frame's dof
@@ -513,7 +502,7 @@ func CheckPlan(
 
 		// pre-pend to segments so we can connect to the input we have not finished actuating yet
 		segments = append(segments, &ik.Segment{
-			StartPosition:      startPose,
+			StartPosition:      currentPose,
 			EndPosition:        poses[wayPointIdx],
 			StartConfiguration: checkFrameCurrentInputs,
 			EndConfiguration:   checkFrameCurrentInputs,
@@ -526,6 +515,7 @@ func CheckPlan(
 		currPose, nextPose spatialmath.Pose,
 		currInput, nextInput map[string][]frame.Input,
 	) (*ik.Segment, error) {
+		// there will be an issue here since currInputs is not of the correct length
 		currInputSlice, err := sf.mapToSlice(currInput)
 		if err != nil {
 			return nil, err
@@ -550,7 +540,18 @@ func CheckPlan(
 
 	// iterate through remaining plan and append remaining segments to check
 	for i := wayPointIdx; i < len(offsetPlan.Path())-1; i++ {
-		segment, err := createSegment(poses[i], poses[i+1], offsetPlan.Trajectory()[i], offsetPlan.Trajectory()[i+1])
+		// do we want to add a relative special case here or in the anon function
+		currInput := offsetPlan.Trajectory()[i]
+		nextInput := offsetPlan.Trajectory()[i+1]
+		if relative {
+			currInput[checkFrame.Name()+"ExecutionFrame"] = referenceframe.FloatsToInputs(
+				[]float64{poses[i].Point().X, poses[i].Point().Y, poses[i].Orientation().OrientationVectorRadians().Theta},
+			)
+			nextInput[checkFrame.Name()+"ExecutionFrame"] = referenceframe.FloatsToInputs(
+				[]float64{poses[i+1].Point().X, poses[i+1].Point().Y, poses[i+1].Orientation().OrientationVectorRadians().Theta},
+			)
+		}
+		segment, err := createSegment(poses[i], poses[i+1], currInput, nextInput)
 		if err != nil {
 			return err
 		}
@@ -571,7 +572,6 @@ func CheckPlan(
 			if err != nil {
 				return err
 			}
-			fmt.Println("poseInPath: ", spatialmath.PoseToProtobuf(poseInPath))
 
 			// Check if look ahead distance has been reached
 			currentTravelDistanceMM := totalTravelDistanceMM + poseInPath.Point().Distance(segment.StartPosition.Point())

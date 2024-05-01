@@ -2,7 +2,6 @@ package motionplan
 
 import (
 	"errors"
-	"fmt"
 	"strings"
 
 	"go.uber.org/multierr"
@@ -44,8 +43,6 @@ func newSolverFrame(fs frame.FrameSystem, solveFrameName, goalFrameName string, 
 		return nil, err
 	}
 
-	// is the solution that frames which are above the solveFrameName should be not worried about?
-
 	// get solve frame
 	solveFrame := fs.Frame(solveFrameName)
 	if solveFrame == nil {
@@ -54,10 +51,6 @@ func newSolverFrame(fs frame.FrameSystem, solveFrameName, goalFrameName string, 
 	solveFrameList, err := fs.TracebackFrame(solveFrame)
 	if err != nil {
 		return nil, err
-	}
-	fmt.Println("printing solveFrameList", solveFrameList)
-	for _, f := range solveFrameList {
-		fmt.Println("f.Name(): ", f.Name())
 	}
 	if len(solveFrameList) == 0 {
 		return nil, errors.New("solveFrameList was empty")
@@ -86,7 +79,6 @@ func newSolverFrame(fs frame.FrameSystem, solveFrameName, goalFrameName string, 
 	if err != nil {
 		return nil, err
 	}
-	fmt.Println("pivotFrame: ", pivotFrame.Name())
 	if pivotFrame.Name() == frame.World {
 		frames = uniqInPlaceSlice(append(solveFrameList, goalFrameList...))
 		moving, err = movingFS(solveFrameList)
@@ -220,13 +212,19 @@ func (sf *solverFrame) Interpolate(from, to []frame.Input, by float64) ([]frame.
 	}
 	interp := make([]frame.Input, 0, len(to))
 	posIdx := 0
-	for _, frame := range sf.frames {
-		dof := len(frame.DoF()) + posIdx
+	for _, currFrame := range sf.frames {
+		// if we are dealing with the execution frame, no need to interpolate, just return what we got
+		dof := len(currFrame.DoF()) + posIdx
 		fromSubset := from[posIdx:dof]
 		toSubset := to[posIdx:dof]
 		posIdx = dof
-
-		interpSub, err := frame.Interpolate(fromSubset, toSubset, by)
+		var interpSub []frame.Input
+		var err error
+		if strings.Contains(currFrame.Name(), "ExecutionFrame") {
+			interp = append(interp, from...)
+			continue
+		}
+		interpSub, err = currFrame.Interpolate(fromSubset, toSubset, by)
 		if err != nil {
 			return nil, err
 		}
