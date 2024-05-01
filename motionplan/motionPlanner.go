@@ -477,12 +477,13 @@ func CheckPlan(
 	if err != nil {
 		return err
 	}
-
+	plannerSetUpInputs := currentInputs
+	plannerSetUpInputs[checkFrame.Name()] = make([]frame.Input, len(checkFrame.DoF()))
 	// setup the planOpts
 	if sfPlanner.planOpts, err = sfPlanner.plannerSetupFromMoveRequest(
 		currentPose,
 		poses[len(poses)-1],
-		currentInputs,
+		plannerSetUpInputs,
 		worldState,
 		nil, // no pb.Constraints
 		nil, // no plannOpts
