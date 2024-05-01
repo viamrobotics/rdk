@@ -224,7 +224,6 @@ func (pi *piPigpio) StreamTicks(ctx context.Context, interrupts []board.DigitalI
 		}
 	}, func() {
 		for _, i := range interrupts {
-			fmt.Println("removing callbacks")
 			RemoveCallback(i.(*BasicDigitalInterrupt), ch)
 		}
 		pi.activeBackgroundWorkers.Done()
