@@ -1,3 +1,4 @@
+// Package videosource implements various camera models including webcam
 package videosource
 
 import (
