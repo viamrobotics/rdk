@@ -253,7 +253,7 @@ func (fk *fakePTGKinematics) GoToInputs(ctx context.Context, inputSteps ...[]ref
 		var interpolatedConfigurations [][]referenceframe.Input
 		for i := 0; i <= steps; i++ {
 			interp := float64(i) / float64(steps)
-			interpConfig, err := fk.frame.Interpolate(nil, inputs, interp)
+			interpConfig, err := fk.frame.Interpolate(zeroInput, inputs, interp)
 			if err != nil {
 				return err
 			}

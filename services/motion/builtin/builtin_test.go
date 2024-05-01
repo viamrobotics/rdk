@@ -1340,19 +1340,22 @@ func TestMoveOnMapStaticObs(t *testing.T) {
 			}, nil,
 		)
 		test.That(t, err, test.ShouldBeNil)
-
-		err = motionplan.CheckPlan(
-			mr.planRequest.Frame,
+		executionState := motionplan.NewExecutionState(
 			plan,
 			1,
+			referenceframe.StartPositions(mr.planRequest.FrameSystem),
+			map[string]*referenceframe.PoseInFrame{
+				mr.planRequest.Frame.Name(): referenceframe.NewPoseInFrame(referenceframe.World, spatialmath.NewPose(
+					r3.Vector{X: 0.58772e3, Y: -0.80826e3, Z: 0},
+					&spatialmath.OrientationVectorDegrees{OZ: 1, Theta: 0},
+				)),
+			},
+		)
+		err = motionplan.CheckPlan(
+			mr.planRequest.Frame,
+			executionState,
 			wrldSt,
 			mr.planRequest.FrameSystem,
-			spatialmath.NewPose(
-				r3.Vector{X: 0.58772e3, Y: -0.80826e3, Z: 0},
-				&spatialmath.OrientationVectorDegrees{OZ: 1, Theta: 0},
-			),
-			referenceframe.StartPositions(mr.planRequest.FrameSystem),
-			spatialmath.NewZeroPose(),
 			lookAheadDistanceMM,
 			logger,
 		)

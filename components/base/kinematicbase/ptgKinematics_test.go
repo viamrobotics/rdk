@@ -315,28 +315,17 @@ func TestPTGKinematicsWithGeom(t *testing.T) {
 		// To mock this up correctly, we need to alter the inputs here to simulate the base moving without a localizer
 		ms.PositionFunc = func(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
 			ptgBase.inputLock.RLock()
-			execInputs := []referenceframe.Input{
-				ptgBase.currentState.currentInputs[0],
-				ptgBase.currentState.currentInputs[1],
-				{0},
-				ptgBase.currentState.currentInputs[2],
-			}
+			newPose, err := kb.Kinematics().Transform(ptgBase.currentState.currentInputs)
 			ptgBase.inputLock.RUnlock()
-			newPose, err := kb.Kinematics().Transform(execInputs)
+			
 			test.That(t, err, test.ShouldBeNil)
 			newGeoPose := spatialmath.PoseToGeoPose(spatialmath.NewGeoPose(gpOrigin, 0), newPose)
 			return newGeoPose.Location(), 0, nil
 		}
 		ms.CompassHeadingFunc = func(ctx context.Context, extra map[string]interface{}) (float64, error) {
 			ptgBase.inputLock.RLock()
-			execInputs := []referenceframe.Input{
-				ptgBase.currentState.currentInputs[0],
-				ptgBase.currentState.currentInputs[1],
-				{0},
-				ptgBase.currentState.currentInputs[2],
-			}
+			newPose, err := kb.Kinematics().Transform(ptgBase.currentState.currentInputs)
 			ptgBase.inputLock.RUnlock()
-			newPose, err := kb.Kinematics().Transform(execInputs)
 			test.That(t, err, test.ShouldBeNil)
 			headingRightHanded := newPose.Orientation().OrientationVectorDegrees().Theta
 			return math.Abs(headingRightHanded) - 360, nil

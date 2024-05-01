@@ -283,11 +283,19 @@ func TestPtgCheckPlan(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	startPose := spatialmath.NewPoseFromPoint(r3.Vector{0, 0, 0})
-	errorState := startPose
 	inputs := plan.Trajectory()[0]
 
 	t.Run("base case - validate plan without obstacles", func(t *testing.T) {
-		err := CheckPlan(ackermanFrame, plan, 0, nil, fs, startPose, inputs, errorState, math.Inf(1), logger)
+		
+		executionState := ExecutionState{
+			plan: plan,
+			index: 0,
+			inputs: inputs,
+			currentPose: map[string]*referenceframe.PoseInFrame{
+				ackermanFrame.Name(): referenceframe.NewPoseInFrame(referenceframe.World, startPose),
+			},
+		}
+		err = CheckPlan(ackermanFrame, executionState, nil, fs, math.Inf(1), logger)
 		test.That(t, err, test.ShouldBeNil)
 	})
 
@@ -301,7 +309,15 @@ func TestPtgCheckPlan(t *testing.T) {
 		worldState, err := referenceframe.NewWorldState(gifs, nil)
 		test.That(t, err, test.ShouldBeNil)
 
-		err = CheckPlan(ackermanFrame, plan, 0, worldState, fs, startPose, inputs, errorState, math.Inf(1), logger)
+		executionState := ExecutionState{
+			plan: plan,
+			index: 0,
+			inputs: inputs,
+			currentPose: map[string]*referenceframe.PoseInFrame{
+				ackermanFrame.Name(): referenceframe.NewPoseInFrame(referenceframe.World, startPose),
+			},
+		}
+		err = CheckPlan(ackermanFrame, executionState, worldState, fs, math.Inf(1), logger)
 		test.That(t, err, test.ShouldNotBeNil)
 	})
 
@@ -337,8 +353,15 @@ func TestPtgCheckPlan(t *testing.T) {
 
 		worldState, err := referenceframe.NewWorldState(gifs, nil)
 		test.That(t, err, test.ShouldBeNil)
-
-		err = CheckPlan(ackermanFrame, plan, 1, worldState, fs, startPose, inputs, errorState, math.Inf(1), logger)
+		executionState := ExecutionState{
+			plan: plan,
+			index: 1,
+			inputs: inputs,
+			currentPose: map[string]*referenceframe.PoseInFrame{
+				ackermanFrame.Name(): referenceframe.NewPoseInFrame(referenceframe.World, startPose),
+			},
+		}
+		err = CheckPlan(ackermanFrame, executionState, worldState, fs, math.Inf(1), logger)
 		test.That(t, err, test.ShouldBeNil)
 	})
 	t.Run("obstacles NOT in world frame cause collision - integration test", func(t *testing.T) {
@@ -353,7 +376,15 @@ func TestPtgCheckPlan(t *testing.T) {
 		worldState, err := referenceframe.NewWorldState(gifs, nil)
 		test.That(t, err, test.ShouldBeNil)
 
-		err = CheckPlan(ackermanFrame, plan, 1, worldState, fs, startPose, inputs, errorState, math.Inf(1), logger)
+		executionState := ExecutionState{
+			plan: plan,
+			index: 1,
+			inputs: inputs,
+			currentPose: map[string]*referenceframe.PoseInFrame{
+				ackermanFrame.Name(): referenceframe.NewPoseInFrame(referenceframe.World, startPose),
+			},
+		}
+		err = CheckPlan(ackermanFrame, executionState, worldState, fs, math.Inf(1), logger)
 		test.That(t, err, test.ShouldNotBeNil)
 	})
 	t.Run("checking from partial-plan, ensure success with obstacles - integration test", func(t *testing.T) {
@@ -376,7 +407,15 @@ func TestPtgCheckPlan(t *testing.T) {
 
 		startPose := spatialmath.NewPose(vector, ov)
 
-		err = CheckPlan(ackermanFrame, plan, 2, worldState, fs, startPose, inputs, errorState, math.Inf(1), logger)
+		executionState := ExecutionState{
+			plan: plan,
+			index: 2,
+			inputs: inputs,
+			currentPose: map[string]*referenceframe.PoseInFrame{
+				ackermanFrame.Name(): referenceframe.NewPoseInFrame(referenceframe.World, startPose),
+			},
+		}
+		err = CheckPlan(ackermanFrame, executionState, worldState, fs, math.Inf(1), logger)
 		test.That(t, err, test.ShouldBeNil)
 	})
 	t.Run("verify partial plan with non-nil errorState and obstacle", func(t *testing.T) {
@@ -393,9 +432,16 @@ func TestPtgCheckPlan(t *testing.T) {
 
 		pathPose := remainingPlan.Path()[0][ackermanFrame.Name()].Pose()
 		startPose := spatialmath.NewPose(r3.Vector{0, 1000, 0}, pathPose.Orientation())
-		errorState := spatialmath.PoseDelta(pathPose, startPose)
 
-		err = CheckPlan(ackermanFrame, plan, 2, worldState, fs, startPose, inputs, errorState, math.Inf(1), logger)
+		executionState := ExecutionState{
+			plan: plan,
+			index: 2,
+			inputs: inputs,
+			currentPose: map[string]*referenceframe.PoseInFrame{
+				ackermanFrame.Name(): referenceframe.NewPoseInFrame(referenceframe.World, startPose),
+			},
+		}
+		err = CheckPlan(ackermanFrame, executionState, worldState, fs, math.Inf(1), logger)
 		test.That(t, err, test.ShouldBeNil)
 	})
 }

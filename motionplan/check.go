@@ -175,10 +175,22 @@ func checkPlanRelative(
 			return err
 		}
 		thisArcEndPose := spatialmath.Compose(thisArcEndPoseInWorld.Pose(), errorState)
-		segment, err := createSegment(sf, lastArcEndPose, thisArcEndPose, nil, plan.Trajectory()[i])
+		//~ fmt.Println(plan.Trajectory())
+		//~ fmt.Println("i", plan.Trajectory()[i])
+		// Starting inputs for relative frames should be all-zero
+		startInputs := map[string][]referenceframe.Input{}
+		for k, v := range plan.Trajectory()[i] {
+			if k == checkFrame.Name() {
+				startInputs[k] = make([]referenceframe.Input, len(checkFrame.DoF()))
+			} else {
+				startInputs[k] = v
+			}
+		}
+		segment, err := createSegment(sf, lastArcEndPose, thisArcEndPose, startInputs, plan.Trajectory()[i])
 		if err != nil {
 			return err
 		}
+		lastArcEndPose = thisArcEndPose
 		segments = append(segments, segment)
 	}
 
@@ -187,11 +199,13 @@ func checkPlanRelative(
 	// able to call CheckStateConstraintsAcrossSegment directly.
 	var totalTravelDistanceMM float64
 	for _, segment := range segments {
+		//~ fmt.Println("interping", segment)
 		interpolatedConfigurations, err := interpolateSegment(segment, sfPlanner.planOpts.Resolution)
 		if err != nil {
 			return err
 		}
 		for _, interpConfig := range interpolatedConfigurations {
+			//~ fmt.Println("interpconfig", interpConfig)
 			poseInPath, err := sf.Transform(interpConfig)
 			if err != nil {
 				return err
@@ -344,20 +358,29 @@ func createSegment (
 	currPose, nextPose spatialmath.Pose,
 	currInput, nextInput map[string][]referenceframe.Input,
 ) (*ik.Segment, error) {
-	currInputSlice, err := sf.mapToSlice(currInput)
-	if err != nil {
-		return nil, err
+	var currInputSlice, nextInputSlice []referenceframe.Input
+	var err error
+	if currInput != nil {
+		currInputSlice, err = sf.mapToSlice(currInput)
+		if err != nil {
+			return nil, err
+		}
 	}
-	nextInputSlice, err := sf.mapToSlice(nextInput)
+	nextInputSlice, err = sf.mapToSlice(nextInput)
 	if err != nil {
 		return nil, err
 	}
 
-	return &ik.Segment{
+	segment :=  &ik.Segment{
 		StartPosition:      currPose,
 		EndPosition:        nextPose,
-		StartConfiguration: currInputSlice,
 		EndConfiguration:   nextInputSlice,
 		Frame:              sf,
-	}, nil
+	}
+	
+	if currInputSlice != nil {
+		segment.StartConfiguration = currInputSlice
+	}
+	
+	return segment, nil
 }

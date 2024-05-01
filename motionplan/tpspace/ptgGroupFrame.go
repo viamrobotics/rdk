@@ -193,36 +193,42 @@ func (pf *ptgGroupFrame) Transform(inputs []referenceframe.Input) (spatialmath.P
 // If we are interpolating against a hypothetical arc, there is no true "from", so `nil` should be passed instead if coming from somewhere
 // which does not have knowledge of specific inputs.
 func (pf *ptgGroupFrame) Interpolate(from, to []referenceframe.Input, by float64) ([]referenceframe.Input, error) {
-	if from == nil {
-		from = []referenceframe.Input{
-			to[ptgIndex],
-			to[trajectoryAlphaWithinPTG],
-			to[startDistanceAlongTrajectoryIndex],
-			to[startDistanceAlongTrajectoryIndex],
-		}
-	}
+
 	if len(from) != len(pf.DoF()) {
 		return nil, referenceframe.NewIncorrectInputLengthError(len(from), len(pf.DoF()))
 	}
 	if len(to) != len(pf.DoF()) {
 		return nil, referenceframe.NewIncorrectInputLengthError(len(to), len(pf.DoF()))
 	}
+	// There are two different valid interpretations of `from`. Either it can be an all-zero input, in which case we interpolate across `to`
+	// or it can match `to` in every value except the end distance index, as described above.
+	zeroInputFrom := true
 	for i, input := range from {
-		if i == endDistanceAlongTrajectoryIndex {
-			// When interpolating, end distance is the only thing allowed to differ
-			break
+		if input.Value != 0 {
+			zeroInputFrom = false
 		}
-		if input.Value != to[i].Value {
-			return nil, NewNonMatchingInputError(from[i].Value, to[i].Value)
+		
+		if !zeroInputFrom {
+			if i == endDistanceAlongTrajectoryIndex {
+				// When interpolating, end distance is the only thing allowed to differ
+				break
+			}
+			if input.Value != to[i].Value {
+				return nil, NewNonMatchingInputError(from[i].Value, to[i].Value)
+			}
 		}
 	}
+	startVal := from[endDistanceAlongTrajectoryIndex].Value
+	if zeroInputFrom {
+		startVal = to[startDistanceAlongTrajectoryIndex].Value
+	}
 
-	changeVal := (to[endDistanceAlongTrajectoryIndex].Value - from[endDistanceAlongTrajectoryIndex].Value) * by
+	changeVal := (to[endDistanceAlongTrajectoryIndex].Value - startVal) * by
 	return []referenceframe.Input{
 		to[ptgIndex],
 		to[trajectoryAlphaWithinPTG],
-		from[endDistanceAlongTrajectoryIndex],
-		{from[endDistanceAlongTrajectoryIndex].Value + changeVal},
+		{startVal},
+		{startVal + changeVal},
 	}, nil
 }
 
