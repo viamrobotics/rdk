@@ -259,11 +259,17 @@ func (mr *moveRequest) obstaclesIntersectPlan(
 				return state.ExecuteResponse{}, err
 			}
 
-			// build representation of frame system's inputs and get the current position of the base
+			// build representation of frame system's inputs
 			inputMap, currentPosition, err := mr.getCurrentInputsAndPosition(ctx)
 			if err != nil {
 				return state.ExecuteResponse{}, err
 			}
+			// update inputs for the kinematic bases' planning frame
+			planningFrameCurrentInputs, err := mr.kinematicBase.CurrentInputs(ctx)
+			if err != nil {
+				return state.ExecuteResponse{}, err
+			}
+			inputMap[mr.kinematicBase.Name().ShortName()] = planningFrameCurrentInputs
 
 			// get the pose difference between where the robot is versus where it ought to be.
 			errorState, err := mr.kinematicBase.ErrorState(ctx)
