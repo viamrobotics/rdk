@@ -231,7 +231,6 @@ func (pf *ptgGroupFrame) Geometries(inputs []referenceframe.Input) (*referencefr
 	for _, geom := range pf.geometries {
 		geoms = append(geoms, geom.Transform(transformedPose))
 	}
-	fmt.Println("geoms[0].Label(): ", geoms[0].Label())
 	return referenceframe.NewGeometriesInFrame(pf.name, geoms), nil
 }
 
