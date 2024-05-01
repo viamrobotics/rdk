@@ -540,7 +540,6 @@ func CheckPlan(
 
 	// iterate through remaining plan and append remaining segments to check
 	for i := wayPointIdx; i < len(offsetPlan.Path())-1; i++ {
-		// do we want to add a relative special case here or in the anon function
 		currInput := offsetPlan.Trajectory()[i]
 		nextInput := offsetPlan.Trajectory()[i+1]
 		if relative {
@@ -572,27 +571,15 @@ func CheckPlan(
 			if err != nil {
 				return err
 			}
-
 			// Check if look ahead distance has been reached
 			currentTravelDistanceMM := totalTravelDistanceMM + poseInPath.Point().Distance(segment.StartPosition.Point())
 			if currentTravelDistanceMM > lookAheadDistanceMM {
 				return nil
 			}
 
-			// Add new comment here
+			// define State which only houses inputs, pose information not needed
 			interpolatedState := &ik.State{Frame: sf}
-			if relative {
-				// I AM PRETTY SURE THAT ORDER MATTERS HERE IN TERMS OF STUFF?
-				interpolatedState.Configuration = []frame.Input{
-					{Value: segment.StartPosition.Point().X},
-					{Value: segment.StartPosition.Point().Y},
-					{Value: segment.StartPosition.Orientation().OrientationVectorDegrees().Theta},
-					interpConfig[0], interpConfig[1], interpConfig[2],
-				}
-			} else {
-				interpolatedState.Configuration = interpConfig
-			}
-			fmt.Println("interpolatedState: ", interpolatedState)
+			interpolatedState.Configuration = interpConfig
 
 			// Checks for collision along the interpolated route and returns a the first interpolated pose where a collision is detected.
 			if isValid, err := sfPlanner.planOpts.CheckStateConstraints(interpolatedState); !isValid {
