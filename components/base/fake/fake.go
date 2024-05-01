@@ -3,7 +3,6 @@ package fake
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/golang/geo/r3"
 
@@ -51,7 +50,6 @@ func NewBase(_ context.Context, _ resource.Dependencies, conf resource.Config, l
 		if err != nil {
 			return nil, err
 		}
-		fmt.Println("geometry.Label(): ", geometry.Label())
 		b.Geometry = []spatialmath.Geometry{geometry}
 	}
 	b.WidthMeters = defaultWidthMm * 0.001
