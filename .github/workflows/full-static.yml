@@ -111,4 +111,7 @@ jobs:
       run: |
         for arch in ${{ env.GOARCHES }}; do
           echo "- $arch https://storage.googleapis.com/${{ env.BUCKET }}/viam-server-${{ inputs.channel }}-static-$arch" >> $GITHUB_STEP_SUMMARY
+          if [ ${{ inputs.version }} ]; then
+            echo "- $arch https://storage.googleapis.com/${{ env.BUCKET }}/viam-server-${{ inputs.channel }}-${{ inputs.version }}-static-$arch" >> $GITHUB_STEP_SUMMARY
+          fi
         done
