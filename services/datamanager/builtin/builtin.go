@@ -56,9 +56,12 @@ const defaultCaptureBufferSize = 4096
 const defaultFileLastModifiedMillis = 10000.0
 
 // Default time between disk size checks.
-const filesystemPollInterval = 30 * time.Second
+var filesystemPollInterval = 30 * time.Second
 
-var clock = clk.New()
+var (
+	clock          = clk.New()
+	deletionTicker = clk.New()
+)
 
 var errCaptureDirectoryConfigurationDisabled = errors.New("changing the capture directory is prohibited in this environment")
 
@@ -646,7 +649,7 @@ func (svc *builtIn) sync() {
 	}
 }
 
-//nolint
+// nolint
 func getAllFilesToSync(dir string, lastModifiedMillis int) []string {
 	var filePaths []string
 	_ = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
@@ -715,7 +718,8 @@ func generateMetadataKey(component, method string) string {
 }
 
 func pollFilesystem(ctx context.Context, wg *sync.WaitGroup, captureDir string, syncer datasync.Manager, logger logging.Logger) {
-	t := time.NewTicker(filesystemPollInterval)
+	// t := time.NewTicker(filesystemPollInterval)
+	t := deletionTicker.Ticker(filesystemPollInterval)
 	defer t.Stop()
 	defer wg.Done()
 	for {
@@ -729,7 +733,7 @@ func pollFilesystem(ctx context.Context, wg *sync.WaitGroup, captureDir string, 
 		case <-ctx.Done():
 			return
 		case <-t.C:
-			logger.Debug("Polling")
+			logger.Info("Polling")
 			shouldDelete, err := shouldDeleteBasedOnDiskUsage(ctx, captureDir, logger)
 			if err != nil {
 				logger.Errorw("Error checking file system stats", "error", err)
@@ -741,7 +745,7 @@ func pollFilesystem(ctx context.Context, wg *sync.WaitGroup, captureDir string, 
 				if err != nil {
 					logger.Errorw("Error deleting cached datacapture files", "error", err, "execution time", duration.Seconds())
 				} else {
-					logger.Infof("%v files have been deleted to avoid the disk filling up", deletedFileCount, "execution time", duration.Seconds())
+					logger.Infof("%v files have been deleted to avoid the disk filling up, execution time: %f", deletedFileCount, duration.Seconds())
 				}
 			}
 		}

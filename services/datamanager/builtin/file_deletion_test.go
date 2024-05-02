@@ -2,57 +2,72 @@ package builtin
 
 import (
 	"context"
-	"crypto/rand"
-	"encoding/hex"
 	"fmt"
 	"math"
 	"os"
 	"sync/atomic"
 	"testing"
+	"time"
 
+	clk "github.com/benbjohnson/clock"
+	"github.com/golang/geo/r3"
 	v1 "go.viam.com/api/app/datasync/v1"
+	pb "go.viam.com/api/component/arm/v1"
 	"go.viam.com/test"
 
+	"go.viam.com/rdk/components/arm"
+	"go.viam.com/rdk/components/gantry"
+	"go.viam.com/rdk/internal/cloud"
+	cloudinject "go.viam.com/rdk/internal/testutils/inject"
 	"go.viam.com/rdk/logging"
+	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/robot"
+	"go.viam.com/rdk/services/datamanager"
 	"go.viam.com/rdk/services/datamanager/datasync"
+	"go.viam.com/rdk/services/datamanager/internal"
+	"go.viam.com/rdk/spatialmath"
+	"go.viam.com/rdk/testutils/inject"
 )
+
+const numFiles = 10
+const enabledTabularManyCollectorsConfigPath = "services/datamanager/data/fake_robot_with_many_collectors_data_manager.json"
 
 func TestFileDeletionUsageCheck(t *testing.T) {
 	tests := []struct {
-		name                 string
-		expectedFsCheckValue bool
-		testThreshold        float64
-		testCaptureDirRatio  float64
-		captureDirExists     bool
+		name              string
+		deletionExpected  bool
+		triggerThreshold  float64
+		captureUsageRatio float64
+		captureDirExists  bool
 	}{
 		{
-			name:                 "if not at file system capacity threshold, we should return false from deletion check",
-			expectedFsCheckValue: false,
-			testThreshold:        .99,
-			testCaptureDirRatio:  .99,
-			captureDirExists:     true,
+			name:              "we should return false from deletion check if not at file system capacity threshold",
+			deletionExpected:  false,
+			triggerThreshold:  .99,
+			captureUsageRatio: .99,
+			captureDirExists:  true,
 		},
 		{
-			name:                 "if at file system capacity threshold, we return true from deletion check",
-			expectedFsCheckValue: true,
-			testThreshold:        math.SmallestNonzeroFloat64,
-			testCaptureDirRatio:  math.SmallestNonzeroFloat64,
-			captureDirExists:     true,
+			name:              "we return true from deletion check if at file system capacity threshold",
+			deletionExpected:  true,
+			triggerThreshold:  math.SmallestNonzeroFloat64,
+			captureUsageRatio: math.SmallestNonzeroFloat64,
+			captureDirExists:  true,
 		},
 		{
-			name: "if at file system capacity threshold but not capture dir threshold," +
-				"we return false from deletion check",
-			expectedFsCheckValue: false,
-			testThreshold:        math.SmallestNonzeroFloat64,
-			testCaptureDirRatio:  1.0,
-			captureDirExists:     true,
+			name: "we return false from deletion check" +
+				"if at file system capacity threshold but not capture dir threshold",
+			deletionExpected:  false,
+			triggerThreshold:  math.SmallestNonzeroFloat64,
+			captureUsageRatio: 1.0,
+			captureDirExists:  true,
 		},
 		{
-			name:                 "if capture dir does not exist, we should return false from deletion check",
-			expectedFsCheckValue: false,
-			testThreshold:        .95,
-			testCaptureDirRatio:  .5,
-			captureDirExists:     false,
+			name:              "we should return false from deletion check if capture dir does not exist",
+			deletionExpected:  false,
+			triggerThreshold:  .95,
+			captureUsageRatio: .5,
+			captureDirExists:  false,
 		},
 	}
 
@@ -61,60 +76,53 @@ func TestFileDeletionUsageCheck(t *testing.T) {
 			var tempCaptureDir string
 			if tc.captureDirExists {
 				tempCaptureDir = t.TempDir()
-				// overwrite thresholds
-				fsThresholdToTriggerDeletion = tc.testThreshold
-				captureDirToFSUsageRatio = tc.testCaptureDirRatio
 				// write testing files
-				writeFiles(t, tempCaptureDir, false)
-			} else {
-				// make a random dir name to make sure it doesn't exist
-				randomName := make([]byte, 4)
-				_, err := rand.Read(randomName)
-				test.That(t, err, test.ShouldBeNil)
-				tempCaptureDir = hex.EncodeToString(randomName)
+				writeFiles(t, tempCaptureDir, 0)
 			}
-
+			// overwrite thresholds
+			fsThresholdToTriggerDeletion = tc.triggerThreshold
+			captureDirToFSUsageRatio = tc.captureUsageRatio
 			logger := logging.NewTestLogger(t)
 			willDelete, err := shouldDeleteBasedOnDiskUsage(context.Background(), tempCaptureDir, logger)
 			test.That(t, err, test.ShouldBeNil)
-			test.That(t, willDelete, test.ShouldEqual, tc.expectedFsCheckValue)
+			test.That(t, willDelete, test.ShouldEqual, tc.deletionExpected)
 		})
 	}
 }
 
 func TestFileDeletion(t *testing.T) {
 	tests := []struct {
-		name                      string
-		syncEnabled               bool
-		markAllInProgress         bool
-		markToBeDeletedInProgress bool
-		writeProgFiles            bool
-		shouldCancelContext       bool
-		expectedDeletedCount      int
+		name                 string
+		syncEnabled          bool
+		shouldCancelContext  bool
+		expectedDeletedCount int
+		numDotProgFiles      int
+		numDotCaptureFiles   int
+		numInProgressFiles   int
 	}{
 		{
-			name:                 "deletion with sync disabled should delete every 4th file",
+			name:                 "if sync disabled, file deleter should delete every 4th file",
 			expectedDeletedCount: 3,
 		},
 		{
-			name:                 "deletion with sync enabled and all files marked as in progress should not delete any files",
+			name:                 "if sync enabled and all files marked as in progress, file deleter should not delete any files",
 			syncEnabled:          true,
-			markAllInProgress:    true,
+			numInProgressFiles:   numFiles,
 			expectedDeletedCount: 0,
 		},
 		{
-			name:                      "deletion with sync enabled and a single file marked as inprogress should result in a lower deletion count",
-			syncEnabled:               true,
-			markToBeDeletedInProgress: true,
-			expectedDeletedCount:      2,
+			name:                 "if sync enabled and some files marked as inprogress, file deleter should delete less files",
+			syncEnabled:          true,
+			numInProgressFiles:   3,
+			expectedDeletedCount: 2,
 		},
 		{
-			name:                 "deletion with sync disabled and files still being written to should not delete any files",
-			writeProgFiles:       true,
+			name:                 "if sync disabled and files are still being written to, file deleter should not delete any files",
+			numDotProgFiles:      numFiles,
 			expectedDeletedCount: 0,
 		},
 		{
-			name:                "deletion with a cancelled context should return an error",
+			name:                "if cancelled context is cancelled, file deleter should return an error",
 			shouldCancelContext: true,
 		},
 	}
@@ -137,19 +145,12 @@ func TestFileDeletion(t *testing.T) {
 				defer syncer.Close()
 			}
 
-			files := writeFiles(t, tempCaptureDir, tc.writeProgFiles)
+			files := writeFiles(t, tempCaptureDir, tc.numDotProgFiles)
 			for i, file := range files {
 				if syncer != nil {
-					if tc.markAllInProgress {
-						ret := syncer.MarkInProgress(file)
-						test.That(t, ret, test.ShouldBeTrue)
-						// we mark the first 4 files of the 10 as in progress to make sure
-						// deleted is less than it would be if none were deleted
-					} else if tc.markToBeDeletedInProgress && i < 4 {
-						ret := syncer.MarkInProgress(file)
-						test.That(t, ret, test.ShouldBeTrue)
+					if i < tc.numInProgressFiles {
+						syncer.MarkInProgress(file)
 					}
-
 				}
 			}
 
@@ -169,13 +170,13 @@ func TestFileDeletion(t *testing.T) {
 	}
 }
 
-func writeFiles(t *testing.T, dir string, writeFilesAsUnfinished bool) []string {
+func writeFiles(t *testing.T, dir string, numProgFiles int) []string {
 	t.Helper()
 	filenames := []string{}
 	fileContents := []byte("never gonna let you down")
-	for i := 0; i < 10; i++ {
+	for i := 0; i < numFiles; i++ {
 		var filename string
-		if writeFilesAsUnfinished {
+		if i < numProgFiles {
 			filename = fmt.Sprintf("%s/file_%d.prog", dir, i)
 		} else {
 			filename = fmt.Sprintf("%s/file_%d.capture", dir, i)
@@ -185,4 +186,135 @@ func writeFiles(t *testing.T, dir string, writeFilesAsUnfinished bool) []string 
 		filenames = append(filenames, filename)
 	}
 	return filenames
+}
+
+func TestFilePolling(t *testing.T) {
+	mockClock := clk.NewMock()
+	// Make mockClock the package level clock used by the dmsvc so that we can simulate time's passage
+	clock = mockClock
+	deletionTicker = mockClock
+	filesystemPollInterval = time.Millisecond * 20
+
+	tempDir := t.TempDir()
+	fsThresholdToTriggerDeletion = math.SmallestNonzeroFloat64
+	captureDirToFSUsageRatio = math.SmallestNonzeroFloat64
+
+	// Set up data manager.
+	dmsvc, mockClient := newDMSvc(t, tempDir)
+
+	mockClock.Add(captureInterval)
+	flusher, ok := dmsvc.(*builtIn)
+	test.That(t, ok, test.ShouldBeTrue)
+	// flush and close collectors to ensure we have exactly 4 files
+	flusher.flushCollectors()
+	flusher.closeCollectors()
+
+	waitForCaptureFilesToExceedNFiles(tempDir, 4)
+
+	files := getAllFileInfos(tempDir)
+	test.That(t, len(files), test.ShouldEqual, 4)
+	expectedDeletedFile := files[0]
+
+	mockClock.Add(filesystemPollInterval)
+	newFiles := getAllFileInfos(tempDir)
+	test.That(t, len(newFiles), test.ShouldEqual, 3)
+	test.That(t, newFiles, test.ShouldNotContain, expectedDeletedFile)
+	// advance by time remaining to hit 1 sync interval
+	mockClock.Add(syncInterval - (filesystemPollInterval + captureInterval))
+
+	wait := time.After(time.Second)
+	var requests []*v1.DataCaptureUploadRequest
+	select {
+	case req := <-mockClient.succesfulDCRequests:
+		requests = append(requests, req)
+	case <-wait:
+	}
+
+	close(mockClient.succesfulDCRequests)
+	for dc := range mockClient.succesfulDCRequests {
+		requests = append(requests, dc)
+	}
+
+	test.That(t, len(requests), test.ShouldEqual, 3)
+	err := dmsvc.Close(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+}
+
+func get2ComponentInjectedRobot() *inject.Robot {
+	r := &inject.Robot{}
+	rs := map[resource.Name]resource.Resource{}
+
+	rs[cloud.InternalServiceName] = &cloudinject.CloudConnectionService{
+		Named: cloud.InternalServiceName.AsNamed(),
+	}
+
+	injectedArm := &inject.Arm{}
+	injectedArm.EndPositionFunc = func(ctx context.Context, extra map[string]interface{}) (spatialmath.Pose, error) {
+		return spatialmath.NewPoseFromPoint(r3.Vector{X: 1, Y: 2, Z: 3}), nil
+	}
+	injectedArm.JointPositionsFunc = func(ctx context.Context, extra map[string]interface{}) (*pb.JointPositions, error) {
+		return &pb.JointPositions{
+			Values: []float64{0},
+		}, nil
+	}
+	rs[arm.Named("arm1")] = injectedArm
+
+	injectedGantry := &inject.Gantry{}
+	injectedGantry.PositionFunc = func(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
+		return []float64{0}, nil
+	}
+	injectedGantry.LengthsFunc = func(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
+		return []float64{0}, nil
+	}
+	rs[gantry.Named("gantry1")] = injectedGantry
+
+	r.MockResourcesFromMap(rs)
+	return r
+}
+
+func newTestDataManagerWithMultipleComponents(t *testing.T) (internal.DMService, robot.Robot) {
+	t.Helper()
+	dmCfg := &Config{}
+	cfgService := resource.Config{
+		API:                 datamanager.API,
+		ConvertedAttributes: dmCfg,
+	}
+	logger := logging.NewTestLogger(t)
+
+	// Create local robot with injected arm and remote.
+	r := get2ComponentInjectedRobot()
+
+	resources := resourcesFromDeps(t, r, []string{cloud.InternalServiceName.String()})
+	svc, err := NewBuiltIn(context.Background(), resources, cfgService, logger)
+	if err != nil {
+		t.Log(err)
+		t.FailNow()
+	}
+	return svc.(internal.DMService), r
+}
+
+func newDMSvc(t *testing.T, tempDir string) (internal.DMService, mockDataSyncServiceClient) {
+	dmsvc, r := newTestDataManagerWithMultipleComponents(t)
+	mockClient := mockDataSyncServiceClient{
+		succesfulDCRequests: make(chan *v1.DataCaptureUploadRequest, 100),
+		failedDCRequests:    make(chan *v1.DataCaptureUploadRequest, 100),
+		fail:                &atomic.Bool{},
+	}
+	dmsvc.SetSyncerConstructor(getTestSyncerConstructorMock(mockClient))
+
+	cfg, associations, deps := setupConfig(t, enabledTabularManyCollectorsConfigPath)
+
+	// Set up service config.
+	cfg.CaptureDisabled = false
+	cfg.ScheduledSyncDisabled = false
+	cfg.CaptureDir = tempDir
+	cfg.SyncIntervalMins = syncIntervalMins
+
+	resources := resourcesFromDeps(t, r, deps)
+	err := dmsvc.Reconfigure(context.Background(), resources, resource.Config{
+		ConvertedAttributes:  cfg,
+		AssociatedAttributes: associations,
+	})
+	test.That(t, err, test.ShouldBeNil)
+	return dmsvc, mockClient
 }

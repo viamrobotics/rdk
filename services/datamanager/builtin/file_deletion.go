@@ -61,7 +61,7 @@ func exceedsDeletionThreshold(ctx context.Context, captureDirPath string, fsSize
 				return err
 			}
 			dirSize += fileInfo.Size()
-			if float64(dirSize)/fsSize > captureDirToFSUsageRatio {
+			if float64(dirSize)/fsSize >= captureDirToFSUsageRatio {
 				logger.Warnw("At threshold to delete, going to delete", "usage ratio", float64(dirSize)/fsSize, "threshold", captureDirToFSUsageRatio)
 				return errAtSizeThreshold
 			}
