@@ -18,6 +18,7 @@ import (
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.uber.org/zap"
+
 	// registers all components.
 	commonpb "go.viam.com/api/common/v1"
 	armpb "go.viam.com/api/component/arm/v1"
@@ -2295,7 +2296,17 @@ func TestCheckMaxInstanceSkipRemote(t *testing.T) {
 	ctx := context.Background()
 	logger := logging.NewTestLogger(t)
 
-	r0 := setupLocalRobot(t, ctx, &config.Config{}, logger)
+	r0 := setupLocalRobot(t, ctx, &config.Config{
+		Services: []resource.Config{
+			{
+				Name:                "fake1",
+				Model:               resource.DefaultServiceModel,
+				API:                 datamanager.API,
+				ConvertedAttributes: &builtin.Config{},
+				DependsOn:           []string{internalcloud.InternalServiceName.String()},
+			},
+		},
+	}, logger)
 
 	err := r0.StartWeb(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
@@ -2303,20 +2314,18 @@ func TestCheckMaxInstanceSkipRemote(t *testing.T) {
 	remoteConfig := &config.Config{
 		Services: []resource.Config{
 			{
-				Name:  "fake1",
-				Model: resource.DefaultServiceModel,
-				API:   datamanager.API,
-			},
-			{
-				Name:  "fake2",
-				Model: resource.DefaultServiceModel,
-				API:   datamanager.API,
+				Name:                "fake2",
+				Model:               resource.DefaultServiceModel,
+				API:                 datamanager.API,
+				ConvertedAttributes: &builtin.Config{},
+				DependsOn:           []string{internalcloud.InternalServiceName.String()},
 			},
 		},
 		Remotes: []config.Remote{
 			{
-				Name:    "remote",
-				Address: addr,
+				Name:                      "remote",
+				Address:                   addr,
+				AssociatedResourceConfigs: []resource.AssociatedResourceConfig{},
 			},
 		},
 	}
@@ -2331,7 +2340,7 @@ func TestCheckMaxInstanceSkipRemote(t *testing.T) {
 	}
 	test.That(t, maxInstance, test.ShouldEqual, 2)
 
-	_, err = r.ResourceByName(datamanager.Named("remote:builtin"))
+	_, err = r.ResourceByName(datamanager.Named("fake2"))
 	test.That(t, err, test.ShouldBeNil)
 }
 
