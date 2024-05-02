@@ -358,12 +358,16 @@ type analog struct {
 	pin string
 }
 
-func (a *analog) Read(ctx context.Context, extra map[string]interface{}) (int, error) {
+func (a *analog) Read(ctx context.Context, extra map[string]interface{}) (int, board.AnalogRange, error) {
 	res, err := a.b.doSendReceive(ctx, fmt.Sprintf("adc read %s", a.pin))
 	if err != nil {
-		return 0, err
+		return 0, board.AnalogRange{}, err
 	}
-	return strconv.Atoi(res)
+	reading, err := strconv.Atoi(res)
+	if err != nil {
+		return 0, board.AnalogRange{}, err
+	}
+	return reading, board.AnalogRange{Min: 0, Max: 5, StepSize: 4.88}, nil
 }
 
 func (a *analog) Write(ctx context.Context, value int, extra map[string]interface{}) error {

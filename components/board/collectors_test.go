@@ -47,7 +47,10 @@ func TestCollectors(t *testing.T) {
 			},
 			collector: board.NewAnalogCollector,
 			expected: tu.ToProtoMapIgnoreOmitEmpty(pb.ReadAnalogReaderResponse{
-				Value: 1,
+				Value:    1,
+				MinRange: 0,
+				MaxRange: 10,
+				StepSize: 0.1,
 			}),
 			shouldError: false,
 		},
@@ -96,8 +99,8 @@ func TestCollectors(t *testing.T) {
 func newBoard() board.Board {
 	b := &inject.Board{}
 	analog := &inject.Analog{}
-	analog.ReadFunc = func(ctx context.Context, extra map[string]interface{}) (int, error) {
-		return 1, nil
+	analog.ReadFunc = func(ctx context.Context, extra map[string]interface{}) (int, board.AnalogRange, error) {
+		return 1, board.AnalogRange{Min: 0, Max: 10, StepSize: 0.1}, nil
 	}
 	b.AnalogByNameFunc = func(name string) (board.Analog, error) {
 		return analog, nil

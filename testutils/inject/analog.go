@@ -9,14 +9,14 @@ import (
 // Analog is an injected analog pin.
 type Analog struct {
 	board.Analog
-	ReadFunc  func(ctx context.Context, extra map[string]interface{}) (int, error)
+	ReadFunc  func(ctx context.Context, extra map[string]interface{}) (int, board.AnalogRange, error)
 	readCap   []interface{}
 	WriteFunc func(ctx context.Context, value int, extra map[string]interface{}) error
 	writeCap  []interface{}
 }
 
 // Read calls the injected Read or the real version.
-func (a *Analog) Read(ctx context.Context, extra map[string]interface{}) (int, error) {
+func (a *Analog) Read(ctx context.Context, extra map[string]interface{}) (int, board.AnalogRange, error) {
 	a.readCap = []interface{}{ctx}
 	if a.ReadFunc == nil {
 		return a.Analog.Read(ctx, extra)

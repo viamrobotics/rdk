@@ -57,21 +57,25 @@ func (as *AnalogSmoother) Close(ctx context.Context) error {
 }
 
 // Read returns the smoothed out reading.
-func (as *AnalogSmoother) Read(ctx context.Context, extra map[string]interface{}) (int, error) {
+func (as *AnalogSmoother) Read(ctx context.Context, extra map[string]interface{}) (int, board.AnalogRange, error) {
 	if as.data == nil { // We're using raw data, and not averaging
-		return as.lastData, nil
+		return as.lastData, board.AnalogRange{}, nil
 	}
 
 	avg := as.data.Average()
 	lastErr := as.lastError.Load()
 	if lastErr == nil {
-		return avg, nil
+
+		///TODO: figure out range ??
+		return avg, board.AnalogRange{}, nil
 	}
 	//nolint:forcetypeassert
 	if lastErr.present {
-		return avg, lastErr.err
+		return avg, board.AnalogRange{}, lastErr.err
 	}
-	return avg, nil
+
+	//TODO: range here
+	return avg, board.AnalogRange{}, nil
 }
 
 // Start begins the smoothing routine that reads from the underlying
@@ -111,7 +115,7 @@ func (as *AnalogSmoother) Start() {
 			default:
 			}
 			start := time.Now()
-			reading, err := as.Raw.Read(ctx, nil)
+			reading, _, err := as.Raw.Read(ctx, nil)
 			as.lastError.Store(&errValue{err != nil, err})
 			if err == nil {
 				as.lastData = reading

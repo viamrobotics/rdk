@@ -20,7 +20,7 @@ func CreateStatus(ctx context.Context, b Board) (*pb.Status, error) {
 			if err != nil {
 				return nil, err
 			}
-			val, err := x.Read(ctx, nil)
+			val, _, err := x.Read(ctx, nil)
 			if err != nil {
 				return nil, errors.Wrapf(err, "couldn't read analog (%s)", name)
 			}

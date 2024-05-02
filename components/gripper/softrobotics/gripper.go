@@ -169,7 +169,7 @@ func (g *softGripper) Open(ctx context.Context, extra map[string]interface{}) er
 			return ctx.Err()
 		} // REMOVE
 
-		val, err := g.psi.Read(ctx, nil)
+		val, _, err := g.psi.Read(ctx, nil)
 		if err != nil {
 			return multierr.Combine(err, g.Stop(ctx, extra))
 		}
@@ -204,7 +204,7 @@ func (g *softGripper) Grab(ctx context.Context, extra map[string]interface{}) (b
 			return false, ctx.Err()
 		} // REMOVE
 
-		val, err := g.psi.Read(ctx, nil)
+		val, _, err := g.psi.Read(ctx, nil)
 		if err != nil {
 			return false, multierr.Combine(err, g.Stop(ctx, extra))
 		}

@@ -80,10 +80,16 @@ type Board interface {
 // An Analog represents an analog pin that resides on a board.
 type Analog interface {
 	// Read reads off the current value.
-	Read(ctx context.Context, extra map[string]interface{}) (int, error)
+	Read(ctx context.Context, extra map[string]interface{}) (int, AnalogRange, error)
 
 	// Write writes a value to the analog pin.
 	Write(ctx context.Context, value int, extra map[string]interface{}) error
+}
+
+type AnalogRange struct {
+	Min      float32
+	Max      float32
+	StepSize float32
 }
 
 // FromDependencies is a helper for getting the named board from a collection of

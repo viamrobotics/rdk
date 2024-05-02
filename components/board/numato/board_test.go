@@ -91,21 +91,25 @@ func TestNumato1(t *testing.T) {
 	ar, err := b.AnalogByName("foo")
 	test.That(t, err, test.ShouldBeNil, true)
 
-	res2, err := ar.Read(ctx, nil)
+	res2, analogRange, err := ar.Read(ctx, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, res2, test.ShouldBeLessThan, 100)
+
+	test.That(t, analogRange.Min, test.ShouldEqual, 0)
+	test.That(t, analogRange.Max, test.ShouldEqual, 5)
+	test.That(t, analogRange.StepSize, test.ShouldEqual, 4.88)
 
 	err = zeroPin.Set(context.Background(), true, nil)
 	test.That(t, err, test.ShouldBeNil)
 
-	res2, err = ar.Read(ctx, nil)
+	res2, _, err = ar.Read(ctx, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, res2, test.ShouldBeGreaterThan, 1000)
 
 	err = zeroPin.Set(context.Background(), false, nil)
 	test.That(t, err, test.ShouldBeNil)
 
-	res2, err = ar.Read(ctx, nil)
+	res2, _, err = ar.Read(ctx, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, res2, test.ShouldBeLessThan, 100)
 }

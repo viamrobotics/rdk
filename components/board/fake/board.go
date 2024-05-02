@@ -295,14 +295,18 @@ func (a *Analog) reset(pin string) {
 	a.Mu.Unlock()
 }
 
-func (a *Analog) Read(ctx context.Context, extra map[string]interface{}) (int, error) {
+func (a *Analog) Read(ctx context.Context, extra map[string]interface{}) (int, board.AnalogRange, error) {
 	a.Mu.RLock()
 	defer a.Mu.RUnlock()
 	if a.pin != analogTestPin {
 		a.Value = a.fakeValue
-		a.fakeValue++
+		if a.fakeValue == 1000 {
+			a.fakeValue = 0
+		} else {
+			a.fakeValue++
+		}
 	}
-	return a.Value, nil
+	return a.Value, board.AnalogRange{Min: 0, Max: 1000, StepSize: 1}, nil
 }
 
 func (a *Analog) Write(ctx context.Context, value int, extra map[string]interface{}) error {
