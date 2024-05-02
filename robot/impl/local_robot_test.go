@@ -2056,7 +2056,7 @@ func TestReconnectRemote(t *testing.T) {
 		tb.Helper()
 		test.That(tb, len(robotClient.ResourceNames()), test.ShouldEqual, 5)
 	})
-	test.That(t, len(robot1.ResourceNames()), test.ShouldEqual, 7)
+	test.That(t, len(robot1.ResourceNames()), test.ShouldEqual, 5)
 	_, err = remoteRobotClient.ResourceByName(arm.Named("arm1"))
 	test.That(t, err, test.ShouldBeNil)
 
@@ -2165,12 +2165,12 @@ func TestReconnectRemoteChangeConfig(t *testing.T) {
 	// check if the original arm can't be called anymore
 	test.That(t, <-remoteRobotClient.Changed(), test.ShouldBeTrue)
 	test.That(t, remoteRobotClient.Connected(), test.ShouldBeTrue)
-	test.That(t, len(remoteRobotClient.ResourceNames()), test.ShouldEqual, 4)
+	test.That(t, len(remoteRobotClient.ResourceNames()), test.ShouldEqual, 3)
 	testutils.WaitForAssertion(t, func(tb testing.TB) {
 		tb.Helper()
-		test.That(tb, len(robotClient.ResourceNames()), test.ShouldEqual, 7)
+		test.That(tb, len(robotClient.ResourceNames()), test.ShouldEqual, 5)
 	})
-	test.That(t, len(robot1.ResourceNames()), test.ShouldEqual, 7)
+	test.That(t, len(robot1.ResourceNames()), test.ShouldEqual, 5)
 	_, err = anArm.EndPosition(context.Background(), map[string]interface{}{})
 	test.That(t, err, test.ShouldBeError)
 
@@ -2186,7 +2186,7 @@ func TestReconnectRemoteChangeConfig(t *testing.T) {
 	err = aBase.Stop(ctx, map[string]interface{}{})
 	test.That(t, err, test.ShouldBeNil)
 
-	test.That(t, len(robotClient.ResourceNames()), test.ShouldEqual, 7)
+	test.That(t, len(robotClient.ResourceNames()), test.ShouldEqual, 5)
 }
 
 func TestCheckMaxInstanceValid(t *testing.T) {
