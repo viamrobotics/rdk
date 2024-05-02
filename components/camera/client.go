@@ -567,14 +567,15 @@ func (c *client) Unsubscribe(ctx context.Context, id rtppassthrough.Subscription
 	ctx, span := trace.StartSpan(ctx, "camera::client::Unsubscribe")
 	defer span.End()
 	c.mu.Lock()
-	defer c.mu.Unlock()
 
 	if c.conn.PeerConn() == nil {
+		c.mu.Unlock()
 		return ErrNoPeerConnection
 	}
 
 	_, ok := c.conn.(*rdkgrpc.SharedConn)
 	if !ok {
+		c.mu.Unlock()
 		return ErrNoSharedPeerConnection
 	}
 	c.logger.CInfow(ctx, "Unsubscribe called with", "name", c.Name(), "subID", id.String())
@@ -582,6 +583,7 @@ func (c *client) Unsubscribe(ctx context.Context, id rtppassthrough.Subscription
 	subAndCB, ok := c.subAndCallbackByID[id]
 	if !ok {
 		c.logger.CWarnw(ctx, "Unsubscribe called with unknown subID ", "name", c.Name(), "subID", id.String())
+		c.mu.Unlock()
 		return ErrUnknownStreamSubscriptionID
 	}
 
@@ -589,8 +591,18 @@ func (c *client) Unsubscribe(ctx context.Context, id rtppassthrough.Subscription
 		c.logger.CInfow(ctx, "Unsubscribe calling RemoveStream", "name", c.Name(), "subID", id.String())
 		if _, err := c.streamClient.RemoveStream(ctx, &streampb.RemoveStreamRequest{Name: c.Name().String()}); err != nil {
 			c.logger.CWarnw(ctx, "Unsubscribe RemoveStream returned err", "name", c.Name(), "subID", id.String(), "err", err)
+			c.mu.Unlock()
 			return err
 		}
+
+		delete(c.subAndCallbackByID, id)
+		subAndCB.sub.Close()
+		subAndCB.subCancelFn()
+
+		// unlock so that the OnTrack callback can get the lock if it needs to before the ReadRTP method returns an error
+		// which will close `c.trackClosed`.
+		c.mu.Unlock()
+
 		select {
 		case <-ctx.Done():
 			err := errors.Wrap(ctx.Err(), "track not closed within Unsubscribe provided context. Subscription may be left in broken state")
@@ -602,7 +614,9 @@ func (c *client) Unsubscribe(ctx context.Context, id rtppassthrough.Subscription
 			return err
 		case <-c.trackClosed:
 		}
+		return nil
 	}
+	c.mu.Unlock()
 
 	delete(c.subAndCallbackByID, id)
 	subAndCB.sub.Close()
