@@ -2295,7 +2295,7 @@ func TestCheckMaxInstanceSkipRemote(t *testing.T) {
 	ctx := context.Background()
 	logger := logging.NewTestLogger(t)
 
-	r0 := setupLocalRobot(t, ctx, &config.Config{
+	remoteConfig := setupLocalRobot(t, ctx, &config.Config{
 		Services: []resource.Config{
 			{
 				Name:                "fake1",
@@ -2307,10 +2307,10 @@ func TestCheckMaxInstanceSkipRemote(t *testing.T) {
 		},
 	}, logger)
 
-	err := r0.StartWeb(ctx, options)
+	err := remoteConfig.StartWeb(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
 
-	remoteConfig := &config.Config{
+	otherConfig := &config.Config{
 		Services: []resource.Config{
 			{
 				Name:                "fake2",
@@ -2329,7 +2329,7 @@ func TestCheckMaxInstanceSkipRemote(t *testing.T) {
 		},
 	}
 
-	r := setupLocalRobot(t, ctx, remoteConfig, logger)
+	r := setupLocalRobot(t, ctx, otherConfig, logger)
 
 	maxInstance := 0
 	for _, name := range r.ResourceNames() {
@@ -2339,7 +2339,7 @@ func TestCheckMaxInstanceSkipRemote(t *testing.T) {
 	}
 	test.That(t, maxInstance, test.ShouldEqual, 2)
 
-	_, err = r.ResourceByName(datamanager.Named("fake2"))
+	_, err = r.ResourceByName(datamanager.Named("fake1"))
 	test.That(t, err, test.ShouldBeNil)
 }
 
