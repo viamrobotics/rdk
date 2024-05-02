@@ -11,10 +11,6 @@ import (
 	"go.viam.com/rdk/robot"
 )
 
-// TODO(RSDK-7299): This function duplicates `robotimpltest.LocalRobot` for tests that
-// are in the `robotimpl` package. Importing `robotimpl.LocalRobot` for those tests
-// creates a circular import, and changing those tests to be in the `robotimpl_test`
-// package causes failures because they test private methods.
 func setupLocalRobot(
 	t *testing.T,
 	ctx context.Context,
@@ -23,10 +19,16 @@ func setupLocalRobot(
 ) robot.LocalRobot {
 	t.Helper()
 
-	r, err := New(ctx, cfg, logger)
+	// use a temporary home directory so that it doesn't collide with
+	// the user's/other tests' viam home directory
+	r, err := New(ctx, cfg, logger, WithViamHomeDir(t.TempDir()))
 	test.That(t, err, test.ShouldBeNil)
 	t.Cleanup(func() {
 		test.That(t, r.Close(ctx), test.ShouldBeNil)
+		// Wait for reconfigureWorkers here because localRobot.Close does not.
+		lRobot, ok := r.(*localRobot)
+		test.That(t, ok, test.ShouldBeTrue)
+		lRobot.reconfigureWorkers.Wait()
 	})
 	return r
 }

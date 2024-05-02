@@ -26,6 +26,7 @@ import (
 	"go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
+	rdkutils "go.viam.com/rdk/utils"
 )
 
 var model = resource.DefaultModelFamily.WithModel("numato")
@@ -112,9 +113,9 @@ type numatoBoard struct {
 	lines chan string
 	mu    sync.Mutex
 
-	sent                    map[string]bool
-	sentMu                  sync.Mutex
-	activeBackgroundWorkers sync.WaitGroup
+	sent    map[string]bool
+	sentMu  sync.Mutex
+	workers rdkutils.StoppableWorkers
 }
 
 func (b *numatoBoard) addToSent(msg string) {
@@ -190,7 +191,7 @@ func (b *numatoBoard) doSendReceive(ctx context.Context, msg string) (string, er
 	}
 }
 
-func (b *numatoBoard) readThread() {
+func (b *numatoBoard) readThread(_ context.Context) {
 	debug := true
 
 	in := bufio.NewReader(b.port)
@@ -342,7 +343,7 @@ func (b *numatoBoard) Close(ctx context.Context) error {
 		return err
 	}
 
-	b.activeBackgroundWorkers.Wait()
+	b.workers.Stop()
 
 	for _, analog := range b.analogs {
 		if err := analog.Close(ctx); err != nil {
@@ -409,8 +410,7 @@ func connect(ctx context.Context, name resource.Name, conf *Config, logger loggi
 
 	b.lines = make(chan string)
 
-	b.activeBackgroundWorkers.Add(1)
-	utils.ManagedGo(b.readThread, b.activeBackgroundWorkers.Done)
+	b.workers = rdkutils.NewStoppableWorkers(b.readThread)
 
 	ver, err := b.doSendReceive(ctx, "ver")
 	if err != nil {

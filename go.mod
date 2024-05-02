@@ -66,7 +66,7 @@ require (
 	github.com/muesli/kmeans v0.3.1
 	github.com/nathan-fiscaletti/consolesize-go v0.0.0-20220204101620-317176b6684d
 	github.com/nfnt/resize v0.0.0-20180221191011-83c6a9932646
-	github.com/pion/mediadevices v0.6.2
+	github.com/pion/mediadevices v0.6.4
 	github.com/pion/rtp v1.8.5
 	github.com/pion/webrtc/v3 v3.2.36
 	github.com/rhysd/actionlint v1.6.24
@@ -84,9 +84,9 @@ require (
 	go.uber.org/atomic v1.10.0
 	go.uber.org/multierr v1.11.0
 	go.uber.org/zap v1.24.0
-	go.viam.com/api v0.1.289
+	go.viam.com/api v0.1.293
 	go.viam.com/test v1.1.1-0.20220913152726-5da9916c08a2
-	go.viam.com/utils v0.1.71
+	go.viam.com/utils v0.1.74
 	goji.io v2.0.2+incompatible
 	golang.org/x/image v0.15.0
 	golang.org/x/sys v0.18.0
@@ -96,6 +96,7 @@ require (
 	gonum.org/v1/gonum v0.12.0
 	gonum.org/v1/plot v0.12.0
 	google.golang.org/genproto/googleapis/api v0.0.0-20230711160842-782d3b101e98
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20230711160842-782d3b101e98
 	google.golang.org/grpc v1.58.3
 	google.golang.org/grpc/cmd/protoc-gen-go-grpc v1.2.0
 	google.golang.org/protobuf v1.31.0
@@ -140,7 +141,7 @@ require (
 	github.com/bamiaux/iobit v0.0.0-20170418073505-498159a04883 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/bkielbasa/cyclop v1.2.1 // indirect
-	github.com/blackjack/webcam v0.5.0 // indirect
+	github.com/blackjack/webcam v0.6.1 // indirect
 	github.com/blizzy78/varnamelen v0.8.0 // indirect
 	github.com/bombsimon/wsl/v3 v3.4.0 // indirect
 	github.com/breml/bidichk v0.2.4 // indirect
@@ -375,7 +376,6 @@ require (
 	google.golang.org/api v0.126.0 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
 	google.golang.org/genproto v0.0.0-20230711160842-782d3b101e98 // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20230711160842-782d3b101e98 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
 	gopkg.in/square/go-jose.v2 v2.6.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
