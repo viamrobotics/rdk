@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"io/fs"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -132,7 +133,6 @@ func clearCache(id string) {
 }
 
 func readCertificateDataFromCloudGRPC(ctx context.Context,
-	signalingInsecure bool,
 	cloudConfigFromDisk *Cloud,
 	logger logging.Logger,
 ) (tlsConfig, error) {
@@ -148,14 +148,11 @@ func readCertificateDataFromCloudGRPC(ctx context.Context,
 		// Check cache?
 		return tlsConfig{}, err
 	}
-
-	if !signalingInsecure {
-		if res.TlsCertificate == "" {
-			return tlsConfig{}, errors.New("no TLS certificate yet from cloud; try again later")
-		}
-		if res.TlsPrivateKey == "" {
-			return tlsConfig{}, errors.New("no TLS private key yet from cloud; try again later")
-		}
+	if res.TlsCertificate == "" {
+		return tlsConfig{}, errors.New("no TLS certificate yet from cloud; try again later")
+	}
+	if res.TlsPrivateKey == "" {
+		return tlsConfig{}, errors.New("no TLS private key yet from cloud; try again later")
 	}
 
 	return tlsConfig{
@@ -251,6 +248,7 @@ func readFromCloud(
 		certificate: cfg.Cloud.TLSCertificate,
 		privateKey:  cfg.Cloud.TLSPrivateKey,
 	}
+
 	if !cached {
 		// Try to get TLS information from the cached config (if it exists) even if we
 		// got a new config from the cloud.
@@ -263,19 +261,17 @@ func readFromCloud(
 		checkForNewCert = true
 	}
 
-	if checkForNewCert || tls.certificate == "" || tls.privateKey == "" {
+	// It is expected to have empty certificate and private key if we are using insecure signaling
+	// Use the SignalingInsecure from the Cloud config returned from the app not the initial config.
+	if !cfg.Cloud.SignalingInsecure && (checkForNewCert || tls.certificate == "" || tls.privateKey == "") {
 		logger.Debug("reading tlsCertificate from the cloud")
 
 		ctxWithTimeout, cancel := getTimeoutCtx(ctx, shouldReadFromCache, cloudCfg.ID)
-		// Use the SignalingInsecure from the Cloud config returned from the app not the initial config.
-		certData, err := readCertificateDataFromCloudGRPC(ctxWithTimeout, cfg.Cloud.SignalingInsecure, cloudCfg, logger)
+		certData, err := readCertificateDataFromCloudGRPC(ctxWithTimeout, cloudCfg, logger)
 		if err != nil {
 			cancel()
 			if !errors.As(err, &context.DeadlineExceeded) {
 				return nil, err
-			}
-			if tls.certificate == "" || tls.privateKey == "" {
-				return nil, errors.Wrap(err, "error getting certificate data from cloud; try again later")
 			}
 			logger.Warnw("failed to refresh certificate data; using cached for now", "error", err)
 		} else {
@@ -330,17 +326,21 @@ type tlsConfig struct {
 func (tls *tlsConfig) readFromCache(id string, logger logging.Logger) error {
 	cachedCfg, err := readFromCache(id)
 	switch {
-	case os.IsNotExist(err):
+	case errors.Is(err, fs.ErrNotExist):
 		logger.Warn("No cached config, using cloud TLS config.")
 	case err != nil:
 		return err
 	case cachedCfg.Cloud == nil:
 		logger.Warn("Cached config is not a cloud config, using cloud TLS config.")
 	default:
-		if err := cachedCfg.Cloud.ValidateTLS("cloud"); err != nil {
-			logger.Warn("Detected failure to process the cached config when retrieving TLS config, clearing cache.")
-			clearCache(id)
-			return err
+		// In secure signaling mode, we need to ensure the cache is populated with a valid TLS entry
+		// however, empty TLS creds are allowed when we have insecure signaling
+		if !cachedCfg.Cloud.SignalingInsecure {
+			if err := cachedCfg.Cloud.ValidateTLS("cloud"); err != nil {
+				logger.Warn("Detected failure to process the cached config when retrieving TLS config, clearing cache.")
+				clearCache(id)
+				return err
+			}
 		}
 
 		tls.certificate = cachedCfg.Cloud.TLSCertificate

@@ -170,7 +170,7 @@ func (svc *builtIn) Shell(ctx context.Context, extra map[string]interface{}) (
 			select {
 			case inputData, ok := <-input:
 				if ok {
-					if _, err := f.Write([]byte(inputData)); err != nil {
+					if _, err := f.WriteString(inputData); err != nil {
 						svc.logger.CErrorw(ctx, "error writing data", "error", err)
 						return
 					}
@@ -205,6 +205,47 @@ func (svc *builtIn) Shell(ctx context.Context, extra map[string]interface{}) (
 	})
 
 	return input, oobInput, output, nil
+}
+
+// CopyFilesToMachine places files from the returned FileCopier
+// into the given local destination.
+func (svc *builtIn) CopyFilesToMachine(
+	ctx context.Context,
+	sourceType shell.CopyFilesSourceType,
+	destination string,
+	preserve bool,
+	extra map[string]interface{},
+) (shell.FileCopier, error) {
+	// we make a temporary factory here just because its reusing some code used
+	// elsewhere (like the CLI) that keeps the factory around longer.
+	factory, err := shell.NewLocalFileCopyFactory(destination, preserve, true)
+	if err != nil {
+		return nil, err
+	}
+	return factory.MakeFileCopier(ctx, sourceType)
+}
+
+// CopyFilesFromMachine searches for files locally from the given paths and then
+// copies them into a FileCopier created by the given FileCopyFactory.
+// Note(erd): a future version of this API may prefer to be more iterator based where
+// a shell.CopyFilesSourceType and a new reader type is returned. Right now, it's a tad
+// more tightly coupled for the sake of reducing the number of exposed abstractions.
+func (svc *builtIn) CopyFilesFromMachine(
+	ctx context.Context,
+	paths []string,
+	allowRecursion bool,
+	preserve bool,
+	copyFactory shell.FileCopyFactory,
+	extra map[string]interface{},
+) error {
+	reader, err := shell.NewLocalFileReadCopier(paths, allowRecursion, false, copyFactory)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		utils.UncheckedError(reader.Close(ctx))
+	}()
+	return reader.ReadAll(ctx)
 }
 
 func (svc *builtIn) Close(ctx context.Context) error {

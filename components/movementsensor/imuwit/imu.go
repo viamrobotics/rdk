@@ -88,23 +88,21 @@ func init() {
 type wit struct {
 	resource.Named
 	resource.AlwaysRebuild
-	angularVelocity         spatialmath.AngularVelocity
-	orientation             spatialmath.EulerAngles
-	acceleration            r3.Vector
-	magnetometer            r3.Vector
-	compassheading          float64
-	numBadReadings          uint32
-	err                     movementsensor.LastError
-	hasMagnetometer         bool
-	mu                      sync.Mutex
-	reconfigMu              sync.Mutex
-	port                    io.ReadWriteCloser
-	cancelFunc              func()
-	cancelCtx               context.Context
-	activeBackgroundWorkers sync.WaitGroup
-	logger                  logging.Logger
-	baudRate                uint
-	serialPath              string
+	angularVelocity spatialmath.AngularVelocity
+	orientation     spatialmath.EulerAngles
+	acceleration    r3.Vector
+	magnetometer    r3.Vector
+	compassheading  float64
+	numBadReadings  uint32
+	err             movementsensor.LastError
+	hasMagnetometer bool
+	mu              sync.Mutex
+	reconfigMu      sync.Mutex
+	port            io.ReadWriteCloser
+	workers         rutils.StoppableWorkers
+	logger          logging.Logger
+	baudRate        uint
+	serialPath      string
 }
 
 func (imu *wit) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
@@ -293,16 +291,14 @@ func newWit(
 	}
 
 	portReader := bufio.NewReader(i.port)
-	i.startUpdateLoop(context.Background(), portReader, logger)
+	i.startUpdateLoop(portReader, logger)
 
 	return &i, nil
 }
 
-func (imu *wit) startUpdateLoop(ctx context.Context, portReader *bufio.Reader, logger logging.Logger) {
+func (imu *wit) startUpdateLoop(portReader *bufio.Reader, logger logging.Logger) {
 	imu.hasMagnetometer = false
-	ctx, imu.cancelFunc = context.WithCancel(ctx)
-	imu.activeBackgroundWorkers.Add(1)
-	utils.PanicCapturingGo(func() {
+	imu.workers = rutils.NewStoppableWorkers(func(ctx context.Context) {
 		defer utils.UncheckedErrorFunc(func() error {
 			if imu.port != nil {
 				if err := imu.port.Close(); err != nil {
@@ -313,7 +309,6 @@ func (imu *wit) startUpdateLoop(ctx context.Context, portReader *bufio.Reader, l
 			}
 			return nil
 		})
-		defer imu.activeBackgroundWorkers.Done()
 
 		for {
 			if ctx.Err() != nil {
@@ -411,8 +406,7 @@ func (imu *wit) parseWIT(line string) error {
 // Close shuts down wit and closes imu.port.
 func (imu *wit) Close(ctx context.Context) error {
 	imu.logger.CDebug(ctx, "Closing wit motion imu")
-	imu.cancelFunc()
-	imu.activeBackgroundWorkers.Wait()
+	imu.workers.Stop()
 	imu.logger.CDebug(ctx, "Closed wit motion imu")
 	return imu.err.Get()
 }

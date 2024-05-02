@@ -24,8 +24,8 @@ export let name: string;
 export let status:
   | {
       is_moving: boolean;
-      end_position: Record<string, number>;
-      joint_positions: { values: number[] };
+      end_position?: Record<string, number>;
+      joint_positions?: { values?: number[] };
     }
   | undefined;
 
@@ -47,7 +47,7 @@ $: posPieces = fieldSetters.map((setter) => {
   const [endPositionField] = setter;
   return {
     endPosition: setter,
-    endPositionValue: status?.end_position[endPositionField] ?? 0,
+    endPositionValue: status?.end_position?.[endPositionField] ?? 0,
   };
 });
 
@@ -55,7 +55,7 @@ $: posPieces = fieldSetters.map((setter) => {
  * this conditional is in place so the RC card renders when
  * the fake arm is not using any kinematics file
  */
-$: jointPieces = status?.joint_positions.values.map((value, index) => {
+$: jointPieces = status?.joint_positions?.values?.map((value, index) => {
   return {
     joint: index,
     jointValue: value,
@@ -129,7 +129,7 @@ const armModifyAllDoEndPosition = async () => {
 
 const armModifyAllDoJoint = async () => {
   const arm = status!;
-  const newList = arm.joint_positions.values;
+  const newList = arm.joint_positions?.values ?? [];
   const newPieces = modifyAllStatus.joint_pieces;
 
   for (let i = 0; i < newPieces.length && i < newList.length; i += 1) {
@@ -171,7 +171,7 @@ const armEndPositionInc = async (
   };
 
   for (const [endPositionField, poseField] of fieldMap) {
-    const endPositionValue = old[endPositionField] ?? 0;
+    const endPositionValue = old?.[endPositionField] ?? 0;
     const field: Field = poseField;
     newPose[field] = Number(endPositionValue);
   }
@@ -188,7 +188,7 @@ const armEndPositionInc = async (
 
 const armJointInc = async (field: number, amount: number) => {
   const arm = status!;
-  const newList = arm.joint_positions.values;
+  const newList = arm.joint_positions?.values ?? [];
   newList[field] += amount;
 
   try {
@@ -200,7 +200,7 @@ const armJointInc = async (field: number, amount: number) => {
 
 const armHome = async () => {
   const arm = status!;
-  const newList = arm.joint_positions.values;
+  const newList = arm.joint_positions?.values ?? [];
 
   for (let i = 0; i < newList.length; i += 1) {
     newList[i] = 0;

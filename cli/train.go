@@ -2,13 +2,13 @@ package cli
 
 import (
 	"context"
+	"slices"
 	"strings"
 	"time"
 
 	"github.com/pkg/errors"
 	"github.com/urfave/cli/v2"
 	mltrainingpb "go.viam.com/api/app/mltraining/v1"
-	"golang.org/x/exp/slices"
 )
 
 const (

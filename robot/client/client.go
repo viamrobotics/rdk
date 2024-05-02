@@ -435,14 +435,12 @@ func (rc *RobotClient) checkConnection(ctx context.Context, checkEvery, reconnec
 					// if pipe is closed, we know for sure we lost connection
 					if isClosedPipeError(err) {
 						break
-					} else {
-						// otherwise retry
-						continue
 					}
-				} else {
-					outerError = nil
-					break
+					// otherwise retry
+					continue
 				}
+				outerError = nil
+				break
 			}
 			if outerError != nil {
 				rc.Logger().CErrorw(ctx,
@@ -954,4 +952,19 @@ func (rc *RobotClient) CloudMetadata(ctx context.Context) (cloud.Metadata, error
 	cloudMD.MachineID = resp.MachineId
 	cloudMD.MachinePartID = resp.MachinePartId
 	return cloudMD, nil
+}
+
+// RestartModule restarts a running module by name or ID.
+func (rc *RobotClient) RestartModule(ctx context.Context, req robot.RestartModuleRequest) error {
+	reqPb := &pb.RestartModuleRequest{}
+	if len(req.ModuleID) > 0 {
+		reqPb.IdOrName = &pb.RestartModuleRequest_ModuleId{ModuleId: req.ModuleID}
+	} else {
+		reqPb.IdOrName = &pb.RestartModuleRequest_ModuleName{ModuleName: req.ModuleName}
+	}
+	_, err := rc.client.RestartModule(ctx, reqPb)
+	if err != nil {
+		return err
+	}
+	return nil
 }

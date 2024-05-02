@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
-	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/board/v1"
 	"go.viam.com/utils"
 
@@ -31,7 +30,7 @@ var (
 
 // Config describes a PCA9685 board attached to some other board via I2C.
 type Config struct {
-	I2CBus     string `json:"i2c_bus,omitempty"`
+	I2CBus     string `json:"i2c_bus"`
 	I2CAddress *int   `json:"i2c_address,omitempty"`
 }
 
@@ -163,11 +162,6 @@ func (pca *PCA9685) WriteAnalog(ctx context.Context, pin string, value int32, ex
 	return grpc.UnimplementedError
 }
 
-// Status returns the board status which is always empty.
-func (pca *PCA9685) Status(ctx context.Context, extra map[string]interface{}) (*commonpb.BoardStatus, error) {
-	return &commonpb.BoardStatus{}, nil
-}
-
 // GPIOPinByName returns a GPIOPin by name.
 func (pca *PCA9685) GPIOPinByName(pin string) (board.GPIOPin, error) {
 	pinInt, err := pca.parsePin(pin)
@@ -214,7 +208,9 @@ func (pca *PCA9685) frequency(ctx context.Context) (float64, error) {
 
 // StreamTicks streams digital interrupt ticks.
 // The pca9685 board does not have the systems hardware to implement a Tick counter.
-func (pca *PCA9685) StreamTicks(ctx context.Context, interrupts []string, ch chan board.Tick, extra map[string]interface{}) error {
+func (pca *PCA9685) StreamTicks(ctx context.Context, interrupts []board.DigitalInterrupt, ch chan board.Tick,
+	extra map[string]interface{},
+) error {
 	return grpc.UnimplementedError
 }
 
@@ -257,8 +253,8 @@ func (pca *PCA9685) SetFrequency(ctx context.Context, frequency float64) error {
 	return nil
 }
 
-// AnalogReaderNames returns the names of all known analog readers.
-func (pca *PCA9685) AnalogReaderNames() []string {
+// AnalogNames returns the names of all known analog pins.
+func (pca *PCA9685) AnalogNames() []string {
 	return nil
 }
 
@@ -267,14 +263,14 @@ func (pca *PCA9685) DigitalInterruptNames() []string {
 	return nil
 }
 
-// AnalogReaderByName returns the analog reader by the given name if it exists.
-func (pca *PCA9685) AnalogReaderByName(name string) (board.AnalogReader, bool) {
-	return nil, false
+// AnalogByName returns the analog pin by the given name if it exists.
+func (pca *PCA9685) AnalogByName(name string) (board.Analog, error) {
+	return nil, nil
 }
 
 // DigitalInterruptByName returns the interrupt by the given name if it exists.
-func (pca *PCA9685) DigitalInterruptByName(name string) (board.DigitalInterrupt, bool) {
-	return nil, false
+func (pca *PCA9685) DigitalInterruptByName(name string) (board.DigitalInterrupt, error) {
+	return nil, grpc.UnimplementedError
 }
 
 // A gpioPin in PCA9685 is the combination of a PWM's T_on and T_off

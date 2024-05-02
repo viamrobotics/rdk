@@ -15,7 +15,7 @@ func TestFakeBoard(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 	boardConfig := Config{
 		AnalogReaders: []board.AnalogReaderConfig{
-			{Name: "blue", Pin: "0"},
+			{Name: "blue", Pin: analogTestPin},
 		},
 		DigitalInterrupts: []board.DigitalInterruptConfig{
 			{Name: "i1", Pin: "35"},
@@ -29,26 +29,17 @@ func TestFakeBoard(t *testing.T) {
 	b, err := NewBoard(context.Background(), cfg, logger)
 	test.That(t, err, test.ShouldBeNil)
 
-	_, ok := b.AnalogReaderByName("blue")
-	test.That(t, ok, test.ShouldBeTrue)
-
-	_, ok = b.DigitalInterruptByName("i1")
-	test.That(t, ok, test.ShouldBeTrue)
-	_, ok = b.DigitalInterruptByName("i2")
-	test.That(t, ok, test.ShouldBeTrue)
-	_, ok = b.DigitalInterruptByName("a")
-	test.That(t, ok, test.ShouldBeTrue)
-	_, ok = b.DigitalInterruptByName("b")
-	test.That(t, ok, test.ShouldBeTrue)
-
-	status, err := b.Status(context.Background(), nil)
+	_, err = b.AnalogByName("blue")
 	test.That(t, err, test.ShouldBeNil)
 
-	test.That(t, int(status.Analogs["blue"].Value), test.ShouldEqual, 0)
-	test.That(t, int(status.DigitalInterrupts["i1"].Value), test.ShouldEqual, 0)
-	test.That(t, int(status.DigitalInterrupts["i2"].Value), test.ShouldEqual, 0)
-	test.That(t, int(status.DigitalInterrupts["a"].Value), test.ShouldEqual, 0)
-	test.That(t, int(status.DigitalInterrupts["b"].Value), test.ShouldEqual, 0)
+	_, err = b.DigitalInterruptByName("i1")
+	test.That(t, err, test.ShouldBeNil)
+	_, err = b.DigitalInterruptByName("i2")
+	test.That(t, err, test.ShouldBeNil)
+	_, err = b.DigitalInterruptByName("a")
+	test.That(t, err, test.ShouldBeNil)
+	_, err = b.DigitalInterruptByName("b")
+	test.That(t, err, test.ShouldBeNil)
 }
 
 func TestConfigValidate(t *testing.T) {

@@ -55,7 +55,7 @@ func setupDependencies(mockData []byte) (resource.Config, resource.Dependencies,
 }
 
 func sendInterrupt(ctx context.Context, adxl movementsensor.MovementSensor, t *testing.T, interrupt board.DigitalInterrupt, key string) {
-	interrupt.Tick(ctx, true, nowNanosTest())
+	interrupt.(*inject.DigitalInterrupt).Tick(ctx, true, nowNanosTest())
 	testutils.WaitForAssertion(t, func(tb testing.TB) {
 		readings, err := adxl.Readings(ctx, map[string]interface{}{})
 		test.That(tb, err, test.ShouldBeNil)
@@ -176,8 +176,10 @@ func TestInterrupts(t *testing.T) {
 	}
 
 	mockBoard := &inject.Board{}
-	mockBoard.DigitalInterruptByNameFunc = func(name string) (board.DigitalInterrupt, bool) { return interrupt, true }
-	mockBoard.StreamTicksFunc = func(ctx context.Context, interrupts []string, ch chan board.Tick, extra map[string]interface{}) error {
+	mockBoard.DigitalInterruptByNameFunc = func(name string) (board.DigitalInterrupt, error) { return interrupt, nil }
+	mockBoard.StreamTicksFunc = func(ctx context.Context, interrupts []board.DigitalInterrupt, ch chan board.Tick,
+		extra map[string]interface{},
+	) error {
 		callbacks = append(callbacks, ch)
 		return nil
 	}

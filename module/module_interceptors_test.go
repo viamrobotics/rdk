@@ -13,7 +13,6 @@ import (
 	robotpb "go.viam.com/api/robot/v1"
 	"go.viam.com/test"
 	goutils "go.viam.com/utils"
-	"go.viam.com/utils/pexec"
 	"go.viam.com/utils/testutils"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
@@ -25,7 +24,6 @@ import (
 	"go.viam.com/rdk/resource"
 	rtestutils "go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/robottestutils"
-	"go.viam.com/rdk/utils"
 )
 
 func TestOpID(t *testing.T) {
@@ -46,13 +44,7 @@ func TestOpID(t *testing.T) {
 			test.That(t, os.Remove(cfgFilename), test.ShouldBeNil)
 		}()
 
-		server := pexec.NewManagedProcess(pexec.ProcessConfig{
-			Name: rtestutils.BuildTempModule(t, "web/cmd/server/"),
-			Args: []string{"-config", cfgFilename},
-			CWD:  utils.ResolveFile("./"),
-			Log:  true,
-		}, logger.AsZap())
-
+		server := robottestutils.ServerAsSeparateProcess(t, cfgFilename, logger)
 		err = server.Start(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 
@@ -61,11 +53,10 @@ func TestOpID(t *testing.T) {
 				test.That(t, server.Stop(), test.ShouldBeNil)
 			}()
 			break
-		} else {
-			logger.Infow("Port in use. Restarting on new port.", "port", port, "err", err)
-			server.Stop()
-			continue
 		}
+		logger.Infow("Port in use. Restarting on new port.", "port", port, "err", err)
+		server.Stop()
+		continue
 	}
 	test.That(t, success, test.ShouldBeTrue)
 

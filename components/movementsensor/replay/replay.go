@@ -3,6 +3,7 @@ package replay
 
 import (
 	"context"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -14,7 +15,6 @@ import (
 	goutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 	"golang.org/x/exp/maps"
-	"golang.org/x/exp/slices"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/protobuf/types/known/structpb"
@@ -372,7 +372,7 @@ func (replay *replayMovementSensor) Properties(ctx context.Context, extra map[st
 // Accuracy is currently not defined for replay movement sensors.
 func (replay *replayMovementSensor) Accuracy(ctx context.Context, extra map[string]interface{}) (*movementsensor.Accuracy, error,
 ) {
-	return movementsensor.UnimplementedAccuracies()
+	return movementsensor.UnimplementedOptionalAccuracies(), nil
 }
 
 // Close stops the replay movement sensor, closes its channels and its connections to the cloud.

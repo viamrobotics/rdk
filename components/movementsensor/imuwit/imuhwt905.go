@@ -17,11 +17,11 @@ import (
 	"time"
 
 	slib "github.com/jacobsa/go-serial/serial"
-	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/utils"
 )
 
 var model905 = resource.DefaultModelFamily.WithModel("imu-wit-hwt905")
@@ -44,14 +44,10 @@ func newWit905(
 		return nil, err
 	}
 
-	cancelCtx, cancelFunc := context.WithCancel(context.Background())
-
 	i := wit{
 		Named:      conf.ResourceName().AsNamed(),
 		logger:     logger,
 		err:        movementsensor.NewLastError(1, 1),
-		cancelFunc: cancelFunc,
-		cancelCtx:  cancelCtx,
 		baudRate:   newConf.BaudRate,
 		serialPath: newConf.Port,
 	}
@@ -81,17 +77,14 @@ func newWit905(
 
 func (imu *wit) start905UpdateLoop(portReader *bufio.Reader, logger logging.Logger) {
 	imu.hasMagnetometer = false
-	imu.activeBackgroundWorkers.Add(1)
-	utils.PanicCapturingGo(func() {
-		defer imu.activeBackgroundWorkers.Done()
-
+	imu.workers = utils.NewStoppableWorkers(func(cancelCtx context.Context) {
 		for {
-			if imu.cancelCtx.Err() != nil {
+			if cancelCtx.Err() != nil {
 				return
 			}
 
 			select {
-			case <-imu.cancelCtx.Done():
+			case <-cancelCtx.Done():
 				return
 			case <-time.After(10 * time.Second):
 				logger.Warn("ReadString timeout exceeded")

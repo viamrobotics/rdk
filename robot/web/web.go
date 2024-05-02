@@ -324,7 +324,12 @@ func (svc *webService) StartModule(ctx context.Context) error {
 	streamInterceptors = append(streamInterceptors, opManager.StreamServerInterceptor)
 	// TODO(PRODUCT-343): Add session manager interceptors
 
-	svc.modServer = module.NewServer(unaryInterceptors, streamInterceptors)
+	opts := []googlegrpc.ServerOption{
+		googlegrpc.UnaryInterceptor(grpc_middleware.ChainUnaryServer(unaryInterceptors...)),
+		googlegrpc.StreamInterceptor(grpc_middleware.ChainStreamServer(streamInterceptors...)),
+		googlegrpc.UnknownServiceHandler(svc.foreignServiceHandler),
+	}
+	svc.modServer = module.NewServer(opts...)
 	if err := svc.modServer.RegisterServiceServer(ctx, &pb.RobotService_ServiceDesc, grpcserver.New(svc.r)); err != nil {
 		return err
 	}
@@ -979,6 +984,8 @@ func (svc *webService) foreignServiceHandler(srv interface{}, stream googlegrpc.
 			defer wg.Done()
 
 			var err error
+			// process first message before waiting for more messages
+			err = bidiStream.SendMsg(firstMsg)
 			for err == nil {
 				msg := dynamic.NewMessage(methodDesc.GetInputType())
 				if err = stream.RecvMsg(msg); err != nil {
@@ -1027,8 +1034,12 @@ func (svc *webService) foreignServiceHandler(srv interface{}, stream googlegrpc.
 		if err != nil {
 			return err
 		}
-
-		for {
+		// process first message before waiting for more messages
+		err = clientStream.SendMsg(firstMsg)
+		if err != nil && !errors.Is(err, io.EOF) {
+			return err
+		}
+		for err == nil {
 			msg := dynamic.NewMessage(methodDesc.GetInputType())
 			if err := stream.RecvMsg(msg); err != nil {
 				if errors.Is(err, io.EOF) {

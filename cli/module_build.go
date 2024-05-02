@@ -1,8 +1,11 @@
 package cli
 
 import (
+	"context"
 	"fmt"
 	"io"
+	"os"
+	"slices"
 	"strings"
 	"text/tabwriter"
 	"time"
@@ -11,11 +14,15 @@ import (
 	"github.com/urfave/cli/v2"
 	"go.uber.org/multierr"
 	buildpb "go.viam.com/api/app/build/v1"
+	apppb "go.viam.com/api/app/v1"
 	"go.viam.com/utils/pexec"
+	"go.viam.com/utils/rpc"
 	"golang.org/x/exp/maps"
-	"golang.org/x/exp/slices"
 
+	rdkConfig "go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
+	"go.viam.com/rdk/robot"
+	"go.viam.com/rdk/robot/client"
 	"go.viam.com/rdk/utils"
 )
 
@@ -75,19 +82,15 @@ func (c *viamClient) moduleBuildStartAction(cCtx *cli.Context) error {
 
 // ModuleBuildLocalAction runs the module's build commands locally.
 func ModuleBuildLocalAction(cCtx *cli.Context) error {
-	c, err := newViamClient(cCtx)
-	if err != nil {
-		return err
-	}
-	return c.moduleBuildLocalAction(cCtx)
-}
-
-func (c *viamClient) moduleBuildLocalAction(cCtx *cli.Context) error {
 	manifestPath := cCtx.String(moduleFlagPath)
 	manifest, err := loadManifest(manifestPath)
 	if err != nil {
 		return err
 	}
+	return moduleBuildLocalAction(cCtx, &manifest)
+}
+
+func moduleBuildLocalAction(cCtx *cli.Context, manifest *moduleManifest) error {
 	if manifest.Build == nil || manifest.Build.Build == "" {
 		return errors.New("your meta.json cannot have an empty build step. See 'viam module build --help' for more information")
 	}
@@ -104,14 +107,14 @@ func (c *viamClient) moduleBuildLocalAction(cCtx *cli.Context) error {
 		infof(cCtx.App.Writer, "Starting setup step: %q", manifest.Build.Setup)
 		processConfig.Args = []string{"-c", manifest.Build.Setup}
 		proc := pexec.NewManagedProcess(processConfig, logger.AsZap())
-		if err = proc.Start(cCtx.Context); err != nil {
+		if err := proc.Start(cCtx.Context); err != nil {
 			return err
 		}
 	}
 	infof(cCtx.App.Writer, "Starting build step: %q", manifest.Build.Build)
 	processConfig.Args = []string{"-c", manifest.Build.Build}
 	proc := pexec.NewManagedProcess(processConfig, logger.AsZap())
-	if err = proc.Start(cCtx.Context); err != nil {
+	if err := proc.Start(cCtx.Context); err != nil {
 		return err
 	}
 	infof(cCtx.App.Writer, "Completed build")
@@ -192,6 +195,7 @@ func ModuleBuildLogsAction(c *cli.Context) error {
 	buildID := c.String(moduleBuildFlagBuildID)
 	platform := c.String(moduleBuildFlagPlatform)
 	shouldWait := c.Bool(moduleBuildFlagWait)
+	groupLogs := c.Bool(moduleBuildFlagGroupLogs)
 
 	client, err := newViamClient(c)
 	if err != nil {
@@ -216,10 +220,23 @@ func ModuleBuildLogsAction(c *cli.Context) error {
 		}
 		var combinedErr error
 		for _, platform := range platforms {
+			if groupLogs {
+				statusEmoji := "❓"
+				switch statuses[platform] { //nolint: exhaustive
+				case jobStatusDone:
+					statusEmoji = "✅"
+				case jobStatusFailed:
+					statusEmoji = "❌"
+				}
+				printf(os.Stdout, "::group::{%s %s}", statusEmoji, platform)
+			}
 			infof(c.App.Writer, "Logs for %q", platform)
 			err := client.printModuleBuildLogs(buildID, platform)
 			if err != nil {
 				combinedErr = multierr.Combine(combinedErr, client.printModuleBuildLogs(buildID, platform))
+			}
+			if groupLogs {
+				printf(os.Stdout, "::endgroup::")
 			}
 		}
 		if combinedErr != nil {
@@ -371,4 +388,132 @@ func jobStatusFromProto(s buildpb.JobStatus) jobStatus {
 	default:
 		return jobStatusUnspecified
 	}
+}
+
+// ReloadModuleAction builds a module, configures it on a robot, and starts or restarts it.
+func ReloadModuleAction(c *cli.Context) error {
+	vc, err := newViamClient(c)
+	if err != nil {
+		return err
+	}
+	return reloadModuleAction(c, vc)
+}
+
+// reloadModuleAction is the testable inner reload logic.
+func reloadModuleAction(c *cli.Context, vc *viamClient) error {
+	if len(c.String(partFlag)) > 0 && !c.Bool(moduleBuildRestartOnly) {
+		// todo: remove this warning after remote reloading
+		warningf(c.App.Writer,
+			"You have passed in a part ID -- if it's for a remote device and your module isn't in the expected path, this will fail")
+	}
+	partID, err := resolvePartID(c.Context, c.String(partFlag), "/etc/viam.json")
+	if err != nil {
+		return err
+	}
+	manifest, err := loadManifestOrNil(c.String(moduleFlagPath))
+	if err != nil {
+		return err
+	}
+	part, err := vc.getRobotPart(partID)
+	if err != nil {
+		return err
+	}
+	// note: configureModule and restartModule signal the robot via different channels.
+	// Running this command in rapid succession can cause an extra restart because the
+	// CLI will see configuration changes before the robot, and skip to the needsRestart
+	// case on the second call. Because these are triggered by user actions, we're okay
+	// with this behavior, and the robot will eventually converge to what is in config.
+	needsRestart := true
+	if !c.Bool(moduleBuildRestartOnly) {
+		if !c.Bool(moduleBuildFlagNoBuild) {
+			if manifest == nil {
+				return fmt.Errorf(`manifest not found at "%s". manifest required for build`, moduleFlagPath)
+			}
+			err = moduleBuildLocalAction(c, manifest)
+			if err != nil {
+				return err
+			}
+		}
+		needsRestart, err = configureModule(c, vc, manifest, part.Part)
+		if err != nil {
+			return err
+		}
+	}
+	if needsRestart {
+		return restartModule(c, vc, part.Part, manifest)
+	}
+	return nil
+}
+
+// resolvePartID takes an optional provided part ID (from partFlag), and an optional default viam.json, and returns a part ID to use.
+func resolvePartID(ctx context.Context, partIDFromFlag, cloudJSON string) (string, error) {
+	if len(partIDFromFlag) > 0 {
+		return partIDFromFlag, nil
+	}
+	if len(cloudJSON) == 0 {
+		return "", errors.New("no --part and no default json")
+	}
+	conf, err := rdkConfig.ReadLocalConfig(ctx, cloudJSON, logging.NewLogger("config"))
+	if err != nil {
+		return "", err
+	}
+	if conf.Cloud == nil {
+		return "", fmt.Errorf("unknown failure opening viam.json at: %s", cloudJSON)
+	}
+	return conf.Cloud.ID, nil
+}
+
+// resolveTargetModule looks at name / id flags and packs a RestartModuleRequest.
+func resolveTargetModule(c *cli.Context, manifest *moduleManifest) (*robot.RestartModuleRequest, error) {
+	modName := c.String(moduleFlagName)
+	modID := c.String(moduleBuildFlagBuildID)
+	// todo: use MutuallyExclusiveFlags for this when urfave/cli 3.x is stable
+	if (len(modName) > 0) && (len(modID) > 0) {
+		return nil, fmt.Errorf("provide at most one of --%s and --%s", moduleFlagName, moduleBuildFlagBuildID)
+	}
+	request := &robot.RestartModuleRequest{}
+	//nolint:gocritic
+	if len(modName) > 0 {
+		request.ModuleName = modName
+	} else if len(modID) > 0 {
+		request.ModuleID = modID
+	} else if manifest != nil {
+		// TODO(APP-4019): remove localize call
+		request.ModuleName = localizeModuleID(manifest.ModuleID)
+	} else {
+		return nil, fmt.Errorf("if there is no meta.json, provide one of --%s or --%s", moduleFlagName, moduleBuildFlagBuildID)
+	}
+	return request, nil
+}
+
+// restartModule restarts a module on a robot.
+func restartModule(c *cli.Context, vc *viamClient, part *apppb.RobotPart, manifest *moduleManifest) error {
+	restartReq, err := resolveTargetModule(c, manifest)
+	if err != nil {
+		return err
+	}
+	if err := vc.ensureLoggedIn(); err != nil {
+		return err
+	}
+	apiRes, err := vc.client.GetRobotAPIKeys(c.Context, &apppb.GetRobotAPIKeysRequest{RobotId: part.Robot})
+	if err != nil {
+		return err
+	}
+	if len(apiRes.ApiKeys) == 0 {
+		return errors.New("API keys list for this machine is empty. You can create one with \"viam machine api-key create\"")
+	}
+	key := apiRes.ApiKeys[0]
+	debugf(c.App.Writer, c.Bool(debugFlag), "using API key: %s %s", key.ApiKey.Id, key.ApiKey.Name)
+	creds := rpc.WithEntityCredentials(key.ApiKey.Id, rpc.Credentials{
+		Type:    rpc.CredentialsTypeAPIKey,
+		Payload: key.ApiKey.Key,
+	})
+	robotClient, err := client.New(c.Context, part.Fqdn, logging.NewLogger("robot"), client.WithDialOptions(creds))
+	if err != nil {
+		return err
+	}
+	defer robotClient.Close(c.Context) //nolint: errcheck
+	debugf(c.App.Writer, c.Bool(debugFlag), "restarting module %v", restartReq)
+	// todo: make this a stream so '--wait' can tell user what's happening
+	return robotClient.RestartModule(c.Context, *restartReq)
 }

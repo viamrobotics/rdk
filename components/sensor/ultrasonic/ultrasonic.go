@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+	"go.uber.org/multierr"
 	rdkutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/components/board"
@@ -134,23 +135,22 @@ func (s *Sensor) Readings(ctx context.Context, extra map[string]interface{}) (ma
 
 	// Grab the 2 pins from the board. We don't just get these once during setup, in case the board
 	// reconfigures itself because someone decided to rewire things.
-	_, ok := s.board.DigitalInterruptByName(s.config.EchoInterrupt)
-	if !ok {
-		return nil, errors.Errorf("ultrasonic: cannot grab digital interrupt %q", s.config.EchoInterrupt)
+	echoInterrupt, err := s.board.DigitalInterruptByName(s.config.EchoInterrupt)
+	if err != nil {
+		return nil, multierr.Combine(errors.Errorf("ultrasonic: cannot grab digital interrupt %q", s.config.EchoInterrupt), err)
 	}
 	triggerPin, err := s.board.GPIOPinByName(s.config.TriggerPin)
 	if err != nil {
 		return nil, errors.Wrapf(err, "ultrasonic: cannot grab gpio %q", s.config.TriggerPin)
 	}
 
-	err = s.board.StreamTicks(ctx, []string{s.config.EchoInterrupt}, s.ticksChan, nil)
+	err = s.board.StreamTicks(ctx, []board.DigitalInterrupt{echoInterrupt}, s.ticksChan, nil)
 	if err != nil {
 		return nil, errors.Wrap(err, "ultrasonic: error getting digital interrupt ticks")
 	}
 
 	// Remove the callbacks added by the interrupt stream once we are done reading.
-	defer rdkutils.UncheckedErrorFunc(func() error { return board.RemoveCallbacks(s.board, []string{s.config.EchoInterrupt}, s.ticksChan) })
-
+	defer echoInterrupt.RemoveCallback(s.ticksChan)
 	// we send a high and a low to the trigger pin 10 microseconds
 	// apart to signal the sensor to begin sending the sonic pulse
 	if err := triggerPin.Set(ctx, true, nil); err != nil {
