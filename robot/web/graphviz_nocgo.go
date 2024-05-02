@@ -1,4 +1,4 @@
-//go:build no_cgo || android
+//go:build no_cgo
 
 package web
 
