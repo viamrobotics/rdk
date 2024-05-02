@@ -55,11 +55,6 @@ func setup(t *testing.T) *setupResult {
 		ch <- board.Tick{Name: s.interrupt1.Name(), High: high, TimestampNanosec: nanoseconds}
 		return nil
 	}
-	s.interrupt1.RemoveCallbackFunc = func(c chan board.Tick) {
-		s.mu.Lock()
-		defer s.mu.Unlock()
-		delete(callbacks, s.interrupt1)
-	}
 
 	// interrupt2 funcs
 	s.interrupt2.NameFunc = func() string {
@@ -70,11 +65,6 @@ func setup(t *testing.T) *setupResult {
 		test.That(t, ok, test.ShouldBeTrue)
 		ch <- board.Tick{Name: s.interrupt2.Name(), High: high, TimestampNanosec: nanoseconds}
 		return nil
-	}
-	s.interrupt2.RemoveCallbackFunc = func(c chan board.Tick) {
-		s.mu.Lock()
-		defer s.mu.Unlock()
-		delete(callbacks, s.interrupt2)
 	}
 
 	b.DigitalInterruptByNameFunc = func(name string) (board.DigitalInterrupt, error) {

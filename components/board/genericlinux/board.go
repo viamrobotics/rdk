@@ -15,6 +15,7 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 	pb "go.viam.com/api/component/board/v1"
+	"go.viam.com/utils"
 	goutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/components/board"
@@ -499,6 +500,21 @@ func (b *Board) StreamTicks(ctx context.Context, interrupts []board.DigitalInter
 	for _, i := range interrupts {
 		pinwrappers.AddCallback(i.(*pinwrappers.BasicDigitalInterrupt), ch)
 	}
+
+	b.activeBackgroundWorkers.Add(1)
+
+	utils.ManagedGo(func() {
+		// Wait until it's time to shut down then remove callbacks.
+		select {
+		case <-ctx.Done():
+		case <-b.cancelCtx.Done():
+		}
+		for _, i := range interrupts {
+			fmt.Println("remvoing callbacks")
+			pinwrappers.RemoveCallback(i.(*pinwrappers.BasicDigitalInterrupt), ch)
+		}
+	}, b.activeBackgroundWorkers.Done)
+
 	return nil
 }
 

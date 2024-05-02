@@ -267,7 +267,6 @@ func (c *Controller) newButton(ctx context.Context, brd board.Board, interrupt b
 
 	c.activeBackgroundWorkers.Add(1)
 	utils.ManagedGo(func() {
-		defer interrupt.RemoveCallback(tickChan)
 		debounced := debounce.New(time.Millisecond * time.Duration(cfg.DebounceMs))
 		for {
 			var val bool
