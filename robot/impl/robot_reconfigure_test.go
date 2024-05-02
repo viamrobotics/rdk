@@ -37,7 +37,6 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/services/datamanager"
 	_ "go.viam.com/rdk/services/datamanager/builtin"
 	"go.viam.com/rdk/services/motion"
 	_ "go.viam.com/rdk/services/motion/builtin"
@@ -2709,7 +2708,6 @@ func TestRemoteRobotsGold(t *testing.T) {
 		rdktestutils.NewResourceNameSet(
 			motion.Named(resource.DefaultServiceName),
 			sensors.Named(resource.DefaultServiceName),
-			datamanager.Named(resource.DefaultServiceName),
 			arm.Named("arm1"),
 			arm.Named("foo:pieceArm"),
 			audioinput.Named("foo:mic1"),
@@ -2719,7 +2717,6 @@ func TestRemoteRobotsGold(t *testing.T) {
 			gripper.Named("foo:pieceGripper"),
 			motion.Named("foo:builtin"),
 			sensors.Named("foo:builtin"),
-			datamanager.Named("foo:builtin"),
 		),
 	)
 	err = remote2.StartWeb(ctx, options)
@@ -2733,7 +2730,6 @@ func TestRemoteRobotsGold(t *testing.T) {
 	expectedSet := rdktestutils.NewResourceNameSet(
 		motion.Named(resource.DefaultServiceName),
 		sensors.Named(resource.DefaultServiceName),
-		datamanager.Named(resource.DefaultServiceName),
 		arm.Named("arm1"),
 		arm.Named("arm2"),
 		arm.Named("foo:pieceArm"),
@@ -2744,7 +2740,6 @@ func TestRemoteRobotsGold(t *testing.T) {
 		gripper.Named("foo:pieceGripper"),
 		motion.Named("foo:builtin"),
 		sensors.Named("foo:builtin"),
-		datamanager.Named("foo:builtin"),
 		arm.Named("bar:pieceArm"),
 		audioinput.Named("bar:mic1"),
 		camera.Named("bar:cameraOver"),
@@ -2753,7 +2748,6 @@ func TestRemoteRobotsGold(t *testing.T) {
 		gripper.Named("bar:pieceGripper"),
 		motion.Named("bar:builtin"),
 		sensors.Named("bar:builtin"),
-		datamanager.Named("bar:builtin"),
 	)
 	testutils.WaitForAssertionWithSleep(t, time.Millisecond*100, 300, func(tb testing.TB) {
 		test.That(tb, rdktestutils.NewResourceNameSet(r.ResourceNames()...), test.ShouldResemble, expectedSet)
@@ -2769,7 +2763,6 @@ func TestRemoteRobotsGold(t *testing.T) {
 			rdktestutils.NewResourceNameSet(
 				motion.Named(resource.DefaultServiceName),
 				sensors.Named(resource.DefaultServiceName),
-				datamanager.Named(resource.DefaultServiceName),
 				arm.Named("arm1"),
 				arm.Named("foo:pieceArm"),
 				audioinput.Named("foo:mic1"),
@@ -2779,7 +2772,6 @@ func TestRemoteRobotsGold(t *testing.T) {
 				gripper.Named("foo:pieceGripper"),
 				motion.Named("foo:builtin"),
 				sensors.Named("foo:builtin"),
-				datamanager.Named("foo:builtin"),
 			),
 		)
 	})
