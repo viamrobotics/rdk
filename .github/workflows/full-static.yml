@@ -73,7 +73,7 @@ jobs:
       working-directory: ${{ env.BINS_DIR }}
       run: |
         for arch in ${{ env.GOARCHES }}; do
-          mv viam*.$arch viam-server-${{ inputs.channel }}-static-$arch
+          mv viam*-$arch viam-server-${{ inputs.channel }}-static-$arch
         done
 
     - name: copy for channel+version
@@ -82,7 +82,7 @@ jobs:
       working-directory: ${{ env.BINS_DIR }}
       run: |
         for arch in ${{ env.GOARCHES }}; do
-          cp viam*.$arch viam-server-${{ inputs.channel }}-${{ inputs.version }}-static-$arch
+          cp viam*-$arch viam-server-${{ inputs.channel }}-${{ inputs.version }}-static-$arch
         done
 
     - uses: google-github-actions/auth@v2
@@ -103,6 +103,6 @@ jobs:
       if: inputs.channel
       shell: bash
       run: |
-        for arch in arm64 amd64 arm; do
+        for arch in ${{ env.GOARCHES }}; do
           echo "- $arch https://storage.googleapis.com/${{ env.BUCKET }}/viam-server-${{ inputs.channel }}-static-$arch" >> $GITHUB_STEP_SUMMARY
         done
