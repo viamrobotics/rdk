@@ -56,7 +56,7 @@ var (
 )
 
 func TestRobotReconfigure(t *testing.T) {
-	test.That(t, len(resource.DefaultServices()), test.ShouldEqual, 3)
+	test.That(t, len(resource.DefaultServices()), test.ShouldEqual, 2)
 	ConfigFromFile := func(t *testing.T, filePath string) *config.Config {
 		t.Helper()
 		logger := logging.NewTestLogger(t)
@@ -2547,7 +2547,7 @@ func TestDefaultServiceReconfigure(t *testing.T) {
 		Services: []resource.Config{
 			{
 				Name:  motionName,
-				API:   datamanager.API,
+				API:   motion.API,
 				Model: resource.DefaultServiceModel,
 			},
 		},
