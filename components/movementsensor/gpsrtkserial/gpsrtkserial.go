@@ -104,25 +104,26 @@ type rtkSerial struct {
 	cancelFunc func()
 
 	activeBackgroundWorkers sync.WaitGroup
-	mu                      sync.Mutex
-
-	ntripClient        *gpsutils.NtripInfo
-	isConnectedToNtrip bool
-	isClosed           bool
 
 	err                movementsensor.LastError
 	lastposition       movementsensor.LastPosition
 	lastcompassheading movementsensor.LastCompassHeading
 	InputProtocol      string
+	isClosed           bool
 
-	cachedData       *gpsutils.CachedData
-	correctionWriter io.ReadWriteCloser
-	writePath        string
-	wbaud            int
-	isVirtualBase    bool
-	readerWriter     *bufio.ReadWriter
-	writer           io.Writer
-	reader           io.Reader
+	mu sync.Mutex
+
+	// everything below this comment is protected by mu
+	isConnectedToNtrip bool
+	ntripClient        *gpsutils.NtripInfo
+	cachedData         *gpsutils.CachedData
+	correctionWriter   io.ReadWriteCloser
+	writePath          string
+	wbaud              int
+	isVirtualBase      bool
+	readerWriter       *bufio.ReadWriter
+	writer             io.Writer
+	reader             io.Reader
 }
 
 // Reconfigure reconfigures attributes.
@@ -245,8 +246,6 @@ func (g *rtkSerial) getStream(mountPoint string, maxAttempts int) error {
 		}
 
 		rc, err = func() (io.ReadCloser, error) {
-			g.mu.Lock()
-			defer g.mu.Unlock()
 			return g.ntripClient.Client.GetStream(mountPoint)
 		}()
 		if err == nil {
@@ -459,6 +458,9 @@ func (g *rtkSerial) receiveAndWriteSerial() {
 		}
 	}
 }
+
+// Most of the movementsensor functions here don't have mutex locks since g.cachedData is protected by
+// it's own mutex and not having mutex around g.err is alright.
 
 // Position returns the current geographic location of the MOVEMENTSENSOR.
 func (g *rtkSerial) Position(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
