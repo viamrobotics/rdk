@@ -45,14 +45,13 @@ import (
 	"go.viam.com/rdk/components/gripper"
 	"go.viam.com/rdk/components/motor"
 	fakemotor "go.viam.com/rdk/components/motor/fake"
-	internalcloud "go.viam.com/rdk/internal/cloud"
-
 	"go.viam.com/rdk/components/movementsensor"
 	_ "go.viam.com/rdk/components/register"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/examples/customresources/apis/gizmoapi"
 	"go.viam.com/rdk/examples/customresources/apis/summationapi"
 	rgrpc "go.viam.com/rdk/grpc"
+	internalcloud "go.viam.com/rdk/internal/cloud"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
@@ -2053,10 +2052,10 @@ func TestReconnectRemote(t *testing.T) {
 	// check if the original arm can still be called
 	test.That(t, <-remoteRobotClient.Changed(), test.ShouldBeTrue)
 	test.That(t, remoteRobotClient.Connected(), test.ShouldBeTrue)
-	test.That(t, len(remoteRobotClient.ResourceNames()), test.ShouldEqual, 4)
+	test.That(t, len(remoteRobotClient.ResourceNames()), test.ShouldEqual, 3)
 	testutils.WaitForAssertion(t, func(tb testing.TB) {
 		tb.Helper()
-		test.That(tb, len(robotClient.ResourceNames()), test.ShouldEqual, 7)
+		test.That(tb, len(robotClient.ResourceNames()), test.ShouldEqual, 5)
 	})
 	test.That(t, len(robot1.ResourceNames()), test.ShouldEqual, 7)
 	_, err = remoteRobotClient.ResourceByName(arm.Named("arm1"))
