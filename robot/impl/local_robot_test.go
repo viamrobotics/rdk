@@ -18,6 +18,7 @@ import (
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.uber.org/zap"
+
 	// registers all components.
 	commonpb "go.viam.com/api/common/v1"
 	armpb "go.viam.com/api/component/arm/v1"
@@ -44,6 +45,8 @@ import (
 	"go.viam.com/rdk/components/gripper"
 	"go.viam.com/rdk/components/motor"
 	fakemotor "go.viam.com/rdk/components/motor/fake"
+	internalcloud "go.viam.com/rdk/internal/cloud"
+
 	"go.viam.com/rdk/components/movementsensor"
 	_ "go.viam.com/rdk/components/register"
 	"go.viam.com/rdk/config"
@@ -879,7 +882,7 @@ func TestMetadataUpdate(t *testing.T) {
 	resources := r.ResourceNames()
 	test.That(t, err, test.ShouldBeNil)
 
-	test.That(t, len(resources), test.ShouldEqual, 9)
+	test.That(t, len(resources), test.ShouldEqual, 8)
 	test.That(t, err, test.ShouldBeNil)
 
 	// 5 declared resources + default sensors
@@ -1100,7 +1103,7 @@ func TestStatus(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		// 5 because the 3 default services are always added to a local_robot. We only care
 		// about the first two (working1 and button1) however.
-		test.That(t, len(resp), test.ShouldEqual, 5)
+		test.That(t, len(resp), test.ShouldEqual, 4)
 
 		// although the response is length 5, the only thing we actually care about for testing
 		// is consistency with the expected values in the workingResourceMap. So we eliminate
@@ -2032,9 +2035,9 @@ func TestReconnectRemote(t *testing.T) {
 	test.That(t, len(remoteRobotClient.ResourceNames()), test.ShouldEqual, 0)
 	testutils.WaitForAssertion(t, func(tb testing.TB) {
 		tb.Helper()
-		test.That(tb, len(robotClient.ResourceNames()), test.ShouldEqual, 3)
+		test.That(tb, len(robotClient.ResourceNames()), test.ShouldEqual, 2)
 	})
-	test.That(t, len(robot1.ResourceNames()), test.ShouldEqual, 3)
+	test.That(t, len(robot1.ResourceNames()), test.ShouldEqual, 2)
 	_, err = anArm.EndPosition(context.Background(), map[string]interface{}{})
 	test.That(t, err, test.ShouldBeError)
 
@@ -2135,9 +2138,9 @@ func TestReconnectRemoteChangeConfig(t *testing.T) {
 	test.That(t, len(remoteRobotClient.ResourceNames()), test.ShouldEqual, 0)
 	testutils.WaitForAssertion(t, func(tb testing.TB) {
 		tb.Helper()
-		test.That(tb, len(robotClient.ResourceNames()), test.ShouldEqual, 3)
+		test.That(tb, len(robotClient.ResourceNames()), test.ShouldEqual, 2)
 	})
-	test.That(t, len(robot1.ResourceNames()), test.ShouldEqual, 3)
+	test.That(t, len(robot1.ResourceNames()), test.ShouldEqual, 2)
 	_, err = anArm.EndPosition(context.Background(), map[string]interface{}{})
 	test.That(t, err, test.ShouldBeError)
 
@@ -2235,19 +2238,25 @@ func TestCheckMaxInstanceInvalid(t *testing.T) {
 	cfg := &config.Config{
 		Services: []resource.Config{
 			{
-				Name:  "fake1",
-				Model: resource.DefaultServiceModel,
-				API:   datamanager.API,
+				Name:                "fake1",
+				Model:               resource.DefaultServiceModel,
+				API:                 datamanager.API,
+				ConvertedAttributes: &builtin.Config{},
+				DependsOn:           []string{internalcloud.InternalServiceName.String()},
 			},
 			{
-				Name:  "fake2",
-				Model: resource.DefaultServiceModel,
-				API:   datamanager.API,
+				Name:                "fake2",
+				Model:               resource.DefaultServiceModel,
+				API:                 datamanager.API,
+				ConvertedAttributes: &builtin.Config{},
+				DependsOn:           []string{internalcloud.InternalServiceName.String()},
 			},
 			{
-				Name:  "fake3",
-				Model: resource.DefaultServiceModel,
-				API:   datamanager.API,
+				Name:                "fake3",
+				Model:               resource.DefaultServiceModel,
+				API:                 datamanager.API,
+				ConvertedAttributes: &builtin.Config{},
+				DependsOn:           []string{internalcloud.InternalServiceName.String()},
 			},
 		},
 		Components: []resource.Config{
