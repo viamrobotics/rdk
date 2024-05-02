@@ -41,7 +41,9 @@ jobs:
       with:
         go-version: '1.21'
 
-    - name: build
+    - name: build js
+      run: make build-web
+    - name: build go
       shell: bash
       run: |
         for goarch in ${{ env.GOARCHES }}; do
