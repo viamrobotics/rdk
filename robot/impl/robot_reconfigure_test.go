@@ -129,7 +129,7 @@ func TestRobotReconfigure(t *testing.T) {
 		robot := setupLocalRobot(t, ctx, conf1, logger)
 
 		resources := robot.ResourceNames()
-		test.That(t, len(resources), test.ShouldEqual, 8)
+		test.That(t, len(resources), test.ShouldEqual, 7)
 
 		armNames := []resource.Name{arm.Named("arm1")}
 		baseNames := []resource.Name{base.Named("base1")}
@@ -1022,7 +1022,7 @@ func TestRobotReconfigure(t *testing.T) {
 		robot := setupLocalRobot(t, ctx, cempty, logger)
 
 		resources := robot.ResourceNames()
-		test.That(t, len(resources), test.ShouldEqual, 3)
+		test.That(t, len(resources), test.ShouldEqual, 2)
 		test.That(t, utils.NewStringSet(robot.RemoteNames()...), test.ShouldBeEmpty)
 		test.That(t, utils.NewStringSet(arm.NamesFromRobot(robot)...), test.ShouldBeEmpty)
 		test.That(t, utils.NewStringSet(base.NamesFromRobot(robot)...), test.ShouldBeEmpty)
