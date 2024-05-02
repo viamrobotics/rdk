@@ -55,7 +55,7 @@ var API = resource.APINamespaceRDK.WithComponentType(SubtypeName)
 //    myMotorComponent.ResetZeroPosition(context.Background(), 0.0, nil)
 //
 // Position example:
-//    // Get the current position of the motor.
+//    // Get the current position of an encoded motor.
 //    position, err := myMotorComponent.Position(context.Background(), nil)
 //
 //    // Log the position
