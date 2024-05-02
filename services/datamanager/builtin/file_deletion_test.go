@@ -30,7 +30,6 @@ import (
 )
 
 const (
-	numFiles                               = 10
 	enabledTabularManyCollectorsConfigPath = "services/datamanager/data/fake_robot_with_many_collectors_data_manager.json"
 )
 
@@ -79,7 +78,7 @@ func TestFileDeletionUsageCheck(t *testing.T) {
 			if tc.captureDirExists {
 				tempCaptureDir = t.TempDir()
 				// write testing files
-				writeFiles(t, tempCaptureDir, 0)
+				writeFiles(t, tempCaptureDir, []string{"1.capture", "2.capture"})
 			}
 			// overwrite thresholds
 			fsThresholdToTriggerDeletion = tc.triggerThreshold
@@ -94,33 +93,35 @@ func TestFileDeletionUsageCheck(t *testing.T) {
 
 func TestFileDeletion(t *testing.T) {
 	tests := []struct {
-		name                 string
-		syncEnabled          bool
-		shouldCancelContext  bool
-		expectedDeletedCount int
-		numDotProgFiles      int
-		numDotCaptureFiles   int
-		numInProgressFiles   int
+		name                  string
+		syncEnabled           bool
+		shouldCancelContext   bool
+		expectedDeletedCount  int
+		fileList              []string
+		syncerInProgressFiles []string
 	}{
 		{
 			name:                 "if sync disabled, file deleter should delete every 4th file",
-			expectedDeletedCount: 3,
-		},
-		{
-			name:                 "if sync enabled and all files marked as in progress, file deleter should not delete any files",
-			syncEnabled:          true,
-			numInProgressFiles:   numFiles,
-			expectedDeletedCount: 0,
-		},
-		{
-			name:                 "if sync enabled and some files marked as inprogress, file deleter should delete less files",
-			syncEnabled:          true,
-			numInProgressFiles:   3,
+			fileList:             []string{"shouldDelete0.capture", "1.capture", "2.capture", "3.capture", "shouldDelete4.capture"},
 			expectedDeletedCount: 2,
 		},
 		{
+			name:                  "if sync enabled and all files marked as in progress, file deleter should not delete any files",
+			syncEnabled:           true,
+			fileList:              []string{"0.capture", "1.capture", "2.capture", "3.capture", "4.capture"},
+			syncerInProgressFiles: []string{"0.capture", "1.capture", "2.capture", "3.capture", "4.capture"},
+			expectedDeletedCount:  0,
+		},
+		{
+			name:                  "if sync enabled and some files marked as inprogress, file deleter should delete less files",
+			syncEnabled:           true,
+			fileList:              []string{"0.capture", "1.capture", "shouldDelete2.capture", "3.capture", "4.capture"},
+			syncerInProgressFiles: []string{"0.capture", "1.capture"},
+			expectedDeletedCount:  1,
+		},
+		{
 			name:                 "if sync disabled and files are still being written to, file deleter should not delete any files",
-			numDotProgFiles:      numFiles,
+			fileList:             []string{"0.prog", "1.prog", "2.prog", "3.prog", "4.prog"},
 			expectedDeletedCount: 0,
 		},
 		{
@@ -147,13 +148,9 @@ func TestFileDeletion(t *testing.T) {
 				defer syncer.Close()
 			}
 
-			files := writeFiles(t, tempCaptureDir, tc.numDotProgFiles)
-			for i, file := range files {
-				if syncer != nil {
-					if i < tc.numInProgressFiles {
-						syncer.MarkInProgress(file)
-					}
-				}
+			filepaths := writeFiles(t, tempCaptureDir, tc.fileList)
+			for _, file := range tc.syncerInProgressFiles {
+				syncer.MarkInProgress(filepaths[file])
 			}
 
 			ctx, cancelFunc := context.WithCancel(context.Background())
@@ -172,22 +169,17 @@ func TestFileDeletion(t *testing.T) {
 	}
 }
 
-func writeFiles(t *testing.T, dir string, numProgFiles int) []string {
+func writeFiles(t *testing.T, dir string, filenames []string) map[string]string {
 	t.Helper()
-	filenames := []string{}
 	fileContents := []byte("never gonna let you down")
-	for i := 0; i < numFiles; i++ {
-		var filename string
-		if i < numProgFiles {
-			filename = fmt.Sprintf("%s/file_%d.prog", dir, i)
-		} else {
-			filename = fmt.Sprintf("%s/file_%d.capture", dir, i)
-		}
-		err := os.WriteFile(filename, fileContents, 0o755)
+	filePaths := map[string]string{}
+	for _, filename := range filenames {
+		filePath := fmt.Sprintf("%s/%s", dir, filename)
+		err := os.WriteFile(filePath, fileContents, 0o755)
 		test.That(t, err, test.ShouldBeNil)
-		filenames = append(filenames, filename)
+		filePaths[filename] = filePath
 	}
-	return filenames
+	return filePaths
 }
 
 func TestFilePolling(t *testing.T) {
