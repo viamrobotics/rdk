@@ -37,14 +37,14 @@ var API = resource.APINamespaceRDK.WithComponentType(SubtypeName)
 // A Motor represents a physical motor connected to a board.
 // 
 // SetPower example:
-//    myMotor, err := motor.FromRobot(machine, "my_motor")
+//    myMotorComponent, err := motor.FromRobot(machine, "my_motor")
 //    // Set the motor power to 40% forwards.
-//    myMotor.SetPower(context.Background(), 0.4, nil)
+//    myMotorComponent.SetPower(context.Background(), 0.4, nil)
 //
 // GoFor example:
-//    myMotor, err := motor.FromRobot(machine, "my_motor")
+//    myMotorComponent, err := motor.FromRobot(machine, "my_motor")
 //    // Turn the motor 7.2 revolutions at 60 RPM.
-//    myMotor.GoFor(context.Background(), 60, 7.2, nil)
+//    myMotorComponent.GoFor(context.Background(), 60, 7.2, nil)
 //
 // GoTo example:
 //    // Turn the motor to 8.3 revolutions from home at 75 RPM.
