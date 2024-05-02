@@ -177,13 +177,6 @@ func ServoTick(ctx context.Context, i *ServoDigitalInterrupt, high bool, now uin
 	return nil
 }
 
-// RemoveCallback currently panics.
-func (i *ServoDigitalInterrupt) RemoveCallback(c chan board.Tick) {
-	i.mu.Lock()
-	defer i.mu.Unlock()
-	panic("servos can't have callback")
-}
-
 // Name returns the name of the interrupt.
 func (i *ServoDigitalInterrupt) Name() string {
 	i.mu.Lock()

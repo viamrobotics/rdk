@@ -510,7 +510,6 @@ func (b *Board) StreamTicks(ctx context.Context, interrupts []board.DigitalInter
 		case <-b.cancelCtx.Done():
 		}
 		for _, i := range interrupts {
-			fmt.Println("remvoing callbacks")
 			pinwrappers.RemoveCallback(i.(*pinwrappers.BasicDigitalInterrupt), ch)
 		}
 	}, b.activeBackgroundWorkers.Done)

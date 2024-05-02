@@ -87,6 +87,7 @@ func AddCallback(i *BasicDigitalInterrupt, c chan board.Tick) {
 func RemoveCallback(i *BasicDigitalInterrupt, c chan board.Tick) {
 	i.mu.Lock()
 	defer i.mu.Unlock()
+
 	for id := range i.callbacks {
 		if i.callbacks[id] == c {
 			// To remove this item, we replace it with the last item in the list, then truncate the
