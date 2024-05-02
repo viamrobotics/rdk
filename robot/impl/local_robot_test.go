@@ -18,6 +18,7 @@ import (
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.uber.org/zap"
+
 	// registers all components.
 	commonpb "go.viam.com/api/common/v1"
 	armpb "go.viam.com/api/component/arm/v1"
@@ -1809,13 +1810,12 @@ func TestConfigMethod(t *testing.T) {
 
 	r := robotimpltest.LocalRobot(t, context.Background(), &config.Config{}, logger)
 
-	// Assert that Config method returns the three default services: data_manager,
-	// motion and sensors.
+	// Assert that Config method returns the two default services: motion and sensors.
 	actualCfg := r.Config()
 	defaultSvcs := removeDefaultServices(actualCfg)
-	test.That(t, len(defaultSvcs), test.ShouldEqual, 3)
+	test.That(t, len(defaultSvcs), test.ShouldEqual, 2)
 	for _, svc := range defaultSvcs {
-		test.That(t, svc.API.SubtypeName, test.ShouldBeIn, datamanager.API.SubtypeName,
+		test.That(t, svc.API.SubtypeName, test.ShouldBeIn,
 			motion.API.SubtypeName, sensors.API.SubtypeName)
 	}
 	test.That(t, actualCfg, test.ShouldResemble, &config.Config{})

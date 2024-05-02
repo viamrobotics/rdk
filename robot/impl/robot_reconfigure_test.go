@@ -2542,11 +2542,11 @@ func TestUpdateWeakDependents(t *testing.T) {
 func TestDefaultServiceReconfigure(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 
-	dmName := "dm"
+	motionName := "motion"
 	cfg1 := &config.Config{
 		Services: []resource.Config{
 			{
-				Name:  dmName,
+				Name:  motionName,
 				API:   datamanager.API,
 				Model: resource.DefaultServiceModel,
 			},
@@ -2559,8 +2559,7 @@ func TestDefaultServiceReconfigure(t *testing.T) {
 		rdktestutils.NewResourceNameSet(robot.ResourceNames()...),
 		test.ShouldResemble,
 		rdktestutils.NewResourceNameSet(
-			motion.Named(resource.DefaultServiceName),
-			datamanager.Named(dmName),
+			motion.Named(motionName),
 			sensors.Named(resource.DefaultServiceName),
 		),
 	)
@@ -2581,7 +2580,6 @@ func TestDefaultServiceReconfigure(t *testing.T) {
 		test.ShouldResemble,
 		rdktestutils.NewResourceNameSet(
 			motion.Named(resource.DefaultServiceName),
-			datamanager.Named(resource.DefaultServiceName),
 			sensors.Named(sName),
 		),
 	)
