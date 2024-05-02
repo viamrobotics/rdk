@@ -42,7 +42,7 @@ func TestConfigRobot(t *testing.T) {
 	cfg, err := config.Read(context.Background(), "data/robot.json", logger)
 	test.That(t, err, test.ShouldBeNil)
 
-	test.That(t, cfg.Components, test.ShouldHaveLength, 4)
+	test.That(t, cfg.Components, test.ShouldHaveLength, 3)
 	test.That(t, len(cfg.Remotes), test.ShouldEqual, 2)
 	test.That(t, cfg.Remotes[0].Name, test.ShouldEqual, "one")
 	test.That(t, cfg.Remotes[0].Address, test.ShouldEqual, "foo")

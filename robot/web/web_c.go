@@ -106,10 +106,17 @@ func (svc *webService) addNewStreams(ctx context.Context) error {
 		return nil
 	}
 
-	newStream := func(name string) (gostream.Stream, bool, error) {
+	newStream := func(name string, isVideo bool) (gostream.Stream, bool, error) {
 		// Configure new stream
-		config := *svc.opts.streamConfig
-		config.Name = name
+		config := gostream.StreamConfig{
+			Name: name,
+		}
+
+		if isVideo {
+			config.VideoEncoderFactory = svc.opts.streamConfig.VideoEncoderFactory
+		} else {
+			config.AudioEncoderFactory = svc.opts.streamConfig.AudioEncoderFactory
+		}
 		stream, err := svc.streamServer.Server.NewStream(config)
 
 		// Skip if stream is already registered, otherwise raise any other errors
@@ -127,7 +134,8 @@ func (svc *webService) addNewStreams(ctx context.Context) error {
 	}
 
 	for name, source := range svc.videoSources {
-		stream, alreadyRegistered, err := newStream(name)
+		const isVideo = true
+		stream, alreadyRegistered, err := newStream(name, isVideo)
 		if err != nil {
 			return err
 		} else if alreadyRegistered {
@@ -138,7 +146,8 @@ func (svc *webService) addNewStreams(ctx context.Context) error {
 	}
 
 	for name, source := range svc.audioSources {
-		stream, alreadyRegistered, err := newStream(name)
+		const isVideo = false
+		stream, alreadyRegistered, err := newStream(name, isVideo)
 		if err != nil {
 			return err
 		} else if alreadyRegistered {
@@ -166,10 +175,11 @@ func (svc *webService) makeStreamServer(ctx context.Context) (*StreamServer, err
 	}
 
 	addStream := func(streams []gostream.Stream, name string, isVideo bool) ([]gostream.Stream, error) {
-		config := *svc.opts.streamConfig
-		config.Name = name
+		config := gostream.StreamConfig{
+			Name: name,
+		}
 		if isVideo {
-			config.AudioEncoderFactory = nil
+			config.VideoEncoderFactory = svc.opts.streamConfig.VideoEncoderFactory
 
 			// set TargetFrameRate to the framerate of the video source if available
 			props, err := svc.videoSources[name].MediaProperties(ctx)
@@ -190,7 +200,7 @@ func (svc *webService) makeStreamServer(ctx context.Context) (*StreamServer, err
 				return streams, nil
 			}
 		} else {
-			config.VideoEncoderFactory = nil
+			config.AudioEncoderFactory = svc.opts.streamConfig.AudioEncoderFactory
 		}
 		stream, err := gostream.NewStream(config)
 		if err != nil {

@@ -22,7 +22,6 @@ import (
 
 var joinModel = resource.DefaultModelFamily.WithModel("join_color_depth")
 
-//nolint:dupl
 func init() {
 	resource.RegisterComponent(camera.API, joinModel,
 		resource.Registration[camera.Camera, *joinConfig]{
@@ -71,6 +70,15 @@ func (cfg *joinConfig) Validate(path string) ([]string, error) {
 	deps = append(deps, cfg.Color)
 	if cfg.Depth == "" {
 		return nil, resource.NewConfigValidationFieldRequiredError(path, "depth_camera_name")
+	}
+
+	if cfg.CameraParameters != nil {
+		if cfg.CameraParameters.Height < 0 || cfg.CameraParameters.Width < 0 {
+			return nil, fmt.Errorf(
+				"got illegal negative dimensions for width_px and height_px (%d, %d) fields set in intrinsic_parameters"+
+					" for join_color_depth camera",
+				cfg.CameraParameters.Width, cfg.CameraParameters.Height)
+		}
 	}
 	deps = append(deps, cfg.Depth)
 	return deps, nil

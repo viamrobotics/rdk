@@ -31,7 +31,6 @@ import (
 
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
-	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/board/v1"
 
 	"go.viam.com/rdk/components/board"
@@ -204,18 +203,11 @@ func (pi *piPigpio) Reconfigure(
 }
 
 // StreamTicks starts a stream of digital interrupt ticks.
-func (pi *piPigpio) StreamTicks(ctx context.Context, interruptNames []string, ch chan board.Tick, extra map[string]interface{}) error {
-	var interrupts []board.DigitalInterrupt
-	for _, name := range interruptNames {
-		interrupt, ok := pi.DigitalInterruptByName(name)
-		if !ok {
-			return errors.Errorf("unknown digital interrupt: %s", name)
-		}
-		interrupts = append(interrupts, interrupt)
-	}
-
+func (pi *piPigpio) StreamTicks(ctx context.Context, interrupts []board.DigitalInterrupt, ch chan board.Tick,
+	extra map[string]interface{},
+) error {
 	for _, i := range interrupts {
-		i.AddCallback(ch)
+		AddCallback(i.(*BasicDigitalInterrupt), ch)
 	}
 	return nil
 }
@@ -374,9 +366,6 @@ func (pi *piPigpio) reconfigureInterrupts(ctx context.Context, cfg *Config) erro
 			newInterruptsHW[bcom] = interrupt
 		} else {
 			// This digital interrupt is no longer used.
-			if err := interrupt.Close(ctx); err != nil {
-				return err // This should never happen, but it makes the linter happy.
-			}
 			if result := C.teardownInterrupt(C.int(bcom)); result != 0 {
 				return picommon.ConvertErrorCodeToMessage(int(result), "error")
 			}
@@ -679,7 +668,7 @@ func (pi *piPigpio) AnalogByName(name string) (board.Analog, error) {
 // NOTE: During board setup, if a digital interrupt has not been created
 // for a pin, then this function will attempt to create one with the pin
 // number as the name.
-func (pi *piPigpio) DigitalInterruptByName(name string) (board.DigitalInterrupt, bool) {
+func (pi *piPigpio) DigitalInterruptByName(name string) (board.DigitalInterrupt, error) {
 	pi.mu.Lock()
 	defer pi.mu.Unlock()
 	d, ok := pi.interrupts[name]
@@ -687,7 +676,7 @@ func (pi *piPigpio) DigitalInterruptByName(name string) (board.DigitalInterrupt,
 		var err error
 		if bcom, have := broadcomPinFromHardwareLabel(name); have {
 			if d, ok := pi.interruptsHW[bcom]; ok {
-				return d, ok
+				return d, nil
 			}
 			d, err = CreateDigitalInterrupt(DigitalInterruptConfig{
 				Name: name,
@@ -695,20 +684,20 @@ func (pi *piPigpio) DigitalInterruptByName(name string) (board.DigitalInterrupt,
 				Type: "basic",
 			})
 			if err != nil {
-				return nil, false
+				return nil, err
 			}
 			if result := C.setupInterrupt(C.int(bcom)); result != 0 {
 				err := picommon.ConvertErrorCodeToMessage(int(result), "error")
-				pi.logger.Errorf("Unable to set up interrupt on pin %s: %s", name, err)
-				return nil, false
+				return nil, errors.Errorf("Unable to set up interrupt on pin %s: %s", name, err)
 			}
 
 			pi.interrupts[name] = d
 			pi.interruptsHW[bcom] = d
-			return d, true
+			return d, nil
 		}
+		return d, fmt.Errorf("interrupt %s does not exist", name)
 	}
-	return d, ok
+	return d, nil
 }
 
 func (pi *piPigpio) SetPowerMode(ctx context.Context, mode pb.PowerMode, duration *time.Duration) error {
@@ -739,8 +728,7 @@ func (pi *piPigpio) Close(ctx context.Context) error {
 	}
 	pi.analogReaders = map[string]*pinwrappers.AnalogSmoother{}
 
-	for bcom, interrupt := range pi.interruptsHW {
-		err = multierr.Combine(err, interrupt.Close(ctx))
+	for bcom := range pi.interruptsHW {
 		if result := C.teardownInterrupt(C.int(bcom)); result != 0 {
 			err = multierr.Combine(err, picommon.ConvertErrorCodeToMessage(int(result), "error"))
 		}
@@ -766,11 +754,6 @@ func (pi *piPigpio) Close(ctx context.Context) error {
 
 	pi.isClosed = true
 	return err
-}
-
-// Status returns the current status of the board.
-func (pi *piPigpio) Status(ctx context.Context, extra map[string]interface{}) (*commonpb.BoardStatus, error) {
-	return board.CreateStatus(ctx, pi, extra)
 }
 
 var (
@@ -801,9 +784,19 @@ func pigpioInterruptCallback(gpio, level int, rawTick uint32) {
 		}
 		// this should *not* block for long otherwise the lock
 		// will be held
-		err := i.Tick(instance.cancelCtx, high, tick*1000)
-		if err != nil {
-			instance.logger.Error(err)
+		switch di := i.(type) {
+		case *BasicDigitalInterrupt:
+			err := Tick(instance.cancelCtx, di, high, tick*1000)
+			if err != nil {
+				instance.logger.Error(err)
+			}
+		case *ServoDigitalInterrupt:
+			err := ServoTick(instance.cancelCtx, di, high, tick*1000)
+			if err != nil {
+				instance.logger.Error(err)
+			}
+		default:
+			instance.logger.Error("unknown digital interrupt type")
 		}
 	}
 }

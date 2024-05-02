@@ -29,14 +29,13 @@ import (
 	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
 	"github.com/pkg/errors"
-	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/board/genericlinux/buses"
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
-	rutils "go.viam.com/rdk/utils"
+	"go.viam.com/rdk/utils"
 )
 
 var model = resource.DefaultModelFamily.WithModel("gyro-mpu6050")
@@ -84,11 +83,8 @@ type mpu6050 struct {
 	// Stores the most recent error from the background goroutine
 	err movementsensor.LastError
 
-	// Used to shut down the background goroutine which polls the sensor.
-	backgroundContext       context.Context
-	cancelFunc              func()
-	activeBackgroundWorkers sync.WaitGroup
-	logger                  logging.Logger
+	workers utils.StoppableWorkers
+	logger  logging.Logger
 }
 
 func addressReadError(err error, address byte, bus string) error {
@@ -141,14 +137,11 @@ func makeMpu6050(
 	}
 	logger.CDebugf(ctx, "Using address %d for MPU6050 sensor", address)
 
-	backgroundContext, cancelFunc := context.WithCancel(context.Background())
 	sensor := &mpu6050{
-		Named:             conf.ResourceName().AsNamed(),
-		bus:               bus,
-		i2cAddress:        address,
-		logger:            logger,
-		backgroundContext: backgroundContext,
-		cancelFunc:        cancelFunc,
+		Named:      conf.ResourceName().AsNamed(),
+		bus:        bus,
+		i2cAddress: address,
+		logger:     logger,
 		// On overloaded boards, the I2C bus can become flaky. Only report errors if at least 5 of
 		// the last 10 attempts to talk to the device have failed.
 		err: movementsensor.NewLastError(10, 5),
@@ -174,9 +167,7 @@ func makeMpu6050(
 
 	// Now, turn on the background goroutine that constantly reads from the chip and stores data in
 	// the object we created.
-	sensor.activeBackgroundWorkers.Add(1)
-	utils.PanicCapturingGo(func() {
-		defer sensor.activeBackgroundWorkers.Done()
+	sensor.workers = utils.NewStoppableWorkers(func(cancelCtx context.Context) {
 		// Reading data a thousand times per second is probably fast enough.
 		timer := time.NewTicker(time.Millisecond)
 		defer timer.Stop()
@@ -184,7 +175,7 @@ func makeMpu6050(
 		for {
 			select {
 			case <-timer.C:
-				rawData, err := sensor.readBlock(sensor.backgroundContext, 59, 14)
+				rawData, err := sensor.readBlock(cancelCtx, 59, 14)
 				// Record `err` no matter what: even if it's nil, that's useful information.
 				sensor.err.Set(err)
 				if err != nil {
@@ -194,7 +185,7 @@ func makeMpu6050(
 
 				linearAcceleration := toLinearAcceleration(rawData[0:6])
 				// Taken straight from the MPU6050 register map. Yes, these are weird constants.
-				temperature := float64(rutils.Int16FromBytesBE(rawData[6:8]))/340.0 + 36.53
+				temperature := float64(utils.Int16FromBytesBE(rawData[6:8]))/340.0 + 36.53
 				angularVelocity := toAngularVelocity(rawData[8:14])
 
 				// Lock the mutex before modifying the state within the object. By keeping the mutex
@@ -205,7 +196,7 @@ func makeMpu6050(
 				sensor.temperature = temperature
 				sensor.angularVelocity = angularVelocity
 				sensor.mu.Unlock()
-			case <-sensor.backgroundContext.Done():
+			case <-cancelCtx.Done():
 				return
 			}
 		}
@@ -261,9 +252,9 @@ func setScale(value int, maxValue float64) float64 {
 // A helper function to abstract out shared code: takes 6 bytes and gives back AngularVelocity, in
 // radians per second.
 func toAngularVelocity(data []byte) spatialmath.AngularVelocity {
-	gx := int(rutils.Int16FromBytesBE(data[0:2]))
-	gy := int(rutils.Int16FromBytesBE(data[2:4]))
-	gz := int(rutils.Int16FromBytesBE(data[4:6]))
+	gx := int(utils.Int16FromBytesBE(data[0:2]))
+	gy := int(utils.Int16FromBytesBE(data[2:4]))
+	gz := int(utils.Int16FromBytesBE(data[4:6]))
 
 	maxRotation := 250.0 // Maximum degrees per second measurable in the default configuration
 	return spatialmath.AngularVelocity{
@@ -275,9 +266,9 @@ func toAngularVelocity(data []byte) spatialmath.AngularVelocity {
 
 // A helper function that takes 6 bytes and gives back linear acceleration.
 func toLinearAcceleration(data []byte) r3.Vector {
-	x := int(rutils.Int16FromBytesBE(data[0:2]))
-	y := int(rutils.Int16FromBytesBE(data[2:4]))
-	z := int(rutils.Int16FromBytesBE(data[4:6]))
+	x := int(utils.Int16FromBytesBE(data[0:2]))
+	y := int(utils.Int16FromBytesBE(data[2:4]))
+	z := int(utils.Int16FromBytesBE(data[4:6]))
 
 	// The scale is +/- 2G's, but our units should be m/sec/sec.
 	maxAcceleration := 2.0 * 9.81 /* m/sec/sec */
@@ -345,8 +336,7 @@ func (mpu *mpu6050) Properties(ctx context.Context, extra map[string]interface{}
 }
 
 func (mpu *mpu6050) Close(ctx context.Context) error {
-	mpu.cancelFunc()
-	mpu.activeBackgroundWorkers.Wait()
+	mpu.workers.Stop()
 
 	mpu.mu.Lock()
 	defer mpu.mu.Unlock()

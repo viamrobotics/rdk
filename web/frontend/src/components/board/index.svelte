@@ -152,7 +152,7 @@ const handleReadAnalogPinInput = (event: CustomEvent<{ value: string }>) => {
     </table>
 
     <h3 class="mb-2">Digital Interrupts</h3>
-    <table class="mb-4 w-full table-auto border border-medium">
+    <table class="mb-4 table-auto border border-medium">
       {#each Object.entries(status?.digital_interrupts ?? {}) as [interruptName, interrupt] (interruptName)}
         <tr>
           <th class="border border-medium p-2">

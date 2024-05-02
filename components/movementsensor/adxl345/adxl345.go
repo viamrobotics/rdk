@@ -329,21 +329,33 @@ func makeAdxl345(
 		if err != nil {
 			return nil, err
 		}
+		interrupts := []board.DigitalInterrupt{}
+		for _, name := range interruptList {
+			interrupt, err := b.DigitalInterruptByName(name)
+			if err != nil {
+				return nil, err
+			}
+			interrupts = append(interrupts, interrupt)
+		}
 		ticksChan := make(chan board.Tick)
-		err = b.StreamTicks(sensor.cancelContext, interruptList, ticksChan, nil)
+		err = b.StreamTicks(sensor.cancelContext, interrupts, ticksChan, nil)
 		if err != nil {
 			return nil, err
 		}
-		sensor.startInterruptMonitoring(b, ticksChan, interruptList)
+		sensor.startInterruptMonitoring(ticksChan, interrupts)
 	}
 
 	return sensor, nil
 }
 
-func (adxl *adxl345) startInterruptMonitoring(b board.Board, ticksChan chan board.Tick, interruptList []string) {
+func (adxl *adxl345) startInterruptMonitoring(ticksChan chan board.Tick, interrupts []board.DigitalInterrupt) {
 	utils.PanicCapturingGo(func() {
-		// Remove the callbacks added by the interrupt stream once we are done.
-		defer utils.UncheckedErrorFunc(func() error { return board.RemoveCallbacks(b, interruptList, ticksChan) })
+		defer func() {
+			for _, i := range interrupts {
+				i.RemoveCallback(ticksChan)
+			}
+		}()
+
 		for {
 			select {
 			case <-adxl.cancelContext.Done():

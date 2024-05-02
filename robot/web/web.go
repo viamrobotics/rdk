@@ -984,6 +984,8 @@ func (svc *webService) foreignServiceHandler(srv interface{}, stream googlegrpc.
 			defer wg.Done()
 
 			var err error
+			// process first message before waiting for more messages
+			err = bidiStream.SendMsg(firstMsg)
 			for err == nil {
 				msg := dynamic.NewMessage(methodDesc.GetInputType())
 				if err = stream.RecvMsg(msg); err != nil {
@@ -1032,8 +1034,12 @@ func (svc *webService) foreignServiceHandler(srv interface{}, stream googlegrpc.
 		if err != nil {
 			return err
 		}
-
-		for {
+		// process first message before waiting for more messages
+		err = clientStream.SendMsg(firstMsg)
+		if err != nil && !errors.Is(err, io.EOF) {
+			return err
+		}
+		for err == nil {
 			msg := dynamic.NewMessage(methodDesc.GetInputType())
 			if err := stream.RecvMsg(msg); err != nil {
 				if errors.Is(err, io.EOF) {

@@ -14,7 +14,6 @@ import (
 
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
-	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/board/v1"
 	goutils "go.viam.com/utils"
 
@@ -128,7 +127,7 @@ func (b *Board) reconfigureGpios(newConf *LinuxBoardConfig) error {
 		// If we get here, the old pin definition exists, but the old pin does not. Check if it's a
 		// digital interrupt.
 		if interrupt, ok := b.interrupts[oldName]; ok {
-			if err := interrupt.Close(); err != nil {
+			if err := closeInterrupt(interrupt); err != nil {
 				return err
 			}
 			delete(b.interrupts, oldName)
@@ -274,7 +273,7 @@ func (b *Board) reconfigureInterrupts(newConf *LinuxBoardConfig) error {
 	for _, oldInterrupt := range b.interrupts {
 		if newConfig := findNewDigIntConfig(oldInterrupt, newConf.DigitalInterrupts, b.logger); newConfig == nil {
 			// The old interrupt shouldn't exist any more, but it probably became a GPIO pin.
-			if err := oldInterrupt.Close(); err != nil {
+			if err := closeInterrupt(oldInterrupt); err != nil {
 				return err // This should never happen, but the linter worries anyway.
 			}
 			if newGpioConfig, ok := b.gpioMappings[oldInterrupt.config.Pin]; ok {
@@ -306,7 +305,7 @@ func (b *Board) reconfigureInterrupts(newConf *LinuxBoardConfig) error {
 			// though it was not explicitly mentioned in the old board config), but the new config
 			// is explicit (e.g., its name is still "38" but it's been moved to pin 37). Close the
 			// old one and initialize it anew.
-			if err := interrupt.Close(); err != nil {
+			if err := closeInterrupt(interrupt); err != nil {
 				return err
 			}
 			// Although we delete the implicit interrupt from b.interrupts, it's still in
@@ -407,24 +406,23 @@ func (b *Board) AnalogByName(name string) (board.Analog, error) {
 }
 
 // DigitalInterruptByName returns the interrupt by the given name if it exists.
-func (b *Board) DigitalInterruptByName(name string) (board.DigitalInterrupt, bool) {
+func (b *Board) DigitalInterruptByName(name string) (board.DigitalInterrupt, error) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
 	interrupt, ok := b.interrupts[name]
 	if ok {
-		return interrupt.interrupt, true
+		return interrupt.interrupt, nil
 	}
 
 	// Otherwise, the name is not something we recognize yet. If it appears to be a GPIO pin, we'll
 	// remove its GPIO capabilities and turn it into a digital interrupt.
 	gpio, ok := b.gpios[name]
 	if !ok {
-		return nil, false
+		return nil, fmt.Errorf("cant find GPIO (%s)", name)
 	}
 	if err := gpio.Close(); err != nil {
-		b.logger.Errorw("failed to close GPIO pin to use as interrupt", "error", err)
-		return nil, false
+		return nil, err
 	}
 
 	defaultInterruptConfig := board.DigitalInterruptConfig{
@@ -434,13 +432,12 @@ func (b *Board) DigitalInterruptByName(name string) (board.DigitalInterrupt, boo
 	interrupt, err := b.createDigitalInterrupt(
 		b.cancelCtx, defaultInterruptConfig, b.gpioMappings, nil)
 	if err != nil {
-		b.logger.Errorw("failed to create digital interrupt pin on the fly", "error", err)
-		return nil, false
+		return nil, err
 	}
 
 	delete(b.gpios, name)
 	b.interrupts[name] = interrupt
-	return interrupt.interrupt, true
+	return interrupt.interrupt, nil
 }
 
 // AnalogNames returns the names of all known analog pins.
@@ -479,11 +476,6 @@ func (b *Board) GPIOPinByName(pinName string) (board.GPIOPin, error) {
 	return nil, errors.Errorf("cannot find GPIO for unknown pin: %s", pinName)
 }
 
-// Status returns the current status of the board.
-func (b *Board) Status(ctx context.Context, extra map[string]interface{}) (*commonpb.BoardStatus, error) {
-	return board.CreateStatus(ctx, b, extra)
-}
-
 // SetPowerMode sets the board to the given power mode. If provided,
 // the board will exit the given power mode after the specified
 // duration.
@@ -501,18 +493,11 @@ func (b *Board) WriteAnalog(ctx context.Context, pin string, value int32, extra 
 }
 
 // StreamTicks starts a stream of digital interrupt ticks.
-func (b *Board) StreamTicks(ctx context.Context, interruptNames []string, ch chan board.Tick, extra map[string]interface{}) error {
-	var interrupts []board.DigitalInterrupt
-	for _, name := range interruptNames {
-		interrupt, ok := b.DigitalInterruptByName(name)
-		if !ok {
-			return errors.Errorf("unknown digital interrupt: %s", name)
-		}
-		interrupts = append(interrupts, interrupt)
-	}
-
+func (b *Board) StreamTicks(ctx context.Context, interrupts []board.DigitalInterrupt, ch chan board.Tick,
+	extra map[string]interface{},
+) error {
 	for _, i := range interrupts {
-		i.AddCallback(ch)
+		pinwrappers.AddCallback(i.(*pinwrappers.BasicDigitalInterrupt), ch)
 	}
 	return nil
 }
@@ -529,7 +514,7 @@ func (b *Board) Close(ctx context.Context) error {
 		err = multierr.Combine(err, pin.Close())
 	}
 	for _, interrupt := range b.interrupts {
-		err = multierr.Combine(err, interrupt.Close())
+		err = multierr.Combine(err, closeInterrupt(interrupt))
 	}
 	for _, reader := range b.analogReaders {
 		err = multierr.Combine(err, reader.Close(ctx))

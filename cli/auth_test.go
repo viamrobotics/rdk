@@ -80,7 +80,7 @@ func TestRobotAPIKeyCreateAction(t *testing.T) {
 	flags[generalFlagOrgID] = fakeOrgID
 	flags[generalFlagMachineID] = fakeRobotID
 	flags[apiKeyCreateFlagName] = "my-name"
-	cCtx, ac, out, errOut := setup(asc, nil, nil, &flags, "token")
+	cCtx, ac, out, errOut := setup(asc, nil, nil, flags, "token")
 
 	test.That(t, ac.robotAPIKeyCreateAction(cCtx), test.ShouldBeNil)
 	test.That(t, len(errOut.messages), test.ShouldEqual, 0)
@@ -135,7 +135,7 @@ func TestRobotAPIKeyCreateAction(t *testing.T) {
 	flags[generalFlagMachineID] = fakeRobotID
 	flags[generalFlagOrgID] = ""
 	flags[apiKeyCreateFlagName] = "test-me"
-	cCtx, ac, out, _ = setup(asc, nil, nil, &flags, "token")
+	cCtx, ac, out, _ = setup(asc, nil, nil, flags, "token")
 	err = ac.robotAPIKeyCreateAction(cCtx)
 	test.That(t, err, test.ShouldNotBeNil)
 
@@ -162,7 +162,7 @@ func TestLocationAPIKeyCreateAction(t *testing.T) {
 	flags[generalFlagOrgID] = ""
 	flags[apiKeyCreateFlagName] = "" // testing no locationID
 
-	cCtx, ac, out, errOut := setup(asc, nil, nil, &flags, "token")
+	cCtx, ac, out, errOut := setup(asc, nil, nil, flags, "token")
 	err := ac.locationAPIKeyCreateAction(cCtx)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, len(errOut.messages), test.ShouldEqual, 0)
@@ -203,7 +203,7 @@ func TestLocationAPIKeyCreateAction(t *testing.T) {
 	flags[generalFlagOrgID] = ""
 	flags[apiKeyCreateFlagName] = "test-name"
 
-	cCtx, ac, _, _ = setup(asc, nil, nil, &flags, "token")
+	cCtx, ac, _, _ = setup(asc, nil, nil, flags, "token")
 
 	err = ac.locationAPIKeyCreateAction(cCtx)
 	test.That(t, err, test.ShouldNotBeNil)

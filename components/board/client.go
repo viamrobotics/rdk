@@ -4,11 +4,11 @@ package board
 import (
 	"context"
 	"math"
+	"slices"
 	"sync"
 	"time"
 
 	"github.com/pkg/errors"
-	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/board/v1"
 	"go.viam.com/utils/protoutils"
 	"go.viam.com/utils/rpc"
@@ -31,9 +31,7 @@ type client struct {
 	client pb.BoardServiceClient
 	logger logging.Logger
 
-	info           boardInfo
-	cachedStatus   *commonpb.BoardStatus
-	cachedStatusMu sync.Mutex
+	info boardInfo
 
 	interruptStreams []*interruptStream
 
@@ -54,7 +52,11 @@ func NewClientFromConn(
 	name resource.Name,
 	logger logging.Logger,
 ) (Board, error) {
-	info := boardInfo{name: name.ShortName()}
+	info := boardInfo{
+		name:                  name.ShortName(),
+		analogNames:           []string{},
+		digitalInterruptNames: []string{},
+	}
 	bClient := pb.NewBoardServiceClient(conn)
 	c := &client{
 		Named:  name.PrependRemote(remoteName).AsNamed(),
@@ -62,13 +64,13 @@ func NewClientFromConn(
 		logger: logger,
 		info:   info,
 	}
-	if err := c.refresh(ctx); err != nil {
-		c.logger.CWarn(ctx, err)
-	}
 	return c, nil
 }
 
 func (c *client) AnalogByName(name string) (Analog, error) {
+	if !slices.Contains(c.info.analogNames, name) {
+		c.info.analogNames = append(c.info.analogNames, name)
+	}
 	return &analogClient{
 		client:     c,
 		boardName:  c.info.name,
@@ -76,12 +78,15 @@ func (c *client) AnalogByName(name string) (Analog, error) {
 	}, nil
 }
 
-func (c *client) DigitalInterruptByName(name string) (DigitalInterrupt, bool) {
+func (c *client) DigitalInterruptByName(name string) (DigitalInterrupt, error) {
+	if !slices.Contains(c.info.digitalInterruptNames, name) {
+		c.info.digitalInterruptNames = append(c.info.digitalInterruptNames, name)
+	}
 	return &digitalInterruptClient{
 		client:               c,
 		boardName:            c.info.name,
 		digitalInterruptName: name,
-	}, true
+	}, nil
 }
 
 func (c *client) GPIOPinByName(name string) (GPIOPin, error) {
@@ -93,79 +98,19 @@ func (c *client) GPIOPinByName(name string) (GPIOPin, error) {
 }
 
 func (c *client) AnalogNames() []string {
-	if c.getCachedStatus() == nil {
-		c.logger.Debugw("no cached status")
+	if len(c.info.analogNames) == 0 {
+		c.logger.Debugw("no cached analog readers")
 		return []string{}
 	}
 	return copyStringSlice(c.info.analogNames)
 }
 
 func (c *client) DigitalInterruptNames() []string {
-	if c.getCachedStatus() == nil {
-		c.logger.Debugw("no cached status")
+	if len(c.info.digitalInterruptNames) == 0 {
+		c.logger.Debugw("no cached digital interrupts")
 		return []string{}
 	}
 	return copyStringSlice(c.info.digitalInterruptNames)
-}
-
-// Status uses the cached status or a newly fetched board status to return the state
-// of the board.
-func (c *client) Status(ctx context.Context, extra map[string]interface{}) (*commonpb.BoardStatus, error) {
-	if status := c.getCachedStatus(); status != nil {
-		return status, nil
-	}
-
-	ext, err := protoutils.StructToStructPb(extra)
-	if err != nil {
-		return nil, err
-	}
-	resp, err := c.client.Status(ctx, &pb.StatusRequest{Name: c.info.name, Extra: ext})
-	if err != nil {
-		return nil, err
-	}
-	return resp.Status, nil
-}
-
-func (c *client) refresh(ctx context.Context) error {
-	status, err := c.status(ctx)
-	if err != nil {
-		return errors.Wrap(err, "status call failed")
-	}
-	c.storeStatus(status)
-
-	c.info.analogNames = []string{}
-	for name := range status.Analogs {
-		c.info.analogNames = append(c.info.analogNames, name)
-	}
-	c.info.digitalInterruptNames = []string{}
-	for name := range status.DigitalInterrupts {
-		c.info.digitalInterruptNames = append(c.info.digitalInterruptNames, name)
-	}
-
-	return nil
-}
-
-// storeStatus atomically stores the status response.
-func (c *client) storeStatus(status *commonpb.BoardStatus) {
-	c.cachedStatusMu.Lock()
-	defer c.cachedStatusMu.Unlock()
-	c.cachedStatus = status
-}
-
-// getCachedStatus atomically gets the cached status response.
-func (c *client) getCachedStatus() *commonpb.BoardStatus {
-	c.cachedStatusMu.Lock()
-	defer c.cachedStatusMu.Unlock()
-	return c.cachedStatus
-}
-
-// status gets the latest status from the server.
-func (c *client) status(ctx context.Context) (*commonpb.BoardStatus, error) {
-	resp, err := c.client.Status(ctx, &pb.StatusRequest{Name: c.info.name})
-	if err != nil {
-		return nil, err
-	}
-	return resp.Status, nil
 }
 
 func (c *client) SetPowerMode(ctx context.Context, mode pb.PowerMode, duration *time.Duration) error {
@@ -255,14 +200,16 @@ func (dic *digitalInterruptClient) Tick(ctx context.Context, high bool, nanoseco
 	panic(errUnimplemented)
 }
 
-func (dic *digitalInterruptClient) AddCallback(ch chan Tick) {
-	panic(errUnimplemented)
+func (dic *digitalInterruptClient) Name() string {
+	return dic.digitalInterruptName
 }
 
 func (dic *digitalInterruptClient) RemoveCallback(ch chan Tick) {
 }
 
-func (c *client) StreamTicks(ctx context.Context, interrupts []string, ch chan Tick, extra map[string]interface{}) error {
+func (c *client) StreamTicks(ctx context.Context, interrupts []DigitalInterrupt, ch chan Tick,
+	extra map[string]interface{},
+) error {
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
 		return err
