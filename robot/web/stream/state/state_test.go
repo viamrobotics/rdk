@@ -345,13 +345,13 @@ func TestStreamState(t *testing.T) {
 			subsAndCancelByIDMu.Lock()
 			defer subsAndCancelByIDMu.Unlock()
 			defer subscribeRTPCount.Add(1)
-			subCtx, subCancelFn := context.WithCancel(context.Background())
+			terminatedCtx, terminatedFn := context.WithCancel(context.Background())
 			id := uuid.New()
-			sub := rtppassthrough.Subscription{ID: id, Context: subCtx}
-			subsAndCancelByID[id] = subAndCancel{sub: sub, cancelFn: subCancelFn, wg: &sync.WaitGroup{}}
+			sub := rtppassthrough.Subscription{ID: id, Terminated: terminatedCtx}
+			subsAndCancelByID[id] = subAndCancel{sub: sub, cancelFn: terminatedFn, wg: &sync.WaitGroup{}}
 			subsAndCancelByID[id].wg.Add(1)
 			utils.ManagedGo(func() {
-				for subCtx.Err() == nil {
+				for terminatedCtx.Err() == nil {
 					packetsCB([]*rtp.Packet{{}})
 					time.Sleep(time.Millisecond * 50)
 				}
@@ -460,7 +460,7 @@ func TestStreamState(t *testing.T) {
 		var cancelledSubs int
 		subsAndCancelByIDMu.Lock()
 		for _, subAndCancel := range subsAndCancelByID {
-			if subAndCancel.sub.Context.Err() == nil {
+			if subAndCancel.sub.Terminated.Err() == nil {
 				subAndCancel.cancelFn()
 				cancelledSubs++
 			}
@@ -530,10 +530,10 @@ func TestStreamState(t *testing.T) {
 			if subscribeRTPReturnError.Load() {
 				return rtppassthrough.NilSubscription, errors.New("SubscribeRTP returned error")
 			}
-			subCtx, subCancelFn := context.WithCancel(context.Background())
+			terminatedCtx, terminatedFn := context.WithCancel(context.Background())
 			id := uuid.New()
-			sub := rtppassthrough.Subscription{ID: id, Context: subCtx}
-			subsAndCancelByID[id] = subAndCancel{sub: sub, cancelFn: subCancelFn}
+			sub := rtppassthrough.Subscription{ID: id, Terminated: terminatedCtx}
+			subsAndCancelByID[id] = subAndCancel{sub: sub, cancelFn: terminatedFn}
 			return sub, nil
 		}
 

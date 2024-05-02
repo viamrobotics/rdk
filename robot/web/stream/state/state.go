@@ -48,9 +48,10 @@ type StreamState struct {
 	msgChan     chan msg
 	restartChan chan struct{}
 
-	activePeers              int
-	streamSource             streamSource
-	streamSourceSubscription rtppassthrough.Subscription
+	activePeers  int
+	streamSource streamSource
+	// streamSourceSub is only non nil if streamSource == streamSourcePassthrough
+	streamSourceSub rtppassthrough.Subscription
 }
 
 // New returns a new *StreamState.
@@ -217,7 +218,7 @@ func (ss *StreamState) monitorSubscription(sub rtppassthrough.Subscription) {
 		// if we were streaming using gostream, stop streaming using gostream as we are now using passthrough
 		ss.Stream.Stop()
 	}
-	ss.streamSourceSubscription = sub
+	ss.streamSourceSub = sub
 	ss.streamSource = streamSourcePassthrough
 	monitorSubFunc := func() {
 		// if the stream state is shutting down, terminate
@@ -228,7 +229,7 @@ func (ss *StreamState) monitorSubscription(sub rtppassthrough.Subscription) {
 		select {
 		case <-ss.closedCtx.Done():
 			return
-		case <-sub.Context.Done():
+		case <-sub.Terminated.Done():
 			select {
 			case ss.restartChan <- struct{}{}:
 			case <-ss.closedCtx.Done():
@@ -251,11 +252,11 @@ func (ss *StreamState) stopBasedOnSub(ctx context.Context) error {
 		return nil
 	case streamSourcePassthrough:
 		ss.logger.Debugf("%s stopBasedOnSub stopping passthrough", ss.Stream.Name())
-		err := ss.unsubscribeH264Passthrough(ctx, ss.streamSourceSubscription.ID)
+		err := ss.unsubscribeH264Passthrough(ctx, ss.streamSourceSub.ID)
 		if err != nil {
 			return err
 		}
-		ss.streamSourceSubscription = rtppassthrough.NilSubscription
+		ss.streamSourceSub = rtppassthrough.NilSubscription
 		ss.streamSource = streamSourceUnknown
 		return nil
 
@@ -403,7 +404,7 @@ func (ss *StreamState) restart(ctx context.Context) {
 		return
 	}
 
-	if ss.streamSourceSubscription != rtppassthrough.NilSubscription && ss.streamSourceSubscription.Err() == nil {
+	if ss.streamSourceSub != rtppassthrough.NilSubscription && ss.streamSourceSub.Terminated.Err() == nil {
 		// if the stream is still healthy, do nothing
 		return
 	}

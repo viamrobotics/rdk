@@ -1106,7 +1106,7 @@ func TestRTPPassthrough(t *testing.T) {
 
 	err = noRTPPassthroughSource.Unsubscribe(context.Background(), sub.ID)
 	test.That(t, err, test.ShouldBeError)
-	test.That(t, err, test.ShouldBeError, camera.ErrUnknownStreamSubscriptionID)
+	test.That(t, err, test.ShouldBeError, camera.ErrUnknownSubscriptionID)
 
 	greenLog(t, "Camera that supports rtp_passthrough")
 	rtpPassthroughCamera, err := mgr.AddResource(ctx, rtpPassthroughCameraConf, nil)
@@ -1125,14 +1125,14 @@ func TestRTPPassthrough(t *testing.T) {
 	subscribeRTPcancelFn()
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, sub.ID, test.ShouldNotResemble, rtppassthrough.NilSubscription)
-	test.That(t, sub.Context.Err(), test.ShouldBeNil)
+	test.That(t, sub.Terminated.Err(), test.ShouldBeNil)
 	<-calledCtx.Done()
 
 	// Unsubscribe succeeds and terminates the subscription
 	greenLog(t, "Unsubscribe immediately terminates the relevant subscription")
 	err = rtpPassthroughSource.Unsubscribe(context.Background(), sub.ID)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, sub.Context.Err(), test.ShouldBeError, context.Canceled)
+	test.That(t, sub.Terminated.Err(), test.ShouldBeError, context.Canceled)
 
 	// Close terminates all in progress subscriptions
 	greenLog(t, "The first SubscribeRTP call receives rtp packets")
@@ -1156,15 +1156,15 @@ func TestRTPPassthrough(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	<-calledCtx1.Done()
 	<-calledCtx2.Done()
-	test.That(t, sub1.Context.Err(), test.ShouldBeNil)
-	test.That(t, sub2.Context.Err(), test.ShouldBeNil)
+	test.That(t, sub1.Terminated.Err(), test.ShouldBeNil)
+	test.That(t, sub2.Terminated.Err(), test.ShouldBeNil)
 
 	greenLog(t, "camera.Close immediately terminates all subscriptions")
 	err = rtpPassthroughCamera.Close(ctx)
 	test.That(t, err, test.ShouldBeNil)
 
-	test.That(t, sub1.Context.Err(), test.ShouldBeError, context.Canceled)
-	test.That(t, sub2.Context.Err(), test.ShouldBeError, context.Canceled)
+	test.That(t, sub1.Terminated.Err(), test.ShouldBeError, context.Canceled)
+	test.That(t, sub2.Terminated.Err(), test.ShouldBeError, context.Canceled)
 
 	// reset passthrough
 	err = mgr.RemoveResource(ctx, rtpPassthroughCameraConf.ResourceName())
@@ -1188,8 +1188,8 @@ func TestRTPPassthrough(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	subscribeRTPcancelFn()
 
-	test.That(t, sub1.Context.Err(), test.ShouldBeNil)
-	test.That(t, sub2.Context.Err(), test.ShouldBeNil)
+	test.That(t, sub1.Terminated.Err(), test.ShouldBeNil)
+	test.That(t, sub2.Terminated.Err(), test.ShouldBeNil)
 
 	// remove resource
 	err = mgr.RemoveResource(ctx, rtpPassthroughCameraConf.ResourceName())
@@ -1197,10 +1197,10 @@ func TestRTPPassthrough(t *testing.T) {
 
 	// subs are canceled
 
-	test.That(t, utils.SelectContextOrWait(sub1.Context, time.Second), test.ShouldBeFalse)
-	test.That(t, utils.SelectContextOrWait(sub2.Context, time.Second), test.ShouldBeFalse)
-	test.That(t, sub1.Context.Err(), test.ShouldBeError, context.Canceled)
-	test.That(t, sub2.Context.Err(), test.ShouldBeError, context.Canceled)
+	test.That(t, utils.SelectContextOrWait(sub1.Terminated, time.Second), test.ShouldBeFalse)
+	test.That(t, utils.SelectContextOrWait(sub2.Terminated, time.Second), test.ShouldBeFalse)
+	test.That(t, sub1.Terminated.Err(), test.ShouldBeError, context.Canceled)
+	test.That(t, sub2.Terminated.Err(), test.ShouldBeError, context.Canceled)
 
 	// reset passthrough
 	rtpPassthroughCamera, err = mgr.AddResource(ctx, rtpPassthroughCameraConf, nil)
@@ -1216,14 +1216,14 @@ func TestRTPPassthrough(t *testing.T) {
 	subscribeRTPcancelFn()
 	test.That(t, err, test.ShouldBeNil)
 
-	test.That(t, sub.Context.Err(), test.ShouldBeNil)
+	test.That(t, sub.Terminated.Err(), test.ShouldBeNil)
 
 	// reconfigure
 	err = mgr.ReconfigureResource(ctx, rtpPassthroughCameraConf, nil)
 	test.That(t, err, test.ShouldBeNil)
 
-	test.That(t, utils.SelectContextOrWait(sub.Context, time.Second), test.ShouldBeFalse)
-	test.That(t, sub.Context.Err(), test.ShouldBeError, context.Canceled)
+	test.That(t, utils.SelectContextOrWait(sub.Terminated, time.Second), test.ShouldBeFalse)
+	test.That(t, sub.Terminated.Err(), test.ShouldBeError, context.Canceled)
 
 	greenLog(t, "replacing a module binary eventually cancels subscriptions")
 	// add a subscription
@@ -1231,7 +1231,7 @@ func TestRTPPassthrough(t *testing.T) {
 	sub, err = rtpPassthroughSource.SubscribeRTP(subscribeRTPCtx, 512, func(pkts []*rtp.Packet) {})
 	subscribeRTPcancelFn()
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, sub.Context.Err(), test.ShouldBeNil)
+	test.That(t, sub.Terminated.Err(), test.ShouldBeNil)
 
 	// Change underlying binary path of module to be a different copy of the same module
 	modCfg.ExePath = modPath2
@@ -1243,8 +1243,8 @@ func TestRTPPassthrough(t *testing.T) {
 	test.That(t, orphanedResourceNames, test.ShouldContain, noRTPPassthroughCameraConf.ResourceName())
 	test.That(t, orphanedResourceNames, test.ShouldContain, rtpPassthroughCameraConf.ResourceName())
 	// the subscription from the previous module instance should be terminated
-	test.That(t, utils.SelectContextOrWait(sub.Context, time.Second), test.ShouldBeFalse)
-	test.That(t, sub.Context.Err(), test.ShouldBeError, context.Canceled)
+	test.That(t, utils.SelectContextOrWait(sub.Terminated, time.Second), test.ShouldBeFalse)
+	test.That(t, sub.Terminated.Err(), test.ShouldBeError, context.Canceled)
 
 	greenLog(t, "modmanager Close eventually cancels subscriptions")
 	// add a subscription
@@ -1254,14 +1254,14 @@ func TestRTPPassthrough(t *testing.T) {
 	sub, err = rtpPassthroughSource.SubscribeRTP(subscribeRTPCtx, 512, func(pkts []*rtp.Packet) {})
 	test.That(t, err, test.ShouldBeNil)
 	subscribeRTPcancelFn()
-	test.That(t, sub.Context.Err(), test.ShouldBeNil)
+	test.That(t, sub.Terminated.Err(), test.ShouldBeNil)
 
 	err = mgr.Close(ctx)
 	test.That(t, err, test.ShouldBeNil)
 
 	// the subscription should be terminated
-	test.That(t, utils.SelectContextOrWait(sub.Context, time.Second), test.ShouldBeFalse)
-	test.That(t, sub.Context.Err(), test.ShouldBeError, context.Canceled)
+	test.That(t, utils.SelectContextOrWait(sub.Terminated, time.Second), test.ShouldBeFalse)
+	test.That(t, sub.Terminated.Err(), test.ShouldBeError, context.Canceled)
 
 	err = rtpPassthroughCamera.Close(ctx)
 	test.That(t, err, test.ShouldBeNil)

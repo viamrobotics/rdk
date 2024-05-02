@@ -18,11 +18,11 @@ type (
 	Subscription struct {
 		// ID is the ID of the Subscription
 		ID SubscriptionID
-		// Context will be cancelled when the RTP Subscription has terminated
+		// The Terminated context will be cancelled when the RTP Subscription has terminated.
 		// A successful call to Unsubscribe terminates the RTP Subscription with that ID
 		// An RTP Subscription may also terminate for other internal to the Source
 		// (IO errors, reconfiguration, etc)
-		context.Context
+		Terminated context.Context
 	}
 )
 

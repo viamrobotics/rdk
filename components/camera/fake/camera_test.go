@@ -213,18 +213,18 @@ func TestRTPPassthrough(t *testing.T) {
 		// Unsubscribe fails when provided an ID for which there is no subscription
 		test.That(t, cam.Unsubscribe(context.Background(), uuid.New()), test.ShouldBeError, errors.New("id not found"))
 
-		test.That(t, sub.Context.Err(), test.ShouldBeNil)
+		test.That(t, sub.Terminated.Err(), test.ShouldBeNil)
 		// Unsubscribe succeeds when provided an ID for which there is a subscription
 		test.That(t, cam.Unsubscribe(context.Background(), sub.ID), test.ShouldBeNil)
 		// Unsubscribe cancels the subscription
-		test.That(t, sub.Context.Err(), test.ShouldBeError, context.Canceled)
+		test.That(t, sub.Terminated.Err(), test.ShouldBeError, context.Canceled)
 
 		// subscriptions are cleaned up after Close is called
 		sub2, err := cam.SubscribeRTP(context.Background(), 512, func(pkts []*rtp.Packet) {})
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, sub2.Context.Err(), test.ShouldBeNil)
+		test.That(t, sub2.Terminated.Err(), test.ShouldBeNil)
 		test.That(t, camera.Close(context.Background()), test.ShouldBeNil)
-		test.That(t, sub2.Context.Err(), test.ShouldBeError, context.Canceled)
+		test.That(t, sub2.Terminated.Err(), test.ShouldBeError, context.Canceled)
 	})
 
 	t.Run("when rtp_passthrough is not enabled", func(t *testing.T) {

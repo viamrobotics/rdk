@@ -290,9 +290,8 @@ func (c *Camera) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, err
 }
 
 type subAndCB struct {
-	cb          rtppassthrough.PacketCallback
-	sub         *rtppassthrough.StreamSubscription
-	subCancelFn context.CancelFunc
+	cb  rtppassthrough.PacketCallback
+	buf *rtppassthrough.Buffer
 }
 
 // SubscribeRTP begins a subscription to receive RTP packets.
@@ -306,13 +305,8 @@ func (c *Camera) SubscribeRTP(
 	}
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	subCtx, subCancelFn := context.WithCancel(context.Background())
-	g := rutils.NewGuard(func() {
-		subCancelFn()
-	})
-	defer g.OnFail()
 
-	sub, err := rtppassthrough.NewStreamSubscription(bufferSize)
+	sub, buf, err := rtppassthrough.NewSubscription(bufferSize)
 	if err != nil {
 		return rtppassthrough.NilSubscription, err
 	}
@@ -323,17 +317,16 @@ func (c *Camera) SubscribeRTP(
 	}
 
 	if err := encoder.Init(); err != nil {
+		buf.Close()
 		return rtppassthrough.NilSubscription, err
 	}
 
-	c.subAndCBByID[sub.ID()] = subAndCB{
-		cb:          packetsCB,
-		sub:         sub,
-		subCancelFn: subCancelFn,
+	c.subAndCBByID[sub.ID] = subAndCB{
+		cb:  packetsCB,
+		buf: buf,
 	}
-	sub.Start()
-	g.Success()
-	return rtppassthrough.Subscription{ID: sub.ID(), Context: subCtx}, nil
+	buf.Start()
+	return sub, nil
 }
 
 // Unsubscribe terminates the subscription.
@@ -347,9 +340,8 @@ func (c *Camera) Unsubscribe(ctx context.Context, id rtppassthrough.Subscription
 	if !ok {
 		return errors.New("id not found")
 	}
-	subAndCB.sub.Close()
 	delete(c.subAndCBByID, id)
-	subAndCB.subCancelFn()
+	subAndCB.buf.Close()
 	return nil
 }
 
@@ -414,7 +406,7 @@ func (c *Camera) startPassthrough() error {
 			c.mu.RLock()
 			for _, subAndCB := range c.subAndCBByID {
 				// write packets
-				if err := subAndCB.sub.Publish(func() { subAndCB.cb(pkts) }); err != nil {
+				if err := subAndCB.buf.Publish(func() { subAndCB.cb(pkts) }); err != nil {
 					c.logger.Warn("Publish err: %s", err.Error())
 				}
 			}
@@ -430,9 +422,8 @@ func (c *Camera) unsubscribeAll() {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	for id, subAndCB := range c.subAndCBByID {
-		subAndCB.sub.Close()
 		delete(c.subAndCBByID, id)
-		subAndCB.subCancelFn()
+		subAndCB.buf.Close()
 	}
 }
 

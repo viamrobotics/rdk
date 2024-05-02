@@ -761,7 +761,7 @@ func (m *Module) AddStream(ctx context.Context, req *streampb.AddStreamRequest) 
 		// wait until either the module is shutting down, or the subscription terminates
 		var msg string
 		select {
-		case <-sub.Context.Done():
+		case <-sub.Terminated.Done():
 			msg = "rtp_passthrough subscription expired, calling RemoveTrack"
 		case <-m.shutdownCtx.Done():
 			msg = "module closing calling RemoveTrack"
