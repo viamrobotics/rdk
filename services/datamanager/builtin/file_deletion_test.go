@@ -29,8 +29,10 @@ import (
 	"go.viam.com/rdk/testutils/inject"
 )
 
-const numFiles = 10
-const enabledTabularManyCollectorsConfigPath = "services/datamanager/data/fake_robot_with_many_collectors_data_manager.json"
+const (
+	numFiles                               = 10
+	enabledTabularManyCollectorsConfigPath = "services/datamanager/data/fake_robot_with_many_collectors_data_manager.json"
+)
 
 func TestFileDeletionUsageCheck(t *testing.T) {
 	tests := []struct {
