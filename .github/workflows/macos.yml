@@ -15,8 +15,11 @@ jobs:
       with:
         go-version: '1.21.x'
 
-    - name: show config
-      run: brew config
+    - name: config + tap
+      run: |
+        brew config
+        # note: this must come before caching because we use it to invalidate
+        brew tap viamrobotics/brews
     # note: this caching is brittle but we are okay with periodic build failures in exchange for speed
     # TODO(RSDK-5474): replace with bottling
     - id: cache-brew
@@ -25,9 +28,16 @@ jobs:
         path: |
           /usr/local/**/tensorflow*
           /usr/local/**/nlopt*
-        key: ${{ hashFiles('etc/Brewfile', '/usr/local/Homebrew/Library/Taps/viamrobotics/homebrew-brews/**/*', '.github/workflows/macos.yml') }} }}
+        key: ${{ hashFiles('/usr/local/Homebrew/Library/Taps/viamrobotics/homebrew-brews/**/*', '.github/workflows/macos.yml') }} }}
     - name: brew
-      run: brew bundle install --file=etc/Brewfile
+      run: |
+        brew tap viamrobotics/brews
+        brew install pkg-config
+        brew install nlopt-static
+        brew install x264
+        brew install jpeg-turbo
+        brew install ffmpeg
+        brew install tensorflowlite # Needs to be last
 
     - name: build
       run: go build ./web/cmd/server
