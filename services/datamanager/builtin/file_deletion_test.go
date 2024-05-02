@@ -231,6 +231,7 @@ func TestFilePolling(t *testing.T) {
 		requests = append(requests, req)
 	case <-wait:
 	}
+	flusher.closeSyncer()
 
 	close(mockClient.succesfulDCRequests)
 	for dc := range mockClient.succesfulDCRequests {
