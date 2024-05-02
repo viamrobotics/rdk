@@ -77,7 +77,7 @@ func NewCamera(
 		Height:         height,
 		Animated:       newConf.Animated,
 		RTPPassthrough: newConf.RTPPassthrough,
-		subAndCBByID:   make(map[rtppassthrough.SubscriptionID]subAndCB),
+		bufAndCBByID:   make(map[rtppassthrough.SubscriptionID]bufAndCB),
 		logger:         logger,
 	}
 	src, err := camera.NewVideoSourceFromReader(ctx, cam, resModel, camera.ColorStream)
@@ -221,7 +221,7 @@ type Camera struct {
 	ctx                     context.Context
 	cancelFn                context.CancelFunc
 	activeBackgroundWorkers sync.WaitGroup
-	subAndCBByID            map[rtppassthrough.SubscriptionID]subAndCB
+	bufAndCBByID            map[rtppassthrough.SubscriptionID]bufAndCB
 	cacheImage              image.Image
 	cachePointCloud         pointcloud.PointCloud
 	logger                  logging.Logger
@@ -289,7 +289,7 @@ func (c *Camera) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, err
 	return dm, nil
 }
 
-type subAndCB struct {
+type bufAndCB struct {
 	cb  rtppassthrough.PacketCallback
 	buf *rtppassthrough.Buffer
 }
@@ -321,7 +321,7 @@ func (c *Camera) SubscribeRTP(
 		return rtppassthrough.NilSubscription, err
 	}
 
-	c.subAndCBByID[sub.ID] = subAndCB{
+	c.bufAndCBByID[sub.ID] = bufAndCB{
 		cb:  packetsCB,
 		buf: buf,
 	}
@@ -336,12 +336,12 @@ func (c *Camera) Unsubscribe(ctx context.Context, id rtppassthrough.Subscription
 	}
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	subAndCB, ok := c.subAndCBByID[id]
+	bufAndCB, ok := c.bufAndCBByID[id]
 	if !ok {
 		return errors.New("id not found")
 	}
-	delete(c.subAndCBByID, id)
-	subAndCB.buf.Close()
+	delete(c.bufAndCBByID, id)
+	bufAndCB.buf.Close()
 	return nil
 }
 
@@ -404,9 +404,9 @@ func (c *Camera) startPassthrough() error {
 
 			// get current timestamp
 			c.mu.RLock()
-			for _, subAndCB := range c.subAndCBByID {
+			for _, bufAndCB := range c.bufAndCBByID {
 				// write packets
-				if err := subAndCB.buf.Publish(func() { subAndCB.cb(pkts) }); err != nil {
+				if err := bufAndCB.buf.Publish(func() { bufAndCB.cb(pkts) }); err != nil {
 					c.logger.Warn("Publish err: %s", err.Error())
 				}
 			}
@@ -421,9 +421,9 @@ func (c *Camera) startPassthrough() error {
 func (c *Camera) unsubscribeAll() {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	for id, subAndCB := range c.subAndCBByID {
-		delete(c.subAndCBByID, id)
-		subAndCB.buf.Close()
+	for id, bufAndCB := range c.bufAndCBByID {
+		delete(c.bufAndCBByID, id)
+		bufAndCB.buf.Close()
 	}
 }
 
