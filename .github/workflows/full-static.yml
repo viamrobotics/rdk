@@ -14,15 +14,21 @@ on:
         description: a vX.X.X version string to use for file naming
         required: false
         type: string
-  # workflow_call: # todo: add this back when attaching latest/stable
-  #   inputs:
-  #     version:
-  #       description: a channel or version tag for upload
-  #       required: false
-  #       type: string
-  #   secrets:
-  #     GCP_CREDENTIALS:
-  #       required: true
+  workflow_call:
+    inputs:
+      channel:
+        description: a channel for file naming
+        required: false
+        type: choice
+        # test channel is for manual runs
+        options: [latest, stable, test]
+      version:
+        description: a vX.X.X version string to use for file naming
+        required: false
+        type: string
+    secrets:
+      GCP_CREDENTIALS:
+        required: true
 
 jobs:
   full-static:
