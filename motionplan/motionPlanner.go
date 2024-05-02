@@ -448,6 +448,8 @@ func CheckPlan(
 	if len(plan.Path()) < 1 {
 		return errors.New("plan must have at least one element")
 	}
+	fmt.Println("WE ARE MAKING THE SOLVERFRAME NOW")
+	fmt.Println("fs.FrameNames(): ", fs.FrameNames())
 
 	// construct solverFrame
 	// Note that this requires all frames which move as part of the plan, to have an
@@ -495,10 +497,12 @@ func CheckPlan(
 	if relative {
 		// get checkFrame's currentInputs
 		// *currently* it is guaranteed that a relative frame will constitute 100% of a solver frame's dof
+		fmt.Println("currentInputs: ", currentInputs)
 		checkFrameCurrentInputs, err := sf.mapToSlice(currentInputs)
 		if err != nil {
 			return err
 		}
+		fmt.Println("checkFrameCurrentInputs: ", checkFrameCurrentInputs)
 
 		// pre-pend to segments so we can connect to the input we have not finished actuating yet
 		segments = append(segments, &ik.Segment{
@@ -557,6 +561,10 @@ func CheckPlan(
 		segments = append(segments, segment)
 	}
 
+	for _, s := range segments {
+		fmt.Println("s: ", s)
+	}
+
 	// go through segments and check that we satisfy constraints
 	// TODO(RSDK-5007): If we can make interpolate a method on Frame the need to write this out will be lessened and we should be
 	// able to call CheckStateConstraintsAcrossSegment directly.
@@ -580,6 +588,8 @@ func CheckPlan(
 			// define State which only houses inputs, pose information not needed
 			interpolatedState := &ik.State{Frame: sf}
 			interpolatedState.Configuration = interpConfig
+			fmt.Println("interpConfig: ", interpConfig)
+			fmt.Println("interpolatedState: ", interpolatedState)
 
 			// Checks for collision along the interpolated route and returns a the first interpolated pose where a collision is detected.
 			if isValid, err := sfPlanner.planOpts.CheckStateConstraints(interpolatedState); !isValid {

@@ -56,6 +56,7 @@ func newPlanManager(
 // Any constraints, etc, will be held for the entire motion.
 func (pm *planManager) PlanSingleWaypoint(ctx context.Context, request *PlanRequest, seedPlan Plan) (Plan, error) {
 	if pm.useTPspace {
+		fmt.Println("PLANNING IN RELATIVE TERMS")
 		return pm.planRelativeWaypoint(ctx, request, seedPlan)
 	}
 
@@ -788,12 +789,32 @@ func (pm *planManager) planRelativeWaypoint(ctx context.Context, request *PlanRe
 		return nil, err
 	}
 	goalPos := tf.(*referenceframe.PoseInFrame).Pose()
+	// maybe here we want to edit the FS...?
+	// this seems dangerous...
+	// pm.frame.fss =
+	copyOfFS := pm.frame.fss
+	transformFrame, err := referenceframe.NewStaticFrame("static-transform-bro", request.StartPose)
+	if err != nil {
+		return nil, err
+	}
+	daFS := referenceframe.NewEmptyFrameSystem("lolol")
+	err = daFS.AddFrame(transformFrame, daFS.World())
+	if err != nil {
+		return nil, err
+	}
+	err = daFS.MergeFrameSystem(pm.frame.fss, transformFrame)
+	if err != nil {
+		return nil, err
+	}
+	pm.frame.fss = daFS
+
 	opt, err := pm.plannerSetupFromMoveRequest(
 		startPose, goalPos, request.StartConfiguration, request.WorldState, request.ConstraintSpecs, request.Options,
 	)
 	if err != nil {
 		return nil, err
 	}
+	pm.frame.fss = copyOfFS
 	pm.planOpts = opt
 	opt.SetGoal(goalPos)
 

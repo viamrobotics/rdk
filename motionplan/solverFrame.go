@@ -2,6 +2,7 @@ package motionplan
 
 import (
 	"errors"
+	"fmt"
 	"strings"
 
 	"go.uber.org/multierr"
@@ -48,6 +49,7 @@ func newSolverFrame(fs frame.FrameSystem, solveFrameName, goalFrameName string, 
 	if solveFrame == nil {
 		return nil, frame.NewFrameMissingError(solveFrameName)
 	}
+	// fmt.Println("SOLVER FRAME fs.FrameNames(): ", fs.FrameNames())
 	solveFrameList, err := fs.TracebackFrame(solveFrame)
 	if err != nil {
 		return nil, err
@@ -79,7 +81,17 @@ func newSolverFrame(fs frame.FrameSystem, solveFrameName, goalFrameName string, 
 	if err != nil {
 		return nil, err
 	}
+	// fmt.Println("pivotFrame.Name(): ", pivotFrame.Name())
 	if pivotFrame.Name() == frame.World {
+		// fmt.Println("printing members of solveFrameList")
+		// for _, f := range solveFrameList {
+		// 	fmt.Println("f.Name(): ", f.Name())
+		// }
+		// fmt.Println("printing members of goalFrameList")
+		// for _, f := range goalFrameList {
+		// 	fmt.Println("f.Name(): ", f.Name())
+		// }
+		// fmt.Println("DONE")
 		frames = uniqInPlaceSlice(append(solveFrameList, goalFrameList...))
 		moving, err = movingFS(solveFrameList)
 		if err != nil {
@@ -103,6 +115,7 @@ func newSolverFrame(fs frame.FrameSystem, solveFrameName, goalFrameName string, 
 				break
 			}
 			dof += len(frame.DoF())
+			// fmt.Println("will now append: ", frame.Name())
 			frames = append(frames, frame)
 			solveMovingList = append(solveMovingList, frame)
 		}
@@ -111,6 +124,7 @@ func newSolverFrame(fs frame.FrameSystem, solveFrameName, goalFrameName string, 
 				break
 			}
 			dof += len(frame.DoF())
+			// fmt.Println("will now append: ", frame.Name())
 			frames = append(frames, frame)
 			goalMovingList = append(goalMovingList, frame)
 		}
@@ -119,11 +133,13 @@ func newSolverFrame(fs frame.FrameSystem, solveFrameName, goalFrameName string, 
 		if dof == 0 {
 			worldRooted = true
 			frames = solveFrameList
+			// fmt.Println("we are here 1")
 			moving, err = movingFS(solveFrameList)
 			if err != nil {
 				return nil, err
 			}
 		} else {
+			// fmt.Println("we are here 2")
 			// Get all child nodes of pivot node
 			moving, err = movingFS(solveMovingList)
 			if err != nil {
@@ -147,6 +163,8 @@ func newSolverFrame(fs frame.FrameSystem, solveFrameName, goalFrameName string, 
 	for _, frame := range frames {
 		delete(origSeed, frame.Name())
 	}
+
+	// fmt.Println("THIS IS THE ORIG SEED: ", origSeed)
 
 	var ptgs []tpspace.PTGSolver
 	anyPTG := false // Whether PTG frames have been observed
@@ -220,7 +238,9 @@ func (sf *solverFrame) Interpolate(from, to []frame.Input, by float64) ([]frame.
 		posIdx = dof
 		var interpSub []frame.Input
 		var err error
+		// fmt.Println("currFrame.Name(): ", currFrame.Name())
 		if strings.Contains(currFrame.Name(), "ExecutionFrame") {
+			fmt.Println("this conditional is hit!")
 			interp = append(interp, from...)
 			continue
 		}
@@ -320,8 +340,17 @@ func (sf *solverFrame) movingFrame(name string) bool {
 // the inputs together in the order of the frames in sf.frames.
 func (sf *solverFrame) mapToSlice(inputMap map[string][]frame.Input) ([]frame.Input, error) {
 	var inputs []frame.Input
+	fmt.Println("inputMap: ", inputMap)
+	fmt.Println("printing all members of sf.frames below")
+	for _, f := range sf.frames {
+		fmt.Println("f.Name(): ", f.Name())
+	}
+	fmt.Println("DONE -- printing all members of sf.frames")
 	for _, f := range sf.frames {
 		if len(f.DoF()) == 0 {
+			fmt.Println("we are continuing here?")
+			fmt.Println("f.Name(): ", f.Name())
+			fmt.Println("f.DoF(): ", f.DoF())
 			continue
 		}
 		input, err := frame.GetFrameInputs(f, inputMap)

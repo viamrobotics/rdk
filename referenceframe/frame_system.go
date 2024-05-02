@@ -68,6 +68,13 @@ type FrameSystem interface {
 	// frame's children and parentage to replacementFrame. The original frame is removed entirely from the frame system.
 	// replacementFrame is not allowed to exist within the frame system at the time of the call.
 	ReplaceFrame(replacementFrame Frame) error
+
+	// consider adding method `AddFrameBetween` to this interface for ease of adding a static transform between the
+	// kb planning frame and the world when it comes to planning
+	// also when it comed to adding a execution frame between the execution frame
+	// new: should not be a method on the interface but should instead just
+	// exist as a helper function which returns an augmented copy of the
+	// pass in framesystem
 }
 
 // FrameSystemPart is used to collect all the info need from a named robot part to build the frame node in a frame system.

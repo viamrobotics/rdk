@@ -113,6 +113,25 @@ func (mr *moveRequest) Plan(ctx context.Context) (motionplan.Plan, error) {
 		return nil, err
 	}
 
+	// currentPIF, err := mr.kinematicBase.CurrentPosition(ctx)
+	// if err != nil {
+	// 	return nil, err
+	// }
+	// transformFrame, err := referenceframe.NewStaticFrame("static-transform-bro", currentPIF.Pose())
+	// if err != nil {
+	// 	return nil, err
+	// }
+	// daFS := referenceframe.NewEmptyFrameSystem("lolol")
+	// err = daFS.AddFrame(transformFrame, daFS.World())
+	// if err != nil {
+	// 	return nil, err
+	// }
+	// err = daFS.MergeFrameSystem(planRequestCopy.FrameSystem, transformFrame)
+	// if err != nil {
+	// 	return nil, err
+	// }
+	// planRequestCopy.FrameSystem = daFS
+
 	// TODO(RSDK-5634): this should pass in mr.seedplan and the appropriate replanCostFactor once this bug is found and fixed.
 	return motionplan.Replan(ctx, &planRequestCopy, nil, 0)
 }

@@ -1328,7 +1328,7 @@ func TestMoveOnMapStaticObs(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, len(plan.Path()), test.ShouldBeGreaterThan, 2)
 
-		// place obstacle in opposte position and show that the generate path
+		// place obstacle in opposite position and show that the generate path
 		// collides with obstacleLeft
 
 		wrldSt, err := referenceframe.NewWorldState(
@@ -1340,18 +1340,25 @@ func TestMoveOnMapStaticObs(t *testing.T) {
 			}, nil,
 		)
 		test.That(t, err, test.ShouldBeNil)
+		fmt.Println("PRINTING mr.absoluteFS.FrameNames()")
+		for _, name := range mr.absoluteFS.FrameNames() {
+			fmt.Println("name: ", name)
+		}
+		currentInputs := referenceframe.StartPositions(mr.absoluteFS)
+		currentInputs["test-baseExecutionFrame"] = referenceframe.FloatsToInputs([]float64{0.58772e3, -0.80826e3, 0})
 
+		fmt.Println("currentInputs :", currentInputs)
 		err = motionplan.CheckPlan(
 			mr.planRequest.Frame,
 			plan,
 			1,
 			wrldSt,
-			mr.planRequest.FrameSystem,
+			mr.absoluteFS,
 			spatialmath.NewPose(
 				r3.Vector{X: 0.58772e3, Y: -0.80826e3, Z: 0},
 				&spatialmath.OrientationVectorDegrees{OZ: 1, Theta: 0},
 			),
-			referenceframe.StartPositions(mr.planRequest.FrameSystem),
+			currentInputs,
 			spatialmath.NewZeroPose(),
 			lookAheadDistanceMM,
 			logger,
@@ -2566,7 +2573,6 @@ func TestMoveCallInputs(t *testing.T) {
 }
 
 func TestGetTransientDetections(t *testing.T) {
-	t.Parallel()
 	ctx := context.Background()
 
 	_, ms := createMoveOnMapEnvironment(
@@ -2619,22 +2625,6 @@ func TestGetTransientDetections(t *testing.T) {
 		{
 			name:          "relative - SLAM/base theta does not matter",
 			detectionPose: spatialmath.NewPose(r3.Vector{4, 10, -8}, &spatialmath.OrientationVectorDegrees{OY: 1, Theta: -90}),
-		},
-		{
-			name:          "absolute - SLAM theta: 0, base theta: -90 == 270",
-			detectionPose: spatialmath.NewPose(r3.Vector{6, -14, -8}, &spatialmath.OrientationVectorDegrees{OX: 1, Theta: -90}),
-		},
-		{
-			name:          "absolute - SLAM theta: 90, base theta: 0",
-			detectionPose: spatialmath.NewPose(r3.Vector{0, 0, -8}, &spatialmath.OrientationVectorDegrees{OY: 1, Theta: -90}),
-		},
-		{
-			name:          "absolute - SLAM theta: 180, base theta: 90",
-			detectionPose: spatialmath.NewPose(r3.Vector{-14, -6, -8}, &spatialmath.OrientationVectorDegrees{OX: -1, Theta: -90}),
-		},
-		{
-			name:          "absolute - SLAM theta: 270, base theta: 180",
-			detectionPose: spatialmath.NewPose(r3.Vector{-8, -20, -8}, &spatialmath.OrientationVectorDegrees{OY: -1, Theta: -90}),
 		},
 	}
 

@@ -7,6 +7,7 @@ package kinematicbase
 import (
 	"context"
 	"errors"
+	"fmt"
 	"sync"
 
 	"go.viam.com/rdk/components/base"
@@ -56,6 +57,7 @@ func wrapWithPTGKinematics(
 	localizer motion.Localizer,
 	options Options,
 ) (KinematicBase, error) {
+	fmt.Println("hello there")
 	properties, err := b.Properties(ctx, nil)
 	if err != nil {
 		return nil, err
@@ -132,11 +134,11 @@ func wrapWithPTGKinematics(
 		}
 		origin = originPIF.Pose()
 	}
-
+	fmt.Println("b.Name().ShortName()+ExecutionFrame: ", b.Name().ShortName()+"ExecutionFrame")
 	// construct executionFrame
 	executionFrame, err := referenceframe.New2DMobileModelFrame(
 		b.Name().ShortName()+"ExecutionFrame",
-		planningFrame.DoF(),
+		planningFrame.DoF()[:3],
 		geometries[0],
 	)
 	if err != nil {
