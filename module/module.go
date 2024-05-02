@@ -746,7 +746,7 @@ func (m *Module) AddStream(ctx context.Context, req *streampb.AddStreamRequest) 
 		return nil, errors.Wrap(err, "error setting up stream subscription")
 	}
 
-	m.logger.CDebugw(ctx, "AddStream calling AddTrack", "name", name, "subID", sub.ID)
+	m.logger.CDebugw(ctx, "AddStream calling AddTrack", "name", name, "subID", sub.ID.String())
 	sender, err := m.pc.AddTrack(tlsRTP)
 	if err != nil {
 		err = errors.Wrap(err, "error adding track")
