@@ -31,6 +31,7 @@ import (
 
 	"go.viam.com/rdk/components/camera/rtppassthrough"
 	"go.viam.com/rdk/config"
+	rgrpc "go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/protoutils"
@@ -187,6 +188,7 @@ func NewModule(ctx context.Context, address string, logger logging.Logger) (*Mod
 	// TODO(PRODUCT-343): session support likely means interceptors here
 	opMgr := operation.NewManager(logger)
 	unaries := []grpc.UnaryServerInterceptor{
+		rgrpc.EnsureTimeoutUnaryInterceptor,
 		opMgr.UnaryServerInterceptor,
 	}
 	streams := []grpc.StreamServerInterceptor{
