@@ -28,7 +28,7 @@ jobs:
         path: |
           /usr/local/**/tensorflow*
           /usr/local/**/nlopt*
-        key: ${{ hashFiles('/usr/local/Homebrew/Library/Taps/viamrobotics/homebrew-brews/**/*', '.github/workflows/macos.yml') }} }}
+        key: ${{ hashFiles('/usr/local/Homebrew/Library/Taps/viamrobotics/homebrew-brews/**/*', '.github/workflows/macos.yml') }}
     - name: brew
       run: |
         brew tap viamrobotics/brews
