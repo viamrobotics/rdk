@@ -111,12 +111,12 @@ type Motor interface {
 	// This will block until the position has been reached
 	GoTo(ctx context.Context, rpm, positionRevolutions float64, extra map[string]interface{}) error
 
-	// Set the current position (+/- offset) to be the new zero (home) position.
+	// Set an encoded motor's current position (+/- offset) to be the new zero (home) position.
 	ResetZeroPosition(ctx context.Context, offset float64, extra map[string]interface{}) error
 
-	// Position reports the position of the motor based on its encoder. If it's not supported, the returned
-	// data is undefined. The unit returned is the number of revolutions which is intended to be fed
-	// back into calls of GoFor.
+	// Position reports the position of an encoded motor based on its encoder. If it's not supported,
+	// the returned data is undefined. The unit returned is the number of revolutions which is
+	// intended to be fed back into calls of GoFor.
 	Position(ctx context.Context, extra map[string]interface{}) (float64, error)
 
 	// Properties returns whether or not the motor supports certain optional properties.
