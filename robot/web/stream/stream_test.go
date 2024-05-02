@@ -174,6 +174,10 @@ func setupRealRobot(t *testing.T, robotConfig *config.Config, logger logging.Log
 // same. This test asserts both paths to adding a camera agree on whether to create WebRTC audio
 // tracks.
 func TestAudioTrackIsNotCreatedForVideoStream(t *testing.T) {
+	// Pion has a bug where `PeerConnection.AddTrack` is non-deterministic w.r.t creating a media
+	// track in the SDP due to races in their renegotiation piggy-backing algorithm. This is easy to
+	// reproduce by runnnig the test in a loop.
+	t.Skip("RSDK-7492")
 	logger := logging.NewTestLogger(t).Sublogger("TestWebReconfigure")
 
 	origCfg := &config.Config{Components: []resource.Config{
