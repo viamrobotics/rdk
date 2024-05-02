@@ -28,6 +28,8 @@ var (
 	InitialWaitTimeMillis = atomic.NewInt32(1000)
 	// RetryExponentialFactor defines the factor by which the retry wait time increases.
 	RetryExponentialFactor = atomic.NewInt32(2)
+	// OfflineWaitTimeSeconds defines the amount of time to wait to retry if the machine is offline
+	OfflineWaitTimeSeconds = atomic.NewInt32(30)
 	maxRetryInterval       = 24 * time.Hour
 )
 
@@ -274,30 +276,22 @@ func exponentialRetry(cancelCtx context.Context, fn func(cancelCtx context.Conte
 
 	// First call failed, so begin exponentialRetry with a factor of RetryExponentialFactor
 	nextWait := time.Millisecond * time.Duration(InitialWaitTimeMillis.Load())
-	ticker := time.NewTicker(nextWait)
 	for {
 		if err := cancelCtx.Err(); err != nil {
 			return err
 		}
-		select {
-		// If cancelled, return nil.
-		case <-cancelCtx.Done():
-			ticker.Stop()
-			return cancelCtx.Err()
-			// Otherwise, try again after nextWait.
-		case <-ticker.C:
-			if err := fn(cancelCtx); err != nil {
-				// If error, retry with a new nextWait.
-				ticker.Stop()
-				nextWait = getNextWait(nextWait)
-				ticker = time.NewTicker(nextWait)
-				continue
-			}
-			// If no error, return.
-			ticker.Stop()
-			return nil
+		if err := fn(cancelCtx); err != nil {
+			nextWait = getNextWait(nextWait, isOfflineGRPCError(err))
+			time.Sleep(nextWait)
+			continue
 		}
+		return nil
 	}
+}
+
+func isOfflineGRPCError(err error) bool {
+	errStatus := status.Convert(err)
+	return strings.Contains(errStatus.Message(), "connection error")
 }
 
 // isRetryableGRPCError returns true if we should retry syncing and otherwise
@@ -328,10 +322,15 @@ func moveFailedData(path, parentDir string) error {
 	return nil
 }
 
-func getNextWait(lastWait time.Duration) time.Duration {
+func getNextWait(lastWait time.Duration, isOffline bool) time.Duration {
 	if lastWait == time.Duration(0) {
 		return time.Millisecond * time.Duration(InitialWaitTimeMillis.Load())
 	}
+
+	if isOffline {
+		return time.Second * time.Duration(OfflineWaitTimeSeconds.Load())
+	}
+
 	nextWait := lastWait * time.Duration(RetryExponentialFactor.Load())
 	if nextWait > maxRetryInterval {
 		return maxRetryInterval
