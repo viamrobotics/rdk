@@ -213,21 +213,19 @@ func (pi *piPigpio) StreamTicks(ctx context.Context, interrupts []board.DigitalI
 		AddCallback(i.(*BasicDigitalInterrupt), ch)
 	}
 
-	// Create a background routine to wait until the context is canceled and remove the callbacks.
 	pi.activeBackgroundWorkers.Add(1)
+
 	utils.ManagedGo(func() {
+		// Wait until it's time to shut down then remove callbacks.
 		select {
 		case <-ctx.Done():
-			return
 		case <-pi.cancelCtx.Done():
-			return
 		}
-	}, func() {
 		for _, i := range interrupts {
 			RemoveCallback(i.(*BasicDigitalInterrupt), ch)
 		}
-		pi.activeBackgroundWorkers.Done()
-	})
+	}, pi.activeBackgroundWorkers.Done)
+
 	return nil
 }
 
@@ -740,6 +738,7 @@ func (pi *piPigpio) Close(ctx context.Context) error {
 		return nil
 	}
 	pi.cancelFunc()
+	pi.activeBackgroundWorkers.Wait()
 
 	var err error
 	for _, analog := range pi.analogReaders {
