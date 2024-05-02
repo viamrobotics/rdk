@@ -23,6 +23,7 @@ import (
 	pb "go.viam.com/api/module/v1"
 	robotpb "go.viam.com/api/robot/v1"
 	streampb "go.viam.com/api/stream/v1"
+	rgrpc "go.viam.com/rdk/grpc"
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 	"golang.org/x/exp/maps"
@@ -187,6 +188,7 @@ func NewModule(ctx context.Context, address string, logger logging.Logger) (*Mod
 	// TODO(PRODUCT-343): session support likely means interceptors here
 	opMgr := operation.NewManager(logger)
 	unaries := []grpc.UnaryServerInterceptor{
+		rgrpc.EnsureTimeoutUnaryInterceptor,
 		opMgr.UnaryServerInterceptor,
 	}
 	streams := []grpc.StreamServerInterceptor{
