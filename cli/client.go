@@ -443,14 +443,18 @@ func (err copyFromPathInvalidError) Error() string {
 
 // MachinesPartCopyFilesAction is the corresponding Action for 'machines part cp'.
 func MachinesPartCopyFilesAction(c *cli.Context) error {
-	args := c.Args().Slice()
-	if len(args) == 0 {
-		return errNoFiles
-	}
-
 	client, err := newViamClient(c)
 	if err != nil {
 		return err
+	}
+
+	return machinesPartCopyFilesAction(c, client)
+}
+
+func machinesPartCopyFilesAction(c *cli.Context, client *viamClient) error {
+	args := c.Args().Slice()
+	if len(args) == 0 {
+		return errNoFiles
 	}
 
 	// Create logger based on presence of debugFlag.
@@ -754,17 +758,7 @@ func isProdBaseURL(baseURL *url.URL) bool {
 	return strings.HasSuffix(baseURL.Hostname(), "viam.com")
 }
 
-type ctxKey int
-
-const ctxKeyViamClientForTesting ctxKey = iota
-
 func newViamClient(c *cli.Context) (*viamClient, error) {
-	// quick hack to avoid dealing with any of the logic below. some testing
-	// may want to use this for integration testing.
-	if val := c.Context.Value(ctxKeyViamClientForTesting); val != nil {
-		return val.(*viamClient), nil
-	}
-
 	conf, err := configFromCache()
 	if err != nil {
 		if !os.IsNotExist(err) {
