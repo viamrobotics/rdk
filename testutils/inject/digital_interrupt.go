@@ -36,12 +36,10 @@ func (d *DigitalInterrupt) ValueCap() []interface{} {
 	return d.valueCap
 }
 
-// Tick calls the injected Tick or the real version.
+// Tick calls the injected Tick.
 func (d *DigitalInterrupt) Tick(ctx context.Context, high bool, nanoseconds uint64) error {
 	d.tickCap = []interface{}{ctx, high, nanoseconds}
-	if d.TickFunc == nil {
-		return d.DigitalInterrupt.Tick(ctx, high, nanoseconds)
-	}
+
 	return d.TickFunc(ctx, high, nanoseconds)
 }
 
@@ -52,15 +50,6 @@ func (d *DigitalInterrupt) TickCap() []interface{} {
 	}
 	defer func() { d.tickCap = nil }()
 	return d.tickCap
-}
-
-// AddCallback calls the injected AddCallback or the real version.
-func (d *DigitalInterrupt) AddCallback(c chan board.Tick) {
-	if d.AddCallbackFunc == nil {
-		d.DigitalInterrupt.AddCallback(c)
-		return
-	}
-	d.AddCallbackFunc(c)
 }
 
 // RemoveCallback calls the injected AddCallback or the real version.

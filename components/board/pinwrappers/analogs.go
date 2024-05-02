@@ -113,17 +113,16 @@ func (as *AnalogSmoother) Start() {
 			start := time.Now()
 			reading, err := as.Raw.Read(ctx, nil)
 			as.lastError.Store(&errValue{err != nil, err})
-			if err != nil {
+			if err == nil {
+				as.lastData = reading
+				if as.data != nil {
+					as.data.Add(reading)
+				}
+			} else { // Non-nil error
 				if errors.Is(err, errStopReading) {
 					break
 				}
 				as.logger.CInfow(ctx, "error reading analog", "error", err)
-				continue
-			}
-
-			as.lastData = reading
-			if as.data != nil {
-				as.data.Add(reading)
 			}
 
 			end := time.Now()

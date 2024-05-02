@@ -728,10 +728,8 @@ func pollFilesystem(ctx context.Context, wg *sync.WaitGroup, captureDir string, 
 		}
 		select {
 		case <-ctx.Done():
-			logger.Debug("Exiting fs polling thread")
 			return
 		case <-t.C:
-			logger.Debug("Polling")
 		}
 	}
 }

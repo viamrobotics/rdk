@@ -406,24 +406,23 @@ func (b *Board) AnalogByName(name string) (board.Analog, error) {
 }
 
 // DigitalInterruptByName returns the interrupt by the given name if it exists.
-func (b *Board) DigitalInterruptByName(name string) (board.DigitalInterrupt, bool) {
+func (b *Board) DigitalInterruptByName(name string) (board.DigitalInterrupt, error) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
 	interrupt, ok := b.interrupts[name]
 	if ok {
-		return interrupt.interrupt, true
+		return interrupt.interrupt, nil
 	}
 
 	// Otherwise, the name is not something we recognize yet. If it appears to be a GPIO pin, we'll
 	// remove its GPIO capabilities and turn it into a digital interrupt.
 	gpio, ok := b.gpios[name]
 	if !ok {
-		return nil, false
+		return nil, fmt.Errorf("cant find GPIO (%s)", name)
 	}
 	if err := gpio.Close(); err != nil {
-		b.logger.Errorw("failed to close GPIO pin to use as interrupt", "error", err)
-		return nil, false
+		return nil, err
 	}
 
 	defaultInterruptConfig := board.DigitalInterruptConfig{
@@ -433,13 +432,12 @@ func (b *Board) DigitalInterruptByName(name string) (board.DigitalInterrupt, boo
 	interrupt, err := b.createDigitalInterrupt(
 		b.cancelCtx, defaultInterruptConfig, b.gpioMappings, nil)
 	if err != nil {
-		b.logger.Errorw("failed to create digital interrupt pin on the fly", "error", err)
-		return nil, false
+		return nil, err
 	}
 
 	delete(b.gpios, name)
 	b.interrupts[name] = interrupt
-	return interrupt.interrupt, true
+	return interrupt.interrupt, nil
 }
 
 // AnalogNames returns the names of all known analog pins.
@@ -499,7 +497,7 @@ func (b *Board) StreamTicks(ctx context.Context, interrupts []board.DigitalInter
 	extra map[string]interface{},
 ) error {
 	for _, i := range interrupts {
-		i.AddCallback(ch)
+		pinwrappers.AddCallback(i.(*pinwrappers.BasicDigitalInterrupt), ch)
 	}
 	return nil
 }

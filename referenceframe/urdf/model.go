@@ -82,43 +82,44 @@ func NewModelFromWorldState(ws *referenceframe.WorldState, name string) (*ModelC
 // same fashion as ModelJSON is not possible, as URDF data will need to be evaluated to accommodate differences
 // between the two kinematics encoding schemes.
 func UnmarshalModelXML(xmlData []byte, modelName string) (*referenceframe.ModelConfig, error) {
-	// empty data probably means that the read URDF has no actionable information
-	if len(xmlData) == 0 {
-		return nil, referenceframe.ErrNoModelInformation
-	}
-
-	mc := &referenceframe.ModelConfig{OriginalFile: &referenceframe.ModelFile{Bytes: xmlData, Extension: Extension}}
+	// Unmarshal into a URDF ModelConfig
 	urdf := &ModelConfig{}
 	err := xml.Unmarshal(xmlData, urdf)
 	if err != nil {
 		return nil, errors.Wrap(err, "Failed to convert URDF data to equivalent URDFConfig struct")
 	}
 
+	// Use default name if none is provided
 	if modelName == "" {
 		modelName = urdf.Name
 	}
 
-	parentMap := map[string]string{}
-
-	// Migrate URDF elements into an equivalent ModelConfig representation
-	mc.Name = modelName
-	mc.KinParamType = "SVA"
-
-	// Handle joints
-	for _, jointElem := range urdf.Joints {
-		// Checking for reserved names in this or adjacent elements
-		if jointElem.Name == referenceframe.World {
-			return nil, errors.New("Joints with the name 'world' are not supported by config parsers")
+	// Read all links first
+	links := make(map[string]*referenceframe.LinkConfig, 0)
+	for _, linkElem := range urdf.Links {
+		// Skip any world links
+		if linkElem.Name == referenceframe.World {
+			continue
 		}
 
-		// Relationship tracking
-		parentMap[jointElem.Name] = jointElem.Parent.Link
-		parentMap[jointElem.Child.Link] = jointElem.Name
+		link := &referenceframe.LinkConfig{ID: linkElem.Name}
+		if len(linkElem.Collision) > 0 {
+			geometry, err := linkElem.Collision[0].toGeometry()
+			if err != nil {
+				return nil, err
+			}
+			geoCfg, err := spatialmath.NewGeometryConfig(geometry)
+			if err != nil {
+				return nil, err
+			}
+			link.Geometry = geoCfg
+		}
+		links[linkElem.Name] = link
+	}
 
-		// Set up the child link mentioned in this joint; fill out the details in the link parsing section later
-
-		childLink := referenceframe.LinkConfig{ID: jointElem.Child.Link, Parent: jointElem.Name}
-
+	// Read the joints next
+	joints := make([]referenceframe.JointConfig, 0)
+	for _, jointElem := range urdf.Joints {
 		switch jointElem.Type {
 		case referenceframe.ContinuousJoint, referenceframe.RevoluteJoint, referenceframe.PrismaticJoint:
 			// Parse important details about each joint, including axes and limits
@@ -143,91 +144,79 @@ func UnmarshalModelXML(xmlData []byte, modelName string) (*referenceframe.ModelC
 			default:
 				return nil, err
 			}
-
-			mc.Joints = append(mc.Joints, thisJoint)
+			joints = append(joints, thisJoint)
 
 			// Generate child link translation and orientation data, which is held by this joint per the URDF design
 			childXYZ := spaceDelimitedStringToFloatSlice(jointElem.Origin.XYZ)
 			childRPY := spaceDelimitedStringToFloatSlice(jointElem.Origin.RPY)
-			childEA := spatialmath.EulerAngles{Roll: childRPY[0], Pitch: childRPY[1], Yaw: childRPY[2]}
-			childOrient, err := spatialmath.NewOrientationConfig(childEA.AxisAngles())
-
-			// Note the conversion from meters to mm
-			childLink.Translation = r3.Vector{utils.MetersToMM(childXYZ[0]), utils.MetersToMM(childXYZ[1]), utils.MetersToMM(childXYZ[2])}
-			childLink.Orientation = childOrient
-
+			childOrient, err := spatialmath.NewOrientationConfig(&spatialmath.EulerAngles{
+				Roll:  childRPY[0],
+				Pitch: childRPY[1],
+				Yaw:   childRPY[2],
+			})
 			if err != nil {
 				return nil, err
 			}
-		case referenceframe.FixedJoint:
-			// Handle fixed joint -> static link conversion instead of adding to Joints[]
-			thisLink := referenceframe.LinkConfig{ID: jointElem.Name, Parent: jointElem.Parent.Link}
 
+			// Add the transformation to the parent link which should be in the map of links
+			parentLink, ok := links[jointElem.Parent.Link]
+			if !ok {
+				return nil, referenceframe.NewFrameNotInListOfTransformsError(jointElem.Parent.Link)
+			}
+			parentLink.Translation = r3.Vector{
+				X: utils.MetersToMM(childXYZ[0]),
+				Y: utils.MetersToMM(childXYZ[1]),
+				Z: utils.MetersToMM(childXYZ[2]),
+			}
+			parentLink.Orientation = childOrient
+
+		case referenceframe.FixedJoint:
+			// Handle fixed joints by converting them to links rather than a joint
 			linkXYZ := spaceDelimitedStringToFloatSlice(jointElem.Origin.XYZ)
 			linkRPY := spaceDelimitedStringToFloatSlice(jointElem.Origin.RPY)
-			linkEA := spatialmath.EulerAngles{Roll: linkRPY[0], Pitch: linkRPY[1], Yaw: linkRPY[2]}
-			linkOrient, err := spatialmath.NewOrientationConfig(linkEA.AxisAngles())
-
-			// Note the conversion from meters to mm
-			thisLink.Translation = r3.Vector{utils.MetersToMM(linkXYZ[0]), utils.MetersToMM(linkXYZ[1]), utils.MetersToMM(linkXYZ[2])}
-			thisLink.Orientation = linkOrient
-
+			linkOrient, err := spatialmath.NewOrientationConfig(&spatialmath.EulerAngles{
+				Roll:  linkRPY[0],
+				Pitch: linkRPY[1],
+				Yaw:   linkRPY[2],
+			})
 			if err != nil {
 				return nil, err
 			}
 
-			mc.Links = append(mc.Links, thisLink)
+			link := &referenceframe.LinkConfig{
+				ID:          jointElem.Name,
+				Translation: r3.Vector{X: utils.MetersToMM(linkXYZ[0]), Y: utils.MetersToMM(linkXYZ[1]), Z: utils.MetersToMM(linkXYZ[2])},
+				Orientation: linkOrient,
+				Parent:      jointElem.Parent.Link,
+			}
+			links[jointElem.Name] = link
 		default:
 			return nil, referenceframe.NewUnsupportedJointTypeError(jointElem.Type)
 		}
 
-		mc.Links = append(mc.Links, childLink)
+		// Point the child link to this joint
+		childLink, ok := links[jointElem.Child.Link]
+		if !ok {
+			return nil, referenceframe.NewFrameNotInListOfTransformsError(jointElem.Child.Link)
+		}
+		childLink.Parent = jointElem.Name
 	}
 
-	// Handle links
-	for _, linkElem := range urdf.Links {
-		// Skip any world links
-		if linkElem.Name == referenceframe.World {
-			continue
-		}
-
-		// Find matching links which already exist, take care of geometry if collision elements are detected
-		hasCollision := len(linkElem.Collision) > 0
-		for idx, prefabLink := range mc.Links {
-			if prefabLink.ID == linkElem.Name && hasCollision {
-				geometry, err := linkElem.Collision[0].toGeometry()
-				if err != nil {
-					return nil, err
-				}
-				geoCfg, err := spatialmath.NewGeometryConfig(geometry)
-				if err != nil {
-					return nil, err
-				}
-				mc.Links[idx].Geometry = geoCfg
-				break
-			}
-		}
-
-		// In the event the link does not already exist in the ModelConfig, we will have to generate it now
-		// Most likely, this is a link normally whose parent is the World
-		if _, ok := parentMap[linkElem.Name]; !ok {
-			thisLink := referenceframe.LinkConfig{ID: linkElem.Name, Parent: referenceframe.World}
-			if hasCollision {
-				geometry, err := linkElem.Collision[0].toGeometry()
-				if err != nil {
-					return nil, err
-				}
-				geoCfg, err := spatialmath.NewGeometryConfig(geometry)
-				if err != nil {
-					return nil, err
-				}
-				thisLink.Geometry = geoCfg
-			}
-
-			mc.Links = append(mc.Links, thisLink)
-		}
+	// Return as a referenceframe.ModelConfig
+	linkSlice := make([]referenceframe.LinkConfig, 0, len(links))
+	for _, link := range links {
+		linkSlice = append(linkSlice, *link)
 	}
-	return mc, nil
+	return &referenceframe.ModelConfig{
+		Name:         modelName,
+		KinParamType: "SVA",
+		Links:        linkSlice,
+		Joints:       joints,
+		OriginalFile: &referenceframe.ModelFile{
+			Bytes:     xmlData,
+			Extension: Extension,
+		},
+	}, nil
 }
 
 // ParseModelXMLFile will read a given file and parse the contained URDF XML data into an equivalent Model.

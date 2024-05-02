@@ -1384,11 +1384,11 @@ func TestStartWaypoint(t *testing.T) {
 
 		err := s.ns.AddWaypoint(cancelCtx, geo.NewPoint(1, 2), nil)
 		test.That(t, err, test.ShouldBeNil)
-		err = s.ns.SetMode(cancelCtx, navigation.ModeWaypoint, nil)
-		test.That(t, err, test.ShouldBeNil)
 		wps, err := s.ns.Waypoints(cancelCtx, nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, len(wps), test.ShouldEqual, 1)
+		err = s.ns.SetMode(cancelCtx, navigation.ModeWaypoint, nil)
+		test.That(t, err, test.ShouldBeNil)
 
 		for {
 			if cancelCtx.Err() != nil {

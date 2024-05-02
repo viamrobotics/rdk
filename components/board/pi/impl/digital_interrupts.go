@@ -88,7 +88,7 @@ func (i *BasicDigitalInterrupt) Value(ctx context.Context, extra map[string]inte
 // Ticks is really just for testing.
 func (i *BasicDigitalInterrupt) Ticks(ctx context.Context, num int, now uint64) error {
 	for x := 0; x < num; x++ {
-		if err := i.Tick(ctx, true, now+uint64(x)); err != nil {
+		if err := Tick(ctx, i, true, now+uint64(x)); err != nil {
 			return err
 		}
 	}
@@ -97,7 +97,7 @@ func (i *BasicDigitalInterrupt) Ticks(ctx context.Context, num int, now uint64) 
 
 // Tick records an interrupt and notifies any interested callbacks. See comment on
 // the DigitalInterrupt interface for caveats.
-func (i *BasicDigitalInterrupt) Tick(ctx context.Context, high bool, nanoseconds uint64) error {
+func Tick(ctx context.Context, i *BasicDigitalInterrupt, high bool, nanoseconds uint64) error {
 	if high {
 		atomic.AddInt64(&i.count, 1)
 	}
@@ -115,7 +115,7 @@ func (i *BasicDigitalInterrupt) Tick(ctx context.Context, high bool, nanoseconds
 }
 
 // AddCallback adds a listener for interrupts.
-func (i *BasicDigitalInterrupt) AddCallback(c chan board.Tick) {
+func AddCallback(i *BasicDigitalInterrupt, c chan board.Tick) {
 	i.mu.Lock()
 	defer i.mu.Unlock()
 	i.callbacks = append(i.callbacks, c)
@@ -171,9 +171,9 @@ func (i *ServoDigitalInterrupt) Value(ctx context.Context, extra map[string]inte
 	return v, nil
 }
 
-// Tick records the time between two successive low signals (pulse width). How it is
+// ServoTick records the time between two successive low signals (pulse width). How it is
 // interpreted is based off the consumer of Value.
-func (i *ServoDigitalInterrupt) Tick(ctx context.Context, high bool, now uint64) error {
+func ServoTick(ctx context.Context, i *ServoDigitalInterrupt, high bool, now uint64) error {
 	i.mu.RLock()
 	defer i.mu.RUnlock()
 	diff := now - i.last
@@ -190,13 +190,6 @@ func (i *ServoDigitalInterrupt) Tick(ctx context.Context, high bool, now uint64)
 
 	i.ra.Add(int(diff / 1000))
 	return nil
-}
-
-// AddCallback currently panics.
-func (i *ServoDigitalInterrupt) AddCallback(c chan board.Tick) {
-	i.mu.Lock()
-	defer i.mu.Unlock()
-	panic("servos can't have callback")
 }
 
 // RemoveCallback currently panics.
