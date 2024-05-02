@@ -144,13 +144,13 @@ func droidModuleHack(conf *Module, logger logging.Logger) error {
 		if err != nil {
 			return err
 		}
-		defer source.Close() //nolint:errcheck,gosec
+		defer source.Close() //nolint:errcheck
 
 		dest, err := os.OpenFile(destPath, os.O_WRONLY|os.O_CREATE|os.O_APPEND|os.O_TRUNC, 0o700) //nolint:gosec
 		if err != nil {
 			return err
 		}
-		defer dest.Close() //nolint:errcheck,gosec
+		defer dest.Close() //nolint:errcheck
 
 		_, err = io.Copy(dest, source)
 		if err != nil {
