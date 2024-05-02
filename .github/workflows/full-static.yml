@@ -19,9 +19,7 @@ on:
       channel:
         description: a channel for file naming
         required: false
-        type: choice
-        # test channel is for manual runs
-        options: [latest, stable, test]
+        type: string # 'choice' not supported in workflow_call
       version:
         description: a vX.X.X version string to use for file naming
         required: false
