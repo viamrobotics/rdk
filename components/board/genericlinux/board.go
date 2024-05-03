@@ -16,7 +16,6 @@ import (
 	"go.uber.org/multierr"
 	pb "go.viam.com/api/component/board/v1"
 	"go.viam.com/utils"
-	goutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/board/genericlinux/buses"
@@ -369,7 +368,7 @@ func (a *wrappedAnalogReader) reset(ctx context.Context, chipSelect string, read
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	if a.reader != nil {
-		goutils.UncheckedError(a.reader.Close(ctx))
+		utils.UncheckedError(a.reader.Close(ctx))
 	}
 	a.reader = reader
 	a.chipSelect = chipSelect
