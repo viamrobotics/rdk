@@ -483,7 +483,7 @@ func CheckPlan(
 	if err != nil {
 		return err
 	}
-
+	fmt.Println("currentInputs: ", currentInputs)
 	// setup the planOpts
 	if sfPlanner.planOpts, err = sfPlanner.plannerSetupFromMoveRequest(
 		currentPose,
@@ -493,6 +493,7 @@ func CheckPlan(
 		nil, // no pb.Constraints
 		nil, // no plannOpts
 	); err != nil {
+		fmt.Println(err)
 		return err
 	}
 
@@ -505,6 +506,11 @@ func CheckPlan(
 		if err != nil {
 			return err
 		}
+		fmt.Println("START CFG checkFrameCurrentInputs: ", checkFrameCurrentInputs)
+		fmt.Println("END CFG checkFrameCurrentInputs: ", checkFrameCurrentInputs)
+		fmt.Println("StartPosition: ", spatialmath.PoseToProtobuf(currentPose))
+		fmt.Println("EndPosition: ", spatialmath.PoseToProtobuf(poses[wayPointIdx]))
+		fmt.Println(" ")
 
 		// pre-pend to segments so we can connect to the input we have not finished actuating yet
 		segments = append(segments, &ik.Segment{
@@ -521,6 +527,10 @@ func CheckPlan(
 		currPose, nextPose spatialmath.Pose,
 		currInput, nextInput map[string][]frame.Input,
 	) (*ik.Segment, error) {
+		fmt.Println("currInput: ", currInput)
+		fmt.Println("nextInput: ", nextInput)
+		fmt.Println("currPose: ", spatialmath.PoseToProtobuf(currPose))
+		fmt.Println("nextPose: ", spatialmath.PoseToProtobuf(nextPose))
 		currInputSlice, err := sf.mapToSlice(currInput)
 		if err != nil {
 			return nil, err
@@ -547,9 +557,6 @@ func CheckPlan(
 	for i := wayPointIdx; i < len(offsetPlan.Path())-1; i++ {
 		currInput := offsetPlan.Trajectory()[i]
 		nextInput := offsetPlan.Trajectory()[i+1]
-		fmt.Println("poses[i]: ", spatialmath.PoseToProtobuf(poses[i]))
-		fmt.Println("poses[i+1]: ", spatialmath.PoseToProtobuf(poses[i+1]))
-		fmt.Println(" ")
 		if relative {
 			currInput[checkFrame.Name()+"ExecutionFrame"] = frame.FloatsToInputs(
 				[]float64{poses[i].Point().X, poses[i].Point().Y, poses[i].Orientation().OrientationVectorRadians().Theta},
@@ -557,17 +564,28 @@ func CheckPlan(
 			nextInput[checkFrame.Name()+"ExecutionFrame"] = frame.FloatsToInputs(
 				[]float64{poses[i+1].Point().X, poses[i+1].Point().Y, poses[i+1].Orientation().OrientationVectorRadians().Theta},
 			)
+			if i == 0 {
+				currInput = nextInput
+				currInput[checkFrame.Name()+"ExecutionFrame"] = frame.FloatsToInputs(
+					[]float64{poses[i].Point().X, poses[i].Point().Y, poses[i].Orientation().OrientationVectorRadians().Theta},
+				)
+			}
 		}
 		segment, err := createSegment(poses[i], poses[i+1], currInput, nextInput)
 		if err != nil {
 			return err
 		}
+		fmt.Println("created the following segment : ", segment)
+		fmt.Println(" ")
 		segments = append(segments, segment)
 	}
 
 	for _, s := range segments {
 		fmt.Println(s)
+		fmt.Println(" ")
 	}
+	fmt.Println(" ")
+	fmt.Println(" ")
 
 	// go through segments and check that we satisfy constraints
 	// TODO(RSDK-5007): If we can make interpolate a method on Frame the need to write this out will be lessened and we should be

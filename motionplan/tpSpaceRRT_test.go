@@ -319,7 +319,6 @@ func TestPtgCheckPlan(t *testing.T) {
 
 		worldState, err := referenceframe.NewWorldState(gifs, nil)
 		test.That(t, err, test.ShouldBeNil)
-
 		err = CheckPlan(ackermanFrame, plan, 0, worldState, tfFrameSystem, startPose, inputs, errorState, math.Inf(1), logger)
 		test.That(t, err, test.ShouldNotBeNil)
 	})
@@ -327,7 +326,7 @@ func TestPtgCheckPlan(t *testing.T) {
 	// create camera_origin frame
 	cameraOriginFrame, err := referenceframe.NewStaticFrame("camera-origin", spatialmath.NewPoseFromPoint(r3.Vector{0, -20, 0}))
 	test.That(t, err, test.ShouldBeNil)
-	err = fs.AddFrame(cameraOriginFrame, ackermanFrame)
+	err = tfFrameSystem.AddFrame(cameraOriginFrame, ackermanFrame)
 	test.That(t, err, test.ShouldBeNil)
 
 	// create camera geometry
@@ -342,7 +341,7 @@ func TestPtgCheckPlan(t *testing.T) {
 		"camera-frame", spatialmath.NewPoseFromPoint(r3.Vector{0, 0, 0}), cameraGeom,
 	)
 	test.That(t, err, test.ShouldBeNil)
-	err = fs.AddFrame(cameraFrame, cameraOriginFrame)
+	err = tfFrameSystem.AddFrame(cameraFrame, cameraOriginFrame)
 	test.That(t, err, test.ShouldBeNil)
 
 	t.Run("obstacles NOT in world frame - no collision - integration test", func(t *testing.T) {
@@ -357,14 +356,15 @@ func TestPtgCheckPlan(t *testing.T) {
 		worldState, err := referenceframe.NewWorldState(gifs, nil)
 		test.That(t, err, test.ShouldBeNil)
 
+		fmt.Println("tfFrameSystem.FrameNames(): ", tfFrameSystem.FrameNames())
+
 		// double check these inputs, the theta value might be wrong
-		inputs[executionFrame.Name()] = referenceframe.FloatsToInputs([]float64{2400, 0})
+		inputs[executionFrame.Name()] = referenceframe.FloatsToInputs([]float64{2331.83, 14, 0})
 		err = CheckPlan(ackermanFrame, plan, 1, worldState, tfFrameSystem, startPose, inputs, errorState, math.Inf(1), logger)
 		test.That(t, err, test.ShouldBeNil)
 	})
 
 	t.Run("obstacles NOT in world frame cause collision - integration test", func(t *testing.T) {
-		// i think we need to add an execution frame here????
 		obstacle, err := spatialmath.NewBox(
 			spatialmath.NewPoseFromPoint(r3.Vector{2500, 20, 0}),
 			r3.Vector{10, 2000, 1}, "obstacle",
@@ -376,54 +376,54 @@ func TestPtgCheckPlan(t *testing.T) {
 		worldState, err := referenceframe.NewWorldState(gifs, nil)
 		test.That(t, err, test.ShouldBeNil)
 
-		// need to re-understand this test, probably some comment so that this is easier to reason about
-		err = CheckPlan(ackermanFrame, plan, 1, worldState, tfFrameSystem, startPose, plan.Trajectory()[1], errorState, math.Inf(1), logger)
+		inputs[executionFrame.Name()] = referenceframe.FloatsToInputs([]float64{2331.83, 14, 0})
+		fmt.Println("inputs: ", inputs)
+		inputs[ackermanFrame.Name()] = referenceframe.FloatsToInputs([]float64{0, 0, 0, 0})
+
+		err = CheckPlan(ackermanFrame, plan, 1, worldState, tfFrameSystem, startPose, inputs, errorState, math.Inf(1), logger)
 		test.That(t, err, test.ShouldNotBeNil)
 	})
 
-	// t.Run("checking from partial-plan, ensure success with obstacles - integration test", func(t *testing.T) {
-	// 	// create obstacle behind where we are
-	// 	obstacle, err := spatialmath.NewBox(
-	// 		spatialmath.NewPoseFromPoint(r3.Vector{0, 20, 0}),
-	// 		r3.Vector{10, 200, 1}, "obstacle",
-	// 	)
-	// 	test.That(t, err, test.ShouldBeNil)
-	// 	geoms := []spatialmath.Geometry{obstacle}
-	// 	gifs := []*referenceframe.GeometriesInFrame{referenceframe.NewGeometriesInFrame(referenceframe.World, geoms)}
+	t.Run("checking from partial-plan, ensure success with obstacles - integration test", func(t *testing.T) {
+		// create obstacle behind where we are
+		obstacle, err := spatialmath.NewBox(
+			spatialmath.NewPoseFromPoint(r3.Vector{0, 20, 0}),
+			r3.Vector{10, 200, 1}, "obstacle",
+		)
+		test.That(t, err, test.ShouldBeNil)
+		geoms := []spatialmath.Geometry{obstacle}
+		gifs := []*referenceframe.GeometriesInFrame{referenceframe.NewGeometriesInFrame(referenceframe.World, geoms)}
 
-	// 	worldState, err := referenceframe.NewWorldState(gifs, nil)
-	// 	test.That(t, err, test.ShouldBeNil)
+		worldState, err := referenceframe.NewWorldState(gifs, nil)
+		test.That(t, err, test.ShouldBeNil)
 
-	// 	ov := spatialmath.NewOrientationVector().Degrees()
-	// 	ov.OZ = 1.0000000000000004
-	// 	ov.Theta = -101.42430306111874
-	// 	vector := r3.Vector{669.0803080526971, 234.2834571597409, 0}
+		ov := spatialmath.NewOrientationVector().Degrees()
+		ov.OZ = 1.0000000000000004
+		ov.Theta = -101.42430306111874
+		vector := r3.Vector{669.0803080526971, 234.2834571597409, 0}
 
-	// 	startPose := spatialmath.NewPose(vector, ov)
+		startPose := spatialmath.NewPose(vector, ov)
 
-	// 	err = CheckPlan(ackermanFrame, plan, 2, worldState, tfFrameSystem, startPose, inputs, errorState, math.Inf(1), logger)
-	// 	test.That(t, err, test.ShouldBeNil)
-	// })
+		err = CheckPlan(ackermanFrame, plan, 2, worldState, tfFrameSystem, startPose, inputs, errorState, math.Inf(1), logger)
+		test.That(t, err, test.ShouldBeNil)
+	})
 
-	// t.Run("verify partial plan with non-nil errorState and obstacle", func(t *testing.T) {
-	// 	// create obstacle which is behind where the robot already is, but is on the path it has already traveled
-	// 	box, err := spatialmath.NewBox(spatialmath.NewZeroPose(), r3.Vector{10, 10, 1}, "obstacle")
-	// 	test.That(t, err, test.ShouldBeNil)
-	// 	gifs := []*referenceframe.GeometriesInFrame{referenceframe.NewGeometriesInFrame(referenceframe.World, []spatialmath.Geometry{box})}
+	t.Run("verify partial plan with non-nil errorState and obstacle", func(t *testing.T) {
+		// create obstacle which is behind where the robot already is, but is on the path it has already traveled
+		box, err := spatialmath.NewBox(spatialmath.NewZeroPose(), r3.Vector{10, 10, 1}, "obstacle")
+		test.That(t, err, test.ShouldBeNil)
+		gifs := []*referenceframe.GeometriesInFrame{referenceframe.NewGeometriesInFrame(referenceframe.World, []spatialmath.Geometry{box})}
 
-	// 	worldState, err := referenceframe.NewWorldState(gifs, nil)
-	// 	test.That(t, err, test.ShouldBeNil)
+		worldState, err := referenceframe.NewWorldState(gifs, nil)
+		test.That(t, err, test.ShouldBeNil)
 
-	// 	remainingPlan, err := RemainingPlan(plan, 2)
-	// 	test.That(t, err, test.ShouldBeNil)
+		pathPose := plan.Path()[2][ackermanFrame.Name()].Pose()
+		startPose := spatialmath.NewPose(r3.Vector{2499, 0, 0}, pathPose.Orientation())
+		errorState := spatialmath.PoseDelta(pathPose, startPose)
 
-	// 	pathPose := remainingPlan.Path()[0][ackermanFrame.Name()].Pose()
-	// 	startPose := spatialmath.NewPose(r3.Vector{0, 1000, 0}, pathPose.Orientation())
-	// 	errorState := spatialmath.PoseDelta(pathPose, startPose)
-
-	// 	err = CheckPlan(ackermanFrame, plan, 2, worldState, tfFrameSystem, startPose, inputs, errorState, math.Inf(1), logger)
-	// 	test.That(t, err, test.ShouldBeNil)
-	// })
+		err = CheckPlan(ackermanFrame, plan, 2, worldState, tfFrameSystem, startPose, inputs, errorState, math.Inf(1), logger)
+		test.That(t, err, test.ShouldBeNil)
+	})
 }
 
 func planToTpspaceRec(plan Plan, f referenceframe.Frame) ([]node, error) {
