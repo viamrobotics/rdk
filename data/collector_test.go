@@ -264,11 +264,11 @@ func TestCtxCancelledNotLoggedAfterClose(t *testing.T) {
 
 	params := CollectorParams{
 		ComponentName: "testComponent",
-		Interval:      time.Millisecond * 1,
+		Interval:      time.Nanosecond,
 		MethodParams:  map[string]*anypb.Any{"name": fakeVal},
 		Target:        target,
-		QueueSize:     queueSize,
-		BufferSize:    bufferSize,
+		QueueSize:     250,  //queueSize,
+		BufferSize:    4096, //bufferSize,
 		Logger:        logger,
 	}
 	c, _ := NewCollector(errorCapturer, params)
@@ -277,7 +277,11 @@ func TestCtxCancelledNotLoggedAfterClose(t *testing.T) {
 	c.Close()
 	close(captured)
 
-	test.That(t, logs.FilterLevelExact(zapcore.ErrorLevel).Len(), test.ShouldEqual, 0)
+	failedLogs := logs.FilterLevelExact(zapcore.ErrorLevel)
+	if failedLogs.Len() != 0 {
+		fmt.Println("FailedLogs:", failedLogs)
+	}
+	test.That(t, failedLogs.Len(), test.ShouldEqual, 0)
 }
 
 func TestLogErrorsOnlyOnce(t *testing.T) {
@@ -334,7 +338,7 @@ func validateReadings(t *testing.T, act []*v1.SensorData, n int) {
 	}
 }
 
-//nolint
+// nolint
 func getAllFiles(dir string) []os.FileInfo {
 	var files []os.FileInfo
 	_ = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {

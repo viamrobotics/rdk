@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"reflect"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/benbjohnson/clock"
@@ -57,11 +58,12 @@ type Collector interface {
 }
 
 type collector struct {
-	clock            clock.Clock
-	captureResults   chan *v1.SensorData
-	captureErrors    chan error
-	interval         time.Duration
-	params           map[string]*anypb.Any
+	clock          clock.Clock
+	captureResults chan *v1.SensorData
+	captureErrors  chan error
+	interval       time.Duration
+	params         map[string]*anypb.Any
+	// `lock` serializes calls to `Flush` and `Close`.
 	lock             sync.Mutex
 	logger           logging.Logger
 	captureWorkers   sync.WaitGroup
@@ -69,7 +71,8 @@ type collector struct {
 	cancelCtx        context.Context
 	cancel           context.CancelFunc
 	captureFunc      CaptureFunc
-	closed           bool
+	closeStarted     atomic.Bool
+	closeFinished    bool
 	target           datacapture.BufferedWriter
 	lastLoggedErrors map[string]int64
 }
@@ -77,23 +80,31 @@ type collector struct {
 // Close closes the channels backing the Collector. It should always be called before disposing of a Collector to avoid
 // leaking goroutines.
 func (c *collector) Close() {
-	if c.closed {
+	// Signal the start of closing. Specifically, this is used to signal to the error logging
+	// goroutine that it should ignore "context canceled" errors.
+	c.closeStarted.Store(true)
+
+	// Signal all `captureWorkers` to exit.
+	c.cancel()
+	// CaptureWorkers acquire the `c.lock` to do their work (i.e: call `collector.Flush()`). We must
+	// `Wait` on them before acquiring the lock to avoid deadlock.
+	c.captureWorkers.Wait()
+
+	c.lock.Lock()
+	defer c.lock.Unlock()
+	if c.closeFinished {
 		return
 	}
 
-	c.cancel()
-	c.captureWorkers.Wait()
-	c.lock.Lock()
-	defer c.lock.Unlock()
-	if c.closed {
-		return
-	}
 	if err := c.target.Flush(); err != nil {
 		c.logger.Errorw("failed to flush capture data", "error", err)
 	}
+
 	close(c.captureErrors)
 	c.logRoutine.Wait()
-	c.closed = true
+
+	// Closing has completed. Set this to prevent a double-close from executing.
+	c.closeFinished = true
 }
 
 func (c *collector) Flush() {
@@ -294,7 +305,6 @@ func NewCollector(captureFunc CaptureFunc, params CollectorParams) (Collector, e
 		captureFunc:      captureFunc,
 		target:           params.Target,
 		clock:            c,
-		closed:           false,
 		lastLoggedErrors: make(map[string]int64, 0),
 	}, nil
 }
@@ -311,7 +321,7 @@ func (c *collector) writeCaptureResults() error {
 func (c *collector) logCaptureErrs() {
 	for err := range c.captureErrors {
 		now := c.clock.Now().Unix()
-		if c.closed {
+		if c.closeStarted.Load() {
 			// Don't log context cancellation errors if the collector has already been closed. This means the collector
 			// cancelled the context, and the context cancellation error is expected.
 			if errors.Is(err, context.Canceled) {
