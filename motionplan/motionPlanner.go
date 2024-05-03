@@ -483,13 +483,12 @@ func CheckPlan(
 	if err != nil {
 		return err
 	}
-	plannerSetUpInputs := currentInputs
-	plannerSetUpInputs[checkFrame.Name()] = make([]frame.Input, len(checkFrame.DoF()))
+
 	// setup the planOpts
 	if sfPlanner.planOpts, err = sfPlanner.plannerSetupFromMoveRequest(
 		currentPose,
 		poses[len(poses)-1],
-		plannerSetUpInputs,
+		currentInputs,
 		worldState,
 		nil, // no pb.Constraints
 		nil, // no plannOpts
@@ -522,7 +521,6 @@ func CheckPlan(
 		currPose, nextPose spatialmath.Pose,
 		currInput, nextInput map[string][]frame.Input,
 	) (*ik.Segment, error) {
-		// there will be an issue here since currInputs is not of the correct length
 		currInputSlice, err := sf.mapToSlice(currInput)
 		if err != nil {
 			return nil, err
@@ -582,6 +580,7 @@ func CheckPlan(
 			if err != nil {
 				return err
 			}
+
 			// Check if look ahead distance has been reached
 			currentTravelDistanceMM := totalTravelDistanceMM + poseInPath.Point().Distance(segment.StartPosition.Point())
 			if currentTravelDistanceMM > lookAheadDistanceMM {

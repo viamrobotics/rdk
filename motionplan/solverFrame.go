@@ -49,7 +49,6 @@ func newSolverFrame(fs frame.FrameSystem, solveFrameName, goalFrameName string, 
 	if solveFrame == nil {
 		return nil, frame.NewFrameMissingError(solveFrameName)
 	}
-
 	solveFrameList, err := fs.TracebackFrame(solveFrame)
 	if err != nil {
 		return nil, err
@@ -218,7 +217,6 @@ func (sf *solverFrame) Interpolate(from, to []frame.Input, by float64) ([]frame.
 	interp := make([]frame.Input, 0, len(to))
 	posIdx := 0
 	for _, currFrame := range sf.frames {
-		// if we are dealing with the execution frame, no need to interpolate, just return what we got
 		dof := len(currFrame.DoF()) + posIdx
 		fromSubset := from[posIdx:dof]
 		toSubset := to[posIdx:dof]
@@ -228,6 +226,7 @@ func (sf *solverFrame) Interpolate(from, to []frame.Input, by float64) ([]frame.
 
 		fmt.Println("currFrame.DoF()", currFrame.DoF())
 		fmt.Println("currFrame.Name()", currFrame.Name())
+		// if we are dealing with the execution frame, no need to interpolate, just return what we got
 		if strings.Contains(currFrame.Name(), "ExecutionFrame") {
 			interp = append(interp, fromSubset...)
 			fmt.Println("appending from...: ", fromSubset)
@@ -281,7 +280,6 @@ func (sf *solverFrame) Geometries(inputs []frame.Input) (*frame.GeometriesInFram
 	var errAll error
 	inputMap := sf.sliceToMap(inputs)
 	sfGeometries := []spatial.Geometry{}
-
 	for _, fName := range sf.movingFS.FrameNames() {
 		if strings.Contains(fName, "ExecutionFrame") {
 			continue

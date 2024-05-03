@@ -241,7 +241,6 @@ func createAllCollisionConstraints(
 	var err error
 
 	if len(worldGeometries) > 0 {
-
 		// Check if a moving geometry is in collision with a pointcloud. If so, error.
 		// TODO: This is not the most robust way to deal with this but is better than driving through walls.
 		var zeroCG *collisionGraph
@@ -263,6 +262,7 @@ func createAllCollisionConstraints(
 				}
 			}
 		}
+
 		// create constraint to keep moving geometries from hitting world state obstacles
 		obstacleConstraint, err := NewCollisionConstraint(movingRobotGeometries, worldGeometries, allowedCollisions, false, collisionBufferMM)
 		if err != nil {
@@ -337,6 +337,8 @@ func NewCollisionConstraint(
 			}
 			internalGeoms = internal.Geometries()
 		case state.Position != nil:
+			// If we didn't pass a Configuration, but we do have a Position, then get the geometries at the zero state and
+			// transform them to the Position
 			internal, err := state.Frame.Geometries(make([]referenceframe.Input, len(state.Frame.DoF())))
 			if err != nil {
 				return false
