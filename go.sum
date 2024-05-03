@@ -183,6 +183,8 @@ github.com/blizzy78/varnamelen v0.8.0 h1:oqSblyuQvFsW1hbBHh1zfwrKe3kcSj0rnXkKzsQ
 github.com/blizzy78/varnamelen v0.8.0/go.mod h1:V9TzQZ4fLJ1DSrjVDfl89H7aMnTvKkApdHeyESmyR7k=
 github.com/bluenviron/gortsplib/v4 v4.8.0 h1:nvFp6rHALcSep3G9uBFI0uogS9stVZLNq/92TzGZdQg=
 github.com/bluenviron/gortsplib/v4 v4.8.0/go.mod h1:+d+veuyvhvikUNp0GRQkk6fEbd/DtcXNidMRm7FQRaA=
+github.com/bluenviron/mediacommon v1.9.2 h1:EHcvoC5YMXRcFE010bTNf07ZiSlB/e/AdZyG7GsEYN0=
+github.com/bluenviron/mediacommon v1.9.2/go.mod h1:lt8V+wMyPw8C69HAqDWV5tsAwzN9u2Z+ca8B6C//+n0=
 github.com/bombsimon/wsl/v3 v3.2.0/go.mod h1:st10JtZYLE4D5sC7b8xV4zTKZwAQjCH/Hy2Pm1FNZIc=
 github.com/bombsimon/wsl/v3 v3.4.0 h1:RkSxjT3tmlptwfgEgTgU+KYKLI35p/tviNXNXiL2aNU=
 github.com/bombsimon/wsl/v3 v3.4.0/go.mod h1:KkIB+TXkqy6MvK9BDZVbZxKNYsE1/oLRJbIFtf14qqo=

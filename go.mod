@@ -15,6 +15,7 @@ require (
 	github.com/benbjohnson/clock v1.3.3
 	github.com/bep/debounce v1.2.1
 	github.com/bluenviron/gortsplib/v4 v4.8.0
+	github.com/bluenviron/mediacommon v1.9.2
 	github.com/bufbuild/buf v1.6.0
 	github.com/creack/pty v1.1.19-0.20220421211855-0d412c9fbeb1
 	github.com/d2r2/go-i2c v0.0.0-20191123181816-73a8a799d6bc
