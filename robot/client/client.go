@@ -471,8 +471,9 @@ func (rc *RobotClient) checkConnection(ctx context.Context, checkEvery, reconnec
 	}
 }
 
-// Close cleanly closes the underlying connections and stops the refresh goroutine
+// Close the underlying connections and stop any periodic tasks across all constituent parts of the machine.
 // if it is running.
+//    // err := machine.Close(ctx.Background())
 func (rc *RobotClient) Close(ctx context.Context) error {
 	rc.backgroundCtxCancel()
 	rc.activeBackgroundWorkers.Wait()
@@ -493,7 +494,7 @@ func (rc *RobotClient) checkConnected() error {
 	return nil
 }
 
-// RefreshEvery refreshes the robot on the interval given by every until the
+// RefreshEvery refreshes the machine on the interval given by every until the
 // given context is done.
 func (rc *RobotClient) RefreshEvery(ctx context.Context, every time.Duration) {
 	ticker := time.NewTicker(every)
@@ -510,7 +511,7 @@ func (rc *RobotClient) RefreshEvery(ctx context.Context, every time.Duration) {
 	}
 }
 
-// RemoteByName returns a remote robot by name. It is assumed to exist on the
+// RemoteByName returns a remote machine by name. It is assumed to exist on the
 // other end. Right now this method is unimplemented.
 func (rc *RobotClient) RemoteByName(name string) (robot.Robot, bool) {
 	panic(errUnimplemented)
@@ -635,8 +636,8 @@ func (rc *RobotClient) resources(ctx context.Context) ([]resource.Name, []resour
 	return resources, resTypes, nil
 }
 
-// Refresh manually updates the underlying parts of the robot based
-// on its metadata response.
+// Manually refresh the underlying parts of this machine.
+//    // err := machine.Refresh(ctx)
 func (rc *RobotClient) Refresh(ctx context.Context) (err error) {
 	rc.mu.Lock()
 	defer rc.mu.Unlock()
@@ -709,7 +710,8 @@ func (rc *RobotClient) PackageManager() packages.Manager {
 	return nil
 }
 
-// ResourceNames returns all resource names.
+// Get a list of all known resource names connected to this machine.
+//    // resource_names := machine.ResourceNames()
 func (rc *RobotClient) ResourceNames() []resource.Name {
 	if err := rc.checkConnected(); err != nil {
 		rc.Logger().Errorw("failed to get remote resource names", "error", err)
@@ -748,6 +750,14 @@ func (rc *RobotClient) Logger() logging.Logger {
 
 // DiscoverComponents takes a list of discovery queries and returns corresponding
 // component configurations.
+//    // // Define a new discovery query.
+//    // q := resource.NewDiscoveryQuery(acme.API, resource.Model{Name: "some model"})
+
+//    // // Define a list of discovery queries.
+//    // qs := []resource.DiscoverQuery{q}
+
+//    // // Get component configurations with these queries.
+//    // component_configs, err := robot.DiscoverComponents(ctx.Background(), qs)
 func (rc *RobotClient) DiscoverComponents(ctx context.Context, qs []resource.DiscoveryQuery) ([]resource.Discovery, error) {
 	pbQueries := make([]*pb.DiscoveryQuery, 0, len(qs))
 	for _, q := range qs {
@@ -785,7 +795,8 @@ func (rc *RobotClient) DiscoverComponents(ctx context.Context, qs []resource.Dis
 	return discoveries, nil
 }
 
-// FrameSystemConfig returns the info of each individual part that makes up the frame system.
+// Get the configuration of the frame system of a given machine.
+//    // frameSystem, err := robot.FrameSystemConfig(context.Background(), nil)
 func (rc *RobotClient) FrameSystemConfig(ctx context.Context) (*framesystem.Config, error) {
 	resp, err := rc.client.FrameSystemConfig(ctx, &pb.FrameSystemConfigRequest{})
 	if err != nil {
@@ -861,7 +872,9 @@ func (rc *RobotClient) TransformPointCloud(ctx context.Context, srcpc pointcloud
 	return pointcloud.ApplyOffset(ctx, srcpc, transformPose, rc.Logger())
 }
 
-// Status takes a list of resource names and returns their corresponding statuses. If no names are passed in, return all statuses.
+// Get the status of the resources on the machine. You can provide a list of ResourceNames for which you want
+// statuses. If no names are passed in, the status of every resource configured on the machine is returned.
+//    // status, err := robot.Status(ctx.Background())
 func (rc *RobotClient) Status(ctx context.Context, resourceNames []resource.Name) ([]robot.Status, error) {
 	names := make([]*commonpb.ResourceName, 0, len(resourceNames))
 	for _, name := range resourceNames {
@@ -886,6 +899,7 @@ func (rc *RobotClient) Status(ctx context.Context, resourceNames []resource.Name
 }
 
 // StopAll cancels all current and outstanding operations for the robot and stops all actuators and movement.
+//    // err := robot.StopAll(ctx.Background())
 func (rc *RobotClient) StopAll(ctx context.Context, extra map[resource.Name]map[string]interface{}) error {
 	e := []*pb.StopExtraParameters{}
 	for name, params := range extra {
@@ -939,7 +953,11 @@ func (rc *RobotClient) Log(ctx context.Context, log zapcore.Entry, fields []zap.
 	return err
 }
 
-// CloudMetadata returns app-related information about the robot.
+// Returns app-related information about the machine.
+//    // metadata, err := machine.CloudMetadata(ctx.Background())
+//    // fmt.Println(metadata.RobotPartID)
+//    // fmt.Println(metadata.PrimaryOrgID)
+//    // fmt.Println(metadata.LocationID)
 func (rc *RobotClient) CloudMetadata(ctx context.Context) (cloud.Metadata, error) {
 	cloudMD := cloud.Metadata{}
 	req := &pb.GetCloudMetadataRequest{}

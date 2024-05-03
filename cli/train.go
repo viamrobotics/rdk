@@ -134,6 +134,7 @@ func DataGetTrainingJob(c *cli.Context) error {
 }
 
 // dataGetTrainingJob gets a training job with the given ID.
+//    // job, err := client.dataGetTrainingJob(job_id)
 func (c *viamClient) dataGetTrainingJob(trainingJobID string) (*mltrainingpb.TrainingJobMetadata, error) {
 	if err := c.ensureLoggedIn(); err != nil {
 		return nil, err
@@ -160,6 +161,7 @@ func DataCancelTrainingJob(c *cli.Context) error {
 }
 
 // dataCancelTrainingJob cancels a training job with the given ID.
+//    // job, err := client.dataCancelTrainingJob(job_id)
 func (c *viamClient) dataCancelTrainingJob(trainingJobID string) error {
 	if err := c.ensureLoggedIn(); err != nil {
 		return err
@@ -188,6 +190,7 @@ func DataListTrainingJobs(c *cli.Context) error {
 }
 
 // dataListTrainingJobs lists training jobs for the given org.
+//    // job, err := client.dataListTrainingJobs(orgID, "")
 func (c *viamClient) dataListTrainingJobs(orgID, status string) ([]*mltrainingpb.TrainingJobMetadata, error) {
 	if err := c.ensureLoggedIn(); err != nil {
 		return nil, err
@@ -213,6 +216,7 @@ func (c *viamClient) dataListTrainingJobs(orgID, status string) ([]*mltrainingpb
 }
 
 // allTrainingStatusValues returns the accepted values for the trainFlagJobStatus flag.
+//    // statuses := client.allTrainingStatusValues()
 func allTrainingStatusValues() string {
 	var formattedStatuses []string
 	for status := range mltrainingpb.TrainingStatus_value {
