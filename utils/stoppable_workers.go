@@ -37,10 +37,15 @@ func NewStoppableWorkers(funcs ...func(context.Context)) StoppableWorkers {
 	return workers
 }
 
-// AddWorkers starts up additional goroutines for each function passed in.
+// AddWorkers starts up additional goroutines for each function passed in. If you call this after
+// calling Stop(), it will return immediately without starting any new goroutines.
 func (sw *stoppableWorkersImpl) AddWorkers(funcs ...func(context.Context)) {
 	sw.mu.Lock()
 	defer sw.mu.Unlock()
+
+	if sw.cancelCtx.Err() != nil { // We've already stopped everything.
+		return
+	}
 
 	sw.activeBackgroundWorkers.Add(len(funcs))
 	for _, f := range funcs {
