@@ -348,7 +348,7 @@ func makeAdxl345(
 	return sensor, nil
 }
 
-func (adxl *adxl345) startInterruptMonitoring(ticksChan chan board.Tick, interrupts []board.DigitalInterrupt) {
+func (adxl *adxl345) startInterruptMonitoring(ticksChan chan board.Tick) {
 	utils.PanicCapturingGo(func() {
 		for {
 			select {
