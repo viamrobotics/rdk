@@ -937,8 +937,12 @@ func (manager *resourceManager) markResourceForUpdate(name resource.Name, conf r
 func (manager *resourceManager) updateResources(
 	ctx context.Context,
 	conf *config.Diff,
+	lockTimeout *time.Duration,
 ) error {
-	manager.configLock.Lock()
+	err := rutils.TryLockWithTimeout(&manager.configLock, lockTimeout)
+	if err != nil {
+		return err
+	}
 	defer manager.configLock.Unlock()
 	var allErrs error
 

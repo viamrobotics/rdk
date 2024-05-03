@@ -698,7 +698,7 @@ func TestManagerNewComponent(t *testing.T) {
 	}
 	diff, err := config.DiffConfigs(config.Config{}, *cfg, true)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, robotForRemote.manager.updateResources(context.Background(), diff), test.ShouldBeNil)
+	test.That(t, robotForRemote.manager.updateResources(context.Background(), diff, nil), test.ShouldBeNil)
 	test.That(t, robotForRemote.manager.resources.ResolveDependencies(logger), test.ShouldBeNil)
 
 	diff = &config.Diff{
@@ -715,7 +715,7 @@ func TestManagerNewComponent(t *testing.T) {
 		ConvertedAttributes: &fakeboard.Config{},
 		DependsOn:           []string{"arm3"},
 	})
-	test.That(t, robotForRemote.manager.updateResources(context.Background(), diff), test.ShouldBeNil)
+	test.That(t, robotForRemote.manager.updateResources(context.Background(), diff, nil), test.ShouldBeNil)
 	err = robotForRemote.manager.resources.ResolveDependencies(logger)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "circular dependency")
@@ -1318,7 +1318,7 @@ func TestConfigUntrustedEnv(t *testing.T) {
 			Modified: &config.ModifiedConfigDiff{
 				Processes: []pexec.ProcessConfig{{ID: "id2", Name: "echo"}},
 			},
-		})
+		}, nil)
 		test.That(t, errors.Is(err, errProcessesDisabled), test.ShouldBeTrue)
 
 		processesToClose, _, _ := manager.markRemoved(ctx, &config.Config{
@@ -1341,7 +1341,7 @@ func TestConfigUntrustedEnv(t *testing.T) {
 					API:  shell.API,
 				}},
 			},
-		})
+		}, nil)
 		test.That(t, errors.Is(err, errShellServiceDisabled), test.ShouldBeTrue)
 
 		_, resourcesToCloseBeforeComplete, markedResourceNames := manager.markRemoved(ctx, &config.Config{
