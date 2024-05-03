@@ -78,4 +78,3 @@ func broadcomPinFromHardwareLabel(hwPin string) (uint, bool) {
 	}
 	return 1000, false
 }
-
