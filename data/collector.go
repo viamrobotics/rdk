@@ -328,8 +328,9 @@ func (c *collector) logCaptureErrs() {
 	for err := range c.captureErrors {
 		now := c.clock.Now().Unix()
 		if c.closeStarted.Load() {
-			// Don't log context cancellation errors if the collector has already been closed. This means the collector
-			// cancelled the context, and the context cancellation error is expected.
+			// Don't log context cancellation errors if the collector has already been closed. This
+			// means the collector canceled the context, and the context cancellation error is
+			// expected.
 			if errors.Is(err, context.Canceled) {
 				continue
 			}
