@@ -261,9 +261,7 @@ func createDataFilter(c *cli.Context) (*datapb.Filter, error) {
 	return filter, nil
 }
 
-// Download binary data matching provided filter to destination directory.
-//    // filter := createDataFilter(TODO)
-//    // err := client.binaryData("", filter, 1)
+// BinaryData downloads binary data matching filter to dst.
 func (c *viamClient) binaryData(dst string, filter *datapb.Filter, parallelDownloads uint) error {
 	if err := c.ensureLoggedIn(); err != nil {
 		return err
@@ -577,11 +575,7 @@ func filenameForDownload(meta *datapb.BinaryMetadata) string {
 	return fileName
 }
 
-// Filter and download optionally filtered tabular data from the Viam app. The data will be paginated into pages of
-// limit items, and the pagination ID will be included in the returned tuple. If a destination is provided, the
-// data will be saved to that file. If the file is not empty, it will be overwritten.
-//    // filter := createDataFilter(TODO)
-//    // err := client.tabularData("", filter)
+// tabularData downloads binary data matching filter to dst.
 func (c *viamClient) tabularData(dst string, filter *datapb.Filter) error {
 	if err := c.ensureLoggedIn(); err != nil {
 		return err
@@ -698,9 +692,6 @@ func makeDestinationDirs(dst string) error {
 	return nil
 }
 
-// Filter and delete binary data.
-//    // filter := createDataFilter(TODO)
-//    // err := client.deleteBinaryData(filter)
 func (c *viamClient) deleteBinaryData(filter *datapb.Filter) error {
 	if err := c.ensureLoggedIn(); err != nil {
 		return err
@@ -714,10 +705,6 @@ func (c *viamClient) deleteBinaryData(filter *datapb.Filter) error {
 	return nil
 }
 
-// Add tags to binary data by filter.
-//    // filter := createDataFilter(TODO)
-//    // tags := []string{"tag1", "tag2"}
-//    // err := client.dataAddTagsToBinaryByFilter(filter, tags)
 func (c *viamClient) dataAddTagsToBinaryByFilter(filter *datapb.Filter, tags []string) error {
 	if err := c.ensureLoggedIn(); err != nil {
 		return err
@@ -731,10 +718,6 @@ func (c *viamClient) dataAddTagsToBinaryByFilter(filter *datapb.Filter, tags []s
 	return nil
 }
 
-// Remove tags to binary data by filter.
-//    // filter := createDataFilter(TODO)
-//    // tags := []string{"tag1", "tag2"}
-//    // err := client.dataRemoveTagsFromBinaryByFilter(filter, tags)
 func (c *viamClient) dataRemoveTagsFromBinaryByFilter(filter *datapb.Filter, tags []string) error {
 	if err := c.ensureLoggedIn(); err != nil {
 		return err
@@ -748,9 +731,6 @@ func (c *viamClient) dataRemoveTagsFromBinaryByFilter(filter *datapb.Filter, tag
 	return nil
 }
 
-// Add tags to binary data with the specified org ID, location ID,
-// and file IDs.
-//    // err := client.dataAddTagsToBinaryByFilter(tags, orgId, locationId, fileIDs)
 func (c *viamClient) dataAddTagsToBinaryByIDs(tags []string, orgID, locationID string, fileIDs []string) error {
 	if err := c.ensureLoggedIn(); err != nil {
 		return err
@@ -772,10 +752,8 @@ func (c *viamClient) dataAddTagsToBinaryByIDs(tags []string, orgID, locationID s
 	return nil
 }
 
-// Removes tags from data with the specified org ID, location ID,
+// dataRemoveTagsFromData removes tags from data, with the specified org ID, location ID,
 // and file IDs.
-//    // tags := []string{"tag1", "tag2"}
-//    // err := client.dataAddTagsToBinaryByFilter(tags, orgId, locationId, fileIDs)
 func (c *viamClient) dataRemoveTagsFromBinaryByIDs(tags []string, orgID, locationID string, fileIDs []string) error {
 	if err := c.ensureLoggedIn(); err != nil {
 		return err
@@ -797,8 +775,7 @@ func (c *viamClient) dataRemoveTagsFromBinaryByIDs(tags []string, orgID, locatio
 	return nil
 }
 
-// Delete tabular data older than a specified number of days.
-//    // err := client.deleteTabularData(orgID, 1)
+// deleteTabularData delete tabular data matching filter.
 func (c *viamClient) deleteTabularData(orgID string, deleteOlderThanDays int) error {
 	if err := c.ensureLoggedIn(); err != nil {
 		return err
@@ -825,8 +802,7 @@ func DataAddToDatasetByIDs(c *cli.Context) error {
 	return nil
 }
 
-// Add data, with the specified org ID, location ID, and file IDs to the dataset corresponding to the dataset ID.
-//    // err := client.dataAddToDatasetByIDs(datasetID, orgID, locationID, fileIDs)
+// dataAddToDatasetByIDs adds data, with the specified org ID, location ID, and file IDs to the dataset corresponding to the dataset ID.
 func (c *viamClient) dataAddToDatasetByIDs(datasetID, orgID, locationID string, fileIDs []string) error {
 	if err := c.ensureLoggedIn(); err != nil {
 		return err
@@ -864,9 +840,7 @@ func DataAddToDatasetByFilter(c *cli.Context) error {
 	return nil
 }
 
-// Add data, with the specified filter to the dataset corresponding to the dataset ID.
-//    // filter := createDataFilter(TODO)
-//    // err := client.dataAddToDatasetByIDs(filter, datasetID)
+// dataAddToDatasetByFilter adds data, with the specified filter to the dataset corresponding to the dataset ID.
 func (c *viamClient) dataAddToDatasetByFilter(filter *datapb.Filter, datasetID string) error {
 	if err := c.ensureLoggedIn(); err != nil {
 		return err
@@ -898,8 +872,8 @@ func DataRemoveFromDataset(c *cli.Context) error {
 	return nil
 }
 
-// Removes data, with the specified org ID, location ID, and file IDs from the dataset corresponding to the dataset ID.
-//    // err := client.dataAddToDatasetByIDs(datasetID, orgID, locationID, fileIDs)
+// dataRemoveFromDataset removes data, with the specified org ID, location ID,
+// and file IDs from the dataset corresponding to the dataset ID.
 func (c *viamClient) dataRemoveFromDataset(datasetID, orgID, locationID string, fileIDs []string) error {
 	if err := c.ensureLoggedIn(); err != nil {
 		return err
@@ -933,10 +907,9 @@ func DataConfigureDatabaseUser(c *cli.Context) error {
 	return nil
 }
 
-// Configures a database user for an organization with a password.
-// Viam uses gRPC over TLS, so the entire request will be encrypted while in
+// dataConfigureDatabaseUser accepts a Viam organization ID and a password for the database user
+// being configured. Viam uses gRPC over TLS, so the entire request will be encrypted while in
 // flight, including the password.
-//    // err := client.dataConfigureDatabaseUser(orgID, "PW")
 func (c *viamClient) dataConfigureDatabaseUser(orgID, password string) error {
 	if err := c.ensureLoggedIn(); err != nil {
 		return err
@@ -950,6 +923,7 @@ func (c *viamClient) dataConfigureDatabaseUser(orgID, password string) error {
 	return nil
 }
 
+// DataGetDatabaseConnection is the corresponding action for 'data database hostname'.
 func DataGetDatabaseConnection(c *cli.Context) error {
 	client, err := newViamClient(c)
 	if err != nil {
@@ -961,9 +935,8 @@ func DataGetDatabaseConnection(c *cli.Context) error {
 	return nil
 }
 
-// Gets the hostname of the MongoDB Atlas Data Federation instance
+// dataGetDatabaseConnection gets the hostname of the MongoDB Atlas Data Federation instance
 // for the given organization ID.
-//    // err := client.dataGetDatabaseConnection(orgId)
 func (c *viamClient) dataGetDatabaseConnection(orgID string) error {
 	if err := c.ensureLoggedIn(); err != nil {
 		return err
