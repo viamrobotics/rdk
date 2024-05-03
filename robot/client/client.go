@@ -473,7 +473,7 @@ func (rc *RobotClient) checkConnection(ctx context.Context, checkEvery, reconnec
 
 // Close the underlying connections and stop any periodic tasks across all constituent parts of the machine.
 // if it is running.
-//    // err := machine.Close(ctx.Background())
+//    err := machine.Close(ctx.Background())
 func (rc *RobotClient) Close(ctx context.Context) error {
 	rc.backgroundCtxCancel()
 	rc.activeBackgroundWorkers.Wait()
@@ -637,7 +637,7 @@ func (rc *RobotClient) resources(ctx context.Context) ([]resource.Name, []resour
 }
 
 // Manually refresh the underlying parts of this machine.
-//    // err := machine.Refresh(ctx)
+//    err := machine.Refresh(ctx)
 func (rc *RobotClient) Refresh(ctx context.Context) (err error) {
 	rc.mu.Lock()
 	defer rc.mu.Unlock()
@@ -711,7 +711,7 @@ func (rc *RobotClient) PackageManager() packages.Manager {
 }
 
 // Get a list of all known resource names connected to this machine.
-//    // resource_names := machine.ResourceNames()
+//    resource_names := machine.ResourceNames()
 func (rc *RobotClient) ResourceNames() []resource.Name {
 	if err := rc.checkConnected(); err != nil {
 		rc.Logger().Errorw("failed to get remote resource names", "error", err)
@@ -750,14 +750,14 @@ func (rc *RobotClient) Logger() logging.Logger {
 
 // DiscoverComponents takes a list of discovery queries and returns corresponding
 // component configurations.
-//    // // Define a new discovery query.
-//    // q := resource.NewDiscoveryQuery(acme.API, resource.Model{Name: "some model"})
-
-//    // // Define a list of discovery queries.
-//    // qs := []resource.DiscoverQuery{q}
-
-//    // // Get component configurations with these queries.
-//    // component_configs, err := robot.DiscoverComponents(ctx.Background(), qs)
+//    // Define a new discovery query.
+//    q := resource.NewDiscoveryQuery(acme.API, resource.Model{Name: "some model"})
+//
+//    // Define a list of discovery queries.
+//    qs := []resource.DiscoverQuery{q}
+//
+//    // Get component configurations with these queries.
+//    component_configs, err := robot.DiscoverComponents(ctx.Background(), qs)
 func (rc *RobotClient) DiscoverComponents(ctx context.Context, qs []resource.DiscoveryQuery) ([]resource.Discovery, error) {
 	pbQueries := make([]*pb.DiscoveryQuery, 0, len(qs))
 	for _, q := range qs {
@@ -796,7 +796,7 @@ func (rc *RobotClient) DiscoverComponents(ctx context.Context, qs []resource.Dis
 }
 
 // Get the configuration of the frame system of a given machine.
-//    // frameSystem, err := robot.FrameSystemConfig(context.Background(), nil)
+//    frameSystem, err := robot.FrameSystemConfig(context.Background(), nil)
 func (rc *RobotClient) FrameSystemConfig(ctx context.Context) (*framesystem.Config, error) {
 	resp, err := rc.client.FrameSystemConfig(ctx, &pb.FrameSystemConfigRequest{})
 	if err != nil {
@@ -874,7 +874,7 @@ func (rc *RobotClient) TransformPointCloud(ctx context.Context, srcpc pointcloud
 
 // Get the status of the resources on the machine. You can provide a list of ResourceNames for which you want
 // statuses. If no names are passed in, the status of every resource configured on the machine is returned.
-//    // status, err := robot.Status(ctx.Background())
+//    status, err := robot.Status(ctx.Background())
 func (rc *RobotClient) Status(ctx context.Context, resourceNames []resource.Name) ([]robot.Status, error) {
 	names := make([]*commonpb.ResourceName, 0, len(resourceNames))
 	for _, name := range resourceNames {
@@ -899,7 +899,7 @@ func (rc *RobotClient) Status(ctx context.Context, resourceNames []resource.Name
 }
 
 // StopAll cancels all current and outstanding operations for the robot and stops all actuators and movement.
-//    // err := robot.StopAll(ctx.Background())
+//    err := robot.StopAll(ctx.Background())
 func (rc *RobotClient) StopAll(ctx context.Context, extra map[resource.Name]map[string]interface{}) error {
 	e := []*pb.StopExtraParameters{}
 	for name, params := range extra {
@@ -954,10 +954,10 @@ func (rc *RobotClient) Log(ctx context.Context, log zapcore.Entry, fields []zap.
 }
 
 // Returns app-related information about the machine.
-//    // metadata, err := machine.CloudMetadata(ctx.Background())
-//    // fmt.Println(metadata.RobotPartID)
-//    // fmt.Println(metadata.PrimaryOrgID)
-//    // fmt.Println(metadata.LocationID)
+//    metadata, err := machine.CloudMetadata(ctx.Background())
+//    fmt.Println(metadata.RobotPartID)
+//    fmt.Println(metadata.PrimaryOrgID)
+//    fmt.Println(metadata.LocationID)
 func (rc *RobotClient) CloudMetadata(ctx context.Context) (cloud.Metadata, error) {
 	cloudMD := cloud.Metadata{}
 	req := &pb.GetCloudMetadataRequest{}
