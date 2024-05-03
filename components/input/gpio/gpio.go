@@ -265,8 +265,6 @@ func (c *Controller) newButton(ctx context.Context, brd board.Board, interrupt b
 		return errors.Wrap(err, "error getting digital interrupt ticks")
 	}
 
-	fmt.Println("making new button")
-
 	c.activeBackgroundWorkers.Add(1)
 	utils.ManagedGo(func() {
 		debounced := debounce.New(time.Millisecond * time.Duration(cfg.DebounceMs))
