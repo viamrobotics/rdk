@@ -795,7 +795,7 @@ func (pm *planManager) planRelativeWaypoint(ctx context.Context, request *PlanRe
 	// anywhere else but the origin
 	copyOfOriginalFS := pm.frame.fss
 
-	transformFrame, err := referenceframe.NewStaticFrame("", request.StartPose)
+	transformFrame, err := referenceframe.NewStaticFrame(request.Frame.Name()+"ExecutionFrame", request.StartPose)
 	if err != nil {
 		return nil, err
 	}
