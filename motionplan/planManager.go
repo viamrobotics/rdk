@@ -541,8 +541,6 @@ func (pm *planManager) plannerSetupFromMoveRequest(
 	if err != nil {
 		return nil, err
 	}
-	fmt.Println("collisionConstraints: ", collisionConstraints)
-	fmt.Println("LEN collisionConstraints: ", len(collisionConstraints))
 	for name, constraint := range collisionConstraints {
 		opt.AddStateConstraint(name, constraint)
 	}

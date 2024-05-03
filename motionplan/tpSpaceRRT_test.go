@@ -295,8 +295,6 @@ func TestPtgCheckPlan(t *testing.T) {
 		"ackframeExecutionFrame", ackermanFrame.DoF()[:3], roverGeom,
 	)
 	test.That(t, err, test.ShouldBeNil)
-	fmt.Println("executionFrame.DoF(): ", executionFrame.DoF())
-	fmt.Println("LEN executionFrame.DoF(): ", len(executionFrame.DoF()))
 
 	err = tfFrameSystem.AddFrame(executionFrame, tfFrameSystem.World())
 	test.That(t, err, test.ShouldBeNil)

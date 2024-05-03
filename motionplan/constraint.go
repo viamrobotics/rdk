@@ -291,7 +291,6 @@ func createAllCollisionConstraints(
 			return nil, err
 		}
 		constraintMap[defaultSelfCollisionConstraintDesc] = selfCollisionConstraint
-		fmt.Println("constraintMap: ", constraintMap)
 	}
 	return constraintMap, nil
 }

@@ -547,6 +547,9 @@ func CheckPlan(
 	for i := wayPointIdx; i < len(offsetPlan.Path())-1; i++ {
 		currInput := offsetPlan.Trajectory()[i]
 		nextInput := offsetPlan.Trajectory()[i+1]
+		fmt.Println("poses[i]: ", spatialmath.PoseToProtobuf(poses[i]))
+		fmt.Println("poses[i+1]: ", spatialmath.PoseToProtobuf(poses[i+1]))
+		fmt.Println(" ")
 		if relative {
 			currInput[checkFrame.Name()+"ExecutionFrame"] = frame.FloatsToInputs(
 				[]float64{poses[i].Point().X, poses[i].Point().Y, poses[i].Orientation().OrientationVectorRadians().Theta},
@@ -563,7 +566,7 @@ func CheckPlan(
 	}
 
 	for _, s := range segments {
-		fmt.Println("segment: ", s)
+		fmt.Println(s)
 	}
 
 	// go through segments and check that we satisfy constraints
@@ -575,6 +578,7 @@ func CheckPlan(
 		if err != nil {
 			return err
 		}
+		fmt.Println("len(interpolatedConfigurations): ", len(interpolatedConfigurations))
 		for _, interpConfig := range interpolatedConfigurations {
 			poseInPath, err := sf.Transform(interpConfig)
 			if err != nil {
@@ -595,6 +599,7 @@ func CheckPlan(
 				return err
 			}
 			fmt.Println("sfTfPose: ", spatialmath.PoseToProtobuf(sfTfPose))
+			fmt.Println(" ")
 
 			// Checks for collision along the interpolated route and returns a the first interpolated pose where a collision is detected.
 			if isValid, err := sfPlanner.planOpts.CheckStateConstraints(interpolatedState); !isValid {
