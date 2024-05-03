@@ -1,6 +1,7 @@
 //go:build linux
 
 // Package adxl345 implements the MovementSensor interface for the ADXL345 accelerometer.
+
 package adxl345
 
 /*
@@ -342,7 +343,7 @@ func makeAdxl345(
 		if err != nil {
 			return nil, err
 		}
-		sensor.startInterruptMonitoring(ticksChan, interrupts)
+		sensor.startInterruptMonitoring(ticksChan)
 	}
 
 	return sensor, nil
