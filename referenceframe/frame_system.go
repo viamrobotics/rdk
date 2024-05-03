@@ -719,3 +719,7 @@ func poseFromPositions(frame Frame, positions map[string][]Input) (spatial.Pose,
 	}
 	return frame.Transform(inputs)
 }
+
+func AddFrameBetween() {
+
+}
