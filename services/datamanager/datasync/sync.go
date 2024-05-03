@@ -28,8 +28,8 @@ var (
 	InitialWaitTimeMillis = atomic.NewInt32(1000)
 	// RetryExponentialFactor defines the factor by which the retry wait time increases.
 	RetryExponentialFactor = atomic.NewInt32(2)
-	// OfflineWaitTimeSeconds defines the amount of time to wait to retry if the machine is offline
-	OfflineWaitTimeSeconds = atomic.NewInt32(30)
+	// OfflineWaitTimeSeconds defines the amount of time to wait to retry if the machine is offline.
+	OfflineWaitTimeSeconds = atomic.NewInt32(60)
 	maxRetryInterval       = 24 * time.Hour
 )
 
@@ -291,7 +291,7 @@ func exponentialRetry(cancelCtx context.Context, fn func(cancelCtx context.Conte
 
 func isOfflineGRPCError(err error) bool {
 	errStatus := status.Convert(err)
-	return strings.Contains(errStatus.Message(), "connection error")
+	return errStatus.Code() == codes.Unavailable
 }
 
 // isRetryableGRPCError returns true if we should retry syncing and otherwise
