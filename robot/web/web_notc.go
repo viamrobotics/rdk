@@ -4,7 +4,6 @@ package web
 
 import (
 	"context"
-	"net/http"
 	"sync"
 
 	"go.viam.com/rdk/logging"
