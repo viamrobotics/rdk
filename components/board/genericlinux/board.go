@@ -351,11 +351,11 @@ func newWrappedAnalogReader(ctx context.Context, chipSelect string, reader *pinw
 	return &wrapped
 }
 
-func (a *wrappedAnalogReader) Read(ctx context.Context, extra map[string]interface{}) (int, error) {
+func (a *wrappedAnalogReader) Read(ctx context.Context, extra map[string]interface{}) (int, board.AnalogRange, error) {
 	a.mu.RLock()
 	defer a.mu.RUnlock()
 	if a.reader == nil {
-		return 0, errors.New("closed")
+		return 0, board.AnalogRange{}, errors.New("closed")
 	}
 	return a.reader.Read(ctx, extra)
 }

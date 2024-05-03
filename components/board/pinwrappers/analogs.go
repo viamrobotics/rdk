@@ -65,7 +65,6 @@ func (as *AnalogSmoother) Read(ctx context.Context, extra map[string]interface{}
 	avg := as.data.Average()
 	lastErr := as.lastError.Load()
 	if lastErr == nil {
-
 		///TODO: figure out range ??
 		return avg, board.AnalogRange{}, nil
 	}
