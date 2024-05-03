@@ -5,7 +5,6 @@ package kinematicbase
 import (
 	"context"
 	"errors"
-	"fmt"
 	"sync"
 	"time"
 
@@ -192,7 +191,6 @@ func WrapWithFakePTGKinematics(
 	if err != nil {
 		return nil, err
 	}
-	fmt.Println("planningFrame.DoF(): ", planningFrame.DoF())
 
 	// construct execution frame
 	executionFrame, err := referenceframe.New2DMobileModelFrame(

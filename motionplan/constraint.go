@@ -241,35 +241,20 @@ func createAllCollisionConstraints(
 	var err error
 
 	if len(worldGeometries) > 0 {
+
 		// Check if a moving geometry is in collision with a pointcloud. If so, error.
 		// TODO: This is not the most robust way to deal with this but is better than driving through walls.
 		var zeroCG *collisionGraph
 		for _, geom := range worldGeometries {
 			if octree, ok := geom.(*pointcloud.BasicOctree); ok {
 				if zeroCG == nil {
-					fmt.Println("WE ARE NOW CONSTRUCTING ZEROCG SINCE WHAT WE GOT WAS NIL")
-					fmt.Println("NOW PRINTING movingRobotGeometries")
-					for _, g := range movingRobotGeometries {
-						fmt.Println("g.Pose(): ", spatial.PoseToProtobuf(g.Pose()))
-					}
-					fmt.Println("NOW PRINTING worldGeometries")
-					for _, g := range worldGeometries {
-						fmt.Println("g.Pose(): ", spatial.PoseToProtobuf(g.Pose()))
-					}
-					fmt.Println("NOW PRINTING allowedCollisions")
-					for _, c := range allowedCollisions {
-						fmt.Println("c: ", c)
-					}
-					fmt.Println("DONE")
 					zeroCG, err = setupZeroCG(movingRobotGeometries, worldGeometries, allowedCollisions, collisionBufferMM)
 					if err != nil {
 						return nil, err
 					}
 
 				}
-				fmt.Println("PRINTING EXISTING COLLISIONS")
 				for _, collision := range zeroCG.collisions(collisionBufferMM) {
-					fmt.Println("collision: ", collision)
 					if collision.name1 == octree.Label() {
 						return nil, fmt.Errorf("starting collision between SLAM map and %s, cannot move", collision.name2)
 					} else if collision.name2 == octree.Label() {
@@ -278,7 +263,6 @@ func createAllCollisionConstraints(
 				}
 			}
 		}
-
 		// create constraint to keep moving geometries from hitting world state obstacles
 		obstacleConstraint, err := NewCollisionConstraint(movingRobotGeometries, worldGeometries, allowedCollisions, false, collisionBufferMM)
 		if err != nil {
@@ -286,7 +270,6 @@ func createAllCollisionConstraints(
 		}
 		constraintMap[defaultObstacleConstraintDesc] = obstacleConstraint
 	}
-
 	if len(staticRobotGeometries) > 0 {
 		// create constraint to keep moving geometries from hitting other geometries on robot that are not moving
 		robotConstraint, err := NewCollisionConstraint(
@@ -308,6 +291,7 @@ func createAllCollisionConstraints(
 			return nil, err
 		}
 		constraintMap[defaultSelfCollisionConstraintDesc] = selfCollisionConstraint
+		fmt.Println("constraintMap: ", constraintMap)
 	}
 	return constraintMap, nil
 }
@@ -352,12 +336,7 @@ func NewCollisionConstraint(
 				return false
 			}
 			internalGeoms = internal.Geometries()
-			// for _, g := range internalGeoms {
-			// 	fmt.Println("g.Pose: ", spatial.PoseToProtobuf(g.Pose()))
-			// }
 		case state.Position != nil:
-			// If we didn't pass a Configuration, but we do have a Position, then get the geometries at the zero state and
-			// transform them to the Position
 			internal, err := state.Frame.Geometries(make([]referenceframe.Input, len(state.Frame.DoF())))
 			if err != nil {
 				return false

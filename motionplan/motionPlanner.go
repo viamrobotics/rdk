@@ -448,8 +448,13 @@ func CheckPlan(
 	if len(plan.Path()) < 1 {
 		return errors.New("plan must have at least one element")
 	}
-	fmt.Println("WE ARE MAKING THE SOLVERFRAME NOW")
-	fmt.Println("fs.FrameNames(): ", fs.FrameNames())
+
+	logger.Debugf("CheckPlan inputs: \n currentPosition: %v\n currentInputs: %v\n errorState: %v\n worldstate: %s",
+		spatialmath.PoseToProtobuf(currentPose),
+		currentInputs,
+		spatialmath.PoseToProtobuf(errorState),
+		worldState.String(),
+	)
 
 	// construct solverFrame
 	// Note that this requires all frames which move as part of the plan, to have an
@@ -497,12 +502,10 @@ func CheckPlan(
 	if relative {
 		// get checkFrame's currentInputs
 		// *currently* it is guaranteed that a relative frame will constitute 100% of a solver frame's dof
-		fmt.Println("currentInputs: ", currentInputs)
 		checkFrameCurrentInputs, err := sf.mapToSlice(currentInputs)
 		if err != nil {
 			return err
 		}
-		fmt.Println("checkFrameCurrentInputs: ", checkFrameCurrentInputs)
 
 		// pre-pend to segments so we can connect to the input we have not finished actuating yet
 		segments = append(segments, &ik.Segment{
@@ -562,7 +565,7 @@ func CheckPlan(
 	}
 
 	for _, s := range segments {
-		fmt.Println("s: ", s)
+		fmt.Println("segment: ", s)
 	}
 
 	// go through segments and check that we satisfy constraints
@@ -588,8 +591,11 @@ func CheckPlan(
 			// define State which only houses inputs, pose information not needed
 			interpolatedState := &ik.State{Frame: sf}
 			interpolatedState.Configuration = interpConfig
-			fmt.Println("interpConfig: ", interpConfig)
-			fmt.Println("interpolatedState: ", interpolatedState)
+			sfTfPose, err := sf.Transform(interpConfig)
+			if err != nil {
+				return err
+			}
+			fmt.Println("sfTfPose: ", spatialmath.PoseToProtobuf(sfTfPose))
 
 			// Checks for collision along the interpolated route and returns a the first interpolated pose where a collision is detected.
 			if isValid, err := sfPlanner.planOpts.CheckStateConstraints(interpolatedState); !isValid {

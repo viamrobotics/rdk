@@ -1340,14 +1340,10 @@ func TestMoveOnMapStaticObs(t *testing.T) {
 			}, nil,
 		)
 		test.That(t, err, test.ShouldBeNil)
-		fmt.Println("PRINTING mr.absoluteFS.FrameNames()")
-		for _, name := range mr.absoluteFS.FrameNames() {
-			fmt.Println("name: ", name)
-		}
+
 		currentInputs := referenceframe.StartPositions(mr.absoluteFS)
 		currentInputs["test-baseExecutionFrame"] = referenceframe.FloatsToInputs([]float64{0.58772e3, -0.80826e3, 0})
 
-		fmt.Println("currentInputs :", currentInputs)
 		err = motionplan.CheckPlan(
 			mr.planRequest.Frame,
 			plan,
