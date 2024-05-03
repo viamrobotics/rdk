@@ -53,6 +53,7 @@ metadata
 # act
 .secrets
 
+/data/
 out/
 .idea/*
 bin/
