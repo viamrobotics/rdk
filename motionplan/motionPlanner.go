@@ -483,7 +483,7 @@ func CheckPlan(
 	if err != nil {
 		return err
 	}
-	fmt.Println("currentInputs: ", currentInputs)
+
 	// setup the planOpts
 	if sfPlanner.planOpts, err = sfPlanner.plannerSetupFromMoveRequest(
 		currentPose,
@@ -493,7 +493,6 @@ func CheckPlan(
 		nil, // no pb.Constraints
 		nil, // no plannOpts
 	); err != nil {
-		fmt.Println(err)
 		return err
 	}
 
@@ -506,11 +505,6 @@ func CheckPlan(
 		if err != nil {
 			return err
 		}
-		fmt.Println("START CFG checkFrameCurrentInputs: ", checkFrameCurrentInputs)
-		fmt.Println("END CFG checkFrameCurrentInputs: ", checkFrameCurrentInputs)
-		fmt.Println("StartPosition: ", spatialmath.PoseToProtobuf(currentPose))
-		fmt.Println("EndPosition: ", spatialmath.PoseToProtobuf(poses[wayPointIdx]))
-		fmt.Println(" ")
 
 		// pre-pend to segments so we can connect to the input we have not finished actuating yet
 		segments = append(segments, &ik.Segment{
@@ -527,10 +521,6 @@ func CheckPlan(
 		currPose, nextPose spatialmath.Pose,
 		currInput, nextInput map[string][]frame.Input,
 	) (*ik.Segment, error) {
-		fmt.Println("currInput: ", currInput)
-		fmt.Println("nextInput: ", nextInput)
-		fmt.Println("currPose: ", spatialmath.PoseToProtobuf(currPose))
-		fmt.Println("nextPose: ", spatialmath.PoseToProtobuf(nextPose))
 		currInputSlice, err := sf.mapToSlice(currInput)
 		if err != nil {
 			return nil, err
@@ -575,17 +565,8 @@ func CheckPlan(
 		if err != nil {
 			return err
 		}
-		fmt.Println("created the following segment : ", segment)
-		fmt.Println(" ")
 		segments = append(segments, segment)
 	}
-
-	for _, s := range segments {
-		fmt.Println(s)
-		fmt.Println(" ")
-	}
-	fmt.Println(" ")
-	fmt.Println(" ")
 
 	// go through segments and check that we satisfy constraints
 	// TODO(RSDK-5007): If we can make interpolate a method on Frame the need to write this out will be lessened and we should be
@@ -596,7 +577,6 @@ func CheckPlan(
 		if err != nil {
 			return err
 		}
-		fmt.Println("len(interpolatedConfigurations): ", len(interpolatedConfigurations))
 		for _, interpConfig := range interpolatedConfigurations {
 			poseInPath, err := sf.Transform(interpConfig)
 			if err != nil {
@@ -612,12 +592,6 @@ func CheckPlan(
 			// define State which only houses inputs, pose information not needed
 			interpolatedState := &ik.State{Frame: sf}
 			interpolatedState.Configuration = interpConfig
-			sfTfPose, err := sf.Transform(interpConfig)
-			if err != nil {
-				return err
-			}
-			fmt.Println("sfTfPose: ", spatialmath.PoseToProtobuf(sfTfPose))
-			fmt.Println(" ")
 
 			// Checks for collision along the interpolated route and returns a the first interpolated pose where a collision is detected.
 			if isValid, err := sfPlanner.planOpts.CheckStateConstraints(interpolatedState); !isValid {

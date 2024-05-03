@@ -2,7 +2,6 @@ package motionplan
 
 import (
 	"errors"
-	"fmt"
 	"strings"
 
 	"go.uber.org/multierr"
@@ -188,8 +187,6 @@ func (sf *solverFrame) Name() string {
 
 // Transform returns the pose between the two frames of this solver for a given set of inputs.
 func (sf *solverFrame) Transform(inputs []frame.Input) (spatial.Pose, error) {
-	// fmt.Println("sf.DoF(): ", sf.DoF())
-	fmt.Println("inputs: ", inputs)
 	if len(inputs) != len(sf.DoF()) {
 		return nil, frame.NewIncorrectInputLengthError(len(inputs), len(sf.DoF()))
 	}
@@ -207,7 +204,6 @@ func (sf *solverFrame) Transform(inputs []frame.Input) (spatial.Pose, error) {
 
 // Interpolate interpolates the given amount between the two sets of inputs.
 func (sf *solverFrame) Interpolate(from, to []frame.Input, by float64) ([]frame.Input, error) {
-	// fmt.Println("WITHIN SF INTERPOLATE")
 	if len(from) != len(sf.DoF()) {
 		return nil, frame.NewIncorrectInputLengthError(len(from), len(sf.DoF()))
 	}
@@ -224,13 +220,9 @@ func (sf *solverFrame) Interpolate(from, to []frame.Input, by float64) ([]frame.
 		var interpSub []frame.Input
 		var err error
 
-		// fmt.Println("currFrame.DoF()", currFrame.DoF())
-		// fmt.Println("currFrame.Name()", currFrame.Name())
 		// if we are dealing with the execution frame, no need to interpolate, just return what we got
 		if strings.Contains(currFrame.Name(), "ExecutionFrame") {
 			interp = append(interp, fromSubset...)
-			// fmt.Println("appending from...: ", fromSubset)
-			// fmt.Println("interp: ", interp)
 			continue
 		}
 		interpSub, err = currFrame.Interpolate(fromSubset, toSubset, by)
@@ -239,8 +231,6 @@ func (sf *solverFrame) Interpolate(from, to []frame.Input, by float64) ([]frame.
 		}
 
 		interp = append(interp, interpSub...)
-		// fmt.Println("appending from...: ", interpSub)
-		// fmt.Println("interp: ", interpSub)
 	}
 	return interp, nil
 }
