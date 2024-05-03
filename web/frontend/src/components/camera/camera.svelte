@@ -2,6 +2,7 @@
 import { displayError } from '@/lib/error';
 import { CameraClient, type ServiceError } from '@viamrobotics/sdk';
 import { selectedMap } from '@/lib/camera-state';
+import { setAsyncInterval } from '@/lib/schedule';
 import { useRobotClient, useConnect } from '@/hooks/robot-client';
 import LiveCamera from './live-camera.svelte';
 
@@ -14,34 +15,18 @@ const { robotClient, streamManager } = useRobotClient();
 
 let imgEl: HTMLImageElement;
 
-let cameraFrameIntervalId = -1;
-
-// operationActive provides simple overlap protection in the setInterval callback.
-let operationActive = false;
-
 const cameraManager = $streamManager.setCameraManager(cameraName);
 
-const clearFrameInterval = () => {
-  window.clearInterval(cameraFrameIntervalId);
-};
+let clearFrameInterval = () => {};
 
 const viewCameraFrame = (time: number) => {
   clearFrameInterval();
   cameraManager.setImageSrc(imgEl);
   if (time > 0) {
-    cameraFrameIntervalId = window.setInterval(
-      async () => {
-        if (operationActive) {
-          return;
-        }
-        operationActive = true; // eslint-disable-line require-atomic-updates
-        try {
-          await cameraManager.setImageSrc(imgEl);
-        } finally {
-          operationActive = false; // eslint-disable-line require-atomic-updates
-        }
-      },
-      Number(time) * 1000
+     clearFrameInterval = setAsyncInterval(
+      () => cameraManager.setImageSrc(imgEl),
+      Number(time) * 1000,
+      true,
     );
   }
 };
