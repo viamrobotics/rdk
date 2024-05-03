@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
-	"go.uber.org/multierr"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/encoder"
@@ -126,16 +125,16 @@ type EncodedMotor struct {
 }
 
 // rpmMonitor keeps track of the desired RPM and position.
-func (m *EncodedMotor) rpmMonitor(ctx context.Context, goalRPM, goalPos, direction float64) {
+func (m *EncodedMotor) rpmMonitor(ctx context.Context, goalRPM, goalPos, direction float64) error {
 	lastPos, err := m.position(ctx, nil)
 	if err != nil {
-		panic(err)
+		return err
 	}
 	lastTime := time.Now().UnixNano()
 	_, lastPowerPct, err := m.real.IsPowered(ctx, nil)
 	if err != nil {
 		m.logger.Error(err)
-		return
+		return err
 	}
 	lastPowerPct = math.Abs(lastPowerPct) * direction
 
@@ -144,7 +143,8 @@ func (m *EncodedMotor) rpmMonitor(ctx context.Context, goalRPM, goalPos, directi
 		select {
 		case <-ctx.Done():
 			timer.Stop()
-			return
+			// do not return context canceled
+			return nil
 		case <-timer.C:
 		}
 
@@ -153,7 +153,7 @@ func (m *EncodedMotor) rpmMonitor(ctx context.Context, goalRPM, goalPos, directi
 			m.logger.CInfo(ctx, "error getting encoder position, sleeping then continuing: %w", err)
 			if !utils.SelectContextOrWait(ctx, 100*time.Millisecond) {
 				m.logger.CInfo(ctx, "error sleeping, giving up %w", ctx.Err())
-				return
+				return err
 			}
 			continue
 		}
@@ -161,16 +161,12 @@ func (m *EncodedMotor) rpmMonitor(ctx context.Context, goalRPM, goalPos, directi
 
 		if (direction == 1 && pos >= goalPos) || (direction == -1 && pos <= goalPos) {
 			// stop motor when at or past goal position
-			if err := m.Stop(ctx, nil); err != nil {
-				m.logger.CError(ctx, err)
-			}
-			return
+			return m.Stop(ctx, nil)
 		}
 
 		newPower, err := m.makeAdjustments(ctx, pos, lastPos, goalRPM, goalPos, lastPowerPct, direction, now, lastTime)
 		if err != nil {
-			m.logger.CError(ctx, err)
-			return
+			return err
 		}
 
 		lastPos = pos
@@ -208,8 +204,10 @@ func (m *EncodedMotor) makeAdjustments(
 
 	rpmErr := goalRPM - currentRPM
 	// adjust our power based on the error in rpm
+	// this does not depend on the motor position
 	newPowerPct += (m.rampRate * sign(rpmErr))
 
+	// prevents the motor from reversing
 	if sign(newPowerPct) != direction {
 		newPowerPct = lastPowerPct
 	}
@@ -264,36 +262,7 @@ func (m *EncodedMotor) GoFor(ctx context.Context, rpm, revolutions float64, extr
 
 	goalPos, goalRPM, direction := m.goForMath(ctx, rpm, revolutions)
 
-	if err := m.goForInternal(ctx, goalRPM, goalPos, direction); err != nil {
-		return err
-	}
-
-	if revolutions == 0 {
-		return nil
-	}
-
-	positionReached := func(ctx context.Context) (bool, error) {
-		var errs error
-		pos, posErr := m.position(ctx, extra)
-		errs = multierr.Combine(errs, posErr)
-		if rdkutils.Float64AlmostEqual(pos, goalPos, 10.0) {
-			stopErr := m.Stop(ctx, extra)
-			errs = multierr.Combine(errs, stopErr)
-			return true, errs
-		}
-		return false, errs
-	}
-	err := m.opMgr.WaitForSuccess(
-		ctx,
-		10*time.Millisecond,
-		positionReached,
-	)
-	// Ignore the context canceled error - this occurs when the motor is stopped
-	// at the beginning of goForInternal
-	if !errors.Is(err, context.Canceled) {
-		return err
-	}
-	return nil
+	return m.goForInternal(ctx, goalRPM, goalPos, direction)
 }
 
 func (m *EncodedMotor) goForInternal(ctx context.Context, rpm, goalPos, direction float64) error {
@@ -312,14 +281,9 @@ func (m *EncodedMotor) goForInternal(ctx context.Context, rpm, goalPos, directio
 	}
 	// start a new rpmMonitor
 	var rpmCtx context.Context
-	rpmCtx, m.rpmMonitorDone = context.WithCancel(context.Background())
-	m.activeBackgroundWorkers.Add(1)
-	go func() {
-		defer m.activeBackgroundWorkers.Done()
-		m.rpmMonitor(rpmCtx, rpm, goalPos, direction)
-	}()
+	rpmCtx, m.rpmMonitorDone = context.WithCancel(ctx)
 
-	return nil
+	return m.rpmMonitor(rpmCtx, rpm, goalPos, direction)
 }
 
 // GoTo instructs the motor to go to a specific position (provided in revolutions from home/zero),
