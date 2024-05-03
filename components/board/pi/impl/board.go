@@ -32,6 +32,7 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 	pb "go.viam.com/api/component/board/v1"
+	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/board/genericlinux/buses"
@@ -102,6 +103,8 @@ type piPigpio struct {
 	interruptsHW map[uint]ReconfigurableDigitalInterrupt
 	logger       logging.Logger
 	isClosed     bool
+
+	activeBackgroundWorkers sync.WaitGroup
 }
 
 var (
@@ -209,6 +212,20 @@ func (pi *piPigpio) StreamTicks(ctx context.Context, interrupts []board.DigitalI
 	for _, i := range interrupts {
 		AddCallback(i.(*BasicDigitalInterrupt), ch)
 	}
+
+	pi.activeBackgroundWorkers.Add(1)
+
+	utils.ManagedGo(func() {
+		// Wait until it's time to shut down then remove callbacks.
+		select {
+		case <-ctx.Done():
+		case <-pi.cancelCtx.Done():
+		}
+		for _, i := range interrupts {
+			RemoveCallback(i.(*BasicDigitalInterrupt), ch)
+		}
+	}, pi.activeBackgroundWorkers.Done)
+
 	return nil
 }
 
@@ -721,6 +738,7 @@ func (pi *piPigpio) Close(ctx context.Context) error {
 		return nil
 	}
 	pi.cancelFunc()
+	pi.activeBackgroundWorkers.Wait()
 
 	var err error
 	for _, analog := range pi.analogReaders {

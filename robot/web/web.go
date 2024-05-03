@@ -17,7 +17,6 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
-	"time"
 
 	"github.com/Masterminds/sprig"
 	"github.com/NYTimes/gziphandler"
@@ -55,10 +54,6 @@ var API = resource.APINamespaceRDKInternal.WithServiceType(SubtypeName)
 
 // InternalServiceName is used to refer to/depend on this service internally.
 var InternalServiceName = resource.NewName(API, "builtin")
-
-// defaultMethodTimeout is the default context timeout for all inbound gRPC
-// methods used when no deadline is set on the context.
-var defaultMethodTimeout = 10 * time.Minute
 
 // robotWebApp hosts a web server to interact with a robot in addition to hosting
 // a gRPC/REST server.
@@ -316,7 +311,7 @@ func (svc *webService) StartModule(ctx context.Context) error {
 		streamInterceptors []googlegrpc.StreamServerInterceptor
 	)
 
-	unaryInterceptors = append(unaryInterceptors, ensureTimeoutUnaryInterceptor)
+	unaryInterceptors = append(unaryInterceptors, grpc.EnsureTimeoutUnaryInterceptor)
 
 	opManager := svc.r.OperationManager()
 	unaryInterceptors = append(unaryInterceptors,
@@ -643,7 +638,7 @@ func (svc *webService) initRPCOptions(listenerTCPAddr *net.TCPAddr, options webo
 
 	var unaryInterceptors []googlegrpc.UnaryServerInterceptor
 
-	unaryInterceptors = append(unaryInterceptors, ensureTimeoutUnaryInterceptor)
+	unaryInterceptors = append(unaryInterceptors, grpc.EnsureTimeoutUnaryInterceptor)
 
 	if options.Debug {
 		rpcOpts = append(rpcOpts, rpc.WithDebug())
@@ -1099,18 +1094,4 @@ func (svc *webService) foreignServiceHandler(srv interface{}, stream googlegrpc.
 		}
 		return stream.SendMsg(invokeResp)
 	}
-}
-
-// ensureTimeoutUnaryInterceptor sets a default timeout on the context if one is
-// not already set. To be called as the first unary server interceptor.
-func ensureTimeoutUnaryInterceptor(ctx context.Context, req interface{},
-	info *googlegrpc.UnaryServerInfo, handler googlegrpc.UnaryHandler,
-) (interface{}, error) {
-	if _, deadlineSet := ctx.Deadline(); !deadlineSet {
-		var cancel context.CancelFunc
-		ctx, cancel = context.WithTimeout(ctx, defaultMethodTimeout)
-		defer cancel()
-	}
-
-	return handler(ctx, req)
 }
