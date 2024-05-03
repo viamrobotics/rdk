@@ -207,7 +207,8 @@ func TestFilePolling(t *testing.T) {
 
 	files := getAllFileInfos(tempDir)
 	test.That(t, len(files), test.ShouldEqual, 4)
-
+	// since we've written 4 files and hit the threshold, we expect
+	// the first to be deleted
 	expectedDeletedFile := files[0]
 
 	mockClock.Add(filesystemPollInterval)
