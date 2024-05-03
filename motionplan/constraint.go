@@ -251,7 +251,6 @@ func createAllCollisionConstraints(
 					if err != nil {
 						return nil, err
 					}
-
 				}
 				for _, collision := range zeroCG.collisions(collisionBufferMM) {
 					if collision.name1 == octree.Label() {

@@ -306,7 +306,9 @@ func (mr *moveRequest) obstaclesIntersectPlan(
 	return state.ExecuteResponse{}, nil
 }
 
-func (mr *moveRequest) getCurrentInputsAndPosition(ctx context.Context) (map[string][]referenceframe.Input, *referenceframe.PoseInFrame, error) {
+func (mr *moveRequest) getCurrentInputsAndPosition(
+	ctx context.Context,
+) (map[string][]referenceframe.Input, *referenceframe.PoseInFrame, error) {
 	currentInputs := referenceframe.StartPositions(mr.absoluteFS)
 	pif, err := mr.kinematicBase.CurrentPosition(ctx)
 	if err != nil {

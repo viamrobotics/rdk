@@ -4,7 +4,6 @@ package motionplan
 
 import (
 	"context"
-	"fmt"
 	"math"
 	"math/rand"
 	"testing"
@@ -286,8 +285,6 @@ func TestPtgCheckPlan(t *testing.T) {
 	startPose := spatialmath.NewPoseFromPoint(r3.Vector{0, 0, 0})
 	errorState := startPose
 	inputs := plan.Trajectory()[0]
-	fmt.Println("plan.Trajectory(): ", plan.Trajectory())
-	fmt.Println("plan.Path(): ", plan.Path())
 
 	// NOTE: WE NEED TO ADD AN EXECUTION FRAME TO THE CHECKING FRAMESYSTEM SINCE WE ONLY WANT TO RELY ON USING INPUTS
 	tfFrameSystem := referenceframe.NewEmptyFrameSystem("transformFS")
@@ -356,8 +353,6 @@ func TestPtgCheckPlan(t *testing.T) {
 		worldState, err := referenceframe.NewWorldState(gifs, nil)
 		test.That(t, err, test.ShouldBeNil)
 
-		fmt.Println("tfFrameSystem.FrameNames(): ", tfFrameSystem.FrameNames())
-
 		// double check these inputs, the theta value might be wrong
 		inputs[executionFrame.Name()] = referenceframe.FloatsToInputs([]float64{2331.83, 14, 0})
 		err = CheckPlan(ackermanFrame, plan, 1, worldState, tfFrameSystem, startPose, inputs, errorState, math.Inf(1), logger)
@@ -377,7 +372,6 @@ func TestPtgCheckPlan(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		inputs[executionFrame.Name()] = referenceframe.FloatsToInputs([]float64{2331.83, 14, 0})
-		fmt.Println("inputs: ", inputs)
 		inputs[ackermanFrame.Name()] = referenceframe.FloatsToInputs([]float64{0, 0, 0, 0})
 
 		err = CheckPlan(ackermanFrame, plan, 1, worldState, tfFrameSystem, startPose, inputs, errorState, math.Inf(1), logger)
