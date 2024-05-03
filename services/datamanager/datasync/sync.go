@@ -243,6 +243,7 @@ func (s *syncer) MarkInProgress(path string) bool {
 	return true
 }
 
+// UnmarkInProgress unmarks a path as in progress in s.inProgress.
 func (s *syncer) UnmarkInProgress(path string) {
 	s.progressLock.Lock()
 	defer s.progressLock.Unlock()

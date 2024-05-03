@@ -207,6 +207,7 @@ func TestFilePolling(t *testing.T) {
 
 	files := getAllFileInfos(tempDir)
 	test.That(t, len(files), test.ShouldEqual, 4)
+
 	expectedDeletedFile := files[0]
 
 	mockClock.Add(filesystemPollInterval)
@@ -217,6 +218,8 @@ func TestFilePolling(t *testing.T) {
 	mockClock.Add(syncInterval - (filesystemPollInterval + captureInterval))
 
 	wait := time.After(time.Second)
+	// we track requests to make sure only 3 upload requests are in the syncer
+	// instead of the 4 captured files
 	var requests []*v1.DataCaptureUploadRequest
 	select {
 	case req := <-mockClient.succesfulDCRequests:
@@ -229,7 +232,8 @@ func TestFilePolling(t *testing.T) {
 	for dc := range mockClient.succesfulDCRequests {
 		requests = append(requests, dc)
 	}
-
+	// we expect 3 upload requests as 1 capture file should have been deleted
+	// and not uploaded
 	test.That(t, len(requests), test.ShouldEqual, 3)
 	err := dmsvc.Close(context.Background())
 	test.That(t, err, test.ShouldBeNil)
