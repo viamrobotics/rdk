@@ -310,7 +310,7 @@ func TestPositionalReplanning(t *testing.T) {
 }
 
 func TestObstacleReplanningGlobe(t *testing.T) {
-	t.Parallel()
+	//~ t.Parallel()
 	ctx := context.Background()
 
 	gpsOrigin := geo.NewPoint(0, 0)
@@ -322,6 +322,7 @@ func TestObstacleReplanningGlobe(t *testing.T) {
 		getPCfunc       func(ctx context.Context, cameraName string, extra map[string]interface{}) ([]*viz.Object, error)
 		expectedSuccess bool
 		expectedErr     string
+		extra           map[string]interface{}
 	}
 
 	obstacleDetectorSlice := []motion.ObstacleDetectorName{
@@ -329,10 +330,11 @@ func TestObstacleReplanningGlobe(t *testing.T) {
 	}
 
 	cfg := &motion.MotionConfiguration{
-		PositionPollingFreqHz: 1, ObstaclePollingFreqHz: 100, PlanDeviationMM: epsilonMM, ObstacleDetectors: obstacleDetectorSlice,
+		PositionPollingFreqHz: 1, ObstaclePollingFreqHz: 20, PlanDeviationMM: epsilonMM, ObstacleDetectors: obstacleDetectorSlice,
 	}
 
-	extra := map[string]interface{}{"max_replans": 0, "max_ik_solutions": 1, "smooth_iter": 1}
+	extra := map[string]interface{}{"max_replans": 1, "max_ik_solutions": 1, "smooth_iter": 1}
+	extra_no_replan := map[string]interface{}{"max_replans": 0, "max_ik_solutions": 1, "smooth_iter": 1}
 
 	i := 0
 	j := 0
@@ -355,6 +357,7 @@ func TestObstacleReplanningGlobe(t *testing.T) {
 				return []*viz.Object{detection}, nil
 			},
 			expectedSuccess: true,
+			extra: extra_no_replan,
 		},
 		{
 			name: "ensure replan due to obstacle collision",
@@ -374,6 +377,26 @@ func TestObstacleReplanningGlobe(t *testing.T) {
 			},
 			expectedSuccess: false,
 			expectedErr:     fmt.Sprintf("exceeded maximum number of replans: %d: plan failed", 0),
+			extra: extra_no_replan,
+		},
+		{
+			name: "ensure replan reaching goal",
+			getPCfunc: func(ctx context.Context, cameraName string, extra map[string]interface{}) ([]*viz.Object, error) {
+				if i == 0 {
+					i++
+					return []*viz.Object{}, nil
+				}
+				obstaclePosition := spatialmath.NewPoseFromPoint(r3.Vector{X: 300, Y: 0, Z: 0})
+				box, err := spatialmath.NewBox(obstaclePosition, r3.Vector{X: 20, Y: 20, Z: 10}, "test-case-1")
+				test.That(t, err, test.ShouldBeNil)
+
+				detection, err := viz.NewObjectWithLabel(pointcloud.New(), "test-case-1-detection", box.ToProtobuf())
+				test.That(t, err, test.ShouldBeNil)
+
+				return []*viz.Object{detection}, nil
+			},
+			expectedSuccess: true,
+			extra: extra,
 		},
 	}
 
@@ -397,7 +420,7 @@ func TestObstacleReplanningGlobe(t *testing.T) {
 			Destination:        dst,
 			MovementSensorName: injectedMovementSensor.Name(),
 			MotionCfg:          cfg,
-			Extra:              extra,
+			Extra:              tc.extra,
 		}
 		executionID, err := ms.MoveOnGlobe(ctx, req)
 		test.That(t, err, test.ShouldBeNil)
@@ -421,7 +444,7 @@ func TestObstacleReplanningGlobe(t *testing.T) {
 	for _, tc := range testCases {
 		c := tc // needed to workaround loop variable not being captured by func literals
 		t.Run(c.name, func(t *testing.T) {
-			t.Parallel()
+			//~ t.Parallel()
 			testFn(t, c)
 		})
 	}

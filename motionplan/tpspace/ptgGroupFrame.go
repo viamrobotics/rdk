@@ -223,6 +223,15 @@ func (pf *ptgGroupFrame) Interpolate(from, to []referenceframe.Input, by float64
 	}
 
 	changeVal := (to[endDistanceAlongTrajectoryIndex].Value - startVal) * by
+	if to[endDistanceAlongTrajectoryIndex].Value < 0 {
+		// Negative distance interpolations should run in reverse
+		return []referenceframe.Input{
+			to[ptgIndex],
+			to[trajectoryAlphaWithinPTG],
+			{to[endDistanceAlongTrajectoryIndex].Value - changeVal},
+			to[endDistanceAlongTrajectoryIndex],
+		}, nil
+	}
 	return []referenceframe.Input{
 		to[ptgIndex],
 		to[trajectoryAlphaWithinPTG],

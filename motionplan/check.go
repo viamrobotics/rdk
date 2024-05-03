@@ -27,6 +27,7 @@ func checkPlanRelative(
 	currentPoseIF := executionState.CurrentPoses()[checkFrame.Name()]
 	wayPointIdx := executionState.Index()
 	sf := sfPlanner.frame
+	fmt.Println("checking relative plan")
 
 	// Validate the given PoseInFrame of the relative frame. Relative frame poses cannot be given in their own frame, or the frame of
 	// any of their children.
@@ -199,13 +200,14 @@ func checkPlanRelative(
 	// able to call CheckStateConstraintsAcrossSegment directly.
 	var totalTravelDistanceMM float64
 	for _, segment := range segments {
-		// ~ fmt.Println("interping", segment)
+		fmt.Println("interping", segment)
 		interpolatedConfigurations, err := interpolateSegment(segment, sfPlanner.planOpts.Resolution)
 		if err != nil {
 			return err
 		}
+		fmt.Println("checking inputs", segment.EndConfiguration)
 		for _, interpConfig := range interpolatedConfigurations {
-			// ~ fmt.Println("interpconfig", interpConfig)
+			fmt.Println("interpconfig", interpConfig)
 			poseInPath, err := sf.Transform(interpConfig)
 			if err != nil {
 				return err
@@ -223,6 +225,7 @@ func checkPlanRelative(
 			// we must compose poseInPath with segment.StartPosition to get the absolute position.
 			interpolatedState := &ik.State{Frame: sf}
 			interpolatedState.Position = spatialmath.Compose(segment.StartPosition, poseInPath)
+			fmt.Println("checking", spatialmath.PoseToProtobuf(interpolatedState.Position))
 
 			// Checks for collision along the interpolated route and returns a the first interpolated pose where a collision is detected.
 			if isValid, err := sfPlanner.planOpts.CheckStateConstraints(interpolatedState); !isValid {
