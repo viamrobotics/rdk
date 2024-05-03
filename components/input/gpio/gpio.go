@@ -98,7 +98,7 @@ func NewGPIOController(
 		return nil, err
 	}
 
-	ctx, cancel := context.WithCancel(ctx)
+	ctx, cancel := context.WithCancel(context.Background())
 	c := Controller{
 		Named:      conf.ResourceName().AsNamed(),
 		logger:     logger,
