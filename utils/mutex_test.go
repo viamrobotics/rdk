@@ -13,7 +13,7 @@ func TestTryLockWithTimeout(t *testing.T) {
 
 	t.Run("succeed", func(t *testing.T) {
 		mut := &sync.Mutex{}
-		err := TryLockWithTimeout(mut, durt)
+		err := TryLockWithTimeout(mut, &durt)
 		test.That(t, err, test.ShouldBeNil)
 		mut.Unlock()
 	})
@@ -27,7 +27,7 @@ func TestTryLockWithTimeout(t *testing.T) {
 		}()
 		ch := make(chan error)
 		go func() {
-			ch <- TryLockWithTimeout(mut, durt)
+			ch <- TryLockWithTimeout(mut, &durt)
 		}()
 		err := <-ch
 		test.That(t, err, test.ShouldBeNil)
@@ -39,9 +39,16 @@ func TestTryLockWithTimeout(t *testing.T) {
 		defer mut.Unlock()
 		ch := make(chan error)
 		go func() {
-			ch <- TryLockWithTimeout(mut, durt)
+			ch <- TryLockWithTimeout(mut, &durt)
 		}()
 		err := <-ch
 		test.That(t, err, test.ShouldNotBeNil)
+	})
+
+	t.Run("nil-timeout", func(t *testing.T) {
+		mut := &sync.Mutex{}
+		err := TryLockWithTimeout(mut, nil)
+		test.That(t, err, test.ShouldBeNil)
+		defer mut.Unlock()
 	})
 }
