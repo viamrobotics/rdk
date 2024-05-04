@@ -26,7 +26,7 @@ const (
 	// that modules are allowed to startup.
 	ModuleStartupTimeoutEnvVar = "VIAM_MODULE_STARTUP_TIMEOUT"
 
-	// AndroidFilesDir is hardcoded because golang inits before android code can Os.setenv(HOME).
+	// AndroidFilesDir is hardcoded because golang inits before our android code can override HOME var.
 	AndroidFilesDir = "/data/user/0/com.viam.rdk.fgservice/cache"
 )
 
@@ -56,22 +56,19 @@ func timeoutHelper(defaultTimeout time.Duration, timeoutEnvVar string, logger lo
 	return defaultTimeout
 }
 
-// PlatformHomeDir wraps UserHomeDir except on android, where it infers the app cache directory.
+// PlatformHomeDir wraps Getenv("HOME"), except on android, where it returns the app cache directory.
 func PlatformHomeDir() string {
 	if runtime.GOOS == "android" {
 		return AndroidFilesDir
 	}
-	path, _ := os.UserHomeDir() //nolint:errcheck
-	// if err != nil {
-	// 	println("warning: PlatformHomeDir error", err.Error())
-	// }
-	return path
+	return os.Getenv("HOME")
 }
 
-// PlatformMkdirTemp wraps MkdirTemp except on android where it finds a writable + executable place.
+// PlatformMkdirTemp wraps MkdirTemp. On android, when dir is empty, it uses a path
+// that is writable + executable.
 func PlatformMkdirTemp(dir, pattern string) (string, error) {
 	if runtime.GOOS == "android" && dir == "" {
-		return os.MkdirTemp(AndroidFilesDir, pattern)
+		dir = AndroidFilesDir
 	}
 	return os.MkdirTemp(dir, pattern)
 }
