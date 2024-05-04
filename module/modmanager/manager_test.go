@@ -21,10 +21,42 @@ import (
 	"go.viam.com/rdk/logging"
 	modlib "go.viam.com/rdk/module"
 	modmanageroptions "go.viam.com/rdk/module/modmanager/options"
+	"go.viam.com/rdk/module/modmaninterface"
 	"go.viam.com/rdk/resource"
 	rtestutils "go.viam.com/rdk/testutils"
 	rutils "go.viam.com/rdk/utils"
 )
+
+func setupModManager(
+	t *testing.T,
+	ctx context.Context,
+	parentAddr string,
+	logger logging.Logger,
+	options modmanageroptions.Options,
+) modmaninterface.ModuleManager {
+	t.Helper()
+	mgr := NewManager(ctx, parentAddr, logger, options)
+	t.Cleanup(func() {
+		// Wait for inRecoveryWorker here because modmanager.Close does not.
+		// Do so by grabbing a copy of the modules and then waiting after
+		// mgr.Close() completes, so that all contexts relating to module
+		// restarting are cancelled.
+		mMgr, ok := mgr.(*Manager)
+		test.That(t, ok, test.ShouldBeTrue)
+		modules := []*module{}
+		mMgr.modules.Range(func(_ string, mod *module) bool {
+			modules = append(modules, mod)
+			return true
+		})
+		test.That(t, mgr.Close(ctx), test.ShouldBeNil)
+		for _, mod := range modules {
+			if mod != nil {
+				mod.inRecoveryWorker.Wait()
+			}
+		}
+	})
+	return mgr
+}
 
 func TestModManagerFunctions(t *testing.T) {
 	ctx := context.Background()
@@ -53,7 +85,7 @@ func TestModManagerFunctions(t *testing.T) {
 
 	t.Log("test Helpers")
 	viamHomeTemp := t.TempDir()
-	mgr := NewManager(ctx, parentAddr, logger, modmanageroptions.Options{UntrustedEnv: false, ViamHomeDir: viamHomeTemp})
+	mgr := setupModManager(t, ctx, parentAddr, logger, modmanageroptions.Options{UntrustedEnv: false, ViamHomeDir: viamHomeTemp})
 
 	mod := &module{
 		cfg: config.Module{
@@ -115,10 +147,9 @@ func TestModManagerFunctions(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	test.That(t, mod.process.Stop(), test.ShouldBeNil)
-	test.That(t, mgr.Close(ctx), test.ShouldBeNil)
 
 	t.Log("test AddModule")
-	mgr = NewManager(ctx, parentAddr, logger, modmanageroptions.Options{UntrustedEnv: false})
+	mgr = setupModManager(t, ctx, parentAddr, logger, modmanageroptions.Options{UntrustedEnv: false})
 	test.That(t, err, test.ShouldBeNil)
 
 	modCfg := config.Module{
@@ -225,11 +256,8 @@ func TestModManagerFunctions(t *testing.T) {
 	err = counter.Close(ctx)
 	test.That(t, err, test.ShouldBeNil)
 
-	err = mgr.Close(ctx)
-	test.That(t, err, test.ShouldBeNil)
-
 	t.Log("test UntrustedEnv")
-	mgr = NewManager(ctx, parentAddr, logger, modmanageroptions.Options{UntrustedEnv: true})
+	mgr = setupModManager(t, ctx, parentAddr, logger, modmanageroptions.Options{UntrustedEnv: true})
 
 	modCfg = config.Module{
 		Name:    "simple-module",
@@ -239,7 +267,7 @@ func TestModManagerFunctions(t *testing.T) {
 	test.That(t, err, test.ShouldEqual, errModularResourcesDisabled)
 
 	t.Log("test empty dir for CleanModuleDataDirectory")
-	mgr = NewManager(ctx, parentAddr, logger, modmanageroptions.Options{UntrustedEnv: false, ViamHomeDir: ""})
+	mgr = setupModManager(t, ctx, parentAddr, logger, modmanageroptions.Options{UntrustedEnv: false, ViamHomeDir: ""})
 	err = mgr.CleanModuleDataDirectory()
 	test.That(t, fmt.Sprint(err), test.ShouldContainSubstring, "cannot clean a root level module data directory")
 
@@ -247,7 +275,8 @@ func TestModManagerFunctions(t *testing.T) {
 	viamHomeTemp = t.TempDir()
 	robotCloudID := "a-b-c-d"
 	expectedDataDir := filepath.Join(viamHomeTemp, parentModuleDataFolderName, robotCloudID)
-	mgr = NewManager(
+	mgr = setupModManager(
+		t,
 		ctx,
 		parentAddr,
 		logger,
@@ -327,7 +356,7 @@ func TestModManagerValidation(t *testing.T) {
 	}()
 
 	t.Log("adding complex module")
-	mgr := NewManager(ctx, parentAddr, logger, modmanageroptions.Options{UntrustedEnv: false})
+	mgr := setupModManager(t, ctx, parentAddr, logger, modmanageroptions.Options{UntrustedEnv: false})
 
 	modCfg := config.Module{
 		Name:    "complex-module",
@@ -359,9 +388,6 @@ func TestModManagerValidation(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldResemble,
 		"rpc error: code = DeadlineExceeded desc = context deadline exceeded")
-
-	err = mgr.Close(ctx)
-	test.That(t, err, test.ShouldBeNil)
 }
 
 func TestModuleReloading(t *testing.T) {
@@ -406,7 +432,7 @@ func TestModuleReloading(t *testing.T) {
 		dummyRemoveOrphanedResources := func(context.Context, []resource.Name) {
 			dummyRemoveOrphanedResourcesCallCount.Add(1)
 		}
-		mgr := NewManager(ctx, parentAddr, logger, modmanageroptions.Options{
+		mgr := setupModManager(t, ctx, parentAddr, logger, modmanageroptions.Options{
 			UntrustedEnv:            false,
 			RemoveOrphanedResources: dummyRemoveOrphanedResources,
 		})
@@ -444,9 +470,6 @@ func TestModuleReloading(t *testing.T) {
 		test.That(t, resp, test.ShouldNotBeNil)
 		test.That(t, resp["command"], test.ShouldEqual, "echo")
 
-		err = mgr.Close(ctx)
-		test.That(t, err, test.ShouldBeNil)
-
 		// Assert that logs reflect that test-module crashed and there were no
 		// errors during restart.
 		test.That(t, logs.FilterMessageSnippet("Module has unexpectedly exited").Len(),
@@ -457,6 +480,7 @@ func TestModuleReloading(t *testing.T) {
 		// Assert that RemoveOrphanedResources was called once.
 		test.That(t, dummyRemoveOrphanedResourcesCallCount.Load(), test.ShouldEqual, 1)
 	})
+
 	t.Run("unsuccessful restart", func(t *testing.T) {
 		logger, logs := logging.NewObservedTestLogger(t)
 
@@ -471,7 +495,7 @@ func TestModuleReloading(t *testing.T) {
 		dummyRemoveOrphanedResources := func(context.Context, []resource.Name) {
 			dummyRemoveOrphanedResourcesCallCount.Add(1)
 		}
-		mgr := NewManager(ctx, parentAddr, logger, modmanageroptions.Options{
+		mgr := setupModManager(t, ctx, parentAddr, logger, modmanageroptions.Options{
 			UntrustedEnv:            false,
 			RemoveOrphanedResources: dummyRemoveOrphanedResources,
 		})
@@ -513,9 +537,6 @@ func TestModuleReloading(t *testing.T) {
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "not connected")
 
-		err = mgr.Close(ctx)
-		test.That(t, err, test.ShouldBeNil)
-
 		// Assert that logs reflect that test-module crashed and was not
 		// successfully restarted.
 		test.That(t, logs.FilterMessageSnippet("Module has unexpectedly exited").Len(),
@@ -540,7 +561,7 @@ func TestModuleReloading(t *testing.T) {
 		dummyRemoveOrphanedResources := func(context.Context, []resource.Name) {
 			dummyRemoveOrphanedResourcesCallCount.Add(1)
 		}
-		mgr := NewManager(ctx, parentAddr, logger, modmanageroptions.Options{
+		mgr := setupModManager(t, ctx, parentAddr, logger, modmanageroptions.Options{
 			UntrustedEnv:            false,
 			RemoveOrphanedResources: dummyRemoveOrphanedResources,
 		})
@@ -573,9 +594,6 @@ func TestModuleReloading(t *testing.T) {
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "not connected")
 
-		err = mgr.Close(ctx)
-		test.That(t, err, test.ShouldBeNil)
-
 		// Assert that logs reflect that test-module crashed and was not
 		// successfully restarted.
 		test.That(t, logs.FilterMessageSnippet("Module has unexpectedly exited").Len(),
@@ -599,7 +617,7 @@ func TestModuleReloading(t *testing.T) {
 		// RemoveOrphanedResources function so orphaned resource logic does not
 		// panic.
 		dummyRemoveOrphanedResources := func(context.Context, []resource.Name) {}
-		mgr := NewManager(ctx, parentAddr, logger, modmanageroptions.Options{
+		mgr := setupModManager(t, ctx, parentAddr, logger, modmanageroptions.Options{
 			UntrustedEnv:            false,
 			RemoveOrphanedResources: dummyRemoveOrphanedResources,
 		})
@@ -616,9 +634,6 @@ func TestModuleReloading(t *testing.T) {
 
 		// Assert that manager removes module.
 		test.That(t, len(mgr.Configs()), test.ShouldEqual, 0)
-
-		err = mgr.Close(ctx)
-		test.That(t, err, test.ShouldBeNil)
 	})
 
 	t.Run("cancelled module process is stopped", func(t *testing.T) {
@@ -636,7 +651,7 @@ func TestModuleReloading(t *testing.T) {
 		ctx, cancel := context.WithCancel(ctx)
 		cancel()
 		dummyRemoveOrphanedResources := func(context.Context, []resource.Name) {}
-		mgr := NewManager(ctx, parentAddr, logger, modmanageroptions.Options{
+		mgr := setupModManager(t, ctx, parentAddr, logger, modmanageroptions.Options{
 			UntrustedEnv:            false,
 			RemoveOrphanedResources: dummyRemoveOrphanedResources,
 		})
@@ -652,9 +667,6 @@ func TestModuleReloading(t *testing.T) {
 
 		// Assert that manager removes module.
 		test.That(t, len(mgr.Configs()), test.ShouldEqual, 0)
-
-		err = mgr.Close(ctx)
-		test.That(t, err, test.ShouldBeNil)
 	})
 }
 
@@ -724,8 +736,7 @@ func TestDebugModule(t *testing.T) {
 			} else {
 				logger, logs = rtestutils.NewInfoObservedTestLogger(t)
 			}
-			mgr := NewManager(ctx, parentAddr, logger, modmanageroptions.Options{UntrustedEnv: false})
-			defer mgr.Close(ctx)
+			mgr := setupModManager(t, ctx, parentAddr, logger, modmanageroptions.Options{UntrustedEnv: false})
 
 			modCfg := config.Module{
 				Name:     "test-module",
@@ -783,7 +794,7 @@ func TestModuleMisc(t *testing.T) {
 
 	t.Run("data directory fullstack", func(t *testing.T) {
 		logger, logs := logging.NewObservedTestLogger(t)
-		mgr := NewManager(ctx, parentAddr, logger, modmanageroptions.Options{
+		mgr := setupModManager(t, ctx, parentAddr, logger, modmanageroptions.Options{
 			UntrustedEnv: false,
 			ViamHomeDir:  testViamHomeDir,
 		})
@@ -829,13 +840,10 @@ func TestModuleMisc(t *testing.T) {
 		test.That(t, logs.FilterMessageSnippet("Removing module data").Len(), test.ShouldEqual, 1)
 		_, err = os.Stat(filepath.Join(testViamHomeDir, "module-data", "local"))
 		test.That(t, fmt.Sprint(err), test.ShouldContainSubstring, "no such file or directory")
-
-		err = mgr.Close(ctx)
-		test.That(t, err, test.ShouldBeNil)
 	})
 	t.Run("module working directory", func(t *testing.T) {
 		logger := logging.NewTestLogger(t)
-		mgr := NewManager(ctx, parentAddr, logger, modmanageroptions.Options{
+		mgr := setupModManager(t, ctx, parentAddr, logger, modmanageroptions.Options{
 			UntrustedEnv: false,
 			ViamHomeDir:  testViamHomeDir,
 		})
@@ -867,13 +875,10 @@ func TestModuleMisc(t *testing.T) {
 		modWorkingDirectory, ok := resp["path"].(string)
 		test.That(t, ok, test.ShouldBeTrue)
 		test.That(t, modWorkingDirectory, test.ShouldEqual, "/")
-
-		err = mgr.Close(ctx)
-		test.That(t, err, test.ShouldBeNil)
 	})
 	t.Run("module working directory fallback", func(t *testing.T) {
 		logger := logging.NewTestLogger(t)
-		mgr := NewManager(ctx, parentAddr, logger, modmanageroptions.Options{
+		mgr := setupModManager(t, ctx, parentAddr, logger, modmanageroptions.Options{
 			UntrustedEnv: false,
 			ViamHomeDir:  testViamHomeDir,
 		})
@@ -900,8 +905,6 @@ func TestModuleMisc(t *testing.T) {
 		// MacOS prepends "/private/" to the filepath so we check the end of the path to account for this
 		// i.e.  '/private/var/folders/p1/nl3sq7jn5nx8tfkdwpz2_g7r0000gn/T/TestModuleMisc1764175663/002'
 		test.That(t, modWorkingDirectory, test.ShouldEndWith, filepath.Dir(modPath))
-		err = mgr.Close(ctx)
-		test.That(t, err, test.ShouldBeNil)
 	})
 }
 
@@ -939,7 +942,7 @@ func TestTwoModulesRestart(t *testing.T) {
 	dummyRemoveOrphanedResources := func(context.Context, []resource.Name) {
 		dummyRemoveOrphanedResourcesCallCount.Add(1)
 	}
-	mgr := NewManager(ctx, parentAddr, logger, modmanageroptions.Options{
+	mgr := setupModManager(t, ctx, parentAddr, logger, modmanageroptions.Options{
 		UntrustedEnv:            false,
 		RemoveOrphanedResources: dummyRemoveOrphanedResources,
 	})
@@ -984,9 +987,6 @@ func TestTwoModulesRestart(t *testing.T) {
 		test.That(tb, logs.FilterMessageSnippet("Module successfully restarted").Len(),
 			test.ShouldEqual, 2)
 	})
-
-	err = mgr.Close(ctx)
-	test.That(t, err, test.ShouldBeNil)
 
 	// Assert that logs reflect that test-module crashed and there were no
 	// errors during restart.

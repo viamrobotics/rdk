@@ -81,14 +81,16 @@ type module struct {
 
 	// inStartup stores whether or not the manager of the OnUnexpectedExit function
 	// is trying to start up this module; inRecoveryLock guards the execution of an
-	// OnUnexpectedExit function for this module.
+	// OnUnexpectedExit function for this module. inRecoveryWorker keeps tracks of
+	// any ongoing OnUnexpectedExit execution.
 	//
 	// NOTE(benjirewis): Using just an atomic boolean is not sufficient, as OUE
 	// functions for the same module cannot overlap and should not continue after
 	// another OUE has finished.
-	inStartup      atomic.Bool
-	inRecoveryLock sync.Mutex
-	logger         logging.Logger
+	inStartup        atomic.Bool
+	inRecoveryLock   sync.Mutex
+	inRecoveryWorker sync.WaitGroup
+	logger           logging.Logger
 }
 
 type addedResource struct {
@@ -412,6 +414,8 @@ func (mgr *Manager) Remove(modName string) ([]resource.Name, error) {
 	return orphanedResourceNames, nil
 }
 
+// closeModule attempts to cleanly shut down the module process. It does not wait on recoveryWorker,
+// as they are running outside code and have unexpected behavior.
 func (mgr *Manager) closeModule(mod *module, reconfigure bool) error {
 	// resource manager should've removed these cleanly if this isn't a reconfigure
 	if !reconfigure && len(mod.resources) != 0 {
@@ -778,7 +782,11 @@ var oueRestartInterval = 5 * time.Second
 func (mgr *Manager) newOnUnexpectedExitHandler(mod *module) func(exitCode int) bool {
 	return func(exitCode int) bool {
 		mod.inRecoveryLock.Lock()
-		defer mod.inRecoveryLock.Unlock()
+		mod.inRecoveryWorker.Add(1)
+		defer func() {
+			mod.inRecoveryWorker.Done()
+			mod.inRecoveryLock.Unlock()
+		}()
 		if mod.inStartup.Load() {
 			return false
 		}
@@ -890,8 +898,13 @@ func (mgr *Manager) attemptRestart(ctx context.Context, mod *module) []resource.
 			break
 		}
 
-		// Wait with a bit of backoff.
-		utils.SelectContextOrWait(ctx, time.Duration(attempt)*oueRestartInterval)
+		// Wait with a bit of backoff. Exit early if context has errorred.
+		if !utils.SelectContextOrWait(ctx, time.Duration(attempt)*oueRestartInterval) {
+			mgr.logger.CInfow(
+				ctx, "Will not continue to attempt restarting crashed module", "module", mod.cfg.Name, "reason", ctx.Err().Error(),
+			)
+			return orphanedResourceNames
+		}
 	}
 	processRestarted = true
 
