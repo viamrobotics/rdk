@@ -1,4 +1,5 @@
 $(NDK_ROOT):
+	# todo: remove this once we are building .aar in CI
 	# download ndk (used by server-android)
 	cd etc && wget https://dl.google.com/android/repository/android-ndk-r26-linux.zip
 	cd etc && unzip android-ndk-r26-linux.zip

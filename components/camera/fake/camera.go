@@ -2,24 +2,41 @@
 package fake
 
 import (
+	"bytes"
 	"context"
+	"encoding/base64"
 	"image"
 	"image/color"
+	"image/jpeg"
 	"math"
+	"os"
+	"sync"
 	"time"
 
+	"github.com/bluenviron/gortsplib/v4/pkg/format"
+	"github.com/bluenviron/gortsplib/v4/pkg/format/rtph264"
+	"github.com/bluenviron/gortsplib/v4/pkg/rtptime"
+	"github.com/bluenviron/mediacommon/pkg/codecs/h264"
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
+	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/camera"
+	"go.viam.com/rdk/components/camera/rtppassthrough"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
+	rutils "go.viam.com/rdk/utils"
 )
 
-var model = resource.DefaultModelFamily.WithModel("fake")
+var (
+	// Model is the model of the fake buildin camera.
+	Model = resource.DefaultModelFamily.WithModel("fake")
+	// ErrRTPPassthroughNotEnabled indicates that rtp_passthrough is not enabled.
+	ErrRTPPassthroughNotEnabled = errors.New("rtp_passthrough not enabled")
+)
 
 const (
 	initialWidth  = 1280
@@ -29,7 +46,7 @@ const (
 func init() {
 	resource.RegisterComponent(
 		camera.API,
-		model,
+		Model,
 		resource.Registration[camera.Camera, *Config]{Constructor: NewCamera},
 	)
 }
@@ -50,26 +67,51 @@ func NewCamera(
 		return nil, paramErr
 	}
 	resModel, width, height := fakeModel(newConf.Width, newConf.Height)
+	cancelCtx, cancelFn := context.WithCancel(context.Background())
 	cam := &Camera{
-		Named:    conf.ResourceName().AsNamed(),
-		Model:    resModel,
-		Width:    width,
-		Height:   height,
-		Animated: newConf.Animated,
-		logger:   logger,
+		ctx:            cancelCtx,
+		cancelFn:       cancelFn,
+		Named:          conf.ResourceName().AsNamed(),
+		Model:          resModel,
+		Width:          width,
+		Height:         height,
+		Animated:       newConf.Animated,
+		RTPPassthrough: newConf.RTPPassthrough,
+		bufAndCBByID:   make(map[rtppassthrough.SubscriptionID]bufAndCB),
+		logger:         logger,
 	}
 	src, err := camera.NewVideoSourceFromReader(ctx, cam, resModel, camera.ColorStream)
 	if err != nil {
 		return nil, err
+	}
+
+	if cam.RTPPassthrough {
+		msg := "rtp_passthrough is enabled. GetImage will ignore width, height, and animated config params"
+		logger.CWarn(ctx, msg)
+		worldJpegBase64, err := os.ReadFile(rutils.ResolveFile("components/camera/fake/worldJpeg.base64"))
+		if err != nil {
+			return nil, err
+		}
+		d := base64.NewDecoder(base64.StdEncoding, bytes.NewReader(worldJpegBase64))
+		img, err := jpeg.Decode(d)
+		if err != nil {
+			return nil, err
+		}
+
+		cam.cacheImage = img
+		if err := cam.startPassthrough(); err != nil {
+			return nil, err
+		}
 	}
 	return camera.FromVideoSource(conf.ResourceName(), src, logger), nil
 }
 
 // Config are the attributes of the fake camera config.
 type Config struct {
-	Width    int  `json:"width,omitempty"`
-	Height   int  `json:"height,omitempty"`
-	Animated bool `json:"animated,omitempty"`
+	Width          int  `json:"width,omitempty"`
+	Height         int  `json:"height,omitempty"`
+	Animated       bool `json:"animated,omitempty"`
+	RTPPassthrough bool `json:"rtp_passthrough,omitempty"`
 }
 
 // Validate checks that the config attributes are valid for a fake camera.
@@ -170,13 +212,19 @@ func fakeModel(width, height int) (*transform.PinholeCameraModel, int, int) {
 type Camera struct {
 	resource.Named
 	resource.AlwaysRebuild
-	Model           *transform.PinholeCameraModel
-	Width           int
-	Height          int
-	Animated        bool
-	cacheImage      *image.RGBA
-	cachePointCloud pointcloud.PointCloud
-	logger          logging.Logger
+	mu                      sync.RWMutex
+	Model                   *transform.PinholeCameraModel
+	Width                   int
+	Height                  int
+	Animated                bool
+	RTPPassthrough          bool
+	ctx                     context.Context
+	cancelFn                context.CancelFunc
+	activeBackgroundWorkers sync.WaitGroup
+	bufAndCBByID            map[rtppassthrough.SubscriptionID]bufAndCB
+	cacheImage              image.Image
+	cachePointCloud         pointcloud.PointCloud
+	logger                  logging.Logger
 }
 
 // Read always returns the same image of a yellow to blue gradient.
@@ -241,7 +289,147 @@ func (c *Camera) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, err
 	return dm, nil
 }
 
+type bufAndCB struct {
+	cb  rtppassthrough.PacketCallback
+	buf *rtppassthrough.Buffer
+}
+
+// SubscribeRTP begins a subscription to receive RTP packets.
+func (c *Camera) SubscribeRTP(
+	ctx context.Context,
+	bufferSize int,
+	packetsCB rtppassthrough.PacketCallback,
+) (rtppassthrough.Subscription, error) {
+	if !c.RTPPassthrough {
+		return rtppassthrough.NilSubscription, ErrRTPPassthroughNotEnabled
+	}
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	sub, buf, err := rtppassthrough.NewSubscription(bufferSize)
+	if err != nil {
+		return rtppassthrough.NilSubscription, err
+	}
+	webrtcPayloadMaxSize := 1188 // 1200 - 12 (RTP header)
+	encoder := &rtph264.Encoder{
+		PayloadType:    96,
+		PayloadMaxSize: webrtcPayloadMaxSize,
+	}
+
+	if err := encoder.Init(); err != nil {
+		buf.Close()
+		return rtppassthrough.NilSubscription, err
+	}
+
+	c.bufAndCBByID[sub.ID] = bufAndCB{
+		cb:  packetsCB,
+		buf: buf,
+	}
+	buf.Start()
+	return sub, nil
+}
+
+// Unsubscribe terminates the subscription.
+func (c *Camera) Unsubscribe(ctx context.Context, id rtppassthrough.SubscriptionID) error {
+	if !c.RTPPassthrough {
+		return ErrRTPPassthroughNotEnabled
+	}
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	bufAndCB, ok := c.bufAndCBByID[id]
+	if !ok {
+		return errors.New("id not found")
+	}
+	delete(c.bufAndCBByID, id)
+	bufAndCB.buf.Close()
+	return nil
+}
+
+func (c *Camera) startPassthrough() error {
+	forma := &format.H264{
+		PayloadTyp:        96,
+		PacketizationMode: 1,
+		SPS: []uint8{
+			0x67, 0x64, 0x0, 0x15, 0xac, 0xb2, 0x3, 0xc1, 0x1f, 0xd6,
+			0x2, 0xdc, 0x8, 0x8, 0x16, 0x94, 0x0, 0x0, 0x3, 0x0, 0x4, 0x0, 0x0, 0x3, 0x0,
+			0xf0, 0x3c, 0x58, 0xb9, 0x20,
+		},
+		PPS: []uint8{0x68, 0xeb, 0xc3, 0xcb, 0x22, 0xc0},
+	}
+	rtpEnc, err := forma.CreateEncoder()
+	if err != nil {
+		c.logger.Error(err.Error())
+		return err
+	}
+	rtpTime := &rtptime.Encoder{ClockRate: forma.ClockRate()}
+	err = rtpTime.Initialize()
+	if err != nil {
+		c.logger.Error(err.Error())
+		return err
+	}
+	start := time.Now()
+	worldH264Base64, err := os.ReadFile(rutils.ResolveFile("components/camera/fake/worldH264.base64"))
+	if err != nil {
+		return err
+	}
+	b, err := base64.StdEncoding.DecodeString(string(worldH264Base64))
+	if err != nil {
+		c.logger.Error(err.Error())
+		return err
+	}
+	aus, err := h264.AnnexBUnmarshal(b)
+	if err != nil {
+		c.logger.Error(err.Error())
+		return err
+	}
+	f := func() {
+		defer c.unsubscribeAll()
+		ticker := time.NewTicker(200 * time.Millisecond)
+		defer ticker.Stop()
+		for range ticker.C {
+			if c.ctx.Err() != nil {
+				return
+			}
+
+			pkts, err := rtpEnc.Encode(aus)
+			if err != nil {
+				c.logger.Error(err)
+				return
+			}
+
+			ts := rtpTime.Encode(time.Since(start))
+			for _, pkt := range pkts {
+				pkt.Timestamp = ts
+			}
+
+			// get current timestamp
+			c.mu.RLock()
+			for _, bufAndCB := range c.bufAndCBByID {
+				// write packets
+				if err := bufAndCB.buf.Publish(func() { bufAndCB.cb(pkts) }); err != nil {
+					c.logger.Warn("Publish err: %s", err.Error())
+				}
+			}
+			c.mu.RUnlock()
+		}
+	}
+	c.activeBackgroundWorkers.Add(1)
+	utils.ManagedGo(f, c.activeBackgroundWorkers.Done)
+	return nil
+}
+
+func (c *Camera) unsubscribeAll() {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	for id, bufAndCB := range c.bufAndCBByID {
+		delete(c.bufAndCBByID, id)
+		bufAndCB.buf.Close()
+	}
+}
+
 // Close does nothing.
 func (c *Camera) Close(ctx context.Context) error {
+	c.cancelFn()
+	c.activeBackgroundWorkers.Wait()
 	return nil
 }
