@@ -2578,23 +2578,23 @@ func TestStatusServiceUpdate(t *testing.T) {
 }
 
 func TestRemoteRobotsGold(t *testing.T) {
-	// The test tests that the robot is able to start up with an offline robot,
-	// connect to it and depend on its resources when it comes online,
-	// and react appropriately when it goes offline again. If a separate robot
-	// then comes online again at the same address, the robot should be able to
-	// use their resources as well.
+	// This tests that a main part is able to start up with an offline remote robot, connect to it and
+	// depend on the remote robot's resources when it comes online. And react appropriately when the remote robot goes offline again.
+
+	// If a new robot object/process comes online at the same address+port, the main robot should still be able
+	// to use the new remote robot's resources.
 
 	// To do so, the test initially sets up two remote robots, Remote 1 and 2, and then a third remote, Remote 3,
 	// in the following scenario:
 	// 1) Remote 1's server is started.
-	// 2) The local robot is then set up with resources that depend on resources on both Remote 1 and 2. Since
-	//    Remote 2 is not up, it is expected that some resources will not be built or be available.
-	// 3) After initial configuration, Remote 2's server starts up and the local robot should then connect
+	// 2) The main robot is then set up with resources that depend on resources on both Remote 1 and 2. Since
+	//    Remote 2 is not up, their resources are not available to the main robot.
+	// 3) After initial configuration, Remote 2's server starts up and the main robot should then connect
 	//	  and pick up the new available resources.
-	// 4) Remote 2 goes down, and the local robot should remove any resources or resources that depend on
+	// 4) Remote 2 goes down, and the main robot should remove any resources or resources that depend on
 	//    resources from Remote 2.
-	// 5) Remote 3 comes online at the same address as Remote 2, and the local robot should treat it the same as
-	//    if Remote 2 came online again and readd all the removed resources.
+	// 5) Remote 3 comes online at the same address as Remote 2, and the main robot should treat it the same as
+	//    if Remote 2 came online again and re-add all the removed resources.
 	logger := logging.NewTestLogger(t)
 	remoteConfig := &config.Config{
 		Components: []resource.Config{
@@ -2654,7 +2654,9 @@ func TestRemoteRobotsGold(t *testing.T) {
 			},
 		},
 	}
-	r := setupLocalRobot(t, ctx, localConfig, logger.Sublogger("local"))
+	r := setupLocalRobot(t, ctx, localConfig, logger.Sublogger("main"))
+
+	// assert all of remote1's resources exist on main but none of remote2's
 	test.That(
 		t,
 		rdktestutils.NewResourceNameSet(r.ResourceNames()...),
@@ -2675,7 +2677,7 @@ func TestRemoteRobotsGold(t *testing.T) {
 	err = remote2.StartWeb(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
 
-	expectedSet := rdktestutils.NewResourceNameSet(
+	mainPartAndFooAndBarResources := rdktestutils.NewResourceNameSet(
 		motion.Named(resource.DefaultServiceName),
 		sensors.Named(resource.DefaultServiceName),
 		datamanager.Named(resource.DefaultServiceName),
@@ -2691,7 +2693,7 @@ func TestRemoteRobotsGold(t *testing.T) {
 		datamanager.Named("bar:builtin"),
 	)
 	testutils.WaitForAssertionWithSleep(t, time.Millisecond*100, 300, func(tb testing.TB) {
-		test.That(tb, rdktestutils.NewResourceNameSet(r.ResourceNames()...), test.ShouldResemble, expectedSet)
+		test.That(tb, rdktestutils.NewResourceNameSet(r.ResourceNames()...), test.ShouldResemble, mainPartAndFooAndBarResources)
 	})
 	test.That(t, remote2.Close(context.Background()), test.ShouldBeNil)
 
@@ -2725,7 +2727,7 @@ func TestRemoteRobotsGold(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	testutils.WaitForAssertionWithSleep(t, time.Millisecond*100, 300, func(tb testing.TB) {
-		test.That(tb, rdktestutils.NewResourceNameSet(r.ResourceNames()...), test.ShouldResemble, expectedSet)
+		test.That(tb, rdktestutils.NewResourceNameSet(r.ResourceNames()...), test.ShouldResemble, mainPartAndFooAndBarResources)
 	})
 }
 
