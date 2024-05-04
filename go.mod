@@ -38,7 +38,7 @@ require (
 	github.com/go-gnss/rtcm v0.0.3
 	github.com/go-nlopt/nlopt v0.0.0-20230219125344-443d3362dcb5
 	github.com/go-viper/mapstructure/v2 v2.0.0-alpha.1
-	github.com/goccy/go-graphviz v0.1.2
+	github.com/goccy/go-graphviz v0.1.3-0.20240305010347-606fdf55b06d
 	github.com/golang-jwt/jwt/v4 v4.5.0
 	github.com/golang/freetype v0.0.0-20170609003504-e2365dfdc4a0
 	github.com/golang/geo v0.0.0-20210211234256-740aa86cb551
