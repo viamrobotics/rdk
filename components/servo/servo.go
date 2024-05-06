@@ -33,22 +33,23 @@ var API = resource.APINamespaceRDK.WithComponentType(SubtypeName)
 // A Servo represents a physical servo connected to a board.
 //
 // Move example:
-//    // Move the servo from its origin to the desired angle of 30 degrees.
-//    myServoComponent.Move(context.Background(), 30, nil)
+//
+//	// Move the servo from its origin to the desired angle of 30 degrees.
+//	myServoComponent.Move(context.Background(), 30, nil)
 //
 // Position example:
-//    // Get the current set angle of the servo.
-//    pos1, err := myServoComponent.Position(context.Background(), nil)
 //
-//    // Move the servo from its origin to the desired angle of 20 degrees.
-//    myServoComponent.Move(context.Background(), 20, nil)
+//	// Get the current set angle of the servo.
+//	pos1, err := myServoComponent.Position(context.Background(), nil)
 //
-//    // Get the current set angle of the servo.
-//    pos2, err := myServoComponent.Position(context.Background(), nil)
+//	// Move the servo from its origin to the desired angle of 20 degrees.
+//	myServoComponent.Move(context.Background(), 20, nil)
 //
-//    logger.Info("Position 1: ", pos1)
-//    logger.Info("Position 2: ", pos2)
+//	// Get the current set angle of the servo.
+//	pos2, err := myServoComponent.Position(context.Background(), nil)
 //
+//	logger.Info("Position 1: ", pos1)
+//	logger.Info("Position 2: ", pos2)
 type Servo interface {
 	resource.Resource
 	resource.Actuator

@@ -35,50 +35,56 @@ const SubtypeName = "motor"
 var API = resource.APINamespaceRDK.WithComponentType(SubtypeName)
 
 // A Motor represents a physical motor connected to a board.
-// 
+//
 // SetPower example:
-//    myMotorComponent, err := motor.FromRobot(machine, "my_motor")
-//    // Set the motor power to 40% forwards.
-//    myMotorComponent.SetPower(context.Background(), 0.4, nil)
+//
+//	myMotorComponent, err := motor.FromRobot(machine, "my_motor")
+//	// Set the motor power to 40% forwards.
+//	myMotorComponent.SetPower(context.Background(), 0.4, nil)
 //
 // GoFor example:
-//    myMotorComponent, err := motor.FromRobot(machine, "my_motor")
-//    // Turn the motor 7.2 revolutions at 60 RPM.
-//    myMotorComponent.GoFor(context.Background(), 60, 7.2, nil)
+//
+//	myMotorComponent, err := motor.FromRobot(machine, "my_motor")
+//	// Turn the motor 7.2 revolutions at 60 RPM.
+//	myMotorComponent.GoFor(context.Background(), 60, 7.2, nil)
 //
 // GoTo example:
-//    // Turn the motor to 8.3 revolutions from home at 75 RPM.
-//    myMotorComponent.GoTo(context.Background(), 75, 8.3, nil)
+//
+//	// Turn the motor to 8.3 revolutions from home at 75 RPM.
+//	myMotorComponent.GoTo(context.Background(), 75, 8.3, nil)
 //
 // ResetZeroPostion example:
-//    // Set the current position as the new home position with no offset.
-//    myMotorComponent.ResetZeroPosition(context.Background(), 0.0, nil)
+//
+//	// Set the current position as the new home position with no offset.
+//	myMotorComponent.ResetZeroPosition(context.Background(), 0.0, nil)
 //
 // Position example:
-//    // Get the current position of an encoded motor.
-//    position, err := myMotorComponent.Position(context.Background(), nil)
 //
-//    // Log the position
-//    logger.Info("Position:")
-//    logger.Info(position)
+//	// Get the current position of an encoded motor.
+//	position, err := myMotorComponent.Position(context.Background(), nil)
+//
+//	// Log the position
+//	logger.Info("Position:")
+//	logger.Info(position)
 //
 // Properties example:
-//    // Return whether or not the motor supports certain optional features.
-//    properties, err := myMotorComponent.Properties(context.Background(), nil)
 //
-//    // Log the properties.
-//    logger.Info("Properties:")
-//    logger.Info(properties)
+//	// Return whether or not the motor supports certain optional features.
+//	properties, err := myMotorComponent.Properties(context.Background(), nil)
+//
+//	// Log the properties.
+//	logger.Info("Properties:")
+//	logger.Info(properties)
 //
 // IsPowered example:
-//    // Check whether the motor is currently running.
-//    powered, pct, err := myMotorComponent.IsPowered(context.Background(), nil)
 //
-//    logger.Info("Is powered?")
-//    logger.Info(powered)
-//    logger.Info("Power percent:")
-//    logger.Info(pct)
+//	// Check whether the motor is currently running.
+//	powered, pct, err := myMotorComponent.IsPowered(context.Background(), nil)
 //
+//	logger.Info("Is powered?")
+//	logger.Info(powered)
+//	logger.Info("Power percent:")
+//	logger.Info(pct)
 type Motor interface {
 	resource.Resource
 	resource.Actuator
