@@ -636,7 +636,7 @@ func (rc *RobotClient) resources(ctx context.Context) ([]resource.Name, []resour
 	return resources, resTypes, nil
 }
 
-// Manually refresh the underlying parts of this machine.
+// Refresh manually updates the underlying parts of this machine.
 //    err := machine.Refresh(ctx)
 func (rc *RobotClient) Refresh(ctx context.Context) (err error) {
 	rc.mu.Lock()
@@ -710,7 +710,7 @@ func (rc *RobotClient) PackageManager() packages.Manager {
 	return nil
 }
 
-// Get a list of all known resource names connected to this machine.
+// ResourceNames returns a list of all known resource names connected to this machine.
 //    resource_names := machine.ResourceNames()
 func (rc *RobotClient) ResourceNames() []resource.Name {
 	if err := rc.checkConnected(); err != nil {
@@ -795,7 +795,7 @@ func (rc *RobotClient) DiscoverComponents(ctx context.Context, qs []resource.Dis
 	return discoveries, nil
 }
 
-// Get the configuration of the frame system of a given machine.
+// FrameSystemConfig  returns the configuration of the frame system of a given machine.
 //    frameSystem, err := robot.FrameSystemConfig(context.Background(), nil)
 func (rc *RobotClient) FrameSystemConfig(ctx context.Context) (*framesystem.Config, error) {
 	resp, err := rc.client.FrameSystemConfig(ctx, &pb.FrameSystemConfigRequest{})
@@ -872,7 +872,7 @@ func (rc *RobotClient) TransformPointCloud(ctx context.Context, srcpc pointcloud
 	return pointcloud.ApplyOffset(ctx, srcpc, transformPose, rc.Logger())
 }
 
-// Get the status of the resources on the machine. You can provide a list of ResourceNames for which you want
+// Status returns the status of the resources on the machine. You can provide a list of ResourceNames for which you want
 // statuses. If no names are passed in, the status of every resource configured on the machine is returned.
 //    status, err := robot.Status(ctx.Background())
 func (rc *RobotClient) Status(ctx context.Context, resourceNames []resource.Name) ([]robot.Status, error) {
@@ -953,7 +953,7 @@ func (rc *RobotClient) Log(ctx context.Context, log zapcore.Entry, fields []zap.
 	return err
 }
 
-// Returns app-related information about the machine.
+// CloudMetadata returns app-related information about the machine.
 //    metadata, err := machine.CloudMetadata(ctx.Background())
 //    fmt.Println(metadata.RobotPartID)
 //    fmt.Println(metadata.PrimaryOrgID)
