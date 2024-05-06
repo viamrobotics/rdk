@@ -24,6 +24,7 @@ import (
 	"go.viam.com/rdk/components/camera/rtppassthrough"
 	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/gostream"
+	"go.viam.com/rdk/grpc"
 	rdkgrpc "go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/pointcloud"
@@ -382,6 +383,11 @@ func (c *client) Close(ctx context.Context) error {
 	return nil
 }
 
+type Tracker interface {
+	AddOnTrackSub(name resource.Name, onTrackCB grpc.OnTrackCB)
+	RemoveOnTrackSub(name resource.Name)
+}
+
 // SubscribeRTP begins a subscription to receive RTP packets.
 // When the Subscription terminates the context in the returned Subscription
 // is cancelled.
@@ -416,8 +422,9 @@ func (c *client) SubscribeRTP(
 	}
 
 	// check if we have established a connection that can be shared by multiple clients asking for cameras streams from viam server.
-	sc, ok := c.conn.(*rdkgrpc.SharedConn)
+	sc, ok := c.conn.(Tracker)
 	if !ok {
+		c.logger.Errorw("Client conn is not a `Tracker`", "connType", fmt.Sprintf("%T", c.conn))
 		return rtppassthrough.NilSubscription, ErrNoSharedPeerConnection
 	}
 
@@ -455,7 +462,7 @@ func (c *client) SubscribeRTP(
 		sc.AddOnTrackSub(c.Name(), c.addOnTrackSubFunc(trackReceived, trackClosed, sub.ID))
 		// remove the OnTrackSub once we either fail or succeed
 		defer sc.RemoveOnTrackSub(c.Name())
-		if _, err := c.streamClient.AddStream(ctx, &streampb.AddStreamRequest{Name: c.Name().String()}); err != nil {
+		if _, err := c.streamClient.AddStream(ctx, &streampb.AddStreamRequest{Name: c.Name().Name}); err != nil {
 			c.logger.CDebugw(ctx, "SubscribeRTP AddStream hit error", "subID", sub.ID.String(), "name", c.Name(), "err", err)
 			return rtppassthrough.NilSubscription, err
 		}

@@ -6,6 +6,7 @@ import (
 	"sync"
 
 	"github.com/pion/webrtc/v3"
+	"go.viam.com/rdk/resource"
 	"go.viam.com/utils/rpc"
 	googlegrpc "google.golang.org/grpc"
 )
@@ -14,6 +15,9 @@ import (
 type ReconfigurableClientConn struct {
 	connMu sync.RWMutex
 	conn   rpc.ClientConn
+
+	resOnTrackMu  sync.Mutex
+	resOnTrackCBs map[resource.Name]OnTrackCB
 }
 
 // Return this constant such that backoff error logging can compare consecutive errors and reliably
@@ -59,6 +63,27 @@ func (c *ReconfigurableClientConn) NewStream(
 func (c *ReconfigurableClientConn) ReplaceConn(conn rpc.ClientConn) {
 	c.connMu.Lock()
 	c.conn = conn
+	if c.resOnTrackCBs == nil {
+		c.resOnTrackCBs = make(map[resource.Name]OnTrackCB)
+	}
+
+	if pc := conn.PeerConn(); pc != nil {
+		pc.OnTrack(func(trackRemote *webrtc.TrackRemote, rtpReceiver *webrtc.RTPReceiver) {
+			name, err := resource.NewFromString(trackRemote.StreamID())
+			if err != nil {
+				// sc.logger.Errorw("StreamID did not parse as a ResourceName", "sharedConn", fmt.Sprintf("%p", sc), "streamID", trackRemote.StreamID())
+				return
+			}
+			c.resOnTrackMu.Lock()
+			onTrackCB, ok := c.resOnTrackCBs[name]
+			c.resOnTrackMu.Unlock()
+			if !ok {
+				// sc.logger.Errorw("Callback not found for StreamID", "sharedConn", fmt.Sprintf("%p", sc), "streamID", trackRemote.StreamID())
+				return
+			}
+			onTrackCB(trackRemote, rtpReceiver)
+		})
+	}
 	c.connMu.Unlock()
 }
 
@@ -83,4 +108,18 @@ func (c *ReconfigurableClientConn) Close() error {
 	conn := c.conn
 	c.conn = nil
 	return conn.Close()
+}
+
+// AddOnTrackSub adds an OnTrack subscription for the resource.
+func (c *ReconfigurableClientConn) AddOnTrackSub(name resource.Name, onTrackCB OnTrackCB) {
+	c.resOnTrackMu.Lock()
+	defer c.resOnTrackMu.Unlock()
+	c.resOnTrackCBs[name] = onTrackCB
+}
+
+// RemoveOnTrackSub removes an OnTrack subscription for the resource.
+func (c *ReconfigurableClientConn) RemoveOnTrackSub(name resource.Name) {
+	c.resOnTrackMu.Lock()
+	defer c.resOnTrackMu.Unlock()
+	delete(c.resOnTrackCBs, name)
 }
