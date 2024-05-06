@@ -256,13 +256,13 @@ func (plan *SimplePlan) Trajectory() Trajectory {
 func NewExecutionState(
 	plan Plan,
 	index int,
-	inputs map[string][]referenceframe.Input,
+	currentInputs map[string][]referenceframe.Input,
 	currentPose map[string]*referenceframe.PoseInFrame,
 ) ExecutionState {
 	return ExecutionState{
 		plan:        plan,
 		index:       index,
-		inputs:      inputs,
+		currentInputs:      currentInputs,
 		currentPose: currentPose,
 	}
 }
@@ -273,7 +273,7 @@ type ExecutionState struct {
 	index int
 
 	// The current inputs of input-enabled elements described by the plan
-	inputs map[string][]referenceframe.Input
+	currentInputs map[string][]referenceframe.Input
 
 	// The current PoseInFrames of input-enabled elements described by this plan.
 	currentPose map[string]*referenceframe.PoseInFrame
@@ -291,7 +291,7 @@ func (e *ExecutionState) Index() int {
 
 // CurrentInputs returns the current inputs of the components associated with the ExecutionState.
 func (e *ExecutionState) CurrentInputs() map[string][]referenceframe.Input {
-	return e.inputs
+	return e.currentInputs
 }
 
 // CurrentPoses returns the current poses in frame of the components associated with the ExecutionState.
