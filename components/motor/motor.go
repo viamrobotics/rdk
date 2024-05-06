@@ -85,10 +85,6 @@ var API = resource.APINamespaceRDK.WithComponentType(SubtypeName)
 //
 //    logger.Info("Is moving?")
 //    logger.Info(moving)
-//
-// Stop example:
-//    // Stop the motor.
-//    myMotorComponent.Stop(context.Background(), nil)
 type Motor interface {
 	resource.Resource
 	resource.Actuator
