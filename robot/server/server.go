@@ -7,7 +7,6 @@ import (
 	"bytes"
 	"context"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -42,26 +41,18 @@ const logTSKey = "log_ts"
 // a robot.Robot as a gRPC server.
 type Server struct {
 	pb.UnimplementedRobotServiceServer
-	robot                   robot.Robot
-	activeBackgroundWorkers sync.WaitGroup
-	cancelCtx               context.Context
-	cancel                  func()
+	robot robot.Robot
 }
 
 // New constructs a gRPC service server for a Robot.
 func New(robot robot.Robot) pb.RobotServiceServer {
-	cancelCtx, cancel := context.WithCancel(context.Background())
 	return &Server{
-		robot:     robot,
-		cancelCtx: cancelCtx,
-		cancel:    cancel,
+		robot: robot,
 	}
 }
 
 // Close cleanly shuts down the server.
 func (s *Server) Close() {
-	s.cancel()
-	s.activeBackgroundWorkers.Wait()
 }
 
 // GetOperations lists all running operations.
