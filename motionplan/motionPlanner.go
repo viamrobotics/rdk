@@ -587,7 +587,7 @@ func CheckPlan(
 			}
 
 			// define State which only houses inputs, pose information not needed since we cannot get arcs from
-			// an interpolating poses, this would only yeild a straight line.
+			// an interpolating poses, this would only yield a straight line.
 			interpolatedState := &ik.State{Frame: sf}
 			interpolatedState.Configuration = interpConfig
 
