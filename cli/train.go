@@ -24,7 +24,7 @@ const (
 	trainingStatusPrefix = "TRAINING_STATUS_"
 )
 
-// DataSubmitTrainingJob is the corresponding action for 'data train submit-custom'.
+// DataSubmitCustomTrainingJob is the corresponding action for 'data train submit-custom'.
 func DataSubmitCustomTrainingJob(c *cli.Context) error {
 	client, err := newViamClient(c)
 	if err != nil {
