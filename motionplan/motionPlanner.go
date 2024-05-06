@@ -590,6 +590,11 @@ func CheckPlan(
 			// an interpolating poses, this would only yield a straight line.
 			interpolatedState := &ik.State{Frame: sf}
 			interpolatedState.Configuration = interpConfig
+			out, err := sf.Transform(interpConfig)
+			if err != nil {
+				return err
+			}
+			logger.Debugf("out: %v", spatialmath.PoseToProtobuf(out))
 
 			// Checks for collision along the interpolated route and returns a the first interpolated pose where a collision is detected.
 			if isValid, err := sfPlanner.planOpts.CheckStateConstraints(interpolatedState); !isValid {
@@ -600,6 +605,8 @@ func CheckPlan(
 				)
 			}
 		}
+
+		fmt.Println(" ")
 
 		// Update total traveled distance after segment has been checked
 		totalTravelDistanceMM += segment.EndPosition.Point().Distance(segment.StartPosition.Point())
