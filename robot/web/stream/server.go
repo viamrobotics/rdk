@@ -110,6 +110,7 @@ func (ss *Server) ListStreams(ctx context.Context, req *streampb.ListStreamsRequ
 
 // AddStream implements part of the StreamServiceServer.
 func (ss *Server) AddStream(ctx context.Context, req *streampb.AddStreamRequest) (*streampb.AddStreamResponse, error) {
+	fmt.Println("DBG. Add stream called:", req)
 	ctx, span := trace.StartSpan(ctx, "stream::server::AddStream")
 	defer span.End()
 	// Get the peer connection
