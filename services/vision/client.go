@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"go.viam.com/rdk/vision/viscapture"
 	"image"
 
 	"github.com/pkg/errors"
@@ -123,6 +124,19 @@ func (c *client) Detections(ctx context.Context, img image.Image, extra map[stri
 	return detections, nil
 }
 
+func protoToDets(protoDets []*pb.Detection) ([]objdet.Detection, error) {
+	detections := make([]objdet.Detection, 0, len(protoDets))
+	for _, d := range protoDets {
+		if d.XMin == nil || d.XMax == nil || d.YMin == nil || d.YMax == nil {
+			return nil, fmt.Errorf("invalid detection %+v", d)
+		}
+		box := image.Rect(int(*d.XMin), int(*d.YMin), int(*d.XMax), int(*d.YMax))
+		det := objdet.NewDetection(box, d.Confidence, d.ClassName)
+		detections = append(detections, det)
+	}
+	return detections, nil
+}
+
 func (c *client) ClassificationsFromCamera(
 	ctx context.Context,
 	cameraName string,
@@ -188,7 +202,14 @@ func (c *client) Classifications(ctx context.Context, img image.Image,
 	}
 	return classifications, nil
 }
-
+func protoToClas(protoClass []*pb.Classification) classification.Classifications {
+	classifications := make([]classification.Classification, 0, len(protoClass))
+	for _, c := range protoClass {
+		classif := classification.NewClassification(c.Confidence, c.ClassName)
+		classifications = append(classifications, classif)
+	}
+	return classifications
+}
 func (c *client) GetObjectPointClouds(
 	ctx context.Context,
 	cameraName string,
@@ -240,6 +261,56 @@ func protoToObjects(pco []*commonpb.PointCloudObject) ([]*vision.Object, error) 
 		}
 	}
 	return objects, nil
+}
+
+func (c *client) CaptureAllFromCamera(
+	ctx context.Context,
+	cameraName string,
+	returnImage bool,
+	returnDetections bool,
+	returnClassifications bool,
+	returnObject bool,
+	extra map[string]interface{},
+) (viscapture.VisCapture, error) {
+	fmt.Println("REACHED CLIENT.GO CAPTUREALL()")
+	ctx, span := trace.StartSpan(ctx, "service::vision::client::ClassificationsFromCamera")
+	defer span.End()
+	ext, err := protoutils.StructToStructPb(extra)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := c.client.CaptureAllFromCamera(ctx, &pb.CaptureAllFromCameraRequest{
+		Name:                    c.name,
+		CameraName:              cameraName,
+		ReturnImage:             returnImage,
+		ReturnDetections:        returnDetections,
+		ReturnClassifications:   returnClassifications,
+		ReturnObjectPointClouds: returnObject,
+		Extra:                   ext,
+	})
+	if err != nil {
+		return nil, err
+	}
+	//detections
+	dets, err := protoToDets(resp.Detections)
+	if err != nil {
+		return nil, err
+	}
+
+	//objectPCD
+	objPCD, err := protoToObjects(resp.Objects)
+	if err != nil {
+		return nil, err
+	}
+
+	img, err := rimage.DecodeImage(ctx, resp.Image.Image, utils.MimeTypeJPEG)
+	if err != nil {
+		return nil, err
+	}
+
+	capt := viscapture.NewVisCapture(img, dets, protoToClas(resp.Classifications), objPCD)
+
+	return capt, nil
 }
 
 func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {

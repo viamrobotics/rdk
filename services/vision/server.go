@@ -3,11 +3,13 @@ package vision
 import (
 	"bytes"
 	"context"
-
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
 	commonpb "go.viam.com/api/common/v1"
+	v11 "go.viam.com/api/component/camera/v1"
 	pb "go.viam.com/api/service/vision/v1"
+	"go.viam.com/rdk/vision/classification"
+	"go.viam.com/rdk/vision/objectdetection"
 
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/protoutils"
@@ -111,6 +113,30 @@ func (server *serviceServer) GetDetectionsFromCamera(
 	}, nil
 }
 
+func detsToProto(detections []objectdetection.Detection) []*pb.Detection {
+	protoDets := make([]*pb.Detection, 0, len(detections))
+	for _, det := range detections {
+		box := det.BoundingBox()
+		if box == nil {
+			return nil
+		}
+		xMin := int64(box.Min.X)
+		yMin := int64(box.Min.Y)
+		xMax := int64(box.Max.X)
+		yMax := int64(box.Max.Y)
+		d := &pb.Detection{
+			XMin:       &xMin,
+			YMin:       &yMin,
+			XMax:       &xMax,
+			YMax:       &yMax,
+			Confidence: det.Score(),
+			ClassName:  det.Label(),
+		}
+		protoDets = append(protoDets, d)
+	}
+	return protoDets
+}
+
 func (server *serviceServer) GetClassifications(
 	ctx context.Context,
 	req *pb.GetClassificationsRequest,
@@ -169,6 +195,18 @@ func (server *serviceServer) GetClassificationsFromCamera(
 	}, nil
 }
 
+func clasToProto(classifications classification.Classifications) []*pb.Classification {
+	protoCs := make([]*pb.Classification, 0, len(classifications))
+	for _, c := range classifications {
+		cc := &pb.Classification{
+			ClassName:  c.Label(),
+			Confidence: c.Score(),
+		}
+		protoCs = append(protoCs, cc)
+	}
+	return protoCs
+}
+
 // GetObjectPointClouds returns an array of objects from the frame from a camera of the underlying robot. A specific MIME type
 // can be requested but may not necessarily be the same one returned. Also returns a Vector3 array of the center points of each object.
 func (server *serviceServer) GetObjectPointClouds(
@@ -215,6 +253,32 @@ func segmentsToProto(frame string, segs []*vision.Object) ([]*commonpb.PointClou
 		protoSegs = append(protoSegs, ps)
 	}
 	return protoSegs, nil
+}
+
+func (server *serviceServer) CaptureAllFromCamera(ctx context.Context, req *pb.CaptureAllFromCameraRequest) (*pb.CaptureAllFromCameraResponse, error) {
+	ctx, span := trace.StartSpan(ctx, "service::vision::server::GetDetectionsFromCamera")
+	defer span.End()
+	svc, err := server.coll.Resource(req.Name)
+	if err != nil {
+		return nil, err
+	}
+	capt, err := svc.CaptureAllFromCamera(ctx, req.CameraName, req.ReturnImage, req.ReturnDetections, req.ReturnClassifications, req.ReturnObjectPointClouds, req.Extra.AsMap())
+
+	//objectsPCD
+	objProto, err := segmentsToProto(req.CameraName, capt.PointCloudObject())
+
+	img := capt.Image()
+	imgBytes, err := rimage.EncodeImage(ctx, img, utils.MimeTypeJPEG)
+	if err != nil {
+		return nil, err
+	}
+
+	return &pb.CaptureAllFromCameraResponse{
+		Image:           &v11.Image{Image: imgBytes},
+		Detections:      detsToProto(capt.Detections()),
+		Classifications: clasToProto(capt.Classifications()),
+		Objects:         objProto,
+	}, nil
 }
 
 // DoCommand receives arbitrary commands.

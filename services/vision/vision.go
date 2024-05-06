@@ -4,6 +4,8 @@ package vision
 
 import (
 	"context"
+	"fmt"
+	"go.viam.com/rdk/vision/viscapture"
 	"image"
 
 	"github.com/pkg/errors"
@@ -128,6 +130,7 @@ type Service interface {
 
 	// GetObjectPointClouds returns a list of 3D point cloud objects and metadata from the latest 3D camera image using a specified segmenter.
 	GetObjectPointClouds(ctx context.Context, cameraName string, extra map[string]interface{}) ([]*viz.Object, error)
+	CaptureAllFromCamera(ctx context.Context, cameraName string, returnImage bool, returnClass bool, returnDet bool, returnObjPCD bool, extra map[string]interface{}) (viscapture.VisCapture, error)
 }
 
 // SubtypeName is the name of the type of service.
@@ -283,6 +286,47 @@ func (vm *vizModel) GetObjectPointClouds(ctx context.Context, cameraName string,
 	return vm.segmenter3DFunc(ctx, cam)
 }
 
+func (vm *vizModel) CaptureAllFromCamera(ctx context.Context, cameraName string, returnImage bool, returnClass bool, returnDet bool, returnObjPCD bool, extra map[string]interface{}) (viscapture.VisCapture, error) {
+	fmt.Println("REACHED VISION.GO CAPTUREALL()")
+	ctx, span := trace.StartSpan(ctx, "service::vision::ClassificationsFromCamera::"+vm.Named.Name().String())
+	defer span.End()
+	cam, err := camera.FromRobot(vm.r, cameraName)
+	if err != nil {
+		return nil, errors.Wrapf(err, "could not find camera named %s", cameraName)
+	}
+	img, release, err := camera.ReadImage(ctx, cam)
+	if err != nil {
+		return nil, errors.Wrapf(err, "could not get image from %s", cameraName)
+	}
+	defer release()
+	var detections []objectdetection.Detection
+	if returnDet {
+		detections, err = vm.Detections(ctx, img, extra)
+		if err != nil {
+			return nil, err
+		}
+	}
+	var classifications classification.Classifications
+	if returnClass {
+		classifications, err = vm.Classifications(ctx, img, 10, extra)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	var objPCD []*viz.Object
+	if returnObjPCD {
+		objPCD, err = vm.GetObjectPointClouds(ctx, cameraName, extra)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if !returnImage {
+		img = nil
+	}
+	return viscapture.NewVisCapture(img, detections, classifications, objPCD), nil
+
+}
 func (vm *vizModel) Close(ctx context.Context) error {
 	if vm.closerFunc == nil {
 		return nil
