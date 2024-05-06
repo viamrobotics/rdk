@@ -310,7 +310,7 @@ func TestPositionalReplanning(t *testing.T) {
 }
 
 func TestObstacleReplanningGlobe(t *testing.T) {
-	//~ t.Parallel()
+	t.Parallel()
 	ctx := context.Background()
 
 	gpsOrigin := geo.NewPoint(0, 0)
@@ -333,7 +333,7 @@ func TestObstacleReplanningGlobe(t *testing.T) {
 		PositionPollingFreqHz: 1, ObstaclePollingFreqHz: 20, PlanDeviationMM: epsilonMM, ObstacleDetectors: obstacleDetectorSlice,
 	}
 
-	extra := map[string]interface{}{"max_ik_solutions": 1, "smooth_iter": 1, "max_replans": 2}
+	extra := map[string]interface{}{"max_ik_solutions": 1, "smooth_iter": 1, "max_replans": 3}
 	extra_no_replan := map[string]interface{}{"max_replans": 0, "max_ik_solutions": 1, "smooth_iter": 1}
 
 	i := 0
@@ -445,7 +445,7 @@ func TestObstacleReplanningGlobe(t *testing.T) {
 	for _, tc := range testCases {
 		c := tc // needed to workaround loop variable not being captured by func literals
 		t.Run(c.name, func(t *testing.T) {
-			//~ t.Parallel()
+			t.Parallel()
 			testFn(t, c)
 		})
 	}
