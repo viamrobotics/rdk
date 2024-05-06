@@ -2,10 +2,12 @@ package inject
 
 import (
 	"context"
+
 	apppb "go.viam.com/api/app/v1"
 	"google.golang.org/grpc"
 )
 
+// EndUserServiceClient represents a fake instance of an end user service client.
 type EndUserServiceClient struct {
 	apppb.EndUserServiceClient
 	RegisterAuthApplicationFunc func(ctx context.Context, in *apppb.RegisterAuthApplicationRequest,

@@ -59,7 +59,8 @@ func TestFullReloadFlow(t *testing.T) {
 				{ApiKey: &apppb.APIKey{}},
 			}}, nil
 		},
-	}, nil, &inject.BuildServiceClient{}, nil, "token", map[string]any{moduleBuildFlagPath: manifestPath, partFlag: "part-123", moduleBuildFlagNoBuild: true})
+	}, nil, &inject.BuildServiceClient{}, nil, "token",
+		map[string]any{moduleBuildFlagPath: manifestPath, partFlag: "part-123", moduleBuildFlagNoBuild: true})
 	test.That(t, vc.loginAction(cCtx), test.ShouldBeNil)
 	err = reloadModuleAction(cCtx, vc)
 	test.That(t, err, test.ShouldBeNil)

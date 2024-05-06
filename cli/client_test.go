@@ -91,10 +91,10 @@ func newTestContext(t *testing.T, flags map[string]any) *cli.Context {
 func setup(
 	asc apppb.AppServiceClient,
 	dataClient datapb.DataServiceClient,
-	endUserClient apppb.EndUserServiceClient,
 	buildClient buildpb.BuildServiceClient,
-	defaultFlags map[string]any,
+	endUserClient apppb.EndUserServiceClient,
 	authMethod string,
+	defaultFlags map[string]any,
 	cliArgs ...string,
 ) (*cli.Context, *viamClient, *testWriter, *testWriter) {
 	out := &testWriter{}
@@ -150,7 +150,7 @@ func setupWithRunningPart(
 ) (*cli.Context, *viamClient, *testWriter, *testWriter, func()) {
 	t.Helper()
 
-	cCtx, ac, out, errOut := setup(asc, dataClient, nil, buildClient, defaultFlags, authMethod, cliArgs...)
+	cCtx, ac, out, errOut := setup(asc, dataClient, buildClient, nil, authMethod, defaultFlags, cliArgs...)
 
 	// this config could later become a parameter
 	r, err := robotimpl.New(cCtx.Context, &robotconfig.Config{
@@ -191,7 +191,7 @@ func TestListOrganizationsAction(t *testing.T) {
 	asc := &inject.AppServiceClient{
 		ListOrganizationsFunc: listOrganizationsFunc,
 	}
-	cCtx, ac, out, errOut := setup(asc, nil, nil, nil, nil, "token")
+	cCtx, ac, out, errOut := setup(asc, nil, nil, nil, "token", nil)
 
 	test.That(t, ac.listOrganizationsAction(cCtx), test.ShouldBeNil)
 	test.That(t, len(errOut.messages), test.ShouldEqual, 0)
@@ -226,7 +226,7 @@ func TestTabularDataByFilterAction(t *testing.T) {
 		TabularDataByFilterFunc: tabularDataByFilterFunc,
 	}
 
-	cCtx, ac, out, errOut := setup(&inject.AppServiceClient{}, dsc, nil, nil, nil, "token")
+	cCtx, ac, out, errOut := setup(&inject.AppServiceClient{}, dsc, nil, nil, "token", nil)
 
 	test.That(t, ac.dataExportAction(cCtx), test.ShouldBeNil)
 	test.That(t, len(errOut.messages), test.ShouldEqual, 0)
@@ -408,7 +408,7 @@ func TestGetRobotPartLogs(t *testing.T) {
 	}
 
 	t.Run("no count", func(t *testing.T) {
-		cCtx, ac, out, errOut := setup(asc, nil, nil, nil, nil, "")
+		cCtx, ac, out, errOut := setup(asc, nil, nil, nil, "token", nil)
 
 		test.That(t, ac.robotsPartLogsAction(cCtx), test.ShouldBeNil)
 
@@ -429,7 +429,7 @@ func TestGetRobotPartLogs(t *testing.T) {
 	})
 	t.Run("178 count", func(t *testing.T) {
 		flags := map[string]any{"count": 178}
-		cCtx, ac, out, errOut := setup(asc, nil, nil, nil, flags, "")
+		cCtx, ac, out, errOut := setup(asc, nil, nil, nil, "token", flags)
 
 		test.That(t, ac.robotsPartLogsAction(cCtx), test.ShouldBeNil)
 
@@ -450,7 +450,7 @@ func TestGetRobotPartLogs(t *testing.T) {
 	})
 	t.Run("max count", func(t *testing.T) {
 		flags := map[string]any{logsFlagCount: maxNumLogs}
-		cCtx, ac, out, errOut := setup(asc, nil, nil, nil, flags, "")
+		cCtx, ac, out, errOut := setup(asc, nil, nil, nil, "token", flags)
 
 		test.That(t, ac.robotsPartLogsAction(cCtx), test.ShouldBeNil)
 
@@ -472,7 +472,7 @@ func TestGetRobotPartLogs(t *testing.T) {
 	})
 	t.Run("negative count", func(t *testing.T) {
 		flags := map[string]any{"count": -1}
-		cCtx, ac, out, errOut := setup(asc, nil, nil, nil, flags, "")
+		cCtx, ac, out, errOut := setup(asc, nil, nil, nil, "token", flags)
 
 		test.That(t, ac.robotsPartLogsAction(cCtx), test.ShouldBeNil)
 
@@ -495,7 +495,7 @@ func TestGetRobotPartLogs(t *testing.T) {
 	})
 	t.Run("count too high", func(t *testing.T) {
 		flags := map[string]any{"count": 1000000}
-		cCtx, ac, _, _ := setup(asc, nil, nil, nil, flags, "")
+		cCtx, ac, _, _ := setup(asc, nil, nil, nil, "", flags)
 
 		err := ac.robotsPartLogsAction(cCtx)
 		test.That(t, err, test.ShouldNotBeNil)
@@ -546,23 +546,23 @@ func TestShellFileCopy(t *testing.T) {
 	}
 
 	t.Run("no arguments or files", func(t *testing.T) {
-		cCtx, viamClient, _, _ := setup(asc, nil, nil, nil, partFlags, "token")
+		cCtx, viamClient, _, _ := setup(asc, nil, nil, nil, "token", partFlags)
 		test.That(t, machinesPartCopyFilesAction(cCtx, viamClient), test.ShouldEqual, errNoFiles)
 	})
 
 	t.Run("one file path is insufficient", func(t *testing.T) {
 		args := []string{"machine:path"}
-		cCtx, viamClient, _, _ := setup(asc, nil, nil, nil, partFlags, "token", args...)
+		cCtx, viamClient, _, _ := setup(asc, nil, nil, nil, "token", partFlags, args...)
 		test.That(t, machinesPartCopyFilesAction(cCtx, viamClient), test.ShouldEqual, errLastArgOfFromMissing)
 
 		args = []string{"path"}
-		cCtx, viamClient, _, _ = setup(asc, nil, nil, nil, partFlags, "token", args...)
+		cCtx, viamClient, _, _ = setup(asc, nil, nil, nil, "token", partFlags, args...)
 		test.That(t, machinesPartCopyFilesAction(cCtx, viamClient), test.ShouldEqual, errLastArgOfToMissing)
 	})
 
 	t.Run("from has wrong path prefixes", func(t *testing.T) {
 		args := []string{"machine:path", "path2", "machine:path3", "destination"}
-		cCtx, viamClient, _, _ := setup(asc, nil, nil, nil, partFlags, "token", args...)
+		cCtx, viamClient, _, _ := setup(asc, nil, nil, nil, "token", partFlags, args...)
 		test.That(t, machinesPartCopyFilesAction(cCtx, viamClient), test.ShouldHaveSameTypeAs, copyFromPathInvalidError{})
 	})
 

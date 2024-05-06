@@ -2,11 +2,13 @@ package cli
 
 import (
 	"context"
+	"testing"
+
 	apppb "go.viam.com/api/app/v1"
-	"go.viam.com/rdk/testutils/inject"
 	"go.viam.com/test"
 	"google.golang.org/grpc"
-	"testing"
+
+	"go.viam.com/rdk/testutils/inject"
 )
 
 func TestRegisterAuthApplicationAction(t *testing.T) {
@@ -20,7 +22,7 @@ func TestRegisterAuthApplicationAction(t *testing.T) {
 		}, nil
 	}
 
-	asc := &inject.EndUserServiceClient{
+	eusc := &inject.EndUserServiceClient{
 		RegisterAuthApplicationFunc: registerAuthApplicationFunc,
 	}
 	flags := make(map[string]any)
@@ -30,7 +32,7 @@ func TestRegisterAuthApplicationAction(t *testing.T) {
 	flags[authApplicationFlagRedirectURIs] = []string{"https://woof.com/home", "https://arf.com/home"}
 	flags[authApplicationFlagLogoutURI] = "https://woof.com/logout"
 
-	cCtx, ac, out, errOut := setup(&inject.AppServiceClient{}, nil, nil, asc, "token", flags)
+	cCtx, ac, out, errOut := setup(&inject.AppServiceClient{}, nil, nil, eusc, "token", flags)
 	err := ac.registerAuthApplicationAction(cCtx)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(errOut.messages), test.ShouldEqual, 0)
@@ -47,7 +49,7 @@ func TestUpdateAuthApplicationAction(t *testing.T) {
 		}, nil
 	}
 
-	asc := &inject.EndUserServiceClient{
+	eusc := &inject.EndUserServiceClient{
 		UpdateAuthApplicationFunc: updateAuthApplication,
 	}
 	flags := make(map[string]any)
@@ -58,7 +60,7 @@ func TestUpdateAuthApplicationAction(t *testing.T) {
 	flags[authApplicationFlagRedirectURIs] = []string{"https://woof.com/home", "https://arf.com/home"}
 	flags[authApplicationFlagLogoutURI] = "https://woof.com/logout"
 
-	cCtx, ac, out, errOut := setup(&inject.AppServiceClient{}, nil, nil, asc, "token", flags)
+	cCtx, ac, out, errOut := setup(&inject.AppServiceClient{}, nil, nil, eusc, "token", flags)
 	err := ac.updateAuthApplicationAction(cCtx)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(errOut.messages), test.ShouldEqual, 0)
