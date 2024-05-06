@@ -399,10 +399,6 @@ func (s *DigitalInterrupt) reset(conf board.DigitalInterruptConfig) {
 	s.conf = conf
 }
 
-// RemoveCallback removes a listener for interrupts.
-func (s *DigitalInterrupt) RemoveCallback(c chan board.Tick) {
-}
-
 // Value returns the current value of the interrupt which is
 // based on the type of interrupt.
 func (s *DigitalInterrupt) Value(ctx context.Context, extra map[string]interface{}) (int64, error) {

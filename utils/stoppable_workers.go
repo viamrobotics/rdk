@@ -13,6 +13,7 @@ import (
 
 // StoppableWorkers is a collection of goroutines that can be stopped at a later time.
 type StoppableWorkers interface {
+	AddWorkers(...func(context.Context))
 	Stop()
 	Context() context.Context
 }
@@ -22,6 +23,7 @@ type StoppableWorkers interface {
 // of NewStoppableWorkers() would make a copy of it), so we do everything through the
 // StoppableWorkers interface to avoid making copies (since interfaces do everything by pointer).
 type stoppableWorkersImpl struct {
+	mu                      sync.Mutex
 	cancelCtx               context.Context
 	cancelFunc              func()
 	activeBackgroundWorkers sync.WaitGroup
@@ -31,7 +33,21 @@ type stoppableWorkersImpl struct {
 func NewStoppableWorkers(funcs ...func(context.Context)) StoppableWorkers {
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
 	workers := &stoppableWorkersImpl{cancelCtx: cancelCtx, cancelFunc: cancelFunc}
-	workers.activeBackgroundWorkers.Add(len(funcs))
+	workers.AddWorkers(funcs...)
+	return workers
+}
+
+// AddWorkers starts up additional goroutines for each function passed in. If you call this after
+// calling Stop(), it will return immediately without starting any new goroutines.
+func (sw *stoppableWorkersImpl) AddWorkers(funcs ...func(context.Context)) {
+	sw.mu.Lock()
+	defer sw.mu.Unlock()
+
+	if sw.cancelCtx.Err() != nil { // We've already stopped everything.
+		return
+	}
+
+	sw.activeBackgroundWorkers.Add(len(funcs))
 	for _, f := range funcs {
 		// In Go 1.21 and earlier, variables created in a loop were reused from one iteration to
 		// the next. Make a "fresh" copy of it here so that, if we're on to the next iteration of
@@ -39,15 +55,17 @@ func NewStoppableWorkers(funcs ...func(context.Context)) StoppableWorkers {
 		// one. For details, see https://go.dev/blog/loopvar-preview
 		f := f
 		goutils.PanicCapturingGo(func() {
-			defer workers.activeBackgroundWorkers.Done()
-			f(cancelCtx)
+			defer sw.activeBackgroundWorkers.Done()
+			f(sw.cancelCtx)
 		})
 	}
-	return workers
 }
 
 // Stop shuts down all the goroutines we started up.
 func (sw *stoppableWorkersImpl) Stop() {
+	sw.mu.Lock()
+	defer sw.mu.Unlock()
+
 	sw.cancelFunc()
 	sw.activeBackgroundWorkers.Wait()
 }

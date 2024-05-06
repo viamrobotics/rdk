@@ -12,21 +12,19 @@ import (
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/session"
+	rdkutils "go.viam.com/rdk/utils"
 )
 
 // NewSessionManager creates a new manager for holding sessions.
 func NewSessionManager(robot Robot, heartbeatWindow time.Duration) *SessionManager {
-	cancelCtx, cancel := context.WithCancel(context.Background())
 	m := &SessionManager{
 		robot:             robot,
 		heartbeatWindow:   heartbeatWindow,
 		logger:            robot.Logger().Sublogger("session_manager"),
 		sessions:          map[uuid.UUID]*session.Session{},
 		resourceToSession: map[resource.Name]uuid.UUID{},
-		cancel:            cancel,
 	}
-	m.activeBackgroundWorkers.Add(1)
-	utils.ManagedGo(func() { m.expireLoop(cancelCtx) }, m.activeBackgroundWorkers.Done)
+	m.workers = rdkutils.NewStoppableWorkers(m.expireLoop)
 	return m
 }
 
@@ -42,8 +40,7 @@ type SessionManager struct {
 
 	resourceToSession map[resource.Name]uuid.UUID
 
-	cancel                  func()
-	activeBackgroundWorkers sync.WaitGroup
+	workers rdkutils.StoppableWorkers
 }
 
 // All returns all active sessions.
@@ -195,6 +192,5 @@ func (m *SessionManager) AssociateResource(id uuid.UUID, resourceName resource.N
 
 // Close stops the session manager but will not explicitly expire any sessions.
 func (m *SessionManager) Close() {
-	m.cancel()
-	m.activeBackgroundWorkers.Wait()
+	m.workers.Stop()
 }

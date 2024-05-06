@@ -226,9 +226,6 @@ func (e *Encoder) Start(ctx context.Context, b board.Board) {
 	e.activeBackgroundWorkers.Add(1)
 
 	utils.ManagedGo(func() {
-		// Remove the callbacks added by the interrupt stream.
-		defer e.A.RemoveCallback(ch)
-		defer e.B.RemoveCallback(ch)
 		for {
 			// This looks redundant with the other select statement below, but it's not: if we're
 			// supposed to return, we need to do that even if chanA and chanB are full of data, and

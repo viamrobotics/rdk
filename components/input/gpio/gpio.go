@@ -98,7 +98,7 @@ func NewGPIOController(
 		return nil, err
 	}
 
-	ctx, cancel := context.WithCancel(ctx)
+	cancelCtx, cancel := context.WithCancel(context.Background())
 	c := Controller{
 		Named:      conf.ResourceName().AsNamed(),
 		logger:     logger,
@@ -121,14 +121,14 @@ func NewGPIOController(
 		if err != nil {
 			return nil, err
 		}
-		err = c.newButton(ctx, brd, interrupt, *control)
+		err = c.newButton(cancelCtx, brd, interrupt, *control)
 		if err != nil {
 			return nil, err
 		}
 	}
 
 	for reader, axis := range newConf.Axes {
-		err := c.newAxis(ctx, brd, reader, *axis)
+		err := c.newAxis(cancelCtx, brd, reader, *axis)
 		if err != nil {
 			return nil, err
 		}
@@ -267,7 +267,6 @@ func (c *Controller) newButton(ctx context.Context, brd board.Board, interrupt b
 
 	c.activeBackgroundWorkers.Add(1)
 	utils.ManagedGo(func() {
-		defer interrupt.RemoveCallback(tickChan)
 		debounced := debounce.New(time.Millisecond * time.Duration(cfg.DebounceMs))
 		for {
 			var val bool
