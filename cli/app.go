@@ -1590,7 +1590,7 @@ Example:
 			},
 		},
 		{
-			Name:  "third-party-auth-app",
+			Name:  "auth-app",
 			Usage: "manage third party auth applications",
 			Subcommands: []*cli.Command{
 				{

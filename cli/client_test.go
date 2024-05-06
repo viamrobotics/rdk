@@ -408,7 +408,7 @@ func TestGetRobotPartLogs(t *testing.T) {
 	}
 
 	t.Run("no count", func(t *testing.T) {
-		cCtx, ac, out, errOut := setup(asc, nil, nil, nil, nil, "token")
+		cCtx, ac, out, errOut := setup(asc, nil, nil, nil, nil, "")
 
 		test.That(t, ac.robotsPartLogsAction(cCtx), test.ShouldBeNil)
 
@@ -429,7 +429,7 @@ func TestGetRobotPartLogs(t *testing.T) {
 	})
 	t.Run("178 count", func(t *testing.T) {
 		flags := map[string]any{"count": 178}
-		cCtx, ac, out, errOut := setup(asc, nil, nil, nil, flags, "token")
+		cCtx, ac, out, errOut := setup(asc, nil, nil, nil, flags, "")
 
 		test.That(t, ac.robotsPartLogsAction(cCtx), test.ShouldBeNil)
 
@@ -450,7 +450,7 @@ func TestGetRobotPartLogs(t *testing.T) {
 	})
 	t.Run("max count", func(t *testing.T) {
 		flags := map[string]any{logsFlagCount: maxNumLogs}
-		cCtx, ac, out, errOut := setup(asc, nil, nil, nil, flags, "token")
+		cCtx, ac, out, errOut := setup(asc, nil, nil, nil, flags, "")
 
 		test.That(t, ac.robotsPartLogsAction(cCtx), test.ShouldBeNil)
 
@@ -472,7 +472,7 @@ func TestGetRobotPartLogs(t *testing.T) {
 	})
 	t.Run("negative count", func(t *testing.T) {
 		flags := map[string]any{"count": -1}
-		cCtx, ac, out, errOut := setup(asc, nil, nil, nil, flags, "token")
+		cCtx, ac, out, errOut := setup(asc, nil, nil, nil, flags, "")
 
 		test.That(t, ac.robotsPartLogsAction(cCtx), test.ShouldBeNil)
 
