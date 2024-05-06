@@ -552,13 +552,10 @@ func CheckPlan(
 				[]float64{poses[i].Point().X, poses[i].Point().Y, poses[i].Orientation().OrientationVectorRadians().Theta},
 			)
 			nextInput[checkFrame.Name()+"ExecutionFrame"] = frame.FloatsToInputs(
-				[]float64{poses[i+1].Point().X, poses[i+1].Point().Y, poses[i+1].Orientation().OrientationVectorRadians().Theta},
+				[]float64{poses[i].Point().X, poses[i].Point().Y, poses[i].Orientation().OrientationVectorRadians().Theta},
 			)
 			if i == 0 {
 				currInput = nextInput
-				currInput[checkFrame.Name()+"ExecutionFrame"] = frame.FloatsToInputs(
-					[]float64{poses[i].Point().X, poses[i].Point().Y, poses[i].Orientation().OrientationVectorRadians().Theta},
-				)
 			}
 		}
 		segment, err := createSegment(poses[i], poses[i+1], currInput, nextInput)
@@ -589,7 +586,8 @@ func CheckPlan(
 				return nil
 			}
 
-			// define State which only houses inputs, pose information not needed
+			// define State which only houses inputs, pose information not needed since we cannot get arcs from
+			// an interpolating poses, this would only yeild a straight line.
 			interpolatedState := &ik.State{Frame: sf}
 			interpolatedState.Configuration = interpConfig
 

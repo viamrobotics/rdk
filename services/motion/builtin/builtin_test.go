@@ -1240,7 +1240,6 @@ func TestMoveOnMapStaticObs(t *testing.T) {
 	extra := map[string]interface{}{
 		"motion_profile": "position_only",
 		"timeout":        5.,
-		"smooth_iter":    10.,
 	}
 
 	baseName := "test-base"
@@ -1300,13 +1299,6 @@ func TestMoveOnMapStaticObs(t *testing.T) {
 		// robot's position across the path. By showing that we have a collision on the path with an
 		// obstacle on the left we prove that our path does not collide with the original obstacle
 		// placed on the right.
-		obstacleLeft, err := spatialmath.NewBox(
-			spatialmath.NewPose(r3.Vector{X: 0.22981e3, Y: -0.38875e3, Z: 0},
-				&spatialmath.OrientationVectorDegrees{OZ: 1, Theta: 45}),
-			r3.Vector{X: 900, Y: 10, Z: 10},
-			"obstacleLeft",
-		)
-		test.That(t, err, test.ShouldBeNil)
 		obstacleRight, err := spatialmath.NewBox(
 			spatialmath.NewPose(r3.Vector{0.89627e3, -0.37192e3, 0},
 				&spatialmath.OrientationVectorDegrees{OZ: 1, Theta: -45}),
@@ -1330,7 +1322,13 @@ func TestMoveOnMapStaticObs(t *testing.T) {
 
 		// place obstacle in opposite position and show that the generate path
 		// collides with obstacleLeft
-
+		obstacleLeft, err := spatialmath.NewBox(
+			spatialmath.NewPose(r3.Vector{X: 0.22981e3, Y: -0.38875e3, Z: 0},
+				&spatialmath.OrientationVectorDegrees{OZ: 1, Theta: 45}),
+			r3.Vector{X: 900, Y: 10, Z: 10},
+			"obstacleLeft",
+		)
+		test.That(t, err, test.ShouldBeNil)
 		wrldSt, err := referenceframe.NewWorldState(
 			[]*referenceframe.GeometriesInFrame{
 				referenceframe.NewGeometriesInFrame(
@@ -1347,7 +1345,7 @@ func TestMoveOnMapStaticObs(t *testing.T) {
 		err = motionplan.CheckPlan(
 			mr.planRequest.Frame,
 			plan,
-			1,
+			0,
 			wrldSt,
 			mr.absoluteFS,
 			spatialmath.NewPose(
