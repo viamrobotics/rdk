@@ -79,12 +79,6 @@ var API = resource.APINamespaceRDK.WithComponentType(SubtypeName)
 //    logger.Info("Power percent:")
 //    logger.Info(pct)
 //
-// IsMoving example:
-//    // Check whether the motor is currently moving.
-//    moving, err := myMotorComponent.IsMoving(context.Background())
-//
-//    logger.Info("Is moving?")
-//    logger.Info(moving)
 type Motor interface {
 	resource.Resource
 	resource.Actuator

@@ -49,12 +49,6 @@ var API = resource.APINamespaceRDK.WithComponentType(SubtypeName)
 //    logger.Info("Position 1: ", pos1)
 //    logger.Info("Position 2: ", pos2)
 //
-// Stop example: (from the resource.Actuator interface)
-//    // Move the servo from its origin to the desired angle of 10 degrees.
-//    myServoComponent.Move(context.Background(), 10, nil)
-//
-//    // Stop the servo. It is assumed that the servo stops moving immediately.
-//    myServoComponent.Stop(context.Background(), nil)
 type Servo interface {
 	resource.Resource
 	resource.Actuator
