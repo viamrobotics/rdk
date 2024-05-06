@@ -32,7 +32,7 @@ func TestRegisterAuthApplicationAction(t *testing.T) {
 	flags[authApplicationFlagRedirectURIs] = []string{"https://woof.com/home", "https://arf.com/home"}
 	flags[authApplicationFlagLogoutURI] = "https://woof.com/logout"
 
-	cCtx, ac, out, errOut := setup(&inject.AppServiceClient{}, nil, nil, eusc, "token", flags)
+	cCtx, ac, out, errOut := setup(&inject.AppServiceClient{}, nil, nil, eusc, flags, "token")
 	err := ac.registerAuthApplicationAction(cCtx)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(errOut.messages), test.ShouldEqual, 0)
@@ -60,7 +60,7 @@ func TestUpdateAuthApplicationAction(t *testing.T) {
 	flags[authApplicationFlagRedirectURIs] = []string{"https://woof.com/home", "https://arf.com/home"}
 	flags[authApplicationFlagLogoutURI] = "https://woof.com/logout"
 
-	cCtx, ac, out, errOut := setup(&inject.AppServiceClient{}, nil, nil, eusc, "token", flags)
+	cCtx, ac, out, errOut := setup(&inject.AppServiceClient{}, nil, nil, eusc, flags, "token")
 	err := ac.updateAuthApplicationAction(cCtx)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(errOut.messages), test.ShouldEqual, 0)
