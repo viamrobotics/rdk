@@ -56,7 +56,7 @@ func TestStartBuild(t *testing.T) {
 		StartBuildFunc: func(ctx context.Context, in *v1.StartBuildRequest, opts ...grpc.CallOption) (*v1.StartBuildResponse, error) {
 			return &v1.StartBuildResponse{BuildId: "xyz123"}, nil
 		},
-	}, map[string]any{moduleBuildFlagPath: manifest, moduleBuildFlagVersion: "1.2.3"}, "token")
+	}, nil, "token", map[string]any{moduleBuildFlagPath: manifest, moduleBuildFlagVersion: "1.2.3"})
 	err := ac.moduleBuildStartAction(cCtx)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, out.messages, test.ShouldHaveLength, 1)
@@ -79,7 +79,7 @@ func TestListBuild(t *testing.T) {
 				},
 			}}, nil
 		},
-	}, map[string]any{moduleBuildFlagPath: manifest}, "token")
+	}, nil, "token", map[string]any{moduleBuildFlagPath: manifest})
 	err := ac.moduleBuildListAction(cCtx)
 	test.That(t, err, test.ShouldBeNil)
 	joinedOutput := strings.Join(out.messages, "")
@@ -121,7 +121,7 @@ func TestModuleBuildWait(t *testing.T) {
 				},
 			}}, nil
 		},
-	}, map[string]any{}, "token")
+	}, nil, "token", map[string]any{})
 	startWaitTime := time.Now()
 	statuses, err := ac.waitForBuildToFinish("xyz123", "")
 	test.That(t, err, test.ShouldBeNil)
@@ -154,7 +154,7 @@ func TestModuleGetPlatformsForModule(t *testing.T) {
 				},
 			}}, nil
 		},
-	}, map[string]any{}, "token")
+	}, nil, "token", map[string]any{})
 	platforms, err := ac.getPlatformsForModuleBuild("xyz123")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, platforms, test.ShouldResemble, []string{"linux/amd64", "linux/arm64"})
@@ -194,8 +194,7 @@ func TestLocalBuild(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	// run the build local action
-	cCtx, _, out, errOut := setup(&inject.AppServiceClient{}, nil, &inject.BuildServiceClient{},
-		map[string]any{moduleBuildFlagPath: manifestPath, moduleBuildFlagVersion: "1.2.3"}, "token")
+	cCtx, _, out, errOut := setup(&inject.AppServiceClient{}, nil, &inject.BuildServiceClient{}, nil, "token", map[string]any{moduleBuildFlagPath: manifestPath, moduleBuildFlagVersion: "1.2.3"})
 	manifest, err := loadManifest(manifestPath)
 	test.That(t, err, test.ShouldBeNil)
 	err = moduleBuildLocalAction(cCtx, &manifest)

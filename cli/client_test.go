@@ -73,13 +73,7 @@ func newTestContext(t *testing.T, flags map[string]any) *cli.Context {
 // setup creates a new cli.Context and viamClient with fake auth and the passed
 // in AppServiceClient and DataServiceClient. It also returns testWriters that capture Stdout and
 // Stdin.
-func setup(
-	asc apppb.AppServiceClient,
-	dataClient datapb.DataServiceClient,
-	buildClient buildpb.BuildServiceClient,
-	defaultFlags map[string]any,
-	authMethod string,
-) (*cli.Context, *viamClient, *testWriter, *testWriter) {
+func setup(asc apppb.AppServiceClient, dataClient datapb.DataServiceClient, buildClient buildpb.BuildServiceClient, endUserClient apppb.EndUserServiceClient, authMethod string, defaultFlags map[string]any) (*cli.Context, *viamClient, *testWriter, *testWriter) {
 	out := &testWriter{}
 	errOut := &testWriter{}
 	flags := populateFlags(defaultFlags)
@@ -107,11 +101,12 @@ func setup(
 		}
 	}
 	ac := &viamClient{
-		client:      asc,
-		conf:        conf,
-		c:           cCtx,
-		dataClient:  dataClient,
-		buildClient: buildClient,
+		client:        asc,
+		conf:          conf,
+		c:             cCtx,
+		dataClient:    dataClient,
+		buildClient:   buildClient,
+		endUserClient: endUserClient,
 	}
 	return cCtx, ac, out, errOut
 }
@@ -126,7 +121,7 @@ func TestListOrganizationsAction(t *testing.T) {
 	asc := &inject.AppServiceClient{
 		ListOrganizationsFunc: listOrganizationsFunc,
 	}
-	cCtx, ac, out, errOut := setup(asc, nil, nil, nil, "token")
+	cCtx, ac, out, errOut := setup(asc, nil, nil, nil, "token", nil)
 
 	test.That(t, ac.listOrganizationsAction(cCtx), test.ShouldBeNil)
 	test.That(t, len(errOut.messages), test.ShouldEqual, 0)
@@ -161,7 +156,7 @@ func TestTabularDataByFilterAction(t *testing.T) {
 		TabularDataByFilterFunc: tabularDataByFilterFunc,
 	}
 
-	cCtx, ac, out, errOut := setup(&inject.AppServiceClient{}, dsc, nil, nil, "token")
+	cCtx, ac, out, errOut := setup(&inject.AppServiceClient{}, dsc, nil, nil, "token", nil)
 
 	test.That(t, ac.dataExportAction(cCtx), test.ShouldBeNil)
 	test.That(t, len(errOut.messages), test.ShouldEqual, 0)
@@ -343,7 +338,7 @@ func TestGetRobotPartLogs(t *testing.T) {
 	}
 
 	t.Run("no count", func(t *testing.T) {
-		cCtx, ac, out, errOut := setup(asc, nil, nil, nil, "")
+		cCtx, ac, out, errOut := setup(asc, nil, nil, nil, "", nil)
 
 		test.That(t, ac.robotsPartLogsAction(cCtx), test.ShouldBeNil)
 
@@ -364,7 +359,7 @@ func TestGetRobotPartLogs(t *testing.T) {
 	})
 	t.Run("178 count", func(t *testing.T) {
 		flags := map[string]any{"count": 178}
-		cCtx, ac, out, errOut := setup(asc, nil, nil, flags, "")
+		cCtx, ac, out, errOut := setup(asc, nil, nil, nil, "", flags)
 
 		test.That(t, ac.robotsPartLogsAction(cCtx), test.ShouldBeNil)
 
@@ -385,7 +380,7 @@ func TestGetRobotPartLogs(t *testing.T) {
 	})
 	t.Run("max count", func(t *testing.T) {
 		flags := map[string]any{logsFlagCount: maxNumLogs}
-		cCtx, ac, out, errOut := setup(asc, nil, nil, flags, "")
+		cCtx, ac, out, errOut := setup(asc, nil, nil, nil, "", flags)
 
 		test.That(t, ac.robotsPartLogsAction(cCtx), test.ShouldBeNil)
 
@@ -407,7 +402,7 @@ func TestGetRobotPartLogs(t *testing.T) {
 	})
 	t.Run("negative count", func(t *testing.T) {
 		flags := map[string]any{"count": -1}
-		cCtx, ac, out, errOut := setup(asc, nil, nil, flags, "")
+		cCtx, ac, out, errOut := setup(asc, nil, nil, nil, "", flags)
 
 		test.That(t, ac.robotsPartLogsAction(cCtx), test.ShouldBeNil)
 
@@ -430,7 +425,7 @@ func TestGetRobotPartLogs(t *testing.T) {
 	})
 	t.Run("count too high", func(t *testing.T) {
 		flags := map[string]any{"count": 1000000}
-		cCtx, ac, _, _ := setup(asc, nil, nil, flags, "")
+		cCtx, ac, _, _ := setup(asc, nil, nil, nil, "", flags)
 
 		err := ac.robotsPartLogsAction(cCtx)
 		test.That(t, err, test.ShouldNotBeNil)

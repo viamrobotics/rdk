@@ -92,6 +92,12 @@ const (
 	packageFlagVersion     = "version"
 	packageFlagType        = "type"
 	packageFlagDestination = "destination"
+
+	authApplicationFlagName          = "name"
+	authApplicationFlagApplicationID = "application-id"
+	authApplicationFlagOriginURIs    = "origin-uris"
+	authApplicationFlagRedirectURIs  = "redirect-uris"
+	authApplicationFlagLogoutURI     = "logout-uri"
 )
 
 var commonFilterFlags = []cli.Flag{
@@ -1511,6 +1517,81 @@ Example:
 					},
 					// Upload action
 					Action: MLTrainingUploadAction,
+				},
+			},
+		},
+		{
+			Name:  "third-party-auth-app",
+			Usage: "manage third party auth applications",
+			Subcommands: []*cli.Command{
+				{
+					Name:  "create",
+					Usage: "create a third party auth application",
+					Flags: []cli.Flag{
+						&cli.StringFlag{
+							Name:     generalFlagOrgID,
+							Usage:    "organization ID that will be tied to auth application",
+							Required: true,
+						},
+						&cli.StringFlag{
+							Name:     authApplicationFlagName,
+							Usage:    "name for the auth application",
+							Required: true,
+						},
+						&cli.StringSliceFlag{
+							Name:     authApplicationFlagOriginURIs,
+							Usage:    "origin uris for the auth application",
+							Required: false,
+						},
+						&cli.StringSliceFlag{
+							Name:     authApplicationFlagRedirectURIs,
+							Usage:    "redirect uris for the auth application",
+							Required: false,
+						},
+						&cli.StringFlag{
+							Name:     authApplicationFlagLogoutURI,
+							Usage:    "logout uri for the auth application",
+							Required: false,
+						},
+					},
+					Action: RegisterAuthApplicationAction,
+				},
+				{
+					Name:  "update",
+					Usage: "update a third party auth application",
+					Flags: []cli.Flag{
+						&cli.StringFlag{
+							Name:     generalFlagOrgID,
+							Required: true,
+							Usage:    "organization ID that will be tied to auth application",
+						},
+						&cli.StringFlag{
+							Name:     authApplicationFlagApplicationID,
+							Usage:    "id for the auth application",
+							Required: true,
+						},
+						&cli.StringFlag{
+							Name:     authApplicationFlagName,
+							Usage:    "name for the auth application. omitting this will overwrite the existing value.",
+							Required: true,
+						},
+						&cli.StringSliceFlag{
+							Name:     authApplicationFlagOriginURIs,
+							Usage:    "origin uris for the auth application. omitting this will overwrite the existing value.",
+							Required: false,
+						},
+						&cli.StringSliceFlag{
+							Name:     authApplicationFlagRedirectURIs,
+							Usage:    "redirect uris for the auth application. omitting this will overwrite the existing value.",
+							Required: false,
+						},
+						&cli.StringFlag{
+							Name:     authApplicationFlagLogoutURI,
+							Usage:    "logout uri for the auth application. omitting this will overwrite the existing value.",
+							Required: false,
+						},
+					},
+					Action: UpdateAuthApplicationAction,
 				},
 			},
 		},
