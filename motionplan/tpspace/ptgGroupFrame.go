@@ -196,7 +196,7 @@ func (pf *ptgGroupFrame) Transform(inputs []referenceframe.Input) (spatialmath.P
 // the Transform from the current position that would be expected during the next 20 distance to be executed.
 // If we are interpolating against a hypothetical arc, there is no true "from", so `nil` should be passed instead if coming from somewhere
 // which does not have knowledge of specific inputs.
-// The above is inverted with negative distances, requiring some complicated logic which should be radically simplified by RSDK-7515
+// The above is inverted with negative distances, requiring some complicated logic which should be radically simplified by RSDK-7515.
 func (pf *ptgGroupFrame) Interpolate(from, to []referenceframe.Input, by float64) ([]referenceframe.Input, error) {
 	if len(from) != len(pf.DoF()) {
 		return nil, referenceframe.NewIncorrectInputLengthError(len(from), len(pf.DoF()))
@@ -207,11 +207,11 @@ func (pf *ptgGroupFrame) Interpolate(from, to []referenceframe.Input, by float64
 	// There are two different valid interpretations of `from`. Either it can be an all-zero input, in which case we interpolate across `to`
 	// or it can match `to` in every value except the end distance index, as described above.
 	zeroInputFrom := true
-	
+
 	// Special behavior if we are working with negative distances
 	// TODO RSDK-7515: anything touching this should go away.
 	reversedTraj := to[endDistanceAlongTrajectoryIndex].Value < 0
-	
+
 	nonMatchIndex := endDistanceAlongTrajectoryIndex
 	if reversedTraj {
 		nonMatchIndex = startDistanceAlongTrajectoryIndex
@@ -230,7 +230,7 @@ func (pf *ptgGroupFrame) Interpolate(from, to []referenceframe.Input, by float64
 			}
 		}
 	}
-	
+
 	startVal := from[nonMatchIndex].Value
 	if zeroInputFrom {
 		startVal = to[startDistanceAlongTrajectoryIndex].Value

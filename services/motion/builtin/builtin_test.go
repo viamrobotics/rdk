@@ -334,7 +334,7 @@ func TestObstacleReplanningGlobe(t *testing.T) {
 	}
 
 	extra := map[string]interface{}{"max_ik_solutions": 1, "smooth_iter": 1, "max_replans": 3}
-	extra_no_replan := map[string]interface{}{"max_replans": 0, "max_ik_solutions": 1, "smooth_iter": 1}
+	extraNoReplan := map[string]interface{}{"max_replans": 0, "max_ik_solutions": 1, "smooth_iter": 1}
 
 	i := 0
 	j := 0
@@ -357,7 +357,7 @@ func TestObstacleReplanningGlobe(t *testing.T) {
 				return []*viz.Object{detection}, nil
 			},
 			expectedSuccess: true,
-			extra: extra_no_replan,
+			extra:           extraNoReplan,
 		},
 		{
 			name: "ensure replan due to obstacle collision",
@@ -366,7 +366,7 @@ func TestObstacleReplanningGlobe(t *testing.T) {
 					i++
 					return []*viz.Object{}, nil
 				}
-				// The camera is parented to the base. Thus, this 
+				// The camera is parented to the base. Thus, this
 				obstaclePosition := spatialmath.NewPoseFromPoint(r3.Vector{X: 300, Y: 0, Z: 0})
 				box, err := spatialmath.NewBox(obstaclePosition, r3.Vector{X: 20, Y: 20, Z: 10}, "test-case-1")
 				test.That(t, err, test.ShouldBeNil)
@@ -378,7 +378,7 @@ func TestObstacleReplanningGlobe(t *testing.T) {
 			},
 			expectedSuccess: false,
 			expectedErr:     fmt.Sprintf("exceeded maximum number of replans: %d: plan failed", 0),
-			extra: extra_no_replan,
+			extra:           extraNoReplan,
 		},
 		{
 			name: "ensure replan reaching goal",
@@ -397,7 +397,7 @@ func TestObstacleReplanningGlobe(t *testing.T) {
 				return []*viz.Object{detection}, nil
 			},
 			expectedSuccess: true,
-			extra: extra,
+			extra:           extra,
 		},
 	}
 
