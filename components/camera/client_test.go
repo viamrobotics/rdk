@@ -3,6 +3,7 @@ package camera_test
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"image"
 	"image/color"
 	"image/png"
@@ -18,17 +19,25 @@ import (
 	"google.golang.org/grpc/metadata"
 
 	"go.viam.com/rdk/components/camera"
+	"go.viam.com/rdk/components/camera/fake"
 	"go.viam.com/rdk/components/camera/rtppassthrough"
+	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/gostream"
+	"go.viam.com/rdk/gostream/codec/opus"
+	"go.viam.com/rdk/gostream/codec/x264"
 	viamgrpc "go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
+	"go.viam.com/rdk/robot"
+	robotimpl "go.viam.com/rdk/robot/impl"
+	"go.viam.com/rdk/robot/web"
 	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
+	"go.viam.com/rdk/testutils/robottestutils"
 	rutils "go.viam.com/rdk/utils"
 	"go.viam.com/rdk/utils/contextutils"
 )
@@ -676,4 +685,92 @@ func TestRTPPassthroughWithoutWebRTC(t *testing.T) {
 
 		test.That(t, conn.Close(), test.ShouldBeNil)
 	})
+}
+
+func setupLocalRobot(
+	t *testing.T,
+	ctx context.Context,
+	cfg *config.Config,
+	logger logging.Logger,
+) robot.LocalRobot {
+	t.Helper()
+
+	// use a temporary home directory so that it doesn't collide with
+	// the user's/other tests' viam home directory
+	r, err := robotimpl.New(ctx, cfg, logger, robotimpl.WithViamHomeDir(t.TempDir()))
+	test.That(t, err, test.ShouldBeNil)
+	t.Cleanup(func() {
+		test.That(t, r.Close(ctx), test.ShouldBeNil)
+	})
+	return r
+}
+
+func setupRealRobot(t *testing.T, robotConfig *config.Config, logger logging.Logger) (context.Context, robot.LocalRobot, string, web.Service) {
+	t.Helper()
+
+	ctx := context.Background()
+	robot, err := robotimpl.RobotFromConfig(ctx, robotConfig, logger)
+	test.That(t, err, test.ShouldBeNil)
+
+	// We initialize with a stream config such that the stream server is capable of creating video stream and
+	// audio stream data.
+	webSvc := web.New(robot, logger, web.WithStreamConfig(gostream.StreamConfig{
+		AudioEncoderFactory: opus.NewEncoderFactory(),
+		VideoEncoderFactory: x264.NewEncoderFactory(),
+	}))
+	options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
+	err = webSvc.Start(ctx, options)
+	test.That(t, err, test.ShouldBeNil)
+
+	return ctx, robot, addr, webSvc
+}
+
+func TestMultiplexOverRemoteConnection(t *testing.T) {
+	logger := logging.NewTestLogger(t).Sublogger("TestWebReconfigure")
+
+	remoteCfg := &config.Config{Components: []resource.Config{
+		{
+			Name:  "rtpPassthroughCamera",
+			API:   resource.NewAPI("rdk", "component", "camera"),
+			Model: resource.DefaultModelFamily.WithModel("fake"),
+			ConvertedAttributes: &fake.Config{
+				RTPPassthrough: true,
+				Width:          100,
+				Height:         50,
+			},
+		},
+	}}
+
+	// Create a robot with a single fake camera.
+	remoteCtx, remoteRobot, addr, remoteWebSvc := setupRealRobot(t, remoteCfg, logger.Sublogger("remote"))
+	defer remoteRobot.Close(remoteCtx)
+	defer remoteWebSvc.Close(remoteCtx)
+
+	mainCfg := &config.Config{Remotes: []config.Remote{
+		{
+			Name:     "remote",
+			Address:  addr,
+			Insecure: true,
+		},
+	}}
+	mainCtx, mainRobot, _, mainWebSvc := setupRealRobot(t, mainCfg, logger.Sublogger("main"))
+	defer mainRobot.Close(mainCtx)
+	defer mainWebSvc.Close(mainCtx)
+
+	cameraClient, err := camera.FromRobot(mainRobot, "remote:rtpPassthroughCamera")
+	test.That(t, err, test.ShouldBeNil)
+
+	image, _, err := cameraClient.Images(mainCtx)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, image, test.ShouldNotBeNil)
+
+	sub, err := cameraClient.(rtppassthrough.Source).SubscribeRTP(mainCtx, 16, func(pkts []*rtp.Packet) {
+		fmt.Println("DBG. Pkts:", len(pkts))
+	})
+	test.That(t, err, test.ShouldBeNil)
+
+	time.Sleep(time.Second)
+
+	err = cameraClient.(rtppassthrough.Source).Unsubscribe(mainCtx, sub.ID)
+	test.That(t, err, test.ShouldBeNil)
 }
