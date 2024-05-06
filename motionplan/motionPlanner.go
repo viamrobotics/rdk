@@ -606,8 +606,6 @@ func CheckPlan(
 			}
 		}
 
-		fmt.Println(" ")
-
 		// Update total traveled distance after segment has been checked
 		totalTravelDistanceMM += segment.EndPosition.Point().Distance(segment.StartPosition.Point())
 	}
