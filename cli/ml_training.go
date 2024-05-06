@@ -16,7 +16,10 @@ func MLTrainingUploadAction(c *cli.Context) error {
 		return err
 	}
 
-	err = client.uploadTrainingScript(c, false)
+	err = client.uploadTrainingScript(c.Bool(mlTrainingFlagDraft), c.String(mlTrainingFlagType),
+		c.String(mlTrainingFlagFramework), c.String(generalFlagOrgID), c.String(mlTrainingFlagName),
+		c.String(mlTrainingFlagVersion), c.Path(mlTrainingFlagPath),
+	)
 	if err != nil {
 		return err
 	}
@@ -30,15 +33,8 @@ func MLTrainingUploadAction(c *cli.Context) error {
 	return nil
 }
 
-func (client *viamClient) uploadTrainingScript(c *cli.Context, willSubmit bool) error {
-
-	draft := c.Bool(mlTrainingFlagDraft)
-	if willSubmit {
-		draft = true
-	}
-
-	metadata, err := createMetadata(draft, c.String(mlTrainingFlagType),
-		c.String(mlTrainingFlagFramework))
+func (c *viamClient) uploadTrainingScript(draft bool, modelType, framework, orgID, name, version, path string) error {
+	metadata, err := createMetadata(draft, modelType, framework)
 	if err != nil {
 		return err
 	}
@@ -47,11 +43,11 @@ func (client *viamClient) uploadTrainingScript(c *cli.Context, willSubmit bool) 
 		return err
 	}
 
-	if _, err := client.uploadPackage(c.String(generalFlagOrgID),
-		c.String(mlTrainingFlagName),
-		c.String(mlTrainingFlagVersion),
+	if _, err := c.uploadPackage(orgID,
+		name,
+		version,
 		string(PackageTypeMLTraining),
-		c.Path(mlTrainingFlagPath),
+		path,
 		metadataStruct,
 	); err != nil {
 		return err

@@ -31,7 +31,9 @@ func DataSubmitCustomTrainingJob(c *cli.Context) error {
 		return err
 	}
 
-	err = client.uploadTrainingScript(c, true)
+	err = client.uploadTrainingScript(true, c.String(mlTrainingFlagType), c.String(mlTrainingFlagFramework),
+		c.String(generalFlagOrgID), c.String(mlTrainingFlagName), c.String(mlTrainingFlagVersion),
+		c.Path(mlTrainingFlagPath))
 	if err != nil {
 		return err
 	}
