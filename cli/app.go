@@ -61,7 +61,7 @@ const (
 	moduleBuildFlagNoBuild   = "no-build"
 
 	mlTrainingFlagPath      = "path"
-	mlTrainingFlagName      = "name"
+	mlTrainingFlagName      = "script-name"
 	mlTrainingFlagVersion   = "version"
 	mlTrainingFlagFramework = "framework"
 	mlTrainingFlagType      = "type"
@@ -854,6 +854,60 @@ var app = &cli.App{
 						},
 					},
 					Action: DataSubmitTrainingJob,
+				},
+				{
+					Name:  "submit-custom",
+					Usage: "submits custom training job on data in Viam cloud",
+					UsageText: createUsageText("train submit-custom",
+						[]string{datasetFlagDatasetID, generalFlagOrgID, trainFlagModelName,
+							mlTrainingFlagPath, mlTrainingFlagName}, true),
+					Flags: []cli.Flag{
+						&cli.StringFlag{
+							Name:     datasetFlagDatasetID,
+							Usage:    "dataset ID",
+							Required: true,
+						},
+						&cli.StringFlag{
+							Name:     trainFlagModelName,
+							Usage:    "name of ML model",
+							Required: true,
+						},
+						&cli.StringFlag{
+							Name:  trainFlagModelVersion,
+							Usage: "version of ML model. defaults to current timestamp if unspecified.",
+						},
+						&cli.StringFlag{
+							Name:     mlTrainingFlagPath,
+							Usage:    "path to ML training scripts for upload",
+							Required: true,
+						},
+						&cli.StringFlag{
+							Name:     generalFlagOrgID,
+							Required: true,
+							Usage:    "organization ID to upload and run training job",
+						},
+						&cli.StringFlag{
+							Name:     mlTrainingFlagName,
+							Usage:    "script name of the ML training script to upload",
+							Required: true,
+						},
+						&cli.StringFlag{
+							Name:     mlTrainingFlagVersion,
+							Usage:    "version of the ML training script to upload",
+							Required: false,
+						},
+						&cli.StringFlag{
+							Name:     mlTrainingFlagFramework,
+							Usage:    "framework of the ML training script to upload, can be: " + strings.Join(modelFrameworks, ", "),
+							Required: false,
+						},
+						&cli.StringFlag{
+							Name:     mlTrainingFlagType,
+							Usage:    "task type of the ML training script to upload, can be: " + strings.Join(modelTypes, ", "),
+							Required: false,
+						},
+					},
+					Action: DataSubmitCustomTrainingJob,
 				},
 				{
 					Name:      "get",

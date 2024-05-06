@@ -2,6 +2,7 @@ package cli
 
 import (
 	"context"
+	"fmt"
 	"slices"
 	"strings"
 	"time"
@@ -22,6 +23,30 @@ const (
 
 	trainingStatusPrefix = "TRAINING_STATUS_"
 )
+
+// DataSubmitTrainingJob is the corresponding action for 'data train submit-custom'.
+func DataSubmitCustomTrainingJob(c *cli.Context) error {
+	client, err := newViamClient(c)
+	if err != nil {
+		return err
+	}
+
+	err = client.uploadTrainingScript(c, true)
+	if err != nil {
+		return err
+	}
+	printf(c.App.Writer, "succesfully uploaded training script")
+	registryItemID := fmt.Sprintf("%s:%s", c.String(generalFlagOrgID), c.String(mlTrainingFlagName))
+	printf(c.App.Writer, registryItemID)
+	trainingJobID, err := client.dataSubmitCustomTrainingJob(
+		c.String(datasetFlagDatasetID), registryItemID, c.String(generalFlagOrgID),
+		c.String(trainFlagModelName), c.String(trainFlagModelVersion))
+	if err != nil {
+		return err
+	}
+	printf(c.App.Writer, "Submitted training job with ID %s", trainingJobID)
+	return nil
+}
 
 // DataSubmitTrainingJob is the corresponding action for 'data train submit'.
 func DataSubmitTrainingJob(c *cli.Context) error {
@@ -61,6 +86,30 @@ func (c *viamClient) dataSubmitTrainingJob(datasetID, orgID, modelName, modelVer
 			DatasetId:      datasetID,
 			OrganizationId: orgID, ModelName: modelName, ModelVersion: modelVersion,
 			ModelType: mltrainingpb.ModelType(modelTypeEnum), Tags: labels,
+		})
+	if err != nil {
+		return "", errors.Wrapf(err, "received error from server")
+	}
+	return resp.Id, nil
+}
+
+// dataSubmitTrainingJob trains on data with the specified filter.
+func (c *viamClient) dataSubmitCustomTrainingJob(datasetID, registryItemID, orgID, modelName,
+	modelVersion string) (string, error) {
+	if err := c.ensureLoggedIn(); err != nil {
+		return "", err
+	}
+	if modelVersion == "" {
+		modelVersion = time.Now().Format("2006-01-02T15-04-05")
+	}
+
+	resp, err := c.mlTrainingClient.SubmitCustomTrainingJob(context.Background(),
+		&mltrainingpb.SubmitCustomTrainingJobRequest{
+			DatasetId:      datasetID,
+			RegistryItemId: registryItemID,
+			OrganizationId: orgID,
+			ModelName:      modelName,
+			ModelVersion:   modelVersion,
 		})
 	if err != nil {
 		return "", errors.Wrapf(err, "received error from server")
