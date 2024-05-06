@@ -88,7 +88,15 @@ func newTestContext(t *testing.T, flags map[string]any) *cli.Context {
 // setup creates a new cli.Context and viamClient with fake auth and the passed
 // in AppServiceClient and DataServiceClient. It also returns testWriters that capture Stdout and
 // Stdin.
-func setup(asc apppb.AppServiceClient, dataClient datapb.DataServiceClient, buildClient buildpb.BuildServiceClient, endUserClient apppb.EndUserServiceClient, defaultFlags map[string]any, authMethod string, cliArgs ...string) (*cli.Context, *viamClient, *testWriter, *testWriter) {
+func setup(
+	asc apppb.AppServiceClient,
+	dataClient datapb.DataServiceClient,
+	buildClient buildpb.BuildServiceClient,
+	endUserClient apppb.EndUserServiceClient,
+	defaultFlags map[string]any,
+	authMethod string,
+	cliArgs ...string,
+) (*cli.Context, *viamClient, *testWriter, *testWriter) {
 	out := &testWriter{}
 	errOut := &testWriter{}
 	flags := populateFlags(defaultFlags, cliArgs...)
