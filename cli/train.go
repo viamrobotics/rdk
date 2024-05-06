@@ -35,9 +35,8 @@ func DataSubmitCustomTrainingJob(c *cli.Context) error {
 	if err != nil {
 		return err
 	}
-	printf(c.App.Writer, "succesfully uploaded training script")
 	registryItemID := fmt.Sprintf("%s:%s", c.String(generalFlagOrgID), c.String(mlTrainingFlagName))
-	printf(c.App.Writer, registryItemID)
+	printf(c.App.Writer, "succesfully uploaded training script to %s", registryItemID)
 	trainingJobID, err := client.dataSubmitCustomTrainingJob(
 		c.String(datasetFlagDatasetID), registryItemID, c.String(generalFlagOrgID),
 		c.String(trainFlagModelName), c.String(trainFlagModelVersion))
