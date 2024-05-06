@@ -116,6 +116,28 @@ func TestInterpolate(t *testing.T) {
 			expected: []referenceframe.Input{{0}, {math.Pi / 2}, {100}, {100}},
 			amount: 0,
 		},
+		// TODO (pl): All of these will change with RSDK-7515
+		{
+			name: "Negative interpolation 1",
+			inputFrom: zeroInput,
+			inputTo: []referenceframe.Input{{0}, {math.Pi / 2}, {0}, {-200}},
+			expected: []referenceframe.Input{{0}, {math.Pi / 2}, {-120}, {-200}},
+			amount: 0.4,
+		},
+		{
+			name: "Negative interpolation 2",
+			inputFrom: []referenceframe.Input{{0}, {math.Pi / 2}, {-200}, {-200}},
+			inputTo: []referenceframe.Input{{0}, {math.Pi / 2}, {0}, {-200}},
+			expected: []referenceframe.Input{{0}, {math.Pi / 2}, {-120}, {-200}},
+			amount: 0.4,
+		},
+		{
+			name: "Negative interpolation nonzero starting point",
+			inputFrom: []referenceframe.Input{{0}, {math.Pi / 2}, {-100}, {-200}},
+			inputTo: []referenceframe.Input{{0}, {math.Pi / 2}, {0}, {-200}},
+			expected: []referenceframe.Input{{0}, {math.Pi / 2}, {-60}, {-100}},
+			amount: 0.4,
+		},
 	}
 
 	testFn := func(t *testing.T, tc testCase) {

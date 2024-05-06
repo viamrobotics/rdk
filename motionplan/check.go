@@ -175,8 +175,6 @@ func checkPlanRelative(
 			return err
 		}
 		thisArcEndPose := spatialmath.Compose(thisArcEndPoseInWorld.Pose(), errorState)
-		// ~ fmt.Println(plan.Trajectory())
-		// ~ fmt.Println("i", plan.Trajectory()[i])
 		// Starting inputs for relative frames should be all-zero
 		startInputs := map[string][]referenceframe.Input{}
 		for k, v := range plan.Trajectory()[i] {
@@ -199,7 +197,6 @@ func checkPlanRelative(
 	// able to call CheckStateConstraintsAcrossSegment directly.
 	var totalTravelDistanceMM float64
 	for _, segment := range segments {
-		fmt.Println("segment", segment)
 		interpolatedConfigurations, err := interpolateSegment(segment, sfPlanner.planOpts.Resolution)
 		if err != nil {
 			return err

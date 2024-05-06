@@ -730,8 +730,6 @@ func (ms *builtIn) createBaseMoveRequest(
 	obstaclePollingFreq := time.Duration(math.MaxInt64)
 	if motionCfg.obstaclePollingFreqHz > 0 {
 		obstaclePollingFreq = time.Duration(1000/motionCfg.obstaclePollingFreqHz) * time.Millisecond
-		fmt.Println("obstaclePollingFreqHz", motionCfg.obstaclePollingFreqHz)
-		fmt.Println("obstaclePollingFreq", obstaclePollingFreq)
 	}
 
 	mr := &moveRequest{
