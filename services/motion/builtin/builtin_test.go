@@ -333,7 +333,7 @@ func TestObstacleReplanningGlobe(t *testing.T) {
 		PositionPollingFreqHz: 1, ObstaclePollingFreqHz: 20, PlanDeviationMM: epsilonMM, ObstacleDetectors: obstacleDetectorSlice,
 	}
 
-	extra := map[string]interface{}{"max_replans": 1, "max_ik_solutions": 1, "smooth_iter": 1}
+	extra := map[string]interface{}{"max_ik_solutions": 1, "smooth_iter": 1, "max_replans": 2}
 	extra_no_replan := map[string]interface{}{"max_replans": 0, "max_ik_solutions": 1, "smooth_iter": 1}
 
 	i := 0
@@ -366,6 +366,7 @@ func TestObstacleReplanningGlobe(t *testing.T) {
 					i++
 					return []*viz.Object{}, nil
 				}
+				// The camera is parented to the base. Thus, this 
 				obstaclePosition := spatialmath.NewPoseFromPoint(r3.Vector{X: 300, Y: 0, Z: 0})
 				box, err := spatialmath.NewBox(obstaclePosition, r3.Vector{X: 20, Y: 20, Z: 10}, "test-case-1")
 				test.That(t, err, test.ShouldBeNil)

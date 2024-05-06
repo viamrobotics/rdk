@@ -195,6 +195,10 @@ func (mr *moveRequest) getTransientDetections(
 		)
 		cameraToBase = cameraOrigin
 	}
+	baseToWorld, err := mr.kinematicBase.CurrentPosition(ctx)
+	if err != nil {
+		return nil, err
+	}
 
 	// transformed detections
 	transformedGeoms := []spatialmath.Geometry{}
@@ -211,7 +215,8 @@ func (mr *moveRequest) getTransientDetections(
 		relativeGeom := geometry.Transform(cameraToBase.Pose())
 
 		// apply any transformation on the geometry defined a priori by the caller
-		transformedGeom := relativeGeom.Transform(transformBy)
+		transformedGeomInBaseFrame := relativeGeom.Transform(transformBy)
+		transformedGeom := transformedGeomInBaseFrame.Transform(baseToWorld.Pose())
 		transformedGeoms = append(transformedGeoms, transformedGeom)
 	}
 	return referenceframe.NewGeometriesInFrame(referenceframe.World, transformedGeoms), nil

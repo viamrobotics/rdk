@@ -7,6 +7,7 @@ import (
 	"errors"
 	"sync"
 	"time"
+	"fmt"
 
 	"go.viam.com/rdk/components/base/fake"
 	"go.viam.com/rdk/logging"
@@ -262,6 +263,7 @@ func (fk *fakePTGKinematics) GoToInputs(ctx context.Context, inputSteps ...[]ref
 	}
 
 	for i, inputs := range inputSteps {
+		fmt.Println("next inputs", inputs)
 		fk.positionlock.RLock()
 		startingPose := fk.origin
 		fk.positionlock.RUnlock()

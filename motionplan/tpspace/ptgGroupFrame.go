@@ -177,7 +177,11 @@ func (pf *ptgGroupFrame) Transform(inputs []referenceframe.Input) (spatialmath.P
 		if err != nil {
 			return nil, err
 		}
-		pose = spatialmath.PoseBetween(startPose, pose)
+		if inputs[endDistanceAlongTrajectoryIndex].Value < 0 {
+			pose = spatialmath.PoseBetweenInverse(startPose, pose)
+		} else {
+			pose = spatialmath.PoseBetween(startPose, pose)
+		}
 	}
 
 	return pose, nil
@@ -210,9 +214,10 @@ func (pf *ptgGroupFrame) Interpolate(from, to []referenceframe.Input, by float64
 		if !zeroInputFrom {
 			if i == endDistanceAlongTrajectoryIndex {
 				// When interpolating, end distance is the only thing allowed to differ
-				break
+				continue
 			}
 			if input.Value != to[i].Value {
+				fmt.Println("from, to", from, to)
 				return nil, NewNonMatchingInputError(from[i].Value, to[i].Value)
 			}
 		}
