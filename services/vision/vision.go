@@ -4,7 +4,6 @@ package vision
 
 import (
 	"context"
-	"fmt"
 	"go.viam.com/rdk/vision/viscapture"
 	"image"
 
@@ -287,7 +286,6 @@ func (vm *vizModel) GetObjectPointClouds(ctx context.Context, cameraName string,
 }
 
 func (vm *vizModel) CaptureAllFromCamera(ctx context.Context, cameraName string, returnImage bool, returnClass bool, returnDet bool, returnObjPCD bool, extra map[string]interface{}) (viscapture.VisCapture, error) {
-	fmt.Println("REACHED VISION.GO CAPTUREALL()")
 	ctx, span := trace.StartSpan(ctx, "service::vision::ClassificationsFromCamera::"+vm.Named.Name().String())
 	defer span.End()
 	cam, err := camera.FromRobot(vm.r, cameraName)

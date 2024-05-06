@@ -272,7 +272,6 @@ func (c *client) CaptureAllFromCamera(
 	returnObject bool,
 	extra map[string]interface{},
 ) (viscapture.VisCapture, error) {
-	fmt.Println("REACHED CLIENT.GO CAPTUREALL()")
 	ctx, span := trace.StartSpan(ctx, "service::vision::client::ClassificationsFromCamera")
 	defer span.End()
 	ext, err := protoutils.StructToStructPb(extra)

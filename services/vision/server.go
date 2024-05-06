@@ -10,6 +10,7 @@ import (
 	pb "go.viam.com/api/service/vision/v1"
 	"go.viam.com/rdk/vision/classification"
 	"go.viam.com/rdk/vision/objectdetection"
+	"image"
 
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/protoutils"
@@ -263,22 +264,35 @@ func (server *serviceServer) CaptureAllFromCamera(ctx context.Context, req *pb.C
 		return nil, err
 	}
 	capt, err := svc.CaptureAllFromCamera(ctx, req.CameraName, req.ReturnImage, req.ReturnDetections, req.ReturnClassifications, req.ReturnObjectPointClouds, req.Extra.AsMap())
+	if err != nil {
+		return nil, err
+	}
 
 	//objectsPCD
 	objProto, err := segmentsToProto(req.CameraName, capt.PointCloudObject())
+	if err != nil {
+		return nil, err
+	}
 
-	img := capt.Image()
-	imgBytes, err := rimage.EncodeImage(ctx, img, utils.MimeTypeJPEG)
+	imgProto, err := imageToProto(ctx, capt.Image(), utils.MimeTypeJPEG)
 	if err != nil {
 		return nil, err
 	}
 
 	return &pb.CaptureAllFromCameraResponse{
-		Image:           &v11.Image{Image: imgBytes},
+		Image:           imgProto,
 		Detections:      detsToProto(capt.Detections()),
 		Classifications: clasToProto(capt.Classifications()),
 		Objects:         objProto,
 	}, nil
+}
+
+func imageToProto(ctx context.Context, img image.Image, mimeType string) (*v11.Image, error) {
+	imgBytes, err := rimage.EncodeImage(ctx, img, mimeType)
+	if err != nil {
+		return nil, err
+	}
+	return &v11.Image{Image: imgBytes}, nil
 }
 
 // DoCommand receives arbitrary commands.
