@@ -7,7 +7,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/pion/mediadevices/pkg/prop"
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
@@ -88,17 +87,45 @@ type VideoSource interface {
 	projectorProvider
 	// Images is used for getting simultaneous images from different imagers,
 	// along with associated metadata (just timestamp for now). It's not for getting a time series of images from the same imager.
+	//
+	//    myCamera, err := camera.FromRobot(machine, "my_camera")
+	//
+	//    images, metadata, err := myCamera.Images(context.Background())
 	Images(ctx context.Context) ([]NamedImage, resource.ResponseMetadata, error)
 	// Stream returns a stream that makes a best effort to return consecutive images
 	// that may have a MIME type hint dictated in the context via gostream.WithMIMETypeHint.
+	//
+	//    myCamera, err := camera.FromRobot(machine, "my_camera")
+	//
+	//    // gets the stream from a camera
+	//    stream, err := myCamera.Stream(context.Background())
+	//
+	//    // gets an image from the camera stream
+	//    img, release, err := stream.Next(context.Background())
+	//    defer release()
 	Stream(ctx context.Context, errHandlers ...gostream.ErrorHandler) (gostream.VideoStream, error)
 
 	// NextPointCloud returns the next immediately available point cloud, not necessarily one
 	// a part of a sequence. In the future, there could be streaming of point clouds.
+	//
+	//    myCamera, err := camera.FromRobot(machine, "my_camera")
+	//
+	//    pointCloud, err := myCamera.NextPointCloud(context.Background())
 	NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error)
 	// Properties returns properties that are intrinsic to the particular
 	// implementation of a camera
+	//
+	//    myCamera, err := camera.FromRobot(machine, "my_camera")
+	//
+	//    // gets the properties from a camera
+	//    properties, err := myCamera.Properties(context.Background())
 	Properties(ctx context.Context) (Properties, error)
+
+	// Close shuts down the resource and prevents further use
+	//
+	//    myCamera, err := camera.FromRobot(machine, "my_camera")
+	//
+	//    err = myCamera.Close(ctx)
 	Close(ctx context.Context) error
 }
 
@@ -150,11 +177,11 @@ func (vs *sourceBasedCamera) SubscribeRTP(
 	ctx context.Context,
 	bufferSize int,
 	packetsCB rtppassthrough.PacketCallback,
-) (rtppassthrough.SubscriptionID, error) {
+) (rtppassthrough.Subscription, error) {
 	if vs.rtpPassthroughSource != nil {
 		return vs.rtpPassthroughSource.SubscribeRTP(ctx, bufferSize, packetsCB)
 	}
-	return uuid.Nil, errors.New("SubscribeRTP unimplemented")
+	return rtppassthrough.NilSubscription, errors.New("SubscribeRTP unimplemented")
 }
 
 func (vs *sourceBasedCamera) Unsubscribe(ctx context.Context, id rtppassthrough.SubscriptionID) error {
@@ -214,11 +241,11 @@ func (vs *videoSource) SubscribeRTP(
 	ctx context.Context,
 	bufferSize int,
 	packetsCB rtppassthrough.PacketCallback,
-) (rtppassthrough.SubscriptionID, error) {
+) (rtppassthrough.Subscription, error) {
 	if vs.rtpPassthroughSource != nil {
 		return vs.rtpPassthroughSource.SubscribeRTP(ctx, bufferSize, packetsCB)
 	}
-	return uuid.Nil, errors.New("SubscribeRTP unimplemented")
+	return rtppassthrough.NilSubscription, errors.New("SubscribeRTP unimplemented")
 }
 
 func (vs *videoSource) Unsubscribe(ctx context.Context, id rtppassthrough.SubscriptionID) error {

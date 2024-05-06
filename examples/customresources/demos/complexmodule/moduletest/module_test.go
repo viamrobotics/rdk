@@ -16,7 +16,6 @@ import (
 	geo "github.com/kellydunn/golang-geo"
 	"go.viam.com/test"
 	goutils "go.viam.com/utils"
-	"go.viam.com/utils/pexec"
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/components/base"
@@ -48,18 +47,7 @@ func TestComplexModule(t *testing.T) {
 		port = portLocal
 		test.That(t, err, test.ShouldBeNil)
 
-		serverPath := testutils.BuildTempModule(t, "web/cmd/server/")
-
-		// start the viam server with a temporary home directory so that it doesn't collide with
-		// the user's real viam home directory
-		testTempHome := t.TempDir()
-		server := pexec.NewManagedProcess(pexec.ProcessConfig{
-			Name:        serverPath,
-			Args:        []string{"-config", cfgFilename},
-			CWD:         utils.ResolveFile("./"),
-			Environment: map[string]string{"HOME": testTempHome},
-			Log:         true,
-		}, logger.AsZap())
+		server := robottestutils.ServerAsSeparateProcess(t, cfgFilename, logger)
 
 		err = server.Start(context.Background())
 		test.That(t, err, test.ShouldBeNil)
@@ -91,7 +79,8 @@ func TestComplexModule(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, ret1, test.ShouldBeFalse)
 
-		ret2, err := giz.DoOneClientStream(context.Background(), []string{"hello", "arg1", "foo"})
+		// also tests that the ForeignServiceHandler does not drop the first message
+		ret2, err := giz.DoOneClientStream(context.Background(), []string{"hello", "arg1", "arg1"})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, ret2, test.ShouldBeFalse)
 
@@ -105,11 +94,11 @@ func TestComplexModule(t *testing.T) {
 
 		ret3, err = giz.DoOneBiDiStream(context.Background(), []string{"hello", "arg1", "foo"})
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, ret3, test.ShouldResemble, []bool{true, false})
+		test.That(t, ret3, test.ShouldResemble, []bool{false, true, false})
 
 		ret3, err = giz.DoOneBiDiStream(context.Background(), []string{"arg1", "arg1", "arg1"})
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, ret3, test.ShouldResemble, []bool{true, true})
+		test.That(t, ret3, test.ShouldResemble, []bool{true, true, true})
 	})
 
 	// Summation is a custom service model and API.
@@ -372,18 +361,7 @@ func TestValidationFailure(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		port = localPort
 
-		serverPath := testutils.BuildTempModule(t, "web/cmd/server/")
-
-		// start the viam server with a temporary home directory so that it doesn't collide with
-		// the user's real viam home directory
-		testTempHome := t.TempDir()
-		server := pexec.NewManagedProcess(pexec.ProcessConfig{
-			Name:        serverPath,
-			Args:        []string{"-config", cfgFilename},
-			CWD:         utils.ResolveFile("./"),
-			Environment: map[string]string{"HOME": testTempHome},
-			Log:         true,
-		}, logger.AsZap())
+		server := robottestutils.ServerAsSeparateProcess(t, cfgFilename, logger)
 
 		err = server.Start(context.Background())
 		test.That(t, err, test.ShouldBeNil)

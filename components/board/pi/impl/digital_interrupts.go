@@ -85,19 +85,9 @@ func (i *BasicDigitalInterrupt) Value(ctx context.Context, extra map[string]inte
 	return count, nil
 }
 
-// Ticks is really just for testing.
-func (i *BasicDigitalInterrupt) Ticks(ctx context.Context, num int, now uint64) error {
-	for x := 0; x < num; x++ {
-		if err := i.Tick(ctx, true, now+uint64(x)); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
 // Tick records an interrupt and notifies any interested callbacks. See comment on
 // the DigitalInterrupt interface for caveats.
-func (i *BasicDigitalInterrupt) Tick(ctx context.Context, high bool, nanoseconds uint64) error {
+func Tick(ctx context.Context, i *BasicDigitalInterrupt, high bool, nanoseconds uint64) error {
 	if high {
 		atomic.AddInt64(&i.count, 1)
 	}
@@ -115,14 +105,14 @@ func (i *BasicDigitalInterrupt) Tick(ctx context.Context, high bool, nanoseconds
 }
 
 // AddCallback adds a listener for interrupts.
-func (i *BasicDigitalInterrupt) AddCallback(c chan board.Tick) {
+func AddCallback(i *BasicDigitalInterrupt, c chan board.Tick) {
 	i.mu.Lock()
 	defer i.mu.Unlock()
 	i.callbacks = append(i.callbacks, c)
 }
 
 // RemoveCallback removes a listener for interrupts.
-func (i *BasicDigitalInterrupt) RemoveCallback(c chan board.Tick) {
+func RemoveCallback(i *BasicDigitalInterrupt, c chan board.Tick) {
 	i.mu.Lock()
 	defer i.mu.Unlock()
 	for id := range i.callbacks {
@@ -141,11 +131,6 @@ func (i *BasicDigitalInterrupt) Name() string {
 	i.mu.Lock()
 	defer i.mu.Unlock()
 	return i.cfg.Name
-}
-
-// Close does nothing.
-func (i *BasicDigitalInterrupt) Close(ctx context.Context) error {
-	return nil
 }
 
 // Reconfigure reconfigures this digital interrupt.
@@ -176,9 +161,9 @@ func (i *ServoDigitalInterrupt) Value(ctx context.Context, extra map[string]inte
 	return v, nil
 }
 
-// Tick records the time between two successive low signals (pulse width). How it is
+// ServoTick records the time between two successive low signals (pulse width). How it is
 // interpreted is based off the consumer of Value.
-func (i *ServoDigitalInterrupt) Tick(ctx context.Context, high bool, now uint64) error {
+func ServoTick(ctx context.Context, i *ServoDigitalInterrupt, high bool, now uint64) error {
 	i.mu.RLock()
 	defer i.mu.RUnlock()
 	diff := now - i.last
@@ -197,20 +182,6 @@ func (i *ServoDigitalInterrupt) Tick(ctx context.Context, high bool, now uint64)
 	return nil
 }
 
-// AddCallback currently panics.
-func (i *ServoDigitalInterrupt) AddCallback(c chan board.Tick) {
-	i.mu.Lock()
-	defer i.mu.Unlock()
-	panic("servos can't have callback")
-}
-
-// RemoveCallback currently panics.
-func (i *ServoDigitalInterrupt) RemoveCallback(c chan board.Tick) {
-	i.mu.Lock()
-	defer i.mu.Unlock()
-	panic("servos can't have callback")
-}
-
 // Name returns the name of the interrupt.
 func (i *ServoDigitalInterrupt) Name() string {
 	i.mu.Lock()
@@ -224,10 +195,5 @@ func (i *ServoDigitalInterrupt) Reconfigure(conf DigitalInterruptConfig) error {
 	defer i.mu.Unlock()
 
 	i.cfg = conf
-	return nil
-}
-
-// Close does nothing.
-func (i *ServoDigitalInterrupt) Close(ctx context.Context) error {
 	return nil
 }

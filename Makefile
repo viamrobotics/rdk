@@ -2,7 +2,6 @@ BIN_OUTPUT_PATH = bin/$(shell uname -s)-$(shell uname -m)
 
 TOOL_BIN = bin/gotools/$(shell uname -s)-$(shell uname -m)
 
-NDK_ROOT ?= etc/android-ndk-r26
 BUILD_CHANNEL ?= local
 
 PATH_WITH_TOOLS="`pwd`/$(TOOL_BIN):`pwd`/node_modules/.bin:${PATH}"
@@ -10,7 +9,8 @@ PATH_WITH_TOOLS="`pwd`/$(TOOL_BIN):`pwd`/node_modules/.bin:${PATH}"
 GIT_REVISION = $(shell git rev-parse HEAD | tr -d '\n')
 TAG_VERSION?=$(shell git tag --points-at | sort -Vr | head -n1)
 DATE_COMPILED?=$(shell date +'%Y-%m-%d')
-LDFLAGS = -ldflags "-s -w -extld="$(shell pwd)/etc/ld_wrapper.sh" -X 'go.viam.com/rdk/config.Version=${TAG_VERSION}' -X 'go.viam.com/rdk/config.GitRevision=${GIT_REVISION}' -X 'go.viam.com/rdk/config.DateCompiled=${DATE_COMPILED}'"
+COMMON_LDFLAGS = -s -w -X 'go.viam.com/rdk/config.Version=${TAG_VERSION}' -X 'go.viam.com/rdk/config.GitRevision=${GIT_REVISION}' -X 'go.viam.com/rdk/config.DateCompiled=${DATE_COMPILED}'
+LDFLAGS = -ldflags "-extld=$(shell pwd)/etc/ld_wrapper.sh $(COMMON_LDFLAGS)"
 ifeq ($(shell command -v dpkg >/dev/null && dpkg --print-architecture),armhf)
 GOFLAGS += -tags=no_tflite
 endif
@@ -110,22 +110,12 @@ server-static: build-web
 	rm -f $(BIN_OUTPUT_PATH)/viam-server
 	VIAM_STATIC_BUILD=1 GOFLAGS=$(GOFLAGS) go build $(LDFLAGS) -o $(BIN_OUTPUT_PATH)/viam-server web/cmd/server/main.go
 
+full-static: build-web
+	mkdir -p bin/static
+	go build -tags no_cgo,osusergo,netgo -ldflags="-extldflags=-static $(COMMON_LDFLAGS)" -o bin/static/viam-server-$(shell go env GOARCH) ./web/cmd/server
+
 server-static-compressed: server-static
 	upx --best --lzma $(BIN_OUTPUT_PATH)/viam-server
-
-$(NDK_ROOT):
-	# download ndk (used by server-android)
-	cd etc && wget https://dl.google.com/android/repository/android-ndk-r26-linux.zip
-	cd etc && unzip android-ndk-r26-linux.zip
-
-.PHONY: server-android
-server-android:
-	GOOS=android GOARCH=arm64 CGO_ENABLED=1 \
-		CC=$(shell realpath $(NDK_ROOT)/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android30-clang) \
-		go build -v \
-		-tags no_cgo \
-		-o bin/viam-server-$(BUILD_CHANNEL)-android-aarch64 \
-		./web/cmd/server
 
 clean-all:
 	git clean -fxd

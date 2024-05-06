@@ -124,7 +124,8 @@ func (r *localRobot) PackageManager() packages.Manager {
 	return r.packageManager
 }
 
-// Close attempts to cleanly close down all constituent parts of the robot.
+// Close attempts to cleanly close down all constituent parts of the robot. It does not wait on reconfigureWorkers,
+// as they may be running outside code and have unexpected behavior.
 func (r *localRobot) Close(ctx context.Context) error {
 	// we will stop and close web ourselves since modules need it to be
 	// removed properly and in the right order, so grab it before its removed
@@ -460,13 +461,18 @@ func newWithResources(
 	if cfg.Cloud != nil {
 		cloudID = cfg.Cloud.ID
 	}
+
+	homeDir := config.ViamDotDir
+	if rOpts.viamHomeDir != "" {
+		homeDir = rOpts.viamHomeDir
+	}
 	// Once web service is started, start module manager
 	r.manager.startModuleManager(
 		closeCtx,
 		r.webSvc.ModuleAddress(),
 		r.removeOrphanedResources,
 		cfg.UntrustedEnv,
-		config.ViamDotDir,
+		homeDir,
 		cloudID,
 		logger,
 	)
@@ -1198,7 +1204,7 @@ func (r *localRobot) Reconfigure(ctx context.Context, newConfig *config.Config) 
 	if allErrs != nil {
 		r.logger.CErrorw(ctx, "The following errors were gathered during reconfiguration", "errors", allErrs)
 	} else {
-		r.logger.CInfow(ctx, "Robot successfully (re)configured")
+		r.logger.CInfow(ctx, "Robot (re)configured")
 	}
 }
 

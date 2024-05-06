@@ -14,7 +14,6 @@ import (
 
 	"go.viam.com/test"
 	goutils "go.viam.com/utils"
-	"go.viam.com/utils/pexec"
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/config"
@@ -28,7 +27,7 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
-func TestComplexModules(t *testing.T) {
+func TestMultipleModules(t *testing.T) {
 	logger, observer := logging.NewObservedTestLogger(t)
 
 	var port int
@@ -39,18 +38,7 @@ func TestComplexModules(t *testing.T) {
 		port = portLocal
 		test.That(t, err, test.ShouldBeNil)
 
-		serverPath := testutils.BuildTempModule(t, "web/cmd/server/")
-
-		// start the viam server with a temporary home directory so that it doesn't collide with
-		// the user's real viam home directory
-		testTempHome := t.TempDir()
-		server := pexec.NewManagedProcess(pexec.ProcessConfig{
-			Name:        serverPath,
-			Args:        []string{"-config", cfgFilename},
-			CWD:         utils.ResolveFile("./"),
-			Environment: map[string]string{"HOME": testTempHome},
-			Log:         true,
-		}, logger.AsZap())
+		server := robottestutils.ServerAsSeparateProcess(t, cfgFilename, logger)
 
 		err = server.Start(context.Background())
 		test.That(t, err, test.ShouldBeNil)
@@ -82,7 +70,12 @@ func TestComplexModules(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, ret1, test.ShouldBeTrue)
 
+		// also tests that the ForeignServiceHandler does not drop the first message
 		ret2, err := giz.DoOneClientStream(context.Background(), []string{"1.0", "2.0", "3.0"})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, ret2, test.ShouldBeFalse)
+
+		ret2, err = giz.DoOneClientStream(context.Background(), []string{"0", "2.0", "3.0"})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, ret2, test.ShouldBeTrue)
 
@@ -92,7 +85,7 @@ func TestComplexModules(t *testing.T) {
 
 		ret3, err = giz.DoOneBiDiStream(context.Background(), []string{"1.0", "2.0", "3.0"})
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, ret3, test.ShouldResemble, []bool{true, true})
+		test.That(t, ret3, test.ShouldResemble, []bool{true, true, true})
 
 		ret4, err := giz.DoTwo(context.Background(), true)
 		test.That(t, err, test.ShouldBeNil)

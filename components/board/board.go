@@ -53,7 +53,7 @@ type Board interface {
 	AnalogByName(name string) (Analog, error)
 
 	// DigitalInterruptByName returns a digital interrupt by name.
-	DigitalInterruptByName(name string) (DigitalInterrupt, bool)
+	DigitalInterruptByName(name string) (DigitalInterrupt, error)
 
 	// GPIOPinByName returns a GPIOPin by name.
 	GPIOPinByName(name string) (GPIOPin, error)

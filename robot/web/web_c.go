@@ -1,4 +1,4 @@
-//go:build !no_cgo
+//go:build !no_cgo || android
 
 package web
 
@@ -12,7 +12,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/pion/rtp"
 	"github.com/pkg/errors"
 	streampb "go.viam.com/api/stream/v1"
 	"go.viam.com/utils"
@@ -20,7 +19,6 @@ import (
 
 	"go.viam.com/rdk/components/audioinput"
 	"go.viam.com/rdk/components/camera"
-	"go.viam.com/rdk/components/camera/rtppassthrough"
 	"go.viam.com/rdk/gostream"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
@@ -29,14 +27,6 @@ import (
 	webstream "go.viam.com/rdk/robot/web/stream"
 	rutils "go.viam.com/rdk/utils"
 )
-
-var (
-	subscribeRTPTimeout            = time.Second
-	unsubscribeTimeout             = time.Second
-	errH264PassthroughNotSupported = errors.New("h264PassthroughNotSupported")
-)
-
-const rtpBufferSize int = 512
 
 // StreamServer manages streams and displays.
 type StreamServer struct {
@@ -106,10 +96,17 @@ func (svc *webService) addNewStreams(ctx context.Context) error {
 		return nil
 	}
 
-	newStream := func(name string) (gostream.Stream, bool, error) {
+	newStream := func(name string, isVideo bool) (gostream.Stream, bool, error) {
 		// Configure new stream
-		config := *svc.opts.streamConfig
-		config.Name = name
+		config := gostream.StreamConfig{
+			Name: name,
+		}
+
+		if isVideo {
+			config.VideoEncoderFactory = svc.opts.streamConfig.VideoEncoderFactory
+		} else {
+			config.AudioEncoderFactory = svc.opts.streamConfig.AudioEncoderFactory
+		}
 		stream, err := svc.streamServer.Server.NewStream(config)
 
 		// Skip if stream is already registered, otherwise raise any other errors
@@ -127,7 +124,8 @@ func (svc *webService) addNewStreams(ctx context.Context) error {
 	}
 
 	for name, source := range svc.videoSources {
-		stream, alreadyRegistered, err := newStream(name)
+		const isVideo = true
+		stream, alreadyRegistered, err := newStream(name, isVideo)
 		if err != nil {
 			return err
 		} else if alreadyRegistered {
@@ -138,7 +136,8 @@ func (svc *webService) addNewStreams(ctx context.Context) error {
 	}
 
 	for name, source := range svc.audioSources {
-		stream, alreadyRegistered, err := newStream(name)
+		const isVideo = false
+		stream, alreadyRegistered, err := newStream(name, isVideo)
 		if err != nil {
 			return err
 		} else if alreadyRegistered {
@@ -161,15 +160,16 @@ func (svc *webService) makeStreamServer(ctx context.Context) (*StreamServer, err
 		if len(svc.videoSources) != 0 || len(svc.audioSources) != 0 {
 			svc.logger.Debug("not starting streams due to no stream config being set")
 		}
-		noopServer, err := webstream.NewServer(streams...)
+		noopServer, err := webstream.NewServer(streams, svc.r, svc.logger)
 		return &StreamServer{noopServer, false}, err
 	}
 
 	addStream := func(streams []gostream.Stream, name string, isVideo bool) ([]gostream.Stream, error) {
-		config := *svc.opts.streamConfig
-		config.Name = name
+		config := gostream.StreamConfig{
+			Name: name,
+		}
 		if isVideo {
-			config.AudioEncoderFactory = nil
+			config.VideoEncoderFactory = svc.opts.streamConfig.VideoEncoderFactory
 
 			// set TargetFrameRate to the framerate of the video source if available
 			props, err := svc.videoSources[name].MediaProperties(ctx)
@@ -190,7 +190,7 @@ func (svc *webService) makeStreamServer(ctx context.Context) (*StreamServer, err
 				return streams, nil
 			}
 		} else {
-			config.VideoEncoderFactory = nil
+			config.AudioEncoderFactory = svc.opts.streamConfig.AudioEncoderFactory
 		}
 		stream, err := gostream.NewStream(config)
 		if err != nil {
@@ -215,7 +215,7 @@ func (svc *webService) makeStreamServer(ctx context.Context) (*StreamServer, err
 		streamTypes = append(streamTypes, false)
 	}
 
-	streamServer, err := webstream.NewServer(streams...)
+	streamServer, err := webstream.NewServer(streams, svc.r, svc.logger)
 	if err != nil {
 		return nil, err
 	}
@@ -265,127 +265,16 @@ func (svc *webService) propertiesFromStream(ctx context.Context, stream gostream
 	return cam.Properties(ctx)
 }
 
-func (svc *webService) startVideoStream(
-	ctx context.Context,
-	source gostream.VideoSource,
-	stream gostream.Stream,
-) {
-	svc.webWorkers.Add(1)
-	utils.ManagedGo(func() {
+func (svc *webService) startVideoStream(ctx context.Context, source gostream.VideoSource, stream gostream.Stream) {
+	svc.startStream(func(opts *webstream.BackoffTuningOptions) error {
 		streamVideoCtx, _ := utils.MergeContext(svc.cancelCtx, ctx)
-
-		// Try to use h264 passthrough until it is found that the stream doesn't support it
-		// then fall back to the GetImage code path
-		for {
-			if err := svc.streamH264Passthrough(streamVideoCtx, stream, svc.logger); err != nil {
-				if errors.Is(err, errH264PassthroughNotSupported) {
-					break
-				}
-
-				if utils.FilterOutError(err, context.Canceled) != nil {
-					svc.logger.CErrorw(streamVideoCtx, "streamH264Passthrough ", "name", stream.Name(), "err", err)
-					return
-				}
-				return
-			}
-		}
-
 		// Use H264 for cameras that support it; but do not override upstream values.
 		if props, err := svc.propertiesFromStream(ctx, stream); err == nil && slices.Contains(props.MimeTypes, rutils.MimeTypeH264) {
 			streamVideoCtx = gostream.WithMIMETypeHint(streamVideoCtx, rutils.WithLazyMIMEType(rutils.MimeTypeH264))
 		}
 
-		opts := &webstream.BackoffTuningOptions{
-			BaseSleep: 50 * time.Microsecond,
-			MaxSleep:  2 * time.Second,
-			Cooldown:  5 * time.Second,
-		}
-		err := webstream.StreamVideoSource(streamVideoCtx, source, stream, opts, svc.logger)
-		if utils.FilterOutError(err, context.Canceled) != nil {
-			svc.logger.CErrorw(streamVideoCtx, "error streaming", "error", err, "name", stream.Name())
-		}
-	}, svc.webWorkers.Done)
-}
-
-func (svc *webService) videoCodecStreamSource(stream gostream.Stream) (rtppassthrough.Source, error) {
-	res, err := svc.r.ResourceByName(camera.Named(stream.Name()))
-	if err != nil {
-		return nil, err
-	}
-	rtpPassthroughSource, ok := res.(rtppassthrough.Source)
-	if !ok {
-		return nil, errors.Errorf("expected %s to implement rtppassthrough.Source", stream.Name())
-	}
-
-	return rtpPassthroughSource, nil
-}
-
-func subscribeRTP(
-	ctx context.Context,
-	stream gostream.Stream,
-	h264Stream rtppassthrough.Source,
-	packetCallback rtppassthrough.PacketCallback,
-	logger logging.Logger,
-) (context.CancelFunc, error) {
-	timeoutCtx, timeoutCancel := context.WithTimeout(ctx, subscribeRTPTimeout)
-	defer timeoutCancel()
-	subID, err := h264Stream.SubscribeRTP(timeoutCtx, rtpBufferSize, packetCallback)
-	if err != nil {
-		logger.CDebugw(ctx, "SubscribeRTP", "name", stream.Name(), "err", err)
-		return nil, err
-	}
-
-	return func() {
-		// NOTE: This needs to be a timeout that is separate from ctx or we won't
-		// unsubscribe if the reason why we are tring to unsubcribe is b/c the ctx
-		// is cancelled
-		timeoutCtx, timeoutCancel := context.WithTimeout(context.Background(), unsubscribeTimeout)
-		defer timeoutCancel()
-		logger.CInfow(ctx, "Calling Unsubscribe", "name", stream.Name(), "subID", subID.String())
-		if err := h264Stream.Unsubscribe(timeoutCtx, subID); err != nil {
-			logger.CInfow(ctx, "Unsubscribe", "name", stream.Name(), "err", err)
-		}
-	}, nil
-}
-
-func (svc *webService) streamH264Passthrough(
-	ctx context.Context,
-	stream gostream.Stream,
-	logger logging.Logger,
-) error {
-	readyCh, readyCtx := stream.StreamingReady()
-	select {
-	case <-ctx.Done():
-		return ctx.Err()
-	case <-readyCh:
-	}
-
-	h264Stream, err := svc.videoCodecStreamSource(stream)
-	if err != nil {
-		return errors.Wrap(errH264PassthroughNotSupported, err.Error())
-	}
-
-	cb := func(pkts []*rtp.Packet) error {
-		for _, pkt := range pkts {
-			if err := stream.WriteRTP(pkt); err != nil {
-				logger.CWarnw(ctx, "stream.WriteRTP", "name", stream.Name(), "err", err)
-			}
-		}
-		return nil
-	}
-	cancel, err := subscribeRTP(ctx, stream, h264Stream, cb, logger)
-	if err != nil {
-		return errors.Wrap(errH264PassthroughNotSupported, err.Error())
-	}
-	defer cancel()
-	logger.CWarnw(ctx, "Stream using experimental H264 passthrough", "name", stream.Name())
-
-	select {
-	case <-ctx.Done():
-		return ctx.Err()
-	case <-readyCtx.Done():
-		return nil
-	}
+		return webstream.StreamVideoSource(streamVideoCtx, source, stream, opts, svc.logger)
+	})
 }
 
 func (svc *webService) startAudioStream(ctx context.Context, source gostream.AudioSource, stream gostream.Stream) {

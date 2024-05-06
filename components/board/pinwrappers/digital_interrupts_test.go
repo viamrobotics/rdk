@@ -23,41 +23,43 @@ func TestBasicDigitalInterrupt1(t *testing.T) {
 	i, err := CreateDigitalInterrupt(config)
 	test.That(t, err, test.ShouldBeNil)
 
+	di := i.(*BasicDigitalInterrupt)
+
 	intVal, err := i.Value(context.Background(), nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, intVal, test.ShouldEqual, int64(0))
-	test.That(t, i.Tick(context.Background(), true, nowNanosecondsTest()), test.ShouldBeNil)
+	test.That(t, Tick(context.Background(), i.(*BasicDigitalInterrupt), true, nowNanosecondsTest()), test.ShouldBeNil)
 	intVal, err = i.Value(context.Background(), nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, intVal, test.ShouldEqual, int64(1))
-	test.That(t, i.Tick(context.Background(), false, nowNanosecondsTest()), test.ShouldBeNil)
+	test.That(t, Tick(context.Background(), i.(*BasicDigitalInterrupt), false, nowNanosecondsTest()), test.ShouldBeNil)
 	intVal, err = i.Value(context.Background(), nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, intVal, test.ShouldEqual, int64(1))
 
 	c := make(chan board.Tick)
-	i.AddCallback(c)
+	AddCallback(di, c)
 
 	timeNanoSec := nowNanosecondsTest()
-	go func() { i.Tick(context.Background(), true, timeNanoSec) }()
+	go func() { Tick(context.Background(), di, true, timeNanoSec) }()
 	time.Sleep(1 * time.Microsecond)
 	v := <-c
 	test.That(t, v.High, test.ShouldBeTrue)
 	test.That(t, v.TimestampNanosec, test.ShouldEqual, timeNanoSec)
 
 	timeNanoSec = nowNanosecondsTest()
-	go func() { i.Tick(context.Background(), true, timeNanoSec) }()
+	go func() { Tick(context.Background(), di, true, timeNanoSec) }()
 	v = <-c
 	test.That(t, v.High, test.ShouldBeTrue)
 	test.That(t, v.TimestampNanosec, test.ShouldEqual, timeNanoSec)
 
-	i.RemoveCallback(c)
+	RemoveCallback(di, c)
 
 	c = make(chan board.Tick, 2)
-	i.AddCallback(c)
+	AddCallback(di, c)
 	go func() {
-		i.Tick(context.Background(), true, uint64(1))
-		i.Tick(context.Background(), true, uint64(4))
+		Tick(context.Background(), di, true, uint64(1))
+		Tick(context.Background(), di, true, uint64(4))
 	}()
 	v = <-c
 	v1 := <-c
@@ -72,17 +74,18 @@ func TestRemoveCallbackDigitalInterrupt(t *testing.T) {
 	}
 	i, err := CreateDigitalInterrupt(config)
 	test.That(t, err, test.ShouldBeNil)
+	di := i.(*BasicDigitalInterrupt)
 	intVal, err := i.Value(context.Background(), nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, intVal, test.ShouldEqual, int64(0))
-	test.That(t, i.Tick(context.Background(), true, nowNanosecondsTest()), test.ShouldBeNil)
+	test.That(t, Tick(context.Background(), di, true, nowNanosecondsTest()), test.ShouldBeNil)
 	intVal, err = i.Value(context.Background(), nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, intVal, test.ShouldEqual, int64(1))
 
 	c1 := make(chan board.Tick)
 	test.That(t, c1, test.ShouldNotBeNil)
-	i.AddCallback(c1)
+	AddCallback(di, c1)
 	var wg sync.WaitGroup
 	wg.Add(1)
 	ret := false
@@ -101,18 +104,17 @@ func TestRemoveCallbackDigitalInterrupt(t *testing.T) {
 			ret = tick.High
 		}
 	}()
-	test.That(t, i.Tick(context.Background(), true, nowNanosecondsTest()), test.ShouldBeNil)
+	test.That(t, Tick(context.Background(), di, true, nowNanosecondsTest()), test.ShouldBeNil)
 	intVal, err = i.Value(context.Background(), nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, intVal, test.ShouldEqual, int64(2))
 	wg.Wait()
 	c2 := make(chan board.Tick)
 	test.That(t, c2, test.ShouldNotBeNil)
-	i.AddCallback(c2)
+	AddCallback(di, c2)
 	test.That(t, ret, test.ShouldBeTrue)
 
-	i.RemoveCallback(c1)
-	i.RemoveCallback(c1)
+	RemoveCallback(di, c1)
 
 	ret2 := false
 	result := make(chan bool, 1)
@@ -132,7 +134,7 @@ func TestRemoveCallbackDigitalInterrupt(t *testing.T) {
 	}()
 	wg.Add(1)
 	go func() {
-		err := i.Tick(context.Background(), true, nowNanosecondsTest())
+		err := Tick(context.Background(), di, true, nowNanosecondsTest())
 		if err != nil {
 			result <- true
 		}

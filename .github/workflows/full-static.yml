@@ -1,0 +1,115 @@
+name: full-static
+
+on:
+  # inputs note: we expect no inputs for pull request, channel=latest for main, (channel=stable, version=x) for release
+  workflow_dispatch:
+    inputs:
+      channel:
+        description: a channel for file naming
+        required: false
+        type: choice
+        # test channel is for manual runs
+        options: [latest, stable, test]
+      version:
+        description: a vX.X.X version string to use for file naming
+        required: false
+        type: string
+  workflow_call:
+    inputs:
+      channel:
+        description: a channel for file naming
+        required: false
+        type: string # 'choice' not supported in workflow_call
+      version:
+        description: a vX.X.X version string to use for file naming
+        required: false
+        type: string
+    secrets:
+      GCP_CREDENTIALS:
+        required: true
+
+jobs:
+  full-static:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      BINS_DIR: bin/static # must agree with makefile
+      BUCKET: packages.viam.com/apps/viam-server
+      GOARCHES: amd64 arm64 arm
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        ref: ${{ contains(github.event_name, 'pull_request') && github.event.pull_request.head.sha || github.ref }}
+    - uses: actions/setup-node@v4
+    - uses: actions/setup-go@v5
+      with:
+        go-version: '1.21'
+
+    - name: build js
+      run: make build-web
+    - name: build go
+      shell: bash
+      run: |
+        for goarch in ${{ env.GOARCHES }}; do
+          GOARCH=$goarch make full-static
+        done
+
+    - name: test with musl
+      # todo: install qemu and iterate over platforms
+      run: docker run --rm -v $PWD:/ext-mnt alpine:latest /ext-mnt/$BINS_DIR/viam-server-amd64
+
+    - uses: actions/upload-artifact@v4
+      with:
+        name: static-amd64
+        path: ${{ env.BINS_DIR }}/*-amd64
+    - uses: actions/upload-artifact@v4
+      with:
+        name: static-arm64
+        path: ${{ env.BINS_DIR }}/*-arm64
+    - uses: actions/upload-artifact@v4
+      with:
+        name: static-arm32
+        path: ${{ env.BINS_DIR }}/*-arm
+
+    - name: rename for channel
+      if: inputs.channel
+      shell: bash
+      working-directory: ${{ env.BINS_DIR }}
+      run: |
+        for arch in ${{ env.GOARCHES }}; do
+          mv viam*-$arch viam-server-${{ inputs.channel }}-static-$arch
+        done
+
+    - name: copy for channel+version
+      if: inputs.channel && inputs.version
+      shell: bash
+      working-directory: ${{ env.BINS_DIR }}
+      run: |
+        for arch in ${{ env.GOARCHES }}; do
+          cp viam*-$arch viam-server-${{ inputs.channel }}-${{ inputs.version }}-static-$arch
+        done
+
+    - uses: google-github-actions/auth@v2
+      if: inputs.channel
+      with:
+        credentials_json: '${{ secrets.GCP_CREDENTIALS }}'
+
+    - uses: google-github-actions/upload-cloud-storage@v2
+      if: inputs.channel
+      with:
+        headers: "cache-control: no-cache"
+        path: ${{ env.BINS_DIR }}
+        glob: viam-server-*
+        destination: ${{ env.BUCKET }}/
+        parent: false
+
+    - name: URLs to summary
+      if: inputs.channel
+      shell: bash
+      run: |
+        for arch in ${{ env.GOARCHES }}; do
+          echo "- $arch https://storage.googleapis.com/${{ env.BUCKET }}/viam-server-${{ inputs.channel }}-static-$arch" >> $GITHUB_STEP_SUMMARY
+          if [ ${{ inputs.version }} ]; then
+            echo "- $arch https://storage.googleapis.com/${{ env.BUCKET }}/viam-server-${{ inputs.channel }}-${{ inputs.version }}-static-$arch" >> $GITHUB_STEP_SUMMARY
+          fi
+        done

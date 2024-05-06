@@ -69,7 +69,7 @@ const (
 	ModelFrameworkUnspecified = ModelFramework("unspecified")
 	ModelFrameworkTFLite      = ModelFramework("tflite")
 	ModelFrameworkTensorFlow  = ModelFramework("tensorflow")
-	ModelFrameworkPyTorch     = ModelFramework("py_torch")
+	ModelFrameworkPyTorch     = ModelFramework("pytorch")
 	ModelFrameworkONNX        = ModelFramework("onnx")
 )
 

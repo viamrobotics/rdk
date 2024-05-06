@@ -47,6 +47,8 @@ var (
 // Resources that fail to reconfigure or rebuild may be closed and must return
 // errors when in a closed state for all non Close methods.
 type Resource interface {
+	// Get the Name of the resource.
+	//    // myArmName := myArm.Name()
 	Name() Name
 
 	// Reconfigure must reconfigure the resource atomically and in place. If this
@@ -55,11 +57,15 @@ type Resource interface {
 	Reconfigure(ctx context.Context, deps Dependencies, conf Config) error
 
 	// DoCommand sends/receives arbitrary data
+	//    // myBoard, err := board.FromRobot(machine, "my_board")
+	//    // resp, err := myBoard.DoCommand(ctx, map[string]interface{}{"command": "dosomething", "someparameter": 52})
 	DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
 
 	// Close must safely shut down the resource and prevent further use.
 	// Close must be idempotent.
 	// Later reconfiguration may allow a resource to be "open" again.
+	//    // myBoard, err := board.FromRobot(machine, "my_board")
+	//    // err := myBoard.Close(ctx)
 	Close(ctx context.Context) error
 }
 

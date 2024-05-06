@@ -30,8 +30,8 @@ func setupDependencies(t *testing.T) resource.Dependencies {
 		return []string{echoInterrupt}
 	}
 	injectDigi := &inject.DigitalInterrupt{}
-	actualBoard.DigitalInterruptByNameFunc = func(name string) (board.DigitalInterrupt, bool) {
-		return injectDigi, true
+	actualBoard.DigitalInterruptByNameFunc = func(name string) (board.DigitalInterrupt, error) {
+		return injectDigi, nil
 	}
 	pin := &inject.GPIOPin{}
 	pin.SetFunc = func(ctx context.Context, high bool, extra map[string]interface{}) error {
