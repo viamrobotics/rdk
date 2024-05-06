@@ -36,6 +36,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
 	reflectpb "google.golang.org/grpc/reflection/grpc_reflection_v1alpha"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/structpb"
 
 	rconfig "go.viam.com/rdk/config"
@@ -424,6 +425,124 @@ func RobotsPartShellAction(c *cli.Context) error {
 		c.Bool(debugFlag),
 		logger,
 	)
+}
+
+var (
+	errNoFiles                         = errors.New("must provide files to copy")
+	errLastArgOfFromMissing            = errors.New("expected last argument to be <copy to path>")
+	errLastArgOfToMissing              = errors.New("expected last argument to be machine:<copy to path>")
+	errDirectoryCopyRequestNoRecursion = errors.New("file is a directory but copy recursion not used (you can use -r to enable this)")
+)
+
+type copyFromPathInvalidError struct {
+	path string
+}
+
+func (err copyFromPathInvalidError) Error() string {
+	return fmt.Sprintf("expected argument %q to be machine:<copy from path>", err.path)
+}
+
+// MachinesPartCopyFilesAction is the corresponding Action for 'machines part cp'.
+func MachinesPartCopyFilesAction(c *cli.Context) error {
+	client, err := newViamClient(c)
+	if err != nil {
+		return err
+	}
+
+	return machinesPartCopyFilesAction(c, client)
+}
+
+func machinesPartCopyFilesAction(c *cli.Context, client *viamClient) error {
+	args := c.Args().Slice()
+	if len(args) == 0 {
+		return errNoFiles
+	}
+
+	// Create logger based on presence of debugFlag.
+	logger := logging.FromZapCompatible(zap.NewNop().Sugar())
+	if c.Bool(debugFlag) {
+		logger = logging.NewDebugLogger("cli")
+	}
+
+	// the general format is
+	// from:
+	//		cp machine:path1 machine:path2 ... local_destination
+	// to:
+	//		cp path1 path2 ... remote_destination
+	// we just need to look for machine: to determine what the user's intent is
+	determineDirection := func(args []string) (isFrom bool, destination string, paths []string, err error) {
+		const machinePrefix = "machine:"
+		isFrom = strings.HasPrefix(args[0], machinePrefix)
+
+		if strings.HasPrefix(args[len(args)-1], machinePrefix) {
+			if isFrom {
+				return false, "", nil, errLastArgOfFromMissing
+			}
+		} else if !isFrom {
+			return false, "", nil, errLastArgOfToMissing
+		}
+
+		destination = args[len(args)-1]
+		if !isFrom {
+			destination = strings.TrimPrefix(destination, machinePrefix)
+		}
+
+		// all but the last arg are what we are copying to/from
+		for _, arg := range args[:len(args)-1] {
+			if isFrom && !strings.HasPrefix(arg, machinePrefix) {
+				return false, "", nil, copyFromPathInvalidError{arg}
+			}
+			if isFrom {
+				arg = strings.TrimPrefix(arg, machinePrefix)
+			}
+			paths = append(paths, arg)
+		}
+		return
+	}
+
+	isFrom, destination, paths, err := determineDirection(args)
+	if err != nil {
+		return err
+	}
+
+	doCopy := func() error {
+		if isFrom {
+			return client.copyFilesFromMachine(
+				c.String(organizationFlag),
+				c.String(locationFlag),
+				c.String(machineFlag),
+				c.String(partFlag),
+				c.Bool(debugFlag),
+				c.Bool(cpFlagRecursive),
+				c.Bool(cpFlagPreserve),
+				paths,
+				destination,
+				logger,
+			)
+		}
+
+		return client.copyFilesToMachine(
+			c.String(organizationFlag),
+			c.String(locationFlag),
+			c.String(machineFlag),
+			c.String(partFlag),
+			c.Bool(debugFlag),
+			c.Bool(cpFlagRecursive),
+			c.Bool(cpFlagPreserve),
+			paths,
+			destination,
+			logger,
+		)
+	}
+	if err := doCopy(); err != nil {
+		if statusErr := status.Convert(err); statusErr != nil &&
+			statusErr.Code() == codes.InvalidArgument &&
+			statusErr.Message() == shell.ErrMsgDirectoryCopyRequestNoRecursion {
+			return errDirectoryCopyRequestNoRecursion
+		}
+		return err
+	}
+	return nil
 }
 
 // checkUpdateResponse holds the values used to hold release information.
@@ -1200,14 +1319,13 @@ func (c *viamClient) runRobotPartCommand(
 	}
 }
 
-func (c *viamClient) startRobotPartShell(
-	orgStr, locStr, robotStr, partStr string,
+func (c *viamClient) connectToShellService(orgStr, locStr, robotStr, partStr string,
 	debug bool,
 	logger logging.Logger,
-) error {
+) (shell.Service, func(ctx context.Context) error, error) {
 	dialCtx, fqdn, rpcOpts, err := c.prepareDial(orgStr, locStr, robotStr, partStr, debug)
 	if err != nil {
-		return err
+		return nil, nil, err
 	}
 
 	if debug {
@@ -1215,11 +1333,14 @@ func (c *viamClient) startRobotPartShell(
 	}
 	robotClient, err := client.New(dialCtx, fqdn, logger, client.WithDialOptions(rpcOpts...))
 	if err != nil {
-		return errors.Wrap(err, "could not connect to machine part")
+		return nil, nil, errors.Wrap(err, "could not connect to machine part")
 	}
 
+	var successful bool
 	defer func() {
-		utils.UncheckedError(robotClient.Close(c.c.Context))
+		if !successful {
+			utils.UncheckedError(robotClient.Close(c.c.Context))
+		}
 	}()
 
 	// Returns the first shell service found in the robot resources
@@ -1232,18 +1353,34 @@ func (c *viamClient) startRobotPartShell(
 		}
 	}
 	if found == nil {
-		return errors.New("shell service is not enabled on this machine part")
+		return nil, nil, errors.New("shell service is not enabled on this machine part")
 	}
 
 	shellRes, err := robotClient.ResourceByName(*found)
 	if err != nil {
-		return errors.Wrap(err, "could not get shell service from machine part")
+		return nil, nil, errors.Wrap(err, "could not get shell service from machine part")
 	}
 
 	shellSvc, ok := shellRes.(shell.Service)
 	if !ok {
-		return errors.New("could not get shell service from machine part")
+		return nil, nil, errors.New("could not get shell service from machine part")
 	}
+	successful = true
+	return shellSvc, robotClient.Close, nil
+}
+
+func (c *viamClient) startRobotPartShell(
+	orgStr, locStr, robotStr, partStr string,
+	debug bool,
+	logger logging.Logger,
+) error {
+	shellSvc, closeClient, err := c.connectToShellService(orgStr, locStr, robotStr, partStr, debug, logger)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		utils.UncheckedError(closeClient(c.c.Context))
+	}()
 
 	getWinChMsg := func() map[string]interface{} {
 		cols, rows := consolesize.GetConsoleSize()
@@ -1348,6 +1485,68 @@ func (c *viamClient) startRobotPartShell(
 
 	outputLoop()
 	return nil
+}
+
+func (c *viamClient) copyFilesToMachine(
+	orgStr, locStr, robotStr, partStr string,
+	debug bool,
+	allowRecursion bool,
+	preserve bool,
+	paths []string,
+	destination string,
+	logger logging.Logger,
+) error {
+	shellSvc, closeClient, err := c.connectToShellService(orgStr, locStr, robotStr, partStr, debug, logger)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		utils.UncheckedError(closeClient(c.c.Context))
+	}()
+
+	// prepare a factory that understands the file copying service (RPC or not).
+	copyFactory := shell.NewCopyFileToMachineFactory(destination, preserve, shellSvc)
+	// make a reader copier that just does the traversal and copy work for us. Think of
+	// this as a tee reader.
+	readCopier, err := shell.NewLocalFileReadCopier(paths, allowRecursion, false, copyFactory)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err := readCopier.Close(c.c.Context); err != nil {
+			utils.UncheckedError(err)
+		}
+	}()
+
+	// ReadAll the files into the copier.
+	return readCopier.ReadAll(c.c.Context)
+}
+
+func (c *viamClient) copyFilesFromMachine(
+	orgStr, locStr, robotStr, partStr string,
+	debug bool,
+	allowRecursion bool,
+	preserve bool,
+	paths []string,
+	destination string,
+	logger logging.Logger,
+) error {
+	shellSvc, closeClient, err := c.connectToShellService(orgStr, locStr, robotStr, partStr, debug, logger)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		utils.UncheckedError(closeClient(c.c.Context))
+	}()
+
+	// prepare a factory that understands how to work with our local filesystem.
+	factory, err := shell.NewLocalFileCopyFactory(destination, preserve, false)
+	if err != nil {
+		return err
+	}
+
+	// let the shell service figure out how to grab the files for and pass them to our copier.
+	return shellSvc.CopyFilesFromMachine(c.c.Context, paths, allowRecursion, preserve, factory, nil)
 }
 
 func logEntryFieldsToString(fields []*structpb.Struct) (string, error) {

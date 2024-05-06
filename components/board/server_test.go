@@ -825,21 +825,6 @@ func TestStreamTicks(t *testing.T) {
 				}
 				return nil, nil
 			}
-			if tc.injectDigitalInterrupts != nil {
-				for _, i := range tc.injectDigitalInterrupts {
-					i.RemoveCallbackFunc = func(c chan board.Tick) {
-						for id := range callbacks {
-							if callbacks[id] == c {
-								// To remove this item, we replace it with the last item in the list, then truncate the
-								// list by 1.
-								callbacks[id] = callbacks[len(callbacks)-1]
-								callbacks = callbacks[:len(callbacks)-1]
-								break
-							}
-						}
-					}
-				}
-			}
 
 			cancelCtx, cancel := context.WithCancel(context.Background())
 			defer cancel()

@@ -15,7 +15,7 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 	pb "go.viam.com/api/component/board/v1"
-	goutils "go.viam.com/utils"
+	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/board/genericlinux/buses"
@@ -368,7 +368,7 @@ func (a *wrappedAnalogReader) reset(ctx context.Context, chipSelect string, read
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	if a.reader != nil {
-		goutils.UncheckedError(a.reader.Close(ctx))
+		utils.UncheckedError(a.reader.Close(ctx))
 	}
 	a.reader = reader
 	a.chipSelect = chipSelect
@@ -499,6 +499,20 @@ func (b *Board) StreamTicks(ctx context.Context, interrupts []board.DigitalInter
 	for _, i := range interrupts {
 		pinwrappers.AddCallback(i.(*pinwrappers.BasicDigitalInterrupt), ch)
 	}
+
+	b.activeBackgroundWorkers.Add(1)
+
+	utils.ManagedGo(func() {
+		// Wait until it's time to shut down then remove callbacks.
+		select {
+		case <-ctx.Done():
+		case <-b.cancelCtx.Done():
+		}
+		for _, i := range interrupts {
+			pinwrappers.RemoveCallback(i.(*pinwrappers.BasicDigitalInterrupt), ch)
+		}
+	}, b.activeBackgroundWorkers.Done)
+
 	return nil
 }
 

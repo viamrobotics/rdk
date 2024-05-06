@@ -342,20 +342,14 @@ func makeAdxl345(
 		if err != nil {
 			return nil, err
 		}
-		sensor.startInterruptMonitoring(ticksChan, interrupts)
+		sensor.startInterruptMonitoring(ticksChan)
 	}
 
 	return sensor, nil
 }
 
-func (adxl *adxl345) startInterruptMonitoring(ticksChan chan board.Tick, interrupts []board.DigitalInterrupt) {
+func (adxl *adxl345) startInterruptMonitoring(ticksChan chan board.Tick) {
 	utils.PanicCapturingGo(func() {
-		defer func() {
-			for _, i := range interrupts {
-				i.RemoveCallback(ticksChan)
-			}
-		}()
-
 		for {
 			select {
 			case <-adxl.cancelContext.Done():
@@ -589,10 +583,6 @@ func (adxl *adxl345) Close(ctx context.Context) error {
 
 	adxl.mu.Lock()
 	defer adxl.mu.Unlock()
-
-	for interrupt, channel := range adxl.interruptChannels {
-		interrupt.RemoveCallback(channel)
-	}
 
 	// Put the chip into standby mode by setting the Power Control register (0x2D) to 0.
 	err := adxl.writeByte(ctx, powerControlRegister, 0x00)

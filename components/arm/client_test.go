@@ -38,6 +38,7 @@ func TestClient(t *testing.T) {
 
 	pos1 := spatialmath.NewPoseFromPoint(r3.Vector{X: 1, Y: 2, Z: 3})
 	jointPos1 := &componentpb.JointPositions{Values: []float64{1.0, 2.0, 3.0}}
+	expectedGeometries := []spatialmath.Geometry{spatialmath.NewPoint(r3.Vector{1, 2, 3}, "")}
 	injectArm := &inject.Arm{}
 	injectArm.EndPositionFunc = func(ctx context.Context, extra map[string]interface{}) (spatialmath.Pose, error) {
 		extraOptions = extra
@@ -67,6 +68,9 @@ func TestClient(t *testing.T) {
 		model, err := referenceframe.UnmarshalModelJSON(data, "")
 		test.That(t, err, test.ShouldBeNil)
 		return model
+	}
+	injectArm.GeometriesFunc = func(ctx context.Context) ([]spatialmath.Geometry, error) {
+		return expectedGeometries, nil
 	}
 
 	pos2 := spatialmath.NewPoseFromPoint(r3.Vector{X: 4, Y: 5, Z: 6})
@@ -171,6 +175,12 @@ func TestClient(t *testing.T) {
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, errStopUnimplemented.Error())
 		test.That(t, extraOptions, test.ShouldResemble, map[string]interface{}{"foo": "Stop"})
+
+		geometries, err := arm1Client.Geometries(context.Background(), map[string]interface{}{"foo": "Geometries"})
+		test.That(t, err, test.ShouldBeNil)
+		for i, geometry := range geometries {
+			test.That(t, spatialmath.GeometriesAlmostEqual(expectedGeometries[i], geometry), test.ShouldBeTrue)
+		}
 
 		test.That(t, arm1Client.Close(context.Background()), test.ShouldBeNil)
 		test.That(t, conn.Close(), test.ShouldBeNil)

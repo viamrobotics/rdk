@@ -5,6 +5,7 @@ import (
 	"net"
 	"testing"
 
+	"github.com/golang/geo/r3"
 	"go.viam.com/test"
 	"go.viam.com/utils/rpc"
 
@@ -12,6 +13,7 @@ import (
 	viamgrpc "go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
 )
@@ -25,6 +27,7 @@ func TestClient(t *testing.T) {
 
 	var gripperOpen string
 	var extraOptions map[string]interface{}
+	expectedGeometries := []spatialmath.Geometry{spatialmath.NewPoint(r3.Vector{1, 2, 3}, "")}
 
 	grabbed1 := true
 	injectGripper := &inject.Gripper{}
@@ -40,6 +43,9 @@ func TestClient(t *testing.T) {
 	injectGripper.StopFunc = func(ctx context.Context, extra map[string]interface{}) error {
 		extraOptions = extra
 		return nil
+	}
+	injectGripper.GeometriesFunc = func(ctx context.Context) ([]spatialmath.Geometry, error) {
+		return expectedGeometries, nil
 	}
 
 	injectGripper2 := &inject.Gripper{}
@@ -105,6 +111,13 @@ func TestClient(t *testing.T) {
 		extra = map[string]interface{}{"foo": "Stop"}
 		test.That(t, gripper1Client.Stop(context.Background(), extra), test.ShouldBeNil)
 		test.That(t, extraOptions, test.ShouldResemble, extra)
+
+		extra = map[string]interface{}{"foo": "Geometries"}
+		geometries, err := gripper1Client.Geometries(context.Background(), extra)
+		test.That(t, err, test.ShouldBeNil)
+		for i, geometry := range geometries {
+			test.That(t, spatialmath.GeometriesAlmostEqual(expectedGeometries[i], geometry), test.ShouldBeTrue)
+		}
 
 		test.That(t, gripper1Client.Close(context.Background()), test.ShouldBeNil)
 

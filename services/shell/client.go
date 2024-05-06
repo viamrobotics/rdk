@@ -2,6 +2,7 @@ package shell
 
 import (
 	"context"
+	"errors"
 	"sync"
 
 	pb "go.viam.com/api/service/shell/v1"
@@ -154,6 +155,110 @@ func (c *client) Shell(
 	})
 
 	return input, oobInput, output, nil
+}
+
+// CopyFilesToMachine is the client side RPC implementation of copying files to a machine.
+// It'll send the initial metadata of the request and pass back a FileCopier that the caller
+// will use to copy files over. Once the caller is done copying, it MUST close the FileCopier.
+func (c *client) CopyFilesToMachine(
+	ctx context.Context,
+	sourceType CopyFilesSourceType,
+	destination string,
+	preserve bool,
+	extra map[string]interface{},
+) (FileCopier, error) {
+	ext, err := protoutils.StructToStructPb(extra)
+	if err != nil {
+		return nil, err
+	}
+	client, err := c.client.CopyFilesToMachine(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	// we won't get any meaningful service level errors until the first file send
+	if err := client.Send(&pb.CopyFilesToMachineRequest{
+		Request: &pb.CopyFilesToMachineRequest_Metadata{
+			Metadata: &pb.CopyFilesToMachineRequestMetadata{
+				Name:        c.name,
+				SourceType:  sourceType.ToProto(),
+				Destination: destination,
+				Preserve:    preserve,
+				Extra:       ext,
+			},
+		},
+	}); err != nil {
+		return nil, err
+	}
+
+	// create a FileCopier that has a Copy pipeline of:
+	// File->ShellRPCFileCopier->CopyFilesToMachineClient
+	// ShellRPCFileCopier does the heavy lifting for us by handling fragmentation
+	// and ordering.
+	return newShellRPCFileCopier(shellRPCCopyWriterTo{client}, preserve), nil
+}
+
+// CopyFilesFromMachine is the client side RPC implementation of copying files from a machine.
+// It'll send the initial metadata for what the machine should search for. Then, once it gets
+// an initial response back from the server, it'll start copying files into a FileCopier made
+// by the FileCopyFactory one-by-one until complete.
+func (c *client) CopyFilesFromMachine(
+	ctx context.Context,
+	paths []string,
+	allowRecursion bool,
+	preserve bool,
+	copyFactory FileCopyFactory,
+	extra map[string]interface{},
+) error {
+	ext, err := protoutils.StructToStructPb(extra)
+	if err != nil {
+		return err
+	}
+	client, err := c.client.CopyFilesFromMachine(ctx)
+	if err != nil {
+		return err
+	}
+
+	if err := client.Send(&pb.CopyFilesFromMachineRequest{
+		Request: &pb.CopyFilesFromMachineRequest_Metadata{
+			Metadata: &pb.CopyFilesFromMachineRequestMetadata{
+				Name:           c.name,
+				Paths:          paths,
+				AllowRecursion: allowRecursion,
+				Preserve:       preserve,
+				Extra:          ext,
+			},
+		},
+	}); err != nil {
+		return err
+	}
+
+	mdResp, err := client.Recv()
+	if err != nil {
+		return err
+	}
+	md, ok := mdResp.Response.(*pb.CopyFilesFromMachineResponse_Metadata)
+	if !ok {
+		return errors.New("expected copy response metadata")
+	}
+
+	copier, err := copyFactory.MakeFileCopier(
+		ctx,
+		CopyFilesSourceTypeFromProto(md.Metadata.SourceType),
+	)
+	if err != nil {
+		return err
+	}
+
+	// create a FileCopyReader that has a Read/Copy pipeline of:
+	// CopyFilesFromMachineClient->ShellRPCFileReadCopier->copier
+	// ShellRPCFileReadCopier does the heavy lifting for us by handling fragmentation
+	// and ordering of files coming in.
+	reader := newShellRPCFileReadCopier(shellRPCCopyReaderFrom{client}, copier)
+	defer func() {
+		utils.UncheckedError(reader.Close(ctx))
+	}()
+	return reader.ReadAll(ctx)
 }
 
 func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {

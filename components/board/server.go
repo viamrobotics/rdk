@@ -215,12 +215,6 @@ func (s *serviceServer) StreamTicks(
 		return err
 	}
 
-	defer func() {
-		for _, i := range interrupts {
-			i.RemoveCallback(ticksChan)
-		}
-	}()
-
 	// Send an empty response first so the client doesn't block while checking for errors.
 	err = server.Send(&pb.StreamTicksResponse{})
 	if err != nil {

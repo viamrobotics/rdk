@@ -228,6 +228,11 @@ func (manager *resourceManager) updateRemoteResourceNames(
 		} else {
 			anythingChanged = true
 		}
+		if anythingChanged {
+			manager.logger.CDebugw(ctx, "remote resource names update completed with changes to resource graph", "remote", remoteName)
+		} else {
+			manager.logger.CDebugw(ctx, "remote resource names update completed with no changes to resource graph", "remote", remoteName)
+		}
 	}
 
 	for resName, isActive := range activeResourceNames {
