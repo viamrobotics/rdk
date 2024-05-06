@@ -93,36 +93,36 @@ func TestFileDeletionUsageCheck(t *testing.T) {
 
 func TestFileDeletion(t *testing.T) {
 	tests := []struct {
-		name                  string
-		syncEnabled           bool
-		shouldCancelContext   bool
-		expectedDeletedCount  int
-		fileList              []string
-		syncerInProgressFiles []string
+		name                    string
+		syncEnabled             bool
+		shouldCancelContext     bool
+		expectedDeleteFilenames []string
+		fileList                []string
+		syncerInProgressFiles   []string
 	}{
 		{
-			name:                 "if sync disabled, file deleter should delete every 4th file",
-			fileList:             []string{"shouldDelete0.capture", "1.capture", "2.capture", "3.capture", "shouldDelete4.capture"},
-			expectedDeletedCount: 2,
+			name:                    "if sync disabled, file deleter should delete every 4th file",
+			fileList:                []string{"shouldDelete0.capture", "1.capture", "2.capture", "3.capture", "shouldDelete4.capture"},
+			expectedDeleteFilenames: []string{"shouldDelete0.capture", "shouldDelete4.capture"},
 		},
 		{
-			name:                  "if sync enabled and all files marked as in progress, file deleter should not delete any files",
-			syncEnabled:           true,
-			fileList:              []string{"0.capture", "1.capture", "2.capture", "3.capture", "4.capture"},
-			syncerInProgressFiles: []string{"0.capture", "1.capture", "2.capture", "3.capture", "4.capture"},
-			expectedDeletedCount:  0,
+			name:                    "if sync enabled and all files marked as in progress, file deleter should not delete any files",
+			syncEnabled:             true,
+			fileList:                []string{"0.capture", "1.capture", "2.capture", "3.capture", "4.capture"},
+			syncerInProgressFiles:   []string{"0.capture", "1.capture", "2.capture", "3.capture", "4.capture"},
+			expectedDeleteFilenames: []string{},
 		},
 		{
-			name:                  "if sync enabled and some files marked as inprogress, file deleter should delete less files",
-			syncEnabled:           true,
-			fileList:              []string{"0.capture", "1.capture", "shouldDelete2.capture", "3.capture", "4.capture"},
-			syncerInProgressFiles: []string{"0.capture", "1.capture"},
-			expectedDeletedCount:  1,
+			name:                    "if sync enabled and some files marked as inprogress, file deleter should delete less files",
+			syncEnabled:             true,
+			fileList:                []string{"0.capture", "1.capture", "shouldDelete2.capture", "3.capture", "4.capture"},
+			syncerInProgressFiles:   []string{"0.capture", "1.capture"},
+			expectedDeleteFilenames: []string{"shouldDelete2.capture"},
 		},
 		{
-			name:                 "if sync disabled and files are still being written to, file deleter should not delete any files",
-			fileList:             []string{"0.prog", "1.prog", "2.prog", "3.prog", "4.prog"},
-			expectedDeletedCount: 0,
+			name:                    "if sync disabled and files are still being written to, file deleter should not delete any files",
+			fileList:                []string{"0.prog", "1.prog", "2.prog", "3.prog", "4.prog"},
+			expectedDeleteFilenames: []string{},
 		},
 		{
 			name:                "if cancelled context is cancelled, file deleter should return an error",
@@ -163,7 +163,7 @@ func TestFileDeletion(t *testing.T) {
 				test.That(t, err, test.ShouldBeError, context.Canceled)
 			} else {
 				test.That(t, err, test.ShouldBeNil)
-				test.That(t, deletedFileCount, test.ShouldEqual, tc.expectedDeletedCount)
+				test.That(t, deletedFileCount, test.ShouldEqual, len(tc.expectedDeleteFilenames))
 			}
 		})
 	}
@@ -215,7 +215,9 @@ func TestFilePolling(t *testing.T) {
 	newFiles := getAllFileInfos(tempDir)
 	test.That(t, len(newFiles), test.ShouldEqual, 3)
 	test.That(t, newFiles, test.ShouldNotContain, expectedDeletedFile)
-	// advance by time remaining to hit 1 sync interval
+	// capture interval is 10ms and sync interval is 50ms.
+	// So we run forward 10ms to capture 4 files then close the collectors,
+	// run forward 20ms to delete any files, then run forward 20ms to sync the remaining 3 files.
 	mockClock.Add(syncInterval - (filesystemPollInterval + captureInterval))
 
 	wait := time.After(time.Second)

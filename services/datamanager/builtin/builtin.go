@@ -649,7 +649,7 @@ func (svc *builtIn) sync() {
 	}
 }
 
-//nolint
+// nolint
 func getAllFilesToSync(dir string, lastModifiedMillis int) []string {
 	var filePaths []string
 	_ = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
@@ -718,7 +718,6 @@ func generateMetadataKey(component, method string) string {
 }
 
 func pollFilesystem(ctx context.Context, wg *sync.WaitGroup, captureDir string, syncer datasync.Manager, logger logging.Logger) {
-	// t := time.NewTicker(filesystemPollInterval)
 	t := deletionTicker.Ticker(filesystemPollInterval)
 	defer t.Stop()
 	defer wg.Done()
