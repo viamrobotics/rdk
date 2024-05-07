@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+	"go.uber.org/multierr"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/encoder"
@@ -256,13 +257,41 @@ func (m *EncodedMotor) goForMath(ctx context.Context, rpm, revolutions float64) 
 // If revolutions is 0, this will run the motor at rpm indefinitely
 // If revolutions != 0, this will block until the number of revolutions has been completed or another operation comes in.
 func (m *EncodedMotor) GoFor(ctx context.Context, rpm, revolutions float64, extra map[string]interface{}) error {
-	m.opMgr.CancelRunning(ctx)
 	ctx, done := m.opMgr.New(ctx)
 	defer done()
 
 	goalPos, goalRPM, direction := m.goForMath(ctx, rpm, revolutions)
 
-	return m.goForInternal(ctx, goalRPM, goalPos, direction)
+	if err := m.goForInternal(ctx, goalRPM, goalPos, direction); err != nil {
+		return err
+	}
+
+	if revolutions == 0 {
+		return nil
+	}
+
+	positionReached := func(ctx context.Context) (bool, error) {
+		var errs error
+		pos, posErr := m.position(ctx, extra)
+		errs = multierr.Combine(errs, posErr)
+		if (direction == 1 && pos >= goalPos) || (direction == -1 && pos <= goalPos) {
+			stopErr := m.Stop(ctx, extra)
+			errs = multierr.Combine(errs, stopErr)
+			return true, errs
+		}
+		return false, errs
+	}
+	err := m.opMgr.WaitForSuccess(
+		ctx,
+		10*time.Millisecond,
+		positionReached,
+	)
+	// Ignore the context canceled error - this occurs when the motor is stopped
+	// at the beginning of goForInternal
+	if !errors.Is(err, context.Canceled) {
+		return err
+	}
+	return nil
 }
 
 func (m *EncodedMotor) goForInternal(ctx context.Context, rpm, goalPos, direction float64) error {
@@ -281,9 +310,14 @@ func (m *EncodedMotor) goForInternal(ctx context.Context, rpm, goalPos, directio
 	}
 	// start a new rpmMonitor
 	var rpmCtx context.Context
-	rpmCtx, m.rpmMonitorDone = context.WithCancel(ctx)
+	rpmCtx, m.rpmMonitorDone = context.WithCancel(context.Background())
+	m.activeBackgroundWorkers.Add(1)
+	go func() {
+		defer m.activeBackgroundWorkers.Done()
+		m.rpmMonitor(rpmCtx, rpm, goalPos, direction)
+	}()
 
-	return m.rpmMonitor(rpmCtx, rpm, goalPos, direction)
+	return nil
 }
 
 // GoTo instructs the motor to go to a specific position (provided in revolutions from home/zero),
