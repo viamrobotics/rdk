@@ -51,7 +51,11 @@ func setupModManager(
 		test.That(t, mgr.Close(ctx), test.ShouldBeNil)
 		for _, mod := range modules {
 			if mod != nil {
-				mod.inRecoveryWorker.Wait()
+				func() {
+					// Wait for module recovery processes to complete.
+					mod.inRecoverLock.Lock()
+					defer mod.inRecoveryLock.Unlock()
+				}()
 			}
 		}
 	})
