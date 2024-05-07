@@ -285,8 +285,8 @@ func (m *EncodedMotor) GoFor(ctx context.Context, rpm, revolutions float64, extr
 		10*time.Millisecond,
 		positionReached,
 	)
-	// Ignore the context canceled error - this occurs when the motor is stopped
-	// at the beginning of goForInternal
+	// Ignore the context canceled error - this occurs when the rpmCtx is canceled
+	// with m.rpmMonitorDone in goForInternal and in Stop
 	if !errors.Is(err, context.Canceled) {
 		return err
 	}
