@@ -781,7 +781,6 @@ func (mgr *Manager) newOnUnexpectedExitHandler(mod *module) func(exitCode int) b
 	return func(exitCode int) bool {
 		mod.inRecoveryLock.Lock()
 		defer mod.inRecoveryLock.Unlock()
-
 		if mod.inStartup.Load() {
 			return false
 		}
