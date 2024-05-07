@@ -38,9 +38,9 @@ func setupModManager(
 	mgr := NewManager(ctx, parentAddr, logger, options)
 	t.Cleanup(func() {
 		// Wait for module recovery processes here because modmanager.Close does not.
-		// Do so by grabbing a copy of the modules and then waiting for the lock after
-		// mgr.Close() completes, so that all contexts relating to module
-		// restarting are cancelled.
+		// Do so by grabbing a copy of the modules and then waiting after
+		// mgr.Close() completes, which cancels all contexts relating to module
+		// recovery.
 		mMgr, ok := mgr.(*Manager)
 		test.That(t, ok, test.ShouldBeTrue)
 		modules := []*module{}
