@@ -29,24 +29,104 @@ func init() {
 }
 
 // A Service that implements various computer vision algorithms like detection and segmentation.
+//
+// DetectionsFromCamera example:
+//
+//    // Get detections from the camera output
+//    detections, err := visService.DetectionsFromCamera(context.Background(), myCam, nil)
+//    if err != nil {
+//        logger.Fatalf("Could not get detections: %v", err)
+//    }
+//    if len(detections) > 0 {
+//        logger.Info(detections[0])
+//    }
+//
+// Detections example:
+//
+//    // Get the stream from a camera
+//    camStream, err := myCam.Stream(context.Background())
+//
+//    // Get an image from the camera stream
+//    img, release, err := camStream.Next(context.Background())
+//    defer release()
+//
+//    // Get the detections from the image
+//    detections, err := visService.Detections(context.Background(), img, nil)
+//    if err != nil {
+//        logger.Fatalf("Could not get detections: %v", err)
+//    }
+//    if len(detections) > 0 {
+//        logger.Info(detections[0])
+//    }
+//
+// ClassificationsFromCamera example:
+//
+//    // Get the 2 classifications with the highest confidence scores from the camera output
+//    classifications, err := visService.ClassificationsFromCamera(context.Background(), myCam, 2, nil)
+//    if err != nil {
+//        logger.Fatalf("Could not get classifications: %v", err)
+//    }
+//    if len(classifications) > 0 {
+//        logger.Info(classifications[0])
+//    }
+//
+// Classifications example:
+//
+//    // Get the stream from a camera
+//    camStream, err := myCam.Stream(context.Background())
+//    if err!=nil {
+//        logger.Error(err)
+//        return
+//    }
+//
+//    // Get an image from the camera stream
+//    img, release, err := camStream.Next(context.Background())
+//    defer release()
+//
+//    // Get the 2 classifications with the highest confidence scores from the image
+//    classifications, err := visService.Classifications(context.Background(), img, 2, nil)
+//    if err != nil {
+//        logger.Fatalf("Could not get classifications: %v", err)
+//    }
+//    if len(classifications) > 0 {
+//        logger.Info(classifications[0])
+//    }
+//
+// GetObjectPointClouds example:
+//
+//    // Get the objects from the camera output
+//    objects, err := visService.GetObjectPointClouds(context.Background(), "cam1", nil)
+//    if err != nil {
+//        logger.Fatalf("Could not get point clouds: %v", err)
+//    }
+//    if len(objects) > 0 {
+//        logger.Info(objects[0])
+//    }
 type Service interface {
 	resource.Resource
+	// DetectionsFromCamera returns a list of detections from the next image from a specified camera using a configured detector.
 	DetectionsFromCamera(ctx context.Context, cameraName string, extra map[string]interface{}) ([]objectdetection.Detection, error)
+
+	// Detections returns a list of detections from a given image using a configured detector.
 	Detections(ctx context.Context, img image.Image, extra map[string]interface{}) ([]objectdetection.Detection, error)
-	// classifier methods
+
+	// ClassificationsFromCamera returns a list of classifications from the next image from a specified camera using a configured classifier.
 	ClassificationsFromCamera(
 		ctx context.Context,
 		cameraName string,
 		n int,
 		extra map[string]interface{},
 	) (classification.Classifications, error)
+
+	// Classifications returns a list of classifications from a given image using a configured classifier.
 	Classifications(
 		ctx context.Context,
 		img image.Image,
 		n int,
 		extra map[string]interface{},
 	) (classification.Classifications, error)
-	// segmenter methods
+
+	// GetObjectPointClouds returns a list of 3D point cloud objects and associated metadata in the latest picture from a 3D camera (using a specified segmenter).
 	GetObjectPointClouds(ctx context.Context, cameraName string, extra map[string]interface{}) ([]*viz.Object, error)
 }
 

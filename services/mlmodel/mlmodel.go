@@ -28,6 +28,16 @@ func init() {
 // Service defines the ML Model interface, which takes a map of inputs, runs it through
 // an inference engine, and creates a map of outputs. Metadata is necessary in order to build
 // the struct that will decode that map[string]interface{} correctly.
+//
+// Infer example:
+//
+//    input_tensors := ml.Tensors{"0": tensor.New(tensor.WithShape(1, 2, 3), tensor.WithBacking(6))}
+//
+//    output_tensors, err := myMLModel.Infer(context.Background(), input_tensors)
+//
+// Metadata example:
+//
+//    metadata, err := myMLModel.Metadata(context.Background())
 type Service interface {
 	resource.Resource
 	Infer(ctx context.Context, tensors ml.Tensors) (ml.Tensors, error)
