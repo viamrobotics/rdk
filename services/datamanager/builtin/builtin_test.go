@@ -123,7 +123,6 @@ func getServiceConfig(t *testing.T, cfg *config.Config) (*Config, map[resource.N
 	}
 
 	t.Log("no service config")
-	t.FailNow()
 	return nil, nil, nil
 }
 
@@ -133,6 +132,14 @@ func TestGetDurationFromHz(t *testing.T) {
 	test.That(t, GetDurationFromHz(1), test.ShouldEqual, time.Second)
 	test.That(t, GetDurationFromHz(1000), test.ShouldEqual, time.Millisecond)
 	test.That(t, GetDurationFromHz(0), test.ShouldEqual, 0)
+}
+
+func TestEmptyConfig(t *testing.T) {
+	// Data manager should not be enabled implicitly, an empty config will not result in a data manager being configured.
+	initConfig, associations, deps := setupConfig(t, enabledTabularCollectorEmptyConfigPath)
+	test.That(t, initConfig, test.ShouldBeNil)
+	test.That(t, associations, test.ShouldBeNil)
+	test.That(t, deps, test.ShouldBeNil)
 }
 
 func TestUntrustedEnv(t *testing.T) {

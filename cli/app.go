@@ -1465,12 +1465,12 @@ Example:
 						},
 						&cli.StringFlag{
 							Name:  moduleFlagPath,
-							Usage: "path to a meta.json. used for module ID. can be overridden with --module-id or --name",
+							Usage: "path to a meta.json. used for module ID. can be overridden with --id or --name",
 							Value: "meta.json",
 						},
 						&cli.StringFlag{
 							Name:  moduleFlagName,
-							Usage: "name of module to restart. pass at most one of --name, --module-id",
+							Usage: "name of module to restart. pass at most one of --name, --id",
 						},
 						&cli.StringFlag{
 							Name:  moduleBuildFlagBuildID,
