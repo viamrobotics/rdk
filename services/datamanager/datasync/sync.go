@@ -266,10 +266,10 @@ func (s *syncer) logSyncErrs() {
 func exponentialRetry(cancelCtx context.Context, fn func(cancelCtx context.Context) error) error {
 	// Only create a ticker and enter the retry loop if we actually need to retry.
 	var err error
-	// if err = fn(cancelCtx); err == nil {
-	// 	return nil
-	// }
-	err = errors.New("new error, not offline")
+	if err = fn(cancelCtx); err == nil {
+		return nil
+	}
+
 	// Don't retry non-retryable errors.
 	if !isRetryableGRPCError(err) {
 		return err
@@ -294,7 +294,6 @@ func exponentialRetry(cancelCtx context.Context, fn func(cancelCtx context.Conte
 				// If error, retry with a new nextWait.
 				ticker.Stop()
 				nextWait = getNextWait(nextWait, isOfflineGRPCError(err))
-				fmt.Printf("\n----------isOffline: %s, waiting for %s seconds\n", isOfflineGRPCError(err), nextWait)
 				ticker = time.NewTicker(nextWait)
 				continue
 			}
