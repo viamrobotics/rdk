@@ -550,7 +550,10 @@ func (c *client) addOnTrackSubFunc(
 					// This is needed to prevent the problem described here:
 					// https://go.dev/blog/loopvar-preview
 					bufAndCB := tmp
-					err := bufAndCB.buf.Publish(func() { bufAndCB.cb(pkt) })
+					err := bufAndCB.buf.Publish(func() {
+						fmt.Println("Writing pkt:", len(pkt.Payload))
+						bufAndCB.cb(pkt)
+					})
 					if err != nil {
 						c.logger.Debugw("SubscribeRTP: camera client",
 							"name", c.Name(),
