@@ -128,6 +128,7 @@ func (m *cloudManager) Sync(ctx context.Context, packages []config.PackageConfig
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
+	// this map will replace m.managedPackages at the end of the function
 	newManagedPackages := make(map[PackageName]*managedPackage, len(packages))
 
 	for _, p := range packages {
@@ -156,23 +157,29 @@ func (m *cloudManager) Sync(ctx context.Context, packages []config.PackageConfig
 		// Lookup the packages http url
 		includeURL := true
 
-		packageType, err := config.PackageTypeToProto(p.Type)
-		if err != nil {
-			m.logger.Warnw("failed to get package type", "package", p.Name, "error", err)
-		}
-		resp, err := m.client.GetPackage(ctx, &pb.GetPackageRequest{
-			Id:         p.Package,
-			Version:    p.Version,
-			Type:       packageType,
-			IncludeUrl: &includeURL,
-		})
-		if err != nil {
-			m.logger.Errorf("Failed fetching package details for package %s:%s, %s", p.Package, p.Version, err)
-			outErr = multierr.Append(outErr, errors.Wrapf(err, "failed loading package url for %s:%s", p.Package, p.Version))
-			continue
+		var packageUrl string
+		if len(p.LocalPath) > 0 {
+			packageUrl = fmt.Sprintf("file://%s", p.LocalPath)
+		} else {
+			packageType, err := config.PackageTypeToProto(p.Type)
+			if err != nil {
+				m.logger.Warnw("failed to get package type", "package", p.Name, "error", err)
+			}
+			resp, err := m.client.GetPackage(ctx, &pb.GetPackageRequest{
+				Id:         p.Package,
+				Version:    p.Version,
+				Type:       packageType,
+				IncludeUrl: &includeURL,
+			})
+			if err != nil {
+				m.logger.Errorf("Failed fetching package details for package %s:%s, %s", p.Package, p.Version, err)
+				outErr = multierr.Append(outErr, errors.Wrapf(err, "failed loading package url for %s:%s", p.Package, p.Version))
+				continue
+			}
+			packageUrl = resp.Package.Url
 		}
 
-		m.logger.Debugf("Downloading from %s", sanitizeURLForLogs(resp.Package.Url))
+		m.logger.Debugf("Downloading from %s", sanitizeURLForLogs(packageUrl))
 
 		nonEmptyPaths := make([]string, 0)
 		if p.Type == config.PackageTypeModule {
@@ -186,11 +193,11 @@ func (m *cloudManager) Sync(ctx context.Context, packages []config.PackageConfig
 		}
 
 		// download package from a http endpoint
-		err = m.downloadPackage(ctx, resp.Package.Url, p, nonEmptyPaths)
+		err := m.downloadPackage(ctx, packageUrl, p, nonEmptyPaths)
 		if err != nil {
-			m.logger.Errorf("Failed downloading package %s:%s from %s, %s", p.Package, p.Version, sanitizeURLForLogs(resp.Package.Url), err)
+			m.logger.Errorf("Failed downloading package %s:%s from %s, %s", p.Package, p.Version, sanitizeURLForLogs(packageUrl), err)
 			outErr = multierr.Append(outErr, errors.Wrapf(err, "failed downloading package %s:%s from %s",
-				p.Package, p.Version, sanitizeURLForLogs(resp.Package.Url)))
+				p.Package, p.Version, sanitizeURLForLogs(packageUrl)))
 			continue
 		}
 
@@ -442,10 +449,31 @@ func (m *cloudManager) downloadPackage(ctx context.Context, url string, p config
 		}
 	}
 
-	// Download from GCS
-	_, contentType, err := m.downloadFileFromGCSURL(ctx, url, p.LocalDownloadPath(m.packagesDir), m.cloudConfig.ID, m.cloudConfig.Secret)
-	if err != nil {
-		return err
+	var contentType string
+	dstPath := p.LocalDownloadPath(m.packagesDir)
+	if pathOnly, found := strings.CutPrefix(url, "file://"); found {
+		src, err := os.Open(pathOnly)
+		if err != nil {
+			return err
+		}
+		dst, err := os.Create(dstPath)
+		if err != nil {
+			return err
+		}
+		nBytes, err := io.Copy(dst, src)
+		if err != nil {
+			return err
+		}
+		m.logger.Debugf("copied %d bytes to %s", nBytes)
+		// note: we're relying on the assumption that this is a synthetic package which passed tarballExtensionsRegexp
+		contentType = allowedContentType
+	} else {
+		var err error
+		// Download from GCS
+		_, contentType, err = m.downloadFileFromGCSURL(ctx, url, dstPath, m.cloudConfig.ID, m.cloudConfig.Secret)
+		if err != nil {
+			return err
+		}
 	}
 
 	if contentType != allowedContentType {
@@ -461,7 +489,7 @@ func (m *cloudManager) downloadPackage(ctx context.Context, url string, p config
 
 	defer func() {
 		// cleanup archive file.
-		if err := os.Remove(p.LocalDownloadPath(m.packagesDir)); err != nil {
+		if err := os.Remove(dstPath); err != nil {
 			m.logger.Debug(err)
 		}
 		if err := os.RemoveAll(tmpDataPath); err != nil {
@@ -470,7 +498,7 @@ func (m *cloudManager) downloadPackage(ctx context.Context, url string, p config
 	}()
 
 	// unzip archive.
-	err = unpackFile(ctx, p.LocalDownloadPath(m.packagesDir), tmpDataPath)
+	err = unpackFile(ctx, dstPath, tmpDataPath)
 	if err != nil {
 		utils.UncheckedError(m.cleanup(p))
 		return err
