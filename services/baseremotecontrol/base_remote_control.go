@@ -22,7 +22,7 @@ func Named(name string) resource.Name {
 
 // FromRobot is a helper for getting the named base remote control service from the given Robot.
 func FromRobot(r robot.Robot, name string) (Service, error) {
-	return robot.ResourceFromRobot[Service] (r, Named(name))
+	return robot.ResourceFromRobot[Service](r, Named(name))
 }
 
 func init() {
