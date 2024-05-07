@@ -8,10 +8,55 @@ import (
 
 	"github.com/pkg/errors"
 
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan/ik"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
 )
+
+// CheckPlan checks if obstacles intersect the trajectory of the frame following the plan. If one is
+// detected, the interpolated position of the rover when a collision is detected is returned along
+// with an error with additional collision details.
+func CheckPlan(
+	checkFrame referenceframe.Frame, // TODO(RSDK-7421): remove this
+	executionState ExecutionState,
+	worldState *referenceframe.WorldState,
+	fs referenceframe.FrameSystem,
+	lookAheadDistanceMM float64,
+	logger logging.Logger,
+) error {
+	plan := executionState.Plan()
+	startingInputs := plan.Trajectory()[0]
+	wayPointIdx := executionState.Index()
+
+	// ensure that we can actually perform the check
+	if len(plan.Path()) < 1 {
+		return errors.New("plan must have at least one element")
+	}
+	if len(plan.Path()) <= wayPointIdx || wayPointIdx < 0 {
+		return errors.New("wayPointIdx outside of plan bounds")
+	}
+
+	// construct solverFrame
+	// Note that this requires all frames which move as part of the plan, to have an
+	// entry in the very first plan waypoint
+	sf, err := newSolverFrame(fs, checkFrame.Name(), referenceframe.World, startingInputs)
+	if err != nil {
+		return err
+	}
+	// construct planager
+	sfPlanner, err := newPlanManager(sf, logger, defaultRandomSeed)
+	if err != nil {
+		return err
+	}
+	// This should be done for any plan whose configurations are specified in relative terms rather than absolute ones.
+	// Currently this is only TP-space, so we check if the PTG length is >0.
+	// The solver frame will have had its PTGs filled in the newPlanManager() call, if applicable.
+	if sfPlanner.useTPspace {
+		return checkPlanRelative(checkFrame, executionState, worldState, fs, lookAheadDistanceMM, sfPlanner)
+	}
+	return checkPlanAbsolute(checkFrame, executionState, worldState, fs, lookAheadDistanceMM, sfPlanner)
+}
 
 func checkPlanRelative(
 	checkFrame referenceframe.Frame, // TODO(RSDK-7421): remove this
@@ -36,11 +81,12 @@ func checkPlanRelative(
 		observingFrame := fs.Frame(pif.Parent())
 		// Ensure the frame of the pose-in-frame is in the frame system
 		if observingFrame == nil {
-			return fmt.Errorf(
+			sfPlanner.logger.Errorf(
 				"pose of %s was given in frame of %s, but no frame with that name was found in the frame system",
 				checkFrame.Name(),
 				pif.Parent(),
 			)
+			return nil
 		}
 		// Ensure nothing between the PiF's frame and World is the relative frame
 		observingParentage, err := fs.TracebackFrame(observingFrame)
@@ -49,7 +95,11 @@ func checkPlanRelative(
 		}
 		for _, parent := range observingParentage {
 			if parent.Name() == checkFrame.Name() {
-				return errors.New("current pose of checked frame must not be observed by self or child")
+				return fmt.Errorf(
+					"pose of %s was given in frame of %s, bu current pose of checked frame must not be observed by self or child",
+					checkFrame.Name(),
+					pif.Parent(),
+				)
 			}
 		}
 		return nil
@@ -222,7 +272,7 @@ func checkPlanRelative(
 
 			// Checks for collision along the interpolated route and returns a the first interpolated pose where a collision is detected.
 			if isValid, err := sfPlanner.planOpts.CheckStateConstraints(interpolatedState); !isValid {
-				return fmt.Errorf("found error in segment betwee between %v and %v at %v: %s",
+				return fmt.Errorf("found constraint violation or collision in segment between %v and %v at %v: %s",
 					segment.StartPosition.Point(),
 					segment.EndPosition.Point(),
 					interpolatedState.Position.Point(),

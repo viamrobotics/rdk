@@ -287,9 +287,9 @@ func TestPtgCheckPlan(t *testing.T) {
 
 	t.Run("base case - validate plan without obstacles", func(t *testing.T) {
 		executionState := ExecutionState{
-			plan:   plan,
-			index:  0,
-			inputs: inputs,
+			plan:          plan,
+			index:         0,
+			currentInputs: inputs,
 			currentPose: map[string]*referenceframe.PoseInFrame{
 				ackermanFrame.Name(): referenceframe.NewPoseInFrame(referenceframe.World, startPose),
 			},
@@ -309,9 +309,9 @@ func TestPtgCheckPlan(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		executionState := ExecutionState{
-			plan:   plan,
-			index:  0,
-			inputs: inputs,
+			plan:          plan,
+			index:         0,
+			currentInputs: inputs,
 			currentPose: map[string]*referenceframe.PoseInFrame{
 				ackermanFrame.Name(): referenceframe.NewPoseInFrame(referenceframe.World, startPose),
 			},
@@ -353,9 +353,9 @@ func TestPtgCheckPlan(t *testing.T) {
 		worldState, err := referenceframe.NewWorldState(gifs, nil)
 		test.That(t, err, test.ShouldBeNil)
 		executionState := ExecutionState{
-			plan:   plan,
-			index:  1,
-			inputs: inputs,
+			plan:          plan,
+			index:         1,
+			currentInputs: inputs,
 			currentPose: map[string]*referenceframe.PoseInFrame{
 				ackermanFrame.Name(): referenceframe.NewPoseInFrame(referenceframe.World, startPose),
 			},
@@ -376,9 +376,9 @@ func TestPtgCheckPlan(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		executionState := ExecutionState{
-			plan:   plan,
-			index:  1,
-			inputs: inputs,
+			plan:          plan,
+			index:         1,
+			currentInputs: inputs,
 			currentPose: map[string]*referenceframe.PoseInFrame{
 				ackermanFrame.Name(): referenceframe.NewPoseInFrame(referenceframe.World, startPose),
 			},
@@ -407,9 +407,9 @@ func TestPtgCheckPlan(t *testing.T) {
 		startPose := spatialmath.NewPose(vector, ov)
 
 		executionState := ExecutionState{
-			plan:   plan,
-			index:  2,
-			inputs: inputs,
+			plan:          plan,
+			index:         2,
+			currentInputs: inputs,
 			currentPose: map[string]*referenceframe.PoseInFrame{
 				ackermanFrame.Name(): referenceframe.NewPoseInFrame(referenceframe.World, startPose),
 			},
@@ -433,9 +433,9 @@ func TestPtgCheckPlan(t *testing.T) {
 		startPose := spatialmath.NewPose(r3.Vector{0, 1000, 0}, pathPose.Orientation())
 
 		executionState := ExecutionState{
-			plan:   plan,
-			index:  2,
-			inputs: inputs,
+			plan:          plan,
+			index:         2,
+			currentInputs: inputs,
 			currentPose: map[string]*referenceframe.PoseInFrame{
 				ackermanFrame.Name(): referenceframe.NewPoseInFrame(referenceframe.World, startPose),
 			},

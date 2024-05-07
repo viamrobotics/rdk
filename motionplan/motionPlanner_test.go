@@ -1247,9 +1247,9 @@ func TestArmGantryCheckPlan(t *testing.T) {
 
 	t.Run("check plan with no obstacles", func(t *testing.T) {
 		executionState := ExecutionState{
-			plan:   plan,
-			index:  0,
-			inputs: plan.Trajectory()[0],
+			plan:          plan,
+			index:         0,
+			currentInputs: plan.Trajectory()[0],
 			currentPose: map[string]*frame.PoseInFrame{
 				f.Name(): frame.NewPoseInFrame(frame.World, startPose),
 			},
@@ -1268,9 +1268,9 @@ func TestArmGantryCheckPlan(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		executionState := ExecutionState{
-			plan:   plan,
-			index:  0,
-			inputs: plan.Trajectory()[0],
+			plan:          plan,
+			index:         0,
+			currentInputs: plan.Trajectory()[0],
 			currentPose: map[string]*frame.PoseInFrame{
 				f.Name(): frame.NewPoseInFrame(frame.World, startPose),
 			},

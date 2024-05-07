@@ -382,16 +382,40 @@ func (ptgk *ptgBaseKinematics) courseCorrect(
 				correctiveArcSteps = append(correctiveArcSteps, newArcSteps...)
 			}
 
-			// Update the connection point
+			// We need to update the connection point. The starting configuration and position need to be updated, as well as
+			// the ending configuration's arc start value.
 			connectionPoint := arcSteps[solution.stepIdx]
+			arcOriginalLength := math.Abs(
+				connectionPoint.arcSegment.EndConfiguration[endDistanceAlongTrajectoryIndex].Value -
+					connectionPoint.arcSegment.EndConfiguration[startDistanceAlongTrajectoryIndex].Value,
+			)
 
 			// Use distances to calculate the % completion of the arc, used to update the time remaining.
 			// We can't use step.durationSeconds because we might connect to a different arc than we're currently in.
 			pctTrajRemaining := (connectionPoint.subTraj[len(connectionPoint.subTraj)-1].Dist -
-				connectionPoint.subTraj[solution.trajIdx].Dist) /
-				(connectionPoint.subTraj[len(connectionPoint.subTraj)-1].Dist - connectionPoint.arcSegment.StartConfiguration[2].Value)
+				connectionPoint.subTraj[solution.trajIdx].Dist) / arcOriginalLength
 
-			connectionPoint.arcSegment.StartConfiguration[2].Value = connectionPoint.subTraj[solution.trajIdx].Dist
+			// TODO (RSDK-7515) Start value rewriting here is somewhat complicated. Imagine the old trajectory was [0, 200] and we
+			// reconnect at Dist=40. The new start configuration should be [40, 40] and the new end configuration should be [40, 200].
+			// However, traj dist values are always positive. Imagine if the old trajectory was [0,-200] and we reconnect at Dist=40.
+			// Now, the new start configuration should be [-160, -160] and the new end configuration should be [0, -160]. RSDK-7515 will
+			// simplify this significantly.
+			startVal := connectionPoint.subTraj[solution.trajIdx].Dist
+			isReverse := connectionPoint.arcSegment.EndConfiguration[endDistanceAlongTrajectoryIndex].Value < 0
+			if isReverse {
+				startVal += connectionPoint.arcSegment.EndConfiguration[endDistanceAlongTrajectoryIndex].Value
+			}
+
+			connectionPoint.arcSegment.StartConfiguration[startDistanceAlongTrajectoryIndex].Value = startVal
+			connectionPoint.arcSegment.StartConfiguration[endDistanceAlongTrajectoryIndex].Value = startVal
+			if isReverse {
+				connectionPoint.arcSegment.EndConfiguration[endDistanceAlongTrajectoryIndex].Value = startVal
+			} else {
+				connectionPoint.arcSegment.EndConfiguration[startDistanceAlongTrajectoryIndex].Value = startVal
+			}
+			// The start position should be where the connection connected
+			connectionPoint.arcSegment.StartPosition = correctiveArcSteps[len(correctiveArcSteps)-1].arcSegment.EndPosition
+
 			connectionPoint.durationSeconds *= pctTrajRemaining
 			connectionPoint.subTraj = connectionPoint.subTraj[solution.trajIdx:]
 

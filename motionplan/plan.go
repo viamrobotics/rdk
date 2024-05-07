@@ -260,10 +260,10 @@ func NewExecutionState(
 	currentPose map[string]*referenceframe.PoseInFrame,
 ) ExecutionState {
 	return ExecutionState{
-		plan:        plan,
-		index:       index,
-		currentInputs:      currentInputs,
-		currentPose: currentPose,
+		plan:          plan,
+		index:         index,
+		currentInputs: currentInputs,
+		currentPose:   currentPose,
 	}
 }
 
