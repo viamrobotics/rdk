@@ -262,7 +262,9 @@ func (m *EncodedMotor) GoFor(ctx context.Context, rpm, revolutions float64, extr
 
 	goalPos, goalRPM, direction := m.goForMath(ctx, rpm, revolutions)
 
-	m.goForInternal(goalRPM, goalPos, direction)
+	if err := m.goForInternal(goalRPM, goalPos, direction); err != nil {
+		return err
+	}
 
 	// return and run the motor at rpm indefinitely
 	if revolutions == 0 {
@@ -293,11 +295,10 @@ func (m *EncodedMotor) GoFor(ctx context.Context, rpm, revolutions float64, extr
 	return nil
 }
 
-func (m *EncodedMotor) goForInternal(rpm, goalPos, direction float64) {
+func (m *EncodedMotor) goForInternal(rpm, goalPos, direction float64) error {
 	switch speed := math.Abs(rpm); {
 	case speed < 0.1:
-		m.logger.Error(motor.NewZeroRPMError())
-		return
+		return motor.NewZeroRPMError()
 	case m.cfg.MaxRPM > 0 && speed > m.cfg.MaxRPM-0.1:
 		m.logger.Warn("motor speed is nearly the max rev_per_min (%f)", m.cfg.MaxRPM)
 	default:
@@ -317,6 +318,8 @@ func (m *EncodedMotor) goForInternal(rpm, goalPos, direction float64) {
 			m.logger.Error(err)
 		}
 	}()
+
+	return nil
 }
 
 // GoTo instructs the motor to go to a specific position (provided in revolutions from home/zero),
