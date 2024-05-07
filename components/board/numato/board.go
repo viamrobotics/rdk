@@ -35,8 +35,9 @@ var errNoBoard = errors.New("no numato boards found")
 
 // A Config describes the configuration of a board and all of its connected parts.
 type Config struct {
-	Analogs []board.AnalogReaderConfig `json:"analogs,omitempty"`
-	Pins    int                        `json:"pins"`
+	Analogs    []board.AnalogReaderConfig `json:"analogs,omitempty"`
+	Pins       int                        `json:"pins"`
+	SerialPath string                     `json:"serial_path,omitempty"`
 }
 
 func init() {
@@ -372,18 +373,24 @@ func (a *analog) Write(ctx context.Context, value int, extra map[string]interfac
 
 func connect(ctx context.Context, name resource.Name, conf *Config, logger logging.Logger) (board.Board, error) {
 	pins := conf.Pins
+	var path string
+	if conf.SerialPath != "" {
+		path = conf.SerialPath
+	} else {
+		filter := serial.SearchFilter{Type: serial.TypeNumatoGPIO}
+		devs := serial.Search(filter)
+		if len(devs) == 0 {
+			return nil, errNoBoard
+		}
+		if len(devs) > 1 {
+			return nil, fmt.Errorf("found more than 1 numato board: %d", len(devs))
+		}
 
-	filter := serial.SearchFilter{Type: serial.TypeNumatoGPIO}
-	devs := serial.Search(filter)
-	if len(devs) == 0 {
-		return nil, errNoBoard
-	}
-	if len(devs) > 1 {
-		return nil, fmt.Errorf("found more than 1 numato board: %d", len(devs))
+		path = devs[0].Path
 	}
 
 	options := goserial.OpenOptions{
-		PortName:        devs[0].Path,
+		PortName:        path,
 		BaudRate:        19200,
 		DataBits:        8,
 		StopBits:        1,
