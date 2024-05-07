@@ -39,7 +39,7 @@ func MLSubmitCustomTrainingJob(c *cli.Context) error {
 	}
 	registryItemID := fmt.Sprintf("%s:%s", c.String(trainFlagModelOrgID), c.String(mlTrainingFlagName))
 	printf(c.App.Writer, "successfully uploaded training script to %s", registryItemID)
-	trainingJobID, err := client.dataSubmitCustomTrainingJob(
+	trainingJobID, err := client.mlSubmitCustomTrainingJob(
 		c.String(datasetFlagDatasetID), registryItemID, c.String(trainFlagModelOrgID),
 		c.String(trainFlagModelName), c.String(trainFlagModelVersion))
 	if err != nil {
@@ -55,7 +55,7 @@ func MLSubmitTrainingJob(c *cli.Context) error {
 	if err != nil {
 		return err
 	}
-	trainingJobID, err := client.dataSubmitTrainingJob(
+	trainingJobID, err := client.mlSubmitTrainingJob(
 		c.String(datasetFlagDatasetID), c.String(trainFlagModelOrgID),
 		c.String(trainFlagModelName), c.String(trainFlagModelVersion),
 		c.String(trainFlagModelType), c.StringSlice(trainFlagModelLabels))
@@ -66,8 +66,8 @@ func MLSubmitTrainingJob(c *cli.Context) error {
 	return nil
 }
 
-// dataSubmitTrainingJob trains on data with the specified filter.
-func (c *viamClient) dataSubmitTrainingJob(datasetID, orgID, modelName, modelVersion, modelType string,
+// mlSubmitTrainingJob trains on data with the specified filter.
+func (c *viamClient) mlSubmitTrainingJob(datasetID, orgID, modelName, modelVersion, modelType string,
 	labels []string,
 ) (string, error) {
 	if err := c.ensureLoggedIn(); err != nil {
@@ -94,8 +94,8 @@ func (c *viamClient) dataSubmitTrainingJob(datasetID, orgID, modelName, modelVer
 	return resp.Id, nil
 }
 
-// dataSubmitTrainingJob trains on data with the specified filter.
-func (c *viamClient) dataSubmitCustomTrainingJob(datasetID, registryItemID, orgID, modelName,
+// mlSubmitCustomTrainingJob trains on data with the specified dataset and registry item.
+func (c *viamClient) mlSubmitCustomTrainingJob(datasetID, registryItemID, orgID, modelName,
 	modelVersion string,
 ) (string, error) {
 	if err := c.ensureLoggedIn(); err != nil {
