@@ -6,6 +6,7 @@ import (
 
 	"go.viam.com/rdk/components/input"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/robot"
 )
 
 // SubtypeName is the name of the type of service.
@@ -17,6 +18,11 @@ var API = resource.APINamespaceRDK.WithServiceType(SubtypeName)
 // Named is a helper for getting the named base remote control service's typed resource name.
 func Named(name string) resource.Name {
 	return resource.NewName(API, name)
+}
+
+// FromRobot is a helper for getting the named base remote control service from the given Robot.
+func FromRobot(r robot.Robot, name string) (Service, error) {
+	return robot.ResourceFromRobot[Service](r, Named(name))
 }
 
 func init() {
