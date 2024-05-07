@@ -81,16 +81,14 @@ type module struct {
 
 	// inStartup stores whether or not the manager of the OnUnexpectedExit function
 	// is trying to start up this module; inRecoveryLock guards the execution of an
-	// OnUnexpectedExit function for this module. inRecoveryWorker keeps tracks of
-	// any ongoing OnUnexpectedExit execution.
+	// OnUnexpectedExit function for this module.
 	//
 	// NOTE(benjirewis): Using just an atomic boolean is not sufficient, as OUE
 	// functions for the same module cannot overlap and should not continue after
 	// another OUE has finished.
-	inStartup        atomic.Bool
-	inRecoveryLock   sync.Mutex
-	inRecoveryWorker sync.WaitGroup
-	logger           logging.Logger
+	inStartup      atomic.Bool
+	inRecoveryLock sync.Mutex
+	logger         logging.Logger
 }
 
 type addedResource struct {
@@ -414,8 +412,8 @@ func (mgr *Manager) Remove(modName string) ([]resource.Name, error) {
 	return orphanedResourceNames, nil
 }
 
-// closeModule attempts to cleanly shut down the module process. It does not wait on recoveryWorker,
-// as they are running outside code and have unexpected behavior.
+// closeModule attempts to cleanly shut down the module process. It does not wait on module recovery processes,
+// as they are running outside code and may have unexpected behavior.
 func (mgr *Manager) closeModule(mod *module, reconfigure bool) error {
 	// resource manager should've removed these cleanly if this isn't a reconfigure
 	if !reconfigure && len(mod.resources) != 0 {
@@ -782,11 +780,8 @@ var oueRestartInterval = 5 * time.Second
 func (mgr *Manager) newOnUnexpectedExitHandler(mod *module) func(exitCode int) bool {
 	return func(exitCode int) bool {
 		mod.inRecoveryLock.Lock()
-		mod.inRecoveryWorker.Add(1)
-		defer func() {
-			mod.inRecoveryWorker.Done()
-			mod.inRecoveryLock.Unlock()
-		}()
+		defer mod.inRecoveryLock.Unlock()
+
 		if mod.inStartup.Load() {
 			return false
 		}

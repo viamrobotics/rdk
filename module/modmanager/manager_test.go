@@ -37,8 +37,8 @@ func setupModManager(
 	t.Helper()
 	mgr := NewManager(ctx, parentAddr, logger, options)
 	t.Cleanup(func() {
-		// Wait for inRecoveryWorker here because modmanager.Close does not.
-		// Do so by grabbing a copy of the modules and then waiting after
+		// Wait for module recovery processes here because modmanager.Close does not.
+		// Do so by grabbing a copy of the modules and then waiting for the lock after
 		// mgr.Close() completes, so that all contexts relating to module
 		// restarting are cancelled.
 		mMgr, ok := mgr.(*Manager)
@@ -53,7 +53,7 @@ func setupModManager(
 			if mod != nil {
 				func() {
 					// Wait for module recovery processes to complete.
-					mod.inRecoverLock.Lock()
+					mod.inRecoveryLock.Lock()
 					defer mod.inRecoveryLock.Unlock()
 				}()
 			}
