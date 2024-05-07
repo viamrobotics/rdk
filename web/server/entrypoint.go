@@ -32,7 +32,7 @@ import (
 	rutils "go.viam.com/rdk/utils"
 )
 
-var viamDotDir = filepath.Join(os.Getenv("HOME"), ".viam")
+var viamDotDir = filepath.Join(rutils.PlatformHomeDir(), ".viam")
 
 // Arguments for the command.
 type Arguments struct {

@@ -2,56 +2,38 @@ package webstream
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"sync"
 
 	"github.com/pion/webrtc/v3"
+	"github.com/pkg/errors"
+	"go.opencensus.io/trace"
 	"go.uber.org/multierr"
 	streampb "go.viam.com/api/stream/v1"
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/gostream"
+	"go.viam.com/rdk/logging"
+	"go.viam.com/rdk/robot"
+	"go.viam.com/rdk/robot/web/stream/state"
+	rutils "go.viam.com/rdk/utils"
 )
 
 type peerState struct {
-	stream  *streamState
-	senders []*webrtc.RTPSender
-}
-
-type streamState struct {
-	mu          sync.Mutex
-	stream      gostream.Stream
-	activePeers int
-}
-
-func (ss *streamState) Start() {
-	ss.mu.Lock()
-	defer ss.mu.Unlock()
-	ss.activePeers++
-	if ss.activePeers == 1 {
-		ss.stream.Start()
-	}
-}
-
-func (ss *streamState) Stop() {
-	ss.mu.Lock()
-	defer ss.mu.Unlock()
-	ss.activePeers--
-	if ss.activePeers <= 0 {
-		ss.activePeers = 0
-		ss.stream.Stop()
-	}
+	streamState *state.StreamState
+	senders     []*webrtc.RTPSender
 }
 
 // Server implements the gRPC audio/video streaming service.
 type Server struct {
 	streampb.UnimplementedStreamServiceServer
+	logger logging.Logger
+	r      robot.Robot
 
 	mu                      sync.RWMutex
-	streams                 []*streamState
-	nameToStream            map[string]gostream.Stream
+	streamNames             []string
+	nameToStreamState       map[string]*state.StreamState
 	activePeerStreams       map[*webrtc.PeerConnection]map[string]*peerState
 	activeBackgroundWorkers sync.WaitGroup
 	isAlive                 bool
@@ -59,9 +41,15 @@ type Server struct {
 
 // NewServer returns a server that will run on the given port and initially starts with the given
 // stream.
-func NewServer(streams ...gostream.Stream) (*Server, error) {
+func NewServer(
+	streams []gostream.Stream,
+	r robot.Robot,
+	logger logging.Logger,
+) (*Server, error) {
 	ss := &Server{
-		nameToStream:      map[string]gostream.Stream{},
+		r:                 r,
+		logger:            logger,
+		nameToStreamState: map[string]*state.StreamState{},
 		activePeerStreams: map[*webrtc.PeerConnection]map[string]*peerState{},
 		isAlive:           true,
 	}
@@ -89,7 +77,7 @@ func (ss *Server) NewStream(config gostream.StreamConfig) (gostream.Stream, erro
 	ss.mu.Lock()
 	defer ss.mu.Unlock()
 
-	if _, ok := ss.nameToStream[config.Name]; ok {
+	if _, ok := ss.nameToStreamState[config.Name]; ok {
 		return nil, &StreamAlreadyRegisteredError{config.Name}
 	}
 
@@ -107,18 +95,24 @@ func (ss *Server) NewStream(config gostream.StreamConfig) (gostream.Stream, erro
 
 // ListStreams implements part of the StreamServiceServer.
 func (ss *Server) ListStreams(ctx context.Context, req *streampb.ListStreamsRequest) (*streampb.ListStreamsResponse, error) {
+	_, span := trace.StartSpan(ctx, "stream::server::ListStreams")
+	defer span.End()
 	ss.mu.RLock()
 	defer ss.mu.RUnlock()
 
-	names := make([]string, 0, len(ss.streams))
-	for _, stream := range ss.streams {
-		names = append(names, stream.stream.Name())
+	names := make([]string, 0, len(ss.streamNames))
+	for _, name := range ss.streamNames {
+		streamState := ss.nameToStreamState[name]
+		names = append(names, streamState.Stream.Name())
 	}
 	return &streampb.ListStreamsResponse{Names: names}, nil
 }
 
 // AddStream implements part of the StreamServiceServer.
 func (ss *Server) AddStream(ctx context.Context, req *streampb.AddStreamRequest) (*streampb.AddStreamResponse, error) {
+	ctx, span := trace.StartSpan(ctx, "stream::server::AddStream")
+	defer span.End()
+	// Get the peer connection
 	pc, ok := rpc.ContextPeerConnection(ctx)
 	if !ok {
 		return nil, errors.New("can only add a stream over a WebRTC based connection")
@@ -127,26 +121,32 @@ func (ss *Server) AddStream(ctx context.Context, req *streampb.AddStreamRequest)
 	ss.mu.Lock()
 	defer ss.mu.Unlock()
 
-	var streamToAdd *streamState
-	for _, stream := range ss.streams {
-		if stream.stream.Name() == req.Name {
-			streamToAdd = stream
-			break
-		}
-	}
+	streamStateToAdd, ok := ss.nameToStreamState[req.Name]
 
-	if streamToAdd == nil {
-		return nil, fmt.Errorf("no stream for %q", req.Name)
-	}
-
-	if _, ok := ss.activePeerStreams[pc][req.Name]; ok {
-		return nil, errors.New("stream already active")
-	}
-	pcStreams, ok := ss.activePeerStreams[pc]
+	// return error if there is no stream for that camera
 	if !ok {
-		pcStreams = map[string]*peerState{}
-		pc.OnConnectionStateChange(func(state webrtc.PeerConnectionState) {
-			switch state {
+		err := fmt.Errorf("no stream for %q", req.Name)
+		ss.logger.Error(err.Error())
+		return nil, err
+	}
+
+	// return error if the caller's peer connection is already being sent video data
+	if _, ok := ss.activePeerStreams[pc][req.Name]; ok {
+		err := errors.New("stream already active")
+		ss.logger.Error(err.Error())
+		return nil, err
+	}
+	nameToPeerState, ok := ss.activePeerStreams[pc]
+	// if there is no active video data being sent, set up a callback to remove the peer connection from
+	// the active streams & stop the stream from doing h264 encode if this is the last peer connection
+	// subcribed to the camera's video feed
+	// the callback fires when the peer connection state changes & runs the cleanup routine when the
+	// peer connection is in a terminal state.
+	if !ok {
+		nameToPeerState = map[string]*peerState{}
+		pc.OnConnectionStateChange(func(peerConnectionState webrtc.PeerConnectionState) {
+			ss.logger.Debugf("%s pc.OnConnectionStateChange state: %s", req.Name, peerConnectionState)
+			switch peerConnectionState {
 			case webrtc.PeerConnectionStateDisconnected,
 				webrtc.PeerConnectionStateFailed,
 				webrtc.PeerConnectionStateClosed:
@@ -172,8 +172,15 @@ func (ss *Server) AddStream(ctx context.Context, req *streampb.AddStreamRequest)
 						ss.mu.Lock()
 						defer ss.mu.Unlock()
 						defer delete(ss.activePeerStreams, pc)
+						var errs error
 						for _, ps := range ss.activePeerStreams[pc] {
-							ps.stream.Stop()
+							ctx, cancel := context.WithTimeout(context.Background(), state.UnsubscribeTimeout)
+							errs = multierr.Combine(errs, ps.streamState.Decrement(ctx))
+							cancel()
+						}
+						// We don't want to log this if the streamState was closed (as it only happens if viam-server is terminating)
+						if errs != nil && !errors.Is(errs, state.ErrClosed) {
+							ss.logger.Errorw("error(s) stopping the streamState", "errs", errs)
 						}
 					})
 				}
@@ -185,23 +192,22 @@ func (ss *Server) AddStream(ctx context.Context, req *streampb.AddStreamRequest)
 				return
 			}
 		})
-		ss.activePeerStreams[pc] = pcStreams
+		ss.activePeerStreams[pc] = nameToPeerState
 	}
 
-	ps, ok := pcStreams[req.Name]
+	ps, ok := nameToPeerState[req.Name]
+	// if the active peer stream doesn't have a peerState, add one containing the stream in question
 	if !ok {
-		ps = &peerState{stream: streamToAdd}
-		pcStreams[req.Name] = ps
+		ps = &peerState{streamState: streamStateToAdd}
+		nameToPeerState[req.Name] = ps
 	}
 
-	var successful bool
-	defer func() {
-		if !successful {
-			for _, sender := range ps.senders {
-				utils.UncheckedError(pc.RemoveTrack(sender))
-			}
+	guard := rutils.NewGuard(func() {
+		for _, sender := range ps.senders {
+			utils.UncheckedError(pc.RemoveTrack(sender))
 		}
-	}()
+	})
+	defer guard.OnFail()
 
 	addTrack := func(track webrtc.TrackLocal) error {
 		sender, err := pc.AddTrack(track)
@@ -212,24 +218,33 @@ func (ss *Server) AddStream(ctx context.Context, req *streampb.AddStreamRequest)
 		return nil
 	}
 
-	if trackLocal, haveTrackLocal := streamToAdd.stream.VideoTrackLocal(); haveTrackLocal {
+	// if the stream supports video, add the video track
+	if trackLocal, haveTrackLocal := streamStateToAdd.Stream.VideoTrackLocal(); haveTrackLocal {
 		if err := addTrack(trackLocal); err != nil {
+			ss.logger.Error(err.Error())
 			return nil, err
 		}
 	}
-	if trackLocal, haveTrackLocal := streamToAdd.stream.AudioTrackLocal(); haveTrackLocal {
+	// if the stream supports audio, add the audio track
+	if trackLocal, haveTrackLocal := streamStateToAdd.Stream.AudioTrackLocal(); haveTrackLocal {
 		if err := addTrack(trackLocal); err != nil {
+			ss.logger.Error(err.Error())
 			return nil, err
 		}
 	}
-	streamToAdd.Start()
+	if err := streamStateToAdd.Increment(ctx); err != nil {
+		ss.logger.Error(err.Error())
+		return nil, err
+	}
 
-	successful = true
+	guard.Success()
 	return &streampb.AddStreamResponse{}, nil
 }
 
 // RemoveStream implements part of the StreamServiceServer.
 func (ss *Server) RemoveStream(ctx context.Context, req *streampb.RemoveStreamRequest) (*streampb.RemoveStreamResponse, error) {
+	ctx, span := trace.StartSpan(ctx, "stream::server::RemoveStream")
+	defer span.End()
 	pc, ok := rpc.ContextPeerConnection(ctx)
 	if !ok {
 		return nil, errors.New("can only remove a stream over a WebRTC based connection")
@@ -238,38 +253,30 @@ func (ss *Server) RemoveStream(ctx context.Context, req *streampb.RemoveStreamRe
 	ss.mu.Lock()
 	defer ss.mu.Unlock()
 
-	var streamToRemove *streamState
-	for _, stream := range ss.streams {
-		if stream.stream.Name() == req.Name {
-			streamToRemove = stream
-			break
-		}
-	}
-
-	if streamToRemove == nil {
+	streamToRemove, ok := ss.nameToStreamState[req.Name]
+	if !ok {
 		return nil, fmt.Errorf("no stream for %q", req.Name)
 	}
 
 	if _, ok := ss.activePeerStreams[pc][req.Name]; !ok {
 		return nil, errors.New("stream already inactive")
 	}
-	defer func() {
-		delete(ss.activePeerStreams[pc], req.Name)
-	}()
 
 	var errs error
 	for _, sender := range ss.activePeerStreams[pc][req.Name].senders {
 		errs = multierr.Combine(errs, pc.RemoveTrack(sender))
 	}
 	if errs != nil {
+		ss.logger.Error(errs.Error())
 		return nil, errs
 	}
-	ss.activeBackgroundWorkers.Add(1)
-	utils.PanicCapturingGo(func() {
-		defer ss.activeBackgroundWorkers.Done()
-		streamToRemove.Stop()
-	})
 
+	if err := streamToRemove.Decrement(ctx); err != nil {
+		ss.logger.Error(err.Error())
+		return nil, err
+	}
+
+	delete(ss.activePeerStreams[pc], req.Name)
 	return &streampb.RemoveStreamResponse{}, nil
 }
 
@@ -278,22 +285,27 @@ func (ss *Server) Close() error {
 	ss.mu.Lock()
 	ss.isAlive = false
 
-	for _, stream := range ss.streams {
-		stream.stream.Stop()
-		stream.activePeers = 0
+	var errs error
+	for _, name := range ss.streamNames {
+		errs = multierr.Combine(errs, ss.nameToStreamState[name].Close())
+	}
+	if errs != nil {
+		ss.logger.Errorf("Stream Server Close > StreamState.Close() errs: %s", errs)
 	}
 	ss.mu.Unlock()
 	ss.activeBackgroundWorkers.Wait()
-	return nil
+	return errs
 }
 
 func (ss *Server) add(stream gostream.Stream) error {
 	streamName := stream.Name()
-	if _, ok := ss.nameToStream[streamName]; ok {
+	if _, ok := ss.nameToStreamState[streamName]; ok {
 		return &StreamAlreadyRegisteredError{streamName}
 	}
 
-	ss.nameToStream[streamName] = stream
-	ss.streams = append(ss.streams, &streamState{stream: stream})
+	newStreamState := state.New(stream, ss.r, ss.logger)
+	newStreamState.Init()
+	ss.nameToStreamState[streamName] = newStreamState
+	ss.streamNames = append(ss.streamNames, streamName)
 	return nil
 }

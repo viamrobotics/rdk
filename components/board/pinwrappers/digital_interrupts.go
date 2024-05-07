@@ -48,16 +48,6 @@ func (i *BasicDigitalInterrupt) Value(ctx context.Context, extra map[string]inte
 	return count, nil
 }
 
-// Ticks is really just for testing.
-func (i *BasicDigitalInterrupt) Ticks(ctx context.Context, num int, now uint64) error {
-	for x := 0; x < num; x++ {
-		if err := Tick(ctx, i, true, now+uint64(x)); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
 // Tick records an interrupt and notifies any interested callbacks. See comment on
 // the DigitalInterrupt interface for caveats.
 func Tick(ctx context.Context, i *BasicDigitalInterrupt, high bool, nanoseconds uint64) error {
@@ -84,9 +74,10 @@ func AddCallback(i *BasicDigitalInterrupt, c chan board.Tick) {
 }
 
 // RemoveCallback removes a listener for interrupts.
-func (i *BasicDigitalInterrupt) RemoveCallback(c chan board.Tick) {
+func RemoveCallback(i *BasicDigitalInterrupt, c chan board.Tick) {
 	i.mu.Lock()
 	defer i.mu.Unlock()
+
 	for id := range i.callbacks {
 		if i.callbacks[id] == c {
 			// To remove this item, we replace it with the last item in the list, then truncate the

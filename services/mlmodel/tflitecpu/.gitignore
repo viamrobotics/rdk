@@ -1,0 +1,2 @@
+# Keep android shared libraries 
+!**/jni/**/*.so

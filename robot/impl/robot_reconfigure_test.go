@@ -23,7 +23,6 @@ import (
 
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/components/arm/fake"
-	"go.viam.com/rdk/components/audioinput"
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/camera"
@@ -2576,20 +2575,47 @@ func TestStatusServiceUpdate(t *testing.T) {
 }
 
 func TestRemoteRobotsGold(t *testing.T) {
+	// This tests that a main part is able to start up with an offline remote robot, connect to it and
+	// depend on the remote robot's resources when it comes online. And react appropriately when the remote robot goes offline again.
+
+	// If a new robot object/process comes online at the same address+port, the main robot should still be able
+	// to use the new remote robot's resources.
+
+	// To do so, the test initially sets up two remote robots, Remote 1 and 2, and then a third remote, Remote 3,
+	// in the following scenario:
+	// 1) Remote 1's server is started.
+	// 2) The main robot is then set up with resources that depend on resources on both Remote 1 and 2. Since
+	//    Remote 2 is not up, their resources are not available to the main robot.
+	// 3) After initial configuration, Remote 2's server starts up and the main robot should then connect
+	//	  and pick up the new available resources.
+	// 4) Remote 2 goes down, and the main robot should remove any resources or resources that depend on
+	//    resources from Remote 2.
+	// 5) Remote 3 comes online at the same address as Remote 2, and the main robot should treat it the same as
+	//    if Remote 2 came online again and re-add all the removed resources.
 	logger := logging.NewTestLogger(t)
-	cfg, err := config.Read(context.Background(), "data/fake.json", logger)
-	test.That(t, err, test.ShouldBeNil)
+	remoteConfig := &config.Config{
+		Components: []resource.Config{
+			{
+				Name:  "remoteArm",
+				Model: resource.DefaultModelFamily.WithModel("fake"),
+				ConvertedAttributes: &fake.Config{
+					ModelFilePath: "../../components/arm/fake/fake_model.json",
+				},
+				API: arm.API,
+			},
+		},
+	}
 
 	ctx := context.Background()
 
-	remote1 := setupLocalRobot(t, ctx, cfg, logger.Sublogger("remote1"))
-
+	// set up and start remote1's web service
+	remote1 := setupLocalRobot(t, ctx, remoteConfig, logger.Sublogger("remote1"))
 	options, _, addr1 := robottestutils.CreateBaseOptionsAndListener(t)
-	err = remote1.StartWeb(ctx, options)
+	err := remote1.StartWeb(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
 
-	remote2 := setupLocalRobot(t, ctx, cfg, logger.Sublogger("remote2"))
-
+	// set up but do not start remote2's web service
+	remote2 := setupLocalRobot(t, ctx, remoteConfig, logger.Sublogger("remote2"))
 	options, listener2, addr2 := robottestutils.CreateBaseOptionsAndListener(t)
 
 	localConfig := &config.Config{
@@ -2601,7 +2627,7 @@ func TestRemoteRobotsGold(t *testing.T) {
 					ModelFilePath: "../../components/arm/fake/fake_model.json",
 				},
 				API:       arm.API,
-				DependsOn: []string{"foo:pieceGripper"},
+				DependsOn: []string{"foo:remoteArm"},
 			},
 			{
 				Name:  "arm2",
@@ -2610,7 +2636,7 @@ func TestRemoteRobotsGold(t *testing.T) {
 					ModelFilePath: "../../components/arm/fake/fake_model.json",
 				},
 				API:       arm.API,
-				DependsOn: []string{"bar:pieceArm"},
+				DependsOn: []string{"bar:remoteArm"},
 			},
 		},
 		Services: []resource.Config{},
@@ -2625,7 +2651,9 @@ func TestRemoteRobotsGold(t *testing.T) {
 			},
 		},
 	}
-	r := setupLocalRobot(t, ctx, localConfig, logger.Sublogger("local"))
+	r := setupLocalRobot(t, ctx, localConfig, logger.Sublogger("main"))
+
+	// assert all of remote1's resources exist on main but none of remote2's
 	test.That(
 		t,
 		rdktestutils.NewResourceNameSet(r.ResourceNames()...),
@@ -2634,53 +2662,35 @@ func TestRemoteRobotsGold(t *testing.T) {
 			motion.Named(resource.DefaultServiceName),
 			sensors.Named(resource.DefaultServiceName),
 			arm.Named("arm1"),
-			arm.Named("foo:pieceArm"),
-			audioinput.Named("foo:mic1"),
-			camera.Named("foo:cameraOver"),
-			movementsensor.Named("foo:movement_sensor1"),
-			movementsensor.Named("foo:movement_sensor2"),
-			gripper.Named("foo:pieceGripper"),
+			arm.Named("foo:remoteArm"),
 			motion.Named("foo:builtin"),
 			sensors.Named("foo:builtin"),
 		),
 	)
+
+	// start remote2's web service
 	err = remote2.StartWeb(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
 
-	rr, ok := r.(*localRobot)
-	test.That(t, ok, test.ShouldBeTrue)
-
-	rr.triggerConfig <- struct{}{}
-
-	expectedSet := rdktestutils.NewResourceNameSet(
+	mainPartAndFooAndBarResources := rdktestutils.NewResourceNameSet(
 		motion.Named(resource.DefaultServiceName),
 		sensors.Named(resource.DefaultServiceName),
 		arm.Named("arm1"),
 		arm.Named("arm2"),
-		arm.Named("foo:pieceArm"),
-		audioinput.Named("foo:mic1"),
-		camera.Named("foo:cameraOver"),
-		movementsensor.Named("foo:movement_sensor1"),
-		movementsensor.Named("foo:movement_sensor2"),
-		gripper.Named("foo:pieceGripper"),
+		arm.Named("foo:remoteArm"),
 		motion.Named("foo:builtin"),
 		sensors.Named("foo:builtin"),
-		arm.Named("bar:pieceArm"),
-		audioinput.Named("bar:mic1"),
-		camera.Named("bar:cameraOver"),
-		movementsensor.Named("bar:movement_sensor1"),
-		movementsensor.Named("bar:movement_sensor2"),
-		gripper.Named("bar:pieceGripper"),
+		arm.Named("bar:remoteArm"),
 		motion.Named("bar:builtin"),
 		sensors.Named("bar:builtin"),
 	)
 	testutils.WaitForAssertionWithSleep(t, time.Millisecond*100, 300, func(tb testing.TB) {
-		test.That(tb, rdktestutils.NewResourceNameSet(r.ResourceNames()...), test.ShouldResemble, expectedSet)
+		test.That(tb, rdktestutils.NewResourceNameSet(r.ResourceNames()...), test.ShouldResemble, mainPartAndFooAndBarResources)
 	})
 	test.That(t, remote2.Close(context.Background()), test.ShouldBeNil)
 
 	// wait for local_robot to detect that the remote is now offline
-	testutils.WaitForAssertionWithSleep(t, time.Millisecond*100, 600, func(tb testing.TB) {
+	testutils.WaitForAssertionWithSleep(t, time.Millisecond*100, 300, func(tb testing.TB) {
 		test.That(
 			tb,
 			rdktestutils.NewResourceNameSet(r.ResourceNames()...),
@@ -2689,19 +2699,14 @@ func TestRemoteRobotsGold(t *testing.T) {
 				motion.Named(resource.DefaultServiceName),
 				sensors.Named(resource.DefaultServiceName),
 				arm.Named("arm1"),
-				arm.Named("foo:pieceArm"),
-				audioinput.Named("foo:mic1"),
-				camera.Named("foo:cameraOver"),
-				movementsensor.Named("foo:movement_sensor1"),
-				movementsensor.Named("foo:movement_sensor2"),
-				gripper.Named("foo:pieceGripper"),
+				arm.Named("foo:remoteArm"),
 				motion.Named("foo:builtin"),
 				sensors.Named("foo:builtin"),
 			),
 		)
 	})
 
-	remote3 := setupLocalRobot(t, ctx, cfg, logger.Sublogger("remote3"))
+	remote3 := setupLocalRobot(t, ctx, remoteConfig, logger.Sublogger("remote3"))
 
 	// Note: There's a slight chance this test can fail if someone else
 	// claims the port we just released by closing the server.
@@ -2711,19 +2716,15 @@ func TestRemoteRobotsGold(t *testing.T) {
 	err = remote3.StartWeb(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
 
-	rr, ok = r.(*localRobot)
-	test.That(t, ok, test.ShouldBeTrue)
-
-	rr.triggerConfig <- struct{}{}
-
 	testutils.WaitForAssertionWithSleep(t, time.Millisecond*100, 300, func(tb testing.TB) {
-		test.That(tb, rdktestutils.NewResourceNameSet(r.ResourceNames()...), test.ShouldResemble, expectedSet)
+		test.That(tb, rdktestutils.NewResourceNameSet(r.ResourceNames()...), test.ShouldResemble, mainPartAndFooAndBarResources)
 	})
 }
 
 func TestRemoteRobotsUpdate(t *testing.T) {
+	// The test tests that the robot is able to update when multiple remote robot
+	// updates happen at the same time.
 	logger := logging.NewTestLogger(t)
-	ctx := context.Background()
 	remoteConfig := &config.Config{
 		Components: []resource.Config{
 			{
@@ -2736,7 +2737,7 @@ func TestRemoteRobotsUpdate(t *testing.T) {
 			},
 		},
 	}
-
+	ctx := context.Background()
 	remote := setupLocalRobot(t, ctx, remoteConfig, logger.Sublogger("remote"))
 
 	options, _, addr1 := robottestutils.CreateBaseOptionsAndListener(t)
@@ -2786,11 +2787,6 @@ func TestRemoteRobotsUpdate(t *testing.T) {
 	})
 	test.That(t, remote.Close(context.Background()), test.ShouldBeNil)
 
-	rr, ok := r.(*localRobot)
-	test.That(t, ok, test.ShouldBeTrue)
-
-	rr.triggerConfig <- struct{}{}
-
 	// wait for local_robot to detect that the remote is now offline
 	testutils.WaitForAssertionWithSleep(t, time.Millisecond*100, 300, func(tb testing.TB) {
 		test.That(
@@ -2806,6 +2802,9 @@ func TestRemoteRobotsUpdate(t *testing.T) {
 }
 
 func TestInferRemoteRobotDependencyConnectAtStartup(t *testing.T) {
+	// The test tests that the robot is able to infer remote dependencies
+	// if remote name is not part of the specified dependency
+	// and the remote is online at start up.
 	logger := logging.NewTestLogger(t)
 
 	fooCfg := &config.Config{
@@ -2820,9 +2819,7 @@ func TestInferRemoteRobotDependencyConnectAtStartup(t *testing.T) {
 			},
 		},
 	}
-
 	ctx := context.Background()
-
 	foo := setupLocalRobot(t, ctx, fooCfg, logger.Sublogger("foo"))
 
 	options, listener1, addr1 := robottestutils.CreateBaseOptionsAndListener(t)
@@ -2849,25 +2846,6 @@ func TestInferRemoteRobotDependencyConnectAtStartup(t *testing.T) {
 		},
 	}
 	r := setupLocalRobot(t, ctx, localConfig, logger.Sublogger("local"))
-	test.That(
-		t,
-		rdktestutils.NewResourceNameSet(r.ResourceNames()...),
-		test.ShouldResemble,
-		rdktestutils.NewResourceNameSet(
-			motion.Named(resource.DefaultServiceName),
-			sensors.Named(resource.DefaultServiceName),
-			arm.Named("arm1"),
-			arm.Named("foo:pieceArm"),
-			motion.Named("foo:builtin"),
-			sensors.Named("foo:builtin"),
-		),
-	)
-
-	rr, ok := r.(*localRobot)
-	test.That(t, ok, test.ShouldBeTrue)
-
-	rr.triggerConfig <- struct{}{}
-
 	expectedSet := rdktestutils.NewResourceNameSet(
 		motion.Named(resource.DefaultServiceName),
 		sensors.Named(resource.DefaultServiceName),
@@ -2876,12 +2854,13 @@ func TestInferRemoteRobotDependencyConnectAtStartup(t *testing.T) {
 		motion.Named("foo:builtin"),
 		sensors.Named("foo:builtin"),
 	)
-
-	testutils.WaitForAssertionWithSleep(t, time.Millisecond*100, 300, func(tb testing.TB) {
-		test.That(tb, rdktestutils.NewResourceNameSet(r.ResourceNames()...), test.ShouldResemble, expectedSet)
-	})
+	test.That(
+		t,
+		rdktestutils.NewResourceNameSet(r.ResourceNames()...),
+		test.ShouldResemble,
+		expectedSet,
+	)
 	test.That(t, foo.Close(context.Background()), test.ShouldBeNil)
-	rr.triggerConfig <- struct{}{}
 
 	// wait for local_robot to detect that the remote is now offline
 	testutils.WaitForAssertionWithSleep(t, time.Millisecond*100, 300, func(tb testing.TB) {
@@ -2906,17 +2885,15 @@ func TestInferRemoteRobotDependencyConnectAtStartup(t *testing.T) {
 	err = foo2.StartWeb(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
 
-	rr, ok = r.(*localRobot)
-	test.That(t, ok, test.ShouldBeTrue)
-
-	rr.triggerConfig <- struct{}{}
-
 	testutils.WaitForAssertionWithSleep(t, time.Millisecond*100, 300, func(tb testing.TB) {
 		test.That(tb, rdktestutils.NewResourceNameSet(r.ResourceNames()...), test.ShouldResemble, expectedSet)
 	})
 }
 
 func TestInferRemoteRobotDependencyConnectAfterStartup(t *testing.T) {
+	// The test tests that the robot is able to infer remote dependencies
+	// if remote name is not part of the specified dependency
+	// and the remote is offline at start up.
 	logger := logging.NewTestLogger(t)
 
 	fooCfg := &config.Config{
@@ -2970,11 +2947,6 @@ func TestInferRemoteRobotDependencyConnectAfterStartup(t *testing.T) {
 	err := foo.StartWeb(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
 
-	rr, ok := r.(*localRobot)
-	test.That(t, ok, test.ShouldBeTrue)
-
-	rr.triggerConfig <- struct{}{}
-
 	expectedSet := rdktestutils.NewResourceNameSet(
 		motion.Named(resource.DefaultServiceName),
 		sensors.Named(resource.DefaultServiceName),
@@ -2987,7 +2959,6 @@ func TestInferRemoteRobotDependencyConnectAfterStartup(t *testing.T) {
 		test.That(tb, rdktestutils.NewResourceNameSet(r.ResourceNames()...), test.ShouldResemble, expectedSet)
 	})
 	test.That(t, foo.Close(context.Background()), test.ShouldBeNil)
-	rr.triggerConfig <- struct{}{}
 
 	// wait for local_robot to detect that the remote is now offline
 	testutils.WaitForAssertionWithSleep(t, time.Millisecond*100, 300, func(tb testing.TB) {
@@ -3004,6 +2975,9 @@ func TestInferRemoteRobotDependencyConnectAfterStartup(t *testing.T) {
 }
 
 func TestInferRemoteRobotDependencyAmbiguous(t *testing.T) {
+	// The test tests that the robot will not build a resource if the dependency
+	// is ambiguous. In this case, "pieceArm" can refer to both "foo:pieceArm"
+	// and "bar:pieceArm".
 	logger := logging.NewTestLogger(t)
 
 	remoteCfg := &config.Config{
@@ -3070,13 +3044,10 @@ func TestInferRemoteRobotDependencyAmbiguous(t *testing.T) {
 
 	test.That(t, rdktestutils.NewResourceNameSet(r.ResourceNames()...), test.ShouldResemble, expectedSet)
 
-	rr, ok := r.(*localRobot)
-	test.That(t, ok, test.ShouldBeTrue)
-
-	rr.triggerConfig <- struct{}{}
-	time.Sleep(2 * time.Second)
 	// we expect the robot to correctly detect the ambiguous dependency and not build the resource
-	test.That(t, rdktestutils.NewResourceNameSet(r.ResourceNames()...), test.ShouldResemble, expectedSet)
+	testutils.WaitForAssertionWithSleep(t, time.Millisecond*100, 150, func(tb testing.TB) {
+		test.That(tb, rdktestutils.NewResourceNameSet(r.ResourceNames()...), test.ShouldResemble, expectedSet)
+	})
 
 	// now reconfig with a fully qualified name
 	reConfig := &config.Config{
@@ -3103,7 +3074,6 @@ func TestInferRemoteRobotDependencyAmbiguous(t *testing.T) {
 		},
 	}
 	r.Reconfigure(ctx, reConfig)
-	rr.triggerConfig <- struct{}{}
 
 	finalSet := rdktestutils.NewResourceNameSet(
 		motion.Named(resource.DefaultServiceName),

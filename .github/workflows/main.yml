@@ -37,6 +37,14 @@ jobs:
     secrets:
       GCP_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS }}
 
+  full-static:
+    needs: test
+    uses: viamrobotics/rdk/.github/workflows/full-static.yml@main
+    with:
+      channel: latest
+    secrets:
+      GCP_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS }}
+
   droid:
     needs: test
     uses: viamrobotics/rdk/.github/workflows/droid.yml@main

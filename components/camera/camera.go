@@ -7,7 +7,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/pion/mediadevices/pkg/prop"
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
@@ -178,11 +177,11 @@ func (vs *sourceBasedCamera) SubscribeRTP(
 	ctx context.Context,
 	bufferSize int,
 	packetsCB rtppassthrough.PacketCallback,
-) (rtppassthrough.SubscriptionID, error) {
+) (rtppassthrough.Subscription, error) {
 	if vs.rtpPassthroughSource != nil {
 		return vs.rtpPassthroughSource.SubscribeRTP(ctx, bufferSize, packetsCB)
 	}
-	return uuid.Nil, errors.New("SubscribeRTP unimplemented")
+	return rtppassthrough.NilSubscription, errors.New("SubscribeRTP unimplemented")
 }
 
 func (vs *sourceBasedCamera) Unsubscribe(ctx context.Context, id rtppassthrough.SubscriptionID) error {
@@ -242,11 +241,11 @@ func (vs *videoSource) SubscribeRTP(
 	ctx context.Context,
 	bufferSize int,
 	packetsCB rtppassthrough.PacketCallback,
-) (rtppassthrough.SubscriptionID, error) {
+) (rtppassthrough.Subscription, error) {
 	if vs.rtpPassthroughSource != nil {
 		return vs.rtpPassthroughSource.SubscribeRTP(ctx, bufferSize, packetsCB)
 	}
-	return uuid.Nil, errors.New("SubscribeRTP unimplemented")
+	return rtppassthrough.NilSubscription, errors.New("SubscribeRTP unimplemented")
 }
 
 func (vs *videoSource) Unsubscribe(ctx context.Context, id rtppassthrough.SubscriptionID) error {

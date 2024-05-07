@@ -204,9 +204,6 @@ func (dic *digitalInterruptClient) Name() string {
 	return dic.digitalInterruptName
 }
 
-func (dic *digitalInterruptClient) RemoveCallback(ch chan Tick) {
-}
-
 func (c *client) StreamTicks(ctx context.Context, interrupts []DigitalInterrupt, ch chan Tick,
 	extra map[string]interface{},
 ) error {

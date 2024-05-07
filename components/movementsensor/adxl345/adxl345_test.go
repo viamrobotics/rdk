@@ -163,18 +163,6 @@ func TestInterrupts(t *testing.T) {
 		return nil
 	}
 
-	interrupt.RemoveCallbackFunc = func(c chan board.Tick) {
-		for id := range callbacks {
-			if callbacks[id] == c {
-				// To remove this item, we replace it with the last item in the list, then truncate the
-				// list by 1.
-				callbacks[id] = callbacks[len(callbacks)-1]
-				callbacks = callbacks[:len(callbacks)-1]
-				break
-			}
-		}
-	}
-
 	mockBoard := &inject.Board{}
 	mockBoard.DigitalInterruptByNameFunc = func(name string) (board.DigitalInterrupt, error) { return interrupt, nil }
 	mockBoard.StreamTicksFunc = func(ctx context.Context, interrupts []board.DigitalInterrupt, ch chan board.Tick,
