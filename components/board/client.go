@@ -139,7 +139,7 @@ func (ac *analogClient) Read(ctx context.Context, extra map[string]interface{}) 
 	if err != nil {
 		return 0, err
 	}
-	// the api method is named ReadAnalogReader, it is named differenlty than
+	// the api method is named ReadAnalogReader, it is named differently than
 	// the board interface functions.
 	resp, err := ac.client.client.ReadAnalogReader(ctx, &pb.ReadAnalogReaderRequest{
 		BoardName:        ac.boardName,
@@ -157,8 +157,6 @@ func (ac *analogClient) Write(ctx context.Context, value int, extra map[string]i
 	if err != nil {
 		return err
 	}
-	// the api method is named ReadAnalogReader, it is named differenlty than
-	// the board interface functions.
 	_, err = ac.client.client.WriteAnalog(ctx, &pb.WriteAnalogRequest{
 		Name:  ac.boardName,
 		Pin:   ac.analogName,
