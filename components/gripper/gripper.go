@@ -34,6 +34,16 @@ func Named(name string) resource.Name {
 }
 
 // A Gripper represents a physical robotic gripper.
+//
+// Open example:
+//
+//    // Open the gripper.
+//    err = myGripper.Open(context.Background(), nil)
+//
+// Grab example:
+//
+//    // Grab with the gripper.
+//    grabbed, err := myGripper.Grab(context.Background(), nil)
 type Gripper interface {
 	resource.Resource
 	resource.Shaped

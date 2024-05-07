@@ -35,6 +35,61 @@ func Named(name string) resource.Name {
 
 // Controller is a logical "container" more than an actual device
 // Could be a single gamepad, or a collection of digitalInterrupts and analogReaders, a keyboard, etc.
+//
+// Controls example:
+//
+//    // Get the list of Controls provided by the controller.
+//    controls, err := myController.Controls(context.Background(), nil)
+//
+// Events example:
+//
+//    // Get the most recent Event for each Control.
+//    recent_events, err := myController.Events(context.Background(), nil)
+//
+// RegisterControlCallback example:
+//
+//    // Define a function that handles the controller.
+//    func handleController(ctx context.Context, logger logging.Logger, controller input.Controller) error {
+//        // Define a function to handle pressing the Start Menu button, "ButtonStart", on your controller and logging the start time
+//        printStartTime := func(ctx context.Context, event input.Event) {
+//            logger.Info("Start Menu Button was pressed at this time: %v", event.Time)
+//        }
+//
+//        // Define the EventType "ButtonPress" to serve as the trigger for printStartTime.
+//        triggers := []input.EventType{input.ButtonPress}
+//
+//        // Get the controller's Controls.
+//        controls, err := controller.Controls(ctx, nil)
+//
+//        // If the "ButtonStart" Control is found, register the function printStartTime to fire when "ButtonStart" has the event "ButtonPress" occur.
+//        if !slices.Contains(controls, input.ButtonStart) {
+//            return errors.New("button `ButtonStart` not found; controller may be disconnected")
+//        }
+//        return controller.RegisterControlCallback(context.Background(), Control: input.ButtonStart, triggers, printStartTime, nil)
+//    }
+//
+//    func main() {
+//        utils.ContextualMain(mainWithArgs, logging.NewLogger("client"))
+//    }
+//
+//    func mainWithArgs(ctx context.Context, args []string, logger logging.Logger) error {
+//        // < Insert code sample from your machine's CONNECT tab >
+//
+//        // Get the controller from the machine.
+//        myController, err := input.FromRobot(machine, "my_controller")
+//        if err != nil {
+//           return err
+//        }
+//
+//        // Run the handleController function.
+//        if err = handleController(myController) {
+//            return err
+//        }
+//        // < Insert any other code for main function >
+//
+//    <-ctx.Done()
+//    return nil
+//    }
 type Controller interface {
 	resource.Resource
 
