@@ -55,7 +55,7 @@ require (
 	github.com/jedib0t/go-pretty/v6 v6.4.6
 	github.com/jhump/protoreflect v1.15.1
 	github.com/kellydunn/golang-geo v0.7.0
-	github.com/lestrrat-go/jwx v1.2.25
+	github.com/lestrrat-go/jwx v1.2.29
 	github.com/lmittmann/ppm v1.0.2
 	github.com/lucasb-eyer/go-colorful v1.2.0
 	github.com/mattn/go-tflite v1.0.4
@@ -255,7 +255,7 @@ require (
 	github.com/ldez/tagliatelle v0.5.0 // indirect
 	github.com/leonklingele/grouper v1.1.1 // indirect
 	github.com/lestrrat-go/backoff/v2 v2.0.8 // indirect
-	github.com/lestrrat-go/blackmagic v1.0.1 // indirect
+	github.com/lestrrat-go/blackmagic v1.0.2 // indirect
 	github.com/lestrrat-go/httpcc v1.0.1 // indirect
 	github.com/lestrrat-go/iter v1.0.2 // indirect
 	github.com/lestrrat-go/option v1.0.1 // indirect
