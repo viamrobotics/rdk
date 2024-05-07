@@ -24,23 +24,23 @@ const (
 	trainingStatusPrefix = "TRAINING_STATUS_"
 )
 
-// DataSubmitCustomTrainingJob is the corresponding action for 'data train submit-custom'.
-func DataSubmitCustomTrainingJob(c *cli.Context) error {
+// MLSubmitCustomTrainingJob is the corresponding action for 'train submit-custom'.
+func MLSubmitCustomTrainingJob(c *cli.Context) error {
 	client, err := newViamClient(c)
 	if err != nil {
 		return err
 	}
 
-	err = client.uploadTrainingScript(true, c.String(mlTrainingFlagType), c.String(mlTrainingFlagFramework),
-		c.String(generalFlagOrgID), c.String(mlTrainingFlagName), c.String(mlTrainingFlagVersion),
+	err = client.uploadTrainingScript(true, c.String(trainFlagModelType), c.String(mlTrainingFlagFramework),
+		c.String(trainFlagModelOrgID), c.String(mlTrainingFlagName), c.String(mlTrainingFlagVersion),
 		c.Path(mlTrainingFlagPath))
 	if err != nil {
 		return err
 	}
-	registryItemID := fmt.Sprintf("%s:%s", c.String(generalFlagOrgID), c.String(mlTrainingFlagName))
-	printf(c.App.Writer, "succesfully uploaded training script to %s", registryItemID)
+	registryItemID := fmt.Sprintf("%s:%s", c.String(trainFlagModelOrgID), c.String(mlTrainingFlagName))
+	printf(c.App.Writer, "successfully uploaded training script to %s", registryItemID)
 	trainingJobID, err := client.dataSubmitCustomTrainingJob(
-		c.String(datasetFlagDatasetID), registryItemID, c.String(generalFlagOrgID),
+		c.String(datasetFlagDatasetID), registryItemID, c.String(trainFlagModelOrgID),
 		c.String(trainFlagModelName), c.String(trainFlagModelVersion))
 	if err != nil {
 		return err
@@ -49,8 +49,8 @@ func DataSubmitCustomTrainingJob(c *cli.Context) error {
 	return nil
 }
 
-// DataSubmitTrainingJob is the corresponding action for 'data train submit'.
-func DataSubmitTrainingJob(c *cli.Context) error {
+// MLSubmitTrainingJob is the corresponding action for 'train submit'.
+func MLSubmitTrainingJob(c *cli.Context) error {
 	client, err := newViamClient(c)
 	if err != nil {
 		return err
@@ -96,7 +96,8 @@ func (c *viamClient) dataSubmitTrainingJob(datasetID, orgID, modelName, modelVer
 
 // dataSubmitTrainingJob trains on data with the specified filter.
 func (c *viamClient) dataSubmitCustomTrainingJob(datasetID, registryItemID, orgID, modelName,
-	modelVersion string) (string, error) {
+	modelVersion string,
+) (string, error) {
 	if err := c.ensureLoggedIn(); err != nil {
 		return "", err
 	}

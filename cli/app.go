@@ -856,14 +856,16 @@ var app = &cli.App{
 							Usage: "version of ML model. defaults to current timestamp if unspecified.",
 						},
 					},
-					Action: DataSubmitTrainingJob,
+					Action: MLSubmitTrainingJob,
 				},
 				{
 					Name:  "submit-custom",
 					Usage: "submits custom training job on data in Viam cloud",
 					UsageText: createUsageText("train submit-custom",
-						[]string{datasetFlagDatasetID, generalFlagOrgID, trainFlagModelName,
-							mlTrainingFlagPath, mlTrainingFlagName}, true),
+						[]string{
+							datasetFlagDatasetID, generalFlagOrgID, trainFlagModelName,
+							mlTrainingFlagPath, mlTrainingFlagName
+						}, true),
 					Flags: []cli.Flag{
 						&cli.StringFlag{
 							Name:     datasetFlagDatasetID,
@@ -885,7 +887,7 @@ var app = &cli.App{
 							Required: true,
 						},
 						&cli.StringFlag{
-							Name:     generalFlagOrgID,
+							Name:     trainFlagModelOrgID,
 							Required: true,
 							Usage:    "organization ID to upload and run training job",
 						},
@@ -896,7 +898,7 @@ var app = &cli.App{
 						},
 						&cli.StringFlag{
 							Name:     mlTrainingFlagVersion,
-							Usage:    "version of the ML training script to upload",
+							Usage:    "version of the ML training script to upload. defaults to current timestamp if unspecified.",
 							Required: false,
 						},
 						&cli.StringFlag{
@@ -905,12 +907,12 @@ var app = &cli.App{
 							Required: false,
 						},
 						&cli.StringFlag{
-							Name:     mlTrainingFlagType,
+							Name:     trainFlagModelType,
 							Usage:    "task type of the ML training script to upload, can be: " + strings.Join(modelTypes, ", "),
 							Required: false,
 						},
 					},
-					Action: DataSubmitCustomTrainingJob,
+					Action: MLSubmitCustomTrainingJob,
 				},
 				{
 					Name:      "get",

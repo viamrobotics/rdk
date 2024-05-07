@@ -9,7 +9,7 @@ import (
 	"google.golang.org/protobuf/types/known/structpb"
 )
 
-// MLTrainingUploadAction uploads a new custom training script
+// MLTrainingUploadAction uploads a new custom training script.
 func MLTrainingUploadAction(c *cli.Context) error {
 	client, err := newViamClient(c)
 	if err != nil {
