@@ -76,7 +76,6 @@ func Named(name string) resource.Name {
 //     // Get the current linear velocity of the movement sensor.
 //     linVel, err := myMovementSensor.LinearVelocity(context.Background(), nil)
 //
-//
 type MovementSensor interface {
 	resource.Sensor
 	resource.Resource
