@@ -306,7 +306,7 @@ func (cm *controlledMotor) GoFor(ctx context.Context, rpm, revolutions float64, 
 		var errs error
 		pos, _, posErr := cm.enc.Position(ctx, encoder.PositionTypeTicks, extra)
 		errs = multierr.Combine(errs, posErr)
-		if rdkutils.Float64AlmostEqual(pos, goalPos, 1.0) {
+		if rdkutils.Float64AlmostEqual(pos, goalPos, 2.0) {
 			stopErr := cm.Stop(ctx, extra)
 			errs = multierr.Combine(errs, stopErr)
 			return true, errs
