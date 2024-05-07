@@ -1013,6 +1013,8 @@ type PackageConfig struct {
 	Type PackageType `json:"type"`
 
 	Status *AppValidationStatus `json:"status,omitempty"`
+	// localPath is a non-json field that sources the package from a file path instead of a URL.
+	LocalPath string
 
 	alreadyValidated bool
 	cachedErr        error

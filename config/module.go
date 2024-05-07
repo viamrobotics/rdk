@@ -1,8 +1,13 @@
 package config
 
 import (
+	"encoding/json"
+	"fmt"
 	"os"
+	"path/filepath"
 	"reflect"
+	"regexp"
+	"strings"
 
 	"github.com/pkg/errors"
 
@@ -96,4 +101,64 @@ func (m Module) Equals(other Module) bool {
 	other.Status = nil
 	//nolint:govet
 	return reflect.DeepEqual(m, other)
+}
+
+var tarballExtensionsRegexp = regexp.MustCompile(`\.(tgz|tar\.gz)$`)
+
+// NeedsSyntheticPackage returns true if this is a local module pointing at a tarball.
+func (m Module) NeedsSyntheticPackage() bool {
+	if m.Type != ModuleTypeLocal {
+		return false
+	}
+	return tarballExtensionsRegexp.MatchString(strings.ToLower(m.ExePath))
+}
+
+// SyntheticPackage creates a fake package for a local module which points to a local tarball.
+func (m Module) SyntheticPackage() (PackageConfig, error) {
+	var ret PackageConfig
+	if m.Type != ModuleTypeLocal {
+		return ret, errors.New("non-local package passed to syntheticPackage")
+	}
+	ret.Name = fmt.Sprintf("synthetic-%s", m.Name)
+	ret.Package = ret.Name
+	ret.Type = PackageTypeModule
+	ret.LocalPath = m.ExePath
+	return ret, nil
+}
+
+// syntheticPackageExeDir returns the unpacked ExePath for local tarball modules.
+func (m Module) syntheticPackageExeDir() (string, error) {
+	pkg, err := m.SyntheticPackage()
+	if err != nil {
+		return "", err
+	}
+	return pkg.LocalDataDirectory(viamPackagesDir), nil
+}
+
+// EntrypointOnlyMetaJson is a miniature version . We do this to avoid a circular dep between CLI and RDK.
+// Better option is to move meta.json definition to this config package.
+type EntrypointOnlyMetaJson struct {
+	Entrypoint string `json:"entrypoint"`
+}
+
+// EvaluateExePath returns absolute ExePath except for local tarballs where it looks for side-by-side meta.json.
+func (m Module) EvaluateExePath() (string, error) {
+	if m.NeedsSyntheticPackage() {
+		metaPath := filepath.Join(filepath.Dir(m.ExePath), "meta.json")
+		raw, err := os.ReadFile(metaPath)
+		if err != nil {
+			return "", errors.Wrap(err, "loading meta.json for local tarball")
+		}
+		var meta EntrypointOnlyMetaJson
+		err = json.Unmarshal(raw, &meta)
+		if err != nil {
+			return "", errors.Wrap(err, "parsing meta.json for local tarball")
+		}
+		exeDir, err := m.syntheticPackageExeDir()
+		if err != nil {
+			return "", err
+		}
+		return filepath.Abs(filepath.Join(exeDir, meta.Entrypoint))
+	}
+	return filepath.Abs(m.ExePath)
 }
