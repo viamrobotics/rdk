@@ -68,8 +68,10 @@ type PowerSensor interface {
 	resource.Resource
 	// Voltage returns the voltage reading in volts and a bool returning true if the voltage is AC.
 	Voltage(ctx context.Context, extra map[string]interface{}) (float64, bool, error)
+
 	// Current returns the current reading in amperes and a bool returning true if the current is AC.
 	Current(ctx context.Context, extra map[string]interface{}) (float64, bool, error)
+
 	// Power returns the power reading in watts.
 	Power(ctx context.Context, extra map[string]interface{}) (float64, error)
 }

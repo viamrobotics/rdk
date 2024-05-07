@@ -123,18 +123,25 @@ type MovementSensor interface {
 	// Position returns the current GeoPoint (latitude, longitude) and altitude of the movement sensor above sea level in meters.
 	// Supported by GPS models.
 	Position(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) // (lat, long), altitude (m)
+
 	// LinearVelocity returns the current linear velocity as a 3D vector in meters per second.
 	LinearVelocity(ctx context.Context, extra map[string]interface{}) (r3.Vector, error) // m / sec
+
 	// AngularVelcoity returns the current angular velocity as a 3D vector in degrees per second.
 	AngularVelocity(ctx context.Context, extra map[string]interface{}) (spatialmath.AngularVelocity, error) // deg / sec
+
 	// LinearAcceleration returns the current linear acceleration as a 3D vector in meters per second per second.
 	LinearAcceleration(ctx context.Context, extra map[string]interface{}) (r3.Vector, error)
+
 	// CompassHeading returns the current compass heading in degrees.
 	CompassHeading(ctx context.Context, extra map[string]interface{}) (float64, error) // [0->360)
+
 	// Orientation returns the current orientation of the movement sensor.
 	Orientation(ctx context.Context, extra map[string]interface{}) (spatialmath.Orientation, error)
+
 	// Properties returns the supported properties of the movement sensor.
 	Properties(ctx context.Context, extra map[string]interface{}) (*Properties, error)
+
 	// Accuracy returns the reliability metrics of the movement sensor,
 	// including various parameters to access the sensor's accuracy and precision in different dimensions.
 	Accuracy(ctx context.Context, extra map[string]interface{}) (*Accuracy, error)
