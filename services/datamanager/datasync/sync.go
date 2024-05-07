@@ -266,9 +266,10 @@ func (s *syncer) logSyncErrs() {
 func exponentialRetry(cancelCtx context.Context, fn func(cancelCtx context.Context) error) error {
 	// Only create a ticker and enter the retry loop if we actually need to retry.
 	var err error
-	if err = fn(cancelCtx); err == nil {
-		return nil
-	}
+	// if err = fn(cancelCtx); err == nil {
+	// 	return nil
+	// }
+	err = errors.New("new error, not offline")
 	// Don't retry non-retryable errors.
 	if !isRetryableGRPCError(err) {
 		return err
@@ -276,16 +277,31 @@ func exponentialRetry(cancelCtx context.Context, fn func(cancelCtx context.Conte
 
 	// First call failed, so begin exponentialRetry with a factor of RetryExponentialFactor
 	nextWait := time.Millisecond * time.Duration(InitialWaitTimeMillis.Load())
+	ticker := time.NewTicker(nextWait)
 	for {
 		if err := cancelCtx.Err(); err != nil {
 			return err
 		}
-		if err := fn(cancelCtx); err != nil {
-			nextWait = getNextWait(nextWait, isOfflineGRPCError(err))
-			time.Sleep(nextWait)
-			continue
+
+		select {
+		// If cancelled, return nil.
+		case <-cancelCtx.Done():
+			ticker.Stop()
+			return cancelCtx.Err()
+			// Otherwise, try again after nextWait.
+		case <-ticker.C:
+			if err := fn(cancelCtx); err != nil {
+				// If error, retry with a new nextWait.
+				ticker.Stop()
+				nextWait = getNextWait(nextWait, isOfflineGRPCError(err))
+				fmt.Printf("\n----------isOffline: %s, waiting for %s seconds\n", isOfflineGRPCError(err), nextWait)
+				ticker = time.NewTicker(nextWait)
+				continue
+			}
+			// If no error, return.
+			ticker.Stop()
+			return nil
 		}
-		return nil
 	}
 }
 
