@@ -1095,8 +1095,11 @@ func (m *module) stopProcess() error {
 
 	// TODO(RSDK-2551): stop ignoring exit status 143 once Python modules handle
 	// SIGTERM correctly.
-	if err := m.process.Stop(); err != nil &&
-		!strings.Contains(err.Error(), errMessageExitStatus143) {
+	// Also ignore if error is that the process no longer exists.
+	if err := m.process.Stop(); err != nil {
+		if strings.Contains(err.Error(), errMessageExitStatus143) || strings.Contains(err.Error(), "no such process") {
+			return nil
+		}
 		return err
 	}
 	return nil
