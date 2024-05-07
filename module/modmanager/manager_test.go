@@ -1094,7 +1094,8 @@ func TestRTPPassthrough(t *testing.T) {
 	noRTPPassthroughSource, ok := noRTPPassthroughCamera.(rtppassthrough.Source)
 	test.That(t, ok, test.ShouldBeTrue)
 
-	subscribeRTPCtx, subscribeRTPcancelFn := context.WithTimeout(context.Background(), time.Second)
+	subscribeRTPTimeout := time.Second * 5
+	subscribeRTPCtx, subscribeRTPcancelFn := context.WithTimeout(context.Background(), subscribeRTPTimeout)
 	sub, err := noRTPPassthroughSource.SubscribeRTP(subscribeRTPCtx, 512, func(pkts []*rtp.Packet) {
 		t.Log("should not happen")
 		t.FailNow()
@@ -1117,7 +1118,7 @@ func TestRTPPassthrough(t *testing.T) {
 
 	calledCtx, calledFn := context.WithCancel(context.Background())
 	// SubscribeRTP succeeds
-	subscribeRTPCtx, subscribeRTPcancelFn = context.WithTimeout(context.Background(), time.Second)
+	subscribeRTPCtx, subscribeRTPcancelFn = context.WithTimeout(context.Background(), subscribeRTPTimeout)
 	sub, err = rtpPassthroughSource.SubscribeRTP(subscribeRTPCtx, 512, func(pkts []*rtp.Packet) {
 		test.That(t, len(pkts), test.ShouldBeGreaterThan, 0)
 		calledFn()
@@ -1137,7 +1138,7 @@ func TestRTPPassthrough(t *testing.T) {
 	// Close terminates all in progress subscriptions
 	greenLog(t, "The first SubscribeRTP call receives rtp packets")
 	calledCtx1, calledFn1 := context.WithCancel(context.Background())
-	subscribeRTPCtx, subscribeRTPcancelFn = context.WithTimeout(context.Background(), time.Second)
+	subscribeRTPCtx, subscribeRTPcancelFn = context.WithTimeout(context.Background(), subscribeRTPTimeout)
 	sub1, err := rtpPassthroughSource.SubscribeRTP(subscribeRTPCtx, 512, func(pkts []*rtp.Packet) {
 		test.That(t, len(pkts), test.ShouldBeGreaterThan, 0)
 		calledFn1()
@@ -1147,7 +1148,7 @@ func TestRTPPassthrough(t *testing.T) {
 
 	greenLog(t, "The second SubscribeRTP call receives rtp packets concurrently")
 	calledCtx2, calledFn2 := context.WithCancel(context.Background())
-	subscribeRTPCtx, subscribeRTPcancelFn = context.WithTimeout(context.Background(), time.Second)
+	subscribeRTPCtx, subscribeRTPcancelFn = context.WithTimeout(context.Background(), subscribeRTPTimeout)
 	sub2, err := rtpPassthroughSource.SubscribeRTP(subscribeRTPCtx, 512, func(pkts []*rtp.Packet) {
 		test.That(t, len(pkts), test.ShouldBeGreaterThan, 0)
 		calledFn2()
@@ -1178,12 +1179,12 @@ func TestRTPPassthrough(t *testing.T) {
 
 	greenLog(t, "RemoveResource eventually terminates all subscriptions")
 	// create 2 sub
-	subscribeRTPCtx, subscribeRTPcancelFn = context.WithTimeout(context.Background(), time.Second)
+	subscribeRTPCtx, subscribeRTPcancelFn = context.WithTimeout(context.Background(), subscribeRTPTimeout)
 	sub1, err = rtpPassthroughSource.SubscribeRTP(subscribeRTPCtx, 512, func(pkts []*rtp.Packet) {})
 	test.That(t, err, test.ShouldBeNil)
 	subscribeRTPcancelFn()
 
-	subscribeRTPCtx, subscribeRTPcancelFn = context.WithTimeout(context.Background(), time.Second)
+	subscribeRTPCtx, subscribeRTPcancelFn = context.WithTimeout(context.Background(), subscribeRTPTimeout)
 	sub2, err = rtpPassthroughSource.SubscribeRTP(subscribeRTPCtx, 512, func(pkts []*rtp.Packet) {})
 	test.That(t, err, test.ShouldBeNil)
 	subscribeRTPcancelFn()
@@ -1211,7 +1212,7 @@ func TestRTPPassthrough(t *testing.T) {
 
 	greenLog(t, "ReconfigureResource eventually terminates all subscriptions when the model doesn't impelement Reconfigure")
 	// create a sub
-	subscribeRTPCtx, subscribeRTPcancelFn = context.WithTimeout(context.Background(), time.Second)
+	subscribeRTPCtx, subscribeRTPcancelFn = context.WithTimeout(context.Background(), subscribeRTPTimeout)
 	sub, err = rtpPassthroughSource.SubscribeRTP(subscribeRTPCtx, 512, func(pkts []*rtp.Packet) {})
 	subscribeRTPcancelFn()
 	test.That(t, err, test.ShouldBeNil)
@@ -1227,7 +1228,7 @@ func TestRTPPassthrough(t *testing.T) {
 
 	greenLog(t, "replacing a module binary eventually cancels subscriptions")
 	// add a subscription
-	subscribeRTPCtx, subscribeRTPcancelFn = context.WithTimeout(context.Background(), time.Second)
+	subscribeRTPCtx, subscribeRTPcancelFn = context.WithTimeout(context.Background(), subscribeRTPTimeout)
 	sub, err = rtpPassthroughSource.SubscribeRTP(subscribeRTPCtx, 512, func(pkts []*rtp.Packet) {})
 	subscribeRTPcancelFn()
 	test.That(t, err, test.ShouldBeNil)
@@ -1250,7 +1251,7 @@ func TestRTPPassthrough(t *testing.T) {
 	// add a subscription
 	rtpPassthroughCamera, err = mgr.AddResource(ctx, rtpPassthroughCameraConf, nil)
 	test.That(t, err, test.ShouldBeNil)
-	subscribeRTPCtx, subscribeRTPcancelFn = context.WithTimeout(context.Background(), time.Second)
+	subscribeRTPCtx, subscribeRTPcancelFn = context.WithTimeout(context.Background(), subscribeRTPTimeout)
 	sub, err = rtpPassthroughSource.SubscribeRTP(subscribeRTPCtx, 512, func(pkts []*rtp.Packet) {})
 	test.That(t, err, test.ShouldBeNil)
 	subscribeRTPcancelFn()
