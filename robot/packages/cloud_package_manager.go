@@ -157,9 +157,9 @@ func (m *cloudManager) Sync(ctx context.Context, packages []config.PackageConfig
 		// Lookup the packages http url
 		includeURL := true
 
-		var packageUrl string
+		var packageURL string
 		if len(p.LocalPath) > 0 {
-			packageUrl = fmt.Sprintf("file://%s", p.LocalPath)
+			packageURL = fmt.Sprintf("file://%s", p.LocalPath)
 		} else {
 			packageType, err := config.PackageTypeToProto(p.Type)
 			if err != nil {
@@ -176,10 +176,10 @@ func (m *cloudManager) Sync(ctx context.Context, packages []config.PackageConfig
 				outErr = multierr.Append(outErr, errors.Wrapf(err, "failed loading package url for %s:%s", p.Package, p.Version))
 				continue
 			}
-			packageUrl = resp.Package.Url
+			packageURL = resp.Package.Url
 		}
 
-		m.logger.Debugf("Downloading from %s", sanitizeURLForLogs(packageUrl))
+		m.logger.Debugf("Downloading from %s", sanitizeURLForLogs(packageURL))
 
 		nonEmptyPaths := make([]string, 0)
 		if p.Type == config.PackageTypeModule {
@@ -193,11 +193,11 @@ func (m *cloudManager) Sync(ctx context.Context, packages []config.PackageConfig
 		}
 
 		// download package from a http endpoint
-		err := m.downloadPackage(ctx, packageUrl, p, nonEmptyPaths)
+		err := m.downloadPackage(ctx, packageURL, p, nonEmptyPaths)
 		if err != nil {
-			m.logger.Errorf("Failed downloading package %s:%s from %s, %s", p.Package, p.Version, sanitizeURLForLogs(packageUrl), err)
+			m.logger.Errorf("Failed downloading package %s:%s from %s, %s", p.Package, p.Version, sanitizeURLForLogs(packageURL), err)
 			outErr = multierr.Append(outErr, errors.Wrapf(err, "failed downloading package %s:%s from %s",
-				p.Package, p.Version, sanitizeURLForLogs(packageUrl)))
+				p.Package, p.Version, sanitizeURLForLogs(packageURL)))
 			continue
 		}
 
@@ -452,11 +452,11 @@ func (m *cloudManager) downloadPackage(ctx context.Context, url string, p config
 	var contentType string
 	dstPath := p.LocalDownloadPath(m.packagesDir)
 	if pathOnly, found := strings.CutPrefix(url, "file://"); found {
-		src, err := os.Open(pathOnly)
+		src, err := os.Open(pathOnly) //nolint:gosec
 		if err != nil {
 			return err
 		}
-		dst, err := os.Create(dstPath)
+		dst, err := os.Create(dstPath) //nolint:gosec
 		if err != nil {
 			return err
 		}

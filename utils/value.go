@@ -27,6 +27,7 @@ func FilterMap[K comparable, V any](orig map[K]V, predicate func(K, V) bool) map
 	return ret
 }
 
+// FilterSlice returns a new slice with elements of `orig` which match `predicate`.
 func FilterSlice[T any](orig []T, predicate func(T) bool) []T {
 	ret := make([]T, 0)
 	for _, item := range orig {
@@ -74,7 +75,7 @@ func FindInSlice[T any](items []T, predicate func(T) bool) *T {
 	return nil
 }
 
-// mapOver applies fn() to a slice of items and returns a slice of the return values.
+// MapOver applies fn() to a slice of items and returns a slice of the return values.
 func MapOver[T, U any](items []T, fn func(T) (U, error)) ([]U, error) {
 	ret := make([]U, 0, len(items))
 	for _, item := range items {

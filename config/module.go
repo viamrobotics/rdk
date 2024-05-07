@@ -135,9 +135,9 @@ func (m Module) syntheticPackageExeDir() (string, error) {
 	return pkg.LocalDataDirectory(viamPackagesDir), nil
 }
 
-// EntrypointOnlyMetaJson is a miniature version . We do this to avoid a circular dep between CLI and RDK.
+// EntrypointOnlyMetaJSON is a miniature version . We do this to avoid a circular dep between CLI and RDK.
 // Better option is to move meta.json definition to this config package.
-type EntrypointOnlyMetaJson struct {
+type EntrypointOnlyMetaJSON struct {
 	Entrypoint string `json:"entrypoint"`
 }
 
@@ -145,11 +145,11 @@ type EntrypointOnlyMetaJson struct {
 func (m Module) EvaluateExePath() (string, error) {
 	if m.NeedsSyntheticPackage() {
 		metaPath := filepath.Join(filepath.Dir(m.ExePath), "meta.json")
-		raw, err := os.ReadFile(metaPath)
+		raw, err := os.ReadFile(metaPath) //nolint:gosec
 		if err != nil {
 			return "", errors.Wrap(err, "loading meta.json for local tarball")
 		}
-		var meta EntrypointOnlyMetaJson
+		var meta EntrypointOnlyMetaJSON
 		err = json.Unmarshal(raw, &meta)
 		if err != nil {
 			return "", errors.Wrap(err, "parsing meta.json for local tarball")
