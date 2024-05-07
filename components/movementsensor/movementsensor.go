@@ -68,7 +68,7 @@ func Named(name string) resource.Name {
 //
 // Position example:
 //
-//	// Get the current position of the movement sensor.
+//	// Get the current position of the movement sensor above sea level in meters
 //	position, altitude, err := myMovementSensor.Position(context.Background(), nil)
 //
 // LinearVelocity example:
@@ -120,8 +120,7 @@ func Named(name string) resource.Name {
 type MovementSensor interface {
 	resource.Sensor
 	resource.Resource
-	//
-	// Position returns the current GeoPoint (latitude, longitude) and altitude of the movement sensor in meters.
+	// Position returns the current GeoPoint (latitude, longitude) and altitude of the movement sensor above sea level in meters.
 	// Supported by GPS models.
 	Position(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) // (lat, long), altitude (m)
 	// LinearVelocity returns the current linear velocity as a 3D vector in meters per second.
