@@ -864,7 +864,7 @@ var app = &cli.App{
 					UsageText: createUsageText("train submit-custom",
 						[]string{
 							datasetFlagDatasetID, generalFlagOrgID, trainFlagModelName,
-							mlTrainingFlagPath, mlTrainingFlagName
+							mlTrainingFlagPath, mlTrainingFlagName,
 						}, true),
 					Flags: []cli.Flag{
 						&cli.StringFlag{
