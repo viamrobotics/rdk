@@ -7,6 +7,7 @@ package robotimpl
 import (
 	"context"
 	"fmt"
+	"slices"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -1092,6 +1093,21 @@ func dialRobotClient(
 	return robotClient, nil
 }
 
+// makeNormalAndSyntheticPackages returns normal packages from the config concatted to synthetic packages from local-exec modules.
+func makeNormalAndSyntheticPackages(logger logging.Logger, conf *config.Config) []config.PackageConfig {
+	ret := conf.Packages
+	if slices.ContainsFunc(conf.Modules, config.Module.NeedsSyntheticPackage) {
+		mapped, err := utils.MapOver(utils.FilterSlice(conf.Modules, config.Module.NeedsSyntheticPackage), config.Module.SyntheticPackage)
+		if err != nil {
+			logger.Warnw("skipping error %s making synthetic packages", "err", err.Error())
+		} else {
+			// todo(go1.22): slices.Concat
+			ret = append(append([]config.PackageConfig{}, ret...), mapped...)
+		}
+	}
+	return ret
+}
+
 // Reconfigure will safely reconfigure a robot based on the given config. It will make
 // a best effort to remove no longer in use parts, but if it fails to do so, they could
 // possibly leak resources. The given config may be modified by Reconfigure.
@@ -1103,7 +1119,8 @@ func (r *localRobot) Reconfigure(ctx context.Context, newConfig *config.Config) 
 	// TODO(RSDK-1849): Make this non-blocking so other resources that do not require packages can run before package sync finishes.
 	// TODO(RSDK-2710) this should really use Reconfigure for the package and should allow itself to check
 	// if anything has changed.
-	err := r.packageManager.Sync(ctx, newConfig.Packages, newConfig.Modules)
+	normalAndSyntheticPackages := makeNormalAndSyntheticPackages(r.logger, newConfig)
+	err := r.packageManager.Sync(ctx, normalAndSyntheticPackages, newConfig.Modules)
 	if err != nil {
 		allErrs = multierr.Combine(allErrs, err)
 	}
