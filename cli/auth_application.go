@@ -40,7 +40,8 @@ func (c *viamClient) registerAuthApplicationAction(cCtx *cli.Context) error {
 
 	infof(cCtx.App.Writer, "Successfully created auth application")
 	printf(cCtx.App.Writer, "%v", resp)
-	warningf(cCtx.App.Writer, "Keep this information somewhere safe; it contains the secret to your auth application")
+	warningf(cCtx.App.Writer, "Keep this information somewhere safe as you wont be shown it again; "+
+		"it contains the secret to your auth application")
 	return nil
 }
 

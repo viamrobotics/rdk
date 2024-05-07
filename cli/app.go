@@ -1594,8 +1594,13 @@ Example:
 			Usage: "manage third party auth applications",
 			Subcommands: []*cli.Command{
 				{
-					Name:  "create",
-					Usage: "create a third party auth application",
+					Name:  "register",
+					Usage: "register a third party auth application",
+					UsageText: createUsageText("auth-app register", []string{
+						generalFlagOrgID,
+						authApplicationFlagName, authApplicationFlagOriginURIs, authApplicationFlagRedirectURIs,
+						authApplicationFlagLogoutURI,
+					}, false),
 					Flags: []cli.Flag{
 						&cli.StringFlag{
 							Name:     generalFlagOrgID,
@@ -1628,6 +1633,11 @@ Example:
 				{
 					Name:  "update",
 					Usage: "update a third party auth application",
+					UsageText: createUsageText("auth-app update", []string{
+						generalFlagOrgID,
+						authApplicationFlagApplicationID, authApplicationFlagName, authApplicationFlagOriginURIs,
+						authApplicationFlagRedirectURIs, authApplicationFlagLogoutURI,
+					}, false),
 					Flags: []cli.Flag{
 						&cli.StringFlag{
 							Name:     generalFlagOrgID,
