@@ -38,7 +38,7 @@ func Named(name string) resource.Name {
 // Open example:
 //
 //    // Open the gripper.
-//    err = myGripper.Open(context.Background(), nil)
+//    err := myGripper.Open(context.Background(), nil)
 //
 // Grab example:
 //
