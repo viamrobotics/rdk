@@ -174,6 +174,7 @@ func NewBuiltIn(
 func (svc *builtIn) Close(_ context.Context) error {
 	svc.lock.Lock()
 	svc.closeCollectors()
+	svc.logger.Info("closing syncer from builtin close")
 	svc.closeSyncer()
 	if svc.syncRoutineCancelFn != nil {
 		svc.syncRoutineCancelFn()
@@ -544,6 +545,7 @@ func (svc *builtIn) Reconfigure(
 					return err
 				}
 			} else if reinitSyncer {
+				svc.logger.Info("reiniting syncer")
 				svc.closeSyncer()
 				if err := svc.initSyncer(ctx); err != nil {
 					return err
@@ -562,11 +564,11 @@ func (svc *builtIn) Reconfigure(
 	// if datacapture is enabled, kick off a go routine to check if disk space is filling due to
 	// cached datacapture files
 	if !svc.captureDisabled {
-		fileDeletionCtx, cancelFunc := context.WithCancel(context.Background())
-		svc.fileDeletionRoutineCancelFn = cancelFunc
-		svc.fileDeletionBackgroundWorkers = &sync.WaitGroup{}
-		svc.fileDeletionBackgroundWorkers.Add(1)
-		go pollFilesystem(fileDeletionCtx, svc.fileDeletionBackgroundWorkers, svc.captureDir, svc.syncer, svc.logger)
+		// fileDeletionCtx, cancelFunc := context.WithCancel(context.Background())
+		// svc.fileDeletionRoutineCancelFn = cancelFunc
+		// svc.fileDeletionBackgroundWorkers = &sync.WaitGroup{}
+		// svc.fileDeletionBackgroundWorkers.Add(1)
+		// go pollFilesystem(fileDeletionCtx, svc.fileDeletionBackgroundWorkers, svc.captureDir, svc.syncer, svc.logger)
 	}
 
 	return nil
@@ -613,6 +615,7 @@ func (svc *builtIn) uploadData(cancelCtx context.Context, intervalMins float64) 
 				return
 			case <-svc.syncTicker.C:
 				svc.lock.Lock()
+				svc.logger.Info("ticker has ticked, will probably sync now")
 				if svc.syncer != nil {
 					// If selective sync is disabled, sync. If it is enabled, check the condition below.
 					shouldSync := !svc.selectiveSyncEnabled
@@ -638,15 +641,19 @@ func (svc *builtIn) sync() {
 	svc.flushCollectors()
 
 	svc.lock.Lock()
+	svc.logger.Info("getting all files to sync")
 	toSync := getAllFilesToSync(svc.captureDir, svc.fileLastModifiedMillis)
+	svc.logger.Info("finished getting all files to sync")
 	for _, ap := range svc.additionalSyncPaths {
+		svc.logger.Info("adding other sync path")
 		toSync = append(toSync, getAllFilesToSync(ap, svc.fileLastModifiedMillis)...)
 	}
 	svc.lock.Unlock()
-
+	svc.logger.Infof("Number of files to sync: %d", len(toSync))
 	for _, p := range toSync {
 		svc.syncer.SyncFile(p)
 	}
+	svc.logger.Info("finished syncing")
 }
 
 // nolint

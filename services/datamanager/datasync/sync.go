@@ -96,6 +96,7 @@ func NewManager(identity string, client v1.DataSyncServiceClient, logger logging
 
 // Close closes all resources (goroutines) associated with s.
 func (s *syncer) Close() {
+	s.logger.Info("closed syncer")
 	s.closed.Store(true)
 	s.cancelFunc()
 	s.backgroundWorkers.Wait()
