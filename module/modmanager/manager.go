@@ -1013,7 +1013,7 @@ func (m *module) startProcess(
 
 	// We evaluate the Module's ExePath absolutely in the viam-server process so that
 	// setting the CWD does not cause issues with relative process names
-	absoluteExePath, err := filepath.Abs(m.cfg.ExePath)
+	absoluteExePath, err := m.cfg.EvaluateExePath()
 	if err != nil {
 		return err
 	}
