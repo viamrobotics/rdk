@@ -314,7 +314,9 @@ func (m *EncodedMotor) goForInternal(ctx context.Context, rpm, goalPos, directio
 	m.activeBackgroundWorkers.Add(1)
 	go func() {
 		defer m.activeBackgroundWorkers.Done()
-		m.rpmMonitor(rpmCtx, rpm, goalPos, direction)
+		if err := m.rpmMonitor(rpmCtx, rpm, goalPos, direction); err != nil {
+			m.logger.Error(err)
+		}
 	}()
 
 	return nil
