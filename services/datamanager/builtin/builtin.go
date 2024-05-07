@@ -30,7 +30,7 @@ import (
 )
 
 func init() {
-	resource.RegisterDefaultService(
+	resource.RegisterService(
 		datamanager.API,
 		resource.DefaultServiceModel,
 		resource.Registration[datamanager.Service, *Config]{
