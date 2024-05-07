@@ -65,23 +65,26 @@ func Named(name string) resource.Name {
 }
 
 // A MovementSensor reports information about the robot's direction, position and speed.
+//
+// Position example:
+//
+//     // Get the current position of the movement sensor.
+//     position, altitude, err := myMovementSensor.Position(context.Background(), nil)
+//
+// LinearVelocity example:
+//
+//     // Get the current linear velocity of the movement sensor.
+//     linVel, err := myMovementSensor.LinearVelocity(context.Background(), nil)
+//
+//
 type MovementSensor interface {
 	resource.Sensor
 	resource.Resource
-	// Position returns the current GeoPoint (latitude, longitude) and altitude (in meters).
+	//
+	// Position returns the current GeoPoint (latitude, longitude) and altitude of the movement sensor in meters.
 	// Supported by GPS models.
-	//
-	//    // myMovementSensor, err := movementsensor.FromRobot(machine, "my_movement_sensor")
-	//
-	//    // Get the current position of the movement sensor.
-	//    position, altitude, err := myMovementSensor.Position(context.Background(), nil)
 	Position(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) // (lat, long), altitude (m)
 	// LinearVelocity returns the current linear velocity as a 3D vector in meters per second.
-	//
-	//    myMovementSensor, err := movementsensor.FromRobot(machine, "my_movement_sensor")
-	//
-	//    // Get the current linear velocity of the movement sensor.
-	//    linVel, err := myMovementSensor.LinearVelocity(context.Background(), nil)
 	LinearVelocity(ctx context.Context, extra map[string]interface{}) (r3.Vector, error) // m / sec
 	// AngularVelcoity returns the current angular velocity as a 3D vector in degrees per second.
 	//
