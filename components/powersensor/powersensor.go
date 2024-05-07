@@ -48,31 +48,30 @@ func Named(name string) resource.Name {
 }
 
 // A PowerSensor reports information about voltage, current and power.
+//
+// Voltage example:
+//
+// Get the voltage from device in volts
+//
+//	voltage, isAC, err := myPowerSensor.Voltage(context.Background(), nil)
+//
+// Current example:
+//
+//	// Get the current reading from device in amps
+//	current, isAC, err := myPowerSensor.Current(context.Background(), nil)
+//
+// Power example:
+//
+//	// Get the power measurement from device in watts
+//	power, err := myPowerSensor.Power(context.Background(), nil)
 type PowerSensor interface {
 	resource.Sensor
 	resource.Resource
 	// Voltage returns the voltage reading in volts and a bool returning true if the voltage is AC.
-	//
-	//    // Create a power sensor instance
-	//    myPowerSensor, err := powersensor.FromRobot(machine, "my_power_sensor")
-	//
-	//    // Get the voltage from device in volts
-	//    voltage, isAC, err := myPowerSensor.Voltage(context.Background(), nil)
 	Voltage(ctx context.Context, extra map[string]interface{}) (float64, bool, error)
 	// Current returns the current reading in amperes and a bool returning true if the current is AC.
-	//
-	//    // Create a power sensor instance
-	//    myPowerSensor, err := powersensor.FromRobot(machine, "my_power_sensor")
-	//
-	//    // Get the current reading from device in amps
-	//    current, isAC, err := myPowerSensor.Current(context.Background(), nil)
 	Current(ctx context.Context, extra map[string]interface{}) (float64, bool, error)
 	// Power returns the power reading in watts.
-	//
-	//    myPowerSensor, err := powersensor.FromRobot(machine, "my_power_sensor")
-	//
-	//    // Get the power measurement from device in watts
-	//    power, err := myPowerSensor.Power(context.Background(), nil)
 	Power(ctx context.Context, extra map[string]interface{}) (float64, error)
 }
 
