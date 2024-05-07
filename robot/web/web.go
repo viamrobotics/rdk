@@ -839,6 +839,12 @@ func (svc *webService) initAPIResourceCollections(ctx context.Context, mod bool)
 	// TODO (RSDK-144): only register necessary services
 	apiRegs := resource.RegisteredAPIs()
 	for s, rs := range apiRegs {
+		fmt.Println("DBG. Type:", s.SubtypeName)
+		if s.SubtypeName != "camera" &&
+			s.SubtypeName != "" {
+			continue
+		}
+
 		apiResColl, ok := svc.services[s]
 		if !ok {
 			apiResColl = rs.MakeEmptyCollection()
