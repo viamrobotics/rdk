@@ -764,7 +764,7 @@ func TestMultiplexOverRemoteConnection(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, image, test.ShouldNotBeNil)
 
-	sub, err := cameraClient.(rtppassthrough.Source).SubscribeRTP(mainCtx, 16, func(pkts []*rtp.Packet) {
+	sub, err := cameraClient.(rtppassthrough.Source).SubscribeRTP(mainCtx, 4096, func(pkts []*rtp.Packet) {
 		fmt.Println("DBG. Pkts:", len(pkts))
 	})
 	test.That(t, err, test.ShouldBeNil)
