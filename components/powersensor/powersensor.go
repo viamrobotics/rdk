@@ -51,8 +51,7 @@ func Named(name string) resource.Name {
 //
 // Voltage example:
 //
-// Get the voltage from device in volts
-//
+//	// Get the voltage from device in volts
 //	voltage, isAC, err := myPowerSensor.Voltage(context.Background(), nil)
 //
 // Current example:
