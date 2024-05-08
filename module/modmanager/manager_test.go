@@ -1065,6 +1065,7 @@ func TestRTPPassthrough(t *testing.T) {
 
 	err = mod.startProcess(ctx, parentAddr, nil, logger, viamHomeTemp)
 	test.That(t, err, test.ShouldBeNil)
+	defer mod.stopProcess()
 
 	err = mod.dial()
 	test.That(t, err, test.ShouldBeNil)

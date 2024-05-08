@@ -177,6 +177,7 @@ type Module struct {
 	closeOnce               sync.Once
 	pc                      *webrtc.PeerConnection
 	pcReady                 <-chan struct{}
+	pcClosed                <-chan struct{}
 	pcFailed                <-chan struct{}
 	pb.UnimplementedModuleServiceServer
 	streampb.UnimplementedStreamServiceServer
@@ -228,7 +229,7 @@ func NewModule(ctx context.Context, address string, logger logging.Logger) (*Mod
 	}
 
 	// attempt to configure PeerConnection
-	pcReady, err := rpc.ConfigureForRenegotiation(pc, logger.AsZap())
+	pcReady, pcClosed, err := rpc.ConfigureForRenegotiation(pc, logger.AsZap())
 	if err != nil {
 		msg := "Error creating renegotiation channel for module. Unable to " +
 			"create optional peer connection for module. Skipping WebRTC for module..."
@@ -238,6 +239,7 @@ func NewModule(ctx context.Context, address string, logger logging.Logger) (*Mod
 
 	m.pc = pc
 	m.pcReady = pcReady
+	m.pcClosed = pcClosed
 
 	return m, nil
 }
@@ -289,6 +291,16 @@ func (m *Module) Close(ctx context.Context) {
 		if m.pc != nil {
 			if err := m.pc.Close(); err != nil {
 				m.logger.CErrorw(ctx, "WebRTC Peer Connection Close", "err", err)
+			}
+			// `PeerConnection.Close` returning does not guarantee that background workers have
+			// stopped. We've added best-effort hooks to observe when a peer connection has completely
+			// cleaned up.
+			if m.pcClosed != nil {
+				select {
+				case <-m.pcReady:
+					<-m.pcClosed
+				default:
+				}
 			}
 		}
 		m.mu.Unlock()
