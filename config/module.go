@@ -107,10 +107,7 @@ var tarballExtensionsRegexp = regexp.MustCompile(`\.(tgz|tar\.gz)$`)
 
 // NeedsSyntheticPackage returns true if this is a local module pointing at a tarball.
 func (m Module) NeedsSyntheticPackage() bool {
-	if m.Type != ModuleTypeLocal {
-		return false
-	}
-	return tarballExtensionsRegexp.MatchString(strings.ToLower(m.ExePath))
+	return m.Type == ModuleTypeLocal && tarballExtensionsRegexp.MatchString(strings.ToLower(m.ExePath))
 }
 
 // SyntheticPackage creates a fake package for a local module which points to a local tarball.

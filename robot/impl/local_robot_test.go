@@ -18,6 +18,7 @@ import (
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.uber.org/zap"
+
 	// registers all components.
 	commonpb "go.viam.com/api/common/v1"
 	armpb "go.viam.com/api/component/arm/v1"
@@ -3375,4 +3376,20 @@ func TestCloudMetadata(t *testing.T) {
 			MachinePartID: "the-robot-part",
 		})
 	})
+}
+
+func TestMakeNormalAndSyntheticPackages(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+	conf := config.Config{
+		Packages: []config.PackageConfig{
+			{Name: "normal", Package: "normal"},
+		},
+		Modules: []config.Module{
+			{Name: "yes-tar", Type: config.ModuleTypeLocal, ExePath: "whatever.tar.gz"},
+			{Name: "no-tar", Type: config.ModuleTypeLocal, ExePath: "whatever.exe"},
+		},
+	}
+	res := makeNormalAndSyntheticPackages(logger, &conf)
+	test.That(t, len(res), test.ShouldEqual, 2)
+	test.That(t, res[1].LocalPath, test.ShouldEqual, "whatever.tar.gz")
 }
