@@ -88,7 +88,7 @@ func deleteFiles(ctx context.Context, syncer datasync.Manager, deleteEveryNth in
 	captureDirPath string, logger logging.Logger) (int, error) {
 	index := 0
 	deletedFileCount := 0
-	logger.Infof("Deleting every nth %d", deleteEveryNth)
+	logger.Infof("Deleting every %d file", deleteEveryNth)
 	fileDeletion := func(path string, d fs.DirEntry, err error) error {
 		if ctx.Err() != nil {
 			return ctx.Err()

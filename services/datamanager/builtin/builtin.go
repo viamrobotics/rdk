@@ -67,15 +67,15 @@ var errCaptureDirectoryConfigurationDisabled = errors.New("changing the capture 
 
 // Config describes how to configure the service.
 type Config struct {
-	CaptureDir             string   `json:"capture_dir"`
-	AdditionalSyncPaths    []string `json:"additional_sync_paths"`
-	SyncIntervalMins       float64  `json:"sync_interval_mins"`
-	CaptureDisabled        bool     `json:"capture_disabled"`
-	ScheduledSyncDisabled  bool     `json:"sync_disabled"`
-	Tags                   []string `json:"tags"`
-	FileLastModifiedMillis int      `json:"file_last_modified_millis"`
-	SelectiveSyncerName    string   `json:"selective_syncer_name"`
-	DeleteEveryNth         int      `json:"delete_every_nth"`
+	CaptureDir                 string   `json:"capture_dir"`
+	AdditionalSyncPaths        []string `json:"additional_sync_paths"`
+	SyncIntervalMins           float64  `json:"sync_interval_mins"`
+	CaptureDisabled            bool     `json:"capture_disabled"`
+	ScheduledSyncDisabled      bool     `json:"sync_disabled"`
+	Tags                       []string `json:"tags"`
+	FileLastModifiedMillis     int      `json:"file_last_modified_millis"`
+	SelectiveSyncerName        string   `json:"selective_syncer_name"`
+	DeleteEveryNthWhenDiskFull int      `json:"delete_every_nth_when_disk_full"`
 }
 
 // Validate returns components which will be depended upon weakly due to the above matcher.
@@ -450,8 +450,8 @@ func (svc *builtIn) Reconfigure(
 	if svc.fileDeletionBackgroundWorkers != nil {
 		svc.fileDeletionBackgroundWorkers.Wait()
 	}
-	if svcConfig.DeleteEveryNth != 0 {
-		svc.deleteEveryNth = svcConfig.DeleteEveryNth
+	if svcConfig.DeleteEveryNthWhenDiskFull != 0 {
+		svc.deleteEveryNth = svcConfig.DeleteEveryNthWhenDiskFull
 	} else {
 		svc.deleteEveryNth = defaultDeleteEveryNth
 	}
@@ -573,7 +573,6 @@ func (svc *builtIn) Reconfigure(
 		svc.fileDeletionRoutineCancelFn = cancelFunc
 		svc.fileDeletionBackgroundWorkers = &sync.WaitGroup{}
 		svc.fileDeletionBackgroundWorkers.Add(1)
-		svc.logger.Infof("Deleting every nth %d", svc.deleteEveryNth)
 		go pollFilesystem(fileDeletionCtx, svc.fileDeletionBackgroundWorkers,
 			svc.captureDir, svc.deleteEveryNth, svc.syncer, svc.logger)
 	}
