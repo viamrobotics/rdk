@@ -472,7 +472,6 @@ func (rc *RobotClient) checkConnection(ctx context.Context, checkEvery, reconnec
 }
 
 // Close closes the underlying client connections to the machine and stops any periodic tasks running in the client.
-// if it is running.
 //
 //	err := machine.Close(ctx.Background())
 func (rc *RobotClient) Close(ctx context.Context) error {
