@@ -20,7 +20,7 @@ import (
 var (
 	fsThresholdToTriggerDeletion = .90
 	captureDirToFSUsageRatio     = .5
-	deleteEveryNth               = 5
+	defaultDeleteEveryNth        = 5
 )
 
 var errAtSizeThreshold = errors.New("capture dir is at correct size")
@@ -84,9 +84,11 @@ func exceedsDeletionThreshold(ctx context.Context, captureDirPath string, fsSize
 	return false, nil
 }
 
-func deleteFiles(ctx context.Context, syncer datasync.Manager, captureDirPath string, logger logging.Logger) (int, error) {
+func deleteFiles(ctx context.Context, syncer datasync.Manager, deleteEveryNth int,
+	captureDirPath string, logger logging.Logger) (int, error) {
 	index := 0
 	deletedFileCount := 0
+	logger.Infof("Deleting every nth %d", deleteEveryNth)
 	fileDeletion := func(path string, d fs.DirEntry, err error) error {
 		if ctx.Err() != nil {
 			return ctx.Err()
