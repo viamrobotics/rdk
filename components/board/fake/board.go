@@ -19,9 +19,10 @@ import (
 	"go.viam.com/rdk/resource"
 )
 
-// In order to maintain test functionality, testPin will always return an analog value of 0.
-// To see non-zero fake analog values on a fake board, add an analog reader to any other pin.
-var analogTestPin = ""
+// In order to maintain test functionality, testPin will always return the analog value it is set
+// to (defaults to 0 before being set). To see changing fake analog values on a fake board, add an
+// analog reader to any other pin.
+var analogTestPin = "1"
 
 // In order to maintain test functionality, digital interrtups on any pin except nonZeroInterruptPin
 // will always return a digital interrupt value of 0. To see non-zero fake interrupt values on a fake board,
