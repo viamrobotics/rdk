@@ -119,6 +119,31 @@ func (m *cloudManager) Close(ctx context.Context) error {
 	return nil
 }
 
+// getPackageURL fetches package download URL from API, or creates a `file://` URL from pkg.LocalPath.
+func getPackageURL(ctx context.Context, logger logging.Logger, client pb.PackageServiceClient, pkg *config.PackageConfig) (string, error) {
+	if len(pkg.LocalPath) > 0 {
+		return fmt.Sprintf("file://%s", pkg.LocalPath), nil
+	} else {
+		packageType, err := config.PackageTypeToProto(pkg.Type)
+		if err != nil {
+			logger.Warnw("failed to get package type", "package", pkg.Name, "error", err)
+		}
+		// Lookup the package's http url
+		includeURL := true
+		resp, err := client.GetPackage(ctx, &pb.GetPackageRequest{
+			Id:         pkg.Package,
+			Version:    pkg.Version,
+			Type:       packageType,
+			IncludeUrl: &includeURL,
+		})
+		if err != nil {
+			logger.Errorf("Failed fetching package details for package %s:%s, %s", pkg.Package, pkg.Version, err)
+			return "", errors.Wrapf(err, "failed loading package url for %s:%s", pkg.Package, pkg.Version)
+		}
+		return resp.Package.Url, nil
+	}
+}
+
 // SyncAll syncs all given packages and removes any not in the list from the local file system.
 func (m *cloudManager) Sync(ctx context.Context, packages []config.PackageConfig, modules []config.Module) error {
 	var outErr error
@@ -154,29 +179,10 @@ func (m *cloudManager) Sync(ctx context.Context, packages []config.PackageConfig
 
 		m.logger.Debugf("Starting package sync [%d/%d] %s:%s", idx+1, len(changedPackages), p.Package, p.Version)
 
-		// Lookup the packages http url
-		includeURL := true
-
-		var packageURL string
-		if len(p.LocalPath) > 0 {
-			packageURL = fmt.Sprintf("file://%s", p.LocalPath)
-		} else {
-			packageType, err := config.PackageTypeToProto(p.Type)
-			if err != nil {
-				m.logger.Warnw("failed to get package type", "package", p.Name, "error", err)
-			}
-			resp, err := m.client.GetPackage(ctx, &pb.GetPackageRequest{
-				Id:         p.Package,
-				Version:    p.Version,
-				Type:       packageType,
-				IncludeUrl: &includeURL,
-			})
-			if err != nil {
-				m.logger.Errorf("Failed fetching package details for package %s:%s, %s", p.Package, p.Version, err)
-				outErr = multierr.Append(outErr, errors.Wrapf(err, "failed loading package url for %s:%s", p.Package, p.Version))
-				continue
-			}
-			packageURL = resp.Package.Url
+		packageURL, err := getPackageURL(ctx, m.logger, m.client, &p)
+		if err != nil {
+			outErr = multierr.Append(outErr, err)
+			continue
 		}
 
 		m.logger.Debugf("Downloading from %s", sanitizeURLForLogs(packageURL))
@@ -193,7 +199,7 @@ func (m *cloudManager) Sync(ctx context.Context, packages []config.PackageConfig
 		}
 
 		// download package from a http endpoint
-		err := m.downloadPackage(ctx, packageURL, p, nonEmptyPaths)
+		err = m.downloadPackage(ctx, packageURL, p, nonEmptyPaths)
 		if err != nil {
 			m.logger.Errorf("Failed downloading package %s:%s from %s, %s", p.Package, p.Version, sanitizeURLForLogs(packageURL), err)
 			outErr = multierr.Append(outErr, errors.Wrapf(err, "failed downloading package %s:%s from %s",
