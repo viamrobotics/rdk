@@ -441,7 +441,7 @@ func (ss *StreamState) streamH264Passthrough(ctx context.Context) error {
 	}
 
 	cb := func(pkts []*rtp.Packet) {
-		fmt.Println("DBG. Received Pkts. Forwarding:", len(pkts))
+		ss.logger.Info("DBG. Received Pkts. Forwarding:", len(pkts))
 		for _, pkt := range pkts {
 			if err := ss.Stream.WriteRTP(pkt); err != nil {
 				ss.logger.Debugw("stream.WriteRTP", "name", ss.Stream.Name(), "err", err.Error())

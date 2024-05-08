@@ -438,6 +438,11 @@ func NamesFromRobot(r robot.Robot) []string {
 	return robot.NamesByAPI(r, API)
 }
 
+// ResourceNamesFromRobot is a helper for getting all camera names from the given Robot.
+func ResourceNamesFromRobot(r robot.Robot) []resource.Name {
+	return robot.ResourceNamesByAPI(r, API)
+}
+
 // SimultaneousColorDepthNext will call Next on both the color and depth camera as simultaneously as possible.
 func SimultaneousColorDepthNext(ctx context.Context, color, depth gostream.VideoStream) (image.Image, *rimage.DepthMap) {
 	var wg sync.WaitGroup
