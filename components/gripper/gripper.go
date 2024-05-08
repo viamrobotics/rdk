@@ -37,13 +37,13 @@ func Named(name string) resource.Name {
 //
 // Open example:
 //
-//    // Open the gripper.
-//    err := myGripper.Open(context.Background(), nil)
+//	  // Open the gripper.
+//	  err := myGripper.Open(context.Background(), nil)
 //
 // Grab example:
 //
-//    // Grab with the gripper.
-//    grabbed, err := myGripper.Grab(context.Background(), nil)
+//	  // Grab with the gripper.
+//	  grabbed, err := myGripper.Grab(context.Background(), nil)
 type Gripper interface {
 	resource.Resource
 	resource.Shaped

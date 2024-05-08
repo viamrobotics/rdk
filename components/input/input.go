@@ -87,8 +87,8 @@ func Named(name string) resource.Name {
 //        }
 //        // < Insert any other code for main function >
 //
-//    <-ctx.Done()
-//    return nil
+//        <-ctx.Done()
+//        return nil
 //    }
 type Controller interface {
 	resource.Resource
