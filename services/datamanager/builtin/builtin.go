@@ -430,8 +430,7 @@ func (svc *builtIn) Reconfigure(
 
 	if svcConfig.CaptureDir != "" {
 		svc.captureDir = svcConfig.CaptureDir
-	}
-	if svcConfig.CaptureDir == "" {
+	} else {
 		svc.captureDir = viamCaptureDotDir
 	}
 	svc.captureDisabled = svcConfig.CaptureDisabled
@@ -536,7 +535,11 @@ func (svc *builtIn) Reconfigure(
 		svc.syncIntervalMins = svcConfig.SyncIntervalMins
 		svc.tags = svcConfig.Tags
 		svc.fileLastModifiedMillis = fileLastModifiedMillis
-		svc.maxSyncThreads = svcConfig.MaximumNumSyncThreads
+		maxThreads := datasync.MaxParallelSyncRoutines
+		if svcConfig.MaximumNumSyncThreads != 0 {
+			maxThreads = svcConfig.MaximumNumSyncThreads
+		}
+		svc.maxSyncThreads = maxThreads
 
 		svc.cancelSyncScheduler()
 		if !svc.syncDisabled && svc.syncIntervalMins != 0.0 {
@@ -650,7 +653,7 @@ func (svc *builtIn) sync() {
 	}
 }
 
-//nolint
+// nolint
 func getAllFilesToSync(dir string, lastModifiedMillis int) []string {
 	var filePaths []string
 	_ = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
