@@ -93,7 +93,7 @@ const (
 	packageFlagType        = "type"
 	packageFlagDestination = "destination"
 
-	authApplicationFlagName          = "name"
+	authApplicationFlagName          = "application-name"
 	authApplicationFlagApplicationID = "application-id"
 	authApplicationFlagOriginURIs    = "origin-uris"
 	authApplicationFlagRedirectURIs  = "redirect-uris"
@@ -1594,9 +1594,9 @@ Example:
 			Usage: "manage third party auth applications",
 			Subcommands: []*cli.Command{
 				{
-					Name:  "register",
-					Usage: "register a third party auth application",
-					UsageText: createUsageText("auth-app register", []string{
+					Name:  "create",
+					Usage: "create a third party auth application",
+					UsageText: createUsageText("auth-app create", []string{
 						generalFlagOrgID,
 						authApplicationFlagName, authApplicationFlagOriginURIs, authApplicationFlagRedirectURIs,
 						authApplicationFlagLogoutURI,
@@ -1615,20 +1615,20 @@ Example:
 						&cli.StringSliceFlag{
 							Name:     authApplicationFlagOriginURIs,
 							Usage:    "origin uris for the auth application",
-							Required: false,
+							Required: true,
 						},
 						&cli.StringSliceFlag{
 							Name:     authApplicationFlagRedirectURIs,
 							Usage:    "redirect uris for the auth application",
-							Required: false,
+							Required: true,
 						},
 						&cli.StringFlag{
 							Name:     authApplicationFlagLogoutURI,
 							Usage:    "logout uri for the auth application",
-							Required: false,
+							Required: true,
 						},
 					},
-					Action: RegisterAuthApplicationAction,
+					Action: CreateAuthApplicationAction,
 				},
 				{
 					Name:  "update",
@@ -1651,22 +1651,22 @@ Example:
 						},
 						&cli.StringFlag{
 							Name:     authApplicationFlagName,
-							Usage:    "name for the auth application. omitting this will overwrite the existing value.",
-							Required: true,
+							Usage:    "updated name for the auth application",
+							Required: false,
 						},
 						&cli.StringSliceFlag{
 							Name:     authApplicationFlagOriginURIs,
-							Usage:    "origin uris for the auth application. omitting this will overwrite the existing value.",
+							Usage:    "updated origin uris for the auth application",
 							Required: false,
 						},
 						&cli.StringSliceFlag{
 							Name:     authApplicationFlagRedirectURIs,
-							Usage:    "redirect uris for the auth application. omitting this will overwrite the existing value.",
+							Usage:    "updated redirect uris for the auth application",
 							Required: false,
 						},
 						&cli.StringFlag{
 							Name:     authApplicationFlagLogoutURI,
-							Usage:    "logout uri for the auth application. omitting this will overwrite the existing value.",
+							Usage:    "updated logout uri for the auth application",
 							Required: false,
 						},
 					},

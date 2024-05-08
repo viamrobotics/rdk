@@ -1,21 +1,23 @@
 package cli
 
 import (
+	"encoding/json"
+
 	"github.com/urfave/cli/v2"
 	apppb "go.viam.com/api/app/v1"
 )
 
-// RegisterAuthApplicationAction is the corresponding action for 'third-party-auth-app register'.
-func RegisterAuthApplicationAction(c *cli.Context) error {
+// CreateAuthApplicationAction is the corresponding action for 'third-party-auth-app register'.
+func CreateAuthApplicationAction(c *cli.Context) error {
 	client, err := newViamClient(c)
 	if err != nil {
 		return err
 	}
 
-	return client.registerAuthApplicationAction(c)
+	return client.createAuthApplicationAction(c)
 }
 
-func (c *viamClient) registerAuthApplicationAction(cCtx *cli.Context) error {
+func (c *viamClient) createAuthApplicationAction(cCtx *cli.Context) error {
 	if err := c.ensureLoggedIn(); err != nil {
 		return err
 	}
@@ -39,7 +41,11 @@ func (c *viamClient) registerAuthApplicationAction(cCtx *cli.Context) error {
 	}
 
 	infof(cCtx.App.Writer, "Successfully created auth application")
-	printf(cCtx.App.Writer, "%v", resp)
+	formatOutput, err := json.MarshalIndent(resp, "", "\t")
+	if err != nil {
+		return err
+	}
+	printf(cCtx.App.Writer, "%s", formatOutput)
 	warningf(cCtx.App.Writer, "Keep this information somewhere safe as you wont be shown it again; "+
 		"it contains the secret to your auth application")
 	return nil
@@ -81,6 +87,10 @@ func (c *viamClient) updateAuthApplicationAction(cCtx *cli.Context) error {
 	}
 
 	infof(cCtx.App.Writer, "Successfully updated auth application")
-	printf(cCtx.App.Writer, "%v", resp)
+	formatOutput, err := json.MarshalIndent(resp, "", "\t")
+	if err != nil {
+		return err
+	}
+	printf(cCtx.App.Writer, "%s", formatOutput)
 	return nil
 }
