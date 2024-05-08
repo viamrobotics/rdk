@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"strconv"
 
 	"go.uber.org/multierr"
 	pb "go.viam.com/api/component/arm/v1"
@@ -289,8 +290,10 @@ func (pf *ptgGroupFrame) Geometries(inputs []referenceframe.Input) (*referencefr
 		return nil, err
 	}
 	geoms := make([]spatialmath.Geometry, 0, len(pf.geometries))
-	for _, geom := range pf.geometries {
-		geoms = append(geoms, geom.Transform(transformedPose))
+	for i, geom := range pf.geometries {
+		tfGeom := geom.Transform(transformedPose)
+		tfGeom.SetLabel(pf.name + "_geometry_" + strconv.Itoa(i))
+		geoms = append(geoms, tfGeom)
 	}
 	return referenceframe.NewGeometriesInFrame(pf.name, geoms), nil
 }

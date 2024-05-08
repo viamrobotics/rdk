@@ -133,6 +133,7 @@ func (mr *moveRequest) AnchorGeoPose() *spatialmath.GeoPose {
 // execute attempts to follow a given Plan starting from the index percribed by waypointIndex.
 // Note that waypointIndex is an atomic int that is incremented in this function after each waypoint has been successfully reached.
 func (mr *moveRequest) execute(ctx context.Context, plan motionplan.Plan) (state.ExecuteResponse, error) {
+	mr.logger.Debug("calling GoToInputs")
 	waypoints, err := plan.Trajectory().GetFrameInputs(mr.kinematicBase.Name().ShortName())
 	if err != nil {
 		return state.ExecuteResponse{}, err
@@ -187,17 +188,13 @@ func (mr *moveRequest) getTransientDetections(
 	}
 
 	cameraOrigin := referenceframe.NewPoseInFrame(camName.ShortName(), spatialmath.NewZeroPose())
-	cameraToBase, err := mr.fsService.TransformPose(ctx, cameraOrigin, mr.kinematicBase.Name().ShortName(), nil)
+	cameraPoseInBaseFrame, err := mr.fsService.TransformPose(ctx, cameraOrigin, mr.kinematicBase.Name().ShortName(), nil)
 	if err != nil {
 		mr.logger.CDebugf(ctx,
 			"we assume the base named: %s is coincident with the camera named: %s due to err: %v",
 			mr.kinematicBase.Name().ShortName(), camName.ShortName(), err.Error(),
 		)
-		cameraToBase = cameraOrigin
-	}
-	baseToWorld, err := mr.kinematicBase.CurrentPosition(ctx)
-	if err != nil {
-		return nil, err
+		cameraPoseInBaseFrame = cameraOrigin
 	}
 
 	// transformed detections
@@ -212,11 +209,10 @@ func (mr *moveRequest) getTransientDetections(
 		geometry.SetLabel(label)
 
 		// transform the geometry to be relative to the base frame which is +Y forwards
-		relativeGeom := geometry.Transform(cameraToBase.Pose())
+		relativeGeom := geometry.Transform(cameraPoseInBaseFrame.Pose())
 
 		// apply any transformation on the geometry defined a priori by the caller
-		transformedGeomInBaseFrame := relativeGeom.Transform(transformBy)
-		transformedGeom := transformedGeomInBaseFrame.Transform(baseToWorld.Pose())
+		transformedGeom := relativeGeom.Transform(transformBy)
 		transformedGeoms = append(transformedGeoms, transformedGeom)
 	}
 	return referenceframe.NewGeometriesInFrame(referenceframe.World, transformedGeoms), nil

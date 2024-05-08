@@ -132,7 +132,7 @@ func createMoveOnGlobeEnvironment(ctx context.Context, t *testing.T, origin *geo
 	baseCfg := resource.Config{
 		Name:  "test-base",
 		API:   base.API,
-		Frame: &referenceframe.LinkConfig{Geometry: &spatialmath.GeometryConfig{R: 40}},
+		Frame: &referenceframe.LinkConfig{Geometry: &spatialmath.GeometryConfig{R: 80}},
 	}
 	fakeBase, err := baseFake.NewBase(ctx, nil, baseCfg, logger)
 	test.That(t, err, test.ShouldBeNil)
@@ -275,7 +275,7 @@ func createMoveOnMapEnvironment(
 	cameraLink := referenceframe.NewLinkInFrame(
 		baseLink.Name(),
 		// we recreate an intel real sense orientation placed along the +Y axis of the base's coordinate frame.
-		// i.e. the camera is pointed along the axis the base moves forwa
+		// i.e. the camera is pointed along the axis in which the base moves forward
 		spatialmath.NewPose(r3.Vector{X: 0, Y: 0, Z: 0}, &spatialmath.OrientationVectorDegrees{OY: 1, Theta: -90}),
 		"test-camera",
 		cameraGeom,
