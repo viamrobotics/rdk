@@ -3,9 +3,9 @@ package grpc
 import (
 	"context"
 	"errors"
-	"fmt"
 	"sync"
 
+	"github.com/edaniels/golog"
 	"github.com/pion/webrtc/v3"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/utils/rpc"
@@ -69,19 +69,20 @@ func (c *ReconfigurableClientConn) ReplaceConn(conn rpc.ClientConn) {
 	}
 
 	if pc := conn.PeerConn(); pc != nil {
-		fmt.Printf("DBG. OnTrack added. PC: %p\n", pc)
+		golog.Global().Infof("DBG. OnTrack added. PC: %p\n", pc)
 		pc.OnTrack(func(trackRemote *webrtc.TrackRemote, rtpReceiver *webrtc.RTPReceiver) {
-			fmt.Printf("DBG. OnTrack called. PC: %p\n", pc)
+			golog.Global().Infof("DBG. OnTrack called. PC: %p\n", pc)
+			golog.Global().Errorf("StreamID did not parse as a StreamID ResourceName: %s", trackRemote.StreamID())
 			name, err := resource.NewFromString(trackRemote.StreamID())
 			if err != nil {
-				// sc.logger.Errorw("StreamID did not parse as a ResourceName", "sharedConn", fmt.Sprintf("%p", sc), "streamID", trackRemote.StreamID())
+				golog.Global().Errorf("StreamID did not parse as a StreamID ResourceName: %s", trackRemote.StreamID())
 				return
 			}
 			c.resOnTrackMu.Lock()
 			onTrackCB, ok := c.resOnTrackCBs[name]
 			c.resOnTrackMu.Unlock()
 			if !ok {
-				// sc.logger.Errorw("Callback not found for StreamID", "sharedConn", fmt.Sprintf("%p", sc), "streamID", trackRemote.StreamID())
+				golog.Global().Errorf("Callback not found for StreamID: %s", trackRemote.StreamID())
 				return
 			}
 			onTrackCB(trackRemote, rtpReceiver)
