@@ -644,12 +644,13 @@ func (svc *builtIn) sync() {
 		toSync = append(toSync, getAllFilesToSync(ap, svc.fileLastModifiedMillis)...)
 	}
 	svc.lock.Unlock()
+
 	for _, p := range toSync {
 		svc.syncer.SyncFile(p)
 	}
 }
 
-// nolint
+//nolint
 func getAllFilesToSync(dir string, lastModifiedMillis int) []string {
 	var filePaths []string
 	_ = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
@@ -718,7 +719,6 @@ func generateMetadataKey(component, method string) string {
 }
 
 func pollFilesystem(ctx context.Context, wg *sync.WaitGroup, captureDir string, syncer datasync.Manager, logger logging.Logger) {
-	//DATA-2619, remove this check to reenable once android has been tested
 	if runtime.GOOS == "android" {
 		logger.Warn("File deletion if disk is full is not currently supported on Android")
 		return
