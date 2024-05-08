@@ -2,7 +2,6 @@ package motionplan
 
 import (
 	"errors"
-	"strings"
 
 	"go.uber.org/multierr"
 	pb "go.viam.com/api/component/arm/v1"
@@ -52,6 +51,7 @@ func newSolverFrame(fs frame.FrameSystem, solveFrameName, goalFrameName string, 
 	if err != nil {
 		return nil, err
 	}
+	// this should always include world
 	if len(solveFrameList) == 0 {
 		return nil, errors.New("solveFrameList was empty")
 	}
@@ -220,11 +220,6 @@ func (sf *solverFrame) Interpolate(from, to []frame.Input, by float64) ([]frame.
 		var interpSub []frame.Input
 		var err error
 
-		// if we are dealing with the execution frame, no need to interpolate, just return what we got
-		if strings.Contains(currFrame.Name(), "ExecutionFrame") {
-			interp = append(interp, fromSubset...)
-			continue
-		}
 		interpSub, err = currFrame.Interpolate(fromSubset, toSubset, by)
 		if err != nil {
 			return nil, err
@@ -271,9 +266,6 @@ func (sf *solverFrame) Geometries(inputs []frame.Input) (*frame.GeometriesInFram
 	inputMap := sf.sliceToMap(inputs)
 	sfGeometries := []spatial.Geometry{}
 	for _, fName := range sf.movingFS.FrameNames() {
-		if strings.Contains(fName, "ExecutionFrame") {
-			continue
-		}
 		f := sf.fss.Frame(fName)
 		if f == nil {
 			return nil, frame.NewFrameMissingError(fName)

@@ -7,6 +7,7 @@ package kinematicbase
 import (
 	"context"
 	"errors"
+	"math"
 	"sync"
 
 	"go.viam.com/rdk/components/base"
@@ -136,8 +137,12 @@ func wrapWithPTGKinematics(
 	// construct executionFrame
 	executionFrame, err := referenceframe.New2DMobileModelFrame(
 		b.Name().ShortName()+"ExecutionFrame",
-		planningFrame.DoF()[:3],
-		geometries[0],
+		[]referenceframe.Limit{
+			{Min: math.Inf(-1), Max: math.Inf(1)},
+			{Min: math.Inf(-1), Max: math.Inf(1)},
+			{Min: -360, Max: 360},
+		},
+		nil,
 	)
 	if err != nil {
 		return nil, err
