@@ -31,7 +31,7 @@ func init() {
 //
 // Infer example:
 //
-//	input_tensors := ml.Tensors{"0": tensor.New(tensor.WithShape(1, 2, 3), tensor.WithBacking(6))}
+//	input_tensors := ml.Tensors{"0": tensor.New(tensor.WithShape(1, 2, 3), tensor.WithBacking([]int{1, 2, 3, 4, 5, 6}))}
 //
 //	output_tensors, err := myMLModel.Infer(context.Background(), input_tensors)
 //
