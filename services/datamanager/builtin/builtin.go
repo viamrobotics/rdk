@@ -72,6 +72,7 @@ type Config struct {
 	Tags                   []string `json:"tags"`
 	FileLastModifiedMillis int      `json:"file_last_modified_millis"`
 	SelectiveSyncerName    string   `json:"selective_syncer_name"`
+	MaximumNumSyncThreads  int      `json:"maximum_num_sync_threads"`
 }
 
 // Validate returns components which will be depended upon weakly due to the above matcher.
@@ -124,6 +125,7 @@ type builtIn struct {
 	syncRoutineCancelFn context.CancelFunc
 	syncer              datasync.Manager
 	syncerConstructor   datasync.ManagerConstructor
+	maxSyncThreads      int
 	cloudConnSvc        cloud.ConnectionService
 	cloudConn           rpc.ClientConn
 	syncTicker          *clk.Ticker
@@ -366,7 +368,7 @@ func (svc *builtIn) initSyncer(ctx context.Context) error {
 
 	client := v1.NewDataSyncServiceClient(conn)
 
-	syncer, err := svc.syncerConstructor(identity, client, svc.logger, svc.captureDir)
+	syncer, err := svc.syncerConstructor(identity, client, svc.logger, svc.captureDir, svc.maxSyncThreads)
 	if err != nil {
 		return errors.Wrap(err, "failed to initialize new syncer")
 	}
@@ -528,11 +530,13 @@ func (svc *builtIn) Reconfigure(
 	}
 
 	if svc.syncDisabled != svcConfig.ScheduledSyncDisabled || svc.syncIntervalMins != svcConfig.SyncIntervalMins ||
-		!reflect.DeepEqual(svc.tags, svcConfig.Tags) || svc.fileLastModifiedMillis != fileLastModifiedMillis {
+		!reflect.DeepEqual(svc.tags, svcConfig.Tags) || svc.fileLastModifiedMillis != fileLastModifiedMillis ||
+		svc.maxSyncThreads != svcConfig.MaximumNumSyncThreads {
 		svc.syncDisabled = svcConfig.ScheduledSyncDisabled
 		svc.syncIntervalMins = svcConfig.SyncIntervalMins
 		svc.tags = svcConfig.Tags
 		svc.fileLastModifiedMillis = fileLastModifiedMillis
+		svc.maxSyncThreads = svcConfig.MaximumNumSyncThreads
 
 		svc.cancelSyncScheduler()
 		if !svc.syncDisabled && svc.syncIntervalMins != 0.0 {
@@ -646,7 +650,7 @@ func (svc *builtIn) sync() {
 	}
 }
 
-//nolint
+// nolint
 func getAllFilesToSync(dir string, lastModifiedMillis int) []string {
 	var filePaths []string
 	_ = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {

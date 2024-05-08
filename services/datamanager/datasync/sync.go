@@ -69,11 +69,15 @@ type syncer struct {
 }
 
 // ManagerConstructor is a function for building a Manager.
-type ManagerConstructor func(identity string, client v1.DataSyncServiceClient, logger logging.Logger, captureDir string) (Manager, error)
+type ManagerConstructor func(identity string, client v1.DataSyncServiceClient, logger logging.Logger, captureDir string, maxSyncThreadsConfig int) (Manager, error)
 
 // NewManager returns a new syncer.
-func NewManager(identity string, client v1.DataSyncServiceClient, logger logging.Logger, captureDir string) (Manager, error) {
+func NewManager(identity string, client v1.DataSyncServiceClient, logger logging.Logger, captureDir string, maxSyncThreadsConfig int) (Manager, error) {
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
+	maxThreads := maxParallelSyncRoutines
+	if maxSyncThreadsConfig != 0 {
+		maxThreads = maxSyncThreadsConfig
+	}
 	ret := syncer{
 		partID:             identity,
 		client:             client,
@@ -83,7 +87,7 @@ func NewManager(identity string, client v1.DataSyncServiceClient, logger logging
 		arbitraryFileTags:  []string{},
 		inProgress:         make(map[string]bool),
 		syncErrs:           make(chan error, 10),
-		syncRoutineTracker: make(chan struct{}, maxParallelSyncRoutines),
+		syncRoutineTracker: make(chan struct{}, maxThreads),
 		captureDir:         captureDir,
 	}
 	ret.logRoutine.Add(1)
