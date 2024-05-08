@@ -242,6 +242,26 @@ func protoToObjects(pco []*commonpb.PointCloudObject) ([]*vision.Object, error) 
 	return objects, nil
 }
 
+func (c *client) GetProperties(ctx context.Context, extra map[string]interface{}) *Properties {
+	ctx, span := trace.StartSpan(ctx, "service::vision::client::GetProperties")
+	defer span.End()
+
+	ext, err := protoutils.StructToStructPb(extra)
+	if err != nil {
+		return nil
+	}
+
+	resp, err := c.client.GetProperties(ctx, &pb.GetPropertiesRequest{
+		Name:  c.name,
+		Extra: ext,
+	})
+	if err != nil {
+		return nil
+	}
+
+	return &Properties{resp.ClassificationsSupported, resp.DetectionsSupported, resp.ObjectPointCloudsSupported}
+}
+
 func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 	ctx, span := trace.StartSpan(ctx, "service::vision::client::DoCommand")
 	defer span.End()

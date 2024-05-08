@@ -28,6 +28,7 @@ type VisionService struct {
 		n int, extra map[string]interface{}) (classification.Classifications, error)
 	// segmentation functions
 	GetObjectPointCloudsFunc func(ctx context.Context, cameraName string, extra map[string]interface{}) ([]*viz.Object, error)
+	GetPropertiesFunc        func(ctx context.Context, extra map[string]interface{}) *vision.Properties
 	DoCommandFunc            func(ctx context.Context,
 		cmd map[string]interface{}) (map[string]interface{}, error)
 	CloseFunc func(ctx context.Context) error
@@ -90,6 +91,17 @@ func (vs *VisionService) GetObjectPointClouds(
 		return vs.Service.GetObjectPointClouds(ctx, cameraName, extra)
 	}
 	return vs.GetObjectPointCloudsFunc(ctx, cameraName, extra)
+}
+
+// GetProperties calls the injected GetProperties or the real variant.
+func (vs *VisionService) GetProperties(
+	ctx context.Context,
+	extra map[string]interface{},
+) *vision.Properties {
+	if vs.GetPropertiesFunc == nil {
+		return vs.Service.GetProperties(ctx, extra)
+	}
+	return vs.GetPropertiesFunc(ctx, extra)
 }
 
 // DoCommand calls the injected DoCommand or the real variant.

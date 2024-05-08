@@ -128,6 +128,8 @@ type Service interface {
 
 	// GetObjectPointClouds returns a list of 3D point cloud objects and metadata from the latest 3D camera image using a specified segmenter.
 	GetObjectPointClouds(ctx context.Context, cameraName string, extra map[string]interface{}) ([]*viz.Object, error)
+	// properties
+	GetProperties(ctx context.Context, extra map[string]interface{}) *Properties
 }
 
 // SubtypeName is the name of the type of service.
@@ -155,11 +157,20 @@ func FromDependencies(deps resource.Dependencies, name string) (Service, error) 
 type vizModel struct {
 	resource.Named
 	resource.AlwaysRebuild
-	r               robot.Robot                     // in order to get access to all cameras
+	r               robot.Robot // in order to get access to all cameras
+	properties      Properties
 	closerFunc      func(ctx context.Context) error // close the underlying model
 	classifierFunc  classification.Classifier
 	detectorFunc    objectdetection.Detector
 	segmenter3DFunc segmentation.Segmenter
+}
+
+// Properties returns various information regarding the current vision service,
+// specifically, which vision tasks are supported by the resource
+type Properties struct {
+	ClassificationSupported bool
+	DetectionSupported      bool
+	ObjectPCDsSupported     bool
 }
 
 // NewService wraps the vision model in the struct that fulfills the vision service interface.
@@ -175,9 +186,22 @@ func NewService(
 		return nil, errors.Errorf(
 			"model %q does not fulfill any method of the vision service. It is neither a detector, nor classifier, nor 3D segmenter", name)
 	}
+
+	p := Properties{false, false, false}
+	if cf != nil {
+		p.ClassificationSupported = true
+	}
+	if df != nil {
+		p.DetectionSupported = true
+	}
+	if s3f != nil {
+		p.ObjectPCDsSupported = true
+	}
+
 	return &vizModel{
 		Named:           name.AsNamed(),
 		r:               r,
+		properties:      p,
 		closerFunc:      c,
 		classifierFunc:  cf,
 		detectorFunc:    df,
@@ -281,6 +305,14 @@ func (vm *vizModel) GetObjectPointClouds(ctx context.Context, cameraName string,
 		return nil, err
 	}
 	return vm.segmenter3DFunc(ctx, cam)
+}
+
+// GetProperties returns a Properties object that details the vision capabilities of the model
+func (vm *vizModel) GetProperties(ctx context.Context, extra map[string]interface{}) *Properties {
+	_, span := trace.StartSpan(ctx, "service::vision::GetProperties::"+vm.Named.Name().String())
+	defer span.End()
+
+	return &vm.properties
 }
 
 func (vm *vizModel) Close(ctx context.Context) error {
