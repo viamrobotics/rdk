@@ -470,7 +470,7 @@ func (c *client) SubscribeRTP(
 		}
 		// NOTE: (Nick S) This is a workaround to a Pion bug / missing feature.
 
-		fmt.Println("Waiting on added")
+		c.logger.Info("Waiting on added")
 		// If the WebRTC peer on the other side of the PeerConnection calls pc.AddTrack followd by pc.RemoveTrack
 		// before the module writes RTP packets
 		// to the track, the client's PeerConnection.OnTrack callback is never called.

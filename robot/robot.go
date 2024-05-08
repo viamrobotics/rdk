@@ -179,6 +179,17 @@ func NamesByAPI(r Robot, api resource.API) []string {
 	return names
 }
 
+// ResourceNamesByAPI is a helper for getting all names from the given Robot given the API.
+func ResourceNamesByAPI(r Robot, api resource.API) []resource.Name {
+	names := []resource.Name{}
+	for _, n := range r.ResourceNames() {
+		if n.API == api {
+			names = append(names, n)
+		}
+	}
+	return names
+}
+
 // TypeAndMethodDescFromMethod attempts to determine the resource API and its respective gRPC method information
 // from the given robot and method path. If nothing can be found, grpc.UnimplementedError is returned.
 func TypeAndMethodDescFromMethod(r Robot, method string) (*resource.RPCAPI, *desc.MethodDescriptor, error) {
