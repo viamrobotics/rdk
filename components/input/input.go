@@ -67,29 +67,6 @@ func Named(name string) resource.Name {
 //	    }
 //	    return controller.RegisterControlCallback(context.Background(), Control: input.ButtonStart, triggers, printStartTime, nil)
 //	}
-//
-//	func main() {
-//	    utils.ContextualMain(mainWithArgs, logging.NewLogger("client"))
-//	}
-//
-//	func mainWithArgs(ctx context.Context, args []string, logger logging.Logger) error {
-//	    // < Insert code sample from your machine's CONNECT tab >
-//
-//	    // Get the controller from the machine.
-//	    myController, err := input.FromRobot(machine, "my_controller")
-//	    if err != nil {
-//	       return err
-//	    }
-//
-//	    // Run the handleController function.
-//	    if err = handleController(myController) {
-//	        return err
-//	    }
-//	    // < Insert any other code for main function >
-//
-//	    <-ctx.Done()
-//	    return nil
-//	}
 type Controller interface {
 	resource.Resource
 
