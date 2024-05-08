@@ -761,7 +761,7 @@ func (rc *RobotClient) Logger() logging.Logger {
 //	qs := []resource.DiscoverQuery{q}
 //
 //	// Get component configurations with these queries.
-//	component_configs, err := robot.DiscoverComponents(ctx.Background(), qs)
+//	component_configs, err := machine.DiscoverComponents(ctx.Background(), qs)
 func (rc *RobotClient) DiscoverComponents(ctx context.Context, qs []resource.DiscoveryQuery) ([]resource.Discovery, error) {
 	pbQueries := make([]*pb.DiscoveryQuery, 0, len(qs))
 	for _, q := range qs {
@@ -801,7 +801,7 @@ func (rc *RobotClient) DiscoverComponents(ctx context.Context, qs []resource.Dis
 
 // FrameSystemConfig  returns the configuration of the frame system of a given machine.
 //
-//	frameSystem, err := robot.FrameSystemConfig(context.Background(), nil)
+//	frameSystem, err := machine.FrameSystemConfig(context.Background(), nil)
 func (rc *RobotClient) FrameSystemConfig(ctx context.Context) (*framesystem.Config, error) {
 	resp, err := rc.client.FrameSystemConfig(ctx, &pb.FrameSystemConfigRequest{})
 	if err != nil {
@@ -880,7 +880,7 @@ func (rc *RobotClient) TransformPointCloud(ctx context.Context, srcpc pointcloud
 // Status returns the status of the resources on the machine. You can provide a list of ResourceNames for which you want
 // statuses. If no names are passed in, the status of every resource available on the machine is returned.
 //
-//	status, err := robot.Status(ctx.Background())
+//	status, err := machine.Status(ctx.Background())
 func (rc *RobotClient) Status(ctx context.Context, resourceNames []resource.Name) ([]robot.Status, error) {
 	names := make([]*commonpb.ResourceName, 0, len(resourceNames))
 	for _, name := range resourceNames {
@@ -904,7 +904,7 @@ func (rc *RobotClient) Status(ctx context.Context, resourceNames []resource.Name
 	return statuses, nil
 }
 
-// StopAll cancels all current and outstanding operations for the robot and stops all actuators and movement.
+// StopAll cancels all current and outstanding operations for the machine and stops all actuators and movement.
 //
 //	err := machine.StopAll(ctx.Background())
 func (rc *RobotClient) StopAll(ctx context.Context, extra map[resource.Name]map[string]interface{}) error {
