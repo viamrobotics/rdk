@@ -650,7 +650,7 @@ func (svc *builtIn) sync() {
 	}
 }
 
-// nolint
+//nolint
 func getAllFilesToSync(dir string, lastModifiedMillis int) []string {
 	var filePaths []string
 	_ = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
