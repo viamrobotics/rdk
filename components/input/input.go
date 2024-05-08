@@ -61,7 +61,7 @@ func Named(name string) resource.Name {
 //	    // Get the controller's Controls.
 //	    controls, err := controller.Controls(ctx, nil)
 //
-//	    // If the "ButtonStart" Control is found, register the function printStartTime to fire when "ButtonStart" has the event "ButtonPress" occur.
+//	    // If the "ButtonStart" Control is found, trigger printStartTime when "ButtonStart" the event "ButtonPress" occurs.
 //	    if !slices.Contains(controls, input.ButtonStart) {
 //	        return errors.New("button `ButtonStart` not found; controller may be disconnected")
 //	    }
