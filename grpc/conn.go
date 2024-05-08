@@ -72,7 +72,6 @@ func (c *ReconfigurableClientConn) ReplaceConn(conn rpc.ClientConn) {
 		golog.Global().Infof("DBG. OnTrack added. PC: %p\n", pc)
 		pc.OnTrack(func(trackRemote *webrtc.TrackRemote, rtpReceiver *webrtc.RTPReceiver) {
 			golog.Global().Infof("DBG. OnTrack called. PC: %p\n", pc)
-			golog.Global().Errorf("StreamID did not parse as a StreamID ResourceName: %s", trackRemote.StreamID())
 			name, err := resource.NewFromString(trackRemote.StreamID())
 			if err != nil {
 				golog.Global().Errorf("StreamID did not parse as a StreamID ResourceName: %s", trackRemote.StreamID())
