@@ -476,7 +476,7 @@ func (svc *builtIn) Reconfigure(
 						syncVal += " not"
 					}
 					svc.logger.Infof(
-						"capture frequency for %s is set to %.2fHz and %s sync", componentMethodMetadata, resConf.CaptureFrequencyHz, syncVal,
+						"capture frequency for %s is set to %.2fHz and %s sync ", componentMethodMetadata, resConf.CaptureFrequencyHz, syncVal, resConf.Disabled,
 					)
 				}
 
@@ -564,11 +564,11 @@ func (svc *builtIn) Reconfigure(
 	// if datacapture is enabled, kick off a go routine to check if disk space is filling due to
 	// cached datacapture files
 	if !svc.captureDisabled {
-		// fileDeletionCtx, cancelFunc := context.WithCancel(context.Background())
-		// svc.fileDeletionRoutineCancelFn = cancelFunc
-		// svc.fileDeletionBackgroundWorkers = &sync.WaitGroup{}
-		// svc.fileDeletionBackgroundWorkers.Add(1)
-		// go pollFilesystem(fileDeletionCtx, svc.fileDeletionBackgroundWorkers, svc.captureDir, svc.syncer, svc.logger)
+		fileDeletionCtx, cancelFunc := context.WithCancel(context.Background())
+		svc.fileDeletionRoutineCancelFn = cancelFunc
+		svc.fileDeletionBackgroundWorkers = &sync.WaitGroup{}
+		svc.fileDeletionBackgroundWorkers.Add(1)
+		go pollFilesystem(fileDeletionCtx, svc.fileDeletionBackgroundWorkers, svc.captureDir, svc.syncer, svc.logger)
 	}
 
 	return nil

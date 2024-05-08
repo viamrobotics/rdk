@@ -18,9 +18,9 @@ import (
 
 // TODO change these values back to what they should be.
 var (
-	fsThresholdToTriggerDeletion = .95
+	fsThresholdToTriggerDeletion = .90
 	captureDirToFSUsageRatio     = .5
-	deleteEveryNth               = 4
+	deleteEveryNth               = 5
 )
 
 var errAtSizeThreshold = errors.New("capture dir is at correct size")

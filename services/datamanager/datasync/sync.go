@@ -29,13 +29,14 @@ var (
 	// RetryExponentialFactor defines the factor by which the retry wait time increases.
 	RetryExponentialFactor = atomic.NewInt32(2)
 	maxRetryInterval       = 24 * time.Hour
+	syncerCounter          = 0
 )
 
 // FailedDir is a subdirectory of the capture directory that holds any files that could not be synced.
 const FailedDir = "failed"
 
 // maxParallelSyncRoutines is the maximum number of sync goroutines that can be running at once.
-const maxParallelSyncRoutines = 1000
+const maxParallelSyncRoutines = 100
 
 // Manager is responsible for enqueuing files in captureDir and uploading them to the cloud.
 type Manager interface {
@@ -123,6 +124,8 @@ func (s *syncer) SyncFile(path string) {
 		return
 	// Kick off a sync goroutine if under the limit of goroutines.
 	case s.syncRoutineTracker <- struct{}{}:
+		syncerCounter++
+		s.logger.Infof("Number of currently running syncers %d", syncerCounter)
 		s.backgroundWorkers.Add(1)
 
 		goutils.PanicCapturingGo(func() {
