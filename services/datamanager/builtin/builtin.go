@@ -7,7 +7,6 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
-	"runtime"
 	"sync"
 	"time"
 
@@ -76,6 +75,7 @@ type Config struct {
 	Tags                   []string `json:"tags"`
 	FileLastModifiedMillis int      `json:"file_last_modified_millis"`
 	SelectiveSyncerName    string   `json:"selective_syncer_name"`
+	DeleteEveryNth         int      `json:"delete_every_nth"`
 }
 
 // Validate returns components which will be depended upon weakly due to the above matcher.
@@ -137,6 +137,7 @@ type builtIn struct {
 
 	componentMethodFrequencyHz map[resourceMethodMetadata]float32
 
+	deleteEveryNth                int
 	fileDeletionRoutineCancelFn   context.CancelFunc
 	fileDeletionBackgroundWorkers *sync.WaitGroup
 }
@@ -449,6 +450,11 @@ func (svc *builtIn) Reconfigure(
 	if svc.fileDeletionBackgroundWorkers != nil {
 		svc.fileDeletionBackgroundWorkers.Wait()
 	}
+	if svcConfig.DeleteEveryNth != 0 {
+		svc.deleteEveryNth = svcConfig.DeleteEveryNth
+	} else {
+		svc.deleteEveryNth = defaultDeleteEveryNth
+	}
 
 	// Initialize or add collectors based on changes to the component configurations.
 	newCollectors := make(map[resourceMethodMetadata]*collectorAndConfig)
@@ -567,7 +573,9 @@ func (svc *builtIn) Reconfigure(
 		svc.fileDeletionRoutineCancelFn = cancelFunc
 		svc.fileDeletionBackgroundWorkers = &sync.WaitGroup{}
 		svc.fileDeletionBackgroundWorkers.Add(1)
-		go pollFilesystem(fileDeletionCtx, svc.fileDeletionBackgroundWorkers, svc.captureDir, svc.syncer, svc.logger)
+		svc.logger.Infof("Deleting every nth %d", svc.deleteEveryNth)
+		go pollFilesystem(fileDeletionCtx, svc.fileDeletionBackgroundWorkers,
+			svc.captureDir, svc.deleteEveryNth, svc.syncer, svc.logger)
 	}
 
 	return nil
@@ -650,7 +658,7 @@ func (svc *builtIn) sync() {
 	}
 }
 
-//nolint
+// nolint
 func getAllFilesToSync(dir string, lastModifiedMillis int) []string {
 	var filePaths []string
 	_ = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
@@ -718,11 +726,9 @@ func generateMetadataKey(component, method string) string {
 	return fmt.Sprintf("%s/%s", component, method)
 }
 
-func pollFilesystem(ctx context.Context, wg *sync.WaitGroup, captureDir string, syncer datasync.Manager, logger logging.Logger) {
-	if runtime.GOOS == "android" {
-		logger.Debug("file deletion if disk is full is not currently supported on Android")
-		return
-	}
+func pollFilesystem(ctx context.Context, wg *sync.WaitGroup, captureDir string,
+	deleteEveryNth int, syncer datasync.Manager, logger logging.Logger,
+) {
 	t := deletionTicker.Ticker(filesystemPollInterval)
 	defer t.Stop()
 	defer wg.Done()
@@ -744,7 +750,7 @@ func pollFilesystem(ctx context.Context, wg *sync.WaitGroup, captureDir string, 
 			}
 			if shouldDelete {
 				start := time.Now()
-				deletedFileCount, err := deleteFiles(ctx, syncer, captureDir, logger)
+				deletedFileCount, err := deleteFiles(ctx, syncer, deleteEveryNth, captureDir, logger)
 				duration := time.Since(start)
 				if err != nil {
 					logger.Errorw("error deleting cached datacapture files", "error", err, "execution time", duration.Seconds())
