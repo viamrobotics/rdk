@@ -3,7 +3,6 @@ package camera_test
 import (
 	"bytes"
 	"context"
-	"fmt"
 	"image"
 	"image/color"
 	"image/png"
@@ -725,8 +724,17 @@ func setupRealRobot(t *testing.T, robotConfig *config.Config, logger logging.Log
 	return ctx, robot, addr, webSvc
 }
 
+var (
+	Green = "\033[32m"
+	Reset = "\033[0m"
+)
+
+// this helps make the test case much easier to read.
+func greenLog(t *testing.T, msg string) {
+	t.Log(Green + msg + Reset)
+}
 func TestMultiplexOverRemoteConnection(t *testing.T) {
-	logger := logging.NewTestLogger(t).Sublogger("TestWebReconfigure")
+	logger := logging.NewTestLogger(t).Sublogger(t.Name())
 
 	remoteCfg := &config.Config{Components: []resource.Config{
 		{
@@ -735,8 +743,6 @@ func TestMultiplexOverRemoteConnection(t *testing.T) {
 			Model: resource.DefaultModelFamily.WithModel("fake"),
 			ConvertedAttributes: &fake.Config{
 				RTPPassthrough: true,
-				Width:          100,
-				Height:         50,
 			},
 		},
 	}}
@@ -754,6 +760,7 @@ func TestMultiplexOverRemoteConnection(t *testing.T) {
 		},
 	}}
 	mainCtx, mainRobot, _, mainWebSvc := setupRealRobot(t, mainCfg, logger.Sublogger("main"))
+	greenLog(t, "robot setup")
 	defer mainRobot.Close(mainCtx)
 	defer mainWebSvc.Close(mainCtx)
 
@@ -763,14 +770,18 @@ func TestMultiplexOverRemoteConnection(t *testing.T) {
 	image, _, err := cameraClient.Images(mainCtx)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, image, test.ShouldNotBeNil)
+	greenLog(t, "got images")
 
 	sub, err := cameraClient.(rtppassthrough.Source).SubscribeRTP(mainCtx, 4096, func(pkts []*rtp.Packet) {
-		fmt.Println("DBG. Pkts:", len(pkts))
+		t.Log("got em")
+		t.FailNow()
 	})
 	test.That(t, err, test.ShouldBeNil)
+	greenLog(t, "got packets")
 
 	time.Sleep(time.Second)
 
 	err = cameraClient.(rtppassthrough.Source).Unsubscribe(mainCtx, sub.ID)
 	test.That(t, err, test.ShouldBeNil)
+	greenLog(t, "unsubscribe")
 }
