@@ -85,22 +85,29 @@ func RandomFrameInputs(m Frame, rSeed *rand.Rand) []Input {
 	return pos
 }
 
+// Limited represents anything that has Limits.
+type Limited interface {
+	// DoF will return a slice with length equal to the number of degrees of freedom.
+	// Each element describes the min and max movement limit of that degree of freedom.
+	// For robot parts that don't move, it returns an empty slice.
+	DoF() []Limit
+}
+
 // Frame represents a reference frame, e.g. an arm, a joint, a gripper, a board, etc.
 type Frame interface {
+	Limited
 	// Name returns the name of the referenceframe.
 	Name() string
 
 	// Transform is the pose (rotation and translation) that goes FROM current frame TO parent's referenceframe.
 	Transform([]Input) (spatial.Pose, error)
 
+	// Interpolate interpolates the given amount between the two sets of inputs.
+	Interpolate([]Input, []Input, float64) ([]Input, error)
+
 	// Geometries returns a map between names and geometries for the reference frame and any intermediate frames that
 	// may be defined for it, e.g. links in an arm. If a frame does not have a geometry it will not be added into the map
 	Geometries([]Input) (*GeometriesInFrame, error)
-
-	// DoF will return a slice with length equal to the number of joints/degrees of freedom.
-	// Each element describes the min and max movement limit of that joint/degree of freedom.
-	// For robot parts that don't move, it returns an empty slice.
-	DoF() []Limit
 
 	// InputFromProtobuf does there correct thing for this frame to convert protobuf units (degrees/mm) to input units (radians/mm)
 	InputFromProtobuf(*pb.JointPositions) []Input
@@ -125,6 +132,19 @@ func (bf *baseFrame) Name() string {
 // DoF will return a slice with length equal to the number of joints/degrees of freedom.
 func (bf *baseFrame) DoF() []Limit {
 	return bf.limits
+}
+
+// Interpolate interpolates the given amount between the two sets of inputs.
+func (bf *baseFrame) Interpolate(from, to []Input, by float64) ([]Input, error) {
+	err := bf.validInputs(from)
+	if err != nil {
+		return nil, err
+	}
+	err = bf.validInputs(to)
+	if err != nil {
+		return nil, err
+	}
+	return interpolateInputs(from, to, by), nil
 }
 
 // validInputs checks whether the given array of joint positions violates any joint limits.

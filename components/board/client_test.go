@@ -3,10 +3,10 @@ package board_test
 import (
 	"context"
 	"net"
+	"slices"
 	"testing"
 	"time"
 
-	commonpb "go.viam.com/api/common/v1"
 	boardpb "go.viam.com/api/component/board/v1"
 	"go.viam.com/test"
 	"go.viam.com/utils/rpc"
@@ -63,10 +63,6 @@ func TestWorkingClient(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 	injectBoard := &inject.Board{}
 
-	injectBoard.StatusFunc = func(ctx context.Context, extra map[string]interface{}) (*commonpb.BoardStatus, error) {
-		return nil, viamgrpc.UnimplementedError
-	}
-
 	listener, cleanup := setupService(t, injectBoard)
 	defer cleanup()
 
@@ -82,19 +78,6 @@ func TestWorkingClient(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, resp["command"], test.ShouldEqual, testutils.TestCommand["command"])
 		test.That(t, resp["data"], test.ShouldEqual, testutils.TestCommand["data"])
-
-		// Status
-		injectStatus := &commonpb.BoardStatus{}
-		injectBoard.StatusFunc = func(ctx context.Context, extra map[string]interface{}) (*commonpb.BoardStatus, error) {
-			actualExtra = extra
-			return injectStatus, nil
-		}
-		respStatus, err := client.Status(context.Background(), expectedExtra)
-		test.That(t, respStatus, test.ShouldResemble, injectStatus)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, injectBoard.StatusCap()[1:], test.ShouldResemble, []interface{}{})
-		test.That(t, actualExtra, test.ShouldResemble, expectedExtra)
-		actualExtra = nil
 
 		injectGPIOPin := &inject.GPIOPin{}
 		injectBoard.GPIOPinByNameFunc = func(name string) (board.GPIOPin, error) {
@@ -148,17 +131,17 @@ func TestWorkingClient(t *testing.T) {
 		test.That(t, actualExtra, test.ShouldResemble, expectedExtra)
 		actualExtra = nil
 
-		// Analog Reader
-		injectAnalogReader := &inject.AnalogReader{}
-		injectBoard.AnalogReaderByNameFunc = func(name string) (board.AnalogReader, bool) {
-			return injectAnalogReader, true
+		// Analog
+		injectAnalog := &inject.Analog{}
+		injectBoard.AnalogByNameFunc = func(name string) (board.Analog, error) {
+			return injectAnalog, nil
 		}
-		analog1, ok := injectBoard.AnalogReaderByName("analog1")
-		test.That(t, ok, test.ShouldBeTrue)
-		test.That(t, injectBoard.AnalogReaderByNameCap(), test.ShouldResemble, []interface{}{"analog1"})
+		analog1, err := injectBoard.AnalogByName("analog1")
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, injectBoard.AnalogByNameCap(), test.ShouldResemble, []interface{}{"analog1"})
 
-		// Analog Reader:Read
-		injectAnalogReader.ReadFunc = func(ctx context.Context, extra map[string]interface{}) (int, error) {
+		// Analog: Read
+		injectAnalog.ReadFunc = func(ctx context.Context, extra map[string]interface{}) (int, error) {
 			actualExtra = extra
 			return 6, nil
 		}
@@ -180,11 +163,11 @@ func TestWorkingClient(t *testing.T) {
 
 		// Digital Interrupt
 		injectDigitalInterrupt := &inject.DigitalInterrupt{}
-		injectBoard.DigitalInterruptByNameFunc = func(name string) (board.DigitalInterrupt, bool) {
-			return injectDigitalInterrupt, true
+		injectBoard.DigitalInterruptByNameFunc = func(name string) (board.DigitalInterrupt, error) {
+			return injectDigitalInterrupt, nil
 		}
-		digital1, ok := injectBoard.DigitalInterruptByName("digital1")
-		test.That(t, ok, test.ShouldBeTrue)
+		digital1, err := injectBoard.DigitalInterruptByName("digital1")
+		test.That(t, err, test.ShouldBeNil)
 		test.That(t, injectBoard.DigitalInterruptByNameCap(), test.ShouldResemble, []interface{}{"digital1"})
 
 		// Digital Interrupt:Value
@@ -197,6 +180,23 @@ func TestWorkingClient(t *testing.T) {
 		test.That(t, digital1Val, test.ShouldEqual, 287)
 		test.That(t, actualExtra, test.ShouldResemble, expectedExtra)
 		actualExtra = nil
+
+		// StreamTicks
+		injectBoard.StreamTicksFunc = func(ctx context.Context, interrupts []board.DigitalInterrupt, ch chan board.Tick,
+			extra map[string]interface{},
+		) error {
+			actualExtra = extra
+			return nil
+		}
+		err = injectBoard.StreamTicks(context.Background(), []board.DigitalInterrupt{digital1}, make(chan board.Tick), expectedExtra)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, actualExtra, test.ShouldResemble, expectedExtra)
+		actualExtra = nil
+		injectDigitalInterrupt.NameFunc = func() string {
+			return "digital1"
+		}
+		name := digital1.Name()
+		test.That(t, name, test.ShouldEqual, "digital1")
 
 		// SetPowerMode (currently unimplemented in RDK)
 		injectBoard.SetPowerModeFunc = func(ctx context.Context, mode boardpb.PowerMode, duration *time.Duration) error {
@@ -221,75 +221,68 @@ func TestWorkingClient(t *testing.T) {
 	})
 }
 
-func TestClientWithStatus(t *testing.T) {
+// these tests validate that for modular boards(which rely on client.go's board interface)
+// we will only add new pins to the cached name lists.
+func TestClientNames(t *testing.T) {
 	logger := logging.NewTestLogger(t)
-
-	injectStatus := &commonpb.BoardStatus{
-		Analogs: map[string]*commonpb.AnalogStatus{
-			"analog1": {},
-		},
-		DigitalInterrupts: map[string]*commonpb.DigitalInterruptStatus{
-			"digital1": {},
-		},
-	}
-
 	injectBoard := &inject.Board{}
-	injectBoard.StatusFunc = func(ctx context.Context, extra map[string]interface{}) (*commonpb.BoardStatus, error) {
-		return injectStatus, nil
-	}
 
 	listener, cleanup := setupService(t, injectBoard)
 	defer cleanup()
+	t.Run("test analog names are cached correctly in the client", func(t *testing.T) {
+		ctx := context.Background()
+		conn, err := viamgrpc.Dial(ctx, listener.Addr().String(), logger)
+		test.That(t, err, test.ShouldBeNil)
+		client, err := board.NewClientFromConn(ctx, conn, "", board.Named(testBoardName), logger)
+		test.That(t, err, test.ShouldBeNil)
 
-	conn, err := viamgrpc.Dial(context.Background(), listener.Addr().String(), logger)
-	test.That(t, err, test.ShouldBeNil)
-	client, err := board.NewClientFromConn(context.Background(), conn, "", board.Named(testBoardName), logger)
-	test.That(t, err, test.ShouldBeNil)
+		nameFunc := func(name string) error {
+			_, err = client.AnalogByName(name)
+			return err
+		}
+		testNamesAPI(t, client.AnalogNames, nameFunc, "Analog")
 
-	test.That(t, injectBoard.StatusCap()[1:], test.ShouldResemble, []interface{}{})
+		test.That(t, conn.Close(), test.ShouldBeNil)
+	})
 
-	respAnalogReaders := client.AnalogReaderNames()
-	test.That(t, respAnalogReaders, test.ShouldResemble, []string{"analog1"})
+	t.Run("test interrupt names are cached correctly in the client", func(t *testing.T) {
+		ctx := context.Background()
+		conn, err := viamgrpc.Dial(ctx, listener.Addr().String(), logger)
+		test.That(t, err, test.ShouldBeNil)
+		client, err := board.NewClientFromConn(ctx, conn, "", board.Named(testBoardName), logger)
+		test.That(t, err, test.ShouldBeNil)
 
-	respDigitalInterrupts := client.DigitalInterruptNames()
-	test.That(t, respDigitalInterrupts, test.ShouldResemble, []string{"digital1"})
-
-	err = client.Close(context.Background())
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, conn.Close(), test.ShouldBeNil)
+		nameFunc := func(name string) error {
+			_, err = client.DigitalInterruptByName(name)
+			return err
+		}
+		testNamesAPI(t, client.DigitalInterruptNames, nameFunc, "DigitalInterrupt")
+		test.That(t, conn.Close(), test.ShouldBeNil)
+	})
 }
 
-func TestClientWithoutStatus(t *testing.T) {
-	logger := logging.NewTestLogger(t)
-
-	injectBoard := &inject.Board{}
-
-	listener1, err := net.Listen("tcp", "localhost:0")
+func testNamesAPI(t *testing.T, namesFunc func() []string, nameFunc func(string) error, name string) {
+	t.Helper()
+	names := namesFunc()
+	test.That(t, len(names), test.ShouldEqual, 0)
+	name1 := name + "1"
+	err := nameFunc(name1)
 	test.That(t, err, test.ShouldBeNil)
-	rpcServer, err := rpc.NewServer(logger.AsZap(), rpc.WithUnauthenticated())
-	test.That(t, err, test.ShouldBeNil)
+	names = namesFunc()
+	test.That(t, len(names), test.ShouldEqual, 1)
+	test.That(t, slices.Contains(names, name1), test.ShouldBeTrue)
 
-	boardSvc, err := resource.NewAPIResourceCollection(board.API, map[resource.Name]board.Board{board.Named(testBoardName): injectBoard})
-	test.That(t, err, test.ShouldBeNil)
-	resourceAPI, ok, err := resource.LookupAPIRegistration[board.Board](board.API)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, resourceAPI.RegisterRPCService(context.Background(), rpcServer, boardSvc), test.ShouldBeNil)
-
-	go rpcServer.Serve(listener1)
-	defer rpcServer.Stop()
-
-	conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
-	test.That(t, err, test.ShouldBeNil)
-	rClient, err := resourceAPI.RPCClient(context.Background(), conn, "", board.Named(testBoardName), logger)
+	name2 := name + "2"
+	err = nameFunc(name2)
 	test.That(t, err, test.ShouldBeNil)
 
-	test.That(t, injectBoard.StatusCap()[1:], test.ShouldResemble, []interface{}{})
+	names = namesFunc()
+	test.That(t, len(names), test.ShouldEqual, 2)
+	test.That(t, slices.Contains(names, name2), test.ShouldBeTrue)
 
-	test.That(t, rClient.AnalogReaderNames(), test.ShouldResemble, []string{})
-	test.That(t, rClient.DigitalInterruptNames(), test.ShouldResemble, []string{})
-
-	err = rClient.Close(context.Background())
+	err = nameFunc(name1)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, conn.Close(), test.ShouldBeNil)
+	names = namesFunc()
+	test.That(t, len(names), test.ShouldEqual, 2)
+	test.That(t, slices.Contains(names, name1), test.ShouldBeTrue)
 }

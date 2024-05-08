@@ -3,9 +3,9 @@ package builtin
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"math"
+	"slices"
 	"strconv"
 	"sync"
 	"sync/atomic"
@@ -16,7 +16,6 @@ import (
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.viam.com/utils"
-	"golang.org/x/exp/slices"
 
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/components/camera"
@@ -77,20 +76,6 @@ const (
 func init() {
 	resource.RegisterService(navigation.API, resource.DefaultServiceModel, resource.Registration[navigation.Service, *Config]{
 		Constructor: NewBuiltIn,
-		// TODO: We can move away from using AttributeMapConverter if we change the way
-		// that we allow orientations to be specified within orientation_json.go
-		AttributeMapConverter: func(attributes rdkutils.AttributeMap) (*Config, error) {
-			b, err := json.Marshal(attributes)
-			if err != nil {
-				return nil, err
-			}
-
-			var cfg Config
-			if err := json.Unmarshal(b, &cfg); err != nil {
-				return nil, err
-			}
-			return &cfg, nil
-		},
 	})
 }
 
@@ -544,7 +529,10 @@ func (svc *builtIn) moveToWaypoint(ctx context.Context, wp navigation.Waypoint, 
 	cancelCtx, cancelFn := context.WithCancel(ctx)
 	defer cancelFn()
 	executionID, err := svc.motionService.MoveOnGlobe(cancelCtx, req)
-	if err != nil {
+	if errors.Is(err, motion.ErrGoalWithinPlanDeviation) {
+		// make an exception for the error that is raised when motion is not possible because already at goal.
+		return svc.waypointReached(cancelCtx)
+	} else if err != nil {
 		return err
 	}
 
@@ -576,8 +564,8 @@ func (svc *builtIn) moveToWaypoint(ctx context.Context, wp navigation.Waypoint, 
 			ComponentName: req.ComponentName,
 			ExecutionID:   executionID,
 			LastPlanOnly:  true,
-		})
-
+		},
+	)
 	if err != nil {
 		return err
 	}
@@ -823,25 +811,20 @@ func (svc *builtIn) Paths(ctx context.Context, extra map[string]interface{}) ([]
 		return nil, err
 	}
 
-	geoPoints := make([]*geo.Point, 0, len(ph[0].Plan.Steps))
-	for _, s := range ph[0].Plan.Steps {
-		if len(s) > 1 {
-			return nil, errors.New("multi component paths are unsupported")
-		}
-		var pose spatialmath.Pose
-		for _, p := range s {
-			pose = p
-		}
-
-		geoPoint := geo.NewPoint(pose.Point().Y, pose.Point().X)
-		geoPoints = append(geoPoints, geoPoint)
-	}
-
-	path, err := navigation.NewPath(ewp.waypoint.ID, geoPoints)
+	path := ph[0].Plan.Path()
+	geoPoints := make([]*geo.Point, 0, len(path))
+	poses, err := path.GetFramePoses(svc.base.Name().ShortName())
 	if err != nil {
 		return nil, err
 	}
-	return []*navigation.Path{path}, nil
+	for _, p := range poses {
+		geoPoints = append(geoPoints, geo.NewPoint(p.Point().Y, p.Point().X))
+	}
+	navPath, err := navigation.NewPath(ewp.waypoint.ID, geoPoints)
+	if err != nil {
+		return nil, err
+	}
+	return []*navigation.Path{navPath}, nil
 }
 
 func (svc *builtIn) Properties(ctx context.Context) (navigation.Properties, error) {

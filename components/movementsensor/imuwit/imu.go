@@ -45,7 +45,13 @@ import (
 	rutils "go.viam.com/rdk/utils"
 )
 
-var model = resource.DefaultModelFamily.WithModel("imu-wit")
+var (
+	model = resource.DefaultModelFamily.WithModel("imu-wit")
+
+	// This is the dynamic integral cumulative error.
+	// Data acquired from datasheets of supported models. Links above.
+	compassAccuracy = 0.5
+)
 
 var baudRateList = []uint{115200, 9600, 0}
 
@@ -82,23 +88,21 @@ func init() {
 type wit struct {
 	resource.Named
 	resource.AlwaysRebuild
-	angularVelocity         spatialmath.AngularVelocity
-	orientation             spatialmath.EulerAngles
-	acceleration            r3.Vector
-	magnetometer            r3.Vector
-	compassheading          float64
-	numBadReadings          uint32
-	err                     movementsensor.LastError
-	hasMagnetometer         bool
-	mu                      sync.Mutex
-	reconfigMu              sync.Mutex
-	port                    io.ReadWriteCloser
-	cancelFunc              func()
-	cancelCtx               context.Context
-	activeBackgroundWorkers sync.WaitGroup
-	logger                  logging.Logger
-	baudRate                uint
-	serialPath              string
+	angularVelocity spatialmath.AngularVelocity
+	orientation     spatialmath.EulerAngles
+	acceleration    r3.Vector
+	magnetometer    r3.Vector
+	compassheading  float64
+	numBadReadings  uint32
+	err             movementsensor.LastError
+	hasMagnetometer bool
+	mu              sync.Mutex
+	reconfigMu      sync.Mutex
+	port            io.ReadWriteCloser
+	workers         rutils.StoppableWorkers
+	logger          logging.Logger
+	baudRate        uint
+	serialPath      string
 }
 
 func (imu *wit) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
@@ -200,8 +204,24 @@ func (imu *wit) Position(ctx context.Context, extra map[string]interface{}) (*ge
 	return geo.NewPoint(0, 0), 0, movementsensor.ErrMethodUnimplementedPosition
 }
 
-func (imu *wit) Accuracy(ctx context.Context, extra map[string]interface{}) (map[string]float32, error) {
-	return map[string]float32{}, movementsensor.ErrMethodUnimplementedAccuracy
+func (imu *wit) Accuracy(ctx context.Context, extra map[string]interface{}) (*movementsensor.Accuracy, error,
+) {
+	// return the compass heading error from the datasheet (0.5) of the witIMU if
+	// the pitch angle is less than 45 degrees and the roll angle is near zero
+	// mag projects at angles over this threshold cannot be determined because of the larger contribution of other
+	// orientations to the true compass heading
+	// return NaN for compass accuracy otherwise.
+	imu.mu.Lock()
+	defer imu.mu.Unlock()
+
+	roll := imu.orientation.Roll
+	pitch := imu.orientation.Pitch
+
+	if math.Abs(roll) <= 1 && math.Abs(pitch) <= maxTiltInRad {
+		return &movementsensor.Accuracy{CompassDegreeError: float32(compassAccuracy)}, nil
+	}
+
+	return &movementsensor.Accuracy{CompassDegreeError: float32(math.NaN())}, nil
 }
 
 func (imu *wit) Readings(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
@@ -271,16 +291,14 @@ func newWit(
 	}
 
 	portReader := bufio.NewReader(i.port)
-	i.startUpdateLoop(context.Background(), portReader, logger)
+	i.startUpdateLoop(portReader, logger)
 
 	return &i, nil
 }
 
-func (imu *wit) startUpdateLoop(ctx context.Context, portReader *bufio.Reader, logger logging.Logger) {
+func (imu *wit) startUpdateLoop(portReader *bufio.Reader, logger logging.Logger) {
 	imu.hasMagnetometer = false
-	ctx, imu.cancelFunc = context.WithCancel(ctx)
-	imu.activeBackgroundWorkers.Add(1)
-	utils.PanicCapturingGo(func() {
+	imu.workers = rutils.NewStoppableWorkers(func(ctx context.Context) {
 		defer utils.UncheckedErrorFunc(func() error {
 			if imu.port != nil {
 				if err := imu.port.Close(); err != nil {
@@ -291,7 +309,6 @@ func (imu *wit) startUpdateLoop(ctx context.Context, portReader *bufio.Reader, l
 			}
 			return nil
 		})
-		defer imu.activeBackgroundWorkers.Done()
 
 		for {
 			if ctx.Err() != nil {
@@ -389,8 +406,7 @@ func (imu *wit) parseWIT(line string) error {
 // Close shuts down wit and closes imu.port.
 func (imu *wit) Close(ctx context.Context) error {
 	imu.logger.CDebug(ctx, "Closing wit motion imu")
-	imu.cancelFunc()
-	imu.activeBackgroundWorkers.Wait()
+	imu.workers.Stop()
 	imu.logger.CDebug(ctx, "Closed wit motion imu")
 	return imu.err.Get()
 }

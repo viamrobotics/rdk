@@ -17,7 +17,15 @@ import (
 	"go.viam.com/rdk/vision/classification"
 )
 
-func attemptToBuildClassifier(mlm mlmodel.Service, nameMap *sync.Map) (classification.Classifier, error) {
+const (
+	classifierProbabilityName = "probability"
+	classifierInputName       = "image"
+)
+
+func attemptToBuildClassifier(mlm mlmodel.Service,
+	inNameMap, outNameMap *sync.Map,
+	params *MLModelConfig,
+) (classification.Classifier, error) {
 	md, err := mlm.Metadata(context.Background())
 	if err != nil {
 		return nil, errors.New("could not get any metadata")
@@ -33,11 +41,15 @@ func attemptToBuildClassifier(mlm mlmodel.Service, nameMap *sync.Map) (classific
 	if shapeLen := len(md.Inputs[0].Shape); shapeLen < 4 {
 		return nil, errors.Errorf("invalid length of shape array (expected 4, got %d)", shapeLen)
 	}
+	channelsFirst := false // if channelFirst is true, then shape is (1, 3, height, width)
 	if shape := md.Inputs[0].Shape; getIndex(shape, 3) == 1 {
+		channelsFirst = true
 		inHeight, inWidth = shape[2], shape[3]
 	} else {
 		inHeight, inWidth = shape[1], shape[2]
 	}
+	// creates postprocessor to filter on labels and confidences
+	postprocessor := createClassificationFilter(params.DefaultConfidence, params.LabelConfidenceMap)
 
 	return func(ctx context.Context, img image.Image) (classification.Classifications, error) {
 		origW, origH := img.Bounds().Dx(), img.Bounds().Dy()
@@ -53,20 +65,36 @@ func attemptToBuildClassifier(mlm mlmodel.Service, nameMap *sync.Map) (classific
 		if (origW != resizeW) || (origH != resizeH) {
 			resized = resize.Resize(uint(resizeW), uint(resizeH), img, resize.Bilinear)
 		}
+		inputName := classifierInputName
+		if mapName, ok := inNameMap.Load(inputName); ok {
+			if name, ok := mapName.(string); ok {
+				inputName = name
+			}
+		}
 		inMap := ml.Tensors{}
 		switch inType {
 		case UInt8:
-			inMap["image"] = tensor.New(
+			inMap[inputName] = tensor.New(
 				tensor.WithShape(1, resized.Bounds().Dy(), resized.Bounds().Dx(), 3),
-				tensor.WithBacking(rimage.ImageToUInt8Buffer(resized)),
+				tensor.WithBacking(rimage.ImageToUInt8Buffer(resized, params.IsBGR)),
 			)
 		case Float32:
-			inMap["image"] = tensor.New(
+			inMap[inputName] = tensor.New(
 				tensor.WithShape(1, resized.Bounds().Dy(), resized.Bounds().Dx(), 3),
-				tensor.WithBacking(rimage.ImageToFloatBuffer(resized)),
+				tensor.WithBacking(rimage.ImageToFloatBuffer(resized, params.IsBGR, params.MeanValue, params.StdDev)),
 			)
 		default:
-			return nil, errors.New("invalid input type. try uint8 or float32")
+			return nil, errors.Errorf("invalid input type of %s. try uint8 or float32", inType)
+		}
+		if channelsFirst {
+			err := inMap[inputName].T(0, 3, 1, 2)
+			if err != nil {
+				return nil, errors.New("could not transponse tensor of input image")
+			}
+			err = inMap[inputName].Transpose()
+			if err != nil {
+				return nil, errors.New("could not transponse the data of the tensor of input image")
+			}
 		}
 		outMap, err := mlm.Infer(ctx, inMap)
 		if err != nil {
@@ -75,19 +103,19 @@ func attemptToBuildClassifier(mlm mlmodel.Service, nameMap *sync.Map) (classific
 
 		// check if output tensor name that classifier is looking for is already present
 		// in the nameMap. If not, find the probability name, and cache it in the nameMap
-		pName, ok := nameMap.Load("probability")
+		pName, ok := outNameMap.Load(classifierProbabilityName)
 		if !ok {
-			_, ok := outMap["probability"]
+			_, ok := outMap[classifierProbabilityName]
 			if !ok {
 				if len(outMap) == 1 {
 					for name := range outMap { //  only 1 element in map, assume its probabilities
-						nameMap.Store("probability", name)
+						outNameMap.Store(classifierProbabilityName, name)
 						pName = name
 					}
 				}
 			} else {
-				nameMap.Store("probability", "probability")
-				pName = "probability"
+				outNameMap.Store(classifierProbabilityName, classifierProbabilityName)
+				pName = classifierProbabilityName
 			}
 		}
 		probabilityName, ok := pName.(string)
@@ -117,6 +145,9 @@ func attemptToBuildClassifier(mlm mlmodel.Service, nameMap *sync.Map) (classific
 				classifications = append(classifications, classification.NewClassification(confs[i], labels[i]))
 			}
 		}
+		if postprocessor != nil {
+			classifications = postprocessor(classifications)
+		}
 		return classifications, nil
 	}, nil
 }
@@ -136,6 +167,17 @@ func checkIfClassifierWorks(ctx context.Context, cf classification.Classifier) e
 	_, err := cf(ctx, img)
 	if err != nil {
 		return errors.Wrap(err, "cannot use model as a classifier")
+	}
+	return nil
+}
+
+// createClassificationFilter creates a post processor function that filters on the outputs of the model.
+func createClassificationFilter(minConf float64, labelMap map[string]float64) classification.Postprocessor {
+	if len(labelMap) != 0 {
+		return classification.NewLabelConfidenceFilter(labelMap)
+	}
+	if minConf != 0.0 {
+		return classification.NewScoreFilter(minConf)
 	}
 	return nil
 }

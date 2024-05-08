@@ -9,12 +9,12 @@ import (
 // DigitalInterrupt is an injected digital interrupt.
 type DigitalInterrupt struct {
 	board.DigitalInterrupt
-	ValueFunc            func(ctx context.Context, extra map[string]interface{}) (int64, error)
-	valueCap             []interface{}
-	TickFunc             func(ctx context.Context, high bool, nanoseconds uint64) error
-	tickCap              []interface{}
-	AddCallbackFunc      func(c chan board.Tick)
-	AddPostProcessorFunc func(pp board.PostProcessor)
+	ValueFunc       func(ctx context.Context, extra map[string]interface{}) (int64, error)
+	valueCap        []interface{}
+	TickFunc        func(ctx context.Context, high bool, nanoseconds uint64) error
+	tickCap         []interface{}
+	AddCallbackFunc func(c chan board.Tick)
+	NameFunc        func() string
 }
 
 // Value calls the injected Value or the real version.
@@ -35,12 +35,10 @@ func (d *DigitalInterrupt) ValueCap() []interface{} {
 	return d.valueCap
 }
 
-// Tick calls the injected Tick or the real version.
+// Tick calls the injected Tick.
 func (d *DigitalInterrupt) Tick(ctx context.Context, high bool, nanoseconds uint64) error {
 	d.tickCap = []interface{}{ctx, high, nanoseconds}
-	if d.TickFunc == nil {
-		return d.DigitalInterrupt.Tick(ctx, high, nanoseconds)
-	}
+
 	return d.TickFunc(ctx, high, nanoseconds)
 }
 
@@ -53,20 +51,10 @@ func (d *DigitalInterrupt) TickCap() []interface{} {
 	return d.tickCap
 }
 
-// AddCallback calls the injected AddCallback or the real version.
-func (d *DigitalInterrupt) AddCallback(c chan board.Tick) {
-	if d.AddCallbackFunc == nil {
-		d.DigitalInterrupt.AddCallback(c)
-		return
+// Name calls the injected name or the real version.
+func (d *DigitalInterrupt) Name() string {
+	if d.NameFunc == nil {
+		return d.DigitalInterrupt.Name()
 	}
-	d.AddCallbackFunc(c)
-}
-
-// AddPostProcessor calls the injected AddPostProcessor or the real version.
-func (d *DigitalInterrupt) AddPostProcessor(pp board.PostProcessor) {
-	if d.AddPostProcessorFunc == nil {
-		d.DigitalInterrupt.AddPostProcessor(pp)
-		return
-	}
-	d.AddPostProcessorFunc(pp)
+	return d.NameFunc()
 }

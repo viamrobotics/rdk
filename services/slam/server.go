@@ -8,7 +8,6 @@ import (
 	"go.opencensus.io/trace"
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/service/slam/v1"
-	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
@@ -64,8 +63,9 @@ func (server *serviceServer) GetPointCloudMap(req *pb.GetPointCloudMapRequest,
 	if err != nil {
 		return err
 	}
+	returnEditedMap := req.ReturnEditedMap != nil && *req.ReturnEditedMap
 
-	f, err := svc.PointCloudMap(ctx)
+	f, err := svc.PointCloudMap(ctx, returnEditedMap)
 	if err != nil {
 		return errors.Wrap(err, "getting callback function from PointCloudMap encountered an issue")
 	}
@@ -127,29 +127,6 @@ func (server *serviceServer) GetInternalState(req *pb.GetInternalStateRequest,
 	}
 }
 
-// GetLatestMapInfo returns the timestamp of when the map was last updated.
-func (server *serviceServer) GetLatestMapInfo(ctx context.Context, req *pb.GetLatestMapInfoRequest) (
-	*pb.GetLatestMapInfoResponse, error,
-) {
-	ctx, span := trace.StartSpan(ctx, "slam::server::GetLatestMapInfo")
-	defer span.End()
-
-	svc, err := server.coll.Resource(req.Name)
-	if err != nil {
-		return nil, err
-	}
-
-	mapTimestamp, err := svc.LatestMapInfo(ctx)
-	if err != nil {
-		return nil, err
-	}
-	protoTimestamp := timestamppb.New(mapTimestamp)
-
-	return &pb.GetLatestMapInfoResponse{
-		LastMapUpdate: protoTimestamp,
-	}, nil
-}
-
 // GetProperties returns the mapping mode and of the slam process and whether it is being done locally
 // or in the cloud.
 func (server *serviceServer) GetProperties(ctx context.Context, req *pb.GetPropertiesRequest) (
@@ -168,9 +145,20 @@ func (server *serviceServer) GetProperties(ctx context.Context, req *pb.GetPrope
 		return nil, err
 	}
 
+	sensorInfo := []*pb.SensorInfo{}
+	for _, sInfo := range prop.SensorInfo {
+		sensorType := sensorTypeToProtobuf(sInfo.Type)
+		sensorInfo = append(sensorInfo, &pb.SensorInfo{
+			Name: sInfo.Name,
+			Type: sensorType,
+		})
+	}
+
 	return &pb.GetPropertiesResponse{
-		CloudSlam:   prop.CloudSlam,
-		MappingMode: mappingModeToProtobuf(prop.MappingMode),
+		CloudSlam:             prop.CloudSlam,
+		MappingMode:           mappingModeToProtobuf(prop.MappingMode),
+		InternalStateFileType: &prop.InternalStateFileType,
+		SensorInfo:            sensorInfo,
 	}, nil
 }
 

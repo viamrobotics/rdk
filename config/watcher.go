@@ -54,12 +54,17 @@ func newCloudWatcher(ctx context.Context, config *Config, logger logging.Logger)
 
 	nextCheckForNewCert := time.Now().Add(checkForNewCertInterval)
 
-	ticker := time.NewTicker(config.Cloud.RefreshInterval)
-
 	var prevCfg *Config
 	utils.ManagedGo(func() {
+		firstRead := true
 		for {
-			if !utils.SelectContextOrWait(cancelCtx, config.Cloud.RefreshInterval) {
+			// have first read with the watcher happen much faster in case the request timed out on the initial read on server startup
+			interval := config.Cloud.RefreshInterval
+			if firstRead {
+				interval /= 5
+				firstRead = false
+			}
+			if !utils.SelectContextOrWait(cancelCtx, interval) {
 				return
 			}
 			var checkForNewCert bool
@@ -85,7 +90,6 @@ func newCloudWatcher(ctx context.Context, config *Config, logger logging.Logger)
 			}
 		}
 	}, func() {
-		ticker.Stop()
 		close(watcherDoneCh)
 	})
 	return &cloudWatcher{

@@ -2,7 +2,6 @@ package inject
 
 import (
 	"context"
-	"time"
 
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/slam"
@@ -14,9 +13,8 @@ type SLAMService struct {
 	slam.Service
 	name              resource.Name
 	PositionFunc      func(ctx context.Context) (spatialmath.Pose, string, error)
-	PointCloudMapFunc func(ctx context.Context) (func() ([]byte, error), error)
+	PointCloudMapFunc func(ctx context.Context, returnEditedMap bool) (func() ([]byte, error), error)
 	InternalStateFunc func(ctx context.Context) (func() ([]byte, error), error)
-	LatestMapInfoFunc func(ctx context.Context) (time.Time, error)
 	PropertiesFunc    func(ctx context.Context) (slam.Properties, error)
 	DoCommandFunc     func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
 	CloseFunc         func(ctx context.Context) error
@@ -41,11 +39,11 @@ func (slamSvc *SLAMService) Position(ctx context.Context) (spatialmath.Pose, str
 }
 
 // PointCloudMap calls the injected PointCloudMap or the real version.
-func (slamSvc *SLAMService) PointCloudMap(ctx context.Context) (func() ([]byte, error), error) {
+func (slamSvc *SLAMService) PointCloudMap(ctx context.Context, returnEditedMap bool) (func() ([]byte, error), error) {
 	if slamSvc.PointCloudMapFunc == nil {
-		return slamSvc.Service.PointCloudMap(ctx)
+		return slamSvc.Service.PointCloudMap(ctx, returnEditedMap)
 	}
-	return slamSvc.PointCloudMapFunc(ctx)
+	return slamSvc.PointCloudMapFunc(ctx, returnEditedMap)
 }
 
 // InternalState calls the injected InternalState or the real version.
@@ -54,14 +52,6 @@ func (slamSvc *SLAMService) InternalState(ctx context.Context) (func() ([]byte, 
 		return slamSvc.Service.InternalState(ctx)
 	}
 	return slamSvc.InternalStateFunc(ctx)
-}
-
-// LatestMapInfo calls the injected LatestMapInfoFunc or the real version.
-func (slamSvc *SLAMService) LatestMapInfo(ctx context.Context) (time.Time, error) {
-	if slamSvc.LatestMapInfoFunc == nil {
-		return slamSvc.Service.LatestMapInfo(ctx)
-	}
-	return slamSvc.LatestMapInfoFunc(ctx)
 }
 
 // Properties calls the injected PropertiesFunc or the real version.

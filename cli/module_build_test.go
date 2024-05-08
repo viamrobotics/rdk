@@ -16,8 +16,11 @@ import (
 	"go.viam.com/rdk/testutils/inject"
 )
 
-func createTestManifest(t *testing.T, path string) {
+func createTestManifest(t *testing.T, path string) string {
 	t.Helper()
+	if len(path) == 0 {
+		path = filepath.Join(t.TempDir(), "meta.json")
+	}
 	fi, err := os.Create(path)
 	test.That(t, err, test.ShouldBeNil)
 	_, err = fi.WriteString(`{
@@ -32,7 +35,7 @@ func createTestManifest(t *testing.T, path string) {
     }
   ],
   "build": {
-    "setup": "",
+    "setup": "./setup.sh",
     "build": "make build",
     "path": "module",
     "arch": ["linux/amd64"]
@@ -43,6 +46,7 @@ func createTestManifest(t *testing.T, path string) {
 	test.That(t, err, test.ShouldBeNil)
 	err = fi.Close()
 	test.That(t, err, test.ShouldBeNil)
+	return path
 }
 
 func TestStartBuild(t *testing.T) {
@@ -52,7 +56,7 @@ func TestStartBuild(t *testing.T) {
 		StartBuildFunc: func(ctx context.Context, in *v1.StartBuildRequest, opts ...grpc.CallOption) (*v1.StartBuildResponse, error) {
 			return &v1.StartBuildResponse{BuildId: "xyz123"}, nil
 		},
-	}, &map[string]string{moduleBuildFlagPath: manifest, moduleBuildFlagVersion: "1.2.3"}, "token")
+	}, map[string]any{moduleBuildFlagPath: manifest, moduleBuildFlagVersion: "1.2.3"}, "token")
 	err := ac.moduleBuildStartAction(cCtx)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, out.messages, test.ShouldHaveLength, 1)
@@ -75,7 +79,7 @@ func TestListBuild(t *testing.T) {
 				},
 			}}, nil
 		},
-	}, &map[string]string{moduleBuildFlagPath: manifest}, "token")
+	}, map[string]any{moduleBuildFlagPath: manifest}, "token")
 	err := ac.moduleBuildListAction(cCtx)
 	test.That(t, err, test.ShouldBeNil)
 	joinedOutput := strings.Join(out.messages, "")
@@ -117,7 +121,7 @@ func TestModuleBuildWait(t *testing.T) {
 				},
 			}}, nil
 		},
-	}, &map[string]string{}, "token")
+	}, map[string]any{}, "token")
 	startWaitTime := time.Now()
 	statuses, err := ac.waitForBuildToFinish("xyz123", "")
 	test.That(t, err, test.ShouldBeNil)
@@ -150,8 +154,55 @@ func TestModuleGetPlatformsForModule(t *testing.T) {
 				},
 			}}, nil
 		},
-	}, &map[string]string{}, "token")
+	}, map[string]any{}, "token")
 	platforms, err := ac.getPlatformsForModuleBuild("xyz123")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, platforms, test.ShouldResemble, []string{"linux/amd64", "linux/arm64"})
+}
+
+// testChdir is os.Chdir scoped to a test.
+// Necessary because Getwd() fails if run on a deleted path.
+func testChdir(t *testing.T, dest string) {
+	t.Helper()
+	orig, err := os.Getwd()
+	test.That(t, err, test.ShouldBeNil)
+	os.Chdir(dest)
+	t.Cleanup(func() { os.Chdir(orig) })
+}
+
+func TestLocalBuild(t *testing.T) {
+	testDir := t.TempDir()
+	testChdir(t, testDir)
+
+	// write manifest and setup.sh
+	// the manifest contains a:
+	// "setup": "./setup.sh"
+	// and a "build": "make build"
+	manifestPath := createTestManifest(t, "")
+	err := os.WriteFile(
+		filepath.Join(testDir, "setup.sh"),
+		[]byte("echo setup step msg"),
+		0o700,
+	)
+	test.That(t, err, test.ShouldBeNil)
+
+	err = os.WriteFile(
+		filepath.Join(testDir, "Makefile"),
+		[]byte("make build:\n\techo build step msg"),
+		0o700,
+	)
+	test.That(t, err, test.ShouldBeNil)
+
+	// run the build local action
+	cCtx, _, out, errOut := setup(&inject.AppServiceClient{}, nil, &inject.BuildServiceClient{},
+		map[string]any{moduleBuildFlagPath: manifestPath, moduleBuildFlagVersion: "1.2.3"}, "token")
+	manifest, err := loadManifest(manifestPath)
+	test.That(t, err, test.ShouldBeNil)
+	err = moduleBuildLocalAction(cCtx, &manifest)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, errOut.messages, test.ShouldHaveLength, 0)
+
+	outMsg := strings.Join(out.messages, "")
+	test.That(t, outMsg, test.ShouldContainSubstring, "setup step msg")
+	test.That(t, outMsg, test.ShouldContainSubstring, "build step msg")
 }

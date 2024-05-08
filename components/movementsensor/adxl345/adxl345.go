@@ -42,6 +42,8 @@ import (
 var model = resource.DefaultModelFamily.WithModel("accel-adxl345")
 
 const (
+	defaultI2CAddress    = 0x53
+	alternateI2CAddress  = 0x1D
 	deviceIDRegister     = 0
 	expectedDeviceID     = 0xE5
 	powerControlRegister = 0x2D
@@ -75,36 +77,36 @@ type FreeFallConfig struct {
 	Time             float32 `json:"time_ms,omitempty"`
 }
 
-// ValidateTapConfigs validates the tap piece of the config.
-func (tapCfg *TapConfig) ValidateTapConfigs(path string) error {
+// validateTapConfigs validates the tap piece of the config.
+func (tapCfg *TapConfig) validateTapConfigs() error {
 	if tapCfg.AccelerometerPin != 1 && tapCfg.AccelerometerPin != 2 {
 		return errors.New("Accelerometer pin on the ADXL345 must be 1 or 2")
 	}
 	if tapCfg.Threshold != 0 {
-		if tapCfg.Threshold < 0 || tapCfg.Threshold > (255*ThreshTapScaleFactor) {
+		if tapCfg.Threshold < 0 || tapCfg.Threshold > (255*threshTapScaleFactor) {
 			return errors.New("Tap threshold on the ADXL345 must be 0 between and 15,937mg")
 		}
 	}
 	if tapCfg.Dur != 0 {
-		if tapCfg.Dur < 0 || tapCfg.Dur > (255*DurScaleFactor) {
+		if tapCfg.Dur < 0 || tapCfg.Dur > (255*durScaleFactor) {
 			return errors.New("Tap dur on the ADXL345 must be between 0 and 160,000µs")
 		}
 	}
 	return nil
 }
 
-// ValidateFreeFallConfigs validates the freefall piece of the config.
-func (freefallCfg *FreeFallConfig) ValidateFreeFallConfigs(path string) error {
+// validateFreeFallConfigs validates the freefall piece of the config.
+func (freefallCfg *FreeFallConfig) validateFreeFallConfigs() error {
 	if freefallCfg.AccelerometerPin != 1 && freefallCfg.AccelerometerPin != 2 {
 		return errors.New("Accelerometer pin on the ADXL345 must be 1 or 2")
 	}
 	if freefallCfg.Threshold != 0 {
-		if freefallCfg.Threshold < 0 || freefallCfg.Threshold > (255*ThreshFfScaleFactor) {
+		if freefallCfg.Threshold < 0 || freefallCfg.Threshold > (255*threshFfScaleFactor) {
 			return errors.New("Accelerometer tap threshold on the ADXL345 must be 0 between and 15,937mg")
 		}
 	}
 	if freefallCfg.Time != 0 {
-		if freefallCfg.Time < 0 || freefallCfg.Time > (255*TimeFfScaleFactor) {
+		if freefallCfg.Time < 0 || freefallCfg.Time > (255*timeFfScaleFactor) {
 			return errors.New("Accelerometer tap time on the ADXL345 must be between 0 and 1,275ms")
 		}
 	}
@@ -130,12 +132,12 @@ func (cfg *Config) Validate(path string) ([]string, error) {
 		return nil, resource.NewConfigValidationFieldRequiredError(path, "i2c_bus")
 	}
 	if cfg.SingleTap != nil {
-		if err := cfg.SingleTap.ValidateTapConfigs(path); err != nil {
+		if err := cfg.SingleTap.validateTapConfigs(); err != nil {
 			return nil, err
 		}
 	}
 	if cfg.FreeFall != nil {
-		if err := cfg.FreeFall.ValidateFreeFallConfigs(path); err != nil {
+		if err := cfg.FreeFall.validateFreeFallConfigs(); err != nil {
 			return nil, err
 		}
 	}
@@ -147,7 +149,7 @@ func init() {
 		movementsensor.API,
 		model,
 		resource.Registration[movementsensor.MovementSensor, *Config]{
-			Constructor: NewAdxl345,
+			Constructor: newAdxl345,
 		})
 }
 
@@ -176,8 +178,8 @@ type adxl345 struct {
 	activeBackgroundWorkers sync.WaitGroup
 }
 
-// NewAdxl345 is a constructor to create a new object representing an ADXL345 accelerometer.
-func NewAdxl345(
+// newAdxl345 is a constructor to create a new object representing an ADXL345 accelerometer.
+func newAdxl345(
 	ctx context.Context,
 	deps resource.Dependencies,
 	conf resource.Config,
@@ -217,9 +219,9 @@ func makeAdxl345(
 
 	var address byte
 	if newConf.UseAlternateI2CAddress {
-		address = 0x1D
+		address = alternateI2CAddress
 	} else {
-		address = 0x53
+		address = defaultI2CAddress
 	}
 
 	interruptConfigurations := getInterruptConfigurations(newConf)
@@ -233,7 +235,7 @@ func makeAdxl345(
 		Named:                    conf.ResourceName().AsNamed(),
 		bus:                      bus,
 		i2cAddress:               address,
-		interruptsEnabled:        interruptConfigurations[IntEnableAddr],
+		interruptsEnabled:        interruptConfigurations[intEnableAddr],
 		logger:                   logger,
 		cancelContext:            cancelContext,
 		cancelFunc:               cancelFunc,
@@ -301,51 +303,45 @@ func makeAdxl345(
 	})
 
 	// Clear out the source register upon starting the component
-	if _, err := sensor.readByte(ctx, IntSourceAddr); err != nil {
+	if _, err := sensor.readByte(ctx, intSourceAddr); err != nil {
 		// shut down goroutine reading sensor in the background
 		sensor.cancelFunc()
 		return nil, err
 	}
 
-	if err := sensor.configureInterruptRegisters(ctx, interruptConfigurations[IntMapAddr]); err != nil {
+	if err := sensor.configureInterruptRegisters(ctx, interruptConfigurations[intMapAddr]); err != nil {
 		// shut down goroutine reading sensor in the background
 		sensor.cancelFunc()
 		return nil, err
 	}
 
-	interruptMap := map[string]board.DigitalInterrupt{}
+	interruptList := []string{}
 	if (newConf.SingleTap != nil) && (newConf.SingleTap.InterruptPin != "") {
-		b, err := board.FromDependencies(deps, newConf.BoardName)
-		if err != nil {
-			return nil, err
-		}
-
-		interruptMap, err = addInterruptPin(b, newConf.SingleTap.InterruptPin, interruptMap)
-		if err != nil {
-			// shut down goroutine reading sensor in the background
-			sensor.cancelFunc()
-			return nil, err
-		}
+		interruptList = append(interruptList, newConf.SingleTap.InterruptPin)
 	}
 
 	if (newConf.FreeFall != nil) && (newConf.FreeFall.InterruptPin != "") {
+		interruptList = append(interruptList, newConf.FreeFall.InterruptPin)
+	}
+
+	if len(interruptList) > 0 {
 		b, err := board.FromDependencies(deps, newConf.BoardName)
 		if err != nil {
 			return nil, err
 		}
-
-		interruptMap, err = addInterruptPin(b, newConf.FreeFall.InterruptPin, interruptMap)
+		interrupts := []board.DigitalInterrupt{}
+		for _, name := range interruptList {
+			interrupt, err := b.DigitalInterruptByName(name)
+			if err != nil {
+				return nil, err
+			}
+			interrupts = append(interrupts, interrupt)
+		}
+		ticksChan := make(chan board.Tick)
+		err = b.StreamTicks(sensor.cancelContext, interrupts, ticksChan, nil)
 		if err != nil {
-			// shut down goroutine reading sensor in the background
-			sensor.cancelFunc()
 			return nil, err
 		}
-	}
-
-	for _, interrupt := range interruptMap {
-		ticksChan := make(chan board.Tick)
-		interrupt.AddCallback(ticksChan)
-		sensor.interruptChannels[interrupt] = ticksChan
 		sensor.startInterruptMonitoring(ticksChan)
 	}
 
@@ -367,43 +363,31 @@ func (adxl *adxl345) startInterruptMonitoring(ticksChan chan board.Tick) {
 	})
 }
 
-func addInterruptPin(b board.Board, name string, interrupts map[string]board.DigitalInterrupt) (map[string]board.DigitalInterrupt, error) {
-	_, ok := interrupts[name]
-	if !ok {
-		interrupt, ok := b.DigitalInterruptByName(name)
-		if !ok {
-			return nil, errors.Errorf("cannot grab digital interrupt: %s", name)
-		}
-		interrupts[name] = interrupt
-	}
-	return interrupts, nil
-}
-
 // This returns a map from register addresses to data which should be written to that register to configure the interrupt pin.
 func getInterruptConfigurations(cfg *Config) map[byte]byte {
 	var intEnabled byte
 	var intMap byte
 
 	if cfg.FreeFall != nil {
-		intEnabled += interruptBitPosition[FreeFall]
+		intEnabled += interruptBitPosition[freeFall]
 		if cfg.FreeFall.AccelerometerPin == 2 {
-			intMap |= interruptBitPosition[FreeFall]
+			intMap |= interruptBitPosition[freeFall]
 		} else {
 			// Clear the freefall bit in the map to send the signal to pin INT1.
-			intMap &^= interruptBitPosition[FreeFall]
+			intMap &^= interruptBitPosition[freeFall]
 		}
 	}
 	if cfg.SingleTap != nil {
-		intEnabled += interruptBitPosition[SingleTap]
+		intEnabled += interruptBitPosition[singleTap]
 		if cfg.SingleTap.AccelerometerPin == 2 {
-			intMap |= interruptBitPosition[SingleTap]
+			intMap |= interruptBitPosition[singleTap]
 		} else {
 			// Clear the single tap bit in the map to send the signal to pin INT1.
-			intMap &^= interruptBitPosition[SingleTap]
+			intMap &^= interruptBitPosition[singleTap]
 		}
 	}
 
-	return map[byte]byte{IntEnableAddr: intEnabled, IntMapAddr: intMap}
+	return map[byte]byte{intEnableAddr: intEnabled, intMapAddr: intMap}
 }
 
 // This returns a map from register addresses to data which should be written to that register to configure single tap.
@@ -413,13 +397,13 @@ func getSingleTapRegisterValues(singleTapConfigs *TapConfig) map[byte]byte {
 		return registerValues
 	}
 
-	registerValues[TapAxesAddr] = getAxes(singleTapConfigs.ExcludeX, singleTapConfigs.ExcludeY, singleTapConfigs.ExcludeZ)
+	registerValues[tapAxesAddr] = getAxes(singleTapConfigs.ExcludeX, singleTapConfigs.ExcludeY, singleTapConfigs.ExcludeZ)
 
 	if singleTapConfigs.Threshold != 0 {
-		registerValues[ThreshTapAddr] = byte((singleTapConfigs.Threshold / ThreshTapScaleFactor))
+		registerValues[threshTapAddr] = byte((singleTapConfigs.Threshold / threshTapScaleFactor))
 	}
 	if singleTapConfigs.Dur != 0 {
-		registerValues[DurAddr] = byte((singleTapConfigs.Dur / DurScaleFactor))
+		registerValues[durAddr] = byte((singleTapConfigs.Dur / durScaleFactor))
 	}
 	return registerValues
 }
@@ -431,10 +415,10 @@ func getFreeFallRegisterValues(freeFallConfigs *FreeFallConfig) map[byte]byte {
 		return registerValues
 	}
 	if freeFallConfigs.Threshold != 0 {
-		registerValues[ThreshFfAddr] = byte((freeFallConfigs.Threshold / ThreshFfScaleFactor))
+		registerValues[threshFfAddr] = byte((freeFallConfigs.Threshold / threshFfScaleFactor))
 	}
 	if freeFallConfigs.Time != 0 {
-		registerValues[TimeFfAddr] = byte((freeFallConfigs.Time / TimeFfScaleFactor))
+		registerValues[timeFfAddr] = byte((freeFallConfigs.Time / timeFfScaleFactor))
 	}
 	return registerValues
 }
@@ -482,8 +466,8 @@ func (adxl *adxl345) configureInterruptRegisters(ctx context.Context, interruptB
 	if adxl.interruptsEnabled == 0 {
 		return nil
 	}
-	adxl.configuredRegisterValues[IntEnableAddr] = adxl.interruptsEnabled
-	adxl.configuredRegisterValues[IntMapAddr] = interruptBitMap
+	adxl.configuredRegisterValues[intEnableAddr] = adxl.interruptsEnabled
+	adxl.configuredRegisterValues[intMapAddr] = interruptBitMap
 	for key, value := range defaultRegisterValues {
 		if configuredVal, ok := adxl.configuredRegisterValues[key]; ok {
 			value = configuredVal
@@ -498,7 +482,7 @@ func (adxl *adxl345) configureInterruptRegisters(ctx context.Context, interruptB
 func (adxl *adxl345) readInterrupts(ctx context.Context) error {
 	adxl.mu.Lock()
 	defer adxl.mu.Unlock()
-	intSourceRegister, err := adxl.readByte(ctx, IntSourceAddr)
+	intSourceRegister, err := adxl.readByte(ctx, intSourceAddr)
 	if err != nil {
 		return err
 	}
@@ -566,8 +550,9 @@ func (adxl *adxl345) Position(ctx context.Context, extra map[string]interface{})
 	return geo.NewPoint(0, 0), 0, movementsensor.ErrMethodUnimplementedPosition
 }
 
-func (adxl *adxl345) Accuracy(ctx context.Context, extra map[string]interface{}) (map[string]float32, error) {
-	return map[string]float32{}, movementsensor.ErrMethodUnimplementedAccuracy
+func (adxl *adxl345) Accuracy(ctx context.Context, extra map[string]interface{}) (*movementsensor.Accuracy, error) {
+	// this driver is unable to provide positional or compass heading data
+	return movementsensor.UnimplementedOptionalAccuracies(), nil
 }
 
 func (adxl *adxl345) Readings(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
@@ -579,8 +564,8 @@ func (adxl *adxl345) Readings(ctx context.Context, extra map[string]interface{})
 	adxl.mu.Lock()
 	defer adxl.mu.Unlock()
 
-	readings["single_tap_count"] = adxl.interruptsFound[SingleTap]
-	readings["freefall_count"] = adxl.interruptsFound[FreeFall]
+	readings["single_tap_count"] = adxl.interruptsFound[singleTap]
+	readings["freefall_count"] = adxl.interruptsFound[freeFall]
 
 	return readings, adxl.err.Get()
 }
@@ -598,10 +583,6 @@ func (adxl *adxl345) Close(ctx context.Context) error {
 
 	adxl.mu.Lock()
 	defer adxl.mu.Unlock()
-
-	for interrupt, channel := range adxl.interruptChannels {
-		interrupt.RemoveCallback(channel)
-	}
 
 	// Put the chip into standby mode by setting the Power Control register (0x2D) to 0.
 	err := adxl.writeByte(ctx, powerControlRegister, 0x00)

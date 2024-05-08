@@ -11,12 +11,15 @@ import (
 	"testing"
 	"time"
 
+	"github.com/pion/rtp"
 	"go.viam.com/test"
 	"go.viam.com/utils/rpc"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
 
 	"go.viam.com/rdk/components/camera"
+	"go.viam.com/rdk/components/camera/rtppassthrough"
+	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/gostream"
 	viamgrpc "go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
@@ -85,7 +88,7 @@ func TestClient(t *testing.T) {
 		images = append(images, camera.NamedImage{depth, "depth"})
 		// a timestamp of 12345
 		ts := time.UnixMilli(12345)
-		return images, resource.ResponseMetadata{ts}, nil
+		return images, resource.ResponseMetadata{CapturedAt: ts}, nil
 	}
 	injectCamera.StreamFunc = func(ctx context.Context, errHandlers ...gostream.ErrorHandler) (gostream.VideoStream, error) {
 		return gostream.NewEmbeddedVideoStreamFromReader(gostream.VideoReaderFunc(func(ctx context.Context) (image.Image, func(), error) {
@@ -258,6 +261,73 @@ func TestClient(t *testing.T) {
 		_, err = client2.Properties(context.Background())
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, errPropertiesFailed.Error())
+
+		test.That(t, conn.Close(), test.ShouldBeNil)
+	})
+	t.Run("camera client extra", func(t *testing.T) {
+		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
+		test.That(t, err, test.ShouldBeNil)
+
+		camClient, err := camera.NewClientFromConn(context.Background(), conn, "", camera.Named(testCameraName), logger)
+		test.That(t, err, test.ShouldBeNil)
+
+		injectCamera.StreamFunc = func(ctx context.Context, errHandlers ...gostream.ErrorHandler) (gostream.VideoStream, error) {
+			extra, ok := camera.FromContext(ctx)
+			test.That(t, ok, test.ShouldBeTrue)
+			test.That(t, extra, test.ShouldBeEmpty)
+			return nil, errStreamFailed
+		}
+
+		ctx := context.Background()
+		_, _, err = camera.ReadImage(ctx, camClient)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, errStreamFailed.Error())
+
+		injectCamera.StreamFunc = func(ctx context.Context, errHandlers ...gostream.ErrorHandler) (gostream.VideoStream, error) {
+			extra, ok := camera.FromContext(ctx)
+			test.That(t, ok, test.ShouldBeTrue)
+			test.That(t, len(extra), test.ShouldEqual, 1)
+			test.That(t, extra["hello"], test.ShouldEqual, "world")
+			return nil, errStreamFailed
+		}
+
+		// one kvp created with camera.Extra
+		ext := camera.Extra{"hello": "world"}
+		ctx = camera.NewContext(ctx, ext)
+		_, _, err = camera.ReadImage(ctx, camClient)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, errStreamFailed.Error())
+
+		injectCamera.StreamFunc = func(ctx context.Context, errHandlers ...gostream.ErrorHandler) (gostream.VideoStream, error) {
+			extra, ok := camera.FromContext(ctx)
+			test.That(t, ok, test.ShouldBeTrue)
+			test.That(t, len(extra), test.ShouldEqual, 1)
+			test.That(t, extra[data.FromDMString], test.ShouldBeTrue)
+
+			return nil, errStreamFailed
+		}
+
+		// one kvp created with data.FromDMContextKey
+		ctx = context.WithValue(context.Background(), data.FromDMContextKey{}, true)
+		_, _, err = camera.ReadImage(ctx, camClient)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, errStreamFailed.Error())
+
+		injectCamera.StreamFunc = func(ctx context.Context, errHandlers ...gostream.ErrorHandler) (gostream.VideoStream, error) {
+			extra, ok := camera.FromContext(ctx)
+			test.That(t, ok, test.ShouldBeTrue)
+			test.That(t, len(extra), test.ShouldEqual, 2)
+			test.That(t, extra["hello"], test.ShouldEqual, "world")
+			test.That(t, extra[data.FromDMString], test.ShouldBeTrue)
+			return nil, errStreamFailed
+		}
+
+		// merge values from data and camera
+		ext = camera.Extra{"hello": "world"}
+		ctx = camera.NewContext(ctx, ext)
+		_, _, err = camera.ReadImage(ctx, camClient)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, errStreamFailed.Error())
 
 		test.That(t, conn.Close(), test.ShouldBeNil)
 	})
@@ -482,4 +552,128 @@ func TestClientWithInterceptor(t *testing.T) {
 	test.That(t, md[k][0], test.ShouldEqual, v)
 
 	test.That(t, conn.Close(), test.ShouldBeNil)
+}
+
+func TestClientStreamAfterClose(t *testing.T) {
+	// Set up gRPC server
+	logger := logging.NewTestLogger(t)
+	listener, err := net.Listen("tcp", "localhost:0")
+	test.That(t, err, test.ShouldBeNil)
+	rpcServer, err := rpc.NewServer(logger.AsZap(), rpc.WithUnauthenticated())
+	test.That(t, err, test.ShouldBeNil)
+
+	// Set up camera that can stream images
+	img := image.NewNRGBA(image.Rect(0, 0, 4, 4))
+	injectCamera := &inject.Camera{}
+	injectCamera.PropertiesFunc = func(ctx context.Context) (camera.Properties, error) {
+		return camera.Properties{}, nil
+	}
+	injectCamera.StreamFunc = func(ctx context.Context, errHandlers ...gostream.ErrorHandler) (gostream.VideoStream, error) {
+		return gostream.NewEmbeddedVideoStreamFromReader(gostream.VideoReaderFunc(func(ctx context.Context) (image.Image, func(), error) {
+			return img, func() {}, nil
+		})), nil
+	}
+
+	// Register CameraService API in our gRPC server.
+	resources := map[resource.Name]camera.Camera{
+		camera.Named(testCameraName): injectCamera,
+	}
+	cameraSvc, err := resource.NewAPIResourceCollection(camera.API, resources)
+	test.That(t, err, test.ShouldBeNil)
+	resourceAPI, ok, err := resource.LookupAPIRegistration[camera.Camera](camera.API)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, ok, test.ShouldBeTrue)
+	test.That(t, resourceAPI.RegisterRPCService(context.Background(), rpcServer, cameraSvc), test.ShouldBeNil)
+
+	// Start serving requests.
+	go rpcServer.Serve(listener)
+	defer rpcServer.Stop()
+
+	// Make client connection
+	conn, err := viamgrpc.Dial(context.Background(), listener.Addr().String(), logger)
+	test.That(t, err, test.ShouldBeNil)
+	client, err := camera.NewClientFromConn(context.Background(), conn, "", camera.Named(testCameraName), logger)
+	test.That(t, err, test.ShouldBeNil)
+
+	// Get a stream
+	stream, err := client.Stream(context.Background())
+	test.That(t, stream, test.ShouldNotBeNil)
+	test.That(t, err, test.ShouldBeNil)
+
+	// Read from stream
+	media, _, err := stream.Next(context.Background())
+	test.That(t, media, test.ShouldNotBeNil)
+	test.That(t, err, test.ShouldBeNil)
+
+	// Close client and read from stream
+	test.That(t, client.Close(context.Background()), test.ShouldBeNil)
+	media, _, err = stream.Next(context.Background())
+	test.That(t, media, test.ShouldBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "context canceled")
+
+	// Get a new stream
+	stream, err = client.Stream(context.Background())
+	test.That(t, stream, test.ShouldNotBeNil)
+	test.That(t, err, test.ShouldBeNil)
+
+	// Read from the new stream
+	media, _, err = stream.Next(context.Background())
+	test.That(t, media, test.ShouldNotBeNil)
+	test.That(t, err, test.ShouldBeNil)
+
+	// Close client and connection
+	test.That(t, client.Close(context.Background()), test.ShouldBeNil)
+	test.That(t, conn.Close(), test.ShouldBeNil)
+}
+
+// See modmanager_test.go for the happy path (aka, when the
+// client has a webrtc connection).
+func TestRTPPassthroughWithoutWebRTC(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+	camName := "rtp_passthrough_camera"
+	listener1, err := net.Listen("tcp", "localhost:0")
+	test.That(t, err, test.ShouldBeNil)
+	rpcServer, err := rpc.NewServer(logger.AsZap(), rpc.WithUnauthenticated())
+	test.That(t, err, test.ShouldBeNil)
+
+	injectCamera := &inject.Camera{}
+	resources := map[resource.Name]camera.Camera{
+		camera.Named(camName): injectCamera,
+	}
+	cameraSvc, err := resource.NewAPIResourceCollection(camera.API, resources)
+	test.That(t, err, test.ShouldBeNil)
+	resourceAPI, ok, err := resource.LookupAPIRegistration[camera.Camera](camera.API)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, ok, test.ShouldBeTrue)
+	test.That(t, resourceAPI.RegisterRPCService(context.Background(), rpcServer, cameraSvc), test.ShouldBeNil)
+
+	go rpcServer.Serve(listener1)
+	defer rpcServer.Stop()
+
+	t.Run("Failing client", func(t *testing.T) {
+		cancelCtx, cancel := context.WithCancel(context.Background())
+		cancel()
+		_, err := viamgrpc.Dial(cancelCtx, listener1.Addr().String(), logger)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err, test.ShouldBeError, context.Canceled)
+	})
+
+	t.Run("rtp_passthrough client fails without webrtc connection", func(t *testing.T) {
+		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
+		test.That(t, err, test.ShouldBeNil)
+		camera1Client, err := camera.NewClientFromConn(context.Background(), conn, "", camera.Named(camName), logger)
+		test.That(t, err, test.ShouldBeNil)
+		rtpPassthroughClient, ok := camera1Client.(rtppassthrough.Source)
+		test.That(t, ok, test.ShouldBeTrue)
+		sub, err := rtpPassthroughClient.SubscribeRTP(context.Background(), 512, func(pkts []*rtp.Packet) {
+			t.Log("should not be called")
+			t.FailNow()
+		})
+		test.That(t, err, test.ShouldBeError, camera.ErrNoPeerConnection)
+		test.That(t, sub, test.ShouldResemble, rtppassthrough.NilSubscription)
+		err = rtpPassthroughClient.Unsubscribe(context.Background(), rtppassthrough.NilSubscription.ID)
+		test.That(t, err, test.ShouldBeError, camera.ErrNoPeerConnection)
+
+		test.That(t, conn.Close(), test.ShouldBeNil)
+	})
 }

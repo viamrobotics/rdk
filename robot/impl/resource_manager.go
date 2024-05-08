@@ -8,6 +8,7 @@ import (
 	"reflect"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/jhump/protoreflect/desc"
 	"github.com/pkg/errors"
@@ -36,6 +37,7 @@ func init() {
 }
 
 var (
+	resourceCloseTimeout    = 30 * time.Second
 	errShellServiceDisabled = errors.New("shell service disabled in an untrusted environment")
 	errProcessesDisabled    = errors.New("processes disabled in an untrusted environment")
 )
@@ -49,6 +51,7 @@ type resourceManager struct {
 	opts           resourceManagerOptions
 	logger         logging.Logger
 	configLock     sync.Mutex
+	viz            resource.Visualizer
 }
 
 type resourceManagerOptions struct {
@@ -86,6 +89,12 @@ func newProcessManager(
 
 func fromRemoteNameToRemoteNodeName(name string) resource.Name {
 	return resource.NewName(client.RemoteAPI, name)
+}
+
+// ExportDot exports the resource graph as a DOT representation for visualization.
+// DOT reference: https://graphviz.org/doc/info/lang.html
+func (manager *resourceManager) ExportDot(index int) (resource.GetSnapshotInfo, error) {
+	return manager.viz.GetSnapshot(index)
 }
 
 func (manager *resourceManager) startModuleManager(
@@ -165,6 +174,7 @@ func (manager *resourceManager) updateRemoteResourceNames(
 	remoteName resource.Name,
 	rr internalRemoteRobot,
 ) bool {
+	manager.logger.CDebugw(ctx, "updating remote resource names", "remote", remoteName)
 	activeResourceNames := map[resource.Name]bool{}
 	newResources := rr.ResourceNames()
 	oldResources := manager.remoteResourceNames(remoteName)
@@ -218,25 +228,30 @@ func (manager *resourceManager) updateRemoteResourceNames(
 		} else {
 			anythingChanged = true
 		}
+		if anythingChanged {
+			manager.logger.CDebugw(ctx, "remote resource names update completed with changes to resource graph", "remote", remoteName)
+		} else {
+			manager.logger.CDebugw(ctx, "remote resource names update completed with no changes to resource graph", "remote", remoteName)
+		}
 	}
 
 	for resName, isActive := range activeResourceNames {
 		if isActive {
 			continue
 		}
-		manager.logger.CDebugw(ctx, "removing remote resource", "name", resName)
+		manager.logger.CDebugw(ctx, "attempting to remove remote resource", "name", resName)
+		gNode, ok := manager.resources.Node(resName)
+		if !ok || gNode.IsUninitialized() {
+			manager.logger.CDebugw(ctx,
+				"remote resource already removed",
+				"resource", resName)
+			continue
+		}
 		if err := manager.markChildrenForUpdate(resName); err != nil {
 			manager.logger.CErrorw(ctx,
 				"failed to mark children of remote for update",
 				"resource", resName,
 				"reason", err)
-			continue
-		}
-		gNode, ok := manager.resources.Node(resName)
-		if !ok {
-			manager.logger.CErrorw(ctx,
-				"failed to find remote node for closure",
-				"resource", resName)
 			continue
 		}
 		if err := gNode.Close(ctx); err != nil {
@@ -258,7 +273,8 @@ func (manager *resourceManager) updateRemotesResourceNames(ctx context.Context) 
 			res, err := gNode.Resource()
 			if err == nil {
 				if rr, ok := res.(internalRemoteRobot); ok {
-					anythingChanged = anythingChanged || manager.updateRemoteResourceNames(ctx, name, rr)
+					// updateRemoteResourceNames must be first, otherwise there's a chance it will not be evaluated
+					anythingChanged = manager.updateRemoteResourceNames(ctx, name, rr) || anythingChanged
 				}
 			}
 		}
@@ -266,14 +282,18 @@ func (manager *resourceManager) updateRemotesResourceNames(ctx context.Context) 
 	return anythingChanged
 }
 
-// RemoteNames returns the names of all remotes in the manager.
+// RemoteNames returns the names of all available remotes in the manager.
 func (manager *resourceManager) RemoteNames() []string {
 	names := []string{}
 	for _, k := range manager.resources.Names() {
-		res, _ := manager.resources.Node(k)
-		if k.API == client.RemoteAPI && res != nil {
-			names = append(names, k.Name)
+		if k.API != client.RemoteAPI {
+			continue
 		}
+		gNode, ok := manager.resources.Node(k)
+		if !ok || !gNode.HasResource() {
+			continue
+		}
+		names = append(names, k.Name)
 	}
 	return names
 }
@@ -403,16 +423,40 @@ func (manager *resourceManager) mergeResourceRPCAPIsWithRemote(r robot.Robot, ty
 }
 
 func (manager *resourceManager) closeResource(ctx context.Context, res resource.Resource) error {
-	allErrs := res.Close(ctx)
+	manager.logger.CInfow(ctx, "Now removing resource", "resource", res.Name())
+
+	// TODO(RSDK-6626): We should be resilient to builtin resource `Close` calls
+	// hanging and not respecting the context created below. We will likely need
+	// a goroutine/timer setup here similar to that in the (re)configuration
+	// code.
+	//
+	// Avoid hangs in Close/RemoveResource with resourceCloseTimeout.
+	closeCtx, cancel := context.WithTimeout(ctx, resourceCloseTimeout)
+	defer cancel()
+
+	allErrs := res.Close(closeCtx)
 
 	resName := res.Name()
 	if manager.moduleManager != nil && manager.moduleManager.IsModularResource(resName) {
-		if err := manager.moduleManager.RemoveResource(ctx, resName); err != nil {
-			allErrs = multierr.Combine(err, errors.Wrap(err, "error removing modular resource for closure"))
+		if err := manager.moduleManager.RemoveResource(closeCtx, resName); err != nil {
+			allErrs = multierr.Combine(allErrs, errors.Wrap(err, "error removing modular resource for closure"))
 		}
 	}
 
 	return allErrs
+}
+
+// closeAndUnsetResource attempts to close and unset the resource from the graph node.
+func (manager *resourceManager) closeAndUnsetResource(ctx context.Context, gNode *resource.GraphNode) error {
+	res, err := gNode.Resource()
+	if err != nil {
+		return err
+	}
+	err = manager.closeResource(ctx, res)
+
+	// resource may fail to close, but even in that case, resource should be unset from the node
+	gNode.UnsetResource()
+	return err
 }
 
 // removeMarkedAndClose removes all resources marked for removal from the graph and
@@ -423,6 +467,14 @@ func (manager *resourceManager) removeMarkedAndClose(
 	ctx context.Context,
 	excludeFromClose map[resource.Name]struct{},
 ) error {
+	defer func() {
+		manager.configLock.Lock()
+		defer manager.configLock.Unlock()
+		if err := manager.viz.SaveSnapshot(manager.resources); err != nil {
+			manager.logger.Warnw("failed to save graph snapshot", "error", err)
+		}
+	}()
+
 	var allErrs error
 	toClose := manager.resources.RemoveMarked()
 	for _, res := range toClose {
@@ -469,7 +521,12 @@ func (manager *resourceManager) completeConfig(
 	robot *localRobot,
 ) {
 	manager.configLock.Lock()
-	defer manager.configLock.Unlock()
+	defer func() {
+		if err := manager.viz.SaveSnapshot(manager.resources); err != nil {
+			manager.logger.Warnw("failed to save graph snapshot", "error", err)
+		}
+		manager.configLock.Unlock()
+	}()
 
 	// first handle remotes since they may reveal unresolved dependencies
 	for _, resName := range manager.resources.FindNodesByAPI(client.RemoteAPI) {
@@ -483,7 +540,7 @@ func (manager *resourceManager) completeConfig(
 		} else {
 			verb = "reconfiguring"
 		}
-		manager.logger.CDebugw(ctx, fmt.Sprintf("now %s a remote", verb), "resource", resName)
+		manager.logger.CInfow(ctx, fmt.Sprintf("Now %s a remote", verb), "resource", resName)
 		switch resName.API {
 		case client.RemoteAPI:
 			remConf, err := resource.NativeConfig[*config.Remote](gNode.Config())
@@ -495,13 +552,18 @@ func (manager *resourceManager) completeConfig(
 				)
 				continue
 			}
+			if gNode.IsUninitialized() {
+				gNode.InitializeLogger(
+					manager.logger, fromRemoteNameToRemoteNodeName(remConf.Name).String(), manager.logger.GetLevel(),
+				)
+			}
 			// this is done in config validation but partial start rules require us to check again
 			if _, err := remConf.Validate(""); err != nil {
 				gNode.LogAndSetLastError(
 					fmt.Errorf("remote config validation error: %w", err), "remote", remConf.Name)
 				continue
 			}
-			rr, err := manager.processRemote(ctx, *remConf)
+			rr, err := manager.processRemote(ctx, *remConf, gNode)
 			if err != nil {
 				gNode.LogAndSetLastError(
 					fmt.Errorf("error connecting to remote: %w", err), "remote", remConf.Name)
@@ -546,10 +608,14 @@ func (manager *resourceManager) completeConfig(
 		resName := resName
 		ctxWithTimeout, timeoutCancel := context.WithTimeout(ctx, timeout)
 		defer timeoutCancel()
-		robot.reconfigureWorkers.Add(1)
 
+		cleanup := rutils.SlowStartupLogger(
+			ctx, "Waiting for resource to complete (re)configuration", "resource", resName.String(), manager.logger)
+
+		robot.reconfigureWorkers.Add(1)
 		goutils.PanicCapturingGo(func() {
 			defer func() {
+				cleanup()
 				resChan <- struct{}{}
 				robot.reconfigureWorkers.Done()
 			}()
@@ -560,14 +626,18 @@ func (manager *resourceManager) completeConfig(
 			if !(resName.API.IsComponent() || resName.API.IsService()) {
 				return
 			}
+
 			var verb string
+			conf := gNode.Config()
 			if gNode.IsUninitialized() {
 				verb = "configuring"
+				gNode.InitializeLogger(
+					manager.logger, resName.String(), conf.LogConfiguration.Level,
+				)
 			} else {
 				verb = "reconfiguring"
 			}
-			manager.logger.CDebugw(ctx, fmt.Sprintf("now %s resource", verb), "resource", resName)
-			conf := gNode.Config()
+			manager.logger.CInfow(ctx, fmt.Sprintf("Now %s resource", verb), "resource", resName)
 
 			// this is done in config validation but partial start rules require us to check again
 			if _, err := conf.Validate("", resName.API.Type.Name); err != nil {
@@ -709,10 +779,11 @@ func cleanAppImageEnv() error {
 func (manager *resourceManager) processRemote(
 	ctx context.Context,
 	config config.Remote,
+	gNode *resource.GraphNode,
 ) (*client.RobotClient, error) {
 	dialOpts := remoteDialOptions(config, manager.opts)
-	manager.logger.CDebugw(ctx, "connecting now to remote", "remote", config.Name)
-	robotClient, err := dialRobotClient(ctx, config, manager.logger, dialOpts...)
+	manager.logger.CInfow(ctx, "Connecting now to remote", "remote", config.Name)
+	robotClient, err := dialRobotClient(ctx, config, gNode.Logger(), dialOpts...)
 	if err != nil {
 		if errors.Is(err, rpc.ErrInsecureWithCredentials) {
 			if manager.opts.fromCommand {
@@ -723,7 +794,7 @@ func (manager *resourceManager) processRemote(
 		}
 		return nil, errors.Errorf("couldn't connect to robot remote (%s): %s", config.Address, err)
 	}
-	manager.logger.CDebugw(ctx, "connected now to remote", "remote", config.Name)
+	manager.logger.CInfow(ctx, "Connected now to remote", "remote", config.Name)
 	return robotClient, nil
 }
 
@@ -788,7 +859,13 @@ func (manager *resourceManager) processResource(
 	resName := conf.ResourceName()
 	deps, err := r.getDependencies(ctx, resName, gNode)
 	if err != nil {
-		return nil, false, multierr.Combine(err, manager.closeResource(ctx, currentRes))
+		manager.logger.CDebugw(ctx,
+			"failed to get dependencies for existing resource during reconfiguration, closing and removing resource from graph node",
+			"name", resName,
+			"old_model", gNode.ResourceModel(),
+			"new_model", conf.Model,
+		)
+		return nil, false, multierr.Combine(err, manager.closeAndUnsetResource(ctx, gNode))
 	}
 
 	isModular := manager.moduleManager.Provides(conf)
@@ -810,19 +887,24 @@ func (manager *resourceManager) processResource(
 			return nil, false, err
 		}
 	} else {
-		manager.logger.CDebugw(ctx, "resource models differ so it must be rebuilt",
+		manager.logger.CInfow(ctx, "Resource models differ so resource must be rebuilt",
 			"name", resName, "old_model", gNode.ResourceModel(), "new_model", conf.Model)
 	}
 
-	manager.logger.CDebugw(ctx, "rebuilding", "name", resName)
-	if err := r.manager.closeResource(ctx, currentRes); err != nil {
+	manager.logger.CDebugw(
+		ctx,
+		"rebuilding resource, closing and removing existing resource from graph node",
+		"name", resName,
+		"old_model", gNode.ResourceModel(),
+		"new_model", conf.Model,
+	)
+	if err := r.manager.closeAndUnsetResource(ctx, gNode); err != nil {
 		manager.logger.CError(ctx, err)
 	}
 	newRes, err := r.newResource(ctx, gNode, conf)
 	if err != nil {
-		gNode.UnsetResource()
 		manager.logger.CDebugw(ctx,
-			"failed to build resource of new model, removing closed resource of old model from graph node",
+			"failed to build resource of new model",
 			"name", resName,
 			"old_model", gNode.ResourceModel(),
 			"new_model", conf.Model,
@@ -866,15 +948,9 @@ func (manager *resourceManager) updateResources(
 	var allErrs error
 
 	// modules are not added into the resource tree as they belong to the module manager
-	for _, mod := range conf.Added.Modules {
-		// this is done in config validation but partial start rules require us to check again
-		if err := mod.Validate(""); err != nil {
-			manager.logger.CErrorw(ctx, "module config validation error; skipping", "module", mod.Name, "error", err)
-			continue
-		}
-		if err := manager.moduleManager.Add(ctx, mod); err != nil {
-			manager.logger.CErrorw(ctx, "error adding module", "module", mod.Name, "error", err)
-			continue
+	if conf.Added.Modules != nil {
+		if err := manager.moduleManager.Add(ctx, conf.Added.Modules...); err != nil {
+			manager.logger.CErrorw(ctx, "error adding modules", "error", err)
 		}
 	}
 

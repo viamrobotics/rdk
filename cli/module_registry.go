@@ -18,6 +18,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/urfave/cli/v2"
 	"go.uber.org/multierr"
+	packagespb "go.viam.com/api/app/packages/v1"
 	apppb "go.viam.com/api/app/v1"
 	vutils "go.viam.com/utils"
 
@@ -88,7 +89,7 @@ const (
 func CreateModuleAction(c *cli.Context) error {
 	moduleNameArg := c.String(moduleFlagName)
 	publicNamespaceArg := c.String(moduleFlagPublicNamespace)
-	orgIDArg := c.String(moduleFlagOrgID)
+	orgIDArg := c.String(generalFlagOrgID)
 
 	client, err := newViamClient(c)
 	if err != nil {
@@ -98,9 +99,26 @@ func CreateModuleAction(c *cli.Context) error {
 	if err != nil {
 		return err
 	}
-	// Check to make sure the user doesn't accidentally overwrite a module manifest
+
+	shouldWriteNewEmptyManifest := true
+
+	// If a meta.json exists in the current directory, we have a slightly different creation flow
+	// in order to minimize user frustration. We will continue the creation if the args passed to create
+	// match the values in the meta.json
 	if _, err := os.Stat(defaultManifestFilename); err == nil {
-		return errors.New("another module's meta.json already exists in the current directory. Delete it and try again")
+		modManifest, err := loadManifest(defaultManifestFilename)
+		if err != nil {
+			return errors.New("another meta.json already exists in the current directory. Delete it and try again")
+		}
+		manifestModuleID, err := parseModuleID(modManifest.ModuleID)
+		if err != nil ||
+			manifestModuleID.name != moduleNameArg ||
+			(manifestModuleID.prefix != org.GetId() && manifestModuleID.prefix != org.GetPublicNamespace()) {
+			return errors.Errorf("a different module's meta.json already exists in the current directory. "+
+				"Either delete that meta.json, or edit its module_id (%q) to match the args passed to this command",
+				modManifest.ModuleID)
+		}
+		shouldWriteNewEmptyManifest = false
 	}
 
 	response, err := client.createModule(moduleNameArg, org.GetId())
@@ -117,20 +135,22 @@ func CreateModuleAction(c *cli.Context) error {
 	if response.GetUrl() != "" {
 		printf(c.App.Writer, "You can view it here: %s", response.GetUrl())
 	}
-	emptyManifest := moduleManifest{
-		ModuleID:   returnedModuleID.String(),
-		Visibility: moduleVisibilityPrivate,
-		// This is done so that the json has an empty example
-		Models: []ModuleComponent{
-			{},
-		},
-		// TODO(RSDK-5608) don't auto populate until we are ready to release the build subcommand
-		// Build: defaultBuildInfo,
+
+	if shouldWriteNewEmptyManifest {
+		emptyManifest := moduleManifest{
+			ModuleID:   returnedModuleID.String(),
+			Visibility: moduleVisibilityPrivate,
+			// This is done so that the json has an empty example
+			Models: []ModuleComponent{
+				{},
+			},
+		}
+		if err := writeManifest(defaultManifestFilename, emptyManifest); err != nil {
+			return err
+		}
+
+		printf(c.App.Writer, "Configuration for the module has been written to meta.json")
 	}
-	if err := writeManifest(defaultManifestFilename, emptyManifest); err != nil {
-		return err
-	}
-	printf(c.App.Writer, "Configuration for the module has been written to meta.json")
 	return nil
 }
 
@@ -182,7 +202,7 @@ func UpdateModuleAction(c *cli.Context) error {
 func UploadModuleAction(c *cli.Context) error {
 	manifestPath := c.String(moduleFlagPath)
 	publicNamespaceArg := c.String(moduleFlagPublicNamespace)
-	orgIDArg := c.String(moduleFlagOrgID)
+	orgIDArg := c.String(generalFlagOrgID)
 	nameArg := c.String(moduleFlagName)
 	versionArg := c.String(moduleFlagVersion)
 	platformArg := c.String(moduleFlagPlatform)
@@ -233,10 +253,16 @@ func UploadModuleAction(c *cli.Context) error {
 			return errors.Errorf("module name %q was supplied on the command line but the meta.json has a module ID of %q", nameArg,
 				moduleID.name)
 		}
-	}
-	moduleID, err = validateModuleID(client, moduleID.String(), publicNamespaceArg, orgIDArg)
-	if err != nil {
-		return err
+
+		moduleID, err = validateModuleID(client, moduleID.String(), publicNamespaceArg, orgIDArg)
+		if err != nil {
+			return err
+		}
+
+		_, err = client.updateModule(moduleID, manifest)
+		if err != nil {
+			return errors.Wrap(err, "Module update failed. Please correct the following issues in your meta.json")
+		}
 	}
 
 	tarballPath := moduleUploadPath
@@ -367,7 +393,7 @@ func (c *viamClient) uploadModuleFile(
 	var errs error
 	// We do not add the EOF as an error because all server-side errors trigger an EOF on the stream
 	// This results in extra clutter to the error msg
-	if err := sendModuleUploadRequests(ctx, stream, file, c.c.App.Writer); err != nil && !errors.Is(err, io.EOF) {
+	if err := sendUploadRequests(ctx, stream, nil, file, c.c.App.Writer); err != nil && !errors.Is(err, io.EOF) {
 		errs = multierr.Combine(errs, errors.Wrapf(err, "could not upload %s", file.Name()))
 	}
 
@@ -425,9 +451,15 @@ func validateModuleFile(client *viamClient, moduleID moduleID, tarballPath, vers
 		// if path == entrypoint, we have found the right file
 		if filepath.Clean(path) == filepath.Clean(entrypoint) {
 			info := header.FileInfo()
+			if info.IsDir() {
+				return errors.Errorf(
+					"the module archive contains a directory at the entrypoint %q instead of an executable file",
+					entrypoint)
+			}
+
 			if info.Mode().Perm()&0o100 == 0 {
 				return errors.Errorf(
-					"the archive contained a file at the entrypoint %q, but that file is not marked as executable",
+					"the module archive contains a file at the entrypoint %q, but that file is not marked as executable",
 					entrypoint)
 			}
 			// executable file at entrypoint. validation succeeded.
@@ -586,6 +618,19 @@ func loadManifest(manifestPath string) (moduleManifest, error) {
 	return manifest, nil
 }
 
+// loadManifestOrNil doesn't throw error on missing.
+func loadManifestOrNil(path string) (*moduleManifest, error) {
+	manifest, err := loadManifest(path)
+	if err == nil {
+		return &manifest, nil
+	}
+	if os.IsNotExist(err) {
+		//nolint:nilnil
+		return nil, nil
+	}
+	return nil, err
+}
+
 func writeManifest(manifestPath string, manifest moduleManifest) error {
 	manifestBytes, err := json.MarshalIndent(manifest, "", "  ")
 	if err != nil {
@@ -701,7 +746,12 @@ func sameModels(a, b []ModuleComponent) bool {
 	return true
 }
 
-func sendModuleUploadRequests(ctx context.Context, stream apppb.AppService_UploadModuleFileClient, file *os.File, stdout io.Writer) error {
+func sendUploadRequests(ctx context.Context, moduleStream apppb.AppService_UploadModuleFileClient,
+	pkgStream packagespb.PackageService_CreatePackageClient, file *os.File, stdout io.Writer,
+) error {
+	if moduleStream != nil && pkgStream != nil {
+		return errors.New("can use either module or package client, not both")
+	}
 	stat, err := file.Stat()
 	if err != nil {
 		return err
@@ -711,15 +761,26 @@ func sendModuleUploadRequests(ctx context.Context, stream apppb.AppService_Uploa
 	// Close the line with the progress reading
 	defer printf(stdout, "")
 
-	//nolint:errcheck
-	defer stream.CloseSend()
+	if moduleStream != nil {
+		defer vutils.UncheckedErrorFunc(moduleStream.CloseSend)
+	}
+	if pkgStream != nil {
+		defer vutils.UncheckedErrorFunc(pkgStream.CloseSend)
+	}
 	// Loop until there is no more content to be read from file or the context expires.
 	for {
 		if ctx.Err() != nil {
 			return ctx.Err()
 		}
 		// Get the next UploadRequest from the file.
-		uploadReq, err := getNextModuleUploadRequest(file)
+		var moduleUploadReq *apppb.UploadModuleFileRequest
+		if moduleStream != nil {
+			moduleUploadReq, err = getNextModuleUploadRequest(file)
+		}
+		var pkgUploadReq *packagespb.CreatePackageRequest
+		if pkgStream != nil {
+			pkgUploadReq, err = getNextPackageUploadRequest(file)
+		}
 
 		// EOF means we've completed successfully.
 		if errors.Is(err, io.EOF) {
@@ -730,10 +791,19 @@ func sendModuleUploadRequests(ctx context.Context, stream apppb.AppService_Uploa
 			return errors.Wrap(err, "could not read file")
 		}
 
-		if err = stream.Send(uploadReq); err != nil {
-			return err
+		if moduleUploadReq != nil {
+			if err = moduleStream.Send(moduleUploadReq); err != nil {
+				return err
+			}
+			uploadedBytes += len(moduleUploadReq.GetFile())
 		}
-		uploadedBytes += len(uploadReq.GetFile())
+		if pkgUploadReq != nil {
+			if err = pkgStream.Send(pkgUploadReq); err != nil {
+				return err
+			}
+			uploadedBytes += len(pkgUploadReq.GetContents())
+		}
+
 		// Simple progress reading until we have a proper tui library
 		uploadPercent := int(math.Ceil(100 * float64(uploadedBytes) / float64(fileSize)))
 		fmt.Fprintf(stdout, "\rUploading... %d%% (%d/%d bytes)", uploadPercent, uploadedBytes, fileSize) // no newline

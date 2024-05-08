@@ -7,7 +7,6 @@ package kinematicbase
 import (
 	"context"
 	"errors"
-	"fmt"
 	"math"
 	"sync"
 	"time"
@@ -24,7 +23,10 @@ import (
 )
 
 // The pause time when not using a localizer before moving on to next move step.
-const defaultNoLocalizerDelay = 250 * time.Millisecond
+const (
+	defaultNoLocalizerDelay  = 250 * time.Millisecond
+	defaultCollisionBufferMM = 1e-8
+)
 
 var (
 	// errMovementTimeout is used for when a movement call times out after no movement for some time.
@@ -68,8 +70,11 @@ func wrapWithDifferentialDriveKinematics(
 		boundingSphere, err = spatialmath.BoundingSphere(geometry)
 	}
 	if boundingSphere == nil || err != nil {
-		logger.CWarn(ctx, "base %s not configured with a geometry, will be considered a point mass for collision detection purposes.")
-		boundingSphere = spatialmath.NewPoint(r3.Vector{}, b.Name().Name)
+		logger.CWarn(ctx, "base %s not configured with a geometry, will be considered a 300mm sphere for collision detection purposes.")
+		boundingSphere, err = spatialmath.NewSphere(spatialmath.NewZeroPose(), 150., b.Name().ShortName())
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	ddk.executionFrame, err = referenceframe.New2DMobileModelFrame(b.Name().ShortName(), limits, boundingSphere)
@@ -97,6 +102,8 @@ type differentialDriveKinematics struct {
 	planningFrame, executionFrame referenceframe.Model
 	options                       Options
 	noLocalizerCacheInputs        []referenceframe.Input
+	currentTrajectory             [][]referenceframe.Input
+	currentIdx                    int
 	mutex                         sync.RWMutex
 }
 
@@ -127,9 +134,26 @@ func (ddk *differentialDriveKinematics) CurrentInputs(ctx context.Context) ([]re
 	return []referenceframe.Input{{Value: pt.X}, {Value: pt.Y}, {Value: theta}}, nil
 }
 
-func (ddk *differentialDriveKinematics) GoToInputs(ctx context.Context, desired []referenceframe.Input) (err error) {
+func (ddk *differentialDriveKinematics) GoToInputs(ctx context.Context, desiredSteps ...[]referenceframe.Input) error {
+	ddk.mutex.Lock()
+	ddk.currentTrajectory = desiredSteps
+	ddk.mutex.Unlock()
+	for i, desired := range desiredSteps {
+		ddk.mutex.Lock()
+		ddk.currentIdx = i
+		ddk.mutex.Unlock()
+		err := ddk.goToInputs(ctx, desired)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (ddk *differentialDriveKinematics) goToInputs(ctx context.Context, desired []referenceframe.Input) error {
 	// create capsule which defines the valid region for a base to be when driving to desired waypoint
 	// deviationThreshold defines max distance base can be from path without error being thrown
+	var err error
 	current, inputsErr := ddk.CurrentInputs(ctx)
 	if inputsErr != nil {
 		return inputsErr
@@ -157,7 +181,8 @@ func (ddk *differentialDriveKinematics) GoToInputs(ctx context.Context, desired 
 		// when the base is within the positional threshold of the goal, exit the loop
 		for err := cancelContext.Err(); err == nil; err = cancelContext.Err() {
 			utils.SelectContextOrWait(ctx, 10*time.Millisecond)
-			col, err := validRegion.CollidesWith(spatialmath.NewPoint(r3.Vector{X: current[0].Value, Y: current[1].Value}, ""))
+			point := spatialmath.NewPoint(r3.Vector{X: current[0].Value, Y: current[1].Value}, "")
+			col, err := validRegion.CollidesWith(point, defaultCollisionBufferMM)
 			if err != nil {
 				movementErr <- err
 				return
@@ -333,14 +358,11 @@ func (ddk *differentialDriveKinematics) newValidRegionCapsule(starting, desired 
 	return capsule, nil
 }
 
-func (ddk *differentialDriveKinematics) ErrorState(
-	ctx context.Context,
-	plan [][]referenceframe.Input,
-	currentNode int,
-) (spatialmath.Pose, error) {
-	if currentNode <= 0 || currentNode >= len(plan) {
-		return nil, fmt.Errorf("cannot get ErrorState for node %d, must be > 0 and less than plan length %d", currentNode, len(plan))
-	}
+func (ddk *differentialDriveKinematics) ErrorState(ctx context.Context) (spatialmath.Pose, error) {
+	ddk.mutex.RLock()
+	waypoints := ddk.currentTrajectory
+	currentNode := ddk.currentIdx
+	ddk.mutex.RUnlock()
 
 	// Get pose-in-frame of the base via its localizer. The offset between the localizer and its base should already be accounted for.
 	actualPIF, err := ddk.CurrentPosition(ctx)
@@ -352,14 +374,14 @@ func (ddk *differentialDriveKinematics) ErrorState(
 
 	// Determine the nominal pose, that is, the pose where the robot ought be if it had followed the plan perfectly up until this point.
 	// This is done differently depending on what sort of frame we are working with.
-	if len(plan) < 2 {
+	if len(waypoints) < 2 {
 		return nil, errors.New("diff drive motion plan must have at least two waypoints")
 	}
-	nominalPose, err = ddk.planningFrame.Transform(plan[currentNode])
+	nominalPose, err = ddk.planningFrame.Transform(waypoints[currentNode])
 	if err != nil {
 		return nil, err
 	}
-	pastPose, err := ddk.planningFrame.Transform(plan[currentNode-1])
+	pastPose, err := ddk.planningFrame.Transform(waypoints[currentNode-1])
 	if err != nil {
 		return nil, err
 	}

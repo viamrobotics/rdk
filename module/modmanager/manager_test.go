@@ -9,31 +9,71 @@ import (
 	"testing"
 	"time"
 
+	"github.com/pion/rtp"
 	"go.uber.org/zap/zaptest/observer"
+	v1 "go.viam.com/api/module/v1"
 	"go.viam.com/test"
+	"go.viam.com/utils"
 	"go.viam.com/utils/testutils"
 
 	"go.viam.com/rdk/components/base"
+	"go.viam.com/rdk/components/camera"
+	fakeCamera "go.viam.com/rdk/components/camera/fake"
+	"go.viam.com/rdk/components/camera/rtppassthrough"
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/components/motor"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
 	modlib "go.viam.com/rdk/module"
 	modmanageroptions "go.viam.com/rdk/module/modmanager/options"
+	"go.viam.com/rdk/module/modmaninterface"
 	"go.viam.com/rdk/resource"
 	rtestutils "go.viam.com/rdk/testutils"
 	rutils "go.viam.com/rdk/utils"
 )
+
+func setupModManager(
+	t *testing.T,
+	ctx context.Context,
+	parentAddr string,
+	logger logging.Logger,
+	options modmanageroptions.Options,
+) modmaninterface.ModuleManager {
+	t.Helper()
+	mgr := NewManager(ctx, parentAddr, logger, options)
+	t.Cleanup(func() {
+		// Wait for module recovery processes here because modmanager.Close does not.
+		// Do so by grabbing a copy of the modules and then waiting after
+		// mgr.Close() completes, which cancels all contexts relating to module
+		// recovery.
+		mMgr, ok := mgr.(*Manager)
+		test.That(t, ok, test.ShouldBeTrue)
+		modules := []*module{}
+		mMgr.modules.Range(func(_ string, mod *module) bool {
+			modules = append(modules, mod)
+			return true
+		})
+		test.That(t, mgr.Close(ctx), test.ShouldBeNil)
+		for _, mod := range modules {
+			if mod != nil {
+				func() {
+					// Wait for module recovery processes to complete.
+					mod.inRecoveryLock.Lock()
+					defer mod.inRecoveryLock.Unlock()
+				}()
+			}
+		}
+	})
+	return mgr
+}
 
 func TestModManagerFunctions(t *testing.T) {
 	ctx := context.Background()
 	logger := logging.NewTestLogger(t)
 
 	// Precompile module copies to avoid timeout issues when building takes too long.
-	modPath, err := rtestutils.BuildTempModule(t, "examples/customresources/demos/simplemodule")
-	test.That(t, err, test.ShouldBeNil)
-	modPath2, err := rtestutils.BuildTempModule(t, "examples/customresources/demos/simplemodule")
-	test.That(t, err, test.ShouldBeNil)
+	modPath := rtestutils.BuildTempModule(t, "examples/customresources/demos/simplemodule")
+	modPath2 := rtestutils.BuildTempModule(t, "examples/customresources/demos/simplemodule")
 
 	myCounterModel := resource.NewModel("acme", "demo", "mycounter")
 	rNameCounter1 := resource.NewName(generic.API, "counter1")
@@ -42,15 +82,19 @@ func TestModManagerFunctions(t *testing.T) {
 		API:   generic.API,
 		Model: myCounterModel,
 	}
-	_, err = cfgCounter1.Validate("test", resource.APITypeComponentName)
+	_, err := cfgCounter1.Validate("test", resource.APITypeComponentName)
 	test.That(t, err, test.ShouldBeNil)
 
 	parentAddr, err := modlib.CreateSocketAddress(t.TempDir(), "parent")
 	test.That(t, err, test.ShouldBeNil)
+	fakeRobot := rtestutils.MakeRobotForModuleLogging(t, parentAddr)
+	defer func() {
+		test.That(t, fakeRobot.Stop(), test.ShouldBeNil)
+	}()
 
 	t.Log("test Helpers")
 	viamHomeTemp := t.TempDir()
-	mgr := NewManager(ctx, parentAddr, logger, modmanageroptions.Options{UntrustedEnv: false, ViamHomeDir: viamHomeTemp})
+	mgr := setupModManager(t, ctx, parentAddr, logger, modmanageroptions.Options{UntrustedEnv: false, ViamHomeDir: viamHomeTemp})
 
 	mod := &module{
 		cfg: config.Module{
@@ -61,6 +105,7 @@ func TestModManagerFunctions(t *testing.T) {
 			Environment: map[string]string{"SMART": "MACHINES"},
 		},
 		dataDir: "module-data-dir",
+		logger:  logger,
 	}
 
 	err = mod.startProcess(ctx, parentAddr, nil, logger, viamHomeTemp)
@@ -68,12 +113,6 @@ func TestModManagerFunctions(t *testing.T) {
 
 	err = mod.dial()
 	test.That(t, err, test.ShouldBeNil)
-
-	// check that dial can re-use connections.
-	oldConn := mod.conn
-	err = mod.dial()
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, mod.conn, test.ShouldEqual, oldConn)
 
 	err = mod.checkReady(ctx, parentAddr, logger)
 	test.That(t, err, test.ShouldBeNil)
@@ -88,7 +127,6 @@ func TestModManagerFunctions(t *testing.T) {
 	_, ok = resource.LookupRegistration(generic.API, myCounterModel)
 	test.That(t, ok, test.ShouldBeFalse)
 
-	test.That(t, mgr.Close(ctx), test.ShouldBeNil)
 	test.That(t, mod.process.Stop(), test.ShouldBeNil)
 
 	modEnv := mod.getFullEnvironment(viamHomeTemp)
@@ -103,8 +141,24 @@ func TestModManagerFunctions(t *testing.T) {
 	_, ok = modEnv["VIAM_MODULE_ID"]
 	test.That(t, ok, test.ShouldBeFalse)
 
+	// Make a copy of addr and client to test that connections are properly remade
+	oldAddr := mod.addr
+	oldClient := mod.client
+
+	utils.UncheckedError(mod.startProcess(ctx, parentAddr, nil, logger, viamHomeTemp))
+	err = mod.dial()
+	test.That(t, err, test.ShouldBeNil)
+
+	// make sure mod.addr has changed
+	test.That(t, mod.addr, test.ShouldNotEqual, oldAddr)
+	// check that we're still able to use the old client
+	_, err = oldClient.Ready(ctx, &v1.ReadyRequest{ParentAddress: parentAddr})
+	test.That(t, err, test.ShouldBeNil)
+
+	test.That(t, mod.process.Stop(), test.ShouldBeNil)
+
 	t.Log("test AddModule")
-	mgr = NewManager(ctx, parentAddr, logger, modmanageroptions.Options{UntrustedEnv: false})
+	mgr = setupModManager(t, ctx, parentAddr, logger, modmanageroptions.Options{UntrustedEnv: false})
 	test.That(t, err, test.ShouldBeNil)
 
 	modCfg := config.Module{
@@ -195,41 +249,24 @@ func TestModManagerFunctions(t *testing.T) {
 	// Reconfigure module with new ExePath.
 	orphanedResourceNames, err := mgr.Reconfigure(ctx, modCfg)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, orphanedResourceNames, test.ShouldBeNil)
-
-	// counter1 should still be provided by reconfigured module.
-	ok = mgr.IsModularResource(rNameCounter1)
-	test.That(t, ok, test.ShouldBeTrue)
-	ret, err = counter.DoCommand(ctx, map[string]interface{}{"command": "get"})
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, ret["total"], test.ShouldEqual, 0)
+	test.That(t, orphanedResourceNames, test.ShouldResemble, []resource.Name{rNameCounter1})
 
 	t.Log("test RemoveModule")
 	orphanedResourceNames, err = mgr.Remove("simple-module")
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, orphanedResourceNames, test.ShouldResemble, []resource.Name{rNameCounter1})
-
-	// module will only really go away after resources within it are removed/closed
-	ok = mgr.IsModularResource(rNameCounter1)
-	test.That(t, ok, test.ShouldBeTrue)
-
-	err = mgr.RemoveResource(ctx, rNameCounter1)
-	test.That(t, err, test.ShouldBeNil)
+	test.That(t, orphanedResourceNames, test.ShouldBeNil)
 
 	ok = mgr.IsModularResource(rNameCounter1)
 	test.That(t, ok, test.ShouldBeFalse)
 	_, err = counter.DoCommand(ctx, map[string]interface{}{"command": "get"})
 	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "the client connection is closing")
+	test.That(t, err.Error(), test.ShouldContainSubstring, "not connected")
 
 	err = counter.Close(ctx)
 	test.That(t, err, test.ShouldBeNil)
 
-	err = mgr.Close(ctx)
-	test.That(t, err, test.ShouldBeNil)
-
 	t.Log("test UntrustedEnv")
-	mgr = NewManager(ctx, parentAddr, logger, modmanageroptions.Options{UntrustedEnv: true})
+	mgr = setupModManager(t, ctx, parentAddr, logger, modmanageroptions.Options{UntrustedEnv: true})
 
 	modCfg = config.Module{
 		Name:    "simple-module",
@@ -239,7 +276,7 @@ func TestModManagerFunctions(t *testing.T) {
 	test.That(t, err, test.ShouldEqual, errModularResourcesDisabled)
 
 	t.Log("test empty dir for CleanModuleDataDirectory")
-	mgr = NewManager(ctx, parentAddr, logger, modmanageroptions.Options{UntrustedEnv: false, ViamHomeDir: ""})
+	mgr = setupModManager(t, ctx, parentAddr, logger, modmanageroptions.Options{UntrustedEnv: false, ViamHomeDir: ""})
 	err = mgr.CleanModuleDataDirectory()
 	test.That(t, fmt.Sprint(err), test.ShouldContainSubstring, "cannot clean a root level module data directory")
 
@@ -247,7 +284,8 @@ func TestModManagerFunctions(t *testing.T) {
 	viamHomeTemp = t.TempDir()
 	robotCloudID := "a-b-c-d"
 	expectedDataDir := filepath.Join(viamHomeTemp, parentModuleDataFolderName, robotCloudID)
-	mgr = NewManager(
+	mgr = setupModManager(
+		t,
 		ctx,
 		parentAddr,
 		logger,
@@ -295,8 +333,7 @@ func TestModManagerValidation(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 
 	// Precompile module to avoid timeout issues when building takes too long.
-	modPath, err := rtestutils.BuildTempModule(t, "examples/customresources/demos/complexmodule")
-	test.That(t, err, test.ShouldBeNil)
+	modPath := rtestutils.BuildTempModule(t, "examples/customresources/demos/complexmodule")
 
 	myBaseModel := resource.NewModel("acme", "demo", "mybase")
 	cfgMyBase1 := resource.Config{
@@ -308,7 +345,7 @@ func TestModManagerValidation(t *testing.T) {
 			"motorR": "motor2",
 		},
 	}
-	_, err = cfgMyBase1.Validate("test", resource.APITypeComponentName)
+	_, err := cfgMyBase1.Validate("test", resource.APITypeComponentName)
 	test.That(t, err, test.ShouldBeNil)
 	// cfgMyBase2 is missing required attributes "motorL" and "motorR" and should
 	// cause module Validation error.
@@ -322,9 +359,13 @@ func TestModManagerValidation(t *testing.T) {
 
 	parentAddr, err := modlib.CreateSocketAddress(t.TempDir(), "parent")
 	test.That(t, err, test.ShouldBeNil)
+	fakeRobot := rtestutils.MakeRobotForModuleLogging(t, parentAddr)
+	defer func() {
+		test.That(t, fakeRobot.Stop(), test.ShouldBeNil)
+	}()
 
 	t.Log("adding complex module")
-	mgr := NewManager(ctx, parentAddr, logger, modmanageroptions.Options{UntrustedEnv: false})
+	mgr := setupModManager(t, ctx, parentAddr, logger, modmanageroptions.Options{UntrustedEnv: false})
 
 	modCfg := config.Module{
 		Name:    "complex-module",
@@ -356,13 +397,16 @@ func TestModManagerValidation(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldResemble,
 		"rpc error: code = DeadlineExceeded desc = context deadline exceeded")
-
-	err = mgr.Close(ctx)
-	test.That(t, err, test.ShouldBeNil)
 }
 
 func TestModuleReloading(t *testing.T) {
 	ctx := context.Background()
+
+	// Lower global timeout early to avoid race with actual restart code.
+	defer func(oriOrigVal time.Duration) {
+		oueRestartInterval = oriOrigVal
+	}(oueRestartInterval)
+	oueRestartInterval = 10 * time.Millisecond
 
 	myHelperModel := resource.NewModel("rdk", "test", "helper")
 	rNameMyHelper := generic.Named("myhelper")
@@ -376,6 +420,10 @@ func TestModuleReloading(t *testing.T) {
 
 	parentAddr, err := modlib.CreateSocketAddress(t.TempDir(), "parent")
 	test.That(t, err, test.ShouldBeNil)
+	fakeRobot := rtestutils.MakeRobotForModuleLogging(t, parentAddr)
+	defer func() {
+		test.That(t, fakeRobot.Stop(), test.ShouldBeNil)
+	}()
 
 	modCfg := config.Module{Name: "test-module"}
 
@@ -383,9 +431,7 @@ func TestModuleReloading(t *testing.T) {
 		logger, logs := logging.NewObservedTestLogger(t)
 
 		// Precompile module to avoid timeout issues when building takes too long.
-		modPath, err := rtestutils.BuildTempModule(t, "module/testmodule")
-		test.That(t, err, test.ShouldBeNil)
-		modCfg.ExePath = modPath
+		modCfg.ExePath = rtestutils.BuildTempModule(t, "module/testmodule")
 
 		// This test neither uses a resource manager nor asserts anything about
 		// the existence of resources in the graph. Use a dummy
@@ -395,7 +441,7 @@ func TestModuleReloading(t *testing.T) {
 		dummyRemoveOrphanedResources := func(context.Context, []resource.Name) {
 			dummyRemoveOrphanedResourcesCallCount.Add(1)
 		}
-		mgr := NewManager(ctx, parentAddr, logger, modmanageroptions.Options{
+		mgr := setupModManager(t, ctx, parentAddr, logger, modmanageroptions.Options{
 			UntrustedEnv:            false,
 			RemoveOrphanedResources: dummyRemoveOrphanedResources,
 		})
@@ -418,12 +464,11 @@ func TestModuleReloading(t *testing.T) {
 		// managed again and remains functional.
 		_, err = h.DoCommand(ctx, map[string]interface{}{"command": "kill_module"})
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring,
-			"error reading from server")
+		test.That(t, err.Error(), test.ShouldContainSubstring, "rpc error")
 
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
-			test.That(tb, logs.FilterMessageSnippet("module successfully restarted").Len(),
+			test.That(tb, logs.FilterMessageSnippet("Module successfully restarted").Len(),
 				test.ShouldEqual, 1)
 		})
 
@@ -434,14 +479,11 @@ func TestModuleReloading(t *testing.T) {
 		test.That(t, resp, test.ShouldNotBeNil)
 		test.That(t, resp["command"], test.ShouldEqual, "echo")
 
-		err = mgr.Close(ctx)
-		test.That(t, err, test.ShouldBeNil)
-
 		// Assert that logs reflect that test-module crashed and there were no
 		// errors during restart.
-		test.That(t, logs.FilterMessageSnippet("module has unexpectedly exited").Len(),
+		test.That(t, logs.FilterMessageSnippet("Module has unexpectedly exited").Len(),
 			test.ShouldEqual, 1)
-		test.That(t, logs.FilterMessageSnippet("error while restarting crashed module").Len(),
+		test.That(t, logs.FilterMessageSnippet("Error while restarting crashed module").Len(),
 			test.ShouldEqual, 0)
 
 		// Assert that RemoveOrphanedResources was called once.
@@ -451,15 +493,7 @@ func TestModuleReloading(t *testing.T) {
 		logger, logs := logging.NewObservedTestLogger(t)
 
 		// Precompile module to avoid timeout issues when building takes too long.
-		modPath, err := rtestutils.BuildTempModule(t, "module/testmodule")
-		test.That(t, err, test.ShouldBeNil)
-		modCfg.ExePath = modPath
-
-		// lower global timeout early to avoid race with actual restart code
-		defer func(origVal time.Duration) {
-			oueRestartInterval = origVal
-		}(oueRestartInterval)
-		oueRestartInterval = 10 * time.Millisecond
+		modCfg.ExePath = rtestutils.BuildTempModule(t, "module/testmodule")
 
 		// This test neither uses a resource manager nor asserts anything about
 		// the existence of resources in the graph. Use a dummy
@@ -469,7 +503,7 @@ func TestModuleReloading(t *testing.T) {
 		dummyRemoveOrphanedResources := func(context.Context, []resource.Name) {
 			dummyRemoveOrphanedResourcesCallCount.Add(1)
 		}
-		mgr := NewManager(ctx, parentAddr, logger, modmanageroptions.Options{
+		mgr := setupModManager(t, ctx, parentAddr, logger, modmanageroptions.Options{
 			UntrustedEnv:            false,
 			RemoveOrphanedResources: dummyRemoveOrphanedResources,
 		})
@@ -488,9 +522,8 @@ func TestModuleReloading(t *testing.T) {
 		test.That(t, resp["command"], test.ShouldEqual, "echo")
 
 		// Remove testmodule binary, so process cannot be successfully restarted
-		// after crash. Also lower oueRestartInterval so attempted restarts happen
-		// at faster rate.
-		err = os.Remove(modPath)
+		// after crash.
+		err = os.Remove(modCfg.ExePath)
 		test.That(t, err, test.ShouldBeNil)
 
 		// Run 'kill_module' command through helper resource to cause module to
@@ -498,12 +531,11 @@ func TestModuleReloading(t *testing.T) {
 		// not modularly managed and commands return error.
 		_, err = h.DoCommand(ctx, map[string]interface{}{"command": "kill_module"})
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring,
-			"error reading from server")
+		test.That(t, err.Error(), test.ShouldContainSubstring, "rpc error")
 
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
-			test.That(tb, logs.FilterMessageSnippet("error while restarting crashed module").Len(),
+			test.That(tb, logs.FilterMessageSnippet("Error while restarting crashed module").Len(),
 				test.ShouldEqual, 3)
 		})
 
@@ -511,17 +543,70 @@ func TestModuleReloading(t *testing.T) {
 		test.That(t, ok, test.ShouldBeFalse)
 		_, err = h.DoCommand(ctx, map[string]interface{}{"command": "echo"})
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring,
-			"connection is closing")
-
-		err = mgr.Close(ctx)
-		test.That(t, err, test.ShouldBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "not connected")
 
 		// Assert that logs reflect that test-module crashed and was not
 		// successfully restarted.
-		test.That(t, logs.FilterMessageSnippet("module has unexpectedly exited").Len(),
+		test.That(t, logs.FilterMessageSnippet("Module has unexpectedly exited").Len(),
 			test.ShouldEqual, 1)
-		test.That(t, logs.FilterMessageSnippet("module successfully restarted").Len(),
+		test.That(t, logs.FilterMessageSnippet("Module successfully restarted").Len(),
+			test.ShouldEqual, 0)
+
+		// Assert that RemoveOrphanedResources was called once.
+		test.That(t, dummyRemoveOrphanedResourcesCallCount.Load(), test.ShouldEqual, 1)
+	})
+	t.Run("do not restart if context canceled", func(t *testing.T) {
+		logger, logs := logging.NewObservedTestLogger(t)
+
+		// Precompile module to avoid timeout issues when building takes too long.
+		modCfg.ExePath = rtestutils.BuildTempModule(t, "module/testmodule")
+
+		// This test neither uses a resource manager nor asserts anything about
+		// the existence of resources in the graph. Use a dummy
+		// RemoveOrphanedResources function so orphaned resource logic does not
+		// panic.
+		var dummyRemoveOrphanedResourcesCallCount atomic.Uint64
+		dummyRemoveOrphanedResources := func(context.Context, []resource.Name) {
+			dummyRemoveOrphanedResourcesCallCount.Add(1)
+		}
+		mgr := setupModManager(t, ctx, parentAddr, logger, modmanageroptions.Options{
+			UntrustedEnv:            false,
+			RemoveOrphanedResources: dummyRemoveOrphanedResources,
+		})
+		err = mgr.Add(ctx, modCfg)
+		test.That(t, err, test.ShouldBeNil)
+
+		// Add helper resource and ensure "echo" works correctly.
+		h, err := mgr.AddResource(ctx, cfgMyHelper, nil)
+		test.That(t, err, test.ShouldBeNil)
+		ok := mgr.IsModularResource(rNameMyHelper)
+		test.That(t, ok, test.ShouldBeTrue)
+
+		mgr.(*Manager).restartCtxCancel()
+
+		// Run 'kill_module' command through helper resource to cause module to
+		// exit with error. Assert that we do not restart the module if context is cancelled.
+		_, err = h.DoCommand(ctx, map[string]interface{}{"command": "kill_module"})
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "rpc error")
+
+		testutils.WaitForAssertion(t, func(tb testing.TB) {
+			tb.Helper()
+			test.That(tb, logs.FilterMessageSnippet("Will not attempt to restart crashed module").Len(),
+				test.ShouldEqual, 1)
+		})
+
+		ok = mgr.IsModularResource(rNameMyHelper)
+		test.That(t, ok, test.ShouldBeFalse)
+		_, err = h.DoCommand(ctx, map[string]interface{}{"command": "echo"})
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "not connected")
+
+		// Assert that logs reflect that test-module crashed and was not
+		// successfully restarted.
+		test.That(t, logs.FilterMessageSnippet("Module has unexpectedly exited").Len(),
+			test.ShouldEqual, 1)
+		test.That(t, logs.FilterMessageSnippet("Module successfully restarted").Len(),
 			test.ShouldEqual, 0)
 
 		// Assert that RemoveOrphanedResources was called once.
@@ -532,12 +617,6 @@ func TestModuleReloading(t *testing.T) {
 
 		modCfg.ExePath = rutils.ResolveFile("module/testmodule/fakemodule.sh")
 
-		// Lower global timeout early to avoid race with actual restart code.
-		defer func(oriOrigVal time.Duration) {
-			oueRestartInterval = oriOrigVal
-		}(oueRestartInterval)
-		oueRestartInterval = 10 * time.Millisecond
-
 		// Lower module startup timeout to avoid waiting for 5 mins.
 		t.Setenv(rutils.ModuleStartupTimeoutEnvVar, "10ms")
 
@@ -546,7 +625,7 @@ func TestModuleReloading(t *testing.T) {
 		// RemoveOrphanedResources function so orphaned resource logic does not
 		// panic.
 		dummyRemoveOrphanedResources := func(context.Context, []resource.Name) {}
-		mgr := NewManager(ctx, parentAddr, logger, modmanageroptions.Options{
+		mgr := setupModManager(t, ctx, parentAddr, logger, modmanageroptions.Options{
 			UntrustedEnv:            false,
 			RemoveOrphanedResources: dummyRemoveOrphanedResources,
 		})
@@ -563,21 +642,12 @@ func TestModuleReloading(t *testing.T) {
 
 		// Assert that manager removes module.
 		test.That(t, len(mgr.Configs()), test.ShouldEqual, 0)
-
-		err = mgr.Close(ctx)
-		test.That(t, err, test.ShouldBeNil)
 	})
 
 	t.Run("cancelled module process is stopped", func(t *testing.T) {
 		logger, logs := logging.NewObservedTestLogger(t)
 
 		modCfg.ExePath = rutils.ResolveFile("module/testmodule/fakemodule.sh")
-
-		// Lower global timeout early to avoid race with actual restart code.
-		defer func(oriOrigVal time.Duration) {
-			oueRestartInterval = oriOrigVal
-		}(oueRestartInterval)
-		oueRestartInterval = 10 * time.Millisecond
 
 		// Lower module startup timeout to avoid waiting for 5 mins.
 		t.Setenv(rutils.ModuleStartupTimeoutEnvVar, "30s")
@@ -589,7 +659,7 @@ func TestModuleReloading(t *testing.T) {
 		ctx, cancel := context.WithCancel(ctx)
 		cancel()
 		dummyRemoveOrphanedResources := func(context.Context, []resource.Name) {}
-		mgr := NewManager(ctx, parentAddr, logger, modmanageroptions.Options{
+		mgr := setupModManager(t, ctx, parentAddr, logger, modmanageroptions.Options{
 			UntrustedEnv:            false,
 			RemoveOrphanedResources: dummyRemoveOrphanedResources,
 		})
@@ -605,9 +675,6 @@ func TestModuleReloading(t *testing.T) {
 
 		// Assert that manager removes module.
 		test.That(t, len(mgr.Configs()), test.ShouldEqual, 0)
-
-		err = mgr.Close(ctx)
-		test.That(t, err, test.ShouldBeNil)
 	})
 }
 
@@ -615,11 +682,14 @@ func TestDebugModule(t *testing.T) {
 	ctx := context.Background()
 
 	// Precompile module to avoid timeout issues when building takes too long.
-	modPath, err := rtestutils.BuildTempModule(t, "module/testmodule")
-	test.That(t, err, test.ShouldBeNil)
+	modPath := rtestutils.BuildTempModule(t, "module/testmodule")
 
 	parentAddr, err := modlib.CreateSocketAddress(t.TempDir(), "parent")
 	test.That(t, err, test.ShouldBeNil)
+	fakeRobot := rtestutils.MakeRobotForModuleLogging(t, parentAddr)
+	defer func() {
+		test.That(t, fakeRobot.Stop(), test.ShouldBeNil)
+	}()
 
 	testCases := []struct {
 		name                   string
@@ -674,8 +744,7 @@ func TestDebugModule(t *testing.T) {
 			} else {
 				logger, logs = rtestutils.NewInfoObservedTestLogger(t)
 			}
-			mgr := NewManager(ctx, parentAddr, logger, modmanageroptions.Options{UntrustedEnv: false})
-			defer mgr.Close(ctx)
+			mgr := setupModManager(t, ctx, parentAddr, logger, modmanageroptions.Options{UntrustedEnv: false})
 
 			modCfg := config.Module{
 				Name:     "test-module",
@@ -708,10 +777,13 @@ func TestModuleMisc(t *testing.T) {
 
 	parentAddr, err := modlib.CreateSocketAddress(t.TempDir(), "parent")
 	test.That(t, err, test.ShouldBeNil)
+	fakeRobot := rtestutils.MakeRobotForModuleLogging(t, parentAddr)
+	defer func() {
+		test.That(t, fakeRobot.Stop(), test.ShouldBeNil)
+	}()
 
 	// Build the testmodule
-	modPath, err := rtestutils.BuildTempModule(t, "module/testmodule")
-	test.That(t, err, test.ShouldBeNil)
+	modPath := rtestutils.BuildTempModule(t, "module/testmodule")
 	modCfg := config.Module{
 		Name:    "test-module",
 		ExePath: modPath,
@@ -730,7 +802,7 @@ func TestModuleMisc(t *testing.T) {
 
 	t.Run("data directory fullstack", func(t *testing.T) {
 		logger, logs := logging.NewObservedTestLogger(t)
-		mgr := NewManager(ctx, parentAddr, logger, modmanageroptions.Options{
+		mgr := setupModManager(t, ctx, parentAddr, logger, modmanageroptions.Options{
 			UntrustedEnv: false,
 			ViamHomeDir:  testViamHomeDir,
 		})
@@ -776,13 +848,10 @@ func TestModuleMisc(t *testing.T) {
 		test.That(t, logs.FilterMessageSnippet("Removing module data").Len(), test.ShouldEqual, 1)
 		_, err = os.Stat(filepath.Join(testViamHomeDir, "module-data", "local"))
 		test.That(t, fmt.Sprint(err), test.ShouldContainSubstring, "no such file or directory")
-
-		err = mgr.Close(ctx)
-		test.That(t, err, test.ShouldBeNil)
 	})
 	t.Run("module working directory", func(t *testing.T) {
 		logger := logging.NewTestLogger(t)
-		mgr := NewManager(ctx, parentAddr, logger, modmanageroptions.Options{
+		mgr := setupModManager(t, ctx, parentAddr, logger, modmanageroptions.Options{
 			UntrustedEnv: false,
 			ViamHomeDir:  testViamHomeDir,
 		})
@@ -814,13 +883,10 @@ func TestModuleMisc(t *testing.T) {
 		modWorkingDirectory, ok := resp["path"].(string)
 		test.That(t, ok, test.ShouldBeTrue)
 		test.That(t, modWorkingDirectory, test.ShouldEqual, "/")
-
-		err = mgr.Close(ctx)
-		test.That(t, err, test.ShouldBeNil)
 	})
 	t.Run("module working directory fallback", func(t *testing.T) {
 		logger := logging.NewTestLogger(t)
-		mgr := NewManager(ctx, parentAddr, logger, modmanageroptions.Options{
+		mgr := setupModManager(t, ctx, parentAddr, logger, modmanageroptions.Options{
 			UntrustedEnv: false,
 			ViamHomeDir:  testViamHomeDir,
 		})
@@ -847,7 +913,436 @@ func TestModuleMisc(t *testing.T) {
 		// MacOS prepends "/private/" to the filepath so we check the end of the path to account for this
 		// i.e.  '/private/var/folders/p1/nl3sq7jn5nx8tfkdwpz2_g7r0000gn/T/TestModuleMisc1764175663/002'
 		test.That(t, modWorkingDirectory, test.ShouldEndWith, filepath.Dir(modPath))
-		err = mgr.Close(ctx)
-		test.That(t, err, test.ShouldBeNil)
 	})
+}
+
+func TestTwoModulesRestart(t *testing.T) {
+	ctx := context.Background()
+	logger, logs := logging.NewObservedTestLogger(t)
+
+	modCfgs := []config.Module{
+		{
+			Name:    "test-module",
+			ExePath: rtestutils.BuildTempModule(t, "module/testmodule"),
+			Type:    config.ModuleTypeLocal,
+		},
+		{
+			Name:    "test-module2",
+			ExePath: rtestutils.BuildTempModule(t, "module/testmodule2"),
+			Type:    config.ModuleTypeLocal,
+		},
+	}
+
+	// Lower global timeout early to avoid race with actual restart code.
+	defer func(oriOrigVal time.Duration) {
+		oueRestartInterval = oriOrigVal
+	}(oueRestartInterval)
+	oueRestartInterval = 10 * time.Millisecond
+
+	parentAddr, err := modlib.CreateSocketAddress(t.TempDir(), "parent")
+	test.That(t, err, test.ShouldBeNil)
+	fakeRobot := rtestutils.MakeRobotForModuleLogging(t, parentAddr)
+	defer func() {
+		test.That(t, fakeRobot.Stop(), test.ShouldBeNil)
+	}()
+
+	var dummyRemoveOrphanedResourcesCallCount atomic.Uint64
+	dummyRemoveOrphanedResources := func(context.Context, []resource.Name) {
+		dummyRemoveOrphanedResourcesCallCount.Add(1)
+	}
+	mgr := setupModManager(t, ctx, parentAddr, logger, modmanageroptions.Options{
+		UntrustedEnv:            false,
+		RemoveOrphanedResources: dummyRemoveOrphanedResources,
+	})
+	err = mgr.Add(ctx, modCfgs...)
+	test.That(t, err, test.ShouldBeNil)
+
+	// Add resources and ensure "echo" works correctly.
+	models := map[string]resource.Model{
+		"myhelper":  resource.NewModel("rdk", "test", "helper"),
+		"myhelper2": resource.NewModel("rdk", "test", "helper2"),
+	}
+	for name, model := range models {
+		resName := generic.Named(name)
+		resCfg := resource.Config{
+			Name:  name,
+			API:   generic.API,
+			Model: model,
+		}
+		_, err = resCfg.Validate("test", resource.APITypeComponentName)
+		test.That(t, err, test.ShouldBeNil)
+
+		res, err := mgr.AddResource(ctx, resCfg, nil)
+		test.That(t, err, test.ShouldBeNil)
+		ok := mgr.IsModularResource(resName)
+		test.That(t, ok, test.ShouldBeTrue)
+
+		resp, err := res.DoCommand(ctx, map[string]interface{}{"command": "echo"})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, resp, test.ShouldNotBeNil)
+		test.That(t, resp["command"], test.ShouldEqual, "echo")
+
+		// Run 'kill_module' command through helper resource to cause module to exit
+		// with error. Assert that after module is restarted, helper is modularly
+		// managed again and remains functional.
+		_, err = res.DoCommand(ctx, map[string]interface{}{"command": "kill_module"})
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "rpc error")
+	}
+
+	testutils.WaitForAssertion(t, func(tb testing.TB) {
+		tb.Helper()
+		test.That(tb, logs.FilterMessageSnippet("Module successfully restarted").Len(),
+			test.ShouldEqual, 2)
+	})
+
+	// Assert that logs reflect that test-module crashed and there were no
+	// errors during restart.
+	test.That(t, logs.FilterMessageSnippet("Module has unexpectedly exited").Len(),
+		test.ShouldEqual, 2)
+	test.That(t, logs.FilterMessageSnippet("Error while restarting crashed module").Len(),
+		test.ShouldEqual, 0)
+
+	// Assert that RemoveOrphanedResources was called once for each module.
+	test.That(t, dummyRemoveOrphanedResourcesCallCount.Load(), test.ShouldEqual, 2)
+}
+
+var (
+	Green = "\033[32m"
+	Reset = "\033[0m"
+)
+
+// this helps make the test case much easier to read.
+func greenLog(t *testing.T, msg string) {
+	t.Log(Green + msg + Reset)
+}
+
+func TestRTPPassthrough(t *testing.T) {
+	ctx := context.Background()
+	logger := logging.NewTestLogger(t)
+
+	// Precompile module copies to avoid timeout issues when building takes too long.
+	modPath := rtestutils.BuildTempModule(t, "examples/customresources/demos/rtppassthrough")
+	modPath2 := rtestutils.BuildTempModule(t, "examples/customresources/demos/rtppassthrough")
+
+	// configs
+	noPassConf := resource.Config{
+		Name:  "no_rtp_passthrough_camera",
+		API:   camera.API,
+		Model: resource.NewModel("acme", "camera", "fake"),
+	}
+	_, err := noPassConf.Validate("test", resource.APITypeComponentName)
+	test.That(t, err, test.ShouldBeNil)
+
+	passConf := resource.Config{
+		Name:       "rtp_passthrough_camera",
+		API:        camera.API,
+		Model:      resource.NewModel("acme", "camera", "fake"),
+		Attributes: map[string]interface{}{"rtp_passthrough": true},
+	}
+	_, err = passConf.Validate("test", resource.APITypeComponentName)
+	test.That(t, err, test.ShouldBeNil)
+
+	// robot config
+	parentAddr, err := modlib.CreateSocketAddress(t.TempDir(), "parent")
+	test.That(t, err, test.ShouldBeNil)
+	fakeRobot := rtestutils.MakeRobotForModuleLogging(t, parentAddr)
+	defer func() {
+		test.That(t, fakeRobot.Stop(), test.ShouldBeNil)
+	}()
+
+	greenLog(t, "test AddModule")
+	mgr := NewManager(ctx, parentAddr, logger, modmanageroptions.Options{UntrustedEnv: false})
+	test.That(t, err, test.ShouldBeNil)
+
+	// add module executable
+	modCfg := config.Module{
+		Name:    "rtp-passthrough-module",
+		ExePath: modPath,
+	}
+	err = mgr.Add(ctx, modCfg)
+	test.That(t, err, test.ShouldBeNil)
+
+	// confirm registered
+	reg, ok := resource.LookupRegistration(camera.API, passConf.Model)
+	test.That(t, ok, test.ShouldBeTrue)
+	test.That(t, reg.Constructor, test.ShouldNotBeNil)
+
+	greenLog(t, "Camera that does not support rtp_passthrough returns errors from rtppassthrough.Source methods")
+	noPassCam, err := mgr.AddResource(ctx, noPassConf, nil)
+	test.That(t, err, test.ShouldBeNil)
+
+	noPassSource, ok := noPassCam.(rtppassthrough.Source)
+	test.That(t, ok, test.ShouldBeTrue)
+
+	subscribeRTPTimeout := time.Second * 5
+	subCtx, subCancelFn := context.WithTimeout(context.Background(), subscribeRTPTimeout)
+	sub, err := noPassSource.SubscribeRTP(subCtx, 512, func(pkts []*rtp.Packet) {
+		t.Log("should not happen")
+		t.FailNow()
+	})
+	subCancelFn()
+	test.That(t, err, test.ShouldBeError)
+	test.That(t, err.Error(), test.ShouldContainSubstring, fakeCamera.ErrRTPPassthroughNotEnabled.Error())
+	test.That(t, sub, test.ShouldResemble, rtppassthrough.NilSubscription)
+
+	err = noPassSource.Unsubscribe(context.Background(), sub.ID)
+	test.That(t, err, test.ShouldBeError)
+	test.That(t, err, test.ShouldBeError, camera.ErrUnknownSubscriptionID)
+
+	greenLog(t, "Camera that supports rtp_passthrough")
+	passCam, err := mgr.AddResource(ctx, passConf, nil)
+	test.That(t, err, test.ShouldBeNil)
+
+	passSource, ok := passCam.(rtppassthrough.Source)
+	test.That(t, ok, test.ShouldBeTrue)
+
+	// SubscribeRTP succeeds
+	calledCtx, calledFn := context.WithCancel(context.Background())
+	subCtx, subCancelFn = context.WithTimeout(context.Background(), subscribeRTPTimeout)
+	sub, err = passSource.SubscribeRTP(subCtx, 512, func(pkts []*rtp.Packet) {
+		test.That(t, len(pkts), test.ShouldBeGreaterThan, 0)
+		calledFn()
+	})
+	subCancelFn()
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, sub.ID, test.ShouldNotResemble, rtppassthrough.NilSubscription)
+	test.That(t, sub.Terminated.Err(), test.ShouldBeNil)
+	<-calledCtx.Done()
+
+	// Unsubscribe succeeds and terminates the subscription
+	greenLog(t, "Unsubscribe immediately terminates the relevant subscription")
+	err = passSource.Unsubscribe(context.Background(), sub.ID)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, sub.Terminated.Err(), test.ShouldBeError, context.Canceled)
+
+	greenLog(t, "The first SubscribeRTP call receives rtp packets")
+	calledCtx1, calledFn1 := context.WithCancel(context.Background())
+	subCtx, subCancelFn = context.WithTimeout(context.Background(), subscribeRTPTimeout)
+	sub1, err := passSource.SubscribeRTP(subCtx, 512, func(pkts []*rtp.Packet) {
+		test.That(t, len(pkts), test.ShouldBeGreaterThan, 0)
+		calledFn1()
+	})
+	subCancelFn()
+	test.That(t, err, test.ShouldBeNil)
+
+	greenLog(t, "The second SubscribeRTP call receives rtp packets concurrently")
+	calledCtx2, calledFn2 := context.WithCancel(context.Background())
+	subCtx, subCancelFn = context.WithTimeout(context.Background(), subscribeRTPTimeout)
+	sub2, err := passSource.SubscribeRTP(subCtx, 512, func(pkts []*rtp.Packet) {
+		test.That(t, len(pkts), test.ShouldBeGreaterThan, 0)
+		calledFn2()
+	})
+	subCancelFn()
+	test.That(t, err, test.ShouldBeNil)
+	<-calledCtx1.Done()
+	<-calledCtx2.Done()
+	test.That(t, sub1.Terminated.Err(), test.ShouldBeNil)
+	test.That(t, sub2.Terminated.Err(), test.ShouldBeNil)
+
+	greenLog(t, "camera.Close immediately terminates all subscriptions")
+	err = passCam.Close(ctx)
+	test.That(t, err, test.ShouldBeNil)
+
+	test.That(t, sub1.Terminated.Err(), test.ShouldBeError, context.Canceled)
+	test.That(t, sub2.Terminated.Err(), test.ShouldBeError, context.Canceled)
+
+	// reset passthrough
+	err = mgr.RemoveResource(ctx, passConf.ResourceName())
+	test.That(t, err, test.ShouldBeNil)
+
+	passCam, err = mgr.AddResource(ctx, passConf, nil)
+	test.That(t, err, test.ShouldBeNil)
+
+	passSource, ok = passCam.(rtppassthrough.Source)
+	test.That(t, ok, test.ShouldBeTrue)
+
+	greenLog(t, "RemoveResource eventually terminates all subscriptions")
+	// create 2 sub
+	subCtx, subCancelFn = context.WithTimeout(context.Background(), subscribeRTPTimeout)
+	sub1, err = passSource.SubscribeRTP(subCtx, 512, func(pkts []*rtp.Packet) {})
+	test.That(t, err, test.ShouldBeNil)
+	subCancelFn()
+
+	subCtx, subCancelFn = context.WithTimeout(context.Background(), subscribeRTPTimeout)
+	sub2, err = passSource.SubscribeRTP(subCtx, 512, func(pkts []*rtp.Packet) {})
+	test.That(t, err, test.ShouldBeNil)
+	subCancelFn()
+
+	test.That(t, sub1.Terminated.Err(), test.ShouldBeNil)
+	test.That(t, sub2.Terminated.Err(), test.ShouldBeNil)
+
+	// remove resource
+	err = mgr.RemoveResource(ctx, passConf.ResourceName())
+	test.That(t, err, test.ShouldBeNil)
+
+	// subs are canceled
+	test.That(t, utils.SelectContextOrWait(sub1.Terminated, time.Second), test.ShouldBeFalse)
+	test.That(t, utils.SelectContextOrWait(sub2.Terminated, time.Second), test.ShouldBeFalse)
+	test.That(t, sub1.Terminated.Err(), test.ShouldBeError, context.Canceled)
+	test.That(t, sub2.Terminated.Err(), test.ShouldBeError, context.Canceled)
+
+	// reset passthrough
+	passCam, err = mgr.AddResource(ctx, passConf, nil)
+	test.That(t, err, test.ShouldBeNil)
+
+	passSource, ok = passCam.(rtppassthrough.Source)
+	test.That(t, ok, test.ShouldBeTrue)
+
+	// NOTE: This test relies on the model's Close() method hanlding terminating all subscriptions
+	greenLog(t, "ReconfigureResource eventually terminates all subscriptions when the new model doesn't impelement Reconfigure")
+	// create a sub
+	subCtx, subCancelFn = context.WithTimeout(context.Background(), subscribeRTPTimeout)
+	sub, err = passSource.SubscribeRTP(subCtx, 512, func(pkts []*rtp.Packet) {})
+	subCancelFn()
+	test.That(t, err, test.ShouldBeNil)
+
+	test.That(t, sub.Terminated.Err(), test.ShouldBeNil)
+
+	// reconfigure
+	err = mgr.ReconfigureResource(ctx, passConf, nil)
+	test.That(t, err, test.ShouldBeNil)
+
+	test.That(t, utils.SelectContextOrWait(sub.Terminated, time.Second), test.ShouldBeFalse)
+	test.That(t, sub.Terminated.Err(), test.ShouldBeError, context.Canceled)
+
+	greenLog(t, "replacing a module binary eventually cancels subscriptions")
+	// add a subscription
+	subCtx, subCancelFn = context.WithTimeout(context.Background(), subscribeRTPTimeout)
+	sub, err = passSource.SubscribeRTP(subCtx, 512, func(pkts []*rtp.Packet) {})
+	subCancelFn()
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, sub.Terminated.Err(), test.ShouldBeNil)
+
+	// Change underlying binary path of module to be a different copy of the same module
+	modCfg.ExePath = modPath2
+
+	// Reconfigure module with new ExePath.
+	orphanedResourceNames, err := mgr.Reconfigure(ctx, modCfg)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(orphanedResourceNames), test.ShouldEqual, 2)
+	test.That(t, orphanedResourceNames, test.ShouldContain, noPassConf.ResourceName())
+	test.That(t, orphanedResourceNames, test.ShouldContain, passConf.ResourceName())
+	// the subscription from the previous module instance should be terminated
+	test.That(t, utils.SelectContextOrWait(sub.Terminated, time.Second), test.ShouldBeFalse)
+	test.That(t, sub.Terminated.Err(), test.ShouldBeError, context.Canceled)
+
+	greenLog(t, "modmanager Close eventually cancels subscriptions")
+	// reset passthrough
+	passCam, err = mgr.AddResource(ctx, passConf, nil)
+	test.That(t, err, test.ShouldBeNil)
+	passSource, ok = passCam.(rtppassthrough.Source)
+	test.That(t, ok, test.ShouldBeTrue)
+
+	// add a subscription
+	subCtx, subCancelFn = context.WithTimeout(context.Background(), subscribeRTPTimeout)
+	sub, err = passSource.SubscribeRTP(subCtx, 512, func(pkts []*rtp.Packet) {})
+	test.That(t, err, test.ShouldBeNil)
+	subCancelFn()
+	test.That(t, sub.Terminated.Err(), test.ShouldBeNil)
+
+	// close the mod manager
+	err = mgr.Close(ctx)
+	test.That(t, err, test.ShouldBeNil)
+
+	// the subscription should be terminated
+	test.That(t, utils.SelectContextOrWait(sub.Terminated, time.Second), test.ShouldBeFalse)
+	test.That(t, sub.Terminated.Err(), test.ShouldBeError, context.Canceled)
+}
+
+func TestAddStreamMaxTrackErr(t *testing.T) {
+	ctx := context.Background()
+	logger := logging.NewTestLogger(t)
+
+	// Precompile module copies to avoid timeout issues when building takes too long.
+	modPath := rtestutils.BuildTempModule(t, "examples/customresources/demos/rtppassthrough")
+	logger.Info(modPath)
+
+	api := camera.API
+	model := resource.NewModel("acme", "camera", "fake")
+	confs := []resource.Config{}
+	for i := 0; i < 10; i++ {
+		conf := resource.Config{
+			Name:       fmt.Sprintf("fake-%d", i),
+			API:        api,
+			Model:      model,
+			Attributes: map[string]interface{}{"rtp_passthrough": true},
+		}
+		_, err := conf.Validate("test", resource.APITypeComponentName)
+		confs = append(confs, conf)
+		test.That(t, err, test.ShouldBeNil)
+	}
+
+	parentAddr, err := modlib.CreateSocketAddress(t.TempDir(), "parent")
+	test.That(t, err, test.ShouldBeNil)
+	fakeRobot := rtestutils.MakeRobotForModuleLogging(t, parentAddr)
+	defer func() {
+		test.That(t, fakeRobot.Stop(), test.ShouldBeNil)
+	}()
+
+	greenLog(t, "test AddModule")
+	mgr := NewManager(ctx, parentAddr, logger, modmanageroptions.Options{UntrustedEnv: false})
+	test.That(t, err, test.ShouldBeNil)
+	defer func() {
+		test.That(t, mgr.Close(ctx), test.ShouldBeNil)
+	}()
+	// close the mod manager
+
+	modCfg := config.Module{
+		Name:    "rtp-passthrough-module",
+		ExePath: modPath,
+	}
+	err = mgr.Add(ctx, modCfg)
+	test.That(t, err, test.ShouldBeNil)
+
+	reg, ok := resource.LookupRegistration(camera.API, model)
+	test.That(t, ok, test.ShouldBeTrue)
+	test.That(t, reg.Constructor, test.ShouldNotBeNil)
+
+	greenLog(t, "add 10 cameras")
+	cams := []resource.Resource{}
+	for _, conf := range confs {
+		cam, err := mgr.AddResource(ctx, conf, nil)
+		test.That(t, err, test.ShouldBeNil)
+		cams = append(cams, cam)
+	}
+
+	sources := []rtppassthrough.Source{}
+	for _, cam := range cams {
+		source, ok := cam.(rtppassthrough.Source)
+		test.That(t, ok, test.ShouldBeTrue)
+		sources = append(sources, source)
+	}
+
+	first9Sources := sources[1:]
+
+	test.That(t, len(first9Sources), test.ShouldEqual, 9)
+
+	greenLog(t, "the first 9's SubscribeRTP calls succeed")
+	subscribeRTPTimeout := time.Second * 5
+	for _, source := range first9Sources {
+		calledCtx, calledFn := context.WithCancel(context.Background())
+		// SubscribeRTP succeeds
+		subCtx, subCancelFn := context.WithTimeout(context.Background(), subscribeRTPTimeout)
+		sub, err := source.SubscribeRTP(subCtx, 512, func(pkts []*rtp.Packet) {
+			test.That(t, len(pkts), test.ShouldBeGreaterThan, 0)
+			calledFn()
+		})
+		subCancelFn()
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, sub.ID, test.ShouldNotResemble, rtppassthrough.NilSubscription)
+		test.That(t, sub.Terminated.Err(), test.ShouldBeNil)
+		<-calledCtx.Done()
+	}
+
+	greenLog(t, "the 10th returns an error")
+	subCtx, subCancelFn := context.WithTimeout(context.Background(), subscribeRTPTimeout)
+	sub, err := sources[0].SubscribeRTP(subCtx, 512, func(pkts []*rtp.Packet) {
+		t.Log("should not happen")
+		t.FailNow()
+	})
+	subCancelFn()
+	test.That(t, err, test.ShouldBeError)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "only 9 WebRTC tracks are supported per peer connection")
+	test.That(t, sub, test.ShouldResemble, rtppassthrough.NilSubscription)
 }

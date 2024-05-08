@@ -12,6 +12,7 @@ import (
 	pb "go.viam.com/api/service/motion/v1"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"go.viam.com/rdk/motionplan"
 	rprotoutils "go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
@@ -78,7 +79,20 @@ type MoveOnMapReq struct {
 	Destination   spatialmath.Pose
 	SlamName      resource.Name
 	MotionCfg     *MotionConfiguration
+	Obstacles     []spatialmath.Geometry
 	Extra         map[string]interface{}
+}
+
+func (r MoveOnMapReq) String() string {
+	return fmt.Sprintf(
+		"motion.MoveOnMapReq{ComponentName: %s, SlamName: %s, Destination: %+v, "+
+			"MotionCfg: %#v, Obstacles: %s, Extra: %s}",
+		r.ComponentName,
+		r.SlamName,
+		spatialmath.PoseToProtobuf(r.Destination),
+		r.MotionCfg,
+		r.Obstacles,
+		r.Extra)
 }
 
 // StopPlanReq describes the request to StopPlan().
@@ -95,21 +109,18 @@ type ListPlanStatusesReq struct {
 	Extra           map[string]interface{}
 }
 
-// PlanStep represents a single step of the plan
-// Describes the pose each resource described by the plan
-// should move to at that step.
-type PlanStep map[resource.Name]spatialmath.Pose
-
-// Plan represents a motion plan.
-type Plan struct {
+// PlanWithMetadata represents a motion plan with additional metadata used by the motion service.
+type PlanWithMetadata struct {
 	// Unique ID of the plan
 	ID PlanID
 	// Name of the component the plan is planning for
 	ComponentName resource.Name
 	// Unique ID of the execution
 	ExecutionID ExecutionID
-	// Steps that describe the plan
-	Steps []PlanStep
+	// The motionplan itself
+	motionplan.Plan
+	// The GPS point to anchor visualized plans at
+	AnchorGeoPose *spatialmath.GeoPose
 }
 
 // PlanState denotes the state a Plan is in.
@@ -168,7 +179,7 @@ type PlanStatus struct {
 // PlanWithStatus contains a plan, its current status, and all state changes that came prior
 // sorted by ascending timestamp.
 type PlanWithStatus struct {
-	Plan          Plan
+	Plan          PlanWithMetadata
 	StatusHistory []PlanStatus
 }
 
@@ -184,13 +195,6 @@ type Service interface {
 		extra map[string]interface{},
 	) (bool, error)
 	MoveOnMap(
-		ctx context.Context,
-		componentName resource.Name,
-		destination spatialmath.Pose,
-		slamName resource.Name,
-		extra map[string]interface{},
-	) (bool, error)
-	MoveOnMapNew(
 		ctx context.Context,
 		req MoveOnMapReq,
 	) (ExecutionID, error)
@@ -298,10 +302,12 @@ func (ps PlanStatus) ToProto() *pb.PlanStatus {
 }
 
 // ToProto converts a Plan to a *pb.Plan.
-func (p Plan) ToProto() *pb.Plan {
+func (p PlanWithMetadata) ToProto() *pb.Plan {
 	steps := []*pb.PlanStep{}
-	for _, s := range p.Steps {
-		steps = append(steps, s.ToProto())
+	if p.Plan != nil {
+		for _, s := range p.Path() {
+			steps = append(steps, s.ToProto())
+		}
 	}
 
 	return &pb.Plan{
@@ -312,15 +318,18 @@ func (p Plan) ToProto() *pb.Plan {
 	}
 }
 
-// ToProto converts a Step to a *pb.PlanStep.
-func (s PlanStep) ToProto() *pb.PlanStep {
-	step := make(map[string]*pb.ComponentState)
-	for name, pose := range s {
-		pbPose := spatialmath.PoseToProtobuf(pose)
-		step[name.String()] = &pb.ComponentState{Pose: pbPose}
+// Renderable returns a copy of the struct substituting its Plan for a GeoPlan consisting of smuggled global coordinates
+// This will only be done if the AnchorGeoPose field is non-nil, otherwise the original struct will be returned.
+func (p PlanWithMetadata) Renderable() PlanWithMetadata {
+	if p.AnchorGeoPose == nil {
+		return p
 	}
-
-	return &pb.PlanStep{Step: step}
+	return PlanWithMetadata{
+		ID:            p.ID,
+		ComponentName: p.ComponentName,
+		ExecutionID:   p.ExecutionID,
+		Plan:          motionplan.NewGeoPlan(p.Plan, p.AnchorGeoPose.Location()),
+	}
 }
 
 // ToProto converts a PlanState to a pb.PlanState.

@@ -81,7 +81,7 @@ func (s *serviceServer) DoCommand(ctx context.Context,
 	return protoutils.DoFromResourceServer(ctx, gripper, req)
 }
 
-func (s *serviceServer) Geometries(ctx context.Context, req *commonpb.GetGeometriesRequest) (*commonpb.GetGeometriesResponse, error) {
+func (s *serviceServer) GetGeometries(ctx context.Context, req *commonpb.GetGeometriesRequest) (*commonpb.GetGeometriesResponse, error) {
 	res, err := s.coll.Resource(req.GetName())
 	if err != nil {
 		return nil, err

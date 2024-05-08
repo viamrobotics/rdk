@@ -7,14 +7,7 @@ package kinematicbase
 import (
 	"context"
 	"errors"
-	"fmt"
-	"math"
 	"sync"
-	"time"
-
-	"github.com/golang/geo/r3"
-	"go.uber.org/multierr"
-	utils "go.viam.com/utils"
 
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/logging"
@@ -25,23 +18,34 @@ import (
 	rdkutils "go.viam.com/rdk/utils"
 )
 
-var zeroInput = make([]referenceframe.Input, 3)
+var zeroInput = make([]referenceframe.Input, 4)
 
 const (
-	ptgIndex int = iota
-	trajectoryIndexWithinPTG
-	distanceAlongTrajectoryIndex
+	ptgIndex                          int = iota // The first input is the index of the associated PTG in the `ptgs` array
+	trajectoryAlphaWithinPTG                     // The second input is the alpha value of the ptg to use
+	startDistanceAlongTrajectoryIndex            // The third input is the start distance of the arc that will be executed
+	endDistanceAlongTrajectoryIndex              // The fourth input is the end distance of the arc that will be executed
 )
 
 type ptgBaseKinematics struct {
 	base.Base
 	motion.Localizer
-	logger       logging.Logger
-	frame        referenceframe.Frame
-	ptgs         []tpspace.PTGSolver
-	inputLock    sync.RWMutex
-	currentInput []referenceframe.Input
-	origin       spatialmath.Pose
+	logger                         logging.Logger
+	frame                          referenceframe.Frame
+	ptgs                           []tpspace.PTGSolver
+	courseCorrectionIdx            int
+	linVelocityMMPerSecond         float64
+	angVelocityDegsPerSecond       float64
+	nonzeroBaseTurningRadiusMeters float64
+
+	inputLock             sync.RWMutex
+	currentIdx            int
+	currentInputs         []referenceframe.Input
+	currentExecutingSteps []arcStep
+
+	origin     spatialmath.Pose
+	geometries []spatialmath.Geometry
+	cancelFunc context.CancelFunc
 }
 
 // wrapWithPTGKinematics takes a Base component and adds a PTG kinematic model so that it can be controlled.
@@ -57,48 +61,70 @@ func wrapWithPTGKinematics(
 		return nil, err
 	}
 
-	baseMillimetersPerSecond := options.LinearVelocityMMPerSec
-	if baseMillimetersPerSecond == 0 {
-		baseMillimetersPerSecond = defaultLinearVelocityMMPerSec
+	linVelocityMMPerSecond := options.LinearVelocityMMPerSec
+	if linVelocityMMPerSecond == 0 {
+		linVelocityMMPerSecond = defaultLinearVelocityMMPerSec
 	}
 
+	// Update our angular velocity and our
 	baseTurningRadiusMeters := properties.TurningRadiusMeters
-
-	logger.CInfof(ctx,
-		"using baseMillimetersPerSecond %f and baseTurningRadius %f for PTG base kinematics",
-		baseMillimetersPerSecond,
-		baseTurningRadiusMeters,
-	)
-
 	if baseTurningRadiusMeters < 0 {
 		return nil, errors.New("can only wrap with PTG kinematics if turning radius is greater than or equal to zero")
 	}
 
-	geometries, err := b.Geometries(ctx, nil)
-	if err != nil {
-		return nil, err
-	}
-
-	frame, err := tpspace.NewPTGFrameFromKinematicOptions(
-		b.Name().ShortName(),
+	angVelocityDegsPerSecond, err := correctAngularVelocityWithTurnRadius(
 		logger,
-		baseMillimetersPerSecond,
-		options.AngularVelocityDegsPerSec,
 		baseTurningRadiusMeters,
-		0, // If zero, will use default on the receiver end.
-		geometries,
-		options.NoSkidSteer,
+		linVelocityMMPerSecond,
+		options.AngularVelocityDegsPerSec,
 	)
 	if err != nil {
 		return nil, err
 	}
 
-	ptgProv, ok := frame.(tpspace.PTGProvider)
-	if !ok {
-		return nil, errors.New("unable to cast ptgk frame to a PTG Provider")
+	logger.CInfof(ctx,
+		"using linVelocityMMPerSecond %f, angVelocityDegsPerSecond %f, and baseTurningRadiusMeters %f for PTG base kinematics",
+		linVelocityMMPerSecond,
+		angVelocityDegsPerSecond,
+		baseTurningRadiusMeters,
+	)
+
+	geometries, err := b.Geometries(ctx, nil)
+	if len(geometries) == 0 || err != nil {
+		logger.CWarn(ctx, "base %s not configured with a geometry, will be considered a 300mm sphere for collision detection purposes.")
+		sphere, err := spatialmath.NewSphere(spatialmath.NewZeroPose(), 150., b.Name().Name)
+		if err != nil {
+			return nil, err
+		}
+		geometries = []spatialmath.Geometry{sphere}
+	}
+
+	nonzeroBaseTurningRadiusMeters := (linVelocityMMPerSecond / rdkutils.DegToRad(angVelocityDegsPerSecond)) / 1000.
+	frame, err := tpspace.NewPTGFrameFromKinematicOptions(
+		b.Name().ShortName(),
+		logger,
+		nonzeroBaseTurningRadiusMeters,
+		0, // If zero, will use default trajectory count on the receiver end.
+		geometries,
+		options.NoSkidSteer,
+		baseTurningRadiusMeters == 0,
+	)
+	if err != nil {
+		return nil, err
+	}
+	ptgProv, err := rdkutils.AssertType[tpspace.PTGProvider](frame)
+	if err != nil {
+		return nil, err
 	}
 	ptgs := ptgProv.PTGSolvers()
 	origin := spatialmath.NewZeroPose()
+
+	ptgCourseCorrection, err := rdkutils.AssertType[tpspace.PTGCourseCorrection](frame)
+	if err != nil {
+		return nil, err
+	}
+	courseCorrectionIdx := ptgCourseCorrection.CorrectionSolverIdx()
+
 	if localizer != nil {
 		originPIF, err := localizer.CurrentPosition(ctx)
 		if err != nil {
@@ -108,13 +134,18 @@ func wrapWithPTGKinematics(
 	}
 
 	return &ptgBaseKinematics{
-		Base:         b,
-		Localizer:    localizer,
-		logger:       logger,
-		frame:        frame,
-		ptgs:         ptgs,
-		currentInput: zeroInput,
-		origin:       origin,
+		Base:                           b,
+		Localizer:                      localizer,
+		logger:                         logger,
+		frame:                          frame,
+		ptgs:                           ptgs,
+		courseCorrectionIdx:            courseCorrectionIdx,
+		linVelocityMMPerSecond:         linVelocityMMPerSecond,
+		angVelocityDegsPerSecond:       angVelocityDegsPerSecond,
+		nonzeroBaseTurningRadiusMeters: nonzeroBaseTurningRadiusMeters,
+		currentInputs:                  zeroInput,
+		origin:                         origin,
+		geometries:                     geometries,
 	}, nil
 }
 
@@ -122,124 +153,89 @@ func (ptgk *ptgBaseKinematics) Kinematics() referenceframe.Frame {
 	return ptgk.frame
 }
 
+// For a ptgBaseKinematics, `CurrentInputs` returns inputs which reflect what the base is currently doing.
+// If the base is not moving, the CurrentInputs will all be zeros, and a `Transform()` will yield the zero pose.
+// If the base is moving, then the inputs will be nonzero and the `Transform()` of the CurrentInputs will yield the pose at which the base
+// is expected to arrive after completing execution of the current set of inputs.
 func (ptgk *ptgBaseKinematics) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
-	// A PTG frame is always at its own origin, so current inputs are always all zero/not meaningful
 	ptgk.inputLock.RLock()
 	defer ptgk.inputLock.RUnlock()
-	return ptgk.currentInput, nil
+	return ptgk.currentInputs, nil
 }
 
-func (ptgk *ptgBaseKinematics) GoToInputs(ctx context.Context, inputs []referenceframe.Input) (err error) {
-	if len(inputs) != 3 {
-		return errors.New("inputs to ptg kinematic base must be length 3")
-	}
-
-	defer func() {
-		ptgk.inputLock.Lock()
-		ptgk.currentInput = zeroInput
-		ptgk.inputLock.Unlock()
-	}()
-
-	ptgk.logger.CDebugf(ctx, "GoToInputs going to %v", inputs)
-
-	selectedPTG := ptgk.ptgs[int(math.Round(inputs[ptgIndex].Value))]
-	selectedTraj, err := selectedPTG.Trajectory(inputs[trajectoryIndexWithinPTG].Value, inputs[distanceAlongTrajectoryIndex].Value)
-	if err != nil {
-		stopCtx, cancelFn := context.WithTimeout(context.Background(), time.Second*5)
-		defer cancelFn()
-		return multierr.Combine(err, ptgk.Base.Stop(stopCtx, nil))
-	}
-
-	lastDist := 0.
-	lastTime := 0.
-	lastLinVel := r3.Vector{}
-	lastAngVel := r3.Vector{}
-	for i, trajNode := range selectedTraj {
-		ptgk.inputLock.Lock() // In the case where there's actual contention here, this could cause timing issues; how to solve?
-		ptgk.currentInput = []referenceframe.Input{inputs[0], inputs[1], {lastDist}}
-		ptgk.inputLock.Unlock()
-		lastDist = trajNode.Dist
-		// TODO: Most trajectories update their velocities infrequently, or sometimes never.
-		// This function could be improved by looking ahead through the trajectory and minimizing the amount of SetVelocity calls.
-		timestep := time.Duration((trajNode.Time-lastTime)*1000*1000) * time.Microsecond
-		lastTime = trajNode.Time
-		linVel := r3.Vector{0, trajNode.LinVelMMPS, 0}
-		angVel := r3.Vector{0, 0, rdkutils.RadToDeg(trajNode.AngVelRPS)}
-
-		// This should call SetVelocity if:
-		// 1) this is the first iteration of the loop, or
-		// 2) either of the linear or angular velocities has changed
-		if i == 0 || !(linVel.ApproxEqual(lastLinVel) && angVel.ApproxEqual(lastAngVel)) {
-			ptgk.logger.CDebugf(ctx,
-				"setting velocity to linear %v angular %v and running velocity step for %s",
-				linVel,
-				angVel,
-				timestep,
-			)
-
-			err := ptgk.Base.SetVelocity(
-				ctx,
-				linVel,
-				angVel,
-				nil,
-			)
-			if err != nil {
-				stopCtx, cancelFn := context.WithTimeout(context.Background(), time.Second*5)
-				defer cancelFn()
-				return multierr.Combine(err, ptgk.Base.Stop(stopCtx, nil))
-			}
-			lastLinVel = linVel
-			lastAngVel = angVel
-		}
-		if !utils.SelectContextOrWait(ctx, timestep) {
-			ptgk.logger.CDebug(ctx, ctx.Err().Error())
-			// context cancelled
-			break
-		}
-	}
-
-	stopCtx, cancelFn := context.WithTimeout(context.Background(), time.Second*5)
-	defer cancelFn()
-	return ptgk.Base.Stop(stopCtx, nil)
-}
-
-func (ptgk *ptgBaseKinematics) ErrorState(ctx context.Context, plan [][]referenceframe.Input, currentNode int) (spatialmath.Pose, error) {
-	if currentNode < 0 || currentNode >= len(plan) {
-		return nil, fmt.Errorf("cannot get ErrorState for node %d, must be >= 0 and less than plan length %d", currentNode, len(plan))
+func (ptgk *ptgBaseKinematics) ErrorState(ctx context.Context) (spatialmath.Pose, error) {
+	if ptgk.Localizer == nil {
+		return nil, errors.New("cannot call ErrorState on a base without a localizer")
 	}
 
 	// Get pose-in-frame of the base via its localizer. The offset between the localizer and its base should already be accounted for.
-	actualPIFRaw, err := ptgk.CurrentPosition(ctx)
+	actualPIF, err := ptgk.CurrentPosition(ctx)
 	if err != nil {
 		return nil, err
 	}
-	actualPIF := spatialmath.PoseBetween(ptgk.origin, actualPIFRaw.Pose())
-
-	var nominalPose spatialmath.Pose
 
 	// Determine the nominal pose, that is, the pose where the robot ought be if it had followed the plan perfectly up until this point.
-	// This is done differently depending on what sort of frame we are working with.
-	// TODO: The `rectifyTPspacePath` in motionplan does basically this. Deduplicate.
-	runningPose := spatialmath.NewZeroPose()
-	for i := 0; i < currentNode; i++ {
-		wp := plan[i]
-		wpPose, err := ptgk.frame.Transform(wp)
-		if err != nil {
-			return nil, err
-		}
-		runningPose = spatialmath.Compose(runningPose, wpPose)
-	}
-
-	// Determine how far through the current trajectory we are
+	ptgk.inputLock.RLock()
+	currentIdx := ptgk.currentIdx
+	currentExecutingSteps := ptgk.currentExecutingSteps
+	ptgk.inputLock.RUnlock()
 	currentInputs, err := ptgk.CurrentInputs(ctx)
 	if err != nil {
 		return nil, err
 	}
-	currPose, err := ptgk.frame.Transform(currentInputs)
+	// The inputs representing the arc we have already executed can be computed as below.
+	// The return of CurrentInputs() represents the amount left on the arc, as an external caller will be more interested in where a base
+	// is going than where it has been.
+	executedInputs := []referenceframe.Input{
+		currentInputs[ptgIndex],
+		currentInputs[trajectoryAlphaWithinPTG],
+		currentExecutingSteps[currentIdx].arcSegment.StartConfiguration[startDistanceAlongTrajectoryIndex],
+		currentInputs[startDistanceAlongTrajectoryIndex],
+	}
+
+	currPoseInArc, err := ptgk.frame.Transform(executedInputs)
 	if err != nil {
 		return nil, err
 	}
-	nominalPose = spatialmath.Compose(runningPose, currPose)
+	nominalPose := spatialmath.Compose(currentExecutingSteps[currentIdx].arcSegment.StartPosition, currPoseInArc)
 
-	return spatialmath.PoseBetween(nominalPose, actualPIF), nil
+	return spatialmath.PoseBetween(nominalPose, actualPIF.Pose()), nil
+}
+
+func correctAngularVelocityWithTurnRadius(logger logging.Logger, turnRadMeters, velocityMMps, angVelocityDegps float64) (float64, error) {
+	angVelocityRadps := rdkutils.DegToRad(angVelocityDegps)
+	turnRadMillimeters := turnRadMeters * 1000.
+	if angVelocityRadps == 0 {
+		if turnRadMeters == 0 {
+			return -1, errors.New("cannot create ptg frame, turning radius and angular velocity cannot both be zero")
+		}
+		angVelocityRadps = velocityMMps / turnRadMillimeters
+	} else if turnRadMeters > 0 {
+		// Compute smallest allowable turning radius permitted by the given speeds. Use the greater of the two.
+		calcTurnRadius := (velocityMMps / angVelocityRadps)
+		if calcTurnRadius > turnRadMillimeters {
+			// This is a debug message because the user will never notice the difference; the trajectories executed by the base will be a
+			// subset of the ones that would have been had this conditional not been hit.
+			logger.Debugf(
+				"given turning radius was %f but a linear velocity of %f "+
+					"meters per sec and angular velocity of %f degs per sec only allow a turning radius of %f, using that instead",
+				turnRadMeters, velocityMMps/1000., angVelocityDegps, calcTurnRadius,
+			)
+		} else if calcTurnRadius < turnRadMillimeters {
+			// If max allowed angular velocity would turn tighter than given turn radius, shrink the max used angular velocity
+			// to match the requested tightest turn radius.
+			angVelocityRadps = velocityMMps / turnRadMillimeters
+			// This is a warning message because the user will observe the base turning at a different speed than the one requested.
+			logger.Warnf(
+				"given turning radius was %f but a linear velocity of %f "+
+					"meters per sec and angular velocity of %f degs per sec would turn at a radius of %f. Decreasing angular velocity to %f.",
+				turnRadMeters, velocityMMps/1000., angVelocityDegps, calcTurnRadius, rdkutils.RadToDeg(angVelocityRadps),
+			)
+		}
+	}
+	return rdkutils.RadToDeg(angVelocityRadps), nil
+}
+
+func (ptgk *ptgBaseKinematics) Geometries(ctx context.Context, extra map[string]interface{}) ([]spatialmath.Geometry, error) {
+	return ptgk.geometries, nil
 }

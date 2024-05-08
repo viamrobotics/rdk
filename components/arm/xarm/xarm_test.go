@@ -93,10 +93,10 @@ func TestWriteViam(t *testing.T) {
 			Options:            opt,
 		})
 		test.That(t, err, test.ShouldBeNil)
-		return plan[len(plan)-1]
+		return plan.Trajectory()[len(plan.Trajectory())-1]
 	}
 
-	seed := plan[len(plan)-1]
+	seed := plan.Trajectory()[len(plan.Trajectory())-1]
 	for _, goal = range viamPoints {
 		seed = goToGoal(seed, goal)
 	}
@@ -132,7 +132,6 @@ func TestReconfigure(t *testing.T) {
 			Speed:        0.3,
 			Host:         host1,
 			Port:         int(port1),
-			parsedPort:   port1Str,
 			Acceleration: 0.1,
 		},
 	}
@@ -143,7 +142,6 @@ func TestReconfigure(t *testing.T) {
 			Speed:        0.5,
 			Host:         host1,
 			Port:         int(port1),
-			parsedPort:   port1Str,
 			Acceleration: 0.3,
 		},
 	}
@@ -154,7 +152,6 @@ func TestReconfigure(t *testing.T) {
 			Speed:        0.6,
 			Host:         host2,
 			Port:         int(port2),
-			parsedPort:   port2Str,
 			Acceleration: 0.34,
 		},
 	}

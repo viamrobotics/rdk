@@ -1,6 +1,6 @@
 import type { commonApi } from '@viamrobotics/sdk';
 
-type Resource = commonApi.ResourceName.AsObject
+type Resource = commonApi.ResourceName.AsObject;
 
 export const sortByName = (item1: Resource, item2: Resource) => {
   if (item1.name > item2.name) {
@@ -74,8 +74,8 @@ export const filterWithStatus = (
   status: Record<string, unknown>,
   subtype: string
 ) => {
-  return resources
-    .filter((resource) =>
-      resource.subtype === subtype &&
-      status[resourceNameToString(resource)]);
+  return resources.filter(
+    (resource) =>
+      resource.subtype === subtype && status[resourceNameToString(resource)]
+  );
 };

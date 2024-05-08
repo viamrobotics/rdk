@@ -3,12 +3,12 @@ package gpio
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"sync"
 	"time"
 
 	"github.com/bep/debounce"
+	"github.com/pkg/errors"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/board"
@@ -98,7 +98,7 @@ func NewGPIOController(
 		return nil, err
 	}
 
-	ctx, cancel := context.WithCancel(ctx)
+	cancelCtx, cancel := context.WithCancel(context.Background())
 	c := Controller{
 		Named:      conf.ResourceName().AsNamed(),
 		logger:     logger,
@@ -116,15 +116,19 @@ func NewGPIOController(
 		return nil, err
 	}
 
-	for interrupt, control := range newConf.Buttons {
-		err := c.newButton(ctx, brd, interrupt, *control)
+	for interruptName, control := range newConf.Buttons {
+		interrupt, err := brd.DigitalInterruptByName(interruptName)
+		if err != nil {
+			return nil, err
+		}
+		err = c.newButton(cancelCtx, brd, interrupt, *control)
 		if err != nil {
 			return nil, err
 		}
 	}
 
 	for reader, axis := range newConf.Axes {
-		err := c.newAxis(ctx, brd, reader, *axis)
+		err := c.newAxis(cancelCtx, brd, reader, *axis)
 		if err != nil {
 			return nil, err
 		}
@@ -254,17 +258,15 @@ func (c *Controller) sendConnectionStatus(ctx context.Context, connected bool) {
 	}
 }
 
-func (c *Controller) newButton(ctx context.Context, brd board.Board, intName string, cfg ButtonConfig) error {
-	interrupt, ok := brd.DigitalInterruptByName(intName)
-	if !ok {
-		return fmt.Errorf("can't find DigitalInterrupt (%s)", intName)
-	}
+func (c *Controller) newButton(ctx context.Context, brd board.Board, interrupt board.DigitalInterrupt, cfg ButtonConfig) error {
 	tickChan := make(chan board.Tick)
-	interrupt.AddCallback(tickChan)
+	err := brd.StreamTicks(ctx, []board.DigitalInterrupt{interrupt}, tickChan, nil)
+	if err != nil {
+		return errors.Wrap(err, "error getting digital interrupt ticks")
+	}
 
 	c.activeBackgroundWorkers.Add(1)
 	utils.ManagedGo(func() {
-		defer interrupt.RemoveCallback(tickChan)
 		debounced := debounce.New(time.Millisecond * time.Duration(cfg.DebounceMs))
 		for {
 			var val bool
@@ -304,9 +306,9 @@ func (c *Controller) newButton(ctx context.Context, brd board.Board, intName str
 }
 
 func (c *Controller) newAxis(ctx context.Context, brd board.Board, analogName string, cfg AxisConfig) error {
-	reader, ok := brd.AnalogReaderByName(analogName)
-	if !ok {
-		return fmt.Errorf("can't find AnalogReader (%s)", analogName)
+	reader, err := brd.AnalogByName(analogName)
+	if err != nil {
+		return err
 	}
 
 	c.activeBackgroundWorkers.Add(1)

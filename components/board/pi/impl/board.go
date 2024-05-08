@@ -31,13 +31,14 @@ import (
 
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
-	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/board/v1"
+	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/board/genericlinux/buses"
 	"go.viam.com/rdk/components/board/mcp3008helper"
 	picommon "go.viam.com/rdk/components/board/pi/common"
+	"go.viam.com/rdk/components/board/pinwrappers"
 	"go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
@@ -64,7 +65,7 @@ func init() {
 // A Config describes the configuration of a board and all of its connected parts.
 type Config struct {
 	AnalogReaders     []mcp3008helper.MCP3008AnalogConfig `json:"analogs,omitempty"`
-	DigitalInterrupts []board.DigitalInterruptConfig      `json:"digital_interrupts,omitempty"`
+	DigitalInterrupts []DigitalInterruptConfig            `json:"digital_interrupts,omitempty"`
 }
 
 // Validate ensures all parts of the config are valid.
@@ -95,13 +96,15 @@ type piPigpio struct {
 	cancelFunc    context.CancelFunc
 	duty          int // added for mutex
 	gpioConfigSet map[int]bool
-	analogReaders map[string]board.AnalogReader
+	analogReaders map[string]*pinwrappers.AnalogSmoother
 	// `interrupts` maps interrupt names to the interrupts. `interruptsHW` maps broadcom addresses
 	// to these same values. The two should always have the same set of values.
-	interrupts   map[string]board.ReconfigurableDigitalInterrupt
-	interruptsHW map[uint]board.ReconfigurableDigitalInterrupt
+	interrupts   map[string]ReconfigurableDigitalInterrupt
+	interruptsHW map[uint]ReconfigurableDigitalInterrupt
 	logger       logging.Logger
 	isClosed     bool
+
+	activeBackgroundWorkers sync.WaitGroup
 }
 
 var (
@@ -202,9 +205,33 @@ func (pi *piPigpio) Reconfigure(
 	return nil
 }
 
+// StreamTicks starts a stream of digital interrupt ticks.
+func (pi *piPigpio) StreamTicks(ctx context.Context, interrupts []board.DigitalInterrupt, ch chan board.Tick,
+	extra map[string]interface{},
+) error {
+	for _, i := range interrupts {
+		AddCallback(i.(*BasicDigitalInterrupt), ch)
+	}
+
+	pi.activeBackgroundWorkers.Add(1)
+
+	utils.ManagedGo(func() {
+		// Wait until it's time to shut down then remove callbacks.
+		select {
+		case <-ctx.Done():
+		case <-pi.cancelCtx.Done():
+		}
+		for _, i := range interrupts {
+			RemoveCallback(i.(*BasicDigitalInterrupt), ch)
+		}
+	}, pi.activeBackgroundWorkers.Done)
+
+	return nil
+}
+
 func (pi *piPigpio) reconfigureAnalogReaders(ctx context.Context, cfg *Config) error {
 	// No need to reconfigure the old analog readers; just throw them out and make new ones.
-	pi.analogReaders = map[string]board.AnalogReader{}
+	pi.analogReaders = map[string]*pinwrappers.AnalogSmoother{}
 	for _, ac := range cfg.AnalogReaders {
 		channel, err := strconv.Atoi(ac.Pin)
 		if err != nil {
@@ -214,7 +241,7 @@ func (pi *piPigpio) reconfigureAnalogReaders(ctx context.Context, cfg *Config) e
 		bus := &piPigpioSPI{pi: pi, busSelect: ac.SPIBus}
 		ar := &mcp3008helper.MCP3008AnalogReader{channel, bus, ac.ChipSelect}
 
-		pi.analogReaders[ac.Name] = board.SmoothAnalogReader(ar, board.AnalogReaderConfig{
+		pi.analogReaders[ac.Name] = pinwrappers.SmoothAnalogReader(ar, board.AnalogReaderConfig{
 			AverageOverMillis: ac.AverageOverMillis, SamplesPerSecond: ac.SamplesPerSecond,
 		}, pi.logger)
 	}
@@ -224,8 +251,8 @@ func (pi *piPigpio) reconfigureAnalogReaders(ctx context.Context, cfg *Config) e
 // This is a helper function for digital interrupt reconfiguration. It finds the key in the map
 // whose value is the given interrupt, and returns that key and whether we successfully found it.
 func findInterruptName(
-	interrupt board.ReconfigurableDigitalInterrupt,
-	interrupts map[string]board.ReconfigurableDigitalInterrupt,
+	interrupt ReconfigurableDigitalInterrupt,
+	interrupts map[string]ReconfigurableDigitalInterrupt,
 ) (string, bool) {
 	for key, value := range interrupts {
 		if value == interrupt {
@@ -237,8 +264,8 @@ func findInterruptName(
 
 // This is a very similar helper function, which does the same thing but for broadcom addresses.
 func findInterruptBcom(
-	interrupt board.ReconfigurableDigitalInterrupt,
-	interruptsHW map[uint]board.ReconfigurableDigitalInterrupt,
+	interrupt ReconfigurableDigitalInterrupt,
+	interruptsHW map[uint]ReconfigurableDigitalInterrupt,
 ) (uint, bool) {
 	for key, value := range interruptsHW {
 		if value == interrupt {
@@ -254,18 +281,18 @@ func (pi *piPigpio) reconfigureInterrupts(ctx context.Context, cfg *Config) erro
 	oldInterruptsHW := pi.interruptsHW
 	// Like with pi.interrupts and pi.interruptsHW, these two will have identical values, mapped to
 	// using different keys.
-	newInterrupts := map[string]board.ReconfigurableDigitalInterrupt{}
-	newInterruptsHW := map[uint]board.ReconfigurableDigitalInterrupt{}
+	newInterrupts := map[string]ReconfigurableDigitalInterrupt{}
+	newInterruptsHW := map[uint]ReconfigurableDigitalInterrupt{}
 
 	// This begins as a set of all interrupts, but we'll remove the ones we reuse. Then, we'll
 	// close whatever is left over.
-	interruptsToClose := make(map[board.ReconfigurableDigitalInterrupt]struct{}, len(oldInterrupts))
+	interruptsToClose := make(map[ReconfigurableDigitalInterrupt]struct{}, len(oldInterrupts))
 	for _, interrupt := range oldInterrupts {
 		interruptsToClose[interrupt] = struct{}{}
 	}
 
 	reuseInterrupt := func(
-		interrupt board.ReconfigurableDigitalInterrupt, name string, bcom uint,
+		interrupt ReconfigurableDigitalInterrupt, name string, bcom uint,
 	) error {
 		newInterrupts[name] = interrupt
 		newInterruptsHW[bcom] = interrupt
@@ -324,7 +351,7 @@ func (pi *piPigpio) reconfigureInterrupts(ctx context.Context, cfg *Config) erro
 		}
 
 		// Otherwise, create the new interrupt from scratch.
-		di, err := board.CreateDigitalInterrupt(newConfig)
+		di, err := CreateDigitalInterrupt(newConfig)
 		if err != nil {
 			return err
 		}
@@ -356,9 +383,6 @@ func (pi *piPigpio) reconfigureInterrupts(ctx context.Context, cfg *Config) erro
 			newInterruptsHW[bcom] = interrupt
 		} else {
 			// This digital interrupt is no longer used.
-			if err := interrupt.Close(ctx); err != nil {
-				return err // This should never happen, but it makes the linter happy.
-			}
 			if result := C.teardownInterrupt(C.int(bcom)); result != 0 {
 				return picommon.ConvertErrorCodeToMessage(int(result), "error")
 			}
@@ -624,8 +648,8 @@ func (s *piPigpioSPIHandle) Close() error {
 	return nil
 }
 
-// AnalogReaderNames returns the names of all known analog readers.
-func (pi *piPigpio) AnalogReaderNames() []string {
+// AnalogNames returns the names of all known analog pins.
+func (pi *piPigpio) AnalogNames() []string {
 	pi.mu.Lock()
 	defer pi.mu.Unlock()
 	names := []string{}
@@ -646,19 +670,22 @@ func (pi *piPigpio) DigitalInterruptNames() []string {
 	return names
 }
 
-// AnalogReaderByName returns an analog reader by name.
-func (pi *piPigpio) AnalogReaderByName(name string) (board.AnalogReader, bool) {
+// AnalogByName returns an analog pin by name.
+func (pi *piPigpio) AnalogByName(name string) (board.Analog, error) {
 	pi.mu.Lock()
 	defer pi.mu.Unlock()
 	a, ok := pi.analogReaders[name]
-	return a, ok
+	if !ok {
+		return nil, errors.Errorf("can't find AnalogReader (%s)", name)
+	}
+	return a, nil
 }
 
 // DigitalInterruptByName returns a digital interrupt by name.
 // NOTE: During board setup, if a digital interrupt has not been created
 // for a pin, then this function will attempt to create one with the pin
 // number as the name.
-func (pi *piPigpio) DigitalInterruptByName(name string) (board.DigitalInterrupt, bool) {
+func (pi *piPigpio) DigitalInterruptByName(name string) (board.DigitalInterrupt, error) {
 	pi.mu.Lock()
 	defer pi.mu.Unlock()
 	d, ok := pi.interrupts[name]
@@ -666,28 +693,28 @@ func (pi *piPigpio) DigitalInterruptByName(name string) (board.DigitalInterrupt,
 		var err error
 		if bcom, have := broadcomPinFromHardwareLabel(name); have {
 			if d, ok := pi.interruptsHW[bcom]; ok {
-				return d, ok
+				return d, nil
 			}
-			d, err = board.CreateDigitalInterrupt(board.DigitalInterruptConfig{
+			d, err = CreateDigitalInterrupt(DigitalInterruptConfig{
 				Name: name,
 				Pin:  name,
 				Type: "basic",
 			})
 			if err != nil {
-				return nil, false
+				return nil, err
 			}
 			if result := C.setupInterrupt(C.int(bcom)); result != 0 {
 				err := picommon.ConvertErrorCodeToMessage(int(result), "error")
-				pi.logger.Errorf("Unable to set up interrupt on pin %s: %s", name, err)
-				return nil, false
+				return nil, errors.Errorf("Unable to set up interrupt on pin %s: %s", name, err)
 			}
 
 			pi.interrupts[name] = d
 			pi.interruptsHW[bcom] = d
-			return d, true
+			return d, nil
 		}
+		return d, fmt.Errorf("interrupt %s does not exist", name)
 	}
-	return d, ok
+	return d, nil
 }
 
 func (pi *piPigpio) SetPowerMode(ctx context.Context, mode pb.PowerMode, duration *time.Duration) error {
@@ -711,21 +738,21 @@ func (pi *piPigpio) Close(ctx context.Context) error {
 		return nil
 	}
 	pi.cancelFunc()
+	pi.activeBackgroundWorkers.Wait()
 
 	var err error
 	for _, analog := range pi.analogReaders {
 		err = multierr.Combine(err, analog.Close(ctx))
 	}
-	pi.analogReaders = map[string]board.AnalogReader{}
+	pi.analogReaders = map[string]*pinwrappers.AnalogSmoother{}
 
-	for bcom, interrupt := range pi.interruptsHW {
-		err = multierr.Combine(err, interrupt.Close(ctx))
+	for bcom := range pi.interruptsHW {
 		if result := C.teardownInterrupt(C.int(bcom)); result != 0 {
 			err = multierr.Combine(err, picommon.ConvertErrorCodeToMessage(int(result), "error"))
 		}
 	}
-	pi.interrupts = map[string]board.ReconfigurableDigitalInterrupt{}
-	pi.interruptsHW = map[uint]board.ReconfigurableDigitalInterrupt{}
+	pi.interrupts = map[string]ReconfigurableDigitalInterrupt{}
+	pi.interruptsHW = map[uint]ReconfigurableDigitalInterrupt{}
 
 	instanceMu.Lock()
 	if len(instances) == 1 {
@@ -745,11 +772,6 @@ func (pi *piPigpio) Close(ctx context.Context) error {
 
 	pi.isClosed = true
 	return err
-}
-
-// Status returns the current status of the board.
-func (pi *piPigpio) Status(ctx context.Context, extra map[string]interface{}) (*commonpb.BoardStatus, error) {
-	return board.CreateStatus(ctx, pi, extra)
 }
 
 var (
@@ -780,9 +802,19 @@ func pigpioInterruptCallback(gpio, level int, rawTick uint32) {
 		}
 		// this should *not* block for long otherwise the lock
 		// will be held
-		err := i.Tick(instance.cancelCtx, high, tick*1000)
-		if err != nil {
-			instance.logger.Error(err)
+		switch di := i.(type) {
+		case *BasicDigitalInterrupt:
+			err := Tick(instance.cancelCtx, di, high, tick*1000)
+			if err != nil {
+				instance.logger.Error(err)
+			}
+		case *ServoDigitalInterrupt:
+			err := ServoTick(instance.cancelCtx, di, high, tick*1000)
+			if err != nil {
+				instance.logger.Error(err)
+			}
+		default:
+			instance.logger.Error("unknown digital interrupt type")
 		}
 	}
 }

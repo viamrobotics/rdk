@@ -1,7 +1,13 @@
-//go:build !no_tflite && !no_cgo
+//go:build !no_tflite && (!no_cgo || android)
 
 // Package tflitecpu runs tflite model files on the host's CPU, as an implementation the ML model service.
 package tflitecpu
+
+/*
+#cgo android,arm64 LDFLAGS: -L${SRCDIR}/android/jni/arm64-v8a
+#cgo android,amd64 LDFLAGS: -L${SRCDIR}/android/jni/x86_64
+*/
+import "C"
 
 import (
 	"context"
@@ -43,11 +49,18 @@ func init() {
 // TFLiteConfig contains the parameters specific to a tflite_cpu implementation
 // of the MLMS (machine learning model service).
 type TFLiteConfig struct {
-	resource.TriviallyValidateConfig
 	// this should come from the attributes of the tflite_cpu instance of the MLMS
 	ModelPath  string `json:"model_path"`
 	NumThreads int    `json:"num_threads"`
 	LabelPath  string `json:"label_path"`
+}
+
+// Validate will check if the config is valid.
+func (conf *TFLiteConfig) Validate(path string) ([]string, error) {
+	if conf.ModelPath == "" {
+		return nil, errors.New("model_path attribute cannot be empty")
+	}
+	return nil, nil
 }
 
 // Model is a struct that implements the TensorflowLite CPU implementation of the MLMS.
@@ -233,7 +246,7 @@ func getTensorInfo(inputT *tflite_metadata.TensorMetadataT) mlmodel.TensorInfo {
 			Name:        inputT.AssociatedFiles[i].Name,
 			Description: inputT.AssociatedFiles[i].Description,
 		}
-		switch inputT.AssociatedFiles[i].Type { //nolint:exhaustive
+		switch inputT.AssociatedFiles[i].Type {
 		case tflite_metadata.AssociatedFileTypeTENSOR_AXIS_LABELS:
 			outFile.LabelType = mlmodel.LabelTypeTensorAxis
 		case tflite_metadata.AssociatedFileTypeTENSOR_VALUE_LABELS:

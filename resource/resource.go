@@ -37,7 +37,7 @@ const (
 
 var (
 	reservedChars     = [...]string{":", "+"} // colons are delimiters for remote names, plus signs are used for WebRTC track names.
-	resRegexValidator = regexp.MustCompile(`^([\w-]+:[\w-]+:(?:[\w-]+))\/?([\w-]+:(?:[\w-]+:)*)?(.+)?$`)
+	resRegexValidator = regexp.MustCompile(`^([\w-]+:[\w-]+:(?:[\w-]+))\/([\w-]+:(?:[\w-]+:)*)?(.+)?$`)
 )
 
 // A Resource is the fundamental building block of a robot; it is either a component or a service
@@ -47,6 +47,8 @@ var (
 // Resources that fail to reconfigure or rebuild may be closed and must return
 // errors when in a closed state for all non Close methods.
 type Resource interface {
+	// Get the Name of the resource.
+	//    // myArmName := myArm.Name()
 	Name() Name
 
 	// Reconfigure must reconfigure the resource atomically and in place. If this
@@ -55,11 +57,15 @@ type Resource interface {
 	Reconfigure(ctx context.Context, deps Dependencies, conf Config) error
 
 	// DoCommand sends/receives arbitrary data
+	//    // myBoard, err := board.FromRobot(machine, "my_board")
+	//    // resp, err := myBoard.DoCommand(ctx, map[string]interface{}{"command": "dosomething", "someparameter": 52})
 	DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
 
 	// Close must safely shut down the resource and prevent further use.
 	// Close must be idempotent.
 	// Later reconfiguration may allow a resource to be "open" again.
+	//    // myBoard, err := board.FromRobot(machine, "my_board")
+	//    // err := myBoard.Close(ctx)
 	Close(ctx context.Context) error
 }
 
@@ -164,7 +170,7 @@ func (t TriviallyReconfigurable) Reconfigure(ctx context.Context, deps Dependenc
 
 // TriviallyCloseable is to be embedded by any resource that does not care about
 // handling Closes. When is used, it is assumed that the resource does not need
-// to return errors when furture non-Close methods are called.
+// to return errors when future non-Close methods are called.
 type TriviallyCloseable struct{}
 
 // Close always returns no error.

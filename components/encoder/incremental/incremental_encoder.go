@@ -8,6 +8,7 @@ import (
 	"sync/atomic"
 
 	"github.com/pkg/errors"
+	"go.uber.org/multierr"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/board"
@@ -102,7 +103,6 @@ func NewIncrementalEncoder(
 		pRaw:         0,
 		pState:       0,
 	}
-
 	if err := e.Reconfigure(ctx, deps, conf); err != nil {
 		return nil, err
 	}
@@ -135,15 +135,13 @@ func (e *Encoder) Reconfigure(
 		return err
 	}
 
-	encA, ok := board.DigitalInterruptByName(newConf.Pins.A)
-	if !ok {
-		err := errors.Errorf("cannot find pin (%s) for incremental Encoder", newConf.Pins.A)
-		return err
+	encA, err := board.DigitalInterruptByName(newConf.Pins.A)
+	if err != nil {
+		return multierr.Combine(errors.Errorf("cannot find pin (%s) for incremental Encoder", newConf.Pins.A), err)
 	}
-	encB, ok := board.DigitalInterruptByName(newConf.Pins.B)
-	if !ok {
-		err := errors.Errorf("cannot find pin (%s) for incremental Encoder", newConf.Pins.B)
-		return err
+	encB, err := board.DigitalInterruptByName(newConf.Pins.B)
+	if err != nil {
+		return multierr.Combine(errors.Errorf("cannot find pin (%s) for incremental Encoder", newConf.Pins.B), err)
 	}
 
 	if !needRestart {
@@ -166,13 +164,13 @@ func (e *Encoder) Reconfigure(
 	atomic.StoreInt64(&e.pState, 0)
 	e.mu.Unlock()
 
-	e.Start(ctx)
+	e.Start(ctx, board)
 
 	return nil
 }
 
 // Start starts the Encoder background thread.
-func (e *Encoder) Start(ctx context.Context) {
+func (e *Encoder) Start(ctx context.Context, b board.Board) {
 	/**
 	  a rotary encoder looks like
 
@@ -208,11 +206,12 @@ func (e *Encoder) Start(ctx context.Context) {
 	// 0 -> same state
 	// x -> impossible state
 
-	chanA := make(chan board.Tick)
-	chanB := make(chan board.Tick)
-
-	e.A.AddCallback(chanA)
-	e.B.AddCallback(chanB)
+	ch := make(chan board.Tick)
+	err := b.StreamTicks(e.cancelCtx, []board.DigitalInterrupt{e.A, e.B}, ch, nil)
+	if err != nil {
+		utils.Logger.Errorw("error getting digital interrupt ticks", "error", err)
+		return
+	}
 
 	aLevel, err := e.A.Value(ctx, nil)
 	if err != nil {
@@ -227,8 +226,6 @@ func (e *Encoder) Start(ctx context.Context) {
 	e.activeBackgroundWorkers.Add(1)
 
 	utils.ManagedGo(func() {
-		defer e.A.RemoveCallback(chanA)
-		defer e.B.RemoveCallback(chanB)
 		for {
 			// This looks redundant with the other select statement below, but it's not: if we're
 			// supposed to return, we need to do that even if chanA and chanB are full of data, and
@@ -246,15 +243,18 @@ func (e *Encoder) Start(ctx context.Context) {
 			select {
 			case <-e.cancelCtx.Done():
 				return
-			case tick = <-chanA:
-				aLevel = 0
-				if tick.High {
-					aLevel = 1
+			case tick = <-ch:
+				if tick.Name == e.encAName {
+					aLevel = 0
+					if tick.High {
+						aLevel = 1
+					}
 				}
-			case tick = <-chanB:
-				bLevel = 0
-				if tick.High {
-					bLevel = 1
+				if tick.Name == e.encBName {
+					bLevel = 0
+					if tick.High {
+						bLevel = 1
+					}
 				}
 			}
 			nState := aLevel | (bLevel << 1)

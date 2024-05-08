@@ -73,7 +73,7 @@ func (slamSvc *SLAM) Position(ctx context.Context) (spatialmath.Pose, string, er
 
 // PointCloudMap returns a callback function which will return the next chunk of the current pointcloud
 // map.
-func (slamSvc *SLAM) PointCloudMap(ctx context.Context) (func() ([]byte, error), error) {
+func (slamSvc *SLAM) PointCloudMap(ctx context.Context, returnEditedMap bool) (func() ([]byte, error), error) {
 	ctx, span := trace.StartSpan(ctx, "slam::fake::PointCloudMap")
 	defer span.End()
 	slamSvc.incrementDataCount()
@@ -88,15 +88,6 @@ func (slamSvc *SLAM) InternalState(ctx context.Context) (func() ([]byte, error),
 	return fakeInternalState(ctx, datasetDirectory, slamSvc)
 }
 
-// LatestMapInfo returns information used to determine whether the slam mode is localizing.
-// Fake Slam is always in mapping mode, so it always returns a new timestamp.
-func (slamSvc *SLAM) LatestMapInfo(ctx context.Context) (time.Time, error) {
-	_, span := trace.StartSpan(ctx, "slam::fake::LatestMapInfo")
-	defer span.End()
-	slamSvc.mapTimestamp = time.Now().UTC()
-	return slamSvc.mapTimestamp, nil
-}
-
 // Properties returns the mapping mode of the slam service as well as a boolean indicating if it is running
 // in the cloud or locally. In the case of fake slam, it will return that the service is being run locally
 // and is creating a new map.
@@ -105,8 +96,13 @@ func (slamSvc *SLAM) Properties(ctx context.Context) (slam.Properties, error) {
 	defer span.End()
 
 	prop := slam.Properties{
-		CloudSlam:   false,
-		MappingMode: slam.MappingModeNewMap,
+		CloudSlam:             false,
+		MappingMode:           slam.MappingModeNewMap,
+		InternalStateFileType: ".pbstream",
+		SensorInfo: []slam.SensorInfo{
+			{Name: "my-camera", Type: slam.SensorTypeCamera},
+			{Name: "my-movement-sensor", Type: slam.SensorTypeMovementSensor},
+		},
 	}
 	return prop, nil
 }
@@ -118,8 +114,8 @@ func (slamSvc *SLAM) incrementDataCount() {
 }
 
 // Limits returns the bounds of the slam map as a list of referenceframe.Limits.
-func (slamSvc *SLAM) Limits(ctx context.Context) ([]referenceframe.Limit, error) {
-	data, err := slam.PointCloudMapFull(ctx, slamSvc)
+func (slamSvc *SLAM) Limits(ctx context.Context, useEditedMap bool) ([]referenceframe.Limit, error) {
+	data, err := slam.PointCloudMapFull(ctx, slamSvc, useEditedMap)
 	if err != nil {
 		return nil, err
 	}

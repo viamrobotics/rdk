@@ -1,6 +1,7 @@
 package ik
 
 import (
+	"fmt"
 	"math"
 
 	"go.viam.com/rdk/referenceframe"
@@ -19,6 +20,16 @@ type Segment struct {
 	StartConfiguration []referenceframe.Input
 	EndConfiguration   []referenceframe.Input
 	Frame              referenceframe.Frame
+}
+
+func (s *Segment) String() string {
+	return fmt.Sprintf("Segment: StartPosition: %v,\n\t EndPosition: %v,\n\t StartConfiguration:%v,\n\t EndConfiguration:%v,\n\t Frame: %v",
+		spatial.PoseToProtobuf(s.StartPosition),
+		spatial.PoseToProtobuf(s.EndPosition),
+		s.StartConfiguration,
+		s.EndConfiguration,
+		s.Frame,
+	)
 }
 
 // State contains all the information a constraint needs to determine validity for a movement.
@@ -103,10 +114,14 @@ func NewSquaredNormMetric(goal spatial.Pose) StateMetric {
 // TODO: RSDK-6053 this should probably be done more flexibly.
 func NewPosWeightSquaredNormMetric(goal spatial.Pose) StateMetric {
 	weightedSqNormDist := func(query *State) float64 {
-		delta := spatial.PoseDelta(goal, query.Position)
 		// Increase weight for orientation since it's a small number
+		orientDelta := spatial.QuatToR3AA(spatial.OrientationBetween(
+			goal.Orientation(),
+			query.Position.Orientation(),
+		).Quaternion()).Mul(orientationDistanceScaling).Norm2()
 		// Also, we multiply delta.Point() by 0.1, effectively measuring in cm rather than mm.
-		return delta.Point().Mul(0.1).Norm2() + spatial.QuatToR3AA(delta.Orientation().Quaternion()).Mul(orientationDistanceScaling).Norm2()
+		ptDelta := goal.Point().Mul(0.1).Sub(query.Position.Point().Mul(0.1)).Norm2()
+		return ptDelta + orientDelta
 	}
 	return weightedSqNormDist
 }

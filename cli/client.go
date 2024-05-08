@@ -3,19 +3,24 @@ package cli
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net"
+	"net/http"
 	"net/url"
 	"os"
 	"os/exec"
+	"os/signal"
 	"runtime/debug"
 	"strings"
 	"time"
 
+	"github.com/Masterminds/semver/v3"
 	"github.com/fullstorydev/grpcurl"
 	"github.com/google/uuid"
 	"github.com/jhump/protoreflect/grpcreflect"
+	"github.com/nathan-fiscaletti/consolesize-go"
 	"github.com/pkg/errors"
 	"github.com/urfave/cli/v2"
 	"go.uber.org/zap"
@@ -25,11 +30,14 @@ import (
 	mltrainingpb "go.viam.com/api/app/mltraining/v1"
 	packagepb "go.viam.com/api/app/packages/v1"
 	apppb "go.viam.com/api/app/v1"
+	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
 	reflectpb "google.golang.org/grpc/reflection/grpc_reflection_v1alpha"
+	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/types/known/structpb"
 
 	rconfig "go.viam.com/rdk/config"
 	"go.viam.com/rdk/grpc"
@@ -37,6 +45,16 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot/client"
 	"go.viam.com/rdk/services/shell"
+)
+
+const (
+	rdkReleaseURL = "https://api.github.com/repos/viamrobotics/rdk/releases/latest"
+	// defaultNumLogs is the same as the number of logs currently returned by app
+	// in a single GetRobotPartLogsResponse.
+	defaultNumLogs = 100
+	// maxNumLogs is an arbitrary limit used to stop CLI users from overwhelming
+	// our logs DB with heavy reads.
+	maxNumLogs = 10000
 )
 
 // viamClient wraps a cli.Context and provides all the CLI command functionality
@@ -204,6 +222,21 @@ func RobotsStatusAction(c *cli.Context) error {
 	return nil
 }
 
+func getNumLogs(c *cli.Context) (int, error) {
+	numLogs := c.Int(logsFlagCount)
+	if numLogs < 0 {
+		warningf(c.App.ErrWriter, "Provided negative %q value. Defaulting to %d", logsFlagCount, defaultNumLogs)
+		return defaultNumLogs, nil
+	}
+	if numLogs == 0 {
+		return defaultNumLogs, nil
+	}
+	if numLogs > maxNumLogs {
+		return 0, errors.Errorf("provided too high of a %q value. Maximum is %d", logsFlagCount, maxNumLogs)
+	}
+	return numLogs, nil
+}
+
 // RobotsLogsAction is the corresponding Action for 'machines logs'.
 func RobotsLogsAction(c *cli.Context) error {
 	client, err := newViamClient(c)
@@ -235,11 +268,16 @@ func RobotsLogsAction(c *cli.Context) error {
 		} else {
 			header = part.Name
 		}
+		numLogs, err := getNumLogs(c)
+		if err != nil {
+			return err
+		}
 		if err := client.printRobotPartLogs(
 			orgStr, locStr, robotStr, part.Id,
 			c.Bool(logsFlagErrors),
 			"\t",
 			header,
+			numLogs,
 		); err != nil {
 			return errors.Wrap(err, "could not print machine logs")
 		}
@@ -295,31 +333,40 @@ func RobotsPartLogsAction(c *cli.Context) error {
 		return err
 	}
 
-	orgStr := c.String(organizationFlag)
-	locStr := c.String(locationFlag)
-	robotStr := c.String(machineFlag)
-	robot, err := client.robot(orgStr, locStr, robotStr)
+	return client.robotsPartLogsAction(c)
+}
+
+func (c *viamClient) robotsPartLogsAction(cCtx *cli.Context) error {
+	orgStr := cCtx.String(organizationFlag)
+	locStr := cCtx.String(locationFlag)
+	robotStr := cCtx.String(machineFlag)
+	robot, err := c.robot(orgStr, locStr, robotStr)
 	if err != nil {
 		return errors.Wrap(err, "could not get machine")
 	}
 
 	var header string
 	if orgStr == "" || locStr == "" || robotStr == "" {
-		header = fmt.Sprintf("%s -> %s -> %s", client.selectedOrg.Name, client.selectedLoc.Name, robot.Name)
+		header = fmt.Sprintf("%s -> %s -> %s", c.selectedOrg.Name, c.selectedLoc.Name, robot.Name)
 	}
-	if c.Bool(logsFlagTail) {
-		return client.tailRobotPartLogs(
-			orgStr, locStr, robotStr, c.String(partFlag),
-			c.Bool(logsFlagErrors),
+	if cCtx.Bool(logsFlagTail) {
+		return c.tailRobotPartLogs(
+			orgStr, locStr, robotStr, cCtx.String(partFlag),
+			cCtx.Bool(logsFlagErrors),
 			"",
 			header,
 		)
 	}
-	return client.printRobotPartLogs(
-		orgStr, locStr, robotStr, c.String(partFlag),
-		c.Bool(logsFlagErrors),
+	numLogs, err := getNumLogs(cCtx)
+	if err != nil {
+		return err
+	}
+	return c.printRobotPartLogs(
+		orgStr, locStr, robotStr, cCtx.String(partFlag),
+		cCtx.Bool(logsFlagErrors),
 		"",
 		header,
+		numLogs,
 	)
 }
 
@@ -379,6 +426,247 @@ func RobotsPartShellAction(c *cli.Context) error {
 	)
 }
 
+var (
+	errNoFiles                         = errors.New("must provide files to copy")
+	errLastArgOfFromMissing            = errors.New("expected last argument to be <copy to path>")
+	errLastArgOfToMissing              = errors.New("expected last argument to be machine:<copy to path>")
+	errDirectoryCopyRequestNoRecursion = errors.New("file is a directory but copy recursion not used (you can use -r to enable this)")
+)
+
+type copyFromPathInvalidError struct {
+	path string
+}
+
+func (err copyFromPathInvalidError) Error() string {
+	return fmt.Sprintf("expected argument %q to be machine:<copy from path>", err.path)
+}
+
+// MachinesPartCopyFilesAction is the corresponding Action for 'machines part cp'.
+func MachinesPartCopyFilesAction(c *cli.Context) error {
+	client, err := newViamClient(c)
+	if err != nil {
+		return err
+	}
+
+	return machinesPartCopyFilesAction(c, client)
+}
+
+func machinesPartCopyFilesAction(c *cli.Context, client *viamClient) error {
+	args := c.Args().Slice()
+	if len(args) == 0 {
+		return errNoFiles
+	}
+
+	// Create logger based on presence of debugFlag.
+	logger := logging.FromZapCompatible(zap.NewNop().Sugar())
+	if c.Bool(debugFlag) {
+		logger = logging.NewDebugLogger("cli")
+	}
+
+	// the general format is
+	// from:
+	//		cp machine:path1 machine:path2 ... local_destination
+	// to:
+	//		cp path1 path2 ... remote_destination
+	// we just need to look for machine: to determine what the user's intent is
+	determineDirection := func(args []string) (isFrom bool, destination string, paths []string, err error) {
+		const machinePrefix = "machine:"
+		isFrom = strings.HasPrefix(args[0], machinePrefix)
+
+		if strings.HasPrefix(args[len(args)-1], machinePrefix) {
+			if isFrom {
+				return false, "", nil, errLastArgOfFromMissing
+			}
+		} else if !isFrom {
+			return false, "", nil, errLastArgOfToMissing
+		}
+
+		destination = args[len(args)-1]
+		if !isFrom {
+			destination = strings.TrimPrefix(destination, machinePrefix)
+		}
+
+		// all but the last arg are what we are copying to/from
+		for _, arg := range args[:len(args)-1] {
+			if isFrom && !strings.HasPrefix(arg, machinePrefix) {
+				return false, "", nil, copyFromPathInvalidError{arg}
+			}
+			if isFrom {
+				arg = strings.TrimPrefix(arg, machinePrefix)
+			}
+			paths = append(paths, arg)
+		}
+		return
+	}
+
+	isFrom, destination, paths, err := determineDirection(args)
+	if err != nil {
+		return err
+	}
+
+	doCopy := func() error {
+		if isFrom {
+			return client.copyFilesFromMachine(
+				c.String(organizationFlag),
+				c.String(locationFlag),
+				c.String(machineFlag),
+				c.String(partFlag),
+				c.Bool(debugFlag),
+				c.Bool(cpFlagRecursive),
+				c.Bool(cpFlagPreserve),
+				paths,
+				destination,
+				logger,
+			)
+		}
+
+		return client.copyFilesToMachine(
+			c.String(organizationFlag),
+			c.String(locationFlag),
+			c.String(machineFlag),
+			c.String(partFlag),
+			c.Bool(debugFlag),
+			c.Bool(cpFlagRecursive),
+			c.Bool(cpFlagPreserve),
+			paths,
+			destination,
+			logger,
+		)
+	}
+	if err := doCopy(); err != nil {
+		if statusErr := status.Convert(err); statusErr != nil &&
+			statusErr.Code() == codes.InvalidArgument &&
+			statusErr.Message() == shell.ErrMsgDirectoryCopyRequestNoRecursion {
+			return errDirectoryCopyRequestNoRecursion
+		}
+		return err
+	}
+	return nil
+}
+
+// checkUpdateResponse holds the values used to hold release information.
+type getLatestReleaseResponse struct {
+	Name       string `json:"name"`
+	TagName    string `json:"tag_name"`
+	TarballURL string `json:"tarball_url"`
+}
+
+func getLatestReleaseVersion() (string, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+
+	resp := getLatestReleaseResponse{}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, rdkReleaseURL, nil)
+	if err != nil {
+		return "", err
+	}
+
+	client := http.DefaultClient
+	res, err := client.Do(req)
+	if err != nil {
+		return "", err
+	}
+
+	err = json.NewDecoder(res.Body).Decode(&resp)
+	if err != nil {
+		return "", err
+	}
+
+	defer utils.UncheckedError(res.Body.Close())
+	return resp.TagName, err
+}
+
+// CheckUpdateAction is the corresponding Action for 'check-update'.
+func CheckUpdateAction(c *cli.Context) error {
+	if c.Bool(quietFlag) {
+		return nil
+	}
+
+	dateCompiledRaw := rconfig.DateCompiled
+
+	// `go build` will not set the compilation flags needed for this check
+	if dateCompiledRaw == "" {
+		return nil
+	}
+
+	dateCompiled, err := time.Parse("2006-01-02", dateCompiledRaw)
+	if err != nil {
+		warningf(c.App.ErrWriter, "CLI Update Check: failed to parse compilation date: %w", err)
+		return nil
+	}
+
+	// install is less than six weeks old
+	if time.Since(dateCompiled) < time.Hour*24*7*6 {
+		return nil
+	}
+
+	conf, err := configFromCache()
+	if err != nil {
+		if !os.IsNotExist(err) {
+			utils.UncheckedError(err)
+			return nil
+		}
+		conf = &config{}
+	}
+
+	var lastCheck time.Time
+	if conf.LastUpdateCheck == "" {
+		conf.LastUpdateCheck = time.Now().Format("2006-01-02")
+	} else {
+		lastCheck, err = time.Parse("2006-01-02", conf.LastUpdateCheck)
+		if err != nil {
+			warningf(c.App.ErrWriter, "CLI Update Check: failed to parse date of last check: %w", err)
+			return nil
+		}
+	}
+
+	// The latest version info is cached to limit api calls to once every three days
+	if time.Since(lastCheck) < time.Hour*24*3 && conf.LatestVersion != "" {
+		warningf(c.App.ErrWriter, "CLI Update Check: Your CLI is more than 6 weeks old. "+
+			"Consider updating to version: %s", conf.LatestVersion)
+		return nil
+	}
+
+	latestRelease, err := getLatestReleaseVersion()
+	if err != nil {
+		warningf(c.App.ErrWriter, "CLI Update Check: failed to get latest release information: %w", err)
+		return nil
+	}
+
+	latestVersion, err := semver.NewVersion(latestRelease)
+	if err != nil {
+		warningf(c.App.ErrWriter, "CLI Update Check: failed to parse latest version: %w", err)
+		return nil
+	}
+
+	conf.LatestVersion = latestVersion.String()
+
+	err = storeConfigToCache(conf)
+	if err != nil {
+		utils.UncheckedError(err)
+	}
+
+	appVersion := rconfig.Version
+	if appVersion == "" {
+		warningf(c.App.ErrWriter, "CLI Update Check: Your CLI is more than 6 weeks old. "+
+			"Consider updating to version: %s", latestVersion.Original())
+		return nil
+	}
+
+	localVersion, err := semver.NewVersion(appVersion)
+	if err != nil {
+		warningf(c.App.ErrWriter, "CLI Update Check: failed to parse compiled version: %w", err)
+		return nil
+	}
+
+	if localVersion.LessThan(latestVersion) {
+		warningf(c.App.ErrWriter, "CLI Update Check: Your CLI is out of date. Consider updating to version %s", latestVersion.Original())
+	}
+
+	return nil
+}
+
 // VersionAction is the corresponding Action for 'version'.
 func VersionAction(c *cli.Context) error {
 	info, ok := debug.ReadBuildInfo()
@@ -407,6 +695,7 @@ func VersionAction(c *cli.Context) error {
 	if dep, ok := deps["go.viam.com/api"]; ok {
 		apiVersion = dep.Version
 	}
+
 	appVersion := rconfig.Version
 	if appVersion == "" {
 		appVersion = "(dev)"
@@ -751,23 +1040,96 @@ func (c *viamClient) robotPart(orgStr, locStr, robotStr, partStr string) (*apppb
 			return part, nil
 		}
 	}
-	return nil, errors.Errorf("no machine part found for %q", partStr)
+
+	// if we can't find the part via org/location, see if this is an id, and try to find it directly that way
+	if robotStr != "" {
+		resp, err := c.client.GetRobotParts(c.c.Context, &apppb.GetRobotPartsRequest{
+			RobotId: robotStr,
+		})
+		if err != nil {
+			return nil, err
+		}
+		for _, part := range resp.Parts {
+			if part.Id == partStr || part.Name == partStr {
+				return part, nil
+			}
+		}
+		if partStr == "" && len(resp.Parts) == 1 {
+			return resp.Parts[0], nil
+		}
+	}
+
+	return nil, errors.Errorf("no machine part found for machine: %q part: %q", robotStr, partStr)
 }
 
-func (c *viamClient) robotPartLogs(orgStr, locStr, robotStr, partStr string, errorsOnly bool) ([]*apppb.LogEntry, error) {
+// getRobotPart wraps GetRobotPart API.
+// note: overlaps with viamClient.robotPart, which wraps GetRobotParts.
+// Use this variant if you don't know the robot ID.
+func (c *viamClient) getRobotPart(partID string) (*apppb.GetRobotPartResponse, error) {
+	if err := c.ensureLoggedIn(); err != nil {
+		return nil, err
+	}
+	return c.client.GetRobotPart(c.c.Context, &apppb.GetRobotPartRequest{Id: partID})
+}
+
+func (c *viamClient) updateRobotPart(part *apppb.RobotPart, confMap map[string]any) error {
+	if err := c.ensureLoggedIn(); err != nil {
+		return err
+	}
+	confStruct, err := structpb.NewStruct(confMap)
+	if err != nil {
+		return errors.Wrap(err, "in NewStruct")
+	}
+	req := apppb.UpdateRobotPartRequest{
+		Id:          part.Id,
+		Name:        part.Name,
+		RobotConfig: confStruct,
+	}
+	_, err = c.client.UpdateRobotPart(c.c.Context, &req)
+	return err
+}
+
+func (c *viamClient) robotPartLogs(orgStr, locStr, robotStr, partStr string, errorsOnly bool,
+	numLogs int,
+) ([]*commonpb.LogEntry, error) {
 	part, err := c.robotPart(orgStr, locStr, robotStr, partStr)
 	if err != nil {
 		return nil, err
 	}
-	resp, err := c.client.GetRobotPartLogs(c.c.Context, &apppb.GetRobotPartLogsRequest{
-		Id:         part.Id,
-		ErrorsOnly: errorsOnly,
-	})
-	if err != nil {
-		return nil, err
+
+	// Use page tokens to get batches of 100 up to numLogs and throw away any
+	// extra logs in last batch.
+	logs := make([]*commonpb.LogEntry, 0, numLogs)
+	var pageToken string
+	for i := 0; i < numLogs; {
+		resp, err := c.client.GetRobotPartLogs(c.c.Context, &apppb.GetRobotPartLogsRequest{
+			Id:         part.Id,
+			ErrorsOnly: errorsOnly,
+			PageToken:  &pageToken,
+		})
+		if err != nil {
+			return nil, err
+		}
+
+		pageToken = resp.NextPageToken
+		// Break in the event of no logs in GetRobotPartLogsResponse or when
+		// page token is empty (no more pages).
+		if resp.Logs == nil || pageToken == "" {
+			break
+		}
+
+		// Truncate this intermediate slice of resp.Logs based on how many logs
+		// are still required by numLogs.
+		remainingLogsNeeded := numLogs - i
+		if remainingLogsNeeded < len(resp.Logs) {
+			resp.Logs = resp.Logs[:remainingLogsNeeded]
+		}
+		logs = append(logs, resp.Logs...)
+
+		i += len(resp.Logs)
 	}
 
-	return resp.Logs, nil
+	return logs, nil
 }
 
 func (c *viamClient) robotParts(orgStr, locStr, robotStr string) ([]*apppb.RobotPart, error) {
@@ -787,22 +1149,33 @@ func (c *viamClient) robotParts(orgStr, locStr, robotStr string) ([]*apppb.Robot
 	return resp.Parts, nil
 }
 
-func (c *viamClient) printRobotPartLogsInner(logs []*apppb.LogEntry, indent string) {
-	for _, log := range logs {
+func (c *viamClient) printRobotPartLogsInner(logs []*commonpb.LogEntry, indent string) {
+	// Iterate over logs in reverse because they are returned in
+	// order of latest to oldest but we should print from oldest -> newest
+	for i := len(logs) - 1; i >= 0; i-- {
+		log := logs[i]
+		fieldsString, err := logEntryFieldsToString(log.Fields)
+		if err != nil {
+			warningf(c.c.App.ErrWriter, "%v", err)
+			fieldsString = ""
+		}
 		printf(
 			c.c.App.Writer,
-			"%s%s\t%s\t%s\t%s",
+			"%s%s\t%s\t%s\t%s\t%s",
 			indent,
-			log.Time.AsTime().Format("2006-01-02T15:04:05.000Z0700"),
+			log.Time.AsTime().Format(logging.DefaultTimeFormatStr),
 			log.Level,
 			log.LoggerName,
 			log.Message,
+			fieldsString,
 		)
 	}
 }
 
-func (c *viamClient) printRobotPartLogs(orgStr, locStr, robotStr, partStr string, errorsOnly bool, indent, header string) error {
-	logs, err := c.robotPartLogs(orgStr, locStr, robotStr, partStr, errorsOnly)
+func (c *viamClient) printRobotPartLogs(orgStr, locStr, robotStr, partStr string,
+	errorsOnly bool, indent, header string, numLogs int,
+) error {
+	logs, err := c.robotPartLogs(orgStr, locStr, robotStr, partStr, errorsOnly, numLogs)
 	if err != nil {
 		return err
 	}
@@ -945,14 +1318,13 @@ func (c *viamClient) runRobotPartCommand(
 	}
 }
 
-func (c *viamClient) startRobotPartShell(
-	orgStr, locStr, robotStr, partStr string,
+func (c *viamClient) connectToShellService(orgStr, locStr, robotStr, partStr string,
 	debug bool,
 	logger logging.Logger,
-) error {
+) (shell.Service, func(ctx context.Context) error, error) {
 	dialCtx, fqdn, rpcOpts, err := c.prepareDial(orgStr, locStr, robotStr, partStr, debug)
 	if err != nil {
-		return err
+		return nil, nil, err
 	}
 
 	if debug {
@@ -960,11 +1332,14 @@ func (c *viamClient) startRobotPartShell(
 	}
 	robotClient, err := client.New(dialCtx, fqdn, logger, client.WithDialOptions(rpcOpts...))
 	if err != nil {
-		return errors.Wrap(err, "could not connect to machine part")
+		return nil, nil, errors.Wrap(err, "could not connect to machine part")
 	}
 
+	var successful bool
 	defer func() {
-		utils.UncheckedError(robotClient.Close(c.c.Context))
+		if !successful {
+			utils.UncheckedError(robotClient.Close(c.c.Context))
+		}
 	}()
 
 	// Returns the first shell service found in the robot resources
@@ -977,31 +1352,76 @@ func (c *viamClient) startRobotPartShell(
 		}
 	}
 	if found == nil {
-		return errors.New("shell service is not enabled on this machine part")
+		return nil, nil, errors.New("shell service is not enabled on this machine part")
 	}
 
 	shellRes, err := robotClient.ResourceByName(*found)
 	if err != nil {
-		return errors.Wrap(err, "could not get shell service from machine part")
+		return nil, nil, errors.Wrap(err, "could not get shell service from machine part")
 	}
 
 	shellSvc, ok := shellRes.(shell.Service)
 	if !ok {
-		return errors.New("could not get shell service from machine part")
+		return nil, nil, errors.New("could not get shell service from machine part")
 	}
+	successful = true
+	return shellSvc, robotClient.Close, nil
+}
 
-	input, output, err := shellSvc.Shell(c.c.Context, map[string]interface{}{})
+func (c *viamClient) startRobotPartShell(
+	orgStr, locStr, robotStr, partStr string,
+	debug bool,
+	logger logging.Logger,
+) error {
+	shellSvc, closeClient, err := c.connectToShellService(orgStr, locStr, robotStr, partStr, debug, logger)
 	if err != nil {
 		return err
+	}
+	defer func() {
+		utils.UncheckedError(closeClient(c.c.Context))
+	}()
+
+	getWinChMsg := func() map[string]interface{} {
+		cols, rows := consolesize.GetConsoleSize()
+		return map[string]interface{}{
+			"message": "window-change",
+			"cols":    cols,
+			"rows":    rows,
+		}
+	}
+
+	input, inputOOB, output, err := shellSvc.Shell(c.c.Context, map[string]interface{}{
+		"messages": []interface{}{getWinChMsg()},
+	})
+	if err != nil {
+		return err
+	}
+
+	if sig, ok := sigwinchSignal(); ok {
+		winchCh := make(chan os.Signal, 1)
+		signal.Notify(winchCh, sig)
+		utils.PanicCapturingGo(func() {
+			defer close(inputOOB)
+			for {
+				if !utils.SelectContextOrWaitChan(c.c.Context, winchCh) {
+					return
+				}
+				select {
+				case <-c.c.Context.Done():
+					return
+				case inputOOB <- getWinChMsg():
+				}
+			}
+		})
 	}
 
 	setRaw := func(isRaw bool) error {
 		// NOTE(benjirewis): Linux systems seem to need both "raw" (no processing) and "-echo"
 		// (no echoing back inputted characters) in order to allow the input and output loops
 		// below to completely control the terminal.
-		args := []string{"raw", "-echo"}
+		args := []string{"raw", "-echo", "-echoctl"}
 		if !isRaw {
-			args = []string{"-raw", "echo"}
+			args = []string{"-raw", "echo", "echoctl"}
 		}
 
 		rawMode := exec.Command("stty", args...)
@@ -1064,4 +1484,93 @@ func (c *viamClient) startRobotPartShell(
 
 	outputLoop()
 	return nil
+}
+
+func (c *viamClient) copyFilesToMachine(
+	orgStr, locStr, robotStr, partStr string,
+	debug bool,
+	allowRecursion bool,
+	preserve bool,
+	paths []string,
+	destination string,
+	logger logging.Logger,
+) error {
+	shellSvc, closeClient, err := c.connectToShellService(orgStr, locStr, robotStr, partStr, debug, logger)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		utils.UncheckedError(closeClient(c.c.Context))
+	}()
+
+	// prepare a factory that understands the file copying service (RPC or not).
+	copyFactory := shell.NewCopyFileToMachineFactory(destination, preserve, shellSvc)
+	// make a reader copier that just does the traversal and copy work for us. Think of
+	// this as a tee reader.
+	readCopier, err := shell.NewLocalFileReadCopier(paths, allowRecursion, false, copyFactory)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err := readCopier.Close(c.c.Context); err != nil {
+			utils.UncheckedError(err)
+		}
+	}()
+
+	// ReadAll the files into the copier.
+	return readCopier.ReadAll(c.c.Context)
+}
+
+func (c *viamClient) copyFilesFromMachine(
+	orgStr, locStr, robotStr, partStr string,
+	debug bool,
+	allowRecursion bool,
+	preserve bool,
+	paths []string,
+	destination string,
+	logger logging.Logger,
+) error {
+	shellSvc, closeClient, err := c.connectToShellService(orgStr, locStr, robotStr, partStr, debug, logger)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		utils.UncheckedError(closeClient(c.c.Context))
+	}()
+
+	// prepare a factory that understands how to work with our local filesystem.
+	factory, err := shell.NewLocalFileCopyFactory(destination, preserve, false)
+	if err != nil {
+		return err
+	}
+
+	// let the shell service figure out how to grab the files for and pass them to our copier.
+	return shellSvc.CopyFilesFromMachine(c.c.Context, paths, allowRecursion, preserve, factory, nil)
+}
+
+func logEntryFieldsToString(fields []*structpb.Struct) (string, error) {
+	// if there are no fields, don't return anything, otherwise we add lots of {}'s
+	// to the logs
+	if len(fields) == 0 {
+		return "", nil
+	}
+	// we have to manually format these fields as json because
+	// marshalling a go object will not preserve the order of the fields
+	message := "{"
+	for i, field := range fields {
+		key, value, err := logging.FieldKeyAndValueFromProto(field)
+		if err != nil {
+			return "", err
+		}
+		if i > 0 {
+			// split fields with space and comma after first entry
+			message += ", "
+		}
+		if _, isStr := value.(string); isStr {
+			message += fmt.Sprintf("%q: %q", key, value)
+		} else {
+			message += fmt.Sprintf("%q: %v", key, value)
+		}
+	}
+	return message + "}", nil
 }

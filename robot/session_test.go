@@ -18,6 +18,7 @@ import (
 	"go.viam.com/test"
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
+	"go.viam.com/utils/testutils"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 
@@ -600,14 +601,14 @@ func TestSessionsMixedClients(t *testing.T) {
 	}
 
 	test.That(t, roboClient2.Close(ctx), test.ShouldBeNil)
-
-	select {
-	case <-stopChMotor1:
-		panic("unexpected; too fast")
-	default:
-	}
-
-	<-stopChMotor1
+	testutils.WaitForAssertion(t, func(tb testing.TB) {
+		select {
+		case <-stopChMotor1:
+			return
+		default:
+			tb.Fail()
+		}
+	})
 
 	test.That(t, r.Close(ctx), test.ShouldBeNil)
 }
@@ -691,14 +692,14 @@ func TestSessionsMixedOwnersNoAuth(t *testing.T) {
 
 	// this is the only one heartbeating so we expect a stop
 	test.That(t, roboClient1.Close(ctx), test.ShouldBeNil)
-
-	select {
-	case <-stopChMotor1:
-		panic("unexpected; too fast")
-	default:
-	}
-
-	<-stopChMotor1
+	testutils.WaitForAssertion(t, func(tb testing.TB) {
+		select {
+		case <-stopChMotor1:
+			return
+		default:
+			tb.Fail()
+		}
+	})
 
 	test.That(t, roboClientConn2.Close(), test.ShouldBeNil)
 	test.That(t, r.Close(ctx), test.ShouldBeNil)
@@ -757,11 +758,20 @@ func TestSessionsMixedOwnersImplicitAuth(t *testing.T) {
 	}))
 	test.That(t, err, test.ShouldBeNil)
 
+	// This test sets up two clients to the same motor. The test sets up this (contrived) scenario:
+	// 1) Client 1 will first `SetPower` with a session heartbeat. This operation returns with the
+	//    motor engaged.
+	// 2) Client 2 will "override" that operation with a very slow `GoFor`.
+	// 3) Client 1 will disconnect. This results in the client ceasing heartbeats for the
+	//    `SetPower` operation.
+	//    - Despite `SetPower` not being the "active" operation, it's expected for the robot's
+	//      heartbeat thread to call `motor1.Stop`.
 	motor1Client1, err := motor.FromRobot(roboClient1, "motor1")
 	test.That(t, err, test.ShouldBeNil)
 	motor1Client2, err := motor.NewClientFromConn(ctx, roboClientConn2, "", motor.Named("motor1"), logger)
 	test.That(t, err, test.ShouldBeNil)
 
+	// Set the power on client1.
 	test.That(t, motor1Client1.SetPower(ctx, 50, nil), test.ShouldBeNil)
 	time.Sleep(time.Second)
 
@@ -786,16 +796,17 @@ func TestSessionsMixedOwnersImplicitAuth(t *testing.T) {
 	test.That(t, resp.Id, test.ShouldNotEqual, sessID)
 	test.That(t, resp.Id, test.ShouldNotEqual, "")
 
-	// this is the only one heartbeating so we expect a stop
+	// Assert that closing `roboClient1` results in heartbeats stopping that propagates to `Stop`ing
+	// the motor operation. We observe this with a message over the `stopChMotor1` channel.
 	test.That(t, roboClient1.Close(ctx), test.ShouldBeNil)
-
-	select {
-	case <-stopChMotor1:
-		panic("unexpected; too fast")
-	default:
-	}
-
-	<-stopChMotor1
+	testutils.WaitForAssertion(t, func(tb testing.TB) {
+		select {
+		case <-stopChMotor1:
+			return
+		default:
+			tb.Fail()
+		}
+	})
 
 	test.That(t, roboClientConn2.Close(), test.ShouldBeNil)
 	test.That(t, r.Close(ctx), test.ShouldBeNil)

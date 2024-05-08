@@ -6,7 +6,7 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/mitchellh/mapstructure"
+	"github.com/go-viper/mapstructure/v2"
 	"github.com/pkg/errors"
 
 	"go.viam.com/rdk/logging"
@@ -16,17 +16,18 @@ import (
 
 // A Config describes the configuration of a resource.
 type Config struct {
-	Name                      string
-	API                       API
-	Model                     Model
-	Frame                     *referenceframe.LinkConfig
-	DependsOn                 []string
-	LogConfiguration          LogConfig
-	AssociatedResourceConfigs []AssociatedResourceConfig
-	Attributes                utils.AttributeMap
+	Name             string
+	API              API
+	Model            Model
+	Frame            *referenceframe.LinkConfig
+	DependsOn        []string
+	LogConfiguration LogConfig
+	Attributes       utils.AttributeMap
 
-	ConvertedAttributes ConfigValidator
-	ImplicitDependsOn   []string
+	AssociatedResourceConfigs []AssociatedResourceConfig
+	AssociatedAttributes      map[Name]AssociatedConfig
+	ConvertedAttributes       ConfigValidator
+	ImplicitDependsOn         []string
 
 	alreadyValidated   bool
 	cachedImplicitDeps []string
@@ -175,24 +176,33 @@ func (assoc AssociatedResourceConfig) MarshalJSON() ([]byte, error) {
 // Equals checks if the two configs are deeply equal to each other. Validation
 // related fields and implicit dependencies will be ignored.
 func (conf Config) Equals(other Config) bool {
+	if len(conf.AssociatedAttributes) != len(other.AssociatedAttributes) {
+		return false
+	}
+	for association, assocCfg := range conf.AssociatedAttributes {
+		otherAssocCfg, ok := other.AssociatedAttributes[association]
+		if !ok || !assocCfg.Equals(otherAssocCfg) {
+			return false
+		}
+	}
+
 	// These `Config` objects are copies. Changing the members here for equality checking does not
 	// impact the original versions.
 	conf.alreadyValidated = false
 	conf.ImplicitDependsOn = nil
 	conf.cachedImplicitDeps = nil
 	conf.cachedErr = nil
+	conf.ConvertedAttributes = nil
+	conf.AssociatedResourceConfigs = nil
+	conf.AssociatedAttributes = nil
+
 	other.alreadyValidated = false
 	other.ImplicitDependsOn = nil
 	other.cachedImplicitDeps = nil
 	other.cachedErr = nil
-
-	// TODO(RSDK-5523): Once builtin datamanagers' AssociatedConfigLinkers no
-	// longer rely on appensions to the service's ConvertedAttributes field,
-	// continue ignoring ConvertedAttributes for equality for all resources.
-	if conf.API != APINamespaceRDK.WithServiceType("data_manager") {
-		conf.ConvertedAttributes = nil
-		other.ConvertedAttributes = nil
-	}
+	other.ConvertedAttributes = nil
+	other.AssociatedResourceConfigs = nil
+	other.AssociatedAttributes = nil
 
 	//nolint:govet
 	return reflect.DeepEqual(conf, other)
@@ -280,9 +290,11 @@ func (conf *Config) validate(path, defaultAPIType string) ([]string, error) {
 	if conf.Name == "" {
 		return nil, NewConfigValidationFieldRequiredError(path, "name")
 	}
-	if !utils.ValidNameRegex.MatchString(conf.Name) {
-		return nil, utils.ErrInvalidName(conf.Name)
+
+	if err := utils.ValidateResourceName(conf.Name); err != nil {
+		return nil, err
 	}
+
 	if err := ContainsReservedCharacter(conf.Name); err != nil {
 		return nil, err
 	}

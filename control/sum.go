@@ -41,7 +41,7 @@ func (b *sum) Next(ctx context.Context, x []*Signal, dt time.Duration) ([]*Signa
 	y := make([]float64, len(x)/2)
 	half := len(x) / 2
 
-	// loop through the first set of inputs and add or subract from the corresponding output
+	// loop through the first set of inputs and add or subtract from the corresponding output
 	for i := 0; i < half; i++ {
 		op, ok := b.operation[x[i].name]
 		if !ok {
@@ -96,7 +96,7 @@ func (b *sum) reset() error {
 
 	b.y = make([]*Signal, len(b.cfg.DependsOn))
 	for i := range b.cfg.DependsOn {
-		b.y[i] = makeSignal(b.cfg.DependsOn[i])
+		b.y[i] = makeSignal(b.cfg.DependsOn[i], "sum")
 	}
 	return nil
 }

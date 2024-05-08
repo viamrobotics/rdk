@@ -2,6 +2,7 @@ package tpspace
 
 import (
 	"context"
+	"fmt"
 	"math"
 
 	"go.viam.com/rdk/motionplan/ik"
@@ -9,9 +10,8 @@ import (
 )
 
 const (
-	defaultMaxTime       = 15.
-	defaultDiffT         = 0.01
-	defaultAlphaCnt uint = 91
+	defaultAlphaCnt             uint    = 91  // When precomputing arcs, use this many different, equally-spaced alpha values
+	defaultSimulationResolution float64 = 50. // When precomputing arcs, precompute nodes at this resolution
 )
 
 // ptgGridSim will take a PTG, and simulate out a number of trajectories through some requested time/distance for speed of lookup
@@ -20,9 +20,6 @@ type ptgGridSim struct {
 	PTG
 	refDist  float64
 	alphaCnt uint
-
-	maxTime float64 // secs of robot execution to simulate
-	diffT   float64 // discretize trajectory simulation to this time granularity
 
 	precomputeTraj [][]*TrajNode
 
@@ -40,8 +37,6 @@ func NewPTGGridSim(simPTG PTG, arcs uint, simDist float64, endsOnly bool) (PTGSo
 	ptg := &ptgGridSim{
 		refDist:  simDist,
 		alphaCnt: arcs,
-		maxTime:  defaultMaxTime,
-		diffT:    defaultDiffT,
 		endsOnly: endsOnly,
 	}
 	ptg.PTG = simPTG
@@ -114,8 +109,49 @@ func (ptg *ptgGridSim) MaxDistance() float64 {
 	return ptg.refDist
 }
 
-func (ptg *ptgGridSim) Trajectory(alpha, dist float64) ([]*TrajNode, error) {
-	return ComputePTG(ptg, alpha, dist, defaultDiffT)
+func (ptg *ptgGridSim) Trajectory(alpha, start, end, resolution float64) ([]*TrajNode, error) {
+	if math.Abs(start) > math.Abs(end) {
+		return nil, fmt.Errorf("cannot calculate trajectory, start %f cannot be greater than end %f", start, end)
+	}
+	if end == 0 {
+		return computePTG(ptg, alpha, end, resolution)
+	}
+	startPos := math.Abs(start)
+	endPos := math.Abs(end)
+	traj, err := computePTG(ptg, alpha, endPos, resolution)
+	if err != nil {
+		return nil, err
+	}
+
+	if startPos > 0 {
+		firstNode, err := computePTGNode(ptg, alpha, startPos)
+		if err != nil {
+			return nil, err
+		}
+		first := -1
+		for i, wp := range traj {
+			if wp.Dist > startPos {
+				first = i
+				break
+			}
+		}
+		if first == -1 {
+			return nil, fmt.Errorf("failure in trajectory calculation, found no nodes with dist greater than %f", startPos)
+		}
+		return append([]*TrajNode{firstNode}, traj[first:len(traj)-1]...), nil
+	}
+	if end < 0 {
+		return invertComputedPTG(traj), nil
+	}
+	return traj, nil
+}
+
+// DoF returns the DoF of the associated referenceframe.
+func (ptg *ptgGridSim) DoF() []referenceframe.Limit {
+	return []referenceframe.Limit{
+		{Min: -1 * math.Pi, Max: math.Pi},
+		{Min: 0, Max: ptg.refDist},
+	}
 }
 
 func (ptg *ptgGridSim) simulateTrajectories() ([][]*TrajNode, error) {
@@ -124,8 +160,7 @@ func (ptg *ptgGridSim) simulateTrajectories() ([][]*TrajNode, error) {
 
 	for k := uint(0); k < ptg.alphaCnt; k++ {
 		alpha := index2alpha(k, ptg.alphaCnt)
-
-		alphaTraj, err := ComputePTG(ptg, alpha, ptg.refDist, ptg.diffT)
+		alphaTraj, err := computePTG(ptg, alpha, ptg.refDist, defaultSimulationResolution)
 		if err != nil {
 			return nil, err
 		}

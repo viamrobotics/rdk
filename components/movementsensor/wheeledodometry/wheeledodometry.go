@@ -4,6 +4,7 @@ package wheeledodometry
 import (
 	"context"
 	"errors"
+	"fmt"
 	"math"
 	"sync"
 	"time"
@@ -28,6 +29,13 @@ const (
 	oneTurn                  = 2 * math.Pi
 	mToKm                    = 1e-3
 	returnRelative           = "return_relative_pos_m"
+	setLong                  = "setLong"
+	setLat                   = "setLat"
+	useCompass               = "use_compass"
+	shiftPos                 = "shift_position"
+	resetShift               = "reset"
+	moveX                    = "moveX"
+	moveY                    = "moveY"
 )
 
 // Config is the config for a wheeledodometry MovementSensor.
@@ -51,6 +59,7 @@ type odometry struct {
 	lastRightPos       float64
 	baseWidth          float64
 	wheelCircumference float64
+	base               base.Base
 	timeIntervalMSecs  float64
 
 	motors []motorPair
@@ -60,6 +69,10 @@ type odometry struct {
 	position        r3.Vector
 	orientation     spatialmath.EulerAngles
 	coord           *geo.Point
+	originCoord     *geo.Point
+
+	useCompass bool
+	shiftPos   bool
 
 	cancelFunc              func()
 	activeBackgroundWorkers sync.WaitGroup
@@ -152,6 +165,7 @@ func (o *odometry) Reconfigure(ctx context.Context, deps resource.Dependencies, 
 	if o.baseWidth == 0 || o.wheelCircumference == 0 {
 		return errors.New("base width or wheel circumference are 0, movement sensor cannot be created")
 	}
+	o.base = newBase
 	o.logger.Debugf("using base %v for wheeled_odometry sensor", newBase.Name().ShortName())
 
 	// check if new motors have been added, or the existing motors have been changed, and update the motorPairs accorodingly
@@ -200,6 +214,7 @@ func (o *odometry) Reconfigure(ctx context.Context, deps resource.Dependencies, 
 	}
 
 	o.orientation.Yaw = 0
+	o.originCoord = geo.NewPoint(0, 0)
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	o.cancelFunc = cancelFunc
 	o.trackPosition(ctx)
@@ -218,6 +233,7 @@ func newWheeledOdometry(
 		Named:        conf.ResourceName().AsNamed(),
 		lastLeftPos:  0.0,
 		lastRightPos: 0.0,
+		originCoord:  geo.NewPoint(0, 0),
 		logger:       logger,
 	}
 
@@ -248,7 +264,21 @@ func (o *odometry) Orientation(ctx context.Context, extra map[string]interface{}
 func (o *odometry) CompassHeading(ctx context.Context, extra map[string]interface{}) (float64, error) {
 	o.mu.Lock()
 	defer o.mu.Unlock()
+
+	if o.useCompass {
+		return yawToCompassHeading(o.orientation.Yaw), nil
+	}
+
 	return 0, movementsensor.ErrMethodUnimplementedCompassHeading
+}
+
+// computes the compass heading in degrees from a yaw in radians, with 0 -> 360 and Z down.
+func yawToCompassHeading(yaw float64) float64 {
+	yawDeg := rdkutils.RadToDeg(yaw)
+	if yawDeg < 0 {
+		yawDeg = 180 - yawDeg
+	}
+	return 360 - yawDeg
 }
 
 func (o *odometry) LinearVelocity(ctx context.Context, extra map[string]interface{}) (r3.Vector, error) {
@@ -286,8 +316,9 @@ func (o *odometry) Readings(ctx context.Context, extra map[string]interface{}) (
 	return readings, nil
 }
 
-func (o *odometry) Accuracy(ctx context.Context, extra map[string]interface{}) (map[string]float32, error) {
-	return map[string]float32{}, movementsensor.ErrMethodUnimplementedAccuracy
+func (o *odometry) Accuracy(ctx context.Context, extra map[string]interface{}) (*movementsensor.Accuracy, error,
+) {
+	return movementsensor.UnimplementedOptionalAccuracies(), nil
 }
 
 func (o *odometry) Properties(ctx context.Context, extra map[string]interface{}) (*movementsensor.Properties, error) {
@@ -296,6 +327,7 @@ func (o *odometry) Properties(ctx context.Context, extra map[string]interface{})
 		AngularVelocitySupported: true,
 		OrientationSupported:     true,
 		PositionSupported:        true,
+		CompassHeadingSupported:  o.useCompass,
 	}, nil
 }
 
@@ -305,12 +337,31 @@ func (o *odometry) Close(ctx context.Context) error {
 	return nil
 }
 
+func (o *odometry) checkBaseProps(ctx context.Context) {
+	props, err := o.base.Properties(ctx, nil)
+	if err != nil {
+		if !errors.Is(err, context.Canceled) {
+			o.logger.Error(err)
+			return
+		}
+	}
+	if (o.baseWidth != props.WidthMeters) || (o.wheelCircumference != props.WheelCircumferenceMeters) {
+		o.baseWidth = props.WidthMeters
+		o.wheelCircumference = props.WheelCircumferenceMeters
+		o.logger.Warnf("Base %v's properties have changed: baseWidth = %v and wheelCirumference = %v.",
+			"Odometry can optionally be reset using DoCommand",
+			o.base.Name().ShortName(), o.baseWidth, o.wheelCircumference)
+	}
+}
+
 // trackPosition uses the motor positions to calculate an estimation of the position, orientation,
 // linear velocity, and angular velocity of the wheeled base.
 // The estimations in this function are based on the math outlined in this article:
 // https://stuff.mit.edu/afs/athena/course/6/6.186/OldFiles/2005/doc/odomtutorial/odomtutorial.pdf
 func (o *odometry) trackPosition(ctx context.Context) {
-	geoOrigin := geo.NewPoint(0, 0)
+	if o.originCoord == nil {
+		o.originCoord = geo.NewPoint(0, 0)
+	}
 
 	o.activeBackgroundWorkers.Add(1)
 	utils.PanicCapturingGo(func() {
@@ -355,6 +406,11 @@ func (o *odometry) trackPosition(ctx context.Context) {
 			left := positions[0]
 			right := positions[1]
 
+			// Base properties need to be checked every time because dependent components reconfiguring does not trigger
+			// the parent component to reconfigure. In this case, that means if the base properties change, the wheeled
+			// odometry movement sensor will not be aware of these changes and will continue to use the old values
+			o.checkBaseProps(ctx)
+
 			// Difference in the left and right motors since the last iteration, in mm.
 			leftDist := (left - o.lastLeftPos) * o.wheelCircumference
 			rightDist := (right - o.lastRightPos) * o.wheelCircumference
@@ -377,14 +433,18 @@ func (o *odometry) trackPosition(ctx context.Context) {
 			// Limit the yaw to a range of positive 0 to 360 degrees.
 			o.orientation.Yaw = math.Mod(o.orientation.Yaw, oneTurn)
 			o.orientation.Yaw = math.Mod(o.orientation.Yaw+oneTurn, oneTurn)
-
-			// Calculate X and Y by using centerDist and the current orientation yaw (theta).
-			o.position.X += (centerDist * math.Sin(o.orientation.Yaw))
-			o.position.Y += (centerDist * math.Cos(o.orientation.Yaw))
+			angle := o.orientation.Yaw
+			xFlip := -1.0
+			if o.useCompass {
+				angle = rdkutils.DegToRad(yawToCompassHeading(o.orientation.Yaw))
+				xFlip = 1.0
+			}
+			o.position.X += xFlip * (centerDist * math.Sin(angle))
+			o.position.Y += (centerDist * math.Cos(angle))
 
 			distance := math.Hypot(o.position.X, o.position.Y)
-			heading := math.Atan2(o.position.X, o.position.Y)
-			o.coord = geoOrigin.PointAtDistanceAndBearing(distance*mToKm, heading)
+			heading := rdkutils.RadToDeg(math.Atan2(o.position.X, o.position.Y))
+			o.coord = o.originCoord.PointAtDistanceAndBearing(distance*mToKm, heading)
 
 			// Update the linear and angular velocity values using the provided time interval.
 			o.linearVelocity.Y = centerDist / (o.timeIntervalMSecs / 1000)
@@ -393,4 +453,55 @@ func (o *odometry) trackPosition(ctx context.Context) {
 			o.mu.Unlock()
 		}
 	})
+}
+
+func (o *odometry) DoCommand(ctx context.Context,
+	req map[string]interface{},
+) (map[string]interface{}, error) {
+	resp := make(map[string]interface{})
+
+	o.mu.Lock()
+	defer o.mu.Unlock()
+	cmd, ok := req[useCompass].(bool)
+	if ok {
+		o.useCompass = cmd
+		resp[useCompass] = fmt.Sprintf("using orientation as compass heading set to %v", cmd)
+	}
+
+	reset, ok := req[resetShift].(bool)
+	if ok {
+		o.shiftPos = reset
+		o.originCoord = geo.NewPoint(0, 0)
+		o.position.X = 0
+		o.position.Y = 0
+		o.orientation.Yaw = 0
+
+		resp[resetShift] = fmt.Sprintf("resetting position and setting shift to %v", reset)
+	}
+	lat, okY := req[setLat].(float64)
+	long, okX := req[setLong].(float64)
+	if okY && okX {
+		o.originCoord = geo.NewPoint(lat, long)
+		o.shiftPos = true
+
+		resp[setLat] = fmt.Sprintf("lat shifted to %.8f", lat)
+		resp[setLong] = fmt.Sprintf("lng shifted to %.8f", long)
+	} else if okY || okX {
+		// If only one value is given, return an error.
+		// This prevents errors when neither is given.
+		resp["bad shift"] = "need both lat and long shifts"
+	}
+
+	xMove, okX := req[moveX].(float64)
+	yMove, okY := req[moveY].(float64)
+	if okX {
+		o.position.X += xMove
+		resp[moveX] = fmt.Sprintf("x position moved to %.8f", o.position.X)
+	}
+	if okY {
+		o.position.Y += yMove
+		resp[moveY] = fmt.Sprintf("y position shifted to %.8f", o.position.Y)
+	}
+
+	return resp, nil
 }

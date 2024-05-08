@@ -4,7 +4,6 @@ import (
 	"context"
 	"math"
 	"sync"
-	"time"
 
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
@@ -175,10 +174,14 @@ func (m *Motor) turnOff(ctx context.Context, extra map[string]interface{}) error
 // Anything calling setPWM MUST lock the motor's mutex prior.
 func (m *Motor) setPWM(ctx context.Context, powerPct float64, extra map[string]interface{}) error {
 	var errs error
-	powerPct = math.Min(powerPct, m.maxPowerPct)
-	powerPct = math.Max(powerPct, -1*m.maxPowerPct)
+	powerPct = fixPowerPct(powerPct, m.maxPowerPct)
+	if math.Abs(powerPct) < m.minPowerPct && math.Abs(powerPct) > 0 {
+		powerPct = sign(powerPct) * m.minPowerPct
+	}
+	m.powerPct = powerPct
 
 	m.on = true
+
 	if m.EnablePinLow != nil {
 		errs = multierr.Combine(errs, m.EnablePinLow.Set(ctx, false, extra))
 	}
@@ -214,7 +217,6 @@ func (m *Motor) setPWM(ctx context.Context, powerPct float64, extra map[string]i
 	}
 
 	powerPct = math.Max(math.Abs(powerPct), m.minPowerPct)
-	m.powerPct = powerPct
 	return multierr.Combine(
 		errs,
 		pwmPin.SetPWMFreq(ctx, m.pwmFreq, extra),
@@ -263,27 +265,6 @@ func (m *Motor) SetPower(ctx context.Context, powerPct float64, extra map[string
 	}
 
 	return errors.New("trying to go backwards but don't have dir or a&b pins")
-}
-
-// If revolutions is 0, the returned wait duration will be 0 representing that
-// the motor should run indefinitely.
-func goForMath(maxRPM, rpm, revolutions float64) (float64, time.Duration) {
-	// need to do this so time is reasonable
-	if rpm > maxRPM {
-		rpm = maxRPM
-	} else if rpm < -1*maxRPM {
-		rpm = -1 * maxRPM
-	}
-
-	if revolutions == 0 {
-		powerPct := rpm / maxRPM
-		return powerPct, 0
-	}
-
-	dir := rpm * revolutions / math.Abs(revolutions*rpm)
-	powerPct := math.Abs(rpm) / maxRPM * dir
-	waitDur := time.Duration(math.Abs(revolutions/rpm)*60*1000) * time.Millisecond
-	return powerPct, waitDur
 }
 
 // GoFor moves an inputted number of revolutions at the given rpm, no encoder is present
@@ -349,4 +330,17 @@ func (m *Motor) GoTo(ctx context.Context, rpm, positionRevolutions float64, extr
 // ResetZeroPosition is not supported.
 func (m *Motor) ResetZeroPosition(ctx context.Context, offset float64, extra map[string]interface{}) error {
 	return motor.NewResetZeroPositionUnsupportedError(m.Name().ShortName())
+}
+
+// DirectionMoving returns the direction we are currently moving in, with 1 representing
+// forward and  -1 representing backwards.
+func (m *Motor) DirectionMoving() int64 {
+	move, powerPct, err := m.IsPowered(context.Background(), nil)
+	if move {
+		return int64(sign(powerPct))
+	}
+	if err != nil {
+		m.logger.Error(err)
+	}
+	return 0
 }

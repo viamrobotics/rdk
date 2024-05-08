@@ -35,6 +35,8 @@ import (
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/config"
 	gizmopb "go.viam.com/rdk/examples/customresources/apis/proto/api/component/gizmo/v1"
+	"go.viam.com/rdk/gostream"
+	"go.viam.com/rdk/gostream/codec/opus"
 	"go.viam.com/rdk/gostream/codec/x264"
 	rgrpc "go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
@@ -871,7 +873,10 @@ func TestWebWithStreams(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 	robot.LoggerFunc = func() logging.Logger { return logger }
 	options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
-	svc := web.New(robot, logger, web.WithStreamConfig(x264.DefaultStreamConfig))
+	svc := web.New(robot, logger, web.WithStreamConfig(gostream.StreamConfig{
+		AudioEncoderFactory: opus.NewEncoderFactory(),
+		VideoEncoderFactory: x264.NewEncoderFactory(),
+	}))
 	err := svc.Start(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -919,6 +924,7 @@ func TestWebWithStreams(t *testing.T) {
 	cancel()
 	test.That(t, svc.Close(ctx), test.ShouldBeNil)
 	test.That(t, conn.Close(), test.ShouldBeNil)
+	<-ctx.Done()
 }
 
 func TestWebAddFirstStream(t *testing.T) {
@@ -952,7 +958,11 @@ func TestWebAddFirstStream(t *testing.T) {
 	test.That(t, resp.Names, test.ShouldHaveLength, 0)
 
 	// Add first camera and update
-	cam1 := &inject.Camera{}
+	cam1 := &inject.Camera{
+		PropertiesFunc: func(ctx context.Context) (camera.Properties, error) {
+			return camera.Properties{}, nil
+		},
+	}
 	robot.Mu.Lock()
 	rs[camera.Named(camera1Key)] = cam1
 	robot.Mu.Unlock()
@@ -970,6 +980,7 @@ func TestWebAddFirstStream(t *testing.T) {
 	cancel()
 	test.That(t, svc.Close(ctx), test.ShouldBeNil)
 	test.That(t, conn.Close(), test.ShouldBeNil)
+	<-ctx.Done()
 }
 
 func TestWebStreamImmediateClose(t *testing.T) {
@@ -977,7 +988,11 @@ func TestWebStreamImmediateClose(t *testing.T) {
 
 	// Start a robot with a camera
 	robot := &inject.Robot{}
-	cam1 := &inject.Camera{}
+	cam1 := &inject.Camera{
+		PropertiesFunc: func(ctx context.Context) (camera.Properties, error) {
+			return camera.Properties{}, nil
+		},
+	}
 	rs := map[resource.Name]resource.Resource{camera.Named("camera1"): cam1}
 	robot.MockResourcesFromMap(rs)
 
@@ -994,6 +1009,7 @@ func TestWebStreamImmediateClose(t *testing.T) {
 	// Immediately Close service.
 	cancel()
 	test.That(t, svc.Close(ctx), test.ShouldBeNil)
+	<-ctx.Done()
 }
 
 func setupRobotCtx(t *testing.T) (context.Context, robot.Robot) {
@@ -1143,6 +1159,7 @@ func TestRawClientOperation(t *testing.T) {
 		RPCServiceHandler:           echopb.RegisterTestEchoServiceHandlerFromEndpoint,
 		RPCServiceDesc:              &echopb.TestEchoService_ServiceDesc,
 	})
+	defer resource.DeregisterAPI(echoAPI)
 
 	logger := logging.NewTestLogger(t)
 	ctx, iRobot := setupRobotCtx(t)

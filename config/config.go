@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -17,7 +18,6 @@ import (
 	"go.viam.com/utils/jwks"
 	"go.viam.com/utils/pexec"
 	"go.viam.com/utils/rpc"
-	"golang.org/x/exp/slices"
 
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/referenceframe"
@@ -97,20 +97,24 @@ func (c *Config) validateUniqueResource(logger logging.Logger, seenResources map
 	return nil
 }
 
-// Ensure ensures all parts of the config are valid.
+// Ensure ensures all parts of the config are valid, which may include updating it. Only returns an error
+// if c.DisablePartialStart is true (default: false).
 func (c *Config) Ensure(fromCloud bool, logger logging.Logger) error {
 	seenResources := make(map[string]bool)
 
 	if c.Cloud != nil {
+		// Adds default for RefreshInterval if not set.
 		if err := c.Cloud.Validate("cloud", fromCloud); err != nil {
 			return err
 		}
 	}
 
+	//  Adds default BindAddress and HeartbeatWindow if not set.
 	if err := c.Network.Validate("network"); err != nil {
 		return err
 	}
 
+	// Updates ValidatedKeySet once validated.
 	if err := c.Auth.Validate("auth"); err != nil {
 		return err
 	}
@@ -143,6 +147,11 @@ func (c *Config) Ensure(fromCloud bool, logger logging.Logger) error {
 
 	for idx := 0; idx < len(c.Components); idx++ {
 		component := &c.Components[idx]
+		// dependsOn will only be populated if attributes have been converted, which does not happen in this function.
+		// Attributes can be converted from an untyped, JSON-like object to a typed Go struct based on whether a converter/the typed struct
+		// was registered during resource model registration. If no converter but a typed struct was registered, the RDK provides a
+		// default converter. For modular resources, since lookup will fail as no converter or a typed struct is registered, implicit
+		// dependencies are gathered during robot reconfiguration itself.
 		dependsOn, err := component.Validate(fmt.Sprintf("%s.%d", "components", idx), resource.APITypeComponentName)
 		if err != nil {
 			fullErr := errors.Wrapf(err, "error validating component %s: %s", component.Name, err)
@@ -174,6 +183,11 @@ func (c *Config) Ensure(fromCloud bool, logger logging.Logger) error {
 
 	for idx := 0; idx < len(c.Services); idx++ {
 		service := &c.Services[idx]
+		// dependsOn will only be populated if attributes have been converted, which does not happen in this function.
+		// Attributes can be converted from an untyped, JSON-like object to a typed Go struct based on whether a converter/the typed struct
+		// was registered during resource model registration. If no converter but a typed struct was registered, the RDK provides a
+		// default converter. For modular resources, since lookup will fail as no converter or a typed struct is registered, implicit
+		// dependencies are gathered during robot reconfiguration itself.
 		dependsOn, err := service.Validate(fmt.Sprintf("%s.%d", "services", idx), resource.APITypeServiceName)
 		if err != nil {
 			if c.DisablePartialStart {
@@ -444,8 +458,8 @@ func (conf *Remote) validate(path string) error {
 	if conf.Name == "" {
 		return resource.NewConfigValidationFieldRequiredError(path, "name")
 	}
-	if !rutils.ValidNameRegex.MatchString(conf.Name) {
-		return resource.NewConfigValidationError(path, rutils.ErrInvalidName(conf.Name))
+	if err := rutils.ValidateRemoteName(conf.Name); err != nil {
+		return resource.NewConfigValidationError(path, err)
 	}
 	if conf.Address == "" {
 		return resource.NewConfigValidationFieldRequiredError(path, "address")
@@ -476,6 +490,9 @@ type Cloud struct {
 	Secret            string
 	LocationSecret    string // Deprecated: Use LocationSecrets
 	LocationSecrets   []LocationSecret
+	LocationID        string
+	PrimaryOrgID      string
+	MachineID         string
 	ManagedBy         string
 	FQDN              string
 	LocalFQDN         string
@@ -500,6 +517,9 @@ type cloudData struct {
 
 	LocationSecret    string           `json:"location_secret"`
 	LocationSecrets   []LocationSecret `json:"location_secrets"`
+	LocationID        string           `json:"location_id"`
+	PrimaryOrgID      string           `json:"primary_org_id"`
+	MachineID         string           `json:"machine_id"`
 	ManagedBy         string           `json:"managed_by"`
 	FQDN              string           `json:"fqdn"`
 	LocalFQDN         string           `json:"local_fqdn"`
@@ -525,6 +545,9 @@ func (config *Cloud) UnmarshalJSON(data []byte) error {
 		Secret:            temp.Secret,
 		LocationSecret:    temp.LocationSecret,
 		LocationSecrets:   temp.LocationSecrets,
+		LocationID:        temp.LocationID,
+		PrimaryOrgID:      temp.PrimaryOrgID,
+		MachineID:         temp.MachineID,
 		ManagedBy:         temp.ManagedBy,
 		FQDN:              temp.FQDN,
 		LocalFQDN:         temp.LocalFQDN,
@@ -553,6 +576,9 @@ func (config Cloud) MarshalJSON() ([]byte, error) {
 		Secret:            config.Secret,
 		LocationSecret:    config.LocationSecret,
 		LocationSecrets:   config.LocationSecrets,
+		LocationID:        config.LocationID,
+		PrimaryOrgID:      config.PrimaryOrgID,
+		MachineID:         config.MachineID,
 		ManagedBy:         config.ManagedBy,
 		FQDN:              config.FQDN,
 		LocalFQDN:         config.LocalFQDN,
@@ -570,7 +596,7 @@ func (config Cloud) MarshalJSON() ([]byte, error) {
 	return json.Marshal(temp)
 }
 
-// Validate ensures all parts of the config are valid.
+// Validate ensures all parts of the config are valid. Adds default for RefreshInterval if not set.
 func (config *Cloud) Validate(path string, fromCloud bool) error {
 	if config.ID == "" {
 		return resource.NewConfigValidationFieldRequiredError(path, "id")
@@ -587,6 +613,17 @@ func (config *Cloud) Validate(path string, fromCloud bool) error {
 	}
 	if config.RefreshInterval == 0 {
 		config.RefreshInterval = 10 * time.Second
+	}
+	return nil
+}
+
+// ValidateTLS ensures TLS fields are valid.
+func (config *Cloud) ValidateTLS(path string) error {
+	if config.TLSCertificate == "" {
+		return resource.NewConfigValidationFieldRequiredError(path, "tls_certificate")
+	}
+	if config.TLSPrivateKey == "" {
+		return resource.NewConfigValidationFieldRequiredError(path, "tls_private_key")
 	}
 	return nil
 }
@@ -648,7 +685,7 @@ func (nc NetworkConfig) MarshalJSON() ([]byte, error) {
 // the server will bind to all interfaces.
 const DefaultBindAddress = "localhost:8080"
 
-// Validate ensures all parts of the config are valid.
+// Validate ensures all parts of the config are valid. Adds default BindAddress and HeartbeatWindow if not set.
 func (nc *NetworkConfig) Validate(path string) error {
 	if nc.BindAddress != "" && nc.Listener != nil {
 		return resource.NewConfigValidationError(path, errors.New("may only set one of bind_address or listener"))
@@ -708,7 +745,7 @@ func (sc SessionsConfig) MarshalJSON() ([]byte, error) {
 // It can be set with network.sessions.heartbeat_window.
 const DefaultSessionHeartbeatWindow = 2 * time.Second
 
-// Validate ensures all parts of the config are valid.
+// Validate ensures all parts of the config are valid. Sets default HeartbeatWindow if not set.
 func (sc *SessionsConfig) Validate(path string) error {
 	if sc.HeartbeatWindow == 0 {
 		sc.HeartbeatWindow = DefaultSessionHeartbeatWindow
@@ -749,6 +786,22 @@ var (
 )
 
 // Validate returns true if the config is valid. Ensures each key is valid and meets the required constraints.
+// Updates ValidatedKeySet once validated. A sample ExternalAuthConfig in JSON form is shown below, where "keys"
+// contains a list of JSON Web Keys as defined in https://datatracker.ietf.org/doc/html/rfc7517.
+//
+//	"external_auth_config": {
+//		"jwks": {
+//			"keys": [
+//				{
+//					"alg": "XXXX",
+//					"e": "XXXX",
+//					"kid": "XXXX",
+//					"kty": "XXXX",
+//					"n": "XXXX"
+//				}
+//			]
+//		}
+//	}
 func (c *ExternalAuthConfig) Validate(path string) error {
 	jwksPath := fmt.Sprintf("%s.jwks", path)
 	jsonJWKs, err := json.Marshal(c.JSONKeySet)
@@ -794,7 +847,24 @@ type AuthHandlerConfig struct {
 	Config rutils.AttributeMap `json:"config"`
 }
 
-// Validate ensures all parts of the config are valid.
+// Validate ensures all parts of the config are valid. If it exists, updates ExternalAuthConfig's ValidatedKeySet once validated.
+// A sample AuthConfig in JSON form is shown below, where "handlers" contains a list of auth handlers. The only accepted credential
+// type for the RDK in the config is "api-key" currently. An auth handler for utils.CredentialsTypeRobotLocationSecret may be added
+// later by the RDK during processing.
+//
+//	"auth": {
+//			"handlers": [
+//				{
+//					"type": "api-key",
+//					"config": {
+//						"API_KEY_ID": "API_KEY",
+//						"API_KEY_ID_2": "API_KEY_2",
+//						"keys": ["API_KEY_ID", "API_KEY_ID_2"]
+//					}
+//				}
+//			],
+//		"external_auth_config": {}
+//	}
 func (config *AuthConfig) Validate(path string) error {
 	seenTypes := make(map[string]struct{}, len(config.Handlers))
 	for idx, handler := range config.Handlers {
@@ -926,12 +996,10 @@ const (
 	PackageTypeModule PackageType = "module"
 	// PackageTypeSlamMap represents a slam internal state.
 	PackageTypeSlamMap PackageType = "slam_map"
-	// PackageTypeBoardDefs represents a linux board definition file.
-	PackageTypeBoardDefs PackageType = "board_defs"
 )
 
 // SupportedPackageTypes is a list of all of the valid package types.
-var SupportedPackageTypes = []PackageType{PackageTypeMlModel, PackageTypeModule, PackageTypeSlamMap, PackageTypeBoardDefs}
+var SupportedPackageTypes = []PackageType{PackageTypeMlModel, PackageTypeModule, PackageTypeSlamMap}
 
 // A PackageConfig describes the configuration of a Package.
 type PackageConfig struct {
@@ -941,8 +1009,8 @@ type PackageConfig struct {
 	Package string `json:"package"`
 	// Version of the package ID hosted by a remote PackageService. If not specified "latest" is assumed.
 	Version string `json:"version,omitempty"`
-	// Types of the Package. If not specified it is assumed to be ml_model.
-	Type PackageType `json:"type,omitempty"`
+	// Types of the Package.
+	Type PackageType `json:"type"`
 
 	Status *AppValidationStatus `json:"status,omitempty"`
 
@@ -981,8 +1049,8 @@ func (p *PackageConfig) validate(path string) error {
 			p.Type, SupportedPackageTypes))
 	}
 
-	if !rutils.ValidNameRegex.MatchString(p.Name) {
-		return resource.NewConfigValidationError(path, rutils.ErrInvalidName(p.Name))
+	if err := rutils.ValidatePackageName(p.Name); err != nil {
+		return resource.NewConfigValidationError(path, err)
 	}
 
 	return nil
@@ -1001,7 +1069,7 @@ func (p PackageConfig) Equals(other PackageConfig) bool {
 }
 
 // LocalDataDirectory returns the folder where the package should be extracted.
-// Ex: /home/user/.viam/packages/.data/ml_model/orgid_ballClassifier_0.1.2.
+// Ex: /home/user/.viam/packages/data/ml_model/orgid_ballClassifier_0.1.2.
 func (p *PackageConfig) LocalDataDirectory(packagesDir string) string {
 	return filepath.Join(p.LocalDataParentDirectory(packagesDir), p.SanitizedName())
 }
@@ -1012,9 +1080,16 @@ func (p *PackageConfig) LocalDownloadPath(packagesDir string) string {
 }
 
 // LocalDataParentDirectory returns the folder that will contain the all packages of this type.
-// Ex: /home/user/.viam/packages/.data/ml_model.
+// Ex: /home/user/.viam/packages/data/ml_model.
 func (p *PackageConfig) LocalDataParentDirectory(packagesDir string) string {
-	return filepath.Join(packagesDir, ".data", string(p.Type))
+	return filepath.Join(packagesDir, "data", string(p.Type))
+}
+
+// LocalLegacyDataRootDirectory returns the old private directory.
+// This can be cleaned up after a few RDK releases (APP-4066)
+// Ex: /home/user/.viam/packages/.data/.
+func (p *PackageConfig) LocalLegacyDataRootDirectory(packagesDir string) string {
+	return filepath.Join(packagesDir, ".data")
 }
 
 // SanitizedName returns the package name for the symlink/filepath of the package on the system.

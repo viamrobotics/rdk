@@ -1,5 +1,3 @@
-//go:build !no_cgo
-
 // Package camera defines an image capturing device.
 package camera
 
@@ -16,6 +14,7 @@ import (
 	pb "go.viam.com/api/component/camera/v1"
 	viamutils "go.viam.com/utils"
 
+	"go.viam.com/rdk/components/camera/rtppassthrough"
 	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/gostream"
 	"go.viam.com/rdk/logging"
@@ -86,20 +85,47 @@ type Camera interface {
 // A VideoSource represents anything that can capture frames.
 type VideoSource interface {
 	projectorProvider
-
 	// Images is used for getting simultaneous images from different imagers,
 	// along with associated metadata (just timestamp for now). It's not for getting a time series of images from the same imager.
+	//
+	//    myCamera, err := camera.FromRobot(machine, "my_camera")
+	//
+	//    images, metadata, err := myCamera.Images(context.Background())
 	Images(ctx context.Context) ([]NamedImage, resource.ResponseMetadata, error)
 	// Stream returns a stream that makes a best effort to return consecutive images
 	// that may have a MIME type hint dictated in the context via gostream.WithMIMETypeHint.
+	//
+	//    myCamera, err := camera.FromRobot(machine, "my_camera")
+	//
+	//    // gets the stream from a camera
+	//    stream, err := myCamera.Stream(context.Background())
+	//
+	//    // gets an image from the camera stream
+	//    img, release, err := stream.Next(context.Background())
+	//    defer release()
 	Stream(ctx context.Context, errHandlers ...gostream.ErrorHandler) (gostream.VideoStream, error)
 
 	// NextPointCloud returns the next immediately available point cloud, not necessarily one
 	// a part of a sequence. In the future, there could be streaming of point clouds.
+	//
+	//    myCamera, err := camera.FromRobot(machine, "my_camera")
+	//
+	//    pointCloud, err := myCamera.NextPointCloud(context.Background())
 	NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error)
 	// Properties returns properties that are intrinsic to the particular
 	// implementation of a camera
+	//
+	//    myCamera, err := camera.FromRobot(machine, "my_camera")
+	//
+	//    // gets the properties from a camera
+	//    properties, err := myCamera.Properties(context.Background())
 	Properties(ctx context.Context) (Properties, error)
+
+	// Close shuts down the resource and prevents further use
+	//
+	//    myCamera, err := camera.FromRobot(machine, "my_camera")
+	//
+	//    err = myCamera.Close(ctx)
 	Close(ctx context.Context) error
 }
 
@@ -127,10 +153,15 @@ type ImagesSource interface {
 // If needed, implement the Camera another way. For example, a webcam
 // implements a Camera manually so that it can atomically reconfigure itself.
 func FromVideoSource(name resource.Name, src VideoSource, logger logging.Logger) Camera {
+	var rtpPassthroughSource rtppassthrough.Source
+	if ps, ok := src.(rtppassthrough.Source); ok {
+		rtpPassthroughSource = ps
+	}
 	return &sourceBasedCamera{
-		Named:       name.AsNamed(),
-		VideoSource: src,
-		Logger:      logger,
+		rtpPassthroughSource: rtpPassthroughSource,
+		Named:                name.AsNamed(),
+		VideoSource:          src,
+		Logger:               logger,
 	}
 }
 
@@ -138,7 +169,26 @@ type sourceBasedCamera struct {
 	resource.Named
 	resource.AlwaysRebuild
 	VideoSource
+	rtpPassthroughSource rtppassthrough.Source
 	logging.Logger
+}
+
+func (vs *sourceBasedCamera) SubscribeRTP(
+	ctx context.Context,
+	bufferSize int,
+	packetsCB rtppassthrough.PacketCallback,
+) (rtppassthrough.Subscription, error) {
+	if vs.rtpPassthroughSource != nil {
+		return vs.rtpPassthroughSource.SubscribeRTP(ctx, bufferSize, packetsCB)
+	}
+	return rtppassthrough.NilSubscription, errors.New("SubscribeRTP unimplemented")
+}
+
+func (vs *sourceBasedCamera) Unsubscribe(ctx context.Context, id rtppassthrough.SubscriptionID) error {
+	if vs.rtpPassthroughSource != nil {
+		return vs.rtpPassthroughSource.Unsubscribe(ctx, id)
+	}
+	return errors.New("Unsubscribe unimplemented")
 }
 
 // NewVideoSourceFromReader creates a VideoSource either with or without a projector. The stream type
@@ -152,6 +202,11 @@ func NewVideoSourceFromReader(
 ) (VideoSource, error) {
 	if reader == nil {
 		return nil, errors.New("cannot have a nil reader")
+	}
+	var rtpPassthroughSource rtppassthrough.Source
+	passthrough, isRTPPassthrough := reader.(rtppassthrough.Source)
+	if isRTPPassthrough {
+		rtpPassthroughSource = passthrough
 	}
 	vs := gostream.NewVideoSource(reader, prop.Video{})
 	actualSystem := syst
@@ -173,12 +228,31 @@ func NewVideoSourceFromReader(
 		}
 	}
 	return &videoSource{
-		system:       actualSystem,
-		videoSource:  vs,
-		videoStream:  gostream.NewEmbeddedVideoStream(vs),
-		actualSource: reader,
-		imageType:    imageType,
+		rtpPassthroughSource: rtpPassthroughSource,
+		system:               actualSystem,
+		videoSource:          vs,
+		videoStream:          gostream.NewEmbeddedVideoStream(vs),
+		actualSource:         reader,
+		imageType:            imageType,
 	}, nil
+}
+
+func (vs *videoSource) SubscribeRTP(
+	ctx context.Context,
+	bufferSize int,
+	packetsCB rtppassthrough.PacketCallback,
+) (rtppassthrough.Subscription, error) {
+	if vs.rtpPassthroughSource != nil {
+		return vs.rtpPassthroughSource.SubscribeRTP(ctx, bufferSize, packetsCB)
+	}
+	return rtppassthrough.NilSubscription, errors.New("SubscribeRTP unimplemented")
+}
+
+func (vs *videoSource) Unsubscribe(ctx context.Context, id rtppassthrough.SubscriptionID) error {
+	if vs.rtpPassthroughSource != nil {
+		return vs.rtpPassthroughSource.Unsubscribe(ctx, id)
+	}
+	return errors.New("Unsubscribe unimplemented")
 }
 
 // NewPinholeModelWithBrownConradyDistortion creates a transform.PinholeCameraModel from
@@ -244,11 +318,12 @@ func WrapVideoSourceWithProjector(
 
 // videoSource implements a Camera with a gostream.VideoSource.
 type videoSource struct {
-	videoSource  gostream.VideoSource
-	videoStream  gostream.VideoStream
-	actualSource interface{}
-	system       *transform.PinholeCameraModel
-	imageType    ImageType
+	rtpPassthroughSource rtppassthrough.Source
+	videoSource          gostream.VideoSource
+	videoStream          gostream.VideoStream
+	actualSource         interface{}
+	system               *transform.PinholeCameraModel
+	imageType            ImageType
 }
 
 func (vs *videoSource) Stream(ctx context.Context, errHandlers ...gostream.ErrorHandler) (gostream.VideoStream, error) {

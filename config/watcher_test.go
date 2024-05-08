@@ -130,7 +130,7 @@ func TestNewWatcherFile(t *testing.T) {
 		defer func() {
 			test.That(t, f.Close(), test.ShouldBeNil)
 		}()
-		_, err = f.Write([]byte("blahblah"))
+		_, err = f.WriteString("blahblah")
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, f.Sync(), test.ShouldBeNil)
 	}()
@@ -187,11 +187,8 @@ func TestNewWatcherCloud(t *testing.T) {
 
 	deviceID := primitive.NewObjectID().Hex()
 
-	fakeServer, err := testutils.NewFakeCloudServer(context.Background(), logger)
-	test.That(t, err, test.ShouldBeNil)
-	defer func() {
-		test.That(t, fakeServer.Shutdown(), test.ShouldBeNil)
-	}()
+	fakeServer, cleanup := testutils.NewFakeCloudServer(t, context.Background(), logger)
+	defer cleanup()
 
 	storeConfigInServer := func(cfg config.Config) {
 		cloudConfProto, err := config.CloudConfigToProto(cfg.Cloud)
@@ -230,6 +227,9 @@ func TestNewWatcherCloud(t *testing.T) {
 			LocalFQDN:       "yee",
 			RefreshInterval: time.Second,
 			LocationSecrets: []config.LocationSecret{{ID: "1", Secret: "secret"}},
+			PrimaryOrgID:    "the-primary-org",
+			LocationID:      "the-location",
+			MachineID:       "the-machine",
 		}
 	}
 

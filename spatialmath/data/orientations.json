@@ -38,7 +38,8 @@
         "type": "euler_angles",
         "value": {
             "yaw": 45,
-            "roll": 0
+            "roll": 0,
+            "pitch": 0
         }
     },
     "axisangle": {

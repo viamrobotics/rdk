@@ -14,13 +14,13 @@ import (
 
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
-	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/board/v1"
-	goutils "go.viam.com/utils"
+	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/board/genericlinux/buses"
 	"go.viam.com/rdk/components/board/mcp3008helper"
+	"go.viam.com/rdk/components/board/pinwrappers"
 	"go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
@@ -127,7 +127,7 @@ func (b *Board) reconfigureGpios(newConf *LinuxBoardConfig) error {
 		// If we get here, the old pin definition exists, but the old pin does not. Check if it's a
 		// digital interrupt.
 		if interrupt, ok := b.interrupts[oldName]; ok {
-			if err := interrupt.Close(); err != nil {
+			if err := closeInterrupt(interrupt); err != nil {
 				return err
 			}
 			delete(b.interrupts, oldName)
@@ -211,7 +211,7 @@ func (b *Board) reconfigureAnalogReaders(ctx context.Context, newConf *LinuxBoar
 			if curr.chipSelect != c.ChipSelect {
 				ar := &mcp3008helper.MCP3008AnalogReader{channel, bus, c.ChipSelect}
 				curr.reset(ctx, curr.chipSelect,
-					board.SmoothAnalogReader(ar, board.AnalogReaderConfig{
+					pinwrappers.SmoothAnalogReader(ar, board.AnalogReaderConfig{
 						AverageOverMillis: c.AverageOverMillis, SamplesPerSecond: c.SamplesPerSecond,
 					}, b.logger))
 			}
@@ -219,7 +219,7 @@ func (b *Board) reconfigureAnalogReaders(ctx context.Context, newConf *LinuxBoar
 		}
 		ar := &mcp3008helper.MCP3008AnalogReader{channel, bus, c.ChipSelect}
 		b.analogReaders[c.Name] = newWrappedAnalogReader(ctx, c.ChipSelect,
-			board.SmoothAnalogReader(ar, board.AnalogReaderConfig{
+			pinwrappers.SmoothAnalogReader(ar, board.AnalogReaderConfig{
 				AverageOverMillis: c.AverageOverMillis, SamplesPerSecond: c.SamplesPerSecond,
 			}, b.logger))
 	}
@@ -273,7 +273,7 @@ func (b *Board) reconfigureInterrupts(newConf *LinuxBoardConfig) error {
 	for _, oldInterrupt := range b.interrupts {
 		if newConfig := findNewDigIntConfig(oldInterrupt, newConf.DigitalInterrupts, b.logger); newConfig == nil {
 			// The old interrupt shouldn't exist any more, but it probably became a GPIO pin.
-			if err := oldInterrupt.Close(); err != nil {
+			if err := closeInterrupt(oldInterrupt); err != nil {
 				return err // This should never happen, but the linter worries anyway.
 			}
 			if newGpioConfig, ok := b.gpioMappings[oldInterrupt.config.Pin]; ok {
@@ -305,7 +305,7 @@ func (b *Board) reconfigureInterrupts(newConf *LinuxBoardConfig) error {
 			// though it was not explicitly mentioned in the old board config), but the new config
 			// is explicit (e.g., its name is still "38" but it's been moved to pin 37). Close the
 			// old one and initialize it anew.
-			if err := interrupt.Close(); err != nil {
+			if err := closeInterrupt(interrupt); err != nil {
 				return err
 			}
 			// Although we delete the implicit interrupt from b.interrupts, it's still in
@@ -324,7 +324,7 @@ func (b *Board) reconfigureInterrupts(newConf *LinuxBoardConfig) error {
 		// If there was an old interrupt pin with this same name, reuse the part that holds its
 		// callbacks. Anything subscribed to the old pin will expect to still be subscribed to the
 		// new one.
-		var oldCallbackHolder board.ReconfigurableDigitalInterrupt
+		var oldCallbackHolder pinwrappers.ReconfigurableDigitalInterrupt
 		if oldInterrupt, ok := oldInterrupts[config.Name]; ok {
 			oldCallbackHolder = oldInterrupt.interrupt
 		}
@@ -342,10 +342,10 @@ func (b *Board) reconfigureInterrupts(newConf *LinuxBoardConfig) error {
 type wrappedAnalogReader struct {
 	mu         sync.RWMutex
 	chipSelect string
-	reader     *board.AnalogSmoother
+	reader     *pinwrappers.AnalogSmoother
 }
 
-func newWrappedAnalogReader(ctx context.Context, chipSelect string, reader *board.AnalogSmoother) *wrappedAnalogReader {
+func newWrappedAnalogReader(ctx context.Context, chipSelect string, reader *pinwrappers.AnalogSmoother) *wrappedAnalogReader {
 	var wrapped wrappedAnalogReader
 	wrapped.reset(ctx, chipSelect, reader)
 	return &wrapped
@@ -361,17 +361,21 @@ func (a *wrappedAnalogReader) Read(ctx context.Context, extra map[string]interfa
 }
 
 func (a *wrappedAnalogReader) Close(ctx context.Context) error {
-	return nil
+	return a.reader.Close(ctx)
 }
 
-func (a *wrappedAnalogReader) reset(ctx context.Context, chipSelect string, reader *board.AnalogSmoother) {
+func (a *wrappedAnalogReader) reset(ctx context.Context, chipSelect string, reader *pinwrappers.AnalogSmoother) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	if a.reader != nil {
-		goutils.UncheckedError(a.reader.Close(ctx))
+		utils.UncheckedError(a.reader.Close(ctx))
 	}
 	a.reader = reader
 	a.chipSelect = chipSelect
+}
+
+func (a *wrappedAnalogReader) Write(ctx context.Context, value int, extra map[string]interface{}) error {
+	return grpc.UnimplementedError
 }
 
 // Board implements a component for a Linux machine.
@@ -392,53 +396,52 @@ type Board struct {
 	activeBackgroundWorkers sync.WaitGroup
 }
 
-// AnalogReaderByName returns the analog reader by the given name if it exists.
-func (b *Board) AnalogReaderByName(name string) (board.AnalogReader, bool) {
+// AnalogByName returns the analog pin by the given name if it exists.
+func (b *Board) AnalogByName(name string) (board.Analog, error) {
 	a, ok := b.analogReaders[name]
-	return a, ok
+	if !ok {
+		return nil, errors.Errorf("can't find AnalogReader (%s)", name)
+	}
+	return a, nil
 }
 
 // DigitalInterruptByName returns the interrupt by the given name if it exists.
-func (b *Board) DigitalInterruptByName(name string) (board.DigitalInterrupt, bool) {
+func (b *Board) DigitalInterruptByName(name string) (board.DigitalInterrupt, error) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
 	interrupt, ok := b.interrupts[name]
 	if ok {
-		return interrupt.interrupt, true
+		return interrupt.interrupt, nil
 	}
 
 	// Otherwise, the name is not something we recognize yet. If it appears to be a GPIO pin, we'll
 	// remove its GPIO capabilities and turn it into a digital interrupt.
 	gpio, ok := b.gpios[name]
 	if !ok {
-		return nil, false
+		return nil, fmt.Errorf("cant find GPIO (%s)", name)
 	}
 	if err := gpio.Close(); err != nil {
-		b.logger.Errorw("failed to close GPIO pin to use as interrupt", "error", err)
-		return nil, false
+		return nil, err
 	}
 
-	const defaultInterruptType = "basic"
 	defaultInterruptConfig := board.DigitalInterruptConfig{
 		Name: name,
 		Pin:  name,
-		Type: defaultInterruptType,
 	}
 	interrupt, err := b.createDigitalInterrupt(
 		b.cancelCtx, defaultInterruptConfig, b.gpioMappings, nil)
 	if err != nil {
-		b.logger.Errorw("failed to create digital interrupt pin on the fly", "error", err)
-		return nil, false
+		return nil, err
 	}
 
 	delete(b.gpios, name)
 	b.interrupts[name] = interrupt
-	return interrupt.interrupt, true
+	return interrupt.interrupt, nil
 }
 
-// AnalogReaderNames returns the names of all known analog readers.
-func (b *Board) AnalogReaderNames() []string {
+// AnalogNames returns the names of all known analog pins.
+func (b *Board) AnalogNames() []string {
 	names := []string{}
 	for k := range b.analogReaders {
 		names = append(names, k)
@@ -473,11 +476,6 @@ func (b *Board) GPIOPinByName(pinName string) (board.GPIOPin, error) {
 	return nil, errors.Errorf("cannot find GPIO for unknown pin: %s", pinName)
 }
 
-// Status returns the current status of the board.
-func (b *Board) Status(ctx context.Context, extra map[string]interface{}) (*commonpb.BoardStatus, error) {
-	return board.CreateStatus(ctx, b, extra)
-}
-
 // SetPowerMode sets the board to the given power mode. If provided,
 // the board will exit the given power mode after the specified
 // duration.
@@ -494,6 +492,30 @@ func (b *Board) WriteAnalog(ctx context.Context, pin string, value int32, extra 
 	return nil
 }
 
+// StreamTicks starts a stream of digital interrupt ticks.
+func (b *Board) StreamTicks(ctx context.Context, interrupts []board.DigitalInterrupt, ch chan board.Tick,
+	extra map[string]interface{},
+) error {
+	for _, i := range interrupts {
+		pinwrappers.AddCallback(i.(*pinwrappers.BasicDigitalInterrupt), ch)
+	}
+
+	b.activeBackgroundWorkers.Add(1)
+
+	utils.ManagedGo(func() {
+		// Wait until it's time to shut down then remove callbacks.
+		select {
+		case <-ctx.Done():
+		case <-b.cancelCtx.Done():
+		}
+		for _, i := range interrupts {
+			pinwrappers.RemoveCallback(i.(*pinwrappers.BasicDigitalInterrupt), ch)
+		}
+	}, b.activeBackgroundWorkers.Done)
+
+	return nil
+}
+
 // Close attempts to cleanly close each part of the board.
 func (b *Board) Close(ctx context.Context) error {
 	b.mu.Lock()
@@ -506,7 +528,10 @@ func (b *Board) Close(ctx context.Context) error {
 		err = multierr.Combine(err, pin.Close())
 	}
 	for _, interrupt := range b.interrupts {
-		err = multierr.Combine(err, interrupt.Close())
+		err = multierr.Combine(err, closeInterrupt(interrupt))
+	}
+	for _, reader := range b.analogReaders {
+		err = multierr.Combine(err, reader.Close(ctx))
 	}
 	return err
 }

@@ -8,7 +8,7 @@ import (
 	"go.uber.org/multierr"
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/service/shell/v1"
-	goutils "go.viam.com/utils"
+	"go.viam.com/utils"
 
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
@@ -34,7 +34,7 @@ func (server *serviceServer) Shell(srv pb.ShellService_ShellServer) (retErr erro
 	if err != nil {
 		return err
 	}
-	input, output, err := svc.Shell(srv.Context(), req.Extra.AsMap())
+	input, oobInput, output, err := svc.Shell(srv.Context(), req.Extra.AsMap())
 	if err != nil {
 		return err
 	}
@@ -45,13 +45,14 @@ func (server *serviceServer) Shell(srv pb.ShellService_ShellServer) (retErr erro
 		retErr = multierr.Combine(retErr, <-inDone)
 	}()
 
-	goutils.PanicCapturingGo(func() {
+	utils.PanicCapturingGo(func() {
 		defer close(inDone)
 
 		for {
 			if firstMsg {
 				firstMsg = false
 				err = errTemp
+				req.Extra = nil
 			} else {
 				req, err = srv.Recv()
 			}
@@ -62,6 +63,24 @@ func (server *serviceServer) Shell(srv pb.ShellService_ShellServer) (retErr erro
 				}
 				inDone <- err
 				return
+			}
+
+			if req.Extra != nil {
+				ext := req.Extra.AsMap()
+				if len(ext) != 0 {
+					select {
+					case oobInput <- ext:
+					case <-outDone:
+						close(input)
+						return
+					case <-srv.Context().Done():
+						inDone <- srv.Context().Err()
+						return
+					}
+				}
+			}
+			if len(req.DataIn) == 0 {
+				continue
 			}
 
 			select {
@@ -100,6 +119,72 @@ func (server *serviceServer) Shell(srv pb.ShellService_ShellServer) (retErr erro
 			return srv.Context().Err()
 		}
 	}
+}
+
+// CopyFilesToMachine is the server side RPC implementation of copying files to a machine.
+// It'll receive the initial metadata of the request, call the underlying service's CopyFilesToMachine
+// method, and forward files to its FileCopier via an RPC based FileReadCopier.
+func (server *serviceServer) CopyFilesToMachine(srv pb.ShellService_CopyFilesToMachineServer) error {
+	mdReq, err := srv.Recv()
+	if err != nil {
+		return err
+	}
+	md, ok := mdReq.Request.(*pb.CopyFilesToMachineRequest_Metadata)
+	if !ok {
+		return errors.New("expected copy request metadata")
+	}
+	svc, err := server.coll.Resource(md.Metadata.Name)
+	if err != nil {
+		return err
+	}
+	fileCopier, err := svc.CopyFilesToMachine(
+		srv.Context(),
+		CopyFilesSourceTypeFromProto(md.Metadata.SourceType),
+		md.Metadata.Destination,
+		md.Metadata.Preserve,
+		md.Metadata.Extra.AsMap())
+	if err != nil {
+		return err
+	}
+	defer func() {
+		utils.UncheckedError(fileCopier.Close(srv.Context()))
+	}()
+
+	// create a FileCopyReader that has a Read/Copy pipeline of:
+	// CopyFilesToMachineClient->ShellRPCFileReadCopier->copier
+	// ShellRPCFileReadCopier does the heavy lifting for us by handling fragmentation
+	// and ordering of files coming in.
+	reader := newShellRPCFileReadCopier(shellRPCCopyReaderTo{srv}, fileCopier)
+	defer func() {
+		utils.UncheckedError(reader.Close(srv.Context()))
+	}()
+	return reader.ReadAll(srv.Context())
+}
+
+// CopyFilesFromMachine is the server side RPC implementation of copying files from a machine.
+// It'll receive the initial metadata of the request, call the underlying service's CopyFilesFromMachine
+// and allow it to copy files into the RPC based FileCopier connected to the calling client.
+func (server *serviceServer) CopyFilesFromMachine(srv pb.ShellService_CopyFilesFromMachineServer) error {
+	mdReq, err := srv.Recv()
+	if err != nil {
+		return err
+	}
+	md, ok := mdReq.Request.(*pb.CopyFilesFromMachineRequest_Metadata)
+	if !ok {
+		return errors.New("expected copy request metadata")
+	}
+	svc, err := server.coll.Resource(md.Metadata.Name)
+	if err != nil {
+		return err
+	}
+
+	return svc.CopyFilesFromMachine(
+		srv.Context(),
+		md.Metadata.Paths,
+		md.Metadata.AllowRecursion,
+		md.Metadata.Preserve,
+		newCopyFileFromMachineFactory(srv, md.Metadata.Preserve),
+		md.Metadata.Extra.AsMap())
 }
 
 // DoCommand receives arbitrary commands.

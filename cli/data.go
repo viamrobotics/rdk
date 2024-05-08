@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -19,6 +20,10 @@ import (
 	"github.com/pkg/errors"
 	"github.com/urfave/cli/v2"
 	datapb "go.viam.com/api/app/data/v1"
+	"go.viam.com/utils"
+	"go.viam.com/utils/rpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
@@ -35,7 +40,12 @@ const (
 	dataTypeBinary  = "binary"
 	dataTypeTabular = "tabular"
 
+	dataCommandAdd    = "add"
+	dataCommandRemove = "remove"
+
 	gzFileExt = ".gz"
+
+	serverErrorMessage = "received error from server"
 )
 
 // DataExportAction is the corresponding action for 'data export'.
@@ -69,6 +79,65 @@ func (c *viamClient) dataExportAction(cCtx *cli.Context) error {
 	return nil
 }
 
+// DataTagActionByFilter is the corresponding action for 'data tag filter'.
+func DataTagActionByFilter(c *cli.Context) error {
+	client, err := newViamClient(c)
+	if err != nil {
+		return err
+	}
+
+	filter, err := createDataFilter(c)
+	if err != nil {
+		return err
+	}
+
+	switch c.Command.Name {
+	case dataCommandAdd:
+		if err := client.dataAddTagsToBinaryByFilter(filter, c.StringSlice(dataFlagTags)); err != nil {
+			return err
+		}
+		return nil
+	case dataCommandRemove:
+		if err := client.dataRemoveTagsFromBinaryByFilter(filter, c.StringSlice(dataFlagTags)); err != nil {
+			return err
+		}
+		return nil
+	default:
+		return errors.Errorf("command must be add or remove, got %q", c.Command.Name)
+	}
+}
+
+// DataTagActionByIds is the corresponding action for 'data tag'.
+func DataTagActionByIds(c *cli.Context) error {
+	client, err := newViamClient(c)
+	if err != nil {
+		return err
+	}
+
+	switch c.Command.Name {
+	case dataCommandAdd:
+		if err := client.dataAddTagsToBinaryByIDs(
+			c.StringSlice(dataFlagTags),
+			c.String(generalFlagOrgID),
+			c.String(dataFlagLocationID),
+			c.StringSlice(dataFlagFileIDs)); err != nil {
+			return err
+		}
+		return nil
+	case dataCommandRemove:
+		if err := client.dataRemoveTagsFromBinaryByIDs(
+			c.StringSlice(dataFlagTags),
+			c.String(generalFlagOrgID),
+			c.String(dataFlagLocationID),
+			c.StringSlice(dataFlagFileIDs)); err != nil {
+			return err
+		}
+		return nil
+	default:
+		return errors.Errorf("command must be add or remove, got %q", c.Command.Name)
+	}
+}
+
 // DataDeleteBinaryAction is the corresponding action for 'data delete'.
 func DataDeleteBinaryAction(c *cli.Context) error {
 	client, err := newViamClient(c)
@@ -93,7 +162,7 @@ func DataDeleteTabularAction(c *cli.Context) error {
 		return err
 	}
 
-	if err := client.deleteTabularData(c.String(dataFlagOrgID), c.Int(dataFlagDeleteTabularDataOlderThanDays)); err != nil {
+	if err := client.deleteTabularData(c.String(generalFlagOrgID), c.Int(dataFlagDeleteTabularDataOlderThanDays)); err != nil {
 		return err
 	}
 	return nil
@@ -108,8 +177,8 @@ func createDataFilter(c *cli.Context) (*datapb.Filter, error) {
 	if c.StringSlice(dataFlagLocationIDs) != nil {
 		filter.LocationIds = c.StringSlice(dataFlagLocationIDs)
 	}
-	if c.String(dataFlagMachineID) != "" {
-		filter.RobotId = c.String(dataFlagMachineID)
+	if c.String(generalFlagMachineID) != "" {
+		filter.RobotId = c.String(generalFlagMachineID)
 	}
 	if c.String(dataFlagPartID) != "" {
 		filter.PartId = c.String(dataFlagPartID)
@@ -132,20 +201,34 @@ func createDataFilter(c *cli.Context) (*datapb.Filter, error) {
 	if len(c.StringSlice(dataFlagMimeTypes)) != 0 {
 		filter.MimeType = c.StringSlice(dataFlagMimeTypes)
 	}
-	if c.StringSlice(dataFlagTags) != nil {
-		switch {
-		case len(c.StringSlice(dataFlagTags)) == 1 && c.StringSlice(dataFlagTags)[0] == "tagged":
-			filter.TagsFilter = &datapb.TagsFilter{
-				Type: datapb.TagsFilterType_TAGS_FILTER_TYPE_TAGGED,
-			}
-		case len(c.StringSlice(dataFlagTags)) == 1 && c.StringSlice(dataFlagTags)[0] == "untagged":
-			filter.TagsFilter = &datapb.TagsFilter{
-				Type: datapb.TagsFilterType_TAGS_FILTER_TYPE_UNTAGGED,
-			}
-		default:
-			filter.TagsFilter = &datapb.TagsFilter{
-				Type: datapb.TagsFilterType_TAGS_FILTER_TYPE_MATCH_BY_OR,
-				Tags: c.StringSlice(dataFlagTags),
+	// We have some weirdness because the --tags flag can mean two completely different things.
+	// It could be either tags to filter by, or, if running 'viam data tag' it will mean the
+	// tags to add to the data. To account for this, we have to check if we're running the tag
+	// command, and if so, to add the filter tags if we pass in --filter-tags.
+	if strings.Contains(c.Command.UsageText, "tag") && len(c.StringSlice(dataFlagFilterTags)) != 0 {
+		filter.TagsFilter = &datapb.TagsFilter{
+			Type: datapb.TagsFilterType_TAGS_FILTER_TYPE_MATCH_BY_OR,
+			Tags: c.StringSlice(dataFlagFilterTags),
+		}
+	}
+	// Similar to the above comment, we only want to add filter tags with --tags if we're NOT
+	// running the tag command.
+	if !strings.Contains(c.Command.UsageText, "tag") && c.StringSlice(dataFlagTags) != nil {
+		if len(c.StringSlice(dataFlagFilterTags)) == 0 {
+			switch {
+			case len(c.StringSlice(dataFlagTags)) == 1 && c.StringSlice(dataFlagTags)[0] == "tagged":
+				filter.TagsFilter = &datapb.TagsFilter{
+					Type: datapb.TagsFilterType_TAGS_FILTER_TYPE_TAGGED,
+				}
+			case len(c.StringSlice(dataFlagTags)) == 1 && c.StringSlice(dataFlagTags)[0] == "untagged":
+				filter.TagsFilter = &datapb.TagsFilter{
+					Type: datapb.TagsFilterType_TAGS_FILTER_TYPE_UNTAGGED,
+				}
+			default:
+				filter.TagsFilter = &datapb.TagsFilter{
+					Type: datapb.TagsFilterType_TAGS_FILTER_TYPE_MATCH_BY_OR,
+					Tags: c.StringSlice(dataFlagTags),
+				}
 			}
 		}
 	}
@@ -186,7 +269,7 @@ func (c *viamClient) binaryData(dst string, filter *datapb.Filter, parallelDownl
 
 	return c.performActionOnBinaryDataFromFilter(
 		func(id *datapb.BinaryID) error {
-			return downloadBinary(c.c.Context, c.dataClient, dst, id)
+			return downloadBinary(c.c.Context, c.dataClient, dst, id, c.authFlow.httpClient, c.conf.Auth)
 		},
 		filter, parallelDownloads,
 		func(i int32) {
@@ -327,27 +410,45 @@ func getMatchingBinaryIDs(ctx context.Context, client datapb.DataServiceClient, 
 	}
 }
 
-func downloadBinary(ctx context.Context, client datapb.DataServiceClient, dst string, id *datapb.BinaryID) error {
+func downloadBinary(ctx context.Context, client datapb.DataServiceClient, dst string, id *datapb.BinaryID,
+	httpClient *http.Client, auth authMethod,
+) error {
 	var resp *datapb.BinaryDataByIDsResponse
 	var err error
+	largeFile := false
+	// To begin, we assume the file is small and downloadable, so we try getting the binary directly
 	for count := 0; count < maxRetryCount; count++ {
 		resp, err = client.BinaryDataByIDs(ctx, &datapb.BinaryDataByIDsRequest{
 			BinaryIds:     []*datapb.BinaryID{id},
-			IncludeBinary: true,
+			IncludeBinary: !largeFile,
 		})
-		if err == nil {
+		// If the file is too large, we break and try a different pathway for downloading
+		if err == nil || status.Code(err) == codes.ResourceExhausted {
 			break
 		}
 	}
-	if err != nil {
-		return errors.Wrapf(err, "received error from server")
+	// For large files, we get the metadata but not the binary itself
+	// Resource exhausted is returned when the message we're receiving exceeds the GRPC maximum limit
+	if err != nil && status.Code(err) == codes.ResourceExhausted {
+		largeFile = true
+		for count := 0; count < maxRetryCount; count++ {
+			resp, err = client.BinaryDataByIDs(ctx, &datapb.BinaryDataByIDsRequest{
+				BinaryIds:     []*datapb.BinaryID{id},
+				IncludeBinary: !largeFile,
+			})
+			if err == nil {
+				break
+			}
+		}
 	}
-	data := resp.GetData()
+	if err != nil {
+		return errors.Wrapf(err, serverErrorMessage)
+	}
 
+	data := resp.GetData()
 	if len(data) != 1 {
 		return errors.Errorf("expected a single response, received %d", len(data))
 	}
-
 	datum := data[0]
 
 	fileName := filenameForDownload(datum.GetMetadata())
@@ -372,7 +473,46 @@ func downloadBinary(ctx context.Context, client datapb.DataServiceClient, dst st
 		return err
 	}
 
-	bin := datum.GetBinary()
+	var bin []byte
+	if largeFile {
+		// Make request to the URI for large files since we exceed the message limit for gRPC
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, datum.GetMetadata().GetUri(), nil)
+		if err != nil {
+			return errors.Wrapf(err, serverErrorMessage)
+		}
+
+		// Set the headers so HTTP requests that are not gRPC calls can still be authenticated in app
+		// We can authenticate via token or API key, so we try both.
+		token, ok := auth.(*token)
+		if ok {
+			req.Header.Add(rpc.MetadataFieldAuthorization, rpc.AuthorizationValuePrefixBearer+token.AccessToken)
+		}
+		apiKey, ok := auth.(*apiKey)
+		if ok {
+			req.Header.Add("key_id", apiKey.KeyID)
+			req.Header.Add("key", apiKey.KeyCrypto)
+		}
+
+		res, err := httpClient.Do(req)
+		if err != nil {
+			return errors.Wrapf(err, serverErrorMessage)
+		}
+		if res.StatusCode != http.StatusOK {
+			return errors.New(serverErrorMessage)
+		}
+		defer func() {
+			utils.UncheckedError(res.Body.Close())
+		}()
+
+		bin, err = io.ReadAll(res.Body)
+		if err != nil {
+			return errors.Wrapf(err, serverErrorMessage)
+		}
+	} else {
+		// If the binary has not already been populated as large file download,
+		// get the binary data from the response.
+		bin = datum.GetBinary()
+	}
 
 	r := io.NopCloser(bytes.NewReader(bin))
 
@@ -559,9 +699,79 @@ func (c *viamClient) deleteBinaryData(filter *datapb.Filter) error {
 	resp, err := c.dataClient.DeleteBinaryDataByFilter(context.Background(),
 		&datapb.DeleteBinaryDataByFilterRequest{Filter: filter})
 	if err != nil {
-		return errors.Wrapf(err, "received error from server")
+		return errors.Wrapf(err, serverErrorMessage)
 	}
 	printf(c.c.App.Writer, "Deleted %d files", resp.GetDeletedCount())
+	return nil
+}
+
+func (c *viamClient) dataAddTagsToBinaryByFilter(filter *datapb.Filter, tags []string) error {
+	if err := c.ensureLoggedIn(); err != nil {
+		return err
+	}
+	_, err := c.dataClient.AddTagsToBinaryDataByFilter(context.Background(),
+		&datapb.AddTagsToBinaryDataByFilterRequest{Filter: filter, Tags: tags})
+	if err != nil {
+		return errors.Wrapf(err, serverErrorMessage)
+	}
+	printf(c.c.App.Writer, "Successfully tagged data")
+	return nil
+}
+
+func (c *viamClient) dataRemoveTagsFromBinaryByFilter(filter *datapb.Filter, tags []string) error {
+	if err := c.ensureLoggedIn(); err != nil {
+		return err
+	}
+	_, err := c.dataClient.RemoveTagsFromBinaryDataByFilter(context.Background(),
+		&datapb.RemoveTagsFromBinaryDataByFilterRequest{Filter: filter, Tags: tags})
+	if err != nil {
+		return errors.Wrapf(err, serverErrorMessage)
+	}
+	printf(c.c.App.Writer, "Successfully removed tags from data")
+	return nil
+}
+
+func (c *viamClient) dataAddTagsToBinaryByIDs(tags []string, orgID, locationID string, fileIDs []string) error {
+	if err := c.ensureLoggedIn(); err != nil {
+		return err
+	}
+	binaryData := make([]*datapb.BinaryID, 0, len(fileIDs))
+	for _, fileID := range fileIDs {
+		binaryData = append(binaryData, &datapb.BinaryID{
+			OrganizationId: orgID,
+			LocationId:     locationID,
+			FileId:         fileID,
+		})
+	}
+	_, err := c.dataClient.AddTagsToBinaryDataByIDs(context.Background(),
+		&datapb.AddTagsToBinaryDataByIDsRequest{Tags: tags, BinaryIds: binaryData})
+	if err != nil {
+		return errors.Wrapf(err, serverErrorMessage)
+	}
+	printf(c.c.App.Writer, "Added tags %v to data", tags)
+	return nil
+}
+
+// dataRemoveTagsFromData removes tags from data, with the specified org ID, location ID,
+// and file IDs.
+func (c *viamClient) dataRemoveTagsFromBinaryByIDs(tags []string, orgID, locationID string, fileIDs []string) error {
+	if err := c.ensureLoggedIn(); err != nil {
+		return err
+	}
+	binaryData := make([]*datapb.BinaryID, 0, len(fileIDs))
+	for _, fileID := range fileIDs {
+		binaryData = append(binaryData, &datapb.BinaryID{
+			OrganizationId: orgID,
+			LocationId:     locationID,
+			FileId:         fileID,
+		})
+	}
+	_, err := c.dataClient.RemoveTagsFromBinaryDataByIDs(context.Background(),
+		&datapb.RemoveTagsFromBinaryDataByIDsRequest{Tags: tags, BinaryIds: binaryData})
+	if err != nil {
+		return errors.Wrapf(err, serverErrorMessage)
+	}
+	printf(c.c.App.Writer, "Removed tags %v from data", tags)
 	return nil
 }
 
@@ -573,7 +783,7 @@ func (c *viamClient) deleteTabularData(orgID string, deleteOlderThanDays int) er
 	resp, err := c.dataClient.DeleteTabularData(context.Background(),
 		&datapb.DeleteTabularDataRequest{OrganizationId: orgID, DeleteOlderThanDays: uint32(deleteOlderThanDays)})
 	if err != nil {
-		return errors.Wrapf(err, "received error from server")
+		return errors.Wrapf(err, serverErrorMessage)
 	}
 	printf(c.c.App.Writer, "Deleted %d datapoints", resp.GetDeletedCount())
 	return nil
@@ -585,7 +795,7 @@ func DataAddToDatasetByIDs(c *cli.Context) error {
 	if err != nil {
 		return err
 	}
-	if err := client.dataAddToDatasetByIDs(c.String(datasetFlagDatasetID), c.String(dataFlagOrgID),
+	if err := client.dataAddToDatasetByIDs(c.String(datasetFlagDatasetID), c.String(generalFlagOrgID),
 		c.String(dataFlagLocationID), c.StringSlice(dataFlagFileIDs)); err != nil {
 		return err
 	}
@@ -608,7 +818,7 @@ func (c *viamClient) dataAddToDatasetByIDs(datasetID, orgID, locationID string, 
 	_, err := c.dataClient.AddBinaryDataToDatasetByIDs(context.Background(),
 		&datapb.AddBinaryDataToDatasetByIDsRequest{DatasetId: datasetID, BinaryIds: binaryData})
 	if err != nil {
-		return errors.Wrapf(err, "received error from server")
+		return errors.Wrapf(err, serverErrorMessage)
 	}
 	printf(c.c.App.Writer, "Added data to dataset ID %s", datasetID)
 	return nil
@@ -655,7 +865,7 @@ func DataRemoveFromDataset(c *cli.Context) error {
 	if err != nil {
 		return err
 	}
-	if err := client.dataRemoveFromDataset(c.String(datasetFlagDatasetID), c.String(dataFlagOrgID),
+	if err := client.dataRemoveFromDataset(c.String(datasetFlagDatasetID), c.String(generalFlagOrgID),
 		c.String(dataFlagLocationID), c.StringSlice(dataFlagFileIDs)); err != nil {
 		return err
 	}
@@ -679,7 +889,7 @@ func (c *viamClient) dataRemoveFromDataset(datasetID, orgID, locationID string, 
 	_, err := c.dataClient.RemoveBinaryDataFromDatasetByIDs(context.Background(),
 		&datapb.RemoveBinaryDataFromDatasetByIDsRequest{DatasetId: datasetID, BinaryIds: binaryData})
 	if err != nil {
-		return errors.Wrapf(err, "received error from server")
+		return errors.Wrapf(err, serverErrorMessage)
 	}
 	printf(c.c.App.Writer, "Removed data from dataset ID %s", datasetID)
 	return nil
@@ -691,7 +901,7 @@ func DataConfigureDatabaseUser(c *cli.Context) error {
 	if err != nil {
 		return err
 	}
-	if err := client.dataConfigureDatabaseUser(c.String(dataFlagOrgID), c.String(dataFlagDatabasePassword)); err != nil {
+	if err := client.dataConfigureDatabaseUser(c.String(generalFlagOrgID), c.String(dataFlagDatabasePassword)); err != nil {
 		return err
 	}
 	return nil
@@ -707,7 +917,7 @@ func (c *viamClient) dataConfigureDatabaseUser(orgID, password string) error {
 	_, err := c.dataClient.ConfigureDatabaseUser(context.Background(),
 		&datapb.ConfigureDatabaseUserRequest{OrganizationId: orgID, Password: password})
 	if err != nil {
-		return errors.Wrapf(err, "received error from server")
+		return errors.Wrapf(err, serverErrorMessage)
 	}
 	printf(c.c.App.Writer, "Configured database user for org %s", orgID)
 	return nil
@@ -719,7 +929,7 @@ func DataGetDatabaseConnection(c *cli.Context) error {
 	if err != nil {
 		return err
 	}
-	if err := client.dataGetDatabaseConnection(c.String(dataFlagOrgID)); err != nil {
+	if err := client.dataGetDatabaseConnection(c.String(generalFlagOrgID)); err != nil {
 		return err
 	}
 	return nil
@@ -733,8 +943,9 @@ func (c *viamClient) dataGetDatabaseConnection(orgID string) error {
 	}
 	res, err := c.dataClient.GetDatabaseConnection(context.Background(), &datapb.GetDatabaseConnectionRequest{OrganizationId: orgID})
 	if err != nil {
-		return errors.Wrapf(err, "received error from server")
+		return errors.Wrapf(err, serverErrorMessage)
 	}
 	printf(c.c.App.Writer, "MongoDB Atlas Data Federation instance hostname: %s", res.GetHostname())
+	printf(c.c.App.Writer, "MongoDB Atlas Data Federation instance connection URI: %s", res.GetMongodbUri())
 	return nil
 }

@@ -4,21 +4,29 @@ package fake
 import (
 	"context"
 	"fmt"
+	"math/rand"
 	"reflect"
 	"sync"
 	"time"
 
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
-	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/board/v1"
-	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 )
+
+// In order to maintain test functionality, testPin will always return an analog value of 0.
+// To see non-zero fake analog values on a fake board, add an analog reader to any other pin.
+var analogTestPin = ""
+
+// In order to maintain test functionality, digital interrtups on any pin except nonZeroInterruptPin
+// will always return a digital interrupt value of 0. To see non-zero fake interrupt values on a fake board,
+// add an digital interrupt to pin 0.
+var nonZeroInterruptPin = "0"
 
 // A Config describes the configuration of a fake board and all of its connected parts.
 type Config struct {
@@ -68,11 +76,11 @@ func init() {
 // NewBoard returns a new fake board.
 func NewBoard(ctx context.Context, conf resource.Config, logger logging.Logger) (*Board, error) {
 	b := &Board{
-		Named:         conf.ResourceName().AsNamed(),
-		AnalogReaders: map[string]*AnalogReader{},
-		Digitals:      map[string]*DigitalInterruptWrapper{},
-		GPIOPins:      map[string]*GPIOPin{},
-		logger:        logger,
+		Named:    conf.ResourceName().AsNamed(),
+		Analogs:  map[string]*Analog{},
+		Digitals: map[string]*DigitalInterrupt{},
+		GPIOPins: map[string]*GPIOPin{},
+		logger:   logger,
 	}
 
 	if err := b.processConfig(conf); err != nil {
@@ -98,19 +106,19 @@ func (b *Board) processConfig(conf resource.Config) error {
 
 	for _, c := range newConf.AnalogReaders {
 		stillExists[c.Name] = struct{}{}
-		if curr, ok := b.AnalogReaders[c.Name]; ok {
+		if curr, ok := b.Analogs[c.Name]; ok {
 			if curr.pin != c.Pin {
 				curr.reset(c.Pin)
 			}
 			continue
 		}
-		b.AnalogReaders[c.Name] = newAnalogReader(c.Pin)
+		b.Analogs[c.Name] = newAnalogReader(c.Pin)
 	}
-	for name := range b.AnalogReaders {
+	for name := range b.Analogs {
 		if _, ok := stillExists[name]; ok {
 			continue
 		}
-		delete(b.AnalogReaders, name)
+		delete(b.Analogs, name)
 	}
 	stillExists = map[string]struct{}{}
 
@@ -119,12 +127,12 @@ func (b *Board) processConfig(conf resource.Config) error {
 		stillExists[c.Name] = struct{}{}
 		if curr, ok := b.Digitals[c.Name]; ok {
 			if !reflect.DeepEqual(curr.conf, c) {
-				utils.UncheckedError(curr.reset(c))
+				curr.reset(c)
 			}
 			continue
 		}
 		var err error
-		b.Digitals[c.Name], err = NewDigitalInterruptWrapper(c)
+		b.Digitals[c.Name], err = NewDigitalInterrupt(c)
 		if err != nil {
 			errs = multierr.Combine(errs, err)
 		}
@@ -139,7 +147,7 @@ func (b *Board) processConfig(conf resource.Config) error {
 	return nil
 }
 
-// Reconfigure atomically reconfigures this board© in place based on the new config.
+// Reconfigure atomically reconfigures this board in place based on the new config.
 func (b *Board) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
 	return b.processConfig(conf)
 }
@@ -148,28 +156,34 @@ func (b *Board) Reconfigure(ctx context.Context, deps resource.Dependencies, con
 type Board struct {
 	resource.Named
 
-	mu            sync.RWMutex
-	AnalogReaders map[string]*AnalogReader
-	Digitals      map[string]*DigitalInterruptWrapper
-	GPIOPins      map[string]*GPIOPin
-	logger        logging.Logger
-	CloseCount    int
+	mu         sync.RWMutex
+	Analogs    map[string]*Analog
+	Digitals   map[string]*DigitalInterrupt
+	GPIOPins   map[string]*GPIOPin
+	logger     logging.Logger
+	CloseCount int
 }
 
-// AnalogReaderByName returns the analog reader by the given name if it exists.
-func (b *Board) AnalogReaderByName(name string) (board.AnalogReader, bool) {
+// AnalogByName returns the analog pin by the given name if it exists.
+func (b *Board) AnalogByName(name string) (board.Analog, error) {
 	b.mu.RLock()
 	defer b.mu.RUnlock()
-	a, ok := b.AnalogReaders[name]
-	return a, ok
+	a, ok := b.Analogs[name]
+	if !ok {
+		return nil, errors.Errorf("can't find AnalogReader (%s)", name)
+	}
+	return a, nil
 }
 
 // DigitalInterruptByName returns the interrupt by the given name if it exists.
-func (b *Board) DigitalInterruptByName(name string) (board.DigitalInterrupt, bool) {
+func (b *Board) DigitalInterruptByName(name string) (board.DigitalInterrupt, error) {
 	b.mu.RLock()
 	defer b.mu.RUnlock()
 	d, ok := b.Digitals[name]
-	return d, ok
+	if !ok {
+		return nil, fmt.Errorf("cant find DigitalInterrupt (%s)", name)
+	}
+	return d, nil
 }
 
 // GPIOPinByName returns the GPIO pin by the given name if it exists.
@@ -185,12 +199,12 @@ func (b *Board) GPIOPinByName(name string) (board.GPIOPin, error) {
 	return p, nil
 }
 
-// AnalogReaderNames returns the names of all known analog readers.
-func (b *Board) AnalogReaderNames() []string {
+// AnalogNames returns the names of all known analog pins.
+func (b *Board) AnalogNames() []string {
 	b.mu.RLock()
 	defer b.mu.RUnlock()
 	names := []string{}
-	for k := range b.AnalogReaders {
+	for k := range b.Analogs {
 		names = append(names, k)
 	}
 	return names
@@ -207,11 +221,6 @@ func (b *Board) DigitalInterruptNames() []string {
 	return names
 }
 
-// Status returns the current status of the board.
-func (b *Board) Status(ctx context.Context, extra map[string]interface{}) (*commonpb.BoardStatus, error) {
-	return board.CreateStatus(ctx, b, extra)
-}
-
 // SetPowerMode sets the board to the given power mode. If provided,
 // the board will exit the given power mode after the specified
 // duration.
@@ -221,8 +230,38 @@ func (b *Board) SetPowerMode(ctx context.Context, mode pb.PowerMode, duration *t
 
 // WriteAnalog writes the value to the given pin, which can be read back by adding it to AnalogReaders.
 func (b *Board) WriteAnalog(ctx context.Context, pin string, value int32, extra map[string]interface{}) error {
-	alg := &AnalogReader{pin: pin, Value: int(value)}
-	b.AnalogReaders[pin] = alg
+	alg := &Analog{pin: pin, Value: int(value)}
+	b.Analogs[pin] = alg
+	return nil
+}
+
+// StreamTicks starts a stream of digital interrupt ticks.
+func (b *Board) StreamTicks(ctx context.Context, interrupts []board.DigitalInterrupt, ch chan board.Tick,
+	extra map[string]interface{},
+) error {
+	for _, i := range interrupts {
+		name := i.Name()
+		d, ok := b.Digitals[name]
+		if !ok {
+			return fmt.Errorf("could not find digital interrupt: %s", name)
+		}
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+			// Keep going
+		}
+		// Get a random bool for the high tick value.
+		// linter complans about security but we don't care if someone
+		// can predict if the fake interrupts will be high or low.
+		//nolint:gosec
+		randBool := rand.Int()%2 == 0
+		select {
+		case ch <- board.Tick{Name: d.conf.Name, High: randBool, TimestampNanosec: uint64(time.Now().Unix())}:
+		default:
+			// if nothing is listening to the channel just do nothing.
+		}
+	}
 	return nil
 }
 
@@ -232,53 +271,50 @@ func (b *Board) Close(ctx context.Context) error {
 	defer b.mu.Unlock()
 
 	b.CloseCount++
-	var err error
 
-	for _, analog := range b.AnalogReaders {
-		err = multierr.Combine(err, analog.Close(ctx))
-	}
-	for _, digital := range b.Digitals {
-		err = multierr.Combine(err, digital.Close(ctx))
-	}
-	return err
+	return nil
 }
 
-// An AnalogReader reads back the same set value.
-type AnalogReader struct {
+// An Analog reads back the same set value.
+type Analog struct {
 	pin        string
 	Value      int
 	CloseCount int
 	Mu         sync.RWMutex
+	fakeValue  int
 }
 
-func newAnalogReader(pin string) *AnalogReader {
-	return &AnalogReader{pin: pin}
+func newAnalogReader(pin string) *Analog {
+	return &Analog{pin: pin}
 }
 
-func (a *AnalogReader) reset(pin string) {
+func (a *Analog) reset(pin string) {
 	a.Mu.Lock()
 	a.pin = pin
 	a.Value = 0
 	a.Mu.Unlock()
 }
 
-func (a *AnalogReader) Read(ctx context.Context, extra map[string]interface{}) (int, error) {
+func (a *Analog) Read(ctx context.Context, extra map[string]interface{}) (int, error) {
 	a.Mu.RLock()
 	defer a.Mu.RUnlock()
+	if a.pin != analogTestPin {
+		a.Value = a.fakeValue
+		a.fakeValue++
+	}
 	return a.Value, nil
 }
 
-// Set is used during testing.
-func (a *AnalogReader) Set(value int) {
+func (a *Analog) Write(ctx context.Context, value int, extra map[string]interface{}) error {
+	a.Set(value)
+	return nil
+}
+
+// Set is used to set the value of an Analog.
+func (a *Analog) Set(value int) {
 	a.Mu.Lock()
 	defer a.Mu.Unlock()
 	a.Value = value
-}
-
-// Close does nothing.
-func (a *AnalogReader) Close(ctx context.Context) error {
-	a.CloseCount++
-	return nil
 }
 
 // A GPIOPin reads back the same set values.
@@ -343,101 +379,41 @@ func (gp *GPIOPin) SetPWMFreq(ctx context.Context, freqHz uint, extra map[string
 	return nil
 }
 
-// DigitalInterruptWrapper is a wrapper around a digital interrupt for testing fake boards.
-type DigitalInterruptWrapper struct {
-	mu        sync.Mutex
-	di        board.DigitalInterrupt
-	conf      board.DigitalInterruptConfig
-	callbacks map[chan board.Tick]struct{}
-	pps       []board.PostProcessor
+// DigitalInterrupt is a fake digital interrupt.
+type DigitalInterrupt struct {
+	mu    sync.Mutex
+	conf  board.DigitalInterruptConfig
+	value int64
 }
 
-// NewDigitalInterruptWrapper returns a new digital interrupt to be used for testing.
-func NewDigitalInterruptWrapper(conf board.DigitalInterruptConfig) (*DigitalInterruptWrapper, error) {
-	di, err := board.CreateDigitalInterrupt(conf)
-	if err != nil {
-		return nil, err
-	}
-	return &DigitalInterruptWrapper{
-		di:        di,
-		callbacks: map[chan board.Tick]struct{}{},
-		conf:      conf,
+// NewDigitalInterrupt returns a new fake digital interrupt.
+func NewDigitalInterrupt(conf board.DigitalInterruptConfig) (*DigitalInterrupt, error) {
+	return &DigitalInterrupt{
+		conf: conf,
 	}, nil
 }
 
-func (s *DigitalInterruptWrapper) reset(conf board.DigitalInterruptConfig) error {
+func (s *DigitalInterrupt) reset(conf board.DigitalInterruptConfig) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	reconf, isReconf := s.di.(board.ReconfigurableDigitalInterrupt)
-	if conf.Name != s.conf.Name || !isReconf {
-		// rebuild
-		di, err := board.CreateDigitalInterrupt(conf)
-		if err != nil {
-			return err
-		}
-		s.conf = conf
-		s.di = di
-		for c := range s.callbacks {
-			s.di.AddCallback(c)
-		}
-		for _, pp := range s.pps {
-			s.di.AddPostProcessor(pp)
-		}
-		return nil
-	}
-	// reconf
-	if err := reconf.Reconfigure(conf); err != nil {
-		return err
-	}
 	s.conf = conf
-	return nil
 }
 
 // Value returns the current value of the interrupt which is
 // based on the type of interrupt.
-func (s *DigitalInterruptWrapper) Value(ctx context.Context, extra map[string]interface{}) (int64, error) {
+func (s *DigitalInterrupt) Value(ctx context.Context, extra map[string]interface{}) (int64, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	return s.di.Value(ctx, extra)
+	if s.conf.Pin == nonZeroInterruptPin {
+		s.value++
+		return s.value, nil
+	}
+	return 0, nil
 }
 
-// Tick is to be called either manually if the interrupt is a proxy to some real
-// hardware interrupt or for tests.
-// nanoseconds is from an arbitrary point in time, but always increasing and always needs
-// to be accurate.
-func (s *DigitalInterruptWrapper) Tick(ctx context.Context, high bool, nanoseconds uint64) error {
+// Name returns the name of the digital interrupt.
+func (s *DigitalInterrupt) Name() string {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	return s.di.Tick(ctx, high, nanoseconds)
-}
-
-// AddCallback adds a callback to be sent a low/high value to when a tick
-// happens.
-func (s *DigitalInterruptWrapper) AddCallback(c chan board.Tick) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	s.callbacks[c] = struct{}{}
-	s.di.AddCallback(c)
-}
-
-// AddPostProcessor adds a post processor that should be used to modify
-// what is returned by Value.
-func (s *DigitalInterruptWrapper) AddPostProcessor(pp board.PostProcessor) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	s.pps = append(s.pps, pp)
-	s.di.AddPostProcessor(pp)
-}
-
-// RemoveCallback removes a listener for interrupts.
-func (s *DigitalInterruptWrapper) RemoveCallback(c chan board.Tick) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	delete(s.callbacks, c)
-	s.di.RemoveCallback(c)
-}
-
-// Close does nothing.
-func (s *DigitalInterruptWrapper) Close(ctx context.Context) error {
-	return nil
+	return s.conf.Name
 }

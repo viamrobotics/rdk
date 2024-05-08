@@ -14,12 +14,12 @@ import (
 
 func TestParseURDFFile(t *testing.T) {
 	// Test a URDF which has prismatic joints
-	u, err := ParseModelXMLFile(utils.ResolveFile("referenceframe/urdf/testfiles/example_gantry.urdf"), "")
+	u, err := ParseModelXMLFile(utils.ResolveFile("referenceframe/urdf/testfiles/example_gantry.xml"), "")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(u.DoF()), test.ShouldEqual, 2)
 
 	// Test a URDF will has collision geometries we can evaluate and a DoF of 6
-	u, err = ParseModelXMLFile(utils.ResolveFile("referenceframe/urdf/testfiles/ur5_viam.urdf"), "")
+	u, err = ParseModelXMLFile(utils.ResolveFile("referenceframe/urdf/testfiles/ur5e.urdf"), "")
 	test.That(t, err, test.ShouldBeNil)
 	model, ok := u.(*referenceframe.SimpleModel)
 	test.That(t, ok, test.ShouldBeTrue)
@@ -27,16 +27,16 @@ func TestParseURDFFile(t *testing.T) {
 	test.That(t, len(u.DoF()), test.ShouldEqual, 6)
 	modelGeo, err := model.Geometries(make([]referenceframe.Input, len(model.DoF())))
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, len(modelGeo.Geometries()), test.ShouldEqual, 5)
+	test.That(t, len(modelGeo.Geometries()), test.ShouldEqual, 5) // notably we only have 5 geometries for this model
 
 	// Test naming of a URDF to something other than the robot's name element
-	u, err = ParseModelXMLFile(utils.ResolveFile("referenceframe/urdf/testfiles/ur5_minimal.urdf"), "foo")
+	u, err = ParseModelXMLFile(utils.ResolveFile("referenceframe/urdf/testfiles/ur5e.urdf"), "foo")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, u.Name(), test.ShouldEqual, "foo")
 }
 
 func TestURDFTransforms(t *testing.T) {
-	u, err := ParseModelXMLFile(utils.ResolveFile("referenceframe/urdf/testfiles/ur5_minimal.urdf"), "")
+	u, err := ParseModelXMLFile(utils.ResolveFile("referenceframe/urdf/testfiles/ur5e.urdf"), "")
 	test.That(t, err, test.ShouldBeNil)
 	simple, ok := u.(*referenceframe.SimpleModel)
 	test.That(t, ok, test.ShouldBeTrue)
@@ -64,7 +64,7 @@ func TestURDFTransforms(t *testing.T) {
 	test.That(t, firstJov.OZ, test.ShouldAlmostEqual, firstJovExpect.OZ)
 }
 
-func TestWorlStateConversion(t *testing.T) {
+func TestWorldStateConversion(t *testing.T) {
 	foo, err := spatialmath.NewSphere(spatialmath.NewZeroPose(), 10, "foo")
 	test.That(t, err, test.ShouldBeNil)
 	bar, err := spatialmath.NewBox(spatialmath.NewZeroPose(), r3.Vector{X: 1, Y: 2, Z: 3}, "bar")

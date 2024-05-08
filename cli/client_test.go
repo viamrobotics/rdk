@@ -2,21 +2,39 @@ package cli
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
+	"io/fs"
+	"maps"
 	"os"
+	"path/filepath"
+	"strconv"
+	"strings"
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/urfave/cli/v2"
+	"go.uber.org/zap/zapcore"
 	buildpb "go.viam.com/api/app/build/v1"
 	datapb "go.viam.com/api/app/data/v1"
 	apppb "go.viam.com/api/app/v1"
+	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/test"
 	"go.viam.com/utils/protoutils"
 	"google.golang.org/grpc"
+	"google.golang.org/protobuf/types/known/structpb"
 
+	robotconfig "go.viam.com/rdk/config"
+	"go.viam.com/rdk/logging"
+	"go.viam.com/rdk/resource"
+	robotimpl "go.viam.com/rdk/robot/impl"
+	"go.viam.com/rdk/services/shell"
+	_ "go.viam.com/rdk/services/shell/register"
+	shelltestutils "go.viam.com/rdk/services/shell/testutils"
 	"go.viam.com/rdk/testutils/inject"
+	"go.viam.com/rdk/testutils/robottestutils"
 	"go.viam.com/rdk/utils"
 )
 
@@ -37,6 +55,36 @@ func (tw *testWriter) Write(b []byte) (int, error) {
 	return len(b), nil
 }
 
+// populateFlags populates a FlagSet from a map.
+func populateFlags(m map[string]any, args ...string) *flag.FlagSet {
+	flags := &flag.FlagSet{}
+	// init all the default flags from the input
+	for name, val := range m {
+		switch v := val.(type) {
+		case int:
+			flags.Int(name, v, "")
+		case string:
+			flags.String(name, v, "")
+		case bool:
+			flags.Bool(name, v, "")
+		default:
+			// non-int and non-string flags not yet supported
+			continue
+		}
+	}
+	if err := flags.Parse(args); err != nil {
+		panic(err)
+	}
+	return flags
+}
+
+func newTestContext(t *testing.T, flags map[string]any) *cli.Context {
+	t.Helper()
+	out := &testWriter{}
+	errOut := &testWriter{}
+	return cli.NewContext(NewApp(out, errOut), populateFlags(flags), nil)
+}
+
 // setup creates a new cli.Context and viamClient with fake auth and the passed
 // in AppServiceClient and DataServiceClient. It also returns testWriters that capture Stdout and
 // Stdin.
@@ -44,19 +92,13 @@ func setup(
 	asc apppb.AppServiceClient,
 	dataClient datapb.DataServiceClient,
 	buildClient buildpb.BuildServiceClient,
-	defaultFlags *map[string]string,
+	defaultFlags map[string]any,
 	authMethod string,
+	cliArgs ...string,
 ) (*cli.Context, *viamClient, *testWriter, *testWriter) {
 	out := &testWriter{}
 	errOut := &testWriter{}
-	flags := &flag.FlagSet{}
-	// init all the default flags from the input
-
-	if defaultFlags != nil {
-		for name, val := range *defaultFlags {
-			flags.String(name, val, "")
-		}
-	}
+	flags := populateFlags(defaultFlags, cliArgs...)
 
 	if dataClient != nil {
 		// these flags are only relevant when testing a dataClient
@@ -80,14 +122,61 @@ func setup(
 			KeyCrypto: testKeyCrypto,
 		}
 	}
+
 	ac := &viamClient{
 		client:      asc,
 		conf:        conf,
 		c:           cCtx,
 		dataClient:  dataClient,
 		buildClient: buildClient,
+		selectedOrg: &apppb.Organization{},
+		selectedLoc: &apppb.Location{},
 	}
 	return cCtx, ac, out, errOut
+}
+
+//nolint:unparam
+func setupWithRunningPart(
+	t *testing.T,
+	asc apppb.AppServiceClient,
+	dataClient datapb.DataServiceClient,
+	buildClient buildpb.BuildServiceClient,
+	defaultFlags map[string]any,
+	authMethod string,
+	partFQDN string,
+	cliArgs ...string,
+) (*cli.Context, *viamClient, *testWriter, *testWriter, func()) {
+	t.Helper()
+
+	cCtx, ac, out, errOut := setup(asc, dataClient, buildClient, defaultFlags, authMethod, cliArgs...)
+
+	// this config could later become a parameter
+	r, err := robotimpl.New(cCtx.Context, &robotconfig.Config{
+		Services: []resource.Config{
+			{
+				Name:  "shell1",
+				API:   shell.API,
+				Model: resource.DefaultServiceModel,
+			},
+		},
+	}, logging.NewTestLogger(t))
+	test.That(t, err, test.ShouldBeNil)
+
+	options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
+	options.FQDN = partFQDN
+	err = r.StartWeb(cCtx.Context, options)
+	test.That(t, err, test.ShouldBeNil)
+
+	baseURL, rpcOpts, err := parseBaseURL(fmt.Sprintf("http://%s", addr), false)
+	test.That(t, err, test.ShouldBeNil)
+	// this will be the URL we use to make new clients. In a backwards way, this
+	// lets the robot be the one with external auth handling (if auth were being used)
+	ac.baseURL = baseURL
+	ac.rpcOpts = rpcOpts
+
+	return cCtx, ac, out, errOut, func() {
+		test.That(t, r.Close(context.Background()), test.ShouldBeNil)
+	}
 }
 
 func TestListOrganizationsAction(t *testing.T) {
@@ -217,4 +306,514 @@ func TestBaseURLParsing(t *testing.T) {
 	// Test invalid url
 	_, _, err = parseBaseURL(":5", false)
 	test.That(t, fmt.Sprint(err), test.ShouldContainSubstring, "missing protocol scheme")
+}
+
+func TestLogEntryFieldsToString(t *testing.T) {
+	t.Run("normal case", func(t *testing.T) {
+		f1, err := logging.FieldToProto(zapcore.Field{
+			Key:    "key1",
+			Type:   zapcore.StringType,
+			String: "value1",
+		})
+		test.That(t, err, test.ShouldBeNil)
+		f2, err := logging.FieldToProto(zapcore.Field{
+			Key:     "key2",
+			Type:    zapcore.Int32Type,
+			Integer: 123,
+		})
+		test.That(t, err, test.ShouldBeNil)
+		f3, err := logging.FieldToProto(zapcore.Field{
+			Key:       "facts",
+			Type:      zapcore.ReflectType,
+			Interface: map[string]string{"app.viam": "cool", "cli": "cooler"},
+		})
+		test.That(t, err, test.ShouldBeNil)
+		fields := []*structpb.Struct{
+			f1, f2, f3,
+		}
+
+		expected := `{"key1": "value1", "key2": 123, "facts": map[app.viam:cool cli:cooler]}`
+		result, err := logEntryFieldsToString(fields)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, result, test.ShouldEqual, expected)
+	})
+
+	t.Run("empty fields", func(t *testing.T) {
+		result, err := logEntryFieldsToString([]*structpb.Struct{})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, result, test.ShouldBeEmpty)
+	})
+}
+
+func TestGetRobotPartLogs(t *testing.T) {
+	// Create fake logs of "0"->"9999".
+	logs := make([]*commonpb.LogEntry, 0, maxNumLogs)
+	for i := 0; i < maxNumLogs; i++ {
+		logs = append(logs, &commonpb.LogEntry{Message: fmt.Sprintf("%d", i)})
+	}
+
+	getRobotPartLogsFunc := func(ctx context.Context, in *apppb.GetRobotPartLogsRequest,
+		opts ...grpc.CallOption,
+	) (*apppb.GetRobotPartLogsResponse, error) {
+		// Accept fake page tokens of "2"-"100" and release logs in batches of 100.
+		// The first page token will be "", which should be interpreted as "1".
+		pt := 1
+		if receivedPt := in.PageToken; receivedPt != nil && *receivedPt != "" {
+			var err error
+			pt, err = strconv.Atoi(*receivedPt)
+			test.That(t, err, test.ShouldBeNil)
+		}
+		resp := &apppb.GetRobotPartLogsResponse{
+			Logs:          logs[(pt-1)*100 : pt*100],
+			NextPageToken: fmt.Sprintf("%d", pt+1),
+		}
+		return resp, nil
+	}
+
+	listOrganizationsFunc := func(ctx context.Context, in *apppb.ListOrganizationsRequest,
+		opts ...grpc.CallOption,
+	) (*apppb.ListOrganizationsResponse, error) {
+		orgs := []*apppb.Organization{{Name: "jedi", Id: "123"}}
+		return &apppb.ListOrganizationsResponse{Organizations: orgs}, nil
+	}
+	listLocationsFunc := func(ctx context.Context, in *apppb.ListLocationsRequest,
+		opts ...grpc.CallOption,
+	) (*apppb.ListLocationsResponse, error) {
+		locs := []*apppb.Location{{Name: "naboo"}}
+		return &apppb.ListLocationsResponse{Locations: locs}, nil
+	}
+	listRobotsFunc := func(ctx context.Context, in *apppb.ListRobotsRequest,
+		opts ...grpc.CallOption,
+	) (*apppb.ListRobotsResponse, error) {
+		robots := []*apppb.Robot{{Name: "r2d2"}}
+		return &apppb.ListRobotsResponse{Robots: robots}, nil
+	}
+	getRobotPartsFunc := func(ctx context.Context, in *apppb.GetRobotPartsRequest,
+		opts ...grpc.CallOption,
+	) (*apppb.GetRobotPartsResponse, error) {
+		parts := []*apppb.RobotPart{{Name: "main"}}
+		return &apppb.GetRobotPartsResponse{Parts: parts}, nil
+	}
+
+	asc := &inject.AppServiceClient{
+		GetRobotPartLogsFunc: getRobotPartLogsFunc,
+		// Supply some injected functions to avoid a panic when loading
+		// organizations, locations, robots and parts.
+		ListOrganizationsFunc: listOrganizationsFunc,
+		ListLocationsFunc:     listLocationsFunc,
+		ListRobotsFunc:        listRobotsFunc,
+		GetRobotPartsFunc:     getRobotPartsFunc,
+	}
+
+	t.Run("no count", func(t *testing.T) {
+		cCtx, ac, out, errOut := setup(asc, nil, nil, nil, "")
+
+		test.That(t, ac.robotsPartLogsAction(cCtx), test.ShouldBeNil)
+
+		// No warnings.
+		test.That(t, len(errOut.messages), test.ShouldEqual, 0)
+
+		// There should be a message for "organization -> location -> robot"
+		// followed by maxNumLogs messages.
+		test.That(t, len(out.messages), test.ShouldEqual, defaultNumLogs+1)
+		test.That(t, out.messages[0], test.ShouldEqual, "jedi -> naboo -> r2d2\n")
+		// Logs should be printed in order oldest->newest ("99"->"0").
+		expectedLogNum := defaultNumLogs - 1
+		for i := 1; i <= defaultNumLogs; i++ {
+			test.That(t, out.messages[i], test.ShouldContainSubstring,
+				fmt.Sprintf("%d", expectedLogNum))
+			expectedLogNum--
+		}
+	})
+	t.Run("178 count", func(t *testing.T) {
+		flags := map[string]any{"count": 178}
+		cCtx, ac, out, errOut := setup(asc, nil, nil, flags, "")
+
+		test.That(t, ac.robotsPartLogsAction(cCtx), test.ShouldBeNil)
+
+		// No warnings.
+		test.That(t, len(errOut.messages), test.ShouldEqual, 0)
+
+		// There should be a message for "organization -> location -> robot"
+		// followed by 178 messages.
+		test.That(t, len(out.messages), test.ShouldEqual, 179)
+		test.That(t, out.messages[0], test.ShouldEqual, "jedi -> naboo -> r2d2\n")
+		// Logs should be printed in order oldest->newest ("177"->"0").
+		expectedLogNum := 177
+		for i := 1; i <= 178; i++ {
+			test.That(t, out.messages[i], test.ShouldContainSubstring,
+				fmt.Sprintf("%d", expectedLogNum))
+			expectedLogNum--
+		}
+	})
+	t.Run("max count", func(t *testing.T) {
+		flags := map[string]any{logsFlagCount: maxNumLogs}
+		cCtx, ac, out, errOut := setup(asc, nil, nil, flags, "")
+
+		test.That(t, ac.robotsPartLogsAction(cCtx), test.ShouldBeNil)
+
+		// No warnings.
+		test.That(t, len(errOut.messages), test.ShouldEqual, 0)
+
+		// There should be a message for "organization -> location -> robot"
+		// followed by maxNumLogs messages.
+		test.That(t, len(out.messages), test.ShouldEqual, maxNumLogs+1)
+		test.That(t, out.messages[0], test.ShouldEqual, "jedi -> naboo -> r2d2\n")
+
+		// Logs should be printed in order oldest->newest ("9999"->"0").
+		expectedLogNum := maxNumLogs - 1
+		for i := 1; i <= maxNumLogs; i++ {
+			test.That(t, out.messages[i], test.ShouldContainSubstring,
+				fmt.Sprintf("%d", expectedLogNum))
+			expectedLogNum--
+		}
+	})
+	t.Run("negative count", func(t *testing.T) {
+		flags := map[string]any{"count": -1}
+		cCtx, ac, out, errOut := setup(asc, nil, nil, flags, "")
+
+		test.That(t, ac.robotsPartLogsAction(cCtx), test.ShouldBeNil)
+
+		// Warning should read: `Warning:\nProvided negative "count" value. Defaulting to 100`.
+		test.That(t, len(errOut.messages), test.ShouldEqual, 2)
+		test.That(t, errOut.messages[0], test.ShouldEqual, "Warning: ")
+		test.That(t, errOut.messages[1], test.ShouldContainSubstring, `Provided negative "count" value. Defaulting to 100`)
+
+		// There should be a message for "organization -> location -> robot"
+		// followed by maxNumLogs messages.
+		test.That(t, len(out.messages), test.ShouldEqual, defaultNumLogs+1)
+		test.That(t, out.messages[0], test.ShouldEqual, "jedi -> naboo -> r2d2\n")
+		// Logs should be printed in order oldest->oldest ("99"->"0").
+		expectedLogNum := defaultNumLogs - 1
+		for i := 1; i <= defaultNumLogs; i++ {
+			test.That(t, out.messages[i], test.ShouldContainSubstring,
+				fmt.Sprintf("%d", expectedLogNum))
+			expectedLogNum--
+		}
+	})
+	t.Run("count too high", func(t *testing.T) {
+		flags := map[string]any{"count": 1000000}
+		cCtx, ac, _, _ := setup(asc, nil, nil, flags, "")
+
+		err := ac.robotsPartLogsAction(cCtx)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err, test.ShouldBeError, errors.New(`provided too high of a "count" value. Maximum is 10000`))
+	})
+}
+
+func TestShellFileCopy(t *testing.T) {
+	listOrganizationsFunc := func(ctx context.Context, in *apppb.ListOrganizationsRequest,
+		opts ...grpc.CallOption,
+	) (*apppb.ListOrganizationsResponse, error) {
+		orgs := []*apppb.Organization{{Name: "jedi", Id: uuid.NewString(), PublicNamespace: "anakin"}, {Name: "mandalorians"}}
+		return &apppb.ListOrganizationsResponse{Organizations: orgs}, nil
+	}
+	listLocationsFunc := func(ctx context.Context, in *apppb.ListLocationsRequest,
+		opts ...grpc.CallOption,
+	) (*apppb.ListLocationsResponse, error) {
+		locs := []*apppb.Location{{Name: "naboo"}}
+		return &apppb.ListLocationsResponse{Locations: locs}, nil
+	}
+	listRobotsFunc := func(ctx context.Context, in *apppb.ListRobotsRequest,
+		opts ...grpc.CallOption,
+	) (*apppb.ListRobotsResponse, error) {
+		robots := []*apppb.Robot{{Name: "r2d2"}}
+		return &apppb.ListRobotsResponse{Robots: robots}, nil
+	}
+
+	partFqdn := uuid.NewString()
+	getRobotPartsFunc := func(ctx context.Context, in *apppb.GetRobotPartsRequest,
+		opts ...grpc.CallOption,
+	) (*apppb.GetRobotPartsResponse, error) {
+		parts := []*apppb.RobotPart{{Name: "main", Fqdn: partFqdn}}
+		return &apppb.GetRobotPartsResponse{Parts: parts}, nil
+	}
+
+	asc := &inject.AppServiceClient{
+		ListOrganizationsFunc: listOrganizationsFunc,
+		ListLocationsFunc:     listLocationsFunc,
+		ListRobotsFunc:        listRobotsFunc,
+		GetRobotPartsFunc:     getRobotPartsFunc,
+	}
+
+	partFlags := map[string]any{
+		"organization": "jedi",
+		"location":     "naboo",
+		"robot":        "r2d2",
+		"part":         "main",
+	}
+
+	t.Run("no arguments or files", func(t *testing.T) {
+		cCtx, viamClient, _, _ := setup(asc, nil, nil, partFlags, "token")
+		test.That(t, machinesPartCopyFilesAction(cCtx, viamClient), test.ShouldEqual, errNoFiles)
+	})
+
+	t.Run("one file path is insufficient", func(t *testing.T) {
+		args := []string{"machine:path"}
+		cCtx, viamClient, _, _ := setup(asc, nil, nil, partFlags, "token", args...)
+		test.That(t, machinesPartCopyFilesAction(cCtx, viamClient), test.ShouldEqual, errLastArgOfFromMissing)
+
+		args = []string{"path"}
+		cCtx, viamClient, _, _ = setup(asc, nil, nil, partFlags, "token", args...)
+		test.That(t, machinesPartCopyFilesAction(cCtx, viamClient), test.ShouldEqual, errLastArgOfToMissing)
+	})
+
+	t.Run("from has wrong path prefixes", func(t *testing.T) {
+		args := []string{"machine:path", "path2", "machine:path3", "destination"}
+		cCtx, viamClient, _, _ := setup(asc, nil, nil, partFlags, "token", args...)
+		test.That(t, machinesPartCopyFilesAction(cCtx, viamClient), test.ShouldHaveSameTypeAs, copyFromPathInvalidError{})
+	})
+
+	tfs := shelltestutils.SetupTestFileSystem(t)
+
+	t.Run("from", func(t *testing.T) {
+		t.Run("single file", func(t *testing.T) {
+			tempDir := t.TempDir()
+
+			args := []string{fmt.Sprintf("machine:%s", tfs.SingleFileNested), tempDir}
+			cCtx, viamClient, _, _, teardown := setupWithRunningPart(
+				t, asc, nil, nil, partFlags, "token", partFqdn, args...)
+			defer teardown()
+			test.That(t, machinesPartCopyFilesAction(cCtx, viamClient), test.ShouldBeNil)
+
+			rd, err := os.ReadFile(filepath.Join(tempDir, filepath.Base(tfs.SingleFileNested)))
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, rd, test.ShouldResemble, tfs.SingleFileNestedData)
+		})
+
+		t.Run("single file relative", func(t *testing.T) {
+			tempDir := t.TempDir()
+			cwd, err := os.Getwd()
+			test.That(t, err, test.ShouldBeNil)
+			t.Cleanup(func() { os.Chdir(cwd) })
+			test.That(t, os.Chdir(tempDir), test.ShouldBeNil)
+
+			args := []string{fmt.Sprintf("machine:%s", tfs.SingleFileNested), "foo"}
+			cCtx, viamClient, _, _, teardown := setupWithRunningPart(
+				t, asc, nil, nil, partFlags, "token", partFqdn, args...)
+			defer teardown()
+			test.That(t, machinesPartCopyFilesAction(cCtx, viamClient), test.ShouldBeNil)
+
+			rd, err := os.ReadFile(filepath.Join(tempDir, "foo"))
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, rd, test.ShouldResemble, tfs.SingleFileNestedData)
+		})
+
+		t.Run("single directory", func(t *testing.T) {
+			tempDir := t.TempDir()
+
+			args := []string{fmt.Sprintf("machine:%s", tfs.Root), tempDir}
+
+			t.Log("without recursion set")
+			cCtx, viamClient, _, _, teardown1 := setupWithRunningPart(
+				t, asc, nil, nil, partFlags, "token", partFqdn, args...)
+			defer teardown1()
+			err := machinesPartCopyFilesAction(cCtx, viamClient)
+			test.That(t, errors.Is(err, errDirectoryCopyRequestNoRecursion), test.ShouldBeTrue)
+			_, err = os.ReadFile(filepath.Join(tempDir, filepath.Base(tfs.SingleFileNested)))
+			test.That(t, errors.Is(err, fs.ErrNotExist), test.ShouldBeTrue)
+
+			t.Log("with recursion set")
+			partFlagsCopy := make(map[string]any, len(partFlags))
+			maps.Copy(partFlagsCopy, partFlags)
+			partFlagsCopy["recursive"] = true
+			cCtx, viamClient, _, _, teardown2 := setupWithRunningPart(
+				t, asc, nil, nil, partFlagsCopy, "token", partFqdn, args...)
+			defer teardown2()
+			test.That(t, machinesPartCopyFilesAction(cCtx, viamClient), test.ShouldBeNil)
+			test.That(t, shelltestutils.DirectoryContentsEqual(tfs.Root, filepath.Join(tempDir, filepath.Base(tfs.Root))), test.ShouldBeNil)
+		})
+
+		t.Run("multiple files", func(t *testing.T) {
+			tempDir := t.TempDir()
+
+			args := []string{
+				fmt.Sprintf("machine:%s", tfs.SingleFileNested),
+				fmt.Sprintf("machine:%s", tfs.InnerDir),
+				tempDir,
+			}
+			partFlagsCopy := make(map[string]any, len(partFlags))
+			maps.Copy(partFlagsCopy, partFlags)
+			partFlagsCopy["recursive"] = true
+			cCtx, viamClient, _, _, teardown := setupWithRunningPart(
+				t, asc, nil, nil, partFlagsCopy, "token", partFqdn, args...)
+			defer teardown()
+			test.That(t, machinesPartCopyFilesAction(cCtx, viamClient), test.ShouldBeNil)
+
+			rd, err := os.ReadFile(filepath.Join(tempDir, filepath.Base(tfs.SingleFileNested)))
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, rd, test.ShouldResemble, tfs.SingleFileNestedData)
+
+			test.That(t, shelltestutils.DirectoryContentsEqual(tfs.InnerDir, filepath.Join(tempDir, filepath.Base(tfs.InnerDir))), test.ShouldBeNil)
+		})
+
+		t.Run("preserve permissions on a nested file", func(t *testing.T) {
+			tfs := shelltestutils.SetupTestFileSystem(t)
+
+			beforeInfo, err := os.Stat(tfs.SingleFileNested)
+			test.That(t, err, test.ShouldBeNil)
+			t.Log("start with mode", beforeInfo.Mode())
+			newMode := os.FileMode(0o444)
+			test.That(t, beforeInfo.Mode(), test.ShouldNotEqual, newMode)
+			test.That(t, os.Chmod(tfs.SingleFileNested, newMode), test.ShouldBeNil)
+			modTime := time.Date(1988, 1, 2, 3, 0, 0, 0, time.UTC)
+			test.That(t, os.Chtimes(tfs.SingleFileNested, time.Time{}, modTime), test.ShouldBeNil)
+			relNestedPath := strings.TrimPrefix(tfs.SingleFileNested, tfs.Root)
+
+			for _, preserve := range []bool{false, true} {
+				t.Run(fmt.Sprintf("preserve=%t", preserve), func(t *testing.T) {
+					tempDir := t.TempDir()
+
+					args := []string{fmt.Sprintf("machine:%s", tfs.Root), tempDir}
+
+					partFlagsCopy := make(map[string]any, len(partFlags))
+					maps.Copy(partFlagsCopy, partFlags)
+					partFlagsCopy["recursive"] = true
+					partFlagsCopy["preserve"] = preserve
+					cCtx, viamClient, _, _, teardown := setupWithRunningPart(
+						t, asc, nil, nil, partFlagsCopy, "token", partFqdn, args...)
+					defer teardown()
+					test.That(t, machinesPartCopyFilesAction(cCtx, viamClient), test.ShouldBeNil)
+					test.That(t, shelltestutils.DirectoryContentsEqual(tfs.Root, filepath.Join(tempDir, filepath.Base(tfs.Root))), test.ShouldBeNil)
+
+					nestedCopy := filepath.Join(tempDir, filepath.Base(tfs.Root), relNestedPath)
+					test.That(t, shelltestutils.DirectoryContentsEqual(tfs.Root, filepath.Join(tempDir, filepath.Base(tfs.Root))), test.ShouldBeNil)
+					afterInfo, err := os.Stat(nestedCopy)
+					test.That(t, err, test.ShouldBeNil)
+					if preserve {
+						test.That(t, afterInfo.ModTime().UTC().String(), test.ShouldEqual, modTime.String())
+						test.That(t, afterInfo.Mode(), test.ShouldEqual, newMode)
+					} else {
+						test.That(t, afterInfo.ModTime().UTC().String(), test.ShouldNotEqual, modTime.String())
+						test.That(t, afterInfo.Mode(), test.ShouldNotEqual, newMode)
+					}
+				})
+			}
+		})
+	})
+
+	t.Run("to", func(t *testing.T) {
+		t.Run("single file", func(t *testing.T) {
+			tempDir := t.TempDir()
+
+			args := []string{tfs.SingleFileNested, fmt.Sprintf("machine:%s", tempDir)}
+			cCtx, viamClient, _, _, teardown := setupWithRunningPart(
+				t, asc, nil, nil, partFlags, "token", partFqdn, args...)
+			defer teardown()
+			test.That(t, machinesPartCopyFilesAction(cCtx, viamClient), test.ShouldBeNil)
+
+			rd, err := os.ReadFile(filepath.Join(tempDir, filepath.Base(tfs.SingleFileNested)))
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, rd, test.ShouldResemble, tfs.SingleFileNestedData)
+		})
+
+		t.Run("single file relative", func(t *testing.T) {
+			homeDir, err := os.UserHomeDir()
+			test.That(t, err, test.ShouldBeNil)
+			randomName := uuid.NewString()
+			randomPath := filepath.Join(homeDir, randomName)
+			defer os.Remove(randomPath)
+			args := []string{tfs.SingleFileNested, fmt.Sprintf("machine:%s", randomName)}
+			cCtx, viamClient, _, _, teardown := setupWithRunningPart(
+				t, asc, nil, nil, partFlags, "token", partFqdn, args...)
+			defer teardown()
+			test.That(t, machinesPartCopyFilesAction(cCtx, viamClient), test.ShouldBeNil)
+
+			rd, err := os.ReadFile(randomPath)
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, rd, test.ShouldResemble, tfs.SingleFileNestedData)
+		})
+
+		t.Run("single directory", func(t *testing.T) {
+			tempDir := t.TempDir()
+
+			args := []string{tfs.Root, fmt.Sprintf("machine:%s", tempDir)}
+
+			t.Log("without recursion set")
+			cCtx, viamClient, _, _, teardown1 := setupWithRunningPart(
+				t, asc, nil, nil, partFlags, "token", partFqdn, args...)
+			defer teardown1()
+			err := machinesPartCopyFilesAction(cCtx, viamClient)
+			test.That(t, errors.Is(err, errDirectoryCopyRequestNoRecursion), test.ShouldBeTrue)
+			_, err = os.ReadFile(filepath.Join(tempDir, filepath.Base(tfs.SingleFileNested)))
+			test.That(t, errors.Is(err, fs.ErrNotExist), test.ShouldBeTrue)
+
+			t.Log("with recursion set")
+			partFlagsCopy := make(map[string]any, len(partFlags))
+			maps.Copy(partFlagsCopy, partFlags)
+			partFlagsCopy["recursive"] = true
+			cCtx, viamClient, _, _, teardown2 := setupWithRunningPart(
+				t, asc, nil, nil, partFlagsCopy, "token", partFqdn, args...)
+			defer teardown2()
+			test.That(t, machinesPartCopyFilesAction(cCtx, viamClient), test.ShouldBeNil)
+			test.That(t, shelltestutils.DirectoryContentsEqual(tfs.Root, filepath.Join(tempDir, filepath.Base(tfs.Root))), test.ShouldBeNil)
+		})
+
+		t.Run("multiple files", func(t *testing.T) {
+			tempDir := t.TempDir()
+
+			args := []string{
+				tfs.SingleFileNested,
+				tfs.InnerDir,
+				fmt.Sprintf("machine:%s", tempDir),
+			}
+			partFlagsCopy := make(map[string]any, len(partFlags))
+			maps.Copy(partFlagsCopy, partFlags)
+			partFlagsCopy["recursive"] = true
+			cCtx, viamClient, _, _, teardown := setupWithRunningPart(
+				t, asc, nil, nil, partFlagsCopy, "token", partFqdn, args...)
+			defer teardown()
+			test.That(t, machinesPartCopyFilesAction(cCtx, viamClient), test.ShouldBeNil)
+
+			rd, err := os.ReadFile(filepath.Join(tempDir, filepath.Base(tfs.SingleFileNested)))
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, rd, test.ShouldResemble, tfs.SingleFileNestedData)
+
+			test.That(t, shelltestutils.DirectoryContentsEqual(tfs.InnerDir, filepath.Join(tempDir, filepath.Base(tfs.InnerDir))), test.ShouldBeNil)
+		})
+
+		t.Run("preserve permissions on a nested file", func(t *testing.T) {
+			tfs := shelltestutils.SetupTestFileSystem(t)
+
+			beforeInfo, err := os.Stat(tfs.SingleFileNested)
+			test.That(t, err, test.ShouldBeNil)
+			t.Log("start with mode", beforeInfo.Mode())
+			newMode := os.FileMode(0o444)
+			test.That(t, beforeInfo.Mode(), test.ShouldNotEqual, newMode)
+			test.That(t, os.Chmod(tfs.SingleFileNested, newMode), test.ShouldBeNil)
+			modTime := time.Date(1988, 1, 2, 3, 0, 0, 0, time.UTC)
+			test.That(t, os.Chtimes(tfs.SingleFileNested, time.Time{}, modTime), test.ShouldBeNil)
+			relNestedPath := strings.TrimPrefix(tfs.SingleFileNested, tfs.Root)
+
+			for _, preserve := range []bool{false, true} {
+				t.Run(fmt.Sprintf("preserve=%t", preserve), func(t *testing.T) {
+					tempDir := t.TempDir()
+
+					args := []string{tfs.Root, fmt.Sprintf("machine:%s", tempDir)}
+
+					partFlagsCopy := make(map[string]any, len(partFlags))
+					maps.Copy(partFlagsCopy, partFlags)
+					partFlagsCopy["recursive"] = true
+					partFlagsCopy["preserve"] = preserve
+					cCtx, viamClient, _, _, teardown := setupWithRunningPart(
+						t, asc, nil, nil, partFlagsCopy, "token", partFqdn, args...)
+					defer teardown()
+					test.That(t, machinesPartCopyFilesAction(cCtx, viamClient), test.ShouldBeNil)
+					test.That(t, shelltestutils.DirectoryContentsEqual(tfs.Root, filepath.Join(tempDir, filepath.Base(tfs.Root))), test.ShouldBeNil)
+
+					nestedCopy := filepath.Join(tempDir, filepath.Base(tfs.Root), relNestedPath)
+					test.That(t, shelltestutils.DirectoryContentsEqual(tfs.Root, filepath.Join(tempDir, filepath.Base(tfs.Root))), test.ShouldBeNil)
+					afterInfo, err := os.Stat(nestedCopy)
+					test.That(t, err, test.ShouldBeNil)
+					if preserve {
+						test.That(t, afterInfo.ModTime().UTC().String(), test.ShouldEqual, modTime.String())
+						test.That(t, afterInfo.Mode(), test.ShouldEqual, newMode)
+					} else {
+						test.That(t, afterInfo.ModTime().UTC().String(), test.ShouldNotEqual, modTime.String())
+						test.That(t, afterInfo.Mode(), test.ShouldNotEqual, newMode)
+					}
+				})
+			}
+		})
+	})
 }

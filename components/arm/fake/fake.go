@@ -111,9 +111,16 @@ func (a *Arm) Reconfigure(ctx context.Context, deps resource.Dependencies, conf 
 		return err
 	}
 
+	dof := len(model.DoF())
+	if dof == 0 {
+		a.logger.Info("fake arm built with zero degrees-of-freedom, nothing will show up on the Control tab " +
+			"you have either given a kinematics file that resulted in a zero degrees-of-freedom arm or omitted both" +
+			"the arm-model and model-path from attributes")
+	}
+
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	a.joints = &pb.JointPositions{Values: make([]float64, len(model.DoF()))}
+	a.joints = &pb.JointPositions{Values: make([]float64, dof)}
 	a.model = model
 
 	return nil
@@ -144,12 +151,12 @@ func (a *Arm) MoveToPosition(ctx context.Context, pos spatialmath.Pose, extra ma
 
 // MoveToJointPositions sets the joints.
 func (a *Arm) MoveToJointPositions(ctx context.Context, joints *pb.JointPositions, extra map[string]interface{}) error {
-	if err := arm.CheckDesiredJointPositions(ctx, a, joints); err != nil {
+	inputs := a.model.InputFromProtobuf(joints)
+	if err := arm.CheckDesiredJointPositions(ctx, a, inputs); err != nil {
 		return err
 	}
 	a.mu.RLock()
 	defer a.mu.RUnlock()
-	inputs := a.model.InputFromProtobuf(joints)
 	pos, err := a.model.Transform(inputs)
 	if err != nil {
 		return err
@@ -185,14 +192,20 @@ func (a *Arm) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error)
 }
 
 // GoToInputs TODO.
-func (a *Arm) GoToInputs(ctx context.Context, goal []referenceframe.Input) error {
-	a.mu.RLock()
-	positionDegs := a.model.ProtobufFromInput(goal)
-	a.mu.RUnlock()
-	if err := arm.CheckDesiredJointPositions(ctx, a, positionDegs); err != nil {
-		return err
+func (a *Arm) GoToInputs(ctx context.Context, inputSteps ...[]referenceframe.Input) error {
+	for _, goal := range inputSteps {
+		a.mu.RLock()
+		positionDegs := a.model.ProtobufFromInput(goal)
+		a.mu.RUnlock()
+		if err := arm.CheckDesiredJointPositions(ctx, a, goal); err != nil {
+			return err
+		}
+		err := a.MoveToJointPositions(ctx, positionDegs, nil)
+		if err != nil {
+			return err
+		}
 	}
-	return a.MoveToJointPositions(ctx, positionDegs, nil)
+	return nil
 }
 
 // Close does nothing.

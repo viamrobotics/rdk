@@ -48,13 +48,13 @@ type authFlow struct {
 const (
 	defaultOpenIDDiscoveryPath = "/.well-known/openid-configuration"
 
-	prodAuthDomain = "https://auth.viam.com"
-	prodAudience   = "https://app.viam.com/"
-	prodClientID   = "HysEkkRKn6cDr2W6UFI6UYJHpiVwXFCk" // native client ID
+	prodAuthDomain = "https://viam-prod.fusionauth.io"
+	prodAudience   = "c1e41724-9b29-479f-abcc-7bfbe2e3309a"
+	prodClientID   = "c1e41724-9b29-479f-abcc-7bfbe2e3309a" // native client ID
 
-	stgAuthDomain = "https://auth.viam.dev"
-	stgAudience   = "https://app.viam.dev/"
-	stgClientID   = "o75PSAO21337n6SE0IV2BF9Aj9Er9NF6" // native client ID
+	stgAuthDomain = "https://viam.fusionauth.io"
+	stgAudience   = "d7eb6419-301c-4ef1-a5e5-8e8bf28a87c0"
+	stgClientID   = "d7eb6419-301c-4ef1-a5e5-8e8bf28a87c0" // native client ID
 
 	defaultWaitInterval = time.Second * 1
 
@@ -293,7 +293,7 @@ func (c *viamClient) organizationsAPIKeyCreateAction(cCtx *cli.Context) error {
 	if err := c.ensureLoggedIn(); err != nil {
 		return err
 	}
-	orgID := cCtx.String(apiKeyCreateFlagOrgID)
+	orgID := cCtx.String(generalFlagOrgID)
 	keyName := cCtx.String(apiKeyCreateFlagName)
 	if keyName == "" {
 		keyName = c.generateDefaultKeyName()
@@ -348,8 +348,8 @@ func (c *viamClient) locationAPIKeyCreateAction(cCtx *cli.Context) error {
 		return err
 	}
 
-	locationID := cCtx.String(apiKeyFlagLocationID)
-	orgID := cCtx.String(apiKeyCreateFlagOrgID)
+	locationID := cCtx.String(generalFlagLocationID)
+	orgID := cCtx.String(generalFlagOrgID)
 	keyName := cCtx.String(apiKeyCreateFlagName)
 
 	if locationID == "" {
@@ -407,9 +407,9 @@ func (c *viamClient) robotAPIKeyCreateAction(cCtx *cli.Context) error {
 		return err
 	}
 
-	robotID := cCtx.String(apiKeyFlagMachineID)
+	robotID := cCtx.String(generalFlagMachineID)
 	keyName := cCtx.String(apiKeyCreateFlagName)
-	orgID := cCtx.String(dataFlagOrgID)
+	orgID := cCtx.String(generalFlagOrgID)
 
 	if robotID == "" {
 		return errors.New("cannot create an api-key for a machine without an ID")

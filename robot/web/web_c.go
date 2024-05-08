@@ -1,11 +1,14 @@
-//go:build !no_cgo
+//go:build !no_cgo || android
 
 package web
 
 import (
+	"bytes"
 	"context"
 	"math"
+	"net/http"
 	"runtime"
+	"slices"
 	"sync"
 	"time"
 
@@ -13,7 +16,6 @@ import (
 	streampb "go.viam.com/api/stream/v1"
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
-	"golang.org/x/exp/slices"
 
 	"go.viam.com/rdk/components/audioinput"
 	"go.viam.com/rdk/components/camera"
@@ -29,7 +31,7 @@ import (
 // StreamServer manages streams and displays.
 type StreamServer struct {
 	// Server serves streams
-	Server gostream.StreamServer
+	Server *webstream.Server
 	// HasStreams is true if service has streams that require a WebRTC connection.
 	HasStreams bool
 }
@@ -94,14 +96,21 @@ func (svc *webService) addNewStreams(ctx context.Context) error {
 		return nil
 	}
 
-	newStream := func(name string) (gostream.Stream, bool, error) {
+	newStream := func(name string, isVideo bool) (gostream.Stream, bool, error) {
 		// Configure new stream
-		config := *svc.opts.streamConfig
-		config.Name = name
+		config := gostream.StreamConfig{
+			Name: name,
+		}
+
+		if isVideo {
+			config.VideoEncoderFactory = svc.opts.streamConfig.VideoEncoderFactory
+		} else {
+			config.AudioEncoderFactory = svc.opts.streamConfig.AudioEncoderFactory
+		}
 		stream, err := svc.streamServer.Server.NewStream(config)
 
 		// Skip if stream is already registered, otherwise raise any other errors
-		var registeredError *gostream.StreamAlreadyRegisteredError
+		var registeredError *webstream.StreamAlreadyRegisteredError
 		if errors.As(err, &registeredError) {
 			return nil, true, nil
 		} else if err != nil {
@@ -115,7 +124,8 @@ func (svc *webService) addNewStreams(ctx context.Context) error {
 	}
 
 	for name, source := range svc.videoSources {
-		stream, alreadyRegistered, err := newStream(name)
+		const isVideo = true
+		stream, alreadyRegistered, err := newStream(name, isVideo)
 		if err != nil {
 			return err
 		} else if alreadyRegistered {
@@ -126,7 +136,8 @@ func (svc *webService) addNewStreams(ctx context.Context) error {
 	}
 
 	for name, source := range svc.audioSources {
-		stream, alreadyRegistered, err := newStream(name)
+		const isVideo = false
+		stream, alreadyRegistered, err := newStream(name, isVideo)
 		if err != nil {
 			return err
 		} else if alreadyRegistered {
@@ -149,15 +160,16 @@ func (svc *webService) makeStreamServer(ctx context.Context) (*StreamServer, err
 		if len(svc.videoSources) != 0 || len(svc.audioSources) != 0 {
 			svc.logger.Debug("not starting streams due to no stream config being set")
 		}
-		noopServer, err := gostream.NewStreamServer(streams...)
+		noopServer, err := webstream.NewServer(streams, svc.r, svc.logger)
 		return &StreamServer{noopServer, false}, err
 	}
 
 	addStream := func(streams []gostream.Stream, name string, isVideo bool) ([]gostream.Stream, error) {
-		config := *svc.opts.streamConfig
-		config.Name = name
+		config := gostream.StreamConfig{
+			Name: name,
+		}
 		if isVideo {
-			config.AudioEncoderFactory = nil
+			config.VideoEncoderFactory = svc.opts.streamConfig.VideoEncoderFactory
 
 			// set TargetFrameRate to the framerate of the video source if available
 			props, err := svc.videoSources[name].MediaProperties(ctx)
@@ -178,7 +190,7 @@ func (svc *webService) makeStreamServer(ctx context.Context) (*StreamServer, err
 				return streams, nil
 			}
 		} else {
-			config.VideoEncoderFactory = nil
+			config.AudioEncoderFactory = svc.opts.streamConfig.AudioEncoderFactory
 		}
 		stream, err := gostream.NewStream(config)
 		if err != nil {
@@ -203,7 +215,7 @@ func (svc *webService) makeStreamServer(ctx context.Context) (*StreamServer, err
 		streamTypes = append(streamTypes, false)
 	}
 
-	streamServer, err := gostream.NewStreamServer(streams...)
+	streamServer, err := webstream.NewServer(streams, svc.r, svc.logger)
 	if err != nil {
 		return nil, err
 	}
@@ -337,7 +349,7 @@ func (svc *webService) initStreamServer(ctx context.Context, options *weboptions
 	if err := svc.rpcServer.RegisterServiceServer(
 		ctx,
 		&streampb.StreamService_ServiceDesc,
-		svc.streamServer.Server.ServiceServer(),
+		svc.streamServer.Server,
 		streampb.RegisterStreamServiceHandlerFromEndpoint,
 	); err != nil {
 		return err
@@ -347,4 +359,24 @@ func (svc *webService) initStreamServer(ctx context.Context, options *weboptions
 		options.WebRTC = true
 	}
 	return nil
+}
+
+type filterXML struct {
+	called bool
+	w      http.ResponseWriter
+}
+
+func (fxml *filterXML) Write(bs []byte) (int, error) {
+	if fxml.called {
+		return 0, errors.New("cannot write more than once")
+	}
+	lines := bytes.Split(bs, []byte("\n"))
+	// HACK: these lines are XML Document Type Definition strings
+	lines = lines[6:]
+	bs = bytes.Join(lines, []byte("\n"))
+	n, err := fxml.w.Write(bs)
+	if err == nil {
+		fxml.called = true
+	}
+	return n, err
 }

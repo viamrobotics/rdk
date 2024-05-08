@@ -28,11 +28,16 @@ var (
 	InitialWaitTimeMillis = atomic.NewInt32(1000)
 	// RetryExponentialFactor defines the factor by which the retry wait time increases.
 	RetryExponentialFactor = atomic.NewInt32(2)
-	maxRetryInterval       = time.Hour
+	// OfflineWaitTimeSeconds defines the amount of time to wait to retry if the machine is offline.
+	OfflineWaitTimeSeconds = atomic.NewInt32(60)
+	maxRetryInterval       = 24 * time.Hour
 )
 
 // FailedDir is a subdirectory of the capture directory that holds any files that could not be synced.
 const FailedDir = "failed"
+
+// maxParallelSyncRoutines is the maximum number of sync goroutines that can be running at once.
+const maxParallelSyncRoutines = 1000
 
 // Manager is responsible for enqueuing files in captureDir and uploading them to the cloud.
 type Manager interface {
@@ -58,6 +63,8 @@ type syncer struct {
 	closed     atomic.Bool
 	logRoutine sync.WaitGroup
 
+	syncRoutineTracker chan struct{}
+
 	captureDir string
 }
 
@@ -68,15 +75,16 @@ type ManagerConstructor func(identity string, client v1.DataSyncServiceClient, l
 func NewManager(identity string, client v1.DataSyncServiceClient, logger logging.Logger, captureDir string) (Manager, error) {
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
 	ret := syncer{
-		partID:            identity,
-		client:            client,
-		logger:            logger,
-		cancelCtx:         cancelCtx,
-		cancelFunc:        cancelFunc,
-		arbitraryFileTags: []string{},
-		inProgress:        make(map[string]bool),
-		syncErrs:          make(chan error, 10),
-		captureDir:        captureDir,
+		partID:             identity,
+		client:             client,
+		logger:             logger,
+		cancelCtx:          cancelCtx,
+		cancelFunc:         cancelFunc,
+		arbitraryFileTags:  []string{},
+		inProgress:         make(map[string]bool),
+		syncErrs:           make(chan error, 10),
+		syncRoutineTracker: make(chan struct{}, maxParallelSyncRoutines),
+		captureDir:         captureDir,
 	}
 	ret.logRoutine.Add(1)
 	goutils.PanicCapturingGo(func() {
@@ -93,8 +101,6 @@ func (s *syncer) Close() {
 	s.backgroundWorkers.Wait()
 	close(s.syncErrs)
 	s.logRoutine.Wait()
-	//nolint:errcheck
-	_ = s.logger.Sync()
 }
 
 func (s *syncer) SetArbitraryFileTags(tags []string) {
@@ -102,45 +108,67 @@ func (s *syncer) SetArbitraryFileTags(tags []string) {
 }
 
 func (s *syncer) SyncFile(path string) {
-	s.backgroundWorkers.Add(1)
-	goutils.PanicCapturingGo(func() {
-		defer s.backgroundWorkers.Done()
-		select {
-		case <-s.cancelCtx.Done():
-			return
-		default:
-			if !s.markInProgress(path) {
-				return
-			}
-			defer s.unmarkInProgress(path)
-			//nolint:gosec
-			f, err := os.Open(path)
-			if err != nil {
-				// Don't log if the file does not exist, because that means it was successfully synced and deleted
-				// in between paths being built and this executing.
-				if !errors.Is(err, os.ErrNotExist) {
-					s.logger.Errorw("error opening file", "error", err)
-				}
-				return
-			}
+	// If the file is already being synced, do not kick off a new goroutine.
+	// The goroutine will again check and return early if sync is already in progress.
+	s.progressLock.Lock()
+	if s.inProgress[path] {
+		s.progressLock.Unlock()
+		return
+	}
+	s.progressLock.Unlock()
 
-			if datacapture.IsDataCaptureFile(f) {
-				captureFile, err := datacapture.ReadFile(f)
+	select {
+	case <-s.cancelCtx.Done():
+		return
+	// Kick off a sync goroutine if under the limit of goroutines.
+	case s.syncRoutineTracker <- struct{}{}:
+		s.backgroundWorkers.Add(1)
+
+		goutils.PanicCapturingGo(func() {
+			defer s.backgroundWorkers.Done()
+			// At the end, decrement the number of sync routines.
+			defer func() {
+				<-s.syncRoutineTracker
+			}()
+			select {
+			case <-s.cancelCtx.Done():
+				return
+			default:
+				if !s.markInProgress(path) {
+					return
+				}
+				defer s.unmarkInProgress(path)
+				//nolint:gosec
+				f, err := os.Open(path)
 				if err != nil {
-					if err = f.Close(); err != nil {
-						s.syncErrs <- errors.Wrap(err, "error closing data capture file")
-					}
-					if err := moveFailedData(f.Name(), s.captureDir); err != nil {
-						s.syncErrs <- errors.Wrap(err, fmt.Sprintf("error moving corrupted data %s", f.Name()))
+					// Don't log if the file does not exist, because that means it was successfully synced and deleted
+					// in between paths being built and this executing.
+					if !errors.Is(err, os.ErrNotExist) {
+						s.logger.Errorw("error opening file", "error", err)
 					}
 					return
 				}
-				s.syncDataCaptureFile(captureFile)
-			} else {
-				s.syncArbitraryFile(f)
+
+				if datacapture.IsDataCaptureFile(f) {
+					captureFile, err := datacapture.ReadFile(f)
+					if err != nil {
+						if err = f.Close(); err != nil {
+							s.syncErrs <- errors.Wrap(err, "error closing data capture file")
+						}
+						if err := moveFailedData(f.Name(), s.captureDir); err != nil {
+							s.syncErrs <- errors.Wrap(err, fmt.Sprintf("error moving corrupted data %s", f.Name()))
+						}
+						return
+					}
+					s.syncDataCaptureFile(captureFile)
+				} else {
+					s.syncArbitraryFile(f)
+				}
 			}
-		}
-	})
+		})
+	default:
+		// Avoid blocking main thread if currently at goroutine capacity.
+	}
 }
 
 func (s *syncer) syncDataCaptureFile(f *datacapture.File) {
@@ -241,6 +269,7 @@ func exponentialRetry(cancelCtx context.Context, fn func(cancelCtx context.Conte
 	if err = fn(cancelCtx); err == nil {
 		return nil
 	}
+
 	// Don't retry non-retryable errors.
 	if !isRetryableGRPCError(err) {
 		return err
@@ -253,6 +282,7 @@ func exponentialRetry(cancelCtx context.Context, fn func(cancelCtx context.Conte
 		if err := cancelCtx.Err(); err != nil {
 			return err
 		}
+
 		select {
 		// If cancelled, return nil.
 		case <-cancelCtx.Done():
@@ -263,7 +293,7 @@ func exponentialRetry(cancelCtx context.Context, fn func(cancelCtx context.Conte
 			if err := fn(cancelCtx); err != nil {
 				// If error, retry with a new nextWait.
 				ticker.Stop()
-				nextWait = getNextWait(nextWait)
+				nextWait = getNextWait(nextWait, isOfflineGRPCError(err))
 				ticker = time.NewTicker(nextWait)
 				continue
 			}
@@ -272,6 +302,11 @@ func exponentialRetry(cancelCtx context.Context, fn func(cancelCtx context.Conte
 			return nil
 		}
 	}
+}
+
+func isOfflineGRPCError(err error) bool {
+	errStatus := status.Convert(err)
+	return errStatus.Code() == codes.Unavailable
 }
 
 // isRetryableGRPCError returns true if we should retry syncing and otherwise
@@ -302,10 +337,15 @@ func moveFailedData(path, parentDir string) error {
 	return nil
 }
 
-func getNextWait(lastWait time.Duration) time.Duration {
+func getNextWait(lastWait time.Duration, isOffline bool) time.Duration {
 	if lastWait == time.Duration(0) {
 		return time.Millisecond * time.Duration(InitialWaitTimeMillis.Load())
 	}
+
+	if isOffline {
+		return time.Second * time.Duration(OfflineWaitTimeSeconds.Load())
+	}
+
 	nextWait := lastWait * time.Duration(RetryExponentialFactor.Load())
 	if nextWait > maxRetryInterval {
 		return maxRetryInterval

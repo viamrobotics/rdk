@@ -50,7 +50,8 @@ func newPointCloudMapCollector(resource interface{}, params data.CollectorParams
 	}
 
 	cFunc := data.CaptureFunc(func(ctx context.Context, _ map[string]*anypb.Any) (interface{}, error) {
-		f, err := slam.PointCloudMap(ctx)
+		// edited maps do not need to be captured because they should not be modified
+		f, err := slam.PointCloudMap(ctx, false)
 		if err != nil {
 			return nil, data.FailedToReadErr(params.ComponentName, pointCloudMap.String(), err)
 		}

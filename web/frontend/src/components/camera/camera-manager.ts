@@ -1,4 +1,9 @@
-import { CameraClient, type ServiceError, StreamClient, type Client } from '@viamrobotics/sdk';
+import {
+  CameraClient,
+  type ServiceError,
+  StreamClient,
+  type Client,
+} from '@viamrobotics/sdk';
 import { displayError } from '../../lib/error';
 
 export class CameraManager {
@@ -6,7 +11,7 @@ export class CameraManager {
 
   onOpen: (() => void) | undefined;
 
-  constructor (
+  constructor(
     client: Client,
     private cameraName: string,
     private streamClient: StreamClient,
@@ -16,21 +21,21 @@ export class CameraManager {
     this.cameraClient = new CameraClient(client, cameraName);
   }
 
-  addStream () {
+  addStream() {
     if (this.streamCount === 0) {
       this.open();
     }
     this.streamCount += 1;
   }
 
-  removeStream () {
+  removeStream() {
     this.streamCount -= 1;
     if (this.streamCount === 0) {
       this.close();
     }
   }
 
-  open () {
+  open() {
     this.streamClient.add(this.cameraName);
     this.streamClient.on('track', (event) => {
       const [eventStream] = (event as { streams: MediaStream[] }).streams;
@@ -46,11 +51,11 @@ export class CameraManager {
     });
   }
 
-  close () {
+  close() {
     this.streamClient.remove(this.cameraName);
   }
 
-  async setImageSrc (imgEl:HTMLImageElement|undefined) {
+  async setImageSrc(imgEl: HTMLImageElement | undefined) {
     let blob;
     try {
       blob = await this.cameraClient.renderFrame('image/jpeg');
@@ -61,5 +66,4 @@ export class CameraManager {
 
     imgEl?.setAttribute('src', URL.createObjectURL(blob));
   }
-
 }

@@ -5,6 +5,7 @@ package tpspace
 import (
 	"context"
 	"errors"
+	"fmt"
 	"math"
 	"sync"
 
@@ -15,9 +16,8 @@ import (
 )
 
 const (
-	defaultResolutionSeconds = 0.01 // seconds. Return trajectories updating velocities at this resolution.
-
-	defaultZeroDist = 1e-3 // Sometimes nlopt will minimize trajectories to zero. Ensure min traj dist is at least this
+	defaultZeroDist  = 1e-3 // Sometimes nlopt will minimize trajectories to zero. Ensure min total traj dist is at least this
+	defaultMinPTGlen = 10.
 )
 
 type ptgIK struct {
@@ -28,8 +28,10 @@ type ptgIK struct {
 
 	gridSim PTGSolver
 
-	mu          sync.RWMutex
-	trajCache   map[float64][]*TrajNode
+	mu sync.RWMutex
+	// trajCache speeds up queries by saving previously computed trajectories and not re-computing them from scratch.
+	// The first key is the resolution of the trajectory, the second is the alpha value.
+	trajCache   map[float64]map[float64][]*TrajNode
 	defaultSeed []referenceframe.Input
 }
 
@@ -37,7 +39,7 @@ type ptgIK struct {
 // interface, allowing inverse kinematics queries to be run against it.
 func NewPTGIK(simPTG PTG, logger logging.Logger, refDistLong, refDistShort float64, randSeed, trajCount int) (PTGSolver, error) {
 	if refDistLong <= 0 {
-		return nil, errors.New("refDistLong must be greater than zero")
+		return nil, errors.New("refDistLong must be greater than zero to create a ptgIK")
 	}
 
 	limits := []referenceframe.Limit{}
@@ -61,31 +63,14 @@ func NewPTGIK(simPTG PTG, logger logging.Logger, refDistLong, refDistShort float
 		return nil, err
 	}
 
-	inputs := []referenceframe.Input{}
-	ptgDof := ptgFrame.DoF()
-
-	// Set the seed to be used for nlopt solving based on the individual DoF range of the PTG.
-	// If the DoF only allows short PTGs, seed near the end of its length, otherwise seed near the beginning.
-	// TODO: RSDK-6054 should make this much less important.
-	for i := 0; i < len(ptgDof); i++ {
-		boundRange := ptgDof[i].Max - ptgDof[i].Min
-		minAdj := boundRange * 0.2
-		if boundRange == refDistShort {
-			minAdj = boundRange * 0.9
-		}
-		inputs = append(inputs,
-			referenceframe.Input{ptgDof[i].Min + minAdj},
-		)
-	}
-
 	ptg := &ptgIK{
 		PTG:             simPTG,
 		refDist:         refDistLong,
 		ptgFrame:        ptgFrame,
 		fastGradDescent: nlopt,
-		trajCache:       map[float64][]*TrajNode{},
-		defaultSeed:     inputs,
+		trajCache:       map[float64]map[float64][]*TrajNode{},
 	}
+	ptg.defaultSeed = PTGIKSeed(ptg)
 
 	// create an ends-only grid sim for quick end-of-trajectory calculations
 	gridSim, err := NewPTGGridSim(simPTG, 0, refDistShort, true)
@@ -107,25 +92,13 @@ func (ptg *ptgIK) Solve(
 	internalSolutionGen := make(chan *ik.Solution, 1)
 	defer close(internalSolutionGen)
 	var solved *ik.Solution
-	var gridSolved *ik.Solution
-
 	if seed == nil {
 		seed = ptg.defaultSeed
 	}
 
-	err := ptg.gridSim.Solve(ctx, internalSolutionGen, seed, solveMetric, nloptSeed)
-	if err != nil {
-		return err
-	}
-	select {
-	case gridSolved = <-internalSolutionGen:
-	default:
-	}
-
 	// Spawn the IK solver to generate a solution
-	err = ptg.fastGradDescent.Solve(ctx, internalSolutionGen, seed, solveMetric, nloptSeed)
+	err := ptg.fastGradDescent.Solve(ctx, internalSolutionGen, seed, solveMetric, nloptSeed)
 	// We should have zero or one solutions
-
 	select {
 	case solved = <-internalSolutionGen:
 	default:
@@ -144,10 +117,7 @@ func (ptg *ptgIK) Solve(
 	}
 	if err != nil || solved == nil || ptg.arcDist(solved.Configuration) < defaultZeroDist || seedOutput {
 		// nlopt did not return a valid solution or otherwise errored. Fall back fully to the grid check.
-		solutionChan <- gridSolved
-		// If err is not nil, return the grid solution
-		//nolint: nilerr
-		return nil
+		return ptg.gridSim.Solve(ctx, solutionChan, seed, solveMetric, nloptSeed)
 	}
 
 	solutionChan <- solved
@@ -158,46 +128,89 @@ func (ptg *ptgIK) MaxDistance() float64 {
 	return ptg.refDist
 }
 
-func (ptg *ptgIK) Trajectory(alpha, dist float64) ([]*TrajNode, error) {
-	traj := []*TrajNode{}
+func (ptg *ptgIK) cachedTraj(alpha, end, resolution float64) ([]*TrajNode, error) {
+	var precomp []*TrajNode
 	ptg.mu.RLock()
-	precomp := ptg.trajCache[alpha]
+	thisRes := ptg.trajCache[resolution]
+	if thisRes != nil {
+		precomp = thisRes[alpha]
+	}
 	ptg.mu.RUnlock()
-	if precomp != nil && precomp[len(precomp)-1].Dist >= dist && dist > 0 {
-		exact := false
-		for _, wp := range precomp {
-			if wp.Dist <= dist {
-				if wp.Dist == dist {
-					exact = true
-				}
-				traj = append(traj, wp)
-			} else {
-				break
-			}
-		}
-		if !exact {
-			time := 0.
-			if len(traj) > 0 {
-				time = traj[len(traj)-1].Time
-			}
-			lastNode, err := computePTGNode(ptg, alpha, dist, time)
-			if err != nil {
-				return nil, err
-			}
-			traj = append(traj, lastNode)
-		}
-	} else {
+
+	// If we have not computed this PTG out to the desired end yet, do so
+	if precomp == nil || precomp[len(precomp)-1].Dist < end {
 		var err error
-		traj, err = ComputePTG(ptg, alpha, dist, defaultResolutionSeconds)
+		traj, err := computePTG(ptg, alpha, end, resolution)
 		if err != nil {
 			return nil, err
 		}
-		if dist > 0 {
-			ptg.mu.Lock()
-			// Caching here provides a ~33% speedup to a solve call
-			ptg.trajCache[alpha] = traj
-			ptg.mu.Unlock()
+		ptg.mu.Lock()
+		// Caching here provides a ~33% speedup to a solve call
+		if ptg.trajCache[resolution] == nil {
+			ptg.trajCache[resolution] = map[float64][]*TrajNode{}
 		}
+		ptg.trajCache[resolution][alpha] = traj
+		ptg.mu.Unlock()
+		precomp = traj
+	}
+	return precomp, nil
+}
+
+func (ptg *ptgIK) Trajectory(alpha, start, end, resolution float64) ([]*TrajNode, error) {
+	// TODO: For inverted trajectories, it would probably make more sense to allow this, replacing the current convention of negative dists.
+	if math.Abs(start) > math.Abs(end) {
+		return nil, fmt.Errorf("cannot calculate trajectory, start %f cannot be greater than end %f", start, end)
+	}
+	if end == 0 {
+		return computePTG(ptg, alpha, end, resolution)
+	}
+
+	startPos := math.Abs(start)
+	endPos := math.Abs(end)
+	trajPrecompute, err := ptg.cachedTraj(alpha, endPos, resolution)
+	if err != nil {
+		return nil, err
+	}
+	traj := []*TrajNode{}
+
+	// We have already computed out this strajectory to at least the distance requested, so we can pull from cache
+	started := false
+	exactEnd := false
+	for _, wp := range trajPrecompute {
+		// gocritic prefers there be a switch statement here, but doing so makes this much messier, as the `break` would break the
+		// switch statement and we would require label loops to break the for loop.
+		//nolint: gocritic
+		if !started { // First, skip ahead to the start distance
+			if wp.Dist >= startPos { // Check if we have entered the trajectory
+				if wp.Dist != startPos {
+					// Compute the first node if we don't have an exact match for the starting distance
+					firstNode, err := computePTGNode(ptg, alpha, startPos)
+					if err != nil {
+						return nil, err
+					}
+					traj = append(traj, firstNode)
+				}
+				traj = append(traj, wp)
+				started = true
+			}
+		} else if wp.Dist <= endPos { // Add the node if we are still within the trajectory
+			if wp.Dist == endPos {
+				exactEnd = true
+			}
+			traj = append(traj, wp)
+		} else {
+			break
+		}
+	}
+	if !exactEnd { // If our final node does not match our end distance, compute the ending node.
+		lastNode, err := computePTGNode(ptg, alpha, endPos)
+		if err != nil {
+			return nil, err
+		}
+		traj = append(traj, lastNode)
+	}
+	if end < 0 {
+		return invertComputedPTG(traj), nil
 	}
 
 	return traj, nil
@@ -205,6 +218,11 @@ func (ptg *ptgIK) Trajectory(alpha, dist float64) ([]*TrajNode, error) {
 
 func (ptg *ptgIK) Transform(inputs []referenceframe.Input) (spatialmath.Pose, error) {
 	return ptg.ptgFrame.Transform(inputs)
+}
+
+// DoF returns the DoF of the associated referenceframe.
+func (ptg *ptgIK) DoF() []referenceframe.Limit {
+	return ptg.ptgFrame.DoF()
 }
 
 func (ptg *ptgIK) arcDist(inputs []referenceframe.Input) float64 {

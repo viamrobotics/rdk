@@ -1,4 +1,4 @@
-// Package xarm implements some xArms.
+// Package xarm implements some UFactory arms (xArm 6, xArm 7, and Lite 6).
 package xarm
 
 import (
@@ -23,22 +23,17 @@ import (
 // Config is used for converting config attributes.
 type Config struct {
 	Host         string  `json:"host"`
-	Port         int     `json:"port"`
-	Speed        float32 `json:"speed_degs_per_sec"`
-	Acceleration float32 `json:"acceleration_degs_per_sec_per_sec"`
-
-	parsedPort string
+	Port         int     `json:"port,omitempty"`
+	Speed        float32 `json:"speed_degs_per_sec,omitempty"`
+	Acceleration float32 `json:"acceleration_degs_per_sec_per_sec,omitempty"`
 }
 
 // Validate validates the config.
 func (cfg *Config) Validate(path string) ([]string, error) {
-	var deps []string
-	if cfg.Port == 0 {
-		cfg.parsedPort = defaultPort
-	} else {
-		cfg.parsedPort = fmt.Sprintf("%d", cfg.Port)
+	if cfg.Host == "" {
+		return nil, resource.NewConfigValidationFieldRequiredError(path, "host")
 	}
-	return deps, nil
+	return []string{}, nil
 }
 
 const (
@@ -69,13 +64,13 @@ var xArm6modeljson []byte
 //go:embed xarm7_kinematics.json
 var xArm7modeljson []byte
 
-//go:embed xarmlite_kinematics.json
-var xArmLitemodeljson []byte
+//go:embed lite6_kinematics.json
+var lite6modeljson []byte
 
 const (
-	ModelName6DOF = "xArm6"    // ModelName6DOF is the name of an xArm6
-	ModelName7DOF = "xArm7"    // ModelName7DOF is the name of an xArm7
-	ModelNameLite = "xArmLite" // ModelNameLite is the name of an xArmLite
+	ModelName6DOF = "xArm6" // ModelName6DOF is the name of a UFactory xArm 6
+	ModelName7DOF = "xArm7" // ModelName7DOF is the name of a UFactory xArm 7
+	ModelNameLite = "lite6" // ModelNameLite is the name of a UFactory Lite 6
 )
 
 // MakeModelFrame returns the kinematics model of the xarm arm, which has all Frame information.
@@ -84,7 +79,7 @@ func MakeModelFrame(name, modelName string) (referenceframe.Model, error) {
 	case ModelName6DOF:
 		return referenceframe.UnmarshalModelJSON(xArm6modeljson, name)
 	case ModelNameLite:
-		return referenceframe.UnmarshalModelJSON(xArmLitemodeljson, name)
+		return referenceframe.UnmarshalModelJSON(lite6modeljson, name)
 	case ModelName7DOF:
 		return referenceframe.UnmarshalModelJSON(xArm7modeljson, name)
 	default:
@@ -153,10 +148,15 @@ func (x *xArm) Reconfigure(ctx context.Context, deps resource.Dependencies, conf
 		return fmt.Errorf("given speed %f cannot be negative", speed)
 	}
 
+	port := fmt.Sprintf("%d", newConf.Port)
+	if newConf.Port == 0 {
+		port = defaultPort
+	}
+
 	x.mu.Lock()
 	defer x.mu.Unlock()
 
-	newAddr := net.JoinHostPort(newConf.Host, newConf.parsedPort)
+	newAddr := net.JoinHostPort(newConf.Host, port)
 	if x.conn == nil || x.conn.RemoteAddr().String() != newAddr {
 		// Need a new or replacement connection
 		var d net.Dialer
@@ -188,13 +188,18 @@ func (x *xArm) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error
 	return x.model.InputFromProtobuf(res), nil
 }
 
-func (x *xArm) GoToInputs(ctx context.Context, goal []referenceframe.Input) error {
-	// check that joint positions are not out of bounds
-	positionDegs := x.model.ProtobufFromInput(goal)
-	if err := arm.CheckDesiredJointPositions(ctx, x, positionDegs); err != nil {
-		return err
+func (x *xArm) GoToInputs(ctx context.Context, inputSteps ...[]referenceframe.Input) error {
+	for _, goal := range inputSteps {
+		// check that joint positions are not out of bounds
+		if err := arm.CheckDesiredJointPositions(ctx, x, goal); err != nil {
+			return err
+		}
+		err := x.MoveToJointPositions(ctx, x.model.ProtobufFromInput(goal), nil)
+		if err != nil {
+			return err
+		}
 	}
-	return x.MoveToJointPositions(ctx, positionDegs, nil)
+	return nil
 }
 
 func (x *xArm) Geometries(ctx context.Context, extra map[string]interface{}) ([]spatialmath.Geometry, error) {

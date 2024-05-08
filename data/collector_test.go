@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/benbjohnson/clock"
+	"github.com/pkg/errors"
 	"go.uber.org/zap/zapcore"
 	v1 "go.viam.com/api/app/datasync/v1"
 	"go.viam.com/test"
@@ -244,10 +245,10 @@ func TestClose(t *testing.T) {
 	}
 }
 
-// TestCtxCancelledNotLoggedAfterClose verifies that context cancelled errors are not logged if they occur after Close
-// has been called. The collector context is cancelled as part of Close, so we expect to see context cancelled errors
-// for any running capture routines.
-func TestCtxCancelledNotLoggedAfterClose(t *testing.T) {
+// TestCtxCancelledNotLoggedInTickerBasedCaptureAfterClose verifies that context cancelled errors are not logged if they
+// occur after Close has been called. The collector context is cancelled as part of Close, so we expect to see context
+// cancelled errors for any running capture routines.
+func TestCtxCancelledNotLoggedInTickerBasedCaptureAfterClose(t *testing.T) {
 	logger, logs := logging.NewObservedTestLogger(t)
 	tmpDir := t.TempDir()
 	target := datacapture.NewBuffer(tmpDir, &v1.DataCaptureMetadata{})
@@ -263,12 +264,15 @@ func TestCtxCancelledNotLoggedAfterClose(t *testing.T) {
 
 	params := CollectorParams{
 		ComponentName: "testComponent",
-		Interval:      time.Millisecond * 1,
-		MethodParams:  map[string]*anypb.Any{"name": fakeVal},
-		Target:        target,
-		QueueSize:     queueSize,
-		BufferSize:    bufferSize,
-		Logger:        logger,
+		// Ensure that we use ticker-based capture since capturing at 1000+ Hz
+		// uses a sleep-based capture that may let a context cancelation error
+		// occasionally be logged.
+		Interval:     sleepCaptureCutoff + time.Microsecond,
+		MethodParams: map[string]*anypb.Any{"name": fakeVal},
+		Target:       target,
+		QueueSize:    queueSize,
+		BufferSize:   bufferSize,
+		Logger:       logger,
 	}
 	c, _ := NewCollector(errorCapturer, params)
 	c.Collect()
@@ -277,6 +281,48 @@ func TestCtxCancelledNotLoggedAfterClose(t *testing.T) {
 	close(captured)
 
 	test.That(t, logs.FilterLevelExact(zapcore.ErrorLevel).Len(), test.ShouldEqual, 0)
+}
+
+func TestLogErrorsOnlyOnce(t *testing.T) {
+	// Set up a collector.
+	logger, logs := logging.NewObservedTestLogger(t)
+	tmpDir := t.TempDir()
+	md := v1.DataCaptureMetadata{}
+	buf := datacapture.NewBuffer(tmpDir, &md)
+	wrote := make(chan struct{})
+	errorCapturer := CaptureFunc(func(ctx context.Context, _ map[string]*anypb.Any) (interface{}, error) {
+		return nil, errors.New("I am an error")
+	})
+	target := &signalingBuffer{
+		bw:    buf,
+		wrote: wrote,
+	}
+	mockClock := clock.NewMock()
+	interval := time.Millisecond * 5
+
+	params := CollectorParams{
+		ComponentName: "testComponent",
+		Interval:      interval,
+		MethodParams:  map[string]*anypb.Any{"name": fakeVal},
+		Target:        target,
+		QueueSize:     queueSize,
+		BufferSize:    bufferSize,
+		Logger:        logger,
+		Clock:         mockClock,
+	}
+	c, _ := NewCollector(errorCapturer, params)
+
+	// Start collecting, and validate it is writing.
+	c.Collect()
+	mockClock.Add(interval * 5)
+
+	close(wrote)
+	test.That(t, logs.FilterLevelExact(zapcore.ErrorLevel).Len(), test.ShouldEqual, 1)
+	mockClock.Add(3 * time.Second)
+	test.That(t, logs.FilterLevelExact(zapcore.ErrorLevel).Len(), test.ShouldEqual, 2)
+	mockClock.Add(3 * time.Second)
+	test.That(t, logs.FilterLevelExact(zapcore.ErrorLevel).Len(), test.ShouldEqual, 3)
+	c.Close()
 }
 
 func validateReadings(t *testing.T, act []*v1.SensorData, n int) {

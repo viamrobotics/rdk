@@ -2,6 +2,8 @@ package cli
 
 import (
 	"context"
+	"fmt"
+	"slices"
 	"strings"
 	"time"
 
@@ -18,15 +20,42 @@ const (
 	trainFlagModelVersion = "model-version"
 	trainFlagModelType    = "model-type"
 	trainFlagModelLabels  = "model-labels"
+
+	trainingStatusPrefix = "TRAINING_STATUS_"
 )
 
-// DataSubmitTrainingJob is the corresponding action for 'data train submit'.
-func DataSubmitTrainingJob(c *cli.Context) error {
+// MLSubmitCustomTrainingJob is the corresponding action for 'train submit-custom'.
+func MLSubmitCustomTrainingJob(c *cli.Context) error {
 	client, err := newViamClient(c)
 	if err != nil {
 		return err
 	}
-	trainingJobID, err := client.dataSubmitTrainingJob(
+
+	err = client.uploadTrainingScript(true, c.String(trainFlagModelType), c.String(mlTrainingFlagFramework),
+		c.String(trainFlagModelOrgID), c.String(mlTrainingFlagName), c.String(mlTrainingFlagVersion),
+		c.Path(mlTrainingFlagPath))
+	if err != nil {
+		return err
+	}
+	registryItemID := fmt.Sprintf("%s:%s", c.String(trainFlagModelOrgID), c.String(mlTrainingFlagName))
+	printf(c.App.Writer, "successfully uploaded training script to %s", registryItemID)
+	trainingJobID, err := client.mlSubmitCustomTrainingJob(
+		c.String(datasetFlagDatasetID), registryItemID, c.String(trainFlagModelOrgID),
+		c.String(trainFlagModelName), c.String(trainFlagModelVersion))
+	if err != nil {
+		return err
+	}
+	printf(c.App.Writer, "Submitted training job with ID %s", trainingJobID)
+	return nil
+}
+
+// MLSubmitTrainingJob is the corresponding action for 'train submit'.
+func MLSubmitTrainingJob(c *cli.Context) error {
+	client, err := newViamClient(c)
+	if err != nil {
+		return err
+	}
+	trainingJobID, err := client.mlSubmitTrainingJob(
 		c.String(datasetFlagDatasetID), c.String(trainFlagModelOrgID),
 		c.String(trainFlagModelName), c.String(trainFlagModelVersion),
 		c.String(trainFlagModelType), c.StringSlice(trainFlagModelLabels))
@@ -37,8 +66,8 @@ func DataSubmitTrainingJob(c *cli.Context) error {
 	return nil
 }
 
-// dataSubmitTrainingJob trains on data with the specified filter.
-func (c *viamClient) dataSubmitTrainingJob(datasetID, orgID, modelName, modelVersion, modelType string,
+// mlSubmitTrainingJob trains on data with the specified filter.
+func (c *viamClient) mlSubmitTrainingJob(datasetID, orgID, modelName, modelVersion, modelType string,
 	labels []string,
 ) (string, error) {
 	if err := c.ensureLoggedIn(); err != nil {
@@ -58,6 +87,31 @@ func (c *viamClient) dataSubmitTrainingJob(datasetID, orgID, modelName, modelVer
 			DatasetId:      datasetID,
 			OrganizationId: orgID, ModelName: modelName, ModelVersion: modelVersion,
 			ModelType: mltrainingpb.ModelType(modelTypeEnum), Tags: labels,
+		})
+	if err != nil {
+		return "", errors.Wrapf(err, "received error from server")
+	}
+	return resp.Id, nil
+}
+
+// mlSubmitCustomTrainingJob trains on data with the specified dataset and registry item.
+func (c *viamClient) mlSubmitCustomTrainingJob(datasetID, registryItemID, orgID, modelName,
+	modelVersion string,
+) (string, error) {
+	if err := c.ensureLoggedIn(); err != nil {
+		return "", err
+	}
+	if modelVersion == "" {
+		modelVersion = time.Now().Format("2006-01-02T15-04-05")
+	}
+
+	resp, err := c.mlTrainingClient.SubmitCustomTrainingJob(context.Background(),
+		&mltrainingpb.SubmitCustomTrainingJobRequest{
+			DatasetId:      datasetID,
+			RegistryItemId: registryItemID,
+			OrganizationId: orgID,
+			ModelName:      modelName,
+			ModelVersion:   modelVersion,
 		})
 	if err != nil {
 		return "", errors.Wrapf(err, "received error from server")
@@ -123,7 +177,7 @@ func DataListTrainingJobs(c *cli.Context) error {
 	if err != nil {
 		return err
 	}
-	jobs, err := client.dataListTrainingJobs(c.String(dataFlagOrgID), c.String(trainFlagJobStatus))
+	jobs, err := client.dataListTrainingJobs(c.String(generalFlagOrgID), c.String(trainFlagJobStatus))
 	if err != nil {
 		return err
 	}
@@ -142,7 +196,7 @@ func (c *viamClient) dataListTrainingJobs(orgID, status string) ([]*mltrainingpb
 	if status == "" {
 		status = "unspecified"
 	}
-	statusEnum, ok := mltrainingpb.TrainingStatus_value["TRAINING_STATUS_"+strings.ToUpper(status)]
+	statusEnum, ok := mltrainingpb.TrainingStatus_value[trainingStatusPrefix+strings.ToUpper(status)]
 	if !ok {
 		return nil, errors.Errorf("%s must be a valid TrainingStatus, got %s. See `viam train list --help` for supported options",
 			trainFlagJobStatus, status)
@@ -156,4 +210,16 @@ func (c *viamClient) dataListTrainingJobs(orgID, status string) ([]*mltrainingpb
 		return nil, err
 	}
 	return resp.Jobs, nil
+}
+
+// allTrainingStatusValues returns the accepted values for the trainFlagJobStatus flag.
+func allTrainingStatusValues() string {
+	var formattedStatuses []string
+	for status := range mltrainingpb.TrainingStatus_value {
+		formattedStatus := strings.ToLower(strings.TrimPrefix(status, trainingStatusPrefix))
+		formattedStatuses = append(formattedStatuses, formattedStatus)
+	}
+
+	slices.Sort(formattedStatuses)
+	return "[" + strings.Join(formattedStatuses, ", ") + "]"
 }

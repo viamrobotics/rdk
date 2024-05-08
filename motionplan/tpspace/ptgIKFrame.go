@@ -10,8 +10,6 @@ import (
 	"go.viam.com/rdk/spatialmath"
 )
 
-const defaultMinPTGlen = 10.
-
 // ptgFrame wraps a tpspace.PTG so that it fills the Frame interface and can be used by IK.
 type ptgIKFrame struct {
 	PTG
@@ -74,4 +72,12 @@ func (pf *ptgIKFrame) Transform(inputs []referenceframe.Input) (spatialmath.Pose
 		p1 = spatialmath.Compose(p1, p2)
 	}
 	return p1, nil
+}
+
+func (pf *ptgIKFrame) Interpolate(from, to []referenceframe.Input, by float64) ([]referenceframe.Input, error) {
+	// PTG IK frames are private and are not possible to surface outside of this package aside from how they are explicitly used within
+	// the package, so this is not necessary to implement.
+	// Furthermore, the multi-trajectory nature of these frames makes correct interpolation difficult. To avoid bad data, this should
+	// not be implemented until/unless it is guided by a specific need.
+	return nil, errors.New("cannot interpolate ptg IK frames")
 }

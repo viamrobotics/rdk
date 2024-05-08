@@ -23,7 +23,7 @@ func TestPiPigpio(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 
 	cfg := Config{
-		DigitalInterrupts: []board.DigitalInterruptConfig{
+		DigitalInterrupts: []DigitalInterruptConfig{
 			{Name: "i1", Pin: "11"}, // bcom 17
 			{Name: "servo-i", Pin: "22", Type: "servo"},
 		},
@@ -98,13 +98,13 @@ func TestPiPigpio(t *testing.T) {
 	})
 
 	t.Run("basic interrupts", func(t *testing.T) {
-		err = p.SetGPIOBcom(17, false)
+		err := p.SetGPIOBcom(17, false)
 		test.That(t, err, test.ShouldBeNil)
 
 		time.Sleep(5 * time.Millisecond)
 
-		i1, ok := p.DigitalInterruptByName("i1")
-		test.That(t, ok, test.ShouldBeTrue)
+		i1, err := p.DigitalInterruptByName("i1")
+		test.That(t, err, test.ShouldBeNil)
 		before, err := i1.Value(context.Background(), nil)
 		test.That(t, err, test.ShouldBeNil)
 
@@ -121,10 +121,10 @@ func TestPiPigpio(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		time.Sleep(5 * time.Millisecond)
-		_, ok = p.DigitalInterruptByName("some")
-		test.That(t, ok, test.ShouldBeFalse)
-		i2, ok := p.DigitalInterruptByName("13")
-		test.That(t, ok, test.ShouldBeTrue)
+		_, err = p.DigitalInterruptByName("some")
+		test.That(t, err, test.ShouldNotBeNil)
+		i2, err := p.DigitalInterruptByName("13")
+		test.That(t, err, test.ShouldBeNil)
 		before, err = i2.Value(context.Background(), nil)
 		test.That(t, err, test.ShouldBeNil)
 
@@ -137,8 +137,8 @@ func TestPiPigpio(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, after-before, test.ShouldEqual, int64(1))
 
-		_, ok = p.DigitalInterruptByName("11")
-		test.That(t, ok, test.ShouldBeTrue)
+		_, err = p.DigitalInterruptByName("11")
+		test.That(t, err, test.ShouldBeNil)
 	})
 
 	t.Run("servo in/out", func(t *testing.T) {
@@ -169,8 +169,8 @@ func TestPiPigpio(t *testing.T) {
 
 		time.Sleep(300 * time.Millisecond)
 
-		servoI, ok := p.DigitalInterruptByName("servo-i")
-		test.That(t, ok, test.ShouldBeTrue)
+		servoI, err := p.DigitalInterruptByName("servo-i")
+		test.That(t, err, test.ShouldBeNil)
 		val, err := servoI.Value(context.Background(), nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, val, test.ShouldAlmostEqual, int64(1500), 500) // this is a tad noisy

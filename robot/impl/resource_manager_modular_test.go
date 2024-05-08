@@ -37,7 +37,9 @@ func TestModularResources(t *testing.T) {
 		svcModel = resource.ModelNamespace("acme").WithFamily("signage").WithModel("handheld")
 	)
 
-	setupTest := func(t *testing.T) (*localRobot, *dummyModMan, func()) {
+	setupTest := func(t *testing.T) (*localRobot, *dummyModMan) {
+		t.Helper()
+
 		logger := logging.NewTestLogger(t)
 		compAPISvc, err := resource.NewAPIResourceCollection[resource.Resource](compAPI, nil)
 		test.That(t, err, test.ShouldBeNil)
@@ -49,13 +51,15 @@ func TestModularResources(t *testing.T) {
 			state:      make(map[resource.Name]bool),
 		}
 
-		r, err := New(context.Background(), &config.Config{}, logger)
-		test.That(t, err, test.ShouldBeNil)
+		r := setupLocalRobot(t, context.Background(), &config.Config{}, logger)
 		actualR := r.(*localRobot)
 		actualR.manager.moduleManager = mod
 
 		resource.RegisterAPI(compAPI,
 			resource.APIRegistration[resource.Resource]{ReflectRPCServiceDesc: &desc.ServiceDescriptor{}})
+		t.Cleanup(func() {
+			resource.DeregisterAPI(compAPI)
+		})
 		resource.RegisterComponent(compAPI, compModel, resource.Registration[resource.Resource, resource.NoNativeConfig]{
 			Constructor: func(
 				ctx context.Context,
@@ -65,6 +69,9 @@ func TestModularResources(t *testing.T) {
 			) (resource.Resource, error) {
 				return mod.AddResource(ctx, conf, modmanager.DepsToNames(deps))
 			},
+		})
+		t.Cleanup(func() {
+			resource.Deregister(compAPI, compModel)
 		})
 		resource.RegisterComponent(compAPI, compModel2, resource.Registration[resource.Resource, resource.NoNativeConfig]{
 			Constructor: func(
@@ -76,9 +83,15 @@ func TestModularResources(t *testing.T) {
 				return mod.AddResource(ctx, conf, modmanager.DepsToNames(deps))
 			},
 		})
+		t.Cleanup(func() {
+			resource.Deregister(compAPI, compModel2)
+		})
 
 		resource.RegisterAPI(svcAPI,
 			resource.APIRegistration[resource.Resource]{ReflectRPCServiceDesc: &desc.ServiceDescriptor{}})
+		t.Cleanup(func() {
+			resource.DeregisterAPI(svcAPI)
+		})
 		resource.Register(svcAPI, svcModel, resource.Registration[resource.Resource, resource.NoNativeConfig]{
 			Constructor: func(
 				ctx context.Context,
@@ -89,21 +102,15 @@ func TestModularResources(t *testing.T) {
 				return mod.AddResource(ctx, conf, modmanager.DepsToNames(deps))
 			},
 		})
-
-		return actualR, mod, func() {
-			// deregister to not interfere with other tests or when test.count > 1
-			resource.Deregister(compAPI, compModel)
-			resource.Deregister(compAPI, compModel2)
+		t.Cleanup(func() {
 			resource.Deregister(svcAPI, svcModel)
-			resource.DeregisterAPI(compAPI)
-			resource.DeregisterAPI(svcAPI)
-			test.That(t, r.Close(context.Background()), test.ShouldBeNil)
-		}
+		})
+
+		return actualR, mod
 	}
 
 	t.Run("process component", func(t *testing.T) {
-		r, mod, teardown := setupTest(t)
-		defer teardown()
+		r, mod := setupTest(t)
 
 		// modular
 		cfg := resource.Config{Name: "oneton", API: compAPI, Model: compModel, Attributes: utils.AttributeMap{"arg1": "one"}}
@@ -177,8 +184,7 @@ func TestModularResources(t *testing.T) {
 	})
 
 	t.Run("process service", func(t *testing.T) {
-		r, mod, teardown := setupTest(t)
-		defer teardown()
+		r, mod := setupTest(t)
 
 		// modular
 		cfg := resource.Config{
@@ -245,8 +251,7 @@ func TestModularResources(t *testing.T) {
 	})
 
 	t.Run("close", func(t *testing.T) {
-		r, mod, teardown := setupTest(t)
-		defer teardown()
+		r, mod := setupTest(t)
 
 		compCfg := resource.Config{Name: "oneton", API: compAPI, Model: compModel, Attributes: utils.AttributeMap{"arg1": "one"}}
 		_, err := compCfg.Validate("test", resource.APITypeComponentName)
@@ -288,8 +293,7 @@ func TestModularResources(t *testing.T) {
 	})
 
 	t.Run("builtin depends on previously removed but now added modular", func(t *testing.T) {
-		r, _, teardown := setupTest(t)
-		defer teardown()
+		r, _ := setupTest(t)
 
 		// modular we do not want
 		cfg := resource.Config{Name: "oneton2", API: compAPI, Model: compModel, Attributes: utils.AttributeMap{"arg1": "one"}}
@@ -345,8 +349,7 @@ func TestModularResources(t *testing.T) {
 	})
 
 	t.Run("change model", func(t *testing.T) {
-		r, _, teardown := setupTest(t)
-		defer teardown()
+		r, _ := setupTest(t)
 
 		cfg := resource.Config{Name: "oneton", API: compAPI, Model: compModel, Attributes: utils.AttributeMap{"arg1": "one"}}
 		_, err := cfg.Validate("test", resource.APITypeComponentName)
@@ -476,8 +479,7 @@ func (m *dummyModMan) Close(ctx context.Context) error {
 }
 
 func TestDynamicModuleLogging(t *testing.T) {
-	modPath, err := rtestutils.BuildTempModule(t, "module/testmodule")
-	test.That(t, err, test.ShouldBeNil)
+	modPath := rtestutils.BuildTempModule(t, "module/testmodule")
 
 	ctx := context.Background()
 	logger, observer := logging.NewObservedTestLogger(t)
@@ -500,9 +502,7 @@ func TestDynamicModuleLogging(t *testing.T) {
 		}},
 	}
 
-	myRobot, err := RobotFromConfig(ctx, cfg, logger)
-	test.That(t, err, test.ShouldBeNil)
-	defer myRobot.Close(ctx)
+	myRobot := setupLocalRobot(t, ctx, cfg, logger)
 
 	client, err := generic.FromRobot(myRobot, "helper")
 	test.That(t, err, test.ShouldBeNil)
@@ -510,27 +510,30 @@ func TestDynamicModuleLogging(t *testing.T) {
 
 	//nolint:lll
 	// Have the module log a line at info. It should appear as:
-	// 2023-12-06T15:55:32.590-0500	INFO	process.helperModule_/tmp/TestDynamicModuleLogging3790223620/001/testmodule.StdOut	pexec/managed_process.go:244
-	// \_ 2023-12-06T15:55:32.590-0500	INFO	TestModule.rdk:component:generic/helper	testmodule/main.go:147	special rare log line
-	logLine := "special rare log line"
-	testCmd := map[string]interface{}{"command": "log", "msg": logLine, "level": "info"}
+	// 2024-01-08T19:28:11.415-0800	INFO	TestModule.rdk:component:generic/helper	testmodule/main.go:147	info level log line	{"module_log_ts": "2024-01-09T03:28:11.412Z", "foo": "bar"}
+	infoLogLine := "info level log line"
+	testCmd := map[string]interface{}{"command": "log", "msg": infoLogLine, "level": "info"}
 	_, err = client.DoCommand(ctx, testCmd)
 	test.That(t, err, test.ShouldBeNil)
 
-	// Our log observer should find one occurrence of the log line.
+	// Our log observer should find one occurrence of the log line with `module_log_ts` and `foo`
+	// arguments.
 	testutils.WaitForAssertion(t, func(tb testing.TB) {
 		tb.Helper()
-		test.That(tb, observer.FilterMessageSnippet(logLine).Len(), test.ShouldEqual, 1)
+		test.That(tb, observer.FilterMessageSnippet(infoLogLine).Len(), test.ShouldEqual, 1)
+		test.That(tb, observer.FilterMessageSnippet(infoLogLine).FilterFieldKey("log_ts").Len(), test.ShouldEqual, 1)
+		test.That(tb, observer.FilterMessageSnippet(infoLogLine).FilterFieldKey("foo").Len(), test.ShouldEqual, 1)
 	})
 
 	// The module is currently configured to log at info. If the module tries to log at debug,
 	// nothing new should be observed.
-	testCmd = map[string]interface{}{"command": "log", "msg": logLine, "level": "debug"}
+	debugLogLine := "debug level log line"
+	testCmd = map[string]interface{}{"command": "log", "msg": debugLogLine, "level": "debug"}
 	_, err = client.DoCommand(ctx, testCmd)
 	test.That(t, err, test.ShouldBeNil)
 
-	test.That(t, observer.FilterMessageSnippet(logLine).Len(), test.ShouldEqual, 1)
-	test.That(t, observer.FilterMessageSnippet(logLine).FilterMessageSnippet("DEBUG").Len(), test.ShouldEqual, 0)
+	test.That(t, observer.FilterMessageSnippet(infoLogLine).Len(), test.ShouldEqual, 1)
+	test.That(t, observer.FilterMessageSnippet(debugLogLine).Len(), test.ShouldEqual, 0)
 
 	// Change the modular component to log at DEBUG instead of INFO.
 	cfg.Components[0].LogConfiguration.Level = logging.DEBUG
@@ -538,13 +541,47 @@ func TestDynamicModuleLogging(t *testing.T) {
 
 	// Trying to log again at DEBUG should see our log line pattern show up a second time. Now with
 	// DEBUG in the output string.
-	testCmd = map[string]interface{}{"command": "log", "msg": logLine, "level": "debug"}
+	testCmd = map[string]interface{}{"command": "log", "msg": debugLogLine, "level": "debug"}
 	_, err = client.DoCommand(ctx, testCmd)
 	test.That(t, err, test.ShouldBeNil)
 
 	testutils.WaitForAssertion(t, func(tb testing.TB) {
 		tb.Helper()
-		test.That(tb, observer.FilterMessageSnippet(logLine).Len(), test.ShouldEqual, 2)
-		test.That(tb, observer.FilterMessageSnippet(logLine).FilterMessageSnippet("DEBUG").Len(), test.ShouldEqual, 1)
+		test.That(tb, observer.FilterMessageSnippet(infoLogLine).Len(), test.ShouldEqual, 1)
+		test.That(tb, observer.FilterMessageSnippet(debugLogLine).Len(), test.ShouldEqual, 1)
 	})
+}
+
+func TestTwoModulesSameName(t *testing.T) {
+	ctx := context.Background()
+	logger := logging.NewTestLogger(t)
+
+	simplePath := rtestutils.BuildTempModule(t, "examples/customresources/demos/simplemodule")
+	complexPath := rtestutils.BuildTempModule(t, "examples/customresources/demos/complexmodule")
+
+	cfg := &config.Config{
+		Modules: []config.Module{
+			{
+				Name:    "samename",
+				ExePath: simplePath,
+			},
+			{
+				Name:    "samename",
+				ExePath: complexPath,
+			},
+		},
+		// This field is false due to zero-value by default, but specify explicitly
+		// here. When partial start is allowed, we will log an error about the
+		// duplicate module name, but still start up the first of the two modules.
+		DisablePartialStart: false,
+	}
+	r := setupLocalRobot(t, ctx, cfg, logger)
+
+	rr, ok := r.(*localRobot)
+	test.That(t, ok, test.ShouldBeTrue)
+
+	// Assert that only the first module with the same name was honored.
+	moduleCfgs := rr.manager.moduleManager.Configs()
+	test.That(t, len(moduleCfgs), test.ShouldEqual, 1)
+	test.That(t, moduleCfgs[0].ExePath, test.ShouldEqual, simplePath)
 }

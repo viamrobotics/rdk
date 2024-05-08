@@ -28,7 +28,6 @@ type gpioPin struct {
 	// These values are mutable. Lock the mutex when interacting with them.
 	line            *gpio.Line
 	isInput         bool
-	swPwmRunning    bool
 	hwPwm           *pwmDevice // Defined in hw_pwm.go, will be nil for pins that don't support it.
 	pwmFreqHz       uint
 	pwmDutyCyclePct float64
@@ -36,6 +35,8 @@ type gpioPin struct {
 	mu        sync.Mutex
 	cancelCtx context.Context
 	logger    logging.Logger
+
+	swPwmCancel func()
 }
 
 func (pin *gpioPin) wrapError(err error) error {
@@ -112,7 +113,12 @@ func (pin *gpioPin) Set(ctx context.Context, isHigh bool,
 	pin.mu.Lock()
 	defer pin.mu.Unlock()
 
-	pin.swPwmRunning = false
+	// Shut down any software PWM loop that might be running.
+	if pin.swPwmCancel != nil {
+		pin.swPwmCancel()
+		pin.swPwmCancel = nil
+	}
+
 	return pin.setInternal(isHigh)
 }
 
@@ -170,7 +176,10 @@ func (pin *gpioPin) Get(
 func (pin *gpioPin) startSoftwarePWM() error {
 	if pin.pwmDutyCyclePct == 0 || pin.pwmFreqHz == 0 {
 		// We don't have both parameters set up. Stop any PWM loop we might have started previously.
-		pin.swPwmRunning = false
+		if pin.swPwmCancel != nil {
+			pin.swPwmCancel()
+			pin.swPwmCancel = nil
+		}
 		if pin.hwPwm != nil {
 			return pin.hwPwm.Close()
 		}
@@ -185,7 +194,11 @@ func (pin *gpioPin) startSoftwarePWM() error {
 			if err := pin.closeGpioFd(); err != nil {
 				return err
 			}
-			pin.swPwmRunning = false // Shut down any software PWM loop that might be running.
+			// Shut down any software PWM loop that might be running.
+			if pin.swPwmCancel != nil {
+				pin.swPwmCancel()
+				pin.swPwmCancel = nil
+			}
 			return pin.hwPwm.SetPwm(pin.pwmFreqHz, pin.pwmDutyCyclePct)
 		}
 		// Although this pin has hardware PWM support, many PWM chips cannot output signals at
@@ -199,20 +212,52 @@ func (pin *gpioPin) startSoftwarePWM() error {
 	// If we get here, we need a software loop to drive the PWM signal, either because this pin
 	// doesn't have hardware support or because we want to drive it at such a low frequency that
 	// the hardware chip can't do it.
-	if pin.swPwmRunning {
+	if pin.swPwmCancel != nil {
 		// We already have a software PWM loop running. It will pick up the changes on its own.
 		return nil
 	}
 
-	pin.swPwmRunning = true
+	ctx, cancel := context.WithCancel(pin.cancelCtx)
+	pin.swPwmCancel = cancel
 	pin.boardWorkers.Add(1)
-	utils.ManagedGo(pin.softwarePwmLoop, pin.boardWorkers.Done)
+	utils.ManagedGo(func() { pin.softwarePwmLoop(ctx) }, pin.boardWorkers.Done)
 	return nil
+}
+
+// accurateSleep is intended to be a replacement for utils.SelectContextOrWait which wakes up
+// closer to when it's supposed to. We return whether the context is still valid (not yet
+// cancelled).
+func accurateSleep(ctx context.Context, duration time.Duration) bool {
+	// If we use utils.SelectContextOrWait(), we will wake up sometime after when we're supposed
+	// to, which can be hundreds of microseconds later (because the process scheduler in the OS only
+	// schedules things every millisecond or two). For use cases like a web server responding to a
+	// query, that's fine. but when outputting a PWM signal, hundreds of microseconds can be a big
+	// deal. To avoid this, we sleep for less time than we're supposed to, and then busy-wait until
+	// the right time. Inspiration for this approach was taken from
+	// https://blog.bearcats.nl/accurate-sleep-function/
+	// On a raspberry pi 4, naively calling utils.SelectContextOrWait tended to have an error of
+	// about 140-300 microseconds, while this version had an error of 0.3-0.6 microseconds.
+	startTime := time.Now()
+	maxBusyWaitTime := 1500 * time.Microsecond
+	if duration > maxBusyWaitTime {
+		shorterDuration := duration - maxBusyWaitTime
+		if !utils.SelectContextOrWait(ctx, shorterDuration) {
+			return false
+		}
+	}
+
+	for time.Since(startTime) < duration {
+		if err := ctx.Err(); err != nil {
+			return false
+		}
+		// Otherwise, busy-wait some more
+	}
+	return true
 }
 
 // We turn the pin either on or off, and then wait until it's time to turn it off or on again (or
 // until we're supposed to shut down). We return whether we should continue the software PWM cycle.
-func (pin *gpioPin) halfPwmCycle(shouldBeOn bool) bool {
+func (pin *gpioPin) halfPwmCycle(ctx context.Context, shouldBeOn bool) bool {
 	// Make local copies of these, then release the mutex
 	var dutyCycle float64
 	var freqHz uint
@@ -223,7 +268,7 @@ func (pin *gpioPin) halfPwmCycle(shouldBeOn bool) bool {
 		pin.mu.Lock()
 		defer pin.mu.Unlock()
 		// Before we modify the pin, check if we should stop running
-		if !pin.swPwmRunning {
+		if ctx.Err() != nil {
 			return false
 		}
 
@@ -245,15 +290,16 @@ func (pin *gpioPin) halfPwmCycle(shouldBeOn bool) bool {
 		dutyCycle = 1 - dutyCycle
 	}
 	duration := time.Duration(float64(time.Second) * dutyCycle / float64(freqHz))
-	return utils.SelectContextOrWait(pin.cancelCtx, duration)
+
+	return accurateSleep(ctx, duration)
 }
 
-func (pin *gpioPin) softwarePwmLoop() {
+func (pin *gpioPin) softwarePwmLoop(ctx context.Context) {
 	for {
-		if !pin.halfPwmCycle(true) {
+		if !pin.halfPwmCycle(ctx, true) {
 			return
 		}
-		if !pin.halfPwmCycle(false) {
+		if !pin.halfPwmCycle(ctx, false) {
 			return
 		}
 	}

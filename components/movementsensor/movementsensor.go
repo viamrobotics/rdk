@@ -3,6 +3,7 @@ package movementsensor
 
 import (
 	"context"
+	"math"
 	"strings"
 
 	"github.com/golang/geo/r3"
@@ -64,17 +65,86 @@ func Named(name string) resource.Name {
 }
 
 // A MovementSensor reports information about the robot's direction, position and speed.
+//
+// Position example:
+//
+//	// Get the current position of the movement sensor above sea level in meters
+//	position, altitude, err := myMovementSensor.Position(context.Background(), nil)
+//
+// LinearVelocity example:
+//
+//	// Get the current linear velocity of the movement sensor.
+//	linVel, err := myMovementSensor.LinearVelocity(context.Background(), nil)
+//
+// AngularVelocity example:
+//
+//	// Get the current angular velocity of the movement sensor.
+//	angVel, err := myMovementSensor.AngularVelocity(context.Background(), nil)
+//
+//	// Get the y component of angular velocity.
+//	yAngVel := angVel.Y
+//
+// LinearAcceleration example:
+//
+//	// Get the current linear acceleration of the movement sensor.
+//	linVel, err := myMovementSensor.LinearVelocity(context.Background(), nil)
+//
+// CompassHeading example:
+//
+//	// Get the current compass heading of the movement sensor.
+//	heading, err := myMovementSensor.CompassHeading(context.Background(), nil)
+//
+// Orientation example:
+//
+//	// Get the current orientation of the movement sensor.
+//	sensorOrientation, err := myMovementSensor.Orientation(context.Background(), nil)
+//
+//	// Get the orientation vector.
+//	orientation := sensorOrientation.OrientationVectorDegrees()
+//
+//	// Print out the orientation vector.
+//	logger.Info("The x component of the orientation vector: ", orientation.0X)
+//	logger.Info("The y component of the orientation vector: ", orientation.0Y)
+//	logger.Info("The z component of the orientation vector: ", orientation.0Z)
+//	logger.Info("The number of degrees that the movement sensor is rotated about the vector: ", orientation.Theta)
+//
+// Properties example:
+//
+//	// Get the supported properties of the movement sensor.
+//	properties, err := myMovementSensor.Properties(context.Background(), nil)
+//
+// Accuracy example:
+//
+//	// Get the accuracy of the movement sensor.
+//	accuracy, err := myMovementSensor.Accuracy(context.Background(), nil)
 type MovementSensor interface {
 	resource.Sensor
 	resource.Resource
-	Position(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error)                // (lat, long), altitude (m)
-	LinearVelocity(ctx context.Context, extra map[string]interface{}) (r3.Vector, error)                    // m / sec
+	// Position returns the current GeoPoint (latitude, longitude) and altitude of the movement sensor above sea level in meters.
+	// Supported by GPS models.
+	Position(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) // (lat, long), altitude (m)
+
+	// LinearVelocity returns the current linear velocity as a 3D vector in meters per second.
+	LinearVelocity(ctx context.Context, extra map[string]interface{}) (r3.Vector, error) // m / sec
+
+	// AngularVelcoity returns the current angular velocity as a 3D vector in degrees per second.
 	AngularVelocity(ctx context.Context, extra map[string]interface{}) (spatialmath.AngularVelocity, error) // deg / sec
+
+	// LinearAcceleration returns the current linear acceleration as a 3D vector in meters per second per second.
 	LinearAcceleration(ctx context.Context, extra map[string]interface{}) (r3.Vector, error)
+
+	// CompassHeading returns the current compass heading in degrees.
 	CompassHeading(ctx context.Context, extra map[string]interface{}) (float64, error) // [0->360)
+
+	// Orientation returns the current orientation of the movement sensor.
 	Orientation(ctx context.Context, extra map[string]interface{}) (spatialmath.Orientation, error)
+
+	// Properties returns the supported properties of the movement sensor.
 	Properties(ctx context.Context, extra map[string]interface{}) (*Properties, error)
-	Accuracy(ctx context.Context, extra map[string]interface{}) (map[string]float32, error)
+
+	// Accuracy returns the reliability metrics of the movement sensor,
+	// including various parameters to access the sensor's accuracy and precision in different dimensions.
+	Accuracy(ctx context.Context, extra map[string]interface{}) (*Accuracy, error)
 }
 
 // FromDependencies is a helper for getting the named movementsensor from a collection of
@@ -153,4 +223,21 @@ func DefaultAPIReadings(ctx context.Context, g MovementSensor, extra map[string]
 	}
 
 	return readings, nil
+}
+
+// UnimplementedOptionalAccuracies returns accuracy values that will not show up on movement sensor's RC card
+// or be useable for a caller of the GetAccuracies method. The RC card currently continuously polls accuracies,
+// so a nil error must be rturned from the GetAccuracies call.
+// It contains NaN definitiions for accuracies returned in floats, an invalid integer value for the NMEAFix of a gps
+// and an empty map of other accuracies.
+func UnimplementedOptionalAccuracies() *Accuracy {
+	nan32Bit := float32(math.NaN())
+	nmeaInvalid := int32(-1)
+
+	return &Accuracy{
+		Hdop:               nan32Bit,
+		Vdop:               nan32Bit,
+		NmeaFix:            nmeaInvalid,
+		CompassDegreeError: nan32Bit,
+	}
 }
