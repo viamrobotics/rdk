@@ -34,13 +34,12 @@ func shouldDeleteBasedOnDiskUsage(ctx context.Context, captureDirPath string, lo
 		return false, nil
 	}
 	if usedSpace < fsThresholdToTriggerDeletion {
-		logger.Warnf("disk not full enough, existing used space: %f", usedSpace)
 		return false, nil
 	}
 	// Walk the dir to get capture stats
 	shouldDelete, err := exceedsDeletionThreshold(ctx, captureDirPath, float64(usage.Size()), logger)
 	if err != nil && !shouldDelete {
-		logger.Warnf("Disk nearing capacity but capture dir is not large enough, file deletion will not run!")
+		logger.Warn("Disk nearing capacity but capture dir is not large enough, file deletion will not run!")
 	}
 	return shouldDelete, err
 }
@@ -66,7 +65,8 @@ func exceedsDeletionThreshold(ctx context.Context, captureDirPath string, fsSize
 			}
 			dirSize += fileInfo.Size()
 			if float64(dirSize)/fsSize >= captureDirToFSUsageRatio {
-				logger.Warnf("Disk is close to full, current datacapture dir disk usage(%f) exceeds threshold(%f)", float64(dirSize)/fsSize, captureDirToFSUsageRatio)
+				logger.Warnf("Disk is close to full, current datacapture dir disk usage(%f) exceeds threshold(%f)",
+					float64(dirSize)/fsSize, captureDirToFSUsageRatio)
 				return errAtSizeThreshold
 			}
 		}
@@ -80,7 +80,6 @@ func exceedsDeletionThreshold(ctx context.Context, captureDirPath string, fsSize
 		}
 		return false, err
 	}
-	logger.Warnf("Not at threshold size %f threshold %f", float64(dirSize)/fsSize, captureDirToFSUsageRatio)
 	return false, nil
 }
 
@@ -116,7 +115,7 @@ func deleteFiles(ctx context.Context, syncer datasync.Manager, deleteEveryNth in
 			// if at nth file and the file is not currently being written, mark as in progress if possible
 			if index%deleteEveryNth == 0 && !isFileInProgress {
 				if syncer != nil && !syncer.MarkInProgress(path) {
-					logger.Warnw("Tried to mark file as in progress but lock already held", "file", d.Name())
+					logger.Debugw("Tried to mark file as in progress but lock already held", "file", d.Name())
 					return nil
 				}
 				if err := os.Remove(path); err != nil {
