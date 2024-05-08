@@ -126,7 +126,7 @@ type Service interface {
 		extra map[string]interface{},
 	) (classification.Classifications, error)
 
-	// GetObjectPointClouds returns a list of 3D point cloud objects and associated metadata in the latest picture from a 3D camera (using a specified segmenter).
+	// GetObjectPointClouds returns a list of 3D point cloud objects and metadata from the latest 3D camera image using a specified segmenter.
 	GetObjectPointClouds(ctx context.Context, cameraName string, extra map[string]interface{}) ([]*viz.Object, error)
 }
 
