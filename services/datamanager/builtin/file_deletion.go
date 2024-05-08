@@ -16,7 +16,6 @@ import (
 	"go.viam.com/rdk/services/datamanager/datasync"
 )
 
-// TODO change these values back to what they should be.
 var (
 	fsThresholdToTriggerDeletion = .90
 	captureDirToFSUsageRatio     = .5
@@ -34,12 +33,15 @@ func shouldDeleteBasedOnDiskUsage(ctx context.Context, captureDirPath string, lo
 		return false, nil
 	}
 	if usedSpace < fsThresholdToTriggerDeletion {
+		logger.Debugf("disk not full enough, exiting. Used space: %f, available space: %d, size: %d",
+			usedSpace, usage.Available(), usage.Size())
 		return false, nil
 	}
 	// Walk the dir to get capture stats
 	shouldDelete, err := exceedsDeletionThreshold(ctx, captureDirPath, float64(usage.Size()), logger)
 	if err != nil && !shouldDelete {
-		logger.Warn("Disk nearing capacity but capture dir is not large enough, file deletion will not run!")
+		logger.Warnf("Disk nearing capacity but data capture directory is below %f of that size, file deletion will not run",
+			captureDirToFSUsageRatio)
 	}
 	return shouldDelete, err
 }
@@ -65,7 +67,7 @@ func exceedsDeletionThreshold(ctx context.Context, captureDirPath string, fsSize
 			}
 			dirSize += fileInfo.Size()
 			if float64(dirSize)/fsSize >= captureDirToFSUsageRatio {
-				logger.Warnf("Disk is close to full, current datacapture dir disk usage(%f) exceeds threshold(%f)",
+				logger.Warnf("current disk usage of the data capture directory (%f) exceeds threshold (%f)",
 					float64(dirSize)/fsSize, captureDirToFSUsageRatio)
 				return errAtSizeThreshold
 			}
