@@ -195,12 +195,6 @@ func MakeBoard(t *testing.T) board.Board {
 	i2.ValueFunc = func(ctx context.Context, extra map[string]interface{}) (int64, error) {
 		return 0, nil
 	}
-	i1.RemoveCallbackFunc = func(c chan board.Tick) {
-		delete(callbacks, i1)
-	}
-	i2.RemoveCallbackFunc = func(c chan board.Tick) {
-		delete(callbacks, i2)
-	}
 
 	b.DigitalInterruptByNameFunc = func(name string) (board.DigitalInterrupt, error) {
 		if name == "11" {

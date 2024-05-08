@@ -191,8 +191,6 @@ func (e *Encoder) Start(ctx context.Context, b board.Board) {
 	e.activeBackgroundWorkers.Add(1)
 
 	utils.ManagedGo(func() {
-		defer e.I.RemoveCallback(encoderChannel)
-
 		for {
 			select {
 			case <-e.cancelCtx.Done():

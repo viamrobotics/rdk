@@ -9,30 +9,18 @@ import (
 	"google.golang.org/protobuf/types/known/structpb"
 )
 
-// MLTrainingUploadAction retrieves the logs for a specific build step.
+// MLTrainingUploadAction uploads a new custom training script.
 func MLTrainingUploadAction(c *cli.Context) error {
 	client, err := newViamClient(c)
 	if err != nil {
 		return err
 	}
 
-	metadata, err := createMetadata(c.Bool(mlTrainingFlagDraft), c.String(mlTrainingFlagType),
-		c.String(mlTrainingFlagFramework))
+	err = client.uploadTrainingScript(c.Bool(mlTrainingFlagDraft), c.String(mlTrainingFlagType),
+		c.String(mlTrainingFlagFramework), c.String(generalFlagOrgID), c.String(mlTrainingFlagName),
+		c.String(mlTrainingFlagVersion), c.Path(mlTrainingFlagPath),
+	)
 	if err != nil {
-		return err
-	}
-	metadataStruct, err := convertMetadataToStruct(*metadata)
-	if err != nil {
-		return err
-	}
-
-	if _, err := client.uploadPackage(c.String(generalFlagOrgID),
-		c.String(mlTrainingFlagName),
-		c.String(mlTrainingFlagVersion),
-		string(PackageTypeMLTraining),
-		c.Path(mlTrainingFlagPath),
-		metadataStruct,
-	); err != nil {
 		return err
 	}
 
@@ -42,6 +30,29 @@ func MLTrainingUploadAction(c *cli.Context) error {
 	}
 	url := moduleID.ToDetailURL(client.baseURL.Hostname(), PackageTypeMLTraining)
 	printf(c.App.Writer, "Version successfully uploaded! you can view your changes online here: %s", url)
+	return nil
+}
+
+func (c *viamClient) uploadTrainingScript(draft bool, modelType, framework, orgID, name, version, path string) error {
+	metadata, err := createMetadata(draft, modelType, framework)
+	if err != nil {
+		return err
+	}
+	metadataStruct, err := convertMetadataToStruct(*metadata)
+	if err != nil {
+		return err
+	}
+
+	if _, err := c.uploadPackage(orgID,
+		name,
+		version,
+		string(PackageTypeMLTraining),
+		path,
+		metadataStruct,
+	); err != nil {
+		return err
+	}
+
 	return nil
 }
 

@@ -31,8 +31,14 @@ func init() {
 }
 
 // Service defines what a Data Manager Service should expose to the users.
+//
+// Sync example:
+//
+//	// Sync data stored on the machine to the cloud.
+//	err := data.Sync(context.Background(), nil)
 type Service interface {
 	resource.Resource
+	// Sync will sync data stored on the machine to the cloud.
 	Sync(ctx context.Context, extra map[string]interface{}) error
 }
 

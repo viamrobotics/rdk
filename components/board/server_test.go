@@ -597,10 +597,15 @@ func TestServerWriteAnalog(t *testing.T) {
 			test.That(t, err, test.ShouldBeNil)
 			var actualExtra map[string]interface{}
 
-			injectBoard.WriteAnalogFunc = func(ctx context.Context, pin string, value int32, extra map[string]interface{}) error {
+			injectAnalog := inject.Analog{}
+			injectAnalog.WriteFunc = func(ctx context.Context, value int, extra map[string]interface{}) error {
 				actualExtra = extra
 				return tc.injectErr
 			}
+			injectBoard.AnalogByNameFunc = func(pin string) (board.Analog, error) {
+				return &injectAnalog, nil
+			}
+
 			resp, err := server.WriteAnalog(ctx, tc.req)
 			if tc.expRespErr == "" {
 				test.That(t, err, test.ShouldBeNil)
@@ -824,21 +829,6 @@ func TestStreamTicks(t *testing.T) {
 					return tc.injectDigitalInterrupts[1], tc.injectDigitalInterruptErr
 				}
 				return nil, nil
-			}
-			if tc.injectDigitalInterrupts != nil {
-				for _, i := range tc.injectDigitalInterrupts {
-					i.RemoveCallbackFunc = func(c chan board.Tick) {
-						for id := range callbacks {
-							if callbacks[id] == c {
-								// To remove this item, we replace it with the last item in the list, then truncate the
-								// list by 1.
-								callbacks[id] = callbacks[len(callbacks)-1]
-								callbacks = callbacks[:len(callbacks)-1]
-								break
-							}
-						}
-					}
-				}
 			}
 
 			cancelCtx, cancel := context.WithCancel(context.Background())

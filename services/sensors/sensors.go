@@ -21,6 +21,9 @@ func init() {
 }
 
 // A Readings ties both the sensor name and its reading together.
+//
+//	// Get the readings provided by the sensor.
+//	readings, err := mySensor.Readings(context.Background(), nil)
 type Readings struct {
 	Name     resource.Name
 	Readings map[string]interface{}
