@@ -25,7 +25,6 @@ type Board struct {
 	DigitalInterruptNamesFunc  func() []string
 	CloseFunc                  func(ctx context.Context) error
 	SetPowerModeFunc           func(ctx context.Context, mode boardpb.PowerMode, duration *time.Duration) error
-	WriteAnalogFunc            func(ctx context.Context, pin string, value int32, extra map[string]interface{}) error
 	StreamTicksFunc            func(ctx context.Context,
 		interrupts []board.DigitalInterrupt, ch chan board.Tick, extra map[string]interface{}) error
 }
@@ -137,14 +136,6 @@ func (b *Board) SetPowerMode(ctx context.Context, mode boardpb.PowerMode, durati
 		return b.Board.SetPowerMode(ctx, mode, duration)
 	}
 	return b.SetPowerModeFunc(ctx, mode, duration)
-}
-
-// WriteAnalog calls the injected WriteAnalog or the real version.
-func (b *Board) WriteAnalog(ctx context.Context, pin string, value int32, extra map[string]interface{}) error {
-	if b.WriteAnalogFunc == nil {
-		return b.Board.WriteAnalog(ctx, pin, value, extra)
-	}
-	return b.WriteAnalogFunc(ctx, pin, value, extra)
 }
 
 // StreamTicks calls the injected StreamTicks or the real version.

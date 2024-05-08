@@ -597,10 +597,15 @@ func TestServerWriteAnalog(t *testing.T) {
 			test.That(t, err, test.ShouldBeNil)
 			var actualExtra map[string]interface{}
 
-			injectBoard.WriteAnalogFunc = func(ctx context.Context, pin string, value int32, extra map[string]interface{}) error {
+			injectAnalog := inject.Analog{}
+			injectAnalog.WriteFunc = func(ctx context.Context, value int, extra map[string]interface{}) error {
 				actualExtra = extra
 				return tc.injectErr
 			}
+			injectBoard.AnalogByNameFunc = func(pin string) (board.Analog, error) {
+				return &injectAnalog, nil
+			}
+
 			resp, err := server.WriteAnalog(ctx, tc.req)
 			if tc.expRespErr == "" {
 				test.That(t, err, test.ShouldBeNil)

@@ -676,7 +676,7 @@ func (pi *piPigpio) AnalogByName(name string) (board.Analog, error) {
 	defer pi.mu.Unlock()
 	a, ok := pi.analogReaders[name]
 	if !ok {
-		return nil, errors.Errorf("can't find AnalogReader (%s)", name)
+		return nil, errors.Errorf("can't find Analog pin (%s)", name)
 	}
 	return a, nil
 }
@@ -718,11 +718,6 @@ func (pi *piPigpio) DigitalInterruptByName(name string) (board.DigitalInterrupt,
 }
 
 func (pi *piPigpio) SetPowerMode(ctx context.Context, mode pb.PowerMode, duration *time.Duration) error {
-	return grpc.UnimplementedError
-}
-
-// WriteAnalog writes the value to the given pin.
-func (pi *piPigpio) WriteAnalog(ctx context.Context, pin string, value int32, extra map[string]interface{}) error {
 	return grpc.UnimplementedError
 }
 
