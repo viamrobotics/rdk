@@ -3,6 +3,7 @@ package grpc
 import (
 	"context"
 	"errors"
+	"fmt"
 	"sync"
 
 	"github.com/pion/webrtc/v3"
@@ -68,7 +69,9 @@ func (c *ReconfigurableClientConn) ReplaceConn(conn rpc.ClientConn) {
 	}
 
 	if pc := conn.PeerConn(); pc != nil {
+		fmt.Printf("DBG. OnTrack added. PC: %p\n", pc)
 		pc.OnTrack(func(trackRemote *webrtc.TrackRemote, rtpReceiver *webrtc.RTPReceiver) {
+			fmt.Printf("DBG. OnTrack called. PC: %p\n", pc)
 			name, err := resource.NewFromString(trackRemote.StreamID())
 			if err != nil {
 				// sc.logger.Errorw("StreamID did not parse as a ResourceName", "sharedConn", fmt.Sprintf("%p", sc), "streamID", trackRemote.StreamID())

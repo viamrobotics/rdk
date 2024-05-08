@@ -435,6 +435,7 @@ func (c *client) SubscribeRTP(
 		c.logger.CDebugw(ctx, "SubscribeRTP after", "subID", sub.ID.String(),
 			"name", c.Name(), "bufAndCBByID", c.bufAndCBByID.String())
 	}()
+
 	// B/c there is only ever either 0 or 1 peer connections between a module & a viam-server
 	// once AddStream is called on the module for a given camera model instance & succeeds, we shouldn't
 	// call it again until the previous track is terminated (by calling RemoveStream) for a few reasons:
@@ -456,6 +457,7 @@ func (c *client) SubscribeRTP(
 			return rtppassthrough.NilSubscription, err
 		case <-c.trackClosed:
 		}
+
 		trackReceived, trackClosed := make(chan struct{}), make(chan struct{})
 		// add the camera model's addOnTrackSubFunc to the shared peer connection's
 		// slice of OnTrack callbacks. This is what allows
@@ -470,6 +472,7 @@ func (c *client) SubscribeRTP(
 		}
 		// NOTE: (Nick S) This is a workaround to a Pion bug / missing feature.
 
+		fmt.Println("Waiting on added")
 		// If the WebRTC peer on the other side of the PeerConnection calls pc.AddTrack followd by pc.RemoveTrack
 		// before the module writes RTP packets
 		// to the track, the client's PeerConnection.OnTrack callback is never called.
@@ -490,6 +493,7 @@ func (c *client) SubscribeRTP(
 		case <-trackReceived:
 			c.logger.Debug("received track")
 		}
+
 		// set up channel so we can detect when the track has closed (in response to an event / error internal to the
 		// peer or due to calling RemoveStream)
 		c.trackClosed = trackClosed
@@ -499,6 +503,7 @@ func (c *client) SubscribeRTP(
 		c.logger.CDebugw(ctx, "SubscribeRTP called AddStream and succeeded", "subID", sub.ID.String(),
 			"name", c.Name())
 	}
+
 	c.subParentToChildren[c.currentSubParentID] = append(c.subParentToChildren[c.currentSubParentID], sub.ID)
 	// add the subscription to bufAndCBByID so the goroutine spawned by
 	// addOnTrackSubFunc can forward the packets it receives from the modular camera
