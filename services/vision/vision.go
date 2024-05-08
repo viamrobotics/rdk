@@ -32,76 +32,76 @@ func init() {
 //
 // DetectionsFromCamera example:
 //
-//		// Get detections from the camera output
-//		detections, err := visService.DetectionsFromCamera(context.Background(), myCam, nil)
-//		if err != nil {
-//				logger.Fatalf("Could not get detections: %v", err)
-//		}
-//		if len(detections) > 0 {
-//				logger.Info(detections[0])
-//		}
+//	// Get detections from the camera output
+//	detections, err := visService.DetectionsFromCamera(context.Background(), myCam, nil)
+//	if err != nil {
+//			logger.Fatalf("Could not get detections: %v", err)
+//	}
+//	if len(detections) > 0 {
+//			logger.Info(detections[0])
+//	}
 //
 // Detections example:
 //
-//		// Get the stream from a camera
-//		camStream, err := myCam.Stream(context.Background())
+//	// Get the stream from a camera
+//	camStream, err := myCam.Stream(context.Background())
 //
-//		// Get an image from the camera stream
-//		img, release, err := camStream.Next(context.Background())
-//		defer release()
+//	// Get an image from the camera stream
+//	img, release, err := camStream.Next(context.Background())
+//	defer release()
 //
-//		// Get the detections from the image
-//		detections, err := visService.Detections(context.Background(), img, nil)
-//		if err != nil {
-//				logger.Fatalf("Could not get detections: %v", err)
-//		}
-//		if len(detections) > 0 {
-//				logger.Info(detections[0])
-//		}
+//	// Get the detections from the image
+//	detections, err := visService.Detections(context.Background(), img, nil)
+//	if err != nil {
+//			logger.Fatalf("Could not get detections: %v", err)
+//	}
+//	if len(detections) > 0 {
+//			logger.Info(detections[0])
+//	}
 //
 // ClassificationsFromCamera example:
 //
-//		// Get the 2 classifications with the highest confidence scores from the camera output
-//		classifications, err := visService.ClassificationsFromCamera(context.Background(), myCam, 2, nil)
-//		if err != nil {
-//				logger.Fatalf("Could not get classifications: %v", err)
-//		}
-//		if len(classifications) > 0 {
-//				logger.Info(classifications[0])
-//		}
+//	// Get the 2 classifications with the highest confidence scores from the camera output
+//	classifications, err := visService.ClassificationsFromCamera(context.Background(), myCam, 2, nil)
+//	if err != nil {
+//			logger.Fatalf("Could not get classifications: %v", err)
+//	}
+//	if len(classifications) > 0 {
+//			logger.Info(classifications[0])
+//	}
 //
 // Classifications example:
 //
-//		// Get the stream from a camera
-//		camStream, err := myCam.Stream(context.Background())
-//		if err!=nil {
-//				logger.Error(err)
-//				return
-//		}
+//	// Get the stream from a camera
+//	camStream, err := myCam.Stream(context.Background())
+//	if err!=nil {
+//			logger.Error(err)
+//			return
+//	}
 //
-//		// Get an image from the camera stream
-//		img, release, err := camStream.Next(context.Background())
-//		defer release()
+//	// Get an image from the camera stream
+//	img, release, err := camStream.Next(context.Background())
+//	defer release()
 //
-//		// Get the 2 classifications with the highest confidence scores from the image
-//		classifications, err := visService.Classifications(context.Background(), img, 2, nil)
-//		if err != nil {
-//				logger.Fatalf("Could not get classifications: %v", err)
-//		}
-//		if len(classifications) > 0 {
-//				logger.Info(classifications[0])
-//		}
+//	// Get the 2 classifications with the highest confidence scores from the image
+//	classifications, err := visService.Classifications(context.Background(), img, 2, nil)
+//	if err != nil {
+//			logger.Fatalf("Could not get classifications: %v", err)
+//	}
+//	if len(classifications) > 0 {
+//			logger.Info(classifications[0])
+//	}
 //
 // GetObjectPointClouds example:
 //
-//		// Get the objects from the camera output
-//		objects, err := visService.GetObjectPointClouds(context.Background(), "cam1", nil)
-//		if err != nil {
-//				logger.Fatalf("Could not get point clouds: %v", err)
-//		}
-//		if len(objects) > 0 {
-//				logger.Info(objects[0])
-//		}
+//	// Get the objects from the camera output
+//	objects, err := visService.GetObjectPointClouds(context.Background(), "cam1", nil)
+//	if err != nil {
+//			logger.Fatalf("Could not get point clouds: %v", err)
+//	}
+//	if len(objects) > 0 {
+//			logger.Info(objects[0])
+//	}
 type Service interface {
 	resource.Resource
 	// DetectionsFromCamera returns a list of detections from the next image from a specified camera using a configured detector.
