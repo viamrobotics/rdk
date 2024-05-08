@@ -963,9 +963,6 @@ func (rc *RobotClient) Log(ctx context.Context, log zapcore.Entry, fields []zap.
 // CloudMetadata returns app-related information about the machine.
 //
 //	metadata, err := machine.CloudMetadata(ctx.Background())
-//	fmt.Println(metadata.RobotPartID)
-//	fmt.Println(metadata.PrimaryOrgID)
-//	fmt.Println(metadata.LocationID)
 func (rc *RobotClient) CloudMetadata(ctx context.Context) (cloud.Metadata, error) {
 	cloudMD := cloud.Metadata{}
 	req := &pb.GetCloudMetadataRequest{}
