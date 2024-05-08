@@ -356,7 +356,6 @@ var grpcConnectionTimeout = 10 * time.Second
 func (svc *builtIn) initSyncer(ctx context.Context) error {
 	ctx, cancel := context.WithTimeout(ctx, grpcConnectionTimeout)
 	defer cancel()
-
 	identity, conn, err := svc.cloudConnSvc.AcquireConnection(ctx)
 	if errors.Is(err, cloud.ErrNotCloudManaged) {
 		svc.logger.CDebug(ctx, "Using no-op sync manager when not cloud managed")
@@ -367,7 +366,6 @@ func (svc *builtIn) initSyncer(ctx context.Context) error {
 	}
 
 	client := v1.NewDataSyncServiceClient(conn)
-
 	syncer, err := svc.syncerConstructor(identity, client, svc.logger, svc.captureDir, svc.maxSyncThreads)
 	if err != nil {
 		return errors.Wrap(err, "failed to initialize new syncer")
@@ -416,7 +414,7 @@ func (svc *builtIn) Reconfigure(
 		return err
 	}
 
-	reinitSyncer := cloudConnSvc != svc.cloudConnSvc
+	reinitSyncer := cloudConnSvc != svc.cloudConnSvc || svcConfig.MaximumNumSyncThreads != svc.maxSyncThreads
 	svc.cloudConnSvc = cloudConnSvc
 
 	captureConfigs, err := svc.updateDataCaptureConfigs(deps, conf, svcConfig.CaptureDir)
@@ -540,6 +538,7 @@ func (svc *builtIn) Reconfigure(
 			maxThreads = svcConfig.MaximumNumSyncThreads
 		}
 		svc.maxSyncThreads = maxThreads
+		svc.logger.Infof("max sync threads: %d", svc.maxSyncThreads)
 
 		svc.cancelSyncScheduler()
 		if !svc.syncDisabled && svc.syncIntervalMins != 0.0 {
@@ -653,7 +652,7 @@ func (svc *builtIn) sync() {
 	}
 }
 
-// nolint
+//nolint
 func getAllFilesToSync(dir string, lastModifiedMillis int) []string {
 	var filePaths []string
 	_ = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {

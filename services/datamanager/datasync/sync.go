@@ -36,7 +36,7 @@ var (
 // FailedDir is a subdirectory of the capture directory that holds any files that could not be synced.
 const FailedDir = "failed"
 
-// maxParallelSyncRoutines is the maximum number of sync goroutines that can be running at once.
+// MaxParallelSyncRoutines is the maximum number of sync goroutines that can be running at once.
 const MaxParallelSyncRoutines = 1000
 
 // Manager is responsible for enqueuing files in captureDir and uploading them to the cloud.
@@ -94,6 +94,7 @@ func NewManager(identity string, client v1.DataSyncServiceClient, logger logging
 		defer ret.logRoutine.Done()
 		ret.logSyncErrs()
 	})
+
 	return &ret, nil
 }
 
