@@ -55,9 +55,9 @@ func TestGenericLinux(t *testing.T) {
 		dns := b.DigitalInterruptNames()
 		test.That(t, dns, test.ShouldBeNil)
 
-		dn1, ok := b.DigitalInterruptByName("dn")
+		dn1, err := b.DigitalInterruptByName("dn")
 		test.That(t, dn1, test.ShouldBeNil)
-		test.That(t, ok, test.ShouldBeFalse)
+		test.That(t, err, test.ShouldNotBeNil)
 
 		gn1, err := b.GPIOPinByName("10")
 		test.That(t, err, test.ShouldNotBeNil)

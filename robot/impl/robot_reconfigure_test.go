@@ -23,7 +23,6 @@ import (
 
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/components/arm/fake"
-	"go.viam.com/rdk/components/audioinput"
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/camera"
@@ -37,7 +36,6 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/services/datamanager"
 	_ "go.viam.com/rdk/services/datamanager/builtin"
 	"go.viam.com/rdk/services/motion"
 	_ "go.viam.com/rdk/services/motion/builtin"
@@ -56,7 +54,7 @@ var (
 )
 
 func TestRobotReconfigure(t *testing.T) {
-	test.That(t, len(resource.DefaultServices()), test.ShouldEqual, 3)
+	test.That(t, len(resource.DefaultServices()), test.ShouldEqual, 2)
 	ConfigFromFile := func(t *testing.T, filePath string) *config.Config {
 		t.Helper()
 		logger := logging.NewTestLogger(t)
@@ -130,7 +128,7 @@ func TestRobotReconfigure(t *testing.T) {
 		robot := setupLocalRobot(t, ctx, conf1, logger)
 
 		resources := robot.ResourceNames()
-		test.That(t, len(resources), test.ShouldEqual, 8)
+		test.That(t, len(resources), test.ShouldEqual, 7)
 
 		armNames := []resource.Name{arm.Named("arm1")}
 		baseNames := []resource.Name{base.Named("base1")}
@@ -592,8 +590,8 @@ func TestRobotReconfigure(t *testing.T) {
 		pwmF, err := pin.PWMFreq(context.Background(), nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, pwmF, test.ShouldEqual, 4000)
-		_, ok := b.DigitalInterruptByName("encoder")
-		test.That(t, ok, test.ShouldBeFalse)
+		_, err = b.DigitalInterruptByName("encoder")
+		test.That(t, err, test.ShouldNotBeNil)
 
 		robot.Reconfigure(context.Background(), conf2)
 		test.That(t, utils.NewStringSet(robot.RemoteNames()...), test.ShouldBeEmpty)
@@ -671,10 +669,10 @@ func TestRobotReconfigure(t *testing.T) {
 		pwmF, err = pin.PWMFreq(context.Background(), nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, pwmF, test.ShouldEqual, 1000) // TODO double check this is the expected result
-		_, ok = b.DigitalInterruptByName("encoder")
-		test.That(t, ok, test.ShouldBeTrue)
+		_, err = b.DigitalInterruptByName("encoder")
+		test.That(t, err, test.ShouldBeNil)
 
-		_, ok = robot.ProcessManager().ProcessByID("1")
+		_, ok := robot.ProcessManager().ProcessByID("1")
 		test.That(t, ok, test.ShouldBeTrue)
 		_, ok = robot.ProcessManager().ProcessByID("2")
 		test.That(t, ok, test.ShouldBeTrue)
@@ -889,8 +887,8 @@ func TestRobotReconfigure(t *testing.T) {
 		pwmF, err := pin.PWMFreq(context.Background(), nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, pwmF, test.ShouldEqual, 1000)
-		_, ok := b.DigitalInterruptByName("encoder")
-		test.That(t, ok, test.ShouldBeTrue)
+		_, err = b.DigitalInterruptByName("encoder")
+		test.That(t, err, test.ShouldBeNil)
 
 		armNames = []resource.Name{arm.Named("arm1"), arm.Named("arm3")}
 		baseNames = []resource.Name{base.Named("base1"), base.Named("base2")}
@@ -977,15 +975,15 @@ func TestRobotReconfigure(t *testing.T) {
 		pwmF, err = pin.PWMFreq(context.Background(), nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, pwmF, test.ShouldEqual, 0)
-		_, ok = b.DigitalInterruptByName("encoder")
-		test.That(t, ok, test.ShouldBeFalse)
-		_, ok = b.DigitalInterruptByName("encoderC")
-		test.That(t, ok, test.ShouldBeTrue)
+		_, err = b.DigitalInterruptByName("encoder")
+		test.That(t, err, test.ShouldNotBeNil)
+		_, err = b.DigitalInterruptByName("encoderC")
+		test.That(t, err, test.ShouldBeNil)
 
 		_, err = board.FromRobot(robot, "board3")
 		test.That(t, err, test.ShouldBeNil)
 
-		_, ok = robot.ProcessManager().ProcessByID("1")
+		_, ok := robot.ProcessManager().ProcessByID("1")
 		test.That(t, ok, test.ShouldBeTrue)
 		_, ok = robot.ProcessManager().ProcessByID("2")
 		test.That(t, ok, test.ShouldBeTrue)
@@ -1023,7 +1021,7 @@ func TestRobotReconfigure(t *testing.T) {
 		robot := setupLocalRobot(t, ctx, cempty, logger)
 
 		resources := robot.ResourceNames()
-		test.That(t, len(resources), test.ShouldEqual, 3)
+		test.That(t, len(resources), test.ShouldEqual, 2)
 		test.That(t, utils.NewStringSet(robot.RemoteNames()...), test.ShouldBeEmpty)
 		test.That(t, utils.NewStringSet(arm.NamesFromRobot(robot)...), test.ShouldBeEmpty)
 		test.That(t, utils.NewStringSet(base.NamesFromRobot(robot)...), test.ShouldBeEmpty)
@@ -1114,15 +1112,15 @@ func TestRobotReconfigure(t *testing.T) {
 		pwmF, err := pin.PWMFreq(context.Background(), nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, pwmF, test.ShouldEqual, 0)
-		_, ok := b.DigitalInterruptByName("encoder")
-		test.That(t, ok, test.ShouldBeFalse)
-		_, ok = b.DigitalInterruptByName("encoderC")
-		test.That(t, ok, test.ShouldBeTrue)
+		_, err = b.DigitalInterruptByName("encoder")
+		test.That(t, err, test.ShouldNotBeNil)
+		_, err = b.DigitalInterruptByName("encoderC")
+		test.That(t, err, test.ShouldBeNil)
 
 		_, err = board.FromRobot(robot, "board3")
 		test.That(t, err, test.ShouldBeNil)
 
-		_, ok = robot.ProcessManager().ProcessByID("1")
+		_, ok := robot.ProcessManager().ProcessByID("1")
 		test.That(t, ok, test.ShouldBeTrue)
 		_, ok = robot.ProcessManager().ProcessByID("2")
 		test.That(t, ok, test.ShouldBeTrue)
@@ -2467,12 +2465,12 @@ func TestUpdateWeakDependents(t *testing.T) {
 func TestDefaultServiceReconfigure(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 
-	dmName := "dm"
+	motionName := "motion"
 	cfg1 := &config.Config{
 		Services: []resource.Config{
 			{
-				Name:  dmName,
-				API:   datamanager.API,
+				Name:  motionName,
+				API:   motion.API,
 				Model: resource.DefaultServiceModel,
 			},
 		},
@@ -2484,8 +2482,7 @@ func TestDefaultServiceReconfigure(t *testing.T) {
 		rdktestutils.NewResourceNameSet(robot.ResourceNames()...),
 		test.ShouldResemble,
 		rdktestutils.NewResourceNameSet(
-			motion.Named(resource.DefaultServiceName),
-			datamanager.Named(dmName),
+			motion.Named(motionName),
 			sensors.Named(resource.DefaultServiceName),
 		),
 	)
@@ -2506,7 +2503,6 @@ func TestDefaultServiceReconfigure(t *testing.T) {
 		test.ShouldResemble,
 		rdktestutils.NewResourceNameSet(
 			motion.Named(resource.DefaultServiceName),
-			datamanager.Named(resource.DefaultServiceName),
 			sensors.Named(sName),
 		),
 	)
@@ -2579,20 +2575,47 @@ func TestStatusServiceUpdate(t *testing.T) {
 }
 
 func TestRemoteRobotsGold(t *testing.T) {
+	// This tests that a main part is able to start up with an offline remote robot, connect to it and
+	// depend on the remote robot's resources when it comes online. And react appropriately when the remote robot goes offline again.
+
+	// If a new robot object/process comes online at the same address+port, the main robot should still be able
+	// to use the new remote robot's resources.
+
+	// To do so, the test initially sets up two remote robots, Remote 1 and 2, and then a third remote, Remote 3,
+	// in the following scenario:
+	// 1) Remote 1's server is started.
+	// 2) The main robot is then set up with resources that depend on resources on both Remote 1 and 2. Since
+	//    Remote 2 is not up, their resources are not available to the main robot.
+	// 3) After initial configuration, Remote 2's server starts up and the main robot should then connect
+	//	  and pick up the new available resources.
+	// 4) Remote 2 goes down, and the main robot should remove any resources or resources that depend on
+	//    resources from Remote 2.
+	// 5) Remote 3 comes online at the same address as Remote 2, and the main robot should treat it the same as
+	//    if Remote 2 came online again and re-add all the removed resources.
 	logger := logging.NewTestLogger(t)
-	cfg, err := config.Read(context.Background(), "data/fake.json", logger)
-	test.That(t, err, test.ShouldBeNil)
+	remoteConfig := &config.Config{
+		Components: []resource.Config{
+			{
+				Name:  "remoteArm",
+				Model: resource.DefaultModelFamily.WithModel("fake"),
+				ConvertedAttributes: &fake.Config{
+					ModelFilePath: "../../components/arm/fake/fake_model.json",
+				},
+				API: arm.API,
+			},
+		},
+	}
 
 	ctx := context.Background()
 
-	remote1 := setupLocalRobot(t, ctx, cfg, logger.Sublogger("remote1"))
-
+	// set up and start remote1's web service
+	remote1 := setupLocalRobot(t, ctx, remoteConfig, logger.Sublogger("remote1"))
 	options, _, addr1 := robottestutils.CreateBaseOptionsAndListener(t)
-	err = remote1.StartWeb(ctx, options)
+	err := remote1.StartWeb(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
 
-	remote2 := setupLocalRobot(t, ctx, cfg, logger.Sublogger("remote2"))
-
+	// set up but do not start remote2's web service
+	remote2 := setupLocalRobot(t, ctx, remoteConfig, logger.Sublogger("remote2"))
 	options, listener2, addr2 := robottestutils.CreateBaseOptionsAndListener(t)
 
 	localConfig := &config.Config{
@@ -2604,7 +2627,7 @@ func TestRemoteRobotsGold(t *testing.T) {
 					ModelFilePath: "../../components/arm/fake/fake_model.json",
 				},
 				API:       arm.API,
-				DependsOn: []string{"foo:pieceGripper"},
+				DependsOn: []string{"foo:remoteArm"},
 			},
 			{
 				Name:  "arm2",
@@ -2613,7 +2636,7 @@ func TestRemoteRobotsGold(t *testing.T) {
 					ModelFilePath: "../../components/arm/fake/fake_model.json",
 				},
 				API:       arm.API,
-				DependsOn: []string{"bar:pieceArm"},
+				DependsOn: []string{"bar:remoteArm"},
 			},
 		},
 		Services: []resource.Config{},
@@ -2628,7 +2651,9 @@ func TestRemoteRobotsGold(t *testing.T) {
 			},
 		},
 	}
-	r := setupLocalRobot(t, ctx, localConfig, logger.Sublogger("local"))
+	r := setupLocalRobot(t, ctx, localConfig, logger.Sublogger("main"))
+
+	// assert all of remote1's resources exist on main but none of remote2's
 	test.That(
 		t,
 		rdktestutils.NewResourceNameSet(r.ResourceNames()...),
@@ -2636,59 +2661,36 @@ func TestRemoteRobotsGold(t *testing.T) {
 		rdktestutils.NewResourceNameSet(
 			motion.Named(resource.DefaultServiceName),
 			sensors.Named(resource.DefaultServiceName),
-			datamanager.Named(resource.DefaultServiceName),
 			arm.Named("arm1"),
-			arm.Named("foo:pieceArm"),
-			audioinput.Named("foo:mic1"),
-			camera.Named("foo:cameraOver"),
-			movementsensor.Named("foo:movement_sensor1"),
-			movementsensor.Named("foo:movement_sensor2"),
-			gripper.Named("foo:pieceGripper"),
+			arm.Named("foo:remoteArm"),
 			motion.Named("foo:builtin"),
 			sensors.Named("foo:builtin"),
-			datamanager.Named("foo:builtin"),
 		),
 	)
+
+	// start remote2's web service
 	err = remote2.StartWeb(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
 
-	rr, ok := r.(*localRobot)
-	test.That(t, ok, test.ShouldBeTrue)
-
-	rr.triggerConfig <- struct{}{}
-
-	expectedSet := rdktestutils.NewResourceNameSet(
+	mainPartAndFooAndBarResources := rdktestutils.NewResourceNameSet(
 		motion.Named(resource.DefaultServiceName),
 		sensors.Named(resource.DefaultServiceName),
-		datamanager.Named(resource.DefaultServiceName),
 		arm.Named("arm1"),
 		arm.Named("arm2"),
-		arm.Named("foo:pieceArm"),
-		audioinput.Named("foo:mic1"),
-		camera.Named("foo:cameraOver"),
-		movementsensor.Named("foo:movement_sensor1"),
-		movementsensor.Named("foo:movement_sensor2"),
-		gripper.Named("foo:pieceGripper"),
+		arm.Named("foo:remoteArm"),
 		motion.Named("foo:builtin"),
 		sensors.Named("foo:builtin"),
-		datamanager.Named("foo:builtin"),
-		arm.Named("bar:pieceArm"),
-		audioinput.Named("bar:mic1"),
-		camera.Named("bar:cameraOver"),
-		movementsensor.Named("bar:movement_sensor1"),
-		movementsensor.Named("bar:movement_sensor2"),
-		gripper.Named("bar:pieceGripper"),
+		arm.Named("bar:remoteArm"),
 		motion.Named("bar:builtin"),
 		sensors.Named("bar:builtin"),
-		datamanager.Named("bar:builtin"),
 	)
 	testutils.WaitForAssertionWithSleep(t, time.Millisecond*100, 300, func(tb testing.TB) {
-		test.That(tb, rdktestutils.NewResourceNameSet(r.ResourceNames()...), test.ShouldResemble, expectedSet)
+		test.That(tb, rdktestutils.NewResourceNameSet(r.ResourceNames()...), test.ShouldResemble, mainPartAndFooAndBarResources)
 	})
 	test.That(t, remote2.Close(context.Background()), test.ShouldBeNil)
 
 	// wait for local_robot to detect that the remote is now offline
-	testutils.WaitForAssertionWithSleep(t, time.Millisecond*100, 600, func(tb testing.TB) {
+	testutils.WaitForAssertionWithSleep(t, time.Millisecond*100, 300, func(tb testing.TB) {
 		test.That(
 			tb,
 			rdktestutils.NewResourceNameSet(r.ResourceNames()...),
@@ -2696,22 +2698,15 @@ func TestRemoteRobotsGold(t *testing.T) {
 			rdktestutils.NewResourceNameSet(
 				motion.Named(resource.DefaultServiceName),
 				sensors.Named(resource.DefaultServiceName),
-				datamanager.Named(resource.DefaultServiceName),
 				arm.Named("arm1"),
-				arm.Named("foo:pieceArm"),
-				audioinput.Named("foo:mic1"),
-				camera.Named("foo:cameraOver"),
-				movementsensor.Named("foo:movement_sensor1"),
-				movementsensor.Named("foo:movement_sensor2"),
-				gripper.Named("foo:pieceGripper"),
+				arm.Named("foo:remoteArm"),
 				motion.Named("foo:builtin"),
 				sensors.Named("foo:builtin"),
-				datamanager.Named("foo:builtin"),
 			),
 		)
 	})
 
-	remote3 := setupLocalRobot(t, ctx, cfg, logger.Sublogger("remote3"))
+	remote3 := setupLocalRobot(t, ctx, remoteConfig, logger.Sublogger("remote3"))
 
 	// Note: There's a slight chance this test can fail if someone else
 	// claims the port we just released by closing the server.
@@ -2721,19 +2716,15 @@ func TestRemoteRobotsGold(t *testing.T) {
 	err = remote3.StartWeb(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
 
-	rr, ok = r.(*localRobot)
-	test.That(t, ok, test.ShouldBeTrue)
-
-	rr.triggerConfig <- struct{}{}
-
 	testutils.WaitForAssertionWithSleep(t, time.Millisecond*100, 300, func(tb testing.TB) {
-		test.That(tb, rdktestutils.NewResourceNameSet(r.ResourceNames()...), test.ShouldResemble, expectedSet)
+		test.That(tb, rdktestutils.NewResourceNameSet(r.ResourceNames()...), test.ShouldResemble, mainPartAndFooAndBarResources)
 	})
 }
 
 func TestRemoteRobotsUpdate(t *testing.T) {
+	// The test tests that the robot is able to update when multiple remote robot
+	// updates happen at the same time.
 	logger := logging.NewTestLogger(t)
-	ctx := context.Background()
 	remoteConfig := &config.Config{
 		Components: []resource.Config{
 			{
@@ -2746,7 +2737,7 @@ func TestRemoteRobotsUpdate(t *testing.T) {
 			},
 		},
 	}
-
+	ctx := context.Background()
 	remote := setupLocalRobot(t, ctx, remoteConfig, logger.Sublogger("remote"))
 
 	options, _, addr1 := robottestutils.CreateBaseOptionsAndListener(t)
@@ -2778,33 +2769,23 @@ func TestRemoteRobotsUpdate(t *testing.T) {
 	expectedSet := rdktestutils.NewResourceNameSet(
 		motion.Named(resource.DefaultServiceName),
 		sensors.Named(resource.DefaultServiceName),
-		datamanager.Named(resource.DefaultServiceName),
 		arm.Named("foo:arm1"),
 		motion.Named("foo:builtin"),
 		sensors.Named("foo:builtin"),
-		datamanager.Named("foo:builtin"),
 		arm.Named("bar:arm1"),
 		motion.Named("bar:builtin"),
 		sensors.Named("bar:builtin"),
-		datamanager.Named("bar:builtin"),
 		arm.Named("hello:arm1"),
 		motion.Named("hello:builtin"),
 		sensors.Named("hello:builtin"),
-		datamanager.Named("hello:builtin"),
 		arm.Named("world:arm1"),
 		motion.Named("world:builtin"),
 		sensors.Named("world:builtin"),
-		datamanager.Named("world:builtin"),
 	)
 	testutils.WaitForAssertionWithSleep(t, time.Millisecond*100, 300, func(tb testing.TB) {
 		test.That(tb, rdktestutils.NewResourceNameSet(r.ResourceNames()...), test.ShouldResemble, expectedSet)
 	})
 	test.That(t, remote.Close(context.Background()), test.ShouldBeNil)
-
-	rr, ok := r.(*localRobot)
-	test.That(t, ok, test.ShouldBeTrue)
-
-	rr.triggerConfig <- struct{}{}
 
 	// wait for local_robot to detect that the remote is now offline
 	testutils.WaitForAssertionWithSleep(t, time.Millisecond*100, 300, func(tb testing.TB) {
@@ -2815,13 +2796,15 @@ func TestRemoteRobotsUpdate(t *testing.T) {
 			rdktestutils.NewResourceNameSet(
 				motion.Named(resource.DefaultServiceName),
 				sensors.Named(resource.DefaultServiceName),
-				datamanager.Named(resource.DefaultServiceName),
 			),
 		)
 	})
 }
 
 func TestInferRemoteRobotDependencyConnectAtStartup(t *testing.T) {
+	// The test tests that the robot is able to infer remote dependencies
+	// if remote name is not part of the specified dependency
+	// and the remote is online at start up.
 	logger := logging.NewTestLogger(t)
 
 	fooCfg := &config.Config{
@@ -2836,9 +2819,7 @@ func TestInferRemoteRobotDependencyConnectAtStartup(t *testing.T) {
 			},
 		},
 	}
-
 	ctx := context.Background()
-
 	foo := setupLocalRobot(t, ctx, fooCfg, logger.Sublogger("foo"))
 
 	options, listener1, addr1 := robottestutils.CreateBaseOptionsAndListener(t)
@@ -2865,43 +2846,21 @@ func TestInferRemoteRobotDependencyConnectAtStartup(t *testing.T) {
 		},
 	}
 	r := setupLocalRobot(t, ctx, localConfig, logger.Sublogger("local"))
-	test.That(
-		t,
-		rdktestutils.NewResourceNameSet(r.ResourceNames()...),
-		test.ShouldResemble,
-		rdktestutils.NewResourceNameSet(
-			motion.Named(resource.DefaultServiceName),
-			sensors.Named(resource.DefaultServiceName),
-			datamanager.Named(resource.DefaultServiceName),
-			arm.Named("arm1"),
-			arm.Named("foo:pieceArm"),
-			motion.Named("foo:builtin"),
-			sensors.Named("foo:builtin"),
-			datamanager.Named("foo:builtin"),
-		),
-	)
-
-	rr, ok := r.(*localRobot)
-	test.That(t, ok, test.ShouldBeTrue)
-
-	rr.triggerConfig <- struct{}{}
-
 	expectedSet := rdktestutils.NewResourceNameSet(
 		motion.Named(resource.DefaultServiceName),
 		sensors.Named(resource.DefaultServiceName),
-		datamanager.Named(resource.DefaultServiceName),
 		arm.Named("arm1"),
 		arm.Named("foo:pieceArm"),
 		motion.Named("foo:builtin"),
 		sensors.Named("foo:builtin"),
-		datamanager.Named("foo:builtin"),
 	)
-
-	testutils.WaitForAssertionWithSleep(t, time.Millisecond*100, 300, func(tb testing.TB) {
-		test.That(tb, rdktestutils.NewResourceNameSet(r.ResourceNames()...), test.ShouldResemble, expectedSet)
-	})
+	test.That(
+		t,
+		rdktestutils.NewResourceNameSet(r.ResourceNames()...),
+		test.ShouldResemble,
+		expectedSet,
+	)
 	test.That(t, foo.Close(context.Background()), test.ShouldBeNil)
-	rr.triggerConfig <- struct{}{}
 
 	// wait for local_robot to detect that the remote is now offline
 	testutils.WaitForAssertionWithSleep(t, time.Millisecond*100, 300, func(tb testing.TB) {
@@ -2912,7 +2871,6 @@ func TestInferRemoteRobotDependencyConnectAtStartup(t *testing.T) {
 			rdktestutils.NewResourceNameSet(
 				motion.Named(resource.DefaultServiceName),
 				sensors.Named(resource.DefaultServiceName),
-				datamanager.Named(resource.DefaultServiceName),
 			),
 		)
 	})
@@ -2927,17 +2885,15 @@ func TestInferRemoteRobotDependencyConnectAtStartup(t *testing.T) {
 	err = foo2.StartWeb(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
 
-	rr, ok = r.(*localRobot)
-	test.That(t, ok, test.ShouldBeTrue)
-
-	rr.triggerConfig <- struct{}{}
-
 	testutils.WaitForAssertionWithSleep(t, time.Millisecond*100, 300, func(tb testing.TB) {
 		test.That(tb, rdktestutils.NewResourceNameSet(r.ResourceNames()...), test.ShouldResemble, expectedSet)
 	})
 }
 
 func TestInferRemoteRobotDependencyConnectAfterStartup(t *testing.T) {
+	// The test tests that the robot is able to infer remote dependencies
+	// if remote name is not part of the specified dependency
+	// and the remote is offline at start up.
 	logger := logging.NewTestLogger(t)
 
 	fooCfg := &config.Config{
@@ -2986,32 +2942,23 @@ func TestInferRemoteRobotDependencyConnectAfterStartup(t *testing.T) {
 		rdktestutils.NewResourceNameSet(
 			motion.Named(resource.DefaultServiceName),
 			sensors.Named(resource.DefaultServiceName),
-			datamanager.Named(resource.DefaultServiceName),
 		),
 	)
 	err := foo.StartWeb(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
 
-	rr, ok := r.(*localRobot)
-	test.That(t, ok, test.ShouldBeTrue)
-
-	rr.triggerConfig <- struct{}{}
-
 	expectedSet := rdktestutils.NewResourceNameSet(
 		motion.Named(resource.DefaultServiceName),
 		sensors.Named(resource.DefaultServiceName),
-		datamanager.Named(resource.DefaultServiceName),
 		arm.Named("arm1"),
 		arm.Named("foo:pieceArm"),
 		motion.Named("foo:builtin"),
 		sensors.Named("foo:builtin"),
-		datamanager.Named("foo:builtin"),
 	)
 	testutils.WaitForAssertionWithSleep(t, time.Millisecond*100, 300, func(tb testing.TB) {
 		test.That(tb, rdktestutils.NewResourceNameSet(r.ResourceNames()...), test.ShouldResemble, expectedSet)
 	})
 	test.That(t, foo.Close(context.Background()), test.ShouldBeNil)
-	rr.triggerConfig <- struct{}{}
 
 	// wait for local_robot to detect that the remote is now offline
 	testutils.WaitForAssertionWithSleep(t, time.Millisecond*100, 300, func(tb testing.TB) {
@@ -3022,13 +2969,15 @@ func TestInferRemoteRobotDependencyConnectAfterStartup(t *testing.T) {
 			rdktestutils.NewResourceNameSet(
 				motion.Named(resource.DefaultServiceName),
 				sensors.Named(resource.DefaultServiceName),
-				datamanager.Named(resource.DefaultServiceName),
 			),
 		)
 	})
 }
 
 func TestInferRemoteRobotDependencyAmbiguous(t *testing.T) {
+	// The test tests that the robot will not build a resource if the dependency
+	// is ambiguous. In this case, "pieceArm" can refer to both "foo:pieceArm"
+	// and "bar:pieceArm".
 	logger := logging.NewTestLogger(t)
 
 	remoteCfg := &config.Config{
@@ -3085,26 +3034,20 @@ func TestInferRemoteRobotDependencyAmbiguous(t *testing.T) {
 	expectedSet := rdktestutils.NewResourceNameSet(
 		motion.Named(resource.DefaultServiceName),
 		sensors.Named(resource.DefaultServiceName),
-		datamanager.Named(resource.DefaultServiceName),
 		arm.Named("foo:pieceArm"),
 		motion.Named("foo:builtin"),
 		sensors.Named("foo:builtin"),
-		datamanager.Named("foo:builtin"),
 		arm.Named("bar:pieceArm"),
 		motion.Named("bar:builtin"),
 		sensors.Named("bar:builtin"),
-		datamanager.Named("bar:builtin"),
 	)
 
 	test.That(t, rdktestutils.NewResourceNameSet(r.ResourceNames()...), test.ShouldResemble, expectedSet)
 
-	rr, ok := r.(*localRobot)
-	test.That(t, ok, test.ShouldBeTrue)
-
-	rr.triggerConfig <- struct{}{}
-	time.Sleep(2 * time.Second)
 	// we expect the robot to correctly detect the ambiguous dependency and not build the resource
-	test.That(t, rdktestutils.NewResourceNameSet(r.ResourceNames()...), test.ShouldResemble, expectedSet)
+	testutils.WaitForAssertionWithSleep(t, time.Millisecond*100, 150, func(tb testing.TB) {
+		test.That(tb, rdktestutils.NewResourceNameSet(r.ResourceNames()...), test.ShouldResemble, expectedSet)
+	})
 
 	// now reconfig with a fully qualified name
 	reConfig := &config.Config{
@@ -3131,20 +3074,16 @@ func TestInferRemoteRobotDependencyAmbiguous(t *testing.T) {
 		},
 	}
 	r.Reconfigure(ctx, reConfig)
-	rr.triggerConfig <- struct{}{}
 
 	finalSet := rdktestutils.NewResourceNameSet(
 		motion.Named(resource.DefaultServiceName),
 		sensors.Named(resource.DefaultServiceName),
-		datamanager.Named(resource.DefaultServiceName),
 		arm.Named("foo:pieceArm"),
 		motion.Named("foo:builtin"),
 		sensors.Named("foo:builtin"),
-		datamanager.Named("foo:builtin"),
 		arm.Named("bar:pieceArm"),
 		motion.Named("bar:builtin"),
 		sensors.Named("bar:builtin"),
-		datamanager.Named("bar:builtin"),
 		arm.Named("arm1"),
 	)
 

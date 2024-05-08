@@ -4,7 +4,6 @@ package board
 import (
 	"context"
 
-	"github.com/pkg/errors"
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/board/v1"
 
@@ -180,9 +179,9 @@ func (s *serviceServer) GetDigitalInterruptValue(
 		return nil, err
 	}
 
-	interrupt, ok := b.DigitalInterruptByName(req.DigitalInterruptName)
-	if !ok {
-		return nil, errors.Errorf("unknown digital interrupt: %s", req.DigitalInterruptName)
+	interrupt, err := b.DigitalInterruptByName(req.DigitalInterruptName)
+	if err != nil {
+		return nil, err
 	}
 
 	val, err := interrupt.Value(ctx, req.Extra.AsMap())
@@ -205,9 +204,9 @@ func (s *serviceServer) StreamTicks(
 	interrupts := []DigitalInterrupt{}
 
 	for _, name := range req.PinNames {
-		di, ok := b.DigitalInterruptByName(name)
-		if !ok {
-			return errors.Errorf("unknown digital interrupt: %s", name)
+		di, err := b.DigitalInterruptByName(name)
+		if err != nil {
+			return err
 		}
 		interrupts = append(interrupts, di)
 	}
@@ -215,12 +214,6 @@ func (s *serviceServer) StreamTicks(
 	if err != nil {
 		return err
 	}
-
-	defer func() {
-		for _, i := range interrupts {
-			i.RemoveCallback(ticksChan)
-		}
-	}()
 
 	// Send an empty response first so the client doesn't block while checking for errors.
 	err = server.Send(&pb.StreamTicksResponse{})

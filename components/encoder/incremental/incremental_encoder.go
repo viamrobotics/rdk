@@ -8,6 +8,7 @@ import (
 	"sync/atomic"
 
 	"github.com/pkg/errors"
+	"go.uber.org/multierr"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/board"
@@ -134,15 +135,13 @@ func (e *Encoder) Reconfigure(
 		return err
 	}
 
-	encA, ok := board.DigitalInterruptByName(newConf.Pins.A)
-	if !ok {
-		err := errors.Errorf("cannot find pin (%s) for incremental Encoder", newConf.Pins.A)
-		return err
+	encA, err := board.DigitalInterruptByName(newConf.Pins.A)
+	if err != nil {
+		return multierr.Combine(errors.Errorf("cannot find pin (%s) for incremental Encoder", newConf.Pins.A), err)
 	}
-	encB, ok := board.DigitalInterruptByName(newConf.Pins.B)
-	if !ok {
-		err := errors.Errorf("cannot find pin (%s) for incremental Encoder", newConf.Pins.B)
-		return err
+	encB, err := board.DigitalInterruptByName(newConf.Pins.B)
+	if err != nil {
+		return multierr.Combine(errors.Errorf("cannot find pin (%s) for incremental Encoder", newConf.Pins.B), err)
 	}
 
 	if !needRestart {
@@ -227,9 +226,6 @@ func (e *Encoder) Start(ctx context.Context, b board.Board) {
 	e.activeBackgroundWorkers.Add(1)
 
 	utils.ManagedGo(func() {
-		// Remove the callbacks added by the interrupt stream.
-		defer e.A.RemoveCallback(ch)
-		defer e.B.RemoveCallback(ch)
 		for {
 			// This looks redundant with the other select statement below, but it's not: if we're
 			// supposed to return, we need to do that even if chanA and chanB are full of data, and

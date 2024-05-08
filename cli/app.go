@@ -61,7 +61,7 @@ const (
 	moduleBuildFlagNoBuild   = "no-build"
 
 	mlTrainingFlagPath      = "path"
-	mlTrainingFlagName      = "name"
+	mlTrainingFlagName      = "script-name"
 	mlTrainingFlagVersion   = "version"
 	mlTrainingFlagFramework = "framework"
 	mlTrainingFlagType      = "type"
@@ -92,6 +92,9 @@ const (
 	packageFlagVersion     = "version"
 	packageFlagType        = "type"
 	packageFlagDestination = "destination"
+
+	cpFlagRecursive = "recursive"
+	cpFlagPreserve  = "preserve"
 )
 
 var commonFilterFlags = []cli.Flag{
@@ -853,7 +856,63 @@ var app = &cli.App{
 							Usage: "version of ML model. defaults to current timestamp if unspecified.",
 						},
 					},
-					Action: DataSubmitTrainingJob,
+					Action: MLSubmitTrainingJob,
+				},
+				{
+					Name:  "submit-custom",
+					Usage: "submits custom training job on data in Viam cloud",
+					UsageText: createUsageText("train submit-custom",
+						[]string{
+							datasetFlagDatasetID, generalFlagOrgID, trainFlagModelName,
+							mlTrainingFlagPath, mlTrainingFlagName,
+						}, true),
+					Flags: []cli.Flag{
+						&cli.StringFlag{
+							Name:     datasetFlagDatasetID,
+							Usage:    "dataset ID",
+							Required: true,
+						},
+						&cli.StringFlag{
+							Name:     trainFlagModelName,
+							Usage:    "name of ML model",
+							Required: true,
+						},
+						&cli.StringFlag{
+							Name:  trainFlagModelVersion,
+							Usage: "version of ML model. defaults to current timestamp if unspecified.",
+						},
+						&cli.StringFlag{
+							Name:     mlTrainingFlagPath,
+							Usage:    "path to ML training scripts for upload",
+							Required: true,
+						},
+						&cli.StringFlag{
+							Name:     trainFlagModelOrgID,
+							Required: true,
+							Usage:    "organization ID to upload and run training job",
+						},
+						&cli.StringFlag{
+							Name:     mlTrainingFlagName,
+							Usage:    "script name of the ML training script to upload",
+							Required: true,
+						},
+						&cli.StringFlag{
+							Name:     mlTrainingFlagVersion,
+							Usage:    "version of the ML training script to upload. defaults to current timestamp if unspecified.",
+							Required: false,
+						},
+						&cli.StringFlag{
+							Name:     mlTrainingFlagFramework,
+							Usage:    "framework of the ML training script to upload, can be: " + strings.Join(modelFrameworks, ", "),
+							Required: false,
+						},
+						&cli.StringFlag{
+							Name:     trainFlagModelType,
+							Usage:    "task type of the ML training script to upload, can be: " + strings.Join(modelTypes, ", "),
+							Required: false,
+						},
+					},
+					Action: MLSubmitCustomTrainingJob,
 				},
 				{
 					Name:      "get",
@@ -1144,6 +1203,72 @@ var app = &cli.App{
 							},
 							Action: RobotsPartShellAction,
 						},
+						{
+							Name:  "cp",
+							Usage: "copy files to and from a machine part",
+
+							Description: `
+In order to use the cp command, the machine must have a valid shell type service.
+Specifying ~ or a blank destination for the machine will use the home directory of the user
+that is running the process (this may sometimes be root). Organization and location are
+required flags if the machine/part name are not unique across your account.
+Note: There is no progress meter while copying is in progress.
+
+Copy a single file to the machine with a new name:
+'viam machine part cp --organization "org" --location "location" --machine "m1" --part "m1-main" my_file machine:/home/user/'
+
+Recursively copy a directory to the machine with the same name:
+'viam machine part cp --machine "m1" --part "m1-main" -r my_dir machine:/home/user/'
+
+Copy multiple files to the machine with recursion and keep original permissions and metadata:
+'viam machine part cp --machine "m1" --part "m1-main" -r -p my_dir my_file machine:/home/user/some/existing/dir/'
+
+Copy a single file from the machine to a local destination:
+'viam machine part cp --machine "m1" --part "m1-main" machine:my_file ~/Downloads/'
+
+Recursively copy a directory from the machine to a local destination with the same name:
+'viam machine part cp --machine "m1" --part "m1-main" -r machine:my_dir ~/Downloads/'
+
+Copy multiple files from the machine to a local destination with recursion and keep original permissions and metadata:
+'viam machine part cp --machine "m1" --part "m1-main" -r -p machine:my_dir machine:my_file ~/some/existing/dir/'
+`,
+							UsageText: createUsageText(
+								"machines part cp",
+								[]string{organizationFlag, locationFlag, machineFlag, partFlag},
+								true,
+								"[-p] [-r] source ([machine:]files) ... target ([machine:]files"),
+							Flags: []cli.Flag{
+								&cli.StringFlag{
+									Name: organizationFlag,
+								},
+								&cli.StringFlag{
+									Name: locationFlag,
+								},
+								&AliasStringFlag{
+									cli.StringFlag{
+										Name:     machineFlag,
+										Aliases:  []string{aliasRobotFlag},
+										Required: true,
+									},
+								},
+								&cli.StringFlag{
+									Name:     partFlag,
+									Required: true,
+								},
+								&cli.BoolFlag{
+									Name:    cpFlagRecursive,
+									Aliases: []string{"r"},
+									Usage:   "recursively copy files",
+								},
+								&cli.BoolFlag{
+									Name:    cpFlagPreserve,
+									Aliases: []string{"p"},
+									// Note(erd): maybe support access time in the future if needed
+									Usage: "preserve modification times and file mode bits from the source files",
+								},
+							},
+							Action: MachinesPartCopyFilesAction,
+						},
 					},
 				},
 			},
@@ -1396,12 +1521,12 @@ Example:
 						},
 						&cli.StringFlag{
 							Name:  moduleFlagPath,
-							Usage: "path to a meta.json. used for module ID. can be overridden with --module-id or --name",
+							Usage: "path to a meta.json. used for module ID. can be overridden with --id or --name",
 							Value: "meta.json",
 						},
 						&cli.StringFlag{
 							Name:  moduleFlagName,
-							Usage: "name of module to restart. pass at most one of --name, --module-id",
+							Usage: "name of module to restart. pass at most one of --name, --id",
 						},
 						&cli.StringFlag{
 							Name:  moduleBuildFlagBuildID,

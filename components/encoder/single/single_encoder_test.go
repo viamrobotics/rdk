@@ -9,24 +9,29 @@ import (
 	"go.viam.com/utils/testutils"
 
 	"go.viam.com/rdk/components/board"
-	fakeboard "go.viam.com/rdk/components/board/fake"
 	"go.viam.com/rdk/components/encoder"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/testutils/inject"
+)
+
+const (
+	testBoardName = "main"
+	testPinName   = "10"
 )
 
 func TestConfig(t *testing.T) {
 	ctx := context.Background()
 
-	b := MakeBoard(t)
+	b := MakeBoard(t, testBoardName, testPinName)
 
 	deps := make(resource.Dependencies)
-	deps[board.Named("main")] = b
+	deps[board.Named(testBoardName)] = b
 
 	t.Run("valid config", func(t *testing.T) {
 		ic := Config{
-			BoardName: "main",
-			Pins:      Pin{I: "10"},
+			BoardName: testBoardName,
+			Pins:      Pin{I: testPinName},
 		}
 
 		rawcfg := resource.Config{Name: "enc1", ConvertedAttributes: &ic}
@@ -51,14 +56,18 @@ func TestConfig(t *testing.T) {
 func TestEncoder(t *testing.T) {
 	ctx := context.Background()
 
-	b := MakeBoard(t)
+	b := MakeBoard(t, testBoardName, testPinName)
+	i, err := b.DigitalInterruptByName(testPinName)
+	test.That(t, err, test.ShouldBeNil)
+	ii, ok := i.(*inject.DigitalInterrupt)
+	test.That(t, ok, test.ShouldBeTrue)
 
 	deps := make(resource.Dependencies)
-	deps[board.Named("main")] = b
+	deps[board.Named(testBoardName)] = b
 
 	ic := Config{
 		BoardName: "main",
-		Pins:      Pin{I: "10"},
+		Pins:      Pin{I: testPinName},
 	}
 
 	rawcfg := resource.Config{Name: "enc1", ConvertedAttributes: &ic}
@@ -72,7 +81,7 @@ func TestEncoder(t *testing.T) {
 		m := &FakeDir{1} // forward
 		enc2.AttachDirectionalAwareness(m)
 
-		err = fakeboard.Tick(context.Background(), enc2.I.(*fakeboard.DigitalInterruptWrapper), true, uint64(time.Now().UnixNano()))
+		err = ii.Tick(context.Background(), true, uint64(time.Now().UnixNano()))
 		test.That(t, err, test.ShouldBeNil)
 
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
@@ -92,7 +101,7 @@ func TestEncoder(t *testing.T) {
 		m := &FakeDir{-1} // backward
 		enc2.AttachDirectionalAwareness(m)
 
-		err = fakeboard.Tick(context.Background(), enc2.I.(*fakeboard.DigitalInterruptWrapper), true, uint64(time.Now().UnixNano()))
+		err = ii.Tick(context.Background(), true, uint64(time.Now().UnixNano()))
 		test.That(t, err, test.ShouldBeNil)
 
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
@@ -111,7 +120,7 @@ func TestEncoder(t *testing.T) {
 		enc2 := enc.(*Encoder)
 		defer enc2.Close(context.Background())
 
-		err = fakeboard.Tick(context.Background(), enc2.I.(*fakeboard.DigitalInterruptWrapper), true, uint64(time.Now().UnixNano()))
+		err = ii.Tick(context.Background(), true, uint64(time.Now().UnixNano()))
 		test.That(t, err, test.ShouldBeNil)
 
 		// Give the tick time to propagate to encoder
@@ -148,7 +157,7 @@ func TestEncoder(t *testing.T) {
 		enc2.AttachDirectionalAwareness(m)
 
 		// move forward
-		err = fakeboard.Tick(context.Background(), enc2.I.(*fakeboard.DigitalInterruptWrapper), true, uint64(time.Now().UnixNano()))
+		err = ii.Tick(context.Background(), true, uint64(time.Now().UnixNano()))
 		test.That(t, err, test.ShouldBeNil)
 
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
@@ -166,7 +175,7 @@ func TestEncoder(t *testing.T) {
 		test.That(t, ticks, test.ShouldEqual, 0)
 
 		// now tick up again
-		err = fakeboard.Tick(context.Background(), enc2.I.(*fakeboard.DigitalInterruptWrapper), true, uint64(time.Now().UnixNano()))
+		err = ii.Tick(context.Background(), true, uint64(time.Now().UnixNano()))
 		test.That(t, err, test.ShouldBeNil)
 
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
@@ -185,7 +194,7 @@ func TestEncoder(t *testing.T) {
 		m := &FakeDir{1} // forward
 		enc2.AttachDirectionalAwareness(m)
 
-		err = fakeboard.Tick(context.Background(), enc2.I.(*fakeboard.DigitalInterruptWrapper), true, uint64(time.Now().UnixNano()))
+		err = ii.Tick(context.Background(), true, uint64(time.Now().UnixNano()))
 		test.That(t, err, test.ShouldBeNil)
 
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
@@ -205,7 +214,7 @@ func TestEncoder(t *testing.T) {
 		m := &FakeDir{-1} // backward
 		enc2.AttachDirectionalAwareness(m)
 
-		err = fakeboard.Tick(context.Background(), enc2.I.(*fakeboard.DigitalInterruptWrapper), true, uint64(time.Now().UnixNano()))
+		err = ii.Tick(context.Background(), true, uint64(time.Now().UnixNano()))
 		test.That(t, err, test.ShouldBeNil)
 
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
@@ -231,22 +240,34 @@ func TestEncoder(t *testing.T) {
 	})
 }
 
-func MakeBoard(t *testing.T) *fakeboard.Board {
-	interrupt, _ := fakeboard.NewDigitalInterruptWrapper(board.DigitalInterruptConfig{
-		Name: "10",
-		Pin:  "10",
-	})
-
-	interrupts := map[string]*fakeboard.DigitalInterruptWrapper{
-		"10": interrupt,
+func MakeBoard(t *testing.T, name, pinname string) board.Board {
+	b := inject.NewBoard(name)
+	i := &inject.DigitalInterrupt{}
+	callbacks := make(map[board.DigitalInterrupt]chan board.Tick)
+	i.NameFunc = func() string {
+		return testPinName
+	}
+	i.TickFunc = func(ctx context.Context, high bool, nanoseconds uint64) error {
+		ch, ok := callbacks[i]
+		test.That(t, ok, test.ShouldBeTrue)
+		ch <- board.Tick{Name: i.Name(), High: high, TimestampNanosec: nanoseconds}
+		return nil
 	}
 
-	b := fakeboard.Board{
-		GPIOPins: map[string]*fakeboard.GPIOPin{},
-		Digitals: interrupts,
+	b.DigitalInterruptByNameFunc = func(name string) (board.DigitalInterrupt, error) {
+		return i, nil
+	}
+	b.StreamTicksFunc = func(
+		ctx context.Context, interrupts []board.DigitalInterrupt, ch chan board.Tick, extra map[string]interface{},
+	) error {
+		for _, i := range interrupts {
+			callbacks[i] = ch
+		}
+
+		return nil
 	}
 
-	return &b
+	return b
 }
 
 type FakeDir struct {

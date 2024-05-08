@@ -75,7 +75,7 @@ func TestServer(t *testing.T) {
 		return nil
 	}
 	injectArm.ModelFrameFunc = func() referenceframe.Model {
-		model, err := urdf.ParseModelXMLFile(utils.ResolveFile("referenceframe/urdf/testfiles/ur5_viam.urdf"), "foo")
+		model, err := urdf.ParseModelXMLFile(utils.ResolveFile("referenceframe/urdf/testfiles/ur5e.urdf"), "foo")
 		if err != nil {
 			return nil
 		}

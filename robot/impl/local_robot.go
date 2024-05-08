@@ -124,7 +124,8 @@ func (r *localRobot) PackageManager() packages.Manager {
 	return r.packageManager
 }
 
-// Close attempts to cleanly close down all constituent parts of the robot.
+// Close attempts to cleanly close down all constituent parts of the robot. It does not wait on reconfigureWorkers,
+// as they may be running outside code and have unexpected behavior.
 func (r *localRobot) Close(ctx context.Context) error {
 	// we will stop and close web ourselves since modules need it to be
 	// removed properly and in the right order, so grab it before its removed
@@ -460,13 +461,18 @@ func newWithResources(
 	if cfg.Cloud != nil {
 		cloudID = cfg.Cloud.ID
 	}
+
+	homeDir := config.ViamDotDir
+	if rOpts.viamHomeDir != "" {
+		homeDir = rOpts.viamHomeDir
+	}
 	// Once web service is started, start module manager
 	r.manager.startModuleManager(
 		closeCtx,
 		r.webSvc.ModuleAddress(),
 		r.removeOrphanedResources,
 		cfg.UntrustedEnv,
-		config.ViamDotDir,
+		homeDir,
 		cloudID,
 		logger,
 	)
@@ -487,7 +493,9 @@ func newWithResources(
 			case <-closeCtx.Done():
 				return
 			case <-r.configTicker.C:
+				r.logger.CDebugw(ctx, "configuration attempt triggered by ticker")
 			case <-r.triggerConfig:
+				r.logger.CDebugw(ctx, "configuration attempt triggered by remote")
 			}
 			anyChanges := r.manager.updateRemotesResourceNames(closeCtx)
 			if r.manager.anyResourcesNotConfigured() {
@@ -496,6 +504,9 @@ func newWithResources(
 			}
 			if anyChanges {
 				r.updateWeakDependents(ctx)
+				r.logger.CDebugw(ctx, "configuration attempt completed with changes")
+			} else {
+				r.logger.CDebugw(ctx, "configuration attempt completed without changes")
 			}
 		}
 	}, r.activeBackgroundWorkers.Done)
@@ -1198,7 +1209,7 @@ func (r *localRobot) Reconfigure(ctx context.Context, newConfig *config.Config) 
 	if allErrs != nil {
 		r.logger.CErrorw(ctx, "The following errors were gathered during reconfiguration", "errors", allErrs)
 	} else {
-		r.logger.CInfow(ctx, "Robot successfully (re)configured")
+		r.logger.CInfow(ctx, "Robot (re)configured")
 	}
 }
 
@@ -1249,7 +1260,9 @@ func (r *localRobot) restartSingleModule(ctx context.Context, mod config.Module)
 func (r *localRobot) RestartModule(ctx context.Context, req robot.RestartModuleRequest) error {
 	mod := utils.FindInSlice(r.Config().Modules, req.MatchesModule)
 	if mod == nil {
-		return fmt.Errorf("module not found with id=%s, name=%s", req.ModuleID, req.ModuleName)
+		return fmt.Errorf(
+			"module not found with id=%s, name=%s. make sure it is configured and running on your machine",
+			req.ModuleID, req.ModuleName)
 	}
 	err := r.restartSingleModule(ctx, *mod)
 	if err != nil {

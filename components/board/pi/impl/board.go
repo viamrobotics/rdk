@@ -32,6 +32,7 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 	pb "go.viam.com/api/component/board/v1"
+	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/board/genericlinux/buses"
@@ -102,6 +103,8 @@ type piPigpio struct {
 	interruptsHW map[uint]ReconfigurableDigitalInterrupt
 	logger       logging.Logger
 	isClosed     bool
+
+	activeBackgroundWorkers sync.WaitGroup
 }
 
 var (
@@ -207,8 +210,22 @@ func (pi *piPigpio) StreamTicks(ctx context.Context, interrupts []board.DigitalI
 	extra map[string]interface{},
 ) error {
 	for _, i := range interrupts {
-		i.AddCallback(ch)
+		AddCallback(i.(*BasicDigitalInterrupt), ch)
 	}
+
+	pi.activeBackgroundWorkers.Add(1)
+
+	utils.ManagedGo(func() {
+		// Wait until it's time to shut down then remove callbacks.
+		select {
+		case <-ctx.Done():
+		case <-pi.cancelCtx.Done():
+		}
+		for _, i := range interrupts {
+			RemoveCallback(i.(*BasicDigitalInterrupt), ch)
+		}
+	}, pi.activeBackgroundWorkers.Done)
+
 	return nil
 }
 
@@ -668,7 +685,7 @@ func (pi *piPigpio) AnalogByName(name string) (board.Analog, error) {
 // NOTE: During board setup, if a digital interrupt has not been created
 // for a pin, then this function will attempt to create one with the pin
 // number as the name.
-func (pi *piPigpio) DigitalInterruptByName(name string) (board.DigitalInterrupt, bool) {
+func (pi *piPigpio) DigitalInterruptByName(name string) (board.DigitalInterrupt, error) {
 	pi.mu.Lock()
 	defer pi.mu.Unlock()
 	d, ok := pi.interrupts[name]
@@ -676,7 +693,7 @@ func (pi *piPigpio) DigitalInterruptByName(name string) (board.DigitalInterrupt,
 		var err error
 		if bcom, have := broadcomPinFromHardwareLabel(name); have {
 			if d, ok := pi.interruptsHW[bcom]; ok {
-				return d, ok
+				return d, nil
 			}
 			d, err = CreateDigitalInterrupt(DigitalInterruptConfig{
 				Name: name,
@@ -684,20 +701,20 @@ func (pi *piPigpio) DigitalInterruptByName(name string) (board.DigitalInterrupt,
 				Type: "basic",
 			})
 			if err != nil {
-				return nil, false
+				return nil, err
 			}
 			if result := C.setupInterrupt(C.int(bcom)); result != 0 {
 				err := picommon.ConvertErrorCodeToMessage(int(result), "error")
-				pi.logger.Errorf("Unable to set up interrupt on pin %s: %s", name, err)
-				return nil, false
+				return nil, errors.Errorf("Unable to set up interrupt on pin %s: %s", name, err)
 			}
 
 			pi.interrupts[name] = d
 			pi.interruptsHW[bcom] = d
-			return d, true
+			return d, nil
 		}
+		return d, fmt.Errorf("interrupt %s does not exist", name)
 	}
-	return d, ok
+	return d, nil
 }
 
 func (pi *piPigpio) SetPowerMode(ctx context.Context, mode pb.PowerMode, duration *time.Duration) error {
@@ -721,6 +738,7 @@ func (pi *piPigpio) Close(ctx context.Context) error {
 		return nil
 	}
 	pi.cancelFunc()
+	pi.activeBackgroundWorkers.Wait()
 
 	var err error
 	for _, analog := range pi.analogReaders {

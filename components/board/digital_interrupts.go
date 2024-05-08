@@ -19,17 +19,10 @@ type Tick struct {
 // A DigitalInterrupt represents a configured interrupt on the board that
 // when interrupted, calls the added callbacks.
 type DigitalInterrupt interface {
+	// Name returns the name of the interrupt.
+	Name() string
+
 	// Value returns the current value of the interrupt which is
 	// based on the type of interrupt.
 	Value(ctx context.Context, extra map[string]interface{}) (int64, error)
-
-	// AddCallback adds a callback to be sent a low/high value to when a tick
-	// happens.
-	AddCallback(c chan Tick)
-
-	// RemoveCallback removes a listener for interrupts.
-	RemoveCallback(c chan Tick)
-
-	// Name returns the name of the interrupt.
-	Name() string
 }

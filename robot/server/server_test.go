@@ -88,7 +88,6 @@ func TestServer(t *testing.T) {
 		}
 		resp, err := server.GetCloudMetadata(context.Background(), &req)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, resp.GetMachinePartId(), test.ShouldEqual, "the-robot-part")
 		test.That(t, resp.GetLocationId(), test.ShouldEqual, "the-location")
 		test.That(t, resp.GetPrimaryOrgId(), test.ShouldEqual, "the-primary-org")
 		test.That(t, resp.GetMachineId(), test.ShouldEqual, "the-machine")

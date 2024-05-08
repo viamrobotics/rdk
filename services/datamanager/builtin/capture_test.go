@@ -41,7 +41,6 @@ func TestDataCaptureEnabled(t *testing.T) {
 		initialCollectorDisableStatus bool
 		newCollectorDisableStatus     bool
 		remoteCollector               bool
-		emptyTabular                  bool
 	}{
 		{
 			name:                          "data capture service disabled, should capture nothing",
@@ -57,14 +56,7 @@ func TestDataCaptureEnabled(t *testing.T) {
 			initialCollectorDisableStatus: false,
 			newCollectorDisableStatus:     false,
 		},
-		{
-			name:                          "data capture service implicitly enabled and a configured collector, should capture data",
-			initialServiceDisableStatus:   false,
-			newServiceDisableStatus:       false,
-			initialCollectorDisableStatus: false,
-			newCollectorDisableStatus:     false,
-			emptyTabular:                  true,
-		},
+
 		{
 			name:                          "disabling data capture service should cause all data capture to stop",
 			initialServiceDisableStatus:   false,
@@ -124,8 +116,6 @@ func TestDataCaptureEnabled(t *testing.T) {
 				initConfig, associations, deps = setupConfig(t, remoteCollectorConfigPath)
 			case tc.initialCollectorDisableStatus:
 				initConfig, associations, deps = setupConfig(t, disabledTabularCollectorConfigPath)
-			case tc.emptyTabular:
-				initConfig, associations, deps = setupConfig(t, enabledTabularCollectorEmptyConfigPath)
 			default:
 				initConfig, associations, deps = setupConfig(t, enabledTabularCollectorConfigPath)
 			}

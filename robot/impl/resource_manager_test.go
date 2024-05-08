@@ -466,8 +466,8 @@ func TestManagerAdd(t *testing.T) {
 	injectBoard.AnalogByNameFunc = func(name string) (board.Analog, error) {
 		return &fakeboard.Analog{}, nil
 	}
-	injectBoard.DigitalInterruptByNameFunc = func(name string) (board.DigitalInterrupt, bool) {
-		return &pinwrappers.BasicDigitalInterrupt{}, true
+	injectBoard.DigitalInterruptByNameFunc = func(name string) (board.DigitalInterrupt, error) {
+		return &pinwrappers.BasicDigitalInterrupt{}, nil
 	}
 
 	cfg = &resource.Config{

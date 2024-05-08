@@ -26,6 +26,7 @@ import (
 	"go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
+	rdkutils "go.viam.com/rdk/utils"
 )
 
 var model = resource.DefaultModelFamily.WithModel("numato")
@@ -34,8 +35,9 @@ var errNoBoard = errors.New("no numato boards found")
 
 // A Config describes the configuration of a board and all of its connected parts.
 type Config struct {
-	Analogs []board.AnalogReaderConfig `json:"analogs,omitempty"`
-	Pins    int                        `json:"pins"`
+	Analogs    []board.AnalogReaderConfig `json:"analogs,omitempty"`
+	Pins       int                        `json:"pins"`
+	SerialPath string                     `json:"serial_path,omitempty"`
 }
 
 func init() {
@@ -112,9 +114,9 @@ type numatoBoard struct {
 	lines chan string
 	mu    sync.Mutex
 
-	sent                    map[string]bool
-	sentMu                  sync.Mutex
-	activeBackgroundWorkers sync.WaitGroup
+	sent    map[string]bool
+	sentMu  sync.Mutex
+	workers rdkutils.StoppableWorkers
 }
 
 func (b *numatoBoard) addToSent(msg string) {
@@ -190,7 +192,7 @@ func (b *numatoBoard) doSendReceive(ctx context.Context, msg string) (string, er
 	}
 }
 
-func (b *numatoBoard) readThread() {
+func (b *numatoBoard) readThread(_ context.Context) {
 	debug := true
 
 	in := bufio.NewReader(b.port)
@@ -247,8 +249,8 @@ func (b *numatoBoard) AnalogByName(name string) (board.Analog, error) {
 }
 
 // DigitalInterruptByName returns a digital interrupt by name.
-func (b *numatoBoard) DigitalInterruptByName(name string) (board.DigitalInterrupt, bool) {
-	return nil, false
+func (b *numatoBoard) DigitalInterruptByName(name string) (board.DigitalInterrupt, error) {
+	return nil, grpc.UnimplementedError
 }
 
 // AnalogNames returns the names of all known analog pins.
@@ -342,7 +344,7 @@ func (b *numatoBoard) Close(ctx context.Context) error {
 		return err
 	}
 
-	b.activeBackgroundWorkers.Wait()
+	b.workers.Stop()
 
 	for _, analog := range b.analogs {
 		if err := analog.Close(ctx); err != nil {
@@ -371,18 +373,24 @@ func (a *analog) Write(ctx context.Context, value int, extra map[string]interfac
 
 func connect(ctx context.Context, name resource.Name, conf *Config, logger logging.Logger) (board.Board, error) {
 	pins := conf.Pins
+	var path string
+	if conf.SerialPath != "" {
+		path = conf.SerialPath
+	} else {
+		filter := serial.SearchFilter{Type: serial.TypeNumatoGPIO}
+		devs := serial.Search(filter)
+		if len(devs) == 0 {
+			return nil, errNoBoard
+		}
+		if len(devs) > 1 {
+			return nil, fmt.Errorf("found more than 1 numato board: %d", len(devs))
+		}
 
-	filter := serial.SearchFilter{Type: serial.TypeNumatoGPIO}
-	devs := serial.Search(filter)
-	if len(devs) == 0 {
-		return nil, errNoBoard
-	}
-	if len(devs) > 1 {
-		return nil, fmt.Errorf("found more than 1 numato board: %d", len(devs))
+		path = devs[0].Path
 	}
 
 	options := goserial.OpenOptions{
-		PortName:        devs[0].Path,
+		PortName:        path,
 		BaudRate:        19200,
 		DataBits:        8,
 		StopBits:        1,
@@ -409,8 +417,7 @@ func connect(ctx context.Context, name resource.Name, conf *Config, logger loggi
 
 	b.lines = make(chan string)
 
-	b.activeBackgroundWorkers.Add(1)
-	utils.ManagedGo(b.readThread, b.activeBackgroundWorkers.Done)
+	b.workers = rdkutils.NewStoppableWorkers(b.readThread)
 
 	ver, err := b.doSendReceive(ctx, "ver")
 	if err != nil {
