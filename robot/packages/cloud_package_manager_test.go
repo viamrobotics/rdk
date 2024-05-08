@@ -353,12 +353,12 @@ func TestSyntheticPackageDownload(t *testing.T) {
 	fakeServer.StorePackage(remotePackage)
 
 	t.Run("getPackageURL", func(t *testing.T) {
-		url, err := getPackageURL(ctx, logger, client, &remotePackage)
+		url, err := getPackageURL(ctx, logger, client, remotePackage)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, url, test.ShouldStartWith, "http://127.0.0.1:")
 		test.That(t, url, test.ShouldEndWith, fmt.Sprintf("/download-file?id=%s&version=%s", remotePackage.Package, remotePackage.Version))
 
-		url, err = getPackageURL(ctx, logger, client, &syntheticPackage)
+		url, err = getPackageURL(ctx, logger, client, syntheticPackage)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, url, test.ShouldEqual, "file://test_package.tar.gz")
 	})
@@ -369,7 +369,7 @@ func TestSyntheticPackageDownload(t *testing.T) {
 			logger:      logger,
 			packagesDir: dstDir,
 		}
-		url, err := getPackageURL(ctx, logger, client, &syntheticPackage)
+		url, err := getPackageURL(ctx, logger, client, syntheticPackage)
 		test.That(t, err, test.ShouldBeNil)
 		err = cm.downloadPackage(ctx, url, syntheticPackage, []string{})
 		test.That(t, err, test.ShouldBeNil)
