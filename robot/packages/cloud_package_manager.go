@@ -425,7 +425,7 @@ func checkNonemptyPaths(packageName string, logger logging.Logger, absPaths []st
 func (m *cloudManager) downloadPackage(ctx context.Context, url string, p config.PackageConfig, nonEmptyPaths []string) error {
 	if dataDir := p.LocalDataDirectory(m.packagesDir); dirExists(dataDir) {
 		if checkNonemptyPaths(p.Name, m.logger, nonEmptyPaths) {
-			m.logger.Debug("Package already downloaded, skipping.")
+			m.logger.Debugf("Package already downloaded at %s, skipping.", dataDir)
 			return nil
 		}
 	}
@@ -462,15 +462,17 @@ func (m *cloudManager) downloadPackage(ctx context.Context, url string, p config
 		if err != nil {
 			return err
 		}
+		defer src.Close()
 		dst, err := os.Create(dstPath) //nolint:gosec
 		if err != nil {
 			return err
 		}
+		defer dst.Close()
 		nBytes, err := io.Copy(dst, src)
 		if err != nil {
 			return err
 		}
-		m.logger.Debugf("copied %d bytes to %s", nBytes)
+		m.logger.Debugf("copied %d bytes to %s", nBytes, dstPath)
 		// note: we're relying on the assumption that this is a synthetic package which passed tarballExtensionsRegexp
 		contentType = allowedContentType
 	} else {
