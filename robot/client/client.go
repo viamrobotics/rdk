@@ -878,7 +878,7 @@ func (rc *RobotClient) TransformPointCloud(ctx context.Context, srcpc pointcloud
 }
 
 // Status returns the status of the resources on the machine. You can provide a list of ResourceNames for which you want
-// statuses. If no names are passed in, the status of every resource configured on the machine is returned.
+// statuses. If no names are passed in, the status of every resource available on the machine is returned.
 //
 //	status, err := robot.Status(ctx.Background())
 func (rc *RobotClient) Status(ctx context.Context, resourceNames []resource.Name) ([]robot.Status, error) {
@@ -906,7 +906,7 @@ func (rc *RobotClient) Status(ctx context.Context, resourceNames []resource.Name
 
 // StopAll cancels all current and outstanding operations for the robot and stops all actuators and movement.
 //
-//	err := robot.StopAll(ctx.Background())
+//	err := machine.StopAll(ctx.Background())
 func (rc *RobotClient) StopAll(ctx context.Context, extra map[resource.Name]map[string]interface{}) error {
 	e := []*pb.StopExtraParameters{}
 	for name, params := range extra {
