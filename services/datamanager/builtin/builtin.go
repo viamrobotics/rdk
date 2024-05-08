@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"sync"
 	"time"
 
@@ -725,6 +726,11 @@ func generateMetadataKey(component, method string) string {
 }
 
 func pollFilesystem(ctx context.Context, wg *sync.WaitGroup, captureDir string, syncer datasync.Manager, logger logging.Logger) {
+	//DATA-2619, remove this check to reenable once android has been tested
+	if runtime.GOOS == "android" {
+		logger.Warn("File deletion if disk is full is not currently supported on Android")
+		return
+	}
 	t := deletionTicker.Ticker(filesystemPollInterval)
 	defer t.Stop()
 	defer wg.Done()
@@ -739,7 +745,7 @@ func pollFilesystem(ctx context.Context, wg *sync.WaitGroup, captureDir string, 
 		case <-ctx.Done():
 			return
 		case <-t.C:
-			logger.Info("Polling")
+			logger.Debug("Checking disk usage")
 			shouldDelete, err := shouldDeleteBasedOnDiskUsage(ctx, captureDir, logger)
 			if err != nil {
 				logger.Errorw("Error checking file system stats", "error", err)
