@@ -3,6 +3,7 @@ package camera
 
 import (
 	"context"
+	"fmt"
 	"image"
 	"sync"
 	"time"
@@ -157,36 +158,44 @@ func FromVideoSource(name resource.Name, src VideoSource, logger logging.Logger)
 	if ps, ok := src.(rtppassthrough.Source); ok {
 		rtpPassthroughSource = ps
 	}
-	return &sourceBasedCamera{
-		rtpPassthroughSource: rtpPassthroughSource,
+	return &SourceBasedCamera{
+		RtpPassthroughSource: rtpPassthroughSource,
 		Named:                name.AsNamed(),
 		VideoSource:          src,
 		Logger:               logger,
 	}
 }
 
-type sourceBasedCamera struct {
+type SourceBasedCamera struct {
 	resource.Named
 	resource.AlwaysRebuild
 	VideoSource
-	rtpPassthroughSource rtppassthrough.Source
+	RtpPassthroughSource rtppassthrough.Source
 	logging.Logger
 }
 
-func (vs *sourceBasedCamera) SubscribeRTP(
+func (c *SourceBasedCamera) Debug() {
+	vs := c.VideoSource.(*videoSource)
+	fmt.Printf("  Passthrough: %T\n", vs.rtpPassthroughSource)
+	fmt.Printf("  VSource: %T\n", vs.videoSource)
+	fmt.Printf("  VStream: %T\n", vs.videoStream)
+	fmt.Printf("  Actual: %T\n", vs.actualSource)
+}
+
+func (vs *SourceBasedCamera) SubscribeRTP(
 	ctx context.Context,
 	bufferSize int,
 	packetsCB rtppassthrough.PacketCallback,
 ) (rtppassthrough.Subscription, error) {
-	if vs.rtpPassthroughSource != nil {
-		return vs.rtpPassthroughSource.SubscribeRTP(ctx, bufferSize, packetsCB)
+	if vs.RtpPassthroughSource != nil {
+		return vs.RtpPassthroughSource.SubscribeRTP(ctx, bufferSize, packetsCB)
 	}
 	return rtppassthrough.NilSubscription, errors.New("SubscribeRTP unimplemented")
 }
 
-func (vs *sourceBasedCamera) Unsubscribe(ctx context.Context, id rtppassthrough.SubscriptionID) error {
-	if vs.rtpPassthroughSource != nil {
-		return vs.rtpPassthroughSource.Unsubscribe(ctx, id)
+func (vs *SourceBasedCamera) Unsubscribe(ctx context.Context, id rtppassthrough.SubscriptionID) error {
+	if vs.RtpPassthroughSource != nil {
+		return vs.RtpPassthroughSource.Unsubscribe(ctx, id)
 	}
 	return errors.New("Unsubscribe unimplemented")
 }
