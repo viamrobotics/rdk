@@ -252,21 +252,6 @@ func (plan *SimplePlan) Trajectory() Trajectory {
 	return plan.traj
 }
 
-// NewExecutionState will construct an ExecutionState struct.
-func NewExecutionState(
-	plan Plan,
-	index int,
-	currentInputs map[string][]referenceframe.Input,
-	currentPose map[string]*referenceframe.PoseInFrame,
-) ExecutionState {
-	return ExecutionState{
-		plan:          plan,
-		index:         index,
-		currentInputs: currentInputs,
-		currentPose:   currentPose,
-	}
-}
-
 // ExecutionState describes a plan and a particular state along it.
 type ExecutionState struct {
 	plan  Plan
@@ -277,6 +262,30 @@ type ExecutionState struct {
 
 	// The current PoseInFrames of input-enabled elements described by this plan.
 	currentPose map[string]*referenceframe.PoseInFrame
+}
+
+// NewExecutionState will construct an ExecutionState struct.
+func NewExecutionState(
+	plan Plan,
+	index int,
+	currentInputs map[string][]referenceframe.Input,
+	currentPose map[string]*referenceframe.PoseInFrame,
+) (ExecutionState, error) {
+	if plan == nil {
+		return ExecutionState{}, errors.New("cannot create new ExecutionState with nil plan")
+	}
+	if currentInputs == nil {
+		return ExecutionState{}, errors.New("cannot create new ExecutionState with nil currentInputs")
+	}
+	if currentPose == nil {
+		return ExecutionState{}, errors.New("cannot create new ExecutionState with nil currentPose")
+	}
+	return ExecutionState{
+		plan:          plan,
+		index:         index,
+		currentInputs: currentInputs,
+		currentPose:   currentPose,
+	}, nil
 }
 
 // Plan returns the plan associated with the execution state.

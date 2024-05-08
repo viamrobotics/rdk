@@ -88,7 +88,7 @@ func (ptgk *ptgBaseKinematics) GoToInputs(ctx context.Context, inputSteps ...[]r
 
 	startPose := spatialmath.NewZeroPose() // This is the location of the base at call time
 	if ptgk.Localizer != nil {
-		startPoseInFrame, err := ptgk.Localizer.CurrentPosition(ctx)
+		startPoseInFrame, err := ptgk.CurrentPosition(ctx)
 		if err != nil {
 			return tryStop(err)
 		}
@@ -325,6 +325,7 @@ func (ptgk *ptgBaseKinematics) courseCorrect(
 	if err != nil {
 		return nil, err
 	}
+	// trajPose is the pose we should have nominally reached along the currently executing arc from the start position.
 	trajPose, err := ptgk.frame.Transform(currentInputs)
 	if err != nil {
 		return nil, err
@@ -384,6 +385,7 @@ func (ptgk *ptgBaseKinematics) courseCorrect(
 
 			// We need to update the connection point. The starting configuration and position need to be updated, as well as
 			// the ending configuration's arc start value.
+			// The connection point is the point along the already-created plan where course correction will rejoin.
 			connectionPoint := arcSteps[solution.stepIdx]
 			arcOriginalLength := math.Abs(
 				connectionPoint.arcSegment.EndConfiguration[endDistanceAlongTrajectoryIndex].Value -

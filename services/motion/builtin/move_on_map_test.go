@@ -613,7 +613,7 @@ func TestMoveOnMapStaticObs(t *testing.T) {
 			}, nil,
 		)
 		test.That(t, err, test.ShouldBeNil)
-		executionState := motionplan.NewExecutionState(
+		executionState, err := motionplan.NewExecutionState(
 			plan,
 			1,
 			referenceframe.StartPositions(mr.planRequest.FrameSystem),
@@ -624,6 +624,7 @@ func TestMoveOnMapStaticObs(t *testing.T) {
 				)),
 			},
 		)
+		test.That(t, err, test.ShouldBeNil)
 		err = motionplan.CheckPlan(
 			mr.planRequest.Frame,
 			executionState,

@@ -359,7 +359,7 @@ func (ms *explore) checkForObstacles(
 			planTraj[0][kb.Name().ShortName()] = currentInputs
 			ms.logger.Debugf("Current transient worldState: ", worldState.String())
 
-			executionState := motionplan.NewExecutionState(
+			executionState, err := motionplan.NewExecutionState(
 				plan,
 				0,
 				plan.Trajectory()[0],
@@ -367,6 +367,14 @@ func (ms *explore) checkForObstacles(
 					kb.Kinematics().Name(): referenceframe.NewPoseInFrame(referenceframe.World, currentPose),
 				},
 			)
+			if err != nil {
+				ms.logger.Debugf("issue occurred getting execution state from kinematic base: %v", err)
+				if errCounterCurrentInputs > successiveErrorLimit {
+					ms.obstacleResponseChan <- moveResponse{success: false}
+					return
+				}
+				errCounterCurrentInputs++
+			}
 
 			// Check plan for transient obstacles
 			err = motionplan.CheckPlan(

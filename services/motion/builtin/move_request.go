@@ -274,12 +274,15 @@ func (mr *moveRequest) obstaclesIntersectPlan(
 			// configuration rather than the zero inputs
 			inputMap := referenceframe.StartPositions(mr.planRequest.FrameSystem)
 			inputMap[mr.kinematicBase.Name().ShortName()] = baseExecutionState.CurrentInputs()[mr.kinematicBase.Name().ShortName()]
-			executionState := motionplan.NewExecutionState(
+			executionState, err := motionplan.NewExecutionState(
 				baseExecutionState.Plan(),
 				baseExecutionState.Index(),
 				inputMap,
 				baseExecutionState.CurrentPoses(),
 			)
+			if err != nil {
+				return state.ExecuteResponse{}, err
+			}
 
 			mr.logger.CDebugf(ctx, "CheckPlan inputs: \n currentPosition: %v\n currentInputs: %v\n worldstate: %s",
 				spatialmath.PoseToProtobuf(executionState.CurrentPoses()[mr.kinematicBase.Name().ShortName()].Pose()),

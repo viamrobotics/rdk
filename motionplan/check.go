@@ -69,7 +69,14 @@ func checkPlanRelative(
 	plan := executionState.Plan()
 	startingInputs := plan.Trajectory()[0]
 	currentInputs := executionState.CurrentInputs()
-	currentPoseIF := executionState.CurrentPoses()[checkFrame.Name()]
+	currentPoses := executionState.CurrentPoses()
+	if currentPoses == nil {
+		return errors.New("executionState had nil return from CurrentPoses")
+	}
+	currentPoseIF, ok := currentPoses[checkFrame.Name()]
+	if !ok {
+		return errors.New("checkFrame not found in current pose map")
+	}
 	wayPointIdx := executionState.Index()
 	sf := sfPlanner.frame
 
@@ -96,7 +103,7 @@ func checkPlanRelative(
 		for _, parent := range observingParentage {
 			if parent.Name() == checkFrame.Name() {
 				return fmt.Errorf(
-					"pose of %s was given in frame of %s, bu current pose of checked frame must not be observed by self or child",
+					"pose of %s was given in frame of %s, but current pose of checked frame must not be observed by self or child",
 					checkFrame.Name(),
 					pif.Parent(),
 				)
@@ -241,51 +248,7 @@ func checkPlanRelative(
 		lastArcEndPose = thisArcEndPose
 		segments = append(segments, segment)
 	}
-
-	// go through segments and check that we satisfy constraints
-	// TODO(RSDK-5007): If we can make interpolate a method on Frame the need to write this out will be lessened and we should be
-	// able to call CheckStateConstraintsAcrossSegment directly.
-	var totalTravelDistanceMM float64
-	for _, segment := range segments {
-		interpolatedConfigurations, err := interpolateSegment(segment, sfPlanner.planOpts.Resolution)
-		if err != nil {
-			return err
-		}
-		for _, interpConfig := range interpolatedConfigurations {
-			poseInPath, err := sf.Transform(interpConfig)
-			if err != nil {
-				return err
-			}
-
-			// Check if look ahead distance has been reached
-			currentTravelDistanceMM := totalTravelDistanceMM + poseInPath.Point().Distance(segment.StartPosition.Point())
-			if currentTravelDistanceMM > lookAheadDistanceMM {
-				return nil
-			}
-
-			// If we are working with a PTG plan the returned value for poseInPath will only
-			// tell us how far along the arc we have traveled. Since this is only the relative position,
-			//  i.e. relative to where the robot started executing the arc,
-			// we must compose poseInPath with segment.StartPosition to get the absolute position.
-			interpolatedState := &ik.State{Frame: sf}
-			interpolatedState.Position = spatialmath.Compose(segment.StartPosition, poseInPath)
-
-			// Checks for collision along the interpolated route and returns a the first interpolated pose where a collision is detected.
-			if isValid, err := sfPlanner.planOpts.CheckStateConstraints(interpolatedState); !isValid {
-				return fmt.Errorf("found constraint violation or collision in segment between %v and %v at %v: %s",
-					segment.StartPosition.Point(),
-					segment.EndPosition.Point(),
-					interpolatedState.Position.Point(),
-					err,
-				)
-			}
-		}
-
-		// Update total traveled distance after segment has been checked
-		totalTravelDistanceMM += segment.EndPosition.Point().Distance(segment.StartPosition.Point())
-	}
-
-	return nil
+	return checkSegments(sfPlanner, segments, true, lookAheadDistanceMM)
 }
 
 func checkPlanAbsolute(
@@ -393,7 +356,7 @@ func checkPlanAbsolute(
 		totalTravelDistanceMM += segment.EndPosition.Point().Distance(segment.StartPosition.Point())
 	}
 
-	return nil
+	return checkSegments(sfPlanner, segments, false, lookAheadDistanceMM)
 }
 
 // createSegment is a function to ease segment creation for solver frames.
@@ -416,15 +379,62 @@ func createSegment(
 	}
 
 	segment := &ik.Segment{
-		StartPosition:    currPose,
-		EndPosition:      nextPose,
-		EndConfiguration: nextInputSlice,
-		Frame:            sf,
-	}
-
-	if currInputSlice != nil {
-		segment.StartConfiguration = currInputSlice
+		StartPosition:      currPose,
+		EndPosition:        nextPose,
+		StartConfiguration: currInputSlice,
+		EndConfiguration:   nextInputSlice,
+		Frame:              sf,
 	}
 
 	return segment, nil
+}
+
+func checkSegments(sfPlanner *planManager, segments []*ik.Segment, relative bool, lookAheadDistanceMM float64) error {
+	// go through segments and check that we satisfy constraints
+	// TODO(RSDK-5007): If we can make interpolate a method on Frame the need to write this out will be lessened and we should be
+	// able to call CheckStateConstraintsAcrossSegment directly.
+	var totalTravelDistanceMM float64
+	for _, segment := range segments {
+		interpolatedConfigurations, err := interpolateSegment(segment, sfPlanner.planOpts.Resolution)
+		if err != nil {
+			return err
+		}
+		for _, interpConfig := range interpolatedConfigurations {
+			poseInPath, err := sfPlanner.frame.Transform(interpConfig)
+			if err != nil {
+				return err
+			}
+
+			// Check if look ahead distance has been reached
+			currentTravelDistanceMM := totalTravelDistanceMM + poseInPath.Point().Distance(segment.StartPosition.Point())
+			if currentTravelDistanceMM > lookAheadDistanceMM {
+				return nil
+			}
+
+			// If we are working with a PTG plan the returned value for poseInPath will only
+			// tell us how far along the arc we have traveled. Since this is only the relative position,
+			//  i.e. relative to where the robot started executing the arc,
+			// we must compose poseInPath with segment.StartPosition to get the absolute position.
+			interpolatedState := &ik.State{Frame: sfPlanner.frame}
+			if relative {
+				interpolatedState.Position = spatialmath.Compose(segment.StartPosition, poseInPath)
+			} else {
+				interpolatedState.Configuration = interpConfig
+			}
+
+			// Checks for collision along the interpolated route and returns a the first interpolated pose where a collision is detected.
+			if isValid, err := sfPlanner.planOpts.CheckStateConstraints(interpolatedState); !isValid {
+				return fmt.Errorf("found constraint violation or collision in segment between %v and %v at %v: %s",
+					segment.StartPosition.Point(),
+					segment.EndPosition.Point(),
+					interpolatedState.Position.Point(),
+					err,
+				)
+			}
+		}
+
+		// Update total traveled distance after segment has been checked
+		totalTravelDistanceMM += segment.EndPosition.Point().Distance(segment.StartPosition.Point())
+	}
+	return nil
 }

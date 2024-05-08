@@ -186,14 +186,12 @@ func (ptgk *ptgBaseKinematics) ExecutionState(ctx context.Context) (motionplan.E
 	}
 
 	currentPlan := ptgk.stepsToPlan(currentExecutingSteps, actualPIF.Parent())
-	currState := motionplan.NewExecutionState(
+	return motionplan.NewExecutionState(
 		currentPlan,
 		currentIdx,
 		map[string][]referenceframe.Input{ptgk.Kinematics().Name(): currentInputs},
 		map[string]*referenceframe.PoseInFrame{ptgk.Kinematics().Name(): actualPIF},
 	)
-
-	return currState, nil
 }
 
 func (ptgk *ptgBaseKinematics) ErrorState(ctx context.Context) (spatialmath.Pose, error) {
@@ -211,11 +209,8 @@ func (ptgk *ptgBaseKinematics) ErrorState(ctx context.Context) (spatialmath.Pose
 	ptgk.inputLock.RLock()
 	currentIdx := ptgk.currentState.currentIdx
 	currentExecutingSteps := ptgk.currentState.currentExecutingSteps
+	currentInputs := ptgk.currentState.currentInputs
 	ptgk.inputLock.RUnlock()
-	currentInputs, err := ptgk.CurrentInputs(ctx)
-	if err != nil {
-		return nil, err
-	}
 
 	currPoseInArc, err := ptgk.frame.Transform(currentInputs)
 	if err != nil {

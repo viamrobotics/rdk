@@ -327,7 +327,7 @@ func (fk *fakePTGKinematics) ExecutionState(ctx context.Context) (motionplan.Exe
 		fk.currentIndex,
 		map[string][]referenceframe.Input{fk.frame.Name(): fk.currentInput},
 		map[string]*referenceframe.PoseInFrame{fk.frame.Name(): pos},
-	), nil
+	)
 }
 
 func (fk *fakePTGKinematics) CurrentPosition(ctx context.Context) (*referenceframe.PoseInFrame, error) {

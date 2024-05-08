@@ -28,6 +28,9 @@ type KinematicBase interface {
 	// ErrorState takes a complete motionplan, as well as the index of the currently-executing set of inputs, and computes the pose
 	// difference between where the robot in fact is, and where it ought to be, i.e. PoseBetween(expected, actual)
 	ErrorState(context.Context) (spatialmath.Pose, error)
+
+	// ExecutionState returns the state of execution of the base, returning the plan (with any edits) that it is executing, the point
+	// along that plan where it currently is, the inputs representing its current state, and its current position.
 	ExecutionState(context.Context) (motionplan.ExecutionState, error)
 }
 
