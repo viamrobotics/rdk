@@ -730,7 +730,7 @@ func pollFilesystem(ctx context.Context, wg *sync.WaitGroup, captureDir string,
 	deleteEveryNth int, syncer datasync.Manager, logger logging.Logger,
 ) {
 	if runtime.GOOS == "android" {
-		logger.Warn("File deletion if disk is full is not currently supported on Android")
+		logger.Debug("file deletion if disk is full is not currently supported on Android")
 		return
 	}
 	t := deletionTicker.Ticker(filesystemPollInterval)
@@ -747,17 +747,17 @@ func pollFilesystem(ctx context.Context, wg *sync.WaitGroup, captureDir string,
 		case <-ctx.Done():
 			return
 		case <-t.C:
-			logger.Debug("Checking disk usage")
+			logger.Debug("checking disk usage")
 			shouldDelete, err := shouldDeleteBasedOnDiskUsage(ctx, captureDir, logger)
 			if err != nil {
-				logger.Errorw("Error checking file system stats", "error", err)
+				logger.Errorw("error checking file system stats", "error", err)
 			}
 			if shouldDelete {
 				start := time.Now()
 				deletedFileCount, err := deleteFiles(ctx, syncer, deleteEveryNth, captureDir, logger)
 				duration := time.Since(start)
 				if err != nil {
-					logger.Errorw("Error deleting cached datacapture files", "error", err, "execution time", duration.Seconds())
+					logger.Errorw("error deleting cached datacapture files", "error", err, "execution time", duration.Seconds())
 				} else {
 					logger.Infof("%v files have been deleted to avoid the disk filling up, execution time: %f", deletedFileCount, duration.Seconds())
 				}
