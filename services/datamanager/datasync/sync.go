@@ -31,7 +31,6 @@ var (
 	// OfflineWaitTimeSeconds defines the amount of time to wait to retry if the machine is offline.
 	OfflineWaitTimeSeconds = atomic.NewInt32(60)
 	maxRetryInterval       = 24 * time.Hour
-	syncerCounter          = 0
 )
 
 // FailedDir is a subdirectory of the capture directory that holds any files that could not be synced.
@@ -99,7 +98,6 @@ func NewManager(identity string, client v1.DataSyncServiceClient, logger logging
 
 // Close closes all resources (goroutines) associated with s.
 func (s *syncer) Close() {
-	s.logger.Info("closed syncer")
 	s.closed.Store(true)
 	s.cancelFunc()
 	s.backgroundWorkers.Wait()
@@ -126,8 +124,6 @@ func (s *syncer) SyncFile(path string) {
 		return
 	// Kick off a sync goroutine if under the limit of goroutines.
 	case s.syncRoutineTracker <- struct{}{}:
-		syncerCounter++
-		s.logger.Infof("Number of currently running syncers %d", syncerCounter)
 		s.backgroundWorkers.Add(1)
 
 		goutils.PanicCapturingGo(func() {
