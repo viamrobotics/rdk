@@ -34,8 +34,8 @@ func init() {
 //
 // Sync example:
 //
-//    // Sync data stored on the machine to the cloud.
-//    err := data.Sync(context.Background(), nil)
+//		// Sync data stored on the machine to the cloud.
+//		err := data.Sync(context.Background(), nil)
 type Service interface {
 	resource.Resource
 	// Sync will sync data stored on the machine to the cloud.

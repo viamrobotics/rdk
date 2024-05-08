@@ -31,13 +31,13 @@ func init() {
 //
 // Infer example:
 //
-//    input_tensors := ml.Tensors{"0": tensor.New(tensor.WithShape(1, 2, 3), tensor.WithBacking(6))}
+//		input_tensors := ml.Tensors{"0": tensor.New(tensor.WithShape(1, 2, 3), tensor.WithBacking(6))}
 //
-//    output_tensors, err := myMLModel.Infer(context.Background(), input_tensors)
+//		output_tensors, err := myMLModel.Infer(context.Background(), input_tensors)
 //
 // Metadata example:
 //
-//    metadata, err := myMLModel.Metadata(context.Background())
+//		metadata, err := myMLModel.Metadata(context.Background())
 type Service interface {
 	resource.Resource
 	Infer(ctx context.Context, tensors ml.Tensors) (ml.Tensors, error)
