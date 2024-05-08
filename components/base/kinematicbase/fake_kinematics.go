@@ -196,7 +196,7 @@ func WrapWithFakePTGKinematics(
 	executionFrame, err := referenceframe.New2DMobileModelFrame(
 		b.Name().ShortName()+"ExecutionFrame",
 		planningFrame.DoF()[:3],
-		geometries[0],
+		nil,
 	)
 	if err != nil {
 		return nil, err

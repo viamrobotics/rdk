@@ -259,6 +259,7 @@ func (sf *staticFrame) ProtobufFromInput(input []Input) *pb.JointPositions {
 
 // Geometries returns an object representing the 3D space associeted with the staticFrame.
 func (sf *staticFrame) Geometries(input []Input) (*GeometriesInFrame, error) {
+	fmt.Println("static frame geometry: ", sf.geometry)
 	if sf.geometry == nil {
 		return NewGeometriesInFrame(sf.Name(), nil), nil
 	}
