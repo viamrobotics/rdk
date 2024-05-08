@@ -102,26 +102,26 @@ func TestFileDeletion(t *testing.T) {
 	}{
 		{
 			name:                    "if sync disabled, file deleter should delete every 4th file",
-			fileList:                []string{"shouldDelete0.capture", "1.capture", "2.capture", "3.capture", "shouldDelete4.capture"},
-			expectedDeleteFilenames: []string{"shouldDelete0.capture", "shouldDelete4.capture"},
+			fileList:                []string{"shouldDelete0.capture", "1.capture", "2.capture", "3.capture", "4.capture", "shouldDelete5.capture"},
+			expectedDeleteFilenames: []string{"shouldDelete0.capture", "shouldDelete5.capture"},
 		},
 		{
 			name:                    "if sync enabled and all files marked as in progress, file deleter should not delete any files",
 			syncEnabled:             true,
-			fileList:                []string{"0.capture", "1.capture", "2.capture", "3.capture", "4.capture"},
-			syncerInProgressFiles:   []string{"0.capture", "1.capture", "2.capture", "3.capture", "4.capture"},
+			fileList:                []string{"0.capture", "1.capture", "2.capture", "3.capture", "4.capture", "5.capture"},
+			syncerInProgressFiles:   []string{"0.capture", "1.capture", "2.capture", "3.capture", "4.capture", "5.capture"},
 			expectedDeleteFilenames: []string{},
 		},
 		{
 			name:                    "if sync enabled and some files marked as inprogress, file deleter should delete less files",
 			syncEnabled:             true,
-			fileList:                []string{"0.capture", "1.capture", "shouldDelete2.capture", "3.capture", "4.capture"},
+			fileList:                []string{"0.capture", "1.capture", "shouldDelete2.capture", "3.capture", "4.capture", "5.capture"},
 			syncerInProgressFiles:   []string{"0.capture", "1.capture"},
 			expectedDeleteFilenames: []string{"shouldDelete2.capture"},
 		},
 		{
 			name:                    "if sync disabled and files are still being written to, file deleter should not delete any files",
-			fileList:                []string{"0.prog", "1.prog", "2.prog", "3.prog", "4.prog"},
+			fileList:                []string{"0.prog", "1.prog", "2.prog", "3.prog", "4.prog", "5.prog"},
 			expectedDeleteFilenames: []string{},
 		},
 		{
@@ -202,7 +202,8 @@ func TestFilePolling(t *testing.T) {
 	// flush and close collectors to ensure we have exactly 4 files
 	flusher.flushCollectors()
 	flusher.closeCollectors()
-
+	// number of capture files is based on the number of unique
+	// collectors in the robot config used in this test
 	waitForCaptureFilesToExceedNFiles(tempDir, 4)
 
 	files := getAllFileInfos(tempDir)
