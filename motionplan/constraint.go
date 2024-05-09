@@ -269,6 +269,7 @@ func createAllCollisionConstraints(
 		}
 		constraintMap[defaultObstacleConstraintDesc] = obstacleConstraint
 	}
+
 	if len(staticRobotGeometries) > 0 {
 		// create constraint to keep moving geometries from hitting other geometries on robot that are not moving
 		robotConstraint, err := NewCollisionConstraint(

@@ -217,10 +217,8 @@ func (sf *solverFrame) Interpolate(from, to []frame.Input, by float64) ([]frame.
 		fromSubset := from[posIdx:dof]
 		toSubset := to[posIdx:dof]
 		posIdx = dof
-		var interpSub []frame.Input
-		var err error
 
-		interpSub, err = currFrame.Interpolate(fromSubset, toSubset, by)
+		interpSub, err := currFrame.Interpolate(fromSubset, toSubset, by)
 		if err != nil {
 			return nil, err
 		}
