@@ -277,7 +277,10 @@ func get2ComponentInjectedRobot() *inject.Robot {
 
 func newTestDataManagerWithMultipleComponents(t *testing.T) (internal.DMService, robot.Robot) {
 	t.Helper()
-	dmCfg := &Config{}
+	dmCfg := &Config{
+		// set capture disabled to avoid kicking off polling twice in test
+		CaptureDisabled: true,
+	}
 	cfgService := resource.Config{
 		API:                 datamanager.API,
 		ConvertedAttributes: dmCfg,
