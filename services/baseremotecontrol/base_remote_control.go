@@ -26,7 +26,7 @@ func init() {
 // A Service is the basis for the base remote control.
 //
 // Close example:
-//     // Close out of all remote control related systems.
+//     // Close out of all remote control-related systems.
 //     err := baseRCService.Close(context.Background())
 //
 // ControllerInputs example:
