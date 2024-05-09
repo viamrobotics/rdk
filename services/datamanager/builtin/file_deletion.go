@@ -85,7 +85,8 @@ func exceedsDeletionThreshold(ctx context.Context, captureDirPath string, fsSize
 }
 
 func deleteFiles(ctx context.Context, syncer datasync.Manager, deleteEveryNth int,
-	captureDirPath string, logger logging.Logger) (int, error) {
+	captureDirPath string, logger logging.Logger,
+) (int, error) {
 	index := 0
 	deletedFileCount := 0
 	logger.Infof("Deleting every %dth file", deleteEveryNth)
