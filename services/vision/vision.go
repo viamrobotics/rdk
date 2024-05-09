@@ -166,7 +166,7 @@ type vizModel struct {
 }
 
 // Properties returns various information regarding the current vision service,
-// specifically, which vision tasks are supported by the resource
+// specifically, which vision tasks are supported by the resource.
 type Properties struct {
 	ClassificationSupported bool
 	DetectionSupported      bool
@@ -307,7 +307,7 @@ func (vm *vizModel) GetObjectPointClouds(ctx context.Context, cameraName string,
 	return vm.segmenter3DFunc(ctx, cam)
 }
 
-// GetProperties returns a Properties object that details the vision capabilities of the model
+// GetProperties returns a Properties object that details the vision capabilities of the model.
 func (vm *vizModel) GetProperties(ctx context.Context, extra map[string]interface{}) *Properties {
 	_, span := trace.StartSpan(ctx, "service::vision::GetProperties::"+vm.Named.Name().String())
 	defer span.End()
