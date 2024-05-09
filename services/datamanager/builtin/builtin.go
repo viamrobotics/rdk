@@ -413,7 +413,7 @@ func (svc *builtIn) Reconfigure(
 	if err != nil {
 		return err
 	}
-
+	// Syncer should be reinitialized if the max sync threads are updated in the config
 	reinitSyncer := cloudConnSvc != svc.cloudConnSvc || svcConfig.MaximumNumSyncThreads != svc.maxSyncThreads
 	svc.cloudConnSvc = cloudConnSvc
 
@@ -526,9 +526,11 @@ func (svc *builtIn) Reconfigure(
 		svc.syncSensor = syncSensor
 	}
 
-	if svc.syncDisabled != svcConfig.ScheduledSyncDisabled || svc.syncIntervalMins != svcConfig.SyncIntervalMins ||
+	syncConfigUpdated := svc.syncDisabled != svcConfig.ScheduledSyncDisabled || svc.syncIntervalMins != svcConfig.SyncIntervalMins ||
 		!reflect.DeepEqual(svc.tags, svcConfig.Tags) || svc.fileLastModifiedMillis != fileLastModifiedMillis ||
-		svc.maxSyncThreads != svcConfig.MaximumNumSyncThreads {
+		svc.maxSyncThreads != svcConfig.MaximumNumSyncThreads
+
+	if syncConfigUpdated {
 		svc.syncDisabled = svcConfig.ScheduledSyncDisabled
 		svc.syncIntervalMins = svcConfig.SyncIntervalMins
 		svc.tags = svcConfig.Tags
