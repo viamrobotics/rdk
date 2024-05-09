@@ -33,7 +33,7 @@ func TestRegisterAuthApplicationAction(t *testing.T) {
 	flags[authApplicationFlagLogoutURI] = "https://woof.com/logout"
 
 	cCtx, ac, out, errOut := setup(&inject.AppServiceClient{}, nil, nil, eusc, flags, "token")
-	err := ac.createAuthApplicationAction(cCtx)
+	err := ac.registerAuthApplicationAction(cCtx)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(errOut.messages), test.ShouldEqual, 0)
 	test.That(t, len(out.messages), test.ShouldEqual, 5)

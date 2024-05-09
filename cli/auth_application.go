@@ -7,17 +7,17 @@ import (
 	apppb "go.viam.com/api/app/v1"
 )
 
-// CreateAuthApplicationAction is the corresponding action for 'third-party-auth-app register'.
-func CreateAuthApplicationAction(c *cli.Context) error {
+// RegisterAuthApplicationAction is the corresponding action for 'third-party-auth-app register'.
+func RegisterAuthApplicationAction(c *cli.Context) error {
 	client, err := newViamClient(c)
 	if err != nil {
 		return err
 	}
 
-	return client.createAuthApplicationAction(c)
+	return client.registerAuthApplicationAction(c)
 }
 
-func (c *viamClient) createAuthApplicationAction(cCtx *cli.Context) error {
+func (c *viamClient) registerAuthApplicationAction(cCtx *cli.Context) error {
 	if err := c.ensureLoggedIn(); err != nil {
 		return err
 	}
@@ -40,7 +40,7 @@ func (c *viamClient) createAuthApplicationAction(cCtx *cli.Context) error {
 		return err
 	}
 
-	infof(cCtx.App.Writer, "Successfully created auth application")
+	infof(cCtx.App.Writer, "Successfully registered auth application")
 	formatOutput, err := json.MarshalIndent(resp, "", "\t")
 	if err != nil {
 		return err
