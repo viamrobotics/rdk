@@ -41,11 +41,11 @@ type capture struct {
 // Image returns the image input used to compute Detections, Classifications or PointCloudObject.
 func (c *capture) Image() image.Image { return c.image }
 
-// Detections returns a list of Detections from VisCapture.
+// Detections returns a list of Detections stored in VisCapture object.
 func (c *capture) Detections() []objectdetection.Detection { return c.detections }
 
-// Classifications returns a list of Classifications from VisCapture.
+// Classifications returns a list of Classifications stored in VisCapture object.
 func (c *capture) Classifications() classification.Classifications { return c.classifications }
 
-// PointCloudObject returns a list of PointCloudObjects from VisCapture().
+// PointCloudObject returns a list of PointCloudObjects stored in VisCapture object.
 func (c *capture) PointCloudObject() []*vision.Object { return c.pcd }
