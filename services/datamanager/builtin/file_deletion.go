@@ -9,11 +9,10 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/ricochet2200/go-disk-usage/du"
-
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/services/datamanager/datacapture"
 	"go.viam.com/rdk/services/datamanager/datasync"
+	"go.viam.com/rdk/utils/diskusage"
 )
 
 var (
@@ -25,7 +24,7 @@ var (
 var errAtSizeThreshold = errors.New("capture dir is at correct size")
 
 func shouldDeleteBasedOnDiskUsage(ctx context.Context, captureDirPath string, logger logging.Logger) (bool, error) {
-	usage := du.NewDiskUsage(captureDirPath)
+	usage := diskusage.NewDiskUsage(captureDirPath)
 	// we get usage this way to ensure we get the amount of remaining space in the partition.
 	// calling usage.Usage() returns the usage of the whole disk, not the user partition
 	usedSpace := 1.0 - float64(usage.Available())/float64(usage.Size())
