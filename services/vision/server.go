@@ -216,8 +216,7 @@ func (server *serviceServer) CaptureAllFromCamera(ctx context.Context, req *pb.C
 	if err != nil {
 		return nil, err
 	}
-
-	//TODO: check if lazy
+	
 	imgProto, err := imageToProto(ctx, capt.Image(), utils.MimeTypeJPEG)
 	if err != nil {
 		return nil, err
@@ -232,7 +231,6 @@ func (server *serviceServer) CaptureAllFromCamera(ctx context.Context, req *pb.C
 }
 
 func imageToProto(ctx context.Context, img image.Image, mimeType string) (*v11.Image, error) {
-	//if utils.CheckLazyMIMEType(img.)
 	imgBytes, err := rimage.EncodeImage(ctx, img, mimeType)
 	if err != nil {
 		return nil, err
