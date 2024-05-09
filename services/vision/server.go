@@ -3,13 +3,12 @@ package vision
 import (
 	"bytes"
 	"context"
+	"image"
+
 	"go.opencensus.io/trace"
 	commonpb "go.viam.com/api/common/v1"
 	v11 "go.viam.com/api/component/camera/v1"
 	pb "go.viam.com/api/service/vision/v1"
-	"go.viam.com/rdk/vision/classification"
-	"go.viam.com/rdk/vision/objectdetection"
-	"image"
 
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/protoutils"
@@ -17,6 +16,8 @@ import (
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/utils"
 	"go.viam.com/rdk/vision"
+	"go.viam.com/rdk/vision/classification"
+	"go.viam.com/rdk/vision/objectdetection"
 )
 
 // serviceServer implements the Vision Service.
@@ -199,24 +200,33 @@ func segmentsToProto(frame string, segs []*vision.Object) ([]*commonpb.PointClou
 	return protoSegs, nil
 }
 
-func (server *serviceServer) CaptureAllFromCamera(ctx context.Context, req *pb.CaptureAllFromCameraRequest) (*pb.CaptureAllFromCameraResponse, error) {
+func (server *serviceServer) CaptureAllFromCamera(
+	ctx context.Context,
+	req *pb.CaptureAllFromCameraRequest,
+) (*pb.CaptureAllFromCameraResponse, error) {
 	ctx, span := trace.StartSpan(ctx, "service::vision::server::CaptureAllFromCamera")
 	defer span.End()
 	svc, err := server.coll.Resource(req.Name)
 	if err != nil {
 		return nil, err
 	}
-	capt, err := svc.CaptureAllFromCamera(ctx, req.CameraName, req.ReturnImage, req.ReturnDetections, req.ReturnClassifications, req.ReturnObjectPointClouds, req.Extra.AsMap())
+	capt, err := svc.CaptureAllFromCamera(ctx,
+		req.CameraName,
+		req.ReturnImage,
+		req.ReturnDetections,
+		req.ReturnClassifications,
+		req.ReturnObjectPointClouds,
+		req.Extra.AsMap(),
+	)
 	if err != nil {
 		return nil, err
 	}
 
-	//objectsPCD
 	objProto, err := segmentsToProto(req.CameraName, capt.PointCloudObject())
 	if err != nil {
 		return nil, err
 	}
-	
+
 	imgProto, err := imageToProto(ctx, capt.Image(), utils.MimeTypeJPEG)
 	if err != nil {
 		return nil, err

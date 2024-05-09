@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"go.viam.com/rdk/vision/viscapture"
 	"image"
 
 	"github.com/pkg/errors"
@@ -24,6 +23,7 @@ import (
 	"go.viam.com/rdk/vision"
 	"go.viam.com/rdk/vision/classification"
 	objdet "go.viam.com/rdk/vision/objectdetection"
+	"go.viam.com/rdk/vision/viscapture"
 )
 
 // client implements VisionServiceClient.
@@ -174,6 +174,7 @@ func (c *client) Classifications(ctx context.Context, img image.Image,
 	}
 	return protoToClas(resp.Classifications), nil
 }
+
 func protoToClas(protoClass []*pb.Classification) classification.Classifications {
 	classifications := make([]classification.Classification, 0, len(protoClass))
 	for _, c := range protoClass {
@@ -182,6 +183,7 @@ func protoToClas(protoClass []*pb.Classification) classification.Classifications
 	}
 	return classifications
 }
+
 func (c *client) GetObjectPointClouds(
 	ctx context.Context,
 	cameraName string,
@@ -262,18 +264,18 @@ func (c *client) CaptureAllFromCamera(
 	if err != nil {
 		return nil, err
 	}
-	//detections
+
 	dets, err := protoToDets(resp.Detections)
 	if err != nil {
 		return nil, err
 	}
-	//objectPCD
+
 	objPCD, err := protoToObjects(resp.Objects)
 	if err != nil {
 		return nil, err
 	}
 
-	img, err := rimage.DecodeImage(ctx, resp.Image.Image, utils.MimeTypeJPEG)
+	img, err := rimage.DecodeImage(ctx, resp.Image.Image, "")
 	if err != nil {
 		return nil, err
 	}

@@ -259,7 +259,14 @@ func DecodeImage(ctx context.Context, imgBytes []byte, mimeType string) (image.I
 	case "", ut.MimeTypeJPEG:
 		img, err := DecodeJPEG(bytes.NewReader(imgBytes))
 		if err != nil {
-			return nil, err
+			if mimeType == "" {
+				img, _, err = image.Decode(bytes.NewReader(imgBytes))
+				if err != nil {
+					return nil, err
+				}
+			} else {
+				return nil, err
+			}
 		}
 		return img, nil
 	default:

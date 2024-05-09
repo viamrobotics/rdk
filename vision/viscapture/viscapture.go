@@ -1,12 +1,15 @@
+// Package viscapture implements VisCapture interface returned by the CaptureAllFromCamera vision service method
 package viscapture
 
 import (
+	"image"
+
 	"go.viam.com/rdk/vision"
 	"go.viam.com/rdk/vision/classification"
 	"go.viam.com/rdk/vision/objectdetection"
-	"image"
 )
 
+// VisCapture returns a bundled capture of the requested vision objects.
 type VisCapture interface {
 	Image() image.Image
 	Detections() []objectdetection.Detection
@@ -14,11 +17,18 @@ type VisCapture interface {
 	PointCloudObject() []*vision.Object
 }
 
-func NewVisCapture(img image.Image, dets []objectdetection.Detection, clas classification.Classifications, obj []*vision.Object) VisCapture {
-	return &capture{image: img,
+// NewVisCapture returns a VisCapture.
+func NewVisCapture(img image.Image,
+	dets []objectdetection.Detection,
+	class classification.Classifications,
+	obj []*vision.Object,
+) VisCapture {
+	return &capture{
+		image:           img,
 		detections:      dets,
-		classifications: clas,
-		pcd:             obj}
+		classifications: class,
+		pcd:             obj,
+	}
 }
 
 type capture struct {
@@ -28,7 +38,14 @@ type capture struct {
 	pcd             []*vision.Object
 }
 
-func (c *capture) Image() image.Image                              { return c.image }
-func (c *capture) Detections() []objectdetection.Detection         { return c.detections }
+// Image returns the image input used to compute Detections, Classifications or PointCloudObject.
+func (c *capture) Image() image.Image { return c.image }
+
+// Detections returns a list of Detections from VisCapture.
+func (c *capture) Detections() []objectdetection.Detection { return c.detections }
+
+// Classifications returns a list of Classifications from VisCapture.
 func (c *capture) Classifications() classification.Classifications { return c.classifications }
-func (c *capture) PointCloudObject() []*vision.Object              { return c.pcd }
+
+// PointCloudObject returns a list of PointCloudObjects from VisCapture().
+func (c *capture) PointCloudObject() []*vision.Object { return c.pcd }
