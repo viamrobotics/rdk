@@ -401,3 +401,5 @@ require (
 	github.com/ziutek/mymysql v1.5.4 // indirect
 	golang.org/x/exp v0.0.0-20230725012225-302865e7556b
 )
+
+replace github.com/pion/mediadevices v0.6.4 => github.com/jeremyrhyde/mediadevices v0.0.0-20240501165504-e3fef141d9f1

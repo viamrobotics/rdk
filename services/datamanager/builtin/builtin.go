@@ -17,7 +17,6 @@ import (
 	goutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 
-	"go.viam.com/rdk/components/sensor"
 	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/internal/cloud"
 	"go.viam.com/rdk/logging"
@@ -84,29 +83,11 @@ func (c *Config) Validate(path string) ([]string, error) {
 }
 
 type selectiveSyncer interface {
-	sensor.Sensor
 }
 
 // readyToSync is a method for getting the bool reading from the selective sync sensor
 // for determining whether the key is present and what its value is.
 func readyToSync(ctx context.Context, s selectiveSyncer, logger logging.Logger) (readyToSync bool) {
-	readyToSync = false
-	readings, err := s.Readings(ctx, nil)
-	if err != nil {
-		logger.CErrorw(ctx, "error getting readings from selective syncer", "error", err.Error())
-		return
-	}
-	readyToSyncVal, ok := readings[datamanager.ShouldSyncKey]
-	if !ok {
-		logger.CErrorf(ctx, "value for should sync key %s not present in readings", datamanager.ShouldSyncKey)
-		return
-	}
-	readyToSyncBool, err := utils.AssertType[bool](readyToSyncVal)
-	if err != nil {
-		logger.CErrorw(ctx, "error converting should sync key to bool", "key", datamanager.ShouldSyncKey, "error", err.Error())
-		return
-	}
-	readyToSync = readyToSyncBool
 	return
 }
 
@@ -516,21 +497,6 @@ func (svc *builtIn) Reconfigure(
 		fileLastModifiedMillis = defaultFileLastModifiedMillis
 	}
 
-	var syncSensor sensor.Sensor
-	if svcConfig.SelectiveSyncerName != "" {
-		svc.selectiveSyncEnabled = true
-		syncSensor, err = sensor.FromDependencies(deps, svcConfig.SelectiveSyncerName)
-		if err != nil {
-			svc.logger.CErrorw(
-				ctx, "unable to initialize selective syncer; will not sync at all until fixed or removed from config", "error", err.Error())
-		}
-	} else {
-		svc.selectiveSyncEnabled = false
-	}
-	if svc.syncSensor != syncSensor {
-		svc.syncSensor = syncSensor
-	}
-
 	if svc.syncDisabled != svcConfig.ScheduledSyncDisabled || svc.syncIntervalMins != svcConfig.SyncIntervalMins ||
 		!reflect.DeepEqual(svc.tags, svcConfig.Tags) || svc.fileLastModifiedMillis != fileLastModifiedMillis {
 		svc.syncDisabled = svcConfig.ScheduledSyncDisabled
@@ -650,7 +616,7 @@ func (svc *builtIn) sync() {
 	}
 }
 
-//nolint
+// nolint
 func getAllFilesToSync(dir string, lastModifiedMillis int) []string {
 	var filePaths []string
 	_ = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {

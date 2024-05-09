@@ -12,7 +12,6 @@ import (
 	"github.com/pkg/errors"
 	servicepb "go.viam.com/api/service/motion/v1"
 
-	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/operation"
@@ -116,7 +115,6 @@ func (ms *builtIn) Reconfigure(
 		}
 		ms.logger = logger
 	}
-	movementSensors := make(map[resource.Name]movementsensor.MovementSensor)
 	slamServices := make(map[resource.Name]slam.Service)
 	visionServices := make(map[resource.Name]vision.Service)
 	components := make(map[resource.Name]resource.Resource)
@@ -124,8 +122,6 @@ func (ms *builtIn) Reconfigure(
 		switch dep := dep.(type) {
 		case framesystem.Service:
 			ms.fsService = dep
-		case movementsensor.MovementSensor:
-			movementSensors[name] = dep
 		case slam.Service:
 			slamServices[name] = dep
 		case vision.Service:
@@ -134,7 +130,6 @@ func (ms *builtIn) Reconfigure(
 			components[name] = dep
 		}
 	}
-	ms.movementSensors = movementSensors
 	ms.slamServices = slamServices
 	ms.visionServices = visionServices
 	ms.components = components
@@ -152,14 +147,13 @@ func (ms *builtIn) Reconfigure(
 
 type builtIn struct {
 	resource.Named
-	mu              sync.RWMutex
-	fsService       framesystem.Service
-	movementSensors map[resource.Name]movementsensor.MovementSensor
-	slamServices    map[resource.Name]slam.Service
-	visionServices  map[resource.Name]vision.Service
-	components      map[resource.Name]resource.Resource
-	logger          logging.Logger
-	state           *state.State
+	mu             sync.RWMutex
+	fsService      framesystem.Service
+	slamServices   map[resource.Name]slam.Service
+	visionServices map[resource.Name]vision.Service
+	components     map[resource.Name]resource.Resource
+	logger         logging.Logger
+	state          *state.State
 }
 
 func (ms *builtIn) Close(ctx context.Context) error {
