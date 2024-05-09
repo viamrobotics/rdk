@@ -292,7 +292,9 @@ func (pf *ptgGroupFrame) Geometries(inputs []referenceframe.Input) (*referencefr
 	geoms := make([]spatialmath.Geometry, 0, len(pf.geometries))
 	for i, geom := range pf.geometries {
 		tfGeom := geom.Transform(transformedPose)
-		tfGeom.SetLabel(pf.name + "_geometry_" + strconv.Itoa(i))
+		if tfGeom.Label() == "" {
+			tfGeom.SetLabel(pf.name + "_geometry_" + strconv.Itoa(i))
+		}
 		geoms = append(geoms, tfGeom)
 	}
 	return referenceframe.NewGeometriesInFrame(pf.name, geoms), nil

@@ -26,7 +26,7 @@ import (
 func TestPTGKinematicsNoGeom(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 
-	name := resource.Name{API: resource.NewAPI("is", "a", "fakebase")}
+	name := resource.Name{API: resource.NewAPI("is", "a", "fakebase"), Name: "fakebase"}
 	b := &fake.Base{
 		Named:         name.AsNamed(),
 		Geometry:      []spatialmath.Geometry{},
@@ -88,7 +88,7 @@ func TestPTGKinematicsNoGeom(t *testing.T) {
 	test.That(t, plan, test.ShouldNotBeNil)
 	runningPose := spatialmath.NewZeroPose()
 	for i, inputMap := range plan.Trajectory() {
-		inputs := inputMap[""]
+		inputs := inputMap["fakebase"]
 		arcSteps, err := ptgBase.trajectoryArcSteps(runningPose, inputs)
 		test.That(t, err, test.ShouldBeNil)
 
