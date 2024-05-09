@@ -158,7 +158,7 @@ func TestFileDeletion(t *testing.T) {
 			if tc.shouldCancelContext {
 				cancelFunc()
 			}
-			deletedFileCount, err := deleteFiles(ctx, syncer, tempCaptureDir, logger)
+			deletedFileCount, err := deleteFiles(ctx, syncer, defaultDeleteEveryNth, tempCaptureDir, logger)
 			if tc.shouldCancelContext {
 				test.That(t, err, test.ShouldBeError, context.Canceled)
 			} else {

@@ -68,14 +68,15 @@ var errCaptureDirectoryConfigurationDisabled = errors.New("changing the capture 
 
 // Config describes how to configure the service.
 type Config struct {
-	CaptureDir             string   `json:"capture_dir"`
-	AdditionalSyncPaths    []string `json:"additional_sync_paths"`
-	SyncIntervalMins       float64  `json:"sync_interval_mins"`
-	CaptureDisabled        bool     `json:"capture_disabled"`
-	ScheduledSyncDisabled  bool     `json:"sync_disabled"`
-	Tags                   []string `json:"tags"`
-	FileLastModifiedMillis int      `json:"file_last_modified_millis"`
-	SelectiveSyncerName    string   `json:"selective_syncer_name"`
+	CaptureDir                 string   `json:"capture_dir"`
+	AdditionalSyncPaths        []string `json:"additional_sync_paths"`
+	SyncIntervalMins           float64  `json:"sync_interval_mins"`
+	CaptureDisabled            bool     `json:"capture_disabled"`
+	ScheduledSyncDisabled      bool     `json:"sync_disabled"`
+	Tags                       []string `json:"tags"`
+	FileLastModifiedMillis     int      `json:"file_last_modified_millis"`
+	SelectiveSyncerName        string   `json:"selective_syncer_name"`
+	DeleteEveryNthWhenDiskFull int      `json:"delete_every_nth_when_disk_full"`
 }
 
 // Validate returns components which will be depended upon weakly due to the above matcher.
@@ -449,6 +450,10 @@ func (svc *builtIn) Reconfigure(
 	if svc.fileDeletionBackgroundWorkers != nil {
 		svc.fileDeletionBackgroundWorkers.Wait()
 	}
+	deleteEveryNthValue := defaultDeleteEveryNth
+	if svcConfig.DeleteEveryNthWhenDiskFull != 0 {
+		deleteEveryNthValue = svcConfig.DeleteEveryNthWhenDiskFull
+	}
 
 	// Initialize or add collectors based on changes to the component configurations.
 	newCollectors := make(map[resourceMethodMetadata]*collectorAndConfig)
@@ -567,7 +572,8 @@ func (svc *builtIn) Reconfigure(
 		svc.fileDeletionRoutineCancelFn = cancelFunc
 		svc.fileDeletionBackgroundWorkers = &sync.WaitGroup{}
 		svc.fileDeletionBackgroundWorkers.Add(1)
-		go pollFilesystem(fileDeletionCtx, svc.fileDeletionBackgroundWorkers, svc.captureDir, svc.syncer, svc.logger)
+		go pollFilesystem(fileDeletionCtx, svc.fileDeletionBackgroundWorkers,
+			svc.captureDir, deleteEveryNthValue, svc.syncer, svc.logger)
 	}
 
 	return nil
@@ -718,7 +724,9 @@ func generateMetadataKey(component, method string) string {
 	return fmt.Sprintf("%s/%s", component, method)
 }
 
-func pollFilesystem(ctx context.Context, wg *sync.WaitGroup, captureDir string, syncer datasync.Manager, logger logging.Logger) {
+func pollFilesystem(ctx context.Context, wg *sync.WaitGroup, captureDir string,
+	deleteEveryNth int, syncer datasync.Manager, logger logging.Logger,
+) {
 	if runtime.GOOS == "android" {
 		logger.Debug("file deletion if disk is full is not currently supported on Android")
 		return
@@ -744,7 +752,7 @@ func pollFilesystem(ctx context.Context, wg *sync.WaitGroup, captureDir string, 
 			}
 			if shouldDelete {
 				start := time.Now()
-				deletedFileCount, err := deleteFiles(ctx, syncer, captureDir, logger)
+				deletedFileCount, err := deleteFiles(ctx, syncer, deleteEveryNth, captureDir, logger)
 				duration := time.Since(start)
 				if err != nil {
 					logger.Errorw("error deleting cached datacapture files", "error", err, "execution time", duration.Seconds())
