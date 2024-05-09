@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"sync"
 	"time"
 
@@ -728,6 +729,10 @@ func generateMetadataKey(component, method string) string {
 func pollFilesystem(ctx context.Context, wg *sync.WaitGroup, captureDir string,
 	deleteEveryNth int, syncer datasync.Manager, logger logging.Logger,
 ) {
+	if runtime.GOOS == "android" {
+		logger.Debug("file deletion if disk is full is not currently supported on Android")
+		return
+	}
 	t := deletionTicker.Ticker(filesystemPollInterval)
 	defer t.Stop()
 	defer wg.Done()
