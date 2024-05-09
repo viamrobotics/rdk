@@ -27,7 +27,7 @@ type PinConfig struct {
 
 // TMC5072Config describes the configuration of a motor.
 type TMC5072Config struct {
-	Pins             PinConfig `json:"pins, omitempty"`
+	Pins             PinConfig `json:"pins,omitempty"`
 	BoardName        string    `json:"board,omitempty"` // used solely for the PinConfig
 	MaxRPM           float64   `json:"max_rpm,omitempty"`
 	MaxAcceleration  float64   `json:"max_acceleration_rpm_per_sec,omitempty"`
@@ -139,7 +139,7 @@ const (
 	modeHold     = int32(3)
 )
 
-// NewMotor returns a TMC5072 driven motor.
+// newMotor returns a TMC5072 driven motor.
 func newMotor(ctx context.Context, deps resource.Dependencies, c resource.Config, logger logging.Logger,
 ) (motor.Motor, error) {
 	conf, err := resource.NativeConfig[*TMC5072Config](c)
@@ -156,11 +156,11 @@ func makeMotor(ctx context.Context, deps resource.Dependencies, c TMC5072Config,
 	logger logging.Logger, bus buses.SPI,
 ) (motor.Motor, error) {
 	if c.MaxRPM == 0 {
-		logger.CWarn(ctx, "max_rpm not set, setting to 300 rpm")
+		logger.CWarn(ctx, "max_rpm not set, setting to 200 rpm")
 		c.MaxRPM = 200
 	}
 	if c.MaxAcceleration == 0 {
-		logger.CWarn(ctx, "max_acceleration_rpm_per_sec not set, setting to 300 rpm/sec")
+		logger.CWarn(ctx, "max_acceleration_rpm_per_sec not set, setting to 200 rpm/sec")
 		c.MaxAcceleration = 200
 	}
 	if c.CalFactor == 0 {
