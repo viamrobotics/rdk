@@ -505,9 +505,9 @@ func TestObstacleReplanningSlam(t *testing.T) {
 		Destination:   spatialmath.NewPoseFromPoint(r3.Vector{X: 800, Y: 0, Z: 0}),
 		SlamName:      slam.Named("test_slam"),
 		MotionCfg: &motion.MotionConfiguration{
-			PositionPollingFreqHz: 1, ObstaclePollingFreqHz: 100, PlanDeviationMM: 1, ObstacleDetectors: obstacleDetectorSlice,
+			PositionPollingFreqHz: 1, ObstaclePollingFreqHz: 40, PlanDeviationMM: 1, ObstacleDetectors: obstacleDetectorSlice,
 		},
-		Extra: map[string]interface{}{"smooth_iter": 0, "max_replans": 1},
+		Extra: map[string]interface{}{"smooth_iter": 20},
 	}
 
 	executionID, err := ms.MoveOnMap(ctx, req)
