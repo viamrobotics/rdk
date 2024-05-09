@@ -138,7 +138,6 @@ type builtIn struct {
 
 	componentMethodFrequencyHz map[resourceMethodMetadata]float32
 
-	deleteEveryNth                int
 	fileDeletionRoutineCancelFn   context.CancelFunc
 	fileDeletionBackgroundWorkers *sync.WaitGroup
 }
@@ -451,10 +450,9 @@ func (svc *builtIn) Reconfigure(
 	if svc.fileDeletionBackgroundWorkers != nil {
 		svc.fileDeletionBackgroundWorkers.Wait()
 	}
+	deleteEveryNthValue := defaultDeleteEveryNth
 	if svcConfig.DeleteEveryNthWhenDiskFull != 0 {
-		svc.deleteEveryNth = svcConfig.DeleteEveryNthWhenDiskFull
-	} else {
-		svc.deleteEveryNth = defaultDeleteEveryNth
+		deleteEveryNthValue = svcConfig.DeleteEveryNthWhenDiskFull
 	}
 
 	// Initialize or add collectors based on changes to the component configurations.
@@ -575,7 +573,7 @@ func (svc *builtIn) Reconfigure(
 		svc.fileDeletionBackgroundWorkers = &sync.WaitGroup{}
 		svc.fileDeletionBackgroundWorkers.Add(1)
 		go pollFilesystem(fileDeletionCtx, svc.fileDeletionBackgroundWorkers,
-			svc.captureDir, svc.deleteEveryNth, svc.syncer, svc.logger)
+			svc.captureDir, deleteEveryNthValue, svc.syncer, svc.logger)
 	}
 
 	return nil
@@ -658,7 +656,7 @@ func (svc *builtIn) sync() {
 	}
 }
 
-//nolint
+// nolint
 func getAllFilesToSync(dir string, lastModifiedMillis int) []string {
 	var filePaths []string
 	_ = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
