@@ -68,15 +68,15 @@ var errCaptureDirectoryConfigurationDisabled = errors.New("changing the capture 
 
 // Config describes how to configure the service.
 type Config struct {
-	CaptureDir             string   `json:"capture_dir"`
-	AdditionalSyncPaths    []string `json:"additional_sync_paths"`
-	SyncIntervalMins       float64  `json:"sync_interval_mins"`
-	CaptureDisabled        bool     `json:"capture_disabled"`
-	ScheduledSyncDisabled  bool     `json:"sync_disabled"`
-	Tags                   []string `json:"tags"`
-	FileLastModifiedMillis int      `json:"file_last_modified_millis"`
-	SelectiveSyncerName    string   `json:"selective_syncer_name"`
-	MaximumNumSyncThreads  int      `json:"maximum_num_sync_threads"`
+	CaptureDir                 string   `json:"capture_dir"`
+	AdditionalSyncPaths        []string `json:"additional_sync_paths"`
+	SyncIntervalMins           float64  `json:"sync_interval_mins"`
+	CaptureDisabled            bool     `json:"capture_disabled"`
+	ScheduledSyncDisabled      bool     `json:"sync_disabled"`
+	Tags                       []string `json:"tags"`
+	FileLastModifiedMillis     int      `json:"file_last_modified_millis"`
+	SelectiveSyncerName        string   `json:"selective_syncer_name"`
+	MaximumNumSyncThreads      int      `json:"maximum_num_sync_threads"`
 	DeleteEveryNthWhenDiskFull int      `json:"delete_every_nth_when_disk_full"`
 }
 
