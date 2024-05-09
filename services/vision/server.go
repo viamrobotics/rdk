@@ -226,14 +226,16 @@ func (server *serviceServer) GetProperties(ctx context.Context,
 	if err != nil {
 		return nil, err
 	}
-	props := svc.GetProperties(ctx, req.Extra.AsMap())
+	props, err := svc.GetProperties(ctx, req.Extra.AsMap())
+	if err != nil {
+		return nil, err
+	}
 
 	out := &pb.GetPropertiesResponse{
 		ClassificationsSupported:   props.ClassificationSupported,
 		DetectionsSupported:        props.DetectionSupported,
 		ObjectPointCloudsSupported: props.ObjectPCDsSupported,
 	}
-
 	return out, nil
 }
 

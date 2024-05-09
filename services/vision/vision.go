@@ -129,7 +129,7 @@ type Service interface {
 	// GetObjectPointClouds returns a list of 3D point cloud objects and metadata from the latest 3D camera image using a specified segmenter.
 	GetObjectPointClouds(ctx context.Context, cameraName string, extra map[string]interface{}) ([]*viz.Object, error)
 	// properties
-	GetProperties(ctx context.Context, extra map[string]interface{}) *Properties
+	GetProperties(ctx context.Context, extra map[string]interface{}) (*Properties, error)
 }
 
 // SubtypeName is the name of the type of service.
@@ -308,11 +308,11 @@ func (vm *vizModel) GetObjectPointClouds(ctx context.Context, cameraName string,
 }
 
 // GetProperties returns a Properties object that details the vision capabilities of the model.
-func (vm *vizModel) GetProperties(ctx context.Context, extra map[string]interface{}) *Properties {
+func (vm *vizModel) GetProperties(ctx context.Context, extra map[string]interface{}) (*Properties, error) {
 	_, span := trace.StartSpan(ctx, "service::vision::GetProperties::"+vm.Named.Name().String())
 	defer span.End()
 
-	return &vm.properties
+	return &vm.properties, nil
 }
 
 func (vm *vizModel) Close(ctx context.Context) error {
