@@ -59,6 +59,13 @@ func TestRadiusClusteringSegmentation(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, seg.Name(), test.ShouldResemble, name)
 
+	// Test properties. Should support object PCDs and not detections or classifications
+	props, err := seg.GetProperties(context.Background(), nil)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, props.ObjectPCDsSupported, test.ShouldEqual, true)
+	test.That(t, props.DetectionSupported, test.ShouldEqual, false)
+	test.That(t, props.ClassificationSupported, test.ShouldEqual, false)
+
 	// fails on not finding camera
 	_, err = seg.GetObjectPointClouds(context.Background(), "no_camera", map[string]interface{}{})
 	test.That(t, err, test.ShouldNotBeNil)
