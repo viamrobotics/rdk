@@ -108,9 +108,9 @@ func TestPTGKinematicsNoGeom(t *testing.T) {
 func TestPTGKinematicsWithGeom(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 
-	name := resource.Name{API: resource.NewAPI("is", "a", "fakebase")}
+	name := resource.Name{API: resource.NewAPI("is", "a", "fakebase"), Name: "fakebase"}
 
-	baseGeom, err := spatialmath.NewBox(spatialmath.NewZeroPose(), r3.Vector{1, 1, 1}, "")
+	baseGeom, err := spatialmath.NewBox(spatialmath.NewZeroPose(), r3.Vector{1, 1, 1}, "fakebase")
 	test.That(t, err, test.ShouldBeNil)
 
 	b := &fake.Base{
@@ -180,7 +180,7 @@ func TestPTGKinematicsWithGeom(t *testing.T) {
 	// Spot check each individual trajectory
 	runningPose := spatialmath.NewZeroPose()
 	for i, inputMap := range plan.Trajectory() {
-		inputs := inputMap[""]
+		inputs := inputMap["fakebase"]
 		allInputs = append(allInputs, inputs)
 		arcSteps, err := ptgBase.trajectoryArcSteps(runningPose, inputs)
 		test.That(t, err, test.ShouldBeNil)
