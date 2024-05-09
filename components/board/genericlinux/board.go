@@ -487,11 +487,6 @@ func (b *Board) SetPowerMode(
 	return grpc.UnimplementedError
 }
 
-// WriteAnalog writes the value to the given pin.
-func (b *Board) WriteAnalog(ctx context.Context, pin string, value int32, extra map[string]interface{}) error {
-	return nil
-}
-
 // StreamTicks starts a stream of digital interrupt ticks.
 func (b *Board) StreamTicks(ctx context.Context, interrupts []board.DigitalInterrupt, ch chan board.Tick,
 	extra map[string]interface{},

@@ -161,7 +161,12 @@ func (s *serviceServer) WriteAnalog(
 		return nil, err
 	}
 
-	err = b.WriteAnalog(ctx, req.Pin, req.Value, req.Extra.AsMap())
+	analog, err := b.AnalogByName(req.Pin)
+	if err != nil {
+		return nil, err
+	}
+
+	err = analog.Write(ctx, int(req.Value), req.Extra.AsMap())
 	if err != nil {
 		return nil, err
 	}

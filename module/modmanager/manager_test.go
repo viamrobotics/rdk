@@ -16,7 +16,6 @@ import (
 	"go.viam.com/utils"
 	"go.viam.com/utils/testutils"
 
-	"go.viam.com/rdk/components/arm/fake"
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/components/camera"
 	fakeCamera "go.viam.com/rdk/components/camera/fake"
@@ -993,7 +992,7 @@ func TestTwoModulesRestart(t *testing.T) {
 
 	testutils.WaitForAssertion(t, func(tb testing.TB) {
 		tb.Helper()
-		test.That(tb, logs.FilterMessageSnippet("Module successfully restarted").Len(),
+		test.That(tb, logs.FilterMessageSnippet("Module resources successfully re-added after module restart").Len(),
 			test.ShouldEqual, 2)
 	})
 
@@ -1025,27 +1024,26 @@ func TestRTPPassthrough(t *testing.T) {
 	// Precompile module copies to avoid timeout issues when building takes too long.
 	modPath := rtestutils.BuildTempModule(t, "examples/customresources/demos/rtppassthrough")
 	modPath2 := rtestutils.BuildTempModule(t, "examples/customresources/demos/rtppassthrough")
-	logger.Info(modPath)
-	logger.Info(modPath2)
 
-	noRTPPassthroughCameraConf := resource.Config{
-		Name:                "no_rtp_passthrough_camera",
-		API:                 camera.API,
-		Model:               resource.NewModel("acme", "camera", "fake"),
-		ConvertedAttributes: &fake.Config{},
+	// configs
+	noPassConf := resource.Config{
+		Name:  "no_rtp_passthrough_camera",
+		API:   camera.API,
+		Model: resource.NewModel("acme", "camera", "fake"),
 	}
-	_, err := noRTPPassthroughCameraConf.Validate("test", resource.APITypeComponentName)
+	_, err := noPassConf.Validate("test", resource.APITypeComponentName)
 	test.That(t, err, test.ShouldBeNil)
 
-	rtpPassthroughCameraConf := resource.Config{
+	passConf := resource.Config{
 		Name:       "rtp_passthrough_camera",
 		API:        camera.API,
 		Model:      resource.NewModel("acme", "camera", "fake"),
 		Attributes: map[string]interface{}{"rtp_passthrough": true},
 	}
-	_, err = rtpPassthroughCameraConf.Validate("test", resource.APITypeComponentName)
+	_, err = passConf.Validate("test", resource.APITypeComponentName)
 	test.That(t, err, test.ShouldBeNil)
 
+	// robot config
 	parentAddr, err := modlib.CreateSocketAddress(t.TempDir(), "parent")
 	test.That(t, err, test.ShouldBeNil)
 	fakeRobot := rtestutils.MakeRobotForModuleLogging(t, parentAddr)
@@ -1053,32 +1051,11 @@ func TestRTPPassthrough(t *testing.T) {
 		test.That(t, fakeRobot.Stop(), test.ShouldBeNil)
 	}()
 
-	greenLog(t, "test Helpers")
-	viamHomeTemp := t.TempDir()
-	mod := &module{
-		cfg: config.Module{
-			Name:     "test",
-			ExePath:  modPath,
-			Type:     config.ModuleTypeRegistry,
-			ModuleID: "rtppassthrough:camera",
-		},
-		dataDir: "module-data-dir",
-		logger:  logger,
-	}
-
-	err = mod.startProcess(ctx, parentAddr, nil, logger, viamHomeTemp)
-	test.That(t, err, test.ShouldBeNil)
-
-	err = mod.dial()
-	test.That(t, err, test.ShouldBeNil)
-
-	err = mod.checkReady(ctx, parentAddr, logger)
-	test.That(t, err, test.ShouldBeNil)
-
 	greenLog(t, "test AddModule")
 	mgr := NewManager(ctx, parentAddr, logger, modmanageroptions.Options{UntrustedEnv: false})
 	test.That(t, err, test.ShouldBeNil)
 
+	// add module executable
 	modCfg := config.Module{
 		Name:    "rtp-passthrough-module",
 		ExePath: modPath,
@@ -1086,47 +1063,48 @@ func TestRTPPassthrough(t *testing.T) {
 	err = mgr.Add(ctx, modCfg)
 	test.That(t, err, test.ShouldBeNil)
 
-	reg, ok := resource.LookupRegistration(camera.API, rtpPassthroughCameraConf.Model)
+	// confirm registered
+	reg, ok := resource.LookupRegistration(camera.API, passConf.Model)
 	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, reg.Constructor, test.ShouldNotBeNil)
 
 	greenLog(t, "Camera that does not support rtp_passthrough returns errors from rtppassthrough.Source methods")
-	noRTPPassthroughCamera, err := mgr.AddResource(ctx, noRTPPassthroughCameraConf, nil)
+	noPassCam, err := mgr.AddResource(ctx, noPassConf, nil)
 	test.That(t, err, test.ShouldBeNil)
 
-	noRTPPassthroughSource, ok := noRTPPassthroughCamera.(rtppassthrough.Source)
+	noPassSource, ok := noPassCam.(rtppassthrough.Source)
 	test.That(t, ok, test.ShouldBeTrue)
 
 	subscribeRTPTimeout := time.Second * 5
-	subscribeRTPCtx, subscribeRTPcancelFn := context.WithTimeout(context.Background(), subscribeRTPTimeout)
-	sub, err := noRTPPassthroughSource.SubscribeRTP(subscribeRTPCtx, 512, func(pkts []*rtp.Packet) {
+	subCtx, subCancelFn := context.WithTimeout(context.Background(), subscribeRTPTimeout)
+	sub, err := noPassSource.SubscribeRTP(subCtx, 512, func(pkts []*rtp.Packet) {
 		t.Log("should not happen")
 		t.FailNow()
 	})
-	subscribeRTPcancelFn()
+	subCancelFn()
 	test.That(t, err, test.ShouldBeError)
 	test.That(t, err.Error(), test.ShouldContainSubstring, fakeCamera.ErrRTPPassthroughNotEnabled.Error())
 	test.That(t, sub, test.ShouldResemble, rtppassthrough.NilSubscription)
 
-	err = noRTPPassthroughSource.Unsubscribe(context.Background(), sub.ID)
+	err = noPassSource.Unsubscribe(context.Background(), sub.ID)
 	test.That(t, err, test.ShouldBeError)
 	test.That(t, err, test.ShouldBeError, camera.ErrUnknownSubscriptionID)
 
 	greenLog(t, "Camera that supports rtp_passthrough")
-	rtpPassthroughCamera, err := mgr.AddResource(ctx, rtpPassthroughCameraConf, nil)
+	passCam, err := mgr.AddResource(ctx, passConf, nil)
 	test.That(t, err, test.ShouldBeNil)
 
-	rtpPassthroughSource, ok := rtpPassthroughCamera.(rtppassthrough.Source)
+	passSource, ok := passCam.(rtppassthrough.Source)
 	test.That(t, ok, test.ShouldBeTrue)
 
-	calledCtx, calledFn := context.WithCancel(context.Background())
 	// SubscribeRTP succeeds
-	subscribeRTPCtx, subscribeRTPcancelFn = context.WithTimeout(context.Background(), subscribeRTPTimeout)
-	sub, err = rtpPassthroughSource.SubscribeRTP(subscribeRTPCtx, 512, func(pkts []*rtp.Packet) {
+	calledCtx, calledFn := context.WithCancel(context.Background())
+	subCtx, subCancelFn = context.WithTimeout(context.Background(), subscribeRTPTimeout)
+	sub, err = passSource.SubscribeRTP(subCtx, 512, func(pkts []*rtp.Packet) {
 		test.That(t, len(pkts), test.ShouldBeGreaterThan, 0)
 		calledFn()
 	})
-	subscribeRTPcancelFn()
+	subCancelFn()
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, sub.ID, test.ShouldNotResemble, rtppassthrough.NilSubscription)
 	test.That(t, sub.Terminated.Err(), test.ShouldBeNil)
@@ -1134,29 +1112,28 @@ func TestRTPPassthrough(t *testing.T) {
 
 	// Unsubscribe succeeds and terminates the subscription
 	greenLog(t, "Unsubscribe immediately terminates the relevant subscription")
-	err = rtpPassthroughSource.Unsubscribe(context.Background(), sub.ID)
+	err = passSource.Unsubscribe(context.Background(), sub.ID)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, sub.Terminated.Err(), test.ShouldBeError, context.Canceled)
 
-	// Close terminates all in progress subscriptions
 	greenLog(t, "The first SubscribeRTP call receives rtp packets")
 	calledCtx1, calledFn1 := context.WithCancel(context.Background())
-	subscribeRTPCtx, subscribeRTPcancelFn = context.WithTimeout(context.Background(), subscribeRTPTimeout)
-	sub1, err := rtpPassthroughSource.SubscribeRTP(subscribeRTPCtx, 512, func(pkts []*rtp.Packet) {
+	subCtx, subCancelFn = context.WithTimeout(context.Background(), subscribeRTPTimeout)
+	sub1, err := passSource.SubscribeRTP(subCtx, 512, func(pkts []*rtp.Packet) {
 		test.That(t, len(pkts), test.ShouldBeGreaterThan, 0)
 		calledFn1()
 	})
-	subscribeRTPcancelFn()
+	subCancelFn()
 	test.That(t, err, test.ShouldBeNil)
 
 	greenLog(t, "The second SubscribeRTP call receives rtp packets concurrently")
 	calledCtx2, calledFn2 := context.WithCancel(context.Background())
-	subscribeRTPCtx, subscribeRTPcancelFn = context.WithTimeout(context.Background(), subscribeRTPTimeout)
-	sub2, err := rtpPassthroughSource.SubscribeRTP(subscribeRTPCtx, 512, func(pkts []*rtp.Packet) {
+	subCtx, subCancelFn = context.WithTimeout(context.Background(), subscribeRTPTimeout)
+	sub2, err := passSource.SubscribeRTP(subCtx, 512, func(pkts []*rtp.Packet) {
 		test.That(t, len(pkts), test.ShouldBeGreaterThan, 0)
 		calledFn2()
 	})
-	subscribeRTPcancelFn()
+	subCancelFn()
 	test.That(t, err, test.ShouldBeNil)
 	<-calledCtx1.Done()
 	<-calledCtx2.Done()
@@ -1164,66 +1141,66 @@ func TestRTPPassthrough(t *testing.T) {
 	test.That(t, sub2.Terminated.Err(), test.ShouldBeNil)
 
 	greenLog(t, "camera.Close immediately terminates all subscriptions")
-	err = rtpPassthroughCamera.Close(ctx)
+	err = passCam.Close(ctx)
 	test.That(t, err, test.ShouldBeNil)
 
 	test.That(t, sub1.Terminated.Err(), test.ShouldBeError, context.Canceled)
 	test.That(t, sub2.Terminated.Err(), test.ShouldBeError, context.Canceled)
 
 	// reset passthrough
-	err = mgr.RemoveResource(ctx, rtpPassthroughCameraConf.ResourceName())
+	err = mgr.RemoveResource(ctx, passConf.ResourceName())
 	test.That(t, err, test.ShouldBeNil)
 
-	rtpPassthroughCamera, err = mgr.AddResource(ctx, rtpPassthroughCameraConf, nil)
+	passCam, err = mgr.AddResource(ctx, passConf, nil)
 	test.That(t, err, test.ShouldBeNil)
 
-	rtpPassthroughSource, ok = rtpPassthroughCamera.(rtppassthrough.Source)
+	passSource, ok = passCam.(rtppassthrough.Source)
 	test.That(t, ok, test.ShouldBeTrue)
 
 	greenLog(t, "RemoveResource eventually terminates all subscriptions")
 	// create 2 sub
-	subscribeRTPCtx, subscribeRTPcancelFn = context.WithTimeout(context.Background(), subscribeRTPTimeout)
-	sub1, err = rtpPassthroughSource.SubscribeRTP(subscribeRTPCtx, 512, func(pkts []*rtp.Packet) {})
+	subCtx, subCancelFn = context.WithTimeout(context.Background(), subscribeRTPTimeout)
+	sub1, err = passSource.SubscribeRTP(subCtx, 512, func(pkts []*rtp.Packet) {})
 	test.That(t, err, test.ShouldBeNil)
-	subscribeRTPcancelFn()
+	subCancelFn()
 
-	subscribeRTPCtx, subscribeRTPcancelFn = context.WithTimeout(context.Background(), subscribeRTPTimeout)
-	sub2, err = rtpPassthroughSource.SubscribeRTP(subscribeRTPCtx, 512, func(pkts []*rtp.Packet) {})
+	subCtx, subCancelFn = context.WithTimeout(context.Background(), subscribeRTPTimeout)
+	sub2, err = passSource.SubscribeRTP(subCtx, 512, func(pkts []*rtp.Packet) {})
 	test.That(t, err, test.ShouldBeNil)
-	subscribeRTPcancelFn()
+	subCancelFn()
 
 	test.That(t, sub1.Terminated.Err(), test.ShouldBeNil)
 	test.That(t, sub2.Terminated.Err(), test.ShouldBeNil)
 
 	// remove resource
-	err = mgr.RemoveResource(ctx, rtpPassthroughCameraConf.ResourceName())
+	err = mgr.RemoveResource(ctx, passConf.ResourceName())
 	test.That(t, err, test.ShouldBeNil)
 
 	// subs are canceled
-
 	test.That(t, utils.SelectContextOrWait(sub1.Terminated, time.Second), test.ShouldBeFalse)
 	test.That(t, utils.SelectContextOrWait(sub2.Terminated, time.Second), test.ShouldBeFalse)
 	test.That(t, sub1.Terminated.Err(), test.ShouldBeError, context.Canceled)
 	test.That(t, sub2.Terminated.Err(), test.ShouldBeError, context.Canceled)
 
 	// reset passthrough
-	rtpPassthroughCamera, err = mgr.AddResource(ctx, rtpPassthroughCameraConf, nil)
+	passCam, err = mgr.AddResource(ctx, passConf, nil)
 	test.That(t, err, test.ShouldBeNil)
 
-	rtpPassthroughSource, ok = rtpPassthroughCamera.(rtppassthrough.Source)
+	passSource, ok = passCam.(rtppassthrough.Source)
 	test.That(t, ok, test.ShouldBeTrue)
 
-	greenLog(t, "ReconfigureResource eventually terminates all subscriptions when the model doesn't impelement Reconfigure")
+	// NOTE: This test relies on the model's Close() method hanlding terminating all subscriptions
+	greenLog(t, "ReconfigureResource eventually terminates all subscriptions when the new model doesn't impelement Reconfigure")
 	// create a sub
-	subscribeRTPCtx, subscribeRTPcancelFn = context.WithTimeout(context.Background(), subscribeRTPTimeout)
-	sub, err = rtpPassthroughSource.SubscribeRTP(subscribeRTPCtx, 512, func(pkts []*rtp.Packet) {})
-	subscribeRTPcancelFn()
+	subCtx, subCancelFn = context.WithTimeout(context.Background(), subscribeRTPTimeout)
+	sub, err = passSource.SubscribeRTP(subCtx, 512, func(pkts []*rtp.Packet) {})
+	subCancelFn()
 	test.That(t, err, test.ShouldBeNil)
 
 	test.That(t, sub.Terminated.Err(), test.ShouldBeNil)
 
 	// reconfigure
-	err = mgr.ReconfigureResource(ctx, rtpPassthroughCameraConf, nil)
+	err = mgr.ReconfigureResource(ctx, passConf, nil)
 	test.That(t, err, test.ShouldBeNil)
 
 	test.That(t, utils.SelectContextOrWait(sub.Terminated, time.Second), test.ShouldBeFalse)
@@ -1231,9 +1208,9 @@ func TestRTPPassthrough(t *testing.T) {
 
 	greenLog(t, "replacing a module binary eventually cancels subscriptions")
 	// add a subscription
-	subscribeRTPCtx, subscribeRTPcancelFn = context.WithTimeout(context.Background(), subscribeRTPTimeout)
-	sub, err = rtpPassthroughSource.SubscribeRTP(subscribeRTPCtx, 512, func(pkts []*rtp.Packet) {})
-	subscribeRTPcancelFn()
+	subCtx, subCancelFn = context.WithTimeout(context.Background(), subscribeRTPTimeout)
+	sub, err = passSource.SubscribeRTP(subCtx, 512, func(pkts []*rtp.Packet) {})
+	subCancelFn()
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, sub.Terminated.Err(), test.ShouldBeNil)
 
@@ -1244,29 +1221,128 @@ func TestRTPPassthrough(t *testing.T) {
 	orphanedResourceNames, err := mgr.Reconfigure(ctx, modCfg)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(orphanedResourceNames), test.ShouldEqual, 2)
-	test.That(t, orphanedResourceNames, test.ShouldContain, noRTPPassthroughCameraConf.ResourceName())
-	test.That(t, orphanedResourceNames, test.ShouldContain, rtpPassthroughCameraConf.ResourceName())
+	test.That(t, orphanedResourceNames, test.ShouldContain, noPassConf.ResourceName())
+	test.That(t, orphanedResourceNames, test.ShouldContain, passConf.ResourceName())
 	// the subscription from the previous module instance should be terminated
 	test.That(t, utils.SelectContextOrWait(sub.Terminated, time.Second), test.ShouldBeFalse)
 	test.That(t, sub.Terminated.Err(), test.ShouldBeError, context.Canceled)
 
 	greenLog(t, "modmanager Close eventually cancels subscriptions")
+	// reset passthrough
+	passCam, err = mgr.AddResource(ctx, passConf, nil)
+	test.That(t, err, test.ShouldBeNil)
+	passSource, ok = passCam.(rtppassthrough.Source)
+	test.That(t, ok, test.ShouldBeTrue)
+
 	// add a subscription
-	rtpPassthroughCamera, err = mgr.AddResource(ctx, rtpPassthroughCameraConf, nil)
+	subCtx, subCancelFn = context.WithTimeout(context.Background(), subscribeRTPTimeout)
+	sub, err = passSource.SubscribeRTP(subCtx, 512, func(pkts []*rtp.Packet) {})
 	test.That(t, err, test.ShouldBeNil)
-	subscribeRTPCtx, subscribeRTPcancelFn = context.WithTimeout(context.Background(), subscribeRTPTimeout)
-	sub, err = rtpPassthroughSource.SubscribeRTP(subscribeRTPCtx, 512, func(pkts []*rtp.Packet) {})
-	test.That(t, err, test.ShouldBeNil)
-	subscribeRTPcancelFn()
+	subCancelFn()
 	test.That(t, sub.Terminated.Err(), test.ShouldBeNil)
 
+	// close the mod manager
 	err = mgr.Close(ctx)
 	test.That(t, err, test.ShouldBeNil)
 
 	// the subscription should be terminated
 	test.That(t, utils.SelectContextOrWait(sub.Terminated, time.Second), test.ShouldBeFalse)
 	test.That(t, sub.Terminated.Err(), test.ShouldBeError, context.Canceled)
+}
 
-	err = rtpPassthroughCamera.Close(ctx)
+func TestAddStreamMaxTrackErr(t *testing.T) {
+	ctx := context.Background()
+	logger := logging.NewTestLogger(t)
+
+	// Precompile module copies to avoid timeout issues when building takes too long.
+	modPath := rtestutils.BuildTempModule(t, "examples/customresources/demos/rtppassthrough")
+	logger.Info(modPath)
+
+	api := camera.API
+	model := resource.NewModel("acme", "camera", "fake")
+	confs := []resource.Config{}
+	for i := 0; i < 10; i++ {
+		conf := resource.Config{
+			Name:       fmt.Sprintf("fake-%d", i),
+			API:        api,
+			Model:      model,
+			Attributes: map[string]interface{}{"rtp_passthrough": true},
+		}
+		_, err := conf.Validate("test", resource.APITypeComponentName)
+		confs = append(confs, conf)
+		test.That(t, err, test.ShouldBeNil)
+	}
+
+	parentAddr, err := modlib.CreateSocketAddress(t.TempDir(), "parent")
 	test.That(t, err, test.ShouldBeNil)
+	fakeRobot := rtestutils.MakeRobotForModuleLogging(t, parentAddr)
+	defer func() {
+		test.That(t, fakeRobot.Stop(), test.ShouldBeNil)
+	}()
+
+	greenLog(t, "test AddModule")
+	mgr := NewManager(ctx, parentAddr, logger, modmanageroptions.Options{UntrustedEnv: false})
+	test.That(t, err, test.ShouldBeNil)
+	defer func() {
+		test.That(t, mgr.Close(ctx), test.ShouldBeNil)
+	}()
+	// close the mod manager
+
+	modCfg := config.Module{
+		Name:    "rtp-passthrough-module",
+		ExePath: modPath,
+	}
+	err = mgr.Add(ctx, modCfg)
+	test.That(t, err, test.ShouldBeNil)
+
+	reg, ok := resource.LookupRegistration(camera.API, model)
+	test.That(t, ok, test.ShouldBeTrue)
+	test.That(t, reg.Constructor, test.ShouldNotBeNil)
+
+	greenLog(t, "add 10 cameras")
+	cams := []resource.Resource{}
+	for _, conf := range confs {
+		cam, err := mgr.AddResource(ctx, conf, nil)
+		test.That(t, err, test.ShouldBeNil)
+		cams = append(cams, cam)
+	}
+
+	sources := []rtppassthrough.Source{}
+	for _, cam := range cams {
+		source, ok := cam.(rtppassthrough.Source)
+		test.That(t, ok, test.ShouldBeTrue)
+		sources = append(sources, source)
+	}
+
+	first9Sources := sources[1:]
+
+	test.That(t, len(first9Sources), test.ShouldEqual, 9)
+
+	greenLog(t, "the first 9's SubscribeRTP calls succeed")
+	subscribeRTPTimeout := time.Second * 5
+	for _, source := range first9Sources {
+		calledCtx, calledFn := context.WithCancel(context.Background())
+		// SubscribeRTP succeeds
+		subCtx, subCancelFn := context.WithTimeout(context.Background(), subscribeRTPTimeout)
+		sub, err := source.SubscribeRTP(subCtx, 512, func(pkts []*rtp.Packet) {
+			test.That(t, len(pkts), test.ShouldBeGreaterThan, 0)
+			calledFn()
+		})
+		subCancelFn()
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, sub.ID, test.ShouldNotResemble, rtppassthrough.NilSubscription)
+		test.That(t, sub.Terminated.Err(), test.ShouldBeNil)
+		<-calledCtx.Done()
+	}
+
+	greenLog(t, "the 10th returns an error")
+	subCtx, subCancelFn := context.WithTimeout(context.Background(), subscribeRTPTimeout)
+	sub, err := sources[0].SubscribeRTP(subCtx, 512, func(pkts []*rtp.Packet) {
+		t.Log("should not happen")
+		t.FailNow()
+	})
+	subCancelFn()
+	test.That(t, err, test.ShouldBeError)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "only 9 WebRTC tracks are supported per peer connection")
+	test.That(t, sub, test.ShouldResemble, rtppassthrough.NilSubscription)
 }

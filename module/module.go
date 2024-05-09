@@ -48,7 +48,14 @@ const (
 	// Linux allows for a max length of 107 but to simplify this code, we truncate to the macOS limit of 103.
 	socketMaxAddressLength int = 103
 	rtpBufferSize          int = 512
+	// https://viam.atlassian.net/browse/RSDK-7347
+	// https://viam.atlassian.net/browse/RSDK-7521
+	// maxSupportedWebRTCTRacks is the max number of WebRTC tracks that can be supported given wihout hitting the sctp SDP message size limit.
+	maxSupportedWebRTCTRacks = 9
 )
+
+// errMaxSupportedWebRTCTrackLimit is the error returned when the MaxSupportedWebRTCTRacks limit is reached.
+var errMaxSupportedWebRTCTrackLimit = fmt.Errorf("only %d WebRTC tracks are supported per peer connection", maxSupportedWebRTCTRacks)
 
 // CreateSocketAddress returns a socket address of the form parentDir/desiredName.sock
 // if it is shorter than the socketMaxAddressLength. If this path would be too long, this function
@@ -177,6 +184,7 @@ type Module struct {
 	closeOnce               sync.Once
 	pc                      *webrtc.PeerConnection
 	pcReady                 <-chan struct{}
+	pcClosed                <-chan struct{}
 	pcFailed                <-chan struct{}
 	pb.UnimplementedModuleServiceServer
 	streampb.UnimplementedStreamServiceServer
@@ -228,7 +236,7 @@ func NewModule(ctx context.Context, address string, logger logging.Logger) (*Mod
 	}
 
 	// attempt to configure PeerConnection
-	pcReady, err := rpc.ConfigureForRenegotiation(pc, logger.AsZap())
+	pcReady, pcClosed, err := rpc.ConfigureForRenegotiation(pc, logger.AsZap())
 	if err != nil {
 		msg := "Error creating renegotiation channel for module. Unable to " +
 			"create optional peer connection for module. Skipping WebRTC for module..."
@@ -238,6 +246,7 @@ func NewModule(ctx context.Context, address string, logger logging.Logger) (*Mod
 
 	m.pc = pc
 	m.pcReady = pcReady
+	m.pcClosed = pcClosed
 
 	return m, nil
 }
@@ -289,6 +298,16 @@ func (m *Module) Close(ctx context.Context) {
 		if m.pc != nil {
 			if err := m.pc.Close(); err != nil {
 				m.logger.CErrorw(ctx, "WebRTC Peer Connection Close", "err", err)
+			}
+			// `PeerConnection.Close` returning does not guarantee that background workers have
+			// stopped. We've added best-effort hooks to observe when a peer connection has completely
+			// cleaned up.
+			if m.pcClosed != nil {
+				select {
+				case <-m.pcReady:
+					<-m.pcClosed
+				default:
+				}
 			}
 		}
 		m.mu.Unlock()
@@ -705,9 +724,10 @@ func (m *Module) ListStreams(ctx context.Context, req *streampb.ListStreamsReque
 // 1. there is no WebRTC peer connection with viam-sever
 // 2. resource doesn't exist
 // 3. the resource doesn't implement rtppassthrough.Source,
-// 4. SubscribeRTP returns an error
-// 5. A webrtc track is unable to be created
-// 6. Adding the track to the peer connection fails.
+// 4. there are already the max number of supported tracks on the peer connection
+// 5. SubscribeRTP returns an error
+// 6. A webrtc track is unable to be created
+// 7. Adding the track to the peer connection fails.
 func (m *Module) AddStream(ctx context.Context, req *streampb.AddStreamRequest) (*streampb.AddStreamResponse, error) {
 	ctx, span := trace.StartSpan(ctx, "module::module::AddStream")
 	defer span.End()
@@ -730,6 +750,10 @@ func (m *Module) AddStream(ctx context.Context, req *streampb.AddStreamRequest) 
 	if _, ok = m.activeResourceStreams[name]; ok {
 		m.logger.CWarnw(ctx, "AddStream called with when there is already a stream for peer connection. NoOp", "name", name)
 		return &streampb.AddStreamResponse{}, nil
+	}
+
+	if len(m.activeResourceStreams) >= maxSupportedWebRTCTRacks {
+		return nil, errMaxSupportedWebRTCTrackLimit
 	}
 
 	tlsRTP, err := webrtc.NewTrackLocalStaticRTP(webrtc.RTPCodecCapability{MimeType: "video/H264"}, "video", name.String())
