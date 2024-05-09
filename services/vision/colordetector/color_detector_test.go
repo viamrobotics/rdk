@@ -28,7 +28,7 @@ func TestColorDetector(t *testing.T) {
 	img, err := rimage.NewImageFromFile(artifact.MustPath("vision/objectdetection/detection_test.jpg"))
 	test.That(t, err, test.ShouldBeNil)
 
-	// Should support detections and not classifications or object PCDs
+	// Test properties. Should support detections and not classifications or object PCDs
 	props, err := srv.GetProperties(ctx, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, props.DetectionSupported, test.ShouldEqual, true)
