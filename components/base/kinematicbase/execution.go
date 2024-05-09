@@ -96,13 +96,13 @@ func (ptgk *ptgBaseKinematics) GoToInputs(ctx context.Context, inputSteps ...[]r
 	}
 
 	// Pre-process all steps into a series of velocities
-	ptgk.inputLock.Lock()
-	ptgk.currentState.currentExecutingSteps, err = ptgk.arcStepsFromInputs(inputSteps, startPose)
-	arcSteps := ptgk.currentState.currentExecutingSteps
-	ptgk.inputLock.Unlock()
+	arcSteps, err := ptgk.arcStepsFromInputs(inputSteps, startPose)
 	if err != nil {
 		return tryStop(err)
 	}
+	ptgk.inputLock.Lock()
+	ptgk.currentState.currentExecutingSteps = arcSteps
+	ptgk.inputLock.Unlock()
 
 	for i := 0; i < len(arcSteps); i++ {
 		if ctx.Err() != nil {
