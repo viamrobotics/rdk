@@ -200,7 +200,7 @@ func segmentsToProto(frame string, segs []*vision.Object) ([]*commonpb.PointClou
 }
 
 func (server *serviceServer) CaptureAllFromCamera(ctx context.Context, req *pb.CaptureAllFromCameraRequest) (*pb.CaptureAllFromCameraResponse, error) {
-	ctx, span := trace.StartSpan(ctx, "service::vision::server::GetDetectionsFromCamera")
+	ctx, span := trace.StartSpan(ctx, "service::vision::server::CaptureAllFromCamera")
 	defer span.End()
 	svc, err := server.coll.Resource(req.Name)
 	if err != nil {
