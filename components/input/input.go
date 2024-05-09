@@ -63,7 +63,7 @@ func Named(name string) resource.Name {
 //	if !slices.Contains(controls, input.ButtonStart) {
 //	    return errors.New("button `ButtonStart` not found; controller may be disconnected")
 //	}
-//	controller.RegisterControlCallback(context.Background(), input.ButtonStart, triggers, printStartTime, nil)
+//	Mycontroller.RegisterControlCallback(context.Background(), input.ButtonStart, triggers, printStartTime, nil)
 type Controller interface {
 	resource.Resource
 
