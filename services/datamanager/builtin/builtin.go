@@ -540,7 +540,6 @@ func (svc *builtIn) Reconfigure(
 			maxThreads = svcConfig.MaximumNumSyncThreads
 		}
 		svc.maxSyncThreads = maxThreads
-		svc.logger.Infof("max sync threads: %d", svc.maxSyncThreads)
 
 		svc.cancelSyncScheduler()
 		if !svc.syncDisabled && svc.syncIntervalMins != 0.0 {
@@ -654,7 +653,7 @@ func (svc *builtIn) sync() {
 	}
 }
 
-//nolint
+// nolint
 func getAllFilesToSync(dir string, lastModifiedMillis int) []string {
 	var filePaths []string
 	_ = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
