@@ -73,16 +73,7 @@ func (c *client) DetectionsFromCamera(
 	if err != nil {
 		return nil, err
 	}
-	detections := make([]objdet.Detection, 0, len(resp.Detections))
-	for _, d := range resp.Detections {
-		if d.XMin == nil || d.XMax == nil || d.YMin == nil || d.YMax == nil {
-			return nil, fmt.Errorf("invalid detection %+v", d)
-		}
-		box := image.Rect(int(*d.XMin), int(*d.YMin), int(*d.XMax), int(*d.YMax))
-		det := objdet.NewDetection(box, d.Confidence, d.ClassName)
-		detections = append(detections, det)
-	}
-	return detections, nil
+	return protoToDets(resp.Detections)
 }
 
 func (c *client) Detections(ctx context.Context, img image.Image, extra map[string]interface{},
@@ -112,16 +103,7 @@ func (c *client) Detections(ctx context.Context, img image.Image, extra map[stri
 	if err != nil {
 		return nil, err
 	}
-	detections := make([]objdet.Detection, 0, len(resp.Detections))
-	for _, d := range resp.Detections {
-		if d.XMin == nil || d.XMax == nil || d.YMin == nil || d.YMax == nil {
-			return nil, fmt.Errorf("invalid detection %+v", d)
-		}
-		box := image.Rect(int(*d.XMin), int(*d.YMin), int(*d.XMax), int(*d.YMax))
-		det := objdet.NewDetection(box, d.Confidence, d.ClassName)
-		detections = append(detections, det)
-	}
-	return detections, nil
+	return protoToDets(resp.Detections)
 }
 
 func protoToDets(protoDets []*pb.Detection) ([]objdet.Detection, error) {
@@ -158,12 +140,7 @@ func (c *client) ClassificationsFromCamera(
 	if err != nil {
 		return nil, err
 	}
-	classifications := make([]classification.Classification, 0, len(resp.Classifications))
-	for _, c := range resp.Classifications {
-		classif := classification.NewClassification(c.Confidence, c.ClassName)
-		classifications = append(classifications, classif)
-	}
-	return classifications, nil
+	return protoToClas(resp.Classifications), nil
 }
 
 func (c *client) Classifications(ctx context.Context, img image.Image,
@@ -195,12 +172,7 @@ func (c *client) Classifications(ctx context.Context, img image.Image,
 	if err != nil {
 		return nil, err
 	}
-	classifications := make([]classification.Classification, 0, len(resp.Classifications))
-	for _, c := range resp.Classifications {
-		classif := classification.NewClassification(c.Confidence, c.ClassName)
-		classifications = append(classifications, classif)
-	}
-	return classifications, nil
+	return protoToClas(resp.Classifications), nil
 }
 func protoToClas(protoClass []*pb.Classification) classification.Classifications {
 	classifications := make([]classification.Classification, 0, len(protoClass))
@@ -295,7 +267,6 @@ func (c *client) CaptureAllFromCamera(
 	if err != nil {
 		return nil, err
 	}
-
 	//objectPCD
 	objPCD, err := protoToObjects(resp.Objects)
 	if err != nil {

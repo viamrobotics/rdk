@@ -3,7 +3,6 @@ package vision
 import (
 	"bytes"
 	"context"
-	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
 	commonpb "go.viam.com/api/common/v1"
 	v11 "go.viam.com/api/component/camera/v1"
@@ -50,28 +49,8 @@ func (server *serviceServer) GetDetections(
 	if err != nil {
 		return nil, err
 	}
-	protoDets := make([]*pb.Detection, 0, len(detections))
-	for _, det := range detections {
-		box := det.BoundingBox()
-		if box == nil {
-			return nil, errors.New("detection has no bounding box, must return a bounding box")
-		}
-		xMin := int64(box.Min.X)
-		yMin := int64(box.Min.Y)
-		xMax := int64(box.Max.X)
-		yMax := int64(box.Max.Y)
-		d := &pb.Detection{
-			XMin:       &xMin,
-			YMin:       &yMin,
-			XMax:       &xMax,
-			YMax:       &yMax,
-			Confidence: det.Score(),
-			ClassName:  det.Label(),
-		}
-		protoDets = append(protoDets, d)
-	}
 	return &pb.GetDetectionsResponse{
-		Detections: protoDets,
+		Detections: detsToProto(detections),
 	}, nil
 }
 
@@ -89,28 +68,8 @@ func (server *serviceServer) GetDetectionsFromCamera(
 	if err != nil {
 		return nil, err
 	}
-	protoDets := make([]*pb.Detection, 0, len(detections))
-	for _, det := range detections {
-		box := det.BoundingBox()
-		if box == nil {
-			return nil, errors.New("detection has no bounding box, must return a bounding box")
-		}
-		xMin := int64(box.Min.X)
-		yMin := int64(box.Min.Y)
-		xMax := int64(box.Max.X)
-		yMax := int64(box.Max.Y)
-		d := &pb.Detection{
-			XMin:       &xMin,
-			YMin:       &yMin,
-			XMax:       &xMax,
-			YMax:       &yMax,
-			Confidence: det.Score(),
-			ClassName:  det.Label(),
-		}
-		protoDets = append(protoDets, d)
-	}
 	return &pb.GetDetectionsFromCameraResponse{
-		Detections: protoDets,
+		Detections: detsToProto(detections),
 	}, nil
 }
 
@@ -156,16 +115,8 @@ func (server *serviceServer) GetClassifications(
 	if err != nil {
 		return nil, err
 	}
-	protoCs := make([]*pb.Classification, 0, len(classifications))
-	for _, c := range classifications {
-		cc := &pb.Classification{
-			ClassName:  c.Label(),
-			Confidence: c.Score(),
-		}
-		protoCs = append(protoCs, cc)
-	}
 	return &pb.GetClassificationsResponse{
-		Classifications: protoCs,
+		Classifications: clasToProto(classifications),
 	}, nil
 }
 
@@ -183,16 +134,8 @@ func (server *serviceServer) GetClassificationsFromCamera(
 	if err != nil {
 		return nil, err
 	}
-	protoCs := make([]*pb.Classification, 0, len(classifications))
-	for _, c := range classifications {
-		cc := &pb.Classification{
-			ClassName:  c.Label(),
-			Confidence: c.Score(),
-		}
-		protoCs = append(protoCs, cc)
-	}
 	return &pb.GetClassificationsFromCameraResponse{
-		Classifications: protoCs,
+		Classifications: clasToProto(classifications),
 	}, nil
 }
 
@@ -274,6 +217,7 @@ func (server *serviceServer) CaptureAllFromCamera(ctx context.Context, req *pb.C
 		return nil, err
 	}
 
+	//TODO: check if lazy
 	imgProto, err := imageToProto(ctx, capt.Image(), utils.MimeTypeJPEG)
 	if err != nil {
 		return nil, err
@@ -288,6 +232,7 @@ func (server *serviceServer) CaptureAllFromCamera(ctx context.Context, req *pb.C
 }
 
 func imageToProto(ctx context.Context, img image.Image, mimeType string) (*v11.Image, error) {
+	//if utils.CheckLazyMIMEType(img.)
 	imgBytes, err := rimage.EncodeImage(ctx, img, mimeType)
 	if err != nil {
 		return nil, err
