@@ -48,25 +48,22 @@ func Named(name string) resource.Name {
 //
 // RegisterControlCallback example:
 //
-//	// Define a function that handles the controller.
-//	func handleController(ctx context.Context, logger logging.Logger, controller input.Controller) error {
-//	    // Define a function to handle pressing the Start Menu button, "ButtonStart", on your controller and logging the start time
-//	    printStartTime := func(ctx context.Context, event input.Event) {
-//	        logger.Info("Start Menu Button was pressed at this time: %v", event.Time)
-//	    }
-//
-//	    // Define the EventType "ButtonPress" to serve as the trigger for printStartTime.
-//	    triggers := []input.EventType{input.ButtonPress}
-//
-//	    // Get the controller's Controls.
-//	    controls, err := controller.Controls(ctx, nil)
-//
-//	    // If the "ButtonStart" Control is found, trigger printStartTime when "ButtonStart" the event "ButtonPress" occurs.
-//	    if !slices.Contains(controls, input.ButtonStart) {
-//	        return errors.New("button `ButtonStart` not found; controller may be disconnected")
-//	    }
-//	    return controller.RegisterControlCallback(context.Background(), Control: input.ButtonStart, triggers, printStartTime, nil)
+//	// Define a function to handle pressing the Start Menu button, "ButtonStart", on your controller and logging the start time
+//	printStartTime := func(ctx context.Context, event input.Event) {
+//	    logger.Info("Start Menu Button was pressed at this time: %v", event.Time)
 //	}
+//
+//	// Define the EventType "ButtonPress" to serve as the trigger for printStartTime.
+//	triggers := []input.EventType{input.ButtonPress}
+//
+//	// Get the controller's Controls.
+//	controls, err := controller.Controls(ctx, nil)
+//
+//	// If the "ButtonStart" Control is found, trigger printStartTime when "ButtonStart" the event "ButtonPress" occurs.
+//	if !slices.Contains(controls, input.ButtonStart) {
+//	    return errors.New("button `ButtonStart` not found; controller may be disconnected")
+//	}
+//	controller.RegisterControlCallback(context.Background(), input.ButtonStart, triggers, printStartTime, nil)
 type Controller interface {
 	resource.Resource
 
