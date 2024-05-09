@@ -36,8 +36,8 @@ var (
 // FailedDir is a subdirectory of the capture directory that holds any files that could not be synced.
 const FailedDir = "failed"
 
-// maxParallelSyncRoutines is the maximum number of sync goroutines that can be running at once.
-const maxParallelSyncRoutines = 1000
+// MaxParallelSyncRoutines is the maximum number of sync goroutines that can be running at once.
+const MaxParallelSyncRoutines = 1000
 
 // Manager is responsible for enqueuing files in captureDir and uploading them to the cloud.
 type Manager interface {
@@ -71,11 +71,15 @@ type syncer struct {
 }
 
 // ManagerConstructor is a function for building a Manager.
-type ManagerConstructor func(identity string, client v1.DataSyncServiceClient, logger logging.Logger, captureDir string) (Manager, error)
+type ManagerConstructor func(identity string, client v1.DataSyncServiceClient, logger logging.Logger,
+	captureDir string, maxSyncThreadsConfig int) (Manager, error)
 
 // NewManager returns a new syncer.
-func NewManager(identity string, client v1.DataSyncServiceClient, logger logging.Logger, captureDir string) (Manager, error) {
+func NewManager(identity string, client v1.DataSyncServiceClient, logger logging.Logger,
+	captureDir string, maxSyncThreads int,
+) (Manager, error) {
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
+	logger.Debugf("Making new syncer with %d max threads", maxSyncThreads)
 	ret := syncer{
 		partID:             identity,
 		client:             client,
@@ -85,7 +89,7 @@ func NewManager(identity string, client v1.DataSyncServiceClient, logger logging
 		arbitraryFileTags:  []string{},
 		inProgress:         make(map[string]bool),
 		syncErrs:           make(chan error, 10),
-		syncRoutineTracker: make(chan struct{}, maxParallelSyncRoutines),
+		syncRoutineTracker: make(chan struct{}, maxSyncThreads),
 		captureDir:         captureDir,
 	}
 	ret.logRoutine.Add(1)
@@ -93,6 +97,7 @@ func NewManager(identity string, client v1.DataSyncServiceClient, logger logging
 		defer ret.logRoutine.Done()
 		ret.logSyncErrs()
 	})
+
 	return &ret, nil
 }
 

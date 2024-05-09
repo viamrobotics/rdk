@@ -142,7 +142,7 @@ func TestFileDeletion(t *testing.T) {
 
 			var syncer datasync.Manager
 			if tc.syncEnabled {
-				s, err := datasync.NewManager("rick astley", mockClient, logger, tempCaptureDir)
+				s, err := datasync.NewManager("rick astley", mockClient, logger, tempCaptureDir, datasync.MaxParallelSyncRoutines)
 				test.That(t, err, test.ShouldBeNil)
 				syncer = s
 				defer syncer.Close()
@@ -277,7 +277,10 @@ func get2ComponentInjectedRobot() *inject.Robot {
 
 func newTestDataManagerWithMultipleComponents(t *testing.T) (internal.DMService, robot.Robot) {
 	t.Helper()
-	dmCfg := &Config{}
+	dmCfg := &Config{
+		// set capture disabled to avoid kicking off polling twice in test
+		CaptureDisabled: true,
+	}
 	cfgService := resource.Config{
 		API:                 datamanager.API,
 		ConvertedAttributes: dmCfg,

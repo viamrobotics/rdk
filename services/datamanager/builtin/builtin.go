@@ -76,6 +76,7 @@ type Config struct {
 	Tags                       []string `json:"tags"`
 	FileLastModifiedMillis     int      `json:"file_last_modified_millis"`
 	SelectiveSyncerName        string   `json:"selective_syncer_name"`
+	MaximumNumSyncThreads      int      `json:"maximum_num_sync_threads"`
 	DeleteEveryNthWhenDiskFull int      `json:"delete_every_nth_when_disk_full"`
 }
 
@@ -129,6 +130,7 @@ type builtIn struct {
 	syncRoutineCancelFn context.CancelFunc
 	syncer              datasync.Manager
 	syncerConstructor   datasync.ManagerConstructor
+	maxSyncThreads      int
 	cloudConnSvc        cloud.ConnectionService
 	cloudConn           rpc.ClientConn
 	syncTicker          *clk.Ticker
@@ -359,7 +361,6 @@ var grpcConnectionTimeout = 10 * time.Second
 func (svc *builtIn) initSyncer(ctx context.Context) error {
 	ctx, cancel := context.WithTimeout(ctx, grpcConnectionTimeout)
 	defer cancel()
-
 	identity, conn, err := svc.cloudConnSvc.AcquireConnection(ctx)
 	if errors.Is(err, cloud.ErrNotCloudManaged) {
 		svc.logger.CDebug(ctx, "Using no-op sync manager when not cloud managed")
@@ -370,8 +371,7 @@ func (svc *builtIn) initSyncer(ctx context.Context) error {
 	}
 
 	client := v1.NewDataSyncServiceClient(conn)
-
-	syncer, err := svc.syncerConstructor(identity, client, svc.logger, svc.captureDir)
+	syncer, err := svc.syncerConstructor(identity, client, svc.logger, svc.captureDir, svc.maxSyncThreads)
 	if err != nil {
 		return errors.Wrap(err, "failed to initialize new syncer")
 	}
@@ -418,8 +418,8 @@ func (svc *builtIn) Reconfigure(
 	if err != nil {
 		return err
 	}
-
-	reinitSyncer := cloudConnSvc != svc.cloudConnSvc
+	// Syncer should be reinitialized if the max sync threads are updated in the config
+	reinitSyncer := cloudConnSvc != svc.cloudConnSvc || svcConfig.MaximumNumSyncThreads != svc.maxSyncThreads
 	svc.cloudConnSvc = cloudConnSvc
 
 	captureConfigs, err := svc.updateDataCaptureConfigs(deps, conf, svcConfig.CaptureDir)
@@ -433,8 +433,7 @@ func (svc *builtIn) Reconfigure(
 
 	if svcConfig.CaptureDir != "" {
 		svc.captureDir = svcConfig.CaptureDir
-	}
-	if svcConfig.CaptureDir == "" {
+	} else {
 		svc.captureDir = viamCaptureDotDir
 	}
 	svc.captureDisabled = svcConfig.CaptureDisabled
@@ -536,12 +535,20 @@ func (svc *builtIn) Reconfigure(
 		svc.syncSensor = syncSensor
 	}
 
-	if svc.syncDisabled != svcConfig.ScheduledSyncDisabled || svc.syncIntervalMins != svcConfig.SyncIntervalMins ||
-		!reflect.DeepEqual(svc.tags, svcConfig.Tags) || svc.fileLastModifiedMillis != fileLastModifiedMillis {
+	syncConfigUpdated := svc.syncDisabled != svcConfig.ScheduledSyncDisabled || svc.syncIntervalMins != svcConfig.SyncIntervalMins ||
+		!reflect.DeepEqual(svc.tags, svcConfig.Tags) || svc.fileLastModifiedMillis != fileLastModifiedMillis ||
+		svc.maxSyncThreads != svcConfig.MaximumNumSyncThreads
+
+	if syncConfigUpdated {
 		svc.syncDisabled = svcConfig.ScheduledSyncDisabled
 		svc.syncIntervalMins = svcConfig.SyncIntervalMins
 		svc.tags = svcConfig.Tags
 		svc.fileLastModifiedMillis = fileLastModifiedMillis
+		maxThreads := datasync.MaxParallelSyncRoutines
+		if svcConfig.MaximumNumSyncThreads != 0 {
+			maxThreads = svcConfig.MaximumNumSyncThreads
+		}
+		svc.maxSyncThreads = maxThreads
 
 		svc.cancelSyncScheduler()
 		if !svc.syncDisabled && svc.syncIntervalMins != 0.0 {
