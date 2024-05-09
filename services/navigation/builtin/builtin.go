@@ -16,12 +16,10 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/base"
-	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot/framesystem"
 	"go.viam.com/rdk/services/motion"
-	"go.viam.com/rdk/services/motion/explore"
 	"go.viam.com/rdk/services/navigation"
 	"go.viam.com/rdk/services/vision"
 	"go.viam.com/rdk/spatialmath"
@@ -145,7 +143,6 @@ func (conf *Config) Validate(path string) ([]string, error) {
 			return nil, resource.NewConfigValidationError(path, errors.New("an obstacle detector is missing either a camera or vision service"))
 		}
 		deps = append(deps, resource.NewName(vision.API, obstacleDetectorPair.VisionServiceName).String())
-		deps = append(deps, resource.NewName(camera.API, obstacleDetectorPair.CameraName).String())
 	}
 
 	// Ensure store is valid
@@ -324,18 +321,10 @@ func (svc *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies,
 	var obstacleDetectorNamePairs []motion.ObstacleDetectorName
 	visionServicesByName := make(map[resource.Name]vision.Service)
 	for _, pbObstacleDetectorPair := range svcConfig.ObstacleDetectors {
-		visionSvc, err := vision.FromDependencies(deps, pbObstacleDetectorPair.VisionServiceName)
+		_, err := vision.FromDependencies(deps, pbObstacleDetectorPair.VisionServiceName)
 		if err != nil {
 			return err
 		}
-		camera, err := camera.FromDependencies(deps, pbObstacleDetectorPair.CameraName)
-		if err != nil {
-			return err
-		}
-		obstacleDetectorNamePairs = append(obstacleDetectorNamePairs, motion.ObstacleDetectorName{
-			VisionServiceName: visionSvc.Name(), CameraName: camera.Name(),
-		})
-		visionServicesByName[visionSvc.Name()] = visionSvc
 	}
 
 	// Reconfigure the store if necessary
@@ -350,14 +339,6 @@ func (svc *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies,
 
 	// Parse obstacles from the configuration
 	newObstacles, err := spatialmath.GeoObstaclesFromConfigs(svcConfig.Obstacles)
-	if err != nil {
-		return err
-	}
-
-	// Create explore motion service
-	// Note: this service will disappear after the explore motion model is integrated into builtIn
-	exploreMotionConf := resource.Config{ConvertedAttributes: &explore.Config{}}
-	svc.exploreMotionService, err = explore.NewExplore(ctx, deps, exploreMotionConf, svc.logger)
 	if err != nil {
 		return err
 	}

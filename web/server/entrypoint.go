@@ -22,7 +22,6 @@ import (
 	"go.viam.com/utils/perf"
 	"go.viam.com/utils/rpc"
 
-	vlogging "go.viam.com/rdk/components/camera/videosource/logging"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
@@ -113,12 +112,6 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 			return err
 		}
 		defer pprof.StopCPUProfile()
-	}
-
-	if argsParsed.Logging {
-		if err := vlogging.GLoggerCamComp.Start(ctx); err != nil {
-			logger.Debug(err)
-		}
 	}
 
 	// Read the config from disk and use it to initialize the remote logger.

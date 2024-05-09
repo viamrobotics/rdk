@@ -8,7 +8,6 @@ import (
 	"math"
 	"net/http"
 	"runtime"
-	"slices"
 	"sync"
 	"time"
 
@@ -18,14 +17,12 @@ import (
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/components/audioinput"
-	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/gostream"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	weboptions "go.viam.com/rdk/robot/web/options"
 	webstream "go.viam.com/rdk/robot/web/stream"
-	rutils "go.viam.com/rdk/utils"
 )
 
 // StreamServer manages streams and displays.
@@ -251,30 +248,9 @@ func (svc *webService) startStream(streamFunc func(opts *webstream.BackoffTuning
 	<-waitCh
 }
 
-func (svc *webService) propertiesFromStream(ctx context.Context, stream gostream.Stream) (camera.Properties, error) {
-	res, err := svc.r.ResourceByName(camera.Named(stream.Name()))
-	if err != nil {
-		return camera.Properties{}, err
-	}
-
-	cam, ok := res.(camera.Camera)
-	if !ok {
-		return camera.Properties{}, errors.Errorf("cannot convert resource (type %T) to type (%T)", res, camera.Camera(nil))
-	}
-
-	return cam.Properties(ctx)
-}
-
 func (svc *webService) startVideoStream(ctx context.Context, source gostream.VideoSource, stream gostream.Stream) {
-	svc.startStream(func(opts *webstream.BackoffTuningOptions) error {
-		streamVideoCtx, _ := utils.MergeContext(svc.cancelCtx, ctx)
-		// Use H264 for cameras that support it; but do not override upstream values.
-		if props, err := svc.propertiesFromStream(ctx, stream); err == nil && slices.Contains(props.MimeTypes, rutils.MimeTypeH264) {
-			streamVideoCtx = gostream.WithMIMETypeHint(streamVideoCtx, rutils.WithLazyMIMEType(rutils.MimeTypeH264))
-		}
 
-		return webstream.StreamVideoSource(streamVideoCtx, source, stream, opts, svc.logger)
-	})
+	return
 }
 
 func (svc *webService) startAudioStream(ctx context.Context, source gostream.AudioSource, stream gostream.Stream) {
@@ -287,19 +263,6 @@ func (svc *webService) startAudioStream(ctx context.Context, source gostream.Aud
 
 // refreshVideoSources checks and initializes every possible video source that could be viewed from the robot.
 func (svc *webService) refreshVideoSources() {
-	for _, name := range camera.NamesFromRobot(svc.r) {
-		cam, err := camera.FromRobot(svc.r, name)
-		if err != nil {
-			continue
-		}
-		existing, ok := svc.videoSources[validSDPTrackName(name)]
-		if ok {
-			existing.Swap(cam)
-			continue
-		}
-		newSwapper := gostream.NewHotSwappableVideoSource(cam)
-		svc.videoSources[validSDPTrackName(name)] = newSwapper
-	}
 }
 
 // refreshAudioSources checks and initializes every possible audio source that could be viewed from the robot.

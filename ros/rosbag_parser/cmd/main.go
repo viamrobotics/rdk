@@ -15,12 +15,8 @@ import (
 	goutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/logging"
-	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/rimage"
-	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/ros"
-	"go.viam.com/rdk/utils"
-	"go.viam.com/rdk/vision/segmentation"
 )
 
 var logger = logging.NewDebugLogger("rosbag_parser")
@@ -51,44 +47,6 @@ func saveImageAsPng(img image.Image, filename string) error {
 		return err
 	}
 	return nil
-}
-
-// extractPlanes extract planes from an image and depth map.
-func extractPlanes(ctx context.Context, img *rimage.Image, dm *rimage.DepthMap) (*segmentation.SegmentedImage, error) {
-	// Set camera matrices in image-with-depth
-	camera, err := transform.NewDepthColorIntrinsicsExtrinsicsFromJSONFile(utils.ResolveFile("ros/data/intel515_parameters.json"))
-	if err != nil {
-		return nil, err
-	}
-
-	// Get the pointcloud from the image-with-depth
-	pcl, err := camera.RGBDToPointCloud(img, dm)
-	if err != nil {
-		return nil, err
-	}
-
-	// Extract the planes from the point cloud
-	planeSeg := segmentation.NewPointCloudPlaneSegmentation(pcl, 50, 150000)
-	planes, _, err := planeSeg.FindPlanes(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	// Project the pointcloud planes into an image
-	segments := make([]pointcloud.PointCloud, 0, len(planes))
-	for _, plane := range planes {
-		cloud, err := plane.PointCloud()
-		if err != nil {
-			return nil, err
-		}
-		segments = append(segments, cloud)
-	}
-	segImage, err := segmentation.PointCloudSegmentsToMask(camera.ColorCamera, segments)
-	if err != nil {
-		return nil, err
-	}
-
-	return segImage, nil
 }
 
 func mainWithArgs(ctx context.Context, args []string, logger logging.Logger) error {
@@ -142,16 +100,6 @@ func mainWithArgs(ctx context.Context, args []string, logger logging.Logger) err
 			}
 			imgNrgba := rimage.Overlay(img, dm)
 			err = saveImageAsPng(imgNrgba, "img_"+fmt.Sprint(count)+".png")
-			if err != nil {
-				return err
-			}
-
-			// Apply plane segmentation on image
-			segImg, err := extractPlanes(ctx, img, dm)
-			if err != nil {
-				return err
-			}
-			err = saveImageAsPng(segImg, "seg_img_"+fmt.Sprint(count)+".png")
 			if err != nil {
 				return err
 			}
