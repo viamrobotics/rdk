@@ -109,6 +109,10 @@ func (fk *fakeDiffDriveKinematics) ErrorState(ctx context.Context) (spatialmath.
 	return fk.sensorNoise, nil
 }
 
+func (fk *fakeDiffDriveKinematics) ExecutionState(ctx context.Context) (motionplan.ExecutionState, error) {
+	return motionplan.ExecutionState{}, errors.New("fakeDiffDriveKinematics does not support executionState")
+}
+
 func (fk *fakeDiffDriveKinematics) CurrentPosition(ctx context.Context) (*referenceframe.PoseInFrame, error) {
 	fk.lock.RLock()
 	inputs := fk.inputs
@@ -128,6 +132,8 @@ type fakePTGKinematics struct {
 	sensorNoise                   spatialmath.Pose
 	ptgs                          []tpspace.PTGSolver
 	currentInput                  []referenceframe.Input
+	currentIndex                  int
+	plan                          motionplan.Plan
 	origin                        *referenceframe.PoseInFrame
 	positionlock                  sync.RWMutex
 	inputLock                     sync.RWMutex
@@ -211,6 +217,9 @@ func WrapWithFakePTGKinematics(
 		return nil, errors.New("unable to cast ptgk frame to a PTG Provider")
 	}
 	ptgs := ptgProv.PTGSolvers()
+	traj := motionplan.Trajectory{{frame.Name(): zeroInput}}
+	path := motionplan.Path{{frame.Name(): referenceframe.NewPoseInFrame(origin.Parent(), spatialmath.Compose(origin.Pose(), sensorNoise))}}
+	zeroPlan := motionplan.NewSimplePlan(path, traj)
 
 	fk := &fakePTGKinematics{
 		Base:           b,
@@ -219,6 +228,8 @@ func WrapWithFakePTGKinematics(
 		origin:         origin,
 		ptgs:           ptgs,
 		currentInput:   zeroInput,
+		currentIndex:   0,
+		plan:           zeroPlan,
 		sensorNoise:    sensorNoise,
 		logger:         logger,
 		sleepTime:      sleepTime,
@@ -248,16 +259,36 @@ func (fk *fakePTGKinematics) GoToInputs(ctx context.Context, inputSteps ...[]ref
 	defer func() {
 		fk.inputLock.Lock()
 		fk.currentInput = zeroInput
+		fk.currentIndex = 0
+
+		traj := motionplan.Trajectory{{fk.frame.Name(): zeroInput}}
+		path := motionplan.Path{
+			{fk.frame.Name(): referenceframe.NewPoseInFrame(fk.origin.Parent(), spatialmath.Compose(fk.origin.Pose(), fk.sensorNoise))},
+		}
+		fk.plan = motionplan.NewSimplePlan(path, traj)
 		fk.inputLock.Unlock()
 	}()
 
-	for _, inputs := range inputSteps {
+	currPos, err := fk.CurrentPosition(ctx)
+	if err != nil {
+		return err
+	}
+
+	fk.inputLock.Lock()
+	fk.plan, err = inputsToPlan(inputSteps, currPos, fk.Kinematics())
+	fk.inputLock.Unlock()
+	if err != nil {
+		return err
+	}
+
+	for i, inputs := range inputSteps {
 		fk.positionlock.RLock()
 		startingPose := fk.origin
 		fk.positionlock.RUnlock()
 
 		fk.inputLock.Lock()
-		fk.currentInput = []referenceframe.Input{inputs[0], inputs[1], {Value: 0}}
+		fk.currentIndex = i
+		fk.currentInput = []referenceframe.Input{inputs[0], inputs[1], inputs[2], inputs[2]}
 		fk.inputLock.Unlock()
 
 		finalPose, err := fk.planningFrame.Transform(inputs)
@@ -266,11 +297,10 @@ func (fk *fakePTGKinematics) GoToInputs(ctx context.Context, inputSteps ...[]ref
 		}
 
 		steps := motionplan.PathStepCount(spatialmath.NewZeroPose(), finalPose, 2)
-		startCfg := referenceframe.FloatsToInputs([]float64{inputs[0].Value, inputs[1].Value, 0})
 		var interpolatedConfigurations [][]referenceframe.Input
 		for i := 0; i <= steps; i++ {
 			interp := float64(i) / float64(steps)
-			interpConfig, err := fk.planningFrame.Interpolate(startCfg, inputs, interp)
+			interpConfig, err := fk.planningFrame.Interpolate(zeroInput, inputs, interp)
 			if err != nil {
 				return err
 			}
@@ -291,7 +321,7 @@ func (fk *fakePTGKinematics) GoToInputs(ctx context.Context, inputSteps ...[]ref
 			fk.positionlock.Unlock()
 
 			fk.inputLock.Lock()
-			fk.currentInput = []referenceframe.Input{inputs[0], inputs[1], inter[2]}
+			fk.currentInput = inter
 			fk.inputLock.Unlock()
 
 			time.Sleep(time.Duration(fk.sleepTime) * time.Microsecond * 10)
@@ -302,6 +332,22 @@ func (fk *fakePTGKinematics) GoToInputs(ctx context.Context, inputSteps ...[]ref
 
 func (fk *fakePTGKinematics) ErrorState(ctx context.Context) (spatialmath.Pose, error) {
 	return fk.sensorNoise, nil
+}
+
+func (fk *fakePTGKinematics) ExecutionState(ctx context.Context) (motionplan.ExecutionState, error) {
+	fk.inputLock.RLock()
+	defer fk.inputLock.RUnlock()
+	pos, err := fk.CurrentPosition(ctx)
+	if err != nil {
+		return motionplan.ExecutionState{}, err
+	}
+
+	return motionplan.NewExecutionState(
+		fk.plan,
+		fk.currentIndex,
+		map[string][]referenceframe.Input{fk.frame.Name(): fk.currentInput},
+		map[string]*referenceframe.PoseInFrame{fk.frame.Name(): pos},
+	)
 }
 
 func (fk *fakePTGKinematics) CurrentPosition(ctx context.Context) (*referenceframe.PoseInFrame, error) {
@@ -317,4 +363,27 @@ func (fkl *fakePTGKinematicsLocalizer) CurrentPosition(ctx context.Context) (*re
 	defer fkl.fk.positionlock.RUnlock()
 	origin := fkl.fk.origin
 	return referenceframe.NewPoseInFrame(origin.Parent(), spatialmath.Compose(origin.Pose(), fkl.fk.sensorNoise)), nil
+}
+
+func inputsToPlan(
+	inputs [][]referenceframe.Input,
+	startPose *referenceframe.PoseInFrame,
+	frame referenceframe.Frame,
+) (motionplan.Plan, error) {
+	runningPose := startPose.Pose()
+	traj := motionplan.Trajectory{}
+	path := motionplan.Path{}
+	for _, input := range inputs {
+		inputPose, err := frame.Transform(input)
+		if err != nil {
+			return nil, err
+		}
+		runningPose = spatialmath.Compose(runningPose, inputPose)
+		traj = append(traj, map[string][]referenceframe.Input{frame.Name(): input})
+		path = append(path, map[string]*referenceframe.PoseInFrame{
+			frame.Name(): referenceframe.NewPoseInFrame(startPose.Parent(), runningPose),
+		})
+	}
+
+	return motionplan.NewSimplePlan(path, traj), nil
 }

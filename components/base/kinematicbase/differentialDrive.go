@@ -16,6 +16,7 @@ import (
 
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/logging"
+	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/motionplan/ik"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/services/motion"
@@ -397,4 +398,8 @@ func (ddk *differentialDriveKinematics) ErrorState(ctx context.Context) (spatial
 	nominalPose = spatialmath.NewPose(nominalPoint, &spatialmath.OrientationVector{OZ: 1, Theta: desiredHeading})
 
 	return spatialmath.PoseBetween(nominalPose, actualPIF.Pose()), nil
+}
+
+func (ddk *differentialDriveKinematics) ExecutionState(ctx context.Context) (motionplan.ExecutionState, error) {
+	return motionplan.ExecutionState{}, errors.New("differentialDriveKinematics does not support executionState")
 }

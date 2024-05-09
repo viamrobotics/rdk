@@ -259,48 +259,44 @@ func (mr *moveRequest) obstaclesIntersectPlan(
 				return state.ExecuteResponse{}, err
 			}
 
+			// get the execution state of the base
+			baseExecutionState, err := mr.kinematicBase.ExecutionState(ctx)
+			if err != nil {
+				return state.ExecuteResponse{}, err
+			}
+
 			// build representation of frame system's inputs
-			inputMap, currentPosition, err := mr.getCurrentInputsAndPosition(ctx)
-			if err != nil {
-				return state.ExecuteResponse{}, err
-			}
-			// update inputs for the kinematic bases' planning frame
-			planningFrameCurrentInputs, err := mr.kinematicBase.CurrentInputs(ctx)
-			if err != nil {
-				return state.ExecuteResponse{}, err
-			}
-			inputMap[mr.kinematicBase.Name().ShortName()] = planningFrameCurrentInputs
-
-			// get the pose difference between where the robot is versus where it ought to be.
-			errorState, err := mr.kinematicBase.ErrorState(ctx)
-			if err != nil {
-				return state.ExecuteResponse{}, err
-			}
-
-			mr.logger.CDebugf(ctx, "CheckPlan inputs: \n currentPosition: %v\n currentInputs: %v\n errorState: %v\n worldstate: %s",
-				spatialmath.PoseToProtobuf(currentPosition.Pose()),
+			// TODO(pl): in the case where we have e.g. an arm (not moving) mounted on a base, we should be passing its current
+			// configuration rather than the zero inputs
+			inputMap := referenceframe.StartPositions(mr.planRequest.FrameSystem)
+			inputMap[mr.kinematicBase.Name().ShortName()] = baseExecutionState.CurrentInputs()[mr.kinematicBase.Name().ShortName()]
+			executionState, err := motionplan.NewExecutionState(
+				baseExecutionState.Plan(),
+				baseExecutionState.Index(),
 				inputMap,
-				spatialmath.PoseToProtobuf(errorState),
+				baseExecutionState.CurrentPoses(),
+			)
+			if err != nil {
+				return state.ExecuteResponse{}, err
+			}
+
+			mr.logger.CDebugf(ctx, "CheckPlan inputs: \n currentPosition: %v\n currentInputs: %v\n worldstate: %s",
+				spatialmath.PoseToProtobuf(executionState.CurrentPoses()[mr.kinematicBase.Name().ShortName()].Pose()),
+				inputMap,
 				worldState.String(),
 			)
 
-			// TODO(pl): This was disabled as part of course correction. It will need to be re-enabled once a method is developed to surface
-			// course-corrected plans from the kinematic base to the motion service.
-			// if err := motionplan.CheckPlan(
-			// mr.kinematicBase.Kinematics(), // frame we wish to check for collisions
-			// plan,
-			// waypointIndex,
-			// worldState, // detected obstacles by this instance of camera + service
-			// mr.absoluteFS
-			// currentPosition.Pose(), // currentPosition of robot accounts for errorState
-			// inputMap,
-			// errorState, // deviation of robot from plan
-			// lookAheadDistanceMM,
-			// mr.planRequest.Logger,
-			// ); err != nil {
-			// mr.planRequest.Logger.CInfo(ctx, err.Error())
-			// return state.ExecuteResponse{Replan: true, ReplanReason: err.Error()}, nil
-			// }
+			if err := motionplan.CheckPlan(
+				mr.kinematicBase.Kinematics(), // frame we wish to check for collisions
+				executionState,
+				worldState, // detected obstacles by this instance of camera + service
+				mr.planRequest.FrameSystem,
+				lookAheadDistanceMM,
+				mr.planRequest.Logger,
+			); err != nil {
+				mr.planRequest.Logger.CInfo(ctx, err.Error())
+				return state.ExecuteResponse{Replan: true, ReplanReason: err.Error()}, nil
+			}
 		}
 	}
 	return state.ExecuteResponse{}, nil
@@ -528,8 +524,6 @@ func (ms *builtIn) newMoveOnGlobeRequest(
 		{Min: -straightlineDistance * 3, Max: straightlineDistance * 3},
 		{Min: -2 * math.Pi, Max: 2 * math.Pi},
 	} // Note: this is only for diff drive, not used for PTGs
-	ms.logger.CDebugf(ctx, "base limits: %v", limits)
-
 	kb, err := kinematicbase.WrapWithKinematics(ctx, b, ms.logger, localizer, limits, kinematicsOptions)
 	if err != nil {
 		return nil, err

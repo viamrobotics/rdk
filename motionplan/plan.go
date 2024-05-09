@@ -53,7 +53,7 @@ func OffsetPlan(plan Plan, offset spatialmath.Pose) Plan {
 	for _, step := range path {
 		newStep := make(PathStep, len(step))
 		for frame, pose := range step {
-			newStep[frame] = referenceframe.NewPoseInFrame(referenceframe.World, spatialmath.Compose(offset, pose.Pose()))
+			newStep[frame] = referenceframe.NewPoseInFrame(pose.Parent(), spatialmath.Compose(offset, pose.Pose()))
 		}
 		newPath = append(newPath, newStep)
 	}
@@ -114,6 +114,7 @@ func (traj Trajectory) EvaluateCost(distFunc ik.SegmentMetric) float64 {
 }
 
 // Path is a slice of PathSteps describing a series of Poses for a robot to travel to in the course of following a Plan.
+// The pose of the PathStep is the pose at the end of the corresponding set of inputs in the Trajectory.
 type Path []PathStep
 
 func newPath(solution []node, sf *solverFrame) (Path, error) {
@@ -249,4 +250,60 @@ func (plan *SimplePlan) Path() Path {
 // Trajectory returns the Trajectory associated with the Plan.
 func (plan *SimplePlan) Trajectory() Trajectory {
 	return plan.traj
+}
+
+// ExecutionState describes a plan and a particular state along it.
+type ExecutionState struct {
+	plan  Plan
+	index int
+
+	// The current inputs of input-enabled elements described by the plan
+	currentInputs map[string][]referenceframe.Input
+
+	// The current PoseInFrames of input-enabled elements described by this plan.
+	currentPose map[string]*referenceframe.PoseInFrame
+}
+
+// NewExecutionState will construct an ExecutionState struct.
+func NewExecutionState(
+	plan Plan,
+	index int,
+	currentInputs map[string][]referenceframe.Input,
+	currentPose map[string]*referenceframe.PoseInFrame,
+) (ExecutionState, error) {
+	if plan == nil {
+		return ExecutionState{}, errors.New("cannot create new ExecutionState with nil plan")
+	}
+	if currentInputs == nil {
+		return ExecutionState{}, errors.New("cannot create new ExecutionState with nil currentInputs")
+	}
+	if currentPose == nil {
+		return ExecutionState{}, errors.New("cannot create new ExecutionState with nil currentPose")
+	}
+	return ExecutionState{
+		plan:          plan,
+		index:         index,
+		currentInputs: currentInputs,
+		currentPose:   currentPose,
+	}, nil
+}
+
+// Plan returns the plan associated with the execution state.
+func (e *ExecutionState) Plan() Plan {
+	return e.plan
+}
+
+// Index returns the currently-executing index of the execution state's Plan.
+func (e *ExecutionState) Index() int {
+	return e.index
+}
+
+// CurrentInputs returns the current inputs of the components associated with the ExecutionState.
+func (e *ExecutionState) CurrentInputs() map[string][]referenceframe.Input {
+	return e.currentInputs
+}
+
+// CurrentPoses returns the current poses in frame of the components associated with the ExecutionState.
+func (e *ExecutionState) CurrentPoses() map[string]*referenceframe.PoseInFrame {
+	return e.currentPose
 }
