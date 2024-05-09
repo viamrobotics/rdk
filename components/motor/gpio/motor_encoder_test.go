@@ -188,7 +188,7 @@ func TestEncodedMotor(t *testing.T) {
 
 	t.Run("encoded motor test GoFor forward", func(t *testing.T) {
 		t.Skip("temporary skip for flake")
-		test.That(t, m.goForInternal(context.Background(), 10, 1, 1), test.ShouldBeNil)
+		test.That(t, m.goForInternal(10, 1, 1), test.ShouldBeNil)
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
 			on, powerPct, err := m.IsPowered(context.Background(), nil)
@@ -200,7 +200,7 @@ func TestEncodedMotor(t *testing.T) {
 
 	t.Run("encoded motor test GoFor backwards", func(t *testing.T) {
 		t.Skip("temporary skip for flake")
-		test.That(t, m.goForInternal(context.Background(), -10, -1, -1), test.ShouldBeNil)
+		test.That(t, m.goForInternal(-10, -1, -1), test.ShouldBeNil)
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
 			on, powerPct, err := m.IsPowered(context.Background(), nil)
@@ -241,7 +241,7 @@ func TestEncodedMotor(t *testing.T) {
 	t.Run("encoded motor test SetPower interrupts GoFor", func(t *testing.T) {
 		t.Skip("temporary skip for flake")
 		go func() {
-			test.That(t, m.goForInternal(context.Background(), 10, 1, 1), test.ShouldBeNil)
+			test.That(t, m.goForInternal(10, 1, 1), test.ShouldBeNil)
 		}()
 
 		testutils.WaitForAssertion(t, func(tb testing.TB) {

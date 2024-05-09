@@ -412,6 +412,8 @@ func (mgr *Manager) Remove(modName string) ([]resource.Name, error) {
 	return orphanedResourceNames, nil
 }
 
+// closeModule attempts to cleanly shut down the module process. It does not wait on module recovery processes,
+// as they are running outside code and may have unexpected behavior.
 func (mgr *Manager) closeModule(mod *module, reconfigure bool) error {
 	// resource manager should've removed these cleanly if this isn't a reconfigure
 	if !reconfigure && len(mod.resources) != 0 {
@@ -890,8 +892,13 @@ func (mgr *Manager) attemptRestart(ctx context.Context, mod *module) []resource.
 			break
 		}
 
-		// Wait with a bit of backoff.
-		utils.SelectContextOrWait(ctx, time.Duration(attempt)*oueRestartInterval)
+		// Wait with a bit of backoff. Exit early if context has errorred.
+		if !utils.SelectContextOrWait(ctx, time.Duration(attempt)*oueRestartInterval) {
+			mgr.logger.CInfow(
+				ctx, "Will not continue to attempt restarting crashed module", "module", mod.cfg.Name, "reason", ctx.Err().Error(),
+			)
+			return orphanedResourceNames
+		}
 	}
 	processRestarted = true
 
@@ -1088,8 +1095,11 @@ func (m *module) stopProcess() error {
 
 	// TODO(RSDK-2551): stop ignoring exit status 143 once Python modules handle
 	// SIGTERM correctly.
-	if err := m.process.Stop(); err != nil &&
-		!strings.Contains(err.Error(), errMessageExitStatus143) {
+	// Also ignore if error is that the process no longer exists.
+	if err := m.process.Stop(); err != nil {
+		if strings.Contains(err.Error(), errMessageExitStatus143) || strings.Contains(err.Error(), "no such process") {
+			return nil
+		}
 		return err
 	}
 	return nil

@@ -616,6 +616,7 @@ func TestSyncConfigUpdateBehavior(t *testing.T) {
 		initSyncIntervalMins float64
 		newSyncDisabled      bool
 		newSyncIntervalMins  float64
+		newMaxSyncThreads    int
 	}{
 		{
 			name:                 "all sync config stays the same, syncer should not cancel, ticker stays the same",
@@ -637,6 +638,14 @@ func TestSyncConfigUpdateBehavior(t *testing.T) {
 			initSyncIntervalMins: syncIntervalMins,
 			newSyncDisabled:      true,
 			newSyncIntervalMins:  syncIntervalMins,
+		},
+		{
+			name:                 "sync gets new number of background threads, should update",
+			initSyncDisabled:     false,
+			initSyncIntervalMins: syncIntervalMins,
+			newSyncDisabled:      false,
+			newSyncIntervalMins:  syncIntervalMins,
+			newMaxSyncThreads:    10,
 		},
 	}
 
@@ -678,6 +687,7 @@ func TestSyncConfigUpdateBehavior(t *testing.T) {
 			// Reconfigure the dmsvc with new sync configs
 			cfg.ScheduledSyncDisabled = tc.newSyncDisabled
 			cfg.SyncIntervalMins = tc.newSyncIntervalMins
+			cfg.MaximumNumSyncThreads = tc.newMaxSyncThreads
 
 			err = dmsvc.Reconfigure(context.Background(), resources, resource.Config{
 				ConvertedAttributes:  cfg,
@@ -697,6 +707,9 @@ func TestSyncConfigUpdateBehavior(t *testing.T) {
 			if tc.initSyncDisabled != tc.newSyncDisabled ||
 				tc.initSyncIntervalMins != tc.newSyncIntervalMins {
 				test.That(t, initTicker, test.ShouldNotEqual, newTicker)
+			}
+			if tc.newMaxSyncThreads != 0 {
+				test.That(t, newBuildInSvc.maxSyncThreads, test.ShouldEqual, tc.newMaxSyncThreads)
 			}
 		})
 	}
@@ -905,8 +918,10 @@ func (m *mockStreamingDCClient) CloseSend() error {
 }
 
 func getTestSyncerConstructorMock(client mockDataSyncServiceClient) datasync.ManagerConstructor {
-	return func(identity string, _ v1.DataSyncServiceClient, logger logging.Logger, viamCaptureDotDir string) (datasync.Manager, error) {
-		return datasync.NewManager(identity, client, logger, viamCaptureDotDir)
+	return func(identity string, _ v1.DataSyncServiceClient, logger logging.Logger,
+		viamCaptureDotDir string, maxSyncThreads int,
+	) (datasync.Manager, error) {
+		return datasync.NewManager(identity, client, logger, viamCaptureDotDir, maxSyncThreads)
 	}
 }
 
