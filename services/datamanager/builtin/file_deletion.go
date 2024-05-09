@@ -21,7 +21,7 @@ var (
 	deleteEveryNth               = 5
 )
 
-var errAtSizeThreshold = errors.New("capture dir is at correct size")
+var errAtSizeThreshold = errors.New("capture directory has reached or exceeded disk usage threshold for deletion")
 
 func shouldDeleteBasedOnDiskUsage(ctx context.Context, captureDirPath string, logger logging.Logger) (bool, error) {
 	usage := diskusage.NewDiskUsage(captureDirPath)
