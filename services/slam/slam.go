@@ -94,6 +94,22 @@ func FromDependencies(deps resource.Dependencies, name string) (Service, error) 
 }
 
 // Service describes the functions that are available to the service.
+// 
+// Position example:
+//     // Get the current position of the specified source component
+//     // in the SLAM map as a Pose.
+//     pos, name, err := mySLAMService.Position(context.Background())
+// PointCloudMap example:
+//     // Get the point cloud map in standard PCD format.
+//     pcd_map, err := mySLAMService.PointCloudMap(
+//         context.Background(), true)
+// InternalState example:
+//     // Get the internal state of the SLAM algorithm required
+//     // to continue mapping/localization.
+//     internalState, err := mySlam.InternalState(context.Background())
+// Properties example:
+//     // Get the properties of your current SLAM session
+//     properties, err := mySlam.Properties(context.Background())
 type Service interface {
 	resource.Resource
 	Position(ctx context.Context) (spatialmath.Pose, string, error)
