@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"sync"
 	"time"
 
@@ -56,9 +57,12 @@ const defaultCaptureBufferSize = 4096
 const defaultFileLastModifiedMillis = 10000.0
 
 // Default time between disk size checks.
-const filesystemPollInterval = 30 * time.Second
+var filesystemPollInterval = 30 * time.Second
 
-var clock = clk.New()
+var (
+	clock          = clk.New()
+	deletionTicker = clk.New()
+)
 
 var errCaptureDirectoryConfigurationDisabled = errors.New("changing the capture directory is prohibited in this environment")
 
@@ -563,7 +567,7 @@ func (svc *builtIn) Reconfigure(
 		svc.fileDeletionRoutineCancelFn = cancelFunc
 		svc.fileDeletionBackgroundWorkers = &sync.WaitGroup{}
 		svc.fileDeletionBackgroundWorkers.Add(1)
-		go pollFilesystem(fileDeletionCtx, svc.fileDeletionBackgroundWorkers, svc.captureDir, &svc.syncer, svc.logger)
+		go pollFilesystem(fileDeletionCtx, svc.fileDeletionBackgroundWorkers, svc.captureDir, svc.syncer, svc.logger)
 	}
 
 	return nil
@@ -714,9 +718,12 @@ func generateMetadataKey(component, method string) string {
 	return fmt.Sprintf("%s/%s", component, method)
 }
 
-//nolint:unparam
-func pollFilesystem(ctx context.Context, wg *sync.WaitGroup, captureDir string, syncer *datasync.Manager, logger logging.Logger) {
-	t := time.NewTicker(filesystemPollInterval)
+func pollFilesystem(ctx context.Context, wg *sync.WaitGroup, captureDir string, syncer datasync.Manager, logger logging.Logger) {
+	if runtime.GOOS == "android" {
+		logger.Debug("file deletion if disk is full is not currently supported on Android")
+		return
+	}
+	t := deletionTicker.Ticker(filesystemPollInterval)
 	defer t.Stop()
 	defer wg.Done()
 	for {
@@ -730,6 +737,21 @@ func pollFilesystem(ctx context.Context, wg *sync.WaitGroup, captureDir string, 
 		case <-ctx.Done():
 			return
 		case <-t.C:
+			logger.Debug("checking disk usage")
+			shouldDelete, err := shouldDeleteBasedOnDiskUsage(ctx, captureDir, logger)
+			if err != nil {
+				logger.Errorw("error checking file system stats", "error", err)
+			}
+			if shouldDelete {
+				start := time.Now()
+				deletedFileCount, err := deleteFiles(ctx, syncer, captureDir, logger)
+				duration := time.Since(start)
+				if err != nil {
+					logger.Errorw("error deleting cached datacapture files", "error", err, "execution time", duration.Seconds())
+				} else {
+					logger.Infof("%v files have been deleted to avoid the disk filling up, execution time: %f", deletedFileCount, duration.Seconds())
+				}
+			}
 		}
 	}
 }

@@ -44,6 +44,8 @@ type Manager interface {
 	SyncFile(path string)
 	SetArbitraryFileTags(tags []string)
 	Close()
+	MarkInProgress(path string) bool
+	UnmarkInProgress(path string)
 }
 
 // syncer is responsible for uploading files in captureDir to the cloud.
@@ -134,10 +136,10 @@ func (s *syncer) SyncFile(path string) {
 			case <-s.cancelCtx.Done():
 				return
 			default:
-				if !s.markInProgress(path) {
+				if !s.MarkInProgress(path) {
 					return
 				}
-				defer s.unmarkInProgress(path)
+				defer s.UnmarkInProgress(path)
 				//nolint:gosec
 				f, err := os.Open(path)
 				if err != nil {
@@ -230,19 +232,21 @@ func (s *syncer) syncArbitraryFile(f *os.File) {
 	}
 }
 
-// markInProgress marks path as in progress in s.inProgress. It returns true if it changed the progress status,
+// MarkInProgress marks path as in progress in s.inProgress. It returns true if it changed the progress status,
 // or false if the path was already in progress.
-func (s *syncer) markInProgress(path string) bool {
+func (s *syncer) MarkInProgress(path string) bool {
 	s.progressLock.Lock()
 	defer s.progressLock.Unlock()
 	if s.inProgress[path] {
+		s.logger.Warnw("File already in progress, trying to mark it again", "file", path)
 		return false
 	}
 	s.inProgress[path] = true
 	return true
 }
 
-func (s *syncer) unmarkInProgress(path string) {
+// UnmarkInProgress unmarks a path as in progress in s.inProgress.
+func (s *syncer) UnmarkInProgress(path string) {
 	s.progressLock.Lock()
 	defer s.progressLock.Unlock()
 	delete(s.inProgress, path)
