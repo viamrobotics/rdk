@@ -333,7 +333,7 @@ func TestObstacleReplanningGlobe(t *testing.T) {
 		PositionPollingFreqHz: 1, ObstaclePollingFreqHz: 20, PlanDeviationMM: epsilonMM, ObstacleDetectors: obstacleDetectorSlice,
 	}
 
-	extra := map[string]interface{}{"max_ik_solutions": 1, "smooth_iter": 1}
+	extra := map[string]interface{}{"max_replans": 10, "max_ik_solutions": 1, "smooth_iter": 1}
 	extraNoReplan := map[string]interface{}{"max_replans": 0, "max_ik_solutions": 1, "smooth_iter": 1}
 
 	// We set a flag here per test case so that detections are not returned the first time each vision service is called
@@ -369,7 +369,9 @@ func TestObstacleReplanningGlobe(t *testing.T) {
 					return []*viz.Object{}, nil
 				}
 				// The camera is parented to the base. Thus, this will always see an obstacle 300mm in front of where the base is.
-				obstaclePosition := spatialmath.NewPoseFromPoint(r3.Vector{X: 0, Y: 300, Z: 0})
+				// Note: for createMoveOnGlobeEnvironment, the camera is given an orientation such that it is pointing left, not
+				// forwards. Thus, an obstacle in front of the base will be seen as being in +X.
+				obstaclePosition := spatialmath.NewPoseFromPoint(r3.Vector{X: 300, Y: 0, Z: 0})
 				box, err := spatialmath.NewBox(obstaclePosition, r3.Vector{X: 20, Y: 20, Z: 10}, caseName)
 				test.That(t, err, test.ShouldBeNil)
 
@@ -392,7 +394,7 @@ func TestObstacleReplanningGlobe(t *testing.T) {
 				}
 				// This base will always see an obstacle 800mm in front of it, triggering several replans.
 				// However, enough replans should eventually get it to its goal.
-				obstaclePosition := spatialmath.NewPoseFromPoint(r3.Vector{X: 0, Y: 800, Z: 0})
+				obstaclePosition := spatialmath.NewPoseFromPoint(r3.Vector{X: 800, Y: 0, Z: 0})
 				box, err := spatialmath.NewBox(obstaclePosition, r3.Vector{X: 20, Y: 20, Z: 10}, caseName)
 				test.That(t, err, test.ShouldBeNil)
 

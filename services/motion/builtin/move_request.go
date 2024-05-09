@@ -133,7 +133,6 @@ func (mr *moveRequest) AnchorGeoPose() *spatialmath.GeoPose {
 // execute attempts to follow a given Plan starting from the index percribed by waypointIndex.
 // Note that waypointIndex is an atomic int that is incremented in this function after each waypoint has been successfully reached.
 func (mr *moveRequest) execute(ctx context.Context, plan motionplan.Plan) (state.ExecuteResponse, error) {
-	mr.logger.Debug("calling GoToInputs")
 	waypoints, err := plan.Trajectory().GetFrameInputs(mr.kinematicBase.Name().ShortName())
 	if err != nil {
 		return state.ExecuteResponse{}, err
@@ -514,8 +513,6 @@ func (ms *builtIn) newMoveOnGlobeRequest(
 		{Min: -straightlineDistance * 3, Max: straightlineDistance * 3},
 		{Min: -2 * math.Pi, Max: 2 * math.Pi},
 	} // Note: this is only for diff drive, not used for PTGs
-	ms.logger.CDebugf(ctx, "base limits: %v", limits)
-
 	kb, err := kinematicbase.WrapWithKinematics(ctx, b, ms.logger, localizer, limits, kinematicsOptions)
 	if err != nil {
 		return nil, err

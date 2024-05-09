@@ -166,7 +166,7 @@ func createMoveOnGlobeEnvironment(ctx context.Context, t *testing.T, origin *geo
 	dynamicMovementSensor.PositionFunc = func(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
 		poseInFrame, err := kb.CurrentPosition(ctx)
 		test.That(t, err, test.ShouldBeNil)
-		heading := poseInFrame.Pose().Orientation().OrientationVectorDegrees().Theta
+		heading := poseInFrame.Pose().Orientation().OrientationVectorDegrees().Theta + 180
 		distance := poseInFrame.Pose().Point().Norm()
 		pt := origin.PointAtDistanceAndBearing(distance*1e-6, heading)
 		return pt, 0, nil
