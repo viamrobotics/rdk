@@ -1,7 +1,0 @@
-{
-    "n_matches": 9,
-    "nms_win_size_px": 7,
-    "threshold": 20,
-    "oriented": true,
-    "radius_px": 16
-}

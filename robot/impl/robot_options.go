@@ -1,13 +1,8 @@
 package robotimpl
 
-import (
-	"go.viam.com/rdk/robot/web"
-)
-
 // options configures a Robot.
 type options struct {
 	// webOptions are used to initially configure the web service.
-	webOptions []web.Option
 
 	// viamHomeDir is used to configure the Viam home directory.
 	viamHomeDir string
@@ -37,14 +32,6 @@ func newFuncOption(f func(*options)) *funcOption {
 	return &funcOption{
 		f: f,
 	}
-}
-
-// WithWebOptions returns a Option which sets the streamConfig
-// used to enable audio/video streaming over WebRTC.
-func WithWebOptions(opts ...web.Option) Option {
-	return newFuncOption(func(o *options) {
-		o.webOptions = opts
-	})
 }
 
 // WithRevealSensitiveConfigDiffs returns an Option which causes config

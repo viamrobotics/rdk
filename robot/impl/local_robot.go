@@ -359,11 +359,7 @@ func newWithResources(
 	logger logging.Logger,
 	opts ...Option,
 ) (robot.LocalRobot, error) {
-	var rOpts options
 	var err error
-	for _, opt := range opts {
-		opt.apply(&rOpts)
-	}
 
 	closeCtx, cancel := context.WithCancel(ctx)
 	r := &localRobot{
@@ -377,14 +373,13 @@ func newWithResources(
 			},
 			logger,
 		),
-		operations:                 operation.NewManager(logger),
-		logger:                     logger,
-		closeContext:               closeCtx,
-		cancelBackgroundWorkers:    cancel,
-		triggerConfig:              make(chan struct{}),
-		configTicker:               nil,
-		revealSensitiveConfigDiffs: rOpts.revealSensitiveConfigDiffs,
-		cloudConnSvc:               icloud.NewCloudConnectionService(cfg.Cloud, logger),
+		operations:              operation.NewManager(logger),
+		logger:                  logger,
+		closeContext:            closeCtx,
+		cancelBackgroundWorkers: cancel,
+		triggerConfig:           make(chan struct{}),
+		configTicker:            nil,
+		cloudConnSvc:            icloud.NewCloudConnectionService(cfg.Cloud, logger),
 	}
 	r.mostRecentCfg.Store(config.Config{})
 	var heartbeatWindow time.Duration
@@ -427,7 +422,7 @@ func newWithResources(
 
 	// we assume these never appear in our configs and as such will not be removed from the
 	// resource graph
-	r.webSvc = web.New(r, logger, rOpts.webOptions...)
+	r.webSvc = web.New(r, logger)
 	r.frameSvc, err = framesystem.New(ctx, resource.Dependencies{}, logger)
 	if err != nil {
 		return nil, err
@@ -463,9 +458,6 @@ func newWithResources(
 	}
 
 	homeDir := config.ViamDotDir
-	if rOpts.viamHomeDir != "" {
-		homeDir = rOpts.viamHomeDir
-	}
 	// Once web service is started, start module manager
 	r.manager.startModuleManager(
 		closeCtx,
