@@ -74,10 +74,9 @@ type odometry struct {
 	useCompass bool
 	shiftPos   bool
 
-	cancelFunc              func()
-	activeBackgroundWorkers sync.WaitGroup
-	mu                      sync.Mutex
-	logger                  logging.Logger
+	workers rdkutils.StoppableWorkers
+	mu      sync.Mutex
+	logger  logging.Logger
 }
 
 func init() {
@@ -129,9 +128,8 @@ func (o *odometry) Reconfigure(ctx context.Context, deps resource.Dependencies, 
 		}
 	}
 
-	if o.cancelFunc != nil {
-		o.cancelFunc()
-		o.activeBackgroundWorkers.Wait()
+	if o.workers != nil {
+		o.workers.Stop()
 	}
 
 	o.mu.Lock()
@@ -215,9 +213,7 @@ func (o *odometry) Reconfigure(ctx context.Context, deps resource.Dependencies, 
 
 	o.orientation.Yaw = 0
 	o.originCoord = geo.NewPoint(0, 0)
-	ctx, cancelFunc := context.WithCancel(context.Background())
-	o.cancelFunc = cancelFunc
-	o.trackPosition(ctx)
+	o.workers = rdkutils.NewStoppableWorkers(o.trackPosition)
 
 	return nil
 }
@@ -332,8 +328,7 @@ func (o *odometry) Properties(ctx context.Context, extra map[string]interface{})
 }
 
 func (o *odometry) Close(ctx context.Context) error {
-	o.cancelFunc()
-	o.activeBackgroundWorkers.Wait()
+	o.workers.Stop()
 	return nil
 }
 
@@ -359,96 +354,92 @@ func (o *odometry) checkBaseProps(ctx context.Context) {
 // The estimations in this function are based on the math outlined in this article:
 // https://stuff.mit.edu/afs/athena/course/6/6.186/OldFiles/2005/doc/odomtutorial/odomtutorial.pdf
 func (o *odometry) trackPosition(ctx context.Context) {
-	o.activeBackgroundWorkers.Add(1)
-	utils.PanicCapturingGo(func() {
-		defer o.activeBackgroundWorkers.Done()
-		ticker := time.NewTicker(time.Duration(o.timeIntervalMSecs) * time.Millisecond)
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			default:
-			}
-
-			// Sleep until it's time to update the position again.
-			select {
-			case <-ctx.Done():
-				return
-			case <-ticker.C:
-			}
-
-			// Use GetInParallel to ensure the left and right motors are polled at the same time.
-			positionFuncs := func() []rdkutils.FloatFunc {
-				fs := []rdkutils.FloatFunc{}
-
-				// Always use the first pair until more than one pair of motors is supported in this model.
-				fs = append(fs, func(ctx context.Context) (float64, error) { return o.motors[0].left.Position(ctx, nil) })
-				fs = append(fs, func(ctx context.Context) (float64, error) { return o.motors[0].right.Position(ctx, nil) })
-
-				return fs
-			}
-
-			_, positions, err := rdkutils.GetInParallel(ctx, positionFuncs())
-			if err != nil {
-				o.logger.CError(ctx, err)
-				continue
-			}
-
-			// Current position of the left and right motors in revolutions.
-			if len(positions) != len(o.motors)*2 {
-				o.logger.CError(ctx, "error getting both motor positions, trying again")
-				continue
-			}
-			left := positions[0]
-			right := positions[1]
-
-			// Base properties need to be checked every time because dependent components reconfiguring does not trigger
-			// the parent component to reconfigure. In this case, that means if the base properties change, the wheeled
-			// odometry movement sensor will not be aware of these changes and will continue to use the old values
-			o.checkBaseProps(ctx)
-
-			// Difference in the left and right motors since the last iteration, in mm.
-			leftDist := (left - o.lastLeftPos) * o.wheelCircumference
-			rightDist := (right - o.lastRightPos) * o.wheelCircumference
-
-			// Update lastLeftPos and lastRightPos to be the current position in mm.
-			o.lastLeftPos = left
-			o.lastRightPos = right
-
-			// Linear and angular distance the center point has traveled. This works based on
-			// the assumption that the time interval between calulations is small enough that
-			// the inner angle of the rotation will be small enough that it can be accurately
-			// estimated using the below equations.
-			centerDist := (leftDist + rightDist) / 2
-			centerAngle := (rightDist - leftDist) / o.baseWidth
-
-			// Update the position and orientation values accordingly.
-			o.mu.Lock()
-			o.orientation.Yaw += centerAngle
-
-			// Limit the yaw to a range of positive 0 to 360 degrees.
-			o.orientation.Yaw = math.Mod(o.orientation.Yaw, oneTurn)
-			o.orientation.Yaw = math.Mod(o.orientation.Yaw+oneTurn, oneTurn)
-			angle := o.orientation.Yaw
-			xFlip := -1.0
-			if o.useCompass {
-				angle = rdkutils.DegToRad(yawToCompassHeading(o.orientation.Yaw))
-				xFlip = 1.0
-			}
-			o.position.X += xFlip * (centerDist * math.Sin(angle))
-			o.position.Y += (centerDist * math.Cos(angle))
-
-			distance := math.Hypot(o.position.X, o.position.Y)
-			heading := rdkutils.RadToDeg(math.Atan2(o.position.X, o.position.Y))
-			o.coord = o.originCoord.PointAtDistanceAndBearing(distance*mToKm, heading)
-
-			// Update the linear and angular velocity values using the provided time interval.
-			o.linearVelocity.Y = centerDist / (o.timeIntervalMSecs / 1000)
-			o.angularVelocity.Z = centerAngle * (180 / math.Pi) / (o.timeIntervalMSecs / 1000)
-
-			o.mu.Unlock()
+	ticker := time.NewTicker(time.Duration(o.timeIntervalMSecs) * time.Millisecond)
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		default:
 		}
-	})
+
+		// Sleep until it's time to update the position again.
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+		}
+
+		// Use GetInParallel to ensure the left and right motors are polled at the same time.
+		positionFuncs := func() []rdkutils.FloatFunc {
+			fs := []rdkutils.FloatFunc{}
+
+			// Always use the first pair until more than one pair of motors is supported in this model.
+			fs = append(fs, func(ctx context.Context) (float64, error) { return o.motors[0].left.Position(ctx, nil) })
+			fs = append(fs, func(ctx context.Context) (float64, error) { return o.motors[0].right.Position(ctx, nil) })
+
+			return fs
+		}
+
+		_, positions, err := rdkutils.GetInParallel(ctx, positionFuncs())
+		if err != nil {
+			o.logger.CError(ctx, err)
+			continue
+		}
+
+		// Current position of the left and right motors in revolutions.
+		if len(positions) != len(o.motors)*2 {
+			o.logger.CError(ctx, "error getting both motor positions, trying again")
+			continue
+		}
+		left := positions[0]
+		right := positions[1]
+
+		// Base properties need to be checked every time because dependent components reconfiguring does not trigger
+		// the parent component to reconfigure. In this case, that means if the base properties change, the wheeled
+		// odometry movement sensor will not be aware of these changes and will continue to use the old values
+		o.checkBaseProps(ctx)
+
+		// Difference in the left and right motors since the last iteration, in mm.
+		leftDist := (left - o.lastLeftPos) * o.wheelCircumference
+		rightDist := (right - o.lastRightPos) * o.wheelCircumference
+
+		// Update lastLeftPos and lastRightPos to be the current position in mm.
+		o.lastLeftPos = left
+		o.lastRightPos = right
+
+		// Linear and angular distance the center point has traveled. This works based on
+		// the assumption that the time interval between calulations is small enough that
+		// the inner angle of the rotation will be small enough that it can be accurately
+		// estimated using the below equations.
+		centerDist := (leftDist + rightDist) / 2
+		centerAngle := (rightDist - leftDist) / o.baseWidth
+
+		// Update the position and orientation values accordingly.
+		o.mu.Lock()
+		o.orientation.Yaw += centerAngle
+
+		// Limit the yaw to a range of positive 0 to 360 degrees.
+		o.orientation.Yaw = math.Mod(o.orientation.Yaw, oneTurn)
+		o.orientation.Yaw = math.Mod(o.orientation.Yaw+oneTurn, oneTurn)
+		angle := o.orientation.Yaw
+		xFlip := -1.0
+		if o.useCompass {
+			angle = rdkutils.DegToRad(yawToCompassHeading(o.orientation.Yaw))
+			xFlip = 1.0
+		}
+		o.position.X += xFlip * (centerDist * math.Sin(angle))
+		o.position.Y += (centerDist * math.Cos(angle))
+
+		distance := math.Hypot(o.position.X, o.position.Y)
+		heading := rdkutils.RadToDeg(math.Atan2(o.position.X, o.position.Y))
+		o.coord = o.originCoord.PointAtDistanceAndBearing(distance*mToKm, heading)
+
+		// Update the linear and angular velocity values using the provided time interval.
+		o.linearVelocity.Y = centerDist / (o.timeIntervalMSecs / 1000)
+		o.angularVelocity.Z = centerAngle * (180 / math.Pi) / (o.timeIntervalMSecs / 1000)
+
+		o.mu.Unlock()
+	}
 }
 
 func (o *odometry) DoCommand(ctx context.Context,
