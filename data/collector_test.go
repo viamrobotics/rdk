@@ -264,11 +264,11 @@ func TestCtxCancelledNotLoggedAfterClose(t *testing.T) {
 
 	params := CollectorParams{
 		ComponentName: "testComponent",
-		Interval:      time.Nanosecond,
+		Interval:      time.Millisecond,
 		MethodParams:  map[string]*anypb.Any{"name": fakeVal},
 		Target:        target,
-		QueueSize:     250,  //queueSize,
-		BufferSize:    4096, //bufferSize,
+		QueueSize:     queueSize,
+		BufferSize:    bufferSize,
 		Logger:        logger,
 	}
 	c, _ := NewCollector(errorCapturer, params)
@@ -279,7 +279,8 @@ func TestCtxCancelledNotLoggedAfterClose(t *testing.T) {
 
 	failedLogs := logs.FilterLevelExact(zapcore.ErrorLevel)
 	if failedLogs.Len() != 0 {
-		fmt.Println("FailedLogs:", failedLogs)
+		// The test is going to fail. Output the logs for diagnostics.
+		logger.Error("FailedLogs:", failedLogs)
 	}
 	test.That(t, failedLogs.Len(), test.ShouldEqual, 0)
 }

@@ -171,12 +171,6 @@ func (c *collector) sleepBasedCapture(started chan struct{}) {
 
 		select {
 		case <-c.cancelCtx.Done():
-			// Dan: It's unclear to me why this handling differs from the above error handling with
-			// `c.cancelCtx.Err()`. When this case returns, it's guaranteed that `c.cancelCtx.Err()`
-			// is non-nil. The reason why the test passes most of the time is because the above
-			// `c.clock.Sleep` is long enough such that the test's `collector.Close` happens during
-			// the sleep. Reducing the sleep interval to a small value makes it much easier for the
-			// `Context.Err` check to be observed first.
 			captureWorkers.Wait()
 			close(c.captureResults)
 			return
