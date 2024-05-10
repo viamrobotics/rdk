@@ -75,6 +75,7 @@ type module struct {
 	client     pb.ModuleServiceClient
 	addr       string
 	resources  map[resource.Name]*addedResource
+	mu         sync.Mutex
 
 	// pendingRemoval allows delaying module close until after resources within it are closed
 	pendingRemoval bool
@@ -507,6 +508,10 @@ func (mgr *Manager) ReconfigureResource(ctx context.Context, conf resource.Confi
 	if err != nil {
 		return err
 	}
+	// A lock is necessary because resources that do not depend on each other may be
+	// added concurrently.
+	mod.mu.Lock()
+	defer mod.mu.Unlock()
 	mod.resources[conf.ResourceName()] = &addedResource{conf, deps}
 
 	return nil
