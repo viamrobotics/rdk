@@ -6,6 +6,7 @@ import (
 	"crypto/x509"
 	"errors"
 	"os"
+	"strings"
 	"sync"
 	"testing"
 
@@ -1849,4 +1850,78 @@ func managerForDummyRobot(t *testing.T, robot robot.Robot) *resourceManager {
 		test.That(t, manager.resources.AddNode(name, gNode), test.ShouldBeNil)
 	}
 	return manager
+}
+
+func FuzzReconfigureParity(f *testing.F) {
+	type TestCase struct {
+		config   string
+		reconfig string
+	}
+	testcases := []TestCase{
+		{
+			config:   `{"components":[{"name":"m","type":"motor","model":"fake"}]}`,
+			reconfig: `{"components":[{"name":"m","type":"motor","model":"fake"}]}`,
+		},
+		{
+			config: `{
+				"components":
+					[
+						{"name":"b","type":"base","model":"fake"},
+						{"name":"m","type":"motor","model":"fake","depends_on":["b"]}
+					],
+				"services":
+					[
+						{"name":"s","type":"slam","model":"fake","depends_on":["b"]}
+					]
+				}`,
+			reconfig: `{
+				"components":
+					[
+						{"name":"b","type":"base","model":"fake"},
+						{"name":"m","type":"motor","model":"fake","depends_on":["b"]},
+						{"name":"m1","type":"motor","model":"fake","depends_on":["m"]}
+					],
+				"services":
+					[
+						{"name":"s","type":"slam","model":"fake","depends_on":["b"]}
+					]
+				}`,
+		},
+	}
+	for _, tc := range testcases {
+		f.Add(tc.config, tc.reconfig)
+	}
+	f.Fuzz(func(t *testing.T, cfgJson string, reCfgJson string) {
+		logger := logging.NewTestLogger(t)
+		ctx := context.Background()
+
+		cfg, err := config.FromReader(ctx, "somepath", strings.NewReader(cfgJson), logger)
+		if err != nil {
+			t.Skip("failed to parse initial config", err)
+		}
+		reCfg, err := config.FromReader(ctx, "somepath", strings.NewReader(reCfgJson), logger)
+		if err != nil {
+			t.Skip("failed to parse updated config", err)
+		}
+
+		r1 := setupLocalRobot(t, ctx, cfg, logger).(*localRobot)
+		r2 := setupLocalRobot(t, ctx, cfg, logger).(*localRobot)
+
+		test.That(
+			t,
+			rdktestutils.NewResourceNameSet(r1.ResourceNames()...),
+			test.ShouldResemble,
+			rdktestutils.NewResourceNameSet(r2.ResourceNames()...),
+		)
+
+		r1.Reconfigure(ctx, reCfg)
+		r2.ReconfigureSync(ctx, reCfg)
+
+		test.That(
+			t,
+			rdktestutils.NewResourceNameSet(r1.ResourceNames()...),
+			test.ShouldResemble,
+			rdktestutils.NewResourceNameSet(r2.ResourceNames()...),
+		)
+	})
 }
