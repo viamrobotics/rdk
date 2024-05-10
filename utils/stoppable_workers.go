@@ -15,6 +15,7 @@ import (
 type StoppableWorkers interface {
 	AddWorkers(...func(context.Context))
 	Stop()
+	StopWithTrigger(func())
 	Context() context.Context
 }
 
@@ -63,10 +64,19 @@ func (sw *stoppableWorkersImpl) AddWorkers(funcs ...func(context.Context)) {
 
 // Stop shuts down all the goroutines we started up.
 func (sw *stoppableWorkersImpl) Stop() {
+	sw.StopWithTrigger(func() {})
+}
+
+// StopWithTrigger shuts down all the goroutines we started up, and runs the trigger function while
+// waiting for that to happen. In uncommon situations, you might need to perform some side effect
+// after canceling the context and before waiting for the goroutines to shut down, and that's what
+// this function is for.
+func (sw *stoppableWorkersImpl) StopWithTrigger(trigger func()) {
 	sw.mu.Lock()
 	defer sw.mu.Unlock()
 
 	sw.cancelFunc()
+	trigger()
 	sw.activeBackgroundWorkers.Wait()
 }
 
