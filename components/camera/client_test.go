@@ -772,14 +772,13 @@ func TestMultiplexOverRemoteConnection(t *testing.T) {
 	test.That(t, image, test.ShouldNotBeNil)
 	greenLog(t, "got images")
 
+	recvPktsCtx, recvPktsFn := context.WithCancel(context.Background())
 	sub, err := cameraClient.(rtppassthrough.Source).SubscribeRTP(mainCtx, 4096, func(pkts []*rtp.Packet) {
-		t.Log("got em")
-		t.FailNow()
+		recvPktsFn()
 	})
 	test.That(t, err, test.ShouldBeNil)
+	<-recvPktsCtx.Done()
 	greenLog(t, "got packets")
-
-	time.Sleep(time.Second)
 
 	err = cameraClient.(rtppassthrough.Source).Unsubscribe(mainCtx, sub.ID)
 	test.That(t, err, test.ShouldBeNil)

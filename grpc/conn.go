@@ -9,6 +9,7 @@ import (
 	"github.com/pion/webrtc/v3"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/utils/rpc"
+	"golang.org/x/exp/maps"
 	googlegrpc "google.golang.org/grpc"
 )
 
@@ -72,16 +73,15 @@ func (c *ReconfigurableClientConn) ReplaceConn(conn rpc.ClientConn) {
 		golog.Global().Infof("DBG. OnTrack added. PC: %p\n", pc)
 		pc.OnTrack(func(trackRemote *webrtc.TrackRemote, rtpReceiver *webrtc.RTPReceiver) {
 			golog.Global().Infof("DBG. OnTrack called. PC: %p\n", pc)
-			name, err := resource.NewFromString(trackRemote.StreamID())
-			if err != nil {
-				golog.Global().Errorf("StreamID did not parse as a StreamID ResourceName: %s", trackRemote.StreamID())
-				return
-			}
 			c.resOnTrackMu.Lock()
+
+			// hack to get around import cycle
+			// needs to be kept in sync with caemra.Named()
+			name := resource.NewName(resource.APINamespaceRDK.WithComponentType("camera"), trackRemote.StreamID())
 			onTrackCB, ok := c.resOnTrackCBs[name]
 			c.resOnTrackMu.Unlock()
 			if !ok {
-				golog.Global().Errorf("Callback not found for StreamID: %s", trackRemote.StreamID())
+				golog.Global().Fatalf("Callback not found for StreamID: %s, keys(resOnTrackCBs): %#v", trackRemote.StreamID(), maps.Keys(c.resOnTrackCBs))
 				return
 			}
 			onTrackCB(trackRemote, rtpReceiver)
@@ -117,12 +117,12 @@ func (c *ReconfigurableClientConn) Close() error {
 func (c *ReconfigurableClientConn) AddOnTrackSub(name resource.Name, onTrackCB OnTrackCB) {
 	c.resOnTrackMu.Lock()
 	defer c.resOnTrackMu.Unlock()
-	c.resOnTrackCBs[name] = onTrackCB
+	c.resOnTrackCBs[resource.RemoveRemoteName(name)] = onTrackCB
 }
 
 // RemoveOnTrackSub removes an OnTrack subscription for the resource.
 func (c *ReconfigurableClientConn) RemoveOnTrackSub(name resource.Name) {
 	c.resOnTrackMu.Lock()
 	defer c.resOnTrackMu.Unlock()
-	delete(c.resOnTrackCBs, name)
+	delete(c.resOnTrackCBs, resource.RemoveRemoteName(name))
 }

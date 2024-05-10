@@ -287,18 +287,20 @@ func (svc *webService) startAudioStream(ctx context.Context, source gostream.Aud
 
 // refreshVideoSources checks and initializes every possible video source that could be viewed from the robot.
 func (svc *webService) refreshVideoSources() {
-	for _, name := range camera.ResourceNamesFromRobot(svc.r) {
-		cam, err := robot.ResourceFromRobot[camera.Camera](svc.r, name)
+	for _, name := range camera.NamesFromRobot(svc.r) {
+		cam, err := camera.FromRobot(svc.r, name)
+		// for _, name := range camera.ResourceNamesFromRobot(svc.r) {
+		// 	cam, err := robot.ResourceFromRobot[camera.Camera](svc.r, name)
 		if err != nil {
 			continue
 		}
-		existing, ok := svc.videoSources[validSDPTrackName(name)]
+		existing, ok := svc.videoSources[resource.SDPTrackName(cam.Name())]
 		if ok {
 			existing.Swap(cam)
 			continue
 		}
 		newSwapper := gostream.NewHotSwappableVideoSource(cam)
-		svc.videoSources[validSDPTrackName(name)] = newSwapper
+		svc.videoSources[resource.SDPTrackName(cam.Name())] = newSwapper
 	}
 }
 
@@ -309,13 +311,13 @@ func (svc *webService) refreshAudioSources() {
 		if err != nil {
 			continue
 		}
-		existing, ok := svc.audioSources[validSDPTrackName(name)]
+		existing, ok := svc.audioSources[resource.SDPTrackName(input.Name())]
 		if ok {
 			existing.Swap(input)
 			continue
 		}
 		newSwapper := gostream.NewHotSwappableAudioSource(input)
-		svc.audioSources[validSDPTrackName(name)] = newSwapper
+		svc.audioSources[resource.SDPTrackName(input.Name())] = newSwapper
 	}
 }
 

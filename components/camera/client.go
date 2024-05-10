@@ -25,7 +25,6 @@ import (
 	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/gostream"
 	"go.viam.com/rdk/grpc"
-	rdkgrpc "go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/protoutils"
@@ -464,7 +463,10 @@ func (c *client) SubscribeRTP(
 		sc.AddOnTrackSub(c.Name(), c.addOnTrackSubFunc(trackReceived, trackClosed, sub.ID))
 		// remove the OnTrackSub once we either fail or succeed
 		defer sc.RemoveOnTrackSub(c.Name())
-		if _, err := c.streamClient.AddStream(ctx, &streampb.AddStreamRequest{Name: c.Name().Name}); err != nil {
+
+		// c.logger.CDebugw(ctx, "SubscribeRTP calling AddStream", "subID", sub.ID.String(), "c.Name()", c.Name(), "c.Name().Name", c.Name().Name, "resource.RemoveRemoteName(c.Name())", resource.RemoveRemoteName(c.Name()), "resource.RemoveRemoteName(c.Name()).String()", resource.RemoveRemoteName(c.Name()), "err", err)
+
+		if _, err := c.streamClient.AddStream(ctx, &streampb.AddStreamRequest{Name: resource.RemoveRemoteName(c.Name()).ShortName()}); err != nil {
 			c.logger.CDebugw(ctx, "SubscribeRTP AddStream hit error", "subID", sub.ID.String(), "name", c.Name(), "err", err)
 			return rtppassthrough.NilSubscription, err
 		}
@@ -520,7 +522,7 @@ func (c *client) SubscribeRTP(
 func (c *client) addOnTrackSubFunc(
 	trackReceived, trackClosed chan struct{},
 	parentID rtppassthrough.SubscriptionID,
-) rdkgrpc.OnTrackCB {
+) grpc.OnTrackCB {
 	return func(tr *webrtc.TrackRemote, r *webrtc.RTPReceiver) {
 		close(trackReceived)
 		c.activeBackgroundWorkers.Add(1)
@@ -590,11 +592,6 @@ func (c *client) Unsubscribe(ctx context.Context, id rtppassthrough.Subscription
 		return ErrNoPeerConnection
 	}
 
-	_, ok := c.conn.(*rdkgrpc.SharedConn)
-	if !ok {
-		c.mu.Unlock()
-		return ErrNoSharedPeerConnection
-	}
 	c.logger.CDebugw(ctx, "Unsubscribe called with", "name", c.Name(), "subID", id.String())
 
 	bufAndCB, ok := c.bufAndCBByID[id]
@@ -606,7 +603,7 @@ func (c *client) Unsubscribe(ctx context.Context, id rtppassthrough.Subscription
 
 	if len(c.bufAndCBByID) == 1 {
 		c.logger.CDebugw(ctx, "Unsubscribe calling RemoveStream", "name", c.Name(), "subID", id.String())
-		if _, err := c.streamClient.RemoveStream(ctx, &streampb.RemoveStreamRequest{Name: c.Name().String()}); err != nil {
+		if _, err := c.streamClient.RemoveStream(ctx, &streampb.RemoveStreamRequest{Name: resource.RemoveRemoteName(c.Name()).ShortName()}); err != nil {
 			c.logger.CWarnw(ctx, "Unsubscribe RemoveStream returned err", "name", c.Name(), "subID", id.String(), "err", err)
 			c.mu.Unlock()
 			return err
