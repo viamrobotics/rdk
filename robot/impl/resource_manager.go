@@ -519,6 +519,7 @@ func (manager *resourceManager) Close(ctx context.Context) error {
 func (manager *resourceManager) completeConfig(
 	ctx context.Context,
 	lr *localRobot,
+	forceSync bool,
 ) {
 	manager.configLock.Lock()
 	defer func() {
@@ -781,8 +782,7 @@ func (manager *resourceManager) completeConfigForRemotes(ctx context.Context, lr
 
 				switch {
 				case resName.API.IsComponent(), resName.API.IsService():
-					wg.Add(1)
-					go func() {
+					processResource := func() {
 						defer wg.Done()
 
 						newRes, newlyBuilt, err := manager.processResource(ctxWithTimeout, conf, gNode, lr)
@@ -813,7 +813,14 @@ func (manager *resourceManager) completeConfigForRemotes(ctx context.Context, lr
 						} else {
 							gNode.SwapResource(newRes, conf.Model)
 						}
-					}()
+					}
+
+					wg.Add(1)
+					if forceSync {
+						processResource()
+					} else {
+						go processResource()
+					}
 
 				default:
 					err := errors.New("config is not for a component or service")
