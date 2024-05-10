@@ -33,6 +33,7 @@ var InternalServiceName = resource.NewName(API, "builtin")
 // A Service that returns the frame system for a robot.
 //
 // TransformPose example:
+//
 //	// Define a Pose coincident with the world reference frame
 //	firstPose := spatialmath.NewPoseFromPoint(r3.Vector{X: 0.0, Y: 0.0, Z: 0.0})
 //
