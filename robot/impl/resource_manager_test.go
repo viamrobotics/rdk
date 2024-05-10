@@ -1891,7 +1891,7 @@ func FuzzReconfigureParity(f *testing.F) {
 	for _, tc := range testcases {
 		f.Add(tc.config, tc.reconfig)
 	}
-	f.Fuzz(func(t *testing.T, cfgJson string, reCfgJson string) {
+	f.Fuzz(func(t *testing.T, cfgJson, reCfgJson string) {
 		logger := logging.NewTestLogger(t)
 		ctx := context.Background()
 
