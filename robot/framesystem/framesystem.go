@@ -35,7 +35,7 @@ var InternalServiceName = resource.NewName(API, "builtin")
 // TransformPose example:
 //
 //	// Define a Pose coincident with the world reference frame
-//	firstPose := spatialmath.NewPoseFromPoint(r3.Vector{X: 0.0, Y: 0.0, Z: 0.0})
+//	firstPose := spatialmath.NewZeroPose()
 //
 //	// Establish the world as the reference for firstPose
 //	firstPoseInFrame := referenceframe.NewPoseInFrame(referenceframe.World, firstPose)
