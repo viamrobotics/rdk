@@ -42,6 +42,16 @@ var InternalServiceName = resource.NewName(API, "builtin")
 //
 //	// Calculate firstPoseInFrame from the perspective of the origin frame of myArm
 //	transformedPoseInFrame, err := machine.TransformPose(context.Background(), firstPoseInFrame, "myArm", nil)
+//
+// TransformPointCloud example:
+//	// Create an empty slice to store point cloud data.
+//	pointClouds := make([]pointCloud.PointCloud, 0)
+//
+//	Transform the first point cloud in the list from its reference frame to the frame of 'myArm'.
+//	transformed, err := machine.TransformPointCloud(context.Background(), pointClouds[0], referenceframe.World, "myArm")
+//
+// CurrentInputs example:
+//
 type Service interface {
 	resource.Resource
 
@@ -57,7 +67,7 @@ type Service interface {
 	// TransformPointCloud returns a new point cloud where the points have been adjusted from one reference frame to a specified destination frame.
 	TransformPointCloud(ctx context.Context, srcpc pointcloud.PointCloud, srcName, dstName string) (pointcloud.PointCloud, error)
 
-	// CurrentInputs returns a map of the current input configurations and a map of the status of enabled inputs for the machine's configured frame system.
+	// CurrentInputs returns a map of the current inputs for a robot's frame system and a map of statuses indicating whether these inputs are active.
 	CurrentInputs(ctx context.Context) (map[string][]referenceframe.Input, map[string]referenceframe.InputEnabled, error)
 
 	// FrameSystem returns the frame system of the machine and incorporates any specified additional transformations.
