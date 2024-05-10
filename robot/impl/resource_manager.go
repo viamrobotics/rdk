@@ -718,6 +718,7 @@ func (manager *resourceManager) completeConfigForRemotes(ctx context.Context, lr
 	levels := manager.resources.ReverseTopologicalSortInLevels()
 	timeout := rutils.GetResourceConfigurationTimeout(manager.logger)
 	for _, resourceNames := range levels {
+		var wg sync.WaitGroup
 		for _, resName := range resourceNames {
 			select {
 			case <-ctx.Done():
@@ -780,34 +781,39 @@ func (manager *resourceManager) completeConfigForRemotes(ctx context.Context, lr
 
 				switch {
 				case resName.API.IsComponent(), resName.API.IsService():
-					newRes, newlyBuilt, err := manager.processResource(ctxWithTimeout, conf, gNode, lr)
-					if newlyBuilt || err != nil {
-						if err := manager.markChildrenForUpdate(resName); err != nil {
-							manager.logger.CErrorw(ctx,
-								"failed to mark children of resource for update",
-								"resource", resName,
-								"reason", err)
+					wg.Add(1)
+					go func() {
+						defer wg.Done()
+
+						newRes, newlyBuilt, err := manager.processResource(ctxWithTimeout, conf, gNode, lr)
+						if newlyBuilt || err != nil {
+							if err := manager.markChildrenForUpdate(resName); err != nil {
+								manager.logger.CErrorw(ctx,
+									"failed to mark children of resource for update",
+									"resource", resName,
+									"reason", err)
+							}
 						}
-					}
 
-					if err != nil {
-						gNode.LogAndSetLastError(
-							fmt.Errorf("resource build error: %w", err),
-							"resource", conf.ResourceName(),
-							"model", conf.Model)
-						return
-					}
+						if err != nil {
+							gNode.LogAndSetLastError(
+								fmt.Errorf("resource build error: %w", err),
+								"resource", conf.ResourceName(),
+								"model", conf.Model)
+							return
+						}
 
-					// if the ctxWithTimeout fails with DeadlineExceeded, then that means that
-					// resource generation is running async, and we don't currently have good
-					// validation around how this might affect the resource graph. So, we avoid
-					// updating the graph to be safe.
-					if errors.Is(ctxWithTimeout.Err(), context.DeadlineExceeded) {
-						manager.logger.CErrorw(
-							ctx, "error building resource", "resource", conf.ResourceName(), "model", conf.Model, "error", ctxWithTimeout.Err())
-					} else {
-						gNode.SwapResource(newRes, conf.Model)
-					}
+						// if the ctxWithTimeout fails with DeadlineExceeded, then that means that
+						// resource generation is running async, and we don't currently have good
+						// validation around how this might affect the resource graph. So, we avoid
+						// updating the graph to be safe.
+						if errors.Is(ctxWithTimeout.Err(), context.DeadlineExceeded) {
+							manager.logger.CErrorw(
+								ctx, "error building resource", "resource", conf.ResourceName(), "model", conf.Model, "error", ctxWithTimeout.Err())
+						} else {
+							gNode.SwapResource(newRes, conf.Model)
+						}
+					}()
 
 				default:
 					err := errors.New("config is not for a component or service")
@@ -825,6 +831,7 @@ func (manager *resourceManager) completeConfigForRemotes(ctx context.Context, lr
 				return
 			}
 		} // for-each resource name
+		wg.Wait()
 	} // for-each level
 }
 
