@@ -81,21 +81,81 @@ type Properties struct {
 }
 
 // A Service controls the navigation for a robot.
+//
+// Mode example:
+//	// Get the Mode the service is operating in
+//	mode, err := myNav.Mode(context.Background(), nil)
+//
+// SetMode example:
+//	// Set the Mode the service is operating in to ModeWaypoint and begin navigation
+//	err := myNav.SetMode(context.Background(), navigation.ModeWaypoint, nil)
+//
+// Location example:
+//	// Get the current location of the robot in the navigation service
+//	location, err := myNav.Location(context.Background(), nil)
+//
+// Waypoints example:
+//	waypoints, err := myNav.Waypoints(context.Background(), nil)
+//
+// AddWaypoint example:
+//	// Create a new waypoint with latitude and longitude values of 0 degrees
+//	// Assumes you have imported "github.com/kellydunn/golang-geo" as `geo`
+//	location := geo.NewPoint(0, 0)
+//
+//	// Add your waypoint to the service's data storage
+//	err := myNav.AddWaypoint(context.Background(), location, nil)
+//
+// RemoveWaypoint example:
+//	// Create a new ObjectID
+//	// Assumes you have imported "go.mongodb.org/mongo-driver/bson/primitive"
+//	waypoint_id := primitive.NewObjectID()
+//
+//	// Remove the waypoint matching that ObjectID from the service's data storage
+//	err := myNav.RemoveWaypoint(context.Background(), waypoint_id, nil)
+//
+// Obstacles example:
+//	// Get an array containing each obstacle stored by the navigation service
+//	obstacles, err := myNav.Obstacles(context.Background(), nil)
+//
+// Paths example:
+//	// Get an array containing each path stored by the navigation service
+//	paths, err := myNav.Paths(context.Background(), nil)
+//
+// Properties example:
+//	// Get the properties of the current navigation service
+//	navProperties, err := myNav.Properties(context.Background())
 type Service interface {
 	resource.Resource
+
+	// Mode returns the Mode the service is operating in.
 	Mode(ctx context.Context, extra map[string]interface{}) (Mode, error)
+
+	// SetMode sets the mode the service is operating in.
 	SetMode(ctx context.Context, mode Mode, extra map[string]interface{}) error
+
+	// Location returns the current location of the machine in the navigation service.
 	Location(ctx context.Context, extra map[string]interface{}) (*spatialmath.GeoPose, error)
 
-	// Waypoint
+	// Waypoints returns an array of waypoints currently in the service's data storage.
+	// These are locations designated within a path for the machine to navigate to.
 	Waypoints(ctx context.Context, extra map[string]interface{}) ([]Waypoint, error)
+
+	// AddWaypoint adds a waypoint to the service's data storage.
 	AddWaypoint(ctx context.Context, point *geo.Point, extra map[string]interface{}) error
+
+	// RemoveWaypoint removes a waypoint from the service's data storage.
+	// If the machine is currently navigating to this waypoint, the motion will be canceled, and the machine will proceed to the next waypoint.
 	RemoveWaypoint(ctx context.Context, id primitive.ObjectID, extra map[string]interface{}) error
 
+	// Obstacles returns a list of objects representing all obstacles that a machine should avoid.
+	// This includes transient obstacles identified by the configured vision service and predefined obstacles in the navigation service's data storage.
 	Obstacles(ctx context.Context, extra map[string]interface{}) ([]*spatialmath.GeoObstacle, error)
 
+	// Paths returns each path, which is a series of geo points.
+	// These points outline the planned travel route to a destination waypoint in the machine’s motion planning.
 	Paths(ctx context.Context, extra map[string]interface{}) ([]*Path, error)
 
+	// Properties returns information about the configured navigation service.
 	Properties(ctx context.Context) (Properties, error)
 }
 
