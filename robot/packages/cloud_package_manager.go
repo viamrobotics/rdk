@@ -31,6 +31,8 @@ import (
 
 const (
 	allowedContentType = "application/x-gzip"
+	// URI scheme for local system, see https://datatracker.ietf.org/doc/rfc3986/
+	fileScheme = "file://"
 )
 
 var (
@@ -122,7 +124,7 @@ func (m *cloudManager) Close(ctx context.Context) error {
 // getPackageURL fetches package download URL from API, or creates a `file://` URL from pkg.LocalPath.
 func getPackageURL(ctx context.Context, logger logging.Logger, client pb.PackageServiceClient, pkg config.PackageConfig) (string, error) {
 	if len(pkg.LocalPath) > 0 {
-		return fmt.Sprintf("file://%s", pkg.LocalPath), nil
+		return fmt.Sprintf("%s%s", fileScheme, pkg.LocalPath), nil
 	}
 	packageType, err := config.PackageTypeToProto(pkg.Type)
 	if err != nil {
@@ -197,7 +199,7 @@ func (m *cloudManager) Sync(ctx context.Context, packages []config.PackageConfig
 			}
 		}
 
-		// download package from a http endpoint
+		// download package from a http endpoint, or copy from p.LocalPath if synthetic
 		err = m.downloadPackage(ctx, packageURL, p, nonEmptyPaths)
 		if err != nil {
 			m.logger.Errorf("Failed downloading package %s:%s from %s, %s", p.Package, p.Version, sanitizeURLForLogs(packageURL), err)
@@ -456,7 +458,8 @@ func (m *cloudManager) downloadPackage(ctx context.Context, url string, p config
 
 	var contentType string
 	dstPath := p.LocalDownloadPath(m.packagesDir)
-	if pathOnly, found := strings.CutPrefix(url, "file://"); found {
+	if pathOnly, found := strings.CutPrefix(url, fileScheme); found {
+		// this branch does local copy for file:// URIs
 		src, err := os.Open(pathOnly) //nolint:gosec
 		if err != nil {
 			return err
