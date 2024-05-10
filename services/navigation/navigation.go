@@ -122,12 +122,13 @@ type Properties struct {
 //
 // Paths example:
 //	// Get an array containing each path stored by the navigation service
-//paths, err := myNav.Paths(context.Background(), nil)
+//	paths, err := myNav.Paths(context.Background(), nil)
 //
 // Properties example:
 //
 //	// Get the properties of the current navigation service
 //	navProperties, err := myNav.Properties(context.Background())
+//
 type Service interface {
 	resource.Resource
 

@@ -41,7 +41,7 @@ var InternalServiceName = resource.NewName(API, "builtin")
 //	firstPoseInFrame := referenceframe.NewPoseInFrame(referenceframe.World, firstPose)
 //
 //	// Calculate firstPoseInFrame from the perspective of the origin frame of myArm
-//	transformedPoseInFrame, err := machine.TransformPose(context.Background(), firstPoseInFrame, "myArm", nil)
+//	transformedPoseInFrame, err := fsService.TransformPose(context.Background(), firstPoseInFrame, "myArm", nil)
 //
 // TransformPointCloud example:
 //
@@ -49,11 +49,13 @@ var InternalServiceName = resource.NewName(API, "builtin")
 //	pointClouds := make([]pointcloud.PointCloud, 0)
 //
 //	Transform the first point cloud in the list from its reference frame to the frame of 'myArm'.
-//	transformed, err := machine.TransformPointCloud(context.Background(), pointClouds[0], referenceframe.World, "myArm")
+//	transformed, err := fsService.TransformPointCloud(context.Background(), pointClouds[0], referenceframe.World, "myArm")
 //
 // CurrentInputs example:
 //
-//	myCurrentInputs, err := myArm.CurrentInputs(context.Background())
+//	myCurrentInputs, err := fsService.CurrentInputs(context.Background())
+//
+// frameSystem, err := fsService.FrameSystem(context.Background(), nil)
 type Service interface {
 	resource.Resource
 
