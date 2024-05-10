@@ -74,7 +74,7 @@ func StringToMapType(mapTypeName string) (MapType, error) {
 	return 0, errors.Errorf("invalid map_type '%v' given", mapTypeName)
 }
 
-// Properties returns information regarding the current navigation service. This includes the map type
+// Properties returns information about the MapType that the configured navigation service is using.
 // being ingested and used by the navigation service.
 type Properties struct {
 	MapType MapType
@@ -140,7 +140,7 @@ type Service interface {
 	// Location returns the current location of the machine in the navigation service.
 	Location(ctx context.Context, extra map[string]interface{}) (*spatialmath.GeoPose, error)
 
-	// Waypoints returns an array of waypoints currently in the service's data storage.
+	// Waypoints returns an array of waypoints currently in the service's data storage which have not yet been reached.
 	// These are locations designated within a path for the machine to navigate to.
 	Waypoints(ctx context.Context, extra map[string]interface{}) ([]Waypoint, error)
 
