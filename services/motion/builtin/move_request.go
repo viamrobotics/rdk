@@ -180,10 +180,17 @@ func (mr *moveRequest) getTransientDetections(
 		camName.ShortName(),
 	)
 
-	currentInputs, _, err := mr.getCurrentInputsAndPosition(ctx)
+	baseExecutionState, err := mr.kinematicBase.ExecutionState(ctx)
 	if err != nil {
 		return nil, err
 	}
+	inputMap := referenceframe.StartPositions(mr.absoluteFS)
+	inputMap[mr.kinematicBase.Name().ShortName()] = baseExecutionState.CurrentInputs()[mr.kinematicBase.Name().ShortName()]
+	inputMap[mr.kinematicBase.ExecutionFrame().Name()] = referenceframe.FloatsToInputs([]float64{
+		baseExecutionState.CurrentPoses()[mr.kinematicBase.ExecutionFrame().Name()].Pose().Point().X,
+		baseExecutionState.CurrentPoses()[mr.kinematicBase.ExecutionFrame().Name()].Pose().Point().Y,
+		baseExecutionState.CurrentPoses()[mr.kinematicBase.ExecutionFrame().Name()].Pose().Point().Z,
+	})
 
 	detections, err := visSrvc.GetObjectPointClouds(ctx, camName.Name, nil)
 	if err != nil {
@@ -200,12 +207,9 @@ func (mr *moveRequest) getTransientDetections(
 			label += "_" + geometry.Label()
 		}
 		geometry.SetLabel(label)
-
 		tf, err := mr.absoluteFS.Transform(
-			currentInputs,
-			referenceframe.NewGeometriesInFrame(
-				camName.ShortName(), []spatialmath.Geometry{geometry},
-			),
+			inputMap,
+			referenceframe.NewGeometriesInFrame(camName.ShortName(), []spatialmath.Geometry{geometry}),
 			referenceframe.World,
 		)
 		if err != nil {
@@ -270,6 +274,7 @@ func (mr *moveRequest) obstaclesIntersectPlan(
 			// configuration rather than the zero inputs
 			inputMap := referenceframe.StartPositions(mr.planRequest.FrameSystem)
 			inputMap[mr.kinematicBase.Name().ShortName()] = baseExecutionState.CurrentInputs()[mr.kinematicBase.Name().ShortName()]
+			inputMap[mr.kinematicBase.ExecutionFrame().Name()] = baseExecutionState.CurrentInputs()[mr.kinematicBase.ExecutionFrame().Name()]
 			executionState, err := motionplan.NewExecutionState(
 				baseExecutionState.Plan(),
 				baseExecutionState.Index(),
@@ -281,7 +286,7 @@ func (mr *moveRequest) obstaclesIntersectPlan(
 			}
 
 			mr.logger.CDebugf(ctx, "CheckPlan inputs: \n currentPosition: %v\n currentInputs: %v\n worldstate: %s",
-				spatialmath.PoseToProtobuf(executionState.CurrentPoses()[mr.kinematicBase.Name().ShortName()].Pose()),
+				spatialmath.PoseToProtobuf(executionState.CurrentPoses()[mr.kinematicBase.ExecutionFrame().Name()].Pose()),
 				inputMap,
 				worldState.String(),
 			)
@@ -300,20 +305,6 @@ func (mr *moveRequest) obstaclesIntersectPlan(
 		}
 	}
 	return state.ExecuteResponse{}, nil
-}
-
-func (mr *moveRequest) getCurrentInputsAndPosition(
-	ctx context.Context,
-) (map[string][]referenceframe.Input, *referenceframe.PoseInFrame, error) {
-	currentInputs := referenceframe.StartPositions(mr.absoluteFS)
-	pif, err := mr.kinematicBase.CurrentPosition(ctx)
-	if err != nil {
-		return nil, nil, err
-	}
-	currentInputs[mr.kinematicBase.Name().ShortName()+"ExecutionFrame"] = referenceframe.FloatsToInputs(
-		[]float64{pif.Pose().Point().X, pif.Pose().Point().Y, pif.Pose().Orientation().OrientationVectorRadians().Theta},
-	)
-	return currentInputs, pif, nil
 }
 
 func kbOptionsFromCfg(motionCfg *validatedMotionConfiguration, validatedExtra validatedExtra) kinematicbase.Options {

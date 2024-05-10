@@ -187,7 +187,11 @@ func (ptgk *ptgBaseKinematics) ExecutionFrame() referenceframe.Frame {
 func (ptgk *ptgBaseKinematics) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
 	ptgk.inputLock.RLock()
 	defer ptgk.inputLock.RUnlock()
-	return ptgk.currentState.currentInputs, nil
+
+	// ptgk.Localizer.
+	planningFrameInputs := ptgk.currentState.currentInputs
+	planningFrameInputs = append(planningFrameInputs, []referenceframe.Input{}...)
+	return planningFrameInputs, nil
 }
 
 func (ptgk *ptgBaseKinematics) ExecutionState(ctx context.Context) (motionplan.ExecutionState, error) {
@@ -210,7 +214,7 @@ func (ptgk *ptgBaseKinematics) ExecutionState(ctx context.Context) (motionplan.E
 		currentPlan,
 		currentIdx,
 		map[string][]referenceframe.Input{ptgk.Kinematics().Name(): currentInputs},
-		map[string]*referenceframe.PoseInFrame{ptgk.Kinematics().Name(): actualPIF},
+		map[string]*referenceframe.PoseInFrame{ptgk.ExecutionFrame().Name(): actualPIF},
 	)
 }
 

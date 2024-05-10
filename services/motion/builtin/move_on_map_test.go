@@ -603,7 +603,6 @@ func TestMoveOnMapStaticObs(t *testing.T) {
 
 		// place obstacle in opposte position and show that the generate path
 		// collides with obstacleLeft
-
 		wrldSt, err := referenceframe.NewWorldState(
 			[]*referenceframe.GeometriesInFrame{
 				referenceframe.NewGeometriesInFrame(
@@ -618,7 +617,7 @@ func TestMoveOnMapStaticObs(t *testing.T) {
 			1,
 			referenceframe.StartPositions(mr.planRequest.FrameSystem),
 			map[string]*referenceframe.PoseInFrame{
-				mr.planRequest.Frame.Name(): referenceframe.NewPoseInFrame(referenceframe.World, spatialmath.NewPose(
+				mr.kinematicBase.ExecutionFrame().Name(): referenceframe.NewPoseInFrame(referenceframe.World, spatialmath.NewPose(
 					r3.Vector{X: 0.58772e3, Y: -0.80826e3, Z: 0},
 					&spatialmath.OrientationVectorDegrees{OZ: 1, Theta: 0},
 				)),

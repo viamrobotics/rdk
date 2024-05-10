@@ -5,6 +5,7 @@ package kinematicbase
 import (
 	"context"
 	"errors"
+	"math"
 	"sync"
 	"time"
 
@@ -201,7 +202,11 @@ func WrapWithFakePTGKinematics(
 	// construct execution frame
 	executionFrame, err := referenceframe.New2DMobileModelFrame(
 		b.Name().ShortName()+"ExecutionFrame",
-		planningFrame.DoF()[:3],
+		[]referenceframe.Limit{
+			{Min: math.Inf(-1), Max: math.Inf(1)},
+			{Min: math.Inf(-1), Max: math.Inf(1)},
+			{Min: -360, Max: 360},
+		},
 		nil,
 	)
 	if err != nil {
@@ -217,8 +222,8 @@ func WrapWithFakePTGKinematics(
 		return nil, errors.New("unable to cast ptgk frame to a PTG Provider")
 	}
 	ptgs := ptgProv.PTGSolvers()
-	traj := motionplan.Trajectory{{frame.Name(): zeroInput}}
-	path := motionplan.Path{{frame.Name(): referenceframe.NewPoseInFrame(origin.Parent(), spatialmath.Compose(origin.Pose(), sensorNoise))}}
+	traj := motionplan.Trajectory{{planningFrame.Name(): zeroInput}}
+	path := motionplan.Path{{planningFrame.Name(): referenceframe.NewPoseInFrame(origin.Parent(), spatialmath.Compose(origin.Pose(), sensorNoise))}}
 	zeroPlan := motionplan.NewSimplePlan(path, traj)
 
 	fk := &fakePTGKinematics{
@@ -261,9 +266,9 @@ func (fk *fakePTGKinematics) GoToInputs(ctx context.Context, inputSteps ...[]ref
 		fk.currentInput = zeroInput
 		fk.currentIndex = 0
 
-		traj := motionplan.Trajectory{{fk.frame.Name(): zeroInput}}
+		traj := motionplan.Trajectory{{fk.planningFrame.Name(): zeroInput}}
 		path := motionplan.Path{
-			{fk.frame.Name(): referenceframe.NewPoseInFrame(fk.origin.Parent(), spatialmath.Compose(fk.origin.Pose(), fk.sensorNoise))},
+			{fk.planningFrame.Name(): referenceframe.NewPoseInFrame(fk.origin.Parent(), spatialmath.Compose(fk.origin.Pose(), fk.sensorNoise))},
 		}
 		fk.plan = motionplan.NewSimplePlan(path, traj)
 		fk.inputLock.Unlock()
@@ -345,8 +350,8 @@ func (fk *fakePTGKinematics) ExecutionState(ctx context.Context) (motionplan.Exe
 	return motionplan.NewExecutionState(
 		fk.plan,
 		fk.currentIndex,
-		map[string][]referenceframe.Input{fk.frame.Name(): fk.currentInput},
-		map[string]*referenceframe.PoseInFrame{fk.frame.Name(): pos},
+		map[string][]referenceframe.Input{fk.Kinematics().Name(): fk.currentInput},
+		map[string]*referenceframe.PoseInFrame{fk.ExecutionFrame().Name(): pos},
 	)
 }
 
