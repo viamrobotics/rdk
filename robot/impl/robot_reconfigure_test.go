@@ -3540,9 +3540,10 @@ func TestResourceConstructCtxCancel(t *testing.T) {
 				API:   mockAPI,
 			},
 			{
-				Name:  "two",
-				Model: model1,
-				API:   mockAPI,
+				Name:      "two",
+				Model:     model1,
+				API:       mockAPI,
+				DependsOn: []string{"one"},
 			},
 		},
 	}
