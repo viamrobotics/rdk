@@ -12,6 +12,7 @@ import (
 	streampb "go.viam.com/api/stream/v1"
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
+	"golang.org/x/exp/maps"
 
 	"go.viam.com/rdk/gostream"
 	"go.viam.com/rdk/logging"
@@ -127,7 +128,7 @@ func (ss *Server) AddStream(ctx context.Context, req *streampb.AddStreamRequest)
 
 	// return error if there is no stream for that camera
 	if !ok {
-		err := fmt.Errorf("no stream for %q", req.Name)
+		err := fmt.Errorf("no stream for %q, available streams: %#v", req.Name, maps.Keys(ss.nameToStreamState))
 		ss.logger.Error(err.Error())
 		return nil, err
 	}
@@ -222,6 +223,7 @@ func (ss *Server) AddStream(ctx context.Context, req *streampb.AddStreamRequest)
 
 	// if the stream supports video, add the video track
 	if trackLocal, haveTrackLocal := streamStateToAdd.Stream.VideoTrackLocal(); haveTrackLocal {
+		ss.logger.Infof("AddStream calling addTrack on trackLocal.StreamID(): %s", trackLocal.StreamID())
 		if err := addTrack(trackLocal); err != nil {
 			ss.logger.Error(err.Error())
 			return nil, err

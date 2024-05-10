@@ -5,7 +5,6 @@ package state
 import (
 	"context"
 	"fmt"
-	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -423,13 +422,13 @@ func (ss *StreamState) restart(ctx context.Context) {
 }
 
 func (ss *StreamState) streamH264Passthrough(ctx context.Context) error {
-	for _, n := range camera.NamesFromRobot(ss.robot) {
-		ss.logger.CInfof(ctx, "NICK: %s", n)
-	}
-	n := strings.ReplaceAll(camera.Named(ss.Stream.Name()).ShortName(), "+", ":")
-	ss.logger.CInfof(ctx, "NICK: n: %s", n)
+	// for _, n := range camera.NamesFromRobot(ss.robot) {
+	// 	ss.logger.CInfof(ctx, "NICK: %s", n)
+	// }
+	// n := strings.ReplaceAll(camera.Named(ss.Stream.Name()).ShortName(), "+", ":")
+	// ss.logger.CInfof(ctx, "NICK: n: %s", n)
 
-	cam, err := camera.FromRobot(ss.robot, n)
+	cam, err := camera.FromRobot(ss.robot, ss.Stream.Name())
 	if err != nil {
 		return err
 	}
