@@ -83,21 +83,26 @@ type Properties struct {
 // A Service controls the navigation for a robot.
 //
 // Mode example:
+//
 //	// Get the Mode the service is operating in
 //	mode, err := myNav.Mode(context.Background(), nil)
 //
 // SetMode example:
+//
 //	// Set the Mode the service is operating in to ModeWaypoint and begin navigation
 //	err := myNav.SetMode(context.Background(), navigation.ModeWaypoint, nil)
 //
 // Location example:
+//
 //	// Get the current location of the robot in the navigation service
 //	location, err := myNav.Location(context.Background(), nil)
 //
 // Waypoints example:
+//
 //	waypoints, err := myNav.Waypoints(context.Background(), nil)
 //
 // AddWaypoint example:
+//
 //	// Create a new waypoint with latitude and longitude values of 0 degrees
 //	// Assumes you have imported "github.com/kellydunn/golang-geo" as `geo`
 //	location := geo.NewPoint(0, 0)
@@ -106,6 +111,7 @@ type Properties struct {
 //	err := myNav.AddWaypoint(context.Background(), location, nil)
 //
 // RemoveWaypoint example:
+//
 //	// Assuming you have already called AddWaypoint once and the waypoint has not yet been reached
 //	waypoints, err := myNav.Waypoints(context.Background(), nil)
 //	if (err != nil || len(waypoints) == 0) {
@@ -117,10 +123,12 @@ type Properties struct {
 //	err := myNav.RemoveWaypoint(context.Background(), waypoint_id, nil)
 //
 // Obstacles example:
+//
 //	// Get an array containing each obstacle stored by the navigation service
 //	obstacles, err := myNav.Obstacles(context.Background(), nil)
 //
 // Paths example:
+//
 //	// Get an array containing each path stored by the navigation service
 //	paths, err := myNav.Paths(context.Background(), nil)
 //
@@ -128,7 +136,6 @@ type Properties struct {
 //
 //	// Get the properties of the current navigation service
 //	navProperties, err := myNav.Properties(context.Background())
-//
 type Service interface {
 	resource.Resource
 
