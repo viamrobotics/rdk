@@ -1652,7 +1652,7 @@ Example:
 						&cli.StringFlag{
 							Name:     authApplicationFlagName,
 							Usage:    "updated name for the auth application",
-							Required: false,
+							Required: true,
 						},
 						&cli.StringSliceFlag{
 							Name:     authApplicationFlagOriginURIs,
