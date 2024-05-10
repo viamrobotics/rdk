@@ -11,12 +11,14 @@ import (
 	"testing"
 	"time"
 
+	"github.com/pion/rtp"
 	"go.viam.com/test"
 	"go.viam.com/utils/rpc"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
 
 	"go.viam.com/rdk/components/camera"
+	"go.viam.com/rdk/components/camera/rtppassthrough"
 	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/gostream"
 	viamgrpc "go.viam.com/rdk/grpc"
@@ -86,7 +88,7 @@ func TestClient(t *testing.T) {
 		images = append(images, camera.NamedImage{depth, "depth"})
 		// a timestamp of 12345
 		ts := time.UnixMilli(12345)
-		return images, resource.ResponseMetadata{ts}, nil
+		return images, resource.ResponseMetadata{CapturedAt: ts}, nil
 	}
 	injectCamera.StreamFunc = func(ctx context.Context, errHandlers ...gostream.ErrorHandler) (gostream.VideoStream, error) {
 		return gostream.NewEmbeddedVideoStreamFromReader(gostream.VideoReaderFunc(func(ctx context.Context) (image.Image, func(), error) {
@@ -622,4 +624,56 @@ func TestClientStreamAfterClose(t *testing.T) {
 	// Close client and connection
 	test.That(t, client.Close(context.Background()), test.ShouldBeNil)
 	test.That(t, conn.Close(), test.ShouldBeNil)
+}
+
+// See modmanager_test.go for the happy path (aka, when the
+// client has a webrtc connection).
+func TestRTPPassthroughWithoutWebRTC(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+	camName := "rtp_passthrough_camera"
+	listener1, err := net.Listen("tcp", "localhost:0")
+	test.That(t, err, test.ShouldBeNil)
+	rpcServer, err := rpc.NewServer(logger.AsZap(), rpc.WithUnauthenticated())
+	test.That(t, err, test.ShouldBeNil)
+
+	injectCamera := &inject.Camera{}
+	resources := map[resource.Name]camera.Camera{
+		camera.Named(camName): injectCamera,
+	}
+	cameraSvc, err := resource.NewAPIResourceCollection(camera.API, resources)
+	test.That(t, err, test.ShouldBeNil)
+	resourceAPI, ok, err := resource.LookupAPIRegistration[camera.Camera](camera.API)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, ok, test.ShouldBeTrue)
+	test.That(t, resourceAPI.RegisterRPCService(context.Background(), rpcServer, cameraSvc), test.ShouldBeNil)
+
+	go rpcServer.Serve(listener1)
+	defer rpcServer.Stop()
+
+	t.Run("Failing client", func(t *testing.T) {
+		cancelCtx, cancel := context.WithCancel(context.Background())
+		cancel()
+		_, err := viamgrpc.Dial(cancelCtx, listener1.Addr().String(), logger)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err, test.ShouldBeError, context.Canceled)
+	})
+
+	t.Run("rtp_passthrough client fails without webrtc connection", func(t *testing.T) {
+		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
+		test.That(t, err, test.ShouldBeNil)
+		camera1Client, err := camera.NewClientFromConn(context.Background(), conn, "", camera.Named(camName), logger)
+		test.That(t, err, test.ShouldBeNil)
+		rtpPassthroughClient, ok := camera1Client.(rtppassthrough.Source)
+		test.That(t, ok, test.ShouldBeTrue)
+		sub, err := rtpPassthroughClient.SubscribeRTP(context.Background(), 512, func(pkts []*rtp.Packet) {
+			t.Log("should not be called")
+			t.FailNow()
+		})
+		test.That(t, err, test.ShouldBeError, camera.ErrNoPeerConnection)
+		test.That(t, sub, test.ShouldResemble, rtppassthrough.NilSubscription)
+		err = rtpPassthroughClient.Unsubscribe(context.Background(), rtppassthrough.NilSubscription.ID)
+		test.That(t, err, test.ShouldBeError, camera.ErrNoPeerConnection)
+
+		test.That(t, conn.Close(), test.ShouldBeNil)
+	})
 }

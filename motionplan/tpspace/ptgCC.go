@@ -52,7 +52,6 @@ func (ptg *ptgCC) Velocities(alpha, dist float64) (float64, float64, error) {
 }
 
 func (ptg *ptgCC) Transform(inputs []referenceframe.Input) (spatialmath.Pose, error) {
-	// ~ fmt.Println("CC")
 	alpha := inputs[0].Value
 	dist := inputs[1].Value
 	reverseDistance := math.Abs(alpha) * 0.5 * ptg.turnRadius

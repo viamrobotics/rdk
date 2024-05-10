@@ -10,6 +10,7 @@ import (
 	servicepb "go.viam.com/api/service/datamanager/v1"
 
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/utils"
 )
 
@@ -30,8 +31,14 @@ func init() {
 }
 
 // Service defines what a Data Manager Service should expose to the users.
+//
+// Sync example:
+//
+//	// Sync data stored on the machine to the cloud.
+//	err := data.Sync(context.Background(), nil)
 type Service interface {
 	resource.Resource
+	// Sync will sync data stored on the machine to the cloud.
 	Sync(ctx context.Context, extra map[string]interface{}) error
 }
 
@@ -49,6 +56,16 @@ func Named(name string) resource.Name {
 // FromDependencies is a helper for getting the named data manager service from a collection of dependencies.
 func FromDependencies(deps resource.Dependencies, name string) (Service, error) {
 	return resource.FromDependencies[Service](deps, Named(name))
+}
+
+// FromRobot is a helper for getting the named data manager service from the given Robot.
+func FromRobot(r robot.Robot, name string) (Service, error) {
+	return robot.ResourceFromRobot[Service](r, Named(name))
+}
+
+// NamesFromRobot is a helper for getting all data manager services from the given Robot.
+func NamesFromRobot(r robot.Robot) []string {
+	return robot.NamesByAPI(r, API)
 }
 
 // AssociatedConfig specify a list of methods to capture on resources and implements the resource.AssociatedConfig interface.

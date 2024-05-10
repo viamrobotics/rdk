@@ -161,7 +161,12 @@ func (s *serviceServer) WriteAnalog(
 		return nil, err
 	}
 
-	err = b.WriteAnalog(ctx, req.Pin, req.Value, req.Extra.AsMap())
+	analog, err := b.AnalogByName(req.Pin)
+	if err != nil {
+		return nil, err
+	}
+
+	err = analog.Write(ctx, int(req.Value), req.Extra.AsMap())
 	if err != nil {
 		return nil, err
 	}
@@ -214,12 +219,6 @@ func (s *serviceServer) StreamTicks(
 	if err != nil {
 		return err
 	}
-
-	defer func() {
-		for _, i := range interrupts {
-			i.RemoveCallback(ticksChan)
-		}
-	}()
 
 	// Send an empty response first so the client doesn't block while checking for errors.
 	err = server.Send(&pb.StreamTicksResponse{})
