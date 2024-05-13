@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math"
+	"sync"
 	"testing"
 	"time"
 
@@ -338,14 +339,26 @@ func TestObstacleReplanningGlobe(t *testing.T) {
 
 	// We set a flag here per test case so that detections are not returned the first time each vision service is called
 	firstRunMap := map[string]bool{}
+	var mapMutex sync.RWMutex
+	setCase := func(caseName string) bool {
+		mapMutex.RLock()
+		if _, ok := firstRunMap[caseName]; !ok {
+			mapMutex.RUnlock()
+			mapMutex.Lock()
+			defer mapMutex.Unlock()
+			firstRunMap[caseName] = true
+			return false
+		}
+		return true
+	}
 
 	testCases := []testCase{
 		{
 			name: "ensure no replan from discovered obstacles",
 			getPCfunc: func(ctx context.Context, cameraName string, extra map[string]interface{}) ([]*viz.Object, error) {
 				caseName := "test-case-1"
-				if _, ok := firstRunMap[caseName]; !ok {
-					firstRunMap[caseName] = true
+				alreadyRun := setCase(caseName)
+				if !alreadyRun {
 					return []*viz.Object{}, nil
 				}
 				obstaclePosition := spatialmath.NewPoseFromPoint(r3.Vector{X: -1000, Y: -1000, Z: 0})
@@ -364,8 +377,8 @@ func TestObstacleReplanningGlobe(t *testing.T) {
 			name: "ensure replan due to obstacle collision",
 			getPCfunc: func(ctx context.Context, cameraName string, extra map[string]interface{}) ([]*viz.Object, error) {
 				caseName := "test-case-2"
-				if _, ok := firstRunMap[caseName]; !ok {
-					firstRunMap[caseName] = true
+				alreadyRun := setCase(caseName)
+				if !alreadyRun {
 					return []*viz.Object{}, nil
 				}
 				// The camera is parented to the base. Thus, this will always see an obstacle 300mm in front of where the base is.
@@ -388,8 +401,8 @@ func TestObstacleReplanningGlobe(t *testing.T) {
 			name: "ensure replan reaching goal",
 			getPCfunc: func(ctx context.Context, cameraName string, extra map[string]interface{}) ([]*viz.Object, error) {
 				caseName := "test-case-3"
-				if _, ok := firstRunMap[caseName]; !ok {
-					firstRunMap[caseName] = true
+				alreadyRun := setCase(caseName)
+				if !alreadyRun {
 					return []*viz.Object{}, nil
 				}
 				// This base will always see an obstacle 800mm in front of it, triggering several replans.
