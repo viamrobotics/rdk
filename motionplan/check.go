@@ -67,25 +67,6 @@ func checkPlanRelative(
 	lookAheadDistanceMM float64,
 	sfPlanner *planManager,
 ) error {
-	fmt.Println("executionState.currentInputs: ", executionState.currentInputs)
-	fmt.Println("executionState.currentPose: ", executionState.currentPose)
-	fmt.Println(" ")
-	plan := executionState.Plan()
-	wayPointIdx := executionState.Index()
-	startingInputs := plan.Trajectory()[wayPointIdx]
-
-	currentInputs := executionState.CurrentInputs()
-	currentPoses := executionState.CurrentPoses()
-	if currentPoses == nil {
-		return errors.New("executionState had nil return from CurrentPoses")
-	}
-	currentPoseIF, ok := currentPoses[checkFrame.Name()+"ExecutionFrame"]
-	if !ok {
-		return errors.New("checkFrameExecutionFrame not found in current pose map")
-	}
-
-	sf := sfPlanner.frame
-
 	// Validate the given PoseInFrame of the relative frame. Relative frame poses cannot be given in their own frame, or the frame of
 	// any of their children.
 	// TODO(RSDK-7421): there will need to be checks once there is a real possibility of multiple, hierarchical relative frames, or
@@ -136,37 +117,46 @@ func checkPlanRelative(
 		return poseInWorld, nil
 	}
 
-	// 1. assume we are in the middle of executing an arc --> this is segments[0]
-	// 2. add segments for remaining parts of plan which have not yet been traveled
+	plan := executionState.Plan()
+	wayPointIdx := executionState.Index()
+	startingInputs := executionState.currentInputs
+
+	currentInputs := executionState.CurrentInputs()
+	currentPoses := executionState.CurrentPoses()
+	if currentPoses == nil {
+		return errors.New("executionState had nil return from CurrentPoses")
+	}
+	executionFrameName := checkFrame.Name() + "ExecutionFrame"
+	currentPoseIF, ok := currentPoses[executionFrameName]
+	if !ok {
+		return errors.New("checkFrameExecutionFrame not found in current pose map")
+	}
+
+	sf := sfPlanner.frame
 
 	// Check that path pose is valid
 	stepEndPiF, ok := plan.Path()[wayPointIdx][checkFrame.Name()]
 	if !ok {
 		return errors.New("check frame given not in plan Path map")
 	}
-	fmt.Println("stepEndPiF: ", spatialmath.PoseToProtobuf(stepEndPiF.Pose()))
 	expectedArcEndInWorld, err := toWorld(stepEndPiF, plan.Trajectory()[wayPointIdx])
 	if err != nil {
 		return err
 	}
-	fmt.Println("expectedArcEndInWorld: ", spatialmath.PoseToProtobuf(expectedArcEndInWorld.Pose()))
 
 	currentPoseInWorld, err := toWorld(currentPoseIF, currentInputs)
 	if err != nil {
 		return err
 	}
-	fmt.Println("currentPoseInWorld: ", spatialmath.PoseToProtobuf(currentPoseInWorld.Pose()))
 
 	arcInputs, ok := plan.Trajectory()[wayPointIdx][checkFrame.Name()]
 	if !ok {
 		return errors.New("given checkFrame had no inputs in trajectory map at current index")
 	}
-	fmt.Println("arcInputs: ", arcInputs)
 	fullArcPose, err := checkFrame.Transform(arcInputs)
 	if err != nil {
 		return err
 	}
-	fmt.Println("fullArcPose: ", spatialmath.PoseToProtobuf(fullArcPose))
 
 	// Relative current inputs will give us the arc the base has executed. Calculating that transform and subtracting it from the
 	// arc end position (that is, the same-index node in plan.Path()) gives us our expected location.
@@ -174,8 +164,6 @@ func checkPlanRelative(
 	if !ok {
 		return errors.New("given checkFrame had no inputs in CurrentInputs map")
 	}
-	fmt.Println("frameCurrentInputs: ", frameCurrentInputs)
-	// here we need to add ExecutionFrame Inputs
 	poseThroughArc, err := checkFrame.Transform(frameCurrentInputs)
 	if err != nil {
 		return err
@@ -213,8 +201,6 @@ func checkPlanRelative(
 		return err
 	}
 
-	// create a list of segments to iterate through
-	// FOCUS ON THIS NOW
 	segments := make([]*ik.Segment, 0, len(plan.Path())-wayPointIdx)
 	// get checkFrame's currentInputs
 	// *currently* it is guaranteed that a relative frame will constitute 100% of a solver frame's dof
@@ -222,6 +208,7 @@ func checkPlanRelative(
 	if err != nil {
 		return err
 	}
+
 	poses, err := plan.Path().GetFramePoses(checkFrame.Name())
 	if err != nil {
 		return err
@@ -232,15 +219,14 @@ func checkPlanRelative(
 		poses[wayPointIdx].Point().Y,
 		poses[wayPointIdx].Orientation().OrientationVectorRadians().Theta,
 	})
-	// fmt.Println("checkFrameCurrentInputs: ", checkFrameCurrentInputs)
-	// fmt.Println("currentWayPointTraj: ", currentWayPointTraj)
-	// fmt.Println("expectedArcEndInWorld.Pose(): ", spatialmath.PoseToProtobuf(expectedArcEndInWorld.Pose()))
+
 	arcEndInputs, err := sf.mapToSlice(currentWayPointTraj)
 	if err != nil {
 		return err
 	}
 
 	currentArcEndPose := spatialmath.Compose(expectedArcEndInWorld.Pose(), errorState)
+
 	// pre-pend to segments so we can connect to the input we have not finished actuating yet
 	segments = append(segments, &ik.Segment{
 		StartPosition:      currentPoseInWorld.Pose(),
@@ -249,9 +235,9 @@ func checkPlanRelative(
 		EndConfiguration:   arcEndInputs,
 		Frame:              sf,
 	})
-	fmt.Println("segments[0]: ", segments[0].String())
 
 	lastArcEndPose := currentArcEndPose
+
 	// iterate through remaining plan and append remaining segments to check
 	for i := wayPointIdx + 1; i <= len(plan.Path())-1; i++ {
 		thisArcEndPoseTf, ok := plan.Path()[i][checkFrame.Name()]
@@ -264,7 +250,6 @@ func checkPlanRelative(
 		}
 		thisArcEndPose := spatialmath.Compose(thisArcEndPoseInWorld.Pose(), errorState)
 		// Starting inputs for relative frames should be all-zero
-		fmt.Println("plan.Trajectory()[i]: ", plan.Trajectory()[i])
 		startInputs := map[string][]referenceframe.Input{}
 		for k, v := range plan.Trajectory()[i] {
 			if k == checkFrame.Name() {
@@ -273,20 +258,18 @@ func checkPlanRelative(
 				startInputs[k] = v
 			}
 		}
-		fmt.Println("startInputs: ", startInputs)
-		segment, err := createSegment(sf, lastArcEndPose, thisArcEndPose, startInputs, plan.Trajectory()[i])
+
+		startInputs[executionFrameName] = frame.FloatsToInputs(
+			[]float64{lastArcEndPose.Point().X, lastArcEndPose.Point().Y, lastArcEndPose.Orientation().OrientationVectorRadians().Theta},
+		)
+		nextInputs := plan.Trajectory()[i]
+		nextInputs[executionFrameName] = startInputs[executionFrameName]
+		segment, err := createSegment(sf, lastArcEndPose, thisArcEndPose, startInputs, nextInputs)
 		if err != nil {
 			return err
 		}
 		lastArcEndPose = thisArcEndPose
 		segments = append(segments, segment)
-	}
-	fmt.Println(" ")
-	fmt.Println(" ")
-	fmt.Println(" ")
-	for _, s := range segments {
-		fmt.Println(s.String())
-		fmt.Println(" ")
 	}
 	return checkSegments(sfPlanner, segments, lookAheadDistanceMM)
 }
@@ -410,10 +393,7 @@ func checkSegments(sfPlanner *planManager, segments []*ik.Segment, lookAheadDist
 				return nil
 			}
 
-			// If we are working with a PTG plan the returned value for poseInPath will only
-			// tell us how far along the arc we have traveled. Since this is only the relative position,
-			//  i.e. relative to where the robot started executing the arc,
-			// we must compose poseInPath with segment.StartPosition to get the absolute position.
+			// construct state representing where we currently are in the path
 			interpolatedState := &ik.State{
 				Frame:         sfPlanner.frame,
 				Configuration: interpConfig,
@@ -424,7 +404,7 @@ func checkSegments(sfPlanner *planManager, segments []*ik.Segment, lookAheadDist
 				return fmt.Errorf("found constraint violation or collision in segment between %v and %v at %v: %s",
 					segment.StartPosition.Point(),
 					segment.EndPosition.Point(),
-					interpolatedState.Position.Point(),
+					poseInPath.Point(),
 					err,
 				)
 			}
@@ -433,181 +413,5 @@ func checkSegments(sfPlanner *planManager, segments []*ik.Segment, lookAheadDist
 		// Update total traveled distance after segment has been checked
 		totalTravelDistanceMM += segment.EndPosition.Point().Distance(segment.StartPosition.Point())
 	}
-	return nil
-}
-
-func CheckPlanYoSelf(
-	checkFrame referenceframe.Frame,
-	plan Plan,
-	wayPointIdx int,
-	worldState *referenceframe.WorldState,
-	fs referenceframe.FrameSystem,
-	currentPose spatialmath.Pose,
-	currentInputs map[string][]referenceframe.Input,
-	errorState spatialmath.Pose,
-	lookAheadDistanceMM float64,
-	logger logging.Logger,
-) error {
-	// ensure that we can actually perform the check
-	if len(plan.Path()) < 1 {
-		return errors.New("plan must have at least one element")
-	}
-
-	logger.Debugf("CheckPlan inputs: \n currentPosition: %v\n currentInputs: %v\n errorState: %v\n worldstate: %s",
-		spatialmath.PoseToProtobuf(currentPose),
-		currentInputs,
-		spatialmath.PoseToProtobuf(errorState),
-		worldState.String(),
-	)
-
-	// construct solverFrame
-	// Note that this requires all frames which move as part of the plan, to have an
-	// entry in the very first plan waypoint
-	sf, err := newSolverFrame(fs, checkFrame.Name(), frame.World, currentInputs)
-	if err != nil {
-		return err
-	}
-
-	// construct planager
-	sfPlanner, err := newPlanManager(sf, logger, defaultRandomSeed)
-	if err != nil {
-		return err
-	}
-
-	// This should be done for any plan whose configurations are specified in relative terms rather than absolute ones.
-	// Currently this is only TP-space, so we check if the PTG length is >0.
-	// The solver frame will have had its PTGs filled in the newPlanManager() call, if applicable.
-	relative := len(sf.PTGSolvers()) > 0
-
-	// offset the plan using the errorState
-	offsetPlan := OffsetPlan(plan, errorState)
-
-	// get plan poses for checkFrame
-	poses, err := offsetPlan.Path().GetFramePoses(checkFrame.Name())
-	if err != nil {
-		return err
-	}
-
-	// setup the planOpts
-	if sfPlanner.planOpts, err = sfPlanner.plannerSetupFromMoveRequest(
-		currentPose,
-		poses[len(poses)-1],
-		currentInputs,
-		worldState,
-		nil, // no pb.Constraints
-		nil, // no plannOpts
-	); err != nil {
-		return err
-	}
-
-	// create a list of segments to iterate through
-	segments := make([]*ik.Segment, 0, len(poses)-wayPointIdx)
-	if relative {
-		// get checkFrame's currentInputs
-		// *currently* it is guaranteed that a relative frame will constitute 100% of a solver frame's dof
-		checkFrameCurrentInputs, err := sf.mapToSlice(currentInputs)
-		if err != nil {
-			return err
-		}
-
-		// pre-pend to segments so we can connect to the input we have not finished actuating yet
-		segments = append(segments, &ik.Segment{
-			StartPosition:      currentPose,
-			EndPosition:        poses[wayPointIdx],
-			StartConfiguration: checkFrameCurrentInputs,
-			EndConfiguration:   checkFrameCurrentInputs,
-			Frame:              sf,
-		})
-	}
-
-	// function to ease further segment creation
-	createSegment := func(
-		currPose, nextPose spatialmath.Pose,
-		currInput, nextInput map[string][]frame.Input,
-	) (*ik.Segment, error) {
-		currInputSlice, err := sf.mapToSlice(currInput)
-		if err != nil {
-			return nil, err
-		}
-		nextInputSlice, err := sf.mapToSlice(nextInput)
-		if err != nil {
-			return nil, err
-		}
-		// If we are working with a PTG plan we redefine the startConfiguration in terms of the endConfiguration.
-		// This allows us the properly interpolate along the same arc family and sub-arc within that family.
-		if relative {
-			currInputSlice = nextInputSlice
-		}
-		return &ik.Segment{
-			StartPosition:      currPose,
-			EndPosition:        nextPose,
-			StartConfiguration: currInputSlice,
-			EndConfiguration:   nextInputSlice,
-			Frame:              sf,
-		}, nil
-	}
-
-	// iterate through remaining plan and append remaining segments to check
-	for i := wayPointIdx; i < len(offsetPlan.Path())-1; i++ {
-		currInput := offsetPlan.Trajectory()[i]
-		nextInput := offsetPlan.Trajectory()[i+1]
-		if relative {
-			currInput[checkFrame.Name()+"ExecutionFrame"] = frame.FloatsToInputs(
-				[]float64{poses[i].Point().X, poses[i].Point().Y, poses[i].Orientation().OrientationVectorRadians().Theta},
-			)
-			nextInput[checkFrame.Name()+"ExecutionFrame"] = frame.FloatsToInputs(
-				[]float64{poses[i].Point().X, poses[i].Point().Y, poses[i].Orientation().OrientationVectorRadians().Theta},
-			)
-			if i == 0 {
-				currInput = nextInput
-			}
-		}
-		segment, err := createSegment(poses[i], poses[i+1], currInput, nextInput)
-		if err != nil {
-			return err
-		}
-		segments = append(segments, segment)
-	}
-
-	// go through segments and check that we satisfy constraints
-	// TODO(RSDK-5007): If we can make interpolate a method on Frame the need to write this out will be lessened and we should be
-	// able to call CheckStateConstraintsAcrossSegment directly.
-	var totalTravelDistanceMM float64
-	for _, segment := range segments {
-		interpolatedConfigurations, err := interpolateSegment(segment, sfPlanner.planOpts.Resolution)
-		if err != nil {
-			return err
-		}
-		for _, interpConfig := range interpolatedConfigurations {
-			poseInPath, err := sf.Transform(interpConfig)
-			if err != nil {
-				return err
-			}
-
-			// Check if look ahead distance has been reached
-			currentTravelDistanceMM := totalTravelDistanceMM + poseInPath.Point().Distance(segment.StartPosition.Point())
-			if currentTravelDistanceMM > lookAheadDistanceMM {
-				return nil
-			}
-
-			// define State which only houses inputs, pose information not needed since we cannot get arcs from
-			// an interpolating poses, this would only yield a straight line.
-			interpolatedState := &ik.State{Frame: sf}
-			interpolatedState.Configuration = interpConfig
-
-			// Checks for collision along the interpolated route and returns a the first interpolated pose where a collision is detected.
-			if isValid, err := sfPlanner.planOpts.CheckStateConstraints(interpolatedState); !isValid {
-				return fmt.Errorf("found error between positions %v and %v: %s",
-					segment.StartPosition.Point(),
-					segment.EndPosition.Point(),
-					err,
-				)
-			}
-		}
-
-		// Update total traveled distance after segment has been checked
-		totalTravelDistanceMM += segment.EndPosition.Point().Distance(segment.StartPosition.Point())
-	}
-
 	return nil
 }
