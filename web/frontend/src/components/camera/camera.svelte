@@ -4,7 +4,7 @@ import { CameraClient, type ServiceError } from '@viamrobotics/sdk';
 import { selectedMap } from '@/lib/camera-state';
 import { setAsyncInterval } from '@/lib/schedule';
 import { useRobotClient, useConnect } from '@/hooks/robot-client';
-import { noop } from 'lodash';
+import { noop } from 'lodash-es';
 import LiveCamera from './live-camera.svelte';
 
 export let cameraName: string;
