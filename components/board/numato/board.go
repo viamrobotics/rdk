@@ -367,8 +367,8 @@ func (a *analog) Read(ctx context.Context, extra map[string]interface{}) (int, b
 	if err != nil {
 		return 0, board.AnalogRange{}, err
 	}
-	var max float32 = 0.0
-	var stepSize float32 = 0.0
+	var max float32
+	var stepSize float32
 	switch a.b.productID {
 	case 0x805:
 		// 128 channel usb numato has 12 bit resolution

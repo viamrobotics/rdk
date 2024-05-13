@@ -38,7 +38,9 @@ func (config *MCP3008AnalogConfig) Validate(path string) error {
 	return nil
 }
 
-func (mar *MCP3008AnalogReader) Read(ctx context.Context, extra map[string]interface{}) (value int, analogRange board.AnalogRange, err error) {
+func (mar *MCP3008AnalogReader) Read(ctx context.Context, extra map[string]interface{}) (
+	value int, analogRange board.AnalogRange, err error,
+) {
 	var tx [3]byte
 	tx[0] = 1                            // start bit
 	tx[1] = byte((8 + mar.Channel) << 4) // single-ended
@@ -60,7 +62,7 @@ func (mar *MCP3008AnalogReader) Read(ctx context.Context, extra map[string]inter
 	// garbage and might be non-zero.
 	val := 0x03FF & ((int(rx[1]) << 8) | int(rx[2]))
 
-	//TODO: wtf is the analog range for this
+	// returning blank analog range since mcp3008 will be removed soon.
 	return val, board.AnalogRange{}, nil
 }
 

@@ -60,9 +60,12 @@ func TestAnalogSmoother1(t *testing.T) {
 
 	testutils.WaitForAssertionWithSleep(t, 10*time.Millisecond, 200, func(tb testing.TB) {
 		tb.Helper()
-		v, _, err := as.Read(context.Background(), nil)
+		v, analogRange, err := as.Read(context.Background(), nil)
 		test.That(tb, err, test.ShouldEqual, errStopReading)
 		test.That(tb, v, test.ShouldEqual, 52)
+		test.That(tb, analogRange.Min, test.ShouldEqual, 0)
+		test.That(tb, analogRange.Max, test.ShouldEqual, 3.3)
+		test.That(tb, analogRange.StepSize, test.ShouldEqual, 0.1)
 
 		// need lock to access testReader.n
 		testReader.mu.Lock()

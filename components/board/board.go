@@ -83,6 +83,7 @@ type Analog interface {
 	Write(ctx context.Context, value int, extra map[string]interface{}) error
 }
 
+// AnalogRange contains themin, max, and stepSize of the analog reader.
 type AnalogRange struct {
 	Min      float32
 	Max      float32
