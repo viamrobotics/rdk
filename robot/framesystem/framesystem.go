@@ -48,7 +48,7 @@ var InternalServiceName = resource.NewName(API, "builtin")
 //	// Create an empty slice to store point cloud data.
 //	pointClouds := make([]pointcloud.PointCloud, 0)
 //
-//	Transform the first point cloud in the list from its reference frame to the frame of 'myArm'.
+//	// Transform the first point cloud in the list from its reference frame to the frame of 'myArm'.
 //	transformed, err := fsService.TransformPointCloud(context.Background(), pointClouds[0], referenceframe.World, "myArm")
 //
 // CurrentInputs example:
