@@ -69,7 +69,7 @@ type Service interface {
 		additionalTransforms []*referenceframe.LinkInFrame,
 	) (*referenceframe.PoseInFrame, error)
 
-	// TransformPointCloud returns a new point cloud where the points have been adjusted from one reference frame to a specified destination frame.
+	// TransformPointCloud returns a new point cloud with points adjusted from one reference frame to a specified destination frame.
 	TransformPointCloud(ctx context.Context, srcpc pointcloud.PointCloud, srcName, dstName string) (pointcloud.PointCloud, error)
 
 	// CurrentInputs returns a map of the current inputs for each component of a machine's frame system
