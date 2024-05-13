@@ -272,7 +272,7 @@ func (mr *moveRequest) obstaclesIntersectPlan(
 			// build representation of frame system's inputs
 			// TODO(pl): in the case where we have e.g. an arm (not moving) mounted on a base, we should be passing its current
 			// configuration rather than the zero inputs
-			inputMap := referenceframe.StartPositions(mr.planRequest.FrameSystem)
+			inputMap := referenceframe.StartPositions(mr.absoluteFS)
 			inputMap[mr.kinematicBase.Name().ShortName()] = baseExecutionState.CurrentInputs()[mr.kinematicBase.Name().ShortName()]
 			inputMap[mr.kinematicBase.ExecutionFrame().Name()] = referenceframe.FloatsToInputs([]float64{
 				baseExecutionState.CurrentPoses()[mr.kinematicBase.ExecutionFrame().Name()].Pose().Point().X,
@@ -299,7 +299,7 @@ func (mr *moveRequest) obstaclesIntersectPlan(
 				mr.kinematicBase.Kinematics(), // frame we wish to check for collisions
 				executionState,
 				worldState, // detected obstacles by this instance of camera + service
-				mr.planRequest.FrameSystem,
+				mr.absoluteFS,
 				lookAheadDistanceMM,
 				mr.planRequest.Logger,
 			); err != nil {
