@@ -19,6 +19,7 @@ import (
 	"go.viam.com/rdk/components/camera/rtppassthrough"
 	"go.viam.com/rdk/gostream"
 	"go.viam.com/rdk/logging"
+	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 )
 
@@ -429,7 +430,8 @@ func (ss *StreamState) streamH264Passthrough(ctx context.Context) error {
 	// n := strings.ReplaceAll(camera.Named(ss.Stream.Name()).ShortName(), "+", ":")
 	// ss.logger.CInfof(ctx, "NICK: n: %s", n)
 
-	cam, err := camera.FromRobot(ss.robot, ss.Stream.Name())
+	name := resource.SDPTrackNameToResourceName(camera.API, ss.Stream.Name())
+	cam, err := camera.FromRobot(ss.robot, name.ShortName())
 	if err != nil {
 		golog.Global().Error(err.Error())
 		return err
@@ -466,7 +468,8 @@ func (ss *StreamState) streamH264Passthrough(ctx context.Context) error {
 }
 
 func (ss *StreamState) unsubscribeH264Passthrough(ctx context.Context, id rtppassthrough.SubscriptionID) error {
-	cam, err := camera.FromRobot(ss.robot, ss.Stream.Name())
+	name := resource.SDPTrackNameToResourceName(camera.API, ss.Stream.Name())
+	cam, err := camera.FromRobot(ss.robot, name.ShortName())
 	if err != nil {
 		return err
 	}

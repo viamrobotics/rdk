@@ -728,12 +728,17 @@ func (m *Module) ListStreams(ctx context.Context, req *streampb.ListStreamsReque
 // 5. SubscribeRTP returns an error
 // 6. A webrtc track is unable to be created
 // 7. Adding the track to the peer connection fails.
+func namedCam(name string) resource.Name {
+	return resource.NewName(resource.APINamespaceRDK.WithComponentType("camera"), name)
+}
+
 func (m *Module) AddStream(ctx context.Context, req *streampb.AddStreamRequest) (*streampb.AddStreamResponse, error) {
 	ctx, span := trace.StartSpan(ctx, "module::module::AddStream")
 	defer span.End()
+	m.logger.Infof("AddStream name: %s", req.GetName())
 	name, err := resource.NewFromString(req.GetName())
 	if err != nil {
-		return nil, err
+		name = namedCam(req.GetName())
 	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -812,9 +817,10 @@ func (m *Module) AddStream(ctx context.Context, req *streampb.AddStreamRequest) 
 func (m *Module) RemoveStream(ctx context.Context, req *streampb.RemoveStreamRequest) (*streampb.RemoveStreamResponse, error) {
 	ctx, span := trace.StartSpan(ctx, "module::module::RemoveStream")
 	defer span.End()
+	m.logger.Infof("RemoveStream name: %s", req.GetName())
 	name, err := resource.NewFromString(req.GetName())
 	if err != nil {
-		return nil, err
+		name = namedCam(req.GetName())
 	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
