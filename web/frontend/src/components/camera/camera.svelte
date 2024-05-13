@@ -17,17 +17,14 @@ let imgEl: HTMLImageElement;
 
 const cameraManager = $streamManager.setCameraManager(cameraName);
 
-let clearFrameInterval = () => {
-  // does nothing
-};
+let clearFrameInterval = noop;
 
 const viewCameraFrame = (time: number) => {
   clearFrameInterval();
   cameraManager.setImageSrc(imgEl);
   if (time > 0) {
     clearFrameInterval = setAsyncInterval(
-      // eslint-disable-next-line @typescript-eslint/return-await, @typescript-eslint/promise-function-async
-      () => cameraManager.setImageSrc(imgEl),
+      async () => cameraManager.setImageSrc(imgEl),
       Number(time) * 1000,
       true
     );
