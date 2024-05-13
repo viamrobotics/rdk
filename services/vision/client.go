@@ -240,47 +240,51 @@ func protoToObjects(pco []*commonpb.PointCloudObject) ([]*vision.Object, error) 
 func (c *client) CaptureAllFromCamera(
 	ctx context.Context,
 	cameraName string,
-	returnImage bool,
-	returnDetections bool,
-	returnClassifications bool,
-	returnObject bool,
+	captureOptions viscapture.CaptureOptions,
 	extra map[string]interface{},
 ) (viscapture.VisCapture, error) {
 	ctx, span := trace.StartSpan(ctx, "service::vision::client::ClassificationsFromCamera")
 	defer span.End()
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
-		return nil, err
+		return viscapture.VisCapture{}, err
 	}
 	resp, err := c.client.CaptureAllFromCamera(ctx, &pb.CaptureAllFromCameraRequest{
 		Name:                    c.name,
 		CameraName:              cameraName,
-		ReturnImage:             returnImage,
-		ReturnDetections:        returnDetections,
-		ReturnClassifications:   returnClassifications,
-		ReturnObjectPointClouds: returnObject,
+		ReturnImage:             captureOptions.ReturnImage,
+		ReturnDetections:        captureOptions.ReturnDetections,
+		ReturnClassifications:   captureOptions.ReturnClassifications,
+		ReturnObjectPointClouds: captureOptions.ReturnObject,
 		Extra:                   ext,
 	})
 	if err != nil {
-		return nil, err
+		return viscapture.VisCapture{}, err
 	}
 
 	dets, err := protoToDets(resp.Detections)
 	if err != nil {
-		return nil, err
+		return viscapture.VisCapture{}, err
 	}
+
+	clas := protoToClas(resp.Classifications)
 
 	objPCD, err := protoToObjects(resp.Objects)
 	if err != nil {
-		return nil, err
+		return viscapture.VisCapture{}, err
 	}
 
 	img, err := rimage.DecodeImage(ctx, resp.Image.Image, "")
 	if err != nil {
-		return nil, err
+		return viscapture.VisCapture{}, err
 	}
 
-	capt := viscapture.NewVisCapture(img, dets, protoToClas(resp.Classifications), objPCD)
+	capt := viscapture.VisCapture{
+		Image:           img,
+		Detections:      dets,
+		Classifications: clas,
+		Objects:         objPCD,
+	}
 
 	return capt, nil
 }

@@ -2,6 +2,7 @@ package utils
 
 import (
 	"fmt"
+	camerapb "go.viam.com/api/component/camera/v1"
 	"strings"
 )
 
@@ -57,4 +58,12 @@ func CheckLazyMIMEType(mimeType string) (string, bool) {
 		return strings.TrimSuffix(mimeType, lazyMIMESuffixCheck), true
 	}
 	return mimeType, false
+}
+
+var MimeTypeToFormat = map[string]camerapb.Format{
+	MimeTypeJPEG:     camerapb.Format_FORMAT_JPEG,
+	MimeTypePNG:      camerapb.Format_FORMAT_PNG,
+	MimeTypeRawDepth: camerapb.Format_FORMAT_RAW_DEPTH,
+	MimeTypeRawRGBA:  camerapb.Format_FORMAT_RAW_RGBA,
+	"":               camerapb.Format_FORMAT_UNSPECIFIED,
 }

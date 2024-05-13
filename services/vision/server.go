@@ -3,11 +3,12 @@ package vision
 import (
 	"bytes"
 	"context"
+	"go.viam.com/rdk/vision/viscapture"
 	"image"
 
 	"go.opencensus.io/trace"
 	commonpb "go.viam.com/api/common/v1"
-	v11 "go.viam.com/api/component/camera/v1"
+	camerapb "go.viam.com/api/component/camera/v1"
 	pb "go.viam.com/api/service/vision/v1"
 
 	"go.viam.com/rdk/pointcloud"
@@ -210,42 +211,72 @@ func (server *serviceServer) CaptureAllFromCamera(
 	if err != nil {
 		return nil, err
 	}
+	captOptions := viscapture.CaptureOptions{
+		ReturnImage:           req.ReturnImage,
+		ReturnDetections:      req.ReturnDetections,
+		ReturnClassifications: req.ReturnClassifications,
+		ReturnObject:          req.ReturnObjectPointClouds,
+	}
 	capt, err := svc.CaptureAllFromCamera(ctx,
 		req.CameraName,
-		req.ReturnImage,
-		req.ReturnDetections,
-		req.ReturnClassifications,
-		req.ReturnObjectPointClouds,
+		captOptions,
 		req.Extra.AsMap(),
 	)
 	if err != nil {
 		return nil, err
 	}
 
-	objProto, err := segmentsToProto(req.CameraName, capt.PointCloudObject())
+	objProto, err := segmentsToProto(req.CameraName, capt.Objects)
 	if err != nil {
 		return nil, err
 	}
 
-	imgProto, err := imageToProto(ctx, capt.Image(), utils.MimeTypeJPEG)
+	imgProto, err := imageToProto(ctx, capt.Image, req.CameraName)
 	if err != nil {
 		return nil, err
 	}
 
 	return &pb.CaptureAllFromCameraResponse{
 		Image:           imgProto,
-		Detections:      detsToProto(capt.Detections()),
-		Classifications: clasToProto(capt.Classifications()),
+		Detections:      detsToProto(capt.Detections),
+		Classifications: clasToProto(capt.Classifications),
 		Objects:         objProto,
 	}, nil
 }
 
-func imageToProto(ctx context.Context, img image.Image, mimeType string) (*v11.Image, error) {
-	imgBytes, err := rimage.EncodeImage(ctx, img, mimeType)
+func imageToProto(ctx context.Context, img image.Image, cameraName string) (*camerapb.Image, error) {
+
+	imgBytes, mimeType, err := encodeUnknownType(ctx, img, utils.MimeTypeJPEG)
 	if err != nil {
 		return nil, err
 	}
-	return &v11.Image{Image: imgBytes}, nil
+	format := utils.MimeTypeToFormat[mimeType]
+	if err != nil {
+		return nil, err
+	}
+	return &camerapb.Image{Image: imgBytes,
+		Format:     format,
+		SourceName: cameraName}, nil
+}
+
+func encodeUnknownType(ctx context.Context, img image.Image, defaultMime string) ([]byte, string, error) {
+	var mimeType string
+
+	switch im := img.(type) {
+	case *rimage.LazyEncodedImage:
+		return im.RawData(), im.MIMEType(), nil
+	case *image.Gray, *rimage.DepthMap:
+		mimeType = utils.MimeTypeRawDepth
+
+	default:
+		mimeType = defaultMime
+	}
+	imgBytes, err := rimage.EncodeImage(ctx, img, mimeType)
+
+	if err != nil {
+		return nil, "", err
+	}
+	return imgBytes, mimeType, nil
 }
 
 // DoCommand receives arbitrary commands.

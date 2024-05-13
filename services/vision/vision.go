@@ -43,6 +43,7 @@ func init() {
 //	}
 //
 // Detections example:
+// 4
 //
 //	// Get the stream from a camera
 //	camStream, err := myCam.Stream(context.Background())
@@ -131,10 +132,7 @@ type Service interface {
 	GetObjectPointClouds(ctx context.Context, cameraName string, extra map[string]interface{}) ([]*viz.Object, error)
 	CaptureAllFromCamera(ctx context.Context,
 		cameraName string,
-		returnImage bool,
-		returnClass bool,
-		returnDet bool,
-		returnObjPCD bool,
+		opts viscapture.CaptureOptions,
 		extra map[string]interface{},
 	) (viscapture.VisCapture, error)
 }
@@ -299,65 +297,67 @@ func (vm *vizModel) GetObjectPointClouds(
 func (vm *vizModel) CaptureAllFromCamera(
 	ctx context.Context,
 	cameraName string,
-	returnImage bool,
-	returnClass bool,
-	returnDet bool,
-	returnObjPCD bool,
+	opt viscapture.CaptureOptions,
 	extra map[string]interface{},
 ) (viscapture.VisCapture, error) {
 	ctx, span := trace.StartSpan(ctx, "service::vision::ClassificationsFromCamera::"+vm.Named.Name().String())
 	defer span.End()
 	cam, err := camera.FromRobot(vm.r, cameraName)
 	if err != nil {
-		return nil, errors.Wrapf(err, "could not find camera named %s", cameraName)
+		return viscapture.VisCapture{}, errors.Wrapf(err, "could not find camera named %s", cameraName)
 	}
 	img, release, err := camera.ReadImage(ctx, cam)
 	if err != nil {
-		return nil, errors.Wrapf(err, "could not get image from %s", cameraName)
+		return viscapture.VisCapture{}, errors.Wrapf(err, "could not get image from %s", cameraName)
 	}
 	defer release()
 	var detections []objectdetection.Detection
-	if returnDet {
+	if opt.ReturnDetections {
 		if vm.detectorFunc == nil {
 			logger := vm.r.Logger()
 			logger.Debugf("detections requested but vision model %q does not implement a Detector", vm.Named.Name())
 		} else {
 			detections, err = vm.Detections(ctx, img, extra)
 			if err != nil {
-				return nil, err
+				return viscapture.VisCapture{}, err
 			}
 		}
 	}
 	var classifications classification.Classifications
-	if returnClass {
+	if opt.ReturnClassifications {
 		if vm.classifierFunc == nil {
 			logger := vm.r.Logger()
 			logger.Debugf("classifications requested in CaptureAll but vision model %q does not implement a Classifier",
 				vm.Named.Name())
 		} else {
-			classifications, err = vm.Classifications(ctx, img, 10, extra)
+			classifications, err = vm.Classifications(ctx, img, 0, extra)
 			if err != nil {
-				return nil, err
+				return viscapture.VisCapture{}, err
 			}
 		}
 	}
 
 	var objPCD []*viz.Object
-	if returnObjPCD {
+	if opt.ReturnObject {
 		if vm.segmenter3DFunc == nil {
 			logger := vm.r.Logger()
-			logger.Debugf("object pointcloud requested in CaptureAll but vision model %q does not implement a 3D Segmenter", vm.Named.Name())
+			logger.Debugf("object point cloud requested in CaptureAll but vision model %q does not implement a 3D Segmenter", vm.Named.Name())
 		} else {
 			objPCD, err = vm.GetObjectPointClouds(ctx, cameraName, extra)
 			if err != nil {
-				return nil, err
+				return viscapture.VisCapture{}, err
 			}
 		}
 	}
-	if !returnImage {
+	if !opt.ReturnImage {
 		img = nil
 	}
-	return viscapture.NewVisCapture(img, detections, classifications, objPCD), nil
+	return viscapture.VisCapture{
+		Image:           img,
+		Detections:      detections,
+		Classifications: classifications,
+		Objects:         objPCD,
+	}, nil
 }
 
 func (vm *vizModel) Close(ctx context.Context) error {

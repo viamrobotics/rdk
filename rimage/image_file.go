@@ -256,15 +256,11 @@ func DecodeImage(ctx context.Context, imgBytes []byte, mimeType string) (image.I
 		return NewLazyEncodedImage(imgBytes, mimeType), nil
 	}
 	switch mimeType {
-	case "", ut.MimeTypeJPEG:
+	case "":
 		img, err := DecodeJPEG(bytes.NewReader(imgBytes))
 		if err != nil {
-			if mimeType == "" {
-				img, _, err = image.Decode(bytes.NewReader(imgBytes))
-				if err != nil {
-					return nil, err
-				}
-			} else {
+			img, _, err = image.Decode(bytes.NewReader(imgBytes))
+			if err != nil {
 				return nil, err
 			}
 		}
