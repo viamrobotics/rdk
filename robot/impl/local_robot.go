@@ -420,6 +420,7 @@ func newWithResources(
 		r.logger.CDebug(ctx, "Using no-op PackageManager when Cloud config is not available")
 		r.packageManager = packages.NewNoopManager()
 	}
+	r.localPackages = packages.NewLocalManager(cfg, logger)
 
 	// start process manager early
 	if err := r.manager.processManager.Start(ctx); err != nil {
@@ -1108,10 +1109,7 @@ func (r *localRobot) Reconfigure(ctx context.Context, newConfig *config.Config) 
 	if err != nil {
 		allErrs = multierr.Combine(allErrs, err)
 	}
-	err = r.localPackages.Sync(ctx, newConfig.Packages, newConfig.Modules)
-	if err != nil {
-		allErrs = multierr.Combine(allErrs, err)
-	}
+	allErrs = multierr.Combine(allErrs, r.localPackages.Sync(ctx, newConfig.Packages, newConfig.Modules))
 
 	// Add default services and process their dependencies. Dependencies may
 	// already come from config validation so we check that here.
@@ -1208,6 +1206,7 @@ func (r *localRobot) Reconfigure(ctx context.Context, newConfig *config.Config) 
 	// Cleanup unused packages after all old resources have been closed above. This ensures
 	// processes are shutdown before any files are deleted they are using.
 	allErrs = multierr.Combine(allErrs, r.packageManager.Cleanup(ctx))
+	allErrs = multierr.Combine(allErrs, r.localPackages.Cleanup(ctx))
 	// Cleanup extra dirs from previous modules or rogue scripts.
 	allErrs = multierr.Combine(allErrs, r.manager.moduleManager.CleanModuleDataDirectory())
 
