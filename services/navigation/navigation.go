@@ -134,6 +134,7 @@ type Properties struct {
 //
 //	// Get the properties of the current navigation service
 //	navProperties, err := myNav.Properties(context.Background())
+//
 type Service interface {
 	resource.Resource
 

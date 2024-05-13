@@ -56,6 +56,7 @@ var InternalServiceName = resource.NewName(API, "builtin")
 //	myCurrentInputs, err := fsService.CurrentInputs(context.Background())
 //
 //	frameSystem, err := fsService.FrameSystem(context.Background(), nil)
+//
 type Service interface {
 	resource.Resource
 
