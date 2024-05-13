@@ -526,7 +526,7 @@ func (g *Graph) ReverseTopologicalSort() []Name {
 // ReverseTopologicalSortInLevels returns a slice of node Name groups, ordered such that
 // no Name in a group depends on any Name in a prior group.
 func (g *Graph) ReverseTopologicalSortInLevels() [][]Name {
-	ordered, _ := g.topologicalSortInLevels()
+	ordered := g.TopologicalSortInLevels()
 	for i, j := 0, len(ordered)-1; i < j; i, j = i+1, j-1 {
 		ordered[i], ordered[j] = ordered[j], ordered[i]
 	}
