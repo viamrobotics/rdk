@@ -265,7 +265,7 @@ func TestSpin(t *testing.T) {
 		baseWidth:          0.2,
 		base:               base,
 		timeIntervalMSecs:  500,
-		originCoord:        geo.NewPoint(0, 0)
+		originCoord:        geo.NewPoint(0, 0),
 	}
 	od.motors = append(od.motors, motorPair{left, right})
 	od.trackPosition(context.Background())
@@ -320,7 +320,7 @@ func TestMoveStraight(t *testing.T) {
 		baseWidth:          1,
 		base:               base,
 		timeIntervalMSecs:  500,
-		originCoord:        geo.NewPoint(0, 0)
+		originCoord:        geo.NewPoint(0, 0),
 	}
 	od.motors = append(od.motors, motorPair{left, right})
 	od.trackPosition(context.Background())
@@ -363,7 +363,7 @@ func TestComplicatedPath(t *testing.T) {
 		baseWidth:          1,
 		base:               base,
 		timeIntervalMSecs:  500,
-		originCoord:        geo.NewPoint(0, 0)
+		originCoord:        geo.NewPoint(0, 0),
 	}
 	od.motors = append(od.motors, motorPair{left, right})
 	od.trackPosition(context.Background())
@@ -455,7 +455,7 @@ func TestVelocities(t *testing.T) {
 		baseWidth:         1,
 		base:              base,
 		timeIntervalMSecs: 500,
-		originCoord:        geo.NewPoint(0, 0)
+		originCoord:        geo.NewPoint(0, 0),
 	}
 	od.motors = append(od.motors, motorPair{left, right})
 	od.trackPosition(context.Background())
