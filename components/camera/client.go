@@ -456,18 +456,23 @@ func (c *client) SubscribeRTP(
 		}
 
 		trackReceived, trackClosed := make(chan struct{}), make(chan struct{})
+		// we nee to pop the first remote	off the resource name as the remote doesn't know its name.
+		// NOTE: Test this with an external client talking to a main part connected to a remote part.
+		// I expect this to break in that case.
+		nameMinusRemote := c.Name().PopRemote()
 		// add the camera model's addOnTrackSubFunc to the shared peer connection's
 		// slice of OnTrack callbacks. This is what allows
 		// all the bufAndCBByID's callback functions to be called with the
 		// RTP packets from the module's peer connection's track
-		sc.AddOnTrackSub(c.Name(), c.addOnTrackSubFunc(trackReceived, trackClosed, sub.ID))
+		sc.AddOnTrackSub(nameMinusRemote, c.addOnTrackSubFunc(trackReceived, trackClosed, sub.ID))
 		// remove the OnTrackSub once we either fail or succeed
-		defer sc.RemoveOnTrackSub(c.Name())
+		defer sc.RemoveOnTrackSub(nameMinusRemote)
 
 		// c.logger.CDebugw(ctx, "SubscribeRTP calling AddStream", "subID", sub.ID.String(), "c.Name()", c.Name(), "c.Name().Name", c.Name().Name, "resource.RemoveRemoteName(c.Name())", resource.RemoveRemoteName(c.Name()), "resource.RemoveRemoteName(c.Name()).String()", resource.RemoveRemoteName(c.Name()), "err", err)
 
-		if _, err := c.streamClient.AddStream(ctx, &streampb.AddStreamRequest{Name: resource.RemoveRemoteName(c.Name()).ShortName()}); err != nil {
-			c.logger.CErrorw(ctx, "SubscribeRTP AddStream hit error", "subID", sub.ID.String(), "name", c.Name(), "err", err)
+		trackName := resource.SDPTrackName(nameMinusRemote)
+		if _, err := c.streamClient.AddStream(ctx, &streampb.AddStreamRequest{Name: trackName}); err != nil {
+			c.logger.CErrorw(ctx, "SubscribeRTP AddStream hit error", "subID", sub.ID.String(), "name", trackName, "err", err)
 			return rtppassthrough.NilSubscription, err
 		}
 		// NOTE: (Nick S) This is a workaround to a Pion bug / missing feature.
@@ -558,7 +563,7 @@ func (c *client) addOnTrackSubFunc(
 					// https://go.dev/blog/loopvar-preview
 					bufAndCB := tmp
 					err := bufAndCB.buf.Publish(func() {
-						fmt.Println("Writing pkt:", len(pkt.Payload))
+						// fmt.Println("Writing pkt:", len(pkt.Payload))
 						bufAndCB.cb(pkt)
 					})
 					if err != nil {
@@ -603,8 +608,9 @@ func (c *client) Unsubscribe(ctx context.Context, id rtppassthrough.Subscription
 
 	if len(c.bufAndCBByID) == 1 {
 		c.logger.CDebugw(ctx, "Unsubscribe calling RemoveStream", "name", c.Name(), "subID", id.String())
-		if _, err := c.streamClient.RemoveStream(ctx, &streampb.RemoveStreamRequest{Name: resource.RemoveRemoteName(c.Name()).ShortName()}); err != nil {
-			c.logger.CWarnw(ctx, "Unsubscribe RemoveStream returned err", "name", c.Name(), "subID", id.String(), "err", err)
+		trackName := resource.SDPTrackName(c.Name().PopRemote())
+		if _, err := c.streamClient.RemoveStream(ctx, &streampb.RemoveStreamRequest{Name: trackName}); err != nil {
+			c.logger.CWarnw(ctx, "Unsubscribe RemoveStream returned err", "name", trackName, "subID", id.String(), "err", err)
 			c.mu.Unlock()
 			return err
 		}
