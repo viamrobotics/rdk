@@ -180,9 +180,9 @@ func (r MoveOnGlobeReq) toProto(name string) (*pb.MoveOnGlobeRequest, error) {
 	}
 
 	if len(r.Obstacles) > 0 {
-		obstaclesProto := make([]*commonpb.GeoObstacle, 0, len(r.Obstacles))
+		obstaclesProto := make([]*commonpb.GeoGeometry, 0, len(r.Obstacles))
 		for _, obstacle := range r.Obstacles {
-			obstaclesProto = append(obstaclesProto, spatialmath.GeoObstacleToProtobuf(obstacle))
+			obstaclesProto = append(obstaclesProto, spatialmath.GeoGeometryToProtobuf(obstacle))
 		}
 		req.Obstacles = obstaclesProto
 	}
@@ -204,9 +204,9 @@ func moveOnGlobeRequestFromProto(req *pb.MoveOnGlobeRequest) (MoveOnGlobeReq, er
 		heading = req.GetHeading()
 	}
 	obstaclesProto := req.GetObstacles()
-	obstacles := make([]*spatialmath.GeoObstacle, 0, len(obstaclesProto))
+	obstacles := make([]*spatialmath.GeoGeometry, 0, len(obstaclesProto))
 	for _, eachProtoObst := range obstaclesProto {
-		convObst, err := spatialmath.GeoObstacleFromProtobuf(eachProtoObst)
+		convObst, err := spatialmath.GeoGeometryFromProtobuf(eachProtoObst)
 		if err != nil {
 			return MoveOnGlobeReq{}, err
 		}

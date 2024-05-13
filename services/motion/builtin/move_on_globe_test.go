@@ -171,7 +171,7 @@ func TestMoveOnGlobe(t *testing.T) {
 			ComponentName:      fakeBase.Name(),
 			Destination:        dst,
 			MovementSensorName: injectedMovementSensor.Name(),
-			Obstacles:          []*spatialmath.GeoObstacle{},
+			Obstacles:          []*spatialmath.GeoGeometry{},
 			MotionCfg:          motionCfg,
 			Extra:              extra,
 		}
@@ -211,7 +211,7 @@ func TestMoveOnGlobe(t *testing.T) {
 		boxDims := r3.Vector{X: 5, Y: 50, Z: 10}
 		geometries, err := spatialmath.NewBox(boxPose, boxDims, "wall")
 		test.That(t, err, test.ShouldBeNil)
-		geoObstacle := spatialmath.NewGeoObstacle(gpsPoint, []spatialmath.Geometry{geometries})
+		geoGeometry := spatialmath.NewGeoGeometry(gpsPoint, []spatialmath.Geometry{geometries})
 		startPose, err := fakeBase.CurrentPosition(ctx)
 		test.That(t, err, test.ShouldBeNil)
 
@@ -219,7 +219,7 @@ func TestMoveOnGlobe(t *testing.T) {
 			ComponentName:      fakeBase.Name(),
 			Destination:        dst,
 			MovementSensorName: injectedMovementSensor.Name(),
-			Obstacles:          []*spatialmath.GeoObstacle{geoObstacle},
+			Obstacles:          []*spatialmath.GeoGeometry{geoGeometry},
 			MotionCfg:          motionCfg,
 			Extra:              extra,
 		}
@@ -270,13 +270,13 @@ func TestMoveOnGlobe(t *testing.T) {
 		boxDims = r3.Vector{X: 6660, Y: 20, Z: 10}
 		geometry4, err := spatialmath.NewBox(boxPose, boxDims, "wall4")
 		test.That(t, err, test.ShouldBeNil)
-		geoObstacle := spatialmath.NewGeoObstacle(gpsPoint, []spatialmath.Geometry{geometry1, geometry2, geometry3, geometry4})
+		geoGeometry := spatialmath.NewGeoGeometry(gpsPoint, []spatialmath.Geometry{geometry1, geometry2, geometry3, geometry4})
 
 		req := motion.MoveOnGlobeReq{
 			ComponentName:      fakeBase.Name(),
 			Destination:        dst,
 			MovementSensorName: injectedMovementSensor.Name(),
-			Obstacles:          []*spatialmath.GeoObstacle{geoObstacle},
+			Obstacles:          []*spatialmath.GeoGeometry{geoGeometry},
 			MotionCfg:          &motion.MotionConfiguration{},
 			Extra:              extra,
 		}

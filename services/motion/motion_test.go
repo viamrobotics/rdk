@@ -980,7 +980,7 @@ func TestMoveOnGlobeReq(t *testing.T) {
 					Destination:        geo.NewPoint(1, 2),
 					ComponentName:      mybase,
 					MovementSensorName: movementsensor.Named("my-movementsensor"),
-					Obstacles:          []*spatialmath.GeoObstacle{},
+					Obstacles:          []*spatialmath.GeoGeometry{},
 					MotionCfg:          &defaultMotionCfg,
 					Extra:              map[string]interface{}{},
 				},
@@ -992,7 +992,7 @@ func TestMoveOnGlobeReq(t *testing.T) {
 					Destination:        &commonpb.GeoPoint{Latitude: 1, Longitude: 2},
 					ComponentName:      rprotoutils.ResourceNameToProto(mybase),
 					MovementSensorName: rprotoutils.ResourceNameToProto(movementsensor.Named("my-movementsensor")),
-					Obstacles:          []*commonpb.GeoObstacle{},
+					Obstacles:          []*commonpb.GeoGeometry{},
 					MotionConfiguration: &pb.MotionConfiguration{
 						ObstacleDetectors:          obstacleDetectorsPB,
 						LinearMPerSec:              &linearMPerSec,
@@ -1007,7 +1007,7 @@ func TestMoveOnGlobeReq(t *testing.T) {
 					Destination:        dst,
 					ComponentName:      mybase,
 					MovementSensorName: movementsensor.Named("my-movementsensor"),
-					Obstacles:          []*spatialmath.GeoObstacle{},
+					Obstacles:          []*spatialmath.GeoGeometry{},
 					MotionCfg: &MotionConfiguration{
 						ObstacleDetectors:     obstacleDetectors,
 						LinearMPerSec:         linearMPerSec,

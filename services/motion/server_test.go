@@ -215,11 +215,11 @@ func TestServerMoveOnGlobe(t *testing.T) {
 			"other wall")
 		test.That(t, err, test.ShouldBeNil)
 
-		geoObstacle1 := spatialmath.NewGeoObstacle(geo.NewPoint(70, 40), []spatialmath.Geometry{geometries1})
-		geoObstacle2 := spatialmath.NewGeoObstacle(geo.NewPoint(-70, 40), []spatialmath.Geometry{geometries2})
-		obs := []*commonpb.GeoObstacle{
-			spatialmath.GeoObstacleToProtobuf(geoObstacle1),
-			spatialmath.GeoObstacleToProtobuf(geoObstacle2),
+		geoGeometry1 := spatialmath.NewGeoGeometry(geo.NewPoint(70, 40), []spatialmath.Geometry{geometries1})
+		geoGeometry2 := spatialmath.NewGeoGeometry(geo.NewPoint(-70, 40), []spatialmath.Geometry{geometries2})
+		obs := []*commonpb.GeoGeometry{
+			spatialmath.GeoGeometryToProtobuf(geoGeometry1),
+			spatialmath.GeoGeometryToProtobuf(geoGeometry2),
 		}
 		angularDegsPerSec := 1.
 		linearMPerSec := 2.
@@ -262,8 +262,8 @@ func TestServerMoveOnGlobe(t *testing.T) {
 			test.That(t, req.Heading, test.ShouldResemble, reqHeading)
 			test.That(t, req.MovementSensorName, test.ShouldResemble, expectedMovSensorName)
 			test.That(t, len(req.Obstacles), test.ShouldEqual, 2)
-			test.That(t, req.Obstacles[0], test.ShouldResemble, geoObstacle1)
-			test.That(t, req.Obstacles[1], test.ShouldResemble, geoObstacle2)
+			test.That(t, req.Obstacles[0], test.ShouldResemble, geoGeometry1)
+			test.That(t, req.Obstacles[1], test.ShouldResemble, geoGeometry2)
 			test.That(t, req.MotionCfg.AngularDegsPerSec, test.ShouldAlmostEqual, angularDegsPerSec)
 			test.That(t, req.MotionCfg.LinearMPerSec, test.ShouldAlmostEqual, linearMPerSec)
 			test.That(t, req.MotionCfg.PlanDeviationMM, test.ShouldAlmostEqual, planDeviationM*1000)
