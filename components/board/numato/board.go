@@ -20,6 +20,7 @@ import (
 	pb "go.viam.com/api/component/board/v1"
 	"go.viam.com/utils"
 	"go.viam.com/utils/serial"
+	"go.viam.com/utils/usb"
 
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/board/pinwrappers"
@@ -367,7 +368,8 @@ func (a *analog) Read(ctx context.Context, extra map[string]interface{}) (int, b
 	if err != nil {
 		return 0, board.AnalogRange{}, err
 	}
-	return reading, board.AnalogRange{Min: 0, Max: 5, StepSize: 4.88}, nil
+
+	return reading, board.AnalogRange{Min: 0, Max: 0, StepSize: 0}, nil
 }
 
 func (a *analog) Write(ctx context.Context, value int, extra map[string]interface{}) error {
@@ -384,6 +386,18 @@ func connect(ctx context.Context, name resource.Name, conf *Config, logger loggi
 	}
 	if len(devs) > 1 {
 		return nil, fmt.Errorf("found more than 1 numato board: %d", len(devs))
+	}
+
+	// Find the numato board product id
+	products := usb.Search(usb.NewSearchFilter("AppleUSBACMData", "usbmodem"), func(vendorID, productID int) bool {
+		return true
+	})
+	var productID int
+	for _, product := range products {
+		if product.ID.Vendor != 0x2a19 {
+			continue
+		}
+		productID = product.ID.Product
 	}
 
 	options := goserial.OpenOptions{
