@@ -11,7 +11,6 @@ import (
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan/ik"
 	"go.viam.com/rdk/referenceframe"
-	frame "go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
 )
 
@@ -259,7 +258,7 @@ func checkPlanRelative(
 			}
 		}
 
-		startInputs[executionFrameName] = frame.FloatsToInputs(
+		startInputs[executionFrameName] = referenceframe.FloatsToInputs(
 			[]float64{lastArcEndPose.Point().X, lastArcEndPose.Point().Y, lastArcEndPose.Orientation().OrientationVectorRadians().Theta},
 		)
 		nextInputs := plan.Trajectory()[i]
