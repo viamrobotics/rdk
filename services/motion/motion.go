@@ -56,7 +56,9 @@ type MoveOnGlobeReq struct {
 	Obstacles []*spatialmath.GeoGeometry
 	// Optional motion configuration
 	MotionCfg *MotionConfiguration
-	Extra     map[string]interface{}
+	//Set of obstacles which the robot must remain within while navigating
+	BoundingRegions []*spatialmath.GeoGeometry
+	Extra           map[string]interface{}
 }
 
 func (r MoveOnGlobeReq) String() string {

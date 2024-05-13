@@ -221,6 +221,10 @@ func TestServerMoveOnGlobe(t *testing.T) {
 			spatialmath.GeoGeometryToProtobuf(geoGeometry1),
 			spatialmath.GeoGeometryToProtobuf(geoGeometry2),
 		}
+		boundingRegionGeoms := []*commonpb.GeoGeometry{
+			spatialmath.GeoGeometryToProtobuf(geoGeometry1),
+			spatialmath.GeoGeometryToProtobuf(geoGeometry2),
+		}
 		angularDegsPerSec := 1.
 		linearMPerSec := 2.
 		planDeviationM := 3.
@@ -252,6 +256,7 @@ func TestServerMoveOnGlobe(t *testing.T) {
 				PositionPollingFrequencyHz: &positionPollingFrequencyHz,
 				ObstacleDetectors:          obstacleDetectorsPB,
 			},
+			BoundingRegions: boundingRegionGeoms,
 		}
 
 		firstExecutionID := uuid.New()
@@ -274,6 +279,9 @@ func TestServerMoveOnGlobe(t *testing.T) {
 			test.That(t, req.MotionCfg.ObstacleDetectors[0].CameraName, test.ShouldResemble, camera.Named("camera 1"))
 			test.That(t, req.MotionCfg.ObstacleDetectors[1].VisionServiceName, test.ShouldResemble, vision.Named("vision service 2"))
 			test.That(t, req.MotionCfg.ObstacleDetectors[1].CameraName, test.ShouldResemble, camera.Named("camera 2"))
+			test.That(t, len(req.BoundingRegions), test.ShouldEqual, 2)
+			test.That(t, req.BoundingRegions[0], test.ShouldResemble, geoGeometry1)
+			test.That(t, req.BoundingRegions[1], test.ShouldResemble, geoGeometry2)
 			return firstExecutionID, nil
 		}
 		moveOnGlobeResponse, err := server.MoveOnGlobe(context.Background(), moveOnGlobeRequest)

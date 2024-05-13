@@ -92,7 +92,7 @@ type Service interface {
 	AddWaypoint(ctx context.Context, point *geo.Point, extra map[string]interface{}) error
 	RemoveWaypoint(ctx context.Context, id primitive.ObjectID, extra map[string]interface{}) error
 
-	Obstacles(ctx context.Context, extra map[string]interface{}) ([]*spatialmath.GeoObstacle, error)
+	Obstacles(ctx context.Context, extra map[string]interface{}) ([]*spatialmath.GeoGeometry, error)
 
 	Paths(ctx context.Context, extra map[string]interface{}) ([]*Path, error)
 
