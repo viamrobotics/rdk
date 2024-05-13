@@ -60,7 +60,7 @@ func NewDeferredPackageManager(
 	packagesDir string,
 	logger logging.Logger,
 ) ManagerSyncer {
-	noopManager := noopManager{Named: InternalServiceName.AsNamed()}
+	noopManager := localManager{Named: InternalServiceName.AsNamed()}
 	return &deferredPackageManager{
 		Named:               DeferredServiceName.AsNamed(),
 		ctx:                 ctx,
@@ -145,7 +145,7 @@ func (m *deferredPackageManager) getManagerForSync(ctx context.Context, packages
 		}
 	})
 	// No unlock here. The goroutine will unlock
-	return &noopManager{Named: InternalServiceName.AsNamed()}, nil
+	return &localManager{Named: InternalServiceName.AsNamed()}, nil
 }
 
 // createCloudManager uses the passed establishConnection function to instantiate a cloudManager.

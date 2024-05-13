@@ -1013,8 +1013,8 @@ type PackageConfig struct {
 	Type PackageType `json:"type"`
 
 	Status *AppValidationStatus `json:"status,omitempty"`
-	// localPath is a non-json field that sources the package from a file path instead of a URL.
-	LocalPath string
+	// SourceModule is available on modules in the pure-local package manager. This is local-only and should not serialize to json.
+	SourceModule *Module
 
 	alreadyValidated bool
 	cachedErr        error

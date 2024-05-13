@@ -99,7 +99,7 @@ func TestDeferredPackageManager(t *testing.T) {
 		// Assert that the cloud manager is nil initially
 		mgr, err := bag.pm.getManagerForSync(bag.ctx, []config.PackageConfig{})
 		test.That(t, err, test.ShouldBeNil)
-		_, isNoop := mgr.(*noopManager)
+		_, isNoop := mgr.(*localManager)
 		test.That(t, isNoop, test.ShouldBeTrue)
 		// send a msg on the chan indicating a connection
 		bag.mockChan <- mockChanVal{client: bag.client, err: nil}
@@ -177,7 +177,7 @@ func TestDeferredPackageManager(t *testing.T) {
 
 		err := bag.pm.Sync(bag.ctx, []config.PackageConfig{}, []config.Module{})
 		test.That(t, err, test.ShouldBeNil)
-		_, isNoop := bag.pm.lastSyncedManager.(*noopManager)
+		_, isNoop := bag.pm.lastSyncedManager.(*localManager)
 		test.That(t, isNoop, test.ShouldBeTrue)
 
 		// send a msg on the chan indicating a connection

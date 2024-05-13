@@ -111,7 +111,7 @@ func (m Module) NeedsSyntheticPackage() bool {
 }
 
 // SyntheticPackage creates a fake package for a local module which points to a local tarball.
-func (m Module) SyntheticPackage() (PackageConfig, error) {
+func (m Module) SyntheticPackage(modTimeVersion bool) (PackageConfig, error) {
 	var ret PackageConfig
 	if m.Type != ModuleTypeLocal {
 		return ret, errors.New("non-local package passed to syntheticPackage")
@@ -119,13 +119,22 @@ func (m Module) SyntheticPackage() (PackageConfig, error) {
 	ret.Name = fmt.Sprintf("synthetic-%s", m.Name)
 	ret.Package = ret.Name
 	ret.Type = PackageTypeModule
-	ret.LocalPath = m.ExePath
+	if modTimeVersion {
+		stat, err := os.Stat(m.ExePath)
+		if err != nil {
+			return ret, errors.Wrapf(err, "error loading path %s in local module %s", m.ExePath, m.Name)
+		}
+		ret.Version = fmt.Sprintf("0.0.0-%s", stat.ModTime().Format("20060102-150405"))
+	} else {
+		ret.Version = "0.0.0"
+	}
+	ret.SourceModule = &m
 	return ret, nil
 }
 
 // syntheticPackageExeDir returns the unpacked ExePath for local tarball modules.
 func (m Module) syntheticPackageExeDir() (string, error) {
-	pkg, err := m.SyntheticPackage()
+	pkg, err := m.SyntheticPackage(true)
 	if err != nil {
 		return "", err
 	}
