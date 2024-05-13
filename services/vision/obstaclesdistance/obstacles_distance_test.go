@@ -55,6 +55,13 @@ func TestObstacleDist(t *testing.T) {
 	img, err := rimage.NewImageFromFile(artifact.MustPath("vision/objectdetection/detection_test.jpg"))
 	test.That(t, err, test.ShouldBeNil)
 
+	// Test properties. Should support object PCDs and not detections or classifications
+	props, err := srv.GetProperties(context.Background(), nil)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, props.ObjectPCDsSupported, test.ShouldEqual, true)
+	test.That(t, props.DetectionSupported, test.ShouldEqual, false)
+	test.That(t, props.ClassificationSupported, test.ShouldEqual, false)
+
 	// Does not implement Detections
 	_, err = srv.Detections(ctx, img, nil)
 	test.That(t, err, test.ShouldNotBeNil)

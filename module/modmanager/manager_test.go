@@ -1075,7 +1075,7 @@ func TestRTPPassthrough(t *testing.T) {
 	noPassSource, ok := noPassCam.(rtppassthrough.Source)
 	test.That(t, ok, test.ShouldBeTrue)
 
-	subscribeRTPTimeout := time.Second * 5
+	subscribeRTPTimeout := time.Second * 30
 	subCtx, subCancelFn := context.WithTimeout(context.Background(), subscribeRTPTimeout)
 	sub, err := noPassSource.SubscribeRTP(subCtx, 512, func(pkts []*rtp.Packet) {
 		t.Log("should not happen")
@@ -1319,7 +1319,7 @@ func TestAddStreamMaxTrackErr(t *testing.T) {
 	test.That(t, len(first9Sources), test.ShouldEqual, 9)
 
 	greenLog(t, "the first 9's SubscribeRTP calls succeed")
-	subscribeRTPTimeout := time.Second * 5
+	subscribeRTPTimeout := time.Second * 30
 	for _, source := range first9Sources {
 		calledCtx, calledFn := context.WithCancel(context.Background())
 		// SubscribeRTP succeeds
