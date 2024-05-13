@@ -2279,8 +2279,6 @@ func TestCheckMaxInstanceInvalid(t *testing.T) {
 			maxInstance++
 		}
 	}
-	// TODO: this is now flaky, since we can register same-API resources concurrently.
-	// MaxInstances is validated when we validate.
 	test.That(t, maxInstance, test.ShouldEqual, 1)
 	numInstances := 0
 	for _, name := range r.ResourceNames() {

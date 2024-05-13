@@ -638,6 +638,17 @@ func (manager *resourceManager) completeConfig(
 						}
 					}
 
+					if !forceSync {
+						// TODO(RSDK-6925): support concurrent processing of resources of
+						// APIs with a maximum instance limit. Currently this limit is
+						// validated later in the resource creation flow and assumes that
+						// each resource is created synchronously to have an accurate
+						// creation count.
+						if c, ok := resource.LookupGenericAPIRegistration(resName.API); ok && c.MaxInstance != 0 {
+							forceSync = true
+						}
+					}
+
 					wg.Add(1)
 					if forceSync {
 						processResource()
