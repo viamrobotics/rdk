@@ -455,7 +455,7 @@ func TestVelocities(t *testing.T) {
 		baseWidth:         1,
 		base:              base,
 		timeIntervalMSecs: 500,
-		originCoord:        geo.NewPoint(0, 0),
+		originCoord:       geo.NewPoint(0, 0),
 	}
 	od.motors = append(od.motors, motorPair{left, right})
 	od.trackPosition(context.Background())
