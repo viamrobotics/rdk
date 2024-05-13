@@ -41,7 +41,7 @@ var InternalServiceName = resource.NewName(API, "builtin")
 //	firstPoseInFrame := referenceframe.NewPoseInFrame(referenceframe.World, firstPose)
 //
 //	// Calculate firstPoseInFrame from the perspective of the origin frame of myArm
-//	transformedPoseInFrame, err := fsService.TransformPose(context.Background(), firstPoseInFrame, "myArm", nil)
+//	transformedPoseInFrame, err := machine.TransformPose(context.Background(), firstPoseInFrame, "myArm", nil)
 //
 // TransformPointCloud example:
 //
