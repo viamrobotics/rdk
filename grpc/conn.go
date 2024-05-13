@@ -60,6 +60,10 @@ func (c *ReconfigurableClientConn) NewStream(
 	return conn.NewStream(ctx, desc, method, opts...)
 }
 
+// hack to get around import cycle
+// needs to be kept in sync with camera.Named()
+var api = resource.APINamespaceRDK.WithComponentType("camera")
+
 // ReplaceConn replaces the underlying client connection with the connection passed in. This does not close the
 // old connection, the caller is expected to close it if needed.
 func (c *ReconfigurableClientConn) ReplaceConn(conn rpc.ClientConn) {
@@ -70,18 +74,16 @@ func (c *ReconfigurableClientConn) ReplaceConn(conn rpc.ClientConn) {
 	}
 
 	if pc := conn.PeerConn(); pc != nil {
-		golog.Global().Infof("DBG. OnTrack added. PC: %p\n", pc)
+		// golog.Global().Infof("DBG. OnTrack added. PC: %p\n", pc)
+		golog.Global().Error("grpc/conn setting up OnTrack callback")
 		pc.OnTrack(func(trackRemote *webrtc.TrackRemote, rtpReceiver *webrtc.RTPReceiver) {
-			golog.Global().Infof("DBG. OnTrack called. PC: %p\n", pc)
+			// golog.Global().Infof("DBG. OnTrack called. PC: %p\n", pc)
+			name := resource.SDPTrackNameToResourceName(api, trackRemote.StreamID())
 			c.resOnTrackMu.Lock()
-
-			// hack to get around import cycle
-			// needs to be kept in sync with caemra.Named()
-			name := resource.NewName(resource.APINamespaceRDK.WithComponentType("camera"), trackRemote.StreamID())
 			onTrackCB, ok := c.resOnTrackCBs[name]
 			c.resOnTrackMu.Unlock()
 			if !ok {
-				golog.Global().Fatalf("Callback not found for StreamID: %s, keys(resOnTrackCBs): %#v", trackRemote.StreamID(), maps.Keys(c.resOnTrackCBs))
+				golog.Global().Fatalf("Callback not found for StreamID: %s, name: %s, keys(resOnTrackCBs): %#v", trackRemote.StreamID(), name, maps.Keys(c.resOnTrackCBs))
 				return
 			}
 			onTrackCB(trackRemote, rtpReceiver)
@@ -117,12 +119,12 @@ func (c *ReconfigurableClientConn) Close() error {
 func (c *ReconfigurableClientConn) AddOnTrackSub(name resource.Name, onTrackCB OnTrackCB) {
 	c.resOnTrackMu.Lock()
 	defer c.resOnTrackMu.Unlock()
-	c.resOnTrackCBs[resource.RemoveRemoteName(name)] = onTrackCB
+	c.resOnTrackCBs[name] = onTrackCB
 }
 
 // RemoveOnTrackSub removes an OnTrack subscription for the resource.
 func (c *ReconfigurableClientConn) RemoveOnTrackSub(name resource.Name) {
 	c.resOnTrackMu.Lock()
 	defer c.resOnTrackMu.Unlock()
-	delete(c.resOnTrackCBs, resource.RemoveRemoteName(name))
+	delete(c.resOnTrackCBs, name)
 }

@@ -3,13 +3,14 @@ package grpc
 import (
 	"context"
 	"errors"
-	"fmt"
 	"sync"
 
+	"github.com/edaniels/golog"
 	"github.com/pion/webrtc/v3"
 	"go.uber.org/multierr"
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
+	"golang.org/x/exp/maps"
 	googlegrpc "google.golang.org/grpc"
 
 	"go.viam.com/rdk/logging"
@@ -193,17 +194,15 @@ func (sc *SharedConn) ResetConn(conn rpc.ClientConn, moduleLogger logging.Logger
 		return
 	}
 
+	golog.Global().Error("grpc/shared_conn setting up OnTrack callback")
 	sc.peerConn.OnTrack(func(trackRemote *webrtc.TrackRemote, rtpReceiver *webrtc.RTPReceiver) {
-		name, err := resource.NewFromString(trackRemote.StreamID())
-		if err != nil {
-			sc.logger.Errorw("StreamID did not parse as a ResourceName", "sharedConn", fmt.Sprintf("%p", sc), "streamID", trackRemote.StreamID())
-			return
-		}
+		name := resource.SDPTrackNameToResourceName(api, trackRemote.StreamID())
 		sc.resOnTrackMu.Lock()
 		onTrackCB, ok := sc.resOnTrackCBs[name]
 		sc.resOnTrackMu.Unlock()
 		if !ok {
-			sc.logger.Errorw("Callback not found for StreamID", "sharedConn", fmt.Sprintf("%p", sc), "streamID", trackRemote.StreamID())
+			// sc.logger.Errorw("Callback not found for StreamID", "sharedConn", fmt.Sprintf("%p", sc), "streamID", trackRemote.StreamID())
+			golog.Global().Fatalf("Callback not found for StreamID: %s, name: %s, keys(resOnTrackCBs): %#v", trackRemote.StreamID(), name, maps.Keys(sc.resOnTrackCBs))
 			return
 		}
 		onTrackCB(trackRemote, rtpReceiver)
