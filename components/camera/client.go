@@ -469,7 +469,7 @@ func (c *client) SubscribeRTP(
 		// c.logger.CDebugw(ctx, "SubscribeRTP calling AddStream", "subID", sub.ID.String(), "c.Name()", c.Name(), "c.Name().Name", c.Name().Name, "resource.RemoveRemoteName(c.Name())", resource.RemoveRemoteName(c.Name()), "resource.RemoveRemoteName(c.Name()).String()", resource.RemoveRemoteName(c.Name()), "err", err)
 
 		if _, err := c.streamClient.AddStream(ctx, &streampb.AddStreamRequest{Name: resource.RemoveRemoteName(c.Name()).ShortName()}); err != nil {
-			c.logger.CDebugw(ctx, "SubscribeRTP AddStream hit error", "subID", sub.ID.String(), "name", c.Name(), "err", err)
+			c.logger.CErrorw(ctx, "SubscribeRTP AddStream hit error", "subID", sub.ID.String(), "name", c.Name(), "err", err)
 			return rtppassthrough.NilSubscription, err
 		}
 		// NOTE: (Nick S) This is a workaround to a Pion bug / missing feature.

@@ -9,6 +9,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/edaniels/golog"
 	"github.com/pion/rtp"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
@@ -330,10 +331,10 @@ func (ss *StreamState) inc(ctx context.Context) error {
 			return fmt.Errorf("unexpected stream %s source %s", ss.Stream.Name(), ss.streamSource)
 		}
 		// this is the first subscription, attempt passthrough
-		ss.logger.CDebugw(ctx, "attempting to subscribe to rtp_passthrough", "name", ss.Stream.Name())
+		ss.logger.CInfow(ctx, "attempting to subscribe to rtp_passthrough", "name", ss.Stream.Name())
 		err := ss.streamH264Passthrough(ctx)
 		if err != nil {
-			ss.logger.CDebugw(ctx, "rtp_passthrough not possible, falling back to GoStream", "err", err.Error(), "name", ss.Stream.Name())
+			ss.logger.CInfow(ctx, "rtp_passthrough not possible, falling back to GoStream", "err", err.Error(), "name", ss.Stream.Name())
 			// if passthrough failed, fall back to gostream based approach
 			ss.Stream.Start()
 			ss.streamSource = streamSourceGoStream
@@ -430,6 +431,7 @@ func (ss *StreamState) streamH264Passthrough(ctx context.Context) error {
 
 	cam, err := camera.FromRobot(ss.robot, ss.Stream.Name())
 	if err != nil {
+		golog.Global().Error(err.Error())
 		return err
 	}
 
@@ -440,7 +442,7 @@ func (ss *StreamState) streamH264Passthrough(ctx context.Context) error {
 	}
 
 	cb := func(pkts []*rtp.Packet) {
-		ss.logger.Info("DBG. Received Pkts. Forwarding:", len(pkts))
+		// ss.logger.Info("DBG. Received Pkts. Forwarding:", len(pkts))
 		for _, pkt := range pkts {
 			if err := ss.Stream.WriteRTP(pkt); err != nil {
 				ss.logger.Debugw("stream.WriteRTP", "name", ss.Stream.Name(), "err", err.Error())
@@ -448,7 +450,7 @@ func (ss *StreamState) streamH264Passthrough(ctx context.Context) error {
 		}
 	}
 
-	fmt.Printf("DBG. Passthrough starting. Source type: %T\n", rtpPassthroughSource)
+	// fmt.Printf("DBG. Passthrough starting. Source type: %T\n", rtpPassthroughSource)
 	if cam, ok := rtpPassthroughSource.(*camera.SourceBasedCamera); ok {
 		fmt.Printf("  Underlying video source type\n")
 		cam.Debug()
