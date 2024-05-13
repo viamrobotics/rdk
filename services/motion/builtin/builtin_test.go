@@ -423,7 +423,7 @@ func TestObstacleReplanningGlobe(t *testing.T) {
 
 	testFn := func(t *testing.T, tc testCase) {
 		t.Helper()
-		
+
 		calledPC := false
 		pcFunc := func(ctx context.Context, cameraName string, extra map[string]interface{}) ([]*viz.Object, error) {
 			if !calledPC {
@@ -432,7 +432,7 @@ func TestObstacleReplanningGlobe(t *testing.T) {
 			}
 			return tc.getPCfunc(ctx, cameraName, extra)
 		}
-		
+
 		injectedMovementSensor, _, kb, ms := createMoveOnGlobeEnvironment(
 			ctx,
 			t,
