@@ -50,13 +50,11 @@ var InternalServiceName = resource.NewName(API, "builtin")
 //
 //	Transform the first point cloud in the list from its reference frame to the frame of 'myArm'.
 //	transformed, err := fsService.TransformPointCloud(context.Background(), pointClouds[0], referenceframe.World, "myArm")
-//
 // CurrentInputs example:
 //
 //	myCurrentInputs, err := fsService.CurrentInputs(context.Background())
 //
 //	frameSystem, err := fsService.FrameSystem(context.Background(), nil)
-//
 type Service interface {
 	resource.Resource
 
