@@ -26,6 +26,7 @@ type AnalogSmoother struct {
 	lastError         atomic.Pointer[errValue]
 	logger            logging.Logger
 	workers           utils.StoppableWorkers
+	analogRange       board.AnalogRange
 }
 
 // SmoothAnalogReader wraps the given reader in a smoother.
@@ -65,16 +66,14 @@ func (as *AnalogSmoother) Read(ctx context.Context, extra map[string]interface{}
 	avg := as.data.Average()
 	lastErr := as.lastError.Load()
 	if lastErr == nil {
-		///TODO: figure out range ??
-		return avg, board.AnalogRange{}, nil
+		return avg, as.analogRange, nil
 	}
 	//nolint:forcetypeassert
 	if lastErr.present {
-		return avg, board.AnalogRange{}, lastErr.err
+		return avg, as.analogRange, lastErr.err
 	}
 
-	//TODO: range here
-	return avg, board.AnalogRange{}, nil
+	return avg, as.analogRange, nil
 }
 
 // Start begins the smoothing routine that reads from the underlying
@@ -107,6 +106,11 @@ func (as *AnalogSmoother) Start() {
 	}
 
 	as.workers = utils.NewStoppableWorkers(func(ctx context.Context) {
+		// Store the analog reader range and step size
+		_, analogRange, err := as.Raw.Read(ctx, nil)
+		as.lastError.Store(&errValue{err != nil, err})
+		as.analogRange = analogRange
+
 		for {
 			select {
 			case <-ctx.Done():

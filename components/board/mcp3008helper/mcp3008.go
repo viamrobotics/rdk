@@ -60,8 +60,7 @@ func (mar *MCP3008AnalogReader) Read(ctx context.Context, extra map[string]inter
 	// garbage and might be non-zero.
 	val := 0x03FF & ((int(rx[1]) << 8) | int(rx[2]))
 
-
-	//TODO: wtf is the analog range for this 
+	//TODO: wtf is the analog range for this
 	return val, board.AnalogRange{}, nil
 }
 

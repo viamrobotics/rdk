@@ -118,6 +118,8 @@ type numatoBoard struct {
 	sent    map[string]bool
 	sentMu  sync.Mutex
 	workers rdkutils.StoppableWorkers
+
+	productID int
 }
 
 func (b *numatoBoard) addToSent(msg string) {
@@ -355,6 +357,7 @@ type analog struct {
 	pin string
 }
 
+// analog Read returns the analog value with the range and step size in mV/bit.
 func (a *analog) Read(ctx context.Context, extra map[string]interface{}) (int, board.AnalogRange, error) {
 	res, err := a.b.doSendReceive(ctx, fmt.Sprintf("adc read %s", a.pin))
 	if err != nil {
@@ -364,8 +367,34 @@ func (a *analog) Read(ctx context.Context, extra map[string]interface{}) (int, b
 	if err != nil {
 		return 0, board.AnalogRange{}, err
 	}
-
-	return reading, board.AnalogRange{Min: 0, Max: 0, StepSize: 0}, nil
+	var max float32 = 0.0
+	var stepSize float32 = 0.0
+	switch a.b.productID {
+	case 0x805:
+		// 128 channel usb numato has 12 bit resolution
+		max = 3.3
+		stepSize = max / 4096
+	case 0x802:
+		// 32 channel usb numato has 10 bit resolution
+		max = 3.3
+		stepSize = max / 1024
+	case 0x800:
+		// 8 and 16 pin usb versions have the same product ID but different voltage ranges
+		// both have 10 bit resolution
+		if a.b.pins == 8 {
+			max = 5.0
+		} else if a.b.pins == 16 {
+			max = 3.3
+		}
+		stepSize = max / 1024
+	case 0xC05:
+		// 1 channel usb relay module numato - 10 bit resolution
+		max = 5.0
+		stepSize = max / 1024
+	default:
+	}
+	stepSize *= 1000
+	return reading, board.AnalogRange{Min: 0, Max: max, StepSize: stepSize}, nil
 }
 
 func (a *analog) Write(ctx context.Context, value int, extra map[string]interface{}) error {
@@ -390,16 +419,20 @@ func connect(ctx context.Context, name resource.Name, conf *Config, logger loggi
 		path = devs[0].Path
 	}
 
-	// Find the numato board product id
-	products := usb.Search(usb.NewSearchFilter("AppleUSBACMData", "usbmodem"), func(vendorID, productID int) bool {
-		return true
-	})
+	// Find the numato board's productid
+	var products []usb.Description
+	products = getSerialDevices()
+
 	var productID int
 	for _, product := range products {
 		if product.ID.Vendor != 0x2a19 {
 			continue
 		}
 		productID = product.ID.Product
+	}
+
+	if productID != 0x805|0x802|0x800|0x0C05 {
+		logger.Warnf("analog range and step size is not supported for numato with product id %d", productID)
 	}
 
 	options := goserial.OpenOptions{
@@ -414,12 +447,12 @@ func connect(ctx context.Context, name resource.Name, conf *Config, logger loggi
 	if err != nil {
 		return nil, err
 	}
-
 	b := &numatoBoard{
-		Named:  name.AsNamed(),
-		pins:   pins,
-		port:   device,
-		logger: logger,
+		Named:     name.AsNamed(),
+		pins:      pins,
+		port:      device,
+		logger:    logger,
+		productID: productID,
 	}
 
 	b.analogs = map[string]*pinwrappers.AnalogSmoother{}
@@ -437,6 +470,5 @@ func connect(ctx context.Context, name resource.Name, conf *Config, logger loggi
 		return nil, multierr.Combine(b.Close(ctx), err)
 	}
 	b.logger.CDebugw(ctx, "numato startup", "version", ver)
-
 	return b, nil
 }

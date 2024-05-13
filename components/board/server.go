@@ -148,8 +148,10 @@ func (s *serviceServer) ReadAnalogReader(
 	if err != nil {
 		return nil, err
 	}
-	return &pb.ReadAnalogReaderResponse{Value: int32(val),
-		MinRange: analogRange.Min, MaxRange: analogRange.Max, StepSize: analogRange.StepSize}, nil
+	return &pb.ReadAnalogReaderResponse{
+		Value:    int32(val),
+		MinRange: analogRange.Min, MaxRange: analogRange.Max, StepSize: analogRange.StepSize,
+	}, nil
 }
 
 // WriteAnalog writes the analog value to the analog writer pin of the underlying robot.
