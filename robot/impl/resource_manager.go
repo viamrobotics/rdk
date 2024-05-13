@@ -719,6 +719,7 @@ func (manager *resourceManager) completeConfigForRemotes(ctx context.Context, lr
 	levels := manager.resources.ReverseTopologicalSortInLevels()
 	timeout := rutils.GetResourceConfigurationTimeout(manager.logger)
 	for _, resourceNames := range levels {
+		// Q: can we use `reconfigureWorkers` instead?
 		var wg sync.WaitGroup
 		for _, resName := range resourceNames {
 			select {
