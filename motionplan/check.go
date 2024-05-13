@@ -392,7 +392,8 @@ func checkSegments(sfPlanner *planManager, segments []*ik.Segment, lookAheadDist
 				return nil
 			}
 
-			// construct state representing where we currently are in the path
+			// define State which only houses inputs, pose information not needed since we cannot get arcs from
+			// an interpolating poses, this would only yield a straight line.
 			interpolatedState := &ik.State{
 				Frame:         sfPlanner.frame,
 				Configuration: interpConfig,

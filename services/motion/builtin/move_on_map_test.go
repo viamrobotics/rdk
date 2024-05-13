@@ -637,6 +637,7 @@ func TestMoveOnMapStaticObs(t *testing.T) {
 			logger,
 		)
 		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, strings.Contains(err.Error(), "found constraint violation or collision in segment between"), test.ShouldBeTrue)
 	})
 
 	t.Run("fail due to obstacles enclosing goals", func(t *testing.T) {

@@ -712,18 +712,3 @@ func poseFromPositions(frame Frame, positions map[string][]Input) (spatial.Pose,
 	}
 	return frame.Transform(inputs)
 }
-
-// AddFrameBetween takes an existing framesystem which has general form:
-// originalFS := world - f1 - f2 - ...
-// and places the middle frame between f1 and world resulting in
-// newFS := world - middle - f1 - f2 ...
-func AddFrameBetween(middle Frame, originalFS FrameSystem) (FrameSystem, error) {
-	newFS := NewEmptyFrameSystem("with-in-between Frame")
-	if err := newFS.AddFrame(middle, newFS.World()); err != nil {
-		return nil, err
-	}
-	if err := newFS.MergeFrameSystem(originalFS, middle); err != nil {
-		return nil, err
-	}
-	return newFS, nil
-}
