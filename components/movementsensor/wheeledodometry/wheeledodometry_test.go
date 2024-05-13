@@ -268,7 +268,7 @@ func TestSpin(t *testing.T) {
 		originCoord:        geo.NewPoint(0, 0),
 	}
 	od.motors = append(od.motors, motorPair{left, right})
-	od.trackPosition(context.Background())
+	od.trackPosition()
 
 	// turn 90 degrees
 	setPositions(-1*(math.Pi/4), 1*(math.Pi/4))
@@ -303,6 +303,7 @@ func TestSpin(t *testing.T) {
 	test.That(t, or.OrientationVectorDegrees().Theta, test.ShouldAlmostEqual, 270, 0.1)
 	test.That(t, pos.Lat(), test.ShouldAlmostEqual, 0, 0.1)
 	test.That(t, pos.Lng(), test.ShouldAlmostEqual, 0, 0.1)
+	test.That(t, od.Close(context.Background()), test.ShouldBeNil)
 }
 
 func TestMoveStraight(t *testing.T) {
@@ -323,7 +324,7 @@ func TestMoveStraight(t *testing.T) {
 		originCoord:        geo.NewPoint(0, 0),
 	}
 	od.motors = append(od.motors, motorPair{left, right})
-	od.trackPosition(context.Background())
+	od.trackPosition()
 
 	// move straight 5 m
 	setPositions(5, 5)
@@ -346,6 +347,7 @@ func TestMoveStraight(t *testing.T) {
 	test.That(t, or.OrientationVectorDegrees().Theta, test.ShouldAlmostEqual, 0, 0.1)
 	test.That(t, pos.Lat(), test.ShouldAlmostEqual, -5, 0.1)
 	test.That(t, pos.Lng(), test.ShouldAlmostEqual, 0, 0.1)
+	test.That(t, od.Close(context.Background()), test.ShouldBeNil)
 }
 
 func TestComplicatedPath(t *testing.T) {
@@ -366,7 +368,7 @@ func TestComplicatedPath(t *testing.T) {
 		originCoord:        geo.NewPoint(0, 0),
 	}
 	od.motors = append(od.motors, motorPair{left, right})
-	od.trackPosition(context.Background())
+	od.trackPosition()
 
 	// move straight 5 m
 	setPositions(5, 5)
@@ -439,6 +441,7 @@ func TestComplicatedPath(t *testing.T) {
 	test.That(t, or.OrientationVectorDegrees().Theta, test.ShouldAlmostEqual, 0, 0.1)
 	test.That(t, pos.Lat(), test.ShouldAlmostEqual, 7.6, 0.1)
 	test.That(t, pos.Lng(), test.ShouldAlmostEqual, 6.4, 0.1)
+	test.That(t, od.Close(context.Background()), test.ShouldBeNil)
 }
 
 func TestVelocities(t *testing.T) {
@@ -458,7 +461,7 @@ func TestVelocities(t *testing.T) {
 		originCoord:       geo.NewPoint(0, 0),
 	}
 	od.motors = append(od.motors, motorPair{left, right})
-	od.trackPosition(context.Background())
+	od.trackPosition()
 
 	// move forward 10 m
 	setPositions(10, 10)
@@ -503,4 +506,5 @@ func TestVelocities(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, linVel.Y, test.ShouldAlmostEqual, -10, 0.1)
 	test.That(t, angVel.Z, test.ShouldAlmostEqual, 0, 0.1)
+	test.That(t, od.Close(context.Background()), test.ShouldBeNil)
 }
