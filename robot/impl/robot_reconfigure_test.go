@@ -53,17 +53,18 @@ var (
 	testReconfiguringMismatch = false
 )
 
+func ConfigFromFile(t *testing.T, filePath string) *config.Config {
+	t.Helper()
+	logger := logging.NewTestLogger(t)
+	buf, err := envsubst.ReadFile(filePath)
+	test.That(t, err, test.ShouldBeNil)
+	conf, err := config.FromReader(context.Background(), filePath, bytes.NewReader(buf), logger)
+	test.That(t, err, test.ShouldBeNil)
+	return conf
+}
+
 func TestRobotReconfigure(t *testing.T) {
 	test.That(t, len(resource.DefaultServices()), test.ShouldEqual, 2)
-	ConfigFromFile := func(t *testing.T, filePath string) *config.Config {
-		t.Helper()
-		logger := logging.NewTestLogger(t)
-		buf, err := envsubst.ReadFile(filePath)
-		test.That(t, err, test.ShouldBeNil)
-		conf, err := config.FromReader(context.Background(), filePath, bytes.NewReader(buf), logger)
-		test.That(t, err, test.ShouldBeNil)
-		return conf
-	}
 	mockAPI := resource.APINamespaceRDK.WithComponentType("mock")
 	mockNamed := func(name string) resource.Name {
 		return resource.NewName(mockAPI, name)

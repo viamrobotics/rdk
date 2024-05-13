@@ -5,8 +5,8 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"errors"
+	"fmt"
 	"os"
-	"strings"
 	"sync"
 	"testing"
 
@@ -25,6 +25,7 @@ import (
 	"go.viam.com/utils/pexec"
 	"go.viam.com/utils/rpc"
 	"go.viam.com/utils/testutils"
+	"gonum.org/v1/gonum/stat/combin"
 	"google.golang.org/protobuf/testing/protocmp"
 
 	"go.viam.com/rdk/cloud"
@@ -1852,76 +1853,75 @@ func managerForDummyRobot(t *testing.T, robot robot.Robot) *resourceManager {
 	return manager
 }
 
-func FuzzReconfigureParity(f *testing.F) {
-	type TestCase struct {
-		config   string
-		reconfig string
+// TestReconfigureParity validates that calling the synchronous and asynchronous version
+// of `Reconfigure` results in the same resource state on a local robot for all
+// combinations of an initial and updated configuration.
+func TestReconfigureParity(t *testing.T) {
+	files := []string{
+		"data/diff_config_deps1.json",
+		"data/diff_config_deps2.json",
+		"data/diff_config_deps3.json",
+		"data/diff_config_deps4.json",
+		"data/diff_config_deps5.json",
+		"data/diff_config_deps6.json",
+		"data/diff_config_deps7.json",
+		"data/diff_config_deps8.json",
+		"data/diff_config_deps9_good.json",
+		"data/diff_config_deps9_bad.json",
+		"data/diff_config_deps10.json",
+		"data/diff_config_deps11.json",
+		"data/diff_config_deps12.json",
 	}
-	testcases := []TestCase{
-		{
-			config:   `{"components":[{"name":"m","type":"motor","model":"fake"}]}`,
-			reconfig: `{"components":[{"name":"m","type":"motor","model":"fake"}]}`,
-		},
-		{
-			config: `{
-				"components":
-					[
-						{"name":"b","type":"base","model":"fake"},
-						{"name":"m","type":"motor","model":"fake","depends_on":["b"]}
-					],
-				"services":
-					[
-						{"name":"s","type":"slam","model":"fake","depends_on":["b"]}
-					]
-				}`,
-			reconfig: `{
-				"components":
-					[
-						{"name":"b","type":"base","model":"fake"},
-						{"name":"m","type":"motor","model":"fake","depends_on":["b"]},
-						{"name":"m1","type":"motor","model":"fake","depends_on":["m"]}
-					],
-				"services":
-					[
-						{"name":"s","type":"slam","model":"fake","depends_on":["b"]}
-					]
-				}`,
-		},
+	type fileConf struct {
+		file string
+		conf *config.Config
 	}
-	for _, tc := range testcases {
-		f.Add(tc.config, tc.reconfig)
+	var fcs []fileConf
+	for _, file := range files {
+		fcs = append(fcs, fileConf{file: file, conf: ConfigFromFile(t, file)})
 	}
-	f.Fuzz(func(t *testing.T, cfgJson, reCfgJson string) {
-		logger := logging.NewTestLogger(t)
-		ctx := context.Background()
 
-		cfg, err := config.FromReader(ctx, "somepath", strings.NewReader(cfgJson), logger)
-		if err != nil {
-			t.Skip("failed to parse initial config", err)
-		}
-		reCfg, err := config.FromReader(ctx, "somepath", strings.NewReader(reCfgJson), logger)
-		if err != nil {
-			t.Skip("failed to parse updated config", err)
-		}
+	logger := logging.NewTestLogger(t)
+	ctx := context.Background()
 
-		r1 := setupLocalRobot(t, ctx, cfg, logger).(*localRobot)
-		r2 := setupLocalRobot(t, ctx, cfg, logger).(*localRobot)
+	testReconfigureParity := func(t *testing.T, from, to fileConf) {
+		name := fmt.Sprintf("%s -> %s", from.file, to.file)
+		t.Run(name, func(t *testing.T) {
+			// TODO: resolve data races and to allow this to run in parallel
+			// t.Parallel()
 
-		test.That(
-			t,
-			rdktestutils.NewResourceNameSet(r1.ResourceNames()...),
-			test.ShouldResemble,
-			rdktestutils.NewResourceNameSet(r2.ResourceNames()...),
-		)
+			r1 := setupLocalRobot(t, ctx, from.conf, logger).(*localRobot)
+			r2 := setupLocalRobot(t, ctx, from.conf, logger).(*localRobot)
 
-		r1.Reconfigure(ctx, reCfg)
-		r2.ReconfigureSync(ctx, reCfg)
+			test.That(
+				t,
+				rdktestutils.NewResourceNameSet(r1.ResourceNames()...),
+				test.ShouldResemble,
+				rdktestutils.NewResourceNameSet(r2.ResourceNames()...),
+			)
 
-		test.That(
-			t,
-			rdktestutils.NewResourceNameSet(r1.ResourceNames()...),
-			test.ShouldResemble,
-			rdktestutils.NewResourceNameSet(r2.ResourceNames()...),
-		)
-	})
+			r1.Reconfigure(ctx, to.conf)
+			r2.ReconfigureSync(ctx, to.conf)
+
+			test.That(
+				t,
+				rdktestutils.NewResourceNameSet(r1.ResourceNames()...),
+				test.ShouldResemble,
+				rdktestutils.NewResourceNameSet(r2.ResourceNames()...),
+			)
+		})
+	}
+
+	gen := combin.NewCombinationGenerator(len(fcs), 2)
+
+	pair := []int{0, 0}
+	for gen.Next() {
+		gen.Combination(pair)
+
+		i, j := pair[0], pair[1]
+		testReconfigureParity(t, fcs[i], fcs[j])
+
+		i, j = pair[1], pair[0]
+		testReconfigureParity(t, fcs[i], fcs[j])
+	}
 }
