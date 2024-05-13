@@ -20,7 +20,6 @@ import (
 	pb "go.viam.com/api/component/board/v1"
 	"go.viam.com/utils"
 	"go.viam.com/utils/serial"
-	"go.viam.com/utils/usb"
 
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/board/pinwrappers"
@@ -420,8 +419,7 @@ func connect(ctx context.Context, name resource.Name, conf *Config, logger loggi
 	}
 
 	// Find the numato board's productid
-	var products []usb.Description
-	products = getSerialDevices()
+	products := getSerialDevices()
 
 	var productID int
 	for _, product := range products {
