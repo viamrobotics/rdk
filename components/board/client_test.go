@@ -155,11 +155,13 @@ func TestWorkingClient(t *testing.T) {
 		actualExtra = nil
 
 		// write analog
-		injectBoard.WriteAnalogFunc = func(ctx context.Context, pin string, value int32, extra map[string]interface{}) error {
+		injectAnalog.WriteFunc = func(ctx context.Context, value int, extra map[string]interface{}) error {
 			actualExtra = extra
 			return nil
 		}
-		err = injectBoard.WriteAnalog(context.Background(), "pin1", 6, expectedExtra)
+		analog2, err := injectBoard.AnalogByName("pin1")
+		test.That(t, err, test.ShouldBeNil)
+		err = analog2.Write(context.Background(), 6, expectedExtra)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, actualExtra, test.ShouldResemble, expectedExtra)
 		actualExtra = nil

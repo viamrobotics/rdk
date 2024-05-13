@@ -101,6 +101,13 @@ func TestObstacleDepth(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, srv.Name(), test.ShouldResemble, name)
 
+	// Test properties. Should support object PCDs and not detections or classifications
+	props, err := srv.GetProperties(ctx, nil)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, props.ObjectPCDsSupported, test.ShouldEqual, true)
+	test.That(t, props.DetectionSupported, test.ShouldEqual, false)
+	test.That(t, props.ClassificationSupported, test.ShouldEqual, false)
+
 	// Not a detector or classifier
 	img, err := rimage.NewImageFromFile(artifact.MustPath("vision/objectdetection/detection_test.jpg"))
 	test.That(t, err, test.ShouldBeNil)

@@ -2,6 +2,7 @@ package utils
 
 import (
 	"os"
+	"runtime"
 	"time"
 
 	"go.viam.com/rdk/logging"
@@ -24,6 +25,9 @@ const (
 	// be set to override DefaultModuleStartupTimeout as the duration
 	// that modules are allowed to startup.
 	ModuleStartupTimeoutEnvVar = "VIAM_MODULE_STARTUP_TIMEOUT"
+
+	// AndroidFilesDir is hardcoded because golang inits before our android code can override HOME var.
+	AndroidFilesDir = "/data/user/0/com.viam.rdk.fgservice/cache"
 )
 
 // GetResourceConfigurationTimeout calculates the resource configuration
@@ -50,4 +54,21 @@ func timeoutHelper(defaultTimeout time.Duration, timeoutEnvVar string, logger lo
 		return timeout
 	}
 	return defaultTimeout
+}
+
+// PlatformHomeDir wraps Getenv("HOME"), except on android, where it returns the app cache directory.
+func PlatformHomeDir() string {
+	if runtime.GOOS == "android" {
+		return AndroidFilesDir
+	}
+	return os.Getenv("HOME")
+}
+
+// PlatformMkdirTemp wraps MkdirTemp. On android, when dir is empty, it uses a path
+// that is writable + executable.
+func PlatformMkdirTemp(dir, pattern string) (string, error) {
+	if runtime.GOOS == "android" && dir == "" {
+		dir = AndroidFilesDir
+	}
+	return os.MkdirTemp(dir, pattern)
 }

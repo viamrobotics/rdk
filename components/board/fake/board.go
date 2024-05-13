@@ -19,9 +19,10 @@ import (
 	"go.viam.com/rdk/resource"
 )
 
-// In order to maintain test functionality, testPin will always return an analog value of 0.
-// To see non-zero fake analog values on a fake board, add an analog reader to any other pin.
-var analogTestPin = ""
+// In order to maintain test functionality, testPin will always return the analog value it is set
+// to (defaults to 0 before being set). To see changing fake analog values on a fake board, add an
+// analog reader to any other pin.
+var analogTestPin = "1"
 
 // In order to maintain test functionality, digital interrtups on any pin except nonZeroInterruptPin
 // will always return a digital interrupt value of 0. To see non-zero fake interrupt values on a fake board,
@@ -228,13 +229,6 @@ func (b *Board) SetPowerMode(ctx context.Context, mode pb.PowerMode, duration *t
 	return grpc.UnimplementedError
 }
 
-// WriteAnalog writes the value to the given pin, which can be read back by adding it to AnalogReaders.
-func (b *Board) WriteAnalog(ctx context.Context, pin string, value int32, extra map[string]interface{}) error {
-	alg := &Analog{pin: pin, Value: int(value)}
-	b.Analogs[pin] = alg
-	return nil
-}
-
 // StreamTicks starts a stream of digital interrupt ticks.
 func (b *Board) StreamTicks(ctx context.Context, interrupts []board.DigitalInterrupt, ch chan board.Tick,
 	extra map[string]interface{},
@@ -401,10 +395,6 @@ func (s *DigitalInterrupt) reset(conf board.DigitalInterruptConfig) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.conf = conf
-}
-
-// RemoveCallback removes a listener for interrupts.
-func (s *DigitalInterrupt) RemoveCallback(c chan board.Tick) {
 }
 
 // Value returns the current value of the interrupt which is

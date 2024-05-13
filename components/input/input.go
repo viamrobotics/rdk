@@ -35,6 +35,35 @@ func Named(name string) resource.Name {
 
 // Controller is a logical "container" more than an actual device
 // Could be a single gamepad, or a collection of digitalInterrupts and analogReaders, a keyboard, etc.
+//
+// Controls example:
+//
+//	// Get the list of Controls provided by the controller.
+//	controls, err := myController.Controls(context.Background(), nil)
+//
+// Events example:
+//
+//	// Get the most recent Event for each Control.
+//	recent_events, err := myController.Events(context.Background(), nil)
+//
+// RegisterControlCallback example:
+//
+//	// Define a function to handle pressing the Start Menu button, "ButtonStart", on your controller and logging the start time
+//	printStartTime := func(ctx context.Context, event input.Event) {
+//	    logger.Info("Start Menu Button was pressed at this time: %v", event.Time)
+//	}
+//
+//	// Define the EventType "ButtonPress" to serve as the trigger for printStartTime.
+//	triggers := []input.EventType{input.ButtonPress}
+//
+//	// Get the controller's Controls.
+//	controls, err := controller.Controls(ctx, nil)
+//
+//	// If the "ButtonStart" Control is found, trigger printStartTime when "ButtonStart" the event "ButtonPress" occurs.
+//	if !slices.Contains(controls, input.ButtonStart) {
+//	    return errors.New("button `ButtonStart` not found; controller may be disconnected")
+//	}
+//	Mycontroller.RegisterControlCallback(context.Background(), input.ButtonStart, triggers, printStartTime, nil)
 type Controller interface {
 	resource.Resource
 

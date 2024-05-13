@@ -946,5 +946,6 @@ func (c *viamClient) dataGetDatabaseConnection(orgID string) error {
 		return errors.Wrapf(err, serverErrorMessage)
 	}
 	printf(c.c.App.Writer, "MongoDB Atlas Data Federation instance hostname: %s", res.GetHostname())
+	printf(c.c.App.Writer, "MongoDB Atlas Data Federation instance connection URI: %s", res.GetMongodbUri())
 	return nil
 }

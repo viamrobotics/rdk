@@ -67,9 +67,10 @@ type SharedConn struct {
 	// `peerConnMu` synchronizes changes to the underlying `peerConn`. Such that calls consecutive
 	// calls to `GrpcConn` and `PeerConn` will return connections from the same (or newer, but not
 	// prior) "generations".
-	peerConnMu    sync.Mutex
-	peerConn      *webrtc.PeerConnection
-	peerConnReady <-chan struct{}
+	peerConnMu     sync.Mutex
+	peerConn       *webrtc.PeerConnection
+	peerConnReady  <-chan struct{}
+	peerConnClosed <-chan struct{}
 	// peerConnFailed gets closed when a PeerConnection fails to connect. The peerConn pointer is
 	// set to nil before this channel is closed.
 	peerConnFailed chan struct{}
@@ -186,7 +187,7 @@ func (sc *SharedConn) ResetConn(conn rpc.ClientConn, moduleLogger logging.Logger
 	}
 
 	sc.peerConn = peerConn
-	sc.peerConnReady, err = rpc.ConfigureForRenegotiation(peerConn, sc.logger.AsZap())
+	sc.peerConnReady, sc.peerConnClosed, err = rpc.ConfigureForRenegotiation(peerConn, sc.logger.AsZap())
 	if err != nil {
 		sc.logger.Warnw("Unable to create optional renegotiation channel for module. Ignoring.", "err", err)
 		return
@@ -296,6 +297,16 @@ func (sc *SharedConn) Close() error {
 	sc.peerConnMu.Lock()
 	if sc.peerConn != nil {
 		err = sc.peerConn.Close()
+		// `PeerConnection.Close` returning does not guarantee that background workers have
+		// stopped. We've added best-effort hooks to observe when a peer connection has completely
+		// cleaned up.
+		if sc.peerConnClosed != nil {
+			select {
+			case <-sc.peerConnReady:
+				<-sc.peerConnClosed
+			default:
+			}
+		}
 		sc.peerConn = nil
 		close(sc.peerConnFailed)
 	}
