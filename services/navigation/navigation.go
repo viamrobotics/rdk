@@ -111,15 +111,14 @@ type Properties struct {
 //
 // RemoveWaypoint example:
 //
-//	// Assuming you have already called AddWaypoint once and the waypoint has not yet been reached
+//	// Assumes you have already called AddWaypoint once and the waypoint has not yet been reached
 //	waypoints, err := myNav.Waypoints(context.Background(), nil)
 //	if (err != nil || len(waypoints) == 0) {
 //	    return
 //	}
 //
 //	// Remove the first waypoint from the service's data storage
-//	err := myNav.RemoveWaypoint(context.Background(), waypoints[0].ID, nil)
-//	err := myNav.RemoveWaypoint(context.Background(), waypoint_id, nil)
+//	err = myNav.RemoveWaypoint(context.Background(), waypoints[0].ID, nil)
 //
 // Obstacles example:
 //
