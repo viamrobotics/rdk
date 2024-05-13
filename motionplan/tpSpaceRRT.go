@@ -51,10 +51,6 @@ const (
 	// When attempting a solve per the above, make no more than this many tries. Preserves performance with large trees.
 	defaultMaxConnectAttempts = 20
 
-	// default motion planning collision resolution is every 2mm.
-	// For bases we increase this to 60mm, a bit more than 2 inches.
-	defaultPTGCollisionResolution = 60
-
 	// When checking a PTG for validity and finding a collision, using the last good configuration will result in a highly restricted
 	// node that is directly facing a wall. To prevent this, we walk back along the trajectory by this percentage of the traj length
 	// so that the node we add has more freedom of movement to extend in the future.
@@ -779,10 +775,6 @@ func (mp *tpSpaceRRTMotionPlanner) extendMap(
 }
 
 func (mp *tpSpaceRRTMotionPlanner) setupTPSpaceOptions() {
-	if mp.planOpts.Resolution == defaultResolution {
-		mp.planOpts.Resolution = defaultPTGCollisionResolution
-	}
-
 	tpOpt := &tpspaceOptions{
 		autoBB: defaultAutoBB,
 
@@ -995,7 +987,7 @@ func (mp *tpSpaceRRTMotionPlanner) attemptSmooth(
 
 func (mp *tpSpaceRRTMotionPlanner) sample(rSeed node, iter int) (node, error) {
 	dist := rSeed.Cost()
-	if dist == 0 {
+	if dist < 1 {
 		dist = 1.0
 	}
 	rDist := dist * (mp.algOpts.autoBB + float64(iter)*autoBBscale)

@@ -8,7 +8,6 @@ import (
 	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
 	"github.com/pkg/errors"
-	goutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/logging"
@@ -37,58 +36,48 @@ type CachedData struct {
 	dev    DataReader
 	logger logging.Logger
 
-	cancelCtx               context.Context
-	cancelFunc              func()
-	activeBackgroundWorkers sync.WaitGroup
+	workers utils.StoppableWorkers
 }
 
 // NewCachedData creates a new CachedData object.
 func NewCachedData(dev DataReader, logger logging.Logger) *CachedData {
-	cancelCtx, cancelFunc := context.WithCancel(context.Background())
 	g := CachedData{
 		err:                movementsensor.NewLastError(1, 1),
 		lastPosition:       movementsensor.NewLastPosition(),
 		lastCompassHeading: movementsensor.NewLastCompassHeading(),
 		dev:                dev,
 		logger:             logger,
-		cancelCtx:          cancelCtx,
-		cancelFunc:         cancelFunc,
 	}
-	g.start()
+	g.workers = utils.NewStoppableWorkers(g.start)
 	return &g
 }
 
 // start begins reading nmea messages from dev and updates gps data.
-func (g *CachedData) start() {
-	g.activeBackgroundWorkers.Add(1)
-	goutils.PanicCapturingGo(func() {
-		defer g.activeBackgroundWorkers.Done()
+func (g *CachedData) start(cancelCtx context.Context) {
+	messages := g.dev.Messages()
+	done := cancelCtx.Done()
+	for {
+		// First, check if we're supposed to shut down.
+		select {
+		case <-done:
+			return
+		default:
+		}
 
-		messages := g.dev.Messages()
-		done := g.cancelCtx.Done()
-		for {
-			// First, check if we're supposed to shut down.
-			select {
-			case <-done:
-				return
-			default:
-			}
-
-			// Next, wait until either we're supposed to shut down or we have new data to process.
-			select {
-			case <-done:
-				return
-			case message := <-messages:
-				// Update our struct's gps data in-place
-				err := g.ParseAndUpdate(message)
-				if err != nil {
-					g.logger.CWarnf(g.cancelCtx, "can't parse nmea sentence: %#v", err)
-					g.logger.Debug("Check: GPS requires clear sky view." +
-						"Ensure the antenna is outdoors if signal is weak or unavailable indoors.")
-				}
+		// Next, wait until either we're supposed to shut down or we have new data to process.
+		select {
+		case <-done:
+			return
+		case message := <-messages:
+			// Update our struct's gps data in-place
+			err := g.ParseAndUpdate(message)
+			if err != nil {
+				g.logger.CWarnf(cancelCtx, "can't parse nmea sentence: %#v", err)
+				g.logger.Debug("Check: GPS requires clear sky view." +
+					"Ensure the antenna is outdoors if signal is weak or unavailable indoors.")
 			}
 		}
-	})
+	}
 }
 
 // ParseAndUpdate passes the provided message into the inner NmeaParser object, which parses the
@@ -265,7 +254,6 @@ func (g *CachedData) calculateCompassDegreeError(p1, p2 *geo.Point) float64 {
 
 // Close shuts down the DataReader feeding this struct.
 func (g *CachedData) Close(ctx context.Context) error {
-	g.cancelFunc()
-	g.activeBackgroundWorkers.Wait()
+	g.workers.Stop()
 	return g.dev.Close()
 }

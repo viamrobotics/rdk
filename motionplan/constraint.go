@@ -354,7 +354,6 @@ func NewCollisionConstraint(
 		if err != nil {
 			return false
 		}
-
 		return len(cg.collisions(collisionBufferMM)) == 0
 	}
 	return constraint, nil

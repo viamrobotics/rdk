@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"strconv"
 
 	"go.uber.org/multierr"
 	pb "go.viam.com/api/component/arm/v1"
@@ -177,28 +178,89 @@ func (pf *ptgGroupFrame) Transform(inputs []referenceframe.Input) (spatialmath.P
 		if err != nil {
 			return nil, err
 		}
-		pose = spatialmath.PoseBetween(startPose, pose)
+		if inputs[endDistanceAlongTrajectoryIndex].Value < 0 {
+			pose = spatialmath.PoseBetweenInverse(startPose, pose)
+		} else {
+			pose = spatialmath.PoseBetween(startPose, pose)
+		}
 	}
 
 	return pose, nil
 }
 
+// Interpolate on a PTG group frame follows the following framework:
+// Let us say we are executing a set on inputs, for example [1, pi/2, 20, 2000].
+// The starting configuration would be [1, pi/2, 20, 20], and Transform() would yield a zero pose. Interpolating from this to the final set
+// of inputs above would yield things like [1, pi/2, 20, 50] and so on, the Transform() of each giving the amount moved from the start.
+// Some current intermediate input may be [1, pi/2, 20, 150]. If we were to try to interpolate the remainder of the arc, then that would be
+// the `from`, while the `to` remains the same. Thus a point along the interpolated path might be [1, pi/2, 150, 170], which would yield
+// the Transform from the current position that would be expected during the next 20 distance to be executed.
+// If we are interpolating against a hypothetical arc, there is no true "from", so `nil` should be passed instead if coming from somewhere
+// which does not have knowledge of specific inputs.
+// The above is inverted with negative distances, requiring some complicated logic which should be radically simplified by RSDK-7515.
 func (pf *ptgGroupFrame) Interpolate(from, to []referenceframe.Input, by float64) ([]referenceframe.Input, error) {
+	if len(from) != len(pf.DoF()) {
+		return nil, referenceframe.NewIncorrectInputLengthError(len(from), len(pf.DoF()))
+	}
 	if len(to) != len(pf.DoF()) {
 		return nil, referenceframe.NewIncorrectInputLengthError(len(to), len(pf.DoF()))
 	}
+	// There are two different valid interpretations of `from`. Either it can be an all-zero input, in which case we interpolate across `to`
+	// or it can match `to` in every value except the end distance index, as described above.
+	zeroInputFrom := true
+
+	// Special behavior if we are working with negative distances
+	// TODO RSDK-7515: anything touching this should go away.
+	reversedTraj := to[endDistanceAlongTrajectoryIndex].Value < 0
+
+	nonMatchIndex := endDistanceAlongTrajectoryIndex
+	if reversedTraj {
+		nonMatchIndex = startDistanceAlongTrajectoryIndex
+	}
 	for i, input := range from {
-		if input.Value != to[i].Value {
-			return nil, NewNonMatchingInputError(from[i].Value, to[i].Value)
+		if input.Value != 0 {
+			zeroInputFrom = false
+		}
+
+		if !zeroInputFrom {
+			if i == nonMatchIndex {
+				continue
+			}
+			if input.Value != to[i].Value {
+				return nil, NewNonMatchingInputError(from[i].Value, to[i].Value)
+			}
 		}
 	}
 
-	changeVal := (to[endDistanceAlongTrajectoryIndex].Value - to[startDistanceAlongTrajectoryIndex].Value) * by
+	startVal := from[nonMatchIndex].Value
+	if zeroInputFrom {
+		startVal = to[startDistanceAlongTrajectoryIndex].Value
+		if reversedTraj {
+			startVal = to[endDistanceAlongTrajectoryIndex].Value
+		}
+	}
+	endVal := to[nonMatchIndex].Value
+
+	if endVal < startVal {
+		// TODO RSDK-7515: This will no longer be an error
+		return nil, fmt.Errorf("cannot interpolate from %f to %f, `from` value cannot exceed `to` value", startVal, endVal)
+	}
+
+	changeVal := (endVal - startVal) * by
+	if reversedTraj {
+		// Negative distance interpolations should run in reverse
+		return []referenceframe.Input{
+			to[ptgIndex],
+			to[trajectoryAlphaWithinPTG],
+			{startVal + changeVal},
+			{startVal},
+		}, nil
+	}
 	return []referenceframe.Input{
 		to[ptgIndex],
 		to[trajectoryAlphaWithinPTG],
-		to[startDistanceAlongTrajectoryIndex],
-		{to[startDistanceAlongTrajectoryIndex].Value + changeVal},
+		{startVal},
+		{startVal + changeVal},
 	}, nil
 }
 
@@ -228,8 +290,12 @@ func (pf *ptgGroupFrame) Geometries(inputs []referenceframe.Input) (*referencefr
 		return nil, err
 	}
 	geoms := make([]spatialmath.Geometry, 0, len(pf.geometries))
-	for _, geom := range pf.geometries {
-		geoms = append(geoms, geom.Transform(transformedPose))
+	for i, geom := range pf.geometries {
+		tfGeom := geom.Transform(transformedPose)
+		if tfGeom.Label() == "" {
+			tfGeom.SetLabel(pf.name + "_geometry_" + strconv.Itoa(i))
+		}
+		geoms = append(geoms, tfGeom)
 	}
 	return referenceframe.NewGeometriesInFrame(pf.name, geoms), nil
 }

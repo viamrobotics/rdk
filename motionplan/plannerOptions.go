@@ -8,6 +8,7 @@ import (
 	pb "go.viam.com/api/service/motion/v1"
 
 	"go.viam.com/rdk/motionplan/ik"
+	"go.viam.com/rdk/motionplan/tpspace"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
 )
@@ -32,6 +33,10 @@ const (
 
 	// Check constraints are still met every this many mm/degrees of movement.
 	defaultResolution = 2.0
+
+	// default motion planning collision resolution is every 2mm.
+	// For bases we increase this to 60mm, a bit more than 2 inches.
+	defaultPTGCollisionResolution = 60
 
 	// If an IK solution scores below this much, return it immediately.
 	defaultMinIkScore = 0.
@@ -91,6 +96,9 @@ func newBasicPlannerOptions(frame referenceframe.Frame) *plannerOptions {
 	opt.MaxSolutions = defaultSolutionsToSeed
 	opt.MinScore = defaultMinIkScore
 	opt.Resolution = defaultResolution
+	if _, isPTGframe := frame.(tpspace.PTGProvider); isPTGframe {
+		opt.Resolution = defaultPTGCollisionResolution
+	}
 	opt.Timeout = defaultTimeout
 	opt.PositionSeeds = defaultTPspacePositionOnlySeeds
 

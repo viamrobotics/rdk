@@ -13,6 +13,7 @@ import (
 	"go.uber.org/multierr"
 	utils "go.viam.com/utils"
 
+	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/motionplan/ik"
 	"go.viam.com/rdk/motionplan/tpspace"
 	"go.viam.com/rdk/referenceframe"
@@ -75,7 +76,7 @@ func (ptgk *ptgBaseKinematics) GoToInputs(ctx context.Context, inputSteps ...[]r
 
 	defer func() {
 		ptgk.inputLock.Lock()
-		ptgk.currentInputs = zeroInput
+		ptgk.currentState.currentInputs = zeroInput
 		ptgk.inputLock.Unlock()
 	}()
 
@@ -87,7 +88,7 @@ func (ptgk *ptgBaseKinematics) GoToInputs(ctx context.Context, inputSteps ...[]r
 
 	startPose := spatialmath.NewZeroPose() // This is the location of the base at call time
 	if ptgk.Localizer != nil {
-		startPoseInFrame, err := ptgk.Localizer.CurrentPosition(ctx)
+		startPoseInFrame, err := ptgk.CurrentPosition(ctx)
 		if err != nil {
 			return tryStop(err)
 		}
@@ -95,13 +96,13 @@ func (ptgk *ptgBaseKinematics) GoToInputs(ctx context.Context, inputSteps ...[]r
 	}
 
 	// Pre-process all steps into a series of velocities
-	ptgk.inputLock.Lock()
-	ptgk.currentExecutingSteps, err = ptgk.arcStepsFromInputs(inputSteps, startPose)
-	arcSteps := ptgk.currentExecutingSteps
-	ptgk.inputLock.Unlock()
+	arcSteps, err := ptgk.arcStepsFromInputs(inputSteps, startPose)
 	if err != nil {
 		return tryStop(err)
 	}
+	ptgk.inputLock.Lock()
+	ptgk.currentState.currentExecutingSteps = arcSteps
+	ptgk.inputLock.Unlock()
 
 	for i := 0; i < len(arcSteps); i++ {
 		if ctx.Err() != nil {
@@ -109,8 +110,8 @@ func (ptgk *ptgBaseKinematics) GoToInputs(ctx context.Context, inputSteps ...[]r
 		}
 		step := arcSteps[i]
 		ptgk.inputLock.Lock() // In the case where there's actual contention here, this could cause timing issues; how to solve?
-		ptgk.currentIdx = i
-		ptgk.currentInputs = step.arcSegment.StartConfiguration
+		ptgk.currentState.currentIdx = i
+		ptgk.currentState.currentInputs = step.arcSegment.StartConfiguration
 		ptgk.inputLock.Unlock()
 
 		ptgk.logger.Debugf("step, i %d \n %s", i, step.String())
@@ -152,11 +153,11 @@ func (ptgk *ptgBaseKinematics) GoToInputs(ctx context.Context, inputSteps ...[]r
 			currentInputs := []referenceframe.Input{
 				step.arcSegment.StartConfiguration[ptgIndex],
 				step.arcSegment.StartConfiguration[trajectoryAlphaWithinPTG],
+				step.arcSegment.StartConfiguration[startDistanceAlongTrajectoryIndex],
 				{step.arcSegment.StartConfiguration[startDistanceAlongTrajectoryIndex].Value + math.Abs(distIncVel)*timeElapsedSeconds},
-				step.arcSegment.StartConfiguration[endDistanceAlongTrajectoryIndex],
 			}
 			ptgk.inputLock.Lock()
-			ptgk.currentInputs = currentInputs
+			ptgk.currentState.currentInputs = currentInputs
 			ptgk.inputLock.Unlock()
 
 			// If we have a localizer, we are able to attempt to correct to stay on the path.
@@ -173,7 +174,7 @@ func (ptgk *ptgBaseKinematics) GoToInputs(ctx context.Context, inputSteps ...[]r
 				if newArcSteps != nil {
 					// newArcSteps will be nil if there is no course correction needed
 					ptgk.inputLock.Lock()
-					ptgk.currentExecutingSteps = newArcSteps
+					ptgk.currentState.currentExecutingSteps = newArcSteps
 					ptgk.inputLock.Unlock()
 					arcSteps = newArcSteps
 					break
@@ -219,16 +220,16 @@ func (ptgk *ptgBaseKinematics) trajectoryArcSteps(
 
 	finalSteps := []arcStep{}
 	timeStep := 0.
-	curDist := 0.
-	curInputs := []referenceframe.Input{
+	curDist := inputs[startDistanceAlongTrajectoryIndex].Value
+	startInputs := []referenceframe.Input{
 		inputs[ptgIndex],
 		inputs[trajectoryAlphaWithinPTG],
-		{curDist},
-		inputs[endDistanceAlongTrajectoryIndex],
+		inputs[startDistanceAlongTrajectoryIndex],
+		inputs[startDistanceAlongTrajectoryIndex],
 	}
 	runningPose := startPose
 	segment := ik.Segment{
-		StartConfiguration: curInputs,
+		StartConfiguration: startInputs,
 		StartPosition:      runningPose,
 		Frame:              ptgk.Kinematics(),
 	}
@@ -250,25 +251,30 @@ func (ptgk *ptgBaseKinematics) trajectoryArcSteps(
 			// Changed velocity, make a new step
 			nextStep.durationSeconds = timeStep
 
-			nextStep.arcSegment.StartConfiguration[endDistanceAlongTrajectoryIndex].Value = curDist
-			nextStep.arcSegment.EndConfiguration = nextStep.arcSegment.StartConfiguration
-			arcPose, err := ptgk.Kinematics().Transform(nextStep.arcSegment.StartConfiguration)
+			stepEndInputs := []referenceframe.Input{
+				inputs[ptgIndex],
+				inputs[trajectoryAlphaWithinPTG],
+				nextStep.arcSegment.StartConfiguration[startDistanceAlongTrajectoryIndex],
+				{curDist},
+			}
+			nextStep.arcSegment.EndConfiguration = stepEndInputs
+
+			arcPose, err := ptgk.Kinematics().Transform(stepEndInputs)
 			if err != nil {
 				return nil, err
 			}
 			runningPose = spatialmath.Compose(runningPose, arcPose)
-
 			nextStep.arcSegment.EndPosition = runningPose
 			finalSteps = append(finalSteps, nextStep)
 
-			curInputs = []referenceframe.Input{
+			stepStartInputs := []referenceframe.Input{
 				inputs[ptgIndex],
 				inputs[trajectoryAlphaWithinPTG],
 				{curDist},
-				inputs[endDistanceAlongTrajectoryIndex],
+				{curDist},
 			}
 			segment = ik.Segment{
-				StartConfiguration: curInputs,
+				StartConfiguration: stepStartInputs,
 				StartPosition:      runningPose,
 				Frame:              ptgk.Kinematics(),
 			}
@@ -289,13 +295,18 @@ func (ptgk *ptgBaseKinematics) trajectoryArcSteps(
 		}
 	}
 	nextStep.durationSeconds = timeStep
-	nextStep.arcSegment.EndConfiguration = nextStep.arcSegment.StartConfiguration
-	arcPose, err := ptgk.Kinematics().Transform(nextStep.arcSegment.StartConfiguration)
+	finalInputs := []referenceframe.Input{
+		inputs[ptgIndex],
+		inputs[trajectoryAlphaWithinPTG],
+		nextStep.arcSegment.StartConfiguration[startDistanceAlongTrajectoryIndex],
+		{curDist},
+	}
+	nextStep.arcSegment.EndConfiguration = finalInputs
+	arcPose, err := ptgk.Kinematics().Transform(finalInputs)
 	if err != nil {
 		return nil, err
 	}
 	runningPose = spatialmath.Compose(runningPose, arcPose)
-	nextStep.arcSegment.EndConfiguration = curInputs
 	nextStep.arcSegment.EndPosition = runningPose
 	finalSteps = append(finalSteps, nextStep)
 
@@ -314,15 +325,8 @@ func (ptgk *ptgBaseKinematics) courseCorrect(
 	if err != nil {
 		return nil, err
 	}
-	// Current distance traveled on PTG is currentInputs[start dist]. Since the step may not have started at 0, we construct the query
-	// to get the pose travelled along the arc.
-	execInputs := []referenceframe.Input{
-		currentInputs[ptgIndex],
-		currentInputs[trajectoryAlphaWithinPTG],
-		arcSteps[arcIdx].arcSegment.StartConfiguration[startDistanceAlongTrajectoryIndex],
-		currentInputs[startDistanceAlongTrajectoryIndex],
-	}
-	trajPose, err := ptgk.frame.Transform(execInputs)
+	// trajPose is the pose we should have nominally reached along the currently executing arc from the start position.
+	trajPose, err := ptgk.frame.Transform(currentInputs)
 	if err != nil {
 		return nil, err
 	}
@@ -379,16 +383,41 @@ func (ptgk *ptgBaseKinematics) courseCorrect(
 				correctiveArcSteps = append(correctiveArcSteps, newArcSteps...)
 			}
 
-			// Update the connection point
+			// We need to update the connection point. The starting configuration and position need to be updated, as well as
+			// the ending configuration's arc start value.
+			// The connection point is the point along the already-created plan where course correction will rejoin.
 			connectionPoint := arcSteps[solution.stepIdx]
+			arcOriginalLength := math.Abs(
+				connectionPoint.arcSegment.EndConfiguration[endDistanceAlongTrajectoryIndex].Value -
+					connectionPoint.arcSegment.EndConfiguration[startDistanceAlongTrajectoryIndex].Value,
+			)
 
 			// Use distances to calculate the % completion of the arc, used to update the time remaining.
 			// We can't use step.durationSeconds because we might connect to a different arc than we're currently in.
 			pctTrajRemaining := (connectionPoint.subTraj[len(connectionPoint.subTraj)-1].Dist -
-				connectionPoint.subTraj[solution.trajIdx].Dist) /
-				(connectionPoint.subTraj[len(connectionPoint.subTraj)-1].Dist - connectionPoint.arcSegment.StartConfiguration[2].Value)
+				connectionPoint.subTraj[solution.trajIdx].Dist) / arcOriginalLength
 
-			connectionPoint.arcSegment.StartConfiguration[2].Value = connectionPoint.subTraj[solution.trajIdx].Dist
+			// TODO (RSDK-7515) Start value rewriting here is somewhat complicated. Imagine the old trajectory was [0, 200] and we
+			// reconnect at Dist=40. The new start configuration should be [40, 40] and the new end configuration should be [40, 200].
+			// However, traj dist values are always positive. Imagine if the old trajectory was [0,-200] and we reconnect at Dist=40.
+			// Now, the new start configuration should be [-160, -160] and the new end configuration should be [0, -160]. RSDK-7515 will
+			// simplify this significantly.
+			startVal := connectionPoint.subTraj[solution.trajIdx].Dist
+			isReverse := connectionPoint.arcSegment.EndConfiguration[endDistanceAlongTrajectoryIndex].Value < 0
+			if isReverse {
+				startVal += connectionPoint.arcSegment.EndConfiguration[endDistanceAlongTrajectoryIndex].Value
+			}
+
+			connectionPoint.arcSegment.StartConfiguration[startDistanceAlongTrajectoryIndex].Value = startVal
+			connectionPoint.arcSegment.StartConfiguration[endDistanceAlongTrajectoryIndex].Value = startVal
+			if isReverse {
+				connectionPoint.arcSegment.EndConfiguration[endDistanceAlongTrajectoryIndex].Value = startVal
+			} else {
+				connectionPoint.arcSegment.EndConfiguration[startDistanceAlongTrajectoryIndex].Value = startVal
+			}
+			// The start position should be where the connection connected
+			connectionPoint.arcSegment.StartPosition = correctiveArcSteps[len(correctiveArcSteps)-1].arcSegment.EndPosition
+
 			connectionPoint.durationSeconds *= pctTrajRemaining
 			connectionPoint.subTraj = connectionPoint.subTraj[solution.trajIdx:]
 
@@ -500,4 +529,17 @@ func (ptgk *ptgBaseKinematics) makeCourseCorrectionGoals(
 		startingTrajPt = 0
 	}
 	return goals
+}
+
+func (ptgk *ptgBaseKinematics) stepsToPlan(steps []arcStep, parentFrame string) motionplan.Plan {
+	traj := motionplan.Trajectory{}
+	path := motionplan.Path{}
+	for _, step := range steps {
+		traj = append(traj, map[string][]referenceframe.Input{ptgk.Kinematics().Name(): step.arcSegment.EndConfiguration})
+		path = append(path, map[string]*referenceframe.PoseInFrame{
+			ptgk.Kinematics().Name(): referenceframe.NewPoseInFrame(parentFrame, step.arcSegment.EndPosition),
+		})
+	}
+
+	return motionplan.NewSimplePlan(path, traj)
 }

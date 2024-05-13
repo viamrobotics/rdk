@@ -422,12 +422,6 @@ func (m *cloudManager) downloadPackage(ctx context.Context, url string, p config
 		return err
 	}
 
-	// Delete legacy directory, silently fail if the cleanup fails
-	// This can be cleaned up after a few RDK releases (APP-4066)
-	if err := os.RemoveAll(p.LocalLegacyDataRootDirectory(m.packagesDir)); err != nil {
-		utils.UncheckedError(err)
-	}
-
 	// Force redownload of package archive.
 	if err := m.cleanup(p); err != nil {
 		m.logger.Debug(err)
