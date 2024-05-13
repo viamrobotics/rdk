@@ -75,7 +75,6 @@ func StringToMapType(mapTypeName string) (MapType, error) {
 }
 
 // Properties returns information about the MapType that the configured navigation service is using.
-// being ingested and used by the navigation service.
 type Properties struct {
 	MapType MapType
 }
@@ -136,6 +135,7 @@ type Properties struct {
 //
 //	// Get the properties of the current navigation service
 //	navProperties, err := myNav.Properties(context.Background())
+//
 type Service interface {
 	resource.Resource
 
@@ -159,8 +159,7 @@ type Service interface {
 	// If the machine is currently navigating to this waypoint, the motion will be canceled, and the machine will proceed to the next waypoint.
 	RemoveWaypoint(ctx context.Context, id primitive.ObjectID, extra map[string]interface{}) error
 
-	// Obstacles returns a list of objects representing all obstacles that a machine should avoid.
-	// This includes transient obstacles identified by the configured vision service and predefined obstacles in the navigation service's data storage.
+	// Obstacles returns a list of obstacles to avoid, both transient and predefined, identified by the vision and navigation services.
 	Obstacles(ctx context.Context, extra map[string]interface{}) ([]*spatialmath.GeoObstacle, error)
 
 	// Paths returns each path, which is a series of geo points.

@@ -35,7 +35,7 @@ var InternalServiceName = resource.NewName(API, "builtin")
 // TransformPose example:
 //
 //	// Define a Pose coincident with the world reference frame
-//	firstPose := spatialmath.NewZeroPose()
+//	firstPose := spatialmath.NewZeroPose
 //
 //	// Establish the world as the reference for firstPose
 //	firstPoseInFrame := referenceframe.NewPoseInFrame(referenceframe.World, firstPose)
@@ -55,7 +55,8 @@ var InternalServiceName = resource.NewName(API, "builtin")
 //
 //	myCurrentInputs, err := fsService.CurrentInputs(context.Background())
 //
-// frameSystem, err := fsService.FrameSystem(context.Background(), nil)
+//	frameSystem, err := fsService.FrameSystem(context.Background(), nil)
+//
 type Service interface {
 	resource.Resource
 
@@ -71,7 +72,8 @@ type Service interface {
 	// TransformPointCloud returns a new point cloud where the points have been adjusted from one reference frame to a specified destination frame.
 	TransformPointCloud(ctx context.Context, srcpc pointcloud.PointCloud, srcName, dstName string) (pointcloud.PointCloud, error)
 
-	// CurrentInputs returns a map of the current inputs for a machine's frame system and a map of statuses indicating whether these inputs are active.
+	// CurrentInputs returns a map of the current inputs for each component of a machine's frame system
+	// and a map of statuses indicating which of the machine's components may be actuated through input values.
 	CurrentInputs(ctx context.Context) (map[string][]referenceframe.Input, map[string]referenceframe.InputEnabled, error)
 
 	// FrameSystem returns the frame system of the machine and incorporates any specified additional transformations.
