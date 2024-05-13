@@ -612,10 +612,14 @@ func TestMoveOnMapStaticObs(t *testing.T) {
 			}, nil,
 		)
 		test.That(t, err, test.ShouldBeNil)
+		currentInputs := referenceframe.StartPositions(mr.absoluteFS)
+		currentInputs[mr.kinematicBase.ExecutionFrame().Name()] = referenceframe.FloatsToInputs(
+			[]float64{0.58772e3, -0.80826e3, 0},
+		)
 		executionState, err := motionplan.NewExecutionState(
 			plan,
 			1,
-			referenceframe.StartPositions(mr.planRequest.FrameSystem),
+			currentInputs,
 			map[string]*referenceframe.PoseInFrame{
 				mr.kinematicBase.ExecutionFrame().Name(): referenceframe.NewPoseInFrame(referenceframe.World, spatialmath.NewPose(
 					r3.Vector{X: 0.58772e3, Y: -0.80826e3, Z: 0},
@@ -628,7 +632,7 @@ func TestMoveOnMapStaticObs(t *testing.T) {
 			mr.planRequest.Frame,
 			executionState,
 			wrldSt,
-			mr.planRequest.FrameSystem,
+			mr.absoluteFS,
 			lookAheadDistanceMM,
 			logger,
 		)
