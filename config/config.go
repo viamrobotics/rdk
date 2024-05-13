@@ -1085,13 +1085,6 @@ func (p *PackageConfig) LocalDataParentDirectory(packagesDir string) string {
 	return filepath.Join(packagesDir, "data", string(p.Type))
 }
 
-// LocalLegacyDataRootDirectory returns the old private directory.
-// This can be cleaned up after a few RDK releases (APP-4066)
-// Ex: /home/user/.viam/packages/.data/.
-func (p *PackageConfig) LocalLegacyDataRootDirectory(packagesDir string) string {
-	return filepath.Join(packagesDir, ".data")
-}
-
 // SanitizedName returns the package name for the symlink/filepath of the package on the system.
 func (p *PackageConfig) SanitizedName() string {
 	return fmt.Sprintf("%s-%s", strings.ReplaceAll(p.Package, string(os.PathSeparator), "-"), p.sanitizedVersion())
