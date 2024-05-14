@@ -462,6 +462,7 @@ func (c *client) SubscribeRTP(
 		// NOTE: Test this with an external client talking to a main part connected to a remote part.
 		// I expect this to break in that case.
 		nameMinusRemote := c.Name().PopRemote()
+		c.logger.Info("nameMinusRemote: %#v", nameMinusRemote)
 		// add the camera model's addOnTrackSubFunc to the shared peer connection's
 		// slice of OnTrack callbacks. This is what allows
 		// all the bufAndCBByID's callback functions to be called with the
@@ -473,6 +474,7 @@ func (c *client) SubscribeRTP(
 		// c.logger.CDebugw(ctx, "SubscribeRTP calling AddStream", "subID", sub.ID.String(), "c.Name()", c.Name(), "c.Name().Name", c.Name().Name, "resource.RemoveRemoteName(c.Name())", resource.RemoveRemoteName(c.Name()), "resource.RemoveRemoteName(c.Name()).String()", resource.RemoveRemoteName(c.Name()), "err", err)
 
 		trackName := resource.SDPTrackName(nameMinusRemote)
+		c.logger.Info("trackName: %s", trackName)
 		if _, err := c.streamClient.AddStream(ctx, &streampb.AddStreamRequest{Name: trackName}); err != nil {
 			c.logger.CErrorw(ctx, "SubscribeRTP AddStream hit error", "subID", sub.ID.String(), "name", trackName, "err", err)
 			return rtppassthrough.NilSubscription, err
