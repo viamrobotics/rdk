@@ -46,6 +46,8 @@ const (
 	gzFileExt = ".gz"
 
 	serverErrorMessage = "received error from server"
+
+	viamCaptureDotSubdir = "/.viam/capture/"
 )
 
 // DataExportAction is the corresponding action for 'data export'.
@@ -562,6 +564,12 @@ func filenameForDownload(meta *datapb.BinaryMetadata) string {
 		// Otherwise, keep the file name as-is to maintain the directory structure that the user uploaded the file with.
 		fileName = timeRequested + "_" + fileName
 	}
+
+	// If the file name is not a data capture file but was manually saved in the default viam capture directory, remove
+	// that directory. Otherwise, the file will be hidden due to the .viam directory.
+	// Use ReplaceAll rather than TrimPrefix since it will be stored under os.Getenv("HOME"), which differs between upload
+	// to export time.
+	fileName = strings.ReplaceAll(fileName, viamCaptureDotSubdir, "")
 
 	// The file name will end with .gz if the user uploaded a gzipped file. We will unzip it below, so remove the last
 	// .gz from the file name. If the user has gzipped the file multiple times, we will only unzip once.
