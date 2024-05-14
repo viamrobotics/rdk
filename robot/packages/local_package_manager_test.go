@@ -196,7 +196,11 @@ func TestLocalManagerSync(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, local.managedModules, test.ShouldHaveLength, 2)
 	newModTime := modTime(t, pkg.LocalDataDirectory(local.packagesDir))
-	test.That(t, prevModTime.Before(newModTime), test.ShouldBeTrue)
+	// Careful! This is subtle.
+	// Normal download flow *isn't* supposed to recopy if newer.
+	// Because local modules don't have versions to increment, we only do this when the
+	// user requests a restart; not during some random other reconfigure.
+	test.That(t, prevModTime.Before(newModTime), test.ShouldBeFalse)
 
 	// make sure Cleanup doesn't remove anything at this point
 	mgr.Cleanup(context.Background())

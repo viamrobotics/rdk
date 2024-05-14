@@ -150,7 +150,12 @@ func (m *localManager) Sync(ctx context.Context, packages []config.PackageConfig
 			return multierr.Append(outErr, err)
 		}
 		m.logger.Debugf("Starting local package sync [%d/%d] %s", idx+1, len(changed), mod.Name)
-		err := m.recopyIfChanged(ctx, mod)
+		pkg, err := mod.SyntheticPackage()
+		if err != nil {
+			outErr = multierr.Append(outErr, err)
+			continue
+		}
+		err = downloadPackage(ctx, m.logger, m.packagesDir, mod.ExePath, pkg, []string{}, m.fileCopyHelper)
 		if err != nil {
 			m.logger.Errorf("Failed downloading package %s from %s, %s", mod.Name, mod.ExePath, err)
 			outErr = multierr.Append(outErr, errors.Wrapf(err, "failed downloading package %s from %s",
@@ -212,8 +217,12 @@ func newerOrMissing(src, dest string) (bool, error) {
 	return srcStat.ModTime().After(destStat.ModTime()), nil
 }
 
-// internal version which doesn't lock.
-func (m *localManager) recopyIfChanged(ctx context.Context, mod config.Module) error {
+// RecopyIfChanged recopies from the tarball if the tarball is newer than the destination.
+// It also adds or overwrites the module in managedModules. Noop except for localManager.
+func (m *localManager) RecopyIfChanged(ctx context.Context, mod config.Module) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
 	if !mod.IsLocalTarball() {
 		return nil
 	}
@@ -238,12 +247,4 @@ func (m *localManager) recopyIfChanged(ctx context.Context, mod config.Module) e
 		m.managedModules[mod.Name] = &managedModule{module: mod}
 	}
 	return nil
-}
-
-// RecopyIfChanged recopies from the tarball if the tarball is newer than the destination.
-// It also adds or overwrites the module in managedModules. Noop except for localManager.
-func (m *localManager) RecopyIfChanged(ctx context.Context, mod config.Module) error {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	return m.recopyIfChanged(ctx, mod)
 }
