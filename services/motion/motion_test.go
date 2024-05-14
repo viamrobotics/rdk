@@ -934,6 +934,8 @@ func TestMoveOnGlobeReq(t *testing.T) {
 		planDeviationM := planDeviationMM / 1000
 		positionPollingFreqHz := 4.
 		obstaclePollingFreqHz := 5.
+		sphere, err := spatialmath.NewSphere(spatialmath.NewZeroPose(), 1, "sphere")
+		test.That(t, err, test.ShouldBeNil)
 
 		mybase := base.Named("my-base")
 
@@ -980,8 +982,9 @@ func TestMoveOnGlobeReq(t *testing.T) {
 					Destination:        geo.NewPoint(1, 2),
 					ComponentName:      mybase,
 					MovementSensorName: movementsensor.Named("my-movementsensor"),
-					Obstacles:          []*spatialmath.GeoGeometry{},
 					MotionCfg:          &defaultMotionCfg,
+					Obstacles:          []*spatialmath.GeoGeometry{},
+					BoundingRegions:    []*spatialmath.GeoGeometry{},
 					Extra:              map[string]interface{}{},
 				},
 			},
@@ -992,7 +995,38 @@ func TestMoveOnGlobeReq(t *testing.T) {
 					Destination:        &commonpb.GeoPoint{Latitude: 1, Longitude: 2},
 					ComponentName:      rprotoutils.ResourceNameToProto(mybase),
 					MovementSensorName: rprotoutils.ResourceNameToProto(movementsensor.Named("my-movementsensor")),
-					Obstacles:          []*commonpb.GeoGeometry{},
+					Obstacles: []*commonpb.GeoGeometry{
+						{
+							Location: &commonpb.GeoPoint{Latitude: 3, Longitude: 4},
+							Geometries: []*commonpb.Geometry{
+								{
+									Center: &commonpb.Pose{OZ: 1},
+									GeometryType: &commonpb.Geometry_Sphere{
+										Sphere: &commonpb.Sphere{
+											RadiusMm: 1,
+										},
+									},
+									Label: "sphere",
+								},
+							},
+						},
+					},
+					BoundingRegions: []*commonpb.GeoGeometry{
+						{
+							Location: &commonpb.GeoPoint{Latitude: 1, Longitude: 2},
+							Geometries: []*commonpb.Geometry{
+								{
+									Center: &commonpb.Pose{OZ: 1},
+									GeometryType: &commonpb.Geometry_Sphere{
+										Sphere: &commonpb.Sphere{
+											RadiusMm: 1,
+										},
+									},
+									Label: "sphere",
+								},
+							},
+						},
+					},
 					MotionConfiguration: &pb.MotionConfiguration{
 						ObstacleDetectors:          obstacleDetectorsPB,
 						LinearMPerSec:              &linearMPerSec,
@@ -1007,7 +1041,12 @@ func TestMoveOnGlobeReq(t *testing.T) {
 					Destination:        dst,
 					ComponentName:      mybase,
 					MovementSensorName: movementsensor.Named("my-movementsensor"),
-					Obstacles:          []*spatialmath.GeoGeometry{},
+					BoundingRegions: []*spatialmath.GeoGeometry{
+						spatialmath.NewGeoGeometry(geo.NewPoint(1, 2), []spatialmath.Geometry{sphere}),
+					},
+					Obstacles: []*spatialmath.GeoGeometry{
+						spatialmath.NewGeoGeometry(geo.NewPoint(3, 4), []spatialmath.Geometry{sphere}),
+					},
 					MotionCfg: &MotionConfiguration{
 						ObstacleDetectors:     obstacleDetectors,
 						LinearMPerSec:         linearMPerSec,

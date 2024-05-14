@@ -187,7 +187,7 @@ func (r MoveOnGlobeReq) toProto(name string) (*pb.MoveOnGlobeRequest, error) {
 		req.Obstacles = obstaclesProto
 	}
 	if len(r.BoundingRegions) > 0 {
-		obstaclesProto := make([]*commonpb.GeoGeometry, 0, len(r.Obstacles))
+		obstaclesProto := make([]*commonpb.GeoGeometry, 0, len(r.BoundingRegions))
 		for _, obstacle := range r.BoundingRegions {
 			obstaclesProto = append(obstaclesProto, spatialmath.GeoGeometryToProtobuf(obstacle))
 		}
