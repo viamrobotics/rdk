@@ -98,7 +98,7 @@ type Config struct {
 	DegPerSec    float64 `json:"degs_per_sec,omitempty"`
 	MetersPerSec float64 `json:"meters_per_sec,omitempty"`
 
-	Obstacles                  []*spatialmath.GeoObstacleConfig `json:"obstacles,omitempty"`
+	Obstacles                  []*spatialmath.GeoGeometryConfig `json:"obstacles,omitempty"`
 	PositionPollingFrequencyHz float64                          `json:"position_polling_frequency_hz,omitempty"`
 	ObstaclePollingFrequencyHz float64                          `json:"obstacle_polling_frequency_hz,omitempty"`
 	PlanDeviationM             float64                          `json:"plan_deviation_m,omitempty"`
@@ -224,7 +224,7 @@ type builtIn struct {
 	motionService        motion.Service
 	// exploreMotionService will be removed once the motion explore model is integrated into motion builtin
 	exploreMotionService motion.Service
-	obstacles            []*spatialmath.GeoObstacle
+	obstacles            []*spatialmath.GeoGeometry
 
 	motionCfg        *motion.MotionConfiguration
 	replanCostFactor float64
@@ -363,7 +363,7 @@ func (svc *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies,
 	}
 
 	// Parse obstacles from the configuration
-	newObstacles, err := spatialmath.GeoObstaclesFromConfigs(svcConfig.Obstacles)
+	newObstacles, err := spatialmath.GeoGeometriesFromConfigs(svcConfig.Obstacles)
 	if err != nil {
 		return err
 	}
@@ -626,12 +626,12 @@ func (svc *builtIn) waypointIsDeleted() bool {
 	return svc.waypointInProgress == nil
 }
 
-func (svc *builtIn) Obstacles(ctx context.Context, extra map[string]interface{}) ([]*spatialmath.GeoObstacle, error) {
+func (svc *builtIn) Obstacles(ctx context.Context, extra map[string]interface{}) ([]*spatialmath.GeoGeometry, error) {
 	svc.mu.RLock()
 	defer svc.mu.RUnlock()
 
-	// get static geoObstacles
-	geoObstacles := svc.obstacles
+	// get static GeoGeometriess
+	geoGeometries := svc.obstacles
 
 	for _, detector := range svc.motionCfg.ObstacleDetectors {
 		// get the vision service
@@ -719,7 +719,7 @@ func (svc *builtIn) Obstacles(ctx context.Context, extra map[string]interface{})
 		robotGeoPose := spatialmath.NewGeoPose(gp, baseHeading)
 		svc.logger.CDebugf(ctx, "robotGeoPose Location: %v, Heading: %v", *robotGeoPose.Location(), robotGeoPose.Heading())
 
-		// iterate through all detections and construct a geoObstacle to append
+		// iterate through all detections and construct a geoGeometry to append
 		for i, detection := range detections {
 			svc.logger.CInfof(
 				ctx,
@@ -777,14 +777,14 @@ func (svc *builtIn) Obstacles(ctx context.Context, extra map[string]interface{})
 			manipulatedGeom = detection.Geometry.Transform(transformBy)
 
 			// create the geo obstacle
-			obstacle := spatialmath.NewGeoObstacle(obstacleGeoPose.Location(), []spatialmath.Geometry{manipulatedGeom})
+			obstacle := spatialmath.NewGeoGeometry(obstacleGeoPose.Location(), []spatialmath.Geometry{manipulatedGeom})
 
-			// add manipulatedGeom to list of geoObstacles we return
-			geoObstacles = append(geoObstacles, obstacle)
+			// add manipulatedGeom to list of geoGeometries we return
+			geoGeometries = append(geoGeometries, obstacle)
 		}
 	}
 
-	return geoObstacles, nil
+	return geoGeometries, nil
 }
 
 func (svc *builtIn) Paths(ctx context.Context, extra map[string]interface{}) ([]*navigation.Path, error) {
