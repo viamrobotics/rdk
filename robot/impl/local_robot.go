@@ -420,7 +420,10 @@ func newWithResources(
 		r.logger.CDebug(ctx, "Using no-op PackageManager when Cloud config is not available")
 		r.packageManager = packages.NewNoopManager()
 	}
-	r.localPackages = packages.NewLocalManager(cfg, logger)
+	r.localPackages, err = packages.NewLocalManager(cfg, logger)
+	if err != nil {
+		return nil, err
+	}
 
 	// start process manager early
 	if err := r.manager.processManager.Start(ctx); err != nil {
@@ -477,6 +480,7 @@ func newWithResources(
 		homeDir,
 		cloudID,
 		logger,
+		cfg.PackagePath,
 	)
 
 	r.activeBackgroundWorkers.Add(1)
@@ -1255,7 +1259,22 @@ func (r *localRobot) restartSingleModule(ctx context.Context, mod config.Module)
 		Left:     r.Config(),
 		Right:    r.Config(),
 		Added:    &config.Config{},
-		Modified: &config.ModifiedConfigDiff{Modules: []config.Module{mod}},
+		Modified: &config.ModifiedConfigDiff{},
+		Removed:  &config.Config{Modules: []config.Module{mod}},
+	}
+	err := r.manager.updateResources(ctx, &diff)
+	if err != nil {
+		return err
+	}
+	err = r.localPackages.RecopyIfChanged(ctx, mod)
+	if err != nil {
+		return err
+	}
+	diff = config.Diff{
+		Left:     r.Config(),
+		Right:    r.Config(),
+		Added:    &config.Config{Modules: []config.Module{mod}},
+		Modified: &config.ModifiedConfigDiff{},
 		Removed:  &config.Config{},
 	}
 	return r.manager.updateResources(ctx, &diff)
