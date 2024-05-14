@@ -166,8 +166,6 @@ func TestNetLoggerSyncFailureAndRetry(t *testing.T) {
 	// server. Once the log queue is full of size ten batches, the first sync will decrement
 	// `logFailForSizeCount` to 1 and return an error. The second will decrement it to a negative
 	// value and return an error. The third sync will succeed.
-	//
-	// This test depends on the `Close` method performing a `Sync`.
 	test.That(t, netAppender.sync(), test.ShouldNotBeNil)
 
 	logger.Info("New info")
