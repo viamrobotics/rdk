@@ -2,68 +2,154 @@ package packages
 
 import (
 	"context"
-	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
-	putils "go.viam.com/rdk/robot/packages/testutils"
 	"go.viam.com/test"
 )
 
-func TestSyntheticPackageDownload(t *testing.T) {
-	ctx := context.Background()
-	logger := logging.NewTestLogger(t)
-	fakeServer, err := putils.NewFakePackageServer(ctx, logger)
+func TestLocalManagerUtils(t *testing.T) {
+	tmp := t.TempDir()
+	mgr, err := NewLocalManager(
+		&config.Config{PackagePath: filepath.Join(tmp, "pkg")},
+		logging.NewTestLogger(t),
+	)
 	test.That(t, err, test.ShouldBeNil)
-	t.Cleanup(func() { fakeServer.Shutdown() })
+	local := mgr.(*localManager)
 
-	client, conn, err := fakeServer.Client(ctx)
-	test.That(t, err, test.ShouldBeNil)
-	t.Cleanup(func() { conn.Close() })
-
-	remotePackage := config.PackageConfig{
-		Name:    "test:remote",
-		Package: "test:remote",
-		Version: "0.0.1",
-		Type:    config.PackageTypeModule,
-	}
-	syntheticPackage := config.PackageConfig{
-		Name:    "test:synthetic",
-		Package: "test:synthetic",
-		// LocalPath: "test_package.tar.gz",
-	}
-
-	fakeServer.StorePackage(remotePackage)
-
-	t.Run("getPackageURL", func(t *testing.T) {
-		url, err := getPackageURL(ctx, logger, client, remotePackage)
+	t.Run("fileCopyHelper", func(t *testing.T) {
+		f, err := os.Create(filepath.Join(tmp, "source"))
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, url, test.ShouldStartWith, "http://127.0.0.1:")
-		test.That(t, url, test.ShouldEndWith, fmt.Sprintf("/download-file?id=%s&version=%s", remotePackage.Package, remotePackage.Version))
-
-		url, err = getPackageURL(ctx, logger, client, syntheticPackage)
+		_, err = f.WriteString("hello")
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, url, test.ShouldEqual, "file://test_package.tar.gz")
+		err = f.Close()
+		test.That(t, err, test.ShouldBeNil)
+		dest := filepath.Join(tmp, "dest")
+		test.That(t, err, test.ShouldBeNil)
+		_, err = local.fileCopyHelper(context.Background(), f.Name(), dest)
+		test.That(t, err, test.ShouldBeNil)
+		stat, err := os.Stat(dest)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, stat.Size(), test.ShouldEqual, 5)
 	})
 
-	t.Run("downloadPackage-synthetic", func(t *testing.T) {
-		dstDir := t.TempDir()
-		cm := cloudManager{
-			logger:      logger,
-			packagesDir: dstDir,
+	t.Run("getAddedAndChanged", func(t *testing.T) {
+		mod1 := config.Module{Name: "stays-the-same"}
+		mod2 := config.Module{Name: "gets-changed"}
+		mod3 := config.Module{Name: "gets-added"}
+		m := managedModuleMap{
+			mod1.Name:      &managedModule{module: mod1},
+			mod2.Name:      &managedModule{module: mod2},
+			"gets-removed": &managedModule{module: config.Module{Name: "gets-removed"}},
 		}
-		url, err := getPackageURL(ctx, logger, client, syntheticPackage)
-		test.That(t, err, test.ShouldBeNil)
-		err = downloadPackage(ctx, url, syntheticPackage, []string{})
-		test.That(t, err, test.ShouldBeNil)
-		dst := filepath.Join(
-			syntheticPackage.LocalDataDirectory(cm.packagesDir),
-			"run.sh",
-		)
-		_, err = os.Stat(dst)
-		test.That(t, err, test.ShouldBeNil)
+		mod2.ExePath = "changed"
+		existing, changed := m.getAddedAndChanged([]config.Module{
+			mod1, mod2, mod3,
+		})
+		test.That(t, existing, test.ShouldHaveLength, 1)
+		test.That(t, existing[mod1.Name], test.ShouldNotBeNil)
+		test.That(t, changed, test.ShouldResemble, []config.Module{mod2, mod3})
 	})
+
+	t.Run("newerOrMissing", func(t *testing.T) {
+		tmp := t.TempDir()
+		for _, name := range []string{"one", "two", "three", "four", "five", "six"} {
+			path := filepath.Join(tmp, name)
+			f, err := os.Create(path)
+			test.That(t, err, test.ShouldBeNil)
+			_, err = f.WriteString(name)
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, f.Close(), test.ShouldBeNil)
+			time.Sleep(time.Millisecond * 10)
+		}
+
+		t.Run("both-missing", func(t *testing.T) {
+			_, err := newerOrMissing(filepath.Join(tmp, "missing1"), filepath.Join(tmp, "missing2"))
+			test.That(t, err, test.ShouldNotBeNil)
+		})
+
+		t.Run("source-missing", func(t *testing.T) {
+			_, err = newerOrMissing(filepath.Join(tmp, "missing1"), filepath.Join(tmp, "one"))
+			test.That(t, err, test.ShouldNotBeNil)
+		})
+
+		t.Run("dest-missing", func(t *testing.T) {
+			newer, err := newerOrMissing(filepath.Join(tmp, "two"), filepath.Join(tmp, "missing2"))
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, newer, test.ShouldBeTrue)
+		})
+
+		t.Run("source-newer", func(t *testing.T) {
+			newer, err := newerOrMissing(filepath.Join(tmp, "four"), filepath.Join(tmp, "three"))
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, newer, test.ShouldBeTrue)
+		})
+
+		t.Run("dest-newer", func(t *testing.T) {
+			newer, err := newerOrMissing(filepath.Join(tmp, "five"), filepath.Join(tmp, "six"))
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, newer, test.ShouldBeFalse)
+		})
+
+	})
+
+	t.Run("RecopyIfChanged", func(t *testing.T) {
+		mod := config.Module{Name: "tester", Type: config.ModuleTypeLocal, ExePath: "test_package.tar.gz"}
+		missingMod := config.Module{Name: mod.Name, Type: config.ModuleTypeLocal, ExePath: "/no/such/path.tgz"}
+		pkg, err := mod.SyntheticPackage()
+		test.That(t, err, test.ShouldBeNil)
+		destDir := pkg.LocalDataDirectory(local.packagesDir)
+
+		// case: both missing
+		err = mgr.RecopyIfChanged(context.Background(), missingMod)
+		test.That(t, err, test.ShouldNotBeNil)
+
+		// case: dest missing
+		err = mgr.RecopyIfChanged(context.Background(), mod)
+		test.That(t, err, test.ShouldBeNil)
+
+		// case: source missing
+		err = mgr.RecopyIfChanged(context.Background(), missingMod)
+		test.That(t, os.IsNotExist(err), test.ShouldBeTrue)
+
+		// case: dest newer
+		prevModTime := modTime(t, destDir)
+		err = mgr.RecopyIfChanged(context.Background(), mod)
+		test.That(t, err, test.ShouldBeNil)
+		newModTime := modTime(t, destDir)
+		test.That(t, prevModTime, test.ShouldEqual, newModTime)
+
+		// case: source newer
+		prevModTime = newModTime
+		newTar := filepath.Join(tmp, "newer.tar.gz")
+		copyFile(t, "test_package.tar.gz", newTar)
+		err = mgr.RecopyIfChanged(context.Background(), config.Module{Name: mod.Name, Type: config.ModuleTypeLocal, ExePath: newTar})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, prevModTime.Before(modTime(t, destDir)), test.ShouldBeTrue)
+	})
+}
+
+func copyFile(t *testing.T, src, dest string) {
+	t.Helper()
+	fSrc, err := os.Open(src)
+	test.That(t, err, test.ShouldBeNil)
+	defer fSrc.Close()
+	fDest, err := os.Create(dest)
+	test.That(t, err, test.ShouldBeNil)
+	defer fDest.Close()
+	_, err = io.Copy(fDest, fSrc)
+	test.That(t, err, test.ShouldBeNil)
+}
+
+// modTime is a t.Helper that stats a path and returns ModTime().
+func modTime(t *testing.T, path string) time.Time {
+	t.Helper()
+	stat, err := os.Stat(path)
+	test.That(t, err, test.ShouldBeNil)
+	return stat.ModTime()
 }

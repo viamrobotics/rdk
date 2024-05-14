@@ -5,6 +5,7 @@ import (
 	"compress/gzip"
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"path"
 	"path/filepath"
@@ -578,4 +579,32 @@ func TestCheckNonemptyPaths(t *testing.T) {
 	err = os.Symlink(fullPath, path.Join(dataDir, "sym-hello"))
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, checkNonemptyPaths("packageName", logger, []string{dataDir + "/sym-hello"}), test.ShouldBeTrue)
+}
+
+func TestGetPackageURL(t *testing.T) {
+	ctx := context.Background()
+	logger := logging.NewTestLogger(t)
+	fakeServer, err := putils.NewFakePackageServer(ctx, logger)
+	test.That(t, err, test.ShouldBeNil)
+	t.Cleanup(func() { fakeServer.Shutdown() })
+
+	client, conn, err := fakeServer.Client(ctx)
+	test.That(t, err, test.ShouldBeNil)
+	t.Cleanup(func() { conn.Close() })
+
+	remotePackage := config.PackageConfig{
+		Name:    "test:remote",
+		Package: "test:remote",
+		Version: "0.0.1",
+		Type:    config.PackageTypeModule,
+	}
+
+	fakeServer.StorePackage(remotePackage)
+
+	t.Run("getPackageURL", func(t *testing.T) {
+		url, err := getPackageURL(ctx, logger, client, remotePackage)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, url, test.ShouldStartWith, "http://127.0.0.1:")
+		test.That(t, url, test.ShouldEndWith, fmt.Sprintf("/download-file?id=%s&version=%s", remotePackage.Package, remotePackage.Version))
+	})
 }

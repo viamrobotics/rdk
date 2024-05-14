@@ -56,8 +56,8 @@ func NewLocalManager(conf *config.Config, logger logging.Logger) (ManagerSyncer,
 		return nil, err
 	}
 	return &localManager{
-		Named: InternalServiceName.AsNamed(),
-		// note: packagesDir needs suffix so cloudManager + this one don't overwrite each other.
+		Named:           InternalServiceName.AsNamed(),
+		managedModules:  make(managedModuleMap),
 		packagesDir:     packagesDir,
 		packagesDataDir: packagesDataDir,
 		logger:          logger,

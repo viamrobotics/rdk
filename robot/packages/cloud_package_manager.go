@@ -31,8 +31,6 @@ import (
 
 const (
 	allowedContentType = "application/x-gzip"
-	// URI scheme for local system, see https://datatracker.ietf.org/doc/rfc3986/
-	fileScheme = "file://"
 )
 
 var (
