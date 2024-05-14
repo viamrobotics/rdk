@@ -119,7 +119,6 @@ func (m Module) SyntheticPackage() (PackageConfig, error) {
 	ret.Name = fmt.Sprintf("synthetic-%s", m.Name)
 	ret.Package = ret.Name
 	ret.Type = PackageTypeModule
-	ret.SourceModule = &m
 	return ret, nil
 }
 

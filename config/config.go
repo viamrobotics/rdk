@@ -1013,8 +1013,6 @@ type PackageConfig struct {
 	Type PackageType `json:"type"`
 
 	Status *AppValidationStatus `json:"status,omitempty"`
-	// SourceModule is available on modules in the pure-local package manager. This is local-only and should not serialize to json.
-	SourceModule *Module
 
 	alreadyValidated bool
 	cachedErr        error
