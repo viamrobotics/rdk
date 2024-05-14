@@ -6,6 +6,7 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 
+	"github.com/edaniels/golog"
 	"go.viam.com/rdk/logging"
 )
 
@@ -26,13 +27,18 @@ var globalLogger struct {
 func InitLoggingSettings(logger logging.Logger, cmdLineDebugFlag bool) {
 	globalLogger.logger = logger
 	globalLogger.cmdLineDebugFlag = cmdLineDebugFlag
+	gologLogger := golog.NewDebugLogger("init")
+
 	if cmdLineDebugFlag {
 		logging.GlobalLogLevel.SetLevel(zapcore.DebugLevel)
 		logger.SetLevel(logging.DEBUG)
 	} else {
 		logging.GlobalLogLevel.SetLevel(zapcore.InfoLevel)
 		logger.SetLevel(logging.INFO)
+		gologLogger = golog.NewLogger("init")
 	}
+
+	golog.ReplaceGloabl(gologLogger)
 	globalLogger.logger.Info("Log level initialized: ", logging.GlobalLogLevel.Level())
 }
 
@@ -74,4 +80,5 @@ func refreshLogLevelInLock() {
 	}
 	globalLogger.logger.Info("New log level: ", newLevel)
 	logging.GlobalLogLevel.SetLevel(newLevel)
+
 }
