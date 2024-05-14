@@ -215,15 +215,19 @@ func TestServerMoveOnGlobe(t *testing.T) {
 			"other wall")
 		test.That(t, err, test.ShouldBeNil)
 
+		geometries3, err := spatialmath.NewSphere(spatialmath.NewZeroPose(), 1, "sphere")
+		test.That(t, err, test.ShouldBeNil)
+
 		geoGeometry1 := spatialmath.NewGeoGeometry(geo.NewPoint(70, 40), []spatialmath.Geometry{geometries1})
 		geoGeometry2 := spatialmath.NewGeoGeometry(geo.NewPoint(-70, 40), []spatialmath.Geometry{geometries2})
+		geoGeometry3 := spatialmath.NewGeoGeometry(geo.NewPoint(1, 2), []spatialmath.Geometry{geometries3})
+
 		obs := []*commonpb.GeoGeometry{
 			spatialmath.GeoGeometryToProtobuf(geoGeometry1),
 			spatialmath.GeoGeometryToProtobuf(geoGeometry2),
 		}
 		boundingRegionGeoms := []*commonpb.GeoGeometry{
-			spatialmath.GeoGeometryToProtobuf(geoGeometry1),
-			spatialmath.GeoGeometryToProtobuf(geoGeometry2),
+			spatialmath.GeoGeometryToProtobuf(geoGeometry3),
 		}
 		angularDegsPerSec := 1.
 		linearMPerSec := 2.
@@ -279,9 +283,8 @@ func TestServerMoveOnGlobe(t *testing.T) {
 			test.That(t, req.MotionCfg.ObstacleDetectors[0].CameraName, test.ShouldResemble, camera.Named("camera 1"))
 			test.That(t, req.MotionCfg.ObstacleDetectors[1].VisionServiceName, test.ShouldResemble, vision.Named("vision service 2"))
 			test.That(t, req.MotionCfg.ObstacleDetectors[1].CameraName, test.ShouldResemble, camera.Named("camera 2"))
-			test.That(t, len(req.BoundingRegions), test.ShouldEqual, 2)
-			test.That(t, req.BoundingRegions[0], test.ShouldResemble, geoGeometry1)
-			test.That(t, req.BoundingRegions[1], test.ShouldResemble, geoGeometry2)
+			test.That(t, len(req.BoundingRegions), test.ShouldEqual, 1)
+			test.That(t, req.BoundingRegions[0], test.ShouldResemble, geoGeometry3)
 			return firstExecutionID, nil
 		}
 		moveOnGlobeResponse, err := server.MoveOnGlobe(context.Background(), moveOnGlobeRequest)
