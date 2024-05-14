@@ -87,22 +87,27 @@ func (nl *NetAppender) queueSize() int {
 // cancelBackgroundWorkers is an internal function meant to be used only in testing and in Close(). NetAppender will
 // not function correctly if cancelBackgroundWorkers() is called outside of those contexts.
 func (nl *NetAppender) cancelBackgroundWorkers() {
-	nl.cancel()
+	if nl.cancel != nil {
+		nl.cancel()
+		nl.cancel = nil
+	}
 	nl.activeBackgroundWorkers.Wait()
 }
 
 // Close the NetAppender. This makes a best effort at sending all logs before returning.
 func (nl *NetAppender) Close() {
-	// try for up to 10 seconds for log queue to clear before cancelling it
-	for i := 0; i < 1000; i++ {
-		// A batch can be popped from the queue for a sync by the background worker, and re-enqueued
-		// due to an error. This check does not account for this case. It will cancel the background
-		// worker once the last batch is in flight. Successful or not.
-		if nl.queueSize() == 0 {
-			break
-		}
+	if nl.cancel != nil {
+		// try for up to 10 seconds for log queue to clear before cancelling it
+		for i := 0; i < 1000; i++ {
+			// A batch can be popped from the queue for a sync by the background worker, and re-enqueued
+			// due to an error. This check does not account for this case. It will cancel the background
+			// worker once the last batch is in flight. Successful or not.
+			if nl.queueSize() == 0 {
+				break
+			}
 
-		time.Sleep(10 * time.Millisecond)
+			time.Sleep(10 * time.Millisecond)
+		}
 	}
 	nl.cancelBackgroundWorkers()
 	nl.remoteWriter.close()

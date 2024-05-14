@@ -2,7 +2,6 @@ package logging
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"net"
 	"sync"
@@ -66,8 +65,9 @@ func (ms *mockRobotService) Log(ctx context.Context, req *apppb.LogRequest) (*ap
 	ms.logsMu.Lock()
 	defer ms.logsMu.Unlock()
 	if ms.logFailForSizeCount > 0 {
+		logsLeft := ms.logFailForSizeCount
 		ms.logFailForSizeCount -= len(req.Logs)
-		return &apppb.LogResponse{}, errors.New("not right now")
+		return &apppb.LogResponse{}, fmt.Errorf("not right now, %d log(s) left", logsLeft)
 	}
 	ms.logs = append(ms.logs, req.Logs...)
 	ms.logBatches = append(ms.logBatches, req.Logs)
