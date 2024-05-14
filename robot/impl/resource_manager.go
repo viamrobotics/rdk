@@ -541,8 +541,7 @@ func (manager *resourceManager) completeConfig(
 	levels := manager.resources.ReverseTopologicalSortInLevels()
 	timeout := rutils.GetResourceConfigurationTimeout(manager.logger)
 	for _, resourceNames := range levels {
-		// Q: can we use `reconfigureWorkers` instead?
-		var wg sync.WaitGroup
+		var levelWG sync.WaitGroup
 		for _, resName := range resourceNames {
 			select {
 			case <-ctx.Done():
@@ -606,7 +605,7 @@ func (manager *resourceManager) completeConfig(
 				switch {
 				case resName.API.IsComponent(), resName.API.IsService():
 					processResource := func() {
-						defer wg.Done()
+						defer levelWG.Done()
 
 						newRes, newlyBuilt, err := manager.processResource(ctxWithTimeout, conf, gNode, lr)
 						if newlyBuilt || err != nil {
@@ -649,7 +648,7 @@ func (manager *resourceManager) completeConfig(
 						}
 					}
 
-					wg.Add(1)
+					levelWG.Add(1)
 					if forceSync {
 						processResource()
 					} else {
@@ -672,7 +671,7 @@ func (manager *resourceManager) completeConfig(
 				return
 			}
 		} // for-each resource name
-		wg.Wait()
+		levelWG.Wait()
 	} // for-each level
 }
 
