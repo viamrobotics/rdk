@@ -377,11 +377,13 @@ func newWithResources(
 			},
 			logger,
 		),
-		operations:                 operation.NewManager(logger),
-		logger:                     logger,
-		closeContext:               closeCtx,
-		cancelBackgroundWorkers:    cancel,
-		triggerConfig:              make(chan struct{}),
+		operations:              operation.NewManager(logger),
+		logger:                  logger,
+		closeContext:            closeCtx,
+		cancelBackgroundWorkers: cancel,
+		// triggerConfig buffers 1 message so that we can queue up to 1 reconfiguration attempt
+		// (as long as there is 1 queued, further messages can be safely discarded).
+		triggerConfig:              make(chan struct{}, 1),
 		configTicker:               nil,
 		revealSensitiveConfigDiffs: rOpts.revealSensitiveConfigDiffs,
 		cloudConnSvc:               icloud.NewCloudConnectionService(cfg.Cloud, logger),

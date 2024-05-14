@@ -50,8 +50,10 @@ type resourceManager struct {
 	moduleManager  modif.ModuleManager
 	opts           resourceManagerOptions
 	logger         logging.Logger
-	configLock     sync.Mutex
-	viz            resource.Visualizer
+
+	// resouceGraphLock manages access to the resource graph and nodes. If either may change, this lock should be taken.
+	resouceGraphLock sync.Mutex
+	viz              resource.Visualizer
 }
 
 type resourceManagerOptions struct {
@@ -266,6 +268,9 @@ func (manager *resourceManager) updateRemoteResourceNames(
 }
 
 func (manager *resourceManager) updateRemotesResourceNames(ctx context.Context) bool {
+	manager.resouceGraphLock.Lock()
+	defer manager.resouceGraphLock.Unlock()
+
 	anythingChanged := false
 	for _, name := range manager.resources.Names() {
 		gNode, _ := manager.resources.Node(name)
@@ -446,7 +451,8 @@ func (manager *resourceManager) closeResource(ctx context.Context, res resource.
 	return allErrs
 }
 
-// closeAndUnsetResource attempts to close and unset the resource from the graph node.
+// closeAndUnsetResource attempts to close and unset the resource from the graph node. Should only be called withi
+// resouceGraphLock.
 func (manager *resourceManager) closeAndUnsetResource(ctx context.Context, gNode *resource.GraphNode) error {
 	res, err := gNode.Resource()
 	if err != nil {
@@ -467,9 +473,9 @@ func (manager *resourceManager) removeMarkedAndClose(
 	ctx context.Context,
 	excludeFromClose map[resource.Name]struct{},
 ) error {
+	manager.resouceGraphLock.Lock()
 	defer func() {
-		manager.configLock.Lock()
-		defer manager.configLock.Unlock()
+		defer manager.resouceGraphLock.Unlock()
 		if err := manager.viz.SaveSnapshot(manager.resources); err != nil {
 			manager.logger.Warnw("failed to save graph snapshot", "error", err)
 		}
@@ -520,12 +526,12 @@ func (manager *resourceManager) completeConfig(
 	ctx context.Context,
 	robot *localRobot,
 ) {
-	manager.configLock.Lock()
+	manager.resouceGraphLock.Lock()
 	defer func() {
 		if err := manager.viz.SaveSnapshot(manager.resources); err != nil {
 			manager.logger.Warnw("failed to save graph snapshot", "error", err)
 		}
-		manager.configLock.Unlock()
+		manager.resouceGraphLock.Unlock()
 	}()
 
 	// first handle remotes since they may reveal unresolved dependencies
@@ -575,12 +581,17 @@ func (manager *resourceManager) completeConfig(
 					return
 				}
 
-				// Trigger completeConfig goroutine execution when a change in remote
-				// is detected.
+				// Attempt to trigger completeConfig goroutine execution when a change in remote
+				// is detected, but does not block if triggerConfig is full.
 				select {
 				case <-robot.closeContext.Done():
 					return
 				case robot.triggerConfig <- struct{}{}:
+				default:
+					rr.Logger().Debugw(
+						"remote attempted to trigger reconfiguration, but there is already one queued.",
+						"remote", remConf.Name,
+					)
 				}
 			})
 		default:
@@ -603,6 +614,10 @@ func (manager *resourceManager) completeConfig(
 			return
 		default:
 		}
+		// we only reconfigure components and services.
+		if !(resName.API.IsComponent() || resName.API.IsService()) {
+			continue
+		}
 
 		resChan := make(chan struct{}, 1)
 		resName := resName
@@ -621,9 +636,6 @@ func (manager *resourceManager) completeConfig(
 			}()
 			gNode, ok := manager.resources.Node(resName)
 			if !ok || !gNode.NeedsReconfigure() {
-				return
-			}
-			if !(resName.API.IsComponent() || resName.API.IsService()) {
 				return
 			}
 
@@ -943,8 +955,8 @@ func (manager *resourceManager) updateResources(
 	ctx context.Context,
 	conf *config.Diff,
 ) error {
-	manager.configLock.Lock()
-	defer manager.configLock.Unlock()
+	manager.resouceGraphLock.Lock()
+	defer manager.resouceGraphLock.Unlock()
 	var allErrs error
 
 	// modules are not added into the resource tree as they belong to the module manager

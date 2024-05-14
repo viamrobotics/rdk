@@ -330,9 +330,10 @@ func (rc *RobotClient) connect(ctx context.Context) error {
 	if err := rc.connectWithLock(ctx); err != nil {
 		return err
 	}
-
+	rc.Logger().CInfow(ctx, "successfully reconnected to remote at address", "address", rc.address)
 	if rc.notifyParent != nil {
 		rc.notifyParent()
+		rc.Logger().CInfow(ctx, "successfully notified parent after reconnection", "address", rc.address)
 	}
 	return nil
 }
@@ -413,7 +414,6 @@ func (rc *RobotClient) checkConnection(ctx context.Context, checkEvery, reconnec
 				rc.Logger().CErrorw(ctx, "failed to reconnect remote", "error", err, "address", rc.address)
 				continue
 			}
-			rc.Logger().CInfow(ctx, "successfully reconnected remote at address", "address", rc.address)
 		} else {
 			check := func() error {
 				if refresh {

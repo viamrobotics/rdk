@@ -327,13 +327,16 @@ func (w *GraphNode) UnresolvedDependencies() []string {
 // Close closes the underlying resource of this node.
 func (w *GraphNode) Close(ctx context.Context) error {
 	w.mu.Lock()
-	defer w.mu.Unlock()
-
 	if w.current == nil {
+		w.mu.Unlock()
 		return nil
 	}
 	current := w.current
 	w.current = nil
+
+	// Unlock before calling Close() on underlying resource, since Close() behavior can be unpredictable
+	// and usage of the graph node should not block on the underlying resource being closed.
+	w.mu.Unlock()
 	return current.Close(ctx)
 }
 
