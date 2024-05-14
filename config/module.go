@@ -105,13 +105,13 @@ func (m Module) Equals(other Module) bool {
 
 var tarballExtensionsRegexp = regexp.MustCompile(`\.(tgz|tar\.gz)$`)
 
-// NeedsSyntheticPackage returns true if this is a local module pointing at a tarball.
-func (m Module) NeedsSyntheticPackage() bool {
+// IsLocalTarball returns true if this is a local module pointing at a tarball.
+func (m Module) IsLocalTarball() bool {
 	return m.Type == ModuleTypeLocal && tarballExtensionsRegexp.MatchString(strings.ToLower(m.ExePath))
 }
 
 // SyntheticPackage creates a fake package for a local module which points to a local tarball.
-func (m Module) SyntheticPackage(modTimeVersion bool) (PackageConfig, error) {
+func (m Module) SyntheticPackage() (PackageConfig, error) {
 	var ret PackageConfig
 	if m.Type != ModuleTypeLocal {
 		return ret, errors.New("non-local package passed to syntheticPackage")
@@ -119,22 +119,13 @@ func (m Module) SyntheticPackage(modTimeVersion bool) (PackageConfig, error) {
 	ret.Name = fmt.Sprintf("synthetic-%s", m.Name)
 	ret.Package = ret.Name
 	ret.Type = PackageTypeModule
-	if modTimeVersion {
-		stat, err := os.Stat(m.ExePath)
-		if err != nil {
-			return ret, errors.Wrapf(err, "error loading path %s in local module %s", m.ExePath, m.Name)
-		}
-		ret.Version = fmt.Sprintf("0.0.0-%s", stat.ModTime().Format("20060102-150405"))
-	} else {
-		ret.Version = "0.0.0"
-	}
 	ret.SourceModule = &m
 	return ret, nil
 }
 
 // syntheticPackageExeDir returns the unpacked ExePath for local tarball modules.
 func (m Module) syntheticPackageExeDir() (string, error) {
-	pkg, err := m.SyntheticPackage(true)
+	pkg, err := m.SyntheticPackage()
 	if err != nil {
 		return "", err
 	}
@@ -149,7 +140,7 @@ type EntrypointOnlyMetaJSON struct {
 
 // EvaluateExePath returns absolute ExePath except for local tarballs where it looks for side-by-side meta.json.
 func (m Module) EvaluateExePath() (string, error) {
-	if m.NeedsSyntheticPackage() {
+	if m.IsLocalTarball() {
 		metaPath := filepath.Join(filepath.Dir(m.ExePath), "meta.json")
 		f, err := os.Open(metaPath) //nolint:gosec
 		if err != nil {

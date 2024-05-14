@@ -48,6 +48,10 @@ type ManagerSyncer interface {
 	// If the context is canceled the manager will stop syncing and return an interrupted error.
 	Sync(ctx context.Context, packages []config.PackageConfig, modules []config.Module) error
 
+	// RecopyIfChanged recopies from the tarball if the tarball is newer than the destination.
+	// It also adds or overwrites the module in managedModules. Noop for manager types other than localManager.
+	RecopyIfChanged(ctx context.Context, mod config.Module) error
+
 	// Cleanup removes any unused packages known to the Manager that are no longer used. It removes the packages from the file system.
 	// Returns any errors during the cleanup process.
 	Cleanup(ctx context.Context) error

@@ -798,3 +798,8 @@ func dirExists(dir string) bool {
 
 	return info.IsDir()
 }
+
+// RecopyIfChanged is a no-op for cloudManager.
+func (m *cloudManager) RecopyIfChanged(ctx context.Context, mod config.Module) error {
+	return nil
+}

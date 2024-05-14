@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"regexp"
 	"testing"
 
 	"go.viam.com/test"
@@ -30,16 +31,28 @@ func TestSyntheticModule(t *testing.T) {
 	})
 
 	t.Run("SyntheticPackage", func(t *testing.T) {
-		_, err := modNeedsSynthetic.SyntheticPackage()
+		pkg, err := modNeedsSynthetic.SyntheticPackage(false)
 		test.That(t, err, test.ShouldBeNil)
-		_, err = modNotLocal.SyntheticPackage()
+		test.That(t, pkg.Version, test.ShouldEqual, "0.0.0")
+		_, err = modNotLocal.SyntheticPackage(false)
 		test.That(t, err, test.ShouldNotBeNil)
+
+		tmp := t.TempDir()
+		f, err := os.Create(filepath.Join(tmp, "synthetic-package-checks-me"))
+		test.That(t, err, test.ShouldBeNil)
+		err = f.Close()
+		test.That(t, err, test.ShouldBeNil)
+		pkg, err = (Module{Type: ModuleTypeLocal, ExePath: f.Name()}).SyntheticPackage(true)
+		test.That(t, err, test.ShouldBeNil)
+		match, err := regexp.MatchString(`0\.0\.0-\d+-\d+`, pkg.Version)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, match, test.ShouldBeTrue)
 	})
 
 	t.Run("syntheticPackageExeDir", func(t *testing.T) {
-		dir, err := modNeedsSynthetic.syntheticPackageExeDir()
+		dir, err := modNeedsSynthetic.syntheticPackageExeDir(false)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, dir, test.ShouldEqual, filepath.Join(viamPackagesDir, "data/module/synthetic--"))
+		test.That(t, dir, test.ShouldEqual, filepath.Join(viamPackagesDir, "data/module/synthetic--0_0_0"))
 	})
 
 	t.Run("EvaluateExePath", func(t *testing.T) {
@@ -47,12 +60,12 @@ func TestSyntheticModule(t *testing.T) {
 			Entrypoint: "entry",
 		}
 		testWriteJSON(t, filepath.Join(tmp, "meta.json"), &meta)
-		syntheticPath, err := modNeedsSynthetic.EvaluateExePath()
+		syntheticPath, err := modNeedsSynthetic.EvaluateExePath(false)
 		test.That(t, err, test.ShouldBeNil)
-		exeDir, err := modNeedsSynthetic.syntheticPackageExeDir()
+		exeDir, err := modNeedsSynthetic.syntheticPackageExeDir(false)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, syntheticPath, test.ShouldEqual, filepath.Join(exeDir, meta.Entrypoint))
-		notTarPath, err := modNotTar.EvaluateExePath()
+		notTarPath, err := modNotTar.EvaluateExePath(false)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, notTarPath, test.ShouldEqual, modNotTar.ExePath)
 	})

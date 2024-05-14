@@ -173,3 +173,8 @@ func (m *deferredPackageManager) isMissingPackages(packages []config.PackageConf
 	}
 	return false
 }
+
+// RecopyIfChanged is a no-op for this package manager variant.
+func (m *deferredPackageManager) RecopyIfChanged(ctx context.Context, mod config.Module) error {
+	return nil
+}
