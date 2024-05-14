@@ -18,8 +18,8 @@ func TestFilenameForDownload(t *testing.T) {
 	inFolder := filenameForDownload(&datapb.BinaryMetadata{FileName: "dir/whatever.txt"})
 	test.That(t, inFolder, test.ShouldEqual, "dir/whatever.txt")
 
-	inViamCaptureFolder := filenameForDownload(&datapb.BinaryMetadata{FileName: "/.viam/capture/2024-01-30T22:38:19.270455979-05:00.jpg"})
-	test.That(t, inViamCaptureFolder, test.ShouldEqual, "2024-01-30T22:38:19.270455979-05:00.jpg")
+	inViamCaptureFolder := filenameForDownload(&datapb.BinaryMetadata{FileName: "/.viam/capture/2024-01-30Twhatever.jpg"})
+	test.That(t, inViamCaptureFolder, test.ShouldEqual, "2024-01-30Twhatever.jpg")
 
 	gzAtRoot := filenameForDownload(&datapb.BinaryMetadata{FileName: "whatever.gz"})
 	test.That(t, gzAtRoot, test.ShouldEqual, expectedUTC+"_whatever")
