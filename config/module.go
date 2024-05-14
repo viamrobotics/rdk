@@ -124,12 +124,12 @@ func (m Module) SyntheticPackage() (PackageConfig, error) {
 }
 
 // syntheticPackageExeDir returns the unpacked ExePath for local tarball modules.
-func (m Module) syntheticPackageExeDir() (string, error) {
+func (m Module) syntheticPackageExeDir(packagesDir string) (string, error) {
 	pkg, err := m.SyntheticPackage()
 	if err != nil {
 		return "", err
 	}
-	return pkg.LocalDataDirectory(viamPackagesDir), nil
+	return pkg.LocalDataDirectory(packagesDir), nil
 }
 
 // EntrypointOnlyMetaJSON is a miniature version . We do this to avoid a circular dep between CLI and RDK.
@@ -139,7 +139,7 @@ type EntrypointOnlyMetaJSON struct {
 }
 
 // EvaluateExePath returns absolute ExePath except for local tarballs where it looks for side-by-side meta.json.
-func (m Module) EvaluateExePath() (string, error) {
+func (m Module) EvaluateExePath(packagesDir string) (string, error) {
 	if m.IsLocalTarball() {
 		metaPath := filepath.Join(filepath.Dir(m.ExePath), "meta.json")
 		f, err := os.Open(metaPath) //nolint:gosec
@@ -151,7 +151,7 @@ func (m Module) EvaluateExePath() (string, error) {
 		if err != nil {
 			return "", errors.Wrap(err, "parsing meta.json for local tarball")
 		}
-		exeDir, err := m.syntheticPackageExeDir()
+		exeDir, err := m.syntheticPackageExeDir(packagesDir)
 		if err != nil {
 			return "", err
 		}

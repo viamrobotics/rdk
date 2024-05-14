@@ -26,8 +26,9 @@ type localManager struct {
 	resource.Named
 	resource.TriviallyReconfigurable
 
-	// this is copied because we treat it as immutable (same as cloudManager).
-	packagesDir string
+	// these are copied at init because we treat them as immutable (same as cloudManager).
+	packagesDir     string
+	packagesDataDir string
 
 	// managedModules tracks the modules this manager knows about.
 	managedModules managedModuleMap
@@ -38,22 +39,35 @@ type localManager struct {
 
 type managedModule struct {
 	module config.Module
-
-	// modTime and dirty are used together to trigger a re-copy.
-	modTime time.Time
-	dirty   bool
 }
 
 type managedModuleMap map[string]*managedModule
 
 // NewLocalManager returns a noop package manager that does nothing. On path requests it returns the name of the package.
-func NewLocalManager(conf *config.Config, logger logging.Logger) ManagerSyncer {
+func NewLocalManager(conf *config.Config, logger logging.Logger) (ManagerSyncer, error) {
+	packagesDir := LocalPackagesDir(conf.PackagePath)
+	packagesDataDir := filepath.Join(packagesDir, "data")
+
+	if err := os.MkdirAll(packagesDir, 0o700); err != nil {
+		return nil, err
+	}
+
+	if err := os.MkdirAll(packagesDataDir, 0o700); err != nil {
+		return nil, err
+	}
 	return &localManager{
 		Named: InternalServiceName.AsNamed(),
 		// note: packagesDir needs suffix so cloudManager + this one don't overwrite each other.
-		packagesDir: filepath.Dir(conf.PackagePath) + "-local",
-		logger:      logger,
-	}
+		packagesDir:     packagesDir,
+		packagesDataDir: packagesDataDir,
+		logger:          logger,
+	}, nil
+}
+
+// LocalPackagesDir transforms a packagesDir string to the suffixed version for localManager.
+// local + cloud manager need separate parent dirs so they don't delete each other in Cleanup.
+func LocalPackagesDir(packagesDir string) string {
+	return filepath.Clean(packagesDir) + "-local"
 }
 
 // PackagePath returns the package if it exists and already download. If it does not exist it returns a ErrPackageMissing error.
