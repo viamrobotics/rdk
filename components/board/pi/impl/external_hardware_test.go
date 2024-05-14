@@ -65,25 +65,25 @@ func TestPiHardware(t *testing.T) {
 		err = p.SetGPIOBcom(26, false)
 		test.That(t, err, test.ShouldBeNil)
 
-		v, _, err := reader.Read(ctx, nil)
+		v, err := reader.Read(ctx, nil)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, v, test.ShouldAlmostEqual, 0, 150)
+		test.That(t, v.Value, test.ShouldAlmostEqual, 0, 150)
 
 		// try to set high
 		err = p.SetGPIOBcom(26, true)
 		test.That(t, err, test.ShouldBeNil)
 
-		v, _, err = reader.Read(ctx, nil)
+		v, err = reader.Read(ctx, nil)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, v, test.ShouldAlmostEqual, 1023, 150)
+		test.That(t, v.Value, test.ShouldAlmostEqual, 1023, 150)
 
 		// back to low
 		err = p.SetGPIOBcom(26, false)
 		test.That(t, err, test.ShouldBeNil)
 
-		v, _, err = reader.Read(ctx, nil)
+		v, err = reader.Read(ctx, nil)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, v, test.ShouldAlmostEqual, 0, 150)
+		test.That(t, v.Value, test.ShouldAlmostEqual, 0, 150)
 	})
 
 	t.Run("basic interrupts", func(t *testing.T) {

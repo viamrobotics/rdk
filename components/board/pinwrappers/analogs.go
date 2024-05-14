@@ -2,6 +2,7 @@ package pinwrappers
 
 import (
 	"context"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -27,6 +28,7 @@ type AnalogSmoother struct {
 	logger            logging.Logger
 	workers           utils.StoppableWorkers
 	analogVal         board.AnalogValue
+	mu                *sync.Mutex
 }
 
 // SmoothAnalogReader wraps the given reader in a smoother.
@@ -66,7 +68,9 @@ func (as *AnalogSmoother) Read(ctx context.Context, extra map[string]interface{}
 
 	avg := as.data.Average()
 	lastErr := as.lastError.Load()
+	as.mu.Lock()
 	as.analogVal.Value = avg
+	as.mu.Unlock()
 	if lastErr == nil {
 		return as.analogVal, nil
 	}
@@ -111,7 +115,9 @@ func (as *AnalogSmoother) Start() {
 		// Store the full analog reader value
 		analogVal, err := as.Raw.Read(ctx, nil)
 		as.lastError.Store(&errValue{err != nil, err})
+		as.mu.Lock()
 		as.analogVal = analogVal
+		as.mu.Unlock()
 
 		for {
 			select {
