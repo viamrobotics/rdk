@@ -8,9 +8,10 @@ import (
 	"testing"
 	"time"
 
+	"go.viam.com/test"
+
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
-	"go.viam.com/test"
 )
 
 // testTarPath points to a tarball that tests can use.
@@ -98,7 +99,6 @@ func TestLocalManagerUtils(t *testing.T) {
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, newer, test.ShouldBeFalse)
 		})
-
 	})
 
 	t.Run("RecopyIfChanged", func(t *testing.T) {

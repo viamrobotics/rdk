@@ -276,13 +276,26 @@ func (m *cloudManager) Cleanup(ctx context.Context) error {
 		expectedPackageDirectories[pkg.thePackage.LocalDataDirectory(m.packagesDir)] = true
 	}
 
-	topLevelFiles, err := os.ReadDir(m.packagesDataDir)
+	allErrors = commonCleanup(m.logger, expectedPackageDirectories, m.packagesDataDir)
+	if allErrors != nil {
+		return allErrors
+	}
+
+	allErrors = multierr.Append(allErrors, m.mlModelSymlinkCleanup())
+	return allErrors
+}
+
+func commonCleanup(logger logging.Logger, expectedPackageDirectories map[string]bool, packagesDataDir string) error {
+	topLevelFiles, err := os.ReadDir(packagesDataDir)
 	if err != nil {
 		return err
 	}
+
+	var allErrors error
+
 	// A packageTypeDir is a directory that contains all of the packages for the specified type. ex: data/ml_model
 	for _, packageTypeDir := range topLevelFiles {
-		packageTypeDirName, err := safeJoin(m.packagesDataDir, packageTypeDir.Name())
+		packageTypeDirName, err := safeJoin(packagesDataDir, packageTypeDir.Name())
 		if err != nil {
 			allErrors = multierr.Append(allErrors, err)
 			continue
@@ -307,7 +320,7 @@ func (m *cloudManager) Cleanup(ctx context.Context) error {
 			}
 			_, expectedToExist := expectedPackageDirectories[packageDirName]
 			if !expectedToExist {
-				m.logger.Debugf("Removing old package %s", packageDirName)
+				logger.Debugf("Removing old package %s", packageDirName)
 				allErrors = multierr.Append(allErrors, os.RemoveAll(packageDirName))
 			}
 		}
@@ -321,8 +334,6 @@ func (m *cloudManager) Cleanup(ctx context.Context) error {
 			allErrors = multierr.Append(allErrors, os.RemoveAll(packageTypeDirName))
 		}
 	}
-
-	allErrors = multierr.Append(allErrors, m.mlModelSymlinkCleanup())
 	return allErrors
 }
 
@@ -401,7 +412,8 @@ func checkNonemptyPaths(packageName string, logger logging.Logger, absPaths []st
 		info, err := os.Stat(nePath)
 		if err != nil {
 			if !os.IsNotExist(err) {
-				logger.Warnw("ignoring non-NotExist error for required path", "path", nePath, "package", packageName, "error", err.Error())
+				logger.Warnw("ignoring non-NotExist error for required path",
+					"path", nePath, "package", packageName, "error", err.Error())
 			} else {
 				logger.Warnw("a required path is missing, re-downloading", "path", nePath, "package", packageName)
 				missingOrEmpty++
@@ -415,9 +427,11 @@ func checkNonemptyPaths(packageName string, logger logging.Logger, absPaths []st
 }
 
 // downloadCallback is the function signature that gets passed to downloadPackage.
-type downloadCallback func(ctx context.Context, url string, dstPath string) (contentType string, err error)
+type downloadCallback func(ctx context.Context, url, dstPath string) (contentType string, err error)
 
-func downloadPackage(ctx context.Context, logger logging.Logger, packagesDir string, url string, p config.PackageConfig, nonEmptyPaths []string, downloadFn downloadCallback) error {
+func downloadPackage(ctx context.Context, logger logging.Logger, packagesDir, url string, p config.PackageConfig,
+	nonEmptyPaths []string, downloadFn downloadCallback,
+) error {
 	if dataDir := p.LocalDataDirectory(packagesDir); dirExists(dataDir) {
 		if checkNonemptyPaths(p.Name, logger, nonEmptyPaths) {
 			logger.Debugf("Package already downloaded at %s, skipping.", dataDir)
@@ -491,10 +505,6 @@ func downloadPackage(ctx context.Context, logger logging.Logger, packagesDir str
 	}
 
 	return nil
-}
-
-func (m *cloudManager) cleanup(p config.PackageConfig) error {
-	return cleanup(m.packagesDir, p)
 }
 
 func cleanup(packagesDir string, p config.PackageConfig) error {

@@ -10,10 +10,12 @@ import (
 
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
+	"go.viam.com/utils"
+
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/utils"
+	rUtils "go.viam.com/rdk/utils"
 )
 
 var (
@@ -102,7 +104,7 @@ func (m *localManager) fileCopyHelper(ctx context.Context, path, dstPath string)
 }
 
 // getAddedAndChanged is a helper for managing maps of things. It returns (map of existing, slice of added).
-func getAddedAndChanged[Key comparable, ManagedVal any, Val any](previous map[Key]ManagedVal, incoming []Val, keyFn func(Val) Key,
+func getAddedAndChanged[Key comparable, ManagedVal, Val any](previous map[Key]ManagedVal, incoming []Val, keyFn func(Val) Key,
 	compareFn func(ManagedVal, Val) bool,
 ) (map[Key]ManagedVal, []Val) {
 	existing := make(map[Key]ManagedVal, len(previous))
@@ -134,7 +136,7 @@ func (m *localManager) Sync(ctx context.Context, packages []config.PackageConfig
 	defer m.mu.Unlock()
 
 	// overwrite incoming modules with filtered slice; we only manage local tarball modules
-	modules = utils.FilterSlice(modules, config.Module.IsLocalTarball)
+	modules = rUtils.FilterSlice(modules, config.Module.IsLocalTarball)
 	existing, changed := m.managedModules.getAddedAndChanged(modules)
 	if len(changed) > 0 {
 		m.logger.Info("Local package changes have been detected, starting sync")
@@ -181,8 +183,6 @@ func (m *localManager) Cleanup(ctx context.Context) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	var allErrors error
-
 	expectedPackageDirectories := map[string]bool{}
 	for _, mod := range m.managedModules {
 		pkg, err := mod.module.SyntheticPackage()
@@ -193,54 +193,7 @@ func (m *localManager) Cleanup(ctx context.Context) error {
 		expectedPackageDirectories[pkg.LocalDataDirectory(m.packagesDir)] = true
 	}
 
-	// note: pkg.LocalDataDirectory returns something underneath m.packagesDataDir
-	topLevelFiles, err := os.ReadDir(m.packagesDataDir)
-	if err != nil {
-		return err
-	}
-	// A packageTypeDir is a directory that contains all of the packages for the specified type. ex: data/ml_model
-	for _, packageTypeDir := range topLevelFiles {
-		packageTypeDirName, err := safeJoin(m.packagesDataDir, packageTypeDir.Name())
-		if err != nil {
-			allErrors = multierr.Append(allErrors, err)
-			continue
-		}
-
-		// There should be no non-dir files in the packages/data dir. Delete any that exist
-		if packageTypeDir.Type()&os.ModeDir != os.ModeDir {
-			allErrors = multierr.Append(allErrors, os.Remove(packageTypeDirName))
-			continue
-		}
-		// read all of the packages in the directory and delete those that aren't in expectedPackageDirectories
-		packageDirs, err := os.ReadDir(packageTypeDirName)
-		if err != nil {
-			allErrors = multierr.Append(allErrors, err)
-			continue
-		}
-		for _, packageDir := range packageDirs {
-			packageDirName, err := safeJoin(packageTypeDirName, packageDir.Name())
-			if err != nil {
-				allErrors = multierr.Append(allErrors, err)
-				continue
-			}
-			_, expectedToExist := expectedPackageDirectories[packageDirName]
-			if !expectedToExist {
-				m.logger.Debugf("Removing old package %s", packageDirName)
-				allErrors = multierr.Append(allErrors, os.RemoveAll(packageDirName))
-			}
-		}
-		// re-read the directory, if there is nothing left in it, delete the directory
-		packageDirs, err = os.ReadDir(packageTypeDirName)
-		if err != nil {
-			allErrors = multierr.Append(allErrors, err)
-			continue
-		}
-		if len(packageDirs) == 0 {
-			allErrors = multierr.Append(allErrors, os.RemoveAll(packageTypeDirName))
-		}
-	}
-
-	return allErrors
+	return commonCleanup(m.logger, expectedPackageDirectories, m.packagesDataDir)
 }
 
 // newerOrMissing takes two file paths. It returns true if src path is newer than dest, or if dest is missing.
@@ -259,7 +212,7 @@ func newerOrMissing(src, dest string) (bool, error) {
 	return srcStat.ModTime().After(destStat.ModTime()), nil
 }
 
-// internal version which doesn't lock
+// internal version which doesn't lock.
 func (m *localManager) recopyIfChanged(ctx context.Context, mod config.Module) error {
 	if !mod.IsLocalTarball() {
 		return nil
@@ -276,7 +229,7 @@ func (m *localManager) recopyIfChanged(ctx context.Context, mod config.Module) e
 	}
 	if dirty {
 		m.logger.CDebugf(ctx, "%s is newer, recopying", mod.ExePath)
-		cleanup(m.packagesDir, pkg)
+		utils.UncheckedError(cleanup(m.packagesDir, pkg))
 		err = downloadPackage(ctx, m.logger, m.packagesDir, mod.ExePath, pkg, []string{}, m.fileCopyHelper)
 		if err != nil {
 			m.logger.Errorf("Failed copying package %s:%s from %s, %s", pkg.Package, pkg.Version, mod.ExePath, err)
