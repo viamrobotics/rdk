@@ -13,6 +13,9 @@ import (
 	"go.viam.com/test"
 )
 
+// testTarPath points to a tarball that tests can use.
+const testTarPath = "test_package.tar.gz"
+
 func TestLocalManagerUtils(t *testing.T) {
 	tmp := t.TempDir()
 	mgr, err := NewLocalManager(
@@ -152,4 +155,78 @@ func modTime(t *testing.T, path string) time.Time {
 	stat, err := os.Stat(path)
 	test.That(t, err, test.ShouldBeNil)
 	return stat.ModTime()
+}
+
+func TestLocalManagerSync(t *testing.T) {
+	tmp := t.TempDir()
+	mgr, err := NewLocalManager(&config.Config{PackagePath: filepath.Join(tmp, "pkg")}, logging.NewTestLogger(t))
+	test.That(t, err, test.ShouldBeNil)
+	local := mgr.(*localManager)
+
+	mod1 := config.Module{Name: "mod1", Type: config.ModuleTypeLocal, ExePath: testTarPath}
+	mod2 := config.Module{Name: "mod2", Type: config.ModuleTypeLocal, ExePath: testTarPath}
+
+	err = mgr.Sync(context.Background(), []config.PackageConfig{}, []config.Module{})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, local.managedModules, test.ShouldHaveLength, 0)
+
+	// first module
+	err = mgr.Sync(context.Background(), []config.PackageConfig{}, []config.Module{mod1})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, local.managedModules, test.ShouldHaveLength, 1)
+	test.That(t, moduleDirExists(t, local.packagesDir, mod1), test.ShouldBeTrue)
+
+	// second module
+	err = mgr.Sync(context.Background(), []config.PackageConfig{}, []config.Module{mod1, mod2})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, local.managedModules, test.ShouldHaveLength, 2)
+	test.That(t, moduleDirExists(t, local.packagesDir, mod1), test.ShouldBeTrue)
+	test.That(t, moduleDirExists(t, local.packagesDir, mod2), test.ShouldBeTrue)
+
+	// change second module
+	time.Sleep(time.Millisecond * 10)
+	tar2 := filepath.Join(tmp, "tar2.tgz")
+	copyFile(t, testTarPath, tar2)
+	mod2.ExePath = tar2
+	pkg, err := mod2.SyntheticPackage()
+	test.That(t, err, test.ShouldBeNil)
+	prevModTime := modTime(t, pkg.LocalDataDirectory(local.packagesDir))
+	err = mgr.Sync(context.Background(), []config.PackageConfig{}, []config.Module{mod1, mod2})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, local.managedModules, test.ShouldHaveLength, 2)
+	newModTime := modTime(t, pkg.LocalDataDirectory(local.packagesDir))
+	test.That(t, prevModTime.Before(newModTime), test.ShouldBeTrue)
+
+	// make sure Cleanup doesn't remove anything at this point
+	mgr.Cleanup(context.Background())
+	test.That(t, moduleDirExists(t, local.packagesDir, mod1), test.ShouldBeTrue)
+	test.That(t, moduleDirExists(t, local.packagesDir, mod2), test.ShouldBeTrue)
+
+	// remove second module, then test mgr.Cleanup
+	err = mgr.Sync(context.Background(), []config.PackageConfig{}, []config.Module{mod1})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, local.managedModules, test.ShouldHaveLength, 1)
+	test.That(t, moduleDirExists(t, local.packagesDir, mod1), test.ShouldBeTrue)
+	test.That(t, moduleDirExists(t, local.packagesDir, mod2), test.ShouldBeTrue)
+
+	err = mgr.Cleanup(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, moduleDirExists(t, local.packagesDir, mod1), test.ShouldBeTrue)
+	test.That(t, moduleDirExists(t, local.packagesDir, mod2), test.ShouldBeFalse)
+}
+
+// assertModuleDirExists is a t.Helper that returns true if the module's unpack folder is present.
+func moduleDirExists(t *testing.T, packagesDir string, mod config.Module) bool {
+	t.Helper()
+	pkg, err := mod.SyntheticPackage()
+	test.That(t, err, test.ShouldBeNil)
+	_, err = os.Stat(pkg.LocalDataDirectory(packagesDir))
+	if err == nil {
+		return true
+	}
+	if os.IsNotExist(err) {
+		return false
+	}
+	t.Error("other error in moduleDirExists", err)
+	return false // can't get here
 }
