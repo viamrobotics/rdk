@@ -69,8 +69,8 @@ func (as *AnalogSmoother) Read(ctx context.Context, extra map[string]interface{}
 	avg := as.data.Average()
 	lastErr := as.lastError.Load()
 	as.mu.Lock()
+	defer as.mu.Unlock()
 	as.analogVal.Value = avg
-	as.mu.Unlock()
 	if lastErr == nil {
 		return as.analogVal, nil
 	}
