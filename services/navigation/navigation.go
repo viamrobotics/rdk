@@ -157,7 +157,7 @@ type Service interface {
 	// If the machine is currently navigating to this waypoint, the motion will be canceled, and the machine will proceed to the next waypoint.
 	RemoveWaypoint(ctx context.Context, id primitive.ObjectID, extra map[string]interface{}) error
 
-  	// Obstacles returns a list of obstacles to avoid, both transient and predefined, identified by the vision and navigation services.
+	// Obstacles returns a list of obstacles to avoid, both transient and predefined, identified by the vision and navigation services.
 	Obstacles(ctx context.Context, extra map[string]interface{}) ([]*spatialmath.GeoGeometry, error)
 
 	// Paths returns each path, which is a series of geo points.

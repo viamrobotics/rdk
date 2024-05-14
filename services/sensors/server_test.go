@@ -1,4 +1,4 @@
-//nolint:staticcheck
+
 package sensors_test
 
 import (
