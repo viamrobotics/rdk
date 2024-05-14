@@ -205,7 +205,7 @@ func TestFilePolling(t *testing.T) {
 	flusher.closeCollectors()
 	// number of capture files is based on the number of unique
 	// collectors in the robot config used in this test
-	waitForCaptureFilesToExceedNFiles(tempDir, 4)
+	waitForCaptureFilesToEqualNFiles(tempDir, 4)
 
 	files := getAllFileInfos(tempDir)
 	test.That(t, len(files), test.ShouldEqual, 4)
@@ -214,6 +214,7 @@ func TestFilePolling(t *testing.T) {
 	expectedDeletedFile := files[0]
 
 	mockClock.Add(filesystemPollInterval)
+	waitForCaptureFilesToEqualNFiles(tempDir, 3)
 	newFiles := getAllFileInfos(tempDir)
 	test.That(t, len(newFiles), test.ShouldEqual, 3)
 	test.That(t, newFiles, test.ShouldNotContain, expectedDeletedFile)
