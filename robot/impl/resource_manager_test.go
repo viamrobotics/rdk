@@ -1872,26 +1872,20 @@ func TestReconfigureParity(t *testing.T) {
 		"data/diff_config_deps11.json",
 		"data/diff_config_deps12.json",
 	}
-	type fileConf struct {
-		file string
-		conf *config.Config
-	}
-	var fcs []fileConf
-	for _, file := range files {
-		fcs = append(fcs, fileConf{file: file, conf: ConfigFromFile(t, file)})
-	}
-
 	logger := logging.NewTestLogger(t)
 	ctx := context.Background()
 
-	testReconfigureParity := func(t *testing.T, from, to fileConf) {
-		name := fmt.Sprintf("%s -> %s", from.file, to.file)
+	testReconfigureParity := func(t *testing.T, initCfg, updateCfg string) {
+		name := fmt.Sprintf("%s -> %s", initCfg, updateCfg)
 		t.Run(name, func(t *testing.T) {
-			// TODO: resolve data races and to allow this to run in parallel
-			// t.Parallel()
+			t.Parallel()
 
-			r1 := setupLocalRobot(t, ctx, from.conf, logger).(*localRobot)
-			r2 := setupLocalRobot(t, ctx, from.conf, logger).(*localRobot)
+			// Configuration may mutate `*config.Config`, so we read it from
+			// file each time.
+			cfg := ConfigFromFile(t, initCfg)
+			r1 := setupLocalRobot(t, ctx, cfg, logger).(*localRobot)
+			cfg = ConfigFromFile(t, initCfg)
+			r2 := setupLocalRobot(t, ctx, cfg, logger).(*localRobot)
 
 			test.That(
 				t,
@@ -1900,8 +1894,10 @@ func TestReconfigureParity(t *testing.T) {
 				rdktestutils.NewResourceNameSet(r2.ResourceNames()...),
 			)
 
-			r1.Reconfigure(ctx, to.conf)
-			r2.ReconfigureSync(ctx, to.conf)
+			cfg = ConfigFromFile(t, updateCfg)
+			r1.Reconfigure(ctx, cfg)
+			cfg = ConfigFromFile(t, updateCfg)
+			r2.ReconfigureSync(ctx, cfg)
 
 			test.That(
 				t,
@@ -1912,16 +1908,16 @@ func TestReconfigureParity(t *testing.T) {
 		})
 	}
 
-	gen := combin.NewCombinationGenerator(len(fcs), 2)
+	gen := combin.NewCombinationGenerator(len(files), 2)
 
 	pair := []int{0, 0}
 	for gen.Next() {
 		gen.Combination(pair)
 
 		i, j := pair[0], pair[1]
-		testReconfigureParity(t, fcs[i], fcs[j])
+		testReconfigureParity(t, files[i], files[j])
 
 		i, j = pair[1], pair[0]
-		testReconfigureParity(t, fcs[i], fcs[j])
+		testReconfigureParity(t, files[i], files[j])
 	}
 }
