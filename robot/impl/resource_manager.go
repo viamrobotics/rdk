@@ -42,7 +42,7 @@ var (
 	errProcessesDisabled    = errors.New("processes disabled in an untrusted environment")
 )
 
-// resourceManager manages the actual parts that make up a localRobot.
+// resourceManager manages the actual parts that make up a robot.
 type resourceManager struct {
 	resources      *resource.Graph
 	processManager pexec.ProcessManager
