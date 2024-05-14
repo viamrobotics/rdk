@@ -28,7 +28,7 @@ type AnalogSmoother struct {
 	logger            logging.Logger
 	workers           utils.StoppableWorkers
 	analogVal         board.AnalogValue
-	mu                *sync.Mutex
+	mu                sync.Mutex
 }
 
 // SmoothAnalogReader wraps the given reader in a smoother.
