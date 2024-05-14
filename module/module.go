@@ -761,7 +761,7 @@ func (m *Module) AddStream(ctx context.Context, req *streampb.AddStreamRequest) 
 		return nil, errMaxSupportedWebRTCTrackLimit
 	}
 
-	tlsRTP, err := webrtc.NewTrackLocalStaticRTP(webrtc.RTPCodecCapability{MimeType: "video/H264"}, "video", name.String())
+	tlsRTP, err := webrtc.NewTrackLocalStaticRTP(webrtc.RTPCodecCapability{MimeType: "video/H264"}, "video", resource.SDPTrackName(name))
 	if err != nil {
 		return nil, errors.Wrap(err, "error creating a new TrackLocalStaticRTP")
 	}
