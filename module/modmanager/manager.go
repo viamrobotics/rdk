@@ -154,6 +154,7 @@ type Manager struct {
 	// viamHomeDir is the absolute path to the viam home directory. Ex: /home/walle/.viam
 	// `viamHomeDir` may only be the empty string in testing
 	viamHomeDir string
+	// packagesDir is the PackagesPath from a config.Config. It's used for resolving paths for local tarball modules.
 	packagesDir string
 	// moduleDataParentDir is the absolute path to the current robots module data directory.
 	// Ex: /home/walle/.viam/module-data/<cloud-robot-id>
