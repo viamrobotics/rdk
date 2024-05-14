@@ -10,44 +10,44 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
-// GeoObstacle is a struct to store the location and geometric structure of an obstacle in a geospatial environment.
-type GeoObstacle struct {
+// GeoGeometry is a struct to store the location and geometric structure of an obstacle in a geospatial environment.
+type GeoGeometry struct {
 	location   *geo.Point
 	geometries []Geometry
 }
 
-// NewGeoObstacle constructs a GeoObstacle from a geo.Point and a slice of Geometries.
-func NewGeoObstacle(loc *geo.Point, geom []Geometry) *GeoObstacle {
-	return &GeoObstacle{
+// NewGeoGeometry constructs a GeoGeometry from a geo.Point and a slice of Geometries.
+func NewGeoGeometry(loc *geo.Point, geom []Geometry) *GeoGeometry {
+	return &GeoGeometry{
 		location:   loc,
 		geometries: geom,
 	}
 }
 
-// Location returns the locating coordinates of the GeoObstacle.
-func (gob *GeoObstacle) Location() *geo.Point {
+// Location returns the locating coordinates of the GeoGeometry.
+func (gob *GeoGeometry) Location() *geo.Point {
 	return gob.location
 }
 
-// Geometries returns the geometries which comprise structure of the GeoObstacle.
-func (gob *GeoObstacle) Geometries() []Geometry {
+// Geometries returns the geometries which comprise structure of the GeoGeometry.
+func (gob *GeoGeometry) Geometries() []Geometry {
 	return gob.geometries
 }
 
-// GeoObstacleToProtobuf converts the GeoObstacle struct into an equivalent Protobuf message.
-func GeoObstacleToProtobuf(geoObst *GeoObstacle) *commonpb.GeoObstacle {
+// GeoGeometryToProtobuf converts the GeoGeometry struct into an equivalent Protobuf message.
+func GeoGeometryToProtobuf(geoObst *GeoGeometry) *commonpb.GeoGeometry {
 	var convGeoms []*commonpb.Geometry
 	for _, geometry := range geoObst.geometries {
 		convGeoms = append(convGeoms, geometry.ToProtobuf())
 	}
-	return &commonpb.GeoObstacle{
+	return &commonpb.GeoGeometry{
 		Location:   &commonpb.GeoPoint{Latitude: geoObst.location.Lat(), Longitude: geoObst.location.Lng()},
 		Geometries: convGeoms,
 	}
 }
 
-// GeoObstacleFromProtobuf takes a Protobuf representation of a GeoObstacle and converts back into a Go struct.
-func GeoObstacleFromProtobuf(protoGeoObst *commonpb.GeoObstacle) (*GeoObstacle, error) {
+// GeoGeometryFromProtobuf takes a Protobuf representation of a GeoGeometry and converts back into a Go struct.
+func GeoGeometryFromProtobuf(protoGeoObst *commonpb.GeoGeometry) (*GeoGeometry, error) {
 	convPoint := geo.NewPoint(protoGeoObst.GetLocation().GetLatitude(), protoGeoObst.GetLocation().GetLongitude())
 	convGeoms := []Geometry{}
 	for _, protoGeom := range protoGeoObst.GetGeometries() {
@@ -57,17 +57,17 @@ func GeoObstacleFromProtobuf(protoGeoObst *commonpb.GeoObstacle) (*GeoObstacle, 
 		}
 		convGeoms = append(convGeoms, newGeom)
 	}
-	return NewGeoObstacle(convPoint, convGeoms), nil
+	return NewGeoGeometry(convPoint, convGeoms), nil
 }
 
-// GeoObstacleConfig specifies the format of GeoObstacles specified through the configuration file.
-type GeoObstacleConfig struct {
+// GeoGeometryConfig specifies the format of GeoGeometries specified through the configuration file.
+type GeoGeometryConfig struct {
 	Location   *commonpb.GeoPoint `json:"location"`
 	Geometries []*GeometryConfig  `json:"geometries"`
 }
 
-// NewGeoObstacleConfig takes a GeoObstacle and returns a GeoObstacleConfig.
-func NewGeoObstacleConfig(geo *GeoObstacle) (*GeoObstacleConfig, error) {
+// NewGeoGeometryConfig takes a GeoGeometry and returns a GeoGeometryConfig.
+func NewGeoGeometryConfig(geo *GeoGeometry) (*GeoGeometryConfig, error) {
 	geomCfgs := []*GeometryConfig{}
 	for _, geom := range geo.geometries {
 		gc, err := NewGeometryConfig(geom)
@@ -77,7 +77,7 @@ func NewGeoObstacleConfig(geo *GeoObstacle) (*GeoObstacleConfig, error) {
 		geomCfgs = append(geomCfgs, gc)
 	}
 
-	config := &GeoObstacleConfig{
+	config := &GeoGeometryConfig{
 		Location:   &commonpb.GeoPoint{Latitude: geo.location.Lat(), Longitude: geo.location.Lng()},
 		Geometries: geomCfgs,
 	}
@@ -85,11 +85,11 @@ func NewGeoObstacleConfig(geo *GeoObstacle) (*GeoObstacleConfig, error) {
 	return config, nil
 }
 
-// GeoObstaclesFromConfigs takes a GeoObstacleConfig and returns a list of GeoObstacles.
-func GeoObstaclesFromConfigs(configs []*GeoObstacleConfig) ([]*GeoObstacle, error) {
-	var gobs []*GeoObstacle
+// GeoGeometriesFromConfigs takes a GeoGeometryConfig and returns a list of GeoGeometries.
+func GeoGeometriesFromConfigs(configs []*GeoGeometryConfig) ([]*GeoGeometry, error) {
+	var gobs []*GeoGeometry
 	for _, cfg := range configs {
-		gob, err := GeoObstaclesFromConfig(cfg)
+		gob, err := GeoGeometriesFromConfig(cfg)
 		if err != nil {
 			return nil, err
 		}
@@ -98,11 +98,11 @@ func GeoObstaclesFromConfigs(configs []*GeoObstacleConfig) ([]*GeoObstacle, erro
 	return gobs, nil
 }
 
-// GeoObstaclesFromConfig takes a GeoObstacleConfig and returns a list of GeoObstacles.
-func GeoObstaclesFromConfig(config *GeoObstacleConfig) ([]*GeoObstacle, error) {
-	var gobs []*GeoObstacle
+// GeoGeometriesFromConfig takes a GeoGeometryConfig and returns a list of GeoGeometries.
+func GeoGeometriesFromConfig(config *GeoGeometryConfig) ([]*GeoGeometry, error) {
+	var gobs []*GeoGeometry
 	for _, navGeom := range config.Geometries {
-		gob := GeoObstacle{}
+		gob := GeoGeometry{}
 
 		gob.location = geo.NewPoint(config.Location.Latitude, config.Location.Longitude)
 
@@ -160,10 +160,10 @@ func GeoPointToPoint(point, origin *geo.Point) r3.Vector {
 	}
 }
 
-// GeoObstaclesToGeometries converts a list of GeoObstacles into a list of Geometries.
-func GeoObstaclesToGeometries(obstacles []*GeoObstacle, origin *geo.Point) []Geometry {
+// GeoGeometriesToGeometries converts a list of GeoGeometries into a list of Geometries.
+func GeoGeometriesToGeometries(obstacles []*GeoGeometry, origin *geo.Point) []Geometry {
 	// we note that there are two transformations to be accounted for
-	// when converting a GeoObstacle. Namely, the obstacle's pose needs to
+	// when converting a GeoGeometry. Namely, the obstacle's pose needs to
 	// transformed by the specified in GPS coordinates.
 	geoms := []Geometry{}
 	for _, v := range obstacles {

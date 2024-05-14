@@ -24,7 +24,7 @@ type NavigationService struct {
 	AddWaypointFunc    func(ctx context.Context, point *geo.Point, extra map[string]interface{}) error
 	RemoveWaypointFunc func(ctx context.Context, id primitive.ObjectID, extra map[string]interface{}) error
 
-	ObstaclesFunc func(ctx context.Context, extra map[string]interface{}) ([]*spatialmath.GeoObstacle, error)
+	ObstaclesFunc func(ctx context.Context, extra map[string]interface{}) ([]*spatialmath.GeoGeometry, error)
 	PathsFunc     func(ctx context.Context, extra map[string]interface{}) ([]*navigation.Path, error)
 
 	PropertiesFunc func(ctx context.Context) (navigation.Properties, error)
@@ -92,7 +92,7 @@ func (ns *NavigationService) RemoveWaypoint(ctx context.Context, id primitive.Ob
 }
 
 // Obstacles calls the injected Obstacles or the real version.
-func (ns *NavigationService) Obstacles(ctx context.Context, extra map[string]interface{}) ([]*spatialmath.GeoObstacle, error) {
+func (ns *NavigationService) Obstacles(ctx context.Context, extra map[string]interface{}) ([]*spatialmath.GeoGeometry, error) {
 	if ns.ObstaclesFunc == nil {
 		return ns.Service.Obstacles(ctx, extra)
 	}

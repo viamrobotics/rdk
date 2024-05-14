@@ -53,10 +53,12 @@ type MoveOnGlobeReq struct {
 	// Name of the momement sensor which can be used to derive Position & Heading
 	MovementSensorName resource.Name
 	// Static obstacles that should be navigated around
-	Obstacles []*spatialmath.GeoObstacle
+	Obstacles []*spatialmath.GeoGeometry
 	// Optional motion configuration
 	MotionCfg *MotionConfiguration
-	Extra     map[string]interface{}
+
+	BoundingRegions []*spatialmath.GeoGeometry
+	Extra           map[string]interface{}
 }
 
 func (r MoveOnGlobeReq) String() string {
