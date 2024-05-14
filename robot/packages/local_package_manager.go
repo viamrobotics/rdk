@@ -26,7 +26,7 @@ type localManager struct {
 	resource.Named
 	resource.TriviallyReconfigurable
 
-	// these are copied at init because we treat them as immutable (same as cloudManager).
+	// packagesDir is the parent dir for unpacked package tars.
 	packagesDir     string
 	packagesDataDir string
 
@@ -179,7 +179,73 @@ func (m *localManager) Sync(ctx context.Context, packages []config.PackageConfig
 
 // Cleanup removes all unknown packages from the working directory.
 func (m *localManager) Cleanup(ctx context.Context) error {
-	panic("I need to be implemented")
+	m.logger.Debug("Starting package cleanup")
+
+	// Only allow one rdk process to operate on the manager at once. This is generally safe to keep locked for an extended period of time
+	// since the config reconfiguration process is handled by a single thread.
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	var allErrors error
+
+	expectedPackageDirectories := map[string]bool{}
+	for _, mod := range m.managedModules {
+		pkg, err := mod.module.SyntheticPackage()
+		if err != nil {
+			m.logger.CWarnf(ctx, "ignoring error in Cleanup for mod %s, %s", mod.module.Name, err)
+			continue
+		}
+		expectedPackageDirectories[pkg.LocalDataDirectory(m.packagesDir)] = true
+	}
+
+	// note: pkg.LocalDataDirectory returns something underneath m.packagesDataDir
+	topLevelFiles, err := os.ReadDir(m.packagesDataDir)
+	if err != nil {
+		return err
+	}
+	// A packageTypeDir is a directory that contains all of the packages for the specified type. ex: data/ml_model
+	for _, packageTypeDir := range topLevelFiles {
+		packageTypeDirName, err := safeJoin(m.packagesDataDir, packageTypeDir.Name())
+		if err != nil {
+			allErrors = multierr.Append(allErrors, err)
+			continue
+		}
+
+		// There should be no non-dir files in the packages/data dir. Delete any that exist
+		if packageTypeDir.Type()&os.ModeDir != os.ModeDir {
+			allErrors = multierr.Append(allErrors, os.Remove(packageTypeDirName))
+			continue
+		}
+		// read all of the packages in the directory and delete those that aren't in expectedPackageDirectories
+		packageDirs, err := os.ReadDir(packageTypeDirName)
+		if err != nil {
+			allErrors = multierr.Append(allErrors, err)
+			continue
+		}
+		for _, packageDir := range packageDirs {
+			packageDirName, err := safeJoin(packageTypeDirName, packageDir.Name())
+			if err != nil {
+				allErrors = multierr.Append(allErrors, err)
+				continue
+			}
+			_, expectedToExist := expectedPackageDirectories[packageDirName]
+			if !expectedToExist {
+				m.logger.Debugf("Removing old package %s", packageDirName)
+				allErrors = multierr.Append(allErrors, os.RemoveAll(packageDirName))
+			}
+		}
+		// re-read the directory, if there is nothing left in it, delete the directory
+		packageDirs, err = os.ReadDir(packageTypeDirName)
+		if err != nil {
+			allErrors = multierr.Append(allErrors, err)
+			continue
+		}
+		if len(packageDirs) == 0 {
+			allErrors = multierr.Append(allErrors, os.RemoveAll(packageTypeDirName))
+		}
+	}
+
+	return allErrors
 }
 
 // newerOrMissing takes two file paths. It returns true if src path is newer than dest, or if dest is missing.
