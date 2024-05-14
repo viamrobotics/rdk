@@ -95,3 +95,29 @@ func TestServerGetDetections(t *testing.T) {
 	test.That(t, len(resp.GetDetections()), test.ShouldEqual, 1)
 	test.That(t, resp.GetDetections()[0].GetClassName(), test.ShouldEqual, "yes")
 }
+
+func TestServerGetProperties(t *testing.T) {
+	injectVS := &inject.VisionService{}
+	injectVS.GetPropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (*vision.Properties, error) {
+		return &vision.Properties{ClassificationSupported: false, DetectionSupported: true, ObjectPCDsSupported: false}, nil
+	}
+	m := map[resource.Name]vision.Service{
+		visName1: injectVS,
+	}
+	server, err := newServer(m)
+	test.That(t, err, test.ShouldBeNil)
+
+	extra := map[string]interface{}{}
+	ext, err := protoutils.StructToStructPb(extra)
+	propsRequest := &pb.GetPropertiesRequest{
+		Name:  testVisionServiceName,
+		Extra: ext,
+	}
+	test.That(t, err, test.ShouldBeNil)
+
+	resp, err := server.GetProperties(context.Background(), propsRequest)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resp.ClassificationsSupported, test.ShouldEqual, false)
+	test.That(t, resp.DetectionsSupported, test.ShouldEqual, true)
+	test.That(t, resp.ObjectPointCloudsSupported, test.ShouldEqual, false)
+}

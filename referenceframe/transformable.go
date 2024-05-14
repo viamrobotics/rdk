@@ -1,6 +1,8 @@
 package referenceframe
 
 import (
+	"fmt"
+
 	"github.com/pkg/errors"
 	commonpb "go.viam.com/api/common/v1"
 
@@ -58,6 +60,11 @@ func (pF *PoseInFrame) SetName(name string) {
 // The tf PoseInFrame represents the pose of the pF reference frame with respect to the destination reference frame.
 func (pF *PoseInFrame) Transform(tf *PoseInFrame) Transformable {
 	return NewPoseInFrame(tf.parent, spatialmath.Compose(tf.pose, pF.pose))
+}
+
+// String returns the string representation of the PoseInFrame.
+func (pF *PoseInFrame) String() string {
+	return fmt.Sprintf("parent: %s, pose: %s", pF.parent, spatialmath.PoseToProtobuf(pF.pose))
 }
 
 // LinkInFrame is a PoseInFrame plus a Geometry.

@@ -69,9 +69,6 @@ type Board interface {
 	// the specified duration.
 	SetPowerMode(ctx context.Context, mode pb.PowerMode, duration *time.Duration) error
 
-	// WriteAnalog writes an analog value to a pin on the board.
-	WriteAnalog(ctx context.Context, pin string, value int32, extra map[string]interface{}) error
-
 	// StreamTicks starts a stream of digital interrupt ticks.
 	StreamTicks(ctx context.Context, interrupts []DigitalInterrupt, ch chan Tick,
 		extra map[string]interface{}) error

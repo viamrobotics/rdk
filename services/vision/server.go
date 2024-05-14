@@ -217,6 +217,28 @@ func segmentsToProto(frame string, segs []*vision.Object) ([]*commonpb.PointClou
 	return protoSegs, nil
 }
 
+func (server *serviceServer) GetProperties(ctx context.Context,
+	req *pb.GetPropertiesRequest,
+) (*pb.GetPropertiesResponse, error) {
+	ctx, span := trace.StartSpan(ctx, "service::vision::server::GetProperties")
+	defer span.End()
+	svc, err := server.coll.Resource(req.Name)
+	if err != nil {
+		return nil, err
+	}
+	props, err := svc.GetProperties(ctx, req.Extra.AsMap())
+	if err != nil {
+		return nil, err
+	}
+
+	out := &pb.GetPropertiesResponse{
+		ClassificationsSupported:   props.ClassificationSupported,
+		DetectionsSupported:        props.DetectionSupported,
+		ObjectPointCloudsSupported: props.ObjectPCDsSupported,
+	}
+	return out, nil
+}
+
 // DoCommand receives arbitrary commands.
 func (server *serviceServer) DoCommand(ctx context.Context,
 	req *commonpb.DoCommandRequest,
