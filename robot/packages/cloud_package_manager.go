@@ -43,8 +43,6 @@ type managedPackage struct {
 	modtime    time.Time
 }
 
-type managedPackageMap map[PackageName]*managedPackage
-
 type cloudManager struct {
 	resource.Named
 	// we assume the config is immutable for the lifetime of the process
@@ -55,7 +53,7 @@ type cloudManager struct {
 	packagesDir     string
 	cloudConfig     config.Cloud
 
-	managedPackages managedPackageMap
+	managedPackages map[PackageName]*managedPackage
 	mu              sync.RWMutex
 
 	logger logging.Logger
@@ -121,27 +119,6 @@ func (m *cloudManager) Close(ctx context.Context) error {
 	return nil
 }
 
-// getPackageURL fetches package download URL from API, or creates a `file://` URL from pkg.LocalPath.
-func getPackageURL(ctx context.Context, logger logging.Logger, client pb.PackageServiceClient, pkg config.PackageConfig) (string, error) {
-	packageType, err := config.PackageTypeToProto(pkg.Type)
-	if err != nil {
-		logger.Warnw("failed to get package type", "package", pkg.Name, "error", err)
-	}
-	// Lookup the package's http url
-	includeURL := true
-	resp, err := client.GetPackage(ctx, &pb.GetPackageRequest{
-		Id:         pkg.Package,
-		Version:    pkg.Version,
-		Type:       packageType,
-		IncludeUrl: &includeURL,
-	})
-	if err != nil {
-		logger.Errorf("Failed fetching package details for package %s:%s, %s", pkg.Package, pkg.Version, err)
-		return "", errors.Wrapf(err, "failed loading package url for %s:%s", pkg.Package, pkg.Version)
-	}
-	return resp.Package.Url, nil
-}
-
 // SyncAll syncs all given packages and removes any not in the list from the local file system.
 func (m *cloudManager) Sync(ctx context.Context, packages []config.PackageConfig, modules []config.Module) error {
 	var outErr error
@@ -151,11 +128,18 @@ func (m *cloudManager) Sync(ctx context.Context, packages []config.PackageConfig
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	// this map will replace m.managedPackages at the end of the function
-	newManagedPackages := m.managedPackages.unchangedPackages(packages)
+	newManagedPackages := make(map[PackageName]*managedPackage, len(packages))
+
+	for _, p := range packages {
+		// Package exists in known cache.
+		if m.packageIsManaged(p) {
+			newManagedPackages[PackageName(p.Name)] = m.managedPackages[PackageName(p.Name)]
+			continue
+		}
+	}
 
 	// Process the packages that are new or changed
-	changedPackages := m.managedPackages.validateAndGetChangedPackages(m.logger, packages)
+	changedPackages := m.validateAndGetChangedPackages(packages)
 	if len(changedPackages) > 0 {
 		m.logger.Info("Package changes have been detected, starting sync")
 	}
@@ -169,27 +153,49 @@ func (m *cloudManager) Sync(ctx context.Context, packages []config.PackageConfig
 
 		m.logger.Debugf("Starting package sync [%d/%d] %s:%s", idx+1, len(changedPackages), p.Package, p.Version)
 
-		packageURL, err := getPackageURL(ctx, m.logger, m.client, p)
+		// Lookup the packages http url
+		includeURL := true
+
+		packageType, err := config.PackageTypeToProto(p.Type)
 		if err != nil {
-			outErr = multierr.Append(outErr, err)
+			m.logger.Warnw("failed to get package type", "package", p.Name, "error", err)
+		}
+		resp, err := m.client.GetPackage(ctx, &pb.GetPackageRequest{
+			Id:         p.Package,
+			Version:    p.Version,
+			Type:       packageType,
+			IncludeUrl: &includeURL,
+		})
+		if err != nil {
+			m.logger.Errorf("Failed fetching package details for package %s:%s, %s", p.Package, p.Version, err)
+			outErr = multierr.Append(outErr, errors.Wrapf(err, "failed loading package url for %s:%s", p.Package, p.Version))
 			continue
 		}
 
-		m.logger.Debugf("Downloading from %s", sanitizeURLForLogs(packageURL))
+		m.logger.Debugf("Downloading from %s", sanitizeURLForLogs(resp.Package.Url))
 
-		nonEmptyPaths := getNonEmptyPaths(ctx, m.logger, m.packagesDir, p, modules)
+		nonEmptyPaths := make([]string, 0)
+		if p.Type == config.PackageTypeModule {
+			matchedModules := m.modulesForPackage(p, modules)
+			if len(matchedModules) == 1 {
+				nonEmptyPaths = append(nonEmptyPaths, matchedModules[0].ExePath)
+			}
+			if len(matchedModules) > 1 {
+				m.logger.CWarnf(ctx, "package %s matched %d > 1 modules, not doing entrypoint checking", p.Name, len(matchedModules))
+			}
+		}
 
-		// download package from a http endpoint, or copy from p.LocalPath if synthetic
-		err = downloadPackage(ctx, m.logger, m.packagesDir, packageURL, p, nonEmptyPaths,
+		// download package from a http endpoint
+		err = downloadPackage(ctx, m.logger, m.packagesDir, resp.Package.Url, p, nonEmptyPaths,
 			func(ctx context.Context, url, dstPath string) (string, error) {
 				_, contentType, err := m.downloadFileFromGCSURL(ctx, url, dstPath, m.cloudConfig.ID, m.cloudConfig.Secret)
 				return contentType, err
 			},
 		)
 		if err != nil {
-			m.logger.Errorf("Failed downloading package %s:%s from %s, %s", p.Package, p.Version, sanitizeURLForLogs(packageURL), err)
+			m.logger.Errorf("Failed downloading package %s:%s from %s, %s", p.Package, p.Version, sanitizeURLForLogs(resp.Package.Url), err)
 			outErr = multierr.Append(outErr, errors.Wrapf(err, "failed downloading package %s:%s from %s",
-				p.Package, p.Version, sanitizeURLForLogs(packageURL)))
+				p.Package, p.Version, sanitizeURLForLogs(resp.Package.Url)))
 			continue
 		}
 
@@ -215,8 +221,8 @@ func (m *cloudManager) Sync(ctx context.Context, packages []config.PackageConfig
 
 // modulesForPackage returns module(s) whose ExePath is in the package's directory.
 // TODO: This only works if you call it after placeholder replacement. Find a cleaner way to express this link.
-func modulesForPackage(packagesDir string, pkg config.PackageConfig, modules []config.Module) []config.Module {
-	pkgDir := pkg.LocalDataDirectory(packagesDir)
+func (m *cloudManager) modulesForPackage(pkg config.PackageConfig, modules []config.Module) []config.Module {
+	pkgDir := pkg.LocalDataDirectory(m.packagesDir)
 	ret := make([]config.Module, 0, 1)
 	for _, module := range modules {
 		if strings.HasPrefix(module.ExePath, pkgDir) {
@@ -226,57 +232,26 @@ func modulesForPackage(packagesDir string, pkg config.PackageConfig, modules []c
 	return ret
 }
 
-// getNonEmptyPaths looks up the package in a list of modules + returns a list of paths that should be non-empty (for integrity checking).
-func getNonEmptyPaths(ctx context.Context, logger logging.Logger, packagesDir string, pkg config.PackageConfig, modules []config.Module) []string {
-	nonEmptyPaths := make([]string, 0)
-	if pkg.Type == config.PackageTypeModule {
-		matchedModules := modulesForPackage(packagesDir, pkg, modules)
-		if len(matchedModules) == 1 {
-			nonEmptyPaths = append(nonEmptyPaths, matchedModules[0].ExePath)
-		}
-		if len(matchedModules) > 1 {
-			logger.CWarnf(ctx, "package %s matched %d > 1 modules, not doing entrypoint checking", pkg.Name, len(matchedModules))
-		}
-	}
-	return nonEmptyPaths
-}
-
-// validateAndGetChangedPackages filters `packages` to packages that are unknown and that pass validation.
-func (mpm managedPackageMap) validateAndGetChangedPackages(logger logging.Logger, packages []config.PackageConfig) []config.PackageConfig {
+func (m *cloudManager) validateAndGetChangedPackages(packages []config.PackageConfig) []config.PackageConfig {
 	changed := make([]config.PackageConfig, 0)
 	for _, p := range packages {
 		// don't consider invalid config as synced or unsynced
 		if err := p.Validate(""); err != nil {
-			logger.Errorw("package config validation error; skipping", "package", p.Name, "error", err)
+			m.logger.Errorw("package config validation error; skipping", "package", p.Name, "error", err)
 			continue
 		}
-		if existing := mpm.packageIsManaged(p); !existing {
+		if existing := m.packageIsManaged(p); !existing {
 			newPackage := p
 			changed = append(changed, newPackage)
 		} else {
-			logger.Debugf("Package %s:%s already managed, skipping", p.Package, p.Version)
+			m.logger.Debugf("Package %s:%s already managed, skipping", p.Package, p.Version)
 		}
 	}
 	return changed
 }
 
-// unchangedPackages constructs a new managedPackageMap with items from `packages` that pass packageIsManaged.
-func (mpm managedPackageMap) unchangedPackages(packages []config.PackageConfig) managedPackageMap {
-	unchanged := make(managedPackageMap, len(packages))
-
-	for _, p := range packages {
-		// Package exists in known cache.
-		if mpm.packageIsManaged(p) {
-			unchanged[PackageName(p.Name)] = mpm[PackageName(p.Name)]
-			continue
-		}
-	}
-	return unchanged
-}
-
-// packageIsManaged returns true if p's PackageName is known and key fields have not changed.
-func (mpm managedPackageMap) packageIsManaged(p config.PackageConfig) bool {
-	existing, ok := mpm[PackageName(p.Name)]
+func (m *cloudManager) packageIsManaged(p config.PackageConfig) bool {
+	existing, ok := m.managedPackages[PackageName(p.Name)]
 	if ok {
 		if existing.thePackage.Package == p.Package && existing.thePackage.Version == p.Version {
 			return true

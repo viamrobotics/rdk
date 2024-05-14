@@ -130,6 +130,7 @@ func TestLocalManagerUtils(t *testing.T) {
 		// case: source newer
 		prevModTime = newModTime
 		newTar := filepath.Join(tmp, "newer.tar.gz")
+		time.Sleep(time.Millisecond * 10)
 		copyFile(t, "test_package.tar.gz", newTar)
 		err = mgr.RecopyIfChanged(context.Background(), config.Module{Name: mod.Name, Type: config.ModuleTypeLocal, ExePath: newTar})
 		test.That(t, err, test.ShouldBeNil)
