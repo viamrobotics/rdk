@@ -40,14 +40,13 @@ func newAnalogCollector(resource interface{}, params data.CollectorParams) (data
 	}
 
 	cFunc := data.CaptureFunc(func(ctx context.Context, arg map[string]*anypb.Any) (interface{}, error) {
-		var value int
-		var analogRange AnalogRange
+		var analogValue AnalogValue
 		if _, ok := arg[analogReaderNameKey]; !ok {
 			return nil, data.FailedToReadErr(params.ComponentName, analogs.String(),
 				errors.New("Must supply reader_name in additional_params for analog collector"))
 		}
 		if reader, err := board.AnalogByName(arg[analogReaderNameKey].String()); err == nil {
-			value, analogRange, err = reader.Read(ctx, data.FromDMExtraMap)
+			analogValue, err = reader.Read(ctx, data.FromDMExtraMap)
 			if err != nil {
 				// A modular filter component can be created to filter the readings from a component. The error ErrNoCaptureToStore
 				// is used in the datamanager to exclude readings from being captured and stored.
@@ -58,10 +57,10 @@ func newAnalogCollector(resource interface{}, params data.CollectorParams) (data
 			}
 		}
 		return pb.ReadAnalogReaderResponse{
-			Value:    int32(value),
-			MinRange: analogRange.Min,
-			MaxRange: analogRange.Max,
-			StepSize: analogRange.StepSize,
+			Value:    int32(analogValue.Value),
+			MinRange: analogValue.Min,
+			MaxRange: analogValue.Max,
+			StepSize: analogValue.StepSize,
 		}, nil
 	})
 	return data.NewCollector(cFunc, params)

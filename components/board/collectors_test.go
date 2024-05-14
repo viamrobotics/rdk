@@ -99,8 +99,8 @@ func TestCollectors(t *testing.T) {
 func newBoard() board.Board {
 	b := &inject.Board{}
 	analog := &inject.Analog{}
-	analog.ReadFunc = func(ctx context.Context, extra map[string]interface{}) (int, board.AnalogRange, error) {
-		return 1, board.AnalogRange{Min: 0, Max: 10, StepSize: 0.1}, nil
+	analog.ReadFunc = func(ctx context.Context, extra map[string]interface{}) (board.AnalogValue, error) {
+		return board.AnalogValue{Value: 1, Min: 0, Max: 10, StepSize: 0.1}, nil
 	}
 	b.AnalogByNameFunc = func(name string) (board.Analog, error) {
 		return analog, nil

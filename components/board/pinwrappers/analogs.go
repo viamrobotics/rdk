@@ -26,7 +26,7 @@ type AnalogSmoother struct {
 	lastError         atomic.Pointer[errValue]
 	logger            logging.Logger
 	workers           utils.StoppableWorkers
-	analogRange       board.AnalogRange
+	analogVal         board.AnalogValue
 }
 
 // SmoothAnalogReader wraps the given reader in a smoother.
@@ -58,22 +58,24 @@ func (as *AnalogSmoother) Close(ctx context.Context) error {
 }
 
 // Read returns the smoothed out reading.
-func (as *AnalogSmoother) Read(ctx context.Context, extra map[string]interface{}) (int, board.AnalogRange, error) {
+func (as *AnalogSmoother) Read(ctx context.Context, extra map[string]interface{}) (board.AnalogValue, error) {
 	if as.data == nil { // We're using raw data, and not averaging
-		return as.lastData, board.AnalogRange{}, nil
+		as.analogVal.Value = as.lastData
+		return as.analogVal, nil
 	}
 
 	avg := as.data.Average()
 	lastErr := as.lastError.Load()
+	as.analogVal.Value = avg
 	if lastErr == nil {
-		return avg, as.analogRange, nil
+		return as.analogVal, nil
 	}
 	//nolint:forcetypeassert
 	if lastErr.present {
-		return avg, as.analogRange, lastErr.err
+		return as.analogVal, lastErr.err
 	}
 
-	return avg, as.analogRange, nil
+	return as.analogVal, nil
 }
 
 // Start begins the smoothing routine that reads from the underlying
@@ -106,10 +108,10 @@ func (as *AnalogSmoother) Start() {
 	}
 
 	as.workers = utils.NewStoppableWorkers(func(ctx context.Context) {
-		// Store the analog reader range and step size
-		_, analogRange, err := as.Raw.Read(ctx, nil)
+		// Store the full analog reader value
+		analogVal, err := as.Raw.Read(ctx, nil)
 		as.lastError.Store(&errValue{err != nil, err})
-		as.analogRange = analogRange
+		as.analogVal = analogVal
 
 		for {
 			select {
@@ -118,12 +120,12 @@ func (as *AnalogSmoother) Start() {
 			default:
 			}
 			start := time.Now()
-			reading, _, err := as.Raw.Read(ctx, nil)
+			reading, err := as.Raw.Read(ctx, nil)
 			as.lastError.Store(&errValue{err != nil, err})
 			if err == nil {
-				as.lastData = reading
+				as.lastData = reading.Value
 				if as.data != nil {
-					as.data.Add(reading)
+					as.data.Add(reading.Value)
 				}
 			} else { // Non-nil error
 				if errors.Is(err, errStopReading) {

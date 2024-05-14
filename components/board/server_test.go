@@ -463,8 +463,7 @@ func TestServerReadAnalogReader(t *testing.T) {
 	tests := []struct {
 		injectAnalog     *inject.Analog
 		injectAnalogErr  error
-		injectVal        int
-		injectRange      board.AnalogRange
+		injectVal        board.AnalogValue
 		injectErr        error
 		req              *request
 		expCapAnalogArgs []interface{}
@@ -475,7 +474,7 @@ func TestServerReadAnalogReader(t *testing.T) {
 		{
 			injectAnalog:     nil,
 			injectAnalogErr:  errAnalog,
-			injectVal:        0,
+			injectVal:        board.AnalogValue{Value: 0},
 			injectErr:        nil,
 			req:              &request{BoardName: missingBoardName},
 			expCapAnalogArgs: []interface{}(nil),
@@ -486,7 +485,7 @@ func TestServerReadAnalogReader(t *testing.T) {
 		{
 			injectAnalog:     nil,
 			injectAnalogErr:  errAnalog,
-			injectVal:        0,
+			injectVal:        board.AnalogValue{Value: 0},
 			injectErr:        nil,
 			req:              &request{BoardName: testBoardName, AnalogReaderName: "analog1"},
 			expCapAnalogArgs: []interface{}{"analog1"},
@@ -497,7 +496,7 @@ func TestServerReadAnalogReader(t *testing.T) {
 		{
 			injectAnalog:     &inject.Analog{},
 			injectAnalogErr:  nil,
-			injectVal:        0,
+			injectVal:        board.AnalogValue{Value: 0},
 			injectErr:        errFoo,
 			req:              &request{BoardName: testBoardName, AnalogReaderName: "analog1"},
 			expCapAnalogArgs: []interface{}{"analog1"},
@@ -508,8 +507,7 @@ func TestServerReadAnalogReader(t *testing.T) {
 		{
 			injectAnalog:     &inject.Analog{},
 			injectAnalogErr:  nil,
-			injectVal:        8,
-			injectRange:      board.AnalogRange{Min: 0, Max: 10, StepSize: 0.1},
+			injectVal:        board.AnalogValue{Value: 8, Min: 0, Max: 10, StepSize: 0.1},
 			injectErr:        nil,
 			req:              &request{BoardName: testBoardName, AnalogReaderName: "analog1", Extra: pbExpectedExtra},
 			expCapAnalogArgs: []interface{}{"analog1"},
@@ -530,9 +528,9 @@ func TestServerReadAnalogReader(t *testing.T) {
 			}
 
 			if tc.injectAnalog != nil {
-				tc.injectAnalog.ReadFunc = func(ctx context.Context, extra map[string]interface{}) (int, board.AnalogRange, error) {
+				tc.injectAnalog.ReadFunc = func(ctx context.Context, extra map[string]interface{}) (board.AnalogValue, error) {
 					actualExtra = extra
-					return tc.injectVal, tc.injectRange, tc.injectErr
+					return tc.injectVal, tc.injectErr
 				}
 			}
 

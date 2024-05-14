@@ -39,7 +39,7 @@ func (config *MCP3008AnalogConfig) Validate(path string) error {
 }
 
 func (mar *MCP3008AnalogReader) Read(ctx context.Context, extra map[string]interface{}) (
-	value int, analogRange board.AnalogRange, err error,
+	analogVal board.AnalogValue, err error,
 ) {
 	var tx [3]byte
 	tx[0] = 1                            // start bit
@@ -48,7 +48,7 @@ func (mar *MCP3008AnalogReader) Read(ctx context.Context, extra map[string]inter
 
 	bus, err := mar.Bus.OpenHandle()
 	if err != nil {
-		return 0, board.AnalogRange{}, err
+		return board.AnalogValue{}, err
 	}
 	defer func() {
 		err = multierr.Combine(err, bus.Close())
@@ -56,14 +56,14 @@ func (mar *MCP3008AnalogReader) Read(ctx context.Context, extra map[string]inter
 
 	rx, err := bus.Xfer(ctx, 1000000, mar.Chip, 0, tx[:])
 	if err != nil {
-		return 0, board.AnalogRange{}, err
+		return board.AnalogValue{}, err
 	}
 	// Reassemble the 10-bit value. Do not include bits before the final 10, because they contain
 	// garbage and might be non-zero.
 	val := 0x03FF & ((int(rx[1]) << 8) | int(rx[2]))
 
-	// returning blank analog range since mcp3008 will be removed soon.
-	return val, board.AnalogRange{}, nil
+	// returning no analog range since mcp3008 will be removed soon.
+	return board.AnalogValue{Value: val}, nil
 }
 
 // Close does nothing.

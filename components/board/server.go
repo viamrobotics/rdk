@@ -144,13 +144,15 @@ func (s *serviceServer) ReadAnalogReader(
 		return nil, err
 	}
 
-	val, analogRange, err := theReader.Read(ctx, req.Extra.AsMap())
+	analogValue, err := theReader.Read(ctx, req.Extra.AsMap())
 	if err != nil {
 		return nil, err
 	}
 	return &pb.ReadAnalogReaderResponse{
-		Value:    int32(val),
-		MinRange: analogRange.Min, MaxRange: analogRange.Max, StepSize: analogRange.StepSize,
+		Value:    int32(analogValue.Value),
+		MinRange: analogValue.Min,
+		MaxRange: analogValue.Max,
+		StepSize: analogValue.StepSize,
 	}, nil
 }
 

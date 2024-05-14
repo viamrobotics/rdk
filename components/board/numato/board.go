@@ -356,15 +356,15 @@ type analog struct {
 	pin string
 }
 
-// analog Read returns the analog value with the range and step size in mV/bit.
-func (a *analog) Read(ctx context.Context, extra map[string]interface{}) (int, board.AnalogRange, error) {
+// Read returns the analog value with the range and step size in V/bit.
+func (a *analog) Read(ctx context.Context, extra map[string]interface{}) (board.AnalogValue, error) {
 	res, err := a.b.doSendReceive(ctx, fmt.Sprintf("adc read %s", a.pin))
 	if err != nil {
-		return 0, board.AnalogRange{}, err
+		return board.AnalogValue{}, err
 	}
 	reading, err := strconv.Atoi(res)
 	if err != nil {
-		return 0, board.AnalogRange{}, err
+		return board.AnalogValue{}, err
 	}
 	var max float32
 	var stepSize float32
@@ -392,8 +392,7 @@ func (a *analog) Read(ctx context.Context, extra map[string]interface{}) (int, b
 		stepSize = max / 1024
 	default:
 	}
-	stepSize *= 1000
-	return reading, board.AnalogRange{Min: 0, Max: max, StepSize: stepSize}, nil
+	return board.AnalogValue{Value: reading, Min: 0, Max: max, StepSize: stepSize}, nil
 }
 
 func (a *analog) Write(ctx context.Context, value int, extra map[string]interface{}) error {
@@ -426,10 +425,13 @@ func connect(ctx context.Context, name resource.Name, conf *Config, logger loggi
 		if product.ID.Vendor != 0x2a19 {
 			continue
 		}
+		// we can safely get the first numato productID we find because
+		// we only support one board being used at a time
 		productID = product.ID.Product
+		break
 	}
 
-	if productID != 0x805|0x802|0x800|0x0C05 {
+	if productID != 0x800 && productID != 0x802 && productID != 0x805 && productID != 0xC05 {
 		logger.Warnf("analog range and step size is not supported for numato with product id %d", productID)
 	}
 

@@ -96,20 +96,20 @@ func setup(t *testing.T) *setupResult {
 		return nil
 	}
 
-	s.analog1.ReadFunc = func(ctx context.Context, extra map[string]interface{}) (int, board.AnalogRange, error) {
+	s.analog1.ReadFunc = func(ctx context.Context, extra map[string]interface{}) (board.AnalogValue, error) {
 		s.mu.Lock()
 		defer s.mu.Unlock()
-		return analog1Val, board.AnalogRange{}, nil
+		return board.AnalogValue{Value: analog1Val}, nil
 	}
-	s.analog2.ReadFunc = func(ctx context.Context, extra map[string]interface{}) (int, board.AnalogRange, error) {
+	s.analog2.ReadFunc = func(ctx context.Context, extra map[string]interface{}) (board.AnalogValue, error) {
 		s.mu.Lock()
 		defer s.mu.Unlock()
-		return analog2Val, board.AnalogRange{}, nil
+		return board.AnalogValue{Value: analog2Val}, nil
 	}
-	s.analog3.ReadFunc = func(ctx context.Context, extra map[string]interface{}) (int, board.AnalogRange, error) {
+	s.analog3.ReadFunc = func(ctx context.Context, extra map[string]interface{}) (board.AnalogValue, error) {
 		s.mu.Lock()
 		defer s.mu.Unlock()
-		return analog3Val, board.AnalogRange{}, nil
+		return board.AnalogValue{Value: analog3Val}, nil
 	}
 
 	s.analog2.WriteFunc = func(ctx context.Context, value int, extra map[string]interface{}) error {

@@ -134,10 +134,10 @@ type analogClient struct {
 	analogName string
 }
 
-func (ac *analogClient) Read(ctx context.Context, extra map[string]interface{}) (int, AnalogRange, error) {
+func (ac *analogClient) Read(ctx context.Context, extra map[string]interface{}) (AnalogValue, error) {
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
-		return 0, AnalogRange{}, err
+		return AnalogValue{}, err
 	}
 	// the api method is named ReadAnalogReader, it is named differently than
 	// the board interface functions.
@@ -147,9 +147,9 @@ func (ac *analogClient) Read(ctx context.Context, extra map[string]interface{}) 
 		Extra:            ext,
 	})
 	if err != nil {
-		return 0, AnalogRange{}, err
+		return AnalogValue{}, err
 	}
-	return int(resp.Value), AnalogRange{Min: resp.MinRange, Max: resp.MaxRange, StepSize: resp.StepSize}, nil
+	return AnalogValue{Value: int(resp.Value), Min: resp.MinRange, Max: resp.MaxRange, StepSize: resp.StepSize}, nil
 }
 
 func (ac *analogClient) Write(ctx context.Context, value int, extra map[string]interface{}) error {
