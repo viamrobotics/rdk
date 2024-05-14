@@ -355,8 +355,8 @@ func waitForCaptureFilesToExceedNFiles(captureDir string, n int) {
 				nonEmptyFiles++
 			}
 
-			// We have N files. No need to count any more.
-			if nonEmptyFiles >= n {
+			// We have N+1 files. No need to count any more.
+			if nonEmptyFiles > n {
 				return
 			}
 		}
