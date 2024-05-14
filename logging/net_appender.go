@@ -84,6 +84,13 @@ func (nl *NetAppender) queueSize() int {
 	return len(nl.toLog)
 }
 
+// cancelBackgroundWorkers is an internal function meant to be used only in testing and in Close(). NetAppender will
+// not function correctly if cancelBackgroundWorkers() is called outside of those contexts.
+func (nl *NetAppender) cancelBackgroundWorkers() {
+	nl.cancel()
+	nl.activeBackgroundWorkers.Wait()
+}
+
 // Close the NetAppender. This makes a best effort at sending all logs before returning.
 func (nl *NetAppender) Close() {
 	// try for up to 10 seconds for log queue to clear before cancelling it
@@ -97,8 +104,7 @@ func (nl *NetAppender) Close() {
 
 		time.Sleep(10 * time.Millisecond)
 	}
-	nl.cancel()
-	nl.activeBackgroundWorkers.Wait()
+	nl.cancelBackgroundWorkers()
 	nl.remoteWriter.close()
 }
 

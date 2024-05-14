@@ -103,12 +103,15 @@ func makeServerForRobotLogger(t *testing.T) serverForRobotLogger {
 	return serverForRobotLogger{robotService, config, rpcServer.Stop}
 }
 
-func TestNetLoggerBatchWrites(t *testing.T) {
+func TestNetLoggerSync(t *testing.T) {
 	server := makeServerForRobotLogger(t)
 	defer server.stop()
 
 	netAppender, err := NewNetAppender(server.cloudConfig)
 	test.That(t, err, test.ShouldBeNil)
+
+	// This test is testing the behavior of sync(), so the background worker shouldn't be running at the same time.
+	netAppender.cancelBackgroundWorkers()
 
 	logger := NewDebugLogger("test logger")
 	// The stdout appender is not necessary for test correctness. But it does provide information in
@@ -116,10 +119,10 @@ func TestNetLoggerBatchWrites(t *testing.T) {
 	logger.AddAppender(netAppender)
 
 	for i := 0; i < writeBatchSize+1; i++ {
-		logger.Info("Some-info")
+		logger.Infof("Some-info %d", i)
 	}
 
-	netAppender.sync()
+	test.That(t, netAppender.sync(), test.ShouldBeNil)
 	netAppender.Close()
 
 	server.service.logsMu.Lock()
@@ -128,16 +131,20 @@ func TestNetLoggerBatchWrites(t *testing.T) {
 	test.That(t, server.service.logBatches[0], test.ShouldHaveLength, 100)
 	test.That(t, server.service.logBatches[1], test.ShouldHaveLength, 1)
 	for i := 0; i < writeBatchSize+1; i++ {
-		test.That(t, server.service.logs[i].Message, test.ShouldEqual, "Some-info")
+		test.That(t, server.service.logs[i].Message, test.ShouldEqual, fmt.Sprintf("Some-info %d", i))
 	}
 }
 
-func TestNetLoggerBatchFailureAndRetry(t *testing.T) {
+func TestNetLoggerSyncFailureAndRetry(t *testing.T) {
 	server := makeServerForRobotLogger(t)
 	defer server.stop()
 
 	netAppender, err := NewNetAppender(server.cloudConfig)
 	test.That(t, err, test.ShouldBeNil)
+
+	// This test is testing the behavior of sync(), so the background worker shouldn't be running at the same time.
+	netAppender.cancelBackgroundWorkers()
+
 	logger := NewDebugLogger("test logger")
 	// The stdout appender is not necessary for test correctness. But it does provide information in
 	// the output w.r.t the injected grpc errors.
@@ -152,30 +159,27 @@ func TestNetLoggerBatchFailureAndRetry(t *testing.T) {
 	server.service.logsMu.Unlock()
 
 	for i := 0; i < numLogs-1; i++ {
-		logger.Info("Some-info")
+		logger.Infof("Some-info %d", i)
 	}
 
 	// This test requires at least three syncs for the logs to be guaranteed received by the
 	// server. Once the log queue is full of size ten batches, the first sync will decrement
 	// `logFailForSizeCount` to 1 and return an error. The second will decrement it to a negative
-	// value and return an error. The third will succeed.
+	// value and return an error. The third sync will succeed.
 	//
 	// This test depends on the `Close` method performing a `Sync`.
-	//
-	// The `netAppender` also has a background worker syncing on its own cadence. This complicates
-	// exactly which syncs do what work and which ones return errors.
-	netAppender.sync()
+	test.That(t, netAppender.sync(), test.ShouldNotBeNil)
 
 	logger.Info("New info")
 
-	netAppender.sync()
-	netAppender.Close()
+	test.That(t, netAppender.sync(), test.ShouldNotBeNil)
+	test.That(t, netAppender.sync(), test.ShouldBeNil)
 
 	server.service.logsMu.Lock()
 	defer server.service.logsMu.Unlock()
 	test.That(t, server.service.logs, test.ShouldHaveLength, numLogs)
 	for i := 0; i < numLogs-1; i++ {
-		test.That(t, server.service.logs[i].Message, test.ShouldEqual, "Some-info")
+		test.That(t, server.service.logs[i].Message, test.ShouldEqual, fmt.Sprintf("Some-info %d", i))
 	}
 	test.That(t, server.service.logs[numLogs-1].Message, test.ShouldEqual, "New info")
 }
