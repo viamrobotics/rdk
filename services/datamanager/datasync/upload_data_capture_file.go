@@ -80,6 +80,8 @@ func uploadDataCaptureFile(ctx context.Context, client v1.DataSyncServiceClient,
 		}
 	} else {
 		// Build UploadMetadata
+		//
+		// Dan: Why do these `UploadMetadata` objects not initialize `UploadMetadata.FileName` as `f.GetPath`?
 		uploadMD := &v1.UploadMetadata{
 			PartId:           partID,
 			ComponentType:    md.GetComponentType(),

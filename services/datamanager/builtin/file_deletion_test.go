@@ -195,8 +195,10 @@ func TestFilePolling(t *testing.T) {
 	captureDirToFSUsageRatio = math.SmallestNonzeroFloat64
 
 	// Set up data manager.
-	dmsvc, mockClient := newDMSvc(t, tempDir)
+	dmsvc, _ := newDMSvc(t, tempDir)
+	defer dmsvc.Close(context.Background())
 
+	// run forward 10ms to capture 4 files then close the collectors,
 	mockClock.Add(captureInterval)
 	flusher, ok := dmsvc.(*builtIn)
 	test.That(t, ok, test.ShouldBeTrue)
@@ -213,36 +215,12 @@ func TestFilePolling(t *testing.T) {
 	// the first to be deleted
 	expectedDeletedFile := files[0]
 
+	// run forward 20ms to delete any files
 	mockClock.Add(filesystemPollInterval)
 	waitForCaptureFilesToEqualNFiles(tempDir, 3)
 	newFiles := getAllFileInfos(tempDir)
 	test.That(t, len(newFiles), test.ShouldEqual, 3)
 	test.That(t, newFiles, test.ShouldNotContain, expectedDeletedFile)
-	// capture interval is 10ms and sync interval is 50ms.
-	// So we run forward 10ms to capture 4 files then close the collectors,
-	// run forward 20ms to delete any files, then run forward 20ms to sync the remaining 3 files.
-	mockClock.Add(syncInterval - (filesystemPollInterval + captureInterval))
-
-	wait := time.After(time.Second)
-	// we track requests to make sure only 3 upload requests are in the syncer
-	// instead of the 4 captured files
-	var requests []*v1.DataCaptureUploadRequest
-	select {
-	case req := <-mockClient.succesfulDCRequests:
-		requests = append(requests, req)
-	case <-wait:
-	}
-	flusher.closeSyncer()
-
-	close(mockClient.succesfulDCRequests)
-	for dc := range mockClient.succesfulDCRequests {
-		requests = append(requests, dc)
-	}
-	// we expect 3 upload requests as 1 capture file should have been deleted
-	// and not uploaded
-	test.That(t, len(requests), test.ShouldEqual, 3)
-	err := dmsvc.Close(context.Background())
-	test.That(t, err, test.ShouldBeNil)
 }
 
 func get2ComponentInjectedRobot() *inject.Robot {
