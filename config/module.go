@@ -138,6 +138,7 @@ type EntrypointOnlyMetaJSON struct {
 }
 
 // EvaluateExePath returns absolute ExePath except for local tarballs where it looks for side-by-side meta.json.
+// The side-by-side lookup is because we don't bundle entrypoint in module tarballs, it's not an intentional design choice.
 func (m Module) EvaluateExePath(packagesDir string) (string, error) {
 	if m.IsLocalTarball() {
 		metaPath := filepath.Join(filepath.Dir(m.ExePath), "meta.json")

@@ -47,17 +47,22 @@ func TestSyntheticModule(t *testing.T) {
 			Entrypoint: "entry",
 		}
 		testWriteJSON(t, filepath.Join(tmp, "meta.json"), &meta)
+
+		// local tarball case
 		syntheticPath, err := modNeedsSynthetic.EvaluateExePath(tmp)
 		test.That(t, err, test.ShouldBeNil)
 		exeDir, err := modNeedsSynthetic.syntheticPackageExeDir(tmp)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, syntheticPath, test.ShouldEqual, filepath.Join(exeDir, meta.Entrypoint))
+
+		// vanilla case
 		notTarPath, err := modNotTar.EvaluateExePath(tmp)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, notTarPath, test.ShouldEqual, modNotTar.ExePath)
 	})
 }
 
+// testWriteJSON is a t.Helper that serializes `value` to `path` as json.
 func testWriteJSON(t *testing.T, path string, value any) {
 	t.Helper()
 	file, err := os.Create(path)
