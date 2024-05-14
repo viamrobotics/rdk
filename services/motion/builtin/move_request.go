@@ -452,7 +452,7 @@ func (ms *builtIn) newMoveOnGlobeRequest(
 	// ensure arguments are well behaved
 	obstacles := req.Obstacles
 	if obstacles == nil {
-		obstacles = []*spatialmath.GeoObstacle{}
+		obstacles = []*spatialmath.GeoGeometry{}
 	}
 	if req.Destination == nil {
 		return nil, errors.New("destination cannot be nil")
@@ -524,7 +524,7 @@ func (ms *builtIn) newMoveOnGlobeRequest(
 		return nil, err
 	}
 
-	geomsRaw := spatialmath.GeoObstaclesToGeometries(obstacles, origin)
+	geomsRaw := spatialmath.GeoGeometriesToGeometries(obstacles, origin)
 
 	mr, err := ms.createBaseMoveRequest(
 		ctx,
