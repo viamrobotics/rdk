@@ -3,10 +3,10 @@ package config
 import (
 	"sync"
 
+	"github.com/edaniels/golog"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 
-	"github.com/edaniels/golog"
 	"go.viam.com/rdk/logging"
 )
 
@@ -80,5 +80,4 @@ func refreshLogLevelInLock() {
 	}
 	globalLogger.logger.Info("New log level: ", newLevel)
 	logging.GlobalLogLevel.SetLevel(newLevel)
-
 }
