@@ -337,17 +337,11 @@ func TestObstacleReplanningGlobe(t *testing.T) {
 	extraNoReplan := map[string]interface{}{"max_replans": 0, "max_ik_solutions": 1, "smooth_iter": 1}
 
 	// We set a flag here per test case so that detections are not returned the first time each vision service is called
-	firstRunMap := map[string]bool{}
-
 	testCases := []testCase{
 		{
 			name: "ensure no replan from discovered obstacles",
 			getPCfunc: func(ctx context.Context, cameraName string, extra map[string]interface{}) ([]*viz.Object, error) {
 				caseName := "test-case-1"
-				if _, ok := firstRunMap[caseName]; !ok {
-					firstRunMap[caseName] = true
-					return []*viz.Object{}, nil
-				}
 				obstaclePosition := spatialmath.NewPoseFromPoint(r3.Vector{X: -1000, Y: -1000, Z: 0})
 				box, err := spatialmath.NewBox(obstaclePosition, r3.Vector{X: 10, Y: 10, Z: 10}, caseName)
 				test.That(t, err, test.ShouldBeNil)
@@ -364,10 +358,6 @@ func TestObstacleReplanningGlobe(t *testing.T) {
 			name: "ensure replan due to obstacle collision",
 			getPCfunc: func(ctx context.Context, cameraName string, extra map[string]interface{}) ([]*viz.Object, error) {
 				caseName := "test-case-2"
-				if _, ok := firstRunMap[caseName]; !ok {
-					firstRunMap[caseName] = true
-					return []*viz.Object{}, nil
-				}
 				// The camera is parented to the base. Thus, this will always see an obstacle 300mm in front of where the base is.
 				// Note: for createMoveOnGlobeEnvironment, the camera is given an orientation such that it is pointing left, not
 				// forwards. Thus, an obstacle in front of the base will be seen as being in +X.
@@ -388,10 +378,6 @@ func TestObstacleReplanningGlobe(t *testing.T) {
 			name: "ensure replan reaching goal",
 			getPCfunc: func(ctx context.Context, cameraName string, extra map[string]interface{}) ([]*viz.Object, error) {
 				caseName := "test-case-3"
-				if _, ok := firstRunMap[caseName]; !ok {
-					firstRunMap[caseName] = true
-					return []*viz.Object{}, nil
-				}
 				// This base will always see an obstacle 800mm in front of it, triggering several replans.
 				// However, enough replans should eventually get it to its goal.
 				obstaclePosition := spatialmath.NewPoseFromPoint(r3.Vector{X: 800, Y: 0, Z: 0})
@@ -410,6 +396,16 @@ func TestObstacleReplanningGlobe(t *testing.T) {
 
 	testFn := func(t *testing.T, tc testCase) {
 		t.Helper()
+
+		calledPC := false
+		pcFunc := func(ctx context.Context, cameraName string, extra map[string]interface{}) ([]*viz.Object, error) {
+			if !calledPC {
+				calledPC = true
+				return []*viz.Object{}, nil
+			}
+			return tc.getPCfunc(ctx, cameraName, extra)
+		}
+
 		injectedMovementSensor, _, kb, ms := createMoveOnGlobeEnvironment(
 			ctx,
 			t,
@@ -421,7 +417,7 @@ func TestObstacleReplanningGlobe(t *testing.T) {
 
 		srvc, ok := ms.(*builtIn).visionServices[cfg.ObstacleDetectors[0].VisionServiceName].(*inject.VisionService)
 		test.That(t, ok, test.ShouldBeTrue)
-		srvc.GetObjectPointCloudsFunc = tc.getPCfunc
+		srvc.GetObjectPointCloudsFunc = pcFunc
 
 		req := motion.MoveOnGlobeReq{
 			ComponentName:      kb.Name(),

@@ -2,7 +2,9 @@
 import { displayError } from '@/lib/error';
 import { CameraClient, type ServiceError } from '@viamrobotics/sdk';
 import { selectedMap } from '@/lib/camera-state';
+import { setAsyncInterval } from '@/lib/schedule';
 import { useRobotClient, useConnect } from '@/hooks/robot-client';
+import { noop } from 'lodash-es';
 import LiveCamera from './live-camera.svelte';
 
 export let cameraName: string;
@@ -14,29 +16,26 @@ const { robotClient, streamManager } = useRobotClient();
 
 let imgEl: HTMLImageElement;
 
-let cameraFrameIntervalId = -1;
-
 const cameraManager = $streamManager.setCameraManager(cameraName);
 
-const clearFrameInterval = () => {
-  window.clearInterval(cameraFrameIntervalId);
-};
+let clearFrameInterval = noop;
 
 const viewCameraFrame = (time: number) => {
   clearFrameInterval();
   cameraManager.setImageSrc(imgEl);
   if (time > 0) {
-    cameraFrameIntervalId = window.setInterval(
-      () => {
-        cameraManager.setImageSrc(imgEl);
-      },
-      Number(time) * 1000
+    clearFrameInterval = setAsyncInterval(
+      async () => cameraManager.setImageSrc(imgEl),
+      Number(time) * 1000,
+      true
     );
   }
 };
 
 const updateCameraRefreshRate = () => {
-  if (refreshRate !== 'Live') {
+  if (refreshRate === 'Live') {
+    clearFrameInterval();
+  } else {
     viewCameraFrame(selectedMap[refreshRate as keyof typeof selectedMap]);
   }
 };
@@ -62,8 +61,13 @@ useConnect(() => {
 
 // Refresh camera when the trigger changes
 let lastTriggerRefresh = triggerRefresh;
-$: if (lastTriggerRefresh !== triggerRefresh) {
+let lastRefreshRate = refreshRate;
+$: if (
+  lastTriggerRefresh !== triggerRefresh ||
+  lastRefreshRate !== refreshRate
+) {
   lastTriggerRefresh = triggerRefresh;
+  lastRefreshRate = refreshRate;
   updateCameraRefreshRate();
 }
 </script>
