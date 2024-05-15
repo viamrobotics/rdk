@@ -75,7 +75,9 @@ type module struct {
 	client     pb.ModuleServiceClient
 	addr       string
 	resources  map[resource.Name]*addedResource
-	mu         sync.Mutex
+	// resourcesMu must be held if the `resources` field is accessed without
+	// write-locking the module manager.
+	resourcesMu sync.Mutex
 
 	// pendingRemoval allows delaying module close until after resources within it are closed
 	pendingRemoval bool
@@ -455,8 +457,8 @@ func (mgr *Manager) closeModule(mod *module, reconfigure bool) error {
 
 // AddResource tells a component module to configure a new component.
 func (mgr *Manager) AddResource(ctx context.Context, conf resource.Config, deps []string) (resource.Resource, error) {
-	mgr.mu.Lock()
-	defer mgr.mu.Unlock()
+	mgr.mu.RLock()
+	defer mgr.mu.RUnlock()
 	return mgr.addResource(ctx, conf, deps)
 }
 
@@ -478,6 +480,9 @@ func (mgr *Manager) addResource(ctx context.Context, conf resource.Config, deps 
 		return nil, err
 	}
 	mgr.rMap.Store(conf.ResourceName(), mod)
+
+	mod.resourcesMu.Lock()
+	defer mod.resourcesMu.Unlock()
 	mod.resources[conf.ResourceName()] = &addedResource{conf, deps}
 
 	apiInfo, ok := resource.LookupGenericAPIRegistration(conf.API)
@@ -510,8 +515,8 @@ func (mgr *Manager) ReconfigureResource(ctx context.Context, conf resource.Confi
 	}
 	// A lock is necessary because resources that do not depend on each other may be
 	// added concurrently.
-	mod.mu.Lock()
-	defer mod.mu.Unlock()
+	mod.resourcesMu.Lock()
+	defer mod.resourcesMu.Unlock()
 	mod.resources[conf.ResourceName()] = &addedResource{conf, deps}
 
 	return nil
@@ -824,7 +829,11 @@ func (mgr *Manager) newOnUnexpectedExitHandler(mod *module) func(exitCode int) b
 				mgr.logger.Warnw("Error while re-adding resource to module",
 					"resource", name, "module", mod.cfg.Name, "error", err)
 				mgr.rMap.Delete(name)
-				delete(mod.resources, name)
+				func() {
+					mod.resourcesMu.Lock()
+					defer mod.resourcesMu.Unlock()
+					delete(mod.resources, name)
+				}()
 				orphanedResourceNames = append(orphanedResourceNames, name)
 			}
 		}
