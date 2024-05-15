@@ -9,6 +9,7 @@ import (
 	"slices"
 	"sync"
 
+	"github.com/edaniels/golog"
 	"github.com/pion/rtp"
 	"github.com/pion/webrtc/v3"
 	"github.com/pkg/errors"
@@ -58,6 +59,7 @@ type client struct {
 	resource.TriviallyReconfigurable
 	ctx                     context.Context
 	cancelFn                context.CancelFunc
+	remoteName              string
 	name                    string
 	conn                    rpc.ClientConn
 	client                  pb.CameraServiceClient
@@ -81,6 +83,7 @@ func NewClientFromConn(
 	name resource.Name,
 	logger logging.Logger,
 ) (Camera, error) {
+	golog.Global().Warnf("remoteName: %s", remoteName)
 	c := pb.NewCameraServiceClient(conn)
 	streamClient := streampb.NewStreamServiceClient(conn)
 	trackClosed := make(chan struct{})
@@ -89,6 +92,7 @@ func NewClientFromConn(
 	return &client{
 		ctx:                 closeCtx,
 		cancelFn:            cancelFn,
+		remoteName:          remoteName,
 		Named:               name.PrependRemote(remoteName).AsNamed(),
 		name:                name.ShortName(),
 		conn:                conn,
@@ -456,23 +460,25 @@ func (c *client) SubscribeRTP(
 		}
 
 		trackReceived, trackClosed := make(chan struct{}), make(chan struct{})
-		// we nee to pop the first remote	off the resource name as the remote doesn't know its name.
-		// NOTE: Test this with an external client talking to a main part connected to a remote part.
-		// I expect this to break in that case.
-		nameMinusRemote := c.Name().PopRemote()
-		c.logger.Info("nameMinusRemote: %#v", nameMinusRemote)
+		name := c.Name()
+		// if c.remoteName == "" it indicates that we are talking to a main part & we shouldn't try to pop the remote name
+		if c.remoteName != "" {
+			// we nee to pop the first remote	off the resource name as the remote doesn't know its name.
+			// NOTE: Test this with an external client talking to a main part connected to a remote part.
+			// I expect this to break in that case.
+			name = c.Name().PopRemote()
+		}
+		c.logger.Infof("name: %#v", name)
 		// add the camera model's addOnTrackSubFunc to the shared peer connection's
 		// slice of OnTrack callbacks. This is what allows
 		// all the bufAndCBByID's callback functions to be called with the
 		// RTP packets from the module's peer connection's track
-		sc.AddOnTrackSub(nameMinusRemote, c.addOnTrackSubFunc(trackReceived, trackClosed, sub.ID))
+		sc.AddOnTrackSub(name, c.addOnTrackSubFunc(trackReceived, trackClosed, sub.ID))
 		// remove the OnTrackSub once we either fail or succeed
-		defer sc.RemoveOnTrackSub(nameMinusRemote)
+		defer sc.RemoveOnTrackSub(name)
 
-		// c.logger.CDebugw(ctx, "SubscribeRTP calling AddStream", "subID", sub.ID.String(), "c.Name()", c.Name(), "c.Name().Name", c.Name().Name, "resource.RemoveRemoteName(c.Name())", resource.RemoveRemoteName(c.Name()), "resource.RemoveRemoteName(c.Name()).String()", resource.RemoveRemoteName(c.Name()), "err", err)
-
-		trackName := resource.SDPTrackName(nameMinusRemote)
-		c.logger.Info("trackName: %s", trackName)
+		trackName := resource.SDPTrackName(name)
+		c.logger.CInfow(ctx, "SubscribeRTP calling AddStream", "subID", sub.ID.String(), "trackName", trackName)
 		if _, err := c.streamClient.AddStream(ctx, &streampb.AddStreamRequest{Name: trackName}); err != nil {
 			c.logger.CErrorw(ctx, "SubscribeRTP AddStream hit error", "subID", sub.ID.String(), "name", trackName, "err", err)
 			return rtppassthrough.NilSubscription, err
@@ -609,8 +615,16 @@ func (c *client) Unsubscribe(ctx context.Context, id rtppassthrough.Subscription
 	}
 
 	if len(c.bufAndCBByID) == 1 {
-		c.logger.CDebugw(ctx, "Unsubscribe calling RemoveStream", "name", c.Name(), "subID", id.String())
-		trackName := resource.SDPTrackName(c.Name().PopRemote())
+		name := c.Name()
+		// if c.remoteName == "" it indicates that we are talking to a main part & we shouldn't try to pop the remote name
+		if c.remoteName != "" {
+			// we nee to pop the first remote	off the resource name as the remote doesn't know its name.
+			// NOTE: Test this with an external client talking to a main part connected to a remote part.
+			// I expect this to break in that case.
+			name = c.Name().PopRemote()
+		}
+		trackName := resource.SDPTrackName(name)
+		c.logger.CDebugw(ctx, "Unsubscribe calling RemoveStream", "name", trackName, "subID", id.String())
 		if _, err := c.streamClient.RemoveStream(ctx, &streampb.RemoveStreamRequest{Name: trackName}); err != nil {
 			c.logger.CWarnw(ctx, "Unsubscribe RemoveStream returned err", "name", trackName, "subID", id.String(), "err", err)
 			c.mu.Unlock()
