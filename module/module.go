@@ -25,7 +25,6 @@ import (
 	streampb "go.viam.com/api/stream/v1"
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
-	"golang.org/x/exp/maps"
 	"google.golang.org/grpc"
 	reflectpb "google.golang.org/grpc/reflection/grpc_reflection_v1alpha"
 
@@ -707,7 +706,7 @@ func (m *Module) ListStreams(ctx context.Context, req *streampb.ListStreamsReque
 	_, span := trace.StartSpan(ctx, "module::module::ListStreams")
 	defer span.End()
 	names := make([]string, 0, len(m.streamSourceByName))
-	for _, n := range maps.Keys(m.streamSourceByName) {
+	for n := range m.streamSourceByName {
 		names = append(names, n)
 	}
 	return &streampb.ListStreamsResponse{Names: names}, nil
@@ -716,20 +715,16 @@ func (m *Module) ListStreams(ctx context.Context, req *streampb.ListStreamsReque
 // AddStream adds a stream.
 // Returns an error if:
 // 1. there is no WebRTC peer connection with viam-sever
-// 2. resource doesn't exist
-// 3. the resource doesn't implement rtppassthrough.Source,
+// 2. resource for the track doesn't exist
+// 3. the resource for the track doesn't implement rtppassthrough.Source,
 // 4. there are already the max number of supported tracks on the peer connection
 // 5. SubscribeRTP returns an error
 // 6. A webrtc track is unable to be created
 // 7. Adding the track to the peer connection fails.
-// func namedCam(name string) resource.Name {
-// 	return resource.NewName(resource.APINamespaceRDK.WithComponentType("camera"), name)
-// }
 
 func (m *Module) AddStream(ctx context.Context, req *streampb.AddStreamRequest) (*streampb.AddStreamResponse, error) {
 	ctx, span := trace.StartSpan(ctx, "module::module::AddStream")
 	defer span.End()
-	m.logger.Infof("AddStream name: %s", req.GetName())
 	name := req.GetName()
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -808,7 +803,6 @@ func (m *Module) AddStream(ctx context.Context, req *streampb.AddStreamRequest) 
 func (m *Module) RemoveStream(ctx context.Context, req *streampb.RemoveStreamRequest) (*streampb.RemoveStreamResponse, error) {
 	ctx, span := trace.StartSpan(ctx, "module::module::RemoveStream")
 	defer span.End()
-	m.logger.Infof("RemoveStream name: %s", req.GetName())
 	name := req.GetName()
 	m.mu.Lock()
 	defer m.mu.Unlock()
