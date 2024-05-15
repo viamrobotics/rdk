@@ -344,7 +344,7 @@ func (vm *vizModel) CaptureAllFromCamera(
 	defer release()
 	var detections []objectdetection.Detection
 	if opt.ReturnDetections {
-		if vm.detectorFunc == nil {
+		if !vm.properties.DetectionSupported {
 			logger := vm.r.Logger()
 			logger.Debugf("detections requested but vision model %q does not implement a Detector", vm.Named.Name())
 		} else {
@@ -356,7 +356,7 @@ func (vm *vizModel) CaptureAllFromCamera(
 	}
 	var classifications classification.Classifications
 	if opt.ReturnClassifications {
-		if vm.classifierFunc == nil {
+		if !vm.properties.ClassificationSupported {
 			logger := vm.r.Logger()
 			logger.Debugf("classifications requested in CaptureAll but vision model %q does not implement a Classifier",
 				vm.Named.Name())
@@ -370,7 +370,7 @@ func (vm *vizModel) CaptureAllFromCamera(
 
 	var objPCD []*viz.Object
 	if opt.ReturnObject {
-		if vm.segmenter3DFunc == nil {
+		if !vm.properties.ObjectPCDsSupported {
 			logger := vm.r.Logger()
 			logger.Debugf("object point cloud requested in CaptureAll but vision model %q does not implement a 3D Segmenter", vm.Named.Name())
 		} else {

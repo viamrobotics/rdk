@@ -287,22 +287,25 @@ func (c *client) CaptureAllFromCamera(
 		return viscapture.VisCapture{}, err
 	}
 
-	clas := protoToClas(resp.Classifications)
+	class := protoToClas(resp.Classifications)
 
 	objPCD, err := protoToObjects(resp.Objects)
 	if err != nil {
 		return viscapture.VisCapture{}, err
 	}
-
-	img, err := rimage.DecodeImage(ctx, resp.Image.Image, "")
-	if err != nil {
-		return viscapture.VisCapture{}, err
+	var img image.Image
+	if resp.Image != nil {
+		mimeType := utils.FormatToMimeType[resp.Image.GetFormat()]
+		img, err = rimage.DecodeImage(ctx, resp.Image.Image, mimeType)
+		if err != nil {
+			return viscapture.VisCapture{}, err
+		}
 	}
 
 	capt := viscapture.VisCapture{
 		Image:           img,
 		Detections:      dets,
-		Classifications: clas,
+		Classifications: class,
 		Objects:         objPCD,
 	}
 

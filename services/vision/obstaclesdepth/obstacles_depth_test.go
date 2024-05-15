@@ -17,6 +17,7 @@ import (
 	"go.viam.com/rdk/services/vision"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils/inject"
+	"go.viam.com/rdk/vision/viscapture"
 )
 
 // testReader creates and serves a fake depth image for testing.
@@ -72,6 +73,10 @@ func TestObstacleDepth(t *testing.T) {
 	r := &inject.Robot{ResourceNamesFunc: func() []resource.Name {
 		return []resource.Name{camera.Named("testCam"), camera.Named("noIntrinsicsCam")}
 	}}
+	r.LoggerFunc = func() logging.Logger {
+		return logging.NewLogger("test")
+	}
+
 	// camera with intrinsics
 	fr := fullReader{}
 	syst := transform.PinholeCameraModel{&someIntrinsics, nil}
@@ -142,6 +147,33 @@ func TestObstacleDepth(t *testing.T) {
 			test.That(t, o.PointCloud, test.ShouldNotBeNil)
 			test.That(t, o.Geometry, test.ShouldNotBeNil)
 		}
+	})
+
+	t.Run("capture all from camera", func(t *testing.T) {
+		srv2, err := registerObstaclesDepth(ctx, name, &withIntrinsicsCfg, r, testLogger)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, srv2, test.ShouldNotBeNil)
+
+		obs, err := srv2.GetObjectPointClouds(ctx, "testCam", nil)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, obs, test.ShouldNotBeNil)
+		test.That(t, len(obs), test.ShouldEqual, 2)
+
+		captOpts := viscapture.CaptureOptions{
+			ReturnImage:           true,
+			ReturnClassifications: true,
+			ReturnDetections:      true,
+			ReturnObject:          true,
+		}
+
+		capt, err := srv2.CaptureAllFromCamera(ctx, "testCam", captOpts, nil)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, capt, test.ShouldNotBeNil)
+		test.That(t, len(capt.Objects), test.ShouldEqual, len(obs))
+
+		test.That(t, capt.Image, test.ShouldNotBeNil)
+		test.That(t, capt.Classifications, test.ShouldBeNil)
+		test.That(t, capt.Detections, test.ShouldBeNil)
 	})
 }
 

@@ -3,7 +3,6 @@ package vision
 import (
 	"bytes"
 	"context"
-	"go.viam.com/rdk/vision/viscapture"
 	"image"
 
 	"go.opencensus.io/trace"
@@ -19,6 +18,7 @@ import (
 	"go.viam.com/rdk/vision"
 	"go.viam.com/rdk/vision/classification"
 	"go.viam.com/rdk/vision/objectdetection"
+	"go.viam.com/rdk/vision/viscapture"
 )
 
 // serviceServer implements the Vision Service.
@@ -267,18 +267,19 @@ func (server *serviceServer) CaptureAllFromCamera(
 }
 
 func imageToProto(ctx context.Context, img image.Image, cameraName string) (*camerapb.Image, error) {
-
+	if img == nil {
+		return nil, nil
+	}
 	imgBytes, mimeType, err := encodeUnknownType(ctx, img, utils.MimeTypeJPEG)
 	if err != nil {
 		return nil, err
 	}
 	format := utils.MimeTypeToFormat[mimeType]
-	if err != nil {
-		return nil, err
-	}
-	return &camerapb.Image{Image: imgBytes,
+	return &camerapb.Image{
+		Image:      imgBytes,
 		Format:     format,
-		SourceName: cameraName}, nil
+		SourceName: cameraName,
+	}, nil
 }
 
 func encodeUnknownType(ctx context.Context, img image.Image, defaultMime string) ([]byte, string, error) {
@@ -294,7 +295,6 @@ func encodeUnknownType(ctx context.Context, img image.Image, defaultMime string)
 		mimeType = defaultMime
 	}
 	imgBytes, err := rimage.EncodeImage(ctx, img, mimeType)
-
 	if err != nil {
 		return nil, "", err
 	}

@@ -2,8 +2,9 @@ package utils
 
 import (
 	"fmt"
-	camerapb "go.viam.com/api/component/camera/v1"
 	"strings"
+
+	camerapb "go.viam.com/api/component/camera/v1"
 )
 
 const (
@@ -60,10 +61,20 @@ func CheckLazyMIMEType(mimeType string) (string, bool) {
 	return mimeType, false
 }
 
+// MimeTypeToFormat maps Mymetype to Mymetype
 var MimeTypeToFormat = map[string]camerapb.Format{
 	MimeTypeJPEG:     camerapb.Format_FORMAT_JPEG,
 	MimeTypePNG:      camerapb.Format_FORMAT_PNG,
 	MimeTypeRawDepth: camerapb.Format_FORMAT_RAW_DEPTH,
 	MimeTypeRawRGBA:  camerapb.Format_FORMAT_RAW_RGBA,
 	"":               camerapb.Format_FORMAT_UNSPECIFIED,
+}
+
+// FormatToMymeType maps Format to Mymetype
+var FormatToMimeType = map[camerapb.Format]string{
+	camerapb.Format_FORMAT_JPEG:        MimeTypeJPEG,
+	camerapb.Format_FORMAT_PNG:         MimeTypePNG,
+	camerapb.Format_FORMAT_RAW_DEPTH:   MimeTypeRawDepth,
+	camerapb.Format_FORMAT_RAW_RGBA:    MimeTypeRawRGBA,
+	camerapb.Format_FORMAT_UNSPECIFIED: "",
 }

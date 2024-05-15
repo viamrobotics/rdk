@@ -4,11 +4,13 @@ import (
 	"context"
 	"image"
 
+
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/vision"
 	viz "go.viam.com/rdk/vision"
 	"go.viam.com/rdk/vision/classification"
 	"go.viam.com/rdk/vision/objectdetection"
+	"go.viam.com/rdk/vision/viscapture"
 )
 
 // VisionService represents a fake instance of a vision service.
@@ -29,7 +31,12 @@ type VisionService struct {
 	// segmentation functions
 	GetObjectPointCloudsFunc func(ctx context.Context, cameraName string, extra map[string]interface{}) ([]*viz.Object, error)
 	GetPropertiesFunc        func(ctx context.Context, extra map[string]interface{}) (*vision.Properties, error)
-	DoCommandFunc            func(ctx context.Context,
+	CaptureAllFromCameraFunc func(ctx context.Context,
+		cameraName string,
+		opts viscapture.CaptureOptions,
+		extra map[string]interface{},
+	) (viscapture.VisCapture, error)
+	DoCommandFunc func(ctx context.Context,
 		cmd map[string]interface{}) (map[string]interface{}, error)
 	CloseFunc func(ctx context.Context) error
 }
@@ -102,6 +109,13 @@ func (vs *VisionService) GetProperties(
 		return vs.Service.GetProperties(ctx, extra)
 	}
 	return vs.GetPropertiesFunc(ctx, extra)
+}
+
+func (vs *VisionService) CaptureAllFromCamera(ctx context.Context, cameraName string, opts viscapture.CaptureOptions, extra map[string]interface{}) (viscapture.VisCapture, error) {
+	if vs.CaptureAllFromCameraFunc == nil {
+		return vs.Service.CaptureAllFromCamera(ctx, cameraName, opts, extra)
+	}
+	return vs.CaptureAllFromCameraFunc(ctx, cameraName, opts, extra)
 }
 
 // DoCommand calls the injected DoCommand or the real variant.

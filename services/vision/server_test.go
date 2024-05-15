@@ -18,6 +18,7 @@ import (
 	"go.viam.com/rdk/testutils/inject"
 	"go.viam.com/rdk/utils"
 	"go.viam.com/rdk/vision/objectdetection"
+	"go.viam.com/rdk/vision/viscapture"
 )
 
 func newServer(m map[resource.Name]vision.Service) (pb.VisionServiceServer, error) {
@@ -120,4 +121,57 @@ func TestServerGetProperties(t *testing.T) {
 	test.That(t, resp.ClassificationsSupported, test.ShouldEqual, false)
 	test.That(t, resp.DetectionsSupported, test.ShouldEqual, true)
 	test.That(t, resp.ObjectPointCloudsSupported, test.ShouldEqual, false)
+}
+
+func TestServerCaptureAllFromCamera(t *testing.T) {
+	injectVS := &inject.VisionService{}
+	m := map[resource.Name]vision.Service{
+		visName1: injectVS,
+	}
+	server, err := newServer(m)
+	test.That(t, err, test.ShouldBeNil)
+
+	// returns response
+	img, err := rimage.NewImageFromFile(artifact.MustPath("vision/tflite/dogscute.jpeg"))
+	test.That(t, err, test.ShouldBeNil)
+	imgBytes, err := rimage.EncodeImage(context.Background(), img, utils.MimeTypeJPEG)
+	test.That(t, err, test.ShouldBeNil)
+	extra := map[string]interface{}{"foo": "GetDetections"}
+	ext, err := protoutils.StructToStructPb(extra)
+	detectRequest := &pb.GetDetectionsRequest{
+		Name:     testVisionServiceName,
+		Image:    imgBytes,
+		Width:    int64(img.Width()),
+		Height:   int64(img.Height()),
+		MimeType: utils.MimeTypeJPEG,
+		Extra:    ext,
+	}
+	injectVS.DetectionsFunc = func(ctx context.Context, img image.Image, extra map[string]interface{}) ([]objectdetection.Detection, error) {
+		det1 := objectdetection.NewDetection(image.Rectangle{}, 0.5, "yes")
+		return []objectdetection.Detection{det1}, nil
+	}
+	test.That(t, err, test.ShouldBeNil)
+
+	getDetectionsResp, err := server.GetDetections(context.Background(), detectRequest)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(getDetectionsResp.GetDetections()), test.ShouldEqual, 1)
+	test.That(t, getDetectionsResp.GetDetections()[0].GetClassName(), test.ShouldEqual, "yes")
+
+	captureRequest := pb.CaptureAllFromCameraRequest{
+		Name:             testVisionServiceName,
+		ReturnDetections: true,
+	}
+
+	injectVS.CaptureAllFromCameraFunc = func(ctx context.Context, cameraName string, opts viscapture.CaptureOptions, extra map[string]interface{}) (viscapture.VisCapture, error) {
+		det1 := objectdetection.NewDetection(image.Rectangle{}, 0.5, "yes")
+		return viscapture.VisCapture{
+			Detections: []objectdetection.Detection{det1},
+		}, nil
+	}
+	captAllResp, err := server.CaptureAllFromCamera(context.Background(), &captureRequest)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(captAllResp.Detections), test.ShouldEqual, 1)
+	test.That(t, getDetectionsResp.Detections[0].GetClassName(), test.ShouldEqual, "yes")
+
+	test.ShouldResemble(captAllResp.Detections, getDetectionsResp.Detections)
 }
