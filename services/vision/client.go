@@ -294,7 +294,7 @@ func (c *client) CaptureAllFromCamera(
 		return viscapture.VisCapture{}, err
 	}
 	var img image.Image
-	if resp.Image != nil {
+	if resp.Image.Image != nil {
 		mimeType := utils.FormatToMimeType[resp.Image.GetFormat()]
 		img, err = rimage.DecodeImage(ctx, resp.Image.Image, mimeType)
 		if err != nil {
