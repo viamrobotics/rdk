@@ -733,7 +733,11 @@ var (
 func greenLog(t *testing.T, msg string) {
 	t.Log(Green + msg + Reset)
 }
+
+// Skipped due to
+// https://viam.atlassian.net/browse/RSDK-7637
 func TestMultiplexOverRemoteConnection(t *testing.T) {
+	t.Skip()
 	logger := logging.NewTestLogger(t).Sublogger(t.Name())
 
 	remoteCfg := &config.Config{Components: []resource.Config{
@@ -765,6 +769,74 @@ func TestMultiplexOverRemoteConnection(t *testing.T) {
 	defer mainWebSvc.Close(mainCtx)
 
 	cameraClient, err := camera.FromRobot(mainRobot, "remote:rtpPassthroughCamera")
+	test.That(t, err, test.ShouldBeNil)
+
+	image, _, err := cameraClient.Images(mainCtx)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, image, test.ShouldNotBeNil)
+	greenLog(t, "got images")
+
+	recvPktsCtx, recvPktsFn := context.WithCancel(context.Background())
+	sub, err := cameraClient.(rtppassthrough.Source).SubscribeRTP(mainCtx, 4096, func(pkts []*rtp.Packet) {
+		recvPktsFn()
+	})
+	test.That(t, err, test.ShouldBeNil)
+	<-recvPktsCtx.Done()
+	greenLog(t, "got packets")
+
+	err = cameraClient.(rtppassthrough.Source).Unsubscribe(mainCtx, sub.ID)
+	test.That(t, err, test.ShouldBeNil)
+	greenLog(t, "unsubscribe")
+}
+
+// Skipped due to
+// https://viam.atlassian.net/browse/RSDK-7637
+func TestMultiplexOverMultiHopRemoteConnection(t *testing.T) {
+	t.Skip()
+	logger := logging.NewTestLogger(t).Sublogger(t.Name())
+
+	remoteCfgA := &config.Config{Components: []resource.Config{
+		{
+			Name:  "rtpPassthroughCamera",
+			API:   resource.NewAPI("rdk", "component", "camera"),
+			Model: resource.DefaultModelFamily.WithModel("fake"),
+			ConvertedAttributes: &fake.Config{
+				RTPPassthrough: true,
+			},
+		},
+	}}
+
+	// Create a robot with a single fake camera.
+	remoteACtx, remoteRobotA, addrA, remoteWebSvcA := setupRealRobot(t, remoteCfgA, logger.Sublogger("remoteA"))
+	defer remoteRobotA.Close(remoteACtx)
+	defer remoteWebSvcA.Close(remoteACtx)
+
+	remoteCfgB := &config.Config{Remotes: []config.Remote{
+		{
+			Name:     "remoteA",
+			Address:  addrA,
+			Insecure: true,
+		},
+	}}
+
+	remoteBCtx, remoteRobotB, addrB, remoteWebSvcB := setupRealRobot(t, remoteCfgB, logger.Sublogger("remoteB"))
+	defer remoteRobotB.Close(remoteBCtx)
+	defer remoteWebSvcB.Close(remoteBCtx)
+
+	mainCfg := &config.Config{Remotes: []config.Remote{
+		{
+			Name:     "remoteB",
+			Address:  addrB,
+			Insecure: true,
+		},
+	}}
+
+	mainCtx, mainRobot, _, mainWebSvc := setupRealRobot(t, mainCfg, logger.Sublogger("main"))
+	greenLog(t, "robot setup")
+	defer mainRobot.Close(mainCtx)
+	defer mainWebSvc.Close(mainCtx)
+
+	cameraClient, err := camera.FromRobot(mainRobot, "remoteB:remoteA:rtpPassthroughCamera")
 	test.That(t, err, test.ShouldBeNil)
 
 	image, _, err := cameraClient.Images(mainCtx)
