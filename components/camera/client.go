@@ -473,7 +473,7 @@ func (c *client) SubscribeRTP(
 		defer sc.RemoveOnTrackSub(name.SDPTrackName())
 
 		if _, err := c.streamClient.AddStream(ctx, &streampb.AddStreamRequest{Name: name.SDPTrackName()}); err != nil {
-			c.logger.CErrorw(ctx, "SubscribeRTP AddStream hit error", "subID", sub.ID.String(), "name", name.SDPTrackName(), "err", err)
+			c.logger.CDebugw(ctx, "SubscribeRTP AddStream hit error", "subID", sub.ID.String(), "name", name.SDPTrackName(), "err", err)
 			return rtppassthrough.NilSubscription, err
 		}
 		// NOTE: (Nick S) This is a workaround to a Pion bug / missing feature.
