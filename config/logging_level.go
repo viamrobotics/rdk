@@ -3,6 +3,7 @@ package config
 import (
 	"sync"
 
+	"github.com/edaniels/golog"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 
@@ -26,13 +27,18 @@ var globalLogger struct {
 func InitLoggingSettings(logger logging.Logger, cmdLineDebugFlag bool) {
 	globalLogger.logger = logger
 	globalLogger.cmdLineDebugFlag = cmdLineDebugFlag
+	gologLogger := golog.NewDebugLogger("robot_server.golog")
+
 	if cmdLineDebugFlag {
 		logging.GlobalLogLevel.SetLevel(zapcore.DebugLevel)
 		logger.SetLevel(logging.DEBUG)
 	} else {
 		logging.GlobalLogLevel.SetLevel(zapcore.InfoLevel)
 		logger.SetLevel(logging.INFO)
+		gologLogger = golog.NewLogger("robot_server.golog")
 	}
+
+	golog.ReplaceGloabl(gologLogger)
 	globalLogger.logger.Info("Log level initialized: ", logging.GlobalLogLevel.Level())
 }
 

@@ -158,7 +158,7 @@ type Service interface {
 	RemoveWaypoint(ctx context.Context, id primitive.ObjectID, extra map[string]interface{}) error
 
 	// Obstacles returns a list of obstacles to avoid, both transient and predefined, identified by the vision and navigation services.
-	Obstacles(ctx context.Context, extra map[string]interface{}) ([]*spatialmath.GeoObstacle, error)
+	Obstacles(ctx context.Context, extra map[string]interface{}) ([]*spatialmath.GeoGeometry, error)
 
 	// Paths returns each path, which is a series of geo points.
 	// These points outline the planned travel route to a destination waypoint in the machine’s motion planning.

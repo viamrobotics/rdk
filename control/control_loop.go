@@ -305,6 +305,12 @@ func (l *Loop) Pause() {
 
 // Resume sets l.running to true to resume the loop.
 func (l *Loop) Resume() {
+	for _, b := range l.pidBlocks {
+		if err := b.Reset(context.Background()); err != nil {
+			l.logger.Error(err)
+			return
+		}
+	}
 	l.running.Store(true)
 }
 
