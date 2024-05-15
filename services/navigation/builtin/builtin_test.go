@@ -1685,11 +1685,11 @@ func TestValidateGeometry(t *testing.T) {
 		geometries, err := spatialmath.NewBox(boxPose, r3.Vector{X: 10, Y: 10, Z: 10}, "")
 		test.That(t, err, test.ShouldBeNil)
 
-		geoObstacle := spatialmath.NewGeoObstacle(geo.NewPoint(0, 0), []spatialmath.Geometry{geometries})
-		geoObstacleCfg, err := spatialmath.NewGeoObstacleConfig(geoObstacle)
+		geoGeometry := spatialmath.NewGeoGeometry(geo.NewPoint(0, 0), []spatialmath.Geometry{geometries})
+		geoGeometryCfg, err := spatialmath.NewGeoGeometryConfig(geoGeometry)
 		test.That(t, err, test.ShouldBeNil)
 
-		cfg.Obstacles = []*spatialmath.GeoObstacleConfig{geoObstacleCfg}
+		cfg.Obstacles = []*spatialmath.GeoGeometryConfig{geoGeometryCfg}
 
 		return cfg
 	}
@@ -1741,8 +1741,8 @@ func TestGetObstacles(t *testing.T) {
 	// create static geo obstacle
 	sphereGeom, err := spatialmath.NewSphere(spatialmath.NewZeroPose(), 1.0, "test-sphere")
 	test.That(t, err, test.ShouldBeNil)
-	sphereGob := spatialmath.NewGeoObstacle(geo.NewPoint(1, 1), []spatialmath.Geometry{sphereGeom})
-	gobCfg, err := spatialmath.NewGeoObstacleConfig(sphereGob)
+	sphereGob := spatialmath.NewGeoGeometry(geo.NewPoint(1, 1), []spatialmath.Geometry{sphereGeom})
+	gobCfg, err := spatialmath.NewGeoGeometryConfig(sphereGob)
 	test.That(t, err, test.ShouldBeNil)
 
 	// construct the navigation service
@@ -1766,7 +1766,7 @@ func TestGetObstacles(t *testing.T) {
 				DegPerSec:          1,
 				MetersPerSec:       1,
 				MapType:            "",
-				Obstacles:          []*spatialmath.GeoObstacleConfig{gobCfg},
+				Obstacles:          []*spatialmath.GeoGeometryConfig{gobCfg},
 				ObstacleDetectors: []*ObstacleDetectorNameConfig{
 					{VisionServiceName: injectedVis.Name().Name, CameraName: injectedCam.Name().Name},
 				},

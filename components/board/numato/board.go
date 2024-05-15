@@ -324,6 +324,12 @@ func (b *numatoBoard) SetPowerMode(ctx context.Context, mode pb.PowerMode, durat
 }
 
 func (b *numatoBoard) Close(ctx context.Context) error {
+	for _, analog := range b.analogs {
+		if err := analog.Close(ctx); err != nil {
+			return err
+		}
+	}
+
 	atomic.AddInt32(&b.closed, 1)
 
 	// Without this line, the coroutine gets stuck in the call to in.ReadString.
@@ -340,12 +346,6 @@ func (b *numatoBoard) Close(ctx context.Context) error {
 	}
 
 	b.workers.Stop()
-
-	for _, analog := range b.analogs {
-		if err := analog.Close(ctx); err != nil {
-			return err
-		}
-	}
 	return nil
 }
 
