@@ -72,7 +72,7 @@ func LocalPackagesDir(packagesDir string) string {
 	return filepath.Clean(packagesDir) + "-local"
 }
 
-// PackagePath returns the package if it exists and already download. If it does not exist it returns a ErrPackageMissing error.
+// PackagePath returns the package if it exists and already downloaded. If it does not exist it returns a ErrPackageMissing error.
 func (m *localManager) PackagePath(name PackageName) (string, error) {
 	return string(name), nil
 }

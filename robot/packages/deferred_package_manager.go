@@ -94,7 +94,7 @@ func (m *deferredPackageManager) Cleanup(ctx context.Context) error {
 	return m.lastSyncedManager.Cleanup(ctx)
 }
 
-// PackagePath returns the package if it exists and already download. If it does not exist it returns a ErrPackageMissing error.
+// PackagePath returns the package if it exists and already downloaded. If it does not exist it returns a ErrPackageMissing error.
 func (m *deferredPackageManager) PackagePath(name PackageName) (string, error) {
 	m.lastSyncedManagerLock.Lock()
 	defer m.lastSyncedManagerLock.Unlock()

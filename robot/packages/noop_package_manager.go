@@ -24,7 +24,7 @@ func NewNoopManager() ManagerSyncer {
 	}
 }
 
-// PackagePath returns the package if it exists and already download. If it does not exist it returns a ErrPackageMissing error.
+// PackagePath returns the package if it exists and already downloaded. If it does not exist it returns a ErrPackageMissing error.
 func (m *noopManager) PackagePath(name PackageName) (string, error) {
 	return string(name), nil
 }
