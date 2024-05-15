@@ -518,7 +518,7 @@ func (manager *resourceManager) Close(ctx context.Context) error {
 // or reconfigure resources that are wrapped in a placeholderResource.
 func (manager *resourceManager) completeConfig(
 	ctx context.Context,
-	robot *localRobot,
+	lr *localRobot,
 ) {
 	manager.configLock.Lock()
 	defer func() {
@@ -529,7 +529,7 @@ func (manager *resourceManager) completeConfig(
 	}()
 
 	// first handle remotes since they may reveal unresolved dependencies
-	manager.completeConfigForRemotes(ctx, robot)
+	manager.completeConfigForRemotes(ctx, lr)
 
 	// now resolve prior to sorting in case there's anything newly discovered
 	if err := manager.resources.ResolveDependencies(manager.logger); err != nil {
@@ -554,12 +554,12 @@ func (manager *resourceManager) completeConfig(
 		cleanup := rutils.SlowStartupLogger(
 			ctx, "Waiting for resource to complete (re)configuration", "resource", resName.String(), manager.logger)
 
-		robot.reconfigureWorkers.Add(1)
+		lr.reconfigureWorkers.Add(1)
 		goutils.PanicCapturingGo(func() {
 			defer func() {
 				cleanup()
 				resChan <- struct{}{}
-				robot.reconfigureWorkers.Done()
+				lr.reconfigureWorkers.Done()
 			}()
 			gNode, ok := manager.resources.Node(resName)
 			if !ok || !gNode.NeedsReconfigure() {
@@ -601,7 +601,7 @@ func (manager *resourceManager) completeConfig(
 
 			switch {
 			case resName.API.IsComponent(), resName.API.IsService():
-				newRes, newlyBuilt, err := manager.processResource(ctxWithTimeout, conf, gNode, robot)
+				newRes, newlyBuilt, err := manager.processResource(ctxWithTimeout, conf, gNode, lr)
 				if newlyBuilt || err != nil {
 					if err := manager.markChildrenForUpdate(resName); err != nil {
 						manager.logger.CErrorw(ctx,
@@ -640,7 +640,7 @@ func (manager *resourceManager) completeConfig(
 		case <-resChan:
 		case <-ctxWithTimeout.Done():
 			if errors.Is(ctxWithTimeout.Err(), context.DeadlineExceeded) {
-				robot.logger.CWarn(ctx, rutils.NewBuildTimeoutError(resName.String()))
+				lr.logger.CWarn(ctx, rutils.NewBuildTimeoutError(resName.String()))
 			}
 		case <-ctx.Done():
 			return
@@ -648,7 +648,7 @@ func (manager *resourceManager) completeConfig(
 	} // for-each resource name
 }
 
-func (manager *resourceManager) completeConfigForRemotes(ctx context.Context, robot *localRobot) {
+func (manager *resourceManager) completeConfigForRemotes(ctx context.Context, lr *localRobot) {
 	for _, resName := range manager.resources.FindNodesByAPI(client.RemoteAPI) {
 		gNode, ok := manager.resources.Node(resName)
 		if !ok || !gNode.NeedsReconfigure() {
@@ -691,16 +691,16 @@ func (manager *resourceManager) completeConfigForRemotes(ctx context.Context, ro
 			}
 			manager.addRemote(ctx, rr, gNode, *remConf)
 			rr.SetParentNotifier(func() {
-				if robot.closeContext.Err() != nil {
+				if lr.closeContext.Err() != nil {
 					return
 				}
 
 				// Trigger completeConfig goroutine execution when a change in remote
 				// is detected.
 				select {
-				case <-robot.closeContext.Done():
+				case <-lr.closeContext.Done():
 					return
-				case robot.triggerConfig <- struct{}{}:
+				case lr.triggerConfig <- struct{}{}:
 				}
 			})
 		default:
