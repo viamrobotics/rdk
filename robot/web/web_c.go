@@ -289,8 +289,6 @@ func (svc *webService) startAudioStream(ctx context.Context, source gostream.Aud
 func (svc *webService) refreshVideoSources() {
 	for _, name := range camera.NamesFromRobot(svc.r) {
 		cam, err := camera.FromRobot(svc.r, name)
-		// for _, name := range camera.ResourceNamesFromRobot(svc.r) {
-		// 	cam, err := robot.ResourceFromRobot[camera.Camera](svc.r, name)
 		if err != nil {
 			continue
 		}
