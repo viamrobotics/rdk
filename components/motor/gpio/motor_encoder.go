@@ -213,7 +213,6 @@ func (m *EncodedMotor) makeAdjustments(
 		newPowerPct = lastPowerPct
 	}
 
-	m.logger.Errorf("new power pct = %v", newPowerPct)
 	if err := m.real.SetPower(ctx, newPowerPct, nil); err != nil {
 		return 0, err
 	}
