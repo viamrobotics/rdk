@@ -162,7 +162,11 @@ func TestServerCaptureAllFromCamera(t *testing.T) {
 		ReturnDetections: true,
 	}
 
-	injectVS.CaptureAllFromCameraFunc = func(ctx context.Context, cameraName string, opts viscapture.CaptureOptions, extra map[string]interface{}) (viscapture.VisCapture, error) {
+	injectVS.CaptureAllFromCameraFunc = func(ctx context.Context,
+		cameraName string,
+		opts viscapture.CaptureOptions,
+		extra map[string]interface{},
+	) (viscapture.VisCapture, error) {
 		det1 := objectdetection.NewDetection(image.Rectangle{}, 0.5, "yes")
 		return viscapture.VisCapture{
 			Detections: []objectdetection.Detection{det1},

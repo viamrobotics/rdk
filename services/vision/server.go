@@ -268,7 +268,7 @@ func (server *serviceServer) CaptureAllFromCamera(
 
 func imageToProto(ctx context.Context, img image.Image, cameraName string) (*camerapb.Image, error) {
 	if img == nil {
-		return nil, nil
+		return &camerapb.Image{}, nil
 	}
 	imgBytes, mimeType, err := encodeUnknownType(ctx, img, utils.MimeTypeJPEG)
 	if err != nil {

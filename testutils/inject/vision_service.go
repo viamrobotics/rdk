@@ -4,7 +4,6 @@ import (
 	"context"
 	"image"
 
-
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/vision"
 	viz "go.viam.com/rdk/vision"
@@ -111,7 +110,12 @@ func (vs *VisionService) GetProperties(
 	return vs.GetPropertiesFunc(ctx, extra)
 }
 
-func (vs *VisionService) CaptureAllFromCamera(ctx context.Context, cameraName string, opts viscapture.CaptureOptions, extra map[string]interface{}) (viscapture.VisCapture, error) {
+// CaptureAllFromCamera calls the injected CaptureAllFromCamera or the real variant.
+func (vs *VisionService) CaptureAllFromCamera(ctx context.Context,
+	cameraName string,
+	opts viscapture.CaptureOptions,
+	extra map[string]interface{},
+) (viscapture.VisCapture, error) {
 	if vs.CaptureAllFromCameraFunc == nil {
 		return vs.Service.CaptureAllFromCamera(ctx, cameraName, opts, extra)
 	}

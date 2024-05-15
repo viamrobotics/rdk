@@ -48,7 +48,11 @@ func TestClient(t *testing.T) {
 
 	test.That(t, err, test.ShouldBeNil)
 
-	srv.CaptureAllFromCameraFunc = func(ctx context.Context, cameraName string, opts viscapture.CaptureOptions, extra map[string]interface{}) (viscapture.VisCapture, error) {
+	srv.CaptureAllFromCameraFunc = func(ctx context.Context,
+		cameraName string,
+		opts viscapture.CaptureOptions,
+		extra map[string]interface{},
+	) (viscapture.VisCapture, error) {
 		det1 := objectdetection.NewDetection(image.Rectangle{}, 0.5, "yes")
 		return viscapture.VisCapture{
 			Detections: []objectdetection.Detection{det1},
@@ -148,7 +152,6 @@ func TestClient(t *testing.T) {
 		test.That(t, capt.Detections[0].Score(), test.ShouldEqual, 0.5)
 		test.That(t, client.Close(context.Background()), test.ShouldBeNil)
 		test.That(t, conn.Close(), test.ShouldBeNil)
-
 	})
 }
 

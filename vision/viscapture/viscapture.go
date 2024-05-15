@@ -17,7 +17,7 @@ type VisCapture struct {
 	Objects         []*vision.Object
 }
 
-// CaptureOptions is a struct to configure CaptureAllFromCamera request.s
+// CaptureOptions is a struct to configure CaptureAllFromCamera request.s.
 type CaptureOptions struct {
 	ReturnImage           bool
 	ReturnDetections      bool
