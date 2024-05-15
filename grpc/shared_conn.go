@@ -75,8 +75,8 @@ type SharedConn struct {
 	// set to nil before this channel is closed.
 	peerConnFailed chan struct{}
 
-	resOnTrackMu         sync.Mutex
-	onTrackCBByTrackName map[string]OnTrackCB
+	onTrackCBByTrackNameMu sync.Mutex
+	onTrackCBByTrackName   map[string]OnTrackCB
 
 	logger logging.Logger
 }
@@ -103,15 +103,15 @@ func (sc *SharedConn) NewStream(
 
 // AddOnTrackSub adds an OnTrack subscription for the track.
 func (sc *SharedConn) AddOnTrackSub(trackName string, onTrackCB OnTrackCB) {
-	sc.resOnTrackMu.Lock()
-	defer sc.resOnTrackMu.Unlock()
+	sc.onTrackCBByTrackNameMu.Lock()
+	defer sc.onTrackCBByTrackNameMu.Unlock()
 	sc.onTrackCBByTrackName[trackName] = onTrackCB
 }
 
 // RemoveOnTrackSub removes an OnTrack subscription for the track.
 func (sc *SharedConn) RemoveOnTrackSub(trackName string) {
-	sc.resOnTrackMu.Lock()
-	defer sc.resOnTrackMu.Unlock()
+	sc.onTrackCBByTrackNameMu.Lock()
+	defer sc.onTrackCBByTrackNameMu.Unlock()
 	delete(sc.onTrackCBByTrackName, trackName)
 }
 
@@ -194,9 +194,9 @@ func (sc *SharedConn) ResetConn(conn rpc.ClientConn, moduleLogger logging.Logger
 	}
 
 	sc.peerConn.OnTrack(func(trackRemote *webrtc.TrackRemote, rtpReceiver *webrtc.RTPReceiver) {
-		sc.resOnTrackMu.Lock()
+		sc.onTrackCBByTrackNameMu.Lock()
 		onTrackCB, ok := sc.onTrackCBByTrackName[trackRemote.StreamID()]
-		sc.resOnTrackMu.Unlock()
+		sc.onTrackCBByTrackNameMu.Unlock()
 		if !ok {
 			golog.Global().Errorf("Callback not found for StreamID: %s, keys(resOnTrackCBs): %#v", trackRemote.StreamID(), maps.Keys(sc.onTrackCBByTrackName))
 			return
