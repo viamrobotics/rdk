@@ -75,8 +75,8 @@ type SharedConn struct {
 	// set to nil before this channel is closed.
 	peerConnFailed chan struct{}
 
-	resOnTrackMu  sync.Mutex
-	resOnTrackCBs map[string]OnTrackCB
+	resOnTrackMu         sync.Mutex
+	onTrackCBByTrackName map[string]OnTrackCB
 
 	logger logging.Logger
 }
@@ -101,18 +101,18 @@ func (sc *SharedConn) NewStream(
 	return sc.grpcConn.NewStream(ctx, desc, method, opts...)
 }
 
-// AddOnTrackSub adds an OnTrack subscription for the resource.
-func (sc *SharedConn) AddOnTrackSub(name string, onTrackCB OnTrackCB) {
+// AddOnTrackSub adds an OnTrack subscription for the track.
+func (sc *SharedConn) AddOnTrackSub(trackName string, onTrackCB OnTrackCB) {
 	sc.resOnTrackMu.Lock()
 	defer sc.resOnTrackMu.Unlock()
-	sc.resOnTrackCBs[name] = onTrackCB
+	sc.onTrackCBByTrackName[trackName] = onTrackCB
 }
 
-// RemoveOnTrackSub removes an OnTrack subscription for the resource.
-func (sc *SharedConn) RemoveOnTrackSub(name string) {
+// RemoveOnTrackSub removes an OnTrack subscription for the track.
+func (sc *SharedConn) RemoveOnTrackSub(trackName string) {
 	sc.resOnTrackMu.Lock()
 	defer sc.resOnTrackMu.Unlock()
-	delete(sc.resOnTrackCBs, name)
+	delete(sc.onTrackCBByTrackName, trackName)
 }
 
 // GrpcConn returns a gRPC capable client connection.
@@ -154,9 +154,9 @@ func (sc *SharedConn) ResetConn(conn rpc.ClientConn, moduleLogger logging.Logger
 		sc.logger = moduleLogger.Sublogger("conn")
 	}
 
-	if sc.resOnTrackCBs == nil {
+	if sc.onTrackCBByTrackName == nil {
 		// Same initilization argument as above with the logger.
-		sc.resOnTrackCBs = make(map[string]OnTrackCB)
+		sc.onTrackCBByTrackName = make(map[string]OnTrackCB)
 	}
 
 	sc.peerConnMu.Lock()
@@ -195,10 +195,10 @@ func (sc *SharedConn) ResetConn(conn rpc.ClientConn, moduleLogger logging.Logger
 
 	sc.peerConn.OnTrack(func(trackRemote *webrtc.TrackRemote, rtpReceiver *webrtc.RTPReceiver) {
 		sc.resOnTrackMu.Lock()
-		onTrackCB, ok := sc.resOnTrackCBs[trackRemote.StreamID()]
+		onTrackCB, ok := sc.onTrackCBByTrackName[trackRemote.StreamID()]
 		sc.resOnTrackMu.Unlock()
 		if !ok {
-			golog.Global().Errorf("Callback not found for StreamID: %s, keys(resOnTrackCBs): %#v", trackRemote.StreamID(), maps.Keys(sc.resOnTrackCBs))
+			golog.Global().Errorf("Callback not found for StreamID: %s, keys(resOnTrackCBs): %#v", trackRemote.StreamID(), maps.Keys(sc.onTrackCBByTrackName))
 			return
 		}
 		onTrackCB(trackRemote, rtpReceiver)

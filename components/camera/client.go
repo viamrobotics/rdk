@@ -385,8 +385,8 @@ func (c *client) Close(ctx context.Context) error {
 }
 
 type Tracker interface {
-	AddOnTrackSub(name resource.Name, onTrackCB grpc.OnTrackCB)
-	RemoveOnTrackSub(name resource.Name)
+	AddOnTrackSub(trackName string, onTrackCB grpc.OnTrackCB)
+	RemoveOnTrackSub(trackName string)
 }
 
 // SubscribeRTP begins a subscription to receive RTP packets.
@@ -468,9 +468,9 @@ func (c *client) SubscribeRTP(
 		// slice of OnTrack callbacks. This is what allows
 		// all the bufAndCBByID's callback functions to be called with the
 		// RTP packets from the module's peer connection's track
-		sc.AddOnTrackSub(name, c.addOnTrackSubFunc(trackReceived, trackClosed, sub.ID))
+		sc.AddOnTrackSub(name.SDPTrackName(), c.addOnTrackSubFunc(trackReceived, trackClosed, sub.ID))
 		// remove the OnTrackSub once we either fail or succeed
-		defer sc.RemoveOnTrackSub(name)
+		defer sc.RemoveOnTrackSub(name.SDPTrackName())
 
 		if _, err := c.streamClient.AddStream(ctx, &streampb.AddStreamRequest{Name: name.SDPTrackName()}); err != nil {
 			c.logger.CErrorw(ctx, "SubscribeRTP AddStream hit error", "subID", sub.ID.String(), "name", name.SDPTrackName(), "err", err)

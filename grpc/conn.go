@@ -74,7 +74,7 @@ func (c *ReconfigurableClientConn) ReplaceConn(conn rpc.ClientConn) {
 			onTrackCB, ok := c.resOnTrackCBs[trackRemote.StreamID()]
 			c.resOnTrackMu.Unlock()
 			if !ok {
-				golog.Global().Errorf("Callback not found for StreamID: %s, name: %s, keys(resOnTrackCBs): %#v", trackRemote.StreamID(), trackRemote.StreamID(), maps.Keys(c.resOnTrackCBs))
+				golog.Global().Errorf("Callback not found for StreamID (trackName): %s, keys(resOnTrackCBs): %#v", trackRemote.StreamID(), maps.Keys(c.resOnTrackCBs))
 				return
 			}
 			onTrackCB(trackRemote, rtpReceiver)
@@ -106,16 +106,16 @@ func (c *ReconfigurableClientConn) Close() error {
 	return conn.Close()
 }
 
-// AddOnTrackSub adds an OnTrack subscription for the resource.
-func (c *ReconfigurableClientConn) AddOnTrackSub(name string, onTrackCB OnTrackCB) {
+// AddOnTrackSub adds an OnTrack subscription for the track.
+func (c *ReconfigurableClientConn) AddOnTrackSub(trackName string, onTrackCB OnTrackCB) {
 	c.resOnTrackMu.Lock()
 	defer c.resOnTrackMu.Unlock()
-	c.resOnTrackCBs[name] = onTrackCB
+	c.resOnTrackCBs[trackName] = onTrackCB
 }
 
-// RemoveOnTrackSub removes an OnTrack subscription for the resource.
-func (c *ReconfigurableClientConn) RemoveOnTrackSub(name string) {
+// RemoveOnTrackSub removes an OnTrack subscription for the track.
+func (c *ReconfigurableClientConn) RemoveOnTrackSub(trackName string) {
 	c.resOnTrackMu.Lock()
 	defer c.resOnTrackMu.Unlock()
-	delete(c.resOnTrackCBs, name)
+	delete(c.resOnTrackCBs, trackName)
 }
