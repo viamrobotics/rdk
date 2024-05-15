@@ -193,7 +193,6 @@ func (sc *SharedConn) ResetConn(conn rpc.ClientConn, moduleLogger logging.Logger
 		return
 	}
 
-	golog.Global().Error("grpc/shared_conn setting up OnTrack callback")
 	sc.peerConn.OnTrack(func(trackRemote *webrtc.TrackRemote, rtpReceiver *webrtc.RTPReceiver) {
 		sc.resOnTrackMu.Lock()
 		onTrackCB, ok := sc.resOnTrackCBs[trackRemote.StreamID()]

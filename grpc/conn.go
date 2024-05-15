@@ -69,7 +69,6 @@ func (c *ReconfigurableClientConn) ReplaceConn(conn rpc.ClientConn) {
 	}
 
 	if pc := conn.PeerConn(); pc != nil {
-		golog.Global().Error("grpc/conn setting up OnTrack callback")
 		pc.OnTrack(func(trackRemote *webrtc.TrackRemote, rtpReceiver *webrtc.RTPReceiver) {
 			c.resOnTrackMu.Lock()
 			onTrackCB, ok := c.resOnTrackCBs[trackRemote.StreamID()]
