@@ -335,12 +335,9 @@ func (m *Motor) ResetZeroPosition(ctx context.Context, offset float64, extra map
 // DirectionMoving returns the direction we are currently moving in, with 1 representing
 // forward and  -1 representing backwards.
 func (m *Motor) DirectionMoving() int64 {
-	move, powerPct, err := m.IsPowered(context.Background(), nil)
-	if move {
-		return int64(sign(powerPct))
-	}
+	_, powerPct, err := m.IsPowered(context.Background(), nil)
 	if err != nil {
 		m.logger.Error(err)
 	}
-	return 0
+	return int64(sign(powerPct))
 }
