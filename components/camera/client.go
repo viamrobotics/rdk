@@ -389,6 +389,23 @@ type Tracker interface {
 	RemoveOnTrackSub(trackName string)
 }
 
+func (c *client) trackName() string {
+	// if c.conn is a *grpc.SharedConn then the client
+	// is talking to a module and we need to send the fully qualified name
+	if _, ok := c.conn.(*grpc.SharedConn); ok {
+		return c.Name().String()
+	}
+	// otherwise we know we are talking to either a main or remote robot part
+
+	trackName := c.Name().SDPTrackName()
+	if c.remoteName != "" {
+		// if c.remoteName != "" it indicates that we are talking to a remote part & we need to pop the remote name
+		// as the remote doesn't know it's own name from the perspective of the main part
+		trackName = c.Name().PopRemote().SDPTrackName()
+	}
+	return trackName
+}
+
 // SubscribeRTP begins a subscription to receive RTP packets.
 // When the Subscription terminates the context in the returned Subscription
 // is cancelled.
@@ -458,22 +475,16 @@ func (c *client) SubscribeRTP(
 		}
 
 		trackReceived, trackClosed := make(chan struct{}), make(chan struct{})
-		name := c.Name()
-		if c.remoteName != "" {
-			// if c.remoteName != "" it indicates that we are talking to a remote part & we need to pop the remote name
-			// as the remote doesn't know it's own name from the perspective of the main part
-			name = c.Name().PopRemote()
-		}
 		// add the camera model's addOnTrackSubFunc to the shared peer connection's
 		// slice of OnTrack callbacks. This is what allows
 		// all the bufAndCBByID's callback functions to be called with the
 		// RTP packets from the module's peer connection's track
-		sc.AddOnTrackSub(name.SDPTrackName(), c.addOnTrackSubFunc(trackReceived, trackClosed, sub.ID))
+		sc.AddOnTrackSub(c.trackName(), c.addOnTrackSubFunc(trackReceived, trackClosed, sub.ID))
 		// remove the OnTrackSub once we either fail or succeed
-		defer sc.RemoveOnTrackSub(name.SDPTrackName())
+		defer sc.RemoveOnTrackSub(c.trackName())
 
-		if _, err := c.streamClient.AddStream(ctx, &streampb.AddStreamRequest{Name: name.SDPTrackName()}); err != nil {
-			c.logger.CDebugw(ctx, "SubscribeRTP AddStream hit error", "subID", sub.ID.String(), "name", name.SDPTrackName(), "err", err)
+		if _, err := c.streamClient.AddStream(ctx, &streampb.AddStreamRequest{Name: c.trackName()}); err != nil {
+			c.logger.CDebugw(ctx, "SubscribeRTP AddStream hit error", "subID", sub.ID.String(), "trackName", c.trackName(), "err", err)
 			return rtppassthrough.NilSubscription, err
 		}
 		// NOTE: (Nick S) This is a workaround to a Pion bug / missing feature.
@@ -604,15 +615,9 @@ func (c *client) Unsubscribe(ctx context.Context, id rtppassthrough.Subscription
 	}
 
 	if len(c.bufAndCBByID) == 1 {
-		name := c.Name()
-		if c.remoteName != "" {
-			// if c.remoteName != "" it indicates that we are talking to a remote part & we need to pop the remote name
-			// as the remote doesn't know it's own name from the perspective of the main part
-			name = c.Name().PopRemote()
-		}
-		c.logger.CDebugw(ctx, "Unsubscribe calling RemoveStream", "name", name.SDPTrackName(), "subID", id.String())
-		if _, err := c.streamClient.RemoveStream(ctx, &streampb.RemoveStreamRequest{Name: name.SDPTrackName()}); err != nil {
-			c.logger.CWarnw(ctx, "Unsubscribe RemoveStream returned err", "name", name.SDPTrackName(), "subID", id.String(), "err", err)
+		c.logger.CDebugw(ctx, "Unsubscribe calling RemoveStream", "trackName", c.trackName(), "subID", id.String())
+		if _, err := c.streamClient.RemoveStream(ctx, &streampb.RemoveStreamRequest{Name: c.trackName()}); err != nil {
+			c.logger.CWarnw(ctx, "Unsubscribe RemoveStream returned err", "trackName", c.trackName(), "subID", id.String(), "err", err)
 			c.mu.Unlock()
 			return err
 		}
