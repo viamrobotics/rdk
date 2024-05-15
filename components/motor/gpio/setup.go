@@ -56,10 +56,10 @@ func getPinConfigErrorMessage(errorEnum pinConfigError) error {
 
 // PinConfig defines the mapping of where motor are wired.
 type PinConfig struct {
-	A             string `json:"a"`
-	B             string `json:"b"`
-	Direction     string `json:"dir"`
-	PWM           string `json:"pwm"`
+	A             string `json:"a,omitempty"`
+	B             string `json:"b,omitempty"`
+	Direction     string `json:"dir,omitempty"`
+	PWM           string `json:"pwm,omitempty"`
 	EnablePinHigh string `json:"en_high,omitempty"`
 	EnablePinLow  string `json:"en_low,omitempty"`
 }

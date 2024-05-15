@@ -148,9 +148,9 @@ func (server *serviceServer) GetObstacles(ctx context.Context, req *pb.GetObstac
 	if err != nil {
 		return nil, err
 	}
-	protoObs := []*commonpb.GeoObstacle{}
+	protoObs := []*commonpb.GeoGeometry{}
 	for _, obstacle := range obstacles {
-		protoObs = append(protoObs, spatialmath.GeoObstacleToProtobuf(obstacle))
+		protoObs = append(protoObs, spatialmath.GeoGeometryToProtobuf(obstacle))
 	}
 	return &pb.GetObstaclesResponse{Obstacles: protoObs}, nil
 }

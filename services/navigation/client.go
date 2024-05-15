@@ -168,7 +168,7 @@ func (c *client) RemoveWaypoint(ctx context.Context, id primitive.ObjectID, extr
 	return nil
 }
 
-func (c *client) Obstacles(ctx context.Context, extra map[string]interface{}) ([]*spatialmath.GeoObstacle, error) {
+func (c *client) Obstacles(ctx context.Context, extra map[string]interface{}) ([]*spatialmath.GeoGeometry, error) {
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
 		return nil, err
@@ -179,9 +179,9 @@ func (c *client) Obstacles(ctx context.Context, extra map[string]interface{}) ([
 		return nil, err
 	}
 	protoObs := resp.GetObstacles()
-	geos := []*spatialmath.GeoObstacle{}
+	geos := []*spatialmath.GeoGeometry{}
 	for _, o := range protoObs {
-		obstacle, err := spatialmath.GeoObstacleFromProtobuf(o)
+		obstacle, err := spatialmath.GeoGeometryFromProtobuf(o)
 		if err != nil {
 			return nil, err
 		}
