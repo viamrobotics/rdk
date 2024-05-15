@@ -355,11 +355,17 @@ type analog struct {
 }
 
 func (a *analog) Read(ctx context.Context, extra map[string]interface{}) (int, error) {
+	fmt.Println("top of Read")
 	res, err := a.b.doSendReceive(ctx, fmt.Sprintf("adc read %s", a.pin))
 	if err != nil {
 		return 0, err
 	}
-	return strconv.Atoi(res)
+	fmt.Println("no errors from doSendReceive")
+	val, err := strconv.Atoi(res)
+	if err == nil {
+		fmt.Println("no errors from strconv.Atoi")
+	}
+	return val, err
 }
 
 func (a *analog) Write(ctx context.Context, value int, extra map[string]interface{}) error {

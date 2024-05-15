@@ -104,6 +104,8 @@ func (as *AnalogSmoother) Start() {
 	}
 
 	as.workers = utils.NewStoppableWorkers(func(ctx context.Context) {
+		consecutiveErrors := 0
+		var lastError error
 		for {
 			select {
 			case <-ctx.Done():
@@ -118,12 +120,24 @@ func (as *AnalogSmoother) Start() {
 				if as.data != nil {
 					as.data.Add(reading)
 				}
+				consecutiveErrors = 0
 			} else { // Non-nil error
 				if errors.Is(err, errStopReading) {
 					break
 				}
-				as.logger.CInfow(ctx, "error reading analog", "error", err)
+				if errors.Is(err, lastError) {
+					consecutiveErrors++
+				} else {
+					as.logger.CInfow(ctx, "error reading analog", "error", err)
+					consecutiveErrors = 0
+				}
+				// Don't spam the errors: only remind us of the problem every 10 seconds.
+				if consecutiveErrors == (as.SamplesPerSecond * 10) {
+					as.logger.CErrorw(ctx, "unable to read analog for 10 seconds", "error", err)
+					consecutiveErrors = 0
+				}
 			}
+			lastError = err
 
 			end := time.Now()
 
