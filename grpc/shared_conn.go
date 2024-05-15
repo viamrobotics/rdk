@@ -5,7 +5,6 @@ import (
 	"errors"
 	"sync"
 
-	"github.com/edaniels/golog"
 	"github.com/pion/webrtc/v3"
 	"go.uber.org/multierr"
 	"go.viam.com/utils"
@@ -198,7 +197,7 @@ func (sc *SharedConn) ResetConn(conn rpc.ClientConn, moduleLogger logging.Logger
 		onTrackCB, ok := sc.onTrackCBByTrackName[trackRemote.StreamID()]
 		sc.onTrackCBByTrackNameMu.Unlock()
 		if !ok {
-			golog.Global().Errorf("Callback not found for StreamID: %s, keys(resOnTrackCBs): %#v", trackRemote.StreamID(), maps.Keys(sc.onTrackCBByTrackName))
+			sc.logger.Errorf("Callback not found for StreamID: %s, keys(resOnTrackCBs): %#v", trackRemote.StreamID(), maps.Keys(sc.onTrackCBByTrackName))
 			return
 		}
 		onTrackCB(trackRemote, rtpReceiver)

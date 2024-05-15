@@ -147,8 +147,7 @@ func (name Name) SDPTrackName() string {
 	return strings.ReplaceAll(name.ShortName(), ":", "+")
 }
 
-// SDPTrackNameToResourceName takes an API and the output of SDPTrackName and returns the resource.Name
-// with the '+'s from the short name changed into colons.
+// SDPTrackNameToResourceName takes the output of SDPTrackName() and returns the resource ShortName
 func SDPTrackNameToShortName(name string) string {
 	return strings.ReplaceAll(name, "+", ":")
 }
