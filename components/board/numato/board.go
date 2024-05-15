@@ -324,7 +324,6 @@ func (b *numatoBoard) SetPowerMode(ctx context.Context, mode pb.PowerMode, durat
 }
 
 func (b *numatoBoard) Close(ctx context.Context) error {
-
 	for _, analog := range b.analogs {
 		if err := analog.Close(ctx); err != nil {
 			return err
@@ -360,10 +359,7 @@ func (a *analog) Read(ctx context.Context, extra map[string]interface{}) (int, e
 	if err != nil {
 		return 0, err
 	}
-	val, err := strconv.Atoi(res)
-	if err == nil {
-	}
-	return val, err
+	return strconv.Atoi(res)
 }
 
 func (a *analog) Write(ctx context.Context, value int, extra map[string]interface{}) error {
