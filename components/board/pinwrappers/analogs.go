@@ -93,17 +93,17 @@ func (as *AnalogSmoother) Start() {
 	//    numSamples        4
 
 	numSamples := (as.SamplesPerSecond * as.AverageOverMillis) / 1000
-	var nanosBetween int
+	nanosBetween := 1e9 / as.SamplesPerSecond
 	if numSamples >= 1 {
 		as.data = utils.NewRollingAverage(numSamples)
-		nanosBetween = 1e9 / as.SamplesPerSecond
 	} else {
 		as.logger.Debug("Too few samples to smooth over; defaulting to raw data.")
 		as.data = nil
-		nanosBetween = as.AverageOverMillis * 1e6
 	}
 
 	as.workers = utils.NewStoppableWorkers(func(ctx context.Context) {
+		consecutiveErrors := 0
+		var lastError error
 		for {
 			select {
 			case <-ctx.Done():
@@ -118,13 +118,24 @@ func (as *AnalogSmoother) Start() {
 				if as.data != nil {
 					as.data.Add(reading)
 				}
+				consecutiveErrors = 0
 			} else { // Non-nil error
 				if errors.Is(err, errStopReading) {
 					break
 				}
-				as.logger.CInfow(ctx, "error reading analog", "error", err)
+				if lastError != nil && err.Error() == lastError.Error() {
+					consecutiveErrors++
+				} else {
+					as.logger.CInfow(ctx, "error reading analog", "error", err)
+					consecutiveErrors = 0
+				}
+				// Don't spam the errors: only remind us of the problem every 10 seconds.
+				if consecutiveErrors == (as.SamplesPerSecond * 10) {
+					as.logger.CErrorw(ctx, "unable to read analog for 10 seconds", "error", err)
+					consecutiveErrors = 0
+				}
 			}
-
+			lastError = err
 			end := time.Now()
 
 			toSleep := int64(nanosBetween) - (end.UnixNano() - start.UnixNano())
