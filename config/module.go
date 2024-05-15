@@ -45,6 +45,11 @@ type Module struct {
 	cachedErr        error
 }
 
+// JSONManifest contains meta.json fields that are used by both RDK and CLI.
+type JSONManifest struct {
+	Entrypoint string `json:"entrypoint"`
+}
+
 // ModuleType indicates where a module comes from.
 type ModuleType string
 
@@ -131,12 +136,6 @@ func (m Module) syntheticPackageExeDir(packagesDir string) (string, error) {
 	return pkg.LocalDataDirectory(packagesDir), nil
 }
 
-// EntrypointOnlyMetaJSON is a miniature version . We do this to avoid a circular dep between CLI and RDK.
-// Better option is to move meta.json definition to this config package.
-type EntrypointOnlyMetaJSON struct {
-	Entrypoint string `json:"entrypoint"`
-}
-
 // EvaluateExePath returns absolute ExePath except for local tarballs where it looks for side-by-side meta.json.
 // The side-by-side lookup is because we don't bundle entrypoint in module tarballs, it's not an intentional design choice.
 func (m Module) EvaluateExePath(packagesDir string) (string, error) {
@@ -146,7 +145,7 @@ func (m Module) EvaluateExePath(packagesDir string) (string, error) {
 		if err != nil {
 			return "", errors.Wrap(err, "loading meta.json for local tarball")
 		}
-		var meta EntrypointOnlyMetaJSON
+		var meta JSONManifest
 		err = json.NewDecoder(f).Decode(&meta)
 		if err != nil {
 			return "", errors.Wrap(err, "parsing meta.json for local tarball")

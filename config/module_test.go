@@ -43,7 +43,7 @@ func TestSyntheticModule(t *testing.T) {
 	})
 
 	t.Run("EvaluateExePath", func(t *testing.T) {
-		meta := EntrypointOnlyMetaJSON{
+		meta := JSONManifest{
 			Entrypoint: "entry",
 		}
 		testWriteJSON(t, filepath.Join(tmp, "meta.json"), &meta)
