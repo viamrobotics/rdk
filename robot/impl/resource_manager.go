@@ -529,65 +529,7 @@ func (manager *resourceManager) completeConfig(
 	}()
 
 	// first handle remotes since they may reveal unresolved dependencies
-	for _, resName := range manager.resources.FindNodesByAPI(client.RemoteAPI) {
-		gNode, ok := manager.resources.Node(resName)
-		if !ok || !gNode.NeedsReconfigure() {
-			continue
-		}
-		var verb string
-		if gNode.IsUninitialized() {
-			verb = "configuring"
-		} else {
-			verb = "reconfiguring"
-		}
-		manager.logger.CInfow(ctx, fmt.Sprintf("Now %s a remote", verb), "resource", resName)
-		switch resName.API {
-		case client.RemoteAPI:
-			remConf, err := resource.NativeConfig[*config.Remote](gNode.Config())
-			if err != nil {
-				manager.logger.CErrorw(ctx,
-					"remote config error",
-					"error",
-					err,
-				)
-				continue
-			}
-			if gNode.IsUninitialized() {
-				gNode.InitializeLogger(
-					manager.logger, fromRemoteNameToRemoteNodeName(remConf.Name).String(), manager.logger.GetLevel(),
-				)
-			}
-			// this is done in config validation but partial start rules require us to check again
-			if _, err := remConf.Validate(""); err != nil {
-				gNode.LogAndSetLastError(
-					fmt.Errorf("remote config validation error: %w", err), "remote", remConf.Name)
-				continue
-			}
-			rr, err := manager.processRemote(ctx, *remConf, gNode)
-			if err != nil {
-				gNode.LogAndSetLastError(
-					fmt.Errorf("error connecting to remote: %w", err), "remote", remConf.Name)
-				continue
-			}
-			manager.addRemote(ctx, rr, gNode, *remConf)
-			rr.SetParentNotifier(func() {
-				if robot.closeContext.Err() != nil {
-					return
-				}
-
-				// Trigger completeConfig goroutine execution when a change in remote
-				// is detected.
-				select {
-				case <-robot.closeContext.Done():
-					return
-				case robot.triggerConfig <- struct{}{}:
-				}
-			})
-		default:
-			err := errors.New("config is not a remote config")
-			manager.logger.CErrorw(ctx, err.Error(), "resource", resName)
-		}
-	}
+	manager.completeConfigForRemotes(ctx, robot)
 
 	// now resolve prior to sorting in case there's anything newly discovered
 	if err := manager.resources.ResolveDependencies(manager.logger); err != nil {
@@ -704,6 +646,68 @@ func (manager *resourceManager) completeConfig(
 			return
 		}
 	} // for-each resource name
+}
+
+func (manager *resourceManager) completeConfigForRemotes(ctx context.Context, robot *localRobot) {
+	for _, resName := range manager.resources.FindNodesByAPI(client.RemoteAPI) {
+		gNode, ok := manager.resources.Node(resName)
+		if !ok || !gNode.NeedsReconfigure() {
+			continue
+		}
+		var verb string
+		if gNode.IsUninitialized() {
+			verb = "configuring"
+		} else {
+			verb = "reconfiguring"
+		}
+		manager.logger.CInfow(ctx, fmt.Sprintf("Now %s a remote", verb), "resource", resName)
+		switch resName.API {
+		case client.RemoteAPI:
+			remConf, err := resource.NativeConfig[*config.Remote](gNode.Config())
+			if err != nil {
+				manager.logger.CErrorw(ctx,
+					"remote config error",
+					"error",
+					err,
+				)
+				continue
+			}
+			if gNode.IsUninitialized() {
+				gNode.InitializeLogger(
+					manager.logger, fromRemoteNameToRemoteNodeName(remConf.Name).String(), manager.logger.GetLevel(),
+				)
+			}
+			// this is done in config validation but partial start rules require us to check again
+			if _, err := remConf.Validate(""); err != nil {
+				gNode.LogAndSetLastError(
+					fmt.Errorf("remote config validation error: %w", err), "remote", remConf.Name)
+				continue
+			}
+			rr, err := manager.processRemote(ctx, *remConf, gNode)
+			if err != nil {
+				gNode.LogAndSetLastError(
+					fmt.Errorf("error connecting to remote: %w", err), "remote", remConf.Name)
+				continue
+			}
+			manager.addRemote(ctx, rr, gNode, *remConf)
+			rr.SetParentNotifier(func() {
+				if robot.closeContext.Err() != nil {
+					return
+				}
+
+				// Trigger completeConfig goroutine execution when a change in remote
+				// is detected.
+				select {
+				case <-robot.closeContext.Done():
+					return
+				case robot.triggerConfig <- struct{}{}:
+				}
+			})
+		default:
+			err := errors.New("config is not a remote config")
+			manager.logger.CErrorw(ctx, err.Error(), "resource", resName)
+		}
+	}
 }
 
 // cleanAppImageEnv attempts to revert environment variable changes so
