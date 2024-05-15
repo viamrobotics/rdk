@@ -3,7 +3,6 @@ package camera
 
 import (
 	"context"
-	"fmt"
 	"image"
 	"sync"
 	"time"
@@ -172,14 +171,6 @@ type SourceBasedCamera struct {
 	VideoSource
 	RtpPassthroughSource rtppassthrough.Source
 	logging.Logger
-}
-
-func (c *SourceBasedCamera) Debug() {
-	vs := c.VideoSource.(*videoSource)
-	fmt.Printf("  Passthrough: %T\n", vs.rtpPassthroughSource)
-	fmt.Printf("  VSource: %T\n", vs.videoSource)
-	fmt.Printf("  VStream: %T\n", vs.videoStream)
-	fmt.Printf("  Actual: %T\n", vs.actualSource)
 }
 
 func (vs *SourceBasedCamera) SubscribeRTP(
@@ -436,11 +427,6 @@ func FromRobot(r robot.Robot, name string) (Camera, error) {
 // NamesFromRobot is a helper for getting all camera names from the given Robot.
 func NamesFromRobot(r robot.Robot) []string {
 	return robot.NamesByAPI(r, API)
-}
-
-// ResourceNamesFromRobot is a helper for getting all camera names from the given Robot.
-func ResourceNamesFromRobot(r robot.Robot) []resource.Name {
-	return robot.ResourceNamesByAPI(r, API)
 }
 
 // SimultaneousColorDepthNext will call Next on both the color and depth camera as simultaneously as possible.

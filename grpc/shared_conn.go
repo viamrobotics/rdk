@@ -14,7 +14,6 @@ import (
 	googlegrpc "google.golang.org/grpc"
 
 	"go.viam.com/rdk/logging"
-	"go.viam.com/rdk/resource"
 	rutils "go.viam.com/rdk/utils"
 )
 
@@ -77,7 +76,7 @@ type SharedConn struct {
 	peerConnFailed chan struct{}
 
 	resOnTrackMu  sync.Mutex
-	resOnTrackCBs map[resource.Name]OnTrackCB
+	resOnTrackCBs map[string]OnTrackCB
 
 	logger logging.Logger
 }
@@ -103,14 +102,14 @@ func (sc *SharedConn) NewStream(
 }
 
 // AddOnTrackSub adds an OnTrack subscription for the resource.
-func (sc *SharedConn) AddOnTrackSub(name resource.Name, onTrackCB OnTrackCB) {
+func (sc *SharedConn) AddOnTrackSub(name string, onTrackCB OnTrackCB) {
 	sc.resOnTrackMu.Lock()
 	defer sc.resOnTrackMu.Unlock()
 	sc.resOnTrackCBs[name] = onTrackCB
 }
 
 // RemoveOnTrackSub removes an OnTrack subscription for the resource.
-func (sc *SharedConn) RemoveOnTrackSub(name resource.Name) {
+func (sc *SharedConn) RemoveOnTrackSub(name string) {
 	sc.resOnTrackMu.Lock()
 	defer sc.resOnTrackMu.Unlock()
 	delete(sc.resOnTrackCBs, name)
@@ -157,7 +156,7 @@ func (sc *SharedConn) ResetConn(conn rpc.ClientConn, moduleLogger logging.Logger
 
 	if sc.resOnTrackCBs == nil {
 		// Same initilization argument as above with the logger.
-		sc.resOnTrackCBs = make(map[resource.Name]OnTrackCB)
+		sc.resOnTrackCBs = make(map[string]OnTrackCB)
 	}
 
 	sc.peerConnMu.Lock()
@@ -196,13 +195,11 @@ func (sc *SharedConn) ResetConn(conn rpc.ClientConn, moduleLogger logging.Logger
 
 	golog.Global().Error("grpc/shared_conn setting up OnTrack callback")
 	sc.peerConn.OnTrack(func(trackRemote *webrtc.TrackRemote, rtpReceiver *webrtc.RTPReceiver) {
-		name := resource.SDPTrackNameToResourceName(api, trackRemote.StreamID())
 		sc.resOnTrackMu.Lock()
-		onTrackCB, ok := sc.resOnTrackCBs[name]
+		onTrackCB, ok := sc.resOnTrackCBs[trackRemote.StreamID()]
 		sc.resOnTrackMu.Unlock()
 		if !ok {
-			// sc.logger.Errorw("Callback not found for StreamID", "sharedConn", fmt.Sprintf("%p", sc), "streamID", trackRemote.StreamID())
-			golog.Global().Fatalf("Callback not found for StreamID: %s, name: %s, keys(resOnTrackCBs): %#v", trackRemote.StreamID(), name, maps.Keys(sc.resOnTrackCBs))
+			golog.Global().Errorf("Callback not found for StreamID: %s, keys(resOnTrackCBs): %#v", trackRemote.StreamID(), maps.Keys(sc.resOnTrackCBs))
 			return
 		}
 		onTrackCB(trackRemote, rtpReceiver)
