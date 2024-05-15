@@ -12,6 +12,9 @@ func fixPowerPct(powerPct, max float64) float64 {
 }
 
 func sign(x float64) float64 { // A quick helper function
+	if x == 0 {
+		return 0
+	}
 	if math.Signbit(x) {
 		return -1.0
 	}
