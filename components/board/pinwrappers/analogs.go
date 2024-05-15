@@ -136,14 +136,9 @@ func (as *AnalogSmoother) Start() {
 				}
 			}
 			lastError = err
-
 			end := time.Now()
 
-			// fmt.Println("nanos between: ", nanosBetween)
-
 			toSleep := int64(nanosBetween) - (end.UnixNano() - start.UnixNano())
-
-			// fmt.Println("tosleep: ", toSleep)
 			if !goutils.SelectContextOrWait(ctx, time.Duration(toSleep)) {
 				return
 			}
