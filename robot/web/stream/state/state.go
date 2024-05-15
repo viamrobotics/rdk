@@ -9,7 +9,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/edaniels/golog"
 	"github.com/pion/rtp"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
@@ -332,10 +331,10 @@ func (ss *StreamState) inc(ctx context.Context) error {
 			return fmt.Errorf("unexpected stream %s source %s", ss.Stream.Name(), ss.streamSource)
 		}
 		// this is the first subscription, attempt passthrough
-		ss.logger.CInfow(ctx, "attempting to subscribe to rtp_passthrough", "name", ss.Stream.Name())
+		ss.logger.CDebugw(ctx, "attempting to subscribe to rtp_passthrough", "name", ss.Stream.Name())
 		err := ss.streamH264Passthrough(ctx)
 		if err != nil {
-			ss.logger.CInfow(ctx, "rtp_passthrough not possible, falling back to GoStream", "err", err.Error(), "name", ss.Stream.Name())
+			ss.logger.CDebugw(ctx, "rtp_passthrough not possible, falling back to GoStream", "err", err.Error(), "name", ss.Stream.Name())
 			// if passthrough failed, fall back to gostream based approach
 			ss.Stream.Start()
 			ss.streamSource = streamSourceGoStream
@@ -427,7 +426,6 @@ func (ss *StreamState) streamH264Passthrough(ctx context.Context) error {
 	shortName := resource.SDPTrackNameToShortName(ss.Stream.Name())
 	cam, err := camera.FromRobot(ss.robot, shortName)
 	if err != nil {
-		golog.Global().Error(err.Error())
 		return err
 	}
 

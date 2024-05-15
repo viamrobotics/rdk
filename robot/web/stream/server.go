@@ -12,7 +12,6 @@ import (
 	streampb "go.viam.com/api/stream/v1"
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
-	"golang.org/x/exp/maps"
 
 	"go.viam.com/rdk/gostream"
 	"go.viam.com/rdk/logging"
@@ -113,8 +112,6 @@ func (ss *Server) ListStreams(ctx context.Context, req *streampb.ListStreamsRequ
 func (ss *Server) AddStream(ctx context.Context, req *streampb.AddStreamRequest) (*streampb.AddStreamResponse, error) {
 	ctx, span := trace.StartSpan(ctx, "stream::server::AddStream")
 	defer span.End()
-	ss.logger.CInfof(ctx, "AddStream START %s", req.Name)
-	defer ss.logger.CInfof(ctx, "AddStream END %s", req.Name)
 	// Get the peer connection
 	pc, ok := rpc.ContextPeerConnection(ctx)
 	if !ok {
@@ -128,7 +125,15 @@ func (ss *Server) AddStream(ctx context.Context, req *streampb.AddStreamRequest)
 
 	// return error if there is no stream for that camera
 	if !ok {
-		err := fmt.Errorf("no stream for %q, available streams: %#v", req.Name, maps.Keys(ss.nameToStreamState))
+		var availableStreams string
+		for n := range ss.nameToStreamState {
+			if availableStreams != "" {
+				availableStreams += ", "
+			}
+			availableStreams += fmt.Sprintf("%q", n)
+
+		}
+		err := fmt.Errorf("no stream for %q, available streams: %s", req.Name, availableStreams)
 		ss.logger.Error(err.Error())
 		return nil, err
 	}
@@ -223,7 +228,6 @@ func (ss *Server) AddStream(ctx context.Context, req *streampb.AddStreamRequest)
 
 	// if the stream supports video, add the video track
 	if trackLocal, haveTrackLocal := streamStateToAdd.Stream.VideoTrackLocal(); haveTrackLocal {
-		ss.logger.Infof("AddStream calling addTrack on trackLocal.StreamID(): %s", trackLocal.StreamID())
 		if err := addTrack(trackLocal); err != nil {
 			ss.logger.Error(err.Error())
 			return nil, err
@@ -249,8 +253,6 @@ func (ss *Server) AddStream(ctx context.Context, req *streampb.AddStreamRequest)
 func (ss *Server) RemoveStream(ctx context.Context, req *streampb.RemoveStreamRequest) (*streampb.RemoveStreamResponse, error) {
 	ctx, span := trace.StartSpan(ctx, "stream::server::RemoveStream")
 	defer span.End()
-	ss.logger.CInfof(ctx, "RemoveStream START %s", req.Name)
-	defer ss.logger.CInfof(ctx, "RemoveStream END %s", req.Name)
 	pc, ok := rpc.ContextPeerConnection(ctx)
 	if !ok {
 		return nil, errors.New("can only remove a stream over a WebRTC based connection")
