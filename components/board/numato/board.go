@@ -324,6 +324,13 @@ func (b *numatoBoard) SetPowerMode(ctx context.Context, mode pb.PowerMode, durat
 }
 
 func (b *numatoBoard) Close(ctx context.Context) error {
+
+	for _, analog := range b.analogs {
+		if err := analog.Close(ctx); err != nil {
+			return err
+		}
+	}
+
 	atomic.AddInt32(&b.closed, 1)
 
 	// Without this line, the coroutine gets stuck in the call to in.ReadString.
@@ -340,12 +347,6 @@ func (b *numatoBoard) Close(ctx context.Context) error {
 	}
 
 	b.workers.Stop()
-
-	for _, analog := range b.analogs {
-		if err := analog.Close(ctx); err != nil {
-			return err
-		}
-	}
 	return nil
 }
 
@@ -355,15 +356,12 @@ type analog struct {
 }
 
 func (a *analog) Read(ctx context.Context, extra map[string]interface{}) (int, error) {
-	fmt.Println("top of Read")
 	res, err := a.b.doSendReceive(ctx, fmt.Sprintf("adc read %s", a.pin))
 	if err != nil {
 		return 0, err
 	}
-	fmt.Println("no errors from doSendReceive")
 	val, err := strconv.Atoi(res)
 	if err == nil {
-		fmt.Println("no errors from strconv.Atoi")
 	}
 	return val, err
 }
