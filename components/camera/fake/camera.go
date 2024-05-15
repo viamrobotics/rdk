@@ -394,10 +394,7 @@ func (c *Camera) startPassthrough() error {
 
 			// get current timestamp
 			c.mu.RLock()
-			// fmt.Println("DBG. Num camera passthroughs:", len(c.bufAndCBByID))
 			for _, bufAndCB := range c.bufAndCBByID {
-				// write packets
-				// fmt.Println("DBG. Camera Publishing. NumPkts:", len(pkts))
 				if err := bufAndCB.buf.Publish(func() { bufAndCB.cb(pkts) }); err != nil {
 					c.logger.Warn("Publish err: %s", err.Error())
 				}

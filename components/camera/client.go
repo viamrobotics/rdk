@@ -9,7 +9,6 @@ import (
 	"slices"
 	"sync"
 
-	"github.com/edaniels/golog"
 	"github.com/pion/rtp"
 	"github.com/pion/webrtc/v3"
 	"github.com/pkg/errors"
@@ -83,7 +82,6 @@ func NewClientFromConn(
 	name resource.Name,
 	logger logging.Logger,
 ) (Camera, error) {
-	golog.Global().Warnf("remoteName: %s", remoteName)
 	c := pb.NewCameraServiceClient(conn)
 	streamClient := streampb.NewStreamServiceClient(conn)
 	trackClosed := make(chan struct{})
@@ -463,14 +461,11 @@ func (c *client) SubscribeRTP(
 
 		trackReceived, trackClosed := make(chan struct{}), make(chan struct{})
 		name := c.Name()
-		// if c.remoteName == "" it indicates that we are talking to a main part & we shouldn't try to pop the remote name
 		if c.remoteName != "" {
-			// we nee to pop the first remote	off the resource name as the remote doesn't know its name.
-			// NOTE: Test this with an external client talking to a main part connected to a remote part.
-			// I expect this to break in that case.
+			// if c.remoteName != "" it indicates that we are talking to a remote part & we need to pop the remote name
+			// as the remote doesn't know it's own name from the perspective of the main part
 			name = c.Name().PopRemote()
 		}
-		c.logger.Infof("name: %#v", name)
 		// add the camera model's addOnTrackSubFunc to the shared peer connection's
 		// slice of OnTrack callbacks. This is what allows
 		// all the bufAndCBByID's callback functions to be called with the
@@ -479,15 +474,12 @@ func (c *client) SubscribeRTP(
 		// remove the OnTrackSub once we either fail or succeed
 		defer sc.RemoveOnTrackSub(name)
 
-		trackName := resource.SDPTrackName(name)
-		c.logger.CInfow(ctx, "SubscribeRTP calling AddStream", "subID", sub.ID.String(), "trackName", trackName)
-		if _, err := c.streamClient.AddStream(ctx, &streampb.AddStreamRequest{Name: trackName}); err != nil {
-			c.logger.CErrorw(ctx, "SubscribeRTP AddStream hit error", "subID", sub.ID.String(), "name", trackName, "err", err)
+		if _, err := c.streamClient.AddStream(ctx, &streampb.AddStreamRequest{Name: name.SDPTrackName()}); err != nil {
+			c.logger.CErrorw(ctx, "SubscribeRTP AddStream hit error", "subID", sub.ID.String(), "name", name.SDPTrackName(), "err", err)
 			return rtppassthrough.NilSubscription, err
 		}
 		// NOTE: (Nick S) This is a workaround to a Pion bug / missing feature.
 
-		c.logger.Info("Waiting on added")
 		// If the WebRTC peer on the other side of the PeerConnection calls pc.AddTrack followd by pc.RemoveTrack
 		// before the module writes RTP packets
 		// to the track, the client's PeerConnection.OnTrack callback is never called.
@@ -572,10 +564,7 @@ func (c *client) addOnTrackSubFunc(
 					// This is needed to prevent the problem described here:
 					// https://go.dev/blog/loopvar-preview
 					bufAndCB := tmp
-					err := bufAndCB.buf.Publish(func() {
-						// fmt.Println("Writing pkt:", len(pkt.Payload))
-						bufAndCB.cb(pkt)
-					})
+					err := bufAndCB.buf.Publish(func() { bufAndCB.cb(pkt) })
 					if err != nil {
 						c.logger.Debugw("SubscribeRTP: camera client",
 							"name", c.Name(),
@@ -618,17 +607,14 @@ func (c *client) Unsubscribe(ctx context.Context, id rtppassthrough.Subscription
 
 	if len(c.bufAndCBByID) == 1 {
 		name := c.Name()
-		// if c.remoteName == "" it indicates that we are talking to a main part & we shouldn't try to pop the remote name
 		if c.remoteName != "" {
-			// we nee to pop the first remote	off the resource name as the remote doesn't know its name.
-			// NOTE: Test this with an external client talking to a main part connected to a remote part.
-			// I expect this to break in that case.
+			// if c.remoteName != "" it indicates that we are talking to a remote part & we need to pop the remote name
+			// as the remote doesn't know it's own name from the perspective of the main part
 			name = c.Name().PopRemote()
 		}
-		trackName := resource.SDPTrackName(name)
-		c.logger.CDebugw(ctx, "Unsubscribe calling RemoveStream", "name", trackName, "subID", id.String())
-		if _, err := c.streamClient.RemoveStream(ctx, &streampb.RemoveStreamRequest{Name: trackName}); err != nil {
-			c.logger.CWarnw(ctx, "Unsubscribe RemoveStream returned err", "name", trackName, "subID", id.String(), "err", err)
+		c.logger.CDebugw(ctx, "Unsubscribe calling RemoveStream", "name", name.SDPTrackName(), "subID", id.String())
+		if _, err := c.streamClient.RemoveStream(ctx, &streampb.RemoveStreamRequest{Name: name.SDPTrackName()}); err != nil {
+			c.logger.CWarnw(ctx, "Unsubscribe RemoveStream returned err", "name", name.SDPTrackName(), "subID", id.String(), "err", err)
 			c.mu.Unlock()
 			return err
 		}

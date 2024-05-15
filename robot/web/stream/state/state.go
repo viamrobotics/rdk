@@ -424,14 +424,8 @@ func (ss *StreamState) restart(ctx context.Context) {
 }
 
 func (ss *StreamState) streamH264Passthrough(ctx context.Context) error {
-	// for _, n := range camera.NamesFromRobot(ss.robot) {
-	// 	ss.logger.CInfof(ctx, "NICK: %s", n)
-	// }
-	// n := strings.ReplaceAll(camera.Named(ss.Stream.Name()).ShortName(), "+", ":")
-	// ss.logger.CInfof(ctx, "NICK: n: %s", n)
-
-	name := resource.SDPTrackNameToResourceName(camera.API, ss.Stream.Name())
-	cam, err := camera.FromRobot(ss.robot, name.ShortName())
+	shortName := resource.SDPTrackNameToShortName(ss.Stream.Name())
+	cam, err := camera.FromRobot(ss.robot, shortName)
 	if err != nil {
 		golog.Global().Error(err.Error())
 		return err
@@ -444,7 +438,6 @@ func (ss *StreamState) streamH264Passthrough(ctx context.Context) error {
 	}
 
 	cb := func(pkts []*rtp.Packet) {
-		// ss.logger.Info("DBG. Received Pkts. Forwarding:", len(pkts))
 		for _, pkt := range pkts {
 			if err := ss.Stream.WriteRTP(pkt); err != nil {
 				ss.logger.Debugw("stream.WriteRTP", "name", ss.Stream.Name(), "err", err.Error())
@@ -452,11 +445,6 @@ func (ss *StreamState) streamH264Passthrough(ctx context.Context) error {
 		}
 	}
 
-	// fmt.Printf("DBG. Passthrough starting. Source type: %T\n", rtpPassthroughSource)
-	if cam, ok := rtpPassthroughSource.(*camera.SourceBasedCamera); ok {
-		fmt.Printf("  Underlying video source type\n")
-		cam.Debug()
-	}
 	sub, err := rtpPassthroughSource.SubscribeRTP(ctx, rtpBufferSize, cb)
 	if err != nil {
 		return errors.Wrap(ErrRTPPassthroughNotSupported, err.Error())
@@ -468,8 +456,8 @@ func (ss *StreamState) streamH264Passthrough(ctx context.Context) error {
 }
 
 func (ss *StreamState) unsubscribeH264Passthrough(ctx context.Context, id rtppassthrough.SubscriptionID) error {
-	name := resource.SDPTrackNameToResourceName(camera.API, ss.Stream.Name())
-	cam, err := camera.FromRobot(ss.robot, name.ShortName())
+	shortName := resource.SDPTrackNameToShortName(ss.Stream.Name())
+	cam, err := camera.FromRobot(ss.robot, shortName)
 	if err != nil {
 		return err
 	}
