@@ -147,6 +147,7 @@ func downloadPackageFromURL(ctx context.Context, httpClient *http.Client,
 	return nil
 }
 
+// PackageUploadAction is the corresponding action for "packages upload"
 func PackageUploadAction(c *cli.Context) error {
 	client, err := newViamClient(c)
 	if err != nil {
@@ -158,20 +159,22 @@ func PackageUploadAction(c *cli.Context) error {
 		return err
 	}
 
-	if _, err := client.uploadPackage(
+	resp, err := client.uploadPackage(
 		c.String(generalFlagOrgID),
 		c.String(packageFlagName),
 		c.String(packageFlagVersion),
 		c.String(packageFlagType),
 		c.Path(packageFlagPath),
 		nil,
-	); err != nil {
+	)
+	if err != nil {
 		return err
 	}
 
+	printf(c.App.Writer, "Successfully uploaded package %s, version: %s!", resp.GetId(), resp.GetVersion())
 	return nil
-
 }
+
 func (c *viamClient) uploadPackage(
 	orgID, name, version, packageType, tarballPath string,
 	metadataStruct *structpb.Struct,
