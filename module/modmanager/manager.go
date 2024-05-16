@@ -513,8 +513,6 @@ func (mgr *Manager) ReconfigureResource(ctx context.Context, conf resource.Confi
 	if err != nil {
 		return err
 	}
-	// A lock is necessary because resources that do not depend on each other may be
-	// added concurrently.
 	mod.resourcesMu.Lock()
 	defer mod.resourcesMu.Unlock()
 	mod.resources[conf.ResourceName()] = &addedResource{conf, deps}
