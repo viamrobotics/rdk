@@ -307,3 +307,8 @@ func (e *ExecutionState) CurrentInputs() map[string][]referenceframe.Input {
 func (e *ExecutionState) CurrentPoses() map[string]*referenceframe.PoseInFrame {
 	return e.currentPose
 }
+
+// ErrorState returns the Pose between the planned Pose of the given component name its current Pose
+func (e *ExecutionState) ErrorState(componentName string) (spatialmath.Pose, error) {
+	return nil, nil
+}
