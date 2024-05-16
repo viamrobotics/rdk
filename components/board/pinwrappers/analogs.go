@@ -32,19 +32,17 @@ type AnalogSmoother struct {
 
 // SmoothAnalogReader wraps the given reader in a smoother.
 func SmoothAnalogReader(r board.Analog, c board.AnalogReaderConfig, logger logging.Logger) *AnalogSmoother {
-	cancelCtx, cancel := context.WithCancel(context.Background())
 	smoother := &AnalogSmoother{
 		Raw:               r,
 		AverageOverMillis: c.AverageOverMillis,
 		SamplesPerSecond:  c.SamplesPerSecond,
 		logger:            logger,
-		cancel:            cancel,
 	}
 	if smoother.SamplesPerSecond <= 0 {
 		logger.Debug("Can't read nonpositive samples per second; defaulting to 1 instead")
 		smoother.SamplesPerSecond = 1
 	}
-	smoother.Start(cancelCtx)
+	smoother.Start()
 	return smoother
 }
 
@@ -56,8 +54,7 @@ type errValue struct {
 
 // Close stops the smoothing routine.
 func (as *AnalogSmoother) Close(ctx context.Context) error {
-	as.cancel()
-	as.activeBackgroundWorkers.Wait()
+	as.workers.Stop()
 	return nil
 }
 
@@ -86,7 +83,7 @@ func (as *AnalogSmoother) Read(ctx context.Context, extra map[string]interface{}
 
 // Start begins the smoothing routine that reads from the underlying
 // analog reader.
-func (as *AnalogSmoother) Start(ctx context.Context) {
+func (as *AnalogSmoother) Start() {
 	// examples 1
 	//    AverageOverMillis 10
 	//    SamplesPerSecond  1000
@@ -108,7 +105,7 @@ func (as *AnalogSmoother) Start(ctx context.Context) {
 		as.data = utils.NewRollingAverage(numSamples)
 		nanosBetween = 1e9 / as.SamplesPerSecond
 	} else {
-		as.logger.CDebug(ctx, "Too few samples to smooth over; defaulting to raw data.")
+		as.logger.Debug("Too few samples to smooth over; defaulting to raw data.")
 		as.data = nil
 		nanosBetween = as.AverageOverMillis * 1e6
 	}
