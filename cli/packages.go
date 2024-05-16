@@ -147,6 +147,31 @@ func downloadPackageFromURL(ctx context.Context, httpClient *http.Client,
 	return nil
 }
 
+func PackageUploadAction(c *cli.Context) error {
+	client, err := newViamClient(c)
+	if err != nil {
+		return err
+	}
+
+	_, err = convertPackageTypeToProto(c.String(packageFlagType))
+	if err != nil {
+		return err
+	}
+
+	if _, err := client.uploadPackage(
+		c.String(generalFlagOrgID),
+		c.String(packageFlagName),
+		c.String(packageFlagVersion),
+		c.String(packageFlagType),
+		c.Path(packageFlagPath),
+		nil,
+	); err != nil {
+		return err
+	}
+
+	return nil
+
+}
 func (c *viamClient) uploadPackage(
 	orgID, name, version, packageType, tarballPath string,
 	metadataStruct *structpb.Struct,
