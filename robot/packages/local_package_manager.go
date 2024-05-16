@@ -136,7 +136,7 @@ func (m *localManager) Sync(ctx context.Context, packages []config.PackageConfig
 	defer m.mu.Unlock()
 
 	// overwrite incoming modules with filtered slice; we only manage local tarball modules
-	modules = rUtils.FilterSlice(modules, config.Module.IsLocalTarball)
+	modules = rUtils.FilterSlice(modules, config.Module.NeedsSyntheticPackage)
 	existing, changed := m.managedModules.getAddedAndChanged(modules)
 	if len(changed) > 0 {
 		m.logger.Info("Local package changes have been detected, starting sync")
@@ -155,7 +155,7 @@ func (m *localManager) Sync(ctx context.Context, packages []config.PackageConfig
 			outErr = multierr.Append(outErr, err)
 			continue
 		}
-		err = downloadPackage(ctx, m.logger, m.packagesDir, mod.ExePath, pkg, []string{}, m.fileCopyHelper)
+		err = installPackage(ctx, m.logger, m.packagesDir, mod.ExePath, pkg, []string{}, m.fileCopyHelper)
 		if err != nil {
 			m.logger.Errorf("Failed downloading package %s from %s, %s", mod.Name, mod.ExePath, err)
 			outErr = multierr.Append(outErr, errors.Wrapf(err, "failed downloading package %s from %s",
@@ -223,7 +223,7 @@ func (m *localManager) SyncOne(ctx context.Context, mod config.Module) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	if !mod.IsLocalTarball() {
+	if !mod.NeedsSyntheticPackage() {
 		return nil
 	}
 	pkg, err := mod.SyntheticPackage()
@@ -239,7 +239,7 @@ func (m *localManager) SyncOne(ctx context.Context, mod config.Module) error {
 	if dirty {
 		m.logger.CDebugf(ctx, "%s is newer, recopying", mod.ExePath)
 		utils.UncheckedError(cleanup(m.packagesDir, pkg))
-		err = downloadPackage(ctx, m.logger, m.packagesDir, mod.ExePath, pkg, []string{}, m.fileCopyHelper)
+		err = installPackage(ctx, m.logger, m.packagesDir, mod.ExePath, pkg, []string{}, m.fileCopyHelper)
 		if err != nil {
 			m.logger.Errorf("Failed copying package %s:%s from %s, %s", pkg.Package, pkg.Version, mod.ExePath, err)
 			return errors.Wrapf(err, "failed downloading package %s:%s from %s", pkg.Package, pkg.Version, mod.ExePath)

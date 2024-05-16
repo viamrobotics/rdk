@@ -24,9 +24,9 @@ func TestSyntheticModule(t *testing.T) {
 	}
 
 	t.Run("NeedsSyntheticPackage", func(t *testing.T) {
-		test.That(t, modNeedsSynthetic.IsLocalTarball(), test.ShouldBeTrue)
-		test.That(t, modNotTar.IsLocalTarball(), test.ShouldBeFalse)
-		test.That(t, modNotLocal.IsLocalTarball(), test.ShouldBeFalse)
+		test.That(t, modNeedsSynthetic.NeedsSyntheticPackage(), test.ShouldBeTrue)
+		test.That(t, modNotTar.NeedsSyntheticPackage(), test.ShouldBeFalse)
+		test.That(t, modNotLocal.NeedsSyntheticPackage(), test.ShouldBeFalse)
 	})
 
 	t.Run("SyntheticPackage", func(t *testing.T) {

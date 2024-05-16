@@ -76,6 +76,7 @@ func FindInSlice[T any](items []T, predicate func(T) bool) *T {
 }
 
 // MapOver applies fn() to a slice of items and returns a slice of the return values.
+// TODO(golang/go#61898): use stdlib iter if it lands.
 func MapOver[T, U any](items []T, fn func(T) (U, error)) ([]U, error) {
 	ret := make([]U, 0, len(items))
 	for _, item := range items {

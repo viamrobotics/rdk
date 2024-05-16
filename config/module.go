@@ -110,8 +110,8 @@ func (m Module) Equals(other Module) bool {
 
 var tarballExtensionsRegexp = regexp.MustCompile(`\.(tgz|tar\.gz)$`)
 
-// IsLocalTarball returns true if this is a local module pointing at a tarball.
-func (m Module) IsLocalTarball() bool {
+// NeedsSyntheticPackage returns true if this is a local module pointing at a tarball.
+func (m Module) NeedsSyntheticPackage() bool {
 	return m.Type == ModuleTypeLocal && tarballExtensionsRegexp.MatchString(strings.ToLower(m.ExePath))
 }
 
@@ -139,7 +139,7 @@ func (m Module) syntheticPackageExeDir(packagesDir string) (string, error) {
 // EvaluateExePath returns absolute ExePath except for local tarballs where it looks for side-by-side meta.json.
 // The side-by-side lookup is because we don't bundle entrypoint in module tarballs, it's not an intentional design choice.
 func (m Module) EvaluateExePath(packagesDir string) (string, error) {
-	if m.IsLocalTarball() {
+	if m.NeedsSyntheticPackage() {
 		metaPath := filepath.Join(filepath.Dir(m.ExePath), "meta.json")
 		f, err := os.Open(metaPath) //nolint:gosec
 		if err != nil {

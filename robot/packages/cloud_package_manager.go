@@ -186,7 +186,7 @@ func (m *cloudManager) Sync(ctx context.Context, packages []config.PackageConfig
 		}
 
 		// download package from a http endpoint
-		err = downloadPackage(ctx, m.logger, m.packagesDir, resp.Package.Url, p, nonEmptyPaths,
+		err = installPackage(ctx, m.logger, m.packagesDir, resp.Package.Url, p, nonEmptyPaths,
 			func(ctx context.Context, url, dstPath string) (string, error) {
 				_, contentType, err := m.downloadFileFromGCSURL(ctx, url, dstPath, m.cloudConfig.ID, m.cloudConfig.Secret)
 				return contentType, err

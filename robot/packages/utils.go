@@ -13,11 +13,11 @@ import (
 	"go.viam.com/rdk/logging"
 )
 
-// downloadCallback is the function signature that gets passed to downloadPackage.
-type downloadCallback func(ctx context.Context, url, dstPath string) (contentType string, err error)
+// installCallback is the function signature that gets passed to installPackage.
+type installCallback func(ctx context.Context, url, dstPath string) (contentType string, err error)
 
-func downloadPackage(ctx context.Context, logger logging.Logger, packagesDir, url string, p config.PackageConfig,
-	nonEmptyPaths []string, downloadFn downloadCallback,
+func installPackage(ctx context.Context, logger logging.Logger, packagesDir, url string, p config.PackageConfig,
+	nonEmptyPaths []string, installFn installCallback,
 ) error {
 	if dataDir := p.LocalDataDirectory(packagesDir); dirExists(dataDir) {
 		if checkNonemptyPaths(p.Name, logger, nonEmptyPaths) {
@@ -46,7 +46,7 @@ func downloadPackage(ctx context.Context, logger logging.Logger, packagesDir, ur
 	}
 
 	dstPath := p.LocalDownloadPath(packagesDir)
-	contentType, err := downloadFn(ctx, url, dstPath)
+	contentType, err := installFn(ctx, url, dstPath)
 	if err != nil {
 		return err
 	}
