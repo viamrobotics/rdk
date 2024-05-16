@@ -10,6 +10,7 @@ import (
 	goutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/components/board"
+	"go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/utils"
 )
@@ -111,6 +112,9 @@ func (as *AnalogSmoother) Start() {
 	}
 
 	as.workers = utils.NewStoppableWorkers(func(ctx context.Context) {
+		consecutiveErrors := 0
+		var lastError error
+
 		// Store the full analog reader value
 		analogVal, err := as.Raw.Read(ctx, nil)
 		as.lastError.Store(&errValue{err != nil, err})
@@ -132,12 +136,23 @@ func (as *AnalogSmoother) Start() {
 				if as.data != nil {
 					as.data.Add(reading.Value)
 				}
+				consecutiveErrors = 0
 			} else { // Non-nil error
 				if errors.Is(err, errStopReading) {
 					break
 				}
-				as.logger.CInfow(ctx, "error reading analog", "error", err)
-				continue
+				if lastError != nil && err.Error() == lastError.Error() {
+					consecutiveErrors++
+				} else {
+					as.logger.CInfow(ctx, "error reading analog", "error", err)
+					consecutiveErrors = 0
+				}
+				// Don't spam the errors: only remind us of the problem every 10 seconds.
+				if consecutiveErrors == (as.SamplesPerSecond * 10) {
+					as.logger.CErrorw(ctx, "unable to read analog for 10 seconds", "error", err)
+					consecutiveErrors = 0
+				}
+				lastError = err
 			}
 
 			as.lastData = reading.Value
@@ -153,4 +168,8 @@ func (as *AnalogSmoother) Start() {
 			}
 		}
 	})
+}
+
+func (as *AnalogSmoother) Write(ctx context.Context, value int, extra map[string]interface{}) error {
+	return grpc.UnimplementedError
 }
