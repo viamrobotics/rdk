@@ -193,7 +193,7 @@ func (ptgk *ptgBaseKinematics) ExecutionState(ctx context.Context) (motionplan.E
 		map[string]*referenceframe.PoseInFrame{ptgk.Kinematics().Name(): actualPIF},
 	)
 }
-``
+
 func correctAngularVelocityWithTurnRadius(logger logging.Logger, turnRadMeters, velocityMMps, angVelocityDegps float64) (float64, error) {
 	angVelocityRadps := rdkutils.DegToRad(angVelocityDegps)
 	turnRadMillimeters := turnRadMeters * 1000.
