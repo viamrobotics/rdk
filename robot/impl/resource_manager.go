@@ -514,8 +514,8 @@ func (manager *resourceManager) Close(ctx context.Context) error {
 	return allErrs
 }
 
-// completeConfig process the tree in reverse order and attempts to build
-// or reconfigure resources that are wrapped in a placeholderResource.
+// completeConfig process the tree in reverse order and attempts to build or reconfigure
+// resources that are wrapped in a placeholderResource.
 func (manager *resourceManager) completeConfig(
 	ctx context.Context,
 	lr *localRobot,
@@ -605,7 +605,10 @@ func (manager *resourceManager) completeConfig(
 				switch {
 				case resName.API.IsComponent(), resName.API.IsService():
 					processResource := func() {
-						defer levelWG.Done()
+						defer func() {
+							levelWG.Done()
+							lr.reconfigureWorkers.Done()
+						}()
 
 						newRes, newlyBuilt, err := manager.processResource(ctxWithTimeout, conf, gNode, lr)
 						if newlyBuilt || err != nil {
@@ -650,6 +653,7 @@ func (manager *resourceManager) completeConfig(
 					}
 
 					levelWG.Add(1)
+					lr.reconfigureWorkers.Add(1)
 					if forceSync {
 						processResource()
 					} else {
