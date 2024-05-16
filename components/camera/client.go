@@ -384,12 +384,6 @@ func (c *client) Close(ctx context.Context) error {
 	return nil
 }
 
-// Tracker is the interface both grpc.SharedConn and grpc.ReconfigurableClientConn are expected to conform to.
-type Tracker interface {
-	AddOnTrackSub(trackName string, onTrackCB grpc.OnTrackCB)
-	RemoveOnTrackSub(trackName string)
-}
-
 func (c *client) trackName() string {
 	// if c.conn is a *grpc.SharedConn then the client
 	// is talking to a module and we need to send the fully qualified name
@@ -441,7 +435,7 @@ func (c *client) SubscribeRTP(
 	}
 
 	// check if we have established a connection that can be shared by multiple clients asking for cameras streams from viam server.
-	sc, ok := c.conn.(Tracker)
+	sc, ok := c.conn.(grpc.Tracker)
 	if !ok {
 		c.logger.Errorw("Client conn is not a `Tracker`", "connType", fmt.Sprintf("%T", c.conn))
 		return rtppassthrough.NilSubscription, ErrNoSharedPeerConnection
