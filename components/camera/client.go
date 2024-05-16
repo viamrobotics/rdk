@@ -386,23 +386,6 @@ func (c *client) Close(ctx context.Context) error {
 	return nil
 }
 
-func (c *client) trackName() string {
-	// if c.conn is a *grpc.SharedConn then the client
-	// is talking to a module and we need to send the fully qualified name
-	if _, ok := c.conn.(*grpc.SharedConn); ok {
-		return c.Name().String()
-	}
-	// otherwise we know we are talking to either a main or remote robot part
-
-	trackName := c.Name().SDPTrackName()
-	if c.remoteName != "" {
-		// if c.remoteName != "" it indicates that we are talking to a remote part & we need to pop the remote name
-		// as the remote doesn't know it's own name from the perspective of the main part
-		trackName = c.Name().PopRemote().SDPTrackName()
-	}
-	return trackName
-}
-
 // SubscribeRTP begins a subscription to receive RTP packets.
 // When the Subscription terminates the context in the returned Subscription
 // is cancelled.
@@ -645,6 +628,23 @@ func (c *client) Unsubscribe(ctx context.Context, id rtppassthrough.Subscription
 	bufAndCB.buf.Close()
 
 	return nil
+}
+
+func (c *client) trackName() string {
+	// if c.conn is a *grpc.SharedConn then the client
+	// is talking to a module and we need to send the fully qualified name
+	if _, ok := c.conn.(*grpc.SharedConn); ok {
+		return c.Name().String()
+	}
+	// otherwise we know we are talking to either a main or remote robot part
+
+	trackName := c.Name().SDPTrackName()
+	if c.remoteName != "" {
+		// if c.remoteName != "" it indicates that we are talking to a remote part & we need to pop the remote name
+		// as the remote doesn't know it's own name from the perspective of the main part
+		trackName = c.Name().PopRemote().SDPTrackName()
+	}
+	return trackName
 }
 
 func (c *client) unsubscribeAll() {
