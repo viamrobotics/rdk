@@ -174,7 +174,7 @@ func (g *softGripper) Open(ctx context.Context, extra map[string]interface{}) er
 			return multierr.Combine(err, g.Stop(ctx, extra))
 		}
 
-		if val > 500 {
+		if val.Value > 500 {
 			break
 		}
 
@@ -209,7 +209,7 @@ func (g *softGripper) Grab(ctx context.Context, extra map[string]interface{}) (b
 			return false, multierr.Combine(err, g.Stop(ctx, extra))
 		}
 
-		if val <= 200 {
+		if val.Value <= 200 {
 			break
 		}
 

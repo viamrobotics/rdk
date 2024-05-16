@@ -26,6 +26,7 @@ type AnalogSmoother struct {
 	lastError         atomic.Pointer[errValue]
 	logger            logging.Logger
 	workers           utils.StoppableWorkers
+	analogVal         board.AnalogValue
 }
 
 // SmoothAnalogReader wraps the given reader in a smoother.
@@ -40,6 +41,12 @@ func SmoothAnalogReader(r board.Analog, c board.AnalogReaderConfig, logger loggi
 		logger.Debug("Can't read nonpositive samples per second; defaulting to 1 instead")
 		smoother.SamplesPerSecond = 1
 	}
+
+	// Store the analog reader info
+	analogVal, err := smoother.Raw.Read(context.Background(), nil)
+	smoother.lastError.Store(&errValue{err != nil, err})
+	smoother.analogVal = analogVal
+
 	smoother.Start()
 	return smoother
 }
@@ -57,21 +64,28 @@ func (as *AnalogSmoother) Close(ctx context.Context) error {
 }
 
 // Read returns the smoothed out reading.
-func (as *AnalogSmoother) Read(ctx context.Context, extra map[string]interface{}) (int, error) {
-	if as.data == nil { // We're using raw data, and not averaging
-		return as.lastData, nil
+func (as *AnalogSmoother) Read(ctx context.Context, extra map[string]interface{}) (board.AnalogValue, error) {
+	analogVal := board.AnalogValue{
+		Min:      as.analogVal.Min,
+		Max:      as.analogVal.Max,
+		StepSize: as.analogVal.StepSize,
 	}
 
+	if as.data == nil { // We're using raw data, and not averaging
+		analogVal.Value = as.lastData
+		return as.analogVal, nil
+	}
 	avg := as.data.Average()
 	lastErr := as.lastError.Load()
+	analogVal.Value = avg
 	if lastErr == nil {
-		return avg, nil
+		return analogVal, nil
 	}
 	//nolint:forcetypeassert
 	if lastErr.present {
-		return avg, lastErr.err
+		return analogVal, lastErr.err
 	}
-	return avg, nil
+	return analogVal, nil
 }
 
 // Start begins the smoothing routine that reads from the underlying
@@ -104,6 +118,7 @@ func (as *AnalogSmoother) Start() {
 	as.workers = utils.NewStoppableWorkers(func(ctx context.Context) {
 		consecutiveErrors := 0
 		var lastError error
+
 		for {
 			select {
 			case <-ctx.Done():
@@ -114,9 +129,9 @@ func (as *AnalogSmoother) Start() {
 			reading, err := as.Raw.Read(ctx, nil)
 			as.lastError.Store(&errValue{err != nil, err})
 			if err == nil {
-				as.lastData = reading
+				as.lastData = reading.Value
 				if as.data != nil {
-					as.data.Add(reading)
+					as.data.Add(reading.Value)
 				}
 				consecutiveErrors = 0
 			} else { // Non-nil error
@@ -136,6 +151,7 @@ func (as *AnalogSmoother) Start() {
 				}
 			}
 			lastError = err
+
 			end := time.Now()
 
 			toSleep := int64(nanosBetween) - (end.UnixNano() - start.UnixNano())
