@@ -101,10 +101,6 @@ func (fk *fakeDiffDriveKinematics) GoToInputs(ctx context.Context, inputSteps ..
 	return nil
 }
 
-func (fk *fakeDiffDriveKinematics) ErrorState(ctx context.Context) (spatialmath.Pose, error) {
-	return fk.sensorNoise, nil
-}
-
 func (fk *fakeDiffDriveKinematics) ExecutionState(ctx context.Context) (motionplan.ExecutionState, error) {
 	return motionplan.ExecutionState{}, errors.New("fakeDiffDriveKinematics does not support executionState")
 }
@@ -308,10 +304,6 @@ func (fk *fakePTGKinematics) GoToInputs(ctx context.Context, inputSteps ...[]ref
 		}
 	}
 	return nil
-}
-
-func (fk *fakePTGKinematics) ErrorState(ctx context.Context) (spatialmath.Pose, error) {
-	return fk.sensorNoise, nil
 }
 
 func (fk *fakePTGKinematics) ExecutionState(ctx context.Context) (motionplan.ExecutionState, error) {
