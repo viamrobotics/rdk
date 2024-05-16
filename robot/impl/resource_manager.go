@@ -637,6 +637,7 @@ func (manager *resourceManager) completeConfig(
 						}
 					}
 
+					forceSync := forceSync
 					if !forceSync {
 						// TODO(RSDK-6925): support concurrent processing of resources of
 						// APIs with a maximum instance limit. Currently this limit is
