@@ -64,6 +64,8 @@ func (c *ReconfigurableClientConn) NewStream(
 func (c *ReconfigurableClientConn) ReplaceConn(conn rpc.ClientConn) {
 	c.connMu.Lock()
 	c.conn = conn
+	// It is safe to access this without a mutex as it is only ever nil once at the beginning of the
+	// ReconfigurableClientConn's lifetime
 	if c.onTrackCBByTrackName == nil {
 		c.onTrackCBByTrackName = make(map[string]OnTrackCB)
 	}
