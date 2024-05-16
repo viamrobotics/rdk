@@ -549,66 +549,66 @@ func (manager *resourceManager) completeConfig(
 			default:
 			}
 
-			resChan := make(chan struct{}, 1)
-			resName := resName
-			ctxWithTimeout, timeoutCancel := context.WithTimeout(ctx, timeout)
-			defer timeoutCancel()
-
-			cleanup := rutils.SlowStartupLogger(
-				ctx, "Waiting for resource to complete (re)configuration", "resource", resName.String(), manager.logger)
-
-			lr.reconfigureWorkers.Add(1)
-			goutils.PanicCapturingGo(func() {
+			processResource := func(resName resource.Name) {
 				defer func() {
-					cleanup()
-					resChan <- struct{}{}
+					levelWG.Done()
 					lr.reconfigureWorkers.Done()
 				}()
-				gNode, ok := manager.resources.Node(resName)
-				if !ok || !gNode.NeedsReconfigure() {
-					return
-				}
-				if !(resName.API.IsComponent() || resName.API.IsService()) {
-					return
-				}
 
-				var verb string
-				conf := gNode.Config()
-				if gNode.IsUninitialized() {
-					verb = "configuring"
-					gNode.InitializeLogger(
-						manager.logger, resName.String(), conf.LogConfiguration.Level,
-					)
-				} else {
-					verb = "reconfiguring"
-				}
-				manager.logger.CInfow(ctx, fmt.Sprintf("Now %s resource", verb), "resource", resName)
+				resChan := make(chan struct{}, 1)
+				ctxWithTimeout, timeoutCancel := context.WithTimeout(ctx, timeout)
+				defer timeoutCancel()
 
-				// this is done in config validation but partial start rules require us to check again
-				if _, err := conf.Validate("", resName.API.Type.Name); err != nil {
-					gNode.LogAndSetLastError(
-						fmt.Errorf("resource config validation error: %w", err),
-						"resource", conf.ResourceName(),
-						"model", conf.Model)
-					return
-				}
-				if manager.moduleManager.Provides(conf) {
-					if _, err := manager.moduleManager.ValidateConfig(ctxWithTimeout, conf); err != nil {
+				cleanup := rutils.SlowStartupLogger(
+					ctx, "Waiting for resource to complete (re)configuration", "resource", resName.String(), manager.logger)
+
+				lr.reconfigureWorkers.Add(1)
+				goutils.PanicCapturingGo(func() {
+					defer func() {
+						cleanup()
+						resChan <- struct{}{}
+						lr.reconfigureWorkers.Done()
+					}()
+					gNode, ok := manager.resources.Node(resName)
+					if !ok || !gNode.NeedsReconfigure() {
+						return
+					}
+					if !(resName.API.IsComponent() || resName.API.IsService()) {
+						return
+					}
+
+					var verb string
+					conf := gNode.Config()
+					if gNode.IsUninitialized() {
+						verb = "configuring"
+						gNode.InitializeLogger(
+							manager.logger, resName.String(), conf.LogConfiguration.Level,
+						)
+					} else {
+						verb = "reconfiguring"
+					}
+					manager.logger.CInfow(ctx, fmt.Sprintf("Now %s resource", verb), "resource", resName)
+
+					// this is done in config validation but partial start rules require us to check again
+					if _, err := conf.Validate("", resName.API.Type.Name); err != nil {
 						gNode.LogAndSetLastError(
-							fmt.Errorf("modular resource config validation error: %w", err),
+							fmt.Errorf("resource config validation error: %w", err),
 							"resource", conf.ResourceName(),
 							"model", conf.Model)
 						return
 					}
-				}
+					if manager.moduleManager.Provides(conf) {
+						if _, err := manager.moduleManager.ValidateConfig(ctxWithTimeout, conf); err != nil {
+							gNode.LogAndSetLastError(
+								fmt.Errorf("modular resource config validation error: %w", err),
+								"resource", conf.ResourceName(),
+								"model", conf.Model)
+							return
+						}
+					}
 
-				switch {
-				case resName.API.IsComponent(), resName.API.IsService():
-					processResource := func() {
-						defer func() {
-							levelWG.Done()
-							lr.reconfigureWorkers.Done()
-						}()
+					switch {
+					case resName.API.IsComponent(), resName.API.IsService():
 
 						newRes, newlyBuilt, err := manager.processResource(ctxWithTimeout, conf, gNode, lr)
 						if newlyBuilt || err != nil {
@@ -638,42 +638,42 @@ func (manager *resourceManager) completeConfig(
 						} else {
 							gNode.SwapResource(newRes, conf.Model)
 						}
-					}
 
-					forceSync := forceSync
-					if !forceSync {
-						// TODO(RSDK-6925): support concurrent processing of resources of
-						// APIs with a maximum instance limit. Currently this limit is
-						// validated later in the resource creation flow and assumes that
-						// each resource is created synchronously to have an accurate
-						// creation count.
-						if c, ok := resource.LookupGenericAPIRegistration(resName.API); ok && c.MaxInstance != 0 {
-							forceSync = true
-						}
+					default:
+						err := errors.New("config is not for a component or service")
+						gNode.LogAndSetLastError(err, "resource", resName)
 					}
+				})
 
-					levelWG.Add(1)
-					lr.reconfigureWorkers.Add(1)
-					if forceSync {
-						processResource()
-					} else {
-						go processResource()
+				select {
+				case <-resChan:
+				case <-ctxWithTimeout.Done():
+					if errors.Is(ctxWithTimeout.Err(), context.DeadlineExceeded) {
+						lr.logger.CWarn(ctx, rutils.NewBuildTimeoutError(resName.String()))
 					}
-
-				default:
-					err := errors.New("config is not for a component or service")
-					gNode.LogAndSetLastError(err, "resource", resName)
+				case <-ctx.Done():
+					return
 				}
-			})
+			}
 
-			select {
-			case <-resChan:
-			case <-ctxWithTimeout.Done():
-				if errors.Is(ctxWithTimeout.Err(), context.DeadlineExceeded) {
-					lr.logger.CWarn(ctx, rutils.NewBuildTimeoutError(resName.String()))
+			var forceSyncRes bool
+			if !forceSync {
+				// TODO(RSDK-6925): support concurrent processing of resources of
+				// APIs with a maximum instance limit. Currently this limit is
+				// validated later in the resource creation flow and assumes that
+				// each resource is created synchronously to have an accurate
+				// creation count.
+				if c, ok := resource.LookupGenericAPIRegistration(resName.API); ok && c.MaxInstance != 0 {
+					forceSyncRes = true
 				}
-			case <-ctx.Done():
-				return
+			}
+
+			levelWG.Add(1)
+			lr.reconfigureWorkers.Add(1)
+			if forceSyncRes {
+				processResource(resName)
+			} else {
+				go processResource(resName)
 			}
 		} // for-each resource name
 		levelWG.Wait()
