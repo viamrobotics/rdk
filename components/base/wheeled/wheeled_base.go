@@ -240,6 +240,10 @@ func (wb *wheeledBase) Spin(ctx context.Context, angleDeg, degsPerSec float64, e
 	defer done()
 	wb.logger.CDebugf(ctx, "received a Spin with angleDeg:%.2f, degsPerSec:%.2f", angleDeg, degsPerSec)
 
+	if math.Abs(angleDeg) < 0.0001 {
+		return fmt.Errorf("cannot move base %v for an angle that is nearly 0", wb.Name().ShortName())
+	}
+
 	// Stop the motors if the speed is 0
 	if math.Abs(degsPerSec) < 0.0001 {
 		err := wb.Stop(ctx, nil)
@@ -282,6 +286,9 @@ func (wb *wheeledBase) MoveStraight(ctx context.Context, distanceMm int, mmPerSe
 // All callers must register an operation via `wb.opMgr.New` to ensure the left and right motors
 // receive consistent instructions.
 func (wb *wheeledBase) runAllGoFor(ctx context.Context, leftRPM, leftRotations, rightRPM, rightRotations float64) error {
+	if math.Abs(leftRPM) <= 10 || math.Abs(rightRPM) <= 10 {
+		wb.logger.CWarn(ctx, "low motor speed detected, motors may not behave as expected")
+	}
 	goForFuncs := func() []rdkutils.SimpleFunc {
 		ret := []rdkutils.SimpleFunc{}
 

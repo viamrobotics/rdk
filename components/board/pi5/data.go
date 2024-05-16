@@ -13,8 +13,8 @@ var boardInfoMappings = map[string]genericlinux.BoardInformation{
 			{Name: "8", DeviceName: "gpiochip4", LineNumber: 14, PwmChipSysfsDir: "", PwmID: -1},
 			{Name: "10", DeviceName: "gpiochip4", LineNumber: 15, PwmChipSysfsDir: "", PwmID: -1},
 			{Name: "11", DeviceName: "gpiochip4", LineNumber: 17, PwmChipSysfsDir: "", PwmID: -1},
-			// When we can do GPIO and hardware PWM on the same pin, this will have line number 18.
-			{Name: "12", DeviceName: "gpiochip4", LineNumber: -1, PwmChipSysfsDir: "1f00098000.pwm", PwmID: 2},
+			// You might run into issues if trying to switch between using this as GPIO and PWM.
+			{Name: "12", DeviceName: "gpiochip4", LineNumber: 18, PwmChipSysfsDir: "1f00098000.pwm", PwmID: 2},
 			{Name: "13", DeviceName: "gpiochip4", LineNumber: 27, PwmChipSysfsDir: "", PwmID: -1},
 			{Name: "15", DeviceName: "gpiochip4", LineNumber: 22, PwmChipSysfsDir: "", PwmID: -1},
 			{Name: "16", DeviceName: "gpiochip4", LineNumber: 23, PwmChipSysfsDir: "", PwmID: -1},
@@ -34,8 +34,8 @@ var boardInfoMappings = map[string]genericlinux.BoardInformation{
 			// that to work yet.
 			{Name: "32", DeviceName: "gpiochip4", LineNumber: 12, PwmChipSysfsDir: "", PwmID: -1},
 			{Name: "33", DeviceName: "gpiochip4", LineNumber: 13, PwmChipSysfsDir: "", PwmID: -1},
-			// When we can do GPIO and hardware PWM on the same pin, this will have line number 19.
-			{Name: "35", DeviceName: "gpiochip4", LineNumber: -1, PwmChipSysfsDir: "1f00098000.pwm", PwmID: 3},
+			// You might run into issues if trying to switch between using this as GPIO and PWM.
+			{Name: "35", DeviceName: "gpiochip4", LineNumber: 19, PwmChipSysfsDir: "1f00098000.pwm", PwmID: 3},
 			{Name: "36", DeviceName: "gpiochip4", LineNumber: 16, PwmChipSysfsDir: "", PwmID: -1},
 			{Name: "37", DeviceName: "gpiochip4", LineNumber: 26, PwmChipSysfsDir: "", PwmID: -1},
 			{Name: "38", DeviceName: "gpiochip4", LineNumber: 20, PwmChipSysfsDir: "", PwmID: -1},

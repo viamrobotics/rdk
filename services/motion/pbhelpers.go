@@ -180,11 +180,18 @@ func (r MoveOnGlobeReq) toProto(name string) (*pb.MoveOnGlobeRequest, error) {
 	}
 
 	if len(r.Obstacles) > 0 {
-		obstaclesProto := make([]*commonpb.GeoObstacle, 0, len(r.Obstacles))
+		obstaclesProto := make([]*commonpb.GeoGeometry, 0, len(r.Obstacles))
 		for _, obstacle := range r.Obstacles {
-			obstaclesProto = append(obstaclesProto, spatialmath.GeoObstacleToProtobuf(obstacle))
+			obstaclesProto = append(obstaclesProto, spatialmath.GeoGeometryToProtobuf(obstacle))
 		}
 		req.Obstacles = obstaclesProto
+	}
+	if len(r.BoundingRegions) > 0 {
+		obstaclesProto := make([]*commonpb.GeoGeometry, 0, len(r.BoundingRegions))
+		for _, obstacle := range r.BoundingRegions {
+			obstaclesProto = append(obstaclesProto, spatialmath.GeoGeometryToProtobuf(obstacle))
+		}
+		req.BoundingRegions = obstaclesProto
 	}
 	return req, nil
 }
@@ -204,14 +211,25 @@ func moveOnGlobeRequestFromProto(req *pb.MoveOnGlobeRequest) (MoveOnGlobeReq, er
 		heading = req.GetHeading()
 	}
 	obstaclesProto := req.GetObstacles()
-	obstacles := make([]*spatialmath.GeoObstacle, 0, len(obstaclesProto))
+	obstacles := make([]*spatialmath.GeoGeometry, 0, len(obstaclesProto))
 	for _, eachProtoObst := range obstaclesProto {
-		convObst, err := spatialmath.GeoObstacleFromProtobuf(eachProtoObst)
+		convObst, err := spatialmath.GeoGeometryFromProtobuf(eachProtoObst)
 		if err != nil {
 			return MoveOnGlobeReq{}, err
 		}
 		obstacles = append(obstacles, convObst)
 	}
+
+	boundingRegionGeometriesProto := req.GetBoundingRegions()
+	boundingRegionGeometries := make([]*spatialmath.GeoGeometry, 0, len(boundingRegionGeometriesProto))
+	for _, eachProtoObst := range boundingRegionGeometriesProto {
+		convObst, err := spatialmath.GeoGeometryFromProtobuf(eachProtoObst)
+		if err != nil {
+			return MoveOnGlobeReq{}, err
+		}
+		boundingRegionGeometries = append(boundingRegionGeometries, convObst)
+	}
+
 	protoComponentName := req.GetComponentName()
 	if protoComponentName == nil {
 		return MoveOnGlobeReq{}, errors.New("received nil *commonpb.ResourceName")
@@ -232,6 +250,7 @@ func moveOnGlobeRequestFromProto(req *pb.MoveOnGlobeRequest) (MoveOnGlobeReq, er
 		MovementSensorName: movementSensorName,
 		Obstacles:          obstacles,
 		MotionCfg:          motionCfg,
+		BoundingRegions:    boundingRegionGeometries,
 		Extra:              req.Extra.AsMap(),
 	}, nil
 }
