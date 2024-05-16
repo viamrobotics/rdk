@@ -16,6 +16,7 @@ import (
 	goutils "go.viam.com/utils"
 	"go.viam.com/utils/pexec"
 	"go.viam.com/utils/rpc"
+	"golang.org/x/sync/errgroup"
 
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
@@ -541,7 +542,7 @@ func (manager *resourceManager) completeConfig(
 	levels := manager.resources.ReverseTopologicalSortInLevels()
 	timeout := rutils.GetResourceConfigurationTimeout(manager.logger)
 	for _, resourceNames := range levels {
-		var levelWG sync.WaitGroup
+		var levelErrG errgroup.Group
 		for _, resName := range resourceNames {
 			select {
 			case <-ctx.Done():
@@ -549,9 +550,9 @@ func (manager *resourceManager) completeConfig(
 			default:
 			}
 
-			processResource := func(resName resource.Name) {
+			resName := resName
+			processResource := func() error {
 				defer func() {
-					levelWG.Done()
 					lr.reconfigureWorkers.Done()
 				}()
 
@@ -652,8 +653,9 @@ func (manager *resourceManager) completeConfig(
 						lr.logger.CWarn(ctx, rutils.NewBuildTimeoutError(resName.String()))
 					}
 				case <-ctx.Done():
-					return
+					return ctx.Err()
 				}
+				return nil
 			}
 
 			var forceSyncRes bool
@@ -668,15 +670,18 @@ func (manager *resourceManager) completeConfig(
 				}
 			}
 
-			levelWG.Add(1)
 			lr.reconfigureWorkers.Add(1)
 			if forceSyncRes {
-				processResource(resName)
+				if err := processResource(); err != nil {
+					return
+				}
 			} else {
-				go processResource(resName)
+				levelErrG.Go(processResource)
 			}
 		} // for-each resource name
-		levelWG.Wait()
+		if err := levelErrG.Wait(); err != nil {
+			return
+		}
 	} // for-each level
 }
 
