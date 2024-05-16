@@ -1,9 +1,7 @@
 package packages
 
 import (
-	"archive/tar"
 	"bytes"
-	"compress/gzip"
 	"context"
 	"encoding/base64"
 	"fmt"
@@ -13,7 +11,6 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"path"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -285,58 +282,6 @@ func (m *cloudManager) Cleanup(ctx context.Context) error {
 	return allErrors
 }
 
-func commonCleanup(logger logging.Logger, expectedPackageDirectories map[string]bool, packagesDataDir string) error {
-	topLevelFiles, err := os.ReadDir(packagesDataDir)
-	if err != nil {
-		return err
-	}
-
-	var allErrors error
-
-	// A packageTypeDir is a directory that contains all of the packages for the specified type. ex: data/ml_model
-	for _, packageTypeDir := range topLevelFiles {
-		packageTypeDirName, err := safeJoin(packagesDataDir, packageTypeDir.Name())
-		if err != nil {
-			allErrors = multierr.Append(allErrors, err)
-			continue
-		}
-
-		// There should be no non-dir files in the packages/data dir. Delete any that exist
-		if packageTypeDir.Type()&os.ModeDir != os.ModeDir {
-			allErrors = multierr.Append(allErrors, os.Remove(packageTypeDirName))
-			continue
-		}
-		// read all of the packages in the directory and delete those that aren't in expectedPackageDirectories
-		packageDirs, err := os.ReadDir(packageTypeDirName)
-		if err != nil {
-			allErrors = multierr.Append(allErrors, err)
-			continue
-		}
-		for _, packageDir := range packageDirs {
-			packageDirName, err := safeJoin(packageTypeDirName, packageDir.Name())
-			if err != nil {
-				allErrors = multierr.Append(allErrors, err)
-				continue
-			}
-			_, expectedToExist := expectedPackageDirectories[packageDirName]
-			if !expectedToExist {
-				logger.Debugf("Removing old package %s", packageDirName)
-				allErrors = multierr.Append(allErrors, os.RemoveAll(packageDirName))
-			}
-		}
-		// re-read the directory, if there is nothing left in it, delete the directory
-		packageDirs, err = os.ReadDir(packageTypeDirName)
-		if err != nil {
-			allErrors = multierr.Append(allErrors, err)
-			continue
-		}
-		if len(packageDirs) == 0 {
-			allErrors = multierr.Append(allErrors, os.RemoveAll(packageTypeDirName))
-		}
-	}
-	return allErrors
-}
-
 // symlink packages/package-name to packages/data/ml_model/orgid-package-name-ver for backwards compatibility
 // TODO(RSDK-4386) Preserved for backwards compatibility. Could be removed or extended to other types in the future.
 func (m *cloudManager) mLModelSymlinkCreation(p config.PackageConfig) error {
@@ -392,38 +337,6 @@ func sanitizeURLForLogs(u string) string {
 	}
 	parsed.RawQuery = ""
 	return parsed.String()
-}
-
-// checkNonemptyPaths returns true if all required paths are present and non-empty.
-// This exists because we have no way to check the integrity of modules *after* they've been unpacked.
-// (We do look at checksums of downloaded tarballs, though). Once we have a better integrity check
-// system for unpacked modules, this should be removed.
-func checkNonemptyPaths(packageName string, logger logging.Logger, absPaths []string) bool {
-	missingOrEmpty := 0
-	for _, nePath := range absPaths {
-		if !path.IsAbs(nePath) {
-			// note: we expect paths to be absolute in most cases.
-			// We're okay not having corrupted files coverage for relative paths, and prefer it to
-			// risking a re-download loop from an edge case.
-			logger.Debugw("ignoring non-abs required path", "path", nePath, "package", packageName)
-			continue
-		}
-		// note: os.Stat treats symlinks as their destination. os.Lstat would stat the link itself.
-		info, err := os.Stat(nePath)
-		if err != nil {
-			if !os.IsNotExist(err) {
-				logger.Warnw("ignoring non-NotExist error for required path",
-					"path", nePath, "package", packageName, "error", err.Error())
-			} else {
-				logger.Warnw("a required path is missing, re-downloading", "path", nePath, "package", packageName)
-				missingOrEmpty++
-			}
-		} else if info.Size() == 0 {
-			missingOrEmpty++
-			logger.Warnw("a required path is empty, re-downloading", "path", nePath, "package", packageName)
-		}
-	}
-	return missingOrEmpty == 0
 }
 
 func (m *cloudManager) downloadFileFromGCSURL(
@@ -505,123 +418,6 @@ func trimLeadingZeroes(data []byte) []byte {
 
 	// If all bytes are zero, return a single zero byte
 	return []byte{0x00}
-}
-
-func unpackFile(ctx context.Context, fromFile, toDir string) error {
-	if err := os.MkdirAll(toDir, 0o700); err != nil {
-		return err
-	}
-
-	//nolint:gosec // safe
-	f, err := os.Open(fromFile)
-	if err != nil {
-		return err
-	}
-	defer utils.UncheckedErrorFunc(f.Close)
-
-	archive, err := gzip.NewReader(f)
-	if err != nil {
-		return err
-	}
-	defer utils.UncheckedErrorFunc(archive.Close)
-
-	type link struct {
-		Name string
-		Path string
-	}
-	links := []link{}
-	symlinks := []link{}
-
-	tarReader := tar.NewReader(archive)
-	for {
-		if err := ctx.Err(); err != nil {
-			return err
-		}
-
-		header, err := tarReader.Next()
-
-		if errors.Is(err, io.EOF) {
-			break
-		}
-
-		if err != nil {
-			return errors.Wrap(err, "read tar")
-		}
-
-		path := header.Name
-
-		if path == "" || path == "./" {
-			continue
-		}
-
-		if path, err = safeJoin(toDir, path); err != nil {
-			return err
-		}
-
-		info := header.FileInfo()
-
-		switch header.Typeflag {
-		case tar.TypeDir:
-			if err := os.Mkdir(path, info.Mode()); err != nil {
-				return errors.Wrapf(err, "failed to create directory %s", path)
-			}
-
-		case tar.TypeReg:
-			// This is required because it is possible create tarballs without a directory entry
-			// but whose files names start with a new directory prefix
-			// Ex: tar -czf package.tar.gz ./bin/module.exe
-			parent := filepath.Dir(path)
-			if err := os.MkdirAll(parent, 0o700); err != nil {
-				return errors.Wrapf(err, "failed to create directory %q", parent)
-			}
-			//nolint:gosec // path sanitized with safeJoin
-			outFile, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0o600|info.Mode().Perm())
-			if err != nil {
-				return errors.Wrapf(err, "failed to create file %s", path)
-			}
-			if _, err := io.CopyN(outFile, tarReader, maxPackageSize); err != nil && !errors.Is(err, io.EOF) {
-				return errors.Wrapf(err, "failed to copy file %s", path)
-			}
-			if err := outFile.Sync(); err != nil {
-				return errors.Wrapf(err, "failed to sync %s", path)
-			}
-			utils.UncheckedError(outFile.Close())
-		case tar.TypeLink:
-			name := header.Linkname
-
-			if name, err = safeJoin(toDir, name); err != nil {
-				return err
-			}
-			links = append(links, link{Path: path, Name: name})
-		case tar.TypeSymlink:
-			linkTarget, err := safeLink(toDir, header.Linkname)
-			if err != nil {
-				return err
-			}
-			symlinks = append(symlinks, link{Path: path, Name: linkTarget})
-		}
-	}
-
-	// Now we make another pass creating the links
-	for i := range links {
-		if err := ctx.Err(); err != nil {
-			return err
-		}
-		if err := linkFile(links[i].Name, links[i].Path); err != nil {
-			return errors.Wrapf(err, "failed to create link %s", links[i].Path)
-		}
-	}
-
-	for i := range symlinks {
-		if err := ctx.Err(); err != nil {
-			return err
-		}
-		if err := linkFile(symlinks[i].Name, symlinks[i].Path); err != nil {
-			return errors.Wrapf(err, "failed to create link %s", links[i].Path)
-		}
-	}
-
-	return nil
 }
 
 func getGoogleHash(headers http.Header, hashType string) string {
