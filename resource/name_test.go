@@ -12,42 +12,48 @@ func TestNewName(t *testing.T) {
 		nameString   string
 		expectedName Name
 	}
+
+	camAPI := API{Type: APIType{Namespace: APINamespace("rdk"), Name: "component"}, SubtypeName: "camera"}
+	test.That(t, camAPI, test.ShouldResemble, APINamespaceRDK.WithComponentType("camera"))
+
+	motionAPI := API{Type: APIType{Namespace: APINamespace("rdk"), Name: "service"}, SubtypeName: "motion"}
+	test.That(t, motionAPI, test.ShouldResemble, APINamespaceRDK.WithServiceType("motion"))
+
 	tcs := []testCase{
 		{
-			api:        APINamespaceRDK.WithComponentType("camera"),
-			nameString: "cam-1",
-
-			expectedName: Name{API: API{Type: APIType{Namespace: APINamespace("rdk"), Name: "component"}, SubtypeName: "camera"}, Remote: "", Name: "cam-1"},
+			api:          camAPI,
+			nameString:   "cam-1",
+			expectedName: Name{API: camAPI, Remote: "", Name: "cam-1"},
 		},
 		{
-			api:        APINamespaceRDK.WithComponentType("camera"),
+			api:        camAPI,
 			nameString: "remote:cam-1",
 
-			expectedName: Name{API: API{Type: APIType{Namespace: APINamespace("rdk"), Name: "component"}, SubtypeName: "camera"}, Remote: "remote", Name: "cam-1"},
+			expectedName: Name{API: camAPI, Remote: "remote", Name: "cam-1"},
 		},
 		{
-			api:        APINamespaceRDK.WithComponentType("camera"),
+			api:        camAPI,
 			nameString: "remoteA:remoteB:cam-1",
 
-			expectedName: Name{API: API{Type: APIType{Namespace: APINamespace("rdk"), Name: "component"}, SubtypeName: "camera"}, Remote: "remoteA:remoteB", Name: "cam-1"},
+			expectedName: Name{API: camAPI, Remote: "remoteA:remoteB", Name: "cam-1"},
 		},
 		{
-			api:        APINamespaceRDK.WithServiceType("motion"),
+			api:        motionAPI,
 			nameString: "builtin",
 
-			expectedName: Name{API: API{Type: APIType{Namespace: APINamespace("rdk"), Name: "service"}, SubtypeName: "motion"}, Remote: "", Name: "builtin"},
+			expectedName: Name{API: motionAPI, Remote: "", Name: "builtin"},
 		},
 		{
-			api:        APINamespaceRDK.WithServiceType("motion"),
+			api:        motionAPI,
 			nameString: "remote:builtin",
 
-			expectedName: Name{API: API{Type: APIType{Namespace: APINamespace("rdk"), Name: "service"}, SubtypeName: "motion"}, Remote: "remote", Name: "builtin"},
+			expectedName: Name{API: motionAPI, Remote: "remote", Name: "builtin"},
 		},
 		{
-			api:        APINamespaceRDK.WithServiceType("motion"),
+			api:        motionAPI,
 			nameString: "remoteA:remoteB:builtin",
 
-			expectedName: Name{API: API{Type: APIType{Namespace: APINamespace("rdk"), Name: "service"}, SubtypeName: "motion"}, Remote: "remoteA:remoteB", Name: "builtin"},
+			expectedName: Name{API: motionAPI, Remote: "remoteA:remoteB", Name: "builtin"},
 		},
 	}
 	for _, tc := range tcs {
@@ -61,30 +67,37 @@ func TestNewFromString(t *testing.T) {
 		expectedErr  error
 		expectedName Name
 	}
+
+	camAPI := API{Type: APIType{Namespace: APINamespace("rdk"), Name: "component"}, SubtypeName: "camera"}
+	test.That(t, camAPI, test.ShouldResemble, APINamespaceRDK.WithComponentType("camera"))
+
+	motionAPI := API{Type: APIType{Namespace: APINamespace("rdk"), Name: "service"}, SubtypeName: "motion"}
+	test.That(t, motionAPI, test.ShouldResemble, APINamespaceRDK.WithServiceType("motion"))
+
 	tcs := []testCase{
 		{
 			string:       "rdk:component:camera/cam-1",
-			expectedName: Name{API: API{Type: APIType{Namespace: APINamespace("rdk"), Name: "component"}, SubtypeName: "camera"}, Remote: "", Name: "cam-1"},
+			expectedName: Name{API: camAPI, Remote: "", Name: "cam-1"},
 		},
 		{
 			string:       "rdk:component:camera/remote:cam-1",
-			expectedName: Name{API: API{Type: APIType{Namespace: APINamespace("rdk"), Name: "component"}, SubtypeName: "camera"}, Remote: "remote", Name: "cam-1"},
+			expectedName: Name{API: camAPI, Remote: "remote", Name: "cam-1"},
 		},
 		{
 			string:       "rdk:component:camera/remoteA:remoteB:cam-1",
-			expectedName: Name{API: API{Type: APIType{Namespace: APINamespace("rdk"), Name: "component"}, SubtypeName: "camera"}, Remote: "remoteA:remoteB", Name: "cam-1"},
+			expectedName: Name{API: camAPI, Remote: "remoteA:remoteB", Name: "cam-1"},
 		},
 		{
 			string:       "rdk:service:motion/builtin",
-			expectedName: Name{API: API{Type: APIType{Namespace: APINamespace("rdk"), Name: "service"}, SubtypeName: "motion"}, Remote: "", Name: "builtin"},
+			expectedName: Name{API: motionAPI, Remote: "", Name: "builtin"},
 		},
 		{
 			string:       "rdk:service:motion/remote:builtin",
-			expectedName: Name{API: API{Type: APIType{Namespace: APINamespace("rdk"), Name: "service"}, SubtypeName: "motion"}, Remote: "remote", Name: "builtin"},
+			expectedName: Name{API: motionAPI, Remote: "remote", Name: "builtin"},
 		},
 		{
 			string:       "rdk:service:motion/remoteA:remoteB:builtin",
-			expectedName: Name{API: API{Type: APIType{Namespace: APINamespace("rdk"), Name: "service"}, SubtypeName: "motion"}, Remote: "remoteA:remoteB", Name: "builtin"},
+			expectedName: Name{API: motionAPI, Remote: "remoteA:remoteB", Name: "builtin"},
 		},
 	}
 	for _, tc := range tcs {
@@ -103,17 +116,21 @@ func TestSDPTrackName(t *testing.T) {
 		name   Name
 		output string
 	}
+
+	camAPI := API{Type: APIType{Namespace: APINamespace("rdk"), Name: "component"}, SubtypeName: "camera"}
+	test.That(t, camAPI, test.ShouldResemble, APINamespaceRDK.WithComponentType("camera"))
+
 	tcs := []testCase{
 		{
-			name:   Name{API: API{Type: APIType{Namespace: APINamespace("rdk"), Name: "component"}, SubtypeName: "camera"}, Remote: "", Name: "cam-1"},
+			name:   Name{API: camAPI, Remote: "", Name: "cam-1"},
 			output: "cam-1",
 		},
 		{
-			name:   Name{API: API{Type: APIType{Namespace: APINamespace("rdk"), Name: "component"}, SubtypeName: "camera"}, Remote: "remote", Name: "cam-1"},
+			name:   Name{API: camAPI, Remote: "remote", Name: "cam-1"},
 			output: "remote+cam-1",
 		},
 		{
-			name:   Name{API: API{Type: APIType{Namespace: APINamespace("rdk"), Name: "component"}, SubtypeName: "camera"}, Remote: "remoteA:remoteB", Name: "cam-1"},
+			name:   Name{API: camAPI, Remote: "remoteA:remoteB", Name: "cam-1"},
 			output: "remoteA+remoteB+cam-1",
 		},
 	}

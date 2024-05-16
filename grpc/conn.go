@@ -74,7 +74,8 @@ func (c *ReconfigurableClientConn) ReplaceConn(conn rpc.ClientConn) {
 			onTrackCB, ok := c.onTrackCBByTrackName[trackRemote.StreamID()]
 			c.onTrackCBByTrackNameMu.Unlock()
 			if !ok {
-				golog.Global().Errorf("Callback not found for StreamID (trackName): %s, keys(resOnTrackCBs): %#v", trackRemote.StreamID(), maps.Keys(c.onTrackCBByTrackName))
+				msg := "Callback not found for StreamID (trackName): %s, keys(resOnTrackCBs): %#v"
+				golog.Global().Errorf(msg, trackRemote.StreamID(), maps.Keys(c.onTrackCBByTrackName))
 				return
 			}
 			onTrackCB(trackRemote, rtpReceiver)

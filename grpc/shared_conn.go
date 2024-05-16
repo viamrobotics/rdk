@@ -197,7 +197,8 @@ func (sc *SharedConn) ResetConn(conn rpc.ClientConn, moduleLogger logging.Logger
 		onTrackCB, ok := sc.onTrackCBByTrackName[trackRemote.StreamID()]
 		sc.onTrackCBByTrackNameMu.Unlock()
 		if !ok {
-			sc.logger.Errorf("Callback not found for StreamID: %s, keys(resOnTrackCBs): %#v", trackRemote.StreamID(), maps.Keys(sc.onTrackCBByTrackName))
+			msg := "Callback not found for StreamID: %s, keys(resOnTrackCBs): %#v"
+			sc.logger.Errorf(msg, trackRemote.StreamID(), maps.Keys(sc.onTrackCBByTrackName))
 			return
 		}
 		onTrackCB(trackRemote, rtpReceiver)
