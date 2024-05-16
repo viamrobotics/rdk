@@ -2,7 +2,6 @@ package pinwrappers
 
 import (
 	"context"
-	"sync"
 	"sync/atomic"
 	"time"
 
@@ -28,7 +27,6 @@ type AnalogSmoother struct {
 	logger            logging.Logger
 	workers           utils.StoppableWorkers
 	analogVal         board.AnalogValue
-	mu                sync.Mutex
 }
 
 // SmoothAnalogReader wraps the given reader in a smoother.
@@ -43,6 +41,12 @@ func SmoothAnalogReader(r board.Analog, c board.AnalogReaderConfig, logger loggi
 		logger.Debug("Can't read nonpositive samples per second; defaulting to 1 instead")
 		smoother.SamplesPerSecond = 1
 	}
+
+	// Store the analog reader info
+	analogVal, err := smoother.Raw.Read(context.Background(), nil)
+	smoother.lastError.Store(&errValue{err != nil, err})
+	smoother.analogVal = analogVal
+
 	smoother.Start()
 	return smoother
 }
@@ -61,23 +65,27 @@ func (as *AnalogSmoother) Close(ctx context.Context) error {
 
 // Read returns the smoothed out reading.
 func (as *AnalogSmoother) Read(ctx context.Context, extra map[string]interface{}) (board.AnalogValue, error) {
+	analogVal := board.AnalogValue{
+		Min:      as.analogVal.Min,
+		Max:      as.analogVal.Max,
+		StepSize: as.analogVal.StepSize,
+	}
+
 	if as.data == nil { // We're using raw data, and not averaging
-		as.analogVal.Value = as.lastData
+		analogVal.Value = as.lastData
 		return as.analogVal, nil
 	}
 	avg := as.data.Average()
 	lastErr := as.lastError.Load()
-	as.mu.Lock()
-	defer as.mu.Unlock()
-	as.analogVal.Value = avg
+	analogVal.Value = avg
 	if lastErr == nil {
-		return as.analogVal, nil
+		return analogVal, nil
 	}
 	//nolint:forcetypeassert
 	if lastErr.present {
-		return as.analogVal, lastErr.err
+		return analogVal, lastErr.err
 	}
-	return as.analogVal, nil
+	return analogVal, nil
 }
 
 // Start begins the smoothing routine that reads from the underlying
@@ -110,13 +118,6 @@ func (as *AnalogSmoother) Start() {
 	as.workers = utils.NewStoppableWorkers(func(ctx context.Context) {
 		consecutiveErrors := 0
 		var lastError error
-
-		// Store the full analog reader value
-		analogVal, err := as.Raw.Read(ctx, nil)
-		as.lastError.Store(&errValue{err != nil, err})
-		as.mu.Lock()
-		as.analogVal = analogVal
-		as.mu.Unlock()
 
 		for {
 			select {
