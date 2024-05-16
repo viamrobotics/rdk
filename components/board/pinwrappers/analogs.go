@@ -65,20 +65,19 @@ func (as *AnalogSmoother) Read(ctx context.Context, extra map[string]interface{}
 		as.analogVal.Value = as.lastData
 		return as.analogVal, nil
 	}
-
 	avg := as.data.Average()
 	lastErr := as.lastError.Load()
 	as.mu.Lock()
 	defer as.mu.Unlock()
 	as.analogVal.Value = avg
 	if lastErr == nil {
+
 		return as.analogVal, nil
 	}
 	//nolint:forcetypeassert
 	if lastErr.present {
 		return as.analogVal, lastErr.err
 	}
-
 	return as.analogVal, nil
 }
 
@@ -101,14 +100,12 @@ func (as *AnalogSmoother) Start() {
 	//    numSamples        4
 
 	numSamples := (as.SamplesPerSecond * as.AverageOverMillis) / 1000
-	var nanosBetween int
+	nanosBetween := 1e9 / as.SamplesPerSecond
 	if numSamples >= 1 {
 		as.data = utils.NewRollingAverage(numSamples)
-		nanosBetween = 1e9 / as.SamplesPerSecond
 	} else {
 		as.logger.Debug("Too few samples to smooth over; defaulting to raw data.")
 		as.data = nil
-		nanosBetween = as.AverageOverMillis * 1e6
 	}
 
 	as.workers = utils.NewStoppableWorkers(func(ctx context.Context) {
@@ -152,13 +149,8 @@ func (as *AnalogSmoother) Start() {
 					as.logger.CErrorw(ctx, "unable to read analog for 10 seconds", "error", err)
 					consecutiveErrors = 0
 				}
-				lastError = err
 			}
-
-			as.lastData = reading.Value
-			if as.data != nil {
-				as.data.Add(reading.Value)
-			}
+			lastError = err
 
 			end := time.Now()
 
