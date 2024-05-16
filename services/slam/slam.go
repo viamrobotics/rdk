@@ -94,22 +94,27 @@ func FromDependencies(deps resource.Dependencies, name string) (Service, error) 
 }
 
 // Service describes the functions that are available to the service.
-// 
+//
+// The Go SDK implements helper functions that concatenate streaming
+// responses. Some of the following examples use correstponding
+// helper methods instead of interface methods.
+//
 // Position example:
 //     // Get the current position of the specified source component
 //     // in the SLAM map as a Pose.
 //     pos, name, err := mySLAMService.Position(context.Background())
-// PointCloudMap example:
+// PointCloudMap example (using PointCloudMapFull helper method):
 //     // Get the point cloud map in standard PCD format.
-//     pcd_map, err := mySLAMService.PointCloudMap(
-//         context.Background(), true)
-// InternalState example:
+//     pcdMapBytes, err := PointCloudMapFull(
+//         context.Background(), mySLAMService, true)
+// InternalState example (using InternalStateFull helper method):
 //     // Get the internal state of the SLAM algorithm required
 //     // to continue mapping/localization.
-//     internalState, err := mySlam.InternalState(context.Background())
+//     internalStateBytes, err := InternalStateFull(
+//         context.Background(), mySLAMService)
 // Properties example:
 //     // Get the properties of your current SLAM session
-//     properties, err := mySlam.Properties(context.Background())
+//     properties, err := mySLAMService.Properties(context.Background())
 type Service interface {
 	resource.Resource
 	Position(ctx context.Context) (spatialmath.Pose, string, error)
