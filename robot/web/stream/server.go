@@ -131,7 +131,6 @@ func (ss *Server) AddStream(ctx context.Context, req *streampb.AddStreamRequest)
 				availableStreams += ", "
 			}
 			availableStreams += fmt.Sprintf("%q", n)
-
 		}
 		err := fmt.Errorf("no stream for %q, available streams: %s", req.Name, availableStreams)
 		ss.logger.Error(err.Error())

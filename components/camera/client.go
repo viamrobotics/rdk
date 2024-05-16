@@ -386,6 +386,7 @@ func (c *client) Close(ctx context.Context) error {
 	return nil
 }
 
+// Tracker is the interface both grpc.SharedConn and grpc.ReconfigurableClientConn are expected to conform to.
 type Tracker interface {
 	AddOnTrackSub(trackName string, onTrackCB grpc.OnTrackCB)
 	RemoveOnTrackSub(trackName string)

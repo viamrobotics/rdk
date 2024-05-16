@@ -686,25 +686,11 @@ func TestRTPPassthroughWithoutWebRTC(t *testing.T) {
 	})
 }
 
-func setupLocalRobot(
+func setupRealRobot(
 	t *testing.T,
-	ctx context.Context,
-	cfg *config.Config,
+	robotConfig *config.Config,
 	logger logging.Logger,
-) robot.LocalRobot {
-	t.Helper()
-
-	// use a temporary home directory so that it doesn't collide with
-	// the user's/other tests' viam home directory
-	r, err := robotimpl.New(ctx, cfg, logger, robotimpl.WithViamHomeDir(t.TempDir()))
-	test.That(t, err, test.ShouldBeNil)
-	t.Cleanup(func() {
-		test.That(t, r.Close(ctx), test.ShouldBeNil)
-	})
-	return r
-}
-
-func setupRealRobot(t *testing.T, robotConfig *config.Config, logger logging.Logger) (context.Context, robot.LocalRobot, string, web.Service) {
+) (context.Context, robot.LocalRobot, string, web.Service) {
 	t.Helper()
 
 	ctx := context.Background()
