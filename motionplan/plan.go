@@ -308,7 +308,18 @@ func (e *ExecutionState) CurrentPoses() map[string]*referenceframe.PoseInFrame {
 	return e.currentPose
 }
 
-// ErrorState returns the Pose between the planned Pose of the given component name its current Pose
+// ErrorState returns the Pose between the planned Pose of the given component name its current Pose.
 func (e *ExecutionState) ErrorState(componentName string) (spatialmath.Pose, error) {
-	return nil, nil
+	poses, err := e.plan.Path().GetFramePoses(componentName)
+	if err != nil {
+		return nil, err
+	}
+	if e.index < 0 || e.index >= len(poses) {
+		return nil, errors.New("cannot use ExecutionState index %d, out of Path bounds")
+	}
+	currentPose, ok := e.currentPose[componentName]
+	if !ok {
+		return nil, fmt.Errorf("frame named %s not found in ExecutionState", componentName)
+	}
+	return spatialmath.PoseBetween(currentPose.Pose(), poses[e.index]), nil
 }
