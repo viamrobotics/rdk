@@ -109,20 +109,20 @@ func TestLocalManagerUtils(t *testing.T) {
 		destDir := pkg.LocalDataDirectory(local.packagesDir)
 
 		// case: both missing
-		err = mgr.RecopyIfChanged(context.Background(), missingMod)
+		err = mgr.SyncOne(context.Background(), missingMod)
 		test.That(t, err, test.ShouldNotBeNil)
 
 		// case: dest missing
-		err = mgr.RecopyIfChanged(context.Background(), mod)
+		err = mgr.SyncOne(context.Background(), mod)
 		test.That(t, err, test.ShouldBeNil)
 
 		// case: source missing
-		err = mgr.RecopyIfChanged(context.Background(), missingMod)
+		err = mgr.SyncOne(context.Background(), missingMod)
 		test.That(t, os.IsNotExist(err), test.ShouldBeTrue)
 
 		// case: dest newer
 		prevModTime := modTime(t, destDir)
-		err = mgr.RecopyIfChanged(context.Background(), mod)
+		err = mgr.SyncOne(context.Background(), mod)
 		test.That(t, err, test.ShouldBeNil)
 		newModTime := modTime(t, destDir)
 		test.That(t, prevModTime, test.ShouldEqual, newModTime)
@@ -132,7 +132,7 @@ func TestLocalManagerUtils(t *testing.T) {
 		newTar := filepath.Join(tmp, "newer.tar.gz")
 		time.Sleep(time.Millisecond * 10)
 		copyFile(t, "test_package.tar.gz", newTar)
-		err = mgr.RecopyIfChanged(context.Background(), config.Module{Name: mod.Name, Type: config.ModuleTypeLocal, ExePath: newTar})
+		err = mgr.SyncOne(context.Background(), config.Module{Name: mod.Name, Type: config.ModuleTypeLocal, ExePath: newTar})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, prevModTime.Before(modTime(t, destDir)), test.ShouldBeTrue)
 	})

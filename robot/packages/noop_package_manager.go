@@ -44,7 +44,7 @@ func (m *noopManager) Cleanup(ctx context.Context) error {
 	return nil
 }
 
-// RecopyIfChanged is a no-op for this package manager variant.
-func (m *noopManager) RecopyIfChanged(ctx context.Context, mod config.Module) error {
+// SyncOne is a no-op for this package manager variant.
+func (m *noopManager) SyncOne(ctx context.Context, mod config.Module) error {
 	return nil
 }

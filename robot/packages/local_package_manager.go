@@ -217,9 +217,9 @@ func newerOrMissing(src, dest string) (bool, error) {
 	return srcStat.ModTime().After(destStat.ModTime()), nil
 }
 
-// RecopyIfChanged recopies from the tarball if the tarball is newer than the destination.
-// It also adds or overwrites the module in managedModules. Noop except for localManager.
-func (m *localManager) RecopyIfChanged(ctx context.Context, mod config.Module) error {
+// SyncOne recopies from the tarball if the tarball is newer than the destination.
+// It also adds or overwrites the module in managedModules.
+func (m *localManager) SyncOne(ctx context.Context, mod config.Module) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 

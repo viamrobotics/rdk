@@ -1266,7 +1266,7 @@ func (r *localRobot) restartSingleModule(ctx context.Context, mod config.Module)
 	if err != nil {
 		return err
 	}
-	err = r.localPackages.RecopyIfChanged(ctx, mod)
+	err = r.localPackages.SyncOne(ctx, mod)
 	if err != nil {
 		return err
 	}
