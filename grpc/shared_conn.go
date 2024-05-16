@@ -153,6 +153,8 @@ func (sc *SharedConn) ResetConn(conn rpc.ClientConn, moduleLogger logging.Logger
 		sc.logger = moduleLogger.Sublogger("conn")
 	}
 
+	// It is safe to access this without a mutex as it is only ever nil once at the beginning of the
+	// SharedConn's lifetime
 	if sc.onTrackCBByTrackName == nil {
 		// Same initilization argument as above with the logger.
 		sc.onTrackCBByTrackName = make(map[string]OnTrackCB)
