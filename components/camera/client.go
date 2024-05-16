@@ -636,15 +636,15 @@ func (c *client) trackName() string {
 	if _, ok := c.conn.(*grpc.SharedConn); ok {
 		return c.Name().String()
 	}
-	// otherwise we know we are talking to either a main or remote robot part
 
-	trackName := c.Name().SDPTrackName()
+	// otherwise we know we are talking to either a main or remote robot part
 	if c.remoteName != "" {
 		// if c.remoteName != "" it indicates that we are talking to a remote part & we need to pop the remote name
 		// as the remote doesn't know it's own name from the perspective of the main part
-		trackName = c.Name().PopRemote().SDPTrackName()
+		return c.Name().PopRemote().SDPTrackName()
 	}
-	return trackName
+	// in this case we are talking to a main part & the remote name (if it exists) needs to be preserved
+	return c.Name().SDPTrackName()
 }
 
 func (c *client) unsubscribeAll() {
