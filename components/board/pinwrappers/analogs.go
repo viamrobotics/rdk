@@ -71,7 +71,6 @@ func (as *AnalogSmoother) Read(ctx context.Context, extra map[string]interface{}
 	defer as.mu.Unlock()
 	as.analogVal.Value = avg
 	if lastErr == nil {
-
 		return as.analogVal, nil
 	}
 	//nolint:forcetypeassert
