@@ -423,6 +423,7 @@ func (ss *StreamState) restart(ctx context.Context) {
 }
 
 func (ss *StreamState) streamH264Passthrough(ctx context.Context) error {
+	// Stream names are slightly modified versions of the resource short name
 	shortName := resource.SDPTrackNameToShortName(ss.Stream.Name())
 	cam, err := camera.FromRobot(ss.robot, shortName)
 	if err != nil {
