@@ -575,7 +575,6 @@ func (manager *resourceManager) completeConfig(
 					defer func() {
 						stopSlowLogger()
 						resChan <- struct{}{}
-						lr.reconfigureWorkers.Done()
 					}()
 					gNode, ok := manager.resources.Node(resName)
 					if !ok || !gNode.NeedsReconfigure() {
@@ -681,13 +680,16 @@ func (manager *resourceManager) completeConfig(
 				}
 			}
 
-			lr.reconfigureWorkers.Add(1)
 			if syncRes {
 				if err := processResource(); err != nil {
 					return
 				}
 			} else {
-				levelErrG.Go(processResource)
+				lr.reconfigureWorkers.Add(1)
+				levelErrG.Go(func() error {
+					lr.reconfigureWorkers.Done()
+					return processResource()
+				})
 			}
 		} // for-each resource name
 		if err := levelErrG.Wait(); err != nil {
