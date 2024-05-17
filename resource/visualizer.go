@@ -32,7 +32,8 @@ type GetSnapshotInfo struct {
 	Count    int
 }
 
-// SaveSnapshot takes a DOT snapshot of a resource graph. To prevent
+// SaveSnapshot takes a DOT snapshot of a resource graph. If not called inside a resourceGraphLock, there is a chance
+// of the graph changing as the snapshot is being taken.
 func (viz *Visualizer) SaveSnapshot(g *Graph) error {
 	dot, err := g.ExportDot()
 	if err != nil {
@@ -254,6 +255,8 @@ func exportEdge(bw *blockWriter, left, right Name) {
 // ExportDot exports the resource graph as a DOT representation for visualization.
 // DOT reference: https://graphviz.org/doc/info/lang.html.
 // This function will output the exact same string given the same input resource graph.
+// If not called inside a resourceGraphLock, there is a chance
+// of the graph changing as the snapshot is being taken.
 func (g *Graph) ExportDot() (string, error) {
 	g.mu.Lock()
 	defer g.mu.Unlock()
