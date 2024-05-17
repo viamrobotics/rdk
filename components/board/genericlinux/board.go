@@ -339,6 +339,20 @@ func (b *Board) reconfigureInterrupts(newConf *LinuxBoardConfig) error {
 	return nil
 }
 
+func (b *Board) createGpioPin(mapping GPIOBoardMapping) *gpioPin {
+	pin := gpioPin{
+		boardWorkers: &b.activeBackgroundWorkers,
+		devicePath:   mapping.GPIOChipDev,
+		offset:       uint32(mapping.GPIO),
+		cancelCtx:    b.cancelCtx,
+		logger:       b.logger,
+	}
+	if mapping.HWPWMSupported {
+		pin.hwPwm = newPwmDevice(mapping.PWMSysFsDir, mapping.PWMID, b.logger)
+	}
+	return &pin
+}
+
 type wrappedAnalogReader struct {
 	mu         sync.RWMutex
 	chipSelect string
