@@ -574,6 +574,9 @@ func TestNavSetup(t *testing.T) {
 	paths, err := ns.Paths(ctx, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, paths, test.ShouldBeEmpty)
+
+	test.That(t, len(ns.(*builtIn).boundingRegions), test.ShouldEqual, 1)
+	test.That(t, len(ns.(*builtIn).obstacles), test.ShouldEqual, 1)
 }
 
 func setupStartWaypoint(ctx context.Context, t *testing.T, logger logging.Logger) startWaypointState {

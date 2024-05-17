@@ -45,6 +45,7 @@ var (
 	errNegativeObstaclePollingFrequencyHz = errors.New("obstacle_polling_frequency_hz must be non-negative if set")
 	errNegativePlanDeviationM             = errors.New("plan_deviation_m must be non-negative if set")
 	errNegativeReplanCostFactor           = errors.New("replan_cost_factor must be non-negative if set")
+	errGeomWithTranslation                = errors.New("geometries specified through navigation are not allowed to have a translation")
 )
 
 const (
@@ -99,6 +100,7 @@ type Config struct {
 	MetersPerSec float64 `json:"meters_per_sec,omitempty"`
 
 	Obstacles                  []*spatialmath.GeoGeometryConfig `json:"obstacles,omitempty"`
+	BoundingRegions            []*spatialmath.GeoGeometryConfig `json:"bounding_regions,omitempty"`
 	PositionPollingFrequencyHz float64                          `json:"position_polling_frequency_hz,omitempty"`
 	ObstaclePollingFrequencyHz float64                          `json:"obstacle_polling_frequency_hz,omitempty"`
 	PlanDeviationM             float64                          `json:"plan_deviation_m,omitempty"`
@@ -181,7 +183,16 @@ func (conf *Config) Validate(path string) ([]string, error) {
 	for _, obs := range conf.Obstacles {
 		for _, geoms := range obs.Geometries {
 			if !geoms.TranslationOffset.ApproxEqual(r3.Vector{}) {
-				return nil, errors.New("geometries specified through the navigation are not allowed to have a translation")
+				return nil, errGeomWithTranslation
+			}
+		}
+	}
+
+	// Ensure bounding regions have no translation
+	for _, region := range conf.BoundingRegions {
+		for _, geoms := range region.Geometries {
+			if !geoms.TranslationOffset.ApproxEqual(r3.Vector{}) {
+				return nil, errGeomWithTranslation
 			}
 		}
 	}
@@ -225,6 +236,7 @@ type builtIn struct {
 	// exploreMotionService will be removed once the motion explore model is integrated into motion builtin
 	exploreMotionService motion.Service
 	obstacles            []*spatialmath.GeoGeometry
+	boundingRegions      []*spatialmath.GeoGeometry
 
 	motionCfg        *motion.MotionConfiguration
 	replanCostFactor float64
@@ -368,6 +380,12 @@ func (svc *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies,
 		return err
 	}
 
+	// Parse bounding regions from the configuration
+	newBoundingRegions, err := spatialmath.GeoGeometriesFromConfigs(svcConfig.Obstacles)
+	if err != nil {
+		return err
+	}
+
 	// Create explore motion service
 	// Note: this service will disappear after the explore motion model is integrated into builtIn
 	exploreMotionConf := resource.Config{ConvertedAttributes: &explore.Config{}}
@@ -381,6 +399,7 @@ func (svc *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies,
 	svc.mapType = mapType
 	svc.motionService = motionSvc
 	svc.obstacles = newObstacles
+	svc.boundingRegions = newBoundingRegions
 	svc.replanCostFactor = replanCostFactor
 	svc.visionServicesByName = visionServicesByName
 	svc.motionCfg = &motion.MotionConfiguration{
@@ -524,6 +543,7 @@ func (svc *builtIn) moveToWaypoint(ctx context.Context, wp navigation.Waypoint, 
 		MovementSensorName: svc.movementSensor.Name(),
 		Obstacles:          svc.obstacles,
 		MotionCfg:          svc.motionCfg,
+		BoundingRegions:    svc.boundingRegions,
 		Extra:              extra,
 	}
 	cancelCtx, cancelFn := context.WithCancel(ctx)
