@@ -375,7 +375,6 @@ func (ms *explore) checkForObstacles(
 				}
 				errCounterCurrentInputs++
 			}
-			fmt.Println("WE ARE ABOUT TO ENTER CHECKPLAN")
 			// Check plan for transient obstacles
 			err = motionplan.CheckPlan(
 				kb.Kinematics(),
@@ -385,8 +384,6 @@ func (ms *explore) checkForObstacles(
 				lookAheadDistanceMM,
 				ms.logger,
 			)
-			fmt.Println("HELLLL YEA WE MADE IT OUT OF THE FUNCTION")
-			fmt.Println("err: ", err)
 			if err != nil {
 				if strings.Contains(err.Error(), "found constraint violation or collision") {
 					ms.logger.CDebug(ctx, "collision found in given range")
