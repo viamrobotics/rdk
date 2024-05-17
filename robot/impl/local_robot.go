@@ -51,6 +51,7 @@ type localRobot struct {
 	operations                 *operation.Manager
 	sessionManager             session.Manager
 	packageManager             packages.ManagerSyncer
+	localPackages              packages.ManagerSyncer
 	cloudConnSvc               icloud.ConnectionService
 	logger                     logging.Logger
 	activeBackgroundWorkers    sync.WaitGroup
@@ -419,6 +420,10 @@ func newWithResources(
 		r.logger.CDebug(ctx, "Using no-op PackageManager when Cloud config is not available")
 		r.packageManager = packages.NewNoopManager()
 	}
+	r.localPackages, err = packages.NewLocalManager(cfg, logger)
+	if err != nil {
+		return nil, err
+	}
 
 	// start process manager early
 	if err := r.manager.processManager.Start(ctx); err != nil {
@@ -475,6 +480,7 @@ func newWithResources(
 		homeDir,
 		cloudID,
 		logger,
+		cfg.PackagePath,
 	)
 
 	r.activeBackgroundWorkers.Add(1)
@@ -1107,6 +1113,7 @@ func (r *localRobot) Reconfigure(ctx context.Context, newConfig *config.Config) 
 	if err != nil {
 		allErrs = multierr.Combine(allErrs, err)
 	}
+	allErrs = multierr.Combine(allErrs, r.localPackages.Sync(ctx, newConfig.Packages, newConfig.Modules))
 
 	// Add default services and process their dependencies. Dependencies may
 	// already come from config validation so we check that here.
@@ -1203,6 +1210,7 @@ func (r *localRobot) Reconfigure(ctx context.Context, newConfig *config.Config) 
 	// Cleanup unused packages after all old resources have been closed above. This ensures
 	// processes are shutdown before any files are deleted they are using.
 	allErrs = multierr.Combine(allErrs, r.packageManager.Cleanup(ctx))
+	allErrs = multierr.Combine(allErrs, r.localPackages.Cleanup(ctx))
 	// Cleanup extra dirs from previous modules or rogue scripts.
 	allErrs = multierr.Combine(allErrs, r.manager.moduleManager.CleanModuleDataDirectory())
 
@@ -1251,7 +1259,22 @@ func (r *localRobot) restartSingleModule(ctx context.Context, mod config.Module)
 		Left:     r.Config(),
 		Right:    r.Config(),
 		Added:    &config.Config{},
-		Modified: &config.ModifiedConfigDiff{Modules: []config.Module{mod}},
+		Modified: &config.ModifiedConfigDiff{},
+		Removed:  &config.Config{Modules: []config.Module{mod}},
+	}
+	err := r.manager.updateResources(ctx, &diff)
+	if err != nil {
+		return err
+	}
+	err = r.localPackages.SyncOne(ctx, mod)
+	if err != nil {
+		return err
+	}
+	diff = config.Diff{
+		Left:     r.Config(),
+		Right:    r.Config(),
+		Added:    &config.Config{Modules: []config.Module{mod}},
+		Modified: &config.ModifiedConfigDiff{},
 		Removed:  &config.Config{},
 	}
 	return r.manager.updateResources(ctx, &diff)

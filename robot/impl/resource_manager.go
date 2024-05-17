@@ -105,12 +105,14 @@ func (manager *resourceManager) startModuleManager(
 	viamHomeDir string,
 	robotCloudID string,
 	logger logging.Logger,
+	packagesDir string,
 ) {
 	mmOpts := modmanageroptions.Options{
 		UntrustedEnv:            untrustedEnv,
 		RemoveOrphanedResources: removeOrphanedResources,
 		ViamHomeDir:             viamHomeDir,
 		RobotCloudID:            robotCloudID,
+		PackagesDir:             packagesDir,
 	}
 	manager.moduleManager = modmanager.NewManager(ctx, parentAddr, logger, mmOpts)
 }
