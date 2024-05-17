@@ -117,6 +117,9 @@ type numatoBoard struct {
 	sent    map[string]bool
 	sentMu  sync.Mutex
 	workers rdkutils.StoppableWorkers
+
+	maxAnalogVoltage float32
+	stepSize         float32
 }
 
 func (b *numatoBoard) addToSent(msg string) {
@@ -324,6 +327,12 @@ func (b *numatoBoard) SetPowerMode(ctx context.Context, mode pb.PowerMode, durat
 }
 
 func (b *numatoBoard) Close(ctx context.Context) error {
+	for _, analog := range b.analogs {
+		if err := analog.Close(ctx); err != nil {
+			return err
+		}
+	}
+
 	atomic.AddInt32(&b.closed, 1)
 
 	// Without this line, the coroutine gets stuck in the call to in.ReadString.
@@ -340,12 +349,6 @@ func (b *numatoBoard) Close(ctx context.Context) error {
 	}
 
 	b.workers.Stop()
-
-	for _, analog := range b.analogs {
-		if err := analog.Close(ctx); err != nil {
-			return err
-		}
-	}
 	return nil
 }
 
@@ -354,12 +357,18 @@ type analog struct {
 	pin string
 }
 
-func (a *analog) Read(ctx context.Context, extra map[string]interface{}) (int, error) {
+// Read returns the analog value with the range and step size in V/bit.
+func (a *analog) Read(ctx context.Context, extra map[string]interface{}) (board.AnalogValue, error) {
 	res, err := a.b.doSendReceive(ctx, fmt.Sprintf("adc read %s", a.pin))
 	if err != nil {
-		return 0, err
+		return board.AnalogValue{}, err
 	}
-	return strconv.Atoi(res)
+	reading, err := strconv.Atoi(res)
+	if err != nil {
+		return board.AnalogValue{}, err
+	}
+
+	return board.AnalogValue{Value: reading, Min: 0, Max: a.b.maxAnalogVoltage, StepSize: a.b.stepSize}, nil
 }
 
 func (a *analog) Write(ctx context.Context, value int, extra map[string]interface{}) error {
@@ -384,6 +393,49 @@ func connect(ctx context.Context, name resource.Name, conf *Config, logger loggi
 		path = devs[0].Path
 	}
 
+	// Find the numato board's productid
+	products := getSerialDevices()
+
+	var productID int
+	for _, product := range products {
+		if product.ID.Vendor != 0x2a19 {
+			continue
+		}
+		// we can safely get the first numato productID we find because
+		// we only support one board being used at a time
+		productID = product.ID.Product
+		break
+	}
+
+	// Find the max analog voltage and stepSize based on the productID.
+	var max float32
+	var stepSize float32
+	switch productID {
+	case 0x800:
+		// 8 and 16 pin usb versions have the same product ID but different voltage ranges
+		// both have 10 bit resolution
+		if conf.Pins == 8 {
+			max = 5.0
+		} else if conf.Pins == 16 {
+			max = 3.3
+		}
+		stepSize = max / 1024
+	case 0x802:
+		// 32 channel usb numato has 10 bit resolution
+		max = 3.3
+		stepSize = max / 1024
+	case 0x805:
+		// 128 channel usb numato has 12 bit resolution
+		max = 3.3
+		stepSize = max / 4096
+	case 0xC05:
+		// 1 channel usb relay module numato - 10 bit resolution
+		max = 5.0
+		stepSize = max / 1024
+	default:
+		logger.Warnf("analog range and step size are not supported for numato with product id %d", productID)
+	}
+
 	options := goserial.OpenOptions{
 		PortName:        path,
 		BaudRate:        19200,
@@ -396,12 +448,13 @@ func connect(ctx context.Context, name resource.Name, conf *Config, logger loggi
 	if err != nil {
 		return nil, err
 	}
-
 	b := &numatoBoard{
-		Named:  name.AsNamed(),
-		pins:   pins,
-		port:   device,
-		logger: logger,
+		Named:            name.AsNamed(),
+		pins:             pins,
+		port:             device,
+		logger:           logger,
+		maxAnalogVoltage: max,
+		stepSize:         stepSize,
 	}
 
 	b.analogs = map[string]*pinwrappers.AnalogSmoother{}
@@ -419,6 +472,5 @@ func connect(ctx context.Context, name resource.Name, conf *Config, logger loggi
 		return nil, multierr.Combine(b.Close(ctx), err)
 	}
 	b.logger.CDebugw(ctx, "numato startup", "version", ver)
-
 	return b, nil
 }

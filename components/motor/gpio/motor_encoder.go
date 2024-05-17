@@ -314,6 +314,10 @@ func (m *EncodedMotor) goForInternal(rpm, goalPos, direction float64) error {
 	m.activeBackgroundWorkers.Add(1)
 	go func() {
 		defer m.activeBackgroundWorkers.Done()
+		if err := m.real.SetPower(rpmCtx, 0.2*direction, nil); err != nil {
+			m.logger.Error(err)
+			return
+		}
 		if err := m.rpmMonitor(rpmCtx, rpm, goalPos, direction); err != nil {
 			m.logger.Error(err)
 		}

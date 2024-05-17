@@ -3,10 +3,11 @@ package vision
 import (
 	"bytes"
 	"context"
+	"image"
 
-	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
 	commonpb "go.viam.com/api/common/v1"
+	camerapb "go.viam.com/api/component/camera/v1"
 	pb "go.viam.com/api/service/vision/v1"
 
 	"go.viam.com/rdk/pointcloud"
@@ -15,6 +16,9 @@ import (
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/utils"
 	"go.viam.com/rdk/vision"
+	"go.viam.com/rdk/vision/classification"
+	"go.viam.com/rdk/vision/objectdetection"
+	"go.viam.com/rdk/vision/viscapture"
 )
 
 // serviceServer implements the Vision Service.
@@ -47,28 +51,8 @@ func (server *serviceServer) GetDetections(
 	if err != nil {
 		return nil, err
 	}
-	protoDets := make([]*pb.Detection, 0, len(detections))
-	for _, det := range detections {
-		box := det.BoundingBox()
-		if box == nil {
-			return nil, errors.New("detection has no bounding box, must return a bounding box")
-		}
-		xMin := int64(box.Min.X)
-		yMin := int64(box.Min.Y)
-		xMax := int64(box.Max.X)
-		yMax := int64(box.Max.Y)
-		d := &pb.Detection{
-			XMin:       &xMin,
-			YMin:       &yMin,
-			XMax:       &xMax,
-			YMax:       &yMax,
-			Confidence: det.Score(),
-			ClassName:  det.Label(),
-		}
-		protoDets = append(protoDets, d)
-	}
 	return &pb.GetDetectionsResponse{
-		Detections: protoDets,
+		Detections: detsToProto(detections),
 	}, nil
 }
 
@@ -86,11 +70,17 @@ func (server *serviceServer) GetDetectionsFromCamera(
 	if err != nil {
 		return nil, err
 	}
+	return &pb.GetDetectionsFromCameraResponse{
+		Detections: detsToProto(detections),
+	}, nil
+}
+
+func detsToProto(detections []objectdetection.Detection) []*pb.Detection {
 	protoDets := make([]*pb.Detection, 0, len(detections))
 	for _, det := range detections {
 		box := det.BoundingBox()
 		if box == nil {
-			return nil, errors.New("detection has no bounding box, must return a bounding box")
+			return nil
 		}
 		xMin := int64(box.Min.X)
 		yMin := int64(box.Min.Y)
@@ -106,9 +96,7 @@ func (server *serviceServer) GetDetectionsFromCamera(
 		}
 		protoDets = append(protoDets, d)
 	}
-	return &pb.GetDetectionsFromCameraResponse{
-		Detections: protoDets,
-	}, nil
+	return protoDets
 }
 
 func (server *serviceServer) GetClassifications(
@@ -129,16 +117,8 @@ func (server *serviceServer) GetClassifications(
 	if err != nil {
 		return nil, err
 	}
-	protoCs := make([]*pb.Classification, 0, len(classifications))
-	for _, c := range classifications {
-		cc := &pb.Classification{
-			ClassName:  c.Label(),
-			Confidence: c.Score(),
-		}
-		protoCs = append(protoCs, cc)
-	}
 	return &pb.GetClassificationsResponse{
-		Classifications: protoCs,
+		Classifications: clasToProto(classifications),
 	}, nil
 }
 
@@ -156,6 +136,12 @@ func (server *serviceServer) GetClassificationsFromCamera(
 	if err != nil {
 		return nil, err
 	}
+	return &pb.GetClassificationsFromCameraResponse{
+		Classifications: clasToProto(classifications),
+	}, nil
+}
+
+func clasToProto(classifications classification.Classifications) []*pb.Classification {
 	protoCs := make([]*pb.Classification, 0, len(classifications))
 	for _, c := range classifications {
 		cc := &pb.Classification{
@@ -164,9 +150,7 @@ func (server *serviceServer) GetClassificationsFromCamera(
 		}
 		protoCs = append(protoCs, cc)
 	}
-	return &pb.GetClassificationsFromCameraResponse{
-		Classifications: protoCs,
-	}, nil
+	return protoCs
 }
 
 // GetObjectPointClouds returns an array of objects from the frame from a camera of the underlying robot. A specific MIME type
@@ -237,6 +221,84 @@ func (server *serviceServer) GetProperties(ctx context.Context,
 		ObjectPointCloudsSupported: props.ObjectPCDsSupported,
 	}
 	return out, nil
+}
+
+func (server *serviceServer) CaptureAllFromCamera(
+	ctx context.Context,
+	req *pb.CaptureAllFromCameraRequest,
+) (*pb.CaptureAllFromCameraResponse, error) {
+	ctx, span := trace.StartSpan(ctx, "service::vision::server::CaptureAllFromCamera")
+	defer span.End()
+	svc, err := server.coll.Resource(req.Name)
+	if err != nil {
+		return nil, err
+	}
+	captOptions := viscapture.CaptureOptions{
+		ReturnImage:           req.ReturnImage,
+		ReturnDetections:      req.ReturnDetections,
+		ReturnClassifications: req.ReturnClassifications,
+		ReturnObject:          req.ReturnObjectPointClouds,
+	}
+	capt, err := svc.CaptureAllFromCamera(ctx,
+		req.CameraName,
+		captOptions,
+		req.Extra.AsMap(),
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	objProto, err := segmentsToProto(req.CameraName, capt.Objects)
+	if err != nil {
+		return nil, err
+	}
+
+	imgProto, err := imageToProto(ctx, capt.Image, req.CameraName)
+	if err != nil {
+		return nil, err
+	}
+
+	return &pb.CaptureAllFromCameraResponse{
+		Image:           imgProto,
+		Detections:      detsToProto(capt.Detections),
+		Classifications: clasToProto(capt.Classifications),
+		Objects:         objProto,
+	}, nil
+}
+
+func imageToProto(ctx context.Context, img image.Image, cameraName string) (*camerapb.Image, error) {
+	if img == nil {
+		return &camerapb.Image{}, nil
+	}
+	imgBytes, mimeType, err := encodeUnknownType(ctx, img, utils.MimeTypeJPEG)
+	if err != nil {
+		return nil, err
+	}
+	format := utils.MimeTypeToFormat[mimeType]
+	return &camerapb.Image{
+		Image:      imgBytes,
+		Format:     format,
+		SourceName: cameraName,
+	}, nil
+}
+
+func encodeUnknownType(ctx context.Context, img image.Image, defaultMime string) ([]byte, string, error) {
+	var mimeType string
+
+	switch im := img.(type) {
+	case *rimage.LazyEncodedImage:
+		return im.RawData(), im.MIMEType(), nil
+	case *image.Gray, *rimage.DepthMap:
+		mimeType = utils.MimeTypeRawDepth
+
+	default:
+		mimeType = defaultMime
+	}
+	imgBytes, err := rimage.EncodeImage(ctx, img, mimeType)
+	if err != nil {
+		return nil, "", err
+	}
+	return imgBytes, mimeType, nil
 }
 
 // DoCommand receives arbitrary commands.
