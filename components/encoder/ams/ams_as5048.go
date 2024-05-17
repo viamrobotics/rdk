@@ -17,6 +17,7 @@ import (
 	"go.viam.com/rdk/components/encoder"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
+	rtdutils "go.viam.com/rdk/utils"
 )
 
 const (
@@ -112,9 +113,7 @@ type Encoder struct {
 	i2cBus                  buses.I2C
 	i2cAddr                 byte
 	i2cBusName              string // This is nessesary to check whether we need to create a new i2cBus during reconfigure.
-	cancelCtx               context.Context
-	cancel                  context.CancelFunc
-	activeBackgroundWorkers sync.WaitGroup
+	workers                 rdkutils.StoppableWorkers
 }
 
 func newAS5048Encoder(
@@ -139,12 +138,8 @@ func makeAS5048Encoder(
 		return nil, err
 	}
 
-	cancelCtx, cancel := context.WithCancel(context.Background())
-
 	res := &Encoder{
 		Named:        conf.ResourceName().AsNamed(),
-		cancelCtx:    cancelCtx,
-		cancel:       cancel,
 		logger:       logger,
 		positionType: encoder.PositionTypeTicks,
 		i2cBus:       bus,
@@ -154,7 +149,7 @@ func makeAS5048Encoder(
 	if err := res.Reconfigure(ctx, deps, conf); err != nil {
 		return nil, err
 	}
-	if err := res.startPositionLoop(ctx); err != nil {
+	if err := res.startPositionLoop(ctx); err != nil { // initializes res.workers
 		return nil, err
 	}
 	return res, nil
@@ -192,20 +187,19 @@ func (enc *Encoder) startPositionLoop(ctx context.Context) error {
 	if err := enc.ResetPosition(ctx, map[string]interface{}{}); err != nil {
 		return err
 	}
-	enc.activeBackgroundWorkers.Add(1)
-	utils.ManagedGo(func() {
+	enc.workers = rdkutils.NewStoppableWorkers(func(cancelCtx context.Context) {
 		for {
-			if enc.cancelCtx.Err() != nil {
+			if cancelCtx.Err() != nil {
 				return
 			}
-			if err := enc.updatePosition(enc.cancelCtx); err != nil {
+			if err := enc.updatePosition(cancelCtx); err != nil {
 				enc.logger.CErrorf(ctx,
 					"error in position loop (skipping update): %s", err.Error(),
 				)
 			}
 			time.Sleep(time.Duration(waitTimeNano))
 		}
-	}, enc.activeBackgroundWorkers.Done)
+	})
 	return nil
 }
 
@@ -340,7 +334,6 @@ func (enc *Encoder) Properties(ctx context.Context, extra map[string]interface{}
 // Close stops the position loop of the encoder when the component
 // is closed.
 func (enc *Encoder) Close(ctx context.Context) error {
-	enc.cancel()
-	enc.activeBackgroundWorkers.Wait()
+	enc.workers.Stop()
 	return nil
 }
