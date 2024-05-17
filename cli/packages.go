@@ -147,7 +147,7 @@ func downloadPackageFromURL(ctx context.Context, httpClient *http.Client,
 	return nil
 }
 
-// PackageUploadAction is the corresponding action for "packages upload"
+// PackageUploadAction is the corresponding action for "packages upload".
 func PackageUploadAction(c *cli.Context) error {
 	client, err := newViamClient(c)
 	if err != nil {
