@@ -300,6 +300,12 @@ func (l *Loop) Stop() {
 
 // Pause sets l.running to false to pause the loop.
 func (l *Loop) Pause() {
+	for _, b := range l.pidBlocks {
+		if err := b.Reset(context.Background()); err != nil {
+			l.logger.Error(err)
+			return
+		}
+	}
 	l.running.Store(false)
 }
 

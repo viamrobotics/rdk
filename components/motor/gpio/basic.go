@@ -30,7 +30,7 @@ func NewMotor(b board.Board, mc Config, name resource.Name, logger logging.Logge
 		return nil, err
 	} else if motorType == AB {
 		logger.Warnf(
-			"motor %s has been configured with A and B pins, but no PWM. Make sure this is intentional",
+			"Motor %s has been configured with A and B pins, but no PWM. Make sure your motor driver doesn't also require a PWM pin.",
 			name.Name,
 		)
 	}
@@ -335,12 +335,9 @@ func (m *Motor) ResetZeroPosition(ctx context.Context, offset float64, extra map
 // DirectionMoving returns the direction we are currently moving in, with 1 representing
 // forward and  -1 representing backwards.
 func (m *Motor) DirectionMoving() int64 {
-	move, powerPct, err := m.IsPowered(context.Background(), nil)
-	if move {
-		return int64(sign(powerPct))
-	}
+	_, powerPct, err := m.IsPowered(context.Background(), nil)
 	if err != nil {
 		m.logger.Error(err)
 	}
-	return 0
+	return int64(sign(powerPct))
 }

@@ -1,8 +1,13 @@
 package config
 
 import (
+	"encoding/json"
+	"fmt"
 	"os"
+	"path/filepath"
 	"reflect"
+	"regexp"
+	"strings"
 
 	"github.com/pkg/errors"
 
@@ -38,6 +43,11 @@ type Module struct {
 	Status           *AppValidationStatus `json:"status"`
 	alreadyValidated bool
 	cachedErr        error
+}
+
+// JSONManifest contains meta.json fields that are used by both RDK and CLI.
+type JSONManifest struct {
+	Entrypoint string `json:"entrypoint"`
 }
 
 // ModuleType indicates where a module comes from.
@@ -96,4 +106,55 @@ func (m Module) Equals(other Module) bool {
 	other.Status = nil
 	//nolint:govet
 	return reflect.DeepEqual(m, other)
+}
+
+var tarballExtensionsRegexp = regexp.MustCompile(`\.(tgz|tar\.gz)$`)
+
+// NeedsSyntheticPackage returns true if this is a local module pointing at a tarball.
+func (m Module) NeedsSyntheticPackage() bool {
+	return m.Type == ModuleTypeLocal && tarballExtensionsRegexp.MatchString(strings.ToLower(m.ExePath))
+}
+
+// SyntheticPackage creates a fake package for a local module which points to a local tarball.
+func (m Module) SyntheticPackage() (PackageConfig, error) {
+	var ret PackageConfig
+	if m.Type != ModuleTypeLocal {
+		return ret, errors.New("non-local package passed to syntheticPackage")
+	}
+	ret.Name = fmt.Sprintf("synthetic-%s", m.Name)
+	ret.Package = ret.Name
+	ret.Type = PackageTypeModule
+	return ret, nil
+}
+
+// syntheticPackageExeDir returns the unpacked ExePath for local tarball modules.
+func (m Module) syntheticPackageExeDir(packagesDir string) (string, error) {
+	pkg, err := m.SyntheticPackage()
+	if err != nil {
+		return "", err
+	}
+	return pkg.LocalDataDirectory(packagesDir), nil
+}
+
+// EvaluateExePath returns absolute ExePath except for local tarballs where it looks for side-by-side meta.json.
+// The side-by-side lookup is because we don't bundle entrypoint in module tarballs, it's not an intentional design choice.
+func (m Module) EvaluateExePath(packagesDir string) (string, error) {
+	if m.NeedsSyntheticPackage() {
+		metaPath := filepath.Join(filepath.Dir(m.ExePath), "meta.json")
+		f, err := os.Open(metaPath) //nolint:gosec
+		if err != nil {
+			return "", errors.Wrap(err, "loading meta.json for local tarball")
+		}
+		var meta JSONManifest
+		err = json.NewDecoder(f).Decode(&meta)
+		if err != nil {
+			return "", errors.Wrap(err, "parsing meta.json for local tarball")
+		}
+		exeDir, err := m.syntheticPackageExeDir(packagesDir)
+		if err != nil {
+			return "", err
+		}
+		return filepath.Abs(filepath.Join(exeDir, meta.Entrypoint))
+	}
+	return filepath.Abs(m.ExePath)
 }
