@@ -56,7 +56,7 @@ type localRobot struct {
 	activeBackgroundWorkers sync.WaitGroup
 	// reconfigureWorkers tracks goroutines spawned by reconfiguration functions. we only
 	// wait on this group in tests to prevent goleak-related failures. however, we do not
-	// wait on this group outside of testing, since the related goroutines may running
+	// wait on this group outside of testing, since the related goroutines may be running
 	// outside code and have unexpected behavior.
 	reconfigureWorkers         sync.WaitGroup
 	cancelBackgroundWorkers    func()
