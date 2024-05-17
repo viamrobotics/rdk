@@ -6,6 +6,7 @@ import (
 	"context"
 	"fmt"
 	"sync/atomic"
+	"time"
 
 	"github.com/pkg/errors"
 	"go.viam.com/utils"
@@ -60,6 +61,7 @@ func newCounter(ctx context.Context,
 	conf resource.Config,
 	logger logging.Logger,
 ) (resource.Resource, error) {
+	time.Sleep(3 * time.Second)
 	return &counter{
 		Named: conf.ResourceName().AsNamed(),
 	}, nil

@@ -547,10 +547,11 @@ func (manager *resourceManager) completeConfig(
 	// order.
 	levels := manager.resources.ReverseTopologicalSortInLevels()
 	timeout := rutils.GetResourceConfigurationTimeout(manager.logger)
-	for _, resourceNames := range levels {
+	for level, resourceNames := range levels {
 		// we use an errgroup here instead of a normal waitgroup to conveniently bubble
 		// up errors in resource processing goroutinues that warrant an early exit.
 		var levelErrG errgroup.Group
+		lr.logger.Infof("--- Processing level %d resources ---", level)
 		for _, resName := range resourceNames {
 			select {
 			case <-ctx.Done():
@@ -658,6 +659,7 @@ func (manager *resourceManager) completeConfig(
 
 				select {
 				case <-resChan:
+					lr.logger.Infow("Done processing", "resource", resName)
 				case <-ctxWithTimeout.Done():
 					// this resource is taking too long to process, so we give up but
 					// continue processing other resources. we do not wait for this
