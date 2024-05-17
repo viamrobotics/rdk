@@ -308,18 +308,29 @@ func (e *ExecutionState) CurrentPoses() map[string]*referenceframe.PoseInFrame {
 	return e.currentPose
 }
 
-// ErrorState returns the Pose between the planned Pose of the given component name its current Pose.
-func (e *ExecutionState) ErrorState(componentName string) (spatialmath.Pose, error) {
-	poses, err := e.plan.Path().GetFramePoses(componentName)
+// CalculateFrameErrorState takes an ExecutionState and a Frame and calculates the error between the Frame's expected
+// and actual positions.
+func CalculateFrameErrorState(e ExecutionState, frame referenceframe.Frame) (spatialmath.Pose, error) {
+	currentInputs, ok := e.CurrentInputs()[frame.Name()]
+	if !ok {
+		return nil, fmt.Errorf("could not find frame %s in ExecutionState", frame.Name())
+	}
+	currentPose, ok := e.CurrentPoses()[frame.Name()]
+	if !ok {
+		return nil, fmt.Errorf("could not find frame %s in ExecutionState", frame.Name())
+	}
+	currPoseInArc, err := frame.Transform(currentInputs)
 	if err != nil {
 		return nil, err
 	}
-	if e.index < 0 || e.index >= len(poses) {
-		return nil, errors.New("cannot use ExecutionState index %d, out of Path bounds")
+	poses, err := e.Plan().Path().GetFramePoses(frame.Name())
+	if err != nil {
+		return nil, err
 	}
-	currentPose, ok := e.currentPose[componentName]
-	if !ok {
-		return nil, fmt.Errorf("frame named %s not found in ExecutionState", componentName)
+	index := e.Index()
+	if index < 0 || index >= len(poses) {
+		return nil, fmt.Errorf("index %d out of bounds for Path of length %d", index, len(poses))
 	}
-	return spatialmath.PoseBetween(currentPose.Pose(), poses[e.index]), nil
+	nominalPose := spatialmath.Compose(poses[index], currPoseInArc)
+	return spatialmath.PoseBetween(nominalPose, currentPose.Pose()), nil
 }
