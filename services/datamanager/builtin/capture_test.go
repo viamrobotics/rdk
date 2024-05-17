@@ -29,9 +29,8 @@ var (
 	enabledBinaryCollectorConfigPath            = "services/datamanager/data/robot_with_cam_capture.json"
 	infrequentCaptureTabularCollectorConfigPath = "services/datamanager/data/fake_robot_with_infrequent_capture.json"
 	remoteCollectorConfigPath                   = "services/datamanager/data/fake_robot_with_remote_and_data_manager.json"
-	// size of leading metadata message. Dan: Where did this come from? I'm observing 97 byte files.
-	emptyFileBytesSize = 90
-	captureInterval    = time.Millisecond * 10
+	emptyFileBytesSize                          = 90 // a "rounded down" size of leading metadata message
+	captureInterval                             = time.Millisecond * 10
 )
 
 func TestDataCaptureEnabled(t *testing.T) {
