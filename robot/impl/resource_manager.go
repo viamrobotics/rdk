@@ -564,7 +564,7 @@ func (manager *resourceManager) completeConfig(
 				}()
 
 				resChan := make(chan struct{}, 1)
-				ctxWithTimeout, timeoutCancel := context.WithTimeout(ctx, timeout)
+				ctxWithTimeout, timeoutCancel := context.WithTimeout(context.WithoutCancel(ctx), timeout)
 				defer timeoutCancel()
 
 				stopSlowLogger := rutils.SlowStartupLogger(
