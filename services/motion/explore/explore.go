@@ -375,6 +375,7 @@ func (ms *explore) checkForObstacles(
 				}
 				errCounterCurrentInputs++
 			}
+
 			// Check plan for transient obstacles
 			err = motionplan.CheckPlan(
 				kb.Kinematics(),
