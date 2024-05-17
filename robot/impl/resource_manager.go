@@ -516,7 +516,9 @@ func (manager *resourceManager) Close(ctx context.Context) error {
 }
 
 // completeConfig process the tree in reverse order and attempts to build or reconfigure
-// resources that are wrapped in a placeholderResource.
+// resources that are wrapped in a placeholderResource. this function will attempt to
+// process resources concurrently when they do not depend on each other unless
+// `forceSynce` is set to true.
 func (manager *resourceManager) completeConfig(
 	ctx context.Context,
 	lr *localRobot,
