@@ -295,6 +295,10 @@ type PlanWithStatus struct {
 //	planStatuses, err := motionService.ListPlanStatuses(ctx, motion.ListPlanStatusesReq{})
 type Service interface {
 	resource.Resource
+
+	// Move is the primary method to move multiple components or any object to a specified location.
+	// Given a destination pose and a component, Move constructs a kinematic chain from goal to destination,
+	// solves it while adhering to constraints, and executes the movement to avoid collisions with the machine itself and other known objects.
 	Move(
 		ctx context.Context,
 		componentName resource.Name,
@@ -303,14 +307,28 @@ type Service interface {
 		constraints *motionplan.Constraints,
 		extra map[string]interface{},
 	) (bool, error)
+
+	// MoveOnMap moves a base component to a destination Pose on a SLAM map and returns a unique ExecutionID.
+	// If the machine is already within PlanDeviationM of the goal, an error is returned.
+	// Monitor progress with `GetPlan()` and `ListPlanStatuses()`, and check the machine's position via the SLAM service.
+	// Designed for autonomous indoor navigation of rover bases.
 	MoveOnMap(
 		ctx context.Context,
 		req MoveOnMapReq,
 	) (ExecutionID, error)
+
+	// MoveOnGlobe moves a base component to a destination GPS point(latitude, longitude and returns a unique ExecutionID.
+	// If the machine is already within PlanDeviationM of the goal, an error is returned.
+	// This non-blocking method uses a movement sensor to verify the location of the base.
+	// You can monitor progress with `GetPlan()` and `ListPlanStatuses()`. Designed for autonomous GPS navigation of rover bases.
 	MoveOnGlobe(
 		ctx context.Context,
 		req MoveOnGlobeReq,
 	) (ExecutionID, error)
+
+	// GetPose returns the location and orientation of a component within a frame system.
+	// It returns a `PoseInFrame` describing the pose of the specified component relative to the specified destination frame.
+	// The `supplemental_transforms` argument can be used to augment the machine's existing frame system with additional frames.
 	GetPose(
 		ctx context.Context,
 		componentName resource.Name,
@@ -318,14 +336,25 @@ type Service interface {
 		supplementalTransforms []*referenceframe.LinkInFrame,
 		extra map[string]interface{},
 	) (*referenceframe.PoseInFrame, error)
+
+	// StopPlan stops a base component being moved by an in progress `MoveOnGlobe()` or `MoveOnMap()` call.
 	StopPlan(
 		ctx context.Context,
 		req StopPlanReq,
 	) error
+
+	// ListPlanStatuses returns the statuses of plans created by `MoveOnGlobe()` or `MoveOnMap()` since the motion service initialized.
+	// It includes plans that are in progress or have changed state in the last 24 hours.
+	// All repeated fields are in chronological order.
 	ListPlanStatuses(
 		ctx context.Context,
 		req ListPlanStatusesReq,
 	) ([]PlanStatusWithID, error)
+
+	// PlanHistory returns the plan history of the most recent `MoveOnGlobe()` or `MoveOnMap()` call by default.
+	// The history for earlier executions can be requested by providing an ExecutionID.
+	// It returns a result if the execution is active or has changed state in the last 24 hours and the machine has not reinitialized.
+	// Plans never change; replans always create new plans and replans share the ExecutionID of the previously executing plan.
 	PlanHistory(
 		ctx context.Context,
 		req PlanHistoryReq,
