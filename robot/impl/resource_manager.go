@@ -542,6 +542,8 @@ func (manager *resourceManager) completeConfig(
 	levels := manager.resources.ReverseTopologicalSortInLevels()
 	timeout := rutils.GetResourceConfigurationTimeout(manager.logger)
 	for _, resourceNames := range levels {
+		// we use an errgroup here instead of a normal waitgroup to conveniently bubble
+		// up errors in resource processing goroutinues that warrant an early exit.
 		var levelErrG errgroup.Group
 		for _, resName := range resourceNames {
 			select {
@@ -551,6 +553,9 @@ func (manager *resourceManager) completeConfig(
 			}
 
 			resName := resName
+			// processResource is intended to be run concurrently for each resource
+			// within a topological sort level. if any processResource function returns a
+			// non-nil error then the entire `completeConfig` function will exit early.
 			processResource := func() error {
 				defer func() {
 					lr.reconfigureWorkers.Done()
@@ -649,6 +654,10 @@ func (manager *resourceManager) completeConfig(
 				select {
 				case <-resChan:
 				case <-ctxWithTimeout.Done():
+					// this resource is taking too long to process, so we give up but
+					// continue processing other resources. we do not wait for this
+					// resource to finish processing since it may be running outside code
+					// and have unexpected behavior.
 					if errors.Is(ctxWithTimeout.Err(), context.DeadlineExceeded) {
 						lr.logger.CWarn(ctx, rutils.NewBuildTimeoutError(resName.String()))
 					}
