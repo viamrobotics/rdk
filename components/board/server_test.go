@@ -451,7 +451,6 @@ func TestServerSetPWMFrequency(t *testing.T) {
 	}
 }
 
-//nolint:dupl
 func TestServerReadAnalogReader(t *testing.T) {
 	type request = pb.ReadAnalogReaderRequest
 	type response = pb.ReadAnalogReaderResponse
@@ -464,7 +463,7 @@ func TestServerReadAnalogReader(t *testing.T) {
 	tests := []struct {
 		injectAnalog     *inject.Analog
 		injectAnalogErr  error
-		injectResult     int
+		injectVal        board.AnalogValue
 		injectErr        error
 		req              *request
 		expCapAnalogArgs []interface{}
@@ -475,7 +474,7 @@ func TestServerReadAnalogReader(t *testing.T) {
 		{
 			injectAnalog:     nil,
 			injectAnalogErr:  errAnalog,
-			injectResult:     0,
+			injectVal:        board.AnalogValue{Value: 0},
 			injectErr:        nil,
 			req:              &request{BoardName: missingBoardName},
 			expCapAnalogArgs: []interface{}(nil),
@@ -486,7 +485,7 @@ func TestServerReadAnalogReader(t *testing.T) {
 		{
 			injectAnalog:     nil,
 			injectAnalogErr:  errAnalog,
-			injectResult:     0,
+			injectVal:        board.AnalogValue{Value: 0},
 			injectErr:        nil,
 			req:              &request{BoardName: testBoardName, AnalogReaderName: "analog1"},
 			expCapAnalogArgs: []interface{}{"analog1"},
@@ -497,7 +496,7 @@ func TestServerReadAnalogReader(t *testing.T) {
 		{
 			injectAnalog:     &inject.Analog{},
 			injectAnalogErr:  nil,
-			injectResult:     0,
+			injectVal:        board.AnalogValue{Value: 0},
 			injectErr:        errFoo,
 			req:              &request{BoardName: testBoardName, AnalogReaderName: "analog1"},
 			expCapAnalogArgs: []interface{}{"analog1"},
@@ -508,12 +507,12 @@ func TestServerReadAnalogReader(t *testing.T) {
 		{
 			injectAnalog:     &inject.Analog{},
 			injectAnalogErr:  nil,
-			injectResult:     8,
+			injectVal:        board.AnalogValue{Value: 8, Min: 0, Max: 10, StepSize: 0.1},
 			injectErr:        nil,
 			req:              &request{BoardName: testBoardName, AnalogReaderName: "analog1", Extra: pbExpectedExtra},
 			expCapAnalogArgs: []interface{}{"analog1"},
 			expCapArgs:       []interface{}{ctx},
-			expResp:          &response{Value: 8},
+			expResp:          &response{Value: 8, MinRange: 0, MaxRange: 10, StepSize: 0.1},
 			expRespErr:       "",
 		},
 	}
@@ -529,9 +528,9 @@ func TestServerReadAnalogReader(t *testing.T) {
 			}
 
 			if tc.injectAnalog != nil {
-				tc.injectAnalog.ReadFunc = func(ctx context.Context, extra map[string]interface{}) (int, error) {
+				tc.injectAnalog.ReadFunc = func(ctx context.Context, extra map[string]interface{}) (board.AnalogValue, error) {
 					actualExtra = extra
-					return tc.injectResult, tc.injectErr
+					return tc.injectVal, tc.injectErr
 				}
 			}
 
@@ -619,7 +618,6 @@ func TestServerWriteAnalog(t *testing.T) {
 	}
 }
 
-//nolint:dupl
 func TestServerGetDigitalInterruptValue(t *testing.T) {
 	type request = pb.GetDigitalInterruptValueRequest
 	type response = pb.GetDigitalInterruptValueResponse

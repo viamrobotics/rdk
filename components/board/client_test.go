@@ -141,13 +141,16 @@ func TestWorkingClient(t *testing.T) {
 		test.That(t, injectBoard.AnalogByNameCap(), test.ShouldResemble, []interface{}{"analog1"})
 
 		// Analog: Read
-		injectAnalog.ReadFunc = func(ctx context.Context, extra map[string]interface{}) (int, error) {
+		injectAnalog.ReadFunc = func(ctx context.Context, extra map[string]interface{}) (board.AnalogValue, error) {
 			actualExtra = extra
-			return 6, nil
+			return board.AnalogValue{Value: 6, Min: 0, Max: 10, StepSize: 0.1}, nil
 		}
-		readVal, err := analog1.Read(context.Background(), expectedExtra)
+		analogVal, err := analog1.Read(context.Background(), expectedExtra)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, readVal, test.ShouldEqual, 6)
+		test.That(t, analogVal.Value, test.ShouldEqual, 6)
+		test.That(t, analogVal.Min, test.ShouldEqual, 0)
+		test.That(t, analogVal.Max, test.ShouldEqual, 10)
+		test.That(t, analogVal.StepSize, test.ShouldEqual, 0.1)
 		test.That(t, actualExtra, test.ShouldResemble, expectedExtra)
 		actualExtra = nil
 

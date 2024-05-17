@@ -77,10 +77,21 @@ type Board interface {
 // An Analog represents an analog pin that resides on a board.
 type Analog interface {
 	// Read reads off the current value.
-	Read(ctx context.Context, extra map[string]interface{}) (int, error)
+	Read(ctx context.Context, extra map[string]interface{}) (AnalogValue, error)
 
 	// Write writes a value to the analog pin.
 	Write(ctx context.Context, value int, extra map[string]interface{}) error
+}
+
+// AnalogValue contains all info about the analog reading.
+// Value represents the reading in bits.
+// Min and Max represent the range of raw analog values.
+// StepSize is the precision per bit of the reading.
+type AnalogValue struct {
+	Value    int
+	Min      float32
+	Max      float32
+	StepSize float32
 }
 
 // FromDependencies is a helper for getting the named board from a collection of

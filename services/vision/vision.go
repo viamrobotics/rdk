@@ -17,6 +17,7 @@ import (
 	"go.viam.com/rdk/vision/classification"
 	"go.viam.com/rdk/vision/objectdetection"
 	"go.viam.com/rdk/vision/segmentation"
+	"go.viam.com/rdk/vision/viscapture"
 )
 
 func init() {
@@ -130,6 +131,11 @@ type Service interface {
 	GetObjectPointClouds(ctx context.Context, cameraName string, extra map[string]interface{}) ([]*viz.Object, error)
 	// properties
 	GetProperties(ctx context.Context, extra map[string]interface{}) (*Properties, error)
+	CaptureAllFromCamera(ctx context.Context,
+		cameraName string,
+		opts viscapture.CaptureOptions,
+		extra map[string]interface{},
+	) (viscapture.VisCapture, error)
 }
 
 // SubtypeName is the name of the type of service.
@@ -294,7 +300,11 @@ func (vm *vizModel) ClassificationsFromCamera(
 }
 
 // GetObjectPointClouds returns all the found objects in a 3D image if the model implements Segmenter3D.
-func (vm *vizModel) GetObjectPointClouds(ctx context.Context, cameraName string, extra map[string]interface{}) ([]*viz.Object, error) {
+func (vm *vizModel) GetObjectPointClouds(
+	ctx context.Context,
+	cameraName string,
+	extra map[string]interface{},
+) ([]*viz.Object, error) {
 	if vm.segmenter3DFunc == nil {
 		return nil, errors.Errorf("vision model %q does not implement a 3D segmenter", vm.Named.Name().String())
 	}
@@ -313,6 +323,72 @@ func (vm *vizModel) GetProperties(ctx context.Context, extra map[string]interfac
 	defer span.End()
 
 	return &vm.properties, nil
+}
+
+func (vm *vizModel) CaptureAllFromCamera(
+	ctx context.Context,
+	cameraName string,
+	opt viscapture.CaptureOptions,
+	extra map[string]interface{},
+) (viscapture.VisCapture, error) {
+	ctx, span := trace.StartSpan(ctx, "service::vision::ClassificationsFromCamera::"+vm.Named.Name().String())
+	defer span.End()
+	cam, err := camera.FromRobot(vm.r, cameraName)
+	if err != nil {
+		return viscapture.VisCapture{}, errors.Wrapf(err, "could not find camera named %s", cameraName)
+	}
+	img, release, err := camera.ReadImage(ctx, cam)
+	if err != nil {
+		return viscapture.VisCapture{}, errors.Wrapf(err, "could not get image from %s", cameraName)
+	}
+	defer release()
+	var detections []objectdetection.Detection
+	if opt.ReturnDetections {
+		if !vm.properties.DetectionSupported {
+			logger := vm.r.Logger()
+			logger.Debugf("detections requested but vision model %q does not implement a Detector", vm.Named.Name())
+		} else {
+			detections, err = vm.Detections(ctx, img, extra)
+			if err != nil {
+				return viscapture.VisCapture{}, err
+			}
+		}
+	}
+	var classifications classification.Classifications
+	if opt.ReturnClassifications {
+		if !vm.properties.ClassificationSupported {
+			logger := vm.r.Logger()
+			logger.Debugf("classifications requested in CaptureAll but vision model %q does not implement a Classifier",
+				vm.Named.Name())
+		} else {
+			classifications, err = vm.Classifications(ctx, img, 0, extra)
+			if err != nil {
+				return viscapture.VisCapture{}, err
+			}
+		}
+	}
+
+	var objPCD []*viz.Object
+	if opt.ReturnObject {
+		if !vm.properties.ObjectPCDsSupported {
+			logger := vm.r.Logger()
+			logger.Debugf("object point cloud requested in CaptureAll but vision model %q does not implement a 3D Segmenter", vm.Named.Name())
+		} else {
+			objPCD, err = vm.GetObjectPointClouds(ctx, cameraName, extra)
+			if err != nil {
+				return viscapture.VisCapture{}, err
+			}
+		}
+	}
+	if !opt.ReturnImage {
+		img = nil
+	}
+	return viscapture.VisCapture{
+		Image:           img,
+		Detections:      detections,
+		Classifications: classifications,
+		Objects:         objPCD,
+	}, nil
 }
 
 func (vm *vizModel) Close(ctx context.Context) error {

@@ -27,6 +27,17 @@ func FilterMap[K comparable, V any](orig map[K]V, predicate func(K, V) bool) map
 	return ret
 }
 
+// FilterSlice returns a new slice with elements of `orig` which match `predicate`.
+func FilterSlice[T any](orig []T, predicate func(T) bool) []T {
+	ret := make([]T, 0)
+	for _, item := range orig {
+		if predicate(item) {
+			ret = append(ret, item)
+		}
+	}
+	return ret
+}
+
 // Rand is a wrapper for either a rand.Rand or a pass-through to the shared rand.x functions.
 type Rand interface {
 	Float64() float64
@@ -62,4 +73,18 @@ func FindInSlice[T any](items []T, predicate func(T) bool) *T {
 		}
 	}
 	return nil
+}
+
+// MapOver applies fn() to a slice of items and returns a slice of the return values.
+// TODO(golang/go#61898): use stdlib iter if it lands.
+func MapOver[T, U any](items []T, fn func(T) (U, error)) ([]U, error) {
+	ret := make([]U, 0, len(items))
+	for _, item := range items {
+		newItem, err := fn(item)
+		if err != nil {
+			return nil, err
+		}
+		ret = append(ret, newItem)
+	}
+	return ret, nil
 }
