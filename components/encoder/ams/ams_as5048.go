@@ -17,7 +17,7 @@ import (
 	"go.viam.com/rdk/components/encoder"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
-	rtdutils "go.viam.com/rdk/utils"
+	rdkutils "go.viam.com/rdk/utils"
 )
 
 const (
@@ -190,7 +190,7 @@ func (enc *Encoder) positionLoop(cancelCtx context.Context) {
 			return
 		}
 		if err := enc.updatePosition(cancelCtx); err != nil {
-			enc.logger.CErrorf(ctx,
+			enc.logger.CErrorf(cancelCtx,
 				"error in position loop (skipping update): %s", err.Error(),
 			)
 		}
