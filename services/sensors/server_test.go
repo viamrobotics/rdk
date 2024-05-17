@@ -163,7 +163,6 @@ func TestServerGetReadings(t *testing.T) {
 		}
 
 		observed := map[resource.Name]interface{}{
-
 			rprotoutils.ResourceNameFromProto(resp.Readings[0].Name): conv(resp.Readings[0].Readings),
 
 			rprotoutils.ResourceNameFromProto(resp.Readings[1].Name): conv(resp.Readings[1].Readings),
