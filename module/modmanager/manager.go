@@ -827,11 +827,11 @@ func (mgr *Manager) newOnUnexpectedExitHandler(mod *module) func(exitCode int) b
 				mgr.logger.Warnw("Error while re-adding resource to module",
 					"resource", name, "module", mod.cfg.Name, "error", err)
 				mgr.rMap.Delete(name)
-				func() {
-					mod.resourcesMu.Lock()
-					defer mod.resourcesMu.Unlock()
-					delete(mod.resources, name)
-				}()
+
+				mod.resourcesMu.Lock()
+				delete(mod.resources, name)
+				mod.resourcesMu.Unlock()
+
 				orphanedResourceNames = append(orphanedResourceNames, name)
 			}
 		}
