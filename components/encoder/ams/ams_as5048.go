@@ -149,9 +149,10 @@ func makeAS5048Encoder(
 	if err := res.Reconfigure(ctx, deps, conf); err != nil {
 		return nil, err
 	}
-	if err := res.startPositionLoop(ctx); err != nil { // initializes res.workers
+	if err := res.ResetPosition(ctx, map[string]interface{}{}); err != nil {
 		return nil, err
 	}
+	res.workers = rdkutils.NewStoppableWorkers(res.positionLoop)
 	return res, nil
 }
 
@@ -183,24 +184,18 @@ func (enc *Encoder) Reconfigure(
 	return nil
 }
 
-func (enc *Encoder) startPositionLoop(ctx context.Context) error {
-	if err := enc.ResetPosition(ctx, map[string]interface{}{}); err != nil {
-		return err
-	}
-	enc.workers = rdkutils.NewStoppableWorkers(func(cancelCtx context.Context) {
-		for {
-			if cancelCtx.Err() != nil {
-				return
-			}
-			if err := enc.updatePosition(cancelCtx); err != nil {
-				enc.logger.CErrorf(ctx,
-					"error in position loop (skipping update): %s", err.Error(),
-				)
-			}
-			time.Sleep(time.Duration(waitTimeNano))
+func (enc *Encoder) positionLoop(cancelCtx context.Context) {
+	for {
+		if cancelCtx.Err() != nil {
+			return
 		}
-	})
-	return nil
+		if err := enc.updatePosition(cancelCtx); err != nil {
+			enc.logger.CErrorf(ctx,
+				"error in position loop (skipping update): %s", err.Error(),
+			)
+		}
+		time.Sleep(time.Duration(waitTimeNano))
+	}
 }
 
 func (enc *Encoder) readPosition(ctx context.Context) (float64, error) {
