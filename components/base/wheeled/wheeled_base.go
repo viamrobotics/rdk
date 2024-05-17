@@ -286,6 +286,9 @@ func (wb *wheeledBase) MoveStraight(ctx context.Context, distanceMm int, mmPerSe
 // All callers must register an operation via `wb.opMgr.New` to ensure the left and right motors
 // receive consistent instructions.
 func (wb *wheeledBase) runAllGoFor(ctx context.Context, leftRPM, leftRotations, rightRPM, rightRotations float64) error {
+	if math.Abs(leftRPM) <= 10 || math.Abs(rightRPM) <= 10 {
+		wb.logger.CWarn(ctx, "low motor speed detected, motors may not behave as expected")
+	}
 	goForFuncs := func() []rdkutils.SimpleFunc {
 		ret := []rdkutils.SimpleFunc{}
 

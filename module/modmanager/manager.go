@@ -34,6 +34,7 @@ import (
 	"go.viam.com/rdk/module/modmaninterface"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/robot/packages"
 	rutils "go.viam.com/rdk/utils"
 )
 
@@ -63,6 +64,7 @@ func NewManager(
 		removeOrphanedResources: options.RemoveOrphanedResources,
 		restartCtx:              restartCtx,
 		restartCtxCancel:        restartCtxCancel,
+		packagesDir:             options.PackagesDir,
 	}
 }
 
@@ -152,6 +154,8 @@ type Manager struct {
 	// viamHomeDir is the absolute path to the viam home directory. Ex: /home/walle/.viam
 	// `viamHomeDir` may only be the empty string in testing
 	viamHomeDir string
+	// packagesDir is the PackagesPath from a config.Config. It's used for resolving paths for local tarball modules.
+	packagesDir string
 	// moduleDataParentDir is the absolute path to the current robots module data directory.
 	// Ex: /home/walle/.viam/module-data/<cloud-robot-id>
 	// it is empty if the modmanageroptions.Options.viamHomeDir was empty
@@ -287,6 +291,7 @@ func (mgr *Manager) startModuleProcess(mod *module) error {
 		mgr.newOnUnexpectedExitHandler(mod),
 		mgr.logger,
 		mgr.viamHomeDir,
+		mgr.packagesDir,
 	)
 }
 
@@ -1009,6 +1014,7 @@ func (m *module) startProcess(
 	oue func(int) bool,
 	logger logging.Logger,
 	viamHomeDir string,
+	packagesDir string,
 ) error {
 	var err error
 	// append a random alpha string to the module name while creating a socket address to avoid conflicts
@@ -1020,7 +1026,7 @@ func (m *module) startProcess(
 
 	// We evaluate the Module's ExePath absolutely in the viam-server process so that
 	// setting the CWD does not cause issues with relative process names
-	absoluteExePath, err := filepath.Abs(m.cfg.ExePath)
+	absoluteExePath, err := m.cfg.EvaluateExePath(packages.LocalPackagesDir(packagesDir))
 	if err != nil {
 		return err
 	}

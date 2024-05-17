@@ -107,12 +107,14 @@ func (manager *resourceManager) startModuleManager(
 	viamHomeDir string,
 	robotCloudID string,
 	logger logging.Logger,
+	packagesDir string,
 ) {
 	mmOpts := modmanageroptions.Options{
 		UntrustedEnv:            untrustedEnv,
 		RemoveOrphanedResources: removeOrphanedResources,
 		ViamHomeDir:             viamHomeDir,
 		RobotCloudID:            robotCloudID,
+		PackagesDir:             packagesDir,
 	}
 	manager.moduleManager = modmanager.NewManager(ctx, parentAddr, logger, mmOpts)
 }
@@ -524,7 +526,7 @@ func (manager *resourceManager) Close(ctx context.Context) error {
 // or reconfigure resources that are wrapped in a placeholderResource.
 func (manager *resourceManager) completeConfig(
 	ctx context.Context,
-	robot *localRobot,
+	lr *localRobot,
 ) {
 	manager.resouceGraphLock.Lock()
 	defer func() {
@@ -535,6 +537,126 @@ func (manager *resourceManager) completeConfig(
 	}()
 
 	// first handle remotes since they may reveal unresolved dependencies
+	manager.completeConfigForRemotes(ctx, lr)
+
+	// now resolve prior to sorting in case there's anything newly discovered
+	if err := manager.resources.ResolveDependencies(manager.logger); err != nil {
+		// debug here since the resolver will log on its own
+		manager.logger.CDebugw(ctx, "error resolving dependencies", "error", err)
+	}
+
+	resourceNames := manager.resources.ReverseTopologicalSort()
+	timeout := rutils.GetResourceConfigurationTimeout(manager.logger)
+	for _, resName := range resourceNames {
+		select {
+		case <-ctx.Done():
+			return
+		default:
+		}
+
+		resChan := make(chan struct{}, 1)
+		resName := resName
+		ctxWithTimeout, timeoutCancel := context.WithTimeout(ctx, timeout)
+		defer timeoutCancel()
+
+		cleanup := rutils.SlowStartupLogger(
+			ctx, "Waiting for resource to complete (re)configuration", "resource", resName.String(), manager.logger)
+
+		lr.reconfigureWorkers.Add(1)
+		goutils.PanicCapturingGo(func() {
+			defer func() {
+				cleanup()
+				resChan <- struct{}{}
+				lr.reconfigureWorkers.Done()
+			}()
+			gNode, ok := manager.resources.Node(resName)
+			if !ok || !gNode.NeedsReconfigure() {
+				return
+			}
+			if !(resName.API.IsComponent() || resName.API.IsService()) {
+				return
+			}
+
+			var verb string
+			conf := gNode.Config()
+			if gNode.IsUninitialized() {
+				verb = "configuring"
+				gNode.InitializeLogger(
+					manager.logger, resName.String(), conf.LogConfiguration.Level,
+				)
+			} else {
+				verb = "reconfiguring"
+			}
+			manager.logger.CInfow(ctx, fmt.Sprintf("Now %s resource", verb), "resource", resName)
+
+			// this is done in config validation but partial start rules require us to check again
+			if _, err := conf.Validate("", resName.API.Type.Name); err != nil {
+				gNode.LogAndSetLastError(
+					fmt.Errorf("resource config validation error: %w", err),
+					"resource", conf.ResourceName(),
+					"model", conf.Model)
+				return
+			}
+			if manager.moduleManager.Provides(conf) {
+				if _, err := manager.moduleManager.ValidateConfig(ctxWithTimeout, conf); err != nil {
+					gNode.LogAndSetLastError(
+						fmt.Errorf("modular resource config validation error: %w", err),
+						"resource", conf.ResourceName(),
+						"model", conf.Model)
+					return
+				}
+			}
+
+			switch {
+			case resName.API.IsComponent(), resName.API.IsService():
+				newRes, newlyBuilt, err := manager.processResource(ctxWithTimeout, conf, gNode, lr)
+				if newlyBuilt || err != nil {
+					if err := manager.markChildrenForUpdate(resName); err != nil {
+						manager.logger.CErrorw(ctx,
+							"failed to mark children of resource for update",
+							"resource", resName,
+							"reason", err)
+					}
+				}
+
+				if err != nil {
+					gNode.LogAndSetLastError(
+						fmt.Errorf("resource build error: %w", err),
+						"resource", conf.ResourceName(),
+						"model", conf.Model)
+					return
+				}
+
+				// if the ctxWithTimeout fails with DeadlineExceeded, then that means that
+				// resource generation is running async, and we don't currently have good
+				// validation around how this might affect the resource graph. So, we avoid
+				// updating the graph to be safe.
+				if errors.Is(ctxWithTimeout.Err(), context.DeadlineExceeded) {
+					manager.logger.CErrorw(
+						ctx, "error building resource", "resource", conf.ResourceName(), "model", conf.Model, "error", ctxWithTimeout.Err())
+				} else {
+					gNode.SwapResource(newRes, conf.Model)
+				}
+
+			default:
+				err := errors.New("config is not for a component or service")
+				gNode.LogAndSetLastError(err, "resource", resName)
+			}
+		})
+
+		select {
+		case <-resChan:
+		case <-ctxWithTimeout.Done():
+			if errors.Is(ctxWithTimeout.Err(), context.DeadlineExceeded) {
+				lr.logger.CWarn(ctx, rutils.NewBuildTimeoutError(resName.String()))
+			}
+		case <-ctx.Done():
+			return
+		}
+	} // for-each resource name
+}
+
+func (manager *resourceManager) completeConfigForRemotes(ctx context.Context, lr *localRobot) {
 	for _, resName := range manager.resources.FindNodesByAPI(client.RemoteAPI) {
 		gNode, ok := manager.resources.Node(resName)
 		if !ok || !gNode.NeedsReconfigure() {
@@ -577,16 +699,16 @@ func (manager *resourceManager) completeConfig(
 			}
 			manager.addRemote(ctx, rr, gNode, *remConf)
 			rr.SetParentNotifier(func() {
-				if robot.closeContext.Err() != nil {
+				if lr.closeContext.Err() != nil {
 					return
 				}
 
 				// Attempt to trigger completeConfig goroutine execution when a change in remote
 				// is detected, but does not block if triggerConfig is full.
 				select {
-				case <-robot.closeContext.Done():
+				case <-lr.closeContext.Done():
 					return
-				case robot.triggerConfig <- struct{}{}:
+				case lr.triggerConfig <- struct{}{}:
 				default:
 					rr.Logger().Debugw(
 						"remote attempted to trigger reconfiguration, but there is already one queued.",
@@ -599,123 +721,6 @@ func (manager *resourceManager) completeConfig(
 			manager.logger.CErrorw(ctx, err.Error(), "resource", resName)
 		}
 	}
-
-	// now resolve prior to sorting in case there's anything newly discovered
-	if err := manager.resources.ResolveDependencies(manager.logger); err != nil {
-		// debug here since the resolver will log on its own
-		manager.logger.CDebugw(ctx, "error resolving dependencies", "error", err)
-	}
-
-	resourceNames := manager.resources.ReverseTopologicalSort()
-	timeout := rutils.GetResourceConfigurationTimeout(manager.logger)
-	for _, resName := range resourceNames {
-		select {
-		case <-ctx.Done():
-			return
-		default:
-		}
-		// we only reconfigure components and services.
-		if !(resName.API.IsComponent() || resName.API.IsService()) {
-			continue
-		}
-
-		resChan := make(chan struct{}, 1)
-		resName := resName
-		ctxWithTimeout, timeoutCancel := context.WithTimeout(ctx, timeout)
-		defer timeoutCancel()
-
-		cleanup := rutils.SlowStartupLogger(
-			ctx, "Waiting for resource to complete (re)configuration", "resource", resName.String(), manager.logger)
-
-		robot.reconfigureWorkers.Add(1)
-		goutils.PanicCapturingGo(func() {
-			defer func() {
-				cleanup()
-				resChan <- struct{}{}
-				robot.reconfigureWorkers.Done()
-			}()
-			gNode, ok := manager.resources.Node(resName)
-			if !ok || !gNode.NeedsReconfigure() {
-				return
-			}
-
-			var verb string
-			conf := gNode.Config()
-			if gNode.IsUninitialized() {
-				verb = "configuring"
-				gNode.InitializeLogger(
-					manager.logger, resName.String(), conf.LogConfiguration.Level,
-				)
-			} else {
-				verb = "reconfiguring"
-			}
-			manager.logger.CInfow(ctx, fmt.Sprintf("Now %s resource", verb), "resource", resName)
-
-			// this is done in config validation but partial start rules require us to check again
-			if _, err := conf.Validate("", resName.API.Type.Name); err != nil {
-				gNode.LogAndSetLastError(
-					fmt.Errorf("resource config validation error: %w", err),
-					"resource", conf.ResourceName(),
-					"model", conf.Model)
-				return
-			}
-			if manager.moduleManager.Provides(conf) {
-				if _, err := manager.moduleManager.ValidateConfig(ctxWithTimeout, conf); err != nil {
-					gNode.LogAndSetLastError(
-						fmt.Errorf("modular resource config validation error: %w", err),
-						"resource", conf.ResourceName(),
-						"model", conf.Model)
-					return
-				}
-			}
-
-			switch {
-			case resName.API.IsComponent(), resName.API.IsService():
-				newRes, newlyBuilt, err := manager.processResource(ctxWithTimeout, conf, gNode, robot)
-				if newlyBuilt || err != nil {
-					if err := manager.markChildrenForUpdate(resName); err != nil {
-						manager.logger.CErrorw(ctx,
-							"failed to mark children of resource for update",
-							"resource", resName,
-							"reason", err)
-					}
-				}
-
-				if err != nil {
-					gNode.LogAndSetLastError(
-						fmt.Errorf("resource build error: %w", err),
-						"resource", conf.ResourceName(),
-						"model", conf.Model)
-					return
-				}
-
-				// if the ctxWithTimeout fails with DeadlineExceeded, then that means that
-				// resource generation is running async, and we don't currently have good
-				// validation around how this might affect the resource graph. So, we avoid
-				// updating the graph to be safe.
-				if errors.Is(ctxWithTimeout.Err(), context.DeadlineExceeded) {
-					manager.logger.CErrorw(
-						ctx, "error building resource", "resource", conf.ResourceName(), "model", conf.Model, "error", ctxWithTimeout.Err())
-				} else {
-					gNode.SwapResource(newRes, conf.Model)
-				}
-
-			default:
-				err := errors.New("config is not for a component or service")
-				gNode.LogAndSetLastError(err, "resource", resName)
-			}
-		})
-
-		select {
-		case <-resChan:
-		case <-ctxWithTimeout.Done():
-			if errors.Is(ctxWithTimeout.Err(), context.DeadlineExceeded) {
-				robot.logger.CWarn(ctx, rutils.NewBuildTimeoutError(resName.String()))
-			}
-		case <-ctx.Done():
-			return
-		}
-	} // for-each resource name
 }
 
 // cleanAppImageEnv attempts to revert environment variable changes so
