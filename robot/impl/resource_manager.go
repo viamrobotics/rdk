@@ -541,6 +541,10 @@ func (manager *resourceManager) completeConfig(
 		manager.logger.CDebugw(ctx, "error resolving dependencies", "error", err)
 	}
 
+	// sort resources into topological "levels" based on their dependencies. resources in
+	// any given level only depend on resources in prior levels. this makes it safe to
+	// process resources within a level concurrently as long as levels are processed in
+	// order.
 	levels := manager.resources.ReverseTopologicalSortInLevels()
 	timeout := rutils.GetResourceConfigurationTimeout(manager.logger)
 	for _, resourceNames := range levels {
