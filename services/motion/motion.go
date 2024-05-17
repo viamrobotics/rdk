@@ -190,7 +190,7 @@ type PlanWithStatus struct {
 //
 // Move example:
 //
-//	motionService, err := motion.FromRobot(robot, "builtin")
+//	motionService, err := motion.FromRobot(machine, "builtin")
 //
 //	// Assumes a gripper configured with name "my_gripper" on the machine
 //	gripperName := gripper.Named("my_gripper")
