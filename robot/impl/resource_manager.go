@@ -564,6 +564,9 @@ func (manager *resourceManager) completeConfig(
 			// processResource is intended to be run concurrently for each resource
 			// within a topological sort level. if any processResource function returns a
 			// non-nil error then the entire `completeConfig` function will exit early.
+			//
+			// currently only a top-level context cancellation will result in an early
+			// exist - individual resource processing failures will not.
 			processResource := func() error {
 				defer func() {
 					lr.reconfigureWorkers.Done()
