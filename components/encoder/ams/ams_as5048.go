@@ -104,16 +104,16 @@ func (cfg *I2CConfig) ValidateI2C(path string) error {
 // in AMS's AS5048 series of Hall-effect encoders.
 type Encoder struct {
 	resource.Named
-	mu                      sync.RWMutex
-	logger                  logging.Logger
-	position                float64
-	positionOffset          float64
-	rotations               int
-	positionType            encoder.PositionType
-	i2cBus                  buses.I2C
-	i2cAddr                 byte
-	i2cBusName              string // This is nessesary to check whether we need to create a new i2cBus during reconfigure.
-	workers                 rdkutils.StoppableWorkers
+	mu             sync.RWMutex
+	logger         logging.Logger
+	position       float64
+	positionOffset float64
+	rotations      int
+	positionType   encoder.PositionType
+	i2cBus         buses.I2C
+	i2cAddr        byte
+	i2cBusName     string // This is nessesary to check whether we need to create a new i2cBus during reconfigure.
+	workers        rdkutils.StoppableWorkers
 }
 
 func newAS5048Encoder(
