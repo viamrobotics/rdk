@@ -23,14 +23,14 @@ type testAnalog struct {
 	stop bool
 }
 
-func (t *testAnalog) Read(ctx context.Context, extra map[string]interface{}) (int, error) {
+func (t *testAnalog) Read(ctx context.Context, extra map[string]interface{}) (board.AnalogValue, error) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	if t.stop || t.n >= t.lim {
-		return 0, errStopReading
+		return board.AnalogValue{}, errStopReading
 	}
 	t.n++
-	return t.r.Intn(100), nil
+	return board.AnalogValue{Value: t.r.Intn(100), Min: 0, Max: 3.3, StepSize: 0.1}, nil
 }
 
 func (t *testAnalog) Write(ctx context.Context, value int, extra map[string]interface{}) error {
@@ -62,7 +62,10 @@ func TestAnalogSmoother1(t *testing.T) {
 		tb.Helper()
 		v, err := as.Read(context.Background(), nil)
 		test.That(tb, err, test.ShouldEqual, errStopReading)
-		test.That(tb, v, test.ShouldEqual, 52)
+		test.That(tb, v.Value, test.ShouldEqual, 52)
+		test.That(tb, v.Min, test.ShouldEqual, 0)
+		test.That(tb, v.Max, test.ShouldEqual, 3.3)
+		test.That(tb, v.StepSize, test.ShouldEqual, 0.1)
 
 		// need lock to access testReader.n
 		testReader.mu.Lock()
