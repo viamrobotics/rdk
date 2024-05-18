@@ -24,7 +24,7 @@ import (
 
 const (
 	syncIntervalMins = 0.0008
-	syncInterval     = time.Millisecond * 50
+	syncInterval     = time.Millisecond * 48
 )
 
 // TODO DATA-849: Add a test that validates that sync interval is accurately respected.
