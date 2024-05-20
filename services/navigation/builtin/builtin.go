@@ -183,7 +183,8 @@ func (conf *Config) Validate(path string) ([]string, error) {
 	for _, obs := range conf.Obstacles {
 		for _, geoms := range obs.Geometries {
 			if !geoms.TranslationOffset.ApproxEqual(r3.Vector{}) {
-				return nil, errors.New("obstacle " + errGeomWithTranslation.Error())
+
+				return nil, errors.Wrap(errGeomWithTranslation, "obstacle")
 			}
 		}
 	}
@@ -192,7 +193,7 @@ func (conf *Config) Validate(path string) ([]string, error) {
 	for _, region := range conf.BoundingRegions {
 		for _, geoms := range region.Geometries {
 			if !geoms.TranslationOffset.ApproxEqual(r3.Vector{}) {
-				return nil, errors.New("bounding region " + errGeomWithTranslation.Error())
+				return nil, errors.Wrap(errGeomWithTranslation, "bounding region")
 			}
 		}
 	}
