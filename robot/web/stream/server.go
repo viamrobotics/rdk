@@ -112,6 +112,8 @@ func (ss *Server) ListStreams(ctx context.Context, req *streampb.ListStreamsRequ
 func (ss *Server) AddStream(ctx context.Context, req *streampb.AddStreamRequest) (*streampb.AddStreamResponse, error) {
 	ctx, span := trace.StartSpan(ctx, "stream::server::AddStream")
 	defer span.End()
+	ss.logger.Warnf("AddStream START %s", req.Name)
+	defer ss.logger.Warnf("AddStream END %s", req.Name)
 	// Get the peer connection
 	pc, ok := rpc.ContextPeerConnection(ctx)
 	if !ok {
@@ -252,6 +254,8 @@ func (ss *Server) AddStream(ctx context.Context, req *streampb.AddStreamRequest)
 func (ss *Server) RemoveStream(ctx context.Context, req *streampb.RemoveStreamRequest) (*streampb.RemoveStreamResponse, error) {
 	ctx, span := trace.StartSpan(ctx, "stream::server::RemoveStream")
 	defer span.End()
+	ss.logger.Warnf("RemoveStream START %s", req.Name)
+	defer ss.logger.Warnf("RemoveStream END %s", req.Name)
 	pc, ok := rpc.ContextPeerConnection(ctx)
 	if !ok {
 		return nil, errors.New("can only remove a stream over a WebRTC based connection")
