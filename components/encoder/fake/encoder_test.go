@@ -21,6 +21,8 @@ func TestEncoder(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 	e, _ := NewEncoder(ctx, cfg, logger)
 
+	t.Cleanup(func() { e.Close(context.Background()) })
+
 	// Get and set position
 	t.Run("get and set position", func(t *testing.T) {
 		pos, positionType, err := e.Position(ctx, encoder.PositionTypeUnspecified, nil)
@@ -88,6 +90,31 @@ func TestEncoder(t *testing.T) {
 
 		err = e1.SetSpeed(ctx, 600)
 		test.That(t, err, test.ShouldBeNil)
+
+		testutils.WaitForAssertion(t, func(tb testing.TB) {
+			tb.Helper()
+			pos, _, err := e.Position(ctx, encoder.PositionTypeUnspecified, nil)
+			test.That(tb, pos, test.ShouldBeGreaterThan, 0)
+			test.That(tb, err, test.ShouldBeNil)
+		})
+	})
+
+	t.Run("reconfigure with speed", func(t *testing.T) {
+		e1 := e.(*fakeEncoder)
+		err := e1.SetSpeed(ctx, 0)
+		test.That(t, err, test.ShouldBeNil)
+		err = e1.SetPosition(ctx, 0)
+		test.That(t, err, test.ShouldBeNil)
+
+		ic := Config{
+			UpdateRate: 100,
+			Speed:      700,
+		}
+		cfg := resource.Config{Name: "enc1", ConvertedAttributes: &ic}
+		e.Reconfigure(ctx, nil, cfg)
+
+		test.That(t, e1.updateRate, test.ShouldEqual, 100)
+		test.That(t, e1.speed, test.ShouldEqual, 700)
 
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()

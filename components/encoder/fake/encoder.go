@@ -12,6 +12,7 @@ import (
 	"go.viam.com/rdk/components/encoder"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
+	rdkutils "go.viam.com/rdk/utils"
 )
 
 var fakeModel = resource.DefaultModelFamily.WithModel("fake")
@@ -44,8 +45,8 @@ func NewEncoder(
 	if err := e.Reconfigure(ctx, nil, cfg); err != nil {
 		return nil, err
 	}
+	e.workers = rdkutils.NewStoppableWorkers(e.start)
 
-	e.start(ctx)
 	return e, nil
 }
 
@@ -60,6 +61,7 @@ func (e *fakeEncoder) Reconfigure(
 	}
 	e.mu.Lock()
 	e.updateRate = newConf.UpdateRate
+	e.speed = newConf.Speed
 	if e.updateRate == 0 {
 		e.updateRate = 100
 	}
@@ -69,7 +71,8 @@ func (e *fakeEncoder) Reconfigure(
 
 // Config describes the configuration of a fake encoder.
 type Config struct {
-	UpdateRate int64 `json:"update_rate_msec,omitempty"`
+	UpdateRate int64   `json:"update_rate_msec,omitempty"`
+	Speed      float64 `json:"speed,omitempty"`
 }
 
 // Validate ensures all parts of a config is valid.
@@ -82,11 +85,11 @@ type fakeEncoder struct {
 	resource.Named
 	resource.TriviallyCloseable
 
-	positionType            encoder.PositionType
-	activeBackgroundWorkers sync.WaitGroup
-	logger                  logging.Logger
+	positionType encoder.PositionType
+	logger       logging.Logger
 
 	mu         sync.RWMutex
+	workers    rdkutils.StoppableWorkers
 	position   int64
 	speed      float64 // ticks per minute
 	updateRate int64   // update position in start every updateRate ms
@@ -109,27 +112,24 @@ func (e *fakeEncoder) Position(
 
 // Start starts a background thread to run the encoder.
 func (e *fakeEncoder) start(cancelCtx context.Context) {
-	e.activeBackgroundWorkers.Add(1)
-	utils.ManagedGo(func() {
-		for {
-			select {
-			case <-cancelCtx.Done():
-				return
-			default:
-			}
-
-			e.mu.RLock()
-			updateRate := e.updateRate
-			e.mu.RUnlock()
-			if !utils.SelectContextOrWait(cancelCtx, time.Duration(updateRate)*time.Millisecond) {
-				return
-			}
-
-			e.mu.Lock()
-			e.position += int64(e.speed / float64(60*1000/updateRate))
-			e.mu.Unlock()
+	for {
+		select {
+		case <-cancelCtx.Done():
+			return
+		default:
 		}
-	}, e.activeBackgroundWorkers.Done)
+
+		e.mu.RLock()
+		updateRate := e.updateRate
+		e.mu.RUnlock()
+		if !utils.SelectContextOrWait(cancelCtx, 100*time.Millisecond) {
+			return
+		}
+
+		e.mu.Lock()
+		e.position += int64(e.speed / float64(60*1000/updateRate))
+		e.mu.Unlock()
+	}
 }
 
 // ResetPosition sets the current position of the motor (adjusted by a given offset)
@@ -147,6 +147,14 @@ func (e *fakeEncoder) Properties(ctx context.Context, extra map[string]interface
 		TicksCountSupported:   true,
 		AngleDegreesSupported: false,
 	}, nil
+}
+
+// Close safely shuts down the fake encoder.
+func (e *fakeEncoder) Close(ctx context.Context) error {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	e.workers.Stop()
+	return nil
 }
 
 // Encoder is a fake encoder used for testing.
