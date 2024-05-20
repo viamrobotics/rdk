@@ -80,7 +80,7 @@ type configData struct {
 	Auth                AuthConfig            `json:"auth"`
 	Debug               bool                  `json:"debug,omitempty"`
 	DisablePartialStart bool                  `json:"disable_partial_start"`
-	EnableWebProfile    bool                  `json:enable_web_profile`
+	EnableWebProfile    bool                  `json:"enable_web_profile"`
 	GlobalLogConfig     []GlobalLogConfig     `json:"global_log_configuration"`
 }
 
