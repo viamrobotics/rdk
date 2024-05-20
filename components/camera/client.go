@@ -64,8 +64,10 @@ type client struct {
 	logger                  logging.Logger
 	activeBackgroundWorkers sync.WaitGroup
 
-	mu                  sync.Mutex
-	healthyClientCh     chan struct{}
+	healthyClientChMu sync.Mutex
+	healthyClientCh   chan struct{}
+
+	rtpPassthroughMu    sync.Mutex
 	bufAndCBByID        bufAndCBByID
 	currentSubParentID  rtppassthrough.SubscriptionID
 	subParentToChildren map[rtppassthrough.SubscriptionID][]rtppassthrough.SubscriptionID
@@ -178,12 +180,7 @@ func (c *client) Stream(
 	// New streams concurrent with closing cannot start until this drain completes. There
 	// will never be stream goroutines from the old "generation" running concurrently
 	// with those from the new "generation".
-	c.mu.Lock()
-	if c.healthyClientCh == nil {
-		c.healthyClientCh = make(chan struct{})
-	}
-	healthyClientCh := c.healthyClientCh
-	c.mu.Unlock()
+	healthyClientCh := c.maybeResetHealthyClientCh()
 
 	ctxWithMIME := gostream.WithMIMETypeHint(context.Background(), gostream.MIMETypeHint(ctx, ""))
 	streamCtx, stream, frameCh := gostream.NewMediaStreamForChannel[image.Image](ctxWithMIME)
@@ -361,20 +358,34 @@ func (c *client) Close(ctx context.Context) error {
 	_, span := trace.StartSpan(ctx, "camera::client::Close")
 	defer span.End()
 
-	c.mu.Lock()
+	c.logger.Warn("Close START")
+	defer c.logger.Warn("Close END")
+
+	c.healthyClientChMu.Lock()
 	if c.healthyClientCh != nil {
 		close(c.healthyClientCh)
 	}
 	c.healthyClientCh = nil
+	c.healthyClientChMu.Unlock()
+
 	// unsubscribe from all video streams that have been established with modular cameras
 	c.unsubscribeAll()
 
 	// NOTE: (Nick S) we are intentionally releasing the lock before we wait for
 	// background goroutines to terminate as some of them need to be able
 	// to take the lock to terminate
-	c.mu.Unlock()
 	c.activeBackgroundWorkers.Wait()
 	return nil
+}
+
+func (c *client) maybeResetHealthyClientCh() chan struct{} {
+	c.healthyClientChMu.Lock()
+	defer c.healthyClientChMu.Unlock()
+	if c.healthyClientCh == nil {
+		c.healthyClientCh = make(chan struct{})
+	}
+	healthyClientCh := c.healthyClientCh
+	return healthyClientCh
 }
 
 // SubscribeRTP begins a subscription to receive RTP packets.
@@ -417,12 +428,10 @@ func (c *client) SubscribeRTP(
 	// New streams concurrent with closing cannot start until this drain completes. There
 	// will never be stream goroutines from the old "generation" running concurrently
 	// with those from the new "generation".
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	if c.healthyClientCh == nil {
-		c.healthyClientCh = make(chan struct{})
-	}
-	healthyClientCh := c.healthyClientCh
+	c.rtpPassthroughMu.Lock()
+	defer c.rtpPassthroughMu.Unlock()
+	healthyClientCh := c.maybeResetHealthyClientCh()
+
 	sub, buf, err := rtppassthrough.NewSubscription(bufferSize)
 	if err != nil {
 		return sub, err
@@ -480,10 +489,12 @@ func (c *client) SubscribeRTP(
 		// remove the OnTrackSub once we either fail or succeed
 		defer sc.RemoveOnTrackSub(c.trackName())
 
+		c.logger.Warn("before AddStream")
 		if _, err := c.streamClient.AddStream(ctx, &streampb.AddStreamRequest{Name: c.trackName()}); err != nil {
 			c.logger.CDebugw(ctx, "SubscribeRTP AddStream hit error", "subID", sub.ID.String(), "trackName", c.trackName(), "err", err)
 			return rtppassthrough.NilSubscription, err
 		}
+		c.logger.Warn("after AddStream")
 		// NOTE: (Nick S) This is a workaround to a Pion bug / missing feature.
 
 		// If the WebRTC peer on the other side of the PeerConnection calls pc.AddTrack followd by pc.RemoveTrack
@@ -567,7 +578,7 @@ func (c *client) addOnTrackSubFunc(
 					return
 				}
 
-				c.mu.Lock()
+				c.rtpPassthroughMu.Lock()
 				for _, tmp := range c.bufAndCBByID {
 					// This is needed to prevent the problem described here:
 					// https://go.dev/blog/loopvar-preview
@@ -581,7 +592,7 @@ func (c *client) addOnTrackSubFunc(
 							"err", err.Error())
 					}
 				}
-				c.mu.Unlock()
+				c.rtpPassthroughMu.Unlock()
 			}
 		}, c.activeBackgroundWorkers.Done)
 	}
@@ -597,10 +608,12 @@ func (c *client) addOnTrackSubFunc(
 func (c *client) Unsubscribe(ctx context.Context, id rtppassthrough.SubscriptionID) error {
 	ctx, span := trace.StartSpan(ctx, "camera::client::Unsubscribe")
 	defer span.End()
-	c.mu.Lock()
+	c.rtpPassthroughMu.Lock()
+	c.healthyClientChMu.Lock()
 	healthyClientCh := c.healthyClientCh
+	c.healthyClientChMu.Unlock()
 	if c.conn.PeerConn() == nil {
-		c.mu.Unlock()
+		c.rtpPassthroughMu.Unlock()
 		return ErrNoPeerConnection
 	}
 
@@ -609,7 +622,7 @@ func (c *client) Unsubscribe(ctx context.Context, id rtppassthrough.Subscription
 	bufAndCB, ok := c.bufAndCBByID[id]
 	if !ok {
 		c.logger.CWarnw(ctx, "Unsubscribe called with unknown subID ", "name", c.Name(), "subID", id.String())
-		c.mu.Unlock()
+		c.rtpPassthroughMu.Unlock()
 		return ErrUnknownSubscriptionID
 	}
 
@@ -617,7 +630,7 @@ func (c *client) Unsubscribe(ctx context.Context, id rtppassthrough.Subscription
 		c.logger.CDebugw(ctx, "Unsubscribe calling RemoveStream", "trackName", c.trackName(), "subID", id.String())
 		if _, err := c.streamClient.RemoveStream(ctx, &streampb.RemoveStreamRequest{Name: c.trackName()}); err != nil {
 			c.logger.CWarnw(ctx, "Unsubscribe RemoveStream returned err", "trackName", c.trackName(), "subID", id.String(), "err", err)
-			c.mu.Unlock()
+			c.rtpPassthroughMu.Unlock()
 			return err
 		}
 
@@ -626,7 +639,7 @@ func (c *client) Unsubscribe(ctx context.Context, id rtppassthrough.Subscription
 
 		// unlock so that the OnTrack callback can get the lock if it needs to before the ReadRTP method returns an error
 		// which will close `c.trackClosed`.
-		c.mu.Unlock()
+		c.rtpPassthroughMu.Unlock()
 
 		select {
 		case <-ctx.Done():
@@ -641,7 +654,7 @@ func (c *client) Unsubscribe(ctx context.Context, id rtppassthrough.Subscription
 		}
 		return nil
 	}
-	c.mu.Unlock()
+	c.rtpPassthroughMu.Unlock()
 
 	delete(c.bufAndCBByID, id)
 	bufAndCB.buf.Close()
@@ -667,6 +680,8 @@ func (c *client) trackName() string {
 }
 
 func (c *client) unsubscribeAll() {
+	c.rtpPassthroughMu.Lock()
+	defer c.rtpPassthroughMu.Unlock()
 	if len(c.bufAndCBByID) > 0 {
 		for id, bufAndCB := range c.bufAndCBByID {
 			c.logger.Debugw("unsubscribeAll terminating sub", "name", c.Name(), "subID", id.String())
@@ -677,8 +692,8 @@ func (c *client) unsubscribeAll() {
 }
 
 func (c *client) unsubscribeChildrenSubs(parentID rtppassthrough.SubscriptionID) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
+	c.rtpPassthroughMu.Lock()
+	defer c.rtpPassthroughMu.Unlock()
 	c.logger.Debugw("client unsubscribeChildrenSubs called", "name", c.Name(), "parentID", parentID.String())
 	defer c.logger.Debugw("client unsubscribeChildrenSubs done", "name", c.Name(), "parentID", parentID.String())
 	for _, childID := range c.subParentToChildren[parentID] {
