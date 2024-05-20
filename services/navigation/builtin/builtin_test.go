@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"math"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -577,6 +578,19 @@ func TestNavSetup(t *testing.T) {
 
 	test.That(t, len(ns.(*builtIn).boundingRegions), test.ShouldEqual, 1)
 	test.That(t, len(ns.(*builtIn).obstacles), test.ShouldEqual, 1)
+}
+
+func TestNavSetUpFromFaultyConfig(t *testing.T) {
+	ctx := context.Background()
+	logger := logging.NewTestLogger(t)
+	cfg, err := config.Read(ctx, "../data/incorrect_nav_cfg.json", logger)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, cfg.Ensure(false, logger), test.ShouldBeNil)
+	myRobot, err := robotimpl.New(ctx, cfg, logger)
+	test.That(t, err, test.ShouldBeNil)
+	_, err = navigation.FromRobot(myRobot, "test_navigation")
+	test.That(t, strings.Contains(err.Error(), errGeomWithTranslation.Error()), test.ShouldBeTrue)
+	myRobot.Close(context.Background())
 }
 
 func setupStartWaypoint(ctx context.Context, t *testing.T, logger logging.Logger) startWaypointState {
