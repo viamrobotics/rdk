@@ -199,7 +199,7 @@ func WrapWithFakePTGKinematics(
 	}
 	ptgs := ptgProv.PTGSolvers()
 	traj := motionplan.Trajectory{{frame.Name(): zeroInput}}
-	path := motionplan.Path{{frame.Name(): referenceframe.NewPoseInFrame(origin.Parent(), spatialmath.Compose(origin.Pose(), sensorNoise))}}
+	path := motionplan.Path{{frame.Name(): origin}}
 	zeroPlan := motionplan.NewSimplePlan(path, traj)
 
 	fk := &fakePTGKinematics{
@@ -238,9 +238,7 @@ func (fk *fakePTGKinematics) GoToInputs(ctx context.Context, inputSteps ...[]ref
 		fk.currentIndex = 0
 
 		traj := motionplan.Trajectory{{fk.frame.Name(): zeroInput}}
-		path := motionplan.Path{
-			{fk.frame.Name(): referenceframe.NewPoseInFrame(fk.origin.Parent(), spatialmath.Compose(fk.origin.Pose(), fk.sensorNoise))},
-		}
+		path := motionplan.Path{{fk.frame.Name(): fk.origin}}
 		fk.plan = motionplan.NewSimplePlan(path, traj)
 		fk.inputLock.Unlock()
 	}()

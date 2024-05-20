@@ -327,7 +327,7 @@ func CalculateFrameErrorState(e ExecutionState, frame referenceframe.Frame) (spa
 	if err != nil {
 		return nil, err
 	}
-	index := e.Index()
+	index := max(e.Index()-1, 0)
 	if index < 0 || index >= len(poses) {
 		return nil, fmt.Errorf("index %d out of bounds for Path of length %d", index, len(poses))
 	}

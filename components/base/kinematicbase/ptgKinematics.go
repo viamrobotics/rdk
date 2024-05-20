@@ -194,29 +194,6 @@ func (ptgk *ptgBaseKinematics) ExecutionState(ctx context.Context) (motionplan.E
 	)
 }
 
-func (ptgk *ptgBaseKinematics) ErrorState(ctx context.Context) (spatialmath.Pose, error) {
-	// Get pose-in-frame of the base via its localizer. The offset between the localizer and its base should already be accounted for.
-	actualPIF, err := ptgk.CurrentPosition(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	// Determine the nominal pose, that is, the pose where the robot ought be if it had followed the plan perfectly up until this point.
-	ptgk.inputLock.RLock()
-	currentIdx := ptgk.currentState.currentIdx
-	currentExecutingSteps := ptgk.currentState.currentExecutingSteps
-	currentInputs := ptgk.currentState.currentInputs
-	ptgk.inputLock.RUnlock()
-
-	currPoseInArc, err := ptgk.frame.Transform(currentInputs)
-	if err != nil {
-		return nil, err
-	}
-	nominalPose := spatialmath.Compose(currentExecutingSteps[currentIdx].arcSegment.StartPosition, currPoseInArc)
-
-	return spatialmath.PoseBetween(nominalPose, actualPIF.Pose()), nil
-}
-
 func correctAngularVelocityWithTurnRadius(logger logging.Logger, turnRadMeters, velocityMMps, angVelocityDegps float64) (float64, error) {
 	angVelocityRadps := rdkutils.DegToRad(angVelocityDegps)
 	turnRadMillimeters := turnRadMeters * 1000.

@@ -296,6 +296,7 @@ func TestPositionalReplanning(t *testing.T) {
 		if tc.expectedSuccess {
 			test.That(t, err, test.ShouldBeNil)
 		} else {
+			test.That(t, err, test.ShouldNotBeNil)
 			test.That(t, err.Error(), test.ShouldEqual, tc.expectedErr)
 		}
 	}
