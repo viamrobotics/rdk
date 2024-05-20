@@ -83,7 +83,6 @@ func (cfg *Config) Validate(path string) ([]string, error) {
 // fakeEncoder keeps track of a fake motor position.
 type fakeEncoder struct {
 	resource.Named
-	resource.TriviallyCloseable
 
 	positionType encoder.PositionType
 	logger       logging.Logger
