@@ -69,12 +69,12 @@ func TestEncoder(t *testing.T) {
 		})
 	})
 
-	// Set Speed
-	t.Run("set speed", func(t *testing.T) {
+	// Set ticks per sec
+	t.Run("set ticks per second", func(t *testing.T) {
 		e1 := e.(*fakeEncoder)
 		err := e1.SetSpeed(ctx, 1)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, e1.speed, test.ShouldEqual, 1)
+		test.That(t, e1.ticksPerSec, test.ShouldEqual, 1)
 	})
 
 	// Start with default update rate
@@ -99,7 +99,7 @@ func TestEncoder(t *testing.T) {
 		})
 	})
 
-	t.Run("reconfigure with speed", func(t *testing.T) {
+	t.Run("reconfigure with different update ticks per second", func(t *testing.T) {
 		e1 := e.(*fakeEncoder)
 		err := e1.SetSpeed(ctx, 0)
 		test.That(t, err, test.ShouldBeNil)
@@ -107,14 +107,14 @@ func TestEncoder(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		ic := Config{
-			UpdateRate: 100,
-			Speed:      700,
+			UpdateRate:  100,
+			TicksPerSec: 700,
 		}
 		cfg := resource.Config{Name: "enc1", ConvertedAttributes: &ic}
 		e.Reconfigure(ctx, nil, cfg)
 
 		test.That(t, e1.updateRate, test.ShouldEqual, 100)
-		test.That(t, e1.speed, test.ShouldEqual, 700)
+		test.That(t, e1.ticksPerSec, test.ShouldEqual, 700)
 
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()

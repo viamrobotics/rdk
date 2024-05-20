@@ -61,7 +61,7 @@ func (e *fakeEncoder) Reconfigure(
 	}
 	e.mu.Lock()
 	e.updateRate = newConf.UpdateRate
-	e.speed = newConf.Speed
+	e.ticksPerSec = newConf.TicksPerSec
 	if e.updateRate == 0 {
 		e.updateRate = 100
 	}
@@ -71,8 +71,8 @@ func (e *fakeEncoder) Reconfigure(
 
 // Config describes the configuration of a fake encoder.
 type Config struct {
-	UpdateRate int64   `json:"update_rate_msec,omitempty"`
-	Speed      float64 `json:"speed,omitempty"`
+	UpdateRate  int64   `json:"update_rate_msec,omitempty"`
+	TicksPerSec float64 `json:"ticks_per_sec,omitempty"`
 }
 
 // Validate ensures all parts of a config is valid.
@@ -88,11 +88,11 @@ type fakeEncoder struct {
 	positionType encoder.PositionType
 	logger       logging.Logger
 
-	mu         sync.RWMutex
-	workers    rdkutils.StoppableWorkers
-	position   int64
-	speed      float64 // ticks per minute
-	updateRate int64   // update position in start every updateRate ms
+	mu          sync.RWMutex
+	workers     rdkutils.StoppableWorkers
+	position    int64
+	ticksPerSec float64 // increment to position every sec
+	updateRate  int64   // update position in start every updateRate ms
 }
 
 // Position returns the current position in terms of ticks or
@@ -127,7 +127,7 @@ func (e *fakeEncoder) start(cancelCtx context.Context) {
 		}
 
 		e.mu.Lock()
-		e.position += int64(e.speed / float64(60*1000/updateRate))
+		e.position += int64(e.ticksPerSec / float64(1000/updateRate))
 		e.mu.Unlock()
 	}
 }
@@ -160,15 +160,15 @@ func (e *fakeEncoder) Close(ctx context.Context) error {
 // Encoder is a fake encoder used for testing.
 type Encoder interface {
 	encoder.Encoder
-	SetSpeed(ctx context.Context, speed float64) error
+	SetSpeed(ctx context.Context, ticksPerSec float64) error
 	SetPosition(ctx context.Context, position int64) error
 }
 
 // SetSpeed sets the speed of the fake motor the encoder is measuring.
-func (e *fakeEncoder) SetSpeed(ctx context.Context, speed float64) error {
+func (e *fakeEncoder) SetSpeed(ctx context.Context, ticksPerSec float64) error {
 	e.mu.Lock()
 	defer e.mu.Unlock()
-	e.speed = speed
+	e.ticksPerSec = ticksPerSec
 	return nil
 }
 
