@@ -183,7 +183,6 @@ func (conf *Config) Validate(path string) ([]string, error) {
 	for _, obs := range conf.Obstacles {
 		for _, geoms := range obs.Geometries {
 			if !geoms.TranslationOffset.ApproxEqual(r3.Vector{}) {
-
 				return nil, errors.Wrap(errGeomWithTranslation, "obstacle")
 			}
 		}
