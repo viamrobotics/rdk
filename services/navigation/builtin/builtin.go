@@ -183,7 +183,7 @@ func (conf *Config) Validate(path string) ([]string, error) {
 	for _, obs := range conf.Obstacles {
 		for _, geoms := range obs.Geometries {
 			if !geoms.TranslationOffset.ApproxEqual(r3.Vector{}) {
-				return nil, errGeomWithTranslation
+				return nil, errors.New("obstacle " + errGeomWithTranslation.Error())
 			}
 		}
 	}
@@ -192,7 +192,7 @@ func (conf *Config) Validate(path string) ([]string, error) {
 	for _, region := range conf.BoundingRegions {
 		for _, geoms := range region.Geometries {
 			if !geoms.TranslationOffset.ApproxEqual(r3.Vector{}) {
-				return nil, errGeomWithTranslation
+				return nil, errors.New("bounding region " + errGeomWithTranslation.Error())
 			}
 		}
 	}
@@ -381,7 +381,7 @@ func (svc *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies,
 	}
 
 	// Parse bounding regions from the configuration
-	newBoundingRegions, err := spatialmath.GeoGeometriesFromConfigs(svcConfig.Obstacles)
+	newBoundingRegions, err := spatialmath.GeoGeometriesFromConfigs(svcConfig.BoundingRegions)
 	if err != nil {
 		return err
 	}

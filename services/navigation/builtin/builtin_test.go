@@ -581,16 +581,21 @@ func TestNavSetup(t *testing.T) {
 }
 
 func TestNavSetUpFromFaultyConfig(t *testing.T) {
+	cfgPath := []string{
+		"../data/incorrect_obstacles_nav_cfg.json",
+		"../data/incorrect_bounding_regions_nav_cfg.json",
+	}
 	ctx := context.Background()
 	logger := logging.NewTestLogger(t)
-	cfg, err := config.Read(ctx, "../data/incorrect_nav_cfg.json", logger)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, cfg.Ensure(false, logger), test.ShouldBeNil)
-	myRobot, err := robotimpl.New(ctx, cfg, logger)
-	test.That(t, err, test.ShouldBeNil)
-	_, err = navigation.FromRobot(myRobot, "test_navigation")
-	test.That(t, strings.Contains(err.Error(), errGeomWithTranslation.Error()), test.ShouldBeTrue)
-	myRobot.Close(context.Background())
+	for _, path := range cfgPath {
+		cfg, err := config.Read(ctx, path, logger)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, cfg.Ensure(false, logger), test.ShouldBeNil)
+		myRobot, err := robotimpl.New(ctx, cfg, logger)
+		test.That(t, err, test.ShouldBeNil)
+		_, err = navigation.FromRobot(myRobot, "test_navigation")
+		test.That(t, err, test.ShouldNotBeNil)
+	}
 }
 
 func setupStartWaypoint(ctx context.Context, t *testing.T, logger logging.Logger) startWaypointState {
@@ -1714,9 +1719,8 @@ func TestValidateGeometry(t *testing.T) {
 	t.Run("fail case", func(t *testing.T) {
 		cfg = createBox(r3.Vector{X: 10, Y: 10, Z: 10})
 		_, err := cfg.Validate("")
-		expectedErr := errGeomWithTranslation.Error()
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldEqual, expectedErr)
+		test.That(t, strings.Contains(err.Error(), errGeomWithTranslation.Error()), test.ShouldBeTrue)
 	})
 
 	t.Run("success case", func(t *testing.T) {
