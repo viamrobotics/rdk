@@ -484,7 +484,6 @@ func TestModuleReloading(t *testing.T) {
 		test.That(t, dummyRemoveOrphanedResourcesCallCount.Load(), test.ShouldEqual, 1)
 	})
 	t.Run("unsuccessful restart", func(t *testing.T) {
-		t.Skip()
 		logger, logs := logging.NewObservedTestLogger(t)
 
 		// Precompile module to avoid timeout issues when building takes too long.
