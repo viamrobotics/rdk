@@ -521,11 +521,7 @@ func (manager *resourceManager) Close(ctx context.Context) error {
 // resources that are wrapped in a placeholderResource. this function will attempt to
 // process resources concurrently when they do not depend on each other unless
 // `forceSynce` is set to true.
-func (manager *resourceManager) completeConfig(
-	ctx context.Context,
-	lr *localRobot,
-	forceSync bool,
-) {
+func (manager *resourceManager) completeConfig(ctx context.Context, lr *localRobot) {
 	manager.configLock.Lock()
 	defer func() {
 		if err := manager.viz.SaveSnapshot(manager.resources); err != nil {
@@ -677,19 +673,16 @@ func (manager *resourceManager) completeConfig(
 				return nil
 			}
 
-			syncRes := forceSync
-			if !syncRes {
-				// TODO(RSDK-6925): support concurrent processing of resources of
-				// APIs with a maximum instance limit. Currently this limit is
-				// validated later in the resource creation flow and assumes that
-				// each resource is created synchronously to have an accurate
-				// creation count.
-				if c, ok := resource.LookupGenericAPIRegistration(resName.API); ok && c.MaxInstance != 0 {
-					syncRes = true
-				}
+			var processSync bool
+			// TODO(RSDK-6925): support concurrent processing of resources of APIs with a
+			// maximum instance limit. Currently this limit is validated later in the
+			// resource creation flow and assumes that each resource is created
+			// synchronously to have an accurate creation count.
+			if c, ok := resource.LookupGenericAPIRegistration(resName.API); ok && c.MaxInstance != 0 {
+				processSync = true
 			}
 
-			if syncRes {
+			if processSync {
 				if err := processResource(); err != nil {
 					return
 				}
