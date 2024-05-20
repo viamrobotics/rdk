@@ -323,14 +323,21 @@ func CalculateFrameErrorState(e ExecutionState, frame referenceframe.Frame) (spa
 	if err != nil {
 		return nil, err
 	}
-	poses, err := e.Plan().Path().GetFramePoses(frame.Name())
-	if err != nil {
-		return nil, err
+	path := e.Plan().Path()
+	if path == nil {
+		return nil, errors.New("cannot calculate error state on a nil Path")
 	}
 	index := max(e.Index()-1, 0)
-	if index < 0 || index >= len(poses) {
-		return nil, fmt.Errorf("index %d out of bounds for Path of length %d", index, len(poses))
+	if index < 0 || index >= len(path) {
+		return nil, fmt.Errorf("index %d out of bounds for Path of length %d", index, len(path))
 	}
-	nominalPose := spatialmath.Compose(poses[index], currPoseInArc)
+	pose, ok := path[index][frame.Name()]
+	if !ok {
+		return nil, fmt.Errorf("could not find frame %s in ExecutionState", frame.Name())
+	}
+	if pose.Parent() != currentPose.Parent() {
+		return nil, errors.New("cannot compose two PoseInFrames with different parents")
+	}
+	nominalPose := spatialmath.Compose(pose.Pose(), currPoseInArc)
 	return spatialmath.PoseBetween(nominalPose, currentPose.Pose()), nil
 }
