@@ -595,8 +595,8 @@ func TestNavSetUpFromFaultyConfig(t *testing.T) {
 		myRobot, err := robotimpl.New(ctx, cfg, logger)
 		test.That(t, err, test.ShouldBeNil)
 		_, err = navigation.FromRobot(myRobot, "test_navigation")
-		fmt.Println("err: ", err)
 		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, strings.Contains(err.Error(), "unsupported Geometry type"), test.ShouldBeTrue)
 	}
 }
 
