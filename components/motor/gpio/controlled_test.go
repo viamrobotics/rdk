@@ -4,13 +4,14 @@ import (
 	"context"
 	"testing"
 
+	"go.viam.com/test"
+	"go.viam.com/utils/testutils"
+
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/encoder"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/test"
-	"go.viam.com/utils/testutils"
 )
 
 func TestEncodedMotorControls(t *testing.T) {
