@@ -467,6 +467,12 @@ func (mgr *Manager) AddResource(ctx context.Context, conf resource.Config, deps 
 	return mgr.addResource(ctx, conf, deps)
 }
 
+func (mgr *Manager) addResourceWithWriteLock(ctx context.Context, conf resource.Config, deps []string) (resource.Resource, error) {
+	mgr.mu.Lock()
+	defer mgr.mu.Unlock()
+	return mgr.addResource(ctx, conf, deps)
+}
+
 func (mgr *Manager) addResource(ctx context.Context, conf resource.Config, deps []string) (resource.Resource, error) {
 	mod, ok := mgr.getModule(conf)
 	if !ok {
@@ -828,7 +834,10 @@ func (mgr *Manager) newOnUnexpectedExitHandler(mod *module) func(exitCode int) b
 		// Finally, handle orphaned resources.
 		var orphanedResourceNames []resource.Name
 		for name, res := range mod.resources {
-			if _, err := mgr.AddResource(mgr.restartCtx, res.conf, res.deps); err != nil {
+			// The `addResource` method might still be executing for this resource with a
+			// read lock, so we execute it here with a write lock to make sure it doesn't
+			// run concurrently.
+			if _, err := mgr.addResourceWithWriteLock(mgr.restartCtx, res.conf, res.deps); err != nil {
 				mgr.logger.Warnw("Error while re-adding resource to module",
 					"resource", name, "module", mod.cfg.Name, "error", err)
 				mgr.rMap.Delete(name)
