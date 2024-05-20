@@ -788,35 +788,22 @@ func (pm *planManager) planRelativeWaypoint(ctx context.Context, request *PlanRe
 	}
 	goalPos := tf.(*referenceframe.PoseInFrame).Pose()
 
-	// We need to create a separate ephemeral framesystem to place the
-	// kinematic base frame which only understands relative inputs, i.e.
-	// given what is provided to us by request.StartConfiguration cannot place us
-	// anywhere else but the origin
-	copyOfOriginalFS := pm.frame.fss
-
-	transformFrame, err := referenceframe.NewStaticFrame(request.Frame.Name()+"ExecutionFrame", request.StartPose)
-	if err != nil {
-		return nil, err
-	}
-	fsWithTransform := referenceframe.NewEmptyFrameSystem("store-starting point")
-	err = fsWithTransform.AddFrame(transformFrame, fsWithTransform.World())
-	if err != nil {
-		return nil, err
-	}
-	err = fsWithTransform.MergeFrameSystem(pm.frame.fss, transformFrame)
-	if err != nil {
-		return nil, err
-	}
-	pm.frame.fss = fsWithTransform
-
 	opt, err := pm.plannerSetupFromMoveRequest(
 		startPose, goalPos, request.StartConfiguration, request.WorldState, request.ConstraintSpecs, request.Options,
 	)
 	if err != nil {
 		return nil, err
 	}
-	pm.frame.fss = copyOfOriginalFS
+
+	// re-root the frame system on the relative frame
+	relativeOnlyFS, err := pm.frame.fss.FrameSystemSubset(request.Frame)
+	if err != nil {
+		return nil, err
+	}
+	pm.frame.fss = relativeOnlyFS
 	pm.planOpts = opt
+
+	// set the goal pose
 	opt.SetGoal(goalPos)
 
 	// Build planner

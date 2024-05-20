@@ -653,6 +653,12 @@ func (ms *builtIn) createBaseMoveRequest(
 	worldObstacles []spatialmath.Geometry,
 	valExtra validatedExtra,
 ) (*moveRequest, error) {
+	startPoseIF, err := kb.CurrentPosition(ctx)
+	if err != nil {
+		return nil, err
+	}
+	startPose := startPoseIF.Pose()
+
 	// replace original base frame with one that knows how to move itself and allow planning for
 	kinematicFrame := kb.Kinematics()
 	if err := fs.ReplaceFrame(kinematicFrame); err != nil {
@@ -669,7 +675,22 @@ func (ms *builtIn) createBaseMoveRequest(
 		return nil, err
 	}
 
-	// create checking fs
+	// create fs used for planning
+	planningFS := referenceframe.NewEmptyFrameSystem("store-starting point")
+	transformFrame, err := referenceframe.NewStaticFrame(kb.Kinematics().Name()+"ExecutionFrame", startPose)
+	if err != nil {
+		return nil, err
+	}
+	err = planningFS.AddFrame(transformFrame, planningFS.World())
+	if err != nil {
+		return nil, err
+	}
+	err = planningFS.MergeFrameSystem(baseOnlyFS, transformFrame)
+	if err != nil {
+		return nil, err
+	}
+
+	// create collision checking fs
 	collisionFS := referenceframe.NewEmptyFrameSystem("collisionFS")
 	err = collisionFS.AddFrame(kb.ExecutionFrame(), collisionFS.World())
 	if err != nil {
@@ -679,12 +700,6 @@ func (ms *builtIn) createBaseMoveRequest(
 	if err != nil {
 		return nil, err
 	}
-
-	startPoseIF, err := kb.CurrentPosition(ctx)
-	if err != nil {
-		return nil, err
-	}
-	startPose := startPoseIF.Pose()
 
 	goal := referenceframe.NewPoseInFrame(referenceframe.World, goalPoseInWorld)
 
@@ -752,7 +767,7 @@ func (ms *builtIn) createBaseMoveRequest(
 			Logger:             logger,
 			Goal:               goal,
 			Frame:              kinematicFrame,
-			FrameSystem:        baseOnlyFS,
+			FrameSystem:        planningFS,
 			StartConfiguration: currentInputs,
 			StartPose:          startPose,
 			WorldState:         worldState,
