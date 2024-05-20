@@ -276,9 +276,10 @@ func (m *Motor) GoFor(ctx context.Context, rpm, revolutions float64, extra map[s
 	}
 
 	switch speed := math.Abs(rpm); {
-	case speed < 0.1:
-		m.logger.CWarn(ctx, "motor speed is nearly 0 rev_per_min")
+	case speed == 0:
 		return motor.NewZeroRPMError()
+	case speed < 0.1 && speed > 0:
+		m.logger.CWarn(ctx, "motor speed is nearly 0 rev_per_min")
 	case m.maxRPM > 0 && speed > m.maxRPM-0.1:
 		m.logger.CWarnf(ctx, "motor speed is nearly the max rev_per_min (%f)", m.maxRPM)
 	default:
