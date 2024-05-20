@@ -56,8 +56,6 @@ type (
 type client struct {
 	resource.Named
 	resource.TriviallyReconfigurable
-	ctx                     context.Context
-	cancelFn                context.CancelFunc
 	remoteName              string
 	name                    string
 	conn                    rpc.ClientConn
@@ -86,10 +84,7 @@ func NewClientFromConn(
 	streamClient := streampb.NewStreamServiceClient(conn)
 	trackClosed := make(chan struct{})
 	close(trackClosed)
-	closeCtx, cancelFn := context.WithCancel(context.Background())
 	return &client{
-		ctx:                 closeCtx,
-		cancelFn:            cancelFn,
 		remoteName:          remoteName,
 		Named:               name.PrependRemote(remoteName).AsNamed(),
 		name:                name.ShortName(),
@@ -366,9 +361,7 @@ func (c *client) Close(ctx context.Context) error {
 	_, span := trace.StartSpan(ctx, "camera::client::Close")
 	defer span.End()
 
-	c.cancelFn()
 	c.mu.Lock()
-
 	if c.healthyClientCh != nil {
 		close(c.healthyClientCh)
 	}
@@ -404,6 +397,10 @@ func (c *client) SubscribeRTP(
 	defer span.End()
 	c.mu.Lock()
 	defer c.mu.Unlock()
+	if c.healthyClientCh == nil {
+		c.healthyClientCh = make(chan struct{})
+	}
+	healthyClientCh := c.healthyClientCh
 	sub, buf, err := rtppassthrough.NewSubscription(bufferSize)
 	if err != nil {
 		return sub, err
@@ -445,8 +442,8 @@ func (c *client) SubscribeRTP(
 			err := errors.Wrap(ctx.Err(), "Track not closed within SubscribeRTP provided context")
 			c.logger.Error(err)
 			return rtppassthrough.NilSubscription, err
-		case <-c.ctx.Done():
-			err := errors.Wrap(c.ctx.Err(), "Track not closed before client closed")
+		case <-healthyClientCh:
+			err := errors.New("Track not closed before client closed")
 			c.logger.Error(err)
 			return rtppassthrough.NilSubscription, err
 		case <-c.trackClosed:
@@ -457,7 +454,7 @@ func (c *client) SubscribeRTP(
 		// slice of OnTrack callbacks. This is what allows
 		// all the bufAndCBByID's callback functions to be called with the
 		// RTP packets from the module's peer connection's track
-		sc.AddOnTrackSub(c.trackName(), c.addOnTrackSubFunc(trackReceived, trackClosed, sub.ID))
+		sc.AddOnTrackSub(c.trackName(), c.addOnTrackSubFunc(healthyClientCh, trackReceived, trackClosed, sub.ID))
 		// remove the OnTrackSub once we either fail or succeed
 		defer sc.RemoveOnTrackSub(c.trackName())
 
@@ -480,8 +477,8 @@ func (c *client) SubscribeRTP(
 			err := errors.Wrap(ctx.Err(), "Track not received within SubscribeRTP provided context")
 			c.logger.Error(err.Error())
 			return rtppassthrough.NilSubscription, err
-		case <-c.ctx.Done():
-			err := errors.Wrap(c.ctx.Err(), "Track not received before client closed")
+		case <-healthyClientCh:
+			err := errors.New("Track not received before client closed")
 			c.logger.Error(err)
 			return rtppassthrough.NilSubscription, err
 		case <-trackReceived:
@@ -514,7 +511,7 @@ func (c *client) SubscribeRTP(
 }
 
 func (c *client) addOnTrackSubFunc(
-	trackReceived, trackClosed chan struct{},
+	healthyClientCh, trackReceived, trackClosed chan struct{},
 	parentID rtppassthrough.SubscriptionID,
 ) grpc.OnTrackCB {
 	return func(tr *webrtc.TrackRemote, r *webrtc.RTPReceiver) {
@@ -522,11 +519,13 @@ func (c *client) addOnTrackSubFunc(
 		c.activeBackgroundWorkers.Add(1)
 		goutils.ManagedGo(func() {
 			for {
-				if c.ctx.Err() != nil {
+				select {
+				case <-healthyClientCh:
 					c.logger.Debugw("SubscribeRTP: camera client", "name ", c.Name(), "parentID", parentID.String(),
 						"OnTrack callback terminating as the client is closing")
 					close(trackClosed)
 					return
+				default:
 				}
 
 				pkt, _, err := tr.ReadRTP()
@@ -577,7 +576,7 @@ func (c *client) Unsubscribe(ctx context.Context, id rtppassthrough.Subscription
 	ctx, span := trace.StartSpan(ctx, "camera::client::Unsubscribe")
 	defer span.End()
 	c.mu.Lock()
-
+	healthyClientCh := c.healthyClientCh
 	if c.conn.PeerConn() == nil {
 		c.mu.Unlock()
 		return ErrNoPeerConnection
@@ -612,8 +611,8 @@ func (c *client) Unsubscribe(ctx context.Context, id rtppassthrough.Subscription
 			err := errors.Wrap(ctx.Err(), "track not closed within Unsubscribe provided context. Subscription may be left in broken state")
 			c.logger.Error(err)
 			return err
-		case <-c.ctx.Done():
-			err := errors.Wrap(c.ctx.Err(), "track not closed before client closed")
+		case <-healthyClientCh:
+			err := errors.New("track not closed before client closed")
 			c.logger.Error(err)
 			return err
 		case <-c.trackClosed:
