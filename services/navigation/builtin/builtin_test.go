@@ -3,7 +3,6 @@ package builtin
 import (
 	"context"
 	"errors"
-	"fmt"
 	"math"
 	"strings"
 	"sync"
@@ -1722,7 +1721,6 @@ func TestValidateGeometry(t *testing.T) {
 		cfg = createBox(r3.Vector{X: 10, Y: 10, Z: 10})
 		_, err := cfg.Validate("")
 		test.That(t, err, test.ShouldNotBeNil)
-		fmt.Println("err: ", err)
 		test.That(t, strings.Contains(err.Error(), errGeomWithTranslation.Error()), test.ShouldBeTrue)
 	})
 
