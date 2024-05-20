@@ -1714,7 +1714,7 @@ func TestValidateGeometry(t *testing.T) {
 	t.Run("fail case", func(t *testing.T) {
 		cfg = createBox(r3.Vector{X: 10, Y: 10, Z: 10})
 		_, err := cfg.Validate("")
-		expectedErr := "geometries specified through the navigation are not allowed to have a translation"
+		expectedErr := errGeomWithTranslation.Error()
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldEqual, expectedErr)
 	})
