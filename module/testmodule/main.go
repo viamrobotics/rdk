@@ -300,7 +300,7 @@ type slow struct {
 	resource.TriviallyCloseable
 }
 
-// Reconfigure does nothing but is slow
+// Reconfigure does nothing but is slow.
 func (s *slow) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
 	time.Sleep(1 * time.Second)
 	return nil
