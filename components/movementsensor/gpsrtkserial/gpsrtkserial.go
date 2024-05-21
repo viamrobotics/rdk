@@ -157,11 +157,6 @@ func (g *rtkSerial) Reconfigure(ctx context.Context, deps resource.Dependencies,
 		NtripConnectAttempts: newConf.NtripConnectAttempts,
 	}
 
-	last := len(ntripConfig.NtripURL) - 1
-	if ntripConfig.NtripURL[last] == '/' {
-		ntripConfig.NtripURL = ntripConfig.NtripURL[:last]
-	}
-
 	// Init ntripInfo from attributes
 	tempNtripClient, err := gpsutils.NewNtripInfo(ntripConfig, g.logger)
 	if err != nil {
