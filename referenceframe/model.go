@@ -323,3 +323,94 @@ func New2DMobileModelFrame(name string, limits []Limit, collisionGeometry spatia
 	}
 	return model, nil
 }
+
+type Simple6DModel struct {
+	*baseFrame
+	modelConfig       *ModelConfig
+	limits            []Limit
+	collisionGeometry spatialmath.Geometry
+}
+
+// NewSimpleModel constructs a new model.
+func NewSimple6DModel(name string) *Simple6DModel {
+	return &Simple6DModel{}
+}
+
+func New6DFrame(name string, limits []Limit, collisionGeometry spatialmath.Geometry) (Model, error) {
+	if len(limits) != 6 {
+		return nil,
+			errors.Errorf("Must have 6DOF state (x, y, OX, OY, OZ, theta) to create 6DFrame, have %d dof", len(limits))
+	}
+
+	model := NewSimple6DModel(name)
+	model.collisionGeometry = collisionGeometry
+	model.limits = limits
+
+	return model, nil
+}
+
+// Transform takes a model and a list of joint angles in radians and computes the dual quaternion representing the
+// cartesian position of the end effector. This is useful for when conversions between quaternions and OV are not needed.
+func (m *Simple6DModel) Transform(inputs []Input) (spatialmath.Pose, error) {
+	if len(inputs) != 6 {
+		return nil, NewIncorrectInputLengthError(len(inputs), 6)
+	}
+	return spatialmath.NewPose(
+		r3.Vector{X: inputs[0].Value, Y: inputs[1].Value, Z: 0},
+		&spatialmath.OrientationVectorDegrees{
+			OX:    inputs[2].Value,
+			OY:    inputs[3].Value,
+			OZ:    inputs[4].Value,
+			Theta: inputs[5].Value,
+		},
+	), nil
+}
+
+// Interpolate interpolates the given amount between the two sets of inputs.
+func (m *Simple6DModel) Interpolate(from, to []Input, by float64) ([]Input, error) {
+	if len(from) != len(m.DoF()) {
+		return nil, NewIncorrectInputLengthError(len(from), len(m.DoF()))
+	}
+	if len(to) != len(m.DoF()) {
+		return nil, NewIncorrectInputLengthError(len(to), len(m.DoF()))
+	}
+	return interpolateInputs(from, to, by), nil
+}
+
+// Geometries returns an object representing the 3D space associeted with the staticFrame.
+func (m *Simple6DModel) Geometries(inputs []Input) (*GeometriesInFrame, error) {
+	transformByPose, err := m.Transform(inputs)
+	if err != nil {
+		return nil, err
+	}
+	return NewGeometriesInFrame(m.name, []spatialmath.Geometry{m.collisionGeometry.Transform(transformByPose)}), nil
+}
+
+// DoF returns the number of degrees of freedom within a model.
+func (m *Simple6DModel) DoF() []Limit {
+	return m.limits
+}
+
+// ModelConfig returns the ModelConfig object used to create this model.
+func (m *Simple6DModel) ModelConfig() *ModelConfig {
+	return m.modelConfig
+}
+
+// MarshalJSON serializes a Model.
+func (m *Simple6DModel) MarshalJSON() ([]byte, error) {
+	return json.Marshal(m.modelConfig)
+}
+
+// InputFromProtobuf converts pb.JointPosition to inputs.
+func (m *Simple6DModel) InputFromProtobuf(jp *pb.JointPositions) []Input {
+	inputs := make([]Input, 0, len(jp.Values))
+
+	return inputs
+}
+
+// ProtobufFromInput converts inputs to pb.JointPosition.
+func (m *Simple6DModel) ProtobufFromInput(input []Input) *pb.JointPositions {
+	jPos := &pb.JointPositions{}
+
+	return jPos
+}
