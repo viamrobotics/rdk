@@ -48,13 +48,17 @@ type localRobot struct {
 	manager       *resourceManager
 	mostRecentCfg atomic.Value // config.Config
 
-	operations                 *operation.Manager
-	sessionManager             session.Manager
-	packageManager             packages.ManagerSyncer
-	localPackages              packages.ManagerSyncer
-	cloudConnSvc               icloud.ConnectionService
-	logger                     logging.Logger
-	activeBackgroundWorkers    sync.WaitGroup
+	operations              *operation.Manager
+	sessionManager          session.Manager
+	packageManager          packages.ManagerSyncer
+	localPackages           packages.ManagerSyncer
+	cloudConnSvc            icloud.ConnectionService
+	logger                  logging.Logger
+	activeBackgroundWorkers sync.WaitGroup
+	// reconfigureWorkers tracks goroutines spawned by reconfiguration functions. we only
+	// wait on this group in tests to prevent goleak-related failures. however, we do not
+	// wait on this group outside of testing, since the related goroutines may be running
+	// outside code and have unexpected behavior.
 	reconfigureWorkers         sync.WaitGroup
 	cancelBackgroundWorkers    func()
 	closeContext               context.Context
