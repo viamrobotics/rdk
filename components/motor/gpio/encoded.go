@@ -265,7 +265,6 @@ func (m *EncodedMotor) GoFor(ctx context.Context, rpm, revolutions float64, extr
 		m.logger.CWarnf(ctx, warning)
 	}
 	if err != nil {
-		m.logger.CWarn(ctx, "motor speed requested is 0 rev_per_min")
 		return err
 	}
 
