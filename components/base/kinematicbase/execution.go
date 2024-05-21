@@ -76,7 +76,7 @@ func (ptgk *ptgBaseKinematics) GoToInputs(ctx context.Context, inputSteps ...[]r
 
 	defer func() {
 		ptgk.inputLock.Lock()
-		ptgk.currentState.currentInputs = zeroInput
+		ptgk.currentState = baseState{currentInputs: zeroInput}
 		ptgk.inputLock.Unlock()
 	}()
 
