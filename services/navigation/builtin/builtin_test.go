@@ -1721,7 +1721,7 @@ func TestValidateGeometry(t *testing.T) {
 		cfg = createBox(r3.Vector{X: 10, Y: 10, Z: 10})
 		_, err := cfg.Validate("")
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, strings.Contains(err.Error(), errGeomWithTranslation.Error()), test.ShouldBeTrue)
+		test.That(t, errors.Is(err, errObstacleGeomWithTranslation), test.ShouldBeTrue)
 	})
 
 	t.Run("success case", func(t *testing.T) {
