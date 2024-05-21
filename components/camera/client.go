@@ -372,7 +372,8 @@ func (c *client) Close(ctx context.Context) error {
 	c.healthyClientChMu.Unlock()
 
 	// unsubscribe from all video streams that have been established with modular cameras
-	c.unsubscribeAll()
+
+	c.unsubscribeAll(ctx)
 
 	// NOTE: (Nick S) we are intentionally releasing the lock before we wait for
 	// background goroutines to terminate as some of them need to be able
@@ -702,14 +703,34 @@ func (c *client) trackName() string {
 	return c.Name().SDPTrackName()
 }
 
-func (c *client) unsubscribeAll() {
+func (c *client) unsubscribeAll(ctx context.Context) {
 	c.rtpPassthroughMu.Lock()
 	defer c.rtpPassthroughMu.Unlock()
 	if len(c.bufAndCBByID) > 0 {
+		// shutdown & delete all *rtppassthrough.Buffer and callbacks
 		for id, bufAndCB := range c.bufAndCBByID {
 			c.logger.Debugw("unsubscribeAll terminating sub", "name", c.Name(), "subID", id.String())
 			delete(c.bufAndCBByID, id)
 			bufAndCB.buf.Close()
+		}
+
+		// if we are talking to a remote viam-sever we need to call RemoveStream so that
+		// the remote (which still has a healthy peer connection with the main part)
+		// knows to stop the stream. If we don't do this there is a risk that
+		// the remote will still leave the stream open, causing a newly reconfigured
+		// main part client's AddStream call to receive an error that there is already
+		// a live stream.
+
+		// We don't need to do this in the case of modules as resource manager of the main part
+		// will call `Close()` on them in the cases when the client would have Close() calld on it
+		// which will terminate the stream.
+		if _, isRemote := c.conn.(*grpc.ReconfigurableClientConn); isRemote {
+			// NOTE: This is the ctx from `camera/client.Close()` which is called by resource manager. I don't know
+			// if it has a timeout. If it doesn't then this might block forever.
+			c.logger.CDebugw(ctx, "unsubscribeAll calling RemoveStream", "trackName", c.trackName())
+			if _, err := c.streamClient.RemoveStream(ctx, &streampb.RemoveStreamRequest{Name: c.trackName()}); err != nil {
+				c.logger.CWarnw(ctx, "unsubscribeAll RemoveStream returned err", "trackName", c.trackName(), "err", err)
+			}
 		}
 	}
 }
