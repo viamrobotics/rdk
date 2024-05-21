@@ -125,10 +125,10 @@ func checkPlanRelative(
 	if currentPoses == nil {
 		return errors.New("executionState had nil return from CurrentPoses")
 	}
-	executionFrameName := checkFrame.Name() + "ExecutionFrame"
-	currentPoseIF, ok := currentPoses[executionFrameName]
+	localizationFrameName := checkFrame.Name() + "LocalizationFrame"
+	currentPoseIF, ok := currentPoses[localizationFrameName]
 	if !ok {
-		return errors.New("checkFrameExecutionFrame not found in current pose map")
+		return errors.New("checkFrameLocalizationFrame not found in current pose map")
 	}
 
 	sf := sfPlanner.frame
@@ -213,7 +213,7 @@ func checkPlanRelative(
 		return err
 	}
 	currentWayPointTraj := plan.Trajectory()[wayPointIdx]
-	currentWayPointTraj[checkFrame.Name()+"ExecutionFrame"] = referenceframe.FloatsToInputs([]float64{
+	currentWayPointTraj[checkFrame.Name()+"LocalizationFrame"] = referenceframe.FloatsToInputs([]float64{
 		poses[wayPointIdx].Point().X,
 		poses[wayPointIdx].Point().Y,
 		poses[wayPointIdx].Orientation().OrientationVectorRadians().Theta,
@@ -258,11 +258,11 @@ func checkPlanRelative(
 			}
 		}
 
-		startInputs[executionFrameName] = referenceframe.FloatsToInputs(
+		startInputs[localizationFrameName] = referenceframe.FloatsToInputs(
 			[]float64{lastArcEndPose.Point().X, lastArcEndPose.Point().Y, lastArcEndPose.Orientation().OrientationVectorRadians().Theta},
 		)
 		nextInputs := plan.Trajectory()[i]
-		nextInputs[executionFrameName] = startInputs[executionFrameName]
+		nextInputs[localizationFrameName] = startInputs[localizationFrameName]
 		segment, err := createSegment(sf, lastArcEndPose, thisArcEndPose, startInputs, nextInputs)
 		if err != nil {
 			return err

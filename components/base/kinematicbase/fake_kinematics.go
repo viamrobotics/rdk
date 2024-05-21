@@ -21,12 +21,12 @@ import (
 
 type fakeDiffDriveKinematics struct {
 	*fake.Base
-	parentFrame                   string
-	planningFrame, executionFrame referenceframe.Frame
-	inputs                        []referenceframe.Input
-	options                       Options
-	sensorNoise                   spatialmath.Pose
-	lock                          sync.RWMutex
+	parentFrame                      string
+	planningFrame, localizationFrame referenceframe.Frame
+	inputs                           []referenceframe.Input
+	options                          Options
+	sensorNoise                      spatialmath.Pose
+	lock                             sync.RWMutex
 }
 
 // WrapWithFakeDiffDriveKinematics creates a DiffDrive KinematicBase from the fake Base so that it satisfies the ModelFramer and
@@ -58,7 +58,7 @@ func WrapWithFakeDiffDriveKinematics(
 		geometry = fk.Base.Geometry[0]
 	}
 
-	fk.executionFrame, err = referenceframe.New2DMobileModelFrame(b.Name().ShortName(), limits, geometry)
+	fk.localizationFrame, err = referenceframe.New2DMobileModelFrame(b.Name().ShortName(), limits, geometry)
 	if err != nil {
 		return nil, err
 	}
@@ -69,7 +69,7 @@ func WrapWithFakeDiffDriveKinematics(
 			return nil, err
 		}
 	} else {
-		fk.planningFrame = fk.executionFrame
+		fk.planningFrame = fk.localizationFrame
 	}
 
 	fk.options = options
@@ -80,8 +80,8 @@ func (fk *fakeDiffDriveKinematics) Kinematics() referenceframe.Frame {
 	return fk.planningFrame
 }
 
-func (fk *fakeDiffDriveKinematics) ExecutionFrame() referenceframe.Frame {
-	return fk.executionFrame
+func (fk *fakeDiffDriveKinematics) LocalizationFrame() referenceframe.Frame {
+	return fk.localizationFrame
 }
 
 func (fk *fakeDiffDriveKinematics) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
@@ -127,19 +127,19 @@ func (fk *fakeDiffDriveKinematics) CurrentPosition(ctx context.Context) (*refere
 
 type fakePTGKinematics struct {
 	*fake.Base
-	localizer                     motion.Localizer
-	planningFrame, executionFrame referenceframe.Frame
-	options                       Options
-	sensorNoise                   spatialmath.Pose
-	ptgs                          []tpspace.PTGSolver
-	currentInput                  []referenceframe.Input
-	currentIndex                  int
-	plan                          motionplan.Plan
-	origin                        *referenceframe.PoseInFrame
-	positionlock                  sync.RWMutex
-	inputLock                     sync.RWMutex
-	logger                        logging.Logger
-	sleepTime                     int
+	localizer                        motion.Localizer
+	planningFrame, localizationFrame referenceframe.Frame
+	options                          Options
+	sensorNoise                      spatialmath.Pose
+	ptgs                             []tpspace.PTGSolver
+	currentInput                     []referenceframe.Input
+	currentIndex                     int
+	plan                             motionplan.Plan
+	origin                           *referenceframe.PoseInFrame
+	positionlock                     sync.RWMutex
+	inputLock                        sync.RWMutex
+	logger                           logging.Logger
+	sleepTime                        int
 }
 
 // WrapWithFakePTGKinematics creates a PTG KinematicBase from the fake Base so that it satisfies the ModelFramer and InputEnabled
@@ -199,9 +199,9 @@ func WrapWithFakePTGKinematics(
 		return nil, err
 	}
 
-	// construct execution frame
-	executionFrame, err := referenceframe.New2DMobileModelFrame(
-		b.Name().ShortName()+"ExecutionFrame",
+	// construct localization frame
+	localizationFrame, err := referenceframe.New2DMobileModelFrame(
+		b.Name().ShortName()+"LocalizationFrame",
 		[]referenceframe.Limit{
 			{Min: math.Inf(-1), Max: math.Inf(1)},
 			{Min: math.Inf(-1), Max: math.Inf(1)},
@@ -229,17 +229,17 @@ func WrapWithFakePTGKinematics(
 	zeroPlan := motionplan.NewSimplePlan(path, traj)
 
 	fk := &fakePTGKinematics{
-		Base:           b,
-		planningFrame:  planningFrame,
-		executionFrame: executionFrame,
-		origin:         origin,
-		ptgs:           ptgs,
-		currentInput:   zeroInput,
-		currentIndex:   0,
-		plan:           zeroPlan,
-		sensorNoise:    sensorNoise,
-		logger:         logger,
-		sleepTime:      sleepTime,
+		Base:              b,
+		planningFrame:     planningFrame,
+		localizationFrame: localizationFrame,
+		origin:            origin,
+		ptgs:              ptgs,
+		currentInput:      zeroInput,
+		currentIndex:      0,
+		plan:              zeroPlan,
+		sensorNoise:       sensorNoise,
+		logger:            logger,
+		sleepTime:         sleepTime,
 	}
 	initLocalizer := &fakePTGKinematicsLocalizer{fk}
 	fk.localizer = motion.TwoDLocalizer(initLocalizer)
@@ -252,8 +252,8 @@ func (fk *fakePTGKinematics) Kinematics() referenceframe.Frame {
 	return fk.planningFrame
 }
 
-func (fk *fakePTGKinematics) ExecutionFrame() referenceframe.Frame {
-	return fk.executionFrame
+func (fk *fakePTGKinematics) LocalizationFrame() referenceframe.Frame {
+	return fk.localizationFrame
 }
 
 func (fk *fakePTGKinematics) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
@@ -353,7 +353,7 @@ func (fk *fakePTGKinematics) ExecutionState(ctx context.Context) (motionplan.Exe
 		fk.plan,
 		fk.currentIndex,
 		map[string][]referenceframe.Input{fk.Kinematics().Name(): fk.currentInput},
-		map[string]*referenceframe.PoseInFrame{fk.ExecutionFrame().Name(): pos},
+		map[string]*referenceframe.PoseInFrame{fk.LocalizationFrame().Name(): pos},
 	)
 }
 

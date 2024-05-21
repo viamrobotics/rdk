@@ -288,8 +288,8 @@ func TestPtgCheckPlan(t *testing.T) {
 
 	// NOTE: WE NEED TO ADD AN EXECUTION FRAME TO THE CHECKING FRAMESYSTEM SINCE WE ONLY WANT TO RELY ON USING INPUTS
 	tfFrameSystem := referenceframe.NewEmptyFrameSystem("transformFS")
-	executionFrame, err := referenceframe.New2DMobileModelFrame(
-		"ackframeExecutionFrame", []referenceframe.Limit{
+	localizationFrame, err := referenceframe.New2DMobileModelFrame(
+		"ackframeLocalizationFrame", []referenceframe.Limit{
 			{Min: math.Inf(-1), Max: math.Inf(1)},
 			{Min: math.Inf(-1), Max: math.Inf(1)},
 			{Min: -360, Max: 360},
@@ -297,12 +297,12 @@ func TestPtgCheckPlan(t *testing.T) {
 	)
 	test.That(t, err, test.ShouldBeNil)
 
-	err = tfFrameSystem.AddFrame(executionFrame, tfFrameSystem.World())
+	err = tfFrameSystem.AddFrame(localizationFrame, tfFrameSystem.World())
 	test.That(t, err, test.ShouldBeNil)
 
-	err = tfFrameSystem.MergeFrameSystem(fs, executionFrame)
+	err = tfFrameSystem.MergeFrameSystem(fs, localizationFrame)
 	test.That(t, err, test.ShouldBeNil)
-	inputs[executionFrame.Name()] = referenceframe.FloatsToInputs(make([]float64, len(executionFrame.DoF())))
+	inputs[localizationFrame.Name()] = referenceframe.FloatsToInputs(make([]float64, len(localizationFrame.DoF())))
 
 	t.Run("base case - validate plan without obstacles", func(t *testing.T) {
 		executionState := ExecutionState{
@@ -310,7 +310,7 @@ func TestPtgCheckPlan(t *testing.T) {
 			index:         0,
 			currentInputs: inputs,
 			currentPose: map[string]*referenceframe.PoseInFrame{
-				executionFrame.Name(): referenceframe.NewPoseInFrame(referenceframe.World, startPose),
+				localizationFrame.Name(): referenceframe.NewPoseInFrame(referenceframe.World, startPose),
 			},
 		}
 		err = CheckPlan(ackermanFrame, executionState, nil, tfFrameSystem, math.Inf(1), logger)
@@ -332,7 +332,7 @@ func TestPtgCheckPlan(t *testing.T) {
 			index:         0,
 			currentInputs: inputs,
 			currentPose: map[string]*referenceframe.PoseInFrame{
-				executionFrame.Name(): referenceframe.NewPoseInFrame(referenceframe.World, startPose),
+				localizationFrame.Name(): referenceframe.NewPoseInFrame(referenceframe.World, startPose),
 			},
 		}
 		err = CheckPlan(ackermanFrame, executionState, worldState, tfFrameSystem, math.Inf(1), logger)
@@ -378,7 +378,7 @@ func TestPtgCheckPlan(t *testing.T) {
 			index:         1,
 			currentInputs: inputs, // zero'd inputs are incorrect here
 			currentPose: map[string]*referenceframe.PoseInFrame{
-				executionFrame.Name(): plan.Path()[1][ackermanFrame.Name()],
+				localizationFrame.Name(): plan.Path()[1][ackermanFrame.Name()],
 			},
 		}
 		err = CheckPlan(ackermanFrame, executionState, worldState, tfFrameSystem, math.Inf(1), logger)
@@ -402,7 +402,7 @@ func TestPtgCheckPlan(t *testing.T) {
 			index:         1,
 			currentInputs: inputs,
 			currentPose: map[string]*referenceframe.PoseInFrame{
-				executionFrame.Name(): referenceframe.NewPoseInFrame(referenceframe.World, startPose),
+				localizationFrame.Name(): referenceframe.NewPoseInFrame(referenceframe.World, startPose),
 			},
 		}
 		err = CheckPlan(ackermanFrame, executionState, worldState, tfFrameSystem, math.Inf(1), logger)
@@ -435,7 +435,7 @@ func TestPtgCheckPlan(t *testing.T) {
 			index:         2,
 			currentInputs: inputs,
 			currentPose: map[string]*referenceframe.PoseInFrame{
-				executionFrame.Name(): referenceframe.NewPoseInFrame(referenceframe.World, startPose),
+				localizationFrame.Name(): referenceframe.NewPoseInFrame(referenceframe.World, startPose),
 			},
 		}
 		err = CheckPlan(ackermanFrame, executionState, worldState, tfFrameSystem, math.Inf(1), logger)
@@ -462,7 +462,7 @@ func TestPtgCheckPlan(t *testing.T) {
 			index:         2,
 			currentInputs: inputs,
 			currentPose: map[string]*referenceframe.PoseInFrame{
-				executionFrame.Name(): referenceframe.NewPoseInFrame(referenceframe.World, startPose),
+				localizationFrame.Name(): referenceframe.NewPoseInFrame(referenceframe.World, startPose),
 			},
 		}
 		err = CheckPlan(ackermanFrame, executionState, worldState, tfFrameSystem, math.Inf(1), logger)

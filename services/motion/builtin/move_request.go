@@ -186,10 +186,10 @@ func (mr *moveRequest) getTransientDetections(
 	}
 	inputMap := referenceframe.StartPositions(mr.absoluteFS)
 	inputMap[mr.kinematicBase.Name().ShortName()] = baseExecutionState.CurrentInputs()[mr.kinematicBase.Name().ShortName()]
-	inputMap[mr.kinematicBase.ExecutionFrame().Name()] = referenceframe.FloatsToInputs([]float64{
-		baseExecutionState.CurrentPoses()[mr.kinematicBase.ExecutionFrame().Name()].Pose().Point().X,
-		baseExecutionState.CurrentPoses()[mr.kinematicBase.ExecutionFrame().Name()].Pose().Point().Y,
-		baseExecutionState.CurrentPoses()[mr.kinematicBase.ExecutionFrame().Name()].Pose().Point().Z,
+	inputMap[mr.kinematicBase.LocalizationFrame().Name()] = referenceframe.FloatsToInputs([]float64{
+		baseExecutionState.CurrentPoses()[mr.kinematicBase.LocalizationFrame().Name()].Pose().Point().X,
+		baseExecutionState.CurrentPoses()[mr.kinematicBase.LocalizationFrame().Name()].Pose().Point().Y,
+		baseExecutionState.CurrentPoses()[mr.kinematicBase.LocalizationFrame().Name()].Pose().Point().Z,
 	})
 
 	detections, err := visSrvc.GetObjectPointClouds(ctx, camName.Name, nil)
@@ -274,10 +274,10 @@ func (mr *moveRequest) obstaclesIntersectPlan(
 			// configuration rather than the zero inputs
 			inputMap := referenceframe.StartPositions(mr.absoluteFS)
 			inputMap[mr.kinematicBase.Name().ShortName()] = baseExecutionState.CurrentInputs()[mr.kinematicBase.Name().ShortName()]
-			inputMap[mr.kinematicBase.ExecutionFrame().Name()] = referenceframe.FloatsToInputs([]float64{
-				baseExecutionState.CurrentPoses()[mr.kinematicBase.ExecutionFrame().Name()].Pose().Point().X,
-				baseExecutionState.CurrentPoses()[mr.kinematicBase.ExecutionFrame().Name()].Pose().Point().Y,
-				baseExecutionState.CurrentPoses()[mr.kinematicBase.ExecutionFrame().Name()].Pose().Point().Z,
+			inputMap[mr.kinematicBase.LocalizationFrame().Name()] = referenceframe.FloatsToInputs([]float64{
+				baseExecutionState.CurrentPoses()[mr.kinematicBase.LocalizationFrame().Name()].Pose().Point().X,
+				baseExecutionState.CurrentPoses()[mr.kinematicBase.LocalizationFrame().Name()].Pose().Point().Y,
+				baseExecutionState.CurrentPoses()[mr.kinematicBase.LocalizationFrame().Name()].Pose().Point().Z,
 			})
 			executionState, err := motionplan.NewExecutionState(
 				baseExecutionState.Plan(),
@@ -290,7 +290,7 @@ func (mr *moveRequest) obstaclesIntersectPlan(
 			}
 
 			mr.logger.CDebugf(ctx, "CheckPlan inputs: \n currentPosition: %v\n currentInputs: %v\n worldstate: %s",
-				spatialmath.PoseToProtobuf(executionState.CurrentPoses()[mr.kinematicBase.ExecutionFrame().Name()].Pose()),
+				spatialmath.PoseToProtobuf(executionState.CurrentPoses()[mr.kinematicBase.LocalizationFrame().Name()].Pose()),
 				inputMap,
 				worldState.String(),
 			)
@@ -677,7 +677,7 @@ func (ms *builtIn) createBaseMoveRequest(
 
 	// create fs used for planning
 	planningFS := referenceframe.NewEmptyFrameSystem("store-starting point")
-	transformFrame, err := referenceframe.NewStaticFrame(kb.Kinematics().Name()+"ExecutionFrame", startPose)
+	transformFrame, err := referenceframe.NewStaticFrame(kb.Kinematics().Name()+"LocalizationFrame", startPose)
 	if err != nil {
 		return nil, err
 	}
@@ -692,11 +692,11 @@ func (ms *builtIn) createBaseMoveRequest(
 
 	// create collision checking fs
 	collisionFS := referenceframe.NewEmptyFrameSystem("collisionFS")
-	err = collisionFS.AddFrame(kb.ExecutionFrame(), collisionFS.World())
+	err = collisionFS.AddFrame(kb.LocalizationFrame(), collisionFS.World())
 	if err != nil {
 		return nil, err
 	}
-	err = collisionFS.MergeFrameSystem(baseOnlyFS, kb.ExecutionFrame())
+	err = collisionFS.MergeFrameSystem(baseOnlyFS, kb.LocalizationFrame())
 	if err != nil {
 		return nil, err
 	}

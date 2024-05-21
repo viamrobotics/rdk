@@ -24,7 +24,7 @@ type KinematicBase interface {
 	referenceframe.InputEnabled
 
 	Kinematics() referenceframe.Frame
-	ExecutionFrame() referenceframe.Frame
+	LocalizationFrame() referenceframe.Frame
 
 	// ErrorState takes a complete motionplan, as well as the index of the currently-executing set of inputs, and computes the pose
 	// difference between where the robot in fact is, and where it ought to be, i.e. PoseBetween(expected, actual)

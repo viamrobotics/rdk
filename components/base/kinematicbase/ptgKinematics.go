@@ -32,13 +32,13 @@ const (
 type ptgBaseKinematics struct {
 	base.Base
 	motion.Localizer
-	logger                         logging.Logger
-	planningFrame, executionFrame  referenceframe.Frame
-	ptgs                           []tpspace.PTGSolver
-	courseCorrectionIdx            int
-	linVelocityMMPerSecond         float64
-	angVelocityDegsPerSecond       float64
-	nonzeroBaseTurningRadiusMeters float64
+	logger                           logging.Logger
+	planningFrame, localizationFrame referenceframe.Frame
+	ptgs                             []tpspace.PTGSolver
+	courseCorrectionIdx              int
+	linVelocityMMPerSecond           float64
+	angVelocityDegsPerSecond         float64
+	nonzeroBaseTurningRadiusMeters   float64
 
 	// All changeable state of the base is here
 	inputLock    sync.RWMutex
@@ -141,9 +141,9 @@ func wrapWithPTGKinematics(
 	}
 	startingState := baseState{currentInputs: zeroInput}
 
-	// construct executionFrame
-	executionFrame, err := referenceframe.New2DMobileModelFrame(
-		b.Name().ShortName()+"ExecutionFrame",
+	// construct localization frame
+	localizationFrame, err := referenceframe.New2DMobileModelFrame(
+		b.Name().ShortName()+"LocalizationFrame",
 		[]referenceframe.Limit{
 			{Min: math.Inf(-1), Max: math.Inf(1)},
 			{Min: math.Inf(-1), Max: math.Inf(1)},
@@ -160,7 +160,7 @@ func wrapWithPTGKinematics(
 		Localizer:                      localizer,
 		logger:                         logger,
 		planningFrame:                  planningFrame,
-		executionFrame:                 executionFrame,
+		localizationFrame:              localizationFrame,
 		ptgs:                           ptgs,
 		courseCorrectionIdx:            courseCorrectionIdx,
 		linVelocityMMPerSecond:         linVelocityMMPerSecond,
@@ -176,8 +176,8 @@ func (ptgk *ptgBaseKinematics) Kinematics() referenceframe.Frame {
 	return ptgk.planningFrame
 }
 
-func (ptgk *ptgBaseKinematics) ExecutionFrame() referenceframe.Frame {
-	return ptgk.executionFrame
+func (ptgk *ptgBaseKinematics) LocalizationFrame() referenceframe.Frame {
+	return ptgk.localizationFrame
 }
 
 // For a ptgBaseKinematics, `CurrentInputs` returns inputs which reflect what the base is currently doing.
@@ -214,7 +214,7 @@ func (ptgk *ptgBaseKinematics) ExecutionState(ctx context.Context) (motionplan.E
 		currentPlan,
 		currentIdx,
 		map[string][]referenceframe.Input{ptgk.Kinematics().Name(): currentInputs},
-		map[string]*referenceframe.PoseInFrame{ptgk.ExecutionFrame().Name(): actualPIF},
+		map[string]*referenceframe.PoseInFrame{ptgk.LocalizationFrame().Name(): actualPIF},
 	)
 }
 
