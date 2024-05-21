@@ -18,8 +18,6 @@ import (
 // However, for a rover's relative planning frame, driving forwards increments +Y. Thus we must adjust where the rover thinks it is.
 var SLAMOrientationAdjustment = spatialmath.NewPoseFromOrientation(&spatialmath.OrientationVectorDegrees{OZ: 1, Theta: -90})
 
-const poleEpsilon = 0.0001 // If the base is this close to vertical, we cannot plan.
-
 // Localizer is an interface which both slam and movementsensor can satisfy when wrapped respectively.
 type Localizer interface {
 	CurrentPosition(context.Context) (*referenceframe.PoseInFrame, error)

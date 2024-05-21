@@ -6,8 +6,8 @@
 package spatialmath
 
 import (
-	"math"
 	"errors"
+	"math"
 
 	"github.com/golang/geo/r3"
 	commonpb "go.viam.com/api/common/v1"
@@ -223,8 +223,8 @@ func ResetPoseDQTranslation(p Pose, v r3.Vector) {
 	q.SetTranslation(v)
 }
 
-// ProjectOrientationTo2dRotation takes a pose whose orientation is not pointing at a pole and collapses its orientation into a single rotation
-// around the Z axis. This is useful for determining things like heading on a map where the thing reproting heading may be askew.
+// ProjectOrientationTo2dRotation takes a pose whose orientation is not pointing at a pole and collapses its orientation into a single
+// rotation around the Z axis. This is useful for determining things like heading on a map if the component reporting heading is askew.
 func ProjectOrientationTo2dRotation(pose Pose) (Pose, error) {
 	orient := pose.Orientation().OrientationVectorRadians() // OV is easy to check if we are in plane
 	if orient.OX == 0 && orient.OY == 0 {

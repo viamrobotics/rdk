@@ -475,7 +475,7 @@ func (svc *builtIn) Location(ctx context.Context, extra map[string]interface{}) 
 		return nil, err
 	}
 	// When rotation about the +Z axis, an OV theta is right handed but compass heading is left handed. Account for this.
-	compassHeading = compassHeading - movementSensor2dOrientation.Orientation().OrientationVectorDegrees().Theta
+	compassHeading -= movementSensor2dOrientation.Orientation().OrientationVectorDegrees().Theta
 	if compassHeading < 0 {
 		compassHeading += 360
 	}
