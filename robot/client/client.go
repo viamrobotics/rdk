@@ -356,11 +356,15 @@ func (rc *RobotClient) connectWithLock(ctx context.Context) error {
 	rc.conn.ReplaceConn(conn)
 	rc.client = client
 	rc.refClient = refClient
+	rc.logger.Warn("connected")
 	rc.connected.Store(true)
 	if len(rc.resourceClients) != 0 {
+		rc.logger.Warn("updateResources START")
 		if err := rc.updateResources(ctx); err != nil {
+			rc.logger.Errorf("updateResources END, err: %s", err.Error())
 			return err
 		}
+		rc.logger.Warn("updateResources END")
 	}
 
 	if rc.changeChan != nil {
@@ -450,6 +454,7 @@ func (rc *RobotClient) checkConnection(ctx context.Context, checkEvery, reconnec
 					"reconnect_interval", reconnectEvery.Seconds(),
 				)
 				rc.mu.Lock()
+				rc.logger.Warn("NOT connected")
 				rc.connected.Store(false)
 				if rc.changeChan != nil {
 					rc.changeChan <- true
