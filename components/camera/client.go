@@ -428,9 +428,10 @@ func (c *client) SubscribeRTP(
 	// New streams concurrent with closing cannot start until this drain completes. There
 	// will never be stream goroutines from the old "generation" running concurrently
 	// with those from the new "generation".
+	healthyClientCh := c.maybeResetHealthyClientCh()
+
 	c.rtpPassthroughMu.Lock()
 	defer c.rtpPassthroughMu.Unlock()
-	healthyClientCh := c.maybeResetHealthyClientCh()
 
 	sub, buf, err := rtppassthrough.NewSubscription(bufferSize)
 	if err != nil {
@@ -608,10 +609,11 @@ func (c *client) addOnTrackSubFunc(
 func (c *client) Unsubscribe(ctx context.Context, id rtppassthrough.SubscriptionID) error {
 	ctx, span := trace.StartSpan(ctx, "camera::client::Unsubscribe")
 	defer span.End()
-	c.rtpPassthroughMu.Lock()
 	c.healthyClientChMu.Lock()
 	healthyClientCh := c.healthyClientCh
 	c.healthyClientChMu.Unlock()
+
+	c.rtpPassthroughMu.Lock()
 	if c.conn.PeerConn() == nil {
 		c.rtpPassthroughMu.Unlock()
 		return ErrNoPeerConnection
