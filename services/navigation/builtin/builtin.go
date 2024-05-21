@@ -480,6 +480,28 @@ func (svc *builtIn) Location(ctx context.Context, extra map[string]interface{}) 
 	if err != nil {
 		return nil, err
 	}
+	movementsensorOrigin := referenceframe.NewPoseInFrame(svc.movementSensor.Name().ShortName(), spatialmath.NewZeroPose())
+	movementSensorPoseInBase, err := svc.fsService.TransformPose(ctx, movementsensorOrigin, svc.base.Name().ShortName(), nil)
+	if err != nil {
+		// here we make the assumption the movementsensor is coincident with the camera
+		svc.logger.CDebugf(
+			ctx,
+			"we assume the movementsensor named: %s is coincident with the base named: %s due to err: %v",
+			svc.movementSensor.Name().ShortName(), svc.base.Name(), err.Error(),
+		)
+		movementSensorPoseInBase = referenceframe.NewPoseInFrame(svc.base.Name().ShortName(), spatialmath.NewZeroPose())
+	}
+	svc.logger.CDebugf(ctx, "movementSensorPoseInBase: %v", spatialmath.PoseToProtobuf(movementSensorPoseInBase.Pose()))
+
+	movementSensor2dOrientation, err := spatialmath.ProjectOrientationTo2dRotation(movementSensorPoseInBase.Pose())
+	if err != nil {
+		return nil, err
+	}
+	// When rotation about the +Z axis, an OV theta is right handed but compass heading is left handed. Account for this.
+	compassHeading -= movementSensor2dOrientation.Orientation().OrientationVectorDegrees().Theta
+	if compassHeading < 0 {
+		compassHeading += 360
+	}
 	geoPose := spatialmath.NewGeoPose(loc, compassHeading)
 	return geoPose, err
 }
@@ -790,6 +812,7 @@ func (svc *builtIn) Obstacles(ctx context.Context, extra map[string]interface{})
 				label += "_" + detection.Geometry.Label()
 			}
 			detection.Geometry.SetLabel(label)
+			svc.logger.Debug(detection.Geometry)
 
 			// determine the desired geometry pose
 			desiredPose = spatialmath.NewPoseFromOrientation(detection.Geometry.Pose().Orientation())
