@@ -3,7 +3,6 @@ package builtin
 import (
 	"context"
 	"errors"
-	"fmt"
 	"math"
 	"strings"
 	"sync"
@@ -608,7 +607,6 @@ func TestNavSetUpFromFaultyConfig(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		_, err = navigation.FromRobot(myRobot, "test_navigation")
 		test.That(t, err, test.ShouldNotBeNil)
-		fmt.Println(err.Error())
 		test.That(t, strings.Contains(err.Error(), tc.expectedError), test.ShouldBeTrue)
 	}
 }
