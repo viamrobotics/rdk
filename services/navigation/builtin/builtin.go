@@ -47,6 +47,8 @@ var (
 	errNegativeReplanCostFactor           = errors.New("replan_cost_factor must be non-negative if set")
 	errObstacleGeomWithTranslation        = errors.New("obstacle geometries specified through navigation are not allowed to have a translation")
 	errBoundingRegionsGeomWithTranslation = errors.New("bounding region geometries specified through navigation are not allowed to have a translation")
+	errObstacleGeomParse                  = errors.New("obstacle unable to be converted from geometry config")
+	errBoundingRegionsGeomParse           = errors.New("bounding regions unable to be converted from geometry config")
 )
 
 const (
@@ -378,13 +380,13 @@ func (svc *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies,
 	// Parse obstacles from the configuration
 	newObstacles, err := spatialmath.GeoGeometriesFromConfigs(svcConfig.Obstacles)
 	if err != nil {
-		return err
+		return errors.Wrap(errObstacleGeomParse, err.Error())
 	}
 
 	// Parse bounding regions from the configuration
 	newBoundingRegions, err := spatialmath.GeoGeometriesFromConfigs(svcConfig.BoundingRegions)
 	if err != nil {
-		return err
+		return errors.Wrap(errBoundingRegionsGeomParse, err.Error())
 	}
 
 	// Create explore motion service

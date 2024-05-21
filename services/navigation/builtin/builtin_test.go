@@ -581,21 +581,33 @@ func TestNavSetup(t *testing.T) {
 }
 
 func TestNavSetUpFromFaultyConfig(t *testing.T) {
-	cfgPath := []string{
-		"../data/incorrect_obstacles_nav_cfg.json",
-		"../data/incorrect_bounding_regions_nav_cfg.json",
+	type testCase struct {
+		configPath    string
+		expectedError string
+	}
+	testCases := []testCase{
+		{
+			configPath: "../data/incorrect_obstacles_nav_cfg.json",
+			//nolint:lll
+			expectedError: `resource "rdk:service:navigation/test_navigation" not available; reason="resource build error: unsupported Geometry type : obstacle unable to be converted from geometry config"`,
+		},
+		{
+			configPath: "../data/incorrect_bounding_regions_nav_cfg.json",
+			//nolint:lll
+			expectedError: `resource "rdk:service:navigation/test_navigation" not available; reason="resource build error: unsupported Geometry type : bounding regions unable to be converted from geometry config"`,
+		},
 	}
 	ctx := context.Background()
 	logger := logging.NewTestLogger(t)
-	for _, path := range cfgPath {
-		cfg, err := config.Read(ctx, path, logger)
+	for _, tc := range testCases {
+		cfg, err := config.Read(ctx, tc.configPath, logger)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, cfg.Ensure(false, logger), test.ShouldBeNil)
 		myRobot, err := robotimpl.New(ctx, cfg, logger)
 		test.That(t, err, test.ShouldBeNil)
 		_, err = navigation.FromRobot(myRobot, "test_navigation")
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, strings.Contains(err.Error(), "unsupported Geometry type"), test.ShouldBeTrue)
+		test.That(t, strings.Contains(err.Error(), tc.expectedError), test.ShouldBeTrue)
 	}
 }
 
