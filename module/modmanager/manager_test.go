@@ -462,7 +462,7 @@ func TestModuleReloading(t *testing.T) {
 
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
-			test.That(tb, logs.FilterMessageSnippet("Module successfully restarted").Len(),
+			test.That(tb, logs.FilterMessageSnippet("Module resources successfully re-added after module restart").Len(),
 				test.ShouldEqual, 1)
 		})
 
