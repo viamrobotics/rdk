@@ -260,6 +260,15 @@ func (m *EncodedMotor) GoFor(ctx context.Context, rpm, revolutions float64, extr
 	ctx, done := m.opMgr.New(ctx)
 	defer done()
 
+	warning, err := checkSpeed(rpm, m.cfg.MaxRPM)
+	if err != nil {
+		m.logger.CWarn(ctx, "motor speed requested is 0 rev_per_min")
+		return err
+	}
+	if warning != "" {
+		m.logger.CWarnf(ctx, warning)
+	}
+
 	goalPos, goalRPM, direction := m.goForMath(ctx, rpm, revolutions)
 
 	if err := m.goForInternal(goalRPM, goalPos, direction); err != nil {
@@ -282,7 +291,7 @@ func (m *EncodedMotor) GoFor(ctx context.Context, rpm, revolutions float64, extr
 		}
 		return false, errs
 	}
-	err := m.opMgr.WaitForSuccess(
+	err = m.opMgr.WaitForSuccess(
 		ctx,
 		10*time.Millisecond,
 		positionReached,
@@ -296,14 +305,6 @@ func (m *EncodedMotor) GoFor(ctx context.Context, rpm, revolutions float64, extr
 }
 
 func (m *EncodedMotor) goForInternal(rpm, goalPos, direction float64) error {
-	switch speed := math.Abs(rpm); {
-	case speed < 0.1:
-		return motor.NewZeroRPMError()
-	case m.cfg.MaxRPM > 0 && speed > m.cfg.MaxRPM-0.1:
-		m.logger.Warn("motor speed is nearly the max rev_per_min (%f)", m.cfg.MaxRPM)
-	default:
-	}
-
 	// cancel rpmMonitor if it already exists
 	if m.rpmMonitorDone != nil {
 		m.rpmMonitorDone()

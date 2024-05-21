@@ -275,19 +275,17 @@ func (m *Motor) GoFor(ctx context.Context, rpm, revolutions float64, extra map[s
 		return errors.New("not supported, define max_rpm attribute != 0")
 	}
 
-	switch speed := math.Abs(rpm); {
-	case speed == 0:
+	warning, err := checkSpeed(rpm, m.maxRPM)
+	if err != nil {
 		m.logger.CWarn(ctx, "motor speed requested is 0 rev_per_min")
-		return motor.NewZeroRPMError()
-	case speed < 0.1 && speed > 0:
-		m.logger.CWarn(ctx, "motor speed is nearly 0 rev_per_min")
-	case m.maxRPM > 0 && speed > m.maxRPM-0.1:
-		m.logger.CWarnf(ctx, "motor speed is nearly the max rev_per_min (%f)", m.maxRPM)
-	default:
+		return err
+	}
+	if warning != "" {
+		m.logger.CWarnf(ctx, warning)
 	}
 
 	powerPct, waitDur := goForMath(m.maxRPM, rpm, revolutions)
-	err := m.SetPower(ctx, powerPct, extra)
+	err = m.SetPower(ctx, powerPct, extra)
 	if err != nil {
 		return errors.Wrap(err, "error in GoFor")
 	}
