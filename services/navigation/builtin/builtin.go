@@ -38,6 +38,7 @@ var (
 		navigation.NoMap:  {navigation.ModeManual, navigation.ModeExplore},
 		navigation.GPSMap: {navigation.ModeManual, navigation.ModeWaypoint, navigation.ModeExplore},
 	}
+	geomWithTranslation = "geometries specified through navigation are not allowed to have a translation"
 
 	errNegativeDegPerSec                  = errors.New("degs_per_sec must be non-negative if set")
 	errNegativeMetersPerSec               = errors.New("meters_per_sec must be non-negative if set")
@@ -45,8 +46,8 @@ var (
 	errNegativeObstaclePollingFrequencyHz = errors.New("obstacle_polling_frequency_hz must be non-negative if set")
 	errNegativePlanDeviationM             = errors.New("plan_deviation_m must be non-negative if set")
 	errNegativeReplanCostFactor           = errors.New("replan_cost_factor must be non-negative if set")
-	errObstacleGeomWithTranslation        = errors.New("obstacle geometries specified through navigation are not allowed to have a translation")
-	errBoundingRegionsGeomWithTranslation = errors.New("bounding region geometries specified through navigation are not allowed to have a translation")
+	errObstacleGeomWithTranslation        = errors.New("obstacle " + geomWithTranslation)
+	errBoundingRegionsGeomWithTranslation = errors.New("bounding region " + geomWithTranslation)
 	errObstacleGeomParse                  = errors.New("obstacle unable to be converted from geometry config")
 	errBoundingRegionsGeomParse           = errors.New("bounding regions unable to be converted from geometry config")
 )
