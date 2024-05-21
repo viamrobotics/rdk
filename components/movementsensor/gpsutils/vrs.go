@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"net/url"
 	"strings"
 
 	"go.viam.com/rdk/logging"
@@ -23,11 +24,13 @@ func ConnectToVirtualBase(ntripInfo *NtripInfo,
 	credentialsBase64 := base64.StdEncoding.EncodeToString([]byte(credentials))
 
 	// Process the server URL
-	serverAddr := ntripInfo.URL
-	serverAddr = strings.TrimPrefix(serverAddr, "http://")
-	serverAddr = strings.TrimPrefix(serverAddr, "https://")
+	serverAddr, err := url.Parse(ntripInfo.URL)
+	if err != nil {
+		logger.Error(err)
+		return nil
+	}
 
-	conn, err := net.Dial("tcp", serverAddr)
+	conn, err := net.Dial("tcp", serverAddr.Host)
 	if err != nil {
 		return nil
 	}
@@ -36,7 +39,7 @@ func ConnectToVirtualBase(ntripInfo *NtripInfo,
 
 	// Construct HTTP headers with CRLF line endings
 	httpHeaders := "GET " + mp + " HTTP/1.1\r\n" +
-		"Host: " + serverAddr + "\r\n" +
+		"Host: " + serverAddr.Host + "\r\n" +
 		"Authorization: Basic " + credentialsBase64 + "\r\n" +
 		"Accept: */*\r\n" +
 		"Ntrip-Version: Ntrip/2.0\r\n" +
