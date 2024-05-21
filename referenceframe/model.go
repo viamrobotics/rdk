@@ -359,7 +359,7 @@ func (m *Simple7DModel) Transform(inputs []Input) (spatialmath.Pose, error) {
 	}
 	return spatialmath.NewPose(
 		r3.Vector{X: inputs[0].Value, Y: inputs[1].Value, Z: inputs[2].Value},
-		&spatialmath.OrientationVectorDegrees{
+		&spatialmath.OrientationVector{
 			OX:    inputs[3].Value,
 			OY:    inputs[4].Value,
 			OZ:    inputs[5].Value,

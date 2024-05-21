@@ -190,6 +190,10 @@ func (mr *moveRequest) getTransientDetections(
 		baseExecutionState.CurrentPoses()[mr.kinematicBase.LocalizationFrame().Name()].Pose().Point().X,
 		baseExecutionState.CurrentPoses()[mr.kinematicBase.LocalizationFrame().Name()].Pose().Point().Y,
 		baseExecutionState.CurrentPoses()[mr.kinematicBase.LocalizationFrame().Name()].Pose().Point().Z,
+		baseExecutionState.CurrentPoses()[mr.kinematicBase.LocalizationFrame().Name()].Pose().Orientation().OrientationVectorRadians().OX,
+		baseExecutionState.CurrentPoses()[mr.kinematicBase.LocalizationFrame().Name()].Pose().Orientation().OrientationVectorRadians().OY,
+		baseExecutionState.CurrentPoses()[mr.kinematicBase.LocalizationFrame().Name()].Pose().Orientation().OrientationVectorRadians().OZ,
+		baseExecutionState.CurrentPoses()[mr.kinematicBase.LocalizationFrame().Name()].Pose().Orientation().OrientationVectorRadians().Theta,
 	})
 
 	detections, err := visSrvc.GetObjectPointClouds(ctx, camName.Name, nil)
@@ -278,6 +282,10 @@ func (mr *moveRequest) obstaclesIntersectPlan(
 				baseExecutionState.CurrentPoses()[mr.kinematicBase.LocalizationFrame().Name()].Pose().Point().X,
 				baseExecutionState.CurrentPoses()[mr.kinematicBase.LocalizationFrame().Name()].Pose().Point().Y,
 				baseExecutionState.CurrentPoses()[mr.kinematicBase.LocalizationFrame().Name()].Pose().Point().Z,
+				baseExecutionState.CurrentPoses()[mr.kinematicBase.LocalizationFrame().Name()].Pose().Orientation().OrientationVectorRadians().OX,
+				baseExecutionState.CurrentPoses()[mr.kinematicBase.LocalizationFrame().Name()].Pose().Orientation().OrientationVectorRadians().OY,
+				baseExecutionState.CurrentPoses()[mr.kinematicBase.LocalizationFrame().Name()].Pose().Orientation().OrientationVectorRadians().OZ,
+				baseExecutionState.CurrentPoses()[mr.kinematicBase.LocalizationFrame().Name()].Pose().Orientation().OrientationVectorRadians().Theta,
 			})
 			executionState, err := motionplan.NewExecutionState(
 				baseExecutionState.Plan(),
@@ -514,10 +522,17 @@ func (ms *builtIn) newMoveOnGlobeRequest(
 	if straightlineDistance > maxTravelDistanceMM {
 		return nil, fmt.Errorf("cannot move more than %d kilometers", int(maxTravelDistanceMM*1e-6))
 	}
+
+	// these limits need to be updated so that they are in 7DOF
+	// what is a good limit for what OX, OY, OZ should be?
 	limits := []referenceframe.Limit{
-		{Min: -straightlineDistance * 3, Max: straightlineDistance * 3},
-		{Min: -straightlineDistance * 3, Max: straightlineDistance * 3},
-		{Min: -2 * math.Pi, Max: 2 * math.Pi},
+		{Min: -straightlineDistance * 3, Max: straightlineDistance * 3}, // X
+		{Min: -straightlineDistance * 3, Max: straightlineDistance * 3}, // Y
+		{Min: -straightlineDistance * 3, Max: straightlineDistance * 3}, // Z
+		{Min: -1, Max: 1},                     // OX
+		{Min: -1, Max: 1},                     // OY
+		{Min: -1, Max: 1},                     // OZ
+		{Min: -2 * math.Pi, Max: 2 * math.Pi}, // Theta
 	} // Note: this is only for diff drive, not used for PTGs
 	kb, err := kinematicbase.WrapWithKinematics(ctx, b, ms.logger, localizer, limits, kinematicsOptions)
 	if err != nil {
@@ -584,7 +599,11 @@ func (ms *builtIn) newMoveOnMapRequest(
 	if err != nil {
 		return nil, err
 	}
-	limits = append(limits, referenceframe.Limit{Min: -2 * math.Pi, Max: 2 * math.Pi})
+	limits = append(limits, referenceframe.Limit{Min: -1, Max: 1})                     // Z
+	limits = append(limits, referenceframe.Limit{Min: -1, Max: 1})                     // OX
+	limits = append(limits, referenceframe.Limit{Min: -1, Max: 1})                     // OY
+	limits = append(limits, referenceframe.Limit{Min: -1, Max: 1})                     // OZ
+	limits = append(limits, referenceframe.Limit{Min: -2 * math.Pi, Max: 2 * math.Pi}) // Theta
 
 	// create a KinematicBase from the componentName
 	component, ok := ms.components[req.ComponentName]

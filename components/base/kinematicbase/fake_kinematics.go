@@ -295,12 +295,12 @@ func (fk *fakePTGKinematics) GoToInputs(ctx context.Context, inputSteps ...[]ref
 
 		fk.inputLock.Lock()
 		fk.currentIndex = i
-		fk.currentInput, err = fk.frame.Interpolate(zeroInput, inputs, 0)
+		fk.currentInput, err = fk.planningFrame.Interpolate(zeroInput, inputs, 0)
 		fk.inputLock.Unlock()
 		if err != nil {
 			return err
 		}
-		finalPose, err := fk.frame.Transform(inputs)
+		finalPose, err := fk.planningFrame.Transform(inputs)
 		if err != nil {
 			return err
 		}
