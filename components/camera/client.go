@@ -6,8 +6,10 @@ import (
 	"fmt"
 	"image"
 	"io"
+	"os"
 	"slices"
 	"sync"
+	"time"
 
 	"github.com/pion/rtp"
 	"github.com/pion/webrtc/v3"
@@ -41,6 +43,7 @@ var (
 	ErrNoSharedPeerConnection = errors.New("No Shared PeerConnection")
 	// ErrUnknownSubscriptionID indicates that a SubscriptionID is unknown.
 	ErrUnknownSubscriptionID = errors.New("SubscriptionID Unknown")
+	readRTPTimeout           = time.Millisecond * 200
 )
 
 type (
@@ -564,7 +567,25 @@ func (c *client) addOnTrackSubFunc(
 				default:
 				}
 
+				deadline := time.Now().Add(readRTPTimeout)
+				// NOTE: (Nick S) We need to set this deadline so that if the track stops sending RTP packets
+				// this goroutine is able to termiante if Close() is called on the camera component.
+				// This is important when receiving packets from remotes which may stop sending packets at any time
+				// due to netsplits.
+				if err := tr.SetReadDeadline(deadline); err != nil {
+					close(trackClosed)
+					c.logger.Errorw("SubscribeRTP: camera client", "name ", c.Name(), "parentID", parentID.String(),
+						"OnTrack callback hit unexpected error from SetReadDeadline err:", err.Error())
+					return
+				}
+
 				pkt, _, err := tr.ReadRTP()
+				if os.IsTimeout(err) {
+					c.logger.Debugw("SubscribeRTP: camera client", "name ", c.Name(), "parentID", parentID.String(),
+						"OnTrack callback hit timeout from ReadRTP err:", err.Error(), "timeout", readRTPTimeout.String())
+					continue
+				}
+
 				if err != nil {
 					close(trackClosed)
 					// NOTE: (Nick S) We need to remember which subscriptions are consuming packets
