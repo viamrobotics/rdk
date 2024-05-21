@@ -158,15 +158,6 @@ func TestCorrectStartPose(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, corrected.Pose().Orientation().OrientationVectorDegrees().Theta, test.ShouldAlmostEqual, 127.)
 	})
-	t.Run("Test upside-down error", func(t *testing.T) {
-		t.Parallel()
-		askewOrient := &spatialmath.OrientationVectorDegrees{OX: 1, OY: 1, OZ: -1}
-		movementSensor := createInjectedOrientationMovementSensor(askewOrient)
-		localizer := motion.TwoDLocalizer(motion.NewMovementSensorLocalizer(movementSensor, origin, spatialmath.NewZeroPose()))
-		_, err := localizer.CurrentPosition(ctx)
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldEqual, "base appears to be upside down, check your movement sensor")
-	})
 	t.Run("Test pointing-straight-up error", func(t *testing.T) {
 		t.Parallel()
 		askewOrient := &spatialmath.OrientationVectorDegrees{OX: 0, OY: 1, OZ: 0, Theta: 90}
@@ -174,7 +165,7 @@ func TestCorrectStartPose(t *testing.T) {
 		localizer := motion.TwoDLocalizer(motion.NewMovementSensorLocalizer(movementSensor, origin, spatialmath.NewZeroPose()))
 		_, err := localizer.CurrentPosition(ctx)
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldEqual, "base appears to be pointing straight up, check your movement sensor")
+		test.That(t, err.Error(), test.ShouldEqual, "orientation appears to be pointing straight up, cannot project to 2d")
 	})
 	t.Run("Test pointing-straight-down error", func(t *testing.T) {
 		t.Parallel()
@@ -183,6 +174,6 @@ func TestCorrectStartPose(t *testing.T) {
 		localizer := motion.TwoDLocalizer(motion.NewMovementSensorLocalizer(movementSensor, origin, spatialmath.NewZeroPose()))
 		_, err := localizer.CurrentPosition(ctx)
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldEqual, "base appears to be pointing straight down, check your movement sensor")
+		test.That(t, err.Error(), test.ShouldEqual, "orientation appears to be pointing straight down, cannot project to 2d")
 	})
 }

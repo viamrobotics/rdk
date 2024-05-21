@@ -87,10 +87,11 @@ require (
 	go.uber.org/zap v1.24.0
 	go.viam.com/api v0.1.302
 	go.viam.com/test v1.1.1-0.20220913152726-5da9916c08a2
-	go.viam.com/utils v0.1.77
+	go.viam.com/utils v0.1.79
 	goji.io v2.0.2+incompatible
 	golang.org/x/image v0.15.0
 	golang.org/x/mobile v0.0.0-20240112133503-c713f31d574b
+	golang.org/x/sync v0.6.0
 	golang.org/x/sys v0.20.0
 	golang.org/x/term v0.20.0
 	golang.org/x/time v0.3.0
@@ -372,7 +373,6 @@ require (
 	golang.org/x/mod v0.14.0 // indirect
 	golang.org/x/net v0.25.0 // indirect
 	golang.org/x/oauth2 v0.10.0 // indirect
-	golang.org/x/sync v0.6.0 // indirect
 	golang.org/x/text v0.15.0 // indirect
 	golang.org/x/xerrors v0.0.0-20220907171357-04be3eba64a2 // indirect
 	google.golang.org/api v0.126.0 // indirect

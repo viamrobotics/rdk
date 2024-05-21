@@ -54,11 +54,11 @@ type MoveOnGlobeReq struct {
 	MovementSensorName resource.Name
 	// Static obstacles that should be navigated around
 	Obstacles []*spatialmath.GeoGeometry
+	// Set of bounds which the robot must remain within while navigating
+	BoundingRegions []*spatialmath.GeoGeometry
 	// Optional motion configuration
 	MotionCfg *MotionConfiguration
-
-	BoundingRegions []*spatialmath.GeoGeometry
-	Extra           map[string]interface{}
+	Extra     map[string]interface{}
 }
 
 func (r MoveOnGlobeReq) String() string {

@@ -3543,6 +3543,12 @@ func TestResourceConstructCtxCancel(t *testing.T) {
 				Name:  "two",
 				Model: model1,
 				API:   mockAPI,
+				// we need "two" to depend on "one" to prevent a flaky test here. the
+				// subtests below assert that only one resource gets configured after we
+				// cancel. however, independent resources are constructed concurrently so
+				// this assertion is not reliable, so we force it by adding a dependency
+				// relationship.
+				DependsOn: []string{"one"},
 			},
 		},
 	}

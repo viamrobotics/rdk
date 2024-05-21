@@ -394,6 +394,56 @@ func TestResourceGraphTopologicalSort(t *testing.T) {
 	})
 }
 
+func TestResourceGraphReverseTopologicalSortInLevels(t *testing.T) {
+	cfg := []fakeComponent{
+		{
+			Name:      NewName(apiA, "base"),
+			DependsOn: []Name{NewName(apiA, "board")},
+		},
+		{
+			Name:      NewName(apiA, "camera"),
+			DependsOn: []Name{NewName(apiA, "board")},
+		},
+		{
+			Name:      NewName(apiA, "left_motor"),
+			DependsOn: []Name{NewName(apiA, "base")},
+		},
+		{
+			Name:      NewName(apiA, "right_motor"),
+			DependsOn: []Name{NewName(apiA, "base")},
+		},
+		{
+			Name:      NewName(apiA, "board"),
+			DependsOn: []Name{},
+		},
+		{
+			Name: NewName(apiA, "motor_sensor"),
+			DependsOn: []Name{
+				NewName(apiA, "left_motor"),
+				NewName(apiA, "right_motor"),
+			},
+		},
+	}
+	g := NewGraph()
+	test.That(t, g, test.ShouldNotBeNil)
+	for _, component := range cfg {
+		test.That(t, g.AddNode(component.Name, &GraphNode{}), test.ShouldBeNil)
+		for _, dep := range component.DependsOn {
+			test.That(t, g.AddChild(component.Name, dep), test.ShouldBeNil)
+		}
+	}
+	levels := g.ReverseTopologicalSortInLevels()
+	test.That(t, levels, test.ShouldHaveLength, 4)
+	test.That(t, levels[0], test.ShouldResemble, []Name{NewName(apiA, "board")})
+	test.That(t, levels[1], test.ShouldResemble, []Name{NewName(apiA, "base")})
+	test.That(t, levels[2], test.ShouldHaveLength, 2)
+	test.That(t, levels[2], test.ShouldContain, NewName(apiA, "left_motor"))
+	test.That(t, levels[2], test.ShouldContain, NewName(apiA, "right_motor"))
+	test.That(t, levels[3], test.ShouldHaveLength, 2)
+	test.That(t, levels[3], test.ShouldContain, NewName(apiA, "camera"))
+	test.That(t, levels[3], test.ShouldContain, NewName(apiA, "motor_sensor"))
+}
+
 func TestResourceGraphMergeAdd(t *testing.T) {
 	cfgA := []fakeComponent{
 		{
