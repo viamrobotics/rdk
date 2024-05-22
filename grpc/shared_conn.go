@@ -303,7 +303,12 @@ func (sc *SharedConn) Close() error {
 		if sc.peerConnClosed != nil {
 			select {
 			case <-sc.peerConnReady:
-				<-sc.peerConnClosed
+				// RSDK-7691: There's evidence that closing peer connections is also not sufficient
+				// for its background goroutines to exit. See the ticket for more detail. For now we
+				// admit to leaked goroutines and add exempt these goroutines from causing test
+				// failures.
+				//
+				// <-sc.peerConnClosed
 			default:
 			}
 		}

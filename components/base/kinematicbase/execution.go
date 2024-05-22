@@ -76,7 +76,7 @@ func (ptgk *ptgBaseKinematics) GoToInputs(ctx context.Context, inputSteps ...[]r
 
 	defer func() {
 		ptgk.inputLock.Lock()
-		ptgk.currentState.currentInputs = zeroInput
+		ptgk.currentState = baseState{currentInputs: zeroInput}
 		ptgk.inputLock.Unlock()
 	}()
 
@@ -130,6 +130,16 @@ func (ptgk *ptgBaseKinematics) GoToInputs(ctx context.Context, inputSteps ...[]r
 		// - move until we think we have finished the arc, then move on to the next step
 		// - update our CurrentInputs tracking where we are through the arc
 		// - Check where we are relative to where we think we are, and tweak velocities accordingly
+
+		// Check if this arc is shorter than our typical check time; if so just run that and do not course correct.
+		if step.durationSeconds < updateStepSeconds {
+			utils.SelectContextOrWait(ctx, (time.Duration(step.durationSeconds*1000) * time.Millisecond))
+			if ctx.Err() != nil {
+				return tryStop(ctx.Err())
+			}
+			continue
+		}
+
 		for timeElapsedSeconds := updateStepSeconds; timeElapsedSeconds <= step.durationSeconds; timeElapsedSeconds += updateStepSeconds {
 			if ctx.Err() != nil {
 				return ctx.Err()
@@ -493,6 +503,7 @@ func (ptgk *ptgBaseKinematics) makeCourseCorrectionGoals(
 
 	startingTrajPt := 0
 	for i := 0; i < len(steps[currStep].subTraj); i++ {
+		// Determine the index of the current subtraj point
 		if steps[currStep].subTraj[i].Dist >= currDist {
 			startingTrajPt = i
 			break
@@ -513,9 +524,23 @@ func (ptgk *ptgBaseKinematics) makeCourseCorrectionGoals(
 	for i := currStep; i < len(steps); i++ {
 		for len(steps[i].subTraj)-startingTrajPt > stepsRemainingThisGoal {
 			goalTrajPtIdx := startingTrajPt + stepsRemainingThisGoal
+
+			// Since the arc may not be starting at 0, we must compute the transform for this particular traj pt.
+			// The pose in trajPt.Pose is from the zero position.
+			arcTrajInputs := []referenceframe.Input{
+				steps[i].arcSegment.StartConfiguration[ptgIndex],
+				steps[i].arcSegment.StartConfiguration[trajectoryAlphaWithinPTG],
+				steps[i].arcSegment.StartConfiguration[startDistanceAlongTrajectoryIndex],
+				{steps[i].subTraj[goalTrajPtIdx].Dist},
+			}
+			arcPose, err := ptgk.Kinematics().Transform(arcTrajInputs)
+			if err != nil {
+				return []courseCorrectionGoal{}
+			}
+
 			goalPose := spatialmath.PoseBetween(
 				currPose,
-				spatialmath.Compose(steps[i].arcSegment.StartPosition, steps[i].subTraj[goalTrajPtIdx].Pose),
+				spatialmath.Compose(steps[i].arcSegment.StartPosition, arcPose),
 			)
 			goals = append(goals, courseCorrectionGoal{Goal: goalPose, stepIdx: i, trajIdx: goalTrajPtIdx})
 			if len(goals) == nGoals {

@@ -179,14 +179,14 @@ func TestSessions(t *testing.T) {
 			test.That(t, err, test.ShouldBeNil)
 
 			ctx := context.Background()
-			r, err := robotimpl.New(ctx, cfg, logger)
+			r, err := robotimpl.New(ctx, cfg, logger.Sublogger("main"))
 			test.That(t, err, test.ShouldBeNil)
 
 			options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
 			err = r.StartWeb(ctx, options)
 			test.That(t, err, test.ShouldBeNil)
 
-			roboClient, err := client.New(ctx, addr, logger)
+			roboClient, err := client.New(ctx, addr, logger.Sublogger("client"))
 			test.That(t, err, test.ShouldBeNil)
 
 			motor1, err := motor.FromRobot(roboClient, "motor1")
@@ -202,7 +202,7 @@ func TestSessions(t *testing.T) {
 			// kind of racy but it's okay
 			ensureStop(t, "", stopChNames)
 
-			roboClient, err = client.New(ctx, addr, logger)
+			roboClient, err = client.New(ctx, addr, logger.Sublogger("client"))
 			test.That(t, err, test.ShouldBeNil)
 
 			motor1, err = motor.FromRobot(roboClient, "motor1")
@@ -220,7 +220,7 @@ func TestSessions(t *testing.T) {
 			dummyMotor1.stopCh = stopChs["motor1"].Chan
 			dummyMotor1.mu.Unlock()
 
-			roboClient, err = client.New(ctx, addr, logger)
+			roboClient, err = client.New(ctx, addr, logger.Sublogger("client"))
 			test.That(t, err, test.ShouldBeNil)
 
 			motor2, err := motor.FromRobot(roboClient, "motor2")
@@ -408,14 +408,14 @@ func TestSessionsWithRemote(t *testing.T) {
 	cfg, err = config.FromReader(context.Background(), "", strings.NewReader(roboConfig), logger)
 	test.That(t, err, test.ShouldBeNil)
 
-	r, err := robotimpl.New(ctx, cfg, logger)
+	r, err := robotimpl.New(ctx, cfg, logger.Sublogger("main"))
 	test.That(t, err, test.ShouldBeNil)
 
 	options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
 	err = r.StartWeb(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
 
-	roboClient, err := client.New(ctx, addr, logger)
+	roboClient, err := client.New(ctx, addr, logger.Sublogger("client"))
 	test.That(t, err, test.ShouldBeNil)
 
 	motor1, err := motor.FromRobot(roboClient, "rem1:motor1")
@@ -441,7 +441,7 @@ func TestSessionsWithRemote(t *testing.T) {
 	// kind of racy but it's okay
 	ensureStop(t, "", stopChNames)
 
-	roboClient, err = client.New(ctx, addr, logger)
+	roboClient, err = client.New(ctx, addr, logger.Sublogger("client"))
 	test.That(t, err, test.ShouldBeNil)
 
 	motor1, err = motor.FromRobot(roboClient, "rem1:motor1")
@@ -462,7 +462,7 @@ func TestSessionsWithRemote(t *testing.T) {
 
 	logger.Info("close robot instead of client")
 
-	roboClient, err = client.New(ctx, addr, logger)
+	roboClient, err = client.New(ctx, addr, logger.Sublogger("client"))
 	test.That(t, err, test.ShouldBeNil)
 
 	motor1, err = motor.FromRobot(roboClient, "rem1:motor1")
@@ -489,7 +489,7 @@ func TestSessionsWithRemote(t *testing.T) {
 	err = r.StartWeb(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
 
-	roboClient, err = client.New(ctx, addr, logger)
+	roboClient, err = client.New(ctx, addr, logger.Sublogger("client"))
 	test.That(t, err, test.ShouldBeNil)
 
 	motor2, err := motor.FromRobot(roboClient, "rem1:motor2")
@@ -568,16 +568,28 @@ func TestSessionsMixedClients(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	ctx := context.Background()
-	r, err := robotimpl.New(ctx, cfg, logger)
+	r, err := robotimpl.New(ctx, cfg, logger.Sublogger("main"))
 	test.That(t, err, test.ShouldBeNil)
 
 	options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
 	err = r.StartWeb(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
 
-	roboClient1, err := client.New(ctx, addr, logger)
+	// This test sets up two clients to the same motor. Both clients connect to the robot through a WebRTC
+	// gRPC connection, which adds an auth entity to the connection implicitly.
+	// The test sets up this scenario:
+	// 1) Client 1 will first `SetPower` with a session heartbeat. This operation returns with the
+	//    motor engaged.
+	// 2) Client 2 will override that operation with a very slow `GoFor`, becoming the last caller to the motor in
+	//    the process.
+	// 3) Client 1 will disconnect. This results in the client ceasing heartbeats. However, as Client 2 is the last caller
+	//    and sending heartbeats, the robot's heartbeat thread will not call `motor1.Stop`.
+	// 4) Client 2 will disconnect. This results in the client ceasing heartbeats and the robot's heartbeat thread
+	//    will call `motor1.Stop`.
+
+	roboClient1, err := client.New(ctx, addr, logger.Sublogger("client1"))
 	test.That(t, err, test.ShouldBeNil)
-	roboClient2, err := client.New(ctx, addr, logger)
+	roboClient2, err := client.New(ctx, addr, logger.Sublogger("client2"))
 	test.That(t, err, test.ShouldBeNil)
 
 	motor1Client1, err := motor.FromRobot(roboClient1, "motor1")
@@ -649,7 +661,7 @@ func TestSessionsMixedOwnersNoAuth(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	ctx := context.Background()
-	r, err := robotimpl.New(ctx, cfg, logger)
+	r, err := robotimpl.New(ctx, cfg, logger.Sublogger("main"))
 	test.That(t, err, test.ShouldBeNil)
 
 	options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
@@ -667,9 +679,23 @@ func TestSessionsMixedOwnersNoAuth(t *testing.T) {
 	}))
 	test.That(t, err, test.ShouldBeNil)
 
+	// This test sets up two clients to the same motor. Both clients connect to the robot through a direct
+	// gRPC connection, which does not add an auth entity to the connection implicitly.
+	// The test sets up this (contrived) scenario:
+	// 1) Client 1 will first `SetPower` with a session heartbeat. This operation returns with the
+	//    motor engaged.
+	// 2) Client 2 will attempt to "override" that operation with a very slow `GoFor` using the same session id
+	//    as Client 1. The operation will succeed as the session is not tied to any auth entities.
+	// 3) Client 2 will attempt to resume a session with the main robot using the same session id as Client 1.
+	//    The robot will accept the session id from Client 2.
+	// 4) Client 1 will disconnect. This results in the client ceasing heartbeats for the
+	//    `SetPower` operation. The robot's heartbeat thread will call `motor1.Stop`. While Client 2 sent a command
+	//    to the motor, it used Client 1's session and never sent heartbeats.
 	motor1Client1, err := motor.FromRobot(roboClient1, "motor1")
 	test.That(t, err, test.ShouldBeNil)
-	motor1Client2, err := motor.NewClientFromConn(ctx, roboClientConn2, "", motor.Named("motor1"), logger)
+
+	// clients made directly with a connection will not send heartbeats.
+	motor1Client2, err := motor.NewClientFromConn(ctx, roboClientConn2, "", motor.Named("motor1"), logger.Sublogger("motor1client2"))
 	test.That(t, err, test.ShouldBeNil)
 
 	test.That(t, motor1Client1.SetPower(ctx, 50, nil), test.ShouldBeNil)
@@ -683,7 +709,7 @@ func TestSessionsMixedOwnersNoAuth(t *testing.T) {
 	client2Ctx := metadata.AppendToOutgoingContext(ctx, session.IDMetadataKey, sessID)
 	test.That(t, motor1Client2.GoFor(client2Ctx, 1, 2, nil), test.ShouldBeNil)
 
-	// this would just heartbeat it
+	// this would just heartbeat client 1's session
 	resp, err := robotpb.NewRobotServiceClient(roboClientConn2).StartSession(ctx, &robotpb.StartSessionRequest{
 		Resume: sessID,
 	})
@@ -705,7 +731,7 @@ func TestSessionsMixedOwnersNoAuth(t *testing.T) {
 	test.That(t, r.Close(ctx), test.ShouldBeNil)
 }
 
-// TODO(RSDK-890): add explicit auth test once subjects are actually unique.
+// TODO(RSDK-890): add explicit auth test once entities are actually unique.
 func TestSessionsMixedOwnersImplicitAuth(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 	stopChMotor1 := make(chan struct{})
@@ -742,33 +768,41 @@ func TestSessionsMixedOwnersImplicitAuth(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	ctx := context.Background()
-	r, err := robotimpl.New(ctx, cfg, logger)
+	r, err := robotimpl.New(ctx, cfg, logger.Sublogger("main"))
 	test.That(t, err, test.ShouldBeNil)
 
 	options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
 	err = r.StartWeb(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
 
-	// TODO(RSDK-890): using WebRTC (the default) gives us an implicit auth subject, for now
-	roboClient1, err := client.New(ctx, addr, logger)
+	// TODO(RSDK-890): using WebRTC (the default) gives us an implicit auth entity, for now
+	roboClient1, err := client.New(ctx, addr, logger.Sublogger("client"))
 	test.That(t, err, test.ShouldBeNil)
 
-	roboClientConn2, err := grpc.Dial(ctx, addr, logger, rpc.WithWebRTCOptions(rpc.DialWebRTCOptions{
+	// there is no auth entity with a direct connection
+	roboClientConn2, err := grpc.Dial(ctx, addr, logger.Sublogger("motor1client2"), rpc.WithWebRTCOptions(rpc.DialWebRTCOptions{
 		Disable: true,
 	}))
 	test.That(t, err, test.ShouldBeNil)
 
-	// This test sets up two clients to the same motor. The test sets up this (contrived) scenario:
+	// This test sets up two clients to the same motor. Client 1 connects to the robot through WebRTC, which
+	// implicitly adds an auth entity to the connection. Client 2 connects through a direct gRPC connection,
+	// which does not.
+	// The test sets up this (contrived) scenario:
 	// 1) Client 1 will first `SetPower` with a session heartbeat. This operation returns with the
 	//    motor engaged.
-	// 2) Client 2 will "override" that operation with a very slow `GoFor`.
-	// 3) Client 1 will disconnect. This results in the client ceasing heartbeats for the
-	//    `SetPower` operation.
-	//    - Despite `SetPower` not being the "active" operation, it's expected for the robot's
-	//      heartbeat thread to call `motor1.Stop`.
+	// 2) Client 2 will attempt to "override" that operation with a very slow `GoFor` using the same session id
+	//    as Client 1. The operation will fail as sessions cannot be shared between different auth entities.
+	// 3) Client 2 will attempt to resume a session with the main robot using the same session id as Client 1.
+	//    The robot will reject the session id and create a new session for Client 2.
+	// 4) Client 1 will disconnect. This results in the client ceasing heartbeats for the
+	//    `SetPower` operation. As Client 2 never sent a successful command to the motor (even if it did, Client 2
+	//    won't sent heartbeats), the robot's heartbeat thread will call `motor1.Stop`.
 	motor1Client1, err := motor.FromRobot(roboClient1, "motor1")
 	test.That(t, err, test.ShouldBeNil)
-	motor1Client2, err := motor.NewClientFromConn(ctx, roboClientConn2, "", motor.Named("motor1"), logger)
+
+	// clients made directly with a connection will not send heartbeats.
+	motor1Client2, err := motor.NewClientFromConn(ctx, roboClientConn2, "", motor.Named("motor1"), logger.Sublogger("motor1client2"))
 	test.That(t, err, test.ShouldBeNil)
 
 	// Set the power on client1.
@@ -779,7 +813,7 @@ func TestSessionsMixedOwnersImplicitAuth(t *testing.T) {
 	test.That(t, sessions, test.ShouldHaveLength, 1)
 	sessID := sessions[0].ID().String()
 
-	// cannot share here
+	// cannot share sessions across different auth entities.
 	client2Ctx := metadata.AppendToOutgoingContext(ctx, session.IDMetadataKey, sessID)
 	err = motor1Client2.GoFor(client2Ctx, 1, 2, nil)
 	test.That(t, err, test.ShouldNotBeNil)
@@ -788,7 +822,7 @@ func TestSessionsMixedOwnersImplicitAuth(t *testing.T) {
 	test.That(t, statusErr.Code(), test.ShouldEqual, session.StatusNoSession.Code())
 	test.That(t, statusErr.Message(), test.ShouldEqual, session.StatusNoSession.Message())
 
-	// this should give us a new session instead since we cannot see it
+	// this should give us a new session since sessions cannot be shared across different auth entities.
 	resp, err := robotpb.NewRobotServiceClient(roboClientConn2).StartSession(ctx, &robotpb.StartSessionRequest{
 		Resume: sessID,
 	})

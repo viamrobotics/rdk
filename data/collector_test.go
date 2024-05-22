@@ -245,10 +245,10 @@ func TestClose(t *testing.T) {
 	}
 }
 
-// TestCtxCancelledNotLoggedInTickerBasedCaptureAfterClose verifies that context cancelled errors are not logged if they
-// occur after Close has been called. The collector context is cancelled as part of Close, so we expect to see context
-// cancelled errors for any running capture routines.
-func TestCtxCancelledNotLoggedInTickerBasedCaptureAfterClose(t *testing.T) {
+// TestCtxCancelledNotLoggedAfterClose verifies that context cancelled errors are not logged if they occur after Close
+// has been called. The collector context is cancelled as part of Close, so we expect to see context cancelled errors
+// for any running capture routines.
+func TestCtxCancelledNotLoggedAfterClose(t *testing.T) {
 	logger, logs := logging.NewObservedTestLogger(t)
 	tmpDir := t.TempDir()
 	target := datacapture.NewBuffer(tmpDir, &v1.DataCaptureMetadata{})
@@ -264,15 +264,12 @@ func TestCtxCancelledNotLoggedInTickerBasedCaptureAfterClose(t *testing.T) {
 
 	params := CollectorParams{
 		ComponentName: "testComponent",
-		// Ensure that we use ticker-based capture since capturing at 1000+ Hz
-		// uses a sleep-based capture that may let a context cancelation error
-		// occasionally be logged.
-		Interval:     sleepCaptureCutoff + time.Microsecond,
-		MethodParams: map[string]*anypb.Any{"name": fakeVal},
-		Target:       target,
-		QueueSize:    queueSize,
-		BufferSize:   bufferSize,
-		Logger:       logger,
+		Interval:      time.Millisecond,
+		MethodParams:  map[string]*anypb.Any{"name": fakeVal},
+		Target:        target,
+		QueueSize:     queueSize,
+		BufferSize:    bufferSize,
+		Logger:        logger,
 	}
 	c, _ := NewCollector(errorCapturer, params)
 	c.Collect()
@@ -280,7 +277,12 @@ func TestCtxCancelledNotLoggedInTickerBasedCaptureAfterClose(t *testing.T) {
 	c.Close()
 	close(captured)
 
-	test.That(t, logs.FilterLevelExact(zapcore.ErrorLevel).Len(), test.ShouldEqual, 0)
+	failedLogs := logs.FilterLevelExact(zapcore.ErrorLevel)
+	if failedLogs.Len() != 0 {
+		// The test is going to fail. Output the logs for diagnostics.
+		logger.Error("FailedLogs:", failedLogs)
+	}
+	test.That(t, failedLogs.Len(), test.ShouldEqual, 0)
 }
 
 func TestLogErrorsOnlyOnce(t *testing.T) {

@@ -30,7 +30,7 @@ func NewMotor(b board.Board, mc Config, name resource.Name, logger logging.Logge
 		return nil, err
 	} else if motorType == AB {
 		logger.Warnf(
-			"motor %s has been configured with A and B pins, but no PWM. Make sure this is intentional",
+			"Motor %s has been configured with A and B pins, but no PWM. Make sure your motor driver doesn't also require a PWM pin.",
 			name.Name,
 		)
 	}
@@ -275,17 +275,16 @@ func (m *Motor) GoFor(ctx context.Context, rpm, revolutions float64, extra map[s
 		return errors.New("not supported, define max_rpm attribute != 0")
 	}
 
-	switch speed := math.Abs(rpm); {
-	case speed < 0.1:
-		m.logger.CWarn(ctx, "motor speed is nearly 0 rev_per_min")
-		return motor.NewZeroRPMError()
-	case m.maxRPM > 0 && speed > m.maxRPM-0.1:
-		m.logger.CWarnf(ctx, "motor speed is nearly the max rev_per_min (%f)", m.maxRPM)
-	default:
+	warning, err := checkSpeed(rpm, m.maxRPM)
+	if warning != "" {
+		m.logger.CWarnf(ctx, warning)
+	}
+	if err != nil {
+		return err
 	}
 
 	powerPct, waitDur := goForMath(m.maxRPM, rpm, revolutions)
-	err := m.SetPower(ctx, powerPct, extra)
+	err = m.SetPower(ctx, powerPct, extra)
 	if err != nil {
 		return errors.Wrap(err, "error in GoFor")
 	}
@@ -335,12 +334,9 @@ func (m *Motor) ResetZeroPosition(ctx context.Context, offset float64, extra map
 // DirectionMoving returns the direction we are currently moving in, with 1 representing
 // forward and  -1 representing backwards.
 func (m *Motor) DirectionMoving() int64 {
-	move, powerPct, err := m.IsPowered(context.Background(), nil)
-	if move {
-		return int64(sign(powerPct))
-	}
+	_, powerPct, err := m.IsPowered(context.Background(), nil)
 	if err != nil {
 		m.logger.Error(err)
 	}
-	return 0
+	return int64(sign(powerPct))
 }

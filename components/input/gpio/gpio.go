@@ -327,29 +327,29 @@ func (c *Controller) newAxis(ctx context.Context, brd board.Board, analogName st
 				c.logger.CError(ctx, err)
 			}
 
-			if rawVal > cfg.Max {
-				rawVal = cfg.Max
-			} else if rawVal < cfg.Min {
-				rawVal = cfg.Min
+			if rawVal.Value > cfg.Max {
+				rawVal.Value = cfg.Max
+			} else if rawVal.Value < cfg.Min {
+				rawVal.Value = cfg.Min
 			}
 
 			var outVal float64
 			if cfg.Bidirectional {
 				center := (cfg.Min + cfg.Max) / 2
-				if abs(rawVal-center) < cfg.Deadzone {
-					rawVal = center
+				if abs(rawVal.Value-center) < cfg.Deadzone {
+					rawVal.Value = center
 					outVal = 0.0
 				} else {
-					outVal = scaleAxis(rawVal, cfg.Min, cfg.Max, -1, 1)
+					outVal = scaleAxis(rawVal.Value, cfg.Min, cfg.Max, -1, 1)
 				}
 			} else {
-				if abs(rawVal-cfg.Min) < cfg.Deadzone {
-					rawVal = cfg.Min
+				if abs(rawVal.Value-cfg.Min) < cfg.Deadzone {
+					rawVal.Value = cfg.Min
 				}
-				outVal = scaleAxis(rawVal, cfg.Min, cfg.Max, 0, 1)
+				outVal = scaleAxis(rawVal.Value, cfg.Min, cfg.Max, 0, 1)
 			}
 
-			if abs(rawVal-prevVal) < cfg.MinChange {
+			if abs(rawVal.Value-prevVal) < cfg.MinChange {
 				continue
 			}
 
@@ -357,7 +357,7 @@ func (c *Controller) newAxis(ctx context.Context, brd board.Board, analogName st
 				outVal *= -1
 			}
 
-			prevVal = rawVal
+			prevVal = rawVal.Value
 			eventOut := input.Event{
 				Time:    time.Now(),
 				Event:   input.PositionChangeAbs,

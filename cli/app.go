@@ -92,6 +92,7 @@ const (
 	packageFlagVersion     = "version"
 	packageFlagType        = "type"
 	packageFlagDestination = "destination"
+	packageFlagPath        = "path"
 
 	authApplicationFlagName          = "application-name"
 	authApplicationFlagApplicationID = "application-id"
@@ -1592,6 +1593,43 @@ Example:
 						},
 					},
 					Action: PackageExportAction,
+				},
+				{
+					Name:  "upload",
+					Usage: "upload a package to Viam cloud",
+					UsageText: createUsageText("packages upload",
+						[]string{
+							packageFlagPath, generalFlagOrgID, packageFlagName,
+							packageFlagVersion, packageFlagType,
+						}, false),
+					Flags: []cli.Flag{
+						&cli.PathFlag{
+							Name:     packageFlagPath,
+							Required: true,
+							Usage:    "path to package for upload",
+						},
+						&cli.StringFlag{
+							Name:     generalFlagOrgID,
+							Required: true,
+							Usage:    "organization ID of the requested package",
+						},
+						&cli.StringFlag{
+							Name:     packageFlagName,
+							Required: true,
+							Usage:    "name of the requested package",
+						},
+						&cli.StringFlag{
+							Name:     packageFlagVersion,
+							Required: true,
+							Usage:    "version of the requested package, can be `latest` to get the most recent version",
+						},
+						&cli.StringFlag{
+							Name:     packageFlagType,
+							Required: true,
+							Usage:    "type of the requested package, can be: " + strings.Join(packageTypes, ", "),
+						},
+					},
+					Action: PackageUploadAction,
 				},
 			},
 		},
