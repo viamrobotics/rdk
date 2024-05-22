@@ -696,7 +696,7 @@ func (manager *resourceManager) completeConfig(
 			} else {
 				lr.reconfigureWorkers.Add(1)
 				levelErrG.Go(func() error {
-					lr.reconfigureWorkers.Done()
+					defer lr.reconfigureWorkers.Done()
 					return processResource()
 				})
 			}
