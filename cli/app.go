@@ -874,10 +874,10 @@ var app = &cli.App{
 							Usage: "submits custom training job on data in Viam cloud",
 							Subcommands: []*cli.Command{
 								{
-									Name:  "with-registry",
+									Name:  "from-registry",
 									Usage: "submits custom training job with an existing training script in the registry on data in Viam cloud",
 
-									UsageText: createUsageText("train submit custom with-registry",
+									UsageText: createUsageText("train submit custom from-registry",
 										[]string{
 											datasetFlagDatasetID, generalFlagOrgID, trainFlagModelName,
 											mlTrainingFlagName, mlTrainingFlagVersion,
