@@ -38,7 +38,7 @@ require (
 	github.com/go-gnss/rtcm v0.0.3
 	github.com/go-nlopt/nlopt v0.0.0-20230219125344-443d3362dcb5
 	github.com/go-viper/mapstructure/v2 v2.0.0-alpha.1
-	github.com/goccy/go-graphviz v0.1.2
+	github.com/goccy/go-graphviz v0.1.3-0.20240305010347-606fdf55b06d
 	github.com/golang-jwt/jwt/v4 v4.5.0
 	github.com/golang/freetype v0.0.0-20170609003504-e2365dfdc4a0
 	github.com/golang/geo v0.0.0-20210211234256-740aa86cb551
@@ -106,7 +106,6 @@ require (
 	gopkg.in/src-d/go-billy.v4 v4.3.2
 	gorgonia.org/tensor v0.9.24
 	gotest.tools/gotestsum v1.10.0
-	honnef.co/go/tools v0.4.3
 	periph.io/x/conn/v3 v3.7.0
 	periph.io/x/host/v3 v3.8.1-0.20230331112814-9f0d9f7d76db
 )
@@ -385,6 +384,7 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	gorgonia.org/vecf32 v0.9.0 // indirect
 	gorgonia.org/vecf64 v0.9.0 // indirect
+	honnef.co/go/tools v0.4.3 // indirect
 	howett.net/plist v1.0.0 // indirect
 	mvdan.cc/gofumpt v0.5.0 // indirect
 	mvdan.cc/interfacer v0.0.0-20180901003855-c20040233aed // indirect
