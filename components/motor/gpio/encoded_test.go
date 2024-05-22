@@ -76,7 +76,7 @@ func injectMotor() motor.Motor {
 		vals.mu.Lock()
 		defer vals.mu.Unlock()
 		vals.powerPct = powerPct
-		vals.position++
+		vals.position += sign(powerPct)
 		return nil
 	}
 	m.GoForFunc = func(ctx context.Context, rpm, rotations float64, extra map[string]interface{}) error {
@@ -186,8 +186,7 @@ func TestEncodedMotor(t *testing.T) {
 	})
 
 	t.Run("encoded motor test GoFor forward", func(t *testing.T) {
-		t.Skip("temporary skip for flake")
-		test.That(t, m.goForInternal(10, 1, 1), test.ShouldBeNil)
+		test.That(t, m.GoFor(context.Background(), 10, 1, nil), test.ShouldBeNil)
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
 			on, powerPct, err := m.IsPowered(context.Background(), nil)
@@ -198,8 +197,7 @@ func TestEncodedMotor(t *testing.T) {
 	})
 
 	t.Run("encoded motor test GoFor backwards", func(t *testing.T) {
-		t.Skip("temporary skip for flake")
-		test.That(t, m.goForInternal(-10, -1, -1), test.ShouldBeNil)
+		test.That(t, m.GoFor(context.Background(), -10, 1, nil), test.ShouldBeNil)
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
 			on, powerPct, err := m.IsPowered(context.Background(), nil)
@@ -210,7 +208,6 @@ func TestEncodedMotor(t *testing.T) {
 	})
 
 	t.Run("encoded motor test goForMath", func(t *testing.T) {
-		t.Skip("temporary skip for flake")
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
 			test.That(tb, m.ResetZeroPosition(context.Background(), 0, nil), test.ShouldBeNil)
@@ -238,9 +235,8 @@ func TestEncodedMotor(t *testing.T) {
 	})
 
 	t.Run("encoded motor test SetPower interrupts GoFor", func(t *testing.T) {
-		t.Skip("temporary skip for flake")
 		go func() {
-			test.That(t, m.goForInternal(10, 1, 1), test.ShouldBeNil)
+			test.That(t, m.GoFor(context.Background(), 10, 1, nil), test.ShouldBeNil)
 		}()
 
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
