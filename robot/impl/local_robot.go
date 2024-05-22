@@ -1109,12 +1109,6 @@ func (r *localRobot) Reconfigure(ctx context.Context, newConfig *config.Config) 
 	r.reconfigure(ctx, newConfig, false)
 }
 
-// ReconfigureSync is like Reconfigure, but prevents any resources from being processed
-// concurrently.
-func (r *localRobot) ReconfigureSync(ctx context.Context, newConfig *config.Config) {
-	r.reconfigure(ctx, newConfig, true)
-}
-
 func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, forceSync bool) {
 	var allErrs error
 

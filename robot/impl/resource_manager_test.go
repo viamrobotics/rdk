@@ -1897,7 +1897,8 @@ func TestReconfigureParity(t *testing.T) {
 			cfg = ConfigFromFile(t, updateCfg)
 			r1.Reconfigure(ctx, cfg)
 			cfg = ConfigFromFile(t, updateCfg)
-			r2.ReconfigureSync(ctx, cfg)
+			// force robot to reconfigure resources serially
+			r2.reconfigure(ctx, cfg, true)
 
 			test.That(
 				t,
