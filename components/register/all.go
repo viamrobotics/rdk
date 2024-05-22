@@ -8,6 +8,7 @@ import (
 	_ "go.viam.com/rdk/components/encoder/register"
 	_ "go.viam.com/rdk/components/gantry/register"
 	_ "go.viam.com/rdk/components/generic/register"
+	_ "go.viam.com/rdk/components/gripper/register"
 	_ "go.viam.com/rdk/components/input/register"
 	_ "go.viam.com/rdk/components/motor/register"
 	_ "go.viam.com/rdk/components/movementsensor/register"
