@@ -18,7 +18,7 @@ import (
 // a virtual base station using the NTRIP protocol.
 func ConnectToVirtualBase(ntripInfo *NtripInfo,
 	logger logging.Logger,
-) *bufio.ReadWriter {
+) (*bufio.ReadWriter, error) {
 	mp := "/" + ntripInfo.MountPoint
 	credentials := ntripInfo.username + ":" + ntripInfo.password
 	credentialsBase64 := base64.StdEncoding.EncodeToString([]byte(credentials))
@@ -26,14 +26,12 @@ func ConnectToVirtualBase(ntripInfo *NtripInfo,
 	// Process the server URL
 	serverAddr, err := url.Parse(ntripInfo.URL)
 	if err != nil {
-		logger.Error(err)
-		return nil
+		return nil, err
 	}
 
 	conn, err := net.Dial("tcp", serverAddr.Host)
 	if err != nil {
-		logger.Error(err)
-		return nil
+		return nil, err
 	}
 
 	rw := bufio.NewReadWriter(bufio.NewReader(conn), bufio.NewWriter(conn))
@@ -49,18 +47,16 @@ func ConnectToVirtualBase(ntripInfo *NtripInfo,
 	// Send HTTP headers over the TCP connection
 	_, err = rw.Write([]byte(httpHeaders))
 	if err != nil {
-		logger.Error("Failed to send HTTP headers:", err)
-		return nil
+		return nil, fmt.Errorf("failed to send HTTP headers: %w", err)
 	}
 	err = rw.Flush()
 	if err != nil {
-		logger.Error("failed to write to buffer")
-		return nil
+		return nil, fmt.Errorf("failed to write to buffer: %w", err)
 	}
 
 	logger.Debugf("request header: %v\n", httpHeaders)
 	logger.Debug("HTTP headers sent successfully.")
-	return rw
+	return rw, nil
 }
 
 // GetGGAMessage checks if a GGA message exists in the buffer and returns it.
