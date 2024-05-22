@@ -32,6 +32,7 @@ func ConnectToVirtualBase(ntripInfo *NtripInfo,
 
 	conn, err := net.Dial("tcp", serverAddr.Host)
 	if err != nil {
+		logger.Error(err)
 		return nil
 	}
 
