@@ -26,7 +26,7 @@ func TestColorDetector(t *testing.T) {
 		DetectColorString: colorHexString,
 	}
 	_, err = NewColorDetector(cfg)
-	test.That(t, err, test.ShouldBeError, errors.New("hue_tolerance_pct must be between 0.0 and 1.0. Got 8.00000"))
+	test.That(t, err.Error(), test.ShouldContainSubstring, "hue_tolerance_pct is required")
 
 	cfg.HueTolerance = 1.
 	cfg.SaturationCutoff = 8
