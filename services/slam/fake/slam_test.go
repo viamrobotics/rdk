@@ -21,12 +21,10 @@ import (
 )
 
 func TestFakeSLAMPosition(t *testing.T) {
-	expectedComponentReference := ""
 	slamSvc := NewSLAM(slam.Named("test"), logging.NewTestLogger(t))
 
-	p, componentReference, err := slamSvc.Position(context.Background())
+	p, err := slamSvc.Position(context.Background())
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, componentReference, test.ShouldEqual, expectedComponentReference)
 
 	// spatialmath.PoseAlmostEqual is used here as tiny differences were observed
 	// in floating point values between M1 mac & arm64 linux which
@@ -36,9 +34,8 @@ func TestFakeSLAMPosition(t *testing.T) {
 		&spatialmath.Quaternion{Real: 0.9999997195238413, Imag: 0, Jmag: 0, Kmag: 0.0007489674483818071})
 	test.That(t, spatialmath.PoseAlmostEqual(p, expectedPose), test.ShouldBeTrue)
 
-	p2, componentReference, err := slamSvc.Position(context.Background())
+	p2, err := slamSvc.Position(context.Background())
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, componentReference, test.ShouldEqual, expectedComponentReference)
 	test.That(t, p, test.ShouldResemble, p2)
 }
 
@@ -163,7 +160,7 @@ func verifyPointCloudMapStateful(t *testing.T, slamSvc *SLAM) {
 		getPointCloudMapResults = append(getPointCloudMapResults, pc.MetaData().MaxX)
 		test.That(t, err, test.ShouldBeNil)
 
-		p, _, err := slamSvc.Position(context.Background())
+		p, err := slamSvc.Position(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 		getPositionResults = append(getPositionResults, p)
 

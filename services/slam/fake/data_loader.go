@@ -34,9 +34,8 @@ type extra struct {
 }
 
 type position struct {
-	Pose               pose   `json:"pose"`
-	ComponentReference string `json:"component_reference"`
-	Extra              extra  `json:"extra"`
+	Pose  pose  `json:"pose"`
+	Extra extra `json:"extra"`
 }
 
 var maxDataCount = 24
@@ -85,17 +84,17 @@ func fakeInternalState(ctx context.Context, datasetDir string, slamSvc *SLAM) (f
 	return f, nil
 }
 
-func fakePosition(ctx context.Context, datasetDir string, slamSvc *SLAM) (spatialmath.Pose, string, error) {
+func fakePosition(ctx context.Context, datasetDir string, slamSvc *SLAM) (spatialmath.Pose, error) {
 	path := filepath.Clean(artifact.MustPath(fmt.Sprintf(positionTemplate, datasetDir, slamSvc.getCount())))
 	slamSvc.logger.CDebug(ctx, "Reading "+path)
 	data, err := os.ReadFile(path)
 	if err != nil {
-		return nil, "", err
+		return nil, err
 	}
 
 	position, err := positionFromJSON(data)
 	if err != nil {
-		return nil, "", err
+		return nil, err
 	}
 	p := r3.Vector{X: position.Pose.X, Y: position.Pose.Y, Z: position.Pose.Z}
 
@@ -103,7 +102,7 @@ func fakePosition(ctx context.Context, datasetDir string, slamSvc *SLAM) (spatia
 	orientation := &spatialmath.Quaternion{Real: quat.Real, Imag: quat.Imag, Jmag: quat.Jmag, Kmag: quat.Kmag}
 	pose := spatialmath.NewPose(p, orientation)
 
-	return pose, position.ComponentReference, nil
+	return pose, nil
 }
 
 func positionFromJSON(data []byte) (position, error) {

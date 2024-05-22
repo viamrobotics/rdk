@@ -38,14 +38,13 @@ func (server *serviceServer) GetPosition(ctx context.Context, req *pb.GetPositio
 		return nil, err
 	}
 
-	p, componentReference, err := svc.Position(ctx)
+	p, err := svc.Position(ctx)
 	if err != nil {
 		return nil, err
 	}
 
 	return &pb.GetPositionResponse{
-		Pose:               spatialmath.PoseToProtobuf(p),
-		ComponentReference: componentReference,
+		Pose: spatialmath.PoseToProtobuf(p),
 	}, nil
 }
 
