@@ -17,6 +17,7 @@ import (
 	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
 	"go.viam.com/rdk/vision/objectdetection"
+	"go.viam.com/rdk/vision/viscapture"
 )
 
 var visName1 = vision.Named("vision1")
@@ -41,7 +42,22 @@ func TestClient(t *testing.T) {
 		det1 := objectdetection.NewDetection(image.Rect(0, 0, 10, 20), 0.8, "camera")
 		return []objectdetection.Detection{det1}, nil
 	}
+	srv.GetPropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (*vision.Properties, error) {
+		return &vision.Properties{ClassificationSupported: false, DetectionSupported: true, ObjectPCDsSupported: false}, nil
+	}
+
 	test.That(t, err, test.ShouldBeNil)
+
+	srv.CaptureAllFromCameraFunc = func(ctx context.Context,
+		cameraName string,
+		opts viscapture.CaptureOptions,
+		extra map[string]interface{},
+	) (viscapture.VisCapture, error) {
+		det1 := objectdetection.NewDetection(image.Rectangle{}, 0.5, "yes")
+		return viscapture.VisCapture{
+			Detections: []objectdetection.Detection{det1},
+		}, nil
+	}
 	m := map[resource.Name]vision.Service{
 		vision.Named(testVisionServiceName): srv,
 	}
@@ -97,6 +113,43 @@ func TestClient(t *testing.T) {
 		test.That(t, box.Min, test.ShouldResemble, image.Point{0, 0})
 		test.That(t, box.Max, test.ShouldResemble, image.Point{10, 20})
 
+		test.That(t, client.Close(context.Background()), test.ShouldBeNil)
+		test.That(t, conn.Close(), test.ShouldBeNil)
+	})
+
+	t.Run("get properties", func(t *testing.T) {
+		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
+		test.That(t, err, test.ShouldBeNil)
+		client, err := vision.NewClientFromConn(context.Background(), conn, "", vision.Named(testVisionServiceName), logger)
+		test.That(t, err, test.ShouldBeNil)
+
+		props, err := client.GetProperties(context.Background(), nil)
+		test.That(t, err, test.ShouldBeNil)
+
+		test.That(t, props, test.ShouldNotBeNil)
+		test.That(t, props.ClassificationSupported, test.ShouldEqual, false)
+		test.That(t, props.DetectionSupported, test.ShouldEqual, true)
+		test.That(t, props.ObjectPCDsSupported, test.ShouldEqual, false)
+
+		test.That(t, client.Close(context.Background()), test.ShouldBeNil)
+		test.That(t, conn.Close(), test.ShouldBeNil)
+	})
+
+	t.Run("capture all from camera", func(t *testing.T) {
+		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
+		test.That(t, err, test.ShouldBeNil)
+		client, err := vision.NewClientFromConn(context.Background(), conn, "", vision.Named(testVisionServiceName), logger)
+		test.That(t, err, test.ShouldBeNil)
+		opts := viscapture.CaptureOptions{
+			true,
+			true, true, true,
+		}
+		capt, err := client.CaptureAllFromCamera(context.Background(), "", opts, map[string]interface{}{})
+		test.That(t, err, test.ShouldBeNil)
+
+		test.That(t, capt.Detections, test.ShouldHaveLength, 1)
+		test.That(t, capt.Detections[0].Label(), test.ShouldEqual, "yes")
+		test.That(t, capt.Detections[0].Score(), test.ShouldEqual, 0.5)
 		test.That(t, client.Close(context.Background()), test.ShouldBeNil)
 		test.That(t, conn.Close(), test.ShouldBeNil)
 	})

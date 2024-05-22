@@ -253,7 +253,6 @@ func MakeBoard(t *testing.T, name, pinname string) board.Board {
 		ch <- board.Tick{Name: i.Name(), High: high, TimestampNanosec: nanoseconds}
 		return nil
 	}
-	i.RemoveCallbackFunc = func(c chan board.Tick) {}
 
 	b.DigitalInterruptByNameFunc = func(name string) (board.DigitalInterrupt, error) {
 		return i, nil

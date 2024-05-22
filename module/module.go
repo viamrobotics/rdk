@@ -31,6 +31,7 @@ import (
 
 	"go.viam.com/rdk/components/camera/rtppassthrough"
 	"go.viam.com/rdk/config"
+	rgrpc "go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/protoutils"
@@ -47,7 +48,14 @@ const (
 	// Linux allows for a max length of 107 but to simplify this code, we truncate to the macOS limit of 103.
 	socketMaxAddressLength int = 103
 	rtpBufferSize          int = 512
+	// https://viam.atlassian.net/browse/RSDK-7347
+	// https://viam.atlassian.net/browse/RSDK-7521
+	// maxSupportedWebRTCTRacks is the max number of WebRTC tracks that can be supported given wihout hitting the sctp SDP message size limit.
+	maxSupportedWebRTCTRacks = 9
 )
+
+// errMaxSupportedWebRTCTrackLimit is the error returned when the MaxSupportedWebRTCTRacks limit is reached.
+var errMaxSupportedWebRTCTrackLimit = fmt.Errorf("only %d WebRTC tracks are supported per peer connection", maxSupportedWebRTCTRacks)
 
 // CreateSocketAddress returns a socket address of the form parentDir/desiredName.sock
 // if it is shorter than the socketMaxAddressLength. If this path would be too long, this function
@@ -153,13 +161,12 @@ type peerResourceState struct {
 	// NOTE As I'm only suppporting video to start this will always be a single element
 	// once we add audio we will need to make this a slice / map
 	subID rtppassthrough.SubscriptionID
-	// NOTE As I'm only suppporting video to start this will always be a single element
-	// once we add audio we will need to make this a slice
-	sender *webrtc.RTPSender
 }
 
 // Module represents an external resource module that services components/services.
 type Module struct {
+	shutdownCtx             context.Context
+	shutdownFn              context.CancelFunc
 	parent                  *client.RobotClient
 	server                  rpc.Server
 	logger                  logging.Logger
@@ -177,6 +184,7 @@ type Module struct {
 	closeOnce               sync.Once
 	pc                      *webrtc.PeerConnection
 	pcReady                 <-chan struct{}
+	pcClosed                <-chan struct{}
 	pcFailed                <-chan struct{}
 	pb.UnimplementedModuleServiceServer
 	streampb.UnimplementedStreamServiceServer
@@ -187,6 +195,7 @@ func NewModule(ctx context.Context, address string, logger logging.Logger) (*Mod
 	// TODO(PRODUCT-343): session support likely means interceptors here
 	opMgr := operation.NewManager(logger)
 	unaries := []grpc.UnaryServerInterceptor{
+		rgrpc.EnsureTimeoutUnaryInterceptor,
 		opMgr.UnaryServerInterceptor,
 	}
 	streams := []grpc.StreamServerInterceptor{
@@ -196,7 +205,11 @@ func NewModule(ctx context.Context, address string, logger logging.Logger) (*Mod
 		grpc.UnaryInterceptor(grpc_middleware.ChainUnaryServer(unaries...)),
 		grpc.StreamInterceptor(grpc_middleware.ChainStreamServer(streams...)),
 	}
+
+	cancelCtx, cancel := context.WithCancel(context.Background())
 	m := &Module{
+		shutdownCtx:           cancelCtx,
+		shutdownFn:            cancel,
 		logger:                logger,
 		addr:                  address,
 		operations:            opMgr,
@@ -223,7 +236,7 @@ func NewModule(ctx context.Context, address string, logger logging.Logger) (*Mod
 	}
 
 	// attempt to configure PeerConnection
-	pcReady, err := rpc.ConfigureForRenegotiation(pc, logger.AsZap())
+	pcReady, pcClosed, err := rpc.ConfigureForRenegotiation(pc, logger.AsZap())
 	if err != nil {
 		msg := "Error creating renegotiation channel for module. Unable to " +
 			"create optional peer connection for module. Skipping WebRTC for module..."
@@ -233,6 +246,7 @@ func NewModule(ctx context.Context, address string, logger logging.Logger) (*Mod
 
 	m.pc = pc
 	m.pcReady = pcReady
+	m.pcClosed = pcClosed
 
 	return m, nil
 }
@@ -276,28 +290,24 @@ func (m *Module) Start(ctx context.Context) error {
 }
 
 // Close shuts down the module and grpc server.
-// TODO: Shut down the subscriptions.
 func (m *Module) Close(ctx context.Context) {
 	m.closeOnce.Do(func() {
+		m.shutdownFn()
 		m.mu.Lock()
 		parent := m.parent
-		for name, r := range m.activeResourceStreams {
-			vcss, ok := m.streamSourceByName[name]
-			if !ok {
-				m.logger.CError(ctx, "Module Close unable to find resource", "name", name,
-					"in streamSourceByName", fmt.Sprintf("%#v", m.streamSourceByName))
-				continue
-			}
-			if err := vcss.Unsubscribe(ctx, r.subID); err != nil {
-				m.logger.CErrorw(ctx, "Unsubscribe", "name", name, "err", err, "subID", r.subID.String())
-			}
-			if err := m.pc.RemoveTrack(r.sender); err != nil {
-				m.logger.CErrorw(ctx, "RemoveTrack", "name", name, "err", err)
-			}
-		}
 		if m.pc != nil {
 			if err := m.pc.Close(); err != nil {
 				m.logger.CErrorw(ctx, "WebRTC Peer Connection Close", "err", err)
+			}
+			// `PeerConnection.Close` returning does not guarantee that background workers have
+			// stopped. We've added best-effort hooks to observe when a peer connection has completely
+			// cleaned up.
+			if m.pcClosed != nil {
+				select {
+				case <-m.pcReady:
+					<-m.pcClosed
+				default:
+				}
 			}
 		}
 		m.mu.Unlock()
@@ -469,17 +479,24 @@ func (m *Module) AddResource(ctx context.Context, req *pb.AddResourceRequest) (*
 
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	// add the video stream resources upon creation
-	if passthroughSource != nil {
-		m.streamSourceByName[res.Name()] = passthroughSource
-	}
 	coll, ok := m.collections[conf.API]
 	if !ok {
 		return nil, errors.Errorf("module cannot service api: %s", conf.API)
 	}
+
+	// If adding the resource name to the collection fails, close the resource
+	// and return an error
+	if err := coll.Add(conf.ResourceName(), res); err != nil {
+		return nil, multierr.Combine(err, res.Close(ctx))
+	}
+
 	m.resLoggers[res] = resLogger
 
-	return &pb.AddResourceResponse{}, coll.Add(conf.ResourceName(), res)
+	// add the video stream resources upon creation
+	if passthroughSource != nil {
+		m.streamSourceByName[res.Name()] = passthroughSource
+	}
+	return &pb.AddResourceResponse{}, nil
 }
 
 // ReconfigureResource receives the component/service configuration from the parent.
@@ -543,17 +560,7 @@ func (m *Module) ReconfigureResource(ctx context.Context, req *pb.ReconfigureRes
 		m.logger.Error(err)
 	}
 
-	// check if our streams have been removed by reconfiguring and remove them if so
-	prs, ok := m.activeResourceStreams[res.Name()]
-	if ok {
-		m.logger.CInfow(ctx, "Cleaning up orphaned activeResourceStreams for resource: ", "name", res.Name())
-		if err := m.pc.RemoveTrack(prs.sender); err != nil {
-			m.logger.Error(err)
-		}
-
-		delete(m.activeResourceStreams, res.Name())
-	}
-
+	delete(m.activeResourceStreams, res.Name())
 	resInfo, ok := resource.LookupRegistration(conf.API, conf.Model)
 	if !ok {
 		return nil, errors.Errorf("do not know how to construct %q", conf.API)
@@ -628,27 +635,12 @@ func (m *Module) RemoveResource(ctx context.Context, req *pb.RemoveResourceReque
 		return nil, err
 	}
 
-	// remove vidostreams when the camera resource implementing a passthrough is removed.
-	vcss, streamSourceByNameOk := m.streamSourceByName[name]
-	prs, activeResourceStreamsOk := m.activeResourceStreams[name]
-	if streamSourceByNameOk && activeResourceStreamsOk {
-		m.logger.CInfow(ctx, "calling RemoveTrack on", "name", name)
-		if err := m.pc.RemoveTrack(prs.sender); err != nil {
-			m.logger.CWarnw(ctx, "RemoveStream > RemoveTrack", "name", name, "err", err)
-		}
-		m.logger.CInfow(ctx, "calling Unsubscribe on", "name", name)
-		if err := vcss.Unsubscribe(ctx, prs.subID); err != nil {
-			m.logger.CWarnw(ctx, "RemoveStream > Unsubscribe", "name", name, "subID", prs.subID.String(), "err", err)
-		}
-		m.logger.CInfow(ctx, "deleting from activeResourceStreams", "name", name)
-		delete(m.activeResourceStreams, name)
-	}
-
 	if err := res.Close(ctx); err != nil {
 		m.logger.Error(err)
 	}
 
 	delete(m.streamSourceByName, res.Name())
+	delete(m.activeResourceStreams, res.Name())
 
 	return &pb.RemoveResourceResponse{}, coll.Remove(name)
 }
@@ -728,6 +720,14 @@ func (m *Module) ListStreams(ctx context.Context, req *streampb.ListStreamsReque
 }
 
 // AddStream adds a stream.
+// Returns an error if:
+// 1. there is no WebRTC peer connection with viam-sever
+// 2. resource doesn't exist
+// 3. the resource doesn't implement rtppassthrough.Source,
+// 4. there are already the max number of supported tracks on the peer connection
+// 5. SubscribeRTP returns an error
+// 6. A webrtc track is unable to be created
+// 7. Adding the track to the peer connection fails.
 func (m *Module) AddStream(ctx context.Context, req *streampb.AddStreamRequest) (*streampb.AddStreamResponse, error) {
 	ctx, span := trace.StartSpan(ctx, "module::module::AddStream")
 	defer span.End()
@@ -752,30 +752,59 @@ func (m *Module) AddStream(ctx context.Context, req *streampb.AddStreamRequest) 
 		return &streampb.AddStreamResponse{}, nil
 	}
 
+	if len(m.activeResourceStreams) >= maxSupportedWebRTCTRacks {
+		return nil, errMaxSupportedWebRTCTrackLimit
+	}
+
 	tlsRTP, err := webrtc.NewTrackLocalStaticRTP(webrtc.RTPCodecCapability{MimeType: "video/H264"}, "video", name.String())
 	if err != nil {
 		return nil, errors.Wrap(err, "error creating a new TrackLocalStaticRTP")
 	}
 
-	subID, err := vcss.SubscribeRTP(ctx, rtpBufferSize, func(pkts []*rtp.Packet) error {
+	sub, err := vcss.SubscribeRTP(ctx, rtpBufferSize, func(pkts []*rtp.Packet) {
 		for _, pkt := range pkts {
 			if err := tlsRTP.WriteRTP(pkt); err != nil {
 				m.logger.CWarnw(ctx, "SubscribeRTP callback function WriteRTP", "err", err)
 			}
 		}
-		return nil
 	})
 	if err != nil {
 		return nil, errors.Wrap(err, "error setting up stream subscription")
 	}
 
-	m.logger.CInfow(ctx, "AddStream calling AddTrack", "name", name, "tlsRTP", tlsRTP)
+	m.logger.CDebugw(ctx, "AddStream calling AddTrack", "name", name, "subID", sub.ID.String())
 	sender, err := m.pc.AddTrack(tlsRTP)
 	if err != nil {
-		return nil, errors.Wrap(err, "error adding track")
+		err = errors.Wrap(err, "error adding track")
+		if unsubErr := vcss.Unsubscribe(ctx, sub.ID); unsubErr != nil {
+			return nil, multierr.Combine(err, unsubErr)
+		}
+		return nil, err
 	}
 
-	m.activeResourceStreams[name] = peerResourceState{sender: sender, subID: subID}
+	removeTrackOnSubTerminate := func() {
+		defer m.logger.Debugw("RemoveTrack called on ", "name", name, "subID", sub.ID.String())
+		// wait until either the module is shutting down, or the subscription terminates
+		var msg string
+		select {
+		case <-sub.Terminated.Done():
+			msg = "rtp_passthrough subscription expired, calling RemoveTrack"
+		case <-m.shutdownCtx.Done():
+			msg = "module closing calling RemoveTrack"
+		}
+		// remove the track from the peer connection so that viam-server clients know that the stream has terminated
+		m.mu.Lock()
+		defer m.mu.Unlock()
+		m.logger.Debugw(msg, "name", name, "subID", sub.ID.String())
+		delete(m.activeResourceStreams, name)
+		if err := m.pc.RemoveTrack(sender); err != nil {
+			m.logger.Warnf("RemoveTrack returned error", "name", name, "subID", sub.ID.String(), "err", err)
+		}
+	}
+	m.activeBackgroundWorkers.Add(1)
+	utils.ManagedGo(removeTrackOnSubTerminate, m.activeBackgroundWorkers.Done)
+
+	m.activeResourceStreams[name] = peerResourceState{subID: sub.ID}
 	return &streampb.AddStreamResponse{}, nil
 }
 
@@ -802,12 +831,9 @@ func (m *Module) RemoveStream(ctx context.Context, req *streampb.RemoveStreamReq
 		return nil, errors.Errorf("stream %s is not active", name)
 	}
 
-	if err := m.pc.RemoveTrack(prs.sender); err != nil {
-		m.logger.CWarnw(ctx, "RemoveStream > RemoveTrack", "name", name, "subID", prs.subID.String(), "err", err)
-	}
-
 	if err := vcss.Unsubscribe(ctx, prs.subID); err != nil {
 		m.logger.CWarnw(ctx, "RemoveStream > Unsubscribe", "name", name, "subID", prs.subID.String(), "err", err)
+		return nil, err
 	}
 
 	delete(m.activeResourceStreams, name)

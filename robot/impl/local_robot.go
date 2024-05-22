@@ -48,12 +48,17 @@ type localRobot struct {
 	manager       *resourceManager
 	mostRecentCfg atomic.Value // config.Config
 
-	operations                 *operation.Manager
-	sessionManager             session.Manager
-	packageManager             packages.ManagerSyncer
-	cloudConnSvc               icloud.ConnectionService
-	logger                     logging.Logger
-	activeBackgroundWorkers    sync.WaitGroup
+	operations              *operation.Manager
+	sessionManager          session.Manager
+	packageManager          packages.ManagerSyncer
+	localPackages           packages.ManagerSyncer
+	cloudConnSvc            icloud.ConnectionService
+	logger                  logging.Logger
+	activeBackgroundWorkers sync.WaitGroup
+	// reconfigureWorkers tracks goroutines spawned by reconfiguration functions. we only
+	// wait on this group in tests to prevent goleak-related failures. however, we do not
+	// wait on this group outside of testing, since the related goroutines may be running
+	// outside code and have unexpected behavior.
 	reconfigureWorkers         sync.WaitGroup
 	cancelBackgroundWorkers    func()
 	closeContext               context.Context
@@ -419,6 +424,10 @@ func newWithResources(
 		r.logger.CDebug(ctx, "Using no-op PackageManager when Cloud config is not available")
 		r.packageManager = packages.NewNoopManager()
 	}
+	r.localPackages, err = packages.NewLocalManager(cfg, logger)
+	if err != nil {
+		return nil, err
+	}
 
 	// start process manager early
 	if err := r.manager.processManager.Start(ctx); err != nil {
@@ -475,6 +484,7 @@ func newWithResources(
 		homeDir,
 		cloudID,
 		logger,
+		cfg.PackagePath,
 	)
 
 	r.activeBackgroundWorkers.Add(1)
@@ -493,7 +503,9 @@ func newWithResources(
 			case <-closeCtx.Done():
 				return
 			case <-r.configTicker.C:
+				r.logger.CDebugw(ctx, "configuration attempt triggered by ticker")
 			case <-r.triggerConfig:
+				r.logger.CDebugw(ctx, "configuration attempt triggered by remote")
 			}
 			anyChanges := r.manager.updateRemotesResourceNames(closeCtx)
 			if r.manager.anyResourcesNotConfigured() {
@@ -502,6 +514,9 @@ func newWithResources(
 			}
 			if anyChanges {
 				r.updateWeakDependents(ctx)
+				r.logger.CDebugw(ctx, "configuration attempt completed with changes")
+			} else {
+				r.logger.CDebugw(ctx, "configuration attempt completed without changes")
 			}
 		}
 	}, r.activeBackgroundWorkers.Done)
@@ -1102,6 +1117,7 @@ func (r *localRobot) Reconfigure(ctx context.Context, newConfig *config.Config) 
 	if err != nil {
 		allErrs = multierr.Combine(allErrs, err)
 	}
+	allErrs = multierr.Combine(allErrs, r.localPackages.Sync(ctx, newConfig.Packages, newConfig.Modules))
 
 	// Add default services and process their dependencies. Dependencies may
 	// already come from config validation so we check that here.
@@ -1198,6 +1214,7 @@ func (r *localRobot) Reconfigure(ctx context.Context, newConfig *config.Config) 
 	// Cleanup unused packages after all old resources have been closed above. This ensures
 	// processes are shutdown before any files are deleted they are using.
 	allErrs = multierr.Combine(allErrs, r.packageManager.Cleanup(ctx))
+	allErrs = multierr.Combine(allErrs, r.localPackages.Cleanup(ctx))
 	// Cleanup extra dirs from previous modules or rogue scripts.
 	allErrs = multierr.Combine(allErrs, r.manager.moduleManager.CleanModuleDataDirectory())
 
@@ -1246,7 +1263,22 @@ func (r *localRobot) restartSingleModule(ctx context.Context, mod config.Module)
 		Left:     r.Config(),
 		Right:    r.Config(),
 		Added:    &config.Config{},
-		Modified: &config.ModifiedConfigDiff{Modules: []config.Module{mod}},
+		Modified: &config.ModifiedConfigDiff{},
+		Removed:  &config.Config{Modules: []config.Module{mod}},
+	}
+	err := r.manager.updateResources(ctx, &diff)
+	if err != nil {
+		return err
+	}
+	err = r.localPackages.SyncOne(ctx, mod)
+	if err != nil {
+		return err
+	}
+	diff = config.Diff{
+		Left:     r.Config(),
+		Right:    r.Config(),
+		Added:    &config.Config{Modules: []config.Module{mod}},
+		Modified: &config.ModifiedConfigDiff{},
 		Removed:  &config.Config{},
 	}
 	return r.manager.updateResources(ctx, &diff)
@@ -1255,7 +1287,9 @@ func (r *localRobot) restartSingleModule(ctx context.Context, mod config.Module)
 func (r *localRobot) RestartModule(ctx context.Context, req robot.RestartModuleRequest) error {
 	mod := utils.FindInSlice(r.Config().Modules, req.MatchesModule)
 	if mod == nil {
-		return fmt.Errorf("module not found with id=%s, name=%s", req.ModuleID, req.ModuleName)
+		return fmt.Errorf(
+			"module not found with id=%s, name=%s. make sure it is configured and running on your machine",
+			req.ModuleID, req.ModuleName)
 	}
 	err := r.restartSingleModule(ctx, *mod)
 	if err != nil {

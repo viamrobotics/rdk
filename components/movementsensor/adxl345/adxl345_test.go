@@ -163,18 +163,6 @@ func TestInterrupts(t *testing.T) {
 		return nil
 	}
 
-	interrupt.RemoveCallbackFunc = func(c chan board.Tick) {
-		for id := range callbacks {
-			if callbacks[id] == c {
-				// To remove this item, we replace it with the last item in the list, then truncate the
-				// list by 1.
-				callbacks[id] = callbacks[len(callbacks)-1]
-				callbacks = callbacks[:len(callbacks)-1]
-				break
-			}
-		}
-	}
-
 	mockBoard := &inject.Board{}
 	mockBoard.DigitalInterruptByNameFunc = func(name string) (board.DigitalInterrupt, error) { return interrupt, nil }
 	mockBoard.StreamTicksFunc = func(ctx context.Context, interrupts []board.DigitalInterrupt, ch chan board.Tick,
@@ -297,8 +285,9 @@ func TestInterrupts(t *testing.T) {
 }
 
 func TestReadInterrupts(t *testing.T) {
-	ctx := context.Background()
-	cancelContext, cancelFunc := context.WithCancel(ctx)
+	cancelContext, cancelFunc := context.WithCancel(context.Background())
+	defer cancelFunc()
+
 	i2cHandle := &inject.I2CHandle{}
 	i2cHandle.CloseFunc = func() error { return nil }
 	i2c := &inject.I2C{}
@@ -315,11 +304,9 @@ func TestReadInterrupts(t *testing.T) {
 		sensor := &adxl345{
 			bus:               i2c,
 			interruptsFound:   map[InterruptID]int{},
-			cancelContext:     cancelContext,
-			cancelFunc:        cancelFunc,
 			interruptsEnabled: byte(1<<6 + 1<<2),
 		}
-		sensor.readInterrupts(sensor.cancelContext)
+		sensor.readInterrupts(cancelContext)
 		test.That(t, sensor.interruptsFound[singleTap], test.ShouldEqual, 1)
 		test.That(t, sensor.interruptsFound[freeFall], test.ShouldEqual, 1)
 	})
@@ -333,11 +320,9 @@ func TestReadInterrupts(t *testing.T) {
 		sensor := &adxl345{
 			bus:               i2c,
 			interruptsFound:   map[InterruptID]int{},
-			cancelContext:     cancelContext,
-			cancelFunc:        cancelFunc,
 			interruptsEnabled: byte(1<<6 + 1<<2),
 		}
-		sensor.readInterrupts(sensor.cancelContext)
+		sensor.readInterrupts(cancelContext)
 		test.That(t, sensor.interruptsFound[singleTap], test.ShouldEqual, 0)
 		test.That(t, sensor.interruptsFound[freeFall], test.ShouldEqual, 1)
 	})
@@ -351,11 +336,9 @@ func TestReadInterrupts(t *testing.T) {
 		sensor := &adxl345{
 			bus:               i2c,
 			interruptsFound:   map[InterruptID]int{},
-			cancelContext:     cancelContext,
-			cancelFunc:        cancelFunc,
 			interruptsEnabled: byte(1<<6 + 1<<2),
 		}
-		sensor.readInterrupts(sensor.cancelContext)
+		sensor.readInterrupts(cancelContext)
 		test.That(t, sensor.interruptsFound[singleTap], test.ShouldEqual, 1)
 		test.That(t, sensor.interruptsFound[freeFall], test.ShouldEqual, 0)
 	})
@@ -369,11 +352,9 @@ func TestReadInterrupts(t *testing.T) {
 		sensor := &adxl345{
 			bus:               i2c,
 			interruptsFound:   map[InterruptID]int{},
-			cancelContext:     cancelContext,
-			cancelFunc:        cancelFunc,
 			interruptsEnabled: byte(1<<6 + 1<<2),
 		}
-		sensor.readInterrupts(sensor.cancelContext)
+		sensor.readInterrupts(cancelContext)
 		test.That(t, sensor.interruptsFound[singleTap], test.ShouldEqual, 0)
 		test.That(t, sensor.interruptsFound[freeFall], test.ShouldEqual, 0)
 	})

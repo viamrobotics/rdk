@@ -157,11 +157,6 @@ func (pca *PCA9685) SetPowerMode(ctx context.Context, mode pb.PowerMode, duratio
 	return grpc.UnimplementedError
 }
 
-// WriteAnalog writes the value to the given pin.
-func (pca *PCA9685) WriteAnalog(ctx context.Context, pin string, value int32, extra map[string]interface{}) error {
-	return grpc.UnimplementedError
-}
-
 // GPIOPinByName returns a GPIOPin by name.
 func (pca *PCA9685) GPIOPinByName(pin string) (board.GPIOPin, error) {
 	pinInt, err := pca.parsePin(pin)

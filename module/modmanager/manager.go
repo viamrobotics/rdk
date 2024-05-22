@@ -34,6 +34,7 @@ import (
 	"go.viam.com/rdk/module/modmaninterface"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/robot/packages"
 	rutils "go.viam.com/rdk/utils"
 )
 
@@ -63,6 +64,7 @@ func NewManager(
 		removeOrphanedResources: options.RemoveOrphanedResources,
 		restartCtx:              restartCtx,
 		restartCtxCancel:        restartCtxCancel,
+		packagesDir:             options.PackagesDir,
 	}
 }
 
@@ -75,6 +77,9 @@ type module struct {
 	client     pb.ModuleServiceClient
 	addr       string
 	resources  map[resource.Name]*addedResource
+	// resourcesMu must be held if the `resources` field is accessed without
+	// write-locking the module manager.
+	resourcesMu sync.Mutex
 
 	// pendingRemoval allows delaying module close until after resources within it are closed
 	pendingRemoval bool
@@ -152,6 +157,8 @@ type Manager struct {
 	// viamHomeDir is the absolute path to the viam home directory. Ex: /home/walle/.viam
 	// `viamHomeDir` may only be the empty string in testing
 	viamHomeDir string
+	// packagesDir is the PackagesPath from a config.Config. It's used for resolving paths for local tarball modules.
+	packagesDir string
 	// moduleDataParentDir is the absolute path to the current robots module data directory.
 	// Ex: /home/walle/.viam/module-data/<cloud-robot-id>
 	// it is empty if the modmanageroptions.Options.viamHomeDir was empty
@@ -287,6 +294,7 @@ func (mgr *Manager) startModuleProcess(mod *module) error {
 		mgr.newOnUnexpectedExitHandler(mod),
 		mgr.logger,
 		mgr.viamHomeDir,
+		mgr.packagesDir,
 	)
 }
 
@@ -412,6 +420,8 @@ func (mgr *Manager) Remove(modName string) ([]resource.Name, error) {
 	return orphanedResourceNames, nil
 }
 
+// closeModule attempts to cleanly shut down the module process. It does not wait on module recovery processes,
+// as they are running outside code and may have unexpected behavior.
 func (mgr *Manager) closeModule(mod *module, reconfigure bool) error {
 	// resource manager should've removed these cleanly if this isn't a reconfigure
 	if !reconfigure && len(mod.resources) != 0 {
@@ -452,6 +462,12 @@ func (mgr *Manager) closeModule(mod *module, reconfigure bool) error {
 
 // AddResource tells a component module to configure a new component.
 func (mgr *Manager) AddResource(ctx context.Context, conf resource.Config, deps []string) (resource.Resource, error) {
+	mgr.mu.RLock()
+	defer mgr.mu.RUnlock()
+	return mgr.addResource(ctx, conf, deps)
+}
+
+func (mgr *Manager) addResourceWithWriteLock(ctx context.Context, conf resource.Config, deps []string) (resource.Resource, error) {
 	mgr.mu.Lock()
 	defer mgr.mu.Unlock()
 	return mgr.addResource(ctx, conf, deps)
@@ -475,6 +491,9 @@ func (mgr *Manager) addResource(ctx context.Context, conf resource.Config, deps 
 		return nil, err
 	}
 	mgr.rMap.Store(conf.ResourceName(), mod)
+
+	mod.resourcesMu.Lock()
+	defer mod.resourcesMu.Unlock()
 	mod.resources[conf.ResourceName()] = &addedResource{conf, deps}
 
 	apiInfo, ok := resource.LookupGenericAPIRegistration(conf.API)
@@ -505,6 +524,8 @@ func (mgr *Manager) ReconfigureResource(ctx context.Context, conf resource.Confi
 	if err != nil {
 		return err
 	}
+	mod.resourcesMu.Lock()
+	defer mod.resourcesMu.Unlock()
 	mod.resources[conf.ResourceName()] = &addedResource{conf, deps}
 
 	return nil
@@ -813,11 +834,18 @@ func (mgr *Manager) newOnUnexpectedExitHandler(mod *module) func(exitCode int) b
 		// Finally, handle orphaned resources.
 		var orphanedResourceNames []resource.Name
 		for name, res := range mod.resources {
-			if _, err := mgr.AddResource(mgr.restartCtx, res.conf, res.deps); err != nil {
+			// The `addResource` method might still be executing for this resource with a
+			// read lock, so we execute it here with a write lock to make sure it doesn't
+			// run concurrently.
+			if _, err := mgr.addResourceWithWriteLock(mgr.restartCtx, res.conf, res.deps); err != nil {
 				mgr.logger.Warnw("Error while re-adding resource to module",
 					"resource", name, "module", mod.cfg.Name, "error", err)
 				mgr.rMap.Delete(name)
+
+				mod.resourcesMu.Lock()
 				delete(mod.resources, name)
+				mod.resourcesMu.Unlock()
+
 				orphanedResourceNames = append(orphanedResourceNames, name)
 			}
 		}
@@ -890,8 +918,13 @@ func (mgr *Manager) attemptRestart(ctx context.Context, mod *module) []resource.
 			break
 		}
 
-		// Wait with a bit of backoff.
-		utils.SelectContextOrWait(ctx, time.Duration(attempt)*oueRestartInterval)
+		// Wait with a bit of backoff. Exit early if context has errorred.
+		if !utils.SelectContextOrWait(ctx, time.Duration(attempt)*oueRestartInterval) {
+			mgr.logger.CInfow(
+				ctx, "Will not continue to attempt restarting crashed module", "module", mod.cfg.Name, "reason", ctx.Err().Error(),
+			)
+			return orphanedResourceNames
+		}
 	}
 	processRestarted = true
 
@@ -1002,6 +1035,7 @@ func (m *module) startProcess(
 	oue func(int) bool,
 	logger logging.Logger,
 	viamHomeDir string,
+	packagesDir string,
 ) error {
 	var err error
 	// append a random alpha string to the module name while creating a socket address to avoid conflicts
@@ -1013,7 +1047,7 @@ func (m *module) startProcess(
 
 	// We evaluate the Module's ExePath absolutely in the viam-server process so that
 	// setting the CWD does not cause issues with relative process names
-	absoluteExePath, err := filepath.Abs(m.cfg.ExePath)
+	absoluteExePath, err := m.cfg.EvaluateExePath(packages.LocalPackagesDir(packagesDir))
 	if err != nil {
 		return err
 	}
@@ -1088,8 +1122,11 @@ func (m *module) stopProcess() error {
 
 	// TODO(RSDK-2551): stop ignoring exit status 143 once Python modules handle
 	// SIGTERM correctly.
-	if err := m.process.Stop(); err != nil &&
-		!strings.Contains(err.Error(), errMessageExitStatus143) {
+	// Also ignore if error is that the process no longer exists.
+	if err := m.process.Stop(); err != nil {
+		if strings.Contains(err.Error(), errMessageExitStatus143) || strings.Contains(err.Error(), "no such process") {
+			return nil
+		}
 		return err
 	}
 	return nil

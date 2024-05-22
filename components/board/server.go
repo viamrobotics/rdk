@@ -144,11 +144,16 @@ func (s *serviceServer) ReadAnalogReader(
 		return nil, err
 	}
 
-	val, err := theReader.Read(ctx, req.Extra.AsMap())
+	analogValue, err := theReader.Read(ctx, req.Extra.AsMap())
 	if err != nil {
 		return nil, err
 	}
-	return &pb.ReadAnalogReaderResponse{Value: int32(val)}, nil
+	return &pb.ReadAnalogReaderResponse{
+		Value:    int32(analogValue.Value),
+		MinRange: analogValue.Min,
+		MaxRange: analogValue.Max,
+		StepSize: analogValue.StepSize,
+	}, nil
 }
 
 // WriteAnalog writes the analog value to the analog writer pin of the underlying robot.
@@ -161,7 +166,12 @@ func (s *serviceServer) WriteAnalog(
 		return nil, err
 	}
 
-	err = b.WriteAnalog(ctx, req.Pin, req.Value, req.Extra.AsMap())
+	analog, err := b.AnalogByName(req.Pin)
+	if err != nil {
+		return nil, err
+	}
+
+	err = analog.Write(ctx, int(req.Value), req.Extra.AsMap())
 	if err != nil {
 		return nil, err
 	}
@@ -214,12 +224,6 @@ func (s *serviceServer) StreamTicks(
 	if err != nil {
 		return err
 	}
-
-	defer func() {
-		for _, i := range interrupts {
-			i.RemoveCallback(ticksChan)
-		}
-	}()
 
 	// Send an empty response first so the client doesn't block while checking for errors.
 	err = server.Send(&pb.StreamTicksResponse{})

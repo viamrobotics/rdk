@@ -53,7 +53,9 @@ type MoveOnGlobeReq struct {
 	// Name of the momement sensor which can be used to derive Position & Heading
 	MovementSensorName resource.Name
 	// Static obstacles that should be navigated around
-	Obstacles []*spatialmath.GeoObstacle
+	Obstacles []*spatialmath.GeoGeometry
+	// Set of bounds which the robot must remain within while navigating
+	BoundingRegions []*spatialmath.GeoGeometry
 	// Optional motion configuration
 	MotionCfg *MotionConfiguration
 	Extra     map[string]interface{}

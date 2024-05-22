@@ -11,6 +11,7 @@ import (
 
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/logging"
+	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/motionplan/tpspace"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/services/motion"
@@ -38,14 +39,19 @@ type ptgBaseKinematics struct {
 	angVelocityDegsPerSecond       float64
 	nonzeroBaseTurningRadiusMeters float64
 
-	inputLock             sync.RWMutex
-	currentIdx            int
-	currentInputs         []referenceframe.Input
-	currentExecutingSteps []arcStep
+	// All changeable state of the base is here
+	inputLock    sync.RWMutex
+	currentState baseState
 
 	origin     spatialmath.Pose
 	geometries []spatialmath.Geometry
 	cancelFunc context.CancelFunc
+}
+
+type baseState struct {
+	currentIdx            int
+	currentInputs         []referenceframe.Input
+	currentExecutingSteps []arcStep
 }
 
 // wrapWithPTGKinematics takes a Base component and adds a PTG kinematic model so that it can be controlled.
@@ -132,6 +138,7 @@ func wrapWithPTGKinematics(
 		}
 		origin = originPIF.Pose()
 	}
+	startingState := baseState{currentInputs: zeroInput}
 
 	return &ptgBaseKinematics{
 		Base:                           b,
@@ -143,7 +150,7 @@ func wrapWithPTGKinematics(
 		linVelocityMMPerSecond:         linVelocityMMPerSecond,
 		angVelocityDegsPerSecond:       angVelocityDegsPerSecond,
 		nonzeroBaseTurningRadiusMeters: nonzeroBaseTurningRadiusMeters,
-		currentInputs:                  zeroInput,
+		currentState:                   startingState,
 		origin:                         origin,
 		geometries:                     geometries,
 	}, nil
@@ -160,7 +167,31 @@ func (ptgk *ptgBaseKinematics) Kinematics() referenceframe.Frame {
 func (ptgk *ptgBaseKinematics) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
 	ptgk.inputLock.RLock()
 	defer ptgk.inputLock.RUnlock()
-	return ptgk.currentInputs, nil
+	return ptgk.currentState.currentInputs, nil
+}
+
+func (ptgk *ptgBaseKinematics) ExecutionState(ctx context.Context) (motionplan.ExecutionState, error) {
+	if ptgk.Localizer == nil {
+		return motionplan.ExecutionState{}, errors.New("cannot call ExecutionState on a base without a localizer")
+	}
+	ptgk.inputLock.RLock()
+	currentIdx := ptgk.currentState.currentIdx
+	currentInputs := ptgk.currentState.currentInputs
+	currentExecutingSteps := ptgk.currentState.currentExecutingSteps
+	ptgk.inputLock.RUnlock()
+
+	actualPIF, err := ptgk.CurrentPosition(ctx)
+	if err != nil {
+		return motionplan.ExecutionState{}, err
+	}
+
+	currentPlan := ptgk.stepsToPlan(currentExecutingSteps, actualPIF.Parent())
+	return motionplan.NewExecutionState(
+		currentPlan,
+		currentIdx,
+		map[string][]referenceframe.Input{ptgk.Kinematics().Name(): currentInputs},
+		map[string]*referenceframe.PoseInFrame{ptgk.Kinematics().Name(): actualPIF},
+	)
 }
 
 func (ptgk *ptgBaseKinematics) ErrorState(ctx context.Context) (spatialmath.Pose, error) {
@@ -176,24 +207,17 @@ func (ptgk *ptgBaseKinematics) ErrorState(ctx context.Context) (spatialmath.Pose
 
 	// Determine the nominal pose, that is, the pose where the robot ought be if it had followed the plan perfectly up until this point.
 	ptgk.inputLock.RLock()
-	currentIdx := ptgk.currentIdx
-	currentExecutingSteps := ptgk.currentExecutingSteps
+	currentIdx := ptgk.currentState.currentIdx
+	currentExecutingSteps := ptgk.currentState.currentExecutingSteps
+	currentInputs := ptgk.currentState.currentInputs
 	ptgk.inputLock.RUnlock()
-	currentInputs, err := ptgk.CurrentInputs(ctx)
-	if err != nil {
-		return nil, err
-	}
-	// The inputs representing the arc we have already executed can be computed as below.
-	// The return of CurrentInputs() represents the amount left on the arc, as an external caller will be more interested in where a base
-	// is going than where it has been.
-	executedInputs := []referenceframe.Input{
-		currentInputs[ptgIndex],
-		currentInputs[trajectoryAlphaWithinPTG],
-		currentExecutingSteps[currentIdx].arcSegment.StartConfiguration[startDistanceAlongTrajectoryIndex],
-		currentInputs[startDistanceAlongTrajectoryIndex],
+
+	if currentExecutingSteps == nil {
+		// We are not currently executing a plan
+		return spatialmath.NewZeroPose(), nil
 	}
 
-	currPoseInArc, err := ptgk.frame.Transform(executedInputs)
+	currPoseInArc, err := ptgk.frame.Transform(currentInputs)
 	if err != nil {
 		return nil, err
 	}

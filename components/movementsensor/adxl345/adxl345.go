@@ -172,10 +172,7 @@ type adxl345 struct {
 	linearAcceleration r3.Vector
 	err                movementsensor.LastError
 
-	// Used to shut down the background goroutine which polls the sensor.
-	cancelContext           context.Context
-	cancelFunc              func()
-	activeBackgroundWorkers sync.WaitGroup
+	workers rutils.StoppableWorkers
 }
 
 // newAdxl345 is a constructor to create a new object representing an ADXL345 accelerometer.
@@ -229,7 +226,6 @@ func makeAdxl345(
 	for k, v := range getSingleTapRegisterValues(newConf.SingleTap) {
 		configuredRegisterValues[k] = v
 	}
-	cancelContext, cancelFunc := context.WithCancel(context.Background())
 
 	sensor := &adxl345{
 		Named:                    conf.ResourceName().AsNamed(),
@@ -237,8 +233,6 @@ func makeAdxl345(
 		i2cAddress:               address,
 		interruptsEnabled:        interruptConfigurations[intEnableAddr],
 		logger:                   logger,
-		cancelContext:            cancelContext,
-		cancelFunc:               cancelFunc,
 		configuredRegisterValues: configuredRegisterValues,
 		interruptsFound:          make(map[InterruptID]int),
 		interruptChannels:        make(map[board.DigitalInterrupt]chan board.Tick),
@@ -266,23 +260,21 @@ func makeAdxl345(
 
 	// Now, turn on the background goroutine that constantly reads from the chip and stores data in
 	// the object we created.
-	sensor.activeBackgroundWorkers.Add(1)
-	utils.PanicCapturingGo(func() {
-		defer sensor.activeBackgroundWorkers.Done()
+	sensor.workers = rutils.NewStoppableWorkers(func(cancelContext context.Context) {
 		// Reading data a thousand times per second is probably fast enough.
 		timer := time.NewTicker(time.Millisecond)
 		defer timer.Stop()
 
 		for {
 			select {
-			case <-sensor.cancelContext.Done():
+			case <-cancelContext.Done():
 				return
 			default:
 			}
 			select {
 			case <-timer.C:
 				// The registers with data are 0x32 through 0x37: two bytes each for X, Y, and Z.
-				rawData, err := sensor.readBlock(sensor.cancelContext, 0x32, 6)
+				rawData, err := sensor.readBlock(cancelContext, 0x32, 6)
 				// Record the errors no matter what: if the error is nil, that's useful information
 				// that will prevent errors from being returned later.
 				sensor.err.Set(err)
@@ -296,7 +288,7 @@ func makeAdxl345(
 				sensor.mu.Lock()
 				sensor.linearAcceleration = linearAcceleration
 				sensor.mu.Unlock()
-			case <-sensor.cancelContext.Done():
+			case <-cancelContext.Done():
 				return
 			}
 		}
@@ -305,13 +297,13 @@ func makeAdxl345(
 	// Clear out the source register upon starting the component
 	if _, err := sensor.readByte(ctx, intSourceAddr); err != nil {
 		// shut down goroutine reading sensor in the background
-		sensor.cancelFunc()
+		sensor.workers.Stop()
 		return nil, err
 	}
 
 	if err := sensor.configureInterruptRegisters(ctx, interruptConfigurations[intMapAddr]); err != nil {
 		// shut down goroutine reading sensor in the background
-		sensor.cancelFunc()
+		sensor.workers.Stop()
 		return nil, err
 	}
 
@@ -338,31 +330,25 @@ func makeAdxl345(
 			interrupts = append(interrupts, interrupt)
 		}
 		ticksChan := make(chan board.Tick)
-		err = b.StreamTicks(sensor.cancelContext, interrupts, ticksChan, nil)
+		err = b.StreamTicks(sensor.workers.Context(), interrupts, ticksChan, nil)
 		if err != nil {
 			return nil, err
 		}
-		sensor.startInterruptMonitoring(ticksChan, interrupts)
+		sensor.startInterruptMonitoring(ticksChan)
 	}
 
 	return sensor, nil
 }
 
-func (adxl *adxl345) startInterruptMonitoring(ticksChan chan board.Tick, interrupts []board.DigitalInterrupt) {
-	utils.PanicCapturingGo(func() {
-		defer func() {
-			for _, i := range interrupts {
-				i.RemoveCallback(ticksChan)
-			}
-		}()
-
+func (adxl *adxl345) startInterruptMonitoring(ticksChan chan board.Tick) {
+	adxl.workers.AddWorkers(func(cancelContext context.Context) {
 		for {
 			select {
-			case <-adxl.cancelContext.Done():
+			case <-cancelContext.Done():
 				return
 			case tick := <-ticksChan:
 				if tick.High {
-					utils.UncheckedError(adxl.readInterrupts(adxl.cancelContext))
+					utils.UncheckedError(adxl.readInterrupts(cancelContext))
 				}
 			}
 		}
@@ -584,15 +570,10 @@ func (adxl *adxl345) Properties(ctx context.Context, extra map[string]interface{
 
 // Puts the chip into standby mode.
 func (adxl *adxl345) Close(ctx context.Context) error {
-	adxl.cancelFunc()
-	adxl.activeBackgroundWorkers.Wait()
+	adxl.workers.Stop()
 
 	adxl.mu.Lock()
 	defer adxl.mu.Unlock()
-
-	for interrupt, channel := range adxl.interruptChannels {
-		interrupt.RemoveCallback(channel)
-	}
 
 	// Put the chip into standby mode by setting the Power Control register (0x2D) to 0.
 	err := adxl.writeByte(ctx, powerControlRegister, 0x00)

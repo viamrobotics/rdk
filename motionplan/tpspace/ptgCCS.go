@@ -55,7 +55,6 @@ func (ptg *ptgCCS) Velocities(alpha, dist float64) (float64, float64, error) {
 }
 
 func (ptg *ptgCCS) Transform(inputs []referenceframe.Input) (spatialmath.Pose, error) {
-	// ~ fmt.Println("CCS")
 	alpha := inputs[0].Value
 	dist := inputs[1].Value
 

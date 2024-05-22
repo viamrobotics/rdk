@@ -61,7 +61,7 @@ const (
 	moduleBuildFlagNoBuild   = "no-build"
 
 	mlTrainingFlagPath      = "path"
-	mlTrainingFlagName      = "name"
+	mlTrainingFlagName      = "script-name"
 	mlTrainingFlagVersion   = "version"
 	mlTrainingFlagFramework = "framework"
 	mlTrainingFlagType      = "type"
@@ -92,6 +92,13 @@ const (
 	packageFlagVersion     = "version"
 	packageFlagType        = "type"
 	packageFlagDestination = "destination"
+	packageFlagPath        = "path"
+
+	authApplicationFlagName          = "application-name"
+	authApplicationFlagApplicationID = "application-id"
+	authApplicationFlagOriginURIs    = "origin-uris"
+	authApplicationFlagRedirectURIs  = "redirect-uris"
+	authApplicationFlagLogoutURI     = "logout-uri"
 
 	cpFlagRecursive = "recursive"
 	cpFlagPreserve  = "preserve"
@@ -856,7 +863,63 @@ var app = &cli.App{
 							Usage: "version of ML model. defaults to current timestamp if unspecified.",
 						},
 					},
-					Action: DataSubmitTrainingJob,
+					Action: MLSubmitTrainingJob,
+				},
+				{
+					Name:  "submit-custom",
+					Usage: "submits custom training job on data in Viam cloud",
+					UsageText: createUsageText("train submit-custom",
+						[]string{
+							datasetFlagDatasetID, generalFlagOrgID, trainFlagModelName,
+							mlTrainingFlagPath, mlTrainingFlagName,
+						}, true),
+					Flags: []cli.Flag{
+						&cli.StringFlag{
+							Name:     datasetFlagDatasetID,
+							Usage:    "dataset ID",
+							Required: true,
+						},
+						&cli.StringFlag{
+							Name:     trainFlagModelName,
+							Usage:    "name of ML model",
+							Required: true,
+						},
+						&cli.StringFlag{
+							Name:  trainFlagModelVersion,
+							Usage: "version of ML model. defaults to current timestamp if unspecified.",
+						},
+						&cli.StringFlag{
+							Name:     mlTrainingFlagPath,
+							Usage:    "path to ML training scripts for upload",
+							Required: true,
+						},
+						&cli.StringFlag{
+							Name:     trainFlagModelOrgID,
+							Required: true,
+							Usage:    "organization ID to upload and run training job",
+						},
+						&cli.StringFlag{
+							Name:     mlTrainingFlagName,
+							Usage:    "script name of the ML training script to upload",
+							Required: true,
+						},
+						&cli.StringFlag{
+							Name:     mlTrainingFlagVersion,
+							Usage:    "version of the ML training script to upload. defaults to current timestamp if unspecified.",
+							Required: false,
+						},
+						&cli.StringFlag{
+							Name:     mlTrainingFlagFramework,
+							Usage:    "framework of the ML training script to upload, can be: " + strings.Join(modelFrameworks, ", "),
+							Required: false,
+						},
+						&cli.StringFlag{
+							Name:     trainFlagModelType,
+							Usage:    "task type of the ML training script to upload, can be: " + strings.Join(modelTypes, ", "),
+							Required: false,
+						},
+					},
+					Action: MLSubmitCustomTrainingJob,
 				},
 				{
 					Name:      "get",
@@ -1465,12 +1528,12 @@ Example:
 						},
 						&cli.StringFlag{
 							Name:  moduleFlagPath,
-							Usage: "path to a meta.json. used for module ID. can be overridden with --module-id or --name",
+							Usage: "path to a meta.json. used for module ID. can be overridden with --id or --name",
 							Value: "meta.json",
 						},
 						&cli.StringFlag{
 							Name:  moduleFlagName,
-							Usage: "name of module to restart. pass at most one of --name, --module-id",
+							Usage: "name of module to restart. pass at most one of --name, --id",
 						},
 						&cli.StringFlag{
 							Name:  moduleBuildFlagBuildID,
@@ -1531,6 +1594,43 @@ Example:
 					},
 					Action: PackageExportAction,
 				},
+				{
+					Name:  "upload",
+					Usage: "upload a package to Viam cloud",
+					UsageText: createUsageText("packages upload",
+						[]string{
+							packageFlagPath, generalFlagOrgID, packageFlagName,
+							packageFlagVersion, packageFlagType,
+						}, false),
+					Flags: []cli.Flag{
+						&cli.PathFlag{
+							Name:     packageFlagPath,
+							Required: true,
+							Usage:    "path to package for upload",
+						},
+						&cli.StringFlag{
+							Name:     generalFlagOrgID,
+							Required: true,
+							Usage:    "organization ID of the requested package",
+						},
+						&cli.StringFlag{
+							Name:     packageFlagName,
+							Required: true,
+							Usage:    "name of the requested package",
+						},
+						&cli.StringFlag{
+							Name:     packageFlagVersion,
+							Required: true,
+							Usage:    "version of the requested package, can be `latest` to get the most recent version",
+						},
+						&cli.StringFlag{
+							Name:     packageFlagType,
+							Required: true,
+							Usage:    "type of the requested package, can be: " + strings.Join(packageTypes, ", "),
+						},
+					},
+					Action: PackageUploadAction,
+				},
 			},
 		},
 		{
@@ -1580,6 +1680,91 @@ Example:
 					},
 					// Upload action
 					Action: MLTrainingUploadAction,
+				},
+			},
+		},
+		{
+			Name:  "auth-app",
+			Usage: "manage third party auth applications",
+			Subcommands: []*cli.Command{
+				{
+					Name:  "register",
+					Usage: "register a third party auth application",
+					UsageText: createUsageText("auth-app register", []string{
+						generalFlagOrgID,
+						authApplicationFlagName, authApplicationFlagOriginURIs, authApplicationFlagRedirectURIs,
+						authApplicationFlagLogoutURI,
+					}, false),
+					Flags: []cli.Flag{
+						&cli.StringFlag{
+							Name:     generalFlagOrgID,
+							Usage:    "organization ID that will be tied to auth application",
+							Required: true,
+						},
+						&cli.StringFlag{
+							Name:     authApplicationFlagName,
+							Usage:    "name for the auth application",
+							Required: true,
+						},
+						&cli.StringSliceFlag{
+							Name:     authApplicationFlagOriginURIs,
+							Usage:    "origin uris for the auth application",
+							Required: true,
+						},
+						&cli.StringSliceFlag{
+							Name:     authApplicationFlagRedirectURIs,
+							Usage:    "redirect uris for the auth application",
+							Required: true,
+						},
+						&cli.StringFlag{
+							Name:     authApplicationFlagLogoutURI,
+							Usage:    "logout uri for the auth application",
+							Required: true,
+						},
+					},
+					Action: RegisterAuthApplicationAction,
+				},
+				{
+					Name:  "update",
+					Usage: "update a third party auth application",
+					UsageText: createUsageText("auth-app update", []string{
+						generalFlagOrgID,
+						authApplicationFlagApplicationID, authApplicationFlagName, authApplicationFlagOriginURIs,
+						authApplicationFlagRedirectURIs, authApplicationFlagLogoutURI,
+					}, false),
+					Flags: []cli.Flag{
+						&cli.StringFlag{
+							Name:     generalFlagOrgID,
+							Required: true,
+							Usage:    "organization ID that will be tied to auth application",
+						},
+						&cli.StringFlag{
+							Name:     authApplicationFlagApplicationID,
+							Usage:    "id for the auth application",
+							Required: true,
+						},
+						&cli.StringFlag{
+							Name:     authApplicationFlagName,
+							Usage:    "updated name for the auth application",
+							Required: true,
+						},
+						&cli.StringSliceFlag{
+							Name:     authApplicationFlagOriginURIs,
+							Usage:    "updated origin uris for the auth application",
+							Required: false,
+						},
+						&cli.StringSliceFlag{
+							Name:     authApplicationFlagRedirectURIs,
+							Usage:    "updated redirect uris for the auth application",
+							Required: false,
+						},
+						&cli.StringFlag{
+							Name:     authApplicationFlagLogoutURI,
+							Usage:    "updated logout uri for the auth application",
+							Required: false,
+						},
+					},
+					Action: UpdateAuthApplicationAction,
 				},
 			},
 		},

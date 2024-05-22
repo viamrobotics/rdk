@@ -23,6 +23,7 @@ import (
 	"go.viam.com/rdk/vision"
 	"go.viam.com/rdk/vision/classification"
 	objdet "go.viam.com/rdk/vision/objectdetection"
+	"go.viam.com/rdk/vision/viscapture"
 )
 
 // client implements VisionServiceClient.
@@ -72,16 +73,7 @@ func (c *client) DetectionsFromCamera(
 	if err != nil {
 		return nil, err
 	}
-	detections := make([]objdet.Detection, 0, len(resp.Detections))
-	for _, d := range resp.Detections {
-		if d.XMin == nil || d.XMax == nil || d.YMin == nil || d.YMax == nil {
-			return nil, fmt.Errorf("invalid detection %+v", d)
-		}
-		box := image.Rect(int(*d.XMin), int(*d.YMin), int(*d.XMax), int(*d.YMax))
-		det := objdet.NewDetection(box, d.Confidence, d.ClassName)
-		detections = append(detections, det)
-	}
-	return detections, nil
+	return protoToDets(resp.Detections)
 }
 
 func (c *client) Detections(ctx context.Context, img image.Image, extra map[string]interface{},
@@ -111,8 +103,12 @@ func (c *client) Detections(ctx context.Context, img image.Image, extra map[stri
 	if err != nil {
 		return nil, err
 	}
-	detections := make([]objdet.Detection, 0, len(resp.Detections))
-	for _, d := range resp.Detections {
+	return protoToDets(resp.Detections)
+}
+
+func protoToDets(protoDets []*pb.Detection) ([]objdet.Detection, error) {
+	detections := make([]objdet.Detection, 0, len(protoDets))
+	for _, d := range protoDets {
 		if d.XMin == nil || d.XMax == nil || d.YMin == nil || d.YMax == nil {
 			return nil, fmt.Errorf("invalid detection %+v", d)
 		}
@@ -144,12 +140,7 @@ func (c *client) ClassificationsFromCamera(
 	if err != nil {
 		return nil, err
 	}
-	classifications := make([]classification.Classification, 0, len(resp.Classifications))
-	for _, c := range resp.Classifications {
-		classif := classification.NewClassification(c.Confidence, c.ClassName)
-		classifications = append(classifications, classif)
-	}
-	return classifications, nil
+	return protoToClas(resp.Classifications), nil
 }
 
 func (c *client) Classifications(ctx context.Context, img image.Image,
@@ -181,12 +172,16 @@ func (c *client) Classifications(ctx context.Context, img image.Image,
 	if err != nil {
 		return nil, err
 	}
-	classifications := make([]classification.Classification, 0, len(resp.Classifications))
-	for _, c := range resp.Classifications {
+	return protoToClas(resp.Classifications), nil
+}
+
+func protoToClas(protoClass []*pb.Classification) classification.Classifications {
+	classifications := make([]classification.Classification, 0, len(protoClass))
+	for _, c := range protoClass {
 		classif := classification.NewClassification(c.Confidence, c.ClassName)
 		classifications = append(classifications, classif)
 	}
-	return classifications, nil
+	return classifications
 }
 
 func (c *client) GetObjectPointClouds(
@@ -240,6 +235,81 @@ func protoToObjects(pco []*commonpb.PointCloudObject) ([]*vision.Object, error) 
 		}
 	}
 	return objects, nil
+}
+
+func (c *client) GetProperties(ctx context.Context, extra map[string]interface{}) (*Properties, error) {
+	ctx, span := trace.StartSpan(ctx, "service::vision::client::GetProperties")
+	defer span.End()
+
+	ext, err := protoutils.StructToStructPb(extra)
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := c.client.GetProperties(ctx, &pb.GetPropertiesRequest{
+		Name:  c.name,
+		Extra: ext,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return &Properties{resp.ClassificationsSupported, resp.DetectionsSupported, resp.ObjectPointCloudsSupported}, nil
+}
+
+func (c *client) CaptureAllFromCamera(
+	ctx context.Context,
+	cameraName string,
+	captureOptions viscapture.CaptureOptions,
+	extra map[string]interface{},
+) (viscapture.VisCapture, error) {
+	ctx, span := trace.StartSpan(ctx, "service::vision::client::ClassificationsFromCamera")
+	defer span.End()
+	ext, err := protoutils.StructToStructPb(extra)
+	if err != nil {
+		return viscapture.VisCapture{}, err
+	}
+	resp, err := c.client.CaptureAllFromCamera(ctx, &pb.CaptureAllFromCameraRequest{
+		Name:                    c.name,
+		CameraName:              cameraName,
+		ReturnImage:             captureOptions.ReturnImage,
+		ReturnDetections:        captureOptions.ReturnDetections,
+		ReturnClassifications:   captureOptions.ReturnClassifications,
+		ReturnObjectPointClouds: captureOptions.ReturnObject,
+		Extra:                   ext,
+	})
+	if err != nil {
+		return viscapture.VisCapture{}, err
+	}
+
+	dets, err := protoToDets(resp.Detections)
+	if err != nil {
+		return viscapture.VisCapture{}, err
+	}
+
+	class := protoToClas(resp.Classifications)
+
+	objPCD, err := protoToObjects(resp.Objects)
+	if err != nil {
+		return viscapture.VisCapture{}, err
+	}
+	var img image.Image
+	if resp.Image.Image != nil {
+		mimeType := utils.FormatToMimeType[resp.Image.GetFormat()]
+		img, err = rimage.DecodeImage(ctx, resp.Image.Image, mimeType)
+		if err != nil {
+			return viscapture.VisCapture{}, err
+		}
+	}
+
+	capt := viscapture.VisCapture{
+		Image:           img,
+		Detections:      dets,
+		Classifications: class,
+		Objects:         objPCD,
+	}
+
+	return capt, nil
 }
 
 func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {

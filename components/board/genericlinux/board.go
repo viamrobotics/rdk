@@ -15,7 +15,7 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 	pb "go.viam.com/api/component/board/v1"
-	goutils "go.viam.com/utils"
+	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/board/genericlinux/buses"
@@ -339,43 +339,18 @@ func (b *Board) reconfigureInterrupts(newConf *LinuxBoardConfig) error {
 	return nil
 }
 
-type wrappedAnalogReader struct {
-	mu         sync.RWMutex
-	chipSelect string
-	reader     *pinwrappers.AnalogSmoother
-}
-
-func newWrappedAnalogReader(ctx context.Context, chipSelect string, reader *pinwrappers.AnalogSmoother) *wrappedAnalogReader {
-	var wrapped wrappedAnalogReader
-	wrapped.reset(ctx, chipSelect, reader)
-	return &wrapped
-}
-
-func (a *wrappedAnalogReader) Read(ctx context.Context, extra map[string]interface{}) (int, error) {
-	a.mu.RLock()
-	defer a.mu.RUnlock()
-	if a.reader == nil {
-		return 0, errors.New("closed")
+func (b *Board) createGpioPin(mapping GPIOBoardMapping) *gpioPin {
+	pin := gpioPin{
+		boardWorkers: &b.activeBackgroundWorkers,
+		devicePath:   mapping.GPIOChipDev,
+		offset:       uint32(mapping.GPIO),
+		cancelCtx:    b.cancelCtx,
+		logger:       b.logger,
 	}
-	return a.reader.Read(ctx, extra)
-}
-
-func (a *wrappedAnalogReader) Close(ctx context.Context) error {
-	return a.reader.Close(ctx)
-}
-
-func (a *wrappedAnalogReader) reset(ctx context.Context, chipSelect string, reader *pinwrappers.AnalogSmoother) {
-	a.mu.Lock()
-	defer a.mu.Unlock()
-	if a.reader != nil {
-		goutils.UncheckedError(a.reader.Close(ctx))
+	if mapping.HWPWMSupported {
+		pin.hwPwm = newPwmDevice(mapping.PWMSysFsDir, mapping.PWMID, b.logger)
 	}
-	a.reader = reader
-	a.chipSelect = chipSelect
-}
-
-func (a *wrappedAnalogReader) Write(ctx context.Context, value int, extra map[string]interface{}) error {
-	return grpc.UnimplementedError
+	return &pin
 }
 
 // Board implements a component for a Linux machine.
@@ -487,11 +462,6 @@ func (b *Board) SetPowerMode(
 	return grpc.UnimplementedError
 }
 
-// WriteAnalog writes the value to the given pin.
-func (b *Board) WriteAnalog(ctx context.Context, pin string, value int32, extra map[string]interface{}) error {
-	return nil
-}
-
 // StreamTicks starts a stream of digital interrupt ticks.
 func (b *Board) StreamTicks(ctx context.Context, interrupts []board.DigitalInterrupt, ch chan board.Tick,
 	extra map[string]interface{},
@@ -499,6 +469,20 @@ func (b *Board) StreamTicks(ctx context.Context, interrupts []board.DigitalInter
 	for _, i := range interrupts {
 		pinwrappers.AddCallback(i.(*pinwrappers.BasicDigitalInterrupt), ch)
 	}
+
+	b.activeBackgroundWorkers.Add(1)
+
+	utils.ManagedGo(func() {
+		// Wait until it's time to shut down then remove callbacks.
+		select {
+		case <-ctx.Done():
+		case <-b.cancelCtx.Done():
+		}
+		for _, i := range interrupts {
+			pinwrappers.RemoveCallback(i.(*pinwrappers.BasicDigitalInterrupt), ch)
+		}
+	}, b.activeBackgroundWorkers.Done)
+
 	return nil
 }
 

@@ -126,22 +126,6 @@ func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map
 	return rprotoutils.DoFromResourceClient(ctx, c.client, c.info.name, cmd)
 }
 
-// WriteAnalog writes the analog value to the specified pin.
-func (c *client) WriteAnalog(ctx context.Context, pin string, value int32, extra map[string]interface{}) error {
-	ext, err := protoutils.StructToStructPb(extra)
-	if err != nil {
-		return err
-	}
-	_, err = c.client.WriteAnalog(ctx, &pb.WriteAnalogRequest{
-		Name:  c.info.name,
-		Pin:   pin,
-		Value: value,
-		Extra: ext,
-	})
-
-	return err
-}
-
 // analogClient satisfies a gRPC based board.AnalogReader. Refer to the interface
 // for descriptions of its methods.
 type analogClient struct {
@@ -150,12 +134,12 @@ type analogClient struct {
 	analogName string
 }
 
-func (ac *analogClient) Read(ctx context.Context, extra map[string]interface{}) (int, error) {
+func (ac *analogClient) Read(ctx context.Context, extra map[string]interface{}) (AnalogValue, error) {
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
-		return 0, err
+		return AnalogValue{}, err
 	}
-	// the api method is named ReadAnalogReader, it is named differenlty than
+	// the api method is named ReadAnalogReader, it is named differently than
 	// the board interface functions.
 	resp, err := ac.client.client.ReadAnalogReader(ctx, &pb.ReadAnalogReaderRequest{
 		BoardName:        ac.boardName,
@@ -163,13 +147,26 @@ func (ac *analogClient) Read(ctx context.Context, extra map[string]interface{}) 
 		Extra:            ext,
 	})
 	if err != nil {
-		return 0, err
+		return AnalogValue{}, err
 	}
-	return int(resp.Value), nil
+	return AnalogValue{Value: int(resp.Value), Min: resp.MinRange, Max: resp.MaxRange, StepSize: resp.StepSize}, nil
 }
 
 func (ac *analogClient) Write(ctx context.Context, value int, extra map[string]interface{}) error {
-	return errors.New("unimplemented")
+	ext, err := protoutils.StructToStructPb(extra)
+	if err != nil {
+		return err
+	}
+	_, err = ac.client.client.WriteAnalog(ctx, &pb.WriteAnalogRequest{
+		Name:  ac.boardName,
+		Pin:   ac.analogName,
+		Value: int32(value),
+		Extra: ext,
+	})
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 // digitalInterruptClient satisfies a gRPC based board.DigitalInterrupt. Refer to the
@@ -202,9 +199,6 @@ func (dic *digitalInterruptClient) Tick(ctx context.Context, high bool, nanoseco
 
 func (dic *digitalInterruptClient) Name() string {
 	return dic.digitalInterruptName
-}
-
-func (dic *digitalInterruptClient) RemoveCallback(ch chan Tick) {
 }
 
 func (c *client) StreamTicks(ctx context.Context, interrupts []DigitalInterrupt, ch chan Tick,

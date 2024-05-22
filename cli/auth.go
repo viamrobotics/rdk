@@ -501,6 +501,7 @@ func (c *viamClient) ensureLoggedIn() error {
 	c.dataClient = datapb.NewDataServiceClient(conn)
 	c.packageClient = packagepb.NewPackageServiceClient(conn)
 	c.datasetClient = datasetpb.NewDatasetServiceClient(conn)
+	c.endUserClient = apppb.NewEndUserServiceClient(conn)
 	c.mlTrainingClient = mltrainingpb.NewMLTrainingServiceClient(conn)
 	c.buildClient = buildpb.NewBuildServiceClient(conn)
 

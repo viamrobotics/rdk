@@ -98,7 +98,7 @@ func NewGPIOController(
 		return nil, err
 	}
 
-	ctx, cancel := context.WithCancel(ctx)
+	cancelCtx, cancel := context.WithCancel(context.Background())
 	c := Controller{
 		Named:      conf.ResourceName().AsNamed(),
 		logger:     logger,
@@ -121,14 +121,14 @@ func NewGPIOController(
 		if err != nil {
 			return nil, err
 		}
-		err = c.newButton(ctx, brd, interrupt, *control)
+		err = c.newButton(cancelCtx, brd, interrupt, *control)
 		if err != nil {
 			return nil, err
 		}
 	}
 
 	for reader, axis := range newConf.Axes {
-		err := c.newAxis(ctx, brd, reader, *axis)
+		err := c.newAxis(cancelCtx, brd, reader, *axis)
 		if err != nil {
 			return nil, err
 		}
@@ -267,7 +267,6 @@ func (c *Controller) newButton(ctx context.Context, brd board.Board, interrupt b
 
 	c.activeBackgroundWorkers.Add(1)
 	utils.ManagedGo(func() {
-		defer interrupt.RemoveCallback(tickChan)
 		debounced := debounce.New(time.Millisecond * time.Duration(cfg.DebounceMs))
 		for {
 			var val bool
@@ -328,29 +327,29 @@ func (c *Controller) newAxis(ctx context.Context, brd board.Board, analogName st
 				c.logger.CError(ctx, err)
 			}
 
-			if rawVal > cfg.Max {
-				rawVal = cfg.Max
-			} else if rawVal < cfg.Min {
-				rawVal = cfg.Min
+			if rawVal.Value > cfg.Max {
+				rawVal.Value = cfg.Max
+			} else if rawVal.Value < cfg.Min {
+				rawVal.Value = cfg.Min
 			}
 
 			var outVal float64
 			if cfg.Bidirectional {
 				center := (cfg.Min + cfg.Max) / 2
-				if abs(rawVal-center) < cfg.Deadzone {
-					rawVal = center
+				if abs(rawVal.Value-center) < cfg.Deadzone {
+					rawVal.Value = center
 					outVal = 0.0
 				} else {
-					outVal = scaleAxis(rawVal, cfg.Min, cfg.Max, -1, 1)
+					outVal = scaleAxis(rawVal.Value, cfg.Min, cfg.Max, -1, 1)
 				}
 			} else {
-				if abs(rawVal-cfg.Min) < cfg.Deadzone {
-					rawVal = cfg.Min
+				if abs(rawVal.Value-cfg.Min) < cfg.Deadzone {
+					rawVal.Value = cfg.Min
 				}
-				outVal = scaleAxis(rawVal, cfg.Min, cfg.Max, 0, 1)
+				outVal = scaleAxis(rawVal.Value, cfg.Min, cfg.Max, 0, 1)
 			}
 
-			if abs(rawVal-prevVal) < cfg.MinChange {
+			if abs(rawVal.Value-prevVal) < cfg.MinChange {
 				continue
 			}
 
@@ -358,7 +357,7 @@ func (c *Controller) newAxis(ctx context.Context, brd board.Board, analogName st
 				outVal *= -1
 			}
 
-			prevVal = rawVal
+			prevVal = rawVal.Value
 			eventOut := input.Event{
 				Time:    time.Now(),
 				Event:   input.PositionChangeAbs,

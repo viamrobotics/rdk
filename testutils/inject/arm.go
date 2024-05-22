@@ -26,6 +26,7 @@ type Arm struct {
 	ModelFrameFunc           func() referenceframe.Model
 	CurrentInputsFunc        func(ctx context.Context) ([]referenceframe.Input, error)
 	GoToInputsFunc           func(ctx context.Context, inputSteps ...[]referenceframe.Input) error
+	GeometriesFunc           func(ctx context.Context) ([]spatialmath.Geometry, error)
 }
 
 // NewArm returns a new injected arm.
@@ -131,4 +132,12 @@ func (a *Arm) GoToInputs(ctx context.Context, inputSteps ...[]referenceframe.Inp
 		return a.Arm.GoToInputs(ctx, inputSteps...)
 	}
 	return a.GoToInputsFunc(ctx, inputSteps...)
+}
+
+// Geometries returns the gripper's geometries.
+func (a *Arm) Geometries(ctx context.Context, extra map[string]interface{}) ([]spatialmath.Geometry, error) {
+	if a.GeometriesFunc == nil {
+		return a.Arm.Geometries(ctx, extra)
+	}
+	return a.GeometriesFunc(ctx)
 }

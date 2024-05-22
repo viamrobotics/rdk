@@ -55,11 +55,6 @@ func setup(t *testing.T) *setupResult {
 		ch <- board.Tick{Name: s.interrupt1.Name(), High: high, TimestampNanosec: nanoseconds}
 		return nil
 	}
-	s.interrupt1.RemoveCallbackFunc = func(c chan board.Tick) {
-		s.mu.Lock()
-		defer s.mu.Unlock()
-		delete(callbacks, s.interrupt1)
-	}
 
 	// interrupt2 funcs
 	s.interrupt2.NameFunc = func() string {
@@ -70,11 +65,6 @@ func setup(t *testing.T) *setupResult {
 		test.That(t, ok, test.ShouldBeTrue)
 		ch <- board.Tick{Name: s.interrupt2.Name(), High: high, TimestampNanosec: nanoseconds}
 		return nil
-	}
-	s.interrupt2.RemoveCallbackFunc = func(c chan board.Tick) {
-		s.mu.Lock()
-		defer s.mu.Unlock()
-		delete(callbacks, s.interrupt2)
 	}
 
 	b.DigitalInterruptByNameFunc = func(name string) (board.DigitalInterrupt, error) {
@@ -106,20 +96,20 @@ func setup(t *testing.T) *setupResult {
 		return nil
 	}
 
-	s.analog1.ReadFunc = func(ctx context.Context, extra map[string]interface{}) (int, error) {
+	s.analog1.ReadFunc = func(ctx context.Context, extra map[string]interface{}) (board.AnalogValue, error) {
 		s.mu.Lock()
 		defer s.mu.Unlock()
-		return analog1Val, nil
+		return board.AnalogValue{Value: analog1Val}, nil
 	}
-	s.analog2.ReadFunc = func(ctx context.Context, extra map[string]interface{}) (int, error) {
+	s.analog2.ReadFunc = func(ctx context.Context, extra map[string]interface{}) (board.AnalogValue, error) {
 		s.mu.Lock()
 		defer s.mu.Unlock()
-		return analog2Val, nil
+		return board.AnalogValue{Value: analog2Val}, nil
 	}
-	s.analog3.ReadFunc = func(ctx context.Context, extra map[string]interface{}) (int, error) {
+	s.analog3.ReadFunc = func(ctx context.Context, extra map[string]interface{}) (board.AnalogValue, error) {
 		s.mu.Lock()
 		defer s.mu.Unlock()
-		return analog3Val, nil
+		return board.AnalogValue{Value: analog3Val}, nil
 	}
 
 	s.analog2.WriteFunc = func(ctx context.Context, value int, extra map[string]interface{}) error {

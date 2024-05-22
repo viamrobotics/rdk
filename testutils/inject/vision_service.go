@@ -9,6 +9,7 @@ import (
 	viz "go.viam.com/rdk/vision"
 	"go.viam.com/rdk/vision/classification"
 	"go.viam.com/rdk/vision/objectdetection"
+	"go.viam.com/rdk/vision/viscapture"
 )
 
 // VisionService represents a fake instance of a vision service.
@@ -28,7 +29,13 @@ type VisionService struct {
 		n int, extra map[string]interface{}) (classification.Classifications, error)
 	// segmentation functions
 	GetObjectPointCloudsFunc func(ctx context.Context, cameraName string, extra map[string]interface{}) ([]*viz.Object, error)
-	DoCommandFunc            func(ctx context.Context,
+	GetPropertiesFunc        func(ctx context.Context, extra map[string]interface{}) (*vision.Properties, error)
+	CaptureAllFromCameraFunc func(ctx context.Context,
+		cameraName string,
+		opts viscapture.CaptureOptions,
+		extra map[string]interface{},
+	) (viscapture.VisCapture, error)
+	DoCommandFunc func(ctx context.Context,
 		cmd map[string]interface{}) (map[string]interface{}, error)
 	CloseFunc func(ctx context.Context) error
 }
@@ -90,6 +97,29 @@ func (vs *VisionService) GetObjectPointClouds(
 		return vs.Service.GetObjectPointClouds(ctx, cameraName, extra)
 	}
 	return vs.GetObjectPointCloudsFunc(ctx, cameraName, extra)
+}
+
+// GetProperties calls the injected GetProperties or the real variant.
+func (vs *VisionService) GetProperties(
+	ctx context.Context,
+	extra map[string]interface{},
+) (*vision.Properties, error) {
+	if vs.GetPropertiesFunc == nil {
+		return vs.Service.GetProperties(ctx, extra)
+	}
+	return vs.GetPropertiesFunc(ctx, extra)
+}
+
+// CaptureAllFromCamera calls the injected CaptureAllFromCamera or the real variant.
+func (vs *VisionService) CaptureAllFromCamera(ctx context.Context,
+	cameraName string,
+	opts viscapture.CaptureOptions,
+	extra map[string]interface{},
+) (viscapture.VisCapture, error) {
+	if vs.CaptureAllFromCameraFunc == nil {
+		return vs.Service.CaptureAllFromCamera(ctx, cameraName, opts, extra)
+	}
+	return vs.CaptureAllFromCameraFunc(ctx, cameraName, opts, extra)
 }
 
 // DoCommand calls the injected DoCommand or the real variant.

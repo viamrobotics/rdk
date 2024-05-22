@@ -32,6 +32,7 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 	pb "go.viam.com/api/component/board/v1"
+	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/board/genericlinux/buses"
@@ -102,6 +103,8 @@ type piPigpio struct {
 	interruptsHW map[uint]ReconfigurableDigitalInterrupt
 	logger       logging.Logger
 	isClosed     bool
+
+	activeBackgroundWorkers sync.WaitGroup
 }
 
 var (
@@ -209,6 +212,20 @@ func (pi *piPigpio) StreamTicks(ctx context.Context, interrupts []board.DigitalI
 	for _, i := range interrupts {
 		AddCallback(i.(*BasicDigitalInterrupt), ch)
 	}
+
+	pi.activeBackgroundWorkers.Add(1)
+
+	utils.ManagedGo(func() {
+		// Wait until it's time to shut down then remove callbacks.
+		select {
+		case <-ctx.Done():
+		case <-pi.cancelCtx.Done():
+		}
+		for _, i := range interrupts {
+			RemoveCallback(i.(*BasicDigitalInterrupt), ch)
+		}
+	}, pi.activeBackgroundWorkers.Done)
+
 	return nil
 }
 
@@ -659,7 +676,7 @@ func (pi *piPigpio) AnalogByName(name string) (board.Analog, error) {
 	defer pi.mu.Unlock()
 	a, ok := pi.analogReaders[name]
 	if !ok {
-		return nil, errors.Errorf("can't find AnalogReader (%s)", name)
+		return nil, errors.Errorf("can't find Analog pin (%s)", name)
 	}
 	return a, nil
 }
@@ -704,11 +721,6 @@ func (pi *piPigpio) SetPowerMode(ctx context.Context, mode pb.PowerMode, duratio
 	return grpc.UnimplementedError
 }
 
-// WriteAnalog writes the value to the given pin.
-func (pi *piPigpio) WriteAnalog(ctx context.Context, pin string, value int32, extra map[string]interface{}) error {
-	return grpc.UnimplementedError
-}
-
 // Close attempts to close all parts of the board cleanly.
 func (pi *piPigpio) Close(ctx context.Context) error {
 	var terminate bool
@@ -721,6 +733,7 @@ func (pi *piPigpio) Close(ctx context.Context) error {
 		return nil
 	}
 	pi.cancelFunc()
+	pi.activeBackgroundWorkers.Wait()
 
 	var err error
 	for _, analog := range pi.analogReaders {

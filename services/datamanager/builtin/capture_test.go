@@ -29,7 +29,7 @@ var (
 	enabledBinaryCollectorConfigPath            = "services/datamanager/data/robot_with_cam_capture.json"
 	infrequentCaptureTabularCollectorConfigPath = "services/datamanager/data/fake_robot_with_infrequent_capture.json"
 	remoteCollectorConfigPath                   = "services/datamanager/data/fake_robot_with_remote_and_data_manager.json"
-	emptyFileBytesSize                          = 100 // size of leading metadata message
+	emptyFileBytesSize                          = 90 // a "rounded down" size of leading metadata message
 	captureInterval                             = time.Millisecond * 10
 )
 
@@ -41,7 +41,6 @@ func TestDataCaptureEnabled(t *testing.T) {
 		initialCollectorDisableStatus bool
 		newCollectorDisableStatus     bool
 		remoteCollector               bool
-		emptyTabular                  bool
 	}{
 		{
 			name:                          "data capture service disabled, should capture nothing",
@@ -57,14 +56,7 @@ func TestDataCaptureEnabled(t *testing.T) {
 			initialCollectorDisableStatus: false,
 			newCollectorDisableStatus:     false,
 		},
-		{
-			name:                          "data capture service implicitly enabled and a configured collector, should capture data",
-			initialServiceDisableStatus:   false,
-			newServiceDisableStatus:       false,
-			initialCollectorDisableStatus: false,
-			newCollectorDisableStatus:     false,
-			emptyTabular:                  true,
-		},
+
 		{
 			name:                          "disabling data capture service should cause all data capture to stop",
 			initialServiceDisableStatus:   false,
@@ -124,8 +116,6 @@ func TestDataCaptureEnabled(t *testing.T) {
 				initConfig, associations, deps = setupConfig(t, remoteCollectorConfigPath)
 			case tc.initialCollectorDisableStatus:
 				initConfig, associations, deps = setupConfig(t, disabledTabularCollectorConfigPath)
-			case tc.emptyTabular:
-				initConfig, associations, deps = setupConfig(t, enabledTabularCollectorEmptyConfigPath)
 			default:
 				initConfig, associations, deps = setupConfig(t, enabledTabularCollectorConfigPath)
 			}
@@ -351,18 +341,48 @@ func testFilesContainSensorData(t *testing.T, dir string) {
 	}
 }
 
-// waitForCaptureFilesToExceedNFiles returns once `captureDir` contains more than `n` files.
+// waitForCaptureFilesToExceedNFiles returns once `captureDir` contains more than `n` files of at
+// least `emptyFileBytesSize` bytes. This is not suitable for waiting for file deletion to happen.
 func waitForCaptureFilesToExceedNFiles(captureDir string, n int) {
-	totalWait := time.Second * 2
-	waitPerCheck := time.Millisecond * 10
-	iterations := int(totalWait / waitPerCheck)
-	files := getAllFileInfos(captureDir)
-	for i := 0; i < iterations; i++ {
-		if len(files) > n && files[n].Size() > int64(emptyFileBytesSize) {
+	for {
+		files := getAllFileInfos(captureDir)
+		nonEmptyFiles := 0
+		for idx := range files {
+			if files[idx].Size() > int64(emptyFileBytesSize) {
+				// Every datamanager file has at least 90 bytes of metadata. Wait for that to be
+				// observed before considering the file as "existing".
+				nonEmptyFiles++
+			}
+
+			// We have N+1 files. No need to count any more.
+			if nonEmptyFiles > n {
+				return
+			}
+		}
+
+		time.Sleep(10 * time.Millisecond)
+	}
+}
+
+// waitForCaptureFilesToEqualNFiles returns once `captureDir` has exactly `n` files of at least
+// `emptyFileBytesSize` bytes.
+func waitForCaptureFilesToEqualNFiles(captureDir string, n int) {
+	for {
+		files := getAllFileInfos(captureDir)
+		nonEmptyFiles := 0
+		for idx := range files {
+			if files[idx].Size() > int64(emptyFileBytesSize) {
+				// Every datamanager file has at least 90 bytes of metadata. Wait for that to be
+				// observed before considering the file as "existing".
+				nonEmptyFiles++
+			}
+		}
+
+		if nonEmptyFiles == n {
 			return
 		}
-		time.Sleep(waitPerCheck)
-		files = getAllFileInfos(captureDir)
+
+		time.Sleep(10 * time.Millisecond)
 	}
 }
 

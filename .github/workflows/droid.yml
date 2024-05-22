@@ -22,7 +22,7 @@ env:
 jobs:
   droid-build:
     # temporarily disabled while we port the new android build
-    if: false
+    if: ${{ false }}
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
