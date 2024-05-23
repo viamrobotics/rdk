@@ -896,7 +896,7 @@ func TestManagerMarkRemoved(t *testing.T) {
 		t,
 		markedResourceNames,
 		test.ShouldResemble,
-		rdktestutils.NewSortedResourceNames(rdktestutils.ConcatResourceNames(
+		rdktestutils.NewResourceNameSet(rdktestutils.ConcatResourceNames(
 			armNames,
 			baseNames,
 			boardNames,
@@ -1014,7 +1014,7 @@ func TestManagerMarkRemoved(t *testing.T) {
 		t,
 		markedResourceNames,
 		test.ShouldResemble,
-		rdktestutils.NewSortedResourceNames(rdktestutils.ConcatResourceNames(
+		rdktestutils.NewResourceNameSet(rdktestutils.ConcatResourceNames(
 			armNames,
 			baseNames,
 			boardNames,
@@ -1199,7 +1199,7 @@ func TestManagerMarkRemoved(t *testing.T) {
 		t,
 		markedResourceNames,
 		test.ShouldResemble,
-		rdktestutils.NewSortedResourceNames(rdktestutils.ConcatResourceNames(
+		rdktestutils.NewResourceNameSet(rdktestutils.ConcatResourceNames(
 			armNames,
 			baseNames,
 			boardNames,
