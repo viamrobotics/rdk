@@ -755,7 +755,7 @@ func pollFilesystem(ctx context.Context, wg *sync.WaitGroup, captureDir string,
 			logger.Debug("checking disk usage")
 			shouldDelete, err := shouldDeleteBasedOnDiskUsage(ctx, captureDir, logger)
 			if err != nil {
-				logger.Errorw("error checking file system stats", "error", err)
+				logger.Warnw("error checking file system stats", "error", err)
 			}
 			if shouldDelete {
 				start := time.Now()
