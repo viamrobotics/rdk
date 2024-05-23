@@ -89,7 +89,6 @@ type fakeEncoder struct {
 	mu          sync.RWMutex
 	workers     rdkutils.StoppableWorkers
 	position    int64
-	ticksPerSec float64 // increment to position every sec
 	updateRate  int64   // update position in start every updateRate ms
 }
 
@@ -125,7 +124,6 @@ func (e *fakeEncoder) start(cancelCtx context.Context) {
 		}
 
 		e.mu.Lock()
-		// e.position += e.ticksPerSec / float64(1000/updateRate)
 		e.position ++
 		e.mu.Unlock()
 	}

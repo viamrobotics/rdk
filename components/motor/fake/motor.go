@@ -209,17 +209,6 @@ func (m *Motor) SetPower(ctx context.Context, powerPct float64, extra map[string
 	m.Logger.CDebugf(ctx, "Motor SetPower %f", powerPct)
 	m.setPowerPct(powerPct)
 
-	if m.Encoder != nil {
-		if m.TicksPerRotation <= 0 {
-			return errors.New("need positive nonzero TicksPerRotation")
-		}
-
-		newSpeed := (m.MaxRPM * m.powerPct) * float64(m.TicksPerRotation)
-		err := m.Encoder.SetSpeed(ctx, newSpeed)
-		if err != nil {
-			return err
-		}
-	}
 	return nil
 }
 
@@ -373,12 +362,6 @@ func (m *Motor) Stop(ctx context.Context, extra map[string]interface{}) error {
 
 	m.Logger.CDebug(ctx, "Motor Stopped")
 	m.setPowerPct(0.0)
-	if m.Encoder != nil {
-		err := m.Encoder.SetSpeed(ctx, 0.0)
-		if err != nil {
-			return errors.Wrapf(err, "error in Stop from motor (%s)", m.Name())
-		}
-	}
 	return nil
 }
 

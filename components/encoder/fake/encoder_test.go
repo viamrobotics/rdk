@@ -69,27 +69,14 @@ func TestEncoder(t *testing.T) {
 		})
 	})
 
-	// Set ticks per sec
-	t.Run("set ticks per second", func(t *testing.T) {
-		e1 := e.(*fakeEncoder)
-		err := e1.SetSpeed(ctx, 1)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, e1.ticksPerSec, test.ShouldEqual, 1)
-	})
-
 	// Start with default update rate
 	t.Run("start default update rate", func(t *testing.T) {
 		e1 := e.(*fakeEncoder)
-		err := e1.SetSpeed(ctx, 0)
-		test.That(t, err, test.ShouldBeNil)
 
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
 			test.That(t, e1.updateRate, test.ShouldEqual, 100)
 		})
-
-		err = e1.SetSpeed(ctx, 600)
-		test.That(t, err, test.ShouldBeNil)
 
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
