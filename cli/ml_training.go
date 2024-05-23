@@ -33,6 +33,23 @@ func MLSubmitCustomTrainingJob(c *cli.Context) error {
 		return err
 	}
 
+	trainingJobID, err := client.mlSubmitCustomTrainingJob(
+		c.String(datasetFlagDatasetID), c.String(mlTrainingFlagName), c.String(mlTrainingFlagVersion), c.String(generalFlagOrgID),
+		c.String(trainFlagModelName), c.String(trainFlagModelVersion))
+	if err != nil {
+		return err
+	}
+	printf(c.App.Writer, "Submitted training job with ID %s", trainingJobID)
+	return nil
+}
+
+// MLSubmitCustomTrainingJobWithUpload is the corresponding action for 'train submit-custom'.
+func MLSubmitCustomTrainingJobWithUpload(c *cli.Context) error {
+	client, err := newViamClient(c)
+	if err != nil {
+		return err
+	}
+
 	err = client.uploadTrainingScript(true, c.String(trainFlagModelType), c.String(mlTrainingFlagFramework),
 		c.String(trainFlagModelOrgID), c.String(mlTrainingFlagName), c.String(mlTrainingFlagVersion),
 		c.Path(mlTrainingFlagPath))
