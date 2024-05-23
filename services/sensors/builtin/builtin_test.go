@@ -60,9 +60,9 @@ func TestGetSensors(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(
 			t,
-			testutils.NewResourceNameSet(sNames1...),
+			testutils.NewSortedResourceNames(sNames1...),
 			test.ShouldResemble,
-			testutils.NewResourceNameSet(movementsensor.Named("imu")),
+			testutils.NewSortedResourceNames(movementsensor.Named("imu")),
 		)
 	})
 
@@ -78,7 +78,7 @@ func TestGetSensors(t *testing.T) {
 
 		sNames1, err := svc.Sensors(context.Background(), map[string]interface{}{})
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, testutils.NewResourceNameSet(sNames1...), test.ShouldResemble, testutils.NewResourceNameSet(sensorNames...))
+		test.That(t, testutils.NewSortedResourceNames(sNames1...), test.ShouldResemble, testutils.NewSortedResourceNames(sensorNames...))
 	})
 }
 
@@ -204,7 +204,7 @@ func TestReconfigure(t *testing.T) {
 
 		sNames1, err := svc.Sensors(context.Background(), map[string]interface{}{})
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, testutils.NewResourceNameSet(sNames1...), test.ShouldResemble, testutils.NewResourceNameSet(sensorNames...))
+		test.That(t, testutils.NewSortedResourceNames(sNames1...), test.ShouldResemble, testutils.NewSortedResourceNames(sensorNames...))
 
 		err = svc.Reconfigure(
 			context.Background(),
@@ -228,7 +228,7 @@ func TestReconfigure(t *testing.T) {
 
 		sNames1, err := svc.Sensors(context.Background(), map[string]interface{}{})
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, testutils.NewResourceNameSet(sNames1...), test.ShouldResemble, testutils.NewResourceNameSet(sensorNames...))
+		test.That(t, testutils.NewSortedResourceNames(sNames1...), test.ShouldResemble, testutils.NewSortedResourceNames(sensorNames...))
 
 		err = svc.Reconfigure(
 			context.Background(),
@@ -241,9 +241,9 @@ func TestReconfigure(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(
 			t,
-			testutils.NewResourceNameSet(sNames1...),
+			testutils.NewSortedResourceNames(sNames1...),
 			test.ShouldResemble,
-			testutils.NewResourceNameSet(movementsensor.Named("imu")),
+			testutils.NewSortedResourceNames(movementsensor.Named("imu")),
 		)
 	})
 
@@ -255,7 +255,7 @@ func TestReconfigure(t *testing.T) {
 
 		sNames1, err := svc.Sensors(context.Background(), map[string]interface{}{})
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, testutils.NewResourceNameSet(sNames1...), test.ShouldResemble, testutils.NewResourceNameSet(sensorNames...))
+		test.That(t, testutils.NewSortedResourceNames(sNames1...), test.ShouldResemble, testutils.NewSortedResourceNames(sensorNames...))
 
 		err = svc.Reconfigure(
 			context.Background(),
@@ -266,6 +266,6 @@ func TestReconfigure(t *testing.T) {
 
 		sNames1, err = svc.Sensors(context.Background(), map[string]interface{}{})
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, testutils.NewResourceNameSet(sNames1...), test.ShouldResemble, testutils.NewResourceNameSet(sensorNames...))
+		test.That(t, testutils.NewSortedResourceNames(sNames1...), test.ShouldResemble, testutils.NewSortedResourceNames(sensorNames...))
 	})
 }

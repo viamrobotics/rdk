@@ -82,7 +82,7 @@ func TestServerGetSensors(t *testing.T) {
 		for _, rn := range resp.SensorNames {
 			convertedNames = append(convertedNames, rprotoutils.ResourceNameFromProto(rn))
 		}
-		test.That(t, testutils.NewResourceNameSet(convertedNames...), test.ShouldResemble, testutils.NewResourceNameSet(names...))
+		test.That(t, testutils.NewSortedResourceNames(convertedNames...), test.ShouldResemble, testutils.NewSortedResourceNames(names...))
 	})
 }
 

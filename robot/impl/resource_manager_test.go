@@ -201,9 +201,9 @@ func TestManagerForRemoteRobot(t *testing.T) {
 	test.That(t, manager.RemoteNames(), test.ShouldBeEmpty)
 	test.That(
 		t,
-		rdktestutils.NewResourceNameSet(manager.ResourceNames()...),
+		rdktestutils.NewSortedResourceNames(manager.ResourceNames()...),
 		test.ShouldResemble,
-		rdktestutils.NewResourceNameSet(rdktestutils.ConcatResourceNames(
+		rdktestutils.NewSortedResourceNames(rdktestutils.ConcatResourceNames(
 			armNames,
 			baseNames,
 			boardNames,
@@ -288,9 +288,9 @@ func TestManagerMergeNamesWithRemotes(t *testing.T) {
 	)
 	test.That(
 		t,
-		rdktestutils.NewResourceNameSet(manager.ResourceNames()...),
+		rdktestutils.NewSortedResourceNames(manager.ResourceNames()...),
 		test.ShouldResemble,
-		rdktestutils.NewResourceNameSet(rdktestutils.ConcatResourceNames(
+		rdktestutils.NewSortedResourceNames(rdktestutils.ConcatResourceNames(
 			armNames,
 			baseNames,
 			boardNames,
@@ -398,9 +398,9 @@ func TestManagerResourceRemoteName(t *testing.T) {
 
 	test.That(
 		t,
-		rdktestutils.NewResourceNameSet(res...),
+		rdktestutils.NewSortedResourceNames(res...),
 		test.ShouldResemble,
-		rdktestutils.NewResourceNameSet([]resource.Name{arm.Named("remote1:arm1"), arm.Named("remote1:arm2")}...),
+		rdktestutils.NewSortedResourceNames([]resource.Name{arm.Named("remote1:arm1"), arm.Named("remote1:arm2")}...),
 	)
 }
 
@@ -896,7 +896,7 @@ func TestManagerMarkRemoved(t *testing.T) {
 		t,
 		markedResourceNames,
 		test.ShouldResemble,
-		rdktestutils.NewResourceNameSet(rdktestutils.ConcatResourceNames(
+		rdktestutils.NewSortedResourceNames(rdktestutils.ConcatResourceNames(
 			armNames,
 			baseNames,
 			boardNames,
@@ -1014,7 +1014,7 @@ func TestManagerMarkRemoved(t *testing.T) {
 		t,
 		markedResourceNames,
 		test.ShouldResemble,
-		rdktestutils.NewResourceNameSet(rdktestutils.ConcatResourceNames(
+		rdktestutils.NewSortedResourceNames(rdktestutils.ConcatResourceNames(
 			armNames,
 			baseNames,
 			boardNames,
@@ -1199,7 +1199,7 @@ func TestManagerMarkRemoved(t *testing.T) {
 		t,
 		markedResourceNames,
 		test.ShouldResemble,
-		rdktestutils.NewResourceNameSet(rdktestutils.ConcatResourceNames(
+		rdktestutils.NewSortedResourceNames(rdktestutils.ConcatResourceNames(
 			armNames,
 			baseNames,
 			boardNames,
@@ -1890,9 +1890,9 @@ func TestReconfigureParity(t *testing.T) {
 
 			test.That(
 				t,
-				rdktestutils.NewResourceNameSet(r1.ResourceNames()...),
+				rdktestutils.NewSortedResourceNames(r1.ResourceNames()...),
 				test.ShouldResemble,
-				rdktestutils.NewResourceNameSet(r2.ResourceNames()...),
+				rdktestutils.NewSortedResourceNames(r2.ResourceNames()...),
 			)
 
 			cfg = ConfigFromFile(t, updateCfg)
@@ -1903,9 +1903,9 @@ func TestReconfigureParity(t *testing.T) {
 
 			test.That(
 				t,
-				rdktestutils.NewResourceNameSet(r1.ResourceNames()...),
+				rdktestutils.NewSortedResourceNames(r1.ResourceNames()...),
 				test.ShouldResemble,
-				rdktestutils.NewResourceNameSet(r2.ResourceNames()...),
+				rdktestutils.NewSortedResourceNames(r2.ResourceNames()...),
 			)
 		})
 	}

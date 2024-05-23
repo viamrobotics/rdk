@@ -128,14 +128,14 @@ func TestFrameSystemConfigWithRemote(t *testing.T) {
 
 	rr.triggerConfig <- struct{}{}
 
-	finalSet := rdktestutils.NewResourceNameSet(
+	finalSet := rdktestutils.NewSortedResourceNames(
 		motion.Named(resource.DefaultServiceName),
 		sensors.Named(resource.DefaultServiceName),
 		base.Named("foo"),
 		gripper.Named("myParentIsRemote"),
 	)
 	testutils.WaitForAssertionWithSleep(t, time.Millisecond*100, 300, func(tb testing.TB) {
-		test.That(tb, rdktestutils.NewResourceNameSet(r2.ResourceNames()...), test.ShouldResemble, finalSet)
+		test.That(tb, rdktestutils.NewSortedResourceNames(r2.ResourceNames()...), test.ShouldResemble, finalSet)
 	})
 
 	fsCfg, err = r2.FrameSystemConfig(context.Background())

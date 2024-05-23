@@ -770,7 +770,7 @@ func TestClientRefresh(t *testing.T) {
 			utils.NewStringSet(testutils.ExtractNames(baseNames...)...),
 		)
 
-		test.That(t, testutils.NewResourceNameSet(client.ResourceNames()...), test.ShouldResemble, testutils.NewResourceNameSet(
+		test.That(t, testutils.NewSortedResourceNames(client.ResourceNames()...), test.ShouldResemble, testutils.NewSortedResourceNames(
 			finalResources...))
 
 		test.That(t, client.Close(context.Background()), test.ShouldBeNil)
@@ -801,7 +801,7 @@ func TestClientRefresh(t *testing.T) {
 			utils.NewStringSet(testutils.ExtractNames(baseNames...)...),
 		)
 
-		test.That(t, testutils.NewResourceNameSet(client.ResourceNames()...), test.ShouldResemble, testutils.NewResourceNameSet(
+		test.That(t, testutils.NewSortedResourceNames(client.ResourceNames()...), test.ShouldResemble, testutils.NewSortedResourceNames(
 			emptyResources...))
 
 		mu.Lock()
@@ -825,7 +825,7 @@ func TestClientRefresh(t *testing.T) {
 			utils.NewStringSet(testutils.ExtractNames(baseNames...)...),
 		)
 
-		test.That(t, testutils.NewResourceNameSet(client.ResourceNames()...), test.ShouldResemble, testutils.NewResourceNameSet(
+		test.That(t, testutils.NewSortedResourceNames(client.ResourceNames()...), test.ShouldResemble, testutils.NewSortedResourceNames(
 			finalResources...))
 
 		test.That(t, client.Close(context.Background()), test.ShouldBeNil)

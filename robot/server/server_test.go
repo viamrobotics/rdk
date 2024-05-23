@@ -475,9 +475,9 @@ func TestServerGetStatus(t *testing.T) {
 		injectRobot.StatusFunc = func(ctx context.Context, resourceNames []resource.Name) ([]robot.Status, error) {
 			test.That(
 				t,
-				testutils.NewResourceNameSet(resourceNames...),
+				testutils.NewSortedResourceNames(resourceNames...),
 				test.ShouldResemble,
-				testutils.NewResourceNameSet(aStatus.Name),
+				testutils.NewSortedResourceNames(aStatus.Name),
 			)
 			return readings, nil
 		}
@@ -525,9 +525,9 @@ func TestServerGetStatus(t *testing.T) {
 		injectRobot.StatusFunc = func(ctx context.Context, resourceNames []resource.Name) ([]robot.Status, error) {
 			test.That(
 				t,
-				testutils.NewResourceNameSet(resourceNames...),
+				testutils.NewSortedResourceNames(resourceNames...),
 				test.ShouldResemble,
-				testutils.NewResourceNameSet(gStatus.Name, aStatus.Name),
+				testutils.NewSortedResourceNames(gStatus.Name, aStatus.Name),
 			)
 			return statuses, nil
 		}
