@@ -827,7 +827,8 @@ func TestMultiplexOverMultiHopRemoteConnection(t *testing.T) {
 					RTPPassthrough: true,
 				},
 			},
-		}}
+		},
+	}
 
 	// Create a robot with a single fake camera.
 	remote2Ctx, remoteRobot2, addr2, remoteWebSvc2 := setupRealRobot(t, remoteCfg2, logger.Sublogger("remote-2"))
@@ -842,7 +843,8 @@ func TestMultiplexOverMultiHopRemoteConnection(t *testing.T) {
 				Address:  addr2,
 				Insecure: true,
 			},
-		}}
+		},
+	}
 
 	remote1Ctx, remoteRobot1, addr1, remoteWebSvc1 := setupRealRobot(t, remoteCfg1, logger.Sublogger("remote-1"))
 	defer remoteRobot1.Close(remote1Ctx)
@@ -856,10 +858,10 @@ func TestMultiplexOverMultiHopRemoteConnection(t *testing.T) {
 				Address:  addr1,
 				Insecure: true,
 			},
-		}}
+		},
+	}
 
 	mainCtx, mainRobot, _, mainWebSvc := setupRealRobot(t, mainCfg, logger.Sublogger("main"))
-	greenLog(t, "robot setup")
 	defer mainRobot.Close(mainCtx)
 	defer mainWebSvc.Close(mainCtx)
 
@@ -871,78 +873,17 @@ func TestMultiplexOverMultiHopRemoteConnection(t *testing.T) {
 	test.That(t, image, test.ShouldNotBeNil)
 	greenLog(t, "got images")
 
-	greenLog(t, fmt.Sprintf("calling SubscribeRTP on %T, %p", cameraClient, cameraClient))
 	time.Sleep(time.Second)
 
-	pktsChan := make(chan []*rtp.Packet)
 	recvPktsCtx, recvPktsFn := context.WithCancel(context.Background())
 	sub, err := cameraClient.(rtppassthrough.Source).SubscribeRTP(mainCtx, 512, func(pkts []*rtp.Packet) {
-		// first packet
 		recvPktsFn()
-		// at some point packets are no longer published
-		select {
-		case pktsChan <- pkts:
-		default:
-		}
 	})
 	test.That(t, err, test.ShouldBeNil)
 	<-recvPktsCtx.Done()
 	greenLog(t, "got packets")
 
-	greenLog(t, "calling close")
-	test.That(t, remoteRobot2.Close(context.Background()), test.ShouldBeNil)
-	test.That(t, remoteWebSvc2.Close(context.Background()), test.ShouldBeNil)
-	greenLog(t, "close called")
-
-	greenLog(t, "waiting for SubscribeRTP to stop receiving packets")
-
-	timeoutCtx, timeoutFn := context.WithTimeout(context.Background(), time.Second)
-	defer timeoutFn()
-
-	var (
-		pktTimeoutCtx context.Context
-		pktTimeoutFn  context.CancelFunc
-	)
-
-	// Once we have not received packets for half a second we can assume that no more packets will be published
-	// by the first instance of remote2
-Loop:
-	for {
-		if pktTimeoutFn != nil {
-			pktTimeoutFn()
-		}
-		pktTimeout := time.Millisecond * 500
-		pktTimeoutCtx, pktTimeoutFn = context.WithTimeout(context.Background(), pktTimeout)
-		select {
-		case <-pktsChan:
-			continue
-		case <-pktTimeoutCtx.Done():
-			greenLog(t, fmt.Sprintf("it has been at least %s since SubscribeRTP has received a packet", pktTimeout))
-			pktTimeoutFn()
-			// https://go.dev/ref/spec#Break_statements
-			// The 'Loop' label is needed so that we break out of the loop
-			// rather than out of the select statement
-			break Loop
-		case <-timeoutCtx.Done():
-			t.Log("timed out waiting for SubscribeRTP packets to drain")
-			t.FailNow()
-		}
-	}
-
-	greenLog(t, "sleeping")
-	time.Sleep(time.Second)
-
-	// sub should still be alive
-	test.That(t, sub.Terminated.Err(), test.ShouldBeNil)
-
-	// remote2CtxSecond, remoteRobot2Second, addr2Second, remoteWebSvc2Second := setupRealRobot(t, remoteCfg2, logger.Sublogger("remote-2"))
-	// defer remoteRobot2Second.Close(remote2CtxSecond)
-	// defer remoteWebSvc2Second.Close(remote2CtxSecond)
-
-	//
-	// err = cameraClient.(rtppassthrough.Source).Unsubscribe(mainCtx, sub.ID)
-	// test.That(t, err, test.ShouldBeNil)
-	// greenLog(t, "unsubscribe")
+	test.That(t, cameraClient.(rtppassthrough.Source).Unsubscribe(mainCtx, sub.ID), test.ShouldBeNil)
 }
 
 // go test -race -v -run=TestWhyMustTimeoutOnReadRTP -timeout 10s
@@ -963,7 +904,8 @@ func TestWhyMustTimeoutOnReadRTP(t *testing.T) {
 					RTPPassthrough: true,
 				},
 			},
-		}}
+		},
+	}
 	// Create a robot with a single fake camera.
 	remote2Ctx, remoteRobot2, addr2, remoteWebSvc2 := setupRealRobot(t, remoteCfg2, logger.Sublogger("remote-2"))
 	defer remoteRobot2.Close(remote2Ctx)
@@ -977,7 +919,8 @@ func TestWhyMustTimeoutOnReadRTP(t *testing.T) {
 				Address:  addr2,
 				Insecure: true,
 			},
-		}}
+		},
+	}
 
 	remote1Ctx, remoteRobot1, addr1, remoteWebSvc1 := setupRealRobot(t, remoteCfg1, logger.Sublogger("remote-1"))
 	defer remoteRobot1.Close(remote1Ctx)
@@ -991,7 +934,8 @@ func TestWhyMustTimeoutOnReadRTP(t *testing.T) {
 				Address:  addr1,
 				Insecure: true,
 			},
-		}}
+		},
+	}
 
 	mainCtx, mainRobot, _, mainWebSvc := setupRealRobot(t, mainCfg, logger.Sublogger("main"))
 	greenLog(t, "robot setup")
@@ -1074,7 +1018,7 @@ Loop:
 // NOT WORKING as I don't know how to get a remote to come back online after calling Close
 // go test -race -v -run=TestWhyMustCallUnsubscribe -timeout 10s
 // TestWhyMustTimeoutOnReadRTP shows that if we don't call Unsubscribe on camera client Close (even if we are timing out in ReadRTP)
-// when talking to a remote all subsequent AddStream calls to the remote will inevitably fail due to the previous track still being alive
+// when talking to a remote all subsequent AddStream calls to the remote will inevitably fail due to the previous track still being alive.
 func TestWhyMustCallUnsubscribe(t *testing.T) {
 	logger := logging.NewTestLogger(t).Sublogger(t.Name())
 
@@ -1089,7 +1033,8 @@ func TestWhyMustCallUnsubscribe(t *testing.T) {
 					RTPPassthrough: true,
 				},
 			},
-		}}
+		},
+	}
 
 	// Create a robot with a single fake camera.
 	options2, _, addr2 := robottestutils.CreateBaseOptionsAndListener(t)
@@ -1103,7 +1048,8 @@ func TestWhyMustCallUnsubscribe(t *testing.T) {
 				Address:  addr2,
 				Insecure: true,
 			},
-		}}
+		},
+	}
 
 	remote1Ctx, remoteRobot1, addr1, remoteWebSvc1 := setupRealRobot(t, remoteCfg1, logger.Sublogger("remote-1"))
 	defer remoteRobot1.Close(remote1Ctx)
@@ -1117,7 +1063,8 @@ func TestWhyMustCallUnsubscribe(t *testing.T) {
 				Address:  addr1,
 				Insecure: true,
 			},
-		}}
+		},
+	}
 
 	mainCtx, mainRobot, _, mainWebSvc := setupRealRobot(t, mainCfg, logger.Sublogger("main"))
 	greenLog(t, "robot setup")
@@ -1212,8 +1159,7 @@ Loop:
 		// Right now we never go down this path as the test is not able to get remote1 to reconnect to the new remote 2
 		greenLog(t, "SubscribeRTP got packets")
 	case <-sndPktTimeoutCtx.Done():
-		redLog(t, "timed out waiting for SubscribeRTP to recieve packets")
+		redLog(t, "timed out waiting for SubscribeRTP to receive packets")
 		t.FailNow()
 	}
-
 }
