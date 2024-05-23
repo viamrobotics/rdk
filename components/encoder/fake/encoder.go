@@ -94,7 +94,7 @@ type fakeEncoder struct {
 
 	mu          sync.RWMutex
 	workers     rdkutils.StoppableWorkers
-	position    int64
+	position    float64
 	ticksPerSec float64 // increment to position every sec
 	updateRate  int64   // update position in start every updateRate ms
 }
@@ -111,7 +111,7 @@ func (e *fakeEncoder) Position(
 	}
 	e.mu.RLock()
 	defer e.mu.RUnlock()
-	return float64(e.position), e.positionType, nil
+	return math.Round(e.position), e.positionType, nil
 }
 
 // Start starts a background thread to run the encoder.
@@ -126,12 +126,12 @@ func (e *fakeEncoder) start(cancelCtx context.Context) {
 		e.mu.RLock()
 		updateRate := e.updateRate
 		e.mu.RUnlock()
-		if !utils.SelectContextOrWait(cancelCtx, 100*time.Millisecond) {
+		if !utils.SelectContextOrWait(cancelCtx, time.Duration(updateRate)*time.Millisecond) {
 			return
 		}
 
 		e.mu.Lock()
-		e.position += int64(e.ticksPerSec / float64(1000/updateRate))
+		e.position += e.ticksPerSec / float64(1000/updateRate)
 		e.mu.Unlock()
 	}
 }
@@ -141,7 +141,7 @@ func (e *fakeEncoder) start(cancelCtx context.Context) {
 func (e *fakeEncoder) ResetPosition(ctx context.Context, extra map[string]interface{}) error {
 	e.mu.Lock()
 	defer e.mu.Unlock()
-	e.position = int64(0)
+	e.position = 0
 	return nil
 }
 
@@ -180,6 +180,6 @@ func (e *fakeEncoder) SetSpeed(ctx context.Context, ticksPerSec float64) error {
 func (e *fakeEncoder) SetPosition(ctx context.Context, position int64) error {
 	e.mu.Lock()
 	defer e.mu.Unlock()
-	e.position = position
+	e.position = float64(position)
 	return nil
 }
