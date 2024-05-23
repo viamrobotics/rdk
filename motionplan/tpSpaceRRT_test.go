@@ -288,12 +288,18 @@ func TestPtgCheckPlan(t *testing.T) {
 
 	// NOTE: WE NEED TO ADD AN EXECUTION FRAME TO THE CHECKING FRAMESYSTEM SINCE WE ONLY WANT TO RELY ON USING INPUTS
 	tfFrameSystem := referenceframe.NewEmptyFrameSystem("transformFS")
-	localizationFrame, err := referenceframe.New2DMobileModelFrame(
-		"ackframeLocalizationFrame", []referenceframe.Limit{
+	localizationFrame, err := referenceframe.New7DFrame(
+		"ackframeLocalizationFrame",
+		[]referenceframe.Limit{
 			{Min: math.Inf(-1), Max: math.Inf(1)},
 			{Min: math.Inf(-1), Max: math.Inf(1)},
-			{Min: -360, Max: 360},
-		}, nil,
+			{Min: math.Inf(-1), Max: math.Inf(1)},
+			{Min: -1, Max: 1},
+			{Min: -1, Max: 1},
+			{Min: -1, Max: 1},
+			{Min: -2 * math.Pi, Max: 2 * math.Pi},
+		},
+		nil,
 	)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -302,7 +308,7 @@ func TestPtgCheckPlan(t *testing.T) {
 
 	err = tfFrameSystem.MergeFrameSystem(fs, localizationFrame)
 	test.That(t, err, test.ShouldBeNil)
-	inputs[localizationFrame.Name()] = referenceframe.FloatsToInputs(make([]float64, len(localizationFrame.DoF())))
+	inputs[localizationFrame.Name()] = referenceframe.FloatsToInputs([]float64{0, 0, 0, 0, 0, 1, 0})
 
 	t.Run("base case - validate plan without obstacles", func(t *testing.T) {
 		executionState := ExecutionState{

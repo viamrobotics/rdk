@@ -451,7 +451,7 @@ type sevenDFrame struct {
 	collisionGeometry spatial.Geometry
 }
 
-// New6DFrame TODO.
+// New7DFrame created a frame with 7 degrees of freedom.
 func New7DFrame(name string, limits []Limit, collisionGeometry spatial.Geometry) (Frame, error) {
 	if len(limits) != 7 {
 		return nil,
@@ -462,7 +462,6 @@ func New7DFrame(name string, limits []Limit, collisionGeometry spatial.Geometry)
 		&baseFrame{name, limits},
 		collisionGeometry,
 	}, nil
-
 }
 
 // Transform takes a model and a list of joint angles in radians and computes the dual quaternion representing the

@@ -281,10 +281,6 @@ func checkPlanRelative(
 		segments = append(segments, segment)
 	}
 
-	// fmt.Println("PRINTING ALL SEGMENTS BELOW ")
-	// for _, s := range segments {
-	// 	fmt.Println(s)
-	// }
 	return checkSegments(sfPlanner, segments, lookAheadDistanceMM)
 }
 
@@ -400,7 +396,6 @@ func checkSegments(sfPlanner *planManager, segments []*ik.Segment, lookAheadDist
 			if err != nil {
 				return err
 			}
-			fmt.Println("poseInPath: ", spatialmath.PoseToProtobuf(poseInPath))
 
 			// Check if look ahead distance has been reached
 			currentTravelDistanceMM := totalTravelDistanceMM + poseInPath.Point().Distance(segment.StartPosition.Point())

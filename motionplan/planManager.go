@@ -503,10 +503,6 @@ func (pm *planManager) plannerSetupFromMoveRequest(
 		return nil, err // no geometries defined for frame
 	}
 	movingRobotGeometries := movingGeometriesInFrame.Geometries() // solver frame returns geoms in frame World
-	// fmt.Println("PRINTING movingRobotGeometries")
-	// for _, g := range movingRobotGeometries {
-	// 	fmt.Println("g.Pose: ", spatialmath.PoseToProtobuf(g.Pose()))
-	// }
 
 	// find all geometries that are not moving but are in the frame system
 	staticRobotGeometries := make([]spatialmath.Geometry, 0)
@@ -526,10 +522,6 @@ func (pm *planManager) plannerSetupFromMoveRequest(
 	worldGeometries, err := worldState.ObstaclesInWorldFrame(pm.frame.fss, seedMap)
 	if err != nil {
 		return nil, err
-	}
-	fmt.Println("ABOUT TO PRINT WORLD GEOMETRIES ")
-	for _, g := range worldGeometries.Geometries() {
-		fmt.Println("g.Pose: ", spatialmath.PoseToProtobuf(g.Pose()))
 	}
 
 	allowedCollisions, err := collisionSpecificationsFromProto(constraints.GetCollisionSpecification(), frameSystemGeometries, worldState)

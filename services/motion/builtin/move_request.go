@@ -184,29 +184,12 @@ func (mr *moveRequest) getTransientDetections(
 	if err != nil {
 		return nil, err
 	}
-	inputMap := referenceframe.StartPositions(mr.absoluteFS)
-
-	fmt.Println("baseExecutionState.CurrentInputs(): ", baseExecutionState.CurrentInputs())
-	fmt.Println("baseExecutionState.CurrentPoses(): ", baseExecutionState.CurrentPoses())
-
-	inputMap[mr.kinematicBase.Name().ShortName()] = make([]referenceframe.Input, len(mr.kinematicBase.Kinematics().DoF()))
-	inputMap[mr.kinematicBase.LocalizationFrame().Name()] = referenceframe.FloatsToInputs([]float64{
-		baseExecutionState.CurrentPoses()[mr.kinematicBase.LocalizationFrame().Name()].Pose().Point().X,
-		baseExecutionState.CurrentPoses()[mr.kinematicBase.LocalizationFrame().Name()].Pose().Point().Y,
-		baseExecutionState.CurrentPoses()[mr.kinematicBase.LocalizationFrame().Name()].Pose().Point().Z,
-		baseExecutionState.CurrentPoses()[mr.kinematicBase.LocalizationFrame().Name()].Pose().Orientation().OrientationVectorRadians().OX,
-		baseExecutionState.CurrentPoses()[mr.kinematicBase.LocalizationFrame().Name()].Pose().Orientation().OrientationVectorRadians().OY,
-		baseExecutionState.CurrentPoses()[mr.kinematicBase.LocalizationFrame().Name()].Pose().Orientation().OrientationVectorRadians().OZ,
-		baseExecutionState.CurrentPoses()[mr.kinematicBase.LocalizationFrame().Name()].Pose().Orientation().OrientationVectorRadians().Theta,
-	})
-	// fmt.Println("do i get to this point in time though")
+	inputMap := mr.createInputMap(baseExecutionState)
 
 	detections, err := visSrvc.GetObjectPointClouds(ctx, camName.Name, nil)
 	if err != nil {
 		return nil, err
 	}
-	fmt.Println("inputMap: ", inputMap)
-	// fmt.Println("mr.kinematicBase.LocalizationFrame().DoF(): ", mr.kinematicBase.LocalizationFrame().DoF())
 
 	// transformed detections
 	transientGeoms := []spatialmath.Geometry{}
@@ -217,7 +200,6 @@ func (mr *moveRequest) getTransientDetections(
 		if geometry.Label() != "" {
 			label += "_" + geometry.Label()
 		}
-		fmt.Println("current geometry pose: ", spatialmath.PoseToProtobuf(geometry.Pose()))
 		geometry.SetLabel(label)
 		tf, err := mr.absoluteFS.Transform(
 			inputMap,
@@ -231,12 +213,6 @@ func (mr *moveRequest) getTransientDetections(
 		if !ok {
 			return nil, errors.New("unable to assert referenceframe.Transformable into *referenceframe.GeometriesInFrame")
 		}
-		fmt.Println("ABOUT TO PRINT WORLD GIF GEOMETRIES")
-		for _, g := range worldGifs.Geometries() {
-			fmt.Println("g.Pose: ", spatialmath.PoseToProtobuf(g.Pose()))
-
-		}
-		fmt.Println(" ")
 		transientGeoms = append(transientGeoms, worldGifs.Geometries()...)
 	}
 	return referenceframe.NewGeometriesInFrame(referenceframe.World, transientGeoms), nil
@@ -270,7 +246,6 @@ func (mr *moveRequest) obstaclesIntersectPlan(
 			if err != nil {
 				return state.ExecuteResponse{}, err
 			}
-			// fmt.Println("do i make it here though?")
 			if len(gifs.Geometries()) == 0 {
 				mr.logger.CDebug(ctx, "will not check if obstacles intersect path since nothing was detected")
 				continue
@@ -291,18 +266,7 @@ func (mr *moveRequest) obstaclesIntersectPlan(
 			// build representation of frame system's inputs
 			// TODO(pl): in the case where we have e.g. an arm (not moving) mounted on a base, we should be passing its current
 			// configuration rather than the zero inputs
-			inputMap := referenceframe.StartPositions(mr.absoluteFS)
-			// inputMap[mr.kinematicBase.Name().ShortName()] = baseExecutionState.CurrentInputs()[mr.kinematicBase.Name().ShortName()]
-			inputMap[mr.kinematicBase.Name().ShortName()] = make([]referenceframe.Input, len(mr.kinematicBase.Kinematics().DoF()))
-			inputMap[mr.kinematicBase.LocalizationFrame().Name()] = referenceframe.FloatsToInputs([]float64{
-				baseExecutionState.CurrentPoses()[mr.kinematicBase.LocalizationFrame().Name()].Pose().Point().X,
-				baseExecutionState.CurrentPoses()[mr.kinematicBase.LocalizationFrame().Name()].Pose().Point().Y,
-				baseExecutionState.CurrentPoses()[mr.kinematicBase.LocalizationFrame().Name()].Pose().Point().Z,
-				baseExecutionState.CurrentPoses()[mr.kinematicBase.LocalizationFrame().Name()].Pose().Orientation().OrientationVectorRadians().OX,
-				baseExecutionState.CurrentPoses()[mr.kinematicBase.LocalizationFrame().Name()].Pose().Orientation().OrientationVectorRadians().OY,
-				baseExecutionState.CurrentPoses()[mr.kinematicBase.LocalizationFrame().Name()].Pose().Orientation().OrientationVectorRadians().OZ,
-				baseExecutionState.CurrentPoses()[mr.kinematicBase.LocalizationFrame().Name()].Pose().Orientation().OrientationVectorRadians().Theta,
-			})
+			inputMap := mr.createInputMap(baseExecutionState)
 			executionState, err := motionplan.NewExecutionState(
 				baseExecutionState.Plan(),
 				baseExecutionState.Index(),
@@ -312,7 +276,7 @@ func (mr *moveRequest) obstaclesIntersectPlan(
 			if err != nil {
 				return state.ExecuteResponse{}, err
 			}
-			// fmt.Println("PRINTING CHECK PLAN INPUTS BELOW")
+
 			mr.logger.CDebugf(ctx, "CheckPlan inputs: \n currentPosition: %v\n currentInputs: %v\n worldstate: %s",
 				spatialmath.PoseToProtobuf(executionState.CurrentPoses()[mr.kinematicBase.LocalizationFrame().Name()].Pose()),
 				inputMap,
@@ -327,16 +291,27 @@ func (mr *moveRequest) obstaclesIntersectPlan(
 				lookAheadDistanceMM,
 				mr.planRequest.Logger,
 			); err != nil {
-				fmt.Println("WE ARE RETURNING AN ERROR")
-				fmt.Println(" ")
 				mr.planRequest.Logger.CInfo(ctx, err.Error())
 				return state.ExecuteResponse{Replan: true, ReplanReason: err.Error()}, nil
 			}
-			fmt.Println("THERE WAS NO ERROR HERE")
-			fmt.Println(" ")
 		}
 	}
 	return state.ExecuteResponse{}, nil
+}
+
+func (mr *moveRequest) createInputMap(baseExecutionState motionplan.ExecutionState) map[string][]referenceframe.Input {
+	inputMap := referenceframe.StartPositions(mr.absoluteFS)
+	inputMap[mr.kinematicBase.Name().ShortName()] = make([]referenceframe.Input, len(mr.kinematicBase.Kinematics().DoF()))
+	inputMap[mr.kinematicBase.LocalizationFrame().Name()] = referenceframe.FloatsToInputs([]float64{
+		baseExecutionState.CurrentPoses()[mr.kinematicBase.LocalizationFrame().Name()].Pose().Point().X,
+		baseExecutionState.CurrentPoses()[mr.kinematicBase.LocalizationFrame().Name()].Pose().Point().Y,
+		baseExecutionState.CurrentPoses()[mr.kinematicBase.LocalizationFrame().Name()].Pose().Point().Z,
+		baseExecutionState.CurrentPoses()[mr.kinematicBase.LocalizationFrame().Name()].Pose().Orientation().OrientationVectorRadians().OX,
+		baseExecutionState.CurrentPoses()[mr.kinematicBase.LocalizationFrame().Name()].Pose().Orientation().OrientationVectorRadians().OY,
+		baseExecutionState.CurrentPoses()[mr.kinematicBase.LocalizationFrame().Name()].Pose().Orientation().OrientationVectorRadians().OZ,
+		baseExecutionState.CurrentPoses()[mr.kinematicBase.LocalizationFrame().Name()].Pose().Orientation().OrientationVectorRadians().Theta,
+	})
+	return inputMap
 }
 
 func kbOptionsFromCfg(motionCfg *validatedMotionConfiguration, validatedExtra validatedExtra) kinematicbase.Options {
