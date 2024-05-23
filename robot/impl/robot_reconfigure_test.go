@@ -2159,7 +2159,12 @@ func TestSensorsServiceReconfigure(t *testing.T) {
 
 		foundSensors, err = svc.Sensors(context.Background(), map[string]interface{}{})
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, rdktestutils.NewSortedResourceNames(foundSensors...), test.ShouldResemble, rdktestutils.NewSortedResourceNames(sensorNames...))
+		test.That(
+			t,
+			rdktestutils.NewSortedResourceNames(foundSensors...),
+			test.ShouldResemble,
+			rdktestutils.NewSortedResourceNames(sensorNames...),
+		)
 	})
 
 	t.Run("two sensors to empty", func(t *testing.T) {
@@ -2170,7 +2175,12 @@ func TestSensorsServiceReconfigure(t *testing.T) {
 
 		foundSensors, err := svc.Sensors(context.Background(), map[string]interface{}{})
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, rdktestutils.NewSortedResourceNames(foundSensors...), test.ShouldResemble, rdktestutils.NewSortedResourceNames(sensorNames...))
+		test.That(
+			t,
+			rdktestutils.NewSortedResourceNames(foundSensors...),
+			test.ShouldResemble,
+			rdktestutils.NewSortedResourceNames(sensorNames...),
+		)
 
 		robot.Reconfigure(context.Background(), emptyCfg)
 
@@ -2187,13 +2197,23 @@ func TestSensorsServiceReconfigure(t *testing.T) {
 
 		foundSensors, err := svc.Sensors(context.Background(), map[string]interface{}{})
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, rdktestutils.NewSortedResourceNames(foundSensors...), test.ShouldResemble, rdktestutils.NewSortedResourceNames(sensorNames...))
+		test.That(
+			t,
+			rdktestutils.NewSortedResourceNames(foundSensors...),
+			test.ShouldResemble,
+			rdktestutils.NewSortedResourceNames(sensorNames...),
+		)
 
 		robot.Reconfigure(context.Background(), cfg)
 
 		foundSensors, err = svc.Sensors(context.Background(), map[string]interface{}{})
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, rdktestutils.NewSortedResourceNames(foundSensors...), test.ShouldResemble, rdktestutils.NewSortedResourceNames(sensorNames...))
+		test.That(
+			t,
+			rdktestutils.NewSortedResourceNames(foundSensors...),
+			test.ShouldResemble,
+			rdktestutils.NewSortedResourceNames(sensorNames...),
+		)
 	})
 }
 
