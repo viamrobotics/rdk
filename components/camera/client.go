@@ -7,7 +7,6 @@ import (
 	"image"
 	"io"
 	"os"
-	"runtime/debug"
 	"slices"
 	"sync"
 	"time"
@@ -380,7 +379,6 @@ func (c *client) Close(ctx context.Context) error {
 	defer span.End()
 
 	c.logger.Warn("Close START")
-	debug.PrintStack()
 	defer c.logger.Warn("Close END")
 
 	c.healthyClientChMu.Lock()

@@ -438,7 +438,6 @@ func (ss *StreamState) streamH264Passthrough(ctx context.Context) error {
 
 	cb := func(pkts []*rtp.Packet) {
 		for _, pkt := range pkts {
-			ss.logger.Infof("calling WriteRTP %s", ss.Stream.Name())
 			if err := ss.Stream.WriteRTP(pkt); err != nil {
 				ss.logger.Debugw("stream.WriteRTP", "name", ss.Stream.Name(), "err", err.Error())
 			}
