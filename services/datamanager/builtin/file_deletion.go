@@ -62,6 +62,9 @@ func exceedsDeletionThreshold(ctx context.Context, captureDirPath string, fsSize
 		if !d.IsDir() {
 			fileInfo, err := d.Info()
 			if err != nil {
+				if errors.Is(err, fs.ErrNotExist) {
+					return nil
+				}
 				return err
 			}
 			dirSize += fileInfo.Size()
