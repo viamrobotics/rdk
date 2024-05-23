@@ -60,14 +60,15 @@ func TestGoFor(t *testing.T) {
 
 	err = m.GoFor(ctx, 0, 1, nil)
 	allObs := obs.All()
-	test.That(t, fmt.Sprint(allObs), test.ShouldContainSubstring, "nearly 0")
-	// test.That(t, fmt.Sprint(latestLoggedEntry), test.ShouldContainSubstring, "nearly 0")
+	latestLoggedEntry := allObs[len(allObs)-1]
+	test.That(t, fmt.Sprint(latestLoggedEntry), test.ShouldContainSubstring, "nearly 0")
 	test.That(t, err, test.ShouldBeError, motor.NewZeroRPMError())
 
 	err = m.GoFor(ctx, 60, 1, nil)
 	test.That(t, err, test.ShouldBeNil)
 	allObs = obs.All()
-	test.That(t, fmt.Sprint(allObs), test.ShouldContainSubstring, "nearly the max")
+	latestLoggedEntry = allObs[1]
+	test.That(t, fmt.Sprint(latestLoggedEntry), test.ShouldContainSubstring, "nearly the max")
 
 	testutils.WaitForAssertion(t, func(tb testing.TB) {
 		tb.Helper()
