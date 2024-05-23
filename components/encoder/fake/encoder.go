@@ -71,7 +71,7 @@ func (e *fakeEncoder) Reconfigure(
 
 // Config describes the configuration of a fake encoder.
 type Config struct {
-	UpdateRate  int64   `json:"update_rate_msec,omitempty"`
+	UpdateRate int64 `json:"update_rate_msec,omitempty"`
 }
 
 // Validate ensures all parts of a config is valid.
@@ -86,10 +86,10 @@ type fakeEncoder struct {
 	positionType encoder.PositionType
 	logger       logging.Logger
 
-	mu          sync.RWMutex
-	workers     rdkutils.StoppableWorkers
-	position    int64
-	updateRate  int64   // update position in start every updateRate ms
+	mu         sync.RWMutex
+	workers    rdkutils.StoppableWorkers
+	position   int64
+	updateRate int64 // update position in start every updateRate ms
 }
 
 // Position returns the current position in terms of ticks or
@@ -124,7 +124,7 @@ func (e *fakeEncoder) start(cancelCtx context.Context) {
 		}
 
 		e.mu.Lock()
-		e.position ++
+		e.position++
 		e.mu.Unlock()
 	}
 }

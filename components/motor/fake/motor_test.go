@@ -60,7 +60,7 @@ func TestGoFor(t *testing.T) {
 
 	err = m.GoFor(ctx, 0, 1, nil)
 	allObs := obs.All()
-    test.That(t, fmt.Sprint(allObs), test.ShouldContainSubstring, "nearly 0")
+	test.That(t, fmt.Sprint(allObs), test.ShouldContainSubstring, "nearly 0")
 	// test.That(t, fmt.Sprint(latestLoggedEntry), test.ShouldContainSubstring, "nearly 0")
 	test.That(t, err, test.ShouldBeError, motor.NewZeroRPMError())
 
