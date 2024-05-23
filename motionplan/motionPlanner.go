@@ -5,6 +5,7 @@ package motionplan
 
 import (
 	"context"
+	"fmt"
 	"math/rand"
 	"sort"
 	"sync"
@@ -178,7 +179,7 @@ func Replan(ctx context.Context, request *PlanRequest, currentPlan Plan, replanC
 			return nil, errHighReplanCost
 		}
 	}
-
+	fmt.Println(newPlan.Path())
 	return newPlan, nil
 }
 

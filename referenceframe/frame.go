@@ -445,3 +445,97 @@ func (rf rotationalFrame) MarshalJSON() ([]byte, error) {
 
 	return json.Marshal(temp)
 }
+
+type sevenDFrame struct {
+	*baseFrame
+	collisionGeometry spatial.Geometry
+}
+
+// New6DFrame TODO.
+func New7DFrame(name string, limits []Limit, collisionGeometry spatial.Geometry) (Frame, error) {
+	if len(limits) != 7 {
+		return nil,
+			errors.Errorf("Must have 7DOF state (x, y, z, OX, OY, OZ, theta) to create 6DFrame, have %d dof", len(limits))
+	}
+
+	return &sevenDFrame{
+		&baseFrame{name, limits},
+		collisionGeometry,
+	}, nil
+
+}
+
+// Transform takes a model and a list of joint angles in radians and computes the dual quaternion representing the
+// cartesian position of the end effector. This is useful for when conversions between quaternions and OV are not needed.
+func (m *sevenDFrame) Transform(inputs []Input) (spatial.Pose, error) {
+	if len(inputs) != 7 {
+		return nil, NewIncorrectInputLengthError(len(inputs), 7)
+	}
+	return spatial.NewPose(
+		r3.Vector{X: inputs[0].Value, Y: inputs[1].Value, Z: inputs[2].Value},
+		&spatial.OrientationVector{
+			OX:    inputs[3].Value,
+			OY:    inputs[4].Value,
+			OZ:    inputs[5].Value,
+			Theta: inputs[6].Value,
+		},
+	), nil
+}
+
+// Interpolate interpolates the given amount between the two sets of inputs.
+func (m *sevenDFrame) Interpolate(from, to []Input, by float64) ([]Input, error) {
+	if len(from) != len(m.DoF()) {
+		return nil, NewIncorrectInputLengthError(len(from), len(m.DoF()))
+	}
+	if len(to) != len(m.DoF()) {
+		return nil, NewIncorrectInputLengthError(len(to), len(m.DoF()))
+	}
+	return interpolateInputs(from, to, by), nil
+}
+
+// Geometries returns an object representing the 3D space associeted with the staticFrame.
+func (m *sevenDFrame) Geometries(inputs []Input) (*GeometriesInFrame, error) {
+	transformByPose, err := m.Transform(inputs)
+	if err != nil {
+		return nil, err
+	}
+	if m.collisionGeometry == nil {
+		return NewGeometriesInFrame(m.name, []spatial.Geometry{}), nil
+	}
+	return NewGeometriesInFrame(m.name, []spatial.Geometry{m.collisionGeometry.Transform(transformByPose)}), nil
+}
+
+// DoF returns the number of degrees of freedom within a model.
+func (m *sevenDFrame) DoF() []Limit {
+	return m.limits
+}
+
+// MarshalJSON serializes a Model.
+func (m *sevenDFrame) MarshalJSON() ([]byte, error) {
+	temp := LinkConfig{
+		ID: m.name,
+	}
+
+	if m.collisionGeometry != nil {
+		var err error
+		temp.Geometry, err = spatial.NewGeometryConfig(m.collisionGeometry)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return json.Marshal(temp)
+}
+
+// InputFromProtobuf converts pb.JointPosition to inputs.
+func (m *sevenDFrame) InputFromProtobuf(jp *pb.JointPositions) []Input {
+	inputs := make([]Input, 0, len(jp.Values))
+
+	return inputs
+}
+
+// ProtobufFromInput converts inputs to pb.JointPosition.
+func (m *sevenDFrame) ProtobufFromInput(input []Input) *pb.JointPositions {
+	jPos := &pb.JointPositions{}
+
+	return jPos
+}

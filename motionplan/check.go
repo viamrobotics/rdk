@@ -216,6 +216,10 @@ func checkPlanRelative(
 	currentWayPointTraj[checkFrame.Name()+"LocalizationFrame"] = referenceframe.FloatsToInputs([]float64{
 		poses[wayPointIdx].Point().X,
 		poses[wayPointIdx].Point().Y,
+		poses[wayPointIdx].Point().Z,
+		poses[wayPointIdx].Orientation().OrientationVectorRadians().OX,
+		poses[wayPointIdx].Orientation().OrientationVectorRadians().OY,
+		poses[wayPointIdx].Orientation().OrientationVectorRadians().OZ,
 		poses[wayPointIdx].Orientation().OrientationVectorRadians().Theta,
 	})
 
@@ -259,7 +263,13 @@ func checkPlanRelative(
 		}
 
 		startInputs[localizationFrameName] = referenceframe.FloatsToInputs(
-			[]float64{lastArcEndPose.Point().X, lastArcEndPose.Point().Y, lastArcEndPose.Orientation().OrientationVectorRadians().Theta},
+			[]float64{
+				lastArcEndPose.Point().X, lastArcEndPose.Point().Y, lastArcEndPose.Point().Z,
+				lastArcEndPose.Orientation().OrientationVectorRadians().OX,
+				lastArcEndPose.Orientation().OrientationVectorRadians().OY,
+				lastArcEndPose.Orientation().OrientationVectorRadians().OZ,
+				lastArcEndPose.Orientation().OrientationVectorRadians().Theta,
+			},
 		)
 		nextInputs := plan.Trajectory()[i]
 		nextInputs[localizationFrameName] = startInputs[localizationFrameName]
@@ -270,6 +280,11 @@ func checkPlanRelative(
 		lastArcEndPose = thisArcEndPose
 		segments = append(segments, segment)
 	}
+
+	// fmt.Println("PRINTING ALL SEGMENTS BELOW ")
+	// for _, s := range segments {
+	// 	fmt.Println(s)
+	// }
 	return checkSegments(sfPlanner, segments, lookAheadDistanceMM)
 }
 
@@ -385,6 +400,7 @@ func checkSegments(sfPlanner *planManager, segments []*ik.Segment, lookAheadDist
 			if err != nil {
 				return err
 			}
+			fmt.Println("poseInPath: ", spatialmath.PoseToProtobuf(poseInPath))
 
 			// Check if look ahead distance has been reached
 			currentTravelDistanceMM := totalTravelDistanceMM + poseInPath.Point().Distance(segment.StartPosition.Point())

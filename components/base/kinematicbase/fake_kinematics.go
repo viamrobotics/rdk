@@ -200,12 +200,16 @@ func WrapWithFakePTGKinematics(
 	}
 
 	// construct localization frame
-	localizationFrame, err := referenceframe.New2DMobileModelFrame(
+	localizationFrame, err := referenceframe.New7DFrame(
 		b.Name().ShortName()+"LocalizationFrame",
 		[]referenceframe.Limit{
 			{Min: math.Inf(-1), Max: math.Inf(1)},
 			{Min: math.Inf(-1), Max: math.Inf(1)},
-			{Min: -360, Max: 360},
+			{Min: math.Inf(-1), Max: math.Inf(1)},
+			{Min: -1, Max: 1},
+			{Min: -1, Max: 1},
+			{Min: -1, Max: 1},
+			{Min: -2 * math.Pi, Max: 2 * math.Pi},
 		},
 		nil,
 	)

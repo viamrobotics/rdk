@@ -591,7 +591,7 @@ func TestMoveOnMapStaticObs(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		currentInputs := referenceframe.StartPositions(mr.absoluteFS)
 		currentInputs[mr.kinematicBase.LocalizationFrame().Name()] = referenceframe.FloatsToInputs(
-			[]float64{0.58772e3, -0.80826e3, 0},
+			[]float64{0.58772e3, -0.80826e3, 0, 0, 0, 1, 0},
 		)
 		executionState, err := motionplan.NewExecutionState(
 			plan,

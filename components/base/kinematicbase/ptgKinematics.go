@@ -140,9 +140,8 @@ func wrapWithPTGKinematics(
 		origin = originPIF.Pose()
 	}
 	startingState := baseState{currentInputs: zeroInput}
-
 	// construct localization frame
-	localizationFrame, err := referenceframe.New6DFrame(
+	localizationFrame, err := referenceframe.New7DFrame(
 		b.Name().ShortName()+"LocalizationFrame",
 		[]referenceframe.Limit{
 			{Min: math.Inf(-1), Max: math.Inf(1)},
@@ -192,7 +191,6 @@ func (ptgk *ptgBaseKinematics) CurrentInputs(ctx context.Context) ([]referencefr
 	ptgk.inputLock.RLock()
 	defer ptgk.inputLock.RUnlock()
 
-	// ptgk.Localizer.
 	planningFrameInputs := ptgk.currentState.currentInputs
 	planningFrameInputs = append(planningFrameInputs, []referenceframe.Input{}...)
 	return planningFrameInputs, nil
