@@ -653,7 +653,11 @@ func (g *rtkSerial) getNtripFromVRS() error {
 	g.mu.Lock()
 	defer g.mu.Unlock()
 
-	g.readerWriter = gpsutils.ConnectToVirtualBase(g.ntripClient, g.logger)
+	var err error
+	g.readerWriter, err = gpsutils.ConnectToVirtualBase(g.ntripClient, g.logger)
+	if err != nil {
+		return err
+	}
 
 	// read from the socket until we know if a successful connection has been
 	// established.
