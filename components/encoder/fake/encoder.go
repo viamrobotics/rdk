@@ -60,8 +60,13 @@ func (e *fakeEncoder) Reconfigure(
 		return err
 	}
 	e.mu.Lock()
-	e.updateRate = newConf.UpdateRate
+
 	e.ticksPerSec = newConf.TicksPerSec
+	if e.ticksPerSec == 0 {
+		e.logger.Warnf("Fake encoder %s was reconfigued with 0 ticks_per_sec."+
+			" Set this to a positive or negative value to have the fake encoder count up or down", e.Name().ShortName())
+	}
+	e.updateRate = newConf.UpdateRate
 	if e.updateRate == 0 {
 		e.updateRate = 100
 	}
