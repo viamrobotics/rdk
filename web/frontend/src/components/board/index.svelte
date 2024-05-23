@@ -95,7 +95,7 @@ const writeAnalog = async () => {
 
 const readAnalog = async () => {
   try {
-    const value = await boardClient.readAnalogReader(analogPinName);
+    const { value } = await boardClient.readAnalogReader(analogPinName);
     readAnalogMessage = `${analogPinName}: value is ${value}`;
   } catch (error) {
     notify.danger((error as ServiceError).message);
