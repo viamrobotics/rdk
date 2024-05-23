@@ -44,15 +44,21 @@ func NewResourceNameSet(resourceNames ...resource.Name) map[resource.Name]struct
 	return set
 }
 
-// NewSortedResourceNames returns a new slice of resources names sorted by each
+// newSortedResourceNames returns a new slice of resources names sorted by each
 // resource's fully-qualified names for the purposes of comparison in automated tests.
-func NewSortedResourceNames(resourceNames ...resource.Name) []resource.Name {
+func newSortedResourceNames(resourceNames []resource.Name) []resource.Name {
 	sorted := make([]resource.Name, len(resourceNames))
 	copy(sorted, resourceNames)
 	slices.SortStableFunc(sorted, func(r1, r2 resource.Name) int {
 		return cmp.Compare(r1.String(), r2.String())
 	})
 	return sorted
+}
+
+// VerifySameResourceNames asserts that two slices of resource.Names contain the same
+// resources.Names without considering order.
+func VerifySameResourceNames(tb testing.TB, actual, expected []resource.Name) {
+	test.That(tb, newSortedResourceNames(actual), test.ShouldResemble, newSortedResourceNames(expected))
 }
 
 // ExtractNames takes a slice of resource.Name objects

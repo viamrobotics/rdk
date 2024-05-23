@@ -473,12 +473,7 @@ func TestServerGetStatus(t *testing.T) {
 			aStatus.Name: lastReconfigured,
 		}
 		injectRobot.StatusFunc = func(ctx context.Context, resourceNames []resource.Name) ([]robot.Status, error) {
-			test.That(
-				t,
-				testutils.NewSortedResourceNames(resourceNames...),
-				test.ShouldResemble,
-				testutils.NewSortedResourceNames(aStatus.Name),
-			)
+			testutils.VerifySameResourceNames(t, resourceNames, []resource.Name{aStatus.Name})
 			return readings, nil
 		}
 		req := &pb.GetStatusRequest{
@@ -523,12 +518,7 @@ func TestServerGetStatus(t *testing.T) {
 			aStatus.Name: lastReconfigured2,
 		}
 		injectRobot.StatusFunc = func(ctx context.Context, resourceNames []resource.Name) ([]robot.Status, error) {
-			test.That(
-				t,
-				testutils.NewSortedResourceNames(resourceNames...),
-				test.ShouldResemble,
-				testutils.NewSortedResourceNames(gStatus.Name, aStatus.Name),
-			)
+			testutils.VerifySameResourceNames(t, resourceNames, []resource.Name{gStatus.Name, aStatus.Name})
 			return statuses, nil
 		}
 		req := &pb.GetStatusRequest{
