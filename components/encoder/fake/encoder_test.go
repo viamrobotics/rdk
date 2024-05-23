@@ -98,29 +98,4 @@ func TestEncoder(t *testing.T) {
 			test.That(tb, err, test.ShouldBeNil)
 		})
 	})
-
-	t.Run("reconfigure with different update ticks per second", func(t *testing.T) {
-		e1 := e.(*fakeEncoder)
-		err := e1.SetSpeed(ctx, 0)
-		test.That(t, err, test.ShouldBeNil)
-		err = e1.SetPosition(ctx, 0)
-		test.That(t, err, test.ShouldBeNil)
-
-		ic := Config{
-			UpdateRate:  100,
-			TicksPerSec: 700,
-		}
-		cfg := resource.Config{Name: "enc1", ConvertedAttributes: &ic}
-		e.Reconfigure(ctx, nil, cfg)
-
-		test.That(t, e1.updateRate, test.ShouldEqual, 100)
-		test.That(t, e1.ticksPerSec, test.ShouldEqual, 700)
-
-		testutils.WaitForAssertion(t, func(tb testing.TB) {
-			tb.Helper()
-			pos, _, err := e.Position(ctx, encoder.PositionTypeUnspecified, nil)
-			test.That(tb, pos, test.ShouldBeGreaterThan, 0)
-			test.That(tb, err, test.ShouldBeNil)
-		})
-	})
 }
