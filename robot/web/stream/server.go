@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/edaniels/golog"
 	"github.com/pion/webrtc/v3"
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
@@ -213,12 +214,14 @@ func (ss *Server) AddStream(ctx context.Context, req *streampb.AddStreamRequest)
 
 	guard := rutils.NewGuard(func() {
 		for _, sender := range ps.senders {
+			golog.Global().Infof("calling RemoveTrack on %s pc: %p", sender.Track().StreamID(), pc)
 			utils.UncheckedError(pc.RemoveTrack(sender))
 		}
 	})
 	defer guard.OnFail()
 
 	addTrack := func(track webrtc.TrackLocal) error {
+		golog.Global().Infof("calling AddTrack on %s pc: %p", track.StreamID(), pc)
 		sender, err := pc.AddTrack(track)
 		if err != nil {
 			return err
@@ -275,6 +278,7 @@ func (ss *Server) RemoveStream(ctx context.Context, req *streampb.RemoveStreamRe
 
 	var errs error
 	for _, sender := range ss.activePeerStreams[pc][req.Name].senders {
+		golog.Global().Infof("calling RemoveTrack on %s pc: %p", sender.Track().StreamID(), pc)
 		errs = multierr.Combine(errs, pc.RemoveTrack(sender))
 	}
 	if errs != nil {

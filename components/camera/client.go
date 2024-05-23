@@ -7,6 +7,7 @@ import (
 	"image"
 	"io"
 	"os"
+	"runtime/debug"
 	"slices"
 	"sync"
 	"time"
@@ -35,6 +36,23 @@ import (
 	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/utils"
 )
+
+var (
+	Green = "\033[32m"
+	Red   = "\033[31m"
+	Reset = "\033[0m"
+)
+
+// // this helps make the test case much easier to read.
+//
+//	func (c *client) greenLog(msg string) {
+//		c.logger.Warn(Green + msg + Reset)
+//	}
+//
+// this helps make the test case much easier to read.
+func (c *client) redLog(msg string) {
+	c.logger.Warn(Red + msg + Reset)
+}
 
 var (
 	// ErrNoPeerConnection indicates there was no peer connection.
@@ -364,6 +382,7 @@ func (c *client) Close(ctx context.Context) error {
 	defer c.logger.Info("Close() END")
 
 	c.logger.Warn("Close START")
+	debug.PrintStack()
 	defer c.logger.Warn("Close END")
 
 	c.healthyClientChMu.Lock()
@@ -412,6 +431,8 @@ func (c *client) SubscribeRTP(
 ) (rtppassthrough.Subscription, error) {
 	ctx, span := trace.StartSpan(ctx, "camera::client::SubscribeRTP")
 	defer span.End()
+	c.redLog(fmt.Sprintf("SubscribeRTP START %s client: %p, pc: %p", c.Name().String(), c, c.conn.PeerConn()))
+	defer c.redLog(fmt.Sprintf("SubscribeRTP END %s client: %p, pc: %p", c.Name().String(), c, c.conn.PeerConn()))
 	// RSDK-6340: The resource manager closes remote resources when the underlying
 	// connection goes bad. However, when the connection is re-established, the client
 	// objects these resources represent are not re-initialized/marked "healthy".
@@ -496,12 +517,12 @@ func (c *client) SubscribeRTP(
 		// remove the OnTrackSub once we either fail or succeed
 		defer sc.RemoveOnTrackSub(c.trackName())
 
-		c.logger.Warn("before AddStream")
+		c.redLog(fmt.Sprintf("SubscribeRTP AddStream CALL %s client: %p, pc: %p", c.trackName(), c, c.conn.PeerConn()))
 		if _, err := c.streamClient.AddStream(ctx, &streampb.AddStreamRequest{Name: c.trackName()}); err != nil {
 			c.logger.CDebugw(ctx, "SubscribeRTP AddStream hit error", "subID", sub.ID.String(), "trackName", c.trackName(), "err", err)
 			return rtppassthrough.NilSubscription, err
 		}
-		c.logger.Warn("after AddStream")
+		c.redLog(fmt.Sprintf("SubscribeRTP AddStream RETURN %s client: %p, pc: %p", c.trackName(), c, c.conn.PeerConn()))
 		// NOTE: (Nick S) This is a workaround to a Pion bug / missing feature.
 
 		// If the WebRTC peer on the other side of the PeerConnection calls pc.AddTrack followd by pc.RemoveTrack
@@ -512,6 +533,7 @@ func (c *client) SubscribeRTP(
 
 		// To prevent that failure mode, we exit with an error if a track is not received within
 		// the SubscribeRTP context.
+		c.redLog(fmt.Sprintf("SubscribeRTP waiting for track %s client: %p, pc: %p", c.trackName(), c, c.conn.PeerConn()))
 		select {
 		case <-ctx.Done():
 			err := errors.Wrap(ctx.Err(), "Track not received within SubscribeRTP provided context")
@@ -522,7 +544,7 @@ func (c *client) SubscribeRTP(
 			c.logger.Error(err)
 			return rtppassthrough.NilSubscription, err
 		case <-trackReceived:
-			c.logger.Debug("received track")
+			c.redLog(fmt.Sprintf("received track %s client: %p, pc: %p", c.trackName(), c, c.conn.PeerConn()))
 		}
 
 		// set up channel so we can detect when the track has closed (in response to an event / error internal to the
@@ -568,17 +590,19 @@ func (c *client) addOnTrackSubFunc(
 				default:
 				}
 
-				deadline := time.Now().Add(readRTPTimeout)
-				// NOTE: (Nick S) We need to set this deadline so that if the track stops sending RTP packets
-				// this goroutine is able to termiante if Close() is called on the camera component.
-				// This is important when receiving packets from remotes which may stop sending packets at any time
-				// due to netsplits.
-				if err := tr.SetReadDeadline(deadline); err != nil {
-					close(trackClosed)
-					c.logger.Errorw("SubscribeRTP: camera client", "name ", c.Name(), "parentID", parentID.String(),
-						"OnTrack callback hit unexpected error from SetReadDeadline err:", err.Error())
-					return
-				}
+				// BEGIN TestWhyMustTimeoutOnReadRTP
+				// deadline := time.Now().Add(readRTPTimeout)
+				// // NOTE: (Nick S) We need to set this deadline so that if the track stops sending RTP packets
+				// // this goroutine is able to termiante if Close() is called on the camera component.
+				// // This is important when receiving packets from remotes which may stop sending packets at any time
+				// // due to netsplits.
+				// if err := tr.SetReadDeadline(deadline); err != nil {
+				// 	close(trackClosed)
+				// 	c.logger.Errorw("SubscribeRTP: camera client", "name ", c.Name(), "parentID", parentID.String(),
+				// 		"OnTrack callback hit unexpected error from SetReadDeadline err:", err.Error())
+				// 	return
+				// }
+				// END TestWhyMustTimeoutOnReadRTP
 
 				pkt, _, err := tr.ReadRTP()
 				if os.IsTimeout(err) {
@@ -716,6 +740,7 @@ func (c *client) unsubscribeAll(ctx context.Context) {
 			bufAndCB.buf.Close()
 		}
 
+		// BEGIN TestWhyMustCallUnsubscribe
 		// if we are talking to a remote viam-sever we need to call RemoveStream so that
 		// the remote (which still has a healthy peer connection with the main part)
 		// knows to stop the stream. If we don't do this there is a risk that
@@ -726,14 +751,16 @@ func (c *client) unsubscribeAll(ctx context.Context) {
 		// We don't need to do this in the case of modules as resource manager of the main part
 		// will call `Close()` on them in the cases when the client would have Close() calld on it
 		// which will terminate the stream.
-		if _, isRemote := c.conn.(*grpc.ReconfigurableClientConn); isRemote {
-			// NOTE: This is the ctx from `camera/client.Close()` which is called by resource manager. I don't know
-			// if it has a timeout. If it doesn't then this might block forever.
-			c.logger.CDebugw(ctx, "unsubscribeAll calling RemoveStream", "trackName", c.trackName())
-			if _, err := c.streamClient.RemoveStream(ctx, &streampb.RemoveStreamRequest{Name: c.trackName()}); err != nil {
-				c.logger.CWarnw(ctx, "unsubscribeAll RemoveStream returned err", "trackName", c.trackName(), "err", err)
-			}
-		}
+
+		// if _, isRemote := c.conn.(*grpc.ReconfigurableClientConn); isRemote {
+		// 	// NOTE: This is the ctx from `camera/client.Close()` which is called by resource manager. I don't know
+		// 	// if it has a timeout. If it doesn't then this might block forever.
+		// 	c.logger.CDebugw(ctx, "unsubscribeAll calling RemoveStream", "trackName", c.trackName())
+		// 	if _, err := c.streamClient.RemoveStream(ctx, &streampb.RemoveStreamRequest{Name: c.trackName()}); err != nil {
+		// 		c.logger.CWarnw(ctx, "unsubscribeAll RemoveStream returned err", "trackName", c.trackName(), "err", err)
+		// 	}
+		// }
+		// END TestWhyMustCallUnsubscribe
 	}
 }
 

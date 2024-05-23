@@ -16,6 +16,7 @@ import (
 	"github.com/bluenviron/gortsplib/v4/pkg/format/rtph264"
 	"github.com/bluenviron/gortsplib/v4/pkg/rtptime"
 	"github.com/bluenviron/mediacommon/pkg/codecs/h264"
+	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
 	"go.viam.com/utils"
@@ -294,6 +295,8 @@ func (c *Camera) SubscribeRTP(
 	bufferSize int,
 	packetsCB rtppassthrough.PacketCallback,
 ) (rtppassthrough.Subscription, error) {
+	golog.Global().Warnf("SubscribeRTP FAKE START %s", c.Name().String())
+	defer golog.Global().Warnf("SubscribeRTP FAKE END %s", c.Name().String())
 	if !c.RTPPassthrough {
 		return rtppassthrough.NilSubscription, ErrRTPPassthroughNotEnabled
 	}
@@ -340,23 +343,19 @@ func (c *Camera) Unsubscribe(ctx context.Context, id rtppassthrough.Subscription
 }
 
 func (c *Camera) startPassthrough() error {
-	forma := &format.H264{
-		PayloadTyp:        96,
-		PacketizationMode: 1,
-		SPS: []uint8{
-			0x67, 0x64, 0x0, 0x15, 0xac, 0xb2, 0x3, 0xc1, 0x1f, 0xd6,
-			0x2, 0xdc, 0x8, 0x8, 0x16, 0x94, 0x0, 0x0, 0x3, 0x0, 0x4, 0x0, 0x0, 0x3, 0x0,
-			0xf0, 0x3c, 0x58, 0xb9, 0x20,
-		},
-		PPS: []uint8{0x68, 0xeb, 0xc3, 0xcb, 0x22, 0xc0},
+	forma := &format.H264{}
+	webrtcPayloadMaxSize := 1188 // 1200 - 12 (RTP header)
+	encoder := &rtph264.Encoder{
+		PayloadType:    96,
+		PayloadMaxSize: webrtcPayloadMaxSize,
 	}
-	rtpEnc, err := forma.CreateEncoder()
-	if err != nil {
-		c.logger.Error(err.Error())
+
+	if err := encoder.Init(); err != nil {
 		return err
 	}
+
 	rtpTime := &rtptime.Encoder{ClockRate: forma.ClockRate()}
-	err = rtpTime.Initialize()
+	err := rtpTime.Initialize()
 	if err != nil {
 		c.logger.Error(err.Error())
 		return err
@@ -381,7 +380,7 @@ func (c *Camera) startPassthrough() error {
 				return
 			}
 
-			pkts, err := rtpEnc.Encode(aus)
+			pkts, err := encoder.Encode(aus)
 			if err != nil {
 				c.logger.Error(err)
 				return
@@ -395,7 +394,10 @@ func (c *Camera) startPassthrough() error {
 			// get current timestamp
 			c.mu.RLock()
 			for _, bufAndCB := range c.bufAndCBByID {
-				if err := bufAndCB.buf.Publish(func() { bufAndCB.cb(pkts) }); err != nil {
+				if err := bufAndCB.buf.Publish(func() {
+					c.logger.Infof("fake camera publishing %d packets", len(pkts))
+					bufAndCB.cb(pkts)
+				}); err != nil {
 					c.logger.Warn("Publish err: %s", err.Error())
 				}
 			}
