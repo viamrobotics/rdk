@@ -658,8 +658,9 @@ func (svc *builtIn) sync() {
 	}
 	svc.lock.Unlock()
 
+	stopAfter := time.Now().Add(time.Duration(svc.syncIntervalMins * float64(time.Minute)))
 	for _, p := range toSync {
-		svc.syncer.SyncFile(p)
+		svc.syncer.SyncFile(p, stopAfter)
 	}
 }
 
