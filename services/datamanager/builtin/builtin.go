@@ -669,7 +669,7 @@ func (svc *builtIn) uploadData(cancelCtx context.Context, intervalMins float64) 
 
 func isOffline() bool {
 	timeout := 5 * time.Second
-	_, err := net.DialTimeout("tcp", "viam.com:443", timeout)
+	_, err := net.DialTimeout("tcp", "app.viam.com:443", timeout)
 	// If there's an error, the system is likely offline.
 	return err != nil
 }
@@ -690,7 +690,7 @@ func (svc *builtIn) sync() {
 	}
 }
 
-//nolint
+// nolint
 func getAllFilesToSync(dir string, lastModifiedMillis int) []string {
 	var filePaths []string
 	_ = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
