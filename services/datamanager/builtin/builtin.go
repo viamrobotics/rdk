@@ -57,6 +57,9 @@ const defaultCaptureBufferSize = 4096
 // Default time to wait in milliseconds to check if a file has been modified.
 const defaultFileLastModifiedMillis = 10000.0
 
+// Default maximum size in bytes of a data capture file.
+var defaultMaxCaptureSize = int64(64 * 1024)
+
 // Default time between disk size checks.
 var filesystemPollInterval = 30 * time.Second
 
@@ -69,16 +72,17 @@ var errCaptureDirectoryConfigurationDisabled = errors.New("changing the capture 
 
 // Config describes how to configure the service.
 type Config struct {
-	CaptureDir                 string   `json:"capture_dir"`
-	AdditionalSyncPaths        []string `json:"additional_sync_paths"`
-	SyncIntervalMins           float64  `json:"sync_interval_mins"`
-	CaptureDisabled            bool     `json:"capture_disabled"`
-	ScheduledSyncDisabled      bool     `json:"sync_disabled"`
-	Tags                       []string `json:"tags"`
-	FileLastModifiedMillis     int      `json:"file_last_modified_millis"`
-	SelectiveSyncerName        string   `json:"selective_syncer_name"`
-	MaximumNumSyncThreads      int      `json:"maximum_num_sync_threads"`
-	DeleteEveryNthWhenDiskFull int      `json:"delete_every_nth_when_disk_full"`
+	CaptureDir                  string   `json:"capture_dir"`
+	AdditionalSyncPaths         []string `json:"additional_sync_paths"`
+	SyncIntervalMins            float64  `json:"sync_interval_mins"`
+	CaptureDisabled             bool     `json:"capture_disabled"`
+	ScheduledSyncDisabled       bool     `json:"sync_disabled"`
+	Tags                        []string `json:"tags"`
+	FileLastModifiedMillis      int      `json:"file_last_modified_millis"`
+	SelectiveSyncerName         string   `json:"selective_syncer_name"`
+	MaximumNumSyncThreads       int      `json:"maximum_num_sync_threads"`
+	DeleteEveryNthWhenDiskFull  int      `json:"delete_every_nth_when_disk_full"`
+	MaximumCaptureFileSizeBytes int64    `json:"maximum_capture_file_size_bytes"`
 }
 
 // Validate returns components which will be depended upon weakly due to the above matcher.
@@ -135,6 +139,7 @@ type builtIn struct {
 	cloudConnSvc        cloud.ConnectionService
 	cloudConn           rpc.ClientConn
 	syncTicker          *clk.Ticker
+	maxCaptureFileSize  int64
 
 	syncSensor           selectiveSyncer
 	selectiveSyncEnabled bool
@@ -331,7 +336,7 @@ func (svc *builtIn) initializeOrUpdateCollector(
 		ComponentName: config.Name.ShortName(),
 		Interval:      interval,
 		MethodParams:  methodParams,
-		Target:        datacapture.NewBuffer(targetDir, captureMetadata),
+		Target:        datacapture.NewBuffer(targetDir, captureMetadata, svc.maxCaptureFileSize),
 		QueueSize:     captureQueueSize,
 		BufferSize:    captureBufferSize,
 		Logger:        svc.logger,
@@ -453,6 +458,11 @@ func (svc *builtIn) Reconfigure(
 	deleteEveryNthValue := defaultDeleteEveryNth
 	if svcConfig.DeleteEveryNthWhenDiskFull != 0 {
 		deleteEveryNthValue = svcConfig.DeleteEveryNthWhenDiskFull
+	}
+
+	svc.maxCaptureFileSize = svcConfig.MaximumCaptureFileSizeBytes
+	if svc.maxCaptureFileSize == 0 {
+		svc.maxCaptureFileSize = defaultMaxCaptureSize
 	}
 
 	// Initialize or add collectors based on changes to the component configurations.
@@ -672,7 +682,7 @@ func (svc *builtIn) sync() {
 	}
 }
 
-//nolint
+// nolint
 func getAllFilesToSync(dir string, lastModifiedMillis int) []string {
 	var filePaths []string
 	_ = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
