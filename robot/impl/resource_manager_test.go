@@ -469,7 +469,7 @@ func TestManagerAdd(t *testing.T) {
 		return &fakeboard.Analog{}, nil
 	}
 	injectBoard.DigitalInterruptByNameFunc = func(name string) (board.DigitalInterrupt, error) {
-		return &pinwrappers.BasicDigitalInterrupt{}, nil
+		return &inject.DigitalInterrupt{}, nil
 	}
 
 	cfg = &resource.Config{
