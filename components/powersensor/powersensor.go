@@ -66,6 +66,7 @@ func Named(name string) resource.Name {
 type PowerSensor interface {
 	resource.Sensor
 	resource.Resource
+
 	// Voltage returns the voltage reading in volts and a bool returning true if the voltage is AC.
 	Voltage(ctx context.Context, extra map[string]interface{}) (float64, bool, error)
 
