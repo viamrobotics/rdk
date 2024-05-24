@@ -73,36 +73,36 @@ func Named(name string) resource.Name {
 //
 // LinearVelocity example:
 //
-//	// Get the current linear velocity of the movement sensor.
+//	// Get the current linear velocity of the movement sensor
 //	linVel, err := myMovementSensor.LinearVelocity(context.Background(), nil)
 //
 // AngularVelocity example:
 //
-//	// Get the current angular velocity of the movement sensor.
+//	// Get the current angular velocity of the movement sensor
 //	angVel, err := myMovementSensor.AngularVelocity(context.Background(), nil)
 //
-//	// Get the y component of angular velocity.
+//	// Get the y component of angular velocity
 //	yAngVel := angVel.Y
 //
 // LinearAcceleration example:
 //
-//	// Get the current linear acceleration of the movement sensor.
+//	// Get the current linear acceleration of the movement sensor
 //	linVel, err := myMovementSensor.LinearVelocity(context.Background(), nil)
 //
 // CompassHeading example:
 //
-//	// Get the current compass heading of the movement sensor.
+//	// Get the current compass heading of the movement sensor
 //	heading, err := myMovementSensor.CompassHeading(context.Background(), nil)
 //
 // Orientation example:
 //
-//	// Get the current orientation of the movement sensor.
+//	// Get the current orientation of the movement sensor
 //	sensorOrientation, err := myMovementSensor.Orientation(context.Background(), nil)
 //
-//	// Get the orientation vector.
+//	// Get the orientation vector
 //	orientation := sensorOrientation.OrientationVectorDegrees()
 //
-//	// Print out the orientation vector.
+//	// Print out the orientation vector
 //	logger.Info("The x component of the orientation vector: ", orientation.0X)
 //	logger.Info("The y component of the orientation vector: ", orientation.0Y)
 //	logger.Info("The z component of the orientation vector: ", orientation.0Z)
@@ -110,12 +110,12 @@ func Named(name string) resource.Name {
 //
 // Properties example:
 //
-//	// Get the supported properties of the movement sensor.
+//	// Get the supported properties of the movement sensor
 //	properties, err := myMovementSensor.Properties(context.Background(), nil)
 //
 // Accuracy example:
 //
-//	// Get the accuracy of the movement sensor.
+//	// Get the accuracy of the movement sensor
 //	accuracy, err := myMovementSensor.Accuracy(context.Background(), nil)
 type MovementSensor interface {
 	resource.Sensor
