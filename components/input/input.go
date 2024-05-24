@@ -38,12 +38,12 @@ func Named(name string) resource.Name {
 //
 // Controls example:
 //
-//	// Get the list of Controls provided by the controller.
+//	// Get the list of Controls provided by the controller
 //	controls, err := myController.Controls(context.Background(), nil)
 //
 // Events example:
 //
-//	// Get the most recent Event for each Control.
+//	// Get the most recent Event for each Control
 //	recent_events, err := myController.Events(context.Background(), nil)
 //
 // RegisterControlCallback example:
@@ -53,24 +53,24 @@ func Named(name string) resource.Name {
 //	    logger.Info("Start Menu Button was pressed at this time: %v", event.Time)
 //	}
 //
-//	// Define the EventType "ButtonPress" to serve as the trigger for printStartTime.
+//	// Define the EventType "ButtonPress" to serve as the trigger for printStartTime
 //	triggers := []input.EventType{input.ButtonPress}
 //
 //	// Get the controller's Controls.
 //	controls, err := controller.Controls(ctx, nil)
 //
-//	// If the "ButtonStart" Control is found, trigger printStartTime when "ButtonStart" the event "ButtonPress" occurs.
+//	// If the "ButtonStart" Control is found, trigger printStartTime when "ButtonStart" the event "ButtonPress" occurs
 //	if !slices.Contains(controls, input.ButtonStart) {
 //	    return errors.New("button `ButtonStart` not found; controller may be disconnected")
 //	}
-//	Mycontroller.RegisterControlCallback(context.Background(), input.ButtonStart, triggers, printStartTime, nil)
+//	myController.RegisterControlCallback(context.Background(), input.ButtonStart, triggers, printStartTime, nil)
 type Controller interface {
 	resource.Resource
 
-	// Controls returns a list of Controls provided by the Controller
+	// Controls returns a list of Controls provided by the Controller.
 	Controls(ctx context.Context, extra map[string]interface{}) ([]Control, error)
 
-	// Events returns most recent Event for each input (which should be the current state)
+	// Events returns most recent Event for each input (which should be the current state).
 	Events(ctx context.Context, extra map[string]interface{}) (map[Control]Event, error)
 
 	// RegisterCallback registers a callback that will fire on given EventTypes for a given Control.
