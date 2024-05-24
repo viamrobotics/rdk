@@ -235,6 +235,9 @@ func (m *EncodedMotor) SetPower(ctx context.Context, powerPct float64, extra map
 // goForMath calculates goalPos, goalRPM, and direction based on the given GoFor rpm and revolutions, and the current position.
 func (m *EncodedMotor) goForMath(ctx context.Context, rpm, revolutions float64) (float64, float64, float64) {
 	direction := sign(rpm * revolutions)
+	if revolutions == 0 {
+		direction = sign(rpm)
+	}
 
 	currentPos, err := m.position(ctx, nil)
 	if err != nil {
