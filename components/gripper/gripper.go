@@ -54,9 +54,8 @@ type Gripper interface {
 	// This will block until done or a new operation cancels this one
 	Open(ctx context.Context, extra map[string]interface{}) error
 
-	// Grab makes the gripper grab.
-	// returns true if we grabbed something.
-	// This will block until done or a new operation cancels this one
+	// Grab makes the gripper grab and returns true if it grabbed something.
+	// This method blocks until completed or cancelled.
 	Grab(ctx context.Context, extra map[string]interface{}) (bool, error)
 }
 
