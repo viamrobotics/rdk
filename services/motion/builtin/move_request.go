@@ -185,6 +185,7 @@ func (mr *moveRequest) getTransientDetections(
 		return nil, err
 	}
 	inputMap := mr.createInputMap(baseExecutionState)
+	inputMap[mr.kinematicBase.Name().ShortName()] = make([]referenceframe.Input, len(mr.kinematicBase.Kinematics().DoF()))
 
 	detections, err := visSrvc.GetObjectPointClouds(ctx, camName.Name, nil)
 	if err != nil {
@@ -301,7 +302,7 @@ func (mr *moveRequest) obstaclesIntersectPlan(
 
 func (mr *moveRequest) createInputMap(baseExecutionState motionplan.ExecutionState) map[string][]referenceframe.Input {
 	inputMap := referenceframe.StartPositions(mr.absoluteFS)
-	inputMap[mr.kinematicBase.Name().ShortName()] = make([]referenceframe.Input, len(mr.kinematicBase.Kinematics().DoF()))
+	inputMap[mr.kinematicBase.Name().ShortName()] = baseExecutionState.CurrentInputs()[mr.kinematicBase.Name().Name]
 	inputMap[mr.kinematicBase.LocalizationFrame().Name()] = referenceframe.FloatsToInputs([]float64{
 		baseExecutionState.CurrentPoses()[mr.kinematicBase.LocalizationFrame().Name()].Pose().Point().X,
 		baseExecutionState.CurrentPoses()[mr.kinematicBase.LocalizationFrame().Name()].Pose().Point().Y,
