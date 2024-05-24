@@ -159,16 +159,6 @@ func TestRobotReconfigure(t *testing.T) {
 		test.That(t, utils.NewStringSet(gripper.NamesFromRobot(robot)...), test.ShouldBeEmpty)
 		test.That(t, utils.NewStringSet(sensor.NamesFromRobot(robot)...), test.ShouldBeEmpty)
 		test.That(t, utils.NewStringSet(servo.NamesFromRobot(robot)...), test.ShouldBeEmpty)
-		names := rdktestutils.NewSortedResourceNames(robot.ResourceNames()...)
-		names2 := rdktestutils.ConcatResourceNames(
-			armNames,
-			baseNames,
-			boardNames,
-			mockNames,
-			resource.DefaultServices(),
-		)
-		_ = names2
-		_ = names
 		rdktestutils.VerifySameResourceNames(t, robot.ResourceNames(), rdktestutils.ConcatResourceNames(
 			armNames,
 			baseNames,
