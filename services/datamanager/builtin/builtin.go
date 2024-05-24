@@ -57,6 +57,9 @@ const defaultCaptureBufferSize = 4096
 // Default time to wait in milliseconds to check if a file has been modified.
 const defaultFileLastModifiedMillis = 10000.0
 
+// Default maximum size in bytes of a data capture file.
+var defaultMaxCaptureSize = int64(256 * 1024)
+
 // Default time between disk size checks.
 var filesystemPollInterval = 30 * time.Second
 
@@ -69,16 +72,17 @@ var errCaptureDirectoryConfigurationDisabled = errors.New("changing the capture 
 
 // Config describes how to configure the service.
 type Config struct {
-	CaptureDir                 string   `json:"capture_dir"`
-	AdditionalSyncPaths        []string `json:"additional_sync_paths"`
-	SyncIntervalMins           float64  `json:"sync_interval_mins"`
-	CaptureDisabled            bool     `json:"capture_disabled"`
-	ScheduledSyncDisabled      bool     `json:"sync_disabled"`
-	Tags                       []string `json:"tags"`
-	FileLastModifiedMillis     int      `json:"file_last_modified_millis"`
-	SelectiveSyncerName        string   `json:"selective_syncer_name"`
-	MaximumNumSyncThreads      int      `json:"maximum_num_sync_threads"`
-	DeleteEveryNthWhenDiskFull int      `json:"delete_every_nth_when_disk_full"`
+	CaptureDir                  string   `json:"capture_dir"`
+	AdditionalSyncPaths         []string `json:"additional_sync_paths"`
+	SyncIntervalMins            float64  `json:"sync_interval_mins"`
+	CaptureDisabled             bool     `json:"capture_disabled"`
+	ScheduledSyncDisabled       bool     `json:"sync_disabled"`
+	Tags                        []string `json:"tags"`
+	FileLastModifiedMillis      int      `json:"file_last_modified_millis"`
+	SelectiveSyncerName         string   `json:"selective_syncer_name"`
+	MaximumNumSyncThreads       int      `json:"maximum_num_sync_threads"`
+	DeleteEveryNthWhenDiskFull  int      `json:"delete_every_nth_when_disk_full"`
+	MaximumCaptureFileSizeBytes int64    `json:"maximum_capture_file_size_bytes"`
 }
 
 // Validate returns components which will be depended upon weakly due to the above matcher.
@@ -135,6 +139,7 @@ type builtIn struct {
 	cloudConnSvc        cloud.ConnectionService
 	cloudConn           rpc.ClientConn
 	syncTicker          *clk.Ticker
+	maxCaptureFileSize  int64
 
 	syncSensor           selectiveSyncer
 	selectiveSyncEnabled bool
@@ -264,6 +269,7 @@ func (svc *builtIn) initializeOrUpdateCollector(
 	res resource.Resource,
 	md resourceMethodMetadata,
 	config datamanager.DataCaptureConfig,
+	maxFileSizeChanged bool,
 ) (*collectorAndConfig, error) {
 	// Build metadata.
 	captureMetadata, err := datacapture.BuildCaptureMetadata(
@@ -280,7 +286,9 @@ func (svc *builtIn) initializeOrUpdateCollector(
 	// TODO(DATA-451): validate method params
 
 	if storedCollectorAndConfig, ok := svc.collectors[md]; ok {
-		if storedCollectorAndConfig.Config.Equals(&config) && res == storedCollectorAndConfig.Resource {
+		if storedCollectorAndConfig.Config.Equals(&config) &&
+			res == storedCollectorAndConfig.Resource &&
+			!maxFileSizeChanged {
 			// If the attributes have not changed, do nothing and leave the existing collector.
 			return svc.collectors[md], nil
 		}
@@ -331,7 +339,7 @@ func (svc *builtIn) initializeOrUpdateCollector(
 		ComponentName: config.Name.ShortName(),
 		Interval:      interval,
 		MethodParams:  methodParams,
-		Target:        datacapture.NewBuffer(targetDir, captureMetadata),
+		Target:        datacapture.NewBuffer(targetDir, captureMetadata, svc.maxCaptureFileSize),
 		QueueSize:     captureQueueSize,
 		BufferSize:    captureBufferSize,
 		Logger:        svc.logger,
@@ -460,6 +468,9 @@ func (svc *builtIn) Reconfigure(
 	if !svc.captureDisabled {
 		for res, resConfs := range captureConfigs {
 			for _, resConf := range resConfs {
+				if resConf.Method == "" {
+					continue
+				}
 				// Create component/method metadata
 				methodMetadata := data.MethodMetadata{
 					API:        resConf.Name.API,
@@ -489,11 +500,18 @@ func (svc *builtIn) Reconfigure(
 				// without it, we will be logging the same message over and over for no reason
 				svc.componentMethodFrequencyHz[componentMethodMetadata] = resConf.CaptureFrequencyHz
 
-				if !resConf.Disabled && resConf.CaptureFrequencyHz > 0 {
+				maxCaptureFileSize := svcConfig.MaximumCaptureFileSizeBytes
+				if maxCaptureFileSize == 0 {
+					maxCaptureFileSize = defaultMaxCaptureSize
+				}
+				if !resConf.Disabled && (resConf.CaptureFrequencyHz > 0 || svc.maxCaptureFileSize != maxCaptureFileSize) {
 					// We only use service-level tags.
 					resConf.Tags = svcConfig.Tags
 
-					newCollectorAndConfig, err := svc.initializeOrUpdateCollector(res, componentMethodMetadata, resConf)
+					maxFileSizeChanged := svc.maxCaptureFileSize != maxCaptureFileSize
+					svc.maxCaptureFileSize = maxCaptureFileSize
+
+					newCollectorAndConfig, err := svc.initializeOrUpdateCollector(res, componentMethodMetadata, resConf, maxFileSizeChanged)
 					if err != nil {
 						svc.logger.CErrorw(ctx, "failed to initialize or update collector", "error", err)
 					} else {
