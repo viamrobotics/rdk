@@ -21,15 +21,17 @@ func init() {
 }
 
 // A Readings ties both the sensor name and its reading together.
-//
-//	// Get the readings provided by the sensor.
-//	readings, err := mySensor.Readings(context.Background(), nil)
 type Readings struct {
 	Name     resource.Name
 	Readings map[string]interface{}
 }
 
 // A Service centralizes all sensors into one place.
+//
+// Readings example:
+//
+// 	// Get the readings provided by the sensor.
+//	readings, err := mySensor.Readings(context.Background(), nil)
 type Service interface {
 	resource.Resource
 	Sensors(ctx context.Context, extra map[string]interface{}) ([]resource.Name, error)
