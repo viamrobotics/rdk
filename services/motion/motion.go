@@ -217,6 +217,7 @@ type PlanWithStatus struct {
 //		SlamName:      mySLAMServiceResourceName,
 //	})
 //
+//	// MoveOnMap is a non-blocking method and this line can optionally be added to block until the movement is done
 //	err = motion.PollHistoryUntilSuccessOrError(
 //		context.Background(),
 //		motionService,
@@ -244,7 +245,16 @@ type PlanWithStatus struct {
 //		MovementSensorName: myMvmntSensorResourceName,
 //	})
 //
-//	log.Printf("Move execution ID: %v", executionID)
+//	//	MoveOnGlobe is a non-blocking method and this line can optionally be added to block until the movement is done
+//	err = motion.PollHistoryUntilSuccessOrError(
+//		context.Background(),
+//		motionService,
+//		time.Duration(time.Second),
+//		motion.PlanHistoryReq{
+//			ComponentName: myBaseResourceName,
+//			ExecutionID:   executionID,
+//		},
+//	)
 //
 // GetPose example:
 //
@@ -254,24 +264,13 @@ type PlanWithStatus struct {
 //	// Get the pose of the gripper
 //	myArmMotionPose, err := motionService.GetPose(context.Background(), gripperName, referenceframe.World, nil, nil)
 //
-//	log.Printf("Position of my gripper from the motion service: %v", myArmMotionPose.Pose().Point())
-//	log.Printf("Orientation of my gripper from the motion service: %v", myArmMotionPose.Pose().Orientation())
+//	fmt.Println("Position:", myArmMotionPose.Pose().Point(), "Orientation:", myArmMotionPose.Pose().Orientation())
 //
 // StopPlan example:
 //
 //	// Get the resource names of the base and movement sensor
 //	myBaseResourceName := base.Named("myBase")
-//	myMvmntSensorResourceName := movementsensor.Named("my_movement_sensor")
-//
-//	// Define a destination Point at the GPS coordinates [0, 0]
-//	myDestination := geo.NewPoint(0, 0)
-//
-//	// Move the base component to the designated geographic location, as reported by the movement sensor
-//	executionID, err := motionService.MoveOnGlobe(context.Background(), motion.MoveOnGlobeReq{
-//		ComponentName:      myBaseResourceName,
-//		Destination:        myDestination,
-//		MovementSensorName: myMvmntSensorResourceName,
-//	})
+//	// Assumes there is an active MoveOnMap or MoveOnGlobe in progress for the configured base component
 //
 //	// Stop the base component which was instructed to move by `MoveOnGlobe()` or `MoveOnMap()`
 //	err = motionService.StopPlan(context.Background(), motion.StopPlanReq{
