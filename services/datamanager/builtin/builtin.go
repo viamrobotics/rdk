@@ -335,7 +335,6 @@ func (svc *builtIn) initializeOrUpdateCollector(
 	if err := os.MkdirAll(targetDir, 0o700); err != nil {
 		return nil, err
 	}
-	fmt.Println("initializing collector with file size", svc.maxCaptureFileSize)
 	params := data.CollectorParams{
 		ComponentName: config.Name.ShortName(),
 		Interval:      interval,
@@ -468,7 +467,6 @@ func (svc *builtIn) Reconfigure(
 	newCollectors := make(map[resourceMethodMetadata]*collectorAndConfig)
 	if !svc.captureDisabled {
 		for res, resConfs := range captureConfigs {
-			fmt.Println("resource", res.Name())
 			for _, resConf := range resConfs {
 				if resConf.Method == "" {
 					continue
@@ -478,7 +476,6 @@ func (svc *builtIn) Reconfigure(
 					API:        resConf.Name.API,
 					MethodName: resConf.Method,
 				}
-				fmt.Println("METHOD METADATA", methodMetadata.MethodName)
 
 				componentMethodMetadata := resourceMethodMetadata{
 					ResourceName:   resConf.Name.ShortName(),
