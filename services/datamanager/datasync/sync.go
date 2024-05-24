@@ -182,6 +182,8 @@ func (s *syncer) SyncFile(path string, stopAfter time.Time) {
 					}
 				}
 			})
+
+			return
 		default:
 			// Avoid blocking main thread if currently at goroutine capacity.
 		}
