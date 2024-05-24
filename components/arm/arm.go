@@ -67,38 +67,35 @@ func Named(name string) resource.Name {
 //
 // EndPosition example:
 //
-//	// Get the end position of the arm as a Pose.
+//	// Get the end position of the arm as a Pose
 //	pos, err := myArm.EndPosition(context.Background(), nil)
 //
 // MoveToPosition example:
 //
-//	// This will block until done or a new operation cancels this one
-//
-//	// Create a Pose for the arm.
+//	// Create a Pose for the arm
 //	examplePose := spatialmath.NewPose(
 //			r3.Vector{X: 5, Y: 5, Z: 5},
 //			&spatialmath.OrientationVectorDegrees{0X: 5, 0Y: 5, Theta: 20}
 //	)
 //
-//	// Move your arm to the Pose.
+//	// Move your arm to the Pose
 //	err = myArm.MoveToPosition(context.Background(), examplePose, nil)
 //
 // MoveToJointPositions example:
 //
 //    // Assumes you have imported "go.viam.com/api/component/arm/v1" as `componentpb`
-//
 //    // Declare an array of values with your desired rotational value for each joint on the arm.
 //    degrees := []float64{4.0, 5.0, 6.0}
 //
-//    // Declare a new JointPositions with these values.
+//    // Declare a new JointPositions with these values
 //    jointPos := &componentpb.JointPositions{Values: degrees}
 //
-//    // Move each joint of the arm to the position these values specify.
+//    // Move each joint of the arm to the position these values specify
 //    err = myArm.MoveToJointPositions(context.Background(), jointPos, nil)
 //
 // JointPositions example:
 //
-//	// Get the current position of each joint on the arm as JointPositions.
+//	// Get the current position of each joint on the arm as JointPositions
 //	pos, err := myArm.JointPositions(context.Background(), nil)
 type Arm interface {
 	resource.Resource
@@ -111,6 +108,7 @@ type Arm interface {
 	EndPosition(ctx context.Context, extra map[string]interface{}) (spatialmath.Pose, error)
 
 	// MoveToPosition moves the arm to the given absolute position.
+	// This method blocks until completed or cancelled.
 	MoveToPosition(ctx context.Context, pose spatialmath.Pose, extra map[string]interface{}) error
 
 	// MoveToJointPositions moves the arm's joints to the given positions.
