@@ -188,11 +188,14 @@ func checkPlanRelative(
 		return err
 	}
 
+	overWrittenInputs := startingInputs
+	overWrittenInputs[checkFrame.Name()] = make([]referenceframe.Input, len(checkFrame.DoF()))
+
 	// setup the planOpts. Poses should be in world frame. This allows us to know e.g. which obstacles may ephemerally collide.
 	if sfPlanner.planOpts, err = sfPlanner.plannerSetupFromMoveRequest(
 		planStartPoseWorld.Pose(),
 		planEndPoseWorld.Pose(),
-		startingInputs,
+		overWrittenInputs,
 		worldState,
 		nil, // no pb.Constraints
 		nil, // no plannOpts
