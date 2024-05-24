@@ -40,6 +40,7 @@ func init() {
 //	metadata, err := myMLModel.Metadata(context.Background())
 type Service interface {
 	resource.Resource
+
 	// Infer returns an output tensor map after running an input tensor map through an interface model.
 	Infer(ctx context.Context, tensors ml.Tensors) (ml.Tensors, error)
 
