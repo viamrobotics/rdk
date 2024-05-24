@@ -269,7 +269,7 @@ func (svc *builtIn) initializeOrUpdateCollector(
 	res resource.Resource,
 	md resourceMethodMetadata,
 	config datamanager.DataCaptureConfig,
-	parallelismChanged bool,
+	maxFileSizeChanged bool,
 ) (*collectorAndConfig, error) {
 	// Build metadata.
 	captureMetadata, err := datacapture.BuildCaptureMetadata(
@@ -288,7 +288,7 @@ func (svc *builtIn) initializeOrUpdateCollector(
 	if storedCollectorAndConfig, ok := svc.collectors[md]; ok {
 		if storedCollectorAndConfig.Config.Equals(&config) &&
 			res == storedCollectorAndConfig.Resource &&
-			!parallelismChanged {
+			!maxFileSizeChanged {
 			// If the attributes have not changed, do nothing and leave the existing collector.
 			return svc.collectors[md], nil
 		}
@@ -508,10 +508,10 @@ func (svc *builtIn) Reconfigure(
 					// We only use service-level tags.
 					resConf.Tags = svcConfig.Tags
 
-					parallelismChanged := svc.maxCaptureFileSize != maxCaptureFileSize
+					maxFileSizeChanged := svc.maxCaptureFileSize != maxCaptureFileSize
 					svc.maxCaptureFileSize = maxCaptureFileSize
 
-					newCollectorAndConfig, err := svc.initializeOrUpdateCollector(res, componentMethodMetadata, resConf, parallelismChanged)
+					newCollectorAndConfig, err := svc.initializeOrUpdateCollector(res, componentMethodMetadata, resConf, maxFileSizeChanged)
 					if err != nil {
 						svc.logger.CErrorw(ctx, "failed to initialize or update collector", "error", err)
 					} else {
