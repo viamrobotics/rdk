@@ -33,17 +33,19 @@ func init() {
 //
 // Close example:
 //
-//	// Close out of all remote control-related systems.
+//	// Close out of all remote control-related systems
 //	err := baseRCService.Close(context.Background())
 //
 // ControllerInputs example:
 //
-//	// Get the list of inputs from the controller that are being monitored for that control mode.
+//	// Get the list of inputs from the controller that are being monitored for that control mode
 //	inputs := baseRCService.ControllerInputs()
 type Service interface {
 	resource.Resource
-	// Close out of all remote control related systems.
+
+	// Close closes out of all remote control related systems.
 	Close(ctx context.Context) error
-	// controllerInputs returns the list of inputs from the controller that are being monitored for that control mode.
+
+	// ControllerInputs returns the list of inputs from the controller that are being monitored for that control mode.
 	ControllerInputs() []input.Control
 }
