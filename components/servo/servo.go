@@ -34,19 +34,19 @@ var API = resource.APINamespaceRDK.WithComponentType(SubtypeName)
 //
 // Move example:
 //
-//	// Move the servo from its origin to the desired angle of 30 degrees.
-//	myServoComponent.Move(context.Background(), 30, nil)
+//	// Move the servo from its origin to the desired angle of 30 degrees
+//	myServo.Move(context.Background(), 30, nil)
 //
 // Position example:
 //
-//	// Get the current set angle of the servo.
-//	pos1, err := myServoComponent.Position(context.Background(), nil)
+//	// Get the current set angle of the servo
+//	pos1, err := myServo.Position(context.Background(), nil)
 //
-//	// Move the servo from its origin to the desired angle of 20 degrees.
-//	myServoComponent.Move(context.Background(), 20, nil)
+//	// Move the servo from its origin to the desired angle of 20 degrees
+//	myServo.Move(context.Background(), 20, nil)
 //
-//	// Get the current set angle of the servo.
-//	pos2, err := myServoComponent.Position(context.Background(), nil)
+//	// Get the current set angle of the servo
+//	pos2, err := myServo.Position(context.Background(), nil)
 //
 //	logger.Info("Position 1: ", pos1)
 //	logger.Info("Position 2: ", pos2)
@@ -54,8 +54,8 @@ type Servo interface {
 	resource.Resource
 	resource.Actuator
 
-	// Move moves the servo to the given angle (0-180 degrees)
-	// This will block until done or a new operation cancels this one
+	// Move moves the servo to the given angle (0-180 degrees).
+	// This method blocks until completed or cancelled.
 	Move(ctx context.Context, angleDeg uint32, extra map[string]interface{}) error
 
 	// Position returns the current set angle (degrees) of the servo.
