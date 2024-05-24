@@ -269,6 +269,7 @@ func (svc *builtIn) initializeOrUpdateCollector(
 	res resource.Resource,
 	md resourceMethodMetadata,
 	config datamanager.DataCaptureConfig,
+	parallelismChanged bool,
 ) (*collectorAndConfig, error) {
 	// Build metadata.
 	captureMetadata, err := datacapture.BuildCaptureMetadata(
@@ -285,7 +286,9 @@ func (svc *builtIn) initializeOrUpdateCollector(
 	// TODO(DATA-451): validate method params
 
 	if storedCollectorAndConfig, ok := svc.collectors[md]; ok {
-		if storedCollectorAndConfig.Config.Equals(&config) && res == storedCollectorAndConfig.Resource {
+		if storedCollectorAndConfig.Config.Equals(&config) &&
+			res == storedCollectorAndConfig.Resource &&
+			!parallelismChanged {
 			// If the attributes have not changed, do nothing and leave the existing collector.
 			return svc.collectors[md], nil
 		}
@@ -498,13 +501,14 @@ func (svc *builtIn) Reconfigure(
 				if maxCaptureFileSize == 0 {
 					maxCaptureFileSize = defaultMaxCaptureSize
 				}
-				if !resConf.Disabled && resConf.CaptureFrequencyHz > 0 && svc.maxCaptureFileSize != maxCaptureFileSize {
+				if !resConf.Disabled && resConf.CaptureFrequencyHz > 0 || svc.maxCaptureFileSize != maxCaptureFileSize {
 					// We only use service-level tags.
 					resConf.Tags = svcConfig.Tags
 
 					svc.maxCaptureFileSize = maxCaptureFileSize
+					parallelismChanged := svc.maxCaptureFileSize != maxCaptureFileSize
 
-					newCollectorAndConfig, err := svc.initializeOrUpdateCollector(res, componentMethodMetadata, resConf)
+					newCollectorAndConfig, err := svc.initializeOrUpdateCollector(res, componentMethodMetadata, resConf, parallelismChanged)
 					if err != nil {
 						svc.logger.CErrorw(ctx, "failed to initialize or update collector", "error", err)
 					} else {
@@ -683,7 +687,7 @@ func (svc *builtIn) sync() {
 	}
 }
 
-//nolint
+// nolint
 func getAllFilesToSync(dir string, lastModifiedMillis int) []string {
 	var filePaths []string
 	_ = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
