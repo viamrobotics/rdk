@@ -220,6 +220,7 @@ type PlanWithStatus struct {
 //		SlamName:      mySLAMServiceResourceName,
 //	})
 //
+//	// MoveOnMap is a non-blocking method and this line can optionally be added to block until the movement is done
 //	err = motion.PollHistoryUntilSuccessOrError(
 //		context.Background(),
 //		motionService,
@@ -247,7 +248,16 @@ type PlanWithStatus struct {
 //		MovementSensorName: myMvmntSensorResourceName,
 //	})
 //
-//	log.Printf("Move execution ID: %v", executionID)
+//	//	MoveOnGlobe is a non-blocking method and this line can optionally be added to block until the movement is done
+//	err = motion.PollHistoryUntilSuccessOrError(
+//		context.Background(),
+//		motionService,
+//		time.Duration(time.Second),
+//		motion.PlanHistoryReq{
+//			ComponentName: myBaseResourceName,
+//			ExecutionID:   executionID,
+//		},
+//	)
 //
 // GetPose example:
 //
@@ -288,6 +298,7 @@ type PlanWithStatus struct {
 //
 //	// Get the resource.Names of the base and of the SLAM service
 //	myBaseResourceName := base.Named("myBase")
+<<<<<<< HEAD
 //	mySLAMServiceResourceName := slam.Named("my_slam_service")
 //	// Define a destination Pose with respect to the origin of the map from the SLAM service "my_slam_service"
 //	myPose := spatialmath.NewPoseFromPoint(r3.Vector{Y: 10})
@@ -316,6 +327,9 @@ type PlanWithStatus struct {
 //	    Destination:        myDestination,
 //	    MovementSensorName: myMvmntSensorResourceName,
 //	})
+=======
+//	// Assumes there is an active MoveOnMap or MoveOnGlobe in progress for the configured base component
+>>>>>>> d52c268ed (integrate feedback)
 //
 // StopPlan example:
 //
