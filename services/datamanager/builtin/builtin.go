@@ -460,11 +460,6 @@ func (svc *builtIn) Reconfigure(
 		deleteEveryNthValue = svcConfig.DeleteEveryNthWhenDiskFull
 	}
 
-	svc.maxCaptureFileSize = svcConfig.MaximumCaptureFileSizeBytes
-	if svc.maxCaptureFileSize == 0 {
-		svc.maxCaptureFileSize = defaultMaxCaptureSize
-	}
-
 	// Initialize or add collectors based on changes to the component configurations.
 	newCollectors := make(map[resourceMethodMetadata]*collectorAndConfig)
 	if !svc.captureDisabled {
@@ -499,9 +494,15 @@ func (svc *builtIn) Reconfigure(
 				// without it, we will be logging the same message over and over for no reason
 				svc.componentMethodFrequencyHz[componentMethodMetadata] = resConf.CaptureFrequencyHz
 
-				if !resConf.Disabled && resConf.CaptureFrequencyHz > 0 {
+				maxCaptureFileSize := svcConfig.MaximumCaptureFileSizeBytes
+				if maxCaptureFileSize == 0 {
+					maxCaptureFileSize = defaultMaxCaptureSize
+				}
+				if !resConf.Disabled && resConf.CaptureFrequencyHz > 0 && svc.maxCaptureFileSize != maxCaptureFileSize {
 					// We only use service-level tags.
 					resConf.Tags = svcConfig.Tags
+
+					svc.maxCaptureFileSize = maxCaptureFileSize
 
 					newCollectorAndConfig, err := svc.initializeOrUpdateCollector(res, componentMethodMetadata, resConf)
 					if err != nil {
