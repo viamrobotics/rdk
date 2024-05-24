@@ -296,6 +296,8 @@ func (svc *builtIn) initializeOrUpdateCollector(
 		storedCollectorAndConfig.Collector.Close()
 	}
 
+	fmt.Println("new collector with max capture file size:", svc.maxCaptureFileSize)
+
 	// Get collector constructor for the component API and method.
 	collectorConstructor := data.CollectorLookup(md.MethodMetadata)
 	if collectorConstructor == nil {
