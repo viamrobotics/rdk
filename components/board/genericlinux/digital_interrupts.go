@@ -101,24 +101,32 @@ func (di *digitalInterrupt) monitor(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case event := <-di.line.Events():
-			di.mu.Lock()
-			defer di.mu.Unlock()
+			// Put the body of this case in an anonymous function so we unlock the mutex when it's
+			// finished.
+			shouldReturn := func() bool {
+				di.mu.Lock()
+				defer di.mu.Unlock()
 
-			if event.RisingEdge {
-				di.count++
-			}
-
-			tick := board.Tick{
-				Name: di.config.Name,
-				High: event.RisingEdge,
-				TimestampNanosec: uint64(event.Time.UnixNano()),
-			}
-			for _, ch := range di.channels {
-				select {
-				case <-ctx.Done():
-					return
-				case ch<-tick:
+				if event.RisingEdge {
+					di.count++
 				}
+
+				tick := board.Tick{
+					Name: di.config.Name,
+					High: event.RisingEdge,
+					TimestampNanosec: uint64(event.Time.UnixNano()),
+				}
+				for _, ch := range di.channels {
+					select {
+					case <-ctx.Done():
+						return true // Stop the entire monitor
+					case ch<-tick:
+					}
+				}
+				return false
+			}() // Execute the anonymous function, then unlock the mutex again
+			if shouldReturn {
+				return
 			}
 		}
 	}
