@@ -194,6 +194,65 @@ type PlanWithStatus struct {
 //
 //	// Assumes a gripper configured with name "my_gripper" on the machine
 //	gripperName := gripper.Named("my_gripper")
+//
+//	geometriesInFrame := []*referenceframe.GeometriesInFrame{}
+//
+//	worldState, _ := referenceframe.NewWorldState(geometriesInFrame, nil)
+//
+//	goalPose := referenceframe.NewPoseInFrame("my_gripper", spatialmath.NewPoseFromPoint(r3.Vector{X:-3, Y:0.5}))
+//
+//	// Move the gripper
+//	moved, err := motionService.Move(context.Background(), gripperName, goalPose, worldState, nil, nil)
+//
+// MoveOnMap example:
+//
+//	// Assumes a base with the name "my_base" is configured on the machine
+//	myBaseResourceName := base.Named("my_base")
+//	mySLAMServiceResourceName := slam.Named("my_slam_service")
+//
+//	// Define a destination Pose
+//	myPose := spatialmath.NewPoseFromPoint(r3.Vector{Y: 10})
+//
+//	// Move the base component to the destination pose
+//	executionID, err := motionService.MoveOnMap(context.Background(), motion.MoveOnMapReq{
+//		ComponentName: myBaseResourceName,
+//		Destination:   myPose,
+//		SlamName:      mySLAMServiceResourceName,
+//	})
+//
+//	err = motion.PollHistoryUntilSuccessOrError(
+//		context.Background(),
+//		motionService,
+//		time.Duration(time.Second),
+//		motion.PlanHistoryReq{
+//			ComponentName: myBaseResourceName,
+//			ExecutionID:   executionID,
+//		},
+//	)
+//
+// MoveOnGlobe example:
+//
+//	// Assumes a base with the name "my_base" is configured on the machine
+//	// Get the resource names of the base and movement sensor
+//	myBaseResourceName := base.Named("myBase")
+//	myMvmntSensorResourceName := movementsensor.Named("my_movement_sensor")
+//
+//	// Define a destination Point at the GPS coordinates [0, 0]
+//	myDestination := geo.NewPoint(0, 0)
+//
+//	// Move the base component to the designated geographic location, as reported by the movement sensor
+//	executionID, err := motionService.MoveOnGlobe(context.Background(), motion.MoveOnGlobeReq{
+//		ComponentName:      myBaseResourceName,
+//		Destination:        myDestination,
+//		MovementSensorName: myMvmntSensorResourceName,
+//	})
+//
+//	log.Printf("Move execution ID: %v", executionID)
+//
+// GetPose example:
+//
+//	// Assumes a gripper configured with name "my_gripper" on the machine
+//	gripperName := gripper.Named("my_gripper")
 //	myFrame := "my_gripper_offset"
 //
 //	goalPose := referenceframe.PoseInFrame(0, 0, 300, 0, 0, 1, 0)
