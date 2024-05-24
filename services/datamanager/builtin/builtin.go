@@ -290,6 +290,7 @@ func (svc *builtIn) initializeOrUpdateCollector(
 			res == storedCollectorAndConfig.Resource &&
 			!parallelismChanged {
 			// If the attributes have not changed, do nothing and leave the existing collector.
+			fmt.Println("exiting here")
 			return svc.collectors[md], nil
 		}
 		// If the attributes have changed, close the existing collector.
@@ -510,8 +511,9 @@ func (svc *builtIn) Reconfigure(
 					// We only use service-level tags.
 					resConf.Tags = svcConfig.Tags
 
-					svc.maxCaptureFileSize = maxCaptureFileSize
 					parallelismChanged := svc.maxCaptureFileSize != maxCaptureFileSize
+					svc.maxCaptureFileSize = maxCaptureFileSize
+					fmt.Println(parallelismChanged)
 
 					newCollectorAndConfig, err := svc.initializeOrUpdateCollector(res, componentMethodMetadata, resConf, parallelismChanged)
 					if err != nil {
