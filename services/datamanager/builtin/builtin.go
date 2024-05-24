@@ -58,7 +58,7 @@ const defaultCaptureBufferSize = 4096
 const defaultFileLastModifiedMillis = 10000.0
 
 // Default maximum size in bytes of a data capture file.
-var defaultMaxCaptureSize = int64(64 * 1024)
+var defaultMaxCaptureSize = int64(256 * 1024)
 
 // Default time between disk size checks.
 var filesystemPollInterval = 30 * time.Second
@@ -335,6 +335,7 @@ func (svc *builtIn) initializeOrUpdateCollector(
 	if err := os.MkdirAll(targetDir, 0o700); err != nil {
 		return nil, err
 	}
+	fmt.Println("initializing collector with file size", svc.maxCaptureFileSize)
 	params := data.CollectorParams{
 		ComponentName: config.Name.ShortName(),
 		Interval:      interval,
@@ -467,12 +468,17 @@ func (svc *builtIn) Reconfigure(
 	newCollectors := make(map[resourceMethodMetadata]*collectorAndConfig)
 	if !svc.captureDisabled {
 		for res, resConfs := range captureConfigs {
+			fmt.Println("resource", res.Name())
 			for _, resConf := range resConfs {
+				if resConf.Method == "" {
+					continue
+				}
 				// Create component/method metadata
 				methodMetadata := data.MethodMetadata{
 					API:        resConf.Name.API,
 					MethodName: resConf.Method,
 				}
+				fmt.Println("METHOD METADATA", methodMetadata.MethodName)
 
 				componentMethodMetadata := resourceMethodMetadata{
 					ResourceName:   resConf.Name.ShortName(),
@@ -501,7 +507,7 @@ func (svc *builtIn) Reconfigure(
 				if maxCaptureFileSize == 0 {
 					maxCaptureFileSize = defaultMaxCaptureSize
 				}
-				if !resConf.Disabled && resConf.CaptureFrequencyHz > 0 || svc.maxCaptureFileSize != maxCaptureFileSize {
+				if !resConf.Disabled && (resConf.CaptureFrequencyHz > 0 || svc.maxCaptureFileSize != maxCaptureFileSize) {
 					// We only use service-level tags.
 					resConf.Tags = svcConfig.Tags
 
