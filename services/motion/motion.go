@@ -189,14 +189,17 @@ type PlanWithStatus struct {
 //
 // Move example:
 //
-//	// Assumes a gripper with the name "my_gripper" is configured on the machine
+//	// Assumes a gripper configured with name "my_gripper" on the machine
 //	gripperName := gripper.Named("my_gripper")
 //
-//	// Get the pose of the gripper
-//	myArmMotionPose, err := motionService.GetPose(context.Background(), gripperName, referenceframe.World, nil, nil)
+//	geometriesInFrame := []*referenceframe.GeometriesInFrame{}
 //
-//	log.Printf("Position of my_gripper from the motion service: %v", myArmMotionPose.Pose().Point())
-//	log.Printf("Orientation of my_gripper from the motion service: %v", myArmMotionPose.Pose().Orientation())
+//	worldState, _ := referenceframe.NewWorldState(geometriesInFrame, nil)
+//
+//	goalPose := referenceframe.NewPoseInFrame("my_gripper", spatialmath.NewPoseFromPoint(r3.Vector{X:-3, Y:0.5}))
+//
+//	// Move the gripper
+//	moved, err := motionService.Move(context.Background(), gripperName, goalPose, worldState, nil, nil)
 //
 // MoveOnMap example:
 //
