@@ -459,19 +459,6 @@ func TestManagerAdd(t *testing.T) {
 	test.That(t, arm1, test.ShouldEqual, injectArm)
 
 	injectBoard := &inject.Board{}
-	injectBoard.AnalogNamesFunc = func() []string {
-		return []string{"analog1"}
-	}
-	injectBoard.DigitalInterruptNamesFunc = func() []string {
-		return []string{"digital1"}
-	}
-	injectBoard.AnalogByNameFunc = func(name string) (board.Analog, error) {
-		return &fakeboard.Analog{}, nil
-	}
-	injectBoard.DigitalInterruptByNameFunc = func(name string) (board.DigitalInterrupt, error) {
-		return &inject.DigitalInterrupt{}, nil
-	}
-
 	cfg = &resource.Config{
 		API:  board.API,
 		Name: "board1",
