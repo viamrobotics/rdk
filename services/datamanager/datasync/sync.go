@@ -353,7 +353,9 @@ func moveFailedData(path, parentDir string) error {
 	// Move the file from parentDir/pathToFile/file.ext to parentDir/corrupted/pathToFile/file.ext
 	newPath := filepath.Join(newDir, filepath.Base(path))
 	if err := os.Rename(path, newPath); err != nil {
-		return errors.Wrapf(err, fmt.Sprintf("error moving corrupted data: %s", path))
+		if !errors.Is(err, os.ErrNotExist) {
+			return errors.Wrapf(err, fmt.Sprintf("error moving corrupted data: %s", path))
+		}
 	}
 	return nil
 }
