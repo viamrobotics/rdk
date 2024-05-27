@@ -236,14 +236,14 @@ func TestEncodedMotor(t *testing.T) {
 			test.That(t, err, test.ShouldBeNil)
 		})
 
-		on, powerPct, err := m.IsPowered(context.Background(), nil)
+		_, _, err := m.IsPowered(context.Background(), nil)
 		// TODO make these tests pass
 		// test.That(t, on, test.ShouldBeTrue)
 		// test.That(t, powerPct, test.ShouldBeGreaterThan, 0)
 		test.That(t, err, test.ShouldBeNil)
 
 		err = m.SetPower(context.Background(), -0.5, nil)
-		on, powerPct, err = m.IsPowered(context.Background(), nil)
+		on, powerPct, err := m.IsPowered(context.Background(), nil)
 		test.That(t, on, test.ShouldBeTrue)
 		test.That(t, powerPct, test.ShouldBeLessThan, 0)
 		test.That(t, err, test.ShouldBeNil)
