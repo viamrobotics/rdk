@@ -234,7 +234,7 @@ func (a *Arm) Geometries(ctx context.Context, extra map[string]interface{}) ([]s
 	return gif.Geometries(), nil
 }
 
-func MakeModelFrame(name string) (referenceframe.Model, error) {
+func makeModelFrame(name string) (referenceframe.Model, error) {
 	return referenceframe.UnmarshalModelJSON(fakejson, name)
 }
 
@@ -247,7 +247,7 @@ func modelFromName(model, name string) (referenceframe.Model, error) {
 	case eva.Model.Name:
 		return eva.MakeModelFrame(name)
 	case Model.Name:
-		return MakeModelFrame(name)
+		return makeModelFrame(name)
 	default:
 		return nil, errors.Errorf("fake arm cannot be created, unsupported arm-model: %s", model)
 	}
