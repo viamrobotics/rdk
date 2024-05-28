@@ -446,28 +446,28 @@ func (rf rotationalFrame) MarshalJSON() ([]byte, error) {
 	return json.Marshal(temp)
 }
 
-type sevenDFrame struct {
+type poseFrame struct {
 	*baseFrame
-	collisionGeometry spatial.Geometry
+	geometry spatial.Geometry
 }
 
-// New7DFrame created a frame with 7 degrees of freedom.
-func New7DFrame(name string, limits []Limit, collisionGeometry spatial.Geometry) (Frame, error) {
+// NewPoseFrame created a frame with 7 degrees of freedom, x, y, z, OX, OY, OZ, and theta in radians.
+func NewPoseFrame(name string, limits []Limit, geometry spatial.Geometry) (Frame, error) {
 	if len(limits) != 7 {
 		return nil,
 			errors.Errorf("Must have 7DOF state (x, y, z, OX, OY, OZ, theta) to create 6DFrame, have %d dof", len(limits))
 	}
 
-	return &sevenDFrame{
+	return &poseFrame{
 		&baseFrame{name, limits},
-		collisionGeometry,
+		geometry,
 	}, nil
 }
 
-// Transform takes a model and a list of joint angles in radians and computes the dual quaternion representing the
-// cartesian position of the end effector. This is useful for when conversions between quaternions and OV are not needed.
-func (m *sevenDFrame) Transform(inputs []Input) (spatial.Pose, error) {
-	if len(inputs) != 7 {
+// Transform on the pose frame acts as the identity function. Whatever inputs are given are directly translated
+// in a 7DoF pose. We note that theta should be in radians.
+func (pf *poseFrame) Transform(inputs []Input) (spatial.Pose, error) {
+	if err := pf.baseFrame.validInputs(inputs); err != nil {
 		return nil, NewIncorrectInputLengthError(len(inputs), 7)
 	}
 	return spatial.NewPose(
@@ -482,42 +482,43 @@ func (m *sevenDFrame) Transform(inputs []Input) (spatial.Pose, error) {
 }
 
 // Interpolate interpolates the given amount between the two sets of inputs.
-func (m *sevenDFrame) Interpolate(from, to []Input, by float64) ([]Input, error) {
-	if len(from) != len(m.DoF()) {
-		return nil, NewIncorrectInputLengthError(len(from), len(m.DoF()))
+func (pf *poseFrame) Interpolate(from, to []Input, by float64) ([]Input, error) {
+	if err := pf.baseFrame.validInputs(from); err != nil {
+		return nil, NewIncorrectInputLengthError(len(from), 7)
 	}
-	if len(to) != len(m.DoF()) {
-		return nil, NewIncorrectInputLengthError(len(to), len(m.DoF()))
+	if err := pf.baseFrame.validInputs(to); err != nil {
+		return nil, NewIncorrectInputLengthError(len(to), 7)
 	}
+	// todo: these inputs need to be interpolated correctly
 	return interpolateInputs(from, to, by), nil
 }
 
 // Geometries returns an object representing the 3D space associeted with the staticFrame.
-func (m *sevenDFrame) Geometries(inputs []Input) (*GeometriesInFrame, error) {
-	transformByPose, err := m.Transform(inputs)
+func (pf *poseFrame) Geometries(inputs []Input) (*GeometriesInFrame, error) {
+	transformByPose, err := pf.Transform(inputs)
 	if err != nil {
 		return nil, err
 	}
-	if m.collisionGeometry == nil {
-		return NewGeometriesInFrame(m.name, []spatial.Geometry{}), nil
+	if pf.geometry == nil {
+		return NewGeometriesInFrame(pf.name, []spatial.Geometry{}), nil
 	}
-	return NewGeometriesInFrame(m.name, []spatial.Geometry{m.collisionGeometry.Transform(transformByPose)}), nil
+	return NewGeometriesInFrame(pf.name, []spatial.Geometry{pf.geometry.Transform(transformByPose)}), nil
 }
 
 // DoF returns the number of degrees of freedom within a model.
-func (m *sevenDFrame) DoF() []Limit {
-	return m.limits
+func (pf *poseFrame) DoF() []Limit {
+	return pf.limits
 }
 
 // MarshalJSON serializes a Model.
-func (m *sevenDFrame) MarshalJSON() ([]byte, error) {
+func (pf *poseFrame) MarshalJSON() ([]byte, error) {
 	temp := LinkConfig{
-		ID: m.name,
+		ID: pf.name,
 	}
 
-	if m.collisionGeometry != nil {
+	if pf.geometry != nil {
 		var err error
-		temp.Geometry, err = spatial.NewGeometryConfig(m.collisionGeometry)
+		temp.Geometry, err = spatial.NewGeometryConfig(pf.geometry)
 		if err != nil {
 			return nil, err
 		}
@@ -526,15 +527,19 @@ func (m *sevenDFrame) MarshalJSON() ([]byte, error) {
 }
 
 // InputFromProtobuf converts pb.JointPosition to inputs.
-func (m *sevenDFrame) InputFromProtobuf(jp *pb.JointPositions) []Input {
-	inputs := make([]Input, 0, len(jp.Values))
-
-	return inputs
+func (pf *poseFrame) InputFromProtobuf(jp *pb.JointPositions) []Input {
+	n := make([]Input, len(jp.Values))
+	for idx, d := range jp.Values {
+		n[idx] = Input{utils.DegToRad(d)}
+	}
+	return n
 }
 
 // ProtobufFromInput converts inputs to pb.JointPosition.
-func (m *sevenDFrame) ProtobufFromInput(input []Input) *pb.JointPositions {
-	jPos := &pb.JointPositions{}
-
-	return jPos
+func (pf *poseFrame) ProtobufFromInput(input []Input) *pb.JointPositions {
+	n := make([]float64, len(input))
+	for idx, a := range input {
+		n[idx] = utils.RadToDeg(a.Value)
+	}
+	return &pb.JointPositions{Values: n}
 }

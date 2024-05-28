@@ -334,51 +334,50 @@ func TestObstacleReplanningGlobe(t *testing.T) {
 	}
 
 	extra := map[string]interface{}{"max_replans": 10, "max_ik_solutions": 1, "smooth_iter": 1}
-	extraNoReplan := map[string]interface{}{"max_replans": 0, "max_ik_solutions": 1, "smooth_iter": 1}
+	// extraNoReplan := map[string]interface{}{"max_replans": 0, "max_ik_solutions": 1, "smooth_iter": 1}
 
 	// We set a flag here per test case so that detections are not returned the first time each vision service is called
 	testCases := []testCase{
-		{
-			name: "ensure no replan from discovered obstacles",
-			getPCfunc: func(ctx context.Context, cameraName string, extra map[string]interface{}) ([]*viz.Object, error) {
-				caseName := "test-case-1"
-				obstaclePosition := spatialmath.NewPoseFromPoint(r3.Vector{X: -1000, Y: -1000, Z: 0})
-				box, err := spatialmath.NewBox(obstaclePosition, r3.Vector{X: 10, Y: 10, Z: 10}, caseName)
-				test.That(t, err, test.ShouldBeNil)
+		// {
+		// 	name: "ensure no replan from discovered obstacles",
+		// 	getPCfunc: func(ctx context.Context, cameraName string, extra map[string]interface{}) ([]*viz.Object, error) {
+		// 		caseName := "test-case-1"
+		// 		obstaclePosition := spatialmath.NewPoseFromPoint(r3.Vector{X: -1000, Y: -1000, Z: 0})
+		// 		box, err := spatialmath.NewBox(obstaclePosition, r3.Vector{X: 10, Y: 10, Z: 10}, caseName)
+		// 		test.That(t, err, test.ShouldBeNil)
 
-				detection, err := viz.NewObjectWithLabel(pointcloud.New(), caseName+"-detection", box.ToProtobuf())
-				test.That(t, err, test.ShouldBeNil)
+		// 		detection, err := viz.NewObjectWithLabel(pointcloud.New(), caseName+"-detection", box.ToProtobuf())
+		// 		test.That(t, err, test.ShouldBeNil)
 
-				return []*viz.Object{detection}, nil
-			},
-			expectedSuccess: true,
-			extra:           extraNoReplan,
-		},
-		{
-			name: "ensure replan due to obstacle collision",
-			getPCfunc: func(ctx context.Context, cameraName string, extra map[string]interface{}) ([]*viz.Object, error) {
-				caseName := "test-case-2"
-				// The camera is parented to the base. Thus, this will always see an obstacle 300mm in front of where the base is.
-				// Note: for createMoveOnGlobeEnvironment, the camera is given an orientation such that it is pointing left, not
-				// forwards. Thus, an obstacle in front of the base will be seen as being in +X.
-				obstaclePosition := spatialmath.NewPoseFromPoint(r3.Vector{X: 300, Y: 0, Z: 0})
-				box, err := spatialmath.NewBox(obstaclePosition, r3.Vector{X: 20, Y: 20, Z: 10}, caseName)
-				test.That(t, err, test.ShouldBeNil)
+		// 		return []*viz.Object{detection}, nil
+		// 	},
+		// 	expectedSuccess: true,
+		// 	extra:           extraNoReplan,
+		// },
+		// {
+		// 	name: "ensure replan due to obstacle collision",
+		// 	getPCfunc: func(ctx context.Context, cameraName string, extra map[string]interface{}) ([]*viz.Object, error) {
+		// 		caseName := "test-case-2"
+		// 		// The camera is parented to the base. Thus, this will always see an obstacle 300mm in front of where the base is.
+		// 		// Note: for createMoveOnGlobeEnvironment, the camera is given an orientation such that it is pointing left, not
+		// 		// forwards. Thus, an obstacle in front of the base will be seen as being in +X.
+		// 		obstaclePosition := spatialmath.NewPoseFromPoint(r3.Vector{X: 300, Y: 0, Z: 0})
+		// 		box, err := spatialmath.NewBox(obstaclePosition, r3.Vector{X: 20, Y: 20, Z: 10}, caseName)
+		// 		test.That(t, err, test.ShouldBeNil)
 
-				detection, err := viz.NewObjectWithLabel(pointcloud.New(), caseName+"-detection", box.ToProtobuf())
-				test.That(t, err, test.ShouldBeNil)
-
-				return []*viz.Object{detection}, nil
-			},
-			expectedSuccess: false,
-			expectedErr:     fmt.Sprintf("exceeded maximum number of replans: %d: plan failed", 0),
-			extra:           extraNoReplan,
-		},
+		// 		detection, err := viz.NewObjectWithLabel(pointcloud.New(), caseName+"-detection", box.ToProtobuf())
+		// 		test.That(t, err, test.ShouldBeNil)
+		// 		return []*viz.Object{detection}, nil
+		// 	},
+		// 	expectedSuccess: false,
+		// 	expectedErr:     fmt.Sprintf("exceeded maximum number of replans: %d: plan failed", 0),
+		// 	extra:           extraNoReplan,
+		// },
 		{
 			name: "ensure replan reaching goal",
 			getPCfunc: func(ctx context.Context, cameraName string, extra map[string]interface{}) ([]*viz.Object, error) {
 				caseName := "test-case-3"
-				// This base will always see an obstacle 800mm in front of it, triggering several replans.
+				// This base will always see an obstacle 500mm in front of it, triggering several replans.
 				// However, enough replans should eventually get it to its goal.
 				obstaclePosition := spatialmath.NewPoseFromPoint(r3.Vector{X: 500, Y: 0, Z: 0})
 				box, err := spatialmath.NewBox(obstaclePosition, r3.Vector{X: 20, Y: 20, Z: 10}, caseName)

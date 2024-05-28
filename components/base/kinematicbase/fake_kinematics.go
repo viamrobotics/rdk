@@ -200,7 +200,7 @@ func WrapWithFakePTGKinematics(
 	}
 
 	// construct localization frame
-	localizationFrame, err := referenceframe.New7DFrame(
+	localizationFrame, err := referenceframe.NewPoseFrame(
 		b.Name().ShortName()+"LocalizationFrame",
 		[]referenceframe.Limit{
 			{Min: math.Inf(-1), Max: math.Inf(1)},

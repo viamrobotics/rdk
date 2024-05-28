@@ -288,7 +288,7 @@ func TestPtgCheckPlan(t *testing.T) {
 
 	// NOTE: WE NEED TO ADD AN EXECUTION FRAME TO THE CHECKING FRAMESYSTEM SINCE WE ONLY WANT TO RELY ON USING INPUTS
 	tfFrameSystem := referenceframe.NewEmptyFrameSystem("transformFS")
-	localizationFrame, err := referenceframe.New7DFrame(
+	localizationFrame, err := referenceframe.NewPoseFrame(
 		"ackframeLocalizationFrame",
 		[]referenceframe.Limit{
 			{Min: math.Inf(-1), Max: math.Inf(1)},
