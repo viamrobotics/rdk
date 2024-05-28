@@ -1674,11 +1674,6 @@ Example:
 							Usage:    "task type of the ML training script to upload, can be: " + strings.Join(modelTypes, ", "),
 							Required: false,
 						},
-						&cli.StringFlag{
-							Name:     mlTrainingFlagDescription,
-							Usage:    "description of the ML training script",
-							Required: false,
-						},
 						&cli.BoolFlag{
 							Name:     mlTrainingFlagDraft,
 							Usage:    "indicate draft mode, drafts will not be viewable in the registry",
