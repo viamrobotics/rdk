@@ -298,6 +298,10 @@ func MLTrainingUpdateAction(c *cli.Context) error {
 }
 
 func (c *viamClient) updateTrainingScript(orgID, name, visibility, description string) error {
+	if err := c.ensureLoggedIn(); err != nil {
+		return err
+	}
+
 	// Get registry item
 	itemID := fmt.Sprintf("%s:%s", orgID, name)
 	resp, err := c.client.GetRegistryItem(c.c.Context, &v1.GetRegistryItemRequest{
@@ -308,7 +312,7 @@ func (c *viamClient) updateTrainingScript(orgID, name, visibility, description s
 	}
 	// Get and validate description and visibility
 	updatedDescription := resp.GetItem().GetDescription()
-	if description == "" {
+	if description != "" {
 		updatedDescription = description
 	}
 	if updatedDescription == "" {
