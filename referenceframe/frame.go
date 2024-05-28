@@ -489,8 +489,7 @@ func (pf *poseFrame) Interpolate(from, to []Input, by float64) ([]Input, error) 
 	if err := pf.baseFrame.validInputs(to); err != nil {
 		return nil, NewIncorrectInputLengthError(len(to), 7)
 	}
-	// todo: these inputs need to be interpolated correctly
-	return interpolateInputs(from, to, by), nil
+	return from, nil
 }
 
 // Geometries returns an object representing the 3D space associeted with the staticFrame.
