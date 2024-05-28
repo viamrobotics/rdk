@@ -820,4 +820,87 @@ func TestStreamState(t *testing.T) {
 		test.That(t, startCount.Load(), test.ShouldEqual, 4)
 		test.That(t, stopCount.Load(), test.ShouldEqual, 3)
 	})
+
+	t.Run("Restart timing out doesn't block the stream forever", func(t *testing.T) {
+		streamMock := &mockStream{
+			name: "my-cam",
+			t:    t,
+			startFunc: func() {
+			},
+			stopFunc: func() {
+			},
+			writeRTPFunc: func(pkt *rtp.Packet) error {
+				return nil
+			},
+		}
+		var subscribeRTPCount atomic.Int64
+		var unsubscribeCount atomic.Int64
+		type subAndCancel struct {
+			sub      rtppassthrough.Subscription
+			cancelFn context.CancelFunc
+			wg       *sync.WaitGroup
+		}
+
+		var subsAndCancelByIDMu sync.Mutex
+		subsAndCancelByID := map[rtppassthrough.SubscriptionID]subAndCancel{}
+		var restart atomic.Bool
+		subscribeRTPFunc := func(
+			ctx context.Context,
+			bufferSize int,
+			packetsCB rtppassthrough.PacketCallback,
+		) (rtppassthrough.Subscription, error) {
+			subsAndCancelByIDMu.Lock()
+			defer subsAndCancelByIDMu.Unlock()
+			defer subscribeRTPCount.Add(1)
+			if restart.Swap(false) {
+				time.Sleep(time.Second * 6)
+			}
+			terminatedCtx, terminatedFn := context.WithCancel(context.Background())
+			id := uuid.New()
+			sub := rtppassthrough.Subscription{ID: id, Terminated: terminatedCtx}
+			subsAndCancelByID[id] = subAndCancel{sub: sub, cancelFn: terminatedFn, wg: &sync.WaitGroup{}}
+			subsAndCancelByID[id].wg.Add(1)
+			utils.ManagedGo(func() {
+				for terminatedCtx.Err() == nil {
+					packetsCB([]*rtp.Packet{{}})
+					time.Sleep(time.Millisecond * 50)
+				}
+			}, subsAndCancelByID[id].wg.Done)
+			return sub, nil
+		}
+
+		unsubscribeFunc := func(ctx context.Context, id rtppassthrough.SubscriptionID) error {
+			subsAndCancelByIDMu.Lock()
+			defer subsAndCancelByIDMu.Unlock()
+			defer unsubscribeCount.Add(1)
+			subAndCancel, ok := subsAndCancelByID[id]
+			if !ok {
+				t.Logf("Unsubscribe called with unknown id: %s", id.String())
+				t.FailNow()
+			}
+			subAndCancel.cancelFn()
+			return nil
+		}
+
+		mockRTPPassthroughSource := &mockRTPPassthroughSource{
+			subscribeRTPFunc: subscribeRTPFunc,
+			unsubscribeFunc:  unsubscribeFunc,
+		}
+		robot := mockRobot(mockRTPPassthroughSource)
+		s := state.New(streamMock, robot, logger)
+		defer func() { utils.UncheckedError(s.Close()) }()
+		s.Init()
+
+		t.Log("the first Increment() -> Start()")
+		test.That(t, s.Increment(context.Background()), test.ShouldBeNil)
+		restart.Store(true)
+		subsAndCancelByIDMu.Lock()
+		for k, v := range subsAndCancelByID {
+			t.Logf("cancelling %s to trigger Restart", k.String())
+			v.cancelFn()
+		}
+		subsAndCancelByIDMu.Unlock()
+
+		test.That(t, s.Increment(context.Background()), test.ShouldBeNil)
+	})
 }

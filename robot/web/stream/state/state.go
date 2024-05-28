@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"sync"
 	"sync/atomic"
-	"time"
 
 	"github.com/pion/rtp"
 	"github.com/pkg/errors"
@@ -23,9 +22,6 @@ import (
 )
 
 var (
-	subscribeRTPTimeout = time.Second * 5
-	// UnsubscribeTimeout is the timeout used when unsubscribing from an rtppassthrough subscription.
-	UnsubscribeTimeout = time.Second * 5
 	// ErrRTPPassthroughNotSupported indicates that rtp_passthrough is not supported by the stream's camera.
 	ErrRTPPassthroughNotSupported = errors.New("RTP Passthrough Not Supported")
 	// ErrClosed indicates that the StreamState is already closed.
@@ -108,11 +104,14 @@ func (ss *StreamState) Decrement(ctx context.Context) error {
 }
 
 // Restart restarts the stream source after it has terminated.
-func (ss *StreamState) Restart(ctx context.Context) {
+func (ss *StreamState) Restart() {
 	if err := ss.closedCtx.Err(); err != nil {
 		return
 	}
-	utils.UncheckedError(ss.send(ctx, msgTypeRestart))
+	// This intentionally has the ctx lifetime of the StreamState as
+	// otherwise
+
+	utils.UncheckedError(ss.send(ss.closedCtx, msgTypeRestart))
 }
 
 // Close closes the StreamState.
@@ -182,9 +181,7 @@ func (ss *StreamState) initEventHandler() {
 	ss.logger.Debug("StreamState initEventHandler booted")
 	defer ss.logger.Debug("StreamState initEventHandler terminated")
 	defer func() {
-		ctx, cancel := context.WithTimeout(context.Background(), UnsubscribeTimeout)
-		defer cancel()
-		utils.UncheckedError(ss.stopBasedOnSub(ctx))
+		utils.UncheckedError(ss.stopBasedOnSub(context.Background()))
 	}()
 	for {
 		if ss.closedCtx.Err() != nil {
@@ -206,9 +203,7 @@ func (ss *StreamState) initStreamSourceMonitor() {
 		case <-ss.closedCtx.Done():
 			return
 		case <-ss.restartChan:
-			ctx, cancel := context.WithTimeout(ss.closedCtx, subscribeRTPTimeout)
-			ss.Restart(ctx)
-			cancel()
+			ss.Restart()
 		}
 	}
 }
@@ -231,6 +226,10 @@ func (ss *StreamState) monitorSubscription(sub rtppassthrough.Subscription) {
 		case <-ss.closedCtx.Done():
 			return
 		case <-sub.Terminated.Done():
+			if ss.closedCtx.Err() != nil {
+				return
+			}
+
 			select {
 			case ss.restartChan <- struct{}{}:
 			case <-ss.closedCtx.Done():

@@ -50,7 +50,7 @@ var (
 //
 // this helps make the test case much easier to read.
 func (c *client) redLog(msg string) {
-	c.logger.Warn(Red + msg + Reset)
+	c.logger.Warn(Red + msg + fmt.Sprintf("name: %s, client: %p, client.conn: %p, c.conn.PeerConn(): %p", c.Name().String(), c, c.conn, c.conn.PeerConn()) + Reset)
 }
 
 var (
@@ -378,8 +378,8 @@ func (c *client) Close(ctx context.Context) error {
 	_, span := trace.StartSpan(ctx, "camera::client::Close")
 	defer span.End()
 
-	c.logger.Warn("Close START")
-	defer c.logger.Warn("Close END")
+	c.logger.Warnf("Close START name: %s, c: %p, c.conn: %p,  peerConn: %p", c.Name().String(), c.conn, c.conn.PeerConn())
+	defer c.logger.Warnf("Close END name: %s, c: %p, c.conn: %p,  peerConn: %p", c.Name().String(), c, c.conn, c.conn.PeerConn())
 
 	c.healthyClientChMu.Lock()
 	if c.healthyClientCh != nil {
@@ -427,8 +427,8 @@ func (c *client) SubscribeRTP(
 ) (rtppassthrough.Subscription, error) {
 	ctx, span := trace.StartSpan(ctx, "camera::client::SubscribeRTP")
 	defer span.End()
-	c.redLog(fmt.Sprintf("SubscribeRTP START %s client: %p, pc: %p", c.Name().String(), c, c.conn.PeerConn()))
-	defer c.redLog(fmt.Sprintf("SubscribeRTP END %s client: %p, pc: %p", c.Name().String(), c, c.conn.PeerConn()))
+	c.redLog("SubscribeRTP START")
+	defer c.redLog("SubscribeRTP END")
 	// RSDK-6340: The resource manager closes remote resources when the underlying
 	// connection goes bad. However, when the connection is re-established, the client
 	// objects these resources represent are not re-initialized/marked "healthy".
@@ -513,12 +513,12 @@ func (c *client) SubscribeRTP(
 		// remove the OnTrackSub once we either fail or succeed
 		defer sc.RemoveOnTrackSub(c.trackName())
 
-		c.redLog(fmt.Sprintf("SubscribeRTP AddStream CALL %s client: %p, pc: %p", c.trackName(), c, c.conn.PeerConn()))
+		c.redLog(fmt.Sprintf("SubscribeRTP AddStream CALL %s", c.trackName()))
 		if _, err := c.streamClient.AddStream(ctx, &streampb.AddStreamRequest{Name: c.trackName()}); err != nil {
 			c.logger.CDebugw(ctx, "SubscribeRTP AddStream hit error", "subID", sub.ID.String(), "trackName", c.trackName(), "err", err)
 			return rtppassthrough.NilSubscription, err
 		}
-		c.redLog(fmt.Sprintf("SubscribeRTP AddStream RETURN %s client: %p, pc: %p", c.trackName(), c, c.conn.PeerConn()))
+		c.redLog(fmt.Sprintf("SubscribeRTP AddStream RETURN %s", c.trackName()))
 		// NOTE: (Nick S) This is a workaround to a Pion bug / missing feature.
 
 		// If the WebRTC peer on the other side of the PeerConnection calls pc.AddTrack followd by pc.RemoveTrack
@@ -529,18 +529,21 @@ func (c *client) SubscribeRTP(
 
 		// To prevent that failure mode, we exit with an error if a track is not received within
 		// the SubscribeRTP context.
-		c.redLog(fmt.Sprintf("SubscribeRTP waiting for track %s client: %p, pc: %p", c.trackName(), c, c.conn.PeerConn()))
+		c.redLog(fmt.Sprintf("SubscribeRTP waiting for track %s", c.trackName()))
 		select {
 		case <-ctx.Done():
 			err := errors.Wrap(ctx.Err(), "Track not received within SubscribeRTP provided context")
 			c.logger.Error(err.Error())
 			return rtppassthrough.NilSubscription, err
+			// If this condition happens and it is talking to a remote the remote will still have an active
+		// track for the client which will result in AddStream failing the next time it is called with an error
+		// that there is already an active stream
 		case <-healthyClientCh:
 			err := errors.New("Track not received before client closed")
 			c.logger.Error(err)
 			return rtppassthrough.NilSubscription, err
 		case <-trackReceived:
-			c.redLog(fmt.Sprintf("received track %s client: %p, pc: %p", c.trackName(), c, c.conn.PeerConn()))
+			c.redLog(fmt.Sprintf("received track %s", c.trackName()))
 		}
 
 		// set up channel so we can detect when the track has closed (in response to an event / error internal to the

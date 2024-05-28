@@ -184,9 +184,7 @@ func (ss *Server) AddStream(ctx context.Context, req *streampb.AddStreamRequest)
 						defer delete(ss.activePeerStreams, pc)
 						var errs error
 						for _, ps := range ss.activePeerStreams[pc] {
-							ctx, cancel := context.WithTimeout(context.Background(), state.UnsubscribeTimeout)
-							errs = multierr.Combine(errs, ps.streamState.Decrement(ctx))
-							cancel()
+							errs = multierr.Combine(errs, ps.streamState.Decrement(context.Background()))
 						}
 						// We don't want to log this if the streamState was closed (as it only happens if viam-server is terminating)
 						if errs != nil && !errors.Is(errs, state.ErrClosed) {
