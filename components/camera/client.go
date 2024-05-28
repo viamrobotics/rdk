@@ -38,20 +38,13 @@ import (
 )
 
 var (
-	Green = "\033[32m"
-	Red   = "\033[31m"
-	Reset = "\033[0m"
+	red   = "\033[31m"
+	reset = "\033[0m"
 )
 
-// // this helps make the test case much easier to read.
-//
-//	func (c *client) greenLog(msg string) {
-//		c.logger.Warn(Green + msg + Reset)
-//	}
-//
 // this helps make the test case much easier to read.
 func (c *client) redLog(msg string) {
-	c.logger.Warn(Red + msg + Reset)
+	c.logger.Warn(red + msg + reset)
 }
 
 var (
@@ -394,7 +387,7 @@ func (c *client) Close(ctx context.Context) error {
 
 	// unsubscribe from all video streams that have been established with modular cameras
 
-	c.unsubscribeAll(ctx)
+	c.unsubscribeAll()
 
 	// NOTE: (Nick S) we are intentionally releasing the lock before we wait for
 	// background goroutines to terminate as some of them need to be able
@@ -729,7 +722,7 @@ func (c *client) trackName() string {
 	return c.Name().SDPTrackName()
 }
 
-func (c *client) unsubscribeAll(ctx context.Context) {
+func (c *client) unsubscribeAll() {
 	c.rtpPassthroughMu.Lock()
 	defer c.rtpPassthroughMu.Unlock()
 	if len(c.bufAndCBByID) > 0 {

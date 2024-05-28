@@ -712,12 +712,11 @@ func setupRealRobot(
 	return ctx, robot, addr, webSvc
 }
 
-func setupRealRobotWithAddr(
+func setupRealRobotWithOptions(
 	t *testing.T,
 	robotConfig *config.Config,
 	logger logging.Logger,
 	options weboptions.Options,
-	addr string,
 ) (context.Context, robot.LocalRobot, web.Service) {
 	t.Helper()
 
@@ -1038,7 +1037,7 @@ func TestWhyMustCallUnsubscribe(t *testing.T) {
 
 	// Create a robot with a single fake camera.
 	options2, _, addr2 := robottestutils.CreateBaseOptionsAndListener(t)
-	remote2Ctx, remoteRobot2, remoteWebSvc2 := setupRealRobotWithAddr(t, remoteCfg2, logger.Sublogger("remote-2"), options2, addr2)
+	remote2Ctx, remoteRobot2, remoteWebSvc2 := setupRealRobotWithOptions(t, remoteCfg2, logger.Sublogger("remote-2"), options2)
 
 	remoteCfg1 := &config.Config{
 		Network: config.NetworkConfig{NetworkConfigData: config.NetworkConfigData{Sessions: config.SessionsConfig{HeartbeatWindow: time.Hour}}},
@@ -1140,12 +1139,19 @@ Loop:
 	// sub should still be alive
 	test.That(t, sub.Terminated.Err(), test.ShouldBeNil)
 
-	// I'm trying to get the remote-2 to come back online at the same address under the hopes that remote-1 will treat it the same as it would
-	// if a real robot crasehed & came back online without changing its name.
-	// The expectation is that SubscribeRTP should start receiving packets from remote-1 when remote-1 starts receiving packets from the new remote-2
-	// It is not working as remote 1 never detects remote 2 & as a result main calls Close() on it's client with remote-1 which can be detectd
+	// I'm trying to get the remote-2 to come back online at the same address under the hopes that remote-1 will
+	// treat it the same as it would if a real robot crasehed & came back online without changing its name.
+	// The expectation is that SubscribeRTP should start receiving packets from remote-1 when remote-1 starts
+	// receiving packets from the new remote-2
+	// It is not working as remote 1 never detects remote 2 & as a result main calls Close() on it's client with
+	// remote-1 which can be detectd
 	// by the fact that sub.Terminated.Done() is always the path this test goes down
-	remote2CtxSecond, remoteRobot2Second, remoteWebSvc2Second := setupRealRobotWithAddr(t, remoteCfg2, logger.Sublogger("remote-2"), options2, addr2)
+	remote2CtxSecond, remoteRobot2Second, remoteWebSvc2Second := setupRealRobotWithOptions(
+		t,
+		remoteCfg2,
+		logger.Sublogger("remote-2"),
+		options2,
+	)
 	defer remoteRobot2Second.Close(remote2CtxSecond)
 	defer remoteWebSvc2Second.Close(remote2CtxSecond)
 	sndPktTimeoutCtx, sndPktTimeoutFn := context.WithTimeout(context.Background(), time.Second*20)
