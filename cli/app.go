@@ -60,12 +60,14 @@ const (
 	moduleBuildRestartOnly   = "restart-only"
 	moduleBuildFlagNoBuild   = "no-build"
 
-	mlTrainingFlagPath      = "path"
-	mlTrainingFlagName      = "script-name"
-	mlTrainingFlagVersion   = "version"
-	mlTrainingFlagFramework = "framework"
-	mlTrainingFlagType      = "type"
-	mlTrainingFlagDraft     = "draft"
+	mlTrainingFlagPath        = "path"
+	mlTrainingFlagName        = "script-name"
+	mlTrainingFlagVersion     = "version"
+	mlTrainingFlagFramework   = "framework"
+	mlTrainingFlagType        = "type"
+	mlTrainingFlagDraft       = "draft"
+	mlTrainingFlagVisibility  = "visibility"
+	mlTrainingFlagDescription = "description"
 
 	dataFlagDestination                    = "destination"
 	dataFlagDataType                       = "data-type"
@@ -1672,6 +1674,11 @@ Example:
 							Usage:    "task type of the ML training script to upload, can be: " + strings.Join(modelTypes, ", "),
 							Required: false,
 						},
+						&cli.StringFlag{
+							Name:     mlTrainingFlagDescription,
+							Usage:    "description of the ML training script",
+							Required: false,
+						},
 						&cli.BoolFlag{
 							Name:     mlTrainingFlagDraft,
 							Usage:    "indicate draft mode, drafts will not be viewable in the registry",
@@ -1680,6 +1687,34 @@ Example:
 					},
 					// Upload action
 					Action: MLTrainingUploadAction,
+				},
+				{
+					Name:      "update",
+					Usage:     "update visibility of ML training scripts for custom ML training",
+					UsageText: createUsageText("training-script update", []string{generalFlagOrgID, mlTrainingFlagName, mlTrainingFlagVisibility}, true),
+					Flags: []cli.Flag{
+						&cli.StringFlag{
+							Name:     generalFlagOrgID,
+							Required: true,
+							Usage:    "organization ID that will host the scripts",
+						},
+						&cli.StringFlag{
+							Name:     mlTrainingFlagName,
+							Usage:    "name of the ML training script to upload",
+							Required: true,
+						},
+						&cli.StringFlag{
+							Name:     mlTrainingFlagVisibility,
+							Usage:    "visibility of the registry item, can be: `public` or `private`",
+							Required: true,
+						},
+						&cli.StringFlag{
+							Name:     mlTrainingFlagDescription,
+							Usage:    "description of the ML training script",
+							Required: false,
+						},
+					},
+					Action: MLTrainingUpdateAction,
 				},
 			},
 		},
