@@ -107,7 +107,6 @@ func injectMotor(vals *injectedState) motor.Motor {
 	m.IsPoweredFunc = func(ctx context.Context, extra map[string]interface{}) (bool, float64, error) {
 		vals.mu.Lock()
 		defer vals.mu.Unlock()
-		// fmt.Println(vals)
 		return vals.powerPct != 0, vals.powerPct, nil
 	}
 	m.IsMovingFunc = func(ctx context.Context) (bool, error) {
