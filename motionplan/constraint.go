@@ -233,7 +233,7 @@ func (c *ConstraintHandler) SegmentConstraints() []string {
 }
 
 func createAllCollisionConstraints(
-	movingRobotGeometries, staticRobotGeometries, worldGeometries []spatial.Geometry,
+	movingRobotGeometries, staticRobotGeometries, worldGeometries, interactionSpaces []spatial.Geometry,
 	allowedCollisions []*Collision,
 	collisionBufferMM float64,
 ) (map[string]StateConstraint, error) {
@@ -268,6 +268,14 @@ func createAllCollisionConstraints(
 			return nil, err
 		}
 		constraintMap[defaultObstacleConstraintDesc] = obstacleConstraint
+	}
+
+	if len(interactionSpaces) > 0 {
+		// create constraint to keep moving geometries within the union of the the defined interactionSpaces
+		unionOfRobotGeom := movingRobotGeometries
+		unionOfRobotGeom = append(unionOfRobotGeom, staticRobotGeometries...)
+		interactionSpaceConstraint := NewInteractionConstraint(unionOfRobotGeom, interactionSpaces)
+		constraintMap[defaultInteractionSpaceConstraintDesc] = interactionSpaceConstraint
 	}
 
 	if len(staticRobotGeometries) > 0 {
@@ -357,6 +365,28 @@ func NewCollisionConstraint(
 		return len(cg.collisions(collisionBufferMM)) == 0
 	}
 	return constraint, nil
+}
+
+// NewInteractionConstraint will determine if the given list of robot geometries are encompassed by the
+// given list of interactionSpaces. An interaction space is a geometry a robot must remain within while navigating a path.
+func NewInteractionConstraint(robotGeoms, interactionSpaces []spatial.Geometry) StateConstraint {
+	// determine if we would like to also return an ik.StateMetric to measure how much a robot geometry is encompasses by a given
+	// interaction space geometry
+	f := func(state *ik.State) bool {
+		for _, interactionSpace := range interactionSpaces {
+			for _, robotGeom := range robotGeoms {
+				encompassed, err := robotGeom.EncompassedBy(interactionSpace)
+				if err != nil {
+					return false
+				}
+				if encompassed {
+					return true
+				}
+			}
+		}
+		return false
+	}
+	return f
 }
 
 // NewAbsoluteLinearInterpolatingConstraint provides a Constraint whose valid manifold allows a specified amount of deviation from the

@@ -546,6 +546,7 @@ func (pm *planManager) plannerSetupFromMoveRequest(
 		movingRobotGeometries,
 		staticRobotGeometries,
 		worldGeometries.Geometries(),
+		nil, // THIS IS SUPPOSED TO BE THE INTERACTION SPACES HERE
 		allowedCollisions,
 		collisionBufferMM,
 	)
