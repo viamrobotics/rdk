@@ -18,7 +18,7 @@ func TestRegisterAuthApplicationAction(t *testing.T) {
 		return &apppb.RegisterAuthApplicationResponse{
 			ApplicationId:   "c6215428-1b73-41c3-b44a-56db0631c8f1",
 			ApplicationName: in.ApplicationName,
-			Secret:          "reallysecretsecret",
+			ClientSecret:    "reallysecretsecret",
 		}, nil
 	}
 
