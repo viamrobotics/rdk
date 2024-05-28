@@ -518,7 +518,43 @@ func (ms *builtIn) newMoveOnGlobeRequest(
 		return nil, err
 	}
 
+	// convert obstacles of type []GeoGeometry into []Geometry
 	geomsRaw := spatialmath.GeoGeometriesToGeometries(obstacles, origin)
+
+	// convert bounding regions which are GeoGeometries into Geometries
+	boundingRegions := req.BoundingRegions
+	if boundingRegions == nil {
+		boundingRegions = []*spatialmath.GeoGeometry{}
+	}
+	interactionSpaces := spatialmath.GeoGeometriesToGeometries(boundingRegions, origin)
+
+	// Here we determine if the robot is contained by the defined interaction spaces.
+	// TODO(nf): Want to show if the robot is contained by the union of the defined interaction spaces
+	// Consider the following scenario:
+	// Suppose we have two geometries which comprise our interaction space.
+	// Further, suppose half of the robot is perfectly contained in one geometry while the other half is
+	// perfectly contained in the other geometry. As it stands, this will report that our robot has
+	// not started in a position already contained within the interaction spaces.
+	// This is clearly not true.
+	robotGeoms, err := b.Geometries(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+	isEncompassed := true
+	for _, interactionSpace := range interactionSpaces {
+		for _, robotGeom := range robotGeoms {
+			encompassed, err := robotGeom.EncompassedBy(interactionSpace)
+			if err != nil {
+				return nil, err
+			}
+			if !encompassed {
+				isEncompassed = encompassed
+			}
+		}
+	}
+	if !isEncompassed {
+		return nil, errors.New("robot not fully compassed by the provided bounding regions")
+	}
 
 	mr, err := ms.createBaseMoveRequest(
 		ctx,
@@ -528,6 +564,7 @@ func (ms *builtIn) newMoveOnGlobeRequest(
 		goalPoseRaw,
 		fs,
 		geomsRaw,
+		interactionSpaces,
 		valExtra,
 	)
 	if err != nil {
@@ -628,6 +665,7 @@ func (ms *builtIn) newMoveOnMapRequest(
 		goalPoseAdj,
 		fs,
 		req.Obstacles,
+		[]spatialmath.Geometry{},
 		valExtra,
 	)
 	if err != nil {
@@ -645,6 +683,7 @@ func (ms *builtIn) createBaseMoveRequest(
 	goalPoseInWorld spatialmath.Pose,
 	fs referenceframe.FrameSystem,
 	worldObstacles []spatialmath.Geometry,
+	interactionSpaces []spatialmath.Geometry,
 	valExtra validatedExtra,
 ) (*moveRequest, error) {
 	// replace original base frame with one that knows how to move itself and allow planning for
@@ -739,6 +778,7 @@ func (ms *builtIn) createBaseMoveRequest(
 			StartConfiguration: currentInputs,
 			StartPose:          startPose,
 			WorldState:         worldState,
+			InteractionSpaces:  interactionSpaces,
 			Options:            valExtra.extra,
 		},
 		poseOrigin:        startPose,
