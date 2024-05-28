@@ -1225,5 +1225,4 @@ func TestConfigRobotWebProfile(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	test.That(t, cfg.EnableWebProfile, test.ShouldBeTrue)
-
 }
