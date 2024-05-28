@@ -461,7 +461,7 @@ func TestPtgCheckPlan(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		pathPose := remainingPlan.Path()[0][ackermanFrame.Name()].Pose()
-		startPose := spatialmath.NewPose(r3.Vector{0, 1000, 0}, pathPose.Orientation())
+		startPose := spatialmath.NewPose(r3.Vector{1000, 0, 0}, pathPose.Orientation())
 
 		executionState := ExecutionState{
 			plan:          plan,
