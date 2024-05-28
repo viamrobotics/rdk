@@ -28,7 +28,7 @@ var errAttrCfgPopulation = errors.New("can only populate either ArmModel or Mode
 // Model is the name used to refer to the fake arm model.
 var Model = resource.DefaultModelFamily.WithModel("fake")
 
-var dofbotModel = "dofbot"
+var dofbotModel = "yahboom-dofbot"
 
 //go:embed fake_model.json
 var fakejson []byte
@@ -239,13 +239,6 @@ func (a *Arm) Geometries(ctx context.Context, extra map[string]interface{}) ([]s
 	return gif.Geometries(), nil
 }
 
-func makeModelFrame(model, name string) (referenceframe.Model, error) {
-	if model == dofbotModel {
-		return referenceframe.UnmarshalModelJSON(dofbotjson, name)
-	}
-	return referenceframe.UnmarshalModelJSON(fakejson, name)
-}
-
 func modelFromName(model, name string) (referenceframe.Model, error) {
 	switch model {
 	case xarm.ModelName6DOF, xarm.ModelName7DOF, xarm.ModelNameLite:
@@ -255,9 +248,9 @@ func modelFromName(model, name string) (referenceframe.Model, error) {
 	case eva.Model.Name:
 		return eva.MakeModelFrame(name)
 	case dofbotModel:
-		return makeModelFrame(model, name)
+		return referenceframe.UnmarshalModelJSON(dofbotjson, name)
 	case Model.Name:
-		return makeModelFrame(model, name)
+		return referenceframe.UnmarshalModelJSON(fakejson, name)
 	default:
 		return nil, errors.Errorf("fake arm cannot be created, unsupported arm-model: %s", model)
 	}
