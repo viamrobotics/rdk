@@ -195,7 +195,7 @@ func (s *robotServer) createWebOptions(cfg *config.Config) (weboptions.Options, 
 	if err != nil {
 		return weboptions.Options{}, err
 	}
-	options.Pprof = s.args.WebProfile
+	options.Pprof = s.args.WebProfile || cfg.EnableWebProfile
 	options.SharedDir = s.args.SharedDir
 	options.Debug = s.args.Debug || cfg.Debug
 	options.WebRTC = s.args.WebRTC
@@ -298,6 +298,7 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 			return nil, err
 		}
 		out.Debug = s.args.Debug || cfg.Debug
+		out.EnableWebProfile = s.args.WebProfile || cfg.EnableWebProfile
 		out.FromCommand = true
 		out.AllowInsecureCreds = s.args.AllowInsecureCreds
 		out.UntrustedEnv = s.args.UntrustedEnv
@@ -403,7 +404,8 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 				}
 				var options weboptions.Options
 
-				if !diff.NetworkEqual {
+				restartWebServer := !diff.NetworkEqual || processedConfig.EnableWebProfile
+				if restartWebServer {
 					// TODO(RSDK-2694): use internal web service reconfiguration instead
 					myRobot.StopWeb()
 					options, err = s.createWebOptions(processedConfig)
@@ -415,7 +417,7 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 
 				myRobot.Reconfigure(ctx, processedConfig)
 
-				if !diff.NetworkEqual {
+				if restartWebServer {
 					if err := myRobot.StartWeb(ctx, options); err != nil {
 						s.logger.Errorw("reconfiguration failed: error starting web service while reconfiguring", "error", err)
 					}
