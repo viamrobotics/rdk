@@ -532,9 +532,9 @@ func (ms *builtIn) newMoveOnGlobeRequest(
 	// TODO(nf): Want to show if the robot is contained by the union of the defined interaction spaces
 	// Consider the following scenario:
 	// Suppose we have two geometries which comprise our interaction space.
-	// Further, suppose half of the robot is perfectly contained in one geometry while the other half is
-	// perfectly contained in the other geometry. As it stands, this will report that our robot has
-	// not started in a position already contained within the interaction spaces.
+	// Further, suppose half of the robot is perfectly contained in one geometry of the interaction space
+	// while the other half is perfectly contained in the other geometry. As it stands, this will report
+	// that our robot has not started in a position already contained within the interaction spaces.
 	// This is clearly not true.
 	robotGeoms, err := b.Geometries(ctx, nil)
 	if err != nil {

@@ -271,10 +271,10 @@ func createAllCollisionConstraints(
 	}
 
 	if len(interactionSpaces) > 0 {
-		// create constraint to keep moving geometries within the union of the the defined interactionSpaces
+		// create constraint to keep moving geometries within the defined interactionSpaces
 		unionOfRobotGeom := movingRobotGeometries
 		unionOfRobotGeom = append(unionOfRobotGeom, staticRobotGeometries...)
-		interactionSpaceConstraint := NewInteractionConstraint(unionOfRobotGeom, interactionSpaces)
+		interactionSpaceConstraint := NewInteractionSpaceConstraint(unionOfRobotGeom, interactionSpaces)
 		constraintMap[defaultInteractionSpaceConstraintDesc] = interactionSpaceConstraint
 	}
 
@@ -367,9 +367,9 @@ func NewCollisionConstraint(
 	return constraint, nil
 }
 
-// NewInteractionConstraint will determine if the given list of robot geometries are encompassed by the
+// NewInteractionSpaceConstraint will determine if the given list of robot geometries are encompassed by the
 // given list of interactionSpaces. An interaction space is a geometry a robot must remain within while navigating a path.
-func NewInteractionConstraint(robotGeoms, interactionSpaces []spatial.Geometry) StateConstraint {
+func NewInteractionSpaceConstraint(robotGeoms, interactionSpaces []spatial.Geometry) StateConstraint {
 	// determine if we would like to also return an ik.StateMetric to measure how much a robot geometry is encompasses by a given
 	// interaction space geometry
 	f := func(state *ik.State) bool {
