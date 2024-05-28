@@ -1691,11 +1691,11 @@ Example:
 						&cli.StringFlag{
 							Name:     generalFlagOrgID,
 							Required: true,
-							Usage:    "organization ID that will host the scripts",
+							Usage:    "organization ID that hosts the scripts",
 						},
 						&cli.StringFlag{
 							Name:     mlTrainingFlagName,
-							Usage:    "name of the ML training script to upload",
+							Usage:    "name of the ML training script to update",
 							Required: true,
 						},
 						&cli.StringFlag{
