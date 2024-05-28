@@ -3,6 +3,7 @@ package fake
 
 import (
 	"context"
+	_ "embed"
 	"strings"
 	"sync"
 
@@ -26,6 +27,9 @@ var errAttrCfgPopulation = errors.New("can only populate either ArmModel or Mode
 
 // Model is the name used to refer to the fake arm model.
 var Model = resource.DefaultModelFamily.WithModel("fake")
+
+//go:embed fake_model.json
+var fakejson []byte
 
 // Config is used for converting config attributes.
 type Config struct {
@@ -81,8 +85,8 @@ func buildModel(cfg resource.Config, newConf *Config) (referenceframe.Model, err
 	case modelPath != "":
 		model, err = modelFromPath(modelPath, cfg.Name)
 	default:
-		// if no arm model is specified, we return an empty arm with 0 dof and 0 spatial transformation
-		model = referenceframe.NewSimpleModel(cfg.Name)
+		// if no arm model is specified, we return a fake arm with 1 dof and 0 spatial transformation
+		model, err = modelFromName(Model.Name, cfg.Name)
 	}
 
 	return model, err
@@ -230,6 +234,10 @@ func (a *Arm) Geometries(ctx context.Context, extra map[string]interface{}) ([]s
 	return gif.Geometries(), nil
 }
 
+func MakeModelFrame(name string) (referenceframe.Model, error) {
+	return referenceframe.UnmarshalModelJSON(fakejson, name)
+}
+
 func modelFromName(model, name string) (referenceframe.Model, error) {
 	switch model {
 	case xarm.ModelName6DOF, xarm.ModelName7DOF, xarm.ModelNameLite:
@@ -238,6 +246,8 @@ func modelFromName(model, name string) (referenceframe.Model, error) {
 		return ur.MakeModelFrame(name)
 	case eva.Model.Name:
 		return eva.MakeModelFrame(name)
+	case Model.Name:
+		return MakeModelFrame(name)
 	default:
 		return nil, errors.Errorf("fake arm cannot be created, unsupported arm-model: %s", model)
 	}
