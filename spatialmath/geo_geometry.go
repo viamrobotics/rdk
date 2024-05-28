@@ -34,20 +34,6 @@ func (gob *GeoGeometry) Geometries() []Geometry {
 	return gob.geometries
 }
 
-// // ToGeometries returns the geometries which comprise structure of the GeoGeometry.
-// // The pose of the returned geometries is augmented by the location the geometries themselves are positioned at.
-// func GeoGeometriesToGeometries([]GeoGeometry gg, origin *geo.Point) []Geometry {
-// 	originGP := NewGeoPose(origin, 0)
-// 	locationGP := NewGeoPose(gob.location, 0)
-
-// 	p := GeoPoseToPose(locationGP, originGP)
-// 	tfGeoms := make([]Geometry, len(gob.geometries))
-// 	for _, g := range gob.geometries {
-// 		tfGeoms = append(tfGeoms, g.Transform(p))
-// 	}
-// 	return tfGeoms
-// }
-
 // GeoGeometryToProtobuf converts the GeoGeometry struct into an equivalent Protobuf message.
 func GeoGeometryToProtobuf(geoObst *GeoGeometry) *commonpb.GeoGeometry {
 	var convGeoms []*commonpb.Geometry
