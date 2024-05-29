@@ -143,7 +143,9 @@ func (s *Server) ResourceNames(ctx context.Context, _ *pb.ResourceNamesRequest) 
 			protoutils.ResourceNameToProto(m),
 		)
 	}
-	return &pb.ResourceNamesResponse{Resources: rNames}, nil
+	res := &pb.ResourceNamesResponse{Resources: rNames}
+	s.robot.Logger().Info(res.String())
+	return res, nil
 }
 
 // ResourceRPCSubtypes returns the list of resource RPC APIs.

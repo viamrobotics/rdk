@@ -287,13 +287,13 @@ require (
 	github.com/pierrec/lz4 v2.0.5+incompatible // indirect
 	github.com/pion/datachannel v1.5.5 // indirect
 	github.com/pion/dtls/v2 v2.2.7 // indirect
-	github.com/pion/ice/v2 v2.3.13 // indirect
+	github.com/pion/ice/v2 v2.3.24 // indirect
 	github.com/pion/interceptor v0.1.25 // indirect
 	github.com/pion/logging v0.2.2 // indirect
 	github.com/pion/mdns v0.0.12 // indirect
 	github.com/pion/randutil v0.1.0 // indirect
 	github.com/pion/rtcp v1.2.14 // indirect
-	github.com/pion/sctp v1.8.14 // indirect
+	github.com/pion/sctp v1.8.16 // indirect
 	github.com/pion/sdp/v3 v3.0.9 // indirect
 	github.com/pion/srtp/v2 v2.0.18 // indirect
 	github.com/pion/stun v0.6.1 // indirect
@@ -402,4 +402,4 @@ require (
 	golang.org/x/exp v0.0.0-20230725012225-302865e7556b
 )
 
-replace github.com/pion/webrtc/v3 => github.com/nicksanford/webrtc/v3 v3.0.0-20240522205522-02b7d7d4142b
+replace github.com/pion/webrtc/v3 => github.com/nicksanford/webrtc/v3 v3.0.0-20240528185904-27f38a7c0e13

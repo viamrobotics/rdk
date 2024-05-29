@@ -52,6 +52,8 @@ var (
 	// ErrMissingClientRegistration is used when there is no resource client registered for the API.
 	ErrMissingClientRegistration = errors.New("resource client registration doesn't exist")
 
+	// ErrErrNotConnected
+	ErrNotConnected = errors.New("not connected to remote robot")
 	// errUnimplemented is used for any unimplemented methods that should
 	// eventually be implemented server side or faked client side.
 	errUnimplemented = errors.New("unimplemented")
@@ -130,7 +132,7 @@ func isClosedPipeError(err error) bool {
 }
 
 func (rc *RobotClient) notConnectedToRemoteError() error {
-	return errors.Errorf("not connected to remote robot at %s", rc.address)
+	return errors.WithMessage(ErrNotConnected, fmt.Sprintf("at address: %s", rc.address))
 }
 
 func (rc *RobotClient) handleUnaryDisconnect(
@@ -573,6 +575,7 @@ func (rc *RobotClient) createClient(name resource.Name) (resource.Resource, erro
 }
 
 func (rc *RobotClient) resources(ctx context.Context) ([]resource.Name, []resource.RPCAPI, error) {
+	defer rc.logger.Info("exiting resources")
 	// RSDK-5356 If we are in a testing environment, never apply
 	// defaultResourcesTimeout. Tests run in parallel, and if execution of a test
 	// pauses for longer than 5s, below calls to ResourceNames or
@@ -654,6 +657,7 @@ func (rc *RobotClient) updateResources(ctx context.Context) error {
 	// call metadata service.
 
 	names, rpcAPIs, err := rc.resources(ctx)
+	rc.logger.Infof("updateResources: names: %#v, rpcAPIs: %#v, err: %s", names, rpcAPIs, err)
 	if err != nil && status.Code(err) != codes.Unimplemented {
 		return err
 	}
@@ -735,6 +739,7 @@ func (rc *RobotClient) ResourceNames() []resource.Name {
 func (rc *RobotClient) ResourceRPCAPIs() []resource.RPCAPI {
 	if err := rc.checkConnected(); err != nil {
 		rc.Logger().Errorw("failed to get remote resource types", "error", err)
+		// debug.PrintStack()
 		return nil
 	}
 	rc.mu.RLock()

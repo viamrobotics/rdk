@@ -26,9 +26,9 @@ func setupLocalRobot(
 	t.Cleanup(func() {
 		test.That(t, r.Close(ctx), test.ShouldBeNil)
 		// Wait for reconfigureWorkers here because localRobot.Close does not.
-		lRobot, ok := r.(*localRobot)
+		lRobot, ok := r.(*LocalRobot)
 		test.That(t, ok, test.ShouldBeTrue)
-		lRobot.reconfigureWorkers.Wait()
+		lRobot.ReconfigureWorkers.Wait()
 	})
 	return r
 }

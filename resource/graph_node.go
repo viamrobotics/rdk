@@ -158,6 +158,9 @@ func (w *GraphNode) ResourceModel() Model {
 func (w *GraphNode) HasResource() bool {
 	w.mu.RLock()
 	defer w.mu.RUnlock()
+	if w.logger != nil {
+		w.logger.Infof("%#v !w.markedForRemoval: %b, w.lastErr == nil: %b, w.current != nil: %b", w, !w.markedForRemoval, w.lastErr == nil, w.current != nil)
+	}
 	return !w.markedForRemoval && w.lastErr == nil && w.current != nil
 }
 

@@ -178,8 +178,11 @@ func (manager *resourceManager) updateRemoteResourceNames(
 ) bool {
 	manager.logger.CDebugw(ctx, "updating remote resource names", "remote", remoteName)
 	activeResourceNames := map[resource.Name]bool{}
+	disconnectedResourceNames := map[resource.Name]struct{}{}
 	newResources := rr.ResourceNames()
+	manager.logger.Infof("newResources: %#v", newResources)
 	oldResources := manager.remoteResourceNames(remoteName)
+	manager.logger.Infof("oldResources: %#v", oldResources)
 	for _, res := range oldResources {
 		activeResourceNames[res] = false
 	}
@@ -194,6 +197,12 @@ func (manager *resourceManager) updateRemoteResourceNames(
 				manager.logger.CDebugw(ctx, "couldn't obtain remote resource interface",
 					"name", remoteResName,
 					"reason", err)
+			} else if errors.Is(err, client.ErrNotConnected) {
+				disconnectedResourceNames[remoteResName.PrependRemote(remoteName.Name)] = struct{}{}
+				manager.logger.CWarnw(ctx, "couldn't obtain remote resource interface",
+					"name", remoteResName,
+					"resName", remoteResName.PrependRemote(remoteName.Name),
+					"reason", err)
 			} else {
 				manager.logger.CErrorw(ctx, "couldn't obtain remote resource interface",
 					"name", remoteResName,
@@ -205,6 +214,7 @@ func (manager *resourceManager) updateRemoteResourceNames(
 		resName = resName.PrependRemote(remoteName.Name)
 		gNode, ok := manager.resources.Node(resName)
 
+		manager.logger.Infof("resName: %#v", resName)
 		if _, alreadyCurrent := activeResourceNames[resName]; alreadyCurrent {
 			activeResourceNames[resName] = true
 			if ok && !gNode.IsUninitialized() {
@@ -213,8 +223,10 @@ func (manager *resourceManager) updateRemoteResourceNames(
 		}
 
 		if ok {
+			manager.logger.Infof("SwapResource(res: %v, unknownModel: %v)", res, unknownModel)
 			gNode.SwapResource(res, unknownModel)
 		} else {
+			manager.logger.Info("else")
 			gNode = resource.NewConfiguredGraphNode(resource.Config{}, res, unknownModel)
 			if err := manager.resources.AddNode(resName, gNode); err != nil {
 				manager.logger.CErrorw(ctx, "failed to add remote resource node", "name", resName, "error", err)
@@ -241,7 +253,13 @@ func (manager *resourceManager) updateRemoteResourceNames(
 		if isActive {
 			continue
 		}
-		manager.logger.CDebugw(ctx, "attempting to remove remote resource", "name", resName)
+
+		if _, ok := disconnectedResourceNames[resName]; ok {
+			manager.logger.CDebugw(ctx, "remote resource is disconnected, leaving client as is", "remote", resName)
+			continue
+		}
+
+		manager.logger.CDebugw(ctx, "attempting to remove remote resource", "name", resName, "disconnectedResourceNames", fmt.Sprintf("#v", disconnectedResourceNames))
 		gNode, ok := manager.resources.Node(resName)
 		if !ok || gNode.IsUninitialized() {
 			manager.logger.CDebugw(ctx,
@@ -256,6 +274,7 @@ func (manager *resourceManager) updateRemoteResourceNames(
 				"reason", err)
 			continue
 		}
+		manager.logger.Info("calling gNode.Close")
 		if err := gNode.Close(ctx); err != nil {
 			manager.logger.CErrorw(ctx,
 				"failed to close remote node",
@@ -330,14 +349,23 @@ func (manager *resourceManager) ResourceNames() []resource.Name {
 	for _, k := range manager.resources.Names() {
 		if k.API == client.RemoteAPI ||
 			k.API.Type.Namespace == resource.APINamespaceRDKInternal {
+			manager.logger.Infof("%s contnuting", k)
 			continue
 		}
 		gNode, ok := manager.resources.Node(k)
+		if !ok {
+			manager.logger.Infof("%s not ok", k)
+		} else if !gNode.HasResource() {
+			manager.logger.Infof("%s does not have resource", k)
+		} else {
+			manager.logger.Infof("%s has resource", k)
+		}
 		if !ok || !gNode.HasResource() {
 			continue
 		}
 		names = append(names, k)
 	}
+	manager.logger.Infof("ResourceNames: %#v", names)
 	return names
 }
 
@@ -520,7 +548,7 @@ func (manager *resourceManager) Close(ctx context.Context) error {
 // or reconfigure resources that are wrapped in a placeholderResource.
 func (manager *resourceManager) completeConfig(
 	ctx context.Context,
-	lr *localRobot,
+	lr *LocalRobot,
 ) {
 	manager.configLock.Lock()
 	defer func() {
@@ -556,12 +584,12 @@ func (manager *resourceManager) completeConfig(
 		cleanup := rutils.SlowStartupLogger(
 			ctx, "Waiting for resource to complete (re)configuration", "resource", resName.String(), manager.logger)
 
-		lr.reconfigureWorkers.Add(1)
+		lr.ReconfigureWorkers.Add(1)
 		goutils.PanicCapturingGo(func() {
 			defer func() {
 				cleanup()
 				resChan <- struct{}{}
-				lr.reconfigureWorkers.Done()
+				lr.ReconfigureWorkers.Done()
 			}()
 			gNode, ok := manager.resources.Node(resName)
 			if !ok || !gNode.NeedsReconfigure() {
@@ -650,7 +678,7 @@ func (manager *resourceManager) completeConfig(
 	} // for-each resource name
 }
 
-func (manager *resourceManager) completeConfigForRemotes(ctx context.Context, lr *localRobot) {
+func (manager *resourceManager) completeConfigForRemotes(ctx context.Context, lr *LocalRobot) {
 	for _, resName := range manager.resources.FindNodesByAPI(client.RemoteAPI) {
 		gNode, ok := manager.resources.Node(resName)
 		if !ok || !gNode.NeedsReconfigure() {
@@ -847,7 +875,7 @@ func (manager *resourceManager) processResource(
 	ctx context.Context,
 	conf resource.Config,
 	gNode *resource.GraphNode,
-	r *localRobot,
+	r *LocalRobot,
 ) (resource.Resource, bool, error) {
 	if gNode.IsUninitialized() {
 		newRes, err := r.newResource(ctx, gNode, conf)

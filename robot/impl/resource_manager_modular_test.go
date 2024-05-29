@@ -37,7 +37,7 @@ func TestModularResources(t *testing.T) {
 		svcModel = resource.ModelNamespace("acme").WithFamily("signage").WithModel("handheld")
 	)
 
-	setupTest := func(t *testing.T) (*localRobot, *dummyModMan) {
+	setupTest := func(t *testing.T) (*LocalRobot, *dummyModMan) {
 		t.Helper()
 
 		logger := logging.NewTestLogger(t)
@@ -52,7 +52,7 @@ func TestModularResources(t *testing.T) {
 		}
 
 		r := setupLocalRobot(t, context.Background(), &config.Config{}, logger)
-		actualR := r.(*localRobot)
+		actualR := r.(*LocalRobot)
 		actualR.manager.moduleManager = mod
 
 		resource.RegisterAPI(compAPI,
@@ -577,7 +577,7 @@ func TestTwoModulesSameName(t *testing.T) {
 	}
 	r := setupLocalRobot(t, ctx, cfg, logger)
 
-	rr, ok := r.(*localRobot)
+	rr, ok := r.(*LocalRobot)
 	test.That(t, ok, test.ShouldBeTrue)
 
 	// Assert that only the first module with the same name was honored.

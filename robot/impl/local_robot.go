@@ -38,11 +38,11 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
-var _ = robot.LocalRobot(&localRobot{})
+var _ = robot.LocalRobot(&LocalRobot{})
 
-// localRobot satisfies robot.LocalRobot and defers most
+// LocalRobot satisfies robot.LocalRobot and defers most
 // logic to its manager.
-type localRobot struct {
+type LocalRobot struct {
 	// statusLock guards calls to the Status method.
 	statusLock    sync.Mutex
 	manager       *resourceManager
@@ -55,7 +55,7 @@ type localRobot struct {
 	cloudConnSvc               icloud.ConnectionService
 	logger                     logging.Logger
 	activeBackgroundWorkers    sync.WaitGroup
-	reconfigureWorkers         sync.WaitGroup
+	ReconfigureWorkers         sync.WaitGroup
 	cancelBackgroundWorkers    func()
 	closeContext               context.Context
 	triggerConfig              chan struct{}
@@ -74,60 +74,60 @@ type localRobot struct {
 // ExportResourcesAsDot exports the resource graph as a DOT representation for
 // visualization.
 // DOT reference: https://graphviz.org/doc/info/lang.html
-func (r *localRobot) ExportResourcesAsDot(index int) (resource.GetSnapshotInfo, error) {
+func (r *LocalRobot) ExportResourcesAsDot(index int) (resource.GetSnapshotInfo, error) {
 	return r.manager.ExportDot(index)
 }
 
 // RemoteByName returns a remote robot by name. If it does not exist
 // nil is returned.
-func (r *localRobot) RemoteByName(name string) (robot.Robot, bool) {
+func (r *LocalRobot) RemoteByName(name string) (robot.Robot, bool) {
 	return r.manager.RemoteByName(name)
 }
 
 // ResourceByName returns a resource by name. If it does not exist
 // nil is returned.
-func (r *localRobot) ResourceByName(name resource.Name) (resource.Resource, error) {
+func (r *LocalRobot) ResourceByName(name resource.Name) (resource.Resource, error) {
 	return r.manager.ResourceByName(name)
 }
 
 // RemoteNames returns the names of all known remote robots.
-func (r *localRobot) RemoteNames() []string {
+func (r *LocalRobot) RemoteNames() []string {
 	return r.manager.RemoteNames()
 }
 
 // ResourceNames returns the names of all known resources.
-func (r *localRobot) ResourceNames() []resource.Name {
+func (r *LocalRobot) ResourceNames() []resource.Name {
 	return r.manager.ResourceNames()
 }
 
 // ResourceRPCAPIs returns all known resource RPC APIs in use.
-func (r *localRobot) ResourceRPCAPIs() []resource.RPCAPI {
+func (r *LocalRobot) ResourceRPCAPIs() []resource.RPCAPI {
 	return r.manager.ResourceRPCAPIs()
 }
 
 // ProcessManager returns the process manager for the robot.
-func (r *localRobot) ProcessManager() pexec.ProcessManager {
+func (r *LocalRobot) ProcessManager() pexec.ProcessManager {
 	return r.manager.processManager
 }
 
 // OperationManager returns the operation manager for the robot.
-func (r *localRobot) OperationManager() *operation.Manager {
+func (r *LocalRobot) OperationManager() *operation.Manager {
 	return r.operations
 }
 
 // SessionManager returns the session manager for the robot.
-func (r *localRobot) SessionManager() session.Manager {
+func (r *LocalRobot) SessionManager() session.Manager {
 	return r.sessionManager
 }
 
 // PackageManager returns the package manager for the robot.
-func (r *localRobot) PackageManager() packages.Manager {
+func (r *LocalRobot) PackageManager() packages.Manager {
 	return r.packageManager
 }
 
 // Close attempts to cleanly close down all constituent parts of the robot. It does not wait on reconfigureWorkers,
 // as they may be running outside code and have unexpected behavior.
-func (r *localRobot) Close(ctx context.Context) error {
+func (r *LocalRobot) Close(ctx context.Context) error {
 	// we will stop and close web ourselves since modules need it to be
 	// removed properly and in the right order, so grab it before its removed
 	// from the graph/closed automatically.
@@ -162,7 +162,7 @@ func (r *localRobot) Close(ctx context.Context) error {
 }
 
 // StopAll cancels all current and outstanding operations for the robot and stops all actuators and movement.
-func (r *localRobot) StopAll(ctx context.Context, extra map[resource.Name]map[string]interface{}) error {
+func (r *LocalRobot) StopAll(ctx context.Context, extra map[resource.Name]map[string]interface{}) error {
 	// Stop all operations
 	for _, op := range r.OperationManager().All() {
 		op.Cancel()
@@ -191,7 +191,7 @@ func (r *localRobot) StopAll(ctx context.Context, extra map[resource.Name]map[st
 }
 
 // Config returns a config representing the current state of the robot.
-func (r *localRobot) Config() *config.Config {
+func (r *LocalRobot) Config() *config.Config {
 	cfg := r.mostRecentCfg.Load().(config.Config)
 
 	// Use resource manager to generate Modules, Remotes, Components, Processes
@@ -210,27 +210,27 @@ func (r *localRobot) Config() *config.Config {
 }
 
 // Logger returns the logger the robot is using.
-func (r *localRobot) Logger() logging.Logger {
+func (r *LocalRobot) Logger() logging.Logger {
 	return r.logger
 }
 
 // StartWeb starts the web server, will return an error if server is already up.
-func (r *localRobot) StartWeb(ctx context.Context, o weboptions.Options) (err error) {
+func (r *LocalRobot) StartWeb(ctx context.Context, o weboptions.Options) (err error) {
 	return r.webSvc.Start(ctx, o)
 }
 
 // StopWeb stops the web server, will be a noop if server is not up.
-func (r *localRobot) StopWeb() {
+func (r *LocalRobot) StopWeb() {
 	r.webSvc.Stop()
 }
 
 // WebAddress return the web service's address.
-func (r *localRobot) WebAddress() (string, error) {
+func (r *LocalRobot) WebAddress() (string, error) {
 	return r.webSvc.Address(), nil
 }
 
 // ModuleAddress return the module service's address.
-func (r *localRobot) ModuleAddress() (string, error) {
+func (r *LocalRobot) ModuleAddress() (string, error) {
 	return r.webSvc.ModuleAddress(), nil
 }
 
@@ -244,7 +244,7 @@ func remoteNameByResource(resourceName resource.Name) (string, bool) {
 	return remote[0], true
 }
 
-func (r *localRobot) Status(ctx context.Context, resourceNames []resource.Name) ([]robot.Status, error) {
+func (r *LocalRobot) Status(ctx context.Context, resourceNames []resource.Name) ([]robot.Status, error) {
 	r.statusLock.Lock()
 	defer r.statusLock.Unlock()
 
@@ -367,7 +367,7 @@ func newWithResources(
 	}
 
 	closeCtx, cancel := context.WithCancel(ctx)
-	r := &localRobot{
+	r := &LocalRobot{
 		manager: newResourceManager(
 			resourceManagerOptions{
 				debug:              cfg.Debug,
@@ -546,7 +546,7 @@ func New(
 
 // removeOrphanedResources is called by the module manager to remove resources
 // orphaned due to module crashes.
-func (r *localRobot) removeOrphanedResources(ctx context.Context,
+func (r *LocalRobot) removeOrphanedResources(ctx context.Context,
 	rNames []resource.Name,
 ) {
 	r.manager.markResourcesRemoved(rNames, nil)
@@ -560,7 +560,7 @@ func (r *localRobot) removeOrphanedResources(ctx context.Context,
 // getDependencies derives a collection of dependencies from a robot for a given
 // component's name. We don't use the resource manager for this information since
 // it is not be constructed at this point.
-func (r *localRobot) getDependencies(
+func (r *LocalRobot) getDependencies(
 	ctx context.Context,
 	rName resource.Name,
 	gNode *resource.GraphNode,
@@ -603,7 +603,7 @@ func (r *localRobot) getDependencies(
 	return allDeps, nil
 }
 
-func (r *localRobot) getWeakDependencyMatchers(api resource.API, model resource.Model) []resource.Matcher {
+func (r *LocalRobot) getWeakDependencyMatchers(api resource.API, model resource.Model) []resource.Matcher {
 	reg, ok := resource.LookupRegistration(api, model)
 	if !ok {
 		return nil
@@ -611,7 +611,7 @@ func (r *localRobot) getWeakDependencyMatchers(api resource.API, model resource.
 	return reg.WeakDependencies
 }
 
-func (r *localRobot) getWeakDependencies(resName resource.Name, api resource.API, model resource.Model) resource.Dependencies {
+func (r *LocalRobot) getWeakDependencies(resName resource.Name, api resource.API, model resource.Model) resource.Dependencies {
 	weakDepMatchers := r.getWeakDependencyMatchers(api, model)
 
 	allNames := r.manager.resources.Names()
@@ -636,7 +636,7 @@ func (r *localRobot) getWeakDependencies(resName resource.Name, api resource.API
 	return deps
 }
 
-func (r *localRobot) newResource(
+func (r *LocalRobot) newResource(
 	ctx context.Context,
 	gNode *resource.GraphNode,
 	conf resource.Config,
@@ -676,7 +676,7 @@ func (r *localRobot) newResource(
 	return resInfo.DeprecatedRobotConstructor(ctx, r, conf, gNode.Logger())
 }
 
-func (r *localRobot) updateWeakDependents(ctx context.Context) {
+func (r *LocalRobot) updateWeakDependents(ctx context.Context) {
 	// Track the current value of the resource graph's logical clock. This will
 	// later be used to determine if updateWeakDependents should be called during
 	// getDependencies.
@@ -720,11 +720,11 @@ func (r *localRobot) updateWeakDependents(ctx context.Context) {
 			ctx, "Waiting for internal resource to complete reconfiguration during weak dependencies update", "resource", resName.String(), r.logger)
 		defer cleanup()
 
-		r.reconfigureWorkers.Add(1)
+		r.ReconfigureWorkers.Add(1)
 		goutils.PanicCapturingGo(func() {
 			defer func() {
 				resChan <- struct{}{}
-				r.reconfigureWorkers.Done()
+				r.ReconfigureWorkers.Done()
 			}()
 			switch resName {
 			case web.InternalServiceName:
@@ -812,12 +812,12 @@ func (r *localRobot) updateWeakDependents(ctx context.Context) {
 			r.logger,
 		)
 		resChan := make(chan struct{}, 1)
-		r.reconfigureWorkers.Add(1)
+		r.ReconfigureWorkers.Add(1)
 		goutils.PanicCapturingGo(func() {
 			defer func() {
 				cleanup()
 				resChan <- struct{}{}
-				r.reconfigureWorkers.Done()
+				r.ReconfigureWorkers.Done()
 			}()
 			updateResourceWeakDependents(ctxWithTimeout, conf)
 		})
@@ -836,7 +836,7 @@ func (r *localRobot) updateWeakDependents(ctx context.Context) {
 // Config returns the info of each individual part that makes up the frame system
 // The output of this function is to be sent over GRPC to the client, so the client
 // can build its frame system. requests the remote components from the remote's frame system service.
-func (r *localRobot) FrameSystemConfig(ctx context.Context) (*framesystem.Config, error) {
+func (r *LocalRobot) FrameSystemConfig(ctx context.Context) (*framesystem.Config, error) {
 	localParts, err := r.getLocalFrameSystemParts()
 	if err != nil {
 		return nil, err
@@ -851,7 +851,7 @@ func (r *localRobot) FrameSystemConfig(ctx context.Context) (*framesystem.Config
 
 // getLocalFrameSystemParts collects and returns the physical parts of the robot that may have frame info,
 // excluding remote robots and services, etc from the robot's config.Config.
-func (r *localRobot) getLocalFrameSystemParts() ([]*referenceframe.FrameSystemPart, error) {
+func (r *LocalRobot) getLocalFrameSystemParts() ([]*referenceframe.FrameSystemPart, error) {
 	cfg := r.Config()
 
 	parts := make([]*referenceframe.FrameSystemPart, 0)
@@ -893,7 +893,7 @@ func (r *localRobot) getLocalFrameSystemParts() ([]*referenceframe.FrameSystemPa
 	return parts, nil
 }
 
-func (r *localRobot) getRemoteFrameSystemParts(ctx context.Context) ([]*referenceframe.FrameSystemPart, error) {
+func (r *LocalRobot) getRemoteFrameSystemParts(ctx context.Context) ([]*referenceframe.FrameSystemPart, error) {
 	cfg := r.Config()
 
 	remoteNames := r.RemoteNames()
@@ -951,7 +951,7 @@ func (r *localRobot) getRemoteFrameSystemParts(ctx context.Context) ([]*referenc
 
 // extractModelFrameJSON finds the robot part with a given name, checks to see if it implements ModelFrame, and returns the
 // JSON []byte if it does, or nil if it doesn't.
-func (r *localRobot) extractModelFrameJSON(name resource.Name) (referenceframe.Model, error) {
+func (r *LocalRobot) extractModelFrameJSON(name resource.Name) (referenceframe.Model, error) {
 	part, err := r.ResourceByName(name)
 	if err != nil {
 		return nil, err
@@ -963,7 +963,7 @@ func (r *localRobot) extractModelFrameJSON(name resource.Name) (referenceframe.M
 }
 
 // TransformPose will transform the pose of the requested poseInFrame to the desired frame in the robot's frame system.
-func (r *localRobot) TransformPose(
+func (r *LocalRobot) TransformPose(
 	ctx context.Context,
 	pose *referenceframe.PoseInFrame,
 	dst string,
@@ -975,7 +975,7 @@ func (r *localRobot) TransformPose(
 // TransformPointCloud will transform the pointcloud to the desired frame in the robot's frame system.
 // Do not move the robot between the generation of the initial pointcloud and the receipt
 // of the transformed pointcloud because that will make the transformations inaccurate.
-func (r *localRobot) TransformPointCloud(
+func (r *LocalRobot) TransformPointCloud(
 	ctx context.Context,
 	srcpc pointcloud.PointCloud,
 	srcName, dstName string,
@@ -1016,7 +1016,7 @@ func RobotFromResources(
 
 // DiscoverComponents takes a list of discovery queries and returns corresponding
 // component configurations.
-func (r *localRobot) DiscoverComponents(ctx context.Context, qs []resource.DiscoveryQuery) ([]resource.Discovery, error) {
+func (r *LocalRobot) DiscoverComponents(ctx context.Context, qs []resource.DiscoveryQuery) ([]resource.Discovery, error) {
 	// dedupe queries
 	deduped := make(map[resource.DiscoveryQuery]struct{}, len(qs))
 	for _, q := range qs {
@@ -1053,7 +1053,7 @@ type moduleManagerDiscoveryResult struct {
 
 // discoverRobotInternals is used to discover parts of the robot that are not in the resource graph
 // It accepts a query and should return the Discovery Results object along with an ok value.
-func (r *localRobot) discoverRobotInternals(query resource.DiscoveryQuery) (interface{}, bool) {
+func (r *LocalRobot) discoverRobotInternals(query resource.DiscoveryQuery) (interface{}, bool) {
 	switch {
 	// these strings are hardcoded because their existence would be misleading anywhere outside of this function
 	case query.API.String() == "rdk-internal:service:module-manager" &&
@@ -1101,7 +1101,7 @@ func dialRobotClient(
 // Reconfigure will safely reconfigure a robot based on the given config. It will make
 // a best effort to remove no longer in use parts, but if it fails to do so, they could
 // possibly leak resources. The given config may be modified by Reconfigure.
-func (r *localRobot) Reconfigure(ctx context.Context, newConfig *config.Config) {
+func (r *LocalRobot) Reconfigure(ctx context.Context, newConfig *config.Config) {
 	var allErrs error
 
 	// Sync Packages before reconfiguring rest of robot and resolving references to any packages
@@ -1222,7 +1222,7 @@ func (r *localRobot) Reconfigure(ctx context.Context, newConfig *config.Config) 
 }
 
 // checkMaxInstance checks to see if the local robot has reached the maximum number of a specific resource type that are local.
-func (r *localRobot) checkMaxInstance(api resource.API, max int) error {
+func (r *LocalRobot) checkMaxInstance(api resource.API, max int) error {
 	maxInstance := 0
 	for _, n := range r.ResourceNames() {
 		if n.API == api && !n.ContainsRemoteNames() {
@@ -1236,7 +1236,7 @@ func (r *localRobot) checkMaxInstance(api resource.API, max int) error {
 }
 
 // CloudMetadata returns app-related information about the robot.
-func (r *localRobot) CloudMetadata(ctx context.Context) (cloud.Metadata, error) {
+func (r *LocalRobot) CloudMetadata(ctx context.Context) (cloud.Metadata, error) {
 	md := cloud.Metadata{}
 	cfg := r.Config()
 	if cfg == nil {
@@ -1254,7 +1254,7 @@ func (r *localRobot) CloudMetadata(ctx context.Context) (cloud.Metadata, error) 
 }
 
 // restartSingleModule constructs a single-module diff and calls updateResources with it.
-func (r *localRobot) restartSingleModule(ctx context.Context, mod config.Module) error {
+func (r *LocalRobot) restartSingleModule(ctx context.Context, mod config.Module) error {
 	diff := config.Diff{
 		Left:     r.Config(),
 		Right:    r.Config(),
@@ -1280,7 +1280,7 @@ func (r *localRobot) restartSingleModule(ctx context.Context, mod config.Module)
 	return r.manager.updateResources(ctx, &diff)
 }
 
-func (r *localRobot) RestartModule(ctx context.Context, req robot.RestartModuleRequest) error {
+func (r *LocalRobot) RestartModule(ctx context.Context, req robot.RestartModuleRequest) error {
 	mod := utils.FindInSlice(r.Config().Modules, req.MatchesModule)
 	if mod == nil {
 		return fmt.Errorf(

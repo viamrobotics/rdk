@@ -123,7 +123,7 @@ func TestFrameSystemConfigWithRemote(t *testing.T) {
 
 	test.That(t, remoteRobot.Close(context.Background()), test.ShouldBeNil)
 
-	rr, ok := r2.(*localRobot)
+	rr, ok := r2.(*LocalRobot)
 	test.That(t, ok, test.ShouldBeTrue)
 
 	rr.triggerConfig <- struct{}{}

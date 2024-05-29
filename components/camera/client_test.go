@@ -1158,8 +1158,8 @@ Loop:
 	defer sndPktTimeoutFn()
 	select {
 	case <-sub.Terminated.Done():
-		// Right now we are going down this path b/c main's
-		redLog(t, "main's sub terminated due to clos")
+		// Right now we are going down this path b/c main's resource graph is calling close
+		redLog(t, "main's sub terminated due to close")
 		t.FailNow()
 	case <-pktsChan:
 		// Right now we never go down this path as the test is not able to get remote1 to reconnect to the new remote 2
@@ -1168,4 +1168,224 @@ Loop:
 		redLog(t, "timed out waiting for SubscribeRTP to receive packets")
 		t.FailNow()
 	}
+}
+
+// NOT WORKING as I don't know how to get a remote to come back online after calling Close
+// go test -race -v -run=TestWhyMustCallUnsubscribe -timeout 10s
+// TestWhyMustTimeoutOnReadRTP shows that if we don't call Unsubscribe on camera client Close (even if we are timing out in ReadRTP)
+// when talking to a remote all subsequent AddStream calls to the remote will inevitably fail due to the previous track still being alive.
+func TestRemoteUnreachableTriggersClientClose(t *testing.T) {
+	logger := logging.NewTestLogger(t).Sublogger(t.Name())
+
+	remoteCfg1 := &config.Config{
+		Network: config.NetworkConfig{NetworkConfigData: config.NetworkConfigData{Sessions: config.SessionsConfig{HeartbeatWindow: time.Hour}}},
+		Components: []resource.Config{
+			{
+				Name:  "rtpPassthroughCamera",
+				API:   resource.NewAPI("rdk", "component", "camera"),
+				Model: resource.DefaultModelFamily.WithModel("fake"),
+				ConvertedAttributes: &fake.Config{
+					RTPPassthrough: true,
+				},
+			},
+		},
+	}
+
+	remote1Ctx, remoteRobot1, addr1, remoteWebSvc1 := setupRealRobot(t, remoteCfg1, logger.Sublogger("remote-1"))
+	defer remoteRobot1.Close(remote1Ctx)
+	defer remoteWebSvc1.Close(remote1Ctx)
+
+	mainCfg := &config.Config{
+		Network: config.NetworkConfig{NetworkConfigData: config.NetworkConfigData{Sessions: config.SessionsConfig{HeartbeatWindow: time.Hour}}},
+		Remotes: []config.Remote{
+			{
+				Name:     "remote-1",
+				Address:  addr1,
+				Insecure: true,
+			},
+		},
+	}
+
+	mainCtx, mainRobot, _, mainWebSvc := setupRealRobot(t, mainCfg, logger.Sublogger("main"))
+	greenLog(t, "robot setup")
+	defer mainRobot.Close(mainCtx)
+	defer mainWebSvc.Close(mainCtx)
+
+	greenLog(t, fmt.Sprintf("ResourceRPCAPIs before close: %#v", mainRobot.ResourceRPCAPIs()))
+	greenLog(t, fmt.Sprintf("ResourceNames before close: %#v", mainRobot.ResourceNames()))
+
+	cameraClient, err := camera.FromRobot(mainRobot, "remote-1:rtpPassthroughCamera")
+	test.That(t, err, test.ShouldBeNil)
+
+	image, _, err := cameraClient.Images(mainCtx)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, image, test.ShouldNotBeNil)
+	greenLog(t, "got images")
+
+	greenLog(t, fmt.Sprintf("calling SubscribeRTP on %T, %p", cameraClient, cameraClient))
+	time.Sleep(time.Second)
+
+	pktsChan := make(chan []*rtp.Packet)
+	recvPktsCtx, recvPktsFn := context.WithCancel(context.Background())
+	_, err = cameraClient.(rtppassthrough.Source).SubscribeRTP(mainCtx, 512, func(pkts []*rtp.Packet) {
+		// first packet
+		recvPktsFn()
+		// at some point packets are no longer published
+		select {
+		case pktsChan <- pkts:
+		default:
+		}
+	})
+	test.That(t, err, test.ShouldBeNil)
+	<-recvPktsCtx.Done()
+	greenLog(t, "got packets")
+
+	greenLog(t, "calling close")
+	test.That(t, remoteRobot1.Close(remote1Ctx), test.ShouldBeNil)
+	test.That(t, remoteWebSvc1.Close(remote1Ctx), test.ShouldBeNil)
+	greenLog(t, "close called")
+
+	greenLog(t, "waiting for SubscribeRTP to stop receiving packets")
+
+	timeoutCtx, timeoutFn := context.WithTimeout(context.Background(), time.Second)
+	defer timeoutFn()
+
+	var (
+		pktTimeoutCtx context.Context
+		pktTimeoutFn  context.CancelFunc
+	)
+
+	// Once we have not received packets for half a second we can assume that no more packets will be published
+	// by the first instance of remote2
+Loop:
+	for {
+		if pktTimeoutFn != nil {
+			pktTimeoutFn()
+		}
+		pktTimeout := time.Millisecond * 500
+		pktTimeoutCtx, pktTimeoutFn = context.WithTimeout(context.Background(), pktTimeout)
+		select {
+		case <-pktsChan:
+			continue
+		case <-pktTimeoutCtx.Done():
+			greenLog(t, fmt.Sprintf("it has been at least %s since SubscribeRTP has received a packet", pktTimeout))
+			pktTimeoutFn()
+			// https://go.dev/ref/spec#Break_statements
+			// The 'Loop' label is needed so that we break out of the loop
+			// rather than out of the select statement
+			break Loop
+		case <-timeoutCtx.Done():
+			t.Log("timed out waiting for SubscribeRTP packets to drain")
+			t.FailNow()
+		}
+	}
+
+	greenLog(t, fmt.Sprintf("sleeping for %s", time.Second*20))
+	time.Sleep(time.Second * 20)
+	greenLog(t, fmt.Sprintf("ResourceRPCAPIs after close: %#v", mainRobot.ResourceRPCAPIs()))
+	greenLog(t, fmt.Sprintf("ResourceNames after close: %#v", mainRobot.ResourceNames()))
+}
+
+func TestReconnectToRemoveAfterReboot(t *testing.T) {
+	logger := logging.NewTestLogger(t).Sublogger(t.Name())
+
+	remoteCfg1 := &config.Config{
+		Network: config.NetworkConfig{NetworkConfigData: config.NetworkConfigData{Sessions: config.SessionsConfig{HeartbeatWindow: time.Hour}}},
+		Components: []resource.Config{
+			{
+				Name:  "rtpPassthroughCamera",
+				API:   resource.NewAPI("rdk", "component", "camera"),
+				Model: resource.DefaultModelFamily.WithModel("fake"),
+				ConvertedAttributes: &fake.Config{
+					RTPPassthrough: true,
+				},
+			},
+		},
+	}
+
+	options1, listner1, addr1 := robottestutils.CreateBaseOptionsAndListener(t)
+	remote1Ctx, remoteRobot1, remoteWebSvc1 := setupRealRobotWithOptions(t, remoteCfg1, logger.Sublogger("remote-1"), options1)
+	defer remoteRobot1.Close(remote1Ctx)
+	defer remoteWebSvc1.Close(remote1Ctx)
+
+	mainCfg := &config.Config{
+		Network: config.NetworkConfig{NetworkConfigData: config.NetworkConfigData{Sessions: config.SessionsConfig{HeartbeatWindow: time.Hour}}},
+		Remotes: []config.Remote{
+			{
+				Name:     "remote-1",
+				Address:  addr1,
+				Insecure: true,
+			},
+		},
+	}
+
+	mainCtx, mainRobot, _, mainWebSvc := setupRealRobot(t, mainCfg, logger.Sublogger("main"))
+	greenLog(t, "robot setup")
+	defer mainRobot.Close(mainCtx)
+	defer mainWebSvc.Close(mainCtx)
+
+	greenLog(t, fmt.Sprintf("ResourceRPCAPIs before close: %#v", mainRobot.ResourceRPCAPIs()))
+	greenLog(t, fmt.Sprintf("ResourceNames before close: %#v", mainRobot.ResourceNames()))
+
+	cameraClient, err := camera.FromRobot(mainRobot, "remote-1:rtpPassthroughCamera")
+	test.That(t, err, test.ShouldBeNil)
+
+	image, _, err := cameraClient.Images(mainCtx)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, image, test.ShouldNotBeNil)
+	greenLog(t, "got images")
+
+	greenLog(t, "calling close")
+	test.That(t, remoteRobot1.Close(remote1Ctx), test.ShouldBeNil)
+	test.That(t, remoteWebSvc1.Close(remote1Ctx), test.ShouldBeNil)
+	greenLog(t, "close called")
+
+	greenLog(t, "confirming images returns an error")
+	_, _, err = cameraClient.Images(mainCtx)
+	test.That(t, err, test.ShouldBeError)
+
+	remote2Second := setupLocalRobot(t, context.Background(), remoteCfg1, logger.Sublogger("remote-1-second"))
+
+	listner1, err = net.Listen("tcp", listner1.Addr().String())
+	test.That(t, err, test.ShouldBeNil)
+
+	options1.Network.Listener = listner1
+
+	err = remote2Second.StartWeb(context.Background(), options1)
+	test.That(t, err, test.ShouldBeNil)
+
+	greenLog(t, "confirming images is returns success")
+	timeoutCtx, timeoutFn := context.WithTimeout(context.Background(), time.Second*10)
+	defer timeoutFn()
+	for timeoutCtx.Err() == nil {
+		_, _, err = cameraClient.Images(mainCtx)
+		if err == nil {
+			break
+		}
+		t.Log(err.Error())
+		time.Sleep(time.Millisecond * 50)
+	}
+	test.That(t, timeoutCtx.Err(), test.ShouldBeNil)
+}
+
+func setupLocalRobot(
+	t *testing.T,
+	ctx context.Context,
+	cfg *config.Config,
+	logger logging.Logger,
+) robot.LocalRobot {
+	t.Helper()
+
+	// use a temporary home directory so that it doesn't collide with
+	// the user's/other tests' viam home directory
+	r, err := robotimpl.New(ctx, cfg, logger, robotimpl.WithViamHomeDir(t.TempDir()))
+	test.That(t, err, test.ShouldBeNil)
+	t.Cleanup(func() {
+		test.That(t, r.Close(ctx), test.ShouldBeNil)
+		// Wait for reconfigureWorkers here because localRobot.Close does not.
+		lRobot, ok := r.(*robotimpl.LocalRobot)
+		test.That(t, ok, test.ShouldBeTrue)
+		lRobot.ReconfigureWorkers.Wait()
+	})
+	return r
 }

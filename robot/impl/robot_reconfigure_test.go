@@ -311,7 +311,7 @@ func TestRobotReconfigure(t *testing.T) {
 
 		reconfigurableTrue = true
 
-		rr, ok := robot.(*localRobot)
+		rr, ok := robot.(*LocalRobot)
 		test.That(t, ok, test.ShouldBeTrue)
 
 		rr.triggerConfig <- struct{}{}
@@ -516,7 +516,7 @@ func TestRobotReconfigure(t *testing.T) {
 
 		rdktestutils.VerifyTopologicallySortedLevels(
 			t,
-			robot.(*localRobot).manager.resources,
+			robot.(*LocalRobot).manager.resources,
 			[][]resource.Name{
 				rdktestutils.ConcatResourceNames(
 					motorNames,
@@ -528,7 +528,7 @@ func TestRobotReconfigure(t *testing.T) {
 				baseNames,
 				boardNames,
 			},
-			robot.(*localRobot).manager.internalResourceNames()...,
+			robot.(*LocalRobot).manager.internalResourceNames()...,
 		)
 	})
 
@@ -679,7 +679,7 @@ func TestRobotReconfigure(t *testing.T) {
 
 		rdktestutils.VerifyTopologicallySortedLevels(
 			t,
-			robot.(*localRobot).manager.resources,
+			robot.(*LocalRobot).manager.resources,
 			[][]resource.Name{
 				rdktestutils.ConcatResourceNames(
 					motorNames,
@@ -688,7 +688,7 @@ func TestRobotReconfigure(t *testing.T) {
 				baseNames,
 				boardNames,
 			},
-			robot.(*localRobot).manager.internalResourceNames()...,
+			robot.(*LocalRobot).manager.internalResourceNames()...,
 		)
 	})
 
@@ -818,8 +818,8 @@ func TestRobotReconfigure(t *testing.T) {
 		test.That(t, ok, test.ShouldBeTrue)
 		_, ok = robot.ProcessManager().ProcessByID("2")
 		test.That(t, ok, test.ShouldBeTrue)
-		sorted := robot.(*localRobot).manager.resources.TopologicalSort()
-		sorted = rdktestutils.SubtractNames(sorted, robot.(*localRobot).manager.internalResourceNames()...)
+		sorted := robot.(*LocalRobot).manager.resources.TopologicalSort()
+		sorted = rdktestutils.SubtractNames(sorted, robot.(*LocalRobot).manager.internalResourceNames()...)
 		test.That(t, rdktestutils.NewResourceNameSet(sorted...), test.ShouldResemble, rdktestutils.NewResourceNameSet(
 			rdktestutils.ConcatResourceNames(
 				boardNames,
@@ -990,7 +990,7 @@ func TestRobotReconfigure(t *testing.T) {
 
 		rdktestutils.VerifyTopologicallySortedLevels(
 			t,
-			robot.(*localRobot).manager.resources,
+			robot.(*LocalRobot).manager.resources,
 			[][]resource.Name{
 				rdktestutils.ConcatResourceNames(
 					motorNames,
@@ -1008,7 +1008,7 @@ func TestRobotReconfigure(t *testing.T) {
 				},
 				{board.Named("board1")},
 			},
-			robot.(*localRobot).manager.internalResourceNames()...,
+			robot.(*LocalRobot).manager.internalResourceNames()...,
 		)
 	})
 
@@ -1127,7 +1127,7 @@ func TestRobotReconfigure(t *testing.T) {
 
 		rdktestutils.VerifyTopologicallySortedLevels(
 			t,
-			robot.(*localRobot).manager.resources,
+			robot.(*LocalRobot).manager.resources,
 			[][]resource.Name{
 				rdktestutils.ConcatResourceNames(
 					motorNames,
@@ -1145,7 +1145,7 @@ func TestRobotReconfigure(t *testing.T) {
 				},
 				{board.Named("board1")},
 			},
-			robot.(*localRobot).manager.internalResourceNames()...,
+			robot.(*LocalRobot).manager.internalResourceNames()...,
 		)
 	})
 
@@ -1334,8 +1334,8 @@ func TestRobotReconfigure(t *testing.T) {
 		test.That(t, ok, test.ShouldBeTrue)
 		_, ok = robot.ProcessManager().ProcessByID("2")
 		test.That(t, ok, test.ShouldBeTrue)
-		sorted := robot.(*localRobot).manager.resources.TopologicalSort()
-		sorted = rdktestutils.SubtractNames(sorted, robot.(*localRobot).manager.internalResourceNames()...)
+		sorted := robot.(*LocalRobot).manager.resources.TopologicalSort()
+		sorted = rdktestutils.SubtractNames(sorted, robot.(*LocalRobot).manager.internalResourceNames()...)
 		test.That(t, rdktestutils.NewResourceNameSet(sorted...), test.ShouldResemble, rdktestutils.NewResourceNameSet(
 			rdktestutils.ConcatResourceNames(
 				motorNames,
@@ -1460,8 +1460,8 @@ func TestRobotReconfigure(t *testing.T) {
 		test.That(t, ok, test.ShouldBeTrue)
 		_, ok = robot.ProcessManager().ProcessByID("2")
 		test.That(t, ok, test.ShouldBeTrue)
-		sorted := robot.(*localRobot).manager.resources.TopologicalSort()
-		sorted = rdktestutils.SubtractNames(sorted, robot.(*localRobot).manager.internalResourceNames()...)
+		sorted := robot.(*LocalRobot).manager.resources.TopologicalSort()
+		sorted = rdktestutils.SubtractNames(sorted, robot.(*LocalRobot).manager.internalResourceNames()...)
 		test.That(t, rdktestutils.NewResourceNameSet(sorted...), test.ShouldResemble, rdktestutils.NewResourceNameSet(
 			rdktestutils.ConcatResourceNames(
 				motorNames,
@@ -1682,8 +1682,8 @@ func TestRobotReconfigure(t *testing.T) {
 		test.That(t, ok, test.ShouldBeTrue)
 		_, ok = robot.ProcessManager().ProcessByID("2")
 		test.That(t, ok, test.ShouldBeTrue)
-		sorted := robot.(*localRobot).manager.resources.TopologicalSort()
-		sorted = rdktestutils.SubtractNames(sorted, robot.(*localRobot).manager.internalResourceNames()...)
+		sorted := robot.(*LocalRobot).manager.resources.TopologicalSort()
+		sorted = rdktestutils.SubtractNames(sorted, robot.(*LocalRobot).manager.internalResourceNames()...)
 		test.That(t, rdktestutils.NewResourceNameSet(sorted...), test.ShouldResemble, rdktestutils.NewResourceNameSet(
 			rdktestutils.ConcatResourceNames(
 				motorNames,
@@ -1771,8 +1771,8 @@ func TestRobotReconfigure(t *testing.T) {
 		test.That(t, ok, test.ShouldBeTrue)
 		_, ok = robot.ProcessManager().ProcessByID("2")
 		test.That(t, ok, test.ShouldBeTrue)
-		sorted = robot.(*localRobot).manager.resources.TopologicalSort()
-		sorted = rdktestutils.SubtractNames(sorted, robot.(*localRobot).manager.internalResourceNames()...)
+		sorted = robot.(*LocalRobot).manager.resources.TopologicalSort()
+		sorted = rdktestutils.SubtractNames(sorted, robot.(*LocalRobot).manager.internalResourceNames()...)
 		test.That(t, rdktestutils.NewResourceNameSet(sorted...), test.ShouldResemble, rdktestutils.NewResourceNameSet(
 			rdktestutils.ConcatResourceNames(
 				motorNames,
@@ -1877,7 +1877,7 @@ func TestRobotReconfigure(t *testing.T) {
 
 		reconfigurableTrue = true
 
-		rr, ok := robot.(*localRobot)
+		rr, ok := robot.(*LocalRobot)
 		test.That(t, ok, test.ShouldBeTrue)
 
 		// The newly set configuration fixes the `mock6` component. A (second) reconfig should pick
@@ -1897,8 +1897,8 @@ func TestRobotReconfigure(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, mock6.(*mockFake).reconfCount, test.ShouldEqual, 1)
 
-		sorted = robot.(*localRobot).manager.resources.TopologicalSort()
-		sorted = rdktestutils.SubtractNames(sorted, robot.(*localRobot).manager.internalResourceNames()...)
+		sorted = robot.(*LocalRobot).manager.resources.TopologicalSort()
+		sorted = rdktestutils.SubtractNames(sorted, robot.(*LocalRobot).manager.internalResourceNames()...)
 		test.That(t, rdktestutils.NewResourceNameSet(sorted...), test.ShouldResemble, rdktestutils.NewResourceNameSet(
 			rdktestutils.ConcatResourceNames(
 				motorNames,

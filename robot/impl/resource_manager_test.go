@@ -693,7 +693,7 @@ func TestManagerNewComponent(t *testing.T) {
 		},
 	}
 	logger := logging.NewTestLogger(t)
-	robotForRemote := &localRobot{
+	robotForRemote := &LocalRobot{
 		manager: newResourceManager(resourceManagerOptions{}, logger),
 	}
 	diff, err := config.DiffConfigs(config.Config{}, *cfg, true)
@@ -1599,7 +1599,7 @@ func TestReconfigure(t *testing.T) {
 		API:   api,
 	}
 
-	local, ok := r.(*localRobot)
+	local, ok := r.(*LocalRobot)
 	test.That(t, ok, test.ShouldBeTrue)
 	newService, newlyBuilt, err := manager.processResource(ctx, svc1, resource.NewUninitializedNode(), local)
 	test.That(t, err, test.ShouldBeNil)
@@ -1649,7 +1649,7 @@ func TestResourceCreationPanic(t *testing.T) {
 			API:   api,
 		}
 
-		local, ok := r.(*localRobot)
+		local, ok := r.(*LocalRobot)
 		test.That(t, ok, test.ShouldBeTrue)
 		_, _, err := manager.processResource(ctx, svc1, resource.NewUninitializedNode(), local)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "hello")
@@ -1684,7 +1684,7 @@ func TestResourceCreationPanic(t *testing.T) {
 			API:   api,
 		}
 
-		local, ok := r.(*localRobot)
+		local, ok := r.(*LocalRobot)
 		test.That(t, ok, test.ShouldBeTrue)
 		_, _, err := manager.processResource(ctx, svc1, resource.NewUninitializedNode(), local)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "hello")
