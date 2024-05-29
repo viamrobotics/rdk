@@ -573,6 +573,18 @@ func TestDiffNetworkingCfg(t *testing.T) {
 			config.Config{Auth: auth2},
 			false,
 		},
+		{
+			"webprofile",
+			config.Config{},
+			config.Config{EnableWebProfile: true},
+			false,
+		},
+		{
+			"disable webprofile",
+			config.Config{EnableWebProfile: true},
+			config.Config{EnableWebProfile: false},
+			false,
+		},
 	} {
 		t.Run(tc.Name, func(t *testing.T) {
 			diff, err := config.DiffConfigs(tc.LeftCfg, tc.RightCfg, true)
