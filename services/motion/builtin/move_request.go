@@ -16,6 +16,7 @@ import (
 	"go.viam.com/rdk/components/base/kinematicbase"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan"
+	"go.viam.com/rdk/motionplan/ik"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
@@ -28,9 +29,10 @@ import (
 )
 
 const (
-	defaultReplanCostFactor = 1.0
-	defaultMaxReplans       = -1 // Values below zero will replan infinitely
-	baseStopTimeout         = time.Second * 5
+	defaultReplanCostFactor  = 1.0
+	defaultMaxReplans        = -1 // Values below zero will replan infinitely
+	baseStopTimeout          = time.Second * 5
+	defaultCollisionBufferMM = 1e-8
 )
 
 // validatedMotionConfiguration is a copy of the motion.MotionConfiguration type
@@ -522,38 +524,24 @@ func (ms *builtIn) newMoveOnGlobeRequest(
 	geomsRaw := spatialmath.GeoGeometriesToGeometries(obstacles, origin)
 
 	// convert bounding regions which are GeoGeometries into Geometries
-	boundingRegions := req.BoundingRegions
-	if boundingRegions == nil {
-		boundingRegions = []*spatialmath.GeoGeometry{}
-	}
-	interactionSpaces := spatialmath.GeoGeometriesToGeometries(boundingRegions, origin)
+	boundingRegions := spatialmath.GeoGeometriesToGeometries(req.BoundingRegions, origin)
 
-	// Here we determine if the robot is contained by the defined interaction spaces.
-	// TODO(nf): Want to show if the robot is contained by the union of the defined interaction spaces
-	// Consider the following scenario:
-	// Suppose we have two geometries which comprise our interaction space.
-	// Further, suppose half of the robot is perfectly contained in one geometry of the interaction space
-	// while the other half is perfectly contained in the other geometry. As it stands, this will report
-	// that our robot has not started in a position already contained within the interaction spaces.
-	// This is clearly not true.
+	// get robot geometries
 	robotGeoms, err := b.Geometries(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
-	isEncompassed := true
-	for _, interactionSpace := range interactionSpaces {
-		for _, robotGeom := range robotGeoms {
-			encompassed, err := robotGeom.EncompassedBy(interactionSpace)
-			if err != nil {
-				return nil, err
-			}
-			if !encompassed {
-				isEncompassed = encompassed
-			}
+
+	// if the user chose to define any bounding regions, determine if the robot is in
+	// collision with at least one of them
+	if len(boundingRegions) > 0 {
+		collisionCheck, err := motionplan.NewBoundingRegionConstraint(robotGeoms, boundingRegions, defaultCollisionBufferMM)
+		if err != nil {
+			return nil, err
 		}
-	}
-	if !isEncompassed {
-		return nil, errors.New("robot not fully compassed by the provided bounding regions")
+		if !collisionCheck(&ik.State{}) {
+			return nil, fmt.Errorf("base named %s is not within the provided bounding regions", b.Name().ShortName())
+		}
 	}
 
 	mr, err := ms.createBaseMoveRequest(
@@ -564,7 +552,7 @@ func (ms *builtIn) newMoveOnGlobeRequest(
 		goalPoseRaw,
 		fs,
 		geomsRaw,
-		interactionSpaces,
+		boundingRegions,
 		valExtra,
 	)
 	if err != nil {
@@ -683,7 +671,7 @@ func (ms *builtIn) createBaseMoveRequest(
 	goalPoseInWorld spatialmath.Pose,
 	fs referenceframe.FrameSystem,
 	worldObstacles []spatialmath.Geometry,
-	interactionSpaces []spatialmath.Geometry,
+	boundingRegions []spatialmath.Geometry,
 	valExtra validatedExtra,
 ) (*moveRequest, error) {
 	// replace original base frame with one that knows how to move itself and allow planning for
@@ -778,7 +766,7 @@ func (ms *builtIn) createBaseMoveRequest(
 			StartConfiguration: currentInputs,
 			StartPose:          startPose,
 			WorldState:         worldState,
-			InteractionSpaces:  interactionSpaces,
+			BoundingRegions:    boundingRegions,
 			Options:            valExtra.extra,
 		},
 		poseOrigin:        startPose,

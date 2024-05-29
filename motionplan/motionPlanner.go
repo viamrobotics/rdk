@@ -49,7 +49,7 @@ type PlanRequest struct {
 	StartPose          spatialmath.Pose
 	StartConfiguration map[string][]frame.Input
 	WorldState         *frame.WorldState
-	InteractionSpaces  []spatialmath.Geometry
+	BoundingRegions    []spatialmath.Geometry
 	ConstraintSpecs    *pb.Constraints
 	Options            map[string]interface{}
 }
@@ -81,8 +81,8 @@ func (req *PlanRequest) validatePlanRequest() error {
 		return frame.NewParentFrameMissingError(req.Goal.Name(), goalParentFrame)
 	}
 
-	if req.InteractionSpaces == nil {
-		req.InteractionSpaces = []spatialmath.Geometry{}
+	if req.BoundingRegions == nil {
+		req.BoundingRegions = []spatialmath.Geometry{}
 	}
 
 	frameDOF := len(req.Frame.DoF())

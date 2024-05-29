@@ -233,7 +233,7 @@ func (c *ConstraintHandler) SegmentConstraints() []string {
 }
 
 func createAllCollisionConstraints(
-	movingRobotGeometries, staticRobotGeometries, worldGeometries, interactionSpaces []spatial.Geometry,
+	movingRobotGeometries, staticRobotGeometries, worldGeometries, boundingRegions []spatial.Geometry,
 	allowedCollisions []*Collision,
 	collisionBufferMM float64,
 ) (map[string]StateConstraint, error) {
@@ -270,12 +270,15 @@ func createAllCollisionConstraints(
 		constraintMap[defaultObstacleConstraintDesc] = obstacleConstraint
 	}
 
-	if len(interactionSpaces) > 0 {
-		// create constraint to keep moving geometries within the defined interactionSpaces
+	if len(boundingRegions) > 0 {
+		// create constraint to keep moving geometries within the defined bounding regions
 		unionOfRobotGeom := movingRobotGeometries
 		unionOfRobotGeom = append(unionOfRobotGeom, staticRobotGeometries...)
-		interactionSpaceConstraint := NewInteractionSpaceConstraint(unionOfRobotGeom, interactionSpaces)
-		constraintMap[defaultInteractionSpaceConstraintDesc] = interactionSpaceConstraint
+		interactionSpaceConstraint, err := NewBoundingRegionConstraint(unionOfRobotGeom, boundingRegions, collisionBufferMM)
+		if err != nil {
+			return nil, err
+		}
+		constraintMap[defaultBoundingRegionConstraintDesc] = interactionSpaceConstraint
 	}
 
 	if len(staticRobotGeometries) > 0 {
@@ -365,28 +368,6 @@ func NewCollisionConstraint(
 		return len(cg.collisions(collisionBufferMM)) == 0
 	}
 	return constraint, nil
-}
-
-// NewInteractionSpaceConstraint will determine if the given list of robot geometries are encompassed by the
-// given list of interactionSpaces. An interaction space is a geometry a robot must remain within while navigating a path.
-func NewInteractionSpaceConstraint(robotGeoms, interactionSpaces []spatial.Geometry) StateConstraint {
-	// determine if we would like to also return an ik.StateMetric to measure how much a robot geometry is encompasses by a given
-	// interaction space geometry
-	f := func(state *ik.State) bool {
-		for _, interactionSpace := range interactionSpaces {
-			for _, robotGeom := range robotGeoms {
-				encompassed, err := robotGeom.EncompassedBy(interactionSpace)
-				if err != nil {
-					return false
-				}
-				if encompassed {
-					return true
-				}
-			}
-		}
-		return false
-	}
-	return f
 }
 
 // NewAbsoluteLinearInterpolatingConstraint provides a Constraint whose valid manifold allows a specified amount of deviation from the
@@ -522,4 +503,16 @@ func NewOctreeCollisionConstraint(octree *pointcloud.BasicOctree, threshold int,
 		return true
 	}
 	return constraint
+}
+
+// NewBoundingRegionConstraint will determine if the given list of robot geometries are in collision with the
+// given list of bounding regions.
+func NewBoundingRegionConstraint(robotGeoms, boundingRegions []spatial.Geometry, collisionBufferMM float64) (StateConstraint, error) {
+	zeroCG, err := newCollisionGraph(robotGeoms, boundingRegions, nil, true, collisionBufferMM)
+	if err != nil {
+		return nil, err
+	}
+	return func(state *ik.State) bool {
+		return len(zeroCG.collisions(collisionBufferMM)) != 0
+	}, nil
 }
