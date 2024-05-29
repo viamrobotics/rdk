@@ -259,7 +259,7 @@ func findNewDigIntConfig(
 			"Keeping digital interrupt on pin %s even though it's not explicitly mentioned "+
 				"in the new board config",
 			interrupt.config.Pin)
-		return interrupt.config
+		return &interrupt.config
 	}
 	return nil
 }
@@ -283,7 +283,7 @@ func (b *Board) reconfigureInterrupts(newConf *LinuxBoardConfig) error {
 					oldInterrupt.config.Pin)
 			}
 		} else { // The old interrupt should stick around.
-			oldInterrupt.UpdateConfig(newConfig)
+			oldInterrupt.UpdateConfig(*newConfig)
 			newInterrupts[newConfig.Name] = oldInterrupt
 		}
 	}
@@ -328,7 +328,7 @@ func (b *Board) reconfigureInterrupts(newConf *LinuxBoardConfig) error {
 		if !ok {
 			return fmt.Errorf("cannot create digital interrupt on unknown pin %s", config.Name)
 		}
-		interrupt, err := newDigitalInterrupt(&config, gpioMapping, oldInterrupt)
+		interrupt, err := newDigitalInterrupt(config, gpioMapping, oldInterrupt)
 		if err != nil {
 			return err
 		}
@@ -407,7 +407,7 @@ func (b *Board) DigitalInterruptByName(name string) (board.DigitalInterrupt, err
 		Name: name,
 		Pin:  name,
 	}
-	interrupt, err := newDigitalInterrupt(&defaultInterruptConfig, mapping, nil)
+	interrupt, err := newDigitalInterrupt(defaultInterruptConfig, mapping, nil)
 	if err != nil {
 		return nil, err
 	}

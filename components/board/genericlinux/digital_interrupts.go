@@ -22,7 +22,7 @@ type digitalInterrupt struct {
 	workers  rdkutils.StoppableWorkers
 	line     *gpio.LineWithEvent
 	mu       sync.Mutex // Protects everything below here
-	config   *board.DigitalInterruptConfig
+	config   board.DigitalInterruptConfig
 	count    int64
 	channels []chan board.Tick
 }
@@ -31,7 +31,7 @@ type digitalInterrupt struct {
 // oldInterrupt is not nil, all channels added to it are added to the new interrupt and removed
 // from the old one.
 func newDigitalInterrupt(
-	config *board.DigitalInterruptConfig,
+	config board.DigitalInterruptConfig,
 	pinMapping GPIOBoardMapping,
 	oldInterrupt *digitalInterrupt,
 ) (*digitalInterrupt, error) {
@@ -59,7 +59,7 @@ func newDigitalInterrupt(
 	return &di, nil
 }
 
-func (di *digitalInterrupt) UpdateConfig(newConfig *board.DigitalInterruptConfig) {
+func (di *digitalInterrupt) UpdateConfig(newConfig board.DigitalInterruptConfig) {
 	di.mu.Lock()
 	defer di.mu.Unlock()
 	di.config = newConfig
