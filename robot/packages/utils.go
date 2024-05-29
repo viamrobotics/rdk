@@ -21,14 +21,17 @@ import (
 // installCallback is the function signature that gets passed to installPackage.
 type installCallback func(ctx context.Context, url, dstPath string) (contentType string, err error)
 
-func installPackage(ctx context.Context, logger logging.Logger, packagesDir, url string, p config.PackageConfig,
-	nonEmptyPaths []string, installFn installCallback,
+func installPackage(
+	ctx context.Context,
+	logger logging.Logger,
+	packagesDir string,
+	url string,
+	p config.PackageConfig,
+	installFn installCallback,
 ) error {
-	if dataDir := p.LocalDataDirectory(packagesDir); dirExists(dataDir) {
-		if checkNonemptyPaths(p.Name, logger, nonEmptyPaths) {
-			logger.Debugf("Package already downloaded at %s, skipping.", dataDir)
-			return nil
-		}
+	if packageIsSynced(p, packagesDir) {
+		logger.Debugf("Package already downloaded at %s, skipping.", dataDir)
+		return nil
 	}
 
 	// Create the parent directory for the package type if it doesn't exist
@@ -90,6 +93,12 @@ func installPackage(ctx context.Context, logger logging.Logger, packagesDir, url
 		return err
 	}
 
+	err = writeStatusFile(p, packagesDir)
+	if err != nil {
+		utils.UncheckedError(cleanup(packagesDir, p))
+		return err
+	}
+	
 	return nil
 }
 
@@ -179,7 +188,8 @@ func unpackFile(ctx context.Context, fromFile, toDir string) error {
 			if err := outFile.Sync(); err != nil {
 				return errors.Wrapf(err, "failed to sync %s", path)
 			}
-			utils.UncheckedError(outFile.Close())
+			utils.UncheckedError(outFile.Close())			
+
 		case tar.TypeLink:
 			name := header.Linkname
 
@@ -216,38 +226,6 @@ func unpackFile(ctx context.Context, fromFile, toDir string) error {
 	}
 
 	return nil
-}
-
-// checkNonemptyPaths returns true if all required paths are present and non-empty.
-// This exists because we have no way to check the integrity of modules *after* they've been unpacked.
-// (We do look at checksums of downloaded tarballs, though). Once we have a better integrity check
-// system for unpacked modules, this should be removed.
-func checkNonemptyPaths(packageName string, logger logging.Logger, absPaths []string) bool {
-	missingOrEmpty := 0
-	for _, nePath := range absPaths {
-		if !path.IsAbs(nePath) {
-			// note: we expect paths to be absolute in most cases.
-			// We're okay not having corrupted files coverage for relative paths, and prefer it to
-			// risking a re-download loop from an edge case.
-			logger.Debugw("ignoring non-abs required path", "path", nePath, "package", packageName)
-			continue
-		}
-		// note: os.Stat treats symlinks as their destination. os.Lstat would stat the link itself.
-		info, err := os.Stat(nePath)
-		if err != nil {
-			if !os.IsNotExist(err) {
-				logger.Warnw("ignoring non-NotExist error for required path",
-					"path", nePath, "package", packageName, "error", err.Error())
-			} else {
-				logger.Warnw("a required path is missing, re-downloading", "path", nePath, "package", packageName)
-				missingOrEmpty++
-			}
-		} else if info.Size() == 0 {
-			missingOrEmpty++
-			logger.Warnw("a required path is empty, re-downloading", "path", nePath, "package", packageName)
-		}
-	}
-	return missingOrEmpty == 0
 }
 
 // commonCleanup is a helper for the various ManagerSyncer.Cleanup functions.
