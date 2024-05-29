@@ -182,7 +182,7 @@ func TestClient(t *testing.T) {
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, errGoToFailed.Error())
 
-		err = failingMotor.SetPowerFunc(context.Background(), 42.0, nil)
+		err = failingMotor.SetRPMFunc(context.Background(), 42.0, nil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, errSetRPMFailed.Error())
 
 		err = failingMotorClient.ResetZeroPosition(context.Background(), 0.5, nil)
