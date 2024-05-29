@@ -555,6 +555,11 @@ func (m *Motor) GoTo(ctx context.Context, rpm, position float64, extra map[strin
 	)
 }
 
+// SetRPM instructs the motor to move at the specified RPM indefinitely.
+func (m *Motor) SetRPM(ctx context.Context, rpm float64, extra map[string]interface{}) error {
+	return motor.NewSetRPMUnsupportedError(m.Name().ShortName())
+}
+
 // ResetZeroPosition defines the current position to be zero (+/- offset).
 func (m *Motor) ResetZeroPosition(ctx context.Context, offset float64, extra map[string]interface{}) error {
 	m.c.mu.Lock()
