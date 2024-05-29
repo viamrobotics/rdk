@@ -510,7 +510,7 @@ func newWithResources(
 			anyChanges := r.manager.updateRemotesResourceNames(closeCtx)
 			if r.manager.anyResourcesNotConfigured() {
 				anyChanges = true
-				r.manager.completeConfig(closeCtx, r)
+				r.manager.completeConfig(closeCtx, r, false)
 			}
 			if anyChanges {
 				r.updateWeakDependents(ctx)
@@ -1106,6 +1106,10 @@ func dialRobotClient(
 // a best effort to remove no longer in use parts, but if it fails to do so, they could
 // possibly leak resources. The given config may be modified by Reconfigure.
 func (r *localRobot) Reconfigure(ctx context.Context, newConfig *config.Config) {
+	r.reconfigure(ctx, newConfig, false)
+}
+
+func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, forceSync bool) {
 	var allErrs error
 
 	// Sync Packages before reconfiguring rest of robot and resolving references to any packages
@@ -1202,7 +1206,7 @@ func (r *localRobot) Reconfigure(ctx context.Context, newConfig *config.Config) 
 
 	// Fourth we attempt to complete the config (see function for details) and
 	// update weak dependents.
-	r.manager.completeConfig(ctx, r)
+	r.manager.completeConfig(ctx, r, forceSync)
 	r.updateWeakDependents(ctx)
 
 	// Finally we actually remove marked resources and Close any that are

@@ -3,6 +3,7 @@ package fake
 
 import (
 	"context"
+	_ "embed"
 	"strings"
 	"sync"
 
@@ -26,6 +27,14 @@ var errAttrCfgPopulation = errors.New("can only populate either ArmModel or Mode
 
 // Model is the name used to refer to the fake arm model.
 var Model = resource.DefaultModelFamily.WithModel("fake")
+
+var dofbotModel = "yahboom-dofbot"
+
+//go:embed fake_model.json
+var fakejson []byte
+
+//go:embed dofbot.json
+var dofbotjson []byte
 
 // Config is used for converting config attributes.
 type Config struct {
@@ -81,8 +90,8 @@ func buildModel(cfg resource.Config, newConf *Config) (referenceframe.Model, err
 	case modelPath != "":
 		model, err = modelFromPath(modelPath, cfg.Name)
 	default:
-		// if no arm model is specified, we return an empty arm with 0 dof and 0 spatial transformation
-		model = referenceframe.NewSimpleModel(cfg.Name)
+		// if no arm model is specified, we return a fake arm with 1 dof and 0 spatial transformation
+		model, err = modelFromName(Model.Name, cfg.Name)
 	}
 
 	return model, err
@@ -113,7 +122,7 @@ func (a *Arm) Reconfigure(ctx context.Context, deps resource.Dependencies, conf 
 
 	dof := len(model.DoF())
 	if dof == 0 {
-		a.logger.Info("fake arm built with zero degrees-of-freedom, nothing will show up on the Control tab " +
+		return errors.New("fake arm built with zero degrees-of-freedom, nothing will show up on the Control tab " +
 			"you have either given a kinematics file that resulted in a zero degrees-of-freedom arm or omitted both" +
 			"the arm-model and model-path from attributes")
 	}
@@ -238,6 +247,10 @@ func modelFromName(model, name string) (referenceframe.Model, error) {
 		return ur.MakeModelFrame(name)
 	case eva.Model.Name:
 		return eva.MakeModelFrame(name)
+	case dofbotModel:
+		return referenceframe.UnmarshalModelJSON(dofbotjson, name)
+	case Model.Name:
+		return referenceframe.UnmarshalModelJSON(fakejson, name)
 	default:
 		return nil, errors.Errorf("fake arm cannot be created, unsupported arm-model: %s", model)
 	}

@@ -770,8 +770,7 @@ func TestClientRefresh(t *testing.T) {
 			utils.NewStringSet(testutils.ExtractNames(baseNames...)...),
 		)
 
-		test.That(t, testutils.NewResourceNameSet(client.ResourceNames()...), test.ShouldResemble, testutils.NewResourceNameSet(
-			finalResources...))
+		testutils.VerifySameResourceNames(t, client.ResourceNames(), finalResources)
 
 		test.That(t, client.Close(context.Background()), test.ShouldBeNil)
 
@@ -801,8 +800,7 @@ func TestClientRefresh(t *testing.T) {
 			utils.NewStringSet(testutils.ExtractNames(baseNames...)...),
 		)
 
-		test.That(t, testutils.NewResourceNameSet(client.ResourceNames()...), test.ShouldResemble, testutils.NewResourceNameSet(
-			emptyResources...))
+		testutils.VerifySameResourceNames(t, client.ResourceNames(), emptyResources)
 
 		mu.Lock()
 		injectRobot.ResourceRPCAPIsFunc = func() []resource.RPCAPI { return nil }
@@ -825,8 +823,7 @@ func TestClientRefresh(t *testing.T) {
 			utils.NewStringSet(testutils.ExtractNames(baseNames...)...),
 		)
 
-		test.That(t, testutils.NewResourceNameSet(client.ResourceNames()...), test.ShouldResemble, testutils.NewResourceNameSet(
-			finalResources...))
+		testutils.VerifySameResourceNames(t, client.ResourceNames(), finalResources)
 
 		test.That(t, client.Close(context.Background()), test.ShouldBeNil)
 	})
