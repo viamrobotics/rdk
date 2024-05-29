@@ -37,8 +37,10 @@ func setupTestRobotWithModules(
 	return cfg, rob
 }
 
-const resCount = 10
-const configDuration = "1ms"
+const (
+	resCount       = 10
+	configDuration = "1ms"
+)
 
 func BenchmarkConcurrentReconfiguration(b *testing.B) {
 	ctx := context.Background()
