@@ -46,13 +46,6 @@ func BenchmarkConcurrentReconfiguration(b *testing.B) {
 	ctx := context.Background()
 	logger := logging.NewTestLogger(b)
 
-	reportMetrics := func(b *testing.B) {
-		// How many resources are reconfigured per millisecond. Since the number of
-		// resources and configuration for each resource is constant, this metric should
-		// generally as there are fewer dependencies between resources.
-		b.ReportMetric(float64(b.Elapsed().Milliseconds())/float64(b.N)/float64(resCount), "ms/resource")
-	}
-
 	type testcase struct {
 		name         string
 		dependencies [][]string
@@ -139,7 +132,13 @@ func BenchmarkConcurrentReconfiguration(b *testing.B) {
 				rob.Reconfigure(ctx, cfg)
 				test.That(b, rob.ResourceNames(), test.ShouldBeEmpty)
 			}
-			reportMetrics(b)
+
+			// --- Report metrics ---
+			//
+			// Reconfiguration time per resource. Since the number of resources and
+			// configuration time for each resource is constant, this metric should
+			// generally be lower as there are fewer dependencies between resources.
+			b.ReportMetric(float64(b.Elapsed().Milliseconds())/float64(b.N)/float64(resCount), "ms/resource")
 		})
 	}
 }
