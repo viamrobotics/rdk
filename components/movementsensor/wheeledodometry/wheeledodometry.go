@@ -21,7 +21,7 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
-var model = resource.DefaultModelFamily.WithModel("wheeled-odometry")
+var Model = resource.DefaultModelFamily.WithModel("wheeled-odometry")
 
 const (
 	defaultTimeIntervalMSecs = 500
@@ -81,7 +81,7 @@ type odometry struct {
 func init() {
 	resource.RegisterComponent(
 		movementsensor.API,
-		model,
+		Model,
 		resource.Registration[movementsensor.MovementSensor, *Config]{Constructor: newWheeledOdometry})
 }
 
@@ -212,6 +212,7 @@ func (o *odometry) Reconfigure(ctx context.Context, deps resource.Dependencies, 
 
 	o.orientation.Yaw = 0
 	o.originCoord = geo.NewPoint(0, 0)
+	o.coord = geo.NewPoint(0, 0)
 	o.trackPosition() // (re-)initializes o.workers
 
 	return nil
@@ -229,6 +230,7 @@ func newWheeledOdometry(
 		lastLeftPos:  0.0,
 		lastRightPos: 0.0,
 		originCoord:  geo.NewPoint(0, 0),
+		coord:        geo.NewPoint(0, 0),
 		logger:       logger,
 	}
 
@@ -461,6 +463,7 @@ func (o *odometry) DoCommand(ctx context.Context,
 	if ok {
 		o.shiftPos = reset
 		o.originCoord = geo.NewPoint(0, 0)
+		o.coord = geo.NewPoint(0, 0)
 		o.position.X = 0
 		o.position.Y = 0
 		o.orientation.Yaw = 0
@@ -471,6 +474,7 @@ func (o *odometry) DoCommand(ctx context.Context,
 	long, okX := req[setLong].(float64)
 	if okY && okX {
 		o.originCoord = geo.NewPoint(lat, long)
+		o.coord = o.originCoord
 		o.shiftPos = true
 
 		resp[setLat] = fmt.Sprintf("lat shifted to %.8f", lat)

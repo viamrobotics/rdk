@@ -21,6 +21,7 @@ import (
 	"go.viam.com/rdk/components/gripper"
 	_ "go.viam.com/rdk/components/register"
 	"go.viam.com/rdk/logging"
+	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
@@ -231,6 +232,8 @@ func TestMoveWithObstacles(t *testing.T) {
 func TestPositionalReplanning(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
+	ctx, cFunc := context.WithCancel(ctx)
+	defer cFunc()
 
 	gpsPoint := geo.NewPoint(0, 0)
 	dst := geo.NewPoint(gpsPoint.Lat(), gpsPoint.Lng()+1e-5)
@@ -272,13 +275,13 @@ func TestPositionalReplanning(t *testing.T) {
 
 	testFn := func(t *testing.T, tc testCase) {
 		t.Helper()
-		injectedMovementSensor, _, kb, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, spatialmath.NewPoseFromPoint(tc.noise), 5)
-		defer ms.Close(ctx)
+		_, ms, closeFunc := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, spatialmath.NewPoseFromPoint(tc.noise), 5)
+		defer closeFunc(ctx)
 
 		req := motion.MoveOnGlobeReq{
-			ComponentName:      kb.Name(),
+			ComponentName:      resource.NewName(base.API, baseName),
 			Destination:        dst,
-			MovementSensorName: injectedMovementSensor.Name(),
+			MovementSensorName: resource.NewName(movementsensor.API, moveSensorName),
 			MotionCfg:          motionCfg,
 			Extra:              tc.extra,
 		}
@@ -312,6 +315,8 @@ func TestPositionalReplanning(t *testing.T) {
 func TestObstacleReplanningGlobe(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
+	ctx, cFunc := context.WithCancel(ctx)
+	defer cFunc()
 
 	gpsOrigin := geo.NewPoint(0, 0)
 	dst := geo.NewPoint(gpsOrigin.Lat(), gpsOrigin.Lng()+1e-5)
@@ -406,23 +411,23 @@ func TestObstacleReplanningGlobe(t *testing.T) {
 			return tc.getPCfunc(ctx, cameraName, extra)
 		}
 
-		injectedMovementSensor, _, kb, ms := createMoveOnGlobeEnvironment(
+		_, ms, closeFunc := createMoveOnGlobeEnvironment(
 			ctx,
 			t,
 			gpsOrigin,
 			spatialmath.NewPoseFromPoint(r3.Vector{X: 0, Y: 0, Z: 0}),
 			5000,
 		)
-		defer ms.Close(ctx)
+		defer closeFunc(ctx)
 
 		srvc, ok := ms.(*builtIn).visionServices[cfg.ObstacleDetectors[0].VisionServiceName].(*inject.VisionService)
 		test.That(t, ok, test.ShouldBeTrue)
 		srvc.GetObjectPointCloudsFunc = pcFunc
 
 		req := motion.MoveOnGlobeReq{
-			ComponentName:      kb.Name(),
+			ComponentName:      resource.NewName(base.API, baseName),
 			Destination:        dst,
-			MovementSensorName: injectedMovementSensor.Name(),
+			MovementSensorName: resource.NewName(movementsensor.API, moveSensorName),
 			MotionCfg:          cfg,
 			Extra:              tc.extra,
 		}
@@ -458,6 +463,8 @@ func TestObstacleReplanningSlam(t *testing.T) {
 	cameraPoseInBase := spatialmath.NewPose(r3.Vector{0, 0, 0}, &spatialmath.OrientationVectorDegrees{OY: 1, Theta: -90})
 
 	ctx := context.Background()
+	ctx, cFunc := context.WithCancel(ctx)
+	defer cFunc()
 	origin := spatialmath.NewPose(
 		r3.Vector{X: -900, Y: 0, Z: 0},
 		&spatialmath.OrientationVectorDegrees{OZ: 1, Theta: -90},
@@ -469,12 +476,12 @@ func TestObstacleReplanningSlam(t *testing.T) {
 	)
 	test.That(t, err, test.ShouldBeNil)
 
-	kb, ms := createMoveOnMapEnvironment(
+	kb, ms, closeFunc := createMoveOnMapEnvironment(
 		ctx, t,
 		"pointcloud/cardboardOcto.pcd",
 		50, origin,
 	)
-	defer ms.Close(ctx)
+	defer closeFunc(ctx)
 
 	visSrvc, ok := ms.(*builtIn).visionServices[vision.Named("test-vision")].(*inject.VisionService)
 	test.That(t, ok, test.ShouldBeTrue)
@@ -896,12 +903,12 @@ func TestGetTransientDetections(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
 
-	_, ms := createMoveOnMapEnvironment(
+	_, ms, closeFunc := createMoveOnMapEnvironment(
 		ctx, t,
 		"slam/example_cartographer_outputs/viam-office-02-22-3/pointcloud/pointcloud_4.pcd",
 		100, spatialmath.NewZeroPose(),
 	)
-	t.Cleanup(func() { ms.Close(ctx) })
+	t.Cleanup(func() { closeFunc(ctx) })
 
 	// construct move request
 	moveReq := motion.MoveOnMapReq{
@@ -991,10 +998,12 @@ func TestGetTransientDetections(t *testing.T) {
 
 func TestStopPlan(t *testing.T) {
 	ctx := context.Background()
+	ctx, cFunc := context.WithCancel(ctx)
+	defer cFunc()
 	gpsPoint := geo.NewPoint(0, 0)
 	//nolint:dogsled
-	_, _, _, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil, 5)
-	defer ms.Close(ctx)
+	_, ms, closeFunc := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil, 5)
+	defer closeFunc(ctx)
 
 	req := motion.StopPlanReq{}
 	err := ms.StopPlan(ctx, req)
@@ -1003,10 +1012,12 @@ func TestStopPlan(t *testing.T) {
 
 func TestListPlanStatuses(t *testing.T) {
 	ctx := context.Background()
+	ctx, cFunc := context.WithCancel(ctx)
+	defer cFunc()
 	gpsPoint := geo.NewPoint(0, 0)
 	//nolint:dogsled
-	_, _, _, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil, 5)
-	defer ms.Close(ctx)
+	_, ms, closeFunc := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil, 5)
+	defer closeFunc(ctx)
 
 	req := motion.ListPlanStatusesReq{}
 	// returns no results as no move on globe calls have been made
@@ -1017,10 +1028,12 @@ func TestListPlanStatuses(t *testing.T) {
 
 func TestPlanHistory(t *testing.T) {
 	ctx := context.Background()
+	ctx, cFunc := context.WithCancel(ctx)
+	defer cFunc()
 	gpsPoint := geo.NewPoint(0, 0)
 	//nolint:dogsled
-	_, _, _, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil, 5)
-	defer ms.Close(ctx)
+	_, ms, closeFunc := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil, 5)
+	defer closeFunc(ctx)
 	req := motion.PlanHistoryReq{}
 	history, err := ms.PlanHistory(ctx, req)
 	test.That(t, err, test.ShouldResemble, resource.NewNotFoundError(req.ComponentName))

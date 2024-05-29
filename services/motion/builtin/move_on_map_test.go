@@ -39,14 +39,14 @@ func TestMoveOnMap(t *testing.T) {
 		goalInBaseFrame := spatialmath.NewPoseFromPoint(r3.Vector{X: -32.508 * 1000, Y: -2.092 * 1000})
 		goalInSLAMFrame := spatialmath.PoseBetweenInverse(motion.SLAMOrientationAdjustment, goalInBaseFrame)
 
-		kb, ms := createMoveOnMapEnvironment(
+		kb, ms, closeFunc := createMoveOnMapEnvironment(
 			ctx,
 			t,
 			"slam/example_cartographer_outputs/viam-office-02-22-3/pointcloud/pointcloud_4.pcd",
 			110,
 			spatialmath.NewPoseFromPoint(r3.Vector{0, -1600, 0}),
 		)
-		defer ms.Close(ctx)
+		defer closeFunc(ctx)
 		req := motion.MoveOnMapReq{
 			ComponentName: base.Named("test-base"),
 			Destination:   goalInSLAMFrame,
@@ -84,8 +84,8 @@ func TestMoveOnMap(t *testing.T) {
 		extraPosOnly := map[string]interface{}{"smooth_iter": 5, "motion_profile": "position_only"}
 
 		t.Run("ensure success of movement around obstacle", func(t *testing.T) {
-			kb, ms := createMoveOnMapEnvironment(ctx, t, "pointcloud/octagonspace.pcd", 40, spatialmath.NewPoseFromPoint(r3.Vector{X: 0, Y: -50}))
-			defer ms.Close(ctx)
+			kb, ms, closeFunc := createMoveOnMapEnvironment(ctx, t, "pointcloud/octagonspace.pcd", 40, spatialmath.NewPoseFromPoint(r3.Vector{X: 0, Y: -50}))
+			defer closeFunc(ctx)
 
 			req := motion.MoveOnMapReq{
 				ComponentName: base.Named("test-base"),
@@ -115,8 +115,8 @@ func TestMoveOnMap(t *testing.T) {
 			test.That(t, spatialmath.PoseAlmostCoincidentEps(endPos.Pose(), goalInBaseFrame, 15), test.ShouldBeTrue)
 		})
 		t.Run("check that straight line path executes", func(t *testing.T) {
-			kb, ms := createMoveOnMapEnvironment(ctx, t, "pointcloud/octagonspace.pcd", 40, nil)
-			defer ms.Close(ctx)
+			kb, ms, closeFunc := createMoveOnMapEnvironment(ctx, t, "pointcloud/octagonspace.pcd", 40, nil)
+			defer closeFunc(ctx)
 			easyGoalInBaseFrame := spatialmath.NewPoseFromPoint(r3.Vector{X: 0.277 * 1000, Y: 0.593 * 1000})
 			easyGoalInSLAMFrame := spatialmath.PoseBetweenInverse(motion.SLAMOrientationAdjustment, easyGoalInBaseFrame)
 
@@ -152,8 +152,8 @@ func TestMoveOnMap(t *testing.T) {
 		})
 
 		t.Run("check that position-only mode executes", func(t *testing.T) {
-			kb, ms := createMoveOnMapEnvironment(ctx, t, "pointcloud/octagonspace.pcd", 40, nil)
-			defer ms.Close(ctx)
+			kb, ms, closeFunc := createMoveOnMapEnvironment(ctx, t, "pointcloud/octagonspace.pcd", 40, nil)
+			defer closeFunc(ctx)
 
 			req := motion.MoveOnMapReq{
 				ComponentName: base.Named("test-base"),
@@ -189,8 +189,8 @@ func TestMoveOnMap(t *testing.T) {
 		})
 
 		t.Run("should fail due to map collision", func(t *testing.T) {
-			_, ms := createMoveOnMapEnvironment(ctx, t, "pointcloud/octagonspace.pcd", 40, spatialmath.NewPoseFromPoint(r3.Vector{X: 0, Y: -500}))
-			defer ms.Close(ctx)
+			_, ms, closeFunc := createMoveOnMapEnvironment(ctx, t, "pointcloud/octagonspace.pcd", 40, spatialmath.NewPoseFromPoint(r3.Vector{X: 0, Y: -500}))
+			defer closeFunc(ctx)
 			easyGoalInBaseFrame := spatialmath.NewPoseFromPoint(r3.Vector{X: 0.277 * 1000, Y: 0.593 * 1000})
 			easyGoalInSLAMFrame := spatialmath.PoseBetweenInverse(motion.SLAMOrientationAdjustment, easyGoalInBaseFrame)
 			executionID, err := ms.MoveOnMap(
@@ -216,8 +216,8 @@ func TestMoveOnMap(t *testing.T) {
 		goal2SLAMFrame := spatialmath.NewPose(r3.Vector{X: 277, Y: 593}, &spatialmath.OrientationVectorDegrees{OZ: 1, Theta: 150})
 		goal2BaseFrame := spatialmath.Compose(goal2SLAMFrame, motion.SLAMOrientationAdjustment)
 
-		kb, ms := createMoveOnMapEnvironment(ctx, t, "pointcloud/octagonspace.pcd", 40, nil)
-		defer ms.Close(ctx)
+		kb, ms, closeFunc := createMoveOnMapEnvironment(ctx, t, "pointcloud/octagonspace.pcd", 40, nil)
+		defer closeFunc(ctx)
 
 		req := motion.MoveOnMapReq{
 			ComponentName: base.Named("test-base"),
@@ -344,8 +344,8 @@ func TestMoveOnMap(t *testing.T) {
 	})
 
 	t.Run("Changes to executions show up in PlanHistory", func(t *testing.T) {
-		kb, ms := createMoveOnMapEnvironment(ctx, t, "pointcloud/octagonspace.pcd", 40, nil)
-		defer ms.Close(ctx)
+		_, ms, closeFunc := createMoveOnMapEnvironment(ctx, t, "pointcloud/octagonspace.pcd", 40, nil)
+		defer closeFunc(ctx)
 		easyGoalInBaseFrame := spatialmath.NewPoseFromPoint(r3.Vector{X: 0.277 * 1000, Y: 0.593 * 1000})
 		easyGoalInSLAMFrame := spatialmath.PoseBetweenInverse(motion.SLAMOrientationAdjustment, easyGoalInBaseFrame)
 
@@ -374,7 +374,7 @@ func TestMoveOnMap(t *testing.T) {
 		test.That(t, ph[0].StatusHistory[0].State, test.ShouldEqual, motion.PlanStateInProgress)
 		test.That(t, len(ph[0].Plan.Path()), test.ShouldNotEqual, 0)
 
-		err = ms.StopPlan(ctx, motion.StopPlanReq{ComponentName: kb.Name()})
+		err = ms.StopPlan(ctx, motion.StopPlanReq{ComponentName: baseResource})
 		test.That(t, err, test.ShouldBeNil)
 
 		ph2, err := ms.PlanHistory(ctx, motion.PlanHistoryReq{ComponentName: req.ComponentName})
@@ -387,7 +387,7 @@ func TestMoveOnMap(t *testing.T) {
 		test.That(t, len(ph2[0].Plan.Path()), test.ShouldNotEqual, 0)
 
 		// Proves that calling StopPlan after the plan has reached a terminal state is idempotent
-		err = ms.StopPlan(ctx, motion.StopPlanReq{ComponentName: kb.Name()})
+		err = ms.StopPlan(ctx, motion.StopPlanReq{ComponentName: baseResource})
 		test.That(t, err, test.ShouldBeNil)
 		ph3, err := ms.PlanHistory(ctx, motion.PlanHistoryReq{ComponentName: req.ComponentName})
 		test.That(t, err, test.ShouldBeNil)
@@ -395,8 +395,8 @@ func TestMoveOnMap(t *testing.T) {
 	})
 
 	t.Run("returns error when within plan dev m of goal with position_only", func(t *testing.T) {
-		_, ms := createMoveOnMapEnvironment(ctx, t, "pointcloud/octagonspace.pcd", 40, nil)
-		defer ms.Close(ctx)
+		_, ms, closeFunc := createMoveOnMapEnvironment(ctx, t, "pointcloud/octagonspace.pcd", 40, nil)
+		defer closeFunc(ctx)
 
 		req := motion.MoveOnMapReq{
 			ComponentName: base.Named("test-base"),
@@ -414,8 +414,8 @@ func TestMoveOnMap(t *testing.T) {
 	})
 
 	t.Run("pass when within plan dev m of goal without position_only due to theta difference in goal", func(t *testing.T) {
-		_, ms := createMoveOnMapEnvironment(ctx, t, "pointcloud/octagonspace.pcd", 40, nil)
-		defer ms.Close(ctx)
+		_, ms, closeFunc := createMoveOnMapEnvironment(ctx, t, "pointcloud/octagonspace.pcd", 40, nil)
+		defer closeFunc(ctx)
 
 		req := motion.MoveOnMapReq{
 			ComponentName: base.Named("test-base"),
@@ -445,8 +445,8 @@ func TestMoveOnMapAskewIMU(t *testing.T) {
 		goal1SLAMFrame := spatialmath.NewPose(r3.Vector{X: 1.32 * 1000, Y: 0}, &spatialmath.OrientationVectorDegrees{OZ: 1, Theta: 55})
 		goal1BaseFrame := spatialmath.Compose(goal1SLAMFrame, motion.SLAMOrientationAdjustment)
 
-		kb, ms := createMoveOnMapEnvironment(ctx, t, "pointcloud/octagonspace.pcd", 40, spatialmath.NewPoseFromOrientation(askewOrient))
-		defer ms.Close(ctx)
+		kb, ms, closeFunc := createMoveOnMapEnvironment(ctx, t, "pointcloud/octagonspace.pcd", 40, spatialmath.NewPoseFromOrientation(askewOrient))
+		defer closeFunc(ctx)
 
 		req := motion.MoveOnMapReq{
 			ComponentName: base.Named("test-base"),

@@ -12,13 +12,16 @@ import (
 	"go.viam.com/test"
 
 	_ "go.viam.com/rdk/components/register"
-	"go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/services/motion"
 	"go.viam.com/rdk/spatialmath"
 )
 
 func TestMoveOnGlobe(t *testing.T) {
 	ctx := context.Background()
+	ctx, cFunc := context.WithCancel(ctx)
+	defer cFunc()
 	// Near antarctica 🐧
 	gpsPoint := geo.NewPoint(-70, 40)
 	dst := geo.NewPoint(gpsPoint.Lat(), gpsPoint.Lng()+7e-5)
@@ -32,12 +35,12 @@ func TestMoveOnGlobe(t *testing.T) {
 	}
 
 	t.Run("Changes to executions show up in PlanHistory", func(t *testing.T) {
-		injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil, 5)
-		defer ms.Close(ctx)
+		_, ms, closeFunc := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil, 5)
+		defer closeFunc(ctx)
 
 		req := motion.MoveOnGlobeReq{
-			ComponentName:      fakeBase.Name(),
-			MovementSensorName: injectedMovementSensor.Name(),
+			ComponentName:      baseResource,
+			MovementSensorName: moveSensorResource,
 			Destination:        dst,
 		}
 		executionID, err := ms.MoveOnGlobe(ctx, req)
@@ -53,7 +56,7 @@ func TestMoveOnGlobe(t *testing.T) {
 		test.That(t, ph[0].StatusHistory[0].State, test.ShouldEqual, motion.PlanStateInProgress)
 		test.That(t, len(ph[0].Plan.Path()), test.ShouldNotEqual, 0)
 
-		err = ms.StopPlan(ctx, motion.StopPlanReq{ComponentName: fakeBase.Name()})
+		err = ms.StopPlan(ctx, motion.StopPlanReq{ComponentName: baseResource})
 		test.That(t, err, test.ShouldBeNil)
 
 		ph2, err := ms.PlanHistory(ctx, motion.PlanHistoryReq{ComponentName: req.ComponentName})
@@ -66,7 +69,7 @@ func TestMoveOnGlobe(t *testing.T) {
 		test.That(t, len(ph2[0].Plan.Path()), test.ShouldNotEqual, 0)
 
 		// Proves that calling StopPlan after the plan has reached a terminal state is idempotent
-		err = ms.StopPlan(ctx, motion.StopPlanReq{ComponentName: fakeBase.Name()})
+		err = ms.StopPlan(ctx, motion.StopPlanReq{ComponentName: baseResource})
 		test.That(t, err, test.ShouldBeNil)
 		ph3, err := ms.PlanHistory(ctx, motion.PlanHistoryReq{ComponentName: req.ComponentName})
 		test.That(t, err, test.ShouldBeNil)
@@ -74,11 +77,11 @@ func TestMoveOnGlobe(t *testing.T) {
 	})
 
 	t.Run("is able to reach a nearby geo point with empty values", func(t *testing.T) {
-		injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil, 5)
-		defer ms.Close(ctx)
+		_, ms, closeFunc := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil, 5)
+		defer closeFunc(ctx)
 		req := motion.MoveOnGlobeReq{
-			ComponentName:      fakeBase.Name(),
-			MovementSensorName: injectedMovementSensor.Name(),
+			ComponentName:      baseResource,
+			MovementSensorName: moveSensorResource,
 			Destination:        dst,
 			Extra:              extra,
 		}
@@ -88,11 +91,11 @@ func TestMoveOnGlobe(t *testing.T) {
 	})
 
 	t.Run("is able to reach a nearby geo point with a requested NaN heading", func(t *testing.T) {
-		injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil, 5)
-		defer ms.Close(ctx)
+		_, ms, closeFunc := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil, 5)
+		defer closeFunc(ctx)
 		req := motion.MoveOnGlobeReq{
-			ComponentName:      fakeBase.Name(),
-			MovementSensorName: injectedMovementSensor.Name(),
+			ComponentName:      baseResource,
+			MovementSensorName: moveSensorResource,
 			Heading:            math.NaN(),
 			Destination:        dst,
 			Extra:              extra,
@@ -103,11 +106,11 @@ func TestMoveOnGlobe(t *testing.T) {
 	})
 
 	t.Run("is able to reach a nearby geo point with a requested positive heading", func(t *testing.T) {
-		injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil, 5)
-		defer ms.Close(ctx)
+		_, ms, closeFunc := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil, 5)
+		defer closeFunc(ctx)
 		req := motion.MoveOnGlobeReq{
-			ComponentName:      fakeBase.Name(),
-			MovementSensorName: injectedMovementSensor.Name(),
+			ComponentName:      baseResource,
+			MovementSensorName: moveSensorResource,
 			Heading:            10000000,
 			Destination:        dst,
 			Extra:              extra,
@@ -118,11 +121,11 @@ func TestMoveOnGlobe(t *testing.T) {
 	})
 
 	t.Run("is able to reach a nearby geo point with a requested negative heading", func(t *testing.T) {
-		injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil, 5)
-		defer ms.Close(ctx)
+		_, ms, closeFunc := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil, 5)
+		defer closeFunc(ctx)
 		req := motion.MoveOnGlobeReq{
-			ComponentName:      fakeBase.Name(),
-			MovementSensorName: injectedMovementSensor.Name(),
+			ComponentName:      baseResource,
+			MovementSensorName: moveSensorResource,
 			Heading:            -10000000,
 			Destination:        dst,
 			Extra:              extra,
@@ -133,11 +136,11 @@ func TestMoveOnGlobe(t *testing.T) {
 	})
 
 	t.Run("is able to reach a nearby geo point when the motion configuration is empty", func(t *testing.T) {
-		injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil, 5)
-		defer ms.Close(ctx)
+		_, ms, closeFunc := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil, 5)
+		defer closeFunc(ctx)
 		req := motion.MoveOnGlobeReq{
-			ComponentName:      fakeBase.Name(),
-			MovementSensorName: injectedMovementSensor.Name(),
+			ComponentName:      baseResource,
+			MovementSensorName: moveSensorResource,
 			Heading:            90,
 			Destination:        dst,
 			MotionCfg:          &motion.MotionConfiguration{},
@@ -149,11 +152,11 @@ func TestMoveOnGlobe(t *testing.T) {
 	})
 
 	t.Run("is able to reach a nearby geo point when the motion configuration nil", func(t *testing.T) {
-		injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil, 5)
-		defer ms.Close(ctx)
+		_, ms, closeFunc := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil, 5)
+		defer closeFunc(ctx)
 		req := motion.MoveOnGlobeReq{
-			ComponentName:      fakeBase.Name(),
-			MovementSensorName: injectedMovementSensor.Name(),
+			ComponentName:      baseResource,
+			MovementSensorName: moveSensorResource,
 			Heading:            90,
 			Destination:        dst,
 			Extra:              extra,
@@ -164,13 +167,13 @@ func TestMoveOnGlobe(t *testing.T) {
 	})
 
 	t.Run("ensure success to a nearby geo point", func(t *testing.T) {
-		injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil, 5)
-		defer ms.Close(ctx)
+		_, ms, closeFunc := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil, 5)
+		defer closeFunc(ctx)
 		motionCfg := &motion.MotionConfiguration{PositionPollingFreqHz: 4, ObstaclePollingFreqHz: 1, PlanDeviationMM: epsilonMM}
 		req := motion.MoveOnGlobeReq{
-			ComponentName:      fakeBase.Name(),
+			ComponentName:      baseResource,
+			MovementSensorName: moveSensorResource,
 			Destination:        dst,
-			MovementSensorName: injectedMovementSensor.Name(),
 			Obstacles:          []*spatialmath.GeoGeometry{},
 			MotionCfg:          motionCfg,
 			Extra:              extra,
@@ -203,8 +206,8 @@ func TestMoveOnGlobe(t *testing.T) {
 	})
 
 	t.Run("go around an obstacle", func(t *testing.T) {
-		injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil, 5)
-		defer ms.Close(ctx)
+		localizer, ms, closeFunc := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil, 5)
+		defer closeFunc(ctx)
 		motionCfg := &motion.MotionConfiguration{PositionPollingFreqHz: 4, ObstaclePollingFreqHz: 1, PlanDeviationMM: epsilonMM}
 
 		boxPose := spatialmath.NewPoseFromPoint(r3.Vector{X: 50, Y: 0, Z: 0})
@@ -212,13 +215,13 @@ func TestMoveOnGlobe(t *testing.T) {
 		geometries, err := spatialmath.NewBox(boxPose, boxDims, "wall")
 		test.That(t, err, test.ShouldBeNil)
 		geoGeometry := spatialmath.NewGeoGeometry(gpsPoint, []spatialmath.Geometry{geometries})
-		startPose, err := fakeBase.CurrentPosition(ctx)
+		startPose, err := localizer.CurrentPosition(ctx)
 		test.That(t, err, test.ShouldBeNil)
 
 		req := motion.MoveOnGlobeReq{
-			ComponentName:      fakeBase.Name(),
+			ComponentName:      baseResource,
 			Destination:        dst,
-			MovementSensorName: injectedMovementSensor.Name(),
+			MovementSensorName: moveSensorResource,
 			Obstacles:          []*spatialmath.GeoGeometry{geoGeometry},
 			MotionCfg:          motionCfg,
 			Extra:              extra,
@@ -242,7 +245,7 @@ func TestMoveOnGlobe(t *testing.T) {
 		})
 		test.That(t, err, test.ShouldBeNil)
 
-		endPose, err := fakeBase.CurrentPosition(ctx)
+		endPose, err := localizer.CurrentPosition(ctx)
 		test.That(t, err, test.ShouldBeNil)
 		movedPose := spatialmath.PoseBetween(startPose.Pose(), endPose.Pose())
 		test.That(t, movedPose.Point().X, test.ShouldAlmostEqual, expectedDst.X, epsilonMM)
@@ -250,8 +253,8 @@ func TestMoveOnGlobe(t *testing.T) {
 	})
 
 	t.Run("fail because of obstacle", func(t *testing.T) {
-		injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil, 5)
-		defer ms.Close(ctx)
+		_, ms, closeFunc := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil, 5)
+		defer closeFunc(ctx)
 
 		// Construct a set of obstacles that entirely enclose the goal point
 		boxPose := spatialmath.NewPoseFromPoint(r3.Vector{X: 250, Y: 0, Z: 0})
@@ -273,9 +276,9 @@ func TestMoveOnGlobe(t *testing.T) {
 		geoGeometry := spatialmath.NewGeoGeometry(gpsPoint, []spatialmath.Geometry{geometry1, geometry2, geometry3, geometry4})
 
 		req := motion.MoveOnGlobeReq{
-			ComponentName:      fakeBase.Name(),
+			ComponentName:      baseResource,
 			Destination:        dst,
-			MovementSensorName: injectedMovementSensor.Name(),
+			MovementSensorName: moveSensorResource,
 			Obstacles:          []*spatialmath.GeoGeometry{geoGeometry},
 			MotionCfg:          &motion.MotionConfiguration{},
 			Extra:              extra,
@@ -288,13 +291,10 @@ func TestMoveOnGlobe(t *testing.T) {
 	})
 
 	t.Run("check offset constructed correctly", func(t *testing.T) {
-		_, fsSvc, _, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil, 5)
-		defer ms.Close(ctx)
-		baseOrigin := referenceframe.NewPoseInFrame("test-base", spatialmath.NewZeroPose())
-		movementSensorToBase, err := fsSvc.TransformPose(ctx, baseOrigin, "test-gps", nil)
-		if err != nil {
-			movementSensorToBase = baseOrigin
-		}
+		_, ms, closeFunc := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil, 5)
+		defer closeFunc(ctx)
+		movementSensorToBase, err := ms.GetPose(ctx, resource.NewName(movementsensor.API, "test-gps"), "test-base", nil, nil)
+		test.That(t, err, test.ShouldBeNil)
 		test.That(t, movementSensorToBase.Pose().Point(), test.ShouldResemble, r3.Vector{X: 10, Y: 0, Z: 0})
 	})
 }

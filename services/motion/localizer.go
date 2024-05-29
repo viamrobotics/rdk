@@ -57,6 +57,9 @@ type movementSensorLocalizer struct {
 // An origin point must be specified and the localizer will return Poses relative to this point.
 // A calibration pose can also be specified, which will adjust the location after it is calculated relative to the origin.
 func NewMovementSensorLocalizer(ms movementsensor.MovementSensor, origin *geo.Point, calibration spatialmath.Pose) Localizer {
+	if calibration == nil {
+		calibration = spatialmath.NewZeroPose()
+	}
 	return &movementSensorLocalizer{MovementSensor: ms, origin: origin, calibration: calibration}
 }
 

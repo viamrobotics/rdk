@@ -2,6 +2,7 @@ package builtin
 
 import (
 	"context"
+	"math"
 	"os"
 	"path/filepath"
 	"testing"
@@ -11,11 +12,16 @@ import (
 	"go.viam.com/test"
 	"go.viam.com/utils"
 	"go.viam.com/utils/artifact"
+	"go.uber.org/multierr"
 
 	"go.viam.com/rdk/components/base"
-	baseFake "go.viam.com/rdk/components/base/fake"
-	"go.viam.com/rdk/components/base/kinematicbase"
+	"go.viam.com/rdk/components/base/wheeled"
+	"go.viam.com/rdk/components/encoder"
+	fakeencoder "go.viam.com/rdk/components/encoder/fake"
+	"go.viam.com/rdk/components/motor"
+	fakemotor "go.viam.com/rdk/components/motor/fake"
 	"go.viam.com/rdk/components/movementsensor"
+	"go.viam.com/rdk/components/movementsensor/wheeledodometry"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/referenceframe"
@@ -25,6 +31,16 @@ import (
 	"go.viam.com/rdk/services/motion"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils/inject"
+)
+
+var (
+	leftMotorName = "leftmotor"
+	rightMotorName = "rightmotor"
+	baseName = "test-base"
+	moveSensorName = "test-movement-sensor"
+	
+	moveSensorResource = resource.NewName(movementsensor.API, moveSensorName)
+	baseResource = resource.NewName(base.API, baseName)
 )
 
 func setupMotionServiceFromConfig(t *testing.T, configFilename string) (motion.Service, func()) {
@@ -96,10 +112,170 @@ func createBaseLink(t *testing.T) *referenceframe.LinkInFrame {
 	baseLink := referenceframe.NewLinkInFrame(
 		referenceframe.World,
 		spatialmath.NewZeroPose(),
-		"test-base",
+		baseName,
 		baseSphere,
 	)
 	return baseLink
+}
+
+func createDependencies(t *testing.T, ctx context.Context, logger logging.Logger, geomSize float64, origin *geo.Point) resource.Dependencies {
+	encoders := createEncoders(t, ctx, logger)
+	motors := createMotors(t, ctx, logger, encoders)
+	fakeBase := createWheeledBase(t, ctx, logger, motors, geomSize)
+	sens := createMovementSensor(t, ctx, logger, motors, fakeBase, origin)
+	
+	deps := resource.Dependencies{}
+	deps[motors[leftMotorName].Name()] = motors[leftMotorName]
+	deps[motors[rightMotorName].Name()] = motors[rightMotorName]
+	deps[fakeBase.Name()] = fakeBase
+	deps[sens.Name()] = sens
+	
+	return deps
+}
+
+func createWheeledBase(t *testing.T, ctx context.Context, logger logging.Logger, motors map[string]motor.Motor, geomSize float64) base.Base {
+	t.Helper()
+	
+	reg, ok := resource.LookupRegistration(base.API, wheeled.Model)
+	test.That(t, ok, test.ShouldBeTrue)
+	
+	wheeledConf := &wheeled.Config {
+		WidthMM: 100,
+		WheelCircumferenceMM: 200, // for testing purposes we want to go fast :)
+		Left: []string{leftMotorName},
+		Right: []string{rightMotorName},
+	}
+	
+	baseConf := resource.Config{
+		Name:  baseName,
+		API:   base.API,
+		Frame: &referenceframe.LinkConfig{Geometry: &spatialmath.GeometryConfig{R: geomSize}},
+		ConvertedAttributes: wheeledConf,
+	}
+	deps := resource.Dependencies{}
+	deps[motors[leftMotorName].Name()] = motors[leftMotorName]
+	deps[motors[rightMotorName].Name()] = motors[rightMotorName]
+	
+	wBase, err := reg.Constructor(ctx, deps, baseConf, logger)
+	test.That(t, err, test.ShouldBeNil)
+	return wBase.(base.Base)
+}
+
+func createEncoders(t *testing.T, ctx context.Context, logger logging.Logger) map[string]fakeencoder.Encoder {
+	t.Helper()
+	leftconf := resource.Config{
+		Name:  leftMotorName + "_encoder",
+		API:   encoder.API,
+		ConvertedAttributes: &fakeencoder.Config{},
+	}
+	rightconf := resource.Config{
+		Name:  rightMotorName + "_encoder",
+		API:   encoder.API,
+		ConvertedAttributes: &fakeencoder.Config{},
+	}
+	left, err := fakeencoder.NewEncoder(ctx, leftconf, logger)
+	test.That(t, err, test.ShouldBeNil)
+	right, err := fakeencoder.NewEncoder(ctx, rightconf, logger)
+	test.That(t, err, test.ShouldBeNil)
+	return map[string]fakeencoder.Encoder{leftMotorName: left, rightMotorName:right}
+}
+
+func createMotors(t *testing.T, ctx context.Context, logger logging.Logger, encoders map[string]fakeencoder.Encoder) map[string]motor.Motor {
+	t.Helper()
+	motorMap := map[string]motor.Motor{}
+	for name, encoder := range encoders {
+		conf := resource.Config{
+			Name:  name,
+			API:   motor.API,
+			ConvertedAttributes: &fakemotor.Config {Encoder: name + "_encoder", TicksPerRotation: 1000},
+		}
+		
+		thisMotor, err := fakemotor.NewMotor(
+			ctx,
+			resource.Dependencies{encoder.Name(): encoder},
+			conf,
+			logger,
+		)
+		test.That(t, err, test.ShouldBeNil)
+		motorMap[name] = thisMotor
+	}
+	return motorMap
+}
+
+func createMovementSensor(
+	t *testing.T,
+	ctx context.Context,
+	logger logging.Logger,
+	motors map[string]motor.Motor,
+	fakeBase base.Base,
+	origin *geo.Point,
+) movementsensor.MovementSensor {
+	t.Helper()
+	reg, ok := resource.LookupRegistration(movementsensor.API, wheeledodometry.Model)
+	test.That(t, ok, test.ShouldBeTrue)
+	
+	odoConf := &wheeledodometry.Config {
+		LeftMotors: []string{leftMotorName},
+		RightMotors: []string{rightMotorName},
+		Base: fakeBase.Name().ShortName(),
+		TimeIntervalMSecs: 10,
+	}
+	
+	moveConf := resource.Config{
+		Name:  moveSensorName,
+		API:   movementsensor.API,
+		ConvertedAttributes: odoConf,
+	}
+	deps := resource.Dependencies{}
+	deps[motors[leftMotorName].Name()] = motors[leftMotorName]
+	deps[motors[rightMotorName].Name()] = motors[rightMotorName]
+	deps[fakeBase.Name()] = fakeBase
+	
+	sens, err := reg.Constructor(ctx, deps, moveConf, logger)
+	test.That(t, err, test.ShouldBeNil)
+	
+	_, err = sens.DoCommand(ctx, map[string]interface{}{"use_compass": true})
+	test.That(t, err, test.ShouldBeNil)
+	
+	_, err = sens.DoCommand(ctx, map[string]interface{}{"reset": true, "setLong": origin.Lng(), "setLat": origin.Lat()})
+	test.That(t, err, test.ShouldBeNil)
+	
+	return sens.(movementsensor.MovementSensor)
+}
+
+func createMockSlamService(name, pcdPath string, origin spatialmath.Pose, move movementsensor.MovementSensor) (*inject.SLAMService, error) {
+	injectSlam := inject.NewSLAMService(name)
+	injectSlam.PointCloudMapFunc = func(ctx context.Context, returnEditedMap bool) (func() ([]byte, error), error) {
+		return getPointCloudMap(filepath.Clean(artifact.MustPath(pcdPath)))
+	}
+	
+	gpsOrigin, _, err := move.Position(context.Background(), nil)
+	if err != nil {
+		return nil, err
+	}
+	if origin == nil {
+		origin = spatialmath.NewZeroPose()
+	}
+	
+	injectSlam.PositionFunc = func(ctx context.Context) (spatialmath.Pose, error) {
+		currentGPS, _, err := move.Position(ctx, nil)
+		if err != nil {
+			return nil, err
+		}
+		headingLeft, err := move.CompassHeading(ctx, nil)
+		if err != nil {
+			return nil, err
+		}
+		// CompassHeading is a left-handed value. Convert to be right-handed. Use math.Mod to ensure that 0 reports 0 rather than 360.
+		heading := math.Mod(math.Abs(headingLeft-360), 360)
+		orientation := &spatialmath.OrientationVectorDegrees{OZ: 1, Theta: heading}
+
+
+		geoPose := spatialmath.NewPose(spatialmath.GeoPointToPoint(currentGPS, gpsOrigin), orientation)
+		
+		return spatialmath.Compose(origin, geoPose), nil
+	}
+	return injectSlam, nil
 }
 
 func createFrameSystemService(
@@ -124,19 +300,14 @@ func createFrameSystemService(
 }
 
 func createMoveOnGlobeEnvironment(ctx context.Context, t *testing.T, origin *geo.Point, noise spatialmath.Pose, sleepTime int) (
-	*inject.MovementSensor, framesystem.Service, kinematicbase.KinematicBase, motion.Service,
+	motion.Localizer, motion.Service, func(context.Context) error,
 ) {
 	logger := logging.NewTestLogger(t)
 
-	// create fake base
-	baseCfg := resource.Config{
-		Name:  "test-base",
-		API:   base.API,
-		Frame: &referenceframe.LinkConfig{Geometry: &spatialmath.GeometryConfig{R: 80}},
-	}
-	fakeBase, err := baseFake.NewBase(ctx, nil, baseCfg, logger)
+	// create fake wheeled base
+	deps := createDependencies(t, ctx, logger, 80, origin)
+	movementSensor, err := movementsensor.FromDependencies(deps, moveSensorName)
 	test.That(t, err, test.ShouldBeNil)
-
 	// create base link
 	baseLink := createBaseLink(t)
 	// create MovementSensor link
@@ -146,37 +317,6 @@ func createMoveOnGlobeEnvironment(ctx context.Context, t *testing.T, origin *geo
 		"test-gps",
 		nil,
 	)
-
-	// create a fake kinematic base
-	kinematicsOptions := kinematicbase.NewKinematicBaseOptions()
-	kinematicsOptions.PlanDeviationThresholdMM = 1 // can afford to do this for tests
-	kb, err := kinematicbase.WrapWithFakePTGKinematics(
-		ctx,
-		fakeBase.(*baseFake.Base),
-		logger,
-		referenceframe.NewPoseInFrame(referenceframe.World, spatialmath.NewZeroPose()),
-		kinematicsOptions,
-		noise,
-		sleepTime,
-	)
-	test.That(t, err, test.ShouldBeNil)
-
-	// create injected MovementSensor
-	dynamicMovementSensor := inject.NewMovementSensor("test-gps")
-	dynamicMovementSensor.PositionFunc = func(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
-		poseInFrame, err := kb.CurrentPosition(ctx)
-		test.That(t, err, test.ShouldBeNil)
-		heading := poseInFrame.Pose().Orientation().OrientationVectorDegrees().Theta + 180
-		distance := poseInFrame.Pose().Point().Norm()
-		pt := origin.PointAtDistanceAndBearing(distance*1e-6, heading)
-		return pt, 0, nil
-	}
-	dynamicMovementSensor.CompassHeadingFunc = func(ctx context.Context, extra map[string]interface{}) (float64, error) {
-		return 0, nil
-	}
-	dynamicMovementSensor.PropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (*movementsensor.Properties, error) {
-		return &movementsensor.Properties{CompassHeadingSupported: true}, nil
-	}
 
 	// create injected vision service
 	injectedVisionSvc := inject.NewVisionService("injectedVisionSvc")
@@ -201,12 +341,9 @@ func createMoveOnGlobeEnvironment(ctx context.Context, t *testing.T, origin *geo
 		{FrameConfig: baseLink},
 		{FrameConfig: cameraLink},
 	}
-	deps := resource.Dependencies{
-		fakeBase.Name():              kb,
-		dynamicMovementSensor.Name(): dynamicMovementSensor,
-		injectedVisionSvc.Name():     injectedVisionSvc,
-		injectedCamera.Name():        injectedCamera,
-	}
+	
+	deps[injectedVisionSvc.Name()] = injectedVisionSvc
+	deps[injectedCamera.Name()] = injectedCamera
 
 	fsSvc, err := createFrameSystemService(ctx, deps, fsParts, logger)
 	test.That(t, err, test.ShouldBeNil)
@@ -214,8 +351,17 @@ func createMoveOnGlobeEnvironment(ctx context.Context, t *testing.T, origin *geo
 	conf := resource.Config{ConvertedAttributes: &Config{}}
 	ms, err := NewBuiltIn(ctx, deps, conf, logger)
 	test.That(t, err, test.ShouldBeNil)
+	ms.(*builtIn).fsService = fsSvc
+	
+	startPosition, _, err := movementSensor.Position(context.Background(), nil)
+	test.That(t, err, test.ShouldBeNil)
+	
+	localizer := motion.NewMovementSensorLocalizer(movementSensor, startPosition, nil)
+	closeFunc := func(ctx context.Context) error {
+		return multierr.Combine(movementSensor.Close(ctx), ms.Close(ctx))
+	}
 
-	return dynamicMovementSensor, fsSvc, kb, ms
+	return localizer, ms, closeFunc
 }
 
 func createMoveOnMapEnvironment(
@@ -224,43 +370,25 @@ func createMoveOnMapEnvironment(
 	pcdPath string,
 	geomSize float64,
 	origin spatialmath.Pose,
-) (kinematicbase.KinematicBase, motion.Service) {
+) (motion.Localizer, motion.Service, func(context.Context) error) {
 	if origin == nil {
 		origin = spatialmath.NewZeroPose()
 	}
-	injectSlam := createInjectedSlam("test_slam", pcdPath, origin)
+	logger := logging.NewTestLogger(t)
+	
+	deps := createDependencies(t, ctx, logger, geomSize, &geo.Point{})
+	
+	movementSensor, err := movementsensor.FromDependencies(deps, moveSensorName)
+	test.That(t, err, test.ShouldBeNil)
+	injectSlam, err := createMockSlamService("test_slam", pcdPath, origin, movementSensor)
+	test.That(t, err, test.ShouldBeNil)
 	injectVis := inject.NewVisionService("test-vision")
 	injectCam := inject.NewCamera("test-camera")
-
 	baseLink := createBaseLink(t)
-
-	cfg := resource.Config{
-		Name:  "test-base",
-		API:   base.API,
-		Frame: &referenceframe.LinkConfig{Geometry: &spatialmath.GeometryConfig{R: geomSize}},
-	}
-	logger := logging.NewTestLogger(t)
-	fakeBase, err := baseFake.NewBase(ctx, nil, cfg, logger)
-	test.That(t, err, test.ShouldBeNil)
-	kinematicsOptions := kinematicbase.NewKinematicBaseOptions()
-	kinematicsOptions.PlanDeviationThresholdMM = 1 // can afford to do this for tests
-	kb, err := kinematicbase.WrapWithFakePTGKinematics(
-		ctx,
-		fakeBase.(*baseFake.Base),
-		logger,
-		referenceframe.NewPoseInFrame(referenceframe.World, origin),
-		kinematicsOptions,
-		spatialmath.NewZeroPose(),
-		10,
-	)
-	test.That(t, err, test.ShouldBeNil)
-
-	deps := resource.Dependencies{
-		fakeBase.Name():   kb,
-		injectVis.Name():  injectVis,
-		injectCam.Name():  injectCam,
-		injectSlam.Name(): injectSlam,
-	}
+	
+	deps[injectVis.Name()] = injectVis
+	deps[injectCam.Name()] = injectCam
+	deps[injectSlam.Name()] = injectSlam
 	conf := resource.Config{ConvertedAttributes: &Config{}}
 
 	ms, err := NewBuiltIn(ctx, deps, conf, logger)
@@ -290,5 +418,11 @@ func createMoveOnMapEnvironment(
 	test.That(t, err, test.ShouldBeNil)
 	ms.(*builtIn).fsService = fsSvc
 
-	return kb, ms
+	// Wheeled odometry returns a movement sensor that reports its position in GPS coordinates. We want to mock up a SLAM service which
+	// converts that to a pose.
+	localizer := motion.NewSLAMLocalizer(injectSlam)
+	closeFunc := func(ctx context.Context) error {
+		return multierr.Combine(movementSensor.Close(ctx), ms.Close(ctx))
+	}
+	return localizer, ms, closeFunc
 }

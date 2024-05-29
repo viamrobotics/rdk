@@ -30,8 +30,8 @@ func TestMoveCallInputs(t *testing.T) {
 		t.Parallel()
 		t.Run("Returns error when called with an unknown component", func(t *testing.T) {
 			t.Parallel()
-			_, ms := createMoveOnMapEnvironment(ctx, t, "pointcloud/octagonspace.pcd", 40, nil)
-			defer ms.Close(ctx)
+			_, ms, closeFunc := createMoveOnMapEnvironment(ctx, t, "pointcloud/octagonspace.pcd", 40, nil)
+			defer closeFunc(ctx)
 
 			req := motion.MoveOnMapReq{
 				ComponentName: base.Named("non existent base"),
@@ -46,8 +46,8 @@ func TestMoveCallInputs(t *testing.T) {
 
 		t.Run("Returns error when destination is nil", func(t *testing.T) {
 			t.Parallel()
-			_, ms := createMoveOnMapEnvironment(ctx, t, "pointcloud/octagonspace.pcd", 40, nil)
-			defer ms.Close(ctx)
+			_, ms, closeFunc := createMoveOnMapEnvironment(ctx, t, "pointcloud/octagonspace.pcd", 40, nil)
+			defer closeFunc(ctx)
 
 			req := motion.MoveOnMapReq{
 				ComponentName: base.Named("test-base"),
@@ -61,8 +61,8 @@ func TestMoveCallInputs(t *testing.T) {
 
 		t.Run("Returns an error if the base provided is not a base", func(t *testing.T) {
 			t.Parallel()
-			_, ms := createMoveOnMapEnvironment(ctx, t, "pointcloud/octagonspace.pcd", 40, nil)
-			defer ms.Close(ctx)
+			_, ms, closeFunc := createMoveOnMapEnvironment(ctx, t, "pointcloud/octagonspace.pcd", 40, nil)
+			defer closeFunc(ctx)
 
 			req := motion.MoveOnMapReq{
 				ComponentName: slam.Named("test_slam"),
@@ -77,8 +77,8 @@ func TestMoveCallInputs(t *testing.T) {
 
 		t.Run("Returns an error if the slamName provided is not SLAM", func(t *testing.T) {
 			t.Parallel()
-			_, ms := createMoveOnMapEnvironment(ctx, t, "pointcloud/octagonspace.pcd", 40, nil)
-			defer ms.Close(ctx)
+			_, ms, closeFunc := createMoveOnMapEnvironment(ctx, t, "pointcloud/octagonspace.pcd", 40, nil)
+			defer closeFunc(ctx)
 
 			req := motion.MoveOnMapReq{
 				ComponentName: slam.Named("test-base"),
@@ -93,8 +93,8 @@ func TestMoveCallInputs(t *testing.T) {
 
 		t.Run("Returns an error when motion configuration has a negative PlanDeviationMM", func(t *testing.T) {
 			t.Parallel()
-			_, ms := createMoveOnMapEnvironment(ctx, t, "pointcloud/octagonspace.pcd", 40, nil)
-			defer ms.Close(ctx)
+			_, ms, closeFunc := createMoveOnMapEnvironment(ctx, t, "pointcloud/octagonspace.pcd", 40, nil)
+			defer closeFunc(ctx)
 
 			req := motion.MoveOnMapReq{
 				ComponentName: base.Named("test-base"),
@@ -110,8 +110,8 @@ func TestMoveCallInputs(t *testing.T) {
 
 		t.Run("Returns an error when motion configuration has a NaN PlanDeviationMM", func(t *testing.T) {
 			t.Parallel()
-			_, ms := createMoveOnMapEnvironment(ctx, t, "pointcloud/octagonspace.pcd", 40, nil)
-			defer ms.Close(ctx)
+			_, ms, closeFunc := createMoveOnMapEnvironment(ctx, t, "pointcloud/octagonspace.pcd", 40, nil)
+			defer closeFunc(ctx)
 
 			req := motion.MoveOnMapReq{
 				ComponentName: base.Named("test-base"),
@@ -127,8 +127,8 @@ func TestMoveCallInputs(t *testing.T) {
 
 		t.Run("Returns an error when the motion configuration has a negative ObstaclePollingFreqHz", func(t *testing.T) {
 			t.Parallel()
-			_, ms := createMoveOnMapEnvironment(ctx, t, "pointcloud/octagonspace.pcd", 40, nil)
-			defer ms.Close(ctx)
+			_, ms, closeFunc := createMoveOnMapEnvironment(ctx, t, "pointcloud/octagonspace.pcd", 40, nil)
+			defer closeFunc(ctx)
 
 			req := motion.MoveOnMapReq{
 				ComponentName: base.Named("test-base"),
@@ -144,8 +144,8 @@ func TestMoveCallInputs(t *testing.T) {
 
 		t.Run("Returns an error when the motion configuration has a NaN ObstaclePollingFreqHz", func(t *testing.T) {
 			t.Parallel()
-			_, ms := createMoveOnMapEnvironment(ctx, t, "pointcloud/octagonspace.pcd", 40, nil)
-			defer ms.Close(ctx)
+			_, ms, closeFunc := createMoveOnMapEnvironment(ctx, t, "pointcloud/octagonspace.pcd", 40, nil)
+			defer closeFunc(ctx)
 
 			req := motion.MoveOnMapReq{
 				ComponentName: base.Named("test-base"),
@@ -161,8 +161,8 @@ func TestMoveCallInputs(t *testing.T) {
 
 		t.Run("Returns an error when the motion configuration has a negative PositionPollingFreqHz", func(t *testing.T) {
 			t.Parallel()
-			_, ms := createMoveOnMapEnvironment(ctx, t, "pointcloud/octagonspace.pcd", 40, nil)
-			defer ms.Close(ctx)
+			_, ms, closeFunc := createMoveOnMapEnvironment(ctx, t, "pointcloud/octagonspace.pcd", 40, nil)
+			defer closeFunc(ctx)
 
 			req := motion.MoveOnMapReq{
 				ComponentName: base.Named("test-base"),
@@ -178,8 +178,8 @@ func TestMoveCallInputs(t *testing.T) {
 
 		t.Run("Returns an error when the motion configuration has a NaN PositionPollingFreqHz", func(t *testing.T) {
 			t.Parallel()
-			_, ms := createMoveOnMapEnvironment(ctx, t, "pointcloud/octagonspace.pcd", 40, nil)
-			defer ms.Close(ctx)
+			_, ms, closeFunc := createMoveOnMapEnvironment(ctx, t, "pointcloud/octagonspace.pcd", 40, nil)
+			defer closeFunc(ctx)
 
 			req := motion.MoveOnMapReq{
 				ComponentName: base.Named("test-base"),
@@ -195,8 +195,8 @@ func TestMoveCallInputs(t *testing.T) {
 
 		t.Run("Returns an error when motion configuration has a negative AngularDegsPerSec", func(t *testing.T) {
 			t.Parallel()
-			_, ms := createMoveOnMapEnvironment(ctx, t, "pointcloud/octagonspace.pcd", 40, nil)
-			defer ms.Close(ctx)
+			_, ms, closeFunc := createMoveOnMapEnvironment(ctx, t, "pointcloud/octagonspace.pcd", 40, nil)
+			defer closeFunc(ctx)
 
 			req := motion.MoveOnMapReq{
 				ComponentName: base.Named("test-base"),
@@ -212,8 +212,8 @@ func TestMoveCallInputs(t *testing.T) {
 
 		t.Run("Returns an error when motion configuration has a NaN AngularDegsPerSec", func(t *testing.T) {
 			t.Parallel()
-			_, ms := createMoveOnMapEnvironment(ctx, t, "pointcloud/octagonspace.pcd", 40, nil)
-			defer ms.Close(ctx)
+			_, ms, closeFunc := createMoveOnMapEnvironment(ctx, t, "pointcloud/octagonspace.pcd", 40, nil)
+			defer closeFunc(ctx)
 
 			req := motion.MoveOnMapReq{
 				ComponentName: base.Named("test-base"),
@@ -229,8 +229,8 @@ func TestMoveCallInputs(t *testing.T) {
 
 		t.Run("Returns an error when motion configuration has a negative LinearMPerSec", func(t *testing.T) {
 			t.Parallel()
-			_, ms := createMoveOnMapEnvironment(ctx, t, "pointcloud/octagonspace.pcd", 40, nil)
-			defer ms.Close(ctx)
+			_, ms, closeFunc := createMoveOnMapEnvironment(ctx, t, "pointcloud/octagonspace.pcd", 40, nil)
+			defer closeFunc(ctx)
 
 			req := motion.MoveOnMapReq{
 				ComponentName: base.Named("test-base"),
@@ -246,8 +246,8 @@ func TestMoveCallInputs(t *testing.T) {
 
 		t.Run("Returns an error when motion configuration has a NaN LinearMPerSec", func(t *testing.T) {
 			t.Parallel()
-			_, ms := createMoveOnMapEnvironment(ctx, t, "pointcloud/octagonspace.pcd", 40, nil)
-			defer ms.Close(ctx)
+			_, ms, closeFunc := createMoveOnMapEnvironment(ctx, t, "pointcloud/octagonspace.pcd", 40, nil)
+			defer closeFunc(ctx)
 
 			req := motion.MoveOnMapReq{
 				ComponentName: base.Named("test-base"),
@@ -263,8 +263,8 @@ func TestMoveCallInputs(t *testing.T) {
 
 		t.Run("collision_buffer_mm validtations", func(t *testing.T) {
 			t.Run("fail when collision_buffer_mm is not a float", func(t *testing.T) {
-				_, ms := createMoveOnMapEnvironment(ctx, t, "pointcloud/octagonspace.pcd", 40, nil)
-				defer ms.Close(ctx)
+				_, ms, closeFunc := createMoveOnMapEnvironment(ctx, t, "pointcloud/octagonspace.pcd", 40, nil)
+				defer closeFunc(ctx)
 
 				req := motion.MoveOnMapReq{
 					ComponentName: base.Named("test-base"),
@@ -282,8 +282,8 @@ func TestMoveCallInputs(t *testing.T) {
 			})
 
 			t.Run("fail when collision_buffer_mm is negative", func(t *testing.T) {
-				_, ms := createMoveOnMapEnvironment(ctx, t, "pointcloud/octagonspace.pcd", 40, nil)
-				defer ms.Close(ctx)
+				_, ms, closeFunc := createMoveOnMapEnvironment(ctx, t, "pointcloud/octagonspace.pcd", 40, nil)
+				defer closeFunc(ctx)
 
 				req := motion.MoveOnMapReq{
 					ComponentName: base.Named("test-base"),
@@ -301,8 +301,8 @@ func TestMoveCallInputs(t *testing.T) {
 			})
 
 			t.Run("fail when collisions are predicted within the collision buffer", func(t *testing.T) {
-				_, ms := createMoveOnMapEnvironment(ctx, t, "pointcloud/octagonspace.pcd", 40, nil)
-				defer ms.Close(ctx)
+				_, ms, closeFunc := createMoveOnMapEnvironment(ctx, t, "pointcloud/octagonspace.pcd", 40, nil)
+				defer closeFunc(ctx)
 
 				req := motion.MoveOnMapReq{
 					ComponentName: base.Named("test-base"),
@@ -320,8 +320,8 @@ func TestMoveCallInputs(t *testing.T) {
 			})
 
 			t.Run("pass when collision_buffer_mm is a small positive float", func(t *testing.T) {
-				_, ms := createMoveOnMapEnvironment(ctx, t, "pointcloud/octagonspace.pcd", 40, nil)
-				defer ms.Close(ctx)
+				_, ms, closeFunc := createMoveOnMapEnvironment(ctx, t, "pointcloud/octagonspace.pcd", 40, nil)
+				defer closeFunc(ctx)
 
 				req := motion.MoveOnMapReq{
 					ComponentName: base.Named("test-base"),
@@ -339,8 +339,8 @@ func TestMoveCallInputs(t *testing.T) {
 			})
 
 			t.Run("pass when collision_buffer_mm is a positive float", func(t *testing.T) {
-				_, ms := createMoveOnMapEnvironment(ctx, t, "pointcloud/octagonspace.pcd", 40, nil)
-				defer ms.Close(ctx)
+				_, ms, closeFunc := createMoveOnMapEnvironment(ctx, t, "pointcloud/octagonspace.pcd", 40, nil)
+				defer closeFunc(ctx)
 
 				req := motion.MoveOnMapReq{
 					ComponentName: base.Named("test-base"),
@@ -358,8 +358,8 @@ func TestMoveCallInputs(t *testing.T) {
 			})
 
 			t.Run("pass when extra is empty", func(t *testing.T) {
-				_, ms := createMoveOnMapEnvironment(ctx, t, "pointcloud/octagonspace.pcd", 40, nil)
-				defer ms.Close(ctx)
+				_, ms, closeFunc := createMoveOnMapEnvironment(ctx, t, "pointcloud/octagonspace.pcd", 40, nil)
+				defer closeFunc(ctx)
 
 				req := motion.MoveOnMapReq{
 					ComponentName: base.Named("test-base"),
@@ -377,8 +377,8 @@ func TestMoveCallInputs(t *testing.T) {
 			})
 
 			t.Run("passes validations when extra is nil", func(t *testing.T) {
-				_, ms := createMoveOnMapEnvironment(ctx, t, "pointcloud/octagonspace.pcd", 40, nil)
-				defer ms.Close(ctx)
+				_, ms, closeFunc := createMoveOnMapEnvironment(ctx, t, "pointcloud/octagonspace.pcd", 40, nil)
+				defer closeFunc(ctx)
 
 				req := motion.MoveOnMapReq{
 					ComponentName: base.Named("test-base"),
@@ -409,11 +409,11 @@ func TestMoveCallInputs(t *testing.T) {
 		}
 		t.Run("returns error when called with an unknown component", func(t *testing.T) {
 			t.Parallel()
-			injectedMovementSensor, _, _, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil, 5)
-			defer ms.Close(ctx)
+			_, ms, closeFunc := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil, 5)
+			defer closeFunc(ctx)
 			req := motion.MoveOnGlobeReq{
 				ComponentName:      base.Named("non existent base"),
-				MovementSensorName: injectedMovementSensor.Name(),
+				MovementSensorName: moveSensorResource,
 				Destination:        geo.NewPoint(0, 0),
 			}
 			executionID, err := ms.MoveOnGlobe(ctx, req)
@@ -423,10 +423,10 @@ func TestMoveCallInputs(t *testing.T) {
 
 		t.Run("returns error when called with an unknown movement sensor", func(t *testing.T) {
 			t.Parallel()
-			_, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil, 5)
-			defer ms.Close(ctx)
+			_, ms, closeFunc := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil, 5)
+			defer closeFunc(ctx)
 			req := motion.MoveOnGlobeReq{
-				ComponentName:      fakeBase.Name(),
+				ComponentName:      baseResource,
 				MovementSensorName: movementsensor.Named("non existent movement sensor"),
 				Destination:        geo.NewPoint(0, 0),
 			}
@@ -438,11 +438,11 @@ func TestMoveCallInputs(t *testing.T) {
 
 		t.Run("returns error when request would require moving more than 5 km", func(t *testing.T) {
 			t.Parallel()
-			injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil, 5)
-			defer ms.Close(ctx)
+			_, ms, closeFunc := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil, 5)
+			defer closeFunc(ctx)
 			req := motion.MoveOnGlobeReq{
-				ComponentName:      fakeBase.Name(),
-				MovementSensorName: injectedMovementSensor.Name(),
+				ComponentName:      baseResource,
+				MovementSensorName: moveSensorResource,
 				Destination:        geo.NewPoint(0, 0),
 			}
 			executionID, err := ms.MoveOnGlobe(ctx, req)
@@ -452,11 +452,11 @@ func TestMoveCallInputs(t *testing.T) {
 
 		t.Run("returns error when destination is nil", func(t *testing.T) {
 			t.Parallel()
-			injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil, 5)
-			defer ms.Close(ctx)
+			_, ms, closeFunc := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil, 5)
+			defer closeFunc(ctx)
 			req := motion.MoveOnGlobeReq{
-				ComponentName:      fakeBase.Name(),
-				MovementSensorName: injectedMovementSensor.Name(),
+				ComponentName:      baseResource,
+				MovementSensorName: moveSensorResource,
 			}
 			executionID, err := ms.MoveOnGlobe(ctx, req)
 			test.That(t, err, test.ShouldBeError, errors.New("destination cannot be nil"))
@@ -465,12 +465,12 @@ func TestMoveCallInputs(t *testing.T) {
 
 		t.Run("returns error when destination contains NaN", func(t *testing.T) {
 			t.Parallel()
-			injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil, 5)
-			defer ms.Close(ctx)
+			_, ms, closeFunc := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil, 5)
+			defer closeFunc(ctx)
 
 			req := motion.MoveOnGlobeReq{
-				ComponentName:      fakeBase.Name(),
-				MovementSensorName: injectedMovementSensor.Name(),
+				ComponentName:      baseResource,
+				MovementSensorName: moveSensorResource,
 			}
 
 			dests := []*geo.Point{
@@ -489,11 +489,11 @@ func TestMoveCallInputs(t *testing.T) {
 
 		t.Run("returns an error if the base provided is not a base", func(t *testing.T) {
 			t.Parallel()
-			injectedMovementSensor, _, _, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil, 5)
-			defer ms.Close(ctx)
+			_, ms, closeFunc := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil, 5)
+			defer closeFunc(ctx)
 			req := motion.MoveOnGlobeReq{
-				ComponentName:      injectedMovementSensor.Name(),
-				MovementSensorName: injectedMovementSensor.Name(),
+				ComponentName:      moveSensorResource,
+				MovementSensorName: moveSensorResource,
 				Heading:            90,
 				Destination:        dst,
 				Extra:              extra,
@@ -505,11 +505,11 @@ func TestMoveCallInputs(t *testing.T) {
 
 		t.Run("returns an error if the movement_sensor provided is not a movement_sensor", func(t *testing.T) {
 			t.Parallel()
-			_, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil, 5)
-			defer ms.Close(ctx)
+			_, ms, closeFunc := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil, 5)
+			defer closeFunc(ctx)
 			req := motion.MoveOnGlobeReq{
-				ComponentName:      fakeBase.Name(),
-				MovementSensorName: fakeBase.Name(),
+				ComponentName:      baseResource,
+				MovementSensorName: baseResource,
 				Heading:            90,
 				Destination:        dst,
 				Extra:              extra,
@@ -521,11 +521,11 @@ func TestMoveCallInputs(t *testing.T) {
 
 		t.Run("errors when motion configuration has a negative PlanDeviationMM", func(t *testing.T) {
 			t.Parallel()
-			injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil, 5)
-			defer ms.Close(ctx)
+			_, ms, closeFunc := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil, 5)
+			defer closeFunc(ctx)
 			req := motion.MoveOnGlobeReq{
-				ComponentName:      fakeBase.Name(),
-				MovementSensorName: injectedMovementSensor.Name(),
+				ComponentName:      baseResource,
+				MovementSensorName: moveSensorResource,
 				Heading:            90,
 				Destination:        dst,
 				MotionCfg:          &motion.MotionConfiguration{PlanDeviationMM: -1},
@@ -537,11 +537,11 @@ func TestMoveCallInputs(t *testing.T) {
 
 		t.Run("errors when motion configuration has a NaN PlanDeviationMM", func(t *testing.T) {
 			t.Parallel()
-			injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil, 5)
-			defer ms.Close(ctx)
+			_, ms, closeFunc := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil, 5)
+			defer closeFunc(ctx)
 			req := motion.MoveOnGlobeReq{
-				ComponentName:      fakeBase.Name(),
-				MovementSensorName: injectedMovementSensor.Name(),
+				ComponentName:      baseResource,
+				MovementSensorName: moveSensorResource,
 				Heading:            90,
 				Destination:        dst,
 				MotionCfg:          &motion.MotionConfiguration{PlanDeviationMM: math.NaN()},
@@ -553,11 +553,11 @@ func TestMoveCallInputs(t *testing.T) {
 
 		t.Run("returns an error when the motion configuration has a negative ObstaclePollingFreqHz", func(t *testing.T) {
 			t.Parallel()
-			injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil, 5)
-			defer ms.Close(ctx)
+			_, ms, closeFunc := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil, 5)
+			defer closeFunc(ctx)
 			req := motion.MoveOnGlobeReq{
-				ComponentName:      fakeBase.Name(),
-				MovementSensorName: injectedMovementSensor.Name(),
+				ComponentName:      baseResource,
+				MovementSensorName: moveSensorResource,
 				Heading:            90,
 				Destination:        dst,
 				MotionCfg:          &motion.MotionConfiguration{ObstaclePollingFreqHz: -1},
@@ -569,11 +569,11 @@ func TestMoveCallInputs(t *testing.T) {
 
 		t.Run("returns an error when the motion configuration has a NaN ObstaclePollingFreqHz", func(t *testing.T) {
 			t.Parallel()
-			injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil, 5)
-			defer ms.Close(ctx)
+			_, ms, closeFunc := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil, 5)
+			defer closeFunc(ctx)
 			req := motion.MoveOnGlobeReq{
-				ComponentName:      fakeBase.Name(),
-				MovementSensorName: injectedMovementSensor.Name(),
+				ComponentName:      baseResource,
+				MovementSensorName: moveSensorResource,
 				Heading:            90,
 				Destination:        dst,
 				MotionCfg:          &motion.MotionConfiguration{ObstaclePollingFreqHz: math.NaN()},
@@ -585,11 +585,11 @@ func TestMoveCallInputs(t *testing.T) {
 
 		t.Run("returns an error when the motion configuration has a negative PositionPollingFreqHz", func(t *testing.T) {
 			t.Parallel()
-			injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil, 5)
-			defer ms.Close(ctx)
+			_, ms, closeFunc := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil, 5)
+			defer closeFunc(ctx)
 			req := motion.MoveOnGlobeReq{
-				ComponentName:      fakeBase.Name(),
-				MovementSensorName: injectedMovementSensor.Name(),
+				ComponentName:      baseResource,
+				MovementSensorName: moveSensorResource,
 				Heading:            90,
 				Destination:        dst,
 				MotionCfg:          &motion.MotionConfiguration{PositionPollingFreqHz: -1},
@@ -601,11 +601,11 @@ func TestMoveCallInputs(t *testing.T) {
 
 		t.Run("returns an error when the motion configuration has a NaN PositionPollingFreqHz", func(t *testing.T) {
 			t.Parallel()
-			injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil, 5)
-			defer ms.Close(ctx)
+			_, ms, closeFunc := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil, 5)
+			defer closeFunc(ctx)
 			req := motion.MoveOnGlobeReq{
-				ComponentName:      fakeBase.Name(),
-				MovementSensorName: injectedMovementSensor.Name(),
+				ComponentName:      baseResource,
+				MovementSensorName: moveSensorResource,
 				Heading:            90,
 				Destination:        dst,
 				MotionCfg:          &motion.MotionConfiguration{PositionPollingFreqHz: math.NaN()},
@@ -617,11 +617,11 @@ func TestMoveCallInputs(t *testing.T) {
 
 		t.Run("returns an error when motion configuration has a negative AngularDegsPerSec", func(t *testing.T) {
 			t.Parallel()
-			injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil, 5)
-			defer ms.Close(ctx)
+			_, ms, closeFunc := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil, 5)
+			defer closeFunc(ctx)
 			req := motion.MoveOnGlobeReq{
-				ComponentName:      fakeBase.Name(),
-				MovementSensorName: injectedMovementSensor.Name(),
+				ComponentName:      baseResource,
+				MovementSensorName: moveSensorResource,
 				Heading:            90,
 				Destination:        dst,
 				MotionCfg:          &motion.MotionConfiguration{AngularDegsPerSec: -1},
@@ -633,11 +633,11 @@ func TestMoveCallInputs(t *testing.T) {
 
 		t.Run("returns an error when motion configuration has a NaN AngularDegsPerSec", func(t *testing.T) {
 			t.Parallel()
-			injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil, 5)
-			defer ms.Close(ctx)
+			_, ms, closeFunc := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil, 5)
+			defer closeFunc(ctx)
 			req := motion.MoveOnGlobeReq{
-				ComponentName:      fakeBase.Name(),
-				MovementSensorName: injectedMovementSensor.Name(),
+				ComponentName:      baseResource,
+				MovementSensorName: moveSensorResource,
 				Heading:            90,
 				Destination:        dst,
 				MotionCfg:          &motion.MotionConfiguration{AngularDegsPerSec: math.NaN()},
@@ -649,11 +649,11 @@ func TestMoveCallInputs(t *testing.T) {
 
 		t.Run("returns an error when motion configuration has a negative LinearMPerSec", func(t *testing.T) {
 			t.Parallel()
-			injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil, 5)
-			defer ms.Close(ctx)
+			_, ms, closeFunc := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil, 5)
+			defer closeFunc(ctx)
 			req := motion.MoveOnGlobeReq{
-				ComponentName:      fakeBase.Name(),
-				MovementSensorName: injectedMovementSensor.Name(),
+				ComponentName:      baseResource,
+				MovementSensorName: moveSensorResource,
 				Heading:            90,
 				Destination:        dst,
 				MotionCfg:          &motion.MotionConfiguration{LinearMPerSec: -1},
@@ -665,11 +665,11 @@ func TestMoveCallInputs(t *testing.T) {
 
 		t.Run("returns an error when motion configuration has a NaN LinearMPerSec", func(t *testing.T) {
 			t.Parallel()
-			injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil, 5)
-			defer ms.Close(ctx)
+			_, ms, closeFunc := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil, 5)
+			defer closeFunc(ctx)
 			req := motion.MoveOnGlobeReq{
-				ComponentName:      fakeBase.Name(),
-				MovementSensorName: injectedMovementSensor.Name(),
+				ComponentName:      baseResource,
+				MovementSensorName: moveSensorResource,
 				Heading:            90,
 				Destination:        dst,
 				MotionCfg:          &motion.MotionConfiguration{LinearMPerSec: math.NaN()},
@@ -681,11 +681,11 @@ func TestMoveCallInputs(t *testing.T) {
 
 		t.Run("collision_buffer_mm validtations", func(t *testing.T) {
 			t.Run("fail when collision_buffer_mm is not a float", func(t *testing.T) {
-				injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil, 5)
-				defer ms.Close(ctx)
+				_, ms, closeFunc := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil, 5)
+				defer closeFunc(ctx)
 				req := motion.MoveOnGlobeReq{
-					ComponentName:      fakeBase.Name(),
-					MovementSensorName: injectedMovementSensor.Name(),
+					ComponentName:      baseResource,
+					MovementSensorName: moveSensorResource,
 					Heading:            90,
 					Destination:        dst,
 					MotionCfg:          &motion.MotionConfiguration{},
@@ -697,11 +697,11 @@ func TestMoveCallInputs(t *testing.T) {
 			})
 
 			t.Run("fail when collision_buffer_mm is negative", func(t *testing.T) {
-				injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil, 5)
-				defer ms.Close(ctx)
+				_, ms, closeFunc := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil, 5)
+				defer closeFunc(ctx)
 				req := motion.MoveOnGlobeReq{
-					ComponentName:      fakeBase.Name(),
-					MovementSensorName: injectedMovementSensor.Name(),
+					ComponentName:      baseResource,
+					MovementSensorName: moveSensorResource,
 					Heading:            90,
 					Destination:        dst,
 					MotionCfg:          &motion.MotionConfiguration{},
@@ -713,11 +713,11 @@ func TestMoveCallInputs(t *testing.T) {
 			})
 
 			t.Run("pass when collision_buffer_mm is a small positive float", func(t *testing.T) {
-				injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil, 5)
-				defer ms.Close(ctx)
+				_, ms, closeFunc := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil, 5)
+				defer closeFunc(ctx)
 				req := motion.MoveOnGlobeReq{
-					ComponentName:      fakeBase.Name(),
-					MovementSensorName: injectedMovementSensor.Name(),
+					ComponentName:      baseResource,
+					MovementSensorName: moveSensorResource,
 					Heading:            90,
 					Destination:        dst,
 					MotionCfg:          &motion.MotionConfiguration{},
@@ -729,11 +729,11 @@ func TestMoveCallInputs(t *testing.T) {
 			})
 
 			t.Run("pass when collision_buffer_mm is a positive float", func(t *testing.T) {
-				injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil, 5)
-				defer ms.Close(ctx)
+				_, ms, closeFunc := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil, 5)
+				defer closeFunc(ctx)
 				req := motion.MoveOnGlobeReq{
-					ComponentName:      fakeBase.Name(),
-					MovementSensorName: injectedMovementSensor.Name(),
+					ComponentName:      baseResource,
+					MovementSensorName: moveSensorResource,
 					Heading:            90,
 					Destination:        dst,
 					MotionCfg:          &motion.MotionConfiguration{},
@@ -745,11 +745,11 @@ func TestMoveCallInputs(t *testing.T) {
 			})
 
 			t.Run("pass when extra is empty", func(t *testing.T) {
-				injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil, 5)
-				defer ms.Close(ctx)
+				_, ms, closeFunc := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil, 5)
+				defer closeFunc(ctx)
 				req := motion.MoveOnGlobeReq{
-					ComponentName:      fakeBase.Name(),
-					MovementSensorName: injectedMovementSensor.Name(),
+					ComponentName:      baseResource,
+					MovementSensorName: moveSensorResource,
 					Heading:            90,
 					Destination:        dst,
 					MotionCfg:          &motion.MotionConfiguration{},
@@ -761,11 +761,11 @@ func TestMoveCallInputs(t *testing.T) {
 			})
 
 			t.Run("passes validations when extra is nil", func(t *testing.T) {
-				injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil, 5)
-				defer ms.Close(ctx)
+				_, ms, closeFunc := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil, 5)
+				defer closeFunc(ctx)
 				req := motion.MoveOnGlobeReq{
-					ComponentName:      fakeBase.Name(),
-					MovementSensorName: injectedMovementSensor.Name(),
+					ComponentName:      baseResource,
+					MovementSensorName: moveSensorResource,
 					Heading:            90,
 					Destination:        dst,
 					MotionCfg:          &motion.MotionConfiguration{},

@@ -34,7 +34,7 @@ func NewEncoder(
 	ctx context.Context,
 	cfg resource.Config,
 	logger logging.Logger,
-) (encoder.Encoder, error) {
+) (Encoder, error) {
 	e := &fakeEncoder{
 		Named:        cfg.ResourceName().AsNamed(),
 		position:     0,
