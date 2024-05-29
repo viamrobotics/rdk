@@ -129,8 +129,11 @@ type Service interface {
 
 	// GetObjectPointClouds returns a list of 3D point cloud objects and metadata from the latest 3D camera image using a specified segmenter.
 	GetObjectPointClouds(ctx context.Context, cameraName string, extra map[string]interface{}) ([]*viz.Object, error)
-	// properties
+
+	// GetProperties returns the supported properties of the service.
 	GetProperties(ctx context.Context, extra map[string]interface{}) (*Properties, error)
+
+	// CaptureAllFromCamera returns the captured images from the camera.
 	CaptureAllFromCamera(ctx context.Context,
 		cameraName string,
 		opts viscapture.CaptureOptions,

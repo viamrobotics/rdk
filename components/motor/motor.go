@@ -38,30 +38,28 @@ var API = resource.APINamespaceRDK.WithComponentType(SubtypeName)
 //
 // SetPower example:
 //
-//	myMotorComponent, err := motor.FromRobot(machine, "my_motor")
-//	// Set the motor power to 40% forwards.
-//	myMotorComponent.SetPower(context.Background(), 0.4, nil)
+//	// Set the motor power to 40% forwards
+//	myMotor.SetPower(context.Background(), 0.4, nil)
 //
 // GoFor example:
 //
-//	myMotorComponent, err := motor.FromRobot(machine, "my_motor")
-//	// Turn the motor 7.2 revolutions at 60 RPM.
-//	myMotorComponent.GoFor(context.Background(), 60, 7.2, nil)
+//	// Turn the motor 7.2 revolutions at 60 RPM
+//	myMotor.GoFor(context.Background(), 60, 7.2, nil)
 //
 // GoTo example:
 //
-//	// Turn the motor to 8.3 revolutions from home at 75 RPM.
-//	myMotorComponent.GoTo(context.Background(), 75, 8.3, nil)
+//	// Turn the motor to 8.3 revolutions from home at 75 RPM
+//	myMotor.GoTo(context.Background(), 75, 8.3, nil)
 //
 // ResetZeroPostion example:
 //
-//	// Set the current position as the new home position with no offset.
-//	myMotorComponent.ResetZeroPosition(context.Background(), 0.0, nil)
+//	// Set the current position as the new home position with no offset
+//	myMotor.ResetZeroPosition(context.Background(), 0.0, nil)
 //
 // Position example:
 //
-//	// Get the current position of an encoded motor.
-//	position, err := myMotorComponent.Position(context.Background(), nil)
+//	// Get the current position of an encoded motor
+//	position, err := myMotor.Position(context.Background(), nil)
 //
 //	// Log the position
 //	logger.Info("Position:")
@@ -69,8 +67,8 @@ var API = resource.APINamespaceRDK.WithComponentType(SubtypeName)
 //
 // Properties example:
 //
-//	// Return whether or not the motor supports certain optional features.
-//	properties, err := myMotorComponent.Properties(context.Background(), nil)
+//	// Return whether or not the motor supports certain optional features
+//	properties, err := myMotor.Properties(context.Background(), nil)
 //
 //	// Log the properties.
 //	logger.Info("Properties:")
@@ -78,8 +76,8 @@ var API = resource.APINamespaceRDK.WithComponentType(SubtypeName)
 //
 // IsPowered example:
 //
-//	// Check whether the motor is currently running.
-//	powered, pct, err := myMotorComponent.IsPowered(context.Background(), nil)
+//	// Check whether the motor is currently running
+//	powered, pct, err := myMotor.IsPowered(context.Background(), nil)
 //
 //	logger.Info("Is powered?")
 //	logger.Info(powered)
@@ -93,33 +91,30 @@ type Motor interface {
 	// Negative power corresponds to a backward direction of rotation
 	SetPower(ctx context.Context, powerPct float64, extra map[string]interface{}) error
 
-	// GoFor instructs the motor to go in a specific direction for a specific amount of
-	// revolutions at a given speed in revolutions per minute. Both the RPM and the revolutions
-	// can be assigned negative values to move in a backwards direction. Note: if both are
-	// negative the motor will spin in the forward direction.
-	// If revolutions is 0, this will run the motor at rpm indefinitely
-	// If revolutions != 0, this will block until the number of revolutions has been completed or another operation comes in.
+	// GoFor instructs the motor to go in a specified direction for a set number of revolutions at a given speed in RPM.
+	// Both RPM and revolutions can be negative to move the motor backward. If both are negative, the motor will spin forward.
+	// If revolutions is 0, the motor runs at the given RPM indefinitely.
+	// If revolutions is non-zero, the motor runs until the specified amount of revolutions is completed or interrupted.
 	GoFor(ctx context.Context, rpm, revolutions float64, extra map[string]interface{}) error
 
-	// GoTo instructs the motor to go to a specific position (provided in revolutions from home/zero),
-	// at a specific speed. Regardless of the directionality of the RPM this function will move the motor
-	// towards the specified target/position
-	// This will block until the position has been reached
+	// GoTo instructs the motor to go to a specific position (provided in revolutions from home/zero) at a given speed.
+	// Regardless of RPM direction, the motor will move towards the target position.
+	// This method blocks until the position has been reached.
 	GoTo(ctx context.Context, rpm, positionRevolutions float64, extra map[string]interface{}) error
 
-	// Set an encoded motor's current position (+/- offset) to be the new zero (home) position.
+	// ResetZeroPosition sets an encoded motor's current position (+/- offset) to be the new zero (home) position.
 	ResetZeroPosition(ctx context.Context, offset float64, extra map[string]interface{}) error
 
-	// Position reports the position of an encoded motor based on its encoder. If it's not supported,
-	// the returned data is undefined. The unit returned is the number of revolutions which is
-	// intended to be fed back into calls of GoFor.
+	// Position returns the position of an encoded motor based on its encoder.
+	// If the motor is not supported, the returned data is undefined.
+	// The unit returned is the number of revolutions which is intended to be used with GoFor.
 	Position(ctx context.Context, extra map[string]interface{}) (float64, error)
 
 	// Properties returns whether or not the motor supports certain optional properties.
 	Properties(ctx context.Context, extra map[string]interface{}) (Properties, error)
 
-	// IsPowered returns whether or not the motor is currently on, and the percent power (between 0
-	// and 1, if the motor is off then the percent power will be 0).
+	// IsPowered returns whether or not the motor is currently on, and the power percentage.
+	// The power percentage value is in the range of 0 and 1. If the motor is off then the power percentage will be 0.
 	IsPowered(ctx context.Context, extra map[string]interface{}) (bool, float64, error)
 }
 

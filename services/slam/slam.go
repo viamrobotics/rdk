@@ -124,9 +124,17 @@ func FromDependencies(deps resource.Dependencies, name string) (Service, error) 
 //	properties, err := mySLAMService.Properties(context.Background())
 type Service interface {
 	resource.Resource
+
+	// Position returns the current position of the specified source component in the point cloud SLAM map.
 	Position(ctx context.Context) (spatialmath.Pose, error)
+
+	// PointCloudMap returns the point cloud SLAM map.
 	PointCloudMap(ctx context.Context, returnEditedMap bool) (func() ([]byte, error), error)
+
+	// InternalState returns the internal state of the SLAM algorithm required to continue mapping/localization.
 	InternalState(ctx context.Context) (func() ([]byte, error), error)
+
+	// Properties returns information regarding the current SLAM session.
 	Properties(ctx context.Context) (Properties, error)
 }
 

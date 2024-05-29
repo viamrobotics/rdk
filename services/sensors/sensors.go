@@ -32,7 +32,12 @@ type Readings struct {
 // A Service centralizes all sensors into one place.
 type Service interface {
 	resource.Resource
+
+	// Sensors returns all configured sensors on the machine.
 	Sensors(ctx context.Context, extra map[string]interface{}) ([]resource.Name, error)
+
+	// Readings returns all sensor measurements. Results depend on the sensor model and can be of any type.
+	// If a sensor is not configured to take a certain measurement or fails to read a piece of data, that data will not appear in the readings dictionary.
 	Readings(ctx context.Context, sensorNames []resource.Name, extra map[string]interface{}) ([]Readings, error)
 }
 
