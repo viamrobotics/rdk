@@ -274,10 +274,7 @@ func createAllCollisionConstraints(
 		// create constraint to keep moving geometries within the defined bounding regions
 		unionOfRobotGeom := movingRobotGeometries
 		unionOfRobotGeom = append(unionOfRobotGeom, staticRobotGeometries...)
-		interactionSpaceConstraint, err := NewBoundingRegionConstraint(unionOfRobotGeom, boundingRegions, collisionBufferMM)
-		if err != nil {
-			return nil, err
-		}
+		interactionSpaceConstraint := NewBoundingRegionConstraint(unionOfRobotGeom, boundingRegions, collisionBufferMM)
 		constraintMap[defaultBoundingRegionConstraintDesc] = interactionSpaceConstraint
 	}
 
@@ -507,12 +504,35 @@ func NewOctreeCollisionConstraint(octree *pointcloud.BasicOctree, threshold int,
 
 // NewBoundingRegionConstraint will determine if the given list of robot geometries are in collision with the
 // given list of bounding regions.
-func NewBoundingRegionConstraint(robotGeoms, boundingRegions []spatial.Geometry, collisionBufferMM float64) (StateConstraint, error) {
-	zeroCG, err := newCollisionGraph(robotGeoms, boundingRegions, nil, true, collisionBufferMM)
-	if err != nil {
-		return nil, err
-	}
+func NewBoundingRegionConstraint(robotGeoms, boundingRegions []spatial.Geometry, collisionBufferMM float64) StateConstraint {
 	return func(state *ik.State) bool {
-		return len(zeroCG.collisions(collisionBufferMM)) != 0
-	}, nil
+		var internalGeoms []spatial.Geometry
+		switch {
+		case state.Configuration != nil:
+			internal, err := state.Frame.Geometries(state.Configuration)
+			if err != nil {
+				return false
+			}
+			internalGeoms = internal.Geometries()
+		case state.Position != nil:
+			// If we didn't pass a Configuration, but we do have a Position, then get the geometries at the zero state and
+			// transform them to the Position
+			internal, err := state.Frame.Geometries(make([]referenceframe.Input, len(state.Frame.DoF())))
+			if err != nil {
+				return false
+			}
+			movedGeoms := internal.Geometries()
+			for _, geom := range movedGeoms {
+				internalGeoms = append(internalGeoms, geom.Transform(state.Position))
+			}
+		default:
+			internalGeoms = robotGeoms
+		}
+
+		cg, err := newCollisionGraph(internalGeoms, boundingRegions, nil, true, collisionBufferMM)
+		if err != nil {
+			return false
+		}
+		return len(cg.collisions(collisionBufferMM)) != 0
+	}
 }
