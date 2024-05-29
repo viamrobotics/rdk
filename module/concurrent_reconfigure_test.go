@@ -40,15 +40,15 @@ func setupTestRobotWithModules(
 const resCount = 10
 const configDuration = "1ms"
 
-func BenchmarkConcurrentReconfiguration(t *testing.B) {
+func BenchmarkConcurrentReconfiguration(b *testing.B) {
 	ctx := context.Background()
-	logger := logging.NewTestLogger(t)
+	logger := logging.NewTestLogger(b)
 
-	reportMetrics := func(t *testing.B) {
+	reportMetrics := func(b *testing.B) {
 		// How many resources are reconfigured per millisecond. Since the number of
 		// resources and configuration for each resource is constant, this metric should
 		// generally as there are fewer dependencies between resources.
-		t.ReportMetric(float64(t.Elapsed().Milliseconds())/float64(t.N)/float64(resCount), "ms/resource")
+		b.ReportMetric(float64(b.Elapsed().Milliseconds())/float64(b.N)/float64(resCount), "ms/resource")
 	}
 
 	type testcase struct {
@@ -102,12 +102,12 @@ func BenchmarkConcurrentReconfiguration(t *testing.B) {
 			return
 		}()},
 	} {
-		t.Run(tc.name, func(t *testing.B) {
-			cfg, rob := setupTestRobotWithModules(t, ctx, logger)
+		b.Run(tc.name, func(b *testing.B) {
+			cfg, rob := setupTestRobotWithModules(b, ctx, logger)
 
-			t.StopTimer()
-			t.ResetTimer()
-			for n := 0; n < t.N; n++ {
+			b.StopTimer()
+			b.ResetTimer()
+			for n := 0; n < b.N; n++ {
 				// Create config with parametrized dependencies.
 				for i := 0; i < resCount; i++ {
 					cfg.Components = append(cfg.Components,
@@ -122,22 +122,22 @@ func BenchmarkConcurrentReconfiguration(t *testing.B) {
 				}
 
 				// Reconfigure robot and benchmark.
-				t.StartTimer()
+				b.StartTimer()
 				rob.Reconfigure(ctx, cfg)
-				t.StopTimer()
+				b.StopTimer()
 
 				// Assert that all resources were added.
 				var err error
 				for i := 0; i < resCount; i++ {
 					_, err = rob.ResourceByName(generic.Named(fmt.Sprintf("slow%d", i)))
-					test.That(t, err, test.ShouldBeNil)
+					test.That(b, err, test.ShouldBeNil)
 				}
 				// Remove all resources.
 				cfg.Components = nil
 				rob.Reconfigure(ctx, cfg)
-				test.That(t, rob.ResourceNames(), test.ShouldBeEmpty)
+				test.That(b, rob.ResourceNames(), test.ShouldBeEmpty)
 			}
-			reportMetrics(t)
+			reportMetrics(b)
 		})
 	}
 }
