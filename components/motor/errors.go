@@ -31,6 +31,7 @@ func NewControlParametersUnimplementedError() error {
 	return errors.New("control parameters must be configured to setup a motor with controls")
 }
 
+// NewSetRPMUnsupportedError returns an error when a motor is required to support SetRPM.
 func NewSetRPMUnsupportedError(motorName string) error {
 	return errors.Errorf("motor named %s does not support SetRPM", motorName)
 }
