@@ -477,7 +477,6 @@ func (b *Board) StreamTicks(ctx context.Context, interrupts []board.DigitalInter
 		rawInterrupts = append(rawInterrupts, raw)
 	}
 
-
 	for _, i := range rawInterrupts {
 		i.AddChannel(ch)
 	}

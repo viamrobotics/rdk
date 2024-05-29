@@ -75,7 +75,7 @@ func (di *digitalInterrupt) Close() error {
 	var err error
 	if len(di.channels) > 0 {
 		err = fmt.Errorf("closed digital interrupt %s, but it still had %d listeners",
-		                 di.config.Name, len(di.channels))
+			di.config.Name, len(di.channels))
 	}
 	return multierr.Combine(err, di.line.Close())
 }
@@ -112,15 +112,15 @@ func (di *digitalInterrupt) monitor(ctx context.Context) {
 				}
 
 				tick := board.Tick{
-					Name: di.config.Name,
-					High: event.RisingEdge,
+					Name:             di.config.Name,
+					High:             event.RisingEdge,
 					TimestampNanosec: uint64(event.Time.UnixNano()),
 				}
 				for _, ch := range di.channels {
 					select {
 					case <-ctx.Done():
 						return true // Stop the entire monitor
-					case ch<-tick:
+					case ch <- tick:
 					}
 				}
 				return false
@@ -149,7 +149,7 @@ func (di *digitalInterrupt) RemoveChannel(ch chan board.Tick) {
 		}
 
 		// To remove this item, move the last item in the list to here and then truncate the list.
-		lastIndex := len(di.channels)-1
+		lastIndex := len(di.channels) - 1
 		di.channels[i] = di.channels[lastIndex]
 		di.channels = di.channels[:lastIndex]
 		break
