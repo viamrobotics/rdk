@@ -663,7 +663,34 @@ func (svc *builtIn) sync() {
 	}
 }
 
-//nolint
+func (svc *builtIn) sync() {
+	svc.flushCollectors()
+
+	// Lock while retrieving any values that could be changed during reconfiguration of the data
+	// manager.
+	svc.lock.Lock()
+
+	captureDir := svc.captureDir
+	fileLastModifiedMillis := svc.fileLastModifiedMillis
+	additionalSyncPaths := svc.additionalSyncPaths
+
+	svc.lock.Unlock()
+
+	// Kick off a goroutine to retrieve all the names of the files to sync, then another 1000 to
+	// sync the files to Viam app.
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go getAllFilesToSync([]string{captureDir, fileLastModifiedMillis}, svc.fileLastModifiedMillis, fileChannel)
+
+	for i := 0; i < 1000; i++ {
+		wg.Add(1)
+		go svc.syncer.SyncFiles(fileChannel)
+	}
+
+	wg.Wait()
+}
+
+// nolint
 func getAllFilesToSync(dir string, lastModifiedMillis int) []string {
 	var filePaths []string
 	_ = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
