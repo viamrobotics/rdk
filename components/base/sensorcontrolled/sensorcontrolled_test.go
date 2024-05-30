@@ -471,7 +471,6 @@ func TestSensorBaseMoveStraight(t *testing.T) {
 	t.Run("Test not including a position ms will use the controlled MoveStraight", func(t *testing.T) {
 		// flaky test, will see behavior after RSDK-6164
 		t.Skip()
-		// the injected base will return nil instead of blocking
 		err := sbNoPos.MoveStraight(ctx, 100, 100, nil)
 		test.That(t, err, test.ShouldBeNil)
 	})
