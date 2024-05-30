@@ -351,7 +351,25 @@ func (m *EncodedMotor) GoTo(ctx context.Context, rpm, targetPosition float64, ex
 
 // SetRPM instructs the motor to move at the specified RPM indefinitely.
 func (m *EncodedMotor) SetRPM(ctx context.Context, rpm float64, extra map[string]interface{}) error {
-	return motor.NewSetRPMUnsupportedError(m.Name().ShortName())
+	ctx, done := m.opMgr.New(ctx)
+	defer done()
+
+	warning, err := checkSpeed(rpm, m.cfg.MaxRPM)
+	if warning != "" {
+		m.logger.CWarnf(ctx, warning)
+	}
+	if err != nil {
+		return err
+	}
+
+	goalPos := math.Inf(int(rpm))
+	direction := sign(rpm)
+	if err := m.goForInternal(rpm, goalPos, direction); err != nil {
+		return err
+	}
+
+	return nil
+
 }
 
 // ResetZeroPosition sets the current position (+/- offset) to be the new zero (home) position.
