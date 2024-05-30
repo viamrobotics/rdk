@@ -194,7 +194,6 @@ func TestServer(t *testing.T) {
 		resp, err = gpsServer.GetOrientation(context.Background(), &pb.GetOrientationRequest{Name: testMovementSensorName, Extra: ext})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, resp.Orientation.OZ, test.ShouldEqual, 0)
-
 	})
 
 	t.Run("GetCompassHeading", func(t *testing.T) {
