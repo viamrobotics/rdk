@@ -416,14 +416,6 @@ func (svc *builtIn) Reconfigure(
 	deps resource.Dependencies,
 	conf resource.Config,
 ) error {
-	svc.logger.Info("In data manager reconfigure")
-	// svc.logger.Infow("count", svc.count.Load())
-	// svc.count.Add(1)
-	// if svc.count.Load() > 4 {
-	// 	svc.logger.Warn("slepeing, forcing hang")
-	// 	time.Sleep(61 * time.Second)
-	// }
-	defer svc.logger.Info("exiting data manager reconfigure")
 	svc.lock.Lock()
 	defer svc.lock.Unlock()
 	svcConfig, err := resource.NativeConfig[*Config](conf)
@@ -572,7 +564,6 @@ func (svc *builtIn) Reconfigure(
 		svc.maxSyncThreads != newMaxSyncThreadValue
 
 	if syncConfigUpdated {
-		svc.logger.Info("updating syncer config")
 		svc.syncDisabled = svcConfig.ScheduledSyncDisabled
 		svc.syncIntervalMins = svcConfig.SyncIntervalMins
 		svc.tags = svcConfig.Tags
@@ -601,8 +592,6 @@ func (svc *builtIn) Reconfigure(
 			}
 			svc.closeSyncer()
 		}
-	} else {
-		svc.logger.Info("skipping sync reconfig")
 	}
 	// if datacapture is enabled, kick off a go routine to check if disk space is filling due to
 	// cached datacapture files
