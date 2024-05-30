@@ -102,7 +102,7 @@ func TestServer(t *testing.T) {
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, resource.IsNotFoundError(err), test.ShouldBeTrue)
 
-		// Redefine the
+		// Redefine the positionFunc to test nil return
 		injectMovementSensor.PositionFunc = func(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
 			return nil, alt, nil
 		}
@@ -188,6 +188,7 @@ func TestServer(t *testing.T) {
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, resource.IsNotFoundError(err), test.ShouldBeTrue)
 
+		// Redefine the orientationFunc to test nil return
 		injectMovementSensor.OrientationFunc = func(ctx context.Context, extra map[string]interface{}) (spatialmath.Orientation, error) {
 			return nil, nil
 		}
