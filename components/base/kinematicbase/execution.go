@@ -189,6 +189,8 @@ func (ptgk *ptgBaseKinematics) GoToInputs(ctx context.Context, inputSteps ...[]r
 					arcSteps = newArcSteps
 					break
 				}
+			} else {
+				fmt.Println("localizer nil")
 			}
 		}
 	}

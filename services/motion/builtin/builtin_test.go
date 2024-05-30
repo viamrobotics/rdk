@@ -306,7 +306,6 @@ func TestPositionalReplanning(t *testing.T) {
 	for _, tc := range testCases {
 		c := tc // needed to workaround loop variable not being captured by func literals
 		t.Run(c.name, func(t *testing.T) {
-			t.Parallel()
 			testFn(t, c)
 		})
 	}

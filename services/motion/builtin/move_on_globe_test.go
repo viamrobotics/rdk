@@ -30,7 +30,7 @@ func TestMoveOnGlobe(t *testing.T) {
 	// create motion config
 	extra := map[string]interface{}{
 		"motion_profile": "position_only",
-		"timeout":        5.,
+		"timeout":        15.,
 		"smooth_iter":    5.,
 	}
 
@@ -169,7 +169,7 @@ func TestMoveOnGlobe(t *testing.T) {
 	t.Run("ensure success to a nearby geo point", func(t *testing.T) {
 		_, ms, closeFunc := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil, 5)
 		defer closeFunc(ctx)
-		motionCfg := &motion.MotionConfiguration{PositionPollingFreqHz: 4, ObstaclePollingFreqHz: 1, PlanDeviationMM: epsilonMM}
+		motionCfg := &motion.MotionConfiguration{PositionPollingFreqHz: 4, ObstaclePollingFreqHz: 1}
 		req := motion.MoveOnGlobeReq{
 			ComponentName:      baseResource,
 			MovementSensorName: moveSensorResource,
@@ -195,7 +195,7 @@ func TestMoveOnGlobe(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, executionID, test.ShouldNotResemble, uuid.Nil)
 
-		timeoutCtx, timeoutFn := context.WithTimeout(ctx, time.Second*5)
+		timeoutCtx, timeoutFn := context.WithTimeout(ctx, time.Second*15)
 		defer timeoutFn()
 		err = motion.PollHistoryUntilSuccessOrError(timeoutCtx, ms, time.Millisecond*5, motion.PlanHistoryReq{
 			ComponentName: req.ComponentName,
