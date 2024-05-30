@@ -291,6 +291,11 @@ func (m *Ezopmp) GoTo(ctx context.Context, mLPerMin, mins float64, extra map[str
 	return m.opMgr.WaitTillNotPowered(ctx, time.Millisecond, m, m.Stop)
 }
 
+// SetRPM instructs the motor to move at the specified RPM indefinitely.
+func (m *Ezopmp) SetRPM(ctx context.Context, rpm float64, extra map[string]interface{}) error {
+	return motor.NewSetRPMUnsupportedError(m.Name().ShortName())
+}
+
 // ResetZeroPosition clears the amount of volume that has been dispensed.
 func (m *Ezopmp) ResetZeroPosition(ctx context.Context, offset float64, extra map[string]interface{}) error {
 	m.logger.CWarnf(ctx, "cannot reset position of motor (%v) because position refers to the total volume dispensed", m.Name().ShortName())

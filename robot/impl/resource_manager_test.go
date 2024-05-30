@@ -199,11 +199,10 @@ func TestManagerForRemoteRobot(t *testing.T) {
 	servoNames := []resource.Name{servo.Named("servo1"), servo.Named("servo2")}
 
 	test.That(t, manager.RemoteNames(), test.ShouldBeEmpty)
-	test.That(
+	rdktestutils.VerifySameResourceNames(
 		t,
-		rdktestutils.NewResourceNameSet(manager.ResourceNames()...),
-		test.ShouldResemble,
-		rdktestutils.NewResourceNameSet(rdktestutils.ConcatResourceNames(
+		manager.ResourceNames(),
+		rdktestutils.ConcatResourceNames(
 			armNames,
 			baseNames,
 			boardNames,
@@ -212,7 +211,7 @@ func TestManagerForRemoteRobot(t *testing.T) {
 			inputNames,
 			motorNames,
 			servoNames,
-		)...),
+		),
 	)
 
 	_, err := manager.ResourceByName(arm.Named("arm1"))
@@ -286,11 +285,10 @@ func TestManagerMergeNamesWithRemotes(t *testing.T) {
 		test.ShouldResemble,
 		utils.NewStringSet("remote1", "remote2"),
 	)
-	test.That(
+	rdktestutils.VerifySameResourceNames(
 		t,
-		rdktestutils.NewResourceNameSet(manager.ResourceNames()...),
-		test.ShouldResemble,
-		rdktestutils.NewResourceNameSet(rdktestutils.ConcatResourceNames(
+		manager.ResourceNames(),
+		rdktestutils.ConcatResourceNames(
 			armNames,
 			baseNames,
 			boardNames,
@@ -299,7 +297,7 @@ func TestManagerMergeNamesWithRemotes(t *testing.T) {
 			inputNames,
 			motorNames,
 			servoNames,
-		)...),
+		),
 	)
 	_, err := manager.ResourceByName(arm.Named("arm1"))
 	test.That(t, err, test.ShouldBeNil)
@@ -394,13 +392,10 @@ func TestManagerResourceRemoteName(t *testing.T) {
 
 	manager.updateRemotesResourceNames(context.Background())
 
-	res := manager.remoteResourceNames(fromRemoteNameToRemoteNodeName("remote1"))
-
-	test.That(
+	rdktestutils.VerifySameResourceNames(
 		t,
-		rdktestutils.NewResourceNameSet(res...),
-		test.ShouldResemble,
-		rdktestutils.NewResourceNameSet([]resource.Name{arm.Named("remote1:arm1"), arm.Named("remote1:arm2")}...),
+		manager.remoteResourceNames(fromRemoteNameToRemoteNodeName("remote1")),
+		[]resource.Name{arm.Named("remote1:arm1"), arm.Named("remote1:arm2")},
 	)
 }
 
@@ -1888,12 +1883,7 @@ func TestReconfigureParity(t *testing.T) {
 			cfg = ConfigFromFile(t, initCfg)
 			r2 := setupLocalRobot(t, ctx, cfg, logger).(*localRobot)
 
-			test.That(
-				t,
-				rdktestutils.NewResourceNameSet(r1.ResourceNames()...),
-				test.ShouldResemble,
-				rdktestutils.NewResourceNameSet(r2.ResourceNames()...),
-			)
+			rdktestutils.VerifySameResourceNames(t, r1.ResourceNames(), r2.ResourceNames())
 
 			cfg = ConfigFromFile(t, updateCfg)
 			r1.Reconfigure(ctx, cfg)
@@ -1901,12 +1891,7 @@ func TestReconfigureParity(t *testing.T) {
 			// force robot to reconfigure resources serially
 			r2.reconfigure(ctx, cfg, true)
 
-			test.That(
-				t,
-				rdktestutils.NewResourceNameSet(r1.ResourceNames()...),
-				test.ShouldResemble,
-				rdktestutils.NewResourceNameSet(r2.ResourceNames()...),
-			)
+			rdktestutils.VerifySameResourceNames(t, r1.ResourceNames(), r2.ResourceNames())
 		})
 	}
 

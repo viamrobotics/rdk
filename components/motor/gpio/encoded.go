@@ -235,6 +235,9 @@ func (m *EncodedMotor) SetPower(ctx context.Context, powerPct float64, extra map
 // goForMath calculates goalPos, goalRPM, and direction based on the given GoFor rpm and revolutions, and the current position.
 func (m *EncodedMotor) goForMath(ctx context.Context, rpm, revolutions float64) (float64, float64, float64) {
 	direction := sign(rpm * revolutions)
+	if revolutions == 0 {
+		direction = sign(rpm)
+	}
 
 	currentPos, err := m.position(ctx, nil)
 	if err != nil {
@@ -344,6 +347,11 @@ func (m *EncodedMotor) GoTo(ctx context.Context, rpm, targetPosition float64, ex
 		return nil
 	}
 	return m.GoFor(ctx, rpm, rotations, extra)
+}
+
+// SetRPM instructs the motor to move at the specified RPM indefinitely.
+func (m *EncodedMotor) SetRPM(ctx context.Context, rpm float64, extra map[string]interface{}) error {
+	return motor.NewSetRPMUnsupportedError(m.Name().ShortName())
 }
 
 // ResetZeroPosition sets the current position (+/- offset) to be the new zero (home) position.
