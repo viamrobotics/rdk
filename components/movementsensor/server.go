@@ -55,10 +55,10 @@ func (s *serviceServer) GetPosition(
 		return nil, err
 	}
 
-	var coordinate *commonpb.GeoPoint
-	if loc == nil {
-		coordinate = &commonpb.GeoPoint{Latitude: math.NaN(), Longitude: math.NaN()}
-	} else {
+	// defensively initialize a invalid, non-nil default
+	coordinate := &commonpb.GeoPoint{Latitude: math.NaN(), Longitude: math.NaN()}
+	// populate the coordinate response with the location if it is non nil
+	if loc != nil {
 		coordinate = &commonpb.GeoPoint{Latitude: loc.Lat(), Longitude: loc.Lng()}
 	}
 

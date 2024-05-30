@@ -54,6 +54,8 @@ func ConvertVectorR3ToProto(v r3.Vector) *commonpb.Vector3 {
 // ConvertOrientationToProto TODO.
 func ConvertOrientationToProto(o spatialmath.Orientation) *commonpb.Orientation {
 	oo := &commonpb.Orientation{}
+	// the orientation structure returned in the response can be nil as well,
+	// so we check again before populating the message.
 	if o != nil {
 		ov := o.OrientationVectorDegrees()
 		if ov != nil {
