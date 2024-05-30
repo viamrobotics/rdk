@@ -232,29 +232,6 @@ func (m *EncodedMotor) SetPower(ctx context.Context, powerPct float64, extra map
 	return m.real.SetPower(ctx, powerPct, nil)
 }
 
-// goForMath calculates goalPos, goalRPM, and direction based on the given GoFor rpm and revolutions, and the current position.
-func (m *EncodedMotor) goForMath(ctx context.Context, rpm, revolutions float64) (float64, float64, float64) {
-	direction := sign(rpm * revolutions)
-	// Deprecated: setting revolutions == 0 will spin the motor indefinitely at the specified RPM
-	if revolutions == 0 {
-		direction = sign(rpm)
-	}
-
-	currentPos, err := m.position(ctx, nil)
-	if err != nil {
-		m.logger.CError(ctx, err)
-	}
-	goalPos := (math.Abs(revolutions) * m.ticksPerRotation * direction) + currentPos
-	goalRPM := math.Abs(rpm) * direction
-
-	// Deprecated: setting revolutions == 0 will spin the motor indefinitely at the specified RPM
-	if revolutions == 0 {
-		goalPos = math.Inf(int(direction))
-	}
-
-	return goalPos, goalRPM, direction
-}
-
 // GoFor instructs the motor to go in a specific direction for a specific amount of
 // revolutions at a given speed in revolutions per minute. Both the RPM and the revolutions
 // can be assigned negative values to move in a backwards direction. Note: if both are
@@ -273,7 +250,11 @@ func (m *EncodedMotor) GoFor(ctx context.Context, rpm, revolutions float64, extr
 		return err
 	}
 
-	goalPos, goalRPM, direction := m.goForMath(ctx, rpm, revolutions)
+	currentTicks, _, err := m.encoder.Position(ctx, encoder.PositionTypeTicks, extra)
+	if err != nil {
+		return err
+	}
+	goalPos, goalRPM, direction := encodedGoForMath(rpm, revolutions, currentTicks, m.ticksPerRotation)
 
 	if err := m.goForInternal(goalRPM, goalPos, direction); err != nil {
 		return err

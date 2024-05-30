@@ -206,20 +206,20 @@ func TestEncodedMotor(t *testing.T) {
 		test.That(t, initpos > finalpos, test.ShouldBeTrue)
 	})
 
-	t.Run("encoded motor test goForMath", func(t *testing.T) {
+	t.Run("encoded motor test encodedGoForMath", func(t *testing.T) {
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
 			test.That(tb, m.ResetZeroPosition(context.Background(), 0, nil), test.ShouldBeNil)
 		})
 
 		expectedGoalPos, expectedGoalRPM, expectedDirection := 4.0, 10.0, 1.0
-		goalPos, goalRPM, direction := m.goForMath(context.Background(), 10, 4)
+		goalPos, goalRPM, direction := encodedGoForMath(10, 4, 0, 1)
 		test.That(t, goalPos, test.ShouldEqual, expectedGoalPos)
 		test.That(t, goalRPM, test.ShouldEqual, expectedGoalRPM)
 		test.That(t, direction, test.ShouldEqual, expectedDirection)
 
 		expectedGoalPos, expectedGoalRPM, expectedDirection = -4.0, -10.0, -1.0
-		goalPos, goalRPM, direction = m.goForMath(context.Background(), 10, -4)
+		goalPos, goalRPM, direction = encodedGoForMath(10, -4, 0, 1)
 		test.That(t, goalPos, test.ShouldEqual, expectedGoalPos)
 		test.That(t, goalRPM, test.ShouldEqual, expectedGoalRPM)
 		test.That(t, direction, test.ShouldEqual, expectedDirection)
