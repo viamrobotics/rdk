@@ -127,7 +127,7 @@ func (sb *sensorBase) MoveStraight(
 				deltaTime := currTime.Sub(prevTime).Seconds()
 				// calculate the estimated change in position based on the latest velocity
 				deltaPosMm := sign(mmPerSec) * vels.Y * deltaTime * 1000
-				currDistMm = currDistMm + deltaPosMm
+				currDistMm += deltaPosMm
 				errDist = float64(distanceMm) - currDistMm
 				prevTime = currTime
 			}
