@@ -51,6 +51,9 @@ func (sb *sensorBase) Spin(ctx context.Context, angleDeg, degsPerSec float64, ex
 			return err
 		}
 	}
+
+	// pause and resume the loop to reset the control blocks
+	sb.loop.Pause()
 	sb.loop.Resume()
 	var angErr float64
 	prevMovedAng := 0.
