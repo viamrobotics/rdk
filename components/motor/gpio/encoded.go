@@ -349,6 +349,11 @@ func (m *EncodedMotor) GoTo(ctx context.Context, rpm, targetPosition float64, ex
 	return m.GoFor(ctx, rpm, rotations, extra)
 }
 
+// SetRPM instructs the motor to move at the specified RPM indefinitely.
+func (m *EncodedMotor) SetRPM(ctx context.Context, rpm float64, extra map[string]interface{}) error {
+	return motor.NewSetRPMUnsupportedError(m.Name().ShortName())
+}
+
 // ResetZeroPosition sets the current position (+/- offset) to be the new zero (home) position.
 func (m *EncodedMotor) ResetZeroPosition(ctx context.Context, offset float64, extra map[string]interface{}) error {
 	if err := m.Stop(ctx, extra); err != nil {
