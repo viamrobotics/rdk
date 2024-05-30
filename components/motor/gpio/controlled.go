@@ -294,8 +294,8 @@ func (cm *controlledMotor) SetRPM(ctx context.Context, rpm float64, extra map[st
 // revolutions at a given speed in revolutions per minute. Both the RPM and the revolutions
 // can be assigned negative values to move in a backwards direction. Note: if both are
 // negative the motor will spin in the forward direction.
-// If revolutions is 0, this will run the motor at rpm indefinitely
 // If revolutions != 0, this will block until the number of revolutions has been completed or another operation comes in.
+// Deprecated: If revolutions is 0, this will run the motor at rpm indefinitely
 func (cm *controlledMotor) GoFor(ctx context.Context, rpm, revolutions float64, extra map[string]interface{}) error {
 	cm.opMgr.CancelRunning(ctx)
 	ctx, done := cm.opMgr.New(ctx)

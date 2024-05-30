@@ -235,6 +235,7 @@ func (m *EncodedMotor) SetPower(ctx context.Context, powerPct float64, extra map
 // goForMath calculates goalPos, goalRPM, and direction based on the given GoFor rpm and revolutions, and the current position.
 func (m *EncodedMotor) goForMath(ctx context.Context, rpm, revolutions float64) (float64, float64, float64) {
 	direction := sign(rpm * revolutions)
+	// Deprecated: setting revolutions == 0 will spin the motor indefinitely at the specified RPM
 	if revolutions == 0 {
 		direction = sign(rpm)
 	}
@@ -246,6 +247,7 @@ func (m *EncodedMotor) goForMath(ctx context.Context, rpm, revolutions float64) 
 	goalPos := (math.Abs(revolutions) * m.ticksPerRotation * direction) + currentPos
 	goalRPM := math.Abs(rpm) * direction
 
+	// Deprecated: setting revolutions == 0 will spin the motor indefinitely at the specified RPM
 	if revolutions == 0 {
 		goalPos = math.Inf(int(direction))
 	}
@@ -257,8 +259,8 @@ func (m *EncodedMotor) goForMath(ctx context.Context, rpm, revolutions float64) 
 // revolutions at a given speed in revolutions per minute. Both the RPM and the revolutions
 // can be assigned negative values to move in a backwards direction. Note: if both are
 // negative the motor will spin in the forward direction.
-// If revolutions is 0, this will run the motor at rpm indefinitely
 // If revolutions != 0, this will block until the number of revolutions has been completed or another operation comes in.
+// Deprecated: If revolutions is 0, this will run the motor at rpm indefinitely
 func (m *EncodedMotor) GoFor(ctx context.Context, rpm, revolutions float64, extra map[string]interface{}) error {
 	ctx, done := m.opMgr.New(ctx)
 	defer done()
@@ -277,7 +279,7 @@ func (m *EncodedMotor) GoFor(ctx context.Context, rpm, revolutions float64, extr
 		return err
 	}
 
-	// return and run the motor at rpm indefinitely
+	// Deprecated: return and run the motor at rpm indefinitely
 	if revolutions == 0 {
 		return nil
 	}

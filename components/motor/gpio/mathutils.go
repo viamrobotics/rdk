@@ -34,6 +34,7 @@ func goForMath(maxRPM, rpm, revolutions float64) (float64, time.Duration) {
 		rpm = -1 * maxRPM
 	}
 
+	// Deprecated: setting revolutions == 0 will spin the motor indefinitely at the specified RPM
 	if revolutions == 0 {
 		powerPct := rpm / maxRPM
 		return powerPct, 0
@@ -52,6 +53,7 @@ func encodedGoForMath(rpm, revolutions, currentPos, ticksPerRotation float64) (f
 	goalPos := (math.Abs(revolutions) * ticksPerRotation * direction) + currentPos
 	goalRPM := math.Abs(rpm) * direction
 
+	// Deprecated: setting revolutions == 0 will spin the motor indefinitely at the specified RPM
 	if revolutions == 0 {
 		goalPos = math.Inf(int(direction))
 	}
