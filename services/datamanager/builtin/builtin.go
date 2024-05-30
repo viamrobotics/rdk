@@ -568,7 +568,6 @@ func (svc *builtIn) Reconfigure(
 		svc.syncIntervalMins = svcConfig.SyncIntervalMins
 		svc.tags = svcConfig.Tags
 		svc.fileLastModifiedMillis = fileLastModifiedMillis
-
 		svc.maxSyncThreads = newMaxSyncThreadValue
 
 		svc.cancelSyncScheduler()
