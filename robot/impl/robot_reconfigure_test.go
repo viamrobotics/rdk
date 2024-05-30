@@ -2671,6 +2671,133 @@ func TestRemoteRobotsGold(t *testing.T) {
 	})
 }
 
+// main -> remote-1 -> remote-2.
+func TestRemoteOfRemoteDisconnectingDoesntTriggerMainClientClose(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+	remote2Cfg := &config.Config{
+		Components: []resource.Config{
+			{
+				Name:  "arm",
+				Model: resource.DefaultModelFamily.WithModel("fake"),
+				ConvertedAttributes: &fake.Config{
+					ModelFilePath: "../../components/arm/fake/fake_model.json",
+				},
+				API: arm.API,
+			},
+		},
+	}
+
+	ctx := context.Background()
+
+	// set up and start remote1's web service
+	remote2 := setupLocalRobot(t, ctx, remote2Cfg, logger.Sublogger("remote-2"))
+	optionsRemote2, listener2, addr2 := robottestutils.CreateBaseOptionsAndListener(t)
+	err := remote2.StartWeb(ctx, optionsRemote2)
+	test.That(t, err, test.ShouldBeNil)
+
+	remote1Cfg := &config.Config{
+		Remotes: []config.Remote{
+			{
+				Name:    "remote-2",
+				Address: addr2,
+			},
+		},
+	}
+	// set up but do not start remote2's web service
+	remote1 := setupLocalRobot(t, ctx, remote1Cfg, logger.Sublogger("remote-1"))
+	optionsRemote1, _, addr1 := robottestutils.CreateBaseOptionsAndListener(t)
+	err = remote1.StartWeb(ctx, optionsRemote1)
+	test.That(t, err, test.ShouldBeNil)
+
+	mainCfg := &config.Config{
+		Remotes: []config.Remote{
+			{
+				Name:    "remote-1",
+				Address: addr1,
+			},
+		},
+	}
+	main := setupLocalRobot(t, ctx, mainCfg, logger.Sublogger("main"))
+
+	a, err := arm.FromRobot(main, "remote-1:remote-2:arm")
+	test.That(t, err, test.ShouldBeNil)
+
+	_, err = a.JointPositions(ctx, nil)
+	test.That(t, err, test.ShouldBeNil)
+
+	testutils.WaitForAssertionWithSleep(t, time.Millisecond*100, 300, func(tb testing.TB) {
+		rdktestutils.VerifySameResourceNames(
+			t,
+			main.ResourceNames(),
+			[]resource.Name{
+				motion.Named(resource.DefaultServiceName),
+				sensors.Named(resource.DefaultServiceName),
+				motion.Named(resource.DefaultServiceName).PrependRemote("remote-1"),
+				sensors.Named(resource.DefaultServiceName).PrependRemote("remote-1"),
+				motion.Named(resource.DefaultServiceName).PrependRemote("remote-2").PrependRemote("remote-1"),
+				sensors.Named(resource.DefaultServiceName).PrependRemote("remote-2").PrependRemote("remote-1"),
+				arm.Named("arm").PrependRemote("remote-2").PrependRemote("remote-1"),
+			},
+		)
+	})
+
+	_, err = main.Status(ctx, []resource.Name{arm.Named("arm").PrependRemote("remote-2").PrependRemote("remote-1")})
+	test.That(t, err, test.ShouldBeNil)
+
+	// close remote 2
+	test.That(t, remote2.Close(context.Background()), test.ShouldBeNil)
+
+	_, err = main.Status(ctx, []resource.Name{arm.Named("arm").PrependRemote("remote-2").PrependRemote("remote-1")})
+	test.That(t, err, test.ShouldBeError)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "not connected to remote robot")
+
+	time.Sleep(time.Second * 20)
+	test.That(t, rdktestutils.NewSortedResourceNames(
+		main.ResourceNames()),
+		test.ShouldResemble,
+		rdktestutils.NewSortedResourceNames([]resource.Name{
+			motion.Named(resource.DefaultServiceName),
+			sensors.Named(resource.DefaultServiceName),
+			motion.Named(resource.DefaultServiceName).PrependRemote("remote-1"),
+			sensors.Named(resource.DefaultServiceName).PrependRemote("remote-1"),
+			motion.Named(resource.DefaultServiceName).PrependRemote("remote-2").PrependRemote("remote-1"),
+			sensors.Named(resource.DefaultServiceName).PrependRemote("remote-2").PrependRemote("remote-1"),
+			arm.Named("arm").PrependRemote("remote-2").PrependRemote("remote-1"),
+		}))
+	//
+	remote3 := setupLocalRobot(t, ctx, remote2Cfg, logger.Sublogger("remote3"))
+
+	// Note: There's a slight chance this test can fail if someone else
+	// claims the port we just released by closing the server.
+	listener2, err = net.Listen("tcp", listener2.Addr().String())
+	test.That(t, err, test.ShouldBeNil)
+	optionsRemote1.Network.Listener = listener2
+	err = remote3.StartWeb(ctx, optionsRemote1)
+	test.That(t, err, test.ShouldBeNil)
+
+	testutils.WaitForAssertionWithSleep(t, time.Millisecond*100, 300, func(tb testing.TB) {
+		_, err = main.Status(ctx, []resource.Name{arm.Named("arm").PrependRemote("remote-2").PrependRemote("remote-1")})
+		test.That(tb, err, test.ShouldBeNil)
+	})
+
+	time.Sleep(time.Second * 20)
+	testutils.WaitForAssertionWithSleep(t, time.Millisecond*100, 300, func(tb testing.TB) {
+		rdktestutils.VerifySameResourceNames(
+			t,
+			main.ResourceNames(),
+			[]resource.Name{
+				motion.Named(resource.DefaultServiceName),
+				sensors.Named(resource.DefaultServiceName),
+				motion.Named(resource.DefaultServiceName).PrependRemote("remote-1"),
+				sensors.Named(resource.DefaultServiceName).PrependRemote("remote-1"),
+				motion.Named(resource.DefaultServiceName).PrependRemote("remote-2").PrependRemote("remote-1"),
+				sensors.Named(resource.DefaultServiceName).PrependRemote("remote-2").PrependRemote("remote-1"),
+				arm.Named("arm").PrependRemote("remote-2").PrependRemote("remote-1"),
+			},
+		)
+	})
+}
+
 func TestRemoteRobotsUpdate(t *testing.T) {
 	// The test tests that the robot is able to update when multiple remote robot
 	// updates happen at the same time.
