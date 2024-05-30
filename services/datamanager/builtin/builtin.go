@@ -677,22 +677,6 @@ func isOffline() bool {
 func (svc *builtIn) sync() {
 	svc.flushCollectors()
 
-	svc.lock.Lock()
-	toSync := getAllFilesToSync(svc.captureDir, svc.fileLastModifiedMillis)
-	for _, ap := range svc.additionalSyncPaths {
-		toSync = append(toSync, getAllFilesToSync(ap, svc.fileLastModifiedMillis)...)
-	}
-	svc.lock.Unlock()
-
-	stopAfter := time.Now().Add(time.Duration(svc.syncIntervalMins * float64(time.Minute)))
-	for _, p := range toSync {
-		svc.syncer.SyncFile(p, stopAfter)
-	}
-}
-
-func (svc *builtIn) sync() {
-	svc.flushCollectors()
-
 	// Lock while retrieving any values that could be changed during reconfiguration of the data
 	// manager.
 	svc.lock.Lock()
@@ -700,6 +684,7 @@ func (svc *builtIn) sync() {
 	captureDir := svc.captureDir
 	fileLastModifiedMillis := svc.fileLastModifiedMillis
 	additionalSyncPaths := svc.additionalSyncPaths
+	stopAfter := time.Now().Add(time.Duration(svc.syncIntervalMins * float64(time.Minute)))
 
 	svc.lock.Unlock()
 
@@ -707,11 +692,14 @@ func (svc *builtIn) sync() {
 	// sync the files to Viam app.
 	var wg sync.WaitGroup
 	wg.Add(1)
-	go getAllFilesToSync([]string{captureDir, fileLastModifiedMillis}, svc.fileLastModifiedMillis, fileChannel)
+	go getAllFilesToSync([]string{captureDir, additionalSyncPaths},
+		fileLastModifiedMillis,
+		fileChannel,
+		stopAfter)
 
 	for i := 0; i < 1000; i++ {
 		wg.Add(1)
-		go svc.syncer.SyncFiles(fileChannel)
+		go svc.syncer.SyncFiles(fileChannel, stopAfter)
 	}
 
 	wg.Wait()
