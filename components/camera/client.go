@@ -363,6 +363,8 @@ func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map
 func (c *client) Close(ctx context.Context) error {
 	_, span := trace.StartSpan(ctx, "camera::client::Close")
 	defer span.End()
+	c.logger.Info("Close() START")
+	defer c.logger.Info("Close() END")
 
 	c.cancelFn()
 	c.mu.Lock()

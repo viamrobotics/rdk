@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
-	"log"
 	"os"
 	"reflect"
 	"strings"
@@ -180,11 +179,11 @@ func (manager *resourceManager) updateRemoteResourceNames(
 ) bool {
 	manager.logger.CDebugw(ctx, "updating remote resource names", "remote", remoteName)
 	activeResourceNames := map[resource.Name]bool{}
-	rc, ok := rr.(*client.RobotClient)
-	if !ok {
-		log.Fatal("client is not a robot client")
-	}
-	if !rc.Connected() {
+	// if the robot supports the Connected method then we know that it is for a resource
+	// that might be disconnected. If it is disconnected then we won't update our
+	// resources for that robot as they are in an indeterminant state
+	connectable, ok := rr.(interface{ Connected() bool })
+	if ok && !connectable.Connected() {
 		manager.logger.CWarnw(ctx, "remote is disconnected, not updating clients of resources in that remote",
 			"name", rr.Name())
 		return false

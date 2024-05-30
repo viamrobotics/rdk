@@ -2016,9 +2016,9 @@ func TestReconnectRemote(t *testing.T) {
 	test.That(t, len(remoteRobotClient.ResourceNames()), test.ShouldEqual, 0)
 	testutils.WaitForAssertion(t, func(tb testing.TB) {
 		tb.Helper()
-		test.That(tb, len(robotClient.ResourceNames()), test.ShouldEqual, 2)
+		test.That(tb, len(robotClient.ResourceNames()), test.ShouldEqual, 5)
 	})
-	test.That(t, len(robot1.ResourceNames()), test.ShouldEqual, 2)
+	test.That(t, len(robot1.ResourceNames()), test.ShouldEqual, 5)
 	_, err = anArm.EndPosition(context.Background(), map[string]interface{}{})
 	test.That(t, err, test.ShouldBeError)
 
@@ -2117,11 +2117,28 @@ func TestReconnectRemoteChangeConfig(t *testing.T) {
 	test.That(t, robot.Close(context.Background()), test.ShouldBeNil)
 	test.That(t, <-remoteRobotClient.Changed(), test.ShouldBeTrue)
 	test.That(t, len(remoteRobotClient.ResourceNames()), test.ShouldEqual, 0)
+
+	expectedFirstResources := []resource.Name{
+		motion.Named(resource.DefaultServiceName),
+		sensors.Named(resource.DefaultServiceName),
+		arm.Named("remote:arm1"),
+		motion.Named("remote:builtin"),
+		sensors.Named("remote:builtin"),
+	}
+
 	testutils.WaitForAssertion(t, func(tb testing.TB) {
 		tb.Helper()
-		test.That(tb, len(robotClient.ResourceNames()), test.ShouldEqual, 2)
+		test.That(tb,
+			rtestutils.NewSortedResourceNames(robotClient.ResourceNames()),
+			test.ShouldResemble,
+			rtestutils.NewSortedResourceNames(expectedFirstResources),
+		)
 	})
-	test.That(t, len(robot1.ResourceNames()), test.ShouldEqual, 2)
+	test.That(t,
+		rtestutils.NewSortedResourceNames(robotClient.ResourceNames()),
+		test.ShouldResemble,
+		rtestutils.NewSortedResourceNames(expectedFirstResources),
+	)
 	_, err = anArm.EndPosition(context.Background(), map[string]interface{}{})
 	test.That(t, err, test.ShouldBeError)
 
@@ -2148,10 +2165,20 @@ func TestReconnectRemoteChangeConfig(t *testing.T) {
 	// check if the original arm can't be called anymore
 	test.That(t, <-remoteRobotClient.Changed(), test.ShouldBeTrue)
 	test.That(t, remoteRobotClient.Connected(), test.ShouldBeTrue)
-	test.That(t, len(remoteRobotClient.ResourceNames()), test.ShouldEqual, 3)
+	expectedSecondRobotResources := []resource.Name{
+		motion.Named(resource.DefaultServiceName),
+		sensors.Named(resource.DefaultServiceName),
+		base.Named("remote:base1"),
+		motion.Named("remote:builtin"),
+		sensors.Named("remote:builtin"),
+	}
 	testutils.WaitForAssertion(t, func(tb testing.TB) {
 		tb.Helper()
-		test.That(tb, len(robotClient.ResourceNames()), test.ShouldEqual, 5)
+		test.That(tb,
+			rtestutils.NewSortedResourceNames(robotClient.ResourceNames()),
+			test.ShouldResemble,
+			rtestutils.NewSortedResourceNames(expectedSecondRobotResources),
+		)
 	})
 	test.That(t, len(robot1.ResourceNames()), test.ShouldEqual, 5)
 	_, err = anArm.EndPosition(context.Background(), map[string]interface{}{})
