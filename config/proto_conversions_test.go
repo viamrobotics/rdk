@@ -811,7 +811,7 @@ func TestFromProto(t *testing.T) {
 		Network:          networkConfig,
 		Auth:             authConfig,
 		Debug:            &debug,
-		EnableWebProfile: &enableWebProfile,
+		EnableWebProfile: enableWebProfile,
 	}
 
 	out, err := FromProto(input, logger)
