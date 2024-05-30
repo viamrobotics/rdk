@@ -849,7 +849,7 @@ func (mgr *Manager) newOnUnexpectedExitHandler(mod *module) func(exitCode int) b
 				orphanedResourceNames = append(orphanedResourceNames, name)
 			}
 		}
-		if mgr.removeOrphanedResources != nil {
+		if len(orphanedResourceNames) > 0 && mgr.removeOrphanedResources != nil {
 			mgr.removeOrphanedResources(mgr.restartCtx, orphanedResourceNames)
 		}
 
