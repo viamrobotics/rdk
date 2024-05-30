@@ -66,3 +66,31 @@ func TestUpdateAuthApplicationAction(t *testing.T) {
 	test.That(t, len(errOut.messages), test.ShouldEqual, 0)
 	test.That(t, len(out.messages), test.ShouldEqual, 3)
 }
+
+func TestGetAuthApplicationAction(t *testing.T) {
+	getAuthApplication := func(ctx context.Context, in *apppb.GetAuthApplicationRequest,
+		opts ...grpc.CallOption,
+	) (*apppb.GetAuthApplicationResponse, error) {
+		return &apppb.GetAuthApplicationResponse{
+			ApplicationId:   "c6215428-1b73-41c3-b44a-56db0631c8f1",
+			ApplicationName: "my_app",
+			ClientSecret:    "supersupersecretsecret",
+			OriginUris:      []string{"https://woof.com/login", "https://arf.com/"},
+			RedirectUris:    []string{"https://woof.com/home", "https://arf.com/home"},
+			LogoutUri:       "https://woof.com/logout",
+		}, nil
+	}
+
+	eusc := &inject.EndUserServiceClient{
+		GetAuthApplicationFunc: getAuthApplication,
+	}
+	flags := make(map[string]any)
+	flags[generalFlagOrgID] = "a757fe30-5648-4c5b-ab74-4ecd6bf06e4c"
+	flags[authApplicationFlagApplicationID] = "a673022c-9916-4238-b8eb-4f7a89885909"
+
+	cCtx, ac, out, errOut := setup(&inject.AppServiceClient{}, nil, nil, eusc, flags, "token")
+	err := ac.getAuthApplicationAction(cCtx)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(errOut.messages), test.ShouldEqual, 0)
+	test.That(t, len(out.messages), test.ShouldEqual, 3)
+}
