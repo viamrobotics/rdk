@@ -416,6 +416,14 @@ func (svc *builtIn) Reconfigure(
 	deps resource.Dependencies,
 	conf resource.Config,
 ) error {
+	svc.logger.Info("In data manager reconfigure")
+	// svc.logger.Infow("count", svc.count.Load())
+	// svc.count.Add(1)
+	// if svc.count.Load() > 4 {
+	// 	svc.logger.Warn("slepeing, forcing hang")
+	// 	time.Sleep(61 * time.Second)
+	// }
+	defer svc.logger.Info("exiting data manager reconfigure")
 	svc.lock.Lock()
 	defer svc.lock.Unlock()
 	svcConfig, err := resource.NativeConfig[*Config](conf)
@@ -427,8 +435,13 @@ func (svc *builtIn) Reconfigure(
 	if err != nil {
 		return err
 	}
+
 	// Syncer should be reinitialized if the max sync threads are updated in the config
-	reinitSyncer := cloudConnSvc != svc.cloudConnSvc || svcConfig.MaximumNumSyncThreads != svc.maxSyncThreads
+	newMaxSyncThreadValue := datasync.MaxParallelSyncRoutines
+	if svcConfig.MaximumNumSyncThreads != 0 {
+		newMaxSyncThreadValue = svcConfig.MaximumNumSyncThreads
+	}
+	reinitSyncer := cloudConnSvc != svc.cloudConnSvc || newMaxSyncThreadValue != svc.maxSyncThreads
 	svc.cloudConnSvc = cloudConnSvc
 
 	captureConfigs, err := svc.updateDataCaptureConfigs(deps, conf, svcConfig.CaptureDir)
@@ -556,18 +569,16 @@ func (svc *builtIn) Reconfigure(
 
 	syncConfigUpdated := svc.syncDisabled != svcConfig.ScheduledSyncDisabled || svc.syncIntervalMins != svcConfig.SyncIntervalMins ||
 		!reflect.DeepEqual(svc.tags, svcConfig.Tags) || svc.fileLastModifiedMillis != fileLastModifiedMillis ||
-		svc.maxSyncThreads != svcConfig.MaximumNumSyncThreads
+		svc.maxSyncThreads != newMaxSyncThreadValue
 
 	if syncConfigUpdated {
+		svc.logger.Info("updating syncer config")
 		svc.syncDisabled = svcConfig.ScheduledSyncDisabled
 		svc.syncIntervalMins = svcConfig.SyncIntervalMins
 		svc.tags = svcConfig.Tags
 		svc.fileLastModifiedMillis = fileLastModifiedMillis
-		maxThreads := datasync.MaxParallelSyncRoutines
-		if svcConfig.MaximumNumSyncThreads != 0 {
-			maxThreads = svcConfig.MaximumNumSyncThreads
-		}
-		svc.maxSyncThreads = maxThreads
+
+		svc.maxSyncThreads = newMaxSyncThreadValue
 
 		svc.cancelSyncScheduler()
 		if !svc.syncDisabled && svc.syncIntervalMins != 0.0 {
@@ -590,6 +601,8 @@ func (svc *builtIn) Reconfigure(
 			}
 			svc.closeSyncer()
 		}
+	} else {
+		svc.logger.Info("skipping sync reconfig")
 	}
 	// if datacapture is enabled, kick off a go routine to check if disk space is filling due to
 	// cached datacapture files
@@ -690,7 +703,7 @@ func (svc *builtIn) sync() {
 	}
 }
 
-//nolint
+// nolint
 func getAllFilesToSync(dir string, lastModifiedMillis int) []string {
 	var filePaths []string
 	_ = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
