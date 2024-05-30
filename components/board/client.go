@@ -8,7 +8,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/pkg/errors"
 	pb "go.viam.com/api/component/board/v1"
 	"go.viam.com/utils/protoutils"
 	"go.viam.com/utils/rpc"
@@ -18,10 +17,6 @@ import (
 	rprotoutils "go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
 )
-
-// errUnimplemented is used for any unimplemented methods that should
-// eventually be implemented server side or faked client side.
-var errUnimplemented = errors.New("unimplemented")
 
 // client implements BoardServiceClient.
 type client struct {
@@ -191,10 +186,6 @@ func (dic *digitalInterruptClient) Value(ctx context.Context, extra map[string]i
 		return 0, err
 	}
 	return resp.Value, nil
-}
-
-func (dic *digitalInterruptClient) Tick(ctx context.Context, high bool, nanoseconds uint64) error {
-	panic(errUnimplemented)
 }
 
 func (dic *digitalInterruptClient) Name() string {

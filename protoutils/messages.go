@@ -56,10 +56,12 @@ func ConvertOrientationToProto(o spatialmath.Orientation) *commonpb.Orientation 
 	oo := &commonpb.Orientation{}
 	if o != nil {
 		ov := o.OrientationVectorDegrees()
-		oo.OX = ov.OX
-		oo.OY = ov.OY
-		oo.OZ = ov.OZ
-		oo.Theta = ov.Theta
+		if ov != nil {
+			oo.OX = ov.OX
+			oo.OY = ov.OY
+			oo.OZ = ov.OZ
+			oo.Theta = ov.Theta
+		}
 	}
 	return oo
 }
