@@ -259,7 +259,35 @@ func (cm *controlledMotor) GoTo(ctx context.Context, rpm, targetPosition float64
 
 // SetRPM instructs the motor to move at the specified RPM indefinitely.
 func (cm *controlledMotor) SetRPM(ctx context.Context, rpm float64, extra map[string]interface{}) error {
-	return motor.NewSetRPMUnsupportedError(cm.Name().ShortName())
+	cm.opMgr.CancelRunning(ctx)
+	ctx, done := cm.opMgr.New(ctx)
+	defer done()
+
+	warning, err := checkSpeed(rpm, cm.real.maxRPM)
+	if warning != "" {
+		cm.logger.CWarnf(ctx, warning)
+	}
+	if err != nil {
+		return err
+	}
+
+	if cm.loop == nil {
+		// create new control loop
+		if err := cm.startControlLoop(); err != nil {
+			return err
+		}
+	}
+
+	cm.loop.Resume()
+	// set control loop values
+	velVal := math.Abs(rpm * cm.ticksPerRotation / 60)
+	goalPos := math.Inf(int(rpm))
+	// setPoint is +/- infinity, maxVel is calculated velVal
+	if err := cm.updateControlBlock(ctx, goalPos, velVal); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // GoFor instructs the motor to go in a specific direction for a specific amount of
