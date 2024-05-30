@@ -45,7 +45,7 @@ func (sb *sensorBase) MoveStraight(
 	}
 	if sb.position == nil {
 		sb.logger.CWarn(ctx,
-			"Position reporting sensor not available, controlling using linear velocity only")
+			"controlling using linear velocity only, for increased accuracy add a position reporting sensor")
 
 		// adjust inputs to ensure errDist is always positive to match the position based implementation
 		if distanceMm < 0 {
