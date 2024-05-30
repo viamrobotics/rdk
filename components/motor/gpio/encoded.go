@@ -237,7 +237,7 @@ func (m *EncodedMotor) SetPower(ctx context.Context, powerPct float64, extra map
 // can be assigned negative values to move in a backwards direction. Note: if both are
 // negative the motor will spin in the forward direction.
 // If revolutions != 0, this will block until the number of revolutions has been completed or another operation comes in.
-// Deprecated: If revolutions is 0, this will run the motor at rpm indefinitely
+// Deprecated: If revolutions is 0, this will run the motor at rpm indefinitely.
 func (m *EncodedMotor) GoFor(ctx context.Context, rpm, revolutions float64, extra map[string]interface{}) error {
 	ctx, done := m.opMgr.New(ctx)
 	defer done()
@@ -352,7 +352,6 @@ func (m *EncodedMotor) SetRPM(ctx context.Context, rpm float64, extra map[string
 	}
 
 	return nil
-
 }
 
 // ResetZeroPosition sets the current position (+/- offset) to be the new zero (home) position.
