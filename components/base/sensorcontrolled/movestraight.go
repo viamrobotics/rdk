@@ -36,7 +36,7 @@ func (sb *sensorBase) MoveStraight(
 	// If there is no valid velocity sensor, there won't be a controlLoopConfig.
 	if len(sb.controlLoopConfig.Blocks) == 0 {
 		sb.logger.CWarnf(ctx,
-			"Position reporting sensor not available, or control loop not configured, using base %s's MoveStraight",
+			"control loop not configured, using base %s's MoveStraight",
 			sb.controlledBase.Name().ShortName())
 		if sb.loop != nil {
 			sb.loop.Pause()
@@ -61,7 +61,8 @@ func (sb *sensorBase) MoveStraight(
 		}
 	}
 
-	// pause and resume the loop to reset the control blocks
+	// pause and resume the loop to reset the control blocks.
+	// This prevents any residual signals in the control loop from "kicking" the robot
 	sb.loop.Pause()
 	sb.loop.Resume()
 
