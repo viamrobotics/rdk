@@ -17,9 +17,7 @@ import (
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	_ "go.viam.com/rdk/services/datamanager/builtin"
-	"go.viam.com/rdk/services/motion"
 	_ "go.viam.com/rdk/services/motion/builtin"
-	"go.viam.com/rdk/services/sensors"
 	_ "go.viam.com/rdk/services/sensors/builtin"
 	"go.viam.com/rdk/spatialmath"
 	rdktestutils "go.viam.com/rdk/testutils"
@@ -129,15 +127,39 @@ func TestFrameSystemConfigWithRemote(t *testing.T) {
 	rr.triggerConfig <- struct{}{}
 
 	finalSet := []resource.Name{
-		motion.Named(resource.DefaultServiceName),
-		sensors.Named(resource.DefaultServiceName),
-		base.Named("foo"),
-		gripper.Named("myParentIsRemote"),
-	}
+		resource.Name{API: resource.API{Type: resource.APIType{Namespace: resource.APINamespace("rdk"), Name: "component"}, SubtypeName: "arm"}, Remote: "bar", Name: "pieceArm"},
+		resource.Name{API: resource.API{Type: resource.APIType{Namespace: resource.APINamespace("rdk"), Name: "component"}, SubtypeName: "arm"}, Remote: "dontAddMe", Name: "pieceArm"},
+		resource.Name{API: resource.API{Type: resource.APIType{Namespace: resource.APINamespace("rdk"), Name: "component"}, SubtypeName: "arm"}, Remote: "squee", Name: "pieceArm"},
+		resource.Name{API: resource.API{Type: resource.APIType{Namespace: resource.APINamespace("rdk"), Name: "component"}, SubtypeName: "audio_input"}, Remote: "bar", Name: "mic1"},
+		resource.Name{API: resource.API{Type: resource.APIType{Namespace: resource.APINamespace("rdk"), Name: "component"}, SubtypeName: "audio_input"}, Remote: "dontAddMe", Name: "mic1"},
+		resource.Name{API: resource.API{Type: resource.APIType{Namespace: resource.APINamespace("rdk"), Name: "component"}, SubtypeName: "audio_input"}, Remote: "squee", Name: "mic1"},
+		resource.Name{API: resource.API{Type: resource.APIType{Namespace: resource.APINamespace("rdk"), Name: "component"}, SubtypeName: "base"}, Remote: "", Name: "foo"},
+		resource.Name{API: resource.API{Type: resource.APIType{Namespace: resource.APINamespace("rdk"), Name: "component"}, SubtypeName: "camera"}, Remote: "bar", Name: "cameraOver"},
+		resource.Name{API: resource.API{Type: resource.APIType{Namespace: resource.APINamespace("rdk"), Name: "component"}, SubtypeName: "camera"}, Remote: "dontAddMe", Name: "cameraOver"},
+		resource.Name{API: resource.API{Type: resource.APIType{Namespace: resource.APINamespace("rdk"), Name: "component"}, SubtypeName: "camera"}, Remote: "squee", Name: "cameraOver"},
+		resource.Name{API: resource.API{Type: resource.APIType{Namespace: resource.APINamespace("rdk"), Name: "component"}, SubtypeName: "gripper"}, Remote: "bar", Name: "pieceGripper"},
+		resource.Name{API: resource.API{Type: resource.APIType{Namespace: resource.APINamespace("rdk"), Name: "component"}, SubtypeName: "gripper"}, Remote: "dontAddMe", Name: "pieceGripper"},
+		resource.Name{API: resource.API{Type: resource.APIType{Namespace: resource.APINamespace("rdk"), Name: "component"}, SubtypeName: "gripper"}, Remote: "", Name: "myParentIsRemote"},
+		resource.Name{API: resource.API{Type: resource.APIType{Namespace: resource.APINamespace("rdk"), Name: "component"}, SubtypeName: "gripper"}, Remote: "squee", Name: "pieceGripper"},
+		resource.Name{API: resource.API{Type: resource.APIType{Namespace: resource.APINamespace("rdk"), Name: "component"}, SubtypeName: "movement_sensor"}, Remote: "bar", Name: "movement_sensor1"},
+		resource.Name{API: resource.API{Type: resource.APIType{Namespace: resource.APINamespace("rdk"), Name: "component"}, SubtypeName: "movement_sensor"}, Remote: "bar", Name: "movement_sensor2"},
+		resource.Name{API: resource.API{Type: resource.APIType{Namespace: resource.APINamespace("rdk"), Name: "component"}, SubtypeName: "movement_sensor"}, Remote: "dontAddMe", Name: "movement_sensor1"},
+		resource.Name{API: resource.API{Type: resource.APIType{Namespace: resource.APINamespace("rdk"), Name: "component"}, SubtypeName: "movement_sensor"}, Remote: "dontAddMe", Name: "movement_sensor2"},
+		resource.Name{API: resource.API{Type: resource.APIType{Namespace: resource.APINamespace("rdk"), Name: "component"}, SubtypeName: "movement_sensor"}, Remote: "squee", Name: "movement_sensor1"},
+		resource.Name{API: resource.API{Type: resource.APIType{Namespace: resource.APINamespace("rdk"), Name: "component"}, SubtypeName: "movement_sensor"}, Remote: "squee", Name: "movement_sensor2"},
+		resource.Name{API: resource.API{Type: resource.APIType{Namespace: resource.APINamespace("rdk"), Name: "service"}, SubtypeName: "motion"}, Remote: "bar", Name: "builtin"},
+		resource.Name{API: resource.API{Type: resource.APIType{Namespace: resource.APINamespace("rdk"), Name: "service"}, SubtypeName: "motion"}, Remote: "", Name: "builtin"},
+		resource.Name{API: resource.API{Type: resource.APIType{Namespace: resource.APINamespace("rdk"), Name: "service"}, SubtypeName: "motion"}, Remote: "dontAddMe", Name: "builtin"},
+		resource.Name{API: resource.API{Type: resource.APIType{Namespace: resource.APINamespace("rdk"), Name: "service"}, SubtypeName: "motion"}, Remote: "squee", Name: "builtin"},
+		resource.Name{API: resource.API{Type: resource.APIType{Namespace: resource.APINamespace("rdk"), Name: "service"}, SubtypeName: "sensors"}, Remote: "bar", Name: "builtin"},
+		resource.Name{API: resource.API{Type: resource.APIType{Namespace: resource.APINamespace("rdk"), Name: "service"}, SubtypeName: "sensors"}, Remote: "", Name: "builtin"},
+		resource.Name{API: resource.API{Type: resource.APIType{Namespace: resource.APINamespace("rdk"), Name: "service"}, SubtypeName: "sensors"}, Remote: "dontAddMe", Name: "builtin"},
+		resource.Name{API: resource.API{Type: resource.APIType{Namespace: resource.APINamespace("rdk"), Name: "service"}, SubtypeName: "sensors"}, Remote: "squee", Name: "builtin"}}
 	testutils.WaitForAssertionWithSleep(t, time.Millisecond*100, 300, func(tb testing.TB) {
 		rdktestutils.VerifySameResourceNames(tb, r2.ResourceNames(), finalSet)
 	})
 
+	//NOTE: Currently this always errors
 	fsCfg, err = r2.FrameSystemConfig(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 
