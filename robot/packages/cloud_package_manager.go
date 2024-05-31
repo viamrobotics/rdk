@@ -119,6 +119,8 @@ func (m *cloudManager) Sync(ctx context.Context, packages []config.PackageConfig
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
+	m.logger.Debug("Evaluating package sync...")
+
 	newManagedPackages := make(map[PackageName]*config.PackageConfig, len(packages))
 
 	// Process the packages that are new or changed
@@ -126,7 +128,7 @@ func (m *cloudManager) Sync(ctx context.Context, packages []config.PackageConfig
 
 	// Updated managed map with existingPackages
 	for _, p := range existingPackages {
-		newManagedPackages[PackageName(p.Name)] = m.managedPackages[PackageName(p.Name)]
+		newManagedPackages[PackageName(p.Name)] = &p
 	}
 
 	if len(changedPackages) > 0 {
@@ -181,6 +183,9 @@ func (m *cloudManager) Sync(ctx context.Context, packages []config.PackageConfig
 			outErr = multierr.Append(outErr, m.mLModelSymlinkCreation(p))
 		}
 
+		// add to managed packages
+		newManagedPackages[PackageName(p.Name)] = &p
+
 		m.logger.Debugf("Package sync complete [%d/%d] %s:%s after %v", idx+1, len(changedPackages), p.Package, p.Version, time.Since(pkgStart))
 	}
 
@@ -218,12 +223,12 @@ func (m *cloudManager) validateAndGetChangedPackages(
 
 // Cleanup removes all unknown packages from the working directory.
 func (m *cloudManager) Cleanup(ctx context.Context) error {
-	m.logger.Debug("Starting package cleanup")
-
 	// Only allow one rdk process to operate on the manager at once. This is generally safe to keep locked for an extended period of time
 	// since the config reconfiguration process is handled by a single thread.
 	m.mu.Lock()
 	defer m.mu.Unlock()
+
+	m.logger.Debug("Starting package cleanup...")
 
 	var allErrors error
 

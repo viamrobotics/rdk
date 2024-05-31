@@ -270,7 +270,8 @@ func commonCleanup(logger logging.Logger, expectedPackageDirectories map[string]
 			}
 			_, expectedToExist := expectedPackageDirectories[packageDirName]
 			if !expectedToExist {
-				logger.Debugf("Removing old package %s", packageDirName)
+				logger.Debugf("Removing old package file(s) %s", packageDirName)
+				allErrors = multierr.Append(allErrors, os.RemoveAll(packageDirName))
 			}
 		}
 		// re-read the directory, if there is nothing left in it, delete the directory
@@ -305,7 +306,7 @@ type packageSyncFile struct {
 func packageIsSynced(pkg config.PackageConfig, packagesDir string, logger logging.Logger) bool {
 	syncFile, err := readStatusFile(pkg, packagesDir)
 	if err != nil {
-		logger.Debugf("Failed to determine status of package sync for %s:%s", pkg.Package, pkg.Version, "error", err)
+		utils.UncheckedError(err)
 	}
 	if syncFile.PackageID == pkg.Package && syncFile.Version == pkg.Version && syncFile.Status == syncStatusDone {
 		logger.Debugf("Package already downloaded at %s, skipping.", pkg.LocalDataDirectory(packagesDir))
@@ -360,6 +361,17 @@ func writeStatusFile(pkg config.PackageConfig, statusFile packageSyncFile, packa
 	}
 	if _, err := syncFile.Write(statusFileBytes); err != nil {
 		return errors.Wrapf(err, "failed to write manifest to %s", syncFileName)
+	}
+
+	return nil
+}
+
+func deleteStatusFile(packageLocalDataDirectory string) error {
+	syncFileName := getSyncFileName(packageLocalDataDirectory)
+
+	err := os.Remove(syncFileName)
+	if err != nil {
+		return errors.Wrapf(err, "failed to delete %s", syncFileName)
 	}
 
 	return nil
