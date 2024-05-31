@@ -866,6 +866,10 @@ func (dm *dummyMotor) GoTo(ctx context.Context, rpm, positionRevolutions float64
 	return nil
 }
 
+func (dm *dummyMotor) SetRPM(ctx context.Context, rpm float64, extra map[string]interface{}) error {
+	return nil
+}
+
 func (dm *dummyMotor) Position(ctx context.Context, extra map[string]interface{}) (float64, error) {
 	return 2, nil
 }
