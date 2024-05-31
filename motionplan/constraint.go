@@ -496,7 +496,7 @@ func NewOctreeCollisionConstraint(octree *pointcloud.BasicOctree, threshold int,
 }
 
 // Constructor to create new Constraint object
-func CreateConstraints(constraints []*motionpb.Constraints) *motionpb.Constraints {
+func CreateConstraints() *motionpb.Constraints {
 	return &motionpb.Constraints{}
 }
 
@@ -529,7 +529,7 @@ func AddOrientationConstraint(c *motionpb.Constraints, OrientationToleranceDegs 
 //			  frameMap := map[string]string{
 //								"frame1": "frame2",
 //								"frame3": "frame4",
-//			  			  })
+//			  			  }
 //
 //	  AddCollisionSpecification(c, {desired orientation})
 func AddCollisionSpecification(c *motionpb.Constraints, Allows map[string]string) {

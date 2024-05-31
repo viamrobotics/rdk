@@ -333,3 +333,18 @@ func BenchmarkCollisionConstraints(b *testing.B) {
 	}
 	bt = b1
 }
+
+func TestConstraintConstructors(t *testing.T) {
+	c := CreateConstraints()
+
+	desiredLinearTolerance := float32(1000.0)
+	desiredOrientationTolerance := float32(0.0)
+	AddLinearConstraint(c, &desiredLinearTolerance, &desiredOrientationTolerance)
+	AddOrientationConstraint(c, &desiredOrientationTolerance)
+
+	frameMap := map[string]string{
+		"frame1": "frame2",
+		"frame3": "frame4",
+	}
+	AddCollisionSpecification(c, frameMap)
+}
