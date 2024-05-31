@@ -9,6 +9,7 @@ import (
 
 	"github.com/golang/geo/r3"
 	commonpb "go.viam.com/api/common/v1"
+	motionpb "go.viam.com/api/service/motion/v1"
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/logging"
@@ -339,12 +340,36 @@ func TestConstraintConstructors(t *testing.T) {
 
 	desiredLinearTolerance := float32(1000.0)
 	desiredOrientationTolerance := float32(0.0)
+
 	AddLinearConstraint(c, &desiredLinearTolerance, &desiredOrientationTolerance)
+	test.That(t, len(c.LinearConstraint), test.ShouldEqual, 1)
+	test.That(t, c.LinearConstraint[0], test.ShouldResemble, &motionpb.LinearConstraint{
+		LineToleranceMm:          &desiredLinearTolerance,
+		OrientationToleranceDegs: &desiredOrientationTolerance,
+	})
+
 	AddOrientationConstraint(c, &desiredOrientationTolerance)
+	test.That(t, len(c.OrientationConstraint), test.ShouldEqual, 1)
+	test.That(t, c.OrientationConstraint[0], test.ShouldResemble, &motionpb.OrientationConstraint{
+		OrientationToleranceDegs: &desiredOrientationTolerance,
+	})
 
 	frameMap := map[string]string{
 		"frame1": "frame2",
 		"frame3": "frame4",
 	}
 	AddCollisionSpecification(c, frameMap)
+	test.That(t, len(c.CollisionSpecification), test.ShouldEqual, 1)
+	test.That(t, c.CollisionSpecification[0], test.ShouldResemble, &motionpb.CollisionSpecification{
+		Allows: []*motionpb.CollisionSpecification_AllowedFrameCollisions{
+			&motionpb.CollisionSpecification_AllowedFrameCollisions{
+				Frame1: "frame1",
+				Frame2: "frame2",
+			},
+			&motionpb.CollisionSpecification_AllowedFrameCollisions{
+				Frame1: "frame3",
+				Frame2: "frame4",
+			},
+		},
+	})
 }
