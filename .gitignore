@@ -89,6 +89,3 @@ web/cmd/server/*.core
 # gomobile / android
 *.aar
 *.jar
-
-# etc
-etc/
