@@ -127,6 +127,7 @@ type builtIn struct {
 	lock                   sync.Mutex
 	backgroundWorkers      sync.WaitGroup
 	fileLastModifiedMillis int
+	isReconfiguring        bool
 
 	additionalSyncPaths []string
 	tags                []string
@@ -629,13 +630,14 @@ func (svc *builtIn) uploadData(cancelCtx context.Context, intervalMins float64) 
 	// The ticker must be created before uploadData returns to prevent race conditions between clock.Ticker and
 	// clock.Add in sync_test.go.
 	svc.syncTicker = clock.Ticker(time.Millisecond * time.Duration(intervalMillis))
+
 	svc.backgroundWorkers.Add(1)
 	goutils.PanicCapturingGo(func() {
 		defer svc.backgroundWorkers.Done()
 		defer svc.syncTicker.Stop()
 
 		for {
-			if err := cancelCtx.Err(); err != nil {
+			if err := cancelCtx.Err(); err != nil || svc.isReconfiguring {
 				if !errors.Is(err, context.Canceled) {
 					svc.logger.Errorw("data manager context closed unexpectedly", "error", err)
 				}
