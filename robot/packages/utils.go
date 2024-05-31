@@ -316,6 +316,15 @@ func packageIsSynced(pkg config.PackageConfig, packagesDir string, logger loggin
 	return false
 }
 
+func packagesAreSynced(packages []config.PackageConfig, packagesDir string, logger logging.Logger) bool {
+	for _, pkg := range packages {
+		if packageIsSynced(pkg, packagesDir, logger) {
+			return false
+		}
+	}
+	return true
+}
+
 func getSyncFileName(packageLocalDataDirectory string) string {
 	return fmt.Sprintf("%s.status.json", packageLocalDataDirectory)
 }
