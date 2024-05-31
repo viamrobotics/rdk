@@ -164,6 +164,7 @@ func (m *deferredPackageManager) createCloudManager(ctx context.Context) (Manage
 
 // isMissingPackages is used pre-sync to determine if we should force-wait for the connection
 // to be established.
+// TODO Change this.
 func (m *deferredPackageManager) isMissingPackages(packages []config.PackageConfig) bool {
 	for _, pkg := range packages {
 		dir := pkg.LocalDataDirectory(m.cloudManagerArgs.packagesDir)

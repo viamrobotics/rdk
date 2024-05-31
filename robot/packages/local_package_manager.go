@@ -2,6 +2,7 @@ package packages
 
 import (
 	"context"
+	"encoding/base64"
 	"io"
 	"os"
 	"path/filepath"
@@ -83,24 +84,30 @@ func (m *localManager) Close(ctx context.Context) error {
 }
 
 // fileCopyHelper is the downloadCallback for local tarball modules.
-func (m *localManager) fileCopyHelper(ctx context.Context, path, dstPath string) (string, error) {
+func (m *localManager) fileCopyHelper(ctx context.Context, path, dstPath string) (string, string, error) {
 	src, err := os.Open(path) //nolint:gosec
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
 	defer src.Close()              //nolint:errcheck
 	dst, err := os.Create(dstPath) //nolint:gosec
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
+
+	hash := crc32Hash()
+	out := io.MultiWriter(dst, hash)
+
 	defer dst.Close() //nolint:errcheck
-	nBytes, err := io.Copy(dst, src)
+	nBytes, err := io.Copy(out, src)
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
 	m.logger.Debugf("copied %d bytes to %s", nBytes, dstPath)
+	checksum := base64.StdEncoding.EncodeToString(hash.Sum(nil))
+	m.logger.Debugf("checksum of expanded folder: %x", checksum)
 	// note: we can hardcode expected contentType because this is probably a synthetic package which already passed tarballExtensionsRegexp
-	return allowedContentType, nil
+	return checksum, allowedContentType, nil
 }
 
 // getAddedAndChanged is a helper for managing maps of things. It returns (map of existing, slice of added).
@@ -155,7 +162,7 @@ func (m *localManager) Sync(ctx context.Context, packages []config.PackageConfig
 			outErr = multierr.Append(outErr, err)
 			continue
 		}
-		err = installPackage(ctx, m.logger, m.packagesDir, mod.ExePath, pkg, []string{}, m.fileCopyHelper)
+		err = installPackage(ctx, m.logger, m.packagesDir, mod.ExePath, pkg, m.fileCopyHelper)
 		if err != nil {
 			m.logger.Errorf("Failed downloading package %s from %s, %s", mod.Name, mod.ExePath, err)
 			outErr = multierr.Append(outErr, errors.Wrapf(err, "failed downloading package %s from %s",
@@ -239,7 +246,7 @@ func (m *localManager) SyncOne(ctx context.Context, mod config.Module) error {
 	if dirty {
 		m.logger.CDebugf(ctx, "%s is newer, recopying", mod.ExePath)
 		utils.UncheckedError(cleanup(m.packagesDir, pkg))
-		err = installPackage(ctx, m.logger, m.packagesDir, mod.ExePath, pkg, []string{}, m.fileCopyHelper)
+		err = installPackage(ctx, m.logger, m.packagesDir, mod.ExePath, pkg, m.fileCopyHelper)
 		if err != nil {
 			m.logger.Errorf("Failed copying package %s:%s from %s, %s", pkg.Package, pkg.Version, mod.ExePath, err)
 			return errors.Wrapf(err, "failed downloading package %s:%s from %s", pkg.Package, pkg.Version, mod.ExePath)

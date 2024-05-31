@@ -35,7 +35,7 @@ func TestLocalManagerUtils(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		dest := filepath.Join(tmp, "dest")
 		test.That(t, err, test.ShouldBeNil)
-		_, err = local.fileCopyHelper(context.Background(), f.Name(), dest)
+		_, _, err = local.fileCopyHelper(context.Background(), f.Name(), dest)
 		test.That(t, err, test.ShouldBeNil)
 		stat, err := os.Stat(dest)
 		test.That(t, err, test.ShouldBeNil)

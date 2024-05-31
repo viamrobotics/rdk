@@ -4,11 +4,13 @@ import (
 	"archive/tar"
 	"compress/gzip"
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
-	"path"
 	"path/filepath"
+	"time"
 
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
@@ -19,7 +21,7 @@ import (
 )
 
 // installCallback is the function signature that gets passed to installPackage.
-type installCallback func(ctx context.Context, url, dstPath string) (contentType string, err error)
+type installCallback func(ctx context.Context, url, dstPath string) (checksum, contentType string, err error)
 
 func installPackage(
 	ctx context.Context,
@@ -29,11 +31,6 @@ func installPackage(
 	p config.PackageConfig,
 	installFn installCallback,
 ) error {
-	if packageIsSynced(p, packagesDir) {
-		logger.Debugf("Package already downloaded at %s, skipping.", dataDir)
-		return nil
-	}
-
 	// Create the parent directory for the package type if it doesn't exist
 	if err := os.MkdirAll(p.LocalDataParentDirectory(packagesDir), 0o700); err != nil {
 		return err
@@ -54,7 +51,7 @@ func installPackage(
 	}
 
 	dstPath := p.LocalDownloadPath(packagesDir)
-	contentType, err := installFn(ctx, url, dstPath)
+	checksum, contentType, err := installFn(ctx, url, dstPath)
 	if err != nil {
 		return err
 	}
@@ -93,12 +90,21 @@ func installPackage(
 		return err
 	}
 
-	err = writeStatusFile(p, packagesDir)
+	statusFile := packageSyncFile{
+		PackageID:       p.Package,
+		Version:         p.Version,
+		ModifiedTime:    time.Now(),
+		Status:          syncStatusDone,
+		TarballChecksum: checksum,
+	}
+
+	err = writeStatusFile(p, statusFile, packagesDir)
 	if err != nil {
-		utils.UncheckedError(cleanup(packagesDir, p))
+		// utils.UncheckedError(cleanup(packagesDir, p))
 		return err
 	}
-	
+	logger.Info("finished writing status file to: %s", packagesDir)
+
 	return nil
 }
 
@@ -188,7 +194,7 @@ func unpackFile(ctx context.Context, fromFile, toDir string) error {
 			if err := outFile.Sync(); err != nil {
 				return errors.Wrapf(err, "failed to sync %s", path)
 			}
-			utils.UncheckedError(outFile.Close())			
+			utils.UncheckedError(outFile.Close())
 
 		case tar.TypeLink:
 			name := header.Linkname
@@ -265,7 +271,6 @@ func commonCleanup(logger logging.Logger, expectedPackageDirectories map[string]
 			_, expectedToExist := expectedPackageDirectories[packageDirName]
 			if !expectedToExist {
 				logger.Debugf("Removing old package %s", packageDirName)
-				allErrors = multierr.Append(allErrors, os.RemoveAll(packageDirName))
 			}
 		}
 		// re-read the directory, if there is nothing left in it, delete the directory
@@ -279,4 +284,74 @@ func commonCleanup(logger logging.Logger, expectedPackageDirectories map[string]
 		}
 	}
 	return allErrors
+}
+
+type syncStatus string
+
+const (
+	syncStatusDownloading syncStatus = "downloading"
+	syncStatusUnpacking   syncStatus = "unpacking"
+	syncStatusDone        syncStatus = "done"
+)
+
+type packageSyncFile struct {
+	PackageID       string     `json:"package_id"`
+	Version         string     `json:"version"`
+	ModifiedTime    time.Time  `json:"modified_time"`
+	Status          syncStatus `json:"sync_status"`
+	TarballChecksum string     `json:"tarball_checksum"`
+}
+
+func packageIsSynced(pkg config.PackageConfig, packagesDir string, logger logging.Logger) bool {
+	syncFile, err := readStatusFile(pkg, packagesDir)
+	if err != nil {
+		logger.Debugf("Failed to determine status of package sync for %s:%s", pkg.Package, pkg.Version, "error", err)
+	}
+	if syncFile.PackageID == pkg.Package && syncFile.Version == pkg.Version && syncFile.Status == syncStatusDone {
+		logger.Debugf("Package already downloaded at %s, skipping.", pkg.LocalDataDirectory(packagesDir))
+		return true
+	}
+	logger.Debugf("Package is not in sync for %s: status of '%s' (file) != '%s' (expected) and version of '%s' (file) != '%s' (expected)",
+		pkg.Package, syncFile.Status, syncStatusDone, syncFile.Version, pkg.Version)
+	return false
+}
+
+func getSyncFileName(packageLocalDataDirectory string) string {
+	return fmt.Sprintf("%s.status.json", packageLocalDataDirectory)
+}
+
+func readStatusFile(pkg config.PackageConfig, packagesDir string) (packageSyncFile, error) {
+	syncFileName := getSyncFileName(pkg.LocalDataDirectory(packagesDir))
+	//nolint:gosec // safe
+	syncFileBytes, err := os.ReadFile(syncFileName)
+	if err != nil {
+		if errors.Is(err, fs.ErrNotExist) {
+			return packageSyncFile{}, errors.Wrapf(err, "cannot find %s", syncFileName)
+		}
+		return packageSyncFile{}, err
+	}
+	var syncFile packageSyncFile
+	if err := json.Unmarshal(syncFileBytes, &syncFile); err != nil {
+		return packageSyncFile{}, err
+	}
+	return syncFile, nil
+}
+
+func writeStatusFile(pkg config.PackageConfig, statusFile packageSyncFile, packagesDir string) error {
+	syncFileName := getSyncFileName(pkg.LocalDataDirectory(packagesDir))
+
+	statusFileBytes, err := json.MarshalIndent(statusFile, "", "  ")
+	if err != nil {
+		return err
+	}
+	//nolint:gosec
+	syncFile, err := os.Create(syncFileName)
+	if err != nil {
+		return errors.Wrapf(err, "failed to create %s", syncFileName)
+	}
+	if _, err := syncFile.Write(statusFileBytes); err != nil {
+		return errors.Wrapf(err, "failed to write manifest to %s", syncFileName)
+	}
+
+	return nil
 }

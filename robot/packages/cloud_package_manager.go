@@ -35,11 +35,6 @@ var (
 	_ ManagerSyncer = (*cloudManager)(nil)
 )
 
-type managedPackage struct {
-	thePackage config.PackageConfig
-	modtime    time.Time
-}
-
 type cloudManager struct {
 	resource.Named
 	// we assume the config is immutable for the lifetime of the process
@@ -50,6 +45,7 @@ type cloudManager struct {
 	packagesDir     string
 	cloudConfig     config.Cloud
 
+	managedPackages map[PackageName]*config.PackageConfig
 	mu              sync.RWMutex
 
 	logger logging.Logger
@@ -88,7 +84,6 @@ func NewCloudManager(
 		cloudConfig:     *cloudConfig,
 		packagesDir:     packagesDir,
 		packagesDataDir: packagesDataDir,
-		managedPackages: make(map[PackageName]*managedPackage),
 		logger:          logger.Sublogger("package_manager"),
 	}, nil
 }
@@ -103,7 +98,7 @@ func (m *cloudManager) PackagePath(name PackageName) (string, error) {
 		return "", ErrPackageMissing
 	}
 
-	return p.thePackage.LocalDataDirectory(m.packagesDir), nil
+	return p.LocalDataDirectory(m.packagesDir), nil
 }
 
 // Close manager.
@@ -124,8 +119,16 @@ func (m *cloudManager) Sync(ctx context.Context, packages []config.PackageConfig
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
+	newManagedPackages := make(map[PackageName]*config.PackageConfig, len(packages))
+
 	// Process the packages that are new or changed
-	changedPackages := m.validateAndGetChangedPackages(packages)
+	changedPackages, existingPackages := m.validateAndGetChangedPackages(packages)
+
+	// Updated managed map with existingPackages
+	for _, p := range existingPackages {
+		newManagedPackages[PackageName(p.Name)] = m.managedPackages[PackageName(p.Name)]
+	}
+
 	if len(changedPackages) > 0 {
 		m.logger.Info("Package changes have been detected, starting sync")
 	}
@@ -161,10 +164,10 @@ func (m *cloudManager) Sync(ctx context.Context, packages []config.PackageConfig
 		m.logger.Debugf("Downloading from %s", sanitizeURLForLogs(resp.Package.Url))
 
 		// download package from a http endpoint
-		err = installPackage(ctx, m.logger, m.packagesDir, resp.Package.Url, p, nonEmptyPaths,
-			func(ctx context.Context, url, dstPath string) (string, error) {
-				_, contentType, err := m.downloadFileFromGCSURL(ctx, url, dstPath, m.cloudConfig.ID, m.cloudConfig.Secret)
-				return contentType, err
+		err = installPackage(ctx, m.logger, m.packagesDir, resp.Package.Url, p,
+			func(ctx context.Context, url, dstPath string) (string, string, error) {
+				checksum, contentType, err := m.downloadFileFromGCSURL(ctx, url, dstPath, m.cloudConfig.ID, m.cloudConfig.Secret)
+				return checksum, contentType, err
 			},
 		)
 		if err != nil {
@@ -185,25 +188,32 @@ func (m *cloudManager) Sync(ctx context.Context, packages []config.PackageConfig
 		m.logger.Infof("Package sync complete after %v", time.Since(start))
 	}
 
+	// swap for new managed packags.
+	m.managedPackages = newManagedPackages
+
 	return outErr
 }
 
-func (m *cloudManager) validateAndGetChangedPackages(packages []config.PackageConfig) []config.PackageConfig {
+func (m *cloudManager) validateAndGetChangedPackages(
+	packages []config.PackageConfig,
+) ([]config.PackageConfig, []config.PackageConfig) {
 	changed := make([]config.PackageConfig, 0)
+	existing := make([]config.PackageConfig, 0)
 	for _, p := range packages {
 		// don't consider invalid config as synced or unsynced
 		if err := p.Validate(""); err != nil {
 			m.logger.Errorw("package config validation error; skipping", "package", p.Name, "error", err)
 			continue
 		}
-		if existing := packageIsSynced(p); !existing {
-			newPackage := p
+		newPackage := p
+		if exists := packageIsSynced(p, m.packagesDir, m.logger); !exists {
 			changed = append(changed, newPackage)
 		} else {
+			existing = append(existing, newPackage)
 			m.logger.Debugf("Package %s:%s already managed, skipping", p.Package, p.Version)
 		}
 	}
-	return changed
+	return changed, existing
 }
 
 // Cleanup removes all unknown packages from the working directory.
@@ -219,7 +229,7 @@ func (m *cloudManager) Cleanup(ctx context.Context) error {
 
 	expectedPackageDirectories := map[string]bool{}
 	for _, pkg := range m.managedPackages {
-		expectedPackageDirectories[pkg.thePackage.LocalDataDirectory(m.packagesDir)] = true
+		expectedPackageDirectories[pkg.LocalDataDirectory(m.packagesDir)] = true
 	}
 
 	allErrors = commonCleanup(m.logger, expectedPackageDirectories, m.packagesDataDir)
@@ -428,15 +438,6 @@ func linkFile(from, to string) error {
 	}
 
 	return os.Symlink(from, to)
-}
-
-func dirExists(dir string) bool {
-	info, err := os.Stat(dir)
-	if err != nil {
-		return false
-	}
-
-	return info.IsDir()
 }
 
 // SyncOne is a no-op for cloudManager.
