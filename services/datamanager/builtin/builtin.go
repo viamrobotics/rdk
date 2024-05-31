@@ -417,6 +417,7 @@ func (svc *builtIn) Reconfigure(
 	deps resource.Dependencies,
 	conf resource.Config,
 ) error {
+	svc.setIsConfiguring(true)
 	svc.lock.Lock()
 	defer svc.lock.Unlock()
 	svcConfig, err := resource.NativeConfig[*Config](conf)
@@ -604,6 +605,8 @@ func (svc *builtIn) Reconfigure(
 			svc.captureDir, deleteEveryNthValue, svc.syncer, svc.logger)
 	}
 
+	svc.setIsConfiguring(false)
+
 	return nil
 }
 
@@ -759,6 +762,12 @@ func (svc *builtIn) updateDataCaptureConfigs(
 
 func generateMetadataKey(component, method string) string {
 	return fmt.Sprintf("%s/%s", component, method)
+}
+
+func (svc *builtIn) setIsConfiguring(value bool) {
+	svc.lock.Lock()
+	svc.isReconfiguring = value
+	svc.lock.Unlock()
 }
 
 func pollFilesystem(ctx context.Context, wg *sync.WaitGroup, captureDir string,
