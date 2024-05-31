@@ -495,11 +495,15 @@ func NewOctreeCollisionConstraint(octree *pointcloud.BasicOctree, threshold int,
 	return constraint
 }
 
-// ------------ Ankit's Constraint Sugar Modifications ------------
+// Constructor to create new Constraint object
 func CreateConstraints(constraints []*motionpb.Constraints) *motionpb.Constraints {
 	return &motionpb.Constraints{}
 }
 
+// Append a Linear Constraint to a Constraint object
+// user side: c := CreateConstraints()
+//
+//	AddLinearConstraint(c, {desired line tolerance}, {desired orientation})
 func AddLinearConstraint(c *motionpb.Constraints, LineToleranceMm, OrientationToleranceDegs *float32) {
 	newLinearConstraint := &motionpb.LinearConstraint{
 		LineToleranceMm:          LineToleranceMm,
@@ -508,6 +512,10 @@ func AddLinearConstraint(c *motionpb.Constraints, LineToleranceMm, OrientationTo
 	c.LinearConstraint = append(c.LinearConstraint, newLinearConstraint)
 }
 
+// Append a Orientation Constraint to a Constraint object
+// user side: c := CreateConstraints()
+//
+//	AddOrientationConstraint(c, {desired orientation})
 func AddOrientationConstraint(c *motionpb.Constraints, OrientationToleranceDegs *float32) {
 	newOrientationConstraint := &motionpb.OrientationConstraint{
 		OrientationToleranceDegs: OrientationToleranceDegs,
@@ -515,6 +523,15 @@ func AddOrientationConstraint(c *motionpb.Constraints, OrientationToleranceDegs 
 	c.OrientationConstraint = append(c.OrientationConstraint, newOrientationConstraint)
 }
 
+// Append a Collision Specification to a Constraint object using an input map
+// user side: c := CreateConstraints
+//
+//			  frameMap := map[string]string{
+//								"frame1": "frame2",
+//								"frame3": "frame4",
+//			  			  })
+//
+//	  AddCollisionSpecification(c, {desired orientation})
 func AddCollisionSpecification(c *motionpb.Constraints, Allows map[string]string) {
 	allowedFrameCollisions := make([]*motionpb.CollisionSpecification_AllowedFrameCollisions, 0)
 	for frame1, frame2 := range Allows {
