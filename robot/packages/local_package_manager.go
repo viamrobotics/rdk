@@ -2,7 +2,6 @@ package packages
 
 import (
 	"context"
-	"encoding/base64"
 	"io"
 	"os"
 	"path/filepath"
@@ -104,10 +103,10 @@ func (m *localManager) fileCopyHelper(ctx context.Context, path, dstPath string)
 		return "", "", err
 	}
 	m.logger.Debugf("copied %d bytes to %s", nBytes, dstPath)
-	checksum := base64.StdEncoding.EncodeToString(hash.Sum(nil))
+	checksum := hash.Sum(nil)
 	m.logger.Debugf("checksum of expanded folder: %x", checksum)
 	// note: we can hardcode expected contentType because this is probably a synthetic package which already passed tarballExtensionsRegexp
-	return checksum, allowedContentType, nil
+	return string(checksum), allowedContentType, nil
 }
 
 // getAddedAndChanged is a helper for managing maps of things. It returns (map of existing, slice of added).
@@ -188,7 +187,7 @@ func (m *localManager) Sync(ctx context.Context, packages []config.PackageConfig
 
 // Cleanup removes all unknown packages from the working directory.
 func (m *localManager) Cleanup(ctx context.Context) error {
-	m.logger.Debug("Starting package cleanup")
+	m.logger.Debug("Starting package cleanup...")
 
 	// Only allow one rdk process to operate on the manager at once. This is generally safe to keep locked for an extended period of time
 	// since the config reconfiguration process is handled by a single thread.

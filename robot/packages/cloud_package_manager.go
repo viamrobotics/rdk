@@ -127,8 +127,8 @@ func (m *cloudManager) Sync(ctx context.Context, packages []config.PackageConfig
 	changedPackages, existingPackages := m.validateAndGetChangedPackages(packages)
 
 	// Updated managed map with existingPackages
-	for _, p := range existingPackages {
-		newManagedPackages[PackageName(p.Name)] = &p
+	for i, p := range existingPackages {
+		newManagedPackages[PackageName(p.Name)] = &existingPackages[i]
 	}
 
 	if len(changedPackages) > 0 {
@@ -168,6 +168,15 @@ func (m *cloudManager) Sync(ctx context.Context, packages []config.PackageConfig
 		// download package from a http endpoint
 		err = installPackage(ctx, m.logger, m.packagesDir, resp.Package.Url, p,
 			func(ctx context.Context, url, dstPath string) (string, string, error) {
+				statusFile := packageSyncFile{
+					PackageID:       p.Package,
+					Version:         p.Version,
+					ModifiedTime:    time.Now(),
+					Status:          syncStatusDownloading,
+					TarballChecksum: "",
+				}
+
+				err = writeStatusFile(p, statusFile, m.packagesDir)
 				checksum, contentType, err := m.downloadFileFromGCSURL(ctx, url, dstPath, m.cloudConfig.ID, m.cloudConfig.Secret)
 				return checksum, contentType, err
 			},
@@ -184,7 +193,7 @@ func (m *cloudManager) Sync(ctx context.Context, packages []config.PackageConfig
 		}
 
 		// add to managed packages
-		newManagedPackages[PackageName(p.Name)] = &p
+		newManagedPackages[PackageName(p.Name)] = &changedPackages[idx]
 
 		m.logger.Debugf("Package sync complete [%d/%d] %s:%s after %v", idx+1, len(changedPackages), p.Package, p.Version, time.Since(pkgStart))
 	}

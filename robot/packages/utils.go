@@ -10,6 +10,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/pkg/errors"
@@ -100,10 +101,10 @@ func installPackage(
 
 	err = writeStatusFile(p, statusFile, packagesDir)
 	if err != nil {
-		// utils.UncheckedError(cleanup(packagesDir, p))
+		utils.UncheckedError(cleanup(packagesDir, p))
 		return err
 	}
-	logger.Info("finished writing status file to: %s", packagesDir)
+	logger.Info("finished writing status file to: ", packagesDir)
 
 	return nil
 }
@@ -251,8 +252,8 @@ func commonCleanup(logger logging.Logger, expectedPackageDirectories map[string]
 			continue
 		}
 
-		// There should be no non-dir files in the packages/data dir. Delete any that exist
-		if packageTypeDir.Type()&os.ModeDir != os.ModeDir {
+		// There should be no non-dir files in the packages/data dir except .status.json files. Delete any that exist
+		if packageTypeDir.Type()&os.ModeDir != os.ModeDir && !strings.HasSuffix(packageTypeDirName, ".status.json") {
 			allErrors = multierr.Append(allErrors, os.Remove(packageTypeDirName))
 			continue
 		}
@@ -269,7 +270,8 @@ func commonCleanup(logger logging.Logger, expectedPackageDirectories map[string]
 				continue
 			}
 			_, expectedToExist := expectedPackageDirectories[packageDirName]
-			if !expectedToExist {
+			_, expectedStatusFileToExist := expectedPackageDirectories[strings.TrimSuffix(packageDirName, ".status.json")]
+			if !expectedToExist && !expectedStatusFileToExist {
 				logger.Debugf("Removing old package file(s) %s", packageDirName)
 				allErrors = multierr.Append(allErrors, os.RemoveAll(packageDirName))
 			}
@@ -361,17 +363,6 @@ func writeStatusFile(pkg config.PackageConfig, statusFile packageSyncFile, packa
 	}
 	if _, err := syncFile.Write(statusFileBytes); err != nil {
 		return errors.Wrapf(err, "failed to write manifest to %s", syncFileName)
-	}
-
-	return nil
-}
-
-func deleteStatusFile(packageLocalDataDirectory string) error {
-	syncFileName := getSyncFileName(packageLocalDataDirectory)
-
-	err := os.Remove(syncFileName)
-	if err != nil {
-		return errors.Wrapf(err, "failed to delete %s", syncFileName)
 	}
 
 	return nil

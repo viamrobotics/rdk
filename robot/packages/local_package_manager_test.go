@@ -196,6 +196,7 @@ func TestLocalManagerSync(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, local.managedModules, test.ShouldHaveLength, 2)
 	newModTime := modTime(t, pkg.LocalDataDirectory(local.packagesDir))
+	// TODO: This is not working. Likely need to incorporate status files into this logic.
 	// Careful! This is subtle.
 	// Normal download flow *isn't* supposed to recopy if newer.
 	// Because local modules don't have versions to increment, we only do this when the
