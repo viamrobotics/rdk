@@ -1046,7 +1046,7 @@ func TestBoundingRegionsConstraint(t *testing.T) {
 		injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, origin, nil, 5)
 		defer ms.Close(ctx)
 
-		box, err := spatialmath.NewBox(spatialmath.NewZeroPose(), r3.Vector{2222, 2222, 2}, "")
+		box, err := spatialmath.NewBox(spatialmath.NewZeroPose(), r3.Vector{2224, 2224, 2}, "")
 		test.That(t, err, test.ShouldBeNil)
 
 		req := motion.MoveOnGlobeReq{
@@ -1119,7 +1119,8 @@ func TestBoundingRegionsConstraint(t *testing.T) {
 			Extra: extra,
 		}
 		_, err = ms.MoveOnGlobe(ctx, req)
-		test.That(t, err, test.ShouldBeError, errors.New("context deadline exceeded"))
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err, test.ShouldBeError, errors.New("destination was not within the provided bounding regions"))
 	})
 
 	t.Run("list of bounding regions - success case", func(t *testing.T) {

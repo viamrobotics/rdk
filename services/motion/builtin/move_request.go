@@ -532,12 +532,19 @@ func (ms *builtIn) newMoveOnGlobeRequest(
 		return nil, err
 	}
 
-	// if the user chose to define any bounding regions, determine if the robot is in
-	// collision with at least one of them
 	if len(boundingRegions) > 0 {
+		// check that the robot geometries are within the bounding region
 		collisionCheck := motionplan.NewBoundingRegionConstraint(robotGeoms, boundingRegions, defaultCollisionBufferMM)
 		if !collisionCheck(&ik.State{}) {
 			return nil, fmt.Errorf("base named %s is not within the provided bounding regions", b.Name().ShortName())
+		}
+
+		// check that the dest is within the bounding region
+		collisionCheck = motionplan.NewBoundingRegionConstraint(
+			[]spatialmath.Geometry{spatialmath.NewPoint(goalPoseRaw.Point(), "")}, boundingRegions, defaultCollisionBufferMM,
+		)
+		if !collisionCheck(&ik.State{}) {
+			return nil, errors.New("destination was not within the provided bounding regions")
 		}
 	}
 
