@@ -954,7 +954,7 @@ func (m *module) dial() error {
 		"unix://"+m.addr,
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 		grpc.WithChainUnaryInterceptor(
-			rdkgrpc.interceptors.EnsureTimeoutUnaryClientInterceptor
+			rdkgrpc.EnsureTimeoutUnaryClientInterceptor,
 			grpc_retry.UnaryClientInterceptor(),
 			operation.UnaryClientInterceptor,
 		),
