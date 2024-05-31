@@ -103,6 +103,11 @@ func BenchmarkConcurrentReconfiguration(b *testing.B) {
 			b.StopTimer()
 			b.ResetTimer()
 			for n := 0; n < b.N; n++ {
+				// Ensure all resources are removed before benchmark iteration.
+				cfg.Components = nil
+				rob.Reconfigure(ctx, cfg)
+				test.That(b, rob.ResourceNames(), test.ShouldBeEmpty)
+
 				// Create config with parametrized dependencies.
 				for i := 0; i < resCount; i++ {
 					cfg.Components = append(cfg.Components,
@@ -127,10 +132,6 @@ func BenchmarkConcurrentReconfiguration(b *testing.B) {
 					_, err = rob.ResourceByName(generic.Named(fmt.Sprintf("slow%d", i)))
 					test.That(b, err, test.ShouldBeNil)
 				}
-				// Remove all resources.
-				cfg.Components = nil
-				rob.Reconfigure(ctx, cfg)
-				test.That(b, rob.ResourceNames(), test.ShouldBeEmpty)
 			}
 
 			// --- Report metrics ---
