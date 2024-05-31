@@ -10,7 +10,10 @@
             "model": "fake",
             "attributes": {
                 "arm-model": "xArm6"
-            }
+            },
+            "log_configuration": {
+                "level": "debug" 
+              }
         },
         {
             "name": "audio_input1",
@@ -75,6 +78,37 @@
             "model": "fake"
         },
         {
+			"type": "generic",
+			"name": "counter5",
+			"model": "acme:demo:mycounter"
+		},
+		{
+			"namespace": "rdk",
+			"type": "generic",
+			"name": "counter2",
+			"model": "acme:demo:mycounter"
+		},
+        {
+            "type": "sensor",
+            "name": "python-sensor",
+            "model": "viam:sensor:mysensor",
+            "attributes": {
+                "multiplier": 2
+            },
+            "depends_on": []
+        },
+        {
+            "type": "sensor",
+            "name": "anomaly-sensor",
+            "model": "danielb:sensor:anomalysensor",
+            "attributes": {
+                "mean": 200,
+                "std": 25,
+                "include_anomalies": true,
+                "update_statistics": false
+            }
+        },
+        {
             "name": "motor1",
             "type": "motor",
             "model": "fake",
@@ -113,6 +147,23 @@
             "model": "fake"
         }
     ],
+    "modules": [
+        {
+          "type": "local",
+          "name": "SimpleModule",
+          "executable_path": "/Users/daniel.botros@viam.com/viam/rdk/examples/customresources/demos/simplemodule/simplemodule"
+        },
+        {
+            "type": "local",
+            "name": "SimpleModule-python-sdk",
+            "executable_path": "/Users/daniel.botros@viam.com/viam/viam-python-sdk/examples/simple_module/run.sh"
+        },
+        {
+            "type": "local",
+            "name": "anomalysensor-python",
+            "executable_path": "/Users/daniel.botros@viam.com/viam/anomalysensor/run.sh"
+        }
+      ],
     "processes": [
         {
             "id": "1",
@@ -128,7 +179,7 @@
             "name": "bash",
             "args": [
                 "-c",
-                "trap \"exit 0\" SIGINT; while true; do echo hey; sleep 2; done"
+                "trap \"exit 0\" SIGINT; while true; do echo hey; sleep 10; done"
             ],
             "log": true
         }
