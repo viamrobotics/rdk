@@ -362,11 +362,11 @@ func TestConstraintConstructors(t *testing.T) {
 	test.That(t, len(c.CollisionSpecification), test.ShouldEqual, 1)
 	test.That(t, c.CollisionSpecification[0], test.ShouldResemble, &motionpb.CollisionSpecification{
 		Allows: []*motionpb.CollisionSpecification_AllowedFrameCollisions{
-			&motionpb.CollisionSpecification_AllowedFrameCollisions{
+			{
 				Frame1: "frame1",
 				Frame2: "frame2",
 			},
-			&motionpb.CollisionSpecification_AllowedFrameCollisions{
+			{
 				Frame1: "frame3",
 				Frame2: "frame4",
 			},

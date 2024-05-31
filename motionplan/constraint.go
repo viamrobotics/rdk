@@ -8,8 +8,8 @@ import (
 	"math"
 
 	"github.com/golang/geo/r3"
-
 	motionpb "go.viam.com/api/service/motion/v1"
+
 	"go.viam.com/rdk/motionplan/ik"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/referenceframe"
@@ -495,35 +495,35 @@ func NewOctreeCollisionConstraint(octree *pointcloud.BasicOctree, threshold int,
 	return constraint
 }
 
-// Constructor to create new Constraint object
+// CreateConstraints creates a new Constraint object.
 func CreateConstraints() *motionpb.Constraints {
 	return &motionpb.Constraints{}
 }
 
-// Append a Linear Constraint to a Constraint object
+// AddLinearConstraint appends a Linear Constraint to a Constraint object
 // user side: c := CreateConstraints()
 //
-//	AddLinearConstraint(c, {desired line tolerance}, {desired orientation})
-func AddLinearConstraint(c *motionpb.Constraints, LineToleranceMm, OrientationToleranceDegs *float32) {
+// AddLinearConstraint(c, {desired line tolerance}, {desired orientation}).
+func AddLinearConstraint(c *motionpb.Constraints, lineToleranceMm, orientationToleranceDegs *float32) {
 	newLinearConstraint := &motionpb.LinearConstraint{
-		LineToleranceMm:          LineToleranceMm,
-		OrientationToleranceDegs: OrientationToleranceDegs,
+		LineToleranceMm:          lineToleranceMm,
+		OrientationToleranceDegs: orientationToleranceDegs,
 	}
 	c.LinearConstraint = append(c.LinearConstraint, newLinearConstraint)
 }
 
-// Append a Orientation Constraint to a Constraint object
+// AddOrientationConstraint appends a Orientation Constraint to a Constraint object
 // user side: c := CreateConstraints()
 //
 //	AddOrientationConstraint(c, {desired orientation})
-func AddOrientationConstraint(c *motionpb.Constraints, OrientationToleranceDegs *float32) {
+func AddOrientationConstraint(c *motionpb.Constraints, orientationToleranceDegs *float32) {
 	newOrientationConstraint := &motionpb.OrientationConstraint{
-		OrientationToleranceDegs: OrientationToleranceDegs,
+		OrientationToleranceDegs: orientationToleranceDegs,
 	}
 	c.OrientationConstraint = append(c.OrientationConstraint, newOrientationConstraint)
 }
 
-// Append a Collision Specification to a Constraint object using an input map
+// AddCollisionSpecification appends a Collision Specification to a Constraint object using an input map
 // user side: c := CreateConstraints
 //
 //			  frameMap := map[string]string{
@@ -532,9 +532,9 @@ func AddOrientationConstraint(c *motionpb.Constraints, OrientationToleranceDegs 
 //			  			  }
 //
 //	  AddCollisionSpecification(c, {desired orientation})
-func AddCollisionSpecification(c *motionpb.Constraints, Allows map[string]string) {
+func AddCollisionSpecification(c *motionpb.Constraints, allows map[string]string) {
 	allowedFrameCollisions := make([]*motionpb.CollisionSpecification_AllowedFrameCollisions, 0)
-	for frame1, frame2 := range Allows {
+	for frame1, frame2 := range allows {
 		allowedFrameCollisions = append(allowedFrameCollisions,
 			&motionpb.CollisionSpecification_AllowedFrameCollisions{
 				Frame1: frame1,
