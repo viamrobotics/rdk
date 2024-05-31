@@ -7,8 +7,8 @@ import (
 	"google.golang.org/grpc"
 )
 
-// DefaultMethodTimeout is the default context timeout for all inbound gRPC
-// methods used when no deadline is set on the context.
+// DefaultMethodTimeout is the default context timeout for all inbound and outbound 
+// gRPC methods used when no deadline is set on the context.
 var DefaultMethodTimeout = 10 * time.Minute
 
 // EnsureTimeoutUnaryServerInterceptor sets a default timeout on the context if one is
