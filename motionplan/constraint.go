@@ -9,6 +9,7 @@ import (
 
 	"github.com/golang/geo/r3"
 
+	motionpb "go.viam.com/api/service/motion/v1"
 	"go.viam.com/rdk/motionplan/ik"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/referenceframe"
@@ -492,4 +493,40 @@ func NewOctreeCollisionConstraint(octree *pointcloud.BasicOctree, threshold int,
 		return true
 	}
 	return constraint
+}
+
+// ------------ Ankit's Constraint Sugar Modifications ------------
+func CreateConstraints(constraints []*motionpb.Constraints) *motionpb.Constraints {
+	return &motionpb.Constraints{}
+}
+
+func AddLinearConstraint(c *motionpb.Constraints, LineToleranceMm, OrientationToleranceDegs *float32) {
+	newLinearConstraint := &motionpb.LinearConstraint{
+		LineToleranceMm:          LineToleranceMm,
+		OrientationToleranceDegs: OrientationToleranceDegs,
+	}
+	c.LinearConstraint = append(c.LinearConstraint, newLinearConstraint)
+}
+
+func AddOrientationConstraint(c *motionpb.Constraints, OrientationToleranceDegs *float32) {
+	newOrientationConstraint := &motionpb.OrientationConstraint{
+		OrientationToleranceDegs: OrientationToleranceDegs,
+	}
+	c.OrientationConstraint = append(c.OrientationConstraint, newOrientationConstraint)
+}
+
+func AddCollisionSpecification(c *motionpb.Constraints, Allows map[string]string) {
+	allowedFrameCollisions := make([]*motionpb.CollisionSpecification_AllowedFrameCollisions, 0)
+	for frame1, frame2 := range Allows {
+		allowedFrameCollisions = append(allowedFrameCollisions,
+			&motionpb.CollisionSpecification_AllowedFrameCollisions{
+				Frame1: frame1,
+				Frame2: frame2,
+			},
+		)
+	}
+	newCollisionSpecification := &motionpb.CollisionSpecification{
+		Allows: allowedFrameCollisions,
+	}
+	c.CollisionSpecification = append(c.CollisionSpecification, newCollisionSpecification)
 }
