@@ -52,6 +52,7 @@ func storeConfigToCache(cfg *Config) error {
 	return os.WriteFile(getCLICachePath(), md, 0o640)
 }
 
+// Config is the schema for saved CLI credentials.
 type Config struct {
 	BaseURL         string     `json:"base_url"`
 	Auth            authMethod `json:"auth"`
@@ -81,6 +82,7 @@ func (conf *Config) tryUnmarshallWithAPIKey(configBytes []byte) error {
 	return errors.New("config did not contain an api key")
 }
 
+// DialOptions constructs an rpc.DialOption slice from config.
 func (conf *Config) DialOptions() ([]rpc.DialOption, error) {
 	_, opts, err := parseBaseURL(conf.BaseURL, true)
 	if err != nil {
