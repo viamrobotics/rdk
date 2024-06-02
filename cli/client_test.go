@@ -108,7 +108,7 @@ func setup(
 	}
 
 	cCtx := cli.NewContext(NewApp(out, errOut), flags, nil)
-	conf := &config{}
+	conf := &Config{}
 	if authMethod == "token" {
 		conf.Auth = &token{
 			AccessToken: testToken,

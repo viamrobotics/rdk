@@ -61,7 +61,7 @@ const (
 // needed to talk to the app and data services but not directly to robot parts.
 type viamClient struct {
 	c                *cli.Context
-	conf             *config
+	conf             *Config
 	client           apppb.AppServiceClient
 	dataClient       datapb.DataServiceClient
 	packageClient    packagepb.PackageServiceClient
@@ -608,7 +608,7 @@ func CheckUpdateAction(c *cli.Context) error {
 			utils.UncheckedError(err)
 			return nil
 		}
-		conf = &config{}
+		conf = &Config{}
 	}
 
 	var lastCheck time.Time
@@ -765,7 +765,7 @@ func newViamClient(c *cli.Context) (*viamClient, error) {
 		if !os.IsNotExist(err) {
 			return nil, err
 		}
-		conf = &config{}
+		conf = &Config{}
 	}
 
 	// If base URL was not specified, assume cached base URL. If no base URL is

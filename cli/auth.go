@@ -232,7 +232,7 @@ func LogoutAction(cCtx *cli.Context) error {
 		if !os.IsNotExist(err) {
 			return err
 		}
-		conf = &config{}
+		conf = &Config{}
 	}
 
 	vc := &viamClient{
@@ -513,7 +513,7 @@ func (c *viamClient) logout() error {
 	if err := removeConfigFromCache(); err != nil && !os.IsNotExist(err) {
 		return err
 	}
-	c.conf = &config{}
+	c.conf = &Config{}
 	return nil
 }
 

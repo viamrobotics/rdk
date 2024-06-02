@@ -15,12 +15,12 @@ func getCLICachePath() string {
 	return filepath.Join(viamDotDir, "cached_cli_config.json")
 }
 
-func configFromCache() (*config, error) {
+func configFromCache() (*Config, error) {
 	rd, err := os.ReadFile(getCLICachePath())
 	if err != nil {
 		return nil, err
 	}
-	var conf config
+	var conf Config
 
 	tokenErr := conf.tryUnmarshallWithToken(rd)
 	if tokenErr == nil {
@@ -38,7 +38,7 @@ func removeConfigFromCache() error {
 	return os.Remove(getCLICachePath())
 }
 
-func storeConfigToCache(cfg *config) error {
+func storeConfigToCache(cfg *Config) error {
 	if err := os.MkdirAll(viamDotDir, 0o700); err != nil {
 		return err
 	}
@@ -50,14 +50,14 @@ func storeConfigToCache(cfg *config) error {
 	return os.WriteFile(getCLICachePath(), md, 0o640)
 }
 
-type config struct {
+type Config struct {
 	BaseURL         string     `json:"base_url"`
 	Auth            authMethod `json:"auth"`
 	LastUpdateCheck string     `json:"last_update_check"`
 	LatestVersion   string     `json:"latest_version"`
 }
 
-func (conf *config) tryUnmarshallWithToken(configBytes []byte) error {
+func (conf *Config) tryUnmarshallWithToken(configBytes []byte) error {
 	conf.Auth = &token{}
 	if err := json.Unmarshal(configBytes, &conf); err != nil {
 		return err
@@ -68,7 +68,7 @@ func (conf *config) tryUnmarshallWithToken(configBytes []byte) error {
 	return errors.New("config did not contain a user token")
 }
 
-func (conf *config) tryUnmarshallWithAPIKey(configBytes []byte) error {
+func (conf *Config) tryUnmarshallWithAPIKey(configBytes []byte) error {
 	conf.Auth = &apiKey{}
 	if err := json.Unmarshal(configBytes, &conf); err != nil {
 		return err
