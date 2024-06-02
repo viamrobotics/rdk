@@ -7,6 +7,7 @@ import (
 
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
+	"go.viam.com/utils/rpc"
 )
 
 var viamDotDir = filepath.Join(os.Getenv("HOME"), ".viam")
@@ -77,4 +78,12 @@ func (conf *Config) tryUnmarshallWithAPIKey(configBytes []byte) error {
 		return nil
 	}
 	return errors.New("config did not contain an api key")
+}
+
+func (conf *Config) DialOptions() ([]rpc.DialOption, error) {
+	_, opts, err := parseBaseURL(conf.BaseURL, true)
+	if err != nil {
+		return nil, err
+	}
+	return append(opts, conf.Auth.dialOpts()), nil
 }

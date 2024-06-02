@@ -485,7 +485,10 @@ func (c *viamClient) ensureLoggedIn() error {
 		}
 	}
 
-	rpcOpts := append(c.copyRPCOpts(), c.conf.Auth.dialOpts())
+	rpcOpts, err := c.conf.DialOptions()
+	if err != nil {
+		return err
+	}
 
 	conn, err := rpc.DialDirectGRPC(
 		c.c.Context,
@@ -542,10 +545,11 @@ func (c *viamClient) prepareDial(
 	}()
 	dialCtx := rpc.ContextWithDialer(c.c.Context, rpcDialer)
 
-	rpcOpts := append(c.copyRPCOpts(),
-		rpc.WithExternalAuth(c.baseURL.Host, part.Fqdn),
-		c.conf.Auth.dialOpts(),
-	)
+	rpcOpts, err := c.conf.DialOptions()
+	if err != nil {
+		return nil, "", nil, err
+	}
+	rpcOpts = append(rpcOpts, rpc.WithExternalAuth(c.baseURL.Host, part.Fqdn))
 
 	if debug {
 		rpcOpts = append(rpcOpts, rpc.WithDialDebug())
