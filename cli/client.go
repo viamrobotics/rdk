@@ -601,7 +601,7 @@ func CheckUpdateAction(c *cli.Context) error {
 		return nil
 	}
 
-	conf, err := configFromCache()
+	conf, err := ConfigFromCache()
 	if err != nil {
 		if !os.IsNotExist(err) {
 			utils.UncheckedError(err)
@@ -759,7 +759,7 @@ func isProdBaseURL(baseURL *url.URL) bool {
 }
 
 func newViamClient(c *cli.Context) (*viamClient, error) {
-	conf, err := configFromCache()
+	conf, err := ConfigFromCache()
 	if err != nil {
 		if !os.IsNotExist(err) {
 			return nil, err

@@ -16,7 +16,8 @@ func getCLICachePath() string {
 	return filepath.Join(viamDotDir, "cached_cli_config.json")
 }
 
-func configFromCache() (*Config, error) {
+// ConfigFromCache parses the cached json into a Config.
+func ConfigFromCache() (*Config, error) {
 	rd, err := os.ReadFile(getCLICachePath())
 	if err != nil {
 		return nil, err
@@ -32,7 +33,7 @@ func configFromCache() (*Config, error) {
 		return &conf, nil
 	}
 
-	return nil, errors.Wrap(multierr.Combine(tokenErr, apiKeyErr), "failed to read config from cache")
+	return nil, errors.Wrap(multierr.Combine(tokenErr, apiKeyErr), "failed to parse cached config")
 }
 
 func removeConfigFromCache() error {
