@@ -117,13 +117,23 @@ func readyToSync(ctx context.Context, s selectiveSyncer, logger logging.Logger) 
 	return
 }
 
+type concurrentCollectors struct {
+	sync.RWMutex
+	m map[resourceMethodMetadata]*collectorAndConfig
+}
+
+type concurrentSyncer struct {
+	sync.RWMutex
+	syncer datasync.Manager
+}
+
 // builtIn initializes and orchestrates data capture collectors for registered component/methods.
 type builtIn struct {
 	resource.Named
 	logger                 logging.Logger
 	captureDir             string
 	captureDisabled        bool
-	collectors             map[resourceMethodMetadata]*collectorAndConfig
+	collectors             concurrentCollectors
 	lock                   sync.Mutex
 	backgroundWorkers      sync.WaitGroup
 	fileLastModifiedMillis int
@@ -133,7 +143,7 @@ type builtIn struct {
 	syncDisabled        bool
 	syncIntervalMins    float64
 	syncRoutineCancelFn context.CancelFunc
-	syncer              datasync.Manager
+	concurrentSyncer    concurrentSyncer
 	syncerConstructor   datasync.ManagerConstructor
 	maxSyncThreads      int
 	cloudConnSvc        cloud.ConnectionService
@@ -160,10 +170,11 @@ func NewBuiltIn(
 	logger logging.Logger,
 ) (datamanager.Service, error) {
 	svc := &builtIn{
-		Named:                      conf.ResourceName().AsNamed(),
-		logger:                     logger,
-		captureDir:                 viamCaptureDotDir,
-		collectors:                 make(map[resourceMethodMetadata]*collectorAndConfig),
+		Named:      conf.ResourceName().AsNamed(),
+		logger:     logger,
+		captureDir: viamCaptureDotDir,
+		collectors: concurrentCollectors{
+			m: make(map[resourceMethodMetadata]*collectorAndConfig)},
 		syncIntervalMins:           0,
 		additionalSyncPaths:        []string{},
 		tags:                       []string{},
@@ -204,21 +215,25 @@ func (svc *builtIn) Close(_ context.Context) error {
 
 func (svc *builtIn) closeCollectors() {
 	var wg sync.WaitGroup
-	for md, collector := range svc.collectors {
+	for md, collector := range svc.collectors.m {
 		currCollector := collector
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
 			currCollector.Collector.Close()
 		}()
-		delete(svc.collectors, md)
+		svc.collectors.Lock()
+		delete(svc.collectors.m, md)
+		defer svc.collectors.Unlock()
 	}
 	wg.Wait()
 }
 
 func (svc *builtIn) flushCollectors() {
 	var wg sync.WaitGroup
-	for _, collector := range svc.collectors {
+	svc.collectors.RLock()
+	defer svc.collectors.RUnlock()
+	for _, collector := range svc.collectors.m {
 		currCollector := collector
 		wg.Add(1)
 		go func() {
@@ -285,12 +300,12 @@ func (svc *builtIn) initializeOrUpdateCollector(
 
 	// TODO(DATA-451): validate method params
 
-	if storedCollectorAndConfig, ok := svc.collectors[md]; ok {
+	if storedCollectorAndConfig, ok := svc.collectors.m[md]; ok {
 		if storedCollectorAndConfig.Config.Equals(&config) &&
 			res == storedCollectorAndConfig.Resource &&
 			!maxFileSizeChanged {
 			// If the attributes have not changed, do nothing and leave the existing collector.
-			return svc.collectors[md], nil
+			return svc.collectors.m[md], nil
 		}
 		// If the attributes have changed, close the existing collector.
 		storedCollectorAndConfig.Collector.Close()
@@ -355,10 +370,12 @@ func (svc *builtIn) initializeOrUpdateCollector(
 }
 
 func (svc *builtIn) closeSyncer() {
-	if svc.syncer != nil {
+	if svc.concurrentSyncer.syncer != nil {
 		// If previously we were syncing, close the old syncer and cancel the old updateCollectors goroutine.
-		svc.syncer.Close()
-		svc.syncer = nil
+		svc.concurrentSyncer.Lock()
+		svc.concurrentSyncer.syncer.Close()
+		svc.concurrentSyncer.syncer = nil
+		svc.concurrentSyncer.Unlock()
 	}
 	if svc.cloudConn != nil {
 		goutils.UncheckedError(svc.cloudConn.Close())
@@ -373,7 +390,9 @@ func (svc *builtIn) initSyncer(ctx context.Context) error {
 	identity, conn, err := svc.cloudConnSvc.AcquireConnection(ctx)
 	if errors.Is(err, cloud.ErrNotCloudManaged) {
 		svc.logger.CDebug(ctx, "Using no-op sync manager when not cloud managed")
-		svc.syncer = datasync.NewNoopManager()
+		svc.concurrentSyncer.Lock()
+		svc.concurrentSyncer.syncer = datasync.NewNoopManager()
+		svc.concurrentSyncer.Unlock()
 	}
 	if err != nil {
 		return err
@@ -384,7 +403,9 @@ func (svc *builtIn) initSyncer(ctx context.Context) error {
 	if err != nil {
 		return errors.Wrap(err, "failed to initialize new syncer")
 	}
-	svc.syncer = syncer
+	svc.concurrentSyncer.Lock()
+	svc.concurrentSyncer.syncer = syncer
+	svc.concurrentSyncer.Unlock()
 	svc.cloudConn = conn
 	return nil
 }
@@ -397,7 +418,7 @@ func (svc *builtIn) initSyncer(ctx context.Context) error {
 // regardless of whether or not is the scheduled time.
 func (svc *builtIn) Sync(ctx context.Context, _ map[string]interface{}) error {
 	svc.lock.Lock()
-	if svc.syncer == nil {
+	if svc.concurrentSyncer.syncer == nil {
 		err := svc.initSyncer(ctx)
 		if err != nil {
 			svc.lock.Unlock()
@@ -454,7 +475,7 @@ func (svc *builtIn) Reconfigure(
 	// Service is disabled, so close all collectors and clear the map so we can instantiate new ones if we enable this service.
 	if svc.captureDisabled {
 		svc.closeCollectors()
-		svc.collectors = make(map[resourceMethodMetadata]*collectorAndConfig)
+		svc.collectors = concurrentCollectors{m: make(map[resourceMethodMetadata]*collectorAndConfig)}
 	}
 
 	if svc.fileDeletionRoutineCancelFn != nil {
@@ -531,12 +552,12 @@ func (svc *builtIn) Reconfigure(
 	}
 
 	// If a component/method has been removed from the config, close the collector.
-	for md, collAndConfig := range svc.collectors {
+	for md, collAndConfig := range svc.collectors.m {
 		if _, present := newCollectors[md]; !present {
 			collAndConfig.Collector.Close()
 		}
 	}
-	svc.collectors = newCollectors
+	svc.collectors = concurrentCollectors{m: newCollectors}
 	svc.additionalSyncPaths = svcConfig.AdditionalSyncPaths
 
 	fileLastModifiedMillis := svcConfig.FileLastModifiedMillis
@@ -572,7 +593,7 @@ func (svc *builtIn) Reconfigure(
 
 		svc.cancelSyncScheduler()
 		if !svc.syncDisabled && svc.syncIntervalMins != 0.0 {
-			if svc.syncer == nil {
+			if svc.concurrentSyncer.syncer == nil {
 				if err := svc.initSyncer(ctx); err != nil {
 					return err
 				}
@@ -582,7 +603,7 @@ func (svc *builtIn) Reconfigure(
 					return err
 				}
 			}
-			svc.syncer.SetArbitraryFileTags(svc.tags)
+			svc.concurrentSyncer.syncer.SetArbitraryFileTags(svc.tags)
 			svc.startSyncScheduler(svc.syncIntervalMins)
 		} else {
 			if svc.syncTicker != nil {
@@ -600,7 +621,7 @@ func (svc *builtIn) Reconfigure(
 		svc.fileDeletionBackgroundWorkers = &sync.WaitGroup{}
 		svc.fileDeletionBackgroundWorkers.Add(1)
 		go pollFilesystem(fileDeletionCtx, svc.fileDeletionBackgroundWorkers,
-			svc.captureDir, deleteEveryNthValue, svc.syncer, svc.logger)
+			svc.captureDir, deleteEveryNthValue, svc.concurrentSyncer.syncer, svc.logger)
 	}
 
 	return nil
@@ -647,7 +668,7 @@ func (svc *builtIn) uploadData(cancelCtx context.Context, intervalMins float64) 
 				return
 			case <-svc.syncTicker.C:
 				svc.lock.Lock()
-				if svc.syncer != nil {
+				if svc.concurrentSyncer.syncer != nil {
 					// If selective sync is disabled, sync. If it is enabled, check the condition below.
 					shouldSync := !svc.selectiveSyncEnabled
 					// If selective sync is enabled and the sensor has been properly initialized,
@@ -684,14 +705,16 @@ func (svc *builtIn) sync() {
 		toSync = append(toSync, getAllFilesToSync(ap, svc.fileLastModifiedMillis)...)
 	}
 	svc.lock.Unlock()
-
 	stopAfter := time.Now().Add(time.Duration(svc.syncIntervalMins * float64(time.Minute)))
 	for _, p := range toSync {
-		svc.syncer.SyncFile(p, stopAfter)
+		svc.concurrentSyncer.RLock()
+		svc.concurrentSyncer.syncer.SyncFile(p, stopAfter)
+		svc.concurrentSyncer.RUnlock()
 	}
+
 }
 
-//nolint
+// nolint
 func getAllFilesToSync(dir string, lastModifiedMillis int) []string {
 	var filePaths []string
 	_ = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
