@@ -136,7 +136,7 @@ func (pm *planManager) PlanSingleWaypoint(ctx context.Context, request *PlanRequ
 				to,
 				request.StartConfiguration,
 				request.WorldState,
-				request.ConstraintSpecs,
+				request.ConstraintSpecs.ToProtobuf(),
 				request.Options,
 			)
 			if err != nil {
@@ -155,7 +155,7 @@ func (pm *planManager) PlanSingleWaypoint(ctx context.Context, request *PlanRequ
 		goalPos,
 		request.StartConfiguration,
 		request.WorldState,
-		request.ConstraintSpecs,
+		request.ConstraintSpecs.ToProtobuf(),
 		request.Options,
 	)
 	if err != nil {
@@ -800,7 +800,7 @@ func (pm *planManager) planRelativeWaypoint(ctx context.Context, request *PlanRe
 	}
 	goalPos := tf.(*referenceframe.PoseInFrame).Pose()
 	opt, err := pm.plannerSetupFromMoveRequest(
-		startPose, goalPos, request.StartConfiguration, request.WorldState, request.ConstraintSpecs, request.Options,
+		startPose, goalPos, request.StartConfiguration, request.WorldState, request.ConstraintSpecs.ToProtobuf(), request.Options,
 	)
 	if err != nil {
 		return nil, err

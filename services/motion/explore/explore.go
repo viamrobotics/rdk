@@ -14,7 +14,6 @@ import (
 	"github.com/golang/geo/r3"
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
-	servicepb "go.viam.com/api/service/motion/v1"
 	goutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/components/base"
@@ -216,7 +215,7 @@ func (ms *explore) Move(
 	componentName resource.Name,
 	destination *referenceframe.PoseInFrame,
 	worldState *referenceframe.WorldState,
-	constraints *servicepb.Constraints,
+	constraints *motionplan.Constraints,
 	extra map[string]interface{},
 ) (bool, error) {
 	ms.resourceMutex.Lock()

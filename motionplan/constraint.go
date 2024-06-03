@@ -647,10 +647,22 @@ func (c *Constraints) AddLinearConstraint(linConstraint LinearConstraint) {
 	c.LinearConstraint = append(c.LinearConstraint, linConstraint)
 }
 
+func (c *Constraints) GetLinearConstraint() []LinearConstraint {
+	return c.LinearConstraint
+}
+
 func (c *Constraints) AddOrientationConstraint(orientConstraint OrientationConstraint) {
 	c.OrientationConstraint = append(c.OrientationConstraint, orientConstraint)
 }
 
+func (c *Constraints) GetOrientationConstraint() []OrientationConstraint {
+	return c.OrientationConstraint
+}
+
 func (c *Constraints) AddCollisionSpecification(collConstraint CollisionSpecification) {
 	c.CollisionSpecification = append(c.CollisionSpecification, collConstraint)
+}
+
+func (c *Constraints) GetCollisionSpecification() []CollisionSpecification {
+	return c.CollisionSpecification
 }

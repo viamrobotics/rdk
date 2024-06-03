@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
-	pb "go.viam.com/api/service/motion/v1"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/logging"
@@ -49,7 +48,7 @@ type PlanRequest struct {
 	StartPose          spatialmath.Pose
 	StartConfiguration map[string][]frame.Input
 	WorldState         *frame.WorldState
-	ConstraintSpecs    *pb.Constraints
+	ConstraintSpecs    *Constraints
 	Options            map[string]interface{}
 }
 
@@ -109,7 +108,7 @@ func PlanFrameMotion(ctx context.Context,
 	dst spatialmath.Pose,
 	f frame.Frame,
 	seed []frame.Input,
-	constraintSpec *pb.Constraints,
+	constraintSpec *Constraints,
 	planningOpts map[string]interface{},
 ) ([][]frame.Input, error) {
 	// ephemerally create a framesystem containing just the frame for the solve

@@ -7,6 +7,7 @@ import (
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/service/motion/v1"
 
+	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
@@ -38,7 +39,7 @@ func (server *serviceServer) Move(ctx context.Context, req *pb.MoveRequest) (*pb
 		protoutils.ResourceNameFromProto(req.GetComponentName()),
 		referenceframe.ProtobufToPoseInFrame(req.GetDestination()),
 		worldState,
-		req.GetConstraints(),
+		motionplan.ConstraintsFromProtobuf(req.GetConstraints()),
 		req.Extra.AsMap(),
 	)
 	return &pb.MoveResponse{Success: success}, err
