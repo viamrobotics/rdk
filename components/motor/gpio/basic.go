@@ -289,7 +289,6 @@ func (m *Motor) GoFor(ctx context.Context, rpm, revolutions float64, extra map[s
 		return errors.Wrap(err, "error in GoFor")
 	}
 
-	// Deprecated: setting revolutions == 0 will spin the motor indefinitely at the specified RPM
 	if revolutions == 0 {
 		return nil
 	}

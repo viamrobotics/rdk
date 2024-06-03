@@ -260,7 +260,6 @@ func (m *EncodedMotor) GoFor(ctx context.Context, rpm, revolutions float64, extr
 		return err
 	}
 
-	// Deprecated: return and run the motor at rpm indefinitely
 	if revolutions == 0 {
 		return nil
 	}

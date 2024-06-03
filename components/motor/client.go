@@ -59,6 +59,9 @@ func (c *client) GoFor(ctx context.Context, rpm, revolutions float64, extra map[
 	if err != nil {
 		return err
 	}
+	if revolutions == 0 {
+		c.logger.Warn("Deprecated: setting revolutions == 0 will spin the motor indefinitely at the specified RPM")
+	}
 	req := &pb.GoForRequest{
 		Name:        c.name,
 		Rpm:         rpm,
