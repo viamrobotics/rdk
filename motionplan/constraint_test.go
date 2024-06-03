@@ -9,7 +9,6 @@ import (
 
 	"github.com/golang/geo/r3"
 	commonpb "go.viam.com/api/common/v1"
-	motionpb "go.viam.com/api/service/motion/v1"
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/logging"
@@ -336,32 +335,28 @@ func BenchmarkCollisionConstraints(b *testing.B) {
 }
 
 func TestConstraintConstructors(t *testing.T) {
-	c := CreateConstraints()
+	c := NewEmptyConstraints()
 
-	desiredLinearTolerance := float32(1000.0)
-	desiredOrientationTolerance := float32(0.0)
+	desiredLinearTolerance := float64(1000.0)
+	desiredOrientationTolerance := float64(0.0)
 
-	AddLinearConstraint(c, &desiredLinearTolerance, &desiredOrientationTolerance)
+	c.AddLinearConstraint(LinearConstraint{
+		LineToleranceMm:          desiredLinearTolerance,
+		OrientationToleranceDegs: desiredOrientationTolerance,
+	})
+
 	test.That(t, len(c.LinearConstraint), test.ShouldEqual, 1)
-	test.That(t, c.LinearConstraint[0], test.ShouldResemble, &motionpb.LinearConstraint{
-		LineToleranceMm:          &desiredLinearTolerance,
-		OrientationToleranceDegs: &desiredOrientationTolerance,
-	})
+	test.That(t, c.LinearConstraint[0].LineToleranceMm, test.ShouldEqual, desiredLinearTolerance)
+	test.That(t, c.LinearConstraint[0].OrientationToleranceDegs, test.ShouldEqual, desiredOrientationTolerance)
 
-	AddOrientationConstraint(c, &desiredOrientationTolerance)
+	c.AddOrientationConstraint(OrientationConstraint{
+		OrientationToleranceDegs: desiredOrientationTolerance,
+	})
 	test.That(t, len(c.OrientationConstraint), test.ShouldEqual, 1)
-	test.That(t, c.OrientationConstraint[0], test.ShouldResemble, &motionpb.OrientationConstraint{
-		OrientationToleranceDegs: &desiredOrientationTolerance,
-	})
+	test.That(t, c.OrientationConstraint[0].OrientationToleranceDegs, test.ShouldEqual, desiredOrientationTolerance)
 
-	frameMap := map[string]string{
-		"frame1": "frame2",
-		"frame3": "frame4",
-	}
-	AddCollisionSpecification(c, frameMap)
-	test.That(t, len(c.CollisionSpecification), test.ShouldEqual, 1)
-	test.That(t, c.CollisionSpecification[0], test.ShouldResemble, &motionpb.CollisionSpecification{
-		Allows: []*motionpb.CollisionSpecification_AllowedFrameCollisions{
+	c.AddCollisionSpecification(CollisionSpecification{
+		Allows: []CollisionSpecificationAllowedFrameCollisions{
 			{
 				Frame1: "frame1",
 				Frame2: "frame2",
@@ -372,4 +367,13 @@ func TestConstraintConstructors(t *testing.T) {
 			},
 		},
 	})
+	test.That(t, len(c.CollisionSpecification), test.ShouldEqual, 1)
+	test.That(t, c.CollisionSpecification[0].Allows[0].Frame1, test.ShouldEqual, "frame1")
+	test.That(t, c.CollisionSpecification[0].Allows[0].Frame2, test.ShouldEqual, "frame2")
+	test.That(t, c.CollisionSpecification[0].Allows[1].Frame1, test.ShouldEqual, "frame3")
+	test.That(t, c.CollisionSpecification[0].Allows[1].Frame2, test.ShouldEqual, "frame4")
+
+	pbConstraint := c.ToProtobuf()
+	pbToRDKConstraint := ConstraintsFromProtobuf(pbConstraint)
+	test.That(t, c, test.ShouldResemble, pbToRDKConstraint)
 }

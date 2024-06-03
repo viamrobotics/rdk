@@ -498,44 +498,43 @@ func NewOctreeCollisionConstraint(octree *pointcloud.BasicOctree, threshold int,
 // LinearConstraint specifies that the component being moved should move linearly relative to its goal.
 // It does not constrain the motion of components other than the `component_name` specified in motion.Move
 type LinearConstraint struct {
-	LineToleranceMm          *float32 // Max linear deviation from straight-line between start and goal, in mm.
-	OrientationToleranceDegs *float32
+	LineToleranceMm          float64 // Max linear deviation from straight-line between start and goal, in mm.
+	OrientationToleranceDegs float64
 }
 
 // OrientationConstraint specifies that the component being moved will not deviate its orientation beyond some threshold relative
 // to the goal. It does not constrain the motion of components other than the `component_name` specified in motion.Move
 type OrientationConstraint struct {
-	OrientationToleranceDegs *float32
+	OrientationToleranceDegs float64
 }
 
-type CollisionSpecification_AllowedFrameCollisions struct {
-	Frame1 string
-	Frame2 string
+type CollisionSpecificationAllowedFrameCollisions struct {
+	Frame1, Frame2 string
 }
 
 // CollisionSpecification is used to selectively apply obstacle avoidance to specific parts of the robot
 type CollisionSpecification struct {
 	// Pairs of frame which should be allowed to collide with one another
-	Allows []*CollisionSpecification_AllowedFrameCollisions
+	Allows []CollisionSpecificationAllowedFrameCollisions
 }
 
 // Constraints is a struct to store the constraints imposed upon a robot
 // It serves as a convenenient RDK wrapper for the protobuf object
 type Constraints struct {
-	LinearConstraint       []*LinearConstraint
-	OrientationConstraint  []*OrientationConstraint
-	CollisionSpecification []*CollisionSpecification
+	LinearConstraint       []LinearConstraint
+	OrientationConstraint  []OrientationConstraint
+	CollisionSpecification []CollisionSpecification
 }
 
 func NewEmptyConstraints() *Constraints {
 	return &Constraints{
-		LinearConstraint:       make([]*LinearConstraint, 0),
-		OrientationConstraint:  make([]*OrientationConstraint, 0),
-		CollisionSpecification: make([]*CollisionSpecification, 0),
+		LinearConstraint:       make([]LinearConstraint, 0),
+		OrientationConstraint:  make([]OrientationConstraint, 0),
+		CollisionSpecification: make([]CollisionSpecification, 0),
 	}
 }
 
-func NewConstraints(linConstraints []*LinearConstraint, orientConstraints []*OrientationConstraint, collSpecifications []*CollisionSpecification) *Constraints {
+func NewConstraints(linConstraints []LinearConstraint, orientConstraints []OrientationConstraint, collSpecifications []CollisionSpecification) *Constraints {
 	return &Constraints{
 		LinearConstraint:       linConstraints,
 		OrientationConstraint:  orientConstraints,
@@ -545,74 +544,82 @@ func NewConstraints(linConstraints []*LinearConstraint, orientConstraints []*Ori
 
 func ConstraintsFromProtobuf(pbConstraint *motionpb.Constraints) *Constraints {
 	// iterate through all motionpb.LinearConstraint and convert to RDK form
-	linConstraintFromProto := func(linConstraints []*motionpb.LinearConstraint) []*LinearConstraint {
-		toRet := make([]*LinearConstraint, 0)
+	linConstraintFromProto := func(linConstraints []*motionpb.LinearConstraint) []LinearConstraint {
+		toRet := make([]LinearConstraint, 0, len(linConstraints))
 		for _, linConstraint := range linConstraints {
-			toRet = append(toRet, &LinearConstraint{
-				LineToleranceMm:          linConstraint.LineToleranceMm,
-				OrientationToleranceDegs: linConstraint.OrientationToleranceDegs,
+			toRet = append(toRet, LinearConstraint{
+				LineToleranceMm:          float64(*linConstraint.LineToleranceMm),
+				OrientationToleranceDegs: float64(*linConstraint.OrientationToleranceDegs),
 			})
 		}
 		return toRet
 	}
 
 	// iterate through all motionpb.OrientationConstraint and convert to RDK form
-	orientConstraintFromProto := func(orientConstraints []*motionpb.OrientationConstraint) []*OrientationConstraint {
-		toRet := make([]*OrientationConstraint, 0)
+	orientConstraintFromProto := func(orientConstraints []*motionpb.OrientationConstraint) []OrientationConstraint {
+		toRet := make([]OrientationConstraint, 0, len(orientConstraints))
 		for _, orientConstraint := range orientConstraints {
-			toRet = append(toRet, &OrientationConstraint{
-				OrientationToleranceDegs: orientConstraint.OrientationToleranceDegs,
+			toRet = append(toRet, OrientationConstraint{
+				OrientationToleranceDegs: float64(*orientConstraint.OrientationToleranceDegs),
 			})
 		}
 		return toRet
 	}
 
 	// iterate through all motionpb.CollisionSpecification and convert to RDK form
-	collSpecFromProto := func(collSpecs []*motionpb.CollisionSpecification) []*CollisionSpecification {
-		toRet := make([]*CollisionSpecification, 0)
+	collSpecFromProto := func(collSpecs []*motionpb.CollisionSpecification) []CollisionSpecification {
+		toRet := make([]CollisionSpecification, 0, len(collSpecs))
 		for _, collSpec := range collSpecs {
-			allowedFrameCollisions := make([]*CollisionSpecification_AllowedFrameCollisions, 0)
+			allowedFrameCollisions := make([]CollisionSpecificationAllowedFrameCollisions, 0)
 			for _, collSpecAllowedFrame := range collSpec.Allows {
-				allowedFrameCollisions = append(allowedFrameCollisions, &CollisionSpecification_AllowedFrameCollisions{
+				allowedFrameCollisions = append(allowedFrameCollisions, CollisionSpecificationAllowedFrameCollisions{
 					Frame1: collSpecAllowedFrame.Frame1,
 					Frame2: collSpecAllowedFrame.Frame2,
 				})
 			}
+			toRet = append(toRet, CollisionSpecification{
+				Allows: allowedFrameCollisions,
+			})
 		}
 		return toRet
 	}
 
-	return NewConstraints(linConstraintFromProto(pbConstraint.LinearConstraint),
+	return NewConstraints(
+		linConstraintFromProto(pbConstraint.LinearConstraint),
 		orientConstraintFromProto(pbConstraint.OrientationConstraint),
-		collSpecFromProto(pbConstraint.CollisionSpecification))
+		collSpecFromProto(pbConstraint.CollisionSpecification),
+	)
 }
 
-func (c *Constraints) ConstraintsToProtobuf() *motionpb.Constraints {
+func (c *Constraints) ToProtobuf() *motionpb.Constraints {
 	// convert LinearConstraint to motionpb.LinearConstraint
-	convertLinConstraintToProto := func(linConstraints []*LinearConstraint) []*motionpb.LinearConstraint {
+	convertLinConstraintToProto := func(linConstraints []LinearConstraint) []*motionpb.LinearConstraint {
 		toRet := make([]*motionpb.LinearConstraint, 0)
 		for _, linConstraint := range linConstraints {
+			lineTolerance := float32(linConstraint.LineToleranceMm)
+			orientationTolerance := float32(linConstraint.OrientationToleranceDegs)
 			toRet = append(toRet, &motionpb.LinearConstraint{
-				LineToleranceMm:          linConstraint.LineToleranceMm,
-				OrientationToleranceDegs: linConstraint.OrientationToleranceDegs,
+				LineToleranceMm:          &lineTolerance,
+				OrientationToleranceDegs: &orientationTolerance,
 			})
 		}
 		return toRet
 	}
 
 	// convert OrientationConstraint to motionpb.OrientationConstraint
-	convertOrientConstraintToProto := func(orientConstraints []*OrientationConstraint) []*motionpb.OrientationConstraint {
+	convertOrientConstraintToProto := func(orientConstraints []OrientationConstraint) []*motionpb.OrientationConstraint {
 		toRet := make([]*motionpb.OrientationConstraint, 0)
 		for _, orientConstraint := range orientConstraints {
+			orientationTolerance := float32(orientConstraint.OrientationToleranceDegs)
 			toRet = append(toRet, &motionpb.OrientationConstraint{
-				OrientationToleranceDegs: orientConstraint.OrientationToleranceDegs,
+				OrientationToleranceDegs: &orientationTolerance,
 			})
 		}
 		return toRet
 	}
 
 	// convert CollisionSpecifications to motionpb.CollisionSpecification
-	convertCollSpecToProto := func(collSpecs []*CollisionSpecification) []*motionpb.CollisionSpecification {
+	convertCollSpecToProto := func(collSpecs []CollisionSpecification) []*motionpb.CollisionSpecification {
 		toRet := make([]*motionpb.CollisionSpecification, 0)
 		for _, collSpec := range collSpecs {
 			allowedFrameCollisions := make([]*motionpb.CollisionSpecification_AllowedFrameCollisions, 0)
@@ -622,6 +629,9 @@ func (c *Constraints) ConstraintsToProtobuf() *motionpb.Constraints {
 					Frame2: collSpecAllowedFrame.Frame2,
 				})
 			}
+			toRet = append(toRet, &motionpb.CollisionSpecification{
+				Allows: allowedFrameCollisions,
+			})
 		}
 		return toRet
 	}
@@ -633,14 +643,14 @@ func (c *Constraints) ConstraintsToProtobuf() *motionpb.Constraints {
 	}
 }
 
-func (c *Constraints) AddLinearConstraint(linConstraint *LinearConstraint) {
+func (c *Constraints) AddLinearConstraint(linConstraint LinearConstraint) {
 	c.LinearConstraint = append(c.LinearConstraint, linConstraint)
 }
 
-func (c *Constraints) AddOrientationConstraint(orientConstraint *OrientationConstraint) {
+func (c *Constraints) AddOrientationConstraint(orientConstraint OrientationConstraint) {
 	c.OrientationConstraint = append(c.OrientationConstraint, orientConstraint)
 }
 
-func (c *Constraints) AddCollisionSpecification(collConstraint *CollisionSpecification) {
+func (c *Constraints) AddCollisionSpecification(collConstraint CollisionSpecification) {
 	c.CollisionSpecification = append(c.CollisionSpecification, collConstraint)
 }
