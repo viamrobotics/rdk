@@ -261,6 +261,7 @@ func (m *EncodedMotor) GoFor(ctx context.Context, rpm, revolutions float64, extr
 	}
 
 	if revolutions == 0 {
+		m.logger.Warn("Deprecated: setting revolutions == 0 will spin the motor indefinitely at the specified RPM")
 		return nil
 	}
 

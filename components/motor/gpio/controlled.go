@@ -301,13 +301,16 @@ func (cm *controlledMotor) GoFor(ctx context.Context, rpm, revolutions float64, 
 	ctx, done := cm.opMgr.New(ctx)
 	defer done()
 
-	switch speed := math.Abs(rpm); {
-	case speed < 0.1:
-		cm.logger.CWarn(ctx, "motor speed is nearly 0 rev_per_min")
-		return motor.NewZeroRPMError()
-	case cm.real.maxRPM > 0 && speed > cm.real.maxRPM-0.1:
-		cm.logger.CWarnf(ctx, "motor speed is nearly the max rev_per_min (%f)", cm.real.maxRPM)
-	default:
+	if revolutions == 0 {
+		cm.logger.Warn("Deprecated: setting revolutions == 0 will spin the motor indefinitely at the specified RPM")
+	}
+
+	warning, err := checkSpeed(rpm, cm.real.maxRPM)
+	if warning != "" {
+		cm.logger.CWarnf(ctx, warning)
+	}
+	if err != nil {
+		return err
 	}
 
 	currentTicks, _, err := cm.enc.Position(ctx, encoder.PositionTypeTicks, extra)
