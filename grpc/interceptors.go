@@ -8,7 +8,7 @@ import (
 )
 
 // DefaultMethodTimeout is the default context timeout for all inbound gRPC
-// methods and all outbound gRPC methods to modules, only used when no 
+// methods and all outbound gRPC methods to modules, only used when no
 // deadline is set on the context.
 var DefaultMethodTimeout = 10 * time.Minute
 
