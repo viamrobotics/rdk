@@ -16,7 +16,7 @@ type options struct {
 	// information - in log statements
 	revealSensitiveConfigDiffs bool
 
-	//
+	// shutdownCallback provides a callback for the robot to be able to shut itself down.
 	shutdownCallback func()
 }
 
