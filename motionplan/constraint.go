@@ -9,7 +9,6 @@ import (
 
 	"github.com/golang/geo/r3"
 	motionpb "go.viam.com/api/service/motion/v1"
-
 	"go.viam.com/rdk/motionplan/ik"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/referenceframe"
@@ -495,55 +494,145 @@ func NewOctreeCollisionConstraint(octree *pointcloud.BasicOctree, threshold int,
 	return constraint
 }
 
-// CreateConstraints creates a new Constraint object.
-func CreateConstraints() *motionpb.Constraints {
-	return &motionpb.Constraints{}
+// ------------ NEW RDK BASED CODE ------------
+// LinearConstraint specifies that the component being moved should move linearly relative to its goal.
+// It does not constrain the motion of components other than the `component_name` specified in motion.Move
+type LinearConstraint struct {
+	LineToleranceMm          *float32 // Max linear deviation from straight-line between start and goal, in mm.
+	OrientationToleranceDegs *float32
 }
 
-// AddLinearConstraint appends a Linear Constraint to a Constraint object
-// user side: c := CreateConstraints()
-//
-// AddLinearConstraint(c, {desired line tolerance}, {desired orientation}).
-func AddLinearConstraint(c *motionpb.Constraints, lineToleranceMm, orientationToleranceDegs *float32) {
-	newLinearConstraint := &motionpb.LinearConstraint{
-		LineToleranceMm:          lineToleranceMm,
-		OrientationToleranceDegs: orientationToleranceDegs,
-	}
-	c.LinearConstraint = append(c.LinearConstraint, newLinearConstraint)
+// OrientationConstraint specifies that the component being moved will not deviate its orientation beyond some threshold relative
+// to the goal. It does not constrain the motion of components other than the `component_name` specified in motion.Move
+type OrientationConstraint struct {
+	OrientationToleranceDegs *float32
 }
 
-// AddOrientationConstraint appends a Orientation Constraint to a Constraint object
-// user side: c := CreateConstraints()
-//
-//	AddOrientationConstraint(c, {desired orientation})
-func AddOrientationConstraint(c *motionpb.Constraints, orientationToleranceDegs *float32) {
-	newOrientationConstraint := &motionpb.OrientationConstraint{
-		OrientationToleranceDegs: orientationToleranceDegs,
-	}
-	c.OrientationConstraint = append(c.OrientationConstraint, newOrientationConstraint)
+type CollisionSpecification_AllowedFrameCollisions struct {
+	Frame1 string
+	Frame2 string
 }
 
-// AddCollisionSpecification appends a Collision Specification to a Constraint object using an input map
-// user side: c := CreateConstraints
-//
-//			  frameMap := map[string]string{
-//								"frame1": "frame2",
-//								"frame3": "frame4",
-//			  			  }
-//
-//	  AddCollisionSpecification(c, {desired orientation})
-func AddCollisionSpecification(c *motionpb.Constraints, allows map[string]string) {
-	allowedFrameCollisions := make([]*motionpb.CollisionSpecification_AllowedFrameCollisions, 0)
-	for frame1, frame2 := range allows {
-		allowedFrameCollisions = append(allowedFrameCollisions,
-			&motionpb.CollisionSpecification_AllowedFrameCollisions{
-				Frame1: frame1,
-				Frame2: frame2,
-			},
-		)
-	}
-	newCollisionSpecification := &motionpb.CollisionSpecification{
-		Allows: allowedFrameCollisions,
-	}
-	c.CollisionSpecification = append(c.CollisionSpecification, newCollisionSpecification)
+// CollisionSpecification is used to selectively apply obstacle avoidance to specific parts of the robot
+type CollisionSpecification struct {
+	// Pairs of frame which should be allowed to collide with one another
+	Allows []*CollisionSpecification_AllowedFrameCollisions
 }
+
+// Constraints is a struct to store the constraints imposed upon a robot
+// It serves as a convenenient RDK wrapper for the protobuf object
+type Constraints struct {
+	LinearConstraint       []*LinearConstraint
+	OrientationConstraint  []*OrientationConstraint
+	CollisionSpecification []*CollisionSpecification
+}
+
+func NewEmptyConstraints() *Constraints {
+	return &Constraints{
+		LinearConstraint:       make([]*LinearConstraint, 0),
+		OrientationConstraint:  make([]*OrientationConstraint, 0),
+		CollisionSpecification: make([]*CollisionSpecification, 0),
+	}
+}
+
+// Functions needed:
+func (c *Constraints) AddLinearConstraint(linConstraint *LinearConstraint) {
+	c.LinearConstraint = append(c.LinearConstraint, linConstraint)
+}
+
+func (c *Constraints) AddOrientationConstraint(orientConstraint *OrientationConstraint) {
+	c.OrientationConstraint = append(c.OrientationConstraint, orientConstraint)
+}
+
+func (c *Constraints) AddCollisionSpecification(collConstraint *CollisionSpecification) {
+	c.CollisionSpecification = append(c.CollisionSpecification, collConstraint)
+}
+
+func (c *Constraints) ConstraintsFromProtobuf(pbConstraint *motionpb.Constraints) {
+	// iterate through all motionpb.LinearConstraint and convert to RDK form
+	for _, pbLinConstraint := range pbConstraint.LinearConstraint {
+		c.LinearConstraint = append(c.LinearConstraint, &LinearConstraint{
+			LineToleranceMm:          pbLinConstraint.LineToleranceMm,
+			OrientationToleranceDegs: pbLinConstraint.OrientationToleranceDegs,
+		})
+	}
+
+	// iterate through all motionpb.OrientationConstraint and convert to RDK form
+	for _, pbOrientConstraint := range pbConstraint.OrientationConstraint {
+		c.OrientationConstraint = append(c.OrientationConstraint, &OrientationConstraint{
+			OrientationToleranceDegs: pbOrientConstraint.OrientationToleranceDegs,
+		})
+	}
+
+	// iterate through all motionpb.CollisionSpecification and convert to RDK form
+	for _, pbCollSpecification := range pbConstraint.CollisionSpecification {
+		allowedFrameCollisions := make([]*CollisionSpecification_AllowedFrameCollisions, 0)
+		for _, pbCollSpecAllowedFrame := range pbCollSpecification.Allows {
+			allowedFrameCollisions = append(allowedFrameCollisions, &CollisionSpecification_AllowedFrameCollisions{
+				Frame1: pbCollSpecAllowedFrame.Frame1,
+				Frame2: pbCollSpecAllowedFrame.Frame2,
+			})
+		}
+		c.CollisionSpecification = append(c.CollisionSpecification, &CollisionSpecification{
+			Allows: allowedFrameCollisions,
+		})
+	}
+}
+
+func ConstraintsToProtobuf() *motionpb.Constraints {
+
+}
+
+// ------------ OLD PROTOBUF BASED CODE ------------
+// // CreateConstraints creates a new Constraint object.
+// func CreateConstraints() *motionpb.Constraints {
+// 	return &motionpb.Constraints{}
+// }
+
+// // AddLinearConstraint appends a Linear Constraint to a Constraint object
+// // user side: c := CreateConstraints()
+// //
+// // AddLinearConstraint(c, {desired line tolerance}, {desired orientation}).
+// func AddLinearConstraint(c *motionpb.Constraints, lineToleranceMm, orientationToleranceDegs *float32) {
+// 	newLinearConstraint := &motionpb.LinearConstraint{
+// 		LineToleranceMm:          lineToleranceMm,
+// 		OrientationToleranceDegs: orientationToleranceDegs,
+// 	}
+// 	c.LinearConstraint = append(c.LinearConstraint, newLinearConstraint)
+// }
+
+// // AddOrientationConstraint appends a Orientation Constraint to a Constraint object
+// // user side: c := CreateConstraints()
+// //
+// //	AddOrientationConstraint(c, {desired orientation})
+// func AddOrientationConstraint(c *motionpb.Constraints, orientationToleranceDegs *float32) {
+// 	newOrientationConstraint := &motionpb.OrientationConstraint{
+// 		OrientationToleranceDegs: orientationToleranceDegs,
+// 	}
+// 	c.OrientationConstraint = append(c.OrientationConstraint, newOrientationConstraint)
+// }
+
+// // AddCollisionSpecification appends a Collision Specification to a Constraint object using an input map
+// // user side: c := CreateConstraints
+// //
+// //			  frameMap := map[string]string{
+// //								"frame1": "frame2",
+// //								"frame3": "frame4",
+// //			  			  }
+// //
+// //	  AddCollisionSpecification(c, {desired orientation})
+// func AddCollisionSpecification(c *motionpb.Constraints, allows map[string]string) {
+// 	allowedFrameCollisions := make([]*motionpb.CollisionSpecification_AllowedFrameCollisions, 0)
+// 	for frame1, frame2 := range allows {
+// 		allowedFrameCollisions = append(allowedFrameCollisions,
+// 			&motionpb.CollisionSpecification_AllowedFrameCollisions{
+// 				Frame1: frame1,
+// 				Frame2: frame2,
+// 			},
+// 		)
+// 	}
+// 	newCollisionSpecification := &motionpb.CollisionSpecification{
+// 		Allows: allowedFrameCollisions,
+// 	}
+// 	c.CollisionSpecification = append(c.CollisionSpecification, newCollisionSpecification)
+// }
