@@ -303,7 +303,6 @@ func (m *Motor) GoFor(ctx context.Context, rpm, revolutions float64, extra map[s
 	}
 
 	if revolutions == 0 {
-		m.Logger.Warn("Deprecated")
 		return nil
 	}
 
