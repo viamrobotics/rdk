@@ -17,6 +17,7 @@ func getCLICachePath() string {
 }
 
 // ConfigFromCache parses the cached json into a Config.
+// TODO(RSDK-7812): maybe move shared code to common location.
 func ConfigFromCache() (*Config, error) {
 	rd, err := os.ReadFile(getCLICachePath())
 	if err != nil {
