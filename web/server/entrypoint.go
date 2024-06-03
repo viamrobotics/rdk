@@ -359,6 +359,19 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 		robotOptions = append(robotOptions, robotimpl.WithRevealSensitiveConfigDiffs())
 	}
 
+	shutdownCallbackOpt := robotimpl.WithShutdownCallback(func() {
+		bufSize := 1 << 20
+		traces := make([]byte, bufSize)
+		traceSize := runtime.Stack(traces, true)
+		message := "backtrace at robot restart"
+		if traceSize == bufSize {
+			message = fmt.Sprintf("%s (warning: backtrace truncated to %v bytes)", message, bufSize)
+		}
+		s.logger.Infof("%s, %s", message, traces)
+		cancel()
+	})
+	robotOptions = append(robotOptions, shutdownCallbackOpt)
+
 	myRobot, err := robotimpl.New(ctx, processedConfig, s.logger, robotOptions...)
 	if err != nil {
 		cancel()

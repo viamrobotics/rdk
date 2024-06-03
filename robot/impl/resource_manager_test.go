@@ -1822,6 +1822,10 @@ func (rr *dummyRobot) RestartModule(ctx context.Context, req robot.RestartModule
 	return rr.robot.RestartModule(ctx, req)
 }
 
+func (rr *dummyRobot) Shutdown(ctx context.Context) error {
+	return rr.robot.Shutdown(ctx)
+}
+
 // managerForDummyRobot integrates all parts from a given robot except for its remotes.
 // It also close itself when the test and all subtests complete.
 func managerForDummyRobot(t *testing.T, robot robot.Robot) *resourceManager {

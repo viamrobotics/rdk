@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	"github.com/invopop/jsonschema"
+	"go.uber.org/zap/zapcore"
 	robotpb "go.viam.com/api/robot/v1"
 	"go.viam.com/test"
 	goutils "go.viam.com/utils"
@@ -105,5 +106,50 @@ func TestEntrypoint(t *testing.T) {
 			test.That(t, reg.Model, test.ShouldNotBeEmpty)
 			test.That(t, reg.Schema, test.ShouldNotBeNil)
 		}
+	})
+	t.Run("shutdown functionality", func(t *testing.T) {
+		logger, logObserver := logging.NewObservedTestLogger(t)
+		cfgFilename := utils.ResolveFile("/etc/configs/fake.json")
+		cfg, err := config.Read(context.Background(), cfgFilename, logger)
+		test.That(t, err, test.ShouldBeNil)
+
+		var port int
+		var success bool
+		for portTryNum := 0; portTryNum < 10; portTryNum++ {
+			p, err := goutils.TryReserveRandomPort()
+			port = p
+			test.That(t, err, test.ShouldBeNil)
+
+			cfg.Network.BindAddress = fmt.Sprintf(":%d", port)
+			cfgFilename, err = robottestutils.MakeTempConfig(t, cfg, logger)
+			test.That(t, err, test.ShouldBeNil)
+
+			server := robottestutils.ServerAsSeparateProcess(t, cfgFilename, logger)
+
+			err = server.Start(context.Background())
+			test.That(t, err, test.ShouldBeNil)
+
+			if success = robottestutils.WaitForServing(logObserver, port); success {
+				defer func() {
+					test.That(t, server.Stop(), test.ShouldBeNil)
+				}()
+				break
+			}
+			logger.Infow("Port in use. Restarting on new port.", "port", port, "err", err)
+			server.Stop()
+			continue
+		}
+		test.That(t, success, test.ShouldBeTrue)
+
+		conn, err := robottestutils.Connect(port)
+		test.That(t, err, test.ShouldBeNil)
+		defer func() {
+			test.That(t, conn.Close(), test.ShouldBeNil)
+		}()
+		rc := robotpb.NewRobotServiceClient(conn)
+
+		_, err = rc.Shutdown(context.Background(), &robotpb.ShutdownRequest{})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, logObserver.FilterLevelExact(zapcore.ErrorLevel).Len(), test.ShouldEqual, 0)
 	})
 }
