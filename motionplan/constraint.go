@@ -544,7 +544,6 @@ func NewConstraints(linConstraints []*LinearConstraint, orientConstraints []*Ori
 }
 
 func ConstraintsFromProtobuf(pbConstraint *motionpb.Constraints) *Constraints {
-	// TODO: change from instance method to static method. creates new Constraints object
 	// iterate through all motionpb.LinearConstraint and convert to RDK form
 	linConstraintFromProto := func(linConstraints []*motionpb.LinearConstraint) []*LinearConstraint {
 		toRet := make([]*LinearConstraint, 0)
