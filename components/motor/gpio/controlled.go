@@ -318,18 +318,20 @@ func (cm *controlledMotor) GoFor(ctx context.Context, rpm, revolutions float64, 
 		return err
 	}
 
-	goalPos, _, _ := encodedGoForMath(rpm, revolutions, currentTicks, cm.ticksPerRotation)
-
 	if cm.loop == nil {
 		// create new control loop
 		if err := cm.startControlLoop(); err != nil {
 			return err
 		}
 	}
-
 	cm.loop.Resume()
+
+	cm.mu.Lock()
+	goalPos, _, _ := encodedGoForMath(rpm, revolutions, currentTicks, cm.ticksPerRotation)
+
 	// set control loop values
 	velVal := math.Abs(rpm * cm.ticksPerRotation / 60)
+	cm.mu.Unlock()
 	// when rev = 0, only velocity is controlled
 	// setPoint is +/- infinity, maxVel is calculated velVal
 	if err := cm.updateControlBlock(ctx, goalPos, velVal); err != nil {

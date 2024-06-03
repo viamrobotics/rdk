@@ -166,6 +166,7 @@ func (m *EncodedMotor) makeAdjustments(ctx context.Context, goalRPM, goalPos, di
 		}
 
 		// calculate RPM based on change in position and change in time
+		m.mu.Lock()
 		deltaPos := (pos - lastPos) / m.ticksPerRotation
 		// time is polled in nanoseconds, convert to minutes for rpm
 		deltaTime := (float64(now) - float64(lastTime)) / float64(6e10)
@@ -177,6 +178,7 @@ func (m *EncodedMotor) makeAdjustments(ctx context.Context, goalRPM, goalPos, di
 		}
 
 		newPower, err := m.calcNewPowerPct(ctx, currentRPM, goalRPM, lastPowerPct, direction)
+		m.mu.Unlock()
 		if err != nil {
 			return err
 		}
@@ -197,9 +199,6 @@ func (m *EncodedMotor) makeAdjustments(ctx context.Context, goalRPM, goalPos, di
 func (m *EncodedMotor) calcNewPowerPct(
 	ctx context.Context, currentRPM, goalRPM, lastPowerPct, direction float64,
 ) (float64, error) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
 	newPowerPct := lastPowerPct
 
 	rpmErr := goalRPM - currentRPM
@@ -222,11 +221,11 @@ func (m *EncodedMotor) calcNewPowerPct(
 // Negative power implies a backward directional rotational.
 func (m *EncodedMotor) SetPower(ctx context.Context, powerPct float64, extra map[string]interface{}) error {
 	m.opMgr.CancelRunning(ctx)
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	if m.makeAdjustmentsDone != nil {
 		m.makeAdjustmentsDone()
 	}
-	m.mu.Lock()
-	defer m.mu.Unlock()
 	powerPct = fixPowerPct(powerPct, m.maxPowerPct)
 	return m.real.SetPower(ctx, powerPct, nil)
 }
@@ -253,7 +252,9 @@ func (m *EncodedMotor) GoFor(ctx context.Context, rpm, revolutions float64, extr
 	if err != nil {
 		return err
 	}
+	m.mu.Lock()
 	goalPos, goalRPM, direction := encodedGoForMath(rpm, revolutions, currentTicks, m.ticksPerRotation)
+	m.mu.Unlock()
 
 	if err := m.goForInternal(goalRPM, goalPos, direction); err != nil {
 		return err
@@ -289,6 +290,8 @@ func (m *EncodedMotor) GoFor(ctx context.Context, rpm, revolutions float64, extr
 }
 
 func (m *EncodedMotor) goForInternal(rpm, goalPos, direction float64) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	// cancel makeAdjustments if it already exists
 	if m.makeAdjustmentsDone != nil {
 		m.makeAdjustmentsDone()
@@ -320,7 +323,9 @@ func (m *EncodedMotor) GoTo(ctx context.Context, rpm, targetPosition float64, ex
 	if err != nil {
 		return err
 	}
+	m.mu.Lock()
 	currRotations := pos / m.ticksPerRotation
+	m.mu.Unlock()
 	rotations := targetPosition - currRotations
 	// if you call GoFor with 0 revolutions, the motor will spin forever. If we are at the target,
 	// we must avoid this by not calling GoFor.
@@ -336,7 +341,9 @@ func (m *EncodedMotor) SetRPM(ctx context.Context, rpm float64, extra map[string
 	ctx, done := m.opMgr.New(ctx)
 	defer done()
 
+	m.mu.Lock()
 	warning, err := checkSpeed(rpm, m.cfg.MaxRPM)
+	m.mu.Unlock()
 	if warning != "" {
 		m.logger.CWarnf(ctx, warning)
 	}
@@ -389,6 +396,8 @@ func (m *EncodedMotor) Position(ctx context.Context, extra map[string]interface{
 		return 0, err
 	}
 
+	m.mu.RLock()
+	defer m.mu.RUnlock()
 	return ticks / m.ticksPerRotation, nil
 }
 
@@ -412,9 +421,11 @@ func (m *EncodedMotor) IsMoving(ctx context.Context) (bool, error) {
 
 // Stop stops makeAdjustments and stops the real motor.
 func (m *EncodedMotor) Stop(ctx context.Context, extra map[string]interface{}) error {
+	m.mu.Lock()
 	if m.makeAdjustmentsDone != nil {
 		m.makeAdjustmentsDone()
 	}
+	m.mu.Unlock()
 	return m.real.Stop(ctx, nil)
 }
 
