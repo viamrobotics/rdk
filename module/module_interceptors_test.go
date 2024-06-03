@@ -167,9 +167,9 @@ func TestModuleClientTimeoutInterceptor(t *testing.T) {
 	helper1, err := r.ResourceByName(generic.Named("helper1"))
 	test.That(t, err, test.ShouldBeNil)
 
-	// Artificially lower default method timeout to an impossibly small duration.
+	// Artificially set default method timeout to have timed out in the past.
 	origDefaultMethodTimeout := rdkgrpc.DefaultMethodTimeout
-	rdkgrpc.DefaultMethodTimeout = time.Nanosecond
+	rdkgrpc.DefaultMethodTimeout = -time.Nanosecond
 	defer func() {
 		rdkgrpc.DefaultMethodTimeout = origDefaultMethodTimeout
 	}()
