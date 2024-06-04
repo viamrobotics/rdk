@@ -295,6 +295,7 @@ func (r *Robot) CloudMetadata(ctx context.Context) (cloud.Metadata, error) {
 	return r.CloudMetadataFunc(ctx)
 }
 
+// Shutdown calls the injected Shutdown or the real one.
 func (r *Robot) Shutdown(ctx context.Context) error {
 	r.Mu.RLock()
 	defer r.Mu.RUnlock()
