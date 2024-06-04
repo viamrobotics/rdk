@@ -20,8 +20,6 @@ import (
 
 // SetState sets the state of the motor for the built-in control loop.
 func (cm *controlledMotor) SetState(ctx context.Context, state []*control.Signal) error {
-	cm.mu.Lock()
-	defer cm.mu.Unlock()
 	if cm.loop != nil && !cm.loop.Running() {
 		return nil
 	}
@@ -32,8 +30,6 @@ func (cm *controlledMotor) SetState(ctx context.Context, state []*control.Signal
 // State gets the state of the motor for the built-in control loop.
 func (cm *controlledMotor) State(ctx context.Context) ([]float64, error) {
 	ticks, _, err := cm.enc.Position(ctx, encoder.PositionTypeTicks, nil)
-	cm.mu.RLock()
-	defer cm.mu.RUnlock()
 	pos := ticks + cm.offsetInTicks
 	return []float64{pos}, err
 }
@@ -160,8 +156,6 @@ type controlledMotor struct {
 // Negative power implies a backward directional rotational.
 func (cm *controlledMotor) SetPower(ctx context.Context, powerPct float64, extra map[string]interface{}) error {
 	cm.opMgr.CancelRunning(ctx)
-	cm.mu.Lock()
-	defer cm.mu.Unlock()
 	if cm.loop != nil {
 		cm.loop.Pause()
 	}
@@ -181,8 +175,6 @@ func (cm *controlledMotor) IsMoving(ctx context.Context) (bool, error) {
 
 // Stop stops rpmMonitor and stops the real motor.
 func (cm *controlledMotor) Stop(ctx context.Context, extra map[string]interface{}) error {
-	cm.mu.Lock()
-	defer cm.mu.Unlock()
 	// after the motor is created, Stop is called, but if the PID controller
 	// is auto-tuning, the loop needs to keep running
 	if cm.loop != nil && !cm.loop.GetTuning(ctx) {
@@ -196,8 +188,6 @@ func (cm *controlledMotor) Close(ctx context.Context) error {
 	if err := cm.Stop(ctx, nil); err != nil {
 		return err
 	}
-	cm.mu.Lock()
-	defer cm.mu.Unlock()
 	if cm.loop != nil {
 		cm.loop.Stop()
 		cm.loop = nil
@@ -270,9 +260,6 @@ func (cm *controlledMotor) SetRPM(ctx context.Context, rpm float64, extra map[st
 	ctx, done := cm.opMgr.New(ctx)
 	defer done()
 
-	cm.mu.Lock()
-	defer cm.mu.Unlock()
-
 	warning, err := checkSpeed(rpm, cm.real.maxRPM)
 	if warning != "" {
 		cm.logger.CWarnf(ctx, warning)
@@ -324,11 +311,9 @@ func (cm *controlledMotor) GoFor(ctx context.Context, rpm, revolutions float64, 
 		return err
 	}
 
-	cm.mu.Lock()
 	if cm.loop == nil {
 		// create new control loop
 		if err := cm.startControlLoop(); err != nil {
-			cm.mu.Unlock()
 			return err
 		}
 	}
@@ -338,7 +323,6 @@ func (cm *controlledMotor) GoFor(ctx context.Context, rpm, revolutions float64, 
 
 	// set control loop values
 	velVal := math.Abs(rpm * cm.ticksPerRotation / 60)
-	cm.mu.Unlock()
 	// when rev = 0, only velocity is controlled
 	// setPoint is +/- infinity, maxVel is calculated velVal
 	if err := cm.updateControlBlock(ctx, goalPos, velVal); err != nil {
