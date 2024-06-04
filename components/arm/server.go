@@ -41,13 +41,6 @@ func (s *serviceServer) GetEndPosition(
 	if err != nil {
 		return nil, err
 	}
-
-	// Return default value if the position returned is nil.
-	if pos == nil {
-		pose := &commonpb.Pose{}
-		return &pb.GetEndPositionResponse{Pose: pose}, nil
-	}
-
 	return &pb.GetEndPositionResponse{Pose: spatialmath.PoseToProtobuf(pos)}, nil
 }
 
@@ -64,12 +57,7 @@ func (s *serviceServer) GetJointPositions(
 	if err != nil {
 		return nil, err
 	}
-
-	// Have a default empty joint postions in case the position returned is nil.
-	convertedPos := &pb.JointPositions{Values: []float64{}}
-	if pos != nil {
-		convertedPos.Values = pos.Values
-	}
+	convertedPos := &pb.JointPositions{Values: pos.Values}
 	return &pb.GetJointPositionsResponse{Positions: convertedPos}, nil
 }
 
