@@ -107,6 +107,9 @@ func TestEntrypoint(t *testing.T) {
 			test.That(t, reg.Schema, test.ShouldNotBeNil)
 		}
 	})
+}
+
+func TestShutdown(t *testing.T) {
 	t.Run("shutdown functionality", func(t *testing.T) {
 		logger, logObserver := logging.NewObservedTestLogger(t)
 		cfgFilename := utils.ResolveFile("/etc/configs/fake.json")
