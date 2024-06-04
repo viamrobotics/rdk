@@ -100,9 +100,6 @@ func TestConcurrentReconfiguration(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			cfg, rob := setupTestRobotWithModules(t, ctx, logger)
-
-			cfg.Components = nil
-			rob.Reconfigure(ctx, cfg)
 			test.That(t, rob.ResourceNames(), test.ShouldBeEmpty)
 
 			// Create config with parametrized dependencies.
@@ -123,6 +120,13 @@ func TestConcurrentReconfiguration(t *testing.T) {
 			rob.Reconfigure(ctx, cfg)
 			duration := time.Since(start)
 
+			// Assert that all resources were added.
+			var err error
+			for i := 0; i < resCount; i++ {
+				_, err = rob.ResourceByName(generic.Named(fmt.Sprintf("slow%d", i)))
+				test.That(t, err, test.ShouldBeNil)
+			}
+
 			// Report metrics.
 			t.Logf(
 				"reconfigured %d resources in %d ms (each individual resource takes %s to reconfigure)",
@@ -130,13 +134,6 @@ func TestConcurrentReconfiguration(t *testing.T) {
 				duration.Milliseconds(),
 				configDuration,
 			)
-
-			// Assert that all resources were added.
-			var err error
-			for i := 0; i < resCount; i++ {
-				_, err = rob.ResourceByName(generic.Named(fmt.Sprintf("slow%d", i)))
-				test.That(t, err, test.ShouldBeNil)
-			}
 		})
 	}
 }
