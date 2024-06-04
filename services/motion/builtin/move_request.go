@@ -35,7 +35,7 @@ const (
 
 // validatedMotionConfiguration is a copy of the motion.MotionConfiguration type
 // which has been validated to conform to the expectations of the builtin
-// motion servicl.
+// motion service.
 type validatedMotionConfiguration struct {
 	obstacleDetectors     []motion.ObstacleDetectorName
 	positionPollingFreqHz float64
