@@ -991,7 +991,8 @@ func (rc *RobotClient) RestartModule(ctx context.Context, req robot.RestartModul
 	return nil
 }
 
-// Shutdown shuts down the robot.
+// Shutdown shuts down the robot. Will throw a "shutdown function not defined error" if
+// shutdown callback is not binded to robot options.
 func (rc *RobotClient) Shutdown(ctx context.Context) error {
 	reqPb := &pb.ShutdownRequest{}
 	_, err := rc.client.Shutdown(ctx, reqPb)
