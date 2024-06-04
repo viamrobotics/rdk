@@ -351,6 +351,8 @@ func (ptgk *ptgBaseKinematics) courseCorrect(
 	poseDiff := spatialmath.PoseBetween(actualPose.Pose(), expectedPose)
 
 	allowableDiff := ptgk.linVelocityMMPerSecond * updateStepSeconds * (minDeviationToCorrectPct / 100)
+		ptgk.logger.Debug("expected to be at ", spatialmath.PoseToProtobuf(expectedPose))
+		ptgk.logger.Debug("Localizer says at ", spatialmath.PoseToProtobuf(actualPose.Pose()))
 	ptgk.logger.Debug(
 		"allowable diff ", allowableDiff,
 		" linear diff now ", poseDiff.Point().Norm(),

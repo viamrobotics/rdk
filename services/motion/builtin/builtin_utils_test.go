@@ -42,6 +42,7 @@ var (
 	
 	moveSensorResource = resource.NewName(movementsensor.API, moveSensorName)
 	baseResource = resource.NewName(base.API, baseName)
+	movementSensorInBasePoint = r3.Vector{X: -10, Y: 0, Z: 0}
 )
 
 func setupMotionServiceFromConfig(t *testing.T, configFilename string) (motion.Service, func()) {
@@ -141,8 +142,8 @@ func createWheeledBase(t *testing.T, ctx context.Context, logger logging.Logger,
 	test.That(t, ok, test.ShouldBeTrue)
 	
 	wheeledConf := &wheeled.Config {
-		WidthMM: 100,
-		WheelCircumferenceMM: 200, // for testing purposes we want to go fast :)
+		WidthMM: 200,
+		WheelCircumferenceMM: 2000, // for testing purposes we want to go fast :)
 		Left: []string{leftMotorName},
 		Right: []string{rightMotorName},
 	}
@@ -219,7 +220,7 @@ func createMovementSensor(
 		LeftMotors: []string{leftMotorName},
 		RightMotors: []string{rightMotorName},
 		Base: fakeBase.Name().ShortName(),
-		TimeIntervalMSecs: 10,
+		TimeIntervalMSecs: 1,
 	}
 	
 	moveConf := resource.Config{
@@ -314,7 +315,7 @@ func createMoveOnGlobeEnvironment(ctx context.Context, t *testing.T, origin *geo
 	// create MovementSensor link
 	movementSensorLink := referenceframe.NewLinkInFrame(
 		baseLink.Name(),
-		spatialmath.NewPoseFromPoint(r3.Vector{X: -10, Y: 0, Z: 0}),
+		spatialmath.NewPoseFromPoint(movementSensorInBasePoint),
 		"test-gps",
 		nil,
 	)
