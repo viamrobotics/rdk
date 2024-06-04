@@ -110,7 +110,6 @@ func (sb *sensorBase) Spin(ctx context.Context, angleDeg, degsPerSec float64, ex
 				// calculate the estimated change in angle based on the latest angular velocity
 				deltaAngDeg := angVels.Z * deltaTime
 				angMoved += deltaAngDeg
-				sb.logger.Info("moved angle: ", angMoved)
 
 				// track time for the velocity integration
 				prevTime = currTime
