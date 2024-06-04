@@ -1082,7 +1082,7 @@ func TestBoundingRegionsConstraint(t *testing.T) {
 		}
 		_, err = ms.MoveOnGlobe(ctx, req)
 		test.That(t, err, test.ShouldNotBeNil)
-		expectedErrorString := "base named test-base is not within the provided bounding regions"
+		expectedErrorString := "frame named test-base is not within the provided bounding regions"
 		test.That(t, strings.Contains(err.Error(), expectedErrorString), test.ShouldBeTrue)
 	})
 
