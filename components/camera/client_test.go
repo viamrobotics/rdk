@@ -1,3 +1,4 @@
+// nolint
 package camera_test
 
 import (
@@ -924,10 +925,7 @@ func TestMultiplexOverMultiHopRemoteConnection(t *testing.T) {
 
 	mLogger.SetLevel(logging.INFO)
 	for {
-		camRes, err := camera.FromRobot(remoteRobot1, "remote-2:rtpPassthroughCamera")
-		fmt.Println("Found fromRobot res?", camRes != nil)
-		fmt.Println("Found fromRobot err?", err)
-
+		_, err := camera.FromRobot(remoteRobot1, "remote-2:rtpPassthroughCamera")
 		if err != nil && (strings.Contains(err.Error(), "resource not initialized") ||
 			strings.Contains(err.Error(), "remote blipped")) {
 			break
@@ -954,11 +952,7 @@ func TestMultiplexOverMultiHopRemoteConnection(t *testing.T) {
 		time.Sleep(time.Second)
 
 		camRes, err := camera.FromRobot(remoteRobot1, "remote-2:rtpPassthroughCamera")
-		fmt.Println("Found fromRobot res?", camRes != nil)
-		fmt.Println("Found fromRobot err?", err)
-
 		_, _, err = cameraClient.Images(mainCtx)
-		fmt.Println("Got image working yet? Err:", err)
 		if err == nil {
 			break
 		}

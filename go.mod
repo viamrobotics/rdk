@@ -401,5 +401,3 @@ require (
 	github.com/ziutek/mymysql v1.5.4 // indirect
 	golang.org/x/exp v0.0.0-20230725012225-302865e7556b
 )
-
-replace github.com/pion/webrtc/v3 => github.com/nicksanford/webrtc/v3 v3.0.0-20240522205522-02b7d7d4142b

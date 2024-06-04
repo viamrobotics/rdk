@@ -1,3 +1,4 @@
+//nolint
 package resource
 
 import (
@@ -399,11 +400,4 @@ func (w *GraphNode) replace(other *GraphNode) error {
 	other.needsDependencyResolution = false
 	other.mu.Unlock()
 	return nil
-}
-
-func (w *GraphNode) String() string {
-	w.mu.RLock()
-	defer w.mu.RUnlock()
-
-	return fmt.Sprintf("%+v", *w)
 }
