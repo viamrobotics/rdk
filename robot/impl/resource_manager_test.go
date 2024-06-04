@@ -1879,9 +1879,9 @@ func TestReconfigureParity(t *testing.T) {
 			// Configuration may mutate `*config.Config`, so we read it from
 			// file each time.
 			cfg := ConfigFromFile(t, initCfg)
-			r1 := setupLocalRobot(t, ctx, cfg, logger).(*localRobot)
+			r1 := SetupLocalRobot(t, ctx, cfg, logger).(*localRobot)
 			cfg = ConfigFromFile(t, initCfg)
-			r2 := setupLocalRobot(t, ctx, cfg, logger).(*localRobot)
+			r2 := SetupLocalRobot(t, ctx, cfg, logger).(*localRobot)
 
 			rdktestutils.VerifySameResourceNames(t, r1.ResourceNames(), r2.ResourceNames())
 

@@ -951,7 +951,7 @@ func TestMultiplexOverMultiHopRemoteConnection(t *testing.T) {
 	for {
 		time.Sleep(time.Second)
 
-		camRes, err := camera.FromRobot(remoteRobot1, "remote-2:rtpPassthroughCamera")
+		_, err := camera.FromRobot(remoteRobot1, "remote-2:rtpPassthroughCamera")
 		_, _, err = cameraClient.Images(mainCtx)
 		if err == nil {
 			break
