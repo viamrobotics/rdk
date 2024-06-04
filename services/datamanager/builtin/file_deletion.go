@@ -62,6 +62,9 @@ func exceedsDeletionThreshold(ctx context.Context, captureDirPath string, fsSize
 		if !d.IsDir() {
 			fileInfo, err := d.Info()
 			if err != nil {
+				if errors.Is(err, fs.ErrNotExist) {
+					return nil
+				}
 				return err
 			}
 			dirSize += fileInfo.Size()
@@ -113,9 +116,9 @@ func deleteFiles(ctx context.Context, syncer datasync.Manager, deleteEveryNth in
 				}
 				return err
 			}
-			isFileInProgress := strings.Contains(fileInfo.Name(), datacapture.InProgressFileExt)
+			isCompletedDataCaptureFile := strings.Contains(fileInfo.Name(), datacapture.FileExt)
 			// if at nth file and the file is not currently being written, mark as in progress if possible
-			if index%deleteEveryNth == 0 && !isFileInProgress {
+			if isCompletedDataCaptureFile && index%deleteEveryNth == 0 {
 				if syncer != nil && !syncer.MarkInProgress(path) {
 					logger.Debugw("Tried to mark file as in progress but lock already held", "file", d.Name())
 					return nil
@@ -130,7 +133,7 @@ func deleteFiles(ctx context.Context, syncer datasync.Manager, deleteEveryNth in
 				deletedFileCount++
 			}
 			// only increment on completed files
-			if !isFileInProgress {
+			if isCompletedDataCaptureFile {
 				index++
 			}
 		}

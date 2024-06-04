@@ -305,7 +305,7 @@ func (svc *webService) StartModule(ctx context.Context) error {
 		streamInterceptors []googlegrpc.StreamServerInterceptor
 	)
 
-	unaryInterceptors = append(unaryInterceptors, grpc.EnsureTimeoutUnaryInterceptor)
+	unaryInterceptors = append(unaryInterceptors, grpc.EnsureTimeoutUnaryServerInterceptor)
 
 	opManager := svc.r.OperationManager()
 	unaryInterceptors = append(unaryInterceptors,
@@ -632,7 +632,7 @@ func (svc *webService) initRPCOptions(listenerTCPAddr *net.TCPAddr, options webo
 
 	var unaryInterceptors []googlegrpc.UnaryServerInterceptor
 
-	unaryInterceptors = append(unaryInterceptors, grpc.EnsureTimeoutUnaryInterceptor)
+	unaryInterceptors = append(unaryInterceptors, grpc.EnsureTimeoutUnaryServerInterceptor)
 
 	if options.Debug {
 		rpcOpts = append(rpcOpts, rpc.WithDebug())

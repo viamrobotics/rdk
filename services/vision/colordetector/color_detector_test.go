@@ -48,7 +48,7 @@ func TestColorDetector(t *testing.T) {
 	// with error - bad parameters
 	inp.HueTolerance = 4.0 // value out of range
 	_, err = registerColorDetector(ctx, name, &inp, r)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "hue_tolerance_pct must be between")
+	test.That(t, err.Error(), test.ShouldContainSubstring, "hue_tolerance_pct is required")
 
 	// with error - nil parameters
 	_, err = registerColorDetector(ctx, name, nil, r)
