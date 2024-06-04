@@ -79,7 +79,7 @@ func (c *client) MoveToPosition(ctx context.Context, pose spatialmath.Pose, extr
 		return err
 	}
 	if pose == nil {
-		c.logger.Warnf("%s MoveToPosition: pose parameter is nil")
+		c.logger.Warnf("%s MoveToPosition: pose parameter is nil", c.name)
 	}
 	_, err = c.client.MoveToPosition(ctx, &pb.MoveToPositionRequest{
 		Name:  c.name,
@@ -95,7 +95,7 @@ func (c *client) MoveToJointPositions(ctx context.Context, positions *pb.JointPo
 		return err
 	}
 	if positions == nil {
-		c.logger.Warnf("%s MoveToJointPositions: position parameter is nil")
+		c.logger.Warnf("%s MoveToJointPositions: position parameter is nil", c.name)
 	}
 	_, err = c.client.MoveToJointPositions(ctx, &pb.MoveToJointPositionsRequest{
 		Name:      c.name,
