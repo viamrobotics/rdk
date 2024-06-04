@@ -2049,11 +2049,17 @@ func TestShutDown(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 	listener, err := net.Listen("tcp", "localhost:0")
 	test.That(t, err, test.ShouldBeNil)
+
+	shutdownCalled := false
 	injectRobot := &inject.Robot{
 		ResourceNamesFunc:   func() []resource.Name { return nil },
 		ResourceRPCAPIsFunc: func() []resource.RPCAPI { return nil },
-		ShutdownFunc:        func(ctx context.Context) error { return nil },
+		ShutdownFunc: func(ctx context.Context) error {
+			shutdownCalled = true
+			return nil
+		},
 	}
+
 	gServer := grpc.NewServer()
 	pb.RegisterRobotServiceServer(gServer, server.New(injectRobot))
 	go gServer.Serve(listener)
@@ -2067,4 +2073,5 @@ func TestShutDown(t *testing.T) {
 
 	err = client.Shutdown(context.Background())
 	test.That(t, err, test.ShouldBeNil)
+	test.That(t, shutdownCalled, test.ShouldBeTrue)
 }
