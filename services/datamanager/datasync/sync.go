@@ -112,7 +112,6 @@ func (s *syncer) SetArbitraryFileTags(tags []string) {
 }
 
 func (s *syncer) SyncFiles(fileChannel chan string, stopAfter time.Time) {
-
 	for path := range fileChannel {
 		if s.cancelCtx.Err() != nil {
 			return
@@ -129,7 +128,6 @@ func (s *syncer) SyncFiles(fileChannel chan string, stopAfter time.Time) {
 			if !s.MarkInProgress(path) {
 				continue
 			}
-			defer s.UnmarkInProgress(path)
 			//nolint:gosec
 			f, err := os.Open(path)
 			if err != nil {
@@ -139,6 +137,7 @@ func (s *syncer) SyncFiles(fileChannel chan string, stopAfter time.Time) {
 				if !errors.Is(err, os.ErrNotExist) {
 					s.logger.Errorw("error opening file", "error", err)
 				}
+				s.UnmarkInProgress(path)
 				continue
 			}
 
@@ -151,6 +150,7 @@ func (s *syncer) SyncFiles(fileChannel chan string, stopAfter time.Time) {
 					if err := moveFailedData(f.Name(), s.captureDir); err != nil {
 						s.syncErrs <- errors.Wrap(err, fmt.Sprintf("error moving corrupted data %s", f.Name()))
 					}
+					s.UnmarkInProgress(path)
 					continue
 				}
 				s.syncDataCaptureFile(captureFile)

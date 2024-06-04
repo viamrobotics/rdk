@@ -715,7 +715,7 @@ func (svc *builtIn) sync() {
 	wg.Wait()
 }
 
-// nolint
+//nolint
 func getAllFilesToSync(dirs []string, lastModifiedMillis int, fileChannel chan string, stopAfter time.Time) {
 	for _, dir := range dirs {
 		_ = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
