@@ -174,6 +174,7 @@ func TestServer(t *testing.T) {
 		test.That(t, err.Error(), test.ShouldContainSubstring, errGetJointsFailed.Error())
 
 		// Redefine JointPositionsFunc to test nil return.
+		//nolint: nilnil
 		injectArm.JointPositionsFunc = func(ctx context.Context, extra map[string]interface{}) (*pb.JointPositions, error) {
 			return nil, nil
 		}
