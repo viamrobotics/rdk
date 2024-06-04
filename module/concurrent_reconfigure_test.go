@@ -18,7 +18,7 @@ import (
 )
 
 func setupTestRobotWithModules(
-	t testing.TB,
+	t *testing.T,
 	ctx context.Context,
 	logger logging.Logger,
 ) (*config.Config, robot.LocalRobot) {
