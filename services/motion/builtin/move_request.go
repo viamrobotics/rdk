@@ -16,7 +16,6 @@ import (
 	"go.viam.com/rdk/components/base/kinematicbase"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan"
-	"go.viam.com/rdk/motionplan/ik"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
@@ -29,10 +28,9 @@ import (
 )
 
 const (
-	defaultReplanCostFactor  = 1.0
-	defaultMaxReplans        = -1 // Values below zero will replan infinitely
-	baseStopTimeout          = time.Second * 5
-	defaultCollisionBufferMM = 1e-8
+	defaultReplanCostFactor = 1.0
+	defaultMaxReplans       = -1 // Values below zero will replan infinitely
+	baseStopTimeout         = time.Second * 5
 )
 
 // validatedMotionConfiguration is a copy of the motion.MotionConfiguration type
@@ -525,28 +523,6 @@ func (ms *builtIn) newMoveOnGlobeRequest(
 
 	// convert bounding regions which are GeoGeometries into Geometries
 	boundingRegions := spatialmath.GeoGeometriesToGeometries(req.BoundingRegions, origin)
-
-	// get robot geometries
-	robotGeoms, err := b.Geometries(ctx, nil)
-	if err != nil {
-		return nil, err
-	}
-
-	if len(boundingRegions) > 0 {
-		// check that the robot geometries are within the bounding region
-		collisionCheck := motionplan.NewBoundingRegionConstraint(robotGeoms, boundingRegions, defaultCollisionBufferMM)
-		if !collisionCheck(&ik.State{}) {
-			return nil, fmt.Errorf("base named %s is not within the provided bounding regions", b.Name().ShortName())
-		}
-
-		// check that the dest is within the bounding region
-		collisionCheck = motionplan.NewBoundingRegionConstraint(
-			[]spatialmath.Geometry{spatialmath.NewPoint(goalPoseRaw.Point(), "")}, boundingRegions, defaultCollisionBufferMM,
-		)
-		if !collisionCheck(&ik.State{}) {
-			return nil, errors.New("destination was not within the provided bounding regions")
-		}
-	}
 
 	mr, err := ms.createBaseMoveRequest(
 		ctx,
