@@ -9,6 +9,7 @@ import (
 
 	"github.com/golang/geo/r3"
 	motionpb "go.viam.com/api/service/motion/v1"
+
 	"go.viam.com/rdk/motionplan/ik"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/referenceframe"
@@ -495,12 +496,13 @@ func NewOctreeCollisionConstraint(octree *pointcloud.BasicOctree, threshold int,
 }
 
 // LinearConstraint specifies that the component being moved should move linearly relative to its goal.
-// It does not constrain the motion of components other than the `component_name` specified in motion.Move
+// It does not constrain the motion of components other than the `component_name` specified in motion.Move.
 type LinearConstraint struct {
 	LineToleranceMm          float64 // Max linear deviation from straight-line between start and goal, in mm.
 	OrientationToleranceDegs float64
 }
 
+// GetLineToleranceMm returns the LineToleranceMm field in a LinearConstraint object.
 func (x *LinearConstraint) GetLineToleranceMm() float64 {
 	if x != nil {
 		return x.LineToleranceMm
@@ -508,6 +510,7 @@ func (x *LinearConstraint) GetLineToleranceMm() float64 {
 	return 0
 }
 
+// GetOrientationToleranceDegs returns the OrientationToleranceDegs field in a LinearConstraint object.
 func (x *LinearConstraint) GetOrientationToleranceDegs() float64 {
 	if x != nil {
 		return x.OrientationToleranceDegs
@@ -516,11 +519,12 @@ func (x *LinearConstraint) GetOrientationToleranceDegs() float64 {
 }
 
 // OrientationConstraint specifies that the component being moved will not deviate its orientation beyond some threshold relative
-// to the goal. It does not constrain the motion of components other than the `component_name` specified in motion.Move
+// to the goal. It does not constrain the motion of components other than the `component_name` specified in motion.Move.
 type OrientationConstraint struct {
 	OrientationToleranceDegs float64
 }
 
+// GetOrientationToleranceDegs returns the OrientationToleranceDegs field in a OrientationConstraint object.
 func (x *OrientationConstraint) GetOrientationToleranceDegs() float64 {
 	if x != nil {
 		return x.OrientationToleranceDegs
@@ -528,10 +532,12 @@ func (x *OrientationConstraint) GetOrientationToleranceDegs() float64 {
 	return 0
 }
 
+// CollisionSpecificationAllowedFrameCollisions is used to define frames that are allowed to collide.
 type CollisionSpecificationAllowedFrameCollisions struct {
 	Frame1, Frame2 string
 }
 
+// GetFrame1 returns the Frame1 field in a CollisionSpecificationAllowedFrameCollisions object.
 func (c *CollisionSpecificationAllowedFrameCollisions) GetFrame1() string {
 	if c != nil {
 		return c.Frame1
@@ -539,6 +545,7 @@ func (c *CollisionSpecificationAllowedFrameCollisions) GetFrame1() string {
 	return ""
 }
 
+// GetFrame2 returns the Frame2 field in a CollisionSpecificationAllowedFrameCollisions object.
 func (c *CollisionSpecificationAllowedFrameCollisions) GetFrame2() string {
 	if c != nil {
 		return c.Frame2
@@ -546,12 +553,13 @@ func (c *CollisionSpecificationAllowedFrameCollisions) GetFrame2() string {
 	return ""
 }
 
-// CollisionSpecification is used to selectively apply obstacle avoidance to specific parts of the robot
+// CollisionSpecification is used to selectively apply obstacle avoidance to specific parts of the robot.
 type CollisionSpecification struct {
 	// Pairs of frame which should be allowed to collide with one another
 	Allows []CollisionSpecificationAllowedFrameCollisions
 }
 
+// GetAllows returns the Allows field in a CollisionSpecificationAllowedFrameCollisions object.
 func (c *CollisionSpecification) GetAllows() []CollisionSpecificationAllowedFrameCollisions {
 	if c != nil {
 		return c.Allows
@@ -560,13 +568,14 @@ func (c *CollisionSpecification) GetAllows() []CollisionSpecificationAllowedFram
 }
 
 // Constraints is a struct to store the constraints imposed upon a robot
-// It serves as a convenenient RDK wrapper for the protobuf object
+// It serves as a convenenient RDK wrapper for the protobuf object.
 type Constraints struct {
 	LinearConstraint       []LinearConstraint
 	OrientationConstraint  []OrientationConstraint
 	CollisionSpecification []CollisionSpecification
 }
 
+// NewEmptyConstraints creates a new, empty Constraints object.
 func NewEmptyConstraints() *Constraints {
 	return &Constraints{
 		LinearConstraint:       make([]LinearConstraint, 0),
@@ -575,7 +584,12 @@ func NewEmptyConstraints() *Constraints {
 	}
 }
 
-func NewConstraints(linConstraints []LinearConstraint, orientConstraints []OrientationConstraint, collSpecifications []CollisionSpecification) *Constraints {
+// NewConstraints initializes a Constraints object with user-defined LinearConstraint, OrientationConstraint, and CollisionSpecification.
+func NewConstraints(
+	linConstraints []LinearConstraint,
+	orientConstraints []OrientationConstraint,
+	collSpecifications []CollisionSpecification,
+) *Constraints {
 	return &Constraints{
 		LinearConstraint:       linConstraints,
 		OrientationConstraint:  orientConstraints,
@@ -583,6 +597,7 @@ func NewConstraints(linConstraints []LinearConstraint, orientConstraints []Orien
 	}
 }
 
+// ConstraintsFromProtobuf converts a protobuf object to a Constraints object.
 func ConstraintsFromProtobuf(pbConstraint *motionpb.Constraints) *Constraints {
 	// iterate through all motionpb.LinearConstraint and convert to RDK form
 	linConstraintFromProto := func(linConstraints []*motionpb.LinearConstraint) []LinearConstraint {
@@ -632,6 +647,7 @@ func ConstraintsFromProtobuf(pbConstraint *motionpb.Constraints) *Constraints {
 	)
 }
 
+// ToProtobuf takes an existing Constraints object and converts it to a protobuf.
 func (c *Constraints) ToProtobuf() *motionpb.Constraints {
 	// convert LinearConstraint to motionpb.LinearConstraint
 	convertLinConstraintToProto := func(linConstraints []LinearConstraint) []*motionpb.LinearConstraint {
@@ -684,10 +700,12 @@ func (c *Constraints) ToProtobuf() *motionpb.Constraints {
 	}
 }
 
+// AddLinearConstraint appends a LinearConstraint to a Constraints object.
 func (c *Constraints) AddLinearConstraint(linConstraint LinearConstraint) {
 	c.LinearConstraint = append(c.LinearConstraint, linConstraint)
 }
 
+// GetLinearConstraint returns the LinearConstraint field in a Constraint objecgt.
 func (c *Constraints) GetLinearConstraint() []LinearConstraint {
 	if c != nil {
 		return c.LinearConstraint
@@ -695,10 +713,12 @@ func (c *Constraints) GetLinearConstraint() []LinearConstraint {
 	return nil
 }
 
+// AddOrientationConstraint appends a OrientationConstraint to a Constraints object.
 func (c *Constraints) AddOrientationConstraint(orientConstraint OrientationConstraint) {
 	c.OrientationConstraint = append(c.OrientationConstraint, orientConstraint)
 }
 
+// GetOrientationConstraint returns the OrientationConstraint field in a Constraint objecgt.
 func (c *Constraints) GetOrientationConstraint() []OrientationConstraint {
 	if c != nil {
 		return c.OrientationConstraint
@@ -706,10 +726,12 @@ func (c *Constraints) GetOrientationConstraint() []OrientationConstraint {
 	return nil
 }
 
+// AddCollisionSpecification appends a CollisionSpecification to a Constraints object.
 func (c *Constraints) AddCollisionSpecification(collConstraint CollisionSpecification) {
 	c.CollisionSpecification = append(c.CollisionSpecification, collConstraint)
 }
 
+// GetCollisionSpecification returns the CollisionSpecification field in a Constraint objecgt.
 func (c *Constraints) GetCollisionSpecification() []CollisionSpecification {
 	if c != nil {
 		return c.CollisionSpecification
