@@ -88,7 +88,7 @@ func (req *PlanRequest) validatePlanRequest() error {
 			buffer = defaultCollisionBufferMM
 		}
 		// check that the request frame's geometries are within or in collision with the bounding regions
-		robotGifs, err := req.Frame.Geometries(make([]frame.Input, 0, len(req.Frame.DoF())))
+		robotGifs, err := req.Frame.Geometries(make([]frame.Input, len(req.Frame.DoF())))
 		if err != nil {
 			return err
 		}
