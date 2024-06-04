@@ -326,6 +326,11 @@ func (m *Motor) GoTo(ctx context.Context, rpm, positionRevolutions float64, extr
 	return motor.NewGoToUnsupportedError(m.Name().ShortName())
 }
 
+// SetRPM instructs the motor to move at the specified RPM indefinitely.
+func (m *Motor) SetRPM(ctx context.Context, rpm float64, extra map[string]interface{}) error {
+	return motor.NewSetRPMUnsupportedError(m.Name().ShortName())
+}
+
 // ResetZeroPosition is not supported.
 func (m *Motor) ResetZeroPosition(ctx context.Context, offset float64, extra map[string]interface{}) error {
 	return motor.NewResetZeroPositionUnsupportedError(m.Name().ShortName())

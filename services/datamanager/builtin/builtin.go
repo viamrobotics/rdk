@@ -427,8 +427,13 @@ func (svc *builtIn) Reconfigure(
 	if err != nil {
 		return err
 	}
+
 	// Syncer should be reinitialized if the max sync threads are updated in the config
-	reinitSyncer := cloudConnSvc != svc.cloudConnSvc || svcConfig.MaximumNumSyncThreads != svc.maxSyncThreads
+	newMaxSyncThreadValue := datasync.MaxParallelSyncRoutines
+	if svcConfig.MaximumNumSyncThreads != 0 {
+		newMaxSyncThreadValue = svcConfig.MaximumNumSyncThreads
+	}
+	reinitSyncer := cloudConnSvc != svc.cloudConnSvc || newMaxSyncThreadValue != svc.maxSyncThreads
 	svc.cloudConnSvc = cloudConnSvc
 
 	captureConfigs, err := svc.updateDataCaptureConfigs(deps, conf, svcConfig.CaptureDir)
@@ -556,18 +561,14 @@ func (svc *builtIn) Reconfigure(
 
 	syncConfigUpdated := svc.syncDisabled != svcConfig.ScheduledSyncDisabled || svc.syncIntervalMins != svcConfig.SyncIntervalMins ||
 		!reflect.DeepEqual(svc.tags, svcConfig.Tags) || svc.fileLastModifiedMillis != fileLastModifiedMillis ||
-		svc.maxSyncThreads != svcConfig.MaximumNumSyncThreads
+		svc.maxSyncThreads != newMaxSyncThreadValue
 
 	if syncConfigUpdated {
 		svc.syncDisabled = svcConfig.ScheduledSyncDisabled
 		svc.syncIntervalMins = svcConfig.SyncIntervalMins
 		svc.tags = svcConfig.Tags
 		svc.fileLastModifiedMillis = fileLastModifiedMillis
-		maxThreads := datasync.MaxParallelSyncRoutines
-		if svcConfig.MaximumNumSyncThreads != 0 {
-			maxThreads = svcConfig.MaximumNumSyncThreads
-		}
-		svc.maxSyncThreads = maxThreads
+		svc.maxSyncThreads = newMaxSyncThreadValue
 
 		svc.cancelSyncScheduler()
 		if !svc.syncDisabled && svc.syncIntervalMins != 0.0 {

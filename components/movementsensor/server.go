@@ -2,6 +2,7 @@ package movementsensor
 
 import (
 	"context"
+	"math"
 
 	"github.com/golang/geo/r3"
 	commonpb "go.viam.com/api/common/v1"
@@ -53,8 +54,16 @@ func (s *serviceServer) GetPosition(
 	if err != nil {
 		return nil, err
 	}
+
+	// defensively initialize a invalid, non-nil default
+	coordinate := &commonpb.GeoPoint{Latitude: math.NaN(), Longitude: math.NaN()}
+	// populate the coordinate response with the location if it is non nil
+	if loc != nil {
+		coordinate = &commonpb.GeoPoint{Latitude: loc.Lat(), Longitude: loc.Lng()}
+	}
+
 	return &pb.GetPositionResponse{
-		Coordinate: &commonpb.GeoPoint{Latitude: loc.Lat(), Longitude: loc.Lng()},
+		Coordinate: coordinate,
 		AltitudeM:  float32(altitide),
 	}, nil
 }

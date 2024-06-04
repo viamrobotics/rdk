@@ -15,6 +15,7 @@ type Motor struct {
 	SetPowerFunc          func(ctx context.Context, powerPct float64, extra map[string]interface{}) error
 	GoForFunc             func(ctx context.Context, rpm, rotations float64, extra map[string]interface{}) error
 	GoToFunc              func(ctx context.Context, rpm, position float64, extra map[string]interface{}) error
+	SetRPMFunc            func(ctx context.Context, rpm float64, extra map[string]interface{}) error
 	ResetZeroPositionFunc func(ctx context.Context, offset float64, extra map[string]interface{}) error
 	PositionFunc          func(ctx context.Context, extra map[string]interface{}) (float64, error)
 	PropertiesFunc        func(ctx context.Context, extra map[string]interface{}) (motor.Properties, error)
@@ -55,6 +56,14 @@ func (m *Motor) GoTo(ctx context.Context, rpm, positionRevolutions float64, extr
 		return m.Motor.GoTo(ctx, rpm, positionRevolutions, extra)
 	}
 	return m.GoToFunc(ctx, rpm, positionRevolutions, extra)
+}
+
+// SetRPM calls the injected SetRPM or the real version.
+func (m *Motor) SetRPM(ctx context.Context, rpm float64, extra map[string]interface{}) error {
+	if m.SetRPMFunc == nil {
+		return m.Motor.SetRPM(ctx, rpm, extra)
+	}
+	return m.SetRPMFunc(ctx, rpm, extra)
 }
 
 // ResetZeroPosition calls the injected Zero or the real version.

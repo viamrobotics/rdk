@@ -51,6 +51,10 @@ func (sb *sensorBase) Spin(ctx context.Context, angleDeg, degsPerSec float64, ex
 			return err
 		}
 	}
+
+	// pause and resume the loop to reset the control blocks
+	// This prevents any residual signals in the control loop from "kicking" the robot
+	sb.loop.Pause()
 	sb.loop.Resume()
 	var angErr float64
 	prevMovedAng := 0.
