@@ -65,8 +65,6 @@ type syncer struct {
 	closed     atomic.Bool
 	logRoutine sync.WaitGroup
 
-	syncRoutineTracker chan struct{}
-
 	captureDir string
 }
 
@@ -81,16 +79,15 @@ func NewManager(identity string, client v1.DataSyncServiceClient, logger logging
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
 	logger.Debugf("Making new syncer with %d max threads", maxSyncThreads)
 	ret := syncer{
-		partID:             identity,
-		client:             client,
-		logger:             logger,
-		cancelCtx:          cancelCtx,
-		cancelFunc:         cancelFunc,
-		arbitraryFileTags:  []string{},
-		inProgress:         make(map[string]bool),
-		syncErrs:           make(chan error, 10),
-		syncRoutineTracker: make(chan struct{}, maxSyncThreads),
-		captureDir:         captureDir,
+		partID:            identity,
+		client:            client,
+		logger:            logger,
+		cancelCtx:         cancelCtx,
+		cancelFunc:        cancelFunc,
+		arbitraryFileTags: []string{},
+		inProgress:        make(map[string]bool),
+		syncErrs:          make(chan error, 10),
+		captureDir:        captureDir,
 	}
 	ret.logRoutine.Add(1)
 	goutils.PanicCapturingGo(func() {
@@ -128,56 +125,38 @@ func (s *syncer) SyncFiles(fileChannel chan string, stopAfter time.Time) {
 		select {
 		case <-s.cancelCtx.Done():
 			return
-		// Kick off a sync goroutine if under the limit of goroutines.
-		case s.syncRoutineTracker <- struct{}{}:
-			s.backgroundWorkers.Add(1)
-
-			goutils.PanicCapturingGo(func() {
-				defer s.backgroundWorkers.Done()
-				// At the end, decrement the number of sync routines.
-				defer func() {
-					<-s.syncRoutineTracker
-				}()
-				select {
-				case <-s.cancelCtx.Done():
-					return
-				default:
-					if !s.MarkInProgress(path) {
-						return
-					}
-					defer s.UnmarkInProgress(path)
-					//nolint:gosec
-					f, err := os.Open(path)
-					if err != nil {
-						// Don't log if the file does not exist, because that means it was successfully synced and deleted
-						// in between paths being built and this executing.
-						if !errors.Is(err, os.ErrNotExist) {
-							s.logger.Errorw("error opening file", "error", err)
-						}
-						return
-					}
-
-					if datacapture.IsDataCaptureFile(f) {
-						captureFile, err := datacapture.ReadFile(f)
-						if err != nil {
-							if err = f.Close(); err != nil {
-								s.syncErrs <- errors.Wrap(err, "error closing data capture file")
-							}
-							if err := moveFailedData(f.Name(), s.captureDir); err != nil {
-								s.syncErrs <- errors.Wrap(err, fmt.Sprintf("error moving corrupted data %s", f.Name()))
-							}
-							return
-						}
-						s.syncDataCaptureFile(captureFile)
-					} else {
-						s.syncArbitraryFile(f)
-					}
-				}
-			})
-
-			return
 		default:
-			// Avoid blocking main thread if currently at goroutine capacity.
+			if !s.MarkInProgress(path) {
+				continue
+			}
+			defer s.UnmarkInProgress(path)
+			//nolint:gosec
+			f, err := os.Open(path)
+			if err != nil {
+				// Don't log if the file does not exist, because that means it was
+				// successfully synced and deleted in between paths being built and
+				// this executing.
+				if !errors.Is(err, os.ErrNotExist) {
+					s.logger.Errorw("error opening file", "error", err)
+				}
+				continue
+			}
+
+			if datacapture.IsDataCaptureFile(f) {
+				captureFile, err := datacapture.ReadFile(f)
+				if err != nil {
+					if err = f.Close(); err != nil {
+						s.syncErrs <- errors.Wrap(err, "error closing data capture file")
+					}
+					if err := moveFailedData(f.Name(), s.captureDir); err != nil {
+						s.syncErrs <- errors.Wrap(err, fmt.Sprintf("error moving corrupted data %s", f.Name()))
+					}
+					continue
+				}
+				s.syncDataCaptureFile(captureFile)
+			} else {
+				s.syncArbitraryFile(f)
+			}
 		}
 	}
 }
