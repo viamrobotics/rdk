@@ -65,7 +65,7 @@ func (slamSvc *SLAM) getCount() int {
 }
 
 // Position returns a Pose and a component reference string of the robot's current location according to SLAM.
-func (slamSvc *SLAM) Position(ctx context.Context) (spatialmath.Pose, string, error) {
+func (slamSvc *SLAM) Position(ctx context.Context) (spatialmath.Pose, error) {
 	ctx, span := trace.StartSpan(ctx, "slam::fake::Position")
 	defer span.End()
 	return fakePosition(ctx, datasetDirectory, slamSvc)

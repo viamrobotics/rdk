@@ -4,7 +4,6 @@ import (
 	"context"
 	"math"
 
-	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
 	"github.com/pkg/errors"
 
@@ -18,8 +17,6 @@ import (
 // at the +X axis of the SLAM map.
 // However, for a rover's relative planning frame, driving forwards increments +Y. Thus we must adjust where the rover thinks it is.
 var SLAMOrientationAdjustment = spatialmath.NewPoseFromOrientation(&spatialmath.OrientationVectorDegrees{OZ: 1, Theta: -90})
-
-const poleEpsilon = 0.0001 // If the base is this close to vertical, we cannot plan.
 
 // Localizer is an interface which both slam and movementsensor can satisfy when wrapped respectively.
 type Localizer interface {
@@ -38,7 +35,7 @@ func NewSLAMLocalizer(slam slam.Service) Localizer {
 
 // CurrentPosition returns slam's current position.
 func (s *slamLocalizer) CurrentPosition(ctx context.Context) (*referenceframe.PoseInFrame, error) {
-	pose, _, err := s.Position(ctx)
+	pose, err := s.Position(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -114,35 +111,11 @@ func (y *yForwards2dLocalizer) CurrentPosition(ctx context.Context) (*referencef
 	if err != nil {
 		return nil, err
 	}
-	newPose, err := projectOrientationTo2dRotation(currPos.Pose())
+	newPose, err := spatialmath.ProjectOrientationTo2dRotation(currPos.Pose())
 	if err != nil {
 		return nil, err
 	}
 	newPiF := referenceframe.NewPoseInFrame(currPos.Parent(), newPose)
 	newPiF.SetName(currPos.Name())
 	return newPiF, nil
-}
-
-func projectOrientationTo2dRotation(pose spatialmath.Pose) (spatialmath.Pose, error) {
-	orient := pose.Orientation().OrientationVectorRadians() // OV is easy to check if we are in plane
-	if orient.OZ < 0 {
-		return nil, errors.New("base appears to be upside down, check your movement sensor")
-	}
-	if orient.OX == 0 && orient.OY == 0 {
-		return pose, nil
-	}
-
-	// This is the vector in which the base would move if it had no changed orientation
-	adjPt := spatialmath.NewPoseFromPoint(r3.Vector{0, 1, 0})
-	// This is the vector the base would follow based on the reported orientation, were it unencumbered by things like gravity or the ground
-	newAdjPt := spatialmath.Compose(spatialmath.NewPoseFromOrientation(orient), adjPt).Point()
-	if 1-math.Abs(newAdjPt.Z) < poleEpsilon {
-		if newAdjPt.Z > 0 {
-			return nil, errors.New("base appears to be pointing straight up, check your movement sensor")
-		}
-		return nil, errors.New("base appears to be pointing straight down, check your movement sensor")
-	}
-	// This is the vector across the ground of the above hypothetical vector, projected onto the X-Y plane.
-	theta := -math.Atan2(newAdjPt.Y, -newAdjPt.X)
-	return spatialmath.NewPose(pose.Point(), &spatialmath.OrientationVector{OZ: 1, Theta: theta}), nil
 }

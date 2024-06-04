@@ -77,6 +77,9 @@ type module struct {
 	client     pb.ModuleServiceClient
 	addr       string
 	resources  map[resource.Name]*addedResource
+	// resourcesMu must be held if the `resources` field is accessed without
+	// write-locking the module manager.
+	resourcesMu sync.Mutex
 
 	// pendingRemoval allows delaying module close until after resources within it are closed
 	pendingRemoval bool
@@ -459,6 +462,12 @@ func (mgr *Manager) closeModule(mod *module, reconfigure bool) error {
 
 // AddResource tells a component module to configure a new component.
 func (mgr *Manager) AddResource(ctx context.Context, conf resource.Config, deps []string) (resource.Resource, error) {
+	mgr.mu.RLock()
+	defer mgr.mu.RUnlock()
+	return mgr.addResource(ctx, conf, deps)
+}
+
+func (mgr *Manager) addResourceWithWriteLock(ctx context.Context, conf resource.Config, deps []string) (resource.Resource, error) {
 	mgr.mu.Lock()
 	defer mgr.mu.Unlock()
 	return mgr.addResource(ctx, conf, deps)
@@ -482,6 +491,9 @@ func (mgr *Manager) addResource(ctx context.Context, conf resource.Config, deps 
 		return nil, err
 	}
 	mgr.rMap.Store(conf.ResourceName(), mod)
+
+	mod.resourcesMu.Lock()
+	defer mod.resourcesMu.Unlock()
 	mod.resources[conf.ResourceName()] = &addedResource{conf, deps}
 
 	apiInfo, ok := resource.LookupGenericAPIRegistration(conf.API)
@@ -512,6 +524,8 @@ func (mgr *Manager) ReconfigureResource(ctx context.Context, conf resource.Confi
 	if err != nil {
 		return err
 	}
+	mod.resourcesMu.Lock()
+	defer mod.resourcesMu.Unlock()
 	mod.resources[conf.ResourceName()] = &addedResource{conf, deps}
 
 	return nil
@@ -820,15 +834,22 @@ func (mgr *Manager) newOnUnexpectedExitHandler(mod *module) func(exitCode int) b
 		// Finally, handle orphaned resources.
 		var orphanedResourceNames []resource.Name
 		for name, res := range mod.resources {
-			if _, err := mgr.AddResource(mgr.restartCtx, res.conf, res.deps); err != nil {
+			// The `addResource` method might still be executing for this resource with a
+			// read lock, so we execute it here with a write lock to make sure it doesn't
+			// run concurrently.
+			if _, err := mgr.addResourceWithWriteLock(mgr.restartCtx, res.conf, res.deps); err != nil {
 				mgr.logger.Warnw("Error while re-adding resource to module",
 					"resource", name, "module", mod.cfg.Name, "error", err)
 				mgr.rMap.Delete(name)
+
+				mod.resourcesMu.Lock()
 				delete(mod.resources, name)
+				mod.resourcesMu.Unlock()
+
 				orphanedResourceNames = append(orphanedResourceNames, name)
 			}
 		}
-		if mgr.removeOrphanedResources != nil {
+		if len(orphanedResourceNames) > 0 && mgr.removeOrphanedResources != nil {
 			mgr.removeOrphanedResources(mgr.restartCtx, orphanedResourceNames)
 		}
 
@@ -933,6 +954,7 @@ func (m *module) dial() error {
 		"unix://"+m.addr,
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 		grpc.WithChainUnaryInterceptor(
+			rdkgrpc.EnsureTimeoutUnaryClientInterceptor,
 			grpc_retry.UnaryClientInterceptor(),
 			operation.UnaryClientInterceptor,
 		),

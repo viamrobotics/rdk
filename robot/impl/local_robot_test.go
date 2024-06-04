@@ -207,12 +207,7 @@ func TestConfigRemote(t *testing.T) {
 
 	resources2 := r2.ResourceNames()
 
-	test.That(
-		t,
-		rtestutils.NewResourceNameSet(resources2...),
-		test.ShouldResemble,
-		rtestutils.NewResourceNameSet(expected...),
-	)
+	rtestutils.VerifySameResourceNames(t, resources2, expected)
 
 	expectedRemotes := []string{"squee", "foo", "bar"}
 	remotes2 := r2.RemoteNames()
@@ -444,12 +439,7 @@ func TestConfigRemoteWithAuth(t *testing.T) {
 
 			resources2 := r2.ResourceNames()
 
-			test.That(
-				t,
-				rtestutils.NewResourceNameSet(resources2...),
-				test.ShouldResemble,
-				rtestutils.NewResourceNameSet(expected...),
-			)
+			rtestutils.VerifySameResourceNames(t, resources2, expected)
 
 			remotes2 := r2.RemoteNames()
 			expectedRemotes := []string{"bar", "foo"}
@@ -616,12 +606,7 @@ func TestConfigRemoteWithTLSAuth(t *testing.T) {
 
 	resources2 := r2.ResourceNames()
 
-	test.That(
-		t,
-		rtestutils.NewResourceNameSet(resources2...),
-		test.ShouldResemble,
-		rtestutils.NewResourceNameSet(expected...),
-	)
+	rtestutils.VerifySameResourceNames(t, resources2, expected)
 
 	remotes2 := r2.RemoteNames()
 	expectedRemotes := []string{"foo"}
@@ -898,7 +883,7 @@ func TestMetadataUpdate(t *testing.T) {
 
 	resources = r.ResourceNames()
 	test.That(t, len(resources), test.ShouldEqual, len(resourceNames))
-	test.That(t, rtestutils.NewResourceNameSet(resources...), test.ShouldResemble, rtestutils.NewResourceNameSet(resourceNames...))
+	rtestutils.VerifySameResourceNames(t, resources, resourceNames)
 
 	test.That(t, r.Close(context.Background()), test.ShouldBeNil)
 	resources = r.ResourceNames()
@@ -918,7 +903,7 @@ func TestSensorsService(t *testing.T) {
 	sensorNames := []resource.Name{movementsensor.Named("movement_sensor1"), movementsensor.Named("movement_sensor2")}
 	foundSensors, err := svc.Sensors(context.Background(), map[string]interface{}{})
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, rtestutils.NewResourceNameSet(foundSensors...), test.ShouldResemble, rtestutils.NewResourceNameSet(sensorNames...))
+	rtestutils.VerifySameResourceNames(t, foundSensors, sensorNames)
 
 	readings, err := svc.Readings(context.Background(), []resource.Name{movementsensor.Named("movement_sensor1")}, map[string]interface{}{})
 	test.That(t, err, test.ShouldBeNil)
@@ -1213,18 +1198,17 @@ func TestStatusRemote(t *testing.T) {
 	ctx := context.Background()
 	r := SetupLocalRobot(t, ctx, remoteConfig, logger)
 
-	test.That(
+	rtestutils.VerifySameResourceNames(
 		t,
-		rtestutils.NewResourceNameSet(r.ResourceNames()...),
-		test.ShouldResemble,
-		rtestutils.NewResourceNameSet(
+		r.ResourceNames(),
+		[]resource.Name{
 			motion.Named(resource.DefaultServiceName),
 			sensors.Named(resource.DefaultServiceName),
 			arm.Named("foo:arm1"),
 			arm.Named("foo:arm2"),
 			arm.Named("bar:arm1"),
 			arm.Named("bar:arm2"),
-		),
+		},
 	)
 	statuses, err := r.Status(
 		ctx, []resource.Name{arm.Named("foo:arm1"), arm.Named("foo:arm2"), arm.Named("bar:arm1"), arm.Named("bar:arm2")},
@@ -1322,11 +1306,10 @@ func TestGetRemoteResourceAndGrandFather(t *testing.T) {
 
 	r := SetupLocalRobot(t, ctx, remoteConfig, logger)
 
-	test.That(
+	rtestutils.VerifySameResourceNames(
 		t,
-		rtestutils.NewResourceNameSet(r.ResourceNames()...),
-		test.ShouldResemble,
-		rtestutils.NewResourceNameSet(
+		r.ResourceNames(),
+		[]resource.Name{
 			motion.Named(resource.DefaultServiceName),
 			sensors.Named(resource.DefaultServiceName),
 			arm.Named("remote:foo:arm1"), arm.Named("remote:foo:arm2"),
@@ -1341,7 +1324,7 @@ func TestGetRemoteResourceAndGrandFather(t *testing.T) {
 			sensors.Named("remote:builtin"),
 			motion.Named("remote:foo:builtin"),
 			sensors.Named("remote:foo:builtin"),
-		),
+		},
 	)
 	arm1, err := r.ResourceByName(arm.Named("remote:foo:arm1"))
 	test.That(t, err, test.ShouldBeNil)

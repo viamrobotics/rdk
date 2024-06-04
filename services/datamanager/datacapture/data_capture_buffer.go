@@ -6,9 +6,6 @@ import (
 	v1 "go.viam.com/api/app/datasync/v1"
 )
 
-// MaxFileSize is the maximum size in bytes of a data capture file.
-var MaxFileSize = int64(64 * 1024)
-
 // BufferedWriter is a buffered, persistent queue of SensorData.
 type BufferedWriter interface {
 	Write(item *v1.SensorData) error
@@ -18,23 +15,27 @@ type BufferedWriter interface {
 
 // Buffer is a persistent queue of SensorData backed by a series of datacapture.Files.
 type Buffer struct {
-	Directory string
-	MetaData  *v1.DataCaptureMetadata
-	nextFile  *File
-	lock      sync.Mutex
+	Directory          string
+	MetaData           *v1.DataCaptureMetadata
+	nextFile           *File
+	lock               sync.Mutex
+	maxCaptureFileSize int64
 }
 
 // NewBuffer returns a new Buffer.
-func NewBuffer(dir string, md *v1.DataCaptureMetadata) *Buffer {
+func NewBuffer(dir string, md *v1.DataCaptureMetadata, maxCaptureFileSize int64) *Buffer {
 	return &Buffer{
-		Directory: dir,
-		MetaData:  md,
+		Directory:          dir,
+		MetaData:           md,
+		maxCaptureFileSize: maxCaptureFileSize,
 	}
 }
 
 // Write writes item onto b. Binary sensor data is written to its own file.
-// Tabular data is written to disk in MaxFileSize sized files. Files that are still being written to are indicated
-// with the extension InProgressFileExt. Files that have finished being written to are indicated by FileExt.
+// Tabular data is written to disk in maxCaptureFileSize sized files. Files that
+// are still being written to are indicated with the extension
+// InProgressFileExt. Files that have finished being written to are indicated by
+// FileExt.
 func (b *Buffer) Write(item *v1.SensorData) error {
 	b.lock.Lock()
 	defer b.lock.Unlock()
@@ -59,7 +60,7 @@ func (b *Buffer) Write(item *v1.SensorData) error {
 			return err
 		}
 		b.nextFile = nextFile
-	} else if b.nextFile.Size() > MaxFileSize {
+	} else if b.nextFile.Size() > b.maxCaptureFileSize {
 		if err := b.nextFile.Close(); err != nil {
 			return err
 		}

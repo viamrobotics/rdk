@@ -235,6 +235,9 @@ func (m *EncodedMotor) SetPower(ctx context.Context, powerPct float64, extra map
 // goForMath calculates goalPos, goalRPM, and direction based on the given GoFor rpm and revolutions, and the current position.
 func (m *EncodedMotor) goForMath(ctx context.Context, rpm, revolutions float64) (float64, float64, float64) {
 	direction := sign(rpm * revolutions)
+	if revolutions == 0 {
+		direction = sign(rpm)
+	}
 
 	currentPos, err := m.position(ctx, nil)
 	if err != nil {
@@ -260,6 +263,14 @@ func (m *EncodedMotor) GoFor(ctx context.Context, rpm, revolutions float64, extr
 	ctx, done := m.opMgr.New(ctx)
 	defer done()
 
+	warning, err := checkSpeed(rpm, m.cfg.MaxRPM)
+	if warning != "" {
+		m.logger.CWarnf(ctx, warning)
+	}
+	if err != nil {
+		return err
+	}
+
 	goalPos, goalRPM, direction := m.goForMath(ctx, rpm, revolutions)
 
 	if err := m.goForInternal(goalRPM, goalPos, direction); err != nil {
@@ -282,7 +293,7 @@ func (m *EncodedMotor) GoFor(ctx context.Context, rpm, revolutions float64, extr
 		}
 		return false, errs
 	}
-	err := m.opMgr.WaitForSuccess(
+	err = m.opMgr.WaitForSuccess(
 		ctx,
 		10*time.Millisecond,
 		positionReached,
@@ -296,14 +307,6 @@ func (m *EncodedMotor) GoFor(ctx context.Context, rpm, revolutions float64, extr
 }
 
 func (m *EncodedMotor) goForInternal(rpm, goalPos, direction float64) error {
-	switch speed := math.Abs(rpm); {
-	case speed < 0.1:
-		return motor.NewZeroRPMError()
-	case m.cfg.MaxRPM > 0 && speed > m.cfg.MaxRPM-0.1:
-		m.logger.Warn("motor speed is nearly the max rev_per_min (%f)", m.cfg.MaxRPM)
-	default:
-	}
-
 	// cancel rpmMonitor if it already exists
 	if m.rpmMonitorDone != nil {
 		m.rpmMonitorDone()
@@ -344,6 +347,11 @@ func (m *EncodedMotor) GoTo(ctx context.Context, rpm, targetPosition float64, ex
 		return nil
 	}
 	return m.GoFor(ctx, rpm, rotations, extra)
+}
+
+// SetRPM instructs the motor to move at the specified RPM indefinitely.
+func (m *EncodedMotor) SetRPM(ctx context.Context, rpm float64, extra map[string]interface{}) error {
+	return motor.NewSetRPMUnsupportedError(m.Name().ShortName())
 }
 
 // ResetZeroPosition sets the current position (+/- offset) to be the new zero (home) position.

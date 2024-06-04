@@ -65,8 +65,7 @@
     "args": []
   },
   "vision": {
-    "func": "ClassificationsFromCamera",
-    "args": ["context.Background()", "YOURCAMERANAME", "1", "map[string]interface{}{}"],
-    "comment": "Note that the Camera supplied is a placeholder. Please change this to a valid Camera."
+    "func": "GetProperties",
+    "args": ["context.Background()", "map[string]interface{}{}"]
   }
 }

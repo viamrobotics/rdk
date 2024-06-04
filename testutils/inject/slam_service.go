@@ -12,7 +12,7 @@ import (
 type SLAMService struct {
 	slam.Service
 	name              resource.Name
-	PositionFunc      func(ctx context.Context) (spatialmath.Pose, string, error)
+	PositionFunc      func(ctx context.Context) (spatialmath.Pose, error)
 	PointCloudMapFunc func(ctx context.Context, returnEditedMap bool) (func() ([]byte, error), error)
 	InternalStateFunc func(ctx context.Context) (func() ([]byte, error), error)
 	PropertiesFunc    func(ctx context.Context) (slam.Properties, error)
@@ -31,7 +31,7 @@ func (slamSvc *SLAMService) Name() resource.Name {
 }
 
 // Position calls the injected PositionFunc or the real version.
-func (slamSvc *SLAMService) Position(ctx context.Context) (spatialmath.Pose, string, error) {
+func (slamSvc *SLAMService) Position(ctx context.Context) (spatialmath.Pose, error) {
 	if slamSvc.PositionFunc == nil {
 		return slamSvc.Service.Position(ctx)
 	}

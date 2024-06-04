@@ -366,6 +366,11 @@ func (m *Motor) GoTo(ctx context.Context, rpm, pos float64, extra map[string]int
 	return nil
 }
 
+// SetRPM instructs the motor to move at the specified RPM indefinitely.
+func (m *Motor) SetRPM(ctx context.Context, rpm float64, extra map[string]interface{}) error {
+	return motor.NewSetRPMUnsupportedError(m.Name().ShortName())
+}
+
 // Stop has the motor pretend to be off.
 func (m *Motor) Stop(ctx context.Context, extra map[string]interface{}) error {
 	m.mu.Lock()

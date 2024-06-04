@@ -257,6 +257,11 @@ func (cm *controlledMotor) GoTo(ctx context.Context, rpm, targetPosition float64
 	return cm.GoFor(ctx, rpm, rotations, extra)
 }
 
+// SetRPM instructs the motor to move at the specified RPM indefinitely.
+func (cm *controlledMotor) SetRPM(ctx context.Context, rpm float64, extra map[string]interface{}) error {
+	return motor.NewSetRPMUnsupportedError(cm.Name().ShortName())
+}
+
 // GoFor instructs the motor to go in a specific direction for a specific amount of
 // revolutions at a given speed in revolutions per minute. Both the RPM and the revolutions
 // can be assigned negative values to move in a backwards direction. Note: if both are
