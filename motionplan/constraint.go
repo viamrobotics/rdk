@@ -272,9 +272,7 @@ func createAllCollisionConstraints(
 
 	if len(boundingRegions) > 0 {
 		// create constraint to keep moving geometries within the defined bounding regions
-		unionOfRobotGeom := movingRobotGeometries
-		unionOfRobotGeom = append(unionOfRobotGeom, staticRobotGeometries...)
-		interactionSpaceConstraint := NewBoundingRegionConstraint(unionOfRobotGeom, boundingRegions, collisionBufferMM)
+		interactionSpaceConstraint := NewBoundingRegionConstraint(movingRobotGeometries, boundingRegions, collisionBufferMM)
 		constraintMap[defaultBoundingRegionConstraintDesc] = interactionSpaceConstraint
 	}
 
