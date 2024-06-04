@@ -361,7 +361,7 @@ func (m *gpioStepper) goForInternal(ctx context.Context, rpm, revolutions float6
 	m.lock.Lock()
 	defer m.lock.Unlock()
 
-	// calculate delay between steps for the thread in the gorootuine that we started in component creation
+	// calculate delay between steps for the thread in the goroutine that we started in component creation
 	m.stepperDelay = time.Duration(int64(float64(time.Minute) / (math.Abs(rpm) * float64(m.stepsPerRotation))))
 	if m.stepperDelay < m.minDelay {
 		m.stepperDelay = m.minDelay
@@ -402,7 +402,25 @@ func (m *gpioStepper) GoTo(ctx context.Context, rpm, positionRevolutions float64
 
 // SetRPM instructs the motor to move at the specified RPM indefinitely.
 func (m *gpioStepper) SetRPM(ctx context.Context, rpm float64, extra map[string]interface{}) error {
-	return motor.NewSetRPMUnsupportedError(m.Name().ShortName())
+	m.lock.Lock()
+	defer m.lock.Unlock()
+
+	// calculate delay between steps for the thread in the goroutine that we started in component creation
+	m.stepperDelay = time.Duration(int64(float64(time.Minute) / (math.Abs(rpm) * float64(m.stepsPerRotation))))
+	if m.stepperDelay < m.minDelay {
+		m.stepperDelay = m.minDelay
+		m.logger.CDebugf(ctx,
+			"calculated delay less than the minimum delay for stepper motor setting to %+v", m.stepperDelay,
+		)
+	}
+
+	if !m.threadStarted {
+		return errors.New("thread not started")
+	}
+
+	m.targetStepPosition += int64(math.Inf(int(rpm)))
+
+	return nil
 }
 
 // Set the current position (+/- offset) to be the new zero (home) position.

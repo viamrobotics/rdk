@@ -314,7 +314,39 @@ func (m *roboclawMotor) GoTo(ctx context.Context, rpm, positionRevolutions float
 }
 
 func (m *roboclawMotor) SetRPM(ctx context.Context, rpm float64, extra map[string]interface{}) error {
-	return motor.NewSetRPMUnsupportedError(m.Name().ShortName())
+	if m.conf.TicksPerRotation == 0 {
+		if rpm > maxRPM {
+			rpm = maxRPM
+		} else if rpm < -1*maxRPM {
+			rpm = -1 * maxRPM
+		}
+		powerPct := rpm / maxRPM
+		m.logger.CInfo(ctx, "speed is an estimation based on a max RPM 250. For increased accuracy, connect encoders")
+		err := m.SetPower(ctx, powerPct, extra)
+		if err != nil {
+			return errors.Wrap(err, "error in SetRPM`")
+		}
+	}
+
+	_, done := m.opMgr.New(ctx)
+	defer done()
+
+	ticksPerSecond := int32((rpm * float64(m.conf.TicksPerRotation)) / 60)
+
+	var err error
+
+	switch m.conf.Channel {
+	case 1:
+		err = m.conn.SpeedDistanceM1(m.addr, ticksPerSecond, uint32(math.Inf(int(rpm))), true)
+	case 2:
+		err = m.conn.SpeedDistanceM2(m.addr, ticksPerSecond, uint32(math.Inf(int(rpm))), true)
+	default:
+		return m.conf.wrongChannelError()
+	}
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func (m *roboclawMotor) ResetZeroPosition(ctx context.Context, offset float64, extra map[string]interface{}) error {
