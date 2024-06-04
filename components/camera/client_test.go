@@ -8,6 +8,7 @@ import (
 	"image/color"
 	"image/png"
 	"net"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -891,7 +892,7 @@ func TestMultiplexOverMultiHopRemoteConnection(t *testing.T) {
 	}
 
 	mLogger := logger.Sublogger("main")
-	mLogger.SetLevel(logging.ERROR)
+	// mLogger.SetLevel(logging.INFO)
 	mainCtx, mainRobot, _, mainWebSvc := setupRealRobot(t, mainCfg, mLogger)
 	defer mainRobot.Close(mainCtx)
 	defer mainWebSvc.Close(mainCtx)
@@ -923,26 +924,12 @@ func TestMultiplexOverMultiHopRemoteConnection(t *testing.T) {
 
 	mLogger.SetLevel(logging.INFO)
 	for {
-		r1Graph := remoteRobot1.(*robotimpl.LocalRobot).Manager().Resources.Clone()
-		fmt.Println("Names:", r1Graph.Names())
-		camName := camera.Named("remote-2:rtpPassthroughCamera")
-		camNode, found := r1Graph.Node(camName)
-		_ = camNode
-		fmt.Println("Found graph?", found)
-		// cams := r1Graph.FindNodesByShortNameAndAPI(camName)
-		// _ = cams
-		// fmt.Println("Found short?", cams)
-
-		camRes, err := remoteRobot1.(*robotimpl.LocalRobot).Manager().ResourceByName(camName)
-		_ = camRes
-		fmt.Println("Found manager res?", camRes != nil)
-		fmt.Println("Found manager err?", err)
-
-		camRes, err = camera.FromRobot(remoteRobot1, "remote-2:rtpPassthroughCamera")
+		camRes, err := camera.FromRobot(remoteRobot1, "remote-2:rtpPassthroughCamera")
 		fmt.Println("Found fromRobot res?", camRes != nil)
 		fmt.Println("Found fromRobot err?", err)
 
-		if err != nil && strings.Contains(err.Error(), "remote blipped") {
+		if err != nil && (strings.Contains(err.Error(), "resource not initialized") ||
+			strings.Contains(err.Error(), "remote blipped")) {
 			break
 		}
 
@@ -957,6 +944,7 @@ func TestMultiplexOverMultiHopRemoteConnection(t *testing.T) {
 	logger.Info("Main's resources", mainToRemote1Res.(*client.RobotClient).ResourceNames())
 
 	remoteRobot2 = robotimpl.SetupLocalRobot(t, context.Background(), remoteCfg2, r2Logger)
+	defer remoteRobot2.Close(context.Background())
 	reopenedListener, err := net.Listen("tcp", addr2)
 	test.That(t, err, test.ShouldBeNil)
 	webSvc2Options.Network.Listener = reopenedListener
@@ -965,22 +953,7 @@ func TestMultiplexOverMultiHopRemoteConnection(t *testing.T) {
 	for {
 		time.Sleep(time.Second)
 
-		r1Graph := remoteRobot1.(*robotimpl.LocalRobot).Manager().Resources.Clone()
-		fmt.Println("Names:", r1Graph.Names())
-		camName := camera.Named("remote-2:rtpPassthroughCamera")
-		camNode, found := r1Graph.Node(camName)
-		_ = camNode
-		fmt.Println("Found graph?", found)
-		// cams := r1Graph.FindNodesByShortNameAndAPI(camName)
-		// _ = cams
-		// fmt.Println("Found short?", cams)
-
-		camRes, err := remoteRobot1.(*robotimpl.LocalRobot).Manager().ResourceByName(camName)
-		_ = camRes
-		fmt.Println("Found manager res?", camRes != nil)
-		fmt.Println("Found manager err?", err)
-
-		camRes, err = camera.FromRobot(remoteRobot1, "remote-2:rtpPassthroughCamera")
+		camRes, err := camera.FromRobot(remoteRobot1, "remote-2:rtpPassthroughCamera")
 		fmt.Println("Found fromRobot res?", camRes != nil)
 		fmt.Println("Found fromRobot err?", err)
 

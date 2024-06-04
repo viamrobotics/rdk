@@ -1229,7 +1229,7 @@ func TestConfigRemoteAllowInsecureCreds(t *testing.T) {
 
 	ctx := context.Background()
 
-	r := setupLocalRobot(t, ctx, cfg, logger)
+	r := SetupLocalRobot(t, ctx, cfg, logger)
 
 	altName := primitive.NewObjectID().Hex()
 	cert, certFile, keyFile, certPool, err := testutils.GenerateSelfSignedCertificate("somename", altName)
@@ -1568,7 +1568,7 @@ func TestReconfigure(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	ctx := context.Background()
-	r := setupLocalRobot(t, ctx, cfg, logger)
+	r := SetupLocalRobot(t, ctx, cfg, logger)
 
 	resource.RegisterAPI(api, resource.APIRegistration[resource.Resource]{})
 	defer func() {
@@ -1624,7 +1624,7 @@ func TestResourceCreationPanic(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 	ctx := context.Background()
 
-	r := setupLocalRobot(t, ctx, &config.Config{}, logger)
+	r := SetupLocalRobot(t, ctx, &config.Config{}, logger)
 	manager := managerForDummyRobot(t, r)
 
 	t.Run("component", func(t *testing.T) {

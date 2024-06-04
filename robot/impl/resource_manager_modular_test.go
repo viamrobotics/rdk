@@ -51,7 +51,7 @@ func TestModularResources(t *testing.T) {
 			state:      make(map[resource.Name]bool),
 		}
 
-		r := setupLocalRobot(t, context.Background(), &config.Config{}, logger)
+		r := SetupLocalRobot(t, context.Background(), &config.Config{}, logger)
 		actualR := r.(*localRobot)
 		actualR.manager.moduleManager = mod
 
@@ -502,7 +502,7 @@ func TestDynamicModuleLogging(t *testing.T) {
 		}},
 	}
 
-	myRobot := setupLocalRobot(t, ctx, cfg, logger)
+	myRobot := SetupLocalRobot(t, ctx, cfg, logger)
 
 	client, err := generic.FromRobot(myRobot, "helper")
 	test.That(t, err, test.ShouldBeNil)
@@ -575,7 +575,7 @@ func TestTwoModulesSameName(t *testing.T) {
 		// duplicate module name, but still start up the first of the two modules.
 		DisablePartialStart: false,
 	}
-	r := setupLocalRobot(t, ctx, cfg, logger)
+	r := SetupLocalRobot(t, ctx, cfg, logger)
 
 	rr, ok := r.(*localRobot)
 	test.That(t, ok, test.ShouldBeTrue)

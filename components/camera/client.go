@@ -7,7 +7,6 @@ import (
 	"image"
 	"io"
 	"os"
-	"runtime/debug"
 	"slices"
 	"sync"
 	"time"
@@ -103,6 +102,7 @@ func NewClientFromConn(
 	name resource.Name,
 	logger logging.Logger,
 ) (Camera, error) {
+	logger.Info("DBG. New Cam Client.")
 	c := pb.NewCameraServiceClient(conn)
 	streamClient := streampb.NewStreamServiceClient(conn)
 	trackClosed := make(chan struct{})
@@ -376,12 +376,10 @@ func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map
 // We will call `Close` on the camera client when we detect the disconnection to remove
 // active streams but then reuse the client when the connection is re-established.
 func (c *client) Close(ctx context.Context) error {
+	c.logger.Info("DBG. Cam Client closed.")
+	// debug.PrintStack()
 	_, span := trace.StartSpan(ctx, "camera::client::Close")
 	defer span.End()
-
-	c.logger.Warn("Close START")
-	debug.PrintStack()
-	defer c.logger.Warn("Close END")
 
 	c.healthyClientChMu.Lock()
 	if c.healthyClientCh != nil {

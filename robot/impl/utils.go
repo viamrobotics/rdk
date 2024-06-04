@@ -11,7 +11,7 @@ import (
 	"go.viam.com/rdk/robot"
 )
 
-func setupLocalRobot(
+func SetupLocalRobot(
 	t *testing.T,
 	ctx context.Context,
 	cfg *config.Config,

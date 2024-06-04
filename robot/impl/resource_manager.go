@@ -183,7 +183,7 @@ func (manager *resourceManager) updateRemoteResourceNames(
 	if newResources == nil {
 		manager.logger.Info("Nil resources. Marking as bad. Not removing")
 		for _, resName := range oldResourceNames {
-			gNode, exists := manager.Resources.Node(resName)
+			gNode, exists := manager.resources.Node(resName)
 			if !exists {
 				manager.logger.Warn("oldResources does not exist when doing lookup", "oldResources", oldResourceNames, "res", resName)
 				continue
@@ -221,7 +221,7 @@ func (manager *resourceManager) updateRemoteResourceNames(
 		}
 
 		resName = resName.PrependRemote(remoteName.Name)
-		gNode, ok := manager.Resources.Node(resName)
+		gNode, ok := manager.resources.Node(resName)
 		if ok {
 			_, err := gNode.Resource()
 			manager.logger.CInfo(ctx, "gNode state. ResName:", resName, "ResourceErr?", err)
@@ -350,16 +350,16 @@ func (manager *resourceManager) internalResourceNames() []resource.Name {
 }
 
 // ResourceNames returns the names of all resources in the manager.
-func (manager *ResourceManager) ResourceNames() []resource.Name {
-	manager.logger.Info("Serving ResourceNames (resourceManager) Size:", len(manager.Resources.Names()))
+func (manager *resourceManager) ResourceNames() []resource.Name {
+	manager.logger.Info("Serving ResourceNames (resourceManager) Size:", len(manager.resources.Names()))
 	names := []resource.Name{}
-	for _, k := range manager.Resources.Names() {
+	for _, k := range manager.resources.Names() {
 		if k.API == client.RemoteAPI ||
 			k.API.Type.Namespace == resource.APINamespaceRDKInternal {
 			manager.logger.Info("ResourceNames. Skipping. Name:", k, "API:", k.API, "Namespace:", k.API.Type.Namespace)
 			continue
 		}
-		gNode, ok := manager.Resources.Node(k)
+		gNode, ok := manager.resources.Node(k)
 		manager.logger.Info("ResourceNames. Name:", k, "Ok?", ok, "HasResource?", gNode.ResourceExists())
 		if !ok || !gNode.ResourceExists() {
 			continue

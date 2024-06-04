@@ -22,7 +22,7 @@ func setupLocalRobotWithFakeConfig(t *testing.T) robot.LocalRobot {
 	ctx := context.Background()
 	cfg, err := config.Read(ctx, "data/fake.json", logger)
 	test.That(t, err, test.ShouldBeNil)
-	return setupLocalRobot(t, ctx, cfg, logger)
+	return SetupLocalRobot(t, ctx, cfg, logger)
 }
 
 var (

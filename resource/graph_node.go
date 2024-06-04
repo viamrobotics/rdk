@@ -201,6 +201,11 @@ func (w *GraphNode) UnsetResource() {
 // increments the graphLogicalClock and sets updatedAt for this GraphNode
 // to the new value.
 func (w *GraphNode) SwapResource(newRes Resource, newModel Model) {
+	if w.logger != nil {
+		w.logger.Info("DBG. Swapped resource:", fmt.Sprintf("%T", newRes), "Model:", newModel.String())
+		// debug.PrintStack()
+	}
+
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	w.current = newRes
