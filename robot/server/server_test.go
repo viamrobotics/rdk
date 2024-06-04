@@ -321,7 +321,6 @@ func TestServer(t *testing.T) {
 		_, err := server.Shutdown(context.Background(), &req)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, shutdownCalled, test.ShouldBeTrue)
-
 	})
 }
 
