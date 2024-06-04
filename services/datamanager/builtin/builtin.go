@@ -695,8 +695,10 @@ func (svc *builtIn) sync() {
 
 	var wg sync.WaitGroup
 	wg.Add(1)
+	svc.backgroundWorkers.Add(1)
 	go func() {
 		defer wg.Done()
+		defer svc.backgroundWorkers.Done()
 		getAllFilesToSync(append([]string{captureDir}, additionalSyncPaths...),
 			fileLastModifiedMillis,
 			fileChannel,
@@ -706,16 +708,20 @@ func (svc *builtIn) sync() {
 
 	for i := 0; i < numWorkers; i++ {
 		wg.Add(1)
+		svc.backgroundWorkers.Add(1)
 		go func() {
 			defer wg.Done()
-			svc.syncer.SyncFiles(fileChannel, stopAfter)
+			defer svc.backgroundWorkers.Done()
+			if svc.syncer != nil { // TODO: figure out why this is sometimes nil.
+				svc.syncer.SyncFiles(fileChannel, stopAfter)
+			}
 		}()
 	}
 
 	wg.Wait()
 }
 
-//nolint
+// nolint
 func getAllFilesToSync(dirs []string, lastModifiedMillis int, fileChannel chan string, stopAfter time.Time) {
 	for _, dir := range dirs {
 		_ = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {

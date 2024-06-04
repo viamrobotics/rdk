@@ -112,6 +112,15 @@ func (s *syncer) SetArbitraryFileTags(tags []string) {
 }
 
 func (s *syncer) SyncFiles(fileChannel chan string, stopAfter time.Time) {
+	// Return immediately if we have already canceled the context by the time this worker
+	// starts.
+	if s.cancelCtx.Err() != nil {
+		return
+	}
+
+	s.backgroundWorkers.Add(1)
+	defer s.backgroundWorkers.Done()
+
 	for path := range fileChannel {
 		if s.cancelCtx.Err() != nil {
 			return
