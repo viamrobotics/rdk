@@ -174,7 +174,8 @@ func NewBuiltIn(
 		logger:     logger,
 		captureDir: viamCaptureDotDir,
 		collectors: concurrentCollectors{
-			m: make(map[resourceMethodMetadata]*collectorAndConfig)},
+			m: make(map[resourceMethodMetadata]*collectorAndConfig),
+		},
 		syncIntervalMins:           0,
 		additionalSyncPaths:        []string{},
 		tags:                       []string{},
