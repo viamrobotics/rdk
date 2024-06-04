@@ -313,6 +313,10 @@ func (m *roboclawMotor) GoTo(ctx context.Context, rpm, positionRevolutions float
 	return m.GoFor(ctx, rpm, positionRevolutions-pos, extra)
 }
 
+func (m *roboclawMotor) SetRPM(ctx context.Context, rpm float64, extra map[string]interface{}) error {
+	return motor.NewSetRPMUnsupportedError(m.Name().ShortName())
+}
+
 func (m *roboclawMotor) ResetZeroPosition(ctx context.Context, offset float64, extra map[string]interface{}) error {
 	newTicks := int32(-1 * offset * float64(m.conf.TicksPerRotation))
 	switch m.conf.Channel {
