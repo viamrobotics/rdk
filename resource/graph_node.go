@@ -2,6 +2,7 @@ package resource
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -94,6 +95,17 @@ func (w *GraphNode) LastReconfigured() *time.Time {
 	return w.lastReconfigured
 }
 
+func (w *GraphNode) ClearErr() {
+	w.mu.Lock()
+	if w.lastErr != nil {
+		if w.logger != nil {
+			w.logger.Info("Ok and not initialized. Clearing error and continuing.")
+		}
+		w.lastErr = nil
+	}
+	w.mu.Unlock()
+}
+
 // Resource returns the underlying resource if it is not pending removal,
 // has no error on it, and is initialized.
 func (w *GraphNode) Resource() (Resource, error) {
@@ -159,6 +171,12 @@ func (w *GraphNode) HasResource() bool {
 	w.mu.RLock()
 	defer w.mu.RUnlock()
 	return !w.markedForRemoval && w.lastErr == nil && w.current != nil
+}
+
+func (w *GraphNode) ResourceExists() bool {
+	w.mu.RLock()
+	defer w.mu.RUnlock()
+	return !w.markedForRemoval && w.current != nil
 }
 
 // IsUninitialized returns if this resource is in an uninitialized state.
@@ -376,4 +394,11 @@ func (w *GraphNode) replace(other *GraphNode) error {
 	other.needsDependencyResolution = false
 	other.mu.Unlock()
 	return nil
+}
+
+func (w *GraphNode) String() string {
+	w.mu.RLock()
+	defer w.mu.RUnlock()
+
+	return fmt.Sprintf("%+v", *w)
 }

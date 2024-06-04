@@ -33,6 +33,7 @@ import (
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/robot"
+	"go.viam.com/rdk/robot/client"
 	robotimpl "go.viam.com/rdk/robot/impl"
 	"go.viam.com/rdk/robot/web"
 	weboptions "go.viam.com/rdk/robot/web/options"
@@ -712,6 +713,30 @@ func setupRealRobot(
 	return ctx, robot, addr, webSvc
 }
 
+func setupRealRobot2(
+	t *testing.T,
+	robotConfig *config.Config,
+	logger logging.Logger,
+) (context.Context, robot.LocalRobot, string, web.Service, weboptions.Options) {
+	t.Helper()
+
+	ctx := context.Background()
+	robot, err := robotimpl.RobotFromConfig(ctx, robotConfig, logger)
+	test.That(t, err, test.ShouldBeNil)
+
+	// We initialize with a stream config such that the stream server is capable of creating video stream and
+	// audio stream data.
+	webSvc := web.New(robot, logger, web.WithStreamConfig(gostream.StreamConfig{
+		AudioEncoderFactory: opus.NewEncoderFactory(),
+		VideoEncoderFactory: x264.NewEncoderFactory(),
+	}))
+	options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
+	err = webSvc.Start(ctx, options)
+	test.That(t, err, test.ShouldBeNil)
+
+	return ctx, robot, addr, webSvc, options
+}
+
 func setupRealRobotWithAddr(
 	t *testing.T,
 	robotConfig *config.Config,
@@ -830,8 +855,11 @@ func TestMultiplexOverMultiHopRemoteConnection(t *testing.T) {
 		},
 	}
 
+	r2Logger := logger.Sublogger("remote-2")
+	r2Logger.SetLevel(logging.ERROR)
 	// Create a robot with a single fake camera.
-	remote2Ctx, remoteRobot2, addr2, remoteWebSvc2 := setupRealRobot(t, remoteCfg2, logger.Sublogger("remote-2"))
+	remote2Ctx, remoteRobot2, addr2, remoteWebSvc2, webSvc2Options := setupRealRobot2(t, remoteCfg2, r2Logger)
+	logger.Info("SETUP ROBOT. Addr2:", addr2, "Options:", webSvc2Options)
 	defer remoteRobot2.Close(remote2Ctx)
 	defer remoteWebSvc2.Close(remote2Ctx)
 
@@ -846,7 +874,8 @@ func TestMultiplexOverMultiHopRemoteConnection(t *testing.T) {
 		},
 	}
 
-	remote1Ctx, remoteRobot1, addr1, remoteWebSvc1 := setupRealRobot(t, remoteCfg1, logger.Sublogger("remote-1"))
+	r1Logger := logger.Sublogger("remote-1")
+	remote1Ctx, remoteRobot1, addr1, remoteWebSvc1 := setupRealRobot(t, remoteCfg1, r1Logger)
 	defer remoteRobot1.Close(remote1Ctx)
 	defer remoteWebSvc1.Close(remote1Ctx)
 
@@ -861,7 +890,9 @@ func TestMultiplexOverMultiHopRemoteConnection(t *testing.T) {
 		},
 	}
 
-	mainCtx, mainRobot, _, mainWebSvc := setupRealRobot(t, mainCfg, logger.Sublogger("main"))
+	mLogger := logger.Sublogger("main")
+	mLogger.SetLevel(logging.ERROR)
+	mainCtx, mainRobot, _, mainWebSvc := setupRealRobot(t, mainCfg, mLogger)
 	defer mainRobot.Close(mainCtx)
 	defer mainWebSvc.Close(mainCtx)
 
@@ -875,15 +906,95 @@ func TestMultiplexOverMultiHopRemoteConnection(t *testing.T) {
 
 	time.Sleep(time.Second)
 
-	recvPktsCtx, recvPktsFn := context.WithCancel(context.Background())
-	sub, err := cameraClient.(rtppassthrough.Source).SubscribeRTP(mainCtx, 512, func(pkts []*rtp.Packet) {
-		recvPktsFn()
-	})
-	test.That(t, err, test.ShouldBeNil)
-	<-recvPktsCtx.Done()
-	greenLog(t, "got packets")
+	// recvPktsCtx, recvPktsFn := context.WithCancel(context.Background())
+	// sub, err := cameraClient.(rtppassthrough.Source).SubscribeRTP(mainCtx, 512, func(pkts []*rtp.Packet) {
+	//  	recvPktsFn()
+	// })
+	// test.That(t, err, test.ShouldBeNil)
+	// <-recvPktsCtx.Done()
+	// greenLog(t, "got packets")
+	//
+	// test.That(t, cameraClient.(rtppassthrough.Source).Unsubscribe(mainCtx, sub.ID), test.ShouldBeNil)
 
-	test.That(t, cameraClient.(rtppassthrough.Source).Unsubscribe(mainCtx, sub.ID), test.ShouldBeNil)
+	greenLog(t, "Closing robot2")
+	remoteWebSvc2.Close(context.Background())
+	remoteRobot2.Close(context.Background())
+	greenLog(t, "robot2 closed")
+
+	mLogger.SetLevel(logging.INFO)
+	for {
+		r1Graph := remoteRobot1.(*robotimpl.LocalRobot).Manager().Resources.Clone()
+		fmt.Println("Names:", r1Graph.Names())
+		camName := camera.Named("remote-2:rtpPassthroughCamera")
+		camNode, found := r1Graph.Node(camName)
+		_ = camNode
+		fmt.Println("Found graph?", found)
+		// cams := r1Graph.FindNodesByShortNameAndAPI(camName)
+		// _ = cams
+		// fmt.Println("Found short?", cams)
+
+		camRes, err := remoteRobot1.(*robotimpl.LocalRobot).Manager().ResourceByName(camName)
+		_ = camRes
+		fmt.Println("Found manager res?", camRes != nil)
+		fmt.Println("Found manager err?", err)
+
+		camRes, err = camera.FromRobot(remoteRobot1, "remote-2:rtpPassthroughCamera")
+		fmt.Println("Found fromRobot res?", camRes != nil)
+		fmt.Println("Found fromRobot err?", err)
+
+		if err != nil && strings.Contains(err.Error(), "remote blipped") {
+			break
+		}
+
+		time.Sleep(time.Second)
+	}
+
+	greenLog(t, "Checking listResources Output")
+	mainToRemote1ResourceName := resource.NewName(client.RemoteAPI, "remote-1")
+	mainToRemote1Res, err := robot.ResourceFromRobot[resource.Resource](mainRobot, mainToRemote1ResourceName)
+	logger.Infof("Main remote client: %T err: %v", mainToRemote1Res, err)
+	logger.Info("Main refreshing remote1. Err:", mainToRemote1Res.(*client.RobotClient).Refresh(context.Background()))
+	logger.Info("Main's resources", mainToRemote1Res.(*client.RobotClient).ResourceNames())
+
+	remoteRobot2 = robotimpl.SetupLocalRobot(t, context.Background(), remoteCfg2, r2Logger)
+	reopenedListener, err := net.Listen("tcp", addr2)
+	test.That(t, err, test.ShouldBeNil)
+	webSvc2Options.Network.Listener = reopenedListener
+	test.That(t, remoteRobot2.StartWeb(context.Background(), webSvc2Options), test.ShouldBeNil)
+	greenLog(t, "robot2 opened")
+	for {
+		time.Sleep(time.Second)
+
+		r1Graph := remoteRobot1.(*robotimpl.LocalRobot).Manager().Resources.Clone()
+		fmt.Println("Names:", r1Graph.Names())
+		camName := camera.Named("remote-2:rtpPassthroughCamera")
+		camNode, found := r1Graph.Node(camName)
+		_ = camNode
+		fmt.Println("Found graph?", found)
+		// cams := r1Graph.FindNodesByShortNameAndAPI(camName)
+		// _ = cams
+		// fmt.Println("Found short?", cams)
+
+		camRes, err := remoteRobot1.(*robotimpl.LocalRobot).Manager().ResourceByName(camName)
+		_ = camRes
+		fmt.Println("Found manager res?", camRes != nil)
+		fmt.Println("Found manager err?", err)
+
+		camRes, err = camera.FromRobot(remoteRobot1, "remote-2:rtpPassthroughCamera")
+		fmt.Println("Found fromRobot res?", camRes != nil)
+		fmt.Println("Found fromRobot err?", err)
+
+		_, _, err = cameraClient.Images(mainCtx)
+		fmt.Println("Got image working yet? Err:", err)
+		if err == nil {
+			break
+		}
+	}
+
+	image, _, err = cameraClient.Images(mainCtx)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, image, test.ShouldNotBeNil)
+	greenLog(t, "got images")
 }
 
 // go test -race -v -run=TestWhyMustTimeoutOnReadRTP -timeout 10s
@@ -1080,7 +1191,7 @@ func TestWhyMustCallUnsubscribe(t *testing.T) {
 	greenLog(t, "got images")
 
 	greenLog(t, fmt.Sprintf("calling SubscribeRTP on %T, %p", cameraClient, cameraClient))
-	time.Sleep(time.Second)
+	// time.Sleep(time.Second)
 
 	pktsChan := make(chan []*rtp.Packet)
 	recvPktsCtx, recvPktsFn := context.WithCancel(context.Background())
