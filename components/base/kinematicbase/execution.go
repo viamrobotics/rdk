@@ -161,11 +161,14 @@ func (ptgk *ptgBaseKinematics) GoToInputs(ctx context.Context, inputSteps ...[]r
 			if distIncVel == 0 {
 				distIncVel = step.angVelDegps.Z
 			}
+			inputValDiff := step.arcSegment.EndConfiguration[endDistanceAlongTrajectoryIndex].Value -
+				step.arcSegment.EndConfiguration[startDistanceAlongTrajectoryIndex].Value
+			elapsedPct := math.Min(1.0, timeElapsedSeconds/step.durationSeconds)
 			currentInputs := []referenceframe.Input{
 				step.arcSegment.StartConfiguration[ptgIndex],
 				step.arcSegment.StartConfiguration[trajectoryAlphaWithinPTG],
 				step.arcSegment.StartConfiguration[startDistanceAlongTrajectoryIndex],
-				{step.arcSegment.StartConfiguration[startDistanceAlongTrajectoryIndex].Value + math.Abs(distIncVel)*timeElapsedSeconds},
+				{step.arcSegment.StartConfiguration[startDistanceAlongTrajectoryIndex].Value + inputValDiff*elapsedPct},
 			}
 			ptgk.inputLock.Lock()
 			ptgk.currentState.currentInputs = currentInputs
