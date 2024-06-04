@@ -110,6 +110,9 @@ func TestEntrypoint(t *testing.T) {
 }
 
 func TestShutdown(t *testing.T) {
+	if runtime.GOARCH == "arm" {
+		t.Skip("skipping on 32-bit ARM, subprocess build warnings cause failure")
+	}
 	t.Run("shutdown functionality", func(t *testing.T) {
 		logger, logObserver := logging.NewObservedTestLogger(t)
 		cfgFilename := utils.ResolveFile("/etc/configs/fake.json")
