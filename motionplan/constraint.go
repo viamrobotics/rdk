@@ -335,9 +335,9 @@ func NewCollisionConstraint(
 
 	// create constraint from reference collision graph
 	constraint := func(state *ik.State) bool {
-		internalGeoms, b := obstacleAndBoudingRegionsConstraintHandler(nil, state, "")
-		if !b {
-			return b
+		internalGeoms, err := obstacleAndBoudingRegionsConstraintHandler(nil, state, "")
+		if err != nil {
+			return false
 		}
 		cg, err := newCollisionGraph(internalGeoms, static, zeroCG, reportDistances, collisionBufferMM)
 		if err != nil {
@@ -487,9 +487,9 @@ func NewOctreeCollisionConstraint(octree *pointcloud.BasicOctree, threshold int,
 // given list of bounding regions.
 func NewBoundingRegionConstraint(robotGeoms, boundingRegions []spatial.Geometry, collisionBufferMM float64) StateConstraint {
 	return func(state *ik.State) bool {
-		internalGeoms, b := obstacleAndBoudingRegionsConstraintHandler(robotGeoms, state, defaultBoundingRegionConstraintDesc)
-		if !b {
-			return b
+		internalGeoms, err := obstacleAndBoudingRegionsConstraintHandler(robotGeoms, state, defaultBoundingRegionConstraintDesc)
+		if err != nil {
+			return false
 		}
 		cg, err := newCollisionGraph(internalGeoms, boundingRegions, nil, true, collisionBufferMM)
 		if err != nil {
@@ -501,22 +501,22 @@ func NewBoundingRegionConstraint(robotGeoms, boundingRegions []spatial.Geometry,
 
 func obstacleAndBoudingRegionsConstraintHandler(
 	robotGeoms []spatial.Geometry, state *ik.State, constraintType string,
-) ([]spatial.Geometry, bool) {
+) ([]spatial.Geometry, error) {
 	var internalGeoms []spatial.Geometry
-	b := true
 	switch {
 	case state.Configuration != nil:
 		internal, err := state.Frame.Geometries(state.Configuration)
 		if err != nil {
-			b = false
+			return nil, err
 		}
 		internalGeoms = internal.Geometries()
 	case state.Position != nil:
+		// TODO(RSDK-5391): remove this case
 		// If we didn't pass a Configuration, but we do have a Position, then get the geometries at the zero state and
 		// transform them to the Position
 		internal, err := state.Frame.Geometries(make([]referenceframe.Input, len(state.Frame.DoF())))
 		if err != nil {
-			b = false
+			return nil, err
 		}
 		movedGeoms := internal.Geometries()
 		for _, geom := range movedGeoms {
@@ -527,8 +527,8 @@ func obstacleAndBoudingRegionsConstraintHandler(
 		case defaultBoundingRegionConstraintDesc:
 			internalGeoms = robotGeoms
 		default:
-			b = false
+			return nil, errors.New("cannot give empty ik.State for constraint types which are not defaultBoundingRegionConstraintDesc")
 		}
 	}
-	return internalGeoms, b
+	return internalGeoms, nil
 }

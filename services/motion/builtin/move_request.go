@@ -556,7 +556,6 @@ func (ms *builtIn) newMoveOnGlobeRequest(
 		goalPoseRaw,
 		fs,
 		geomsRaw,
-		boundingRegions,
 		valExtra,
 	)
 	if err != nil {
@@ -566,6 +565,7 @@ func (ms *builtIn) newMoveOnGlobeRequest(
 	mr.replanCostFactor = valExtra.replanCostFactor
 	mr.requestType = requestTypeMoveOnGlobe
 	mr.geoPoseOrigin = spatialmath.NewGeoPose(origin, heading)
+	mr.planRequest.BoundingRegions = boundingRegions
 	return mr, nil
 }
 
@@ -657,7 +657,6 @@ func (ms *builtIn) newMoveOnMapRequest(
 		goalPoseAdj,
 		fs,
 		req.Obstacles,
-		[]spatialmath.Geometry{},
 		valExtra,
 	)
 	if err != nil {
@@ -675,7 +674,6 @@ func (ms *builtIn) createBaseMoveRequest(
 	goalPoseInWorld spatialmath.Pose,
 	fs referenceframe.FrameSystem,
 	worldObstacles []spatialmath.Geometry,
-	boundingRegions []spatialmath.Geometry,
 	valExtra validatedExtra,
 ) (*moveRequest, error) {
 	// replace original base frame with one that knows how to move itself and allow planning for
@@ -770,7 +768,6 @@ func (ms *builtIn) createBaseMoveRequest(
 			StartConfiguration: currentInputs,
 			StartPose:          startPose,
 			WorldState:         worldState,
-			BoundingRegions:    boundingRegions,
 			Options:            valExtra.extra,
 		},
 		poseOrigin:        startPose,
