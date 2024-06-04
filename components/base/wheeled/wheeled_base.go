@@ -322,9 +322,14 @@ func (wb *wheeledBase) runAllGoFor(ctx context.Context, leftRPM, leftRotations, 
 // All callers must register an operation via `wb.opMgr.New` to ensure the left and right motors
 // receive consistent instructions.
 func (wb *wheeledBase) runAllSetRPM(ctx context.Context, leftRPM, rightRPM float64) error {
-	if math.Abs(leftRPM) <= 10 || math.Abs(rightRPM) <= 10 {
-		wb.logger.CWarn(ctx, "low motor speed detected, motors may not behave as expected")
+	if math.Abs(leftRPM) <= 10 {
+		wb.logger.CWarn(ctx, "low motor speed detected, left motors may not behave as expected")
 	}
+	if math.Abs(rightRPM) <= 10 {
+		wb.logger.CWarn(ctx, "low motor speed detected, right motors may not behave as expected")
+	}
+
+	// gather all the necessary motor SetRPM functions to execute in parallel into the setRPMFuncs variable
 	setRPMFuncs := func() []rdkutils.SimpleFunc {
 		ret := []rdkutils.SimpleFunc{}
 
@@ -332,11 +337,13 @@ func (wb *wheeledBase) runAllSetRPM(ctx context.Context, leftRPM, rightRPM float
 		wb.mu.Lock()
 		defer wb.mu.Unlock()
 		for _, m := range wb.left {
+			// create a new motor variable, otherwise SetRPM is always executed on the first motor in wb.left
 			motor := m
 			ret = append(ret, func(ctx context.Context) error { return motor.SetRPM(ctx, leftRPM, nil) })
 		}
 
 		for _, m := range wb.right {
+			// create a new motor variable, otherwise SetRPM is always executed on the first motor in wb.right
 			motor := m
 			ret = append(ret, func(ctx context.Context) error { return motor.SetRPM(ctx, rightRPM, nil) })
 		}
