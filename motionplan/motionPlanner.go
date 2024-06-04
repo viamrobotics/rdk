@@ -88,15 +88,15 @@ func (req *PlanRequest) validatePlanRequest() error {
 			buffer = defaultCollisionBufferMM
 		}
 		// check that the request frame's geometries are within or in collision with the bounding regions
-		frameSeedInput, ok := req.StartConfiguration[req.Frame.Name()]
-		if !ok {
-			return fmt.Errorf("frame named %s is not within req.StartConfiguration: %v", req.Frame.Name(), req.StartConfiguration)
-		}
-		robotGifs, err := req.Frame.Geometries(frameSeedInput)
+		robotGifs, err := req.Frame.Geometries(make([]frame.Input, 0, len(req.Frame.DoF())))
 		if err != nil {
 			return err
 		}
-		robotGeomBoundingRegionCheck := NewBoundingRegionConstraint(robotGifs.Geometries(), req.BoundingRegions, buffer)
+		var robotGeoms []spatialmath.Geometry
+		for _, geom := range robotGifs.Geometries() {
+			robotGeoms = append(robotGeoms, geom.Transform(req.StartPose))
+		}
+		robotGeomBoundingRegionCheck := NewBoundingRegionConstraint(robotGeoms, req.BoundingRegions, buffer)
 		if !robotGeomBoundingRegionCheck(&ik.State{}) {
 			return fmt.Errorf("frame named %s is not within the provided bounding regions", req.Frame.Name())
 		}
