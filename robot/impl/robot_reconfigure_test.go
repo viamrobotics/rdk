@@ -2800,7 +2800,7 @@ func TestInferRemoteRobotDependencyConnectAtStartup(t *testing.T) {
 		arm.Named("foo:pieceArm"),
 		motion.Named("foo:builtin"),
 		sensors.Named("foo:builtin"),
-	}
+	)
 
 	rdktestutils.VerifySameResourceNames(t, r.ResourceNames(), expectedSet)
 	test.That(t, foo.Close(context.Background()), test.ShouldBeNil)
