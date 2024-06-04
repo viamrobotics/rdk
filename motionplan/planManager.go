@@ -12,7 +12,6 @@ import (
 	"sync"
 	"time"
 
-	pb "go.viam.com/api/service/motion/v1"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/logging"
@@ -136,7 +135,7 @@ func (pm *planManager) PlanSingleWaypoint(ctx context.Context, request *PlanRequ
 				to,
 				request.StartConfiguration,
 				request.WorldState,
-				request.ConstraintSpecs.ToProtobuf(),
+				request.ConstraintSpecs,
 				request.Options,
 			)
 			if err != nil {
@@ -155,7 +154,7 @@ func (pm *planManager) PlanSingleWaypoint(ctx context.Context, request *PlanRequ
 		goalPos,
 		request.StartConfiguration,
 		request.WorldState,
-		request.ConstraintSpecs.ToProtobuf(),
+		request.ConstraintSpecs,
 		request.Options,
 	)
 	if err != nil {
@@ -466,7 +465,7 @@ func (pm *planManager) plannerSetupFromMoveRequest(
 	from, to spatialmath.Pose,
 	seedMap map[string][]referenceframe.Input,
 	worldState *referenceframe.WorldState,
-	constraints *pb.Constraints,
+	constraints *Constraints,
 	planningOpts map[string]interface{},
 ) (*plannerOptions, error) {
 	planAlg := ""
@@ -536,7 +535,7 @@ func (pm *planManager) plannerSetupFromMoveRequest(
 		return nil, err
 	}
 
-	allowedCollisions, err := collisionSpecificationsFromProto(constraints.GetCollisionSpecification(), frameSystemGeometries, worldState)
+	allowedCollisions, err := collisionSpecifications(constraints.GetCollisionSpecification(), frameSystemGeometries, worldState)
 	if err != nil {
 		return nil, err
 	}
@@ -800,7 +799,7 @@ func (pm *planManager) planRelativeWaypoint(ctx context.Context, request *PlanRe
 	}
 	goalPos := tf.(*referenceframe.PoseInFrame).Pose()
 	opt, err := pm.plannerSetupFromMoveRequest(
-		startPose, goalPos, request.StartConfiguration, request.WorldState, request.ConstraintSpecs.ToProtobuf(), request.Options,
+		startPose, goalPos, request.StartConfiguration, request.WorldState, request.ConstraintSpecs, request.Options,
 	)
 	if err != nil {
 		return nil, err

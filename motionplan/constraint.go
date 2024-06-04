@@ -494,12 +494,25 @@ func NewOctreeCollisionConstraint(octree *pointcloud.BasicOctree, threshold int,
 	return constraint
 }
 
-// ------------ NEW RDK BASED CODE ------------
 // LinearConstraint specifies that the component being moved should move linearly relative to its goal.
 // It does not constrain the motion of components other than the `component_name` specified in motion.Move
 type LinearConstraint struct {
 	LineToleranceMm          float64 // Max linear deviation from straight-line between start and goal, in mm.
 	OrientationToleranceDegs float64
+}
+
+func (x *LinearConstraint) GetLineToleranceMm() float64 {
+	if x != nil {
+		return x.LineToleranceMm
+	}
+	return 0
+}
+
+func (x *LinearConstraint) GetOrientationToleranceDegs() float64 {
+	if x != nil {
+		return x.OrientationToleranceDegs
+	}
+	return 0
 }
 
 // OrientationConstraint specifies that the component being moved will not deviate its orientation beyond some threshold relative
@@ -508,14 +521,42 @@ type OrientationConstraint struct {
 	OrientationToleranceDegs float64
 }
 
+func (x *OrientationConstraint) GetOrientationToleranceDegs() float64 {
+	if x != nil {
+		return x.OrientationToleranceDegs
+	}
+	return 0
+}
+
 type CollisionSpecificationAllowedFrameCollisions struct {
 	Frame1, Frame2 string
+}
+
+func (c *CollisionSpecificationAllowedFrameCollisions) GetFrame1() string {
+	if c != nil {
+		return c.Frame1
+	}
+	return ""
+}
+
+func (c *CollisionSpecificationAllowedFrameCollisions) GetFrame2() string {
+	if c != nil {
+		return c.Frame2
+	}
+	return ""
 }
 
 // CollisionSpecification is used to selectively apply obstacle avoidance to specific parts of the robot
 type CollisionSpecification struct {
 	// Pairs of frame which should be allowed to collide with one another
 	Allows []CollisionSpecificationAllowedFrameCollisions
+}
+
+func (c *CollisionSpecification) GetAllows() []CollisionSpecificationAllowedFrameCollisions {
+	if c != nil {
+		return c.Allows
+	}
+	return nil
 }
 
 // Constraints is a struct to store the constraints imposed upon a robot
@@ -648,7 +689,10 @@ func (c *Constraints) AddLinearConstraint(linConstraint LinearConstraint) {
 }
 
 func (c *Constraints) GetLinearConstraint() []LinearConstraint {
-	return c.LinearConstraint
+	if c != nil {
+		return c.LinearConstraint
+	}
+	return nil
 }
 
 func (c *Constraints) AddOrientationConstraint(orientConstraint OrientationConstraint) {
@@ -656,7 +700,10 @@ func (c *Constraints) AddOrientationConstraint(orientConstraint OrientationConst
 }
 
 func (c *Constraints) GetOrientationConstraint() []OrientationConstraint {
-	return c.OrientationConstraint
+	if c != nil {
+		return c.OrientationConstraint
+	}
+	return nil
 }
 
 func (c *Constraints) AddCollisionSpecification(collConstraint CollisionSpecification) {
@@ -664,5 +711,8 @@ func (c *Constraints) AddCollisionSpecification(collConstraint CollisionSpecific
 }
 
 func (c *Constraints) GetCollisionSpecification() []CollisionSpecification {
-	return c.CollisionSpecification
+	if c != nil {
+		return c.CollisionSpecification
+	}
+	return nil
 }
