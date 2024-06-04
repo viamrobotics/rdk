@@ -20,6 +20,8 @@ import (
 
 // SetState sets the state of the motor for the built-in control loop.
 func (cm *controlledMotor) SetState(ctx context.Context, state []*control.Signal) error {
+	cm.mu.Lock()
+	defer cm.mu.Unlock()
 	if cm.loop != nil && !cm.loop.Running() {
 		return nil
 	}
@@ -158,6 +160,8 @@ type controlledMotor struct {
 // Negative power implies a backward directional rotational.
 func (cm *controlledMotor) SetPower(ctx context.Context, powerPct float64, extra map[string]interface{}) error {
 	cm.opMgr.CancelRunning(ctx)
+	cm.mu.Lock()
+	defer cm.mu.Unlock()
 	if cm.loop != nil {
 		cm.loop.Pause()
 	}
@@ -177,6 +181,8 @@ func (cm *controlledMotor) IsMoving(ctx context.Context) (bool, error) {
 
 // Stop stops rpmMonitor and stops the real motor.
 func (cm *controlledMotor) Stop(ctx context.Context, extra map[string]interface{}) error {
+	cm.mu.Lock()
+	defer cm.mu.Unlock()
 	// after the motor is created, Stop is called, but if the PID controller
 	// is auto-tuning, the loop needs to keep running
 	if cm.loop != nil && !cm.loop.GetTuning(ctx) {
@@ -190,6 +196,8 @@ func (cm *controlledMotor) Close(ctx context.Context) error {
 	if err := cm.Stop(ctx, nil); err != nil {
 		return err
 	}
+	cm.mu.Lock()
+	defer cm.mu.Unlock()
 	if cm.loop != nil {
 		cm.loop.Stop()
 		cm.loop = nil
@@ -246,7 +254,6 @@ func (cm *controlledMotor) GoTo(ctx context.Context, rpm, targetPosition float64
 	if err != nil {
 		return err
 	}
-	// currRotations := pos / cm.ticksPerRotation
 	rotations := targetPosition - pos
 	// if you call GoFor with 0 revolutions, the motor will spin forever. If we are at the target,
 	// we must avoid this by not calling GoFor.
@@ -262,6 +269,9 @@ func (cm *controlledMotor) SetRPM(ctx context.Context, rpm float64, extra map[st
 	cm.opMgr.CancelRunning(ctx)
 	ctx, done := cm.opMgr.New(ctx)
 	defer done()
+
+	cm.mu.Lock()
+	defer cm.mu.Unlock()
 
 	warning, err := checkSpeed(rpm, cm.real.maxRPM)
 	if warning != "" {
@@ -301,10 +311,6 @@ func (cm *controlledMotor) GoFor(ctx context.Context, rpm, revolutions float64, 
 	ctx, done := cm.opMgr.New(ctx)
 	defer done()
 
-	if revolutions == 0 {
-		cm.logger.Warn("Deprecated: setting revolutions == 0 will spin the motor indefinitely at the specified RPM")
-	}
-
 	warning, err := checkSpeed(rpm, cm.real.maxRPM)
 	if warning != "" {
 		cm.logger.CWarnf(ctx, warning)
@@ -318,15 +324,16 @@ func (cm *controlledMotor) GoFor(ctx context.Context, rpm, revolutions float64, 
 		return err
 	}
 
+	cm.mu.Lock()
 	if cm.loop == nil {
 		// create new control loop
 		if err := cm.startControlLoop(); err != nil {
+			cm.mu.Unlock()
 			return err
 		}
 	}
 	cm.loop.Resume()
 
-	cm.mu.Lock()
 	goalPos, _, _ := encodedGoForMath(rpm, revolutions, currentTicks, cm.ticksPerRotation)
 
 	// set control loop values
@@ -336,6 +343,11 @@ func (cm *controlledMotor) GoFor(ctx context.Context, rpm, revolutions float64, 
 	// setPoint is +/- infinity, maxVel is calculated velVal
 	if err := cm.updateControlBlock(ctx, goalPos, velVal); err != nil {
 		return err
+	}
+
+	if revolutions == 0 {
+		cm.logger.Warn("Deprecated: setting revolutions == 0 will spin the motor indefinitely at the specified RPM")
+		return nil
 	}
 
 	// we can probably use something in controls to make GoFor blockign without this
