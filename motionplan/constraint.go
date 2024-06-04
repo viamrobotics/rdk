@@ -9,6 +9,7 @@ import (
 
 	"github.com/golang/geo/r3"
 	motionpb "go.viam.com/api/service/motion/v1"
+
 	"go.viam.com/rdk/motionplan/ik"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/referenceframe"
@@ -494,38 +495,39 @@ func NewOctreeCollisionConstraint(octree *pointcloud.BasicOctree, threshold int,
 	return constraint
 }
 
-// ------------ NEW RDK BASED CODE ------------
 // LinearConstraint specifies that the component being moved should move linearly relative to its goal.
-// It does not constrain the motion of components other than the `component_name` specified in motion.Move
+// It does not constrain the motion of components other than the `component_name` specified in motion.Move.
 type LinearConstraint struct {
 	LineToleranceMm          float64 // Max linear deviation from straight-line between start and goal, in mm.
 	OrientationToleranceDegs float64
 }
 
 // OrientationConstraint specifies that the component being moved will not deviate its orientation beyond some threshold relative
-// to the goal. It does not constrain the motion of components other than the `component_name` specified in motion.Move
+// to the goal. It does not constrain the motion of components other than the `component_name` specified in motion.Move.
 type OrientationConstraint struct {
 	OrientationToleranceDegs float64
 }
 
+// CollisionSpecificationAllowedFrameCollisions is used to define frames that are allowed to collide.
 type CollisionSpecificationAllowedFrameCollisions struct {
 	Frame1, Frame2 string
 }
 
-// CollisionSpecification is used to selectively apply obstacle avoidance to specific parts of the robot
+// CollisionSpecification is used to selectively apply obstacle avoidance to specific parts of the robot.
 type CollisionSpecification struct {
 	// Pairs of frame which should be allowed to collide with one another
 	Allows []CollisionSpecificationAllowedFrameCollisions
 }
 
 // Constraints is a struct to store the constraints imposed upon a robot
-// It serves as a convenenient RDK wrapper for the protobuf object
+// It serves as a convenenient RDK wrapper for the protobuf object.
 type Constraints struct {
 	LinearConstraint       []LinearConstraint
 	OrientationConstraint  []OrientationConstraint
 	CollisionSpecification []CollisionSpecification
 }
 
+// NewEmptyConstraints creates a new, empty Constraints object.
 func NewEmptyConstraints() *Constraints {
 	return &Constraints{
 		LinearConstraint:       make([]LinearConstraint, 0),
@@ -534,7 +536,12 @@ func NewEmptyConstraints() *Constraints {
 	}
 }
 
-func NewConstraints(linConstraints []LinearConstraint, orientConstraints []OrientationConstraint, collSpecifications []CollisionSpecification) *Constraints {
+// NewConstraints initializes a Constraints object with user-defined LinearConstraint, OrientationConstraint, and CollisionSpecification.
+func NewConstraints(
+	linConstraints []LinearConstraint,
+	orientConstraints []OrientationConstraint,
+	collSpecifications []CollisionSpecification,
+) *Constraints {
 	return &Constraints{
 		LinearConstraint:       linConstraints,
 		OrientationConstraint:  orientConstraints,
@@ -542,6 +549,7 @@ func NewConstraints(linConstraints []LinearConstraint, orientConstraints []Orien
 	}
 }
 
+// ConstraintsFromProtobuf converts a protobuf object to a Constraints object.
 func ConstraintsFromProtobuf(pbConstraint *motionpb.Constraints) *Constraints {
 	// iterate through all motionpb.LinearConstraint and convert to RDK form
 	linConstraintFromProto := func(linConstraints []*motionpb.LinearConstraint) []LinearConstraint {
@@ -591,6 +599,7 @@ func ConstraintsFromProtobuf(pbConstraint *motionpb.Constraints) *Constraints {
 	)
 }
 
+// ToProtobuf takes an existing Constraints object and converts it to a protobuf.
 func (c *Constraints) ToProtobuf() *motionpb.Constraints {
 	// convert LinearConstraint to motionpb.LinearConstraint
 	convertLinConstraintToProto := func(linConstraints []LinearConstraint) []*motionpb.LinearConstraint {
@@ -643,14 +652,17 @@ func (c *Constraints) ToProtobuf() *motionpb.Constraints {
 	}
 }
 
+// AddLinearConstraint appends a LinearConstraint to a Constraints object.
 func (c *Constraints) AddLinearConstraint(linConstraint LinearConstraint) {
 	c.LinearConstraint = append(c.LinearConstraint, linConstraint)
 }
 
+// AddOrientationConstraint appends a OrientationConstraint to a Constraints object.
 func (c *Constraints) AddOrientationConstraint(orientConstraint OrientationConstraint) {
 	c.OrientationConstraint = append(c.OrientationConstraint, orientConstraint)
 }
 
+// AddCollisionSpecification appends a CollisionSpecification to a Constraints object.
 func (c *Constraints) AddCollisionSpecification(collConstraint CollisionSpecification) {
 	c.CollisionSpecification = append(c.CollisionSpecification, collConstraint)
 }
