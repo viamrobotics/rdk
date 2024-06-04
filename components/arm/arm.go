@@ -11,6 +11,7 @@ import (
 
 	v1 "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/arm/v1"
+	motionpb "go.viam.com/api/service/motion/v1"
 
 	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/logging"
@@ -48,9 +49,9 @@ const SubtypeName = "arm"
 const MTPoob = "cartesian movements are not allowed when arm joints are out of bounds"
 
 var (
-	defaultLinearConstraint  = motionplan.LinearConstraint{}
-	defaultArmPlannerOptions = &motionplan.Constraints{
-		LinearConstraint: []motionplan.LinearConstraint{defaultLinearConstraint},
+	defaultLinearConstraint  = &motionpb.LinearConstraint{}
+	defaultArmPlannerOptions = &motionpb.Constraints{
+		LinearConstraint: []*motionpb.LinearConstraint{defaultLinearConstraint},
 	}
 )
 

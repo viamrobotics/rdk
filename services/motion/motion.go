@@ -193,7 +193,7 @@ type Service interface {
 		componentName resource.Name,
 		destination *referenceframe.PoseInFrame,
 		worldState *referenceframe.WorldState,
-		constraints *motionplan.Constraints,
+		constraints *pb.Constraints,
 		extra map[string]interface{},
 	) (bool, error)
 	MoveOnMap(
