@@ -486,7 +486,7 @@ func logStackTraceAndCancel(cancel context.CancelFunc, logger logging.Logger) {
 	bufSize := 1 << 20
 	traces := make([]byte, bufSize)
 	traceSize := runtime.Stack(traces, true)
-	message := "backtrace at robot restart"
+	message := "backtrace at robot shutdown"
 	if traceSize == bufSize {
 		message = fmt.Sprintf("%s (warning: backtrace truncated to %v bytes)", message, bufSize)
 	}
