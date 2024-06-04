@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"testing"
+	"time"
 
 	"go.viam.com/test"
 
@@ -39,42 +40,24 @@ func setupTestRobotWithModules(
 
 const (
 	resCount       = 10
-	configDuration = "1ms"
+	configDuration = "10ms"
 )
 
-func BenchmarkConcurrentReconfiguration(b *testing.B) {
+func TestConcurrentReconfiguration(t *testing.T) {
 	ctx := context.Background()
-	logger := logging.NewTestLogger(b)
+	logger := logging.NewTestLogger(t)
 
 	type testcase struct {
 		name         string
 		dependencies [][]string
 	}
 	for _, tc := range []testcase{
-		{"serial dependencies", func() (deps [][]string) {
-			// Update config to include N resources such that:
-			//
-			// * resource 0 has no dependencies
-			// * for all resources N>0, resource N depends on resource N-1
-			//
-			// This dependency structure should force each resource to be constructed
-			// serially. If each resource takes duration T to configure, then
-			// total configuration time per resource be approximately T.
-			for i := 0; i < resCount; i++ {
-				var dependsOn []string
-				if i > 0 {
-					dependsOn = append(dependsOn, fmt.Sprintf("slow%d", i-1))
-				}
-				deps = append(deps, dependsOn)
-			}
-			return
-		}()},
 		{"no dependencies", func() (deps [][]string) {
 			// Update config to include N resources that do no have any dependencies.
 			//
 			// This dependency structure should allow each resource to be constructed
-			// concurrently. If each resource takes duration T to configure, then
-			// total configuration time per resource be approximately T/N.
+			// concurrently. If each resource takes duration T to configure, then total
+			// configuration time per resource be approximately T/N.
 			for i := 0; i < resCount; i++ {
 				deps = append(deps, nil)
 			}
@@ -85,8 +68,8 @@ func BenchmarkConcurrentReconfiguration(b *testing.B) {
 			// the resources, resource N depends on resource N-1.
 			//
 			// This dependency structure should allow some resources to be constructed
-			// concurrently. If each resource takes duration T to configure, then
-			// total configuration time per resource be between T/N and T, approximately.
+			// concurrently. If each resource takes duration T to configure, then total
+			// configuration time per resource be between T/N and T, approximately.
 			for i := 0; i < resCount; i++ {
 				var dependsOn []string
 				if i%3 == 1 {
@@ -96,50 +79,64 @@ func BenchmarkConcurrentReconfiguration(b *testing.B) {
 			}
 			return
 		}()},
+		{"serial dependencies", func() (deps [][]string) {
+			// Update config to include N resources such that:
+			//
+			// * resource 0 has no dependencies
+			// * for all resources N>0, resource N depends on resource N-1
+			//
+			// This dependency structure should force each resource to be constructed
+			// serially. If each resource takes duration T to configure, then total
+			// configuration time per resource be approximately T.
+			for i := 0; i < resCount; i++ {
+				var dependsOn []string
+				if i > 0 {
+					dependsOn = append(dependsOn, fmt.Sprintf("slow%d", i-1))
+				}
+				deps = append(deps, dependsOn)
+			}
+			return
+		}()},
 	} {
-		b.Run(tc.name, func(b *testing.B) {
-			cfg, rob := setupTestRobotWithModules(b, ctx, logger)
+		t.Run(tc.name, func(t *testing.T) {
+			cfg, rob := setupTestRobotWithModules(t, ctx, logger)
 
-			b.StopTimer()
-			b.ResetTimer()
-			for n := 0; n < b.N; n++ {
-				// Ensure all resources are removed before benchmark iteration.
-				cfg.Components = nil
-				rob.Reconfigure(ctx, cfg)
-				test.That(b, rob.ResourceNames(), test.ShouldBeEmpty)
+			cfg.Components = nil
+			rob.Reconfigure(ctx, cfg)
+			test.That(t, rob.ResourceNames(), test.ShouldBeEmpty)
 
-				// Create config with parametrized dependencies.
-				for i := 0; i < resCount; i++ {
-					cfg.Components = append(cfg.Components,
-						resource.Config{
-							Name:       fmt.Sprintf("slow%d", i),
-							Model:      resource.NewModel("rdk", "test", "slow"),
-							API:        generic.API,
-							Attributes: utils.AttributeMap{"config_duration": configDuration},
-							DependsOn:  tc.dependencies[i],
-						},
-					)
-				}
-
-				// Reconfigure robot and benchmark.
-				b.StartTimer()
-				rob.Reconfigure(ctx, cfg)
-				b.StopTimer()
-
-				// Assert that all resources were added.
-				var err error
-				for i := 0; i < resCount; i++ {
-					_, err = rob.ResourceByName(generic.Named(fmt.Sprintf("slow%d", i)))
-					test.That(b, err, test.ShouldBeNil)
-				}
+			// Create config with parametrized dependencies.
+			for i := 0; i < resCount; i++ {
+				cfg.Components = append(cfg.Components,
+					resource.Config{
+						Name:       fmt.Sprintf("slow%d", i),
+						Model:      resource.NewModel("rdk", "test", "slow"),
+						API:        generic.API,
+						Attributes: utils.AttributeMap{"config_duration": configDuration},
+						DependsOn:  tc.dependencies[i],
+					},
+				)
 			}
 
-			// --- Report metrics ---
-			//
-			// Reconfiguration time per resource. Since the number of resources and
-			// configuration time for each resource is constant, this metric should
-			// generally be lower as there are fewer dependencies between resources.
-			b.ReportMetric(float64(b.Elapsed().Milliseconds())/float64(b.N)/float64(resCount), "ms/resource")
+			// Reconfigure robot and benchmark.
+			start := time.Now()
+			rob.Reconfigure(ctx, cfg)
+			duration := time.Since(start)
+
+			// Report metrics.
+			t.Logf(
+				"reconfigured %d resources in %d ms (each individual resource takes %s to reconfigure)",
+				resCount,
+				duration.Milliseconds(),
+				configDuration,
+			)
+
+			// Assert that all resources were added.
+			var err error
+			for i := 0; i < resCount; i++ {
+				_, err = rob.ResourceByName(generic.Named(fmt.Sprintf("slow%d", i)))
+				test.That(t, err, test.ShouldBeNil)
+			}
 		})
 	}
 }
