@@ -104,7 +104,6 @@ func installPackage(
 		utils.UncheckedError(cleanup(packagesDir, p))
 		return err
 	}
-	logger.Info("finished writing status file to: ", packagesDir)
 
 	return nil
 }
@@ -321,7 +320,7 @@ func packageIsSynced(pkg config.PackageConfig, packagesDir string, logger loggin
 
 func packagesAreSynced(packages []config.PackageConfig, packagesDir string, logger logging.Logger) bool {
 	for _, pkg := range packages {
-		if packageIsSynced(pkg, packagesDir, logger) {
+		if !packageIsSynced(pkg, packagesDir, logger) {
 			return false
 		}
 	}
@@ -362,7 +361,10 @@ func writeStatusFile(pkg config.PackageConfig, statusFile packageSyncFile, packa
 		return errors.Wrapf(err, "failed to create %s", syncFileName)
 	}
 	if _, err := syncFile.Write(statusFileBytes); err != nil {
-		return errors.Wrapf(err, "failed to write manifest to %s", syncFileName)
+		return errors.Wrapf(err, "failed to write syncfile to %s", syncFileName)
+	}
+	if err := syncFile.Sync(); err != nil {
+		return errors.Wrapf(err, "failed to sync %s", syncFileName)
 	}
 
 	return nil

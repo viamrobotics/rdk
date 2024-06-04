@@ -10,6 +10,7 @@ import (
 	"slices"
 	"testing"
 	"time"
+	"strings"
 
 	pb "go.viam.com/api/app/packages/v1"
 	"go.viam.com/test"
@@ -102,7 +103,7 @@ func TestCloud(t *testing.T) {
 		validatePackageDir(t, packageDir, []config.PackageConfig{input[1]})
 	})
 
-	t.Run("sync re-downloads on error", func(t *testing.T) {
+	t.Run("sync re-downloads on missing status file", func(t *testing.T) {
 		pkg := config.PackageConfig{Name: "some-name", Package: "org1/test-model", Version: "v1", Type: "module"}
 
 		// create a package manager and Sync to download the package
@@ -132,9 +133,10 @@ func TestCloud(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, info.ModTime(), test.ShouldEqual, modTime)
 
-		// close previous package manager, then corrupt the module entrypoint file
+		// close previous package manager, then corrupt the package sync file
 		pm.Close(ctx)
-		info, err = os.Stat(module.ExePath)
+		syncFileName := getSyncFileName(pkg.LocalDataDirectory(pm.(*cloudManager).packagesDir))
+		info, err = os.Stat(syncFileName)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, info.Size(), test.ShouldNotBeZeroValue)
 		err = os.Remove(module.ExePath)
@@ -148,7 +150,7 @@ func TestCloud(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		// test that file exists, is non-empty, and modTime is different
-		info, err = os.Stat(module.ExePath)
+		info, err = os.Stat(syncFileName)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, info.Size(), test.ShouldNotBeZeroValue)
 		test.That(t, info.ModTime(), test.ShouldNotEqual, modTime)
@@ -357,6 +359,9 @@ func validatePackageDir(t *testing.T, dir string, input []config.PackageConfig) 
 
 		test.That(t, linkTarget, test.ShouldEqual, dataPath)
 
+		info, err = os.Stat(dataPath + ".status.json")
+		test.That(t, err, test.ShouldBeNil)
+
 		info, err = os.Stat(dataPath)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, info.IsDir(), test.ShouldBeTrue)
@@ -394,7 +399,8 @@ func validatePackageDir(t *testing.T, dir string, input []config.PackageConfig) 
 		foundFiles, err := os.ReadDir(filepath.Join(dir, "data", typeFile.Name()))
 		test.That(t, err, test.ShouldBeNil)
 		for _, packageFile := range foundFiles {
-			if !slices.Contains(expectedPackages, packageFile.Name()) {
+					// skip over status files
+			if !slices.Contains(expectedPackages, packageFile.Name()) && !strings.HasSuffix(packageFile.Name(), ".status.json") {
 				t.Errorf("found unknown file in package %s dir %s", typeFile.Name(), packageFile.Name())
 			}
 		}

@@ -143,13 +143,35 @@ func (m *localManager) Sync(ctx context.Context, packages []config.PackageConfig
 
 	// overwrite incoming modules with filtered slice; we only manage local tarball modules
 	modules = rUtils.FilterSlice(modules, config.Module.NeedsSyntheticPackage)
-	existing, changed := m.managedModules.getAddedAndChanged(modules)
+	existing, fileChanged := m.managedModules.getAddedAndChanged(modules)
+	changed := make([]config.Module,0)
+
+	var outErr error
+	for idx, mod := range fileChanged {
+		pkg, err := mod.SyntheticPackage()
+		if err != nil {
+			return multierr.Append(outErr, err)
+		}
+		m.logger.Errorf("Looking for syncfile in %s: ",pkg.LocalDataDirectory(m.packagesDir))
+		if packageIsSynced(pkg, pkg.LocalDataDirectory(m.packagesDir),m.logger) {
+			existing[mod.Name] = &managedModule{fileChanged[idx]}
+		} else {
+			changed = append(changed, mod)
+		}
+	}
+
+	if outErr != nil {
+		return outErr
+	}
+
 	if len(changed) > 0 {
-		m.logger.Info("Local package changes have been detected, starting sync")
+		m.logger.Errorf("managed: %v", m.managedModules["mod2"])
+		m.logger.Errorf("existing: %v", existing)
+		m.logger.Errorf("changed: %v", changed)
+		m.logger.Info("Local package changes have been detected, starting sync...")
 	}
 
 	start := time.Now()
-	var outErr error
 	for idx, mod := range changed {
 		pkgStart := time.Now()
 		if err := ctx.Err(); err != nil {
