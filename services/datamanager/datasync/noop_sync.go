@@ -11,14 +11,14 @@ func NewNoopManager() Manager {
 	return &noopManager{}
 }
 
-func (m *noopManager) SyncFile(path string, stopAfter time.Time) {}
+func (m *noopManager) SyncFiles(_ chan string, _ time.Time) {}
 
-func (m *noopManager) SetArbitraryFileTags(tags []string) {}
+func (m *noopManager) SetArbitraryFileTags(_ []string) {}
 
 func (m *noopManager) Close() {}
 
-func (m *noopManager) MarkInProgress(path string) bool {
+func (m *noopManager) MarkInProgress(_ string) bool {
 	return true
 }
 
-func (m *noopManager) UnmarkInProgress(path string) {}
+func (m *noopManager) UnmarkInProgress(_ string) {}

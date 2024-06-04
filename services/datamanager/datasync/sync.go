@@ -41,7 +41,7 @@ const MaxParallelSyncRoutines = 1000
 
 // Manager is responsible for enqueuing files in captureDir and uploading them to the cloud.
 type Manager interface {
-	SyncFile(path string, stopAfter time.Time)
+	SyncFiles(fileChannel chan string, stopAfter time.Time)
 	SetArbitraryFileTags(tags []string)
 	Close()
 	MarkInProgress(path string) bool
@@ -114,17 +114,9 @@ func (s *syncer) SetArbitraryFileTags(tags []string) {
 	s.arbitraryFileTags = tags
 }
 
-func (s *syncer) SyncFile(path string, stopAfter time.Time) {
-	// If the file is already being synced, do not kick off a new goroutine.
-	// The goroutine will again check and return early if sync is already in progress.
-	s.progressLock.Lock()
-	if s.inProgress[path] {
-		s.progressLock.Unlock()
-		return
-	}
-	s.progressLock.Unlock()
+func (s *syncer) SyncFiles(fileChannel chan string, stopAfter time.Time) {
 
-	for {
+	for path := range fileChannel {
 		if s.cancelCtx.Err() != nil {
 			return
 		}

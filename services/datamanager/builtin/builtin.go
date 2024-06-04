@@ -690,54 +690,67 @@ func (svc *builtIn) sync() {
 
 	// Kick off a goroutine to retrieve all the names of the files to sync, then another 1000 to
 	// sync the files to Viam app.
+	numWorkers := 1000
+	fileChannel := make(chan string, numWorkers)
+
 	var wg sync.WaitGroup
 	wg.Add(1)
-	go getAllFilesToSync([]string{captureDir, additionalSyncPaths},
-		fileLastModifiedMillis,
-		fileChannel,
-		stopAfter)
+	go func() {
+		defer wg.Done()
+		getAllFilesToSync(append([]string{captureDir}, additionalSyncPaths...),
+			fileLastModifiedMillis,
+			fileChannel,
+			stopAfter)
+		close(fileChannel)
+	}()
 
-	for i := 0; i < 1000; i++ {
+	for i := 0; i < numWorkers; i++ {
 		wg.Add(1)
-		go svc.syncer.SyncFiles(fileChannel, stopAfter)
+		go func() {
+			defer wg.Done()
+			svc.syncer.SyncFiles(fileChannel, stopAfter)
+		}()
 	}
 
 	wg.Wait()
 }
 
 // nolint
-func getAllFilesToSync(dir string, lastModifiedMillis int) []string {
-	var filePaths []string
-	_ = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
+func getAllFilesToSync(dirs []string, lastModifiedMillis int, fileChannel chan string, stopAfter time.Time) {
+	for _, dir := range dirs {
+		_ = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
+			// TODO: check for context cancellation and stopAfter time passed
+
+			if err != nil {
+				return nil
+			}
+			// Do not sync the files in the corrupted data directory.
+			if info.IsDir() && info.Name() == datasync.FailedDir {
+				return filepath.SkipDir
+			}
+			if info.IsDir() {
+				return nil
+			}
+			// If a file was modified within the past lastModifiedMillis, do not sync it (data
+			// may still be being written).
+			timeSinceMod := clock.Since(info.ModTime())
+			// When using a mock clock in tests, this can be negative since the file system will still use the system clock.
+			// Take max(timeSinceMod, 0) to account for this.
+			if timeSinceMod < 0 {
+				timeSinceMod = 0
+			}
+			isStuckInProgressCaptureFile := filepath.Ext(path) == datacapture.InProgressFileExt &&
+				timeSinceMod >= defaultFileLastModifiedMillis*time.Millisecond
+			isNonCaptureFileThatIsNotBeingWrittenTo := filepath.Ext(path) != datacapture.InProgressFileExt &&
+				timeSinceMod >= time.Duration(lastModifiedMillis)*time.Millisecond
+			isCompletedCaptureFile := filepath.Ext(path) == datacapture.FileExt
+			if isCompletedCaptureFile || isStuckInProgressCaptureFile ||
+				isNonCaptureFileThatIsNotBeingWrittenTo {
+				fileChannel <- path
+			}
 			return nil
-		}
-		// Do not sync the files in the corrupted data directory.
-		if info.IsDir() && info.Name() == datasync.FailedDir {
-			return filepath.SkipDir
-		}
-		if info.IsDir() {
-			return nil
-		}
-		// If a file was modified within the past lastModifiedMillis, do not sync it (data
-		// may still be being written).
-		timeSinceMod := clock.Since(info.ModTime())
-		// When using a mock clock in tests, this can be negative since the file system will still use the system clock.
-		// Take max(timeSinceMod, 0) to account for this.
-		if timeSinceMod < 0 {
-			timeSinceMod = 0
-		}
-		isStuckInProgressCaptureFile := filepath.Ext(path) == datacapture.InProgressFileExt &&
-			timeSinceMod >= defaultFileLastModifiedMillis*time.Millisecond
-		isNonCaptureFileThatIsNotBeingWrittenTo := filepath.Ext(path) != datacapture.InProgressFileExt &&
-			timeSinceMod >= time.Duration(lastModifiedMillis)*time.Millisecond
-		isCompletedCaptureFile := filepath.Ext(path) == datacapture.FileExt
-		if isCompletedCaptureFile || isStuckInProgressCaptureFile || isNonCaptureFileThatIsNotBeingWrittenTo {
-			filePaths = append(filePaths, path)
-		}
-		return nil
-	})
-	return filePaths
+		})
+	}
 }
 
 // Build the component configs associated with the data manager service.
