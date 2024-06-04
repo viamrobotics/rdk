@@ -18,11 +18,8 @@ if [[ "$1" == "race" ]]; then
 	LOGFILE="--jsonfile json.log"
 fi
 
-# TODO: better filter?
-BENCH="-bench=BenchmarkConcurrentReconfiguration"
-
 # We run analyzetests on every run, pass or fail. We only run analyzecoverage when all tests passed.
-PION_LOG_WARN=webrtc,datachannel,sctp gotestsum --format standard-verbose $LOGFILE -- -tags=no_skip $BENCH $RACE $COVER $TEST_TARGET
+PION_LOG_WARN=webrtc,datachannel,sctp gotestsum --format standard-verbose $LOGFILE -- -tags=no_skip $RACE $COVER $TEST_TARGET
 SUCCESS=$?
 
 if [[ $RACE != "" ]]; then
