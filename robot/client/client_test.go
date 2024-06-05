@@ -2044,3 +2044,34 @@ func TestCloudMetadata(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, md, test.ShouldResemble, injectCloudMD)
 }
+
+func TestShutDown(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+	listener, err := net.Listen("tcp", "localhost:0")
+	test.That(t, err, test.ShouldBeNil)
+
+	shutdownCalled := false
+	injectRobot := &inject.Robot{
+		ResourceNamesFunc:   func() []resource.Name { return nil },
+		ResourceRPCAPIsFunc: func() []resource.RPCAPI { return nil },
+		ShutdownFunc: func(ctx context.Context) error {
+			shutdownCalled = true
+			return nil
+		},
+	}
+
+	gServer := grpc.NewServer()
+	pb.RegisterRobotServiceServer(gServer, server.New(injectRobot))
+	go gServer.Serve(listener)
+	defer gServer.Stop()
+
+	client, err := New(context.Background(), listener.Addr().String(), logger)
+	test.That(t, err, test.ShouldBeNil)
+	defer func() {
+		test.That(t, client.Close(context.Background()), test.ShouldBeNil)
+	}()
+
+	err = client.Shutdown(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, shutdownCalled, test.ShouldBeTrue)
+}
