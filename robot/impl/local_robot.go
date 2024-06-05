@@ -1305,10 +1305,10 @@ func (r *localRobot) RestartModule(ctx context.Context, req robot.RestartModuleR
 }
 
 func (r *localRobot) Shutdown(ctx context.Context) error {
-	shutdownFunc := r.shutdownCallback
-	if shutdownFunc != nil {
+	if shutdownFunc := r.shutdownCallback; shutdownFunc != nil {
 		shutdownFunc()
-		return nil
+	} else {
+		r.Logger().CErrorw(ctx, "shutdown function not defined")
 	}
-	return errors.New("shutdown function not defined")
+	return nil
 }
