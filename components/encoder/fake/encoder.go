@@ -104,7 +104,6 @@ func (e *fakeEncoder) Position(
 	}
 	e.mu.RLock()
 	defer e.mu.RUnlock()
-	e.logger.Infof("position %v", e.position)
 	return float64(e.position), e.positionType, nil
 }
 
@@ -128,7 +127,6 @@ func (e *fakeEncoder) start(cancelCtx context.Context) {
 
 			e.mu.Lock()
 			e.position += e.speed / float64(60*1000/updateRate)
-			e.logger.Infof("speed %v, update rate %v, position %v", e.speed, updateRate, e.position)
 			e.mu.Unlock()
 		}
 	}, e.activeBackgroundWorkers.Done)
