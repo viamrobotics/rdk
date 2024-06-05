@@ -104,7 +104,7 @@ func (e *fakeEncoder) Position(
 	}
 	e.mu.RLock()
 	defer e.mu.RUnlock()
-	return float64(e.position), e.positionType, nil
+	return e.position, e.positionType, nil
 }
 
 // Start starts a background thread to run the encoder.
