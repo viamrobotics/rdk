@@ -429,6 +429,7 @@ func TestPackageRefs(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	t.Run("PackagePath", func(t *testing.T) {
+		//FYI: This test passes in CI but fails when ran on MacOS
 		t.Run("valid package", func(t *testing.T) {
 			pPath, err := pm.PackagePath("some-name")
 			test.That(t, err, test.ShouldBeNil)

@@ -54,7 +54,7 @@ func TestLocalManagerUtils(t *testing.T) {
 		mod2.ExePath = "changed"
 		existing, changed := m.getAddedAndChanged([]config.Module{
 			mod1, mod2, mod3,
-		})
+		}, "", logging.NewTestLogger(t))
 		test.That(t, existing, test.ShouldHaveLength, 1)
 		test.That(t, existing[mod1.Name], test.ShouldNotBeNil)
 		test.That(t, changed, test.ShouldResemble, []config.Module{mod2, mod3})

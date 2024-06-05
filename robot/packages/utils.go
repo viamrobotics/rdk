@@ -32,6 +32,7 @@ func installPackage(
 	p config.PackageConfig,
 	installFn installCallback,
 ) error {
+	
 	// Create the parent directory for the package type if it doesn't exist
 	if err := os.MkdirAll(p.LocalDataParentDirectory(packagesDir), 0o700); err != nil {
 		return err
