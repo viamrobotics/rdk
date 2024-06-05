@@ -253,7 +253,7 @@ func commonCleanup(logger logging.Logger, expectedPackageDirectories map[string]
 		}
 
 		// There should be no non-dir files in the packages/data dir except .status.json files. Delete any that exist
-		if packageTypeDir.Type()&os.ModeDir != os.ModeDir && !strings.HasSuffix(packageTypeDirName, ".status.json") {
+		if packageTypeDir.Type()&os.ModeDir != os.ModeDir && !strings.HasSuffix(packageTypeDirName, statusFileExt) {
 			allErrors = multierr.Append(allErrors, os.Remove(packageTypeDirName))
 			continue
 		}
@@ -270,7 +270,7 @@ func commonCleanup(logger logging.Logger, expectedPackageDirectories map[string]
 				continue
 			}
 			_, expectedToExist := expectedPackageDirectories[packageDirName]
-			_, expectedStatusFileToExist := expectedPackageDirectories[strings.TrimSuffix(packageDirName, ".status.json")]
+			_, expectedStatusFileToExist := expectedPackageDirectories[strings.TrimSuffix(packageDirName, statusFileExt)]
 			if !expectedToExist && !expectedStatusFileToExist {
 				logger.Debugf("Removing old package file(s) %s", packageDirName)
 				allErrors = multierr.Append(allErrors, os.RemoveAll(packageDirName))
@@ -305,6 +305,8 @@ type packageSyncFile struct {
 	TarballChecksum string     `json:"tarball_checksum"`
 }
 
+var statusFileExt string = ".status.json"
+
 func packageIsSynced(pkg config.PackageConfig, packagesDir string, logger logging.Logger) bool {
 	syncFile, err := readStatusFile(pkg, packagesDir)
 	if err != nil {
@@ -329,7 +331,7 @@ func packagesAreSynced(packages []config.PackageConfig, packagesDir string, logg
 }
 
 func getSyncFileName(packageLocalDataDirectory string) string {
-	return fmt.Sprintf("%s.status.json", packageLocalDataDirectory)
+	return packageLocalDataDirectory + statusFileExt
 }
 
 func readStatusFile(pkg config.PackageConfig, packagesDir string) (packageSyncFile, error) {

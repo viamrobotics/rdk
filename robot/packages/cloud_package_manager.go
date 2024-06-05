@@ -177,6 +177,10 @@ func (m *cloudManager) Sync(ctx context.Context, packages []config.PackageConfig
 				}
 
 				err = writeStatusFile(p, statusFile, m.packagesDir)
+				if err != nil {
+					return "", "", err
+				}
+
 				checksum, contentType, err := m.downloadFileFromGCSURL(ctx, url, dstPath, m.cloudConfig.ID, m.cloudConfig.Secret)
 				return checksum, contentType, err
 			},

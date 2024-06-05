@@ -115,12 +115,19 @@ func TestCloud(t *testing.T) {
 		err = pm.Sync(ctx, []config.PackageConfig{pkg}, []config.Module{module})
 		test.That(t, err, test.ShouldBeNil)
 
-		// grab ModTime for comparison
+		// grab ExePath ModTime for comparison
 		info, err := os.Stat(module.ExePath)
 		test.That(t, err, test.ShouldBeNil)
 		modTime := info.ModTime()
 
-		// close previous package manager, make sure new PM *doesn't* re-download with intact ExePath
+		// grab sync file ModTime for comparison
+		syncFileName := getSyncFileName(pkg.LocalDataDirectory(pm.(*cloudManager).packagesDir))
+		_, err = os.Stat(syncFileName)
+		test.That(t, err, test.ShouldBeNil)
+		firstStatusFile, err := readStatusFile(pkg, pm.(*cloudManager).packagesDir)
+		test.That(t, err, test.ShouldBeNil)
+
+		// close previous package manager, make sure new PM *doesn't* re-download with intact package sync file
 		pm.Close(ctx)
 		_, pm = newPackageManager(t, client, fakeServer, logger, pm.(*cloudManager).packagesDir)
 		defer utils.UncheckedErrorFunc(func() error { return pm.Close(context.Background()) })
@@ -129,17 +136,21 @@ func TestCloud(t *testing.T) {
 		time.Sleep(10 * time.Millisecond)
 		err = pm.Sync(ctx, []config.PackageConfig{pkg}, []config.Module{module})
 		test.That(t, err, test.ShouldBeNil)
+
+		// Ensure that files have not changed on 2nd sync
 		info, err = os.Stat(module.ExePath)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, info.ModTime(), test.ShouldEqual, modTime)
+		secondStatusFile, err := readStatusFile(pkg, pm.(*cloudManager).packagesDir)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, secondStatusFile.ModifiedTime, test.ShouldEqual, firstStatusFile.ModifiedTime)
 
 		// close previous package manager, then corrupt the package sync file
 		pm.Close(ctx)
-		syncFileName := getSyncFileName(pkg.LocalDataDirectory(pm.(*cloudManager).packagesDir))
 		info, err = os.Stat(syncFileName)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, info.Size(), test.ShouldNotBeZeroValue)
-		err = os.Remove(module.ExePath)
+		err = os.Remove(syncFileName)
 		test.That(t, err, test.ShouldBeNil)
 
 		// create fresh packageManager to simulate a reboot, i.e. so the system doesn't think the module is already managed.
@@ -149,11 +160,16 @@ func TestCloud(t *testing.T) {
 		err = pm.Sync(ctx, []config.PackageConfig{pkg}, []config.Module{module})
 		test.That(t, err, test.ShouldBeNil)
 
-		// test that file exists, is non-empty, and modTime is different
+		// test that Exe file exists, is non-empty, and modTime is different
 		info, err = os.Stat(syncFileName)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, info.Size(), test.ShouldNotBeZeroValue)
 		test.That(t, info.ModTime(), test.ShouldNotEqual, modTime)
+
+		// test that Exe file exists, is non-empty, and modTime is different
+		thirdStatusFile, err := readStatusFile(pkg, pm.(*cloudManager).packagesDir)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, thirdStatusFile.ModifiedTime, test.ShouldNotEqual, firstStatusFile.ModifiedTime)
 	})
 
 	t.Run("sync and clean should remove file", func(t *testing.T) {
@@ -359,7 +375,7 @@ func validatePackageDir(t *testing.T, dir string, input []config.PackageConfig) 
 
 		test.That(t, linkTarget, test.ShouldEqual, dataPath)
 
-		info, err = os.Stat(dataPath + ".status.json")
+		info, err = os.Stat(dataPath + statusFileExt)
 		test.That(t, err, test.ShouldBeNil)
 
 		info, err = os.Stat(dataPath)

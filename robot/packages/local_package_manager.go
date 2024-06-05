@@ -104,7 +104,6 @@ func (m *localManager) fileCopyHelper(ctx context.Context, path, dstPath string)
 	}
 	m.logger.Debugf("copied %d bytes to %s", nBytes, dstPath)
 	checksum := hash.Sum(nil)
-	m.logger.Debugf("checksum of expanded folder: %x", checksum)
 	// note: we can hardcode expected contentType because this is probably a synthetic package which already passed tarballExtensionsRegexp
 	return string(checksum), allowedContentType, nil
 }
@@ -137,7 +136,7 @@ func (m managedModuleMap) getAddedAndChanged(incoming []config.Module, packagesD
 			if err != nil {
 				return false
 			}
-			return !packageIsSynced(pkg, pkg.LocalDataDirectory(packagesDir), logger)
+			return packageIsSynced(pkg, packagesDir, logger)
 		},
 	)
 }
@@ -149,26 +148,26 @@ func (m *localManager) Sync(ctx context.Context, packages []config.PackageConfig
 
 	// overwrite incoming modules with filtered slice; we only manage local tarball modules
 	modules = rUtils.FilterSlice(modules, config.Module.NeedsSyntheticPackage)
-	existing, fileChanged := m.managedModules.getAddedAndChanged(modules, m.packagesDir, m.logger)
-	changed := make([]config.Module,0)
+	existing, changed := m.managedModules.getAddedAndChanged(modules, m.packagesDir, m.logger)
+	// changed := make([]config.Module,0)
 
 	var outErr error
-	for idx, mod := range fileChanged {
-		pkg, err := mod.SyntheticPackage()
-		if err != nil {
-			return multierr.Append(outErr, err)
-		}
-		m.logger.Errorf("Looking for syncfile in %s: ",pkg.LocalDataDirectory(m.packagesDir))
-		if packageIsSynced(pkg, pkg.LocalDataDirectory(m.packagesDir),m.logger) {
-			existing[mod.Name] = &managedModule{fileChanged[idx]}
-		} else {
-			changed = append(changed, mod)
-		}
-	}
+	// for idx, mod := range fileChanged {
+	// 	pkg, err := mod.SyntheticPackage()
+	// 	if err != nil {
+	// 		return multierr.Append(outErr, err)
+	// 	}
+	// 	m.logger.Errorf("Looking for syncfile in %s: ",pkg.LocalDataDirectory(m.packagesDir))
+	// 	if packageIsSynced(pkg, pkg.LocalDataDirectory(m.packagesDir),m.logger) {
+	// 		existing[mod.Name] = &managedModule{fileChanged[idx]}
+	// 	} else {
+	// 		changed = append(changed, mod)
+	// 	}
+	// }
 
-	if outErr != nil {
-		return outErr
-	}
+	// if outErr != nil {
+	// 	return outErr
+	// }
 
 	if len(changed) > 0 {
 		m.logger.Info("Local package changes have been detected, starting sync...")
