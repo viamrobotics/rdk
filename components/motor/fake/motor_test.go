@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"testing"
+	"time"
 
 	"go.viam.com/test"
 	"go.viam.com/utils/testutils"
@@ -180,4 +181,27 @@ func TestPower(t *testing.T) {
 
 	powerPct = m.PowerPct()
 	test.That(t, powerPct, test.ShouldEqual, 0.0)
+}
+
+func TestGoFor2(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+	ctx := context.Background()
+
+	enc, err := fake.NewEncoder(context.Background(), resource.Config{
+		ConvertedAttributes: &fake.Config{},
+	}, logger)
+	test.That(t, err, test.ShouldBeNil)
+	m := &Motor{
+		Encoder:           enc.(fake.Encoder),
+		Logger:            logger,
+		PositionReporting: true,
+		MaxRPM:            1000,
+		TicksPerRotation:  10,
+		OpMgr:             operation.NewSingleOperationManager(),
+	}
+
+	for i := 0; i <= 20; i++ {
+		err = m.GoFor(ctx, 102.53338, 0, nil)
+		time.Sleep(500 * time.Millisecond)
+	}
 }

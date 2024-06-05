@@ -87,7 +87,7 @@ type fakeEncoder struct {
 	logger                  logging.Logger
 
 	mu         sync.RWMutex
-	position   int64
+	position   float64
 	speed      float64 // ticks per minute
 	updateRate int64   // update position in start every updateRate ms
 }
@@ -104,6 +104,7 @@ func (e *fakeEncoder) Position(
 	}
 	e.mu.RLock()
 	defer e.mu.RUnlock()
+	e.logger.Infof("position %v", e.position)
 	return float64(e.position), e.positionType, nil
 }
 
@@ -126,7 +127,8 @@ func (e *fakeEncoder) start(cancelCtx context.Context) {
 			}
 
 			e.mu.Lock()
-			e.position += int64(e.speed / float64(60*1000/updateRate))
+			e.position += e.speed / float64(60*1000/updateRate)
+			e.logger.Infof("speed %v, update rate %v, position %v", e.speed, updateRate, e.position)
 			e.mu.Unlock()
 		}
 	}, e.activeBackgroundWorkers.Done)
@@ -137,7 +139,7 @@ func (e *fakeEncoder) start(cancelCtx context.Context) {
 func (e *fakeEncoder) ResetPosition(ctx context.Context, extra map[string]interface{}) error {
 	e.mu.Lock()
 	defer e.mu.Unlock()
-	e.position = int64(0)
+	e.position = 0
 	return nil
 }
 
@@ -153,7 +155,7 @@ func (e *fakeEncoder) Properties(ctx context.Context, extra map[string]interface
 type Encoder interface {
 	encoder.Encoder
 	SetSpeed(ctx context.Context, speed float64) error
-	SetPosition(ctx context.Context, position int64) error
+	SetPosition(ctx context.Context, position float64) error
 }
 
 // SetSpeed sets the speed of the fake motor the encoder is measuring.
@@ -165,7 +167,7 @@ func (e *fakeEncoder) SetSpeed(ctx context.Context, speed float64) error {
 }
 
 // SetPosition sets the position of the encoder.
-func (e *fakeEncoder) SetPosition(ctx context.Context, position int64) error {
+func (e *fakeEncoder) SetPosition(ctx context.Context, position float64) error {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	e.position = position
