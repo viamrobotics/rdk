@@ -273,6 +273,7 @@ func (m *roboclawMotor) GoFor(ctx context.Context, rpm, revolutions float64, ext
 			return errors.Wrap(err, "error in GoFor")
 		}
 		if revolutions == 0 {
+			m.logger.CWarn(ctx, "Deprecated: setting revolutions == 0 will spin the motor indefinitely at the specified RPM")
 			return nil
 		}
 		if m.opMgr.NewTimedWaitOp(ctx, waitDur) {
