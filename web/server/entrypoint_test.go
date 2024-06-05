@@ -18,6 +18,7 @@ import (
 	"go.viam.com/test"
 	goutils "go.viam.com/utils"
 	"go.viam.com/utils/pexec"
+	gtestutils "go.viam.com/utils/testutils"
 
 	_ "go.viam.com/rdk/components/register"
 	"go.viam.com/rdk/config"
@@ -27,7 +28,6 @@ import (
 	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/robottestutils"
 	"go.viam.com/rdk/utils"
-	gtestutils "go.viam.com/utils/testutils"
 )
 
 // numResources is the # of resources in /etc/configs/fake.json + the 2
@@ -166,7 +166,8 @@ func TestShutdown(t *testing.T) {
 			rdkStatus := server.Status()
 			test.That(tb, rdkStatus, test.ShouldNotBeNil)
 		})
-		test.That(t, (err == nil || err.Error() == "rpc error: code = Internal desc = server closed the stream without sending trailers"), test.ShouldBeTrue)
+		test.That(t, (err == nil || err.Error() == `rpc error: code = Internal desc = server 
+			closed the stream without sending trailers`), test.ShouldBeTrue)
 		test.That(t, logObserver.FilterLevelExact(zapcore.ErrorLevel).Len(), test.ShouldEqual, 0)
 	})
 }
