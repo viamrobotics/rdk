@@ -7,7 +7,6 @@ import (
 	"net"
 	"os"
 	"path/filepath"
-	"reflect"
 	"runtime"
 	"sync"
 	"time"
@@ -416,6 +415,7 @@ func (svc *builtIn) Reconfigure(
 	deps resource.Dependencies,
 	conf resource.Config,
 ) error {
+	svc.cancelSyncScheduler()
 	svc.lock.Lock()
 	defer svc.lock.Unlock()
 	svcConfig, err := resource.NativeConfig[*Config](conf)
@@ -433,7 +433,7 @@ func (svc *builtIn) Reconfigure(
 	if svcConfig.MaximumNumSyncThreads != 0 {
 		newMaxSyncThreadValue = svcConfig.MaximumNumSyncThreads
 	}
-	reinitSyncer := cloudConnSvc != svc.cloudConnSvc || newMaxSyncThreadValue != svc.maxSyncThreads
+	// reinitSyncer := cloudConnSvc != svc.cloudConnSvc || newMaxSyncThreadValue != svc.maxSyncThreads
 	svc.cloudConnSvc = cloudConnSvc
 
 	captureConfigs, err := svc.updateDataCaptureConfigs(deps, conf, svcConfig.CaptureDir)
@@ -559,38 +559,32 @@ func (svc *builtIn) Reconfigure(
 		svc.syncSensor = syncSensor
 	}
 
-	syncConfigUpdated := svc.syncDisabled != svcConfig.ScheduledSyncDisabled || svc.syncIntervalMins != svcConfig.SyncIntervalMins ||
-		!reflect.DeepEqual(svc.tags, svcConfig.Tags) || svc.fileLastModifiedMillis != fileLastModifiedMillis ||
-		svc.maxSyncThreads != newMaxSyncThreadValue
+	svc.syncDisabled = svcConfig.ScheduledSyncDisabled
+	svc.syncIntervalMins = svcConfig.SyncIntervalMins
+	svc.tags = svcConfig.Tags
+	svc.fileLastModifiedMillis = fileLastModifiedMillis
+	svc.maxSyncThreads = newMaxSyncThreadValue
 
-	if syncConfigUpdated {
-		svc.syncDisabled = svcConfig.ScheduledSyncDisabled
-		svc.syncIntervalMins = svcConfig.SyncIntervalMins
-		svc.tags = svcConfig.Tags
-		svc.fileLastModifiedMillis = fileLastModifiedMillis
-		svc.maxSyncThreads = newMaxSyncThreadValue
-
-		svc.cancelSyncScheduler()
-		if !svc.syncDisabled && svc.syncIntervalMins != 0.0 {
-			if svc.syncer == nil {
-				if err := svc.initSyncer(ctx); err != nil {
-					return err
-				}
-			} else if reinitSyncer {
-				svc.closeSyncer()
-				if err := svc.initSyncer(ctx); err != nil {
-					return err
-				}
+	// svc.cancelSyncScheduler()
+	if !svc.syncDisabled && svc.syncIntervalMins != 0.0 {
+		if svc.syncer == nil {
+			if err := svc.initSyncer(ctx); err != nil {
+				return err
 			}
-			svc.syncer.SetArbitraryFileTags(svc.tags)
-			svc.startSyncScheduler(svc.syncIntervalMins)
 		} else {
-			if svc.syncTicker != nil {
-				svc.syncTicker.Stop()
-				svc.syncTicker = nil
-			}
 			svc.closeSyncer()
+			if err := svc.initSyncer(ctx); err != nil {
+				return err
+			}
 		}
+		svc.syncer.SetArbitraryFileTags(svc.tags)
+		svc.startSyncScheduler(svc.syncIntervalMins)
+	} else {
+		if svc.syncTicker != nil {
+			svc.syncTicker.Stop()
+			svc.syncTicker = nil
+		}
+		svc.closeSyncer()
 	}
 	// if datacapture is enabled, kick off a go routine to check if disk space is filling due to
 	// cached datacapture files
@@ -617,9 +611,10 @@ func (svc *builtIn) startSyncScheduler(intervalMins float64) {
 // It does not close the syncer or any in progress uploads.
 func (svc *builtIn) cancelSyncScheduler() {
 	if svc.syncRoutineCancelFn != nil {
+		svc.lock.Lock()
 		svc.syncRoutineCancelFn()
 		svc.backgroundWorkers.Wait()
-		svc.syncRoutineCancelFn = nil
+		svc.lock.Unlock()
 	}
 }
 
