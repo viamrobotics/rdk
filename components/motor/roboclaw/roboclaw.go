@@ -242,7 +242,7 @@ func goForMath(rpm, revolutions float64) (float64, time.Duration) {
 	// If revolutions is 0, the returned wait duration will be 0 representing that
 	// the motor should run indefinitely.
 	if revolutions == 0 {
-		powerPct := 1.0
+		powerPct := rpm / maxRPM
 		return powerPct, 0
 	}
 
@@ -326,6 +326,7 @@ func (m *roboclawMotor) SetRPM(ctx context.Context, rpm float64, extra map[strin
 		if err != nil {
 			return errors.Wrap(err, "error in SetRPM`")
 		}
+		return nil
 	}
 
 	_, done := m.opMgr.New(ctx)
