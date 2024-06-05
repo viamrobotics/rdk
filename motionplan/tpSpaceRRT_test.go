@@ -319,7 +319,7 @@ func TestPtgCheckPlan(t *testing.T) {
 				localizationFrame.Name(): referenceframe.NewPoseInFrame(referenceframe.World, startPose),
 			},
 		}
-		err = CheckPlan(ackermanFrame, executionState, nil, tfFrameSystem, math.Inf(1), logger)
+		err = CheckPlan(ackermanFrame, localizationFrame, executionState, nil, tfFrameSystem, math.Inf(1), logger)
 		test.That(t, err, test.ShouldBeNil)
 	})
 
@@ -341,7 +341,7 @@ func TestPtgCheckPlan(t *testing.T) {
 				localizationFrame.Name(): referenceframe.NewPoseInFrame(referenceframe.World, startPose),
 			},
 		}
-		err = CheckPlan(ackermanFrame, executionState, worldState, tfFrameSystem, math.Inf(1), logger)
+		err = CheckPlan(ackermanFrame, localizationFrame, executionState, worldState, tfFrameSystem, math.Inf(1), logger)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, strings.Contains(err.Error(), "found constraint violation or collision in segment between"), test.ShouldBeTrue)
 	})
@@ -387,7 +387,7 @@ func TestPtgCheckPlan(t *testing.T) {
 				localizationFrame.Name(): plan.Path()[1][ackermanFrame.Name()],
 			},
 		}
-		err = CheckPlan(ackermanFrame, executionState, worldState, tfFrameSystem, math.Inf(1), logger)
+		err = CheckPlan(ackermanFrame, localizationFrame, executionState, worldState, tfFrameSystem, math.Inf(1), logger)
 		test.That(t, err, test.ShouldBeNil)
 	})
 
@@ -411,7 +411,7 @@ func TestPtgCheckPlan(t *testing.T) {
 				localizationFrame.Name(): referenceframe.NewPoseInFrame(referenceframe.World, startPose),
 			},
 		}
-		err = CheckPlan(ackermanFrame, executionState, worldState, tfFrameSystem, math.Inf(1), logger)
+		err = CheckPlan(ackermanFrame, localizationFrame, executionState, worldState, tfFrameSystem, math.Inf(1), logger)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, strings.Contains(err.Error(), "found constraint violation or collision in segment between"), test.ShouldBeTrue)
 	})
@@ -444,7 +444,7 @@ func TestPtgCheckPlan(t *testing.T) {
 				localizationFrame.Name(): referenceframe.NewPoseInFrame(referenceframe.World, startPose),
 			},
 		}
-		err = CheckPlan(ackermanFrame, executionState, worldState, tfFrameSystem, math.Inf(1), logger)
+		err = CheckPlan(ackermanFrame, localizationFrame, executionState, worldState, tfFrameSystem, math.Inf(1), logger)
 		test.That(t, err, test.ShouldBeNil)
 	})
 
@@ -471,7 +471,7 @@ func TestPtgCheckPlan(t *testing.T) {
 				localizationFrame.Name(): referenceframe.NewPoseInFrame(referenceframe.World, startPose),
 			},
 		}
-		err = CheckPlan(ackermanFrame, executionState, worldState, tfFrameSystem, math.Inf(1), logger)
+		err = CheckPlan(ackermanFrame, localizationFrame, executionState, worldState, tfFrameSystem, math.Inf(1), logger)
 		test.That(t, err, test.ShouldBeNil)
 	})
 }

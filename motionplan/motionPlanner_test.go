@@ -1254,7 +1254,7 @@ func TestArmGantryCheckPlan(t *testing.T) {
 				f.Name(): frame.NewPoseInFrame(frame.World, startPose),
 			},
 		}
-		err = CheckPlan(f, executionState, nil, fs, math.Inf(1), logger)
+		err = CheckPlan(f, nil, executionState, nil, fs, math.Inf(1), logger)
 		test.That(t, err, test.ShouldBeNil)
 	})
 	t.Run("check plan with obstacle", func(t *testing.T) {
@@ -1275,7 +1275,7 @@ func TestArmGantryCheckPlan(t *testing.T) {
 				f.Name(): frame.NewPoseInFrame(frame.World, startPose),
 			},
 		}
-		err = CheckPlan(f, executionState, worldState, fs, math.Inf(1), logger)
+		err = CheckPlan(f, nil, executionState, worldState, fs, math.Inf(1), logger)
 		test.That(t, err, test.ShouldNotBeNil)
 	})
 }
