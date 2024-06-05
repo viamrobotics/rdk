@@ -37,6 +37,12 @@ func (s *serviceServer) GetPosition(
 	if err != nil {
 		return nil, err
 	}
+
+	// if the position is nil, return an empty array.
+	if pos == nil {
+		pos = []float64{}
+	}
+
 	return &pb.GetPositionResponse{PositionsMm: pos}, nil
 }
 
@@ -52,6 +58,11 @@ func (s *serviceServer) GetLengths(
 	lengthsMm, err := gantry.Lengths(ctx, req.Extra.AsMap())
 	if err != nil {
 		return nil, err
+	}
+
+	// if the value returned is nil, return an empty array.
+	if lengthsMm == nil {
+		lengthsMm = []float64{}
 	}
 	return &pb.GetLengthsResponse{LengthsMm: lengthsMm}, nil
 }
