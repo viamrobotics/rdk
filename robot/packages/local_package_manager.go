@@ -129,10 +129,16 @@ func getAddedAndChanged[Key comparable, ManagedVal, Val any](previous map[Key]Ma
 }
 
 // getAddedAndChanged specializes the generic function for managedModuleMap.
-func (m managedModuleMap) getAddedAndChanged(incoming []config.Module) (managedModuleMap, []config.Module) {
+func (m managedModuleMap) getAddedAndChanged(incoming []config.Module, packagesDir string, logger logging.Logger) (managedModuleMap, []config.Module) {
 	return getAddedAndChanged(m, incoming,
 		func(mod config.Module) string { return mod.Name },
-		func(old *managedModule, incoming config.Module) bool { return old.module.ExePath == incoming.ExePath },
+		func(old *managedModule, incoming config.Module) bool {
+			pkg, err := old.module.SyntheticPackage()
+			if err != nil {
+				return false
+			}
+			return packageIsSynced(pkg, pkg.LocalDataDirectory(packagesDir), logger)
+		},
 	)
 }
 
@@ -143,26 +149,29 @@ func (m *localManager) Sync(ctx context.Context, packages []config.PackageConfig
 
 	// overwrite incoming modules with filtered slice; we only manage local tarball modules
 	modules = rUtils.FilterSlice(modules, config.Module.NeedsSyntheticPackage)
-	existing, fileChanged := m.managedModules.getAddedAndChanged(modules)
-	changed := make([]config.Module,0)
+	existing, changed := m.managedModules.getAddedAndChanged(modules, m.packagesDir, m.logger)
+	//changed := make([]config.Module,0)
 
 	var outErr error
-	for idx, mod := range fileChanged {
-		pkg, err := mod.SyntheticPackage()
-		if err != nil {
-			return multierr.Append(outErr, err)
-		}
-		m.logger.Errorf("Looking for syncfile in %s: ",pkg.LocalDataDirectory(m.packagesDir))
-		if packageIsSynced(pkg, pkg.LocalDataDirectory(m.packagesDir),m.logger) {
-			existing[mod.Name] = &managedModule{fileChanged[idx]}
-		} else {
-			changed = append(changed, mod)
-		}
-	}
+	// for idx, mod := range fileChanged {
+	// 	pkg, err := mod.SyntheticPackage()
+	// 	if err != nil {
+	// 		return multierr.Append(outErr, err)
+	// 	}
+	// 	m.logger.Errorf("Looking for syncfile in %s: ",pkg.LocalDataDirectory(m.packagesDir))
+	// 	if packageIsSynced(pkg, pkg.LocalDataDirectory(m.packagesDir),m.logger) {
+	// 		m.logger.Errorf("Syncfile found in %s: ",pkg.LocalDataDirectory(m.packagesDir))
+	// 		existing[mod.Name] = &managedModule{fileChanged[idx]}
+	// 	} else {
+	// 		m.logger.Errorf("Syncfile not found in %s: ",pkg.LocalDataDirectory(m.packagesDir))
 
-	if outErr != nil {
-		return outErr
-	}
+	// 		changed = append(changed, mod)
+	// 	}
+	// }
+
+	// if outErr != nil {
+	// 	return outErr
+	// }
 
 	if len(changed) > 0 {
 		m.logger.Errorf("managed: %v", m.managedModules["mod2"])
@@ -183,6 +192,8 @@ func (m *localManager) Sync(ctx context.Context, packages []config.PackageConfig
 			outErr = multierr.Append(outErr, err)
 			continue
 		}
+		m.logger.Errorf("Writing syncfile to %s: ",pkg.LocalDataDirectory(m.packagesDir))
+
 		err = installPackage(ctx, m.logger, m.packagesDir, mod.ExePath, pkg, m.fileCopyHelper)
 		if err != nil {
 			m.logger.Errorf("Failed downloading package %s from %s, %s", mod.Name, mod.ExePath, err)
