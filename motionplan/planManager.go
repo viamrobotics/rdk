@@ -742,6 +742,18 @@ func (pm *planManager) planToRRTGoalMap(plan Plan, goal spatialmath.Pose) (*rrtM
 // planRelativeWaypoint will solve the solver frame to one individual pose. This is used for solverframes whose inputs are relative, that
 // is, the pose returned by `Transform` is a transformation rather than an absolute position.
 func (pm *planManager) planRelativeWaypoint(ctx context.Context, request *PlanRequest, seedPlan Plan) (Plan, error) {
+	anyNonzero := false // Whether non-PTG frames exist
+	for _, movingFrame := range pm.frame.frames {
+		if _, isPTGframe := movingFrame.(tpspace.PTGProvider); isPTGframe {
+			continue
+		} else if len(movingFrame.DoF()) > 0 {
+			anyNonzero = true
+		}
+		if anyNonzero {
+			return nil, errors.New("cannot combine ptg with other nonzero DOF frames in a single planning call")
+		}
+	}
+
 	if request.StartPose == nil {
 		return nil, errors.New("must provide a startPose if solving for PTGs")
 	}

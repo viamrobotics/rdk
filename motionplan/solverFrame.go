@@ -150,8 +150,6 @@ func newSolverFrame(fs frame.FrameSystem, solveFrameName, goalFrameName string, 
 
 	var ptgs []tpspace.PTGSolver
 	anyPTG := false // Whether PTG frames have been observed
-	// TODO(nf): uncomment
-	// anyNonzero := false // Whether non-PTG frames
 	for _, movingFrame := range frames {
 		if ptgFrame, isPTGframe := movingFrame.(tpspace.PTGProvider); isPTGframe {
 			if anyPTG {
@@ -159,12 +157,7 @@ func newSolverFrame(fs frame.FrameSystem, solveFrameName, goalFrameName string, 
 			}
 			anyPTG = true
 			ptgs = ptgFrame.PTGSolvers()
-		} // else if len(movingFrame.DoF()) > 0 {
-		// anyNonzero = true
-		// }
-		// if anyNonzero && anyPTG {
-		// 	return nil, errors.New("cannot combine ptg with other nonzero DOF frames in a single planning call")
-		// }
+		}
 	}
 
 	return &solverFrame{
