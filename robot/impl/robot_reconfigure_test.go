@@ -2793,14 +2793,14 @@ func TestInferRemoteRobotDependencyConnectAtStartup(t *testing.T) {
 		},
 	}
 	r := SetupLocalRobot(t, ctx, localConfig, logger.Sublogger("local"))
-	expectedSet := rdktestutils.NewResourceNameSet(
+	expectedSet := []resource.Name{
 		motion.Named(resource.DefaultServiceName),
 		sensors.Named(resource.DefaultServiceName),
 		arm.Named("arm1"),
 		arm.Named("foo:pieceArm"),
 		motion.Named("foo:builtin"),
 		sensors.Named("foo:builtin"),
-	)
+	}
 
 	rdktestutils.VerifySameResourceNames(t, r.ResourceNames(), expectedSet)
 	test.That(t, foo.Close(context.Background()), test.ShouldBeNil)
