@@ -128,7 +128,11 @@ func getAddedAndChanged[Key comparable, ManagedVal, Val any](previous map[Key]Ma
 }
 
 // getAddedAndChanged specializes the generic function for managedModuleMap.
-func (m managedModuleMap) getAddedAndChanged(incoming []config.Module, packagesDir string, logger logging.Logger) (managedModuleMap, []config.Module) {
+func (m managedModuleMap) getAddedAndChanged(
+	incoming []config.Module,
+	packagesDir string,
+	logger logging.Logger,
+) (managedModuleMap, []config.Module) {
 	return getAddedAndChanged(m, incoming,
 		func(mod config.Module) string { return mod.Name },
 		func(old *managedModule, incoming config.Module) bool {
@@ -185,7 +189,7 @@ func (m *localManager) Sync(ctx context.Context, packages []config.PackageConfig
 			outErr = multierr.Append(outErr, err)
 			continue
 		}
-		m.logger.Errorf("Writing syncfile to %s: ",pkg.LocalDataDirectory(m.packagesDir))
+		m.logger.Errorf("Writing syncfile to %s: ", pkg.LocalDataDirectory(m.packagesDir))
 
 		err = installPackage(ctx, m.logger, m.packagesDir, mod.ExePath, pkg, m.fileCopyHelper)
 		if err != nil {

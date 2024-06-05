@@ -8,9 +8,9 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 	"testing"
 	"time"
-	"strings"
 
 	pb "go.viam.com/api/app/packages/v1"
 	"go.viam.com/test"
@@ -375,7 +375,7 @@ func validatePackageDir(t *testing.T, dir string, input []config.PackageConfig) 
 
 		test.That(t, linkTarget, test.ShouldEqual, dataPath)
 
-		info, err = os.Stat(dataPath + statusFileExt)
+		_, err = os.Stat(dataPath + statusFileExt)
 		test.That(t, err, test.ShouldBeNil)
 
 		info, err = os.Stat(dataPath)
@@ -415,7 +415,7 @@ func validatePackageDir(t *testing.T, dir string, input []config.PackageConfig) 
 		foundFiles, err := os.ReadDir(filepath.Join(dir, "data", typeFile.Name()))
 		test.That(t, err, test.ShouldBeNil)
 		for _, packageFile := range foundFiles {
-					// skip over status files
+			// skip over status files
 			if !slices.Contains(expectedPackages, packageFile.Name()) && !strings.HasSuffix(packageFile.Name(), ".status.json") {
 				t.Errorf("found unknown file in package %s dir %s", typeFile.Name(), packageFile.Name())
 			}
@@ -445,7 +445,7 @@ func TestPackageRefs(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	t.Run("PackagePath", func(t *testing.T) {
-		//FYI: This test passes in CI but fails when ran on MacOS
+		// FYI: This test passes in CI but fails when ran on MacOS
 		t.Run("valid package", func(t *testing.T) {
 			pPath, err := pm.PackagePath("some-name")
 			test.That(t, err, test.ShouldBeNil)

@@ -32,7 +32,6 @@ func installPackage(
 	p config.PackageConfig,
 	installFn installCallback,
 ) error {
-	
 	// Create the parent directory for the package type if it doesn't exist
 	if err := os.MkdirAll(p.LocalDataParentDirectory(packagesDir), 0o700); err != nil {
 		return err
@@ -305,7 +304,7 @@ type packageSyncFile struct {
 	TarballChecksum string     `json:"tarball_checksum"`
 }
 
-var statusFileExt string = ".status.json"
+var statusFileExt = ".status.json"
 
 func packageIsSynced(pkg config.PackageConfig, packagesDir string, logger logging.Logger) bool {
 	syncFile, err := readStatusFile(pkg, packagesDir)
