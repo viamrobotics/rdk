@@ -107,7 +107,7 @@ func TestNetLoggerSync(t *testing.T) {
 	server := makeServerForRobotLogger(t)
 	defer server.stop()
 
-	netAppender, err := NewNetAppender(server.cloudConfig)
+	netAppender, err := NewNetAppender(server.cloudConfig, nil)
 	test.That(t, err, test.ShouldBeNil)
 
 	// This test is testing the behavior of sync(), so the background worker shouldn't be running at the same time.
@@ -139,7 +139,7 @@ func TestNetLoggerSyncFailureAndRetry(t *testing.T) {
 	server := makeServerForRobotLogger(t)
 	defer server.stop()
 
-	netAppender, err := NewNetAppender(server.cloudConfig)
+	netAppender, err := NewNetAppender(server.cloudConfig, nil)
 	test.That(t, err, test.ShouldBeNil)
 
 	// This test is testing the behavior of sync(), so the background worker shouldn't be running at the same time.
@@ -193,7 +193,7 @@ func TestNetLoggerOverflowDuringWrite(t *testing.T) {
 	server := makeServerForRobotLogger(t)
 	defer server.stop()
 
-	netAppender, err := NewNetAppender(server.cloudConfig)
+	netAppender, err := NewNetAppender(server.cloudConfig, nil)
 	test.That(t, err, test.ShouldBeNil)
 	logger := NewDebugLogger("test logger")
 	logger.AddAppender(netAppender)
