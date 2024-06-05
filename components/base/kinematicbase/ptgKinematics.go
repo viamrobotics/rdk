@@ -192,7 +192,6 @@ func (ptgk *ptgBaseKinematics) CurrentInputs(ctx context.Context) ([]referencefr
 	defer ptgk.inputLock.RUnlock()
 
 	planningFrameInputs := ptgk.currentState.currentInputs
-	planningFrameInputs = append(planningFrameInputs, []referenceframe.Input{}...)
 	return planningFrameInputs, nil
 }
 

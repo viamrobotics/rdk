@@ -100,7 +100,7 @@ type differentialDriveKinematics struct {
 	base.Base
 	motion.Localizer
 	logger                           logging.Logger
-	planningFrame, localizationFrame referenceframe.Model
+	planningFrame, localizationFrame referenceframe.Frame
 	options                          Options
 	noLocalizerCacheInputs           []referenceframe.Input
 	currentTrajectory                [][]referenceframe.Input

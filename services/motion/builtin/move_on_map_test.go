@@ -607,6 +607,7 @@ func TestMoveOnMapStaticObs(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		err = motionplan.CheckPlan(
 			mr.planRequest.Frame,
+			mr.kinematicBase.LocalizationFrame(),
 			executionState,
 			wrldSt,
 			mr.absoluteFS,

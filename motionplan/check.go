@@ -18,7 +18,7 @@ import (
 // detected, the interpolated position of the rover when a collision is detected is returned along
 // with an error with additional collision details.
 func CheckPlan(
-	checkFrame referenceframe.Frame, // TODO(RSDK-7421): remove this
+	checkFrame, localizationFrame referenceframe.Frame, // TODO(RSDK-7421): remove this
 	executionState ExecutionState,
 	worldState *referenceframe.WorldState,
 	fs referenceframe.FrameSystem,
@@ -53,13 +53,16 @@ func CheckPlan(
 	// Currently this is only TP-space, so we check if the PTG length is >0.
 	// The solver frame will have had its PTGs filled in the newPlanManager() call, if applicable.
 	if sfPlanner.useTPspace {
-		return checkPlanRelative(checkFrame, executionState, worldState, fs, lookAheadDistanceMM, sfPlanner)
+		if localizationFrame == nil {
+			return errors.New("cannot have nil localizationFrame when checking PTG plans")
+		}
+		return checkPlanRelative(checkFrame, localizationFrame, executionState, worldState, fs, lookAheadDistanceMM, sfPlanner)
 	}
 	return checkPlanAbsolute(checkFrame, executionState, worldState, fs, lookAheadDistanceMM, sfPlanner)
 }
 
 func checkPlanRelative(
-	checkFrame referenceframe.Frame, // TODO(RSDK-7421): remove this
+	checkFrame, localizationFrame referenceframe.Frame, // TODO(RSDK-7421): remove this
 	executionState ExecutionState,
 	worldState *referenceframe.WorldState,
 	fs referenceframe.FrameSystem,
@@ -125,10 +128,9 @@ func checkPlanRelative(
 	if currentPoses == nil {
 		return errors.New("executionState had nil return from CurrentPoses")
 	}
-	localizationFrameName := checkFrame.Name() + "LocalizationFrame"
-	currentPoseIF, ok := currentPoses[localizationFrameName]
+	currentPoseIF, ok := currentPoses[localizationFrame.Name()]
 	if !ok {
-		return errors.New("checkFrameLocalizationFrame not found in current pose map")
+		return errors.New("LocalizationFrame not found in current pose map")
 	}
 
 	sf := sfPlanner.frame
@@ -216,7 +218,7 @@ func checkPlanRelative(
 		return err
 	}
 	currentWayPointTraj := plan.Trajectory()[wayPointIdx]
-	currentWayPointTraj[checkFrame.Name()+"LocalizationFrame"] = referenceframe.FloatsToInputs([]float64{
+	currentWayPointTraj[localizationFrame.Name()] = referenceframe.FloatsToInputs([]float64{
 		poses[wayPointIdx].Point().X,
 		poses[wayPointIdx].Point().Y,
 		poses[wayPointIdx].Point().Z,
@@ -265,7 +267,7 @@ func checkPlanRelative(
 			}
 		}
 
-		startInputs[localizationFrameName] = referenceframe.FloatsToInputs(
+		startInputs[localizationFrame.Name()] = referenceframe.FloatsToInputs(
 			[]float64{
 				lastArcEndPose.Point().X, lastArcEndPose.Point().Y, lastArcEndPose.Point().Z,
 				lastArcEndPose.Orientation().OrientationVectorRadians().OX,
@@ -275,7 +277,7 @@ func checkPlanRelative(
 			},
 		)
 		nextInputs := plan.Trajectory()[i]
-		nextInputs[localizationFrameName] = startInputs[localizationFrameName]
+		nextInputs[localizationFrame.Name()] = startInputs[localizationFrame.Name()]
 		segment, err := createSegment(sf, lastArcEndPose, thisArcEndPose, startInputs, nextInputs)
 		if err != nil {
 			return err

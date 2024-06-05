@@ -286,6 +286,7 @@ func (mr *moveRequest) obstaclesIntersectPlan(
 
 			if err := motionplan.CheckPlan(
 				mr.kinematicBase.Kinematics(), // frame we wish to check for collisions
+				mr.kinematicBase.LocalizationFrame(),
 				executionState,
 				worldState, // detected obstacles by this instance of camera + service
 				mr.absoluteFS,
