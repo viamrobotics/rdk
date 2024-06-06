@@ -294,19 +294,25 @@ func (tm *testMotor) IsMoving(context.Context) (bool, error) {
 func newSlow(
 	ctx context.Context, deps resource.Dependencies, conf resource.Config, logger logging.Logger,
 ) (resource.Resource, error) {
-	time.Sleep(1 * time.Second)
+	configDuration, err := time.ParseDuration(conf.Attributes.String("config_duration"))
+	if err != nil {
+		return nil, err
+	}
+	time.Sleep(configDuration)
 	return &slow{
-		Named: conf.ResourceName().AsNamed(),
+		Named:          conf.ResourceName().AsNamed(),
+		configDuration: configDuration,
 	}, nil
 }
 
 type slow struct {
 	resource.Named
 	resource.TriviallyCloseable
+	configDuration time.Duration
 }
 
 // Reconfigure does nothing but is slow.
 func (s *slow) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
-	time.Sleep(1 * time.Second)
+	time.Sleep(s.configDuration)
 	return nil
 }
