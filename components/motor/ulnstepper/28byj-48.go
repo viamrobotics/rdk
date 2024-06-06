@@ -313,7 +313,37 @@ func (m *uln28byj) GoTo(ctx context.Context, rpm, positionRevolutions float64, e
 
 // SetRPM instructs the motor to move at the specified RPM indefinitely.
 func (m *uln28byj) SetRPM(ctx context.Context, rpm float64, extra map[string]interface{}) error {
-	return motor.NewSetRPMUnsupportedError(m.Name().ShortName())
+	ctx, done := m.opMgr.New(ctx)
+	defer done()
+
+	switch speed := math.Abs(rpm); {
+	case speed < 0.1:
+		m.logger.CWarn(ctx, "motor speed is nearly 0 rev_per_min")
+		return motor.NewZeroRPMError()
+	case speed > 146-0.1:
+		m.logger.CWarnf(ctx, "motor speed is nearly the max rev_per_min (%f)", 146)
+		return m.Stop(ctx, nil)
+	default:
+	}
+
+	m.lock.Lock()
+	var d int = 1
+	if math.Signbit(rpm) {
+		d = -1
+	}
+
+	rpm = math.Abs(rpm)
+	m.targetStepPosition = int64(math.Inf(d))
+
+	stepperDelay := time.Duration(int64((1/(math.Abs(rpm)*float64(m.ticksPerRotation)/60.0))*1000000)) * time.Microsecond
+	if stepperDelay < minDelayBetweenTicks {
+		m.logger.CDebugf(ctx, "Computed sleep time between ticks (%v) too short. Defaulting to %v", stepperDelay, minDelayBetweenTicks)
+		stepperDelay = minDelayBetweenTicks
+	}
+	m.stepperDelay = stepperDelay
+	m.lock.Unlock()
+
+	return m.doRun(ctx)
 }
 
 // Set the current position (+/- offset) to be the new zero (home) position.
