@@ -991,9 +991,24 @@ func (rc *RobotClient) RestartModule(ctx context.Context, req robot.RestartModul
 	return nil
 }
 
-// Shutdown shuts down the robot.
+// Shutdown shuts down the robot. May return DeadlineExceeded error if shutdown request times out,
+// or if robot server shuts down before having a chance to send a response.
 func (rc *RobotClient) Shutdown(ctx context.Context) error {
 	reqPb := &pb.ShutdownRequest{}
 	_, err := rc.client.Shutdown(ctx, reqPb)
-	return err
+	if err != nil {
+		status, _ := status.FromError(err)
+		switch status.Code().String() {
+		case "Unavailable", "Internal", "Unknown":
+			rc.Logger().CInfow(ctx, "robot shutdown successful")
+			return nil
+		case "DeadlineExceeded":
+			rc.Logger().CWarnw(ctx, "request timeout, robot shutdown may still be successful")
+			return err
+		default:
+			return err
+		}
+	}
+
+	return nil
 }

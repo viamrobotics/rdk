@@ -166,8 +166,8 @@ func TestShutdown(t *testing.T) {
 			rdkStatus := server.Status()
 			test.That(tb, rdkStatus, test.ShouldNotBeNil)
 		})
-		test.That(t, (err == nil || err.Error() == `rpc error: code = Internal desc = server 
-			closed the stream without sending trailers`), test.ShouldBeTrue)
+		test.That(t, (err == nil || err.Error() == `rpc error: code = DeadlineExceeded 
+			desc = context deadline exceeded`), test.ShouldBeTrue)
 		test.That(t, logObserver.FilterLevelExact(zapcore.ErrorLevel).Len(), test.ShouldEqual, 0)
 	})
 }
