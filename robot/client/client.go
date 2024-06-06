@@ -997,18 +997,21 @@ func (rc *RobotClient) Shutdown(ctx context.Context) error {
 	reqPb := &pb.ShutdownRequest{}
 	_, err := rc.client.Shutdown(ctx, reqPb)
 	if err != nil {
-		status, _ := status.FromError(err)
-		switch status.Code().String() {
-		case "Unavailable", "Internal", "Unknown":
-			rc.Logger().CInfow(ctx, "robot shutdown successful")
-			return nil
-		case "DeadlineExceeded":
-			rc.Logger().CWarnw(ctx, "request timeout, robot shutdown may still be successful")
-			return err
-		default:
+		status, ok := status.FromError(err)
+		if ok {
+			switch status.Code().String() {
+			case "Unavailable", "Internal", "Unknown":
+				rc.Logger().CInfow(ctx, "robot shutdown successful")
+				return nil
+			case "DeadlineExceeded":
+				rc.Logger().CWarnw(ctx, "request timeout, robot shutdown may still be successful")
+				return err
+			default:
+				return err
+			}
+		} else {
 			return err
 		}
 	}
-
 	return nil
 }
