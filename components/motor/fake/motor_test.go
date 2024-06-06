@@ -115,6 +115,43 @@ func TestGoTo(t *testing.T) {
 	})
 }
 
+func TestSetRPM(t *testing.T) {
+	logger, obs := logging.NewObservedTestLogger(t)
+	ctx := context.Background()
+
+	enc, err := fake.NewEncoder(context.Background(), resource.Config{
+		ConvertedAttributes: &fake.Config{},
+	}, logger)
+	test.That(t, err, test.ShouldBeNil)
+	m := &Motor{
+		Encoder:           enc.(fake.Encoder),
+		Logger:            logger,
+		PositionReporting: true,
+		MaxRPM:            60,
+		TicksPerRotation:  1,
+		OpMgr:             operation.NewSingleOperationManager(),
+	}
+
+	err = m.SetRPM(ctx, 0, nil)
+	allObs := obs.All()
+	latestLoggedEntry := allObs[len(allObs)-1]
+	test.That(t, fmt.Sprint(latestLoggedEntry), test.ShouldContainSubstring, "nearly 0")
+	test.That(t, err, test.ShouldBeError, motor.NewZeroRPMError())
+
+	err = m.SetRPM(ctx, 60, nil)
+	test.That(t, err, test.ShouldBeNil)
+	allObs = obs.All()
+	latestLoggedEntry = allObs[1]
+	test.That(t, fmt.Sprint(latestLoggedEntry), test.ShouldContainSubstring, "nearly the max")
+
+	testutils.WaitForAssertion(t, func(tb testing.TB) {
+		tb.Helper()
+		pos, err := m.Position(ctx, nil)
+		test.That(tb, err, test.ShouldBeNil)
+		test.That(tb, pos, test.ShouldBeGreaterThan, 0)
+	})
+}
+
 func TestResetZeroPosition(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 	ctx := context.Background()
