@@ -64,13 +64,14 @@ type MoveOnGlobeReq struct {
 func (r MoveOnGlobeReq) String() string {
 	template := "motion.MoveOnGlobeReq{ComponentName: %s, " +
 		"Destination: %+v, Heading: %f, MovementSensorName: %s, " +
-		"Obstacles: %v, MotionCfg: %#v, Extra: %s}"
+		"Obstacles: %v, BoundingRegions: %v, MotionCfg: %#v, Extra: %s}"
 	return fmt.Sprintf(template,
 		r.ComponentName,
 		r.Destination,
 		r.Heading,
 		r.MovementSensorName,
 		r.Obstacles,
+		r.BoundingRegions,
 		r.MotionCfg,
 		r.Extra)
 }

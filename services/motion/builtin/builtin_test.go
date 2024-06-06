@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math"
+	"strings"
 	"testing"
 	"time"
 
@@ -1025,4 +1026,129 @@ func TestPlanHistory(t *testing.T) {
 	history, err := ms.PlanHistory(ctx, req)
 	test.That(t, err, test.ShouldResemble, resource.NewNotFoundError(req.ComponentName))
 	test.That(t, history, test.ShouldBeNil)
+}
+
+func TestBoundingRegionsConstraint(t *testing.T) {
+	ctx := context.Background()
+	origin := geo.NewPoint(0, 0)
+	dst := geo.NewPoint(origin.Lat(), origin.Lng()+1e-5)
+	extra := map[string]interface{}{
+		"motion_profile": "position_only",
+		"timeout":        5.,
+		"smooth_iter":    5.,
+	}
+	motionCfg := &motion.MotionConfiguration{
+		PlanDeviationMM: 10,
+	}
+	// Note: spatialmath.GeoPointToPoint(dst, origin) produces r3.Vector{1111.92, 0, 0}
+
+	t.Run("starting in collision with bounding regions works", func(t *testing.T) {
+		injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, origin, nil, 5)
+		defer ms.Close(ctx)
+
+		box, err := spatialmath.NewBox(spatialmath.NewZeroPose(), r3.Vector{2224, 2224, 2}, "")
+		test.That(t, err, test.ShouldBeNil)
+
+		req := motion.MoveOnGlobeReq{
+			ComponentName:      fakeBase.Name(),
+			MovementSensorName: injectedMovementSensor.Name(),
+			Destination:        dst,
+			BoundingRegions: []*spatialmath.GeoGeometry{
+				spatialmath.NewGeoGeometry(origin, []spatialmath.Geometry{box}),
+			},
+			MotionCfg: motionCfg,
+			Extra:     extra,
+		}
+		_, err = ms.MoveOnGlobe(ctx, req)
+		test.That(t, err, test.ShouldBeNil)
+	})
+
+	t.Run("starting outside of bounding regions fails", func(t *testing.T) {
+		injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, origin, nil, 5)
+		defer ms.Close(ctx)
+
+		box, err := spatialmath.NewBox(spatialmath.NewZeroPose(), r3.Vector{2222, 2222, 2}, "")
+		test.That(t, err, test.ShouldBeNil)
+
+		req := motion.MoveOnGlobeReq{
+			ComponentName:      fakeBase.Name(),
+			MovementSensorName: injectedMovementSensor.Name(),
+			Destination:        dst,
+			BoundingRegions: []*spatialmath.GeoGeometry{
+				spatialmath.NewGeoGeometry(geo.NewPoint(20, 20), []spatialmath.Geometry{box}),
+			},
+			MotionCfg: motionCfg,
+			Extra:     extra,
+		}
+		_, err = ms.MoveOnGlobe(ctx, req)
+		test.That(t, err, test.ShouldNotBeNil)
+		expectedErrorString := "frame named test-base is not within the provided bounding regions"
+		test.That(t, strings.Contains(err.Error(), expectedErrorString), test.ShouldBeTrue)
+	})
+
+	t.Run("implicit success with no bounding regions", func(t *testing.T) {
+		injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, origin, nil, 5)
+		defer ms.Close(ctx)
+
+		req := motion.MoveOnGlobeReq{
+			ComponentName:      fakeBase.Name(),
+			MovementSensorName: injectedMovementSensor.Name(),
+			Destination:        dst,
+			MotionCfg:          motionCfg,
+			Extra:              extra,
+		}
+		_, err := ms.MoveOnGlobe(ctx, req)
+		test.That(t, err, test.ShouldBeNil)
+	})
+
+	t.Run("fail to plan outside of bounding regions", func(t *testing.T) {
+		injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, origin, nil, 5)
+		defer ms.Close(ctx)
+
+		box, err := spatialmath.NewBox(spatialmath.NewZeroPose(), r3.Vector{500, 500, 2}, "")
+		test.That(t, err, test.ShouldBeNil)
+
+		req := motion.MoveOnGlobeReq{
+			ComponentName:      fakeBase.Name(),
+			MovementSensorName: injectedMovementSensor.Name(),
+			Destination:        dst,
+			MotionCfg:          motionCfg,
+			BoundingRegions: []*spatialmath.GeoGeometry{
+				spatialmath.NewGeoGeometry(geo.NewPoint(0, 0), []spatialmath.Geometry{box}),
+			},
+			Extra: extra,
+		}
+		_, err = ms.MoveOnGlobe(ctx, req)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err, test.ShouldBeError, errors.New("destination was not within the provided bounding regions"))
+	})
+
+	t.Run("list of bounding regions - success case", func(t *testing.T) {
+		// string together multiple bounding regions, such that the robot must
+		// actually account for them in order to create a valid path
+		injectedMovementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, origin, nil, 5)
+		defer ms.Close(ctx)
+
+		box1, err := spatialmath.NewBox(spatialmath.NewZeroPose(), r3.Vector{500, 500, 2}, "")
+		test.That(t, err, test.ShouldBeNil)
+		box2, err := spatialmath.NewBox(
+			spatialmath.NewPoseFromPoint(r3.Vector{681, 0, 0}),
+			r3.Vector{900, 900, 2}, "",
+		)
+		test.That(t, err, test.ShouldBeNil)
+
+		req := motion.MoveOnGlobeReq{
+			ComponentName:      fakeBase.Name(),
+			MovementSensorName: injectedMovementSensor.Name(),
+			Destination:        dst,
+			MotionCfg:          motionCfg,
+			BoundingRegions: []*spatialmath.GeoGeometry{
+				spatialmath.NewGeoGeometry(geo.NewPoint(0, 0), []spatialmath.Geometry{box1}),
+				spatialmath.NewGeoGeometry(geo.NewPoint(0, 0), []spatialmath.Geometry{box2}),
+			},
+			Extra: extra,
+		}
+		_, err = ms.MoveOnGlobe(ctx, req)
+		test.That(t, err, test.ShouldBeNil)
+	})
 }
