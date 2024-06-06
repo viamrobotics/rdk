@@ -42,7 +42,6 @@ func init() {
 				resource.SubtypeMatcher{Subtype: slam.SubtypeName},
 			},
 		})
-
 }
 
 // TODO: re-determine if queue size is optimal given we now support 10khz+ capture rates
@@ -692,7 +691,7 @@ func (svc *builtIn) sync() {
 	}
 }
 
-// nolint
+//nolint
 func getAllFilesToSync(dir string, lastModifiedMillis int) []string {
 	var filePaths []string
 	_ = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
