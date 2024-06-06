@@ -74,7 +74,7 @@ func TestSyntheticModule(t *testing.T) {
 	})
 
 	t.Run("syntheticPackageExeDir", func(t *testing.T) {
-		dir, err := modNeedsSynthetic.syntheticPackageExeDir(tmp)
+		dir, err := modNeedsSynthetic.exeDir(tmp)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, dir, test.ShouldEqual, filepath.Join(tmp, "data/module/synthetic--"))
 	})
@@ -88,7 +88,7 @@ func TestSyntheticModule(t *testing.T) {
 		// local tarball case
 		syntheticPath, err := modNeedsSynthetic.EvaluateExePath(tmp)
 		test.That(t, err, test.ShouldBeNil)
-		exeDir, err := modNeedsSynthetic.syntheticPackageExeDir(tmp)
+		exeDir, err := modNeedsSynthetic.exeDir(tmp)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, syntheticPath, test.ShouldEqual, filepath.Join(exeDir, meta.Entrypoint))
 
