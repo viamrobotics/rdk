@@ -323,7 +323,7 @@ func (wb *wheeledBase) runAllGoFor(ctx context.Context, leftRPM, leftRotations, 
 // receive consistent instructions.
 func (wb *wheeledBase) runAllSetRPM(ctx context.Context, leftRPM, rightRPM float64) error {
 	if math.Abs(leftRPM) <= 10 {
-		wb.logger.CWarn(ctx, "low motor speed detected, left motors may not behave as expected")
+		wb.logger.CWarn(ctx, "low motor speed detected, left motor(s) may not behave as expected")
 	}
 	if math.Abs(rightRPM) <= 10 {
 		wb.logger.CWarn(ctx, "low motor speed detected, right motor(s) may not behave as expected")
