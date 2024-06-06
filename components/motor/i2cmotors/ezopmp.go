@@ -292,8 +292,27 @@ func (m *Ezopmp) GoTo(ctx context.Context, mLPerMin, mins float64, extra map[str
 }
 
 // SetRPM instructs the motor to move at the specified RPM indefinitely.
-func (m *Ezopmp) SetRPM(ctx context.Context, rpm float64, extra map[string]interface{}) error {
-	return motor.NewSetRPMUnsupportedError(m.Name().ShortName())
+func (m *Ezopmp) SetRPM(ctx context.Context, mLPerMin float64, extra map[string]interface{}) error {
+	switch speed := math.Abs(mLPerMin); {
+	case speed < 0.1:
+		m.logger.CWarn(ctx, "motor speed is nearly 0 rev_per_min")
+		return motor.NewZeroRPMError()
+	case m.maxFlowRate > 0 && speed > m.maxFlowRate-0.1:
+		m.logger.CWarnf(ctx, "motor speed is nearly the max rev_per_min (%f)", m.maxFlowRate)
+	default:
+	}
+
+	ctx, done := m.opMgr.New(ctx)
+	defer done()
+
+	mins := math.Inf(1)
+	if math.Signbit(mLPerMin) {
+		mins = math.Inf(-1)
+	}
+
+	commandString := "DC," + strconv.FormatFloat(mLPerMin, 'f', -1, 64) + "," + strconv.FormatFloat(mins, 'f', -1, 64)
+	command := []byte(commandString)
+	return m.writeRegWithCheck(ctx, command)
 }
 
 // ResetZeroPosition clears the amount of volume that has been dispensed.
