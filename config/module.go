@@ -168,15 +168,15 @@ func (m Module) EvaluateExePath(packagesDir string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	metaPath, err := utils.SafeJoinDir(exeDir, "meta.json")
-	if err != nil {
-		return "", err
-	}
 	// note: we don't look at internal meta.json in local non-tarball case because user has explicitly requested a binary.
 	localNonTarball := m.Type == ModuleTypeLocal && !m.NeedsSyntheticPackage()
 	if !localNonTarball {
 		// this is case 1, meta.json in exe folder.
-		_, err := os.Stat(metaPath)
+		metaPath, err := utils.SafeJoinDir(exeDir, "meta.json")
+		if err != nil {
+			return "", err
+		}
+		_, err = os.Stat(metaPath)
 		if err == nil {
 			// this is case 1, meta.json in exe dir
 			meta, err := parseJSONPath[JSONManifest](metaPath)
@@ -193,13 +193,13 @@ func (m Module) EvaluateExePath(packagesDir string) (string, error) {
 	if m.NeedsSyntheticPackage() {
 		// this is case 2, side-by-side
 		// TODO(RSDK-7848): remove this case once java sdk supports internal meta.json.
+		metaPath, err := utils.SafeJoinDir(filepath.Dir(m.ExePath), "meta.json")
+		if err != nil {
+			return "", err
+		}
 		meta, err := parseJSONPath[JSONManifest](metaPath)
 		if err != nil {
 			return "", errors.Wrap(err, "loading side-by-side meta.json")
-		}
-		exeDir, err := m.exeDir(packagesDir)
-		if err != nil {
-			return "", err
 		}
 		entrypoint, err := utils.SafeJoinDir(exeDir, meta.Entrypoint)
 		if err != nil {

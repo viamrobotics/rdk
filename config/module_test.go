@@ -23,15 +23,18 @@ func TestInternalMeta(t *testing.T) {
 	tmp := t.TempDir()
 	testChdir(t, tmp)
 	testWriteJSON(t, "meta.json", JSONManifest{Entrypoint: "entry"})
+	packagesDir := filepath.Join(tmp, "packages")
 	t.Run("local-tarball", func(t *testing.T) {
 		mod := Module{
 			Type:    ModuleTypeLocal,
 			ExePath: filepath.Join(tmp, "whatever.tar.gz"),
 		}
-		exePath, err := mod.EvaluateExePath("doesnt-matter")
+		exePath, err := mod.EvaluateExePath(packagesDir)
+		test.That(t, err, test.ShouldBeNil)
+		exeDir, err := mod.exeDir(packagesDir)
 		test.That(t, err, test.ShouldBeNil)
 		// "entry" is from meta.json.
-		test.That(t, exePath, test.ShouldEqual, filepath.Join(tmp, "entry"))
+		test.That(t, exePath, test.ShouldEqual, filepath.Join(exeDir, "entry"))
 	})
 
 	t.Run("non-tarball", func(t *testing.T) {
@@ -39,7 +42,7 @@ func TestInternalMeta(t *testing.T) {
 			Type:    ModuleTypeLocal,
 			ExePath: filepath.Join(tmp, "whatever"),
 		}
-		exePath, err := mod.EvaluateExePath("doesnt-matter")
+		exePath, err := mod.EvaluateExePath(packagesDir)
 		test.That(t, err, test.ShouldBeNil)
 		// "whatever" is from config.Module object.
 		test.That(t, exePath, test.ShouldEqual, filepath.Join(tmp, "whatever"))
