@@ -263,7 +263,7 @@ type PlanWithStatus struct {
 //	myBaseResourceName := base.Named("myBase")
 //	ctx := context.Background()
 //
-//	// Assuming a move_on_globe started started the execution
+//	// Assuming a move_on_globe started the execution
 //	// myMvmntSensorResourceName := movement_sensor.Named("my_movement_sensor")
 //	// myDestination := geo.NewPoint(0, 0)
 //	// executionID, err := motionService.MoveOnGlobe(ctx, motion.MoveOnGlobeReq{
