@@ -164,6 +164,7 @@ func TestShutdown(t *testing.T) {
 		gtestutils.WaitForAssertionWithSleep(t, 50*time.Millisecond, 50, func(tb testing.TB) {
 			tb.Helper()
 			rdkStatus := server.Status()
+			// Asserting not nil here to ensure process is dead
 			test.That(tb, rdkStatus, test.ShouldNotBeNil)
 		})
 		test.That(t, (err == nil || err.Error() == `rpc error: code = DeadlineExceeded 
