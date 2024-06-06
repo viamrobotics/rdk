@@ -23,14 +23,27 @@ func TestInternalMeta(t *testing.T) {
 	tmp := t.TempDir()
 	testChdir(t, tmp)
 	testWriteJSON(t, "meta.json", JSONManifest{Entrypoint: "entry"})
-	mod := Module{
-		Type:    ModuleTypeLocal,
-		ExePath: filepath.Join(tmp, "whatever"),
-	}
-	exePath, err := mod.EvaluateExePath("doesnt-matter")
-	test.That(t, err, test.ShouldBeNil)
-	// note: this is testing that meta.json gets used *and* that it takes precedence.
-	test.That(t, exePath, test.ShouldEqual, filepath.Join(tmp, "entry"))
+	t.Run("local-tarball", func(t *testing.T) {
+		mod := Module{
+			Type:    ModuleTypeLocal,
+			ExePath: filepath.Join(tmp, "whatever.tar.gz"),
+		}
+		exePath, err := mod.EvaluateExePath("doesnt-matter")
+		test.That(t, err, test.ShouldBeNil)
+		// "entry" is from meta.json.
+		test.That(t, exePath, test.ShouldEqual, filepath.Join(tmp, "entry"))
+	})
+
+	t.Run("non-tarball", func(t *testing.T) {
+		mod := Module{
+			Type:    ModuleTypeLocal,
+			ExePath: filepath.Join(tmp, "whatever"),
+		}
+		exePath, err := mod.EvaluateExePath("doesnt-matter")
+		test.That(t, err, test.ShouldBeNil)
+		// "whatever" is from config.Module object.
+		test.That(t, exePath, test.ShouldEqual, filepath.Join(tmp, "whatever"))
+	})
 }
 
 func TestSyntheticModule(t *testing.T) {

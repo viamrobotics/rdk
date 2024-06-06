@@ -151,19 +151,23 @@ func parseJSONPath[T any](path string) (*T, error) {
 }
 
 // EvaluateExePath returns absolute ExePath from one of three sources (in order of precedence):
-// 1. if there is a meta.json in the exe dir, use that.
+// 1. if there is a meta.json in the exe dir, use that, except in local non-tarball case.
 // 2. if this is a local tarball and there's a meta.json next to the tarball, use that.
 // 3. otherwise use the exe path from config, or fail if this is a local tarball.
 // Note: the working directory must be the unpacked tarball directory or local exec directory.
 func (m Module) EvaluateExePath(packagesDir string) (string, error) {
-	_, err := os.Stat("meta.json")
-	if err == nil {
-		// this is case 1, meta.json in exe dir
-		meta, err := parseJSONPath[JSONManifest]("meta.json")
-		if err != nil {
-			return "", err
+	// note: we don't look at internal meta.json in local non-tarball case because user has explicitly requested a binary.
+	localNonTarball := m.Type == ModuleTypeLocal && !m.NeedsSyntheticPackage()
+	if !localNonTarball {
+		_, err := os.Stat("meta.json")
+		if err == nil {
+			// this is case 1, meta.json in exe dir
+			meta, err := parseJSONPath[JSONManifest]("meta.json")
+			if err != nil {
+				return "", err
+			}
+			return filepath.Abs(meta.Entrypoint)
 		}
-		return filepath.Abs(meta.Entrypoint)
 	}
 	if m.NeedsSyntheticPackage() {
 		// this is case 2, side-by-side
