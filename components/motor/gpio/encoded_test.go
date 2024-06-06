@@ -2,6 +2,7 @@ package gpio
 
 import (
 	"context"
+	"math"
 	"sync"
 	"testing"
 	"time"
@@ -212,14 +213,51 @@ func TestEncodedMotor(t *testing.T) {
 			test.That(tb, m.ResetZeroPosition(context.Background(), 0, nil), test.ShouldBeNil)
 		})
 
+		// positive rpm and positive revolutions
 		expectedGoalPos, expectedGoalRPM, expectedDirection := 4.0, 10.0, 1.0
 		goalPos, goalRPM, direction := encodedGoForMath(10, 4, 0, 1)
 		test.That(t, goalPos, test.ShouldEqual, expectedGoalPos)
 		test.That(t, goalRPM, test.ShouldEqual, expectedGoalRPM)
 		test.That(t, direction, test.ShouldEqual, expectedDirection)
 
+		// positive rpm and negative revolutions
 		expectedGoalPos, expectedGoalRPM, expectedDirection = -4.0, -10.0, -1.0
 		goalPos, goalRPM, direction = encodedGoForMath(10, -4, 0, 1)
+		test.That(t, goalPos, test.ShouldEqual, expectedGoalPos)
+		test.That(t, goalRPM, test.ShouldEqual, expectedGoalRPM)
+		test.That(t, direction, test.ShouldEqual, expectedDirection)
+
+		// negative rpm and positive revolutions
+		expectedGoalPos, expectedGoalRPM, expectedDirection = -4.0, -10.0, -1.0
+		goalPos, goalRPM, direction = encodedGoForMath(-10, 4, 0, 1)
+		test.That(t, goalPos, test.ShouldEqual, expectedGoalPos)
+		test.That(t, goalRPM, test.ShouldEqual, expectedGoalRPM)
+		test.That(t, direction, test.ShouldEqual, expectedDirection)
+
+		// negative rpm and negative revolutions
+		expectedGoalPos, expectedGoalRPM, expectedDirection = 4.0, 10.0, 1.0
+		goalPos, goalRPM, direction = encodedGoForMath(-10, -4, 0, 1)
+		test.That(t, goalPos, test.ShouldEqual, expectedGoalPos)
+		test.That(t, goalRPM, test.ShouldEqual, expectedGoalRPM)
+		test.That(t, direction, test.ShouldEqual, expectedDirection)
+
+		// positive rpm and zero revolutions
+		expectedGoalPos, expectedGoalRPM, expectedDirection = math.Inf(1), 10.0, 1.0
+		goalPos, goalRPM, direction = encodedGoForMath(10, 0, 0, 1)
+		test.That(t, goalPos, test.ShouldEqual, expectedGoalPos)
+		test.That(t, goalRPM, test.ShouldEqual, expectedGoalRPM)
+		test.That(t, direction, test.ShouldEqual, expectedDirection)
+
+		// negative rpm and zero revolutions
+		expectedGoalPos, expectedGoalRPM, expectedDirection = math.Inf(-1), -10.0, -1.0
+		goalPos, goalRPM, direction = encodedGoForMath(-10, 0, 0, 1)
+		test.That(t, goalPos, test.ShouldEqual, expectedGoalPos)
+		test.That(t, goalRPM, test.ShouldEqual, expectedGoalRPM)
+		test.That(t, direction, test.ShouldEqual, expectedDirection)
+
+		// zero rpm and zero revolutions
+		expectedGoalPos, expectedGoalRPM, expectedDirection = math.Inf(1), 0.0, 0.0
+		goalPos, goalRPM, direction = encodedGoForMath(0, 0, 0, 1)
 		test.That(t, goalPos, test.ShouldEqual, expectedGoalPos)
 		test.That(t, goalRPM, test.ShouldEqual, expectedGoalRPM)
 		test.That(t, direction, test.ShouldEqual, expectedDirection)
