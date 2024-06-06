@@ -992,19 +992,26 @@ func (rc *RobotClient) RestartModule(ctx context.Context, req robot.RestartModul
 }
 
 // Shutdown shuts down the robot. May return DeadlineExceeded error if shutdown request times out,
-// or if robot server shuts down before having a chance to send a response.
+// or if robot server shuts down before having a chance to send a response. May return Unavailable error
+// if server is unavailable, or if robot server is in the process of shutting down when response is ready.
 func (rc *RobotClient) Shutdown(ctx context.Context) error {
 	reqPb := &pb.ShutdownRequest{}
 	_, err := rc.client.Shutdown(ctx, reqPb)
 	if err != nil {
-		status, ok := status.FromError(err)
-		if ok {
-			switch status.Code().String() {
-			case "Unavailable", "Internal", "Unknown":
+		if status, ok := status.FromError(err); ok {
+			switch status.Code() {
+			case codes.Internal, codes.Unknown:
 				rc.Logger().CInfow(ctx, "robot shutdown successful")
 				return nil
-			case "DeadlineExceeded":
+			case codes.Unavailable:
+				rc.Logger().CWarnw(ctx, "server unavailable, likely due to successful robot shutdown")
+				return err
+			case codes.DeadlineExceeded:
 				rc.Logger().CWarnw(ctx, "request timeout, robot shutdown may still be successful")
+				return err
+			case codes.OK, codes.Aborted, codes.AlreadyExists, codes.Canceled, codes.DataLoss,
+				codes.FailedPrecondition, codes.InvalidArgument, codes.NotFound, codes.PermissionDenied,
+				codes.ResourceExhausted, codes.OutOfRange, codes.Unimplemented, codes.Unauthenticated:
 				return err
 			default:
 				return err
