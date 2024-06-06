@@ -24,6 +24,7 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
+	rutils "go.viam.com/rdk/utils"
 )
 
 const (
@@ -285,7 +286,7 @@ func (m *cloudManager) Cleanup(ctx context.Context) error {
 // symlink packages/package-name to packages/data/ml_model/orgid-package-name-ver for backwards compatibility
 // TODO(RSDK-4386) Preserved for backwards compatibility. Could be removed or extended to other types in the future.
 func (m *cloudManager) mLModelSymlinkCreation(p config.PackageConfig) error {
-	symlinkPath, err := safeJoin(m.packagesDir, p.Name)
+	symlinkPath, err := rutils.SafeJoinDir(m.packagesDir, p.Name)
 	if err != nil {
 		return err
 	}
@@ -317,7 +318,7 @@ func (m *cloudManager) mlModelSymlinkCleanup() error {
 
 		m.logger.Infof("Cleaning up unused package link %s", f.Name())
 
-		symlinkPath, err := safeJoin(m.packagesDir, f.Name())
+		symlinkPath, err := rutils.SafeJoinDir(m.packagesDir, f.Name())
 		if err != nil {
 			allErrors = multierr.Append(allErrors, err)
 			continue
@@ -438,25 +439,12 @@ func crc32Hash() hash.Hash32 {
 	return crc32.New(crc32.MakeTable(crc32.Castagnoli))
 }
 
-// safeJoin performs a filepath.Join of 'parent' and 'subdir' but returns an error
-// if the resulting path points outside of 'parent'.
-func safeJoin(parent, subdir string) (string, error) {
-	res := filepath.Join(parent, subdir)
-	if !strings.HasSuffix(parent, string(os.PathSeparator)) {
-		parent += string(os.PathSeparator)
-	}
-	if !strings.HasPrefix(res, parent) {
-		return res, errors.Errorf("unsafe path join: '%s' with '%s'", parent, subdir)
-	}
-	return res, nil
-}
-
 func safeLink(parent, link string) (string, error) {
 	if filepath.IsAbs(link) {
 		return link, errors.Errorf("unsafe path link: '%s' with '%s', cannot be absolute path", parent, link)
 	}
 
-	_, err := safeJoin(parent, link)
+	_, err := rutils.SafeJoinDir(parent, link)
 	if err != nil {
 		return link, err
 	}
