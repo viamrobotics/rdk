@@ -391,7 +391,7 @@ func waitForCaptureFilesToEqualNFiles(captureDir string, n int, logger logging.L
 			diagnostics.Do(func() {
 				logger.Infow("waitForCaptureFilesToEqualNFiles diagnostics after 10 seconds of waiting", "numFiles", len(files), "expectedFiles", n)
 				for idx, file := range files {
-					logger.Infow("File information", "idx", idx, "name", file.Name(), "size", file.Size())
+					logger.Infow("File information", "idx", idx, "dir", captureDir, "name", file.Name(), "size", file.Size())
 				}
 			})
 		}
