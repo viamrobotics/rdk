@@ -1132,8 +1132,8 @@ func TestBoundingRegionsConstraint(t *testing.T) {
 		box1, err := spatialmath.NewBox(spatialmath.NewZeroPose(), r3.Vector{500, 500, 2}, "")
 		test.That(t, err, test.ShouldBeNil)
 		box2, err := spatialmath.NewBox(
-			spatialmath.NewPoseFromPoint(r3.Vector{555.5, 0, 0}),
-			r3.Vector{1200, 1200, 2}, "",
+			spatialmath.NewPoseFromPoint(r3.Vector{681, 0, 0}),
+			r3.Vector{900, 900, 2}, "",
 		)
 		test.That(t, err, test.ShouldBeNil)
 
