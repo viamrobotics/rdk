@@ -235,7 +235,7 @@ func createWheeledBase(
 }
 
 // Spin commands a base to turn about its center at a angular speed and for a specific angle.
-func (wb *wheeledBase) Spin(ctx context.Context, angleDeg float64, degsPerSec float64, extra map[string]interface{}) error {
+func (wb *wheeledBase) Spin(ctx context.Context, angleDeg, degsPerSec float64, extra map[string]interface{}) error {
 	ctx, done := wb.opMgr.New(ctx)
 	defer done()
 	wb.logger.CDebugf(ctx, "received a Spin with angleDeg:%.2f, degsPerSec:%.2f", angleDeg, degsPerSec)
@@ -357,7 +357,7 @@ func (wb *wheeledBase) differentialDrive(forward, left float64) (float64, float6
 }
 
 // SetVelocity commands the base to move at the input linear and angular velocities.
-func (wb *wheeledBase) SetVelocity(ctx context.Context, linear r3.Vector, angular r3.Vector, extra map[string]interface{}) error {
+func (wb *wheeledBase) SetVelocity(ctx context.Context, linear, angular r3.Vector, extra map[string]interface{}) error {
 	wb.logger.CDebugf(ctx,
 		"received a SetVelocity with linear.X: %.2f, linear.Y: %.2f linear.Z: %.2f(mmPerSec),"+
 			" angular.X: %.2f, angular.Y: %.2f, angular.Z: %.2f",
@@ -382,7 +382,7 @@ func (wb *wheeledBase) SetVelocity(ctx context.Context, linear r3.Vector, angula
 }
 
 // SetPower commands the base motors to run at powers corresponding to input linear and angular powers.
-func (wb *wheeledBase) SetPower(ctx context.Context, linear r3.Vector, angular r3.Vector, extra map[string]interface{}) error {
+func (wb *wheeledBase) SetPower(ctx context.Context, linear, angular r3.Vector, extra map[string]interface{}) error {
 	wb.opMgr.CancelRunning(ctx)
 
 	wb.logger.CDebugf(ctx,
@@ -424,7 +424,7 @@ func (wb *wheeledBase) SetPower(ctx context.Context, linear r3.Vector, angular r
 }
 
 // returns rpm, revolutions for a spin motion.
-func (wb *wheeledBase) spinMath(angleDeg float64, degsPerSec float64) (float64, float64) {
+func (wb *wheeledBase) spinMath(angleDeg, degsPerSec float64) (float64, float64) {
 	wheelTravel := wb.spinSlipFactor * float64(wb.widthMm) * math.Pi * (angleDeg / 360.0)
 	revolutions := wheelTravel / float64(wb.wheelCircumferenceMm)
 	revolutions = math.Abs(revolutions)

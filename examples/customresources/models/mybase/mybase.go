@@ -120,17 +120,17 @@ func (b *myBase) MoveStraight(ctx context.Context, distanceMm int, mmPerSec floa
 }
 
 // Spin does nothing.
-func (b *myBase) Spin(ctx context.Context, angleDeg float64, degsPerSec float64, extra map[string]interface{}) error {
+func (b *myBase) Spin(ctx context.Context, angleDeg, degsPerSec float64, extra map[string]interface{}) error {
 	return errUnimplemented
 }
 
 // SetVelocity does nothing.
-func (b *myBase) SetVelocity(ctx context.Context, linear r3.Vector, angular r3.Vector, extra map[string]interface{}) error {
+func (b *myBase) SetVelocity(ctx context.Context, linear, angular r3.Vector, extra map[string]interface{}) error {
 	return errUnimplemented
 }
 
 // SetPower computes relative power between the wheels and sets power for both motors.
-func (b *myBase) SetPower(ctx context.Context, linear r3.Vector, angular r3.Vector, extra map[string]interface{}) error {
+func (b *myBase) SetPower(ctx context.Context, linear, angular r3.Vector, extra map[string]interface{}) error {
 	b.logger.CDebugf(ctx, "SetPower Linear: %.2f Angular: %.2f", linear.Y, angular.Z)
 	if math.Abs(linear.Y) < 0.01 && math.Abs(angular.Z) < 0.01 {
 		return b.Stop(ctx, extra)

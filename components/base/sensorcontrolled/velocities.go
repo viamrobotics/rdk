@@ -13,7 +13,7 @@ import (
 // When controls are enabled, SetVelocity polls the provided velocity movement sensor and corrects
 // any error between the desired velocity and the actual velocity using a PID control loop.
 func (sb *sensorBase) SetVelocity(
-	ctx context.Context, linear r3.Vector, angular r3.Vector, extra map[string]interface{},
+	ctx context.Context, linear, angular r3.Vector, extra map[string]interface{},
 ) error {
 	sb.opMgr.CancelRunning(ctx)
 	ctx, done := sb.opMgr.New(ctx)

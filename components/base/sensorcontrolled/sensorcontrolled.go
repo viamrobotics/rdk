@@ -214,7 +214,7 @@ func (sb *sensorBase) Reconfigure(ctx context.Context, deps resource.Dependencie
 }
 
 func (sb *sensorBase) SetPower(
-	ctx context.Context, linear r3.Vector, angular r3.Vector, extra map[string]interface{},
+	ctx context.Context, linear, angular r3.Vector, extra map[string]interface{},
 ) error {
 	sb.opMgr.CancelRunning(ctx)
 	if sb.loop != nil {

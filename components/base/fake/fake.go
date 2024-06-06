@@ -63,17 +63,17 @@ func (b *Base) MoveStraight(ctx context.Context, distanceMm int, mmPerSec float6
 }
 
 // Spin does nothing.
-func (b *Base) Spin(ctx context.Context, angleDeg float64, degsPerSec float64, extra map[string]interface{}) error {
+func (b *Base) Spin(ctx context.Context, angleDeg, degsPerSec float64, extra map[string]interface{}) error {
 	return nil
 }
 
 // SetPower does nothing.
-func (b *Base) SetPower(ctx context.Context, linear r3.Vector, angular r3.Vector, extra map[string]interface{}) error {
+func (b *Base) SetPower(ctx context.Context, linear, angular r3.Vector, extra map[string]interface{}) error {
 	return nil
 }
 
 // SetVelocity does nothing.
-func (b *Base) SetVelocity(ctx context.Context, linear r3.Vector, angular r3.Vector, extra map[string]interface{}) error {
+func (b *Base) SetVelocity(ctx context.Context, linear, angular r3.Vector, extra map[string]interface{}) error {
 	return nil
 }
 

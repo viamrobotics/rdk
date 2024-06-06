@@ -107,17 +107,17 @@ type Base interface {
 	// If a speed of 0 the base will stop.
 	// Given a positive speed and a positive angle, the base turns to the left (for built-in RDK drivers).
 	// This method blocks until completed or cancelled.
-	Spin(ctx context.Context, angleDeg float64, degsPerSec float64, extra map[string]interface{}) error
+	Spin(ctx context.Context, angleDeg, degsPerSec float64, extra map[string]interface{}) error
 
 	// Set the power of the base.
 	// For linear power, positive Y moves forwards for built-in RDK drivers.
 	// For angular power, positive Z turns to the left for built-in RDK drivers.
-	SetPower(ctx context.Context, linear r3.Vector, angular r3.Vector, extra map[string]interface{}) error
+	SetPower(ctx context.Context, linear, angular r3.Vector, extra map[string]interface{}) error
 
 	// Set the velocity of the base.
 	// linear is in mmPerSec (positive Y moves forwards for built-in RDK drivers).
 	// angular is in degsPerSec (positive Z turns to the left for built-in RDK drivers).
-	SetVelocity(ctx context.Context, linear r3.Vector, angular r3.Vector, extra map[string]interface{}) error
+	SetVelocity(ctx context.Context, linear, angular r3.Vector, extra map[string]interface{}) error
 
 	// Properties returns the width, turning radius, and wheel circumference of the physical base in meters.
 	Properties(ctx context.Context, extra map[string]interface{}) (Properties, error)
