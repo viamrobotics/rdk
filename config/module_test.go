@@ -9,6 +9,30 @@ import (
 	"go.viam.com/test"
 )
 
+// testChdir is a helper that cleans up an os.Chdir.
+func testChdir(t *testing.T, dir string) {
+	t.Helper()
+	wd, err := os.Getwd()
+	test.That(t, err, test.ShouldBeNil)
+	err = os.Chdir(dir)
+	test.That(t, err, test.ShouldBeNil)
+	t.Cleanup(func() { os.Chdir(wd) })
+}
+
+func TestInternalMeta(t *testing.T) {
+	tmp := t.TempDir()
+	testChdir(t, tmp)
+	testWriteJSON(t, "meta.json", JSONManifest{Entrypoint: "entry"})
+	mod := Module{
+		Type:    ModuleTypeLocal,
+		ExePath: filepath.Join(tmp, "whatever"),
+	}
+	exePath, err := mod.EvaluateExePath("doesnt-matter")
+	test.That(t, err, test.ShouldBeNil)
+	// note: this is testing that meta.json gets used *and* that it takes precedence.
+	test.That(t, exePath, test.ShouldEqual, filepath.Join(tmp, "entry"))
+}
+
 func TestSyntheticModule(t *testing.T) {
 	tmp := t.TempDir()
 	modNeedsSynthetic := Module{

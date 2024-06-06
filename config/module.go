@@ -136,19 +136,40 @@ func (m Module) syntheticPackageExeDir(packagesDir string) (string, error) {
 	return pkg.LocalDataDirectory(packagesDir), nil
 }
 
-// EvaluateExePath returns absolute ExePath except for local tarballs where it looks for side-by-side meta.json.
-// The side-by-side lookup is because we don't bundle entrypoint in module tarballs, it's not an intentional design choice.
+// parseJSONPath returns a *T by parsing the json file at `path`.
+func parseJSONPath[T any](path string) (*T, error) {
+	f, err := os.Open(path) //nolint:gosec
+	if err != nil {
+		return nil, errors.Wrap(err, "reading json file")
+	}
+	var target T
+	err = json.NewDecoder(f).Decode(&target)
+	if err != nil {
+		return nil, err
+	}
+	return &target, nil
+}
+
+// EvaluateExePath returns absolute ExePath from one of three sources (in order of precedence):
+// 1. if there is a meta.json in the exe dir, use that.
+// 2. if this is a local tarball and there's a meta.json next to the tarball, use that.
+// 3. otherwise use the exe path from config, or fail if this is a local tarball.
+// Note: the working directory must be the unpacked tarball directory or local exec directory.
 func (m Module) EvaluateExePath(packagesDir string) (string, error) {
-	if m.NeedsSyntheticPackage() {
-		metaPath := filepath.Join(filepath.Dir(m.ExePath), "meta.json")
-		f, err := os.Open(metaPath) //nolint:gosec
+	_, err := os.Stat("meta.json")
+	if err == nil {
+		// this is case 1, meta.json in exe dir
+		meta, err := parseJSONPath[JSONManifest]("meta.json")
 		if err != nil {
-			return "", errors.Wrap(err, "loading meta.json for local tarball")
+			return "", err
 		}
-		var meta JSONManifest
-		err = json.NewDecoder(f).Decode(&meta)
+		return filepath.Abs(meta.Entrypoint)
+	}
+	if m.NeedsSyntheticPackage() {
+		// this is case 2, side-by-side
+		meta, err := parseJSONPath[JSONManifest](filepath.Join(filepath.Dir(m.ExePath), "meta.json"))
 		if err != nil {
-			return "", errors.Wrap(err, "parsing meta.json for local tarball")
+			return "", errors.Wrap(err, "loading side-by-side meta.json")
 		}
 		exeDir, err := m.syntheticPackageExeDir(packagesDir)
 		if err != nil {
