@@ -51,7 +51,6 @@ func newSolverFrame(fs frame.FrameSystem, solveFrameName, goalFrameName string, 
 	if err != nil {
 		return nil, err
 	}
-	// this should always include world
 	if len(solveFrameList) == 0 {
 		return nil, errors.New("solveFrameList was empty")
 	}
