@@ -489,7 +489,24 @@ func (pf *poseFrame) Interpolate(from, to []Input, by float64) ([]Input, error) 
 	if err := pf.baseFrame.validInputs(to); err != nil {
 		return nil, NewIncorrectInputLengthError(len(to), 7)
 	}
-	return from, nil
+	fromPose, err := pf.Transform(from)
+	if err != nil {
+		return nil, err
+	}
+	toPose, err := pf.Transform(to)
+	if err != nil {
+		return nil, err
+	}
+	interpolatedPose := spatial.Interpolate(fromPose, toPose, by)
+	return []Input{
+		{interpolatedPose.Point().X},
+		{interpolatedPose.Point().Y},
+		{interpolatedPose.Point().Z},
+		{interpolatedPose.Orientation().OrientationVectorRadians().OX},
+		{interpolatedPose.Orientation().OrientationVectorRadians().OY},
+		{interpolatedPose.Orientation().OrientationVectorRadians().OZ},
+		{interpolatedPose.Orientation().OrientationVectorRadians().Theta},
+	}, nil
 }
 
 // Geometries returns an object representing the 3D space associeted with the staticFrame.
