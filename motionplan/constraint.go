@@ -335,6 +335,17 @@ func NewCollisionConstraint(
 				return false
 			}
 			internalGeoms = internal.Geometries()
+		case state.Position != nil:
+			// If we didn't pass a Configuration, but we do have a Position, then get the geometries at the zero state and
+			// transform them to the Position
+			internal, err := state.Frame.Geometries(make([]referenceframe.Input, len(state.Frame.DoF())))
+			if err != nil {
+				return false
+			}
+			movedGeoms := internal.Geometries()
+			for _, geom := range movedGeoms {
+				internalGeoms = append(internalGeoms, geom.Transform(state.Position))
+			}
 		default:
 			return false
 		}
