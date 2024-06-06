@@ -382,7 +382,7 @@ func TestPtgCheckPlan(t *testing.T) {
 		executionState := ExecutionState{
 			plan:          plan,
 			index:         1,
-			currentInputs: inputs, // zero'd inputs are incorrect here
+			currentInputs: inputs,
 			currentPose: map[string]*referenceframe.PoseInFrame{
 				localizationFrame.Name(): plan.Path()[1][ackermanFrame.Name()],
 			},
@@ -461,14 +461,22 @@ func TestPtgCheckPlan(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		pathPose := remainingPlan.Path()[0][ackermanFrame.Name()].Pose()
-		startPose := spatialmath.NewPose(r3.Vector{1000, 0, 0}, pathPose.Orientation())
+		inputs[localizationFrame.Name()] = referenceframe.FloatsToInputs(
+			[]float64{
+				pathPose.Point().X, pathPose.Point().Y, pathPose.Point().Z,
+				pathPose.Orientation().OrientationVectorRadians().OX,
+				pathPose.Orientation().OrientationVectorRadians().OY,
+				pathPose.Orientation().OrientationVectorRadians().OZ,
+				pathPose.Orientation().OrientationVectorRadians().Theta,
+			},
+		)
 
 		executionState := ExecutionState{
 			plan:          plan,
 			index:         2,
 			currentInputs: inputs,
 			currentPose: map[string]*referenceframe.PoseInFrame{
-				localizationFrame.Name(): referenceframe.NewPoseInFrame(referenceframe.World, startPose),
+				localizationFrame.Name(): referenceframe.NewPoseInFrame(referenceframe.World, pathPose),
 			},
 		}
 		err = CheckPlan(ackermanFrame, localizationFrame, executionState, worldState, tfFrameSystem, math.Inf(1), logger)

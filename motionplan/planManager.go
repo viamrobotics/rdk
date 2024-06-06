@@ -799,7 +799,6 @@ func (pm *planManager) planRelativeWaypoint(ctx context.Context, request *PlanRe
 		return nil, err
 	}
 	goalPos := tf.(*referenceframe.PoseInFrame).Pose()
-
 	opt, err := pm.plannerSetupFromMoveRequest(
 		startPose, goalPos, request.StartConfiguration, request.WorldState, request.ConstraintSpecs, request.Options,
 	)
@@ -815,7 +814,6 @@ func (pm *planManager) planRelativeWaypoint(ctx context.Context, request *PlanRe
 	pm.frame.fss = relativeOnlyFS
 	pm.planOpts = opt
 
-	// set the goal pose
 	opt.SetGoal(goalPos)
 
 	// Build planner

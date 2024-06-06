@@ -377,7 +377,7 @@ func TestObstacleReplanningGlobe(t *testing.T) {
 			name: "ensure replan reaching goal",
 			getPCfunc: func(ctx context.Context, cameraName string, extra map[string]interface{}) ([]*viz.Object, error) {
 				caseName := "test-case-3"
-				// This base will always see an obstacle 500mm in front of it, triggering several replans.
+				// This base will always see an obstacle 800mm in front of it, triggering several replans.
 				// However, enough replans should eventually get it to its goal.
 				obstaclePosition := spatialmath.NewPoseFromPoint(r3.Vector{X: 800, Y: 0, Z: 0})
 				box, err := spatialmath.NewBox(obstaclePosition, r3.Vector{X: 20, Y: 20, Z: 10}, caseName)

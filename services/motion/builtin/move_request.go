@@ -596,11 +596,6 @@ func (ms *builtIn) newMoveOnMapRequest(
 	if err != nil {
 		return nil, err
 	}
-	limits = append(limits, referenceframe.Limit{Min: -1, Max: 1})                     // Z
-	limits = append(limits, referenceframe.Limit{Min: -1, Max: 1})                     // OX
-	limits = append(limits, referenceframe.Limit{Min: -1, Max: 1})                     // OY
-	limits = append(limits, referenceframe.Limit{Min: -1, Max: 1})                     // OZ
-	limits = append(limits, referenceframe.Limit{Min: -2 * math.Pi, Max: 2 * math.Pi}) // Theta
 
 	// create a KinematicBase from the componentName
 	component, ok := ms.components[req.ComponentName]
