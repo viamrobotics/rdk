@@ -686,12 +686,15 @@ func (svc *builtIn) sync() {
 	svc.lock.Unlock()
 
 	stopAfter := time.Now().Add(time.Duration(svc.syncIntervalMins * float64(time.Minute)))
+	if len(toSync) >= 100 {
+		svc.logger.Infof("Number of files to sync: %d", len(toSync))
+	}
 	for _, p := range toSync {
 		svc.syncer.SyncFile(p, stopAfter)
 	}
 }
 
-//nolint
+// nolint
 func getAllFilesToSync(dir string, lastModifiedMillis int) []string {
 	var filePaths []string
 	_ = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
