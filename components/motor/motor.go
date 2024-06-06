@@ -90,7 +90,7 @@ type Motor interface {
 	resource.Actuator
 
 	// SetPower sets the percentage of power the motor should employ between -1 and 1.
-	// Negative power corresponds to a backward direction of rotation
+	// Negative power corresponds to a backward direction of rotation.
 	SetPower(ctx context.Context, powerPct float64, extra map[string]interface{}) error
 
 	// GoFor instructs the motor to go in a specific direction for a specific amount of
@@ -103,8 +103,8 @@ type Motor interface {
 
 	// GoTo instructs the motor to go to a specific position (provided in revolutions from home/zero),
 	// at a specific speed. Regardless of the directionality of the RPM this function will move the motor
-	// towards the specified target/position
-	// This will block until the position has been reached
+	// towards the specified target/position.
+	// This will block until the position has been reached.
 	GoTo(ctx context.Context, rpm, positionRevolutions float64, extra map[string]interface{}) error
 
 	// SetRPM instructs the motor to move at the specified RPM indefinitely.

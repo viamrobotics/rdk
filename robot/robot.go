@@ -28,6 +28,58 @@ import (
 
 // A Robot encompasses all functionality of some robot comprised
 // of parts, local and remote.
+//
+// DiscoverComponents example:
+//
+//	// Define a new discovery query.
+//	q := resource.NewDiscoveryQuery(acme.API, resource.Model{Name: "some model"})
+//
+//	// Define a list of discovery queries.
+//	qs := []resource.DiscoverQuery{q}
+//
+//	// Get component configurations with these queries.
+//	component_configs, err := machine.DiscoverComponents(ctx.Background(), qs)
+//
+// ResourceNames example:
+//
+//	resource_names := machine.ResourceNames()
+//
+// FrameSystemConfig example:
+//
+//	// Print the frame system configuration
+//	frameSystem, err := machine.FrameSystemConfig(context.Background(), nil)
+//	fmt.Println(frameSystem)
+//
+// TransformPose example:
+//
+//	import (
+//	  "go.viam.com/rdk/referenceframe"
+//	  "go.viam.com/rdk/spatialmath"
+//	)
+//
+//	baseOrigin := referenceframe.NewPoseInFrame("test-base", spatialmath.NewZeroPose())
+//	movementSensorToBase, err := machine.TransformPose(ctx, baseOrigin, "my-movement-sensor", nil)
+//
+// Status example:
+//
+//	status, err := machine.Status(ctx)
+//
+// GetCloudMetadata example:
+//
+//	metadata := machine.GetCloudMetadata()
+//	machine_part_id = metadata.MachinePartID
+//	primary_org_id = metadata.PrimaryOrgID
+//	location_id = metadata.LocationID
+//
+// Close example:
+//
+//	// Cleanly close the underlying connections and stop any periodic tasks,
+//	err := machine.Close(ctx)
+//
+// StopAll example:
+//
+//	// Cancel all current and outstanding operations for the machine and stop all actuators and movement.
+//	err := machine.StopAll(ctx)
 type Robot interface {
 	// DiscoverComponents returns discovered component configurations.
 	DiscoverComponents(ctx context.Context, qs []resource.DiscoveryQuery) ([]resource.Discovery, error)

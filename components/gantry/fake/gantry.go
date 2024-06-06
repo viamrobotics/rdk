@@ -75,7 +75,7 @@ func (g *Gantry) Home(ctx context.Context, extra map[string]interface{}) (bool, 
 }
 
 // MoveToPosition is in meters.
-func (g *Gantry) MoveToPosition(ctx context.Context, positionsMm, speedsMmPerSec []float64, extra map[string]interface{}) error {
+func (g *Gantry) MoveToPosition(ctx context.Context, positionsMm []float64, speedsMmPerSec []float64, extra map[string]interface{}) error {
 	g.positionsMm = positionsMm
 	g.speedsMmPerSec = speedsMmPerSec
 	return nil
