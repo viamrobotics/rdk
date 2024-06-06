@@ -326,7 +326,7 @@ func (wb *wheeledBase) runAllSetRPM(ctx context.Context, leftRPM, rightRPM float
 		wb.logger.CWarn(ctx, "low motor speed detected, left motors may not behave as expected")
 	}
 	if math.Abs(rightRPM) <= 10 {
-		wb.logger.CWarn(ctx, "low motor speed detected, right motors may not behave as expected")
+		wb.logger.CWarn(ctx, "low motor speed detected, right motor(s) may not behave as expected")
 	}
 
 	// gather all the necessary motor SetRPM functions to execute in parallel into the setRPMFuncs variable
