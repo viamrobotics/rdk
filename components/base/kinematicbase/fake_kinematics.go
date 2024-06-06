@@ -206,6 +206,9 @@ func WrapWithFakePTGKinematics(
 			{Min: math.Inf(-1), Max: math.Inf(1)},
 			{Min: math.Inf(-1), Max: math.Inf(1)},
 			{Min: math.Inf(-1), Max: math.Inf(1)},
+			// we intentionally set our OX, OY, OZ values to be greater than 1 since
+			// a possible orientation which a planner produces may have the following
+			// values: OZ: 1.0000000002, Theta: t.
 			{Min: -1.5, Max: 1.5},
 			{Min: -1.5, Max: 1.5},
 			{Min: -1.5, Max: 1.5},
