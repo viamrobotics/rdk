@@ -317,6 +317,49 @@ func (wb *wheeledBase) runAllGoFor(ctx context.Context, leftRPM, leftRotations, 
 	return nil
 }
 
+// runAllSetRPM executes `motor.SetRPM` commands in parallel for left and right motors,
+// with specified speeds and rotations and stops the base if an error occurs.
+// All callers must register an operation via `wb.opMgr.New` to ensure the left and right motors
+// receive consistent instructions.
+func (wb *wheeledBase) runAllSetRPM(ctx context.Context, leftRPM, rightRPM float64) error {
+	if math.Abs(leftRPM) <= 10 {
+		wb.logger.CWarn(ctx, "low motor speed detected, left motor(s) may not behave as expected")
+	}
+	if math.Abs(rightRPM) <= 10 {
+		wb.logger.CWarn(ctx, "low motor speed detected, right motor(s) may not behave as expected")
+	}
+
+	// gather all the necessary motor SetRPM functions to execute in parallel into the setRPMFuncs variable
+	setRPMFuncs := func() []rdkutils.SimpleFunc {
+		ret := []rdkutils.SimpleFunc{}
+
+		// These reads of `wb.left` and `wb.right` can race with `Reconfigure`.
+		wb.mu.Lock()
+		defer wb.mu.Unlock()
+		for _, m := range wb.left {
+			// create a new motor variable, otherwise SetRPM is always executed on the first motor in wb.left
+			motor := m
+			ret = append(ret, func(ctx context.Context) error { return motor.SetRPM(ctx, leftRPM, nil) })
+		}
+
+		for _, m := range wb.right {
+			// create a new motor variable, otherwise SetRPM is always executed on the first motor in wb.right
+			motor := m
+			ret = append(ret, func(ctx context.Context) error { return motor.SetRPM(ctx, rightRPM, nil) })
+		}
+		return ret
+	}()
+
+	if _, err := rdkutils.RunInParallel(ctx, setRPMFuncs); err != nil {
+		err := multierr.Combine(err, wb.Stop(ctx, nil))
+		// Ignore the context canceled error - this occurs when the base is stopped by the user.
+		if !errors.Is(err, context.Canceled) {
+			return err
+		}
+	}
+	return nil
+}
+
 // differentialDrive takes forward and left direction inputs from a first person
 // perspective on a 2D plane and converts them to left and right motor powers. negative
 // forward means backward and negative left means right.
@@ -371,14 +414,11 @@ func (wb *wheeledBase) SetVelocity(ctx context.Context, linear, angular r3.Vecto
 	}
 
 	leftRPM, rightRPM := wb.velocityMath(linear.Y, angular.Z)
-	// Passing zero revolutions to `motor.GoFor` will have the motor run until
-	// interrupted. Moreover, `motor.GoFor` will return immediately when given zero revolutions.
-	const numRevolutions = 0
 
 	// start new operation after all calculations are made
 	ctx, done := wb.opMgr.New(ctx)
 	defer done()
-	return wb.runAllGoFor(ctx, leftRPM, numRevolutions, rightRPM, numRevolutions)
+	return wb.runAllSetRPM(ctx, leftRPM, rightRPM)
 }
 
 // SetPower commands the base motors to run at powers corresponding to input linear and angular powers.
