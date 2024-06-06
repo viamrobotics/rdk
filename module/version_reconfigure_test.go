@@ -2,6 +2,7 @@ package module_test
 
 import (
 	"context"
+	"path/filepath"
 	"testing"
 
 	"go.viam.com/test"
@@ -22,11 +23,13 @@ func TestValidationFailureDuringReconfiguration(t *testing.T) {
 	ctx := context.Background()
 	logger, logs := logging.NewObservedTestLogger(t)
 
+	absPath, err := filepath.Abs("multiversionmodule/run_version1.sh")
+	test.That(t, err, test.ShouldBeNil)
 	cfg := &config.Config{
 		Modules: []config.Module{
 			{
 				Name:     "AcmeModule",
-				ExePath:  "multiversionmodule/run_version1.sh",
+				ExePath:  absPath,
 				LogLevel: "debug",
 			},
 		},
@@ -94,11 +97,13 @@ func TestVersionBumpWithNewImplicitDeps(t *testing.T) {
 	ctx := context.Background()
 	logger, logs := logging.NewObservedTestLogger(t)
 
+	absPath, err := filepath.Abs("multiversionmodule/run_version1.sh")
+	test.That(t, err, test.ShouldBeNil)
 	cfg := &config.Config{
 		Modules: []config.Module{
 			{
 				Name:     "AcmeModule",
-				ExePath:  "multiversionmodule/run_version1.sh",
+				ExePath:  absPath,
 				LogLevel: "debug",
 			},
 		},
