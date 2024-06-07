@@ -63,6 +63,9 @@ var defaultMaxCaptureSize = int64(256 * 1024)
 // Default time between disk size checks.
 var filesystemPollInterval = 30 * time.Second
 
+// Threshold number of files to check if sync is backed up (defined as >5000 files).
+var minNumFiles = 5000
+
 var (
 	clock          = clk.New()
 	deletionTicker = clk.New()
@@ -686,8 +689,8 @@ func (svc *builtIn) sync() {
 	svc.lock.Unlock()
 
 	stopAfter := time.Now().Add(time.Duration(svc.syncIntervalMins * float64(time.Minute)))
-	// Logging to display how backed up data sync is
-	if len(toSync) >= 1000 {
+	// Only long if there are a large number of files to sync
+	if len(toSync) > minNumFiles {
 		svc.logger.Infof("Starting sync of %d files", len(toSync))
 	}
 	for _, p := range toSync {
@@ -695,7 +698,7 @@ func (svc *builtIn) sync() {
 	}
 }
 
-// nolint
+//nolint
 func getAllFilesToSync(dir string, lastModifiedMillis int) []string {
 	var filePaths []string
 	_ = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
