@@ -52249,9 +52249,17 @@
         "hash": "359468bee2538de4c5950190cc1eb002",
         "size": 699
       },
+      "effdetlabels_with_spaces.txt": {
+        "hash": "03baf0c24095635ab80bf1c7ba13d71e",
+        "size": 728
+      },
       "effnet0.tflite": {
         "hash": "301b893e4701ec6f490c21a2435befbc",
         "size": 7165437
+      },
+      "empty_labels.txt": {
+        "hash": "f263703128b264cd3bdc41684338b44f",
+        "size": 21
       },
       "fakelabels.txt": {
         "hash": "9b9d5e11ece4e6fe52246a2851636145",
@@ -52313,6 +52321,10 @@
     "white2.png": {
       "hash": "ae363a34e2a707cfbc2b6b20a2879210",
       "size": 4179
+    },
+    "yolov4_1_3_416_416_static.onnx": {
+      "hash": "fd96b603a89e8c0bc928a925498cf879",
+      "size": 24324690
     }
   }
 }
