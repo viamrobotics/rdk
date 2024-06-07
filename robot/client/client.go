@@ -999,7 +999,7 @@ func (rc *RobotClient) Shutdown(ctx context.Context) error {
 	_, err := rc.client.Shutdown(ctx, reqPb)
 	if err != nil {
 		if status, ok := status.FromError(err); ok {
-			switch status.Code() {
+			switch status.Code() { //nolint:exhaustive
 			case codes.Internal, codes.Unknown:
 				rc.Logger().CInfow(ctx, "robot shutdown successful")
 				return nil
@@ -1009,10 +1009,6 @@ func (rc *RobotClient) Shutdown(ctx context.Context) error {
 			case codes.DeadlineExceeded:
 				rc.Logger().CWarnw(ctx, "request timeout, robot shutdown may still be successful")
 				return err
-			case codes.OK, codes.Aborted, codes.AlreadyExists, codes.Canceled, codes.DataLoss,
-				codes.FailedPrecondition, codes.InvalidArgument, codes.NotFound, codes.PermissionDenied,
-				codes.ResourceExhausted, codes.OutOfRange, codes.Unimplemented, codes.Unauthenticated:
-				return err
 			default:
 				return err
 			}
@@ -1020,5 +1016,6 @@ func (rc *RobotClient) Shutdown(ctx context.Context) error {
 			return err
 		}
 	}
+	rc.Logger().CInfow(ctx, "robot shutdown successful")
 	return nil
 }
