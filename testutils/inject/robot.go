@@ -49,6 +49,7 @@ type Robot struct {
 	StatusFunc              func(ctx context.Context, resourceNames []resource.Name) ([]robot.Status, error)
 	ModuleAddressFunc       func() (string, error)
 	CloudMetadataFunc       func(ctx context.Context) (cloud.Metadata, error)
+	ShutdownFunc            func(ctx context.Context) error
 
 	ops        *operation.Manager
 	SessMgr    session.Manager
@@ -292,6 +293,16 @@ func (r *Robot) CloudMetadata(ctx context.Context) (cloud.Metadata, error) {
 		return r.LocalRobot.CloudMetadata(ctx)
 	}
 	return r.CloudMetadataFunc(ctx)
+}
+
+// Shutdown calls the injected Shutdown or the real one.
+func (r *Robot) Shutdown(ctx context.Context) error {
+	r.Mu.RLock()
+	defer r.Mu.RUnlock()
+	if r.ShutdownFunc == nil {
+		return r.LocalRobot.Shutdown(ctx)
+	}
+	return r.ShutdownFunc(ctx)
 }
 
 type noopSessionManager struct{}

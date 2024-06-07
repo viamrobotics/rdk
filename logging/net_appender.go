@@ -33,14 +33,19 @@ type CloudConfig struct {
 
 // NewNetAppender creates a NetAppender to send log events to the app backend. NetAppenders ought to
 // be `Close`d prior to shutdown to flush remaining logs.
-func NewNetAppender(config *CloudConfig) (*NetAppender, error) {
+// Pass `nil` for `conn` if you want this to create its own connection.
+func NewNetAppender(config *CloudConfig, conn rpc.ClientConn) (*NetAppender, error) {
 	hostname, err := os.Hostname()
 	if err != nil {
 		return nil, err
 	}
 
 	logWriter := &remoteLogWriterGRPC{
-		cfg: config,
+		cfg:       config,
+		rpcClient: conn,
+	}
+	if conn != nil {
+		logWriter.service = apppb.NewRobotServiceClient(conn)
 	}
 
 	cancelCtx, cancel := context.WithCancel(context.Background())

@@ -1850,6 +1850,27 @@ Example:
 					},
 					Action: UpdateAuthApplicationAction,
 				},
+				{
+					Name:  "get",
+					Usage: "get configuration for a third party auth application",
+					UsageText: createUsageText("auth-app get", []string{
+						generalFlagOrgID,
+						authApplicationFlagApplicationID,
+					}, false),
+					Flags: []cli.Flag{
+						&cli.StringFlag{
+							Name:     generalFlagOrgID,
+							Required: true,
+							Usage:    "organization ID that will be tied to auth application",
+						},
+						&cli.StringFlag{
+							Name:     authApplicationFlagApplicationID,
+							Usage:    "id for the auth application",
+							Required: true,
+						},
+					},
+					Action: GetAuthApplicationAction,
+				},
 			},
 		},
 		{

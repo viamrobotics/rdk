@@ -304,6 +304,24 @@ func TestServer(t *testing.T) {
 			},
 		})
 	})
+
+	t.Run("Shutdown", func(t *testing.T) {
+		injectRobot := &inject.Robot{}
+		injectRobot.ResourceRPCAPIsFunc = func() []resource.RPCAPI { return nil }
+		injectRobot.ResourceNamesFunc = func() []resource.Name { return nil }
+		shutdownCalled := false
+		injectRobot.ShutdownFunc = func(ctx context.Context) error {
+			shutdownCalled = true
+			return nil
+		}
+
+		server := server.New(injectRobot)
+		req := pb.ShutdownRequest{}
+
+		_, err := server.Shutdown(context.Background(), &req)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, shutdownCalled, test.ShouldBeTrue)
+	})
 }
 
 func TestServerFrameSystemConfig(t *testing.T) {

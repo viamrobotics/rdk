@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -14,6 +15,7 @@ import (
 	v1 "go.viam.com/api/app/datasync/v1"
 	"go.viam.com/test"
 
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/services/datamanager/datacapture"
@@ -366,7 +368,9 @@ func waitForCaptureFilesToExceedNFiles(captureDir string, n int) {
 
 // waitForCaptureFilesToEqualNFiles returns once `captureDir` has exactly `n` files of at least
 // `emptyFileBytesSize` bytes.
-func waitForCaptureFilesToEqualNFiles(captureDir string, n int) {
+func waitForCaptureFilesToEqualNFiles(captureDir string, n int, logger logging.Logger) {
+	var diagnostics sync.Once
+	start := time.Now()
 	for {
 		files := getAllFileInfos(captureDir)
 		nonEmptyFiles := 0
@@ -383,6 +387,14 @@ func waitForCaptureFilesToEqualNFiles(captureDir string, n int) {
 		}
 
 		time.Sleep(10 * time.Millisecond)
+		if time.Since(start) > 10*time.Second {
+			diagnostics.Do(func() {
+				logger.Infow("waitForCaptureFilesToEqualNFiles diagnostics after 10 seconds of waiting", "numFiles", len(files), "expectedFiles", n)
+				for idx, file := range files {
+					logger.Infow("File information", "idx", idx, "dir", captureDir, "name", file.Name(), "size", file.Size())
+				}
+			})
+		}
 	}
 }
 
