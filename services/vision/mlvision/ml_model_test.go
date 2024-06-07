@@ -527,24 +527,15 @@ func TestBlankLabelLines(t *testing.T) {
 	test.That(t, outLabels[0], test.ShouldResemble, "Person")
 	test.That(t, outLabels[1], test.ShouldResemble, "Bicycle")
 	test.That(t, outLabels[2], test.ShouldResemble, "Car")
-}
 
-func TestNoLabelsInFile(t *testing.T) {
-	ctx := context.Background()
-	modelLoc := artifact.MustPath("vision/tflite/effdet0.tflite")
-	labelLoc := artifact.MustPath("vision/tflite/empty_labels.txt")
-	cfg := tflitecpu.TFLiteConfig{ // detector config
-		ModelPath:  modelLoc,
-		NumThreads: 2,
-		LabelPath:  labelLoc,
-	}
-	out, err := tflitecpu.NewTFLiteCPUModel(ctx, &cfg, mlmodel.Named("emptyLabels"))
+	labelLoc2 := artifact.MustPath("vision/tflite/empty_labels.txt")
+	cfg.LabelPath = labelLoc2
+	out, err = tflitecpu.NewTFLiteCPUModel(ctx, &cfg, mlmodel.Named("emptyLabels"))
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, out, test.ShouldNotBeNil)
-	outMD, err := out.Metadata(ctx)
+	outMD, err = out.Metadata(ctx)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, outMD, test.ShouldNotBeNil)
-	outLabels := getLabelsFromMetadata(outMD)
+	outLabels = getLabelsFromMetadata(outMD)
 	test.That(t, outLabels, test.ShouldBeNil)
 }
 
