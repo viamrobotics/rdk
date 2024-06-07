@@ -117,7 +117,6 @@ func TestSyncEnabled(t *testing.T) {
 				AssociatedAttributes: associations,
 			})
 			test.That(t, err, test.ShouldBeNil)
-
 			// Drain any requests that were already sent before Update returned.
 			for len(mockClient.succesfulDCRequests) > 0 {
 				<-mockClient.succesfulDCRequests
@@ -697,7 +696,7 @@ func TestSyncConfigUpdateBehavior(t *testing.T) {
 
 			newBuildInSvc := dmsvc.(*builtIn)
 			newTicker := newBuildInSvc.syncTicker
-			newSyncer := newBuildInSvc.syncer
+			newSyncer := newBuildInSvc.concurrentSyncer.syncer
 			newFileDeletionBackgroundWorker := newBuildInSvc.fileDeletionBackgroundWorkers
 
 			if tc.newSyncDisabled {

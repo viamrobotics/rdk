@@ -138,6 +138,11 @@ func (s *syncer) SyncFile(path string, stopAfter time.Time) {
 			return
 		// Kick off a sync goroutine if under the limit of goroutines.
 		case s.syncRoutineTracker <- struct{}{}:
+
+			if s.closed.Load() {
+				return
+			}
+
 			s.backgroundWorkers.Add(1)
 
 			goutils.PanicCapturingGo(func() {
