@@ -140,7 +140,7 @@ func TestPtgWithObstacle(t *testing.T) {
 		movingRobotGeometries,
 		staticRobotGeometries,
 		worldGeometries.Geometries(),
-		nil,
+		nil, nil,
 		defaultCollisionBufferMM,
 	)
 

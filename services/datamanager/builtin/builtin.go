@@ -682,23 +682,27 @@ func (svc *builtIn) sync() {
 	svc.flushCollectors()
 
 	svc.lock.Lock()
-	toSync := getAllFilesToSync(svc.captureDir, svc.fileLastModifiedMillis)
-	for _, ap := range svc.additionalSyncPaths {
-		toSync = append(toSync, getAllFilesToSync(ap, svc.fileLastModifiedMillis)...)
-	}
-	svc.lock.Unlock()
+	if svc.syncer != nil {
+		toSync := getAllFilesToSync(svc.captureDir, svc.fileLastModifiedMillis)
+		for _, ap := range svc.additionalSyncPaths {
+			toSync = append(toSync, getAllFilesToSync(ap, svc.fileLastModifiedMillis)...)
+		}
+		svc.lock.Unlock()
 
-	stopAfter := time.Now().Add(time.Duration(svc.syncIntervalMins * float64(time.Minute)))
-	// Only long if there are a large number of files to sync
-	if len(toSync) > minNumFiles {
-		svc.logger.Infof("Starting sync of %d files", len(toSync))
-	}
-	for _, p := range toSync {
-		svc.syncer.SyncFile(p, stopAfter)
+		stopAfter := time.Now().Add(time.Duration(svc.syncIntervalMins * float64(time.Minute)))
+		// Only log if there are a large number of files to sync
+		if len(toSync) > minNumFiles {
+			svc.logger.Infof("Starting sync of %d files", len(toSync))
+		}
+		for _, p := range toSync {
+			svc.syncer.SyncFile(p, stopAfter)
+		}
+	} else {
+		svc.lock.Unlock()
 	}
 }
 
-//nolint
+//nolint:errcheck,nilerr
 func getAllFilesToSync(dir string, lastModifiedMillis int) []string {
 	var filePaths []string
 	_ = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {

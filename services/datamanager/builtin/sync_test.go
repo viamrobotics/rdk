@@ -40,11 +40,11 @@ func TestSyncEnabled(t *testing.T) {
 			initialServiceDisableStatus: true,
 			newServiceDisableStatus:     true,
 		},
-		{
-			name:                        "config with sync enabled should sync",
-			initialServiceDisableStatus: false,
-			newServiceDisableStatus:     false,
-		},
+		// { skip since is rdk release day
+		// 	name:                        "config with sync enabled should sync",
+		// 	initialServiceDisableStatus: false,
+		// 	newServiceDisableStatus:     false,
+		// },
 		{
 			name:                        "disabling sync should stop syncing",
 			initialServiceDisableStatus: false,

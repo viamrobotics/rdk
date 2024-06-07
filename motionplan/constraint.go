@@ -234,7 +234,7 @@ func (c *ConstraintHandler) SegmentConstraints() []string {
 }
 
 func createAllCollisionConstraints(
-	movingRobotGeometries, staticRobotGeometries, worldGeometries []spatial.Geometry,
+	movingRobotGeometries, staticRobotGeometries, worldGeometries, boundingRegions []spatial.Geometry,
 	allowedCollisions []*Collision,
 	collisionBufferMM float64,
 ) (map[string]StateConstraint, error) {
@@ -269,6 +269,12 @@ func createAllCollisionConstraints(
 			return nil, err
 		}
 		constraintMap[defaultObstacleConstraintDesc] = obstacleConstraint
+	}
+
+	if len(boundingRegions) > 0 {
+		// create constraint to keep moving geometries within the defined bounding regions
+		interactionSpaceConstraint := NewBoundingRegionConstraint(movingRobotGeometries, boundingRegions, collisionBufferMM)
+		constraintMap[defaultBoundingRegionConstraintDesc] = interactionSpaceConstraint
 	}
 
 	if len(staticRobotGeometries) > 0 {
@@ -337,6 +343,7 @@ func NewCollisionConstraint(
 			}
 			internalGeoms = internal.Geometries()
 		case state.Position != nil:
+			// TODO(RSDK-5391): remove this case
 			// If we didn't pass a Configuration, but we do have a Position, then get the geometries at the zero state and
 			// transform them to the Position
 			internal, err := state.Frame.Geometries(make([]referenceframe.Input, len(state.Frame.DoF())))
@@ -493,6 +500,41 @@ func NewOctreeCollisionConstraint(octree *pointcloud.BasicOctree, threshold int,
 		return true
 	}
 	return constraint
+}
+
+// NewBoundingRegionConstraint will determine if the given list of robot geometries are in collision with the
+// given list of bounding regions.
+func NewBoundingRegionConstraint(robotGeoms, boundingRegions []spatial.Geometry, collisionBufferMM float64) StateConstraint {
+	return func(state *ik.State) bool {
+		var internalGeoms []spatial.Geometry
+		switch {
+		case state.Configuration != nil:
+			internal, err := state.Frame.Geometries(state.Configuration)
+			if err != nil {
+				return false
+			}
+			internalGeoms = internal.Geometries()
+		case state.Position != nil:
+			// TODO(RSDK-5391): remove this case
+			// If we didn't pass a Configuration, but we do have a Position, then get the geometries at the zero state and
+			// transform them to the Position
+			internal, err := state.Frame.Geometries(make([]referenceframe.Input, len(state.Frame.DoF())))
+			if err != nil {
+				return false
+			}
+			movedGeoms := internal.Geometries()
+			for _, geom := range movedGeoms {
+				internalGeoms = append(internalGeoms, geom.Transform(state.Position))
+			}
+		default:
+			internalGeoms = robotGeoms
+		}
+		cg, err := newCollisionGraph(internalGeoms, boundingRegions, nil, true, collisionBufferMM)
+		if err != nil {
+			return false
+		}
+		return len(cg.collisions(collisionBufferMM)) != 0
+	}
 }
 
 // LinearConstraint specifies that the component being moved should move linearly relative to its goal.
