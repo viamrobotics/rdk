@@ -10,12 +10,15 @@ import (
 	"path/filepath"
 	"runtime"
 	"testing"
+	"time"
 
 	"github.com/invopop/jsonschema"
 	"go.uber.org/zap/zapcore"
 	robotpb "go.viam.com/api/robot/v1"
 	"go.viam.com/test"
 	goutils "go.viam.com/utils"
+	"go.viam.com/utils/pexec"
+	gtestutils "go.viam.com/utils/testutils"
 
 	_ "go.viam.com/rdk/components/register"
 	"go.viam.com/rdk/config"
@@ -122,6 +125,7 @@ func TestShutdown(t *testing.T) {
 
 		var port int
 		var success bool
+		var server pexec.ManagedProcess
 		for portTryNum := 0; portTryNum < 10; portTryNum++ {
 			p, err := goutils.TryReserveRandomPort()
 			port = p
@@ -131,7 +135,7 @@ func TestShutdown(t *testing.T) {
 			cfgFilename, err = robottestutils.MakeTempConfig(t, cfg, logger)
 			test.That(t, err, test.ShouldBeNil)
 
-			server := robottestutils.ServerAsSeparateProcess(t, cfgFilename, logger)
+			server = robottestutils.ServerAsSeparateProcess(t, cfgFilename, logger)
 
 			err = server.Start(context.Background())
 			test.That(t, err, test.ShouldBeNil)
@@ -156,7 +160,15 @@ func TestShutdown(t *testing.T) {
 		rc := robotpb.NewRobotServiceClient(conn)
 
 		_, err = rc.Shutdown(context.Background(), &robotpb.ShutdownRequest{})
-		test.That(t, err, test.ShouldBeNil)
+
+		gtestutils.WaitForAssertionWithSleep(t, 50*time.Millisecond, 50, func(tb testing.TB) {
+			tb.Helper()
+			rdkStatus := server.Status()
+			// Asserting not nil here to ensure process is dead
+			test.That(tb, rdkStatus, test.ShouldNotBeNil)
+		})
+		test.That(t, (err == nil || err.Error() == `rpc error: code = DeadlineExceeded 
+			desc = context deadline exceeded`), test.ShouldBeTrue)
 		test.That(t, logObserver.FilterLevelExact(zapcore.ErrorLevel).Len(), test.ShouldEqual, 0)
 	})
 }
