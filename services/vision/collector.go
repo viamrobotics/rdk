@@ -25,7 +25,6 @@ func (m method) String() string {
 }
 
 func NewCaptureAllFromCameraCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
-	println("reached new data collector!")
 	vision, err := assertVision(resource)
 	if err != nil {
 		return nil, err
@@ -38,7 +37,7 @@ func NewCaptureAllFromCameraCollector(resource interface{}, params data.Collecto
 			ReturnClassifications: true,
 			ReturnObject:          true,
 		}
-		visCapture, err := vision.CaptureAllFromCamera(ctx, params.ComponentName, visCaptureOptions, nil)
+		visCapture, err := vision.CaptureAllFromCamera(ctx, "camera-3", visCaptureOptions, nil)
 
 		if err != nil {
 			return nil, data.FailedToReadErr(params.ComponentName, CaptureAllFromCamera.String(), err)

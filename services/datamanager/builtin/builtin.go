@@ -28,6 +28,7 @@ import (
 	"go.viam.com/rdk/services/datamanager/datacapture"
 	"go.viam.com/rdk/services/datamanager/datasync"
 	"go.viam.com/rdk/services/slam"
+	"go.viam.com/rdk/services/vision"
 	"go.viam.com/rdk/utils"
 )
 
@@ -40,6 +41,7 @@ func init() {
 			WeakDependencies: []resource.Matcher{
 				resource.TypeMatcher{Type: resource.APITypeComponentName},
 				resource.SubtypeMatcher{Subtype: slam.SubtypeName},
+				resource.SubtypeMatcher{Subtype: vision.SubtypeName},
 			},
 		})
 }
