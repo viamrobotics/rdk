@@ -48,6 +48,9 @@ func goForMath(maxRPM, rpm, revolutions float64) (float64, time.Duration) {
 // goForMath calculates goalPos, goalRPM, and direction based on the given GoFor rpm and revolutions, and the current position.
 func encodedGoForMath(rpm, revolutions, currentPos, ticksPerRotation float64) (float64, float64, float64) {
 	direction := sign(rpm * revolutions)
+	if revolutions == 0 {
+		direction = sign(rpm)
+	}
 
 	goalPos := (math.Abs(revolutions) * ticksPerRotation * direction) + currentPos
 	goalRPM := math.Abs(rpm) * direction

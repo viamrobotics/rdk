@@ -251,7 +251,7 @@ func simple2DMap() (*planConfig, error) {
 		movingRobotGeometries,
 		staticRobotGeometries,
 		worldGeometries.Geometries(),
-		nil,
+		nil, nil,
 		defaultCollisionBufferMM,
 	)
 	if err != nil {
@@ -322,6 +322,7 @@ func simpleXArmMotion() (*planConfig, error) {
 		staticRobotGeometries,
 		nil,
 		nil,
+		nil,
 		defaultCollisionBufferMM,
 	)
 	if err != nil {
@@ -387,6 +388,7 @@ func simpleUR5eMotion() (*planConfig, error) {
 	collisionConstraints, err := createAllCollisionConstraints(
 		movingRobotGeometries,
 		staticRobotGeometries,
+		nil,
 		nil,
 		nil,
 		defaultCollisionBufferMM,

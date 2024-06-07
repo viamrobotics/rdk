@@ -41,7 +41,7 @@ const MaxParallelSyncRoutines = 1000
 
 // Manager is responsible for enqueuing files in captureDir and uploading them to the cloud.
 type Manager interface {
-	SyncFile(path string)
+	SyncFile(path string, stopAfter time.Time)
 	SetArbitraryFileTags(tags []string)
 	Close()
 	MarkInProgress(path string) bool
@@ -114,7 +114,7 @@ func (s *syncer) SetArbitraryFileTags(tags []string) {
 	s.arbitraryFileTags = tags
 }
 
-func (s *syncer) SyncFile(path string) {
+func (s *syncer) SyncFile(path string, stopAfter time.Time) {
 	// If the file is already being synced, do not kick off a new goroutine.
 	// The goroutine will again check and return early if sync is already in progress.
 	s.progressLock.Lock()
@@ -124,57 +124,69 @@ func (s *syncer) SyncFile(path string) {
 	}
 	s.progressLock.Unlock()
 
-	select {
-	case <-s.cancelCtx.Done():
-		return
-	// Kick off a sync goroutine if under the limit of goroutines.
-	case s.syncRoutineTracker <- struct{}{}:
-		s.backgroundWorkers.Add(1)
+	for {
+		if s.cancelCtx.Err() != nil {
+			return
+		}
 
-		goutils.PanicCapturingGo(func() {
-			defer s.backgroundWorkers.Done()
-			// At the end, decrement the number of sync routines.
-			defer func() {
-				<-s.syncRoutineTracker
-			}()
-			select {
-			case <-s.cancelCtx.Done():
-				return
-			default:
-				if !s.MarkInProgress(path) {
+		if time.Now().After(stopAfter) {
+			return
+		}
+
+		select {
+		case <-s.cancelCtx.Done():
+			return
+		// Kick off a sync goroutine if under the limit of goroutines.
+		case s.syncRoutineTracker <- struct{}{}:
+			s.backgroundWorkers.Add(1)
+
+			goutils.PanicCapturingGo(func() {
+				defer s.backgroundWorkers.Done()
+				// At the end, decrement the number of sync routines.
+				defer func() {
+					<-s.syncRoutineTracker
+				}()
+				select {
+				case <-s.cancelCtx.Done():
 					return
-				}
-				defer s.UnmarkInProgress(path)
-				//nolint:gosec
-				f, err := os.Open(path)
-				if err != nil {
-					// Don't log if the file does not exist, because that means it was successfully synced and deleted
-					// in between paths being built and this executing.
-					if !errors.Is(err, os.ErrNotExist) {
-						s.logger.Errorw("error opening file", "error", err)
+				default:
+					if !s.MarkInProgress(path) {
+						return
 					}
-					return
-				}
-
-				if datacapture.IsDataCaptureFile(f) {
-					captureFile, err := datacapture.ReadFile(f)
+					defer s.UnmarkInProgress(path)
+					//nolint:gosec
+					f, err := os.Open(path)
 					if err != nil {
-						if err = f.Close(); err != nil {
-							s.syncErrs <- errors.Wrap(err, "error closing data capture file")
-						}
-						if err := moveFailedData(f.Name(), s.captureDir); err != nil {
-							s.syncErrs <- errors.Wrap(err, fmt.Sprintf("error moving corrupted data %s", f.Name()))
+						// Don't log if the file does not exist, because that means it was successfully synced and deleted
+						// in between paths being built and this executing.
+						if !errors.Is(err, os.ErrNotExist) {
+							s.logger.Errorw("error opening file", "error", err)
 						}
 						return
 					}
-					s.syncDataCaptureFile(captureFile)
-				} else {
-					s.syncArbitraryFile(f)
+
+					if datacapture.IsDataCaptureFile(f) {
+						captureFile, err := datacapture.ReadFile(f)
+						if err != nil {
+							if err = f.Close(); err != nil {
+								s.syncErrs <- errors.Wrap(err, "error closing data capture file")
+							}
+							if err := moveFailedData(f.Name(), s.captureDir); err != nil {
+								s.syncErrs <- errors.Wrap(err, fmt.Sprintf("error moving corrupted data %s", f.Name()))
+							}
+							return
+						}
+						s.syncDataCaptureFile(captureFile)
+					} else {
+						s.syncArbitraryFile(f)
+					}
 				}
-			}
-		})
-	default:
-		// Avoid blocking main thread if currently at goroutine capacity.
+			})
+
+			return
+		default:
+			// Avoid blocking main thread if currently at goroutine capacity.
+		}
 	}
 }
 
@@ -341,7 +353,9 @@ func moveFailedData(path, parentDir string) error {
 	// Move the file from parentDir/pathToFile/file.ext to parentDir/corrupted/pathToFile/file.ext
 	newPath := filepath.Join(newDir, filepath.Base(path))
 	if err := os.Rename(path, newPath); err != nil {
-		return errors.Wrapf(err, fmt.Sprintf("error moving corrupted data: %s", path))
+		if !errors.Is(err, os.ErrNotExist) {
+			return errors.Wrapf(err, fmt.Sprintf("error moving corrupted data: %s", path))
+		}
 	}
 	return nil
 }

@@ -65,6 +65,7 @@ type localRobot struct {
 	triggerConfig              chan struct{}
 	configTicker               *time.Ticker
 	revealSensitiveConfigDiffs bool
+	shutdownCallback           func()
 
 	// lastWeakDependentsRound stores the value of the resource graph's
 	// logical clock when updateWeakDependents was called.
@@ -390,6 +391,7 @@ func newWithResources(
 		configTicker:               nil,
 		revealSensitiveConfigDiffs: rOpts.revealSensitiveConfigDiffs,
 		cloudConnSvc:               icloud.NewCloudConnectionService(cfg.Cloud, logger),
+		shutdownCallback:           rOpts.shutdownCallback,
 	}
 	r.mostRecentCfg.Store(config.Config{})
 	var heartbeatWindow time.Duration
@@ -1300,4 +1302,13 @@ func (r *localRobot) RestartModule(ctx context.Context, req robot.RestartModuleR
 		return errors.Wrapf(err, "while restarting module id=%s, name=%s", req.ModuleID, req.ModuleName)
 	}
 	return nil
+}
+
+func (r *localRobot) Shutdown(ctx context.Context) error {
+	shutdownFunc := r.shutdownCallback
+	if shutdownFunc != nil {
+		shutdownFunc()
+		return nil
+	}
+	return errors.New("shutdown function not defined")
 }

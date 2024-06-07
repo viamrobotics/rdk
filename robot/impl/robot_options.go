@@ -15,6 +15,9 @@ type options struct {
 	// revealSensitiveConfigDiffs will display config diffs - which may contain secret
 	// information - in log statements
 	revealSensitiveConfigDiffs bool
+
+	// shutdownCallback provides a callback for the robot to be able to shut itself down.
+	shutdownCallback func()
 }
 
 // Option configures how we set up the web service.
@@ -60,5 +63,13 @@ func WithRevealSensitiveConfigDiffs() Option {
 func WithViamHomeDir(homeDir string) Option {
 	return newFuncOption(func(o *options) {
 		o.viamHomeDir = homeDir
+	})
+}
+
+// WithShutdownCallback returns a Option which provides a callback for the
+// robot to be able to shut itself down.
+func WithShutdownCallback(shutdownFunc func()) Option {
+	return newFuncOption(func(o *options) {
+		o.shutdownCallback = shutdownFunc
 	})
 }

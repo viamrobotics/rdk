@@ -27,8 +27,10 @@ func TestEncodedMotorControls(t *testing.T) {
 		motorType: DirectionPwm,
 	}
 
+	vals := newState()
+
 	// create an inject encoder
-	enc := injectEncoder()
+	enc := injectEncoder(vals)
 
 	// create an encoded motor
 	conf := resource.Config{
@@ -85,7 +87,8 @@ func TestControlledMotorCreation(t *testing.T) {
 
 	deps := make(resource.Dependencies)
 
-	deps[encoder.Named(encoderName)] = injectEncoder()
+	vals := newState()
+	deps[encoder.Named(encoderName)] = injectEncoder(vals)
 	deps[board.Named(boardName)] = injectBoard()
 
 	m, err := createNewMotor(context.Background(), deps, conf, logger)

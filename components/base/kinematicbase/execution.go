@@ -11,13 +11,14 @@ import (
 
 	"github.com/golang/geo/r3"
 	"go.uber.org/multierr"
-	utils "go.viam.com/utils"
+	"go.viam.com/utils"
 
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/motionplan/ik"
 	"go.viam.com/rdk/motionplan/tpspace"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
+	rdkutils "go.viam.com/rdk/utils"
 )
 
 const (
@@ -349,10 +350,12 @@ func (ptgk *ptgBaseKinematics) courseCorrect(
 
 	allowableDiff := ptgk.linVelocityMMPerSecond * updateStepSeconds * (minDeviationToCorrectPct / 100)
 	ptgk.logger.Debug(
-		"allowable diff ", allowableDiff, " diff now ", poseDiff.Point().Norm(), " angle diff ", poseDiff.Orientation().AxisAngles().Theta,
+		"allowable diff ", allowableDiff,
+		" linear diff now ", poseDiff.Point().Norm(),
+		" angle diff ", rdkutils.RadToDeg(poseDiff.Orientation().AxisAngles().Theta),
 	)
 
-	if poseDiff.Point().Norm() > allowableDiff || poseDiff.Orientation().AxisAngles().Theta > 0.25 {
+	if poseDiff.Point().Norm() > allowableDiff || rdkutils.RadToDeg(poseDiff.Orientation().AxisAngles().Theta) > allowableDiff {
 		ptgk.logger.Debug("expected to be at ", spatialmath.PoseToProtobuf(expectedPose))
 		ptgk.logger.Debug("Localizer says at ", spatialmath.PoseToProtobuf(actualPose.Pose()))
 		// Accumulate list of points along the path to try to connect to

@@ -60,12 +60,14 @@ const (
 	moduleBuildRestartOnly   = "restart-only"
 	moduleBuildFlagNoBuild   = "no-build"
 
-	mlTrainingFlagPath      = "path"
-	mlTrainingFlagName      = "script-name"
-	mlTrainingFlagVersion   = "version"
-	mlTrainingFlagFramework = "framework"
-	mlTrainingFlagType      = "type"
-	mlTrainingFlagDraft     = "draft"
+	mlTrainingFlagPath        = "path"
+	mlTrainingFlagName        = "script-name"
+	mlTrainingFlagVersion     = "version"
+	mlTrainingFlagFramework   = "framework"
+	mlTrainingFlagType        = "type"
+	mlTrainingFlagDraft       = "draft"
+	mlTrainingFlagVisibility  = "visibility"
+	mlTrainingFlagDescription = "description"
 
 	dataFlagDestination                    = "destination"
 	dataFlagDataType                       = "data-type"
@@ -1735,6 +1737,34 @@ Example:
 					// Upload action
 					Action: MLTrainingUploadAction,
 				},
+				{
+					Name:      "update",
+					Usage:     "update visibility of ML training scripts for custom ML training",
+					UsageText: createUsageText("training-script update", []string{generalFlagOrgID, mlTrainingFlagName, mlTrainingFlagVisibility}, true),
+					Flags: []cli.Flag{
+						&cli.StringFlag{
+							Name:     generalFlagOrgID,
+							Required: true,
+							Usage:    "organization ID that hosts the scripts",
+						},
+						&cli.StringFlag{
+							Name:     mlTrainingFlagName,
+							Usage:    "name of the ML training script to update",
+							Required: true,
+						},
+						&cli.StringFlag{
+							Name:     mlTrainingFlagVisibility,
+							Usage:    "visibility of the registry item, can be: `public` or `private`",
+							Required: true,
+						},
+						&cli.StringFlag{
+							Name:     mlTrainingFlagDescription,
+							Usage:    "description of the ML training script",
+							Required: false,
+						},
+					},
+					Action: MLTrainingUpdateAction,
+				},
 			},
 		},
 		{
@@ -1819,6 +1849,27 @@ Example:
 						},
 					},
 					Action: UpdateAuthApplicationAction,
+				},
+				{
+					Name:  "get",
+					Usage: "get configuration for a third party auth application",
+					UsageText: createUsageText("auth-app get", []string{
+						generalFlagOrgID,
+						authApplicationFlagApplicationID,
+					}, false),
+					Flags: []cli.Flag{
+						&cli.StringFlag{
+							Name:     generalFlagOrgID,
+							Required: true,
+							Usage:    "organization ID that will be tied to auth application",
+						},
+						&cli.StringFlag{
+							Name:     authApplicationFlagApplicationID,
+							Usage:    "id for the auth application",
+							Required: true,
+						},
+					},
+					Action: GetAuthApplicationAction,
 				},
 			},
 		},

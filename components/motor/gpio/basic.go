@@ -290,6 +290,7 @@ func (m *Motor) GoFor(ctx context.Context, rpm, revolutions float64, extra map[s
 	}
 
 	if revolutions == 0 {
+		m.logger.Warn("Deprecated: setting revolutions == 0 will spin the motor indefinitely at the specified RPM")
 		return nil
 	}
 
@@ -324,6 +325,29 @@ func (m *Motor) IsMoving(ctx context.Context) (bool, error) {
 // GoTo is not supported.
 func (m *Motor) GoTo(ctx context.Context, rpm, positionRevolutions float64, extra map[string]interface{}) error {
 	return motor.NewGoToUnsupportedError(m.Name().ShortName())
+}
+
+// SetRPM instructs the motor to move at the specified RPM indefinitely.
+func (m *Motor) SetRPM(ctx context.Context, rpm float64, extra map[string]interface{}) error {
+	if m.maxRPM == 0 {
+		return errors.New("not supported, define max_rpm attribute != 0")
+	}
+
+	warning, err := checkSpeed(rpm, m.maxRPM)
+	if warning != "" {
+		m.logger.CWarnf(ctx, warning)
+	}
+	if err != nil {
+		return err
+	}
+
+	powerPct := rpm / m.maxRPM
+	err = m.SetPower(ctx, powerPct, extra)
+	if err != nil {
+		return errors.Wrap(err, "error in GoFor")
+	}
+
+	return nil
 }
 
 // ResetZeroPosition is not supported.
