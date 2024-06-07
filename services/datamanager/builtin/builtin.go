@@ -688,7 +688,7 @@ func (svc *builtIn) sync() {
 	stopAfter := time.Now().Add(time.Duration(svc.syncIntervalMins * float64(time.Minute)))
 	// Logging to display how backed up data sync is
 	if len(toSync) >= 1000 {
-		svc.logger.Infof("Number of files to sync: %d", len(toSync))
+		svc.logger.Infof("Starting sync of %d files", len(toSync))
 	}
 	for _, p := range toSync {
 		svc.syncer.SyncFile(p, stopAfter)
