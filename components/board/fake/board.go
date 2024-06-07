@@ -76,12 +76,17 @@ func init() {
 
 // NewBoard returns a new fake board.
 func NewBoard(ctx context.Context, conf resource.Config, logger logging.Logger) (*Board, error) {
+	cancelCtx, cancelFunc := context.WithCancel(context.Background())
+
 	b := &Board{
-		Named:    conf.ResourceName().AsNamed(),
-		Analogs:  map[string]*Analog{},
-		Digitals: map[string]*DigitalInterrupt{},
-		GPIOPins: map[string]*GPIOPin{},
-		logger:   logger,
+		Named:      conf.ResourceName().AsNamed(),
+		Analogs:    map[string]*Analog{},
+		Digitals:   map[string]*DigitalInterrupt{},
+		GPIOPins:   map[string]*GPIOPin{},
+		wg:         sync.WaitGroup{},
+		cancelCtx:  cancelCtx,
+		cancelFunc: cancelFunc,
+		logger:     logger,
 	}
 
 	if err := b.processConfig(conf); err != nil {
@@ -163,6 +168,10 @@ type Board struct {
 	GPIOPins   map[string]*GPIOPin
 	logger     logging.Logger
 	CloseCount int
+
+	cancelCtx  context.Context
+	cancelFunc func()
+	wg         sync.WaitGroup
 }
 
 // AnalogByName returns the analog pin by the given name if it exists.
@@ -234,7 +243,9 @@ func (b *Board) StreamTicks(ctx context.Context, interrupts []board.DigitalInter
 	extra map[string]interface{},
 ) error {
 	for _, di := range interrupts {
+		b.wg.Add(1)
 		go func(name string) {
+			defer b.wg.Done()
 			d, ok := b.Digitals[name]
 			if !ok {
 				b.logger.Errorw("ticks not streamed, digital interrupt not found", "digital_interrupt", name)
@@ -244,6 +255,7 @@ func (b *Board) StreamTicks(ctx context.Context, interrupts []board.DigitalInter
 				time.Sleep(700 * time.Millisecond)
 				select {
 				case <-ctx.Done():
+				case <-b.cancelCtx.Done():
 					return
 				default:
 					// Keep going
@@ -267,10 +279,11 @@ func (b *Board) StreamTicks(ctx context.Context, interrupts []board.DigitalInter
 // Close attempts to cleanly close each part of the board.
 func (b *Board) Close(ctx context.Context) error {
 	b.mu.Lock()
-	defer b.mu.Unlock()
-
 	b.CloseCount++
+	b.cancelFunc()
+	b.mu.Unlock()
 
+	b.wg.Wait()
 	return nil
 }
 
