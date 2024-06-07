@@ -30,8 +30,8 @@ func init() {
 	})
 	data.RegisterCollector(data.MethodMetadata{
 		API:        API,
-		MethodName: captureAllFromCamera.String(),
-	}, newCaptureAllFromCameraCollector)
+		MethodName: CaptureAllFromCamera.String(),
+	}, NewCaptureAllFromCameraCollector)
 }
 
 // A Service that implements various computer vision algorithms like detection and segmentation.

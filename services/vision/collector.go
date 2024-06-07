@@ -13,18 +13,19 @@ import (
 type method int64
 
 const (
-	captureAllFromCamera method = iota
+	CaptureAllFromCamera method = iota
 )
 
 func (m method) String() string {
 	switch m {
-	case captureAllFromCamera:
+	case CaptureAllFromCamera:
 		return "CaptureAllFromCamera"
 	}
 	return "Unknown"
 }
 
-func newCaptureAllFromCameraCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
+func NewCaptureAllFromCameraCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
+	println("reached new data collector!")
 	vision, err := assertVision(resource)
 	if err != nil {
 		return nil, err
@@ -40,7 +41,7 @@ func newCaptureAllFromCameraCollector(resource interface{}, params data.Collecto
 		visCapture, err := vision.CaptureAllFromCamera(ctx, params.ComponentName, visCaptureOptions, nil)
 
 		if err != nil {
-			return nil, data.FailedToReadErr(params.ComponentName, captureAllFromCamera.String(), err)
+			return nil, data.FailedToReadErr(params.ComponentName, CaptureAllFromCamera.String(), err)
 		}
 
 		protoImage, err := imageToProto(ctx, visCapture.Image, params.ComponentName)
