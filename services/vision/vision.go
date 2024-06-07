@@ -11,6 +11,7 @@ import (
 	servicepb "go.viam.com/api/service/vision/v1"
 
 	"go.viam.com/rdk/components/camera"
+	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	viz "go.viam.com/rdk/vision"
@@ -27,6 +28,10 @@ func init() {
 		RPCServiceDesc:              &servicepb.VisionService_ServiceDesc,
 		RPCClient:                   NewClientFromConn,
 	})
+	data.RegisterCollector(data.MethodMetadata{
+		API:        API,
+		MethodName: captureAllFromCamera.String(),
+	}, newCaptureAllFromCameraCollector)
 }
 
 // A Service that implements various computer vision algorithms like detection and segmentation.
