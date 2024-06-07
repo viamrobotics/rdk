@@ -3,10 +3,15 @@
 package motionplan
 
 import (
+	"bufio"
 	"context"
 	"math"
 	"math/rand"
+	"os"
+	"strconv"
+	"strings"
 	"testing"
+	"time"
 
 	"github.com/golang/geo/r3"
 	"go.viam.com/test"
@@ -59,9 +64,28 @@ func TestPtgRrtBidirectional(t *testing.T) {
 	test.That(t, len(plan), test.ShouldBeGreaterThanOrEqualTo, 2)
 }
 
+type Rectangle struct {
+	StartX float64
+	StartY float64
+	EndX   float64
+	EndY   float64
+}
+
+type Circle struct {
+	CenterX float64
+	CenterY float64
+	Radius  float64
+}
+
+type Obstacles struct {
+	Rectangles []Rectangle
+	Circles    []Circle
+}
+
 func TestPtgWithObstacle(t *testing.T) {
 	t.Parallel()
 	logger := logging.NewTestLogger(t)
+
 	roverGeom, err := spatialmath.NewBox(spatialmath.NewZeroPose(), r3.Vector{10, 10, 10}, "")
 	test.That(t, err, test.ShouldBeNil)
 	geometries := []spatialmath.Geometry{roverGeom}
@@ -78,30 +102,63 @@ func TestPtgWithObstacle(t *testing.T) {
 
 	ctx := context.Background()
 
-	goalPos := spatialmath.NewPoseFromPoint(r3.Vector{X: 6500, Y: 0, Z: 0})
+	goalPos := spatialmath.NewPoseFromPoint(r3.Vector{X: 700, Y: 100, Z: 0})
 
 	fs := referenceframe.NewEmptyFrameSystem("test")
 	fs.AddFrame(ackermanFrame, fs.World())
 
 	opt := newBasicPlannerOptions(ackermanFrame)
 	opt.DistanceFunc = ik.NewSquaredNormSegmentMetric(30.)
-	opt.StartPose = spatialmath.NewPoseFromPoint(r3.Vector{0, -1000, 0})
+	opt.StartPose = spatialmath.NewPoseFromPoint(r3.Vector{100, 500, 0})
 	opt.GoalThreshold = 5
-	// obstacles
-	obstacle1, err := spatialmath.NewBox(spatialmath.NewPoseFromPoint(r3.Vector{3300, -500, 0}), r3.Vector{180, 1800, 1}, "")
-	test.That(t, err, test.ShouldBeNil)
-	obstacle2, err := spatialmath.NewBox(spatialmath.NewPoseFromPoint(r3.Vector{3300, 1800, 0}), r3.Vector{180, 1800, 1}, "")
-	test.That(t, err, test.ShouldBeNil)
-	obstacle3, err := spatialmath.NewBox(spatialmath.NewPoseFromPoint(r3.Vector{2500, -1400, 0}), r3.Vector{50000, 30, 1}, "")
-	test.That(t, err, test.ShouldBeNil)
-	obstacle4, err := spatialmath.NewBox(spatialmath.NewPoseFromPoint(r3.Vector{2500, 2400, 0}), r3.Vector{50000, 30, 1}, "")
-	test.That(t, err, test.ShouldBeNil)
-	obstacle5, err := spatialmath.NewBox(spatialmath.NewPoseFromPoint(r3.Vector{-2500, 0, 0}), r3.Vector{50, 5000, 1}, "")
-	test.That(t, err, test.ShouldBeNil)
-	obstacle6, err := spatialmath.NewBox(spatialmath.NewPoseFromPoint(r3.Vector{8500, 0, 0}), r3.Vector{50, 5000, 1}, "")
-	test.That(t, err, test.ShouldBeNil)
 
-	geoms := []spatialmath.Geometry{obstacle1, obstacle2, obstacle3, obstacle4, obstacle5, obstacle6}
+	// obstacles
+	file, _ := os.Open("customObstacles.txt")
+	scanner := bufio.NewScanner(file)
+	geoms := make([]spatialmath.Geometry, 0)
+	blankFound := false
+	for scanner.Scan() {
+		line := scanner.Text()
+		line = strings.TrimSpace(line)
+		if len(line) == 0 {
+			blankFound = true
+		} else {
+			items := strings.Split(line, ":")
+			if blankFound { // circles
+				centerX, _ := strconv.ParseFloat(items[0], 64)
+				centerY, _ := strconv.ParseFloat(items[1], 64)
+				radius, _ := strconv.ParseFloat(items[2], 64)
+				newObstacle, _ := spatialmath.NewCapsule(spatialmath.NewPoseFromPoint(r3.Vector{centerX, centerY, 0}), radius, 2*radius, "")
+				geoms = append(geoms, newObstacle)
+			} else {
+				startX, _ := strconv.ParseFloat(items[0], 64)
+				startY, _ := strconv.ParseFloat(items[1], 64)
+				endX, _ := strconv.ParseFloat(items[2], 64)
+				endY, _ := strconv.ParseFloat(items[3], 64)
+				midX := (startX + endX) / 2
+				midY := (startY + endY) / 2
+				width := endX - startX
+				height := endY - startY
+				newObstacle, _ := spatialmath.NewBox(spatialmath.NewPoseFromPoint(r3.Vector{midX, midY, 0}), r3.Vector{width, height, 1}, "")
+				geoms = append(geoms, newObstacle)
+			}
+		}
+
+	}
+	// obstacle1, err := spatialmath.NewBox(spatialmath.NewPoseFromPoint(r3.Vector{3300, -500, 0}), r3.Vector{180, 1800, 1}, "")
+	// test.That(t, err, test.ShouldBeNil)
+	// obstacle2, err := spatialmath.NewBox(spatialmath.NewPoseFromPoint(r3.Vector{3300, 1800, 0}), r3.Vector{180, 1800, 1}, "")
+	// test.That(t, err, test.ShouldBeNil)
+	// obstacle3, err := spatialmath.NewBox(spatialmath.NewPoseFromPoint(r3.Vector{2500, -1400, 0}), r3.Vector{50000, 30, 1}, "")
+	// test.That(t, err, test.ShouldBeNil)
+	// obstacle4, err := spatialmath.NewBox(spatialmath.NewPoseFromPoint(r3.Vector{2500, 2400, 0}), r3.Vector{50000, 30, 1}, "")
+	// test.That(t, err, test.ShouldBeNil)
+	// obstacle5, err := spatialmath.NewBox(spatialmath.NewPoseFromPoint(r3.Vector{-2500, 0, 0}), r3.Vector{50, 5000, 1}, "")
+	// test.That(t, err, test.ShouldBeNil)
+	// obstacle6, err := spatialmath.NewBox(spatialmath.NewPoseFromPoint(r3.Vector{8500, 0, 0}), r3.Vector{50, 5000, 1}, "")
+	// test.That(t, err, test.ShouldBeNil)
+
+	// geoms := []spatialmath.Geometry{obstacle1, obstacle2, obstacle3, obstacle4, obstacle5, obstacle6}
 
 	worldState, err := referenceframe.NewWorldState(
 		[]*referenceframe.GeometriesInFrame{referenceframe.NewGeometriesInFrame(referenceframe.World, geoms)},
@@ -166,10 +223,30 @@ func TestPtgWithObstacle(t *testing.T) {
 		tp.logger.Debugf("$SG,%f,%f", opt.StartPose.Point().X, opt.StartPose.Point().Y)
 		tp.logger.Debugf("$SG,%f,%f", goalPos.Point().X, goalPos.Point().Y)
 	}
+	planStart := time.Now()
 	plan, err := tp.plan(ctx, goalPos, nil)
+	planEnd := time.Now()
 
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(plan), test.ShouldBeGreaterThan, 2)
+
+	tp.planOpts.SmoothIter = 20
+	smoothStart := time.Now()
+	newplan := tp.smoothPath(ctx, plan)
+	smoothEnd := time.Now()
+	test.That(t, newplan, test.ShouldNotBeNil)
+	oldcost := 0.
+	smoothcost := 0.
+	for _, planNode := range plan {
+		oldcost += planNode.Cost()
+	}
+	for _, planNode := range newplan {
+		smoothcost += planNode.Cost()
+	}
+	test.That(t, smoothcost, test.ShouldBeLessThan, oldcost)
+	tp.logger.Debugf("planTime: %v\n", planEnd.Sub(planStart))
+	tp.logger.Debugf("smoothTime: %v\n", smoothEnd.Sub(smoothStart))
+
 }
 
 func TestTPsmoothing(t *testing.T) {

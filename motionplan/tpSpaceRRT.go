@@ -65,7 +65,7 @@ const (
 	defaultSmoothChunkCount = 6
 
 	// Print very fine-grained debug info. Useful for observing the inner RRT tree structure directly.
-	pathdebug = false
+	pathdebug = true
 )
 
 // Using the standard SquaredNormMetric, we run into issues where far apart distances will underflow gradient calculations.
