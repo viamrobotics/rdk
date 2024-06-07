@@ -228,12 +228,12 @@ func (p *plannerOptions) addPbTopoConstraints(from, to spatialmath.Pose, constra
 
 func (p *plannerOptions) addLinearConstraints(from, to spatialmath.Pose, linConstraint LinearConstraint) {
 	// Linear constraints
-	linTol := linConstraint.GetLineToleranceMm()
+	linTol := linConstraint.LineToleranceMm
 	if linTol == 0 {
 		// Default
 		linTol = defaultLinearDeviation
 	}
-	orientTol := linConstraint.GetOrientationToleranceDegs()
+	orientTol := linConstraint.OrientationToleranceDegs
 	if orientTol == 0 {
 		orientTol = defaultOrientationDeviation
 	}
@@ -244,7 +244,7 @@ func (p *plannerOptions) addLinearConstraints(from, to spatialmath.Pose, linCons
 }
 
 func (p *plannerOptions) addOrientationConstraints(from, to spatialmath.Pose, orientConstraint OrientationConstraint) {
-	orientTol := orientConstraint.GetOrientationToleranceDegs()
+	orientTol := orientConstraint.OrientationToleranceDegs
 	if orientTol == 0 {
 		orientTol = defaultOrientationDeviation
 	}

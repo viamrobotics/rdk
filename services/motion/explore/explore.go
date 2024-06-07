@@ -612,7 +612,7 @@ func (ms *explore) createMotionPlan(
 		StartConfiguration: seedMap,
 		FrameSystem:        ms.frameSystem,
 		WorldState:         worldState,
-		ConstraintSpecs:    nil,
+		Constraints:        nil,
 		Options:            extra,
 	})
 }

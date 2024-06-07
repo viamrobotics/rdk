@@ -502,34 +502,10 @@ type LinearConstraint struct {
 	OrientationToleranceDegs float64
 }
 
-// GetLineToleranceMm returns the LineToleranceMm field in a LinearConstraint object.
-func (x *LinearConstraint) GetLineToleranceMm() float64 {
-	if x != nil {
-		return x.LineToleranceMm
-	}
-	return 0
-}
-
-// GetOrientationToleranceDegs returns the OrientationToleranceDegs field in a LinearConstraint object.
-func (x *LinearConstraint) GetOrientationToleranceDegs() float64 {
-	if x != nil {
-		return x.OrientationToleranceDegs
-	}
-	return 0
-}
-
 // OrientationConstraint specifies that the component being moved will not deviate its orientation beyond some threshold relative
 // to the goal. It does not constrain the motion of components other than the `component_name` specified in motion.Move.
 type OrientationConstraint struct {
 	OrientationToleranceDegs float64
-}
-
-// GetOrientationToleranceDegs returns the OrientationToleranceDegs field in a OrientationConstraint object.
-func (x *OrientationConstraint) GetOrientationToleranceDegs() float64 {
-	if x != nil {
-		return x.OrientationToleranceDegs
-	}
-	return 0
 }
 
 // CollisionSpecificationAllowedFrameCollisions is used to define frames that are allowed to collide.
@@ -537,34 +513,10 @@ type CollisionSpecificationAllowedFrameCollisions struct {
 	Frame1, Frame2 string
 }
 
-// GetFrame1 returns the Frame1 field in a CollisionSpecificationAllowedFrameCollisions object.
-func (c *CollisionSpecificationAllowedFrameCollisions) GetFrame1() string {
-	if c != nil {
-		return c.Frame1
-	}
-	return ""
-}
-
-// GetFrame2 returns the Frame2 field in a CollisionSpecificationAllowedFrameCollisions object.
-func (c *CollisionSpecificationAllowedFrameCollisions) GetFrame2() string {
-	if c != nil {
-		return c.Frame2
-	}
-	return ""
-}
-
 // CollisionSpecification is used to selectively apply obstacle avoidance to specific parts of the robot.
 type CollisionSpecification struct {
 	// Pairs of frame which should be allowed to collide with one another
 	Allows []CollisionSpecificationAllowedFrameCollisions
-}
-
-// GetAllows returns the Allows field in a CollisionSpecificationAllowedFrameCollisions object.
-func (c *CollisionSpecification) GetAllows() []CollisionSpecificationAllowedFrameCollisions {
-	if c != nil {
-		return c.Allows
-	}
-	return nil
 }
 
 // Constraints is a struct to store the constraints imposed upon a robot

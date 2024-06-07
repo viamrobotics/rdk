@@ -222,7 +222,7 @@ func (ms *builtIn) Move(
 		StartConfiguration: fsInputs,
 		FrameSystem:        frameSys,
 		WorldState:         worldState,
-		ConstraintSpecs:    constraints,
+		Constraints:        constraints,
 		Options:            extra,
 	})
 	if err != nil {

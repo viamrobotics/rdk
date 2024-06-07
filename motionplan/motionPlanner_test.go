@@ -756,7 +756,7 @@ func TestArmConstraintSpecificationSolve(t *testing.T) {
 			FrameSystem:        fs,
 			StartConfiguration: frame.StartPositions(fs),
 			WorldState:         worldState,
-			ConstraintSpecs:    constraints,
+			Constraints:        constraints,
 		})
 		return err
 	}

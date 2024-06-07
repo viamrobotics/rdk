@@ -48,7 +48,7 @@ type PlanRequest struct {
 	StartPose          spatialmath.Pose
 	StartConfiguration map[string][]frame.Input
 	WorldState         *frame.WorldState
-	ConstraintSpecs    *Constraints
+	Constraints        *Constraints
 	Options            map[string]interface{}
 }
 
@@ -122,7 +122,7 @@ func PlanFrameMotion(ctx context.Context,
 		Frame:              f,
 		StartConfiguration: map[string][]frame.Input{f.Name(): seed},
 		FrameSystem:        fs,
-		ConstraintSpecs:    constraintSpec,
+		Constraints:        constraintSpec,
 		Options:            planningOpts,
 	})
 	if err != nil {
@@ -148,7 +148,7 @@ func Replan(ctx context.Context, request *PlanRequest, currentPlan Plan, replanC
 		return nil, errors.New("solver frame has no degrees of freedom, cannot perform inverse kinematics")
 	}
 
-	request.Logger.CDebugf(ctx, "constraint specs for this step: %v", request.ConstraintSpecs)
+	request.Logger.CDebugf(ctx, "constraint specs for this step: %v", request.Constraints)
 	request.Logger.CDebugf(ctx, "motion config for this step: %v", request.Options)
 
 	rseed := defaultRandomSeed
