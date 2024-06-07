@@ -61,9 +61,9 @@ func VerifySameResourceNames(tb testing.TB, actual, expected []resource.Name) {
 	test.That(tb, newSortedResourceNames(actual), test.ShouldResemble, newSortedResourceNames(expected))
 }
 
-// VerifySameMembers asserts that two slices contain the same elements without
+// VerifySameElements asserts that two slices contain the same elements without
 // considering order.
-func VerifySameMembers[E cmp.Ordered](tb testing.TB, actual, expected []E) {
+func VerifySameElements[E cmp.Ordered](tb testing.TB, actual, expected []E) {
 	actualSorted := make([]E, len(actual))
 	copy(actualSorted, actual)
 	expectedSorted := make([]E, len(expected))

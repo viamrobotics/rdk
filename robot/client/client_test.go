@@ -759,8 +759,8 @@ func TestClientRefresh(t *testing.T) {
 		baseNames := []resource.Name{base.Named("base2"), base.Named("base3")}
 
 		test.That(t, client.RemoteNames(), test.ShouldBeEmpty)
-		testutils.VerifySameMembers(t, arm.NamesFromRobot(client), testutils.ExtractNames(armNames...))
-		testutils.VerifySameMembers(t, base.NamesFromRobot(client), testutils.ExtractNames(baseNames...))
+		testutils.VerifySameElements(t, arm.NamesFromRobot(client), testutils.ExtractNames(armNames...))
+		testutils.VerifySameElements(t, base.NamesFromRobot(client), testutils.ExtractNames(baseNames...))
 
 		testutils.VerifySameResourceNames(t, client.ResourceNames(), finalResources)
 
@@ -781,8 +781,8 @@ func TestClientRefresh(t *testing.T) {
 		baseNames = []resource.Name{base.Named("base1")}
 
 		test.That(t, client.RemoteNames(), test.ShouldBeEmpty)
-		testutils.VerifySameMembers(t, arm.NamesFromRobot(client), testutils.ExtractNames(armNames...))
-		testutils.VerifySameMembers(t, base.NamesFromRobot(client), testutils.ExtractNames(baseNames...))
+		testutils.VerifySameElements(t, arm.NamesFromRobot(client), testutils.ExtractNames(armNames...))
+		testutils.VerifySameElements(t, base.NamesFromRobot(client), testutils.ExtractNames(baseNames...))
 
 		testutils.VerifySameResourceNames(t, client.ResourceNames(), emptyResources)
 
@@ -796,8 +796,8 @@ func TestClientRefresh(t *testing.T) {
 		baseNames = []resource.Name{base.Named("base2"), base.Named("base3")}
 
 		test.That(t, client.RemoteNames(), test.ShouldBeEmpty)
-		testutils.VerifySameMembers(t, arm.NamesFromRobot(client), testutils.ExtractNames(armNames...))
-		testutils.VerifySameMembers(t, base.NamesFromRobot(client), testutils.ExtractNames(baseNames...))
+		testutils.VerifySameElements(t, arm.NamesFromRobot(client), testutils.ExtractNames(armNames...))
+		testutils.VerifySameElements(t, base.NamesFromRobot(client), testutils.ExtractNames(baseNames...))
 
 		testutils.VerifySameResourceNames(t, client.ResourceNames(), finalResources)
 

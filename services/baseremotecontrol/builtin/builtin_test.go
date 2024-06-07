@@ -30,7 +30,7 @@ func TestBaseRemoteControl(t *testing.T) {
 
 	depNames, err := cfg.Validate("")
 	test.That(t, err, test.ShouldBeNil)
-	testutils.VerifySameMembers(t, depNames, []string{"baseTest", "inputTest"})
+	testutils.VerifySameElements(t, depNames, []string{"baseTest", "inputTest"})
 
 	fakeController := &inject.InputController{}
 	fakeBase := &fakebase.Base{}

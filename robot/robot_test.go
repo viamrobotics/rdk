@@ -75,10 +75,10 @@ func TestNamesFromRobot(t *testing.T) {
 	test.That(t, names, test.ShouldBeEmpty)
 
 	names = robot.NamesByAPI(r, sensor.API)
-	testutils.VerifySameMembers(t, names, testutils.ExtractNames(sensorNames...))
+	testutils.VerifySameElements(t, names, testutils.ExtractNames(sensorNames...))
 
 	names = robot.NamesByAPI(r, arm.API)
-	testutils.VerifySameMembers(t, names, testutils.ExtractNames(armNames...))
+	testutils.VerifySameElements(t, names, testutils.ExtractNames(armNames...))
 }
 
 func TestResourceFromRobot(t *testing.T) {
