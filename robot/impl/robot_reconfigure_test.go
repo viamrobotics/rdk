@@ -582,9 +582,9 @@ func TestRobotReconfigure(t *testing.T) {
 
 		boardNames = []resource.Name{board.Named("board1"), board.Named("board2")}
 		test.That(t, robot.RemoteNames(), test.ShouldBeEmpty)
-		rdktestutils.VerifySameElements(t, arm.NamesFromRobot(robot), rdktestutils.ExtractNames(armNames...))
-		rdktestutils.VerifySameElements(t, motor.NamesFromRobot(robot), rdktestutils.ExtractNames(motorNames...))
-		rdktestutils.VerifySameElements(t, base.NamesFromRobot(robot), rdktestutils.ExtractNames(baseNames...))
+		test.That(t, arm.NamesFromRobot(robot), test.ShouldBeEmpty)
+		test.That(t, motor.NamesFromRobot(robot), test.ShouldBeEmpty)
+		test.That(t, base.NamesFromRobot(robot), test.ShouldBeEmpty)
 		rdktestutils.VerifySameElements(t, board.NamesFromRobot(robot), rdktestutils.ExtractNames(boardNames...))
 		test.That(t, camera.NamesFromRobot(robot), test.ShouldBeEmpty)
 		test.That(t, gripper.NamesFromRobot(robot), test.ShouldBeEmpty)
