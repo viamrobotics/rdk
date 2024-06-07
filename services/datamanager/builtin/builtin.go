@@ -225,7 +225,7 @@ func (svc *builtIn) closeCollectors() {
 		}()
 		svc.collectors.Lock()
 		delete(svc.collectors.m, md)
-		defer svc.collectors.Unlock()
+		svc.collectors.Unlock()
 	}
 	wg.Wait()
 }
@@ -712,7 +712,6 @@ func (svc *builtIn) sync() {
 		svc.concurrentSyncer.syncer.SyncFile(p, stopAfter)
 		svc.concurrentSyncer.RUnlock()
 	}
-
 }
 
 // nolint
