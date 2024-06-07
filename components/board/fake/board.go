@@ -233,28 +233,33 @@ func (b *Board) SetPowerMode(ctx context.Context, mode pb.PowerMode, duration *t
 func (b *Board) StreamTicks(ctx context.Context, interrupts []board.DigitalInterrupt, ch chan board.Tick,
 	extra map[string]interface{},
 ) error {
-	for _, i := range interrupts {
-		name := i.Name()
-		d, ok := b.Digitals[name]
-		if !ok {
-			return fmt.Errorf("could not find digital interrupt: %s", name)
-		}
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		default:
-			// Keep going
-		}
-		// Get a random bool for the high tick value.
-		// linter complans about security but we don't care if someone
-		// can predict if the fake interrupts will be high or low.
-		//nolint:gosec
-		randBool := rand.Int()%2 == 0
-		select {
-		case ch <- board.Tick{Name: d.conf.Name, High: randBool, TimestampNanosec: uint64(time.Now().Unix())}:
-		default:
-			// if nothing is listening to the channel just do nothing.
-		}
+	for _, di := range interrupts {
+		go func(name string) {
+			d, ok := b.Digitals[name]
+			if !ok {
+				b.logger.Errorw("ticks not streamed, digital interrupt not found", "digital_interrupt", name)
+				return
+			}
+			for {
+				time.Sleep(700 * time.Millisecond)
+				select {
+				case <-ctx.Done():
+					return
+				default:
+					// Keep going
+				}
+				// Get a random bool for the high tick value.
+				// linter complans about security but we don't care if someone
+				// can predict if the fake interrupts will be high or low.
+				//nolint:gosec
+				randBool := rand.Int()%2 == 0
+				select {
+				case ch <- board.Tick{Name: d.conf.Name, High: randBool, TimestampNanosec: uint64(time.Now().Unix())}:
+				default:
+					// if nothing is listening to the channel just do nothing.
+				}
+			}
+		}(di.Name())
 	}
 	return nil
 }
