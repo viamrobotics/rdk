@@ -279,12 +279,7 @@ func TestManagerMergeNamesWithRemotes(t *testing.T) {
 	servoNames := []resource.Name{servo.Named("servo1"), servo.Named("servo2")}
 	servoNames = append(servoNames, rdktestutils.AddRemotes(servoNames, "remote1", "remote2")...)
 
-	test.That(
-		t,
-		utils.NewStringSet(manager.RemoteNames()...),
-		test.ShouldResemble,
-		utils.NewStringSet("remote1", "remote2"),
-	)
+	rdktestutils.VerifySameMembers(t, manager.RemoteNames(), []string{"remote1", "remote2"})
 	rdktestutils.VerifySameResourceNames(
 		t,
 		manager.ResourceNames(),
@@ -759,7 +754,7 @@ func TestManagerMarkRemoved(t *testing.T) {
 		t.Helper()
 		test.That(t, names, test.ShouldBeEmpty)
 		test.That(t, resourcesToCloseBeforeComplete, test.ShouldBeEmpty)
-		test.That(t, utils.NewStringSet(procMan.ProcessIDs()...), test.ShouldBeEmpty)
+		test.That(t, procMan.ProcessIDs(), test.ShouldBeEmpty)
 	}
 
 	processesToRemove, resourcesToCloseBeforeComplete, markedResourceNames := manager.markRemoved(ctx, &config.Config{}, logger)
@@ -902,12 +897,7 @@ func TestManagerMarkRemoved(t *testing.T) {
 			servoNames,
 		)...),
 	)
-	test.That(
-		t,
-		utils.NewStringSet(processesToRemove.ProcessIDs()...),
-		test.ShouldResemble,
-		utils.NewStringSet("2"),
-	)
+	rdktestutils.VerifySameMembers(t, processesToRemove.ProcessIDs(), []string{"2"})
 
 	test.That(t, manager.Close(ctx), test.ShouldBeNil)
 	cancel()
@@ -1021,12 +1011,7 @@ func TestManagerMarkRemoved(t *testing.T) {
 			[]resource.Name{fromRemoteNameToRemoteNodeName("remote2")},
 		)...),
 	)
-	test.That(
-		t,
-		utils.NewStringSet(processesToRemove.ProcessIDs()...),
-		test.ShouldResemble,
-		utils.NewStringSet("2"),
-	)
+	rdktestutils.VerifySameMembers(t, processesToRemove.ProcessIDs(), []string{"2"})
 
 	test.That(t, manager.Close(ctx), test.ShouldBeNil)
 	cancel()
@@ -1209,12 +1194,7 @@ func TestManagerMarkRemoved(t *testing.T) {
 			},
 		)...),
 	)
-	test.That(
-		t,
-		utils.NewStringSet(processesToRemove.ProcessIDs()...),
-		test.ShouldResemble,
-		utils.NewStringSet("1", "2"),
-	)
+	rdktestutils.VerifySameMembers(t, processesToRemove.ProcessIDs(), []string{"1", "2"})
 	test.That(t, manager.Close(ctx), test.ShouldBeNil)
 	cancel()
 }
