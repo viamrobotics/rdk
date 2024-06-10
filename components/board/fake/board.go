@@ -18,6 +18,7 @@ import (
 	"go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
+	rdkutils "go.viam.com/rdk/utils"
 )
 
 // In order to maintain test functionality, testPin will always return the analog value it is set
@@ -77,17 +78,13 @@ func init() {
 
 // NewBoard returns a new fake board.
 func NewBoard(ctx context.Context, conf resource.Config, logger logging.Logger) (*Board, error) {
-	cancelCtx, cancelFunc := context.WithCancel(context.Background())
-
 	b := &Board{
-		Named:      conf.ResourceName().AsNamed(),
-		Analogs:    map[string]*Analog{},
-		Digitals:   map[string]*DigitalInterrupt{},
-		GPIOPins:   map[string]*GPIOPin{},
-		wg:         sync.WaitGroup{},
-		cancelCtx:  cancelCtx,
-		cancelFunc: cancelFunc,
-		logger:     logger,
+		Named:    conf.ResourceName().AsNamed(),
+		Analogs:  map[string]*Analog{},
+		Digitals: map[string]*DigitalInterrupt{},
+		GPIOPins: map[string]*GPIOPin{},
+		workers:  rdkutils.NewStoppableWorkers(),
+		logger:   logger,
 	}
 
 	if err := b.processConfig(conf); err != nil {
@@ -170,9 +167,7 @@ type Board struct {
 	logger     logging.Logger
 	CloseCount int
 
-	cancelCtx  context.Context
-	cancelFunc func()
-	wg         sync.WaitGroup
+	workers rdkutils.StoppableWorkers
 }
 
 // AnalogByName returns the analog pin by the given name if it exists.
@@ -251,10 +246,8 @@ func (b *Board) StreamTicks(ctx context.Context, interrupts []board.DigitalInter
 	}
 
 	for _, di := range interrupts {
-		b.wg.Add(1)
 		// Don't need to check if interrupt exists, just did that above
-		go func(name string) {
-			defer b.wg.Done()
+		b.workers.AddWorkers(func(workersContext context.Context) {
 			for {
 				// sleep to avoid a busy loop
 				if !utils.SelectContextOrWait(ctx, 700*time.Millisecond) {
@@ -262,7 +255,7 @@ func (b *Board) StreamTicks(ctx context.Context, interrupts []board.DigitalInter
 				}
 				select {
 				case <-ctx.Done():
-				case <-b.cancelCtx.Done():
+				case <-workersContext.Done():
 					return
 				default:
 					// Keep going
@@ -273,12 +266,12 @@ func (b *Board) StreamTicks(ctx context.Context, interrupts []board.DigitalInter
 				//nolint:gosec
 				randBool := rand.Int()%2 == 0
 				select {
-				case ch <- board.Tick{Name: name, High: randBool, TimestampNanosec: uint64(time.Now().Unix())}:
+				case ch <- board.Tick{Name: di.Name(), High: randBool, TimestampNanosec: uint64(time.Now().Unix())}:
 				default:
 					// if nothing is listening to the channel just do nothing.
 				}
 			}
-		}(di.Name())
+		})
 	}
 	return nil
 }
@@ -286,11 +279,10 @@ func (b *Board) StreamTicks(ctx context.Context, interrupts []board.DigitalInter
 // Close attempts to cleanly close each part of the board.
 func (b *Board) Close(ctx context.Context) error {
 	b.mu.Lock()
+	defer b.mu.Unlock()
 	b.CloseCount++
-	b.cancelFunc()
-	b.mu.Unlock()
 
-	b.wg.Wait()
+	b.workers.Stop()
 	return nil
 }
 
