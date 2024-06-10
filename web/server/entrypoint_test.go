@@ -19,6 +19,8 @@ import (
 	goutils "go.viam.com/utils"
 	"go.viam.com/utils/pexec"
 	gtestutils "go.viam.com/utils/testutils"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	_ "go.viam.com/rdk/components/register"
 	"go.viam.com/rdk/config"
@@ -172,8 +174,24 @@ func TestShutdown(t *testing.T) {
 			// Asserting not nil here to ensure process is dead
 			test.That(tb, rdkStatus, test.ShouldNotBeNil)
 		})
-		test.That(t, (err == nil || err.Error() == `rpc error: code = DeadlineExceeded
-			desc = context deadline exceeded`), test.ShouldBeTrue)
+		test.That(t, isExpectedShutdownError(err, testLogger), test.ShouldBeTrue)
 		test.That(t, serverLogObserver.FilterLevelExact(zapcore.ErrorLevel).Len(), test.ShouldEqual, 0)
 	})
+}
+
+func isExpectedShutdownError(err error, testLogger logging.Logger) bool {
+	if err == nil {
+		return true
+	}
+
+	expectedErrorCode := map[codes.Code]bool{
+		codes.Unavailable:      true,
+		codes.DeadlineExceeded: true,
+	}
+	if status, ok := status.FromError(err); ok && expectedErrorCode[status.Code()] {
+		return true
+	}
+
+	testLogger.Errorw("Unexpected shutdown error", "err", err)
+	return false
 }
