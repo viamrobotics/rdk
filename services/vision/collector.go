@@ -37,19 +37,19 @@ func NewCaptureAllFromCameraCollector(resource interface{}, params data.Collecto
 			ReturnClassifications: true,
 			ReturnObject:          true,
 		}
-		visCapture, err := vision.CaptureAllFromCamera(ctx, "camera-3", visCaptureOptions, nil)
+		visCapture, err := vision.CaptureAllFromCamera(ctx, "camera-1", visCaptureOptions, nil)
 
 		if err != nil {
-			return nil, data.FailedToReadErr(params.ComponentName, CaptureAllFromCamera.String(), err)
+			return nil, data.FailedToReadErr("camera-1", CaptureAllFromCamera.String(), err)
 		}
 
-		protoImage, err := imageToProto(ctx, visCapture.Image, params.ComponentName)
+		protoImage, err := imageToProto(ctx, visCapture.Image, "camera-1")
 
 		if err != nil {
 			return nil, err
 		}
 
-		protoObjects, err := segmentsToProto(params.ComponentName, visCapture.Objects)
+		protoObjects, err := segmentsToProto("camera-1", visCapture.Objects)
 
 		if err != nil {
 			return nil, err
