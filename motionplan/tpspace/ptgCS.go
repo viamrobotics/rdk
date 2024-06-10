@@ -70,3 +70,12 @@ func (ptg *ptgCS) turnDist(alpha float64) float64 {
 	// Magic number; rotate this much before going straight
 	return math.Sqrt(math.Abs(alpha)) * ptg.turnStraight
 }
+
+// curvature of an arc of radius r = 1/r
+func (ptg *ptgCS) Curvature(alpha float64) (float64, error) {
+	if alpha != 0 {
+		return ptg.circle.Curvature(alpha)
+	} else { // straight line, therefore curvature = 0
+		return 0, nil
+	}
+}

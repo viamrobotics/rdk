@@ -102,14 +102,14 @@ func TestPtgWithObstacle(t *testing.T) {
 
 	ctx := context.Background()
 
-	goalPos := spatialmath.NewPoseFromPoint(r3.Vector{X: 700, Y: 100, Z: 0})
+	goalPos := spatialmath.NewPoseFromPoint(r3.Vector{X: 3000, Y: 500, Z: 0})
 
 	fs := referenceframe.NewEmptyFrameSystem("test")
 	fs.AddFrame(ackermanFrame, fs.World())
 
 	opt := newBasicPlannerOptions(ackermanFrame)
 	opt.DistanceFunc = ik.NewSquaredNormSegmentMetric(30.)
-	opt.StartPose = spatialmath.NewPoseFromPoint(r3.Vector{100, 500, 0})
+	opt.StartPose = spatialmath.NewPoseFromPoint(r3.Vector{100, 2000, 0})
 	opt.GoalThreshold = 5
 
 	// obstacles
@@ -145,20 +145,20 @@ func TestPtgWithObstacle(t *testing.T) {
 		}
 
 	}
-	// obstacle1, err := spatialmath.NewBox(spatialmath.NewPoseFromPoint(r3.Vector{3300, -500, 0}), r3.Vector{180, 1800, 1}, "")
+	// obstacle1, err := spatialmath.NewBox(spatialmath.NewPoseFromPoint(r3.Vector{217, 150, 0}), r3.Vector{424, 289, 1}, "")
 	// test.That(t, err, test.ShouldBeNil)
-	// obstacle2, err := spatialmath.NewBox(spatialmath.NewPoseFromPoint(r3.Vector{3300, 1800, 0}), r3.Vector{180, 1800, 1}, "")
+	// obstacle2, err := spatialmath.NewBox(spatialmath.NewPoseFromPoint(r3.Vector{601, 482, 0}), r3.Vector{377, 234, 1}, "")
 	// test.That(t, err, test.ShouldBeNil)
-	// obstacle3, err := spatialmath.NewBox(spatialmath.NewPoseFromPoint(r3.Vector{2500, -1400, 0}), r3.Vector{50000, 30, 1}, "")
-	// test.That(t, err, test.ShouldBeNil)
-	// obstacle4, err := spatialmath.NewBox(spatialmath.NewPoseFromPoint(r3.Vector{2500, 2400, 0}), r3.Vector{50000, 30, 1}, "")
-	// test.That(t, err, test.ShouldBeNil)
-	// obstacle5, err := spatialmath.NewBox(spatialmath.NewPoseFromPoint(r3.Vector{-2500, 0, 0}), r3.Vector{50, 5000, 1}, "")
-	// test.That(t, err, test.ShouldBeNil)
-	// obstacle6, err := spatialmath.NewBox(spatialmath.NewPoseFromPoint(r3.Vector{8500, 0, 0}), r3.Vector{50, 5000, 1}, "")
-	// test.That(t, err, test.ShouldBeNil)
+	// // // obstacle3, err := spatialmath.NewBox(spatialmath.NewPoseFromPoint(r3.Vector{2500, -1400, 0}), r3.Vector{50000, 30, 1}, "")
+	// // // test.That(t, err, test.ShouldBeNil)
+	// // // obstacle4, err := spatialmath.NewBox(spatialmath.NewPoseFromPoint(r3.Vector{2500, 2400, 0}), r3.Vector{50000, 30, 1}, "")
+	// // // test.That(t, err, test.ShouldBeNil)
+	// // // obstacle5, err := spatialmath.NewBox(spatialmath.NewPoseFromPoint(r3.Vector{-2500, 0, 0}), r3.Vector{50, 5000, 1}, "")
+	// // // test.That(t, err, test.ShouldBeNil)
+	// // // obstacle6, err := spatialmath.NewBox(spatialmath.NewPoseFromPoint(r3.Vector{8500, 0, 0}), r3.Vector{50, 5000, 1}, "")
+	// // // test.That(t, err, test.ShouldBeNil)
 
-	// geoms := []spatialmath.Geometry{obstacle1, obstacle2, obstacle3, obstacle4, obstacle5, obstacle6}
+	// geoms := []spatialmath.Geometry{obstacle1, obstacle2}
 
 	worldState, err := referenceframe.NewWorldState(
 		[]*referenceframe.GeometriesInFrame{referenceframe.NewGeometriesInFrame(referenceframe.World, geoms)},
@@ -207,7 +207,7 @@ func TestPtgWithObstacle(t *testing.T) {
 		opt.AddStateConstraint(name, constraint)
 	}
 
-	mp, err := newTPSpaceMotionPlanner(ackermanFrame, rand.New(rand.NewSource(42)), logger, opt)
+	mp, err := newTPSpaceMotionPlanner(ackermanFrame, rand.New(rand.NewSource(time.Now().Unix())), logger, opt)
 	test.That(t, err, test.ShouldBeNil)
 	tp, _ := mp.(*tpSpaceRRTMotionPlanner)
 	if pathdebug {
@@ -244,8 +244,46 @@ func TestPtgWithObstacle(t *testing.T) {
 		smoothcost += planNode.Cost()
 	}
 	test.That(t, smoothcost, test.ShouldBeLessThan, oldcost)
+	allPtgs := tp.tpFrame.PTGSolvers()
+
+	tp.logger.Debugf("------------ OLD PLAN ALPHA-DEEZ NUTS ---------------\n")
+	oldPlanCurvature := 0.
+	for _, mynode := range plan {
+		trajPts, _ := allPtgs[int(mynode.Q()[0].Value)].Trajectory(
+			mynode.Q()[1].Value,
+			mynode.Q()[2].Value,
+			mynode.Q()[3].Value,
+			tp.planOpts.Resolution,
+		)
+		curv, _ := allPtgs[int(mynode.Q()[0].Value)].Curvature(mynode.Q()[1].Value)
+		oldPlanCurvature = oldPlanCurvature + curv
+		for i, pt := range trajPts {
+			tp.logger.Debugf("i: %v | Alpha: %v | D: %v | PTG: %v \n", i, pt.Alpha, pt.Dist, mynode.Q()[0].Value)
+		}
+	}
+	tp.logger.Debugf("---------------- NEW PLAN ALPHA-DEEZ NUTS ---------------- \n")
+	newPlanCurvature := 0.
+	for _, mynode := range newplan {
+		trajPts, _ := allPtgs[int(mynode.Q()[0].Value)].Trajectory(
+			mynode.Q()[1].Value,
+			mynode.Q()[2].Value,
+			mynode.Q()[3].Value,
+			tp.planOpts.Resolution,
+		)
+		curv, _ := allPtgs[int(mynode.Q()[0].Value)].Curvature(mynode.Q()[1].Value)
+		newPlanCurvature = newPlanCurvature + curv
+		for i, pt := range trajPts {
+			tp.logger.Debugf("i: %v | Alpha: %v | D: %v \n", i, pt.Alpha, pt.Dist)
+		}
+	}
+	for i, ptg := range allPtgs {
+		tp.logger.Debugf("i: %v | ptgType: %T\n", i, ptg)
+	}
 	tp.logger.Debugf("planTime: %v\n", planEnd.Sub(planStart))
 	tp.logger.Debugf("smoothTime: %v\n", smoothEnd.Sub(smoothStart))
+	tp.logger.Debugf("Old Cost: %v | Old Curvature Cost: %v\n", oldcost, oldPlanCurvature)
+	tp.logger.Debugf("Smooth Cost: %v | Smooth Curvature Cost: %v\n", smoothcost, newPlanCurvature)
+	tp.logger.Debugf("path len: %v\n", len(newplan))
 
 }
 
@@ -305,7 +343,7 @@ func TestTPsmoothing(t *testing.T) {
 	plan, err = rectifyTPspacePath(plan, tp.frame, spatialmath.NewZeroPose())
 	test.That(t, err, test.ShouldBeNil)
 
-	tp.planOpts.SmoothIter = 20
+	tp.planOpts.SmoothIter = 75
 
 	newplan := tp.smoothPath(ctx, plan)
 	test.That(t, newplan, test.ShouldNotBeNil)

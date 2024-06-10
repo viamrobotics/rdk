@@ -65,3 +65,13 @@ func (ptg *ptgDiffDrive) Transform(inputs []referenceframe.Input) (spatialmath.P
 	pt := r3.Vector{0, dist - math.Abs(rdkutils.RadToDeg(alpha)), 0} // Straight line, +Y is "forwards"
 	return spatialmath.Compose(pose, spatialmath.NewPoseFromPoint(pt)), nil
 }
+
+// curvature of an arc of radius r = 1/r
+func (ptg *ptgDiffDrive) Curvature(alpha float64) (float64, error) {
+	if alpha != 0 {
+		arcRadius := math.Pi / math.Abs(alpha) // radius of arc
+		return 1 / arcRadius, nil
+	} else { // straight line, therefore curvature = 0
+		return 0, nil
+	}
+}

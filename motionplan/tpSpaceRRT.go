@@ -9,6 +9,7 @@ import (
 	"math"
 	"math/rand"
 	"sync"
+	"time"
 
 	"github.com/golang/geo/r3"
 	"go.uber.org/multierr"
@@ -848,13 +849,13 @@ func (mp *tpSpaceRRTMotionPlanner) make2DTPSpaceDistanceOptions(ptg tpspace.PTGS
 func (mp *tpSpaceRRTMotionPlanner) smoothPath(ctx context.Context, path []node) []node {
 	toIter := int(math.Min(float64(len(path)*len(path))/2, float64(mp.planOpts.SmoothIter)))
 	currCost := sumCosts(path)
-
-	maxCost := math.Inf(-1)
-	for _, wp := range path {
-		if wp.Cost() > maxCost {
-			maxCost = wp.Cost()
-		}
+	origAllPTGs := mp.tpFrame.PTGSolvers()
+	originalCurvCost := 0.
+	for _, mynode := range path {
+		curv, _ := origAllPTGs[int(mynode.Q()[0].Value)].Curvature(mynode.Q()[1].Value)
+		originalCurvCost = originalCurvCost + curv
 	}
+
 	smoothPlannerMP, err := newTPSpaceMotionPlanner(mp.frame, mp.randseed, mp.logger, mp.planOpts)
 	if err != nil {
 		return path
@@ -873,11 +874,15 @@ func (mp *tpSpaceRRTMotionPlanner) smoothPath(ctx context.Context, path []node) 
 		firstEdge := mp.randseed.Intn(len(path) - 2)
 		secondEdge := firstEdge + 1 + mp.randseed.Intn((len(path)-2)-firstEdge)
 
+		attemptSmoothStart := time.Now()
 		newInputSteps, err := mp.attemptSmooth(ctx, path, firstEdge, secondEdge, smoothPlanner)
+		attemptSmoothEnd := time.Now()
+
 		if err != nil || newInputSteps == nil {
 			continue
 		}
 		newCost := sumCosts(newInputSteps)
+		mp.logger.Debugf("Smooth Time: %v | Path Reached: %v | NewCost: %v | Len of Path: %v", attemptSmoothEnd.Sub(attemptSmoothStart), err != nil, newCost, len(newInputSteps))
 		if newCost >= currCost {
 			// The smoothed path is longer than the original
 			continue
@@ -885,6 +890,15 @@ func (mp *tpSpaceRRTMotionPlanner) smoothPath(ctx context.Context, path []node) 
 
 		path = newInputSteps
 		currCost = newCost
+		newCurvCost := 0.
+		newAllPTGs := mp.tpFrame.PTGSolvers()
+		for _, mynode := range path {
+			curv, _ := newAllPTGs[int(mynode.Q()[0].Value)].Curvature(mynode.Q()[1].Value)
+			newCurvCost = newCurvCost + curv
+		}
+		if newCurvCost < 0.1*originalCurvCost {
+			break
+		}
 	}
 
 	if pathdebug {

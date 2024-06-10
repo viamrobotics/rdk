@@ -57,14 +57,18 @@ while running:
                 if drawing_shape == 'rectangle':
                     # Draw final rectangle
                     draw_resizable_rect(start_pos, end_pos)
-                    rectangle_obstacles[start_pos] = end_pos
+                    to_add_start = (start_pos[0] * 5, start_pos[1] * 5)
+                    to_add_end = (end_pos[0] * 5, end_pos[1] * 5)
+                    rectangle_obstacles[to_add_start] = to_add_end
                     rectangle_count += 1
                     start_pos = None
                 else:
                     # draw final circle
                     radius = math.sqrt((start_pos[0] - end_pos[0])**2 + (start_pos[1] - end_pos[1])**2)
                     draw_resizable_circle(start_pos, radius)
-                    circle_obstacles[start_pos] = radius
+                    new_radius = radius = math.sqrt((start_pos[0]*5 - end_pos[0]*5)**2 + (start_pos[1]*5 - end_pos[1]*5)**2)
+                    to_add = (start_pos[0] * 5, start_pos[1] * 5)
+                    circle_obstacles[to_add] = new_radius
                     circle_count += 1
                     start_pos = None
         elif event.type == pygame.MOUSEMOTION:
