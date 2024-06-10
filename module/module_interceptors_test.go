@@ -163,6 +163,9 @@ func TestModuleClientTimeoutInterceptor(t *testing.T) {
 	}
 	r, err := robotimpl.New(ctx, cfg, logger)
 	test.That(t, err, test.ShouldBeNil)
+	defer func() {
+		test.That(t, r.Close(ctx), test.ShouldBeNil)
+	}()
 
 	helper1, err := r.ResourceByName(generic.Named("helper1"))
 	test.That(t, err, test.ShouldBeNil)
@@ -188,8 +191,6 @@ func TestModuleClientTimeoutInterceptor(t *testing.T) {
 		_, err = helper1.DoCommand(ctxWithDeadline, map[string]interface{}{"command": "echo"})
 		test.That(t, err, test.ShouldBeNil)
 	})
-
-	test.That(t, r.Close(ctx), test.ShouldBeNil)
 }
 
 func makeConfig(t *testing.T, logger logging.Logger) (string, int, error) {
