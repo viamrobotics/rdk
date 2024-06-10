@@ -181,10 +181,8 @@ func TestShutdown(t *testing.T) {
 
 func isExpectedShutdownError(err error, testLogger logging.Logger) bool {
 	expectedErrorCode := map[codes.Code]bool{
-		codes.Unknown:          true,
 		codes.Unavailable:      true,
 		codes.DeadlineExceeded: true,
-		codes.Internal:         true,
 	}
 
 	if status, ok := status.FromError(err); ok && expectedErrorCode[status.Code()] {
