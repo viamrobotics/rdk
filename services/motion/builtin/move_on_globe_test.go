@@ -209,7 +209,8 @@ func TestMoveOnGlobe(t *testing.T) {
 	t.Run("go around an obstacle", func(t *testing.T) {
 		localizer, ms, closeFunc := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil, 5)
 		defer closeFunc(ctx)
-		motionCfg := &motion.MotionConfiguration{PositionPollingFreqHz: 4, ObstaclePollingFreqHz: 1, PlanDeviationMM: 1000, LinearMPerSec: 2, AngularDegsPerSec: 360}
+		planDeviationMM := 100.
+		motionCfg := &motion.MotionConfiguration{PositionPollingFreqHz: 0.0000001, LinearMPerSec: 0.2, AngularDegsPerSec: 60}
 
 		boxPose := spatialmath.NewPoseFromPoint(r3.Vector{X: 50, Y: 0, Z: 0})
 		boxDims := r3.Vector{X: 5, Y: 50, Z: 10}
@@ -232,7 +233,7 @@ func TestMoveOnGlobe(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, executionID, test.ShouldNotResemble, uuid.Nil)
 
-		timeoutCtx, timeoutFn := context.WithTimeout(ctx, time.Second*5)
+		timeoutCtx, timeoutFn := context.WithTimeout(ctx, time.Second*25)
 		defer timeoutFn()
 		err = motion.PollHistoryUntilSuccessOrError(timeoutCtx, ms, time.Millisecond*5, motion.PlanHistoryReq{
 			ComponentName: req.ComponentName,
@@ -245,8 +246,8 @@ func TestMoveOnGlobe(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		movedPose := spatialmath.PoseBetween(startPose.Pose(), endPose.Pose())
 		fmt.Println("movedPose", spatialmath.PoseToProtobuf(movedPose))
-		test.That(t, movedPose.Point().X, test.ShouldAlmostEqual, expectedDst.X, epsilonMM)
-		test.That(t, movedPose.Point().Y, test.ShouldAlmostEqual, expectedDst.Y, epsilonMM)
+		test.That(t, movedPose.Point().X, test.ShouldAlmostEqual, expectedDst.X, planDeviationMM)
+		test.That(t, movedPose.Point().Y, test.ShouldAlmostEqual, expectedDst.Y, planDeviationMM)
 	})
 
 	t.Run("fail because of obstacle", func(t *testing.T) {

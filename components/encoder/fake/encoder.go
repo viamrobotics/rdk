@@ -87,7 +87,7 @@ type fakeEncoder struct {
 	logger                  logging.Logger
 
 	mu         sync.RWMutex
-	position   int64
+	position   float64
 	speed      float64 // ticks per minute
 	updateRate int64   // update position in start every updateRate ms
 }
@@ -111,6 +111,11 @@ func (e *fakeEncoder) Position(
 func (e *fakeEncoder) start(cancelCtx context.Context) {
 	e.activeBackgroundWorkers.Add(1)
 	utils.ManagedGo(func() {
+		lastTime := time.Now()
+		e.mu.RLock()
+		updateRate := e.updateRate
+		e.mu.RUnlock()
+		step := time.Duration(updateRate)*time.Millisecond
 		for {
 			select {
 			case <-cancelCtx.Done():
@@ -118,15 +123,14 @@ func (e *fakeEncoder) start(cancelCtx context.Context) {
 			default:
 			}
 
-			e.mu.RLock()
-			updateRate := e.updateRate
-			e.mu.RUnlock()
-			if !utils.SelectContextOrWait(cancelCtx, time.Duration(updateRate)*time.Millisecond) {
+			remainingStep := step - time.Since(lastTime)
+			if !utils.SelectContextOrWait(cancelCtx, remainingStep) {
 				return
 			}
+			lastTime = time.Now()
 
 			e.mu.Lock()
-			e.position += int64(e.speed / float64(60*1000/updateRate))
+			e.position += e.speed / float64(60*1000/updateRate)
 			e.mu.Unlock()
 		}
 	}, e.activeBackgroundWorkers.Done)
@@ -137,7 +141,7 @@ func (e *fakeEncoder) start(cancelCtx context.Context) {
 func (e *fakeEncoder) ResetPosition(ctx context.Context, extra map[string]interface{}) error {
 	e.mu.Lock()
 	defer e.mu.Unlock()
-	e.position = int64(0)
+	e.position = 0
 	return nil
 }
 
@@ -153,7 +157,7 @@ func (e *fakeEncoder) Properties(ctx context.Context, extra map[string]interface
 type Encoder interface {
 	encoder.Encoder
 	SetSpeed(ctx context.Context, speed float64) error
-	SetPosition(ctx context.Context, position int64) error
+	SetPosition(ctx context.Context, position float64) error
 }
 
 // SetSpeed sets the speed of the fake motor the encoder is measuring.
@@ -165,7 +169,7 @@ func (e *fakeEncoder) SetSpeed(ctx context.Context, speed float64) error {
 }
 
 // SetPosition sets the position of the encoder.
-func (e *fakeEncoder) SetPosition(ctx context.Context, position int64) error {
+func (e *fakeEncoder) SetPosition(ctx context.Context, position float64) error {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	e.position = position

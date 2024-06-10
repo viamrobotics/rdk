@@ -17,6 +17,7 @@ import (
 
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/components/base/wheeled"
+	"go.viam.com/rdk/components/base/kinematicbase"
 	"go.viam.com/rdk/components/encoder"
 	fakeencoder "go.viam.com/rdk/components/encoder/fake"
 	"go.viam.com/rdk/components/motor"
@@ -43,6 +44,7 @@ var (
 	moveSensorResource = resource.NewName(movementsensor.API, moveSensorName)
 	baseResource = resource.NewName(base.API, baseName)
 	movementSensorInBasePoint = r3.Vector{X: -10, Y: 0, Z: 0}
+	updateRate = 33
 )
 
 func setupMotionServiceFromConfig(t *testing.T, configFilename string) (motion.Service, func()) {
@@ -168,12 +170,12 @@ func createEncoders(t *testing.T, ctx context.Context, logger logging.Logger) ma
 	leftconf := resource.Config{
 		Name:  leftMotorName + "_encoder",
 		API:   encoder.API,
-		ConvertedAttributes: &fakeencoder.Config{},
+		ConvertedAttributes: &fakeencoder.Config{UpdateRate:int64(updateRate)},
 	}
 	rightconf := resource.Config{
 		Name:  rightMotorName + "_encoder",
 		API:   encoder.API,
-		ConvertedAttributes: &fakeencoder.Config{},
+		ConvertedAttributes: &fakeencoder.Config{UpdateRate: int64(updateRate)},
 	}
 	left, err := fakeencoder.NewEncoder(ctx, leftconf, logger)
 	test.That(t, err, test.ShouldBeNil)
@@ -189,7 +191,7 @@ func createMotors(t *testing.T, ctx context.Context, logger logging.Logger, enco
 		conf := resource.Config{
 			Name:  name,
 			API:   motor.API,
-			ConvertedAttributes: &fakemotor.Config {Encoder: name + "_encoder", TicksPerRotation: 1000},
+			ConvertedAttributes: &fakemotor.Config {Encoder: name + "_encoder", TicksPerRotation: 2000},
 		}
 		
 		thisMotor, err := fakemotor.NewMotor(
@@ -220,7 +222,7 @@ func createMovementSensor(
 		LeftMotors: []string{leftMotorName},
 		RightMotors: []string{rightMotorName},
 		Base: fakeBase.Name().ShortName(),
-		TimeIntervalMSecs: 1,
+		TimeIntervalMSecs: float64(updateRate),
 	}
 	
 	moveConf := resource.Config{
@@ -427,4 +429,34 @@ func createMoveOnMapEnvironment(
 		return multierr.Combine(movementSensor.Close(ctx), ms.Close(ctx))
 	}
 	return localizer, ms, closeFunc
+}
+
+func createTestKinematicBase(ctx context.Context, t *testing.T) (
+	kinematicbase.KinematicBase, func(context.Context) error,
+) {
+	logger := logging.NewTestLogger(t)
+
+	// create fake wheeled base
+	deps := createDependencies(t, ctx, logger, 80, &geo.Point{})
+	movementSensor, err := movementsensor.FromDependencies(deps, moveSensorName)
+	test.That(t, err, test.ShouldBeNil)
+	b, err := base.FromDependencies(deps, baseName)
+	test.That(t, err, test.ShouldBeNil)
+
+	
+	startPosition, _, err := movementSensor.Position(context.Background(), nil)
+	test.That(t, err, test.ShouldBeNil)
+	
+	localizer := motion.NewMovementSensorLocalizer(movementSensor, startPosition, nil)
+	closeFunc := func(ctx context.Context) error {
+		return movementSensor.Close(ctx)
+	}
+	kbo := kinematicbase.NewKinematicBaseOptions()
+	kbo.NoSkidSteer = true
+	kbo.UpdateStepSeconds = 0.1
+
+	kb, err := kinematicbase.WrapWithKinematics(ctx, b, logger, localizer, nil, kbo)
+	test.That(t, err, test.ShouldBeNil)
+
+	return kb, closeFunc
 }

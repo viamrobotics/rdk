@@ -368,3 +368,36 @@ func TestPTGKinematicsWithGeom(t *testing.T) {
 		test.That(t, geoms[0], test.ShouldResemble, baseGeom)
 	})
 }
+
+func TestPTGKinematicsSimpleInputs(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+
+	name := resource.Name{API: resource.NewAPI("is", "a", "fakebase"), Name: "fakebase"}
+	b := &fake.Base{
+		Named:         name.AsNamed(),
+		Geometry:      []spatialmath.Geometry{},
+		WidthMeters:   0.2,
+		TurningRadius: 0,
+	}
+
+	ctx := context.Background()
+	kbo := NewKinematicBaseOptions()
+	kbo.NoSkidSteer = true
+	kbo.UpdateStepSeconds = 0.01
+
+	kb, err := WrapWithKinematics(ctx, b, logger, nil, nil, kbo)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, kb, test.ShouldNotBeNil)
+	ptgBase, ok := kb.(*ptgBaseKinematics)
+	test.That(t, ok, test.ShouldBeTrue)
+	test.That(t, ptgBase, test.ShouldNotBeNil)
+
+	inputs := []referenceframe.Input{{0}, {1.9}, {1300}, {200}}
+	err = ptgBase.GoToInputs(ctx, inputs)
+	test.That(t, err, test.ShouldBeNil)
+	
+	
+	inputs = []referenceframe.Input{{0}, {1.9}, {1300}, {0}}
+	err = ptgBase.GoToInputs(ctx, inputs)
+	test.That(t, err, test.ShouldBeNil)
+}
