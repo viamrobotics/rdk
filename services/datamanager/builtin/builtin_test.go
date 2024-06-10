@@ -8,7 +8,6 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
-	"time"
 
 	"github.com/golang/geo/r3"
 	"go.viam.com/test"
@@ -16,6 +15,7 @@ import (
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/gostream"
 	"go.viam.com/rdk/internal/cloud"
 	cloudinject "go.viam.com/rdk/internal/testutils/inject"
@@ -126,14 +126,6 @@ func getServiceConfig(t *testing.T, cfg *config.Config) (*Config, map[resource.N
 	return nil, nil, nil
 }
 
-func TestGetDurationFromHz(t *testing.T) {
-	test.That(t, GetDurationFromHz(0.1), test.ShouldEqual, time.Second*10)
-	test.That(t, GetDurationFromHz(0.5), test.ShouldEqual, time.Second*2)
-	test.That(t, GetDurationFromHz(1), test.ShouldEqual, time.Second)
-	test.That(t, GetDurationFromHz(1000), test.ShouldEqual, time.Millisecond)
-	test.That(t, GetDurationFromHz(0), test.ShouldEqual, 0)
-}
-
 func TestEmptyConfig(t *testing.T) {
 	// Data manager should not be enabled implicitly, an empty config will not result in a data manager being configured.
 	initConfig, associations, deps := setupConfig(t, enabledTabularCollectorEmptyConfigPath)
@@ -155,7 +147,7 @@ func TestUntrustedEnv(t *testing.T) {
 		ConvertedAttributes:  config,
 		AssociatedAttributes: associations,
 	})
-	test.That(t, err, test.ShouldEqual, errCaptureDirectoryConfigurationDisabled)
+	test.That(t, err, test.ShouldEqual, data.ErrCaptureDirectoryConfigurationDisabled)
 }
 
 func getAllFileInfos(dir string) []os.FileInfo {
