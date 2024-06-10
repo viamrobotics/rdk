@@ -1001,8 +1001,7 @@ func (rc *RobotClient) Shutdown(ctx context.Context) error {
 		if status, ok := status.FromError(err); ok {
 			switch status.Code() { //nolint:exhaustive
 			case codes.Internal, codes.Unknown:
-				rc.Logger().CInfow(ctx, "robot shutdown successful")
-				return nil
+				break
 			case codes.Unavailable:
 				rc.Logger().CWarnw(ctx, "server unavailable, likely due to successful robot shutdown")
 				return err
@@ -1016,6 +1015,6 @@ func (rc *RobotClient) Shutdown(ctx context.Context) error {
 			return err
 		}
 	}
-	rc.Logger().CInfow(ctx, "robot shutdown successful")
+	rc.Logger().CDebug(ctx, "robot shutdown successful")
 	return nil
 }
