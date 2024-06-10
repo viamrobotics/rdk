@@ -238,6 +238,7 @@ func TestProvidedClientConn(t *testing.T) {
 	defer server.stop()
 	conn, err := CreateNewGRPCClient(context.Background(), server.cloudConfig)
 	test.That(t, err, test.ShouldBeNil)
+	defer conn.Close()
 	netAppender, err := NewNetAppender(server.cloudConfig, conn)
 	test.That(t, err, test.ShouldBeNil)
 	// make sure these are the same object, i.e. that the constructor set it properly.
