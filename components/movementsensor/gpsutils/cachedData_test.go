@@ -187,3 +187,37 @@ func TestAccuracy(t *testing.T) {
 	test.That(t, acMap["hDOP"], test.ShouldEqual, hAcc)
 	test.That(t, acMap["vDOP"], test.ShouldEqual, vAcc)
 }
+
+func TestCompassHeading(t *testing.T) {
+	ctx := context.Background()
+	logger := logging.NewTestLogger(t)
+	g := NewCachedData(&mockDataReader{}, logger)
+
+	t.Run("no current compass heading so return last known", func(t *testing.T) {
+		g.lastCompassHeading.SetLastCompassHeading(90.)
+		g.nmeaData = NmeaParser{
+			CompassHeading: math.NaN(),
+		}
+
+		heading, err := g.CompassHeading(ctx, make(map[string]interface{}))
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, heading, test.ShouldEqual, 90.)
+
+		// Check that the last known compass heading was not updated
+		test.That(t, g.lastCompassHeading.GetLastCompassHeading(), test.ShouldEqual, 90.)
+	})
+
+	t.Run("valid current compass heading", func(t *testing.T) {
+		g.lastCompassHeading.SetLastCompassHeading(90.)
+		g.nmeaData = NmeaParser{
+			CompassHeading: 180.,
+		}
+
+		heading, err := g.CompassHeading(ctx, make(map[string]interface{}))
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, heading, test.ShouldEqual, 180.)
+
+		// Check that the last known compass heading was updated
+		test.That(t, g.lastCompassHeading.GetLastCompassHeading(), test.ShouldEqual, 180.)
+	})
+}
