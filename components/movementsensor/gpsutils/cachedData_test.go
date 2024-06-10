@@ -221,3 +221,12 @@ func TestCompassHeading(t *testing.T) {
 		test.That(t, g.lastCompassHeading.GetLastCompassHeading(), test.ShouldEqual, 180.)
 	})
 }
+
+func TestCompassDegreeError(t *testing.T) {
+	var p1 *geo.Point = nil
+	p2 := geo.NewPoint(1, 1)
+
+	g := NewCachedData(&mockDataReader{}, logging.NewTestLogger(t))
+	cde := g.calculateCompassDegreeError(p1, p2)
+	test.That(t, math.IsNaN(cde), test.ShouldBeTrue)
+}
