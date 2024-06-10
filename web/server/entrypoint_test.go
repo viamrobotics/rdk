@@ -187,8 +187,8 @@ func isExpectedShutdownError(err error, testLogger logging.Logger) bool {
 
 	if status, ok := status.FromError(err); ok && expectedErrorCode[status.Code()] {
 		return true
-	} else {
-		testLogger.Errorw("Unexpected shutdown error", "err", err, "code", status.Code(), "ok", ok)
-		return false
 	}
+
+	testLogger.Errorw("Unexpected shutdown error", "err", err)
+	return false
 }
