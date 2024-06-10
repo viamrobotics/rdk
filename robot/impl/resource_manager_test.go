@@ -35,7 +35,6 @@ import (
 	fakebase "go.viam.com/rdk/components/base/fake"
 	"go.viam.com/rdk/components/board"
 	fakeboard "go.viam.com/rdk/components/board/fake"
-	"go.viam.com/rdk/components/board/pinwrappers"
 	"go.viam.com/rdk/components/camera"
 	fakecamera "go.viam.com/rdk/components/camera/fake"
 	"go.viam.com/rdk/components/gripper"
@@ -454,19 +453,6 @@ func TestManagerAdd(t *testing.T) {
 	test.That(t, arm1, test.ShouldEqual, injectArm)
 
 	injectBoard := &inject.Board{}
-	injectBoard.AnalogNamesFunc = func() []string {
-		return []string{"analog1"}
-	}
-	injectBoard.DigitalInterruptNamesFunc = func() []string {
-		return []string{"digital1"}
-	}
-	injectBoard.AnalogByNameFunc = func(name string) (board.Analog, error) {
-		return &fakeboard.Analog{}, nil
-	}
-	injectBoard.DigitalInterruptByNameFunc = func(name string) (board.DigitalInterrupt, error) {
-		return &pinwrappers.BasicDigitalInterrupt{}, nil
-	}
-
 	cfg = &resource.Config{
 		API:  board.API,
 		Name: "board1",
