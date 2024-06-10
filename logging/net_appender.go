@@ -41,8 +41,9 @@ func NewNetAppender(config *CloudConfig, conn rpc.ClientConn) (*NetAppender, err
 	}
 
 	logWriter := &remoteLogWriterGRPC{
-		cfg:       config,
-		rpcClient: conn,
+		cfg:            config,
+		rpcClient:      conn,
+		clientIsShared: conn != nil,
 	}
 	if conn != nil {
 		logWriter.service = apppb.NewRobotServiceClient(conn)
@@ -307,6 +308,8 @@ type remoteLogWriterGRPC struct {
 	service     apppb.RobotServiceClient
 	rpcClient   rpc.ClientConn
 	clientMutex sync.Mutex
+	// when clientIsShared = true, don't close it in close(); it's externally managed.
+	clientIsShared bool
 }
 
 func (w *remoteLogWriterGRPC) write(logs []*commonpb.LogEntry) error {
@@ -347,6 +350,9 @@ func (w *remoteLogWriterGRPC) getOrCreateClient(ctx context.Context) (apppb.Robo
 }
 
 func (w *remoteLogWriterGRPC) close() {
+	if w.clientIsShared {
+		return
+	}
 	w.clientMutex.Lock()
 	defer w.clientMutex.Unlock()
 
