@@ -62,6 +62,57 @@ func TestReadingsSerial(t *testing.T) {
 	test.That(t, fix1, test.ShouldEqual, fix)
 }
 
+func TestPosition(t *testing.T) {
+	ctx := context.Background()
+	logger := logging.NewTestLogger(t)
+	g := NewCachedData(&mockDataReader{}, logger)
+
+	t.Run("no current location", func(t *testing.T) {
+		g.lastPosition.SetLastPosition(geo.NewPoint(32.4, 54.2))
+		g.nmeaData = NmeaParser{
+			Location: nil,
+		}
+
+		pos, alt, err := g.Position(ctx, make(map[string]interface{}))
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, pos.Lat(), test.ShouldEqual, 32.4)
+		test.That(t, pos.Lng(), test.ShouldEqual, 54.2)
+		test.That(t, alt, test.ShouldEqual, 0.0)
+	})
+
+	t.Run("current location zero so return last known", func(t *testing.T) {
+		g.lastPosition.SetLastPosition(geo.NewPoint(32.4, 54.2))
+		g.nmeaData = NmeaParser{
+			Location: geo.NewPoint(0, 0),
+			Alt:      12.1,
+		}
+
+		pos, alt, err := g.Position(ctx, make(map[string]interface{}))
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, pos.Lat(), test.ShouldEqual, 32.4)
+		test.That(t, pos.Lng(), test.ShouldEqual, 54.2)
+		test.That(t, alt, test.ShouldEqual, 12.1)
+	})
+
+	t.Run("Valid current location", func(t *testing.T) {
+		g.lastPosition.SetLastPosition(geo.NewPoint(32.4, 54.2))
+		g.nmeaData = NmeaParser{
+			Location: geo.NewPoint(1.1, 1.2),
+			Alt:      1.3,
+		}
+
+		pos, alt, err := g.Position(ctx, make(map[string]interface{}))
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, pos.Lat(), test.ShouldEqual, 1.1)
+		test.That(t, pos.Lng(), test.ShouldEqual, 1.2)
+		test.That(t, alt, test.ShouldEqual, 1.3)
+
+		// Check that the last known position was updated
+		test.That(t, g.lastPosition.GetLastPosition().Lat(), test.ShouldEqual, 1.1)
+		test.That(t, g.lastPosition.GetLastPosition().Lng(), test.ShouldEqual, 1.2)
+	})
+}
+
 func TestLinearVelocity(t *testing.T) {
 	ctx := context.Background()
 	logger := logging.NewTestLogger(t)
