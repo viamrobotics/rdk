@@ -250,7 +250,7 @@ func (b *Board) StreamTicks(ctx context.Context, interrupts []board.DigitalInter
 		b.workers.AddWorkers(func(workersContext context.Context) {
 			for {
 				// sleep to avoid a busy loop
-				if !utils.SelectContextOrWait(ctx, 700*time.Millisecond) {
+				if !utils.SelectContextOrWait(workersContext, 700*time.Millisecond) {
 					return
 				}
 				select {
