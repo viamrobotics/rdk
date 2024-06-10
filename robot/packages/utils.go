@@ -16,6 +16,7 @@ import (
 
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
+	rutils "go.viam.com/rdk/utils"
 )
 
 // installCallback is the function signature that gets passed to installPackage.
@@ -42,7 +43,7 @@ func installPackage(ctx context.Context, logger logging.Logger, packagesDir, url
 	}
 
 	if p.Type == config.PackageTypeMlModel {
-		symlinkPath, err := safeJoin(packagesDir, p.Name)
+		symlinkPath, err := rutils.SafeJoinDir(packagesDir, p.Name)
 		if err == nil {
 			if err := os.Remove(symlinkPath); err != nil {
 				utils.UncheckedError(err)
@@ -148,7 +149,7 @@ func unpackFile(ctx context.Context, fromFile, toDir string) error {
 			continue
 		}
 
-		if path, err = safeJoin(toDir, path); err != nil {
+		if path, err = rutils.SafeJoinDir(toDir, path); err != nil {
 			return err
 		}
 
@@ -168,7 +169,7 @@ func unpackFile(ctx context.Context, fromFile, toDir string) error {
 			if err := os.MkdirAll(parent, 0o700); err != nil {
 				return errors.Wrapf(err, "failed to create directory %q", parent)
 			}
-			//nolint:gosec // path sanitized with safeJoin
+			//nolint:gosec // path sanitized with rutils.SafeJoin
 			outFile, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0o600|info.Mode().Perm())
 			if err != nil {
 				return errors.Wrapf(err, "failed to create file %s", path)
@@ -183,7 +184,7 @@ func unpackFile(ctx context.Context, fromFile, toDir string) error {
 		case tar.TypeLink:
 			name := header.Linkname
 
-			if name, err = safeJoin(toDir, name); err != nil {
+			if name, err = rutils.SafeJoinDir(toDir, name); err != nil {
 				return err
 			}
 			links = append(links, link{Path: path, Name: name})
@@ -261,7 +262,7 @@ func commonCleanup(logger logging.Logger, expectedPackageDirectories map[string]
 
 	// A packageTypeDir is a directory that contains all of the packages for the specified type. ex: data/ml_model
 	for _, packageTypeDir := range topLevelFiles {
-		packageTypeDirName, err := safeJoin(packagesDataDir, packageTypeDir.Name())
+		packageTypeDirName, err := rutils.SafeJoinDir(packagesDataDir, packageTypeDir.Name())
 		if err != nil {
 			allErrors = multierr.Append(allErrors, err)
 			continue
@@ -279,7 +280,7 @@ func commonCleanup(logger logging.Logger, expectedPackageDirectories map[string]
 			continue
 		}
 		for _, packageDir := range packageDirs {
-			packageDirName, err := safeJoin(packageTypeDirName, packageDir.Name())
+			packageDirName, err := rutils.SafeJoinDir(packageTypeDirName, packageDir.Name())
 			if err != nil {
 				allErrors = multierr.Append(allErrors, err)
 				continue
