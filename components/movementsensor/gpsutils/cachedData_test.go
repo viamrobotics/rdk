@@ -2,6 +2,7 @@ package gpsutils
 
 import (
 	"context"
+	"errors"
 	"math"
 	"testing"
 
@@ -161,4 +162,28 @@ func TestLinearVelocity(t *testing.T) {
 		test.That(t, speed2.Y, test.ShouldAlmostEqual, expectedY)
 	})
 
+}
+
+func TestAccuracy(t *testing.T) {
+	ctx := context.Background()
+	logger := logging.NewTestLogger(t)
+	g := NewCachedData(&mockDataReader{}, logger)
+	g.err.Set(errors.New("test error"))
+
+	g.nmeaData = NmeaParser{
+		HDOP:           hAcc,
+		VDOP:           vAcc,
+		FixQuality:     fix,
+		CompassHeading: 90.,
+	}
+
+	acc, err := g.Accuracy(ctx, make(map[string]interface{}))
+	test.That(t, err, test.ShouldBeError, "test error")
+	test.That(t, acc.Hdop, test.ShouldEqual, hAcc)
+	test.That(t, acc.Vdop, test.ShouldEqual, vAcc)
+	test.That(t, acc.NmeaFix, test.ShouldEqual, fix)
+
+	acMap := acc.AccuracyMap
+	test.That(t, acMap["hDOP"], test.ShouldEqual, hAcc)
+	test.That(t, acMap["vDOP"], test.ShouldEqual, vAcc)
 }
