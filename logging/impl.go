@@ -131,8 +131,10 @@ func (imp *impl) AsZap() *zap.SugaredLogger {
 		}
 		ret = zap.Must(config.Build()).Sugar().Named(imp.name)
 	} else {
-		// `zaptest.NewLogger` always constructs a logger at the `zapcore.DebugLevel`.
-		ret = zaptest.NewLogger(testingObj, zaptest.WrapOptions(zap.AddCaller())).Sugar().Named(imp.name)
+		ret = zaptest.NewLogger(testingObj,
+			zaptest.WrapOptions(zap.AddCaller()),
+			zaptest.Level(imp.level.Get().AsZap()),
+		).Sugar().Named(imp.name)
 	}
 
 	for _, core := range copiedCores {
