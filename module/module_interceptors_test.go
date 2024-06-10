@@ -188,6 +188,8 @@ func TestModuleClientTimeoutInterceptor(t *testing.T) {
 		_, err = helper1.DoCommand(ctxWithDeadline, map[string]interface{}{"command": "echo"})
 		test.That(t, err, test.ShouldBeNil)
 	})
+
+	test.That(t, r.Close(ctx), test.ShouldBeNil)
 }
 
 func makeConfig(t *testing.T, logger logging.Logger) (string, int, error) {
