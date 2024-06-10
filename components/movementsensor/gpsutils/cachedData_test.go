@@ -9,6 +9,7 @@ import (
 	geo "github.com/kellydunn/golang-geo"
 	"go.viam.com/test"
 
+	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/logging"
 )
 
@@ -74,10 +75,11 @@ func TestPosition(t *testing.T) {
 			Location: nil,
 		}
 
+		expectedPoint := geo.NewPoint(32.4, 54.2)
+
 		pos, alt, err := g.Position(ctx, make(map[string]interface{}))
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, pos.Lat(), test.ShouldEqual, 32.4)
-		test.That(t, pos.Lng(), test.ShouldEqual, 54.2)
+		test.That(t, movementsensor.ArePointsEqual(pos, expectedPoint), test.ShouldBeTrue)
 		test.That(t, alt, test.ShouldEqual, 0.0)
 	})
 
@@ -88,15 +90,15 @@ func TestPosition(t *testing.T) {
 			Alt:      12.1,
 		}
 
+		expectedPoint := geo.NewPoint(32.4, 54.2)
+
 		pos, alt, err := g.Position(ctx, make(map[string]interface{}))
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, pos.Lat(), test.ShouldEqual, 32.4)
-		test.That(t, pos.Lng(), test.ShouldEqual, 54.2)
+		test.That(t, movementsensor.ArePointsEqual(pos, expectedPoint), test.ShouldBeTrue)
 		test.That(t, alt, test.ShouldEqual, 12.1)
 
 		// Check that the last known position was not updated
-		test.That(t, g.lastPosition.GetLastPosition().Lat(), test.ShouldEqual, 32.4)
-		test.That(t, g.lastPosition.GetLastPosition().Lng(), test.ShouldEqual, 54.2)
+		test.That(t, movementsensor.ArePointsEqual(g.lastPosition.GetLastPosition(), expectedPoint), test.ShouldBeTrue)
 	})
 
 	t.Run("Valid current location", func(t *testing.T) {
@@ -106,15 +108,15 @@ func TestPosition(t *testing.T) {
 			Alt:      1.3,
 		}
 
+		expectedPoint := geo.NewPoint(1.1, 1.2)
+
 		pos, alt, err := g.Position(ctx, make(map[string]interface{}))
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, pos.Lat(), test.ShouldEqual, 1.1)
-		test.That(t, pos.Lng(), test.ShouldEqual, 1.2)
+		test.That(t, movementsensor.ArePointsEqual(pos, expectedPoint), test.ShouldBeTrue)
 		test.That(t, alt, test.ShouldEqual, 1.3)
 
 		// Check that the last known position was updated
-		test.That(t, g.lastPosition.GetLastPosition().Lat(), test.ShouldEqual, 1.1)
-		test.That(t, g.lastPosition.GetLastPosition().Lng(), test.ShouldEqual, 1.2)
+		test.That(t, movementsensor.ArePointsEqual(g.lastPosition.GetLastPosition(), expectedPoint), test.ShouldBeTrue)
 	})
 }
 
