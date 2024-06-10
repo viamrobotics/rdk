@@ -92,6 +92,10 @@ func TestPosition(t *testing.T) {
 		test.That(t, pos.Lat(), test.ShouldEqual, 32.4)
 		test.That(t, pos.Lng(), test.ShouldEqual, 54.2)
 		test.That(t, alt, test.ShouldEqual, 12.1)
+
+		// Check that the last known position was not updated
+		test.That(t, g.lastPosition.GetLastPosition().Lat(), test.ShouldEqual, 32.4)
+		test.That(t, g.lastPosition.GetLastPosition().Lng(), test.ShouldEqual, 54.2)
 	})
 
 	t.Run("Valid current location", func(t *testing.T) {
