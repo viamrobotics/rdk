@@ -118,9 +118,14 @@ func TestShutdown(t *testing.T) {
 	}
 
 	t.Run("shutdown functionality", func(t *testing.T) {
-		logger, logObserver := logging.NewObservedTestLogger(t)
+		testLogger := logging.NewTestLogger(t)
+		// Pass in a separate logger to the managed server process that only outputs WARN+
+		// logs. This avoids the test spamming stdout with stack traces from the shutdown command.
+		serverLogger, serverLogObserver := logging.NewObservedTestLogger(t)
+		serverLogger.SetLevel(logging.WARN)
+
 		cfgFilename := utils.ResolveFile("/etc/configs/fake.json")
-		cfg, err := config.Read(context.Background(), cfgFilename, logger)
+		cfg, err := config.Read(context.Background(), cfgFilename, testLogger)
 		test.That(t, err, test.ShouldBeNil)
 
 		var port int
@@ -132,21 +137,20 @@ func TestShutdown(t *testing.T) {
 			test.That(t, err, test.ShouldBeNil)
 
 			cfg.Network.BindAddress = fmt.Sprintf(":%d", port)
-			cfgFilename, err = robottestutils.MakeTempConfig(t, cfg, logger)
+			cfgFilename, err = robottestutils.MakeTempConfig(t, cfg, testLogger)
 			test.That(t, err, test.ShouldBeNil)
 
-			server = robottestutils.ServerAsSeparateProcess(t, cfgFilename, logger)
-
+			server = robottestutils.ServerAsSeparateProcess(t, cfgFilename, serverLogger)
 			err = server.Start(context.Background())
 			test.That(t, err, test.ShouldBeNil)
 
-			if success = robottestutils.WaitForServing(logObserver, port); success {
+			if success = robottestutils.WaitForServing(serverLogObserver, port); success {
 				defer func() {
 					test.That(t, server.Stop(), test.ShouldBeNil)
 				}()
 				break
 			}
-			logger.Infow("Port in use. Restarting on new port.", "port", port, "err", err)
+			testLogger.Infow("Port in use. Restarting on new port.", "port", port, "err", err)
 			server.Stop()
 			continue
 		}
@@ -159,6 +163,7 @@ func TestShutdown(t *testing.T) {
 		}()
 		rc := robotpb.NewRobotServiceClient(conn)
 
+		testLogger.Info("Issuing shutdown.")
 		_, err = rc.Shutdown(context.Background(), &robotpb.ShutdownRequest{})
 
 		gtestutils.WaitForAssertionWithSleep(t, 50*time.Millisecond, 50, func(tb testing.TB) {
@@ -167,8 +172,8 @@ func TestShutdown(t *testing.T) {
 			// Asserting not nil here to ensure process is dead
 			test.That(tb, rdkStatus, test.ShouldNotBeNil)
 		})
-		test.That(t, (err == nil || err.Error() == `rpc error: code = DeadlineExceeded 
+		test.That(t, (err == nil || err.Error() == `rpc error: code = DeadlineExceeded
 			desc = context deadline exceeded`), test.ShouldBeTrue)
-		test.That(t, logObserver.FilterLevelExact(zapcore.ErrorLevel).Len(), test.ShouldEqual, 0)
+		test.That(t, serverLogObserver.FilterLevelExact(zapcore.ErrorLevel).Len(), test.ShouldEqual, 0)
 	})
 }
