@@ -255,6 +255,7 @@ func (b *Board) StreamTicks(ctx context.Context, interrupts []board.DigitalInter
 				}
 				select {
 				case <-ctx.Done():
+					return
 				case <-workersContext.Done():
 					return
 				default:
