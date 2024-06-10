@@ -141,8 +141,8 @@ func (m Module) exeDir(packagesDir string) (string, error) {
 	return pkg.LocalDataDirectory(packagesDir), nil
 }
 
-// parseJSONPath returns a *T by parsing the json file at `path`.
-func parseJSONPath[T any](path string) (*T, error) {
+// parseJSONFile returns a *T by parsing the json file at `path`.
+func parseJSONFile[T any](path string) (*T, error) {
 	f, err := os.Open(path) //nolint:gosec
 	if err != nil {
 		return nil, errors.Wrap(err, "reading json file")
@@ -179,7 +179,7 @@ func (m Module) EvaluateExePath(packagesDir string) (string, error) {
 		_, err = os.Stat(metaPath)
 		if err == nil {
 			// this is case 1, meta.json in exe dir
-			meta, err := parseJSONPath[JSONManifest](metaPath)
+			meta, err := parseJSONFile[JSONManifest](metaPath)
 			if err != nil {
 				return "", err
 			}
@@ -197,7 +197,7 @@ func (m Module) EvaluateExePath(packagesDir string) (string, error) {
 		if err != nil {
 			return "", err
 		}
-		meta, err := parseJSONPath[JSONManifest](metaPath)
+		meta, err := parseJSONFile[JSONManifest](metaPath)
 		if err != nil {
 			return "", errors.Wrap(err, "loading side-by-side meta.json")
 		}
