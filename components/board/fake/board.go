@@ -12,6 +12,7 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 	pb "go.viam.com/api/component/board/v1"
+	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/grpc"
@@ -243,16 +244,22 @@ func (b *Board) StreamTicks(ctx context.Context, interrupts []board.DigitalInter
 	extra map[string]interface{},
 ) error {
 	for _, di := range interrupts {
+		_, ok := b.Digitals[di.Name()]
+		if !ok {
+			return fmt.Errorf("could not find digital interrupt: %s", di.Name())
+		}
+	}
+
+	for _, di := range interrupts {
 		b.wg.Add(1)
+		// Don't need to check if interrupt exists, just did that above
 		go func(name string) {
 			defer b.wg.Done()
-			d, ok := b.Digitals[name]
-			if !ok {
-				b.logger.Errorw("ticks not streamed, digital interrupt not found", "digital_interrupt", name)
-				return
-			}
 			for {
-				time.Sleep(700 * time.Millisecond)
+				// sleep to avoid a busy loop
+				if !utils.SelectContextOrWait(ctx, 700*time.Millisecond) {
+					return
+				}
 				select {
 				case <-ctx.Done():
 				case <-b.cancelCtx.Done():
@@ -261,12 +268,12 @@ func (b *Board) StreamTicks(ctx context.Context, interrupts []board.DigitalInter
 					// Keep going
 				}
 				// Get a random bool for the high tick value.
-				// linter complans about security but we don't care if someone
+				// linter complains about security but we don't care if someone
 				// can predict if the fake interrupts will be high or low.
 				//nolint:gosec
 				randBool := rand.Int()%2 == 0
 				select {
-				case ch <- board.Tick{Name: d.conf.Name, High: randBool, TimestampNanosec: uint64(time.Now().Unix())}:
+				case ch <- board.Tick{Name: name, High: randBool, TimestampNanosec: uint64(time.Now().Unix())}:
 				default:
 					// if nothing is listening to the channel just do nothing.
 				}
