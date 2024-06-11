@@ -60,7 +60,7 @@ jobs:
 
     - name: Verify no uncommitted changes from "make build-go"
       run: |
-        sudo -Hu testbot bash -lc 'git init && git add . && make build-go
+        sudo -Hu testbot bash -lc 'git init && git add . && make build-go'
         GEN_DIFF=$(git status -s)
 
         if [ -n "$GEN_DIFF" ]; then
