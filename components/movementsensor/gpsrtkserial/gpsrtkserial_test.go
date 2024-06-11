@@ -98,7 +98,7 @@ func TestPosition(t *testing.T) {
 		}
 		g.err.Set(errors.New("last error test"))
 
-		point, flt, err := g.Position(context.Background(), nil)
+		pos, alt, err := g.Position(context.Background(), nil)
 		test.That(t, movementsensor.IsPositionNaN(point), test.ShouldBeTrue)
 		test.That(t, math.IsNaN(flt), test.ShouldBeTrue)
 		test.That(t, err, test.ShouldBeError, "last error test")
