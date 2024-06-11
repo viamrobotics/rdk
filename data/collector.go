@@ -139,7 +139,7 @@ func (c *collector) Collect() {
 		defer c.logRoutine.Done()
 		c.logCaptureErrs()
 	})
-	<-started
+	// <-started
 }
 
 // Go's time.Ticker has inconsistent performance with durations of below 1ms [0], so we use a time.Sleep based approach
