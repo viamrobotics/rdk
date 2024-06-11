@@ -32,6 +32,15 @@ import (
 	rutils "go.viam.com/rdk/utils"
 )
 
+func setupSocketWithRobot(t *testing.T) string {
+	t.Helper()
+
+	socketAddress, err := modlib.CreateSocketAddress(t.TempDir(), "parent")
+	test.That(t, err, test.ShouldBeNil)
+	rtestutils.MakeRobotForModuleLogging(t, socketAddress)
+	return socketAddress
+}
+
 func setupModManager(
 	t *testing.T,
 	ctx context.Context,
@@ -85,12 +94,7 @@ func TestModManagerFunctions(t *testing.T) {
 	_, err := cfgCounter1.Validate("test", resource.APITypeComponentName)
 	test.That(t, err, test.ShouldBeNil)
 
-	parentAddr, err := modlib.CreateSocketAddress(t.TempDir(), "parent")
-	test.That(t, err, test.ShouldBeNil)
-	fakeRobot := rtestutils.MakeRobotForModuleLogging(t, parentAddr)
-	defer func() {
-		test.That(t, fakeRobot.Stop(), test.ShouldBeNil)
-	}()
+	parentAddr := setupSocketWithRobot(t)
 
 	t.Log("test Helpers")
 	viamHomeTemp := t.TempDir()
@@ -108,7 +112,7 @@ func TestModManagerFunctions(t *testing.T) {
 		logger:  logger,
 	}
 
-	err = mod.startProcess(ctx, parentAddr, nil, logger, viamHomeTemp)
+	err = mod.startProcess(ctx, parentAddr, nil, logger, viamHomeTemp, filepath.Join(viamHomeTemp, "packages"))
 	test.That(t, err, test.ShouldBeNil)
 
 	err = mod.dial()
@@ -145,7 +149,7 @@ func TestModManagerFunctions(t *testing.T) {
 	oldAddr := mod.addr
 	oldClient := mod.client
 
-	utils.UncheckedError(mod.startProcess(ctx, parentAddr, nil, logger, viamHomeTemp))
+	utils.UncheckedError(mod.startProcess(ctx, parentAddr, nil, logger, viamHomeTemp, filepath.Join(viamHomeTemp, "packages")))
 	err = mod.dial()
 	test.That(t, err, test.ShouldBeNil)
 
@@ -357,12 +361,7 @@ func TestModManagerValidation(t *testing.T) {
 	_, err = cfgMyBase2.Validate("test", resource.APITypeComponentName)
 	test.That(t, err, test.ShouldBeNil)
 
-	parentAddr, err := modlib.CreateSocketAddress(t.TempDir(), "parent")
-	test.That(t, err, test.ShouldBeNil)
-	fakeRobot := rtestutils.MakeRobotForModuleLogging(t, parentAddr)
-	defer func() {
-		test.That(t, fakeRobot.Stop(), test.ShouldBeNil)
-	}()
+	parentAddr := setupSocketWithRobot(t)
 
 	t.Log("adding complex module")
 	mgr := setupModManager(t, ctx, parentAddr, logger, modmanageroptions.Options{UntrustedEnv: false})
@@ -418,12 +417,7 @@ func TestModuleReloading(t *testing.T) {
 	_, err := cfgMyHelper.Validate("test", resource.APITypeComponentName)
 	test.That(t, err, test.ShouldBeNil)
 
-	parentAddr, err := modlib.CreateSocketAddress(t.TempDir(), "parent")
-	test.That(t, err, test.ShouldBeNil)
-	fakeRobot := rtestutils.MakeRobotForModuleLogging(t, parentAddr)
-	defer func() {
-		test.That(t, fakeRobot.Stop(), test.ShouldBeNil)
-	}()
+	parentAddr := setupSocketWithRobot(t)
 
 	modCfg := config.Module{Name: "test-module"}
 
@@ -468,7 +462,7 @@ func TestModuleReloading(t *testing.T) {
 
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
-			test.That(tb, logs.FilterMessageSnippet("Module successfully restarted").Len(),
+			test.That(tb, logs.FilterMessageSnippet("Module resources successfully re-added after module restart").Len(),
 				test.ShouldEqual, 1)
 		})
 
@@ -486,8 +480,9 @@ func TestModuleReloading(t *testing.T) {
 		test.That(t, logs.FilterMessageSnippet("Error while restarting crashed module").Len(),
 			test.ShouldEqual, 0)
 
-		// Assert that RemoveOrphanedResources was called once.
-		test.That(t, dummyRemoveOrphanedResourcesCallCount.Load(), test.ShouldEqual, 1)
+		// Assert that RemoveOrphanedResources was not called (successful restart and re-addition of
+		// modular resources should not require removal of any orphans).
+		test.That(t, dummyRemoveOrphanedResourcesCallCount.Load(), test.ShouldEqual, 0)
 	})
 	t.Run("unsuccessful restart", func(t *testing.T) {
 		logger, logs := logging.NewObservedTestLogger(t)
@@ -684,12 +679,7 @@ func TestDebugModule(t *testing.T) {
 	// Precompile module to avoid timeout issues when building takes too long.
 	modPath := rtestutils.BuildTempModule(t, "module/testmodule")
 
-	parentAddr, err := modlib.CreateSocketAddress(t.TempDir(), "parent")
-	test.That(t, err, test.ShouldBeNil)
-	fakeRobot := rtestutils.MakeRobotForModuleLogging(t, parentAddr)
-	defer func() {
-		test.That(t, fakeRobot.Stop(), test.ShouldBeNil)
-	}()
+	parentAddr := setupSocketWithRobot(t)
 
 	testCases := []struct {
 		name                   string
@@ -752,7 +742,7 @@ func TestDebugModule(t *testing.T) {
 				LogLevel: tc.moduleLogLevel,
 			}
 
-			err = mgr.Add(ctx, modCfg)
+			err := mgr.Add(ctx, modCfg)
 			test.That(t, err, test.ShouldBeNil)
 
 			if tc.debugStatementExpected {
@@ -775,12 +765,7 @@ func TestDebugModule(t *testing.T) {
 func TestModuleMisc(t *testing.T) {
 	ctx := context.Background()
 
-	parentAddr, err := modlib.CreateSocketAddress(t.TempDir(), "parent")
-	test.That(t, err, test.ShouldBeNil)
-	fakeRobot := rtestutils.MakeRobotForModuleLogging(t, parentAddr)
-	defer func() {
-		test.That(t, fakeRobot.Stop(), test.ShouldBeNil)
-	}()
+	parentAddr := setupSocketWithRobot(t)
 
 	// Build the testmodule
 	modPath := rtestutils.BuildTempModule(t, "module/testmodule")
@@ -807,7 +792,7 @@ func TestModuleMisc(t *testing.T) {
 			ViamHomeDir:  testViamHomeDir,
 		})
 		// Test that cleaning the data directory before it has been created does not produce log messages
-		err = mgr.CleanModuleDataDirectory()
+		err := mgr.CleanModuleDataDirectory()
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, logs.FilterMessageSnippet("Removing module data").Len(), test.ShouldEqual, 0)
 
@@ -863,7 +848,7 @@ func TestModuleMisc(t *testing.T) {
 			Environment: map[string]string{"VIAM_MODULE_ROOT": "/"},
 			Type:        config.ModuleTypeLocal,
 		}
-		err = mgr.Add(ctx, modCfg)
+		err := mgr.Add(ctx, modCfg)
 		test.That(t, err, test.ShouldBeNil)
 
 		_, err = cfgMyHelper.Validate("test", resource.APITypeComponentName)
@@ -891,7 +876,7 @@ func TestModuleMisc(t *testing.T) {
 			ViamHomeDir:  testViamHomeDir,
 		})
 		// Add the module
-		err = mgr.Add(ctx, modCfg)
+		err := mgr.Add(ctx, modCfg)
 		test.That(t, err, test.ShouldBeNil)
 
 		_, err = cfgMyHelper.Validate("test", resource.APITypeComponentName)
@@ -939,12 +924,7 @@ func TestTwoModulesRestart(t *testing.T) {
 	}(oueRestartInterval)
 	oueRestartInterval = 10 * time.Millisecond
 
-	parentAddr, err := modlib.CreateSocketAddress(t.TempDir(), "parent")
-	test.That(t, err, test.ShouldBeNil)
-	fakeRobot := rtestutils.MakeRobotForModuleLogging(t, parentAddr)
-	defer func() {
-		test.That(t, fakeRobot.Stop(), test.ShouldBeNil)
-	}()
+	parentAddr := setupSocketWithRobot(t)
 
 	var dummyRemoveOrphanedResourcesCallCount atomic.Uint64
 	dummyRemoveOrphanedResources := func(context.Context, []resource.Name) {
@@ -954,7 +934,7 @@ func TestTwoModulesRestart(t *testing.T) {
 		UntrustedEnv:            false,
 		RemoveOrphanedResources: dummyRemoveOrphanedResources,
 	})
-	err = mgr.Add(ctx, modCfgs...)
+	err := mgr.Add(ctx, modCfgs...)
 	test.That(t, err, test.ShouldBeNil)
 
 	// Add resources and ensure "echo" works correctly.
@@ -1003,8 +983,10 @@ func TestTwoModulesRestart(t *testing.T) {
 	test.That(t, logs.FilterMessageSnippet("Error while restarting crashed module").Len(),
 		test.ShouldEqual, 0)
 
-	// Assert that RemoveOrphanedResources was called once for each module.
-	test.That(t, dummyRemoveOrphanedResourcesCallCount.Load(), test.ShouldEqual, 2)
+	// Assert that RemoveOrphanedResources was not called for either module
+	// (successful restart and re-addition of modular resources should not
+	// require removal of any orphans).
+	test.That(t, dummyRemoveOrphanedResourcesCallCount.Load(), test.ShouldEqual, 0)
 }
 
 var (
@@ -1044,12 +1026,7 @@ func TestRTPPassthrough(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	// robot config
-	parentAddr, err := modlib.CreateSocketAddress(t.TempDir(), "parent")
-	test.That(t, err, test.ShouldBeNil)
-	fakeRobot := rtestutils.MakeRobotForModuleLogging(t, parentAddr)
-	defer func() {
-		test.That(t, fakeRobot.Stop(), test.ShouldBeNil)
-	}()
+	parentAddr := setupSocketWithRobot(t)
 
 	greenLog(t, "test AddModule")
 	mgr := NewManager(ctx, parentAddr, logger, modmanageroptions.Options{UntrustedEnv: false})
@@ -1273,16 +1250,10 @@ func TestAddStreamMaxTrackErr(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 	}
 
-	parentAddr, err := modlib.CreateSocketAddress(t.TempDir(), "parent")
-	test.That(t, err, test.ShouldBeNil)
-	fakeRobot := rtestutils.MakeRobotForModuleLogging(t, parentAddr)
-	defer func() {
-		test.That(t, fakeRobot.Stop(), test.ShouldBeNil)
-	}()
+	parentAddr := setupSocketWithRobot(t)
 
 	greenLog(t, "test AddModule")
 	mgr := NewManager(ctx, parentAddr, logger, modmanageroptions.Options{UntrustedEnv: false})
-	test.That(t, err, test.ShouldBeNil)
 	defer func() {
 		test.That(t, mgr.Close(ctx), test.ShouldBeNil)
 	}()
@@ -1292,7 +1263,7 @@ func TestAddStreamMaxTrackErr(t *testing.T) {
 		Name:    "rtp-passthrough-module",
 		ExePath: modPath,
 	}
-	err = mgr.Add(ctx, modCfg)
+	err := mgr.Add(ctx, modCfg)
 	test.That(t, err, test.ShouldBeNil)
 
 	reg, ok := resource.LookupRegistration(camera.API, model)

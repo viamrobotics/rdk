@@ -80,11 +80,11 @@ func createInjectedSlam(name, pcdPath string, origin spatialmath.Pose) *inject.S
 	injectSlam.PointCloudMapFunc = func(ctx context.Context, returnEditedMap bool) (func() ([]byte, error), error) {
 		return getPointCloudMap(filepath.Clean(artifact.MustPath(pcdPath)))
 	}
-	injectSlam.PositionFunc = func(ctx context.Context) (spatialmath.Pose, string, error) {
+	injectSlam.PositionFunc = func(ctx context.Context) (spatialmath.Pose, error) {
 		if origin != nil {
-			return origin, "", nil
+			return origin, nil
 		}
-		return spatialmath.NewZeroPose(), "", nil
+		return spatialmath.NewZeroPose(), nil
 	}
 	return injectSlam
 }

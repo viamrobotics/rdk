@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"math"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -574,6 +575,40 @@ func TestNavSetup(t *testing.T) {
 	paths, err := ns.Paths(ctx, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, paths, test.ShouldBeEmpty)
+
+	test.That(t, len(ns.(*builtIn).boundingRegions), test.ShouldEqual, 1)
+	test.That(t, len(ns.(*builtIn).obstacles), test.ShouldEqual, 1)
+}
+
+func TestNavSetUpFromFaultyConfig(t *testing.T) {
+	type testCase struct {
+		configPath    string
+		expectedError string
+	}
+	testCases := []testCase{
+		{
+			configPath: "../data/incorrect_obstacles_nav_cfg.json",
+			expectedError: `resource "rdk:service:navigation/test_navigation" not available;` +
+				` reason="resource build error: unsupported Geometry type : obstacle unable to be converted from geometry config"`,
+		},
+		{
+			configPath: "../data/incorrect_bounding_regions_nav_cfg.json",
+			expectedError: `resource "rdk:service:navigation/test_navigation" not available;` +
+				` reason="resource build error: unsupported Geometry type : bounding regions unable to be converted from geometry config"`,
+		},
+	}
+	ctx := context.Background()
+	logger := logging.NewTestLogger(t)
+	for _, tc := range testCases {
+		cfg, err := config.Read(ctx, tc.configPath, logger)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, cfg.Ensure(false, logger), test.ShouldBeNil)
+		myRobot, err := robotimpl.New(ctx, cfg, logger)
+		test.That(t, err, test.ShouldBeNil)
+		_, err = navigation.FromRobot(myRobot, "test_navigation")
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, strings.Contains(err.Error(), tc.expectedError), test.ShouldBeTrue)
+	}
 }
 
 func setupStartWaypoint(ctx context.Context, t *testing.T, logger logging.Logger) startWaypointState {
@@ -1697,9 +1732,8 @@ func TestValidateGeometry(t *testing.T) {
 	t.Run("fail case", func(t *testing.T) {
 		cfg = createBox(r3.Vector{X: 10, Y: 10, Z: 10})
 		_, err := cfg.Validate("")
-		expectedErr := "geometries specified through the navigation are not allowed to have a translation"
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldEqual, expectedErr)
+		test.That(t, errors.Is(err, errObstacleGeomWithTranslation), test.ShouldBeTrue)
 	})
 
 	t.Run("success case", func(t *testing.T) {

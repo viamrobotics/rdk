@@ -227,12 +227,12 @@ func (c *viamClient) printAccessTokenAction(cCtx *cli.Context) error {
 // LogoutAction is the corresponding Action for 'logout'.
 func LogoutAction(cCtx *cli.Context) error {
 	// Create basic viam client; no need to check base URL.
-	conf, err := configFromCache()
+	conf, err := ConfigFromCache()
 	if err != nil {
 		if !os.IsNotExist(err) {
 			return err
 		}
-		conf = &config{}
+		conf = &Config{}
 	}
 
 	vc := &viamClient{
@@ -485,7 +485,10 @@ func (c *viamClient) ensureLoggedIn() error {
 		}
 	}
 
-	rpcOpts := append(c.copyRPCOpts(), c.conf.Auth.dialOpts())
+	rpcOpts, err := c.conf.DialOptions()
+	if err != nil {
+		return err
+	}
 
 	conn, err := rpc.DialDirectGRPC(
 		c.c.Context,
@@ -513,7 +516,7 @@ func (c *viamClient) logout() error {
 	if err := removeConfigFromCache(); err != nil && !os.IsNotExist(err) {
 		return err
 	}
-	c.conf = &config{}
+	c.conf = &Config{}
 	return nil
 }
 
@@ -542,10 +545,11 @@ func (c *viamClient) prepareDial(
 	}()
 	dialCtx := rpc.ContextWithDialer(c.c.Context, rpcDialer)
 
-	rpcOpts := append(c.copyRPCOpts(),
-		rpc.WithExternalAuth(c.baseURL.Host, part.Fqdn),
-		c.conf.Auth.dialOpts(),
-	)
+	rpcOpts, err := c.conf.DialOptions()
+	if err != nil {
+		return nil, "", nil, err
+	}
+	rpcOpts = append(rpcOpts, rpc.WithExternalAuth(c.baseURL.Host, part.Fqdn))
 
 	if debug {
 		rpcOpts = append(rpcOpts, rpc.WithDialDebug())

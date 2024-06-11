@@ -35,7 +35,7 @@ const (
 
 // validatedMotionConfiguration is a copy of the motion.MotionConfiguration type
 // which has been validated to conform to the expectations of the builtin
-// motion servicl.
+// motion service.
 type validatedMotionConfiguration struct {
 	obstacleDetectors     []motion.ObstacleDetectorName
 	positionPollingFreqHz float64
@@ -525,7 +525,11 @@ func (ms *builtIn) newMoveOnGlobeRequest(
 		return nil, err
 	}
 
+	// convert obstacles of type []GeoGeometry into []Geometry
 	geomsRaw := spatialmath.GeoGeometriesToGeometries(obstacles, origin)
+
+	// convert bounding regions which are GeoGeometries into Geometries
+	boundingRegions := spatialmath.GeoGeometriesToGeometries(req.BoundingRegions, origin)
 
 	mr, err := ms.createBaseMoveRequest(
 		ctx,
@@ -544,6 +548,7 @@ func (ms *builtIn) newMoveOnGlobeRequest(
 	mr.replanCostFactor = valExtra.replanCostFactor
 	mr.requestType = requestTypeMoveOnGlobe
 	mr.geoPoseOrigin = spatialmath.NewGeoPose(origin, heading)
+	mr.planRequest.BoundingRegions = boundingRegions
 	return mr, nil
 }
 

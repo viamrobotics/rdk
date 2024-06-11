@@ -262,9 +262,11 @@ func (fk *fakePTGKinematics) GoToInputs(ctx context.Context, inputSteps ...[]ref
 
 		fk.inputLock.Lock()
 		fk.currentIndex = i
-		fk.currentInput = []referenceframe.Input{inputs[0], inputs[1], inputs[2], inputs[2]}
+		fk.currentInput, err = fk.frame.Interpolate(zeroInput, inputs, 0)
 		fk.inputLock.Unlock()
-
+		if err != nil {
+			return err
+		}
 		finalPose, err := fk.frame.Transform(inputs)
 		if err != nil {
 			return err

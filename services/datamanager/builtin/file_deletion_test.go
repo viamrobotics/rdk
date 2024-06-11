@@ -101,9 +101,9 @@ func TestFileDeletion(t *testing.T) {
 		syncerInProgressFiles   []string
 	}{
 		{
-			name:                    "if sync disabled, file deleter should delete every 4th file",
-			fileList:                []string{"shouldDelete0.capture", "1.capture", "2.capture", "3.capture", "4.capture", "shouldDelete5.capture"},
-			expectedDeleteFilenames: []string{"shouldDelete0.capture", "shouldDelete5.capture"},
+			name:                    "if sync disabled, file deleter should delete every 5th file",
+			fileList:                []string{"0shouldDelete.capture", "1.capture", "2.capture", "3.capture", "4.capture", "5shouldDelete.capture"},
+			expectedDeleteFilenames: []string{"0shouldDelete.capture", "5shouldDelete.capture"},
 		},
 		{
 			name:                    "if sync enabled and all files marked as in progress, file deleter should not delete any files",
@@ -115,14 +115,19 @@ func TestFileDeletion(t *testing.T) {
 		{
 			name:                    "if sync enabled and some files marked as inprogress, file deleter should delete less files",
 			syncEnabled:             true,
-			fileList:                []string{"0.capture", "1.capture", "shouldDelete2.capture", "3.capture", "4.capture", "5.capture"},
+			fileList:                []string{"0.capture", "1.capture", "2shouldDelete.capture", "3.capture", "4.capture", "5.capture"},
 			syncerInProgressFiles:   []string{"0.capture", "1.capture"},
-			expectedDeleteFilenames: []string{"shouldDelete2.capture"},
+			expectedDeleteFilenames: []string{"2shouldDelete.capture"},
 		},
 		{
 			name:                    "if sync disabled and files are still being written to, file deleter should not delete any files",
 			fileList:                []string{"0.prog", "1.prog", "2.prog", "3.prog", "4.prog", "5.prog"},
 			expectedDeleteFilenames: []string{},
+		},
+		{
+			name:                    "file deleter should not delete non datacapture files",
+			fileList:                []string{"0.fe", "1.fi", "2.fo", "3.fum", "4.foo", "5.capture"},
+			expectedDeleteFilenames: []string{"5.capture"},
 		},
 		{
 			name:                "if cancelled context is cancelled, file deleter should return an error",
@@ -164,6 +169,11 @@ func TestFileDeletion(t *testing.T) {
 			} else {
 				test.That(t, err, test.ShouldBeNil)
 				test.That(t, deletedFileCount, test.ShouldEqual, len(tc.expectedDeleteFilenames))
+				// get list of all files still in capture dir after deletion
+				files := getFiles(t, tempCaptureDir)
+				for _, deletedFile := range tc.expectedDeleteFilenames {
+					test.That(t, files, test.ShouldNotContain, deletedFile)
+				}
 			}
 		})
 	}
@@ -182,8 +192,22 @@ func writeFiles(t *testing.T, dir string, filenames []string) map[string]string 
 	return filePaths
 }
 
+func getFiles(t *testing.T, path string) []string {
+	t.Helper()
+	dir, err := os.Open(path)
+	test.That(t, err, test.ShouldBeNil)
+	defer dir.Close()
+	files, err := dir.Readdir(-1)
+	test.That(t, err, test.ShouldBeNil)
+	output := []string{}
+	for _, file := range files {
+		output = append(output, file.Name())
+	}
+	return output
+}
+
 func TestFilePolling(t *testing.T) {
-	t.Skip()
+	logger := logging.NewTestLogger(t)
 	mockClock := clk.NewMock()
 	// Make mockClock the package level clock used by the dmsvc so that we can simulate time's passage
 	clock = mockClock
@@ -195,8 +219,10 @@ func TestFilePolling(t *testing.T) {
 	captureDirToFSUsageRatio = math.SmallestNonzeroFloat64
 
 	// Set up data manager.
-	dmsvc, mockClient := newDMSvc(t, tempDir)
+	dmsvc, _ := newDMSvc(t, tempDir)
+	defer dmsvc.Close(context.Background())
 
+	// run forward 10ms to capture 4 files then close the collectors,
 	mockClock.Add(captureInterval)
 	flusher, ok := dmsvc.(*builtIn)
 	test.That(t, ok, test.ShouldBeTrue)
@@ -205,7 +231,7 @@ func TestFilePolling(t *testing.T) {
 	flusher.closeCollectors()
 	// number of capture files is based on the number of unique
 	// collectors in the robot config used in this test
-	waitForCaptureFilesToExceedNFiles(tempDir, 4)
+	waitForCaptureFilesToEqualNFiles(tempDir, 4, logger)
 
 	files := getAllFileInfos(tempDir)
 	test.That(t, len(files), test.ShouldEqual, 4)
@@ -213,35 +239,12 @@ func TestFilePolling(t *testing.T) {
 	// the first to be deleted
 	expectedDeletedFile := files[0]
 
+	// run forward 20ms to delete any files
 	mockClock.Add(filesystemPollInterval)
+	waitForCaptureFilesToEqualNFiles(tempDir, 3, logger)
 	newFiles := getAllFileInfos(tempDir)
 	test.That(t, len(newFiles), test.ShouldEqual, 3)
 	test.That(t, newFiles, test.ShouldNotContain, expectedDeletedFile)
-	// capture interval is 10ms and sync interval is 50ms.
-	// So we run forward 10ms to capture 4 files then close the collectors,
-	// run forward 20ms to delete any files, then run forward 20ms to sync the remaining 3 files.
-	mockClock.Add(syncInterval - (filesystemPollInterval + captureInterval))
-
-	wait := time.After(time.Second)
-	// we track requests to make sure only 3 upload requests are in the syncer
-	// instead of the 4 captured files
-	var requests []*v1.DataCaptureUploadRequest
-	select {
-	case req := <-mockClient.succesfulDCRequests:
-		requests = append(requests, req)
-	case <-wait:
-	}
-	flusher.closeSyncer()
-
-	close(mockClient.succesfulDCRequests)
-	for dc := range mockClient.succesfulDCRequests {
-		requests = append(requests, dc)
-	}
-	// we expect 3 upload requests as 1 capture file should have been deleted
-	// and not uploaded
-	test.That(t, len(requests), test.ShouldEqual, 3)
-	err := dmsvc.Close(context.Background())
-	test.That(t, err, test.ShouldBeNil)
 }
 
 func get2ComponentInjectedRobot() *inject.Robot {

@@ -6,6 +6,7 @@ import (
 	"os"
 	"runtime"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	commonpb "go.viam.com/api/common/v1"
@@ -20,8 +21,10 @@ import (
 
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/config"
+	rdkgrpc "go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
+	robotimpl "go.viam.com/rdk/robot/impl"
 	rtestutils "go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/robottestutils"
 )
@@ -139,6 +142,55 @@ func TestOpID(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestModuleClientTimeoutInterceptor(t *testing.T) {
+	ctx := context.Background()
+	logger := logging.NewTestLogger(t)
+
+	// Precompile module to avoid timeout issues when building takes too long.
+	modPath := rtestutils.BuildTempModule(t, "module/testmodule")
+	cfg := &config.Config{
+		Modules: []config.Module{{
+			Name:    "test",
+			ExePath: modPath,
+		}},
+		Components: []resource.Config{{
+			API:   generic.API,
+			Model: resource.NewModel("rdk", "test", "helper"),
+			Name:  "helper1",
+		}},
+	}
+	r, err := robotimpl.New(ctx, cfg, logger)
+	test.That(t, err, test.ShouldBeNil)
+	defer func() {
+		test.That(t, r.Close(ctx), test.ShouldBeNil)
+	}()
+
+	helper1, err := r.ResourceByName(generic.Named("helper1"))
+	test.That(t, err, test.ShouldBeNil)
+
+	// Artificially set default method timeout to have timed out in the past.
+	origDefaultMethodTimeout := rdkgrpc.DefaultMethodTimeout
+	rdkgrpc.DefaultMethodTimeout = -time.Nanosecond
+	defer func() {
+		rdkgrpc.DefaultMethodTimeout = origDefaultMethodTimeout
+	}()
+
+	t.Run("client respects default timeout", func(t *testing.T) {
+		_, err = helper1.DoCommand(ctx, map[string]interface{}{"command": "echo"})
+
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldResemble,
+			"rpc error: code = DeadlineExceeded desc = context deadline exceeded")
+	})
+	t.Run("deadline not overwritten", func(t *testing.T) {
+		ctxWithDeadline, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+		defer cancel()
+
+		_, err = helper1.DoCommand(ctxWithDeadline, map[string]interface{}{"command": "echo"})
+		test.That(t, err, test.ShouldBeNil)
+	})
 }
 
 func makeConfig(t *testing.T, logger logging.Logger) (string, int, error) {

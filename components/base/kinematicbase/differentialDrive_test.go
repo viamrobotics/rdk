@@ -134,8 +134,8 @@ func TestInputDiff(t *testing.T) {
 
 	// make injected slam service
 	slam := inject.NewSLAMService("the slammer")
-	slam.PositionFunc = func(ctx context.Context) (spatialmath.Pose, string, error) {
-		return spatialmath.NewZeroPose(), "", nil
+	slam.PositionFunc = func(ctx context.Context) (spatialmath.Pose, error) {
+		return spatialmath.NewZeroPose(), nil
 	}
 
 	// build base

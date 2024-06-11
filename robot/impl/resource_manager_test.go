@@ -5,6 +5,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"errors"
+	"fmt"
 	"os"
 	"sync"
 	"testing"
@@ -24,6 +25,7 @@ import (
 	"go.viam.com/utils/pexec"
 	"go.viam.com/utils/rpc"
 	"go.viam.com/utils/testutils"
+	"gonum.org/v1/gonum/stat/combin"
 	"google.golang.org/protobuf/testing/protocmp"
 
 	"go.viam.com/rdk/cloud"
@@ -33,7 +35,6 @@ import (
 	fakebase "go.viam.com/rdk/components/base/fake"
 	"go.viam.com/rdk/components/board"
 	fakeboard "go.viam.com/rdk/components/board/fake"
-	"go.viam.com/rdk/components/board/pinwrappers"
 	"go.viam.com/rdk/components/camera"
 	fakecamera "go.viam.com/rdk/components/camera/fake"
 	"go.viam.com/rdk/components/gripper"
@@ -197,11 +198,10 @@ func TestManagerForRemoteRobot(t *testing.T) {
 	servoNames := []resource.Name{servo.Named("servo1"), servo.Named("servo2")}
 
 	test.That(t, manager.RemoteNames(), test.ShouldBeEmpty)
-	test.That(
+	rdktestutils.VerifySameResourceNames(
 		t,
-		rdktestutils.NewResourceNameSet(manager.ResourceNames()...),
-		test.ShouldResemble,
-		rdktestutils.NewResourceNameSet(rdktestutils.ConcatResourceNames(
+		manager.ResourceNames(),
+		rdktestutils.ConcatResourceNames(
 			armNames,
 			baseNames,
 			boardNames,
@@ -210,7 +210,7 @@ func TestManagerForRemoteRobot(t *testing.T) {
 			inputNames,
 			motorNames,
 			servoNames,
-		)...),
+		),
 	)
 
 	_, err := manager.ResourceByName(arm.Named("arm1"))
@@ -278,17 +278,11 @@ func TestManagerMergeNamesWithRemotes(t *testing.T) {
 	servoNames := []resource.Name{servo.Named("servo1"), servo.Named("servo2")}
 	servoNames = append(servoNames, rdktestutils.AddRemotes(servoNames, "remote1", "remote2")...)
 
-	test.That(
+	rdktestutils.VerifySameElements(t, manager.RemoteNames(), []string{"remote1", "remote2"})
+	rdktestutils.VerifySameResourceNames(
 		t,
-		utils.NewStringSet(manager.RemoteNames()...),
-		test.ShouldResemble,
-		utils.NewStringSet("remote1", "remote2"),
-	)
-	test.That(
-		t,
-		rdktestutils.NewResourceNameSet(manager.ResourceNames()...),
-		test.ShouldResemble,
-		rdktestutils.NewResourceNameSet(rdktestutils.ConcatResourceNames(
+		manager.ResourceNames(),
+		rdktestutils.ConcatResourceNames(
 			armNames,
 			baseNames,
 			boardNames,
@@ -297,7 +291,7 @@ func TestManagerMergeNamesWithRemotes(t *testing.T) {
 			inputNames,
 			motorNames,
 			servoNames,
-		)...),
+		),
 	)
 	_, err := manager.ResourceByName(arm.Named("arm1"))
 	test.That(t, err, test.ShouldBeNil)
@@ -392,13 +386,10 @@ func TestManagerResourceRemoteName(t *testing.T) {
 
 	manager.updateRemotesResourceNames(context.Background())
 
-	res := manager.remoteResourceNames(fromRemoteNameToRemoteNodeName("remote1"))
-
-	test.That(
+	rdktestutils.VerifySameResourceNames(
 		t,
-		rdktestutils.NewResourceNameSet(res...),
-		test.ShouldResemble,
-		rdktestutils.NewResourceNameSet([]resource.Name{arm.Named("remote1:arm1"), arm.Named("remote1:arm2")}...),
+		manager.remoteResourceNames(fromRemoteNameToRemoteNodeName("remote1")),
+		[]resource.Name{arm.Named("remote1:arm1"), arm.Named("remote1:arm2")},
 	)
 }
 
@@ -457,19 +448,6 @@ func TestManagerAdd(t *testing.T) {
 	test.That(t, arm1, test.ShouldEqual, injectArm)
 
 	injectBoard := &inject.Board{}
-	injectBoard.AnalogNamesFunc = func() []string {
-		return []string{"analog1"}
-	}
-	injectBoard.DigitalInterruptNamesFunc = func() []string {
-		return []string{"digital1"}
-	}
-	injectBoard.AnalogByNameFunc = func(name string) (board.Analog, error) {
-		return &fakeboard.Analog{}, nil
-	}
-	injectBoard.DigitalInterruptByNameFunc = func(name string) (board.DigitalInterrupt, error) {
-		return &pinwrappers.BasicDigitalInterrupt{}, nil
-	}
-
 	cfg = &resource.Config{
 		API:  board.API,
 		Name: "board1",
@@ -762,7 +740,7 @@ func TestManagerMarkRemoved(t *testing.T) {
 		t.Helper()
 		test.That(t, names, test.ShouldBeEmpty)
 		test.That(t, resourcesToCloseBeforeComplete, test.ShouldBeEmpty)
-		test.That(t, utils.NewStringSet(procMan.ProcessIDs()...), test.ShouldBeEmpty)
+		test.That(t, procMan.ProcessIDs(), test.ShouldBeEmpty)
 	}
 
 	processesToRemove, resourcesToCloseBeforeComplete, markedResourceNames := manager.markRemoved(ctx, &config.Config{}, logger)
@@ -905,12 +883,7 @@ func TestManagerMarkRemoved(t *testing.T) {
 			servoNames,
 		)...),
 	)
-	test.That(
-		t,
-		utils.NewStringSet(processesToRemove.ProcessIDs()...),
-		test.ShouldResemble,
-		utils.NewStringSet("2"),
-	)
+	rdktestutils.VerifySameElements(t, processesToRemove.ProcessIDs(), []string{"2"})
 
 	test.That(t, manager.Close(ctx), test.ShouldBeNil)
 	cancel()
@@ -1024,12 +997,7 @@ func TestManagerMarkRemoved(t *testing.T) {
 			[]resource.Name{fromRemoteNameToRemoteNodeName("remote2")},
 		)...),
 	)
-	test.That(
-		t,
-		utils.NewStringSet(processesToRemove.ProcessIDs()...),
-		test.ShouldResemble,
-		utils.NewStringSet("2"),
-	)
+	rdktestutils.VerifySameElements(t, processesToRemove.ProcessIDs(), []string{"2"})
 
 	test.That(t, manager.Close(ctx), test.ShouldBeNil)
 	cancel()
@@ -1212,12 +1180,7 @@ func TestManagerMarkRemoved(t *testing.T) {
 			},
 		)...),
 	)
-	test.That(
-		t,
-		utils.NewStringSet(processesToRemove.ProcessIDs()...),
-		test.ShouldResemble,
-		utils.NewStringSet("1", "2"),
-	)
+	rdktestutils.VerifySameElements(t, processesToRemove.ProcessIDs(), []string{"1", "2"})
 	test.That(t, manager.Close(ctx), test.ShouldBeNil)
 	cancel()
 }
@@ -1825,6 +1788,10 @@ func (rr *dummyRobot) RestartModule(ctx context.Context, req robot.RestartModule
 	return rr.robot.RestartModule(ctx, req)
 }
 
+func (rr *dummyRobot) Shutdown(ctx context.Context) error {
+	return rr.robot.Shutdown(ctx)
+}
+
 // managerForDummyRobot integrates all parts from a given robot except for its remotes.
 // It also close itself when the test and all subtests complete.
 func managerForDummyRobot(t *testing.T, robot robot.Robot) *resourceManager {
@@ -1837,7 +1804,7 @@ func managerForDummyRobot(t *testing.T, robot robot.Robot) *resourceManager {
 
 	// start a dummy module manager so calls to moduleManager.Provides() do not
 	// panic.
-	manager.startModuleManager(context.Background(), "", nil, false, "", "", robot.Logger())
+	manager.startModuleManager(context.Background(), "", nil, false, "", "", robot.Logger(), t.TempDir())
 
 	for _, name := range robot.ResourceNames() {
 		res, err := robot.ResourceByName(name)
@@ -1849,4 +1816,65 @@ func managerForDummyRobot(t *testing.T, robot robot.Robot) *resourceManager {
 		test.That(t, manager.resources.AddNode(name, gNode), test.ShouldBeNil)
 	}
 	return manager
+}
+
+// TestReconfigureParity validates that calling the synchronous and asynchronous version
+// of `Reconfigure` results in the same resource state on a local robot for all
+// combinations of an initial and updated configuration.
+func TestReconfigureParity(t *testing.T) {
+	// TODO(RSDK-7716): add some configurations with modules.
+	files := []string{
+		"data/diff_config_deps1.json",
+		"data/diff_config_deps2.json",
+		"data/diff_config_deps3.json",
+		"data/diff_config_deps4.json",
+		"data/diff_config_deps5.json",
+		"data/diff_config_deps6.json",
+		"data/diff_config_deps7.json",
+		"data/diff_config_deps8.json",
+		"data/diff_config_deps9_good.json",
+		"data/diff_config_deps9_bad.json",
+		"data/diff_config_deps10.json",
+		"data/diff_config_deps11.json",
+		"data/diff_config_deps12.json",
+	}
+	logger := logging.NewTestLogger(t)
+	ctx := context.Background()
+
+	testReconfigureParity := func(t *testing.T, initCfg, updateCfg string) {
+		name := fmt.Sprintf("%s -> %s", initCfg, updateCfg)
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Configuration may mutate `*config.Config`, so we read it from
+			// file each time.
+			cfg := ConfigFromFile(t, initCfg)
+			r1 := setupLocalRobot(t, ctx, cfg, logger).(*localRobot)
+			cfg = ConfigFromFile(t, initCfg)
+			r2 := setupLocalRobot(t, ctx, cfg, logger).(*localRobot)
+
+			rdktestutils.VerifySameResourceNames(t, r1.ResourceNames(), r2.ResourceNames())
+
+			cfg = ConfigFromFile(t, updateCfg)
+			r1.Reconfigure(ctx, cfg)
+			cfg = ConfigFromFile(t, updateCfg)
+			// force robot to reconfigure resources serially
+			r2.reconfigure(ctx, cfg, true)
+
+			rdktestutils.VerifySameResourceNames(t, r1.ResourceNames(), r2.ResourceNames())
+		})
+	}
+
+	gen := combin.NewCombinationGenerator(len(files), 2)
+
+	pair := []int{0, 0}
+	for gen.Next() {
+		gen.Combination(pair)
+
+		i, j := pair[0], pair[1]
+		testReconfigureParity(t, files[i], files[j])
+
+		i, j = pair[1], pair[0]
+		testReconfigureParity(t, files[i], files[j])
+	}
 }

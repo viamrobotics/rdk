@@ -17,4 +17,6 @@ type Options struct {
 	// RemoveOrphanedResources is a function that the module manager can call to
 	// remove orphaned resources from the resource graph.
 	RemoveOrphanedResources func(ctx context.Context, rNames []resource.Name)
+	// PackagesDir is from Config.PackagesPath. It's used for resolving local tarball module paths.
+	PackagesDir string
 }

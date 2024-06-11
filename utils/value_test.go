@@ -58,3 +58,13 @@ func TestFindInSlice(t *testing.T) {
 	test.That(t, filtered, test.ShouldNotBeNil)
 	test.That(t, *filtered, test.ShouldEqual, 3)
 }
+
+func TestMapOver(t *testing.T) {
+	mapped, _ := MapOver([]int{1, 2}, func(x int) (int, error) { return x + 1, nil })
+	test.That(t, mapped, test.ShouldResemble, []int{2, 3})
+}
+
+func TestFilterSlice(t *testing.T) {
+	filtered := FilterSlice([]int{1, 2, 3, 4, 5}, func(x int) bool { return x%2 == 0 })
+	test.That(t, filtered, test.ShouldResemble, []int{2, 4})
+}

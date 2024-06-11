@@ -41,5 +41,8 @@ func MakeRobotForModuleLogging(t *testing.T, parentAddr string) rpc.Server {
 	go func() {
 		test.That(t, rpcServer.Serve(listener), test.ShouldBeNil)
 	}()
+	t.Cleanup(func() {
+		test.That(t, rpcServer.Stop(), test.ShouldBeNil)
+	})
 	return rpcServer
 }

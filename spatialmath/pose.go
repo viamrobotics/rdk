@@ -6,6 +6,9 @@
 package spatialmath
 
 import (
+	"errors"
+	"math"
+
 	"github.com/golang/geo/r3"
 	commonpb "go.viam.com/api/common/v1"
 	"gonum.org/v1/gonum/num/dualquat"
@@ -218,4 +221,27 @@ func ResetPoseDQTranslation(p Pose, v r3.Vector) {
 		panic("ResetPoseDQTranslation has to be passed a dual quaternion")
 	}
 	q.SetTranslation(v)
+}
+
+// ProjectOrientationTo2dRotation takes a pose whose orientation is not pointing at a pole and collapses its orientation into a single
+// rotation around the Z axis. This is useful for determining things like heading on a map if the component reporting heading is askew.
+func ProjectOrientationTo2dRotation(pose Pose) (Pose, error) {
+	orient := pose.Orientation().OrientationVectorRadians() // OV is easy to check if we are in plane
+	if orient.OX == 0 && orient.OY == 0 {
+		return pose, nil
+	}
+
+	// This is the vector in which a base would move if it had no changed orientation
+	adjPt := NewPoseFromPoint(r3.Vector{0, 1, 0})
+	// This is the vector a base would follow based on the reported orientation, were it unencumbered by things like gravity or the ground
+	newAdjPt := Compose(NewPoseFromOrientation(orient), adjPt).Point()
+	if 1-math.Abs(newAdjPt.Z) < orientationVectorPoleRadius {
+		if newAdjPt.Z > 0 {
+			return nil, errors.New("orientation appears to be pointing straight up, cannot project to 2d")
+		}
+		return nil, errors.New("orientation appears to be pointing straight down, cannot project to 2d")
+	}
+	// This is the vector across the ground of the above hypothetical vector, projected onto the X-Y plane.
+	theta := -math.Atan2(newAdjPt.Y, -newAdjPt.X)
+	return NewPose(pose.Point(), &OrientationVector{OZ: 1, Theta: theta}), nil
 }

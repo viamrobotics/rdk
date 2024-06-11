@@ -482,29 +482,6 @@ func TestMoveOnMapAskewIMU(t *testing.T) {
 
 		test.That(t, spatialmath.PoseAlmostEqualEps(endPos, goal1BaseFrame, 10), test.ShouldBeTrue)
 	})
-	t.Run("Upside down base should fail to plan", func(t *testing.T) {
-		t.Parallel()
-		ctx := context.Background()
-		askewOrient := &spatialmath.OrientationVectorDegrees{OX: 1, OY: 1, OZ: -1, Theta: 55}
-		// goal x-position of 1.32m is scaled to be in mm
-		goal1SLAMFrame := spatialmath.NewPose(r3.Vector{X: 1.32 * 1000, Y: 0}, &spatialmath.OrientationVectorDegrees{OZ: 1, Theta: 55})
-
-		_, ms := createMoveOnMapEnvironment(ctx, t, "pointcloud/octagonspace.pcd", 40, spatialmath.NewPoseFromOrientation(askewOrient))
-		defer ms.Close(ctx)
-
-		req := motion.MoveOnMapReq{
-			ComponentName: base.Named("test-base"),
-			Destination:   goal1SLAMFrame,
-			SlamName:      slam.Named("test_slam"),
-			Extra:         extraPosOnly,
-		}
-
-		timeoutCtx, timeoutFn := context.WithTimeout(ctx, time.Second*15)
-		defer timeoutFn()
-		_, err := ms.(*builtIn).MoveOnMap(timeoutCtx, req)
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldEqual, "base appears to be upside down, check your movement sensor")
-	})
 }
 
 func TestMoveOnMapStaticObs(t *testing.T) {
@@ -536,11 +513,11 @@ func TestMoveOnMapStaticObs(t *testing.T) {
 
 	// Create an injected SLAM
 	injectSlam := createInjectedSlam(slamName, "pointcloud/octagonspace.pcd", nil)
-	injectSlam.PositionFunc = func(ctx context.Context) (spatialmath.Pose, string, error) {
+	injectSlam.PositionFunc = func(ctx context.Context) (spatialmath.Pose, error) {
 		return spatialmath.NewPose(
 			r3.Vector{X: 0.58772e3, Y: -0.80826e3, Z: 0},
 			&spatialmath.OrientationVectorDegrees{OZ: 1, Theta: 90},
-		), "", nil
+		), nil
 	}
 
 	// Create a motion service

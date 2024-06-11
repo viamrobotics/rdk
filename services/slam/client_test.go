@@ -41,7 +41,6 @@ func TestClientWorkingService(t *testing.T) {
 	workingServer, err := rpc.NewServer(logger.AsZap(), rpc.WithUnauthenticated())
 	test.That(t, err, test.ShouldBeNil)
 	poseSucc := spatial.NewPose(r3.Vector{X: 1, Y: 2, Z: 3}, &spatial.OrientationVector{Theta: math.Pi / 2, OX: 0, OY: 0, OZ: -1})
-	componentRefSucc := "cam"
 	pcSucc := &vision.Object{}
 	pcSucc.PointCloud = pointcloud.New()
 	pcdPath := artifact.MustPath("slam/mock_lidar/0.pcd")
@@ -67,8 +66,8 @@ func TestClientWorkingService(t *testing.T) {
 
 	workingSLAMService := &inject.SLAMService{}
 
-	workingSLAMService.PositionFunc = func(ctx context.Context) (spatial.Pose, string, error) {
-		return poseSucc, componentRefSucc, nil
+	workingSLAMService.PositionFunc = func(ctx context.Context) (spatial.Pose, error) {
+		return poseSucc, nil
 	}
 
 	workingSLAMService.PointCloudMapFunc = func(ctx context.Context, returnEditedMap bool) (func() ([]byte, error), error) {
@@ -134,10 +133,9 @@ func TestClientWorkingService(t *testing.T) {
 		workingSLAMClient, err := slam.NewClientFromConn(context.Background(), conn, "", slam.Named(nameSucc), logger)
 		test.That(t, err, test.ShouldBeNil)
 		// test position
-		pose, componentRef, err := workingSLAMClient.Position(context.Background())
+		pose, err := workingSLAMClient.Position(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, spatial.PoseAlmostEqual(poseSucc, pose), test.ShouldBeTrue)
-		test.That(t, componentRef, test.ShouldEqual, componentRefSucc)
 
 		// test point cloud map
 		fullBytesPCD, err := slam.PointCloudMapFull(context.Background(), workingSLAMClient, false)
@@ -180,10 +178,9 @@ func TestClientWorkingService(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		// test position
-		pose, componentRef, err := workingDialedClient.Position(context.Background())
+		pose, err := workingDialedClient.Position(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, spatial.PoseAlmostEqual(poseSucc, pose), test.ShouldBeTrue)
-		test.That(t, componentRef, test.ShouldEqual, componentRefSucc)
 
 		// test point cloud map
 		fullBytesPCD, err := slam.PointCloudMapFull(context.Background(), workingDialedClient, false)
@@ -234,10 +231,9 @@ func TestClientWorkingService(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		// test position
-		pose, componentRef, err := dialedClient.Position(context.Background())
+		pose, err := dialedClient.Position(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, spatial.PoseAlmostEqual(poseSucc, pose), test.ShouldBeTrue)
-		test.That(t, componentRef, test.ShouldEqual, componentRefSucc)
 
 		// test point cloud map
 		fullBytesPCD, err := slam.PointCloudMapFull(context.Background(), dialedClient, false)
@@ -289,8 +285,8 @@ func TestFailingClient(t *testing.T) {
 
 	failingSLAMService := &inject.SLAMService{}
 
-	failingSLAMService.PositionFunc = func(ctx context.Context) (spatial.Pose, string, error) {
-		return nil, "", errors.New("failure to get position")
+	failingSLAMService.PositionFunc = func(ctx context.Context) (spatial.Pose, error) {
+		return nil, errors.New("failure to get position")
 	}
 
 	failingSLAMService.PointCloudMapFunc = func(ctx context.Context, returnEditedMap bool) (func() ([]byte, error), error) {
@@ -336,11 +332,10 @@ func TestFailingClient(t *testing.T) {
 		test.That(t, err.Error(), test.ShouldContainSubstring, "context cancel")
 
 		// test position
-		pose, componentRef, err := failingSLAMClient.Position(context.Background())
+		pose, err := failingSLAMClient.Position(context.Background())
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "failure to get position")
 		test.That(t, pose, test.ShouldBeNil)
-		test.That(t, componentRef, test.ShouldBeEmpty)
 
 		// test pointcloud map
 		fullBytesPCD, err := slam.PointCloudMapFull(context.Background(), failingSLAMClient, false)

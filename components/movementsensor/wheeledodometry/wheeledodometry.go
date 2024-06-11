@@ -11,7 +11,6 @@ import (
 
 	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
-	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/components/motor"
@@ -19,7 +18,7 @@ import (
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
-	rdkutils "go.viam.com/rdk/utils"
+	"go.viam.com/rdk/utils"
 )
 
 var model = resource.DefaultModelFamily.WithModel("wheeled-odometry")
@@ -74,10 +73,9 @@ type odometry struct {
 	useCompass bool
 	shiftPos   bool
 
-	cancelFunc              func()
-	activeBackgroundWorkers sync.WaitGroup
-	mu                      sync.Mutex
-	logger                  logging.Logger
+	workers utils.StoppableWorkers
+	mu      sync.Mutex
+	logger  logging.Logger
 }
 
 func init() {
@@ -129,9 +127,8 @@ func (o *odometry) Reconfigure(ctx context.Context, deps resource.Dependencies, 
 		}
 	}
 
-	if o.cancelFunc != nil {
-		o.cancelFunc()
-		o.activeBackgroundWorkers.Wait()
+	if o.workers != nil {
+		o.workers.Stop()
 	}
 
 	o.mu.Lock()
@@ -215,9 +212,7 @@ func (o *odometry) Reconfigure(ctx context.Context, deps resource.Dependencies, 
 
 	o.orientation.Yaw = 0
 	o.originCoord = geo.NewPoint(0, 0)
-	ctx, cancelFunc := context.WithCancel(context.Background())
-	o.cancelFunc = cancelFunc
-	o.trackPosition(ctx)
+	o.trackPosition() // (re-)initializes o.workers
 
 	return nil
 }
@@ -274,7 +269,7 @@ func (o *odometry) CompassHeading(ctx context.Context, extra map[string]interfac
 
 // computes the compass heading in degrees from a yaw in radians, with 0 -> 360 and Z down.
 func yawToCompassHeading(yaw float64) float64 {
-	yawDeg := rdkutils.RadToDeg(yaw)
+	yawDeg := utils.RadToDeg(yaw)
 	if yawDeg < 0 {
 		yawDeg = 180 - yawDeg
 	}
@@ -332,8 +327,7 @@ func (o *odometry) Properties(ctx context.Context, extra map[string]interface{})
 }
 
 func (o *odometry) Close(ctx context.Context) error {
-	o.cancelFunc()
-	o.activeBackgroundWorkers.Wait()
+	o.workers.Stop()
 	return nil
 }
 
@@ -358,14 +352,9 @@ func (o *odometry) checkBaseProps(ctx context.Context) {
 // linear velocity, and angular velocity of the wheeled base.
 // The estimations in this function are based on the math outlined in this article:
 // https://stuff.mit.edu/afs/athena/course/6/6.186/OldFiles/2005/doc/odomtutorial/odomtutorial.pdf
-func (o *odometry) trackPosition(ctx context.Context) {
-	if o.originCoord == nil {
-		o.originCoord = geo.NewPoint(0, 0)
-	}
-
-	o.activeBackgroundWorkers.Add(1)
-	utils.PanicCapturingGo(func() {
-		defer o.activeBackgroundWorkers.Done()
+func (o *odometry) trackPosition() {
+	// Spawn a new goroutine to do all the work in the background.
+	o.workers = utils.NewStoppableWorkers(func(ctx context.Context) {
 		ticker := time.NewTicker(time.Duration(o.timeIntervalMSecs) * time.Millisecond)
 		for {
 			select {
@@ -382,8 +371,8 @@ func (o *odometry) trackPosition(ctx context.Context) {
 			}
 
 			// Use GetInParallel to ensure the left and right motors are polled at the same time.
-			positionFuncs := func() []rdkutils.FloatFunc {
-				fs := []rdkutils.FloatFunc{}
+			positionFuncs := func() []utils.FloatFunc {
+				fs := []utils.FloatFunc{}
 
 				// Always use the first pair until more than one pair of motors is supported in this model.
 				fs = append(fs, func(ctx context.Context) (float64, error) { return o.motors[0].left.Position(ctx, nil) })
@@ -392,7 +381,7 @@ func (o *odometry) trackPosition(ctx context.Context) {
 				return fs
 			}
 
-			_, positions, err := rdkutils.GetInParallel(ctx, positionFuncs())
+			_, positions, err := utils.GetInParallel(ctx, positionFuncs())
 			if err != nil {
 				o.logger.CError(ctx, err)
 				continue
@@ -436,14 +425,14 @@ func (o *odometry) trackPosition(ctx context.Context) {
 			angle := o.orientation.Yaw
 			xFlip := -1.0
 			if o.useCompass {
-				angle = rdkutils.DegToRad(yawToCompassHeading(o.orientation.Yaw))
+				angle = utils.DegToRad(yawToCompassHeading(o.orientation.Yaw))
 				xFlip = 1.0
 			}
 			o.position.X += xFlip * (centerDist * math.Sin(angle))
 			o.position.Y += (centerDist * math.Cos(angle))
 
 			distance := math.Hypot(o.position.X, o.position.Y)
-			heading := rdkutils.RadToDeg(math.Atan2(o.position.X, o.position.Y))
+			heading := utils.RadToDeg(math.Atan2(o.position.X, o.position.Y))
 			o.coord = o.originCoord.PointAtDistanceAndBearing(distance*mToKm, heading)
 
 			// Update the linear and angular velocity values using the provided time interval.

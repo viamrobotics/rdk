@@ -38,6 +38,7 @@ var (
 		navigation.NoMap:  {navigation.ModeManual, navigation.ModeExplore},
 		navigation.GPSMap: {navigation.ModeManual, navigation.ModeWaypoint, navigation.ModeExplore},
 	}
+	geomWithTranslation = "geometries specified through navigation are not allowed to have a translation"
 
 	errNegativeDegPerSec                  = errors.New("degs_per_sec must be non-negative if set")
 	errNegativeMetersPerSec               = errors.New("meters_per_sec must be non-negative if set")
@@ -45,6 +46,10 @@ var (
 	errNegativeObstaclePollingFrequencyHz = errors.New("obstacle_polling_frequency_hz must be non-negative if set")
 	errNegativePlanDeviationM             = errors.New("plan_deviation_m must be non-negative if set")
 	errNegativeReplanCostFactor           = errors.New("replan_cost_factor must be non-negative if set")
+	errObstacleGeomWithTranslation        = errors.New("obstacle " + geomWithTranslation)
+	errBoundingRegionsGeomWithTranslation = errors.New("bounding region " + geomWithTranslation)
+	errObstacleGeomParse                  = errors.New("obstacle unable to be converted from geometry config")
+	errBoundingRegionsGeomParse           = errors.New("bounding regions unable to be converted from geometry config")
 )
 
 const (
@@ -99,6 +104,7 @@ type Config struct {
 	MetersPerSec float64 `json:"meters_per_sec,omitempty"`
 
 	Obstacles                  []*spatialmath.GeoGeometryConfig `json:"obstacles,omitempty"`
+	BoundingRegions            []*spatialmath.GeoGeometryConfig `json:"bounding_regions,omitempty"`
 	PositionPollingFrequencyHz float64                          `json:"position_polling_frequency_hz,omitempty"`
 	ObstaclePollingFrequencyHz float64                          `json:"obstacle_polling_frequency_hz,omitempty"`
 	PlanDeviationM             float64                          `json:"plan_deviation_m,omitempty"`
@@ -181,7 +187,16 @@ func (conf *Config) Validate(path string) ([]string, error) {
 	for _, obs := range conf.Obstacles {
 		for _, geoms := range obs.Geometries {
 			if !geoms.TranslationOffset.ApproxEqual(r3.Vector{}) {
-				return nil, errors.New("geometries specified through the navigation are not allowed to have a translation")
+				return nil, errObstacleGeomWithTranslation
+			}
+		}
+	}
+
+	// Ensure bounding regions have no translation
+	for _, region := range conf.BoundingRegions {
+		for _, geoms := range region.Geometries {
+			if !geoms.TranslationOffset.ApproxEqual(r3.Vector{}) {
+				return nil, errBoundingRegionsGeomWithTranslation
 			}
 		}
 	}
@@ -225,6 +240,7 @@ type builtIn struct {
 	// exploreMotionService will be removed once the motion explore model is integrated into motion builtin
 	exploreMotionService motion.Service
 	obstacles            []*spatialmath.GeoGeometry
+	boundingRegions      []*spatialmath.GeoGeometry
 
 	motionCfg        *motion.MotionConfiguration
 	replanCostFactor float64
@@ -365,7 +381,13 @@ func (svc *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies,
 	// Parse obstacles from the configuration
 	newObstacles, err := spatialmath.GeoGeometriesFromConfigs(svcConfig.Obstacles)
 	if err != nil {
-		return err
+		return errors.Wrap(errObstacleGeomParse, err.Error())
+	}
+
+	// Parse bounding regions from the configuration
+	newBoundingRegions, err := spatialmath.GeoGeometriesFromConfigs(svcConfig.BoundingRegions)
+	if err != nil {
+		return errors.Wrap(errBoundingRegionsGeomParse, err.Error())
 	}
 
 	// Create explore motion service
@@ -381,6 +403,7 @@ func (svc *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies,
 	svc.mapType = mapType
 	svc.motionService = motionSvc
 	svc.obstacles = newObstacles
+	svc.boundingRegions = newBoundingRegions
 	svc.replanCostFactor = replanCostFactor
 	svc.visionServicesByName = visionServicesByName
 	svc.motionCfg = &motion.MotionConfiguration{
@@ -457,6 +480,28 @@ func (svc *builtIn) Location(ctx context.Context, extra map[string]interface{}) 
 	if err != nil {
 		return nil, err
 	}
+	movementsensorOrigin := referenceframe.NewPoseInFrame(svc.movementSensor.Name().ShortName(), spatialmath.NewZeroPose())
+	movementSensorPoseInBase, err := svc.fsService.TransformPose(ctx, movementsensorOrigin, svc.base.Name().ShortName(), nil)
+	if err != nil {
+		// here we make the assumption the movementsensor is coincident with the camera
+		svc.logger.CDebugf(
+			ctx,
+			"we assume the movementsensor named: %s is coincident with the base named: %s due to err: %v",
+			svc.movementSensor.Name().ShortName(), svc.base.Name(), err.Error(),
+		)
+		movementSensorPoseInBase = referenceframe.NewPoseInFrame(svc.base.Name().ShortName(), spatialmath.NewZeroPose())
+	}
+	svc.logger.CDebugf(ctx, "movementSensorPoseInBase: %v", spatialmath.PoseToProtobuf(movementSensorPoseInBase.Pose()))
+
+	movementSensor2dOrientation, err := spatialmath.ProjectOrientationTo2dRotation(movementSensorPoseInBase.Pose())
+	if err != nil {
+		return nil, err
+	}
+	// When rotation about the +Z axis, an OV theta is right handed but compass heading is left handed. Account for this.
+	compassHeading -= movementSensor2dOrientation.Orientation().OrientationVectorDegrees().Theta
+	if compassHeading < 0 {
+		compassHeading += 360
+	}
 	geoPose := spatialmath.NewGeoPose(loc, compassHeading)
 	return geoPose, err
 }
@@ -524,6 +569,7 @@ func (svc *builtIn) moveToWaypoint(ctx context.Context, wp navigation.Waypoint, 
 		MovementSensorName: svc.movementSensor.Name(),
 		Obstacles:          svc.obstacles,
 		MotionCfg:          svc.motionCfg,
+		BoundingRegions:    svc.boundingRegions,
 		Extra:              extra,
 	}
 	cancelCtx, cancelFn := context.WithCancel(ctx)
@@ -766,6 +812,7 @@ func (svc *builtIn) Obstacles(ctx context.Context, extra map[string]interface{})
 				label += "_" + detection.Geometry.Label()
 			}
 			detection.Geometry.SetLabel(label)
+			svc.logger.Debug(detection.Geometry)
 
 			// determine the desired geometry pose
 			desiredPose = spatialmath.NewPoseFromOrientation(detection.Geometry.Pose().Orientation())

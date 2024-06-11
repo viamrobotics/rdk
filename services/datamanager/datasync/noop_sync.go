@@ -1,5 +1,7 @@
 package datasync
 
+import "time"
+
 type noopManager struct{}
 
 var _ Manager = (*noopManager)(nil)
@@ -9,7 +11,7 @@ func NewNoopManager() Manager {
 	return &noopManager{}
 }
 
-func (m *noopManager) SyncFile(path string) {}
+func (m *noopManager) SyncFile(path string, stopAfter time.Time) {}
 
 func (m *noopManager) SetArbitraryFileTags(tags []string) {}
 

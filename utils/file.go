@@ -4,7 +4,9 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 
+	"github.com/pkg/errors"
 	"go.viam.com/utils"
 )
 
@@ -33,4 +35,15 @@ func RemoveFileNoError(path string) {
 		}
 		return nil
 	})
+}
+
+// SafeJoinDir performs a filepath.Join of 'parent' and 'subdir' but returns an error
+// if the resulting path points outside of 'parent'.
+// See also https://github.com/cyphar/filepath-securejoin.
+func SafeJoinDir(parent, subdir string) (string, error) {
+	res := filepath.Join(parent, subdir)
+	if !strings.HasPrefix(filepath.Clean(res), filepath.Clean(parent)+string(os.PathSeparator)) {
+		return res, errors.Errorf("unsafe path join: '%s' with '%s'", parent, subdir)
+	}
+	return res, nil
 }

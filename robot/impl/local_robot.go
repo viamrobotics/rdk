@@ -48,18 +48,24 @@ type localRobot struct {
 	manager       *resourceManager
 	mostRecentCfg atomic.Value // config.Config
 
-	operations                 *operation.Manager
-	sessionManager             session.Manager
-	packageManager             packages.ManagerSyncer
-	cloudConnSvc               icloud.ConnectionService
-	logger                     logging.Logger
-	activeBackgroundWorkers    sync.WaitGroup
+	operations              *operation.Manager
+	sessionManager          session.Manager
+	packageManager          packages.ManagerSyncer
+	localPackages           packages.ManagerSyncer
+	cloudConnSvc            icloud.ConnectionService
+	logger                  logging.Logger
+	activeBackgroundWorkers sync.WaitGroup
+	// reconfigureWorkers tracks goroutines spawned by reconfiguration functions. we only
+	// wait on this group in tests to prevent goleak-related failures. however, we do not
+	// wait on this group outside of testing, since the related goroutines may be running
+	// outside code and have unexpected behavior.
 	reconfigureWorkers         sync.WaitGroup
 	cancelBackgroundWorkers    func()
 	closeContext               context.Context
 	triggerConfig              chan struct{}
 	configTicker               *time.Ticker
 	revealSensitiveConfigDiffs bool
+	shutdownCallback           func()
 
 	// lastWeakDependentsRound stores the value of the resource graph's
 	// logical clock when updateWeakDependents was called.
@@ -385,6 +391,7 @@ func newWithResources(
 		configTicker:               nil,
 		revealSensitiveConfigDiffs: rOpts.revealSensitiveConfigDiffs,
 		cloudConnSvc:               icloud.NewCloudConnectionService(cfg.Cloud, logger),
+		shutdownCallback:           rOpts.shutdownCallback,
 	}
 	r.mostRecentCfg.Store(config.Config{})
 	var heartbeatWindow time.Duration
@@ -418,6 +425,10 @@ func newWithResources(
 	} else {
 		r.logger.CDebug(ctx, "Using no-op PackageManager when Cloud config is not available")
 		r.packageManager = packages.NewNoopManager()
+	}
+	r.localPackages, err = packages.NewLocalManager(cfg, logger)
+	if err != nil {
+		return nil, err
 	}
 
 	// start process manager early
@@ -475,6 +486,7 @@ func newWithResources(
 		homeDir,
 		cloudID,
 		logger,
+		cfg.PackagePath,
 	)
 
 	r.activeBackgroundWorkers.Add(1)
@@ -500,7 +512,7 @@ func newWithResources(
 			anyChanges := r.manager.updateRemotesResourceNames(closeCtx)
 			if r.manager.anyResourcesNotConfigured() {
 				anyChanges = true
-				r.manager.completeConfig(closeCtx, r)
+				r.manager.completeConfig(closeCtx, r, false)
 			}
 			if anyChanges {
 				r.updateWeakDependents(ctx)
@@ -1096,6 +1108,10 @@ func dialRobotClient(
 // a best effort to remove no longer in use parts, but if it fails to do so, they could
 // possibly leak resources. The given config may be modified by Reconfigure.
 func (r *localRobot) Reconfigure(ctx context.Context, newConfig *config.Config) {
+	r.reconfigure(ctx, newConfig, false)
+}
+
+func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, forceSync bool) {
 	var allErrs error
 
 	// Sync Packages before reconfiguring rest of robot and resolving references to any packages
@@ -1107,6 +1123,7 @@ func (r *localRobot) Reconfigure(ctx context.Context, newConfig *config.Config) 
 	if err != nil {
 		allErrs = multierr.Combine(allErrs, err)
 	}
+	allErrs = multierr.Combine(allErrs, r.localPackages.Sync(ctx, newConfig.Packages, newConfig.Modules))
 
 	// Add default services and process their dependencies. Dependencies may
 	// already come from config validation so we check that here.
@@ -1191,7 +1208,7 @@ func (r *localRobot) Reconfigure(ctx context.Context, newConfig *config.Config) 
 
 	// Fourth we attempt to complete the config (see function for details) and
 	// update weak dependents.
-	r.manager.completeConfig(ctx, r)
+	r.manager.completeConfig(ctx, r, forceSync)
 	r.updateWeakDependents(ctx)
 
 	// Finally we actually remove marked resources and Close any that are
@@ -1203,6 +1220,7 @@ func (r *localRobot) Reconfigure(ctx context.Context, newConfig *config.Config) 
 	// Cleanup unused packages after all old resources have been closed above. This ensures
 	// processes are shutdown before any files are deleted they are using.
 	allErrs = multierr.Combine(allErrs, r.packageManager.Cleanup(ctx))
+	allErrs = multierr.Combine(allErrs, r.localPackages.Cleanup(ctx))
 	// Cleanup extra dirs from previous modules or rogue scripts.
 	allErrs = multierr.Combine(allErrs, r.manager.moduleManager.CleanModuleDataDirectory())
 
@@ -1251,7 +1269,22 @@ func (r *localRobot) restartSingleModule(ctx context.Context, mod config.Module)
 		Left:     r.Config(),
 		Right:    r.Config(),
 		Added:    &config.Config{},
-		Modified: &config.ModifiedConfigDiff{Modules: []config.Module{mod}},
+		Modified: &config.ModifiedConfigDiff{},
+		Removed:  &config.Config{Modules: []config.Module{mod}},
+	}
+	err := r.manager.updateResources(ctx, &diff)
+	if err != nil {
+		return err
+	}
+	err = r.localPackages.SyncOne(ctx, mod)
+	if err != nil {
+		return err
+	}
+	diff = config.Diff{
+		Left:     r.Config(),
+		Right:    r.Config(),
+		Added:    &config.Config{Modules: []config.Module{mod}},
+		Modified: &config.ModifiedConfigDiff{},
 		Removed:  &config.Config{},
 	}
 	return r.manager.updateResources(ctx, &diff)
@@ -1267,6 +1300,15 @@ func (r *localRobot) RestartModule(ctx context.Context, req robot.RestartModuleR
 	err := r.restartSingleModule(ctx, *mod)
 	if err != nil {
 		return errors.Wrapf(err, "while restarting module id=%s, name=%s", req.ModuleID, req.ModuleName)
+	}
+	return nil
+}
+
+func (r *localRobot) Shutdown(ctx context.Context) error {
+	if shutdownFunc := r.shutdownCallback; shutdownFunc != nil {
+		shutdownFunc()
+	} else {
+		r.Logger().CErrorw(ctx, "shutdown function not defined")
 	}
 	return nil
 }

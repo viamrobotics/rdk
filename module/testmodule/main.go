@@ -23,6 +23,7 @@ var (
 	helperModel    = resource.NewModel("rdk", "test", "helper")
 	otherModel     = resource.NewModel("rdk", "test", "other")
 	testMotorModel = resource.NewModel("rdk", "test", "motor")
+	testSlowModel  = resource.NewModel("rdk", "test", "slow")
 	myMod          *module.Module
 )
 
@@ -62,6 +63,15 @@ func mainWithArgs(ctx context.Context, args []string, logger logging.Logger) err
 		testMotorModel,
 		resource.Registration[resource.Resource, resource.NoNativeConfig]{Constructor: newTestMotor})
 	err = myMod.AddModelFromRegistry(ctx, motor.API, testMotorModel)
+	if err != nil {
+		return err
+	}
+
+	resource.RegisterComponent(
+		generic.API,
+		testSlowModel,
+		resource.Registration[resource.Resource, resource.NoNativeConfig]{Constructor: newSlow})
+	err = myMod.AddModelFromRegistry(ctx, generic.API, testSlowModel)
 	if err != nil {
 		return err
 	}
@@ -240,6 +250,11 @@ func (tm *testMotor) GoTo(_ context.Context, _, _ float64, _ map[string]interfac
 	return nil
 }
 
+// SetRPM trivially implements motor.Motor.
+func (tm *testMotor) SetRPM(_ context.Context, _ float64, _ map[string]interface{}) error {
+	return nil
+}
+
 // ResetZeroPosition trivially implements motor.Motor.
 func (tm *testMotor) ResetZeroPosition(_ context.Context, _ float64, _ map[string]interface{}) error {
 	return nil
@@ -274,4 +289,30 @@ func (tm *testMotor) DoCommand(_ context.Context, _ map[string]interface{}) (map
 // IsMoving trivially implements motor.Motor.
 func (tm *testMotor) IsMoving(context.Context) (bool, error) {
 	return false, nil
+}
+
+func newSlow(
+	ctx context.Context, deps resource.Dependencies, conf resource.Config, logger logging.Logger,
+) (resource.Resource, error) {
+	configDuration, err := time.ParseDuration(conf.Attributes.String("config_duration"))
+	if err != nil {
+		return nil, err
+	}
+	time.Sleep(configDuration)
+	return &slow{
+		Named:          conf.ResourceName().AsNamed(),
+		configDuration: configDuration,
+	}, nil
+}
+
+type slow struct {
+	resource.Named
+	resource.TriviallyCloseable
+	configDuration time.Duration
+}
+
+// Reconfigure does nothing but is slow.
+func (s *slow) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
+	time.Sleep(s.configDuration)
+	return nil
 }

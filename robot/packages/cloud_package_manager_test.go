@@ -450,27 +450,6 @@ func isSymLink(t *testing.T, file string) bool {
 	return fileInfo.Mode()&os.ModeSymlink != 0
 }
 
-func TestSafeJoin(t *testing.T) {
-	parentDir := "/some/parent"
-
-	validate := func(in, expectedOut string, expectedErr error) {
-		t.Helper()
-
-		out, err := safeJoin(parentDir, in)
-		if expectedErr == nil {
-			test.That(t, err, test.ShouldBeNil)
-			test.That(t, out, test.ShouldEqual, expectedOut)
-		} else {
-			test.That(t, err, test.ShouldNotBeNil)
-			test.That(t, err.Error(), test.ShouldContainSubstring, expectedErr.Error())
-		}
-	}
-
-	validate("sub/dir", "/some/parent/sub/dir", nil)
-	validate("/other/parent", "/some/parent/other/parent", nil)
-	validate("../../../root", "", errors.New("unsafe path join"))
-}
-
 func TestSafeLink(t *testing.T) {
 	parentDir := "/some/parent"
 

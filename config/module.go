@@ -1,8 +1,13 @@
 package config
 
 import (
+	"encoding/json"
+	"fmt"
 	"os"
+	"path/filepath"
 	"reflect"
+	"regexp"
+	"strings"
 
 	"github.com/pkg/errors"
 
@@ -38,6 +43,11 @@ type Module struct {
 	Status           *AppValidationStatus `json:"status"`
 	alreadyValidated bool
 	cachedErr        error
+}
+
+// JSONManifest contains meta.json fields that are used by both RDK and CLI.
+type JSONManifest struct {
+	Entrypoint string `json:"entrypoint"`
 }
 
 // ModuleType indicates where a module comes from.
@@ -96,4 +106,106 @@ func (m Module) Equals(other Module) bool {
 	other.Status = nil
 	//nolint:govet
 	return reflect.DeepEqual(m, other)
+}
+
+var tarballExtensionsRegexp = regexp.MustCompile(`\.(tgz|tar\.gz)$`)
+
+// NeedsSyntheticPackage returns true if this is a local module pointing at a tarball.
+func (m Module) NeedsSyntheticPackage() bool {
+	return m.Type == ModuleTypeLocal && tarballExtensionsRegexp.MatchString(strings.ToLower(m.ExePath))
+}
+
+// SyntheticPackage creates a fake package for a module which can be used to access some package logic.
+func (m Module) SyntheticPackage() (PackageConfig, error) {
+	if m.Type != ModuleTypeLocal {
+		return PackageConfig{}, errors.New("SyntheticPackage only works on local modules")
+	}
+	var name string
+	if m.NeedsSyntheticPackage() {
+		name = fmt.Sprintf("synthetic-%s", m.Name)
+	} else {
+		name = m.Name
+	}
+	return PackageConfig{Name: name, Package: name, Type: PackageTypeModule}, nil
+}
+
+// exeDir returns the parent directory for the unpacked module.
+func (m Module) exeDir(packagesDir string) (string, error) {
+	if !m.NeedsSyntheticPackage() {
+		return filepath.Dir(m.ExePath), nil
+	}
+	pkg, err := m.SyntheticPackage()
+	if err != nil {
+		return "", err
+	}
+	return pkg.LocalDataDirectory(packagesDir), nil
+}
+
+// parseJSONFile returns a *T by parsing the json file at `path`.
+func parseJSONFile[T any](path string) (*T, error) {
+	f, err := os.Open(path) //nolint:gosec
+	if err != nil {
+		return nil, errors.Wrap(err, "reading json file")
+	}
+	var target T
+	err = json.NewDecoder(f).Decode(&target)
+	if err != nil {
+		return nil, err
+	}
+	return &target, nil
+}
+
+// EvaluateExePath returns absolute ExePath from one of three sources (in order of precedence):
+// 1. if there is a meta.json in the exe dir, use that, except in local non-tarball case.
+// 2. if this is a local tarball and there's a meta.json next to the tarball, use that.
+// 3. otherwise use the exe path from config, or fail if this is a local tarball.
+// Note: the working directory must be the unpacked tarball directory or local exec directory.
+func (m Module) EvaluateExePath(packagesDir string) (string, error) {
+	if !filepath.IsAbs(m.ExePath) {
+		return "", fmt.Errorf("expected ExePath to be absolute path, got %s", m.ExePath)
+	}
+	exeDir, err := m.exeDir(packagesDir)
+	if err != nil {
+		return "", err
+	}
+	// note: we don't look at internal meta.json in local non-tarball case because user has explicitly requested a binary.
+	localNonTarball := m.Type == ModuleTypeLocal && !m.NeedsSyntheticPackage()
+	if !localNonTarball {
+		// this is case 1, meta.json in exe folder.
+		metaPath, err := utils.SafeJoinDir(exeDir, "meta.json")
+		if err != nil {
+			return "", err
+		}
+		_, err = os.Stat(metaPath)
+		if err == nil {
+			// this is case 1, meta.json in exe dir
+			meta, err := parseJSONFile[JSONManifest](metaPath)
+			if err != nil {
+				return "", err
+			}
+			entrypoint, err := utils.SafeJoinDir(exeDir, meta.Entrypoint)
+			if err != nil {
+				return "", err
+			}
+			return filepath.Abs(entrypoint)
+		}
+	}
+	if m.NeedsSyntheticPackage() {
+		// this is case 2, side-by-side
+		// TODO(RSDK-7848): remove this case once java sdk supports internal meta.json.
+		metaPath, err := utils.SafeJoinDir(filepath.Dir(m.ExePath), "meta.json")
+		if err != nil {
+			return "", err
+		}
+		meta, err := parseJSONFile[JSONManifest](metaPath)
+		if err != nil {
+			return "", errors.Wrap(err, "loading side-by-side meta.json")
+		}
+		entrypoint, err := utils.SafeJoinDir(exeDir, meta.Entrypoint)
+		if err != nil {
+			return "", err
+		}
+		return filepath.Abs(entrypoint)
+	}
+	return m.ExePath, nil
 }

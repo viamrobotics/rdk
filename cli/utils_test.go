@@ -6,11 +6,6 @@ import (
 	"go.viam.com/test"
 )
 
-func TestMapOver(t *testing.T) {
-	mapped, _ := mapOver([]int{1, 2}, func(x int) (int, error) { return x + 1, nil })
-	test.That(t, mapped, test.ShouldResemble, []int{2, 3})
-}
-
 func TestSamePath(t *testing.T) {
 	equal, _ := samePath("/x", "/x")
 	test.That(t, equal, test.ShouldBeTrue)

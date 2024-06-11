@@ -124,7 +124,7 @@ func FromDependencies(deps resource.Dependencies, name string) (Service, error) 
 //	properties, err := mySLAMService.Properties(context.Background())
 type Service interface {
 	resource.Resource
-	Position(ctx context.Context) (spatialmath.Pose, string, error)
+	Position(ctx context.Context) (spatialmath.Pose, error)
 	PointCloudMap(ctx context.Context, returnEditedMap bool) (func() ([]byte, error), error)
 	InternalState(ctx context.Context) (func() ([]byte, error), error)
 	Properties(ctx context.Context) (Properties, error)

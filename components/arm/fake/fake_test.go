@@ -36,6 +36,13 @@ func TestReconfigure(t *testing.T) {
 		},
 	}
 
+	conf3 := resource.Config{
+		Name: "testArm",
+		ConvertedAttributes: &Config{
+			ModelFilePath: "zero_model.json",
+		},
+	}
+
 	conf1Err := resource.Config{
 		Name: "testArm",
 		ConvertedAttributes: &Config{
@@ -85,6 +92,12 @@ func TestReconfigure(t *testing.T) {
 	err = fakeArm.Reconfigure(context.Background(), nil, conf2Err)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "only files")
+	test.That(t, fakeArm.joints.Values, test.ShouldResemble, modelJoints)
+	test.That(t, fakeArm.model, test.ShouldResemble, model)
+
+	err = fakeArm.Reconfigure(context.Background(), nil, conf3)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "fake arm built with zero degrees-of-freedom")
 	test.That(t, fakeArm.joints.Values, test.ShouldResemble, modelJoints)
 	test.That(t, fakeArm.model, test.ShouldResemble, model)
 }

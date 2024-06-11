@@ -111,8 +111,8 @@ type EncodedMotor struct {
 	encoder                 encoder.Encoder
 	offsetInTicks           float64
 
-	mu             sync.RWMutex
-	rpmMonitorDone func()
+	mu                  sync.RWMutex
+	makeAdjustmentsDone func()
 
 	// how fast as we increase power do we do so
 	// valid numbers are (0, 1]
@@ -125,8 +125,8 @@ type EncodedMotor struct {
 	opMgr  *operation.SingleOperationManager
 }
 
-// rpmMonitor keeps track of the desired RPM and position.
-func (m *EncodedMotor) rpmMonitor(ctx context.Context, goalRPM, goalPos, direction float64) error {
+// makeAdjustments keeps track of the desired RPM and position.
+func (m *EncodedMotor) makeAdjustments(ctx context.Context, goalRPM, goalPos, direction float64) error {
 	lastPos, err := m.position(ctx, nil)
 	if err != nil {
 		return err
@@ -165,10 +165,26 @@ func (m *EncodedMotor) rpmMonitor(ctx context.Context, goalRPM, goalPos, directi
 			return m.Stop(ctx, nil)
 		}
 
-		newPower, err := m.makeAdjustments(ctx, pos, lastPos, goalRPM, goalPos, lastPowerPct, direction, now, lastTime)
+		// calculate RPM based on change in position and change in time
+		deltaPos := (pos - lastPos) / m.ticksPerRotation
+		// time is polled in nanoseconds, convert to minutes for rpm
+		deltaTime := (float64(now) - float64(lastTime)) / float64(6e10)
+		var currentRPM float64
+		if deltaTime == 0.0 {
+			currentRPM = 0
+		} else {
+			currentRPM = deltaPos / deltaTime
+		}
+
+		newPower, err := m.calcNewPowerPct(ctx, currentRPM, goalRPM, lastPowerPct, direction)
 		if err != nil {
 			return err
 		}
+
+		m.logger.CDebug(ctx, "making adjustments")
+		m.logger.CDebugf(ctx, "currentRPM: %v, goalRPM: %v", currentRPM, goalRPM)
+		m.logger.CDebugf(ctx, "lastPos: %v, pos: %v, goalPos: %v", lastPos, pos, goalPos)
+		m.logger.CDebugf(ctx, "lastTime: %v, now: %v", lastTime, now)
 
 		lastPos = pos
 		lastTime = now
@@ -176,32 +192,12 @@ func (m *EncodedMotor) rpmMonitor(ctx context.Context, goalRPM, goalPos, directi
 	}
 }
 
-// makeAdjustments does the math required to see if the RPM is too high or too low,
-// and if the goal position has been reached.
-func (m *EncodedMotor) makeAdjustments(
-	ctx context.Context, pos, lastPos, goalRPM, goalPos, lastPowerPct, direction float64,
-	now, lastTime int64,
+// calcNewPowerPct does the math required to see if the RPM is too high or too low,
+// and calculates the new power percent needed.
+func (m *EncodedMotor) calcNewPowerPct(
+	ctx context.Context, currentRPM, goalRPM, lastPowerPct, direction float64,
 ) (float64, error) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
 	newPowerPct := lastPowerPct
-
-	// calculate RPM based on change in position and change in time
-	deltaPos := (pos - lastPos) / m.ticksPerRotation
-	// time is polled in nanoseconds, convert to minutes for rpm
-	deltaTime := (float64(now) - float64(lastTime)) / float64(6e10)
-	var currentRPM float64
-	if deltaTime == 0.0 {
-		currentRPM = 0
-	} else {
-		currentRPM = deltaPos / deltaTime
-	}
-
-	m.logger.CDebug(ctx, "making adjustments")
-	m.logger.CDebugf(ctx, "lastPos: %v, pos: %v, goalPos: %v", lastPos, pos, goalPos)
-	m.logger.CDebugf(ctx, "lastTime: %v, now: %v", lastTime, now)
-	m.logger.CDebugf(ctx, "currentRPM: %v, goalRPM: %v", currentRPM, goalRPM)
 
 	rpmErr := goalRPM - currentRPM
 	// adjust our power based on the error in rpm
@@ -223,51 +219,43 @@ func (m *EncodedMotor) makeAdjustments(
 // Negative power implies a backward directional rotational.
 func (m *EncodedMotor) SetPower(ctx context.Context, powerPct float64, extra map[string]interface{}) error {
 	m.opMgr.CancelRunning(ctx)
-	if m.rpmMonitorDone != nil {
-		m.rpmMonitorDone()
+	if m.makeAdjustmentsDone != nil {
+		m.makeAdjustmentsDone()
 	}
-	m.mu.Lock()
-	defer m.mu.Unlock()
 	powerPct = fixPowerPct(powerPct, m.maxPowerPct)
 	return m.real.SetPower(ctx, powerPct, nil)
-}
-
-// goForMath calculates goalPos, goalRPM, and direction based on the given GoFor rpm and revolutions, and the current position.
-func (m *EncodedMotor) goForMath(ctx context.Context, rpm, revolutions float64) (float64, float64, float64) {
-	direction := sign(rpm * revolutions)
-
-	currentPos, err := m.position(ctx, nil)
-	if err != nil {
-		m.logger.CError(ctx, err)
-	}
-	goalPos := (math.Abs(revolutions) * m.ticksPerRotation * direction) + currentPos
-	goalRPM := math.Abs(rpm) * direction
-
-	if revolutions == 0 {
-		goalPos = math.Inf(int(direction))
-	}
-
-	return goalPos, goalRPM, direction
 }
 
 // GoFor instructs the motor to go in a specific direction for a specific amount of
 // revolutions at a given speed in revolutions per minute. Both the RPM and the revolutions
 // can be assigned negative values to move in a backwards direction. Note: if both are
 // negative the motor will spin in the forward direction.
-// If revolutions is 0, this will run the motor at rpm indefinitely
 // If revolutions != 0, this will block until the number of revolutions has been completed or another operation comes in.
+// Deprecated: If revolutions is 0, this will run the motor at rpm indefinitely.
 func (m *EncodedMotor) GoFor(ctx context.Context, rpm, revolutions float64, extra map[string]interface{}) error {
 	ctx, done := m.opMgr.New(ctx)
 	defer done()
 
-	goalPos, goalRPM, direction := m.goForMath(ctx, rpm, revolutions)
+	currentTicks, err := m.position(ctx, nil)
+	if err != nil {
+		return err
+	}
+	warning, err := checkSpeed(rpm, m.cfg.MaxRPM)
+	if warning != "" {
+		m.logger.CWarnf(ctx, warning)
+	}
+	if err != nil {
+		return err
+	}
+
+	goalPos, goalRPM, direction := encodedGoForMath(rpm, revolutions, currentTicks, m.ticksPerRotation)
 
 	if err := m.goForInternal(goalRPM, goalPos, direction); err != nil {
 		return err
 	}
 
-	// return and run the motor at rpm indefinitely
 	if revolutions == 0 {
+		m.logger.Warn("Deprecated: setting revolutions == 0 will spin the motor indefinitely at the specified RPM")
 		return nil
 	}
 
@@ -282,13 +270,13 @@ func (m *EncodedMotor) GoFor(ctx context.Context, rpm, revolutions float64, extr
 		}
 		return false, errs
 	}
-	err := m.opMgr.WaitForSuccess(
+	err = m.opMgr.WaitForSuccess(
 		ctx,
 		10*time.Millisecond,
 		positionReached,
 	)
-	// Ignore the context canceled error - this occurs when the rpmCtx is canceled
-	// with m.rpmMonitorDone in goForInternal and in Stop
+	// Ignore the context canceled error - this occurs when the adjustmentsCtx is canceled
+	// with m.makeAdjustmentsDone in goForInternal and in Stop
 	if !errors.Is(err, context.Canceled) {
 		return err
 	}
@@ -296,29 +284,21 @@ func (m *EncodedMotor) GoFor(ctx context.Context, rpm, revolutions float64, extr
 }
 
 func (m *EncodedMotor) goForInternal(rpm, goalPos, direction float64) error {
-	switch speed := math.Abs(rpm); {
-	case speed < 0.1:
-		return motor.NewZeroRPMError()
-	case m.cfg.MaxRPM > 0 && speed > m.cfg.MaxRPM-0.1:
-		m.logger.Warn("motor speed is nearly the max rev_per_min (%f)", m.cfg.MaxRPM)
-	default:
+	// cancel makeAdjustments if it already exists
+	if m.makeAdjustmentsDone != nil {
+		m.makeAdjustmentsDone()
 	}
-
-	// cancel rpmMonitor if it already exists
-	if m.rpmMonitorDone != nil {
-		m.rpmMonitorDone()
-	}
-	// start a new rpmMonitor
-	var rpmCtx context.Context
-	rpmCtx, m.rpmMonitorDone = context.WithCancel(context.Background())
+	// start a new makeAdjustments
+	var adjustmentsCtx context.Context
+	adjustmentsCtx, m.makeAdjustmentsDone = context.WithCancel(context.Background())
 	m.activeBackgroundWorkers.Add(1)
 	go func() {
 		defer m.activeBackgroundWorkers.Done()
-		if err := m.real.SetPower(rpmCtx, 0.2*direction, nil); err != nil {
+		if err := m.real.SetPower(adjustmentsCtx, 0.2*direction, nil); err != nil {
 			m.logger.Error(err)
 			return
 		}
-		if err := m.rpmMonitor(rpmCtx, rpm, goalPos, direction); err != nil {
+		if err := m.makeAdjustments(adjustmentsCtx, rpm, goalPos, direction); err != nil {
 			m.logger.Error(err)
 		}
 	}()
@@ -344,6 +324,28 @@ func (m *EncodedMotor) GoTo(ctx context.Context, rpm, targetPosition float64, ex
 		return nil
 	}
 	return m.GoFor(ctx, rpm, rotations, extra)
+}
+
+// SetRPM instructs the motor to move at the specified RPM indefinitely.
+func (m *EncodedMotor) SetRPM(ctx context.Context, rpm float64, extra map[string]interface{}) error {
+	ctx, done := m.opMgr.New(ctx)
+	defer done()
+
+	warning, err := checkSpeed(rpm, m.cfg.MaxRPM)
+	if warning != "" {
+		m.logger.CWarnf(ctx, warning)
+	}
+	if err != nil {
+		return err
+	}
+
+	goalPos := math.Inf(int(rpm))
+	direction := sign(rpm)
+	if err := m.goForInternal(rpm, goalPos, direction); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // ResetZeroPosition sets the current position (+/- offset) to be the new zero (home) position.
@@ -403,10 +405,10 @@ func (m *EncodedMotor) IsMoving(ctx context.Context) (bool, error) {
 	return m.real.IsMoving(ctx)
 }
 
-// Stop stops rpmMonitor and stops the real motor.
+// Stop stops makeAdjustments and stops the real motor.
 func (m *EncodedMotor) Stop(ctx context.Context, extra map[string]interface{}) error {
-	if m.rpmMonitorDone != nil {
-		m.rpmMonitorDone()
+	if m.makeAdjustmentsDone != nil {
+		m.makeAdjustmentsDone()
 	}
 	return m.real.Stop(ctx, nil)
 }

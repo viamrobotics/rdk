@@ -34,11 +34,11 @@ func newPositionCollector(resource interface{}, params data.CollectorParams) (da
 	}
 
 	cFunc := data.CaptureFunc(func(ctx context.Context, _ map[string]*anypb.Any) (interface{}, error) {
-		pose, componentRef, err := slam.Position(ctx)
+		pose, err := slam.Position(ctx)
 		if err != nil {
 			return nil, data.FailedToReadErr(params.ComponentName, position.String(), err)
 		}
-		return &pb.GetPositionResponse{Pose: spatialmath.PoseToProtobuf(pose), ComponentReference: componentRef}, nil
+		return &pb.GetPositionResponse{Pose: spatialmath.PoseToProtobuf(pose)}, nil
 	})
 	return data.NewCollector(cFunc, params)
 }

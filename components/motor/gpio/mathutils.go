@@ -1,8 +1,11 @@
 package gpio
 
 import (
+	"fmt"
 	"math"
 	"time"
+
+	"go.viam.com/rdk/components/motor"
 )
 
 func fixPowerPct(powerPct, max float64) float64 {
@@ -45,6 +48,9 @@ func goForMath(maxRPM, rpm, revolutions float64) (float64, time.Duration) {
 // goForMath calculates goalPos, goalRPM, and direction based on the given GoFor rpm and revolutions, and the current position.
 func encodedGoForMath(rpm, revolutions, currentPos, ticksPerRotation float64) (float64, float64, float64) {
 	direction := sign(rpm * revolutions)
+	if revolutions == 0 {
+		direction = sign(rpm)
+	}
 
 	goalPos := (math.Abs(revolutions) * ticksPerRotation * direction) + currentPos
 	goalRPM := math.Abs(rpm) * direction
@@ -54,4 +60,17 @@ func encodedGoForMath(rpm, revolutions, currentPos, ticksPerRotation float64) (f
 	}
 
 	return goalPos, goalRPM, direction
+}
+
+func checkSpeed(rpm, max float64) (string, error) {
+	switch speed := math.Abs(rpm); {
+	case speed == 0:
+		return "motor speed requested is 0 rev_per_min", motor.NewZeroRPMError()
+	case speed > 0 && speed < 0.1:
+		return "motor speed is nearly 0 rev_per_min", nil
+	case max > 0 && speed > max-0.1:
+		return fmt.Sprintf("motor speed is nearly the max rev_per_min (%f)", max), nil
+	default:
+		return "", nil
+	}
 }

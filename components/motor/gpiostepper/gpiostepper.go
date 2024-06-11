@@ -400,6 +400,11 @@ func (m *gpioStepper) GoTo(ctx context.Context, rpm, positionRevolutions float64
 	return m.GoFor(ctx, math.Abs(rpm), moveDistance, extra)
 }
 
+// SetRPM instructs the motor to move at the specified RPM indefinitely.
+func (m *gpioStepper) SetRPM(ctx context.Context, rpm float64, extra map[string]interface{}) error {
+	return motor.NewSetRPMUnsupportedError(m.Name().ShortName())
+}
+
 // Set the current position (+/- offset) to be the new zero (home) position.
 func (m *gpioStepper) ResetZeroPosition(ctx context.Context, offset float64, extra map[string]interface{}) error {
 	m.lock.Lock()

@@ -30,8 +30,6 @@ func (cm *controlledMotor) SetState(ctx context.Context, state []*control.Signal
 // State gets the state of the motor for the built-in control loop.
 func (cm *controlledMotor) State(ctx context.Context) ([]float64, error) {
 	ticks, _, err := cm.enc.Position(ctx, encoder.PositionTypeTicks, nil)
-	cm.mu.RLock()
-	defer cm.mu.RUnlock()
 	pos := ticks + cm.offsetInTicks
 	return []float64{pos}, err
 }
@@ -246,7 +244,6 @@ func (cm *controlledMotor) GoTo(ctx context.Context, rpm, targetPosition float64
 	if err != nil {
 		return err
 	}
-	// currRotations := pos / cm.ticksPerRotation
 	rotations := targetPosition - pos
 	// if you call GoFor with 0 revolutions, the motor will spin forever. If we are at the target,
 	// we must avoid this by not calling GoFor.
@@ -257,32 +254,19 @@ func (cm *controlledMotor) GoTo(ctx context.Context, rpm, targetPosition float64
 	return cm.GoFor(ctx, rpm, rotations, extra)
 }
 
-// GoFor instructs the motor to go in a specific direction for a specific amount of
-// revolutions at a given speed in revolutions per minute. Both the RPM and the revolutions
-// can be assigned negative values to move in a backwards direction. Note: if both are
-// negative the motor will spin in the forward direction.
-// If revolutions is 0, this will run the motor at rpm indefinitely
-// If revolutions != 0, this will block until the number of revolutions has been completed or another operation comes in.
-func (cm *controlledMotor) GoFor(ctx context.Context, rpm, revolutions float64, extra map[string]interface{}) error {
+// SetRPM instructs the motor to move at the specified RPM indefinitely.
+func (cm *controlledMotor) SetRPM(ctx context.Context, rpm float64, extra map[string]interface{}) error {
 	cm.opMgr.CancelRunning(ctx)
 	ctx, done := cm.opMgr.New(ctx)
 	defer done()
 
-	switch speed := math.Abs(rpm); {
-	case speed < 0.1:
-		cm.logger.CWarn(ctx, "motor speed is nearly 0 rev_per_min")
-		return motor.NewZeroRPMError()
-	case cm.real.maxRPM > 0 && speed > cm.real.maxRPM-0.1:
-		cm.logger.CWarnf(ctx, "motor speed is nearly the max rev_per_min (%f)", cm.real.maxRPM)
-	default:
+	warning, err := checkSpeed(rpm, cm.real.maxRPM)
+	if warning != "" {
+		cm.logger.CWarnf(ctx, warning)
 	}
-
-	currentTicks, _, err := cm.enc.Position(ctx, encoder.PositionTypeTicks, extra)
 	if err != nil {
 		return err
 	}
-
-	goalPos, _, _ := encodedGoForMath(rpm, revolutions, currentTicks, cm.ticksPerRotation)
 
 	if cm.loop == nil {
 		// create new control loop
@@ -294,10 +278,60 @@ func (cm *controlledMotor) GoFor(ctx context.Context, rpm, revolutions float64, 
 	cm.loop.Resume()
 	// set control loop values
 	velVal := math.Abs(rpm * cm.ticksPerRotation / 60)
+	goalPos := math.Inf(int(rpm))
+	// setPoint is +/- infinity, maxVel is calculated velVal
+	if err := cm.updateControlBlock(ctx, goalPos, velVal); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// GoFor instructs the motor to go in a specific direction for a specific amount of
+// revolutions at a given speed in revolutions per minute. Both the RPM and the revolutions
+// can be assigned negative values to move in a backwards direction. Note: if both are
+// negative the motor will spin in the forward direction.
+// If revolutions != 0, this will block until the number of revolutions has been completed or another operation comes in.
+// Deprecated: If revolutions is 0, this will run the motor at rpm indefinitely.
+func (cm *controlledMotor) GoFor(ctx context.Context, rpm, revolutions float64, extra map[string]interface{}) error {
+	cm.opMgr.CancelRunning(ctx)
+	ctx, done := cm.opMgr.New(ctx)
+	defer done()
+
+	warning, err := checkSpeed(rpm, cm.real.maxRPM)
+	if warning != "" {
+		cm.logger.CWarnf(ctx, warning)
+	}
+	if err != nil {
+		return err
+	}
+
+	currentTicks, _, err := cm.enc.Position(ctx, encoder.PositionTypeTicks, extra)
+	if err != nil {
+		return err
+	}
+
+	if cm.loop == nil {
+		// create new control loop
+		if err := cm.startControlLoop(); err != nil {
+			return err
+		}
+	}
+	cm.loop.Resume()
+
+	goalPos, _, _ := encodedGoForMath(rpm, revolutions, currentTicks, cm.ticksPerRotation)
+
+	// set control loop values
+	velVal := math.Abs(rpm * cm.ticksPerRotation / 60)
 	// when rev = 0, only velocity is controlled
 	// setPoint is +/- infinity, maxVel is calculated velVal
 	if err := cm.updateControlBlock(ctx, goalPos, velVal); err != nil {
 		return err
+	}
+
+	if revolutions == 0 {
+		cm.logger.Warn("Deprecated: setting revolutions == 0 will spin the motor indefinitely at the specified RPM")
+		return nil
 	}
 
 	// we can probably use something in controls to make GoFor blockign without this

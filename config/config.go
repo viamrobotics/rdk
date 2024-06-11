@@ -62,6 +62,9 @@ type Config struct {
 
 	// PackagePath sets the directory used to store packages locally. Defaults to ~/.viam/packages
 	PackagePath string
+
+	// EnableWebProfile turns pprof http server in localhost. Defaults to false.
+	EnableWebProfile bool
 }
 
 // NOTE: This data must be maintained with what is in Config.
@@ -77,6 +80,7 @@ type configData struct {
 	Auth                AuthConfig            `json:"auth"`
 	Debug               bool                  `json:"debug,omitempty"`
 	DisablePartialStart bool                  `json:"disable_partial_start"`
+	EnableWebProfile    bool                  `json:"enable_web_profile"`
 	GlobalLogConfig     []GlobalLogConfig     `json:"global_log_configuration"`
 }
 
@@ -264,6 +268,7 @@ func (c *Config) UnmarshalJSON(data []byte) error {
 	c.Auth = conf.Auth
 	c.Debug = conf.Debug
 	c.DisablePartialStart = conf.DisablePartialStart
+	c.EnableWebProfile = conf.EnableWebProfile
 	c.GlobalLogConfig = conf.GlobalLogConfig
 
 	return nil
@@ -293,6 +298,7 @@ func (c Config) MarshalJSON() ([]byte, error) {
 		Auth:                c.Auth,
 		Debug:               c.Debug,
 		DisablePartialStart: c.DisablePartialStart,
+		EnableWebProfile:    c.EnableWebProfile,
 		GlobalLogConfig:     c.GlobalLogConfig,
 	})
 }

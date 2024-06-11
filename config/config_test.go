@@ -1218,3 +1218,11 @@ func TestPackageConfig(t *testing.T) {
 		test.That(t, actualFilepath, test.ShouldEqual, pt.expectedRealFilePath)
 	}
 }
+
+func TestConfigRobotWebProfile(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+	cfg, err := config.Read(context.Background(), "data/config_with_web_profile.json", logger)
+	test.That(t, err, test.ShouldBeNil)
+
+	test.That(t, cfg.EnableWebProfile, test.ShouldBeTrue)
+}
