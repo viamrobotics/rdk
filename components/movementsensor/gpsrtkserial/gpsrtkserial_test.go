@@ -92,7 +92,7 @@ func TestReconfigure(t *testing.T) {
 
 func TestPosition(t *testing.T) {
 
-	t.Run("position test with last error and no last position", func(t *testing.T) {
+	t.Run("position with last error and no last position", func(t *testing.T) {
 		g := &rtkSerial{
 			err: movementsensor.NewLastError(1, 1),
 		}
