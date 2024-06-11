@@ -18,7 +18,6 @@ import (
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.uber.org/zap"
-
 	// registers all components.
 	commonpb "go.viam.com/api/common/v1"
 	armpb "go.viam.com/api/component/arm/v1"
@@ -3405,56 +3404,22 @@ func TestReconfigureOnModuleRename(t *testing.T) {
 		},
 	}
 
+	cfgCopy := *cfg
 	r := setupLocalRobot(t, ctx, cfg, logger)
 
 	// Modify config copy by renaming module
-	cfgCopy := &config.Config{
-		Modules: []config.Module{
-			{
-				Name:     "mod-renamed",
-				ExePath:  complexPath,
-				LogLevel: "info",
-			},
-		},
-		Components: []resource.Config{
-			{
-				Name:  "myBase",
-				API:   base.API,
-				Model: myBaseModel,
-				Attributes: rutils.AttributeMap{
-					"motorL": "motor1",
-					"motorR": "motor2",
-				},
-			},
-			{
-				Name:                "motor1",
-				API:                 motor.API,
-				Model:               fakeModel,
-				ConvertedAttributes: &fakemotor.Config{},
-			},
-			{
-				Name:                "motor2",
-				API:                 motor.API,
-				Model:               fakeModel,
-				ConvertedAttributes: &fakemotor.Config{},
-			},
-		},
-	}
-	// Create copy of cfgCopy to test aginst since Reconfigure modifies cfgCopy.
-	expectedCfg := *cfgCopy
 
-	r.Reconfigure(ctx, cfgCopy)
+	cfgCopy.Modules[0].Name = "mod-renamed"
+
+	expectedCfg := cfgCopy
+
+	r.Reconfigure(ctx, &cfgCopy)
 
 	actualCfg := r.Config()
 
-	logger.Infow("components of actual are", "components", actualCfg.Components)
-	logger.Infow("components of expected are", "components", expectedCfg.Components)
-
-	time.Sleep(10 * time.Second)
-
 	// Verify correct attributes of config
 	// Manually inspect components
-	// test.That(t, len(actualCfg.Components), test.ShouldEqual, 3)
+	test.That(t, len(actualCfg.Components), test.ShouldEqual, 3)
 
 	for _, comp := range actualCfg.Components {
 		isMyBase := comp.Equals(cfg.Components[0])
@@ -3462,14 +3427,8 @@ func TestReconfigureOnModuleRename(t *testing.T) {
 		isMotor2 := comp.Equals(cfg.Components[2])
 		test.That(t, isMyBase || isMotor1 || isMotor2, test.ShouldBeTrue)
 	}
-	actualCfg.Components = nil
-	expectedCfg.Components = nil
 
 	// Manually inspect module
 	test.That(t, len(actualCfg.Modules), test.ShouldEqual, 1)
 	test.That(t, actualCfg.Modules[0].Equals(expectedCfg.Modules[0]), test.ShouldBeTrue)
-	actualCfg.Modules = nil
-	expectedCfg.Modules = nil
-
-	// test.That(t, actualCfg, test.ShouldResemble, &expectedCfg)
 }

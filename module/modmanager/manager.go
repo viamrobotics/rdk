@@ -633,7 +633,10 @@ func (mgr *Manager) ResolveImplicitDependenciesInConfig(ctx context.Context, con
 			// continue if this component is not being provided by a module.
 			continue
 		}
-		if !slices.ContainsFunc(conf.Modified.Modules, func(elem config.Module) bool {
+
+		//nolint:gocritic
+		deltaModules := append(conf.Modified.Modules, conf.Added.Modules...)
+		if !slices.ContainsFunc(deltaModules, func(elem config.Module) bool {
 			return elem.Name == mod.cfg.Name
 		}) {
 			// continue if this modular component is not being handled by a modified
