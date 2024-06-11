@@ -122,7 +122,14 @@ func (conf Config) MarshalJSON() ([]byte, error) {
 // this should be a method on the type and hide away both Attributes and
 // ConvertedAttributes.
 func NativeConfig[T any](conf Config) (T, error) {
-	return utils.AssertType[T](conf.ConvertedAttributes)
+	var zero T
+	assertedConfig, err := utils.AssertType[T](conf.ConvertedAttributes)
+	if err != nil {
+		// error will be of the format expected x, but got y from AsssertType
+		return zero, fmt.Errorf(
+			"NativeConfig %w, make sure the type passed to Assert to matches the type passed into NativeConfig", err)
+	}
+	return assertedConfig, nil
 }
 
 // NewEmptyConfig returns a new, empty config for the given name and model.
