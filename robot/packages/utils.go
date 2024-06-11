@@ -292,7 +292,6 @@ type syncStatus string
 
 const (
 	syncStatusDownloading syncStatus = "downloading"
-	syncStatusUnpacking   syncStatus = "unpacking"
 	syncStatusDone        syncStatus = "done"
 )
 

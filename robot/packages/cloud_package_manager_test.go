@@ -7,6 +7,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"runtime"
 	"slices"
 	"strings"
 	"testing"
@@ -447,6 +448,9 @@ func TestPackageRefs(t *testing.T) {
 	t.Run("PackagePath", func(t *testing.T) {
 		// FYI: This test passes in CI but fails when ran on MacOS
 		t.Run("valid package", func(t *testing.T) {
+			if runtime.GOOS == "darwin" {
+				t.Skip("skip on macos because file permissions are 755 instead of 777")
+			}
 			pPath, err := pm.PackagePath("some-name")
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, pPath, test.ShouldEqual, input[0].LocalDataDirectory(packageDir))

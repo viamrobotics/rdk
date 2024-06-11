@@ -127,8 +127,9 @@ func (m *cloudManager) Sync(ctx context.Context, packages []config.PackageConfig
 	changedPackages, existingPackages := m.validateAndGetChangedPackages(packages)
 
 	// Updated managed map with existingPackages
-	for i, p := range existingPackages {
-		newManagedPackages[PackageName(p.Name)] = &existingPackages[i]
+	for _, p := range existingPackages {
+		p := p
+		newManagedPackages[PackageName(p.Name)] = &p
 	}
 
 	if len(changedPackages) > 0 {
@@ -137,6 +138,7 @@ func (m *cloudManager) Sync(ctx context.Context, packages []config.PackageConfig
 
 	start := time.Now()
 	for idx, p := range changedPackages {
+		p := p
 		pkgStart := time.Now()
 		if err := ctx.Err(); err != nil {
 			return multierr.Append(outErr, err)
@@ -181,8 +183,7 @@ func (m *cloudManager) Sync(ctx context.Context, packages []config.PackageConfig
 					return "", "", err
 				}
 
-				checksum, contentType, err := m.downloadFileFromGCSURL(ctx, url, dstPath, m.cloudConfig.ID, m.cloudConfig.Secret)
-				return checksum, contentType, err
+				return m.downloadFileFromGCSURL(ctx, url, dstPath, m.cloudConfig.ID, m.cloudConfig.Secret)
 			},
 		)
 		if err != nil {
@@ -197,7 +198,7 @@ func (m *cloudManager) Sync(ctx context.Context, packages []config.PackageConfig
 		}
 
 		// add to managed packages
-		newManagedPackages[PackageName(p.Name)] = &changedPackages[idx]
+		newManagedPackages[PackageName(p.Name)] = &p
 
 		m.logger.Debugf("Package sync complete [%d/%d] %s:%s after %v", idx+1, len(changedPackages), p.Package, p.Version, time.Since(pkgStart))
 	}
@@ -224,11 +225,11 @@ func (m *cloudManager) validateAndGetChangedPackages(
 			continue
 		}
 		newPackage := p
-		if exists := packageIsSynced(p, m.packagesDir, m.logger); !exists {
-			changed = append(changed, newPackage)
-		} else {
+		if packageIsSynced(p, m.packagesDir, m.logger) {
 			existing = append(existing, newPackage)
 			m.logger.Debugf("Package %s:%s already managed, skipping", p.Package, p.Version)
+		} else {
+			changed = append(changed, newPackage)
 		}
 	}
 	return changed, existing
