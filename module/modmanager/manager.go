@@ -620,8 +620,8 @@ func (mgr *Manager) ValidateConfig(ctx context.Context, conf resource.Config) ([
 }
 
 // ResolveImplicitDependenciesInConfig mutates the passed in diff to add modular implicit dependencies to added
-// and modified resources. It also puts modular resources whose module has been modified in conf.Added if they
-// are not already there.
+// and modified resources. It also puts modular resources whose module has been modified or added in conf.Added if
+// they are not already there since the resources themselves are not necessarily new.
 func (mgr *Manager) ResolveImplicitDependenciesInConfig(ctx context.Context, conf *config.Diff) error {
 	mgr.mu.RLock()
 	defer mgr.mu.RUnlock()
@@ -640,7 +640,7 @@ func (mgr *Manager) ResolveImplicitDependenciesInConfig(ctx context.Context, con
 			return elem.Name == mod.cfg.Name
 		}) {
 			// continue if this modular component is not being handled by a modified
-			// module.
+			// or added module.
 			continue
 		}
 		if slices.ContainsFunc(conf.Added.Components, func(elem resource.Config) bool {

@@ -3404,23 +3404,23 @@ func TestReconfigureOnModuleRename(t *testing.T) {
 		},
 	}
 
+	// Create copy of cfg since Reconfigure (called when setting up a robot) modifies cfg.
 	cfgCopy := *cfg
 	r := setupLocalRobot(t, ctx, cfg, logger)
 
-	// Modify config copy by renaming module
-
+	// Use copy to modify config by renaming module
 	cfgCopy.Modules[0].Name = "mod-renamed"
 
+	// Create copy of cfgCopy to test against
 	expectedCfg := cfgCopy
-
 	r.Reconfigure(ctx, &cfgCopy)
 
 	actualCfg := r.Config()
 
-	// Verify correct attributes of config
+	// Verify attributes of config
+
 	// Manually inspect components
 	test.That(t, len(actualCfg.Components), test.ShouldEqual, 3)
-
 	for _, comp := range actualCfg.Components {
 		isMyBase := comp.Equals(cfg.Components[0])
 		isMotor1 := comp.Equals(cfg.Components[1])
