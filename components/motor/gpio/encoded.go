@@ -237,9 +237,10 @@ func (m *EncodedMotor) GoFor(ctx context.Context, rpm, revolutions float64, extr
 	if err != nil {
 		return err
 	}
-	if posType != encoder.PositionTypeTicks {
-		return fmt.Errorf("expected ticks received %v", posType.String())
+	if err := checkEncPosType(posType); err != nil {
+		return err
 	}
+
 	warning, err := checkSpeed(rpm, m.cfg.MaxRPM)
 	if warning != "" {
 		m.logger.CWarnf(ctx, warning)
@@ -368,8 +369,11 @@ func (m *EncodedMotor) ResetZeroPosition(ctx context.Context, offset float64, ex
 // data is undefined. The unit returned is the number of revolutions which is intended to be fed
 // back into calls of GoFor.
 func (m *EncodedMotor) Position(ctx context.Context, extra map[string]interface{}) (float64, error) {
-	ticks, _, err := m.encoder.Position(ctx, encoder.PositionTypeTicks, extra)
+	ticks, posType, err := m.encoder.Position(ctx, encoder.PositionTypeTicks, extra)
 	if err != nil {
+		return 0, err
+	}
+	if err := checkEncPosType(posType); err != nil {
 		return 0, err
 	}
 	m.mu.RLock()
