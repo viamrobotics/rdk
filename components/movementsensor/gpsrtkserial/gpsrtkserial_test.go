@@ -113,7 +113,7 @@ func TestPosition(t *testing.T) {
 		g.err.Set(errors.New("last position"))
 		expectedPoint := geo.NewPoint(42.1, 123.)
 
-		point, flt, err := g.Position(context.Background(), nil)
+		pos, alt, err := g.Position(context.Background(), nil)
 		test.That(t, movementsensor.ArePointsEqual(point, expectedPoint), test.ShouldBeTrue)
 		test.That(t, flt, test.ShouldEqual, 0.0)
 		test.That(t, err, test.ShouldBeNil)
