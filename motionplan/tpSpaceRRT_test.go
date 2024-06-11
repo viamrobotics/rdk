@@ -102,18 +102,17 @@ func TestPtgWithObstacle(t *testing.T) {
 
 	ctx := context.Background()
 
-	goalPos := spatialmath.NewPoseFromPoint(r3.Vector{X: 3000, Y: 500, Z: 0})
-
 	fs := referenceframe.NewEmptyFrameSystem("test")
 	fs.AddFrame(ackermanFrame, fs.World())
 
 	opt := newBasicPlannerOptions(ackermanFrame)
 	opt.DistanceFunc = ik.NewSquaredNormSegmentMetric(30.)
 	opt.StartPose = spatialmath.NewPoseFromPoint(r3.Vector{100, 2000, 0})
+	goalPos := spatialmath.NewPoseFromPoint(r3.Vector{X: 3000, Y: 500, Z: 0})
 	opt.GoalThreshold = 5
 
 	// obstacles
-	file, _ := os.Open("customObstacles.txt")
+	file, err := os.Open("customObstaclesold.txt")
 	scanner := bufio.NewScanner(file)
 	geoms := make([]spatialmath.Geometry, 0)
 	blankFound := false
@@ -207,7 +206,7 @@ func TestPtgWithObstacle(t *testing.T) {
 		opt.AddStateConstraint(name, constraint)
 	}
 
-	mp, err := newTPSpaceMotionPlanner(ackermanFrame, rand.New(rand.NewSource(time.Now().Unix())), logger, opt)
+	mp, err := newTPSpaceMotionPlanner(ackermanFrame, rand.New(rand.NewSource(120)), logger, opt)
 	test.That(t, err, test.ShouldBeNil)
 	tp, _ := mp.(*tpSpaceRRTMotionPlanner)
 	if pathdebug {

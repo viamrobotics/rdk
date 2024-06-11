@@ -21,6 +21,7 @@ rectangle_obstacles = {}
 rectangle_count = 0
 circle_obstacles = {}
 circle_count = 0
+multipler = 10
 
 # Function to draw rectangle with adjustable size
 def draw_resizable_rect(start_pos, end_pos):
@@ -57,8 +58,8 @@ while running:
                 if drawing_shape == 'rectangle':
                     # Draw final rectangle
                     draw_resizable_rect(start_pos, end_pos)
-                    to_add_start = (start_pos[0] * 5, start_pos[1] * 5)
-                    to_add_end = (end_pos[0] * 5, end_pos[1] * 5)
+                    to_add_start = (start_pos[0] * multipler, start_pos[1] * multipler)
+                    to_add_end = (end_pos[0] * multipler, end_pos[1] * multipler)
                     rectangle_obstacles[to_add_start] = to_add_end
                     rectangle_count += 1
                     start_pos = None
@@ -66,8 +67,8 @@ while running:
                     # draw final circle
                     radius = math.sqrt((start_pos[0] - end_pos[0])**2 + (start_pos[1] - end_pos[1])**2)
                     draw_resizable_circle(start_pos, radius)
-                    new_radius = radius = math.sqrt((start_pos[0]*5 - end_pos[0]*5)**2 + (start_pos[1]*5 - end_pos[1]*5)**2)
-                    to_add = (start_pos[0] * 5, start_pos[1] * 5)
+                    new_radius = radius = math.sqrt((start_pos[0]*multipler - end_pos[0]*multipler)**2 + (start_pos[1]*multipler - end_pos[1]*multipler)**2)
+                    to_add = (start_pos[0] * multipler, start_pos[1] * multipler)
                     circle_obstacles[to_add] = new_radius
                     circle_count += 1
                     start_pos = None
@@ -87,7 +88,7 @@ while running:
 # Quit pygame
 print(rectangle_obstacles)
 print(circle_obstacles)
-with open("customObstacles.txt", 'w') as obstacleWriter:
+with open("customObstacles2.txt", 'w') as obstacleWriter:
     for start_pos, end_pos in rectangle_obstacles.items():
         obstacleWriter.write(f"{start_pos[0]}:{start_pos[1]}:{end_pos[0]}:{end_pos[1]}\n")
     obstacleWriter.write("\n")

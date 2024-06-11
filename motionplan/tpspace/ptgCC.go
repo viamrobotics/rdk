@@ -73,10 +73,10 @@ func (ptg *ptgCC) Transform(inputs []referenceframe.Input) (spatialmath.Pose, er
 }
 
 func (ptg *ptgCC) Curvature(alpha float64) (float64, error) {
-	if alpha != 0 {
-		arcRadius := 2 * math.Pi * ptg.turnRadius / math.Abs(alpha) // radius of arc
-		return 1 / arcRadius, nil
-	} else { // straight line, therefore curvature = 0
-		return 0, nil
-	}
+	flip := math.Copysign(1., alpha) // left or right
+	curvRev, _ := ptg.circle.Curvature(-1 * flip * math.Pi)
+	curvForw, _ := ptg.circle.Curvature(flip * math.Pi)
+	return curvRev + curvForw, nil
+	// arcRadius := 2 * math.Pi * ptg.turnRadius / math.Abs(alpha) // radius of arc
+	// return 1 / arcRadius, nil
 }

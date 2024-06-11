@@ -253,8 +253,8 @@ func (pm *planManager) planAtomicWaypoints(
 		}
 		resultSlices = append(resultSlices, steps...)
 	}
-
-	return newRRTPlan(resultSlices, pm.frame, pm.useTPspace)
+	to_ret, err := newRRTPlan(resultSlices, pm.frame, pm.useTPspace)
+	return to_ret, err
 }
 
 // planSingleAtomicWaypoint attempts to plan a single waypoint. It may optionally be pre-seeded with rrt maps; these will be passed to the
@@ -266,6 +266,7 @@ func (pm *planManager) planSingleAtomicWaypoint(
 	pathPlanner motionPlanner,
 	maps *rrtMaps,
 ) ([]referenceframe.Input, *resultPromise, error) {
+	pm.logger.Debugf("asd;lfkajsdl;fjadls;kfja;lsdkjf;malksdjfl;kasdjfkl;asdj;flkasdjfl;asdjf\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n")
 	if parPlan, ok := pathPlanner.(rrtParallelPlanner); ok {
 		// rrtParallelPlanner supports solution look-ahead for parallel waypoint solving
 		// This will set that up, and if we get a result on `endpointPreview`, then the next iteration will be started, and the steps
@@ -295,13 +296,17 @@ func (pm *planManager) planSingleAtomicWaypoint(
 		// timeout due to planner fallbacks.
 		plannerctx, cancel := context.WithTimeout(ctx, time.Duration(pathPlanner.opt().Timeout*float64(time.Second)))
 		defer cancel()
+		planStart := time.Now()
 		nodes, err := pathPlanner.plan(plannerctx, goal, seed)
+		planElapsed := time.Since(planStart)
+		pm.logger.Debugf("$PLANTIME,%v", planElapsed)
 		if err != nil {
 			return nil, nil, err
 		}
-
+		smoothStart := time.Now()
 		smoothedPath := pathPlanner.smoothPath(ctx, nodes)
-
+		smoothElapsed := time.Since(smoothStart)
+		pm.logger.Debugf("$SMOOTHTIME,%v", smoothElapsed)
 		// Update seed for the next waypoint to be the final configuration of this waypoint
 		seed = smoothedPath[len(smoothedPath)-1].Q()
 		return seed, &resultPromise{steps: smoothedPath}, nil
