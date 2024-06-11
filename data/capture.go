@@ -50,6 +50,7 @@ var metadataToAdditionalParamFields = map[string]string{
 // - Reconfigure (any number of times)
 // - Close (once).
 type CaptureManager struct {
+	mu                         sync.Mutex
 	captureDir                 string
 	captureDisabled            bool
 	collectors                 map[resourceMethodMetadata]*collectorAndConfig
@@ -321,28 +322,40 @@ func (cm *CaptureManager) updateDataCaptureConfigs(
 }
 
 func (cm *CaptureManager) CloseCollectors() {
+	var collectorsToClose []Collector
+	cm.mu.Lock()
+	for _, collectorAndConfig := range cm.collectors {
+		collectorsToClose = append(collectorsToClose, collectorAndConfig.Collector)
+	}
+	cm.collectors = make(map[resourceMethodMetadata]*collectorAndConfig)
+	cm.mu.Unlock()
+
 	var wg sync.WaitGroup
-	for md, collector := range cm.collectors {
-		currCollector := collector
+	for _, collector := range collectorsToClose {
 		wg.Add(1)
-		go func() {
+		go func(toClose Collector) {
 			defer wg.Done()
-			currCollector.Collector.Close()
-		}()
-		delete(cm.collectors, md)
+			toClose.Close()
+		}(collector)
 	}
 	wg.Wait()
 }
 
 func (cm *CaptureManager) FlushCollectors() {
+	var collectorsToFlush []Collector
+	cm.mu.Lock()
+	for _, collectorAndConfig := range cm.collectors {
+		collectorsToFlush = append(collectorsToFlush, collectorAndConfig.Collector)
+	}
+	cm.mu.Unlock()
+
 	var wg sync.WaitGroup
-	for _, collector := range cm.collectors {
-		currCollector := collector
+	for _, collector := range collectorsToFlush {
 		wg.Add(1)
-		go func() {
+		go func(toFlush Collector) {
 			defer wg.Done()
-			currCollector.Collector.Flush()
-		}()
+			toFlush.Flush()
+		}(collector)
 	}
 	wg.Wait()
 }
