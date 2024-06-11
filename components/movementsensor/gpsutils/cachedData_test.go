@@ -195,7 +195,7 @@ func TestCompassHeading(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 	g := NewCachedData(&mockDataReader{}, logger)
 
-	t.Run("no current compass heading so return last known", func(t *testing.T) {
+	t.Run("no valid compass heading, so return last known", func(t *testing.T) {
 		g.lastCompassHeading.SetLastCompassHeading(90.)
 		g.nmeaData = NmeaParser{
 			CompassHeading: math.NaN(),
