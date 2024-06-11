@@ -195,11 +195,12 @@ func (svc *builtIn) Close(_ context.Context) error {
 		svc.fileDeletionRoutineCancelFn()
 	}
 
+	fileDeletionBackgroundWorkers := svc.fileDeletionBackgroundWorkers
 	svc.lock.Unlock()
 	svc.backgroundWorkers.Wait()
 
-	if svc.fileDeletionBackgroundWorkers != nil {
-		svc.fileDeletionBackgroundWorkers.Wait()
+	if fileDeletionBackgroundWorkers != nil {
+		fileDeletionBackgroundWorkers.Wait()
 	}
 
 	return nil
