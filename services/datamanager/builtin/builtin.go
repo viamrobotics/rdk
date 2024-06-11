@@ -687,15 +687,16 @@ func (svc *builtIn) sync() {
 		for _, ap := range svc.additionalSyncPaths {
 			toSync = append(toSync, getAllFilesToSync(ap, svc.fileLastModifiedMillis)...)
 		}
+		syncer := svc.syncer
+		stopAfter := time.Now().Add(time.Duration(svc.syncIntervalMins * float64(time.Minute)))
 		svc.lock.Unlock()
 
-		stopAfter := time.Now().Add(time.Duration(svc.syncIntervalMins * float64(time.Minute)))
 		// Only log if there are a large number of files to sync
 		if len(toSync) > minNumFiles {
 			svc.logger.Infof("Starting sync of %d files", len(toSync))
 		}
 		for _, p := range toSync {
-			svc.syncer.SyncFile(p, stopAfter)
+			syncer.SyncFile(p, stopAfter)
 		}
 	} else {
 		svc.lock.Unlock()
