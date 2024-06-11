@@ -35,7 +35,7 @@ func TestLocalManagerUtils(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		dest := filepath.Join(tmp, "dest")
 		test.That(t, err, test.ShouldBeNil)
-		_, err = local.fileCopyHelper(context.Background(), f.Name(), dest)
+		_, _, err = local.fileCopyHelper(context.Background(), f.Name(), dest)
 		test.That(t, err, test.ShouldBeNil)
 		stat, err := os.Stat(dest)
 		test.That(t, err, test.ShouldBeNil)
@@ -43,18 +43,42 @@ func TestLocalManagerUtils(t *testing.T) {
 	})
 
 	t.Run("getAddedAndChanged", func(t *testing.T) {
-		mod1 := config.Module{Name: "stays-the-same"}
-		mod2 := config.Module{Name: "gets-changed"}
-		mod3 := config.Module{Name: "gets-added"}
+		tmp := t.TempDir()
+		logger := logging.NewTestLogger(t)
+		mgr, err := NewLocalManager(&config.Config{PackagePath: filepath.Join(tmp, "pkg")}, logger)
+		test.That(t, err, test.ShouldBeNil)
+		local := mgr.(*localManager)
+
+		mod1 := config.Module{Name: "stays-the-same", Type: config.ModuleTypeLocal}
+		mod2 := config.Module{Name: "gets-changed", Type: config.ModuleTypeLocal}
+		mod3 := config.Module{Name: "gets-added", Type: config.ModuleTypeLocal}
 		m := managedModuleMap{
 			mod1.Name:      &managedModule{module: mod1},
 			mod2.Name:      &managedModule{module: mod2},
 			"gets-removed": &managedModule{module: config.Module{Name: "gets-removed"}},
 		}
 		mod2.ExePath = "changed"
+
+		pkg1, err := mod1.SyntheticPackage()
+		test.That(t, err, test.ShouldBeNil)
+		pkg1StatusFile := packageSyncFile{
+			PackageID:       pkg1.Package,
+			Version:         pkg1.Version,
+			ModifiedTime:    time.Now(),
+			Status:          syncStatusDone,
+			TarballChecksum: "",
+		}
+
+		// Create the parent directory for the package type if it doesn't exist
+		err = os.MkdirAll(pkg1.LocalDataParentDirectory(local.packagesDir), 0o700)
+		test.That(t, err, test.ShouldBeNil)
+
+		err = writeStatusFile(pkg1, pkg1StatusFile, local.packagesDir)
+		test.That(t, err, test.ShouldBeNil)
+
 		existing, changed := m.getAddedAndChanged([]config.Module{
 			mod1, mod2, mod3,
-		})
+		}, local.packagesDir, logging.NewTestLogger(t))
 		test.That(t, existing, test.ShouldHaveLength, 1)
 		test.That(t, existing[mod1.Name], test.ShouldNotBeNil)
 		test.That(t, changed, test.ShouldResemble, []config.Module{mod2, mod3})
