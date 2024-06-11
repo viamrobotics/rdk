@@ -138,7 +138,6 @@ func (m *EncodedMotor) makeAdjustments(ctx context.Context, goalRPM, goalPos, di
 		return err
 	}
 	lastPowerPct = math.Abs(lastPowerPct) * direction
-
 	for {
 		timer := time.NewTimer(50 * time.Millisecond)
 		select {
@@ -159,9 +158,7 @@ func (m *EncodedMotor) makeAdjustments(ctx context.Context, goalRPM, goalPos, di
 			continue
 		}
 		now := time.Now().UnixNano()
-
-		if (goalPos-currentTicks)*direction > 0 {
-			// if (direction == 1 && currentTicks >= goalPos) || (direction == -1 && currentTicks <= goalPos) {
+		if (goalPos-currentTicks)*direction < 0 {
 			// stop motor when at or past goal position
 			return m.Stop(ctx, nil)
 		}
@@ -236,13 +233,12 @@ func (m *EncodedMotor) SetPower(ctx context.Context, powerPct float64, extra map
 func (m *EncodedMotor) GoFor(ctx context.Context, rpm, revolutions float64, extra map[string]interface{}) error {
 	ctx, done := m.opMgr.New(ctx)
 	defer done()
-
 	currentTicks, posType, err := m.encoder.Position(ctx, encoder.PositionTypeTicks, extra)
 	if err != nil {
 		return err
 	}
 	if posType != encoder.PositionTypeTicks {
-		return fmt.Errorf("expected ticks recieved %v", posType.String())
+		return fmt.Errorf("expected ticks received %v", posType.String())
 	}
 	warning, err := checkSpeed(rpm, m.cfg.MaxRPM)
 	if warning != "" {
@@ -267,7 +263,7 @@ func (m *EncodedMotor) GoFor(ctx context.Context, rpm, revolutions float64, extr
 		var errs error
 		currentTicks, _, posErr := m.encoder.Position(ctx, encoder.PositionTypeTicks, extra)
 		errs = multierr.Combine(errs, posErr)
-		if (goalPos-currentTicks)*direction > 0 {
+		if (goalPos-currentTicks)*direction < 0 {
 			stopErr := m.Stop(ctx, extra)
 			errs = multierr.Combine(errs, stopErr)
 			return true, errs
@@ -292,6 +288,7 @@ func (m *EncodedMotor) goForInternal(rpm, goalPos, direction float64) error {
 	if m.makeAdjustmentsDone != nil {
 		m.makeAdjustmentsDone()
 	}
+
 	// start a new makeAdjustments
 	var adjustmentsCtx context.Context
 	adjustmentsCtx, m.makeAdjustmentsDone = context.WithCancel(context.Background())
@@ -302,6 +299,7 @@ func (m *EncodedMotor) goForInternal(rpm, goalPos, direction float64) error {
 			m.logger.Error(err)
 			return
 		}
+
 		if err := m.makeAdjustments(adjustmentsCtx, rpm, goalPos, direction); err != nil {
 			m.logger.Error(err)
 		}
