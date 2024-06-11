@@ -78,7 +78,7 @@ func TestPosition(t *testing.T) {
 		expectedPoint := geo.NewPoint(32.4, 54.2)
 
 		pos, alt, err := g.Position(ctx, make(map[string]interface{}))
-		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err, test.ShouldBeError, "nil gps location, check nmea message parsing")
 		test.That(t, movementsensor.ArePointsEqual(pos, expectedPoint), test.ShouldBeTrue)
 		test.That(t, alt, test.ShouldEqual, 0.0)
 	})
@@ -137,9 +137,12 @@ func TestLinearVelocity(t *testing.T) {
 	})
 
 	t.Run("test sample velocity", func(t *testing.T) {
-		// Two quandrants of the compass
-		// Enough to verify quadrant signs are correct
+		// Test all compass quadrants to ensure the correct velocity is returned
+		// Ensures correct angle and orientation of velocity vector
 
+		// All angles are compass headings
+
+		// Q1: 60 degrees
 		g.nmeaData = NmeaParser{
 			Speed:          speed,
 			CompassHeading: 60.,
@@ -153,6 +156,7 @@ func TestLinearVelocity(t *testing.T) {
 		test.That(t, speed1.X, test.ShouldAlmostEqual, expectedX)
 		test.That(t, speed1.Y, test.ShouldAlmostEqual, expectedY)
 
+		// Q2: 150 degrees
 		g.nmeaData.CompassHeading = 150.
 
 		expectedX = speed / 2.
@@ -162,6 +166,29 @@ func TestLinearVelocity(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, speed2.X, test.ShouldAlmostEqual, expectedX)
 		test.That(t, speed2.Y, test.ShouldAlmostEqual, expectedY)
+
+		// Q3: 225 degrees
+		g.nmeaData.CompassHeading = 225.
+
+		expectedX = speed * -math.Sqrt(2) / 2.
+		expectedY = speed * -math.Sqrt(2) / 2.
+
+		speed3, err := g.LinearVelocity(ctx, make(map[string]interface{}))
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, speed3.X, test.ShouldAlmostEqual, expectedX)
+		test.That(t, speed3.Y, test.ShouldAlmostEqual, expectedY)
+
+		// Q4: 310 degrees
+		g.nmeaData.CompassHeading = 310.
+
+		// Convert 310 degrees compass to standard Cartesian coordinates
+		expectedX = speed * math.Cos(140.*(math.Pi/180))
+		expectedY = speed * math.Sin(140.*(math.Pi/180))
+
+		speed4, err := g.LinearVelocity(ctx, make(map[string]interface{}))
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, speed4.X, test.ShouldAlmostEqual, expectedX)
+		test.That(t, speed4.Y, test.ShouldAlmostEqual, expectedY)
 	})
 }
 
