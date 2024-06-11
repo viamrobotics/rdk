@@ -6,9 +6,9 @@ import (
 	"math"
 	"testing"
 
+	geo "github.com/kellydunn/golang-geo"
 	"go.viam.com/test"
 
-	geo "github.com/kellydunn/golang-geo"
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
@@ -91,7 +91,6 @@ func TestReconfigure(t *testing.T) {
 }
 
 func TestPosition(t *testing.T) {
-
 	t.Run("position with last error and no last position", func(t *testing.T) {
 		g := &rtkSerial{
 			err: movementsensor.NewLastError(1, 1),
@@ -99,8 +98,8 @@ func TestPosition(t *testing.T) {
 		g.err.Set(errors.New("last error test"))
 
 		pos, alt, err := g.Position(context.Background(), nil)
-		test.That(t, movementsensor.IsPositionNaN(point), test.ShouldBeTrue)
-		test.That(t, math.IsNaN(flt), test.ShouldBeTrue)
+		test.That(t, movementsensor.IsPositionNaN(pos), test.ShouldBeTrue)
+		test.That(t, math.IsNaN(alt), test.ShouldBeTrue)
 		test.That(t, err, test.ShouldBeError, "last error test")
 	})
 
@@ -114,9 +113,8 @@ func TestPosition(t *testing.T) {
 		expectedPoint := geo.NewPoint(42.1, 123.)
 
 		pos, alt, err := g.Position(context.Background(), nil)
-		test.That(t, movementsensor.ArePointsEqual(point, expectedPoint), test.ShouldBeTrue)
-		test.That(t, flt, test.ShouldEqual, 0.0)
+		test.That(t, movementsensor.ArePointsEqual(pos, expectedPoint), test.ShouldBeTrue)
+		test.That(t, alt, test.ShouldEqual, 0.0)
 		test.That(t, err, test.ShouldBeNil)
 	})
-
 }

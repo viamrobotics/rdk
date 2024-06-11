@@ -163,7 +163,6 @@ func TestLinearVelocity(t *testing.T) {
 		test.That(t, speed2.X, test.ShouldAlmostEqual, expectedX)
 		test.That(t, speed2.Y, test.ShouldAlmostEqual, expectedY)
 	})
-
 }
 
 func TestAccuracy(t *testing.T) {
