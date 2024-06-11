@@ -282,7 +282,7 @@ func (cm *CaptureManager) initializeOrUpdateCollector(
 		Logger:        cm.logger,
 		Clock:         cm.clk,
 	}
-	collector, err := (*collectorConstructor)(res, params)
+	collector, err := collectorConstructor(res, params)
 	if err != nil {
 		return nil, err
 	}
