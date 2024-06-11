@@ -148,7 +148,7 @@ func (cm *CaptureManager) Reconfigure(ctx context.Context, deps resource.Depende
 					maxFileSizeChanged := cm.maxCaptureFileSize != maxCaptureFileSize
 					cm.maxCaptureFileSize = maxCaptureFileSize
 
-					newCollectorAndConfig, err := cm.initializeOrUpdateCollector(res, componentMethodMetadata, resConf, maxFileSizeChanged, cm.clk)
+					newCollectorAndConfig, err := cm.initializeOrUpdateCollector(res, componentMethodMetadata, resConf, maxFileSizeChanged)
 					if err != nil {
 						cm.logger.CErrorw(ctx, "failed to initialize or update collector", "error", err)
 					} else {
@@ -207,7 +207,6 @@ func (cm *CaptureManager) initializeOrUpdateCollector(
 	md resourceMethodMetadata,
 	config datamanager.DataCaptureConfig,
 	maxFileSizeChanged bool,
-	clk clock.Clock,
 ) (*collectorAndConfig, error) {
 	// Build metadata.
 	captureMetadata, err := datacapture.BuildCaptureMetadata(
