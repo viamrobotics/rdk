@@ -139,7 +139,11 @@ func (c *collector) Collect() {
 		defer c.logRoutine.Done()
 		c.logCaptureErrs()
 	})
-	// <-started
+
+	// We must wait on `started` before returning. The sleep/ticker based captures rely on the clock
+	// advancing to do their first "tick". They must make an initial clock reading before unittests
+	// add an "interval". Lest the ticker never fires and a reading is never made.
+	<-started
 }
 
 // Go's time.Ticker has inconsistent performance with durations of below 1ms [0], so we use a time.Sleep based approach

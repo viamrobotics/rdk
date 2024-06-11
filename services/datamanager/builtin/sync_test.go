@@ -59,6 +59,7 @@ func TestSyncEnabled(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
+			logger := logging.NewTestLogger(t)
 			// Set up server.
 			mockClock := clk.NewMock()
 			// Make mockClock the package level clock used by the dmsvc so that we can simulate time's passage
@@ -89,7 +90,7 @@ func TestSyncEnabled(t *testing.T) {
 			})
 			test.That(t, err, test.ShouldBeNil)
 			mockClock.Add(captureInterval)
-			waitForCaptureFilesToExceedNFiles(tmpDir, 0)
+			waitForCaptureFilesToExceedNFiles(tmpDir, 0, logger)
 			mockClock.Add(syncInterval)
 			var sentReq bool
 			wait := time.After(time.Second)
@@ -124,7 +125,7 @@ func TestSyncEnabled(t *testing.T) {
 			}
 			var sentReqAfterUpdate bool
 			mockClock.Add(captureInterval)
-			waitForCaptureFilesToExceedNFiles(tmpDir, 0)
+			waitForCaptureFilesToExceedNFiles(tmpDir, 0, logger)
 			mockClock.Add(syncInterval)
 			wait = time.After(time.Second)
 			select {
@@ -491,6 +492,7 @@ func TestStreamingDCUpload(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
+			logger := logging.NewTestLogger(t)
 			// Set up server.
 			mockClock := clk.NewMock()
 			clock = mockClock
@@ -520,7 +522,7 @@ func TestStreamingDCUpload(t *testing.T) {
 
 			// Capture an image, then close.
 			mockClock.Add(captureInterval)
-			waitForCaptureFilesToExceedNFiles(tmpDir, 0)
+			waitForCaptureFilesToExceedNFiles(tmpDir, 0, logger)
 			err = dmsvc.Close(context.Background())
 			test.That(t, err, test.ShouldBeNil)
 
