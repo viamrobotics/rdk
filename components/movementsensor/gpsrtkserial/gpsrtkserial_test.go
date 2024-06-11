@@ -104,7 +104,7 @@ func TestPosition(t *testing.T) {
 		test.That(t, err, test.ShouldBeError, "last error test")
 	})
 
-	t.Run("position test with last error and last position", func(t *testing.T) {
+	t.Run("position with last error and last position", func(t *testing.T) {
 		g := &rtkSerial{
 			err:          movementsensor.NewLastError(1, 1),
 			lastposition: movementsensor.NewLastPosition(),
