@@ -437,11 +437,12 @@ func (svc *builtIn) sync() {
 		for _, ap := range svc.additionalSyncPaths {
 			toSync = append(toSync, getAllFilesToSync(ap, svc.fileLastModifiedMillis)...)
 		}
+		syncer := svc.syncer
 		svc.lock.Unlock()
 
 		stopAfter := time.Now().Add(time.Duration(svc.syncIntervalMins * float64(time.Minute)))
 		for _, p := range toSync {
-			svc.syncer.SyncFile(p, stopAfter)
+			syncer.SyncFile(p, stopAfter)
 		}
 	} else {
 		svc.lock.Unlock()
