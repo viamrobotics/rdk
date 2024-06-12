@@ -501,11 +501,42 @@ func TestLabelReader(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, outMD, test.ShouldNotBeNil)
 	outLabels := getLabelsFromMetadata(outMD)
-	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(outLabels), test.ShouldEqual, 12)
 	test.That(t, outLabels[0], test.ShouldResemble, "this")
 	test.That(t, outLabels[1], test.ShouldResemble, "could")
 	test.That(t, outLabels[2], test.ShouldResemble, "be")
-	test.That(t, len(outLabels), test.ShouldEqual, 12)
+}
+
+func TestBlankLabelLines(t *testing.T) {
+	ctx := context.Background()
+	modelLoc := artifact.MustPath("vision/tflite/effdet0.tflite")
+	labelLoc := artifact.MustPath("vision/tflite/effdetlabels_with_spaces.txt")
+	cfg := tflitecpu.TFLiteConfig{ // detector config
+		ModelPath:  modelLoc,
+		NumThreads: 2,
+		LabelPath:  labelLoc,
+	}
+	out, err := tflitecpu.NewTFLiteCPUModel(ctx, &cfg, mlmodel.Named("spacedLabels"))
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, out, test.ShouldNotBeNil)
+	outMD, err := out.Metadata(ctx)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, outMD, test.ShouldNotBeNil)
+	outLabels := getLabelsFromMetadata(outMD)
+	test.That(t, len(outLabels), test.ShouldEqual, 91)
+	test.That(t, outLabels[0], test.ShouldResemble, "Person")
+	test.That(t, outLabels[1], test.ShouldResemble, "Bicycle")
+	test.That(t, outLabels[2], test.ShouldResemble, "Car")
+
+	labelLoc2 := artifact.MustPath("vision/tflite/empty_labels.txt")
+	cfg.LabelPath = labelLoc2
+	out, err = tflitecpu.NewTFLiteCPUModel(ctx, &cfg, mlmodel.Named("emptyLabels"))
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, out, test.ShouldNotBeNil)
+	outMD, err = out.Metadata(ctx)
+	test.That(t, err, test.ShouldBeNil)
+	outLabels = getLabelsFromMetadata(outMD)
+	test.That(t, outLabels, test.ShouldBeNil)
 }
 
 func TestSpaceDelineatedLabels(t *testing.T) {
