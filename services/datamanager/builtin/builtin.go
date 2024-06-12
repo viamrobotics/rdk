@@ -712,16 +712,11 @@ func (svc *builtIn) sync() {
 
 	// Kick off a goroutine to retrieve all the names of the files to sync, then another 1000 to
 	// sync the files to Viam app.
-
-	svc.backgroundWorkers.Add(1)
-	go func() {
-		defer svc.backgroundWorkers.Done()
-		getAllFilesToSync(append([]string{captureDir}, additionalSyncPaths...),
-			fileLastModifiedMillis,
-			syncer,
-			svc.logger,
-		)
-	}()
+	getAllFilesToSync(append([]string{captureDir}, additionalSyncPaths...),
+		fileLastModifiedMillis,
+		syncer,
+		svc.logger,
+	)
 
 	// for i := 0; i < numWorkers; i++ {
 	// 	wg.Add(1)

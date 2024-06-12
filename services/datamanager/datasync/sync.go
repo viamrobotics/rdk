@@ -90,6 +90,8 @@ func NewManager(identity string, client v1.DataSyncServiceClient, logger logging
 		arbitraryFileTags: []string{},
 		inProgress:        make(map[string]bool),
 		syncErrs:          make(chan error, 10),
+		//shold this be buffered?
+		filesToSync: make(chan string, 1000),
 
 		// syncRoutineTracker: make(chan struct{}, maxSyncThreads),
 		captureDir: captureDir,
@@ -104,7 +106,7 @@ func NewManager(identity string, client v1.DataSyncServiceClient, logger logging
 		ret.backgroundWorkers.Add(1)
 		go func() {
 			defer ret.backgroundWorkers.Done()
-			// defer fmt.Print("exiting from sync thread, should not see") REMOVE BEFORE MERGE
+			defer fmt.Print("exiting from sync thread, should not see") //REMOVE BEFORE MERGE
 			for {
 				if cancelCtx.Err() != nil {
 					return
@@ -112,7 +114,10 @@ func NewManager(identity string, client v1.DataSyncServiceClient, logger logging
 				select {
 				case <-cancelCtx.Done():
 					return
-				case path := <-ret.filesToSync:
+				case path, ok := <-ret.filesToSync:
+					if !ok {
+						return
+					}
 					ret.SyncFile(path)
 				}
 			}
@@ -126,6 +131,7 @@ func NewManager(identity string, client v1.DataSyncServiceClient, logger logging
 func (s *syncer) Close() {
 	s.closed.Store(true)
 	s.cancelFunc()
+	close(s.filesToSync)
 	s.backgroundWorkers.Wait()
 	close(s.syncErrs)
 	s.logRoutine.Wait()
@@ -142,13 +148,6 @@ func (s *syncer) SendFileToSync(path string) {
 func (s *syncer) SyncFile(path string) {
 	// If the file is already being synced, do not kick off a new goroutine.
 	// The goroutine will again check and return early if sync is already in progress.
-	s.progressLock.Lock()
-	if s.inProgress[path] {
-		s.progressLock.Unlock()
-		return
-	}
-	s.progressLock.Unlock()
-
 	if !s.MarkInProgress(path) {
 		return
 	}
