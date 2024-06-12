@@ -66,7 +66,7 @@ type moveRequest struct {
 	obstacleDetectors map[vision.Service][]resource.Name
 	replanCostFactor  float64
 	fsService         framesystem.Service
-	absoluteFS        referenceframe.FrameSystem
+	localizaingFS     referenceframe.FrameSystem
 
 	executeBackgroundWorkers *sync.WaitGroup
 	responseChan             chan moveResponse
@@ -202,7 +202,7 @@ func (mr *moveRequest) getTransientDetections(
 			label += "_" + geometry.Label()
 		}
 		geometry.SetLabel(label)
-		tf, err := mr.absoluteFS.Transform(
+		tf, err := mr.localizaingFS.Transform(
 			inputMap,
 			referenceframe.NewGeometriesInFrame(camName.ShortName(), []spatialmath.Geometry{geometry}),
 			referenceframe.World,
@@ -289,7 +289,7 @@ func (mr *moveRequest) obstaclesIntersectPlan(
 				mr.kinematicBase.LocalizationFrame(),
 				executionState,
 				worldState, // detected obstacles by this instance of camera + service
-				mr.absoluteFS,
+				mr.localizaingFS,
 				lookAheadDistanceMM,
 				mr.planRequest.Logger,
 			); err != nil {
@@ -302,7 +302,7 @@ func (mr *moveRequest) obstaclesIntersectPlan(
 }
 
 func (mr *moveRequest) createInputMap(baseExecutionState motionplan.ExecutionState) map[string][]referenceframe.Input {
-	inputMap := referenceframe.StartPositions(mr.absoluteFS)
+	inputMap := referenceframe.StartPositions(mr.localizaingFS)
 	inputMap[mr.kinematicBase.Name().ShortName()] = baseExecutionState.CurrentInputs()[mr.kinematicBase.Name().Name]
 	inputMap[mr.kinematicBase.LocalizationFrame().Name()] = referenceframe.FloatsToInputs([]float64{
 		baseExecutionState.CurrentPoses()[mr.kinematicBase.LocalizationFrame().Name()].Pose().Point().X,
@@ -707,12 +707,12 @@ func (ms *builtIn) createBaseMoveRequest(
 	}
 
 	// create collision checking fs
-	collisionFS := referenceframe.NewEmptyFrameSystem("collisionFS")
-	err = collisionFS.AddFrame(kb.LocalizationFrame(), collisionFS.World())
+	localizingFS := referenceframe.NewEmptyFrameSystem("localizingFS")
+	err = localizingFS.AddFrame(kb.LocalizationFrame(), localizingFS.World())
 	if err != nil {
 		return nil, err
 	}
-	err = collisionFS.MergeFrameSystem(baseOnlyFS, kb.LocalizationFrame())
+	err = localizingFS.MergeFrameSystem(baseOnlyFS, kb.LocalizationFrame())
 	if err != nil {
 		return nil, err
 	}
@@ -793,7 +793,7 @@ func (ms *builtIn) createBaseMoveRequest(
 		replanCostFactor:  valExtra.replanCostFactor,
 		obstacleDetectors: obstacleDetectors,
 		fsService:         ms.fsService,
-		absoluteFS:        collisionFS,
+		localizaingFS:     localizingFS,
 
 		executeBackgroundWorkers: &backgroundWorkers,
 
