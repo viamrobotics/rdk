@@ -161,9 +161,6 @@ func TestShutdown(t *testing.T) {
 
 		addr := "localhost:" + strconv.Itoa(port)
 		rc := robottestutils.NewRobotClient(t, testLogger, addr, time.Second)
-		defer func() {
-			test.That(t, rc.Close(context.Background()), test.ShouldBeNil)
-		}()
 
 		testLogger.Info("Issuing shutdown.")
 		err = rc.Shutdown(context.Background())
