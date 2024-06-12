@@ -97,7 +97,7 @@ func (slamSvc *SLAM) Properties(ctx context.Context) (slam.Properties, error) {
 
 	prop := slam.Properties{
 		CloudSlam:             false,
-		MappingMode:           slam.MappingModeNewMap,
+		MappingMode:           slam.MappingModeLocalizationOnly,
 		InternalStateFileType: ".pbstream",
 		SensorInfo: []slam.SensorInfo{
 			{Name: "my-camera", Type: slam.SensorTypeCamera},
