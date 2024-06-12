@@ -9,7 +9,6 @@ import (
 	"net"
 	"os"
 	"path"
-	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -3412,43 +3411,19 @@ func TestReconfigureOnModuleRename(t *testing.T) {
 	// Use copy to modify config by renaming module
 	cfgCopy.Modules[0].Name = "mod-renamed"
 
-	// Create copy of cfgCopy to test against
-	expectedCfg := cfgCopy
 	r.Reconfigure(ctx, &cfgCopy)
 
-	actualCfg := r.Config()
-	robotResources := r.ResourceNames()
-
-	// Verify attributes of resources and config
-
-	// Manually inspect config components
-	test.That(t, len(actualCfg.Components), test.ShouldEqual, 3)
-	for _, comp := range actualCfg.Components {
-		isMyBase := comp.Equals(cfg.Components[0])
-		isMotor1 := comp.Equals(cfg.Components[1])
-		isMotor2 := comp.Equals(cfg.Components[2])
-		test.That(t, isMyBase || isMotor1 || isMotor2, test.ShouldBeTrue)
+	// Verify resources
+	robotResources := []resource.Name{
+		cfg.Components[0].ResourceName(),
+		cfg.Components[1].ResourceName(),
+		cfg.Components[2].ResourceName(),
 	}
-
-	// Manually inspect module
-	test.That(t, len(actualCfg.Modules), test.ShouldEqual, 1)
-	test.That(t, actualCfg.Modules[0].Equals(expectedCfg.Modules[0]), test.ShouldBeTrue)
-
-	// Remove default services
-	defaultSvcs := resource.DefaultServices()
-	test.That(t, len(defaultSvcs), test.ShouldEqual, 2)
-	robotResources = slices.DeleteFunc(robotResources, func(resource resource.Name) bool {
-		return slices.Contains(defaultSvcs, resource)
-	})
-
-	// Manually inspect resources to ensure they all get built
-	test.That(t, len(robotResources), test.ShouldEqual, 3)
-	for _, resource := range robotResources {
-		isMyBase := resource.Name == cfg.Components[0].Name
-		isMyMotor1 := resource.Name == cfg.Components[1].Name
-		isMyMotor2 := resource.Name == cfg.Components[2].Name
-		test.That(t, isMyBase || isMyMotor1 || isMyMotor2, test.ShouldBeTrue)
-	}
+	expectedResources := rtestutils.ConcatResourceNames(
+		robotResources,
+		resource.DefaultServices(),
+	)
+	rtestutils.VerifySameResourceNames(t, r.ResourceNames(), expectedResources)
 }
 
 func TestCustomResourceBuildsOnModuleAddition(t *testing.T) {
@@ -3489,25 +3464,16 @@ func TestCustomResourceBuildsOnModuleAddition(t *testing.T) {
 	cfgCopy := *cfg
 	r := setupLocalRobot(t, ctx, cfg, logger)
 
-	// Check resources instead of the config because myGizmo will exist in the config, but
-	// won't build, so it won't be a known resource.
-	robotResources := r.ResourceNames()
-
-	// Remove default services
-	defaultSvcs := resource.DefaultServices()
-	test.That(t, len(defaultSvcs), test.ShouldEqual, 2)
-	robotResources = slices.DeleteFunc(robotResources, func(resource resource.Name) bool {
-		return slices.Contains(defaultSvcs, resource)
-	})
-
-	// Manually inspect resources to ensure myGizmo does not build without module
-	// Assert that there are 2 resources (the motors) minus the default ones
-	test.That(t, len(robotResources), test.ShouldEqual, 2)
-	for _, resource := range robotResources {
-		isMyMotor1 := resource.Name == cfg.Components[1].Name
-		isMyMotor2 := resource.Name == cfg.Components[2].Name
-		test.That(t, isMyMotor1 || isMyMotor2, test.ShouldBeTrue)
+	// Verify resources to ensure myGizmo does not build without module
+	builtResources := []resource.Name{
+		cfg.Components[1].ResourceName(),
+		cfg.Components[2].ResourceName(),
 	}
+	expectedResources := rtestutils.ConcatResourceNames(
+		builtResources,
+		resource.DefaultServices(),
+	)
+	rtestutils.VerifySameResourceNames(t, r.ResourceNames(), expectedResources)
 
 	// Modify config so that it now has a module that supports myGizmo
 	mod := []config.Module{
@@ -3519,32 +3485,12 @@ func TestCustomResourceBuildsOnModuleAddition(t *testing.T) {
 	}
 	cfgCopy.Modules = mod
 
-	// Create copy of cfgCopy to test against
-	expectedCfg := cfgCopy
-
 	r.Reconfigure(ctx, &cfgCopy)
 
-	robotResources = r.ResourceNames()
-
-	// Remove default services
-	robotResources = slices.DeleteFunc(robotResources, func(resource resource.Name) bool {
-		return slices.Contains(defaultSvcs, resource)
-	})
-
-	actualCfg := r.Config()
-
-	// Verify attributes of resources and config
-
-	// Manually inspect resources to ensure myGizmo now builds
-	test.That(t, len(robotResources), test.ShouldEqual, 3)
-	for _, resource := range robotResources {
-		isMyGizmo := resource.Name == cfg.Components[0].Name
-		isMyMotor1 := resource.Name == cfg.Components[1].Name
-		isMyMotor2 := resource.Name == cfg.Components[2].Name
-		test.That(t, isMyMotor1 || isMyMotor2 || isMyGizmo, test.ShouldBeTrue)
-	}
-
-	// Manually inspect module
-	test.That(t, len(actualCfg.Modules), test.ShouldEqual, 1)
-	test.That(t, actualCfg.Modules[0].Equals(expectedCfg.Modules[0]), test.ShouldBeTrue)
+	// Verify resources to ensure myGizmo does build
+	expectedResources = rtestutils.ConcatResourceNames(
+		[]resource.Name{gizmoapi.Named("myGizmo")},
+		expectedResources,
+	)
+	rtestutils.VerifySameResourceNames(t, r.ResourceNames(), expectedResources)
 }
