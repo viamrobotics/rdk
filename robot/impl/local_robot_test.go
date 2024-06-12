@@ -19,6 +19,7 @@ import (
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.uber.org/zap"
+
 	// registers all components.
 	commonpb "go.viam.com/api/common/v1"
 	armpb "go.viam.com/api/component/arm/v1"
@@ -3483,7 +3484,7 @@ func TestCustomResourceBuildsOnModuleAddition(t *testing.T) {
 		return slices.Contains(defaultSvcs, resource)
 	})
 
-	// Manually inspect resources to ensure modular resource does not build without module
+	// Manually inspect resources to ensure myGizmo does not build without module
 	// Assert that there are 2 resources (the motors) minus the default ones
 	test.That(t, len(robotResources), test.ShouldEqual, 2)
 	for _, resource := range robotResources {
@@ -3492,7 +3493,7 @@ func TestCustomResourceBuildsOnModuleAddition(t *testing.T) {
 		test.That(t, isMyMotor1 || isMyMotor2, test.ShouldBeTrue)
 	}
 
-	// Modify config so that it now has module that supports the myGizmo
+	// Modify config so that it now has a module that supports myGizmo
 	mod := []config.Module{
 		{
 			Name:     "mod",
