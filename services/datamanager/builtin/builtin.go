@@ -697,62 +697,80 @@ func isOffline() bool {
 
 func (svc *builtIn) sync() {
 	svc.flushCollectors()
-
+	// Lock while retrieving any values that could be changed during reconfiguration of the data
+	// manager.
 	svc.lock.Lock()
-	if svc.syncer != nil {
-		toSync := getAllFilesToSync(svc.captureDir, svc.fileLastModifiedMillis)
-		for _, ap := range svc.additionalSyncPaths {
-			toSync = append(toSync, getAllFilesToSync(ap, svc.fileLastModifiedMillis)...)
-		}
-		syncer := svc.syncer
-		stopAfter := time.Now().Add(time.Duration(svc.syncIntervalMins * float64(time.Minute)))
-		svc.lock.Unlock()
+	captureDir := svc.captureDir
+	fileLastModifiedMillis := svc.fileLastModifiedMillis
+	additionalSyncPaths := svc.additionalSyncPaths
+	syncer := svc.syncer
+	svc.lock.Unlock()
+	// Kick off a goroutine to retrieve all the names of the files to sync, then another 1000 to
+	// sync the files to Viam app.
 
-		// Only log if there are a large number of files to sync
-		if len(toSync) > minNumFiles {
-			svc.logger.Infof("Starting sync of %d files", len(toSync))
-		}
-		for _, p := range toSync {
-			syncer.SyncFile(p, stopAfter)
-		}
-	} else {
-		svc.lock.Unlock()
-	}
+	svc.backgroundWorkers.Add(1)
+	go func() {
+		defer svc.backgroundWorkers.Done()
+		getAllFilesToSync(append([]string{captureDir}, additionalSyncPaths...),
+			fileLastModifiedMillis,
+			syncer,
+			svc.logger,
+		)
+	}()
+
+	// for i := 0; i < numWorkers; i++ {
+	// 	wg.Add(1)
+	// 	svc.backgroundWorkers.Add(1)
+	// 	go func() {
+	// 		defer wg.Done()
+	// 		defer svc.backgroundWorkers.Done()
+	// 		if svc.syncer != nil { // TODO: figure out why this is sometimes nil.
+	// 			svc.syncer.SyncFiles(fileChannel)
+	// 		}
+	// 	}()
+	// }
+
 }
 
 //nolint:errcheck,nilerr
-func getAllFilesToSync(dir string, lastModifiedMillis int) []string {
-	var filePaths []string
-	_ = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
+func getAllFilesToSync(dirs []string, lastModifiedMillis int, syncer datasync.Manager, logger logging.Logger) {
+	numFiles := 0
+	for _, dir := range dirs {
+		_ = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
+			// TODO: check for context cancellation and stopAfter time passed
+			if err != nil {
+				return nil
+			}
+			// Do not sync the files in the corrupted data directory.
+			if info.IsDir() && info.Name() == datasync.FailedDir {
+				return filepath.SkipDir
+			}
+			if info.IsDir() {
+				return nil
+			}
+			// If a file was modified within the past lastModifiedMillis, do not sync it (data
+			// may still be being written).
+			timeSinceMod := clock.Since(info.ModTime())
+			// When using a mock clock in tests, this can be negative since the file system will still use the system clock.
+			// Take max(timeSinceMod, 0) to account for this.
+			if timeSinceMod < 0 {
+				timeSinceMod = 0
+			}
+			isStuckInProgressCaptureFile := filepath.Ext(path) == datacapture.InProgressFileExt &&
+				timeSinceMod >= defaultFileLastModifiedMillis*time.Millisecond
+			isNonCaptureFileThatIsNotBeingWrittenTo := filepath.Ext(path) != datacapture.InProgressFileExt &&
+				timeSinceMod >= time.Duration(lastModifiedMillis)*time.Millisecond
+			isCompletedCaptureFile := filepath.Ext(path) == datacapture.FileExt
+			if isCompletedCaptureFile || isStuckInProgressCaptureFile || isNonCaptureFileThatIsNotBeingWrittenTo {
+				syncer.SendFileToSync(path)
+				numFiles++
+			}
 			return nil
-		}
-		// Do not sync the files in the corrupted data directory.
-		if info.IsDir() && info.Name() == datasync.FailedDir {
-			return filepath.SkipDir
-		}
-		if info.IsDir() {
-			return nil
-		}
-		// If a file was modified within the past lastModifiedMillis, do not sync it (data
-		// may still be being written).
-		timeSinceMod := clock.Since(info.ModTime())
-		// When using a mock clock in tests, this can be negative since the file system will still use the system clock.
-		// Take max(timeSinceMod, 0) to account for this.
-		if timeSinceMod < 0 {
-			timeSinceMod = 0
-		}
-		isStuckInProgressCaptureFile := filepath.Ext(path) == datacapture.InProgressFileExt &&
-			timeSinceMod >= defaultFileLastModifiedMillis*time.Millisecond
-		isNonCaptureFileThatIsNotBeingWrittenTo := filepath.Ext(path) != datacapture.InProgressFileExt &&
-			timeSinceMod >= time.Duration(lastModifiedMillis)*time.Millisecond
-		isCompletedCaptureFile := filepath.Ext(path) == datacapture.FileExt
-		if isCompletedCaptureFile || isStuckInProgressCaptureFile || isNonCaptureFileThatIsNotBeingWrittenTo {
-			filePaths = append(filePaths, path)
-		}
-		return nil
-	})
-	return filePaths
+		})
+	}
+	if numFiles > minNumFiles {
+		logger.Infof("Starting sync of %d files", numFiles)
+	}
 }
 
 // Build the component configs associated with the data manager service.
