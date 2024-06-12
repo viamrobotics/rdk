@@ -639,6 +639,10 @@ func (svc *builtIn) cancelSyncScheduler() {
 	if svc.syncRoutineCancelFn != nil {
 		svc.syncRoutineCancelFn()
 		svc.syncRoutineCancelFn = nil
+		// DATA-2664: A goroutine calling this method must currently be holding the data manager
+		// lock. The `uploadData` background goroutine can also acquire the data manager lock prior
+		// to learning to exit. Thus we release the lock such that the `uploadData` goroutine can
+		// make progress and exit.
 		svc.lock.Unlock()
 		svc.backgroundWorkers.Wait()
 		svc.lock.Lock()
