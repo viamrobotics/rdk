@@ -638,8 +638,10 @@ func (svc *builtIn) startSyncScheduler(intervalMins float64) {
 func (svc *builtIn) cancelSyncScheduler() {
 	if svc.syncRoutineCancelFn != nil {
 		svc.syncRoutineCancelFn()
-		svc.backgroundWorkers.Wait()
 		svc.syncRoutineCancelFn = nil
+		svc.lock.Unlock()
+		svc.backgroundWorkers.Wait()
+		svc.lock.Lock()
 	}
 }
 
