@@ -98,9 +98,11 @@ func (ptg *ptgSideS) Transform(inputs []referenceframe.Input) (spatialmath.Pose,
 }
 
 // curvature of an arc of radius r = 1/r
-func (ptg *ptgSideS) Curvature(alpha float64) (float64, error) {
-	flip := math.Copysign(1., alpha) // left or right
-	curvRev, _ := ptg.circle.Curvature(-1 * flip * math.Pi)
-	curvForw, _ := ptg.circle.Curvature(flip * math.Pi)
+func (ptg *ptgSideS) Curvature(alpha, dist float64) (float64, error) {
+	arcLength := math.Abs(alpha) * 0.5 * ptg.turnRadius
+	curvRev, _ := ptg.circle.Curvature(math.Pi, math.Min(dist, arcLength))
+	curvRev = math.Abs(curvRev)
+	curvForw, _ := ptg.circle.Curvature(math.Pi, math.Min(dist, arcLength+arcLength*ptg.countersteer)-arcLength)
+	curvForw = math.Abs(curvForw)
 	return curvRev + curvForw, nil
 }

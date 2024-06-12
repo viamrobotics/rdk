@@ -72,6 +72,7 @@ func (ptg *ptgCS) turnDist(alpha float64) float64 {
 }
 
 // curvature of an arc of radius r = 1/r
-func (ptg *ptgCS) Curvature(alpha float64) (float64, error) {
-	return ptg.circle.Curvature(alpha)
+func (ptg *ptgCS) Curvature(alpha, dist float64) (float64, error) {
+	turnDist := ptg.turnDist(alpha)
+	return ptg.circle.Curvature(alpha, math.Min(dist, turnDist))
 }

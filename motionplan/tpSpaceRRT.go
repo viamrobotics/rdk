@@ -853,7 +853,11 @@ func (mp *tpSpaceRRTMotionPlanner) smoothPath(ctx context.Context, path []node) 
 	origAllPTGs := mp.tpFrame.PTGSolvers()
 	originalCurvCost := 0.
 	for _, mynode := range path {
-		curv, _ := origAllPTGs[int(mynode.Q()[0].Value)].Curvature(mynode.Q()[1].Value)
+		i := int(mynode.Q()[0].Value)
+		alpha := mynode.Q()[1].Value
+		d := math.Abs(mynode.Q()[3].Value - mynode.Q()[2].Value)
+		curv, _ := origAllPTGs[i].Curvature(alpha, d)
+		curv = math.Abs(curv)
 		originalCurvCost = originalCurvCost + curv
 	}
 	mp.logger.Debugf("$DEBUG,original_curv_cost:%v\n", originalCurvCost)
@@ -894,10 +898,14 @@ func (mp *tpSpaceRRTMotionPlanner) smoothPath(ctx context.Context, path []node) 
 		newCurvCost := 0.
 		newAllPTGs := mp.tpFrame.PTGSolvers()
 		for _, mynode := range path {
-			curv, _ := newAllPTGs[int(mynode.Q()[0].Value)].Curvature(mynode.Q()[1].Value)
+			i := int(mynode.Q()[0].Value)
+			alpha := mynode.Q()[1].Value
+			d := math.Abs(mynode.Q()[3].Value - mynode.Q()[2].Value)
+			curv, _ := newAllPTGs[i].Curvature(alpha, d)
+			curv = math.Abs(curv)
 			newCurvCost = newCurvCost + curv
 		}
-		if newCurvCost < 0.001*originalCurvCost {
+		if newCurvCost < 0.2*originalCurvCost {
 			break
 		}
 	}
@@ -914,7 +922,11 @@ func (mp *tpSpaceRRTMotionPlanner) smoothPath(ctx context.Context, path []node) 
 				mynode.Q()[3].Value,
 				mp.planOpts.Resolution,
 			)
-			curv, _ := allPtgs[int(mynode.Q()[0].Value)].Curvature(mynode.Q()[1].Value)
+			i := int(mynode.Q()[0].Value)
+			alpha := mynode.Q()[1].Value
+			d := math.Abs(mynode.Q()[3].Value - mynode.Q()[2].Value)
+			curv, _ := allPtgs[i].Curvature(alpha, d)
+			curv = math.Abs(curv)
 			newCurvCost = newCurvCost + curv
 			if err != nil {
 				// Unimportant; this is just for debug visualization

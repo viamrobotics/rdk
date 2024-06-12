@@ -67,11 +67,7 @@ func (ptg *ptgDiffDrive) Transform(inputs []referenceframe.Input) (spatialmath.P
 }
 
 // curvature of an arc of radius r = 1/r
-func (ptg *ptgDiffDrive) Curvature(alpha float64) (float64, error) {
-	if alpha == 0 {
-		return 0, nil
-	} else {
-
-		return 0, nil
-	}
+func (ptg *ptgDiffDrive) Curvature(alpha, dist float64) (float64, error) {
+	turnAngle := math.Copysign(math.Min(dist, math.Abs(rdkutils.RadToDeg(alpha))), alpha) * angleAdjust
+	return turnAngle, nil
 }

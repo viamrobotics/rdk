@@ -43,7 +43,7 @@ type PTG interface {
 	// Velocities returns the linear and angular velocity at a specific point along a trajectory as a [-1, 1] proportion of maximum.
 	Velocities(alpha, dist float64) (float64, float64, error)
 	Transform([]referenceframe.Input) (spatialmath.Pose, error)
-	Curvature(alpha float64) (float64, error)
+	Curvature(alpha, dist float64) (float64, error)
 }
 
 // PTGCourseCorrection offers an interface permitting a PTGSolver to also provide an index pointing to one of their PTGSolvers which may
