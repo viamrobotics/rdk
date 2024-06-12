@@ -42,10 +42,8 @@ type GraphNode struct {
 	current                   Resource
 	currentModel              Model
 	config                    Config
-	needsReconfigure          bool
 	lastReconfigured          *time.Time
 	lastErr                   error
-	markedForRemoval          bool
 	unresolvedDependencies    []string
 	needsDependencyResolution bool
 
@@ -113,7 +111,7 @@ func (w *GraphNode) LastReconfigured() *time.Time {
 func (w *GraphNode) Resource() (Resource, error) {
 	w.mu.RLock()
 	defer w.mu.RUnlock()
-	if w.markedForRemoval {
+	if w.state == stateRemove {
 		return nil, errPendingRemoval
 	}
 	if w.lastErr != nil {
@@ -172,7 +170,7 @@ func (w *GraphNode) ResourceModel() Model {
 func (w *GraphNode) HasResource() bool {
 	w.mu.RLock()
 	defer w.mu.RUnlock()
-	return !w.markedForRemoval && w.lastErr == nil && w.current != nil
+	return w.state != stateRemove && w.lastErr == nil && w.current != nil
 }
 
 // IsUninitialized returns if this resource is in an uninitialized state.
@@ -202,8 +200,7 @@ func (w *GraphNode) SwapResource(newRes Resource, newModel Model) {
 	w.current = newRes
 	w.currentModel = newModel
 	w.lastErr = nil
-	w.needsReconfigure = false
-	w.markedForRemoval = false
+	w.transitionTo(stateReady)
 
 	// these should already be set
 	w.unresolvedDependencies = nil
@@ -214,16 +211,12 @@ func (w *GraphNode) SwapResource(newRes Resource, newModel Model) {
 	}
 	now := time.Now()
 	w.lastReconfigured = &now
-
-	w.transitionTo(stateReady)
 }
 
 // MarkForRemoval marks this node for removal at a later time.
 func (w *GraphNode) MarkForRemoval() {
 	w.mu.Lock()
 	defer w.mu.Unlock()
-	w.markedForRemoval = true
-
 	w.transitionTo(stateRemove)
 }
 
@@ -231,7 +224,7 @@ func (w *GraphNode) MarkForRemoval() {
 func (w *GraphNode) MarkedForRemoval() bool {
 	w.mu.Lock()
 	defer w.mu.Unlock()
-	return w.markedForRemoval
+	return w.state == stateRemove
 }
 
 // LogAndSetLastError logs and sets the latest error on this node. This will cause the resource to
@@ -264,7 +257,7 @@ func (w *GraphNode) Config() Config {
 func (w *GraphNode) NeedsReconfigure() bool {
 	w.mu.RLock()
 	defer w.mu.RUnlock()
-	return !w.markedForRemoval && w.needsReconfigure
+	return w.state == stateConfigure
 }
 
 // hasUnresolvedDependencies returns whether or not this node has any
@@ -278,7 +271,7 @@ func (w *GraphNode) hasUnresolvedDependencies() bool {
 func (w *GraphNode) setNeedsReconfigure(newConfig Config, mustReconfigure bool, dependencies []string) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
-	if !mustReconfigure && w.markedForRemoval {
+	if !mustReconfigure && w.state == stateRemove {
 		// This is the case where the node is being asked to update
 		// with no new config but it was marked for removal otherwise.
 		// The current system enforces us to remove since dependencies
@@ -289,11 +282,8 @@ func (w *GraphNode) setNeedsReconfigure(newConfig Config, mustReconfigure bool, 
 		w.needsDependencyResolution = true
 	}
 	w.config = newConfig
-	w.needsReconfigure = true
-	w.markedForRemoval = false
-	w.unresolvedDependencies = dependencies
-
 	w.transitionTo(stateConfigure)
+	w.unresolvedDependencies = dependencies
 }
 
 // SetNewConfig is used to inform the node that it has been modified
@@ -380,9 +370,7 @@ func (w *GraphNode) replace(other *GraphNode) error {
 	w.current = other.current
 	w.currentModel = other.currentModel
 	w.config = other.config
-	w.needsReconfigure = other.needsReconfigure
 	w.lastErr = other.lastErr
-	w.markedForRemoval = other.markedForRemoval
 	w.unresolvedDependencies = other.unresolvedDependencies
 	w.needsDependencyResolution = other.needsDependencyResolution
 
@@ -396,9 +384,7 @@ func (w *GraphNode) replace(other *GraphNode) error {
 	other.current = nil
 	other.currentModel = Model{}
 	other.config = Config{}
-	other.needsReconfigure = false
 	other.lastErr = nil
-	other.markedForRemoval = false
 	other.unresolvedDependencies = nil
 	other.needsDependencyResolution = false
 
