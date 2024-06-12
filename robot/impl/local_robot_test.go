@@ -3417,10 +3417,11 @@ func TestReconfigureOnModuleRename(t *testing.T) {
 	r.Reconfigure(ctx, &cfgCopy)
 
 	actualCfg := r.Config()
+	robotResources := r.ResourceNames()
 
-	// Verify attributes of config
+	// Verify attributes of resources and config
 
-	// Manually inspect components
+	// Manually inspect config components
 	test.That(t, len(actualCfg.Components), test.ShouldEqual, 3)
 	for _, comp := range actualCfg.Components {
 		isMyBase := comp.Equals(cfg.Components[0])
@@ -3432,6 +3433,22 @@ func TestReconfigureOnModuleRename(t *testing.T) {
 	// Manually inspect module
 	test.That(t, len(actualCfg.Modules), test.ShouldEqual, 1)
 	test.That(t, actualCfg.Modules[0].Equals(expectedCfg.Modules[0]), test.ShouldBeTrue)
+
+	// Remove default services
+	defaultSvcs := resource.DefaultServices()
+	test.That(t, len(defaultSvcs), test.ShouldEqual, 2)
+	robotResources = slices.DeleteFunc(robotResources, func(resource resource.Name) bool {
+		return slices.Contains(defaultSvcs, resource)
+	})
+
+	// Manually inspect resources to ensure they all get built
+	test.That(t, len(robotResources), test.ShouldEqual, 3)
+	for _, resource := range robotResources {
+		isMyBase := resource.Name == cfg.Components[0].Name
+		isMyMotor1 := resource.Name == cfg.Components[1].Name
+		isMyMotor2 := resource.Name == cfg.Components[2].Name
+		test.That(t, isMyBase || isMyMotor1 || isMyMotor2, test.ShouldBeTrue)
+	}
 }
 
 func TestCustomResourceBuildsOnModuleAddition(t *testing.T) {
