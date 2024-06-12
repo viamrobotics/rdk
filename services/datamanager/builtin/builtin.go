@@ -734,7 +734,6 @@ func (svc *builtIn) sync(ctx context.Context) {
 //nolint:errcheck,nilerr
 func getAllFilesToSync(ctx context.Context, dirs []string, lastModifiedMillis int, syncer datasync.Manager, logger logging.Logger) {
 	numFiles := 0
-	fmt.Println("syncing")
 	for _, dir := range dirs {
 		_ = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
 			if ctx.Err() != nil {
@@ -769,7 +768,6 @@ func getAllFilesToSync(ctx context.Context, dirs []string, lastModifiedMillis in
 			isCompletedCaptureFile := filepath.Ext(path) == datacapture.FileExt
 			if isCompletedCaptureFile || isStuckInProgressCaptureFile || isNonCaptureFileThatIsNotBeingWrittenTo {
 				syncer.SendFileToSync(path)
-				fmt.Println(numFiles)
 				numFiles++
 			}
 			return nil
