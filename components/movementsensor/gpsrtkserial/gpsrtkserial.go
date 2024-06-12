@@ -107,7 +107,6 @@ type rtkSerial struct {
 
 	err                movementsensor.LastError
 	lastposition       movementsensor.LastPosition
-	lastcompassheading movementsensor.LastCompassHeading
 	InputProtocol      string
 	isClosed           bool
 
@@ -193,7 +192,6 @@ func newRTKSerial(
 		logger:             logger,
 		err:                movementsensor.NewLastError(1, 1),
 		lastposition:       movementsensor.NewLastPosition(),
-		lastcompassheading: movementsensor.NewLastCompassHeading(),
 	}
 
 	if err := g.Reconfigure(ctx, deps, conf); err != nil {
