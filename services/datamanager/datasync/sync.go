@@ -142,7 +142,12 @@ func (s *syncer) SetArbitraryFileTags(tags []string) {
 }
 
 func (s *syncer) SendFileToSync(path string) {
-	s.filesToSync <- path
+	select {
+	case s.filesToSync <- path:
+		return
+	case <-s.cancelCtx.Done():
+		return
+	}
 }
 
 func (s *syncer) SyncFile(path string) {

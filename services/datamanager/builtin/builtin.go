@@ -425,7 +425,7 @@ func (svc *builtIn) Sync(ctx context.Context, _ map[string]interface{}) error {
 	}
 
 	svc.lock.Unlock()
-	svc.sync()
+	svc.sync(ctx)
 	return nil
 }
 
@@ -678,7 +678,7 @@ func (svc *builtIn) uploadData(cancelCtx context.Context, intervalMins float64) 
 					svc.lock.Unlock()
 
 					if !isOffline() && shouldSync {
-						svc.sync()
+						svc.sync(cancelCtx)
 					}
 				} else {
 					svc.lock.Unlock()
@@ -695,7 +695,7 @@ func isOffline() bool {
 	return err != nil
 }
 
-func (svc *builtIn) sync() {
+func (svc *builtIn) sync(ctx context.Context) {
 	svc.flushCollectors()
 	// Lock while retrieving any values that could be changed during reconfiguration of the data
 	// manager.
@@ -712,7 +712,7 @@ func (svc *builtIn) sync() {
 
 	// Kick off a goroutine to retrieve all the names of the files to sync, then another 1000 to
 	// sync the files to Viam app.
-	getAllFilesToSync(append([]string{captureDir}, additionalSyncPaths...),
+	getAllFilesToSync(ctx, append([]string{captureDir}, additionalSyncPaths...),
 		fileLastModifiedMillis,
 		syncer,
 		svc.logger,
@@ -732,18 +732,25 @@ func (svc *builtIn) sync() {
 }
 
 //nolint:errcheck,nilerr
-func getAllFilesToSync(dirs []string, lastModifiedMillis int, syncer datasync.Manager, logger logging.Logger) {
+func getAllFilesToSync(ctx context.Context, dirs []string, lastModifiedMillis int, syncer datasync.Manager, logger logging.Logger) {
 	numFiles := 0
+	fmt.Println("syncing")
 	for _, dir := range dirs {
 		_ = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
+			if ctx.Err() != nil {
+				return filepath.SkipAll
+			}
+
 			// TODO: check for context cancellation and stopAfter time passed
 			if err != nil {
 				return nil
 			}
+
 			// Do not sync the files in the corrupted data directory.
 			if info.IsDir() && info.Name() == datasync.FailedDir {
 				return filepath.SkipDir
 			}
+
 			if info.IsDir() {
 				return nil
 			}
@@ -762,6 +769,7 @@ func getAllFilesToSync(dirs []string, lastModifiedMillis int, syncer datasync.Ma
 			isCompletedCaptureFile := filepath.Ext(path) == datacapture.FileExt
 			if isCompletedCaptureFile || isStuckInProgressCaptureFile || isNonCaptureFileThatIsNotBeingWrittenTo {
 				syncer.SendFileToSync(path)
+				fmt.Println(numFiles)
 				numFiles++
 			}
 			return nil
