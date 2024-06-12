@@ -102,6 +102,7 @@ func TestReconfigure(t *testing.T) {
 }
 
 func TestPosition(t *testing.T) {
+	testLastPosition := geo.NewPoint(42.1, 123)
 	// WITH LAST ERROR
 
 	// If there is last error and no last position, return NaN
@@ -123,7 +124,8 @@ func TestPosition(t *testing.T) {
 			err:          movementsensor.NewLastError(1, 1),
 			lastposition: movementsensor.NewLastPosition(),
 		}
-		g.lastposition.SetLastPosition(geo.NewPoint(42.1, 123))
+		g.lastposition.SetLastPosition(testLastPosition)
+
 		g.err.Set(errors.New("last position"))
 		expectedPos := geo.NewPoint(42.1, 123.)
 
@@ -156,7 +158,7 @@ func TestPosition(t *testing.T) {
 			cachedData:   gpsutils.NewCachedData(&mockDataReader{}, logging.NewTestLogger(t)),
 		}
 
-		g.lastposition.SetLastPosition(geo.NewPoint(42.1, 123))
+		g.lastposition.SetLastPosition(testLastPosition)
 		expectedPos := geo.NewPoint(42.1, 123.)
 
 		pos, _, err := g.Position(context.Background(), nil)
@@ -175,8 +177,9 @@ func TestPosition(t *testing.T) {
 		}
 
 		// NMEA sentence with invalid position, Fix quality is 0
-		g.cachedData.ParseAndUpdate("$GPGGA,172814.0,123.123,N,234.234,W,0,6,1.2,18.893,M,-25.669,M,2.0,0031*4F")
-		g.lastposition.SetLastPosition(geo.NewPoint(42.1, 123))
+		nmeaSentenceInvalid := "$GPGGA,172814.0,123.123,N,234.234,W,0,6,1.2,18.893,M,-25.669,M,2.0,0031*4F"
+		g.cachedData.ParseAndUpdate(nmeaSentenceInvalid)
+		g.lastposition.SetLastPosition(testLastPosition)
 		expectedPos := geo.NewPoint(42.1, 123.) // Last known position
 
 		pos, _, err := g.Position(context.Background(), nil)
@@ -193,8 +196,9 @@ func TestPosition(t *testing.T) {
 		}
 
 		// Valid NMEA sentence
-		g.lastposition.SetLastPosition(geo.NewPoint(42.1, 123))
-		g.cachedData.ParseAndUpdate("$GPGGA,172814.0,3723.46587704,N,12202.26957864,W,2,6,1.2,18.893,M,-25.669,M,2.0,0031*4F")
+		nmeaSentenceValid := "$GPGGA,172814.0,3723.46587704,N,12202.26957864,W,2,6,1.2,18.893,M,-25.669,M,2.0,0031*4F"
+		g.cachedData.ParseAndUpdate(nmeaSentenceValid)
+		g.lastposition.SetLastPosition(testLastPosition)
 
 		pos, _, err := g.Position(context.Background(), nil)
 

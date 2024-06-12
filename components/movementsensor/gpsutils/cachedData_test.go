@@ -65,12 +65,13 @@ func TestReadingsSerial(t *testing.T) {
 }
 
 func TestPosition(t *testing.T) {
+	testLastPosition := geo.NewPoint(32.4, 54.2)
 	ctx := context.Background()
 	logger := logging.NewTestLogger(t)
 	g := NewCachedData(&mockDataReader{}, logger)
 
 	t.Run("no current location", func(t *testing.T) {
-		g.lastPosition.SetLastPosition(geo.NewPoint(32.4, 54.2))
+		g.lastPosition.SetLastPosition(testLastPosition)
 		g.nmeaData = NmeaParser{
 			Location: nil,
 		}
@@ -84,7 +85,7 @@ func TestPosition(t *testing.T) {
 	})
 
 	t.Run("current location zero so return last known", func(t *testing.T) {
-		g.lastPosition.SetLastPosition(geo.NewPoint(32.4, 54.2))
+		g.lastPosition.SetLastPosition(testLastPosition)
 		g.nmeaData = NmeaParser{
 			Location: geo.NewPoint(0, 0),
 			Alt:      12.1,
@@ -102,9 +103,10 @@ func TestPosition(t *testing.T) {
 	})
 
 	t.Run("Valid current location", func(t *testing.T) {
-		g.lastPosition.SetLastPosition(geo.NewPoint(32.4, 54.2))
+		newPoint := geo.NewPoint(1.1, 1.2)
+		g.lastPosition.SetLastPosition(testLastPosition)
 		g.nmeaData = NmeaParser{
-			Location: geo.NewPoint(1.1, 1.2),
+			Location: newPoint,
 			Alt:      1.3,
 		}
 
@@ -222,23 +224,26 @@ func TestCompassHeading(t *testing.T) {
 	g := NewCachedData(&mockDataReader{}, logger)
 
 	t.Run("no valid compass heading, so return last known", func(t *testing.T) {
-		g.lastCompassHeading.SetLastCompassHeading(90.)
+		lastCompassHeading := 90.
+		g.lastCompassHeading.SetLastCompassHeading(lastCompassHeading)
 		g.nmeaData = NmeaParser{
 			CompassHeading: math.NaN(),
 		}
 
 		heading, err := g.CompassHeading(ctx, make(map[string]interface{}))
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, heading, test.ShouldEqual, 90.)
+		test.That(t, heading, test.ShouldEqual, lastCompassHeading)
 
 		// Check that the last known compass heading was not updated
-		test.That(t, g.lastCompassHeading.GetLastCompassHeading(), test.ShouldEqual, 90.)
+		test.That(t, g.lastCompassHeading.GetLastCompassHeading(), test.ShouldEqual, lastCompassHeading)
 	})
 
 	t.Run("valid current compass heading", func(t *testing.T) {
-		g.lastCompassHeading.SetLastCompassHeading(90.)
+		lastCompassHeading := 90.
+		newCompassHeading := 180.
+		g.lastCompassHeading.SetLastCompassHeading(lastCompassHeading)
 		g.nmeaData = NmeaParser{
-			CompassHeading: 180.,
+			CompassHeading: newCompassHeading,
 		}
 
 		heading, err := g.CompassHeading(ctx, make(map[string]interface{}))
@@ -246,7 +251,7 @@ func TestCompassHeading(t *testing.T) {
 		test.That(t, heading, test.ShouldEqual, 180.)
 
 		// Check that the last known compass heading was updated
-		test.That(t, g.lastCompassHeading.GetLastCompassHeading(), test.ShouldEqual, 180.)
+		test.That(t, g.lastCompassHeading.GetLastCompassHeading(), test.ShouldEqual, newCompassHeading)
 	})
 }
 
