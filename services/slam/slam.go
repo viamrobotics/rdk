@@ -45,6 +45,19 @@ const (
 	MappingModeUpdateExistingMap
 )
 
+func (t MappingMode) String() string {
+	switch t {
+	case MappingModeNewMap:
+		return "mapping mode"
+	case MappingModeLocalizationOnly:
+		return "localizing only mode"
+	case MappingModeUpdateExistingMap:
+		return "updating mode"
+	default:
+		return "unspecified mode"
+	}
+}
+
 // SensorTypeCamera is a camera sensor.
 const (
 	SensorTypeCamera = SensorType(iota)
