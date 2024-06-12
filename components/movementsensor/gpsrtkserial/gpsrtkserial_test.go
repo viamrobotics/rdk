@@ -120,7 +120,7 @@ func TestPosition(t *testing.T) {
 	// If there is last error and last position, return last position
 	t.Run("position with last error and last position", func(t *testing.T) {
 		g := &rtkSerial{
-			err:          movementsensor.NewLastError(1, 1),
+			err: movementsensor.NewLastError(1, 1),
 		}
 
 		g.err.Set(errors.New("last position"))
@@ -150,8 +150,8 @@ func TestPosition(t *testing.T) {
 	// If there is no last error, invalid current position and valid last position, return last position
 	t.Run("invalid position with valid last position, with position error", func(t *testing.T) {
 		g := &rtkSerial{
-			err:          movementsensor.NewLastError(1, 1),
-			cachedData:   gpsutils.NewCachedData(&mockDataReader{}, logging.NewTestLogger(t)),
+			err:        movementsensor.NewLastError(1, 1),
+			cachedData: gpsutils.NewCachedData(&mockDataReader{}, logging.NewTestLogger(t)),
 		}
 
 		expectedPos := geo.NewPoint(math.NaN(), math.NaN())
@@ -166,8 +166,8 @@ func TestPosition(t *testing.T) {
 	// Invalid current position from NMEA message, return last known position
 	t.Run("invalid position with valid last position, no error", func(t *testing.T) {
 		g := &rtkSerial{
-			err:          movementsensor.NewLastError(1, 1),
-			cachedData:   gpsutils.NewCachedData(&mockDataReader{}, logging.NewTestLogger(t)),
+			err:        movementsensor.NewLastError(1, 1),
+			cachedData: gpsutils.NewCachedData(&mockDataReader{}, logging.NewTestLogger(t)),
 		}
 
 		// NMEA sentence with invalid position, Fix quality is 0
@@ -183,8 +183,8 @@ func TestPosition(t *testing.T) {
 	// Valid current position, should return current position
 	t.Run("valid position, no error", func(t *testing.T) {
 		g := &rtkSerial{
-			err:          movementsensor.NewLastError(1, 1),
-			cachedData:   gpsutils.NewCachedData(&mockDataReader{}, logging.NewTestLogger(t)),
+			err:        movementsensor.NewLastError(1, 1),
+			cachedData: gpsutils.NewCachedData(&mockDataReader{}, logging.NewTestLogger(t)),
 		}
 
 		// Valid NMEA sentence

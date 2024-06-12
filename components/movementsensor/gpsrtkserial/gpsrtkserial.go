@@ -105,9 +105,9 @@ type rtkSerial struct {
 
 	activeBackgroundWorkers sync.WaitGroup
 
-	err                movementsensor.LastError
-	InputProtocol      string
-	isClosed           bool
+	err           movementsensor.LastError
+	InputProtocol string
+	isClosed      bool
 
 	mu sync.Mutex
 
@@ -185,11 +185,11 @@ func newRTKSerial(
 
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
 	g := &rtkSerial{
-		Named:              conf.ResourceName().AsNamed(),
-		cancelCtx:          cancelCtx,
-		cancelFunc:         cancelFunc,
-		logger:             logger,
-		err:                movementsensor.NewLastError(1, 1),
+		Named:      conf.ResourceName().AsNamed(),
+		cancelCtx:  cancelCtx,
+		cancelFunc: cancelFunc,
+		logger:     logger,
+		err:        movementsensor.NewLastError(1, 1),
 	}
 
 	if err := g.Reconfigure(ctx, deps, conf); err != nil {
