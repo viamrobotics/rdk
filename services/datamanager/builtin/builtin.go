@@ -703,8 +703,13 @@ func (svc *builtIn) sync() {
 	captureDir := svc.captureDir
 	fileLastModifiedMillis := svc.fileLastModifiedMillis
 	additionalSyncPaths := svc.additionalSyncPaths
+	if svc.syncer == nil {
+		svc.lock.Unlock()
+		return
+	}
 	syncer := svc.syncer
 	svc.lock.Unlock()
+
 	// Kick off a goroutine to retrieve all the names of the files to sync, then another 1000 to
 	// sync the files to Viam app.
 
