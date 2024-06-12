@@ -319,6 +319,10 @@ func (m *EncodedMotor) GoTo(ctx context.Context, rpm, targetPosition float64, ex
 		return err
 	}
 	rotations := targetPosition - currRotations
+
+	// ignore the direction of rpm
+	rpm = math.Abs(rpm)
+
 	// if you call GoFor with 0 revolutions, the motor will spin forever. If we are at the target,
 	// we must avoid this by not calling GoFor.
 	if rdkutils.Float64AlmostEqual(rotations, 0, 0.1) {
