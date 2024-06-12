@@ -64,6 +64,17 @@ const (
 	SensorTypeMovementSensor
 )
 
+func (t SensorType) String() string {
+	switch t {
+	case SensorTypeCamera:
+		return "camera"
+	case SensorTypeMovementSensor:
+		return "movement sensor"
+	default:
+		return "unsupported sensor type"
+	}
+}
+
 // API is a variable that identifies the slam resource API.
 var API = resource.APINamespaceRDK.WithServiceType(SubtypeName)
 
