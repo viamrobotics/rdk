@@ -858,6 +858,7 @@ func (mp *tpSpaceRRTMotionPlanner) smoothPath(ctx context.Context, path []node) 
 		d := math.Abs(mynode.Q()[3].Value - mynode.Q()[2].Value)
 		curv, _ := origAllPTGs[i].Curvature(alpha, d)
 		curv = math.Abs(curv)
+		// mp.logger.Debugf("$DEBUG,%v,%v", i, curv)
 		originalCurvCost = originalCurvCost + curv
 	}
 	mp.logger.Debugf("$DEBUG,original_curv_cost:%v\n", originalCurvCost)
@@ -903,9 +904,10 @@ func (mp *tpSpaceRRTMotionPlanner) smoothPath(ctx context.Context, path []node) 
 			d := math.Abs(mynode.Q()[3].Value - mynode.Q()[2].Value)
 			curv, _ := newAllPTGs[i].Curvature(alpha, d)
 			curv = math.Abs(curv)
+			// mp.logger.Debugf("$DEBUG,%v,%v", i, curv)
 			newCurvCost = newCurvCost + curv
 		}
-		if newCurvCost < 0.2*originalCurvCost {
+		if newCurvCost < 0.35*originalCurvCost {
 			break
 		}
 	}
@@ -927,6 +929,7 @@ func (mp *tpSpaceRRTMotionPlanner) smoothPath(ctx context.Context, path []node) 
 			d := math.Abs(mynode.Q()[3].Value - mynode.Q()[2].Value)
 			curv, _ := allPtgs[i].Curvature(alpha, d)
 			curv = math.Abs(curv)
+			// mp.logger.Debugf("$DEBUG,%v,%v", i, curv)
 			newCurvCost = newCurvCost + curv
 			if err != nil {
 				// Unimportant; this is just for debug visualization

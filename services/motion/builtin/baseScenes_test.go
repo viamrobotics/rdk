@@ -125,7 +125,7 @@ func scene18(logger logging.Logger) (*motionplan.PlanRequest, error) {
 
 func TestPtgWithSlam(t *testing.T) {
 	logger := logging.NewTestLogger(t)
-	scene, err := scene17(logger)
+	scene, err := scene13(logger)
 	test.That(t, err, test.ShouldBeNil)
 	plan, motionerr := motionplan.PlanMotion(context.Background(), scene)
 	test.That(t, motionerr, test.ShouldBeNil)
