@@ -106,7 +106,6 @@ type rtkSerial struct {
 	activeBackgroundWorkers sync.WaitGroup
 
 	err                movementsensor.LastError
-	lastposition       movementsensor.LastPosition
 	InputProtocol      string
 	isClosed           bool
 
@@ -191,7 +190,6 @@ func newRTKSerial(
 		cancelFunc:         cancelFunc,
 		logger:             logger,
 		err:                movementsensor.NewLastError(1, 1),
-		lastposition:       movementsensor.NewLastPosition(),
 	}
 
 	if err := g.Reconfigure(ctx, deps, conf); err != nil {
@@ -460,29 +458,20 @@ func (g *rtkSerial) receiveAndWriteSerial() {
 
 // Position returns the current geographic location of the MOVEMENTSENSOR.
 func (g *rtkSerial) Position(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
+	nanPoint := geo.NewPoint(math.NaN(), math.NaN())
+
 	lastError := g.err.Get()
 	if lastError != nil {
-		lastPosition := g.lastposition.GetLastPosition()
-		if lastPosition != nil {
-			return lastPosition, 0, nil
-		}
-		return geo.NewPoint(math.NaN(), math.NaN()), math.NaN(), lastError
+		return nanPoint, math.NaN(), lastError
 	}
 
 	position, alt, err := g.cachedData.Position(ctx, extra)
 	if err != nil {
-		// Use the last known valid position if current position is (0,0)/ NaN.
-		if position != nil && (movementsensor.IsZeroPosition(position) || movementsensor.IsPositionNaN(position)) {
-			lastPosition := g.lastposition.GetLastPosition()
-			if lastPosition != nil {
-				return lastPosition, alt, nil
-			}
-		}
-		return geo.NewPoint(math.NaN(), math.NaN()), math.NaN(), err
+		return nanPoint, math.NaN(), err
 	}
 
 	if movementsensor.IsPositionNaN(position) {
-		position = g.lastposition.GetLastPosition()
+		position = nanPoint
 	}
 	return position, alt, nil
 }
