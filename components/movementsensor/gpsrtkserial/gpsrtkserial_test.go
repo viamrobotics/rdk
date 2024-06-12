@@ -102,7 +102,6 @@ func TestReconfigure(t *testing.T) {
 }
 
 func TestPosition(t *testing.T) {
-	testLastPosition := geo.NewPoint(42.1, 123)
 	// WITH LAST ERROR
 
 	// If there is last error and no last position, return NaN
@@ -122,12 +121,10 @@ func TestPosition(t *testing.T) {
 	t.Run("position with last error and last position", func(t *testing.T) {
 		g := &rtkSerial{
 			err:          movementsensor.NewLastError(1, 1),
-			lastposition: movementsensor.NewLastPosition(),
 		}
-		g.lastposition.SetLastPosition(testLastPosition)
 
 		g.err.Set(errors.New("last position"))
-		expectedPos := geo.NewPoint(42.1, 123.)
+		expectedPos := geo.NewPoint(math.NaN(), math.NaN())
 
 		pos, alt, err := g.Position(context.Background(), nil)
 		test.That(t, movementsensor.ArePointsEqual(pos, expectedPos), test.ShouldBeTrue)
@@ -154,12 +151,10 @@ func TestPosition(t *testing.T) {
 	t.Run("invalid position with valid last position, with position error", func(t *testing.T) {
 		g := &rtkSerial{
 			err:          movementsensor.NewLastError(1, 1),
-			lastposition: movementsensor.NewLastPosition(),
 			cachedData:   gpsutils.NewCachedData(&mockDataReader{}, logging.NewTestLogger(t)),
 		}
 
-		g.lastposition.SetLastPosition(testLastPosition)
-		expectedPos := geo.NewPoint(42.1, 123.)
+		expectedPos := geo.NewPoint(math.NaN(), math.NaN())
 
 		pos, _, err := g.Position(context.Background(), nil)
 		test.That(t, movementsensor.ArePointsEqual(pos, expectedPos), test.ShouldBeTrue)
@@ -172,15 +167,13 @@ func TestPosition(t *testing.T) {
 	t.Run("invalid position with valid last position, no error", func(t *testing.T) {
 		g := &rtkSerial{
 			err:          movementsensor.NewLastError(1, 1),
-			lastposition: movementsensor.NewLastPosition(),
 			cachedData:   gpsutils.NewCachedData(&mockDataReader{}, logging.NewTestLogger(t)),
 		}
 
 		// NMEA sentence with invalid position, Fix quality is 0
 		nmeaSentenceInvalid := "$GPGGA,172814.0,123.123,N,234.234,W,0,6,1.2,18.893,M,-25.669,M,2.0,0031*4F"
 		g.cachedData.ParseAndUpdate(nmeaSentenceInvalid)
-		g.lastposition.SetLastPosition(testLastPosition)
-		expectedPos := geo.NewPoint(42.1, 123.) // Last known position
+		expectedPos := geo.NewPoint(math.NaN(), math.NaN())
 
 		pos, _, err := g.Position(context.Background(), nil)
 		test.That(t, movementsensor.ArePointsEqual(pos, expectedPos), test.ShouldBeTrue)
@@ -191,14 +184,12 @@ func TestPosition(t *testing.T) {
 	t.Run("valid position, no error", func(t *testing.T) {
 		g := &rtkSerial{
 			err:          movementsensor.NewLastError(1, 1),
-			lastposition: movementsensor.NewLastPosition(),
 			cachedData:   gpsutils.NewCachedData(&mockDataReader{}, logging.NewTestLogger(t)),
 		}
 
 		// Valid NMEA sentence
 		nmeaSentenceValid := "$GPGGA,172814.0,3723.46587704,N,12202.26957864,W,2,6,1.2,18.893,M,-25.669,M,2.0,0031*4F"
 		g.cachedData.ParseAndUpdate(nmeaSentenceValid)
-		g.lastposition.SetLastPosition(testLastPosition)
 
 		pos, _, err := g.Position(context.Background(), nil)
 
