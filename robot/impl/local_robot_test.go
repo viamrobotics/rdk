@@ -3489,7 +3489,7 @@ func TestCustomResourceBuildsOnModuleAddition(t *testing.T) {
 
 	// Verify resources to ensure myGizmo does build
 	expectedResources = rtestutils.ConcatResourceNames(
-		[]resource.Name{gizmoapi.Named("myGizmo")},
+		[]resource.Name{cfg.Components[0].ResourceName()},
 		expectedResources,
 	)
 	rtestutils.VerifySameResourceNames(t, r.ResourceNames(), expectedResources)
