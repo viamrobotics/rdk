@@ -9,6 +9,7 @@ import (
 	"net"
 	"os"
 	"path"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -18,6 +19,7 @@ import (
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.uber.org/zap"
+
 	// registers all components.
 	commonpb "go.viam.com/api/common/v1"
 	armpb "go.viam.com/api/component/arm/v1"
@@ -3426,6 +3428,104 @@ func TestReconfigureOnModuleRename(t *testing.T) {
 		isMotor1 := comp.Equals(cfg.Components[1])
 		isMotor2 := comp.Equals(cfg.Components[2])
 		test.That(t, isMyBase || isMotor1 || isMotor2, test.ShouldBeTrue)
+	}
+
+	// Manually inspect module
+	test.That(t, len(actualCfg.Modules), test.ShouldEqual, 1)
+	test.That(t, actualCfg.Modules[0].Equals(expectedCfg.Modules[0]), test.ShouldBeTrue)
+}
+
+func TestCustomResourceBuildsOnModuleAddition(t *testing.T) {
+	ctx := context.Background()
+	logger := logging.NewTestLogger(t)
+
+	// Precompile complex module to avoid timeout issues when building takes too long.
+	complexPath := rtestutils.BuildTempModule(t, "examples/customresources/demos/complexmodule")
+
+	// Manually define mygizmo model, as importing it can cause double registration, and its API
+	gizmoModel := resource.NewModel("acme", "demo", "mygizmo")
+
+	// Create config with a modular component from a custom API without its module
+	cfg := &config.Config{
+		Components: []resource.Config{
+			{
+				Name:       "myGizmo",
+				API:        resource.NewAPI("acme", "component", "gizmo"),
+				Model:      gizmoModel,
+				Attributes: rutils.AttributeMap{"arg1": "arg1"},
+			},
+			{
+				Name:                "motor1",
+				API:                 motor.API,
+				Model:               fakeModel,
+				ConvertedAttributes: &fakemotor.Config{},
+			},
+			{
+				Name:                "motor2",
+				API:                 motor.API,
+				Model:               fakeModel,
+				ConvertedAttributes: &fakemotor.Config{},
+			},
+		},
+	}
+
+	// Create copy of cfg since Reconfigure (called when setting up a robot) modifies cfg.
+	cfgCopy := *cfg
+	r := setupLocalRobot(t, ctx, cfg, logger)
+
+	// Check resources instead of the config because myGizmo will exist in the config, but
+	// won't build, so it won't be a known resource.
+	robotResources := r.ResourceNames()
+
+	// Remove default services
+	defaultSvcs := resource.DefaultServices()
+	test.That(t, len(defaultSvcs), test.ShouldEqual, 2)
+	robotResources = slices.DeleteFunc(robotResources, func(resource resource.Name) bool {
+		return slices.Contains(defaultSvcs, resource)
+	})
+
+	// Manually inspect resources to ensure modular resource does not build without module
+	// Assert that there are 2 resources (the motors) minus the default ones
+	test.That(t, len(robotResources), test.ShouldEqual, 2)
+	for _, resource := range robotResources {
+		isMyMotor1 := resource.Name == cfg.Components[1].Name
+		isMyMotor2 := resource.Name == cfg.Components[2].Name
+		test.That(t, isMyMotor1 || isMyMotor2, test.ShouldBeTrue)
+	}
+
+	// Modify config so that it now has module that supports the myGizmo
+	mod := []config.Module{
+		{
+			Name:     "mod",
+			ExePath:  complexPath,
+			LogLevel: "info",
+		},
+	}
+	cfgCopy.Modules = mod
+
+	// Create copy of cfgCopy to test against
+	expectedCfg := cfgCopy
+
+	r.Reconfigure(ctx, &cfgCopy)
+
+	robotResources = r.ResourceNames()
+
+	// Remove default services
+	robotResources = slices.DeleteFunc(robotResources, func(resource resource.Name) bool {
+		return slices.Contains(defaultSvcs, resource)
+	})
+
+	actualCfg := r.Config()
+
+	// Verify attributes of resources and config
+
+	// Manually inspect resources to ensure myGizmo now builds
+	test.That(t, len(robotResources), test.ShouldEqual, 3)
+	for _, resource := range robotResources {
+		isMyGizmo := resource.Name == cfg.Components[0].Name
+		isMyMotor1 := resource.Name == cfg.Components[1].Name
+		isMyMotor2 := resource.Name == cfg.Components[2].Name
+		test.That(t, isMyMotor1 || isMyMotor2 || isMyGizmo, test.ShouldBeTrue)
 	}
 
 	// Manually inspect module

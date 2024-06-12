@@ -634,8 +634,11 @@ func (mgr *Manager) ResolveImplicitDependenciesInConfig(ctx context.Context, con
 			continue
 		}
 
-		//nolint:gocritic
-		deltaModules := append(conf.Modified.Modules, conf.Added.Modules...)
+		lenModified, lenAdded := len(conf.Modified.Modules), len(conf.Added.Modules)
+		deltaModules := make([]config.Module, lenModified, lenModified+lenAdded)
+		copy(deltaModules, conf.Modified.Modules)
+		deltaModules = append(deltaModules, conf.Added.Modules...)
+
 		if !slices.ContainsFunc(deltaModules, func(elem config.Module) bool {
 			return elem.Name == mod.cfg.Name
 		}) {
