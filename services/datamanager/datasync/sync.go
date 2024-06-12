@@ -90,8 +90,8 @@ func NewManager(identity string, client v1.DataSyncServiceClient, logger logging
 		arbitraryFileTags: []string{},
 		inProgress:        make(map[string]bool),
 		syncErrs:          make(chan error, 10),
-		//shold this be buffered?
-		filesToSync: make(chan string, 1000),
+
+		filesToSync: make(chan string, maxSyncThreads),
 
 		// syncRoutineTracker: make(chan struct{}, maxSyncThreads),
 		captureDir: captureDir,
@@ -106,7 +106,7 @@ func NewManager(identity string, client v1.DataSyncServiceClient, logger logging
 		ret.backgroundWorkers.Add(1)
 		go func() {
 			defer ret.backgroundWorkers.Done()
-			defer fmt.Print("exiting from sync thread, should not see") //REMOVE BEFORE MERGE
+			// defer fmt.Print("exiting from sync thread, should not see") //REMOVE BEFORE MERGE
 			for {
 				if cancelCtx.Err() != nil {
 					return
