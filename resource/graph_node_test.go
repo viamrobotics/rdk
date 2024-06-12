@@ -92,8 +92,7 @@ func lifecycleTest(t *testing.T, node *resource.GraphNode, initialDeps []string)
 	node.LogAndSetLastError(ourErr)
 	_, err = node.Resource()
 	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "whoops")
-	// test.That(t, err.Error(), test.ShouldContainSubstring, "pending removal")
+	test.That(t, err.Error(), test.ShouldContainSubstring, "pending removal")
 
 	test.That(t, node.UnresolvedDependencies(), test.ShouldResemble, initialDeps)
 

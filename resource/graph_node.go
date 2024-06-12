@@ -18,7 +18,6 @@ const (
 	stateConfigure
 	stateReady
 	stateRemove
-	stateUnhealthy
 )
 
 // A GraphNode contains the current state of a resource.
@@ -235,7 +234,7 @@ func (w *GraphNode) MarkedForRemoval() bool {
 func (w *GraphNode) LogAndSetLastError(err error, args ...any) {
 	w.mu.Lock()
 	w.lastErr = err
-	w.transitionTo(stateUnhealthy)
+	// TODO(RSDK-7903): transition to `stateUnhealthy`
 	w.mu.Unlock()
 
 	if w.logger != nil {
