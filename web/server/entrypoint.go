@@ -491,6 +491,6 @@ func logStackTraceAndCancel(cancel context.CancelFunc, logger logging.Logger) {
 	if traceSize == bufSize {
 		message = fmt.Sprintf("%s (warning: backtrace truncated to %v bytes)", message, bufSize)
 	}
-	logger.Infof("%s, %s", message, traces)
+	logger.Infof("%s, %s", message, traces[:traceSize])
 	cancel()
 }

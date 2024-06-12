@@ -211,11 +211,7 @@ func TestConfigRemote(t *testing.T) {
 	expectedRemotes := []string{"squee", "foo", "bar"}
 	remotes2 := r2.RemoteNames()
 
-	test.That(
-		t, utils.NewStringSet(remotes2...),
-		test.ShouldResemble,
-		utils.NewStringSet(expectedRemotes...),
-	)
+	rtestutils.VerifySameElements(t, remotes2, expectedRemotes)
 
 	arm1Name := arm.Named("bar:pieceArm")
 	arm1, err := r2.ResourceByName(arm1Name)
@@ -443,11 +439,7 @@ func TestConfigRemoteWithAuth(t *testing.T) {
 			remotes2 := r2.RemoteNames()
 			expectedRemotes := []string{"bar", "foo"}
 
-			test.That(
-				t, utils.NewStringSet(remotes2...),
-				test.ShouldResemble,
-				utils.NewStringSet(expectedRemotes...),
-			)
+			rtestutils.VerifySameElements(t, remotes2, expectedRemotes)
 
 			statuses, err := r2.Status(
 				context.Background(), []resource.Name{movementsensor.Named("bar:movement_sensor1"), movementsensor.Named("foo:movement_sensor1")},
@@ -610,11 +602,7 @@ func TestConfigRemoteWithTLSAuth(t *testing.T) {
 	remotes2 := r2.RemoteNames()
 	expectedRemotes := []string{"foo"}
 
-	test.That(
-		t, utils.NewStringSet(remotes2...),
-		test.ShouldResemble,
-		utils.NewStringSet(expectedRemotes...),
-	)
+	rtestutils.VerifySameElements(t, remotes2, expectedRemotes)
 
 	statuses, err := r2.Status(context.Background(), []resource.Name{movementsensor.Named("foo:movement_sensor1")})
 	test.That(t, err, test.ShouldBeNil)

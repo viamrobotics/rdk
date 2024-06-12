@@ -63,6 +63,9 @@ var defaultMaxCaptureSize = int64(256 * 1024)
 // Default time between disk size checks.
 var filesystemPollInterval = 30 * time.Second
 
+// Threshold number of files to check if sync is backed up (defined as >5000 files).
+var minNumFiles = 5000
+
 var (
 	clock          = clk.New()
 	deletionTicker = clk.New()
@@ -123,6 +126,7 @@ type builtIn struct {
 	logger                 logging.Logger
 	captureDir             string
 	captureDisabled        bool
+	collectorsMu           sync.Mutex
 	collectors             map[resourceMethodMetadata]*collectorAndConfig
 	lock                   sync.Mutex
 	backgroundWorkers      sync.WaitGroup
@@ -192,39 +196,52 @@ func (svc *builtIn) Close(_ context.Context) error {
 		svc.fileDeletionRoutineCancelFn()
 	}
 
+	fileDeletionBackgroundWorkers := svc.fileDeletionBackgroundWorkers
 	svc.lock.Unlock()
 	svc.backgroundWorkers.Wait()
 
-	if svc.fileDeletionBackgroundWorkers != nil {
-		svc.fileDeletionBackgroundWorkers.Wait()
+	if fileDeletionBackgroundWorkers != nil {
+		fileDeletionBackgroundWorkers.Wait()
 	}
 
 	return nil
 }
 
 func (svc *builtIn) closeCollectors() {
+	var collectorsToClose []data.Collector
+	svc.collectorsMu.Lock()
+	for _, collectorAndConfig := range svc.collectors {
+		collectorsToClose = append(collectorsToClose, collectorAndConfig.Collector)
+	}
+	svc.collectors = make(map[resourceMethodMetadata]*collectorAndConfig)
+	svc.collectorsMu.Unlock()
+
 	var wg sync.WaitGroup
-	for md, collector := range svc.collectors {
-		currCollector := collector
+	for _, collector := range collectorsToClose {
 		wg.Add(1)
-		go func() {
+		go func(toClose data.Collector) {
 			defer wg.Done()
-			currCollector.Collector.Close()
-		}()
-		delete(svc.collectors, md)
+			toClose.Close()
+		}(collector)
 	}
 	wg.Wait()
 }
 
 func (svc *builtIn) flushCollectors() {
+	var collectorsToFlush []data.Collector
+	svc.collectorsMu.Lock()
+	for _, collectorAndConfig := range svc.collectors {
+		collectorsToFlush = append(collectorsToFlush, collectorAndConfig.Collector)
+	}
+	svc.collectorsMu.Unlock()
+
 	var wg sync.WaitGroup
-	for _, collector := range svc.collectors {
-		currCollector := collector
+	for _, collector := range collectorsToFlush {
 		wg.Add(1)
-		go func() {
+		go func(toFlush data.Collector) {
 			defer wg.Done()
-			currCollector.Collector.Flush()
-		}()
+			toFlush.Flush()
+		}(collector)
 	}
 	wg.Wait()
 }
@@ -285,6 +302,8 @@ func (svc *builtIn) initializeOrUpdateCollector(
 
 	// TODO(DATA-451): validate method params
 
+	svc.collectorsMu.Lock()
+	defer svc.collectorsMu.Unlock()
 	if storedCollectorAndConfig, ok := svc.collectors[md]; ok {
 		if storedCollectorAndConfig.Config.Equals(&config) &&
 			res == storedCollectorAndConfig.Resource &&
@@ -454,7 +473,6 @@ func (svc *builtIn) Reconfigure(
 	// Service is disabled, so close all collectors and clear the map so we can instantiate new ones if we enable this service.
 	if svc.captureDisabled {
 		svc.closeCollectors()
-		svc.collectors = make(map[resourceMethodMetadata]*collectorAndConfig)
 	}
 
 	if svc.fileDeletionRoutineCancelFn != nil {
@@ -531,12 +549,14 @@ func (svc *builtIn) Reconfigure(
 	}
 
 	// If a component/method has been removed from the config, close the collector.
+	svc.collectorsMu.Lock()
 	for md, collAndConfig := range svc.collectors {
 		if _, present := newCollectors[md]; !present {
 			collAndConfig.Collector.Close()
 		}
 	}
 	svc.collectors = newCollectors
+	svc.collectorsMu.Unlock()
 	svc.additionalSyncPaths = svcConfig.AdditionalSyncPaths
 
 	fileLastModifiedMillis := svcConfig.FileLastModifiedMillis
@@ -684,11 +704,16 @@ func (svc *builtIn) sync() {
 		for _, ap := range svc.additionalSyncPaths {
 			toSync = append(toSync, getAllFilesToSync(ap, svc.fileLastModifiedMillis)...)
 		}
+		syncer := svc.syncer
+		stopAfter := time.Now().Add(time.Duration(svc.syncIntervalMins * float64(time.Minute)))
 		svc.lock.Unlock()
 
-		stopAfter := time.Now().Add(time.Duration(svc.syncIntervalMins * float64(time.Minute)))
+		// Only log if there are a large number of files to sync
+		if len(toSync) > minNumFiles {
+			svc.logger.Infof("Starting sync of %d files", len(toSync))
+		}
 		for _, p := range toSync {
-			svc.syncer.SyncFile(p, stopAfter)
+			syncer.SyncFile(p, stopAfter)
 		}
 	} else {
 		svc.lock.Unlock()
