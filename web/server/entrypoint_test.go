@@ -9,6 +9,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"testing"
 	"time"
 
@@ -158,15 +159,11 @@ func TestShutdown(t *testing.T) {
 		}
 		test.That(t, success, test.ShouldBeTrue)
 
-		conn, err := robottestutils.Connect(port)
-		test.That(t, err, test.ShouldBeNil)
-		defer func() {
-			test.That(t, conn.Close(), test.ShouldBeNil)
-		}()
-		rc := robotpb.NewRobotServiceClient(conn)
+		addr := "localhost:" + strconv.Itoa(port)
+		rc := robottestutils.NewRobotClient(t, testLogger, addr, time.Second)
 
 		testLogger.Info("Issuing shutdown.")
-		_, err = rc.Shutdown(context.Background(), &robotpb.ShutdownRequest{})
+		err = rc.Shutdown(context.Background())
 
 		gtestutils.WaitForAssertionWithSleep(t, 50*time.Millisecond, 50, func(tb testing.TB) {
 			tb.Helper()
