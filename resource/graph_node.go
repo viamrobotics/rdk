@@ -11,6 +11,15 @@ import (
 	"go.viam.com/rdk/logging"
 )
 
+type nodeState int
+
+const (
+	stateInitialize nodeState = iota
+	stateConfigure
+	stateReady
+	stateRemove
+)
+
 // A GraphNode contains the current state of a resource.
 // It starts out as either uninitialized, unconfigured, or configured.
 // Based on these states, the underlying Resource may or may not be available.
@@ -40,6 +49,10 @@ type GraphNode struct {
 	needsDependencyResolution bool
 
 	logger logging.Logger
+
+	// state stores the current lifecycle state for a resource node
+	state          nodeState
+	transitionedAt time.Time
 }
 
 var (
@@ -200,6 +213,8 @@ func (w *GraphNode) SwapResource(newRes Resource, newModel Model) {
 	}
 	now := time.Now()
 	w.lastReconfigured = &now
+
+	w.transitionTo(stateReady)
 }
 
 // MarkForRemoval marks this node for removal at a later time.
@@ -207,6 +222,8 @@ func (w *GraphNode) MarkForRemoval() {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	w.markedForRemoval = true
+
+	w.transitionTo(stateRemove)
 }
 
 // MarkedForRemoval returns if this node is marked for removal.
@@ -223,6 +240,7 @@ func (w *GraphNode) MarkedForRemoval() bool {
 // The additional `args` should come in key/value pairs for structured logging.
 func (w *GraphNode) LogAndSetLastError(err error, args ...any) {
 	w.mu.Lock()
+	// TODO: mark unhealthy instead of removing from graph
 	w.lastErr = err
 	w.mu.Unlock()
 
@@ -273,6 +291,8 @@ func (w *GraphNode) setNeedsReconfigure(newConfig Config, mustReconfigure bool, 
 	w.needsReconfigure = true
 	w.markedForRemoval = false
 	w.unresolvedDependencies = dependencies
+
+	w.transitionTo(stateConfigure)
 }
 
 // SetNewConfig is used to inform the node that it has been modified
@@ -365,6 +385,9 @@ func (w *GraphNode) replace(other *GraphNode) error {
 	w.unresolvedDependencies = other.unresolvedDependencies
 	w.needsDependencyResolution = other.needsDependencyResolution
 
+	w.state = other.state
+	w.transitionedAt = other.transitionedAt
+
 	// other is now owned by the graph/node and is invalidated
 	other.updatedAt = 0
 	other.graphLogicalClock = nil
@@ -377,6 +400,16 @@ func (w *GraphNode) replace(other *GraphNode) error {
 	other.markedForRemoval = false
 	other.unresolvedDependencies = nil
 	other.needsDependencyResolution = false
+
+	other.state = stateInitialize
+	other.transitionedAt = time.Time{}
+
 	other.mu.Unlock()
 	return nil
+}
+
+func (w *GraphNode) transitionTo(state nodeState) {
+	// TODO: validate transition?
+	w.state = state
+	w.transitionedAt = time.Now()
 }
