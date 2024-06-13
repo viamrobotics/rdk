@@ -33,6 +33,7 @@ package gpsrtkpmtk
 */
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"errors"
@@ -123,15 +124,16 @@ type rtkI2C struct {
 
 	activeBackgroundWorkers sync.WaitGroup
 
-	mu          sync.Mutex
-	ntripClient *gpsutils.NtripInfo
-	ntripStatus bool
+	mu            sync.Mutex
+	ntripClient   *gpsutils.NtripInfo
+	ntripStatus   bool
+	isVirtualBase bool
+	readerWriter  *bufio.ReadWriter
 
 	err          movementsensor.LastError
 	lastposition movementsensor.LastPosition
 
-	cachedData       *gpsutils.CachedData
-	correctionWriter io.ReadWriteCloser
+	cachedData *gpsutils.CachedData
 
 	bus     buses.I2C
 	mockI2c buses.I2C // Will be nil unless we're in a unit test
@@ -309,20 +311,125 @@ func (g *rtkI2C) getStream(mountPoint string, maxAttempts int) error {
 	return g.err.Get()
 }
 
+// connectAndParseSourceTable connects to the NTRIP caster, gets and parses source table
+// from the caster.
+func (g *rtkI2C) connectAndParseSourceTable() error {
+	if err := g.cancelCtx.Err(); err != nil {
+		return g.err.Get()
+	}
+
+	err := g.ntripClient.Connect(g.cancelCtx, g.logger)
+	if err != nil {
+		g.err.Set(err)
+		return g.err.Get()
+	}
+
+	if !g.ntripClient.Client.IsCasterAlive() {
+		g.logger.Infof("caster %s seems to be down, retrying", g.ntripClient.URL)
+		attempts := 0
+		// we will try to connect to the caster five times if it's down.
+		for attempts < 5 {
+			if !g.ntripClient.Client.IsCasterAlive() {
+				attempts++
+				g.logger.Debugf("attempt(s) to connect to caster: %v ", attempts)
+			} else {
+				break
+			}
+		}
+		if attempts == 5 {
+			return fmt.Errorf("caster %s is down", g.ntripClient.URL)
+		}
+	}
+
+	g.logger.Debug("getting source table")
+
+	srcTable, err := g.ntripClient.ParseSourcetable(g.logger)
+	if err != nil {
+		g.logger.Errorf("failed to get source table: %v", err)
+		return err
+	}
+	g.logger.Debugf("sourceTable is: %v\n", srcTable)
+
+	g.logger.Debug("got sourcetable, parsing it...")
+	g.isVirtualBase, err = gpsutils.HasVRSStream(srcTable, g.ntripClient.MountPoint)
+	if err != nil {
+		g.logger.Errorf("can't find mountpoint in source table, found err %v\n", err)
+		return err
+	}
+
+	return nil
+}
+
+// getNtripFromVRS sends GGA messages to the NTRIP Caster over a TCP connection
+// to get the NTRIP steam when the mount point is a Virtual Reference Station.
+func (g *rtkI2C) getNtripFromVRS() error {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+
+	var err error
+	g.readerWriter, err = gpsutils.ConnectToVirtualBase(g.ntripClient, g.logger)
+	if err != nil {
+		return err
+	}
+
+	// read from the socket until we know if a successful connection has been
+	// established.
+	for {
+		line, _, err := g.readerWriter.ReadLine()
+		if err != nil {
+			if errors.Is(err, io.EOF) {
+				g.readerWriter = nil
+				return err
+			}
+			g.logger.Error("Failed to read server response:", err)
+			return err
+		}
+
+		if strings.HasPrefix(string(line), "HTTP/1.1 ") {
+			if strings.Contains(string(line), "200 OK") {
+				break
+			}
+			g.logger.Errorf("Bad HTTP response: %v", string(line))
+			return err
+		}
+	}
+	var ggaMessage []byte
+	// GET GGA MESSAGE
+
+	// ggaMessage, err := gpsutils.GetGGAMessage(g.correctionWriter, g.logger)
+	// if err != nil {
+	// 	g.logger.Error("Failed to get GGA message")
+	// 	return err
+	// }
+
+	g.logger.Debugf("Writing GGA message: %v\n", string(ggaMessage))
+
+	_, err = g.readerWriter.WriteString(string(ggaMessage))
+	if err != nil {
+		g.logger.Error("Failed to send NMEA data:", err)
+		return err
+	}
+
+	err = g.readerWriter.Flush()
+	if err != nil {
+		g.logger.Error("failed to write to buffer: ", err)
+		return err
+	}
+
+	g.logger.Debug("GGA message sent successfully.")
+
+	return nil
+}
+
 // receiveAndWriteI2C connects to NTRIP receiver and sends correction stream to the MovementSensor through I2C protocol.
 func (g *rtkI2C) receiveAndWriteI2C(ctx context.Context) {
 	defer g.activeBackgroundWorkers.Done()
 	if err := g.cancelCtx.Err(); err != nil {
 		return
 	}
-	err := g.ntripClient.Connect(g.cancelCtx, g.logger)
-	if err != nil {
+	if err := g.connectAndParseSourceTable(); err != nil {
 		g.err.Set(err)
 		return
-	}
-
-	if !g.ntripClient.Client.IsCasterAlive() {
-		g.logger.CInfof(ctx, "caster %s seems to be down", g.ntripClient.URL)
 	}
 
 	// establish I2C connection
@@ -624,15 +731,6 @@ func (g *rtkI2C) Close(ctx context.Context) error {
 	if err := g.cachedData.Close(ctx); err != nil {
 		g.mu.Unlock()
 		return err
-	}
-
-	// close ntrip writer
-	if g.correctionWriter != nil {
-		if err := g.correctionWriter.Close(); err != nil {
-			g.mu.Unlock()
-			return err
-		}
-		g.correctionWriter = nil
 	}
 
 	// close ntrip client and stream
