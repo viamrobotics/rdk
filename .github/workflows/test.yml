@@ -20,6 +20,10 @@ jobs:
       fail-fast: false
       matrix:
         include:
+          - arch: [buildjet-8vcpu-ubuntu-2204]
+            image: ghcr.io/viamrobotics/rdk-devenv:amd64-cache
+            platform: linux/amd64
+            platform_name: linux-amd64
           - arch: github-linux-arm64-8core
             image: ghcr.io/viamrobotics/rdk-devenv:arm64-cache
             platform: linux/arm64
@@ -54,11 +58,22 @@ jobs:
     - name: Chown
       run: chown -R testbot:testbot .
 
+    - name: Verify no uncommitted changes from "make build-go lint-go"
+      run: |
+        sudo -Hu testbot bash -lc 'git init && git add . && make build-go lint-go'
+        GEN_DIFF=$(git status -s)
+
+        if [ -n "$GEN_DIFF" ]; then
+            echo '"make build lint" resulted in the following untracked changes:' 1>&2
+            git diff
+            echo '"make build lint" resulted in changes not in git' 1>&2
+            git status
+            exit 1
+        fi
+
     - name: Run go unit tests
       run: |
-        whoami
-        ls -la
-        chmod -R o+rwx .
+        chmod -R a+rwx . # temporary fix for arm runners
         sudo --preserve-env=MONGODB_TEST_OUTPUT_URI,GITHUB_SHA,GITHUB_RUN_ID,GITHUB_RUN_NUMBER,GITHUB_RUN_ATTEMPT,GITHUB_X_PR_BASE_SHA,GITHUB_X_PR_BASE_REF,GITHUB_X_HEAD_REF,GITHUB_X_HEAD_SHA,GITHUB_REPOSITORY -Hu testbot bash -lc 'make test-go'
 
     - name: Upload test.json
@@ -159,7 +174,7 @@ jobs:
 
     - name: Run go unit tests
       run: |
-        chmod -R a+rwx .
+        chmod -R a+rwx . # temporary fix for arm runners
         docker run \
           --platform linux/arm/v7 \
           -v `pwd`:/rdk \
@@ -168,7 +183,6 @@ jobs:
 
   test_pi:
     name: Test Raspberry Pi Code
-    if: false
     runs-on: pi4
     timeout-minutes: 5
 
@@ -188,7 +202,6 @@ jobs:
 
   test_web_e2e:
     name: Test End-to-End and Web
-    if: false
     runs-on: [buildjet-4vcpu-ubuntu-2204]
     container: ghcr.io/viamrobotics/rdk-devenv:amd64-cache
     timeout-minutes: 15
@@ -223,9 +236,9 @@ jobs:
 
   test_passing:
     name: All Tests Passing
-    if: false
     needs: [test_go, test_web_e2e, test_pi, test32]
     runs-on: [ubuntu-latest]
+    if: always()
     steps:
       - name: Check Results
         run: |
