@@ -1,6 +1,6 @@
 // Package sensors contains a gRPC based sensors service client
 //
-//nolint:staticcheck
+
 package sensors
 
 import (

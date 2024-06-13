@@ -10,6 +10,7 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/pion/interceptor"
+	pionLogging "github.com/pion/logging"
 	"github.com/pion/webrtc/v3"
 	"go.uber.org/multierr"
 	"go.uber.org/zap"
@@ -17,7 +18,6 @@ import (
 	"go.viam.com/utils/rpc"
 	googlegrpc "google.golang.org/grpc"
 
-	pionLogging "github.com/pion/logging"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	rutils "go.viam.com/rdk/utils"
@@ -325,6 +325,9 @@ func (sc *SharedConn) Close() error {
 
 	return multierr.Combine(err, sc.grpcConn.Close())
 }
+
+// NewLocalPeerConnection creates a peer connection that only accepts loopback
+// address candidates
 func NewLocalPeerConnection() (*webrtc.PeerConnection, error) {
 	logger := golog.Global()
 	m := webrtc.MediaEngine{}
