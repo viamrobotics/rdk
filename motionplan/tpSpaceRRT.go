@@ -928,16 +928,16 @@ func (mp *tpSpaceRRTMotionPlanner) smoothPath(ctx context.Context, path []node) 
 		// get start node of first edge. Cannot be either the last or second-to-last node.
 		// Intn will return an int in the half-open interval half-open interval [0,n)
 		firstEdge := mp.randseed.Intn(len(path) - 2)
-		secondEdge := firstEdge + 1 + mp.randseed.Intn((len(path)-2)-firstEdge)
-		// cdf := generateCDF(mp.logger, firstEdge, len(path))
-		// sample := mp.randseed.Float64()
-		// secondEdge := binarySearch(cdf, sample)
+		// secondEdge := firstEdge + 1 + mp.randseed.Intn((len(path)-2)-firstEdge)
+		cdf := generateCDF(mp.logger, firstEdge, len(path))
+		sample := mp.randseed.Float64()
+		secondEdge := binarySearch(cdf, sample)
 
-		// if secondEdge < firstEdge {
-		// 	temp := secondEdge
-		// 	secondEdge = firstEdge
-		// 	firstEdge = temp
-		// }
+		if secondEdge < firstEdge {
+			temp := secondEdge
+			secondEdge = firstEdge
+			firstEdge = temp
+		}
 		attemptSmoothStart := time.Now()
 		newInputSteps, err := mp.attemptSmooth(ctx, path, firstEdge, secondEdge, smoothPlanner)
 		attemptSmoothEnd := time.Now()
@@ -954,7 +954,7 @@ func (mp *tpSpaceRRTMotionPlanner) smoothPath(ctx context.Context, path []node) 
 
 		path = newInputSteps
 		currCost = newCost
-		if newCost < 35000 { // specific to scene 18
+		if newCost < 84000 {
 			mp.logger.Debugf("$DEBUG,breaking_at_iter_%v\n", i)
 			break
 		}
