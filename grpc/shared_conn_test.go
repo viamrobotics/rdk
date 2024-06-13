@@ -91,37 +91,8 @@ func TestNewLocalPeerConnection(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		server, err := webrtc.NewPeerConnection(webrtc.Configuration{})
 		test.That(t, err, test.ShouldBeNil)
-		clientPeerConnReady, clientPeerConnClosed, err := rpc.ConfigureForRenegotiation(client, logger.AsZap())
-		test.That(t, err, test.ShouldBeNil)
 
-		defer func() {
-			test.That(t, client.Close(), test.ShouldBeNil)
-			<-clientPeerConnClosed
-		}()
-		serverPeerConnReady, serverPeerConnClosed, err := rpc.ConfigureForRenegotiation(server, logger.AsZap())
-		test.That(t, err, test.ShouldBeNil)
-		defer func() {
-			server.Close()
-			<-serverPeerConnClosed
-		}()
-		timeoutCtx, timeoutFn := context.WithTimeout(context.Background(), time.Second*10)
-		defer timeoutFn()
-
-		signalPair(t, client, server)
-
-		select {
-		case <-timeoutCtx.Done():
-			t.Log("timeout")
-			t.FailNow()
-		case <-clientPeerConnReady:
-		}
-
-		select {
-		case <-timeoutCtx.Done():
-			t.Log("timeout")
-			t.FailNow()
-		case <-serverPeerConnReady:
-		}
+		testClientServer(t, client, server, logger)
 	})
 
 	t.Run("one NewLocalPeerConnection non local client", func(t *testing.T) {
@@ -130,37 +101,8 @@ func TestNewLocalPeerConnection(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		client, err := webrtc.NewPeerConnection(webrtc.Configuration{})
 		test.That(t, err, test.ShouldBeNil)
-		clientPeerConnReady, clientPeerConnClosed, err := rpc.ConfigureForRenegotiation(client, logger.AsZap())
-		test.That(t, err, test.ShouldBeNil)
 
-		defer func() {
-			test.That(t, client.Close(), test.ShouldBeNil)
-			<-clientPeerConnClosed
-		}()
-		serverPeerConnReady, serverPeerConnClosed, err := rpc.ConfigureForRenegotiation(server, logger.AsZap())
-		test.That(t, err, test.ShouldBeNil)
-		defer func() {
-			server.Close()
-			<-serverPeerConnClosed
-		}()
-		timeoutCtx, timeoutFn := context.WithTimeout(context.Background(), time.Second*10)
-		defer timeoutFn()
-
-		signalPair(t, client, server)
-
-		select {
-		case <-timeoutCtx.Done():
-			t.Log("timeout")
-			t.FailNow()
-		case <-clientPeerConnReady:
-		}
-
-		select {
-		case <-timeoutCtx.Done():
-			t.Log("timeout")
-			t.FailNow()
-		case <-serverPeerConnReady:
-		}
+		testClientServer(t, client, server, logger)
 	})
 }
 
@@ -181,4 +123,38 @@ func signalPair(t *testing.T, left, right *webrtc.PeerConnection) {
 	test.That(t, right.SetLocalDescription(rightAnswer), test.ShouldBeNil)
 	<-webrtc.GatheringCompletePromise(right)
 	test.That(t, left.SetRemoteDescription(rightAnswer), test.ShouldBeNil)
+}
+
+func testClientServer(t *testing.T, client, server *webrtc.PeerConnection, logger logging.Logger) {
+	clientPeerConnReady, clientPeerConnClosed, err := rpc.ConfigureForRenegotiation(client, logger.AsZap())
+	test.That(t, err, test.ShouldBeNil)
+
+	defer func() {
+		test.That(t, client.Close(), test.ShouldBeNil)
+		<-clientPeerConnClosed
+	}()
+	serverPeerConnReady, serverPeerConnClosed, err := rpc.ConfigureForRenegotiation(server, logger.AsZap())
+	test.That(t, err, test.ShouldBeNil)
+	defer func() {
+		server.Close()
+		<-serverPeerConnClosed
+	}()
+	timeoutCtx, timeoutFn := context.WithTimeout(context.Background(), time.Second*10)
+	defer timeoutFn()
+
+	signalPair(t, client, server)
+
+	select {
+	case <-timeoutCtx.Done():
+		t.Log("timeout")
+		t.FailNow()
+	case <-clientPeerConnReady:
+	}
+
+	select {
+	case <-timeoutCtx.Done():
+		t.Log("timeout")
+		t.FailNow()
+	case <-serverPeerConnReady:
+	}
 }
