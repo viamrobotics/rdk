@@ -37,7 +37,7 @@ jobs:
           - arch: ubuntu-latest
             image: ghcr.io/viamrobotics/antique2:amd64-cache
             platform: linux/amd64
-          - arch: buildjet-2vcpu-ubuntu-2204-arm
+          - arch: github-linux-arm64-2core
             image: ghcr.io/viamrobotics/antique2:arm64-cache
             platform: linux/arm64
     runs-on: ${{ matrix.arch }}
@@ -141,7 +141,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        arch: [[ubuntu-latest], [buildjet-2vcpu-ubuntu-2204-arm], [arm64, pi4]]
+        arch: [[ubuntu-latest], [github-linux-arm64-2core], [arm64, pi4]]
     needs: static
     runs-on: ${{ matrix.arch }}
     timeout-minutes: 15

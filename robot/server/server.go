@@ -478,3 +478,12 @@ func (s *Server) RestartModule(ctx context.Context, req *pb.RestartModuleRequest
 	}
 	return &pb.RestartModuleResponse{}, nil
 }
+
+// Shutdown shuts down the robot.
+func (s *Server) Shutdown(ctx context.Context, _ *pb.ShutdownRequest) (*pb.ShutdownResponse, error) {
+	err := s.robot.Shutdown(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return &pb.ShutdownResponse{}, nil
+}

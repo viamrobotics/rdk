@@ -5,6 +5,7 @@ package motionplan
 
 import (
 	"context"
+	"fmt"
 	"math/rand"
 	"sort"
 	"sync"
@@ -48,6 +49,7 @@ type PlanRequest struct {
 	StartPose          spatialmath.Pose
 	StartConfiguration map[string][]frame.Input
 	WorldState         *frame.WorldState
+	BoundingRegions    []spatialmath.Geometry
 	Constraints        *Constraints
 	Options            map[string]interface{}
 }
@@ -77,6 +79,33 @@ func (req *PlanRequest) validatePlanRequest() error {
 	goalParentFrame := req.Goal.Parent()
 	if req.FrameSystem.Frame(goalParentFrame) == nil {
 		return frame.NewParentFrameMissingError(req.Goal.Name(), goalParentFrame)
+	}
+
+	if len(req.BoundingRegions) > 0 {
+		buffer, ok := req.Options["collision_buffer_mm"].(float64)
+		if !ok {
+			buffer = defaultCollisionBufferMM
+		}
+		// check that the request frame's geometries are within or in collision with the bounding regions
+		robotGifs, err := req.Frame.Geometries(make([]frame.Input, len(req.Frame.DoF())))
+		if err != nil {
+			return err
+		}
+		var robotGeoms []spatialmath.Geometry
+		for _, geom := range robotGifs.Geometries() {
+			robotGeoms = append(robotGeoms, geom.Transform(req.StartPose))
+		}
+		robotGeomBoundingRegionCheck := NewBoundingRegionConstraint(robotGeoms, req.BoundingRegions, buffer)
+		if !robotGeomBoundingRegionCheck(&ik.State{}) {
+			return fmt.Errorf("frame named %s is not within the provided bounding regions", req.Frame.Name())
+		}
+
+		// check that the destination is within or in collision with the bounding regions
+		destinationAsGeom := []spatialmath.Geometry{spatialmath.NewPoint(req.Goal.Pose().Point(), "")}
+		destinationBoundingRegionCheck := NewBoundingRegionConstraint(destinationAsGeom, req.BoundingRegions, buffer)
+		if !destinationBoundingRegionCheck(&ik.State{}) {
+			return errors.New("destination was not within the provided bounding regions")
+		}
 	}
 
 	frameDOF := len(req.Frame.DoF())

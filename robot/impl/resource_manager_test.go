@@ -34,7 +34,6 @@ import (
 	fakebase "go.viam.com/rdk/components/base/fake"
 	"go.viam.com/rdk/components/board"
 	fakeboard "go.viam.com/rdk/components/board/fake"
-	"go.viam.com/rdk/components/board/pinwrappers"
 	"go.viam.com/rdk/components/camera"
 	fakecamera "go.viam.com/rdk/components/camera/fake"
 	"go.viam.com/rdk/components/gripper"
@@ -279,12 +278,7 @@ func TestManagerMergeNamesWithRemotes(t *testing.T) {
 	servoNames := []resource.Name{servo.Named("servo1"), servo.Named("servo2")}
 	servoNames = append(servoNames, rdktestutils.AddRemotes(servoNames, "remote1", "remote2")...)
 
-	test.That(
-		t,
-		utils.NewStringSet(manager.RemoteNames()...),
-		test.ShouldResemble,
-		utils.NewStringSet("remote1", "remote2"),
-	)
+	rdktestutils.VerifySameElements(t, manager.RemoteNames(), []string{"remote1", "remote2"})
 	rdktestutils.VerifySameResourceNames(
 		t,
 		manager.ResourceNames(),
@@ -454,19 +448,6 @@ func TestManagerAdd(t *testing.T) {
 	test.That(t, arm1, test.ShouldEqual, injectArm)
 
 	injectBoard := &inject.Board{}
-	injectBoard.AnalogNamesFunc = func() []string {
-		return []string{"analog1"}
-	}
-	injectBoard.DigitalInterruptNamesFunc = func() []string {
-		return []string{"digital1"}
-	}
-	injectBoard.AnalogByNameFunc = func(name string) (board.Analog, error) {
-		return &fakeboard.Analog{}, nil
-	}
-	injectBoard.DigitalInterruptByNameFunc = func(name string) (board.DigitalInterrupt, error) {
-		return &pinwrappers.BasicDigitalInterrupt{}, nil
-	}
-
 	cfg = &resource.Config{
 		API:  board.API,
 		Name: "board1",
@@ -759,7 +740,7 @@ func TestManagerMarkRemoved(t *testing.T) {
 		t.Helper()
 		test.That(t, names, test.ShouldBeEmpty)
 		test.That(t, resourcesToCloseBeforeComplete, test.ShouldBeEmpty)
-		test.That(t, utils.NewStringSet(procMan.ProcessIDs()...), test.ShouldBeEmpty)
+		test.That(t, procMan.ProcessIDs(), test.ShouldBeEmpty)
 	}
 
 	processesToRemove, resourcesToCloseBeforeComplete, markedResourceNames := manager.markRemoved(ctx, &config.Config{}, logger)
@@ -902,12 +883,7 @@ func TestManagerMarkRemoved(t *testing.T) {
 			servoNames,
 		)...),
 	)
-	test.That(
-		t,
-		utils.NewStringSet(processesToRemove.ProcessIDs()...),
-		test.ShouldResemble,
-		utils.NewStringSet("2"),
-	)
+	rdktestutils.VerifySameElements(t, processesToRemove.ProcessIDs(), []string{"2"})
 
 	test.That(t, manager.Close(ctx), test.ShouldBeNil)
 	cancel()
@@ -1021,12 +997,7 @@ func TestManagerMarkRemoved(t *testing.T) {
 			[]resource.Name{fromRemoteNameToRemoteNodeName("remote2")},
 		)...),
 	)
-	test.That(
-		t,
-		utils.NewStringSet(processesToRemove.ProcessIDs()...),
-		test.ShouldResemble,
-		utils.NewStringSet("2"),
-	)
+	rdktestutils.VerifySameElements(t, processesToRemove.ProcessIDs(), []string{"2"})
 
 	test.That(t, manager.Close(ctx), test.ShouldBeNil)
 	cancel()
@@ -1209,12 +1180,7 @@ func TestManagerMarkRemoved(t *testing.T) {
 			},
 		)...),
 	)
-	test.That(
-		t,
-		utils.NewStringSet(processesToRemove.ProcessIDs()...),
-		test.ShouldResemble,
-		utils.NewStringSet("1", "2"),
-	)
+	rdktestutils.VerifySameElements(t, processesToRemove.ProcessIDs(), []string{"1", "2"})
 	test.That(t, manager.Close(ctx), test.ShouldBeNil)
 	cancel()
 }
@@ -1822,6 +1788,10 @@ func (rr *dummyRobot) RestartModule(ctx context.Context, req robot.RestartModule
 	return rr.robot.RestartModule(ctx, req)
 }
 
+func (rr *dummyRobot) Shutdown(ctx context.Context) error {
+	return rr.robot.Shutdown(ctx)
+}
+
 // managerForDummyRobot integrates all parts from a given robot except for its remotes.
 // It also close itself when the test and all subtests complete.
 func managerForDummyRobot(t *testing.T, robot robot.Robot) *resourceManager {
@@ -1868,13 +1838,19 @@ func TestReconfigureParity(t *testing.T) {
 		"data/diff_config_deps11.json",
 		"data/diff_config_deps12.json",
 	}
-	logger := logging.NewTestLogger(t)
 	ctx := context.Background()
 
 	testReconfigureParity := func(t *testing.T, initCfg, updateCfg string) {
 		name := fmt.Sprintf("%s -> %s", initCfg, updateCfg)
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
+			// Capture logs for this sub-test run. Only output the logs if the test fails.
+			logger := logging.NewInMemoryLogger(t)
+			defer func() {
+				if t.Failed() {
+					logger.OutputLogs()
+				}
+			}()
 
 			// Configuration may mutate `*config.Config`, so we read it from
 			// file each time.

@@ -147,6 +147,7 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 				ID:         cfgFromDisk.Cloud.ID,
 				Secret:     cfgFromDisk.Cloud.Secret,
 			},
+			nil,
 		)
 		if err != nil {
 			return err
@@ -339,16 +340,7 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 				restartInterval = newRestartInterval
 
 				if mustRestart {
-					bufSize := 1 << 20
-					traces := make([]byte, bufSize)
-					traceSize := runtime.Stack(traces, true)
-					message := "backtrace at robot restart"
-					if traceSize == bufSize {
-						message = fmt.Sprintf("%s (warning: backtrace truncated to %v bytes)", message, bufSize)
-					}
-					s.logger.Infof("%s, %s", message, traces)
-					cancel()
-					return
+					logStackTraceAndCancel(cancel, s.logger)
 				}
 			}
 		})
@@ -358,6 +350,11 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 	if s.args.RevealSensitiveConfigDiffs {
 		robotOptions = append(robotOptions, robotimpl.WithRevealSensitiveConfigDiffs())
 	}
+
+	shutdownCallbackOpt := robotimpl.WithShutdownCallback(func() {
+		logStackTraceAndCancel(cancel, s.logger)
+	})
+	robotOptions = append(robotOptions, shutdownCallbackOpt)
 
 	myRobot, err := robotimpl.New(ctx, processedConfig, s.logger, robotOptions...)
 	if err != nil {
@@ -484,4 +481,16 @@ func dumpResourceRegistrations(outputPath string) error {
 		return errors.Wrap(err, "unable to write resulting object to stdout")
 	}
 	return nil
+}
+
+func logStackTraceAndCancel(cancel context.CancelFunc, logger logging.Logger) {
+	bufSize := 1 << 20
+	traces := make([]byte, bufSize)
+	traceSize := runtime.Stack(traces, true)
+	message := "backtrace at robot shutdown"
+	if traceSize == bufSize {
+		message = fmt.Sprintf("%s (warning: backtrace truncated to %v bytes)", message, bufSize)
+	}
+	logger.Infof("%s, %s", message, traces[:traceSize])
+	cancel()
 }

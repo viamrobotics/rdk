@@ -135,6 +135,7 @@ func (pm *planManager) PlanSingleWaypoint(ctx context.Context, request *PlanRequ
 				to,
 				request.StartConfiguration,
 				request.WorldState,
+				request.BoundingRegions,
 				request.Constraints,
 				request.Options,
 			)
@@ -154,6 +155,7 @@ func (pm *planManager) PlanSingleWaypoint(ctx context.Context, request *PlanRequ
 		goalPos,
 		request.StartConfiguration,
 		request.WorldState,
+		request.BoundingRegions,
 		request.Constraints,
 		request.Options,
 	)
@@ -465,6 +467,7 @@ func (pm *planManager) plannerSetupFromMoveRequest(
 	from, to spatialmath.Pose,
 	seedMap map[string][]referenceframe.Input,
 	worldState *referenceframe.WorldState,
+	boundingRegions []spatialmath.Geometry,
 	constraints *Constraints,
 	planningOpts map[string]interface{},
 ) (*plannerOptions, error) {
@@ -545,6 +548,7 @@ func (pm *planManager) plannerSetupFromMoveRequest(
 		movingRobotGeometries,
 		staticRobotGeometries,
 		worldGeometries.Geometries(),
+		boundingRegions,
 		allowedCollisions,
 		collisionBufferMM,
 	)
@@ -670,7 +674,7 @@ func (pm *planManager) plannerSetupFromMoveRequest(
 			// time to run the first planning attempt before falling back
 			try1["timeout"] = defaultFallbackTimeout
 			try1["planning_alg"] = "rrtstar"
-			try1Opt, err := pm.plannerSetupFromMoveRequest(from, to, seedMap, worldState, constraints, try1)
+			try1Opt, err := pm.plannerSetupFromMoveRequest(from, to, seedMap, worldState, boundingRegions, constraints, try1)
 			if err != nil {
 				return nil, err
 			}
@@ -799,7 +803,7 @@ func (pm *planManager) planRelativeWaypoint(ctx context.Context, request *PlanRe
 	}
 	goalPos := tf.(*referenceframe.PoseInFrame).Pose()
 	opt, err := pm.plannerSetupFromMoveRequest(
-		startPose, goalPos, request.StartConfiguration, request.WorldState, request.Constraints, request.Options,
+		startPose, goalPos, request.StartConfiguration, request.WorldState, request.BoundingRegions, request.Constraints, request.Options,
 	)
 	if err != nil {
 		return nil, err
