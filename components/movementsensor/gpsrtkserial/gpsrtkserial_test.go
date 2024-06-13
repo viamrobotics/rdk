@@ -101,6 +101,14 @@ func TestReconfigure(t *testing.T) {
 	test.That(t, g.wbaud, test.ShouldEqual, 115200)
 }
 
+// initializePosition sets the position in the cached data and returns the point it is set to.
+func initializePosition(cachedData *gpsutils.CachedData) *geo.Point {
+	// This sets the position to 12d34.5678m N, 123d45.6789m W, at time 12:34:56.78 UTC
+	setPositionSentence := "$GPGLL,1234.5678,N,12345.6789,W,123456.78,A,D*7F"
+	cachedData.ParseAndUpdate(setPositionSentence)
+	return geo.NewPoint(12.576130000000001, -123.76131500000001)
+}
+
 func TestPosition(t *testing.T) {
 	// WITH LAST ERROR
 
@@ -120,16 +128,17 @@ func TestPosition(t *testing.T) {
 	// If there is last error and last position, return last position
 	t.Run("position with last error and last position", func(t *testing.T) {
 		g := &rtkSerial{
-			err: movementsensor.NewLastError(1, 1),
+			err:        movementsensor.NewLastError(1, 1),
+			cachedData: gpsutils.NewCachedData(&mockDataReader{}, logging.NewTestLogger(t)),
 		}
-
+		initializePosition(g.cachedData)
 		g.err.Set(errors.New("last position"))
-		expectedPos := geo.NewPoint(math.NaN(), math.NaN())
 
 		pos, alt, err := g.Position(context.Background(), nil)
-		test.That(t, movementsensor.ArePointsEqual(pos, expectedPos), test.ShouldBeTrue)
-		test.That(t, alt, test.ShouldEqual, 0.0)
-		test.That(t, err, test.ShouldBeNil)
+		test.That(t, math.IsNaN(pos.Lat()), test.ShouldBeTrue)
+		test.That(t, math.IsNaN(pos.Lng()), test.ShouldBeTrue)
+		test.That(t, math.IsNaN(alt), test.ShouldBeTrue)
+		test.That(t, err, test.ShouldBeError, "last position")
 	})
 
 	// NO LAST ERROR, but with cachedData ERROR
@@ -153,11 +162,14 @@ func TestPosition(t *testing.T) {
 			err:        movementsensor.NewLastError(1, 1),
 			cachedData: gpsutils.NewCachedData(&mockDataReader{}, logging.NewTestLogger(t)),
 		}
+		expectedPos := initializePosition(g.cachedData)
 
-		expectedPos := geo.NewPoint(math.NaN(), math.NaN())
+		// This is an invalid command, containing too many periods and colons.
+		invalidPosition := "$GPGLL,87.65.4321,N,987.65.4321,W,12:34:56.78,A,D*7F"
+		g.cachedData.ParseAndUpdate(invalidPosition)
 
 		pos, _, err := g.Position(context.Background(), nil)
-		test.That(t, movementsensor.ArePointsEqual(pos, expectedPos), test.ShouldBeTrue)
+		test.That(t, pos, test.ShouldResemble, expectedPos)
 		test.That(t, err, test.ShouldBeNil)
 	})
 
@@ -169,14 +181,14 @@ func TestPosition(t *testing.T) {
 			err:        movementsensor.NewLastError(1, 1),
 			cachedData: gpsutils.NewCachedData(&mockDataReader{}, logging.NewTestLogger(t)),
 		}
+		expectedPos := initializePosition(g.cachedData)
 
 		// NMEA sentence with invalid position, Fix quality is 0
 		nmeaSentenceInvalid := "$GPGGA,172814.0,123.123,N,234.234,W,0,6,1.2,18.893,M,-25.669,M,2.0,0031*4F"
 		g.cachedData.ParseAndUpdate(nmeaSentenceInvalid)
-		expectedPos := geo.NewPoint(math.NaN(), math.NaN())
 
 		pos, _, err := g.Position(context.Background(), nil)
-		test.That(t, movementsensor.ArePointsEqual(pos, expectedPos), test.ShouldBeTrue)
+		test.That(t, pos, test.ShouldResemble, expectedPos)
 		test.That(t, err, test.ShouldBeNil)
 	})
 
