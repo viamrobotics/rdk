@@ -537,8 +537,13 @@ func TestStreamingDCUpload(t *testing.T) {
 				streamingDCUploads: make(chan *mockStreamingDCClient, 10),
 				fail:               &f,
 			}
-			// Set max unary file size to 1 byte, so it uses the streaming rpc.
+			// Set max unary file size to 1 byte, so it uses the streaming rpc. Reset the original
+			// value such that other tests take the correct code paths.
+			origSize := datasync.MaxUnaryFileSize
 			datasync.MaxUnaryFileSize = 1
+			defer func() {
+				datasync.MaxUnaryFileSize = origSize
+			}()
 			newDMSvc.SetSyncerConstructor(getTestSyncerConstructorMock(mockClient))
 			cfg.CaptureDisabled = true
 			cfg.ScheduledSyncDisabled = true
