@@ -103,7 +103,7 @@ func TestReconfigure(t *testing.T) {
 
 // initializePosition sets the position in the cached data and returns the point it is set to.
 func initializePosition(cachedData *gpsutils.CachedData) *geo.Point {
-	// This sets the position to 12d34.5678m N, 123d45.6789m W, at time 12:34:56.78 UTC
+	// This sets the position to 12°34.5678' N, 123°45.6789' W, at time 12:34:56.78 UTC
 	setPositionSentence := "$GPGLL,1234.5678,N,12345.6789,W,123456.78,A,D*7F"
 	cachedData.ParseAndUpdate(setPositionSentence)
 	return geo.NewPoint(12.576130000000001, -123.76131500000001)
