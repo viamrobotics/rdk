@@ -924,9 +924,9 @@ func (m *mockStreamingDCClient) CloseSend() error {
 
 func getTestSyncerConstructorMock(client mockDataSyncServiceClient) datasync.ManagerConstructor {
 	return func(identity string, _ v1.DataSyncServiceClient, logger logging.Logger,
-		viamCaptureDotDir string, maxSyncThreads int,
+		viamCaptureDotDir string, maxSyncThreads int, filesToSync chan string,
 	) (datasync.Manager, error) {
-		return datasync.NewManager(identity, client, logger, viamCaptureDotDir, maxSyncThreads)
+		return datasync.NewManager(identity, client, logger, viamCaptureDotDir, maxSyncThreads, make(chan string))
 	}
 }
 

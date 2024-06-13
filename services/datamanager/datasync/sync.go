@@ -73,11 +73,11 @@ type syncer struct {
 
 // ManagerConstructor is a function for building a Manager.
 type ManagerConstructor func(identity string, client v1.DataSyncServiceClient, logger logging.Logger,
-	captureDir string, maxSyncThreadsConfig int) (Manager, error)
+	captureDir string, maxSyncThreadsConfig int, filesToSync chan string) (Manager, error)
 
 // NewManager returns a new syncer.
 func NewManager(identity string, client v1.DataSyncServiceClient, logger logging.Logger,
-	captureDir string, maxSyncThreads int,
+	captureDir string, maxSyncThreads int, filesToSync chan string,
 ) (Manager, error) {
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
 	logger.Debugf("Making new syncer with %d max threads", maxSyncThreads)
@@ -90,9 +90,7 @@ func NewManager(identity string, client v1.DataSyncServiceClient, logger logging
 		arbitraryFileTags: []string{},
 		inProgress:        make(map[string]bool),
 		syncErrs:          make(chan error, 10),
-
-		filesToSync: make(chan string, maxSyncThreads),
-
+		filesToSync:       filesToSync,
 		// syncRoutineTracker: make(chan struct{}, maxSyncThreads),
 		captureDir: captureDir,
 	}
@@ -131,7 +129,6 @@ func NewManager(identity string, client v1.DataSyncServiceClient, logger logging
 func (s *syncer) Close() {
 	s.closed.Store(true)
 	s.cancelFunc()
-	close(s.filesToSync)
 	s.backgroundWorkers.Wait()
 	close(s.syncErrs)
 	s.logRoutine.Wait()

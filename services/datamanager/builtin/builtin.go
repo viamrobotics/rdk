@@ -139,6 +139,7 @@ type builtIn struct {
 	syncRoutineCancelFn context.CancelFunc
 	syncer              datasync.Manager
 	syncerConstructor   datasync.ManagerConstructor
+	filesToSync         chan string
 	maxSyncThreads      int
 	cloudConnSvc        cloud.ConnectionService
 	cloudConn           rpc.ClientConn
@@ -377,6 +378,7 @@ func (svc *builtIn) closeSyncer() {
 	if svc.syncer != nil {
 		// If previously we were syncing, close the old syncer and cancel the old updateCollectors goroutine.
 		svc.syncer.Close()
+		close(svc.filesToSync)
 		svc.syncer = nil
 	}
 	if svc.cloudConn != nil {
@@ -399,7 +401,8 @@ func (svc *builtIn) initSyncer(ctx context.Context) error {
 	}
 
 	client := v1.NewDataSyncServiceClient(conn)
-	syncer, err := svc.syncerConstructor(identity, client, svc.logger, svc.captureDir, svc.maxSyncThreads)
+	svc.filesToSync = make(chan string, svc.maxSyncThreads)
+	syncer, err := svc.syncerConstructor(identity, client, svc.logger, svc.captureDir, svc.maxSyncThreads, svc.filesToSync)
 	if err != nil {
 		return errors.Wrap(err, "failed to initialize new syncer")
 	}
