@@ -1846,10 +1846,11 @@ func TestReconfigureParity(t *testing.T) {
 			t.Parallel()
 			// Capture logs for this sub-test run. Only output the logs if the test fails.
 			logger := logging.NewInMemoryLogger(t)
-			logOnFailure := rutils.NewGuard(func() {
-				logger.OutputLogs()
-			})
-			defer logOnFailure.OnFail()
+			defer func() {
+				if t.Failed() {
+					logger.OutputLogs()
+				}
+			}()
 
 			// Configuration may mutate `*config.Config`, so we read it from
 			// file each time.
@@ -1867,7 +1868,6 @@ func TestReconfigureParity(t *testing.T) {
 			r2.reconfigure(ctx, cfg, true)
 
 			rdktestutils.VerifySameResourceNames(t, r1.ResourceNames(), r2.ResourceNames())
-			logOnFailure.Success()
 		})
 	}
 
