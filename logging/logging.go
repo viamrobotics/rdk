@@ -8,6 +8,8 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"go.uber.org/zap/zaptest/observer"
+
+	"go.viam.com/utils"
 )
 
 var (
@@ -123,7 +125,7 @@ type MemLogger struct {
 func (memLogger *MemLogger) OutputLogs() {
 	appender := NewTestAppender(memLogger.tb)
 	for _, loggedEntry := range memLogger.observer.All() {
-		appender.Write(loggedEntry.Entry, loggedEntry.Context)
+		utils.UncheckedError(appender.Write(loggedEntry.Entry, loggedEntry.Context))
 	}
 }
 
