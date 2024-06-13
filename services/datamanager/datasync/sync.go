@@ -247,7 +247,7 @@ func (s *syncer) MarkInProgress(path string) bool {
 	s.progressLock.Lock()
 	defer s.progressLock.Unlock()
 	if s.inProgress[path] {
-		s.logger.Warnw("File already in progress, trying to mark it again", "file", path)
+		s.logger.Debugw("File already in progress, trying to mark it again", "file", path)
 		return false
 	}
 	s.inProgress[path] = true

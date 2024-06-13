@@ -63,8 +63,11 @@ var defaultMaxCaptureSize = int64(256 * 1024)
 // Default time between disk size checks.
 var filesystemPollInterval = 30 * time.Second
 
-// Threshold number of files to check if sync is backed up (defined as >5000 files).
-var minNumFiles = 5000
+// Threshold number of files to check if sync is backed up (defined as >1000 files).
+var minNumFiles = 1000
+
+// Default time between checking and logging number of files in capture dir.
+var captureDirSizeLogInterval = 1 * time.Minute
 
 var (
 	clock          = clk.New()
@@ -153,6 +156,9 @@ type builtIn struct {
 
 	fileDeletionRoutineCancelFn   context.CancelFunc
 	fileDeletionBackgroundWorkers *sync.WaitGroup
+
+	captureDirPollingCancelFn          context.CancelFunc
+	captureDirPollingBackgroundWorkers *sync.WaitGroup
 }
 
 var viamCaptureDotDir = filepath.Join(os.Getenv("HOME"), ".viam", "capture")
@@ -196,13 +202,20 @@ func (svc *builtIn) Close(_ context.Context) error {
 	if svc.fileDeletionRoutineCancelFn != nil {
 		svc.fileDeletionRoutineCancelFn()
 	}
+	if svc.captureDirPollingCancelFn != nil {
+		svc.captureDirPollingCancelFn()
+	}
 
 	fileDeletionBackgroundWorkers := svc.fileDeletionBackgroundWorkers
+	capturePollingWorker := svc.captureDirPollingBackgroundWorkers
 	svc.lock.Unlock()
 	svc.backgroundWorkers.Wait()
 
 	if fileDeletionBackgroundWorkers != nil {
 		fileDeletionBackgroundWorkers.Wait()
+	}
+	if capturePollingWorker != nil {
+		capturePollingWorker.Wait()
 	}
 
 	return nil
@@ -472,6 +485,19 @@ func (svc *builtIn) Reconfigure(
 	} else {
 		svc.captureDir = viamCaptureDotDir
 	}
+
+	if svc.captureDirPollingCancelFn != nil {
+		svc.captureDirPollingCancelFn()
+	}
+	if svc.captureDirPollingBackgroundWorkers != nil {
+		svc.captureDirPollingBackgroundWorkers.Wait()
+	}
+	captureDirPollCtx, captureDirCancelFunc := context.WithCancel(context.Background())
+	svc.captureDirPollingCancelFn = captureDirCancelFunc
+	svc.captureDirPollingBackgroundWorkers = &sync.WaitGroup{}
+	svc.captureDirPollingBackgroundWorkers.Add(1)
+	go logCaptureDirSize(captureDirPollCtx, svc.captureDir, svc.captureDirPollingBackgroundWorkers, svc.logger)
+
 	svc.captureDisabled = svcConfig.CaptureDisabled
 	// Service is disabled, so close all collectors and clear the map so we can instantiate new ones if we enable this service.
 	if svc.captureDisabled {
@@ -713,30 +739,15 @@ func (svc *builtIn) sync(ctx context.Context) {
 	syncer := svc.syncer
 	svc.lock.Unlock()
 
-	// Kick off a goroutine to retrieve all the names of the files to sync, then another 1000 to
-	// sync the files to Viam app.
+	// Retrieve all files in capture dir and send them to the syncer
 	getAllFilesToSync(ctx, append([]string{captureDir}, additionalSyncPaths...),
 		fileLastModifiedMillis,
 		syncer,
-		svc.logger,
 	)
-
-	// for i := 0; i < numWorkers; i++ {
-	// 	wg.Add(1)
-	// 	svc.backgroundWorkers.Add(1)
-	// 	go func() {
-	// 		defer wg.Done()
-	// 		defer svc.backgroundWorkers.Done()
-	// 		if svc.syncer != nil { // TODO: figure out why this is sometimes nil.
-	// 			svc.syncer.SyncFiles(fileChannel)
-	// 		}
-	// 	}()
-	// }
 }
 
 //nolint:errcheck,nilerr
-func getAllFilesToSync(ctx context.Context, dirs []string, lastModifiedMillis int, syncer datasync.Manager, logger logging.Logger) {
-	numFiles := 0
+func getAllFilesToSync(ctx context.Context, dirs []string, lastModifiedMillis int, syncer datasync.Manager) {
 	for _, dir := range dirs {
 		_ = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
 			if ctx.Err() != nil {
@@ -771,13 +782,9 @@ func getAllFilesToSync(ctx context.Context, dirs []string, lastModifiedMillis in
 			isCompletedCaptureFile := filepath.Ext(path) == datacapture.FileExt
 			if isCompletedCaptureFile || isStuckInProgressCaptureFile || isNonCaptureFileThatIsNotBeingWrittenTo {
 				syncer.SendFileToSync(path)
-				numFiles++
 			}
 			return nil
 		})
-	}
-	if numFiles > minNumFiles {
-		logger.Infof("Starting sync of %d files", numFiles)
 	}
 }
 
@@ -852,4 +859,59 @@ func pollFilesystem(ctx context.Context, wg *sync.WaitGroup, captureDir string,
 			}
 		}
 	}
+}
+
+func logCaptureDirSize(ctx context.Context, captureDir string, wg *sync.WaitGroup, logger logging.Logger,
+) {
+	t := clock.Ticker(captureDirSizeLogInterval)
+	defer t.Stop()
+	defer wg.Done()
+	for {
+		if err := ctx.Err(); err != nil {
+			if !errors.Is(err, context.Canceled) {
+				logger.Errorw("data manager context closed unexpectedly", "error", err)
+			}
+			return
+		}
+		select {
+		case <-ctx.Done():
+			return
+		case <-t.C:
+			numFiles := countCaptureDirFiles(ctx, captureDir)
+			if numFiles > minNumFiles {
+				logger.Infof("Capture dir contains %d files", numFiles)
+			}
+		}
+	}
+}
+
+func countCaptureDirFiles(ctx context.Context, captureDir string) int {
+	numFiles := 0
+	//nolint:errcheck
+	_ = filepath.Walk(captureDir, func(path string, info os.FileInfo, err error) error {
+		if ctx.Err() != nil {
+			return filepath.SkipAll
+		}
+		//nolint:nilerr
+		if err != nil {
+			return nil
+		}
+
+		// Do not count the files in the corrupted data directory.
+		if info.IsDir() && info.Name() == datasync.FailedDir {
+			return filepath.SkipDir
+		}
+
+		if info.IsDir() {
+			return nil
+		}
+		// this is intentionally not doing as many checks as this is intended
+		// for debugging and does not need to be 100% accurate.
+		isCompletedCaptureFile := filepath.Ext(path) == datacapture.FileExt
+		if isCompletedCaptureFile {
+			numFiles++
+		}
+		return nil
+	})
+	return numFiles
 }
