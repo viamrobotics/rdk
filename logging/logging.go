@@ -110,3 +110,31 @@ func NewObservedTestLogger(tb testing.TB) (Logger, *observer.ObservedLogs) {
 
 	return logger, observedLogs
 }
+
+type MemLogger struct {
+	Logger
+
+	tb       testing.TB
+	observer *observer.ObservedLogs
+}
+
+func (memLogger *MemLogger) OutputLogs() {
+	appender := NewTestAppender(memLogger.tb)
+	for _, loggedEntry := range memLogger.observer.All() {
+		appender.Write(loggedEntry.Entry, loggedEntry.Context)
+	}
+}
+
+func NewInMemoryLogger(tb testing.TB) *MemLogger {
+	observerCore, observedLogs := observer.New(zap.LevelEnablerFunc(zapcore.DebugLevel.Enabled))
+	logger := &impl{
+		name:  "",
+		level: NewAtomicLevelAt(DEBUG),
+		appenders: []Appender{
+			observerCore,
+		},
+		testHelper: tb.Helper,
+	}
+
+	return &MemLogger{logger, tb, observedLogs}
+}
