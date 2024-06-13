@@ -71,7 +71,7 @@ require (
 	github.com/pion/logging v0.2.2
 	github.com/pion/mediadevices v0.6.4
 	github.com/pion/rtp v1.8.5
-	github.com/pion/webrtc/v3 v3.2.36
+	github.com/pion/webrtc/v3 v3.2.42
 	github.com/rhysd/actionlint v1.6.24
 	github.com/rs/cors v1.9.0
 	github.com/sergi/go-diff v1.3.1
@@ -290,11 +290,11 @@ require (
 	github.com/pierrec/lz4 v2.0.5+incompatible // indirect
 	github.com/pion/datachannel v1.5.5 // indirect
 	github.com/pion/dtls/v2 v2.2.7 // indirect
-	github.com/pion/ice/v2 v2.3.13 // indirect
+	github.com/pion/ice/v2 v2.3.24 // indirect
 	github.com/pion/mdns v0.0.12 // indirect
 	github.com/pion/randutil v0.1.0 // indirect
 	github.com/pion/rtcp v1.2.14 // indirect
-	github.com/pion/sctp v1.8.14 // indirect
+	github.com/pion/sctp v1.8.16 // indirect
 	github.com/pion/sdp/v3 v3.0.9 // indirect
 	github.com/pion/srtp/v2 v2.0.18 // indirect
 	github.com/pion/stun v0.6.1 // indirect
