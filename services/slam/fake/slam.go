@@ -95,6 +95,8 @@ func (slamSvc *SLAM) Properties(ctx context.Context) (slam.Properties, error) {
 	_, span := trace.StartSpan(ctx, "slam::fake::Properties")
 	defer span.End()
 
+	// MappingModeLocalizationOnly may cause the frontend to not refresh, but it allows motion to work with
+	// fakeslam. Can make changes in motion to only restrict for cartographer if this becomes a problem.
 	prop := slam.Properties{
 		CloudSlam:             false,
 		MappingMode:           slam.MappingModeLocalizationOnly,
