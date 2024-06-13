@@ -1838,13 +1838,18 @@ func TestReconfigureParity(t *testing.T) {
 		"data/diff_config_deps11.json",
 		"data/diff_config_deps12.json",
 	}
-	logger := logging.NewTestLogger(t)
 	ctx := context.Background()
 
 	testReconfigureParity := func(t *testing.T, initCfg, updateCfg string) {
 		name := fmt.Sprintf("%s -> %s", initCfg, updateCfg)
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
+			// Capture logs for this sub-test run. Only output the logs if the test fails.
+			logger := logging.NewInMemoryLogger(t)
+			logOnFailure := rutils.NewGuard(func() {
+				logger.OutputLogs()
+			})
+			defer logOnFailure.OnFail()
 
 			// Configuration may mutate `*config.Config`, so we read it from
 			// file each time.
@@ -1862,6 +1867,7 @@ func TestReconfigureParity(t *testing.T) {
 			r2.reconfigure(ctx, cfg, true)
 
 			rdktestutils.VerifySameResourceNames(t, r1.ResourceNames(), r2.ResourceNames())
+			logOnFailure.Success()
 		})
 	}
 
