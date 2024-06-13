@@ -7,9 +7,10 @@ import (
 	"time"
 
 	"github.com/pion/webrtc/v3"
-	"go.viam.com/rdk/logging"
 	"go.viam.com/test"
 	"go.viam.com/utils/rpc"
+
+	"go.viam.com/rdk/logging"
 )
 
 func TestNewLocalPeerConnection(t *testing.T) {

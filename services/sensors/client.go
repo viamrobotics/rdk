@@ -1,7 +1,4 @@
 // Package sensors contains a gRPC based sensors service client
-//
-//nolint:staticcheck
-
 package sensors
 
 import (
@@ -50,11 +47,14 @@ func (c *client) Sensors(ctx context.Context, extra map[string]interface{}) ([]r
 	if err != nil {
 		return nil, err
 	}
+	//nolint:staticcheck
 	resp, err := c.client.GetSensors(ctx, &pb.GetSensorsRequest{Name: c.name, Extra: ext})
 	if err != nil {
 		return nil, err
 	}
+	//nolint:staticcheck
 	sensorNames := make([]resource.Name, 0, len(resp.SensorNames))
+	//nolint:staticcheck
 	for _, name := range resp.SensorNames {
 		sensorNames = append(sensorNames, rprotoutils.ResourceNameFromProto(name))
 	}
@@ -70,19 +70,24 @@ func (c *client) Readings(ctx context.Context, sensorNames []resource.Name, extr
 	if err != nil {
 		return nil, err
 	}
+	//nolint:staticcheck
 	resp, err := c.client.GetReadings(ctx, &pb.GetReadingsRequest{Name: c.name, SensorNames: names, Extra: ext})
 	if err != nil {
 		return nil, err
 	}
 
+	//nolint:staticcheck
 	readings := make([]Readings, 0, len(resp.Readings))
+	//nolint:staticcheck
 	for _, reading := range resp.Readings {
+		//nolint:staticcheck
 		sReading, err := rprotoutils.ReadingProtoToGo(reading.Readings)
 		if err != nil {
 			return nil, err
 		}
 		readings = append(
 			readings, Readings{
+				//nolint:staticcheck
 				Name:     rprotoutils.ResourceNameFromProto(reading.Name),
 				Readings: sReading,
 			})

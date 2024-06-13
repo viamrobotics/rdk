@@ -149,6 +149,7 @@ func TestServerGetReadings(t *testing.T) {
 		ext, err := protoutils.StructToStructPb(extra)
 		test.That(t, err, test.ShouldBeNil)
 
+		//nolint:staticcheck
 		req := &pb.GetReadingsRequest{
 			Name:        testSvcName1.ShortName(),
 			SensorNames: []*commonpb.ResourceName{},
@@ -159,6 +160,7 @@ func TestServerGetReadings(t *testing.T) {
 		resp, err := server.GetReadings(context.Background(), req)
 		test.That(t, err, test.ShouldBeNil)
 
+		//nolint:staticcheck
 		test.That(t, len(resp.Readings), test.ShouldEqual, 2)
 		test.That(t, extraOptions, test.ShouldResemble, extra)
 
@@ -171,9 +173,10 @@ func TestServerGetReadings(t *testing.T) {
 		}
 
 		observed := map[resource.Name]interface{}{
-
+			//nolint:staticcheck
 			rprotoutils.ResourceNameFromProto(resp.Readings[0].Name): conv(resp.Readings[0].Readings),
 
+			//nolint:staticcheck
 			rprotoutils.ResourceNameFromProto(resp.Readings[1].Name): conv(resp.Readings[1].Readings),
 		}
 		test.That(t, observed, test.ShouldResemble, expected)

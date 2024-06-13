@@ -327,7 +327,7 @@ func (sc *SharedConn) Close() error {
 }
 
 // NewLocalPeerConnection creates a peer connection that only accepts loopback
-// address candidates
+// address candidates.
 func NewLocalPeerConnection(logger golog.Logger) (*webrtc.PeerConnection, error) {
 	m := webrtc.MediaEngine{}
 	if err := m.RegisterDefaultCodecs(); err != nil {
