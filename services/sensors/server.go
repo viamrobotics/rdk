@@ -1,5 +1,6 @@
 // Package sensors contains a gRPC based sensors service server
 //
+//nolint:staticcheck
 
 package sensors
 
