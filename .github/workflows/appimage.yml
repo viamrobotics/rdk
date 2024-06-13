@@ -26,7 +26,7 @@ jobs:
             image: ghcr.io/viamrobotics/rdk-devenv:amd64-cache
             platform: linux/amd64
             label: amd64
-          - arch: [buildjet-2vcpu-ubuntu-2204-arm]
+          - arch: [github-linux-arm64-2core]
             image: ghcr.io/viamrobotics/rdk-devenv:arm64-cache
             platform: linux/arm64
             label: arm64
@@ -103,7 +103,7 @@ jobs:
   # this job builds the 32-bit RDK binary
   appimage-static-32bit:
     name: static 32-bit for appimage
-    runs-on: buildjet-2vcpu-ubuntu-2204-arm
+    runs-on: github-linux-arm64-2core
     steps:
     - uses: actions/checkout@v4
       with:
@@ -182,7 +182,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        arch: [[ubuntu-latest], [buildjet-2vcpu-ubuntu-2204-arm], [arm64, pi4]]
+        arch: [[ubuntu-latest], [github-linux-arm64-2core], [arm64, pi4]]
     needs: appimage
     runs-on: ${{ matrix.arch }}
     timeout-minutes: 15
