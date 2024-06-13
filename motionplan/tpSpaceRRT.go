@@ -847,42 +847,45 @@ func (mp *tpSpaceRRTMotionPlanner) make2DTPSpaceDistanceOptions(ptg tpspace.PTGS
 	return opts, &m
 }
 
-func generateHeuristic(logger logging.Logger, firstSampled, arrayLen int) []int {
-	lookAhead := 8
-	numElems := (arrayLen - 2) - (firstSampled + 1) // Can't sample last or second-last therefore arrayLen-2. Can't sample firstSampled so plus 1
-	heuristics := make([]int, numElems)
+func generateHeuristic(logger logging.Logger, firstSampled, pathLen int) []float64 {
+	// It is better to have a lookAhead that is shorter because biasing towards collapsing shorter paths is more likely to be possible
+	// i.e. it is more feasible to find shorter paths that can be collapsed than long far away ones
+	// And as you collapse the shorter ones, you will eventually get to the big ones
+	lookAhead := 3
+	numElems := pathLen - 2 // Can't sample last or second-last therefore arrayLen-2
+	heuristics := make([]float64, numElems)
 	for i := 0; i < numElems; i++ {
-		heuristics[i] = math.MaxOfInts(1, lookAhead-math.MaxOfInts(0, math.AbsInt(lookAhead-i))) // Creates ascending list until lookAhead and then descending list
+		heuristics[i] = float64(math.MaxOfInts(1, lookAhead-math.AbsInt(lookAhead-math.AbsInt(firstSampled-i)))) // Creates ascending list until lookAhead and then descending list
 	}
-	// for i := 0; i < numElems; i++ {
-	// 	logger.Debugf("%v ", heuristics[i])
-	// }
-	// logger.Debugf("\n")
+	heuristics[firstSampled] = 0
+	for i := 0; i < numElems; i++ {
+		logger.Debugf("%v ", heuristics[i])
+	}
+	logger.Debugf("\n")
 	return heuristics
 }
 
-func softmax(logger logging.Logger, heuristics []int) []float64 {
+func softmax(logger logging.Logger, heuristics []float64) []float64 {
 	sum := 0.0
 	for _, heuristic := range heuristics {
-		sum += math.Exp(float64(heuristic))
+		sum += math.Exp(heuristic)
 	}
 	softmaxArr := make([]float64, len(heuristics))
 	for i, heuristic := range heuristics {
-		softmaxArr[i] = math.Exp(float64(heuristic)) / sum
+		softmaxArr[i] = math.Exp(heuristic) / sum
 	}
-	for i := 0; i < len(softmaxArr); i++ {
-		logger.Debugf("%v ", softmaxArr[i])
-	}
-	logger.Debugf("\n")
 	return softmaxArr
 }
 
-func generateCDF(logger logging.Logger, firstSampled, arrayLen int) []float64 {
-	heuristics := generateHeuristic(logger, firstSampled, arrayLen)
+func generateCDF(logger logging.Logger, firstSampled, pathLen int) []float64 {
+	heuristics := generateHeuristic(logger, firstSampled, pathLen)
 	softmaxArr := softmax(logger, heuristics)
 	for i := 1; i < len(softmaxArr); i++ {
 		softmaxArr[i] = softmaxArr[i] + softmaxArr[i-1]
 	}
+	// for i := 0; i < len(softmaxArr); i++ {
+	// 	logger.Debugf("%v ", softmaxArr[i])
+	// }
 	return softmaxArr
 }
 
@@ -925,10 +928,16 @@ func (mp *tpSpaceRRTMotionPlanner) smoothPath(ctx context.Context, path []node) 
 		// get start node of first edge. Cannot be either the last or second-to-last node.
 		// Intn will return an int in the half-open interval half-open interval [0,n)
 		firstEdge := mp.randseed.Intn(len(path) - 2)
-		// secondEdge := firstEdge + 1 + mp.randseed.Intn((len(path)-2)-firstEdge)
-		cdf := generateCDF(mp.logger, firstEdge, len(path))
-		sample := mp.randseed.Float64()
-		secondEdge := binarySearch(cdf, sample)
+		secondEdge := firstEdge + 1 + mp.randseed.Intn((len(path)-2)-firstEdge)
+		// cdf := generateCDF(mp.logger, firstEdge, len(path))
+		// sample := mp.randseed.Float64()
+		// secondEdge := binarySearch(cdf, sample)
+
+		// if secondEdge < firstEdge {
+		// 	temp := secondEdge
+		// 	secondEdge = firstEdge
+		// 	firstEdge = temp
+		// }
 		attemptSmoothStart := time.Now()
 		newInputSteps, err := mp.attemptSmooth(ctx, path, firstEdge, secondEdge, smoothPlanner)
 		attemptSmoothEnd := time.Now()
@@ -945,7 +954,7 @@ func (mp *tpSpaceRRTMotionPlanner) smoothPath(ctx context.Context, path []node) 
 
 		path = newInputSteps
 		currCost = newCost
-		if newCost < 84000 { // specific to scene 18
+		if newCost < 35000 { // specific to scene 18
 			mp.logger.Debugf("$DEBUG,breaking_at_iter_%v\n", i)
 			break
 		}
