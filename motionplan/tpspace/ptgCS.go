@@ -73,6 +73,12 @@ func (ptg *ptgCS) turnDist(alpha float64) float64 {
 
 // curvature of an arc of radius r = 1/r
 func (ptg *ptgCS) Curvature(alpha, dist float64) (float64, error) {
-	turnDist := ptg.turnDist(alpha)
-	return ptg.circle.Curvature(alpha, math.Min(dist, turnDist))
+	if alpha != 0 && dist != 0 {
+		arcRadius := math.Pi * ptg.circle.turnRadius / math.Abs(alpha) // radius of arc
+		arcLength := ptg.turnDist(alpha)
+		angleRads := arcLength / arcRadius
+		return angleRads / dist, nil
+	} else {
+		return 0, nil
+	}
 }

@@ -98,9 +98,24 @@ func (ptg *ptgCCS) Curvature(alpha, dist float64) (float64, error) {
 	reverseDistance := arcConstant * ptg.turnRadius
 	fwdArcDistance := (arcConstant + math.Pi/2) * ptg.turnRadius
 
+	// First C
 	curvRev, _ := ptg.circle.Curvature(math.Pi, math.Min(dist, reverseDistance))
 	curvRev = math.Abs(curvRev)
-	curvForw, _ := ptg.circle.Curvature(math.Pi, math.Min(dist, fwdArcDistance)-reverseDistance)
-	curvForw = math.Abs(curvForw)
-	return curvRev + curvForw, nil
+
+	// Second CS
+	totalLengthCS := dist - math.Min(dist, reverseDistance)
+	if totalLengthCS == 0 {
+		return curvRev, nil //no CS part because its equal to 0
+	}
+	if alpha != 0 {
+		arcRadius := math.Pi * ptg.turnRadius / math.Abs(alpha) // radius of arc
+		angleRads := fwdArcDistance / arcRadius                 // angle of arc
+		return angleRads / totalLengthCS, nil
+	} else {
+		return 0, nil // Is this correct? Return 0 if alpha == 0
+	}
+
+	// curvForw, _ := ptg.circle.Curvature(math.Pi, math.Min(dist, fwdArcDistance)-reverseDistance)
+	// curvForw = math.Abs(curvForw)
+	// return curvRev + curvForw, nil
 }

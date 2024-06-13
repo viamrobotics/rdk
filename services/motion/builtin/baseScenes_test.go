@@ -125,16 +125,16 @@ func scene18(logger logging.Logger) (*motionplan.PlanRequest, error) {
 
 func TestPtgWithSlam(t *testing.T) {
 	logger := logging.NewTestLogger(t)
-	scene, err := scene13(logger)
+	scene, err := scene18(logger)
 	test.That(t, err, test.ShouldBeNil)
-	plan, motionerr := motionplan.PlanMotion(context.Background(), scene)
+	_, motionerr := motionplan.PlanMotion(context.Background(), scene)
 	test.That(t, motionerr, test.ShouldBeNil)
 
-	for _, traj_pts := range plan.Trajectory() {
-		inputs := traj_pts[scene.Frame.Name()]
-		i := inputs[0].Value
-		alpha := inputs[1].Value
-		d := inputs[3].Value - inputs[2].Value
-		logger.Debugf("$DEBUG,ptg_i=%v,alpha=%v,d=%v", i, alpha, d)
-	}
+	// for _, traj_pts := range plan.Trajectory() {
+	// 	inputs := traj_pts[scene.Frame.Name()]
+	// 	i := inputs[0].Value
+	// 	alpha := inputs[1].Value
+	// 	d := inputs[3].Value - inputs[2].Value
+	// 	logger.Debugf("$DEBUG,ptg_i=%v,alpha=%v,d=%v", i, alpha, d)
+	// }
 }
