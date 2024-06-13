@@ -159,7 +159,7 @@ jobs:
 
     - name: Run go unit tests
       run: |
-        chmod -R a+rwx rdk
+        chmod -R a+rwx .
         docker run \
           --platform linux/arm/v7 \
           -v `pwd`:/rdk \
