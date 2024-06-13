@@ -238,7 +238,6 @@ jobs:
     if: false
     needs: [test_go, test_web_e2e, test_pi, test32]
     runs-on: [ubuntu-latest]
-    if: always()
     steps:
       - name: Check Results
         run: |
