@@ -91,8 +91,7 @@ func NewManager(identity string, client v1.DataSyncServiceClient, logger logging
 		inProgress:        make(map[string]bool),
 		syncErrs:          make(chan error, 10),
 		filesToSync:       filesToSync,
-		// syncRoutineTracker: make(chan struct{}, maxSyncThreads),
-		captureDir: captureDir,
+		captureDir:        captureDir,
 	}
 	ret.logRoutine.Add(1)
 	goutils.PanicCapturingGo(func() {
@@ -104,7 +103,6 @@ func NewManager(identity string, client v1.DataSyncServiceClient, logger logging
 		ret.backgroundWorkers.Add(1)
 		go func() {
 			defer ret.backgroundWorkers.Done()
-			// defer fmt.Print("exiting from sync thread, should not see") //REMOVE BEFORE MERGE
 			for {
 				if cancelCtx.Err() != nil {
 					return

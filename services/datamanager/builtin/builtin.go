@@ -753,8 +753,6 @@ func getAllFilesToSync(ctx context.Context, dirs []string, lastModifiedMillis in
 			if ctx.Err() != nil {
 				return filepath.SkipAll
 			}
-
-			// TODO: check for context cancellation and stopAfter time passed
 			if err != nil {
 				return nil
 			}
@@ -905,8 +903,8 @@ func countCaptureDirFiles(ctx context.Context, captureDir string) int {
 		if info.IsDir() {
 			return nil
 		}
-		// this is intentionally not doing as many checks as this is intended
-		// for debugging and does not need to be 100% accurate.
+		// this is intentionally not doing as many checkas as getAllFilesToSync because
+		// this is intended for debugging and does not need to be 100% accurate.
 		isCompletedCaptureFile := filepath.Ext(path) == datacapture.FileExt
 		if isCompletedCaptureFile {
 			numFiles++
