@@ -4,11 +4,14 @@ import (
 	"archive/tar"
 	"compress/gzip"
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
-	"path"
 	"path/filepath"
+	"strings"
+	"time"
 
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
@@ -16,21 +19,20 @@ import (
 
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
+	rutils "go.viam.com/rdk/utils"
 )
 
 // installCallback is the function signature that gets passed to installPackage.
-type installCallback func(ctx context.Context, url, dstPath string) (contentType string, err error)
+type installCallback func(ctx context.Context, url, dstPath string) (checksum, contentType string, err error)
 
-func installPackage(ctx context.Context, logger logging.Logger, packagesDir, url string, p config.PackageConfig,
-	nonEmptyPaths []string, installFn installCallback,
+func installPackage(
+	ctx context.Context,
+	logger logging.Logger,
+	packagesDir string,
+	url string,
+	p config.PackageConfig,
+	installFn installCallback,
 ) error {
-	if dataDir := p.LocalDataDirectory(packagesDir); dirExists(dataDir) {
-		if checkNonemptyPaths(p.Name, logger, nonEmptyPaths) {
-			logger.Debugf("Package already downloaded at %s, skipping.", dataDir)
-			return nil
-		}
-	}
-
 	// Create the parent directory for the package type if it doesn't exist
 	if err := os.MkdirAll(p.LocalDataParentDirectory(packagesDir), 0o700); err != nil {
 		return err
@@ -42,7 +44,7 @@ func installPackage(ctx context.Context, logger logging.Logger, packagesDir, url
 	}
 
 	if p.Type == config.PackageTypeMlModel {
-		symlinkPath, err := safeJoin(packagesDir, p.Name)
+		symlinkPath, err := rutils.SafeJoinDir(packagesDir, p.Name)
 		if err == nil {
 			if err := os.Remove(symlinkPath); err != nil {
 				utils.UncheckedError(err)
@@ -51,7 +53,7 @@ func installPackage(ctx context.Context, logger logging.Logger, packagesDir, url
 	}
 
 	dstPath := p.LocalDownloadPath(packagesDir)
-	contentType, err := installFn(ctx, url, dstPath)
+	checksum, contentType, err := installFn(ctx, url, dstPath)
 	if err != nil {
 		return err
 	}
@@ -85,6 +87,20 @@ func installPackage(ctx context.Context, logger logging.Logger, packagesDir, url
 	}
 
 	err = os.Rename(tmpDataPath, p.LocalDataDirectory(packagesDir))
+	if err != nil {
+		utils.UncheckedError(cleanup(packagesDir, p))
+		return err
+	}
+
+	statusFile := packageSyncFile{
+		PackageID:       p.Package,
+		Version:         p.Version,
+		ModifiedTime:    time.Now(),
+		Status:          syncStatusDone,
+		TarballChecksum: checksum,
+	}
+
+	err = writeStatusFile(p, statusFile, packagesDir)
 	if err != nil {
 		utils.UncheckedError(cleanup(packagesDir, p))
 		return err
@@ -148,7 +164,7 @@ func unpackFile(ctx context.Context, fromFile, toDir string) error {
 			continue
 		}
 
-		if path, err = safeJoin(toDir, path); err != nil {
+		if path, err = rutils.SafeJoinDir(toDir, path); err != nil {
 			return err
 		}
 
@@ -168,7 +184,7 @@ func unpackFile(ctx context.Context, fromFile, toDir string) error {
 			if err := os.MkdirAll(parent, 0o700); err != nil {
 				return errors.Wrapf(err, "failed to create directory %q", parent)
 			}
-			//nolint:gosec // path sanitized with safeJoin
+			//nolint:gosec // path sanitized with rutils.SafeJoin
 			outFile, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0o600|info.Mode().Perm())
 			if err != nil {
 				return errors.Wrapf(err, "failed to create file %s", path)
@@ -180,10 +196,11 @@ func unpackFile(ctx context.Context, fromFile, toDir string) error {
 				return errors.Wrapf(err, "failed to sync %s", path)
 			}
 			utils.UncheckedError(outFile.Close())
+
 		case tar.TypeLink:
 			name := header.Linkname
 
-			if name, err = safeJoin(toDir, name); err != nil {
+			if name, err = rutils.SafeJoinDir(toDir, name); err != nil {
 				return err
 			}
 			links = append(links, link{Path: path, Name: name})
@@ -218,38 +235,6 @@ func unpackFile(ctx context.Context, fromFile, toDir string) error {
 	return nil
 }
 
-// checkNonemptyPaths returns true if all required paths are present and non-empty.
-// This exists because we have no way to check the integrity of modules *after* they've been unpacked.
-// (We do look at checksums of downloaded tarballs, though). Once we have a better integrity check
-// system for unpacked modules, this should be removed.
-func checkNonemptyPaths(packageName string, logger logging.Logger, absPaths []string) bool {
-	missingOrEmpty := 0
-	for _, nePath := range absPaths {
-		if !path.IsAbs(nePath) {
-			// note: we expect paths to be absolute in most cases.
-			// We're okay not having corrupted files coverage for relative paths, and prefer it to
-			// risking a re-download loop from an edge case.
-			logger.Debugw("ignoring non-abs required path", "path", nePath, "package", packageName)
-			continue
-		}
-		// note: os.Stat treats symlinks as their destination. os.Lstat would stat the link itself.
-		info, err := os.Stat(nePath)
-		if err != nil {
-			if !os.IsNotExist(err) {
-				logger.Warnw("ignoring non-NotExist error for required path",
-					"path", nePath, "package", packageName, "error", err.Error())
-			} else {
-				logger.Warnw("a required path is missing, re-downloading", "path", nePath, "package", packageName)
-				missingOrEmpty++
-			}
-		} else if info.Size() == 0 {
-			missingOrEmpty++
-			logger.Warnw("a required path is empty, re-downloading", "path", nePath, "package", packageName)
-		}
-	}
-	return missingOrEmpty == 0
-}
-
 // commonCleanup is a helper for the various ManagerSyncer.Cleanup functions.
 func commonCleanup(logger logging.Logger, expectedPackageDirectories map[string]bool, packagesDataDir string) error {
 	topLevelFiles, err := os.ReadDir(packagesDataDir)
@@ -261,14 +246,14 @@ func commonCleanup(logger logging.Logger, expectedPackageDirectories map[string]
 
 	// A packageTypeDir is a directory that contains all of the packages for the specified type. ex: data/ml_model
 	for _, packageTypeDir := range topLevelFiles {
-		packageTypeDirName, err := safeJoin(packagesDataDir, packageTypeDir.Name())
+		packageTypeDirName, err := rutils.SafeJoinDir(packagesDataDir, packageTypeDir.Name())
 		if err != nil {
 			allErrors = multierr.Append(allErrors, err)
 			continue
 		}
 
-		// There should be no non-dir files in the packages/data dir. Delete any that exist
-		if packageTypeDir.Type()&os.ModeDir != os.ModeDir {
+		// There should be no non-dir files in the packages/data dir except .status.json files. Delete any that exist
+		if packageTypeDir.Type()&os.ModeDir != os.ModeDir && !strings.HasSuffix(packageTypeDirName, statusFileExt) {
 			allErrors = multierr.Append(allErrors, os.Remove(packageTypeDirName))
 			continue
 		}
@@ -279,14 +264,15 @@ func commonCleanup(logger logging.Logger, expectedPackageDirectories map[string]
 			continue
 		}
 		for _, packageDir := range packageDirs {
-			packageDirName, err := safeJoin(packageTypeDirName, packageDir.Name())
+			packageDirName, err := rutils.SafeJoinDir(packageTypeDirName, packageDir.Name())
 			if err != nil {
 				allErrors = multierr.Append(allErrors, err)
 				continue
 			}
 			_, expectedToExist := expectedPackageDirectories[packageDirName]
-			if !expectedToExist {
-				logger.Debugf("Removing old package %s", packageDirName)
+			_, expectedStatusFileToExist := expectedPackageDirectories[strings.TrimSuffix(packageDirName, statusFileExt)]
+			if !expectedToExist && !expectedStatusFileToExist {
+				logger.Debugf("Removing old package file(s) %s", packageDirName)
 				allErrors = multierr.Append(allErrors, os.RemoveAll(packageDirName))
 			}
 		}
@@ -301,4 +287,87 @@ func commonCleanup(logger logging.Logger, expectedPackageDirectories map[string]
 		}
 	}
 	return allErrors
+}
+
+type syncStatus string
+
+const (
+	syncStatusDownloading syncStatus = "downloading"
+	syncStatusDone        syncStatus = "done"
+)
+
+type packageSyncFile struct {
+	PackageID       string     `json:"package_id"`
+	Version         string     `json:"version"`
+	ModifiedTime    time.Time  `json:"modified_time"`
+	Status          syncStatus `json:"sync_status"`
+	TarballChecksum string     `json:"tarball_checksum"`
+}
+
+var statusFileExt = ".status.json"
+
+func packageIsSynced(pkg config.PackageConfig, packagesDir string, logger logging.Logger) bool {
+	syncFile, err := readStatusFile(pkg, packagesDir)
+	if err != nil {
+		utils.UncheckedError(err)
+	}
+	if syncFile.PackageID == pkg.Package && syncFile.Version == pkg.Version && syncFile.Status == syncStatusDone {
+		logger.Debugf("Package already downloaded at %s, skipping.", pkg.LocalDataDirectory(packagesDir))
+		return true
+	}
+	logger.Debugf("Package is not in sync for %s: status of '%s' (file) != '%s' (expected) and version of '%s' (file) != '%s' (expected)",
+		pkg.Package, syncFile.Status, syncStatusDone, syncFile.Version, pkg.Version)
+	return false
+}
+
+func packagesAreSynced(packages []config.PackageConfig, packagesDir string, logger logging.Logger) bool {
+	for _, pkg := range packages {
+		if !packageIsSynced(pkg, packagesDir, logger) {
+			return false
+		}
+	}
+	return true
+}
+
+func getSyncFileName(packageLocalDataDirectory string) string {
+	return packageLocalDataDirectory + statusFileExt
+}
+
+func readStatusFile(pkg config.PackageConfig, packagesDir string) (packageSyncFile, error) {
+	syncFileName := getSyncFileName(pkg.LocalDataDirectory(packagesDir))
+	//nolint:gosec // safe
+	syncFileBytes, err := os.ReadFile(syncFileName)
+	if err != nil {
+		if errors.Is(err, fs.ErrNotExist) {
+			return packageSyncFile{}, errors.Wrapf(err, "cannot find %s", syncFileName)
+		}
+		return packageSyncFile{}, err
+	}
+	var syncFile packageSyncFile
+	if err := json.Unmarshal(syncFileBytes, &syncFile); err != nil {
+		return packageSyncFile{}, err
+	}
+	return syncFile, nil
+}
+
+func writeStatusFile(pkg config.PackageConfig, statusFile packageSyncFile, packagesDir string) error {
+	syncFileName := getSyncFileName(pkg.LocalDataDirectory(packagesDir))
+
+	statusFileBytes, err := json.MarshalIndent(statusFile, "", "  ")
+	if err != nil {
+		return err
+	}
+	//nolint:gosec
+	syncFile, err := os.Create(syncFileName)
+	if err != nil {
+		return errors.Wrapf(err, "failed to create %s", syncFileName)
+	}
+	if _, err := syncFile.Write(statusFileBytes); err != nil {
+		return errors.Wrapf(err, "failed to write syncfile to %s", syncFileName)
+	}
+	if err := syncFile.Sync(); err != nil {
+		return errors.Wrapf(err, "failed to sync %s", syncFileName)
+	}
+
+	return nil
 }

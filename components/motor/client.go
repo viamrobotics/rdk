@@ -84,6 +84,20 @@ func (c *client) GoTo(ctx context.Context, rpm, positionRevolutions float64, ext
 	return err
 }
 
+func (c *client) SetRPM(ctx context.Context, rpm float64, extra map[string]interface{}) error {
+	ext, err := protoutils.StructToStructPb(extra)
+	if err != nil {
+		return err
+	}
+	req := &pb.SetRPMRequest{
+		Name:  c.name,
+		Rpm:   rpm,
+		Extra: ext,
+	}
+	_, err = c.client.SetRPM(ctx, req)
+	return err
+}
+
 func (c *client) ResetZeroPosition(ctx context.Context, offset float64, extra map[string]interface{}) error {
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {

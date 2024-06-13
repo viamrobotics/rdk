@@ -101,9 +101,9 @@ func TestFileDeletion(t *testing.T) {
 		syncerInProgressFiles   []string
 	}{
 		{
-			name:                    "if sync disabled, file deleter should delete every 4th file",
-			fileList:                []string{"shouldDelete0.capture", "1.capture", "2.capture", "3.capture", "4.capture", "shouldDelete5.capture"},
-			expectedDeleteFilenames: []string{"shouldDelete0.capture", "shouldDelete5.capture"},
+			name:                    "if sync disabled, file deleter should delete every 5th file",
+			fileList:                []string{"0shouldDelete.capture", "1.capture", "2.capture", "3.capture", "4.capture", "5shouldDelete.capture"},
+			expectedDeleteFilenames: []string{"0shouldDelete.capture", "5shouldDelete.capture"},
 		},
 		{
 			name:                    "if sync enabled and all files marked as in progress, file deleter should not delete any files",
@@ -115,14 +115,19 @@ func TestFileDeletion(t *testing.T) {
 		{
 			name:                    "if sync enabled and some files marked as inprogress, file deleter should delete less files",
 			syncEnabled:             true,
-			fileList:                []string{"0.capture", "1.capture", "shouldDelete2.capture", "3.capture", "4.capture", "5.capture"},
+			fileList:                []string{"0.capture", "1.capture", "2shouldDelete.capture", "3.capture", "4.capture", "5.capture"},
 			syncerInProgressFiles:   []string{"0.capture", "1.capture"},
-			expectedDeleteFilenames: []string{"shouldDelete2.capture"},
+			expectedDeleteFilenames: []string{"2shouldDelete.capture"},
 		},
 		{
 			name:                    "if sync disabled and files are still being written to, file deleter should not delete any files",
 			fileList:                []string{"0.prog", "1.prog", "2.prog", "3.prog", "4.prog", "5.prog"},
 			expectedDeleteFilenames: []string{},
+		},
+		{
+			name:                    "file deleter should not delete non datacapture files",
+			fileList:                []string{"0.fe", "1.fi", "2.fo", "3.fum", "4.foo", "5.capture"},
+			expectedDeleteFilenames: []string{"5.capture"},
 		},
 		{
 			name:                "if cancelled context is cancelled, file deleter should return an error",
@@ -164,6 +169,11 @@ func TestFileDeletion(t *testing.T) {
 			} else {
 				test.That(t, err, test.ShouldBeNil)
 				test.That(t, deletedFileCount, test.ShouldEqual, len(tc.expectedDeleteFilenames))
+				// get list of all files still in capture dir after deletion
+				files := getFiles(t, tempCaptureDir)
+				for _, deletedFile := range tc.expectedDeleteFilenames {
+					test.That(t, files, test.ShouldNotContain, deletedFile)
+				}
 			}
 		})
 	}
@@ -182,7 +192,22 @@ func writeFiles(t *testing.T, dir string, filenames []string) map[string]string 
 	return filePaths
 }
 
+func getFiles(t *testing.T, path string) []string {
+	t.Helper()
+	dir, err := os.Open(path)
+	test.That(t, err, test.ShouldBeNil)
+	defer dir.Close()
+	files, err := dir.Readdir(-1)
+	test.That(t, err, test.ShouldBeNil)
+	output := []string{}
+	for _, file := range files {
+		output = append(output, file.Name())
+	}
+	return output
+}
+
 func TestFilePolling(t *testing.T) {
+	logger := logging.NewTestLogger(t)
 	mockClock := clk.NewMock()
 	// Make mockClock the package level clock used by the dmsvc so that we can simulate time's passage
 	clock = mockClock
@@ -206,7 +231,7 @@ func TestFilePolling(t *testing.T) {
 	flusher.closeCollectors()
 	// number of capture files is based on the number of unique
 	// collectors in the robot config used in this test
-	waitForCaptureFilesToEqualNFiles(tempDir, 4)
+	waitForCaptureFilesToEqualNFiles(tempDir, 4, logger)
 
 	files := getAllFileInfos(tempDir)
 	test.That(t, len(files), test.ShouldEqual, 4)
@@ -216,7 +241,7 @@ func TestFilePolling(t *testing.T) {
 
 	// run forward 20ms to delete any files
 	mockClock.Add(filesystemPollInterval)
-	waitForCaptureFilesToEqualNFiles(tempDir, 3)
+	waitForCaptureFilesToEqualNFiles(tempDir, 3, logger)
 	newFiles := getAllFileInfos(tempDir)
 	test.That(t, len(newFiles), test.ShouldEqual, 3)
 	test.That(t, newFiles, test.ShouldNotContain, expectedDeletedFile)

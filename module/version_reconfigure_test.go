@@ -2,6 +2,7 @@ package module_test
 
 import (
 	"context"
+	"path/filepath"
 	"testing"
 
 	"go.viam.com/test"
@@ -22,11 +23,13 @@ func TestValidationFailureDuringReconfiguration(t *testing.T) {
 	ctx := context.Background()
 	logger, logs := logging.NewObservedTestLogger(t)
 
+	absPath, err := filepath.Abs("multiversionmodule/run_version1.sh")
+	test.That(t, err, test.ShouldBeNil)
 	cfg := &config.Config{
 		Modules: []config.Module{
 			{
 				Name:     "AcmeModule",
-				ExePath:  "multiversionmodule/run_version1.sh",
+				ExePath:  absPath,
 				LogLevel: "debug",
 			},
 		},
@@ -65,7 +68,7 @@ func TestValidationFailureDuringReconfiguration(t *testing.T) {
 
 	// Assert that there were no validation or component building errors
 	test.That(t, logs.FilterMessageSnippet(
-		"modular resource config validation error").Len(), test.ShouldEqual, 0)
+		"Modular config validation error found in resource: generic1").Len(), test.ShouldEqual, 0)
 	test.That(t, logs.FilterMessageSnippet("error building component").Len(), test.ShouldEqual, 0)
 
 	// Read the config, swap to `run_version2.sh`, and overwrite the config, triggering a
@@ -86,7 +89,7 @@ func TestValidationFailureDuringReconfiguration(t *testing.T) {
 	// Race condition safety: Resource removal should occur after modular resource validation (during completeConfig), so if
 	// ResourceByName is failing, these errors should already be present
 	test.That(t, logs.FilterMessageSnippet(
-		"modular resource config validation error").Len(), test.ShouldEqual, 1)
+		"Modular config validation error found in resource: generic1").Len(), test.ShouldEqual, 1)
 	test.That(t, logs.FilterMessageSnippet("error building component").Len(), test.ShouldEqual, 0)
 }
 
@@ -94,11 +97,13 @@ func TestVersionBumpWithNewImplicitDeps(t *testing.T) {
 	ctx := context.Background()
 	logger, logs := logging.NewObservedTestLogger(t)
 
+	absPath, err := filepath.Abs("multiversionmodule/run_version1.sh")
+	test.That(t, err, test.ShouldBeNil)
 	cfg := &config.Config{
 		Modules: []config.Module{
 			{
 				Name:     "AcmeModule",
-				ExePath:  "multiversionmodule/run_version1.sh",
+				ExePath:  absPath,
 				LogLevel: "debug",
 			},
 		},
@@ -137,7 +142,7 @@ func TestVersionBumpWithNewImplicitDeps(t *testing.T) {
 
 	// Assert that there were no validation or component building errors
 	test.That(t, logs.FilterMessageSnippet(
-		"modular resource config validation error").Len(), test.ShouldEqual, 0)
+		"Modular config validation error found in resource: generic1").Len(), test.ShouldEqual, 0)
 	test.That(t, logs.FilterMessageSnippet("error building component").Len(), test.ShouldEqual, 0)
 
 	// Swap in `run_version3.sh`. Version 3 requires `generic1` to have a `motor` in its
@@ -155,7 +160,7 @@ func TestVersionBumpWithNewImplicitDeps(t *testing.T) {
 	// Race condition safety: Resource removal should occur after modular resource validation (during completeConfig), so if
 	// ResourceByName is failing, these errors should already be present
 	test.That(t, logs.FilterMessageSnippet(
-		"modular resource config validation error").Len(), test.ShouldEqual, 1)
+		"Modular config validation error found in resource: generic1").Len(), test.ShouldEqual, 1)
 	test.That(t, logs.FilterMessageSnippet("error building component").Len(), test.ShouldEqual, 0)
 
 	// Update the generic1 configuration to have a `motor` attribute. The following reconfiguration

@@ -212,6 +212,11 @@ func (ptgk *ptgBaseKinematics) ErrorState(ctx context.Context) (spatialmath.Pose
 	currentInputs := ptgk.currentState.currentInputs
 	ptgk.inputLock.RUnlock()
 
+	if currentExecutingSteps == nil {
+		// We are not currently executing a plan
+		return spatialmath.NewZeroPose(), nil
+	}
+
 	currPoseInArc, err := ptgk.frame.Transform(currentInputs)
 	if err != nil {
 		return nil, err

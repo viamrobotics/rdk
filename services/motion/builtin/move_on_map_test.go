@@ -513,11 +513,11 @@ func TestMoveOnMapStaticObs(t *testing.T) {
 
 	// Create an injected SLAM
 	injectSlam := createInjectedSlam(slamName, "pointcloud/octagonspace.pcd", nil)
-	injectSlam.PositionFunc = func(ctx context.Context) (spatialmath.Pose, string, error) {
+	injectSlam.PositionFunc = func(ctx context.Context) (spatialmath.Pose, error) {
 		return spatialmath.NewPose(
 			r3.Vector{X: 0.58772e3, Y: -0.80826e3, Z: 0},
 			&spatialmath.OrientationVectorDegrees{OZ: 1, Theta: 90},
-		), "", nil
+		), nil
 	}
 
 	// Create a motion service

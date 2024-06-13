@@ -4,6 +4,7 @@ package builtin
 import (
 	"context"
 	"fmt"
+	"net"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -56,8 +57,14 @@ const defaultCaptureBufferSize = 4096
 // Default time to wait in milliseconds to check if a file has been modified.
 const defaultFileLastModifiedMillis = 10000.0
 
+// Default maximum size in bytes of a data capture file.
+var defaultMaxCaptureSize = int64(256 * 1024)
+
 // Default time between disk size checks.
 var filesystemPollInterval = 30 * time.Second
+
+// Threshold number of files to check if sync is backed up (defined as >5000 files).
+var minNumFiles = 5000
 
 var (
 	clock          = clk.New()
@@ -68,16 +75,17 @@ var errCaptureDirectoryConfigurationDisabled = errors.New("changing the capture 
 
 // Config describes how to configure the service.
 type Config struct {
-	CaptureDir                 string   `json:"capture_dir"`
-	AdditionalSyncPaths        []string `json:"additional_sync_paths"`
-	SyncIntervalMins           float64  `json:"sync_interval_mins"`
-	CaptureDisabled            bool     `json:"capture_disabled"`
-	ScheduledSyncDisabled      bool     `json:"sync_disabled"`
-	Tags                       []string `json:"tags"`
-	FileLastModifiedMillis     int      `json:"file_last_modified_millis"`
-	SelectiveSyncerName        string   `json:"selective_syncer_name"`
-	MaximumNumSyncThreads      int      `json:"maximum_num_sync_threads"`
-	DeleteEveryNthWhenDiskFull int      `json:"delete_every_nth_when_disk_full"`
+	CaptureDir                  string   `json:"capture_dir"`
+	AdditionalSyncPaths         []string `json:"additional_sync_paths"`
+	SyncIntervalMins            float64  `json:"sync_interval_mins"`
+	CaptureDisabled             bool     `json:"capture_disabled"`
+	ScheduledSyncDisabled       bool     `json:"sync_disabled"`
+	Tags                        []string `json:"tags"`
+	FileLastModifiedMillis      int      `json:"file_last_modified_millis"`
+	SelectiveSyncerName         string   `json:"selective_syncer_name"`
+	MaximumNumSyncThreads       int      `json:"maximum_num_sync_threads"`
+	DeleteEveryNthWhenDiskFull  int      `json:"delete_every_nth_when_disk_full"`
+	MaximumCaptureFileSizeBytes int64    `json:"maximum_capture_file_size_bytes"`
 }
 
 // Validate returns components which will be depended upon weakly due to the above matcher.
@@ -118,6 +126,7 @@ type builtIn struct {
 	logger                 logging.Logger
 	captureDir             string
 	captureDisabled        bool
+	collectorsMu           sync.Mutex
 	collectors             map[resourceMethodMetadata]*collectorAndConfig
 	lock                   sync.Mutex
 	backgroundWorkers      sync.WaitGroup
@@ -134,6 +143,7 @@ type builtIn struct {
 	cloudConnSvc        cloud.ConnectionService
 	cloudConn           rpc.ClientConn
 	syncTicker          *clk.Ticker
+	maxCaptureFileSize  int64
 
 	syncSensor           selectiveSyncer
 	selectiveSyncEnabled bool
@@ -186,39 +196,52 @@ func (svc *builtIn) Close(_ context.Context) error {
 		svc.fileDeletionRoutineCancelFn()
 	}
 
+	fileDeletionBackgroundWorkers := svc.fileDeletionBackgroundWorkers
 	svc.lock.Unlock()
 	svc.backgroundWorkers.Wait()
 
-	if svc.fileDeletionBackgroundWorkers != nil {
-		svc.fileDeletionBackgroundWorkers.Wait()
+	if fileDeletionBackgroundWorkers != nil {
+		fileDeletionBackgroundWorkers.Wait()
 	}
 
 	return nil
 }
 
 func (svc *builtIn) closeCollectors() {
+	var collectorsToClose []data.Collector
+	svc.collectorsMu.Lock()
+	for _, collectorAndConfig := range svc.collectors {
+		collectorsToClose = append(collectorsToClose, collectorAndConfig.Collector)
+	}
+	svc.collectors = make(map[resourceMethodMetadata]*collectorAndConfig)
+	svc.collectorsMu.Unlock()
+
 	var wg sync.WaitGroup
-	for md, collector := range svc.collectors {
-		currCollector := collector
+	for _, collector := range collectorsToClose {
 		wg.Add(1)
-		go func() {
+		go func(toClose data.Collector) {
 			defer wg.Done()
-			currCollector.Collector.Close()
-		}()
-		delete(svc.collectors, md)
+			toClose.Close()
+		}(collector)
 	}
 	wg.Wait()
 }
 
 func (svc *builtIn) flushCollectors() {
+	var collectorsToFlush []data.Collector
+	svc.collectorsMu.Lock()
+	for _, collectorAndConfig := range svc.collectors {
+		collectorsToFlush = append(collectorsToFlush, collectorAndConfig.Collector)
+	}
+	svc.collectorsMu.Unlock()
+
 	var wg sync.WaitGroup
-	for _, collector := range svc.collectors {
-		currCollector := collector
+	for _, collector := range collectorsToFlush {
 		wg.Add(1)
-		go func() {
+		go func(toFlush data.Collector) {
 			defer wg.Done()
-			currCollector.Collector.Flush()
-		}()
+			toFlush.Flush()
+		}(collector)
 	}
 	wg.Wait()
 }
@@ -263,6 +286,7 @@ func (svc *builtIn) initializeOrUpdateCollector(
 	res resource.Resource,
 	md resourceMethodMetadata,
 	config datamanager.DataCaptureConfig,
+	maxFileSizeChanged bool,
 ) (*collectorAndConfig, error) {
 	// Build metadata.
 	captureMetadata, err := datacapture.BuildCaptureMetadata(
@@ -278,8 +302,12 @@ func (svc *builtIn) initializeOrUpdateCollector(
 
 	// TODO(DATA-451): validate method params
 
+	svc.collectorsMu.Lock()
+	defer svc.collectorsMu.Unlock()
 	if storedCollectorAndConfig, ok := svc.collectors[md]; ok {
-		if storedCollectorAndConfig.Config.Equals(&config) && res == storedCollectorAndConfig.Resource {
+		if storedCollectorAndConfig.Config.Equals(&config) &&
+			res == storedCollectorAndConfig.Resource &&
+			!maxFileSizeChanged {
 			// If the attributes have not changed, do nothing and leave the existing collector.
 			return svc.collectors[md], nil
 		}
@@ -330,7 +358,7 @@ func (svc *builtIn) initializeOrUpdateCollector(
 		ComponentName: config.Name.ShortName(),
 		Interval:      interval,
 		MethodParams:  methodParams,
-		Target:        datacapture.NewBuffer(targetDir, captureMetadata),
+		Target:        datacapture.NewBuffer(targetDir, captureMetadata, svc.maxCaptureFileSize),
 		QueueSize:     captureQueueSize,
 		BufferSize:    captureBufferSize,
 		Logger:        svc.logger,
@@ -418,8 +446,13 @@ func (svc *builtIn) Reconfigure(
 	if err != nil {
 		return err
 	}
+
 	// Syncer should be reinitialized if the max sync threads are updated in the config
-	reinitSyncer := cloudConnSvc != svc.cloudConnSvc || svcConfig.MaximumNumSyncThreads != svc.maxSyncThreads
+	newMaxSyncThreadValue := datasync.MaxParallelSyncRoutines
+	if svcConfig.MaximumNumSyncThreads != 0 {
+		newMaxSyncThreadValue = svcConfig.MaximumNumSyncThreads
+	}
+	reinitSyncer := cloudConnSvc != svc.cloudConnSvc || newMaxSyncThreadValue != svc.maxSyncThreads
 	svc.cloudConnSvc = cloudConnSvc
 
 	captureConfigs, err := svc.updateDataCaptureConfigs(deps, conf, svcConfig.CaptureDir)
@@ -440,7 +473,6 @@ func (svc *builtIn) Reconfigure(
 	// Service is disabled, so close all collectors and clear the map so we can instantiate new ones if we enable this service.
 	if svc.captureDisabled {
 		svc.closeCollectors()
-		svc.collectors = make(map[resourceMethodMetadata]*collectorAndConfig)
 	}
 
 	if svc.fileDeletionRoutineCancelFn != nil {
@@ -459,6 +491,9 @@ func (svc *builtIn) Reconfigure(
 	if !svc.captureDisabled {
 		for res, resConfs := range captureConfigs {
 			for _, resConf := range resConfs {
+				if resConf.Method == "" {
+					continue
+				}
 				// Create component/method metadata
 				methodMetadata := data.MethodMetadata{
 					API:        resConf.Name.API,
@@ -488,11 +523,18 @@ func (svc *builtIn) Reconfigure(
 				// without it, we will be logging the same message over and over for no reason
 				svc.componentMethodFrequencyHz[componentMethodMetadata] = resConf.CaptureFrequencyHz
 
-				if !resConf.Disabled && resConf.CaptureFrequencyHz > 0 {
+				maxCaptureFileSize := svcConfig.MaximumCaptureFileSizeBytes
+				if maxCaptureFileSize == 0 {
+					maxCaptureFileSize = defaultMaxCaptureSize
+				}
+				if !resConf.Disabled && (resConf.CaptureFrequencyHz > 0 || svc.maxCaptureFileSize != maxCaptureFileSize) {
 					// We only use service-level tags.
 					resConf.Tags = svcConfig.Tags
 
-					newCollectorAndConfig, err := svc.initializeOrUpdateCollector(res, componentMethodMetadata, resConf)
+					maxFileSizeChanged := svc.maxCaptureFileSize != maxCaptureFileSize
+					svc.maxCaptureFileSize = maxCaptureFileSize
+
+					newCollectorAndConfig, err := svc.initializeOrUpdateCollector(res, componentMethodMetadata, resConf, maxFileSizeChanged)
 					if err != nil {
 						svc.logger.CErrorw(ctx, "failed to initialize or update collector", "error", err)
 					} else {
@@ -507,12 +549,14 @@ func (svc *builtIn) Reconfigure(
 	}
 
 	// If a component/method has been removed from the config, close the collector.
+	svc.collectorsMu.Lock()
 	for md, collAndConfig := range svc.collectors {
 		if _, present := newCollectors[md]; !present {
 			collAndConfig.Collector.Close()
 		}
 	}
 	svc.collectors = newCollectors
+	svc.collectorsMu.Unlock()
 	svc.additionalSyncPaths = svcConfig.AdditionalSyncPaths
 
 	fileLastModifiedMillis := svcConfig.FileLastModifiedMillis
@@ -537,18 +581,14 @@ func (svc *builtIn) Reconfigure(
 
 	syncConfigUpdated := svc.syncDisabled != svcConfig.ScheduledSyncDisabled || svc.syncIntervalMins != svcConfig.SyncIntervalMins ||
 		!reflect.DeepEqual(svc.tags, svcConfig.Tags) || svc.fileLastModifiedMillis != fileLastModifiedMillis ||
-		svc.maxSyncThreads != svcConfig.MaximumNumSyncThreads
+		svc.maxSyncThreads != newMaxSyncThreadValue
 
 	if syncConfigUpdated {
 		svc.syncDisabled = svcConfig.ScheduledSyncDisabled
 		svc.syncIntervalMins = svcConfig.SyncIntervalMins
 		svc.tags = svcConfig.Tags
 		svc.fileLastModifiedMillis = fileLastModifiedMillis
-		maxThreads := datasync.MaxParallelSyncRoutines
-		if svcConfig.MaximumNumSyncThreads != 0 {
-			maxThreads = svcConfig.MaximumNumSyncThreads
-		}
-		svc.maxSyncThreads = maxThreads
+		svc.maxSyncThreads = newMaxSyncThreadValue
 
 		svc.cancelSyncScheduler()
 		if !svc.syncDisabled && svc.syncIntervalMins != 0.0 {
@@ -598,8 +638,14 @@ func (svc *builtIn) startSyncScheduler(intervalMins float64) {
 func (svc *builtIn) cancelSyncScheduler() {
 	if svc.syncRoutineCancelFn != nil {
 		svc.syncRoutineCancelFn()
-		svc.backgroundWorkers.Wait()
 		svc.syncRoutineCancelFn = nil
+		// DATA-2664: A goroutine calling this method must currently be holding the data manager
+		// lock. The `uploadData` background goroutine can also acquire the data manager lock prior
+		// to learning to exit. Thus we release the lock such that the `uploadData` goroutine can
+		// make progress and exit.
+		svc.lock.Unlock()
+		svc.backgroundWorkers.Wait()
+		svc.lock.Lock()
 	}
 }
 
@@ -637,7 +683,7 @@ func (svc *builtIn) uploadData(cancelCtx context.Context, intervalMins float64) 
 					}
 					svc.lock.Unlock()
 
-					if shouldSync {
+					if !isOffline() && shouldSync {
 						svc.sync()
 					}
 				} else {
@@ -648,22 +694,39 @@ func (svc *builtIn) uploadData(cancelCtx context.Context, intervalMins float64) 
 	})
 }
 
+func isOffline() bool {
+	timeout := 5 * time.Second
+	_, err := net.DialTimeout("tcp", "app.viam.com:443", timeout)
+	// If there's an error, the system is likely offline.
+	return err != nil
+}
+
 func (svc *builtIn) sync() {
 	svc.flushCollectors()
 
 	svc.lock.Lock()
-	toSync := getAllFilesToSync(svc.captureDir, svc.fileLastModifiedMillis)
-	for _, ap := range svc.additionalSyncPaths {
-		toSync = append(toSync, getAllFilesToSync(ap, svc.fileLastModifiedMillis)...)
-	}
-	svc.lock.Unlock()
+	if svc.syncer != nil {
+		toSync := getAllFilesToSync(svc.captureDir, svc.fileLastModifiedMillis)
+		for _, ap := range svc.additionalSyncPaths {
+			toSync = append(toSync, getAllFilesToSync(ap, svc.fileLastModifiedMillis)...)
+		}
+		syncer := svc.syncer
+		stopAfter := time.Now().Add(time.Duration(svc.syncIntervalMins * float64(time.Minute)))
+		svc.lock.Unlock()
 
-	for _, p := range toSync {
-		svc.syncer.SyncFile(p)
+		// Only log if there are a large number of files to sync
+		if len(toSync) > minNumFiles {
+			svc.logger.Infof("Starting sync of %d files", len(toSync))
+		}
+		for _, p := range toSync {
+			syncer.SyncFile(p, stopAfter)
+		}
+	} else {
+		svc.lock.Unlock()
 	}
 }
 
-//nolint
+//nolint:errcheck,nilerr
 func getAllFilesToSync(dir string, lastModifiedMillis int) []string {
 	var filePaths []string
 	_ = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
@@ -755,7 +818,7 @@ func pollFilesystem(ctx context.Context, wg *sync.WaitGroup, captureDir string,
 			logger.Debug("checking disk usage")
 			shouldDelete, err := shouldDeleteBasedOnDiskUsage(ctx, captureDir, logger)
 			if err != nil {
-				logger.Errorw("error checking file system stats", "error", err)
+				logger.Warnw("error checking file system stats", "error", err)
 			}
 			if shouldDelete {
 				start := time.Now()

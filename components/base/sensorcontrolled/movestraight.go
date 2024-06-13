@@ -34,14 +34,24 @@ func (sb *sensorBase) MoveStraight(
 	// If a position movement sensor or controls are not configured, we cannot use this MoveStraight method.
 	// Instead we need to use the MoveStraight method of the base that the sensorcontrolled base wraps.
 	// If there is no valid velocity sensor, there won't be a controlLoopConfig.
-	if sb.position == nil || len(sb.controlLoopConfig.Blocks) == 0 {
+	if len(sb.controlLoopConfig.Blocks) == 0 {
 		sb.logger.CWarnf(ctx,
-			"Position reporting sensor not available, or control loop not configured, using base %s's MoveStraight",
+			"control loop not configured, using base %s's MoveStraight",
 			sb.controlledBase.Name().ShortName())
 		if sb.loop != nil {
 			sb.loop.Pause()
 		}
 		return sb.controlledBase.MoveStraight(ctx, distanceMm, mmPerSec, extra)
+	}
+	if sb.position == nil {
+		sb.logger.CWarn(ctx,
+			"controlling using linear velocity only, for increased accuracy add a position reporting sensor")
+
+		// adjust inputs to ensure errDist is always positive to match the position based implementation
+		if distanceMm < 0 {
+			distanceMm = -distanceMm
+			mmPerSec = -mmPerSec
+		}
 	}
 
 	// make sure the control loop is enabled
@@ -50,6 +60,10 @@ func (sb *sensorBase) MoveStraight(
 			return err
 		}
 	}
+
+	// pause and resume the loop to reset the control blocks.
+	// This prevents any residual signals in the control loop from "kicking" the robot
+	sb.loop.Pause()
 	sb.loop.Resume()
 
 	straightTimeEst := time.Duration(int(time.Second) * int(math.Abs(float64(distanceMm)/mmPerSec)))
@@ -77,6 +91,10 @@ func (sb *sensorBase) MoveStraight(
 		}
 	}
 
+	// this state is only used when no position sensor is configured
+	prevTime := startTime
+	currDistMm := 0.
+
 	ticker := time.NewTicker(time.Duration(1000./sb.controlLoopConfig.Frequency) * time.Millisecond)
 	defer ticker.Stop()
 	for {
@@ -101,6 +119,18 @@ func (sb *sensorBase) MoveStraight(
 				if err != nil {
 					return err
 				}
+			} else {
+				currTime := time.Now()
+				vels, err := sb.velocities.LinearVelocity(ctx, nil)
+				if err != nil {
+					return err
+				}
+				deltaTime := currTime.Sub(prevTime).Seconds()
+				// calculate the estimated change in position based on the latest velocity
+				deltaPosMm := sign(mmPerSec) * vels.Y * deltaTime * 1000
+				currDistMm += deltaPosMm
+				errDist = float64(distanceMm) - currDistMm
+				prevTime = currTime
 			}
 
 			if errDist < moveStraightErrTarget {

@@ -11,6 +11,7 @@ import (
 	"github.com/urfave/cli/v2"
 	"go.uber.org/multierr"
 	mltrainingpb "go.viam.com/api/app/mltraining/v1"
+	v1 "go.viam.com/api/app/v1"
 	"google.golang.org/protobuf/types/known/structpb"
 )
 
@@ -28,6 +29,23 @@ const (
 
 // MLSubmitCustomTrainingJob is the corresponding action for 'train submit-custom'.
 func MLSubmitCustomTrainingJob(c *cli.Context) error {
+	client, err := newViamClient(c)
+	if err != nil {
+		return err
+	}
+
+	trainingJobID, err := client.mlSubmitCustomTrainingJob(
+		c.String(datasetFlagDatasetID), c.String(mlTrainingFlagName), c.String(mlTrainingFlagVersion), c.String(generalFlagOrgID),
+		c.String(trainFlagModelName), c.String(trainFlagModelVersion))
+	if err != nil {
+		return err
+	}
+	printf(c.App.Writer, "Submitted training job with ID %s", trainingJobID)
+	return nil
+}
+
+// MLSubmitCustomTrainingJobWithUpload is the corresponding action for 'train submit-custom'.
+func MLSubmitCustomTrainingJobWithUpload(c *cli.Context) error {
 	client, err := newViamClient(c)
 	if err != nil {
 		return err
@@ -270,7 +288,66 @@ func (c *viamClient) uploadTrainingScript(draft bool, modelType, framework, orgI
 	); err != nil {
 		return err
 	}
+	return nil
+}
 
+// MLTrainingUpdateAction updates the visibility of training scripts.
+func MLTrainingUpdateAction(c *cli.Context) error {
+	client, err := newViamClient(c)
+	if err != nil {
+		return err
+	}
+
+	err = client.updateTrainingScript(c.String(generalFlagOrgID), c.String(mlTrainingFlagName),
+		c.String(mlTrainingFlagVisibility), c.String(mlTrainingFlagDescription),
+	)
+	if err != nil {
+		return err
+	}
+
+	moduleID := moduleID{
+		prefix: c.String(generalFlagOrgID),
+		name:   c.String(mlTrainingFlagName),
+	}
+	url := moduleID.ToDetailURL(client.baseURL.Hostname(), PackageTypeMLTraining)
+	printf(c.App.Writer, "Training script successfully updated! you can view your changes online here: %s", url)
+	return nil
+}
+
+func (c *viamClient) updateTrainingScript(orgID, name, visibility, description string) error {
+	if err := c.ensureLoggedIn(); err != nil {
+		return err
+	}
+
+	// Get registry item
+	itemID := fmt.Sprintf("%s:%s", orgID, name)
+	resp, err := c.client.GetRegistryItem(c.c.Context, &v1.GetRegistryItemRequest{
+		ItemId: itemID,
+	})
+	if err != nil {
+		return err
+	}
+	// Get and validate description and visibility
+	updatedDescription := resp.GetItem().GetDescription()
+	if description != "" {
+		updatedDescription = description
+	}
+	if updatedDescription == "" {
+		return errors.New("no existing description for registry item, description must be provided")
+	}
+	visibilityProto, err := convertVisibilityToProto(visibility)
+	if err != nil {
+		return err
+	}
+	// Update registry item
+	if _, err = c.client.UpdateRegistryItem(c.c.Context, &v1.UpdateRegistryItemRequest{
+		ItemId:      itemID,
+		Type:        resp.GetItem().GetType(),
+		Description: updatedDescription,
+		Visibility:  *visibilityProto,
+	}); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -359,4 +436,18 @@ func convertMetadataToStruct(metadata MLMetadata) (*structpb.Struct, error) {
 		return nil, err
 	}
 	return metadataStruct, nil
+}
+
+func convertVisibilityToProto(visibility string) (*v1.Visibility, error) {
+	var visibilityProto v1.Visibility
+	switch visibility {
+	case "public":
+		visibilityProto = v1.Visibility_VISIBILITY_PUBLIC
+	case "private":
+		visibilityProto = v1.Visibility_VISIBILITY_PRIVATE
+	default:
+		return nil, errors.New("invalid visibility provided, must be either public or private")
+	}
+
+	return &visibilityProto, nil
 }

@@ -519,6 +519,11 @@ func (m *Motor) GoTo(ctx context.Context, rpm, positionRevolutions float64, extr
 	)
 }
 
+// SetRPM instructs the motor to move at the specified RPM indefinitely.
+func (m *Motor) SetRPM(ctx context.Context, rpm float64, extra map[string]interface{}) error {
+	return motor.NewSetRPMUnsupportedError(m.Name().ShortName())
+}
+
 // IsPowered returns true if the motor is currently moving.
 func (m *Motor) IsPowered(ctx context.Context, extra map[string]interface{}) (bool, float64, error) {
 	on, err := m.IsMoving(ctx)

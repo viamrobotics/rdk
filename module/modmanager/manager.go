@@ -266,11 +266,11 @@ func (mgr *Manager) add(ctx context.Context, conf config.Module) error {
 	var moduleDataDir string
 	// only set the module data directory if the parent dir is present (which it might not be during tests)
 	if mgr.moduleDataParentDir != "" {
-		moduleDataDir = filepath.Join(mgr.moduleDataParentDir, conf.Name)
-		// safety check to prevent exiting the moduleDataDirectory in case conf.Name ends up including characters like ".."
-		if !strings.HasPrefix(filepath.Clean(moduleDataDir), filepath.Clean(mgr.moduleDataParentDir)) {
-			return errors.Errorf("module %q would have a data directory %q outside of the module data directory %q",
-				conf.Name, moduleDataDir, mgr.moduleDataParentDir)
+		var err error
+		// todo: why isn't conf.Name being sanitized like PackageConfig.SanitizedName?
+		moduleDataDir, err = rutils.SafeJoinDir(mgr.moduleDataParentDir, conf.Name)
+		if err != nil {
+			return err
 		}
 	}
 
@@ -849,7 +849,7 @@ func (mgr *Manager) newOnUnexpectedExitHandler(mod *module) func(exitCode int) b
 				orphanedResourceNames = append(orphanedResourceNames, name)
 			}
 		}
-		if mgr.removeOrphanedResources != nil {
+		if len(orphanedResourceNames) > 0 && mgr.removeOrphanedResources != nil {
 			mgr.removeOrphanedResources(mgr.restartCtx, orphanedResourceNames)
 		}
 
@@ -954,6 +954,7 @@ func (m *module) dial() error {
 		"unix://"+m.addr,
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 		grpc.WithChainUnaryInterceptor(
+			rdkgrpc.EnsureTimeoutUnaryClientInterceptor,
 			grpc_retry.UnaryClientInterceptor(),
 			operation.UnaryClientInterceptor,
 		),

@@ -525,8 +525,13 @@ func (manager *resourceManager) Close(ctx context.Context) error {
 
 // completeConfig process the tree in reverse order and attempts to build or reconfigure
 // resources that are wrapped in a placeholderResource. this function will attempt to
-// process resources concurrently when they do not depend on each other.
-func (manager *resourceManager) completeConfig(ctx context.Context, lr *localRobot) {
+// process resources concurrently when they do not depend on each other unless
+// `forceSynce` is set to true.
+func (manager *resourceManager) completeConfig(
+	ctx context.Context,
+	lr *localRobot,
+	forceSync bool,
+) {
 	manager.resourceGraphLock.Lock()
 	defer func() {
 		if err := manager.viz.SaveSnapshot(manager.resources); err != nil {
@@ -678,23 +683,26 @@ func (manager *resourceManager) completeConfig(ctx context.Context, lr *localRob
 				return nil
 			}
 
-			var processSync bool
-			// TODO(RSDK-6925): support concurrent processing of resources of APIs with a
-			// maximum instance limit. Currently this limit is validated later in the
-			// resource creation flow and assumes that each resource is created
-			// synchronously to have an accurate creation count.
-			if c, ok := resource.LookupGenericAPIRegistration(resName.API); ok && c.MaxInstance != 0 {
-				processSync = true
+			syncRes := forceSync
+			if !syncRes {
+				// TODO(RSDK-6925): support concurrent processing of resources of
+				// APIs with a maximum instance limit. Currently this limit is
+				// validated later in the resource creation flow and assumes that
+				// each resource is created synchronously to have an accurate
+				// creation count.
+				if c, ok := resource.LookupGenericAPIRegistration(resName.API); ok && c.MaxInstance != 0 {
+					syncRes = true
+				}
 			}
 
-			if processSync {
+			if syncRes {
 				if err := processResource(); err != nil {
 					return
 				}
 			} else {
 				lr.reconfigureWorkers.Add(1)
 				levelErrG.Go(func() error {
-					lr.reconfigureWorkers.Done()
+					defer lr.reconfigureWorkers.Done()
 					return processResource()
 				})
 			}
