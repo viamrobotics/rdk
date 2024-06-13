@@ -30,6 +30,9 @@ func TestUninitializedLifecycle(t *testing.T) {
 	test.That(t, node.Config(), test.ShouldResemble, resource.Config{})
 	test.That(t, node.NeedsReconfigure(), test.ShouldBeFalse)
 
+	rs := node.ResourceWithState()
+	test.That(t, rs.State, test.ShouldEqual, resource.NodeStateInitialize)
+
 	lifecycleTest(t, node, []string(nil))
 }
 
@@ -51,6 +54,9 @@ func TestUnconfiguredLifecycle(t *testing.T) {
 	test.That(t, node.Config(), test.ShouldResemble, someConf)
 	test.That(t, node.NeedsReconfigure(), test.ShouldBeTrue)
 	test.That(t, node.UnresolvedDependencies(), test.ShouldResemble, initialDeps)
+
+	rs := node.ResourceWithState()
+	test.That(t, rs.State, test.ShouldEqual, resource.NodeStateConfigure)
 
 	lifecycleTest(t, node, initialDeps)
 }
@@ -75,10 +81,44 @@ func TestConfiguredLifecycle(t *testing.T) {
 	test.That(t, node.NeedsReconfigure(), test.ShouldBeFalse)
 	test.That(t, node.UnresolvedDependencies(), test.ShouldBeEmpty)
 
+	rs := node.ResourceWithState()
+	test.That(t, rs.State, test.ShouldEqual, resource.NodeStateReady)
+
 	lifecycleTest(t, node, []string(nil))
 }
 
+func verifyStateTransition(
+	t *testing.T,
+	node *resource.GraphNode,
+	expectedState resource.NodeState,
+	lastState resource.WithState,
+) resource.WithState {
+	t.Helper()
+
+	rs := node.ResourceWithState()
+	test.That(t, rs.State, test.ShouldEqual, expectedState)
+	test.That(t, rs.UpdatedAt.UnixNano(), test.ShouldBeGreaterThan, lastState.UpdatedAt.UnixNano())
+	return rs
+}
+
+func verifySameState(
+	t *testing.T,
+	node *resource.GraphNode,
+	expectedState resource.NodeState,
+	lastState resource.WithState,
+) resource.WithState {
+	t.Helper()
+
+	rs := node.ResourceWithState()
+	test.That(t, rs.State, test.ShouldEqual, expectedState)
+	test.That(t, rs.UpdatedAt.UnixNano(), test.ShouldEqual, lastState.UpdatedAt.UnixNano())
+	return rs
+}
+
 func lifecycleTest(t *testing.T, node *resource.GraphNode, initialDeps []string) {
+	// get initial state
+	rs := node.ResourceWithState()
+
 	// mark it for removal
 	test.That(t, node.MarkedForRemoval(), test.ShouldBeFalse)
 	node.MarkForRemoval()
@@ -88,11 +128,15 @@ func lifecycleTest(t *testing.T, node *resource.GraphNode, initialDeps []string)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "pending removal")
 
+	rs = verifyStateTransition(t, node, resource.NodeStateRemove, rs)
+
 	ourErr := errors.New("whoops")
 	node.LogAndSetLastError(ourErr)
 	_, err = node.Resource()
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "pending removal")
+
+	rs = verifySameState(t, node, resource.NodeStateRemove, rs)
 
 	test.That(t, node.UnresolvedDependencies(), test.ShouldResemble, initialDeps)
 
@@ -107,12 +151,16 @@ func lifecycleTest(t *testing.T, node *resource.GraphNode, initialDeps []string)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, res, test.ShouldEqual, ourRes)
 
+	rs = verifyStateTransition(t, node, resource.NodeStateReady, rs)
+
 	// now it needs update
 	node.SetNeedsUpdate()
 	res, err = node.Resource()
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, res, test.ShouldEqual, ourRes)
 	test.That(t, node.MarkedForRemoval(), test.ShouldBeFalse)
+
+	rs = verifyStateTransition(t, node, resource.NodeStateConfigure, rs)
 
 	// but an error happened
 	node.LogAndSetLastError(ourErr)
@@ -124,6 +172,8 @@ func lifecycleTest(t *testing.T, node *resource.GraphNode, initialDeps []string)
 	test.That(t, res, test.ShouldEqual, ourRes)
 	test.That(t, node.IsUninitialized(), test.ShouldBeFalse)
 
+	rs = verifySameState(t, node, resource.NodeStateConfigure, rs)
+
 	// it reconfigured
 	ourRes2 := &someResource{Resource: testutils.NewUnimplementedResource(generic.Named("foo"))}
 	node.SwapResource(ourRes2, resource.DefaultModelFamily.WithModel("baz"))
@@ -134,6 +184,8 @@ func lifecycleTest(t *testing.T, node *resource.GraphNode, initialDeps []string)
 	test.That(t, res, test.ShouldEqual, ourRes2)
 	test.That(t, node.MarkedForRemoval(), test.ShouldBeFalse)
 
+	rs = verifyStateTransition(t, node, resource.NodeStateReady, rs)
+
 	// it needs a new config
 	ourConf := resource.Config{Attributes: utils.AttributeMap{"1": 2}}
 	node.SetNewConfig(ourConf, []string{"3", "4", "5"})
@@ -143,6 +195,7 @@ func lifecycleTest(t *testing.T, node *resource.GraphNode, initialDeps []string)
 	test.That(t, node.NeedsReconfigure(), test.ShouldBeTrue)
 	test.That(t, node.Config(), test.ShouldResemble, resource.Config{Attributes: utils.AttributeMap{"1": 2}})
 	test.That(t, node.UnresolvedDependencies(), test.ShouldResemble, []string{"3", "4", "5"})
+	rs = verifyStateTransition(t, node, resource.NodeStateConfigure, rs)
 	node.SetNeedsUpdate() // noop
 	res, err = node.Resource()
 	test.That(t, err, test.ShouldBeNil)
@@ -150,6 +203,7 @@ func lifecycleTest(t *testing.T, node *resource.GraphNode, initialDeps []string)
 	test.That(t, node.NeedsReconfigure(), test.ShouldBeTrue)
 	test.That(t, node.Config(), test.ShouldResemble, resource.Config{Attributes: utils.AttributeMap{"1": 2}})
 	test.That(t, node.UnresolvedDependencies(), test.ShouldResemble, []string{"3", "4", "5"})
+	rs = verifySameState(t, node, resource.NodeStateConfigure, rs)
 
 	// but an error happened
 	node.LogAndSetLastError(ourErr)
@@ -159,6 +213,7 @@ func lifecycleTest(t *testing.T, node *resource.GraphNode, initialDeps []string)
 	res, err = node.UnsafeResource()
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, res, test.ShouldEqual, ourRes2)
+	rs = verifySameState(t, node, resource.NodeStateConfigure, rs)
 
 	// it reconfigured
 	ourRes3 := &someResource{Resource: testutils.NewUnimplementedResource(generic.Named("fooa"))}
@@ -172,6 +227,7 @@ func lifecycleTest(t *testing.T, node *resource.GraphNode, initialDeps []string)
 	test.That(t, node.IsUninitialized(), test.ShouldBeFalse)
 	test.That(t, node.Config(), test.ShouldResemble, resource.Config{Attributes: utils.AttributeMap{"1": 2}})
 	test.That(t, node.UnresolvedDependencies(), test.ShouldBeEmpty)
+	rs = verifyStateTransition(t, node, resource.NodeStateReady, rs)
 
 	//nolint
 	test.That(t, node.Close(context.WithValue(context.Background(), "foo", "hi")), test.ShouldBeNil)
@@ -184,6 +240,8 @@ func lifecycleTest(t *testing.T, node *resource.GraphNode, initialDeps []string)
 	_, err = node.Resource()
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "not initialized")
+	// TODO: we might want to make this transition a node to `NodeStateInitialize`
+	rs = verifySameState(t, node, resource.NodeStateReady, rs)
 
 	ourRes4 := &someResource{Resource: testutils.NewUnimplementedResource(generic.Named("foob")), shouldErr: true}
 	node.SwapResource(ourRes4, resource.DefaultModelFamily.WithModel("bazzz"))
@@ -194,6 +252,7 @@ func lifecycleTest(t *testing.T, node *resource.GraphNode, initialDeps []string)
 	test.That(t, res, test.ShouldEqual, ourRes4)
 	test.That(t, node.MarkedForRemoval(), test.ShouldBeFalse)
 	test.That(t, node.IsUninitialized(), test.ShouldBeFalse)
+	rs = verifySameState(t, node, resource.NodeStateReady, rs)
 
 	//nolint
 	err = node.Close(context.WithValue(context.Background(), "foo", "bye"))
@@ -209,6 +268,8 @@ func lifecycleTest(t *testing.T, node *resource.GraphNode, initialDeps []string)
 	_, err = node.Resource()
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "not initialized")
+	// TODO: we might want to make this transition a node to `NodeStateInitialize`
+	verifySameState(t, node, resource.NodeStateReady, rs)
 }
 
 type someResource struct {
