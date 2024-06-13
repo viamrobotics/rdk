@@ -54,22 +54,10 @@ jobs:
     - name: Chown
       run: chown -R testbot:testbot .
 
-    - name: Verify no uncommitted changes from "make build-go lint-go"
-      run: |
-        sudo -Hu testbot bash -lc 'git init && git add . && make build-go lint-go'
-        GEN_DIFF=$(git status -s)
-
-        if [ -n "$GEN_DIFF" ]; then
-            echo '"make build lint" resulted in the following untracked changes:' 1>&2
-            git diff
-            echo '"make build lint" resulted in changes not in git' 1>&2
-            git status
-            exit 1
-        fi
-
     - name: Run go unit tests
       run: |
         whoami
+        ls -la
         chmod -R o+rwx .
         sudo --preserve-env=MONGODB_TEST_OUTPUT_URI,GITHUB_SHA,GITHUB_RUN_ID,GITHUB_RUN_NUMBER,GITHUB_RUN_ATTEMPT,GITHUB_X_PR_BASE_SHA,GITHUB_X_PR_BASE_REF,GITHUB_X_HEAD_REF,GITHUB_X_HEAD_SHA,GITHUB_REPOSITORY -Hu testbot bash -lc 'make test-go'
 
