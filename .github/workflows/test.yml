@@ -142,8 +142,7 @@ jobs:
 
   test32:
     name: Go 32-bit Unit Tests
-    if: false
-    runs-on: [buildjet-8vcpu-ubuntu-2204-arm]
+    runs-on: github-linux-arm64-8core
     timeout-minutes: 30
 
     steps:
