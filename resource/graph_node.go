@@ -11,13 +11,22 @@ import (
 	"go.viam.com/rdk/logging"
 )
 
-type nodeState int
+// nodeState captures the configuration lifecycle state of a resource node.
+type nodeState uint8
 
 const (
-	stateInitialize nodeState = iota
-	stateConfigure
-	stateReady
-	stateRemove
+	// nodeStateInitialize denotes a newly created resource.
+	nodeStateInitialize nodeState = iota
+
+	// nodeStateConfigure denotes a resource is being configured.
+	nodeStateConfigure
+
+	// nodeStateReady denotes a resource that has been initialized and is not being
+	// configured or removed. A resource in this state may be unhealthy.
+	nodeStateReady
+
+	// nodeStateRemove denotes a resource is being removed from the resource graph.
+	nodeStateRemove
 )
 
 // A GraphNode contains the current state of a resource.
@@ -49,7 +58,9 @@ type GraphNode struct {
 	logger logging.Logger
 
 	// state stores the current lifecycle state for a resource node
-	state          nodeState
+	state nodeState
+	// transitionedAt stores the timestamp of when resource entered it's current
+	// lifecycle state.
 	transitionedAt time.Time
 }
 
@@ -110,7 +121,7 @@ func (w *GraphNode) LastReconfigured() *time.Time {
 func (w *GraphNode) Resource() (Resource, error) {
 	w.mu.RLock()
 	defer w.mu.RUnlock()
-	if w.state == stateRemove {
+	if w.state == nodeStateRemove {
 		return nil, errPendingRemoval
 	}
 	if w.lastErr != nil {
@@ -169,7 +180,7 @@ func (w *GraphNode) ResourceModel() Model {
 func (w *GraphNode) HasResource() bool {
 	w.mu.RLock()
 	defer w.mu.RUnlock()
-	return w.state != stateRemove && w.lastErr == nil && w.current != nil
+	return w.state != nodeStateRemove && w.lastErr == nil && w.current != nil
 }
 
 // IsUninitialized returns if this resource is in an uninitialized state.
@@ -199,7 +210,7 @@ func (w *GraphNode) SwapResource(newRes Resource, newModel Model) {
 	w.current = newRes
 	w.currentModel = newModel
 	w.lastErr = nil
-	w.transitionTo(stateReady)
+	w.transitionTo(nodeStateReady)
 
 	// these should already be set
 	w.unresolvedDependencies = nil
@@ -216,14 +227,14 @@ func (w *GraphNode) SwapResource(newRes Resource, newModel Model) {
 func (w *GraphNode) MarkForRemoval() {
 	w.mu.Lock()
 	defer w.mu.Unlock()
-	w.transitionTo(stateRemove)
+	w.transitionTo(nodeStateRemove)
 }
 
 // MarkedForRemoval returns if this node is marked for removal.
 func (w *GraphNode) MarkedForRemoval() bool {
 	w.mu.Lock()
 	defer w.mu.Unlock()
-	return w.state == stateRemove
+	return w.state == nodeStateRemove
 }
 
 // LogAndSetLastError logs and sets the latest error on this node. This will cause the resource to
@@ -256,7 +267,7 @@ func (w *GraphNode) Config() Config {
 func (w *GraphNode) NeedsReconfigure() bool {
 	w.mu.RLock()
 	defer w.mu.RUnlock()
-	return w.state == stateConfigure
+	return w.state == nodeStateConfigure
 }
 
 // hasUnresolvedDependencies returns whether or not this node has any
@@ -270,7 +281,7 @@ func (w *GraphNode) hasUnresolvedDependencies() bool {
 func (w *GraphNode) setNeedsReconfigure(newConfig Config, mustReconfigure bool, dependencies []string) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
-	if !mustReconfigure && w.state == stateRemove {
+	if !mustReconfigure && w.state == nodeStateRemove {
 		// This is the case where the node is being asked to update
 		// with no new config but it was marked for removal otherwise.
 		// The current system enforces us to remove since dependencies
@@ -281,7 +292,7 @@ func (w *GraphNode) setNeedsReconfigure(newConfig Config, mustReconfigure bool, 
 		w.needsDependencyResolution = true
 	}
 	w.config = newConfig
-	w.transitionTo(stateConfigure)
+	w.transitionTo(nodeStateConfigure)
 	w.unresolvedDependencies = dependencies
 }
 
@@ -387,7 +398,7 @@ func (w *GraphNode) replace(other *GraphNode) error {
 	other.unresolvedDependencies = nil
 	other.needsDependencyResolution = false
 
-	other.state = stateInitialize
+	other.state = nodeStateInitialize
 	other.transitionedAt = time.Time{}
 
 	other.mu.Unlock()
@@ -395,7 +406,6 @@ func (w *GraphNode) replace(other *GraphNode) error {
 }
 
 func (w *GraphNode) transitionTo(state nodeState) {
-	// TODO: validate transition?
 	w.state = state
 	w.transitionedAt = time.Now()
 }
