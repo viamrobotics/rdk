@@ -186,7 +186,7 @@ func (sc *SharedConn) ResetConn(conn rpc.ClientConn, moduleLogger logging.Logger
 		sc.peerConn = nil
 	}
 
-	peerConn, err := NewLocalPeerConnection()
+	peerConn, err := NewLocalPeerConnection(sc.logger.AsZap())
 	if err != nil {
 		sc.logger.Warnw("Unable to create optional peer connection for module. Ignoring.", "err", err)
 		return
@@ -328,8 +328,7 @@ func (sc *SharedConn) Close() error {
 
 // NewLocalPeerConnection creates a peer connection that only accepts loopback
 // address candidates
-func NewLocalPeerConnection() (*webrtc.PeerConnection, error) {
-	logger := golog.Global()
+func NewLocalPeerConnection(logger golog.Logger) (*webrtc.PeerConnection, error) {
 	m := webrtc.MediaEngine{}
 	if err := m.RegisterDefaultCodecs(); err != nil {
 		return nil, err
@@ -349,7 +348,7 @@ func NewLocalPeerConnection() (*webrtc.PeerConnection, error) {
 		// Stolen from net/ip.go, `IP.String` method.
 		// Disallow non loopback addresses as this is a local peer connection
 		if p4 := ip.To4(); len(p4) == net.IPv4len && p4.IsLoopback() {
-			logger.Debugf("SetIPFilter is ip v4: %s", ip.String())
+			logger.Debugf("SetIPFilter allowing loppback ip: %s", ip.String())
 			return true
 		}
 		logger.Debugf("SetIPFilter disallowing ip: %s", ip.String())
