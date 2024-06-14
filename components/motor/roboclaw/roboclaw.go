@@ -306,6 +306,10 @@ func (m *roboclawMotor) GoTo(ctx context.Context, rpm, positionRevolutions float
 	if m.conf.TicksPerRotation == 0 {
 		return errors.New("roboclaw needs an encoder connected to use GoTo")
 	}
+
+	// ignore the direction of rpm
+	rpm = math.Abs(rpm)
+
 	pos, err := m.Position(ctx, extra)
 	if err != nil {
 		return err

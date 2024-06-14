@@ -48,7 +48,6 @@ func NewMotor(b board.Board, mc Config, name resource.Name, logger logging.Logge
 	m := &Motor{
 		Named:       name.AsNamed(),
 		Board:       b,
-		on:          false,
 		pwmFreq:     mc.PWMFreq,
 		minPowerPct: mc.MinPowerPct,
 		maxPowerPct: mc.MaxPowerPct,
@@ -126,7 +125,6 @@ type Motor struct {
 	maxRPM                   float64
 	dirFlip                  bool
 	// state
-	on        bool
 	powerPct  float64
 	motorType MotorType
 }
@@ -147,7 +145,6 @@ func (m *Motor) Properties(ctx context.Context, extra map[string]interface{}) (m
 func (m *Motor) turnOff(ctx context.Context, extra map[string]interface{}) error {
 	var errs error
 	m.powerPct = 0.0
-	m.on = false
 	if m.EnablePinLow != nil {
 		enLowErr := errors.Wrap(m.EnablePinLow.Set(ctx, true, extra), "unable to disable low signal")
 		errs = multierr.Combine(errs, enLowErr)
@@ -179,8 +176,6 @@ func (m *Motor) setPWM(ctx context.Context, powerPct float64, extra map[string]i
 		powerPct = sign(powerPct) * m.minPowerPct
 	}
 	m.powerPct = powerPct
-
-	m.on = true
 
 	if m.EnablePinLow != nil {
 		errs = multierr.Combine(errs, m.EnablePinLow.Set(ctx, false, extra))
@@ -304,7 +299,7 @@ func (m *Motor) GoFor(ctx context.Context, rpm, revolutions float64, extra map[s
 func (m *Motor) IsPowered(ctx context.Context, extra map[string]interface{}) (bool, float64, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	return m.on, m.powerPct, nil
+	return m.powerPct != 0, m.powerPct, nil
 }
 
 // Stop turns the power to the motor off immediately, without any gradual step down, by setting the appropriate pins to low states.
@@ -319,7 +314,7 @@ func (m *Motor) Stop(ctx context.Context, extra map[string]interface{}) error {
 func (m *Motor) IsMoving(ctx context.Context) (bool, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	return m.on, nil
+	return m.powerPct != 0, nil
 }
 
 // GoTo is not supported.
