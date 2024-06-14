@@ -1,5 +1,4 @@
 // Package sensors contains a gRPC based sensors service server
-
 package sensors
 
 import (
