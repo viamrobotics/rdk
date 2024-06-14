@@ -80,7 +80,7 @@ func NewManager(identity string, client v1.DataSyncServiceClient, logger logging
 	captureDir string, maxSyncThreads int, filesToSync chan string,
 ) (Manager, error) {
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
-	logger.Debugf("Making new syncer with %d max threads", maxSyncThreads)
+	logger.Infof("Making new syncer with %d max threads", maxSyncThreads)
 	ret := syncer{
 		partID:            identity,
 		client:            client,
