@@ -298,8 +298,8 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 		if err != nil {
 			return nil, err
 		}
-		out.Debug = s.args.Debug || cfg.Debug
-		out.EnableWebProfile = s.args.WebProfile || cfg.EnableWebProfile
+		out.Debug = s.args.Debug || in.Debug
+		out.EnableWebProfile = s.args.WebProfile || in.EnableWebProfile
 		out.FromCommand = true
 		out.AllowInsecureCreds = s.args.AllowInsecureCreds
 		out.UntrustedEnv = s.args.UntrustedEnv
