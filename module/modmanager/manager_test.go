@@ -1327,7 +1327,7 @@ func TestBadModuleFailsFast(t *testing.T) {
 	mgr := setupModManager(t, ctx, parentAddr, logger, opts)
 
 	err := mgr.Add(ctx, modCfgs...)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "module test-module timed out")
+	test.That(t, err.Error(), test.ShouldContainSubstring, "module test-module cannot start")
 	waitingLogLine := "Waiting for module to complete startup and registration"
 	test.That(t, observer.FilterMessageSnippet(waitingLogLine), test.ShouldNotBeEmpty)
 }

@@ -1106,6 +1106,9 @@ func (m *module) startProcess(
 			}
 			return ctxTimeout.Err()
 		case <-checkTicker.C:
+			if errors.Is(m.process.Status(), os.ErrProcessDone) {
+				return fmt.Errorf("module %s cannot start", m.cfg.Name)
+			}
 		}
 		err = modlib.CheckSocketOwner(m.addr)
 		if errors.Is(err, fs.ErrNotExist) {
