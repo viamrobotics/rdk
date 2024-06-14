@@ -15,18 +15,18 @@ import (
 type NodeState uint8
 
 const (
-	// NodeStateInitializing denotes a newly created resource.
-	NodeStateInitializing NodeState = iota
+	// NodeStateUnconfigured denotes a newly created resource.
+	NodeStateUnconfigured NodeState = iota
 
-	// NodeStateConfigure denotes a resource is being configured.
-	NodeStateConfigure
+	// NodeStateConfiguring denotes a resource is being configured.
+	NodeStateConfiguring
 
 	// NodeStateReady denotes a resource that has been initialized and is not being
 	// configured or removed. A resource in this state may be unhealthy.
 	NodeStateReady
 
-	// NodeStateRemove denotes a resource is being removed from the resource graph.
-	NodeStateRemove
+	// NodeStateRemoving denotes a resource is being removed from the resource graph.
+	NodeStateRemoving
 )
 
 // A GraphNode contains the current state of a resource.
@@ -121,7 +121,7 @@ func (w *GraphNode) LastReconfigured() *time.Time {
 func (w *GraphNode) Resource() (Resource, error) {
 	w.mu.RLock()
 	defer w.mu.RUnlock()
-	if w.state == NodeStateRemove {
+	if w.state == NodeStateRemoving {
 		return nil, errPendingRemoval
 	}
 	if w.lastErr != nil {
@@ -198,7 +198,7 @@ func (w *GraphNode) ResourceModel() Model {
 func (w *GraphNode) HasResource() bool {
 	w.mu.RLock()
 	defer w.mu.RUnlock()
-	return w.state != NodeStateRemove && w.lastErr == nil && w.current != nil
+	return w.state != NodeStateRemoving && w.lastErr == nil && w.current != nil
 }
 
 // IsUninitialized returns if this resource is in an uninitialized state.
@@ -245,14 +245,14 @@ func (w *GraphNode) SwapResource(newRes Resource, newModel Model) {
 func (w *GraphNode) MarkForRemoval() {
 	w.mu.Lock()
 	defer w.mu.Unlock()
-	w.transitionTo(NodeStateRemove)
+	w.transitionTo(NodeStateRemoving)
 }
 
 // MarkedForRemoval returns if this node is marked for removal.
 func (w *GraphNode) MarkedForRemoval() bool {
 	w.mu.Lock()
 	defer w.mu.Unlock()
-	return w.state == NodeStateRemove
+	return w.state == NodeStateRemoving
 }
 
 // LogAndSetLastError logs and sets the latest error on this node. This will cause the resource to
@@ -285,7 +285,7 @@ func (w *GraphNode) Config() Config {
 func (w *GraphNode) NeedsReconfigure() bool {
 	w.mu.RLock()
 	defer w.mu.RUnlock()
-	return w.state == NodeStateConfigure
+	return w.state == NodeStateConfiguring
 }
 
 // hasUnresolvedDependencies returns whether or not this node has any
@@ -299,7 +299,7 @@ func (w *GraphNode) hasUnresolvedDependencies() bool {
 func (w *GraphNode) setNeedsReconfigure(newConfig Config, mustReconfigure bool, dependencies []string) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
-	if !mustReconfigure && w.state == NodeStateRemove {
+	if !mustReconfigure && w.state == NodeStateRemoving {
 		// This is the case where the node is being asked to update
 		// with no new config but it was marked for removal otherwise.
 		// The current system enforces us to remove since dependencies
@@ -310,7 +310,7 @@ func (w *GraphNode) setNeedsReconfigure(newConfig Config, mustReconfigure bool, 
 		w.needsDependencyResolution = true
 	}
 	w.config = newConfig
-	w.transitionTo(NodeStateConfigure)
+	w.transitionTo(NodeStateConfiguring)
 	w.unresolvedDependencies = dependencies
 }
 
@@ -417,7 +417,7 @@ func (w *GraphNode) replace(other *GraphNode) error {
 	other.unresolvedDependencies = nil
 	other.needsDependencyResolution = false
 
-	other.state = NodeStateInitializing
+	other.state = NodeStateUnconfigured
 	other.transitionedAt = time.Time{}
 
 	other.mu.Unlock()
