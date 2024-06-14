@@ -18,27 +18,23 @@ import (
 type method int64
 
 const (
-	CaptureAllFromCamera method = iota
+	captureAllFromCamera method = iota
 )
 
 func (m method) String() string {
-	switch m {
-	case CaptureAllFromCamera:
+	if m == captureAllFromCamera {
 		return "CaptureAllFromCamera"
 	}
+
 	return "Unknown"
 }
 
-type visionServiceCamera struct {
-	cameraName string
-}
-
-type ImageBounds struct {
+type imageBounds struct {
 	Height int
 	Width  int
 }
 
-func NewCaptureAllFromCameraCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
+func newCaptureAllFromCameraCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
 	vision, err := assertVision(resource)
 	if err != nil {
 		return nil, err
@@ -65,7 +61,7 @@ func NewCaptureAllFromCameraCollector(resource interface{}, params data.Collecto
 			return nil, err
 		}
 
-		minConfidenceScore = float64(minConfidenceScoreWrapper.Value)
+		minConfidenceScore = minConfidenceScoreWrapper.Value
 
 		if minConfidenceScore < 0 || minConfidenceScore > 1 {
 			return nil, errors.New("min_confidence_score must be between 0 and 1 inclusive")
@@ -80,13 +76,11 @@ func NewCaptureAllFromCameraCollector(resource interface{}, params data.Collecto
 			ReturnObject:          true,
 		}
 		visCapture, err := vision.CaptureAllFromCamera(ctx, cameraName.Value, visCaptureOptions, nil)
-
 		if err != nil {
-			return nil, data.FailedToReadErr(cameraName.Value, CaptureAllFromCamera.String(), err)
+			return nil, data.FailedToReadErr(cameraName.Value, captureAllFromCamera.String(), err)
 		}
 
 		protoImage, err := imageToProto(ctx, visCapture.Image, cameraName.Value)
-
 		if err != nil {
 			return nil, err
 		}
@@ -110,23 +104,24 @@ func NewCaptureAllFromCameraCollector(resource interface{}, params data.Collecto
 		protoClassifications := clasToProto(filteredClassifications)
 
 		protoObjects, err := segmentsToProto(cameraName.Value, visCapture.Objects)
-
 		if err != nil {
 			return nil, err
 		}
 
-		imageBounds := ImageBounds{
+		bounds := imageBounds{
 			Height: visCapture.Image.Bounds().Dy(),
 			Width:  visCapture.Image.Bounds().Dx(),
 		}
 
-		imageBoundsPb, err := protoutils.StructToStructPb(imageBounds)
-
+		boundsPb, err := protoutils.StructToStructPb(bounds)
 		if err != nil {
 			return nil, err
 		}
 
-		return &servicepb.CaptureAllFromCameraResponse{Image: protoImage, Detections: protoDetections, Classifications: protoClassifications, Objects: protoObjects, Extra: imageBoundsPb}, nil
+		return &servicepb.CaptureAllFromCameraResponse{
+			Image: protoImage, Detections: protoDetections, Classifications: protoClassifications,
+			Objects: protoObjects, Extra: boundsPb,
+		}, nil
 	})
 
 	return data.NewCollector(cFunc, params)
