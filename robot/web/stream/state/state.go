@@ -18,6 +18,7 @@ import (
 	"go.viam.com/rdk/components/camera/rtppassthrough"
 	"go.viam.com/rdk/gostream"
 	"go.viam.com/rdk/logging"
+	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 )
 
@@ -422,7 +423,9 @@ func (ss *StreamState) restart(ctx context.Context) {
 }
 
 func (ss *StreamState) streamH264Passthrough(ctx context.Context) error {
-	cam, err := camera.FromRobot(ss.robot, ss.Stream.Name())
+	// Stream names are slightly modified versions of the resource short name
+	shortName := resource.SDPTrackNameToShortName(ss.Stream.Name())
+	cam, err := camera.FromRobot(ss.robot, shortName)
 	if err != nil {
 		return err
 	}
@@ -435,6 +438,7 @@ func (ss *StreamState) streamH264Passthrough(ctx context.Context) error {
 
 	cb := func(pkts []*rtp.Packet) {
 		for _, pkt := range pkts {
+			ss.logger.Infof("calling WriteRTP %s", ss.Stream.Name())
 			if err := ss.Stream.WriteRTP(pkt); err != nil {
 				ss.logger.Debugw("stream.WriteRTP", "name", ss.Stream.Name(), "err", err.Error())
 			}
@@ -452,7 +456,8 @@ func (ss *StreamState) streamH264Passthrough(ctx context.Context) error {
 }
 
 func (ss *StreamState) unsubscribeH264Passthrough(ctx context.Context, id rtppassthrough.SubscriptionID) error {
-	cam, err := camera.FromRobot(ss.robot, ss.Stream.Name())
+	shortName := resource.SDPTrackNameToShortName(ss.Stream.Name())
+	cam, err := camera.FromRobot(ss.robot, shortName)
 	if err != nil {
 		return err
 	}

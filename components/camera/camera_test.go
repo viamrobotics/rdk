@@ -1,3 +1,4 @@
+// nolint
 package camera_test
 
 import (

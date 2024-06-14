@@ -1,7 +1,9 @@
+//nolint
 package resource
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -94,6 +96,17 @@ func (w *GraphNode) LastReconfigured() *time.Time {
 	return w.lastReconfigured
 }
 
+func (w *GraphNode) ClearErr() {
+	w.mu.Lock()
+	if w.lastErr != nil {
+		if w.logger != nil {
+			w.logger.Info("Ok and not initialized. Clearing error and continuing.")
+		}
+		w.lastErr = nil
+	}
+	w.mu.Unlock()
+}
+
 // Resource returns the underlying resource if it is not pending removal,
 // has no error on it, and is initialized.
 func (w *GraphNode) Resource() (Resource, error) {
@@ -161,6 +174,12 @@ func (w *GraphNode) HasResource() bool {
 	return !w.markedForRemoval && w.lastErr == nil && w.current != nil
 }
 
+func (w *GraphNode) ResourceExists() bool {
+	w.mu.RLock()
+	defer w.mu.RUnlock()
+	return !w.markedForRemoval && w.current != nil
+}
+
 // IsUninitialized returns if this resource is in an uninitialized state.
 func (w *GraphNode) IsUninitialized() bool {
 	w.mu.RLock()
@@ -183,6 +202,11 @@ func (w *GraphNode) UnsetResource() {
 // increments the graphLogicalClock and sets updatedAt for this GraphNode
 // to the new value.
 func (w *GraphNode) SwapResource(newRes Resource, newModel Model) {
+	if w.logger != nil {
+		w.logger.Info("DBG. Swapped resource:", fmt.Sprintf("%T", newRes), "Model:", newModel.String())
+		// debug.PrintStack()
+	}
+
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	w.current = newRes

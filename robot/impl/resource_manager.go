@@ -177,15 +177,33 @@ func (manager *resourceManager) updateRemoteResourceNames(
 	remoteName resource.Name,
 	rr internalRemoteRobot,
 ) bool {
-	manager.logger.CDebugw(ctx, "updating remote resource names", "remote", remoteName)
-	activeResourceNames := map[resource.Name]bool{}
 	newResources := rr.ResourceNames()
-	oldResources := manager.remoteResourceNames(remoteName)
-	for _, res := range oldResources {
-		activeResourceNames[res] = false
+	manager.logger.CInfow(ctx, "updating remote resource names", "remote", remoteName, "nil?", newResources == nil, "val", newResources)
+	oldResourceNames := manager.remoteResourceNames(remoteName)
+	anythingChanged := false
+	if newResources == nil {
+		manager.logger.Info("Nil resources. Marking as bad. Not removing")
+		for _, resName := range oldResourceNames {
+			gNode, exists := manager.resources.Node(resName)
+			if !exists {
+				manager.logger.Warn("oldResources does not exist when doing lookup", "oldResources", oldResourceNames, "res", resName)
+				continue
+			}
+
+			anythingChanged = true
+			gNode.LogAndSetLastError(errors.New("remote blipped"))
+		}
+
+		return anythingChanged
 	}
 
-	anythingChanged := false
+	activeResourceNames := map[resource.Name]bool{}
+	for _, res := range oldResourceNames {
+		manager.logger.Info("Old resource names:", oldResourceNames)
+		_, err := rr.ResourceByName(res) // this returns a remote known OR foreign resource client
+		manager.logger.CInfo(ctx, "old resource state. err:", err)
+		activeResourceNames[res] = false
+	}
 
 	for _, resName := range newResources {
 		remoteResName := resName
@@ -205,10 +223,17 @@ func (manager *resourceManager) updateRemoteResourceNames(
 
 		resName = resName.PrependRemote(remoteName.Name)
 		gNode, ok := manager.resources.Node(resName)
+		if ok {
+			_, err := gNode.Resource()
+			manager.logger.CInfo(ctx, "gNode state. ResName:", resName, "ResourceErr?", err)
+		} else {
+			manager.logger.CInfo(ctx, "no gNode. ResName:", resName)
+		}
 
 		if _, alreadyCurrent := activeResourceNames[resName]; alreadyCurrent {
 			activeResourceNames[resName] = true
 			if ok && !gNode.IsUninitialized() {
+				gNode.ClearErr()
 				continue
 			}
 		}
@@ -327,14 +352,17 @@ func (manager *resourceManager) internalResourceNames() []resource.Name {
 
 // ResourceNames returns the names of all resources in the manager.
 func (manager *resourceManager) ResourceNames() []resource.Name {
+	manager.logger.Info("Serving ResourceNames (resourceManager) Size:", len(manager.resources.Names()))
 	names := []resource.Name{}
 	for _, k := range manager.resources.Names() {
 		if k.API == client.RemoteAPI ||
 			k.API.Type.Namespace == resource.APINamespaceRDKInternal {
+			manager.logger.Info("ResourceNames. Skipping. Name:", k, "API:", k.API, "Namespace:", k.API.Type.Namespace)
 			continue
 		}
 		gNode, ok := manager.resources.Node(k)
-		if !ok || !gNode.HasResource() {
+		manager.logger.Info("ResourceNames. Name:", k, "Ok?", ok, "HasResource?", gNode.ResourceExists())
+		if !ok || !gNode.ResourceExists() {
 			continue
 		}
 		names = append(names, k)

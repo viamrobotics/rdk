@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/edaniels/golog"
 	"github.com/pion/webrtc/v3"
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
@@ -112,6 +113,8 @@ func (ss *Server) ListStreams(ctx context.Context, req *streampb.ListStreamsRequ
 func (ss *Server) AddStream(ctx context.Context, req *streampb.AddStreamRequest) (*streampb.AddStreamResponse, error) {
 	ctx, span := trace.StartSpan(ctx, "stream::server::AddStream")
 	defer span.End()
+	ss.logger.Warnf("AddStream START %s", req.Name)
+	defer ss.logger.Warnf("AddStream END %s", req.Name)
 	// Get the peer connection
 	pc, ok := rpc.ContextPeerConnection(ctx)
 	if !ok {
@@ -125,7 +128,14 @@ func (ss *Server) AddStream(ctx context.Context, req *streampb.AddStreamRequest)
 
 	// return error if there is no stream for that camera
 	if !ok {
-		err := fmt.Errorf("no stream for %q", req.Name)
+		var availableStreams string
+		for n := range ss.nameToStreamState {
+			if availableStreams != "" {
+				availableStreams += ", "
+			}
+			availableStreams += fmt.Sprintf("%q", n)
+		}
+		err := fmt.Errorf("no stream for %q, available streams: %s", req.Name, availableStreams)
 		ss.logger.Error(err.Error())
 		return nil, err
 	}
@@ -204,12 +214,14 @@ func (ss *Server) AddStream(ctx context.Context, req *streampb.AddStreamRequest)
 
 	guard := rutils.NewGuard(func() {
 		for _, sender := range ps.senders {
+			golog.Global().Infof("calling RemoveTrack on %s pc: %p", sender.Track().StreamID(), pc)
 			utils.UncheckedError(pc.RemoveTrack(sender))
 		}
 	})
 	defer guard.OnFail()
 
 	addTrack := func(track webrtc.TrackLocal) error {
+		golog.Global().Infof("calling AddTrack on %s pc: %p", track.StreamID(), pc)
 		sender, err := pc.AddTrack(track)
 		if err != nil {
 			return err
@@ -245,6 +257,8 @@ func (ss *Server) AddStream(ctx context.Context, req *streampb.AddStreamRequest)
 func (ss *Server) RemoveStream(ctx context.Context, req *streampb.RemoveStreamRequest) (*streampb.RemoveStreamResponse, error) {
 	ctx, span := trace.StartSpan(ctx, "stream::server::RemoveStream")
 	defer span.End()
+	ss.logger.Warnf("RemoveStream START %s", req.Name)
+	defer ss.logger.Warnf("RemoveStream END %s", req.Name)
 	pc, ok := rpc.ContextPeerConnection(ctx)
 	if !ok {
 		return nil, errors.New("can only remove a stream over a WebRTC based connection")
@@ -264,6 +278,7 @@ func (ss *Server) RemoveStream(ctx context.Context, req *streampb.RemoveStreamRe
 
 	var errs error
 	for _, sender := range ss.activePeerStreams[pc][req.Name].senders {
+		golog.Global().Infof("calling RemoveTrack on %s pc: %p", sender.Track().StreamID(), pc)
 		errs = multierr.Combine(errs, pc.RemoveTrack(sender))
 	}
 	if errs != nil {

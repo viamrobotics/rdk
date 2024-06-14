@@ -33,7 +33,7 @@ func TestFrameSystemConfigWithRemote(t *testing.T) {
 	remoteConfig, err := config.Read(context.Background(), rutils.ResolveFile("robot/impl/data/fake.json"), logger.Sublogger("remote"))
 	test.That(t, err, test.ShouldBeNil)
 	ctx := context.Background()
-	remoteRobot := setupLocalRobot(t, ctx, remoteConfig, logger)
+	remoteRobot := SetupLocalRobot(t, ctx, remoteConfig, logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
@@ -106,7 +106,7 @@ func TestFrameSystemConfigWithRemote(t *testing.T) {
 		referenceframe.NewLinkInFrame("frame2", testPose, "frame2c", nil),
 		referenceframe.NewLinkInFrame(referenceframe.World, testPose, "frame3", nil),
 	}
-	r2 := setupLocalRobot(t, ctx, localConfig, logger.Sublogger("local"))
+	r2 := SetupLocalRobot(t, ctx, localConfig, logger.Sublogger("local"))
 
 	test.That(t, err, test.ShouldBeNil)
 	fsCfg, err := r2.FrameSystemConfig(context.Background())
@@ -231,7 +231,7 @@ func TestServiceWithUnavailableRemote(t *testing.T) {
 		},
 	}
 
-	r := setupLocalRobot(t, context.Background(), localConfig, logger)
+	r := SetupLocalRobot(t, context.Background(), localConfig, logger)
 
 	// make sure calling into remotes don't error
 	fsCfg, err := r.FrameSystemConfig(context.Background())
