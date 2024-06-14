@@ -231,7 +231,8 @@ func NewModule(ctx context.Context, address string, logger logging.Logger) (*Mod
 	// attempt to construct a PeerConnection
 	pc, err := rgrpc.NewLocalPeerConnection(logger.AsZap())
 	if err != nil {
-		logger.Debugw("Unable to create optional peer connection for module. Skipping WebRTC for module...", "err", err)
+		// TODO: remove
+		logger.Fatal(err.Error())
 		return m, nil
 	}
 

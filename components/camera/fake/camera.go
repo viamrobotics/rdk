@@ -16,6 +16,7 @@ import (
 	"github.com/bluenviron/gortsplib/v4/pkg/format/rtph264"
 	"github.com/bluenviron/gortsplib/v4/pkg/rtptime"
 	"github.com/bluenviron/mediacommon/pkg/codecs/h264"
+	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
 	"go.viam.com/utils"
@@ -294,6 +295,8 @@ func (c *Camera) SubscribeRTP(
 	bufferSize int,
 	packetsCB rtppassthrough.PacketCallback,
 ) (rtppassthrough.Subscription, error) {
+	golog.Global().Warnf("SubscribeRTP FAKE START %s", c.Name().String())
+	defer golog.Global().Warnf("SubscribeRTP FAKE END %s", c.Name().String())
 	if !c.RTPPassthrough {
 		return rtppassthrough.NilSubscription, ErrRTPPassthroughNotEnabled
 	}
