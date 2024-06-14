@@ -443,10 +443,6 @@ func (svc *builtIn) Reconfigure(
 		return err
 	}
 
-	svc.logger.Warnf("Data capture configs", captureConfigs)
-	svc.logger.Warnf("Resource config", svcConfig)
-	svc.logger.Warnf("Dependency config", deps)
-
 	if !utils.IsTrustedEnvironment(ctx) && svcConfig.CaptureDir != "" && svcConfig.CaptureDir != viamCaptureDotDir {
 		return errCaptureDirectoryConfigurationDisabled
 	}

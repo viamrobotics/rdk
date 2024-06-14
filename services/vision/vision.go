@@ -347,10 +347,10 @@ func (vm *vizModel) CaptureAllFromCamera(
 		return viscapture.VisCapture{}, errors.Wrapf(err, "could not get image from %s", cameraName)
 	}
 	defer release()
+	logger := vm.r.Logger()
 	var detections []objectdetection.Detection
 	if opt.ReturnDetections {
 		if !vm.properties.DetectionSupported {
-			logger := vm.r.Logger()
 			logger.Debugf("detections requested but vision model %q does not implement a Detector", vm.Named.Name())
 		} else {
 			detections, err = vm.Detections(ctx, img, extra)
@@ -361,8 +361,8 @@ func (vm *vizModel) CaptureAllFromCamera(
 	}
 	var classifications classification.Classifications
 	if opt.ReturnClassifications {
+		logger := vm.r.Logger()
 		if !vm.properties.ClassificationSupported {
-			logger := vm.r.Logger()
 			logger.Debugf("classifications requested in CaptureAll but vision model %q does not implement a Classifier",
 				vm.Named.Name())
 		} else {
