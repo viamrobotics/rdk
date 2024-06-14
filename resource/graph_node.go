@@ -263,7 +263,7 @@ func (w *GraphNode) MarkedForRemoval() bool {
 func (w *GraphNode) LogAndSetLastError(err error, args ...any) {
 	w.mu.Lock()
 	w.lastErr = err
-	// TODO(RSDK-7903): transition to `stateUnhealthy`
+	// TODO(RSDK-7903): transition to an "unhealthy" state.
 	w.mu.Unlock()
 
 	if w.logger != nil {
@@ -376,7 +376,8 @@ func (w *GraphNode) Close(ctx context.Context) error {
 	// Unlock before calling Close() on underlying resource, since Close() behavior can be unpredictable
 	// and usage of the graph node should not block on the underlying resource being closed.
 	w.mu.Unlock()
-	// TODO: transition to `NodeStateInitializing` here
+	// TODO(RSDK-7928): we might want to make this transition a node to an "unconfigured"
+	// or "removing" state.
 	return current.Close(ctx)
 }
 
@@ -426,7 +427,6 @@ func (w *GraphNode) replace(other *GraphNode) error {
 
 func (w *GraphNode) transitionTo(state NodeState) {
 	if w.state == state {
-		// rogue event?
 		return
 	}
 	w.state = state

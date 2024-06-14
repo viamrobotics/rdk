@@ -240,7 +240,8 @@ func lifecycleTest(t *testing.T, node *resource.GraphNode, initialDeps []string)
 	_, err = node.Resource()
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "not initialized")
-	// TODO: we might want to make this transition a node to `NodeStateUnconfigured`
+	// TODO(RSDK-7928): we might want to make this transition a node to an "unconfigured"
+	// or "removing" state.
 	rs = verifySameState(t, node, resource.NodeStateReady, rs)
 
 	ourRes4 := &someResource{Resource: testutils.NewUnimplementedResource(generic.Named("foob")), shouldErr: true}
@@ -268,7 +269,8 @@ func lifecycleTest(t *testing.T, node *resource.GraphNode, initialDeps []string)
 	_, err = node.Resource()
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "not initialized")
-	// TODO: we might want to make this transition a node to `NodeStateUnconfigured`
+	// TODO(RSDK-7928): we might want to make this transition a node to an "unconfigured"
+	// or "removing" state.
 	verifySameState(t, node, resource.NodeStateReady, rs)
 }
 
