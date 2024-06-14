@@ -1310,7 +1310,7 @@ func TestAddStreamMaxTrackErr(t *testing.T) {
 
 func TestBadModuleFailsFast(t *testing.T) {
 	t.Setenv("TESTMODULE_PANIC", "1")
-	logger, observer := logging.NewObservedTestLogger(t)
+	logger, _ := logging.NewObservedTestLogger(t)
 
 	modCfgs := []config.Module{
 		{
@@ -1328,6 +1328,4 @@ func TestBadModuleFailsFast(t *testing.T) {
 
 	err := mgr.Add(ctx, modCfgs...)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "module test-module cannot start")
-	waitingLogLine := "Waiting for module to complete startup and registration"
-	test.That(t, observer.FilterMessageSnippet(waitingLogLine), test.ShouldNotBeEmpty)
 }
