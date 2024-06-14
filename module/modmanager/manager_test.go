@@ -1307,3 +1307,27 @@ func TestAddStreamMaxTrackErr(t *testing.T) {
 	test.That(t, err.Error(), test.ShouldContainSubstring, "only 9 WebRTC tracks are supported per peer connection")
 	test.That(t, sub, test.ShouldResemble, rtppassthrough.NilSubscription)
 }
+
+func TestBadModuleFailsFast(t *testing.T) {
+	t.Setenv("TESTMODULE_PANIC", "1")
+	logger, observer := logging.NewObservedTestLogger(t)
+
+	modCfgs := []config.Module{
+		{
+			Name:    "test-module",
+			ExePath: rtestutils.BuildTempModule(t, "module/testmodule"),
+			Type:    config.ModuleTypeLocal,
+		},
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+	defer cancel()
+	parentAddr := setupSocketWithRobot(t)
+	opts := modmanageroptions.Options{UntrustedEnv: false}
+	mgr := setupModManager(t, ctx, parentAddr, logger, opts)
+
+	err := mgr.Add(ctx, modCfgs...)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "module test-module timed out")
+	waitingLogLine := "Waiting for module to complete startup and registration"
+	test.That(t, observer.FilterMessageSnippet(waitingLogLine), test.ShouldNotBeEmpty)
+}
