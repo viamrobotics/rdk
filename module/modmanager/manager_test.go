@@ -1001,7 +1001,7 @@ func greenLog(t *testing.T, msg string) {
 
 func TestRTPPassthrough(t *testing.T) {
 	ctx := context.Background()
-	logger := logging.NewTestLogger(t)
+	logger := logging.NewInMemoryLogger(t)
 
 	// Precompile module copies to avoid timeout issues when building takes too long.
 	modPath := rtestutils.BuildTempModule(t, "examples/customresources/demos/rtppassthrough")
@@ -1229,7 +1229,7 @@ func TestRTPPassthrough(t *testing.T) {
 
 func TestAddStreamMaxTrackErr(t *testing.T) {
 	ctx := context.Background()
-	logger := logging.NewTestLogger(t)
+	logger := logging.NewInMemoryLogger(t)
 
 	// Precompile module copies to avoid timeout issues when building takes too long.
 	modPath := rtestutils.BuildTempModule(t, "examples/customresources/demos/rtppassthrough")
