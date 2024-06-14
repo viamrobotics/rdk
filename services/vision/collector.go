@@ -42,13 +42,15 @@ func newCaptureAllFromCameraCollector(resource interface{}, params data.Collecto
 
 	cameraParam := params.MethodParams["camera_name"]
 
-	if cameraParam == nil {
-		return nil, errors.New("must specify a camera_name in the additional_params")
-	}
+	cameraName := "camera-1"
 
-	cameraName := new(wrapperspb.StringValue)
-	if err := cameraParam.UnmarshalTo(cameraName); err != nil {
-		return nil, err
+	if cameraParam == nil {
+		// return nil, errors.New("must specify a camera_name in the additional_params")
+	} else {
+		cameraNameWrapper := new(wrapperspb.StringValue)
+		if err := cameraParam.UnmarshalTo(cameraNameWrapper); err != nil {
+			return nil, err
+		}
 	}
 
 	minConfidenceParam := params.MethodParams["min_confidence_score"]
@@ -75,12 +77,12 @@ func newCaptureAllFromCameraCollector(resource interface{}, params data.Collecto
 			ReturnClassifications: true,
 			ReturnObject:          true,
 		}
-		visCapture, err := vision.CaptureAllFromCamera(ctx, cameraName.Value, visCaptureOptions, nil)
+		visCapture, err := vision.CaptureAllFromCamera(ctx, cameraName, visCaptureOptions, nil)
 		if err != nil {
-			return nil, data.FailedToReadErr(cameraName.Value, captureAllFromCamera.String(), err)
+			return nil, data.FailedToReadErr(cameraName, captureAllFromCamera.String(), err)
 		}
 
-		protoImage, err := imageToProto(ctx, visCapture.Image, cameraName.Value)
+		protoImage, err := imageToProto(ctx, visCapture.Image, cameraName)
 		if err != nil {
 			return nil, err
 		}
@@ -103,14 +105,18 @@ func newCaptureAllFromCameraCollector(resource interface{}, params data.Collecto
 
 		protoClassifications := clasToProto(filteredClassifications)
 
-		protoObjects, err := segmentsToProto(cameraName.Value, visCapture.Objects)
+		protoObjects, err := segmentsToProto(cameraName, visCapture.Objects)
 		if err != nil {
 			return nil, err
 		}
 
-		bounds := imageBounds{
-			Height: visCapture.Image.Bounds().Dy(),
-			Width:  visCapture.Image.Bounds().Dx(),
+		bounds := imageBounds{}
+
+		if visCapture.Image != nil {
+			bounds = imageBounds{
+				Height: visCapture.Image.Bounds().Dy(),
+				Width:  visCapture.Image.Bounds().Dx(),
+			}
 		}
 
 		boundsPb, err := protoutils.StructToStructPb(bounds)
