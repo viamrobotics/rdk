@@ -716,7 +716,7 @@ func (rc *RobotClient) PackageManager() packages.Manager {
 //	resource_names := machine.ResourceNames()
 func (rc *RobotClient) ResourceNames() []resource.Name {
 	if err := rc.checkConnected(); err != nil {
-		rc.Logger().Errorw("failed to get remote resource names", "error", err)
+		rc.Logger().Errorw("failed to get remote resource names", "error", err.Error())
 		return nil
 	}
 	rc.mu.RLock()
