@@ -358,6 +358,26 @@ func (r *localRobot) Status(ctx context.Context, resourceNames []resource.Name) 
 	return combinedResourceStatuses, nil
 }
 
+func (r *localRobot) sendTriggerConfig(caller string) {
+	if r.closeContext.Err() != nil {
+		return
+	}
+
+	// Attempt to trigger completeConfig goroutine execution when called,
+	// but does not block if triggerConfig is full.
+	select {
+	case <-r.closeContext.Done():
+		return
+	case r.triggerConfig <- struct{}{}:
+	default:
+		r.Logger().CDebugw(
+			r.closeContext,
+			"attempted to trigger reconfiguration, but there is already one queued.",
+			"caller", caller,
+		)
+	}
+}
+
 func newWithResources(
 	ctx context.Context,
 	cfg *config.Config,

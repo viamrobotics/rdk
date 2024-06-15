@@ -752,22 +752,7 @@ func (manager *resourceManager) completeConfigForRemotes(ctx context.Context, lr
 			}
 			manager.addRemote(ctx, rr, gNode, *remConf)
 			rr.SetParentNotifier(func() {
-				if lr.closeContext.Err() != nil {
-					return
-				}
-
-				// Attempt to trigger completeConfig goroutine execution when a change in remote
-				// is detected, but does not block if triggerConfig is full.
-				select {
-				case <-lr.closeContext.Done():
-					return
-				case lr.triggerConfig <- struct{}{}:
-				default:
-					rr.Logger().Debugw(
-						"remote attempted to trigger reconfiguration, but there is already one queued.",
-						"remote", remConf.Name,
-					)
-				}
+				lr.sendTriggerConfig(remConf.Name)
 			})
 		default:
 			err := errors.New("config is not a remote config")

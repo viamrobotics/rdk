@@ -18,6 +18,7 @@ import (
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.uber.org/zap"
+
 	// registers all components.
 	commonpb "go.viam.com/api/common/v1"
 	armpb "go.viam.com/api/component/arm/v1"
@@ -3481,4 +3482,22 @@ func TestCustomResourceBuildsOnModuleAddition(t *testing.T) {
 		expectedResources,
 	)
 	rtestutils.VerifySameResourceNames(t, r.ResourceNames(), expectedResources)
+}
+
+func TestSendTriggerConfig(t *testing.T) {
+	// Tests that the triggerConfig channel buffers exactly 1 message and that
+	// sendTriggerConfig does not block whether or not the channel has
+	// capacity.
+	ctx := context.Background()
+	logger := logging.NewTestLogger(t)
+
+	r := setupLocalRobot(t, ctx, &config.Config{}, logger)
+	r.Close(ctx)
+
+	actualR := r.(*localRobot)
+	actualR.closeContext = context.Background()
+	for i := 0; i < 5; i++ {
+		actualR.sendTriggerConfig("remote1")
+	}
+	test.That(t, len(actualR.triggerConfig), test.ShouldEqual, 1)
 }
