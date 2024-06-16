@@ -147,22 +147,24 @@ Loop:
 		}
 		fields := strings.Split(ln, ";")
 		switch fields[0] {
-		case "CAS":
-			continue
-		case "NET":
+		case "CAS", "NET":
 			continue
 		case "STR":
 			if fields[mp] == n.MountPoint {
 				str, err := parseStream(ln)
+
 				if err != nil {
 					return nil, fmt.Errorf("error while parsing stream: %w", err)
 				}
 				st.Streams = append(st.Streams, str)
 			}
-		case "ENDSOURCETABLE":
-			break Loop
 		default:
-			return nil, fmt.Errorf("%s: illegal sourcetable line: '%s'", n.URL, ln)
+			if strings.Contains(fields[0], "END") {
+				logger.Debug("Reached the end of SourceTable")
+				break Loop
+			} else {
+				return nil, fmt.Errorf("%s: illegal sourcetable line: '%s'", n.URL, ln)
+			}
 		}
 	}
 
