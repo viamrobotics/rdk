@@ -32,8 +32,7 @@ type GetSnapshotInfo struct {
 	Count    int
 }
 
-// SaveSnapshot takes a DOT snapshot of a resource graph. If not called inside a resourceGraphLock, there is a chance
-// of the graph changing as the snapshot is being taken.
+// SaveSnapshot takes a DOT snapshot of a resource graph.
 func (viz *Visualizer) SaveSnapshot(g *Graph) error {
 	dot, err := g.ExportDot()
 	if err != nil {
