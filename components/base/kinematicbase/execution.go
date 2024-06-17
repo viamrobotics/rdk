@@ -297,7 +297,7 @@ func (ptgk *ptgBaseKinematics) trajectoryArcSteps(
 			timeStep = 0.
 		}
 		distIncrement := trajPt.Dist - curDist
-		curDist += distIncrement
+		curDist = trajPt.Dist
 		if nextStep.linVelMMps.Y != 0 {
 			timeStep += distIncrement / (math.Abs(nextStep.linVelMMps.Y))
 		} else if nextStep.angVelDegps.Z != 0 {

@@ -157,8 +157,8 @@ func (pf *ptgGroupFrame) MarshalJSON() ([]byte, error) {
 // Inputs are: [0] index of PTG to use, [1] index of the trajectory within that PTG, [2] starting point on the trajectory, and [3] distance
 // to travel along that trajectory.
 func (pf *ptgGroupFrame) Transform(inputs []referenceframe.Input) (spatialmath.Pose, error) {
-	if len(inputs) != len(pf.DoF()) {
-		return nil, referenceframe.NewIncorrectInputLengthError(len(inputs), len(pf.DoF()))
+	if err := pf.validInputs(inputs); err != nil {
+		return nil, err
 	}
 
 	ptgIdx := int(math.Round(inputs[ptgIndex].Value))
