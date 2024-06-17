@@ -3496,7 +3496,7 @@ func TestSendTriggerConfig(t *testing.T) {
 	// Close the robot to stop the background workers from processing any messages to triggerConfig
 	// but also reinitialize the closeContext so that sendTriggerConfig will attempt to send messages
 	// through.
-	r.Close(ctx)
+	test.That(t, r.Close(ctx), test.ShouldBeNil)
 	actualR := r.(*localRobot)
 	actualR.closeContext = context.Background()
 
