@@ -510,5 +510,38 @@ func TestRunning(t *testing.T) {
 		test.That(t, on, test.ShouldEqual, false)
 	})
 
+	t.Run("motor testing with SetRPM", func(t *testing.T) {
+		m, err := newGPIOStepper(ctx, &b, goodConfig, c.ResourceName(), logger)
+		test.That(t, err, test.ShouldBeNil)
+		defer m.Close(ctx)
+
+		err = m.SetRPM(ctx, 1000, nil)
+		test.That(t, err, test.ShouldBeNil)
+
+		testutils.WaitForAssertion(t, func(tb testing.TB) {
+			tb.Helper()
+
+			on, _, err := m.IsPowered(ctx, nil)
+			test.That(tb, err, test.ShouldBeNil)
+			test.That(tb, on, test.ShouldEqual, true)
+
+			pos, err := m.Position(ctx, nil)
+			test.That(tb, err, test.ShouldBeNil)
+			test.That(tb, pos, test.ShouldBeGreaterThan, 4)
+		})
+
+		err = m.Stop(ctx, nil)
+		test.That(t, err, test.ShouldBeNil)
+
+		on, _, err := m.IsPowered(ctx, nil)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, on, test.ShouldEqual, false)
+
+		pos, err := m.Position(ctx, nil)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, pos, test.ShouldBeGreaterThan, 4)
+		test.That(t, pos, test.ShouldBeLessThan, 202)
+	})
+
 	cancel()
 }
