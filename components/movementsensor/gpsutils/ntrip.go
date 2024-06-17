@@ -158,7 +158,7 @@ Loop:
 				st.Streams = append(st.Streams, str)
 			}
 		default:
-			if strings.Contains(fields[0], "END") {
+			if strings.HasPrefix(fields[0], "END") {
 				logger.Debug("Reached the end of SourceTable")
 				break Loop
 			}
