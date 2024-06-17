@@ -3,6 +3,7 @@ package tpspace
 import (
 	"math"
 	"testing"
+	"fmt"
 
 	"go.viam.com/test"
 
@@ -30,6 +31,7 @@ func TestPtgNegativePartialTransform(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	partialPose2, err := pf.Transform([]referenceframe.Input{{0}, {math.Pi / 2}, {200}, {40}})
 	test.That(t, err, test.ShouldBeNil)
+	fmt.Println(spatialmath.PoseToProtobuf(partialPose1))
 
 	test.That(
 		t,

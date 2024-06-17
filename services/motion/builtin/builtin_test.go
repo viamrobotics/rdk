@@ -1164,3 +1164,16 @@ func TestBoundingRegionsConstraint(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 	})
 }
+
+func TestBaseInputs(t *testing.T) {
+	ctx := context.Background()
+	ctx, cFunc := context.WithCancel(ctx)
+	defer cFunc()
+	kb, closeFunc := createTestKinematicBase(
+		ctx,
+		t,
+	)
+	defer closeFunc(ctx)
+	err := kb.GoToInputs(ctx, []referenceframe.Input{{0}, {0.001+math.Pi/2}, {0}, {91}})
+	test.That(t, err, test.ShouldBeNil)
+}

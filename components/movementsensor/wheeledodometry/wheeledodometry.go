@@ -418,29 +418,37 @@ func (o *odometry) trackPosition() {
 			centerAngle := (rightDist - leftDist) / o.baseWidth
 
 			// Update the position and orientation values accordingly.
-			o.mu.Lock()
-			o.orientation.Yaw += centerAngle
+
+			orientationYaw := o.orientation.Yaw + centerAngle
 
 			// Limit the yaw to a range of positive 0 to 360 degrees.
-			o.orientation.Yaw = math.Mod(o.orientation.Yaw, oneTurn)
-			o.orientation.Yaw = math.Mod(o.orientation.Yaw+oneTurn, oneTurn)
-			angle := o.orientation.Yaw
+			orientationYaw = math.Mod(orientationYaw, oneTurn)
+			orientationYaw = math.Mod(orientationYaw+oneTurn, oneTurn)
+			angle := orientationYaw
 			xFlip := -1.0
 			if o.useCompass {
-				angle = utils.DegToRad(yawToCompassHeading(o.orientation.Yaw))
+				angle = utils.DegToRad(yawToCompassHeading(orientationYaw))
 				xFlip = 1.0
 			}
-			o.position.X += xFlip * (centerDist * math.Sin(angle))
-			o.position.Y += (centerDist * math.Cos(angle))
+			posX := o.position.X + xFlip * (centerDist * math.Sin(angle))
+			posY := o.position.Y + (centerDist * math.Cos(angle))
 
-			distance := math.Hypot(o.position.X, o.position.Y)
-			heading := utils.RadToDeg(math.Atan2(o.position.X, o.position.Y))
-			o.coord = o.originCoord.PointAtDistanceAndBearing(distance*mToKm, heading)
+			distance := math.Hypot(posX, posY)
+			heading := utils.RadToDeg(math.Atan2(posX, posY))
+			coord := o.originCoord.PointAtDistanceAndBearing(distance*mToKm, heading)
 
 			// Update the linear and angular velocity values using the provided time interval.
-			o.linearVelocity.Y = centerDist / (o.timeIntervalMSecs / 1000)
-			o.angularVelocity.Z = centerAngle * (180 / math.Pi) / (o.timeIntervalMSecs / 1000)
+			linvelY := centerDist / (o.timeIntervalMSecs / 1000)
+			angvelZ := centerAngle * (180 / math.Pi) / (o.timeIntervalMSecs / 1000)
+			o.mu.Lock()
+			o.orientation.Yaw = orientationYaw
+			o.position.X = posX
+			o.position.Y = posY
+			o.coord = coord
 
+			// Update the linear and angular velocity values using the provided time interval.
+			o.linearVelocity.Y = linvelY
+			o.angularVelocity.Z = angvelZ
 			o.mu.Unlock()
 		}
 	})

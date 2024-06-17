@@ -111,6 +111,11 @@ func (e *fakeEncoder) Position(
 func (e *fakeEncoder) start(cancelCtx context.Context) {
 	e.activeBackgroundWorkers.Add(1)
 	utils.ManagedGo(func() {
+		lastTime := time.Now()
+		e.mu.RLock()
+		updateRate := e.updateRate
+		e.mu.RUnlock()
+		step := time.Duration(updateRate)*time.Millisecond
 		for {
 			select {
 			case <-cancelCtx.Done():
@@ -118,12 +123,11 @@ func (e *fakeEncoder) start(cancelCtx context.Context) {
 			default:
 			}
 
-			e.mu.RLock()
-			updateRate := e.updateRate
-			e.mu.RUnlock()
-			if !utils.SelectContextOrWait(cancelCtx, time.Duration(updateRate)*time.Millisecond) {
+			remainingStep := step - time.Since(lastTime)
+			if !utils.SelectContextOrWait(cancelCtx, remainingStep) {
 				return
 			}
+			lastTime = time.Now()
 
 			e.mu.Lock()
 			e.position += e.speed / float64(60*1000/updateRate)

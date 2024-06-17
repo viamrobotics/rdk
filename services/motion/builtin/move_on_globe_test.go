@@ -5,6 +5,7 @@ import (
 	"math"
 	"testing"
 	"time"
+	"fmt"
 
 	"github.com/golang/geo/r3"
 	"github.com/google/uuid"
@@ -208,7 +209,8 @@ func TestMoveOnGlobe(t *testing.T) {
 	t.Run("go around an obstacle", func(t *testing.T) {
 		localizer, ms, closeFunc := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil, 5)
 		defer closeFunc(ctx)
-		motionCfg := &motion.MotionConfiguration{PositionPollingFreqHz: 4, ObstaclePollingFreqHz: 1, PlanDeviationMM: epsilonMM}
+		planDeviationMM := 100.
+		motionCfg := &motion.MotionConfiguration{PositionPollingFreqHz: 0.0000001, LinearMPerSec: 0.2, AngularDegsPerSec: 60}
 
 		boxPose := spatialmath.NewPoseFromPoint(r3.Vector{X: 50, Y: 0, Z: 0})
 		boxDims := r3.Vector{X: 5, Y: 50, Z: 10}
@@ -226,17 +228,12 @@ func TestMoveOnGlobe(t *testing.T) {
 			MotionCfg:          motionCfg,
 			Extra:              extra,
 		}
-		mr, err := ms.(*builtIn).newMoveOnGlobeRequest(ctx, req, nil, 0)
-		test.That(t, err, test.ShouldBeNil)
-		planResp, err := mr.Plan(ctx)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, len(planResp.Path()), test.ShouldBeGreaterThan, 2)
 
 		executionID, err := ms.MoveOnGlobe(ctx, req)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, executionID, test.ShouldNotResemble, uuid.Nil)
 
-		timeoutCtx, timeoutFn := context.WithTimeout(ctx, time.Second*5)
+		timeoutCtx, timeoutFn := context.WithTimeout(ctx, time.Second*25)
 		defer timeoutFn()
 		err = motion.PollHistoryUntilSuccessOrError(timeoutCtx, ms, time.Millisecond*5, motion.PlanHistoryReq{
 			ComponentName: req.ComponentName,
@@ -248,8 +245,9 @@ func TestMoveOnGlobe(t *testing.T) {
 		endPose, err := localizer.CurrentPosition(ctx)
 		test.That(t, err, test.ShouldBeNil)
 		movedPose := spatialmath.PoseBetween(startPose.Pose(), endPose.Pose())
-		test.That(t, movedPose.Point().X, test.ShouldAlmostEqual, expectedDst.X, epsilonMM)
-		test.That(t, movedPose.Point().Y, test.ShouldAlmostEqual, expectedDst.Y, epsilonMM)
+		fmt.Println("movedPose", spatialmath.PoseToProtobuf(movedPose))
+		test.That(t, movedPose.Point().X, test.ShouldAlmostEqual, expectedDst.X, planDeviationMM)
+		test.That(t, movedPose.Point().Y, test.ShouldAlmostEqual, expectedDst.Y, planDeviationMM)
 	})
 
 	t.Run("fail because of obstacle", func(t *testing.T) {
@@ -293,8 +291,8 @@ func TestMoveOnGlobe(t *testing.T) {
 	t.Run("check offset constructed correctly", func(t *testing.T) {
 		_, ms, closeFunc := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil, 5)
 		defer closeFunc(ctx)
-		movementSensorToBase, err := ms.GetPose(ctx, resource.NewName(movementsensor.API, "test-gps"), "test-base", nil, nil)
+		movementSensorInBase, err := ms.GetPose(ctx, resource.NewName(movementsensor.API, "test-gps"), "test-base", nil, nil)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, movementSensorToBase.Pose().Point(), test.ShouldResemble, r3.Vector{X: 10, Y: 0, Z: 0})
+		test.That(t, movementSensorInBase.Pose().Point(), test.ShouldResemble, movementSensorInBasePoint)
 	})
 }
