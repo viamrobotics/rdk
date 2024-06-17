@@ -2,8 +2,8 @@ package referenceframe
 
 import "github.com/pkg/errors"
 
-// ErrAtLeastOneEndEffector is an error indicating that at least one end effector is required.
-var ErrAtLeastOneEndEffector = errors.New("need at least one end effector")
+// ErrOneEndEffector is an error indicating that exactly one end effector is required.
+var ErrNeedOneEndEffector = errors.New("need exactly one end effector")
 
 // ErrCircularReference is an error indicating that a circular path exists somewhere between the end effector and the world.
 var ErrCircularReference = errors.New("infinite loop finding path from end effector to world")
