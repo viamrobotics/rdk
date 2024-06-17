@@ -195,7 +195,7 @@ func NewModule(ctx context.Context, address string, logger logging.Logger) (*Mod
 	// TODO(PRODUCT-343): session support likely means interceptors here
 	opMgr := operation.NewManager(logger)
 	unaries := []grpc.UnaryServerInterceptor{
-		rgrpc.EnsureTimeoutUnaryInterceptor,
+		rgrpc.EnsureTimeoutUnaryServerInterceptor,
 		opMgr.UnaryServerInterceptor,
 	}
 	streams := []grpc.StreamServerInterceptor{
@@ -229,7 +229,7 @@ func NewModule(ctx context.Context, address string, logger logging.Logger) (*Mod
 	}
 
 	// attempt to construct a PeerConnection
-	pc, err := webrtc.NewPeerConnection(webrtc.Configuration{})
+	pc, err := rgrpc.NewLocalPeerConnection(logger.AsZap())
 	if err != nil {
 		logger.Debugw("Unable to create optional peer connection for module. Skipping WebRTC for module...", "err", err)
 		return m, nil

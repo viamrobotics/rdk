@@ -137,6 +137,21 @@ func (server *serviceServer) GoTo(
 	return &pb.GoToResponse{}, motor.GoTo(ctx, req.GetRpm(), req.GetPositionRevolutions(), req.Extra.AsMap())
 }
 
+// SetRPM instructs the motor to move at the specified RPM indefinitely.
+func (server *serviceServer) SetRPM(
+	ctx context.Context,
+	req *pb.SetRPMRequest,
+) (*pb.SetRPMResponse, error) {
+	operation.CancelOtherWithLabel(ctx, req.GetName())
+	motorName := req.GetName()
+	motor, err := server.coll.Resource(motorName)
+	if err != nil {
+		return nil, err
+	}
+
+	return &pb.SetRPMResponse{}, motor.SetRPM(ctx, req.GetRpm(), req.Extra.AsMap())
+}
+
 // ResetZeroPosition sets the current position of the motor specified by the request
 // (adjusted by a given offset) to be its new zero position.
 func (server *serviceServer) ResetZeroPosition(

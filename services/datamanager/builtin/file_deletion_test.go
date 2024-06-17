@@ -147,7 +147,9 @@ func TestFileDeletion(t *testing.T) {
 
 			var syncer datasync.Manager
 			if tc.syncEnabled {
-				s, err := datasync.NewManager("rick astley", mockClient, logger, tempCaptureDir, datasync.MaxParallelSyncRoutines)
+				filesToSync := make(chan string)
+				defer close(filesToSync)
+				s, err := datasync.NewManager("rick astley", mockClient, logger, tempCaptureDir, datasync.MaxParallelSyncRoutines, filesToSync)
 				test.That(t, err, test.ShouldBeNil)
 				syncer = s
 				defer syncer.Close()
@@ -207,6 +209,7 @@ func getFiles(t *testing.T, path string) []string {
 }
 
 func TestFilePolling(t *testing.T) {
+	logger := logging.NewTestLogger(t)
 	mockClock := clk.NewMock()
 	// Make mockClock the package level clock used by the dmsvc so that we can simulate time's passage
 	clock = mockClock
@@ -230,7 +233,7 @@ func TestFilePolling(t *testing.T) {
 	flusher.closeCollectors()
 	// number of capture files is based on the number of unique
 	// collectors in the robot config used in this test
-	waitForCaptureFilesToEqualNFiles(tempDir, 4)
+	waitForCaptureFilesToEqualNFiles(tempDir, 4, logger)
 
 	files := getAllFileInfos(tempDir)
 	test.That(t, len(files), test.ShouldEqual, 4)
@@ -240,7 +243,7 @@ func TestFilePolling(t *testing.T) {
 
 	// run forward 20ms to delete any files
 	mockClock.Add(filesystemPollInterval)
-	waitForCaptureFilesToEqualNFiles(tempDir, 3)
+	waitForCaptureFilesToEqualNFiles(tempDir, 3, logger)
 	newFiles := getAllFileInfos(tempDir)
 	test.That(t, len(newFiles), test.ShouldEqual, 3)
 	test.That(t, newFiles, test.ShouldNotContain, expectedDeletedFile)

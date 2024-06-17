@@ -92,6 +92,9 @@ type Robot interface {
 
 	// RestartModule reloads a module as if its config changed
 	RestartModule(ctx context.Context, req RestartModuleRequest) error
+
+	// Shutdown shuts down the robot.
+	Shutdown(ctx context.Context) error
 }
 
 // A LocalRobot is a Robot that can have its parts modified.

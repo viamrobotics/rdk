@@ -480,8 +480,9 @@ func TestModuleReloading(t *testing.T) {
 		test.That(t, logs.FilterMessageSnippet("Error while restarting crashed module").Len(),
 			test.ShouldEqual, 0)
 
-		// Assert that RemoveOrphanedResources was called once.
-		test.That(t, dummyRemoveOrphanedResourcesCallCount.Load(), test.ShouldEqual, 1)
+		// Assert that RemoveOrphanedResources was not called (successful restart and re-addition of
+		// modular resources should not require removal of any orphans).
+		test.That(t, dummyRemoveOrphanedResourcesCallCount.Load(), test.ShouldEqual, 0)
 	})
 	t.Run("unsuccessful restart", func(t *testing.T) {
 		logger, logs := logging.NewObservedTestLogger(t)
@@ -982,8 +983,10 @@ func TestTwoModulesRestart(t *testing.T) {
 	test.That(t, logs.FilterMessageSnippet("Error while restarting crashed module").Len(),
 		test.ShouldEqual, 0)
 
-	// Assert that RemoveOrphanedResources was called once for each module.
-	test.That(t, dummyRemoveOrphanedResourcesCallCount.Load(), test.ShouldEqual, 2)
+	// Assert that RemoveOrphanedResources was not called for either module
+	// (successful restart and re-addition of modular resources should not
+	// require removal of any orphans).
+	test.That(t, dummyRemoveOrphanedResourcesCallCount.Load(), test.ShouldEqual, 0)
 }
 
 var (
@@ -998,7 +1001,12 @@ func greenLog(t *testing.T, msg string) {
 
 func TestRTPPassthrough(t *testing.T) {
 	ctx := context.Background()
-	logger := logging.NewTestLogger(t)
+	logger := logging.NewInMemoryLogger(t)
+	defer func() {
+		if t.Failed() {
+			logger.OutputLogs()
+		}
+	}()
 
 	// Precompile module copies to avoid timeout issues when building takes too long.
 	modPath := rtestutils.BuildTempModule(t, "examples/customresources/demos/rtppassthrough")
@@ -1049,13 +1057,11 @@ func TestRTPPassthrough(t *testing.T) {
 	noPassSource, ok := noPassCam.(rtppassthrough.Source)
 	test.That(t, ok, test.ShouldBeTrue)
 
-	subscribeRTPTimeout := time.Second * 30
-	subCtx, subCancelFn := context.WithTimeout(context.Background(), subscribeRTPTimeout)
+	subCtx := context.Background()
 	sub, err := noPassSource.SubscribeRTP(subCtx, 512, func(pkts []*rtp.Packet) {
 		t.Log("should not happen")
 		t.FailNow()
 	})
-	subCancelFn()
 	test.That(t, err, test.ShouldBeError)
 	test.That(t, err.Error(), test.ShouldContainSubstring, fakeCamera.ErrRTPPassthroughNotEnabled.Error())
 	test.That(t, sub, test.ShouldResemble, rtppassthrough.NilSubscription)
@@ -1073,12 +1079,10 @@ func TestRTPPassthrough(t *testing.T) {
 
 	// SubscribeRTP succeeds
 	calledCtx, calledFn := context.WithCancel(context.Background())
-	subCtx, subCancelFn = context.WithTimeout(context.Background(), subscribeRTPTimeout)
 	sub, err = passSource.SubscribeRTP(subCtx, 512, func(pkts []*rtp.Packet) {
 		test.That(t, len(pkts), test.ShouldBeGreaterThan, 0)
 		calledFn()
 	})
-	subCancelFn()
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, sub.ID, test.ShouldNotResemble, rtppassthrough.NilSubscription)
 	test.That(t, sub.Terminated.Err(), test.ShouldBeNil)
@@ -1092,22 +1096,18 @@ func TestRTPPassthrough(t *testing.T) {
 
 	greenLog(t, "The first SubscribeRTP call receives rtp packets")
 	calledCtx1, calledFn1 := context.WithCancel(context.Background())
-	subCtx, subCancelFn = context.WithTimeout(context.Background(), subscribeRTPTimeout)
 	sub1, err := passSource.SubscribeRTP(subCtx, 512, func(pkts []*rtp.Packet) {
 		test.That(t, len(pkts), test.ShouldBeGreaterThan, 0)
 		calledFn1()
 	})
-	subCancelFn()
 	test.That(t, err, test.ShouldBeNil)
 
 	greenLog(t, "The second SubscribeRTP call receives rtp packets concurrently")
 	calledCtx2, calledFn2 := context.WithCancel(context.Background())
-	subCtx, subCancelFn = context.WithTimeout(context.Background(), subscribeRTPTimeout)
 	sub2, err := passSource.SubscribeRTP(subCtx, 512, func(pkts []*rtp.Packet) {
 		test.That(t, len(pkts), test.ShouldBeGreaterThan, 0)
 		calledFn2()
 	})
-	subCancelFn()
 	test.That(t, err, test.ShouldBeNil)
 	<-calledCtx1.Done()
 	<-calledCtx2.Done()
@@ -1133,15 +1133,11 @@ func TestRTPPassthrough(t *testing.T) {
 
 	greenLog(t, "RemoveResource eventually terminates all subscriptions")
 	// create 2 sub
-	subCtx, subCancelFn = context.WithTimeout(context.Background(), subscribeRTPTimeout)
 	sub1, err = passSource.SubscribeRTP(subCtx, 512, func(pkts []*rtp.Packet) {})
 	test.That(t, err, test.ShouldBeNil)
-	subCancelFn()
 
-	subCtx, subCancelFn = context.WithTimeout(context.Background(), subscribeRTPTimeout)
 	sub2, err = passSource.SubscribeRTP(subCtx, 512, func(pkts []*rtp.Packet) {})
 	test.That(t, err, test.ShouldBeNil)
-	subCancelFn()
 
 	test.That(t, sub1.Terminated.Err(), test.ShouldBeNil)
 	test.That(t, sub2.Terminated.Err(), test.ShouldBeNil)
@@ -1166,9 +1162,7 @@ func TestRTPPassthrough(t *testing.T) {
 	// NOTE: This test relies on the model's Close() method hanlding terminating all subscriptions
 	greenLog(t, "ReconfigureResource eventually terminates all subscriptions when the new model doesn't impelement Reconfigure")
 	// create a sub
-	subCtx, subCancelFn = context.WithTimeout(context.Background(), subscribeRTPTimeout)
 	sub, err = passSource.SubscribeRTP(subCtx, 512, func(pkts []*rtp.Packet) {})
-	subCancelFn()
 	test.That(t, err, test.ShouldBeNil)
 
 	test.That(t, sub.Terminated.Err(), test.ShouldBeNil)
@@ -1182,9 +1176,7 @@ func TestRTPPassthrough(t *testing.T) {
 
 	greenLog(t, "replacing a module binary eventually cancels subscriptions")
 	// add a subscription
-	subCtx, subCancelFn = context.WithTimeout(context.Background(), subscribeRTPTimeout)
 	sub, err = passSource.SubscribeRTP(subCtx, 512, func(pkts []*rtp.Packet) {})
-	subCancelFn()
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, sub.Terminated.Err(), test.ShouldBeNil)
 
@@ -1209,10 +1201,8 @@ func TestRTPPassthrough(t *testing.T) {
 	test.That(t, ok, test.ShouldBeTrue)
 
 	// add a subscription
-	subCtx, subCancelFn = context.WithTimeout(context.Background(), subscribeRTPTimeout)
 	sub, err = passSource.SubscribeRTP(subCtx, 512, func(pkts []*rtp.Packet) {})
 	test.That(t, err, test.ShouldBeNil)
-	subCancelFn()
 	test.That(t, sub.Terminated.Err(), test.ShouldBeNil)
 
 	// close the mod manager
@@ -1226,7 +1216,12 @@ func TestRTPPassthrough(t *testing.T) {
 
 func TestAddStreamMaxTrackErr(t *testing.T) {
 	ctx := context.Background()
-	logger := logging.NewTestLogger(t)
+	logger := logging.NewInMemoryLogger(t)
+	defer func() {
+		if t.Failed() {
+			logger.OutputLogs()
+		}
+	}()
 
 	// Precompile module copies to avoid timeout issues when building takes too long.
 	modPath := rtestutils.BuildTempModule(t, "examples/customresources/demos/rtppassthrough")
@@ -1287,16 +1282,14 @@ func TestAddStreamMaxTrackErr(t *testing.T) {
 	test.That(t, len(first9Sources), test.ShouldEqual, 9)
 
 	greenLog(t, "the first 9's SubscribeRTP calls succeed")
-	subscribeRTPTimeout := time.Second * 30
+	subCtx := context.Background()
 	for _, source := range first9Sources {
 		calledCtx, calledFn := context.WithCancel(context.Background())
 		// SubscribeRTP succeeds
-		subCtx, subCancelFn := context.WithTimeout(context.Background(), subscribeRTPTimeout)
 		sub, err := source.SubscribeRTP(subCtx, 512, func(pkts []*rtp.Packet) {
 			test.That(t, len(pkts), test.ShouldBeGreaterThan, 0)
 			calledFn()
 		})
-		subCancelFn()
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, sub.ID, test.ShouldNotResemble, rtppassthrough.NilSubscription)
 		test.That(t, sub.Terminated.Err(), test.ShouldBeNil)
@@ -1304,12 +1297,10 @@ func TestAddStreamMaxTrackErr(t *testing.T) {
 	}
 
 	greenLog(t, "the 10th returns an error")
-	subCtx, subCancelFn := context.WithTimeout(context.Background(), subscribeRTPTimeout)
 	sub, err := sources[0].SubscribeRTP(subCtx, 512, func(pkts []*rtp.Packet) {
 		t.Log("should not happen")
 		t.FailNow()
 	})
-	subCancelFn()
 	test.That(t, err, test.ShouldBeError)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "only 9 WebRTC tracks are supported per peer connection")
 	test.That(t, sub, test.ShouldResemble, rtppassthrough.NilSubscription)

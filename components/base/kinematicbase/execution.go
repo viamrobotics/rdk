@@ -11,13 +11,14 @@ import (
 
 	"github.com/golang/geo/r3"
 	"go.uber.org/multierr"
-	utils "go.viam.com/utils"
+	"go.viam.com/utils"
 
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/motionplan/ik"
 	"go.viam.com/rdk/motionplan/tpspace"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
+	rdkutils "go.viam.com/rdk/utils"
 )
 
 const (
@@ -156,15 +157,14 @@ func (ptgk *ptgBaseKinematics) GoToInputs(ctx context.Context, inputSteps ...[]r
 					return tryStop(ctx.Err())
 				}
 			}
-			distIncVel := step.linVelMMps.Y
-			if distIncVel == 0 {
-				distIncVel = step.angVelDegps.Z
-			}
+			inputValDiff := step.arcSegment.EndConfiguration[endDistanceAlongTrajectoryIndex].Value -
+				step.arcSegment.EndConfiguration[startDistanceAlongTrajectoryIndex].Value
+			elapsedPct := math.Min(1.0, timeElapsedSeconds/step.durationSeconds)
 			currentInputs := []referenceframe.Input{
 				step.arcSegment.StartConfiguration[ptgIndex],
 				step.arcSegment.StartConfiguration[trajectoryAlphaWithinPTG],
 				step.arcSegment.StartConfiguration[startDistanceAlongTrajectoryIndex],
-				{step.arcSegment.StartConfiguration[startDistanceAlongTrajectoryIndex].Value + math.Abs(distIncVel)*timeElapsedSeconds},
+				{step.arcSegment.StartConfiguration[startDistanceAlongTrajectoryIndex].Value + inputValDiff*elapsedPct},
 			}
 			ptgk.inputLock.Lock()
 			ptgk.currentState.currentInputs = currentInputs
@@ -299,7 +299,7 @@ func (ptgk *ptgBaseKinematics) trajectoryArcSteps(
 			timeStep = 0.
 		}
 		distIncrement := trajPt.Dist - curDist
-		curDist += distIncrement
+		curDist = trajPt.Dist
 		if nextStep.linVelMMps.Y != 0 {
 			timeStep += distIncrement / (math.Abs(nextStep.linVelMMps.Y))
 		} else if nextStep.angVelDegps.Z != 0 {
@@ -351,10 +351,12 @@ func (ptgk *ptgBaseKinematics) courseCorrect(
 
 	allowableDiff := ptgk.linVelocityMMPerSecond * updateStepSeconds * (minDeviationToCorrectPct / 100)
 	ptgk.logger.Debug(
-		"allowable diff ", allowableDiff, " diff now ", poseDiff.Point().Norm(), " angle diff ", poseDiff.Orientation().AxisAngles().Theta,
+		"allowable diff ", allowableDiff,
+		" linear diff now ", poseDiff.Point().Norm(),
+		" angle diff ", rdkutils.RadToDeg(poseDiff.Orientation().AxisAngles().Theta),
 	)
 
-	if poseDiff.Point().Norm() > allowableDiff || poseDiff.Orientation().AxisAngles().Theta > 0.25 {
+	if poseDiff.Point().Norm() > allowableDiff || rdkutils.RadToDeg(poseDiff.Orientation().AxisAngles().Theta) > allowableDiff {
 		ptgk.logger.Debug("expected to be at ", spatialmath.PoseToProtobuf(expectedPose))
 		ptgk.logger.Debug("Localizer says at ", spatialmath.PoseToProtobuf(actualPose.Pose()))
 		// Accumulate list of points along the path to try to connect to

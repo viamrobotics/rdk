@@ -58,12 +58,7 @@ func TestGetSensors(t *testing.T) {
 
 		sNames1, err := svc.Sensors(context.Background(), map[string]interface{}{})
 		test.That(t, err, test.ShouldBeNil)
-		test.That(
-			t,
-			testutils.NewResourceNameSet(sNames1...),
-			test.ShouldResemble,
-			testutils.NewResourceNameSet(movementsensor.Named("imu")),
-		)
+		testutils.VerifySameResourceNames(t, sNames1, []resource.Name{movementsensor.Named("imu")})
 	})
 
 	t.Run("many sensors", func(t *testing.T) {
@@ -78,7 +73,7 @@ func TestGetSensors(t *testing.T) {
 
 		sNames1, err := svc.Sensors(context.Background(), map[string]interface{}{})
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, testutils.NewResourceNameSet(sNames1...), test.ShouldResemble, testutils.NewResourceNameSet(sensorNames...))
+		testutils.VerifySameResourceNames(t, sNames1, sensorNames)
 	})
 }
 
@@ -204,7 +199,7 @@ func TestReconfigure(t *testing.T) {
 
 		sNames1, err := svc.Sensors(context.Background(), map[string]interface{}{})
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, testutils.NewResourceNameSet(sNames1...), test.ShouldResemble, testutils.NewResourceNameSet(sensorNames...))
+		testutils.VerifySameResourceNames(t, sNames1, sensorNames)
 
 		err = svc.Reconfigure(
 			context.Background(),
@@ -228,7 +223,7 @@ func TestReconfigure(t *testing.T) {
 
 		sNames1, err := svc.Sensors(context.Background(), map[string]interface{}{})
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, testutils.NewResourceNameSet(sNames1...), test.ShouldResemble, testutils.NewResourceNameSet(sensorNames...))
+		testutils.VerifySameResourceNames(t, sNames1, sensorNames)
 
 		err = svc.Reconfigure(
 			context.Background(),
@@ -239,12 +234,7 @@ func TestReconfigure(t *testing.T) {
 
 		sNames1, err = svc.Sensors(context.Background(), map[string]interface{}{})
 		test.That(t, err, test.ShouldBeNil)
-		test.That(
-			t,
-			testutils.NewResourceNameSet(sNames1...),
-			test.ShouldResemble,
-			testutils.NewResourceNameSet(movementsensor.Named("imu")),
-		)
+		testutils.VerifySameResourceNames(t, sNames1, []resource.Name{movementsensor.Named("imu")})
 	})
 
 	t.Run("update with same sensors", func(t *testing.T) {
@@ -255,7 +245,7 @@ func TestReconfigure(t *testing.T) {
 
 		sNames1, err := svc.Sensors(context.Background(), map[string]interface{}{})
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, testutils.NewResourceNameSet(sNames1...), test.ShouldResemble, testutils.NewResourceNameSet(sensorNames...))
+		testutils.VerifySameResourceNames(t, sNames1, sensorNames)
 
 		err = svc.Reconfigure(
 			context.Background(),
@@ -266,6 +256,6 @@ func TestReconfigure(t *testing.T) {
 
 		sNames1, err = svc.Sensors(context.Background(), map[string]interface{}{})
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, testutils.NewResourceNameSet(sNames1...), test.ShouldResemble, testutils.NewResourceNameSet(sensorNames...))
+		testutils.VerifySameResourceNames(t, sNames1, sensorNames)
 	})
 }

@@ -206,21 +206,12 @@ func TestConfigRemote(t *testing.T) {
 
 	resources2 := r2.ResourceNames()
 
-	test.That(
-		t,
-		rtestutils.NewResourceNameSet(resources2...),
-		test.ShouldResemble,
-		rtestutils.NewResourceNameSet(expected...),
-	)
+	rtestutils.VerifySameResourceNames(t, resources2, expected)
 
 	expectedRemotes := []string{"squee", "foo", "bar"}
 	remotes2 := r2.RemoteNames()
 
-	test.That(
-		t, utils.NewStringSet(remotes2...),
-		test.ShouldResemble,
-		utils.NewStringSet(expectedRemotes...),
-	)
+	rtestutils.VerifySameElements(t, remotes2, expectedRemotes)
 
 	arm1Name := arm.Named("bar:pieceArm")
 	arm1, err := r2.ResourceByName(arm1Name)
@@ -443,21 +434,12 @@ func TestConfigRemoteWithAuth(t *testing.T) {
 
 			resources2 := r2.ResourceNames()
 
-			test.That(
-				t,
-				rtestutils.NewResourceNameSet(resources2...),
-				test.ShouldResemble,
-				rtestutils.NewResourceNameSet(expected...),
-			)
+			rtestutils.VerifySameResourceNames(t, resources2, expected)
 
 			remotes2 := r2.RemoteNames()
 			expectedRemotes := []string{"bar", "foo"}
 
-			test.That(
-				t, utils.NewStringSet(remotes2...),
-				test.ShouldResemble,
-				utils.NewStringSet(expectedRemotes...),
-			)
+			rtestutils.VerifySameElements(t, remotes2, expectedRemotes)
 
 			statuses, err := r2.Status(
 				context.Background(), []resource.Name{movementsensor.Named("bar:movement_sensor1"), movementsensor.Named("foo:movement_sensor1")},
@@ -615,21 +597,12 @@ func TestConfigRemoteWithTLSAuth(t *testing.T) {
 
 	resources2 := r2.ResourceNames()
 
-	test.That(
-		t,
-		rtestutils.NewResourceNameSet(resources2...),
-		test.ShouldResemble,
-		rtestutils.NewResourceNameSet(expected...),
-	)
+	rtestutils.VerifySameResourceNames(t, resources2, expected)
 
 	remotes2 := r2.RemoteNames()
 	expectedRemotes := []string{"foo"}
 
-	test.That(
-		t, utils.NewStringSet(remotes2...),
-		test.ShouldResemble,
-		utils.NewStringSet(expectedRemotes...),
-	)
+	rtestutils.VerifySameElements(t, remotes2, expectedRemotes)
 
 	statuses, err := r2.Status(context.Background(), []resource.Name{movementsensor.Named("foo:movement_sensor1")})
 	test.That(t, err, test.ShouldBeNil)
@@ -897,7 +870,7 @@ func TestMetadataUpdate(t *testing.T) {
 
 	resources = r.ResourceNames()
 	test.That(t, len(resources), test.ShouldEqual, len(resourceNames))
-	test.That(t, rtestutils.NewResourceNameSet(resources...), test.ShouldResemble, rtestutils.NewResourceNameSet(resourceNames...))
+	rtestutils.VerifySameResourceNames(t, resources, resourceNames)
 
 	test.That(t, r.Close(context.Background()), test.ShouldBeNil)
 	resources = r.ResourceNames()
@@ -917,7 +890,7 @@ func TestSensorsService(t *testing.T) {
 	sensorNames := []resource.Name{movementsensor.Named("movement_sensor1"), movementsensor.Named("movement_sensor2")}
 	foundSensors, err := svc.Sensors(context.Background(), map[string]interface{}{})
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, rtestutils.NewResourceNameSet(foundSensors...), test.ShouldResemble, rtestutils.NewResourceNameSet(sensorNames...))
+	rtestutils.VerifySameResourceNames(t, foundSensors, sensorNames)
 
 	readings, err := svc.Readings(context.Background(), []resource.Name{movementsensor.Named("movement_sensor1")}, map[string]interface{}{})
 	test.That(t, err, test.ShouldBeNil)
@@ -1212,18 +1185,17 @@ func TestStatusRemote(t *testing.T) {
 	ctx := context.Background()
 	r := setupLocalRobot(t, ctx, remoteConfig, logger)
 
-	test.That(
+	rtestutils.VerifySameResourceNames(
 		t,
-		rtestutils.NewResourceNameSet(r.ResourceNames()...),
-		test.ShouldResemble,
-		rtestutils.NewResourceNameSet(
+		r.ResourceNames(),
+		[]resource.Name{
 			motion.Named(resource.DefaultServiceName),
 			sensors.Named(resource.DefaultServiceName),
 			arm.Named("foo:arm1"),
 			arm.Named("foo:arm2"),
 			arm.Named("bar:arm1"),
 			arm.Named("bar:arm2"),
-		),
+		},
 	)
 	statuses, err := r.Status(
 		ctx, []resource.Name{arm.Named("foo:arm1"), arm.Named("foo:arm2"), arm.Named("bar:arm1"), arm.Named("bar:arm2")},
@@ -1321,11 +1293,10 @@ func TestGetRemoteResourceAndGrandFather(t *testing.T) {
 
 	r := setupLocalRobot(t, ctx, remoteConfig, logger)
 
-	test.That(
+	rtestutils.VerifySameResourceNames(
 		t,
-		rtestutils.NewResourceNameSet(r.ResourceNames()...),
-		test.ShouldResemble,
-		rtestutils.NewResourceNameSet(
+		r.ResourceNames(),
+		[]resource.Name{
 			motion.Named(resource.DefaultServiceName),
 			sensors.Named(resource.DefaultServiceName),
 			arm.Named("remote:foo:arm1"), arm.Named("remote:foo:arm2"),
@@ -1340,7 +1311,7 @@ func TestGetRemoteResourceAndGrandFather(t *testing.T) {
 			sensors.Named("remote:builtin"),
 			motion.Named("remote:foo:builtin"),
 			sensors.Named("remote:foo:builtin"),
-		),
+		},
 	)
 	arm1, err := r.ResourceByName(arm.Named("remote:foo:arm1"))
 	test.That(t, err, test.ShouldBeNil)
@@ -3375,4 +3346,139 @@ func TestCloudMetadata(t *testing.T) {
 			MachinePartID: "the-robot-part",
 		})
 	})
+}
+
+func TestReconfigureOnModuleRename(t *testing.T) {
+	ctx := context.Background()
+	logger := logging.NewTestLogger(t)
+
+	// Precompile complex module to avoid timeout issues when building takes too long.
+	complexPath := rtestutils.BuildTempModule(t, "examples/customresources/demos/complexmodule")
+
+	// Manually define mybase model, as importing it can cause double registration.
+	myBaseModel := resource.NewModel("acme", "demo", "mybase")
+
+	// Create config with at least one module and a component from that module
+	cfg := &config.Config{
+		Modules: []config.Module{
+			{
+				Name:     "mod",
+				ExePath:  complexPath,
+				LogLevel: "info",
+			},
+		},
+		Components: []resource.Config{
+			{
+				Name:  "myBase",
+				API:   base.API,
+				Model: myBaseModel,
+				Attributes: rutils.AttributeMap{
+					"motorL": "motor1",
+					"motorR": "motor2",
+				},
+			},
+			{
+				Name:                "motor1",
+				API:                 motor.API,
+				Model:               fakeModel,
+				ConvertedAttributes: &fakemotor.Config{},
+			},
+			{
+				Name:                "motor2",
+				API:                 motor.API,
+				Model:               fakeModel,
+				ConvertedAttributes: &fakemotor.Config{},
+			},
+		},
+	}
+
+	// Create copy of cfg since Reconfigure (called when setting up a robot) modifies cfg.
+	cfgCopy := *cfg
+	r := setupLocalRobot(t, ctx, cfg, logger)
+
+	// Use copy to modify config by renaming module
+	cfgCopy.Modules[0].Name = "mod-renamed"
+
+	r.Reconfigure(ctx, &cfgCopy)
+
+	// Verify resources
+	robotResources := []resource.Name{
+		cfg.Components[0].ResourceName(),
+		cfg.Components[1].ResourceName(),
+		cfg.Components[2].ResourceName(),
+	}
+	expectedResources := rtestutils.ConcatResourceNames(
+		robotResources,
+		resource.DefaultServices(),
+	)
+	rtestutils.VerifySameResourceNames(t, r.ResourceNames(), expectedResources)
+}
+
+func TestCustomResourceBuildsOnModuleAddition(t *testing.T) {
+	ctx := context.Background()
+	logger := logging.NewTestLogger(t)
+
+	// Precompile complex module to avoid timeout issues when building takes too long.
+	complexPath := rtestutils.BuildTempModule(t, "examples/customresources/demos/complexmodule")
+
+	// Manually define mygizmo model, as importing it can cause double registration, and its API
+	gizmoModel := resource.NewModel("acme", "demo", "mygizmo")
+
+	// Create config with a modular component from a custom API without its module
+	cfg := &config.Config{
+		Components: []resource.Config{
+			{
+				Name:       "myGizmo",
+				API:        resource.NewAPI("acme", "component", "gizmo"),
+				Model:      gizmoModel,
+				Attributes: rutils.AttributeMap{"arg1": "arg1"},
+			},
+			{
+				Name:                "motor1",
+				API:                 motor.API,
+				Model:               fakeModel,
+				ConvertedAttributes: &fakemotor.Config{},
+			},
+			{
+				Name:                "motor2",
+				API:                 motor.API,
+				Model:               fakeModel,
+				ConvertedAttributes: &fakemotor.Config{},
+			},
+		},
+	}
+
+	// Create copy of cfg since Reconfigure (called when setting up a robot) modifies cfg.
+	cfgCopy := *cfg
+	r := setupLocalRobot(t, ctx, cfg, logger)
+
+	// Verify resources to ensure myGizmo does not build without module
+	builtResources := []resource.Name{
+		cfg.Components[1].ResourceName(),
+		cfg.Components[2].ResourceName(),
+	}
+	expectedResources := rtestutils.ConcatResourceNames(
+		builtResources,
+		resource.DefaultServices(),
+	)
+	rtestutils.VerifySameResourceNames(t, r.ResourceNames(), expectedResources)
+
+	// Modify config so that it now has a module that supports myGizmo
+	mod := []config.Module{
+		{
+			Name:     "mod",
+			ExePath:  complexPath,
+			LogLevel: "info",
+		},
+	}
+	cfgCopy.Modules = mod
+
+	r.Reconfigure(ctx, &cfgCopy)
+
+	// Verify resources to ensure myGizmo does build
+	expectedResources = rtestutils.ConcatResourceNames(
+		[]resource.Name{cfg.Components[0].ResourceName()},
+		expectedResources,
+	)
+	rtestutils.VerifySameResourceNames(t, r.ResourceNames(), expectedResources)
 }

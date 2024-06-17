@@ -45,11 +45,35 @@ const (
 	MappingModeUpdateExistingMap
 )
 
+func (t MappingMode) String() string {
+	switch t {
+	case MappingModeNewMap:
+		return "mapping mode"
+	case MappingModeLocalizationOnly:
+		return "localizing only mode"
+	case MappingModeUpdateExistingMap:
+		return "updating mode"
+	default:
+		return "unspecified mode"
+	}
+}
+
 // SensorTypeCamera is a camera sensor.
 const (
 	SensorTypeCamera = SensorType(iota)
 	SensorTypeMovementSensor
 )
+
+func (t SensorType) String() string {
+	switch t {
+	case SensorTypeCamera:
+		return "camera"
+	case SensorTypeMovementSensor:
+		return "movement sensor"
+	default:
+		return "unsupported sensor type"
+	}
+}
 
 // API is a variable that identifies the slam resource API.
 var API = resource.APINamespaceRDK.WithServiceType(SubtypeName)

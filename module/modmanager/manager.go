@@ -266,11 +266,11 @@ func (mgr *Manager) add(ctx context.Context, conf config.Module) error {
 	var moduleDataDir string
 	// only set the module data directory if the parent dir is present (which it might not be during tests)
 	if mgr.moduleDataParentDir != "" {
-		moduleDataDir = filepath.Join(mgr.moduleDataParentDir, conf.Name)
-		// safety check to prevent exiting the moduleDataDirectory in case conf.Name ends up including characters like ".."
-		if !strings.HasPrefix(filepath.Clean(moduleDataDir), filepath.Clean(mgr.moduleDataParentDir)) {
-			return errors.Errorf("module %q would have a data directory %q outside of the module data directory %q",
-				conf.Name, moduleDataDir, mgr.moduleDataParentDir)
+		var err error
+		// todo: why isn't conf.Name being sanitized like PackageConfig.SanitizedName?
+		moduleDataDir, err = rutils.SafeJoinDir(mgr.moduleDataParentDir, conf.Name)
+		if err != nil {
+			return err
 		}
 	}
 
@@ -620,8 +620,8 @@ func (mgr *Manager) ValidateConfig(ctx context.Context, conf resource.Config) ([
 }
 
 // ResolveImplicitDependenciesInConfig mutates the passed in diff to add modular implicit dependencies to added
-// and modified resources. It also puts modular resources whose module has been modified in conf.Added if they
-// are not already there.
+// and modified resources. It also puts modular resources whose module has been modified or added in conf.Added if
+// they are not already there since the resources themselves are not necessarily new.
 func (mgr *Manager) ResolveImplicitDependenciesInConfig(ctx context.Context, conf *config.Diff) error {
 	mgr.mu.RLock()
 	defer mgr.mu.RUnlock()
@@ -633,11 +633,17 @@ func (mgr *Manager) ResolveImplicitDependenciesInConfig(ctx context.Context, con
 			// continue if this component is not being provided by a module.
 			continue
 		}
-		if !slices.ContainsFunc(conf.Modified.Modules, func(elem config.Module) bool {
+
+		lenModified, lenAdded := len(conf.Modified.Modules), len(conf.Added.Modules)
+		deltaModules := make([]config.Module, lenModified, lenModified+lenAdded)
+		copy(deltaModules, conf.Modified.Modules)
+		deltaModules = append(deltaModules, conf.Added.Modules...)
+
+		if !slices.ContainsFunc(deltaModules, func(elem config.Module) bool {
 			return elem.Name == mod.cfg.Name
 		}) {
 			// continue if this modular component is not being handled by a modified
-			// module.
+			// or added module.
 			continue
 		}
 		if slices.ContainsFunc(conf.Added.Components, func(elem resource.Config) bool {
@@ -849,7 +855,7 @@ func (mgr *Manager) newOnUnexpectedExitHandler(mod *module) func(exitCode int) b
 				orphanedResourceNames = append(orphanedResourceNames, name)
 			}
 		}
-		if mgr.removeOrphanedResources != nil {
+		if len(orphanedResourceNames) > 0 && mgr.removeOrphanedResources != nil {
 			mgr.removeOrphanedResources(mgr.restartCtx, orphanedResourceNames)
 		}
 
@@ -954,6 +960,7 @@ func (m *module) dial() error {
 		"unix://"+m.addr,
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 		grpc.WithChainUnaryInterceptor(
+			rdkgrpc.EnsureTimeoutUnaryClientInterceptor,
 			grpc_retry.UnaryClientInterceptor(),
 			operation.UnaryClientInterceptor,
 		),

@@ -97,8 +97,8 @@ type Motor interface {
 	// revolutions at a given speed in revolutions per minute. Both the RPM and the revolutions
 	// can be assigned negative values to move in a backwards direction. Note: if both are
 	// negative the motor will spin in the forward direction.
-	// If revolutions is 0, this will run the motor at rpm indefinitely
 	// If revolutions != 0, this will block until the number of revolutions has been completed or another operation comes in.
+	// Deprecated: If revolutions is 0, this will run the motor at rpm indefinitely.
 	GoFor(ctx context.Context, rpm, revolutions float64, extra map[string]interface{}) error
 
 	// GoTo instructs the motor to go to a specific position (provided in revolutions from home/zero),
@@ -106,6 +106,9 @@ type Motor interface {
 	// towards the specified target/position
 	// This will block until the position has been reached
 	GoTo(ctx context.Context, rpm, positionRevolutions float64, extra map[string]interface{}) error
+
+	// SetRPM instructs the motor to move at the specified RPM indefinitely.
+	SetRPM(ctx context.Context, rpm float64, extra map[string]interface{}) error
 
 	// Set an encoded motor's current position (+/- offset) to be the new zero (home) position.
 	ResetZeroPosition(ctx context.Context, offset float64, extra map[string]interface{}) error

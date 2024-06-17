@@ -6,9 +6,10 @@ import (
 	"context"
 	"errors"
 	"os"
-	"path"
 	"path/filepath"
+	"runtime"
 	"slices"
+	"strings"
 	"testing"
 	"time"
 
@@ -103,7 +104,7 @@ func TestCloud(t *testing.T) {
 		validatePackageDir(t, packageDir, []config.PackageConfig{input[1]})
 	})
 
-	t.Run("sync re-downloads on error", func(t *testing.T) {
+	t.Run("sync re-downloads on missing status file", func(t *testing.T) {
 		pkg := config.PackageConfig{Name: "some-name", Package: "org1/test-model", Version: "v1", Type: "module"}
 
 		// create a package manager and Sync to download the package
@@ -115,12 +116,19 @@ func TestCloud(t *testing.T) {
 		err = pm.Sync(ctx, []config.PackageConfig{pkg}, []config.Module{module})
 		test.That(t, err, test.ShouldBeNil)
 
-		// grab ModTime for comparison
+		// grab ExePath ModTime for comparison
 		info, err := os.Stat(module.ExePath)
 		test.That(t, err, test.ShouldBeNil)
 		modTime := info.ModTime()
 
-		// close previous package manager, make sure new PM *doesn't* re-download with intact ExePath
+		// grab sync file ModTime for comparison
+		syncFileName := getSyncFileName(pkg.LocalDataDirectory(pm.(*cloudManager).packagesDir))
+		_, err = os.Stat(syncFileName)
+		test.That(t, err, test.ShouldBeNil)
+		firstStatusFile, err := readStatusFile(pkg, pm.(*cloudManager).packagesDir)
+		test.That(t, err, test.ShouldBeNil)
+
+		// close previous package manager, make sure new PM *doesn't* re-download with intact package sync file
 		pm.Close(ctx)
 		_, pm = newPackageManager(t, client, fakeServer, logger, pm.(*cloudManager).packagesDir)
 		defer utils.UncheckedErrorFunc(func() error { return pm.Close(context.Background()) })
@@ -129,16 +137,21 @@ func TestCloud(t *testing.T) {
 		time.Sleep(10 * time.Millisecond)
 		err = pm.Sync(ctx, []config.PackageConfig{pkg}, []config.Module{module})
 		test.That(t, err, test.ShouldBeNil)
+
+		// Ensure that files have not changed on 2nd sync
 		info, err = os.Stat(module.ExePath)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, info.ModTime(), test.ShouldEqual, modTime)
+		secondStatusFile, err := readStatusFile(pkg, pm.(*cloudManager).packagesDir)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, secondStatusFile.ModifiedTime, test.ShouldEqual, firstStatusFile.ModifiedTime)
 
-		// close previous package manager, then corrupt the module entrypoint file
+		// close previous package manager, then corrupt the package sync file
 		pm.Close(ctx)
-		info, err = os.Stat(module.ExePath)
+		info, err = os.Stat(syncFileName)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, info.Size(), test.ShouldNotBeZeroValue)
-		err = os.Remove(module.ExePath)
+		err = os.Remove(syncFileName)
 		test.That(t, err, test.ShouldBeNil)
 
 		// create fresh packageManager to simulate a reboot, i.e. so the system doesn't think the module is already managed.
@@ -148,11 +161,16 @@ func TestCloud(t *testing.T) {
 		err = pm.Sync(ctx, []config.PackageConfig{pkg}, []config.Module{module})
 		test.That(t, err, test.ShouldBeNil)
 
-		// test that file exists, is non-empty, and modTime is different
-		info, err = os.Stat(module.ExePath)
+		// test that Exe file exists, is non-empty, and modTime is different
+		info, err = os.Stat(syncFileName)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, info.Size(), test.ShouldNotBeZeroValue)
 		test.That(t, info.ModTime(), test.ShouldNotEqual, modTime)
+
+		// test that Exe file exists, is non-empty, and modTime is different
+		thirdStatusFile, err := readStatusFile(pkg, pm.(*cloudManager).packagesDir)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, thirdStatusFile.ModifiedTime, test.ShouldNotEqual, firstStatusFile.ModifiedTime)
 	})
 
 	t.Run("sync and clean should remove file", func(t *testing.T) {
@@ -358,6 +376,9 @@ func validatePackageDir(t *testing.T, dir string, input []config.PackageConfig) 
 
 		test.That(t, linkTarget, test.ShouldEqual, dataPath)
 
+		_, err = os.Stat(dataPath + statusFileExt)
+		test.That(t, err, test.ShouldBeNil)
+
 		info, err = os.Stat(dataPath)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, info.IsDir(), test.ShouldBeTrue)
@@ -395,7 +416,8 @@ func validatePackageDir(t *testing.T, dir string, input []config.PackageConfig) 
 		foundFiles, err := os.ReadDir(filepath.Join(dir, "data", typeFile.Name()))
 		test.That(t, err, test.ShouldBeNil)
 		for _, packageFile := range foundFiles {
-			if !slices.Contains(expectedPackages, packageFile.Name()) {
+			// skip over status files
+			if !slices.Contains(expectedPackages, packageFile.Name()) && !strings.HasSuffix(packageFile.Name(), ".status.json") {
 				t.Errorf("found unknown file in package %s dir %s", typeFile.Name(), packageFile.Name())
 			}
 		}
@@ -424,7 +446,11 @@ func TestPackageRefs(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	t.Run("PackagePath", func(t *testing.T) {
+		// FYI: This test passes in CI but fails when ran on MacOS
 		t.Run("valid package", func(t *testing.T) {
+			if runtime.GOOS == "darwin" {
+				t.Skip("skip on macos because file permissions are 755 instead of 777")
+			}
 			pPath, err := pm.PackagePath("some-name")
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, pPath, test.ShouldEqual, input[0].LocalDataDirectory(packageDir))
@@ -448,27 +474,6 @@ func isSymLink(t *testing.T, file string) bool {
 	test.That(t, err, test.ShouldBeNil)
 
 	return fileInfo.Mode()&os.ModeSymlink != 0
-}
-
-func TestSafeJoin(t *testing.T) {
-	parentDir := "/some/parent"
-
-	validate := func(in, expectedOut string, expectedErr error) {
-		t.Helper()
-
-		out, err := safeJoin(parentDir, in)
-		if expectedErr == nil {
-			test.That(t, err, test.ShouldBeNil)
-			test.That(t, out, test.ShouldEqual, expectedOut)
-		} else {
-			test.That(t, err, test.ShouldNotBeNil)
-			test.That(t, err.Error(), test.ShouldContainSubstring, expectedErr.Error())
-		}
-	}
-
-	validate("sub/dir", "/some/parent/sub/dir", nil)
-	validate("/other/parent", "/some/parent/other/parent", nil)
-	validate("../../../root", "", errors.New("unsafe path join"))
 }
 
 func TestSafeLink(t *testing.T) {
@@ -552,30 +557,4 @@ func TestTrimLeadingZeroes(t *testing.T) {
 			test.That(t, trimLeadingZeroes(tc.input), test.ShouldResemble, tc.expected)
 		})
 	}
-}
-
-func TestCheckNonemptyPaths(t *testing.T) {
-	dataDir, err := os.MkdirTemp("", "nonempty-paths")
-	defer os.RemoveAll(dataDir)
-	test.That(t, err, test.ShouldBeNil)
-	logger := logging.NewTestLogger(t)
-
-	// path missing
-	test.That(t, checkNonemptyPaths("packageName", logger, []string{dataDir + "/hello"}), test.ShouldBeFalse)
-
-	// file empty
-	fullPath := path.Join(dataDir, "hello")
-	_, err = os.Create(fullPath)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, checkNonemptyPaths("packageName", logger, []string{dataDir + "/hello"}), test.ShouldBeFalse)
-
-	// file exists and is non-empty
-	err = os.WriteFile(fullPath, []byte("hello"), 0)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, checkNonemptyPaths("packageName", logger, []string{dataDir + "/hello"}), test.ShouldBeTrue)
-
-	// file is a symlink
-	err = os.Symlink(fullPath, path.Join(dataDir, "sym-hello"))
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, checkNonemptyPaths("packageName", logger, []string{dataDir + "/sym-hello"}), test.ShouldBeTrue)
 }
