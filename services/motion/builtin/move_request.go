@@ -184,7 +184,10 @@ func (mr *moveRequest) getTransientDetections(
 	if err != nil {
 		return nil, err
 	}
-	inputMap := mr.createInputMap(baseExecutionState)
+	inputMap, err := mr.createInputMap(ctx, baseExecutionState)
+	if err != nil {
+		return nil, err
+	}
 	inputMap[mr.kinematicBase.Name().ShortName()] = make([]referenceframe.Input, len(mr.kinematicBase.Kinematics().DoF()))
 
 	detections, err := visSrvc.GetObjectPointClouds(ctx, camName.Name, nil)
@@ -267,7 +270,10 @@ func (mr *moveRequest) obstaclesIntersectPlan(
 			// build representation of frame system's inputs
 			// TODO(pl): in the case where we have e.g. an arm (not moving) mounted on a base, we should be passing its current
 			// configuration rather than the zero inputs
-			inputMap := mr.createInputMap(baseExecutionState)
+			inputMap, err := mr.createInputMap(ctx, baseExecutionState)
+			if err != nil {
+				return state.ExecuteResponse{}, err
+			}
 			executionState, err := motionplan.NewExecutionState(
 				baseExecutionState.Plan(),
 				baseExecutionState.Index(),
@@ -301,8 +307,13 @@ func (mr *moveRequest) obstaclesIntersectPlan(
 	return state.ExecuteResponse{}, nil
 }
 
-func (mr *moveRequest) createInputMap(baseExecutionState motionplan.ExecutionState) map[string][]referenceframe.Input {
-	inputMap := referenceframe.StartPositions(mr.localizaingFS)
+func (mr *moveRequest) createInputMap(
+	ctx context.Context, baseExecutionState motionplan.ExecutionState,
+) (map[string][]referenceframe.Input, error) {
+	inputMap, _, err := mr.fsService.CurrentInputs(ctx)
+	if err != nil {
+		return nil, err
+	}
 	inputMap[mr.kinematicBase.Name().ShortName()] = baseExecutionState.CurrentInputs()[mr.kinematicBase.Name().Name]
 	inputMap[mr.kinematicBase.LocalizationFrame().Name()] = referenceframe.FloatsToInputs([]float64{
 		baseExecutionState.CurrentPoses()[mr.kinematicBase.LocalizationFrame().Name()].Pose().Point().X,
@@ -313,7 +324,7 @@ func (mr *moveRequest) createInputMap(baseExecutionState motionplan.ExecutionSta
 		baseExecutionState.CurrentPoses()[mr.kinematicBase.LocalizationFrame().Name()].Pose().Orientation().OrientationVectorRadians().OZ,
 		baseExecutionState.CurrentPoses()[mr.kinematicBase.LocalizationFrame().Name()].Pose().Orientation().OrientationVectorRadians().Theta,
 	})
-	return inputMap
+	return inputMap, nil
 }
 
 func kbOptionsFromCfg(motionCfg *validatedMotionConfiguration, validatedExtra validatedExtra) kinematicbase.Options {
