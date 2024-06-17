@@ -134,7 +134,7 @@ func ParseModelJSONFile(filename, modelName string) (Model, error) {
 	return UnmarshalModelJSON(jsonData, modelName)
 }
 
-// Create an ordered list of transforms given a mapping of child to parent frames
+// Create an ordered list of transforms given a mapping of child to parent frames.
 func sortTransforms(transforms map[string]Frame, parents map[string]string) ([]Frame, error) {
 	// find the end effector first - determine which transforms have no children
 	// copy the map of children -> parents

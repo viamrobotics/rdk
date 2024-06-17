@@ -2,7 +2,7 @@ package referenceframe
 
 import "github.com/pkg/errors"
 
-// ErrOneEndEffector is an error indicating that exactly one end effector is required.
+// ErrNeedOneEndEffector is an error indicating that exactly one end effector is required.
 var ErrNeedOneEndEffector = errors.New("need exactly one end effector")
 
 // ErrCircularReference is an error indicating that a circular path exists somewhere between the end effector and the world.
