@@ -855,9 +855,16 @@ func generateHeuristic(logger logging.Logger, firstSampled, pathLen int) []float
 	numElems := pathLen - 2 // Can't sample last or second-last therefore arrayLen-2
 	heuristics := make([]float64, numElems)
 	for i := 0; i < numElems; i++ {
-		heuristics[i] = float64(math.MaxOfInts(1, lookAhead-math.AbsInt(lookAhead-math.AbsInt(firstSampled-i)))) // Creates ascending list until lookAhead and then descending list
+		heuristics[i] = math.Pow(float64(math.MaxOfInts(1, lookAhead-math.AbsInt(lookAhead-math.AbsInt(firstSampled-i)))), 2) // Creates ascending list until lookAhead and then descending list
 	}
 	heuristics[firstSampled] = 0
+	// Adjacent paths should not be smoothed so set their heuristic to 0
+	if firstSampled-1 >= 0 {
+		heuristics[firstSampled-1] = 0
+	}
+	if firstSampled+1 < numElems {
+		heuristics[firstSampled+1] = 0
+	}
 	for i := 0; i < numElems; i++ {
 		logger.Debugf("%v ", heuristics[i])
 	}
@@ -899,6 +906,13 @@ func (mp *tpSpaceRRTMotionPlanner) smoothPath(ctx context.Context, path []node) 
 	start := time.Now()
 	toIter := int(math.Min(float64(len(path)*len(path))/2, float64(mp.planOpts.SmoothIter)))
 	currCost := sumCosts(path)
+	// mp.logger.Debugf("$DEBUG,seed:%v,scene:%v\n", mp.planOpts.extra["rseed"], mp.planOpts.extra["scene"])
+
+	// scene := mp.planOpts.extra["scene"]
+	useNew := mp.planOpts.extra["useNew"]
+	earlyExit := mp.planOpts.extra["earlyExit"]
+	earlyExitThreshold := mp.planOpts.extra["earlyExitThreshold"].(float64)
+
 	// origAllPTGs := mp.tpFrame.PTGSolvers()
 	// originalCurvCost := 0.
 	// for _, mynode := range path {
@@ -911,7 +925,7 @@ func (mp *tpSpaceRRTMotionPlanner) smoothPath(ctx context.Context, path []node) 
 	// 	originalCurvCost = originalCurvCost + curv
 	// }
 	// mp.logger.Debugf("$DEBUG,original_curv_cost:%v\n", originalCurvCost)
-	mp.logger.Debugf("$DEBUG,original_og_cost:%v\n", currCost)
+	mp.logger.Debugf("$INTERNAL,original_og_cost:%v\n", currCost)
 	smoothPlannerMP, err := newTPSpaceMotionPlanner(mp.frame, mp.randseed, mp.logger, mp.planOpts)
 	if err != nil {
 		return path
@@ -928,16 +942,21 @@ func (mp *tpSpaceRRTMotionPlanner) smoothPath(ctx context.Context, path []node) 
 		// get start node of first edge. Cannot be either the last or second-to-last node.
 		// Intn will return an int in the half-open interval half-open interval [0,n)
 		firstEdge := mp.randseed.Intn(len(path) - 2)
-		// secondEdge := firstEdge + 1 + mp.randseed.Intn((len(path)-2)-firstEdge)
-		cdf := generateCDF(mp.logger, firstEdge, len(path))
-		sample := mp.randseed.Float64()
-		secondEdge := binarySearch(cdf, sample)
+		secondEdge := 0
+		if useNew == false {
+			secondEdge = firstEdge + 1 + mp.randseed.Intn((len(path)-2)-firstEdge)
+		} else {
+			cdf := generateCDF(mp.logger, firstEdge, len(path))
+			sample := mp.randseed.Float64()
+			secondEdge = binarySearch(cdf, sample)
 
-		if secondEdge < firstEdge {
-			temp := secondEdge
-			secondEdge = firstEdge
-			firstEdge = temp
+			if secondEdge < firstEdge {
+				temp := secondEdge
+				secondEdge = firstEdge
+				firstEdge = temp
+			}
 		}
+
 		attemptSmoothStart := time.Now()
 		newInputSteps, err := mp.attemptSmooth(ctx, path, firstEdge, secondEdge, smoothPlanner)
 		attemptSmoothEnd := time.Now()
@@ -954,9 +973,11 @@ func (mp *tpSpaceRRTMotionPlanner) smoothPath(ctx context.Context, path []node) 
 
 		path = newInputSteps
 		currCost = newCost
-		if newCost < 84000 {
-			mp.logger.Debugf("$DEBUG,breaking_at_iter_%v\n", i)
-			break
+		if earlyExit == true {
+			if newCost < earlyExitThreshold {
+				mp.logger.Debugf("$INTERNAL,breaking_at_iter_%v\n", i)
+				break
+			}
 		}
 		// newCurvCost := 0.
 		// newAllPTGs := mp.tpFrame.PTGSolvers()
@@ -974,7 +995,7 @@ func (mp *tpSpaceRRTMotionPlanner) smoothPath(ctx context.Context, path []node) 
 		// }
 	}
 	elapsed := time.Since(start)
-	mp.logger.Debugf("$SMOOTHTIME,%v", elapsed)
+	mp.logger.Debugf("$INTERNAL,smoothtime:%v", elapsed)
 	if pathdebug {
 		allPtgs := mp.tpFrame.PTGSolvers()
 		lastPose := path[0].Pose()
@@ -1010,8 +1031,11 @@ func (mp *tpSpaceRRTMotionPlanner) smoothPath(ctx context.Context, path []node) 
 			}
 		}
 		newOGCost := sumCosts(path)
+		if earlyExit == false {
+			mp.planOpts.extra["earlyExitThreshold"] = newOGCost
+		}
 		// mp.logger.Debugf("$DEBUG,new_curv_cost:%v\n", newCurvCost)
-		mp.logger.Debugf("$DEBUG,new_og_cost:%v\n", newOGCost)
+		mp.logger.Debugf("$INTERNAL,new_og_cost:%v\n", newOGCost)
 	}
 
 	return path

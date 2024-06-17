@@ -266,11 +266,11 @@ func (pm *planManager) planSingleAtomicWaypoint(
 	pathPlanner motionPlanner,
 	maps *rrtMaps,
 ) ([]referenceframe.Input, *resultPromise, error) {
-	pm.logger.Debugf("asd;lfkajsdl;fjadls;kfja;lsdkjf;malksdjfl;kasdjfkl;asdj;flkasdjfl;asdjf\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n")
 	if parPlan, ok := pathPlanner.(rrtParallelPlanner); ok {
 		// rrtParallelPlanner supports solution look-ahead for parallel waypoint solving
 		// This will set that up, and if we get a result on `endpointPreview`, then the next iteration will be started, and the steps
 		// for this solve will be rectified at the end.
+		pm.logger.Debugf("here bruh\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n")
 		endpointPreview := make(chan node, 1)
 		solutionChan := make(chan *rrtSolution, 1)
 		pm.activeBackgroundWorkers.Add(1)
@@ -413,14 +413,18 @@ func (pm *planManager) planParallelRRTMotion(
 		// Start smoothing before initializing the fallback plan. This allows both to run simultaneously.
 		smoothChan := make(chan []node, 1)
 		rrtBackground.Add(1)
+
 		utils.PanicCapturingGo(func() {
 			defer rrtBackground.Done()
+			pm.logger.Debugf("smoothing bruh\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n")
 			smoothChan <- pathPlanner.smoothPath(ctx, finalSteps.steps)
 		})
 		var alternateFuture *resultPromise
 
 		// Run fallback only if we don't have a very good path
+		pm.logger.Debugf("here once more lmao\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n")
 		if fallbackPlanner != nil {
+			pm.logger.Debugf("planning single atomic\n\n\n\n\n\n\n\n\n")
 			_, alternateFuture, err = pm.planSingleAtomicWaypoint(
 				ctx,
 				goal,

@@ -53,6 +53,9 @@ const (
 	// default number of position only seeds to use for tp-space planning.
 	defaultTPspacePositionOnlySeeds = 16
 
+	// random seed
+	defaultRandomSeed = 0
+
 	// descriptions of constraints.
 	defaultLinearConstraintDesc         = "Constraint to follow linear path"
 	defaultPseudolinearConstraintDesc   = "Constraint to follow pseudolinear path, with tolerance scaled to path length"

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"flag"
+	"math"
 	"path/filepath"
 	"testing"
 
@@ -35,6 +36,11 @@ func createBaseSceneConfig(
 	goalPose spatialmath.Pose,
 	artifactPath string,
 	logger logging.Logger,
+	seed int,
+	scene int,
+	useNew bool,
+	earlyExit bool,
+	earlyExitThreshold float64,
 ) (*motionplan.PlanRequest, error) {
 	injectSlam := inject.NewSLAMService("test_slam")
 	injectSlam.PointCloudMapFunc = func(ctx context.Context, returnEditedMap bool) (func() ([]byte, error), error) {
@@ -76,6 +82,13 @@ func createBaseSceneConfig(
 
 	startMap := referenceframe.StartPositions(fs)
 
+	options := make(map[string]interface{})
+	options["rseed"] = seed
+	options["scene"] = scene
+	options["useNew"] = useNew
+	options["earlyExit"] = earlyExit
+	options["earlyExitThreshold"] = earlyExitThreshold
+
 	return &motionplan.PlanRequest{
 		Logger:             logger,
 		StartConfiguration: startMap,
@@ -84,57 +97,100 @@ func createBaseSceneConfig(
 		WorldState:         worldState,
 		FrameSystem:        fs,
 		StartPose:          spatialmath.NewZeroPose(),
+		Options:            options,
 	}, nil
 }
 
-func scene13(logger logging.Logger) (*motionplan.PlanRequest, error) {
+func scene13(logger logging.Logger, seed int, useNew bool, earlyExit bool, earlyExitThreshold float64) (*motionplan.PlanRequest, error) {
 	startInput := referenceframe.FloatsToInputs([]float64{0, 0, 0})
 	goalPose := spatialmath.NewPoseFromPoint(r3.Vector{X: 0.277 * 1000, Y: 0.593 * 1000})
-	return createBaseSceneConfig(startInput, goalPose, "pointcloud/octagonspace.pcd", logger)
+	return createBaseSceneConfig(startInput, goalPose, "pointcloud/octagonspace.pcd", logger, seed, 13, useNew, earlyExit, earlyExitThreshold)
 }
 
-func scene14(logger logging.Logger) (*motionplan.PlanRequest, error) {
+func scene14(logger logging.Logger, seed int, useNew bool, earlyExit bool, earlyExitThreshold float64) (*motionplan.PlanRequest, error) {
 	startInput := referenceframe.FloatsToInputs([]float64{0, 0, 0})
 	goalPose := spatialmath.NewPoseFromPoint(r3.Vector{X: 1.32 * 1000, Y: 0})
-	return createBaseSceneConfig(startInput, goalPose, "pointcloud/octagonspace.pcd", logger)
+	return createBaseSceneConfig(startInput, goalPose, "pointcloud/octagonspace.pcd", logger, seed, 14, useNew, earlyExit, earlyExitThreshold)
 }
 
-func scene15(logger logging.Logger) (*motionplan.PlanRequest, error) {
+func scene15(logger logging.Logger, seed int, useNew bool, earlyExit bool, earlyExitThreshold float64) (*motionplan.PlanRequest, error) {
 	startInput := referenceframe.FloatsToInputs([]float64{-6.905 * 1000, 0.623 * 1000, 0})
 	goalPose := spatialmath.NewPoseFromPoint(r3.Vector{X: -29.164 * 1000, Y: 3.433 * 1000})
-	return createBaseSceneConfig(startInput, goalPose, "slam/example_cartographer_outputs/viam-office-02-22-3/pointcloud/pointcloud_4.pcd", logger)
+	return createBaseSceneConfig(startInput, goalPose, "slam/example_cartographer_outputs/viam-office-02-22-3/pointcloud/pointcloud_4.pcd", logger, seed, 15, useNew, earlyExit, earlyExitThreshold)
 }
 
-func scene16(logger logging.Logger) (*motionplan.PlanRequest, error) {
+func scene16(logger logging.Logger, seed int, useNew bool, earlyExit bool, earlyExitThreshold float64) (*motionplan.PlanRequest, error) {
 	startInput := referenceframe.FloatsToInputs([]float64{-19.376 * 1000, 2.305 * 1000, 0})
 	goalPose := spatialmath.NewPoseFromPoint(r3.Vector{X: -27.946 * 1000, Y: -4.406 * 1000})
-	return createBaseSceneConfig(startInput, goalPose, "slam/example_cartographer_outputs/viam-office-02-22-3/pointcloud/pointcloud_4.pcd", logger)
+	return createBaseSceneConfig(startInput, goalPose, "slam/example_cartographer_outputs/viam-office-02-22-3/pointcloud/pointcloud_4.pcd", logger, seed, 16, useNew, earlyExit, earlyExitThreshold)
 }
 
-func scene17(logger logging.Logger) (*motionplan.PlanRequest, error) {
+func scene17(logger logging.Logger, seed int, useNew bool, earlyExit bool, earlyExitThreshold float64) (*motionplan.PlanRequest, error) {
 	startInput := referenceframe.FloatsToInputs([]float64{0, 0, 0})
 	goalPose := spatialmath.NewPoseFromPoint(r3.Vector{X: -5.959 * 1000, Y: -5.542 * 1000})
-	return createBaseSceneConfig(startInput, goalPose, "slam/example_cartographer_outputs/viam-office-02-22-3/pointcloud/pointcloud_4.pcd", logger)
+	return createBaseSceneConfig(startInput, goalPose, "slam/example_cartographer_outputs/viam-office-02-22-3/pointcloud/pointcloud_4.pcd", logger, seed, 17, useNew, earlyExit, earlyExitThreshold)
 }
 
-func scene18(logger logging.Logger) (*motionplan.PlanRequest, error) {
+func scene18(logger logging.Logger, seed int, useNew bool, earlyExit bool, earlyExitThreshold float64) (*motionplan.PlanRequest, error) {
 	startInput := referenceframe.FloatsToInputs([]float64{0, 0, 0})
 	goalPose := spatialmath.NewPoseFromPoint(r3.Vector{X: -52.555 * 1000, Y: -27.215 * 1000})
-	return createBaseSceneConfig(startInput, goalPose, "slam/example_cartographer_outputs/viam-office-02-22-3/pointcloud/pointcloud_4.pcd", logger)
+	return createBaseSceneConfig(startInput, goalPose, "slam/example_cartographer_outputs/viam-office-02-22-3/pointcloud/pointcloud_4.pcd", logger, seed, 18, useNew, earlyExit, earlyExitThreshold)
 }
+
+type SceneFunc func(logger logging.Logger, seed int, useNew bool, earlyExit bool, earlyExitThreshold float64) (*motionplan.PlanRequest, error)
 
 func TestPtgWithSlam(t *testing.T) {
 	logger := logging.NewTestLogger(t)
-	scene, err := scene18(logger)
-	test.That(t, err, test.ShouldBeNil)
-	_, motionerr := motionplan.PlanMotion(context.Background(), scene)
-	test.That(t, motionerr, test.ShouldBeNil)
+	intToFunc := map[int]SceneFunc{
+		13: scene13,
+		14: scene14,
+		15: scene15,
+		16: scene16,
+		17: scene17,
+		18: scene18,
+	}
 
-	// for _, traj_pts := range plan.Trajectory() {
-	// 	inputs := traj_pts[scene.Frame.Name()]
-	// 	i := inputs[0].Value
-	// 	alpha := inputs[1].Value
-	// 	d := inputs[3].Value - inputs[2].Value
-	// 	logger.Debugf("$DEBUG,ptg_i=%v,alpha=%v,d=%v", i, alpha, d)
-	// }
+	for sceneNum := 13; sceneNum <= 18; sceneNum++ {
+		logger.Debugf("$DEBUG,---------------SCENE_%v---------------\n", sceneNum)
+		for seed := 0; seed < 5; seed++ {
+			// Start by running old on this seed to get baseline cutoff
+			logger.Debugf("$DEBUG,Baseline:")
+			useNew := false
+			earlyExit := false
+			earlyExitThreshold := 0.0
+			scene, err := intToFunc[sceneNum](logger, seed, useNew, earlyExit, earlyExitThreshold)
+			test.That(t, err, test.ShouldBeNil)
+			_, motionerr := motionplan.PlanMotion(context.Background(), scene)
+			test.That(t, motionerr, test.ShouldBeNil)
+
+			// Get proper earlyExitThreshold
+			earlyExitThreshold = scene.Options["earlyExitThreshold"].(float64)
+			if earlyExitThreshold > 1000 {
+				earlyExitThreshold = math.Ceil(earlyExitThreshold/1000+1) * 1000 // rounding to the nearest 1000
+			} else {
+				earlyExitThreshold = math.Ceil(earlyExitThreshold/100+1) * 100 // rounding to the nearest 100
+			}
+
+			logger.Debugf("$DEBUG,earlyExitThreshold:%v\n", earlyExitThreshold)
+
+			// Run the old method with earlyExiting
+			logger.Debugf("$DEBUG,old_w_early_exit:")
+			useNew = false
+			earlyExit = true
+			scene, err = intToFunc[sceneNum](logger, seed, useNew, earlyExit, earlyExitThreshold)
+			test.That(t, err, test.ShouldBeNil)
+			_, motionerr = motionplan.PlanMotion(context.Background(), scene)
+			test.That(t, motionerr, test.ShouldBeNil)
+
+			// Run the new method with earlyExiting
+			logger.Debugf("$DEBUG,new_w_early_exit:")
+			useNew = true
+			earlyExit = true
+			scene, err = intToFunc[sceneNum](logger, seed, useNew, earlyExit, earlyExitThreshold)
+			test.That(t, err, test.ShouldBeNil)
+			_, motionerr = motionplan.PlanMotion(context.Background(), scene)
+			test.That(t, motionerr, test.ShouldBeNil)
+		}
+	}
+
 }
