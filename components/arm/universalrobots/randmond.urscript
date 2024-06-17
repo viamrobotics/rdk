@@ -1,0 +1,1227 @@
+def unnamed():
+  step_count_c2901767_05b8_468e_a905_ad39d9cfc242 = 0.0
+  thread Step_Counter_Thread_af0bc2c8_6cbf_49ae_b4ea_4fbf55bb3efb():
+    while (True):
+      step_count_c2901767_05b8_468e_a905_ad39d9cfc242 = step_count_c2901767_05b8_468e_a905_ad39d9cfc242 + 1.0
+      sync()
+    end
+  end
+  run Step_Counter_Thread_af0bc2c8_6cbf_49ae_b4ea_4fbf55bb3efb()
+  set_standard_analog_input_domain(0, 1)
+  set_standard_analog_input_domain(1, 1)
+  set_tool_analog_input_domain(0, 1)
+  set_tool_analog_input_domain(1, 1)
+  set_analog_outputdomain(0, 0)
+  set_analog_outputdomain(1, 0)
+  set_input_actions_to_default()
+  set_tcp(p[0.0,0.0,0.0,0.0,0.0,0.0])
+  set_target_payload(0.001000, [0.000000, 0.000000, 0.000000], [0.000000, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000])
+  set_safety_mode_transition_hardness(1)
+  set_tool_communication(False, 115200, 0, 1, 1.5, 3.5)
+  set_tool_output_mode(0)
+  set_tool_digital_output_mode(0, 1)
+  set_tool_digital_output_mode(1, 1)
+  set_tool_voltage(0)
+  set_gravity([0.0, 0.0, 9.82])
+  global Plane_1=p[0.12998391010123925,-0.3972720904091843,0.24142794323845918,-2.984415522301613,-0.2529919002249253,0.07249824801328751]
+  global Plane_2=p[0.0,0.0,0.0,0.0,0.0,0.0]
+  # begin: URCap Installation Node
+  #   Source: Remote TCP & Toolpath, 1.2.65.build36, Universal Robots A/S
+  #   Type: Remote TCP & Toolpath
+  mc_check_divergence = True
+  mc_lookahead = 0.03
+  mc_gain = 2000
+  mc_dt = 0.004
+  
+  mc_conv_tolnc = 0.001
+  mc_conv_tol_s = 0.001
+  mc_conv_loops = 100
+  
+  mc_ee_set_id = 2
+  
+  MC_GROUP_STANDBY = 0
+  MC_GROUP_STOPPING = 2
+  MC_GROUP_ERROR_STOP = 3
+  
+  MC_ERROR_PATHDIVERGED = 0
+  MC_ERROR_COLLISION = 1
+  MC_ERROR_JOINTLIMIT = 2
+  MC_ERROR_SINGULARITY = 4
+  MC_ERROR_PLANNINGFAILED = 16
+  MC_ERROR_DAEMONSTOPPED = 1024
+  MC_ERROR_SERVER_BUSY = 1025
+  MC_ERROR_NOT_INITIALIZED = 2000
+  
+  MC_TOOLPATH_ERROR_NONE = 0
+  MC_TOOLPATH_ERROR_FILELOAD = 1
+  MC_TOOLPATH_ERROR_PARSE = 2
+  MC_TOOLPATH_ERROR_EMPTYTOOLPATH = 3
+  MC_TOOLPATH_ERROR_UNSUPPORTEDTYPE = 4
+  
+  MC_GROUP_STATUS_INPUT = 24
+  MC_CURRENT_MOTION_ID_INPUT = 25
+  MC_JOINT_VALUE_INPUT = 24
+  MC_ERROR_CODE_INPUT = 26
+  MC_WATCHDOG_INPUT = 30
+  MC_PATH_SPEED_INPUT = 31
+  MC_SPEEDFACTOR_OUTPUT = 24
+  
+  mc_last_watchdog = 0
+  mc_watchdog_counter = 0
+  mc_watchdog_counter_limit = 100
+  
+  mc_last_motion_id = -1
+  mc_group_status = MC_GROUP_STOPPING
+  mc_server_started = False
+  mc_rtcp_moving = False
+  mc_debug_msg = False
+  mc_gmm_initialized = False
+  
+  
+  def mc_initialize(mode, tcp, doc=6):
+  	mc_check_busy()
+  
+  	if (mode == 0 and doc == 6):
+  		mc_ee_set_id = 0
+  	end
+  
+  	if (mode == 1 and doc == 6):
+  		mc_ee_set_id = 2
+  	end
+  
+  	if (mode == 0 and doc == 5):
+  		mc_ee_set_id = 1
+  	end
+  
+  	if (mode == 1 and doc == 5):
+  		mc_ee_set_id = 3
+  	end
+  
+  	mc_initialize_internal(tcp)
+  end
+  
+  def mc_initialize_internal(tcp):
+  	if (mc_server_started == False):
+  		global mc_server = rpc_factory("xmlrpc", "127.0.0.1:7828")
+  		mc_server_started = True
+  	end
+  
+  	mc_server.setDataStoreBoolean("IS_ON", "/robot/check_divergence", mc_check_divergence)
+  	mc_server.reset()
+  	mc_group_status = MC_GROUP_STANDBY
+  	mc_set_speed_factor(1.0)
+  	mc_server.setKinTransform(mc_ee_set_id, 0, tcp)
+  	mc_gmm_initialized = False
+  end
+  
+  def mc_check_busy():
+  	enter_critical
+  	if (mc_rtcp_moving == False):
+  		mc_rtcp_moving = True
+  	else:
+  		mc_error_stop("", "", MC_ERROR_SERVER_BUSY)
+  	end
+  	exit_critical
+  end
+  
+  def mc_add_linear(pose, a, v, r):
+  	mc_check_ready()
+  	ee_id = 0
+  	buffer_mode = "BLENDING_NEXT"
+  	transition_mode = "CORNER_DISTANCE"
+  	id = mc_server.moveLinearAbsolute(pose, mc_ee_set_id, ee_id, v, a, buffer_mode, transition_mode, r)
+  
+  	if (id == -1):
+  		mc_error_stop("Compute node returned ID ", id)
+  	end
+  
+  	mc_last_motion_id = id
+  
+  	return id
+  end
+  
+  def mc_add_circular(pose_via, pose_to, a, v, r, mode = 0):
+  	mc_check_ready()
+  	ee_id = 0
+  	buffer_mode = "BLENDING_NEXT"
+  	transition_mode = "CORNER_DISTANCE"
+  	id = mc_server.moveCircularBorderAbsolute(pose_via, pose_to, mode, mc_ee_set_id, ee_id, v, a, buffer_mode, transition_mode, r)
+  
+  	if (id == -1):
+  		mc_error_stop("Compute node returned ID ", id)
+  	end
+  
+  	mc_last_motion_id = id
+  
+  	return id
+  end
+  
+  def mc_add_path(path_id, a, v, r):
+  	mc_check_ready()
+  	ee_id = 0
+  	buffer_mode = "BLENDING_NEXT"
+  	transition_mode = "CORNER_DISTANCE"
+  	id = mc_server.movePath(path_id, mc_ee_set_id, ee_id, v, a, buffer_mode, transition_mode, r)
+  
+  	if (id == -1):
+  		result = mc_server.getErrorCode()
+  		mc_toolpath_error_stop(result[0], result[1])
+  	end
+  
+  	mc_last_motion_id = id
+  
+  	return id
+  end
+  
+  def mc_load_path(nc_file, use_feedrate = False):
+  	id = mc_server.loadPath(nc_file, use_feedrate)
+  
+  	if (id < 0):
+  		result = mc_server.getErrorCode()
+  		mc_toolpath_error_stop(result[0], result[1])
+  	end
+  
+  	return id
+  end
+  
+  def mc_get_target_rtcp_speed():
+  	return read_input_float_register(MC_PATH_SPEED_INPUT)
+  end
+  
+  def mc_check_ready():
+  	if mc_group_status != MC_GROUP_STANDBY:
+  		mc_error_stop("", "", MC_ERROR_NOT_INITIALIZED)
+  	end
+  end
+  
+  def mc_set_pcs(pcs):
+  	ee_id = 0
+  	mc_server.setCoordinateTransform(mc_ee_set_id, ee_id, pcs, "ABORTING")
+  end
+  
+  def mc_run_motion(id=-1):
+  	if (id == -1):
+  		id = mc_last_motion_id
+  	end
+  
+  	mc_debugMsg("Waiting for ID ", id)
+  
+  	if (mc_gmm_initialized == False):
+  		mc_initialize_gmm()
+  	end
+  
+  	mc_current_motion_id = read_input_integer_register(MC_CURRENT_MOTION_ID_INPUT)
+  	mc_group_status = read_input_integer_register(MC_GROUP_STATUS_INPUT)
+  	joint_targets = get_actual_joint_positions()
+  	while (mc_current_motion_id <= id and mc_current_motion_id != -2 and mc_group_status != MC_GROUP_STOPPING and mc_group_status != MC_GROUP_ERROR_STOP):
+  		mc_current_motion_id = read_input_integer_register(MC_CURRENT_MOTION_ID_INPUT)
+  		mc_group_status = read_input_integer_register(MC_GROUP_STATUS_INPUT)
+  
+  		joint_targets = mc_get_joint_targets(joint_targets)
+  		servoj(joint_targets, t = mc_dt, lookahead_time = mc_lookahead, gain = mc_gain)
+  
+  		mc_check_watchdog()
+  	end
+  
+  	if (mc_group_status == MC_GROUP_STOPPING or mc_group_status == MC_GROUP_ERROR_STOP):
+  		stopj(45)
+  
+  		mc_debugMsg("Stopping due to error after ID ", id)
+  
+  		mc_server.setDataStoreBoolean("IS_RTCP_RUNNING", "/group_motion_manager", False)
+  
+  		error_code = read_input_integer_register(MC_ERROR_CODE_INPUT)
+  		mc_error_stop("Compute node returned group status ", mc_group_status, error_code)
+  
+  		mc_rtcp_moving = False
+  		mc_group_status = MC_GROUP_STOPPING
+  	end
+  
+  	if (id == mc_last_motion_id):
+  		mc_debugMsg("Stopping after ID ", id)
+  		mc_check_convergence(joint_targets)
+  
+  		mc_server.setDataStoreBoolean("IS_RTCP_RUNNING", "/group_motion_manager", False)
+  
+  		mc_rtcp_moving = False
+  		mc_group_status = MC_GROUP_STOPPING
+  	end
+  
+  	mc_debugMsg("Completed ID ", id)
+  end
+  
+  def mc_set_speed_factor(s):
+  	write_output_float_register(MC_SPEEDFACTOR_OUTPUT, s)
+  end
+  
+  def mc_initialize_gmm():
+  	mc_current_motion_id = read_input_integer_register(MC_CURRENT_MOTION_ID_INPUT)
+  	while (mc_current_motion_id != -1):
+  		mc_current_motion_id = read_input_integer_register(MC_CURRENT_MOTION_ID_INPUT)
+  		sleep(mc_dt)
+  		mc_check_watchdog()
+  	end
+  
+  	mc_server.setDataStoreBoolean("IS_RTCP_RUNNING", "/group_motion_manager", True)
+  
+  	while (mc_current_motion_id == -1):
+  		mc_current_motion_id = read_input_integer_register(MC_CURRENT_MOTION_ID_INPUT)
+  		sleep(mc_dt)
+  		mc_check_watchdog()
+  	end
+  
+  	mc_gmm_initialized = True
+  end
+  
+  def mc_check_convergence(joint_targets):
+  	loopcounter = 0
+  	converged = False
+  	while (converged == False and loopcounter < mc_conv_loops):
+  
+  		joint_targets = mc_get_joint_targets(joint_targets)
+  		diff = mc_get_diff_joints(get_actual_joint_positions(), joint_targets)
+  		joint_speeds = get_actual_joint_speeds()
+  
+  		position_converged = diff[0] <= mc_conv_tolnc and diff[1] <= mc_conv_tolnc and diff[2] <= mc_conv_tolnc and diff[3] <= mc_conv_tolnc and diff[4] <= mc_conv_tolnc and diff[5] <= mc_conv_tolnc
+  		speed_converged = joint_speeds[0] <= mc_conv_tol_s and joint_speeds[1] <= mc_conv_tol_s and joint_speeds[2] <= mc_conv_tol_s and joint_speeds[3] <= mc_conv_tol_s and joint_speeds[4] <= mc_conv_tol_s and joint_speeds[5] <= mc_conv_tol_s
+  		converged = position_converged and speed_converged
+  
+  		servoj(joint_targets, t = mc_dt, lookahead_time = mc_lookahead, gain = mc_gain)
+  
+  		loopcounter = loopcounter + 1
+  	end
+  
+  	mc_debugMsg("Convergence loop count: ", loopcounter)
+  end
+  
+  def mc_check_watchdog():
+  	current_watchdog = read_input_float_register(MC_WATCHDOG_INPUT)
+  
+  	if (current_watchdog > mc_last_watchdog):
+  		mc_last_watchdog = current_watchdog
+  		mc_watchdog_counter = 0
+  	else:
+  		mc_watchdog_counter = mc_watchdog_counter + 1
+  		if (mc_watchdog_counter > mc_watchdog_counter_limit):
+  			mc_error_stop("", "", MC_ERROR_DAEMONSTOPPED)
+  		end
+  	end
+  end
+  
+  def mc_get_joint_targets(joint_targets):
+  	joint_targets[0] = read_input_float_register(MC_JOINT_VALUE_INPUT)
+  	joint_targets[1] = read_input_float_register(MC_JOINT_VALUE_INPUT + 1)
+  	joint_targets[2] = read_input_float_register(MC_JOINT_VALUE_INPUT + 2)
+  	joint_targets[3] = read_input_float_register(MC_JOINT_VALUE_INPUT + 3)
+  	joint_targets[4] = read_input_float_register(MC_JOINT_VALUE_INPUT + 4)
+  	joint_targets[5] = read_input_float_register(MC_JOINT_VALUE_INPUT + 5)
+  	return joint_targets
+  end
+  
+  def mc_get_diff_joints(x, y):
+  	diff = x
+  	diff[0] = norm(x[0] - y[0])
+  	diff[1] = norm(x[1] - y[1])
+  	diff[2] = norm(x[2] - y[2])
+  	diff[3] = norm(x[3] - y[3])
+  	diff[4] = norm(x[4] - y[4])
+  	diff[5] = norm(x[5] - y[5])
+  	return diff
+  end
+  
+  def mc_error_stop(msg, param="", error_code=MC_ERROR_PLANNINGFAILED):
+  	if (msg != ""):
+  		textmsg(msg, param)
+  	end
+  
+  	textmsg("Error code: ", error_code)
+  	error_msg = mc_getErrorMessage(error_code)
+  	textmsg(error_msg)
+  
+  	popup(error_msg, title="Remote TCP", error=True, blocking=False)
+  	halt
+  end
+  
+  def mc_toolpath_error_stop(error_code, param):
+  	msg = mc_getToolpathMessage(error_code)
+  	textmsg(msg + " - Line: ", param)
+  
+  	popup(msg, title="Toolpath Validation", error=True, blocking=True)
+  	halt
+  end
+  
+  def mc_debugMsg(msg, param=""):
+  	if (mc_debug_msg == True):
+  		textmsg(msg, param)
+  	end
+  end
+  
+  def mc_getErrorMessage(error_code):
+  	if error_code == MC_ERROR_PATHDIVERGED:
+  		return "<html>Robot cannot maintain tool speed. You may avoid this issue by:<ul><li>reducing the tool speed;</li><li>avoiding sharp corners;</li><li>staying away from singularities.</li></ul></html>"
+  	elif error_code == MC_ERROR_COLLISION:
+  		return "Robot is in collision."
+  	elif error_code == MC_ERROR_JOINTLIMIT:
+  		return "Robot is at a joint limit."
+  	elif error_code == MC_ERROR_SINGULARITY:
+  		return "Robot is at a singularity."
+  	elif error_code == MC_ERROR_DAEMONSTOPPED:
+  		return "The controller stopped."
+  	elif error_code == MC_ERROR_SERVER_BUSY:
+  		return "Another Remote TCP Move node is running."
+  	elif error_code == MC_ERROR_NOT_INITIALIZED:
+  		return "Group motion manager is not initialized."
+  	else:
+  		return "Motion planning failed."
+  	end
+  end
+  
+  def mc_getToolpathMessage(message_code):
+  	if message_code == MC_TOOLPATH_ERROR_NONE:
+  		return "Toolpath file is valid."
+  	elif message_code == MC_TOOLPATH_ERROR_FILELOAD:
+  		return "File cannot be loaded."
+  	elif message_code == MC_TOOLPATH_ERROR_PARSE:
+  		return "Parsing error"
+  	elif message_code == MC_TOOLPATH_ERROR_EMPTYTOOLPATH:
+  		return "Empty toolpath"
+  	elif message_code == MC_TOOLPATH_ERROR_UNSUPPORTEDTYPE:
+  		return "Unsupported type"
+  	else:
+  		return "Unknown toolpath validation error"
+  	end
+  end
+  # end: URCap Installation Node
+  while (True):
+    $ 1 "Robot Program"
+    $ 2 "Script: randmond.script"
+    def unnamed():
+      step_count_c2901767_05b8_468e_a905_ad39d9cfc242 = 0.0
+      thread Step_Counter_Thread_af0bc2c8_6cbf_49ae_b4ea_4fbf55bb3efb():
+        while (True):
+          step_count_c2901767_05b8_468e_a905_ad39d9cfc242 = step_count_c2901767_05b8_468e_a905_ad39d9cfc242 + 1.0
+          sync()
+        end
+      end
+      run Step_Counter_Thread_af0bc2c8_6cbf_49ae_b4ea_4fbf55bb3efb()
+      set_standard_analog_input_domain(0, 1)
+      set_standard_analog_input_domain(1, 1)
+      set_tool_analog_input_domain(0, 1)
+      set_tool_analog_input_domain(1, 1)
+      set_analog_outputdomain(0, 0)
+      set_analog_outputdomain(1, 0)
+      set_input_actions_to_default()
+      set_tcp(p[0.0,0.0,0.0,0.0,0.0,0.0])
+      set_target_payload(0.001000, [0.000000, 0.000000, 0.000000], [0.000000, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000])
+      set_safety_mode_transition_hardness(1)
+      set_tool_communication(False, 115200, 0, 1, 1.5, 3.5)
+      set_tool_output_mode(0)
+      set_tool_digital_output_mode(0, 1)
+      set_tool_digital_output_mode(1, 1)
+      set_tool_voltage(0)
+      set_gravity([0.0, 0.0, 9.82])
+      global Plane_1=p[0.12998391010123925,-0.3972720904091843,0.24142794323845918,-2.984415522301613,-0.2529919002249253,0.07249824801328751]
+      global Plane_2=p[0.0,0.0,0.0,0.0,0.0,0.0]
+      # begin: URCap Installation Node
+      #   Source: Remote TCP & Toolpath, 1.2.65.build36, Universal Robots A/S
+      #   Type: Remote TCP & Toolpath
+      mc_check_divergence = True
+      mc_lookahead = 0.03
+      mc_gain = 2000
+      mc_dt = 0.004
+    
+      mc_conv_tolnc = 0.001
+      mc_conv_tol_s = 0.001
+      mc_conv_loops = 100
+    
+      mc_ee_set_id = 2
+    
+      MC_GROUP_STANDBY = 0
+      MC_GROUP_STOPPING = 2
+      MC_GROUP_ERROR_STOP = 3
+    
+      MC_ERROR_PATHDIVERGED = 0
+      MC_ERROR_COLLISION = 1
+      MC_ERROR_JOINTLIMIT = 2
+      MC_ERROR_SINGULARITY = 4
+      MC_ERROR_PLANNINGFAILED = 16
+      MC_ERROR_DAEMONSTOPPED = 1024
+      MC_ERROR_SERVER_BUSY = 1025
+      MC_ERROR_NOT_INITIALIZED = 2000
+    
+      MC_TOOLPATH_ERROR_NONE = 0
+      MC_TOOLPATH_ERROR_FILELOAD = 1
+      MC_TOOLPATH_ERROR_PARSE = 2
+      MC_TOOLPATH_ERROR_EMPTYTOOLPATH = 3
+      MC_TOOLPATH_ERROR_UNSUPPORTEDTYPE = 4
+    
+      MC_GROUP_STATUS_INPUT = 24
+      MC_CURRENT_MOTION_ID_INPUT = 25
+      MC_JOINT_VALUE_INPUT = 24
+      MC_ERROR_CODE_INPUT = 26
+      MC_WATCHDOG_INPUT = 30
+      MC_PATH_SPEED_INPUT = 31
+      MC_SPEEDFACTOR_OUTPUT = 24
+    
+      mc_last_watchdog = 0
+      mc_watchdog_counter = 0
+      mc_watchdog_counter_limit = 100
+    
+      mc_last_motion_id = -1
+      mc_group_status = MC_GROUP_STOPPING
+      mc_server_started = False
+      mc_rtcp_moving = False
+      mc_debug_msg = False
+      mc_gmm_initialized = False
+    
+    
+      def mc_initialize(mode, tcp, doc=6):
+      	mc_check_busy()
+    
+      	if (mode == 0 and doc == 6):
+      		mc_ee_set_id = 0
+      	end
+    
+      	if (mode == 1 and doc == 6):
+      		mc_ee_set_id = 2
+      	end
+    
+      	if (mode == 0 and doc == 5):
+      		mc_ee_set_id = 1
+      	end
+    
+      	if (mode == 1 and doc == 5):
+      		mc_ee_set_id = 3
+      	end
+    
+      	mc_initialize_internal(tcp)
+      end
+    
+      def mc_initialize_internal(tcp):
+      	if (mc_server_started == False):
+      		global mc_server = rpc_factory("xmlrpc", "127.0.0.1:7828")
+      		mc_server_started = True
+      	end
+    
+      	mc_server.setDataStoreBoolean("IS_ON", "/robot/check_divergence", mc_check_divergence)
+      	mc_server.reset()
+      	mc_group_status = MC_GROUP_STANDBY
+      	mc_set_speed_factor(1.0)
+      	mc_server.setKinTransform(mc_ee_set_id, 0, tcp)
+      	mc_gmm_initialized = False
+      end
+    
+      def mc_check_busy():
+      	enter_critical
+      	if (mc_rtcp_moving == False):
+      		mc_rtcp_moving = True
+      	else:
+      		mc_error_stop("", "", MC_ERROR_SERVER_BUSY)
+      	end
+      	exit_critical
+      end
+    
+      def mc_add_linear(pose, a, v, r):
+      	mc_check_ready()
+      	ee_id = 0
+      	buffer_mode = "BLENDING_NEXT"
+      	transition_mode = "CORNER_DISTANCE"
+      	id = mc_server.moveLinearAbsolute(pose, mc_ee_set_id, ee_id, v, a, buffer_mode, transition_mode, r)
+    
+      	if (id == -1):
+      		mc_error_stop("Compute node returned ID ", id)
+      	end
+    
+      	mc_last_motion_id = id
+    
+      	return id
+      end
+    
+      def mc_add_circular(pose_via, pose_to, a, v, r, mode = 0):
+      	mc_check_ready()
+      	ee_id = 0
+      	buffer_mode = "BLENDING_NEXT"
+      	transition_mode = "CORNER_DISTANCE"
+      	id = mc_server.moveCircularBorderAbsolute(pose_via, pose_to, mode, mc_ee_set_id, ee_id, v, a, buffer_mode, transition_mode, r)
+    
+      	if (id == -1):
+      		mc_error_stop("Compute node returned ID ", id)
+      	end
+    
+      	mc_last_motion_id = id
+    
+      	return id
+      end
+    
+      def mc_add_path(path_id, a, v, r):
+      	mc_check_ready()
+      	ee_id = 0
+      	buffer_mode = "BLENDING_NEXT"
+      	transition_mode = "CORNER_DISTANCE"
+      	id = mc_server.movePath(path_id, mc_ee_set_id, ee_id, v, a, buffer_mode, transition_mode, r)
+    
+      	if (id == -1):
+      		result = mc_server.getErrorCode()
+      		mc_toolpath_error_stop(result[0], result[1])
+      	end
+    
+      	mc_last_motion_id = id
+    
+      	return id
+      end
+    
+      def mc_load_path(nc_file, use_feedrate = False):
+      	id = mc_server.loadPath(nc_file, use_feedrate)
+    
+      	if (id < 0):
+      		result = mc_server.getErrorCode()
+      		mc_toolpath_error_stop(result[0], result[1])
+      	end
+    
+      	return id
+      end
+    
+      def mc_get_target_rtcp_speed():
+      	return read_input_float_register(MC_PATH_SPEED_INPUT)
+      end
+    
+      def mc_check_ready():
+      	if mc_group_status != MC_GROUP_STANDBY:
+      		mc_error_stop("", "", MC_ERROR_NOT_INITIALIZED)
+      	end
+      end
+    
+      def mc_set_pcs(pcs):
+      	ee_id = 0
+      	mc_server.setCoordinateTransform(mc_ee_set_id, ee_id, pcs, "ABORTING")
+      end
+    
+      def mc_run_motion(id=-1):
+      	if (id == -1):
+      		id = mc_last_motion_id
+      	end
+    
+      	mc_debugMsg("Waiting for ID ", id)
+    
+      	if (mc_gmm_initialized == False):
+      		mc_initialize_gmm()
+      	end
+    
+      	mc_current_motion_id = read_input_integer_register(MC_CURRENT_MOTION_ID_INPUT)
+      	mc_group_status = read_input_integer_register(MC_GROUP_STATUS_INPUT)
+      	joint_targets = get_actual_joint_positions()
+      	while (mc_current_motion_id <= id and mc_current_motion_id != -2 and mc_group_status != MC_GROUP_STOPPING and mc_group_status != MC_GROUP_ERROR_STOP):
+      		mc_current_motion_id = read_input_integer_register(MC_CURRENT_MOTION_ID_INPUT)
+      		mc_group_status = read_input_integer_register(MC_GROUP_STATUS_INPUT)
+    
+      		joint_targets = mc_get_joint_targets(joint_targets)
+      		servoj(joint_targets, t = mc_dt, lookahead_time = mc_lookahead, gain = mc_gain)
+    
+      		mc_check_watchdog()
+      	end
+    
+      	if (mc_group_status == MC_GROUP_STOPPING or mc_group_status == MC_GROUP_ERROR_STOP):
+      		stopj(45)
+    
+      		mc_debugMsg("Stopping due to error after ID ", id)
+    
+      		mc_server.setDataStoreBoolean("IS_RTCP_RUNNING", "/group_motion_manager", False)
+    
+      		error_code = read_input_integer_register(MC_ERROR_CODE_INPUT)
+      		mc_error_stop("Compute node returned group status ", mc_group_status, error_code)
+    
+      		mc_rtcp_moving = False
+      		mc_group_status = MC_GROUP_STOPPING
+      	end
+    
+      	if (id == mc_last_motion_id):
+      		mc_debugMsg("Stopping after ID ", id)
+      		mc_check_convergence(joint_targets)
+    
+      		mc_server.setDataStoreBoolean("IS_RTCP_RUNNING", "/group_motion_manager", False)
+    
+      		mc_rtcp_moving = False
+      		mc_group_status = MC_GROUP_STOPPING
+      	end
+    
+      	mc_debugMsg("Completed ID ", id)
+      end
+    
+      def mc_set_speed_factor(s):
+      	write_output_float_register(MC_SPEEDFACTOR_OUTPUT, s)
+      end
+    
+      def mc_initialize_gmm():
+      	mc_current_motion_id = read_input_integer_register(MC_CURRENT_MOTION_ID_INPUT)
+      	while (mc_current_motion_id != -1):
+      		mc_current_motion_id = read_input_integer_register(MC_CURRENT_MOTION_ID_INPUT)
+      		sleep(mc_dt)
+      		mc_check_watchdog()
+      	end
+    
+      	mc_server.setDataStoreBoolean("IS_RTCP_RUNNING", "/group_motion_manager", True)
+    
+      	while (mc_current_motion_id == -1):
+      		mc_current_motion_id = read_input_integer_register(MC_CURRENT_MOTION_ID_INPUT)
+      		sleep(mc_dt)
+      		mc_check_watchdog()
+      	end
+    
+      	mc_gmm_initialized = True
+      end
+    
+      def mc_check_convergence(joint_targets):
+      	loopcounter = 0
+      	converged = False
+      	while (converged == False and loopcounter < mc_conv_loops):
+    
+      		joint_targets = mc_get_joint_targets(joint_targets)
+      		diff = mc_get_diff_joints(get_actual_joint_positions(), joint_targets)
+      		joint_speeds = get_actual_joint_speeds()
+    
+      		position_converged = diff[0] <= mc_conv_tolnc and diff[1] <= mc_conv_tolnc and diff[2] <= mc_conv_tolnc and diff[3] <= mc_conv_tolnc and diff[4] <= mc_conv_tolnc and diff[5] <= mc_conv_tolnc
+      		speed_converged = joint_speeds[0] <= mc_conv_tol_s and joint_speeds[1] <= mc_conv_tol_s and joint_speeds[2] <= mc_conv_tol_s and joint_speeds[3] <= mc_conv_tol_s and joint_speeds[4] <= mc_conv_tol_s and joint_speeds[5] <= mc_conv_tol_s
+      		converged = position_converged and speed_converged
+    
+      		servoj(joint_targets, t = mc_dt, lookahead_time = mc_lookahead, gain = mc_gain)
+    
+      		loopcounter = loopcounter + 1
+      	end
+    
+      	mc_debugMsg("Convergence loop count: ", loopcounter)
+      end
+    
+      def mc_check_watchdog():
+      	current_watchdog = read_input_float_register(MC_WATCHDOG_INPUT)
+    
+      	if (current_watchdog > mc_last_watchdog):
+      		mc_last_watchdog = current_watchdog
+      		mc_watchdog_counter = 0
+      	else:
+      		mc_watchdog_counter = mc_watchdog_counter + 1
+      		if (mc_watchdog_counter > mc_watchdog_counter_limit):
+      			mc_error_stop("", "", MC_ERROR_DAEMONSTOPPED)
+      		end
+      	end
+      end
+    
+      def mc_get_joint_targets(joint_targets):
+      	joint_targets[0] = read_input_float_register(MC_JOINT_VALUE_INPUT)
+      	joint_targets[1] = read_input_float_register(MC_JOINT_VALUE_INPUT + 1)
+      	joint_targets[2] = read_input_float_register(MC_JOINT_VALUE_INPUT + 2)
+      	joint_targets[3] = read_input_float_register(MC_JOINT_VALUE_INPUT + 3)
+      	joint_targets[4] = read_input_float_register(MC_JOINT_VALUE_INPUT + 4)
+      	joint_targets[5] = read_input_float_register(MC_JOINT_VALUE_INPUT + 5)
+      	return joint_targets
+      end
+    
+      def mc_get_diff_joints(x, y):
+      	diff = x
+      	diff[0] = norm(x[0] - y[0])
+      	diff[1] = norm(x[1] - y[1])
+      	diff[2] = norm(x[2] - y[2])
+      	diff[3] = norm(x[3] - y[3])
+      	diff[4] = norm(x[4] - y[4])
+      	diff[5] = norm(x[5] - y[5])
+      	return diff
+      end
+    
+      def mc_error_stop(msg, param="", error_code=MC_ERROR_PLANNINGFAILED):
+      	if (msg != ""):
+      		textmsg(msg, param)
+      	end
+    
+      	textmsg("Error code: ", error_code)
+      	error_msg = mc_getErrorMessage(error_code)
+      	textmsg(error_msg)
+    
+      	popup(error_msg, title="Remote TCP", error=True, blocking=False)
+      	halt
+      end
+    
+      def mc_toolpath_error_stop(error_code, param):
+      	msg = mc_getToolpathMessage(error_code)
+      	textmsg(msg + " - Line: ", param)
+    
+      	popup(msg, title="Toolpath Validation", error=True, blocking=True)
+      	halt
+      end
+    
+      def mc_debugMsg(msg, param=""):
+      	if (mc_debug_msg == True):
+      		textmsg(msg, param)
+      	end
+      end
+    
+      def mc_getErrorMessage(error_code):
+      	if error_code == MC_ERROR_PATHDIVERGED:
+      		return "<html>Robot cannot maintain tool speed. You may avoid this issue by:<ul><li>reducing the tool speed;</li><li>avoiding sharp corners;</li><li>staying away from singularities.</li></ul></html>"
+      	elif error_code == MC_ERROR_COLLISION:
+      		return "Robot is in collision."
+      	elif error_code == MC_ERROR_JOINTLIMIT:
+      		return "Robot is at a joint limit."
+      	elif error_code == MC_ERROR_SINGULARITY:
+      		return "Robot is at a singularity."
+      	elif error_code == MC_ERROR_DAEMONSTOPPED:
+      		return "The controller stopped."
+      	elif error_code == MC_ERROR_SERVER_BUSY:
+      		return "Another Remote TCP Move node is running."
+      	elif error_code == MC_ERROR_NOT_INITIALIZED:
+      		return "Group motion manager is not initialized."
+      	else:
+      		return "Motion planning failed."
+      	end
+      end
+    
+      def mc_getToolpathMessage(message_code):
+      	if message_code == MC_TOOLPATH_ERROR_NONE:
+      		return "Toolpath file is valid."
+      	elif message_code == MC_TOOLPATH_ERROR_FILELOAD:
+      		return "File cannot be loaded."
+      	elif message_code == MC_TOOLPATH_ERROR_PARSE:
+      		return "Parsing error"
+      	elif message_code == MC_TOOLPATH_ERROR_EMPTYTOOLPATH:
+      		return "Empty toolpath"
+      	elif message_code == MC_TOOLPATH_ERROR_UNSUPPORTEDTYPE:
+      		return "Unsupported type"
+      	else:
+      		return "Unknown toolpath validation error"
+      	end
+      end
+      # end: URCap Installation Node
+      global Waypoint_1_p=p[.641332856510, .504199306335, .027833409058, -.619084715578, 1.678587030474, 1.397386195768]
+      global Waypoint_1_q=[3.5514698028564453, -0.4080500167659302, 0.9446705023394983, -0.5152493280223389, 0.7038795948028564, -1.0119488875018519]
+      global Waypoint_2_p=p[.807290909657, -.117485227856, .027870778197, .085802762116, 1.648673215736, .800312032804]
+      global Waypoint_2_q=[2.740696907043457, -0.4081114095500489, 0.9446991125689905, -0.5152538579753418, 0.7038422226905823, -1.0119932333575647]
+      global Waypoint_3_p=p[.402355889792, .709686615049, .027879986319, -.984521454887, 1.613883927004, 1.664583259437]
+      global Waypoint_3_q=[3.940253973007202, -0.4081067603877564, 0.9446781317340296, -0.5153269332698365, 0.703876793384552, -1.0119231382953089]
+      while (True):
+        $ 1 "Robot Program"
+        $ 2 "MoveJ"
+        $ 3 "Waypoint_1" "breakAfter"
+        movej(get_inverse_kin(Waypoint_1_p, qnear=Waypoint_1_q), a=0.41887902047863906, v=0.5235987755982988, r=0.01)
+        $ 4 "MoveJ"
+        $ 5 "Waypoint_2" "breakAfter"
+        movej(get_inverse_kin(Waypoint_2_p, qnear=Waypoint_2_q), a=0.41887902047863906, v=0.5235987755982988, r=0.01)
+        $ 6 "MoveJ"
+        $ 7 "Waypoint_3" "breakAfter"
+        movej(get_inverse_kin(Waypoint_3_p, qnear=Waypoint_3_q), a=0.41887902047863906, v=0.5235987755982988)
+        $ 8 "MoveJ"
+        $ 9 "Waypoint_1" "breakAfter"
+        movej(get_inverse_kin(Waypoint_1_p, qnear=Waypoint_1_q), a=1.3962634015954636, v=1.0471975511965976, r=0.05)
+      end
+    end
+    $ 3 "Script: randmond2.script"
+    def randmond2():
+      step_count_c2901767_05b8_468e_a905_ad39d9cfc242 = 0.0
+      thread Step_Counter_Thread_af0bc2c8_6cbf_49ae_b4ea_4fbf55bb3efb():
+        while (True):
+          step_count_c2901767_05b8_468e_a905_ad39d9cfc242 = step_count_c2901767_05b8_468e_a905_ad39d9cfc242 + 1.0
+          sync()
+        end
+      end
+      run Step_Counter_Thread_af0bc2c8_6cbf_49ae_b4ea_4fbf55bb3efb()
+      set_standard_analog_input_domain(0, 1)
+      set_standard_analog_input_domain(1, 1)
+      set_tool_analog_input_domain(0, 1)
+      set_tool_analog_input_domain(1, 1)
+      set_analog_outputdomain(0, 0)
+      set_analog_outputdomain(1, 0)
+      set_input_actions_to_default()
+      set_tcp(p[0.0,0.0,0.0,0.0,0.0,0.0])
+      set_target_payload(0.001000, [0.000000, 0.000000, 0.000000], [0.000000, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000])
+      set_safety_mode_transition_hardness(1)
+      set_tool_communication(False, 115200, 0, 1, 1.5, 3.5)
+      set_tool_output_mode(0)
+      set_tool_digital_output_mode(0, 1)
+      set_tool_digital_output_mode(1, 1)
+      set_tool_voltage(0)
+      set_gravity([0.0, 0.0, 9.82])
+      global Plane_1=p[0.12998391010123925,-0.3972720904091843,0.24142794323845918,-2.984415522301613,-0.2529919002249253,0.07249824801328751]
+      global Plane_2=p[0.0,0.0,0.0,0.0,0.0,0.0]
+      # begin: URCap Installation Node
+      #   Source: Remote TCP & Toolpath, 1.2.65.build36, Universal Robots A/S
+      #   Type: Remote TCP & Toolpath
+      mc_check_divergence = True
+      mc_lookahead = 0.03
+      mc_gain = 2000
+      mc_dt = 0.004
+    
+      mc_conv_tolnc = 0.001
+      mc_conv_tol_s = 0.001
+      mc_conv_loops = 100
+    
+      mc_ee_set_id = 2
+    
+      MC_GROUP_STANDBY = 0
+      MC_GROUP_STOPPING = 2
+      MC_GROUP_ERROR_STOP = 3
+    
+      MC_ERROR_PATHDIVERGED = 0
+      MC_ERROR_COLLISION = 1
+      MC_ERROR_JOINTLIMIT = 2
+      MC_ERROR_SINGULARITY = 4
+      MC_ERROR_PLANNINGFAILED = 16
+      MC_ERROR_DAEMONSTOPPED = 1024
+      MC_ERROR_SERVER_BUSY = 1025
+      MC_ERROR_NOT_INITIALIZED = 2000
+    
+      MC_TOOLPATH_ERROR_NONE = 0
+      MC_TOOLPATH_ERROR_FILELOAD = 1
+      MC_TOOLPATH_ERROR_PARSE = 2
+      MC_TOOLPATH_ERROR_EMPTYTOOLPATH = 3
+      MC_TOOLPATH_ERROR_UNSUPPORTEDTYPE = 4
+    
+      MC_GROUP_STATUS_INPUT = 24
+      MC_CURRENT_MOTION_ID_INPUT = 25
+      MC_JOINT_VALUE_INPUT = 24
+      MC_ERROR_CODE_INPUT = 26
+      MC_WATCHDOG_INPUT = 30
+      MC_PATH_SPEED_INPUT = 31
+      MC_SPEEDFACTOR_OUTPUT = 24
+    
+      mc_last_watchdog = 0
+      mc_watchdog_counter = 0
+      mc_watchdog_counter_limit = 100
+    
+      mc_last_motion_id = -1
+      mc_group_status = MC_GROUP_STOPPING
+      mc_server_started = False
+      mc_rtcp_moving = False
+      mc_debug_msg = False
+      mc_gmm_initialized = False
+    
+    
+      def mc_initialize(mode, tcp, doc=6):
+      	mc_check_busy()
+    
+      	if (mode == 0 and doc == 6):
+      		mc_ee_set_id = 0
+      	end
+    
+      	if (mode == 1 and doc == 6):
+      		mc_ee_set_id = 2
+      	end
+    
+      	if (mode == 0 and doc == 5):
+      		mc_ee_set_id = 1
+      	end
+    
+      	if (mode == 1 and doc == 5):
+      		mc_ee_set_id = 3
+      	end
+    
+      	mc_initialize_internal(tcp)
+      end
+    
+      def mc_initialize_internal(tcp):
+      	if (mc_server_started == False):
+      		global mc_server = rpc_factory("xmlrpc", "127.0.0.1:7828")
+      		mc_server_started = True
+      	end
+    
+      	mc_server.setDataStoreBoolean("IS_ON", "/robot/check_divergence", mc_check_divergence)
+      	mc_server.reset()
+      	mc_group_status = MC_GROUP_STANDBY
+      	mc_set_speed_factor(1.0)
+      	mc_server.setKinTransform(mc_ee_set_id, 0, tcp)
+      	mc_gmm_initialized = False
+      end
+    
+      def mc_check_busy():
+      	enter_critical
+      	if (mc_rtcp_moving == False):
+      		mc_rtcp_moving = True
+      	else:
+      		mc_error_stop("", "", MC_ERROR_SERVER_BUSY)
+      	end
+      	exit_critical
+      end
+    
+      def mc_add_linear(pose, a, v, r):
+      	mc_check_ready()
+      	ee_id = 0
+      	buffer_mode = "BLENDING_NEXT"
+      	transition_mode = "CORNER_DISTANCE"
+      	id = mc_server.moveLinearAbsolute(pose, mc_ee_set_id, ee_id, v, a, buffer_mode, transition_mode, r)
+    
+      	if (id == -1):
+      		mc_error_stop("Compute node returned ID ", id)
+      	end
+    
+      	mc_last_motion_id = id
+    
+      	return id
+      end
+    
+      def mc_add_circular(pose_via, pose_to, a, v, r, mode = 0):
+      	mc_check_ready()
+      	ee_id = 0
+      	buffer_mode = "BLENDING_NEXT"
+      	transition_mode = "CORNER_DISTANCE"
+      	id = mc_server.moveCircularBorderAbsolute(pose_via, pose_to, mode, mc_ee_set_id, ee_id, v, a, buffer_mode, transition_mode, r)
+    
+      	if (id == -1):
+      		mc_error_stop("Compute node returned ID ", id)
+      	end
+    
+      	mc_last_motion_id = id
+    
+      	return id
+      end
+    
+      def mc_add_path(path_id, a, v, r):
+      	mc_check_ready()
+      	ee_id = 0
+      	buffer_mode = "BLENDING_NEXT"
+      	transition_mode = "CORNER_DISTANCE"
+      	id = mc_server.movePath(path_id, mc_ee_set_id, ee_id, v, a, buffer_mode, transition_mode, r)
+    
+      	if (id == -1):
+      		result = mc_server.getErrorCode()
+      		mc_toolpath_error_stop(result[0], result[1])
+      	end
+    
+      	mc_last_motion_id = id
+    
+      	return id
+      end
+    
+      def mc_load_path(nc_file, use_feedrate = False):
+      	id = mc_server.loadPath(nc_file, use_feedrate)
+    
+      	if (id < 0):
+      		result = mc_server.getErrorCode()
+      		mc_toolpath_error_stop(result[0], result[1])
+      	end
+    
+      	return id
+      end
+    
+      def mc_get_target_rtcp_speed():
+      	return read_input_float_register(MC_PATH_SPEED_INPUT)
+      end
+    
+      def mc_check_ready():
+      	if mc_group_status != MC_GROUP_STANDBY:
+      		mc_error_stop("", "", MC_ERROR_NOT_INITIALIZED)
+      	end
+      end
+    
+      def mc_set_pcs(pcs):
+      	ee_id = 0
+      	mc_server.setCoordinateTransform(mc_ee_set_id, ee_id, pcs, "ABORTING")
+      end
+    
+      def mc_run_motion(id=-1):
+      	if (id == -1):
+      		id = mc_last_motion_id
+      	end
+    
+      	mc_debugMsg("Waiting for ID ", id)
+    
+      	if (mc_gmm_initialized == False):
+      		mc_initialize_gmm()
+      	end
+    
+      	mc_current_motion_id = read_input_integer_register(MC_CURRENT_MOTION_ID_INPUT)
+      	mc_group_status = read_input_integer_register(MC_GROUP_STATUS_INPUT)
+      	joint_targets = get_actual_joint_positions()
+      	while (mc_current_motion_id <= id and mc_current_motion_id != -2 and mc_group_status != MC_GROUP_STOPPING and mc_group_status != MC_GROUP_ERROR_STOP):
+      		mc_current_motion_id = read_input_integer_register(MC_CURRENT_MOTION_ID_INPUT)
+      		mc_group_status = read_input_integer_register(MC_GROUP_STATUS_INPUT)
+    
+      		joint_targets = mc_get_joint_targets(joint_targets)
+      		servoj(joint_targets, t = mc_dt, lookahead_time = mc_lookahead, gain = mc_gain)
+    
+      		mc_check_watchdog()
+      	end
+    
+      	if (mc_group_status == MC_GROUP_STOPPING or mc_group_status == MC_GROUP_ERROR_STOP):
+      		stopj(45)
+    
+      		mc_debugMsg("Stopping due to error after ID ", id)
+    
+      		mc_server.setDataStoreBoolean("IS_RTCP_RUNNING", "/group_motion_manager", False)
+    
+      		error_code = read_input_integer_register(MC_ERROR_CODE_INPUT)
+      		mc_error_stop("Compute node returned group status ", mc_group_status, error_code)
+    
+      		mc_rtcp_moving = False
+      		mc_group_status = MC_GROUP_STOPPING
+      	end
+    
+      	if (id == mc_last_motion_id):
+      		mc_debugMsg("Stopping after ID ", id)
+      		mc_check_convergence(joint_targets)
+    
+      		mc_server.setDataStoreBoolean("IS_RTCP_RUNNING", "/group_motion_manager", False)
+    
+      		mc_rtcp_moving = False
+      		mc_group_status = MC_GROUP_STOPPING
+      	end
+    
+      	mc_debugMsg("Completed ID ", id)
+      end
+    
+      def mc_set_speed_factor(s):
+      	write_output_float_register(MC_SPEEDFACTOR_OUTPUT, s)
+      end
+    
+      def mc_initialize_gmm():
+      	mc_current_motion_id = read_input_integer_register(MC_CURRENT_MOTION_ID_INPUT)
+      	while (mc_current_motion_id != -1):
+      		mc_current_motion_id = read_input_integer_register(MC_CURRENT_MOTION_ID_INPUT)
+      		sleep(mc_dt)
+      		mc_check_watchdog()
+      	end
+    
+      	mc_server.setDataStoreBoolean("IS_RTCP_RUNNING", "/group_motion_manager", True)
+    
+      	while (mc_current_motion_id == -1):
+      		mc_current_motion_id = read_input_integer_register(MC_CURRENT_MOTION_ID_INPUT)
+      		sleep(mc_dt)
+      		mc_check_watchdog()
+      	end
+    
+      	mc_gmm_initialized = True
+      end
+    
+      def mc_check_convergence(joint_targets):
+      	loopcounter = 0
+      	converged = False
+      	while (converged == False and loopcounter < mc_conv_loops):
+    
+      		joint_targets = mc_get_joint_targets(joint_targets)
+      		diff = mc_get_diff_joints(get_actual_joint_positions(), joint_targets)
+      		joint_speeds = get_actual_joint_speeds()
+    
+      		position_converged = diff[0] <= mc_conv_tolnc and diff[1] <= mc_conv_tolnc and diff[2] <= mc_conv_tolnc and diff[3] <= mc_conv_tolnc and diff[4] <= mc_conv_tolnc and diff[5] <= mc_conv_tolnc
+      		speed_converged = joint_speeds[0] <= mc_conv_tol_s and joint_speeds[1] <= mc_conv_tol_s and joint_speeds[2] <= mc_conv_tol_s and joint_speeds[3] <= mc_conv_tol_s and joint_speeds[4] <= mc_conv_tol_s and joint_speeds[5] <= mc_conv_tol_s
+      		converged = position_converged and speed_converged
+    
+      		servoj(joint_targets, t = mc_dt, lookahead_time = mc_lookahead, gain = mc_gain)
+    
+      		loopcounter = loopcounter + 1
+      	end
+    
+      	mc_debugMsg("Convergence loop count: ", loopcounter)
+      end
+    
+      def mc_check_watchdog():
+      	current_watchdog = read_input_float_register(MC_WATCHDOG_INPUT)
+    
+      	if (current_watchdog > mc_last_watchdog):
+      		mc_last_watchdog = current_watchdog
+      		mc_watchdog_counter = 0
+      	else:
+      		mc_watchdog_counter = mc_watchdog_counter + 1
+      		if (mc_watchdog_counter > mc_watchdog_counter_limit):
+      			mc_error_stop("", "", MC_ERROR_DAEMONSTOPPED)
+      		end
+      	end
+      end
+    
+      def mc_get_joint_targets(joint_targets):
+      	joint_targets[0] = read_input_float_register(MC_JOINT_VALUE_INPUT)
+      	joint_targets[1] = read_input_float_register(MC_JOINT_VALUE_INPUT + 1)
+      	joint_targets[2] = read_input_float_register(MC_JOINT_VALUE_INPUT + 2)
+      	joint_targets[3] = read_input_float_register(MC_JOINT_VALUE_INPUT + 3)
+      	joint_targets[4] = read_input_float_register(MC_JOINT_VALUE_INPUT + 4)
+      	joint_targets[5] = read_input_float_register(MC_JOINT_VALUE_INPUT + 5)
+      	return joint_targets
+      end
+    
+      def mc_get_diff_joints(x, y):
+      	diff = x
+      	diff[0] = norm(x[0] - y[0])
+      	diff[1] = norm(x[1] - y[1])
+      	diff[2] = norm(x[2] - y[2])
+      	diff[3] = norm(x[3] - y[3])
+      	diff[4] = norm(x[4] - y[4])
+      	diff[5] = norm(x[5] - y[5])
+      	return diff
+      end
+    
+      def mc_error_stop(msg, param="", error_code=MC_ERROR_PLANNINGFAILED):
+      	if (msg != ""):
+      		textmsg(msg, param)
+      	end
+    
+      	textmsg("Error code: ", error_code)
+      	error_msg = mc_getErrorMessage(error_code)
+      	textmsg(error_msg)
+    
+      	popup(error_msg, title="Remote TCP", error=True, blocking=False)
+      	halt
+      end
+    
+      def mc_toolpath_error_stop(error_code, param):
+      	msg = mc_getToolpathMessage(error_code)
+      	textmsg(msg + " - Line: ", param)
+    
+      	popup(msg, title="Toolpath Validation", error=True, blocking=True)
+      	halt
+      end
+    
+      def mc_debugMsg(msg, param=""):
+      	if (mc_debug_msg == True):
+      		textmsg(msg, param)
+      	end
+      end
+    
+      def mc_getErrorMessage(error_code):
+      	if error_code == MC_ERROR_PATHDIVERGED:
+      		return "<html>Robot cannot maintain tool speed. You may avoid this issue by:<ul><li>reducing the tool speed;</li><li>avoiding sharp corners;</li><li>staying away from singularities.</li></ul></html>"
+      	elif error_code == MC_ERROR_COLLISION:
+      		return "Robot is in collision."
+      	elif error_code == MC_ERROR_JOINTLIMIT:
+      		return "Robot is at a joint limit."
+      	elif error_code == MC_ERROR_SINGULARITY:
+      		return "Robot is at a singularity."
+      	elif error_code == MC_ERROR_DAEMONSTOPPED:
+      		return "The controller stopped."
+      	elif error_code == MC_ERROR_SERVER_BUSY:
+      		return "Another Remote TCP Move node is running."
+      	elif error_code == MC_ERROR_NOT_INITIALIZED:
+      		return "Group motion manager is not initialized."
+      	else:
+      		return "Motion planning failed."
+      	end
+      end
+    
+      def mc_getToolpathMessage(message_code):
+      	if message_code == MC_TOOLPATH_ERROR_NONE:
+      		return "Toolpath file is valid."
+      	elif message_code == MC_TOOLPATH_ERROR_FILELOAD:
+      		return "File cannot be loaded."
+      	elif message_code == MC_TOOLPATH_ERROR_PARSE:
+      		return "Parsing error"
+      	elif message_code == MC_TOOLPATH_ERROR_EMPTYTOOLPATH:
+      		return "Empty toolpath"
+      	elif message_code == MC_TOOLPATH_ERROR_UNSUPPORTEDTYPE:
+      		return "Unsupported type"
+      	else:
+      		return "Unknown toolpath validation error"
+      	end
+      end
+      # end: URCap Installation Node
+      global Waypoint_4_p=p[.437392466693, .688641326241, .027902549621, -.936527395368, 1.625438275306, 1.631103066149]
+      global Waypoint_4_q=[3.8901479244232178, -0.40814824522052007, 0.9446991125689905, -0.5152977269938965, 0.7038723230361938, -1.0119293371783655]
+      global Waypoint_5_p=p[.812795704011, -.069975884537, .027845493689, .037638178136, 1.657506244163, .844725030057]
+      global Waypoint_5_q=[2.799337884343145, -0.40806885183367925, 0.9446900526629847, -0.5153301519206543, 0.7038915753364563, -1.0119536558734339]
+      global Waypoint_1_p=p[.437382871733, .688643708858, .027845590489, -.936488703635, 1.625531393644, 1.631132228798]
+      global Waypoint_1_q=[3.8901596069335938, -0.40806491792712407, 0.9446781317340296, -0.5153051179698487, 0.7038872241973877, -1.0118878523456019]
+      while (True):
+        $ 1 "Robot Program"
+        $ 2 "MoveJ"
+        $ 3 "Waypoint_4" "breakAfter"
+        movej(get_inverse_kin(Waypoint_4_p, qnear=Waypoint_4_q), a=0.41887902047863906, v=0.5235987755982988)
+        $ 4 "Waypoint_5" "breakAfter"
+        movej(get_inverse_kin(Waypoint_5_p, qnear=Waypoint_5_q), a=0.41887902047863906, v=0.5235987755982988, r=0.05)
+        $ 5 "Waypoint_1" "breakAfter"
+        movej(get_inverse_kin(Waypoint_1_p, qnear=Waypoint_1_q), a=0.41887902047863906, v=0.5235987755982988)
+      end
+    end
+  end
+end
