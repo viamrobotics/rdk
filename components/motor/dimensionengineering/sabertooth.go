@@ -404,6 +404,7 @@ func (m *Motor) GoFor(ctx context.Context, rpm, revolutions float64, extra map[s
 	}
 
 	if revolutions == 0 {
+		m.logger.Warn("Deprecated: setting revolutions == 0 will spin the motor indefinitely at the specified RPM")
 		return nil
 	}
 
@@ -422,7 +423,12 @@ func (m *Motor) GoTo(ctx context.Context, rpm, position float64, extra map[strin
 
 // SetRPM instructs the motor to move at the specified RPM indefinitely.
 func (m *Motor) SetRPM(ctx context.Context, rpm float64, extra map[string]interface{}) error {
-	return motor.NewSetRPMUnsupportedError(m.Name().ShortName())
+	if m.maxRPM == 0 {
+		return motor.NewZeroRPMError()
+	}
+
+	powerPct := rpm / m.maxRPM
+	return m.SetPower(ctx, powerPct, extra)
 }
 
 // ResetZeroPosition defines the current position to be zero (+/- offset).

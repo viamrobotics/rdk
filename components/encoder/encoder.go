@@ -58,36 +58,42 @@ func (t PositionType) String() string {
 }
 
 // A Encoder turns a position into a signal.
+//
+// Position example:
+//
+//	myEncoder, err := encoder.FromRobot(machine, "my_encoder")
+//	if err != nil {
+//	  logger.Fatalf("cannot get encoder: %v", err)
+//	}
+//
+//	// Get the position of the encoder in ticks
+//	position, posType, err := myEncoder.Position(context.Background(), encoder.PositionTypeTicks, nil)
+//
+// ResetPosition example:
+//
+//	myEncoder, err := encoder.FromRobot(machine, "my_encoder")
+//	if err != nil {
+//	  logger.Fatalf("cannot get encoder: %v", err)
+//	}
+//
+//	err = myEncoder.ResetPosition(context.Background(), nil)
+//
+// Properties example:
+//
+//	myEncoder, err := encoder.FromRobot(machine, "my_encoder")
+//
+//	// Get whether the encoder returns position in ticks or degrees.
+//	properties, err := myEncoder.Properties(context.Background(), nil)
 type Encoder interface {
 	resource.Resource
 
 	// Position returns the current position in terms of ticks or degrees, and whether it is a relative or absolute position.
-	//
-	//    myEncoder, err := encoder.FromRobot(machine, "my_encoder")
-	//    if err != nil {
-	//      logger.Fatalf("cannot get encoder: %v", err)
-	//    }
-	//
-	//    // Get the position of the encoder in ticks
-	//    position, posType, err := myEncoder.Position(context.Background(), encoder.PositionTypeTicks, nil)
 	Position(ctx context.Context, positionType PositionType, extra map[string]interface{}) (float64, PositionType, error)
 
 	// ResetPosition sets the current position of the motor to be its new zero position.
-	//
-	//    myEncoder, err := encoder.FromRobot(machine, "my_encoder")
-	//    if err != nil {
-	//      logger.Fatalf("cannot get encoder: %v", err)
-	//    }
-	//
-	//    err = myEncoder.ResetPosition(context.Background(), nil)
 	ResetPosition(ctx context.Context, extra map[string]interface{}) error
 
-	// Properties returns a list of all the position types that are supported by a given encoder
-	//
-	//    myEncoder, err := encoder.FromRobot(machine, "my_encoder")
-	//
-	//    // Get whether the encoder returns position in ticks or degrees.
-	//    properties, err := myEncoder.Properties(context.Background(), nil)
+	// Properties returns a list of all the position types that are supported by a given encoder.
 	Properties(ctx context.Context, extra map[string]interface{}) (Properties, error)
 }
 

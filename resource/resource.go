@@ -46,9 +46,28 @@ var (
 // to reconfigure themselves (or signal that they must be rebuilt).
 // Resources that fail to reconfigure or rebuild may be closed and must return
 // errors when in a closed state for all non Close methods.
+//
+// Name example:
+//
+//	// Get the Name of an arm component.
+//	myArmName := myArm.Name()
+//
+// DoCommand example:
+//
+//	// This example shows using DoCommand with an arm component.
+//	myArm, err := arm.FromRobot(machine, "my_arm")
+//
+//	command := map[string]interface{}{"cmd": "test", "data1": 500}
+//	result, err := myArm.DoCommand(context.Background(), command)
+//
+// Close example:
+//
+//	// This example shows using Close with an arm component.
+//	myArm, err := arm.FromRobot(machine, "my_arm")
+//
+//	err = myArm.Close(ctx)
 type Resource interface {
 	// Get the Name of the resource.
-	//    // myArmName := myArm.Name()
 	Name() Name
 
 	// Reconfigure must reconfigure the resource atomically and in place. If this
@@ -57,15 +76,11 @@ type Resource interface {
 	Reconfigure(ctx context.Context, deps Dependencies, conf Config) error
 
 	// DoCommand sends/receives arbitrary data
-	//    // myBoard, err := board.FromRobot(machine, "my_board")
-	//    // resp, err := myBoard.DoCommand(ctx, map[string]interface{}{"command": "dosomething", "someparameter": 52})
 	DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
 
 	// Close must safely shut down the resource and prevent further use.
 	// Close must be idempotent.
 	// Later reconfiguration may allow a resource to be "open" again.
-	//    // myBoard, err := board.FromRobot(machine, "my_board")
-	//    // err := myBoard.Close(ctx)
 	Close(ctx context.Context) error
 }
 
@@ -135,21 +150,59 @@ func ContainsReservedCharacter(val string) error {
 
 // A Sensor represents a general purpose sensor that can give arbitrary readings
 // of all readings that it is sensing.
+//
+// Readings example:
+//
+//	// Get the readings provided by the sensor.
+//	readings, err := mySensor.Readings(context.Background(), nil)
 type Sensor interface {
 	// Readings return data specific to the type of sensor and can be of any type.
 	Readings(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error)
 }
 
 // Actuator is any resource that can move.
+//
+// IsMoving example:
+//
+//	// This example shows using IsMoving with an arm component.
+//	myArm, err := arm.FromRobot(machine, "my_arm")
+//
+//	// Stop all motion of the arm. It is assumed that the arm stops immediately.
+//	myArm.Stop(context.Background(), nil)
+//
+//	// Log if the arm is currently moving.
+//	is_moving, err := myArm.IsMoving(context.Background())
+//	logger.Info(is_moving)
+//
+// Stop example:
+//
+//	// This example shows using Stop with an arm component.
+//	myArm, err := arm.FromRobot(machine, "my_arm")
+//
+//	// Stop all motion of the arm. It is assumed that the arm stops immediately.
+//	err = myArm.Stop(context.Background(), nil)
 type Actuator interface {
-	// IsMoving returns whether the resource is moving or not
+	// IsMoving returns whether the resource is moving or not.
 	IsMoving(context.Context) (bool, error)
 
-	// Stop stops all movement for the resource
+	// Stop stops all movement for the resource.
 	Stop(context.Context, map[string]interface{}) error
 }
 
 // Shaped is any resource that can have geometries.
+//
+// Geometries example:
+//
+//	// This example shows using Geometries with an arm component.
+//	myArm, err := arm.FromRobot(machine, "my_arm")
+//
+//	geometries, err := myArm.Geometries(context.Background(), nil)
+//
+//	if len(geometries) > 0 {
+//	   // Get the center of the first geometry
+//	   elem := geometries[0]
+//	   fmt.Println("Pose of the first geometry's center point:", elem.center)
+//	}
 type Shaped interface {
 	// Geometries returns the list of geometries associated with the resource, in any order. The poses of the geometries reflect their
 	// current location relative to the frame of the resource.

@@ -120,7 +120,7 @@ func FromDependencies(deps resource.Dependencies, name string) (Service, error) 
 // Service describes the functions that are available to the service.
 //
 // The Go SDK implements helper functions that concatenate streaming
-// responses. Some of the following examples use correstponding
+// responses. Some of the following examples use corresponding
 // helper methods instead of interface methods.
 //
 // Position example:
