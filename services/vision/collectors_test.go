@@ -3,6 +3,7 @@ package vision_test
 import (
 	"context"
 	"image"
+	"strconv"
 	"testing"
 	"time"
 
@@ -10,7 +11,6 @@ import (
 	v1 "go.viam.com/api/common/v1"
 	camerapb "go.viam.com/api/component/camera/v1"
 	pb "go.viam.com/api/service/vision/v1"
-	servicepb "go.viam.com/api/service/vision/v1"
 	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/logging"
 	visionservice "go.viam.com/rdk/services/vision"
@@ -22,6 +22,9 @@ import (
 	"go.viam.com/rdk/vision/viscapture"
 	"go.viam.com/test"
 	"go.viam.com/utils/protoutils"
+	"google.golang.org/protobuf/reflect/protoreflect"
+	"google.golang.org/protobuf/types/known/anypb"
+	"google.golang.org/protobuf/types/known/wrapperspb"
 )
 
 type fakeDetection struct {
@@ -144,6 +147,40 @@ func detsToProto(detections []objectdetection.Detection) []*pb.Detection {
 	return protoDets
 }
 
+func convertStringMapToAnyPBMap(params map[string]string) (map[string]*anypb.Any, error) {
+	methodParams := map[string]*anypb.Any{}
+	for key, paramVal := range params {
+		anyVal, err := convertStringToAnyPB(paramVal)
+		if err != nil {
+			return nil, err
+		}
+		methodParams[key] = anyVal
+	}
+	return methodParams, nil
+}
+
+func convertStringToAnyPB(str string) (*anypb.Any, error) {
+	var wrappedVal protoreflect.ProtoMessage
+	if boolVal, err := strconv.ParseBool(str); err == nil {
+		wrappedVal = wrapperspb.Bool(boolVal)
+	} else if int64Val, err := strconv.ParseInt(str, 10, 64); err == nil {
+		wrappedVal = wrapperspb.Int64(int64Val)
+	} else if uint64Val, err := strconv.ParseUint(str, 10, 64); err == nil {
+		wrappedVal = wrapperspb.UInt64(uint64Val)
+	} else if float64Val, err := strconv.ParseFloat(str, 64); err == nil {
+		wrappedVal = wrapperspb.Double(float64Val)
+	} else {
+		wrappedVal = wrapperspb.String(str)
+	}
+	anyVal, err := anypb.New(wrappedVal)
+	if err != nil {
+		return nil, err
+	}
+	return anyVal, nil
+}
+
+var methodParams, _ = convertStringMapToAnyPBMap(map[string]string{"camera_name": "camera-1"})
+
 func TestCollectors(t *testing.T) {
 	tests := []struct {
 		name      string
@@ -151,9 +188,9 @@ func TestCollectors(t *testing.T) {
 		expected  map[string]any
 	}{
 		{
-			name:      "CaptureAllFromCameraCollector should return a CaptureAllFromCameraResp",
+			name:      "CaptureAllFromCameraCollector should return non-empty CaptureAllFromCameraResp",
 			collector: visionservice.NewCaptureAllFromCameraCollector,
-			expected: tu.ToProtoMapIgnoreOmitEmpty(servicepb.CaptureAllFromCameraResponse{
+			expected: tu.ToProtoMapIgnoreOmitEmpty(pb.CaptureAllFromCameraResponse{
 				Image:           &camerapb.Image{},
 				Classifications: clasToProto(fakeClassifications),
 				Detections:      detsToProto(fakeDetections),
@@ -162,9 +199,9 @@ func TestCollectors(t *testing.T) {
 			}),
 		},
 		{
-			name:      "CaptureAllFromCameraCollector with Classifications < 0.5 confidence score should be empty",
+			name:      "CaptureAllFromCameraCollector with Classifications & Detections < 0.5 confidence score return empty CaptureAllFromCameraResp",
 			collector: visionservice.NewCaptureAllFromCameraCollector,
-			expected: tu.ToProtoMapIgnoreOmitEmpty(servicepb.CaptureAllFromCameraResponse{
+			expected: tu.ToProtoMapIgnoreOmitEmpty(pb.CaptureAllFromCameraResponse{
 				Image:           &camerapb.Image{},
 				Classifications: clasToProto([]classification.Classification{}),
 				Detections:      detsToProto([]objectdetection.Detection{}),
@@ -184,13 +221,13 @@ func TestCollectors(t *testing.T) {
 				Logger:        logging.NewTestLogger(t),
 				Clock:         mockClock,
 				Target:        &buf,
-				MethodParams:  nil,
+				MethodParams:  methodParams,
 			}
 
 			var vision visionservice.Service
-			if tc.name == "CaptureAllFromCameraCollector should return a CaptureAllFromCameraResp" {
+			if tc.name == "CaptureAllFromCameraCollector should return non-empty CaptureAllFromCameraResp" {
 				vision = newVisionService()
-			} else if tc.name == "CaptureAllFromCameraCollector with Classifications < 0.5 confidence score should be empty" {
+			} else if tc.name == "CaptureAllFromCameraCollector with Classifications & Detections < 0.5 confidence score return empty CaptureAllFromCameraResp" {
 				vision = newVisionService2()
 			}
 

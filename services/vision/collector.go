@@ -42,19 +42,21 @@ func newCaptureAllFromCameraCollector(resource interface{}, params data.Collecto
 
 	cameraParam := params.MethodParams["camera_name"]
 
-	cameraName := "camera-1"
+	var cameraName string
 
 	if cameraParam == nil {
-		// return nil, errors.New("must specify a camera_name in the additional_params")
+		return nil, errors.New("must specify a camera_name in the additional_params")
 	} else {
 		cameraNameWrapper := new(wrapperspb.StringValue)
 		if err := cameraParam.UnmarshalTo(cameraNameWrapper); err != nil {
 			return nil, err
 		}
+		cameraName = cameraNameWrapper.Value
 	}
 
 	minConfidenceParam := params.MethodParams["min_confidence_score"]
 
+	// Default min_confidence_score is 0.5
 	minConfidenceScore := 0.5
 
 	if minConfidenceParam != nil {
