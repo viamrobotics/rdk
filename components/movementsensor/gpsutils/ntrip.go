@@ -152,7 +152,6 @@ Loop:
 		case "STR":
 			if fields[mp] == n.MountPoint {
 				str, err := parseStream(ln)
-
 				if err != nil {
 					return nil, fmt.Errorf("error while parsing stream: %w", err)
 				}
@@ -162,9 +161,8 @@ Loop:
 			if strings.Contains(fields[0], "END") {
 				logger.Debug("Reached the end of SourceTable")
 				break Loop
-			} else {
-				return nil, fmt.Errorf("%s: illegal sourcetable line: '%s'", n.URL, ln)
 			}
+			return nil, fmt.Errorf("%s: illegal sourcetable line: '%s'", n.URL, ln)
 		}
 	}
 
