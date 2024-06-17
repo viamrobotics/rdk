@@ -11,6 +11,12 @@ import (
 	v1 "go.viam.com/api/common/v1"
 	camerapb "go.viam.com/api/component/camera/v1"
 	pb "go.viam.com/api/service/vision/v1"
+	"go.viam.com/test"
+	"go.viam.com/utils/protoutils"
+	"google.golang.org/protobuf/reflect/protoreflect"
+	"google.golang.org/protobuf/types/known/anypb"
+	"google.golang.org/protobuf/types/known/wrapperspb"
+
 	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/logging"
 	visionservice "go.viam.com/rdk/services/vision"
@@ -20,11 +26,6 @@ import (
 	"go.viam.com/rdk/vision/classification"
 	"go.viam.com/rdk/vision/objectdetection"
 	"go.viam.com/rdk/vision/viscapture"
-	"go.viam.com/test"
-	"go.viam.com/utils/protoutils"
-	"google.golang.org/protobuf/reflect/protoreflect"
-	"google.golang.org/protobuf/types/known/anypb"
-	"google.golang.org/protobuf/types/known/wrapperspb"
 )
 
 type fakeDetection struct {
@@ -47,6 +48,8 @@ const (
 	serviceName     = "vision"
 	captureInterval = time.Second
 	numRetries      = 5
+	testName1       = "CaptureAllFromCameraCollector returns non-empty CaptureAllFromCameraResp"
+	testName2       = "CaptureAllFromCameraCollector w/ Classifications & Detections < 0.5 returns empty CaptureAllFromCameraResp"
 )
 
 var fakeDetections = []objectdetection.Detection{
@@ -188,7 +191,7 @@ func TestCollectors(t *testing.T) {
 		expected  map[string]any
 	}{
 		{
-			name:      "CaptureAllFromCameraCollector should return non-empty CaptureAllFromCameraResp",
+			name:      testName1,
 			collector: visionservice.NewCaptureAllFromCameraCollector,
 			expected: tu.ToProtoMapIgnoreOmitEmpty(pb.CaptureAllFromCameraResponse{
 				Image:           &camerapb.Image{},
@@ -199,7 +202,7 @@ func TestCollectors(t *testing.T) {
 			}),
 		},
 		{
-			name:      "CaptureAllFromCameraCollector with Classifications & Detections < 0.5 confidence score return empty CaptureAllFromCameraResp",
+			name:      testName2,
 			collector: visionservice.NewCaptureAllFromCameraCollector,
 			expected: tu.ToProtoMapIgnoreOmitEmpty(pb.CaptureAllFromCameraResponse{
 				Image:           &camerapb.Image{},
@@ -225,9 +228,9 @@ func TestCollectors(t *testing.T) {
 			}
 
 			var vision visionservice.Service
-			if tc.name == "CaptureAllFromCameraCollector should return non-empty CaptureAllFromCameraResp" {
+			if tc.name == testName1 {
 				vision = newVisionService()
-			} else if tc.name == "CaptureAllFromCameraCollector with Classifications & Detections < 0.5 confidence score return empty CaptureAllFromCameraResp" {
+			} else if tc.name == testName2 {
 				vision = newVisionService2()
 			}
 
@@ -249,7 +252,9 @@ func TestCollectors(t *testing.T) {
 
 func newVisionService() visionservice.Service {
 	v := &inject.VisionService{}
-	v.CaptureAllFromCameraFunc = func(ctx context.Context, cameraName string, opts viscapture.CaptureOptions, extra map[string]interface{}) (viscapture.VisCapture, error) {
+	v.CaptureAllFromCameraFunc = func(ctx context.Context, cameraName string, opts viscapture.CaptureOptions,
+		extra map[string]interface{},
+	) (viscapture.VisCapture, error) {
 		return viscapture.VisCapture{
 			Image:           nil,
 			Detections:      fakeDetections,
@@ -263,7 +268,9 @@ func newVisionService() visionservice.Service {
 
 func newVisionService2() visionservice.Service {
 	v := &inject.VisionService{}
-	v.CaptureAllFromCameraFunc = func(ctx context.Context, cameraName string, opts viscapture.CaptureOptions, extra map[string]interface{}) (viscapture.VisCapture, error) {
+	v.CaptureAllFromCameraFunc = func(ctx context.Context, cameraName string, opts viscapture.CaptureOptions,
+		extra map[string]interface{},
+	) (viscapture.VisCapture, error) {
 		return viscapture.VisCapture{
 			Image:           nil,
 			Detections:      fakeDetections2,
