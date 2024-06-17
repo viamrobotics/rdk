@@ -30,7 +30,6 @@ const (
 )
 
 // A GraphNode contains the current state of a resource.
-// It starts out as either uninitialized, unconfigured, or configured.
 // Based on these states, the underlying Resource may or may not be available.
 // Additionally, the node can be informed that the resource either needs to be
 // updated or eventually removed. During its life, errors may be set on the
@@ -47,9 +46,12 @@ type GraphNode struct {
 	// in tests.
 	updatedAt int64
 
-	current                   Resource
-	currentModel              Model
-	config                    Config
+	current      Resource
+	currentModel Model
+	config       Config
+	// lastReconfigured returns a pointer to the time at which the resource within this
+	// GraphNode was constructed or last reconfigured. It returns nil if the GraphNode is
+	// unconfigured.
 	lastReconfigured          *time.Time
 	lastErr                   error
 	unresolvedDependencies    []string
@@ -57,10 +59,10 @@ type GraphNode struct {
 
 	logger logging.Logger
 
-	// state stores the current lifecycle state for a resource node
+	// state stores the current lifecycle state for a resource node.
 	state NodeState
-	// transitionedAt stores the timestamp of when resource entered it's current
-	// lifecycle state.
+	// transitionedAt stores the timestamp of when resource entered its current lifecycle
+	// state.
 	transitionedAt time.Time
 }
 
@@ -109,7 +111,7 @@ func (w *GraphNode) setGraphLogicalClock(clock *atomic.Int64) {
 
 // LastReconfigured returns a pointer to the time at which the resource within
 // this GraphNode was constructed or last reconfigured. It returns nil if the
-// GraphNode is uninitialized or unconfigured.
+// GraphNode is unconfigured.
 func (w *GraphNode) LastReconfigured() *time.Time {
 	w.mu.RLock()
 	defer w.mu.RUnlock()
