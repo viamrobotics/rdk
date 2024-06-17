@@ -8,6 +8,7 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"go.uber.org/zap/zaptest/observer"
+	"go.viam.com/utils"
 )
 
 var (
@@ -109,4 +110,36 @@ func NewObservedTestLogger(tb testing.TB) (Logger, *observer.ObservedLogs) {
 	}
 
 	return logger, observedLogs
+}
+
+// MemLogger stores test logs in memory. And can write them on request with `OutputLogs`.
+type MemLogger struct {
+	Logger
+
+	tb       testing.TB
+	observer *observer.ObservedLogs
+}
+
+// OutputLogs writes in-memory logs to the test object MemLogger was constructed with.
+func (memLogger *MemLogger) OutputLogs() {
+	appender := NewTestAppender(memLogger.tb)
+	for _, loggedEntry := range memLogger.observer.All() {
+		utils.UncheckedError(appender.Write(loggedEntry.Entry, loggedEntry.Context))
+	}
+}
+
+// NewInMemoryLogger creates a MemLogger that can be used to buffer test logs and output them on
+// command. This is handy if a test is noisy, but the output is useful when the test fails.
+func NewInMemoryLogger(tb testing.TB) *MemLogger {
+	observerCore, observedLogs := observer.New(zap.LevelEnablerFunc(zapcore.DebugLevel.Enabled))
+	logger := &impl{
+		name:  "",
+		level: NewAtomicLevelAt(DEBUG),
+		appenders: []Appender{
+			observerCore,
+		},
+		testHelper: tb.Helper,
+	}
+
+	return &MemLogger{logger, tb, observedLogs}
 }
