@@ -328,6 +328,9 @@ func (m *Motor) GoTo(ctx context.Context, rpm, pos float64, extra map[string]int
 	}
 
 	switch speed := math.Abs(rpm); {
+	case speed == 0.0:
+		m.Logger.CWarn(ctx, "motor speed is 0 rev_per_min")
+		return motor.NewZeroRPMError()
 	case speed < 0.1:
 		m.Logger.CWarn(ctx, "motor speed is nearly 0 rev_per_min")
 	case m.MaxRPM > 0 && speed > m.MaxRPM-0.1:
