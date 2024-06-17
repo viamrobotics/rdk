@@ -7,7 +7,6 @@ package kinematicbase
 import (
 	"context"
 	"errors"
-	"math"
 	"sync"
 
 	"go.viam.com/rdk/components/base"
@@ -144,19 +143,7 @@ func wrapWithPTGKinematics(
 	// we intentionally set our OX, OY, OZ values to be greater than 1 since
 	// a possible orientation which a planner produces may have the following
 	// values: OZ: 1.0000000002, Theta: t.
-	localizationFrame, err := referenceframe.NewPoseFrame(
-		b.Name().ShortName()+"LocalizationFrame",
-		[]referenceframe.Limit{
-			{Min: math.Inf(-1), Max: math.Inf(1)},
-			{Min: math.Inf(-1), Max: math.Inf(1)},
-			{Min: math.Inf(-1), Max: math.Inf(1)},
-			{Min: -1.5, Max: 1.5},
-			{Min: -1.5, Max: 1.5},
-			{Min: -1.5, Max: 1.5},
-			{Min: -2 * math.Pi, Max: 2 * math.Pi},
-		},
-		nil,
-	)
+	localizationFrame, err := referenceframe.NewPoseFrame(b.Name().ShortName()+"LocalizationFrame", nil)
 	if err != nil {
 		return nil, err
 	}

@@ -451,13 +451,25 @@ type poseFrame struct {
 	geometry spatial.Geometry
 }
 
-// NewPoseFrame created a frame with 7 degrees of freedom, x, y, z, OX, OY, OZ, and theta in radians.
-func NewPoseFrame(name string, limits []Limit, geometry spatial.Geometry) (Frame, error) {
-	if len(limits) != 7 {
-		return nil,
-			errors.Errorf("Must have 7DOF state (x, y, z, OX, OY, OZ, theta) to create 6DFrame, have %d dof", len(limits))
+// NewPoseFrame creates an orientation vector frame, i.e a frame with
+// 7 degrees of freedom: X, Y, Z, OX, OY, OZ, and Theta in radians.
+func NewPoseFrame(name string, geometry spatial.Geometry) (Frame, error) {
+	orientationVector := spatial.OrientationVector{
+		OX:    math.Inf(1),
+		OY:    math.Inf(1),
+		OZ:    math.Inf(1),
+		Theta: math.Pi,
 	}
-
+	orientationVector.Normalize()
+	limits := []Limit{
+		{Min: math.Inf(-1), Max: math.Inf(1)},                         // X
+		{Min: math.Inf(-1), Max: math.Inf(1)},                         // Y
+		{Min: math.Inf(-1), Max: math.Inf(1)},                         // Z
+		{Min: -orientationVector.OX, Max: orientationVector.OX},       // OX
+		{Min: -orientationVector.OY, Max: orientationVector.OY},       // OY
+		{Min: -orientationVector.OZ, Max: orientationVector.OZ},       // OZ
+		{Min: -orientationVector.Theta, Max: orientationVector.Theta}, // Theta
+	}
 	return &poseFrame{
 		&baseFrame{name, limits},
 		geometry,
@@ -528,18 +540,7 @@ func (pf *poseFrame) DoF() []Limit {
 
 // MarshalJSON serializes a Model.
 func (pf *poseFrame) MarshalJSON() ([]byte, error) {
-	temp := LinkConfig{
-		ID: pf.name,
-	}
-
-	if pf.geometry != nil {
-		var err error
-		temp.Geometry, err = spatial.NewGeometryConfig(pf.geometry)
-		if err != nil {
-			return nil, err
-		}
-	}
-	return json.Marshal(temp)
+	return nil, errors.New("serializing a poseFrame is currently not supported")
 }
 
 // InputFromProtobuf converts pb.JointPosition to inputs.
