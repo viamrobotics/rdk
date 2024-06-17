@@ -333,7 +333,7 @@ func (rc *RobotClient) connect(ctx context.Context) error {
 	rc.Logger().CInfow(ctx, "successfully (re)connected to remote at address", "address", rc.address)
 	if rc.notifyParent != nil {
 		rc.notifyParent()
-		rc.Logger().CDebugw(ctx, "successfully notified parent after reconnection", "remote address", rc.address)
+		rc.Logger().CDebugw(ctx, "successfully notified parent after (re)connection", "address", rc.address)
 	}
 	return nil
 }
