@@ -119,10 +119,6 @@ func checkPlanRelative(
 		return poseInWorld, nil
 	}
 
-	plan := executionState.Plan()
-	wayPointIdx := executionState.Index()
-	startingInputs := executionState.currentInputs
-
 	currentInputs := executionState.CurrentInputs()
 	currentPoses := executionState.CurrentPoses()
 	if currentPoses == nil {
@@ -133,7 +129,8 @@ func checkPlanRelative(
 		return errors.New("LocalizationFrame not found in current pose map")
 	}
 
-	sf := sfPlanner.frame
+	plan := executionState.Plan()
+	wayPointIdx := executionState.Index()
 
 	// Check that path pose is valid
 	stepEndPiF, ok := plan.Path()[wayPointIdx][checkFrame.Name()]
@@ -146,6 +143,63 @@ func checkPlanRelative(
 	}
 
 	currentPoseInWorld, err := toWorld(currentPoseIF, currentInputs)
+	if err != nil {
+		return err
+	}
+
+	planStartPiF, ok := plan.Path()[0][checkFrame.Name()]
+	if !ok {
+		return errors.New("check frame given not in plan Path map")
+	}
+	planStartPoseWorld, err := toWorld(planStartPiF, plan.Trajectory()[0])
+	if err != nil {
+		return err
+	}
+	planEndPiF, ok := plan.Path()[len(plan.Path())-1][checkFrame.Name()]
+	if !ok {
+		return errors.New("check frame given not in plan Path map")
+	}
+	planEndPoseWorld, err := toWorld(planEndPiF, plan.Trajectory()[len(plan.Path())-1])
+	if err != nil {
+		return err
+	}
+
+	startingInputs := plan.Trajectory()[0]
+	startingInputs[localizationFrame.Name()] = referenceframe.FloatsToInputs([]float64{
+		planStartPoseWorld.Pose().Point().X,
+		planStartPoseWorld.Pose().Point().Y,
+		planStartPoseWorld.Pose().Point().Z,
+		planStartPoseWorld.Pose().Orientation().OrientationVectorRadians().OX,
+		planStartPoseWorld.Pose().Orientation().OrientationVectorRadians().OY,
+		planStartPoseWorld.Pose().Orientation().OrientationVectorRadians().OZ,
+		planStartPoseWorld.Pose().Orientation().OrientationVectorRadians().Theta,
+	})
+
+	// setup the planOpts. Poses should be in world frame. This allows us to know e.g. which obstacles may ephemerally collide.
+	if sfPlanner.planOpts, err = sfPlanner.plannerSetupFromMoveRequest(
+		planStartPoseWorld.Pose(),
+		planEndPoseWorld.Pose(),
+		startingInputs,
+		worldState,
+		nil,
+		nil, // no pb.Constraints
+		nil, // no plannOpts
+	); err != nil {
+		return err
+	}
+
+	sf := sfPlanner.frame
+	segments := make([]*ik.Segment, 0, len(plan.Path())-wayPointIdx)
+	// get checkFrame's currentInputs
+	// *currently* it is guaranteed that a relative frame will constitute 100% of a solver frame's dof
+	checkFrameCurrentInputs, err := sf.mapToSlice(currentInputs)
+	if err != nil {
+		return err
+	}
+
+	currentWayPointTraj := plan.Trajectory()[wayPointIdx]
+	currentWayPointTraj[localizationFrame.Name()] = currentInputs[localizationFrame.Name()]
+	arcEndInputs, err := sf.mapToSlice(currentWayPointTraj)
 	if err != nil {
 		return err
 	}
@@ -172,67 +226,6 @@ func checkPlanRelative(
 	remainingArcPose := spatialmath.PoseBetween(poseThroughArc, fullArcPose)
 	expectedCurrentPose := spatialmath.PoseBetweenInverse(remainingArcPose, expectedArcEndInWorld.Pose())
 	errorState := spatialmath.PoseBetween(expectedCurrentPose, currentPoseInWorld.Pose())
-
-	planStartPiF, ok := plan.Path()[wayPointIdx][checkFrame.Name()]
-	if !ok {
-		return errors.New("check frame given not in plan Path map")
-	}
-	planStartPoseWorld, err := toWorld(planStartPiF, startingInputs)
-	if err != nil {
-		return err
-	}
-	planEndPiF, ok := plan.Path()[len(plan.Path())-1][checkFrame.Name()]
-	if !ok {
-		return errors.New("check frame given not in plan Path map")
-	}
-	planEndPoseWorld, err := toWorld(planEndPiF, plan.Trajectory()[len(plan.Path())-1])
-	if err != nil {
-		return err
-	}
-
-	overWrittenInputs := startingInputs
-	overWrittenInputs[checkFrame.Name()] = make([]referenceframe.Input, len(checkFrame.DoF()))
-
-	// setup the planOpts. Poses should be in world frame. This allows us to know e.g. which obstacles may ephemerally collide.
-	if sfPlanner.planOpts, err = sfPlanner.plannerSetupFromMoveRequest(
-		planStartPoseWorld.Pose(),
-		planEndPoseWorld.Pose(),
-		overWrittenInputs,
-		worldState,
-		nil,
-		nil, // no pb.Constraints
-		nil, // no plannOpts
-	); err != nil {
-		return err
-	}
-
-	segments := make([]*ik.Segment, 0, len(plan.Path())-wayPointIdx)
-	// get checkFrame's currentInputs
-	// *currently* it is guaranteed that a relative frame will constitute 100% of a solver frame's dof
-	checkFrameCurrentInputs, err := sf.mapToSlice(currentInputs)
-	if err != nil {
-		return err
-	}
-
-	poses, err := plan.Path().GetFramePoses(checkFrame.Name())
-	if err != nil {
-		return err
-	}
-	currentWayPointTraj := plan.Trajectory()[wayPointIdx]
-	currentWayPointTraj[localizationFrame.Name()] = referenceframe.FloatsToInputs([]float64{
-		poses[wayPointIdx].Point().X,
-		poses[wayPointIdx].Point().Y,
-		poses[wayPointIdx].Point().Z,
-		poses[wayPointIdx].Orientation().OrientationVectorRadians().OX,
-		poses[wayPointIdx].Orientation().OrientationVectorRadians().OY,
-		poses[wayPointIdx].Orientation().OrientationVectorRadians().OZ,
-		poses[wayPointIdx].Orientation().OrientationVectorRadians().Theta,
-	})
-
-	arcEndInputs, err := sf.mapToSlice(currentWayPointTraj)
-	if err != nil {
-		return err
-	}
 
 	currentArcEndPose := spatialmath.Compose(expectedArcEndInWorld.Pose(), errorState)
 
