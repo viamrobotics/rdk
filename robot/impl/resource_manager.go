@@ -933,6 +933,7 @@ func (manager *resourceManager) processResource(
 			if err := manager.moduleManager.ReconfigureResource(ctx, conf, modmanager.DepsToNames(deps)); err != nil {
 				return nil, false, err
 			}
+			gNode.Logger().SetLevel(conf.LogConfiguration.Level)
 			return currentRes, false, nil
 		}
 
