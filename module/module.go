@@ -413,17 +413,23 @@ func (m *Module) Ready(ctx context.Context, req *pb.ReadyRequest) (*pb.ReadyResp
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.parentAddr = req.GetParentAddress()
-	if err := m.connectParent(ctx); err != nil {
-		// Return error back to parent if we cannot make a connection from module
-		// -> parent. Something is wrong in that case and the module should not be
-		// operational.
-		return nil, err
+	if os.Getenv("VALID_PARENT_SOCK") != "false" {
+		if err := m.connectParent(ctx); err != nil {
+			// Return error back to parent if we cannot make a connection from module
+			// -> parent. Something is wrong in that case and the module should not be
+			// operational.
+			return nil, err
+		}
+		// If logger is a moduleLogger, start gRPC logging.
+		// Note that this logging assumes that there is a valid parent
+		if moduleLogger, ok := m.logger.(*moduleLogger); ok {
+			moduleLogger.startLoggingViaGRPC(m)
+		}
 	}
 
-	// If logger is a moduleLogger, start gRPC logging.
-	if moduleLogger, ok := m.logger.(*moduleLogger); ok {
-		moduleLogger.startLoggingViaGRPC(m)
-	}
+	// We no longer attempt to interact with the "fake" parent socket,
+	// so we can safely discard the associated environment variable.
+	os.Unsetenv("VALID_PARENT_SOCK")
 
 	resp.Ready = m.ready
 	resp.Handlermap = m.handlers.ToProto()

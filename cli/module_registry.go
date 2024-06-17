@@ -699,6 +699,8 @@ func readModels(path string, logger logging.Logger) ([]ModuleComponent, error) {
 	defer vutils.UncheckedErrorFunc(func() error { return os.RemoveAll(parentAddr) })
 	parentAddr += "/parent.sock"
 
+	os.Setenv("VALID_PARENT_SOCK", "false")
+
 	cfg := modconfig.Module{
 		Name:    "xxxx",
 		ExePath: path,
