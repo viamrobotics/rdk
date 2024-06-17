@@ -15,11 +15,10 @@ import (
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 
-	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/gostream"
 	"go.viam.com/rdk/logging"
-	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
+	streamCamera "go.viam.com/rdk/robot/web/stream/camera"
 	"go.viam.com/rdk/robot/web/stream/state"
 	rutils "go.viam.com/rdk/utils"
 )
@@ -150,7 +149,7 @@ func (ss *Server) AddStream(ctx context.Context, req *streampb.AddStreamRequest)
 		return nil, err
 	}
 	// return error if camera is not in resource graph
-	if _, err := streamStateToAdd.Camera(); err != nil {
+	if _, err := streamCamera.Camera(ss.r, streamStateToAdd.Stream); err != nil {
 		return nil, err
 	}
 
@@ -284,7 +283,7 @@ func (ss *Server) RemoveStream(ctx context.Context, req *streampb.RemoveStreamRe
 		return nil, fmt.Errorf("no stream for %q", req.Name)
 	}
 	// return error if camera is not in resource graph
-	if _, err := streamToRemove.Camera(); err != nil {
+	if _, err := streamCamera.Camera(ss.r, streamToRemove.Stream); err != nil {
 		return nil, err
 	}
 
@@ -329,23 +328,13 @@ func (ss *Server) Close() error {
 	return errs
 }
 
-func (ss *Server) Camera(stream gostream.Stream) (camera.Camera, error) {
-	// Stream names are slightly modified versions of the resource short name
-	shortName := resource.SDPTrackNameToShortName(stream.Name())
-	cam, err := camera.FromRobot(ss.r, shortName)
-	if err != nil {
-		return nil, err
-	}
-	return cam, nil
-}
-
 func (ss *Server) monitor(stream gostream.Stream) {
 	streamName := stream.Name()
 	ss.activeBackgroundWorkers.Add(1)
 	utils.ManagedGo(func() {
 		for utils.SelectContextOrWait(ss.closedCtx, time.Second) {
 			golog.Global().Infof("%s tick", streamName)
-			cam, err := ss.Camera(stream)
+			cam, err := streamCamera.Camera(ss.r, stream)
 			if err == nil {
 				golog.Global().Infof("%s calling Properties", cam.Name())
 				p, err := cam.Properties(context.Background())
@@ -381,7 +370,7 @@ func (ss *Server) add(stream gostream.Stream) error {
 // 1. calls RemoveTrack on all peer connection senders that
 // 2. decrements the number of active peers on the stream state (which should result in the
 // stream state having no subscribers and calling gostream.Stop() or rtppassthrough.Unsubscribe)
-// streaming tracks from it,
+// streaming tracks from it,.
 func (ss *Server) startMonitorCameraAvailable() {
 	ss.activeBackgroundWorkers.Add(1)
 	f := func() {
@@ -398,9 +387,7 @@ func (ss *Server) monitorStreamAvailable() {
 	ss.mu.Lock()
 	defer ss.mu.Unlock()
 	for _, streamState := range ss.nameToStreamState {
-		// TODO: confirm this is the correct way to detect that the
-		// camera is no longer in the resource graph
-		if _, err := streamState.Camera(); err != nil {
+		if _, err := streamCamera.Camera(ss.r, streamState.Stream); err != nil {
 			camName := streamState.Stream.Name()
 			ss.logger.Info("monitorStreamAvailable camera doesn't exist: %s", camName)
 			for pc, peerStateByCamName := range ss.activePeerStreams {

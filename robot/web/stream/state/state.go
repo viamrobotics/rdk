@@ -15,12 +15,11 @@ import (
 	"go.uber.org/multierr"
 	"go.viam.com/utils"
 
-	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/components/camera/rtppassthrough"
 	"go.viam.com/rdk/gostream"
 	"go.viam.com/rdk/logging"
-	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
+	streamCamera "go.viam.com/rdk/robot/web/stream/camera"
 )
 
 var (
@@ -436,18 +435,8 @@ func (ss *StreamState) tick() {
 	}
 }
 
-func (ss *StreamState) Camera() (camera.Camera, error) {
-	// Stream names are slightly modified versions of the resource short name
-	shortName := resource.SDPTrackNameToShortName(ss.Stream.Name())
-	cam, err := camera.FromRobot(ss.robot, shortName)
-	if err != nil {
-		return nil, err
-	}
-	return cam, nil
-}
-
 func (ss *StreamState) streamH264Passthrough() error {
-	cam, err := ss.Camera()
+	cam, err := streamCamera.Camera(ss.robot, ss.Stream)
 	if err != nil {
 		return err
 	}
@@ -482,7 +471,7 @@ func (ss *StreamState) streamH264Passthrough() error {
 }
 
 func (ss *StreamState) unsubscribeH264Passthrough(ctx context.Context, id rtppassthrough.SubscriptionID) error {
-	cam, err := ss.Camera()
+	cam, err := streamCamera.Camera(ss.robot, ss.Stream)
 	if err != nil {
 		return err
 	}
