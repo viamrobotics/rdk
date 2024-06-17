@@ -3500,8 +3500,20 @@ func TestSendTriggerConfig(t *testing.T) {
 	actualR := r.(*localRobot)
 	actualR.closeContext = context.Background()
 
-	for i := 0; i < 5; i++ {
-		actualR.sendTriggerConfig("remote1")
+	// This pattern fails the test faster on deadlocks instead of having to wait for the full
+	// test timeout.
+	sentCh := make(chan bool)
+	go func() {
+		for i := 0; i < 5; i++ {
+			actualR.sendTriggerConfig("remote1")
+		}
+		sentCh <- true
+	}()
+	select {
+	case sent := <-sentCh:
+		test.That(t, sent, test.ShouldBeTrue)
+	case <-time.After(time.Second * 20):
+		t.Fatal("took too long to send messages to triggerConfig channel, might be a deadlock")
 	}
 	test.That(t, len(actualR.triggerConfig), test.ShouldEqual, 1)
 }

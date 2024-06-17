@@ -3,6 +3,7 @@ package resource_test
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/pkg/errors"
 	"go.viam.com/test"
@@ -249,5 +250,18 @@ func TestClose(t *testing.T) {
 	ourRes.CloseFunc = func(ctx context.Context) error {
 		return node.Close(ctx)
 	}
-	test.That(t, node.Close(context.Background()), test.ShouldBeNil)
+
+	// This pattern fails the test faster on deadlocks instead of having to wait for the full
+	// test timeout.
+	errCh := make(chan error)
+	go func() {
+		errCh <- node.Close(context.Background())
+	}()
+
+	select {
+	case err := <-errCh:
+		test.That(t, err, test.ShouldBeNil)
+	case <-time.After(time.Second * 20):
+		t.Fatal("node took too long to close, might be a deadlock")
+	}
 }
