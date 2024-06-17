@@ -427,10 +427,6 @@ func (m *Module) Ready(ctx context.Context, req *pb.ReadyRequest) (*pb.ReadyResp
 		}
 	}
 
-	// We no longer attempt to interact with the "fake" parent socket,
-	// so we can safely discard the associated environment variable.
-	os.Unsetenv("VALID_PARENT_SOCK")
-
 	resp.Ready = m.ready
 	resp.Handlermap = m.handlers.ToProto()
 	return resp, nil

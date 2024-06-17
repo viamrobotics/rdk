@@ -699,7 +699,10 @@ func readModels(path string, logger logging.Logger) ([]ModuleComponent, error) {
 	defer vutils.UncheckedErrorFunc(func() error { return os.RemoveAll(parentAddr) })
 	parentAddr += "/parent.sock"
 
+    // in some scenarios, we want to run module code without having a "real"
+    // parent available. This environment variable illustrates this.
 	os.Setenv("VALID_PARENT_SOCK", "false")
+    defer os.Unsetenv("VALID_PARENT_SOCK")
 
 	cfg := modconfig.Module{
 		Name:    "xxxx",
