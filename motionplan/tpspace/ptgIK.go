@@ -162,11 +162,11 @@ func (ptg *ptgIK) Trajectory(alpha, start, end, resolution float64) ([]*TrajNode
 
 	startPos := start
 	endPos := end
-	
+
 	if end < start {
 		startPos, endPos = endPos, startPos
 	}
-	
+
 	trajPrecompute, err := ptg.cachedTraj(alpha, endPos, resolution)
 	if err != nil {
 		return nil, err

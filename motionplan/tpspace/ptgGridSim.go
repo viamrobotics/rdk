@@ -110,10 +110,6 @@ func (ptg *ptgGridSim) MaxDistance() float64 {
 }
 
 func (ptg *ptgGridSim) Trajectory(alpha, start, end, resolution float64) ([]*TrajNode, error) {
-	if math.Abs(start) > math.Abs(end) {
-		panic("aaaagh")
-		return nil, fmt.Errorf("cannot calculate trajectory, start %f cannot be greater than end %f", start, end)
-	}
 	if end == 0 {
 		return computePTG(ptg, alpha, end, resolution)
 	}

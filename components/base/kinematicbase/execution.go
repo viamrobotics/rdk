@@ -157,10 +157,6 @@ func (ptgk *ptgBaseKinematics) GoToInputs(ctx context.Context, inputSteps ...[]r
 					return tryStop(ctx.Err())
 				}
 			}
-			distIncVel := step.linVelMMps.Y
-			if distIncVel == 0 {
-				distIncVel = step.angVelDegps.Z
-			}
 			inputValDiff := step.arcSegment.EndConfiguration[endDistanceAlongTrajectoryIndex].Value -
 				step.arcSegment.EndConfiguration[startDistanceAlongTrajectoryIndex].Value
 			elapsedPct := math.Min(1.0, timeElapsedSeconds/step.durationSeconds)

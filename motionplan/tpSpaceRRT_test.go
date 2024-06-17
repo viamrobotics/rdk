@@ -170,7 +170,7 @@ func TestPtgWithObstacle(t *testing.T) {
 
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(plan), test.ShouldBeGreaterThan, 2)
-	
+
 	tp.planOpts.SmoothIter = 80
 
 	newplan := tp.smoothPath(ctx, plan)
