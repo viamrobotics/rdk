@@ -847,7 +847,7 @@ func (mp *tpSpaceRRTMotionPlanner) make2DTPSpaceDistanceOptions(ptg tpspace.PTGS
 	return opts, &m
 }
 
-func generateHeuristic(logger logging.Logger, firstSampled, pathLen int) []float64 {
+func generateHeuristic(logger logging.Logger, edgesSeen map[int](map[int]bool), firstSampled, pathLen int) []float64 {
 	// It is better to have a lookAhead that is shorter because biasing towards collapsing shorter paths is more likely to be possible
 	// i.e. it is more feasible to find shorter paths that can be collapsed than long far away ones
 	// And as you collapse the shorter ones, you will eventually get to the big ones
@@ -855,10 +855,22 @@ func generateHeuristic(logger logging.Logger, firstSampled, pathLen int) []float
 	numElems := pathLen - 2 // Can't sample last or second-last therefore arrayLen-2
 	heuristics := make([]float64, numElems)
 	for i := 0; i < numElems; i++ {
-		heuristics[i] = math.Pow(float64(math.MaxOfInts(1, lookAhead-math.AbsInt(lookAhead-math.AbsInt(firstSampled-i)))), 2) // Creates ascending list until lookAhead and then descending list
+		seen := false
+		// Check if (firstEdge, i) has already been seen. If not, then add the heuristic to the list
+		if secondEdges, ok := edgesSeen[firstSampled]; ok {
+			if _, ok2 := secondEdges[i]; ok2 {
+				heuristics[i] = math.Inf(-1)
+				seen = true
+			}
+		}
+		// If it was seen, then set the heuristic to -inf which translates to zero probability
+		if !seen {
+			heuristics[i] = math.Pow(float64(math.MaxOfInts(1, lookAhead-math.AbsInt(lookAhead-math.AbsInt(firstSampled-i)))), 2) // Creates ascending list until lookAhead and then descending list
+		}
 	}
+
+	// firstSampled + adjacent edges should not be sampled so set their heuristic to -inf which translates to zero probability
 	heuristics[firstSampled] = math.Inf(-1)
-	// Adjacent paths should not be smoothed so set their heuristic to 0
 	if firstSampled-1 >= 0 {
 		heuristics[firstSampled-1] = math.Inf(-1)
 	}
@@ -884,8 +896,8 @@ func softmax(logger logging.Logger, heuristics []float64) []float64 {
 	return softmaxArr
 }
 
-func generateCDF(logger logging.Logger, firstSampled, pathLen int) []float64 {
-	heuristics := generateHeuristic(logger, firstSampled, pathLen)
+func generateCDF(logger logging.Logger, edgesSeen map[int](map[int]bool), firstSampled, pathLen int) []float64 {
+	heuristics := generateHeuristic(logger, edgesSeen, firstSampled, pathLen)
 	softmaxArr := softmax(logger, heuristics)
 	for i := 1; i < len(softmaxArr); i++ {
 		softmaxArr[i] = softmaxArr[i] + softmaxArr[i-1]
@@ -913,6 +925,9 @@ func (mp *tpSpaceRRTMotionPlanner) smoothPath(ctx context.Context, path []node) 
 	earlyExit := mp.planOpts.extra["earlyExit"]
 	earlyExitThreshold := mp.planOpts.extra["earlyExitThreshold"].(float64)
 
+	// keep track of edges that have been seen
+	edgesSeen := make(map[int](map[int]bool))
+
 	// origAllPTGs := mp.tpFrame.PTGSolvers()
 	// originalCurvCost := 0.
 	// for _, mynode := range path {
@@ -925,6 +940,7 @@ func (mp *tpSpaceRRTMotionPlanner) smoothPath(ctx context.Context, path []node) 
 	// 	originalCurvCost = originalCurvCost + curv
 	// }
 	// mp.logger.Debugf("$DEBUG,original_curv_cost:%v\n", originalCurvCost)
+
 	mp.logger.Debugf("$INTERNAL,original_og_cost:%v\n", currCost)
 	smoothPlannerMP, err := newTPSpaceMotionPlanner(mp.frame, mp.randseed, mp.logger, mp.planOpts)
 	if err != nil {
@@ -941,12 +957,25 @@ func (mp *tpSpaceRRTMotionPlanner) smoothPath(ctx context.Context, path []node) 
 		}
 		// get start node of first edge. Cannot be either the last or second-to-last node.
 		// Intn will return an int in the half-open interval half-open interval [0,n)
-		firstEdge := mp.randseed.Intn(len(path) - 2)
+		firstEdge := 0
 		secondEdge := 0
 		if useNew == false {
+			// mp.logger.Debugf("a;lkfjda;lkdsjf;laksjdfl;kasjdflk;asd\n")
+			firstEdge = mp.randseed.Intn(len(path) - 2)
 			secondEdge = firstEdge + 1 + mp.randseed.Intn((len(path)-2)-firstEdge)
 		} else {
-			cdf := generateCDF(mp.logger, firstEdge, len(path))
+			// mp.logger.Debugf("ah fuck\n")
+			// keep sampling firstEdge until its valid
+			firstEdge = mp.randseed.Intn(len(path) - 2)
+			_, ok := edgesSeen[firstEdge]
+			// mp.logger.Debugf("sampled %v\n", firstEdge)
+			for ok {
+				firstEdge = mp.randseed.Intn(len(path) - 2)
+				_, ok = edgesSeen[firstEdge]
+				// mp.logger.Debugf("sampled %v\n", firstEdge)
+			}
+
+			cdf := generateCDF(mp.logger, edgesSeen, firstEdge, len(path))
 			sample := mp.randseed.Float64()
 			secondEdge = binarySearch(cdf, sample)
 
@@ -954,6 +983,15 @@ func (mp *tpSpaceRRTMotionPlanner) smoothPath(ctx context.Context, path []node) 
 				temp := secondEdge
 				secondEdge = firstEdge
 				firstEdge = temp
+			}
+
+			// Add (firstEdge, secondEdge) to edgesSeen
+			if secondEdges, ok := edgesSeen[firstEdge]; ok {
+				secondEdges[secondEdge] = true
+			} else {
+				edgesSeen[firstEdge] = map[int]bool{
+					secondEdge: true,
+				}
 			}
 		}
 
@@ -964,6 +1002,8 @@ func (mp *tpSpaceRRTMotionPlanner) smoothPath(ctx context.Context, path []node) 
 		if err != nil || newInputSteps == nil {
 			continue
 		}
+		// path has now been condensed so reset edgesSeen
+		edgesSeen = make(map[int](map[int]bool))
 		newCost := sumCosts(newInputSteps)
 		mp.logger.Debugf("Smooth Time: %v | Path Reached: %v | NewCost: %v | Len of Path: %v", attemptSmoothEnd.Sub(attemptSmoothStart), err != nil, newCost, len(newInputSteps))
 		if newCost >= currCost {
