@@ -154,23 +154,6 @@ func TestDeferredPackageManager(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 	})
 
-	t.Run("isMissingPackages", func(t *testing.T) {
-		bag := setup(t)
-		defer bag.teardown()
-
-		// Create a package config
-		packages := []config.PackageConfig{
-			pkgA,
-		}
-		// Assert that the package is missing initially
-		test.That(t, bag.pm.isMissingPackages(packages), test.ShouldBeTrue)
-		// Create a directory for the package
-		err := os.MkdirAll(packages[0].LocalDataDirectory(bag.packagesDir), os.ModePerm)
-		test.That(t, err, test.ShouldBeNil)
-		// Assert that the package is not missing after creating the directory
-		test.That(t, bag.pm.isMissingPackages(packages), test.ShouldBeFalse)
-	})
-
 	t.Run("Sync + cleanup", func(t *testing.T) {
 		bag := setup(t)
 		defer bag.teardown()

@@ -759,16 +759,8 @@ func TestClientRefresh(t *testing.T) {
 		baseNames := []resource.Name{base.Named("base2"), base.Named("base3")}
 
 		test.That(t, client.RemoteNames(), test.ShouldBeEmpty)
-		test.That(t,
-			utils.NewStringSet(arm.NamesFromRobot(client)...),
-			test.ShouldResemble,
-			utils.NewStringSet(testutils.ExtractNames(armNames...)...),
-		)
-		test.That(t,
-			utils.NewStringSet(base.NamesFromRobot(client)...),
-			test.ShouldResemble,
-			utils.NewStringSet(testutils.ExtractNames(baseNames...)...),
-		)
+		testutils.VerifySameElements(t, arm.NamesFromRobot(client), testutils.ExtractNames(armNames...))
+		testutils.VerifySameElements(t, base.NamesFromRobot(client), testutils.ExtractNames(baseNames...))
 
 		testutils.VerifySameResourceNames(t, client.ResourceNames(), finalResources)
 
@@ -789,16 +781,8 @@ func TestClientRefresh(t *testing.T) {
 		baseNames = []resource.Name{base.Named("base1")}
 
 		test.That(t, client.RemoteNames(), test.ShouldBeEmpty)
-		test.That(t,
-			utils.NewStringSet(arm.NamesFromRobot(client)...),
-			test.ShouldResemble,
-			utils.NewStringSet(testutils.ExtractNames(armNames...)...),
-		)
-		test.That(t,
-			utils.NewStringSet(base.NamesFromRobot(client)...),
-			test.ShouldResemble,
-			utils.NewStringSet(testutils.ExtractNames(baseNames...)...),
-		)
+		testutils.VerifySameElements(t, arm.NamesFromRobot(client), testutils.ExtractNames(armNames...))
+		testutils.VerifySameElements(t, base.NamesFromRobot(client), testutils.ExtractNames(baseNames...))
 
 		testutils.VerifySameResourceNames(t, client.ResourceNames(), emptyResources)
 
@@ -812,16 +796,8 @@ func TestClientRefresh(t *testing.T) {
 		baseNames = []resource.Name{base.Named("base2"), base.Named("base3")}
 
 		test.That(t, client.RemoteNames(), test.ShouldBeEmpty)
-		test.That(t,
-			utils.NewStringSet(arm.NamesFromRobot(client)...),
-			test.ShouldResemble,
-			utils.NewStringSet(testutils.ExtractNames(armNames...)...),
-		)
-		test.That(t,
-			utils.NewStringSet(base.NamesFromRobot(client)...),
-			test.ShouldResemble,
-			utils.NewStringSet(testutils.ExtractNames(baseNames...)...),
-		)
+		testutils.VerifySameElements(t, arm.NamesFromRobot(client), testutils.ExtractNames(armNames...))
+		testutils.VerifySameElements(t, base.NamesFromRobot(client), testutils.ExtractNames(baseNames...))
 
 		testutils.VerifySameResourceNames(t, client.ResourceNames(), finalResources)
 

@@ -298,8 +298,8 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 		if err != nil {
 			return nil, err
 		}
-		out.Debug = s.args.Debug || cfg.Debug
-		out.EnableWebProfile = s.args.WebProfile || cfg.EnableWebProfile
+		out.Debug = s.args.Debug || in.Debug
+		out.EnableWebProfile = s.args.WebProfile || in.EnableWebProfile
 		out.FromCommand = true
 		out.AllowInsecureCreds = s.args.AllowInsecureCreds
 		out.UntrustedEnv = s.args.UntrustedEnv
@@ -491,6 +491,6 @@ func logStackTraceAndCancel(cancel context.CancelFunc, logger logging.Logger) {
 	if traceSize == bufSize {
 		message = fmt.Sprintf("%s (warning: backtrace truncated to %v bytes)", message, bufSize)
 	}
-	logger.Infof("%s, %s", message, traces)
+	logger.Infof("%s, %s", message, traces[:traceSize])
 	cancel()
 }

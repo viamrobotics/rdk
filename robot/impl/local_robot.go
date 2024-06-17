@@ -1194,17 +1194,17 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 	// First we mark diff.Removed resources and their children for removal.
 	processesToClose, resourcesToCloseBeforeComplete, _ := r.manager.markRemoved(ctx, diff.Removed, r.logger)
 
-	// Second we update the resource graph and stop any removed processes.
-	allErrs = multierr.Combine(allErrs, r.manager.updateResources(ctx, diff))
-	allErrs = multierr.Combine(allErrs, processesToClose.Stop())
-
-	// Third we attempt to Close resources.
+	// Second we attempt to Close resources.
 	alreadyClosed := make(map[resource.Name]struct{}, len(resourcesToCloseBeforeComplete))
 	for _, res := range resourcesToCloseBeforeComplete {
 		allErrs = multierr.Combine(allErrs, r.manager.closeResource(ctx, res))
 		// avoid a double close later
 		alreadyClosed[res.Name()] = struct{}{}
 	}
+
+	// Third we update the resource graph and stop any removed processes.
+	allErrs = multierr.Combine(allErrs, r.manager.updateResources(ctx, diff))
+	allErrs = multierr.Combine(allErrs, processesToClose.Stop())
 
 	// Fourth we attempt to complete the config (see function for details) and
 	// update weak dependents.
@@ -1305,10 +1305,10 @@ func (r *localRobot) RestartModule(ctx context.Context, req robot.RestartModuleR
 }
 
 func (r *localRobot) Shutdown(ctx context.Context) error {
-	shutdownFunc := r.shutdownCallback
-	if shutdownFunc != nil {
+	if shutdownFunc := r.shutdownCallback; shutdownFunc != nil {
 		shutdownFunc()
-		return nil
+	} else {
+		r.Logger().CErrorw(ctx, "shutdown function not defined")
 	}
-	return errors.New("shutdown function not defined")
+	return nil
 }
