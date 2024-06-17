@@ -9,7 +9,6 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/pion/interceptor"
-	pionLogging "github.com/pion/logging"
 	"github.com/pion/webrtc/v3"
 	"go.uber.org/multierr"
 	"go.uber.org/zap"
