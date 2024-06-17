@@ -270,6 +270,9 @@ func (g *Graph) ExportDot() (string, error) {
 	// the same text output is produced. We desire this such that a diff in the output implies the
 	// resource graph has logically changed. To achieve this, we sort all of the inputs (nodes and
 	// edges) for a predictable iteration order.
+	//
+	// As graph nodes are not all locked during the duration of this function, nodes could change
+	// before it gets exported. This is known and expected as the graph output is "best-effort".
 	nodesSortedByName := nodesSortedByName(g.nodes)
 
 	writer := &blockWriter{}
