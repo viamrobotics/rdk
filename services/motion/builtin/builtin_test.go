@@ -482,6 +482,8 @@ func TestObstacleReplanningSlam(t *testing.T) {
 	)
 	defer closeFunc(ctx)
 
+	// This vision service should return nothing the first time it is called, and should return an obstacle all other times.
+	// In this way we generate a valid plan, and then can create a transient obstacle which we must route around.
 	visSrvc, ok := ms.(*builtIn).visionServices[vision.Named("test-vision")].(*inject.VisionService)
 	test.That(t, ok, test.ShouldBeTrue)
 	i := 0

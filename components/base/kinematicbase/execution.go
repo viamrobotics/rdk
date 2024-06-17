@@ -30,8 +30,9 @@ const (
 
 	// Used to determine minimum linear deviation allowed before correction attempt. Determined by multiplying max linear speed by
 	// inputUpdateStepSeconds, and will correct if deviation is larger than this percent of that amount.
-	minDeviationToCorrectPct = 50.
+	minDeviationToCorrectPct = 40.
 	microsecondsPerSecond    = 1e6
+	courseCorrectionMaxScore = 100. // Course correction solutions must score better than this
 )
 
 type arcStep struct {
@@ -200,22 +201,23 @@ func (ptgk *ptgBaseKinematics) GoToInputs(ctx context.Context, inputSteps ...[]r
 			// If we have a localizer, we are able to attempt to correct to stay on the path.
 			// For now we do not try to correct while in a correction.
 			
-	actualPose, err := ptgk.Localizer.CurrentPosition(ctx)
-	if err != nil {
-		return err
-	}
-	// trajPose is the pose we should have nominally reached along the currently executing arc from the start position.
-	trajPose, err := ptgk.frame.Transform(ptgk.currentState.currentInputs)
-	if err != nil {
-		return err
-	}
-
-	// This is where we expected to be on the trajectory.
-	expectedPose := spatialmath.Compose(arcSteps[i].arcSegment.StartPosition, trajPose)
-
-		ptgk.logger.Debug("expected to be at ", spatialmath.PoseToProtobuf(expectedPose))
-		ptgk.logger.Debug("Localizer says at ", spatialmath.PoseToProtobuf(actualPose.Pose()), "\n")
+			actualPose, err := ptgk.Localizer.CurrentPosition(ctx)
+			if err != nil {
+				return err
+			}
+			// trajPose is the pose we should have nominally reached along the currently executing arc from the start position.
+			trajPose, err := ptgk.frame.Transform(ptgk.currentState.currentInputs)
 			
+			if err != nil {
+				return err
+			}
+
+			// This is where we expected to be on the trajectory.
+			expectedPose := spatialmath.Compose(arcSteps[i].arcSegment.StartPosition, trajPose)
+			ptgk.logger.Debug("Inputs: ", ptgk.currentState.currentInputs)
+			ptgk.logger.Debug("expected to be at ", spatialmath.PoseToProtobuf(expectedPose))
+			ptgk.logger.Debug("Localizer says at ", spatialmath.PoseToProtobuf(actualPose.Pose()), "\n")
+				
 			if ptgk.Localizer != nil {
 				newArcSteps, err := ptgk.courseCorrect(ctx, currentInputs, arcSteps, i)
 				if err != nil {
@@ -242,6 +244,13 @@ func (ptgk *ptgBaseKinematics) GoToInputs(ctx context.Context, inputSteps ...[]r
 				return tryStop(ctx.Err())
 			}
 		}
+		ptgk.logger.Debugf("step %d done", i)
+		ptgk.logger.Debug("expected to be at ", spatialmath.PoseToProtobuf(arcSteps[i].arcSegment.EndPosition))
+		actualPose, err = ptgk.Localizer.CurrentPosition(ctx)
+		if err != nil {
+			return err
+		}
+		ptgk.logger.Debug("Localizer says at ", spatialmath.PoseToProtobuf(actualPose.Pose()), "\n")
 		ptgk.logger.Debugf("step %d done", i)
 	}
 	return tryStop(nil)
@@ -511,7 +520,7 @@ func (ptgk *ptgBaseKinematics) courseCorrect(
 
 func (ptgk *ptgBaseKinematics) getCorrectionSolution(ctx context.Context, goals []courseCorrectionGoal) (courseCorrectionGoal, error) {
 	for _, goal := range goals {
-		solveMetric := ik.NewSquaredNormMetric(goal.Goal)
+		solveMetric := ik.NewPosWeightSquaredNormMetric(goal.Goal)
 		solutionChan := make(chan *ik.Solution, 1)
 		ptgk.logger.Debug("attempting goal ", spatialmath.PoseToProtobuf(goal.Goal))
 		seed := []referenceframe.Input{{math.Pi / 2}, {ptgk.linVelocityMMPerSecond / 2}, {math.Pi / 2}, {ptgk.linVelocityMMPerSecond / 2}}
@@ -538,7 +547,7 @@ func (ptgk *ptgBaseKinematics) getCorrectionSolution(ctx context.Context, goals 
 		default:
 		}
 		ptgk.logger.Debug("solution ", solution)
-		if solution.Score < 100. {
+		if solution.Score < courseCorrectionMaxScore {
 			goal.Solution = solution.Configuration
 			return goal, nil
 		}
@@ -555,7 +564,7 @@ func (ptgk *ptgBaseKinematics) makeCourseCorrectionGoals(
 	currentInputs []referenceframe.Input,
 ) []courseCorrectionGoal {
 	goals := []courseCorrectionGoal{}
-	currDist := currentInputs[startDistanceAlongTrajectoryIndex].Value
+	currDist := currentInputs[endDistanceAlongTrajectoryIndex].Value
 	stepsPerGoal := int((ptgk.nonzeroBaseTurningRadiusMeters*lookaheadDistMult*1000)/stepDistResolution) / nGoals
 
 	if stepsPerGoal < 1 {
@@ -580,6 +589,7 @@ func (ptgk *ptgBaseKinematics) makeCourseCorrectionGoals(
 	if stepsPerGoal*nGoals > totalTrajSteps {
 		stepsPerGoal = totalTrajSteps / nGoals // int division is what we want here
 	}
+	//~ ptgk.logger.Debug("curr pose", spatialmath.PoseToProtobuf(currPose))
 
 	stepsRemainingThisGoal := stepsPerGoal
 	for i := currStep; i < len(steps); i++ {
@@ -594,6 +604,7 @@ func (ptgk *ptgBaseKinematics) makeCourseCorrectionGoals(
 				steps[i].arcSegment.StartConfiguration[startDistanceAlongTrajectoryIndex],
 				{steps[i].subTraj[goalTrajPtIdx].Dist},
 			}
+			
 			arcPose, err := ptgk.Kinematics().Transform(arcTrajInputs)
 			if err != nil {
 				return []courseCorrectionGoal{}
@@ -603,6 +614,9 @@ func (ptgk *ptgBaseKinematics) makeCourseCorrectionGoals(
 				currPose,
 				spatialmath.Compose(steps[i].arcSegment.StartPosition, arcPose),
 			)
+			//~ ptgk.logger.Debug("arc traj inputs", arcTrajInputs)
+			//~ ptgk.logger.Debug("arc pose", spatialmath.PoseToProtobuf(arcPose))
+			//~ ptgk.logger.Debug("full arc pose", spatialmath.PoseToProtobuf(spatialmath.Compose(steps[i].arcSegment.StartPosition, arcPose)))
 			goals = append(goals, courseCorrectionGoal{Goal: goalPose, stepIdx: i, trajIdx: goalTrajPtIdx})
 			if len(goals) == nGoals {
 				return goals

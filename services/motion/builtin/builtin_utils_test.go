@@ -291,6 +291,17 @@ func createMockSlamService(name, pcdPath string, origin spatialmath.Pose, move m
 		
 		return spatialmath.Compose(origin, geoPose), nil
 	}
+	injectSlam.PropertiesFunc = func(ctx context.Context) (slam.Properties, error) {
+		return slam.Properties{
+			CloudSlam:             false,
+			MappingMode:           slam.MappingModeLocalizationOnly,
+			InternalStateFileType: ".pbstream",
+			SensorInfo: []slam.SensorInfo{
+				{Name: "my-camera", Type: slam.SensorTypeCamera},
+				{Name: "my-movement-sensor", Type: slam.SensorTypeMovementSensor},
+			},
+		}, nil
+	}
 	return injectSlam, nil
 }
 
