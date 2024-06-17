@@ -35,5 +35,4 @@ func TestTopNClassifications(t *testing.T) {
 	topNeg, err := cls.TopN(-5)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(topNeg), test.ShouldEqual, 3)
-
 }
