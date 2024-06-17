@@ -278,9 +278,11 @@ func goForMath(maxRPM, rpm, revolutions float64) (float64, time.Duration, float6
 // If rpm is 0, the motor should immediately move to the final position.
 func (m *Motor) GoFor(ctx context.Context, rpm, revolutions float64, extra map[string]interface{}) error {
 	switch speed := math.Abs(rpm); {
+	case speed == 0.0:
+		m.Logger.CWarn(ctx, "motor speed is 0 rev_per_min")
+		return motor.NewZeroRPMError()
 	case speed < 0.1:
 		m.Logger.CWarn(ctx, "motor speed is nearly 0 rev_per_min")
-		return motor.NewZeroRPMError()
 	case m.MaxRPM > 0 && speed > m.MaxRPM-0.1:
 		m.Logger.CWarnf(ctx, "motor speed is nearly the max rev_per_min (%f)", m.MaxRPM)
 	default:
@@ -369,9 +371,11 @@ func (m *Motor) GoTo(ctx context.Context, rpm, pos float64, extra map[string]int
 // SetRPM instructs the motor to move at the specified RPM indefinitely.
 func (m *Motor) SetRPM(ctx context.Context, rpm float64, extra map[string]interface{}) error {
 	switch speed := math.Abs(rpm); {
+	case speed == 0.0:
+		m.Logger.CWarn(ctx, "motor speed is 0 rev_per_min")
+		return motor.NewZeroRPMError()
 	case speed < 0.1:
 		m.Logger.CWarn(ctx, "motor speed is nearly 0 rev_per_min")
-		return motor.NewZeroRPMError()
 	case m.MaxRPM > 0 && speed > m.MaxRPM-0.1:
 		m.Logger.CWarnf(ctx, "motor speed is nearly the max rev_per_min (%f)", m.MaxRPM)
 	default:
