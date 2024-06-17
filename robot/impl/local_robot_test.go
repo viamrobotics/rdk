@@ -211,11 +211,7 @@ func TestConfigRemote(t *testing.T) {
 	expectedRemotes := []string{"squee", "foo", "bar"}
 	remotes2 := r2.RemoteNames()
 
-	test.That(
-		t, utils.NewStringSet(remotes2...),
-		test.ShouldResemble,
-		utils.NewStringSet(expectedRemotes...),
-	)
+	rtestutils.VerifySameElements(t, remotes2, expectedRemotes)
 
 	arm1Name := arm.Named("bar:pieceArm")
 	arm1, err := r2.ResourceByName(arm1Name)
@@ -443,11 +439,7 @@ func TestConfigRemoteWithAuth(t *testing.T) {
 			remotes2 := r2.RemoteNames()
 			expectedRemotes := []string{"bar", "foo"}
 
-			test.That(
-				t, utils.NewStringSet(remotes2...),
-				test.ShouldResemble,
-				utils.NewStringSet(expectedRemotes...),
-			)
+			rtestutils.VerifySameElements(t, remotes2, expectedRemotes)
 
 			statuses, err := r2.Status(
 				context.Background(), []resource.Name{movementsensor.Named("bar:movement_sensor1"), movementsensor.Named("foo:movement_sensor1")},
@@ -610,11 +602,7 @@ func TestConfigRemoteWithTLSAuth(t *testing.T) {
 	remotes2 := r2.RemoteNames()
 	expectedRemotes := []string{"foo"}
 
-	test.That(
-		t, utils.NewStringSet(remotes2...),
-		test.ShouldResemble,
-		utils.NewStringSet(expectedRemotes...),
-	)
+	rtestutils.VerifySameElements(t, remotes2, expectedRemotes)
 
 	statuses, err := r2.Status(context.Background(), []resource.Name{movementsensor.Named("foo:movement_sensor1")})
 	test.That(t, err, test.ShouldBeNil)
@@ -3358,4 +3346,139 @@ func TestCloudMetadata(t *testing.T) {
 			MachinePartID: "the-robot-part",
 		})
 	})
+}
+
+func TestReconfigureOnModuleRename(t *testing.T) {
+	ctx := context.Background()
+	logger := logging.NewTestLogger(t)
+
+	// Precompile complex module to avoid timeout issues when building takes too long.
+	complexPath := rtestutils.BuildTempModule(t, "examples/customresources/demos/complexmodule")
+
+	// Manually define mybase model, as importing it can cause double registration.
+	myBaseModel := resource.NewModel("acme", "demo", "mybase")
+
+	// Create config with at least one module and a component from that module
+	cfg := &config.Config{
+		Modules: []config.Module{
+			{
+				Name:     "mod",
+				ExePath:  complexPath,
+				LogLevel: "info",
+			},
+		},
+		Components: []resource.Config{
+			{
+				Name:  "myBase",
+				API:   base.API,
+				Model: myBaseModel,
+				Attributes: rutils.AttributeMap{
+					"motorL": "motor1",
+					"motorR": "motor2",
+				},
+			},
+			{
+				Name:                "motor1",
+				API:                 motor.API,
+				Model:               fakeModel,
+				ConvertedAttributes: &fakemotor.Config{},
+			},
+			{
+				Name:                "motor2",
+				API:                 motor.API,
+				Model:               fakeModel,
+				ConvertedAttributes: &fakemotor.Config{},
+			},
+		},
+	}
+
+	// Create copy of cfg since Reconfigure (called when setting up a robot) modifies cfg.
+	cfgCopy := *cfg
+	r := setupLocalRobot(t, ctx, cfg, logger)
+
+	// Use copy to modify config by renaming module
+	cfgCopy.Modules[0].Name = "mod-renamed"
+
+	r.Reconfigure(ctx, &cfgCopy)
+
+	// Verify resources
+	robotResources := []resource.Name{
+		cfg.Components[0].ResourceName(),
+		cfg.Components[1].ResourceName(),
+		cfg.Components[2].ResourceName(),
+	}
+	expectedResources := rtestutils.ConcatResourceNames(
+		robotResources,
+		resource.DefaultServices(),
+	)
+	rtestutils.VerifySameResourceNames(t, r.ResourceNames(), expectedResources)
+}
+
+func TestCustomResourceBuildsOnModuleAddition(t *testing.T) {
+	ctx := context.Background()
+	logger := logging.NewTestLogger(t)
+
+	// Precompile complex module to avoid timeout issues when building takes too long.
+	complexPath := rtestutils.BuildTempModule(t, "examples/customresources/demos/complexmodule")
+
+	// Manually define mygizmo model, as importing it can cause double registration, and its API
+	gizmoModel := resource.NewModel("acme", "demo", "mygizmo")
+
+	// Create config with a modular component from a custom API without its module
+	cfg := &config.Config{
+		Components: []resource.Config{
+			{
+				Name:       "myGizmo",
+				API:        resource.NewAPI("acme", "component", "gizmo"),
+				Model:      gizmoModel,
+				Attributes: rutils.AttributeMap{"arg1": "arg1"},
+			},
+			{
+				Name:                "motor1",
+				API:                 motor.API,
+				Model:               fakeModel,
+				ConvertedAttributes: &fakemotor.Config{},
+			},
+			{
+				Name:                "motor2",
+				API:                 motor.API,
+				Model:               fakeModel,
+				ConvertedAttributes: &fakemotor.Config{},
+			},
+		},
+	}
+
+	// Create copy of cfg since Reconfigure (called when setting up a robot) modifies cfg.
+	cfgCopy := *cfg
+	r := setupLocalRobot(t, ctx, cfg, logger)
+
+	// Verify resources to ensure myGizmo does not build without module
+	builtResources := []resource.Name{
+		cfg.Components[1].ResourceName(),
+		cfg.Components[2].ResourceName(),
+	}
+	expectedResources := rtestutils.ConcatResourceNames(
+		builtResources,
+		resource.DefaultServices(),
+	)
+	rtestutils.VerifySameResourceNames(t, r.ResourceNames(), expectedResources)
+
+	// Modify config so that it now has a module that supports myGizmo
+	mod := []config.Module{
+		{
+			Name:     "mod",
+			ExePath:  complexPath,
+			LogLevel: "info",
+		},
+	}
+	cfgCopy.Modules = mod
+
+	r.Reconfigure(ctx, &cfgCopy)
+
+	// Verify resources to ensure myGizmo does build
+	expectedResources = rtestutils.ConcatResourceNames(
+		[]resource.Name{cfg.Components[0].ResourceName()},
+		expectedResources,
+	)
+	rtestutils.VerifySameResourceNames(t, r.ResourceNames(), expectedResources)
 }

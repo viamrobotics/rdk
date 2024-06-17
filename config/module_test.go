@@ -9,6 +9,46 @@ import (
 	"go.viam.com/test"
 )
 
+// testChdir is a helper that cleans up an os.Chdir.
+func testChdir(t *testing.T, dir string) {
+	t.Helper()
+	wd, err := os.Getwd()
+	test.That(t, err, test.ShouldBeNil)
+	err = os.Chdir(dir)
+	test.That(t, err, test.ShouldBeNil)
+	t.Cleanup(func() { os.Chdir(wd) })
+}
+
+func TestInternalMeta(t *testing.T) {
+	tmp := t.TempDir()
+	testChdir(t, tmp)
+	testWriteJSON(t, "meta.json", JSONManifest{Entrypoint: "entry"})
+	packagesDir := filepath.Join(tmp, "packages")
+	t.Run("local-tarball", func(t *testing.T) {
+		mod := Module{
+			Type:    ModuleTypeLocal,
+			ExePath: filepath.Join(tmp, "whatever.tar.gz"),
+		}
+		exePath, err := mod.EvaluateExePath(packagesDir)
+		test.That(t, err, test.ShouldBeNil)
+		exeDir, err := mod.exeDir(packagesDir)
+		test.That(t, err, test.ShouldBeNil)
+		// "entry" is from meta.json.
+		test.That(t, exePath, test.ShouldEqual, filepath.Join(exeDir, "entry"))
+	})
+
+	t.Run("non-tarball", func(t *testing.T) {
+		mod := Module{
+			Type:    ModuleTypeLocal,
+			ExePath: filepath.Join(tmp, "whatever"),
+		}
+		exePath, err := mod.EvaluateExePath(packagesDir)
+		test.That(t, err, test.ShouldBeNil)
+		// "whatever" is from config.Module object.
+		test.That(t, exePath, test.ShouldEqual, filepath.Join(tmp, "whatever"))
+	})
+}
+
 func TestSyntheticModule(t *testing.T) {
 	tmp := t.TempDir()
 	modNeedsSynthetic := Module{
@@ -37,7 +77,7 @@ func TestSyntheticModule(t *testing.T) {
 	})
 
 	t.Run("syntheticPackageExeDir", func(t *testing.T) {
-		dir, err := modNeedsSynthetic.syntheticPackageExeDir(tmp)
+		dir, err := modNeedsSynthetic.exeDir(tmp)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, dir, test.ShouldEqual, filepath.Join(tmp, "data/module/synthetic--"))
 	})
@@ -51,7 +91,7 @@ func TestSyntheticModule(t *testing.T) {
 		// local tarball case
 		syntheticPath, err := modNeedsSynthetic.EvaluateExePath(tmp)
 		test.That(t, err, test.ShouldBeNil)
-		exeDir, err := modNeedsSynthetic.syntheticPackageExeDir(tmp)
+		exeDir, err := modNeedsSynthetic.exeDir(tmp)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, syntheticPath, test.ShouldEqual, filepath.Join(exeDir, meta.Entrypoint))
 

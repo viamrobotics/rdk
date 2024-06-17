@@ -65,6 +65,7 @@ type localRobot struct {
 	triggerConfig              chan struct{}
 	configTicker               *time.Ticker
 	revealSensitiveConfigDiffs bool
+	shutdownCallback           func()
 
 	// lastWeakDependentsRound stores the value of the resource graph's
 	// logical clock when updateWeakDependents was called.
@@ -390,6 +391,7 @@ func newWithResources(
 		configTicker:               nil,
 		revealSensitiveConfigDiffs: rOpts.revealSensitiveConfigDiffs,
 		cloudConnSvc:               icloud.NewCloudConnectionService(cfg.Cloud, logger),
+		shutdownCallback:           rOpts.shutdownCallback,
 	}
 	r.mostRecentCfg.Store(config.Config{})
 	var heartbeatWindow time.Duration
@@ -1192,17 +1194,17 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 	// First we mark diff.Removed resources and their children for removal.
 	processesToClose, resourcesToCloseBeforeComplete, _ := r.manager.markRemoved(ctx, diff.Removed, r.logger)
 
-	// Second we update the resource graph and stop any removed processes.
-	allErrs = multierr.Combine(allErrs, r.manager.updateResources(ctx, diff))
-	allErrs = multierr.Combine(allErrs, processesToClose.Stop())
-
-	// Third we attempt to Close resources.
+	// Second we attempt to Close resources.
 	alreadyClosed := make(map[resource.Name]struct{}, len(resourcesToCloseBeforeComplete))
 	for _, res := range resourcesToCloseBeforeComplete {
 		allErrs = multierr.Combine(allErrs, r.manager.closeResource(ctx, res))
 		// avoid a double close later
 		alreadyClosed[res.Name()] = struct{}{}
 	}
+
+	// Third we update the resource graph and stop any removed processes.
+	allErrs = multierr.Combine(allErrs, r.manager.updateResources(ctx, diff))
+	allErrs = multierr.Combine(allErrs, processesToClose.Stop())
 
 	// Fourth we attempt to complete the config (see function for details) and
 	// update weak dependents.
@@ -1298,6 +1300,15 @@ func (r *localRobot) RestartModule(ctx context.Context, req robot.RestartModuleR
 	err := r.restartSingleModule(ctx, *mod)
 	if err != nil {
 		return errors.Wrapf(err, "while restarting module id=%s, name=%s", req.ModuleID, req.ModuleName)
+	}
+	return nil
+}
+
+func (r *localRobot) Shutdown(ctx context.Context) error {
+	if shutdownFunc := r.shutdownCallback; shutdownFunc != nil {
+		shutdownFunc()
+	} else {
+		r.Logger().CErrorw(ctx, "shutdown function not defined")
 	}
 	return nil
 }

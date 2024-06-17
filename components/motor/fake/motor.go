@@ -313,7 +313,7 @@ func (m *Motor) GoFor(ctx context.Context, rpm, revolutions float64, extra map[s
 		}
 
 		if m.Encoder != nil {
-			return m.Encoder.SetPosition(ctx, int64(finalPos*float64(m.TicksPerRotation)))
+			return m.Encoder.SetPosition(ctx, finalPos*float64(m.TicksPerRotation))
 		}
 	}
 	return nil
@@ -360,7 +360,7 @@ func (m *Motor) GoTo(ctx context.Context, rpm, pos float64, extra map[string]int
 			return err
 		}
 
-		return m.Encoder.SetPosition(ctx, int64(pos*float64(m.TicksPerRotation)))
+		return m.Encoder.SetPosition(ctx, pos*float64(m.TicksPerRotation))
 	}
 
 	return nil
@@ -397,7 +397,7 @@ func (m *Motor) ResetZeroPosition(ctx context.Context, offset float64, extra map
 		return errors.New("need nonzero TicksPerRotation for motor")
 	}
 
-	err := m.Encoder.SetPosition(ctx, int64(-1*offset))
+	err := m.Encoder.SetPosition(ctx, -1*offset)
 	if err != nil {
 		return errors.Wrapf(err, "error in ResetZeroPosition from motor (%s)", m.Name())
 	}

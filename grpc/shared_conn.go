@@ -4,10 +4,16 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net"
 	"sync"
+	"time"
 
+	"github.com/edaniels/golog"
+	"github.com/pion/interceptor"
+	pionLogging "github.com/pion/logging"
 	"github.com/pion/webrtc/v3"
 	"go.uber.org/multierr"
+	"go.uber.org/zap"
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 	googlegrpc "google.golang.org/grpc"
@@ -180,7 +186,7 @@ func (sc *SharedConn) ResetConn(conn rpc.ClientConn, moduleLogger logging.Logger
 		sc.peerConn = nil
 	}
 
-	peerConn, err := webrtc.NewPeerConnection(webrtc.Configuration{})
+	peerConn, err := NewLocalPeerConnection(sc.logger.AsZap())
 	if err != nil {
 		sc.logger.Warnw("Unable to create optional peer connection for module. Ignoring.", "err", err)
 		return
@@ -318,4 +324,108 @@ func (sc *SharedConn) Close() error {
 	sc.peerConnMu.Unlock()
 
 	return multierr.Combine(err, sc.grpcConn.Close())
+}
+
+// NewLocalPeerConnection creates a peer connection that only accepts loopback
+// address candidates.
+func NewLocalPeerConnection(logger golog.Logger) (*webrtc.PeerConnection, error) {
+	m := webrtc.MediaEngine{}
+	if err := m.RegisterDefaultCodecs(); err != nil {
+		return nil, err
+	}
+	i := interceptor.Registry{}
+	if err := webrtc.RegisterDefaultInterceptors(&m, &i); err != nil {
+		return nil, err
+	}
+
+	var settingEngine webrtc.SettingEngine
+	settingEngine.SetIncludeLoopbackCandidate(true)
+	settingEngine.SetRelayAcceptanceMinWait(3 * time.Second)
+	settingEngine.SetIPFilter(func(ip net.IP) bool {
+		// Disallow ipv6 addresses since grpc-go does not currently support IPv6 scoped literals.
+		// See related grpc-go issue: https://github.com/grpc/grpc-go/issues/3272.
+		//
+		// Stolen from net/ip.go, `IP.String` method.
+		// Disallow non loopback addresses as this is a local peer connection
+		if p4 := ip.To4(); len(p4) == net.IPv4len && p4.IsLoopback() {
+			logger.Debugf("SetIPFilter allowing loppback ip: %s", ip.String())
+			return true
+		}
+		logger.Debugf("SetIPFilter disallowing ip: %s", ip.String())
+
+		return false
+	})
+
+	options := []func(a *webrtc.API){webrtc.WithMediaEngine(&m), webrtc.WithInterceptorRegistry(&i)}
+	if utils.Debug {
+		settingEngine.LoggerFactory = WebRTCLoggerFactory{logger}
+	}
+	options = append(options, webrtc.WithSettingEngine(settingEngine))
+	webAPI := webrtc.NewAPI(options...)
+
+	// attempt to construct a PeerConnection
+	pc, err := webAPI.NewPeerConnection(webrtc.Configuration{})
+	if err != nil {
+		logger.Debugw("Unable to create optional peer connection for module. Skipping WebRTC for module...", "err", err)
+		return nil, err
+	}
+	return pc, nil
+}
+
+// WebRTCLoggerFactory wraps a golog.Logger for use with pion's webrtc logging system.
+type WebRTCLoggerFactory struct {
+	Logger golog.Logger
+}
+
+type webrtcLogger struct {
+	logger golog.Logger
+}
+
+func (l webrtcLogger) loggerWithSkip() golog.Logger {
+	return l.logger.Desugar().WithOptions(zap.AddCallerSkip(1)).Sugar()
+}
+
+func (l webrtcLogger) Trace(msg string) {
+	l.loggerWithSkip().Debug(msg)
+}
+
+func (l webrtcLogger) Tracef(format string, args ...interface{}) {
+	l.loggerWithSkip().Debugf(format, args...)
+}
+
+func (l webrtcLogger) Debug(msg string) {
+	l.loggerWithSkip().Debug(msg)
+}
+
+func (l webrtcLogger) Debugf(format string, args ...interface{}) {
+	l.loggerWithSkip().Debugf(format, args...)
+}
+
+func (l webrtcLogger) Info(msg string) {
+	l.loggerWithSkip().Info(msg)
+}
+
+func (l webrtcLogger) Infof(format string, args ...interface{}) {
+	l.loggerWithSkip().Infof(format, args...)
+}
+
+func (l webrtcLogger) Warn(msg string) {
+	l.loggerWithSkip().Warn(msg)
+}
+
+func (l webrtcLogger) Warnf(format string, args ...interface{}) {
+	l.loggerWithSkip().Warnf(format, args...)
+}
+
+func (l webrtcLogger) Error(msg string) {
+	l.loggerWithSkip().Error(msg)
+}
+
+func (l webrtcLogger) Errorf(format string, args ...interface{}) {
+	l.loggerWithSkip().Errorf(format, args...)
+}
+
+// NewLogger returns a new webrtc logger under the given scope.
+func (lf WebRTCLoggerFactory) NewLogger(scope string) pionLogging.LeveledLogger {
+	return webrtcLogger{lf.Logger.Named(scope)}
 }

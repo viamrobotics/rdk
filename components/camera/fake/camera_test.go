@@ -208,7 +208,7 @@ func TestRTPPassthrough(t *testing.T) {
 		})
 		test.That(t, err, test.ShouldBeNil)
 		pkts := <-pktChan
-		test.That(t, len(pkts), test.ShouldEqual, 3)
+		test.That(t, len(pkts), test.ShouldEqual, 4)
 
 		// Unsubscribe fails when provided an ID for which there is no subscription
 		test.That(t, cam.Unsubscribe(context.Background(), uuid.New()), test.ShouldBeError, errors.New("id not found"))
