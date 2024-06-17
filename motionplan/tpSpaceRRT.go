@@ -857,13 +857,13 @@ func generateHeuristic(logger logging.Logger, firstSampled, pathLen int) []float
 	for i := 0; i < numElems; i++ {
 		heuristics[i] = math.Pow(float64(math.MaxOfInts(1, lookAhead-math.AbsInt(lookAhead-math.AbsInt(firstSampled-i)))), 2) // Creates ascending list until lookAhead and then descending list
 	}
-	heuristics[firstSampled] = 0
+	heuristics[firstSampled] = math.Inf(-1)
 	// Adjacent paths should not be smoothed so set their heuristic to 0
 	if firstSampled-1 >= 0 {
-		heuristics[firstSampled-1] = 0
+		heuristics[firstSampled-1] = math.Inf(-1)
 	}
 	if firstSampled+1 < numElems {
-		heuristics[firstSampled+1] = 0
+		heuristics[firstSampled+1] = math.Inf(-1)
 	}
 	for i := 0; i < numElems; i++ {
 		logger.Debugf("%v ", heuristics[i])
