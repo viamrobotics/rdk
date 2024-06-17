@@ -930,10 +930,10 @@ func (manager *resourceManager) processResource(
 	isModular := manager.moduleManager.Provides(conf)
 	if gNode.ResourceModel() == conf.Model {
 		if isModular {
+			gNode.SetLogLevel(conf.LogConfiguration.Level)
 			if err := manager.moduleManager.ReconfigureResource(ctx, conf, modmanager.DepsToNames(deps)); err != nil {
 				return nil, false, err
 			}
-			gNode.Logger().SetLevel(conf.LogConfiguration.Level)
 			return currentRes, false, nil
 		}
 
