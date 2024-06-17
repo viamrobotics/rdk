@@ -45,7 +45,7 @@ func TestFakeProperties(t *testing.T) {
 	prop, err := slamSvc.Properties(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, prop.CloudSlam, test.ShouldBeFalse)
-	test.That(t, prop.MappingMode, test.ShouldEqual, slam.MappingModeNewMap)
+	test.That(t, prop.MappingMode, test.ShouldEqual, slam.MappingModeLocalizationOnly)
 	test.That(t, prop.InternalStateFileType, test.ShouldEqual, ".pbstream")
 	test.That(t, prop.SensorInfo, test.ShouldResemble,
 		[]slam.SensorInfo{
