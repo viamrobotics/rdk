@@ -18,6 +18,7 @@ import (
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.uber.org/zap"
+
 	// registers all components.
 	commonpb "go.viam.com/api/common/v1"
 	armpb "go.viam.com/api/component/arm/v1"
@@ -3490,11 +3491,16 @@ func TestSendTriggerConfig(t *testing.T) {
 	ctx := context.Background()
 	logger := logging.NewTestLogger(t)
 
+	// Set up local robot normally so that the triggerConfig channel is set up normally
 	r := setupLocalRobot(t, ctx, &config.Config{}, logger)
-	r.Close(ctx)
 
+	// Close the robot to stop the background workers from processing any messages to triggerConfig
+	// but also reinitialize the closeContext so that sendTriggerConfig will attempt to send messages
+	// through.
+	r.Close(ctx)
 	actualR := r.(*localRobot)
 	actualR.closeContext = context.Background()
+
 	for i := 0; i < 5; i++ {
 		actualR.sendTriggerConfig("remote1")
 	}
