@@ -328,27 +328,27 @@ func (ss *Server) Close() error {
 	return errs
 }
 
-func (ss *Server) monitor(stream gostream.Stream) {
-	streamName := stream.Name()
-	ss.activeBackgroundWorkers.Add(1)
-	utils.ManagedGo(func() {
-		for utils.SelectContextOrWait(ss.closedCtx, time.Second) {
-			golog.Global().Infof("%s tick", streamName)
-			cam, err := streamCamera.Camera(ss.r, stream)
-			if err == nil {
-				golog.Global().Infof("%s calling Properties", cam.Name())
-				p, err := cam.Properties(context.Background())
-				if err != nil {
-					golog.Global().Errorf("%s err: %s", cam.Name(), err.Error())
-				}
-				golog.Global().Infof("%#v Properties %s", p, cam.Name())
-				continue
-			}
+// func (ss *Server) monitor(stream gostream.Stream) {
+// 	streamName := stream.Name()
+// 	ss.activeBackgroundWorkers.Add(1)
+// 	utils.ManagedGo(func() {
+// 		for utils.SelectContextOrWait(ss.closedCtx, time.Second) {
+// 			golog.Global().Infof("%s tick", streamName)
+// 			cam, err := streamCamera.Camera(ss.r, stream)
+// 			if err == nil {
+// 				golog.Global().Infof("%s calling Properties", cam.Name())
+// 				p, err := cam.Properties(context.Background())
+// 				if err != nil {
+// 					golog.Global().Errorf("%s err: %s", cam.Name(), err.Error())
+// 				}
+// 				golog.Global().Infof("%#v Properties %s", p, cam.Name())
+// 				continue
+// 			}
 
-			golog.Global().Errorf("stream %s has no camera err: %s", streamName, err.Error())
-		}
-	}, ss.activeBackgroundWorkers.Done)
-}
+// 			golog.Global().Errorf("stream %s has no camera err: %s", streamName, err.Error())
+// 		}
+// 	}, ss.activeBackgroundWorkers.Done)
+// }
 
 func (ss *Server) add(stream gostream.Stream) error {
 	streamName := stream.Name()
@@ -361,7 +361,7 @@ func (ss *Server) add(stream gostream.Stream) error {
 	ss.nameToStreamState[streamName] = newStreamState
 	ss.streamNames = append(ss.streamNames, streamName)
 	ss.startMonitorCameraAvailable()
-	ss.monitor(stream)
+	// ss.monitor(stream)
 	return nil
 }
 
