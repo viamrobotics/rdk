@@ -136,6 +136,7 @@ func (pm *planManager) PlanSingleWaypoint(ctx context.Context, request *PlanRequ
 				to,
 				request.StartConfiguration,
 				request.WorldState,
+				request.BoundingRegions,
 				request.ConstraintSpecs,
 				request.Options,
 			)
@@ -155,6 +156,7 @@ func (pm *planManager) PlanSingleWaypoint(ctx context.Context, request *PlanRequ
 		goalPos,
 		request.StartConfiguration,
 		request.WorldState,
+		request.BoundingRegions,
 		request.ConstraintSpecs,
 		request.Options,
 	)
@@ -253,8 +255,8 @@ func (pm *planManager) planAtomicWaypoints(
 		}
 		resultSlices = append(resultSlices, steps...)
 	}
-	to_ret, err := newRRTPlan(resultSlices, pm.frame, pm.useTPspace)
-	return to_ret, err
+
+	return newRRTPlan(resultSlices, pm.frame, pm.useTPspace)
 }
 
 // planSingleAtomicWaypoint attempts to plan a single waypoint. It may optionally be pre-seeded with rrt maps; these will be passed to the
@@ -270,7 +272,6 @@ func (pm *planManager) planSingleAtomicWaypoint(
 		// rrtParallelPlanner supports solution look-ahead for parallel waypoint solving
 		// This will set that up, and if we get a result on `endpointPreview`, then the next iteration will be started, and the steps
 		// for this solve will be rectified at the end.
-		pm.logger.Debugf("here bruh\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n")
 		endpointPreview := make(chan node, 1)
 		solutionChan := make(chan *rrtSolution, 1)
 		pm.activeBackgroundWorkers.Add(1)
@@ -296,17 +297,13 @@ func (pm *planManager) planSingleAtomicWaypoint(
 		// timeout due to planner fallbacks.
 		plannerctx, cancel := context.WithTimeout(ctx, time.Duration(pathPlanner.opt().Timeout*float64(time.Second)))
 		defer cancel()
-		planStart := time.Now()
 		nodes, err := pathPlanner.plan(plannerctx, goal, seed)
-		planElapsed := time.Since(planStart)
-		pm.logger.Debugf("$PLANTIME,%v", planElapsed)
 		if err != nil {
 			return nil, nil, err
 		}
-		smoothStart := time.Now()
+
 		smoothedPath := pathPlanner.smoothPath(ctx, nodes)
-		smoothElapsed := time.Since(smoothStart)
-		pm.logger.Debugf("$SMOOTHTIME,%v", smoothElapsed)
+
 		// Update seed for the next waypoint to be the final configuration of this waypoint
 		seed = smoothedPath[len(smoothedPath)-1].Q()
 		return seed, &resultPromise{steps: smoothedPath}, nil
@@ -413,18 +410,14 @@ func (pm *planManager) planParallelRRTMotion(
 		// Start smoothing before initializing the fallback plan. This allows both to run simultaneously.
 		smoothChan := make(chan []node, 1)
 		rrtBackground.Add(1)
-
 		utils.PanicCapturingGo(func() {
 			defer rrtBackground.Done()
-			pm.logger.Debugf("smoothing bruh\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n")
 			smoothChan <- pathPlanner.smoothPath(ctx, finalSteps.steps)
 		})
 		var alternateFuture *resultPromise
 
 		// Run fallback only if we don't have a very good path
-		pm.logger.Debugf("here once more lmao\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n")
 		if fallbackPlanner != nil {
-			pm.logger.Debugf("planning single atomic\n\n\n\n\n\n\n\n\n")
 			_, alternateFuture, err = pm.planSingleAtomicWaypoint(
 				ctx,
 				goal,
@@ -475,6 +468,7 @@ func (pm *planManager) plannerSetupFromMoveRequest(
 	from, to spatialmath.Pose,
 	seedMap map[string][]referenceframe.Input,
 	worldState *referenceframe.WorldState,
+	boundingRegions []spatialmath.Geometry,
 	constraints *pb.Constraints,
 	planningOpts map[string]interface{},
 ) (*plannerOptions, error) {
@@ -555,6 +549,7 @@ func (pm *planManager) plannerSetupFromMoveRequest(
 		movingRobotGeometries,
 		staticRobotGeometries,
 		worldGeometries.Geometries(),
+		boundingRegions,
 		allowedCollisions,
 		collisionBufferMM,
 	)
@@ -680,7 +675,7 @@ func (pm *planManager) plannerSetupFromMoveRequest(
 			// time to run the first planning attempt before falling back
 			try1["timeout"] = defaultFallbackTimeout
 			try1["planning_alg"] = "rrtstar"
-			try1Opt, err := pm.plannerSetupFromMoveRequest(from, to, seedMap, worldState, constraints, try1)
+			try1Opt, err := pm.plannerSetupFromMoveRequest(from, to, seedMap, worldState, boundingRegions, constraints, try1)
 			if err != nil {
 				return nil, err
 			}
@@ -809,7 +804,7 @@ func (pm *planManager) planRelativeWaypoint(ctx context.Context, request *PlanRe
 	}
 	goalPos := tf.(*referenceframe.PoseInFrame).Pose()
 	opt, err := pm.plannerSetupFromMoveRequest(
-		startPose, goalPos, request.StartConfiguration, request.WorldState, request.ConstraintSpecs, request.Options,
+		startPose, goalPos, request.StartConfiguration, request.WorldState, request.BoundingRegions, request.ConstraintSpecs, request.Options,
 	)
 	if err != nil {
 		return nil, err
