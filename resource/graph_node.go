@@ -438,7 +438,7 @@ func (w *GraphNode) canTransitionTo(state NodeState) bool {
 	case NodeStateUnconfigured:
 		//nolint
 		switch state {
-		case NodeStateConfiguring:
+		case NodeStateConfiguring, NodeStateRemoving:
 			return true
 		}
 	case NodeStateConfiguring:
