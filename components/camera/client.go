@@ -7,9 +7,9 @@ import (
 	"image"
 	"io"
 	"os"
-	"runtime/debug"
 	"slices"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/pion/rtp"
@@ -373,7 +373,6 @@ func (c *client) Close(ctx context.Context) error {
 	defer span.End()
 
 	c.logger.Warn("Close START")
-	debug.PrintStack()
 	defer c.logger.Warn("Close END")
 
 	c.healthyClientChMu.Lock()
@@ -571,6 +570,7 @@ func (c *client) addOnTrackSubFunc(
 		close(trackReceived)
 		c.activeBackgroundWorkers.Add(1)
 		goutils.ManagedGo(func() {
+			var count atomic.Uint64
 			for {
 				select {
 				case <-healthyClientCh:
@@ -622,6 +622,10 @@ func (c *client) addOnTrackSubFunc(
 				for _, tmp := range c.bufAndCBByID {
 					// This is needed to prevent the problem described here:
 					// https://go.dev/blog/loopvar-preview
+					if count.Load()%100 == 0 {
+						c.logger.Infof("calling ReadRTP")
+					}
+					count.Add(1)
 					bufAndCB := tmp
 					err := bufAndCB.buf.Publish(func() { bufAndCB.cb(pkt) })
 					if err != nil {

@@ -9,7 +9,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/edaniels/golog"
 	"github.com/pion/rtp"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
@@ -451,7 +450,7 @@ func (ss *StreamState) streamH264Passthrough() error {
 	cb := func(pkts []*rtp.Packet) {
 		for _, pkt := range pkts {
 			if count.Load()%100 == 0 {
-				golog.Global().Infof("calling WriteRTP %s", ss.Stream.Name())
+				ss.logger.Infof("calling WriteRTP %s", ss.Stream.Name())
 			}
 			count.Add(1)
 			if err := ss.Stream.WriteRTP(pkt); err != nil {

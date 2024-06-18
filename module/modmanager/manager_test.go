@@ -1116,7 +1116,6 @@ func TestRTPPassthrough(t *testing.T) {
 
 	greenLog(t, "camera.Close immediately terminates all subscriptions")
 	err = passCam.Close(ctx)
-	t.Log("after close")
 	test.That(t, err, test.ShouldBeNil)
 
 	test.That(t, sub1.Terminated.Err(), test.ShouldBeError, context.Canceled)

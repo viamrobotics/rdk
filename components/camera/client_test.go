@@ -885,6 +885,10 @@ func TestMultiplexOverMultiHopRemoteConnection(t *testing.T) {
 	test.That(t, cameraClient.(rtppassthrough.Source).Unsubscribe(mainCtx, sub.ID), test.ShouldBeNil)
 }
 
+// NOTE: These tests fail when this condition occurs:
+//     logger.go:130: 2024-06-17T16:56:14.097-0400 DEBUG   TestGrandRemoteRebooting.remote-1.rdk:remote:/remote-2.webrtc   rpc/wrtc_client_channel.go:299  no stream for id; discarding    {"ch": 0, "id": 11}
+// https://github.com/viamrobotics/goutils/blob/main/rpc/wrtc_client_channel.go#L299
+
 // go test -race -v -run=TestWhyMustTimeoutOnReadRTP -timeout 10s
 // TestWhyMustTimeoutOnReadRTP shows that if we don't timeout on ReadRTP (and also don't call RemoveStream) on close
 // calling Close() on main's camera client blocks forever if there is a live SubscribeRTP subscription with a remote
@@ -1014,11 +1018,13 @@ Loop:
 	test.That(t, sub.Terminated.Err(), test.ShouldBeNil)
 }
 
-// NOT WORKING as I don't know how to get a remote to come back online after calling Close
-// go test -race -v -run=TestWhyMustCallUnsubscribe -timeout 10s
-// TestWhyMustTimeoutOnReadRTP shows that if we don't call Unsubscribe on camera client Close (even if we are timing out in ReadRTP)
-// when talking to a remote all subsequent AddStream calls to the remote will inevitably fail due to the previous track still being alive.
-func TestWhyMustCallUnsubscribe(t *testing.T) {
+// This tests the following scenario:
+// 1. main-part (main) -> remote-part-1 (r1) -> remote-part-2 (r2) where r2 has a camera
+// 2. the client in the main part makes an AddStream(r1:r2:rtpPassthroughCamera) request, starting a webrtc video track to be streamed from r2 -> r1 -> main -> client
+// 3. r2 reboots
+// 4. expect that r1 & main stop getting packets, then when the new instance of r2 comes back online main gets new rtp packets from it's track with r1
+func TestGrandRemoteRebooting(t *testing.T) {
+	defer redLog(t, "TEST DONE")
 	logger := logging.NewTestLogger(t).Sublogger(t.Name())
 
 	remoteCfg2 := &config.Config{
@@ -1146,10 +1152,20 @@ Loop:
 	// It is not working as remote 1 never detects remote 2 & as a result main calls Close() on it's client with
 	// remote-1 which can be detectd
 	// by the fact that sub.Terminated.Done() is always the path this test goes down
+
+	greenLog(t, fmt.Sprintf("old robot address address %s", addr2))
+	tcpAddr, ok := options2.Network.Listener.Addr().(*net.TCPAddr)
+	test.That(t, ok, test.ShouldBeTrue)
+	newListener, err := net.ListenTCP("tcp", &net.TCPAddr{Port: tcpAddr.Port})
+	test.That(t, err, test.ShouldBeNil)
+	options2.Network.Listener = newListener
+
+	greenLog(t, fmt.Sprintf("setting up new robot at address %s", newListener.Addr().String()))
+
 	remote2CtxSecond, remoteRobot2Second, remoteWebSvc2Second := setupRealRobotWithOptions(
 		t,
 		remoteCfg2,
-		logger.Sublogger("remote-2"),
+		logger.Sublogger("remote-2SecondInstance"),
 		options2,
 	)
 	defer remoteRobot2Second.Close(remote2CtxSecond)
@@ -1159,7 +1175,7 @@ Loop:
 	select {
 	case <-sub.Terminated.Done():
 		// Right now we are going down this path b/c main's
-		redLog(t, "main's sub terminated due to clos")
+		redLog(t, "main's sub terminated due to close")
 		t.FailNow()
 	case <-pktsChan:
 		// Right now we never go down this path as the test is not able to get remote1 to reconnect to the new remote 2
