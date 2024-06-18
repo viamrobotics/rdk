@@ -249,6 +249,23 @@ func TestFunctions(t *testing.T) {
 		test.That(t, fmt.Sprint(latestLoggedEntry), test.ShouldContainSubstring, "nearly the max")
 	})
 
+	t.Run("test SetRPM", func(t *testing.T) {
+		err := m.SetRPM(ctx, 0, nil)
+		test.That(t, err, test.ShouldBeError)
+		allObs := obs.All()
+		latestLoggedEntry := allObs[len(allObs)-1]
+		test.That(t, fmt.Sprint(latestLoggedEntry), test.ShouldContainSubstring, "nearly 0")
+
+		err = m.SetRPM(ctx, -.009, nil)
+		test.That(t, err, test.ShouldNotBeNil)
+
+		err = m.SetRPM(ctx, 146, nil)
+		test.That(t, err, test.ShouldBeNil)
+		allObs = obs.All()
+		latestLoggedEntry = allObs[len(allObs)-1]
+		test.That(t, fmt.Sprint(latestLoggedEntry), test.ShouldContainSubstring, "nearly the max")
+	})
+
 	cancel()
 }
 
