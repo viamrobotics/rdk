@@ -846,31 +846,35 @@ func (mp *tpSpaceRRTMotionPlanner) make2DTPSpaceDistanceOptions(ptg tpspace.PTGS
 	return opts, &m
 }
 
-func generateHeuristic(logger logging.Logger, firstSampled, pathLen int) []float64 {
-	// It is better to have a lookAhead that is shorter because biasing towards collapsing shorter paths is more likely to be possible
-	// i.e. it is more feasible to find shorter paths that can be collapsed than long far away ones
-	// And as you collapse the shorter ones, you will eventually get to the big ones
+// generateHeuristic returns a list of heuristics for each node in the path. This is converted into a probability distribution through the softmax function
+func generateHeuristic(logger logging.Logger, firstEdge, pathLen int) []float64 {
+	// The heuristic implemented here takes in the firstEdge and defines a lookAhead.
+	// For nodes in each direction around firstEdge, the algorithm will increment by one until it reaches firstEdge + lookAhead and firstEdge - lookAhead indices
+	// From then on, it will decrement by one until it gets to the edge of the list
+	// All values are passed into a softmax to convert the real-valued heuristics into a probability distribution
+
+	// It is better to have a lookAhead that is shorter because biasing towards collapsing shorter paths is more likely to yield success than finding one long one
+	// Another observation to note is that sampling edges that are not connectable is very costly because the algorithm cycles through all PTGs in hopes of connecting them
+	// Thus, finding short, connectable paths is best
 	lookAhead := 3
 	numElems := pathLen - 2 // Can't sample last or second-last therefore arrayLen-2
 	heuristics := make([]float64, numElems)
 	for i := 0; i < numElems; i++ {
-		heuristics[i] = math.Pow(float64(math.MaxOfInts(1, lookAhead-math.AbsInt(lookAhead-math.AbsInt(firstSampled-i)))), 2) // Creates ascending list until lookAhead and then descending list
+		heuristics[i] = math.Pow(float64(math.MaxOfInts(1, lookAhead-math.AbsInt(lookAhead-math.AbsInt(firstEdge-i)))), 2) // Creates ascending list until lookAhead and then descending list
 	}
-	heuristics[firstSampled] = math.Inf(-1)
-	// Adjacent paths should not be smoothed so set their heuristic to 0
-	if firstSampled-1 >= 0 {
-		heuristics[firstSampled-1] = math.Inf(-1)
+
+	// firstEdge + adjacent edges should not be sampled, so set their heuristic to -Inf. This gets converted to zero probability by softmax
+	heuristics[firstEdge] = math.Inf(-1)
+	if firstEdge-1 >= 0 {
+		heuristics[firstEdge-1] = math.Inf(-1)
 	}
-	if firstSampled+1 < numElems {
-		heuristics[firstSampled+1] = math.Inf(-1)
+	if firstEdge+1 < numElems {
+		heuristics[firstEdge+1] = math.Inf(-1)
 	}
-	for i := 0; i < numElems; i++ {
-		logger.Debugf("%v ", heuristics[i])
-	}
-	logger.Debugf("\n")
 	return heuristics
 }
 
+// softmax takes in a heuristic list and converts it into a proability distribution function. This means the sum of the returned softmaxArr is equal to one
 func softmax(logger logging.Logger, heuristics []float64) []float64 {
 	sum := 0.0
 	for _, heuristic := range heuristics {
@@ -883,21 +887,26 @@ func softmax(logger logging.Logger, heuristics []float64) []float64 {
 	return softmaxArr
 }
 
-func generateCDF(logger logging.Logger, firstSampled, pathLen int) []float64 {
-	heuristics := generateHeuristic(logger, firstSampled, pathLen)
+// generateCDF returns a cumulative distribution function that can be used to sample the secondEdge for the smoothing algorithm
+func generateCDF(logger logging.Logger, firstEdge, pathLen int) []float64 {
+	heuristics := generateHeuristic(logger, firstEdge, pathLen)
 	softmaxArr := softmax(logger, heuristics)
+
+	// sum all successive values in the softmaxArr to convert it from a PDF to a CDF
 	for i := 1; i < len(softmaxArr); i++ {
 		softmaxArr[i] = softmaxArr[i] + softmaxArr[i-1]
 	}
 	return softmaxArr
 }
 
+// binarySearch finds the first instance of an element in the CDF that is greater than the sampled value. This is the index of the bucket that is returned
 func binarySearch(cdf []float64, sample float64) int {
 	return sort.Search(len(cdf), func(i int) bool {
 		return cdf[i] >= sample
 	})
 }
 
+// smoothPath takes in a path and attempts to smooth it by randomly sampling edges in the path and seeing if they can be connected
 func (mp *tpSpaceRRTMotionPlanner) smoothPath(ctx context.Context, path []node) []node {
 	toIter := int(math.Min(float64(len(path)*len(path))/2, float64(mp.planOpts.SmoothIter)))
 	currCost := sumCosts(path)

@@ -71,14 +71,3 @@ func (ptg *ptgCC) Transform(inputs []referenceframe.Input) (spatialmath.Pose, er
 	}
 	return spatialmath.Compose(revPose, fwdPose), nil
 }
-
-func (ptg *ptgCC) Curvature(alpha, dist float64) (float64, error) {
-	reverseDistance := math.Abs(alpha) * 0.5 * ptg.turnRadius
-	curvRev, _ := ptg.circle.Curvature(math.Pi, math.Min(dist, reverseDistance))
-	curvRev = math.Abs(curvRev)
-	curvForw, _ := ptg.circle.Curvature(math.Pi, dist-reverseDistance)
-	curvForw = math.Abs(curvForw)
-	return curvRev + curvForw, nil
-	// arcRadius := 2 * math.Pi * ptg.turnRadius / math.Abs(alpha) // radius of arc
-	// return 1 / arcRadius, nil
-}
