@@ -426,10 +426,37 @@ func (w *GraphNode) replace(other *GraphNode) error {
 	return nil
 }
 
+func (w *GraphNode) canTransitionTo(state NodeState) bool {
+	switch w.state {
+	case NodeStateUnconfigured:
+		switch state {
+		case NodeStateConfiguring:
+			return true
+		}
+	case NodeStateConfiguring:
+		switch state {
+		case NodeStateReady:
+			return true
+		}
+	case NodeStateReady:
+		switch state {
+		case NodeStateConfiguring, NodeStateRemoving:
+			return true
+		}
+	}
+	return false
+}
+
 func (w *GraphNode) transitionTo(state NodeState) {
 	if w.state == state {
+		w.logger.Warn("unexpected self-transition from %d", w.state)
 		return
 	}
+
+	if !w.canTransitionTo(state) {
+		w.logger.Warn("unexpected transition %d -> %d", w.state, state)
+	}
+
 	w.state = state
 	w.transitionedAt = time.Now()
 }
