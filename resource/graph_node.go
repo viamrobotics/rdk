@@ -458,6 +458,9 @@ func (w *GraphNode) canTransitionTo(state NodeState) bool {
 	return false
 }
 
+// transitionTo transitions the GraphNode to a new state. This method will log a warning
+// if the state transition is not expected. This method is not thread-safe and must be
+// called while holding a write lock on `mu` if accessed concurrently.
 func (w *GraphNode) transitionTo(state NodeState) {
 	if w.state == state {
 		if w.logger != nil {
