@@ -73,13 +73,15 @@ var (
 
 // NewUninitializedNode returns a node that is brand new and not yet initialized.
 func NewUninitializedNode() *GraphNode {
-	return &GraphNode{}
+	return &GraphNode{
+		transitionedAt: time.Now(),
+	}
 }
 
 // NewUnconfiguredGraphNode returns a node that contains enough information to
 // construct the underlying resource.
 func NewUnconfiguredGraphNode(config Config, dependencies []string) *GraphNode {
-	node := &GraphNode{}
+	node := NewUninitializedNode()
 	node.SetNewConfig(config, dependencies)
 	return node
 }
@@ -87,7 +89,7 @@ func NewUnconfiguredGraphNode(config Config, dependencies []string) *GraphNode {
 // NewConfiguredGraphNode returns a node that is already configured with
 // the supplied config and resource.
 func NewConfiguredGraphNode(config Config, res Resource, resModel Model) *GraphNode {
-	node := &GraphNode{}
+	node := NewUninitializedNode()
 	node.SetNewConfig(config, nil)
 	node.setDependenciesResolved()
 	node.SwapResource(res, resModel)
