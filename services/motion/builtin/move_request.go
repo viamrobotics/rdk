@@ -315,15 +315,9 @@ func (mr *moveRequest) createInputMap(
 		return nil, err
 	}
 	inputMap[mr.kinematicBase.Name().ShortName()] = baseExecutionState.CurrentInputs()[mr.kinematicBase.Name().Name]
-	inputMap[mr.kinematicBase.LocalizationFrame().Name()] = referenceframe.FloatsToInputs([]float64{
-		baseExecutionState.CurrentPoses()[mr.kinematicBase.LocalizationFrame().Name()].Pose().Point().X,
-		baseExecutionState.CurrentPoses()[mr.kinematicBase.LocalizationFrame().Name()].Pose().Point().Y,
-		baseExecutionState.CurrentPoses()[mr.kinematicBase.LocalizationFrame().Name()].Pose().Point().Z,
-		baseExecutionState.CurrentPoses()[mr.kinematicBase.LocalizationFrame().Name()].Pose().Orientation().OrientationVectorRadians().OX,
-		baseExecutionState.CurrentPoses()[mr.kinematicBase.LocalizationFrame().Name()].Pose().Orientation().OrientationVectorRadians().OY,
-		baseExecutionState.CurrentPoses()[mr.kinematicBase.LocalizationFrame().Name()].Pose().Orientation().OrientationVectorRadians().OZ,
-		baseExecutionState.CurrentPoses()[mr.kinematicBase.LocalizationFrame().Name()].Pose().Orientation().OrientationVectorRadians().Theta,
-	})
+	inputMap[mr.kinematicBase.LocalizationFrame().Name()] = referenceframe.PoseToInputs(
+		baseExecutionState.CurrentPoses()[mr.kinematicBase.LocalizationFrame().Name()].Pose(),
+	)
 	return inputMap, nil
 }
 

@@ -482,15 +482,7 @@ func (pf *poseFrame) Transform(inputs []Input) (spatial.Pose, error) {
 	if err := pf.baseFrame.validInputs(inputs); err != nil {
 		return nil, NewIncorrectInputLengthError(len(inputs), 7)
 	}
-	return spatial.NewPose(
-		r3.Vector{X: inputs[0].Value, Y: inputs[1].Value, Z: inputs[2].Value},
-		&spatial.OrientationVector{
-			OX:    inputs[3].Value,
-			OY:    inputs[4].Value,
-			OZ:    inputs[5].Value,
-			Theta: inputs[6].Value,
-		},
-	), nil
+	return InputsToPose(inputs), nil
 }
 
 // Interpolate interpolates the given amount between the two sets of inputs.
@@ -510,15 +502,7 @@ func (pf *poseFrame) Interpolate(from, to []Input, by float64) ([]Input, error) 
 		return nil, err
 	}
 	interpolatedPose := spatial.Interpolate(fromPose, toPose, by)
-	return []Input{
-		{interpolatedPose.Point().X},
-		{interpolatedPose.Point().Y},
-		{interpolatedPose.Point().Z},
-		{interpolatedPose.Orientation().OrientationVectorRadians().OX},
-		{interpolatedPose.Orientation().OrientationVectorRadians().OY},
-		{interpolatedPose.Orientation().OrientationVectorRadians().OZ},
-		{interpolatedPose.Orientation().OrientationVectorRadians().Theta},
-	}, nil
+	return PoseToInputs(interpolatedPose), nil
 }
 
 // Geometries returns an object representing the 3D space associeted with the staticFrame.
@@ -559,4 +543,30 @@ func (pf *poseFrame) ProtobufFromInput(input []Input) *pb.JointPositions {
 		n[idx] = utils.RadToDeg(a.Value)
 	}
 	return &pb.JointPositions{Values: n}
+}
+
+// PoseToInputs is a convience method for turning poses into inputs
+// We note that the orientation of the pose will be understood
+// as OrientationVectorRadians.
+func PoseToInputs(p spatial.Pose) []Input {
+	return FloatsToInputs([]float64{
+		p.Point().X, p.Point().Y, p.Point().Z,
+		p.Orientation().OrientationVectorRadians().OX,
+		p.Orientation().OrientationVectorRadians().OY,
+		p.Orientation().OrientationVectorRadians().OZ,
+		p.Orientation().OrientationVectorRadians().Theta,
+	})
+}
+
+// InputsToPose is a convience method for turning inputs into a spatial.Pose
+func InputsToPose(inputs []Input) spatial.Pose {
+	return spatial.NewPose(
+		r3.Vector{X: inputs[0].Value, Y: inputs[1].Value, Z: inputs[2].Value},
+		&spatial.OrientationVector{
+			OX:    inputs[3].Value,
+			OY:    inputs[4].Value,
+			OZ:    inputs[5].Value,
+			Theta: inputs[6].Value,
+		},
+	)
 }

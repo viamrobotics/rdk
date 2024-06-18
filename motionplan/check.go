@@ -165,15 +165,7 @@ func checkPlanRelative(
 	}
 
 	startingInputs := plan.Trajectory()[0]
-	startingInputs[localizationFrame.Name()] = referenceframe.FloatsToInputs([]float64{
-		planStartPoseWorld.Pose().Point().X,
-		planStartPoseWorld.Pose().Point().Y,
-		planStartPoseWorld.Pose().Point().Z,
-		planStartPoseWorld.Pose().Orientation().OrientationVectorRadians().OX,
-		planStartPoseWorld.Pose().Orientation().OrientationVectorRadians().OY,
-		planStartPoseWorld.Pose().Orientation().OrientationVectorRadians().OZ,
-		planStartPoseWorld.Pose().Orientation().OrientationVectorRadians().Theta,
-	})
+	startingInputs[localizationFrame.Name()] = referenceframe.PoseToInputs(planStartPoseWorld.Pose())
 
 	// setup the planOpts. Poses should be in world frame. This allows us to know e.g. which obstacles may ephemerally collide.
 	if sfPlanner.planOpts, err = sfPlanner.plannerSetupFromMoveRequest(
@@ -261,15 +253,7 @@ func checkPlanRelative(
 			}
 		}
 
-		startInputs[localizationFrame.Name()] = referenceframe.FloatsToInputs(
-			[]float64{
-				lastArcEndPose.Point().X, lastArcEndPose.Point().Y, lastArcEndPose.Point().Z,
-				lastArcEndPose.Orientation().OrientationVectorRadians().OX,
-				lastArcEndPose.Orientation().OrientationVectorRadians().OY,
-				lastArcEndPose.Orientation().OrientationVectorRadians().OZ,
-				lastArcEndPose.Orientation().OrientationVectorRadians().Theta,
-			},
-		)
+		startInputs[localizationFrame.Name()] = referenceframe.PoseToInputs(lastArcEndPose)
 		nextInputs := plan.Trajectory()[i]
 		nextInputs[localizationFrame.Name()] = startInputs[localizationFrame.Name()]
 		segment, err := createSegment(sf, lastArcEndPose, thisArcEndPose, startInputs, nextInputs)
