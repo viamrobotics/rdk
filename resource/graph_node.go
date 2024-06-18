@@ -135,22 +135,19 @@ func (w *GraphNode) Resource() (Resource, error) {
 	return w.current, nil
 }
 
-// WithState contains a resource along with lifecycle state information.
-type WithState struct {
-	Resource  Resource
-	State     NodeState
-	UpdatedAt time.Time
-}
-
-// ResourceWithState returns the underlying resource along with its current state.
-func (w *GraphNode) ResourceWithState() WithState {
+// State return the current lifecycle state for a resource node.
+func (w *GraphNode) State() NodeState {
 	w.mu.RLock()
 	defer w.mu.RUnlock()
-	return WithState{
-		Resource:  w.current,
-		State:     w.state,
-		UpdatedAt: w.transitionedAt,
-	}
+	return w.state
+}
+
+// TransitionedAt return the timestamp of when resource entered its current lifecycle
+// state.
+func (w *GraphNode) TransitionedAt() time.Time {
+	w.mu.RLock()
+	defer w.mu.RUnlock()
+	return w.transitionedAt
 }
 
 // InitializeLogger initializes the logger object associated with this resource node.
