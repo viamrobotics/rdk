@@ -81,4 +81,3 @@ jobs:
           -H "Accept: application/vnd.github+json" \
           https://api.github.com/repos/viamrobotics/sdk-integration-tests/dispatches \
           -d '{"event_type":"new_rc_branch"}'
-          
