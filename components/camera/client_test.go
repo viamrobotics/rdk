@@ -1022,13 +1022,14 @@ Loop:
 // 1. main-part (main) -> remote-part-1 (r1) -> remote-part-2 (r2) where r2 has a camera
 // 2. the client in the main part makes an AddStream(r1:r2:rtpPassthroughCamera) request, starting a webrtc video track to be streamed from r2 -> r1 -> main -> client
 // 3. r2 reboots
-// 4. expect that r1 & main stop getting packets, then when the new instance of r2 comes back online main gets new rtp packets from it's track with r1
+// 4. expect that r1 & main stop getting packets
+// 5. when the new instance of r2 comes back online main gets new rtp packets from it's track with r1
 func TestGrandRemoteRebooting(t *testing.T) {
 	defer redLog(t, "TEST DONE")
 	logger := logging.NewTestLogger(t).Sublogger(t.Name())
 
 	remoteCfg2 := &config.Config{
-		Network: config.NetworkConfig{NetworkConfigData: config.NetworkConfigData{Sessions: config.SessionsConfig{HeartbeatWindow: time.Hour}}},
+		// Network: config.NetworkConfig{NetworkConfigData: config.NetworkConfigData{Sessions: config.SessionsConfig{HeartbeatWindow: time.Hour}}},
 		Components: []resource.Config{
 			{
 				Name:  "rtpPassthroughCamera",
@@ -1046,7 +1047,7 @@ func TestGrandRemoteRebooting(t *testing.T) {
 	remote2Ctx, remoteRobot2, remoteWebSvc2 := setupRealRobotWithOptions(t, remoteCfg2, logger.Sublogger("remote-2"), options2)
 
 	remoteCfg1 := &config.Config{
-		Network: config.NetworkConfig{NetworkConfigData: config.NetworkConfigData{Sessions: config.SessionsConfig{HeartbeatWindow: time.Hour}}},
+		// Network: config.NetworkConfig{NetworkConfigData: config.NetworkConfigData{Sessions: config.SessionsConfig{HeartbeatWindow: time.Hour}}},
 		Remotes: []config.Remote{
 			{
 				Name:     "remote-2",
@@ -1061,7 +1062,7 @@ func TestGrandRemoteRebooting(t *testing.T) {
 	defer remoteWebSvc1.Close(remote1Ctx)
 
 	mainCfg := &config.Config{
-		Network: config.NetworkConfig{NetworkConfigData: config.NetworkConfigData{Sessions: config.SessionsConfig{HeartbeatWindow: time.Hour}}},
+		// Network: config.NetworkConfig{NetworkConfigData: config.NetworkConfigData{Sessions: config.SessionsConfig{HeartbeatWindow: time.Hour}}},
 		Remotes: []config.Remote{
 			{
 				Name:     "remote-1",
@@ -1076,20 +1077,20 @@ func TestGrandRemoteRebooting(t *testing.T) {
 	defer mainRobot.Close(mainCtx)
 	defer mainWebSvc.Close(mainCtx)
 
-	cameraClient, err := camera.FromRobot(mainRobot, "remote-1:remote-2:rtpPassthroughCamera")
+	mainCameraClient, err := camera.FromRobot(mainRobot, "remote-1:remote-2:rtpPassthroughCamera")
 	test.That(t, err, test.ShouldBeNil)
 
-	image, _, err := cameraClient.Images(mainCtx)
+	image, _, err := mainCameraClient.Images(mainCtx)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, image, test.ShouldNotBeNil)
 	greenLog(t, "got images")
 
-	greenLog(t, fmt.Sprintf("calling SubscribeRTP on %T, %p", cameraClient, cameraClient))
+	greenLog(t, fmt.Sprintf("calling SubscribeRTP on %T, %p", mainCameraClient, mainCameraClient))
 	time.Sleep(time.Second)
 
 	pktsChan := make(chan []*rtp.Packet)
 	recvPktsCtx, recvPktsFn := context.WithCancel(context.Background())
-	sub, err := cameraClient.(rtppassthrough.Source).SubscribeRTP(mainCtx, 512, func(pkts []*rtp.Packet) {
+	sub, err := mainCameraClient.(rtppassthrough.Source).SubscribeRTP(mainCtx, 512, func(pkts []*rtp.Packet) {
 		// first packet
 		recvPktsFn()
 		// at some point packets are no longer published
