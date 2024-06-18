@@ -11,6 +11,8 @@ import (
 	"go.viam.com/rdk/logging"
 )
 
+//go:generate stringer -type NodeState -trimprefix NodeState
+
 // NodeState captures the configuration lifecycle state of a resource node.
 type NodeState uint8
 
@@ -429,32 +431,40 @@ func (w *GraphNode) replace(other *GraphNode) error {
 func (w *GraphNode) canTransitionTo(state NodeState) bool {
 	switch w.state {
 	case NodeStateUnconfigured:
+		//nolint
 		switch state {
 		case NodeStateConfiguring:
 			return true
 		}
 	case NodeStateConfiguring:
+		//nolint
 		switch state {
 		case NodeStateReady:
 			return true
 		}
 	case NodeStateReady:
+		//nolint
 		switch state {
 		case NodeStateConfiguring, NodeStateRemoving:
 			return true
 		}
+	case NodeStateRemoving:
 	}
 	return false
 }
 
 func (w *GraphNode) transitionTo(state NodeState) {
 	if w.state == state {
-		w.logger.Warn("unexpected self-transition from %d", w.state)
+		if w.logger != nil {
+			w.logger.Warnf("unexpected self-transition from %s", w.state.String())
+		}
 		return
 	}
 
 	if !w.canTransitionTo(state) {
-		w.logger.Warn("unexpected transition %d -> %d", w.state, state)
+		if w.logger != nil {
+			w.logger.Warnf("unexpected transition %s -> %s", w.state.String(), state.String())
+		}
 	}
 
 	w.state = state

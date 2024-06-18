@@ -9,14 +9,21 @@ import (
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/components/generic"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/utils"
 )
 
+func withTestLogger(t *testing.T, node *resource.GraphNode) *resource.GraphNode {
+	logger := logging.NewTestLogger(t)
+	node.InitializeLogger(logger, "testnode", logger.GetLevel())
+	return node
+}
+
 func TestUninitializedLifecycle(t *testing.T) {
 	// empty
-	node := resource.NewUninitializedNode()
+	node := withTestLogger(t, resource.NewUninitializedNode())
 	test.That(t, node.IsUninitialized(), test.ShouldBeTrue)
 	test.That(t, node.UpdatedAt(), test.ShouldEqual, 0)
 	_, err := node.Resource()
@@ -38,7 +45,7 @@ func TestUninitializedLifecycle(t *testing.T) {
 func TestUnconfiguredLifecycle(t *testing.T) {
 	someConf := resource.Config{Attributes: utils.AttributeMap{"3": 4}}
 	initialDeps := []string{"dep1", "dep2"}
-	node := resource.NewUnconfiguredGraphNode(someConf, initialDeps)
+	node := withTestLogger(t, resource.NewUnconfiguredGraphNode(someConf, initialDeps))
 
 	test.That(t, node.IsUninitialized(), test.ShouldBeTrue)
 	test.That(t, node.UpdatedAt(), test.ShouldEqual, 0)
@@ -63,7 +70,7 @@ func TestConfiguredLifecycle(t *testing.T) {
 	someConf := resource.Config{Attributes: utils.AttributeMap{"3": 4}}
 
 	ourRes := &someResource{Resource: testutils.NewUnimplementedResource(generic.Named("some"))}
-	node := resource.NewConfiguredGraphNode(someConf, ourRes, resource.DefaultModelFamily.WithModel("bar"))
+	node := withTestLogger(t, resource.NewConfiguredGraphNode(someConf, ourRes, resource.DefaultModelFamily.WithModel("bar")))
 
 	test.That(t, node.IsUninitialized(), test.ShouldBeFalse)
 	test.That(t, node.UpdatedAt(), test.ShouldEqual, 0)
