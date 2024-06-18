@@ -3,6 +3,7 @@ package resource_test
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/pkg/errors"
 	"go.viam.com/test"
@@ -184,7 +185,7 @@ func lifecycleTest(t *testing.T, node *resource.GraphNode, initialDeps []string)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "not initialized")
 
-	ourRes4 := &someResource{Resource: testutils.NewUnimplementedResource(generic.Named("foob")), shoudlErr: true}
+	ourRes4 := &someResource{Resource: testutils.NewUnimplementedResource(generic.Named("foob")), shouldErr: true}
 	node.SwapResource(ourRes4, resource.DefaultModelFamily.WithModel("bazzz"))
 	test.That(t, node.ResourceModel(), test.ShouldResemble, resource.DefaultModelFamily.WithModel("bazzz"))
 	res, err = node.Resource()
@@ -213,13 +214,54 @@ func lifecycleTest(t *testing.T, node *resource.GraphNode, initialDeps []string)
 type someResource struct {
 	resource.Resource
 	closeCap  []interface{}
-	shoudlErr bool
+	shouldErr bool
 }
 
 func (s *someResource) Close(ctx context.Context) error {
 	s.closeCap = append(s.closeCap, ctx.Value("foo"))
-	if s.shoudlErr {
+	if s.shouldErr {
 		return errors.New("bad close")
 	}
 	return nil
+}
+
+type anotherResource struct {
+	resource.Resource
+	CloseFunc func(ctx context.Context) error
+}
+
+// Close calls the injected Close or the real version.
+func (a *anotherResource) Close(ctx context.Context) error {
+	if a.CloseFunc == nil {
+		return errors.New("oops")
+	}
+	return a.CloseFunc(ctx)
+}
+
+func TestClose(t *testing.T) {
+	// Tests that Close does not deadlock by calling graphNode.Close() inside a resource Close().
+	ourRes := &anotherResource{}
+	node := resource.NewConfiguredGraphNode(
+		resource.Config{},
+		ourRes,
+		resource.DefaultModelFamily.WithModel("bar"),
+	)
+
+	ourRes.CloseFunc = func(ctx context.Context) error {
+		return node.Close(ctx)
+	}
+
+	// This pattern fails the test faster on deadlocks instead of having to wait for the full
+	// test timeout.
+	errCh := make(chan error)
+	go func() {
+		errCh <- node.Close(context.Background())
+	}()
+
+	select {
+	case err := <-errCh:
+		test.That(t, err, test.ShouldBeNil)
+	case <-time.After(time.Second * 20):
+		t.Fatal("node took too long to close, might be a deadlock")
+	}
 }
