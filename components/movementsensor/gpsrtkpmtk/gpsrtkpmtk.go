@@ -129,6 +129,8 @@ type rtkI2C struct {
 	ntripStatus   bool
 	isVirtualBase bool
 	readerWriter  *bufio.ReadWriter
+	reader        io.Reader
+	writer        io.Writer
 
 	err          movementsensor.LastError
 	lastposition movementsensor.LastPosition
@@ -393,18 +395,16 @@ func (g *rtkI2C) getNtripFromVRS() error {
 			return err
 		}
 	}
-	var ggaMessage []byte
-	// GET GGA MESSAGE
+	// get the GGA message from cached data
+	ggaMessage, err := g.cachedData.GGA()
+	if err != nil {
+		g.logger.Error("Failed to get GGA message")
+		return err
+	}
 
-	// ggaMessage, err := gpsutils.GetGGAMessage(g.correctionWriter, g.logger)
-	// if err != nil {
-	// 	g.logger.Error("Failed to get GGA message")
-	// 	return err
-	// }
+	g.logger.Debugf("Writing GGA message: %v\n", (ggaMessage))
 
-	g.logger.Debugf("Writing GGA message: %v\n", string(ggaMessage))
-
-	_, err = g.readerWriter.WriteString(string(ggaMessage))
+	_, err = g.readerWriter.WriteString((ggaMessage))
 	if err != nil {
 		g.logger.Error("Failed to send NMEA data:", err)
 		return err
@@ -465,16 +465,24 @@ func (g *rtkI2C) receiveAndWriteI2C(ctx context.Context) {
 		g.err.Set(err)
 		return
 	}
+	if g.isVirtualBase {
+		g.logger.Debug("connecting to a Virtual Reference Station")
+		err = g.getNtripFromVRS()
+		if err != nil {
+			g.err.Set(err)
+			return
+		}
+	} else {
+		err = g.getStream(g.ntripClient.MountPoint, g.ntripClient.MaxConnectAttempts)
+		if err != nil {
+			g.err.Set(err)
+			return
+		}
 
-	err = g.getStream(g.ntripClient.MountPoint, g.ntripClient.MaxConnectAttempts)
-	if err != nil {
-		g.err.Set(err)
-		return
+		// create a buffer
+		g.writer = &bytes.Buffer{}
+		g.reader = io.TeeReader(g.ntripClient.Stream, g.writer)
 	}
-
-	// create a buffer
-	w := &bytes.Buffer{}
-	r := io.TeeReader(g.ntripClient.Stream, w)
 
 	buf := make([]byte, 1100)
 	n, err := g.ntripClient.Stream.Read(buf)
@@ -493,8 +501,13 @@ func (g *rtkI2C) receiveAndWriteI2C(ctx context.Context) {
 		return
 	}
 
-	scanner := rtcm3.NewScanner(r)
+	var scanner rtcm3.Scanner
 
+	if g.isVirtualBase {
+		scanner = rtcm3.NewScanner(g.readerWriter)
+	} else {
+		scanner = rtcm3.NewScanner(g.reader)
+	}
 	g.mu.Lock()
 	g.ntripStatus = true
 	g.mu.Unlock()
@@ -516,15 +529,26 @@ func (g *rtkI2C) receiveAndWriteI2C(ctx context.Context) {
 			g.mu.Unlock()
 
 			if msg == nil {
-				g.logger.CDebug(ctx, "No message... reconnecting to stream...")
-				err = g.getStream(g.ntripClient.MountPoint, g.ntripClient.MaxConnectAttempts)
-				if err != nil {
-					g.err.Set(err)
-					return
-				}
+				if g.isVirtualBase {
+					g.logger.Debug("reconnecting to the Virtual Reference Station")
 
-				w = &bytes.Buffer{}
-				r = io.TeeReader(g.ntripClient.Stream, w)
+					err = g.getNtripFromVRS()
+					if err != nil && !errors.Is(err, io.EOF) {
+						g.err.Set(err)
+						return
+					}
+
+				} else {
+					g.logger.CDebug(ctx, "No message... reconnecting to stream...")
+					err = g.getStream(g.ntripClient.MountPoint, g.ntripClient.MaxConnectAttempts)
+					if err != nil {
+						g.err.Set(err)
+						return
+					}
+
+					g.writer = &bytes.Buffer{}
+					g.reader = io.TeeReader(g.ntripClient.Stream, g.writer)
+				}
 
 				buf = make([]byte, 1100)
 				n, err := g.ntripClient.Stream.Read(buf)
@@ -541,8 +565,12 @@ func (g *rtkI2C) receiveAndWriteI2C(ctx context.Context) {
 					g.err.Set(err)
 					return
 				}
+				if g.isVirtualBase {
+					scanner = rtcm3.NewScanner(g.readerWriter)
+				} else {
+					scanner = rtcm3.NewScanner(g.reader)
+				}
 
-				scanner = rtcm3.NewScanner(r)
 				g.mu.Lock()
 				g.ntripStatus = true
 				g.mu.Unlock()
