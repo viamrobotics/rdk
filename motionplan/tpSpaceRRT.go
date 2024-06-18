@@ -10,7 +10,6 @@ import (
 	"math/rand"
 	"sort"
 	"sync"
-	"time"
 
 	"github.com/golang/geo/r3"
 	"go.uber.org/multierr"
@@ -890,9 +889,6 @@ func generateCDF(logger logging.Logger, firstSampled, pathLen int) []float64 {
 	for i := 1; i < len(softmaxArr); i++ {
 		softmaxArr[i] = softmaxArr[i] + softmaxArr[i-1]
 	}
-	// for i := 0; i < len(softmaxArr); i++ {
-	// 	logger.Debugf("%v ", softmaxArr[i])
-	// }
 	return softmaxArr
 }
 
@@ -903,29 +899,8 @@ func binarySearch(cdf []float64, sample float64) int {
 }
 
 func (mp *tpSpaceRRTMotionPlanner) smoothPath(ctx context.Context, path []node) []node {
-	start := time.Now()
 	toIter := int(math.Min(float64(len(path)*len(path))/2, float64(mp.planOpts.SmoothIter)))
 	currCost := sumCosts(path)
-	// mp.logger.Debugf("$DEBUG,seed:%v,scene:%v\n", mp.planOpts.extra["rseed"], mp.planOpts.extra["scene"])
-
-	// scene := mp.planOpts.extra["scene"]
-	useNew := mp.planOpts.extra["useNew"]
-	earlyExit := mp.planOpts.extra["earlyExit"]
-	earlyExitThreshold := mp.planOpts.extra["earlyExitThreshold"].(float64)
-
-	// origAllPTGs := mp.tpFrame.PTGSolvers()
-	// originalCurvCost := 0.
-	// for _, mynode := range path {
-	// 	i := int(mynode.Q()[0].Value)
-	// 	alpha := mynode.Q()[1].Value
-	// 	d := math.Abs(mynode.Q()[3].Value - mynode.Q()[2].Value)
-	// 	curv, _ := origAllPTGs[i].Curvature(alpha, d)
-	// 	curv = math.Abs(curv)
-	// 	// mp.logger.Debugf("$DEBUG,%v,%v", i, curv)
-	// 	originalCurvCost = originalCurvCost + curv
-	// }
-	// mp.logger.Debugf("$DEBUG,original_curv_cost:%v\n", originalCurvCost)
-	mp.logger.Debugf("$INTERNAL,original_og_cost:%v\n", currCost)
 	smoothPlannerMP, err := newTPSpaceMotionPlanner(mp.frame, mp.randseed, mp.logger, mp.planOpts)
 	if err != nil {
 		return path
@@ -942,30 +917,22 @@ func (mp *tpSpaceRRTMotionPlanner) smoothPath(ctx context.Context, path []node) 
 		// get start node of first edge. Cannot be either the last or second-to-last node.
 		// Intn will return an int in the half-open interval half-open interval [0,n)
 		firstEdge := mp.randseed.Intn(len(path) - 2)
-		secondEdge := 0
-		if useNew == false {
-			secondEdge = firstEdge + 1 + mp.randseed.Intn((len(path)-2)-firstEdge)
-		} else {
-			cdf := generateCDF(mp.logger, firstEdge, len(path))
-			sample := mp.randseed.Float64()
-			secondEdge = binarySearch(cdf, sample)
+		cdf := generateCDF(mp.logger, firstEdge, len(path))
+		sample := mp.randseed.Float64()
+		secondEdge := binarySearch(cdf, sample)
 
-			if secondEdge < firstEdge {
-				temp := secondEdge
-				secondEdge = firstEdge
-				firstEdge = temp
-			}
+		if secondEdge < firstEdge {
+			temp := secondEdge
+			secondEdge = firstEdge
+			firstEdge = temp
 		}
 
-		attemptSmoothStart := time.Now()
 		newInputSteps, err := mp.attemptSmooth(ctx, path, firstEdge, secondEdge, smoothPlanner)
-		attemptSmoothEnd := time.Now()
 
 		if err != nil || newInputSteps == nil {
 			continue
 		}
 		newCost := sumCosts(newInputSteps)
-		mp.logger.Debugf("Smooth Time: %v | Path Reached: %v | NewCost: %v | Len of Path: %v", attemptSmoothEnd.Sub(attemptSmoothStart), err != nil, newCost, len(newInputSteps))
 		if newCost >= currCost {
 			// The smoothed path is longer than the original
 			continue
@@ -973,33 +940,11 @@ func (mp *tpSpaceRRTMotionPlanner) smoothPath(ctx context.Context, path []node) 
 
 		path = newInputSteps
 		currCost = newCost
-		if earlyExit == true {
-			if newCost < earlyExitThreshold {
-				mp.logger.Debugf("$INTERNAL,breaking_at_iter_%v\n", i)
-				break
-			}
-		}
-		// newCurvCost := 0.
-		// newAllPTGs := mp.tpFrame.PTGSolvers()
-		// for _, mynode := range path {
-		// 	i := int(mynode.Q()[0].Value)
-		// 	alpha := mynode.Q()[1].Value
-		// 	d := math.Abs(mynode.Q()[3].Value - mynode.Q()[2].Value)
-		// 	curv, _ := newAllPTGs[i].Curvature(alpha, d)
-		// 	curv = math.Abs(curv)
-		// 	// mp.logger.Debugf("$DEBUG,%v,%v", i, curv)
-		// 	newCurvCost = newCurvCost + curv
-		// }
-		// if newCurvCost < 0.001*originalCurvCost {
-		// 	break
-		// }
 	}
-	elapsed := time.Since(start)
-	mp.logger.Debugf("$INTERNAL,smoothtime:%v", elapsed)
+
 	if pathdebug {
 		allPtgs := mp.tpFrame.PTGSolvers()
 		lastPose := path[0].Pose()
-		// newCurvCost := 0.
 		for _, mynode := range path {
 			trajPts, err := allPtgs[int(mynode.Q()[0].Value)].Trajectory(
 				mynode.Q()[1].Value,
@@ -1007,13 +952,6 @@ func (mp *tpSpaceRRTMotionPlanner) smoothPath(ctx context.Context, path []node) 
 				mynode.Q()[3].Value,
 				mp.planOpts.Resolution,
 			)
-			// i := int(mynode.Q()[0].Value)
-			// alpha := mynode.Q()[1].Value
-			// d := math.Abs(mynode.Q()[3].Value - mynode.Q()[2].Value)
-			// curv, _ := allPtgs[i].Curvature(alpha, d)
-			// curv = math.Abs(curv)
-			// mp.logger.Debugf("$DEBUG,%v,%v", i, curv)
-			// newCurvCost = newCurvCost + curv
 			if err != nil {
 				// Unimportant; this is just for debug visualization
 				break
@@ -1030,12 +968,6 @@ func (mp *tpSpaceRRTMotionPlanner) smoothPath(ctx context.Context, path []node) 
 				}
 			}
 		}
-		newOGCost := sumCosts(path)
-		if earlyExit == false {
-			mp.planOpts.extra["earlyExitThreshold"] = newOGCost
-		}
-		// mp.logger.Debugf("$DEBUG,new_curv_cost:%v\n", newCurvCost)
-		mp.logger.Debugf("$INTERNAL,new_og_cost:%v\n", newOGCost)
 	}
 
 	return path
