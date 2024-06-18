@@ -1309,7 +1309,7 @@ func TestAddStreamMaxTrackErr(t *testing.T) {
 }
 
 func TestBadModuleFailsFast(t *testing.T) {
-	t.Setenv("TESTMODULE_PANIC", "1")
+	t.Setenv("VIAM_TESTMODULE_PANIC", "1")
 	logger := logging.NewTestLogger(t)
 
 	modCfgs := []config.Module{
