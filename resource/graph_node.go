@@ -17,8 +17,11 @@ import (
 type NodeState uint8
 
 const (
+	// NodeStateUnknown represents an unknown state.
+	NodeStateUnknown NodeState = iota
+
 	// NodeStateUnconfigured denotes a newly created resource.
-	NodeStateUnconfigured NodeState = iota
+	NodeStateUnconfigured
 
 	// NodeStateConfiguring denotes a resource is being configured.
 	NodeStateConfiguring
@@ -76,6 +79,7 @@ var (
 // NewUninitializedNode returns a node that is brand new and not yet initialized.
 func NewUninitializedNode() *GraphNode {
 	return &GraphNode{
+		state:          NodeStateUnconfigured,
 		transitionedAt: time.Now(),
 	}
 }
@@ -421,7 +425,7 @@ func (w *GraphNode) replace(other *GraphNode) error {
 	other.unresolvedDependencies = nil
 	other.needsDependencyResolution = false
 
-	other.state = NodeStateUnconfigured
+	other.state = NodeStateUnknown
 	other.transitionedAt = time.Time{}
 
 	other.mu.Unlock()
@@ -430,6 +434,7 @@ func (w *GraphNode) replace(other *GraphNode) error {
 
 func (w *GraphNode) canTransitionTo(state NodeState) bool {
 	switch w.state {
+	case NodeStateUnknown:
 	case NodeStateUnconfigured:
 		//nolint
 		switch state {
