@@ -699,6 +699,11 @@ func readModels(path string, logger logging.Logger) ([]ModuleComponent, error) {
 	defer vutils.UncheckedErrorFunc(func() error { return os.RemoveAll(parentAddr) })
 	parentAddr += "/parent.sock"
 
+	// in some scenarios, we want to run module code without having a "real"
+	// parent available. This environment variable illustrates this.
+	os.Setenv("VIAM_NO_MODULE_PARENT", "true")
+	defer os.Unsetenv("VIAM_NO_MODULE_PARENT")
+
 	cfg := modconfig.Module{
 		Name:    "xxxx",
 		ExePath: path,
