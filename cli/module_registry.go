@@ -625,7 +625,7 @@ func loadManifestOrNil(path string) (*moduleManifest, error) {
 	if err == nil {
 		return &manifest, nil
 	}
-	if os.IsNotExist(err) {
+	if errors.Is(err, fs.ErrNotExist) {
 		//nolint:nilnil
 		return nil, nil
 	}
