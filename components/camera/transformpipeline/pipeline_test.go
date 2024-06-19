@@ -15,7 +15,6 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
-	"go.viam.com/rdk/testutils/inject"
 	"go.viam.com/rdk/utils"
 )
 
@@ -27,7 +26,6 @@ func TestTransformPipelineColor(t *testing.T) {
 			{Type: "resize", Attributes: utils.AttributeMap{"height_px": 20, "width_px": 10}},
 		},
 	}
-	r := &inject.Robot{}
 	logger := logging.NewTestLogger(t)
 
 	img, err := rimage.NewImageFromFile(artifact.MustPath("rimage/board1_small.png"))
@@ -40,7 +38,7 @@ func TestTransformPipelineColor(t *testing.T) {
 	test.That(t, inImg.Bounds().Dx(), test.ShouldEqual, 128)
 	test.That(t, inImg.Bounds().Dy(), test.ShouldEqual, 72)
 
-	color, err := newTransformPipeline(context.Background(), src, transformConf, r, logger)
+	color, err := newTransformPipeline(context.Background(), src, transformConf, resource.Dependencies{}, logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	outImg, _, err := camera.ReadImage(context.Background(), color)
@@ -74,7 +72,6 @@ func TestTransformPipelineDepth(t *testing.T) {
 			{Type: "resize", Attributes: utils.AttributeMap{"height_px": 30, "width_px": 40}},
 		},
 	}
-	r := &inject.Robot{}
 	logger := logging.NewTestLogger(t)
 
 	dm, err := rimage.NewDepthMapFromFile(context.Background(), artifact.MustPath("rimage/board1_gray_small.png"))
@@ -87,7 +84,7 @@ func TestTransformPipelineDepth(t *testing.T) {
 	test.That(t, inImg.Bounds().Dx(), test.ShouldEqual, 128)
 	test.That(t, inImg.Bounds().Dy(), test.ShouldEqual, 72)
 
-	depth, err := newTransformPipeline(context.Background(), src, transformConf, r, logger)
+	depth, err := newTransformPipeline(context.Background(), src, transformConf, resource.Dependencies{}, logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	outImg, _, err := camera.ReadImage(context.Background(), depth)
@@ -125,7 +122,6 @@ func TestTransformPipelineDepth2(t *testing.T) {
 			{Type: "depth_edges", Attributes: utils.AttributeMap{"high_threshold_pct": 0.85, "low_threshold_pct": 0.3, "blur_radius_px": 3.0}},
 		},
 	}
-	r := &inject.Robot{}
 	logger := logging.NewTestLogger(t)
 
 	dm, err := rimage.NewDepthMapFromFile(
@@ -133,7 +129,7 @@ func TestTransformPipelineDepth2(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	source := gostream.NewVideoSource(&videosource.StaticSource{DepthImg: dm}, prop.Video{})
 	// first depth transform
-	depth1, err := newTransformPipeline(context.Background(), source, transform1, r, logger)
+	depth1, err := newTransformPipeline(context.Background(), source, transform1, resource.Dependencies{}, logger)
 	test.That(t, err, test.ShouldBeNil)
 	outImg, _, err := camera.ReadImage(context.Background(), depth1)
 	test.That(t, err, test.ShouldBeNil)
@@ -141,7 +137,7 @@ func TestTransformPipelineDepth2(t *testing.T) {
 	test.That(t, outImg.Bounds().Dy(), test.ShouldEqual, 20)
 	test.That(t, depth1.Close(context.Background()), test.ShouldBeNil)
 	// second depth image
-	depth2, err := newTransformPipeline(context.Background(), source, transform2, r, logger)
+	depth2, err := newTransformPipeline(context.Background(), source, transform2, resource.Dependencies{}, logger)
 	test.That(t, err, test.ShouldBeNil)
 	outImg, _, err = camera.ReadImage(context.Background(), depth2)
 	test.That(t, err, test.ShouldBeNil)
@@ -156,13 +152,12 @@ func TestNullPipeline(t *testing.T) {
 		Source:   "source",
 		Pipeline: []Transformation{},
 	}
-	r := &inject.Robot{}
 	logger := logging.NewTestLogger(t)
 
 	img, err := rimage.NewImageFromFile(artifact.MustPath("rimage/board1_small.png"))
 	test.That(t, err, test.ShouldBeNil)
 	source := gostream.NewVideoSource(&videosource.StaticSource{ColorImg: img}, prop.Video{})
-	_, err = newTransformPipeline(context.Background(), source, transform1, r, logger)
+	_, err = newTransformPipeline(context.Background(), source, transform1, resource.Dependencies{}, logger)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "pipeline has no transforms")
 
@@ -170,7 +165,7 @@ func TestNullPipeline(t *testing.T) {
 		Source:   "source",
 		Pipeline: []Transformation{{Type: "identity", Attributes: nil}},
 	}
-	pipe, err := newTransformPipeline(context.Background(), source, transform2, r, logger)
+	pipe, err := newTransformPipeline(context.Background(), source, transform2, resource.Dependencies{}, logger)
 	test.That(t, err, test.ShouldBeNil)
 	outImg, _, err := camera.ReadImage(context.Background(), pipe) // should not transform anything
 	test.That(t, err, test.ShouldBeNil)
@@ -181,7 +176,6 @@ func TestNullPipeline(t *testing.T) {
 }
 
 func TestPipeIntoPipe(t *testing.T) {
-	r := &inject.Robot{}
 	logger := logging.NewTestLogger(t)
 
 	img, err := rimage.NewImageFromFile(artifact.MustPath("rimage/board1_small.png"))
@@ -203,7 +197,7 @@ func TestPipeIntoPipe(t *testing.T) {
 		},
 	}
 
-	pipe1, err := newTransformPipeline(context.Background(), source, transform1, r, logger)
+	pipe1, err := newTransformPipeline(context.Background(), source, transform1, resource.Dependencies{}, logger)
 	test.That(t, err, test.ShouldBeNil)
 	outImg, _, err := camera.ReadImage(context.Background(), pipe1)
 	test.That(t, err, test.ShouldBeNil)
@@ -214,7 +208,7 @@ func TestPipeIntoPipe(t *testing.T) {
 	test.That(t, prop.(*transform.PinholeCameraIntrinsics).Width, test.ShouldEqual, 128)
 	test.That(t, prop.(*transform.PinholeCameraIntrinsics).Height, test.ShouldEqual, 72)
 	// transform pipeline into pipeline
-	pipe2, err := newTransformPipeline(context.Background(), pipe1, transform2, r, logger)
+	pipe2, err := newTransformPipeline(context.Background(), pipe1, transform2, resource.Dependencies{}, logger)
 	test.That(t, err, test.ShouldBeNil)
 	outImg, _, err = camera.ReadImage(context.Background(), pipe2)
 	test.That(t, err, test.ShouldBeNil)

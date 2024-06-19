@@ -11,7 +11,6 @@ import (
 	"go.viam.com/rdk/gostream"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/services/vision"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
@@ -27,13 +26,13 @@ type segmenterSource struct {
 	stream        gostream.VideoStream
 	cameraName    string
 	segmenterName string
-	r             robot.Robot
+	deps          resource.Dependencies
 }
 
 func newSegmentationsTransform(
 	ctx context.Context,
 	source gostream.VideoSource,
-	r robot.Robot,
+	deps resource.Dependencies,
 	am utils.AttributeMap,
 	sourceString string,
 ) (gostream.VideoSource, camera.ImageType, error) {
@@ -51,7 +50,7 @@ func newSegmentationsTransform(
 		gostream.NewEmbeddedVideoStream(source),
 		sourceString,
 		conf.SegmenterName,
-		r,
+		deps,
 	}
 	src, err := camera.NewVideoSourceFromReader(ctx, segmenter, nil, props.ImageType)
 	if err != nil {
@@ -76,7 +75,7 @@ func (ss *segmenterSource) NextPointCloud(ctx context.Context) (pointcloud.Point
 	defer span.End()
 
 	// get the service
-	srv, err := vision.FromRobot(ss.r, ss.segmenterName)
+	srv, err := vision.FromDependencies(ss.deps, ss.segmenterName)
 	if err != nil {
 		return nil, fmt.Errorf("source_segmenter cant find vision service: %w", err)
 	}
