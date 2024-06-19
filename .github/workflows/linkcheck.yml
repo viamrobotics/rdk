@@ -1,0 +1,42 @@
+# .github/workflows/run-htmltest.yml
+# (c) 2021 Robb Romans
+#
+# Run htmltest link checker on generated HTML output in dist/
+# https://github.com/wjdp/htmltest
+#
+name: run-htmltest
+concurrency:
+  group: pullrequest-untrusted-htmltest-${{ github.event.number }}
+  cancel-in-progress: true
+on: pull_request
+jobs:
+  htmltest:
+    runs-on: ubuntu-large
+    container:
+       image: ghcr.io/cirruslabs/flutter:latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+      - name: Setup Go
+        uses: actions/setup-go@v3
+        with:
+          go-version: stable
+          cache: true
+      - name: Install doc2go
+        run: go install go.abhg.dev/doc2go@latest
+      - name: Generate API reference
+        run: doc2go -out www ./...
+      - name: Test HTML
+        # https://github.com/wjdp/htmltest-action/
+        # Don't fail the build on broken links
+        continue-on-error: false
+        uses: wjdp/htmltest-action@master
+        with:
+          config: .htmltest.yml
+      - name: Archive htmltest results
+        uses: actions/upload-artifact@v3
+        # Note: Set ACTIONS_RUNTIME_TOKEN env variable to test with nektos/act
+        with:
+          name: htmltest-report
+          path: tmp/.htmltest/htmltest.log
+          retention-days: 7 # Default is 90 days
