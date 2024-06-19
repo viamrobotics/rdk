@@ -5,9 +5,6 @@
 # https://github.com/wjdp/htmltest
 #
 name: run-htmltest
-concurrency:
-  group: pullrequest-untrusted-htmltest-${{ github.event.number }}
-  cancel-in-progress: true
 on:
   schedule:
     # 10am UTC on weekdays
