@@ -16,7 +16,7 @@ func TestUpdateModelsAction(t *testing.T) {
 		t.FailNow()
 	}
 	dir := filepath.Dir(filename)
-	binaryPath := testutils.BuildTempModule(t, "./module/tempmodule")
+	binaryPath := testutils.BuildTempModule(t, "./module/testmodule")
 	modulePath := dir + "/../module/testmodule/module.json"
 	metaPath := dir + "/../module/testmodule/meta.json"
 
