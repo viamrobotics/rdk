@@ -67,6 +67,7 @@ import (
 // GetCloudMetadata example:
 //
 //	metadata := machine.GetCloudMetadata()
+//	machine_id = metadata.MachineID
 //	machine_part_id = metadata.MachinePartID
 //	primary_org_id = metadata.PrimaryOrgID
 //	location_id = metadata.LocationID
