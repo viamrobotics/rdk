@@ -62,7 +62,7 @@ lint: lint-go lint-web
 	PATH=$(PATH_WITH_TOOLS) actionlint
 
 generate-go: tool-install
-	go generate ./...
+	PATH=$(PATH_WITH_TOOLS) go generate ./...
 
 lint-go: tool-install
 	go mod tidy
