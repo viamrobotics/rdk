@@ -856,11 +856,11 @@ func generateHeuristic(logger logging.Logger, firstEdge, pathLen int) []float64 
 	// It is better to have a lookAhead that is shorter because biasing towards collapsing shorter paths is more likely to yield success than finding one long one
 	// Another observation to note is that sampling edges that are not connectable is very costly because the algorithm cycles through all PTGs in hopes of connecting them
 	// Thus, finding short, connectable paths is best
-	lookAhead := 3
+	lookAhead := 3.0
 	numElems := pathLen - 2 // Can't sample last or second-last therefore arrayLen-2
 	heuristics := make([]float64, numElems)
 	for i := 0; i < numElems; i++ {
-		heuristics[i] = math.Pow(float64(math.MaxOfInts(1, lookAhead-math.AbsInt(lookAhead-math.AbsInt(firstEdge-i)))), 2) // Creates ascending list until lookAhead and then descending list
+		heuristics[i] = math.Pow(float64(math.Max(1, lookAhead-math.Abs(lookAhead-math.Abs(float64(firstEdge-i))))), 2) // Creates ascending list until lookAhead and then descending list
 	}
 
 	// firstEdge + adjacent edges should not be sampled, so set their heuristic to -Inf. This gets converted to zero probability by softmax
