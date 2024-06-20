@@ -17,7 +17,7 @@ func TestUpdateModelsAction(t *testing.T) {
 	dir := filepath.Dir(filename)
 	binaryPath := testutils.BuildTempModule(t, "./module/testmodule")
 	metaPath := dir + "/../module/testmodule/meta.json"
-	expectedMetaPath := dir + "/../module/testmodule/expectedmeta.json"
+	expectedMetaPath := dir + "/../module/testmodule/expected_meta.json"
 
 	flags := map[string]any{"binary": binaryPath, "module": metaPath}
 	cCtx, _, _, _ := setup(&inject.AppServiceClient{}, nil, nil, nil, flags, "")
