@@ -137,7 +137,7 @@ const run = async () => {
           img.width,
           img.height,
           mime,
-          2_147_483_647
+          100
         );
         let y = 0;
         for (const cls of classifications) {

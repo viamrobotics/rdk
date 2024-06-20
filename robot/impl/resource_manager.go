@@ -51,8 +51,10 @@ type resourceManager struct {
 	moduleManager  modif.ModuleManager
 	opts           resourceManagerOptions
 	logger         logging.Logger
-	configLock     sync.Mutex
-	viz            resource.Visualizer
+
+	// resourceGraphLock manages access to the resource graph and nodes. If either may change, this lock should be taken.
+	resourceGraphLock sync.Mutex
+	viz               resource.Visualizer
 }
 
 type resourceManagerOptions struct {
@@ -269,6 +271,9 @@ func (manager *resourceManager) updateRemoteResourceNames(
 }
 
 func (manager *resourceManager) updateRemotesResourceNames(ctx context.Context) bool {
+	manager.resourceGraphLock.Lock()
+	defer manager.resourceGraphLock.Unlock()
+
 	anythingChanged := false
 	for _, name := range manager.resources.Names() {
 		gNode, _ := manager.resources.Node(name)
@@ -449,7 +454,8 @@ func (manager *resourceManager) closeResource(ctx context.Context, res resource.
 	return allErrs
 }
 
-// closeAndUnsetResource attempts to close and unset the resource from the graph node.
+// closeAndUnsetResource attempts to close and unset the resource from the graph node. Should only be called within
+// resourceGraphLock.
 func (manager *resourceManager) closeAndUnsetResource(ctx context.Context, gNode *resource.GraphNode) error {
 	res, err := gNode.Resource()
 	if err != nil {
@@ -470,9 +476,9 @@ func (manager *resourceManager) removeMarkedAndClose(
 	ctx context.Context,
 	excludeFromClose map[resource.Name]struct{},
 ) error {
+	manager.resourceGraphLock.Lock()
 	defer func() {
-		manager.configLock.Lock()
-		defer manager.configLock.Unlock()
+		defer manager.resourceGraphLock.Unlock()
 		if err := manager.viz.SaveSnapshot(manager.resources); err != nil {
 			manager.logger.Warnw("failed to save graph snapshot", "error", err)
 		}
@@ -526,12 +532,12 @@ func (manager *resourceManager) completeConfig(
 	lr *localRobot,
 	forceSync bool,
 ) {
-	manager.configLock.Lock()
+	manager.resourceGraphLock.Lock()
 	defer func() {
 		if err := manager.viz.SaveSnapshot(manager.resources); err != nil {
 			manager.logger.Warnw("failed to save graph snapshot", "error", err)
 		}
-		manager.configLock.Unlock()
+		manager.resourceGraphLock.Unlock()
 	}()
 
 	// first handle remotes since they may reveal unresolved dependencies
@@ -746,17 +752,7 @@ func (manager *resourceManager) completeConfigForRemotes(ctx context.Context, lr
 			}
 			manager.addRemote(ctx, rr, gNode, *remConf)
 			rr.SetParentNotifier(func() {
-				if lr.closeContext.Err() != nil {
-					return
-				}
-
-				// Trigger completeConfig goroutine execution when a change in remote
-				// is detected.
-				select {
-				case <-lr.closeContext.Done():
-					return
-				case lr.triggerConfig <- struct{}{}:
-				}
+				lr.sendTriggerConfig(remConf.Name)
 			})
 		default:
 			err := errors.New("config is not a remote config")
@@ -1002,8 +998,8 @@ func (manager *resourceManager) updateResources(
 	ctx context.Context,
 	conf *config.Diff,
 ) error {
-	manager.configLock.Lock()
-	defer manager.configLock.Unlock()
+	manager.resourceGraphLock.Lock()
+	defer manager.resourceGraphLock.Unlock()
 	var allErrs error
 
 	// modules are not added into the resource tree as they belong to the module manager
