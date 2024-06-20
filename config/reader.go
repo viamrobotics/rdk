@@ -313,9 +313,7 @@ func readFromCloud(
 	mergeCloudConfig(cfg)
 	unprocessedConfig.Cloud.TLSCertificate = tls.certificate
 	unprocessedConfig.Cloud.TLSPrivateKey = tls.privateKey
-	if prevCfg != nil {
-		propagateLocalModuleState(prevCfg, cfg)
-	}
+	propagateLocalModuleState(prevCfg, cfg)
 
 	if err := storeToCache(cloudCfg.ID, unprocessedConfig); err != nil {
 		logger.Errorw("failed to cache config", "error", err)
@@ -334,14 +332,15 @@ func propagateLocalModuleState(prevConfig, newConfig *Config) {
 			}
 		}
 	}
-	for _, mod := range newConfig.Modules {
+	for i := range newConfig.Modules {
+		mod := &newConfig.Modules[i]
 		if mod.Type != ModuleTypeLocal {
 			continue
 		}
 		if oldModule, ok := oldModules[mod.Name]; ok {
 			mod.LocalVersion = oldModule.LocalVersion
 		}
-		if len(mod.LocalVersion) == 0 {
+		if mod.LocalVersion == "" {
 			mod.LocalVersion = "0.0.0"
 		}
 	}
