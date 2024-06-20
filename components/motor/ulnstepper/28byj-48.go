@@ -332,7 +332,7 @@ func (m *uln28byj) SetRPM(ctx context.Context, rpm float64, extra map[string]int
 	}
 
 	m.lock.Lock()
-	var d int = 1
+	d := 1
 	if math.Signbit(rpm) {
 		d = -1
 	}

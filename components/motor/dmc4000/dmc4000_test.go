@@ -131,6 +131,7 @@ func TestDMC4000Motor(t *testing.T) {
 		test.That(t, properties.PositionReporting, test.ShouldBeTrue)
 	})
 
+	//nolint:dupl
 	t.Run("motor SetPower testing", func(t *testing.T) {
 		// Test 0 (aka "stop")
 		txMu.Lock()
@@ -180,6 +181,7 @@ func TestDMC4000Motor(t *testing.T) {
 		test.That(t, fmt.Sprint(latestLoggedEntry), test.ShouldContainSubstring, "nearly the max")
 	})
 
+	//nolint:dupl
 	t.Run("motor SetRPM testing", func(t *testing.T) {
 		// Test 0 (aka "stop")
 		txMu.Lock()
