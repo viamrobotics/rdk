@@ -115,6 +115,9 @@ type Config struct {
 
 // String prints out a table of each frame in the system, with columns of name, parent, translation and orientation.
 func (cfg Config) String() string {
+	if len(cfg.Parts) == 0 {
+		return "empty frame system"
+	}
 	t := table.NewWriter()
 	t.AppendHeader(table.Row{"#", "Name", "Parent", "Translation", "Orientation", "Geometry"})
 	t.AppendRow([]interface{}{"0", referenceframe.World, "", "", "", ""})
@@ -140,7 +143,7 @@ func (cfg Config) String() string {
 			geomString,
 		})
 	}
-	return t.Render()
+	return "\n" + t.Render()
 }
 
 // the frame system service collects all the relevant parts that make up the frame system from the robot
@@ -184,7 +187,7 @@ func (svc *frameSystemService) Reconfigure(ctx context.Context, deps resource.De
 		return err
 	}
 	svc.parts = sortedParts
-	svc.logger.Debugf("updated robot frame system:\n%v", (&Config{Parts: sortedParts}).String())
+	svc.logger.Debugf("reconfigured robot frame system: %v", (&Config{Parts: sortedParts}).String())
 	return nil
 }
 
