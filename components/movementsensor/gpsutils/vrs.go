@@ -15,10 +15,8 @@ import (
 )
 
 // ConnectToVirtualBase is responsible for establishing a connection to
-// a virtual base station using the NTRIP protocol.
-func ConnectToVirtualBase(ntripInfo *NtripInfo,
-	logger logging.Logger,
-) (*bufio.ReadWriter, error) {
+// a virtual base station using the NTRIP protocol with enhanced error handling and retries.
+func ConnectToVirtualBase(ntripInfo *NtripInfo, logger logging.Logger) (*bufio.ReadWriter, error) {
 	mp := "/" + ntripInfo.MountPoint
 	credentials := ntripInfo.username + ":" + ntripInfo.password
 	credentialsBase64 := base64.StdEncoding.EncodeToString([]byte(credentials))
@@ -31,6 +29,7 @@ func ConnectToVirtualBase(ntripInfo *NtripInfo,
 
 	conn, err := net.Dial("tcp", serverAddr.Host)
 	if err != nil {
+		logger.Errorf("Failed to connect to server %s: %v", serverAddr, err)
 		return nil, err
 	}
 

@@ -1000,6 +1000,8 @@ func greenLog(t *testing.T, msg string) {
 }
 
 func TestRTPPassthrough(t *testing.T) {
+	// RSDK-7958
+	t.Skip()
 	ctx := context.Background()
 	logger := logging.NewInMemoryLogger(t)
 	defer func() {

@@ -358,6 +358,26 @@ func (r *localRobot) Status(ctx context.Context, resourceNames []resource.Name) 
 	return combinedResourceStatuses, nil
 }
 
+func (r *localRobot) sendTriggerConfig(caller string) {
+	if r.closeContext.Err() != nil {
+		return
+	}
+
+	// Attempt to trigger completeConfig goroutine execution when called,
+	// but does not block if triggerConfig is full.
+	select {
+	case <-r.closeContext.Done():
+		return
+	case r.triggerConfig <- struct{}{}:
+	default:
+		r.Logger().CDebugw(
+			r.closeContext,
+			"attempted to trigger reconfiguration, but there is already one queued.",
+			"caller", caller,
+		)
+	}
+}
+
 func newWithResources(
 	ctx context.Context,
 	cfg *config.Config,
@@ -383,11 +403,13 @@ func newWithResources(
 			},
 			logger,
 		),
-		operations:                 operation.NewManager(logger),
-		logger:                     logger,
-		closeContext:               closeCtx,
-		cancelBackgroundWorkers:    cancel,
-		triggerConfig:              make(chan struct{}),
+		operations:              operation.NewManager(logger),
+		logger:                  logger,
+		closeContext:            closeCtx,
+		cancelBackgroundWorkers: cancel,
+		// triggerConfig buffers 1 message so that we can queue up to 1 reconfiguration attempt
+		// (as long as there is 1 queued, further messages can be safely discarded).
+		triggerConfig:              make(chan struct{}, 1),
 		configTicker:               nil,
 		revealSensitiveConfigDiffs: rOpts.revealSensitiveConfigDiffs,
 		cloudConnSvc:               icloud.NewCloudConnectionService(cfg.Cloud, logger),

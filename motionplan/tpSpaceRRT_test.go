@@ -171,6 +171,20 @@ func TestPtgWithObstacle(t *testing.T) {
 
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(plan), test.ShouldBeGreaterThan, 2)
+
+	tp.planOpts.SmoothIter = 80
+
+	newplan := tp.smoothPath(ctx, plan)
+	test.That(t, newplan, test.ShouldNotBeNil)
+	oldcost := 0.
+	smoothcost := 0.
+	for _, planNode := range plan {
+		oldcost += planNode.Cost()
+	}
+	for _, planNode := range newplan {
+		smoothcost += planNode.Cost()
+	}
+	test.That(t, smoothcost, test.ShouldBeLessThan, oldcost)
 }
 
 func TestTPsmoothing(t *testing.T) {
@@ -477,7 +491,7 @@ func planToTpspaceRec(plan Plan, f referenceframe.Frame) ([]node, error) {
 	for _, inp := range plan.Trajectory() {
 		thisNode := &basicNode{
 			q:    inp[f.Name()],
-			cost: inp[f.Name()][3].Value,
+			cost: math.Abs(inp[f.Name()][3].Value - inp[f.Name()][2].Value),
 		}
 		nodes = append(nodes, thisNode)
 	}

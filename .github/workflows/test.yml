@@ -58,9 +58,9 @@ jobs:
     - name: Chown
       run: chown -R testbot:testbot .
 
-    - name: Verify no uncommitted changes from "make build-go lint-go"
+    - name: Verify no uncommitted changes from "make build-go lint-go generate-go"
       run: |
-        sudo -Hu testbot bash -lc 'git init && git add . && make build-go lint-go'
+        sudo -Hu testbot bash -lc 'git init && git add . && make build-go lint-go generate-go'
         GEN_DIFF=$(git status -s)
 
         if [ -n "$GEN_DIFF" ]; then
@@ -131,9 +131,9 @@ jobs:
     - name: chown
       run: chown -R testbot:testbot .
 
-    - name: Verify no uncommitted changes from "make build-go lint-go"
+    - name: Verify no uncommitted changes from "make build-go lint-go generate-go"
       run: |
-        sudo -Hu testbot bash -lc 'git init && git add . && make build-go lint-go'
+        sudo -Hu testbot bash -lc 'git init && git add . && make build-go lint-go generate-go'
         GEN_DIFF=$(git status -s)
 
         if [ -n "$GEN_DIFF" ]; then
