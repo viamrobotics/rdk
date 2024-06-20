@@ -67,8 +67,3 @@ jobs:
           slack_webhook_url: ${{secrets.SLACK_WEBHOOK_URL}}
           channel: '#team-devops'
           name: 'Workflow Status'
-    
-  run-sdk-integration-networking-tests:
-    needs: [staticbuild, appimage]
-    if: ${{ success() }}
-    uses: ./trigger-networking-tests.yml
