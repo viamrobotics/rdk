@@ -48,7 +48,7 @@ const (
 	defaultTimeout = 300.
 
 	// default number of times to try to smooth the path.
-	defaultSmoothIter = 200
+	defaultSmoothIter = 100
 
 	// default number of position only seeds to use for tp-space planning.
 	defaultTPspacePositionOnlySeeds = 16
