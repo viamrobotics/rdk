@@ -448,13 +448,12 @@ func (m *Motor) SetPower(ctx context.Context, powerPct float64, extra map[string
 	powerPct = math.Min(powerPct, 1.0)
 	powerPct = math.Max(powerPct, -1.0)
 
-	switch pow := math.Abs(powerPct); {
-	case pow < 0.1:
-		m.c.logger.CWarn(ctx, "motor speed is nearly 0 rev_per_min")
-		return m.Stop(ctx, extra)
-	case m.maxRPM > 0 && pow*m.maxRPM > m.maxRPM-0.1:
-		m.c.logger.CWarnf(ctx, "motor speed is nearly the max rev_per_min (%f)", m.maxRPM)
-	default:
+	warning, err := motor.CheckSpeed(powerPct, m.maxRPM)
+	if warning != "" {
+		m.logger.CWarn(ctx, warning)
+	}
+	if err != nil {
+		return err
 	}
 
 	m.powerPct = powerPct
@@ -501,13 +500,12 @@ func (m *Motor) stopJog() error {
 // can be assigned negative values to move in a backwards direction. Note: if both are
 // negative the motor will spin in the forward direction.
 func (m *Motor) GoFor(ctx context.Context, rpm, revolutions float64, extra map[string]interface{}) error {
-	switch speed := math.Abs(rpm); {
-	case speed < 0.1:
-		m.c.logger.CWarn(ctx, "motor speed is nearly 0 rev_per_min")
-		return motor.NewZeroRPMError()
-	case m.maxRPM > 0 && speed > m.maxRPM-0.1:
-		m.c.logger.CWarnf(ctx, "motor speed is nearly the max rev_per_min (%f)", m.maxRPM)
-	default:
+	warning, err := motor.CheckSpeed(rpm, m.maxRPM)
+	if warning != "" {
+		m.logger.CWarn(ctx, warning)
+	}
+	if err != nil {
+		return err
 	}
 	ctx, done := m.opMgr.New(ctx)
 	defer done()
@@ -752,12 +750,12 @@ func (m *Motor) doGoTo(rpm, position float64) error {
 		return err
 	}
 
-	switch speed := math.Abs(rpm); {
-	case speed < 0.1:
-		m.c.logger.Warn("motor speed is nearly 0 rev_per_min")
-	case m.maxRPM > 0 && speed > m.maxRPM-0.1:
-		m.c.logger.Warnf("motor speed is nearly the max rev_per_min (%f)", m.maxRPM)
-	default:
+	warning, err := motor.CheckSpeed(rpm, m.maxRPM)
+	if warning != "" {
+		m.logger.Warn(warning)
+	}
+	if err != nil {
+		return err
 	}
 
 	// Speed

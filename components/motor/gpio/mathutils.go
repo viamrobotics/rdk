@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"go.viam.com/rdk/components/encoder"
-	"go.viam.com/rdk/components/motor"
 )
 
 func fixPowerPct(powerPct, max float64) float64 {
@@ -61,19 +60,6 @@ func encodedGoForMath(rpm, revolutions, currentPos, ticksPerRotation float64) (f
 	}
 
 	return goalPos, goalRPM, direction
-}
-
-func checkSpeed(rpm, max float64) (string, error) {
-	switch speed := math.Abs(rpm); {
-	case speed == 0:
-		return "motor speed requested is 0 rev_per_min", motor.NewZeroRPMError()
-	case speed > 0 && speed < 0.1:
-		return "motor speed is nearly 0 rev_per_min", nil
-	case max > 0 && speed > max-0.1:
-		return fmt.Sprintf("motor speed is nearly the max rev_per_min (%f)", max), nil
-	default:
-		return "", nil
-	}
 }
 
 // checkEncPosType checks that the position type of an encoder is in ticks.

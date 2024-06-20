@@ -2,6 +2,8 @@ package motor
 
 import (
 	"context"
+	"fmt"
+	"math"
 
 	pb "go.viam.com/api/component/motor/v1"
 
@@ -173,4 +175,17 @@ func CreateStatus(ctx context.Context, m Motor) (*pb.Status, error) {
 		Position:  position,
 		IsMoving:  isMoving,
 	}, nil
+}
+
+func CheckSpeed(rpm, max float64) (string, error) {
+	switch speed := math.Abs(rpm); {
+	case speed == 0:
+		return "motor speed requested is 0 rev_per_min", NewZeroRPMError()
+	case speed > 0 && speed < 0.1:
+		return "motor speed is nearly 0 rev_per_min", nil
+	case max > 0 && speed > max-0.1:
+		return fmt.Sprintf("motor speed is nearly the max rev_per_min (%f)", max), nil
+	default:
+		return "", nil
+	}
 }
