@@ -291,6 +291,9 @@ func readFromCloud(
 	locationID := cfg.Cloud.LocationID
 	machineID := cfg.Cloud.MachineID
 
+	// This resets the new config's Cloud section to the original we loaded from file,
+	// but allows several fields to be updated, and merges the TLS certs which come
+	// from a different endpoint.
 	mergeCloudConfig := func(to *Config) {
 		*to.Cloud = *cloudCfg
 		to.Cloud.FQDN = fqdn
@@ -310,12 +313,38 @@ func readFromCloud(
 	mergeCloudConfig(cfg)
 	unprocessedConfig.Cloud.TLSCertificate = tls.certificate
 	unprocessedConfig.Cloud.TLSPrivateKey = tls.privateKey
+	if prevCfg != nil {
+		propagateLocalModuleState(prevCfg, cfg)
+	}
 
 	if err := storeToCache(cloudCfg.ID, unprocessedConfig); err != nil {
 		logger.Errorw("failed to cache config", "error", err)
 	}
 
 	return cfg, nil
+}
+
+// This preserves locally-managed state across config reloads.
+func propagateLocalModuleState(prevConfig, newConfig *Config) {
+	oldModules := make(map[string]Module)
+	if prevConfig != nil {
+		for _, mod := range prevConfig.Modules {
+			if mod.Type == ModuleTypeLocal {
+				oldModules[mod.Name] = mod
+			}
+		}
+	}
+	for _, mod := range newConfig.Modules {
+		if mod.Type != ModuleTypeLocal {
+			continue
+		}
+		if oldModule, ok := oldModules[mod.Name]; ok {
+			mod.LocalVersion = oldModule.LocalVersion
+		}
+		if len(mod.LocalVersion) == 0 {
+			mod.LocalVersion = "0.0.0"
+		}
+	}
 }
 
 type tlsConfig struct {
