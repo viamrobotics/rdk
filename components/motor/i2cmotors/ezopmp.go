@@ -302,17 +302,9 @@ func (m *Ezopmp) SetRPM(ctx context.Context, mLPerMin float64, extra map[string]
 	default:
 	}
 
-	ctx, done := m.opMgr.New(ctx)
-	defer done()
+	powerPct := mLPerMin / m.maxFlowRate
 
-	mins := math.Inf(1)
-	if math.Signbit(mLPerMin) {
-		mins = math.Inf(-1)
-	}
-
-	commandString := "DC," + strconv.FormatFloat(mLPerMin, 'f', -1, 64) + "," + strconv.FormatFloat(mins, 'f', -1, 64)
-	command := []byte(commandString)
-	return m.writeRegWithCheck(ctx, command)
+	return m.SetPower(ctx, powerPct, extra)
 }
 
 // ResetZeroPosition clears the amount of volume that has been dispensed.
