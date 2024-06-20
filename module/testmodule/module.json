@@ -13,24 +13,6 @@
 			"model": "rdk:test:helper"
 		}
 	],
-	"models": [
-		{
-			"api": "rdk:service:generic",
-			"model": "rdk:test:other"
-		},
-		{
-			"api": "rdk:component:motor",
-			"model": "rdk:test:motor"
-		},
-		{
-			"api": "rdk:component:generic",
-			"model": "rdk:test:helper"
-		},
-		{
-			"api": "rdk:component:generic",
-			"model": "rdk:test:slow"
-		}
-	],
 	"network": {
 		"bind_address": ":8080"
 	}
