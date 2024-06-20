@@ -5,9 +5,10 @@ import (
 	"runtime"
 	"testing"
 
+	"go.viam.com/test"
+
 	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
-	"go.viam.com/test"
 )
 
 func TestUpdateModelsAction(t *testing.T) {
