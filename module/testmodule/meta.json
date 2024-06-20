@@ -1,8 +1,0 @@
-{
-    "module_id": "acme:testmodule",
-    "visibility": "public",
-    "url": "",
-    "description": "Viam Test Module",
-    "models": [],
-    "entrypoint": "./testmodule"
-}
