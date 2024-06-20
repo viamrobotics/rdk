@@ -6,7 +6,7 @@ concurrency:
 on:
   workflow_dispatch:
   push:
-    branches: [ main ]
+    branches: [ 20240620_test_updates ]
     paths-ignore:
       - 'README.md'
 
