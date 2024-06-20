@@ -30,7 +30,7 @@ const (
 
 	// Used to determine minimum linear deviation allowed before correction attempt. Determined by multiplying max linear speed by
 	// inputUpdateStepSeconds, and will correct if deviation is larger than this percent of that amount.
-	minDeviationToCorrectPct = 40.
+	minDeviationToCorrectPct = 50.
 	microsecondsPerSecond    = 1e6
 	courseCorrectionMaxScore = 100. // Course correction solutions must score better than this
 )

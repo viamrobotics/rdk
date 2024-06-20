@@ -7,7 +7,6 @@ import (
 	"strings"
 	"testing"
 	"time"
-	"fmt"
 
 	"github.com/golang/geo/r3"
 	"github.com/google/uuid"
@@ -247,7 +246,6 @@ func TestMoveOnGlobe(t *testing.T) {
 		endPose, err := localizer.CurrentPosition(ctx)
 		test.That(t, err, test.ShouldBeNil)
 		movedPose := spatialmath.PoseBetween(startPose.Pose(), endPose.Pose())
-		fmt.Println("movedPose", spatialmath.PoseToProtobuf(movedPose))
 		test.That(t, movedPose.Point().X, test.ShouldAlmostEqual, expectedDst.X, planDeviationMM)
 		test.That(t, movedPose.Point().Y, test.ShouldAlmostEqual, expectedDst.Y, planDeviationMM)
 	})

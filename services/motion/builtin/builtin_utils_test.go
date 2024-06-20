@@ -3,10 +3,10 @@ package builtin
 import (
 	"context"
 	"math"
-	//~ "fmt"
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
@@ -157,7 +157,7 @@ func createWheeledBase(t *testing.T, ctx context.Context, logger logging.Logger,
 	
 	wheeledConf := &wheeled.Config {
 		WidthMM: 200,
-		WheelCircumferenceMM: 2000, // for testing purposes we want to go fast :)
+		WheelCircumferenceMM: 2000,
 		Left: []string{leftMotorName},
 		Right: []string{rightMotorName},
 	}
@@ -203,7 +203,7 @@ func createMotors(t *testing.T, ctx context.Context, logger logging.Logger, enco
 		conf := resource.Config{
 			Name:  name,
 			API:   motor.API,
-			ConvertedAttributes: &fakemotor.Config {Encoder: name + "_encoder", TicksPerRotation: 2000},
+			ConvertedAttributes: &fakemotor.Config {Encoder: name + "_encoder", TicksPerRotation: 4000},
 		}
 		
 		thisMotor, err := fakemotor.NewMotor(
@@ -282,6 +282,8 @@ func createMockSlamService(name, pcdPath string, origin spatialmath.Pose, move m
 		if err != nil {
 			return nil, err
 		}
+		// Adjust for proper x-y control
+		headingLeft -= 90
 		// CompassHeading is a left-handed value. Convert to be right-handed. Use math.Mod to ensure that 0 reports 0 rather than 360.
 		heading := math.Mod(math.Abs(headingLeft-360), 360)
 		orientation := &spatialmath.OrientationVectorDegrees{OZ: 1, Theta: heading}
@@ -329,6 +331,7 @@ func createFrameSystemService(
 func createMoveOnGlobeEnvironment(ctx context.Context, t *testing.T, origin *geo.Point, noise spatialmath.Pose, sleepTime int) (
 	motion.Localizer, motion.Service, func(context.Context) error,
 ) {
+	ctx, cFunc := context.WithCancel(ctx)
 	logger := logging.NewTestLogger(t)
 
 	// create fake wheeled base
@@ -385,7 +388,11 @@ func createMoveOnGlobeEnvironment(ctx context.Context, t *testing.T, origin *geo
 	
 	localizer := motion.NewMovementSensorLocalizer(movementSensor, startPosition, nil)
 	closeFunc := func(ctx context.Context) error {
-		return multierr.Combine(movementSensor.Close(ctx), ms.Close(ctx))
+		err := multierr.Combine(movementSensor.Close(ctx), ms.Close(ctx))
+		cFunc()
+		// wait for closing to finish
+		time.Sleep(50 * time.Millisecond)
+		return err
 	}
 
 	return localizer, ms, closeFunc
@@ -398,6 +405,7 @@ func createMoveOnMapEnvironment(
 	geomSize float64,
 	origin spatialmath.Pose,
 ) (motion.Localizer, motion.Service, func(context.Context) error) {
+	ctx, cFunc := context.WithCancel(ctx)
 	if origin == nil {
 		origin = spatialmath.NewZeroPose()
 	}
@@ -449,7 +457,11 @@ func createMoveOnMapEnvironment(
 	// converts that to a pose.
 	localizer := motion.NewSLAMLocalizer(injectSlam)
 	closeFunc := func(ctx context.Context) error {
-		return multierr.Combine(movementSensor.Close(ctx), ms.Close(ctx))
+		err := multierr.Combine(movementSensor.Close(ctx), ms.Close(ctx))
+		cFunc()
+		// wait for closing to finish
+		time.Sleep(50 * time.Millisecond)
+		return err
 	}
 	return localizer, ms, closeFunc
 }

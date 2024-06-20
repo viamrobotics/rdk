@@ -43,7 +43,6 @@ func newReplanner(period time.Duration, fnToPoll replanFn) *replanner {
 // startPolling executes the replanner's configured function at its configured period
 // The caller of this function should read from the replanner's responseChan to know when a replan is requested.
 func (r *replanner) startPolling(ctx context.Context, plan motionplan.Plan) {
-	fmt.Println("period", r.period)
 	ticker := time.NewTicker(r.period)
 	defer ticker.Stop()
 

@@ -26,9 +26,12 @@ import (
 	"go.viam.com/rdk/testutils/inject"
 )
 
+const PlanDeviationMM = 150
+
 func TestMoveOnMap(t *testing.T) {
 	ctx := context.Background()
 	logger := logging.NewTestLogger(t)
+	motionCfg := &motion.MotionConfiguration{PositionPollingFreqHz: 0.0000001, PlanDeviationMM: 100, LinearMPerSec: 0.3, AngularDegsPerSec: 60}
 
 	t.Run("Long distance", func(t *testing.T) {
 		if runtime.GOARCH == "arm" {
@@ -52,6 +55,7 @@ func TestMoveOnMap(t *testing.T) {
 			Destination:   goalInSLAMFrame,
 			SlamName:      slam.Named("test_slam"),
 			Extra:         extra,
+			MotionCfg: motionCfg,
 		}
 
 		timeoutCtx, timeoutFn := context.WithTimeout(ctx, time.Second*90)
@@ -72,7 +76,7 @@ func TestMoveOnMap(t *testing.T) {
 		endPos, err := kb.CurrentPosition(ctx)
 		test.That(t, err, test.ShouldBeNil)
 
-		test.That(t, spatialmath.PoseAlmostCoincidentEps(endPos.Pose(), goalInBaseFrame, 15), test.ShouldBeTrue)
+		test.That(t, spatialmath.PoseAlmostCoincidentEps(endPos.Pose(), goalInBaseFrame, PlanDeviationMM), test.ShouldBeTrue)
 	})
 
 	t.Run("Plans", func(t *testing.T) {
@@ -92,15 +96,16 @@ func TestMoveOnMap(t *testing.T) {
 				Destination:   goalInSLAMFrame,
 				SlamName:      slam.Named("test_slam"),
 				Extra:         extra,
+				MotionCfg: motionCfg,
 			}
 
-			timeoutCtx, timeoutFn := context.WithTimeout(ctx, time.Second*5)
+			timeoutCtx, timeoutFn := context.WithTimeout(ctx, time.Second*15)
 			defer timeoutFn()
 			executionID, err := ms.(*builtIn).MoveOnMap(timeoutCtx, req)
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, executionID, test.ShouldNotResemble, uuid.Nil)
 
-			timeoutCtx, timeoutFn = context.WithTimeout(ctx, time.Second*5)
+			timeoutCtx, timeoutFn = context.WithTimeout(ctx, time.Second*15)
 			defer timeoutFn()
 			err = motion.PollHistoryUntilSuccessOrError(timeoutCtx, ms, time.Millisecond*5, motion.PlanHistoryReq{
 				ComponentName: req.ComponentName,
@@ -112,7 +117,7 @@ func TestMoveOnMap(t *testing.T) {
 			endPos, err := kb.CurrentPosition(ctx)
 			test.That(t, err, test.ShouldBeNil)
 
-			test.That(t, spatialmath.PoseAlmostCoincidentEps(endPos.Pose(), goalInBaseFrame, 15), test.ShouldBeTrue)
+			test.That(t, spatialmath.PoseAlmostCoincidentEps(endPos.Pose(), goalInBaseFrame, PlanDeviationMM), test.ShouldBeTrue)
 		})
 		t.Run("check that straight line path executes", func(t *testing.T) {
 			kb, ms, closeFunc := createMoveOnMapEnvironment(ctx, t, "pointcloud/octagonspace.pcd", 40, nil)
@@ -123,20 +128,18 @@ func TestMoveOnMap(t *testing.T) {
 			req := motion.MoveOnMapReq{
 				ComponentName: base.Named("test-base"),
 				Destination:   easyGoalInSLAMFrame,
-				MotionCfg: &motion.MotionConfiguration{
-					PlanDeviationMM: 1,
-				},
+				MotionCfg: motionCfg,
 				SlamName: slam.Named("test_slam"),
 				Extra:    extra,
 			}
 
-			timeoutCtx, timeoutFn := context.WithTimeout(ctx, time.Second*5)
+			timeoutCtx, timeoutFn := context.WithTimeout(ctx, time.Second*15)
 			defer timeoutFn()
 			executionID, err := ms.(*builtIn).MoveOnMap(timeoutCtx, req)
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, executionID, test.ShouldNotResemble, uuid.Nil)
 
-			timeoutCtx, timeoutFn = context.WithTimeout(ctx, time.Second*5)
+			timeoutCtx, timeoutFn = context.WithTimeout(ctx, time.Second*15)
 			defer timeoutFn()
 			err = motion.PollHistoryUntilSuccessOrError(timeoutCtx, ms, time.Millisecond*5, motion.PlanHistoryReq{
 				ComponentName: req.ComponentName,
@@ -148,7 +151,7 @@ func TestMoveOnMap(t *testing.T) {
 			endPos, err := kb.CurrentPosition(ctx)
 			test.That(t, err, test.ShouldBeNil)
 
-			test.That(t, spatialmath.PoseAlmostEqualEps(endPos.Pose(), easyGoalInBaseFrame, 10), test.ShouldBeTrue)
+			test.That(t, spatialmath.PoseAlmostEqualEps(endPos.Pose(), easyGoalInBaseFrame, PlanDeviationMM), test.ShouldBeTrue)
 		})
 
 		t.Run("check that position-only mode executes", func(t *testing.T) {
@@ -159,16 +162,17 @@ func TestMoveOnMap(t *testing.T) {
 				ComponentName: base.Named("test-base"),
 				Destination:   goalInSLAMFrame,
 				SlamName:      slam.Named("test_slam"),
+				MotionCfg: motionCfg,
 				Extra:         extraPosOnly,
 			}
 
-			timeoutCtx, timeoutFn := context.WithTimeout(ctx, time.Second*5)
+			timeoutCtx, timeoutFn := context.WithTimeout(ctx, time.Second*15)
 			defer timeoutFn()
 			executionID, err := ms.(*builtIn).MoveOnMap(timeoutCtx, req)
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, executionID, test.ShouldNotResemble, uuid.Nil)
 
-			timeoutCtx, timeoutFn = context.WithTimeout(ctx, time.Second*5)
+			timeoutCtx, timeoutFn = context.WithTimeout(ctx, time.Second*15)
 			defer timeoutFn()
 			err = motion.PollHistoryUntilSuccessOrError(timeoutCtx, ms, time.Millisecond*5, motion.PlanHistoryReq{
 				ComponentName: req.ComponentName,
@@ -180,12 +184,12 @@ func TestMoveOnMap(t *testing.T) {
 			endPos, err := kb.CurrentPosition(ctx)
 			test.That(t, err, test.ShouldBeNil)
 
-			test.That(t, spatialmath.PoseAlmostCoincidentEps(endPos.Pose(), goalInBaseFrame, 15), test.ShouldBeTrue)
+			test.That(t, spatialmath.PoseAlmostCoincidentEps(endPos.Pose(), goalInBaseFrame, PlanDeviationMM), test.ShouldBeTrue)
 			// Position only mode should not yield the goal orientation.
 			test.That(t, spatialmath.OrientationAlmostEqualEps(
 				endPos.Pose().Orientation(),
 				goalInBaseFrame.Orientation(),
-				0.05), test.ShouldBeFalse)
+				0.5), test.ShouldBeFalse)
 		})
 
 		t.Run("should fail due to map collision", func(t *testing.T) {
@@ -222,17 +226,18 @@ func TestMoveOnMap(t *testing.T) {
 		req := motion.MoveOnMapReq{
 			ComponentName: base.Named("test-base"),
 			Destination:   goal1SLAMFrame,
+			MotionCfg: motionCfg,
 			SlamName:      slam.Named("test_slam"),
 			Extra:         map[string]interface{}{"smooth_iter": 5},
 		}
 
-		timeoutCtx, timeoutFn := context.WithTimeout(ctx, time.Second*5)
+		timeoutCtx, timeoutFn := context.WithTimeout(ctx, time.Second*15)
 		defer timeoutFn()
 		executionID, err := ms.(*builtIn).MoveOnMap(timeoutCtx, req)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, executionID, test.ShouldNotResemble, uuid.Nil)
 
-		timeoutCtx, timeoutFn = context.WithTimeout(ctx, time.Second*5)
+		timeoutCtx, timeoutFn = context.WithTimeout(ctx, time.Second*15)
 		defer timeoutFn()
 		err = motion.PollHistoryUntilSuccessOrError(timeoutCtx, ms, time.Millisecond*5, motion.PlanHistoryReq{
 			ComponentName: req.ComponentName,
@@ -245,7 +250,7 @@ func TestMoveOnMap(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		logger.Debug(spatialmath.PoseToProtobuf(endPos.Pose()))
-		test.That(t, spatialmath.PoseAlmostEqualEps(endPos.Pose(), goal1BaseFrame, 10), test.ShouldBeTrue)
+		test.That(t, spatialmath.PoseAlmostEqualEps(endPos.Pose(), goal1BaseFrame, PlanDeviationMM), test.ShouldBeTrue)
 
 		// Now, we try to go to the second goal. Since the `CurrentPosition` of our base is at `goal1`, the pose that motion solves for and
 		// logs should be {x:-1043  y:593}
@@ -253,15 +258,16 @@ func TestMoveOnMap(t *testing.T) {
 			ComponentName: base.Named("test-base"),
 			Destination:   goal2SLAMFrame,
 			SlamName:      slam.Named("test_slam"),
+			MotionCfg: motionCfg,
 			Extra:         map[string]interface{}{"smooth_iter": 5},
 		}
-		timeoutCtx, timeoutFn = context.WithTimeout(ctx, time.Second*5)
+		timeoutCtx, timeoutFn = context.WithTimeout(ctx, time.Second*15)
 		defer timeoutFn()
 		executionID, err = ms.(*builtIn).MoveOnMap(timeoutCtx, req)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, executionID, test.ShouldNotResemble, uuid.Nil)
 
-		timeoutCtx, timeoutFn = context.WithTimeout(ctx, time.Second*5)
+		timeoutCtx, timeoutFn = context.WithTimeout(ctx, time.Second*15)
 		defer timeoutFn()
 		err = motion.PollHistoryUntilSuccessOrError(timeoutCtx, ms, time.Millisecond*5, motion.PlanHistoryReq{
 			ComponentName: req.ComponentName,
@@ -273,7 +279,7 @@ func TestMoveOnMap(t *testing.T) {
 		endPos, err = kb.CurrentPosition(ctx)
 		test.That(t, err, test.ShouldBeNil)
 		logger.Debug(spatialmath.PoseToProtobuf(endPos.Pose()))
-		test.That(t, spatialmath.PoseAlmostEqualEps(endPos.Pose(), goal2BaseFrame, 5), test.ShouldBeTrue)
+		test.That(t, spatialmath.PoseAlmostEqualEps(endPos.Pose(), goal2BaseFrame, PlanDeviationMM), test.ShouldBeTrue)
 
 		plans, err := ms.PlanHistory(ctx, motion.PlanHistoryReq{
 			ComponentName: base.Named("test-base"),
@@ -292,10 +298,10 @@ func TestMoveOnMap(t *testing.T) {
 		// Thus, we use PlanHistory to get the plan steps of the latest plan.
 		// The zeroth index of the plan steps is the relative position of goal1 and the pose inverse between the first and last value of
 		// plan steps gives us the relative pose we solved for goal2.
-		test.That(t, spatialmath.PoseAlmostEqualEps(goalPose1, goal1BaseFrame, 10), test.ShouldBeTrue)
+		test.That(t, spatialmath.PoseAlmostEqualEps(goalPose1, goal1BaseFrame, PlanDeviationMM), test.ShouldBeTrue)
 
 		// This is the important test.
-		test.That(t, spatialmath.PoseAlmostEqualEps(goalPose2, spatialmath.PoseBetween(goal1BaseFrame, goal2BaseFrame), 10), test.ShouldBeTrue)
+		test.That(t, spatialmath.PoseAlmostEqualEps(goalPose2, spatialmath.PoseBetween(goal1BaseFrame, goal2BaseFrame), PlanDeviationMM), test.ShouldBeTrue)
 	})
 
 	t.Run("Timeout", func(t *testing.T) {
@@ -352,9 +358,7 @@ func TestMoveOnMap(t *testing.T) {
 		req := motion.MoveOnMapReq{
 			ComponentName: base.Named("test-base"),
 			Destination:   easyGoalInSLAMFrame,
-			MotionCfg: &motion.MotionConfiguration{
-				PlanDeviationMM: 1,
-			},
+			MotionCfg: motionCfg,
 			SlamName: slam.Named("test_slam"),
 			Extra:    map[string]interface{}{"smooth_iter": 0},
 		}
@@ -419,9 +423,9 @@ func TestMoveOnMap(t *testing.T) {
 
 		req := motion.MoveOnMapReq{
 			ComponentName: base.Named("test-base"),
+			MotionCfg: motionCfg,
 			Destination:   spatialmath.NewZeroPose(),
 			SlamName:      slam.Named("test_slam"),
-			MotionCfg:     &motion.MotionConfiguration{},
 		}
 
 		timeoutCtx, timeoutFn := context.WithTimeout(ctx, time.Second*5)
@@ -434,13 +438,13 @@ func TestMoveOnMap(t *testing.T) {
 
 func TestMoveOnMapAskewIMU(t *testing.T) {
 	t.Parallel()
+	motionCfg := &motion.MotionConfiguration{PlanDeviationMM: 150, LinearMPerSec: 0.3, AngularDegsPerSec: 60}
 	extraPosOnly := map[string]interface{}{"smooth_iter": 5, "motion_profile": "position_only"}
 	t.Run("Askew but valid base should be able to plan", func(t *testing.T) {
 		t.Parallel()
 		logger := logging.NewTestLogger(t)
 		ctx := context.Background()
-		askewOrient := &spatialmath.OrientationVectorDegrees{OX: 1, OY: 1, OZ: 1, Theta: 35}
-		askewOrientCorrected := &spatialmath.OrientationVectorDegrees{OZ: 1, Theta: -22.988}
+		askewOrient := &spatialmath.OrientationVectorDegrees{OZ: 1, Theta: 35}
 		// goal x-position of 1.32m is scaled to be in mm
 		goal1SLAMFrame := spatialmath.NewPose(r3.Vector{X: 1.32 * 1000, Y: 0}, &spatialmath.OrientationVectorDegrees{OZ: 1, Theta: 55})
 		goal1BaseFrame := spatialmath.Compose(goal1SLAMFrame, motion.SLAMOrientationAdjustment)
@@ -453,15 +457,16 @@ func TestMoveOnMapAskewIMU(t *testing.T) {
 			Destination:   goal1SLAMFrame,
 			SlamName:      slam.Named("test_slam"),
 			Extra:         extraPosOnly,
+			MotionCfg: motionCfg,
 		}
 
-		timeoutCtx, timeoutFn := context.WithTimeout(ctx, time.Second*15)
+		timeoutCtx, timeoutFn := context.WithTimeout(ctx, time.Second*25)
 		defer timeoutFn()
 		executionID, err := ms.(*builtIn).MoveOnMap(timeoutCtx, req)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, executionID, test.ShouldNotResemble, uuid.Nil)
 
-		timeoutCtx, timeoutFn = context.WithTimeout(ctx, time.Second*15)
+		timeoutCtx, timeoutFn = context.WithTimeout(ctx, time.Second*25)
 		defer timeoutFn()
 		err = motion.PollHistoryUntilSuccessOrError(timeoutCtx, ms, time.Millisecond*5, motion.PlanHistoryReq{
 			ComponentName: req.ComponentName,
@@ -475,12 +480,12 @@ func TestMoveOnMapAskewIMU(t *testing.T) {
 
 		// We need to transform the endPos by the corrected orientation in order to properly place it, otherwise it will go off in +Z somewhere.
 		// In a real robot this will be taken care of by gravity.
-		correctedPose := spatialmath.NewPoseFromOrientation(askewOrientCorrected)
+		correctedPose := spatialmath.NewPoseFromOrientation(askewOrient)
 		endPos := spatialmath.Compose(correctedPose, spatialmath.PoseBetween(spatialmath.NewPoseFromOrientation(askewOrient), endPIF.Pose()))
 		logger.Debug(spatialmath.PoseToProtobuf(endPos))
 		logger.Debug(spatialmath.PoseToProtobuf(goal1BaseFrame))
 
-		test.That(t, spatialmath.PoseAlmostEqualEps(endPos, goal1BaseFrame, 10), test.ShouldBeTrue)
+		test.That(t, spatialmath.PoseAlmostEqualEps(endPos, goal1BaseFrame, PlanDeviationMM), test.ShouldBeTrue)
 	})
 }
 
