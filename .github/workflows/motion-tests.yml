@@ -23,7 +23,7 @@ jobs:
             -e "spatialmath" \
             -e "components/base/wheeled" \
             -e "components/base/kinematicbase" \
-            -e "services/motion/builtin" || exit 0
+            -e "services/motion/builtin" || true
           echo "EXTENDED_MOTION_TEST=true" >> "$GITHUB_OUTPUT"
           
 
