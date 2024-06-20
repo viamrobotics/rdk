@@ -109,7 +109,7 @@ func (pm *planManager) PlanSingleWaypoint(ctx context.Context, request *PlanRequ
 		subWaypoints = true
 	}
 
-	if request.Constraints != nil && len(request.Constraints.LinearConstraint) > 0 {
+	if len(request.Constraints.GetLinearConstraint()) > 0 {
 		subWaypoints = true
 	}
 
@@ -538,7 +538,7 @@ func (pm *planManager) plannerSetupFromMoveRequest(
 		return nil, err
 	}
 
-	allowedCollisions, err := collisionSpecifications(constraints.CollisionSpecification, frameSystemGeometries, worldState)
+	allowedCollisions, err := collisionSpecifications(constraints.GetCollisionSpecification(), frameSystemGeometries, worldState)
 	if err != nil {
 		return nil, err
 	}
