@@ -216,11 +216,11 @@ func (p *plannerOptions) SetMinScore(minScore float64) {
 // constraints. It will return a bool indicating whether there are any to add.
 func (p *plannerOptions) addPbTopoConstraints(from, to spatialmath.Pose, constraints *Constraints) bool {
 	topoConstraints := false
-	for _, linearConstraint := range constraints.LinearConstraint {
+	for _, linearConstraint := range constraints.GetLinearConstraint() {
 		topoConstraints = true
 		p.addLinearConstraints(from, to, linearConstraint)
 	}
-	for _, orientationConstraint := range constraints.OrientationConstraint {
+	for _, orientationConstraint := range constraints.GetOrientationConstraint() {
 		topoConstraints = true
 		p.addOrientationConstraints(from, to, orientationConstraint)
 	}

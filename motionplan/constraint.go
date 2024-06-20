@@ -699,6 +699,7 @@ func (c *Constraints) AddLinearConstraint(linConstraint LinearConstraint) {
 	c.LinearConstraint = append(c.LinearConstraint, linConstraint)
 }
 
+// GetLinearConstraint checks if the Constraints object is nil and if not then returns its LinearConstraint field.
 func (c *Constraints) GetLinearConstraint() []LinearConstraint {
 	if c != nil {
 		return c.LinearConstraint
@@ -711,6 +712,7 @@ func (c *Constraints) AddOrientationConstraint(orientConstraint OrientationConst
 	c.OrientationConstraint = append(c.OrientationConstraint, orientConstraint)
 }
 
+// GetOrientationConstraint checks if the Constraints object is nil and if not then returns its OrientationConstraint field.
 func (c *Constraints) GetOrientationConstraint() []OrientationConstraint {
 	if c != nil {
 		return c.OrientationConstraint
@@ -723,6 +725,7 @@ func (c *Constraints) AddCollisionSpecification(collConstraint CollisionSpecific
 	c.CollisionSpecification = append(c.CollisionSpecification, collConstraint)
 }
 
+// GetCollisionSpecification checks if the Constraints object is nil and if not then returns its CollisionSpecification field.
 func (c *Constraints) GetCollisionSpecification() []CollisionSpecification {
 	if c != nil {
 		return c.CollisionSpecification
