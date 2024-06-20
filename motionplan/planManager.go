@@ -109,7 +109,7 @@ func (pm *planManager) PlanSingleWaypoint(ctx context.Context, request *PlanRequ
 		subWaypoints = true
 	}
 
-	if len(request.Constraints.LinearConstraint) > 0 {
+	if request.Constraints != nil && len(request.Constraints.LinearConstraint) > 0 {
 		subWaypoints = true
 	}
 

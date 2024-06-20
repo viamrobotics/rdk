@@ -137,7 +137,7 @@ func PlanFrameMotion(ctx context.Context,
 	dst spatialmath.Pose,
 	f frame.Frame,
 	seed []frame.Input,
-	constraintSpec *Constraints,
+	constraints *Constraints,
 	planningOpts map[string]interface{},
 ) ([][]frame.Input, error) {
 	// ephemerally create a framesystem containing just the frame for the solve
@@ -151,7 +151,7 @@ func PlanFrameMotion(ctx context.Context,
 		Frame:              f,
 		StartConfiguration: map[string][]frame.Input{f.Name(): seed},
 		FrameSystem:        fs,
-		Constraints:        constraintSpec,
+		Constraints:        constraints,
 		Options:            planningOpts,
 	})
 	if err != nil {
