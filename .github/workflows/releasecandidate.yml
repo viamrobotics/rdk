@@ -14,14 +14,14 @@ on:
 
 jobs:
   test:
-    uses: viamrobotics/rdk/.github/workflows/test.yml@main
+    uses: viamrobotics/rdk/.github/workflows/test.yml@20240620_test_updates
     secrets:
       MONGODB_TEST_OUTPUT_URI: ${{ secrets.MONGODB_TEST_OUTPUT_URI }}
       DOCKER_PUBLIC_READONLY_PAT: ${{ secrets.DOCKER_PUBLIC_READONLY_PAT }}
 
   appimage:
     needs: test
-    uses: viamrobotics/rdk/.github/workflows/appimage.yml@main
+    uses: viamrobotics/rdk/.github/workflows/appimage.yml@20240620_test_updates
     with:
       release_type: 'rc'
     secrets:
@@ -29,7 +29,7 @@ jobs:
 
   staticbuild:
     needs: test
-    uses: viamrobotics/rdk/.github/workflows/staticbuild.yml@main
+    uses: viamrobotics/rdk/.github/workflows/staticbuild.yml@20240620_test_updates
     with:
       release_type: 'rc'
     secrets:
@@ -37,14 +37,14 @@ jobs:
 
   droid:
     needs: test
-    uses: viamrobotics/rdk/.github/workflows/droid.yml@main
+    uses: viamrobotics/rdk/.github/workflows/droid.yml@20240620_test_updates
     with:
       release_type: 'rc'
     secrets:
       GCP_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS }}
 
   npm_publish:
-    uses: viamrobotics/rdk/.github/workflows/npm-publish.yml@main
+    uses: viamrobotics/rdk/.github/workflows/npm-publish.yml@20240620_test_updates
     needs: test
     secrets:
       NPM_TOKEN: ${{ secrets.NPM_TOKEN }}

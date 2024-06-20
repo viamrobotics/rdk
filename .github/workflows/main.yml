@@ -23,7 +23,7 @@ jobs:
 
   appimage:
     needs: test
-    uses: viamrobotics/rdk/.github/workflows/appimage.yml@main
+    uses: viamrobotics/rdk/.github/workflows/appimage.yml@20240620_test_updates
     with:
       release_type: 'latest'
     secrets:
@@ -31,7 +31,7 @@ jobs:
 
   staticbuild:
     needs: test
-    uses: viamrobotics/rdk/.github/workflows/staticbuild.yml@main
+    uses: viamrobotics/rdk/.github/workflows/staticbuild.yml@20240620_test_updates
     with:
       release_type: 'latest'
     secrets:
@@ -39,7 +39,7 @@ jobs:
 
   full-static:
     needs: test
-    uses: viamrobotics/rdk/.github/workflows/full-static.yml@main
+    uses: viamrobotics/rdk/.github/workflows/full-static.yml@20240620_test_updates
     with:
       channel: latest
     secrets:
@@ -47,27 +47,27 @@ jobs:
 
   droid:
     needs: test
-    uses: viamrobotics/rdk/.github/workflows/droid.yml@main
+    uses: viamrobotics/rdk/.github/workflows/droid.yml@20240620_test_updates
     with:
       release_type: 'latest'
     secrets:
       GCP_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS }}
 
   cli:
-    uses: viamrobotics/rdk/.github/workflows/cli.yml@main
+    uses: viamrobotics/rdk/.github/workflows/cli.yml@20240620_test_updates
     with:
       release_type: 'latest'
     secrets:
       GCP_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS }}
 
   npm_publish:
-    uses: viamrobotics/rdk/.github/workflows/npm-publish.yml@main
+    uses: viamrobotics/rdk/.github/workflows/npm-publish.yml@20240620_test_updates
     needs: test
     secrets:
       NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
 
   license_finder:
-    uses: viamrobotics/rdk/.github/workflows/license_finder.yml@main
+    uses: viamrobotics/rdk/.github/workflows/license_finder.yml@20240620_test_updates
 
   slack-workflow-status:
     if: ${{ failure() }}
