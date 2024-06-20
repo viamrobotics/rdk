@@ -34,8 +34,8 @@ func TestParseJSONFile(t *testing.T) {
 		ErrCircularReference,
 		NewReservedWordError("link", "world"),
 		NewReservedWordError("joint", "world"),
-		ErrAtLeastOneEndEffector,
-		NewFrameNotInListOfTransformsError("base"),
+		ErrNeedOneEndEffector, // 0 end effectors
+		ErrNeedOneEndEffector, // 2 end effectors
 	}
 
 	for _, f := range goodFiles {

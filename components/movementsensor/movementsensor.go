@@ -68,7 +68,7 @@ func Named(name string) resource.Name {
 //
 // Position example:
 //
-//	// Get the current position of the movement sensor above sea level in meters
+//	// Get the current position of the movement sensor above sea level in meters.
 //	position, altitude, err := myMovementSensor.Position(context.Background(), nil)
 //
 // LinearVelocity example:

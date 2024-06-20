@@ -67,9 +67,6 @@ type inputEnabledActuator interface {
 	referenceframe.InputEnabled
 }
 
-// ErrNotImplemented is thrown when an unreleased function is called.
-var ErrNotImplemented = errors.New("function coming soon but not yet implemented")
-
 // Config describes how to configure the service; currently only used for specifying dependency on framesystem service.
 type Config struct {
 	LogFilePath string `json:"log_file_path"`

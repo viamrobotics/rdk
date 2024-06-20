@@ -292,13 +292,13 @@ func (svc *webService) refreshVideoSources() {
 		if err != nil {
 			continue
 		}
-		existing, ok := svc.videoSources[validSDPTrackName(name)]
+		existing, ok := svc.videoSources[cam.Name().SDPTrackName()]
 		if ok {
 			existing.Swap(cam)
 			continue
 		}
 		newSwapper := gostream.NewHotSwappableVideoSource(cam)
-		svc.videoSources[validSDPTrackName(name)] = newSwapper
+		svc.videoSources[cam.Name().SDPTrackName()] = newSwapper
 	}
 }
 
@@ -309,13 +309,13 @@ func (svc *webService) refreshAudioSources() {
 		if err != nil {
 			continue
 		}
-		existing, ok := svc.audioSources[validSDPTrackName(name)]
+		existing, ok := svc.audioSources[input.Name().SDPTrackName()]
 		if ok {
 			existing.Swap(input)
 			continue
 		}
 		newSwapper := gostream.NewHotSwappableAudioSource(input)
-		svc.audioSources[validSDPTrackName(name)] = newSwapper
+		svc.audioSources[input.Name().SDPTrackName()] = newSwapper
 	}
 }
 
