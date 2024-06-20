@@ -701,7 +701,9 @@ func readModels(path string, logger logging.Logger) ([]ModuleComponent, error) {
 
 	// in some scenarios, we want to run module code without having a "real"
 	// parent available. This environment variable illustrates this.
-	os.Setenv("VIAM_NO_MODULE_PARENT", "true")
+	if err := os.Setenv("VIAM_NO_MODULE_PARENT", "true"); err != nil {
+		return nil, err
+	}
 	defer os.Unsetenv("VIAM_NO_MODULE_PARENT")
 
 	cfg := modconfig.Module{
