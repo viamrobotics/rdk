@@ -22,7 +22,7 @@ func TestUpdateModelsAction(t *testing.T) {
 	expectedMetaPath := dir + "/../module/testmodule/expected_meta.json"
 
 	// create a temporary file where we can write the module's metadata
-	metaFile, err := os.OpenFile(metaPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
+	metaFile, err := os.OpenFile(metaPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o644)
 	test.That(t, err, test.ShouldBeNil)
 
 	defer func() {
@@ -30,7 +30,7 @@ func TestUpdateModelsAction(t *testing.T) {
 		test.That(t, os.Remove(metaPath), test.ShouldBeNil)
 	}()
 
-	_, err = metaFile.Write([]byte("{}"))
+	_, err = metaFile.WriteString("{}")
 	test.That(t, err, test.ShouldBeNil)
 
 	flags := map[string]any{"binary": binaryPath, "module": metaPath}
