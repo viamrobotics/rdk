@@ -880,9 +880,17 @@ func softmax(logger logging.Logger, heuristics []float64) []float64 {
 	for _, heuristic := range heuristics {
 		sum += math.Exp(heuristic)
 	}
+
 	softmaxArr := make([]float64, len(heuristics))
-	for i, heuristic := range heuristics {
-		softmaxArr[i] = math.Exp(heuristic) / sum
+	// Account for case where sum equals zero. In this case, assign equal weight to all indices
+	if sum == 0 {
+		for i := 0; i < len(heuristics); i++ {
+			softmaxArr[i] = 1.0 / float64(len(heuristics))
+		}
+	} else {
+		for i, heuristic := range heuristics {
+			softmaxArr[i] = math.Exp(heuristic) / sum
+		}
 	}
 	return softmaxArr
 }
@@ -931,9 +939,7 @@ func (mp *tpSpaceRRTMotionPlanner) smoothPath(ctx context.Context, path []node) 
 		secondEdge := binarySearch(cdf, sample)
 
 		if secondEdge < firstEdge {
-			temp := secondEdge
-			secondEdge = firstEdge
-			firstEdge = temp
+			secondEdge, firstEdge = firstEdge, secondEdge
 		}
 
 		newInputSteps, err := mp.attemptSmooth(ctx, path, firstEdge, secondEdge, smoothPlanner)
