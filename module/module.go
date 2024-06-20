@@ -412,8 +412,8 @@ func (m *Module) Ready(ctx context.Context, req *pb.ReadyRequest) (*pb.ReadyResp
 	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	m.parentAddr = req.GetParentAddress()
 	if os.Getenv("VIAM_NO_MODULE_PARENT") != "true" {
+        m.parentAddr = req.GetParentAddress()
 		if err := m.connectParent(ctx); err != nil {
 			// Return error back to parent if we cannot make a connection from module
 			// -> parent. Something is wrong in that case and the module should not be
