@@ -313,37 +313,12 @@ func readFromCloud(
 	mergeCloudConfig(cfg)
 	unprocessedConfig.Cloud.TLSCertificate = tls.certificate
 	unprocessedConfig.Cloud.TLSPrivateKey = tls.privateKey
-	propagateLocalModuleState(prevCfg, cfg)
 
 	if err := storeToCache(cloudCfg.ID, unprocessedConfig); err != nil {
 		logger.Errorw("failed to cache config", "error", err)
 	}
 
 	return cfg, nil
-}
-
-// This preserves locally-managed state across config reloads.
-func propagateLocalModuleState(prevConfig, newConfig *Config) {
-	oldModules := make(map[string]Module)
-	if prevConfig != nil {
-		for _, mod := range prevConfig.Modules {
-			if mod.Type == ModuleTypeLocal {
-				oldModules[mod.Name] = mod
-			}
-		}
-	}
-	for i := range newConfig.Modules {
-		mod := &newConfig.Modules[i]
-		if mod.Type != ModuleTypeLocal {
-			continue
-		}
-		if oldModule, ok := oldModules[mod.Name]; ok {
-			mod.LocalVersion = oldModule.LocalVersion
-		}
-		if mod.LocalVersion == "" {
-			mod.LocalVersion = "0.0.0"
-		}
-	}
 }
 
 type tlsConfig struct {

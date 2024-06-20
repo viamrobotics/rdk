@@ -374,7 +374,6 @@ func (r *localRobot) sendTriggerConfig(caller string) {
 	case <-r.closeContext.Done():
 		return
 	case r.triggerConfig <- struct{}{}:
-		println("TRIGGER CONFIG CASE???")
 	default:
 		r.Logger().CDebugw(
 			r.closeContext,
@@ -536,7 +535,6 @@ func newWithResources(
 			case <-r.configTicker.C:
 				r.logger.CDebugw(ctx, "configuration attempt triggered by ticker")
 			case <-r.triggerConfig:
-				println("TRIGGERED EH")
 				r.logger.CDebugw(ctx, "configuration attempt triggered by remote")
 			}
 			anyChanges := r.manager.updateRemotesResourceNames(closeCtx)
@@ -544,7 +542,6 @@ func newWithResources(
 				anyChanges = true
 				r.manager.completeConfig(closeCtx, r, false)
 			}
-			println("ANY CHANGES", anyChanges)
 			if anyChanges {
 				r.updateWeakDependents(ctx)
 				r.logger.CDebugw(ctx, "configuration attempt completed with changes")
@@ -1317,7 +1314,6 @@ func (r *localRobot) restartSingleModule(ctx context.Context, mod *config.Module
 		// here because it is how artifacts are unpacked for remote reloading.
 		nextVer := r.localModuleVersions[mod.Name].IncPatch()
 		r.localModuleVersions[mod.Name] = nextVer
-		println("OLD", mod.LocalVersion)
 		mod.LocalVersion = nextVer.String()
 		r.logger.CInfof(ctx, "incremented local version of %s to %s", mod.Name, mod.LocalVersion)
 		err := r.localPackages.SyncOne(ctx, *mod)
