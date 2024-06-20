@@ -247,7 +247,7 @@ func TestCollisionConstraints(t *testing.T) {
 		movingRobotGeometries,
 		staticRobotGeometries,
 		worldGeometries.Geometries(),
-		nil,
+		nil, nil,
 		defaultCollisionBufferMM,
 	)
 	test.That(t, err, test.ShouldBeNil)
@@ -315,7 +315,7 @@ func BenchmarkCollisionConstraints(b *testing.B) {
 		movingRobotGeometries,
 		staticRobotGeometries,
 		worldGeometries.Geometries(),
-		nil,
+		nil, nil,
 		defaultCollisionBufferMM,
 	)
 	test.That(b, err, test.ShouldBeNil)

@@ -5,6 +5,7 @@ import (
 	"math"
 	"time"
 
+	"go.viam.com/rdk/components/encoder"
 	"go.viam.com/rdk/components/motor"
 )
 
@@ -73,4 +74,12 @@ func checkSpeed(rpm, max float64) (string, error) {
 	default:
 		return "", nil
 	}
+}
+
+// checkEncPosType checks that the position type of an encoder is in ticks.
+func checkEncPosType(posType encoder.PositionType) error {
+	if posType != encoder.PositionTypeTicks {
+		return fmt.Errorf("expected %v got %v", encoder.PositionTypeTicks.String(), posType.String())
+	}
+	return nil
 }

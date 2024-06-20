@@ -358,6 +358,26 @@ func (r *localRobot) Status(ctx context.Context, resourceNames []resource.Name) 
 	return combinedResourceStatuses, nil
 }
 
+func (r *localRobot) sendTriggerConfig(caller string) {
+	if r.closeContext.Err() != nil {
+		return
+	}
+
+	// Attempt to trigger completeConfig goroutine execution when called,
+	// but does not block if triggerConfig is full.
+	select {
+	case <-r.closeContext.Done():
+		return
+	case r.triggerConfig <- struct{}{}:
+	default:
+		r.Logger().CDebugw(
+			r.closeContext,
+			"attempted to trigger reconfiguration, but there is already one queued.",
+			"caller", caller,
+		)
+	}
+}
+
 func newWithResources(
 	ctx context.Context,
 	cfg *config.Config,
@@ -383,11 +403,13 @@ func newWithResources(
 			},
 			logger,
 		),
-		operations:                 operation.NewManager(logger),
-		logger:                     logger,
-		closeContext:               closeCtx,
-		cancelBackgroundWorkers:    cancel,
-		triggerConfig:              make(chan struct{}),
+		operations:              operation.NewManager(logger),
+		logger:                  logger,
+		closeContext:            closeCtx,
+		cancelBackgroundWorkers: cancel,
+		// triggerConfig buffers 1 message so that we can queue up to 1 reconfiguration attempt
+		// (as long as there is 1 queued, further messages can be safely discarded).
+		triggerConfig:              make(chan struct{}, 1),
 		configTicker:               nil,
 		revealSensitiveConfigDiffs: rOpts.revealSensitiveConfigDiffs,
 		cloudConnSvc:               icloud.NewCloudConnectionService(cfg.Cloud, logger),
@@ -1194,17 +1216,17 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 	// First we mark diff.Removed resources and their children for removal.
 	processesToClose, resourcesToCloseBeforeComplete, _ := r.manager.markRemoved(ctx, diff.Removed, r.logger)
 
-	// Second we update the resource graph and stop any removed processes.
-	allErrs = multierr.Combine(allErrs, r.manager.updateResources(ctx, diff))
-	allErrs = multierr.Combine(allErrs, processesToClose.Stop())
-
-	// Third we attempt to Close resources.
+	// Second we attempt to Close resources.
 	alreadyClosed := make(map[resource.Name]struct{}, len(resourcesToCloseBeforeComplete))
 	for _, res := range resourcesToCloseBeforeComplete {
 		allErrs = multierr.Combine(allErrs, r.manager.closeResource(ctx, res))
 		// avoid a double close later
 		alreadyClosed[res.Name()] = struct{}{}
 	}
+
+	// Third we update the resource graph and stop any removed processes.
+	allErrs = multierr.Combine(allErrs, r.manager.updateResources(ctx, diff))
+	allErrs = multierr.Combine(allErrs, processesToClose.Stop())
 
 	// Fourth we attempt to complete the config (see function for details) and
 	// update weak dependents.
@@ -1305,10 +1327,10 @@ func (r *localRobot) RestartModule(ctx context.Context, req robot.RestartModuleR
 }
 
 func (r *localRobot) Shutdown(ctx context.Context) error {
-	shutdownFunc := r.shutdownCallback
-	if shutdownFunc != nil {
+	if shutdownFunc := r.shutdownCallback; shutdownFunc != nil {
 		shutdownFunc()
-		return nil
+	} else {
+		r.Logger().CErrorw(ctx, "shutdown function not defined")
 	}
-	return errors.New("shutdown function not defined")
+	return nil
 }

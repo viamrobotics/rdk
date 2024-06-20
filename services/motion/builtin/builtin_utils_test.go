@@ -23,6 +23,7 @@ import (
 	"go.viam.com/rdk/robot/framesystem"
 	robotimpl "go.viam.com/rdk/robot/impl"
 	"go.viam.com/rdk/services/motion"
+	"go.viam.com/rdk/services/slam"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils/inject"
 )
@@ -85,6 +86,17 @@ func createInjectedSlam(name, pcdPath string, origin spatialmath.Pose) *inject.S
 			return origin, nil
 		}
 		return spatialmath.NewZeroPose(), nil
+	}
+	injectSlam.PropertiesFunc = func(ctx context.Context) (slam.Properties, error) {
+		return slam.Properties{
+			CloudSlam:             false,
+			MappingMode:           slam.MappingModeLocalizationOnly,
+			InternalStateFileType: ".pbstream",
+			SensorInfo: []slam.SensorInfo{
+				{Name: "my-camera", Type: slam.SensorTypeCamera},
+				{Name: "my-movement-sensor", Type: slam.SensorTypeMovementSensor},
+			},
+		}, nil
 	}
 	return injectSlam
 }

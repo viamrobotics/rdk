@@ -157,15 +157,14 @@ func (ptgk *ptgBaseKinematics) GoToInputs(ctx context.Context, inputSteps ...[]r
 					return tryStop(ctx.Err())
 				}
 			}
-			distIncVel := step.linVelMMps.Y
-			if distIncVel == 0 {
-				distIncVel = step.angVelDegps.Z
-			}
+			inputValDiff := step.arcSegment.EndConfiguration[endDistanceAlongTrajectoryIndex].Value -
+				step.arcSegment.EndConfiguration[startDistanceAlongTrajectoryIndex].Value
+			elapsedPct := math.Min(1.0, timeElapsedSeconds/step.durationSeconds)
 			currentInputs := []referenceframe.Input{
 				step.arcSegment.StartConfiguration[ptgIndex],
 				step.arcSegment.StartConfiguration[trajectoryAlphaWithinPTG],
 				step.arcSegment.StartConfiguration[startDistanceAlongTrajectoryIndex],
-				{step.arcSegment.StartConfiguration[startDistanceAlongTrajectoryIndex].Value + math.Abs(distIncVel)*timeElapsedSeconds},
+				{step.arcSegment.StartConfiguration[startDistanceAlongTrajectoryIndex].Value + inputValDiff*elapsedPct},
 			}
 			ptgk.inputLock.Lock()
 			ptgk.currentState.currentInputs = currentInputs
@@ -298,7 +297,7 @@ func (ptgk *ptgBaseKinematics) trajectoryArcSteps(
 			timeStep = 0.
 		}
 		distIncrement := trajPt.Dist - curDist
-		curDist += distIncrement
+		curDist = trajPt.Dist
 		if nextStep.linVelMMps.Y != 0 {
 			timeStep += distIncrement / (math.Abs(nextStep.linVelMMps.Y))
 		} else if nextStep.angVelDegps.Z != 0 {
