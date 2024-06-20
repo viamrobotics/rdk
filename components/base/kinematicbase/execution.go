@@ -21,7 +21,6 @@ import (
 	rdkutils "go.viam.com/rdk/utils"
 )
 // this is a comment
-// this too
 const (
 	updateStepSeconds = 0.35 // Update CurrentInputs and check deviation every this many seconds.
 	lookaheadDistMult = 2.   // Look ahead distance for path correction will be this times the turning radius
