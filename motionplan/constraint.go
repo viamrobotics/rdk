@@ -593,6 +593,10 @@ func NewConstraints(
 
 // ConstraintsFromProtobuf converts a protobuf object to a Constraints object.
 func ConstraintsFromProtobuf(pbConstraint *motionpb.Constraints) *Constraints {
+	if pbConstraint == nil {
+		return nil
+	}
+
 	// iterate through all motionpb.LinearConstraint and convert to RDK form
 	linConstraintFromProto := func(linConstraints []*motionpb.LinearConstraint) []LinearConstraint {
 		toRet := make([]LinearConstraint, 0, len(linConstraints))
@@ -643,6 +647,9 @@ func ConstraintsFromProtobuf(pbConstraint *motionpb.Constraints) *Constraints {
 
 // ToProtobuf takes an existing Constraints object and converts it to a protobuf.
 func (c *Constraints) ToProtobuf() *motionpb.Constraints {
+	if c == nil {
+		return nil
+	}
 	// convert LinearConstraint to motionpb.LinearConstraint
 	convertLinConstraintToProto := func(linConstraints []LinearConstraint) []*motionpb.LinearConstraint {
 		toRet := make([]*motionpb.LinearConstraint, 0)
