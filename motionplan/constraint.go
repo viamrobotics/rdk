@@ -50,9 +50,6 @@ func resolveSegmentsToPositions(segment *ik.Segment) error {
 			return errors.New("invalid constraint input")
 		}
 	}
-	
-
-	
 	return nil
 }
 
