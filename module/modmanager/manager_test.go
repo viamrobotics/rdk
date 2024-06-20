@@ -1327,5 +1327,6 @@ func TestBadModuleFailsFast(t *testing.T) {
 	mgr := setupModManager(t, ctx, parentAddr, logger, opts)
 
 	err := mgr.Add(ctx, modCfgs...)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "module test-module cannot start")
+
+	test.That(t, err.Error(), test.ShouldContainSubstring, "module test-module exited too quickly after attempted startup")
 }
