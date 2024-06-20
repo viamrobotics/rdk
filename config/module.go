@@ -129,7 +129,7 @@ func (m Module) SyntheticPackage() (PackageConfig, error) {
 	} else {
 		name = m.Name
 	}
-	return PackageConfig{Name: name, Package: name, Type: PackageTypeModule}, nil
+	return PackageConfig{Name: name, Package: name, Type: PackageTypeModule, Version: m.LocalVersion}, nil
 }
 
 // exeDir returns the parent directory for the unpacked module.

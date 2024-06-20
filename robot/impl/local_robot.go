@@ -1149,6 +1149,8 @@ func (r *localRobot) applyLocalModuleVersions(cfg *config.Config) {
 		if mod.Type == config.ModuleTypeLocal {
 			if ver, ok := r.localModuleVersions[mod.Name]; ok {
 				mod.LocalVersion = ver.String()
+			} else {
+				mod.LocalVersion = semver.Version{}.String()
 			}
 		}
 	}
