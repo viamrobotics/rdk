@@ -702,6 +702,7 @@ func readModels(path string, logger logging.Logger) ([]ModuleComponent, error) {
 	if err := os.Setenv("VIAM_NO_MODULE_PARENT", "true"); err != nil {
 		return nil, err
 	}
+	//nolint:errcheck
 	defer os.Unsetenv("VIAM_NO_MODULE_PARENT")
 
 	cfg := modconfig.Module{
