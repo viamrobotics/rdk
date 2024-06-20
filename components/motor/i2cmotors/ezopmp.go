@@ -161,6 +161,10 @@ func (m *Ezopmp) Validate() error {
 	if m.maxFlowRate == 0 {
 		m.maxFlowRate = 50.5
 	}
+	if m.maxFlowRate > 105 {
+		m.maxFlowRate = 105
+	}
+
 	return nil
 }
 
