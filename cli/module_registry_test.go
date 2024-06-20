@@ -12,9 +12,8 @@ import (
 
 func TestUpdateModelsAction(t *testing.T) {
 	_, filename, _, ok := runtime.Caller(0)
-	if !ok {
-		t.FailNow()
-	}
+    test.That(t, ok, test.ShouldBeTrue)
+
 	dir := filepath.Dir(filename)
 	binaryPath := testutils.BuildTempModule(t, "./module/testmodule")
 	modulePath := dir + "/../module/testmodule/module.json"
@@ -22,16 +21,14 @@ func TestUpdateModelsAction(t *testing.T) {
 
 	flags := map[string]any{"binary": binaryPath, "module": metaPath}
 	cCtx, _, _, _ := setup(&inject.AppServiceClient{}, nil, nil, nil, flags, "")
-	err := UpdateModelsAction(cCtx)
-	if err != nil {
-		t.FailNow()
-	}
+    test.That(t, UpdateModelsAction(cCtx), test.ShouldBeNil)
 
 	// verify that models added to meta.json are equivalent to those defined in module.json
-	moduleModels, err1 := loadManifest(modulePath)
-	metaModels, err2 := loadManifest(metaPath)
-	if err1 != nil || err2 != nil {
-		t.FailNow()
-	}
+	moduleModels, err := loadManifest(modulePath)
+    test.That(t, err, test.ShouldBeNil)
+
+	metaModels, err := loadManifest(metaPath)
+    test.That(t, err, test.ShouldBeNil)
+
 	test.That(t, sameModels(moduleModels.Models, metaModels.Models), test.ShouldBeTrue)
 }
