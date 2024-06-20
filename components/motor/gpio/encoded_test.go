@@ -284,8 +284,7 @@ func TestEncodedMotor(t *testing.T) {
 			test.That(tb, err, test.ShouldBeNil)
 		})
 
-		ctxInterrupt, cancelInterrupt := context.WithTimeout(context.Background(), 10*time.Second)
-		err = m.SetPower(ctxInterrupt, -0.5, nil)
+		err = m.SetPower(context.Background(), -0.5, nil)
 		test.That(t, err, test.ShouldBeNil)
 		on, powerPct, err := m.IsPowered(context.Background(), nil)
 		test.That(t, on, test.ShouldBeTrue)
@@ -294,6 +293,5 @@ func TestEncodedMotor(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		wg.Wait()
 		cancel()
-		cancelInterrupt()
 	})
 }
