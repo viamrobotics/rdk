@@ -766,7 +766,7 @@ func (m *Motor) doGoTo(rpm, position float64) error {
 		m.c.logger.Warn("motor speed is nearly 0 rev_per_min")
 		return motor.NewZeroRPMError()
 	case m.maxRPM > 0 && speed > m.maxRPM-0.1:
-		m.c.logger.Warn("motor speed is nearly the max rev_per_min (%f)", m.maxRPM)
+		m.c.logger.Warnf("motor speed is nearly the max rev_per_min (%f)", m.maxRPM)
 	default:
 	}
 
