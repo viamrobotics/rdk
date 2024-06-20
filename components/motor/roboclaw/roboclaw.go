@@ -261,10 +261,9 @@ func (m *roboclawMotor) GoFor(ctx context.Context, rpm, revolutions float64, ext
 
 	// If no encoders present, distance traveled is estimated based on max RPM.
 	if m.conf.TicksPerRotation == 0 {
-		if rpm > maxRPM {
-			rpm = maxRPM
-		} else if rpm < -1*maxRPM {
-			rpm = -1 * maxRPM
+		if math.Abs(rpm) > maxRPM {
+			rpm = math.Min(rpm, maxRPM)
+			rpm = math.Max(rpm, -maxRPM)
 		}
 		powerPct, waitDur := goForMath(rpm, revolutions)
 		m.logger.CInfo(ctx, "distance traveled is a time based estimation with max RPM 250. For increased accuracy, connect encoders")
@@ -319,14 +318,16 @@ func (m *roboclawMotor) GoTo(ctx context.Context, rpm, positionRevolutions float
 }
 
 func (m *roboclawMotor) SetRPM(ctx context.Context, rpm float64, extra map[string]interface{}) error {
+	// if TicksPerRotation is 0, no encoders are connected
 	if m.conf.TicksPerRotation == 0 {
-		if rpm > maxRPM {
-			rpm = maxRPM
-		} else if rpm < -1*maxRPM {
-			rpm = -1 * maxRPM
+		if math.Abs(rpm) > maxRPM {
+			rpm = math.Min(rpm, maxRPM)
+			rpm = math.Max(rpm, -maxRPM)
 		}
 		powerPct := rpm / maxRPM
-		m.logger.CInfo(ctx, "speed is an estimation based on a max RPM 250. For increased accuracy, connect encoders")
+		m.logger.CInfof(
+			ctx, "speed is an estimation based on a max RPM %v, but speed and power do not have a linear relationship. ",
+			"For increased accuracy, connect encoders", maxRPM)
 		err := m.SetPower(ctx, powerPct, extra)
 		if err != nil {
 			return errors.Wrap(err, "error in SetRPM`")
@@ -339,20 +340,14 @@ func (m *roboclawMotor) SetRPM(ctx context.Context, rpm float64, extra map[strin
 
 	ticksPerSecond := int32((rpm * float64(m.conf.TicksPerRotation)) / 60)
 
-	var err error
-
 	switch m.conf.Channel {
 	case 1:
-		err = m.conn.SpeedDistanceM1(m.addr, ticksPerSecond, uint32(math.Inf(int(rpm))), true)
+		return m.conn.SpeedDistanceM1(m.addr, ticksPerSecond, uint32(math.Inf(int(rpm))), true)
 	case 2:
-		err = m.conn.SpeedDistanceM2(m.addr, ticksPerSecond, uint32(math.Inf(int(rpm))), true)
+		return m.conn.SpeedDistanceM2(m.addr, ticksPerSecond, uint32(math.Inf(int(rpm))), true)
 	default:
 		return m.conf.wrongChannelError()
 	}
-	if err != nil {
-		return err
-	}
-	return nil
 }
 
 func (m *roboclawMotor) ResetZeroPosition(ctx context.Context, offset float64, extra map[string]interface{}) error {

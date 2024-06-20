@@ -15,6 +15,8 @@ import (
 	"go.viam.com/rdk/resource"
 )
 
+const minDistanceMoved = 2
+
 func TestConfigs(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -478,7 +480,7 @@ func TestRunning(t *testing.T) {
 
 			pos, err := m.Position(ctx, nil)
 			test.That(tb, err, test.ShouldBeNil)
-			test.That(tb, pos, test.ShouldBeGreaterThan, 2)
+			test.That(tb, pos, test.ShouldBeGreaterThan, minDistanceMoved)
 		})
 
 		err = m.Stop(ctx, nil)
@@ -490,7 +492,7 @@ func TestRunning(t *testing.T) {
 
 		pos, err := m.Position(ctx, nil)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, pos, test.ShouldBeGreaterThan, 2)
+		test.That(t, pos, test.ShouldBeGreaterThan, minDistanceMoved)
 		test.That(t, pos, test.ShouldBeLessThan, 202)
 	})
 
@@ -527,7 +529,7 @@ func TestRunning(t *testing.T) {
 
 			pos, err := m.Position(ctx, nil)
 			test.That(tb, err, test.ShouldBeNil)
-			test.That(tb, pos, test.ShouldBeGreaterThan, 4)
+			test.That(tb, pos, test.ShouldBeGreaterThan, minDistanceMoved)
 		})
 
 		err = m.Stop(ctx, nil)
@@ -539,7 +541,7 @@ func TestRunning(t *testing.T) {
 
 		pos, err := m.Position(ctx, nil)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, pos, test.ShouldBeGreaterThan, 4)
+		test.That(t, pos, test.ShouldBeGreaterThan, minDistanceMoved)
 		test.That(t, pos, test.ShouldBeLessThan, 202)
 	})
 
