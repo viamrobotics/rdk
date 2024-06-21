@@ -29,9 +29,10 @@ func (m method) String() string {
 	return "Unknown"
 }
 
-type imageBounds struct {
-	Height int
-	Width  int
+type extraFields struct {
+	Height   int
+	Width    int
+	MimeType string
 }
 
 func newCaptureAllFromCameraCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
@@ -42,17 +43,32 @@ func newCaptureAllFromCameraCollector(resource interface{}, params data.Collecto
 
 	cameraParam := params.MethodParams["camera_name"]
 
-	var cameraName string
-
 	if cameraParam == nil {
 		return nil, errors.New("must specify a camera_name in the additional_params")
 	}
+
+	var cameraName string
 
 	cameraNameWrapper := new(wrapperspb.StringValue)
 	if err := cameraParam.UnmarshalTo(cameraNameWrapper); err != nil {
 		return nil, err
 	}
 	cameraName = cameraNameWrapper.Value
+
+	mimeTypeParam := params.MethodParams["mime_type"]
+
+	if mimeTypeParam == nil {
+		return nil, errors.New("must specify a mime_type in the additional_params")
+	}
+
+	var mimeType string
+
+	mimeTypeWrapper := new(wrapperspb.StringValue)
+	if err := mimeTypeParam.UnmarshalTo(mimeTypeWrapper); err != nil {
+		return nil, err
+	}
+
+	mimeType = mimeTypeWrapper.Value
 
 	minConfidenceParam := params.MethodParams["min_confidence_score"]
 
@@ -112,12 +128,13 @@ func newCaptureAllFromCameraCollector(resource interface{}, params data.Collecto
 			return nil, err
 		}
 
-		bounds := imageBounds{}
+		bounds := extraFields{}
 
 		if visCapture.Image != nil {
-			bounds = imageBounds{
-				Height: visCapture.Image.Bounds().Dy(),
-				Width:  visCapture.Image.Bounds().Dx(),
+			bounds = extraFields{
+				Height:   visCapture.Image.Bounds().Dy(),
+				Width:    visCapture.Image.Bounds().Dx(),
+				MimeType: mimeType,
 			}
 		}
 
