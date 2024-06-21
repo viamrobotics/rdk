@@ -115,7 +115,7 @@ func (e *fakeEncoder) start(cancelCtx context.Context) {
 		e.mu.RLock()
 		updateRate := e.updateRate
 		e.mu.RUnlock()
-		step := time.Duration(updateRate)*time.Millisecond
+		step := time.Duration(updateRate) * time.Millisecond
 		for {
 			select {
 			case <-cancelCtx.Done():

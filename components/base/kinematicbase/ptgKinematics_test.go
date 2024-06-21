@@ -395,8 +395,7 @@ func TestPTGKinematicsSimpleInputs(t *testing.T) {
 	inputs := []referenceframe.Input{{0}, {1.9}, {1300}, {200}}
 	err = ptgBase.GoToInputs(ctx, inputs)
 	test.That(t, err, test.ShouldBeNil)
-	
-	
+
 	inputs = []referenceframe.Input{{0}, {1.9}, {1300}, {0}}
 	err = ptgBase.GoToInputs(ctx, inputs)
 	test.That(t, err, test.ShouldBeNil)

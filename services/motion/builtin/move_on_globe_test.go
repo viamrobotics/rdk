@@ -3,27 +3,26 @@ package builtin
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 	"testing"
-	"fmt"
 	"time"
 
 	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
 	"go.viam.com/test"
 
-	"go.viam.com/rdk/components/camera"
-	_ "go.viam.com/rdk/components/register"
-	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/components/movementsensor"
-	"go.viam.com/rdk/services/motion"
-	"go.viam.com/rdk/spatialmath"
-	viz "go.viam.com/rdk/vision"
 	"go.viam.com/rdk/components/base"
+	"go.viam.com/rdk/components/camera"
+	"go.viam.com/rdk/components/movementsensor"
 	_ "go.viam.com/rdk/components/register"
 	"go.viam.com/rdk/pointcloud"
+	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/services/motion"
 	"go.viam.com/rdk/services/vision"
+	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils/inject"
+	viz "go.viam.com/rdk/vision"
 )
 
 func TestMoveOnGlobe(t *testing.T) {
@@ -254,9 +253,7 @@ func TestBoundingRegionsConstraint(t *testing.T) {
 	})
 }
 
-
 func TestObstacleReplanningGlobe(t *testing.T) {
-	t.Parallel()
 	ctx := context.Background()
 	ctx, cFunc := context.WithCancel(ctx)
 	defer cFunc()
@@ -280,10 +277,10 @@ func TestObstacleReplanningGlobe(t *testing.T) {
 	cfg := &motion.MotionConfiguration{
 		PositionPollingFreqHz: 1,
 		ObstaclePollingFreqHz: 5,
-		PlanDeviationMM: epsilonMM,
-		ObstacleDetectors: obstacleDetectorSlice,
-		 LinearMPerSec: 0.5,
-		 AngularDegsPerSec: 60,
+		PlanDeviationMM:       epsilonMM,
+		ObstacleDetectors:     obstacleDetectorSlice,
+		LinearMPerSec:         0.5,
+		AngularDegsPerSec:     60,
 	}
 
 	extra := map[string]interface{}{"max_replans": 10, "max_ik_solutions": 1, "smooth_iter": 1, "motion_profile": "position_only"}

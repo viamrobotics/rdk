@@ -28,9 +28,7 @@ func TestEncoder(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, positionType, test.ShouldEqual, encoder.PositionTypeTicks)
 
-		e1 := e.(Encoder)
-
-		err = e1.SetPosition(ctx, 1)
+		err = e.SetPosition(ctx, 1)
 		test.That(t, err, test.ShouldBeNil)
 
 		pos, _, err = e.Position(ctx, encoder.PositionTypeUnspecified, nil)

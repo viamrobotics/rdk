@@ -19,12 +19,14 @@ import (
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/components/gripper"
-	_ "go.viam.com/rdk/components/register"
-	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/components/movementsensor"
+	_ "go.viam.com/rdk/components/register"
+	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
+	robotimpl "go.viam.com/rdk/robot/impl"
 	"go.viam.com/rdk/services/motion"
 	"go.viam.com/rdk/services/motion/builtin/state"
 	"go.viam.com/rdk/services/slam"
@@ -33,6 +35,21 @@ import (
 	"go.viam.com/rdk/testutils/inject"
 	viz "go.viam.com/rdk/vision"
 )
+
+func setupMotionServiceFromConfig(t *testing.T, configFilename string) (motion.Service, func()) {
+	t.Helper()
+	ctx := context.Background()
+	logger := logging.NewTestLogger(t)
+	cfg, err := config.Read(ctx, configFilename, logger)
+	test.That(t, err, test.ShouldBeNil)
+	myRobot, err := robotimpl.New(ctx, cfg, logger)
+	test.That(t, err, test.ShouldBeNil)
+	svc, err := motion.FromRobot(myRobot, "builtin")
+	test.That(t, err, test.ShouldBeNil)
+	return svc, func() {
+		myRobot.Close(context.Background())
+	}
+}
 
 func TestMoveResponseString(t *testing.T) {
 	type testCase struct {
@@ -230,7 +247,6 @@ func TestMoveWithObstacles(t *testing.T) {
 }
 
 func TestPositionalReplanning(t *testing.T) {
-	t.Parallel()
 	ctx := context.Background()
 	ctx, cFunc := context.WithCancel(ctx)
 	defer cFunc()
@@ -241,9 +257,9 @@ func TestPositionalReplanning(t *testing.T) {
 	motionCfg := &motion.MotionConfiguration{
 		PositionPollingFreqHz: 10,
 		ObstaclePollingFreqHz: 1,
-		PlanDeviationMM: epsilonMM,
-		LinearMPerSec: 0.2,
-		AngularDegsPerSec: 20,
+		PlanDeviationMM:       epsilonMM,
+		LinearMPerSec:         0.2,
+		AngularDegsPerSec:     20,
 	}
 
 	type testCase struct {
@@ -654,7 +670,7 @@ func TestStoppableMoveFunctions(t *testing.T) {
 			slamName := "test-slam"
 
 			// Create an injected SLAM
-			injectSlam := createInjectedSlam(slamName, "pointcloud/octagonspace.pcd", nil)
+			injectSlam := createInjectedSlam(slamName)
 
 			// Create a motion service
 			deps := resource.Dependencies{
@@ -709,7 +725,7 @@ func TestStoppableMoveFunctions(t *testing.T) {
 			slamName := "test-slam"
 
 			// Create an injected SLAM
-			injectSlam := createInjectedSlam(slamName, "pointcloud/octagonspace.pcd", nil)
+			injectSlam := createInjectedSlam(slamName)
 
 			// Create a motion service
 			deps := resource.Dependencies{
@@ -862,7 +878,7 @@ func TestStopPlan(t *testing.T) {
 	ctx, cFunc := context.WithCancel(ctx)
 	defer cFunc()
 	gpsPoint := geo.NewPoint(0, 0)
-	//nolint:dogsled
+
 	_, ms, closeFunc := CreateMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil, 5)
 	defer closeFunc(ctx)
 
@@ -876,7 +892,7 @@ func TestListPlanStatuses(t *testing.T) {
 	ctx, cFunc := context.WithCancel(ctx)
 	defer cFunc()
 	gpsPoint := geo.NewPoint(0, 0)
-	//nolint:dogsled
+
 	_, ms, closeFunc := CreateMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil, 5)
 	defer closeFunc(ctx)
 
@@ -892,7 +908,7 @@ func TestPlanHistory(t *testing.T) {
 	ctx, cFunc := context.WithCancel(ctx)
 	defer cFunc()
 	gpsPoint := geo.NewPoint(0, 0)
-	//nolint:dogsled
+
 	_, ms, closeFunc := CreateMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil, 5)
 	defer closeFunc(ctx)
 	req := motion.PlanHistoryReq{}
@@ -910,6 +926,6 @@ func TestBaseInputs(t *testing.T) {
 		t,
 	)
 	defer closeFunc(ctx)
-	err := kb.GoToInputs(ctx, []referenceframe.Input{{0}, {0.001+math.Pi/2}, {0}, {91}})
+	err := kb.GoToInputs(ctx, []referenceframe.Input{{0}, {0.001 + math.Pi/2}, {0}, {91}})
 	test.That(t, err, test.ShouldBeNil)
 }

@@ -10,26 +10,24 @@ import (
 
 	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
+	"go.uber.org/multierr"
 	"go.viam.com/test"
 	"go.viam.com/utils"
 	"go.viam.com/utils/artifact"
-	"go.uber.org/multierr"
 
 	"go.viam.com/rdk/components/base"
-	"go.viam.com/rdk/components/base/wheeled"
 	"go.viam.com/rdk/components/base/kinematicbase"
+	"go.viam.com/rdk/components/base/wheeled"
 	"go.viam.com/rdk/components/encoder"
 	fakeencoder "go.viam.com/rdk/components/encoder/fake"
 	"go.viam.com/rdk/components/motor"
 	fakemotor "go.viam.com/rdk/components/motor/fake"
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/components/movementsensor/wheeledodometry"
-	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot/framesystem"
-	robotimpl "go.viam.com/rdk/robot/impl"
 	"go.viam.com/rdk/services/motion"
 	"go.viam.com/rdk/services/slam"
 	"go.viam.com/rdk/spatialmath"
@@ -37,35 +35,20 @@ import (
 )
 
 var (
-	leftMotorName = "leftmotor"
+	leftMotorName  = "leftmotor"
 	rightMotorName = "rightmotor"
-	baseName = "test-base"
+	baseName       = "test-base"
 	moveSensorName = "test-movement-sensor"
-	
-	moveSensorResource = resource.NewName(movementsensor.API, moveSensorName)
-	baseResource = resource.NewName(base.API, baseName)
-	movementSensorInBasePoint = r3.Vector{X: -10, Y: 0, Z: 0}
-	updateRate = 33
-)
 
-func setupMotionServiceFromConfig(t *testing.T, configFilename string) (motion.Service, func()) {
-	t.Helper()
-	ctx := context.Background()
-	logger := logging.NewTestLogger(t)
-	cfg, err := config.Read(ctx, configFilename, logger)
-	test.That(t, err, test.ShouldBeNil)
-	myRobot, err := robotimpl.New(ctx, cfg, logger)
-	test.That(t, err, test.ShouldBeNil)
-	svc, err := motion.FromRobot(myRobot, "builtin")
-	test.That(t, err, test.ShouldBeNil)
-	return svc, func() {
-		myRobot.Close(context.Background())
-	}
-}
+	moveSensorResource        = resource.NewName(movementsensor.API, moveSensorName)
+	baseResource              = resource.NewName(base.API, baseName)
+	movementSensorInBasePoint = r3.Vector{X: -10, Y: 0, Z: 0}
+	updateRate                = 33
+)
 
 func getPointCloudMap(path string) (func() ([]byte, error), error) {
 	const chunkSizeBytes = 1 * 1024 * 1024
-	file, err := os.Open(path)
+	file, err := os.Open(path) //nolint:gosec
 	if err != nil {
 		return nil, err
 	}
@@ -96,15 +79,13 @@ func createInjectedMovementSensor(name string, gpsPoint *geo.Point) *inject.Move
 	return injectedMovementSensor
 }
 
-func createInjectedSlam(name, pcdPath string, origin spatialmath.Pose) *inject.SLAMService {
+func createInjectedSlam(name string) *inject.SLAMService {
+	pcdPath := "pointcloud/octagonspace.pcd"
 	injectSlam := inject.NewSLAMService(name)
 	injectSlam.PointCloudMapFunc = func(ctx context.Context, returnEditedMap bool) (func() ([]byte, error), error) {
 		return getPointCloudMap(filepath.Clean(artifact.MustPath(pcdPath)))
 	}
 	injectSlam.PositionFunc = func(ctx context.Context) (spatialmath.Pose, error) {
-		if origin != nil {
-			return origin, nil
-		}
 		return spatialmath.NewZeroPose(), nil
 	}
 	injectSlam.PropertiesFunc = func(ctx context.Context) (slam.Properties, error) {
@@ -146,39 +127,45 @@ func createDependencies(
 	motors := createMotors(t, ctx, logger, encoders)
 	fakeBase := createWheeledBase(t, ctx, logger, motors, geomSize)
 	sens := createMovementSensor(t, ctx, logger, motors, fakeBase, origin, noise)
-	
+
 	deps := resource.Dependencies{}
 	deps[motors[leftMotorName].Name()] = motors[leftMotorName]
 	deps[motors[rightMotorName].Name()] = motors[rightMotorName]
 	deps[fakeBase.Name()] = fakeBase
 	deps[sens.Name()] = sens
-	
+
 	return deps
 }
 
-func createWheeledBase(t *testing.T, ctx context.Context, logger logging.Logger, motors map[string]motor.Motor, geomSize float64) base.Base {
+func createWheeledBase(
+	t *testing.T,
+	ctx context.Context,
+	logger logging.Logger,
+	motors map[string]motor.Motor,
+	geomSize float64,
+) base.Base {
 	t.Helper()
-	
+
 	reg, ok := resource.LookupRegistration(base.API, wheeled.Model)
 	test.That(t, ok, test.ShouldBeTrue)
-	
-	wheeledConf := &wheeled.Config {
-		WidthMM: 200,
+
+	wheeledConf := &wheeled.Config{
+		WidthMM:              200,
 		WheelCircumferenceMM: 2000,
-		Left: []string{leftMotorName},
-		Right: []string{rightMotorName},
+		Left:                 []string{leftMotorName},
+		Right:                []string{rightMotorName},
 	}
-	
+
 	baseConf := resource.Config{
-		Name:  baseName,
-		API:   base.API,
-		Frame: &referenceframe.LinkConfig{Geometry: &spatialmath.GeometryConfig{R: geomSize}},
+		Name:                baseName,
+		API:                 base.API,
+		Frame:               &referenceframe.LinkConfig{Geometry: &spatialmath.GeometryConfig{R: geomSize}},
 		ConvertedAttributes: wheeledConf,
 	}
 	deps := resource.Dependencies{}
 	deps[motors[leftMotorName].Name()] = motors[leftMotorName]
 	deps[motors[rightMotorName].Name()] = motors[rightMotorName]
-	
+
 	wBase, err := reg.Constructor(ctx, deps, baseConf, logger)
 	test.That(t, err, test.ShouldBeNil)
 	return wBase.(base.Base)
@@ -187,32 +174,37 @@ func createWheeledBase(t *testing.T, ctx context.Context, logger logging.Logger,
 func createEncoders(t *testing.T, ctx context.Context, logger logging.Logger) map[string]fakeencoder.Encoder {
 	t.Helper()
 	leftconf := resource.Config{
-		Name:  leftMotorName + "_encoder",
-		API:   encoder.API,
-		ConvertedAttributes: &fakeencoder.Config{UpdateRate:int64(updateRate)},
+		Name:                leftMotorName + "_encoder",
+		API:                 encoder.API,
+		ConvertedAttributes: &fakeencoder.Config{UpdateRate: int64(updateRate)},
 	}
 	rightconf := resource.Config{
-		Name:  rightMotorName + "_encoder",
-		API:   encoder.API,
+		Name:                rightMotorName + "_encoder",
+		API:                 encoder.API,
 		ConvertedAttributes: &fakeencoder.Config{UpdateRate: int64(updateRate)},
 	}
 	left, err := fakeencoder.NewEncoder(ctx, leftconf, logger)
 	test.That(t, err, test.ShouldBeNil)
 	right, err := fakeencoder.NewEncoder(ctx, rightconf, logger)
 	test.That(t, err, test.ShouldBeNil)
-	return map[string]fakeencoder.Encoder{leftMotorName: left, rightMotorName:right}
+	return map[string]fakeencoder.Encoder{leftMotorName: left, rightMotorName: right}
 }
 
-func createMotors(t *testing.T, ctx context.Context, logger logging.Logger, encoders map[string]fakeencoder.Encoder) map[string]motor.Motor {
+func createMotors(
+	t *testing.T,
+	ctx context.Context,
+	logger logging.Logger,
+	encoders map[string]fakeencoder.Encoder,
+) map[string]motor.Motor {
 	t.Helper()
 	motorMap := map[string]motor.Motor{}
 	for name, encoder := range encoders {
 		conf := resource.Config{
-			Name:  name,
-			API:   motor.API,
-			ConvertedAttributes: &fakemotor.Config {Encoder: name + "_encoder", TicksPerRotation: 4000},
+			Name:                name,
+			API:                 motor.API,
+			ConvertedAttributes: &fakemotor.Config{Encoder: name + "_encoder", TicksPerRotation: 4000},
 		}
-		
+
 		thisMotor, err := fakemotor.NewMotor(
 			ctx,
 			resource.Dependencies{encoder.Name(): encoder},
@@ -227,13 +219,13 @@ func createMotors(t *testing.T, ctx context.Context, logger logging.Logger, enco
 
 type noisyMovementSensor struct {
 	movementsensor.MovementSensor
-	noise spatialmath.Pose
+	noise      spatialmath.Pose
 	queryCount int // Apply noise every other iteration when this is > 10
 }
 
 func (m *noisyMovementSensor) Position(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
 	m.queryCount++
-	if m.queryCount <= 10 || m.queryCount % 2 == 0 {
+	if m.queryCount <= 10 || m.queryCount%2 == 0 {
 		return m.MovementSensor.Position(ctx, extra)
 	}
 	pos, alt, err := m.MovementSensor.Position(ctx, extra)
@@ -245,14 +237,14 @@ func (m *noisyMovementSensor) Position(ctx context.Context, extra map[string]int
 }
 
 func (m *noisyMovementSensor) CompassHeading(ctx context.Context, extra map[string]interface{}) (float64, error) {
-	if m.queryCount <= 10 || m.queryCount % 2 == 0 {
+	if m.queryCount <= 10 || m.queryCount%2 == 0 {
 		return m.MovementSensor.CompassHeading(ctx, extra)
 	}
 	heading, err := m.MovementSensor.CompassHeading(ctx, extra)
 	if err != nil {
 		return 0, err
 	}
-	newPos := spatialmath.PoseToGeoPose(spatialmath.NewGeoPose(geo.NewPoint(0,0), heading), m.noise)
+	newPos := spatialmath.PoseToGeoPose(spatialmath.NewGeoPose(geo.NewPoint(0, 0), heading), m.noise)
 	return math.Mod(newPos.Heading(), 360), nil
 }
 
@@ -268,36 +260,36 @@ func createMovementSensor(
 	t.Helper()
 	reg, ok := resource.LookupRegistration(movementsensor.API, wheeledodometry.Model)
 	test.That(t, ok, test.ShouldBeTrue)
-	
-	odoConf := &wheeledodometry.Config {
-		LeftMotors: []string{leftMotorName},
-		RightMotors: []string{rightMotorName},
-		Base: fakeBase.Name().ShortName(),
+
+	odoConf := &wheeledodometry.Config{
+		LeftMotors:        []string{leftMotorName},
+		RightMotors:       []string{rightMotorName},
+		Base:              fakeBase.Name().ShortName(),
 		TimeIntervalMSecs: float64(updateRate),
 	}
-	
+
 	moveConf := resource.Config{
-		Name:  moveSensorName,
-		API:   movementsensor.API,
+		Name:                moveSensorName,
+		API:                 movementsensor.API,
 		ConvertedAttributes: odoConf,
 	}
 	deps := resource.Dependencies{}
 	deps[motors[leftMotorName].Name()] = motors[leftMotorName]
 	deps[motors[rightMotorName].Name()] = motors[rightMotorName]
 	deps[fakeBase.Name()] = fakeBase
-	
+
 	sens, err := reg.Constructor(ctx, deps, moveConf, logger)
 	test.That(t, err, test.ShouldBeNil)
-	
+
 	_, err = sens.DoCommand(ctx, map[string]interface{}{"use_compass": true})
 	test.That(t, err, test.ShouldBeNil)
-	
+
 	_, err = sens.DoCommand(ctx, map[string]interface{}{"reset": true, "setLong": origin.Lng(), "setLat": origin.Lat()})
 	test.That(t, err, test.ShouldBeNil)
 	if noise != nil {
 		sens = &noisyMovementSensor{sens.(movementsensor.MovementSensor), noise, 0}
 	}
-	
+
 	return sens.(movementsensor.MovementSensor)
 }
 
@@ -306,7 +298,7 @@ func createMockSlamService(name, pcdPath string, origin spatialmath.Pose, move m
 	injectSlam.PointCloudMapFunc = func(ctx context.Context, returnEditedMap bool) (func() ([]byte, error), error) {
 		return getPointCloudMap(filepath.Clean(artifact.MustPath(pcdPath)))
 	}
-	
+
 	gpsOrigin, _, err := move.Position(context.Background(), nil)
 	if err != nil {
 		return nil, err
@@ -314,7 +306,7 @@ func createMockSlamService(name, pcdPath string, origin spatialmath.Pose, move m
 	if origin == nil {
 		origin = spatialmath.NewZeroPose()
 	}
-	
+
 	injectSlam.PositionFunc = func(ctx context.Context) (spatialmath.Pose, error) {
 		currentGPS, _, err := move.Position(ctx, nil)
 		if err != nil {
@@ -330,9 +322,8 @@ func createMockSlamService(name, pcdPath string, origin spatialmath.Pose, move m
 		heading := math.Mod(math.Abs(headingLeft-360), 360)
 		orientation := &spatialmath.OrientationVectorDegrees{OZ: 1, Theta: heading}
 
-
 		geoPose := spatialmath.NewPose(spatialmath.GeoPointToPoint(currentGPS, gpsOrigin), orientation)
-		
+
 		return spatialmath.Compose(origin, geoPose), nil
 	}
 	injectSlam.PropertiesFunc = func(ctx context.Context) (slam.Properties, error) {
@@ -370,6 +361,7 @@ func createFrameSystemService(
 	return fsSvc, nil
 }
 
+// CreateMoveOnGlobeEnvironment creates a testable environment that will simulate a real moving base for MoveOnGlobe calls.
 func CreateMoveOnGlobeEnvironment(ctx context.Context, t *testing.T, origin *geo.Point, noise spatialmath.Pose, sleepTime int) (
 	motion.Localizer, motion.Service, func(context.Context) error,
 ) {
@@ -413,7 +405,7 @@ func CreateMoveOnGlobeEnvironment(ctx context.Context, t *testing.T, origin *geo
 		{FrameConfig: baseLink},
 		{FrameConfig: cameraLink},
 	}
-	
+
 	deps[injectedVisionSvc.Name()] = injectedVisionSvc
 	deps[injectedCamera.Name()] = injectedCamera
 
@@ -424,12 +416,12 @@ func CreateMoveOnGlobeEnvironment(ctx context.Context, t *testing.T, origin *geo
 	ms, err := NewBuiltIn(ctx, deps, conf, logger)
 	test.That(t, err, test.ShouldBeNil)
 	ms.(*builtIn).fsService = fsSvc
-	
+
 	startPosition, _, err := movementSensor.Position(context.Background(), nil)
 	test.That(t, err, test.ShouldBeNil)
-	
+
 	localizer := motion.NewMovementSensorLocalizer(movementSensor, startPosition, nil)
-	
+
 	closeFunc := func(ctx context.Context) error {
 		err := multierr.Combine(movementSensor.Close(ctx), ms.Close(ctx))
 		cFunc()
@@ -441,6 +433,7 @@ func CreateMoveOnGlobeEnvironment(ctx context.Context, t *testing.T, origin *geo
 	return localizer, ms, closeFunc
 }
 
+// CreateMoveOnMapEnvironment creates a testable environment that will simulate a real moving base for MoveOnMap calls.
 func CreateMoveOnMapEnvironment(
 	ctx context.Context,
 	t *testing.T,
@@ -453,9 +446,9 @@ func CreateMoveOnMapEnvironment(
 		origin = spatialmath.NewZeroPose()
 	}
 	logger := logging.NewTestLogger(t)
-	
+
 	deps := createDependencies(t, ctx, logger, geomSize, &geo.Point{}, nil)
-	
+
 	movementSensor, err := movementsensor.FromDependencies(deps, moveSensorName)
 	test.That(t, err, test.ShouldBeNil)
 	injectSlam, err := createMockSlamService("test_slam", pcdPath, origin, movementSensor)
@@ -463,7 +456,7 @@ func CreateMoveOnMapEnvironment(
 	injectVis := inject.NewVisionService("test-vision")
 	injectCam := inject.NewCamera("test-camera")
 	baseLink := createBaseLink(t)
-	
+
 	deps[injectVis.Name()] = injectVis
 	deps[injectCam.Name()] = injectCam
 	deps[injectSlam.Name()] = injectSlam
@@ -521,10 +514,9 @@ func createTestKinematicBase(ctx context.Context, t *testing.T) (
 	b, err := base.FromDependencies(deps, baseName)
 	test.That(t, err, test.ShouldBeNil)
 
-	
 	startPosition, _, err := movementSensor.Position(context.Background(), nil)
 	test.That(t, err, test.ShouldBeNil)
-	
+
 	localizer := motion.NewMovementSensorLocalizer(movementSensor, startPosition, nil)
 	closeFunc := func(ctx context.Context) error {
 		return movementSensor.Close(ctx)

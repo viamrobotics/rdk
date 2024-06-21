@@ -40,7 +40,7 @@ func TestMoveOnMap(t *testing.T) {
 			test.That(t, myRobot.Close(context.Background()), test.ShouldBeNil)
 		}()
 
-		injectSlam := createInjectedSlam("test_slam", "pointcloud/octagonspace.pcd", nil)
+		injectSlam := createInjectedSlam("test_slam")
 
 		realBase, err := base.FromRobot(myRobot, "test-base")
 		test.That(t, err, test.ShouldBeNil)
@@ -85,9 +85,9 @@ func TestMoveOnMap(t *testing.T) {
 		req := motion.MoveOnMapReq{
 			ComponentName: base.Named("test-base"),
 			Destination:   easyGoalInSLAMFrame,
-			MotionCfg: motionCfg,
-			SlamName: slam.Named("test_slam"),
-			Extra:    map[string]interface{}{"smooth_iter": 0},
+			MotionCfg:     motionCfg,
+			SlamName:      slam.Named("test_slam"),
+			Extra:         map[string]interface{}{"smooth_iter": 0},
 		}
 
 		timeoutCtx, timeoutFn := context.WithTimeout(ctx, time.Second*5)
@@ -150,7 +150,7 @@ func TestMoveOnMap(t *testing.T) {
 
 		req := motion.MoveOnMapReq{
 			ComponentName: base.Named("test-base"),
-			MotionCfg: motionCfg,
+			MotionCfg:     motionCfg,
 			Destination:   spatialmath.NewZeroPose(),
 			SlamName:      slam.Named("test_slam"),
 		}
@@ -191,7 +191,7 @@ func TestMoveOnMapStaticObs(t *testing.T) {
 	baseLink := createBaseLink(t)
 
 	// Create an injected SLAM
-	injectSlam := createInjectedSlam(slamName, "pointcloud/octagonspace.pcd", nil)
+	injectSlam := createInjectedSlam(slamName)
 	injectSlam.PositionFunc = func(ctx context.Context) (spatialmath.Pose, error) {
 		return spatialmath.NewPose(
 			r3.Vector{X: 0.58772e3, Y: -0.80826e3, Z: 0},

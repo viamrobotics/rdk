@@ -22,8 +22,8 @@ import (
 )
 
 const (
-	lookaheadDistMult = 2.   // Look ahead distance for path correction will be this times the turning radius
-	goalsToAttempt    = 10   // Divide the lookahead distance into this many discrete goals to attempt to correct towards.
+	lookaheadDistMult = 2. // Look ahead distance for path correction will be this times the turning radius
+	goalsToAttempt    = 10 // Divide the lookahead distance into this many discrete goals to attempt to correct towards.
 
 	// Before post-processing trajectory will have velocities every this many mm (or degs if spinning in place).
 	stepDistResolution = 1.
@@ -104,6 +104,7 @@ func (ptgk *ptgBaseKinematics) GoToInputs(ctx context.Context, inputSteps ...[]r
 	ptgk.inputLock.Lock()
 	ptgk.currentState.currentExecutingSteps = arcSteps
 	ptgk.inputLock.Unlock()
+	updateDuration := ptgk.opts.UpdateStepSeconds
 
 	for i := 0; i < len(arcSteps); i++ {
 		if ctx.Err() != nil {
@@ -126,22 +127,22 @@ func (ptgk *ptgBaseKinematics) GoToInputs(ctx context.Context, inputSteps ...[]r
 		if err != nil {
 			return tryStop(err)
 		}
-	actualPose, err := ptgk.Localizer.CurrentPosition(ctx)
-	if err != nil {
-		return err
-	}
-	// trajPose is the pose we should have nominally reached along the currently executing arc from the start position.
-	trajPose, err := ptgk.frame.Transform(ptgk.currentState.currentInputs)
-	if err != nil {
-		return err
-	}
+		actualPose, err := ptgk.Localizer.CurrentPosition(ctx)
+		if err != nil {
+			return err
+		}
+		// trajPose is the pose we should have nominally reached along the currently executing arc from the start position.
+		trajPose, err := ptgk.frame.Transform(ptgk.currentState.currentInputs)
+		if err != nil {
+			return err
+		}
 
-	// This is where we expected to be on the trajectory.
-	expectedPose := spatialmath.Compose(arcSteps[i].arcSegment.StartPosition, trajPose)
+		// This is where we expected to be on the trajectory.
+		expectedPose := spatialmath.Compose(arcSteps[i].arcSegment.StartPosition, trajPose)
 
 		ptgk.logger.Debug("expected to be at ", spatialmath.PoseToProtobuf(expectedPose))
 		ptgk.logger.Debug("Localizer says at ", spatialmath.PoseToProtobuf(actualPose.Pose()), "\n")
-			
+
 		arcStartTime := time.Now()
 		// Now we are moving. We need to do several things simultaneously:
 		// - move until we think we have finished the arc, then move on to the next step
@@ -150,7 +151,7 @@ func (ptgk *ptgBaseKinematics) GoToInputs(ctx context.Context, inputSteps ...[]r
 		stepDuration := time.Duration(step.durationSeconds*1000) * time.Millisecond
 
 		// Check if this arc is shorter than our typical check time; if so just run that and do not course correct.
-		if step.durationSeconds < ptgk.opts.UpdateStepSeconds {
+		if step.durationSeconds < updateDuration {
 			utils.SelectContextOrWait(ctx, stepDuration)
 			if ctx.Err() != nil {
 				return tryStop(ctx.Err())
@@ -160,14 +161,11 @@ func (ptgk *ptgBaseKinematics) GoToInputs(ctx context.Context, inputSteps ...[]r
 		}
 		courseCorrected := false // used to distinguish between a break due to course correction, or running out the loop
 
-		for timeElapsedSeconds := ptgk.opts.UpdateStepSeconds;
-			timeElapsedSeconds <= step.durationSeconds;
-		timeElapsedSeconds += ptgk.opts.UpdateStepSeconds {
+		for timeElapsedSeconds := updateDuration; timeElapsedSeconds <= step.durationSeconds; timeElapsedSeconds += updateDuration {
 			if ctx.Err() != nil {
 				return ctx.Err()
 			}
-			
-			
+
 			// Account for 1) timeElapsedSeconds being inputUpdateStepSeconds ahead of actual elapsed time, and the fact that the loop takes
 			// nonzero time to run especially when using the localizer.
 			actualTimeElapsed := time.Since(arcStartTime)
@@ -179,10 +177,6 @@ func (ptgk *ptgBaseKinematics) GoToInputs(ctx context.Context, inputSteps ...[]r
 				if ctx.Err() != nil {
 					return tryStop(ctx.Err())
 				}
-			}
-			distIncVel := step.linVelMMps.Y
-			if distIncVel == 0 {
-				distIncVel = step.angVelDegps.Z
 			}
 			inputValDiff := step.arcSegment.EndConfiguration[endDistanceAlongTrajectoryIndex].Value -
 				step.arcSegment.EndConfiguration[startDistanceAlongTrajectoryIndex].Value
@@ -199,14 +193,13 @@ func (ptgk *ptgBaseKinematics) GoToInputs(ctx context.Context, inputSteps ...[]r
 
 			// If we have a localizer, we are able to attempt to correct to stay on the path.
 			// For now we do not try to correct while in a correction.
-			
+
 			actualPose, err := ptgk.Localizer.CurrentPosition(ctx)
 			if err != nil {
 				return err
 			}
 			// trajPose is the pose we should have nominally reached along the currently executing arc from the start position.
 			trajPose, err := ptgk.frame.Transform(ptgk.currentState.currentInputs)
-			
 			if err != nil {
 				return err
 			}
@@ -216,7 +209,7 @@ func (ptgk *ptgBaseKinematics) GoToInputs(ctx context.Context, inputSteps ...[]r
 			ptgk.logger.Debug("Inputs: ", ptgk.currentState.currentInputs)
 			ptgk.logger.Debug("expected to be at ", spatialmath.PoseToProtobuf(expectedPose))
 			ptgk.logger.Debug("Localizer says at ", spatialmath.PoseToProtobuf(actualPose.Pose()), "\n")
-				
+
 			if ptgk.Localizer != nil {
 				newArcSteps, err := ptgk.courseCorrect(ctx, currentInputs, arcSteps, i)
 				if err != nil {
@@ -238,7 +231,7 @@ func (ptgk *ptgBaseKinematics) GoToInputs(ctx context.Context, inputSteps ...[]r
 			}
 		}
 		if time.Since(arcStartTime) < stepDuration && !courseCorrected {
-			utils.SelectContextOrWait(ctx, stepDuration - time.Since(arcStartTime))
+			utils.SelectContextOrWait(ctx, stepDuration-time.Since(arcStartTime))
 			if ctx.Err() != nil {
 				return tryStop(ctx.Err())
 			}
@@ -316,9 +309,9 @@ func (ptgk *ptgBaseKinematics) trajectoryArcSteps(
 		nextStep.subTraj = append(nextStep.subTraj, trajPt)
 		nextLinVel := r3.Vector{0, trajPt.LinVel * ptgk.linVelocityMMPerSecond, 0}
 		nextAngVel := r3.Vector{0, 0, trajPt.AngVel * ptgk.angVelocityDegsPerSecond}
-		
+
 		distIncrement := trajPt.Dist - curDist
-		
+
 		curDist += distIncrement
 		if lastLinVel.Y != 0 {
 			timeStep += math.Abs(distIncrement / (math.Abs(lastLinVel.Y)))
@@ -383,9 +376,9 @@ func (ptgk *ptgBaseKinematics) trajectoryArcSteps(
 	runningPose = spatialmath.Compose(runningPose, arcPose)
 	nextStep.arcSegment.EndPosition = runningPose
 	finalSteps = append(finalSteps, nextStep)
-	//~ for _, step := range finalSteps {
-		//~ fmt.Println(step.String())
-	//~ }
+	// ~ for _, step := range finalSteps {
+	// ~ fmt.Println(step.String())
+	// ~ }
 
 	return finalSteps, nil
 }
@@ -588,7 +581,7 @@ func (ptgk *ptgBaseKinematics) makeCourseCorrectionGoals(
 	if stepsPerGoal*nGoals > totalTrajSteps {
 		stepsPerGoal = totalTrajSteps / nGoals // int division is what we want here
 	}
-	//~ ptgk.logger.Debug("curr pose", spatialmath.PoseToProtobuf(currPose))
+	// ~ ptgk.logger.Debug("curr pose", spatialmath.PoseToProtobuf(currPose))
 
 	stepsRemainingThisGoal := stepsPerGoal
 	for i := currStep; i < len(steps); i++ {
@@ -603,7 +596,7 @@ func (ptgk *ptgBaseKinematics) makeCourseCorrectionGoals(
 				steps[i].arcSegment.StartConfiguration[startDistanceAlongTrajectoryIndex],
 				{steps[i].subTraj[goalTrajPtIdx].Dist},
 			}
-			
+
 			arcPose, err := ptgk.Kinematics().Transform(arcTrajInputs)
 			if err != nil {
 				return []courseCorrectionGoal{}
@@ -613,9 +606,9 @@ func (ptgk *ptgBaseKinematics) makeCourseCorrectionGoals(
 				currPose,
 				spatialmath.Compose(steps[i].arcSegment.StartPosition, arcPose),
 			)
-			//~ ptgk.logger.Debug("arc traj inputs", arcTrajInputs)
-			//~ ptgk.logger.Debug("arc pose", spatialmath.PoseToProtobuf(arcPose))
-			//~ ptgk.logger.Debug("full arc pose", spatialmath.PoseToProtobuf(spatialmath.Compose(steps[i].arcSegment.StartPosition, arcPose)))
+			// ~ ptgk.logger.Debug("arc traj inputs", arcTrajInputs)
+			// ~ ptgk.logger.Debug("arc pose", spatialmath.PoseToProtobuf(arcPose))
+			// ~ ptgk.logger.Debug("full arc pose", spatialmath.PoseToProtobuf(spatialmath.Compose(steps[i].arcSegment.StartPosition, arcPose)))
 			goals = append(goals, courseCorrectionGoal{Goal: goalPose, stepIdx: i, trajIdx: goalTrajPtIdx})
 			if len(goals) == nGoals {
 				return goals

@@ -21,6 +21,7 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
+// Model is the name of the wheeled odometry model of a movementsensor component.
 var Model = resource.DefaultModelFamily.WithModel("wheeled-odometry")
 
 const (
@@ -430,7 +431,7 @@ func (o *odometry) trackPosition() {
 				angle = utils.DegToRad(yawToCompassHeading(orientationYaw))
 				xFlip = 1.0
 			}
-			posX := o.position.X + xFlip * (centerDist * math.Sin(angle))
+			posX := o.position.X + xFlip*(centerDist*math.Sin(angle))
 			posY := o.position.Y + (centerDist * math.Cos(angle))
 
 			distance := math.Hypot(posX, posY)
