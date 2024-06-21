@@ -127,21 +127,6 @@ func (ptgk *ptgBaseKinematics) GoToInputs(ctx context.Context, inputSteps ...[]r
 		if err != nil {
 			return tryStop(err)
 		}
-		actualPose, err := ptgk.Localizer.CurrentPosition(ctx)
-		if err != nil {
-			return err
-		}
-		// trajPose is the pose we should have nominally reached along the currently executing arc from the start position.
-		trajPose, err := ptgk.frame.Transform(ptgk.currentState.currentInputs)
-		if err != nil {
-			return err
-		}
-
-		// This is where we expected to be on the trajectory.
-		expectedPose := spatialmath.Compose(arcSteps[i].arcSegment.StartPosition, trajPose)
-
-		ptgk.logger.Debug("expected to be at ", spatialmath.PoseToProtobuf(expectedPose))
-		ptgk.logger.Debug("Localizer says at ", spatialmath.PoseToProtobuf(actualPose.Pose()), "\n")
 
 		arcStartTime := time.Now()
 		// Now we are moving. We need to do several things simultaneously:
@@ -193,23 +178,6 @@ func (ptgk *ptgBaseKinematics) GoToInputs(ctx context.Context, inputSteps ...[]r
 
 			// If we have a localizer, we are able to attempt to correct to stay on the path.
 			// For now we do not try to correct while in a correction.
-
-			actualPose, err := ptgk.Localizer.CurrentPosition(ctx)
-			if err != nil {
-				return err
-			}
-			// trajPose is the pose we should have nominally reached along the currently executing arc from the start position.
-			trajPose, err := ptgk.frame.Transform(ptgk.currentState.currentInputs)
-			if err != nil {
-				return err
-			}
-
-			// This is where we expected to be on the trajectory.
-			expectedPose := spatialmath.Compose(arcSteps[i].arcSegment.StartPosition, trajPose)
-			ptgk.logger.Debug("Inputs: ", ptgk.currentState.currentInputs)
-			ptgk.logger.Debug("expected to be at ", spatialmath.PoseToProtobuf(expectedPose))
-			ptgk.logger.Debug("Localizer says at ", spatialmath.PoseToProtobuf(actualPose.Pose()), "\n")
-
 			if ptgk.Localizer != nil {
 				newArcSteps, err := ptgk.courseCorrect(ctx, currentInputs, arcSteps, i)
 				if err != nil {
@@ -236,13 +204,6 @@ func (ptgk *ptgBaseKinematics) GoToInputs(ctx context.Context, inputSteps ...[]r
 				return tryStop(ctx.Err())
 			}
 		}
-		ptgk.logger.Debugf("step %d done", i)
-		ptgk.logger.Debug("expected to be at ", spatialmath.PoseToProtobuf(arcSteps[i].arcSegment.EndPosition))
-		actualPose, err = ptgk.Localizer.CurrentPosition(ctx)
-		if err != nil {
-			return err
-		}
-		ptgk.logger.Debug("Localizer says at ", spatialmath.PoseToProtobuf(actualPose.Pose()), "\n")
 		ptgk.logger.Debugf("step %d done", i)
 	}
 	return tryStop(nil)
