@@ -18,6 +18,7 @@ type Logger interface {
 	Sublogger(subname string) Logger
 	AddAppender(appender Appender)
 	AsZap() *zap.SugaredLogger
+	// Unconditionally logs a LogEntry object. Specifically any configured log level is ignored.
 	Write(*LogEntry)
 
 	CDebug(ctx context.Context, args ...interface{})
