@@ -32,8 +32,8 @@ type gpioPin struct {
 	pwmDutyCyclePct float64
 	softwarePwm     rdkutils.StoppableWorkers
 
-	mu        sync.Mutex
-	logger    logging.Logger
+	mu     sync.Mutex
+	logger logging.Logger
 }
 
 func (pin *gpioPin) wrapError(err error) error {

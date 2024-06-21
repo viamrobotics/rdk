@@ -19,8 +19,6 @@ import (
 )
 
 func TestGenericLinux(t *testing.T) {
-	ctx := context.Background()
-
 	b := &Board{
 		logger: logging.NewTestLogger(t),
 	}
@@ -35,9 +33,6 @@ func TestGenericLinux(t *testing.T) {
 		gpioMappings:  nil,
 		analogReaders: map[string]*wrappedAnalogReader{"an": {}},
 		logger:        logging.NewTestLogger(t),
-		cancelCtx:     ctx,
-		cancelFunc: func() {
-		},
 	}
 
 	t.Run("test analog-readers digital-interrupts and gpio names", func(t *testing.T) {
