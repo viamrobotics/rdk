@@ -71,6 +71,6 @@ jobs:
   run-sdk-integration-networking-tests:
     needs: [staticbuild, appimage]
     if: ${{ success() }}
-    uses: ./trigger-networking-tests.yml
+    uses: viamrobotics/rdk/.github/workflows/trigger-networking-tests.yml@main
     secrets:
       REPO_READ_TOKEN: ${{ secrets.REPO_READ_TOKEN }}
