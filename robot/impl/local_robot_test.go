@@ -9,6 +9,7 @@ import (
 	"net"
 	"os"
 	"path"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -18,6 +19,7 @@ import (
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.uber.org/zap"
+
 	// registers all components.
 	commonpb "go.viam.com/api/common/v1"
 	armpb "go.viam.com/api/component/arm/v1"
@@ -3516,4 +3518,14 @@ func TestSendTriggerConfig(t *testing.T) {
 		t.Fatal("took too long to send messages to triggerConfig channel, might be a deadlock")
 	}
 	test.That(t, len(actualR.triggerConfig), test.ShouldEqual, 1)
+}
+
+func TestRestartModule(t *testing.T) {
+	ctx := context.Background()
+	logger := logging.NewTestLogger(t)
+	exePath, _ := filepath.Abs("stubmodule/run.sh")
+	mod := &config.Module{Name: "restartSingleModule-test", ExePath: exePath}
+	r := setupLocalRobot(t, ctx, &config.Config{Modules: []config.Module{*mod}}, logger)
+	err := r.(*localRobot).restartSingleModule(ctx, mod)
+	test.That(t, err, test.ShouldBeNil)
 }
