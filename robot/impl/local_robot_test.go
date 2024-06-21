@@ -9,7 +9,6 @@ import (
 	"net"
 	"os"
 	"path"
-	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -3523,8 +3522,8 @@ func TestSendTriggerConfig(t *testing.T) {
 func TestRestartModule(t *testing.T) {
 	ctx := context.Background()
 	logger := logging.NewTestLogger(t)
-	exePath, _ := filepath.Abs("stubmodule/run.sh")
-	mod := &config.Module{Name: "restartSingleModule-test", ExePath: exePath}
+	simplePath := rtestutils.BuildTempModule(t, "examples/customresources/demos/simplemodule")
+	mod := &config.Module{Name: "restartSingleModule-test", ExePath: simplePath}
 	r := setupLocalRobot(t, ctx, &config.Config{Modules: []config.Module{*mod}}, logger)
 	err := r.(*localRobot).restartSingleModule(ctx, mod)
 	test.That(t, err, test.ShouldBeNil)
