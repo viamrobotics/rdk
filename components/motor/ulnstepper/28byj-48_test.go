@@ -237,10 +237,7 @@ func TestFunctions(t *testing.T) {
 		test.That(t, err, test.ShouldBeError)
 		allObs := obs.All()
 		latestLoggedEntry := allObs[len(allObs)-1]
-		test.That(t, fmt.Sprint(latestLoggedEntry), test.ShouldContainSubstring, "nearly 0")
-
-		err = m.GoFor(ctx, -.009, 1, nil)
-		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, fmt.Sprint(latestLoggedEntry), test.ShouldContainSubstring, "is 0")
 
 		err = m.GoFor(ctx, 146, 1, nil)
 		test.That(t, err, test.ShouldBeNil)
