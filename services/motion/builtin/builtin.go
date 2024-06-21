@@ -10,7 +10,6 @@ import (
 	"github.com/golang/geo/r3"
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
-	servicepb "go.viam.com/api/service/motion/v1"
 
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/logging"
@@ -174,7 +173,7 @@ func (ms *builtIn) Move(
 	componentName resource.Name,
 	destination *referenceframe.PoseInFrame,
 	worldState *referenceframe.WorldState,
-	constraints *servicepb.Constraints,
+	constraints *motionplan.Constraints,
 	extra map[string]interface{},
 ) (bool, error) {
 	ms.mu.RLock()
@@ -220,7 +219,7 @@ func (ms *builtIn) Move(
 		StartConfiguration: fsInputs,
 		FrameSystem:        frameSys,
 		WorldState:         worldState,
-		ConstraintSpecs:    constraints,
+		Constraints:        constraints,
 		Options:            extra,
 	})
 	if err != nil {
