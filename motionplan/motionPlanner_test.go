@@ -10,7 +10,6 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	commonpb "go.viam.com/api/common/v1"
-	motionpb "go.viam.com/api/service/motion/v1"
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/logging"
@@ -750,7 +749,7 @@ func TestArmConstraintSpecificationSolve(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, fs.AddFrame(xArmVgripper, x), test.ShouldBeNil)
 
-	checkReachable := func(worldState *frame.WorldState, constraints *motionpb.Constraints) error {
+	checkReachable := func(worldState *frame.WorldState, constraints *Constraints) error {
 		goal := spatialmath.NewPose(r3.Vector{X: 600, Y: 100, Z: 300}, &spatialmath.OrientationVectorDegrees{OX: 1})
 		_, err := PlanMotion(context.Background(), &PlanRequest{
 			Logger:             logger,
@@ -759,13 +758,13 @@ func TestArmConstraintSpecificationSolve(t *testing.T) {
 			FrameSystem:        fs,
 			StartConfiguration: frame.StartPositions(fs),
 			WorldState:         worldState,
-			ConstraintSpecs:    constraints,
+			Constraints:        constraints,
 		})
 		return err
 	}
 
 	// Verify that the goal position is reachable with no obstacles
-	test.That(t, checkReachable(frame.NewEmptyWorldState(), &motionpb.Constraints{}), test.ShouldBeNil)
+	test.That(t, checkReachable(frame.NewEmptyWorldState(), &Constraints{}), test.ShouldBeNil)
 
 	// Add an obstacle to the WorldState
 	box, err := spatialmath.NewBox(spatialmath.NewPoseFromPoint(r3.Vector{350, 0, 0}), r3.Vector{10, 8000, 8000}, "theWall")
@@ -786,15 +785,15 @@ func TestArmConstraintSpecificationSolve(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			// Not reachable without a collision specification
-			constraints := &motionpb.Constraints{}
+			constraints := &Constraints{}
 			err = checkReachable(tc.worldState, constraints)
 			test.That(t, err, test.ShouldNotBeNil)
 
 			// Reachable if xarm6 and gripper ignore collisions with The Wall
-			constraints = &motionpb.Constraints{
-				CollisionSpecification: []*motionpb.CollisionSpecification{
+			constraints = &Constraints{
+				CollisionSpecification: []CollisionSpecification{
 					{
-						Allows: []*motionpb.CollisionSpecification_AllowedFrameCollisions{
+						Allows: []CollisionSpecificationAllowedFrameCollisions{
 							{Frame1: "xArm6", Frame2: "theWall"}, {Frame1: "xArmVgripper", Frame2: "theWall"},
 						},
 					},
@@ -804,10 +803,10 @@ func TestArmConstraintSpecificationSolve(t *testing.T) {
 			test.That(t, err, test.ShouldBeNil)
 
 			// Reachable if the specific bits of the xarm that collide are specified instead
-			constraints = &motionpb.Constraints{
-				CollisionSpecification: []*motionpb.CollisionSpecification{
+			constraints = &Constraints{
+				CollisionSpecification: []CollisionSpecification{
 					{
-						Allows: []*motionpb.CollisionSpecification_AllowedFrameCollisions{
+						Allows: []CollisionSpecificationAllowedFrameCollisions{
 							{Frame1: "xArmVgripper", Frame2: "theWall"},
 							{Frame1: "xArm6:wrist_link", Frame2: "theWall"},
 							{Frame1: "xArm6:lower_forearm", Frame2: "theWall"},

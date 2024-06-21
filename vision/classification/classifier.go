@@ -19,11 +19,11 @@ type Classifications []Classification
 
 // TopN finds the N Classifications with the highest confidence scores.
 func (cc Classifications) TopN(n int) (Classifications, error) {
-	m := max(n, len(cc))
-	sort.Slice(cc, func(i, j int) bool { return cc[i].Score() > cc[j].Score() })
-	if n == 0 {
+	if n <= 0 {
 		return cc, nil
 	}
+	m := min(n, len(cc))
+	sort.Slice(cc, func(i, j int) bool { return cc[i].Score() > cc[j].Score() })
 	return cc[0:m], nil
 }
 

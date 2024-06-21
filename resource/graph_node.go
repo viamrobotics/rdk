@@ -11,8 +11,30 @@ import (
 	"go.viam.com/rdk/logging"
 )
 
+//go:generate stringer -type NodeState -trimprefix NodeState
+
+// NodeState captures the configuration lifecycle state of a resource node.
+type NodeState uint8
+
+const (
+	// NodeStateUnknown represents an unknown state.
+	NodeStateUnknown NodeState = iota
+
+	// NodeStateUnconfigured denotes a newly created resource.
+	NodeStateUnconfigured
+
+	// NodeStateConfiguring denotes a resource is being configured.
+	NodeStateConfiguring
+
+	// NodeStateReady denotes a resource that has been initialized and is not being
+	// configured or removed. A resource in this state may be unhealthy.
+	NodeStateReady
+
+	// NodeStateRemoving denotes a resource is being removed from the resource graph.
+	NodeStateRemoving
+)
+
 // A GraphNode contains the current state of a resource.
-// It starts out as either uninitialized, unconfigured, or configured.
 // Based on these states, the underlying Resource may or may not be available.
 // Additionally, the node can be informed that the resource either needs to be
 // updated or eventually removed. During its life, errors may be set on the
@@ -29,17 +51,24 @@ type GraphNode struct {
 	// in tests.
 	updatedAt int64
 
-	current                   Resource
-	currentModel              Model
-	config                    Config
-	needsReconfigure          bool
+	current      Resource
+	currentModel Model
+	config       Config
+	// lastReconfigured returns a pointer to the time at which the resource within this
+	// GraphNode was constructed or last reconfigured. It returns nil if the GraphNode is
+	// unconfigured.
 	lastReconfigured          *time.Time
 	lastErr                   error
-	markedForRemoval          bool
 	unresolvedDependencies    []string
 	needsDependencyResolution bool
 
 	logger logging.Logger
+
+	// state stores the current lifecycle state for a resource node.
+	state NodeState
+	// transitionedAt stores the timestamp of when resource entered its current lifecycle
+	// state.
+	transitionedAt time.Time
 }
 
 var (
@@ -49,13 +78,16 @@ var (
 
 // NewUninitializedNode returns a node that is brand new and not yet initialized.
 func NewUninitializedNode() *GraphNode {
-	return &GraphNode{}
+	return &GraphNode{
+		state:          NodeStateUnconfigured,
+		transitionedAt: time.Now(),
+	}
 }
 
 // NewUnconfiguredGraphNode returns a node that contains enough information to
 // construct the underlying resource.
 func NewUnconfiguredGraphNode(config Config, dependencies []string) *GraphNode {
-	node := &GraphNode{}
+	node := NewUninitializedNode()
 	node.SetNewConfig(config, dependencies)
 	return node
 }
@@ -63,7 +95,7 @@ func NewUnconfiguredGraphNode(config Config, dependencies []string) *GraphNode {
 // NewConfiguredGraphNode returns a node that is already configured with
 // the supplied config and resource.
 func NewConfiguredGraphNode(config Config, res Resource, resModel Model) *GraphNode {
-	node := &GraphNode{}
+	node := NewUninitializedNode()
 	node.SetNewConfig(config, nil)
 	node.setDependenciesResolved()
 	node.SwapResource(res, resModel)
@@ -87,7 +119,7 @@ func (w *GraphNode) setGraphLogicalClock(clock *atomic.Int64) {
 
 // LastReconfigured returns a pointer to the time at which the resource within
 // this GraphNode was constructed or last reconfigured. It returns nil if the
-// GraphNode is uninitialized or unconfigured.
+// GraphNode is unconfigured.
 func (w *GraphNode) LastReconfigured() *time.Time {
 	w.mu.RLock()
 	defer w.mu.RUnlock()
@@ -99,7 +131,7 @@ func (w *GraphNode) LastReconfigured() *time.Time {
 func (w *GraphNode) Resource() (Resource, error) {
 	w.mu.RLock()
 	defer w.mu.RUnlock()
-	if w.markedForRemoval {
+	if w.state == NodeStateRemoving {
 		return nil, errPendingRemoval
 	}
 	if w.lastErr != nil {
@@ -109,6 +141,21 @@ func (w *GraphNode) Resource() (Resource, error) {
 		return nil, errNotInitalized
 	}
 	return w.current, nil
+}
+
+// State return the current lifecycle state for a resource node.
+func (w *GraphNode) State() NodeState {
+	w.mu.RLock()
+	defer w.mu.RUnlock()
+	return w.state
+}
+
+// TransitionedAt return the timestamp of when resource entered its current lifecycle
+// state.
+func (w *GraphNode) TransitionedAt() time.Time {
+	w.mu.RLock()
+	defer w.mu.RUnlock()
+	return w.transitionedAt
 }
 
 // InitializeLogger initializes the logger object associated with this resource node.
@@ -158,7 +205,7 @@ func (w *GraphNode) ResourceModel() Model {
 func (w *GraphNode) HasResource() bool {
 	w.mu.RLock()
 	defer w.mu.RUnlock()
-	return !w.markedForRemoval && w.lastErr == nil && w.current != nil
+	return w.state != NodeStateRemoving && w.lastErr == nil && w.current != nil
 }
 
 // IsUninitialized returns if this resource is in an uninitialized state.
@@ -188,8 +235,7 @@ func (w *GraphNode) SwapResource(newRes Resource, newModel Model) {
 	w.current = newRes
 	w.currentModel = newModel
 	w.lastErr = nil
-	w.needsReconfigure = false
-	w.markedForRemoval = false
+	w.transitionTo(NodeStateReady)
 
 	// these should already be set
 	w.unresolvedDependencies = nil
@@ -206,14 +252,14 @@ func (w *GraphNode) SwapResource(newRes Resource, newModel Model) {
 func (w *GraphNode) MarkForRemoval() {
 	w.mu.Lock()
 	defer w.mu.Unlock()
-	w.markedForRemoval = true
+	w.transitionTo(NodeStateRemoving)
 }
 
 // MarkedForRemoval returns if this node is marked for removal.
 func (w *GraphNode) MarkedForRemoval() bool {
 	w.mu.Lock()
 	defer w.mu.Unlock()
-	return w.markedForRemoval
+	return w.state == NodeStateRemoving
 }
 
 // LogAndSetLastError logs and sets the latest error on this node. This will cause the resource to
@@ -224,6 +270,7 @@ func (w *GraphNode) MarkedForRemoval() bool {
 func (w *GraphNode) LogAndSetLastError(err error, args ...any) {
 	w.mu.Lock()
 	w.lastErr = err
+	// TODO(RSDK-7903): transition to an "unhealthy" state.
 	w.mu.Unlock()
 
 	if w.logger != nil {
@@ -245,7 +292,7 @@ func (w *GraphNode) Config() Config {
 func (w *GraphNode) NeedsReconfigure() bool {
 	w.mu.RLock()
 	defer w.mu.RUnlock()
-	return !w.markedForRemoval && w.needsReconfigure
+	return w.state == NodeStateConfiguring
 }
 
 // hasUnresolvedDependencies returns whether or not this node has any
@@ -259,7 +306,7 @@ func (w *GraphNode) hasUnresolvedDependencies() bool {
 func (w *GraphNode) setNeedsReconfigure(newConfig Config, mustReconfigure bool, dependencies []string) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
-	if !mustReconfigure && w.markedForRemoval {
+	if !mustReconfigure && w.state == NodeStateRemoving {
 		// This is the case where the node is being asked to update
 		// with no new config but it was marked for removal otherwise.
 		// The current system enforces us to remove since dependencies
@@ -270,8 +317,7 @@ func (w *GraphNode) setNeedsReconfigure(newConfig Config, mustReconfigure bool, 
 		w.needsDependencyResolution = true
 	}
 	w.config = newConfig
-	w.needsReconfigure = true
-	w.markedForRemoval = false
+	w.transitionTo(NodeStateConfiguring)
 	w.unresolvedDependencies = dependencies
 }
 
@@ -327,13 +373,18 @@ func (w *GraphNode) UnresolvedDependencies() []string {
 // Close closes the underlying resource of this node.
 func (w *GraphNode) Close(ctx context.Context) error {
 	w.mu.Lock()
-	defer w.mu.Unlock()
-
 	if w.current == nil {
+		w.mu.Unlock()
 		return nil
 	}
 	current := w.current
 	w.current = nil
+
+	// Unlock before calling Close() on underlying resource, since Close() behavior can be unpredictable
+	// and usage of the graph node should not block on the underlying resource being closed.
+	w.mu.Unlock()
+	// TODO(RSDK-7928): we might want to make this transition a node to an "unconfigured"
+	// or "removing" state.
 	return current.Close(ctx)
 }
 
@@ -356,11 +407,12 @@ func (w *GraphNode) replace(other *GraphNode) error {
 	w.current = other.current
 	w.currentModel = other.currentModel
 	w.config = other.config
-	w.needsReconfigure = other.needsReconfigure
 	w.lastErr = other.lastErr
-	w.markedForRemoval = other.markedForRemoval
 	w.unresolvedDependencies = other.unresolvedDependencies
 	w.needsDependencyResolution = other.needsDependencyResolution
+
+	w.state = other.state
+	w.transitionedAt = other.transitionedAt
 
 	// other is now owned by the graph/node and is invalidated
 	other.updatedAt = 0
@@ -369,11 +421,56 @@ func (w *GraphNode) replace(other *GraphNode) error {
 	other.current = nil
 	other.currentModel = Model{}
 	other.config = Config{}
-	other.needsReconfigure = false
 	other.lastErr = nil
-	other.markedForRemoval = false
 	other.unresolvedDependencies = nil
 	other.needsDependencyResolution = false
+
+	other.state = NodeStateUnknown
+	other.transitionedAt = time.Time{}
+
 	other.mu.Unlock()
 	return nil
+}
+
+func (w *GraphNode) canTransitionTo(state NodeState) bool {
+	switch w.state {
+	case NodeStateUnknown:
+	case NodeStateUnconfigured:
+		//nolint
+		switch state {
+		case NodeStateConfiguring, NodeStateRemoving:
+			return true
+		}
+	case NodeStateConfiguring:
+		//nolint
+		switch state {
+		case NodeStateReady:
+			return true
+		}
+	case NodeStateReady:
+		//nolint
+		switch state {
+		case NodeStateConfiguring, NodeStateRemoving:
+			return true
+		}
+	case NodeStateRemoving:
+	}
+	return false
+}
+
+// transitionTo transitions the GraphNode to a new state. This method will log a warning
+// if the state transition is not expected. This method is not thread-safe and must be
+// called while holding a write lock on `mu` if accessed concurrently.
+func (w *GraphNode) transitionTo(state NodeState) {
+	if w.state == state && w.logger != nil {
+		w.logger.Debugw("resource state self-transition", "state", w.state.String())
+		return
+	}
+
+	if !w.canTransitionTo(state) && w.logger != nil {
+		w.logger.Warnw("unexpected resource state transition", "from", w.state.String(), "to", state.String())
+	}
+
+	w.state = state
+	w.transitionedAt = time.Now()
 }

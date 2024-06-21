@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
-	pb "go.viam.com/api/service/motion/v1"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/logging"
@@ -51,7 +50,7 @@ type PlanRequest struct {
 	StartConfiguration map[string][]frame.Input
 	WorldState         *frame.WorldState
 	BoundingRegions    []spatialmath.Geometry
-	ConstraintSpecs    *pb.Constraints
+	Constraints        *Constraints
 	Options            map[string]interface{}
 }
 
@@ -138,7 +137,7 @@ func PlanFrameMotion(ctx context.Context,
 	dst spatialmath.Pose,
 	f frame.Frame,
 	seed []frame.Input,
-	constraintSpec *pb.Constraints,
+	constraints *Constraints,
 	planningOpts map[string]interface{},
 ) ([][]frame.Input, error) {
 	// ephemerally create a framesystem containing just the frame for the solve
@@ -152,7 +151,7 @@ func PlanFrameMotion(ctx context.Context,
 		Frame:              f,
 		StartConfiguration: map[string][]frame.Input{f.Name(): seed},
 		FrameSystem:        fs,
-		ConstraintSpecs:    constraintSpec,
+		Constraints:        constraints,
 		Options:            planningOpts,
 	})
 	if err != nil {
@@ -178,7 +177,7 @@ func Replan(ctx context.Context, request *PlanRequest, currentPlan Plan, replanC
 		return nil, errors.New("solver frame has no degrees of freedom, cannot perform inverse kinematics")
 	}
 
-	request.Logger.CDebugf(ctx, "constraint specs for this step: %v", request.ConstraintSpecs)
+	request.Logger.CDebugf(ctx, "constraint specs for this step: %v", request.Constraints)
 	request.Logger.CDebugf(ctx, "motion config for this step: %v", request.Options)
 
 	rseed := defaultRandomSeed
