@@ -72,3 +72,5 @@ jobs:
     needs: [staticbuild, appimage]
     if: ${{ success() }}
     uses: ./trigger-networking-tests.yml
+    secrets:
+      REPO_READ_TOKEN: ${{ secrets.REPO_READ_TOKEN }}

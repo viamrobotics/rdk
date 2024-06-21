@@ -2,6 +2,9 @@ name: Trigger Networking Tests in sdk-integration-tests
 
 on:
     workflow_call:
+        secrets:
+            REPO_READ_TOKEN:
+              required: true
     workflow_dispatch:
 
 jobs:
