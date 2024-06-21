@@ -353,13 +353,6 @@ func (m *Motor) SetPower(ctx context.Context, powerPct float64, extra map[string
 	m.currentPowerPct = powerPct
 
 	rawSpeed := powerPct * maxSpeed
-	warning, err := motor.CheckSpeed(rawSpeed, m.maxRPM)
-	if warning != "" {
-		m.logger.CWarn(ctx, warning)
-	}
-	if err != nil {
-		return err
-	}
 	if math.Signbit(rawSpeed) {
 		rawSpeed *= -1
 	}
@@ -386,6 +379,13 @@ func (m *Motor) SetPower(ctx context.Context, powerPct float64, extra map[string
 		return errors.Wrap(err, "error in SetPower")
 	}
 	err = m.c.sendCmd(c)
+	warning, speedErr := motor.CheckSpeed(rawSpeed, m.maxRPM)
+	if warning != "" {
+		m.logger.CWarn(ctx, warning)
+	}
+	if speedErr != nil {
+		return speedErr
+	}
 	return err
 }
 
