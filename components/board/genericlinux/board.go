@@ -337,10 +337,8 @@ func (b *Board) reconfigureInterrupts(newConf *LinuxBoardConfig) error {
 
 func (b *Board) createGpioPin(mapping GPIOBoardMapping) *gpioPin {
 	pin := gpioPin{
-		boardWorkers: b.workers,
 		devicePath:   mapping.GPIOChipDev,
 		offset:       uint32(mapping.GPIO),
-		cancelCtx:    b.workers.Context(),
 		logger:       b.logger,
 	}
 	if mapping.HWPWMSupported {
