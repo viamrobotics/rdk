@@ -625,7 +625,7 @@ func loadManifestOrNil(path string) (*moduleManifest, error) {
 	if err == nil {
 		return &manifest, nil
 	}
-	if os.IsNotExist(err) {
+	if errors.Is(err, fs.ErrNotExist) {
 		//nolint:nilnil
 		return nil, nil
 	}
@@ -698,6 +698,13 @@ func readModels(path string, logger logging.Logger) ([]ModuleComponent, error) {
 	}
 	defer vutils.UncheckedErrorFunc(func() error { return os.RemoveAll(parentAddr) })
 	parentAddr += "/parent.sock"
+
+	// allows a module to start without connecting to a parent
+	if err := os.Setenv("VIAM_NO_MODULE_PARENT", "true"); err != nil {
+		return nil, err
+	}
+	//nolint:errcheck
+	defer os.Unsetenv("VIAM_NO_MODULE_PARENT")
 
 	cfg := modconfig.Module{
 		Name:    "xxxx",

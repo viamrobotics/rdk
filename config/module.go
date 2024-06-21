@@ -43,6 +43,9 @@ type Module struct {
 	Status           *AppValidationStatus `json:"status"`
 	alreadyValidated bool
 	cachedErr        error
+
+	// LocalVersion is an in-process fake version used for local module change management.
+	LocalVersion string
 }
 
 // JSONManifest contains meta.json fields that are used by both RDK and CLI.
@@ -115,20 +118,25 @@ func (m Module) NeedsSyntheticPackage() bool {
 	return m.Type == ModuleTypeLocal && tarballExtensionsRegexp.MatchString(strings.ToLower(m.ExePath))
 }
 
-// SyntheticPackage creates a fake package for a local module which points to a local tarball.
+// SyntheticPackage creates a fake package for a module which can be used to access some package logic.
 func (m Module) SyntheticPackage() (PackageConfig, error) {
-	var ret PackageConfig
 	if m.Type != ModuleTypeLocal {
-		return ret, errors.New("non-local package passed to syntheticPackage")
+		return PackageConfig{}, errors.New("SyntheticPackage only works on local modules")
 	}
-	ret.Name = fmt.Sprintf("synthetic-%s", m.Name)
-	ret.Package = ret.Name
-	ret.Type = PackageTypeModule
-	return ret, nil
+	var name string
+	if m.NeedsSyntheticPackage() {
+		name = fmt.Sprintf("synthetic-%s", m.Name)
+	} else {
+		name = m.Name
+	}
+	return PackageConfig{Name: name, Package: name, Type: PackageTypeModule, Version: m.LocalVersion}, nil
 }
 
-// syntheticPackageExeDir returns the unpacked ExePath for local tarball modules.
-func (m Module) syntheticPackageExeDir(packagesDir string) (string, error) {
+// exeDir returns the parent directory for the unpacked module.
+func (m Module) exeDir(packagesDir string) (string, error) {
+	if !m.NeedsSyntheticPackage() {
+		return filepath.Dir(m.ExePath), nil
+	}
 	pkg, err := m.SyntheticPackage()
 	if err != nil {
 		return "", err
@@ -136,25 +144,71 @@ func (m Module) syntheticPackageExeDir(packagesDir string) (string, error) {
 	return pkg.LocalDataDirectory(packagesDir), nil
 }
 
-// EvaluateExePath returns absolute ExePath except for local tarballs where it looks for side-by-side meta.json.
-// The side-by-side lookup is because we don't bundle entrypoint in module tarballs, it's not an intentional design choice.
+// parseJSONFile returns a *T by parsing the json file at `path`.
+func parseJSONFile[T any](path string) (*T, error) {
+	f, err := os.Open(path) //nolint:gosec
+	if err != nil {
+		return nil, errors.Wrap(err, "reading json file")
+	}
+	var target T
+	err = json.NewDecoder(f).Decode(&target)
+	if err != nil {
+		return nil, err
+	}
+	return &target, nil
+}
+
+// EvaluateExePath returns absolute ExePath from one of three sources (in order of precedence):
+// 1. if there is a meta.json in the exe dir, use that, except in local non-tarball case.
+// 2. if this is a local tarball and there's a meta.json next to the tarball, use that.
+// 3. otherwise use the exe path from config, or fail if this is a local tarball.
+// Note: the working directory must be the unpacked tarball directory or local exec directory.
 func (m Module) EvaluateExePath(packagesDir string) (string, error) {
-	if m.NeedsSyntheticPackage() {
-		metaPath := filepath.Join(filepath.Dir(m.ExePath), "meta.json")
-		f, err := os.Open(metaPath) //nolint:gosec
-		if err != nil {
-			return "", errors.Wrap(err, "loading meta.json for local tarball")
-		}
-		var meta JSONManifest
-		err = json.NewDecoder(f).Decode(&meta)
-		if err != nil {
-			return "", errors.Wrap(err, "parsing meta.json for local tarball")
-		}
-		exeDir, err := m.syntheticPackageExeDir(packagesDir)
+	if !filepath.IsAbs(m.ExePath) {
+		return "", fmt.Errorf("expected ExePath to be absolute path, got %s", m.ExePath)
+	}
+	exeDir, err := m.exeDir(packagesDir)
+	if err != nil {
+		return "", err
+	}
+	// note: we don't look at internal meta.json in local non-tarball case because user has explicitly requested a binary.
+	localNonTarball := m.Type == ModuleTypeLocal && !m.NeedsSyntheticPackage()
+	if !localNonTarball {
+		// this is case 1, meta.json in exe folder.
+		metaPath, err := utils.SafeJoinDir(exeDir, "meta.json")
 		if err != nil {
 			return "", err
 		}
-		return filepath.Abs(filepath.Join(exeDir, meta.Entrypoint))
+		_, err = os.Stat(metaPath)
+		if err == nil {
+			// this is case 1, meta.json in exe dir
+			meta, err := parseJSONFile[JSONManifest](metaPath)
+			if err != nil {
+				return "", err
+			}
+			entrypoint, err := utils.SafeJoinDir(exeDir, meta.Entrypoint)
+			if err != nil {
+				return "", err
+			}
+			return filepath.Abs(entrypoint)
+		}
 	}
-	return filepath.Abs(m.ExePath)
+	if m.NeedsSyntheticPackage() {
+		// this is case 2, side-by-side
+		// TODO(RSDK-7848): remove this case once java sdk supports internal meta.json.
+		metaPath, err := utils.SafeJoinDir(filepath.Dir(m.ExePath), "meta.json")
+		if err != nil {
+			return "", err
+		}
+		meta, err := parseJSONFile[JSONManifest](metaPath)
+		if err != nil {
+			return "", errors.Wrap(err, "loading side-by-side meta.json")
+		}
+		entrypoint, err := utils.SafeJoinDir(exeDir, meta.Entrypoint)
+		if err != nil {
+			return "", err
+		}
+		return filepath.Abs(entrypoint)
+	}
+	return m.ExePath, nil
 }

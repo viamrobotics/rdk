@@ -234,7 +234,7 @@ func (c *ConstraintHandler) SegmentConstraints() []string {
 }
 
 func createAllCollisionConstraints(
-	movingRobotGeometries, staticRobotGeometries, worldGeometries []spatial.Geometry,
+	movingRobotGeometries, staticRobotGeometries, worldGeometries, boundingRegions []spatial.Geometry,
 	allowedCollisions []*Collision,
 	collisionBufferMM float64,
 ) (map[string]StateConstraint, error) {
@@ -269,6 +269,12 @@ func createAllCollisionConstraints(
 			return nil, err
 		}
 		constraintMap[defaultObstacleConstraintDesc] = obstacleConstraint
+	}
+
+	if len(boundingRegions) > 0 {
+		// create constraint to keep moving geometries within the defined bounding regions
+		interactionSpaceConstraint := NewBoundingRegionConstraint(movingRobotGeometries, boundingRegions, collisionBufferMM)
+		constraintMap[defaultBoundingRegionConstraintDesc] = interactionSpaceConstraint
 	}
 
 	if len(staticRobotGeometries) > 0 {
@@ -337,6 +343,7 @@ func NewCollisionConstraint(
 			}
 			internalGeoms = internal.Geometries()
 		case state.Position != nil:
+			// TODO(RSDK-5391): remove this case
 			// If we didn't pass a Configuration, but we do have a Position, then get the geometries at the zero state and
 			// transform them to the Position
 			internal, err := state.Frame.Geometries(make([]referenceframe.Input, len(state.Frame.DoF())))
@@ -495,6 +502,41 @@ func NewOctreeCollisionConstraint(octree *pointcloud.BasicOctree, threshold int,
 	return constraint
 }
 
+// NewBoundingRegionConstraint will determine if the given list of robot geometries are in collision with the
+// given list of bounding regions.
+func NewBoundingRegionConstraint(robotGeoms, boundingRegions []spatial.Geometry, collisionBufferMM float64) StateConstraint {
+	return func(state *ik.State) bool {
+		var internalGeoms []spatial.Geometry
+		switch {
+		case state.Configuration != nil:
+			internal, err := state.Frame.Geometries(state.Configuration)
+			if err != nil {
+				return false
+			}
+			internalGeoms = internal.Geometries()
+		case state.Position != nil:
+			// TODO(RSDK-5391): remove this case
+			// If we didn't pass a Configuration, but we do have a Position, then get the geometries at the zero state and
+			// transform them to the Position
+			internal, err := state.Frame.Geometries(make([]referenceframe.Input, len(state.Frame.DoF())))
+			if err != nil {
+				return false
+			}
+			movedGeoms := internal.Geometries()
+			for _, geom := range movedGeoms {
+				internalGeoms = append(internalGeoms, geom.Transform(state.Position))
+			}
+		default:
+			internalGeoms = robotGeoms
+		}
+		cg, err := newCollisionGraph(internalGeoms, boundingRegions, nil, true, collisionBufferMM)
+		if err != nil {
+			return false
+		}
+		return len(cg.collisions(collisionBufferMM)) != 0
+	}
+}
+
 // LinearConstraint specifies that the component being moved should move linearly relative to its goal.
 // It does not constrain the motion of components other than the `component_name` specified in motion.Move.
 type LinearConstraint struct {
@@ -551,6 +593,10 @@ func NewConstraints(
 
 // ConstraintsFromProtobuf converts a protobuf object to a Constraints object.
 func ConstraintsFromProtobuf(pbConstraint *motionpb.Constraints) *Constraints {
+	if pbConstraint == nil {
+		return nil
+	}
+
 	// iterate through all motionpb.LinearConstraint and convert to RDK form
 	linConstraintFromProto := func(linConstraints []*motionpb.LinearConstraint) []LinearConstraint {
 		toRet := make([]LinearConstraint, 0, len(linConstraints))
@@ -601,6 +647,9 @@ func ConstraintsFromProtobuf(pbConstraint *motionpb.Constraints) *Constraints {
 
 // ToProtobuf takes an existing Constraints object and converts it to a protobuf.
 func (c *Constraints) ToProtobuf() *motionpb.Constraints {
+	if c == nil {
+		return nil
+	}
 	// convert LinearConstraint to motionpb.LinearConstraint
 	convertLinConstraintToProto := func(linConstraints []LinearConstraint) []*motionpb.LinearConstraint {
 		toRet := make([]*motionpb.LinearConstraint, 0)
@@ -657,12 +706,36 @@ func (c *Constraints) AddLinearConstraint(linConstraint LinearConstraint) {
 	c.LinearConstraint = append(c.LinearConstraint, linConstraint)
 }
 
+// GetLinearConstraint checks if the Constraints object is nil and if not then returns its LinearConstraint field.
+func (c *Constraints) GetLinearConstraint() []LinearConstraint {
+	if c != nil {
+		return c.LinearConstraint
+	}
+	return nil
+}
+
 // AddOrientationConstraint appends a OrientationConstraint to a Constraints object.
 func (c *Constraints) AddOrientationConstraint(orientConstraint OrientationConstraint) {
 	c.OrientationConstraint = append(c.OrientationConstraint, orientConstraint)
 }
 
+// GetOrientationConstraint checks if the Constraints object is nil and if not then returns its OrientationConstraint field.
+func (c *Constraints) GetOrientationConstraint() []OrientationConstraint {
+	if c != nil {
+		return c.OrientationConstraint
+	}
+	return nil
+}
+
 // AddCollisionSpecification appends a CollisionSpecification to a Constraints object.
 func (c *Constraints) AddCollisionSpecification(collConstraint CollisionSpecification) {
 	c.CollisionSpecification = append(c.CollisionSpecification, collConstraint)
+}
+
+// GetCollisionSpecification checks if the Constraints object is nil and if not then returns its CollisionSpecification field.
+func (c *Constraints) GetCollisionSpecification() []CollisionSpecification {
+	if c != nil {
+		return c.CollisionSpecification
+	}
+	return nil
 }

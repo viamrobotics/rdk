@@ -154,11 +154,11 @@ func invertComputedPTG(forwardsPTG []*TrajNode) []*TrajNode {
 		)
 		flippedTraj = append(flippedTraj,
 			&TrajNode{
-				flippedPose,
-				startNode.Dist - fwdNode.Dist,
-				startNode.Alpha,
-				fwdNode.LinVel,
-				fwdNode.AngVel * -1,
+				Pose:   flippedPose,
+				Dist:   fwdNode.Dist,
+				Alpha:  startNode.Alpha,
+				LinVel: fwdNode.LinVel,
+				AngVel: fwdNode.AngVel * -1,
 			})
 	}
 	return flippedTraj

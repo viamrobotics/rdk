@@ -3,6 +3,7 @@ package module_test
 import (
 	"context"
 	"fmt"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -22,11 +23,13 @@ func setupTestRobotWithModules(
 	ctx context.Context,
 	logger logging.Logger,
 ) (*config.Config, robot.LocalRobot) {
+	absPath, err := filepath.Abs("testmodule/run.sh")
+	test.That(t, err, test.ShouldBeNil)
 	cfg := &config.Config{
 		Modules: []config.Module{
 			{
 				Name:    "TestModule",
-				ExePath: "testmodule/run.sh",
+				ExePath: absPath,
 			},
 		},
 	}

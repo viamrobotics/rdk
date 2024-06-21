@@ -191,6 +191,7 @@ func checkPlanRelative(
 		planEndPoseWorld.Pose(),
 		startingInputs,
 		worldState,
+		nil,
 		nil, // no pb.Constraints
 		nil, // no plannOpts
 	); err != nil {
@@ -297,6 +298,7 @@ func checkPlanAbsolute(
 		poses[len(poses)-1],
 		startingInputs,
 		worldState,
+		nil,
 		nil, // no pb.Constraints
 		nil, // no plannOpts
 	); err != nil {

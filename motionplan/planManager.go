@@ -12,7 +12,6 @@ import (
 	"sync"
 	"time"
 
-	pb "go.viam.com/api/service/motion/v1"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/logging"
@@ -110,7 +109,7 @@ func (pm *planManager) PlanSingleWaypoint(ctx context.Context, request *PlanRequ
 		subWaypoints = true
 	}
 
-	if len(request.ConstraintSpecs.GetLinearConstraint()) > 0 {
+	if len(request.Constraints.GetLinearConstraint()) > 0 {
 		subWaypoints = true
 	}
 
@@ -136,7 +135,8 @@ func (pm *planManager) PlanSingleWaypoint(ctx context.Context, request *PlanRequ
 				to,
 				request.StartConfiguration,
 				request.WorldState,
-				request.ConstraintSpecs,
+				request.BoundingRegions,
+				request.Constraints,
 				request.Options,
 			)
 			if err != nil {
@@ -155,7 +155,8 @@ func (pm *planManager) PlanSingleWaypoint(ctx context.Context, request *PlanRequ
 		goalPos,
 		request.StartConfiguration,
 		request.WorldState,
-		request.ConstraintSpecs,
+		request.BoundingRegions,
+		request.Constraints,
 		request.Options,
 	)
 	if err != nil {
@@ -466,7 +467,8 @@ func (pm *planManager) plannerSetupFromMoveRequest(
 	from, to spatialmath.Pose,
 	seedMap map[string][]referenceframe.Input,
 	worldState *referenceframe.WorldState,
-	constraints *pb.Constraints,
+	boundingRegions []spatialmath.Geometry,
+	constraints *Constraints,
 	planningOpts map[string]interface{},
 ) (*plannerOptions, error) {
 	planAlg := ""
@@ -536,7 +538,7 @@ func (pm *planManager) plannerSetupFromMoveRequest(
 		return nil, err
 	}
 
-	allowedCollisions, err := collisionSpecificationsFromProto(constraints.GetCollisionSpecification(), frameSystemGeometries, worldState)
+	allowedCollisions, err := collisionSpecifications(constraints.GetCollisionSpecification(), frameSystemGeometries, worldState)
 	if err != nil {
 		return nil, err
 	}
@@ -546,6 +548,7 @@ func (pm *planManager) plannerSetupFromMoveRequest(
 		movingRobotGeometries,
 		staticRobotGeometries,
 		worldGeometries.Geometries(),
+		boundingRegions,
 		allowedCollisions,
 		collisionBufferMM,
 	)
@@ -671,7 +674,7 @@ func (pm *planManager) plannerSetupFromMoveRequest(
 			// time to run the first planning attempt before falling back
 			try1["timeout"] = defaultFallbackTimeout
 			try1["planning_alg"] = "rrtstar"
-			try1Opt, err := pm.plannerSetupFromMoveRequest(from, to, seedMap, worldState, constraints, try1)
+			try1Opt, err := pm.plannerSetupFromMoveRequest(from, to, seedMap, worldState, boundingRegions, constraints, try1)
 			if err != nil {
 				return nil, err
 			}
@@ -800,7 +803,7 @@ func (pm *planManager) planRelativeWaypoint(ctx context.Context, request *PlanRe
 	}
 	goalPos := tf.(*referenceframe.PoseInFrame).Pose()
 	opt, err := pm.plannerSetupFromMoveRequest(
-		startPose, goalPos, request.StartConfiguration, request.WorldState, request.ConstraintSpecs, request.Options,
+		startPose, goalPos, request.StartConfiguration, request.WorldState, request.BoundingRegions, request.Constraints, request.Options,
 	)
 	if err != nil {
 		return nil, err

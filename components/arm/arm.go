@@ -11,7 +11,6 @@ import (
 
 	v1 "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/arm/v1"
-	motionpb "go.viam.com/api/service/motion/v1"
 
 	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/logging"
@@ -49,9 +48,9 @@ const SubtypeName = "arm"
 const MTPoob = "cartesian movements are not allowed when arm joints are out of bounds"
 
 var (
-	defaultLinearConstraint  = &motionpb.LinearConstraint{}
-	defaultArmPlannerOptions = &motionpb.Constraints{
-		LinearConstraint: []*motionpb.LinearConstraint{defaultLinearConstraint},
+	defaultLinearConstraint  = motionplan.LinearConstraint{}
+	defaultArmPlannerOptions = &motionplan.Constraints{
+		LinearConstraint: []motionplan.LinearConstraint{defaultLinearConstraint},
 	}
 )
 
@@ -64,6 +63,45 @@ func Named(name string) resource.Name {
 }
 
 // An Arm represents a physical robotic arm that exists in three-dimensional space.
+//
+// EndPosition example:
+//
+//	myArm, err := arm.FromRobot(machine, "my_arm")
+//	// Get the end position of the arm as a Pose.
+//	pos, err := myArm.EndPosition(context.Background(), nil)
+//
+// MoveToPosition example:
+//
+//	myArm, err := arm.FromRobot(machine, "my_arm")
+//	// Create a Pose for the arm.
+//	examplePose := spatialmath.NewPose(
+//	        r3.Vector{X: 5, Y: 5, Z: 5},
+//	        &spatialmath.OrientationVectorDegrees{0X: 5, 0Y: 5, Theta: 20}
+//	)
+//
+//	// Move your arm to the Pose.
+//	err = myArm.MoveToPosition(context.Background(), examplePose, nil)
+//
+// MoveToJointPositions example:
+//
+//	// Assumes you have imported "go.viam.com/api/component/arm/v1" as `componentpb`
+//	myArm, err := arm.FromRobot(machine, "my_arm")
+//
+//	// Declare an array of values with your desired rotational value for each joint on the arm.
+//	degrees := []float64{4.0, 5.0, 6.0}
+//
+//	// Declare a new JointPositions with these values.
+//	jointPos := &componentpb.JointPositions{Values: degrees}
+//
+//	// Move each joint of the arm to the position these values specify.
+//	err = myArm.MoveToJointPositions(context.Background(), jointPos, nil)
+//
+// JointPositions example:
+//
+//	myArm , err := arm.FromRobot(machine, "my_arm")
+//
+//	// Get the current position of each joint on the arm as JointPositions.
+//	pos, err := myArm.JointPositions(context.Background(), nil)
 type Arm interface {
 	resource.Resource
 	referenceframe.ModelFramer
@@ -72,47 +110,17 @@ type Arm interface {
 	referenceframe.InputEnabled
 
 	// EndPosition returns the current position of the arm.
-	//
-	//    myArm, err := arm.FromRobot(machine, "my_arm")
-	//    // Get the end position of the arm as a Pose.
-	//    pos, err := myArm.EndPosition(context.Background(), nil)
 	EndPosition(ctx context.Context, extra map[string]interface{}) (spatialmath.Pose, error)
 
 	// MoveToPosition moves the arm to the given absolute position.
-	// This will block until done or a new operation cancels this one
-	//
-	//    myArm, err := arm.FromRobot(machine, "my_arm")
-	//    // Create a Pose for the arm.
-	//    examplePose := spatialmath.NewPose(
-	//            r3.Vector{X: 5, Y: 5, Z: 5},
-	//            &spatialmath.OrientationVectorDegrees{0X: 5, 0Y: 5, Theta: 20}
-	//    )
-	//
-	//    // Move your arm to the Pose.
-	//    err = myArm.MoveToPosition(context.Background(), examplePose, nil)
+	// This will block until done or a new operation cancels this one.
 	MoveToPosition(ctx context.Context, pose spatialmath.Pose, extra map[string]interface{}) error
 
 	// MoveToJointPositions moves the arm's joints to the given positions.
-	// This will block until done or a new operation cancels this one
-	//
-	//    // Assumes you have imported "go.viam.com/api/component/arm/v1" as `componentpb`
-	//    myArm, err := arm.FromRobot(machine, "my_arm")
-	//
-	//    // Declare an array of values with your desired rotational value for each joint on the arm.
-	//    degrees := []float64{4.0, 5.0, 6.0}
-	//
-	//    // Declare a new JointPositions with these values.
-	//    jointPos := &componentpb.JointPositions{Values: degrees}
-	//
-	//    // Move each joint of the arm to the position these values specify.
-	//    err = myArm.MoveToJointPositions(context.Background(), jointPos, nil)
+	// This will block until done or a new operation cancels this one.
 	MoveToJointPositions(ctx context.Context, positionDegs *pb.JointPositions, extra map[string]interface{}) error
 
 	// JointPositions returns the current joint positions of the arm.
-	//    myArm , err := arm.FromRobot(machine, "my_arm")
-	//
-	//    // Get the current position of each joint on the arm as JointPositions.
-	//    pos, err := myArm.JointPositions(context.Background(), nil)
 	JointPositions(ctx context.Context, extra map[string]interface{}) (*pb.JointPositions, error)
 }
 
