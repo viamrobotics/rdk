@@ -1312,6 +1312,8 @@ func (r *localRobot) restartSingleModule(ctx context.Context, mod *config.Module
 		// note: this version incrementing matters for local tarballs because we want the system to
 		// unpack into a new directory rather than reusing the old one. Local tarball path matters
 		// here because it is how artifacts are unpacked for remote reloading.
+		// We technically only need to do this when mod.NeedsSyntheticPackage(), but we do it
+		// for all local packages for test suite reasons.
 		nextVer := r.localModuleVersions[mod.Name].IncPatch()
 		r.localModuleVersions[mod.Name] = nextVer
 		mod.LocalVersion = nextVer.String()

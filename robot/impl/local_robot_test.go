@@ -3523,8 +3523,13 @@ func TestRestartModule(t *testing.T) {
 	ctx := context.Background()
 	logger := logging.NewTestLogger(t)
 	simplePath := rtestutils.BuildTempModule(t, "examples/customresources/demos/simplemodule")
-	mod := &config.Module{Name: "restartSingleModule-test", ExePath: simplePath}
+	mod := &config.Module{Name: "restartSingleModule-test", ExePath: simplePath, Type: config.ModuleTypeLocal}
 	r := setupLocalRobot(t, ctx, &config.Config{Modules: []config.Module{*mod}}, logger)
+	test.That(t, mod.LocalVersion, test.ShouldBeEmpty)
+
+	// test restart. note: we're not testing that the PID rolls over because we don't have access to
+	// that state. 'no error' + 'version incremented' is a cheap proxy for that.
 	err := r.(*localRobot).restartSingleModule(ctx, mod)
 	test.That(t, err, test.ShouldBeNil)
+	test.That(t, mod.LocalVersion, test.ShouldResemble, "0.0.1")
 }
