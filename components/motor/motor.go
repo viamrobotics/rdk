@@ -177,6 +177,7 @@ func CreateStatus(ctx context.Context, m Motor) (*pb.Status, error) {
 	}, nil
 }
 
+// CheckSpeed checks if the input rpm is too slow or fast and returns a warning and/or error
 func CheckSpeed(rpm, max float64) (string, error) {
 	switch speed := math.Abs(rpm); {
 	case speed == 0:
