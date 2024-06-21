@@ -448,12 +448,16 @@ func (m *Motor) SetPower(ctx context.Context, powerPct float64, extra map[string
 	powerPct = math.Min(powerPct, 1.0)
 	powerPct = math.Max(powerPct, -1.0)
 
-	warning, err := motor.CheckSpeed(powerPct, m.maxRPM)
+	warning, err := motor.CheckSpeed(powerPct*m.maxRPM, m.maxRPM)
 	if warning != "" {
 		m.logger.CWarn(ctx, warning)
 	}
 	if err != nil {
+		m.Stop(ctx, extra)
 		return err
+	}
+	if strings.Contains(warning, "nearly 0 rev_per_min") {
+		return m.Stop(ctx, extra)
 	}
 
 	m.powerPct = powerPct
@@ -504,7 +508,7 @@ func (m *Motor) GoFor(ctx context.Context, rpm, revolutions float64, extra map[s
 	if warning != "" {
 		m.logger.CWarn(ctx, warning)
 	}
-	if err != nil {
+	if err != nil || strings.Contains(warning, "0 rev_per_min") {
 		return err
 	}
 	ctx, done := m.opMgr.New(ctx)
@@ -750,13 +754,13 @@ func (m *Motor) doGoTo(rpm, position float64) error {
 		return err
 	}
 
-	warning, err := motor.CheckSpeed(rpm, m.maxRPM)
+	warning, _ := motor.CheckSpeed(rpm, m.maxRPM)
 	if warning != "" {
 		m.logger.Warn(warning)
 	}
-	if err != nil {
-		return err
-	}
+	// if err != nil {
+	// 	return err
+	// }
 
 	// Speed
 	_, err = m.c.sendCmd(fmt.Sprintf("SP%s=%d", m.Axis, m.rpmToV(rpm)))
