@@ -1165,6 +1165,10 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 	if err != nil {
 		allErrs = multierr.Combine(allErrs, err)
 	}
+	// For local tarball modules, we create synthetic versions for package management. The `localRobot` keeps track of these because
+	// config reader would overwrite if we just stored it in config. Here, we copy the synthetic version from the `localRobot` into the
+	// appropriate `config.Module` object inside the `cfg.Modules` slice. Thus, when a local tarball module is reloaded, the viam-server
+	// can unpack it into a fresh directory rather than reusing the previous one.
 	r.applyLocalModuleVersions(newConfig)
 	allErrs = multierr.Combine(allErrs, r.localPackages.Sync(ctx, newConfig.Packages, newConfig.Modules))
 
