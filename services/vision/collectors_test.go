@@ -39,9 +39,10 @@ type fakeClassification struct {
 	label string
 }
 
-type imageBounds struct {
-	Height int
-	Width  int
+type extraFields struct {
+	Height   int
+	Width    int
+	MimeType string
 }
 
 const (
@@ -90,9 +91,9 @@ var fakeClassifications2 = []classification.Classification{
 
 var fakeObjects = []*vision.Object{}
 
-var bounds = imageBounds{}
+var extra = extraFields{}
 
-var fakeBounds, _ = protoutils.StructToStructPb(bounds)
+var fakeExtraFields, _ = protoutils.StructToStructPb(extra)
 
 func (fc *fakeClassification) Score() float64 {
 	return fc.score
@@ -198,7 +199,7 @@ func TestCollectors(t *testing.T) {
 				Classifications: clasToProto(fakeClassifications),
 				Detections:      detsToProto(fakeDetections),
 				Objects:         []*v1.PointCloudObject{},
-				Extra:           fakeBounds,
+				Extra:           fakeExtraFields,
 			}),
 		},
 		{
@@ -209,7 +210,7 @@ func TestCollectors(t *testing.T) {
 				Classifications: clasToProto([]classification.Classification{}),
 				Detections:      detsToProto([]objectdetection.Detection{}),
 				Objects:         []*v1.PointCloudObject{},
-				Extra:           fakeBounds,
+				Extra:           fakeExtraFields,
 			}),
 		},
 	}
