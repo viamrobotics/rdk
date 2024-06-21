@@ -81,6 +81,12 @@ import (
 //
 //	// Cancel all current and outstanding operations for the machine and stop all actuators and movement.
 //	err := machine.StopAll(ctx)
+//
+// Shutdown example:
+//
+// 	// Shutdown down the robot.
+//	err := machine.Shutdown(ctx)
+
 type Robot interface {
 	// DiscoverComponents returns discovered component configurations.
 	DiscoverComponents(ctx context.Context, qs []resource.DiscoveryQuery) ([]resource.Discovery, error)
