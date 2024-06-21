@@ -337,10 +337,6 @@ func (ptgk *ptgBaseKinematics) trajectoryArcSteps(
 	runningPose = spatialmath.Compose(runningPose, arcPose)
 	nextStep.arcSegment.EndPosition = runningPose
 	finalSteps = append(finalSteps, nextStep)
-	// ~ for _, step := range finalSteps {
-	// ~ fmt.Println(step.String())
-	// ~ }
-
 	return finalSteps, nil
 }
 
@@ -542,7 +538,6 @@ func (ptgk *ptgBaseKinematics) makeCourseCorrectionGoals(
 	if stepsPerGoal*nGoals > totalTrajSteps {
 		stepsPerGoal = totalTrajSteps / nGoals // int division is what we want here
 	}
-	// ~ ptgk.logger.Debug("curr pose", spatialmath.PoseToProtobuf(currPose))
 
 	stepsRemainingThisGoal := stepsPerGoal
 	for i := currStep; i < len(steps); i++ {
@@ -557,7 +552,6 @@ func (ptgk *ptgBaseKinematics) makeCourseCorrectionGoals(
 				steps[i].arcSegment.StartConfiguration[startDistanceAlongTrajectoryIndex],
 				{steps[i].subTraj[goalTrajPtIdx].Dist},
 			}
-
 			arcPose, err := ptgk.Kinematics().Transform(arcTrajInputs)
 			if err != nil {
 				return []courseCorrectionGoal{}
@@ -567,9 +561,6 @@ func (ptgk *ptgBaseKinematics) makeCourseCorrectionGoals(
 				currPose,
 				spatialmath.Compose(steps[i].arcSegment.StartPosition, arcPose),
 			)
-			// ~ ptgk.logger.Debug("arc traj inputs", arcTrajInputs)
-			// ~ ptgk.logger.Debug("arc pose", spatialmath.PoseToProtobuf(arcPose))
-			// ~ ptgk.logger.Debug("full arc pose", spatialmath.PoseToProtobuf(spatialmath.Compose(steps[i].arcSegment.StartPosition, arcPose)))
 			goals = append(goals, courseCorrectionGoal{Goal: goalPose, stepIdx: i, trajIdx: goalTrajPtIdx})
 			if len(goals) == nGoals {
 				return goals
