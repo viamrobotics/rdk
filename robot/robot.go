@@ -66,7 +66,7 @@ import (
 //
 // GetCloudMetadata example:
 //
-//	metadata, err := machine.CloudMetadata(ctx.Background())
+//	metadata, err := machine.CloudMetadata()
 //	machine_id = metadata.MachineID
 //	machine_part_id = metadata.MachinePartID
 //	primary_org_id = metadata.PrimaryOrgID
@@ -85,7 +85,7 @@ import (
 // Shutdown example:
 //
 // 	// Shut down the robot.
-//	err := machine.Shutdown(ctx)
+//	err := machine.Shutdown()
 
 type Robot interface {
 	// DiscoverComponents returns discovered component configurations.
