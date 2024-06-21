@@ -337,6 +337,7 @@ func (ptgk *ptgBaseKinematics) trajectoryArcSteps(
 	runningPose = spatialmath.Compose(runningPose, arcPose)
 	nextStep.arcSegment.EndPosition = runningPose
 	finalSteps = append(finalSteps, nextStep)
+
 	return finalSteps, nil
 }
 
@@ -432,6 +433,19 @@ func (ptgk *ptgBaseKinematics) courseCorrect(
 			// Now, the new start configuration should be [-160, -160] and the new end configuration should be [0, -160]. RSDK-7515 will
 			// simplify this significantly.
 			startVal := connectionPoint.subTraj[solution.trajIdx].Dist
+
+			// We need to know the point along the segment where we are expecting to reconnect
+			skippedSegment := []referenceframe.Input{
+				connectionPoint.arcSegment.EndConfiguration[ptgIndex],
+				connectionPoint.arcSegment.EndConfiguration[trajectoryAlphaWithinPTG],
+				connectionPoint.arcSegment.EndConfiguration[startDistanceAlongTrajectoryIndex],
+				{startVal},
+			}
+			skippedPose, err := ptgk.Kinematics().Transform(skippedSegment)
+			if err != nil {
+				return nil, err
+			}
+
 			isReverse := connectionPoint.arcSegment.EndConfiguration[endDistanceAlongTrajectoryIndex].Value < 0
 			if isReverse {
 				startVal += connectionPoint.arcSegment.EndConfiguration[endDistanceAlongTrajectoryIndex].Value
@@ -444,8 +458,10 @@ func (ptgk *ptgBaseKinematics) courseCorrect(
 			} else {
 				connectionPoint.arcSegment.EndConfiguration[startDistanceAlongTrajectoryIndex].Value = startVal
 			}
-			// The start position should be where the connection connected
-			connectionPoint.arcSegment.StartPosition = correctiveArcSteps[len(correctiveArcSteps)-1].arcSegment.EndPosition
+			// The start position should be where the connection tried to get to.
+			// This needs to be the Goal, as that is the point along the original path, not the solved point, which is just somewhere near
+			// that based on courseCorrectionMaxScore.
+			connectionPoint.arcSegment.StartPosition = spatialmath.Compose(connectionPoint.arcSegment.StartPosition, skippedPose)
 
 			connectionPoint.durationSeconds *= pctTrajRemaining
 			connectionPoint.subTraj = connectionPoint.subTraj[solution.trajIdx:]
@@ -552,6 +568,7 @@ func (ptgk *ptgBaseKinematics) makeCourseCorrectionGoals(
 				steps[i].arcSegment.StartConfiguration[startDistanceAlongTrajectoryIndex],
 				{steps[i].subTraj[goalTrajPtIdx].Dist},
 			}
+
 			arcPose, err := ptgk.Kinematics().Transform(arcTrajInputs)
 			if err != nil {
 				return []courseCorrectionGoal{}
