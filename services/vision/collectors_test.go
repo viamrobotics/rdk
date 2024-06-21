@@ -183,7 +183,7 @@ func convertStringToAnyPB(str string) (*anypb.Any, error) {
 	return anyVal, nil
 }
 
-var methodParams, _ = convertStringMapToAnyPBMap(map[string]string{"camera_name": "camera-1"})
+var methodParams, _ = convertStringMapToAnyPBMap(map[string]string{"camera_name": "camera-1", "mime_type": "image/jpeg"})
 
 func TestCollectors(t *testing.T) {
 	tests := []struct {
