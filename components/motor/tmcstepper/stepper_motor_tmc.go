@@ -6,6 +6,7 @@ package tmcstepper
 import (
 	"context"
 	"math"
+	"strings"
 	"time"
 
 	"github.com/pkg/errors"
@@ -449,7 +450,7 @@ func (m *Motor) GoFor(ctx context.Context, rpm, rotations float64, extra map[str
 	if warning != "" {
 		m.logger.CWarn(ctx, warning)
 	}
-	if err != nil {
+	if err != nil || strings.Contains(warning, "0 rev_per_min") {
 		return err
 	}
 
