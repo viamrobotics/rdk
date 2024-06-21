@@ -209,12 +209,14 @@ func (ss *StreamState) initStreamSourceMonitor() {
 	}
 }
 
-func (ss *StreamState) monitorSubscription(sub rtppassthrough.Subscription) {
+func (ss *StreamState) monitorSubscription(sub rtppassthrough.Subscription, releasePackets chan struct{}) {
 	if ss.streamSource == streamSourceGoStream {
 		ss.logger.Debugf("monitorSubscription stopping gostream %s", ss.Stream.Name())
 		// if we were streaming using gostream, stop streaming using gostream as we are now using passthrough
 		ss.Stream.Stop()
 	}
+	ss.Stream.VideoStreamSourceChanged()
+	close(releasePackets)
 	ss.streamSourceSub = sub
 	ss.streamSource = streamSourcePassthrough
 	monitorSubFunc := func() {
@@ -403,6 +405,7 @@ func (ss *StreamState) tick() {
 	case ss.streamSource == streamSourcePassthrough && ss.streamSourceSub.Terminated.Err() != nil:
 		// restart stream if there we were using passthrough but the sub is termianted
 		ss.logger.Debugw("tick: previous subscription termianted attempting to subscribe to rtp_passthrough", "name", ss.Stream.Name())
+		ss.Stream.VideoStreamSourceChanged()
 		err := ss.streamH264Passthrough()
 		if err != nil {
 			ss.logger.Debugw("tick: rtp_passthrough not possible, falling back to GoStream", "err", err.Error(), "name", ss.Stream.Name())
@@ -424,6 +427,7 @@ func (ss *StreamState) tick() {
 	case ss.streamSource == streamSourceUnknown:
 		// this is the first subscription, attempt passthrough
 		ss.logger.Debugw("tick: attempting to subscribe to rtp_passthrough", "name", ss.Stream.Name())
+		ss.Stream.VideoStreamSourceChanged()
 		err := ss.streamH264Passthrough()
 		if err != nil {
 			ss.logger.Debugw("tick: rtp_passthrough not possible, falling back to GoStream", "err", err.Error(), "name", ss.Stream.Name())
@@ -447,12 +451,15 @@ func (ss *StreamState) streamH264Passthrough() error {
 	}
 
 	var count atomic.Uint64
+	releasePackets := make(chan struct{})
 	cb := func(pkts []*rtp.Packet) {
+		<-releasePackets
 		for _, pkt := range pkts {
 			if count.Load()%100 == 0 {
 				ss.logger.Infof("calling WriteRTP %s", ss.Stream.Name())
 			}
 			count.Add(1)
+			ss.logger.Infof("SequenceNumber: %d", pkt.Header.SequenceNumber)
 			if err := ss.Stream.WriteRTP(pkt); err != nil {
 				ss.logger.Debugw("stream.WriteRTP", "name", ss.Stream.Name(), "err", err.Error())
 			}
@@ -464,7 +471,7 @@ func (ss *StreamState) streamH264Passthrough() error {
 		return errors.Wrap(ErrRTPPassthroughNotSupported, err.Error())
 	}
 	ss.logger.Warnw("Stream using experimental H264 passthrough", "name", ss.Stream.Name())
-	ss.monitorSubscription(sub)
+	ss.monitorSubscription(sub, releasePackets)
 
 	return nil
 }
