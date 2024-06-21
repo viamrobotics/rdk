@@ -84,7 +84,7 @@ import (
 //
 // Shutdown example:
 //
-// 	// Shutdown down the robot.
+// 	// Shut down the robot.
 //	err := machine.Shutdown(ctx)
 
 type Robot interface {
