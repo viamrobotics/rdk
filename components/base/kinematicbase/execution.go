@@ -67,7 +67,6 @@ type courseCorrectionGoal struct {
 }
 
 func (ptgk *ptgBaseKinematics) GoToInputs(ctx context.Context, inputSteps ...[]referenceframe.Input) error {
-	fmt.Println("steps", inputSteps)
 	var err error
 	// Cancel any prior GoToInputs calls
 	if ptgk.cancelFunc != nil {

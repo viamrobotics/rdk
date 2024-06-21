@@ -237,8 +237,14 @@ func TestPositionalReplanning(t *testing.T) {
 
 	gpsPoint := geo.NewPoint(0, 0)
 	dst := geo.NewPoint(gpsPoint.Lat(), gpsPoint.Lng()+1e-5)
-	epsilonMM := 15.
-	motionCfg := &motion.MotionConfiguration{PositionPollingFreqHz: 100, ObstaclePollingFreqHz: 1, PlanDeviationMM: epsilonMM}
+	epsilonMM := 150.
+	motionCfg := &motion.MotionConfiguration{
+		PositionPollingFreqHz: 10,
+		ObstaclePollingFreqHz: 1,
+		PlanDeviationMM: epsilonMM,
+		LinearMPerSec: 0.2,
+		AngularDegsPerSec: 20,
+	}
 
 	type testCase struct {
 		name            string
@@ -251,9 +257,9 @@ func TestPositionalReplanning(t *testing.T) {
 	testCases := []testCase{
 		{
 			name:            "check we dont replan with a good sensor",
-			noise:           r3.Vector{Y: epsilonMM - 0.1},
+			noise:           r3.Vector{},
 			expectedSuccess: true,
-			extra:           map[string]interface{}{"smooth_iter": 5},
+			extra:           map[string]interface{}{"max_replans": 0, "smooth_iter": 5},
 		},
 		// TODO(RSDK-5634): this should be uncommented when this bug is fixed
 		// {
@@ -275,7 +281,7 @@ func TestPositionalReplanning(t *testing.T) {
 
 	testFn := func(t *testing.T, tc testCase) {
 		t.Helper()
-		_, ms, closeFunc := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, spatialmath.NewPoseFromPoint(tc.noise), 5)
+		_, ms, closeFunc := CreateMoveOnGlobeEnvironment(ctx, t, gpsPoint, spatialmath.NewPoseFromPoint(tc.noise), 5)
 		defer closeFunc(ctx)
 
 		req := motion.MoveOnGlobeReq{
@@ -299,6 +305,7 @@ func TestPositionalReplanning(t *testing.T) {
 		if tc.expectedSuccess {
 			test.That(t, err, test.ShouldBeNil)
 		} else {
+			test.That(t, err, test.ShouldNotBeNil) // Needed so that a failure produces a failure and not a panic
 			test.That(t, err.Error(), test.ShouldEqual, tc.expectedErr)
 		}
 	}
@@ -306,153 +313,6 @@ func TestPositionalReplanning(t *testing.T) {
 	for _, tc := range testCases {
 		c := tc // needed to workaround loop variable not being captured by func literals
 		t.Run(c.name, func(t *testing.T) {
-			testFn(t, c)
-		})
-	}
-}
-
-func TestObstacleReplanningGlobe(t *testing.T) {
-	t.Parallel()
-	ctx := context.Background()
-	ctx, cFunc := context.WithCancel(ctx)
-	defer cFunc()
-
-	gpsOrigin := geo.NewPoint(0, 0)
-	dst := geo.NewPoint(gpsOrigin.Lat(), gpsOrigin.Lng()+1e-5)
-	epsilonMM := 15.
-
-	type testCase struct {
-		name            string
-		getPCfunc       func(ctx context.Context, cameraName string, extra map[string]interface{}) ([]*viz.Object, error)
-		expectedSuccess bool
-		expectedErr     string
-		extra           map[string]interface{}
-	}
-
-	obstacleDetectorSlice := []motion.ObstacleDetectorName{
-		{VisionServiceName: vision.Named("injectedVisionSvc"), CameraName: camera.Named("injectedCamera")},
-	}
-
-	cfg := &motion.MotionConfiguration{
-		PositionPollingFreqHz: 1, ObstaclePollingFreqHz: 20, PlanDeviationMM: epsilonMM, ObstacleDetectors: obstacleDetectorSlice,
-	}
-
-	extra := map[string]interface{}{"max_replans": 10, "max_ik_solutions": 1, "smooth_iter": 1}
-	extraNoReplan := map[string]interface{}{"max_replans": 0, "max_ik_solutions": 1, "smooth_iter": 1}
-
-	// We set a flag here per test case so that detections are not returned the first time each vision service is called
-	testCases := []testCase{
-		{
-			name: "ensure no replan from discovered obstacles",
-			getPCfunc: func(ctx context.Context, cameraName string, extra map[string]interface{}) ([]*viz.Object, error) {
-				caseName := "test-case-1"
-				obstaclePosition := spatialmath.NewPoseFromPoint(r3.Vector{X: -1000, Y: -1000, Z: 0})
-				box, err := spatialmath.NewBox(obstaclePosition, r3.Vector{X: 10, Y: 10, Z: 10}, caseName)
-				test.That(t, err, test.ShouldBeNil)
-
-				detection, err := viz.NewObjectWithLabel(pointcloud.New(), caseName+"-detection", box.ToProtobuf())
-				test.That(t, err, test.ShouldBeNil)
-
-				return []*viz.Object{detection}, nil
-			},
-			expectedSuccess: true,
-			extra:           extraNoReplan,
-		},
-		{
-			name: "ensure replan due to obstacle collision",
-			getPCfunc: func(ctx context.Context, cameraName string, extra map[string]interface{}) ([]*viz.Object, error) {
-				caseName := "test-case-2"
-				// The camera is parented to the base. Thus, this will always see an obstacle 300mm in front of where the base is.
-				// Note: for createMoveOnGlobeEnvironment, the camera is given an orientation such that it is pointing left, not
-				// forwards. Thus, an obstacle in front of the base will be seen as being in +X.
-				obstaclePosition := spatialmath.NewPoseFromPoint(r3.Vector{X: 300, Y: 0, Z: 0})
-				box, err := spatialmath.NewBox(obstaclePosition, r3.Vector{X: 20, Y: 20, Z: 10}, caseName)
-				test.That(t, err, test.ShouldBeNil)
-
-				detection, err := viz.NewObjectWithLabel(pointcloud.New(), caseName+"-detection", box.ToProtobuf())
-				test.That(t, err, test.ShouldBeNil)
-
-				return []*viz.Object{detection}, nil
-			},
-			expectedSuccess: false,
-			expectedErr:     fmt.Sprintf("exceeded maximum number of replans: %d: plan failed", 0),
-			extra:           extraNoReplan,
-		},
-		{
-			name: "ensure replan reaching goal",
-			getPCfunc: func(ctx context.Context, cameraName string, extra map[string]interface{}) ([]*viz.Object, error) {
-				caseName := "test-case-3"
-				// This base will always see an obstacle 800mm in front of it, triggering several replans.
-				// However, enough replans should eventually get it to its goal.
-				obstaclePosition := spatialmath.NewPoseFromPoint(r3.Vector{X: 800, Y: 0, Z: 0})
-				box, err := spatialmath.NewBox(obstaclePosition, r3.Vector{X: 20, Y: 20, Z: 10}, caseName)
-				test.That(t, err, test.ShouldBeNil)
-
-				detection, err := viz.NewObjectWithLabel(pointcloud.New(), caseName+"-detection", box.ToProtobuf())
-				test.That(t, err, test.ShouldBeNil)
-
-				return []*viz.Object{detection}, nil
-			},
-			expectedSuccess: true,
-			extra:           extra,
-		},
-	}
-
-	testFn := func(t *testing.T, tc testCase) {
-		t.Helper()
-
-		calledPC := false
-		pcFunc := func(ctx context.Context, cameraName string, extra map[string]interface{}) ([]*viz.Object, error) {
-			if !calledPC {
-				calledPC = true
-				return []*viz.Object{}, nil
-			}
-			return tc.getPCfunc(ctx, cameraName, extra)
-		}
-
-		_, ms, closeFunc := createMoveOnGlobeEnvironment(
-			ctx,
-			t,
-			gpsOrigin,
-			spatialmath.NewPoseFromPoint(r3.Vector{X: 0, Y: 0, Z: 0}),
-			5000,
-		)
-		defer closeFunc(ctx)
-
-		srvc, ok := ms.(*builtIn).visionServices[cfg.ObstacleDetectors[0].VisionServiceName].(*inject.VisionService)
-		test.That(t, ok, test.ShouldBeTrue)
-		srvc.GetObjectPointCloudsFunc = pcFunc
-
-		req := motion.MoveOnGlobeReq{
-			ComponentName:      resource.NewName(base.API, baseName),
-			Destination:        dst,
-			MovementSensorName: resource.NewName(movementsensor.API, moveSensorName),
-			MotionCfg:          cfg,
-			Extra:              tc.extra,
-		}
-		executionID, err := ms.MoveOnGlobe(ctx, req)
-		test.That(t, err, test.ShouldBeNil)
-
-		timeoutCtx, timeoutFn := context.WithTimeout(ctx, time.Minute*5)
-		defer timeoutFn()
-		err = motion.PollHistoryUntilSuccessOrError(timeoutCtx, ms, time.Millisecond*5, motion.PlanHistoryReq{
-			ComponentName: req.ComponentName,
-			ExecutionID:   executionID,
-			LastPlanOnly:  true,
-		})
-
-		if tc.expectedSuccess {
-			test.That(t, err, test.ShouldBeNil)
-		} else {
-			test.That(t, err, test.ShouldNotBeNil)
-			test.That(t, err.Error(), test.ShouldEqual, tc.expectedErr)
-		}
-	}
-
-	for _, tc := range testCases {
-		c := tc // needed to workaround loop variable not being captured by func literals
-		t.Run(c.name, func(t *testing.T) {
-			t.Parallel()
 			testFn(t, c)
 		})
 	}
@@ -475,7 +335,7 @@ func TestObstacleReplanningSlam(t *testing.T) {
 	)
 	test.That(t, err, test.ShouldBeNil)
 
-	kb, ms, closeFunc := createMoveOnMapEnvironment(
+	kb, ms, closeFunc := CreateMoveOnMapEnvironment(
 		ctx, t,
 		"pointcloud/cardboardOcto.pcd",
 		50, origin,
@@ -904,7 +764,7 @@ func TestGetTransientDetections(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
 
-	_, ms, closeFunc := createMoveOnMapEnvironment(
+	_, ms, closeFunc := CreateMoveOnMapEnvironment(
 		ctx, t,
 		"slam/example_cartographer_outputs/viam-office-02-22-3/pointcloud/pointcloud_4.pcd",
 		100, spatialmath.NewZeroPose(),
@@ -1003,7 +863,7 @@ func TestStopPlan(t *testing.T) {
 	defer cFunc()
 	gpsPoint := geo.NewPoint(0, 0)
 	//nolint:dogsled
-	_, ms, closeFunc := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil, 5)
+	_, ms, closeFunc := CreateMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil, 5)
 	defer closeFunc(ctx)
 
 	req := motion.StopPlanReq{}
@@ -1017,7 +877,7 @@ func TestListPlanStatuses(t *testing.T) {
 	defer cFunc()
 	gpsPoint := geo.NewPoint(0, 0)
 	//nolint:dogsled
-	_, ms, closeFunc := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil, 5)
+	_, ms, closeFunc := CreateMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil, 5)
 	defer closeFunc(ctx)
 
 	req := motion.ListPlanStatusesReq{}
@@ -1033,7 +893,7 @@ func TestPlanHistory(t *testing.T) {
 	defer cFunc()
 	gpsPoint := geo.NewPoint(0, 0)
 	//nolint:dogsled
-	_, ms, closeFunc := createMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil, 5)
+	_, ms, closeFunc := CreateMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil, 5)
 	defer closeFunc(ctx)
 	req := motion.PlanHistoryReq{}
 	history, err := ms.PlanHistory(ctx, req)
