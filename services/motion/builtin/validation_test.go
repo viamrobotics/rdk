@@ -8,6 +8,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/golang/geo/r3"
+	"github.com/golang/geo/r3"
 	"github.com/google/uuid"
 	geo "github.com/kellydunn/golang-geo"
 	"go.viam.com/test"
@@ -28,6 +30,7 @@ func TestMoveCallInputs(t *testing.T) {
 
 	t.Run("MoveOnMap", func(t *testing.T) {
 		t.Parallel()
+		goalPose := spatialmath.NewPoseFromPoint(r3.Vector{0, 100, 0})
 		t.Run("Returns error when called with an unknown component", func(t *testing.T) {
 			t.Parallel()
 			_, ms, closeFunc := CreateMoveOnMapEnvironment(ctx, t, "pointcloud/octagonspace.pcd", 40, nil)
@@ -35,8 +38,9 @@ func TestMoveCallInputs(t *testing.T) {
 
 			req := motion.MoveOnMapReq{
 				ComponentName: base.Named("non existent base"),
-				Destination:   spatialmath.NewZeroPose(),
+				Destination:   goalPose,
 				SlamName:      slam.Named("test_slam"),
+				MotionCfg:     &motion.MotionConfiguration{PlanDeviationMM: 10},
 			}
 
 			executionID, err := ms.(*builtIn).MoveOnMap(context.Background(), req)
@@ -52,6 +56,7 @@ func TestMoveCallInputs(t *testing.T) {
 			req := motion.MoveOnMapReq{
 				ComponentName: base.Named("test-base"),
 				SlamName:      slam.Named("test_slam"),
+				MotionCfg:     &motion.MotionConfiguration{PlanDeviationMM: 10},
 			}
 
 			executionID, err := ms.(*builtIn).MoveOnMap(context.Background(), req)
@@ -66,8 +71,9 @@ func TestMoveCallInputs(t *testing.T) {
 
 			req := motion.MoveOnMapReq{
 				ComponentName: slam.Named("test_slam"),
-				Destination:   spatialmath.NewZeroPose(),
+				Destination:   goalPose,
 				SlamName:      slam.Named("test_slam"),
+				MotionCfg:     &motion.MotionConfiguration{PlanDeviationMM: 10},
 			}
 
 			executionID, err := ms.(*builtIn).MoveOnMap(context.Background(), req)
@@ -82,8 +88,9 @@ func TestMoveCallInputs(t *testing.T) {
 
 			req := motion.MoveOnMapReq{
 				ComponentName: slam.Named("test-base"),
-				Destination:   spatialmath.NewZeroPose(),
+				Destination:   goalPose,
 				SlamName:      slam.Named("test-base"),
+				MotionCfg:     &motion.MotionConfiguration{PlanDeviationMM: 10},
 			}
 
 			executionID, err := ms.(*builtIn).MoveOnMap(context.Background(), req)
@@ -98,7 +105,7 @@ func TestMoveCallInputs(t *testing.T) {
 
 			req := motion.MoveOnMapReq{
 				ComponentName: base.Named("test-base"),
-				Destination:   spatialmath.NewZeroPose(),
+				Destination:   goalPose,
 				SlamName:      slam.Named("test_slam"),
 				MotionCfg:     &motion.MotionConfiguration{PlanDeviationMM: -1},
 			}
@@ -115,7 +122,7 @@ func TestMoveCallInputs(t *testing.T) {
 
 			req := motion.MoveOnMapReq{
 				ComponentName: base.Named("test-base"),
-				Destination:   spatialmath.NewZeroPose(),
+				Destination:   goalPose,
 				SlamName:      slam.Named("test_slam"),
 				MotionCfg:     &motion.MotionConfiguration{PlanDeviationMM: math.NaN()},
 			}
@@ -132,9 +139,9 @@ func TestMoveCallInputs(t *testing.T) {
 
 			req := motion.MoveOnMapReq{
 				ComponentName: base.Named("test-base"),
-				Destination:   spatialmath.NewZeroPose(),
+				Destination:   goalPose,
 				SlamName:      slam.Named("test_slam"),
-				MotionCfg:     &motion.MotionConfiguration{ObstaclePollingFreqHz: -1},
+				MotionCfg:     &motion.MotionConfiguration{ObstaclePollingFreqHz: -1, PlanDeviationMM: 10},
 			}
 
 			executionID, err := ms.(*builtIn).MoveOnMap(context.Background(), req)
@@ -149,9 +156,9 @@ func TestMoveCallInputs(t *testing.T) {
 
 			req := motion.MoveOnMapReq{
 				ComponentName: base.Named("test-base"),
-				Destination:   spatialmath.NewZeroPose(),
+				Destination:   goalPose,
 				SlamName:      slam.Named("test_slam"),
-				MotionCfg:     &motion.MotionConfiguration{ObstaclePollingFreqHz: math.NaN()},
+				MotionCfg:     &motion.MotionConfiguration{ObstaclePollingFreqHz: math.NaN(), PlanDeviationMM: 10},
 			}
 
 			executionID, err := ms.(*builtIn).MoveOnMap(context.Background(), req)
@@ -166,9 +173,9 @@ func TestMoveCallInputs(t *testing.T) {
 
 			req := motion.MoveOnMapReq{
 				ComponentName: base.Named("test-base"),
-				Destination:   spatialmath.NewZeroPose(),
+				Destination:   goalPose,
 				SlamName:      slam.Named("test_slam"),
-				MotionCfg:     &motion.MotionConfiguration{PositionPollingFreqHz: -1},
+				MotionCfg:     &motion.MotionConfiguration{PositionPollingFreqHz: -1, PlanDeviationMM: 10},
 			}
 
 			executionID, err := ms.(*builtIn).MoveOnMap(context.Background(), req)
@@ -183,9 +190,9 @@ func TestMoveCallInputs(t *testing.T) {
 
 			req := motion.MoveOnMapReq{
 				ComponentName: base.Named("test-base"),
-				Destination:   spatialmath.NewZeroPose(),
+				Destination:   goalPose,
 				SlamName:      slam.Named("test_slam"),
-				MotionCfg:     &motion.MotionConfiguration{PositionPollingFreqHz: math.NaN()},
+				MotionCfg:     &motion.MotionConfiguration{PositionPollingFreqHz: math.NaN(), PlanDeviationMM: 10},
 			}
 
 			executionID, err := ms.(*builtIn).MoveOnMap(context.Background(), req)
@@ -200,9 +207,9 @@ func TestMoveCallInputs(t *testing.T) {
 
 			req := motion.MoveOnMapReq{
 				ComponentName: base.Named("test-base"),
-				Destination:   spatialmath.NewZeroPose(),
+				Destination:   goalPose,
 				SlamName:      slam.Named("test_slam"),
-				MotionCfg:     &motion.MotionConfiguration{AngularDegsPerSec: -1},
+				MotionCfg:     &motion.MotionConfiguration{AngularDegsPerSec: -1, PlanDeviationMM: 10},
 			}
 
 			executionID, err := ms.(*builtIn).MoveOnMap(context.Background(), req)
@@ -217,9 +224,9 @@ func TestMoveCallInputs(t *testing.T) {
 
 			req := motion.MoveOnMapReq{
 				ComponentName: base.Named("test-base"),
-				Destination:   spatialmath.NewZeroPose(),
+				Destination:   goalPose,
 				SlamName:      slam.Named("test_slam"),
-				MotionCfg:     &motion.MotionConfiguration{AngularDegsPerSec: math.NaN()},
+				MotionCfg:     &motion.MotionConfiguration{AngularDegsPerSec: math.NaN(), PlanDeviationMM: 10},
 			}
 
 			executionID, err := ms.(*builtIn).MoveOnMap(context.Background(), req)
@@ -234,9 +241,9 @@ func TestMoveCallInputs(t *testing.T) {
 
 			req := motion.MoveOnMapReq{
 				ComponentName: base.Named("test-base"),
-				Destination:   spatialmath.NewZeroPose(),
+				Destination:   goalPose,
 				SlamName:      slam.Named("test_slam"),
-				MotionCfg:     &motion.MotionConfiguration{LinearMPerSec: -1},
+				MotionCfg:     &motion.MotionConfiguration{LinearMPerSec: -1, PlanDeviationMM: 10},
 			}
 
 			executionID, err := ms.(*builtIn).MoveOnMap(context.Background(), req)
@@ -251,9 +258,9 @@ func TestMoveCallInputs(t *testing.T) {
 
 			req := motion.MoveOnMapReq{
 				ComponentName: base.Named("test-base"),
-				Destination:   spatialmath.NewZeroPose(),
+				Destination:   goalPose,
 				SlamName:      slam.Named("test_slam"),
-				MotionCfg:     &motion.MotionConfiguration{LinearMPerSec: math.NaN()},
+				MotionCfg:     &motion.MotionConfiguration{LinearMPerSec: math.NaN(), PlanDeviationMM: 10},
 			}
 
 			executionID, err := ms.(*builtIn).MoveOnMap(context.Background(), req)
@@ -268,9 +275,9 @@ func TestMoveCallInputs(t *testing.T) {
 
 				req := motion.MoveOnMapReq{
 					ComponentName: base.Named("test-base"),
-					Destination:   spatialmath.NewZeroPose(),
+					Destination:   goalPose,
 					SlamName:      slam.Named("test_slam"),
-					MotionCfg:     &motion.MotionConfiguration{},
+					MotionCfg:     &motion.MotionConfiguration{PlanDeviationMM: 10},
 					Extra:         map[string]interface{}{"collision_buffer_mm": "not a float"},
 				}
 
@@ -287,9 +294,9 @@ func TestMoveCallInputs(t *testing.T) {
 
 				req := motion.MoveOnMapReq{
 					ComponentName: base.Named("test-base"),
-					Destination:   spatialmath.NewZeroPose(),
+					Destination:   goalPose,
 					SlamName:      slam.Named("test_slam"),
-					MotionCfg:     &motion.MotionConfiguration{},
+					MotionCfg:     &motion.MotionConfiguration{PlanDeviationMM: 10},
 					Extra:         map[string]interface{}{"collision_buffer_mm": -1.},
 				}
 
@@ -306,9 +313,9 @@ func TestMoveCallInputs(t *testing.T) {
 
 				req := motion.MoveOnMapReq{
 					ComponentName: base.Named("test-base"),
-					Destination:   spatialmath.NewZeroPose(),
+					Destination:   goalPose,
 					SlamName:      slam.Named("test_slam"),
-					MotionCfg:     &motion.MotionConfiguration{},
+					MotionCfg:     &motion.MotionConfiguration{PlanDeviationMM: 10},
 					Extra:         map[string]interface{}{"collision_buffer_mm": 200.},
 				}
 
@@ -325,9 +332,9 @@ func TestMoveCallInputs(t *testing.T) {
 
 				req := motion.MoveOnMapReq{
 					ComponentName: base.Named("test-base"),
-					Destination:   spatialmath.NewZeroPose(),
+					Destination:   goalPose,
 					SlamName:      slam.Named("test_slam"),
-					MotionCfg:     &motion.MotionConfiguration{},
+					MotionCfg:     &motion.MotionConfiguration{PlanDeviationMM: 10},
 					Extra:         map[string]interface{}{"collision_buffer_mm": 1e-5},
 				}
 
@@ -344,9 +351,9 @@ func TestMoveCallInputs(t *testing.T) {
 
 				req := motion.MoveOnMapReq{
 					ComponentName: base.Named("test-base"),
-					Destination:   spatialmath.NewZeroPose(),
+					Destination:   goalPose,
 					SlamName:      slam.Named("test_slam"),
-					MotionCfg:     &motion.MotionConfiguration{},
+					MotionCfg:     &motion.MotionConfiguration{PlanDeviationMM: 10},
 					Extra:         map[string]interface{}{"collision_buffer_mm": 0.1},
 				}
 
@@ -363,9 +370,9 @@ func TestMoveCallInputs(t *testing.T) {
 
 				req := motion.MoveOnMapReq{
 					ComponentName: base.Named("test-base"),
-					Destination:   spatialmath.NewZeroPose(),
+					Destination:   goalPose,
 					SlamName:      slam.Named("test_slam"),
-					MotionCfg:     &motion.MotionConfiguration{},
+					MotionCfg:     &motion.MotionConfiguration{PlanDeviationMM: 10},
 					Extra:         map[string]interface{}{},
 				}
 
@@ -382,9 +389,9 @@ func TestMoveCallInputs(t *testing.T) {
 
 				req := motion.MoveOnMapReq{
 					ComponentName: base.Named("test-base"),
-					Destination:   spatialmath.NewZeroPose(),
+					Destination:   goalPose,
 					SlamName:      slam.Named("test_slam"),
-					MotionCfg:     &motion.MotionConfiguration{},
+					MotionCfg:     &motion.MotionConfiguration{PlanDeviationMM: 10},
 				}
 
 				timeoutCtx, timeoutFn := context.WithTimeout(ctx, time.Second*5)

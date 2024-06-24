@@ -443,7 +443,7 @@ func CreateMoveOnMapEnvironment(
 ) (motion.Localizer, motion.Service, func(context.Context) error) {
 	ctx, cFunc := context.WithCancel(ctx)
 	if origin == nil {
-		origin = spatialmath.NewZeroPose()
+		origin = motion.SLAMOrientationAdjustment
 	}
 	logger := logging.NewTestLogger(t)
 
