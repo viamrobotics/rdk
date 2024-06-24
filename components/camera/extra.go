@@ -1,7 +1,7 @@
 package camera
 
 import "context"
-
+// comment
 // Extra is the type of value stored in the Contexts.
 type (
 	Extra map[string]interface{}
