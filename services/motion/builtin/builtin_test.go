@@ -297,7 +297,7 @@ func TestPositionalReplanning(t *testing.T) {
 
 	testFn := func(t *testing.T, tc testCase) {
 		t.Helper()
-		_, ms, closeFunc := CreateMoveOnGlobeEnvironment(ctx, t, gpsPoint, spatialmath.NewPoseFromPoint(tc.noise), 5)
+		_, ms, closeFunc := CreateMoveOnGlobeTestEnvironment(ctx, t, gpsPoint, spatialmath.NewPoseFromPoint(tc.noise), 5)
 		defer closeFunc(ctx)
 
 		req := motion.MoveOnGlobeReq{
@@ -351,7 +351,7 @@ func TestObstacleReplanningSlam(t *testing.T) {
 	)
 	test.That(t, err, test.ShouldBeNil)
 
-	kb, ms, closeFunc := CreateMoveOnMapEnvironment(
+	kb, ms, closeFunc := CreateMoveOnMapTestEnvironment(
 		ctx, t,
 		"pointcloud/cardboardOcto.pcd",
 		50, origin,
@@ -780,7 +780,7 @@ func TestGetTransientDetections(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
 
-	_, ms, closeFunc := CreateMoveOnMapEnvironment(
+	_, ms, closeFunc := CreateMoveOnMapTestEnvironment(
 		ctx, t,
 		"slam/example_cartographer_outputs/viam-office-02-22-3/pointcloud/pointcloud_4.pcd",
 		100, spatialmath.NewZeroPose(),
@@ -879,7 +879,7 @@ func TestStopPlan(t *testing.T) {
 	defer cFunc()
 	gpsPoint := geo.NewPoint(0, 0)
 
-	_, ms, closeFunc := CreateMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil, 5)
+	_, ms, closeFunc := CreateMoveOnGlobeTestEnvironment(ctx, t, gpsPoint, nil, 5)
 	defer closeFunc(ctx)
 
 	req := motion.StopPlanReq{}
@@ -893,7 +893,7 @@ func TestListPlanStatuses(t *testing.T) {
 	defer cFunc()
 	gpsPoint := geo.NewPoint(0, 0)
 
-	_, ms, closeFunc := CreateMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil, 5)
+	_, ms, closeFunc := CreateMoveOnGlobeTestEnvironment(ctx, t, gpsPoint, nil, 5)
 	defer closeFunc(ctx)
 
 	req := motion.ListPlanStatusesReq{}
@@ -909,7 +909,7 @@ func TestPlanHistory(t *testing.T) {
 	defer cFunc()
 	gpsPoint := geo.NewPoint(0, 0)
 
-	_, ms, closeFunc := CreateMoveOnGlobeEnvironment(ctx, t, gpsPoint, nil, 5)
+	_, ms, closeFunc := CreateMoveOnGlobeTestEnvironment(ctx, t, gpsPoint, nil, 5)
 	defer closeFunc(ctx)
 	req := motion.PlanHistoryReq{}
 	history, err := ms.PlanHistory(ctx, req)

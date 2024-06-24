@@ -361,8 +361,8 @@ func createFrameSystemService(
 	return fsSvc, nil
 }
 
-// CreateMoveOnGlobeEnvironment creates a testable environment that will simulate a real moving base for MoveOnGlobe calls.
-func CreateMoveOnGlobeEnvironment(ctx context.Context, t *testing.T, origin *geo.Point, noise spatialmath.Pose, sleepTime int) (
+// CreateMoveOnGlobeTestEnvironment creates a testable environment that will simulate a real moving base for MoveOnGlobe calls.
+func CreateMoveOnGlobeTestEnvironment(ctx context.Context, t *testing.T, origin *geo.Point, noise spatialmath.Pose, sleepTime int) (
 	motion.Localizer, motion.Service, func(context.Context) error,
 ) {
 	ctx, cFunc := context.WithCancel(ctx)
@@ -433,8 +433,8 @@ func CreateMoveOnGlobeEnvironment(ctx context.Context, t *testing.T, origin *geo
 	return localizer, ms, closeFunc
 }
 
-// CreateMoveOnMapEnvironment creates a testable environment that will simulate a real moving base for MoveOnMap calls.
-func CreateMoveOnMapEnvironment(
+// CreateMoveOnMapTestEnvironment creates a testable environment that will simulate a real moving base for MoveOnMap calls.
+func CreateMoveOnMapTestEnvironment(
 	ctx context.Context,
 	t *testing.T,
 	pcdPath string,

@@ -77,7 +77,7 @@ func TestMoveOnMap(t *testing.T) {
 	})
 
 	t.Run("Changes to executions show up in PlanHistory", func(t *testing.T) {
-		_, ms, closeFunc := CreateMoveOnMapEnvironment(ctx, t, "pointcloud/octagonspace.pcd", 40, nil)
+		_, ms, closeFunc := CreateMoveOnMapTestEnvironment(ctx, t, "pointcloud/octagonspace.pcd", 40, nil)
 		defer closeFunc(ctx)
 		easyGoalInBaseFrame := spatialmath.NewPoseFromPoint(r3.Vector{X: 0.277 * 1000, Y: 0.593 * 1000})
 		easyGoalInSLAMFrame := spatialmath.PoseBetweenInverse(motion.SLAMOrientationAdjustment, easyGoalInBaseFrame)
@@ -126,7 +126,7 @@ func TestMoveOnMap(t *testing.T) {
 	})
 
 	t.Run("returns error when within plan dev m of goal with position_only", func(t *testing.T) {
-		_, ms, closeFunc := CreateMoveOnMapEnvironment(ctx, t, "pointcloud/octagonspace.pcd", 40, nil)
+		_, ms, closeFunc := CreateMoveOnMapTestEnvironment(ctx, t, "pointcloud/octagonspace.pcd", 40, nil)
 		defer closeFunc(ctx)
 
 		req := motion.MoveOnMapReq{
@@ -145,7 +145,7 @@ func TestMoveOnMap(t *testing.T) {
 	})
 
 	t.Run("pass when within plan dev m of goal without position_only due to theta difference in goal", func(t *testing.T) {
-		_, ms, closeFunc := CreateMoveOnMapEnvironment(ctx, t, "pointcloud/octagonspace.pcd", 40, nil)
+		_, ms, closeFunc := CreateMoveOnMapTestEnvironment(ctx, t, "pointcloud/octagonspace.pcd", 40, nil)
 		defer closeFunc(ctx)
 
 		req := motion.MoveOnMapReq{
