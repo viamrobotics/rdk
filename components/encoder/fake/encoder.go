@@ -117,10 +117,10 @@ func (e *fakeEncoder) start(cancelCtx context.Context) {
 			if !utils.SelectContextOrWait(cancelCtx, remainingStep) {
 				return
 			}
-			lastTime = time.Now()
 
 			e.mu.Lock()
-			e.position += e.speed / float64(60*1000/updateRate)
+			e.position += e.speed / (60. * 1000. / (float64(time.Since(lastTime)) / float64(int(time.Millisecond))))
+			lastTime = time.Now()
 			e.mu.Unlock()
 		}
 	}, e.activeBackgroundWorkers.Done)
