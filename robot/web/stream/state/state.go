@@ -14,17 +14,14 @@ import (
 	"go.uber.org/multierr"
 	"go.viam.com/utils"
 
-	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/components/camera/rtppassthrough"
 	"go.viam.com/rdk/gostream"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/robot"
+	streamCamera "go.viam.com/rdk/robot/web/stream/camera"
 )
 
 var (
-	subscribeRTPTimeout = time.Second * 5
-	// UnsubscribeTimeout is the timeout used when unsubscribing from an rtppassthrough subscription.
-	UnsubscribeTimeout = time.Second * 5
 	// ErrRTPPassthroughNotSupported indicates that rtp_passthrough is not supported by the stream's camera.
 	ErrRTPPassthroughNotSupported = errors.New("RTP Passthrough Not Supported")
 	// ErrClosed indicates that the StreamState is already closed.
@@ -45,11 +42,11 @@ type StreamState struct {
 	logger      logging.Logger
 	initialized atomic.Bool
 
-	msgChan     chan msg
-	restartChan chan struct{}
+	msgChan  chan msg
+	tickChan chan struct{}
 
-	activePeers  int
-	streamSource streamSource
+	activeClients int
+	streamSource  streamSource
 	// streamSourceSub is only non nil if streamSource == streamSourcePassthrough
 	streamSourceSub rtppassthrough.Subscription
 }
@@ -64,13 +61,13 @@ func New(
 ) *StreamState {
 	ctx, cancel := context.WithCancel(context.Background())
 	return &StreamState{
-		Stream:      stream,
-		closedCtx:   ctx,
-		closedFn:    cancel,
-		robot:       r,
-		msgChan:     make(chan msg),
-		restartChan: make(chan struct{}),
-		logger:      logger,
+		Stream:    stream,
+		closedCtx: ctx,
+		closedFn:  cancel,
+		robot:     r,
+		msgChan:   make(chan msg),
+		tickChan:  make(chan struct{}),
+		logger:    logger,
 	}
 }
 
@@ -85,33 +82,33 @@ func (ss *StreamState) Init() {
 }
 
 // Increment increments the peer connections subscribed to the stream.
-func (ss *StreamState) Increment(ctx context.Context) error {
+func (ss *StreamState) Increment() error {
 	if !ss.initialized.Load() {
 		return ErrUninitialized
 	}
 	if err := ss.closedCtx.Err(); err != nil {
 		return multierr.Combine(ErrClosed, err)
 	}
-	return ss.send(ctx, msgTypeIncrement)
+	return ss.send(msgTypeIncrement)
 }
 
 // Decrement decrements the peer connections subscribed to the stream.
-func (ss *StreamState) Decrement(ctx context.Context) error {
+func (ss *StreamState) Decrement() error {
 	if !ss.initialized.Load() {
 		return ErrUninitialized
 	}
 	if err := ss.closedCtx.Err(); err != nil {
 		return multierr.Combine(ErrClosed, err)
 	}
-	return ss.send(ctx, msgTypeDecrement)
+	return ss.send(msgTypeDecrement)
 }
 
-// Restart restarts the stream source after it has terminated.
-func (ss *StreamState) Restart(ctx context.Context) {
+// Tick looks at the activeClients and starts / stops camera streams.
+func (ss *StreamState) Tick() {
 	if err := ss.closedCtx.Err(); err != nil {
 		return
 	}
-	utils.UncheckedError(ss.send(ctx, msgTypeRestart))
+	utils.UncheckedError(ss.send(msgTypeTick))
 }
 
 // Close closes the StreamState.
@@ -152,7 +149,7 @@ const (
 	msgTypeUnknown msgType = iota
 	msgTypeIncrement
 	msgTypeDecrement
-	msgTypeRestart
+	msgTypeTick
 )
 
 func (mt msgType) String() string {
@@ -161,8 +158,8 @@ func (mt msgType) String() string {
 		return "Increment"
 	case msgTypeDecrement:
 		return "Decrement"
-	case msgTypeRestart:
-		return "Restart"
+	case msgTypeTick:
+		return "Tick"
 	case msgTypeUnknown:
 		fallthrough
 	default:
@@ -172,19 +169,14 @@ func (mt msgType) String() string {
 
 type msg struct {
 	msgType  msgType
-	ctx      context.Context
-	respChan chan error
+	respChan chan struct{}
 }
 
-// events (Inc Dec Restart).
+// events (Inc Dec Tick).
 func (ss *StreamState) initEventHandler() {
 	ss.logger.Debug("StreamState initEventHandler booted")
 	defer ss.logger.Debug("StreamState initEventHandler terminated")
-	defer func() {
-		ctx, cancel := context.WithTimeout(context.Background(), UnsubscribeTimeout)
-		defer cancel()
-		utils.UncheckedError(ss.stopBasedOnSub(ctx))
-	}()
+	defer func() { ss.stopBasedOnSub() }()
 	for {
 		if ss.closedCtx.Err() != nil {
 			return
@@ -200,24 +192,31 @@ func (ss *StreamState) initEventHandler() {
 }
 
 func (ss *StreamState) initStreamSourceMonitor() {
+	timeoutCtx, timeoutFn := context.WithTimeout(context.Background(), time.Second)
 	for {
 		select {
 		case <-ss.closedCtx.Done():
+			timeoutFn()
 			return
-		case <-ss.restartChan:
-			ctx, cancel := context.WithTimeout(ss.closedCtx, subscribeRTPTimeout)
-			ss.Restart(ctx)
-			cancel()
+		case <-timeoutCtx.Done():
+			timeoutFn()
+			ss.Tick()
+			timeoutCtx, timeoutFn = context.WithTimeout(context.Background(), time.Second)
+		case <-ss.tickChan:
+			timeoutFn()
+			ss.Tick()
 		}
 	}
 }
 
-func (ss *StreamState) monitorSubscription(sub rtppassthrough.Subscription) {
+func (ss *StreamState) monitorSubscription(sub rtppassthrough.Subscription, releasePackets chan struct{}) {
 	if ss.streamSource == streamSourceGoStream {
 		ss.logger.Debugf("monitorSubscription stopping gostream %s", ss.Stream.Name())
 		// if we were streaming using gostream, stop streaming using gostream as we are now using passthrough
 		ss.Stream.Stop()
 	}
+	ss.Stream.VideoStreamSourceChanged()
+	close(releasePackets)
 	ss.streamSourceSub = sub
 	ss.streamSource = streamSourcePassthrough
 	monitorSubFunc := func() {
@@ -231,8 +230,9 @@ func (ss *StreamState) monitorSubscription(sub rtppassthrough.Subscription) {
 			return
 		case <-sub.Terminated.Done():
 			select {
-			case ss.restartChan <- struct{}{}:
-			case <-ss.closedCtx.Done():
+			case ss.tickChan <- struct{}{}:
+				ss.logger.Info("monitorSubscription sent to tickChan")
+			default:
 			}
 			return
 		}
@@ -242,55 +242,45 @@ func (ss *StreamState) monitorSubscription(sub rtppassthrough.Subscription) {
 	utils.ManagedGo(monitorSubFunc, ss.wg.Done)
 }
 
-// caller must be holding ss.mu.
-func (ss *StreamState) stopBasedOnSub(ctx context.Context) error {
+func (ss *StreamState) stopBasedOnSub() {
 	switch ss.streamSource {
 	case streamSourceGoStream:
 		ss.logger.Debugf("%s stopBasedOnSub stopping GoStream", ss.Stream.Name())
 		ss.Stream.Stop()
 		ss.streamSource = streamSourceUnknown
-		return nil
+		return
 	case streamSourcePassthrough:
 		ss.logger.Debugf("%s stopBasedOnSub stopping passthrough", ss.Stream.Name())
-		err := ss.unsubscribeH264Passthrough(ctx, ss.streamSourceSub.ID)
+		err := ss.unsubscribeH264Passthrough(ss.closedCtx, ss.streamSourceSub.ID)
 		if err != nil {
-			return err
+			ss.logger.Error(err.Error())
+			return
 		}
 		ss.streamSourceSub = rtppassthrough.NilSubscription
 		ss.streamSource = streamSourceUnknown
-		return nil
 
 	case streamSourceUnknown:
 		fallthrough
 	default:
-		return nil
 	}
 }
 
-func (ss *StreamState) send(ctx context.Context, msgType msgType) error {
-	if err := ctx.Err(); err != nil {
-		return err
-	}
+func (ss *StreamState) send(msgType msgType) error {
 	if err := ss.closedCtx.Err(); err != nil {
 		return err
 	}
 	msg := msg{
-		ctx:      ctx,
 		msgType:  msgType,
-		respChan: make(chan error),
+		respChan: make(chan struct{}),
 	}
 	select {
 	case ss.msgChan <- msg:
 		select {
-		case err := <-msg.respChan:
-			return err
-		case <-ctx.Done():
-			return ctx.Err()
+		case <-msg.respChan:
+			return nil
 		case <-ss.closedCtx.Done():
 			return ss.closedCtx.Err()
 		}
-	case <-ctx.Done():
-		return ctx.Err()
 	case <-ss.closedCtx.Done():
 		return ss.closedCtx.Err()
 	}
@@ -299,22 +289,26 @@ func (ss *StreamState) send(ctx context.Context, msgType msgType) error {
 func (ss *StreamState) handleMsg(msg msg) {
 	switch msg.msgType {
 	case msgTypeIncrement:
-		err := ss.inc(msg.ctx)
+		ss.inc()
 		select {
-		case msg.respChan <- err:
+		case msg.respChan <- struct{}{}:
 		case <-ss.closedCtx.Done():
 			return
 		}
-	case msgTypeRestart:
-		ss.restart(msg.ctx)
+	case msgTypeTick:
+		ss.tick()
 		select {
-		case msg.respChan <- nil:
+		case msg.respChan <- struct{}{}:
 		case <-ss.closedCtx.Done():
 			return
 		}
 	case msgTypeDecrement:
-		err := ss.dec(msg.ctx)
-		msg.respChan <- err
+		ss.dec()
+		select {
+		case msg.respChan <- struct{}{}:
+		case <-ss.closedCtx.Done():
+			return
+		}
 	case msgTypeUnknown:
 		fallthrough
 	default:
@@ -322,107 +316,130 @@ func (ss *StreamState) handleMsg(msg msg) {
 	}
 }
 
-func (ss *StreamState) inc(ctx context.Context) error {
-	ss.logger.Debugf("increment %s START activePeers: %d", ss.Stream.Name(), ss.activePeers)
-	defer func() { ss.logger.Debugf("increment %s END activePeers: %d", ss.Stream.Name(), ss.activePeers) }()
-	if ss.activePeers == 0 {
-		if ss.streamSource != streamSourceUnknown {
-			return fmt.Errorf("unexpected stream %s source %s", ss.Stream.Name(), ss.streamSource)
+func (ss *StreamState) inc() {
+	ss.logger.Debugf("increment %s START activeClients: %d", ss.Stream.Name(), ss.activeClients)
+	defer func() { ss.logger.Debugf("increment %s END activeClients: %d", ss.Stream.Name(), ss.activeClients) }()
+	ss.activeClients++
+	if ss.activeClients == 1 {
+		select {
+		case ss.tickChan <- struct{}{}:
+			ss.logger.Info("inc sent to tickChan")
+		default:
 		}
-		// this is the first subscription, attempt passthrough
-		ss.logger.CDebugw(ctx, "attempting to subscribe to rtp_passthrough", "name", ss.Stream.Name())
-		err := ss.streamH264Passthrough(ctx)
+	}
+	// 	if ss.streamSource != streamSourceUnknown {
+	// 		return fmt.Errorf("unexpected stream %s source %s", ss.Stream.Name(), ss.streamSource)
+	// 	}
+	// 	this is the first subscription, attempt passthrough
+	// 	ss.logger.CDebugw(ctx, "attempting to subscribe to rtp_passthrough", "name", ss.Stream.Name())
+	// 	err := ss.streamH264Passthrough(ctx)
+	// 	if err != nil {
+	// 		ss.logger.CDebugw(ctx, "rtp_passthrough not possible, falling back to GoStream", "err", err.Error(), "name", ss.Stream.Name())
+	// 		// if passthrough failed, fall back to gostream based approach
+	// 		ss.Stream.Start()
+	// 		ss.streamSource = streamSourceGoStream
+	// 	}
+	// 	ss.activeClients++
+	// 	return nil
+	// }
+
+	// switch ss.streamSource {
+	// case streamSourcePassthrough:
+	// 	ss.logger.Debugw("continuing using rtp_passthrough", "name", ss.Stream.Name())
+	// 	// noop as we are already subscribed
+	// case streamSourceGoStream:
+	// 	ss.logger.Debugw("currently using gostream, trying upgrade to rtp_passthrough", "name", ss.Stream.Name())
+	// 	// attempt to cut over to passthrough
+	// 	err := ss.streamH264Passthrough(ctx)
+	// 	if err != nil {
+	// 		ss.logger.Debugw("rtp_passthrough not possible, continuing with gostream", "err", err.Error(), "name", ss.Stream.Name())
+	// 	}
+	// case streamSourceUnknown:
+	// 	fallthrough
+	// default:
+	// 	err := fmt.Errorf("%s streamSource in unexpected state %s", ss.Stream.Name(), ss.streamSource)
+	// 	ss.logger.Error(err.Error())
+	// 	return err
+	// }
+	// ss.activeClients++
+}
+
+func (ss *StreamState) dec() {
+	ss.logger.Debugf("decrement START %s activeClients: %d", ss.Stream.Name(), ss.activeClients)
+	defer func() { ss.logger.Debugf("decrement END %s activeClients: %d", ss.Stream.Name(), ss.activeClients) }()
+	if ss.activeClients == 1 {
+		select {
+		case ss.tickChan <- struct{}{}:
+			ss.logger.Info("dec sent to tickChan")
+		default:
+		}
+	}
+
+	ss.activeClients--
+	if ss.activeClients < 0 {
+		ss.logger.Errorf("ss.activeClients is less than 0 %d", ss.activeClients)
+		ss.activeClients = 0
+	}
+}
+
+func (ss *StreamState) tick() {
+	ss.logger.Debugf("tick %s START activeClients: %d", ss.Stream.Name(), ss.activeClients)
+	defer func() { ss.logger.Debugf("tick %s END activeClients: %d", ss.Stream.Name(), ss.activeClients) }()
+	// _, err := ss.Camera()
+	switch {
+	// case err != nil && ss.activeClients > 0:
+	// 	ss.logger.Warn("camera no longer exists in resource graph, stopping subscriptions and setting active clients to 0")
+	// 	// stop stream if the camera no longer exists
+	// 	// noop if there is no stream source
+	// 	ss.stopBasedOnSub()
+	// 	// nil out subsription & stream source even if stopBasedOnSub didn't
+	// 	ss.streamSourceSub = rtppassthrough.NilSubscription
+	// 	ss.streamSource = streamSourceUnknown
+	// 	ss.activeClients = 0
+	case ss.activeClients < 0:
+		ss.logger.Fatal("tick: activeClients is less than 0")
+	case ss.activeClients == 0:
+		// stop stream if there are no active clients
+		// noop if there is no stream source
+		ss.stopBasedOnSub()
+	case ss.streamSource == streamSourcePassthrough && ss.streamSourceSub.Terminated.Err() != nil:
+		// restart stream if there we were using passthrough but the sub is termianted
+		ss.logger.Debugw("tick: previous subscription termianted attempting to subscribe to rtp_passthrough", "name", ss.Stream.Name())
+		ss.Stream.VideoStreamSourceChanged()
+		err := ss.streamH264Passthrough()
 		if err != nil {
-			ss.logger.CDebugw(ctx, "rtp_passthrough not possible, falling back to GoStream", "err", err.Error(), "name", ss.Stream.Name())
+			ss.logger.Debugw("tick: rtp_passthrough not possible, falling back to GoStream", "err", err.Error(), "name", ss.Stream.Name())
 			// if passthrough failed, fall back to gostream based approach
 			ss.Stream.Start()
 			ss.streamSource = streamSourceGoStream
 		}
-		ss.activePeers++
-		return nil
-	}
-
-	switch ss.streamSource {
-	case streamSourcePassthrough:
-		ss.logger.CDebugw(ctx, "continuing using rtp_passthrough", "name", ss.Stream.Name())
-		// noop as we are already subscribed
-	case streamSourceGoStream:
-		ss.logger.CDebugw(ctx, "currently using gostream, trying upgrade to rtp_passthrough", "name", ss.Stream.Name())
+	case ss.streamSource == streamSourcePassthrough:
+		// no op if we are using passthrough & are healthy
+		ss.logger.Debug("tick: still using stream source, passing")
+	case ss.streamSource == streamSourceGoStream:
+		// try to upgrade to passthrough if we are using gostream
+		ss.logger.Debugw("tick: currently using gostream, trying upgrade to rtp_passthrough", "name", ss.Stream.Name())
 		// attempt to cut over to passthrough
-		err := ss.streamH264Passthrough(ctx)
+		err := ss.streamH264Passthrough()
 		if err != nil {
-			ss.logger.CDebugw(ctx, "rtp_passthrough not possible, continuing with gostream", "err", err.Error(), "name", ss.Stream.Name())
+			ss.logger.Debugw("tick: rtp_passthrough not possible, continuing with gostream", "err", err.Error(), "name", ss.Stream.Name())
 		}
-	case streamSourceUnknown:
-		fallthrough
-	default:
-		err := fmt.Errorf("%s streamSource in unexpected state %s", ss.Stream.Name(), ss.streamSource)
-		ss.logger.Error(err.Error())
-		return err
+	case ss.streamSource == streamSourceUnknown:
+		// this is the first subscription, attempt passthrough
+		ss.logger.Debugw("tick: attempting to subscribe to rtp_passthrough", "name", ss.Stream.Name())
+		ss.Stream.VideoStreamSourceChanged()
+		err := ss.streamH264Passthrough()
+		if err != nil {
+			ss.logger.Debugw("tick: rtp_passthrough not possible, falling back to GoStream", "err", err.Error(), "name", ss.Stream.Name())
+			// if passthrough failed, fall back to gostream based approach
+			ss.Stream.Start()
+			ss.streamSource = streamSourceGoStream
+		}
 	}
-	ss.activePeers++
-	return nil
 }
 
-func (ss *StreamState) dec(ctx context.Context) error {
-	ss.logger.Debugf("decrement START %s activePeers: %d", ss.Stream.Name(), ss.activePeers)
-	defer func() { ss.logger.Debugf("decrement END %s activePeers: %d", ss.Stream.Name(), ss.activePeers) }()
-
-	var err error
-	defer func() {
-		if err != nil {
-			ss.logger.Errorf("decrement %s hit error: %s", ss.Stream.Name(), err.Error())
-			return
-		}
-		ss.activePeers--
-		if ss.activePeers <= 0 {
-			ss.activePeers = 0
-		}
-	}()
-	if ss.activePeers == 1 {
-		ss.logger.Debugf("decrement %s calling stopBasedOnSub", ss.Stream.Name())
-		err = ss.stopBasedOnSub(ctx)
-		if err != nil {
-			ss.logger.Error(err.Error())
-			return err
-		}
-	}
-	return nil
-}
-
-func (ss *StreamState) restart(ctx context.Context) {
-	ss.logger.Debugf("restart %s START activePeers: %d", ss.Stream.Name(), ss.activePeers)
-	defer func() { ss.logger.Debugf("restart %s END activePeers: %d", ss.Stream.Name(), ss.activePeers) }()
-
-	if ss.activePeers == 0 {
-		// nothing to do if we don't have any active peers
-		return
-	}
-
-	if ss.streamSource == streamSourceGoStream {
-		// nothing to do if stream source is gostream
-		return
-	}
-
-	if ss.streamSourceSub != rtppassthrough.NilSubscription && ss.streamSourceSub.Terminated.Err() == nil {
-		// if the stream is still healthy, do nothing
-		return
-	}
-
-	err := ss.streamH264Passthrough(ctx)
-	if err != nil {
-		ss.logger.CDebugw(ctx, "rtp_passthrough not possible, falling back to GoStream", "err", err.Error(), "name", ss.Stream.Name())
-		// if passthrough failed, fall back to gostream based approach
-		ss.Stream.Start()
-		ss.streamSource = streamSourceGoStream
-
-		return
-	}
-	// passthrough succeeded, listen for when subscription end and call start again if so
-}
-
-func (ss *StreamState) streamH264Passthrough(ctx context.Context) error {
-	cam, err := camera.FromRobot(ss.robot, ss.Stream.Name())
+func (ss *StreamState) streamH264Passthrough() error {
+	cam, err := streamCamera.Camera(ss.robot, ss.Stream)
 	if err != nil {
 		return err
 	}
@@ -433,26 +450,34 @@ func (ss *StreamState) streamH264Passthrough(ctx context.Context) error {
 		return errors.Wrap(ErrRTPPassthroughNotSupported, err.Error())
 	}
 
+	var count atomic.Uint64
+	releasePackets := make(chan struct{})
 	cb := func(pkts []*rtp.Packet) {
+		<-releasePackets
 		for _, pkt := range pkts {
+			if count.Load()%100 == 0 {
+				ss.logger.Infof("calling WriteRTP %s", ss.Stream.Name())
+			}
+			count.Add(1)
+			ss.logger.Debugf("SequenceNumber: %d", pkt.Header.SequenceNumber)
 			if err := ss.Stream.WriteRTP(pkt); err != nil {
 				ss.logger.Debugw("stream.WriteRTP", "name", ss.Stream.Name(), "err", err.Error())
 			}
 		}
 	}
 
-	sub, err := rtpPassthroughSource.SubscribeRTP(ctx, rtpBufferSize, cb)
+	sub, err := rtpPassthroughSource.SubscribeRTP(ss.closedCtx, rtpBufferSize, cb)
 	if err != nil {
 		return errors.Wrap(ErrRTPPassthroughNotSupported, err.Error())
 	}
-	ss.logger.CWarnw(ctx, "Stream using experimental H264 passthrough", "name", ss.Stream.Name())
-	ss.monitorSubscription(sub)
+	ss.logger.Warnw("Stream using experimental H264 passthrough", "name", ss.Stream.Name())
+	ss.monitorSubscription(sub, releasePackets)
 
 	return nil
 }
 
 func (ss *StreamState) unsubscribeH264Passthrough(ctx context.Context, id rtppassthrough.SubscriptionID) error {
-	cam, err := camera.FromRobot(ss.robot, ss.Stream.Name())
+	cam, err := streamCamera.Camera(ss.robot, ss.Stream)
 	if err != nil {
 		return err
 	}

@@ -4,7 +4,9 @@ import (
 	"context"
 	"fmt"
 	"sync"
+	"time"
 
+	"github.com/edaniels/golog"
 	"github.com/pion/webrtc/v3"
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
@@ -16,9 +18,12 @@ import (
 	"go.viam.com/rdk/gostream"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/robot"
+	streamCamera "go.viam.com/rdk/robot/web/stream/camera"
 	"go.viam.com/rdk/robot/web/stream/state"
 	rutils "go.viam.com/rdk/utils"
 )
+
+var monitorCameraInterval = time.Second
 
 type peerState struct {
 	streamState *state.StreamState
@@ -28,8 +33,10 @@ type peerState struct {
 // Server implements the gRPC audio/video streaming service.
 type Server struct {
 	streampb.UnimplementedStreamServiceServer
-	logger logging.Logger
-	r      robot.Robot
+	logger    logging.Logger
+	r         robot.Robot
+	closedCtx context.Context
+	closedFn  context.CancelFunc
 
 	mu                      sync.RWMutex
 	streamNames             []string
@@ -46,7 +53,10 @@ func NewServer(
 	r robot.Robot,
 	logger logging.Logger,
 ) (*Server, error) {
+	closedCtx, closedFn := context.WithCancel(context.Background())
 	ss := &Server{
+		closedCtx:         closedCtx,
+		closedFn:          closedFn,
 		r:                 r,
 		logger:            logger,
 		nameToStreamState: map[string]*state.StreamState{},
@@ -112,6 +122,8 @@ func (ss *Server) ListStreams(ctx context.Context, req *streampb.ListStreamsRequ
 func (ss *Server) AddStream(ctx context.Context, req *streampb.AddStreamRequest) (*streampb.AddStreamResponse, error) {
 	ctx, span := trace.StartSpan(ctx, "stream::server::AddStream")
 	defer span.End()
+	ss.logger.Warnf("AddStream START %s", req.Name)
+	defer ss.logger.Warnf("AddStream END %s", req.Name)
 	// Get the peer connection
 	pc, ok := rpc.ContextPeerConnection(ctx)
 	if !ok {
@@ -125,8 +137,19 @@ func (ss *Server) AddStream(ctx context.Context, req *streampb.AddStreamRequest)
 
 	// return error if there is no stream for that camera
 	if !ok {
-		err := fmt.Errorf("no stream for %q", req.Name)
+		var availableStreams string
+		for n := range ss.nameToStreamState {
+			if availableStreams != "" {
+				availableStreams += ", "
+			}
+			availableStreams += fmt.Sprintf("%q", n)
+		}
+		err := fmt.Errorf("no stream for %q, available streams: %s", req.Name, availableStreams)
 		ss.logger.Error(err.Error())
+		return nil, err
+	}
+	// return error if camera is not in resource graph
+	if _, err := streamCamera.Camera(ss.r, streamStateToAdd.Stream); err != nil {
 		return nil, err
 	}
 
@@ -174,9 +197,7 @@ func (ss *Server) AddStream(ctx context.Context, req *streampb.AddStreamRequest)
 						defer delete(ss.activePeerStreams, pc)
 						var errs error
 						for _, ps := range ss.activePeerStreams[pc] {
-							ctx, cancel := context.WithTimeout(context.Background(), state.UnsubscribeTimeout)
-							errs = multierr.Combine(errs, ps.streamState.Decrement(ctx))
-							cancel()
+							errs = multierr.Combine(errs, ps.streamState.Decrement())
 						}
 						// We don't want to log this if the streamState was closed (as it only happens if viam-server is terminating)
 						if errs != nil && !errors.Is(errs, state.ErrClosed) {
@@ -204,12 +225,14 @@ func (ss *Server) AddStream(ctx context.Context, req *streampb.AddStreamRequest)
 
 	guard := rutils.NewGuard(func() {
 		for _, sender := range ps.senders {
+			golog.Global().Infof("calling RemoveTrack on %s pc: %p", sender.Track().StreamID(), pc)
 			utils.UncheckedError(pc.RemoveTrack(sender))
 		}
 	})
 	defer guard.OnFail()
 
 	addTrack := func(track webrtc.TrackLocal) error {
+		// golog.Global().Infof("calling AddTrack on %s pc: %p", track.StreamID(), pc)
 		sender, err := pc.AddTrack(track)
 		if err != nil {
 			return err
@@ -232,7 +255,7 @@ func (ss *Server) AddStream(ctx context.Context, req *streampb.AddStreamRequest)
 			return nil, err
 		}
 	}
-	if err := streamStateToAdd.Increment(ctx); err != nil {
+	if err := streamStateToAdd.Increment(); err != nil {
 		ss.logger.Error(err.Error())
 		return nil, err
 	}
@@ -245,6 +268,8 @@ func (ss *Server) AddStream(ctx context.Context, req *streampb.AddStreamRequest)
 func (ss *Server) RemoveStream(ctx context.Context, req *streampb.RemoveStreamRequest) (*streampb.RemoveStreamResponse, error) {
 	ctx, span := trace.StartSpan(ctx, "stream::server::RemoveStream")
 	defer span.End()
+	ss.logger.Warnf("RemoveStream START %s", req.Name)
+	defer ss.logger.Warnf("RemoveStream END %s", req.Name)
 	pc, ok := rpc.ContextPeerConnection(ctx)
 	if !ok {
 		return nil, errors.New("can only remove a stream over a WebRTC based connection")
@@ -257,6 +282,10 @@ func (ss *Server) RemoveStream(ctx context.Context, req *streampb.RemoveStreamRe
 	if !ok {
 		return nil, fmt.Errorf("no stream for %q", req.Name)
 	}
+	// return error if camera is not in resource graph
+	if _, err := streamCamera.Camera(ss.r, streamToRemove.Stream); err != nil {
+		return nil, err
+	}
 
 	if _, ok := ss.activePeerStreams[pc][req.Name]; !ok {
 		return nil, errors.New("stream already inactive")
@@ -264,6 +293,7 @@ func (ss *Server) RemoveStream(ctx context.Context, req *streampb.RemoveStreamRe
 
 	var errs error
 	for _, sender := range ss.activePeerStreams[pc][req.Name].senders {
+		// golog.Global().Infof("calling RemoveTrack on %s pc: %p", sender.Track().StreamID(), pc)
 		errs = multierr.Combine(errs, pc.RemoveTrack(sender))
 	}
 	if errs != nil {
@@ -271,7 +301,7 @@ func (ss *Server) RemoveStream(ctx context.Context, req *streampb.RemoveStreamRe
 		return nil, errs
 	}
 
-	if err := streamToRemove.Decrement(ctx); err != nil {
+	if err := streamToRemove.Decrement(); err != nil {
 		ss.logger.Error(err.Error())
 		return nil, err
 	}
@@ -282,6 +312,7 @@ func (ss *Server) RemoveStream(ctx context.Context, req *streampb.RemoveStreamRe
 
 // Close closes the Server and waits for spun off goroutines to complete.
 func (ss *Server) Close() error {
+	ss.closedFn()
 	ss.mu.Lock()
 	ss.isAlive = false
 
@@ -297,6 +328,28 @@ func (ss *Server) Close() error {
 	return errs
 }
 
+// func (ss *Server) monitor(stream gostream.Stream) {
+// 	streamName := stream.Name()
+// 	ss.activeBackgroundWorkers.Add(1)
+// 	utils.ManagedGo(func() {
+// 		for utils.SelectContextOrWait(ss.closedCtx, time.Second) {
+// 			golog.Global().Infof("%s tick", streamName)
+// 			cam, err := streamCamera.Camera(ss.r, stream)
+// 			if err == nil {
+// 				golog.Global().Infof("%s calling Properties", cam.Name())
+// 				p, err := cam.Properties(context.Background())
+// 				if err != nil {
+// 					golog.Global().Errorf("%s err: %s", cam.Name(), err.Error())
+// 				}
+// 				golog.Global().Infof("%#v Properties %s", p, cam.Name())
+// 				continue
+// 			}
+
+// 			golog.Global().Errorf("stream %s has no camera err: %s", streamName, err.Error())
+// 		}
+// 	}, ss.activeBackgroundWorkers.Done)
+// }
+
 func (ss *Server) add(stream gostream.Stream) error {
 	streamName := stream.Name()
 	if _, ok := ss.nameToStreamState[streamName]; ok {
@@ -307,5 +360,54 @@ func (ss *Server) add(stream gostream.Stream) error {
 	newStreamState.Init()
 	ss.nameToStreamState[streamName] = newStreamState
 	ss.streamNames = append(ss.streamNames, streamName)
+	ss.startMonitorCameraAvailable()
+	// ss.monitor(stream)
 	return nil
+}
+
+// startMonitorCameraAvailable monitors whether or not the camera still exists
+// If it no longer exists, it:
+// 1. calls RemoveTrack on all peer connection senders that
+// 2. decrements the number of active peers on the stream state (which should result in the
+// stream state having no subscribers and calling gostream.Stop() or rtppassthrough.Unsubscribe)
+// streaming tracks from it,.
+func (ss *Server) startMonitorCameraAvailable() {
+	ss.activeBackgroundWorkers.Add(1)
+	f := func() {
+		for utils.SelectContextOrWait(ss.closedCtx, monitorCameraInterval) {
+			ss.monitorStreamAvailable()
+		}
+	}
+	utils.ManagedGo(f, ss.activeBackgroundWorkers.Done)
+}
+
+func (ss *Server) monitorStreamAvailable() {
+	ss.logger.Info("monitorStreamAvailable loop START")
+	defer ss.logger.Info("monitorStreamAvailable loop END")
+	ss.mu.Lock()
+	defer ss.mu.Unlock()
+	for _, streamState := range ss.nameToStreamState {
+		if _, err := streamCamera.Camera(ss.r, streamState.Stream); err != nil {
+			camName := streamState.Stream.Name()
+			ss.logger.Info("monitorStreamAvailable camera doesn't exist: %s", camName)
+			for pc, peerStateByCamName := range ss.activePeerStreams {
+				peerState, ok := peerStateByCamName[camName]
+				if ok {
+					ss.logger.Info("monitorStreamAvailable unsubscribing: %s", camName)
+					var errs error
+					for _, sender := range peerState.senders {
+						errs = multierr.Combine(errs, pc.RemoveTrack(sender))
+					}
+					if errs != nil {
+						ss.logger.Warn(errs.Error())
+					}
+
+					if err := streamState.Decrement(); err != nil {
+						ss.logger.Warn(err.Error())
+					}
+					delete(ss.activePeerStreams[pc], camName)
+				}
+			}
+		}
+	}
 }

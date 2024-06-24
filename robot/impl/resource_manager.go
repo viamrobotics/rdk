@@ -181,6 +181,15 @@ func (manager *resourceManager) updateRemoteResourceNames(
 ) bool {
 	manager.logger.CDebugw(ctx, "updating remote resource names", "remote", remoteName)
 	activeResourceNames := map[resource.Name]bool{}
+	// if the robot supports the Connected method then we know that it is for a resource
+	// that might be disconnected. If it is disconnected then we won't update our
+	// resources for that robot as they are in an indeterminant state
+	connectable, ok := rr.(interface{ Connected() bool })
+	if ok && !connectable.Connected() {
+		manager.logger.CWarnw(ctx, "remote is disconnected, not updating clients of resources in that remote",
+			"name", rr.Name())
+		return false
+	}
 	newResources := rr.ResourceNames()
 	oldResources := manager.remoteResourceNames(remoteName)
 	for _, res := range oldResources {

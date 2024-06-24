@@ -4,8 +4,10 @@ import (
 	"math"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
+	"github.com/edaniels/golog"
 	"github.com/pion/rtp"
 	"github.com/pion/rtp/codecs"
 	"github.com/pion/webrtc/v3"
@@ -34,15 +36,21 @@ type trackLocalStaticRTP struct {
 	bindings          []trackBinding
 	codec             webrtc.RTPCodecCapability
 	id, rid, streamID string
+
+	// testing
+	sequenceNumberOffset  func(uint16) uint16
+	streamSourceChanged   atomic.Bool
+	highestSequenceNumber uint16
 }
 
 // newtrackLocalStaticRTP returns a trackLocalStaticRTP.
 func newtrackLocalStaticRTP(c webrtc.RTPCodecCapability, id, streamID string) *trackLocalStaticRTP {
 	return &trackLocalStaticRTP{
-		codec:    c,
-		bindings: []trackBinding{},
-		id:       id,
-		streamID: streamID,
+		sequenceNumberOffset: func(u uint16) uint16 { return u },
+		codec:                c,
+		bindings:             []trackBinding{},
+		id:                   id,
+		streamID:             streamID,
 	}
 }
 
@@ -112,6 +120,31 @@ func (s *trackLocalStaticRTP) Codec() webrtc.RTPCodecCapability {
 	return s.codec
 }
 
+func sequenceNumberOffset(lastMaxPacketSequenceNumber uint16, firstNewPacketSequenceNumber uint16) func(uint16) uint16 {
+	if lastMaxPacketSequenceNumber > firstNewPacketSequenceNumber {
+		golog.Global().Warnf("new sequenceNumberGenerator which is not identity lastMaxPacketSequenceNumber(%d),  firstNewPacketSequenceNumber(%d)", lastMaxPacketSequenceNumber, firstNewPacketSequenceNumber)
+		// continue with prev
+		return func(sequenceNumber uint16) uint16 {
+			return lastMaxPacketSequenceNumber + 1 + sequenceNumber - firstNewPacketSequenceNumber
+		}
+
+	}
+	return func(u uint16) uint16 { return u }
+}
+
+func (s *trackLocalStaticRTP) StreamSourceChanged() {
+	s.streamSourceChanged.Store(true)
+}
+
+func wrapped(currentSequenceNumber uint16, hightestSequenceNumber uint16) bool {
+	// if the current sequence number is smaller than the currentHighestSequenceNumber by more
+	// than half the u16, assume that the sequence number has wrapped
+	if currentSequenceNumber > hightestSequenceNumber {
+		return false
+	}
+	return hightestSequenceNumber-currentSequenceNumber > math.MaxUint16/2
+}
+
 // WriteRTP writes a RTP Packet to the trackLocalStaticRTP
 // If one PeerConnection fails the packets will still be sent to
 // all PeerConnections. The error message will contain the ID of the failed
@@ -119,6 +152,36 @@ func (s *trackLocalStaticRTP) Codec() webrtc.RTPCodecCapability {
 func (s *trackLocalStaticRTP) WriteRTP(p *rtp.Packet) error {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
+	originalSequenceNumber := p.Header.SequenceNumber
+
+	// create new generator if the stream has changed needed
+	if s.streamSourceChanged.CompareAndSwap(true, false) {
+		// TODO: Rollover
+		s.sequenceNumberOffset = sequenceNumberOffset(s.highestSequenceNumber, p.Header.SequenceNumber)
+	}
+
+	// Update the header's sequence number to
+	p.Header.SequenceNumber = s.sequenceNumberOffset(p.Header.SequenceNumber)
+
+	// set the currentHighestSequenceNumber to the current packet's sequence number
+	// if the packet's sequence number is greater than the current highest sequence number
+	// or if the sequence number wrapped
+	setHighest := false
+	if p.Header.SequenceNumber > s.highestSequenceNumber {
+		setHighest = true
+	}
+
+	if wrapped(p.Header.SequenceNumber, s.highestSequenceNumber) {
+		golog.Global().Warnf("updating highestSequenceNumber to %d due to wrapping, prevhighestSequenceNumber: %d, originalSN: %d", p.Header.SequenceNumber, s.highestSequenceNumber, originalSequenceNumber)
+		setHighest = true
+	}
+
+	if setHighest {
+		s.highestSequenceNumber = p.Header.SequenceNumber
+	} else {
+		golog.Global().Warnf("publishing out of order message p.Header.SequenceNumber(%d), originalSN: %d, highestSequenceNumber: %d", p.Header.SequenceNumber, originalSequenceNumber, s.highestSequenceNumber)
+	}
+	golog.Global().Debugf("SN: %d", p.Header.SequenceNumber)
 
 	writeErrs := []error{}
 	outboundPacket := *p

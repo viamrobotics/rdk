@@ -1030,6 +1030,8 @@ github.com/nbutton23/zxcvbn-go v0.0.0-20210217022336-fa2cb2858354 h1:4kuARK6Y6Fx
 github.com/nbutton23/zxcvbn-go v0.0.0-20210217022336-fa2cb2858354/go.mod h1:KSVJerMDfblTH7p5MZaTt+8zaT2iEk3AkVb9PQdZuE8=
 github.com/nfnt/resize v0.0.0-20180221191011-83c6a9932646 h1:zYyBkD/k9seD2A7fsi6Oo2LfFZAehjjQMERAvZLEDnQ=
 github.com/nfnt/resize v0.0.0-20180221191011-83c6a9932646/go.mod h1:jpp1/29i3P1S/RLdc7JQKbRpFeM1dOBd8T9ki5s+AY8=
+github.com/nicksanford/goutils v0.0.0-20240621203708-64f2ab5ce1c5 h1:H5hkz1B66vck5csOHfe4CN8G2DaBCkNOt/aMwNjeMYE=
+github.com/nicksanford/goutils v0.0.0-20240621203708-64f2ab5ce1c5/go.mod h1:G1biDWOtjs8gbQDfJpc9NJuz+gxfqM07gSIqekeZE7M=
 github.com/niemeyer/pretty v0.0.0-20200227124842-a10e7caefd8e/go.mod h1:zD1mROLANZcx1PVRCS0qkT7pwLkGfwJo4zjcN/Tysno=
 github.com/nishanths/exhaustive v0.1.0/go.mod h1:S1j9110vxV1ECdCudXRkeMnFQ/DQk9ajLT0Uf2MYZQQ=
 github.com/nishanths/exhaustive v0.11.0 h1:T3I8nUGhl/Cwu5Z2hfc92l0e04D2GEW6e0l8pzda2l0=
@@ -1544,8 +1546,6 @@ go.viam.com/api v0.1.311 h1:SFSlK2ol2mGD82XKofDrGIP4g1cxBRhQrrbMfMYAxk8=
 go.viam.com/api v0.1.311/go.mod h1:msa4TPrMVeRDcG4YzKA/S6wLEUC7GyHQE973JklrQ10=
 go.viam.com/test v1.1.1-0.20220913152726-5da9916c08a2 h1:oBiK580EnEIzgFLU4lHOXmGAE3MxnVbeR7s1wp/F3Ps=
 go.viam.com/test v1.1.1-0.20220913152726-5da9916c08a2/go.mod h1:XM0tej6riszsiNLT16uoyq1YjuYPWlRBweTPRDanIts=
-go.viam.com/utils v0.1.82 h1:4X687qm+Qvl8aV6BKttqELnRJaigvk7JPUAwHDvAf2g=
-go.viam.com/utils v0.1.82/go.mod h1:G1biDWOtjs8gbQDfJpc9NJuz+gxfqM07gSIqekeZE7M=
 go4.org/unsafe/assume-no-moving-gc v0.0.0-20230525183740-e7c30c78aeb2 h1:WJhcL4p+YeDxmZWg141nRm7XC8IDmhz7lk5GpadO1Sg=
 go4.org/unsafe/assume-no-moving-gc v0.0.0-20230525183740-e7c30c78aeb2/go.mod h1:FftLjUGFEDu5k8lt0ddY+HcrH/qU/0qk+H8j9/nTl3E=
 gocv.io/x/gocv v0.25.0/go.mod h1:Rar2PS6DV+T4FL+PM535EImD/h13hGVaHhnCu1xarBs=
