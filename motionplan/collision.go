@@ -5,8 +5,6 @@ import (
 	"math"
 	"strconv"
 
-	pb "go.viam.com/api/service/motion/v1"
-
 	"go.viam.com/rdk/referenceframe"
 	spatial "go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
@@ -53,8 +51,8 @@ func collisionListsAlmostEqual(cs1, cs2 []Collision) bool {
 	return true
 }
 
-func collisionSpecificationsFromProto(
-	pbConstraint []*pb.CollisionSpecification,
+func collisionSpecifications(
+	pbConstraint []CollisionSpecification,
 	frameSystemGeometries map[string]*referenceframe.GeometriesInFrame,
 	worldState *referenceframe.WorldState,
 ) (allowedCollisions []*Collision, err error) {
@@ -116,9 +114,9 @@ func collisionSpecificationsFromProto(
 
 	// Create the structures that specify the allowed collisions
 	for _, collisionSpec := range pbConstraint {
-		for _, allowPair := range collisionSpec.GetAllows() {
-			allow1 := allowPair.GetFrame1()
-			allow2 := allowPair.GetFrame2()
+		for _, allowPair := range collisionSpec.Allows {
+			allow1 := allowPair.Frame1
+			allow2 := allowPair.Frame2
 			allowNames1, err := allowNameToSubGeoms(allow1)
 			if err != nil {
 				return nil, err

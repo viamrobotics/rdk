@@ -67,3 +67,10 @@ jobs:
           slack_webhook_url: ${{secrets.SLACK_WEBHOOK_URL}}
           channel: '#team-devops'
           name: 'Workflow Status'
+
+  run-sdk-integration-networking-tests:
+    needs: [staticbuild, appimage]
+    if: ${{ success() }}
+    uses: viamrobotics/rdk/.github/workflows/trigger-networking-tests.yml@main
+    secrets:
+      REPO_READ_TOKEN: ${{ secrets.REPO_READ_TOKEN }}

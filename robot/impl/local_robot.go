@@ -12,6 +12,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/Masterminds/semver/v3"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 	packagespb "go.viam.com/api/app/packages/v1"
@@ -74,6 +75,10 @@ type localRobot struct {
 	// internal services that are in the graph but we also hold onto
 	webSvc   web.Service
 	frameSvc framesystem.Service
+
+	// map keyed by Module.Name. This is necessary to get the package manager to use a new folder
+	// when a local tarball is updated.
+	localModuleVersions map[string]semver.Version
 }
 
 // ExportResourcesAsDot exports the resource graph as a DOT representation for
@@ -414,6 +419,7 @@ func newWithResources(
 		revealSensitiveConfigDiffs: rOpts.revealSensitiveConfigDiffs,
 		cloudConnSvc:               icloud.NewCloudConnectionService(cfg.Cloud, logger),
 		shutdownCallback:           rOpts.shutdownCallback,
+		localModuleVersions:        make(map[string]semver.Version),
 	}
 	r.mostRecentCfg.Store(config.Config{})
 	var heartbeatWindow time.Duration
@@ -1133,6 +1139,20 @@ func (r *localRobot) Reconfigure(ctx context.Context, newConfig *config.Config) 
 	r.reconfigure(ctx, newConfig, false)
 }
 
+// set Module.LocalVersion on Type=local modules. Call this before localPackages.Sync and in RestartModule.
+func (r *localRobot) applyLocalModuleVersions(cfg *config.Config) {
+	for i := range cfg.Modules {
+		mod := &cfg.Modules[i]
+		if mod.Type == config.ModuleTypeLocal {
+			if ver, ok := r.localModuleVersions[mod.Name]; ok {
+				mod.LocalVersion = ver.String()
+			} else {
+				mod.LocalVersion = semver.Version{}.String()
+			}
+		}
+	}
+}
+
 func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, forceSync bool) {
 	var allErrs error
 
@@ -1145,6 +1165,11 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 	if err != nil {
 		allErrs = multierr.Combine(allErrs, err)
 	}
+	// For local tarball modules, we create synthetic versions for package management. The `localRobot` keeps track of these because
+	// config reader would overwrite if we just stored it in config. Here, we copy the synthetic version from the `localRobot` into the
+	// appropriate `config.Module` object inside the `cfg.Modules` slice. Thus, when a local tarball module is reloaded, the viam-server
+	// can unpack it into a fresh directory rather than reusing the previous one.
+	r.applyLocalModuleVersions(newConfig)
 	allErrs = multierr.Combine(allErrs, r.localPackages.Sync(ctx, newConfig.Packages, newConfig.Modules))
 
 	// Add default services and process their dependencies. Dependencies may
@@ -1286,27 +1311,27 @@ func (r *localRobot) CloudMetadata(ctx context.Context) (cloud.Metadata, error) 
 }
 
 // restartSingleModule constructs a single-module diff and calls updateResources with it.
-func (r *localRobot) restartSingleModule(ctx context.Context, mod config.Module) error {
+func (r *localRobot) restartSingleModule(ctx context.Context, mod *config.Module) error {
+	if mod.Type == config.ModuleTypeLocal {
+		// note: this version incrementing matters for local tarballs because we want the system to
+		// unpack into a new directory rather than reusing the old one. Local tarball path matters
+		// here because it is how artifacts are unpacked for remote reloading.
+		// We technically only need to do this when mod.NeedsSyntheticPackage(), but we do it
+		// for all local packages for test suite reasons.
+		nextVer := r.localModuleVersions[mod.Name].IncPatch()
+		r.localModuleVersions[mod.Name] = nextVer
+		mod.LocalVersion = nextVer.String()
+		r.logger.CInfof(ctx, "incremented local version of %s to %s", mod.Name, mod.LocalVersion)
+		err := r.localPackages.SyncOne(ctx, *mod)
+		if err != nil {
+			return err
+		}
+	}
 	diff := config.Diff{
 		Left:     r.Config(),
 		Right:    r.Config(),
 		Added:    &config.Config{},
-		Modified: &config.ModifiedConfigDiff{},
-		Removed:  &config.Config{Modules: []config.Module{mod}},
-	}
-	err := r.manager.updateResources(ctx, &diff)
-	if err != nil {
-		return err
-	}
-	err = r.localPackages.SyncOne(ctx, mod)
-	if err != nil {
-		return err
-	}
-	diff = config.Diff{
-		Left:     r.Config(),
-		Right:    r.Config(),
-		Added:    &config.Config{Modules: []config.Module{mod}},
-		Modified: &config.ModifiedConfigDiff{},
+		Modified: &config.ModifiedConfigDiff{Modules: []config.Module{*mod}},
 		Removed:  &config.Config{},
 	}
 	return r.manager.updateResources(ctx, &diff)
@@ -1319,7 +1344,7 @@ func (r *localRobot) RestartModule(ctx context.Context, req robot.RestartModuleR
 			"module not found with id=%s, name=%s. make sure it is configured and running on your machine",
 			req.ModuleID, req.ModuleName)
 	}
-	err := r.restartSingleModule(ctx, *mod)
+	err := r.restartSingleModule(ctx, mod)
 	if err != nil {
 		return errors.Wrapf(err, "while restarting module id=%s, name=%s", req.ModuleID, req.ModuleName)
 	}
