@@ -24,7 +24,6 @@ import (
 	motionBuiltin "go.viam.com/rdk/services/motion/builtin"
 	rtestutils "go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/utils"
-	rutils "go.viam.com/rdk/utils"
 )
 
 func TestModularResources(t *testing.T) {
@@ -564,7 +563,7 @@ func TestDynamicModularServiceLogging(t *testing.T) {
 		Name:  "other",
 		Model: resource.NewModel("rdk", "test", "other"),
 		API:   genericservice.API,
-		Attributes: rutils.AttributeMap{
+		Attributes: utils.AttributeMap{
 			"bar": "baz",
 		},
 		LogConfiguration: resource.LogConfig{Level: logging.INFO},
