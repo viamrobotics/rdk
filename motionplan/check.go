@@ -2,7 +2,7 @@
 
 // Package motionplan is a motion planning library.
 package motionplan
-// comment 3
+// comment 3 
 import (
 	"fmt"
 
