@@ -40,7 +40,7 @@ func TestMoveOnGlobe(t *testing.T) {
 	}
 
 	t.Run("Changes to executions show up in PlanHistory", func(t *testing.T) {
-		_, ms, closeFunc := CreateMoveOnGlobeTestEnvironment(ctx, t, gpsPoint, nil, 5)
+		_, ms, closeFunc := CreateMoveOnGlobeTestEnvironment(ctx, t, gpsPoint, 80, nil)
 		defer closeFunc(ctx)
 
 		req := motion.MoveOnGlobeReq{
@@ -82,7 +82,7 @@ func TestMoveOnGlobe(t *testing.T) {
 	})
 
 	t.Run("fail because of obstacle", func(t *testing.T) {
-		_, ms, closeFunc := CreateMoveOnGlobeTestEnvironment(ctx, t, gpsPoint, nil, 5)
+		_, ms, closeFunc := CreateMoveOnGlobeTestEnvironment(ctx, t, gpsPoint, 80, nil)
 		defer closeFunc(ctx)
 
 		// Construct a set of obstacles that entirely enclose the goal point
@@ -120,7 +120,7 @@ func TestMoveOnGlobe(t *testing.T) {
 	})
 
 	t.Run("check offset constructed correctly", func(t *testing.T) {
-		_, ms, closeFunc := CreateMoveOnGlobeTestEnvironment(ctx, t, gpsPoint, nil, 5)
+		_, ms, closeFunc := CreateMoveOnGlobeTestEnvironment(ctx, t, gpsPoint, 80, nil)
 		defer closeFunc(ctx)
 		movementSensorInBase, err := ms.GetPose(ctx, resource.NewName(movementsensor.API, "test-gps"), "test-base", nil, nil)
 		test.That(t, err, test.ShouldBeNil)
@@ -143,7 +143,7 @@ func TestBoundingRegionsConstraint(t *testing.T) {
 	// Note: spatialmath.GeoPointToPoint(dst, origin) produces r3.Vector{1111.92, 0, 0}
 
 	t.Run("starting in collision with bounding regions works", func(t *testing.T) {
-		_, ms, closeFunc := CreateMoveOnGlobeTestEnvironment(ctx, t, origin, nil, 5)
+		_, ms, closeFunc := CreateMoveOnGlobeTestEnvironment(ctx, t, origin, 80, nil)
 		defer closeFunc(ctx)
 
 		box, err := spatialmath.NewBox(spatialmath.NewZeroPose(), r3.Vector{2224, 2224, 2}, "")
@@ -164,7 +164,7 @@ func TestBoundingRegionsConstraint(t *testing.T) {
 	})
 
 	t.Run("starting outside of bounding regions fails", func(t *testing.T) {
-		_, ms, closeFunc := CreateMoveOnGlobeTestEnvironment(ctx, t, origin, nil, 5)
+		_, ms, closeFunc := CreateMoveOnGlobeTestEnvironment(ctx, t, origin, 80, nil)
 		defer closeFunc(ctx)
 
 		box, err := spatialmath.NewBox(spatialmath.NewZeroPose(), r3.Vector{2222, 2222, 2}, "")
@@ -187,7 +187,7 @@ func TestBoundingRegionsConstraint(t *testing.T) {
 	})
 
 	t.Run("implicit success with no bounding regions", func(t *testing.T) {
-		_, ms, closeFunc := CreateMoveOnGlobeTestEnvironment(ctx, t, origin, nil, 5)
+		_, ms, closeFunc := CreateMoveOnGlobeTestEnvironment(ctx, t, origin, 80, nil)
 		defer closeFunc(ctx)
 
 		req := motion.MoveOnGlobeReq{
@@ -202,7 +202,7 @@ func TestBoundingRegionsConstraint(t *testing.T) {
 	})
 
 	t.Run("fail to plan outside of bounding regions", func(t *testing.T) {
-		_, ms, closeFunc := CreateMoveOnGlobeTestEnvironment(ctx, t, origin, nil, 5)
+		_, ms, closeFunc := CreateMoveOnGlobeTestEnvironment(ctx, t, origin, 80, nil)
 		defer closeFunc(ctx)
 
 		box, err := spatialmath.NewBox(spatialmath.NewZeroPose(), r3.Vector{500, 500, 2}, "")
@@ -226,7 +226,7 @@ func TestBoundingRegionsConstraint(t *testing.T) {
 	t.Run("list of bounding regions - success case", func(t *testing.T) {
 		// string together multiple bounding regions, such that the robot must
 		// actually account for them in order to create a valid path
-		_, ms, closeFunc := CreateMoveOnGlobeTestEnvironment(ctx, t, origin, nil, 5)
+		_, ms, closeFunc := CreateMoveOnGlobeTestEnvironment(ctx, t, origin, 80, nil)
 		defer closeFunc(ctx)
 
 		box1, err := spatialmath.NewBox(spatialmath.NewZeroPose(), r3.Vector{500, 500, 2}, "")
@@ -360,8 +360,8 @@ func TestObstacleReplanningGlobe(t *testing.T) {
 			ctx,
 			t,
 			gpsOrigin,
+			1,
 			nil,
-			5000,
 		)
 		defer closeFunc(ctx)
 

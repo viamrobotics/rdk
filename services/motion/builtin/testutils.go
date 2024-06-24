@@ -372,14 +372,14 @@ func createFrameSystemService(
 }
 
 // CreateMoveOnGlobeTestEnvironment creates a testable environment that will simulate a real moving base for MoveOnGlobe calls.
-func CreateMoveOnGlobeTestEnvironment(ctx context.Context, t *testing.T, origin *geo.Point, noise spatialmath.Pose, sleepTime int) (
+func CreateMoveOnGlobeTestEnvironment(ctx context.Context, t *testing.T, origin *geo.Point, geometrySize float64, noise spatialmath.Pose) (
 	motion.Localizer, motion.Service, func(context.Context) error,
 ) {
 	ctx, cFunc := context.WithCancel(ctx)
 	logger := logging.NewTestLogger(t)
 
 	// create fake wheeled base
-	deps := createDependencies(t, ctx, logger, 80, origin, noise)
+	deps := createDependencies(t, ctx, logger, geometrySize, origin, noise)
 	movementSensor, err := movementsensor.FromDependencies(deps, moveSensorName)
 	test.That(t, err, test.ShouldBeNil)
 	// create base link

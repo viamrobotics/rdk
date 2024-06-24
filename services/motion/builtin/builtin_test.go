@@ -297,7 +297,7 @@ func TestPositionalReplanning(t *testing.T) {
 
 	testFn := func(t *testing.T, tc testCase) {
 		t.Helper()
-		_, ms, closeFunc := CreateMoveOnGlobeTestEnvironment(ctx, t, gpsPoint, spatialmath.NewPoseFromPoint(tc.noise), 5)
+		_, ms, closeFunc := CreateMoveOnGlobeTestEnvironment(ctx, t, gpsPoint, 80, spatialmath.NewPoseFromPoint(tc.noise))
 		defer closeFunc(ctx)
 
 		req := motion.MoveOnGlobeReq{
@@ -879,7 +879,7 @@ func TestStopPlan(t *testing.T) {
 	defer cFunc()
 	gpsPoint := geo.NewPoint(0, 0)
 
-	_, ms, closeFunc := CreateMoveOnGlobeTestEnvironment(ctx, t, gpsPoint, nil, 5)
+	_, ms, closeFunc := CreateMoveOnGlobeTestEnvironment(ctx, t, gpsPoint, 80, nil)
 	defer closeFunc(ctx)
 
 	req := motion.StopPlanReq{}
@@ -893,7 +893,7 @@ func TestListPlanStatuses(t *testing.T) {
 	defer cFunc()
 	gpsPoint := geo.NewPoint(0, 0)
 
-	_, ms, closeFunc := CreateMoveOnGlobeTestEnvironment(ctx, t, gpsPoint, nil, 5)
+	_, ms, closeFunc := CreateMoveOnGlobeTestEnvironment(ctx, t, gpsPoint, 80, nil)
 	defer closeFunc(ctx)
 
 	req := motion.ListPlanStatusesReq{}
@@ -909,7 +909,7 @@ func TestPlanHistory(t *testing.T) {
 	defer cFunc()
 	gpsPoint := geo.NewPoint(0, 0)
 
-	_, ms, closeFunc := CreateMoveOnGlobeTestEnvironment(ctx, t, gpsPoint, nil, 5)
+	_, ms, closeFunc := CreateMoveOnGlobeTestEnvironment(ctx, t, gpsPoint, 80, nil)
 	defer closeFunc(ctx)
 	req := motion.PlanHistoryReq{}
 	history, err := ms.PlanHistory(ctx, req)
