@@ -1,7 +1,7 @@
 // Package kinematicbase contains wrappers that augment bases with information needed for higher level
 // control over the base
 package kinematicbase
-// also comment
+
 import (
 	"context"
 	"errors"
