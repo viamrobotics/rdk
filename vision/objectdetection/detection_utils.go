@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"image"
 	"image/color"
+	"image/draw"
 
 	"github.com/fogleman/gg"
 	"github.com/pkg/errors"
@@ -13,14 +14,19 @@ import (
 
 // Overlay returns a color image with the bounding boxes overlaid on the original image.
 func Overlay(img image.Image, dets []Detection) (image.Image, error) {
-	gimg := gg.NewContextForImage(img)
+	bounds := img.Bounds()
+	boxOverlay := gg.NewContext(bounds.Dx(), bounds.Dy())
 	for _, det := range dets {
-		if !det.BoundingBox().In(img.Bounds()) {
-			return nil, errors.Errorf("bounding box (%v) does not fit in image (%v)", det.BoundingBox(), img.Bounds())
+		if !det.BoundingBox().In(bounds) {
+			return nil, errors.Errorf("bounding box (%v) does not fit in image (%v)", det.BoundingBox(), bounds)
 		}
-		drawDetection(gimg, det)
+		drawDetection(boxOverlay, det)
 	}
-	return gimg.Image(), nil
+	overlayImg := boxOverlay.Image()
+	resultImg := image.NewNRGBA(bounds) // to keep the original image intact
+	draw.Draw(resultImg, bounds, img, image.Point{}, draw.Src)
+	draw.DrawMask(resultImg, bounds, overlayImg, image.Point{}, overlayImg, image.Point{}, draw.Over)
+	return resultImg, nil
 }
 
 // drawDetection overlays text of the image label and score in the upper left hand of the bounding box.

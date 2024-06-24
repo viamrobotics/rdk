@@ -330,9 +330,10 @@ func (rc *RobotClient) connect(ctx context.Context) error {
 	if err := rc.connectWithLock(ctx); err != nil {
 		return err
 	}
-
+	rc.Logger().CInfow(ctx, "successfully (re)connected to remote at address", "address", rc.address)
 	if rc.notifyParent != nil {
 		rc.notifyParent()
+		rc.Logger().CDebugw(ctx, "successfully notified parent after (re)connection", "address", rc.address)
 	}
 	return nil
 }
@@ -413,7 +414,6 @@ func (rc *RobotClient) checkConnection(ctx context.Context, checkEvery, reconnec
 				rc.Logger().CErrorw(ctx, "failed to reconnect remote", "error", err, "address", rc.address)
 				continue
 			}
-			rc.Logger().CInfow(ctx, "successfully reconnected remote at address", "address", rc.address)
 		} else {
 			check := func() error {
 				if refresh {
@@ -716,7 +716,7 @@ func (rc *RobotClient) PackageManager() packages.Manager {
 //	resource_names := machine.ResourceNames()
 func (rc *RobotClient) ResourceNames() []resource.Name {
 	if err := rc.checkConnected(); err != nil {
-		rc.Logger().Errorw("failed to get remote resource names", "error", err)
+		rc.Logger().Errorw("failed to get remote resource names", "error", err.Error())
 		return nil
 	}
 	rc.mu.RLock()
@@ -988,5 +988,33 @@ func (rc *RobotClient) RestartModule(ctx context.Context, req robot.RestartModul
 	if err != nil {
 		return err
 	}
+	return nil
+}
+
+// Shutdown shuts down the robot. May return DeadlineExceeded error if shutdown request times out,
+// or if robot server shuts down before having a chance to send a response. May return Unavailable error
+// if server is unavailable, or if robot server is in the process of shutting down when response is ready.
+func (rc *RobotClient) Shutdown(ctx context.Context) error {
+	reqPb := &pb.ShutdownRequest{}
+	_, err := rc.client.Shutdown(ctx, reqPb)
+	if err != nil {
+		if status, ok := status.FromError(err); ok {
+			switch status.Code() { //nolint:exhaustive
+			case codes.Internal, codes.Unknown:
+				break
+			case codes.Unavailable:
+				rc.Logger().CWarnw(ctx, "server unavailable, likely due to successful robot shutdown")
+				return err
+			case codes.DeadlineExceeded:
+				rc.Logger().CWarnw(ctx, "request timeout, robot shutdown may still be successful")
+				return err
+			default:
+				return err
+			}
+		} else {
+			return err
+		}
+	}
+	rc.Logger().CDebug(ctx, "robot shutdown successful")
 	return nil
 }

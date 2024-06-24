@@ -43,7 +43,7 @@ func NewClientFromConn(
 }
 
 // Position creates a request, calls the slam service Position, and parses the response into a Pose with a component reference string.
-func (c *client) Position(ctx context.Context) (spatialmath.Pose, string, error) {
+func (c *client) Position(ctx context.Context) (spatialmath.Pose, error) {
 	ctx, span := trace.StartSpan(ctx, "slam::client::Position")
 	defer span.End()
 
@@ -53,13 +53,12 @@ func (c *client) Position(ctx context.Context) (spatialmath.Pose, string, error)
 
 	resp, err := c.client.GetPosition(ctx, req)
 	if err != nil {
-		return nil, "", err
+		return nil, err
 	}
 
 	p := resp.GetPose()
-	componentReference := resp.GetComponentReference()
 
-	return spatialmath.NewPoseFromProtobuf(p), componentReference, nil
+	return spatialmath.NewPoseFromProtobuf(p), nil
 }
 
 // PointCloudMap creates a request, calls the slam service PointCloudMap and returns a callback

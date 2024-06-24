@@ -48,7 +48,6 @@ func NewMotor(b board.Board, mc Config, name resource.Name, logger logging.Logge
 	m := &Motor{
 		Named:       name.AsNamed(),
 		Board:       b,
-		on:          false,
 		pwmFreq:     mc.PWMFreq,
 		minPowerPct: mc.MinPowerPct,
 		maxPowerPct: mc.MaxPowerPct,
@@ -126,7 +125,6 @@ type Motor struct {
 	maxRPM                   float64
 	dirFlip                  bool
 	// state
-	on        bool
 	powerPct  float64
 	motorType MotorType
 }
@@ -147,7 +145,6 @@ func (m *Motor) Properties(ctx context.Context, extra map[string]interface{}) (m
 func (m *Motor) turnOff(ctx context.Context, extra map[string]interface{}) error {
 	var errs error
 	m.powerPct = 0.0
-	m.on = false
 	if m.EnablePinLow != nil {
 		enLowErr := errors.Wrap(m.EnablePinLow.Set(ctx, true, extra), "unable to disable low signal")
 		errs = multierr.Combine(errs, enLowErr)
@@ -179,8 +176,6 @@ func (m *Motor) setPWM(ctx context.Context, powerPct float64, extra map[string]i
 		powerPct = sign(powerPct) * m.minPowerPct
 	}
 	m.powerPct = powerPct
-
-	m.on = true
 
 	if m.EnablePinLow != nil {
 		errs = multierr.Combine(errs, m.EnablePinLow.Set(ctx, false, extra))
@@ -275,22 +270,22 @@ func (m *Motor) GoFor(ctx context.Context, rpm, revolutions float64, extra map[s
 		return errors.New("not supported, define max_rpm attribute != 0")
 	}
 
-	switch speed := math.Abs(rpm); {
-	case speed < 0.1:
-		m.logger.CWarn(ctx, "motor speed is nearly 0 rev_per_min")
-		return motor.NewZeroRPMError()
-	case m.maxRPM > 0 && speed > m.maxRPM-0.1:
-		m.logger.CWarnf(ctx, "motor speed is nearly the max rev_per_min (%f)", m.maxRPM)
-	default:
+	warning, err := motor.CheckSpeed(rpm, m.maxRPM)
+	if warning != "" {
+		m.logger.CWarn(ctx, warning)
+	}
+	if err != nil {
+		return err
 	}
 
 	powerPct, waitDur := goForMath(m.maxRPM, rpm, revolutions)
-	err := m.SetPower(ctx, powerPct, extra)
+	err = m.SetPower(ctx, powerPct, extra)
 	if err != nil {
 		return errors.Wrap(err, "error in GoFor")
 	}
 
 	if revolutions == 0 {
+		m.logger.Warn("Deprecated: setting revolutions == 0 will spin the motor indefinitely at the specified RPM")
 		return nil
 	}
 
@@ -304,7 +299,7 @@ func (m *Motor) GoFor(ctx context.Context, rpm, revolutions float64, extra map[s
 func (m *Motor) IsPowered(ctx context.Context, extra map[string]interface{}) (bool, float64, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	return m.on, m.powerPct, nil
+	return m.powerPct != 0, m.powerPct, nil
 }
 
 // Stop turns the power to the motor off immediately, without any gradual step down, by setting the appropriate pins to low states.
@@ -319,12 +314,35 @@ func (m *Motor) Stop(ctx context.Context, extra map[string]interface{}) error {
 func (m *Motor) IsMoving(ctx context.Context) (bool, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	return m.on, nil
+	return m.powerPct != 0, nil
 }
 
 // GoTo is not supported.
 func (m *Motor) GoTo(ctx context.Context, rpm, positionRevolutions float64, extra map[string]interface{}) error {
 	return motor.NewGoToUnsupportedError(m.Name().ShortName())
+}
+
+// SetRPM instructs the motor to move at the specified RPM indefinitely.
+func (m *Motor) SetRPM(ctx context.Context, rpm float64, extra map[string]interface{}) error {
+	if m.maxRPM == 0 {
+		return errors.New("not supported, define max_rpm attribute != 0")
+	}
+
+	warning, err := motor.CheckSpeed(rpm, m.maxRPM)
+	if warning != "" {
+		m.logger.CWarn(ctx, warning)
+	}
+	if err != nil {
+		return err
+	}
+
+	powerPct := rpm / m.maxRPM
+	err = m.SetPower(ctx, powerPct, extra)
+	if err != nil {
+		return errors.Wrap(err, "error in GoFor")
+	}
+
+	return nil
 }
 
 // ResetZeroPosition is not supported.

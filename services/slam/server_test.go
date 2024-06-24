@@ -78,10 +78,9 @@ func TestWorkingServer(t *testing.T) {
 
 	t.Run("working GetPosition", func(t *testing.T) {
 		poseSucc := spatial.NewPose(r3.Vector{X: 1, Y: 2, Z: 3}, &spatial.OrientationVector{Theta: math.Pi / 2, OX: 0, OY: 0, OZ: -1})
-		componentRefSucc := "cam"
 
-		injectSvc.PositionFunc = func(ctx context.Context) (spatial.Pose, string, error) {
-			return poseSucc, componentRefSucc, nil
+		injectSvc.PositionFunc = func(ctx context.Context) (spatial.Pose, error) {
+			return poseSucc, nil
 		}
 
 		reqPos := &pb.GetPositionRequest{
@@ -90,7 +89,6 @@ func TestWorkingServer(t *testing.T) {
 		respPos, err := slamServer.GetPosition(context.Background(), reqPos)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, spatial.PoseAlmostEqual(poseSucc, spatial.NewPoseFromProtobuf(respPos.Pose)), test.ShouldBeTrue)
-		test.That(t, respPos.ComponentReference, test.ShouldEqual, componentRefSucc)
 	})
 
 	t.Run("working GetPointCloudMap", func(t *testing.T) {
@@ -225,10 +223,9 @@ func TestWorkingServer(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		slamServer = slam.NewRPCServiceServer(injectAPISvc).(pb.SLAMServiceServer)
 		poseSucc := spatial.NewPose(r3.Vector{X: 1, Y: 2, Z: 3}, &spatial.OrientationVector{Theta: math.Pi / 2, OX: 0, OY: 0, OZ: -1})
-		componentRefSucc := "cam"
 
-		injectSvc.PositionFunc = func(ctx context.Context) (spatial.Pose, string, error) {
-			return poseSucc, componentRefSucc, nil
+		injectSvc.PositionFunc = func(ctx context.Context) (spatial.Pose, error) {
+			return poseSucc, nil
 		}
 
 		injectSvc.PointCloudMapFunc = func(ctx context.Context, returnEditedMap bool) (func() ([]byte, error), error) {
@@ -249,13 +246,11 @@ func TestWorkingServer(t *testing.T) {
 		respPos, err := slamServer.GetPosition(context.Background(), reqPos)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, spatial.PoseAlmostEqual(poseSucc, spatial.NewPoseFromProtobuf(respPos.Pose)), test.ShouldBeTrue)
-		test.That(t, respPos.ComponentReference, test.ShouldEqual, componentRefSucc)
 
 		reqPos = &pb.GetPositionRequest{Name: testSlamServiceName2}
 		respPos, err = slamServer.GetPosition(context.Background(), reqPos)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, spatial.PoseAlmostEqual(poseSucc, spatial.NewPoseFromProtobuf(respPos.Pose)), test.ShouldBeTrue)
-		test.That(t, respPos.ComponentReference, test.ShouldEqual, componentRefSucc)
 
 		// test streaming endpoint using GetPointCloudMap
 		reqGetPointCloudMap := &pb.GetPointCloudMapRequest{Name: testSlamServiceName}
@@ -288,8 +283,8 @@ func TestFailingServer(t *testing.T) {
 	slamServer := slam.NewRPCServiceServer(injectAPISvc).(pb.SLAMServiceServer)
 
 	t.Run("failing GetPosition", func(t *testing.T) {
-		injectSvc.PositionFunc = func(ctx context.Context) (spatial.Pose, string, error) {
-			return nil, "", errors.New("failure to get position")
+		injectSvc.PositionFunc = func(ctx context.Context) (spatial.Pose, error) {
+			return nil, errors.New("failure to get position")
 		}
 
 		req := &pb.GetPositionRequest{

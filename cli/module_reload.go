@@ -9,6 +9,7 @@ import (
 	apppb "go.viam.com/api/app/v1"
 
 	rdkConfig "go.viam.com/rdk/config"
+	rutils "go.viam.com/rdk/utils"
 )
 
 // ModuleMap is a type alias to indicate where a map represents a module config.
@@ -25,7 +26,7 @@ func configureModule(c *cli.Context, vc *viamClient, manifest *moduleManifest, p
 	if _, ok := partMap["modules"]; !ok {
 		partMap["modules"] = make([]any, 0)
 	}
-	modules, err := mapOver(
+	modules, err := rutils.MapOver(
 		partMap["modules"].([]any),
 		func(raw any) (ModuleMap, error) { return ModuleMap(raw.(map[string]any)), nil },
 	)
@@ -38,7 +39,7 @@ func configureModule(c *cli.Context, vc *viamClient, manifest *moduleManifest, p
 		return false, err
 	}
 	// note: converting to any or else proto serializer will fail downstream in NewStruct.
-	modulesAsInterfaces, err := mapOver(modules, func(mod ModuleMap) (any, error) {
+	modulesAsInterfaces, err := rutils.MapOver(modules, func(mod ModuleMap) (any, error) {
 		return map[string]any(mod), nil
 	})
 	if err != nil {

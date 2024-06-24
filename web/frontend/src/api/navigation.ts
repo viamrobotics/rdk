@@ -2,7 +2,7 @@
 
 import * as THREE from 'three';
 import {
-  type GeoObstacle,
+  type GeoGeometry,
   type Path as SDKPath,
   type Waypoint,
 } from '@viamrobotics/sdk';
@@ -37,7 +37,7 @@ export const formatWaypoints = (list: Waypoint[]) => {
   });
 };
 
-export const formatObstacles = (list: GeoObstacle[]): Obstacle[] => {
+export const formatObstacles = (list: GeoGeometry[]): Obstacle[] => {
   return list.map((obstacle, index) => {
     const { location } = obstacle;
 

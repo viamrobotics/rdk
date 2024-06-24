@@ -41,8 +41,9 @@ func CreateBaseOptionsAndListener(tb testing.TB) (weboptions.Options, net.Listen
 func NewRobotClient(tb testing.TB, logger logging.Logger, addr string, dur time.Duration) *client.RobotClient {
 	tb.Helper()
 	// start robot client
+	ctx := context.Background()
 	robotClient, err := client.New(
-		context.Background(),
+		ctx,
 		addr,
 		logger,
 		client.WithRefreshEvery(dur),
@@ -50,6 +51,9 @@ func NewRobotClient(tb testing.TB, logger logging.Logger, addr string, dur time.
 		client.WithReconnectEvery(dur),
 	)
 	test.That(tb, err, test.ShouldBeNil)
+	tb.Cleanup(func() {
+		test.That(tb, robotClient.Close(ctx), test.ShouldBeNil)
+	})
 	return robotClient
 }
 

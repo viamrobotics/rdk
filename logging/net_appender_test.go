@@ -107,7 +107,7 @@ func TestNetLoggerSync(t *testing.T) {
 	server := makeServerForRobotLogger(t)
 	defer server.stop()
 
-	netAppender, err := NewNetAppender(server.cloudConfig)
+	netAppender, err := NewNetAppender(server.cloudConfig, nil)
 	test.That(t, err, test.ShouldBeNil)
 
 	// This test is testing the behavior of sync(), so the background worker shouldn't be running at the same time.
@@ -139,7 +139,7 @@ func TestNetLoggerSyncFailureAndRetry(t *testing.T) {
 	server := makeServerForRobotLogger(t)
 	defer server.stop()
 
-	netAppender, err := NewNetAppender(server.cloudConfig)
+	netAppender, err := NewNetAppender(server.cloudConfig, nil)
 	test.That(t, err, test.ShouldBeNil)
 
 	// This test is testing the behavior of sync(), so the background worker shouldn't be running at the same time.
@@ -193,7 +193,7 @@ func TestNetLoggerOverflowDuringWrite(t *testing.T) {
 	server := makeServerForRobotLogger(t)
 	defer server.stop()
 
-	netAppender, err := NewNetAppender(server.cloudConfig)
+	netAppender, err := NewNetAppender(server.cloudConfig, nil)
 	test.That(t, err, test.ShouldBeNil)
 	logger := NewDebugLogger("test logger")
 	logger.AddAppender(netAppender)
@@ -230,4 +230,26 @@ func TestNetLoggerOverflowDuringWrite(t *testing.T) {
 		// First batch of "0"-"10".
 		test.That(t, server.service.logs[i].Message, test.ShouldEqual, fmt.Sprint(i))
 	}
+}
+
+// TestProvidedClientConn tests non-nil `conn` param to NewNetAppender.
+func TestProvidedClientConn(t *testing.T) {
+	server := makeServerForRobotLogger(t)
+	defer server.stop()
+	conn, err := CreateNewGRPCClient(context.Background(), server.cloudConfig)
+	test.That(t, err, test.ShouldBeNil)
+	defer conn.Close()
+	netAppender, err := NewNetAppender(server.cloudConfig, conn)
+	test.That(t, err, test.ShouldBeNil)
+	// make sure these are the same object, i.e. that the constructor set it properly.
+	test.That(t, netAppender.remoteWriter.rpcClient == conn, test.ShouldBeTrue)
+	test.That(t, netAppender.remoteWriter.service, test.ShouldNotBeNil)
+
+	logger := NewDebugLogger("provided-client-conn")
+	logger.AddAppender(netAppender)
+
+	test.That(t, len(server.service.logs), test.ShouldBeZeroValue)
+	logger.Info("hello")
+	netAppender.Close()
+	test.That(t, len(server.service.logs), test.ShouldEqual, 1)
 }

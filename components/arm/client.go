@@ -78,6 +78,9 @@ func (c *client) MoveToPosition(ctx context.Context, pose spatialmath.Pose, extr
 	if err != nil {
 		return err
 	}
+	if pose == nil {
+		c.logger.Warnf("%s MoveToPosition: pose parameter is nil", c.name)
+	}
 	_, err = c.client.MoveToPosition(ctx, &pb.MoveToPositionRequest{
 		Name:  c.name,
 		To:    spatialmath.PoseToProtobuf(pose),
@@ -90,6 +93,9 @@ func (c *client) MoveToJointPositions(ctx context.Context, positions *pb.JointPo
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
 		return err
+	}
+	if positions == nil {
+		c.logger.Warnf("%s MoveToJointPositions: position parameter is nil", c.name)
 	}
 	_, err = c.client.MoveToJointPositions(ctx, &pb.MoveToJointPositionsRequest{
 		Name:      c.name,

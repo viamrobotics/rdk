@@ -1,3 +1,6 @@
+// Package pinwrappers implements interfaces that wrap the basic board interface and return types,
+// and expands them with new methods and interfaces for the built in board models. Current expands
+// analog reader and digital interrupt.
 package pinwrappers
 
 import (

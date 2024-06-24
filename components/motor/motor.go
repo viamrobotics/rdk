@@ -2,6 +2,8 @@ package motor
 
 import (
 	"context"
+	"fmt"
+	"math"
 
 	pb "go.viam.com/api/component/motor/v1"
 
@@ -90,22 +92,25 @@ type Motor interface {
 	resource.Actuator
 
 	// SetPower sets the percentage of power the motor should employ between -1 and 1.
-	// Negative power corresponds to a backward direction of rotation
+	// Negative power corresponds to a backward direction of rotation.
 	SetPower(ctx context.Context, powerPct float64, extra map[string]interface{}) error
 
 	// GoFor instructs the motor to go in a specific direction for a specific amount of
 	// revolutions at a given speed in revolutions per minute. Both the RPM and the revolutions
 	// can be assigned negative values to move in a backwards direction. Note: if both are
 	// negative the motor will spin in the forward direction.
-	// If revolutions is 0, this will run the motor at rpm indefinitely
 	// If revolutions != 0, this will block until the number of revolutions has been completed or another operation comes in.
+	// Deprecated: If revolutions is 0, this will run the motor at rpm indefinitely.
 	GoFor(ctx context.Context, rpm, revolutions float64, extra map[string]interface{}) error
 
 	// GoTo instructs the motor to go to a specific position (provided in revolutions from home/zero),
 	// at a specific speed. Regardless of the directionality of the RPM this function will move the motor
-	// towards the specified target/position
-	// This will block until the position has been reached
+	// towards the specified target/position.
+	// This will block until the position has been reached.
 	GoTo(ctx context.Context, rpm, positionRevolutions float64, extra map[string]interface{}) error
+
+	// SetRPM instructs the motor to move at the specified RPM indefinitely.
+	SetRPM(ctx context.Context, rpm float64, extra map[string]interface{}) error
 
 	// Set an encoded motor's current position (+/- offset) to be the new zero (home) position.
 	ResetZeroPosition(ctx context.Context, offset float64, extra map[string]interface{}) error
@@ -170,4 +175,16 @@ func CreateStatus(ctx context.Context, m Motor) (*pb.Status, error) {
 		Position:  position,
 		IsMoving:  isMoving,
 	}, nil
+}
+
+// CheckSpeed checks if the input rpm is too slow or fast and returns a warning and/or error.
+func CheckSpeed(rpm, max float64) (string, error) {
+	switch speed := math.Abs(rpm); {
+	case speed < 0.1:
+		return "motor speed is nearly 0 rev_per_min", NewZeroRPMError()
+	case max > 0 && speed > max-0.1:
+		return fmt.Sprintf("motor speed is nearly the max rev_per_min (%f)", max), nil
+	default:
+		return "", nil
+	}
 }

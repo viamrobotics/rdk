@@ -60,6 +60,29 @@
                     "longitude": 1
                 }
             }],
+            "bounding_regions":
+            [{
+                "geometries":
+                [{
+                    "label":"aLabel2",
+                    "orientation":{
+                        "type":"ov_degrees",
+                        "value":{
+                            "X":1,
+                            "Y":0,
+                            "Z":0,
+                            "Th": -90
+                        }
+                    },
+                    "x":20,
+                    "y":20,
+                    "z":20
+                }],
+                "location":{
+                    "latitude": 2,
+                    "longitude": 2
+                }
+            }],
             "store":{
                 "type":"memory"
             }

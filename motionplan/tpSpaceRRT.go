@@ -933,10 +933,10 @@ func (mp *tpSpaceRRTMotionPlanner) attemptSmooth(
 	for j := 0; j <= firstEdge; j++ {
 		pathNode := path[j]
 		startMap[pathNode] = parent
-		for adjNum := 1; adjNum < defaultSmoothChunkCount; adjNum++ {
-			adj := float64(adjNum) / float64(defaultSmoothChunkCount)
+		for adjNum := defaultSmoothChunkCount - 1; adjNum > 0; adjNum-- {
 			fullQ := pathNode.Q()
-			newQ := []referenceframe.Input{fullQ[0], fullQ[1], {0}, {fullQ[3].Value * adj}}
+			adj := (fullQ[3].Value - fullQ[2].Value) * (float64(adjNum) / float64(defaultSmoothChunkCount))
+			newQ := []referenceframe.Input{fullQ[0], fullQ[1], fullQ[2], {fullQ[3].Value - adj}}
 			trajK, err := smoother.tpFrame.PTGSolvers()[int(math.Round(newQ[0].Value))].Trajectory(
 				newQ[1].Value,
 				newQ[2].Value,
@@ -949,7 +949,7 @@ func (mp *tpSpaceRRTMotionPlanner) attemptSmooth(
 
 			intNode := &basicNode{
 				q:      newQ,
-				cost:   pathNode.Cost() - (math.Abs(pathNode.Q()[3].Value) * (1 - adj)),
+				cost:   pathNode.Cost() - math.Abs(adj),
 				pose:   spatialmath.Compose(parentPose, trajK[len(trajK)-1].Pose),
 				corner: false,
 			}
@@ -1054,8 +1054,8 @@ func extractTPspacePath(startMap, goalMap map[node]node, pair *nodePair) []node 
 			q: []referenceframe.Input{
 				goalReached.Q()[0],
 				goalReached.Q()[1],
+				goalReached.Q()[3],
 				goalReached.Q()[2],
-				{goalReached.Q()[3].Value * -1},
 			},
 			cost:   goalReached.Cost(),
 			pose:   spatialmath.Compose(goalReached.Pose(), flipPose),

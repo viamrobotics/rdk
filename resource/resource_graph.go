@@ -523,6 +523,16 @@ func (g *Graph) ReverseTopologicalSort() []Name {
 	return ordered
 }
 
+// ReverseTopologicalSortInLevels returns a slice of node Name groups, ordered such that
+// all node names only depend on node names in a prior group.
+func (g *Graph) ReverseTopologicalSortInLevels() [][]Name {
+	ordered := g.TopologicalSortInLevels()
+	for i, j := 0, len(ordered)-1; i < j; i, j = i+1, j-1 {
+		ordered[i], ordered[j] = ordered[j], ordered[i]
+	}
+	return ordered
+}
+
 // ResolveDependencies attempts to link up unresolved dependencies after
 // new changes to the graph.
 func (g *Graph) ResolveDependencies(logger logging.Logger) error {

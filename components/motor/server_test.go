@@ -24,6 +24,7 @@ var (
 	errStopFailed          = errors.New("stop failed")
 	errIsPoweredFailed     = errors.New("could not determine if motor is on")
 	errGoToFailed          = errors.New("go to failed")
+	errSetRPMFailed        = errors.New("set rpm failed")
 )
 
 func newServer() (pb.MotorServiceServer, *inject.Motor, *inject.Motor, error) {
@@ -227,6 +228,33 @@ func TestServerGoTo(t *testing.T) {
 	}
 	req = pb.GoToRequest{Name: testMotorName, Rpm: 20.0, PositionRevolutions: 2.5}
 	resp, err = motorServer.GoTo(context.Background(), &req)
+	test.That(t, resp, test.ShouldNotBeNil)
+	test.That(t, err, test.ShouldBeNil)
+}
+
+//nolint:dupl
+func TestServerSetRPM(t *testing.T) {
+	motorServer, workingMotor, failingMotor, _ := newServer()
+
+	// fails on a bad motor
+	req := pb.SetRPMRequest{Name: fakeMotorName}
+	resp, err := motorServer.SetRPM(context.Background(), &req)
+	test.That(t, resp, test.ShouldBeNil)
+	test.That(t, err, test.ShouldNotBeNil)
+
+	failingMotor.SetRPMFunc = func(ctx context.Context, rpm float64, extra map[string]interface{}) error {
+		return errSetRPMFailed
+	}
+	req = pb.SetRPMRequest{Name: failMotorName, Rpm: 20.0}
+	resp, err = motorServer.SetRPM(context.Background(), &req)
+	test.That(t, resp, test.ShouldNotBeNil)
+	test.That(t, err, test.ShouldNotBeNil)
+
+	workingMotor.SetRPMFunc = func(ctx context.Context, rpm float64, extra map[string]interface{}) error {
+		return nil
+	}
+	req = pb.SetRPMRequest{Name: testMotorName, Rpm: 20.0}
+	resp, err = motorServer.SetRPM(context.Background(), &req)
 	test.That(t, resp, test.ShouldNotBeNil)
 	test.That(t, err, test.ShouldBeNil)
 }

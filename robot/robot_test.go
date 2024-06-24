@@ -4,7 +4,6 @@ import (
 	"testing"
 
 	"go.viam.com/test"
-	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/components/gantry"
@@ -76,10 +75,10 @@ func TestNamesFromRobot(t *testing.T) {
 	test.That(t, names, test.ShouldBeEmpty)
 
 	names = robot.NamesByAPI(r, sensor.API)
-	test.That(t, utils.NewStringSet(names...), test.ShouldResemble, utils.NewStringSet(testutils.ExtractNames(sensorNames...)...))
+	testutils.VerifySameElements(t, names, testutils.ExtractNames(sensorNames...))
 
 	names = robot.NamesByAPI(r, arm.API)
-	test.That(t, utils.NewStringSet(names...), test.ShouldResemble, utils.NewStringSet(testutils.ExtractNames(armNames...)...))
+	testutils.VerifySameElements(t, names, testutils.ExtractNames(armNames...))
 }
 
 func TestResourceFromRobot(t *testing.T) {

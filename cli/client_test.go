@@ -108,7 +108,7 @@ func setup(
 	}
 
 	cCtx := cli.NewContext(NewApp(out, errOut), flags, nil)
-	conf := &config{}
+	conf := &Config{}
 	if authMethod == "token" {
 		conf.Auth = &token{
 			AccessToken: testToken,
@@ -169,12 +169,11 @@ func setupWithRunningPart(
 	err = r.StartWeb(cCtx.Context, options)
 	test.That(t, err, test.ShouldBeNil)
 
-	baseURL, rpcOpts, err := parseBaseURL(fmt.Sprintf("http://%s", addr), false)
-	test.That(t, err, test.ShouldBeNil)
 	// this will be the URL we use to make new clients. In a backwards way, this
 	// lets the robot be the one with external auth handling (if auth were being used)
-	ac.baseURL = baseURL
-	ac.rpcOpts = rpcOpts
+	ac.conf.BaseURL = fmt.Sprintf("http://%s", addr)
+	ac.baseURL, _, err = parseBaseURL(ac.conf.BaseURL, false)
+	test.That(t, err, test.ShouldBeNil)
 
 	return cCtx, ac, out, errOut, func() {
 		test.That(t, r.Close(context.Background()), test.ShouldBeNil)

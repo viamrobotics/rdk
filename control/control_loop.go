@@ -300,17 +300,17 @@ func (l *Loop) Stop() {
 
 // Pause sets l.running to false to pause the loop.
 func (l *Loop) Pause() {
-	l.running.Store(false)
-}
-
-// Resume sets l.running to true to resume the loop.
-func (l *Loop) Resume() {
 	for _, b := range l.pidBlocks {
 		if err := b.Reset(context.Background()); err != nil {
 			l.logger.Error(err)
 			return
 		}
 	}
+	l.running.Store(false)
+}
+
+// Resume sets l.running to true to resume the loop.
+func (l *Loop) Resume() {
 	l.running.Store(true)
 }
 

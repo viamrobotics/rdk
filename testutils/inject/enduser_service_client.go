@@ -16,6 +16,9 @@ type EndUserServiceClient struct {
 	UpdateAuthApplicationFunc func(ctx context.Context, in *apppb.UpdateAuthApplicationRequest,
 		opts ...grpc.CallOption,
 	) (*apppb.UpdateAuthApplicationResponse, error)
+	GetAuthApplicationFunc func(ctx context.Context, in *apppb.GetAuthApplicationRequest,
+		opts ...grpc.CallOption,
+	) (*apppb.GetAuthApplicationResponse, error)
 }
 
 // RegisterAuthApplication calls the injected RegisterAuthApplicationFunc or the real version.
@@ -36,4 +39,14 @@ func (eusc *EndUserServiceClient) UpdateAuthApplication(ctx context.Context, in 
 		return eusc.EndUserServiceClient.UpdateAuthApplication(ctx, in, opts...)
 	}
 	return eusc.UpdateAuthApplicationFunc(ctx, in, opts...)
+}
+
+// GetAuthApplication calls the injected GetAuthApplication or the real version.
+func (eusc *EndUserServiceClient) GetAuthApplication(ctx context.Context, in *apppb.GetAuthApplicationRequest,
+	opts ...grpc.CallOption,
+) (*apppb.GetAuthApplicationResponse, error) {
+	if eusc.GetAuthApplicationFunc == nil {
+		return eusc.EndUserServiceClient.GetAuthApplication(ctx, in, opts...)
+	}
+	return eusc.GetAuthApplicationFunc(ctx, in, opts...)
 }

@@ -232,7 +232,7 @@ func TestWhoAmIAction(t *testing.T) {
 
 func TestConfigMarshalling(t *testing.T) {
 	t.Run("token config", func(t *testing.T) {
-		conf := config{
+		conf := Config{
 			BaseURL: "https://guthib.com:443",
 			Auth: &token{
 				AccessToken: "secret-token",
@@ -245,7 +245,7 @@ func TestConfigMarshalling(t *testing.T) {
 
 		bytes, err := json.Marshal(conf)
 		test.That(t, err, test.ShouldBeNil)
-		var newConf config
+		var newConf Config
 		test.That(t, newConf.tryUnmarshallWithAPIKey(bytes), test.ShouldBeError)
 		test.That(t, newConf.tryUnmarshallWithToken(bytes), test.ShouldBeNil)
 		test.That(t, newConf.BaseURL, test.ShouldEqual, "https://guthib.com:443")
@@ -257,7 +257,7 @@ func TestConfigMarshalling(t *testing.T) {
 	})
 
 	t.Run("api-key config", func(t *testing.T) {
-		conf := config{
+		conf := Config{
 			BaseURL: "https://docs.viam.com:443",
 			Auth: &apiKey{
 				KeyID:     "42",
@@ -267,7 +267,7 @@ func TestConfigMarshalling(t *testing.T) {
 
 		bytes, err := json.Marshal(conf)
 		test.That(t, err, test.ShouldBeNil)
-		var newConf config
+		var newConf Config
 		test.That(t, newConf.tryUnmarshallWithToken(bytes), test.ShouldBeError)
 		test.That(t, newConf.tryUnmarshallWithAPIKey(bytes), test.ShouldBeNil)
 		test.That(t, newConf.BaseURL, test.ShouldEqual, "https://docs.viam.com:443")

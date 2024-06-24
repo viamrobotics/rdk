@@ -66,9 +66,6 @@ func (pf *ptgIKFrame) Transform(inputs []referenceframe.Input) (spatialmath.Pose
 		if err != nil {
 			return nil, err
 		}
-		if inputs[i+1].Value < 0 {
-			p2 = spatialmath.PoseBetween(spatialmath.Compose(p2, flipPose), flipPose)
-		}
 		p1 = spatialmath.Compose(p1, p2)
 	}
 	return p1, nil

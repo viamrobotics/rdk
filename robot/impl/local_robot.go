@@ -12,6 +12,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/Masterminds/semver/v3"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 	packagespb "go.viam.com/api/app/packages/v1"
@@ -48,18 +49,24 @@ type localRobot struct {
 	manager       *resourceManager
 	mostRecentCfg atomic.Value // config.Config
 
-	operations                 *operation.Manager
-	sessionManager             session.Manager
-	packageManager             packages.ManagerSyncer
-	cloudConnSvc               icloud.ConnectionService
-	logger                     logging.Logger
-	activeBackgroundWorkers    sync.WaitGroup
+	operations              *operation.Manager
+	sessionManager          session.Manager
+	packageManager          packages.ManagerSyncer
+	localPackages           packages.ManagerSyncer
+	cloudConnSvc            icloud.ConnectionService
+	logger                  logging.Logger
+	activeBackgroundWorkers sync.WaitGroup
+	// reconfigureWorkers tracks goroutines spawned by reconfiguration functions. we only
+	// wait on this group in tests to prevent goleak-related failures. however, we do not
+	// wait on this group outside of testing, since the related goroutines may be running
+	// outside code and have unexpected behavior.
 	reconfigureWorkers         sync.WaitGroup
 	cancelBackgroundWorkers    func()
 	closeContext               context.Context
 	triggerConfig              chan struct{}
 	configTicker               *time.Ticker
 	revealSensitiveConfigDiffs bool
+	shutdownCallback           func()
 
 	// lastWeakDependentsRound stores the value of the resource graph's
 	// logical clock when updateWeakDependents was called.
@@ -68,6 +75,10 @@ type localRobot struct {
 	// internal services that are in the graph but we also hold onto
 	webSvc   web.Service
 	frameSvc framesystem.Service
+
+	// map keyed by Module.Name. This is necessary to get the package manager to use a new folder
+	// when a local tarball is updated.
+	localModuleVersions map[string]semver.Version
 }
 
 // ExportResourcesAsDot exports the resource graph as a DOT representation for
@@ -352,6 +363,26 @@ func (r *localRobot) Status(ctx context.Context, resourceNames []resource.Name) 
 	return combinedResourceStatuses, nil
 }
 
+func (r *localRobot) sendTriggerConfig(caller string) {
+	if r.closeContext.Err() != nil {
+		return
+	}
+
+	// Attempt to trigger completeConfig goroutine execution when called,
+	// but does not block if triggerConfig is full.
+	select {
+	case <-r.closeContext.Done():
+		return
+	case r.triggerConfig <- struct{}{}:
+	default:
+		r.Logger().CDebugw(
+			r.closeContext,
+			"attempted to trigger reconfiguration, but there is already one queued.",
+			"caller", caller,
+		)
+	}
+}
+
 func newWithResources(
 	ctx context.Context,
 	cfg *config.Config,
@@ -377,14 +408,18 @@ func newWithResources(
 			},
 			logger,
 		),
-		operations:                 operation.NewManager(logger),
-		logger:                     logger,
-		closeContext:               closeCtx,
-		cancelBackgroundWorkers:    cancel,
-		triggerConfig:              make(chan struct{}),
+		operations:              operation.NewManager(logger),
+		logger:                  logger,
+		closeContext:            closeCtx,
+		cancelBackgroundWorkers: cancel,
+		// triggerConfig buffers 1 message so that we can queue up to 1 reconfiguration attempt
+		// (as long as there is 1 queued, further messages can be safely discarded).
+		triggerConfig:              make(chan struct{}, 1),
 		configTicker:               nil,
 		revealSensitiveConfigDiffs: rOpts.revealSensitiveConfigDiffs,
 		cloudConnSvc:               icloud.NewCloudConnectionService(cfg.Cloud, logger),
+		shutdownCallback:           rOpts.shutdownCallback,
+		localModuleVersions:        make(map[string]semver.Version),
 	}
 	r.mostRecentCfg.Store(config.Config{})
 	var heartbeatWindow time.Duration
@@ -418,6 +453,10 @@ func newWithResources(
 	} else {
 		r.logger.CDebug(ctx, "Using no-op PackageManager when Cloud config is not available")
 		r.packageManager = packages.NewNoopManager()
+	}
+	r.localPackages, err = packages.NewLocalManager(cfg, logger)
+	if err != nil {
+		return nil, err
 	}
 
 	// start process manager early
@@ -475,6 +514,7 @@ func newWithResources(
 		homeDir,
 		cloudID,
 		logger,
+		cfg.PackagePath,
 	)
 
 	r.activeBackgroundWorkers.Add(1)
@@ -500,7 +540,7 @@ func newWithResources(
 			anyChanges := r.manager.updateRemotesResourceNames(closeCtx)
 			if r.manager.anyResourcesNotConfigured() {
 				anyChanges = true
-				r.manager.completeConfig(closeCtx, r)
+				r.manager.completeConfig(closeCtx, r, false)
 			}
 			if anyChanges {
 				r.updateWeakDependents(ctx)
@@ -1096,6 +1136,24 @@ func dialRobotClient(
 // a best effort to remove no longer in use parts, but if it fails to do so, they could
 // possibly leak resources. The given config may be modified by Reconfigure.
 func (r *localRobot) Reconfigure(ctx context.Context, newConfig *config.Config) {
+	r.reconfigure(ctx, newConfig, false)
+}
+
+// set Module.LocalVersion on Type=local modules. Call this before localPackages.Sync and in RestartModule.
+func (r *localRobot) applyLocalModuleVersions(cfg *config.Config) {
+	for i := range cfg.Modules {
+		mod := &cfg.Modules[i]
+		if mod.Type == config.ModuleTypeLocal {
+			if ver, ok := r.localModuleVersions[mod.Name]; ok {
+				mod.LocalVersion = ver.String()
+			} else {
+				mod.LocalVersion = semver.Version{}.String()
+			}
+		}
+	}
+}
+
+func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, forceSync bool) {
 	var allErrs error
 
 	// Sync Packages before reconfiguring rest of robot and resolving references to any packages
@@ -1107,6 +1165,12 @@ func (r *localRobot) Reconfigure(ctx context.Context, newConfig *config.Config) 
 	if err != nil {
 		allErrs = multierr.Combine(allErrs, err)
 	}
+	// For local tarball modules, we create synthetic versions for package management. The `localRobot` keeps track of these because
+	// config reader would overwrite if we just stored it in config. Here, we copy the synthetic version from the `localRobot` into the
+	// appropriate `config.Module` object inside the `cfg.Modules` slice. Thus, when a local tarball module is reloaded, the viam-server
+	// can unpack it into a fresh directory rather than reusing the previous one.
+	r.applyLocalModuleVersions(newConfig)
+	allErrs = multierr.Combine(allErrs, r.localPackages.Sync(ctx, newConfig.Packages, newConfig.Modules))
 
 	// Add default services and process their dependencies. Dependencies may
 	// already come from config validation so we check that here.
@@ -1177,11 +1241,7 @@ func (r *localRobot) Reconfigure(ctx context.Context, newConfig *config.Config) 
 	// First we mark diff.Removed resources and their children for removal.
 	processesToClose, resourcesToCloseBeforeComplete, _ := r.manager.markRemoved(ctx, diff.Removed, r.logger)
 
-	// Second we update the resource graph and stop any removed processes.
-	allErrs = multierr.Combine(allErrs, r.manager.updateResources(ctx, diff))
-	allErrs = multierr.Combine(allErrs, processesToClose.Stop())
-
-	// Third we attempt to Close resources.
+	// Second we attempt to Close resources.
 	alreadyClosed := make(map[resource.Name]struct{}, len(resourcesToCloseBeforeComplete))
 	for _, res := range resourcesToCloseBeforeComplete {
 		allErrs = multierr.Combine(allErrs, r.manager.closeResource(ctx, res))
@@ -1189,9 +1249,13 @@ func (r *localRobot) Reconfigure(ctx context.Context, newConfig *config.Config) 
 		alreadyClosed[res.Name()] = struct{}{}
 	}
 
+	// Third we update the resource graph and stop any removed processes.
+	allErrs = multierr.Combine(allErrs, r.manager.updateResources(ctx, diff))
+	allErrs = multierr.Combine(allErrs, processesToClose.Stop())
+
 	// Fourth we attempt to complete the config (see function for details) and
 	// update weak dependents.
-	r.manager.completeConfig(ctx, r)
+	r.manager.completeConfig(ctx, r, forceSync)
 	r.updateWeakDependents(ctx)
 
 	// Finally we actually remove marked resources and Close any that are
@@ -1203,6 +1267,7 @@ func (r *localRobot) Reconfigure(ctx context.Context, newConfig *config.Config) 
 	// Cleanup unused packages after all old resources have been closed above. This ensures
 	// processes are shutdown before any files are deleted they are using.
 	allErrs = multierr.Combine(allErrs, r.packageManager.Cleanup(ctx))
+	allErrs = multierr.Combine(allErrs, r.localPackages.Cleanup(ctx))
 	// Cleanup extra dirs from previous modules or rogue scripts.
 	allErrs = multierr.Combine(allErrs, r.manager.moduleManager.CleanModuleDataDirectory())
 
@@ -1246,12 +1311,27 @@ func (r *localRobot) CloudMetadata(ctx context.Context) (cloud.Metadata, error) 
 }
 
 // restartSingleModule constructs a single-module diff and calls updateResources with it.
-func (r *localRobot) restartSingleModule(ctx context.Context, mod config.Module) error {
+func (r *localRobot) restartSingleModule(ctx context.Context, mod *config.Module) error {
+	if mod.Type == config.ModuleTypeLocal {
+		// note: this version incrementing matters for local tarballs because we want the system to
+		// unpack into a new directory rather than reusing the old one. Local tarball path matters
+		// here because it is how artifacts are unpacked for remote reloading.
+		// We technically only need to do this when mod.NeedsSyntheticPackage(), but we do it
+		// for all local packages for test suite reasons.
+		nextVer := r.localModuleVersions[mod.Name].IncPatch()
+		r.localModuleVersions[mod.Name] = nextVer
+		mod.LocalVersion = nextVer.String()
+		r.logger.CInfof(ctx, "incremented local version of %s to %s", mod.Name, mod.LocalVersion)
+		err := r.localPackages.SyncOne(ctx, *mod)
+		if err != nil {
+			return err
+		}
+	}
 	diff := config.Diff{
 		Left:     r.Config(),
 		Right:    r.Config(),
 		Added:    &config.Config{},
-		Modified: &config.ModifiedConfigDiff{Modules: []config.Module{mod}},
+		Modified: &config.ModifiedConfigDiff{Modules: []config.Module{*mod}},
 		Removed:  &config.Config{},
 	}
 	return r.manager.updateResources(ctx, &diff)
@@ -1264,9 +1344,18 @@ func (r *localRobot) RestartModule(ctx context.Context, req robot.RestartModuleR
 			"module not found with id=%s, name=%s. make sure it is configured and running on your machine",
 			req.ModuleID, req.ModuleName)
 	}
-	err := r.restartSingleModule(ctx, *mod)
+	err := r.restartSingleModule(ctx, mod)
 	if err != nil {
 		return errors.Wrapf(err, "while restarting module id=%s, name=%s", req.ModuleID, req.ModuleName)
+	}
+	return nil
+}
+
+func (r *localRobot) Shutdown(ctx context.Context) error {
+	if shutdownFunc := r.shutdownCallback; shutdownFunc != nil {
+		shutdownFunc()
+	} else {
+		r.Logger().CErrorw(ctx, "shutdown function not defined")
 	}
 	return nil
 }

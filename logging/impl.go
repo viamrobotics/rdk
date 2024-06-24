@@ -131,8 +131,10 @@ func (imp *impl) AsZap() *zap.SugaredLogger {
 		}
 		ret = zap.Must(config.Build()).Sugar().Named(imp.name)
 	} else {
-		// `zaptest.NewLogger` always constructs a logger at the `zapcore.DebugLevel`.
-		ret = zaptest.NewLogger(testingObj, zaptest.WrapOptions(zap.AddCaller())).Sugar().Named(imp.name)
+		ret = zaptest.NewLogger(testingObj,
+			zaptest.WrapOptions(zap.AddCaller()),
+			zaptest.Level(imp.level.Get().AsZap()),
+		).Sugar().Named(imp.name)
 	}
 
 	for _, core := range copiedCores {
@@ -152,7 +154,7 @@ func (imp *impl) shouldLog(logLevel Level) bool {
 	return logLevel >= imp.level.Get()
 }
 
-func (imp *impl) log(entry *LogEntry) {
+func (imp *impl) Write(entry *LogEntry) {
 	imp.testHelper()
 	for _, appender := range imp.appenders {
 		err := appender.Write(entry.Entry, entry.fields)
@@ -224,7 +226,7 @@ func (imp *impl) formatw(logLevel Level, traceKey, msg string, keysAndValues ...
 func (imp *impl) Debug(args ...interface{}) {
 	imp.testHelper()
 	if imp.shouldLog(DEBUG) {
-		imp.log(imp.format(DEBUG, emptyTraceKey, args...))
+		imp.Write(imp.format(DEBUG, emptyTraceKey, args...))
 	}
 }
 
@@ -234,14 +236,14 @@ func (imp *impl) CDebug(ctx context.Context, args ...interface{}) {
 
 	// We log if the logger is configured for debug, or if there's a trace key.
 	if imp.shouldLog(DEBUG) || dbgName != emptyTraceKey {
-		imp.log(imp.format(DEBUG, dbgName, args...))
+		imp.Write(imp.format(DEBUG, dbgName, args...))
 	}
 }
 
 func (imp *impl) Debugf(template string, args ...interface{}) {
 	imp.testHelper()
 	if imp.shouldLog(DEBUG) {
-		imp.log(imp.formatf(DEBUG, emptyTraceKey, template, args...))
+		imp.Write(imp.formatf(DEBUG, emptyTraceKey, template, args...))
 	}
 }
 
@@ -251,14 +253,14 @@ func (imp *impl) CDebugf(ctx context.Context, template string, args ...interface
 
 	// We log if the logger is configured for debug, or if there's a trace key.
 	if imp.shouldLog(DEBUG) || dbgName != emptyTraceKey {
-		imp.log(imp.formatf(DEBUG, dbgName, template, args...))
+		imp.Write(imp.formatf(DEBUG, dbgName, template, args...))
 	}
 }
 
 func (imp *impl) Debugw(msg string, keysAndValues ...interface{}) {
 	imp.testHelper()
 	if imp.shouldLog(DEBUG) {
-		imp.log(imp.formatw(DEBUG, emptyTraceKey, msg, keysAndValues...))
+		imp.Write(imp.formatw(DEBUG, emptyTraceKey, msg, keysAndValues...))
 	}
 }
 
@@ -268,14 +270,14 @@ func (imp *impl) CDebugw(ctx context.Context, msg string, keysAndValues ...inter
 
 	// We log if the logger is configured for debug, or if there's a trace key.
 	if imp.shouldLog(DEBUG) || dbgName != emptyTraceKey {
-		imp.log(imp.formatw(DEBUG, dbgName, msg, keysAndValues...))
+		imp.Write(imp.formatw(DEBUG, dbgName, msg, keysAndValues...))
 	}
 }
 
 func (imp *impl) Info(args ...interface{}) {
 	imp.testHelper()
 	if imp.shouldLog(INFO) {
-		imp.log(imp.format(INFO, emptyTraceKey, args...))
+		imp.Write(imp.format(INFO, emptyTraceKey, args...))
 	}
 }
 
@@ -285,14 +287,14 @@ func (imp *impl) CInfo(ctx context.Context, args ...interface{}) {
 
 	// We log if the logger is configured for info, or if there's a trace key.
 	if imp.shouldLog(INFO) || dbgName != emptyTraceKey {
-		imp.log(imp.format(INFO, dbgName, args...))
+		imp.Write(imp.format(INFO, dbgName, args...))
 	}
 }
 
 func (imp *impl) Infof(template string, args ...interface{}) {
 	imp.testHelper()
 	if imp.shouldLog(INFO) {
-		imp.log(imp.formatf(INFO, emptyTraceKey, template, args...))
+		imp.Write(imp.formatf(INFO, emptyTraceKey, template, args...))
 	}
 }
 
@@ -302,14 +304,14 @@ func (imp *impl) CInfof(ctx context.Context, template string, args ...interface{
 
 	// We log if the logger is configured for info, or if there's a trace key.
 	if imp.shouldLog(INFO) || dbgName != emptyTraceKey {
-		imp.log(imp.formatf(INFO, dbgName, template, args...))
+		imp.Write(imp.formatf(INFO, dbgName, template, args...))
 	}
 }
 
 func (imp *impl) Infow(msg string, keysAndValues ...interface{}) {
 	imp.testHelper()
 	if imp.shouldLog(INFO) {
-		imp.log(imp.formatw(INFO, emptyTraceKey, msg, keysAndValues...))
+		imp.Write(imp.formatw(INFO, emptyTraceKey, msg, keysAndValues...))
 	}
 }
 
@@ -319,14 +321,14 @@ func (imp *impl) CInfow(ctx context.Context, msg string, keysAndValues ...interf
 
 	// We log if the logger is configured for info, or if there's a trace key.
 	if imp.shouldLog(INFO) || dbgName != emptyTraceKey {
-		imp.log(imp.formatw(INFO, dbgName, msg, keysAndValues...))
+		imp.Write(imp.formatw(INFO, dbgName, msg, keysAndValues...))
 	}
 }
 
 func (imp *impl) Warn(args ...interface{}) {
 	imp.testHelper()
 	if imp.shouldLog(WARN) {
-		imp.log(imp.format(WARN, emptyTraceKey, args...))
+		imp.Write(imp.format(WARN, emptyTraceKey, args...))
 	}
 }
 
@@ -336,14 +338,14 @@ func (imp *impl) CWarn(ctx context.Context, args ...interface{}) {
 
 	// We log if the logger is configured for warn, or if there's a trace key.
 	if imp.shouldLog(WARN) || dbgName != emptyTraceKey {
-		imp.log(imp.format(WARN, dbgName, args...))
+		imp.Write(imp.format(WARN, dbgName, args...))
 	}
 }
 
 func (imp *impl) Warnf(template string, args ...interface{}) {
 	imp.testHelper()
 	if imp.shouldLog(WARN) {
-		imp.log(imp.formatf(WARN, emptyTraceKey, template, args...))
+		imp.Write(imp.formatf(WARN, emptyTraceKey, template, args...))
 	}
 }
 
@@ -353,14 +355,14 @@ func (imp *impl) CWarnf(ctx context.Context, template string, args ...interface{
 
 	// We log if the logger is configured for warn, or if there's a trace key.
 	if imp.shouldLog(WARN) || dbgName != emptyTraceKey {
-		imp.log(imp.formatf(WARN, dbgName, template, args...))
+		imp.Write(imp.formatf(WARN, dbgName, template, args...))
 	}
 }
 
 func (imp *impl) Warnw(msg string, keysAndValues ...interface{}) {
 	imp.testHelper()
 	if imp.shouldLog(WARN) {
-		imp.log(imp.formatw(WARN, emptyTraceKey, msg, keysAndValues...))
+		imp.Write(imp.formatw(WARN, emptyTraceKey, msg, keysAndValues...))
 	}
 }
 
@@ -370,14 +372,14 @@ func (imp *impl) CWarnw(ctx context.Context, msg string, keysAndValues ...interf
 
 	// We log if the logger is configured for warn, or if there's a trace key.
 	if imp.shouldLog(WARN) || dbgName != emptyTraceKey {
-		imp.log(imp.formatw(WARN, dbgName, msg, keysAndValues...))
+		imp.Write(imp.formatw(WARN, dbgName, msg, keysAndValues...))
 	}
 }
 
 func (imp *impl) Error(args ...interface{}) {
 	imp.testHelper()
 	if imp.shouldLog(ERROR) {
-		imp.log(imp.format(ERROR, emptyTraceKey, args...))
+		imp.Write(imp.format(ERROR, emptyTraceKey, args...))
 	}
 }
 
@@ -387,14 +389,14 @@ func (imp *impl) CError(ctx context.Context, args ...interface{}) {
 
 	// We log if the logger is configured for error, or if there's a trace key.
 	if imp.shouldLog(ERROR) || dbgName != emptyTraceKey {
-		imp.log(imp.format(ERROR, dbgName, args...))
+		imp.Write(imp.format(ERROR, dbgName, args...))
 	}
 }
 
 func (imp *impl) Errorf(template string, args ...interface{}) {
 	imp.testHelper()
 	if imp.shouldLog(ERROR) {
-		imp.log(imp.formatf(ERROR, emptyTraceKey, template, args...))
+		imp.Write(imp.formatf(ERROR, emptyTraceKey, template, args...))
 	}
 }
 
@@ -404,14 +406,14 @@ func (imp *impl) CErrorf(ctx context.Context, template string, args ...interface
 
 	// We log if the logger is configured for error, or if there's a trace key.
 	if imp.shouldLog(ERROR) || dbgName != emptyTraceKey {
-		imp.log(imp.formatf(ERROR, dbgName, template, args...))
+		imp.Write(imp.formatf(ERROR, dbgName, template, args...))
 	}
 }
 
 func (imp *impl) Errorw(msg string, keysAndValues ...interface{}) {
 	imp.testHelper()
 	if imp.shouldLog(ERROR) {
-		imp.log(imp.formatw(ERROR, emptyTraceKey, msg, keysAndValues...))
+		imp.Write(imp.formatw(ERROR, emptyTraceKey, msg, keysAndValues...))
 	}
 }
 
@@ -421,26 +423,26 @@ func (imp *impl) CErrorw(ctx context.Context, msg string, keysAndValues ...inter
 
 	// We log if the logger is configured for error, or if there's a trace key.
 	if imp.shouldLog(ERROR) || dbgName != emptyTraceKey {
-		imp.log(imp.formatw(ERROR, dbgName, msg, keysAndValues...))
+		imp.Write(imp.formatw(ERROR, dbgName, msg, keysAndValues...))
 	}
 }
 
 // These Fatal* methods log as errors then exit the process.
 func (imp *impl) Fatal(args ...interface{}) {
 	imp.testHelper()
-	imp.log(imp.format(ERROR, emptyTraceKey, args...))
+	imp.Write(imp.format(ERROR, emptyTraceKey, args...))
 	os.Exit(1)
 }
 
 func (imp *impl) Fatalf(template string, args ...interface{}) {
 	imp.testHelper()
-	imp.log(imp.formatf(ERROR, emptyTraceKey, template, args...))
+	imp.Write(imp.formatf(ERROR, emptyTraceKey, template, args...))
 	os.Exit(1)
 }
 
 func (imp *impl) Fatalw(msg string, keysAndValues ...interface{}) {
 	imp.testHelper()
-	imp.log(imp.formatw(ERROR, emptyTraceKey, msg, keysAndValues...))
+	imp.Write(imp.formatw(ERROR, emptyTraceKey, msg, keysAndValues...))
 	os.Exit(1)
 }
 

@@ -304,6 +304,24 @@ func TestServer(t *testing.T) {
 			},
 		})
 	})
+
+	t.Run("Shutdown", func(t *testing.T) {
+		injectRobot := &inject.Robot{}
+		injectRobot.ResourceRPCAPIsFunc = func() []resource.RPCAPI { return nil }
+		injectRobot.ResourceNamesFunc = func() []resource.Name { return nil }
+		shutdownCalled := false
+		injectRobot.ShutdownFunc = func(ctx context.Context) error {
+			shutdownCalled = true
+			return nil
+		}
+
+		server := server.New(injectRobot)
+		req := pb.ShutdownRequest{}
+
+		_, err := server.Shutdown(context.Background(), &req)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, shutdownCalled, test.ShouldBeTrue)
+	})
 }
 
 func TestServerFrameSystemConfig(t *testing.T) {
@@ -473,12 +491,7 @@ func TestServerGetStatus(t *testing.T) {
 			aStatus.Name: lastReconfigured,
 		}
 		injectRobot.StatusFunc = func(ctx context.Context, resourceNames []resource.Name) ([]robot.Status, error) {
-			test.That(
-				t,
-				testutils.NewResourceNameSet(resourceNames...),
-				test.ShouldResemble,
-				testutils.NewResourceNameSet(aStatus.Name),
-			)
+			testutils.VerifySameResourceNames(t, resourceNames, []resource.Name{aStatus.Name})
 			return readings, nil
 		}
 		req := &pb.GetStatusRequest{
@@ -523,12 +536,7 @@ func TestServerGetStatus(t *testing.T) {
 			aStatus.Name: lastReconfigured2,
 		}
 		injectRobot.StatusFunc = func(ctx context.Context, resourceNames []resource.Name) ([]robot.Status, error) {
-			test.That(
-				t,
-				testutils.NewResourceNameSet(resourceNames...),
-				test.ShouldResemble,
-				testutils.NewResourceNameSet(gStatus.Name, aStatus.Name),
-			)
+			testutils.VerifySameResourceNames(t, resourceNames, []resource.Name{gStatus.Name, aStatus.Name})
 			return statuses, nil
 		}
 		req := &pb.GetStatusRequest{

@@ -38,7 +38,7 @@ var (
 
 // TODO: rewrite tests.
 func TestCaptureQueue(t *testing.T) {
-	MaxFileSize = 50
+	maxFileSize := 50
 	tests := []struct {
 		name               string
 		dataType           v1.DataType
@@ -74,7 +74,7 @@ func TestCaptureQueue(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			tmpDir := t.TempDir()
 			md := &v1.DataCaptureMetadata{Type: tc.dataType}
-			sut := NewBuffer(tmpDir, md)
+			sut := NewBuffer(tmpDir, md, int64(maxFileSize))
 			var pushValue *v1.SensorData
 			if tc.dataType == v1.DataType_DATA_TYPE_BINARY_SENSOR {
 				pushValue = binarySensorData

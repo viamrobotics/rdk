@@ -3,6 +3,7 @@ package fake
 
 import (
 	"context"
+	"fmt"
 	"math"
 	"sync"
 	"time"
@@ -274,16 +275,29 @@ func goForMath(maxRPM, rpm, revolutions float64) (float64, time.Duration, float6
 	return powerPct, waitDur, dir
 }
 
+// checkSpeed checks if the input rpm is too slow or fast and returns a warning and/or error.
+func checkSpeed(rpm, max float64) (string, error) {
+	switch speed := math.Abs(rpm); {
+	case speed == 0:
+		return "motor speed requested is 0 rev_per_min", motor.NewZeroRPMError()
+	case speed > 0 && speed < 0.1:
+		return "motor speed is nearly 0 rev_per_min", nil
+	case max > 0 && speed > max-0.1:
+		return fmt.Sprintf("motor speed is nearly the max rev_per_min (%f)", max), nil
+	default:
+		return "", nil
+	}
+}
+
 // GoFor sets the given direction and an arbitrary power percentage.
 // If rpm is 0, the motor should immediately move to the final position.
 func (m *Motor) GoFor(ctx context.Context, rpm, revolutions float64, extra map[string]interface{}) error {
-	switch speed := math.Abs(rpm); {
-	case speed < 0.1:
-		m.Logger.CWarn(ctx, "motor speed is nearly 0 rev_per_min")
-		return motor.NewZeroRPMError()
-	case m.MaxRPM > 0 && speed > m.MaxRPM-0.1:
-		m.Logger.CWarnf(ctx, "motor speed is nearly the max rev_per_min (%f)", m.MaxRPM)
-	default:
+	warning, err := checkSpeed(rpm, m.MaxRPM)
+	if warning != "" {
+		m.Logger.CWarn(ctx, warning)
+	}
+	if err != nil {
+		return err
 	}
 
 	powerPct, waitDur, dir := goForMath(m.MaxRPM, rpm, revolutions)
@@ -297,7 +311,7 @@ func (m *Motor) GoFor(ctx context.Context, rpm, revolutions float64, extra map[s
 		finalPos = curPos + dir*math.Abs(revolutions)
 	}
 
-	err := m.SetPower(ctx, powerPct, nil)
+	err = m.SetPower(ctx, powerPct, nil)
 	if err != nil {
 		return err
 	}
@@ -313,7 +327,7 @@ func (m *Motor) GoFor(ctx context.Context, rpm, revolutions float64, extra map[s
 		}
 
 		if m.Encoder != nil {
-			return m.Encoder.SetPosition(ctx, int64(finalPos*float64(m.TicksPerRotation)))
+			return m.Encoder.SetPosition(ctx, finalPos*float64(m.TicksPerRotation))
 		}
 	}
 	return nil
@@ -325,12 +339,12 @@ func (m *Motor) GoTo(ctx context.Context, rpm, pos float64, extra map[string]int
 		return errors.New("encoder is not defined")
 	}
 
-	switch speed := math.Abs(rpm); {
-	case speed < 0.1:
-		m.Logger.CWarn(ctx, "motor speed is nearly 0 rev_per_min")
-	case m.MaxRPM > 0 && speed > m.MaxRPM-0.1:
-		m.Logger.CWarnf(ctx, "motor speed is nearly the max rev_per_min (%f)", m.MaxRPM)
-	default:
+	warning, err := checkSpeed(rpm, m.MaxRPM)
+	if warning != "" {
+		m.Logger.CWarn(ctx, warning)
+	}
+	if err != nil {
+		return err
 	}
 
 	curPos, err := m.Position(ctx, nil)
@@ -360,10 +374,24 @@ func (m *Motor) GoTo(ctx context.Context, rpm, pos float64, extra map[string]int
 			return err
 		}
 
-		return m.Encoder.SetPosition(ctx, int64(pos*float64(m.TicksPerRotation)))
+		return m.Encoder.SetPosition(ctx, pos*float64(m.TicksPerRotation))
 	}
 
 	return nil
+}
+
+// SetRPM instructs the motor to move at the specified RPM indefinitely.
+func (m *Motor) SetRPM(ctx context.Context, rpm float64, extra map[string]interface{}) error {
+	warning, err := checkSpeed(rpm, m.MaxRPM)
+	if warning != "" {
+		m.Logger.CWarn(ctx, warning)
+	}
+	if err != nil {
+		return err
+	}
+
+	powerPct := rpm / m.MaxRPM
+	return m.SetPower(ctx, powerPct, nil)
 }
 
 // Stop has the motor pretend to be off.
@@ -392,7 +420,7 @@ func (m *Motor) ResetZeroPosition(ctx context.Context, offset float64, extra map
 		return errors.New("need nonzero TicksPerRotation for motor")
 	}
 
-	err := m.Encoder.SetPosition(ctx, int64(-1*offset))
+	err := m.Encoder.SetPosition(ctx, -1*offset)
 	if err != nil {
 		return errors.Wrapf(err, "error in ResetZeroPosition from motor (%s)", m.Name())
 	}

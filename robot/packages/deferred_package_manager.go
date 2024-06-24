@@ -12,7 +12,6 @@ package packages
 
 import (
 	"context"
-	"os"
 	"sync"
 
 	"github.com/pkg/errors"
@@ -94,7 +93,7 @@ func (m *deferredPackageManager) Cleanup(ctx context.Context) error {
 	return m.lastSyncedManager.Cleanup(ctx)
 }
 
-// PackagePath returns the package if it exists and already download. If it does not exist it returns a ErrPackageMissing error.
+// PackagePath returns the package if it exists and already downloaded. If it does not exist it returns a ErrPackageMissing error.
 func (m *deferredPackageManager) PackagePath(name PackageName) (string, error) {
 	m.lastSyncedManagerLock.Lock()
 	defer m.lastSyncedManagerLock.Unlock()
@@ -121,7 +120,7 @@ func (m *deferredPackageManager) getManagerForSync(ctx context.Context, packages
 	}
 
 	// if we are missing packages, run createCloudManager synchronously
-	if m.isMissingPackages(packages) {
+	if !packagesAreSynced(packages, m.cloudManagerArgs.packagesDir, m.logger) {
 		mgr, err := m.createCloudManager(ctx)
 		if err == nil {
 			// err == nil, not != nil
@@ -162,14 +161,7 @@ func (m *deferredPackageManager) createCloudManager(ctx context.Context) (Manage
 	)
 }
 
-// isMissingPackages is used pre-sync to determine if we should force-wait for the connection
-// to be established.
-func (m *deferredPackageManager) isMissingPackages(packages []config.PackageConfig) bool {
-	for _, pkg := range packages {
-		dir := pkg.LocalDataDirectory(m.cloudManagerArgs.packagesDir)
-		if _, err := os.Stat(dir); err != nil {
-			return true
-		}
-	}
-	return false
+// SyncOne is a no-op for this package manager variant.
+func (m *deferredPackageManager) SyncOne(ctx context.Context, mod config.Module) error {
+	return nil
 }

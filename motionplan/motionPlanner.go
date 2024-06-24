@@ -5,13 +5,13 @@ package motionplan
 
 import (
 	"context"
+	"fmt"
 	"math/rand"
 	"sort"
 	"sync"
 	"time"
 
 	"github.com/pkg/errors"
-	pb "go.viam.com/api/service/motion/v1"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/logging"
@@ -49,7 +49,8 @@ type PlanRequest struct {
 	StartPose          spatialmath.Pose
 	StartConfiguration map[string][]frame.Input
 	WorldState         *frame.WorldState
-	ConstraintSpecs    *pb.Constraints
+	BoundingRegions    []spatialmath.Geometry
+	Constraints        *Constraints
 	Options            map[string]interface{}
 }
 
@@ -78,6 +79,33 @@ func (req *PlanRequest) validatePlanRequest() error {
 	goalParentFrame := req.Goal.Parent()
 	if req.FrameSystem.Frame(goalParentFrame) == nil {
 		return frame.NewParentFrameMissingError(req.Goal.Name(), goalParentFrame)
+	}
+
+	if len(req.BoundingRegions) > 0 {
+		buffer, ok := req.Options["collision_buffer_mm"].(float64)
+		if !ok {
+			buffer = defaultCollisionBufferMM
+		}
+		// check that the request frame's geometries are within or in collision with the bounding regions
+		robotGifs, err := req.Frame.Geometries(make([]frame.Input, len(req.Frame.DoF())))
+		if err != nil {
+			return err
+		}
+		var robotGeoms []spatialmath.Geometry
+		for _, geom := range robotGifs.Geometries() {
+			robotGeoms = append(robotGeoms, geom.Transform(req.StartPose))
+		}
+		robotGeomBoundingRegionCheck := NewBoundingRegionConstraint(robotGeoms, req.BoundingRegions, buffer)
+		if !robotGeomBoundingRegionCheck(&ik.State{}) {
+			return fmt.Errorf("frame named %s is not within the provided bounding regions", req.Frame.Name())
+		}
+
+		// check that the destination is within or in collision with the bounding regions
+		destinationAsGeom := []spatialmath.Geometry{spatialmath.NewPoint(req.Goal.Pose().Point(), "")}
+		destinationBoundingRegionCheck := NewBoundingRegionConstraint(destinationAsGeom, req.BoundingRegions, buffer)
+		if !destinationBoundingRegionCheck(&ik.State{}) {
+			return errors.New("destination was not within the provided bounding regions")
+		}
 	}
 
 	frameDOF := len(req.Frame.DoF())
@@ -109,7 +137,7 @@ func PlanFrameMotion(ctx context.Context,
 	dst spatialmath.Pose,
 	f frame.Frame,
 	seed []frame.Input,
-	constraintSpec *pb.Constraints,
+	constraints *Constraints,
 	planningOpts map[string]interface{},
 ) ([][]frame.Input, error) {
 	// ephemerally create a framesystem containing just the frame for the solve
@@ -123,7 +151,7 @@ func PlanFrameMotion(ctx context.Context,
 		Frame:              f,
 		StartConfiguration: map[string][]frame.Input{f.Name(): seed},
 		FrameSystem:        fs,
-		ConstraintSpecs:    constraintSpec,
+		Constraints:        constraints,
 		Options:            planningOpts,
 	})
 	if err != nil {
@@ -149,7 +177,7 @@ func Replan(ctx context.Context, request *PlanRequest, currentPlan Plan, replanC
 		return nil, errors.New("solver frame has no degrees of freedom, cannot perform inverse kinematics")
 	}
 
-	request.Logger.CDebugf(ctx, "constraint specs for this step: %v", request.ConstraintSpecs)
+	request.Logger.CDebugf(ctx, "constraint specs for this step: %v", request.Constraints)
 	request.Logger.CDebugf(ctx, "motion config for this step: %v", request.Options)
 
 	rseed := defaultRandomSeed

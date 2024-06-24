@@ -24,7 +24,7 @@ func NewNoopManager() ManagerSyncer {
 	}
 }
 
-// PackagePath returns the package if it exists and already download. If it does not exist it returns a ErrPackageMissing error.
+// PackagePath returns the package if it exists and already downloaded. If it does not exist it returns a ErrPackageMissing error.
 func (m *noopManager) PackagePath(name PackageName) (string, error) {
 	return string(name), nil
 }
@@ -41,5 +41,10 @@ func (m *noopManager) Sync(ctx context.Context, packages []config.PackageConfig,
 
 // Cleanup removes all unknown packages from the working directory.
 func (m *noopManager) Cleanup(ctx context.Context) error {
+	return nil
+}
+
+// SyncOne is a no-op for this package manager variant.
+func (m *noopManager) SyncOne(ctx context.Context, mod config.Module) error {
 	return nil
 }

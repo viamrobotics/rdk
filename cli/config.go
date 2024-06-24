@@ -7,6 +7,7 @@ import (
 
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
+	"go.viam.com/utils/rpc"
 )
 
 var viamDotDir = filepath.Join(os.Getenv("HOME"), ".viam")
@@ -15,12 +16,14 @@ func getCLICachePath() string {
 	return filepath.Join(viamDotDir, "cached_cli_config.json")
 }
 
-func configFromCache() (*config, error) {
+// ConfigFromCache parses the cached json into a Config.
+// TODO(RSDK-7812): maybe move shared code to common location.
+func ConfigFromCache() (*Config, error) {
 	rd, err := os.ReadFile(getCLICachePath())
 	if err != nil {
 		return nil, err
 	}
-	var conf config
+	var conf Config
 
 	tokenErr := conf.tryUnmarshallWithToken(rd)
 	if tokenErr == nil {
@@ -31,14 +34,14 @@ func configFromCache() (*config, error) {
 		return &conf, nil
 	}
 
-	return nil, errors.Wrap(multierr.Combine(tokenErr, apiKeyErr), "failed to read config from cache")
+	return nil, errors.Wrap(multierr.Combine(tokenErr, apiKeyErr), "failed to parse cached config")
 }
 
 func removeConfigFromCache() error {
 	return os.Remove(getCLICachePath())
 }
 
-func storeConfigToCache(cfg *config) error {
+func storeConfigToCache(cfg *Config) error {
 	if err := os.MkdirAll(viamDotDir, 0o700); err != nil {
 		return err
 	}
@@ -50,14 +53,15 @@ func storeConfigToCache(cfg *config) error {
 	return os.WriteFile(getCLICachePath(), md, 0o640)
 }
 
-type config struct {
+// Config is the schema for saved CLI credentials.
+type Config struct {
 	BaseURL         string     `json:"base_url"`
 	Auth            authMethod `json:"auth"`
 	LastUpdateCheck string     `json:"last_update_check"`
 	LatestVersion   string     `json:"latest_version"`
 }
 
-func (conf *config) tryUnmarshallWithToken(configBytes []byte) error {
+func (conf *Config) tryUnmarshallWithToken(configBytes []byte) error {
 	conf.Auth = &token{}
 	if err := json.Unmarshal(configBytes, &conf); err != nil {
 		return err
@@ -68,7 +72,7 @@ func (conf *config) tryUnmarshallWithToken(configBytes []byte) error {
 	return errors.New("config did not contain a user token")
 }
 
-func (conf *config) tryUnmarshallWithAPIKey(configBytes []byte) error {
+func (conf *Config) tryUnmarshallWithAPIKey(configBytes []byte) error {
 	conf.Auth = &apiKey{}
 	if err := json.Unmarshal(configBytes, &conf); err != nil {
 		return err
@@ -77,4 +81,13 @@ func (conf *config) tryUnmarshallWithAPIKey(configBytes []byte) error {
 		return nil
 	}
 	return errors.New("config did not contain an api key")
+}
+
+// DialOptions constructs an rpc.DialOption slice from config.
+func (conf *Config) DialOptions() ([]rpc.DialOption, error) {
+	_, opts, err := parseBaseURL(conf.BaseURL, true)
+	if err != nil {
+		return nil, err
+	}
+	return append(opts, conf.Auth.dialOpts()), nil
 }

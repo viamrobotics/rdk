@@ -11,7 +11,6 @@ import (
 	"github.com/google/uuid"
 	geo "github.com/kellydunn/golang-geo"
 	"github.com/pkg/errors"
-	servicepb "go.viam.com/api/service/motion/v1"
 	"go.viam.com/test"
 	"go.viam.com/utils/rpc"
 
@@ -95,7 +94,7 @@ func TestClient(t *testing.T) {
 			componentName resource.Name,
 			destination *referenceframe.PoseInFrame,
 			worldState *referenceframe.WorldState,
-			constraints *servicepb.Constraints,
+			constraints *motionplan.Constraints,
 			extra map[string]interface{},
 		) (bool, error) {
 			return success, nil
@@ -171,7 +170,7 @@ func TestClient(t *testing.T) {
 			componentName resource.Name,
 			grabPose *referenceframe.PoseInFrame,
 			worldState *referenceframe.WorldState,
-			constraints *servicepb.Constraints,
+			constraints *motionplan.Constraints,
 			extra map[string]interface{},
 		) (bool, error) {
 			return false, passedErr

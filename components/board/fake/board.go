@@ -12,11 +12,13 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 	pb "go.viam.com/api/component/board/v1"
+	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
+	rdkutils "go.viam.com/rdk/utils"
 )
 
 // In order to maintain test functionality, testPin will always return the analog value it is set
@@ -81,6 +83,7 @@ func NewBoard(ctx context.Context, conf resource.Config, logger logging.Logger) 
 		Analogs:  map[string]*Analog{},
 		Digitals: map[string]*DigitalInterrupt{},
 		GPIOPins: map[string]*GPIOPin{},
+		workers:  rdkutils.NewStoppableWorkers(),
 		logger:   logger,
 	}
 
@@ -163,6 +166,8 @@ type Board struct {
 	GPIOPins   map[string]*GPIOPin
 	logger     logging.Logger
 	CloseCount int
+
+	workers rdkutils.StoppableWorkers
 }
 
 // AnalogByName returns the analog pin by the given name if it exists.
@@ -233,28 +238,41 @@ func (b *Board) SetPowerMode(ctx context.Context, mode pb.PowerMode, duration *t
 func (b *Board) StreamTicks(ctx context.Context, interrupts []board.DigitalInterrupt, ch chan board.Tick,
 	extra map[string]interface{},
 ) error {
-	for _, i := range interrupts {
-		name := i.Name()
-		d, ok := b.Digitals[name]
+	for _, di := range interrupts {
+		_, ok := b.Digitals[di.Name()]
 		if !ok {
-			return fmt.Errorf("could not find digital interrupt: %s", name)
+			return fmt.Errorf("could not find digital interrupt: %s", di.Name())
 		}
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		default:
-			// Keep going
-		}
-		// Get a random bool for the high tick value.
-		// linter complans about security but we don't care if someone
-		// can predict if the fake interrupts will be high or low.
-		//nolint:gosec
-		randBool := rand.Int()%2 == 0
-		select {
-		case ch <- board.Tick{Name: d.conf.Name, High: randBool, TimestampNanosec: uint64(time.Now().Unix())}:
-		default:
-			// if nothing is listening to the channel just do nothing.
-		}
+	}
+
+	for _, di := range interrupts {
+		// Don't need to check if interrupt exists, just did that above
+		b.workers.AddWorkers(func(workersContext context.Context) {
+			for {
+				// sleep to avoid a busy loop
+				if !utils.SelectContextOrWait(workersContext, 700*time.Millisecond) {
+					return
+				}
+				select {
+				case <-ctx.Done():
+					return
+				case <-workersContext.Done():
+					return
+				default:
+					// Keep going
+				}
+				// Get a random bool for the high tick value.
+				// linter complains about security but we don't care if someone
+				// can predict if the fake interrupts will be high or low.
+				//nolint:gosec
+				randBool := rand.Int()%2 == 0
+				select {
+				case ch <- board.Tick{Name: di.Name(), High: randBool, TimestampNanosec: uint64(time.Now().Unix())}:
+				default:
+					// if nothing is listening to the channel just do nothing.
+				}
+			}
+		})
 	}
 	return nil
 }
@@ -263,9 +281,9 @@ func (b *Board) StreamTicks(ctx context.Context, interrupts []board.DigitalInter
 func (b *Board) Close(ctx context.Context) error {
 	b.mu.Lock()
 	defer b.mu.Unlock()
-
 	b.CloseCount++
 
+	b.workers.Stop()
 	return nil
 }
 

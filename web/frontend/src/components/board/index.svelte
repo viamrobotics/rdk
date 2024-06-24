@@ -10,8 +10,8 @@ export let name: string;
 export let status:
   | undefined
   | {
-      analogs: Record<string, { value: number }>;
-      digital_interrupts: Record<string, { value: number }>;
+      analogs: Record<string, number>;
+      digital_interrupts: Record<string, number>;
     };
 
 const { robotClient } = useRobotClient();
@@ -95,7 +95,7 @@ const writeAnalog = async () => {
 
 const readAnalog = async () => {
   try {
-    const value = await boardClient.readAnalogReader(analogPinName);
+    const { value } = await boardClient.readAnalogReader(analogPinName);
     readAnalogMessage = `${analogPinName}: value is ${value}`;
   } catch (error) {
     notify.danger((error as ServiceError).message);
@@ -145,7 +145,7 @@ const handleReadAnalogPinInput = (event: CustomEvent<{ value: string }>) => {
             {analogName}
           </th>
           <td class="border border-medium p-2">
-            {analog.value || 0}
+            {analog || 0}
           </td>
         </tr>
       {/each}
@@ -159,7 +159,7 @@ const handleReadAnalogPinInput = (event: CustomEvent<{ value: string }>) => {
             {interruptName}
           </th>
           <td class="border border-medium p-2">
-            {interrupt.value || 0}
+            {interrupt || 0}
           </td>
         </tr>
       {/each}

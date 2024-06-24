@@ -55,10 +55,14 @@ tool-install:
 		github.com/AlekSi/gocov-xml \
 		github.com/axw/gocov/gocov \
 		gotest.tools/gotestsum \
-		github.com/rhysd/actionlint/cmd/actionlint
+		github.com/rhysd/actionlint/cmd/actionlint \
+		golang.org/x/tools/cmd/stringer
 
 lint: lint-go lint-web
 	PATH=$(PATH_WITH_TOOLS) actionlint
+
+generate-go: tool-install
+	PATH=$(PATH_WITH_TOOLS) go generate ./...
 
 lint-go: tool-install
 	go mod tidy

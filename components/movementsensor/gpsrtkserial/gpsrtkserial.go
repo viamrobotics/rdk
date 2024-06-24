@@ -429,13 +429,11 @@ func (g *rtkSerial) receiveAndWriteSerial() {
 
 				if g.isVirtualBase {
 					g.logger.Debug("reconnecting to the Virtual Reference Station")
-
 					err = g.getNtripFromVRS()
 					if err != nil && !errors.Is(err, io.EOF) {
 						g.err.Set(err)
 						return
 					}
-
 					scanner = rtcm3.NewScanner(g.readerWriter)
 				} else {
 					g.logger.Debug("No message... reconnecting to stream...")
@@ -652,13 +650,17 @@ func (g *rtkSerial) Close(ctx context.Context) error {
 func (g *rtkSerial) getNtripFromVRS() error {
 	g.mu.Lock()
 	defer g.mu.Unlock()
-
-	g.readerWriter = gpsutils.ConnectToVirtualBase(g.ntripClient, g.logger)
+	var err error
+	g.readerWriter, err = gpsutils.ConnectToVirtualBase(g.ntripClient, g.logger)
+	if err != nil {
+		return err
+	}
 
 	// read from the socket until we know if a successful connection has been
 	// established.
 	for {
 		line, _, err := g.readerWriter.ReadLine()
+		response := string(line)
 		if err != nil {
 			if errors.Is(err, io.EOF) {
 				g.readerWriter = nil
@@ -668,12 +670,13 @@ func (g *rtkSerial) getNtripFromVRS() error {
 			return err
 		}
 
-		if strings.HasPrefix(string(line), "HTTP/1.1 ") {
-			if strings.Contains(string(line), "200 OK") {
+		if strings.HasPrefix(response, "HTTP/1.1 ") {
+			if strings.Contains(response, "200 OK") {
+				g.logger.Debug("Successful connection established with NTRIP caster.")
 				break
 			}
-			g.logger.Errorf("Bad HTTP response: %v", string(line))
-			return err
+			g.logger.Errorf("Bad HTTP response: %v", response)
+			return fmt.Errorf("server responded with non-OK status: %s", response)
 		}
 	}
 

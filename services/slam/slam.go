@@ -45,11 +45,35 @@ const (
 	MappingModeUpdateExistingMap
 )
 
+func (t MappingMode) String() string {
+	switch t {
+	case MappingModeNewMap:
+		return "mapping mode"
+	case MappingModeLocalizationOnly:
+		return "localizing only mode"
+	case MappingModeUpdateExistingMap:
+		return "updating mode"
+	default:
+		return "unspecified mode"
+	}
+}
+
 // SensorTypeCamera is a camera sensor.
 const (
 	SensorTypeCamera = SensorType(iota)
 	SensorTypeMovementSensor
 )
+
+func (t SensorType) String() string {
+	switch t {
+	case SensorTypeCamera:
+		return "camera"
+	case SensorTypeMovementSensor:
+		return "movement sensor"
+	default:
+		return "unsupported sensor type"
+	}
+}
 
 // API is a variable that identifies the slam resource API.
 var API = resource.APINamespaceRDK.WithServiceType(SubtypeName)
@@ -96,7 +120,7 @@ func FromDependencies(deps resource.Dependencies, name string) (Service, error) 
 // Service describes the functions that are available to the service.
 //
 // The Go SDK implements helper functions that concatenate streaming
-// responses. Some of the following examples use correstponding
+// responses. Some of the following examples use corresponding
 // helper methods instead of interface methods.
 //
 // Position example:
@@ -124,7 +148,7 @@ func FromDependencies(deps resource.Dependencies, name string) (Service, error) 
 //	properties, err := mySLAMService.Properties(context.Background())
 type Service interface {
 	resource.Resource
-	Position(ctx context.Context) (spatialmath.Pose, string, error)
+	Position(ctx context.Context) (spatialmath.Pose, error)
 	PointCloudMap(ctx context.Context, returnEditedMap bool) (func() ([]byte, error), error)
 	InternalState(ctx context.Context) (func() ([]byte, error), error)
 	Properties(ctx context.Context) (Properties, error)

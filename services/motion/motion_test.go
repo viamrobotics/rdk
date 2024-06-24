@@ -833,7 +833,7 @@ func TestMoveOnGlobeReq(t *testing.T) {
 			"rdk:component:base/my-base, Destination: " +
 			"&{lat:1 lng:2}, Heading: 0.500000, MovementSensorName: " +
 			"rdk:component:movement_sensor/my-movementsensor, " +
-			"Obstacles: [], MotionCfg: &motion.MotionConfiguration{" +
+			"Obstacles: [], BoundingRegions: [], MotionCfg: &motion.MotionConfiguration{" +
 			"ObstacleDetectors:[]motion.ObstacleDetectorName{" +
 			"motion.ObstacleDetectorName{VisionServiceName:resource.Name{" +
 			"API:resource.API{Type:resource.APIType{Namespace:\"rdk\", Name:\"service\"}, " +

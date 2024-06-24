@@ -45,7 +45,7 @@ func NewColorDetector(cfg *ColorDetectorConfig) (Detector, error) {
 	}
 
 	if tol > 1.0 || tol <= 0.0 {
-		return nil, errors.Errorf("hue_tolerance_pct must be between 0.0 and 1.0. Got %.5f", tol)
+		return nil, errors.Errorf("hue_tolerance_pct is required, and must be greater than 0.0 and less than or equal to 1.0. Got %.5f", tol)
 	}
 	if sat > 1.0 || sat < 0.0 {
 		return nil, errors.Errorf("saturation_cutoff_pct must be between 0.0 and 1.0. Got %.5f", sat)

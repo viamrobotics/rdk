@@ -146,7 +146,7 @@ func TestDMC4000Motor(t *testing.T) {
 			[]string{"STA", "SCA", "TEA"},
 			[]string{" :", "4\r\n:", "0\r\n:"},
 		)
-		test.That(t, motorDep.SetPower(ctx, 0.05, nil), test.ShouldBeNil)
+		test.That(t, motorDep.SetPower(ctx, 0.0001, nil), test.ShouldBeNil)
 		allObs := obs.All()
 		latestLoggedEntry := allObs[len(allObs)-1]
 		test.That(t, fmt.Sprint(latestLoggedEntry), test.ShouldContainSubstring, "nearly 0")

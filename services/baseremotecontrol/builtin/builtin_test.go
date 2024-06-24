@@ -7,7 +7,6 @@ import (
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
 	"go.viam.com/test"
-	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/base"
 	fakebase "go.viam.com/rdk/components/base/fake"
@@ -15,6 +14,7 @@ import (
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/baseremotecontrol"
+	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
 )
 
@@ -30,7 +30,7 @@ func TestBaseRemoteControl(t *testing.T) {
 
 	depNames, err := cfg.Validate("")
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, utils.NewStringSet(depNames...), test.ShouldResemble, utils.NewStringSet("baseTest", "inputTest"))
+	testutils.VerifySameElements(t, depNames, []string{"baseTest", "inputTest"})
 
 	fakeController := &inject.InputController{}
 	fakeBase := &fakebase.Base{}

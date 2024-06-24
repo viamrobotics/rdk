@@ -397,6 +397,11 @@ func diffNetworkingCfg(left, right *Config) bool {
 	if !reflect.DeepEqual(left.Auth, right.Auth) {
 		return true
 	}
+
+	if !reflect.DeepEqual(left.EnableWebProfile, right.EnableWebProfile) {
+		return true
+	}
+
 	return false
 }
 
@@ -405,7 +410,6 @@ func diffNetwork(leftCopy, rightCopy NetworkConfig) bool {
 	if diffTLS(leftCopy.TLSConfig, rightCopy.TLSConfig) {
 		return true
 	}
-
 	// TLSConfig holds funcs, which will never deeply equal so ignore them here
 	leftCopy.TLSConfig = nil
 	rightCopy.TLSConfig = nil

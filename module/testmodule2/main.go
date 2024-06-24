@@ -191,6 +191,11 @@ func (tm *testMotor) GoTo(_ context.Context, _, _ float64, _ map[string]interfac
 	return nil
 }
 
+// SetRPM trivially implements motor.Motor.
+func (tm *testMotor) SetRPM(_ context.Context, _ float64, _ map[string]interface{}) error {
+	return nil
+}
+
 // ResetZeroPosition trivially implements motor.Motor.
 func (tm *testMotor) ResetZeroPosition(_ context.Context, _ float64, _ map[string]interface{}) error {
 	return nil

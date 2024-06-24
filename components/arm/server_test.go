@@ -126,6 +126,14 @@ func TestServer(t *testing.T) {
 		_, err = armServer.GetEndPosition(context.Background(), &pb.GetEndPositionRequest{Name: failArmName})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, errGetPoseFailed.Error())
+
+		// Redefine EndPositionFunc to test nil return.
+		injectArm.EndPositionFunc = func(ctx context.Context, extra map[string]interface{}) (spatialmath.Pose, error) {
+			return nil, nil
+		}
+		resp, err = armServer.GetEndPosition(context.Background(), &pb.GetEndPositionRequest{Name: testArmName})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, resp.Pose, test.ShouldResemble, &commonpb.Pose{})
 	})
 
 	t.Run("move to position", func(t *testing.T) {
@@ -164,6 +172,15 @@ func TestServer(t *testing.T) {
 		_, err = armServer.GetJointPositions(context.Background(), &pb.GetJointPositionsRequest{Name: failArmName})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, errGetJointsFailed.Error())
+
+		// Redefine JointPositionsFunc to test nil return.
+		//nolint: nilnil
+		injectArm.JointPositionsFunc = func(ctx context.Context, extra map[string]interface{}) (*pb.JointPositions, error) {
+			return nil, nil
+		}
+		resp, err = armServer.GetJointPositions(context.Background(), &pb.GetJointPositionsRequest{Name: testArmName})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, resp.Positions.Values, test.ShouldResemble, []float64{})
 	})
 
 	t.Run("move to joint position", func(t *testing.T) {

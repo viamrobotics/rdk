@@ -102,7 +102,7 @@ func TestResolvePartId(t *testing.T) {
 
 func TestMutateModuleConfig(t *testing.T) {
 	c := newTestContext(t, map[string]any{})
-	manifest := moduleManifest{ModuleID: "viam-labs:test-module", Entrypoint: "/bin/mod"}
+	manifest := moduleManifest{ModuleID: "viam-labs:test-module", JSONManifest: rdkConfig.JSONManifest{Entrypoint: "/bin/mod"}}
 
 	// correct ExePath (do nothing)
 	modules := []ModuleMap{{"module_id": manifest.ModuleID, "executable_path": manifest.Entrypoint}}

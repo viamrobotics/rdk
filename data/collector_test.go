@@ -61,7 +61,7 @@ func TestNewCollector(t *testing.T) {
 	c2, err2 := NewCollector(nil, CollectorParams{
 		ComponentName: "name",
 		Logger:        logging.NewTestLogger(t),
-		Target:        datacapture.NewBuffer("dir", nil),
+		Target:        datacapture.NewBuffer("dir", nil, 50),
 	})
 
 	test.That(t, c2, test.ShouldNotBeNil)
@@ -125,7 +125,7 @@ func TestSuccessfulWrite(t *testing.T) {
 			defer cancel()
 			tmpDir := t.TempDir()
 			md := v1.DataCaptureMetadata{}
-			tgt := datacapture.NewBuffer(tmpDir, &md)
+			tgt := datacapture.NewBuffer(tmpDir, &md, 50)
 			test.That(t, tgt, test.ShouldNotBeNil)
 			wrote := make(chan struct{})
 			target := &signalingBuffer{
@@ -201,7 +201,7 @@ func TestClose(t *testing.T) {
 	l := logging.NewTestLogger(t)
 	tmpDir := t.TempDir()
 	md := v1.DataCaptureMetadata{}
-	buf := datacapture.NewBuffer(tmpDir, &md)
+	buf := datacapture.NewBuffer(tmpDir, &md, 50)
 	wrote := make(chan struct{})
 	target := &signalingBuffer{
 		bw:    buf,
@@ -251,7 +251,7 @@ func TestClose(t *testing.T) {
 func TestCtxCancelledNotLoggedAfterClose(t *testing.T) {
 	logger, logs := logging.NewObservedTestLogger(t)
 	tmpDir := t.TempDir()
-	target := datacapture.NewBuffer(tmpDir, &v1.DataCaptureMetadata{})
+	target := datacapture.NewBuffer(tmpDir, &v1.DataCaptureMetadata{}, 50)
 	captured := make(chan struct{})
 	errorCapturer := CaptureFunc(func(ctx context.Context, _ map[string]*anypb.Any) (interface{}, error) {
 		select {
@@ -290,7 +290,7 @@ func TestLogErrorsOnlyOnce(t *testing.T) {
 	logger, logs := logging.NewObservedTestLogger(t)
 	tmpDir := t.TempDir()
 	md := v1.DataCaptureMetadata{}
-	buf := datacapture.NewBuffer(tmpDir, &md)
+	buf := datacapture.NewBuffer(tmpDir, &md, 50)
 	wrote := make(chan struct{})
 	errorCapturer := CaptureFunc(func(ctx context.Context, _ map[string]*anypb.Any) (interface{}, error) {
 		return nil, errors.New("I am an error")

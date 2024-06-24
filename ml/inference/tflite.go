@@ -1,4 +1,4 @@
-//go:build !arm && !windows && !no_tflite && !no_cgo
+//go:build !arm && !windows && !no_tflite && (!no_cgo || android)
 
 package inference
 

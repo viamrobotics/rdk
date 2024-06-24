@@ -54,8 +54,8 @@ type Servo interface {
 	resource.Resource
 	resource.Actuator
 
-	// Move moves the servo to the given angle (0-180 degrees)
-	// This will block until done or a new operation cancels this one
+	// Move moves the servo to the given angle (0-180 degrees).
+	// This will block until done or a new operation cancels this one.
 	Move(ctx context.Context, angleDeg uint32, extra map[string]interface{}) error
 
 	// Position returns the current set angle (degrees) of the servo.

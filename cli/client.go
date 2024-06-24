@@ -61,7 +61,7 @@ const (
 // needed to talk to the app and data services but not directly to robot parts.
 type viamClient struct {
 	c                *cli.Context
-	conf             *config
+	conf             *Config
 	client           apppb.AppServiceClient
 	dataClient       datapb.DataServiceClient
 	packageClient    packagepb.PackageServiceClient
@@ -70,7 +70,6 @@ type viamClient struct {
 	mlTrainingClient mltrainingpb.MLTrainingServiceClient
 	buildClient      buildpb.BuildServiceClient
 	baseURL          *url.URL
-	rpcOpts          []rpc.DialOption
 	authFlow         *authFlow
 
 	selectedOrg *apppb.Organization
@@ -602,13 +601,13 @@ func CheckUpdateAction(c *cli.Context) error {
 		return nil
 	}
 
-	conf, err := configFromCache()
+	conf, err := ConfigFromCache()
 	if err != nil {
 		if !os.IsNotExist(err) {
 			utils.UncheckedError(err)
 			return nil
 		}
-		conf = &config{}
+		conf = &Config{}
 	}
 
 	var lastCheck time.Time
@@ -760,12 +759,12 @@ func isProdBaseURL(baseURL *url.URL) bool {
 }
 
 func newViamClient(c *cli.Context) (*viamClient, error) {
-	conf, err := configFromCache()
+	conf, err := ConfigFromCache()
 	if err != nil {
 		if !os.IsNotExist(err) {
 			return nil, err
 		}
-		conf = &config{}
+		conf = &Config{}
 	}
 
 	// If base URL was not specified, assume cached base URL. If no base URL is
@@ -784,7 +783,7 @@ func newViamClient(c *cli.Context) (*viamClient, error) {
 	if conf.BaseURL != defaultBaseURL {
 		infof(c.App.ErrWriter, "Using %q as base URL value", conf.BaseURL)
 	}
-	baseURL, rpcOpts, err := parseBaseURL(conf.BaseURL, true)
+	baseURL, _, err := parseBaseURL(conf.BaseURL, true)
 	if err != nil {
 		return nil, err
 	}
@@ -801,17 +800,10 @@ func newViamClient(c *cli.Context) (*viamClient, error) {
 		c:           c,
 		conf:        conf,
 		baseURL:     baseURL,
-		rpcOpts:     rpcOpts,
 		selectedOrg: &apppb.Organization{},
 		selectedLoc: &apppb.Location{},
 		authFlow:    authFlow,
 	}, nil
-}
-
-func (c *viamClient) copyRPCOpts() []rpc.DialOption {
-	rpcOpts := make([]rpc.DialOption, len(c.rpcOpts))
-	copy(rpcOpts, c.rpcOpts)
-	return rpcOpts
 }
 
 func (c *viamClient) loadOrganizations() error {

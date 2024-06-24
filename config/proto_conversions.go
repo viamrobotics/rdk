@@ -85,6 +85,8 @@ func FromProto(proto *pb.RobotConfig, logger logging.Logger) (*Config, error) {
 		cfg.Debug = *proto.Debug
 	}
 
+	cfg.EnableWebProfile = proto.EnableWebProfile
+
 	logAnyFragmentOverwriteErrors(logger, proto.OverwriteFragmentStatus)
 
 	return &cfg, nil

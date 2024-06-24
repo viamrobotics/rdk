@@ -1,7 +1,9 @@
 package testutils
 
 import (
+	"cmp"
 	"context"
+	"slices"
 	"testing"
 
 	"go.viam.com/test"
@@ -40,6 +42,25 @@ func NewResourceNameSet(resourceNames ...resource.Name) map[resource.Name]struct
 		set[val] = struct{}{}
 	}
 	return set
+}
+
+// newSortedResourceNames returns a new slice of resources names sorted by each
+// resource's fully-qualified names for the purposes of comparison in automated tests.
+func newSortedResourceNames(resourceNames []resource.Name) []resource.Name {
+	sorted := make([]resource.Name, len(resourceNames))
+	copy(sorted, resourceNames)
+	slices.SortStableFunc(sorted, func(r1, r2 resource.Name) int {
+		return cmp.Compare(r1.String(), r2.String())
+	})
+	return sorted
+}
+
+// VerifySameResourceNames asserts that two slices of resource.Names contain the same
+// resources.Names without considering order.
+func VerifySameResourceNames(tb testing.TB, actual, expected []resource.Name) {
+	tb.Helper()
+
+	test.That(tb, newSortedResourceNames(actual), test.ShouldResemble, newSortedResourceNames(expected))
 }
 
 // ExtractNames takes a slice of resource.Name objects

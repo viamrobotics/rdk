@@ -291,6 +291,9 @@ func readFromCloud(
 	locationID := cfg.Cloud.LocationID
 	machineID := cfg.Cloud.MachineID
 
+	// This resets the new config's Cloud section to the original we loaded from file,
+	// but allows several fields to be updated, and merges the TLS certs which come
+	// from a different endpoint.
 	mergeCloudConfig := func(to *Config) {
 		*to.Cloud = *cloudCfg
 		to.Cloud.FQDN = fqdn

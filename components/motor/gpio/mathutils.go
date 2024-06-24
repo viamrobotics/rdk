@@ -1,8 +1,11 @@
 package gpio
 
 import (
+	"fmt"
 	"math"
 	"time"
+
+	"go.viam.com/rdk/components/encoder"
 )
 
 func fixPowerPct(powerPct, max float64) float64 {
@@ -45,6 +48,9 @@ func goForMath(maxRPM, rpm, revolutions float64) (float64, time.Duration) {
 // goForMath calculates goalPos, goalRPM, and direction based on the given GoFor rpm and revolutions, and the current position.
 func encodedGoForMath(rpm, revolutions, currentPos, ticksPerRotation float64) (float64, float64, float64) {
 	direction := sign(rpm * revolutions)
+	if revolutions == 0 {
+		direction = sign(rpm)
+	}
 
 	goalPos := (math.Abs(revolutions) * ticksPerRotation * direction) + currentPos
 	goalRPM := math.Abs(rpm) * direction
@@ -54,4 +60,12 @@ func encodedGoForMath(rpm, revolutions, currentPos, ticksPerRotation float64) (f
 	}
 
 	return goalPos, goalRPM, direction
+}
+
+// checkEncPosType checks that the position type of an encoder is in ticks.
+func checkEncPosType(posType encoder.PositionType) error {
+	if posType != encoder.PositionTypeTicks {
+		return fmt.Errorf("expected %v got %v", encoder.PositionTypeTicks.String(), posType.String())
+	}
+	return nil
 }

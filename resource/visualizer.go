@@ -254,6 +254,8 @@ func exportEdge(bw *blockWriter, left, right Name) {
 // ExportDot exports the resource graph as a DOT representation for visualization.
 // DOT reference: https://graphviz.org/doc/info/lang.html.
 // This function will output the exact same string given the same input resource graph.
+// If not called inside a resourceGraphLock, there is a chance
+// of the graph changing as the snapshot is being taken.
 func (g *Graph) ExportDot() (string, error) {
 	g.mu.Lock()
 	defer g.mu.Unlock()
@@ -268,6 +270,9 @@ func (g *Graph) ExportDot() (string, error) {
 	// the same text output is produced. We desire this such that a diff in the output implies the
 	// resource graph has logically changed. To achieve this, we sort all of the inputs (nodes and
 	// edges) for a predictable iteration order.
+	//
+	// As graph nodes are not all locked during the duration of this function, nodes could change
+	// before it gets exported. This is known and expected as the graph output is "best-effort".
 	nodesSortedByName := nodesSortedByName(g.nodes)
 
 	writer := &blockWriter{}

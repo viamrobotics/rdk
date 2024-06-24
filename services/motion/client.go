@@ -9,6 +9,7 @@ import (
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/logging"
+	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
@@ -47,7 +48,7 @@ func (c *client) Move(
 	componentName resource.Name,
 	destination *referenceframe.PoseInFrame,
 	worldState *referenceframe.WorldState,
-	constraints *pb.Constraints,
+	constraints *motionplan.Constraints,
 	extra map[string]interface{},
 ) (bool, error) {
 	ext, err := vprotoutils.StructToStructPb(extra)
@@ -63,7 +64,7 @@ func (c *client) Move(
 		ComponentName: protoutils.ResourceNameToProto(componentName),
 		Destination:   referenceframe.PoseInFrameToProtobuf(destination),
 		WorldState:    worldStateMsg,
-		Constraints:   constraints,
+		Constraints:   constraints.ToProtobuf(),
 		Extra:         ext,
 	})
 	if err != nil {

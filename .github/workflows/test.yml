@@ -24,7 +24,7 @@ jobs:
             image: ghcr.io/viamrobotics/rdk-devenv:amd64-cache
             platform: linux/amd64
             platform_name: linux-amd64
-          - arch: [buildjet-8vcpu-ubuntu-2204-arm]
+          - arch: github-linux-arm64-8core
             image: ghcr.io/viamrobotics/rdk-devenv:arm64-cache
             platform: linux/arm64
             platform_name: linux-arm64
@@ -58,9 +58,9 @@ jobs:
     - name: Chown
       run: chown -R testbot:testbot .
 
-    - name: Verify no uncommitted changes from "make build-go lint-go"
+    - name: Verify no uncommitted changes from "make build-go lint-go generate-go"
       run: |
-        sudo -Hu testbot bash -lc 'git init && git add . && make build-go lint-go'
+        sudo -Hu testbot bash -lc 'git init && git add . && make build-go lint-go generate-go'
         GEN_DIFF=$(git status -s)
 
         if [ -n "$GEN_DIFF" ]; then
@@ -73,6 +73,7 @@ jobs:
 
     - name: Run go unit tests
       run: |
+        chmod -R a+rwx . # temporary fix for arm runners
         sudo --preserve-env=MONGODB_TEST_OUTPUT_URI,GITHUB_SHA,GITHUB_RUN_ID,GITHUB_RUN_NUMBER,GITHUB_RUN_ATTEMPT,GITHUB_X_PR_BASE_SHA,GITHUB_X_PR_BASE_REF,GITHUB_X_HEAD_REF,GITHUB_X_HEAD_SHA,GITHUB_REPOSITORY -Hu testbot bash -lc 'make test-go'
 
     - name: Upload test.json
@@ -95,7 +96,7 @@ jobs:
             image: ghcr.io/viamrobotics/rdk-devenv:amd64-cache
             platform: linux/amd64
             platform_name: linux-amd64
-          - arch: [buildjet-8vcpu-ubuntu-2204-arm]
+          - arch: github-linux-arm64-8core
             image: ghcr.io/viamrobotics/rdk-devenv:arm64-cache
             platform: linux/arm64
             platform_name: linux-arm64
@@ -130,9 +131,9 @@ jobs:
     - name: chown
       run: chown -R testbot:testbot .
 
-    - name: Verify no uncommitted changes from "make build-go lint-go"
+    - name: Verify no uncommitted changes from "make build-go lint-go generate-go"
       run: |
-        sudo -Hu testbot bash -lc 'git init && git add . && make build-go lint-go'
+        sudo -Hu testbot bash -lc 'git init && git add . && make build-go lint-go generate-go'
         GEN_DIFF=$(git status -s)
 
         if [ -n "$GEN_DIFF" ]; then
@@ -156,7 +157,7 @@ jobs:
 
   test32:
     name: Go 32-bit Unit Tests
-    runs-on: [buildjet-8vcpu-ubuntu-2204-arm]
+    runs-on: github-linux-arm64-8core
     timeout-minutes: 30
 
     steps:
@@ -173,6 +174,7 @@ jobs:
 
     - name: Run go unit tests
       run: |
+        chmod -R a+rwx . # temporary fix for arm runners
         docker run \
           --platform linux/arm/v7 \
           -v `pwd`:/rdk \

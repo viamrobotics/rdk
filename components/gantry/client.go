@@ -91,6 +91,14 @@ func (c *client) MoveToPosition(ctx context.Context, positionsMm, speedsMmPerSec
 	if err != nil {
 		return err
 	}
+
+	if speedsMmPerSec == nil {
+		c.logger.Warnf("%s MoveToPosition: speedMmPerSec is nil", c.name)
+	}
+
+	if positionsMm == nil {
+		c.logger.Warnf("%s MoveToPosition: positionsMm is nil", c.name)
+	}
 	_, err = c.client.MoveToPosition(ctx, &pb.MoveToPositionRequest{
 		Name:           c.name,
 		PositionsMm:    positionsMm,

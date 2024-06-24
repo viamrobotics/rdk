@@ -32,17 +32,14 @@ func (sb *sensorBase) Spin(ctx context.Context, angleDeg, degsPerSec float64, ex
 		return sb.controlledBase.Spin(ctx, angleDeg, degsPerSec, extra)
 	}
 
-	prevAngle, spinSupported, err := sb.headingFunc(ctx)
+	prevAngle, hasOrientation, err := sb.headingFunc(ctx)
 	if err != nil {
 		return err
 	}
 
-	if !spinSupported {
-		sb.logger.CWarn(ctx, "orientation movement sensor not configured, using %v's spin method", sb.controlledBase.Name().ShortName())
-		if sb.loop != nil {
-			sb.loop.Pause()
-		}
-		return sb.controlledBase.Spin(ctx, angleDeg, degsPerSec, extra)
+	if !hasOrientation {
+		sb.logger.CWarn(ctx,
+			"controlling using angular velocity only, for increased accuracy add an orientation or compass heading reporting sensor")
 	}
 
 	// make sure the control loop is enabled
@@ -51,9 +48,12 @@ func (sb *sensorBase) Spin(ctx context.Context, angleDeg, degsPerSec float64, ex
 			return err
 		}
 	}
+
+	// pause and resume the loop to reset the control blocks
+	// This prevents any residual signals in the control loop from "kicking" the robot
+	sb.loop.Pause()
 	sb.loop.Resume()
-	var angErr float64
-	prevMovedAng := 0.
+	var angErr, angMoved float64
 
 	// to keep the signs simple, ensure degsPerSec is positive and let angleDeg handle the direction of the spin
 	if degsPerSec < 0 {
@@ -72,6 +72,7 @@ func (sb *sensorBase) Spin(ctx context.Context, angleDeg, degsPerSec float64, ex
 	if timeOut < 10*time.Second {
 		timeOut = 10 * time.Second
 	}
+	prevTime := startTime
 
 	for {
 		if err := ctx.Err(); err != nil {
@@ -89,11 +90,33 @@ func (sb *sensorBase) Spin(ctx context.Context, angleDeg, degsPerSec float64, ex
 			return err
 		case <-ticker.C:
 
-			currYaw, _, err := sb.headingFunc(ctx)
-			if err != nil {
-				return err
+			if hasOrientation {
+				currYaw, _, err := sb.headingFunc(ctx)
+				if err != nil {
+					return err
+				}
+				// use initial angle to get the current angle the spin has moved
+				angMoved = getMovedAng(prevAngle, currYaw, angMoved)
+
+				// track the previous angle to compute how much we moved with each iteration
+				prevAngle = currYaw
+			} else {
+				currTime := time.Now()
+				angVels, err := sb.velocities.AngularVelocity(ctx, nil)
+				if err != nil {
+					return err
+				}
+				deltaTime := currTime.Sub(prevTime).Seconds()
+				// calculate the estimated change in angle based on the latest angular velocity
+				deltaAngDeg := angVels.Z * deltaTime
+				angMoved += deltaAngDeg
+
+				// track time for the velocity integration
+				prevTime = currTime
 			}
-			angErr, prevMovedAng = getAngError(currYaw, prevAngle, prevMovedAng, angleDeg)
+
+			// compute the error
+			angErr = (angleDeg - angMoved)
 
 			if math.Abs(angErr) < boundCheckTarget {
 				return sb.Stop(ctx, nil)
@@ -103,9 +126,6 @@ func (sb *sensorBase) Spin(ctx context.Context, angleDeg, degsPerSec float64, ex
 			if err := sb.updateControlConfig(ctx, 0, angVel); err != nil {
 				return err
 			}
-
-			// track the previous angle to compute how much we moved with each iteration
-			prevAngle = currYaw
 
 			// check if the duration of the spin exceeds the expected length of the spin
 			if time.Since(startTime) > timeOut {
@@ -131,17 +151,6 @@ func calcAngVel(angErr, degsPerSec, slowDownAng float64) float64 {
 		return degsPerSec * sign(angVel)
 	}
 	return angVel
-}
-
-// getAngError computes the current distance the spin has moved and returns how much further the base must move to reach the goal.
-func getAngError(currYaw, prevAngle, prevMovedAng, desiredAngle float64) (float64, float64) {
-	// use initial angle to get the current angle the spin has moved
-	angMoved := getMovedAng(prevAngle, currYaw, prevMovedAng)
-
-	// compute the error
-	errAng := (desiredAngle - angMoved)
-
-	return errAng, angMoved
 }
 
 // getMovedAng tracks how much the angle has moved between each sensor update.

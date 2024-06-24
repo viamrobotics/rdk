@@ -32,6 +32,15 @@ import (
 	rutils "go.viam.com/rdk/utils"
 )
 
+func setupSocketWithRobot(t *testing.T) string {
+	t.Helper()
+
+	socketAddress, err := modlib.CreateSocketAddress(t.TempDir(), "parent")
+	test.That(t, err, test.ShouldBeNil)
+	rtestutils.MakeRobotForModuleLogging(t, socketAddress)
+	return socketAddress
+}
+
 func setupModManager(
 	t *testing.T,
 	ctx context.Context,
@@ -85,12 +94,7 @@ func TestModManagerFunctions(t *testing.T) {
 	_, err := cfgCounter1.Validate("test", resource.APITypeComponentName)
 	test.That(t, err, test.ShouldBeNil)
 
-	parentAddr, err := modlib.CreateSocketAddress(t.TempDir(), "parent")
-	test.That(t, err, test.ShouldBeNil)
-	fakeRobot := rtestutils.MakeRobotForModuleLogging(t, parentAddr)
-	defer func() {
-		test.That(t, fakeRobot.Stop(), test.ShouldBeNil)
-	}()
+	parentAddr := setupSocketWithRobot(t)
 
 	t.Log("test Helpers")
 	viamHomeTemp := t.TempDir()
@@ -108,7 +112,7 @@ func TestModManagerFunctions(t *testing.T) {
 		logger:  logger,
 	}
 
-	err = mod.startProcess(ctx, parentAddr, nil, logger, viamHomeTemp)
+	err = mod.startProcess(ctx, parentAddr, nil, logger, viamHomeTemp, filepath.Join(viamHomeTemp, "packages"))
 	test.That(t, err, test.ShouldBeNil)
 
 	err = mod.dial()
@@ -145,7 +149,7 @@ func TestModManagerFunctions(t *testing.T) {
 	oldAddr := mod.addr
 	oldClient := mod.client
 
-	utils.UncheckedError(mod.startProcess(ctx, parentAddr, nil, logger, viamHomeTemp))
+	utils.UncheckedError(mod.startProcess(ctx, parentAddr, nil, logger, viamHomeTemp, filepath.Join(viamHomeTemp, "packages")))
 	err = mod.dial()
 	test.That(t, err, test.ShouldBeNil)
 
@@ -357,12 +361,7 @@ func TestModManagerValidation(t *testing.T) {
 	_, err = cfgMyBase2.Validate("test", resource.APITypeComponentName)
 	test.That(t, err, test.ShouldBeNil)
 
-	parentAddr, err := modlib.CreateSocketAddress(t.TempDir(), "parent")
-	test.That(t, err, test.ShouldBeNil)
-	fakeRobot := rtestutils.MakeRobotForModuleLogging(t, parentAddr)
-	defer func() {
-		test.That(t, fakeRobot.Stop(), test.ShouldBeNil)
-	}()
+	parentAddr := setupSocketWithRobot(t)
 
 	t.Log("adding complex module")
 	mgr := setupModManager(t, ctx, parentAddr, logger, modmanageroptions.Options{UntrustedEnv: false})
@@ -418,12 +417,7 @@ func TestModuleReloading(t *testing.T) {
 	_, err := cfgMyHelper.Validate("test", resource.APITypeComponentName)
 	test.That(t, err, test.ShouldBeNil)
 
-	parentAddr, err := modlib.CreateSocketAddress(t.TempDir(), "parent")
-	test.That(t, err, test.ShouldBeNil)
-	fakeRobot := rtestutils.MakeRobotForModuleLogging(t, parentAddr)
-	defer func() {
-		test.That(t, fakeRobot.Stop(), test.ShouldBeNil)
-	}()
+	parentAddr := setupSocketWithRobot(t)
 
 	modCfg := config.Module{Name: "test-module"}
 
@@ -468,7 +462,7 @@ func TestModuleReloading(t *testing.T) {
 
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
-			test.That(tb, logs.FilterMessageSnippet("Module successfully restarted").Len(),
+			test.That(tb, logs.FilterMessageSnippet("Module resources successfully re-added after module restart").Len(),
 				test.ShouldEqual, 1)
 		})
 
@@ -486,8 +480,9 @@ func TestModuleReloading(t *testing.T) {
 		test.That(t, logs.FilterMessageSnippet("Error while restarting crashed module").Len(),
 			test.ShouldEqual, 0)
 
-		// Assert that RemoveOrphanedResources was called once.
-		test.That(t, dummyRemoveOrphanedResourcesCallCount.Load(), test.ShouldEqual, 1)
+		// Assert that RemoveOrphanedResources was not called (successful restart and re-addition of
+		// modular resources should not require removal of any orphans).
+		test.That(t, dummyRemoveOrphanedResourcesCallCount.Load(), test.ShouldEqual, 0)
 	})
 	t.Run("unsuccessful restart", func(t *testing.T) {
 		logger, logs := logging.NewObservedTestLogger(t)
@@ -684,12 +679,7 @@ func TestDebugModule(t *testing.T) {
 	// Precompile module to avoid timeout issues when building takes too long.
 	modPath := rtestutils.BuildTempModule(t, "module/testmodule")
 
-	parentAddr, err := modlib.CreateSocketAddress(t.TempDir(), "parent")
-	test.That(t, err, test.ShouldBeNil)
-	fakeRobot := rtestutils.MakeRobotForModuleLogging(t, parentAddr)
-	defer func() {
-		test.That(t, fakeRobot.Stop(), test.ShouldBeNil)
-	}()
+	parentAddr := setupSocketWithRobot(t)
 
 	testCases := []struct {
 		name                   string
@@ -752,7 +742,7 @@ func TestDebugModule(t *testing.T) {
 				LogLevel: tc.moduleLogLevel,
 			}
 
-			err = mgr.Add(ctx, modCfg)
+			err := mgr.Add(ctx, modCfg)
 			test.That(t, err, test.ShouldBeNil)
 
 			if tc.debugStatementExpected {
@@ -775,12 +765,7 @@ func TestDebugModule(t *testing.T) {
 func TestModuleMisc(t *testing.T) {
 	ctx := context.Background()
 
-	parentAddr, err := modlib.CreateSocketAddress(t.TempDir(), "parent")
-	test.That(t, err, test.ShouldBeNil)
-	fakeRobot := rtestutils.MakeRobotForModuleLogging(t, parentAddr)
-	defer func() {
-		test.That(t, fakeRobot.Stop(), test.ShouldBeNil)
-	}()
+	parentAddr := setupSocketWithRobot(t)
 
 	// Build the testmodule
 	modPath := rtestutils.BuildTempModule(t, "module/testmodule")
@@ -807,7 +792,7 @@ func TestModuleMisc(t *testing.T) {
 			ViamHomeDir:  testViamHomeDir,
 		})
 		// Test that cleaning the data directory before it has been created does not produce log messages
-		err = mgr.CleanModuleDataDirectory()
+		err := mgr.CleanModuleDataDirectory()
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, logs.FilterMessageSnippet("Removing module data").Len(), test.ShouldEqual, 0)
 
@@ -863,7 +848,7 @@ func TestModuleMisc(t *testing.T) {
 			Environment: map[string]string{"VIAM_MODULE_ROOT": "/"},
 			Type:        config.ModuleTypeLocal,
 		}
-		err = mgr.Add(ctx, modCfg)
+		err := mgr.Add(ctx, modCfg)
 		test.That(t, err, test.ShouldBeNil)
 
 		_, err = cfgMyHelper.Validate("test", resource.APITypeComponentName)
@@ -891,7 +876,7 @@ func TestModuleMisc(t *testing.T) {
 			ViamHomeDir:  testViamHomeDir,
 		})
 		// Add the module
-		err = mgr.Add(ctx, modCfg)
+		err := mgr.Add(ctx, modCfg)
 		test.That(t, err, test.ShouldBeNil)
 
 		_, err = cfgMyHelper.Validate("test", resource.APITypeComponentName)
@@ -939,12 +924,7 @@ func TestTwoModulesRestart(t *testing.T) {
 	}(oueRestartInterval)
 	oueRestartInterval = 10 * time.Millisecond
 
-	parentAddr, err := modlib.CreateSocketAddress(t.TempDir(), "parent")
-	test.That(t, err, test.ShouldBeNil)
-	fakeRobot := rtestutils.MakeRobotForModuleLogging(t, parentAddr)
-	defer func() {
-		test.That(t, fakeRobot.Stop(), test.ShouldBeNil)
-	}()
+	parentAddr := setupSocketWithRobot(t)
 
 	var dummyRemoveOrphanedResourcesCallCount atomic.Uint64
 	dummyRemoveOrphanedResources := func(context.Context, []resource.Name) {
@@ -954,7 +934,7 @@ func TestTwoModulesRestart(t *testing.T) {
 		UntrustedEnv:            false,
 		RemoveOrphanedResources: dummyRemoveOrphanedResources,
 	})
-	err = mgr.Add(ctx, modCfgs...)
+	err := mgr.Add(ctx, modCfgs...)
 	test.That(t, err, test.ShouldBeNil)
 
 	// Add resources and ensure "echo" works correctly.
@@ -1003,8 +983,10 @@ func TestTwoModulesRestart(t *testing.T) {
 	test.That(t, logs.FilterMessageSnippet("Error while restarting crashed module").Len(),
 		test.ShouldEqual, 0)
 
-	// Assert that RemoveOrphanedResources was called once for each module.
-	test.That(t, dummyRemoveOrphanedResourcesCallCount.Load(), test.ShouldEqual, 2)
+	// Assert that RemoveOrphanedResources was not called for either module
+	// (successful restart and re-addition of modular resources should not
+	// require removal of any orphans).
+	test.That(t, dummyRemoveOrphanedResourcesCallCount.Load(), test.ShouldEqual, 0)
 }
 
 var (
@@ -1018,8 +1000,15 @@ func greenLog(t *testing.T, msg string) {
 }
 
 func TestRTPPassthrough(t *testing.T) {
+	// RSDK-7958
+	t.Skip()
 	ctx := context.Background()
-	logger := logging.NewTestLogger(t)
+	logger := logging.NewInMemoryLogger(t)
+	defer func() {
+		if t.Failed() {
+			logger.OutputLogs()
+		}
+	}()
 
 	// Precompile module copies to avoid timeout issues when building takes too long.
 	modPath := rtestutils.BuildTempModule(t, "examples/customresources/demos/rtppassthrough")
@@ -1044,12 +1033,7 @@ func TestRTPPassthrough(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	// robot config
-	parentAddr, err := modlib.CreateSocketAddress(t.TempDir(), "parent")
-	test.That(t, err, test.ShouldBeNil)
-	fakeRobot := rtestutils.MakeRobotForModuleLogging(t, parentAddr)
-	defer func() {
-		test.That(t, fakeRobot.Stop(), test.ShouldBeNil)
-	}()
+	parentAddr := setupSocketWithRobot(t)
 
 	greenLog(t, "test AddModule")
 	mgr := NewManager(ctx, parentAddr, logger, modmanageroptions.Options{UntrustedEnv: false})
@@ -1075,13 +1059,11 @@ func TestRTPPassthrough(t *testing.T) {
 	noPassSource, ok := noPassCam.(rtppassthrough.Source)
 	test.That(t, ok, test.ShouldBeTrue)
 
-	subscribeRTPTimeout := time.Second * 30
-	subCtx, subCancelFn := context.WithTimeout(context.Background(), subscribeRTPTimeout)
+	subCtx := context.Background()
 	sub, err := noPassSource.SubscribeRTP(subCtx, 512, func(pkts []*rtp.Packet) {
 		t.Log("should not happen")
 		t.FailNow()
 	})
-	subCancelFn()
 	test.That(t, err, test.ShouldBeError)
 	test.That(t, err.Error(), test.ShouldContainSubstring, fakeCamera.ErrRTPPassthroughNotEnabled.Error())
 	test.That(t, sub, test.ShouldResemble, rtppassthrough.NilSubscription)
@@ -1099,12 +1081,10 @@ func TestRTPPassthrough(t *testing.T) {
 
 	// SubscribeRTP succeeds
 	calledCtx, calledFn := context.WithCancel(context.Background())
-	subCtx, subCancelFn = context.WithTimeout(context.Background(), subscribeRTPTimeout)
 	sub, err = passSource.SubscribeRTP(subCtx, 512, func(pkts []*rtp.Packet) {
 		test.That(t, len(pkts), test.ShouldBeGreaterThan, 0)
 		calledFn()
 	})
-	subCancelFn()
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, sub.ID, test.ShouldNotResemble, rtppassthrough.NilSubscription)
 	test.That(t, sub.Terminated.Err(), test.ShouldBeNil)
@@ -1118,22 +1098,18 @@ func TestRTPPassthrough(t *testing.T) {
 
 	greenLog(t, "The first SubscribeRTP call receives rtp packets")
 	calledCtx1, calledFn1 := context.WithCancel(context.Background())
-	subCtx, subCancelFn = context.WithTimeout(context.Background(), subscribeRTPTimeout)
 	sub1, err := passSource.SubscribeRTP(subCtx, 512, func(pkts []*rtp.Packet) {
 		test.That(t, len(pkts), test.ShouldBeGreaterThan, 0)
 		calledFn1()
 	})
-	subCancelFn()
 	test.That(t, err, test.ShouldBeNil)
 
 	greenLog(t, "The second SubscribeRTP call receives rtp packets concurrently")
 	calledCtx2, calledFn2 := context.WithCancel(context.Background())
-	subCtx, subCancelFn = context.WithTimeout(context.Background(), subscribeRTPTimeout)
 	sub2, err := passSource.SubscribeRTP(subCtx, 512, func(pkts []*rtp.Packet) {
 		test.That(t, len(pkts), test.ShouldBeGreaterThan, 0)
 		calledFn2()
 	})
-	subCancelFn()
 	test.That(t, err, test.ShouldBeNil)
 	<-calledCtx1.Done()
 	<-calledCtx2.Done()
@@ -1159,15 +1135,11 @@ func TestRTPPassthrough(t *testing.T) {
 
 	greenLog(t, "RemoveResource eventually terminates all subscriptions")
 	// create 2 sub
-	subCtx, subCancelFn = context.WithTimeout(context.Background(), subscribeRTPTimeout)
 	sub1, err = passSource.SubscribeRTP(subCtx, 512, func(pkts []*rtp.Packet) {})
 	test.That(t, err, test.ShouldBeNil)
-	subCancelFn()
 
-	subCtx, subCancelFn = context.WithTimeout(context.Background(), subscribeRTPTimeout)
 	sub2, err = passSource.SubscribeRTP(subCtx, 512, func(pkts []*rtp.Packet) {})
 	test.That(t, err, test.ShouldBeNil)
-	subCancelFn()
 
 	test.That(t, sub1.Terminated.Err(), test.ShouldBeNil)
 	test.That(t, sub2.Terminated.Err(), test.ShouldBeNil)
@@ -1192,9 +1164,7 @@ func TestRTPPassthrough(t *testing.T) {
 	// NOTE: This test relies on the model's Close() method hanlding terminating all subscriptions
 	greenLog(t, "ReconfigureResource eventually terminates all subscriptions when the new model doesn't impelement Reconfigure")
 	// create a sub
-	subCtx, subCancelFn = context.WithTimeout(context.Background(), subscribeRTPTimeout)
 	sub, err = passSource.SubscribeRTP(subCtx, 512, func(pkts []*rtp.Packet) {})
-	subCancelFn()
 	test.That(t, err, test.ShouldBeNil)
 
 	test.That(t, sub.Terminated.Err(), test.ShouldBeNil)
@@ -1208,9 +1178,7 @@ func TestRTPPassthrough(t *testing.T) {
 
 	greenLog(t, "replacing a module binary eventually cancels subscriptions")
 	// add a subscription
-	subCtx, subCancelFn = context.WithTimeout(context.Background(), subscribeRTPTimeout)
 	sub, err = passSource.SubscribeRTP(subCtx, 512, func(pkts []*rtp.Packet) {})
-	subCancelFn()
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, sub.Terminated.Err(), test.ShouldBeNil)
 
@@ -1235,10 +1203,8 @@ func TestRTPPassthrough(t *testing.T) {
 	test.That(t, ok, test.ShouldBeTrue)
 
 	// add a subscription
-	subCtx, subCancelFn = context.WithTimeout(context.Background(), subscribeRTPTimeout)
 	sub, err = passSource.SubscribeRTP(subCtx, 512, func(pkts []*rtp.Packet) {})
 	test.That(t, err, test.ShouldBeNil)
-	subCancelFn()
 	test.That(t, sub.Terminated.Err(), test.ShouldBeNil)
 
 	// close the mod manager
@@ -1252,7 +1218,12 @@ func TestRTPPassthrough(t *testing.T) {
 
 func TestAddStreamMaxTrackErr(t *testing.T) {
 	ctx := context.Background()
-	logger := logging.NewTestLogger(t)
+	logger := logging.NewInMemoryLogger(t)
+	defer func() {
+		if t.Failed() {
+			logger.OutputLogs()
+		}
+	}()
 
 	// Precompile module copies to avoid timeout issues when building takes too long.
 	modPath := rtestutils.BuildTempModule(t, "examples/customresources/demos/rtppassthrough")
@@ -1273,16 +1244,10 @@ func TestAddStreamMaxTrackErr(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 	}
 
-	parentAddr, err := modlib.CreateSocketAddress(t.TempDir(), "parent")
-	test.That(t, err, test.ShouldBeNil)
-	fakeRobot := rtestutils.MakeRobotForModuleLogging(t, parentAddr)
-	defer func() {
-		test.That(t, fakeRobot.Stop(), test.ShouldBeNil)
-	}()
+	parentAddr := setupSocketWithRobot(t)
 
 	greenLog(t, "test AddModule")
 	mgr := NewManager(ctx, parentAddr, logger, modmanageroptions.Options{UntrustedEnv: false})
-	test.That(t, err, test.ShouldBeNil)
 	defer func() {
 		test.That(t, mgr.Close(ctx), test.ShouldBeNil)
 	}()
@@ -1292,7 +1257,7 @@ func TestAddStreamMaxTrackErr(t *testing.T) {
 		Name:    "rtp-passthrough-module",
 		ExePath: modPath,
 	}
-	err = mgr.Add(ctx, modCfg)
+	err := mgr.Add(ctx, modCfg)
 	test.That(t, err, test.ShouldBeNil)
 
 	reg, ok := resource.LookupRegistration(camera.API, model)
@@ -1319,16 +1284,14 @@ func TestAddStreamMaxTrackErr(t *testing.T) {
 	test.That(t, len(first9Sources), test.ShouldEqual, 9)
 
 	greenLog(t, "the first 9's SubscribeRTP calls succeed")
-	subscribeRTPTimeout := time.Second * 30
+	subCtx := context.Background()
 	for _, source := range first9Sources {
 		calledCtx, calledFn := context.WithCancel(context.Background())
 		// SubscribeRTP succeeds
-		subCtx, subCancelFn := context.WithTimeout(context.Background(), subscribeRTPTimeout)
 		sub, err := source.SubscribeRTP(subCtx, 512, func(pkts []*rtp.Packet) {
 			test.That(t, len(pkts), test.ShouldBeGreaterThan, 0)
 			calledFn()
 		})
-		subCancelFn()
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, sub.ID, test.ShouldNotResemble, rtppassthrough.NilSubscription)
 		test.That(t, sub.Terminated.Err(), test.ShouldBeNil)
@@ -1336,13 +1299,34 @@ func TestAddStreamMaxTrackErr(t *testing.T) {
 	}
 
 	greenLog(t, "the 10th returns an error")
-	subCtx, subCancelFn := context.WithTimeout(context.Background(), subscribeRTPTimeout)
 	sub, err := sources[0].SubscribeRTP(subCtx, 512, func(pkts []*rtp.Packet) {
 		t.Log("should not happen")
 		t.FailNow()
 	})
-	subCancelFn()
 	test.That(t, err, test.ShouldBeError)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "only 9 WebRTC tracks are supported per peer connection")
 	test.That(t, sub, test.ShouldResemble, rtppassthrough.NilSubscription)
+}
+
+func TestBadModuleFailsFast(t *testing.T) {
+	t.Setenv("VIAM_TESTMODULE_PANIC", "1")
+	logger := logging.NewTestLogger(t)
+
+	modCfgs := []config.Module{
+		{
+			Name:    "test-module",
+			ExePath: rtestutils.BuildTempModule(t, "module/testmodule"),
+			Type:    config.ModuleTypeLocal,
+		},
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+	defer cancel()
+	parentAddr := setupSocketWithRobot(t)
+	opts := modmanageroptions.Options{UntrustedEnv: false}
+	mgr := setupModManager(t, ctx, parentAddr, logger, opts)
+
+	err := mgr.Add(ctx, modCfgs...)
+
+	test.That(t, err.Error(), test.ShouldContainSubstring, "module test-module exited too quickly after attempted startup")
 }

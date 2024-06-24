@@ -147,9 +147,7 @@ Loop:
 		}
 		fields := strings.Split(ln, ";")
 		switch fields[0] {
-		case "CAS":
-			continue
-		case "NET":
+		case "CAS", "NET":
 			continue
 		case "STR":
 			if fields[mp] == n.MountPoint {
@@ -159,9 +157,11 @@ Loop:
 				}
 				st.Streams = append(st.Streams, str)
 			}
-		case "ENDSOURCETABLE":
-			break Loop
 		default:
+			if strings.HasPrefix(fields[0], "END") {
+				logger.Debug("Reached the end of SourceTable")
+				break Loop
+			}
 			return nil, fmt.Errorf("%s: illegal sourcetable line: '%s'", n.URL, ln)
 		}
 	}

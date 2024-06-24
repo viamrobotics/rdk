@@ -33,14 +33,20 @@ type CloudConfig struct {
 
 // NewNetAppender creates a NetAppender to send log events to the app backend. NetAppenders ought to
 // be `Close`d prior to shutdown to flush remaining logs.
-func NewNetAppender(config *CloudConfig) (*NetAppender, error) {
+// Pass `nil` for `conn` if you want this to create its own connection.
+func NewNetAppender(config *CloudConfig, conn rpc.ClientConn) (*NetAppender, error) {
 	hostname, err := os.Hostname()
 	if err != nil {
 		return nil, err
 	}
 
 	logWriter := &remoteLogWriterGRPC{
-		cfg: config,
+		cfg:            config,
+		rpcClient:      conn,
+		clientIsShared: conn != nil,
+	}
+	if conn != nil {
+		logWriter.service = apppb.NewRobotServiceClient(conn)
 	}
 
 	cancelCtx, cancel := context.WithCancel(context.Background())
@@ -302,6 +308,8 @@ type remoteLogWriterGRPC struct {
 	service     apppb.RobotServiceClient
 	rpcClient   rpc.ClientConn
 	clientMutex sync.Mutex
+	// when clientIsShared = true, don't close it in close(); it's externally managed.
+	clientIsShared bool
 }
 
 func (w *remoteLogWriterGRPC) write(logs []*commonpb.LogEntry) error {
@@ -342,6 +350,9 @@ func (w *remoteLogWriterGRPC) getOrCreateClient(ctx context.Context) (apppb.Robo
 }
 
 func (w *remoteLogWriterGRPC) close() {
+	if w.clientIsShared {
+		return
+	}
 	w.clientMutex.Lock()
 	defer w.clientMutex.Unlock()
 

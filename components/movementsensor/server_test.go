@@ -101,6 +101,15 @@ func TestServer(t *testing.T) {
 		_, err = gpsServer.GetPosition(context.Background(), &pb.GetPositionRequest{Name: missingMovementSensorName})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, resource.IsNotFoundError(err), test.ShouldBeTrue)
+
+		// Redefine the positionFunc to test nil return
+		injectMovementSensor.PositionFunc = func(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
+			return nil, alt, nil
+		}
+		resp, err = gpsServer.GetPosition(context.Background(), &pb.GetPositionRequest{Name: testMovementSensorName})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, math.IsNaN(resp.Coordinate.Latitude), test.ShouldBeTrue)
+		test.That(t, math.IsNaN(resp.Coordinate.Longitude), test.ShouldBeTrue)
 	})
 
 	t.Run("GetLinearVelocity", func(t *testing.T) {
@@ -178,6 +187,14 @@ func TestServer(t *testing.T) {
 		_, err = gpsServer.GetOrientation(context.Background(), &pb.GetOrientationRequest{Name: missingMovementSensorName})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, resource.IsNotFoundError(err), test.ShouldBeTrue)
+
+		// Redefine the orientationFunc to test nil return
+		injectMovementSensor.OrientationFunc = func(ctx context.Context, extra map[string]interface{}) (spatialmath.Orientation, error) {
+			return nil, nil
+		}
+		resp, err = gpsServer.GetOrientation(context.Background(), &pb.GetOrientationRequest{Name: testMovementSensorName, Extra: ext})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, resp.Orientation.OZ, test.ShouldEqual, 0)
 	})
 
 	t.Run("GetCompassHeading", func(t *testing.T) {

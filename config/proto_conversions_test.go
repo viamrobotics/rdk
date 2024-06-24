@@ -798,18 +798,20 @@ func TestFromProto(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	debug := true
+	enableWebProfile := true
 
 	input := &pb.RobotConfig{
-		Cloud:      cloudConfig,
-		Remotes:    []*pb.RemoteConfig{remoteConfig},
-		Modules:    []*pb.ModuleConfig{moduleConfig},
-		Components: []*pb.ComponentConfig{componentConfig},
-		Processes:  []*pb.ProcessConfig{processConfig},
-		Services:   []*pb.ServiceConfig{serviceConfig},
-		Packages:   []*pb.PackageConfig{packageConfig},
-		Network:    networkConfig,
-		Auth:       authConfig,
-		Debug:      &debug,
+		Cloud:            cloudConfig,
+		Remotes:          []*pb.RemoteConfig{remoteConfig},
+		Modules:          []*pb.ModuleConfig{moduleConfig},
+		Components:       []*pb.ComponentConfig{componentConfig},
+		Processes:        []*pb.ProcessConfig{processConfig},
+		Services:         []*pb.ServiceConfig{serviceConfig},
+		Packages:         []*pb.PackageConfig{packageConfig},
+		Network:          networkConfig,
+		Auth:             authConfig,
+		Debug:            &debug,
+		EnableWebProfile: enableWebProfile,
 	}
 
 	out, err := FromProto(input, logger)
@@ -829,6 +831,7 @@ func TestFromProto(t *testing.T) {
 	test.That(t, out.Network, test.ShouldResemble, testNetworkConfig)
 	validateAuthConfig(t, out.Auth, testAuthConfig)
 	test.That(t, out.Debug, test.ShouldEqual, debug)
+	test.That(t, out.EnableWebProfile, test.ShouldEqual, enableWebProfile)
 	test.That(t, out.Packages, test.ShouldHaveLength, 1)
 	test.That(t, out.Packages[0], test.ShouldResemble, testPackageConfig)
 }
