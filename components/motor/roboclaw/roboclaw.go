@@ -318,6 +318,14 @@ func (m *roboclawMotor) GoTo(ctx context.Context, rpm, positionRevolutions float
 }
 
 func (m *roboclawMotor) SetRPM(ctx context.Context, rpm float64, extra map[string]interface{}) error {
+	warning, err := motor.CheckSpeed(rpm, m.maxRPM)
+	if warning != "" {
+		m.logger.CWarn(ctx, warning)
+	}
+	if err != nil {
+		return err
+	}
+
 	// if TicksPerRotation is 0, no encoders are connected
 	if m.conf.TicksPerRotation == 0 {
 		if math.Abs(rpm) > maxRPM {
