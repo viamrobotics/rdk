@@ -22,8 +22,10 @@ jobs:
           ( git diff --name-only origin/${{github.base_ref}} | grep -e "motionplan" \
             -e "referenceframe" \
             -e "spatialmath" \
-            -e "components\/base\/wheeled" \
-            -e "components\/base\/kinematicbase" \
+            -e "components/base/wheeled" \
+            -e "components/base/kinematicbase" \
+            -e "components/encoder/fake" \
+            -e "components/motor/fake" \
             -e "services/motion/builtin" && echo "EXTENDED_MOTION_TEST=true" >> "$GITHUB_OUTPUT" ) || \
             ( echo "EXTENDED_MOTION_TEST=false" >> "$GITHUB_OUTPUT" )
 
@@ -60,19 +62,3 @@ jobs:
         cd motion-testing
         go mod edit -replace go.viam.com/rdk=${URL#"https://"}@$SHA
         sudo -Hu testbot bash -lc "go mod tidy && go test ./... -v -run TestMotionExtended"
-
- 
-    # Now that RDK is public, can't directly comment without token having full read/write access
-    # motion-benchmarks-comment.yml will trigger seperately and post the actual comments
-
-    - name: Prepare code comment
-      run: |
-        echo "PR_NUMBER=${{ github.event.pull_request.number }}" >> pr.env
-
-    - name: Upload results
-      uses: actions/upload-artifact@v3
-      with:
-        name: pr-motion-tests-extended
-        path: |
-          pr.env
-        retention-days: 1
