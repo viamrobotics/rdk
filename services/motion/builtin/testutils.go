@@ -5,6 +5,7 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+	"sync"
 	"testing"
 	"time"
 
@@ -219,11 +220,14 @@ func createMotors(
 
 type noisyMovementSensor struct {
 	movementsensor.MovementSensor
+	mu         sync.Mutex
 	noise      spatialmath.Pose
-	queryCount int // Apply noise every other iteration when this is > 10
+	queryCount int // Apply noise every other iteration when this is > 1
 }
 
 func (m *noisyMovementSensor) Position(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	m.queryCount++
 	if m.queryCount <= 10 || m.queryCount%2 == 0 {
 		return m.MovementSensor.Position(ctx, extra)
@@ -237,6 +241,8 @@ func (m *noisyMovementSensor) Position(ctx context.Context, extra map[string]int
 }
 
 func (m *noisyMovementSensor) CompassHeading(ctx context.Context, extra map[string]interface{}) (float64, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	if m.queryCount <= 10 || m.queryCount%2 == 0 {
 		return m.MovementSensor.CompassHeading(ctx, extra)
 	}
@@ -287,7 +293,11 @@ func createMovementSensor(
 	_, err = sens.DoCommand(ctx, map[string]interface{}{"reset": true, "setLong": origin.Lng(), "setLat": origin.Lat()})
 	test.That(t, err, test.ShouldBeNil)
 	if noise != nil {
-		sens = &noisyMovementSensor{sens.(movementsensor.MovementSensor), noise, 0}
+		sens = &noisyMovementSensor{
+			MovementSensor: sens.(movementsensor.MovementSensor),
+			noise:          noise,
+			queryCount:     0,
+		}
 	}
 
 	return sens.(movementsensor.MovementSensor)
