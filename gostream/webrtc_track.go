@@ -181,6 +181,7 @@ func (s *trackLocalStaticRTP) WriteRTP(p *rtp.Packet) error {
 	} else {
 		golog.Global().Warnf("publishing out of order message p.Header.SequenceNumber(%d), originalSN: %d, highestSequenceNumber: %d", p.Header.SequenceNumber, originalSequenceNumber, s.highestSequenceNumber)
 	}
+	golog.Global().Debugf("SN: %d", p.Header.SequenceNumber)
 
 	writeErrs := []error{}
 	outboundPacket := *p

@@ -459,7 +459,7 @@ func (ss *StreamState) streamH264Passthrough() error {
 				ss.logger.Infof("calling WriteRTP %s", ss.Stream.Name())
 			}
 			count.Add(1)
-			ss.logger.Infof("SequenceNumber: %d", pkt.Header.SequenceNumber)
+			ss.logger.Debugf("SequenceNumber: %d", pkt.Header.SequenceNumber)
 			if err := ss.Stream.WriteRTP(pkt); err != nil {
 				ss.logger.Debugw("stream.WriteRTP", "name", ss.Stream.Name(), "err", err.Error())
 			}

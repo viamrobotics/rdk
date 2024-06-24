@@ -62,6 +62,8 @@ func (c *ReconfigurableClientConn) NewStream(
 // ReplaceConn replaces the underlying client connection with the connection passed in. This does not close the
 // old connection, the caller is expected to close it if needed.
 func (c *ReconfigurableClientConn) ReplaceConn(conn rpc.ClientConn) {
+	golog.Global().Info("ReplaceConn START")
+	defer golog.Global().Info("ReplaceConn END")
 	c.connMu.Lock()
 	c.conn = conn
 	// It is safe to access this without a mutex as it is only ever nil once at the beginning of the
