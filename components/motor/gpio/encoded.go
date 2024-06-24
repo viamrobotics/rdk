@@ -241,9 +241,9 @@ func (m *EncodedMotor) GoFor(ctx context.Context, rpm, revolutions float64, extr
 		return err
 	}
 
-	warning, err := checkSpeed(rpm, m.cfg.MaxRPM)
+	warning, err := motor.CheckSpeed(rpm, m.cfg.MaxRPM)
 	if warning != "" {
-		m.logger.CWarnf(ctx, warning)
+		m.logger.CWarn(ctx, warning)
 	}
 	if err != nil {
 		return err
@@ -337,9 +337,9 @@ func (m *EncodedMotor) SetRPM(ctx context.Context, rpm float64, extra map[string
 	ctx, done := m.opMgr.New(ctx)
 	defer done()
 
-	warning, err := checkSpeed(rpm, m.cfg.MaxRPM)
+	warning, err := motor.CheckSpeed(rpm, m.cfg.MaxRPM)
 	if warning != "" {
-		m.logger.CWarnf(ctx, warning)
+		m.logger.CWarn(ctx, warning)
 	}
 	if err != nil {
 		return err
