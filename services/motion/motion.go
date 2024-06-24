@@ -195,9 +195,21 @@ type PlanWithStatus struct {
 //	// Assumes a gripper configured with name "my_gripper" on the machine
 //	gripperName := gripper.Named("my_gripper")
 //
-//	geometriesInFrame := []*referenceframe.GeometriesInFrame{}
+//	// Add a table obstacle to a WorldState
+//	obstacles := []spatialmath.Geometry{
+//		spatialmath.NewBox(
+//			spatialmath.NewPose(r3.Vector{X: 0.0, Y: 0.0, Z: -19.0}, &spatialmath.OrientationVectorDegrees{0X: 0.0, 0Y: 0.0, 0Z: 1.0, Theta: 0.0}),
+//			r3.Vector{X: 2000.0, Y: 2000.0, Z: 38.0},
+//			"table",
+//		),
+//	}
 //
-//	worldState, _ := referenceframe.NewWorldState(geometriesInFrame, nil)
+//	// Create WorldState with included geometries
+//	worldState := &referenceframe.WorldState{
+//		Obstacles: []*referenceframe.GeometriesInFrame{
+//			referenceframe.NewGeometriesInFrame(referenceframe.World, obstacles),
+//		},
+//	}
 //
 //	goalPose := referenceframe.NewPoseInFrame("my_gripper", spatialmath.NewPoseFromPoint(r3.Vector{X:-3, Y:0.5}))
 //
@@ -233,21 +245,11 @@ type PlanWithStatus struct {
 //
 // MoveOnGlobe example:
 //
-//	// Assumes a base with the name "my_base" is configured on the machine
+//	// Assumes a base with the name "myBase" is configured on the machine
 //	// Get the resource names of the base and movement sensor
 //	myBaseResourceName := base.Named("myBase")
-//	myMvmntSensorResourceName := movementsensor.Named("my_movement_sensor")
 //
-//	// Define a destination Point at the GPS coordinates [0, 0]
-//	myDestination := geo.NewPoint(0, 0)
-//
-//	// Move the base component to the designated geographic location, as reported by the movement sensor
-//	executionID, err := motionService.MoveOnGlobe(context.Background(), motion.MoveOnGlobeReq{
-//		ComponentName:      myBaseResourceName,
-//		Destination:        myDestination,
-//		MovementSensorName: myMvmntSensorResourceName,
-//	})
-//
+//	// Assumes there is an active MoveOnMap() or MoveonGlobe() in progress for myBase
 //	//	MoveOnGlobe is a non-blocking method and this line can optionally be added to block until the movement is done
 //	err = motion.PollHistoryUntilSuccessOrError(
 //		context.Background(),
@@ -298,7 +300,6 @@ type PlanWithStatus struct {
 //
 //	// Get the resource.Names of the base and of the SLAM service
 //	myBaseResourceName := base.Named("myBase")
-<<<<<<< HEAD
 //	mySLAMServiceResourceName := slam.Named("my_slam_service")
 //	// Define a destination Pose with respect to the origin of the map from the SLAM service "my_slam_service"
 //	myPose := spatialmath.NewPoseFromPoint(r3.Vector{Y: 10})
@@ -327,9 +328,7 @@ type PlanWithStatus struct {
 //	    Destination:        myDestination,
 //	    MovementSensorName: myMvmntSensorResourceName,
 //	})
-=======
-//	// Assumes there is an active MoveOnMap or MoveOnGlobe in progress for the configured base component
->>>>>>> d52c268ed (integrate feedback)
+//	fmt.Printf("Position:", myArmMotionPose.Pose().Point(), "Orientation:", myArmMotionPose.Pose().Orientation())
 //
 // StopPlan example:
 //
