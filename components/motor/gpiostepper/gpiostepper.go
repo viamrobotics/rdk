@@ -418,7 +418,7 @@ func (m *gpioStepper) SetRPM(ctx context.Context, rpm float64, extra map[string]
 		return errors.New("thread not started")
 	}
 
-	m.targetStepPosition += int64(math.Inf(int(rpm)))
+	m.targetStepPosition += int64(math.Inf(int(rpm)) - 1)
 
 	return nil
 }
