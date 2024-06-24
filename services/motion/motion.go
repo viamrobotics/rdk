@@ -204,7 +204,7 @@ type PlanWithStatus struct {
 //		),
 //	}
 //
-//	// Create WorldState with included geometries
+//	// Create a WorldState that has geometries included
 //	worldState := &referenceframe.WorldState{
 //		Obstacles: []*referenceframe.GeometriesInFrame{
 //			referenceframe.NewGeometriesInFrame(referenceframe.World, obstacles),
