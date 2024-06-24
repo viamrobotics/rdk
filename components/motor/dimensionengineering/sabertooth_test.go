@@ -66,7 +66,7 @@ func TestSabertoothMotor(t *testing.T) {
 
 	t.Run("motor SetPower testing", func(t *testing.T) {
 		// Test 0 (aka "stop")
-		test.That(t, motor1.SetPower(ctx, 0, nil), test.ShouldBeNil)
+		test.That(t, motor1.SetPower(ctx, 0.0001, nil), test.ShouldBeNil)
 		checkTx(t, resChan, c, []byte{0x80, 0x00, 0x00, 0x00})
 		allObs := obs.All()
 		latestLoggedEntry := allObs[len(allObs)-1]
@@ -97,7 +97,7 @@ func TestSabertoothMotor(t *testing.T) {
 
 	t.Run("motor SetRPM testing", func(t *testing.T) {
 		// Test 0 (aka "stop")
-		test.That(t, motor1.SetRPM(ctx, 0, nil), test.ShouldBeNil)
+		test.That(t, motor1.SetRPM(ctx, 0.0001, nil), test.ShouldBeNil)
 		checkTx(t, resChan, c, []byte{0x80, 0x00, 0x00, 0x00})
 		allObs := obs.All()
 		latestLoggedEntry := allObs[len(allObs)-1]
@@ -152,7 +152,7 @@ func TestSabertoothMotor(t *testing.T) {
 
 	t.Run("motor SetPower testing", func(t *testing.T) {
 		// Test 0 (aka "stop")
-		test.That(t, motor2.SetPower(ctx, 0, nil), test.ShouldBeNil)
+		test.That(t, motor2.SetPower(ctx, 0.0001, nil), test.ShouldBeNil)
 		checkTx(t, resChan, c, []byte{0x80, 0x04, 0x00, 0x04})
 		allObs := obs.All()
 		latestLoggedEntry := allObs[len(allObs)-1]
@@ -215,7 +215,7 @@ func TestSabertoothMotorDirectionFlip(t *testing.T) {
 
 	t.Run("motor SetPower testing", func(t *testing.T) {
 		// Test 0 (aka "stop")
-		test.That(t, motor1.SetPower(ctx, 0, nil), test.ShouldBeNil)
+		test.That(t, motor1.SetPower(ctx, 0.0001, nil), test.ShouldBeNil)
 		checkTx(t, resChan, c, []byte{0x80, 0x01, 0x00, 0x01})
 		allObs := obs.All()
 		latestLoggedEntry := allObs[len(allObs)-1]
@@ -270,7 +270,7 @@ func TestSabertoothMotorDirectionFlip(t *testing.T) {
 
 	t.Run("motor SetPower testing", func(t *testing.T) {
 		// Test 0 (aka "stop")
-		test.That(t, motor2.SetPower(ctx, 0, nil), test.ShouldBeNil)
+		test.That(t, motor2.SetPower(ctx, 0.0001, nil), test.ShouldBeNil)
 		checkTx(t, resChan, c, []byte{0x80, 0x05, 0x00, 0x05})
 		allObs := obs.All()
 		latestLoggedEntry := allObs[len(allObs)-1]

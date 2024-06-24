@@ -36,6 +36,7 @@ import (
 var (
 	model                = resource.DefaultModelFamily.WithModel("28byj48")
 	minDelayBetweenTicks = 100 * time.Microsecond // minimum sleep time between each ticks
+	maxRPM               = 146.0                  // max rpm of the 28byj-48 motor from the datasheet
 )
 
 // stepSequence contains switching signal for uln2003 pins.
@@ -250,21 +251,20 @@ func (m *uln28byj) GoFor(ctx context.Context, rpm, revolutions float64, extra ma
 	ctx, done := m.opMgr.New(ctx)
 	defer done()
 
-	switch speed := math.Abs(rpm); {
-	case speed < 0.1:
-		m.logger.CWarn(ctx, "motor speed is nearly 0 rev_per_min")
-		return motor.NewZeroRPMError()
-	case speed > 146-0.1:
-		m.logger.CWarnf(ctx, "motor speed is nearly the max rev_per_min (%f)", 146)
-		return m.Stop(ctx, nil)
-	default:
+	warning, err := motor.CheckSpeed(rpm, maxRPM)
+	if warning != "" {
+		m.logger.CWarn(ctx, warning)
+		if err != nil {
+			m.logger.CError(ctx, err)
+		}
+		return m.Stop(ctx, extra)
 	}
 
 	m.lock.Lock()
 	m.targetStepPosition, m.stepperDelay = m.goMath(rpm, revolutions)
 	m.lock.Unlock()
 
-	err := m.doRun(ctx)
+	err = m.doRun(ctx)
 	if err != nil {
 		return errors.Errorf(" error while running motor %v", err)
 	}
