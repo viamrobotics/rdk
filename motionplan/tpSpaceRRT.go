@@ -981,16 +981,16 @@ func (mp *tpSpaceRRTMotionPlanner) smoothPath(ctx context.Context, path []node) 
 				break
 			}
 			for i, pt := range trajPts {
+				fmt.Println("this is pt\n")
+				fmt.Println(pt)
 				intPose := spatialmath.Compose(lastPose, pt.Pose)
+
 				if i == 0 {
 					mp.logger.Debugf("$SMOOTHWP,%f,%f", intPose.Point().X, intPose.Point().Y)
 				}
 				mp.logger.Debugf("$SMOOTHPATH,%f,%f", intPose.Point().X, intPose.Point().Y)
-				if pt.Dist >= math.Abs(mynode.Q()[3].Value) {
-					lastPose = intPose
-					break
-				}
 			}
+			lastPose = spatialmath.Compose(lastPose, trajPts[len(trajPts)-1].Pose)
 		}
 	}
 
