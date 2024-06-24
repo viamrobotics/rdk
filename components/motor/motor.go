@@ -180,10 +180,8 @@ func CreateStatus(ctx context.Context, m Motor) (*pb.Status, error) {
 // CheckSpeed checks if the input rpm is too slow or fast and returns a warning and/or error.
 func CheckSpeed(rpm, max float64) (string, error) {
 	switch speed := math.Abs(rpm); {
-	case speed == 0:
-		return "motor speed requested is 0 rev_per_min", NewZeroRPMError()
-	case speed > 0 && speed < 0.1:
-		return "motor speed is nearly 0 rev_per_min", nil
+	case speed < 0.1:
+		return "motor speed is nearly 0 rev_per_min", NewZeroRPMError()
 	case max > 0 && speed > max-0.1:
 		return fmt.Sprintf("motor speed is nearly the max rev_per_min (%f)", max), nil
 	default:

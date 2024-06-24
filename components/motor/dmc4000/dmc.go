@@ -453,10 +453,8 @@ func (m *Motor) SetPower(ctx context.Context, powerPct float64, extra map[string
 		m.logger.CWarn(ctx, warning)
 	}
 	if err != nil {
-		if stopErr := m.Stop(ctx, extra); stopErr != nil {
-			m.logger.Error(stopErr)
-		}
-		return err
+		m.logger.CError(ctx, err)
+		return m.Stop(ctx, extra)
 	}
 	if strings.Contains(warning, "nearly 0 rev_per_min") {
 		return m.Stop(ctx, extra)
@@ -510,7 +508,7 @@ func (m *Motor) GoFor(ctx context.Context, rpm, revolutions float64, extra map[s
 	if warning != "" {
 		m.logger.CWarn(ctx, warning)
 	}
-	if err != nil || strings.Contains(warning, "0 rev_per_min") {
+	if err != nil {
 		return err
 	}
 	ctx, done := m.opMgr.New(ctx)
@@ -761,7 +759,7 @@ func (m *Motor) doGoTo(rpm, position float64) error {
 		m.logger.Warn(warning)
 	}
 	if err != nil {
-		return err
+		m.logger.Error(err)
 	}
 
 	// Speed

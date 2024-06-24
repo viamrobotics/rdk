@@ -3,6 +3,7 @@ package fake
 
 import (
 	"context"
+	"fmt"
 	"math"
 	"sync"
 	"time"
@@ -274,10 +275,24 @@ func goForMath(maxRPM, rpm, revolutions float64) (float64, time.Duration, float6
 	return powerPct, waitDur, dir
 }
 
+// checkSpeed checks if the input rpm is too slow or fast and returns a warning and/or error.
+func checkSpeed(rpm, max float64) (string, error) {
+	switch speed := math.Abs(rpm); {
+	case speed == 0:
+		return "motor speed requested is 0 rev_per_min", motor.NewZeroRPMError()
+	case speed > 0 && speed < 0.1:
+		return "motor speed is nearly 0 rev_per_min", nil
+	case max > 0 && speed > max-0.1:
+		return fmt.Sprintf("motor speed is nearly the max rev_per_min (%f)", max), nil
+	default:
+		return "", nil
+	}
+}
+
 // GoFor sets the given direction and an arbitrary power percentage.
 // If rpm is 0, the motor should immediately move to the final position.
 func (m *Motor) GoFor(ctx context.Context, rpm, revolutions float64, extra map[string]interface{}) error {
-	warning, err := motor.CheckSpeed(rpm, m.MaxRPM)
+	warning, err := checkSpeed(rpm, m.MaxRPM)
 	if warning != "" {
 		m.Logger.CWarn(ctx, warning)
 	}
@@ -324,7 +339,7 @@ func (m *Motor) GoTo(ctx context.Context, rpm, pos float64, extra map[string]int
 		return errors.New("encoder is not defined")
 	}
 
-	warning, err := motor.CheckSpeed(rpm, m.MaxRPM)
+	warning, err := checkSpeed(rpm, m.MaxRPM)
 	if warning != "" {
 		m.Logger.CWarn(ctx, warning)
 	}
@@ -367,7 +382,7 @@ func (m *Motor) GoTo(ctx context.Context, rpm, pos float64, extra map[string]int
 
 // SetRPM instructs the motor to move at the specified RPM indefinitely.
 func (m *Motor) SetRPM(ctx context.Context, rpm float64, extra map[string]interface{}) error {
-	warning, err := motor.CheckSpeed(rpm, m.MaxRPM)
+	warning, err := checkSpeed(rpm, m.MaxRPM)
 	if warning != "" {
 		m.Logger.CWarn(ctx, warning)
 	}

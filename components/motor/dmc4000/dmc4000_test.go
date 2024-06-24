@@ -138,7 +138,7 @@ func TestDMC4000Motor(t *testing.T) {
 			[]string{"STA", "SCA", "TEA"},
 			[]string{" :", "4\r\n:", "0\r\n:"},
 		)
-		test.That(t, motorDep.SetPower(ctx, 0, nil), test.ShouldBeError, motor.NewZeroRPMError())
+		test.That(t, motorDep.SetPower(ctx, 0, nil), test.ShouldBeNil)
 
 		// Test almost 0
 		txMu.Lock()
@@ -146,7 +146,7 @@ func TestDMC4000Motor(t *testing.T) {
 			[]string{"STA", "SCA", "TEA"},
 			[]string{" :", "4\r\n:", "0\r\n:"},
 		)
-		test.That(t, motorDep.SetPower(ctx, 0.000001, nil), test.ShouldBeNil)
+		test.That(t, motorDep.SetPower(ctx, 0.0001, nil), test.ShouldBeNil)
 		allObs := obs.All()
 		latestLoggedEntry := allObs[len(allObs)-1]
 		test.That(t, fmt.Sprint(latestLoggedEntry), test.ShouldContainSubstring, "nearly 0")
@@ -174,7 +174,7 @@ func TestDMC4000Motor(t *testing.T) {
 			"JGA=64000",
 			"BGA",
 		})
-		test.That(t, motorDep.SetPower(ctx, 300, nil), test.ShouldBeNil)
+		test.That(t, motorDep.SetPower(ctx, 1, nil), test.ShouldBeNil)
 		allObs = obs.All()
 		latestLoggedEntry = allObs[len(allObs)-1]
 		test.That(t, fmt.Sprint(latestLoggedEntry), test.ShouldContainSubstring, "nearly the max")
@@ -484,7 +484,7 @@ func TestDMC4000Motor(t *testing.T) {
 	})
 
 	t.Run("motor GoFor with almost 0 RPM", func(t *testing.T) {
-		test.That(t, motorDep.GoFor(ctx, 0.05, 1, nil), test.ShouldBeNil)
+		test.That(t, motorDep.GoFor(ctx, 0.05, 1, nil), test.ShouldBeError, motor.NewZeroRPMError())
 		allObs := obs.All()
 		latestLoggedEntry := allObs[len(allObs)-1]
 		test.That(t, fmt.Sprint(latestLoggedEntry), test.ShouldContainSubstring, "nearly 0")

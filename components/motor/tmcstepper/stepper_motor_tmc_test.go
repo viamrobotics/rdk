@@ -122,7 +122,7 @@ func TestRPMBounds(t *testing.T) {
 		test.That(t, motorDep.Close(context.Background()), test.ShouldBeNil)
 	}()
 
-	test.That(t, motorDep.GoFor(ctx, 0.05, 6.6, nil), test.ShouldBeNil)
+	test.That(t, motorDep.GoFor(ctx, 0.05, 6.6, nil), test.ShouldBeError, motor.NewZeroRPMError())
 	allObs := obs.All()
 	latestLoggedEntry := allObs[len(allObs)-1]
 	test.That(t, fmt.Sprint(latestLoggedEntry), test.ShouldContainSubstring, "nearly 0")

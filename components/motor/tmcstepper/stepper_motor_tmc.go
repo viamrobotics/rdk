@@ -6,7 +6,6 @@ package tmcstepper
 import (
 	"context"
 	"math"
-	"strings"
 	"time"
 
 	"github.com/pkg/errors"
@@ -432,7 +431,7 @@ func (m *Motor) doJog(ctx context.Context, rpm float64) error {
 		m.logger.CWarn(ctx, warning)
 	}
 	if err != nil {
-		return err
+		m.logger.CError(ctx, err)
 	}
 
 	speed := m.rpmToV(math.Abs(rpm))
@@ -450,7 +449,7 @@ func (m *Motor) GoFor(ctx context.Context, rpm, rotations float64, extra map[str
 	if warning != "" {
 		m.logger.CWarn(ctx, warning)
 	}
-	if err != nil || strings.Contains(warning, "0 rev_per_min") {
+	if err != nil {
 		return err
 	}
 
@@ -504,7 +503,7 @@ func (m *Motor) GoTo(ctx context.Context, rpm, positionRevolutions float64, extr
 		m.logger.CWarn(ctx, warning)
 	}
 	if err != nil {
-		return err
+		m.logger.CError(ctx, err)
 	}
 
 	err = multierr.Combine(

@@ -254,9 +254,10 @@ func (m *uln28byj) GoFor(ctx context.Context, rpm, revolutions float64, extra ma
 	warning, err := motor.CheckSpeed(rpm, maxRPM)
 	if warning != "" {
 		m.logger.CWarn(ctx, warning)
-	}
-	if err != nil {
-		return err
+		if err != nil {
+			m.logger.CError(ctx, err)
+		}
+		return m.Stop(ctx, extra)
 	}
 
 	m.lock.Lock()
