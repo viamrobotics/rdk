@@ -20,10 +20,10 @@ import (
 )
 
 var (
-	defaultMaxQueueSize          = 20000
-	defaultShutdownIters         = 1000
-	writeBatchSize               = 100
-	uninitializedConnectionError = errors.New("sharedConn is true and connection is not initialized")
+	defaultMaxQueueSize        = 20000
+	defaultShutdownIters       = 1000
+	writeBatchSize             = 100
+	errUninitializedConnection = errors.New("sharedConn is true and connection is not initialized")
 )
 
 // CloudConfig contains the necessary inputs to send logs to the app backend over grpc.
@@ -267,7 +267,7 @@ func (nl *NetAppender) backgroundWorker() {
 		err := nl.sync()
 		if err != nil && !errors.Is(err, context.Canceled) {
 			interval = abnormalInterval
-			if !errors.Is(err, uninitializedConnectionError) {
+			if !errors.Is(err, errUninitializedConnection) {
 				nl.loggerWithoutNet.Infof("error logging to network: %s", err)
 			}
 		} else {
@@ -379,7 +379,7 @@ func (w *remoteLogWriterGRPC) getOrCreateClient(ctx context.Context) (apppb.Robo
 	}
 
 	if w.sharedConn {
-		return nil, uninitializedConnectionError
+		return nil, errUninitializedConnection
 	}
 
 	client, err := CreateNewGRPCClient(ctx, w.cfg)

@@ -264,7 +264,7 @@ func TestSetConn(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	client, err := netAppender.remoteWriter.getOrCreateClient(context.Background())
 	test.That(t, client, test.ShouldBeNil)
-	test.That(t, errors.Is(err, uninitializedConnectionError), test.ShouldBeTrue)
+	test.That(t, errors.Is(err, errUninitializedConnection), test.ShouldBeTrue)
 
 	// write a line before the connection is up
 	logger := NewDebugLogger("provided-client-conn")
