@@ -1307,3 +1307,26 @@ func TestAddStreamMaxTrackErr(t *testing.T) {
 	test.That(t, err.Error(), test.ShouldContainSubstring, "only 9 WebRTC tracks are supported per peer connection")
 	test.That(t, sub, test.ShouldResemble, rtppassthrough.NilSubscription)
 }
+
+func TestBadModuleFailsFast(t *testing.T) {
+	t.Setenv("VIAM_TESTMODULE_PANIC", "1")
+	logger := logging.NewTestLogger(t)
+
+	modCfgs := []config.Module{
+		{
+			Name:    "test-module",
+			ExePath: rtestutils.BuildTempModule(t, "module/testmodule"),
+			Type:    config.ModuleTypeLocal,
+		},
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+	defer cancel()
+	parentAddr := setupSocketWithRobot(t)
+	opts := modmanageroptions.Options{UntrustedEnv: false}
+	mgr := setupModManager(t, ctx, parentAddr, logger, opts)
+
+	err := mgr.Add(ctx, modCfgs...)
+
+	test.That(t, err.Error(), test.ShouldContainSubstring, "module test-module exited too quickly after attempted startup")
+}

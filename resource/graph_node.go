@@ -462,17 +462,13 @@ func (w *GraphNode) canTransitionTo(state NodeState) bool {
 // if the state transition is not expected. This method is not thread-safe and must be
 // called while holding a write lock on `mu` if accessed concurrently.
 func (w *GraphNode) transitionTo(state NodeState) {
-	if w.state == state {
-		if w.logger != nil {
-			w.logger.Warnf("unexpected self-transition from %s", w.state.String())
-		}
+	if w.state == state && w.logger != nil {
+		w.logger.Debugw("resource state self-transition", "state", w.state.String())
 		return
 	}
 
-	if !w.canTransitionTo(state) {
-		if w.logger != nil {
-			w.logger.Warnf("unexpected transition %s -> %s", w.state.String(), state.String())
-		}
+	if !w.canTransitionTo(state) && w.logger != nil {
+		w.logger.Warnw("unexpected resource state transition", "from", w.state.String(), "to", state.String())
 	}
 
 	w.state = state

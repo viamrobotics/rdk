@@ -32,6 +32,9 @@ func main() {
 }
 
 func mainWithArgs(ctx context.Context, args []string, logger logging.Logger) error {
+	if os.Getenv("VIAM_TESTMODULE_PANIC") != "" {
+		panic("there is no flavor town")
+	}
 	logger.Debug("debug mode enabled")
 
 	var err error
