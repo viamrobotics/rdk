@@ -151,7 +151,7 @@ func TestMoveOnMap(t *testing.T) {
 		req := motion.MoveOnMapReq{
 			ComponentName: base.Named("test-base"),
 			MotionCfg:     motionCfg,
-			Destination:   spatialmath.NewZeroPose(),
+			Destination:   spatialmath.NewPoseFromOrientation(&spatialmath.EulerAngles{Yaw: 3}),
 			SlamName:      slam.Named("test_slam"),
 		}
 
