@@ -53,7 +53,7 @@ const (
 	// default number of position only seeds to use for tp-space planning.
 	defaultTPspacePositionOnlySeeds = 16
 
-	// random seed
+	// random seed.
 	defaultRandomSeed = 0
 
 	// descriptions of constraints.
