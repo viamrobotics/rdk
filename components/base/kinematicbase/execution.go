@@ -22,7 +22,7 @@ import (
 )
 
 const (
-	lookaheadDistMult = 2. // Look ahead distance for path correction will be this times the turning radius
+	lookaheadDistMult = 3  // Look ahead distance for path correction will be this times the turning radius
 	goalsToAttempt    = 10 // Divide the lookahead distance into this many discrete goals to attempt to correct towards.
 
 	// Before post-processing trajectory will have velocities every this many mm (or degs if spinning in place).
@@ -32,7 +32,7 @@ const (
 	// inputUpdateStepSeconds, and will correct if deviation is larger than this percent of that amount.
 	minDeviationToCorrectPct = 50.
 	microsecondsPerSecond    = 1e6
-	courseCorrectionMaxScore = 100. // Course correction solutions must score better than this
+	courseCorrectionMaxScore = 50. // Course correction solutions must score better than this
 )
 
 type arcStep struct {
@@ -485,7 +485,7 @@ func (ptgk *ptgBaseKinematics) courseCorrect(
 
 func (ptgk *ptgBaseKinematics) getCorrectionSolution(ctx context.Context, goals []courseCorrectionGoal) (courseCorrectionGoal, error) {
 	for _, goal := range goals {
-		solveMetric := ik.NewScaledSquaredNormMetric(goal.Goal, 10)
+		solveMetric := ik.NewScaledSquaredNormMetric(goal.Goal, 50)
 		solutionChan := make(chan *ik.Solution, 1)
 		ptgk.logger.Debug("attempting goal ", spatialmath.PoseToProtobuf(goal.Goal))
 		seed := []referenceframe.Input{{math.Pi / 2}, {ptgk.linVelocityMMPerSecond / 2}, {math.Pi / 2}, {ptgk.linVelocityMMPerSecond / 2}}
