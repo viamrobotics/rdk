@@ -171,7 +171,7 @@ func createWheeledBase(
 	return wBase.(base.Base)
 }
 
-func createEncoders(t *testing.T, ctx context.Context, logger logging.Logger) map[string]fakeencoder.Encoder {
+func createEncoders(t *testing.T, ctx context.Context, logger logging.Logger) map[string]encoder.Encoder {
 	t.Helper()
 	leftconf := resource.Config{
 		Name:                leftMotorName + "_encoder",
@@ -187,14 +187,14 @@ func createEncoders(t *testing.T, ctx context.Context, logger logging.Logger) ma
 	test.That(t, err, test.ShouldBeNil)
 	right, err := fakeencoder.NewEncoder(ctx, rightconf, logger)
 	test.That(t, err, test.ShouldBeNil)
-	return map[string]fakeencoder.Encoder{leftMotorName: left, rightMotorName: right}
+	return map[string]encoder.Encoder{leftMotorName: left, rightMotorName: right}
 }
 
 func createMotors(
 	t *testing.T,
 	ctx context.Context,
 	logger logging.Logger,
-	encoders map[string]fakeencoder.Encoder,
+	encoders map[string]encoder.Encoder,
 ) map[string]motor.Motor {
 	t.Helper()
 	motorMap := map[string]motor.Motor{}

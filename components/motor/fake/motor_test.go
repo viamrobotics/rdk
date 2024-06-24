@@ -24,7 +24,7 @@ func TestMotorInit(t *testing.T) {
 	}, logger)
 	test.That(t, err, test.ShouldBeNil)
 	m := &Motor{
-		Encoder:           enc,
+		Encoder:           enc.(fake.Encoder),
 		Logger:            logger,
 		PositionReporting: true,
 		MaxRPM:            60,
@@ -50,7 +50,7 @@ func TestGoFor(t *testing.T) {
 	}, logger)
 	test.That(t, err, test.ShouldBeNil)
 	m := &Motor{
-		Encoder:           enc,
+		Encoder:           enc.(fake.Encoder),
 		Logger:            logger,
 		PositionReporting: true,
 		MaxRPM:            60,
@@ -87,7 +87,7 @@ func TestGoTo(t *testing.T) {
 	}, logger)
 	test.That(t, err, test.ShouldBeNil)
 	m := &Motor{
-		Encoder:           enc,
+		Encoder:           enc.(fake.Encoder),
 		Logger:            logger,
 		PositionReporting: true,
 		MaxRPM:            60,
@@ -124,7 +124,7 @@ func TestSetRPM(t *testing.T) {
 	}, logger)
 	test.That(t, err, test.ShouldBeNil)
 	m := &Motor{
-		Encoder:           enc,
+		Encoder:           enc.(fake.Encoder),
 		Logger:            logger,
 		PositionReporting: true,
 		MaxRPM:            60,
@@ -161,7 +161,7 @@ func TestResetZeroPosition(t *testing.T) {
 	}, logger)
 	test.That(t, err, test.ShouldBeNil)
 	m := &Motor{
-		Encoder:           enc,
+		Encoder:           enc.(fake.Encoder),
 		Logger:            logger,
 		PositionReporting: true,
 		MaxRPM:            60,
@@ -186,7 +186,7 @@ func TestPower(t *testing.T) {
 	}, logger)
 	test.That(t, err, test.ShouldBeNil)
 	m := &Motor{
-		Encoder:           enc,
+		Encoder:           enc.(fake.Encoder),
 		Logger:            logger,
 		PositionReporting: true,
 		MaxRPM:            60,

@@ -34,29 +34,16 @@ func NewEncoder(
 	ctx context.Context,
 	cfg resource.Config,
 	logger logging.Logger,
-) (Encoder, error) {
+) (encoder.Encoder, error) {
 	e := &fakeEncoder{
 		Named:        cfg.ResourceName().AsNamed(),
 		position:     0,
 		positionType: encoder.PositionTypeTicks,
 		logger:       logger,
 	}
-	if err := e.Reconfigure(ctx, nil, cfg); err != nil {
-		return nil, err
-	}
-
-	e.start(ctx)
-	return e, nil
-}
-
-func (e *fakeEncoder) Reconfigure(
-	ctx context.Context,
-	deps resource.Dependencies,
-	conf resource.Config,
-) error {
-	newConf, err := resource.NativeConfig[*Config](conf)
+	newConf, err := resource.NativeConfig[*Config](cfg)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	e.mu.Lock()
 	e.updateRate = newConf.UpdateRate
@@ -64,7 +51,9 @@ func (e *fakeEncoder) Reconfigure(
 		e.updateRate = 100
 	}
 	e.mu.Unlock()
-	return nil
+
+	e.start(ctx)
+	return e, nil
 }
 
 // Config describes the configuration of a fake encoder.
@@ -81,6 +70,7 @@ func (cfg *Config) Validate(path string) ([]string, error) {
 type fakeEncoder struct {
 	resource.Named
 	resource.TriviallyCloseable
+	resource.AlwaysRebuild
 
 	positionType            encoder.PositionType
 	activeBackgroundWorkers sync.WaitGroup
