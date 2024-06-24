@@ -456,9 +456,6 @@ func (m *Motor) SetPower(ctx context.Context, powerPct float64, extra map[string
 		m.logger.CError(ctx, err)
 		return m.Stop(ctx, extra)
 	}
-	if strings.Contains(warning, "nearly 0 rev_per_min") {
-		return m.Stop(ctx, extra)
-	}
 
 	m.powerPct = powerPct
 	return m.Jog(ctx, powerPct*m.maxRPM)
