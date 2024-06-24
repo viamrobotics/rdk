@@ -321,14 +321,13 @@ func (m *uln28byj) SetRPM(ctx context.Context, rpm float64, extra map[string]int
 	ctx, done := m.opMgr.New(ctx)
 	defer done()
 
-	switch speed := math.Abs(rpm); {
-	case speed < 0.1:
-		m.logger.CWarn(ctx, "motor speed is nearly 0 rev_per_min")
-		return motor.NewZeroRPMError()
-	case speed > 146-0.1:
-		m.logger.CWarnf(ctx, "motor speed is nearly the max rev_per_min (%f)", 146)
-		return m.Stop(ctx, nil)
-	default:
+	warning, err := motor.CheckSpeed(rpm, maxRPM)
+	if warning != "" {
+		m.logger.CWarn(ctx, warning)
+		if err != nil {
+			m.logger.CError(ctx, err)
+		}
+		return m.Stop(ctx, extra)
 	}
 
 	m.lock.Lock()
