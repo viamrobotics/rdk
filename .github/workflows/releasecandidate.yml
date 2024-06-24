@@ -68,9 +68,31 @@ jobs:
           channel: '#team-devops'
           name: 'Workflow Status'
 
+  extract-version:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v3
+      - name: Extract version and RC number
+        id: extract_version
+        run: |
+          TAG_NAME=${GITHUB_REF#refs/tags/}
+          if [[ $TAG_NAME =~ ^v([0-9]+\.[0-9]+\.[0-9]+)-rc([0-9]+)$ ]]; then
+            VERSION="${BASH_REMATCH[1]}"
+            RC_NUMBER="${BASH_REMATCH[2]}"
+            echo "::set-output name=version::$VERSION"
+            echo "::set-output name=rc_number::$RC_NUMBER"
+          else
+            echo "The tag does not match the expected pattern"
+            exit 1
+          fi
+
   run-sdk-integration-networking-tests:
-    needs: [staticbuild, appimage]
+    needs: [staticbuild, appimage, extract-version]
     if: ${{ success() }}
     uses: viamrobotics/rdk/.github/workflows/trigger-networking-tests.yml@main
+    with:
+      version: ${{ needs.extract_version.outputs.version }}
+      rc_number: ${{ needs.extract_version.outputs.rc_number }}
     secrets:
       REPO_READ_TOKEN: ${{ secrets.REPO_READ_TOKEN }}
