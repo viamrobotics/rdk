@@ -313,7 +313,8 @@ func TestPTGKinematicsWithGeom(t *testing.T) {
 	t.Run("GoToInputs", func(t *testing.T) {
 		// The transform of current inputs is the remaining step, i.e. where the base will go when the current inputs are done executing.
 		// To mock this up correctly, we need to alter the inputs here to simulate the base moving without a localizer.
-		// Due to limitations of this mockup, this must use a PTG which will produce only one arc step. Full motion testing is provided by the motion service.
+		// Due to limitations of this mockup, this must use a PTG which will produce only one arc step. Full motion testing is provided by
+		// the motion service.
 		ms.PositionFunc = func(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
 			ptgBase.inputLock.RLock()
 			currInputs := ptgBase.currentState.currentInputs
@@ -343,7 +344,7 @@ func TestPTGKinematicsWithGeom(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		newInputs := []referenceframe.Input{
 			{float64(ptgBase.courseCorrectionIdx)},
-			{math.Pi/2.},
+			{math.Pi / 2.},
 			{0},
 			{1100},
 		}
