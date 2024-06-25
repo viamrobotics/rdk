@@ -81,15 +81,13 @@ func ProcessConfig(tb testing.TB, conf *config.Config) *config.Config {
 	return processed
 }
 
-func TestRobotReconfigure(t *testing.T) {
-	test.That(t, len(resource.DefaultServices()), test.ShouldEqual, 2)
-	modelName1 := utils.RandomAlphaString(5)
-	modelName2 := utils.RandomAlphaString(5)
-	model1 := resource.DefaultModelFamily.WithModel(modelName1)
-	model2 := resource.DefaultModelFamily.WithModel(modelName2)
-	fakeModel = resource.DefaultModelFamily.WithModel("fake")
+func registerMockModel(tb testing.TB) resource.Model {
+	tb.Helper()
 
-	resource.RegisterComponent(mockAPI, model1,
+	modelName := utils.RandomAlphaString(5)
+	model := resource.DefaultModelFamily.WithModel(modelName)
+
+	resource.RegisterComponent(mockAPI, model,
 		resource.Registration[resource.Resource, *mockFakeConfig]{
 			Constructor: func(
 				ctx context.Context,
@@ -109,6 +107,18 @@ func TestRobotReconfigure(t *testing.T) {
 				return &mockFake{Named: conf.ResourceName().AsNamed()}, nil
 			},
 		})
+	tb.Cleanup(func() { resource.Deregister(mockAPI, model) })
+	return model
+}
+
+func TestRobotReconfigure(t *testing.T) {
+	test.That(t, len(resource.DefaultServices()), test.ShouldEqual, 2)
+
+	model1 := registerMockModel(t)
+
+	modelName2 := utils.RandomAlphaString(5)
+	model2 := resource.DefaultModelFamily.WithModel(modelName2)
+	fakeModel = resource.DefaultModelFamily.WithModel("fake")
 
 	resetComponentFailureState := func() {
 		reconfigurableTrue = true
@@ -131,7 +141,6 @@ func TestRobotReconfigure(t *testing.T) {
 		})
 
 	defer func() {
-		resource.Deregister(mockAPI, model1)
 		resource.Deregister(mockAPI, model2)
 	}()
 
