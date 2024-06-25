@@ -114,7 +114,6 @@ type rtkSerial struct {
 	mu sync.Mutex
 
 	// everything below this comment is protected by mu
-	isConnectedToNtrip bool
 	ntripClient        *gpsutils.NtripInfo
 	cachedData         *gpsutils.CachedData
 	correctionWriter   io.ReadWriteCloser
@@ -403,13 +402,9 @@ func (g *rtkSerial) receiveAndWriteSerial() {
 		scanner = rtcm3.NewScanner(g.reader)
 	}
 
-	g.mu.Lock()
-	g.isConnectedToNtrip = true
-	g.mu.Unlock()
+	isConnectedToNtrip := true
 
-	// It's okay to skip the mutex on this next line: g.isConnectedToNtrip can only be mutated by this
-	// goroutine itself
-	for g.isConnectedToNtrip && !g.isClosed {
+	for isConnectedToNtrip && !g.isClosed {
 		select {
 		case <-g.cancelCtx.Done():
 			return
@@ -421,9 +416,7 @@ func (g *rtkSerial) receiveAndWriteSerial() {
 		// it's disconnected, we'll get an error, which is our signal to reconnect.
 		msg, err := scanner.NextMessage()
 		if err != nil {
-			g.mu.Lock()
-			g.isConnectedToNtrip = false
-			g.mu.Unlock()
+			isConnectedToNtrip = false
 
 			if msg != nil {
 				continue // We're still connected!
@@ -453,9 +446,7 @@ func (g *rtkSerial) receiveAndWriteSerial() {
 				scanner = rtcm3.NewScanner(g.reader)
 			}
 
-			g.mu.Lock()
-			g.isConnectedToNtrip = true
-			g.mu.Unlock()
+			isConnectedToNtrip = true
 
 			continue
 		}
