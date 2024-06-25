@@ -114,15 +114,15 @@ type rtkSerial struct {
 	mu sync.Mutex
 
 	// everything below this comment is protected by mu
-	ntripClient        *gpsutils.NtripInfo
-	cachedData         *gpsutils.CachedData
-	correctionWriter   io.ReadWriteCloser
-	writePath          string
-	wbaud              int
-	isVirtualBase      bool
-	readerWriter       *bufio.ReadWriter
-	writer             io.Writer
-	reader             io.Reader
+	ntripClient      *gpsutils.NtripInfo
+	cachedData       *gpsutils.CachedData
+	correctionWriter io.ReadWriteCloser
+	writePath        string
+	wbaud            int
+	isVirtualBase    bool
+	readerWriter     *bufio.ReadWriter
+	writer           io.Writer
+	reader           io.Reader
 }
 
 // Reconfigure reconfigures attributes.
