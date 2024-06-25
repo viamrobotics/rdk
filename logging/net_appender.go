@@ -35,7 +35,6 @@ type CloudConfig struct {
 // NewNetAppender creates a NetAppender to send log events to the app backend. NetAppenders ought to
 // be `Close`d prior to shutdown to flush remaining logs.
 // Pass `nil` for `conn` if you want this to create its own connection.
-// Pass `shutdownIters`=-1 for the default value.
 func NewNetAppender(config *CloudConfig, conn rpc.ClientConn, sharedConn bool) (*NetAppender, error) {
 	hostname, err := os.Hostname()
 	if err != nil {
