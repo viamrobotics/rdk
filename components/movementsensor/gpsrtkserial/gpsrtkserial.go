@@ -416,6 +416,9 @@ func (g *rtkSerial) receiveAndWriteSerial() {
 		default:
 		}
 
+		// Despite this looking like we're getting the next message from the scanner, what we're
+		// really doing is just checking if the scanner is still connected to the mount point. If
+		// it's disconnected, we'll get an error, which is our signal to reconnect.
 		msg, err := scanner.NextMessage()
 		if err != nil {
 			g.mu.Lock()
