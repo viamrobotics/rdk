@@ -402,9 +402,7 @@ func (g *rtkSerial) receiveAndWriteSerial() {
 		scanner = rtcm3.NewScanner(g.reader)
 	}
 
-	isConnectedToNtrip := true
-
-	for isConnectedToNtrip && !g.isClosed {
+	for !g.isClosed {
 		select {
 		case <-g.cancelCtx.Done():
 			return
