@@ -860,9 +860,8 @@ func generateHeuristic(firstEdge, pathLen int) []float64 {
 	// edges that are not connectable is very costly because the algorithm cycles through all PTGs in hopes
 	// of connecting them. Thus, finding short, connectable paths is best
 	lookAhead := 3.0
-	numElems := pathLen - 2 // Can't sample last or second-last therefore arrayLen-2
-	heuristics := make([]float64, numElems)
-	for i := 0; i < numElems; i++ {
+	heuristics := make([]float64, pathLen)
+	for i := 0; i < pathLen; i++ {
 		// Creates ascending list until lookAhead and then descending list
 		heuristics[i] = math.Pow(math.Max(1, lookAhead-math.Abs(lookAhead-math.Abs(float64(firstEdge-i)))), 2)
 	}
@@ -873,7 +872,7 @@ func generateHeuristic(firstEdge, pathLen int) []float64 {
 	if firstEdge-1 >= 0 {
 		heuristics[firstEdge-1] = math.Inf(-1)
 	}
-	if firstEdge+1 < numElems {
+	if firstEdge+1 < pathLen {
 		heuristics[firstEdge+1] = math.Inf(-1)
 	}
 	return heuristics
@@ -942,7 +941,7 @@ func (mp *tpSpaceRRTMotionPlanner) smoothPath(ctx context.Context, path []node) 
 		}
 		// get start node of first edge. Cannot be either the last or second-to-last node.
 		// Intn will return an int in the half-open interval half-open interval [0,n)
-		firstEdge := mp.randseed.Intn(len(path) - 2)
+		firstEdge := mp.randseed.Intn(len(path))
 		cdf := generateCDF(firstEdge, len(path))
 		sample := mp.randseed.Float64()
 		secondEdge := binarySearch(cdf, sample)
@@ -981,8 +980,6 @@ func (mp *tpSpaceRRTMotionPlanner) smoothPath(ctx context.Context, path []node) 
 				break
 			}
 			for i, pt := range trajPts {
-				fmt.Println("this is pt\n")
-				fmt.Println(pt)
 				intPose := spatialmath.Compose(lastPose, pt.Pose)
 
 				if i == 0 {
