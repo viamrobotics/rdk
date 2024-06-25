@@ -57,9 +57,6 @@ func NewBase(_ context.Context, _ resource.Dependencies, conf resource.Config, l
 	return b, nil
 }
 
-	
-	
-
 // MoveStraight does nothing.
 func (b *Base) MoveStraight(ctx context.Context, distanceMm int, mmPerSec float64, extra map[string]interface{}) error {
 	return nil
