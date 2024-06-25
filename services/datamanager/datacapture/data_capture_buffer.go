@@ -60,6 +60,9 @@ func (b *Buffer) Write(item *v1.SensorData) error {
 			return err
 		}
 		b.nextFile = nextFile
+		// We want to special case on "CaptureAllFromCamera" because it is sensor data that contains images
+		// and their corresponding annotations. We want each image and its annotations to be stored in a
+		// separate file.
 	} else if b.nextFile.Size() > b.maxCaptureFileSize || b.MetaData.MethodName == "CaptureAllFromCamera" {
 		if err := b.nextFile.Close(); err != nil {
 			return err

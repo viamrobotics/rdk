@@ -35,58 +35,26 @@ type extraFields struct {
 	MimeType string
 }
 
+type methodParamsDecoded struct {
+	cameraName    string
+	mimeType      string
+	minConfidence float64
+}
+
 func newCaptureAllFromCameraCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
 	vision, err := assertVision(resource)
 	if err != nil {
 		return nil, err
 	}
 
-	cameraParam := params.MethodParams["camera_name"]
-
-	if cameraParam == nil {
-		return nil, errors.New("must specify a camera_name in the additional_params")
-	}
-
-	var cameraName string
-
-	cameraNameWrapper := new(wrapperspb.StringValue)
-	if err := cameraParam.UnmarshalTo(cameraNameWrapper); err != nil {
-		return nil, err
-	}
-	cameraName = cameraNameWrapper.Value
-
-	mimeTypeParam := params.MethodParams["mime_type"]
-
-	if mimeTypeParam == nil {
-		return nil, errors.New("must specify a mime_type in the additional_params")
-	}
-
-	var mimeType string
-
-	mimeTypeWrapper := new(wrapperspb.StringValue)
-	if err := mimeTypeParam.UnmarshalTo(mimeTypeWrapper); err != nil {
+	decodedParams, err := additionalParamExtraction(params.MethodParams)
+	if err != nil {
 		return nil, err
 	}
 
-	mimeType = mimeTypeWrapper.Value
-
-	minConfidenceParam := params.MethodParams["min_confidence_score"]
-
-	// Default min_confidence_score is 0.5
-	minConfidenceScore := 0.5
-
-	if minConfidenceParam != nil {
-		minConfidenceScoreWrapper := new(wrapperspb.DoubleValue)
-		if err := minConfidenceParam.UnmarshalTo(minConfidenceScoreWrapper); err != nil {
-			return nil, err
-		}
-
-		minConfidenceScore = minConfidenceScoreWrapper.Value
-
-		if minConfidenceScore < 0 || minConfidenceScore > 1 {
-			return nil, errors.New("min_confidence_score must be between 0 and 1 inclusive")
-		}
-	}
+	cameraName := decodedParams.cameraName
+	mimeType := decodedParams.mimeType
+	minConfidenceScore := decodedParams.minConfidence
 
 	cFunc := data.CaptureFunc(func(ctx context.Context, _ map[string]*anypb.Any) (interface{}, error) {
 		visCaptureOptions := viscapture.CaptureOptions{
@@ -128,6 +96,9 @@ func newCaptureAllFromCameraCollector(resource interface{}, params data.Collecto
 			return nil, err
 		}
 
+		// We need this to pass in the height & width of an image in order to calculate
+		// the normalized coordinate values of any bounding boxes. We also need the
+		// mimeType to appropriately upload the image.
 		bounds := extraFields{}
 
 		if visCapture.Image != nil {
@@ -150,6 +121,61 @@ func newCaptureAllFromCameraCollector(resource interface{}, params data.Collecto
 	})
 
 	return data.NewCollector(cFunc, params)
+}
+
+func additionalParamExtraction(methodParams map[string]*anypb.Any) (methodParamsDecoded, error) {
+	cameraParam := methodParams["camera_name"]
+
+	if cameraParam == nil {
+		return methodParamsDecoded{}, errors.New("must specify a camera_name in the additional_params")
+	}
+
+	var cameraName string
+
+	cameraNameWrapper := new(wrapperspb.StringValue)
+	if err := cameraParam.UnmarshalTo(cameraNameWrapper); err != nil {
+		return methodParamsDecoded{}, err
+	}
+	cameraName = cameraNameWrapper.Value
+
+	mimeTypeParam := methodParams["mime_type"]
+
+	if mimeTypeParam == nil {
+		return methodParamsDecoded{}, errors.New("must specify a mime_type in the additional_params")
+	}
+
+	var mimeType string
+
+	mimeTypeWrapper := new(wrapperspb.StringValue)
+	if err := mimeTypeParam.UnmarshalTo(mimeTypeWrapper); err != nil {
+		return methodParamsDecoded{}, err
+	}
+
+	mimeType = mimeTypeWrapper.Value
+
+	minConfidenceParam := methodParams["min_confidence_score"]
+
+	// Default min_confidence_score is 0.5
+	minConfidenceScore := 0.5
+
+	if minConfidenceParam != nil {
+		minConfidenceScoreWrapper := new(wrapperspb.DoubleValue)
+		if err := minConfidenceParam.UnmarshalTo(minConfidenceScoreWrapper); err != nil {
+			return methodParamsDecoded{}, err
+		}
+
+		minConfidenceScore = minConfidenceScoreWrapper.Value
+
+		if minConfidenceScore < 0 || minConfidenceScore > 1 {
+			return methodParamsDecoded{}, errors.New("min_confidence_score must be between 0 and 1 inclusive")
+		}
+	}
+
+	return methodParamsDecoded{
+		cameraName:    cameraName,
+		mimeType:      mimeType,
+		minConfidence: minConfidenceScore,
+	}, nil
 }
 
 func assertVision(resource interface{}) (Service, error) {

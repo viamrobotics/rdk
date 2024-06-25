@@ -32,6 +32,7 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
+// In order for a collector to be captured by Data Capture, it must be included as a weak dependency.
 func init() {
 	resource.RegisterService(
 		datamanager.API,
