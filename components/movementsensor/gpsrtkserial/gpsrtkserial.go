@@ -416,13 +416,15 @@ func (g *rtkSerial) receiveAndWriteSerial() {
 		// it's disconnected, we'll get an error, which is our signal to reconnect.
 		msg, err := scanner.NextMessage()
 		if err == nil {
-			continue
+			continue // No errors: we're still connected.
 		}
 
+		// If we get here, we encountered an error. Try reconnecting to the mount point.
 		isConnectedToNtrip = false
 
 		if msg != nil {
-			continue // We're still connected!
+			// Why would we have a non-nil message with a non-nil error!? Give up entirely.
+			return
 		}
 
 		if g.isClosed {
