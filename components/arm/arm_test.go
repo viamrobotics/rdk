@@ -19,7 +19,9 @@ import (
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
+	robotimpl "go.viam.com/rdk/robot/impl"
 	"go.viam.com/rdk/spatialmath"
+	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
 	"go.viam.com/rdk/utils"
 )
@@ -585,4 +587,32 @@ func locationCheckTestHelper(geomList []spatialmath.Geometry, checkMap map[strin
 		}
 	}
 	return true
+}
+
+func TestFromRobot(t *testing.T) {
+	jsonData := `{
+		"components": [
+			{
+				"name": "arm1",
+				"type": "arm",
+				"model": "fake",
+				"attributes": {
+					"model-path": "fake/fake_model.json"
+				}
+			}
+		]
+	}`
+
+	conf := testutils.ConfigFromJSON(t, jsonData)
+	logger := logging.NewTestLogger(t)
+	r := robotimpl.SetupLocalRobot(t, context.Background(), conf, logger)
+
+	expected := []string{"arm1"}
+	testutils.VerifySameElements(t, arm.NamesFromRobot(r), expected)
+
+	_, err := arm.FromRobot(r, "arm1")
+	test.That(t, err, test.ShouldBeNil)
+
+	_, err = arm.FromRobot(r, "arm0")
+	test.That(t, err, test.ShouldNotBeNil)
 }

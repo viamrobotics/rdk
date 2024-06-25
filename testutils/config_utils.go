@@ -1,7 +1,16 @@
 // Package testutils implements test utilities.
 package testutils
 
-import "go.viam.com/rdk/resource"
+import (
+	"context"
+	"strings"
+	"testing"
+
+	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/logging"
+	"go.viam.com/rdk/resource"
+	"go.viam.com/test"
+)
 
 // FakeConvertedAttributes is a helper for testing if validation works.
 type FakeConvertedAttributes struct {
@@ -15,4 +24,12 @@ func (convAttr *FakeConvertedAttributes) Validate(path string) ([]string, error)
 		return nil, resource.NewConfigValidationFieldRequiredError(path, "Thing")
 	}
 	return nil, nil
+}
+
+func ConfigFromJSON(tb testing.TB, jsonData string) *config.Config {
+	tb.Helper()
+	logger := logging.NewTestLogger(tb)
+	conf, err := config.FromReader(context.Background(), "", strings.NewReader(jsonData), logger)
+	test.That(tb, err, test.ShouldBeNil)
+	return conf
 }

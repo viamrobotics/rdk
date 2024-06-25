@@ -2,14 +2,12 @@ package fake
 
 import (
 	"context"
-	"strings"
 	"testing"
 
 	pb "go.viam.com/api/component/arm/v1"
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/components/arm"
-	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
@@ -108,14 +106,6 @@ func TestReconfigure(t *testing.T) {
 	test.That(t, fakeArm.model, test.ShouldResemble, model)
 }
 
-func configFromJSON(tb testing.TB, jsonData string) *config.Config {
-	tb.Helper()
-	logger := logging.NewTestLogger(tb)
-	conf, err := config.FromReader(context.Background(), "", strings.NewReader(jsonData), logger)
-	test.That(tb, err, test.ShouldBeNil)
-	return conf
-}
-
 func TestFromRobot(t *testing.T) {
 	jsonData := `{
 		"components": [
@@ -130,7 +120,7 @@ func TestFromRobot(t *testing.T) {
 		]
 	}`
 
-	conf := configFromJSON(t, jsonData)
+	conf := testutils.ConfigFromJSON(t, jsonData)
 	logger := logging.NewTestLogger(t)
 	r := robotimpl.SetupLocalRobot(t, context.Background(), conf, logger)
 

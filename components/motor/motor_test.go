@@ -11,7 +11,11 @@ import (
 	"go.viam.com/utils/protoutils"
 
 	"go.viam.com/rdk/components/motor"
+	_ "go.viam.com/rdk/components/motor/fake"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
+	robotimpl "go.viam.com/rdk/robot/impl"
+	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
 )
 
@@ -129,4 +133,49 @@ func TestCreateStatus(t *testing.T) {
 		_, err := motor.CreateStatus(context.Background(), injectMotor)
 		test.That(t, err, test.ShouldBeError, errFail)
 	})
+}
+
+func TestFromRobot(t *testing.T) {
+	jsonData := `{
+		"components": [
+			{
+				"name": "m1",
+				"type": "motor",
+				"model": "fake",
+				"attributes": {
+					"pins": {
+						"pwm": "1"
+					},
+					"pwm_freq": 1000
+				}
+			},
+			{
+				"name": "m2",
+				"type": "motor",
+				"model": "fake",
+				"attributes": {
+					"pins": {
+						"pwm": "5"
+					},
+					"pwm_freq": 4000
+				}
+			}
+		]
+	}`
+
+	conf := testutils.ConfigFromJSON(t, jsonData)
+	logger := logging.NewTestLogger(t)
+	r := robotimpl.SetupLocalRobot(t, context.Background(), conf, logger)
+
+	expected := []string{"m1", "m2"}
+	testutils.VerifySameElements(t, motor.NamesFromRobot(r), expected)
+
+	_, err := motor.FromRobot(r, "m1")
+	test.That(t, err, test.ShouldBeNil)
+
+	_, err = motor.FromRobot(r, "m2")
+	test.That(t, err, test.ShouldBeNil)
+
+	_, err = motor.FromRobot(r, "m0")
+	test.That(t, err, test.ShouldNotBeNil)
 }
