@@ -395,15 +395,21 @@ func (g *rtkI2C) receiveAndWriteI2C(ctx context.Context) {
 		default:
 		}
 
+		// Despite this looking like we're getting the next message from the scanner, what we're
+		// really doing is just checking if the scanner is still connected to the mount point. If
+		// it's disconnected, we'll get an error, which is our signal to reconnect.
 		msg, err := scanner.NextMessage()
 		if err == nil {
-			continue
+			continue // No errors: we're still connected.
 		}
 
 		if msg != nil {
+			// Why would we have a non-nil message with a non-nil error!? Give up entirely.
 			return
 		}
 
+		// If we get here, the scanner encountered an error but is supposed to continue going. Try
+		// reconnecting to the mount point.
 		g.logger.CDebug(ctx, "No message... reconnecting to stream...")
 		err = g.getStream(g.ntripClient.MountPoint, g.ntripClient.MaxConnectAttempts)
 		if err != nil {
