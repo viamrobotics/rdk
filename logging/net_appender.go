@@ -89,10 +89,8 @@ func (w *remoteLogWriterGRPC) setConn(ctx context.Context, logger Logger, conn r
 	defer w.clientMutex.Unlock()
 	if w.rpcClient != nil && !w.sharedConn {
 		oldClient := w.rpcClient
-		go func() {
-			err := oldClient.Close()
-			logger.CErrorf(ctx, "error closing oldClient: %s", err)
-		}()
+		err := oldClient.Close()
+		logger.CErrorf(ctx, "error closing oldClient: %s", err)
 	}
 	w.rpcClient = conn
 	w.service = nil
