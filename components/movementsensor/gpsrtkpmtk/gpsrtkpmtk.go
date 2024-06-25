@@ -405,7 +405,7 @@ func (g *rtkI2C) receiveAndWriteI2C(ctx context.Context) {
 		ntripStatus = false
 
 		if msg != nil {
-			continue
+			return
 		}
 
 		g.logger.CDebug(ctx, "No message... reconnecting to stream...")
