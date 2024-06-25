@@ -398,40 +398,42 @@ func (g *rtkI2C) receiveAndWriteI2C(ctx context.Context) {
 		}
 
 		msg, err := scanner.NextMessage()
-		if err != nil {
-			ntripStatus = false
+		if err == nil {
+			continue
+		}
 
-			if msg == nil {
-				g.logger.CDebug(ctx, "No message... reconnecting to stream...")
-				err = g.getStream(g.ntripClient.MountPoint, g.ntripClient.MaxConnectAttempts)
-				if err != nil {
-					g.err.Set(err)
-					return
-				}
+		ntripStatus = false
 
-				w = &bytes.Buffer{}
-				r = io.TeeReader(g.ntripClient.Stream, w)
-
-				buf = make([]byte, 1100)
-				n, err := g.ntripClient.Stream.Read(buf)
-				if err != nil {
-					g.err.Set(err)
-					return
-				}
-				wI2C := movementsensor.PMTKAddChk(buf[:n])
-
-				err = handle.Write(ctx, wI2C)
-
-				if err != nil {
-					g.logger.CErrorf(ctx, "i2c handle write failed %s", err)
-					g.err.Set(err)
-					return
-				}
-
-				scanner = rtcm3.NewScanner(r)
-				ntripStatus = true
-				continue
+		if msg == nil {
+			g.logger.CDebug(ctx, "No message... reconnecting to stream...")
+			err = g.getStream(g.ntripClient.MountPoint, g.ntripClient.MaxConnectAttempts)
+			if err != nil {
+				g.err.Set(err)
+				return
 			}
+
+			w = &bytes.Buffer{}
+			r = io.TeeReader(g.ntripClient.Stream, w)
+
+			buf = make([]byte, 1100)
+			n, err := g.ntripClient.Stream.Read(buf)
+			if err != nil {
+				g.err.Set(err)
+				return
+			}
+			wI2C := movementsensor.PMTKAddChk(buf[:n])
+
+			err = handle.Write(ctx, wI2C)
+
+			if err != nil {
+				g.logger.CErrorf(ctx, "i2c handle write failed %s", err)
+				g.err.Set(err)
+				return
+			}
+
+			scanner = rtcm3.NewScanner(r)
+			ntripStatus = true
+			continue
 		}
 	}
 }
