@@ -68,7 +68,8 @@ var testComponent = resource.Config{
 			},
 		},
 	},
-	Frame: testFrame,
+	Frame:            testFrame,
+	LogConfiguration: resource.LogConfig{Level: logging.DEBUG},
 }
 
 var testRemote = Remote{
@@ -118,6 +119,7 @@ var testService = resource.Config{
 			},
 		},
 	},
+	LogConfiguration: resource.LogConfig{Level: logging.DEBUG},
 }
 
 var testProcessConfig = pexec.ProcessConfig{
@@ -338,6 +340,7 @@ func TestComponentConfigToProto(t *testing.T) {
 	out, err := ComponentConfigFromProto(proto)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, out, test.ShouldNotBeNil)
+	test.That(t, out.LogConfiguration.Level, test.ShouldEqual, logging.DEBUG)
 
 	validateComponent(t, *out, testComponent)
 
@@ -572,6 +575,7 @@ func TestServiceConfigToProto(t *testing.T) {
 
 	out, err := ServiceConfigFromProto(proto)
 	test.That(t, err, test.ShouldBeNil)
+	test.That(t, out.LogConfiguration.Level, test.ShouldEqual, logging.DEBUG)
 
 	validateService(t, *out, testService)
 
