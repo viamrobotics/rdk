@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/a8m/envsubst"
+	"github.com/golang/geo/r3"
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	"go.viam.com/test"
@@ -23,6 +24,7 @@ import (
 
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/components/arm/fake"
+	"go.viam.com/rdk/components/audioinput"
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/camera"
@@ -35,12 +37,14 @@ import (
 	"go.viam.com/rdk/components/servo"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
+	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	_ "go.viam.com/rdk/services/datamanager/builtin"
 	"go.viam.com/rdk/services/motion"
 	_ "go.viam.com/rdk/services/motion/builtin"
 	"go.viam.com/rdk/services/sensors"
 	_ "go.viam.com/rdk/services/sensors/builtin"
+	"go.viam.com/rdk/spatialmath"
 	rdktestutils "go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/robottestutils"
 	rutils "go.viam.com/rdk/utils"
@@ -63,6 +67,15 @@ func ConfigFromFile(tb testing.TB, filePath string) *config.Config {
 	return conf
 }
 
+func ProcessConfig(tb testing.TB, conf *config.Config) *config.Config {
+	tb.Helper()
+
+	logger := logging.NewTestLogger(tb)
+	processed, err := config.ProcessConfigLocalConfig(conf, logger)
+	test.That(tb, err, test.ShouldBeNil)
+	return processed
+}
+
 func TestRobotReconfigure(t *testing.T) {
 	test.That(t, len(resource.DefaultServices()), test.ShouldEqual, 2)
 	mockAPI := resource.APINamespaceRDK.WithComponentType("mock")
@@ -71,10 +84,14 @@ func TestRobotReconfigure(t *testing.T) {
 	}
 	modelName1 := utils.RandomAlphaString(5)
 	modelName2 := utils.RandomAlphaString(5)
+	model1 := resource.DefaultModelFamily.WithModel(modelName1)
+	model2 := resource.DefaultModelFamily.WithModel(modelName2)
+	fakeModel = resource.DefaultModelFamily.WithModel("fake")
+	// TODO: remove these once we stop import configs from files
 	test.That(t, os.Setenv("TEST_MODEL_NAME_1", modelName1), test.ShouldBeNil)
 	test.That(t, os.Setenv("TEST_MODEL_NAME_2", modelName2), test.ShouldBeNil)
 
-	resource.RegisterComponent(mockAPI, resource.DefaultModelFamily.WithModel(modelName1),
+	resource.RegisterComponent(mockAPI, model1,
 		resource.Registration[resource.Resource, *mockFakeConfig]{
 			Constructor: func(
 				ctx context.Context,
@@ -99,7 +116,7 @@ func TestRobotReconfigure(t *testing.T) {
 		reconfigurableTrue = true
 		testReconfiguringMismatch = false
 	}
-	resource.RegisterComponent(mockAPI, resource.DefaultModelFamily.WithModel(modelName2),
+	resource.RegisterComponent(mockAPI, model2,
 		resource.Registration[resource.Resource, resource.NoNativeConfig]{
 			Constructor: func(
 				ctx context.Context,
@@ -116,14 +133,75 @@ func TestRobotReconfigure(t *testing.T) {
 		})
 
 	defer func() {
-		resource.Deregister(mockAPI, resource.DefaultModelFamily.WithModel(modelName1))
-		resource.Deregister(mockAPI, resource.DefaultModelFamily.WithModel(modelName2))
+		resource.Deregister(mockAPI, model1)
+		resource.Deregister(mockAPI, model2)
 	}()
 
 	t.Run("no diff", func(t *testing.T) {
 		resetComponentFailureState()
 		logger := logging.NewTestLogger(t)
-		conf1 := ConfigFromFile(t, "data/diff_config_1.json")
+
+		// conf1 := ConfigFromFile(t, "data/diff_config_1.json")
+		conf1 := ProcessConfig(t, &config.Config{
+			Components: []resource.Config{
+				{
+					Name:  "arm1",
+					API:   arm.API,
+					Model: fakeModel,
+					Attributes: rutils.AttributeMap{
+						"model-path": "../../components/arm/fake/fake_model.json",
+					},
+				},
+				{
+					Name:  "base1",
+					API:   base.API,
+					Model: fakeModel,
+				},
+				{
+					Name:  "board1",
+					API:   board.API,
+					Model: fakeModel,
+					Attributes: rutils.AttributeMap{
+						"analogs": []interface{}{
+							map[string]interface{}{
+								"name": "analog1",
+								"pin":  "0",
+							},
+						},
+						"digital_interrupts": []interface{}{
+							map[string]interface{}{
+								"name": "encoder",
+								"pin":  "14",
+							},
+						},
+					},
+				},
+				{
+					Name:  "mock1",
+					API:   mockAPI,
+					Model: model1,
+				},
+				{
+					Name:  "mock2",
+					API:   mockAPI,
+					Model: model2,
+				},
+			},
+			Processes: []pexec.ProcessConfig{
+				{
+					ID:      "1",
+					Name:    "echo",
+					Args:    []string{"hello", "world"},
+					OneShot: true,
+				},
+				{
+					ID:      "2",
+					Name:    "echo",
+					Args:    []string{"hello", "world", "again"},
+					OneShot: true,
+				},
+			},
+		})
 
 		ctx := context.Background()
 		robot := setupLocalRobot(t, ctx, conf1, logger)
@@ -206,8 +284,131 @@ func TestRobotReconfigure(t *testing.T) {
 		testReconfiguringMismatch = true
 		// processing modify will fail
 		logger := logging.NewTestLogger(t)
-		conf1 := ConfigFromFile(t, "data/diff_config_1.json")
-		conf3 := ConfigFromFile(t, "data/diff_config_4_bad.json")
+		// conf1 := ConfigFromFile(t, "data/diff_config_1.json")
+		conf1 := ProcessConfig(t, &config.Config{
+			Components: []resource.Config{
+				{
+					Name:  "arm1",
+					API:   arm.API,
+					Model: fakeModel,
+					Attributes: rutils.AttributeMap{
+						"model-path": "../../components/arm/fake/fake_model.json",
+					},
+				},
+				{
+					Name:  "base1",
+					API:   base.API,
+					Model: fakeModel,
+				},
+				{
+					Name:  "board1",
+					API:   board.API,
+					Model: fakeModel,
+					Attributes: rutils.AttributeMap{
+						"analogs": []interface{}{
+							map[string]interface{}{
+								"name": "analog1",
+								"pin":  "0",
+							},
+						},
+						"digital_interrupts": []interface{}{
+							map[string]interface{}{
+								"name": "encoder",
+								"pin":  "14",
+							},
+						},
+					},
+				},
+				{
+					Name:  "mock1",
+					API:   mockAPI,
+					Model: model1,
+				},
+				{
+					Name:  "mock2",
+					API:   mockAPI,
+					Model: model2,
+				},
+			},
+			Processes: []pexec.ProcessConfig{
+				{
+					ID:      "1",
+					Name:    "echo",
+					Args:    []string{"hello", "world"},
+					OneShot: true,
+				},
+				{
+					ID:      "2",
+					Name:    "echo",
+					Args:    []string{"hello", "world", "again"},
+					OneShot: true,
+				},
+			},
+		})
+		// conf3 := ConfigFromFile(t, "data/diff_config_4_bad.json")
+		conf3 := ProcessConfig(t, &config.Config{
+			Components: []resource.Config{
+				{
+					Name:  "arm1",
+					API:   arm.API,
+					Model: fakeModel,
+					Attributes: rutils.AttributeMap{
+						"model-path": "../../components/arm/fake/fake_model.json",
+					},
+				},
+				{
+					Name:  "base1",
+					API:   base.API,
+					Model: fakeModel,
+				},
+				{
+					Name:  "board1",
+					API:   board.API,
+					Model: fakeModel,
+					Attributes: rutils.AttributeMap{
+						"analogs": []interface{}{
+							map[string]interface{}{
+								"name": "analog1",
+								"pin":  "0",
+							},
+						},
+						"digital_interrupts": []interface{}{
+							map[string]interface{}{
+								"name": "encoder",
+								"pin":  "14",
+							},
+						},
+					},
+				},
+				{
+					Name:  "mock1",
+					API:   mockAPI,
+					Model: model1,
+				},
+				{
+					Name:  "mock2",
+					API:   mockAPI,
+					Model: model2,
+					Attributes: rutils.AttributeMap{
+						"one": "2",
+					},
+				},
+			},
+			Processes: []pexec.ProcessConfig{
+				{
+					ID:      "1",
+					Name:    "echo",
+					Args:    []string{"hello", "world"},
+					OneShot: true,
+				},
+				{
+					ID:      "2",
+					Name:    "echo",
+					Args:    []string{"hello", "world", "again"},
+					OneShot: true,
+				},
+			},
+		})
 		robot := setupLocalRobot(t, context.Background(), conf1, logger)
 
 		armNames := []resource.Name{arm.Named("arm1")}
@@ -314,8 +515,200 @@ func TestRobotReconfigure(t *testing.T) {
 	t.Run("additive deps diff", func(t *testing.T) {
 		resetComponentFailureState()
 		logger := logging.NewTestLogger(t)
-		conf1 := ConfigFromFile(t, "data/diff_config_deps1.json")
-		conf2 := ConfigFromFile(t, "data/diff_config_deps10.json")
+		// conf1 := ConfigFromFile(t, "data/diff_config_deps1.json")
+		conf1 := ProcessConfig(t, &config.Config{
+			Components: []resource.Config{
+				{
+					Name:  "arm1",
+					API:   arm.API,
+					Model: fakeModel,
+					Attributes: rutils.AttributeMap{
+						"model-path": "../../components/arm/fake/fake_model.json",
+					},
+					DependsOn: []string{"base1"},
+				},
+				{
+					Name:      "base1",
+					API:       base.API,
+					Model:     fakeModel,
+					DependsOn: []string{"board1"},
+				},
+				{
+					Name:  "board1",
+					API:   board.API,
+					Model: fakeModel,
+					Attributes: rutils.AttributeMap{
+						"analogs": []interface{}{
+							map[string]interface{}{
+								"name": "analog1",
+								"pin":  "0",
+							},
+						},
+						"digital_interrupts": []interface{}{
+							map[string]interface{}{
+								"name": "encoder",
+								"pin":  "14",
+							},
+						},
+					},
+				},
+				{
+					Name:  "mock1",
+					API:   mockAPI,
+					Model: model1,
+					Attributes: rutils.AttributeMap{
+						"inferred_dep": []string{
+							"mock2",
+							"mock3",
+						},
+					},
+				},
+				{
+					Name:  "mock2",
+					API:   mockAPI,
+					Model: model1,
+				},
+				{
+					Name:  "mock3",
+					API:   mockAPI,
+					Model: model1,
+				},
+			},
+			Processes: []pexec.ProcessConfig{
+				{
+					ID:      "1",
+					Name:    "echo",
+					Args:    []string{"hello", "world"},
+					OneShot: true,
+				},
+				{
+					ID:      "2",
+					Name:    "echo",
+					Args:    []string{"hello", "world", "again"},
+					OneShot: true,
+				},
+			},
+		})
+		// conf2 := ConfigFromFile(t, "data/diff_config_deps10.json")
+		conf2 := ProcessConfig(t, &config.Config{
+			Components: []resource.Config{
+				{
+					Name:  "arm1",
+					API:   arm.API,
+					Model: fakeModel,
+					Attributes: rutils.AttributeMap{
+						"model-path": "../../components/arm/fake/fake_model.json",
+					},
+					DependsOn: []string{"base1"},
+				},
+				{
+					Name:  "arm2",
+					API:   arm.API,
+					Model: fakeModel,
+					Attributes: rutils.AttributeMap{
+						"model-path": "../../components/arm/fake/fake_model.json",
+					},
+					DependsOn: []string{"base2"},
+				},
+				{
+					Name:      "m1",
+					API:       motor.API,
+					Model:     fakeModel,
+					DependsOn: []string{"arm2"},
+				},
+				{
+					Name:  "m2",
+					API:   motor.API,
+					Model: fakeModel,
+					Attributes: rutils.AttributeMap{
+						"board": "board1",
+						"pins": map[string]interface{}{
+							"pwm": "1",
+						},
+						"pwm_freq": 1000,
+					},
+					DependsOn: []string{"arm2", "board1"},
+				},
+				{
+					Name:      "m3",
+					API:       motor.API,
+					Model:     fakeModel,
+					DependsOn: []string{"arm1"},
+				},
+				{
+					Name:      "m4",
+					API:       motor.API,
+					Model:     fakeModel,
+					DependsOn: []string{"arm2"},
+				},
+				{
+					Name:      "base1",
+					API:       base.API,
+					Model:     fakeModel,
+					DependsOn: []string{"board1"},
+				},
+				{
+					Name:      "base2",
+					API:       base.API,
+					Model:     fakeModel,
+					DependsOn: []string{"board1"},
+				},
+				{
+					Name:  "board1",
+					API:   board.API,
+					Model: fakeModel,
+					Attributes: rutils.AttributeMap{
+						"analogs": []interface{}{
+							map[string]interface{}{
+								"name": "analog1",
+								"pin":  "0",
+							},
+						},
+						"digital_interrupts": []interface{}{
+							map[string]interface{}{
+								"name": "encoder",
+								"pin":  "14",
+							},
+						},
+					},
+				},
+				{
+					Name:  "mock1",
+					API:   mockAPI,
+					Model: model1,
+					Attributes: rutils.AttributeMap{
+						"inferred_dep": []string{
+							"mock2",
+							"mock3",
+						},
+					},
+				},
+				{
+					Name:  "mock2",
+					API:   mockAPI,
+					Model: model1,
+				},
+				{
+					Name:  "mock3",
+					API:   mockAPI,
+					Model: model1,
+				},
+			},
+			Processes: []pexec.ProcessConfig{
+				{
+					ID:      "1",
+					Name:    "echo",
+					Args:    []string{"hello", "world"},
+					OneShot: true,
+				},
+				{
+					ID:      "2",
+					Name:    "echo",
+					Args:    []string{"hello", "world", "again"},
+					OneShot: true,
+				},
+			},
+		})
 		robot := setupLocalRobot(t, context.Background(), conf1, logger)
 
 		armNames := []resource.Name{arm.Named("arm1")}
@@ -426,8 +819,183 @@ func TestRobotReconfigure(t *testing.T) {
 	t.Run("modificative deps diff", func(t *testing.T) {
 		resetComponentFailureState()
 		logger := logging.NewTestLogger(t)
-		conf3 := ConfigFromFile(t, "data/diff_config_deps3.json")
-		conf2 := ConfigFromFile(t, "data/diff_config_deps2.json")
+		// conf3 := ConfigFromFile(t, "data/diff_config_deps3.json")
+		conf3 := ProcessConfig(t, &config.Config{
+			Components: []resource.Config{
+				{
+					Name:  "arm1",
+					API:   arm.API,
+					Model: fakeModel,
+					Attributes: rutils.AttributeMap{
+						"model-path": "../../components/arm/fake/fake_model.json",
+					},
+				},
+				{
+					Name:  "arm2",
+					API:   arm.API,
+					Model: fakeModel,
+					Attributes: rutils.AttributeMap{
+						"model-path": "../../components/arm/fake/fake_model.json",
+					},
+				},
+				{
+					Name:  "m1",
+					API:   motor.API,
+					Model: fakeModel,
+				},
+				{
+					Name:  "m2",
+					API:   motor.API,
+					Model: fakeModel,
+					Attributes: rutils.AttributeMap{
+						"board": "board1",
+						"pins": map[string]interface{}{
+							"pwm": "5",
+						},
+						"pwm_freq": 4000,
+					},
+					DependsOn: []string{"board1"},
+				},
+				{
+					Name:  "m3",
+					API:   motor.API,
+					Model: fakeModel,
+				},
+				{
+					Name:  "m4",
+					API:   motor.API,
+					Model: fakeModel,
+				},
+				{
+					Name:  "base1",
+					API:   base.API,
+					Model: fakeModel,
+				},
+				{
+					Name:  "base2",
+					API:   base.API,
+					Model: fakeModel,
+				},
+				{
+					Name:  "board1",
+					API:   board.API,
+					Model: fakeModel,
+				},
+			},
+			Processes: []pexec.ProcessConfig{
+				{
+					ID:      "1",
+					Name:    "echo",
+					Args:    []string{"hello", "world"},
+					OneShot: true,
+				},
+				{
+					ID:      "2",
+					Name:    "echo",
+					Args:    []string{"hello", "world", "again"},
+					OneShot: true,
+				},
+			},
+		})
+		// conf2 := ConfigFromFile(t, "data/diff_config_deps2.json")
+		conf2 := ProcessConfig(t, &config.Config{
+			Components: []resource.Config{
+				{
+					Name:  "arm1",
+					API:   arm.API,
+					Model: fakeModel,
+					Attributes: rutils.AttributeMap{
+						"model-path": "../../components/arm/fake/fake_model.json",
+					},
+					DependsOn: []string{"base1"},
+				},
+				{
+					Name:  "arm2",
+					API:   arm.API,
+					Model: fakeModel,
+					Attributes: rutils.AttributeMap{
+						"model-path": "../../components/arm/fake/fake_model.json",
+					},
+					DependsOn: []string{"base2"},
+				},
+				{
+					Name:      "m1",
+					API:       motor.API,
+					Model:     fakeModel,
+					DependsOn: []string{"arm2"},
+				},
+				{
+					Name:  "m2",
+					API:   motor.API,
+					Model: fakeModel,
+					Attributes: rutils.AttributeMap{
+						"board": "board1",
+						"pins": map[string]interface{}{
+							"pwm": "1",
+						},
+						"pwm_freq": 1000,
+					},
+					DependsOn: []string{"arm2", "board1"},
+				},
+				{
+					Name:      "m3",
+					API:       motor.API,
+					Model:     fakeModel,
+					DependsOn: []string{"arm1"},
+				},
+				{
+					Name:      "m4",
+					API:       motor.API,
+					Model:     fakeModel,
+					DependsOn: []string{"arm2"},
+				},
+				{
+					Name:      "base1",
+					API:       base.API,
+					Model:     fakeModel,
+					DependsOn: []string{"board1"},
+				},
+				{
+					Name:      "base2",
+					API:       base.API,
+					Model:     fakeModel,
+					DependsOn: []string{"board1"},
+				},
+				{
+					Name:  "board1",
+					API:   board.API,
+					Model: fakeModel,
+					Attributes: rutils.AttributeMap{
+						"analogs": []interface{}{
+							map[string]interface{}{
+								"name": "analog1",
+								"pin":  "0",
+							},
+						},
+						"digital_interrupts": []interface{}{
+							map[string]interface{}{
+								"name": "encoder",
+								"pin":  "14",
+							},
+						},
+					},
+				},
+			},
+			Processes: []pexec.ProcessConfig{
+				{
+					ID:      "1",
+					Name:    "echo",
+					Args:    []string{"hello", "world"},
+					OneShot: true,
+				},
+				{
+					ID:      "2",
+					Name:    "echo",
+					Args:    []string{"hello", "world", "again"},
+					OneShot: true,
+				},
+			},
+		})
 		robot := setupLocalRobot(t, context.Background(), conf3, logger)
 
 		armNames := []resource.Name{arm.Named("arm1"), arm.Named("arm2")}
@@ -545,8 +1113,142 @@ func TestRobotReconfigure(t *testing.T) {
 	t.Run("deletion deps diff", func(t *testing.T) {
 		resetComponentFailureState()
 		logger := logging.NewTestLogger(t)
-		conf2 := ConfigFromFile(t, "data/diff_config_deps2.json")
-		conf4 := ConfigFromFile(t, "data/diff_config_deps4.json")
+		// conf2 := ConfigFromFile(t, "data/diff_config_deps2.json")
+		conf2 := ProcessConfig(t, &config.Config{
+			Components: []resource.Config{
+				{
+					Name:  "arm1",
+					API:   arm.API,
+					Model: fakeModel,
+					Attributes: rutils.AttributeMap{
+						"model-path": "../../components/arm/fake/fake_model.json",
+					},
+					DependsOn: []string{"base1"},
+				},
+				{
+					Name:  "arm2",
+					API:   arm.API,
+					Model: fakeModel,
+					Attributes: rutils.AttributeMap{
+						"model-path": "../../components/arm/fake/fake_model.json",
+					},
+					DependsOn: []string{"base2"},
+				},
+				{
+					Name:      "m1",
+					API:       motor.API,
+					Model:     fakeModel,
+					DependsOn: []string{"arm2"},
+				},
+				{
+					Name:  "m2",
+					API:   motor.API,
+					Model: fakeModel,
+					Attributes: rutils.AttributeMap{
+						"board": "board1",
+						"pins": map[string]interface{}{
+							"pwm": "1",
+						},
+						"pwm_freq": 1000,
+					},
+					DependsOn: []string{"arm2", "board1"},
+				},
+				{
+					Name:      "m3",
+					API:       motor.API,
+					Model:     fakeModel,
+					DependsOn: []string{"arm1"},
+				},
+				{
+					Name:      "m4",
+					API:       motor.API,
+					Model:     fakeModel,
+					DependsOn: []string{"arm2"},
+				},
+				{
+					Name:      "base1",
+					API:       base.API,
+					Model:     fakeModel,
+					DependsOn: []string{"board1"},
+				},
+				{
+					Name:      "base2",
+					API:       base.API,
+					Model:     fakeModel,
+					DependsOn: []string{"board1"},
+				},
+				{
+					Name:  "board1",
+					API:   board.API,
+					Model: fakeModel,
+					Attributes: rutils.AttributeMap{
+						"analogs": []interface{}{
+							map[string]interface{}{
+								"name": "analog1",
+								"pin":  "0",
+							},
+						},
+						"digital_interrupts": []interface{}{
+							map[string]interface{}{
+								"name": "encoder",
+								"pin":  "14",
+							},
+						},
+					},
+				},
+			},
+			Processes: []pexec.ProcessConfig{
+				{
+					ID:      "1",
+					Name:    "echo",
+					Args:    []string{"hello", "world"},
+					OneShot: true,
+				},
+				{
+					ID:      "2",
+					Name:    "echo",
+					Args:    []string{"hello", "world", "again"},
+					OneShot: true,
+				},
+			},
+		})
+
+		// conf4 := ConfigFromFile(t, "data/diff_config_deps4.json")
+		conf4 := ProcessConfig(t, &config.Config{
+			Components: []resource.Config{
+				{
+					Name:  "board2",
+					API:   board.API,
+					Model: fakeModel,
+				},
+				{
+					Name:  "board1",
+					API:   board.API,
+					Model: fakeModel,
+				},
+				{
+					Name:  "mock6",
+					API:   mockAPI,
+					Model: model2,
+					// TODO: why doesn't this config break without dependencies?
+					DependsOn: []string{"mock1", "mock3"},
+				},
+			},
+			Processes: []pexec.ProcessConfig{
+				{
+					ID:      "1",
+					Name:    "echo",
+					Args:    []string{"hello", "world"},
+					OneShot: true,
+				},
+				{
+					ID:      "2",
+					Name:    "echo",
+					Args:    []string{"hello", "world", "again"},
+					OneShot: true,
+				},
+			},
+		})
 		robot := setupLocalRobot(t, context.Background(), conf2, logger)
 
 		armNames := []resource.Name{arm.Named("arm1"), arm.Named("arm2")}
@@ -644,8 +1346,220 @@ func TestRobotReconfigure(t *testing.T) {
 	t.Run("mixed deps diff", func(t *testing.T) {
 		resetComponentFailureState()
 		logger := logging.NewTestLogger(t)
-		conf2 := ConfigFromFile(t, "data/diff_config_deps2.json")
-		conf6 := ConfigFromFile(t, "data/diff_config_deps6.json")
+		// conf2 := ConfigFromFile(t, "data/diff_config_deps2.json")
+		conf2 := ProcessConfig(t, &config.Config{
+			Components: []resource.Config{
+				{
+					Name:  "arm1",
+					API:   arm.API,
+					Model: fakeModel,
+					Attributes: rutils.AttributeMap{
+						"model-path": "../../components/arm/fake/fake_model.json",
+					},
+					DependsOn: []string{"base1"},
+				},
+				{
+					Name:  "arm2",
+					API:   arm.API,
+					Model: fakeModel,
+					Attributes: rutils.AttributeMap{
+						"model-path": "../../components/arm/fake/fake_model.json",
+					},
+					DependsOn: []string{"base2"},
+				},
+				{
+					Name:      "m1",
+					API:       motor.API,
+					Model:     fakeModel,
+					DependsOn: []string{"arm2"},
+				},
+				{
+					Name:  "m2",
+					API:   motor.API,
+					Model: fakeModel,
+					Attributes: rutils.AttributeMap{
+						"board": "board1",
+						"pins": map[string]interface{}{
+							"pwm": "1",
+						},
+						"pwm_freq": 1000,
+					},
+					DependsOn: []string{"arm2", "board1"},
+				},
+				{
+					Name:      "m3",
+					API:       motor.API,
+					Model:     fakeModel,
+					DependsOn: []string{"arm1"},
+				},
+				{
+					Name:      "m4",
+					API:       motor.API,
+					Model:     fakeModel,
+					DependsOn: []string{"arm2"},
+				},
+				{
+					Name:      "base1",
+					API:       base.API,
+					Model:     fakeModel,
+					DependsOn: []string{"board1"},
+				},
+				{
+					Name:      "base2",
+					API:       base.API,
+					Model:     fakeModel,
+					DependsOn: []string{"board1"},
+				},
+				{
+					Name:  "board1",
+					API:   board.API,
+					Model: fakeModel,
+					Attributes: rutils.AttributeMap{
+						"analogs": []interface{}{
+							map[string]interface{}{
+								"name": "analog1",
+								"pin":  "0",
+							},
+						},
+						"digital_interrupts": []interface{}{
+							map[string]interface{}{
+								"name": "encoder",
+								"pin":  "14",
+							},
+						},
+					},
+				},
+			},
+			Processes: []pexec.ProcessConfig{
+				{
+					ID:      "1",
+					Name:    "echo",
+					Args:    []string{"hello", "world"},
+					OneShot: true,
+				},
+				{
+					ID:      "2",
+					Name:    "echo",
+					Args:    []string{"hello", "world", "again"},
+					OneShot: true,
+				},
+			},
+		})
+
+		// conf6 := ConfigFromFile(t, "data/diff_config_deps6.json")
+		conf6 := ProcessConfig(t, &config.Config{
+			Components: []resource.Config{
+				{
+					Name:  "arm1",
+					API:   arm.API,
+					Model: fakeModel,
+					Attributes: rutils.AttributeMap{
+						"model-path": "../../components/arm/fake/fake_model.json",
+					},
+					DependsOn: []string{"base2"},
+				},
+				{
+					Name:  "arm3",
+					API:   arm.API,
+					Model: fakeModel,
+					Attributes: rutils.AttributeMap{
+						"model-path": "../../components/arm/fake/fake_model.json",
+					},
+					DependsOn: []string{"base2"},
+				},
+				{
+					Name:      "m2",
+					API:       motor.API,
+					Model:     fakeModel,
+					DependsOn: []string{"base1"},
+				},
+				{
+					Name:  "m1",
+					API:   motor.API,
+					Model: fakeModel,
+					Attributes: rutils.AttributeMap{
+						"pwm_freq": 4000,
+					},
+				},
+				{
+					Name:  "m4",
+					API:   motor.API,
+					Model: fakeModel,
+					Attributes: rutils.AttributeMap{
+						"blab": "blob",
+					},
+					DependsOn: []string{"board3"},
+				},
+				{
+					Name:  "m5",
+					API:   motor.API,
+					Model: fakeModel,
+					Attributes: rutils.AttributeMap{
+						"board": "board1",
+						"pins": map[string]interface{}{
+							"pwm": "5",
+						},
+						"pwm_freq": 4000,
+					},
+					DependsOn: []string{"arm3", "board1"},
+				},
+				{
+					Name:      "base1",
+					API:       base.API,
+					Model:     fakeModel,
+					DependsOn: []string{"board2"},
+				},
+				{
+					Name:      "base2",
+					API:       base.API,
+					Model:     fakeModel,
+					DependsOn: []string{"board1"},
+				},
+				{
+					Name:  "board1",
+					API:   board.API,
+					Model: fakeModel,
+					Attributes: rutils.AttributeMap{
+						"analogs": []interface{}{
+							map[string]interface{}{
+								"name": "analog1",
+								"pin":  "4",
+							},
+						},
+						"digital_interrupts": []interface{}{
+							map[string]interface{}{
+								"name": "encoderC",
+								"pin":  "22",
+							},
+						},
+					},
+				},
+				{
+					Name:  "board2",
+					API:   board.API,
+					Model: fakeModel,
+				},
+				{
+					Name:  "board3",
+					API:   board.API,
+					Model: fakeModel,
+				},
+			},
+			Processes: []pexec.ProcessConfig{
+				{
+					ID:      "1",
+					Name:    "echo",
+					Args:    []string{"hello", "world"},
+					OneShot: true,
+				},
+				{
+					ID:      "2",
+					Name:    "echo",
+					Args:    []string{"hello", "world", "again"},
+					OneShot: true,
+				},
+			},
+		})
 		robot := setupLocalRobot(t, context.Background(), conf2, logger)
 
 		armNames := []resource.Name{arm.Named("arm1"), arm.Named("arm2")}
@@ -786,8 +1700,123 @@ func TestRobotReconfigure(t *testing.T) {
 	t.Run("from empty conf with deps", func(t *testing.T) {
 		resetComponentFailureState()
 		logger := logging.NewTestLogger(t)
-		cempty := ConfigFromFile(t, "data/diff_config_empty.json")
-		conf6 := ConfigFromFile(t, "data/diff_config_deps6.json")
+		// cempty := ConfigFromFile(t, "data/diff_config_empty.json")
+		cempty := &config.Config{}
+		// conf6 := ConfigFromFile(t, "data/diff_config_deps6.json")
+		conf6 := ProcessConfig(t, &config.Config{
+			Components: []resource.Config{
+				{
+					Name:  "arm1",
+					API:   arm.API,
+					Model: fakeModel,
+					Attributes: rutils.AttributeMap{
+						"model-path": "../../components/arm/fake/fake_model.json",
+					},
+					DependsOn: []string{"base2"},
+				},
+				{
+					Name:  "arm3",
+					API:   arm.API,
+					Model: fakeModel,
+					Attributes: rutils.AttributeMap{
+						"model-path": "../../components/arm/fake/fake_model.json",
+					},
+					DependsOn: []string{"base2"},
+				},
+				{
+					Name:      "m2",
+					API:       motor.API,
+					Model:     fakeModel,
+					DependsOn: []string{"base1"},
+				},
+				{
+					Name:  "m1",
+					API:   motor.API,
+					Model: fakeModel,
+					Attributes: rutils.AttributeMap{
+						"pwm_freq": 4000,
+					},
+				},
+				{
+					Name:  "m4",
+					API:   motor.API,
+					Model: fakeModel,
+					Attributes: rutils.AttributeMap{
+						"blab": "blob",
+					},
+					DependsOn: []string{"board3"},
+				},
+				{
+					Name:  "m5",
+					API:   motor.API,
+					Model: fakeModel,
+					Attributes: rutils.AttributeMap{
+						"board": "board1",
+						"pins": map[string]interface{}{
+							"pwm": "5",
+						},
+						"pwm_freq": 4000,
+					},
+					DependsOn: []string{"arm3", "board1"},
+				},
+				{
+					Name:      "base1",
+					API:       base.API,
+					Model:     fakeModel,
+					DependsOn: []string{"board2"},
+				},
+				{
+					Name:      "base2",
+					API:       base.API,
+					Model:     fakeModel,
+					DependsOn: []string{"board1"},
+				},
+				{
+					Name:  "board1",
+					API:   board.API,
+					Model: fakeModel,
+					Attributes: rutils.AttributeMap{
+						"analogs": []interface{}{
+							map[string]interface{}{
+								"name": "analog1",
+								"pin":  "4",
+							},
+						},
+						"digital_interrupts": []interface{}{
+							map[string]interface{}{
+								"name": "encoderC",
+								"pin":  "22",
+							},
+						},
+					},
+				},
+				{
+					Name:  "board2",
+					API:   board.API,
+					Model: fakeModel,
+				},
+				{
+					Name:  "board3",
+					API:   board.API,
+					Model: fakeModel,
+				},
+			},
+			Processes: []pexec.ProcessConfig{
+				{
+					ID:      "1",
+					Name:    "echo",
+					Args:    []string{"hello", "world"},
+					OneShot: true,
+				},
+				{
+					ID:      "2",
+					Name:    "echo",
+					Args:    []string{"hello", "world", "again"},
+					OneShot: true,
+				},
+			},
+		})
+
 		ctx := context.Background()
 		robot := setupLocalRobot(t, ctx, cempty, logger)
 
@@ -898,8 +1927,150 @@ func TestRobotReconfigure(t *testing.T) {
 	t.Run("incremental deps config", func(t *testing.T) {
 		resetComponentFailureState()
 		logger := logging.NewTestLogger(t)
-		conf4 := ConfigFromFile(t, "data/diff_config_deps4.json")
-		conf7 := ConfigFromFile(t, "data/diff_config_deps7.json")
+		// conf4 := ConfigFromFile(t, "data/diff_config_deps4.json")
+		conf4 := ProcessConfig(t, &config.Config{
+			Components: []resource.Config{
+				{
+					Name:  "board2",
+					API:   board.API,
+					Model: fakeModel,
+				},
+				{
+					Name:  "board1",
+					API:   board.API,
+					Model: fakeModel,
+				},
+				{
+					Name:  "mock6",
+					API:   mockAPI,
+					Model: model2,
+					// TODO: why doesn't this config break without dependencies?
+					DependsOn: []string{"mock1", "mock3"},
+				},
+			},
+			Processes: []pexec.ProcessConfig{
+				{
+					ID:      "1",
+					Name:    "echo",
+					Args:    []string{"hello", "world"},
+					OneShot: true,
+				},
+				{
+					ID:      "2",
+					Name:    "echo",
+					Args:    []string{"hello", "world", "again"},
+					OneShot: true,
+				},
+			},
+		})
+		// conf7 := ConfigFromFile(t, "data/diff_config_deps7.json")
+		conf7 := ProcessConfig(t, &config.Config{
+			Components: []resource.Config{
+				{
+					Name:  "board2",
+					API:   board.API,
+					Model: fakeModel,
+				},
+				{
+					Name:  "board1",
+					API:   board.API,
+					Model: fakeModel,
+					Attributes: rutils.AttributeMap{
+						"digital_interrupts": []interface{}{
+							map[string]interface{}{
+								"name": "encoder",
+								"pin":  "14",
+							},
+							map[string]interface{}{
+								"name": "encoder-b",
+								"pin":  "15",
+							},
+						},
+					},
+				},
+				{
+					Name:  "m1",
+					API:   motor.API,
+					Model: resource.DefaultModelFamily.WithModel("gpio"),
+					Attributes: rutils.AttributeMap{
+						"board":   "board1",
+						"encoder": "e1",
+						"pins": map[string]interface{}{
+							"pwm": "5",
+							"dir": "2",
+						},
+						"pwm_freq":           4000,
+						"max_rpm":            60,
+						"ticks_per_rotation": 1,
+					},
+					DependsOn: []string{"board1", "e1"},
+				},
+				{
+					Name:  "e1",
+					API:   encoder.API,
+					Model: resource.DefaultModelFamily.WithModel("incremental"),
+					Attributes: rutils.AttributeMap{
+						"board": "board1",
+						"pins": map[string]interface{}{
+							"a": "encoder",
+							"b": "encoder-b",
+						},
+					},
+					DependsOn: []string{"board1"},
+				},
+				{
+					Name:      "mock1",
+					API:       mockAPI,
+					Model:     model1,
+					DependsOn: []string{"mock4"},
+				},
+				{
+					Name:  "mock2",
+					API:   mockAPI,
+					Model: model1,
+				},
+				{
+					Name:      "mock3",
+					API:       mockAPI,
+					Model:     model1,
+					DependsOn: []string{"mock2"},
+				},
+				{
+					Name:      "mock4",
+					API:       mockAPI,
+					Model:     model1,
+					DependsOn: []string{"mock3"},
+				},
+				{
+					Name:      "mock5",
+					API:       mockAPI,
+					Model:     model1,
+					DependsOn: []string{"mock1"},
+				},
+				{
+					Name:  "mock6",
+					API:   mockAPI,
+					Model: model1,
+					Attributes: rutils.AttributeMap{
+						"one": "2",
+					},
+				},
+			},
+			Processes: []pexec.ProcessConfig{
+				{
+					ID:      "1",
+					Name:    "echo",
+					Args:    []string{"hello", "world"},
+					OneShot: true,
+				},
+				{
+					ID:      "2",
+					Name:    "echo",
+					Args:    []string{"hello", "world", "again"},
+					OneShot: true,
+				},
+			},
+		})
 		robot := setupLocalRobot(t, context.Background(), conf4, logger)
 
 		boardNames := []resource.Name{board.Named("board1"), board.Named("board2")}
@@ -1052,8 +2223,219 @@ func TestRobotReconfigure(t *testing.T) {
 	t.Run("parent attribute change deps config", func(t *testing.T) {
 		resetComponentFailureState()
 		logger := logging.NewTestLogger(t)
-		conf7 := ConfigFromFile(t, "data/diff_config_deps7.json")
-		conf8 := ConfigFromFile(t, "data/diff_config_deps8.json")
+		// conf7 := ConfigFromFile(t, "data/diff_config_deps7.json")
+		conf7 := ProcessConfig(t, &config.Config{
+			Components: []resource.Config{
+				{
+					Name:  "board2",
+					API:   board.API,
+					Model: fakeModel,
+				},
+				{
+					Name:  "board1",
+					API:   board.API,
+					Model: fakeModel,
+					Attributes: rutils.AttributeMap{
+						"digital_interrupts": []interface{}{
+							map[string]interface{}{
+								"name": "encoder",
+								"pin":  "14",
+							},
+							map[string]interface{}{
+								"name": "encoder-b",
+								"pin":  "15",
+							},
+						},
+					},
+				},
+				{
+					Name:  "m1",
+					API:   motor.API,
+					Model: resource.DefaultModelFamily.WithModel("gpio"),
+					Attributes: rutils.AttributeMap{
+						"board":   "board1",
+						"encoder": "e1",
+						"pins": map[string]interface{}{
+							"pwm": "5",
+							"dir": "2",
+						},
+						"pwm_freq":           4000,
+						"max_rpm":            60,
+						"ticks_per_rotation": 1,
+					},
+					DependsOn: []string{"board1", "e1"},
+				},
+				{
+					Name:  "e1",
+					API:   encoder.API,
+					Model: resource.DefaultModelFamily.WithModel("incremental"),
+					Attributes: rutils.AttributeMap{
+						"board": "board1",
+						"pins": map[string]interface{}{
+							"a": "encoder",
+							"b": "encoder-b",
+						},
+					},
+					DependsOn: []string{"board1"},
+				},
+				{
+					Name:      "mock1",
+					API:       mockAPI,
+					Model:     model1,
+					DependsOn: []string{"mock4"},
+				},
+				{
+					Name:  "mock2",
+					API:   mockAPI,
+					Model: model1,
+				},
+				{
+					Name:      "mock3",
+					API:       mockAPI,
+					Model:     model1,
+					DependsOn: []string{"mock2"},
+				},
+				{
+					Name:      "mock4",
+					API:       mockAPI,
+					Model:     model1,
+					DependsOn: []string{"mock3"},
+				},
+				{
+					Name:      "mock5",
+					API:       mockAPI,
+					Model:     model1,
+					DependsOn: []string{"mock1"},
+				},
+				{
+					Name:  "mock6",
+					API:   mockAPI,
+					Model: model1,
+					Attributes: rutils.AttributeMap{
+						"one": "2",
+					},
+				},
+			},
+			Processes: []pexec.ProcessConfig{
+				{
+					ID:      "1",
+					Name:    "echo",
+					Args:    []string{"hello", "world"},
+					OneShot: true,
+				},
+				{
+					ID:      "2",
+					Name:    "echo",
+					Args:    []string{"hello", "world", "again"},
+					OneShot: true,
+				},
+			},
+		})
+		// conf8 := ConfigFromFile(t, "data/diff_config_deps8.json")
+		conf8 := ProcessConfig(t, &config.Config{
+			Components: []resource.Config{
+				{
+					Name:  "board2",
+					API:   board.API,
+					Model: fakeModel,
+				},
+				{
+					Name:  "board1",
+					API:   board.API,
+					Model: fakeModel,
+					Attributes: rutils.AttributeMap{
+						"digital_interrupts": []interface{}{
+							map[string]interface{}{
+								"name": "encoder",
+								"pin":  "16",
+							},
+							map[string]interface{}{
+								"name": "encoder-b",
+								"pin":  "22",
+							},
+						},
+					},
+				},
+				{
+					Name:  "m1",
+					API:   motor.API,
+					Model: resource.DefaultModelFamily.WithModel("gpio"),
+					Attributes: rutils.AttributeMap{
+						"board":   "board1",
+						"encoder": "e1",
+						"pins": map[string]interface{}{
+							"pwm": "5",
+							"dir": "2",
+						},
+						"pwm_freq":           4000,
+						"max_rpm":            60,
+						"ticks_per_rotation": 1,
+					},
+					DependsOn: []string{"board1", "e1"},
+				},
+				{
+					Name:  "e1",
+					API:   encoder.API,
+					Model: resource.DefaultModelFamily.WithModel("incremental"),
+					Attributes: rutils.AttributeMap{
+						"board": "board1",
+						"pins": map[string]interface{}{
+							"a": "encoder",
+							"b": "encoder-b",
+						},
+					},
+					DependsOn: []string{"board1"},
+				},
+				{
+					Name:  "mock1",
+					API:   mockAPI,
+					Model: model1,
+				},
+				{
+					Name:  "mock2",
+					API:   mockAPI,
+					Model: model1,
+				},
+				{
+					Name:      "mock3",
+					API:       mockAPI,
+					Model:     model1,
+					DependsOn: []string{"mock2"},
+					Attributes: rutils.AttributeMap{
+						"blah": 10,
+					},
+				},
+				{
+					Name:      "mock4",
+					API:       mockAPI,
+					Model:     model1,
+					DependsOn: []string{"mock3"},
+				},
+				{
+					Name:      "mock5",
+					API:       mockAPI,
+					Model:     model1,
+					DependsOn: []string{"mock2"},
+					Attributes: rutils.AttributeMap{
+						"blah": 10,
+					},
+				},
+			},
+			Processes: []pexec.ProcessConfig{
+				{
+					ID:      "1",
+					Name:    "echo",
+					Args:    []string{"hello", "world"},
+					OneShot: true,
+				},
+				{
+					ID:      "2",
+					Name:    "echo",
+					Args:    []string{"hello", "world", "again"},
+					OneShot: true,
+				},
+			},
+		})
 		robot := setupLocalRobot(t, context.Background(), conf7, logger)
 
 		boardNames := []resource.Name{board.Named("board1"), board.Named("board2")}
@@ -1239,8 +2621,244 @@ func TestRobotReconfigure(t *testing.T) {
 		testReconfiguringMismatch = true
 		reconfigurableTrue = true
 		logger := logging.NewTestLogger(t)
-		conf7 := ConfigFromFile(t, "data/diff_config_deps7.json")
-		conf9 := ConfigFromFile(t, "data/diff_config_deps9_bad.json")
+		// conf7 := ConfigFromFile(t, "data/diff_config_deps7.json")
+		conf7 := ProcessConfig(t, &config.Config{
+			Components: []resource.Config{
+				{
+					Name:  "board2",
+					API:   board.API,
+					Model: fakeModel,
+				},
+				{
+					Name:  "board1",
+					API:   board.API,
+					Model: fakeModel,
+					Attributes: rutils.AttributeMap{
+						"digital_interrupts": []interface{}{
+							map[string]interface{}{
+								"name": "encoder",
+								"pin":  "14",
+							},
+							map[string]interface{}{
+								"name": "encoder-b",
+								"pin":  "15",
+							},
+						},
+					},
+				},
+				{
+					Name:  "m1",
+					API:   motor.API,
+					Model: resource.DefaultModelFamily.WithModel("gpio"),
+					Attributes: rutils.AttributeMap{
+						"board":   "board1",
+						"encoder": "e1",
+						"pins": map[string]interface{}{
+							"pwm": "5",
+							"dir": "2",
+						},
+						"pwm_freq":           4000,
+						"max_rpm":            60,
+						"ticks_per_rotation": 1,
+					},
+					DependsOn: []string{"board1", "e1"},
+				},
+				{
+					Name:  "e1",
+					API:   encoder.API,
+					Model: resource.DefaultModelFamily.WithModel("incremental"),
+					Attributes: rutils.AttributeMap{
+						"board": "board1",
+						"pins": map[string]interface{}{
+							"a": "encoder",
+							"b": "encoder-b",
+						},
+					},
+					DependsOn: []string{"board1"},
+				},
+				{
+					Name:      "mock1",
+					API:       mockAPI,
+					Model:     model1,
+					DependsOn: []string{"mock4"},
+				},
+				{
+					Name:  "mock2",
+					API:   mockAPI,
+					Model: model1,
+				},
+				{
+					Name:      "mock3",
+					API:       mockAPI,
+					Model:     model1,
+					DependsOn: []string{"mock2"},
+				},
+				{
+					Name:      "mock4",
+					API:       mockAPI,
+					Model:     model1,
+					DependsOn: []string{"mock3"},
+				},
+				{
+					Name:      "mock5",
+					API:       mockAPI,
+					Model:     model1,
+					DependsOn: []string{"mock1"},
+				},
+				{
+					Name:  "mock6",
+					API:   mockAPI,
+					Model: model1,
+					Attributes: rutils.AttributeMap{
+						"one": "2",
+					},
+				},
+			},
+			Processes: []pexec.ProcessConfig{
+				{
+					ID:      "1",
+					Name:    "echo",
+					Args:    []string{"hello", "world"},
+					OneShot: true,
+				},
+				{
+					ID:      "2",
+					Name:    "echo",
+					Args:    []string{"hello", "world", "again"},
+					OneShot: true,
+				},
+			},
+		})
+		// conf9 := ConfigFromFile(t, "data/diff_config_deps9_bad.json")
+		conf9 := ProcessConfig(t, &config.Config{
+			Components: []resource.Config{
+				{
+					Name:  "board2",
+					API:   board.API,
+					Model: fakeModel,
+				},
+				{
+					Name:  "board1",
+					API:   board.API,
+					Model: fakeModel,
+					Attributes: rutils.AttributeMap{
+						"digital_interrupts": []interface{}{
+							map[string]interface{}{
+								"name": "encoder",
+								"pin":  "16",
+							},
+							map[string]interface{}{
+								"name": "encoder-b",
+								"pin":  "22",
+							},
+						},
+					},
+				},
+				{
+					Name:  "m1",
+					API:   motor.API,
+					Model: resource.DefaultModelFamily.WithModel("gpio"),
+					Attributes: rutils.AttributeMap{
+						"board":   "board1",
+						"encoder": "e1",
+						"pins": map[string]interface{}{
+							"pwm": "5",
+							"dir": "2",
+						},
+						"pwm_freq":           4000,
+						"max_rpm":            60,
+						"ticks_per_rotation": 1,
+					},
+					DependsOn: []string{"board1", "e1"},
+				},
+				{
+					Name:  "e1",
+					API:   encoder.API,
+					Model: resource.DefaultModelFamily.WithModel("incremental"),
+					Attributes: rutils.AttributeMap{
+						"board": "board1",
+						"pins": map[string]interface{}{
+							"a": "encoder",
+							"b": "encoder-b",
+						},
+					},
+					DependsOn: []string{"board1"},
+				},
+				{
+					Name:      "armFake",
+					API:       arm.API,
+					Model:     fakeModel,
+					DependsOn: []string{"mock5", "mock6"},
+				},
+				{
+					Name:  "mock1",
+					API:   mockAPI,
+					Model: model1,
+					Attributes: rutils.AttributeMap{
+						"blah": 10,
+					},
+					DependsOn: []string{"mock4"},
+				},
+				{
+					Name:  "mock2",
+					API:   mockAPI,
+					Model: model1,
+					Attributes: rutils.AttributeMap{
+						"blah": 10,
+					},
+				},
+				{
+					Name:      "mock3",
+					API:       mockAPI,
+					Model:     model1,
+					DependsOn: []string{"mock2"},
+					Attributes: rutils.AttributeMap{
+						"blah": 10,
+					},
+				},
+				{
+					Name:      "mock4",
+					API:       mockAPI,
+					Model:     model1,
+					DependsOn: []string{"mock3"},
+					Attributes: rutils.AttributeMap{
+						"should_fail_reconfigure": 1,
+					},
+				},
+				{
+					Name:      "mock5",
+					API:       mockAPI,
+					Model:     model1,
+					DependsOn: []string{"mock1"},
+					Attributes: rutils.AttributeMap{
+						"blah": 10,
+					},
+				},
+				{
+					Name:  "mock6",
+					API:   mockAPI,
+					Model: model1,
+					Attributes: rutils.AttributeMap{
+						"one":                     6,
+						"should_fail_reconfigure": 2,
+					},
+				},
+			},
+			Processes: []pexec.ProcessConfig{
+				{
+					ID:      "1",
+					Name:    "echo",
+					Args:    []string{"hello", "world"},
+					OneShot: true,
+				},
+				{
+					ID:      "2",
+					Name:    "echo",
+					Args:    []string{"hello", "world", "again"},
+					OneShot: true,
+				},
+			},
+		})
 		robot := setupLocalRobot(t, context.Background(), conf7, logger)
 
 		boardNames := []resource.Name{board.Named("board1"), board.Named("board2")}
@@ -1410,7 +3028,132 @@ func TestRobotReconfigure(t *testing.T) {
 		))
 
 		// This configuration will put `mock6` into a good state after two calls to "reconfigure".
-		conf9good := ConfigFromFile(t, "data/diff_config_deps9_good.json")
+		// conf9good := ConfigFromFile(t, "data/diff_config_deps9_good.json")
+		conf9good := ProcessConfig(t, &config.Config{
+			Components: []resource.Config{
+				{
+					Name:  "board2",
+					API:   board.API,
+					Model: fakeModel,
+				},
+				{
+					Name:  "board1",
+					API:   board.API,
+					Model: fakeModel,
+					Attributes: rutils.AttributeMap{
+						"digital_interrupts": []interface{}{
+							map[string]interface{}{
+								"name": "encoder",
+								"pin":  "16",
+							},
+							map[string]interface{}{
+								"name": "encoder-b",
+								"pin":  "22",
+							},
+						},
+					},
+				},
+				{
+					Name:  "m1",
+					API:   motor.API,
+					Model: resource.DefaultModelFamily.WithModel("gpio"),
+					Attributes: rutils.AttributeMap{
+						"board":   "board1",
+						"encoder": "e1",
+						"pins": map[string]interface{}{
+							"pwm": "5",
+							"dir": "2",
+						},
+						"pwm_freq":           4000,
+						"max_rpm":            60,
+						"ticks_per_rotation": 1,
+					},
+					DependsOn: []string{"board1", "e1"},
+				},
+				{
+					Name:  "e1",
+					API:   encoder.API,
+					Model: resource.DefaultModelFamily.WithModel("incremental"),
+					Attributes: rutils.AttributeMap{
+						"board": "board1",
+						"pins": map[string]interface{}{
+							"a": "encoder",
+							"b": "encoder-b",
+						},
+					},
+					DependsOn: []string{"board1"},
+				},
+				{
+					Name:      "armFake",
+					API:       arm.API,
+					Model:     fakeModel,
+					DependsOn: []string{"mock5", "mock6"},
+				},
+				{
+					Name:  "mock1",
+					API:   mockAPI,
+					Model: model1,
+					Attributes: rutils.AttributeMap{
+						"blah": 10,
+					},
+					DependsOn: []string{"mock4"},
+				},
+				{
+					Name:  "mock2",
+					API:   mockAPI,
+					Model: model1,
+					Attributes: rutils.AttributeMap{
+						"blah": 10,
+					},
+				},
+				{
+					Name:      "mock3",
+					API:       mockAPI,
+					Model:     model1,
+					DependsOn: []string{"mock2"},
+					Attributes: rutils.AttributeMap{
+						"blah": 10,
+					},
+				},
+				{
+					Name:      "mock4",
+					API:       mockAPI,
+					Model:     model1,
+					DependsOn: []string{"mock3"},
+				},
+				{
+					Name:      "mock5",
+					API:       mockAPI,
+					Model:     model1,
+					DependsOn: []string{"mock1"},
+					Attributes: rutils.AttributeMap{
+						"blo": 10,
+					},
+				},
+				{
+					Name:  "mock6",
+					API:   mockAPI,
+					Model: model1,
+					Attributes: rutils.AttributeMap{
+						"one": 6,
+					},
+				},
+			},
+			Processes: []pexec.ProcessConfig{
+				{
+					ID:      "1",
+					Name:    "echo",
+					Args:    []string{"hello", "world"},
+					OneShot: true,
+				},
+				{
+					ID:      "2",
+					Name:    "echo",
+					Args:    []string{"hello", "world", "again"},
+					OneShot: true,
+				},
+			},
+		})
 		robot.Reconfigure(context.Background(), conf9good)
 
 		mockNames = []resource.Name{
@@ -1518,8 +3261,91 @@ func TestRobotReconfigure(t *testing.T) {
 	t.Run("complex diff", func(t *testing.T) {
 		resetComponentFailureState()
 		logger := logging.NewTestLogger(t)
-		conf1 := ConfigFromFile(t, "data/diff_config_deps11.json")
-		conf2 := ConfigFromFile(t, "data/diff_config_deps12.json")
+		// conf1 := ConfigFromFile(t, "data/diff_config_deps11.json")
+		conf1 := ProcessConfig(t, &config.Config{
+			Components: []resource.Config{
+
+				{
+					Name:  "mock1",
+					API:   mockAPI,
+					Model: model1,
+					Attributes: rutils.AttributeMap{
+						"inferred_dep": []string{
+							"mock2",
+							"mock3",
+						},
+					},
+				},
+				{
+					Name:  "mock3",
+					API:   mockAPI,
+					Model: model1,
+				},
+				{
+					Name:      "mock4",
+					API:       mockAPI,
+					Model:     model2,
+					DependsOn: []string{"mock7"},
+				},
+				{
+					Name:      "mock5",
+					API:       mockAPI,
+					Model:     model1,
+					DependsOn: []string{"mock6"},
+				},
+				{
+					Name:  "mock6",
+					API:   mockAPI,
+					Model: model1,
+				},
+				{
+					Name:  "mock7",
+					API:   arm.API,
+					Model: fakeModel,
+					Attributes: rutils.AttributeMap{
+						"model-path": "../../components/arm/fake/fake_model.json",
+					},
+				},
+			},
+		})
+		// conf2 := ConfigFromFile(t, "data/diff_config_deps12.json")
+		conf2 := ProcessConfig(t, &config.Config{
+			Components: []resource.Config{
+
+				{
+					Name:  "mock1",
+					API:   mockAPI,
+					Model: model1,
+					Attributes: rutils.AttributeMap{
+						"inferred_dep": []string{
+							"mock2",
+							"mock3",
+						},
+					},
+				},
+				{
+					Name:  "mock3",
+					API:   mockAPI,
+					Model: model1,
+				},
+				{
+					Name:      "mock4",
+					API:       mockAPI,
+					Model:     model2,
+					DependsOn: []string{"mock7"},
+				},
+				{
+					Name:  "mock5",
+					API:   mockAPI,
+					Model: model1,
+				},
+				{
+					Name:  "mock2",
+					API:   mockAPI,
+					Model: model1,
+				},
+			},
+		})
 		robot := setupLocalRobot(t, context.Background(), conf1, logger)
 
 		armNames := []resource.Name{arm.Named("mock7")}
@@ -1733,10 +3559,78 @@ func TestRobotReconfigure(t *testing.T) {
 func TestSensorsServiceReconfigure(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 
-	emptyCfg, err := config.Read(context.Background(), "data/diff_config_empty.json", logger)
-	test.That(t, err, test.ShouldBeNil)
-	cfg, err := config.Read(context.Background(), "data/fake.json", logger)
-	test.That(t, err, test.ShouldBeNil)
+	// emptyCfg, err := config.Read(context.Background(), "data/diff_config_empty.json", logger)
+	emptyCfg := &config.Config{}
+	// cfg, err := config.Read(context.Background(), "data/fake.json", logger)
+	// test.That(t, err, test.ShouldBeNil)
+	cfg := ProcessConfig(t, &config.Config{
+		Components: []resource.Config{
+			{
+				Name:  "pieceGripper",
+				API:   gripper.API,
+				Model: resource.DefaultModelFamily.WithModel("fake"),
+			},
+			{
+				Name:  "mic1",
+				API:   audioinput.API,
+				Model: resource.DefaultModelFamily.WithModel("fake"),
+			},
+			{
+				Name:  "camera",
+				API:   camera.API,
+				Model: resource.DefaultModelFamily.WithModel("fake"),
+				Frame: &referenceframe.LinkConfig{
+					Parent: "world",
+					Translation: r3.Vector{
+						X: 2000,
+						Y: 500,
+						Z: 1300,
+					},
+					Orientation: &spatialmath.OrientationConfig{
+						Type: spatialmath.OrientationVectorDegreesType,
+						Value: map[string]any{
+							"x":  0,
+							"y":  0,
+							"z":  1,
+							"th": 180,
+						},
+					},
+				},
+			},
+			{
+				Name:  "pieceArm",
+				API:   arm.API,
+				Model: resource.DefaultModelFamily.WithModel("fake"),
+				Frame: &referenceframe.LinkConfig{
+					Parent: "world",
+					Translation: r3.Vector{
+						X: 500,
+						Y: 500,
+						Z: 1000,
+					},
+				},
+				Attributes: rutils.AttributeMap{
+					"model-path": "../../components/arm/fake/fake_model.json",
+				},
+			},
+			{
+				Name:  "movement_sensor1",
+				API:   arm.API,
+				Model: resource.DefaultModelFamily.WithModel("fake"),
+			},
+			{
+				Name:  "movement_sensor2",
+				API:   arm.API,
+				Model: resource.DefaultModelFamily.WithModel("fake"),
+				Frame: &referenceframe.LinkConfig{
+					Parent: "pieceArm",
+				},
+				Attributes: rutils.AttributeMap{
+					"relative": true,
+				},
+			},
+		},
+	})
 
 	sensorNames := []resource.Name{movementsensor.Named("movement_sensor1"), movementsensor.Named("movement_sensor2")}
 
@@ -2105,8 +3999,76 @@ func TestStatusServiceUpdate(t *testing.T) {
 
 	emptyCfg, err := config.Read(context.Background(), "data/diff_config_empty.json", logger)
 	test.That(t, err, test.ShouldBeNil)
-	cfg, cfgErr := config.Read(context.Background(), "data/fake.json", logger)
-	test.That(t, cfgErr, test.ShouldBeNil)
+	// cfg, cfgErr := config.Read(context.Background(), "data/fake.json", logger)
+	// test.That(t, cfgErr, test.ShouldBeNil)
+	cfg := ProcessConfig(t, &config.Config{
+		Components: []resource.Config{
+			{
+				Name:  "pieceGripper",
+				API:   gripper.API,
+				Model: resource.DefaultModelFamily.WithModel("fake"),
+			},
+			{
+				Name:  "mic1",
+				API:   audioinput.API,
+				Model: resource.DefaultModelFamily.WithModel("fake"),
+			},
+			{
+				Name:  "camera",
+				API:   camera.API,
+				Model: resource.DefaultModelFamily.WithModel("fake"),
+				Frame: &referenceframe.LinkConfig{
+					Parent: "world",
+					Translation: r3.Vector{
+						X: 2000,
+						Y: 500,
+						Z: 1300,
+					},
+					Orientation: &spatialmath.OrientationConfig{
+						Type: spatialmath.OrientationVectorDegreesType,
+						Value: map[string]any{
+							"x":  0,
+							"y":  0,
+							"z":  1,
+							"th": 180,
+						},
+					},
+				},
+			},
+			{
+				Name:  "pieceArm",
+				API:   arm.API,
+				Model: resource.DefaultModelFamily.WithModel("fake"),
+				Frame: &referenceframe.LinkConfig{
+					Parent: "world",
+					Translation: r3.Vector{
+						X: 500,
+						Y: 500,
+						Z: 1000,
+					},
+				},
+				Attributes: rutils.AttributeMap{
+					"model-path": "../../components/arm/fake/fake_model.json",
+				},
+			},
+			{
+				Name:  "movement_sensor1",
+				API:   arm.API,
+				Model: resource.DefaultModelFamily.WithModel("fake"),
+			},
+			{
+				Name:  "movement_sensor2",
+				API:   arm.API,
+				Model: resource.DefaultModelFamily.WithModel("fake"),
+				Frame: &referenceframe.LinkConfig{
+					Parent: "pieceArm",
+				},
+				Attributes: rutils.AttributeMap{
+					"relative": true,
+				},
+			},
+		},
+	})
 
 	resourceNames := []resource.Name{
 		movementsensor.Named("movement_sensor1"),

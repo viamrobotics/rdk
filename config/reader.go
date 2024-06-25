@@ -421,6 +421,13 @@ func fromReader(
 	return cfgFromDisk, err
 }
 
+// ProcessConfigLocalConfig returns a copy of the current config with all attributes
+// parsed and config validated with the assumption the config came from a local file.
+// Returns an error if the unprocessedConfig is non-valid.
+func ProcessConfigLocalConfig(unprocessedConfig *Config, logger logging.Logger) (*Config, error) {
+	return processConfigLocalConfig(unprocessedConfig, logger)
+}
+
 // processConfigFromCloud returns a copy of the current config with all attributes parsed
 // and config validated with the assumption the config came from the cloud.
 // Returns an error if the unprocessedConfig is non-valid.
