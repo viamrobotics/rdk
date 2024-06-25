@@ -135,10 +135,10 @@ func (o *odometry) Reconfigure(ctx context.Context, deps resource.Dependencies, 
 	}
 
 	o.mu.Lock()
+	defer o.mu.Unlock()
 
 	newConf, err := resource.NativeConfig[*Config](conf)
 	if err != nil {
-		o.mu.Unlock()
 		return err
 	}
 
@@ -154,18 +154,15 @@ func (o *odometry) Reconfigure(ctx context.Context, deps resource.Dependencies, 
 	// set baseWidth and wheelCircumference from the new base properties
 	newBase, err := base.FromDependencies(deps, newConf.Base)
 	if err != nil {
-		o.mu.Unlock()
 		return err
 	}
 	props, err := newBase.Properties(ctx, nil)
 	if err != nil {
-		o.mu.Unlock()
 		return err
 	}
 	o.baseWidth = props.WidthMeters
 	o.wheelCircumference = props.WheelCircumferenceMeters
 	if o.baseWidth == 0 || o.wheelCircumference == 0 {
-		o.mu.Unlock()
 		return errors.New("base width or wheel circumference are 0, movement sensor cannot be created")
 	}
 	o.base = newBase
@@ -177,31 +174,25 @@ func (o *odometry) Reconfigure(ctx context.Context, deps resource.Dependencies, 
 
 		motorLeft, err = motor.FromDependencies(deps, newConf.LeftMotors[i])
 		if err != nil {
-			o.mu.Unlock()
 			return err
 		}
 		properties, err := motorLeft.Properties(ctx, nil)
 		if err != nil {
-			o.mu.Unlock()
 			return err
 		}
 		if !properties.PositionReporting {
-			o.mu.Unlock()
 			return motor.NewPropertyUnsupportedError(properties, newConf.LeftMotors[i])
 		}
 
 		motorRight, err = motor.FromDependencies(deps, newConf.RightMotors[i])
 		if err != nil {
-			o.mu.Unlock()
 			return err
 		}
 		properties, err = motorRight.Properties(ctx, nil)
 		if err != nil {
-			o.mu.Unlock()
 			return err
 		}
 		if !properties.PositionReporting {
-			o.mu.Unlock()
 			return motor.NewPropertyUnsupportedError(properties, newConf.LeftMotors[i])
 		}
 
@@ -226,6 +217,7 @@ func (o *odometry) Reconfigure(ctx context.Context, deps resource.Dependencies, 
 	o.originCoord = geo.NewPoint(0, 0)
 	o.coordUpToDate.Store(false)
 	o.mu.Unlock()
+	defer o.mu.Lock() // Must be unlocked for trackPosition. We put a Lock on the defer stack so the earlier deferred unlock does not hang.
 	o.trackPosition() // (re-)initializes o.workers
 	// Wait for trackPosition to initialize coord so we do not start with stale data
 	for !o.coordUpToDate.Load() {
