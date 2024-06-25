@@ -87,9 +87,6 @@ func TestRobotReconfigure(t *testing.T) {
 	model1 := resource.DefaultModelFamily.WithModel(modelName1)
 	model2 := resource.DefaultModelFamily.WithModel(modelName2)
 	fakeModel = resource.DefaultModelFamily.WithModel("fake")
-	// TODO: remove these once we stop import configs from files
-	test.That(t, os.Setenv("TEST_MODEL_NAME_1", modelName1), test.ShouldBeNil)
-	test.That(t, os.Setenv("TEST_MODEL_NAME_2", modelName2), test.ShouldBeNil)
 
 	resource.RegisterComponent(mockAPI, model1,
 		resource.Registration[resource.Resource, *mockFakeConfig]{
