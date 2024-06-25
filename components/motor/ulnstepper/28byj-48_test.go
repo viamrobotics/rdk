@@ -10,6 +10,7 @@ import (
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/components/board"
+	"go.viam.com/rdk/components/motor"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/testutils/inject"
@@ -271,19 +272,7 @@ func TestFunctions(t *testing.T) {
 
 	t.Run("test SetRPM", func(t *testing.T) {
 		err := m.SetRPM(ctx, 0, nil)
-		test.That(t, err, test.ShouldBeNil)
-		allObs := obs.All()
-		latestLoggedEntry := allObs[len(allObs)-1]
-		test.That(t, fmt.Sprint(latestLoggedEntry), test.ShouldContainSubstring, "nearly 0")
-
-		err = m.SetRPM(ctx, -.009, nil)
-		test.That(t, err, test.ShouldBeNil)
-
-		err = m.SetRPM(ctx, 146, nil)
-		test.That(t, err, test.ShouldBeNil)
-		allObs = obs.All()
-		latestLoggedEntry = allObs[len(allObs)-1]
-		test.That(t, fmt.Sprint(latestLoggedEntry), test.ShouldContainSubstring, "nearly the max")
+		test.That(t, err, test.ShouldBeError, motor.NewSetRPMUnsupportedError(m.Name().ShortName()))
 	})
 
 	cancel()
