@@ -3612,12 +3612,12 @@ func TestSensorsServiceReconfigure(t *testing.T) {
 			},
 			{
 				Name:  "movement_sensor1",
-				API:   arm.API,
+				API:   movementsensor.API,
 				Model: resource.DefaultModelFamily.WithModel("fake"),
 			},
 			{
 				Name:  "movement_sensor2",
-				API:   arm.API,
+				API:   movementsensor.API,
 				Model: resource.DefaultModelFamily.WithModel("fake"),
 				Frame: &referenceframe.LinkConfig{
 					Parent: "pieceArm",
