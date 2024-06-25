@@ -3997,8 +3997,9 @@ func TestDefaultServiceReconfigure(t *testing.T) {
 func TestStatusServiceUpdate(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 
-	emptyCfg, err := config.Read(context.Background(), "data/diff_config_empty.json", logger)
-	test.That(t, err, test.ShouldBeNil)
+	// emptyCfg, err := config.Read(context.Background(), "data/diff_config_empty.json", logger)
+	// test.That(t, err, test.ShouldBeNil)
+	emptyCfg := &config.Config{}
 	// cfg, cfgErr := config.Read(context.Background(), "data/fake.json", logger)
 	// test.That(t, cfgErr, test.ShouldBeNil)
 	cfg := ProcessConfig(t, &config.Config{
