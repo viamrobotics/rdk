@@ -419,9 +419,6 @@ func (g *rtkSerial) receiveAndWriteSerial() {
 			continue // No errors: we're still connected.
 		}
 
-		// If we get here, we encountered an error. Try reconnecting to the mount point.
-		isConnectedToNtrip = false
-
 		if msg != nil {
 			// Why would we have a non-nil message with a non-nil error!? Give up entirely.
 			return
@@ -431,6 +428,8 @@ func (g *rtkSerial) receiveAndWriteSerial() {
 			return
 		}
 
+		// If we get here, the scanner encountered an error but is supposed to continue going. Try
+		// reconnecting to the mount point.
 		if g.isVirtualBase {
 			g.logger.Debug("reconnecting to the Virtual Reference Station")
 			err = g.getNtripFromVRS()
@@ -450,8 +449,6 @@ func (g *rtkSerial) receiveAndWriteSerial() {
 			g.reader = io.TeeReader(g.ntripClient.Stream, g.writer)
 			scanner = rtcm3.NewScanner(g.reader)
 		}
-
-		isConnectedToNtrip = true
 	}
 }
 
