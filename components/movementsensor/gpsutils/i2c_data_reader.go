@@ -180,7 +180,7 @@ func (dr *PmtkI2cDataReader) start() {
 						default:
 						}
 					}
-				} else if b != 0x0A { // skip the newlines; we focused on the carriage returns
+				} else if b != 0x0A { // Skip the newlines, as described earlier
 					strBuf += string(b)
 				}
 			}
