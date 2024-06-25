@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"math"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/golang/geo/r3"
@@ -68,6 +69,7 @@ type odometry struct {
 	linearVelocity  r3.Vector
 	position        r3.Vector
 	orientation     spatialmath.EulerAngles
+	coordUpToDate   atomic.Bool
 	coord           *geo.Point
 	originCoord     *geo.Point
 
@@ -133,10 +135,10 @@ func (o *odometry) Reconfigure(ctx context.Context, deps resource.Dependencies, 
 	}
 
 	o.mu.Lock()
-	defer o.mu.Unlock()
 
 	newConf, err := resource.NativeConfig[*Config](conf)
 	if err != nil {
+		o.mu.Unlock()
 		return err
 	}
 
@@ -152,15 +154,18 @@ func (o *odometry) Reconfigure(ctx context.Context, deps resource.Dependencies, 
 	// set baseWidth and wheelCircumference from the new base properties
 	newBase, err := base.FromDependencies(deps, newConf.Base)
 	if err != nil {
+		o.mu.Unlock()
 		return err
 	}
 	props, err := newBase.Properties(ctx, nil)
 	if err != nil {
+		o.mu.Unlock()
 		return err
 	}
 	o.baseWidth = props.WidthMeters
 	o.wheelCircumference = props.WheelCircumferenceMeters
 	if o.baseWidth == 0 || o.wheelCircumference == 0 {
+		o.mu.Unlock()
 		return errors.New("base width or wheel circumference are 0, movement sensor cannot be created")
 	}
 	o.base = newBase
@@ -172,25 +177,31 @@ func (o *odometry) Reconfigure(ctx context.Context, deps resource.Dependencies, 
 
 		motorLeft, err = motor.FromDependencies(deps, newConf.LeftMotors[i])
 		if err != nil {
+			o.mu.Unlock()
 			return err
 		}
 		properties, err := motorLeft.Properties(ctx, nil)
 		if err != nil {
+			o.mu.Unlock()
 			return err
 		}
 		if !properties.PositionReporting {
+			o.mu.Unlock()
 			return motor.NewPropertyUnsupportedError(properties, newConf.LeftMotors[i])
 		}
 
 		motorRight, err = motor.FromDependencies(deps, newConf.RightMotors[i])
 		if err != nil {
+			o.mu.Unlock()
 			return err
 		}
 		properties, err = motorRight.Properties(ctx, nil)
 		if err != nil {
+			o.mu.Unlock()
 			return err
 		}
 		if !properties.PositionReporting {
+			o.mu.Unlock()
 			return motor.NewPropertyUnsupportedError(properties, newConf.LeftMotors[i])
 		}
 
@@ -213,9 +224,18 @@ func (o *odometry) Reconfigure(ctx context.Context, deps resource.Dependencies, 
 
 	o.orientation.Yaw = 0
 	o.originCoord = geo.NewPoint(0, 0)
-	o.coord = geo.NewPoint(0, 0)
+	o.coordUpToDate.Store(false)
+	o.mu.Unlock()
 	o.trackPosition() // (re-)initializes o.workers
-
+	// Wait for trackPosition to initialize coord so we do not start with stale data
+	for !o.coordUpToDate.Load() {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
+		time.Sleep(time.Duration(o.timeIntervalMSecs) * time.Millisecond)
+	}
 	return nil
 }
 
@@ -231,7 +251,6 @@ func newWheeledOdometry(
 		lastLeftPos:  0.0,
 		lastRightPos: 0.0,
 		originCoord:  geo.NewPoint(0, 0),
-		coord:        geo.NewPoint(0, 0),
 		logger:       logger,
 	}
 
@@ -437,6 +456,7 @@ func (o *odometry) trackPosition() {
 			distance := math.Hypot(o.position.X, o.position.Y)
 			heading := utils.RadToDeg(math.Atan2(o.position.X, o.position.Y))
 			o.coord = o.originCoord.PointAtDistanceAndBearing(distance*mToKm, heading)
+			o.coordUpToDate.Store(true)
 
 			// Update the linear and angular velocity values using the provided time interval.
 			o.linearVelocity.Y = centerDist / (o.timeIntervalMSecs / 1000)
@@ -475,8 +495,19 @@ func (o *odometry) DoCommand(ctx context.Context,
 	long, okX := req[setLong].(float64)
 	if okY && okX {
 		o.originCoord = geo.NewPoint(lat, long)
-		o.coord = o.originCoord
 		o.shiftPos = true
+		o.coordUpToDate.Store(false)
+		o.mu.Unlock()
+		// Wait for trackPosition to initialize coord so we do not start with stale data
+		for !o.coordUpToDate.Load() {
+			select {
+			case <-ctx.Done():
+				return nil, ctx.Err()
+			default:
+			}
+			time.Sleep(time.Duration(o.timeIntervalMSecs) * time.Millisecond)
+		}
+		o.mu.Lock()
 
 		resp[setLat] = fmt.Sprintf("lat shifted to %.8f", lat)
 		resp[setLong] = fmt.Sprintf("lng shifted to %.8f", long)
