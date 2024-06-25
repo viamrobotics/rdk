@@ -20,8 +20,6 @@ import (
 	"go.viam.com/rdk/spatialmath"
 )
 
-const defaultRandomSeed = 0
-
 // motionPlanner provides an interface to path planning methods, providing ways to request a path to be planned, and
 // management of the constraints used to plan paths.
 type motionPlanner interface {
