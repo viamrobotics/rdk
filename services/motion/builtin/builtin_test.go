@@ -1134,9 +1134,10 @@ func TestCheckPlan(t *testing.T) {
 	ctx := context.Background()
 	logger := logging.NewTestLogger(t)
 	origin := geo.NewPoint(0, 0)
+
 	movementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, origin, nil, 5)
 	defer ms.Close(ctx)
-	fmt.Println(fakeBase)
+
 	dst := geo.NewPoint(origin.Lat(), origin.Lng()+5e-5)
 	// Note: spatialmath.GeoPointToPoint(dst, origin) produces r3.Vector{5559.746, 0, 0}
 
@@ -1157,8 +1158,6 @@ func TestCheckPlan(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(plan.Path()), test.ShouldBeGreaterThan, 2)
 
-	fmt.Println(plan.Path())
-	fmt.Println(plan.Trajectory())
 	wrapperFrame := mr.localizaingFS.Frame(mr.kinematicBase.Name().Name)
 
 	currentInputs := map[string][]referenceframe.Input{

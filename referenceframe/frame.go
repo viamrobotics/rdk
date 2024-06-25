@@ -558,7 +558,7 @@ func PoseToInputs(p spatial.Pose) []Input {
 	})
 }
 
-// InputsToPose is a convience method for turning inputs into a spatial.Pose
+// InputsToPose is a convience method for turning inputs into a spatial.Pose.
 func InputsToPose(inputs []Input) spatial.Pose {
 	return spatial.NewPose(
 		r3.Vector{X: inputs[0].Value, Y: inputs[1].Value, Z: inputs[2].Value},

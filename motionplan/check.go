@@ -15,7 +15,7 @@ import (
 )
 
 var (
-	checkFrameNotInPathErr = errors.New("checkFrame given not in plan.Path() map")
+	errCheckFrameNotInPath = errors.New("checkFrame given not in plan.Path() map")
 	ptgDoFLen              = 4
 )
 
@@ -126,7 +126,7 @@ func checkPlanRelative(
 	// determine plan's starting pose
 	planStartPiF, ok := plan.Path()[0][checkFrame.Name()]
 	if !ok {
-		return checkFrameNotInPathErr // THIS ERROR APPEARS TWICE, SO WE CAN MAKE IT INTO A VAR
+		return errCheckFrameNotInPath // THIS ERROR APPEARS TWICE, SO WE CAN MAKE IT INTO A VAR
 	}
 	planStartPoseWorld, err := toWorld(planStartPiF, plan.Trajectory()[0])
 	if err != nil {
@@ -136,7 +136,7 @@ func checkPlanRelative(
 	// determine plan's ending pose
 	planEndPiF, ok := plan.Path()[len(plan.Path())-1][checkFrame.Name()]
 	if !ok {
-		return checkFrameNotInPathErr
+		return errCheckFrameNotInPath
 	}
 	planEndPoseWorld, err := toWorld(planEndPiF, plan.Trajectory()[len(plan.Path())-1])
 	if err != nil {
@@ -194,7 +194,7 @@ func checkPlanRelative(
 	// Check that path pose is valid
 	stepEndPiF, ok := plan.Path()[wayPointIdx][checkFrame.Name()]
 	if !ok {
-		return checkFrameNotInPathErr
+		return errCheckFrameNotInPath
 	}
 
 	expectedArcEndInWorld, err := toWorld(stepEndPiF, plan.Trajectory()[wayPointIdx])
@@ -204,7 +204,7 @@ func checkPlanRelative(
 
 	arcInputs, ok := plan.Trajectory()[wayPointIdx][checkFrame.Name()]
 	if !ok {
-		return checkFrameNotInPathErr
+		return errCheckFrameNotInPath
 	}
 	fullArcPose, err := checkFrame.Transform(arcInputs)
 	if err != nil {
@@ -242,7 +242,7 @@ func checkPlanRelative(
 	for i := wayPointIdx + 1; i <= len(plan.Path())-1; i++ {
 		thisArcEndPoseTf, ok := plan.Path()[i][checkFrame.Name()]
 		if !ok {
-			return checkFrameNotInPathErr
+			return errCheckFrameNotInPath
 		}
 		thisArcEndPoseInWorld, err := toWorld(thisArcEndPoseTf, plan.Trajectory()[i])
 		if err != nil {

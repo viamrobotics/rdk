@@ -4,6 +4,7 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 	pb "go.viam.com/api/component/arm/v1"
+
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
@@ -19,7 +20,7 @@ type wrapperFrame struct {
 	fs                referenceframe.FrameSystem
 }
 
-func NewWrapperFrame(
+func newWrapperFrame(
 	localizationFrame, executionFrame referenceframe.Frame,
 	seedMap map[string][]referenceframe.Input,
 	fs referenceframe.FrameSystem,

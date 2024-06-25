@@ -184,10 +184,15 @@ func (mr *moveRequest) getTransientDetections(
 	if err != nil {
 		return nil, err
 	}
-	inputMap, err := mr.createInputMap(ctx, baseExecutionState)
+	inputMap, _, err := mr.fsService.CurrentInputs(ctx)
 	if err != nil {
 		return nil, err
 	}
+	kbInputs := make([]referenceframe.Input, len(mr.kinematicBase.Kinematics().DoF()))
+	kbInputs = append(kbInputs, referenceframe.PoseToInputs(
+		baseExecutionState.CurrentPoses()[mr.kinematicBase.LocalizationFrame().Name()].Pose(),
+	)...)
+	inputMap[mr.kinematicBase.Name().ShortName()] = kbInputs
 
 	detections, err := visSrvc.GetObjectPointClouds(ctx, camName.Name, nil)
 	if err != nil {
@@ -304,12 +309,13 @@ func (mr *moveRequest) augmentBaseExecutionState(
 	newTrajectory := make(motionplan.Trajectory, 0, len(existingPlan.Trajectory()))
 	for idx, currTraj := range existingPlan.Trajectory() {
 		if idx != 0 {
-			idx = idx - 1
+			idx--
 		}
 		currPathStep := existingPlan.Path()[idx]
 		kbPose := currPathStep[mr.kinematicBase.Kinematics().Name()]
 		kbTraj := currTraj[mr.kinematicBase.Name().Name]
-		updatedTraj := append(kbTraj, referenceframe.PoseToInputs(kbPose.Pose())...)
+		updatedTraj := kbTraj
+		updatedTraj = append(updatedTraj, referenceframe.PoseToInputs(kbPose.Pose())...)
 		newTrajectory = append(
 			newTrajectory, map[string][]referenceframe.Input{mr.kinematicBase.Kinematics().Name(): updatedTraj},
 		)
@@ -334,21 +340,6 @@ func (mr *moveRequest) augmentBaseExecutionState(
 	return motionplan.NewExecutionState(
 		augmentedPlan, baseExecutionState.Index(), allCurrentInputsFromBaseExecutionState, existingCurrentPoses,
 	)
-}
-
-func (mr *moveRequest) createInputMap(
-	ctx context.Context, baseExecutionState motionplan.ExecutionState,
-) (map[string][]referenceframe.Input, error) {
-	inputMap, _, err := mr.fsService.CurrentInputs(ctx)
-	if err != nil {
-		return nil, err
-	}
-	kbInputs := make([]referenceframe.Input, len(mr.kinematicBase.Kinematics().DoF()))
-	kbInputs = append(kbInputs, referenceframe.PoseToInputs(
-		baseExecutionState.CurrentPoses()[mr.kinematicBase.LocalizationFrame().Name()].Pose(),
-	)...)
-	inputMap[mr.kinematicBase.Name().ShortName()] = kbInputs
-	return inputMap, nil
 }
 
 func kbOptionsFromCfg(motionCfg *validatedMotionConfiguration, validatedExtra validatedExtra) kinematicbase.Options {
@@ -754,12 +745,18 @@ func (ms *builtIn) createBaseMoveRequest(
 	executionFrame := kb.Kinematics()
 	localizationFrame := kb.LocalizationFrame()
 	wrapperFS := referenceframe.NewEmptyFrameSystem("wrapperFS")
-	wrapperFS.AddFrame(localizationFrame, wrapperFS.World())
-	wrapperFS.AddFrame(executionFrame, localizationFrame)
+	err = wrapperFS.AddFrame(localizationFrame, wrapperFS.World())
+	if err != nil {
+		return nil, err
+	}
+	err = wrapperFS.AddFrame(executionFrame, localizationFrame)
+	if err != nil {
+		return nil, err
+	}
 	wrapperFrameSeedMap := map[string][]referenceframe.Input{}
 	wrapperFrameSeedMap[executionFrame.Name()] = make([]referenceframe.Input, len(executionFrame.DoF()))
 	wrapperFrameSeedMap[localizationFrame.Name()] = make([]referenceframe.Input, len(localizationFrame.DoF()))
-	wf := NewWrapperFrame(localizationFrame, executionFrame, wrapperFrameSeedMap, wrapperFS)
+	wf := newWrapperFrame(localizationFrame, executionFrame, wrapperFrameSeedMap, wrapperFS)
 	collisionFS := baseOnlyFS
 	err = collisionFS.ReplaceFrame(wf)
 	if err != nil {
