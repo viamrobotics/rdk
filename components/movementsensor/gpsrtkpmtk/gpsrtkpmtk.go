@@ -402,8 +402,6 @@ func (g *rtkI2C) receiveAndWriteI2C(ctx context.Context) {
 			continue
 		}
 
-		ntripStatus = false
-
 		if msg != nil {
 			return
 		}
@@ -435,7 +433,6 @@ func (g *rtkI2C) receiveAndWriteI2C(ctx context.Context) {
 		}
 
 		scanner = rtcm3.NewScanner(r)
-		ntripStatus = true
 	}
 }
 
