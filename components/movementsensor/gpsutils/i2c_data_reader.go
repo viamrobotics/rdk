@@ -152,9 +152,9 @@ func (dr *PmtkI2cDataReader) start() {
 				}
 
 				// Otherwise, the chip is trying to communicate with us. However, sometimes the
-				// NMEA data has the most significant bit of the byte set, even though it should
-				// only send ASCII (which never sets the most significant bit). So, to reduce
-				// checksum errors, we mask out that bit.
+				// data has the most significant bit of the byte set, even though it should only
+				// send ASCII (which never sets the most significant bit). So, to reduce checksum
+				// errors, we mask out that bit.
 				b = b & 0x7F
 
 				// PMTK uses CRLF line endings to terminate sentences, but just LF to blank data.
