@@ -125,7 +125,6 @@ type rtkI2C struct {
 
 	mu          sync.Mutex
 	ntripClient *gpsutils.NtripInfo
-	ntripStatus bool
 
 	err          movementsensor.LastError
 	lastposition movementsensor.LastPosition
@@ -388,13 +387,9 @@ func (g *rtkI2C) receiveAndWriteI2C(ctx context.Context) {
 
 	scanner := rtcm3.NewScanner(r)
 
-	g.mu.Lock()
-	g.ntripStatus = true
-	g.mu.Unlock()
+	ntripStatus = true
 
-	// It's okay to skip the mutex on this next line: g.ntripStatus can only be mutated by this
-	// goroutine itself.
-	for g.ntripStatus {
+	for ntripStatus {
 		select {
 		case <-g.cancelCtx.Done():
 			g.err.Set(err)
@@ -404,9 +399,7 @@ func (g *rtkI2C) receiveAndWriteI2C(ctx context.Context) {
 
 		msg, err := scanner.NextMessage()
 		if err != nil {
-			g.mu.Lock()
-			g.ntripStatus = false
-			g.mu.Unlock()
+			ntripStatus = false
 
 			if msg == nil {
 				g.logger.CDebug(ctx, "No message... reconnecting to stream...")
@@ -436,9 +429,7 @@ func (g *rtkI2C) receiveAndWriteI2C(ctx context.Context) {
 				}
 
 				scanner = rtcm3.NewScanner(r)
-				g.mu.Lock()
-				g.ntripStatus = true
-				g.mu.Unlock()
+				ntripStatus = true
 				continue
 			}
 		}
