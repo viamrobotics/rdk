@@ -20,12 +20,12 @@ import (
 
 type fakeDiffDriveKinematics struct {
 	*fake.Base
-	parentFrame                   string
-	planningFrame, executionFrame referenceframe.Frame
-	inputs                        []referenceframe.Input
-	options                       Options
-	sensorNoise                   spatialmath.Pose
-	lock                          sync.RWMutex
+	parentFrame                      string
+	planningFrame, localizationFrame referenceframe.Frame
+	inputs                           []referenceframe.Input
+	options                          Options
+	sensorNoise                      spatialmath.Pose
+	lock                             sync.RWMutex
 }
 
 // WrapWithFakeDiffDriveKinematics creates a DiffDrive KinematicBase from the fake Base so that it satisfies the ModelFramer and
@@ -57,7 +57,7 @@ func WrapWithFakeDiffDriveKinematics(
 		geometry = fk.Base.Geometry[0]
 	}
 
-	fk.executionFrame, err = referenceframe.New2DMobileModelFrame(b.Name().ShortName(), limits, geometry)
+	fk.localizationFrame, err = referenceframe.New2DMobileModelFrame(b.Name().ShortName(), limits, geometry)
 	if err != nil {
 		return nil, err
 	}
@@ -68,7 +68,7 @@ func WrapWithFakeDiffDriveKinematics(
 			return nil, err
 		}
 	} else {
-		fk.planningFrame = fk.executionFrame
+		fk.planningFrame = fk.localizationFrame
 	}
 
 	fk.options = options
@@ -77,6 +77,10 @@ func WrapWithFakeDiffDriveKinematics(
 
 func (fk *fakeDiffDriveKinematics) Kinematics() referenceframe.Frame {
 	return fk.planningFrame
+}
+
+func (fk *fakeDiffDriveKinematics) LocalizationFrame() referenceframe.Frame {
+	return fk.localizationFrame
 }
 
 func (fk *fakeDiffDriveKinematics) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
@@ -122,19 +126,19 @@ func (fk *fakeDiffDriveKinematics) CurrentPosition(ctx context.Context) (*refere
 
 type fakePTGKinematics struct {
 	*fake.Base
-	localizer    motion.Localizer
-	frame        referenceframe.Frame
-	options      Options
-	sensorNoise  spatialmath.Pose
-	ptgs         []tpspace.PTGSolver
-	currentInput []referenceframe.Input
-	currentIndex int
-	plan         motionplan.Plan
-	origin       *referenceframe.PoseInFrame
-	positionlock sync.RWMutex
-	inputLock    sync.RWMutex
-	logger       logging.Logger
-	sleepTime    int
+	localizer                        motion.Localizer
+	planningFrame, localizationFrame referenceframe.Frame
+	options                          Options
+	sensorNoise                      spatialmath.Pose
+	ptgs                             []tpspace.PTGSolver
+	currentInput                     []referenceframe.Input
+	currentIndex                     int
+	plan                             motionplan.Plan
+	origin                           *referenceframe.PoseInFrame
+	positionlock                     sync.RWMutex
+	inputLock                        sync.RWMutex
+	logger                           logging.Logger
+	sleepTime                        int
 }
 
 // WrapWithFakePTGKinematics creates a PTG KinematicBase from the fake Base so that it satisfies the ModelFramer and InputEnabled
@@ -180,7 +184,8 @@ func WrapWithFakePTGKinematics(
 
 	nonzeroBaseTurningRadiusMeters := (baseMillimetersPerSecond / rdkutils.DegToRad(angVelocityDegsPerSecond)) / 1000.
 
-	frame, err := tpspace.NewPTGFrameFromKinematicOptions(
+	// construct planning frame
+	planningFrame, err := tpspace.NewPTGFrameFromKinematicOptions(
 		b.Name().ShortName(),
 		logger,
 		nonzeroBaseTurningRadiusMeters,
@@ -193,30 +198,39 @@ func WrapWithFakePTGKinematics(
 		return nil, err
 	}
 
+	// construct localization frame
+	localizationFrame, err := referenceframe.NewPoseFrame(b.Name().ShortName()+"LocalizationFrame", nil)
+	if err != nil {
+		return nil, err
+	}
+
 	if sensorNoise == nil {
 		sensorNoise = spatialmath.NewZeroPose()
 	}
 
-	ptgProv, ok := frame.(tpspace.PTGProvider)
+	ptgProv, ok := planningFrame.(tpspace.PTGProvider)
 	if !ok {
 		return nil, errors.New("unable to cast ptgk frame to a PTG Provider")
 	}
 	ptgs := ptgProv.PTGSolvers()
-	traj := motionplan.Trajectory{{frame.Name(): zeroInput}}
-	path := motionplan.Path{{frame.Name(): referenceframe.NewPoseInFrame(origin.Parent(), spatialmath.Compose(origin.Pose(), sensorNoise))}}
+	traj := motionplan.Trajectory{{planningFrame.Name(): zeroInput}}
+	path := motionplan.Path{
+		{planningFrame.Name(): referenceframe.NewPoseInFrame(origin.Parent(), spatialmath.Compose(origin.Pose(), sensorNoise))},
+	}
 	zeroPlan := motionplan.NewSimplePlan(path, traj)
 
 	fk := &fakePTGKinematics{
-		Base:         b,
-		frame:        frame,
-		origin:       origin,
-		ptgs:         ptgs,
-		currentInput: zeroInput,
-		currentIndex: 0,
-		plan:         zeroPlan,
-		sensorNoise:  sensorNoise,
-		logger:       logger,
-		sleepTime:    sleepTime,
+		Base:              b,
+		planningFrame:     planningFrame,
+		localizationFrame: localizationFrame,
+		origin:            origin,
+		ptgs:              ptgs,
+		currentInput:      zeroInput,
+		currentIndex:      0,
+		plan:              zeroPlan,
+		sensorNoise:       sensorNoise,
+		logger:            logger,
+		sleepTime:         sleepTime,
 	}
 	initLocalizer := &fakePTGKinematicsLocalizer{fk}
 	fk.localizer = motion.TwoDLocalizer(initLocalizer)
@@ -226,7 +240,11 @@ func WrapWithFakePTGKinematics(
 }
 
 func (fk *fakePTGKinematics) Kinematics() referenceframe.Frame {
-	return fk.frame
+	return fk.planningFrame
+}
+
+func (fk *fakePTGKinematics) LocalizationFrame() referenceframe.Frame {
+	return fk.localizationFrame
 }
 
 func (fk *fakePTGKinematics) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
@@ -241,9 +259,9 @@ func (fk *fakePTGKinematics) GoToInputs(ctx context.Context, inputSteps ...[]ref
 		fk.currentInput = zeroInput
 		fk.currentIndex = 0
 
-		traj := motionplan.Trajectory{{fk.frame.Name(): zeroInput}}
+		traj := motionplan.Trajectory{{fk.planningFrame.Name(): zeroInput}}
 		path := motionplan.Path{
-			{fk.frame.Name(): referenceframe.NewPoseInFrame(fk.origin.Parent(), spatialmath.Compose(fk.origin.Pose(), fk.sensorNoise))},
+			{fk.planningFrame.Name(): referenceframe.NewPoseInFrame(fk.origin.Parent(), spatialmath.Compose(fk.origin.Pose(), fk.sensorNoise))},
 		}
 		fk.plan = motionplan.NewSimplePlan(path, traj)
 		fk.inputLock.Unlock()
@@ -268,12 +286,12 @@ func (fk *fakePTGKinematics) GoToInputs(ctx context.Context, inputSteps ...[]ref
 
 		fk.inputLock.Lock()
 		fk.currentIndex = i
-		fk.currentInput, err = fk.frame.Interpolate(zeroInput, inputs, 0)
+		fk.currentInput, err = fk.planningFrame.Interpolate(zeroInput, inputs, 0)
 		fk.inputLock.Unlock()
 		if err != nil {
 			return err
 		}
-		finalPose, err := fk.frame.Transform(inputs)
+		finalPose, err := fk.planningFrame.Transform(inputs)
 		if err != nil {
 			return err
 		}
@@ -282,7 +300,7 @@ func (fk *fakePTGKinematics) GoToInputs(ctx context.Context, inputSteps ...[]ref
 		var interpolatedConfigurations [][]referenceframe.Input
 		for i := 0; i <= steps; i++ {
 			interp := float64(i) / float64(steps)
-			interpConfig, err := fk.frame.Interpolate(zeroInput, inputs, interp)
+			interpConfig, err := fk.planningFrame.Interpolate(zeroInput, inputs, interp)
 			if err != nil {
 				return err
 			}
@@ -292,7 +310,7 @@ func (fk *fakePTGKinematics) GoToInputs(ctx context.Context, inputSteps ...[]ref
 			if ctx.Err() != nil {
 				return ctx.Err()
 			}
-			relativePose, err := fk.frame.Transform(inter)
+			relativePose, err := fk.planningFrame.Transform(inter)
 			if err != nil {
 				return err
 			}
@@ -327,8 +345,8 @@ func (fk *fakePTGKinematics) ExecutionState(ctx context.Context) (motionplan.Exe
 	return motionplan.NewExecutionState(
 		fk.plan,
 		fk.currentIndex,
-		map[string][]referenceframe.Input{fk.frame.Name(): fk.currentInput},
-		map[string]*referenceframe.PoseInFrame{fk.frame.Name(): pos},
+		map[string][]referenceframe.Input{fk.Kinematics().Name(): fk.currentInput},
+		map[string]*referenceframe.PoseInFrame{fk.LocalizationFrame().Name(): pos},
 	)
 }
 

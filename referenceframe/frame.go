@@ -445,3 +445,128 @@ func (rf rotationalFrame) MarshalJSON() ([]byte, error) {
 
 	return json.Marshal(temp)
 }
+
+type poseFrame struct {
+	*baseFrame
+	geometry spatial.Geometry
+}
+
+// NewPoseFrame creates an orientation vector frame, i.e a frame with
+// 7 degrees of freedom: X, Y, Z, OX, OY, OZ, and Theta in radians.
+func NewPoseFrame(name string, geometry spatial.Geometry) (Frame, error) {
+	orientationVector := spatial.OrientationVector{
+		OX:    math.Inf(1),
+		OY:    math.Inf(1),
+		OZ:    math.Inf(1),
+		Theta: math.Pi,
+	}
+	orientationVector.Normalize()
+	limits := []Limit{
+		{Min: math.Inf(-1), Max: math.Inf(1)},                         // X
+		{Min: math.Inf(-1), Max: math.Inf(1)},                         // Y
+		{Min: math.Inf(-1), Max: math.Inf(1)},                         // Z
+		{Min: -orientationVector.OX, Max: orientationVector.OX},       // OX
+		{Min: -orientationVector.OY, Max: orientationVector.OY},       // OY
+		{Min: -orientationVector.OZ, Max: orientationVector.OZ},       // OZ
+		{Min: -orientationVector.Theta, Max: orientationVector.Theta}, // Theta
+	}
+	return &poseFrame{
+		&baseFrame{name, limits},
+		geometry,
+	}, nil
+}
+
+// Transform on the poseFrame acts as the identity function. Whatever inputs are given are directly translated
+// in a 7DoF pose. We note that theta should be in radians.
+func (pf *poseFrame) Transform(inputs []Input) (spatial.Pose, error) {
+	if err := pf.baseFrame.validInputs(inputs); err != nil {
+		return nil, NewIncorrectInputLengthError(len(inputs), 7)
+	}
+	return InputsToPose(inputs), nil
+}
+
+// Interpolate interpolates the given amount between the two sets of inputs.
+func (pf *poseFrame) Interpolate(from, to []Input, by float64) ([]Input, error) {
+	if err := pf.baseFrame.validInputs(from); err != nil {
+		return nil, NewIncorrectInputLengthError(len(from), len(pf.DoF()))
+	}
+	if err := pf.baseFrame.validInputs(to); err != nil {
+		return nil, NewIncorrectInputLengthError(len(to), len(pf.DoF()))
+	}
+	fromPose, err := pf.Transform(from)
+	if err != nil {
+		return nil, err
+	}
+	toPose, err := pf.Transform(to)
+	if err != nil {
+		return nil, err
+	}
+	interpolatedPose := spatial.Interpolate(fromPose, toPose, by)
+	return PoseToInputs(interpolatedPose), nil
+}
+
+// Geometries returns an object representing the 3D space associeted with the staticFrame.
+func (pf *poseFrame) Geometries(inputs []Input) (*GeometriesInFrame, error) {
+	transformByPose, err := pf.Transform(inputs)
+	if err != nil {
+		return nil, err
+	}
+	if pf.geometry == nil {
+		return NewGeometriesInFrame(pf.name, []spatial.Geometry{}), nil
+	}
+	return NewGeometriesInFrame(pf.name, []spatial.Geometry{pf.geometry.Transform(transformByPose)}), nil
+}
+
+// DoF returns the number of degrees of freedom within a model.
+func (pf *poseFrame) DoF() []Limit {
+	return pf.limits
+}
+
+// MarshalJSON serializes a Model.
+func (pf *poseFrame) MarshalJSON() ([]byte, error) {
+	return nil, errors.New("serializing a poseFrame is currently not supported")
+}
+
+// InputFromProtobuf converts pb.JointPosition to inputs.
+func (pf *poseFrame) InputFromProtobuf(jp *pb.JointPositions) []Input {
+	n := make([]Input, len(jp.Values))
+	for idx, d := range jp.Values {
+		n[idx] = Input{utils.DegToRad(d)}
+	}
+	return n
+}
+
+// ProtobufFromInput converts inputs to pb.JointPosition.
+func (pf *poseFrame) ProtobufFromInput(input []Input) *pb.JointPositions {
+	n := make([]float64, len(input))
+	for idx, a := range input {
+		n[idx] = utils.RadToDeg(a.Value)
+	}
+	return &pb.JointPositions{Values: n}
+}
+
+// PoseToInputs is a convience method for turning poses into inputs
+// We note that the orientation of the pose will be understood
+// as OrientationVectorRadians.
+func PoseToInputs(p spatial.Pose) []Input {
+	return FloatsToInputs([]float64{
+		p.Point().X, p.Point().Y, p.Point().Z,
+		p.Orientation().OrientationVectorRadians().OX,
+		p.Orientation().OrientationVectorRadians().OY,
+		p.Orientation().OrientationVectorRadians().OZ,
+		p.Orientation().OrientationVectorRadians().Theta,
+	})
+}
+
+// InputsToPose is a convience method for turning inputs into a spatial.Pose.
+func InputsToPose(inputs []Input) spatial.Pose {
+	return spatial.NewPose(
+		r3.Vector{X: inputs[0].Value, Y: inputs[1].Value, Z: inputs[2].Value},
+		&spatial.OrientationVector{
+			OX:    inputs[3].Value,
+			OY:    inputs[4].Value,
+			OZ:    inputs[5].Value,
+			Theta: inputs[6].Value,
+		},
+	)
+}

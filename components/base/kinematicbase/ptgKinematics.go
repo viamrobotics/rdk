@@ -31,13 +31,13 @@ const (
 type ptgBaseKinematics struct {
 	base.Base
 	motion.Localizer
-	logger                         logging.Logger
-	frame                          referenceframe.Frame
-	ptgs                           []tpspace.PTGSolver
-	courseCorrectionIdx            int
-	linVelocityMMPerSecond         float64
-	angVelocityDegsPerSecond       float64
-	nonzeroBaseTurningRadiusMeters float64
+	logger                           logging.Logger
+	planningFrame, localizationFrame referenceframe.Frame
+	ptgs                             []tpspace.PTGSolver
+	courseCorrectionIdx              int
+	linVelocityMMPerSecond           float64
+	angVelocityDegsPerSecond         float64
+	nonzeroBaseTurningRadiusMeters   float64
 
 	// All changeable state of the base is here
 	inputLock    sync.RWMutex
@@ -106,7 +106,7 @@ func wrapWithPTGKinematics(
 	}
 
 	nonzeroBaseTurningRadiusMeters := (linVelocityMMPerSecond / rdkutils.DegToRad(angVelocityDegsPerSecond)) / 1000.
-	frame, err := tpspace.NewPTGFrameFromKinematicOptions(
+	planningFrame, err := tpspace.NewPTGFrameFromKinematicOptions(
 		b.Name().ShortName(),
 		logger,
 		nonzeroBaseTurningRadiusMeters,
@@ -118,14 +118,14 @@ func wrapWithPTGKinematics(
 	if err != nil {
 		return nil, err
 	}
-	ptgProv, err := rdkutils.AssertType[tpspace.PTGProvider](frame)
+	ptgProv, err := rdkutils.AssertType[tpspace.PTGProvider](planningFrame)
 	if err != nil {
 		return nil, err
 	}
 	ptgs := ptgProv.PTGSolvers()
 	origin := spatialmath.NewZeroPose()
 
-	ptgCourseCorrection, err := rdkutils.AssertType[tpspace.PTGCourseCorrection](frame)
+	ptgCourseCorrection, err := rdkutils.AssertType[tpspace.PTGCourseCorrection](planningFrame)
 	if err != nil {
 		return nil, err
 	}
@@ -140,11 +140,20 @@ func wrapWithPTGKinematics(
 	}
 	startingState := baseState{currentInputs: zeroInput}
 
+	// we intentionally set our OX, OY, OZ values to be greater than 1 since
+	// a possible orientation which a planner produces may have the following
+	// values: OZ: 1.0000000002, Theta: t.
+	localizationFrame, err := referenceframe.NewPoseFrame(b.Name().ShortName()+"LocalizationFrame", nil)
+	if err != nil {
+		return nil, err
+	}
+
 	return &ptgBaseKinematics{
 		Base:                           b,
 		Localizer:                      localizer,
 		logger:                         logger,
-		frame:                          frame,
+		planningFrame:                  planningFrame,
+		localizationFrame:              localizationFrame,
 		ptgs:                           ptgs,
 		courseCorrectionIdx:            courseCorrectionIdx,
 		linVelocityMMPerSecond:         linVelocityMMPerSecond,
@@ -157,7 +166,11 @@ func wrapWithPTGKinematics(
 }
 
 func (ptgk *ptgBaseKinematics) Kinematics() referenceframe.Frame {
-	return ptgk.frame
+	return ptgk.planningFrame
+}
+
+func (ptgk *ptgBaseKinematics) LocalizationFrame() referenceframe.Frame {
+	return ptgk.localizationFrame
 }
 
 // For a ptgBaseKinematics, `CurrentInputs` returns inputs which reflect what the base is currently doing.
@@ -167,7 +180,9 @@ func (ptgk *ptgBaseKinematics) Kinematics() referenceframe.Frame {
 func (ptgk *ptgBaseKinematics) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
 	ptgk.inputLock.RLock()
 	defer ptgk.inputLock.RUnlock()
-	return ptgk.currentState.currentInputs, nil
+
+	planningFrameInputs := ptgk.currentState.currentInputs
+	return planningFrameInputs, nil
 }
 
 func (ptgk *ptgBaseKinematics) ExecutionState(ctx context.Context) (motionplan.ExecutionState, error) {
@@ -190,7 +205,7 @@ func (ptgk *ptgBaseKinematics) ExecutionState(ctx context.Context) (motionplan.E
 		currentPlan,
 		currentIdx,
 		map[string][]referenceframe.Input{ptgk.Kinematics().Name(): currentInputs},
-		map[string]*referenceframe.PoseInFrame{ptgk.Kinematics().Name(): actualPIF},
+		map[string]*referenceframe.PoseInFrame{ptgk.LocalizationFrame().Name(): actualPIF},
 	)
 }
 
@@ -217,7 +232,7 @@ func (ptgk *ptgBaseKinematics) ErrorState(ctx context.Context) (spatialmath.Pose
 		return spatialmath.NewZeroPose(), nil
 	}
 
-	currPoseInArc, err := ptgk.frame.Transform(currentInputs)
+	currPoseInArc, err := ptgk.planningFrame.Transform(currentInputs)
 	if err != nil {
 		return nil, err
 	}
