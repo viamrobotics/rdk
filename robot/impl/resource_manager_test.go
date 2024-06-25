@@ -19,7 +19,6 @@ import (
 	boardpb "go.viam.com/api/component/board/v1"
 	camerapb "go.viam.com/api/component/camera/v1"
 	gripperpb "go.viam.com/api/component/gripper/v1"
-	motionpb "go.viam.com/api/service/motion/v1"
 	"go.viam.com/test"
 	"go.viam.com/utils"
 	"go.viam.com/utils/pexec"
@@ -50,6 +49,7 @@ import (
 	"go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/module/modmaninterface"
+	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/referenceframe"
@@ -467,7 +467,7 @@ func TestManagerAdd(t *testing.T) {
 		componentName resource.Name,
 		grabPose *referenceframe.PoseInFrame,
 		worldState *referenceframe.WorldState,
-		constraints *motionpb.Constraints,
+		constraints *motionplan.Constraints,
 		extra map[string]interface{},
 	) (bool, error) {
 		return false, nil

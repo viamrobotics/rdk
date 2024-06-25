@@ -78,6 +78,9 @@ func injectBoard() board.Board {
 func injectMotor(vals *injectedState) motor.Motor {
 	m := inject.NewMotor(motorName)
 	m.SetPowerFunc = func(ctx context.Context, powerPct float64, extra map[string]interface{}) error {
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
 		vals.mu.Lock()
 		defer vals.mu.Unlock()
 		vals.powerPct = powerPct
@@ -269,15 +272,17 @@ func TestEncodedMotor(t *testing.T) {
 		wg.Add(1)
 		utils.PanicCapturingGo(func() {
 			defer wg.Done()
-			err := m.GoFor(ctxTimeout, 1000, 1, nil) // arbitrarily long blocking call
+			err := m.GoFor(ctxTimeout, 10, 100, nil) // arbitrarily long blocking call
 			test.That(t, err, test.ShouldBeNil)
 		})
 
-		_, _, err := m.IsPowered(context.Background(), nil)
-		// TODO make these tests pass
-		// test.That(t, on, test.ShouldBeTrue)
-		// test.That(t, powerPct, test.ShouldBeGreaterThan, 0)
-		test.That(t, err, test.ShouldBeNil)
+		testutils.WaitForAssertion(t, func(tb testing.TB) {
+			tb.Helper()
+			on, powerPct, err := m.IsPowered(context.Background(), nil)
+			test.That(tb, on, test.ShouldBeTrue)
+			test.That(tb, powerPct, test.ShouldBeGreaterThan, 0)
+			test.That(tb, err, test.ShouldBeNil)
+		})
 
 		err = m.SetPower(context.Background(), -0.5, nil)
 		test.That(t, err, test.ShouldBeNil)

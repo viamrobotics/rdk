@@ -202,7 +202,7 @@ jobs:
 
   motion_tests:
     name: Test Longer-running Motion Plans if affected
-    uses: viamrobotics/rdk/.github/workflows/motion-tests.yml@20240620_test_updates
+    uses: viamrobotics/rdk/.github/workflows/motion-tests.yml@main
 
   test_web_e2e:
     name: Test End-to-End and Web
