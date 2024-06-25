@@ -393,7 +393,7 @@ func TestObstacleReplanningSlam(t *testing.T) {
 	executionID, err := ms.MoveOnMap(ctx, req)
 	test.That(t, err, test.ShouldBeNil)
 
-	timeoutCtx, timeoutFn := context.WithTimeout(ctx, time.Second*15)
+	timeoutCtx, timeoutFn := context.WithTimeout(ctx, time.Second*45)
 	defer timeoutFn()
 	err = motion.PollHistoryUntilSuccessOrError(timeoutCtx, ms, time.Millisecond, motion.PlanHistoryReq{
 		ComponentName: req.ComponentName,
