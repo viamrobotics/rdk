@@ -48,6 +48,7 @@ const (
 	moduleFlagPlatform        = "platform"
 	moduleFlagForce           = "force"
 	moduleFlagBinary          = "binary"
+	moduleFlagLocal           = "local"
 
 	moduleBuildFlagPath      = "module"
 	moduleBuildFlagRef       = "ref"
@@ -1574,8 +1575,9 @@ Example:
 					},
 				},
 				{
-					Name:      "reload",
-					Usage:     "build a module locally and run it on a target device. rebuild & restart if already running",
+					Name:  "reload",
+					Usage: "build a module locally and run it on a target device. rebuild & restart if already running",
+					// todo: add --local, remote, and restart-only sample invocations
 					UsageText: createUsageText("module reload", []string{}, true),
 					Flags: []cli.Flag{
 						&cli.StringFlag{
@@ -1602,6 +1604,10 @@ Example:
 						&cli.BoolFlag{
 							Name:  moduleBuildFlagNoBuild,
 							Usage: "don't do build step",
+						},
+						&cli.BoolFlag{
+							Name:  moduleFlagLocal,
+							Usage: "if the target machine is localhost, run the entrypoint directly rather than transferring a bundle",
 						},
 					},
 					Action: ReloadModuleAction,

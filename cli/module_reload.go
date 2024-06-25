@@ -3,6 +3,7 @@ package cli
 import (
 	"fmt"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/urfave/cli/v2"
@@ -17,6 +18,31 @@ import (
 // Using maps directly also saves a lot of high-maintenance ser/des work.
 type ModuleMap map[string]any
 
+// ServiceMap is the same kind of thing as ModuleMap (see above), a map representing a single service.
+type ServiceMap map[string]any
+
+// addShellService adds a shell service to the services slice if missing.
+func addShellService(c *cli.Context, vc *viamClient, part *apppb.RobotPart) error {
+	partMap := part.RobotConfig.AsMap()
+	if _, ok := partMap["services"]; !ok {
+		partMap["services"] = make([]any, 0, 1)
+	}
+	services, _ := rutils.MapOver(partMap["services"].([]any),
+		func(raw any) (ServiceMap, error) { return ServiceMap(raw.(map[string]any)), nil },
+	)
+	if slices.ContainsFunc(services, func(service ServiceMap) bool { return service["type"] == "shell" }) {
+		debugf(c.App.Writer, c.Bool(debugFlag), "shell service found on target machine, not installing")
+		return nil
+	}
+	services = append(services, ServiceMap{"type": "shell"})
+	asAny, _ := rutils.MapOver(services, func(service ServiceMap) (any, error) {
+		return map[string]any(service), nil
+	})
+	partMap["services"] = asAny
+	infof(c.App.Writer, "installing shell service on target machine for file transfer")
+	return vc.updateRobotPart(part, partMap)
+}
+
 // configureModule is the configuration step of module reloading. Returns (needsRestart, error).
 func configureModule(c *cli.Context, vc *viamClient, manifest *moduleManifest, part *apppb.RobotPart) (bool, error) {
 	if manifest == nil {
@@ -24,7 +50,7 @@ func configureModule(c *cli.Context, vc *viamClient, manifest *moduleManifest, p
 	}
 	partMap := part.RobotConfig.AsMap()
 	if _, ok := partMap["modules"]; !ok {
-		partMap["modules"] = make([]any, 0)
+		partMap["modules"] = make([]any, 0, 1)
 	}
 	modules, err := rutils.MapOver(
 		partMap["modules"].([]any),

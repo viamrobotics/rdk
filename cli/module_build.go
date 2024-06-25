@@ -437,6 +437,13 @@ func reloadModuleAction(c *cli.Context, vc *viamClient) error {
 				return err
 			}
 		}
+		if !c.Bool(moduleFlagLocal) {
+			// todo refactor: stage this change + the configureModule change, make a single updateRobotPart call.
+			if err := addShellService(c, vc, part.Part); err != nil {
+				return err
+			}
+			return errors.New("todo next: bidi filecopy tarball")
+		}
 		needsRestart, err = configureModule(c, vc, manifest, part.Part)
 		if err != nil {
 			return err
