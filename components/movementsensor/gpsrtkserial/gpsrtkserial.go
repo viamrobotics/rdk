@@ -415,39 +415,41 @@ func (g *rtkSerial) receiveAndWriteSerial() {
 		// really doing is just checking if the scanner is still connected to the mount point. If
 		// it's disconnected, we'll get an error, which is our signal to reconnect.
 		msg, err := scanner.NextMessage()
-		if err != nil {
-			isConnectedToNtrip = false
+		if err == nil {
+			continue
+		}
 
-			if msg != nil {
-				continue // We're still connected!
-			}
+		isConnectedToNtrip = false
 
-			if g.isClosed {
+		if msg != nil {
+			continue // We're still connected!
+		}
+
+		if g.isClosed {
+			return
+		}
+
+		if g.isVirtualBase {
+			g.logger.Debug("reconnecting to the Virtual Reference Station")
+			err = g.getNtripFromVRS()
+			if err != nil && !errors.Is(err, io.EOF) {
+				g.err.Set(err)
 				return
 			}
+			scanner = rtcm3.NewScanner(g.readerWriter)
+		} else {
+			g.logger.Debug("No message... reconnecting to stream...")
 
-			if g.isVirtualBase {
-				g.logger.Debug("reconnecting to the Virtual Reference Station")
-				err = g.getNtripFromVRS()
-				if err != nil && !errors.Is(err, io.EOF) {
-					g.err.Set(err)
-					return
-				}
-				scanner = rtcm3.NewScanner(g.readerWriter)
-			} else {
-				g.logger.Debug("No message... reconnecting to stream...")
-
-				err = g.getStream(g.ntripClient.MountPoint, g.ntripClient.MaxConnectAttempts)
-				if err != nil {
-					g.err.Set(err)
-					return
-				}
-				g.reader = io.TeeReader(g.ntripClient.Stream, g.writer)
-				scanner = rtcm3.NewScanner(g.reader)
+			err = g.getStream(g.ntripClient.MountPoint, g.ntripClient.MaxConnectAttempts)
+			if err != nil {
+				g.err.Set(err)
+				return
 			}
-
-			isConnectedToNtrip = true
+			g.reader = io.TeeReader(g.ntripClient.Stream, g.writer)
+			scanner = rtcm3.NewScanner(g.reader)
 		}
+
+		isConnectedToNtrip = true
 	}
 }
 
