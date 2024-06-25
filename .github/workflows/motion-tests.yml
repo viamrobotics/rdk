@@ -29,11 +29,12 @@ jobs:
             -e "services/motion/builtin" && echo "EXTENDED_MOTION_TEST=true" >> "$GITHUB_OUTPUT" ) || \
             ( echo "EXTENDED_MOTION_TEST=false" >> "$GITHUB_OUTPUT" )
 
-  motion_tests:
+  motion-tests-extended:
     name:  Motion Extended Tests
     needs: check-files
     runs-on: [buildjet-8vcpu-ubuntu-2204]
     container: ghcr.io/viamrobotics/rdk-devenv:amd64-cache
+    if: ${{ needs.check-files.outputs.EXTENDED_MOTION_TEST == 'true' }}
     timeout-minutes: 30
     steps:
 
@@ -53,7 +54,6 @@ jobs:
       run: chown -R testbot:testbot .
 
     - name: Run motion tests on PR branch
-      if: ${{ needs.check-files.outputs.EXTENDED_MOTION_TEST == 'true' }}
       shell: bash
       env: 
         URL: ${{ github.event.pull_request.head.repo.html_url }}
