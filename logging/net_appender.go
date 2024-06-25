@@ -21,7 +21,6 @@ import (
 
 var (
 	defaultMaxQueueSize        = 20000
-	defaultShutdownIters       = 1000
 	writeBatchSize             = 100
 	errUninitializedConnection = errors.New("sharedConn is true and connection is not initialized")
 )
@@ -37,14 +36,10 @@ type CloudConfig struct {
 // be `Close`d prior to shutdown to flush remaining logs.
 // Pass `nil` for `conn` if you want this to create its own connection.
 // Pass `shutdownIters`=-1 for the default value.
-func NewNetAppender(config *CloudConfig, conn rpc.ClientConn, sharedConn bool, shutdownIters int) (*NetAppender, error) {
+func NewNetAppender(config *CloudConfig, conn rpc.ClientConn, sharedConn bool) (*NetAppender, error) {
 	hostname, err := os.Hostname()
 	if err != nil {
 		return nil, err
-	}
-
-	if shutdownIters < 0 {
-		shutdownIters = defaultShutdownIters
 	}
 
 	logWriter := &remoteLogWriterGRPC{
@@ -60,7 +55,6 @@ func NewNetAppender(config *CloudConfig, conn rpc.ClientConn, sharedConn bool, s
 		cancel:           cancel,
 		remoteWriter:     logWriter,
 		maxQueueSize:     defaultMaxQueueSize,
-		shutdownIters:    shutdownIters,
 		loggerWithoutNet: NewLogger("netlogger"),
 	}
 
@@ -82,8 +76,6 @@ type NetAppender struct {
 	toLogOverflowsSinceLastSync int
 
 	maxQueueSize int
-	// shutdownIters is the number of 10ms sleep loops to run while shutting down. 1000 iters * 10ms = 10s, for example.
-	shutdownIters int
 
 	cancelCtx               context.Context
 	cancel                  func()
@@ -141,7 +133,7 @@ func (nl *NetAppender) cancelBackgroundWorkers() {
 func (nl *NetAppender) Close() {
 	if nl.cancel != nil {
 		// try for up to 10 seconds for log queue to clear before cancelling it
-		for i := 0; i < nl.shutdownIters; i++ {
+		for i := 0; i < 1000; i++ {
 			// A batch can be popped from the queue for a sync by the background worker, and re-enqueued
 			// due to an error. This check does not account for this case. It will cancel the background
 			// worker once the last batch is in flight. Successful or not.

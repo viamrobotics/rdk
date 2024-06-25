@@ -108,7 +108,7 @@ func TestNetLoggerSync(t *testing.T) {
 	server := makeServerForRobotLogger(t)
 	defer server.stop()
 
-	netAppender, err := NewNetAppender(server.cloudConfig, nil, false, -1)
+	netAppender, err := NewNetAppender(server.cloudConfig, nil, false)
 	test.That(t, err, test.ShouldBeNil)
 
 	// This test is testing the behavior of sync(), so the background worker shouldn't be running at the same time.
@@ -140,7 +140,7 @@ func TestNetLoggerSyncFailureAndRetry(t *testing.T) {
 	server := makeServerForRobotLogger(t)
 	defer server.stop()
 
-	netAppender, err := NewNetAppender(server.cloudConfig, nil, false, -1)
+	netAppender, err := NewNetAppender(server.cloudConfig, nil, false)
 	test.That(t, err, test.ShouldBeNil)
 
 	// This test is testing the behavior of sync(), so the background worker shouldn't be running at the same time.
@@ -194,7 +194,7 @@ func TestNetLoggerOverflowDuringWrite(t *testing.T) {
 	server := makeServerForRobotLogger(t)
 	defer server.stop()
 
-	netAppender, err := NewNetAppender(server.cloudConfig, nil, false, -1)
+	netAppender, err := NewNetAppender(server.cloudConfig, nil, false)
 	test.That(t, err, test.ShouldBeNil)
 	logger := NewDebugLogger("test logger")
 	logger.AddAppender(netAppender)
@@ -240,7 +240,7 @@ func TestProvidedClientConn(t *testing.T) {
 	conn, err := CreateNewGRPCClient(context.Background(), server.cloudConfig)
 	test.That(t, err, test.ShouldBeNil)
 	defer conn.Close()
-	netAppender, err := NewNetAppender(server.cloudConfig, conn, true, -1)
+	netAppender, err := NewNetAppender(server.cloudConfig, conn, true)
 	test.That(t, err, test.ShouldBeNil)
 	// make sure these are the same object, i.e. that the constructor set it properly.
 	test.That(t, netAppender.remoteWriter.rpcClient == conn, test.ShouldBeTrue)
@@ -260,7 +260,7 @@ func TestSetConn(t *testing.T) {
 	defer server.stop()
 
 	// when inheritConn=true, getOrCreateClient should return uninitializedConnectionError
-	netAppender, err := NewNetAppender(server.cloudConfig, nil, true, -1)
+	netAppender, err := NewNetAppender(server.cloudConfig, nil, true)
 	test.That(t, err, test.ShouldBeNil)
 	client, err := netAppender.remoteWriter.getOrCreateClient(context.Background())
 	test.That(t, client, test.ShouldBeNil)
