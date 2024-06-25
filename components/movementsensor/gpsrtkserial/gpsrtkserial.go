@@ -447,8 +447,6 @@ func (g *rtkSerial) receiveAndWriteSerial() {
 			}
 
 			isConnectedToNtrip = true
-
-			continue
 		}
 	}
 }
