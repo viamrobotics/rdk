@@ -476,7 +476,7 @@ func NewPoseFrame(name string, geometry spatial.Geometry) (Frame, error) {
 	}, nil
 }
 
-// Transform on the pose frame acts as the identity function. Whatever inputs are given are directly translated
+// Transform on the poseFrame acts as the identity function. Whatever inputs are given are directly translated
 // in a 7DoF pose. We note that theta should be in radians.
 func (pf *poseFrame) Transform(inputs []Input) (spatial.Pose, error) {
 	if err := pf.baseFrame.validInputs(inputs); err != nil {
@@ -488,10 +488,10 @@ func (pf *poseFrame) Transform(inputs []Input) (spatial.Pose, error) {
 // Interpolate interpolates the given amount between the two sets of inputs.
 func (pf *poseFrame) Interpolate(from, to []Input, by float64) ([]Input, error) {
 	if err := pf.baseFrame.validInputs(from); err != nil {
-		return nil, NewIncorrectInputLengthError(len(from), 7)
+		return nil, NewIncorrectInputLengthError(len(from), len(pf.DoF()))
 	}
 	if err := pf.baseFrame.validInputs(to); err != nil {
-		return nil, NewIncorrectInputLengthError(len(to), 7)
+		return nil, NewIncorrectInputLengthError(len(to), len(pf.DoF()))
 	}
 	fromPose, err := pf.Transform(from)
 	if err != nil {

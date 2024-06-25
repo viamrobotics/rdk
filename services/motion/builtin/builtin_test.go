@@ -22,6 +22,7 @@ import (
 	"go.viam.com/rdk/components/gripper"
 	_ "go.viam.com/rdk/components/register"
 	"go.viam.com/rdk/logging"
+	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
@@ -1125,6 +1126,209 @@ func TestBoundingRegionsConstraint(t *testing.T) {
 			Extra: extra,
 		}
 		_, err = ms.MoveOnGlobe(ctx, req)
+		test.That(t, err, test.ShouldBeNil)
+	})
+}
+
+func TestCheckPlan(t *testing.T) {
+	ctx := context.Background()
+	logger := logging.NewTestLogger(t)
+	origin := geo.NewPoint(0, 0)
+	movementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, origin, nil, 5)
+	defer ms.Close(ctx)
+	fmt.Println(fakeBase)
+	dst := geo.NewPoint(origin.Lat(), origin.Lng()+5e-5)
+	// Note: spatialmath.GeoPointToPoint(dst, origin) produces r3.Vector{5559.746, 0, 0}
+
+	req := motion.MoveOnGlobeReq{
+		ComponentName:      fakeBase.Name(),
+		Destination:        dst,
+		MovementSensorName: movementSensor.Name(),
+	}
+
+	// construct move request
+	planExecutor, err := ms.(*builtIn).newMoveOnGlobeRequest(ctx, req, nil, 0)
+	test.That(t, err, test.ShouldBeNil)
+	mr, ok := planExecutor.(*moveRequest)
+	test.That(t, ok, test.ShouldBeTrue)
+
+	// construct plan
+	plan, err := mr.Plan(ctx)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(plan.Path()), test.ShouldBeGreaterThan, 2)
+
+	fmt.Println(plan.Path())
+	fmt.Println(plan.Trajectory())
+	wrapperFrame := mr.localizaingFS.Frame(mr.kinematicBase.Name().Name)
+
+	currentInputs := map[string][]referenceframe.Input{
+		mr.kinematicBase.Kinematics().Name(): {
+			{Value: 0}, // ptg index
+			{Value: 0}, // trajectory alpha within ptg
+			{Value: 0}, // start distance along trajectory index
+			{Value: 0}, // end distace along trajectory index
+		},
+		mr.kinematicBase.LocalizationFrame().Name(): {
+			{Value: 0}, // X
+			{Value: 0}, // Y
+			{Value: 0}, // Z
+			{Value: 0}, // OX
+			{Value: 0}, // OY
+			{Value: 1}, // OZ
+			{Value: 0}, // Theta
+		},
+	}
+
+	baseExecutionState, err := motionplan.NewExecutionState(
+		plan, 0, currentInputs,
+		map[string]*referenceframe.PoseInFrame{
+			mr.kinematicBase.LocalizationFrame().Name(): referenceframe.NewPoseInFrame(referenceframe.World, spatialmath.NewPose(
+				r3.Vector{X: 0, Y: 0, Z: 0},
+				&spatialmath.OrientationVectorDegrees{OZ: 1, Theta: 0},
+			)),
+		},
+	)
+	test.That(t, err, test.ShouldBeNil)
+
+	augmentedBaseExecutionState, err := mr.augmentBaseExecutionState(baseExecutionState)
+	test.That(t, err, test.ShouldBeNil)
+
+	t.Run("base case - validate plan without obstacles", func(t *testing.T) {
+		err = motionplan.CheckPlan(wrapperFrame, augmentedBaseExecutionState, nil, mr.localizaingFS, math.Inf(1), logger)
+		test.That(t, err, test.ShouldBeNil)
+	})
+
+	t.Run("obstacles blocking path", func(t *testing.T) {
+		obstacle, err := spatialmath.NewBox(spatialmath.NewPoseFromPoint(r3.Vector{2000, 0, 0}), r3.Vector{20, 2000, 1}, "")
+		test.That(t, err, test.ShouldBeNil)
+
+		geoms := []spatialmath.Geometry{obstacle}
+		gifs := []*referenceframe.GeometriesInFrame{referenceframe.NewGeometriesInFrame(referenceframe.World, geoms)}
+
+		worldState, err := referenceframe.NewWorldState(gifs, nil)
+		test.That(t, err, test.ShouldBeNil)
+
+		err = motionplan.CheckPlan(wrapperFrame, augmentedBaseExecutionState, worldState, mr.localizaingFS, math.Inf(1), logger)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, strings.Contains(err.Error(), "found constraint violation or collision in segment between"), test.ShouldBeTrue)
+	})
+
+	// create camera_origin frame
+	cameraOriginFrame, err := referenceframe.NewStaticFrame("camera-origin", spatialmath.NewPoseFromPoint(r3.Vector{0, -20, 0}))
+	test.That(t, err, test.ShouldBeNil)
+	err = mr.localizaingFS.AddFrame(cameraOriginFrame, wrapperFrame)
+	test.That(t, err, test.ShouldBeNil)
+
+	// create camera geometry
+	cameraGeom, err := spatialmath.NewBox(spatialmath.NewZeroPose(), r3.Vector{1, 1, 1}, "camera")
+	test.That(t, err, test.ShouldBeNil)
+
+	// create cameraFrame and add to framesystem
+	cameraFrame, err := referenceframe.NewStaticFrameWithGeometry(
+		"camera-frame", spatialmath.NewPoseFromPoint(r3.Vector{0, 0, 0}), cameraGeom,
+	)
+	test.That(t, err, test.ShouldBeNil)
+	err = mr.localizaingFS.AddFrame(cameraFrame, cameraOriginFrame)
+	test.That(t, err, test.ShouldBeNil)
+	inputs := augmentedBaseExecutionState.CurrentInputs()
+	inputs[cameraFrame.Name()] = referenceframe.FloatsToInputs(make([]float64, len(cameraFrame.DoF())))
+	executionStateWithCamera, err := motionplan.NewExecutionState(
+		augmentedBaseExecutionState.Plan(), augmentedBaseExecutionState.Index(),
+		inputs, augmentedBaseExecutionState.CurrentPoses(),
+	)
+	test.That(t, err, test.ShouldBeNil)
+
+	t.Run("obstacles NOT in world frame - no collision - integration test", func(t *testing.T) {
+		obstacle, err := spatialmath.NewBox(
+			spatialmath.NewPoseFromPoint(r3.Vector{25000, -40, 0}),
+			r3.Vector{10, 10, 1}, "obstacle",
+		)
+		test.That(t, err, test.ShouldBeNil)
+		geoms := []spatialmath.Geometry{obstacle}
+		gifs := []*referenceframe.GeometriesInFrame{referenceframe.NewGeometriesInFrame(cameraFrame.Name(), geoms)}
+
+		worldState, err := referenceframe.NewWorldState(gifs, nil)
+		test.That(t, err, test.ShouldBeNil)
+
+		err = motionplan.CheckPlan(wrapperFrame, executionStateWithCamera, worldState, mr.localizaingFS, math.Inf(1), logger)
+		test.That(t, err, test.ShouldBeNil)
+	})
+
+	t.Run("obstacles NOT in world frame cause collision - integration test", func(t *testing.T) {
+		obstacle, err := spatialmath.NewBox(
+			spatialmath.NewPoseFromPoint(r3.Vector{2500, 20, 0}),
+			r3.Vector{10, 2000, 1}, "obstacle",
+		)
+		test.That(t, err, test.ShouldBeNil)
+		geoms := []spatialmath.Geometry{obstacle}
+		gifs := []*referenceframe.GeometriesInFrame{referenceframe.NewGeometriesInFrame(cameraFrame.Name(), geoms)}
+
+		worldState, err := referenceframe.NewWorldState(gifs, nil)
+		test.That(t, err, test.ShouldBeNil)
+
+		err = motionplan.CheckPlan(wrapperFrame, executionStateWithCamera, worldState, mr.localizaingFS, math.Inf(1), logger)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, strings.Contains(err.Error(), "found constraint violation or collision in segment between"), test.ShouldBeTrue)
+	})
+
+	remainingPlan, err := motionplan.RemainingPlan(plan, 2)
+	currentInputs = map[string][]referenceframe.Input{
+		mr.kinematicBase.Kinematics().Name(): {
+			{Value: 0}, // ptg index
+			{Value: 0}, // trajectory alpha within ptg
+			{Value: 0}, // start distance along trajectory index
+			{Value: 0}, // end distace along trajectory index
+		},
+		mr.kinematicBase.LocalizationFrame().Name(): {
+			{Value: 2727.25}, // X
+			{Value: 0},       // Y
+			{Value: 0},       // Z
+			{Value: 0},       // OX
+			{Value: 0},       // OY
+			{Value: 1},       // OZ
+			{Value: -90},     // Theta
+		},
+		cameraFrame.Name(): referenceframe.FloatsToInputs(make([]float64, len(cameraFrame.DoF()))),
+	}
+	currentPoses := map[string]*referenceframe.PoseInFrame{
+		mr.kinematicBase.LocalizationFrame().Name(): referenceframe.NewPoseInFrame(referenceframe.World, spatialmath.NewPose(
+			r3.Vector{X: 2727.25, Y: 0, Z: 0},
+			&spatialmath.OrientationVectorDegrees{OZ: 1, Theta: -90},
+		)),
+	}
+
+	newExecutionState, err := motionplan.NewExecutionState(remainingPlan, 0, currentInputs, currentPoses)
+	test.That(t, err, test.ShouldBeNil)
+	updatedExecutionState, err := mr.augmentBaseExecutionState(newExecutionState)
+	test.That(t, err, test.ShouldBeNil)
+
+	t.Run("checking from partial-plan, ensure success with obstacles - integration test", func(t *testing.T) {
+		// create obstacle behind where we are
+		obstacle, err := spatialmath.NewBox(
+			spatialmath.NewPoseFromPoint(r3.Vector{0, 20, 0}),
+			r3.Vector{10, 200, 1}, "obstacle",
+		)
+		test.That(t, err, test.ShouldBeNil)
+		geoms := []spatialmath.Geometry{obstacle}
+		gifs := []*referenceframe.GeometriesInFrame{referenceframe.NewGeometriesInFrame(referenceframe.World, geoms)}
+
+		worldState, err := referenceframe.NewWorldState(gifs, nil)
+		test.That(t, err, test.ShouldBeNil)
+
+		err = motionplan.CheckPlan(wrapperFrame, updatedExecutionState, worldState, mr.localizaingFS, math.Inf(1), logger)
+		test.That(t, err, test.ShouldBeNil)
+	})
+
+	t.Run("verify partial plan with non-nil errorState and obstacle", func(t *testing.T) {
+		// create obstacle which is behind where the robot already is, but is on the path it has already traveled
+		box, err := spatialmath.NewBox(spatialmath.NewZeroPose(), r3.Vector{10, 10, 1}, "obstacle")
+		test.That(t, err, test.ShouldBeNil)
+		gifs := []*referenceframe.GeometriesInFrame{referenceframe.NewGeometriesInFrame(referenceframe.World, []spatialmath.Geometry{box})}
+
+		worldState, err := referenceframe.NewWorldState(gifs, nil)
+		test.That(t, err, test.ShouldBeNil)
+
+		err = motionplan.CheckPlan(wrapperFrame, updatedExecutionState, worldState, mr.localizaingFS, math.Inf(1), logger)
 		test.That(t, err, test.ShouldBeNil)
 	})
 }

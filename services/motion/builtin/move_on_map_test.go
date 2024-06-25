@@ -589,14 +589,27 @@ func TestMoveOnMapStaticObs(t *testing.T) {
 			}, nil,
 		)
 		test.That(t, err, test.ShouldBeNil)
-		currentInputs := referenceframe.StartPositions(mr.localizaingFS)
-		currentInputs[mr.kinematicBase.LocalizationFrame().Name()] = referenceframe.FloatsToInputs(
-			[]float64{0.58772e3, -0.80826e3, 0, 0, 0, 1, 0},
-		)
-		executionState, err := motionplan.NewExecutionState(
-			plan,
-			1,
-			currentInputs,
+
+		currentInputs := map[string][]referenceframe.Input{
+			mr.kinematicBase.Kinematics().Name(): {
+				{Value: 0}, // ptg index
+				{Value: 0}, // trajectory alpha within ptg
+				{Value: 0}, // start distance along trajectory index
+				{Value: 0}, // end distace along trajectory index
+			},
+			mr.kinematicBase.LocalizationFrame().Name(): {
+				{Value: 587.720000000000027284841053},  // X
+				{Value: -808.259999999999990905052982}, // Y
+				{Value: 0},                             // Z
+				{Value: 0},                             // OX
+				{Value: 0},                             // OY
+				{Value: 1},                             // OZ
+				{Value: 0},                             // Theta
+			},
+		}
+
+		baseExecutionState, err := motionplan.NewExecutionState(
+			plan, 1, currentInputs,
 			map[string]*referenceframe.PoseInFrame{
 				mr.kinematicBase.LocalizationFrame().Name(): referenceframe.NewPoseInFrame(referenceframe.World, spatialmath.NewPose(
 					r3.Vector{X: 0.58772e3, Y: -0.80826e3, Z: 0},
@@ -605,10 +618,16 @@ func TestMoveOnMapStaticObs(t *testing.T) {
 			},
 		)
 		test.That(t, err, test.ShouldBeNil)
+
+		augmentedBaseExecutionState, err := mr.augmentBaseExecutionState(baseExecutionState)
+		test.That(t, err, test.ShouldBeNil)
+
+		wrapperFrame := mr.localizaingFS.Frame(mr.kinematicBase.Name().Name)
+
+		test.That(t, err, test.ShouldBeNil)
 		err = motionplan.CheckPlan(
-			mr.planRequest.Frame,
-			mr.kinematicBase.LocalizationFrame(),
-			executionState,
+			wrapperFrame,
+			augmentedBaseExecutionState,
 			wrldSt,
 			mr.localizaingFS,
 			lookAheadDistanceMM,

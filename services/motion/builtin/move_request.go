@@ -188,7 +188,6 @@ func (mr *moveRequest) getTransientDetections(
 	if err != nil {
 		return nil, err
 	}
-	inputMap[mr.kinematicBase.Name().ShortName()] = make([]referenceframe.Input, len(mr.kinematicBase.Kinematics().DoF()))
 
 	detections, err := visSrvc.GetObjectPointClouds(ctx, camName.Name, nil)
 	if err != nil {
@@ -270,30 +269,20 @@ func (mr *moveRequest) obstaclesIntersectPlan(
 			// build representation of frame system's inputs
 			// TODO(pl): in the case where we have e.g. an arm (not moving) mounted on a base, we should be passing its current
 			// configuration rather than the zero inputs
-			inputMap, err := mr.createInputMap(ctx, baseExecutionState)
-			if err != nil {
-				return state.ExecuteResponse{}, err
-			}
-			executionState, err := motionplan.NewExecutionState(
-				baseExecutionState.Plan(),
-				baseExecutionState.Index(),
-				inputMap,
-				baseExecutionState.CurrentPoses(),
-			)
+			updatedBaseExecutionState, err := mr.augmentBaseExecutionState(baseExecutionState)
 			if err != nil {
 				return state.ExecuteResponse{}, err
 			}
 
 			mr.logger.CDebugf(ctx, "CheckPlan inputs: \n currentPosition: %v\n currentInputs: %v\n worldstate: %s",
-				spatialmath.PoseToProtobuf(executionState.CurrentPoses()[mr.kinematicBase.LocalizationFrame().Name()].Pose()),
-				inputMap,
+				spatialmath.PoseToProtobuf(updatedBaseExecutionState.CurrentPoses()[mr.kinematicBase.Kinematics().Name()].Pose()),
+				updatedBaseExecutionState.CurrentInputs(),
 				worldState.String(),
 			)
 
 			if err := motionplan.CheckPlan(
-				mr.kinematicBase.Kinematics(), // frame we wish to check for collisions
-				mr.kinematicBase.LocalizationFrame(),
-				executionState,
+				mr.localizaingFS.Frame(mr.kinematicBase.Kinematics().Name()), // frame we wish to check for collisions
+				updatedBaseExecutionState,
 				worldState, // detected obstacles by this instance of camera + service
 				mr.localizaingFS,
 				lookAheadDistanceMM,
@@ -307,6 +296,46 @@ func (mr *moveRequest) obstaclesIntersectPlan(
 	return state.ExecuteResponse{}, nil
 }
 
+func (mr *moveRequest) augmentBaseExecutionState(
+	baseExecutionState motionplan.ExecutionState,
+) (motionplan.ExecutionState, error) {
+	// update plan
+	existingPlan := baseExecutionState.Plan()
+	newTrajectory := make(motionplan.Trajectory, 0, len(existingPlan.Trajectory()))
+	for idx, currTraj := range existingPlan.Trajectory() {
+		if idx != 0 {
+			idx = idx - 1
+		}
+		currPathStep := existingPlan.Path()[idx]
+		kbPose := currPathStep[mr.kinematicBase.Kinematics().Name()]
+		kbTraj := currTraj[mr.kinematicBase.Name().Name]
+		updatedTraj := append(kbTraj, referenceframe.PoseToInputs(kbPose.Pose())...)
+		newTrajectory = append(
+			newTrajectory, map[string][]referenceframe.Input{mr.kinematicBase.Kinematics().Name(): updatedTraj},
+		)
+	}
+	augmentedPlan := motionplan.NewSimplePlan(existingPlan.Path(), newTrajectory)
+
+	// update currentInputs
+	allCurrentInputsFromBaseExecutionState := baseExecutionState.CurrentInputs()
+	kinematicBaseCurrentInputs := allCurrentInputsFromBaseExecutionState[mr.kinematicBase.Kinematics().Name()]
+	kinematicBaseCurrentInputs = append(
+		kinematicBaseCurrentInputs,
+		referenceframe.PoseToInputs(baseExecutionState.CurrentPoses()[mr.kinematicBase.LocalizationFrame().Name()].Pose())...,
+	)
+	allCurrentInputsFromBaseExecutionState[mr.kinematicBase.Kinematics().Name()] = kinematicBaseCurrentInputs
+
+	// update currentPoses
+	existingCurrentPoses := baseExecutionState.CurrentPoses()
+	localizationFramePose := existingCurrentPoses[mr.kinematicBase.LocalizationFrame().Name()]
+	existingCurrentPoses[mr.kinematicBase.Name().Name] = localizationFramePose
+	delete(existingCurrentPoses, mr.kinematicBase.LocalizationFrame().Name())
+
+	return motionplan.NewExecutionState(
+		augmentedPlan, baseExecutionState.Index(), allCurrentInputsFromBaseExecutionState, existingCurrentPoses,
+	)
+}
+
 func (mr *moveRequest) createInputMap(
 	ctx context.Context, baseExecutionState motionplan.ExecutionState,
 ) (map[string][]referenceframe.Input, error) {
@@ -314,10 +343,11 @@ func (mr *moveRequest) createInputMap(
 	if err != nil {
 		return nil, err
 	}
-	inputMap[mr.kinematicBase.Name().ShortName()] = baseExecutionState.CurrentInputs()[mr.kinematicBase.Name().Name]
-	inputMap[mr.kinematicBase.LocalizationFrame().Name()] = referenceframe.PoseToInputs(
+	kbInputs := make([]referenceframe.Input, len(mr.kinematicBase.Kinematics().DoF()))
+	kbInputs = append(kbInputs, referenceframe.PoseToInputs(
 		baseExecutionState.CurrentPoses()[mr.kinematicBase.LocalizationFrame().Name()].Pose(),
-	)
+	)...)
+	inputMap[mr.kinematicBase.Name().ShortName()] = kbInputs
 	return inputMap, nil
 }
 
@@ -707,7 +737,7 @@ func (ms *builtIn) createBaseMoveRequest(
 
 	// create fs used for planning
 	planningFS := referenceframe.NewEmptyFrameSystem("store-starting point")
-	transformFrame, err := referenceframe.NewStaticFrame(kb.Kinematics().Name()+"LocalizationFrame", startPose)
+	transformFrame, err := referenceframe.NewStaticFrame(kb.LocalizationFrame().Name(), startPose)
 	if err != nil {
 		return nil, err
 	}
@@ -720,13 +750,18 @@ func (ms *builtIn) createBaseMoveRequest(
 		return nil, err
 	}
 
-	// create collision checking fs
-	localizingFS := referenceframe.NewEmptyFrameSystem("localizingFS")
-	err = localizingFS.AddFrame(kb.LocalizationFrame(), localizingFS.World())
-	if err != nil {
-		return nil, err
-	}
-	err = localizingFS.MergeFrameSystem(baseOnlyFS, kb.LocalizationFrame())
+	// create wrapperFrame and fs used for collision checks
+	executionFrame := kb.Kinematics()
+	localizationFrame := kb.LocalizationFrame()
+	wrapperFS := referenceframe.NewEmptyFrameSystem("wrapperFS")
+	wrapperFS.AddFrame(localizationFrame, wrapperFS.World())
+	wrapperFS.AddFrame(executionFrame, localizationFrame)
+	wrapperFrameSeedMap := map[string][]referenceframe.Input{}
+	wrapperFrameSeedMap[executionFrame.Name()] = make([]referenceframe.Input, len(executionFrame.DoF()))
+	wrapperFrameSeedMap[localizationFrame.Name()] = make([]referenceframe.Input, len(localizationFrame.DoF()))
+	wf := NewWrapperFrame(localizationFrame, executionFrame, wrapperFrameSeedMap, wrapperFS)
+	collisionFS := baseOnlyFS
+	err = collisionFS.ReplaceFrame(wf)
 	if err != nil {
 		return nil, err
 	}
@@ -807,7 +842,7 @@ func (ms *builtIn) createBaseMoveRequest(
 		replanCostFactor:  valExtra.replanCostFactor,
 		obstacleDetectors: obstacleDetectors,
 		fsService:         ms.fsService,
-		localizaingFS:     localizingFS,
+		localizaingFS:     collisionFS,
 
 		executeBackgroundWorkers: &backgroundWorkers,
 
