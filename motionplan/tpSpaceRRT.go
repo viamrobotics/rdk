@@ -1082,7 +1082,7 @@ func flipNode(n node) node {
 
 // generateHeuristic returns a list of heuristics for each node in the path
 // This is converted into a probability distribution through the softmax function.
-func generateHeuristic(firstEdge, pathLen int) []float64 {
+func generateLookAheadHeuristic(firstEdge, pathLen int) []float64 {
 	// The heuristic implemented here takes in the firstEdge and defines a lookAhead.
 	// For nodes in each direction around firstEdge, the algorithm will increment by one
 	// until it reaches firstEdge + lookAhead and firstEdge - lookAhead indices
@@ -1137,7 +1137,7 @@ func softmax(heuristics []float64) []float64 {
 // generateCDF returns a cumulative distribution function that can be used to
 // sample the secondEdge for the smoothing algorithm.
 func generateCDF(firstEdge, pathLen int) []float64 {
-	heuristics := generateHeuristic(firstEdge, pathLen)
+	heuristics := generateLookAheadHeuristic(firstEdge, pathLen)
 	softmaxArr := softmax(heuristics)
 
 	// sum all successive values in the softmaxArr to convert it from a PDF to a CDF
