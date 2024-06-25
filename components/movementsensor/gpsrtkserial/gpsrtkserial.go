@@ -425,37 +425,39 @@ func (g *rtkSerial) receiveAndWriteSerial() {
 			g.isConnectedToNtrip = false
 			g.mu.Unlock()
 
-			if msg == nil {
-				if g.isClosed {
+			if msg != nil {
+				continue // We're still connected!
+			}
+
+			if g.isClosed {
+				return
+			}
+
+			if g.isVirtualBase {
+				g.logger.Debug("reconnecting to the Virtual Reference Station")
+				err = g.getNtripFromVRS()
+				if err != nil && !errors.Is(err, io.EOF) {
+					g.err.Set(err)
 					return
 				}
+				scanner = rtcm3.NewScanner(g.readerWriter)
+			} else {
+				g.logger.Debug("No message... reconnecting to stream...")
 
-				if g.isVirtualBase {
-					g.logger.Debug("reconnecting to the Virtual Reference Station")
-					err = g.getNtripFromVRS()
-					if err != nil && !errors.Is(err, io.EOF) {
-						g.err.Set(err)
-						return
-					}
-					scanner = rtcm3.NewScanner(g.readerWriter)
-				} else {
-					g.logger.Debug("No message... reconnecting to stream...")
-
-					err = g.getStream(g.ntripClient.MountPoint, g.ntripClient.MaxConnectAttempts)
-					if err != nil {
-						g.err.Set(err)
-						return
-					}
-					g.reader = io.TeeReader(g.ntripClient.Stream, g.writer)
-					scanner = rtcm3.NewScanner(g.reader)
+				err = g.getStream(g.ntripClient.MountPoint, g.ntripClient.MaxConnectAttempts)
+				if err != nil {
+					g.err.Set(err)
+					return
 				}
-
-				g.mu.Lock()
-				g.isConnectedToNtrip = true
-				g.mu.Unlock()
-
-				continue
+				g.reader = io.TeeReader(g.ntripClient.Stream, g.writer)
+				scanner = rtcm3.NewScanner(g.reader)
 			}
+
+			g.mu.Lock()
+			g.isConnectedToNtrip = true
+			g.mu.Unlock()
+
+			continue
 		}
 	}
 }
