@@ -36,21 +36,6 @@ import (
 	viz "go.viam.com/rdk/vision"
 )
 
-func setupMotionServiceFromConfig(t *testing.T, configFilename string) (motion.Service, func()) {
-	t.Helper()
-	ctx := context.Background()
-	logger := logging.NewTestLogger(t)
-	cfg, err := config.Read(ctx, configFilename, logger)
-	test.That(t, err, test.ShouldBeNil)
-	myRobot, err := robotimpl.New(ctx, cfg, logger)
-	test.That(t, err, test.ShouldBeNil)
-	svc, err := motion.FromRobot(myRobot, "builtin")
-	test.That(t, err, test.ShouldBeNil)
-	return svc, func() {
-		myRobot.Close(context.Background())
-	}
-}
-
 func TestMoveResponseString(t *testing.T) {
 	type testCase struct {
 		description  string

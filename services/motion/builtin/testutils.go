@@ -47,6 +47,21 @@ var (
 	updateRate                = 33
 )
 
+func setupMotionServiceFromConfig(t *testing.T, configFilename string) (motion.Service, func()) {
+	t.Helper()
+	ctx := context.Background()
+	logger := logging.NewTestLogger(t)
+	cfg, err := config.Read(ctx, configFilename, logger)
+	test.That(t, err, test.ShouldBeNil)
+	myRobot, err := robotimpl.New(ctx, cfg, logger)
+	test.That(t, err, test.ShouldBeNil)
+	svc, err := motion.FromRobot(myRobot, "builtin")
+	test.That(t, err, test.ShouldBeNil)
+	return svc, func() {
+		myRobot.Close(context.Background())
+	}
+}
+
 func getPointCloudMap(path string) (func() ([]byte, error), error) {
 	const chunkSizeBytes = 1 * 1024 * 1024
 	file, err := os.Open(path) //nolint:gosec
@@ -229,6 +244,8 @@ func (m *noisyMovementSensor) Position(ctx context.Context, extra map[string]int
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.queryCount++
+	// We cannot have a single offset, as the first replan will correct for that noise and a second replan will not occur.
+	// Thus we must oscillate whether or not we return a pose with the noise applied.
 	if m.queryCount <= 10 || m.queryCount%2 == 0 {
 		return m.MovementSensor.Position(ctx, extra)
 	}
