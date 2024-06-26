@@ -330,9 +330,10 @@ func (rc *RobotClient) connect(ctx context.Context) error {
 	if err := rc.connectWithLock(ctx); err != nil {
 		return err
 	}
-
+	rc.Logger().CInfow(ctx, "successfully (re)connected to remote at address", "address", rc.address)
 	if rc.notifyParent != nil {
 		rc.notifyParent()
+		rc.Logger().CDebugw(ctx, "successfully notified parent after (re)connection", "address", rc.address)
 	}
 	return nil
 }
@@ -413,7 +414,6 @@ func (rc *RobotClient) checkConnection(ctx context.Context, checkEvery, reconnec
 				rc.Logger().CErrorw(ctx, "failed to reconnect remote", "error", err, "address", rc.address)
 				continue
 			}
-			rc.Logger().CInfow(ctx, "successfully reconnected remote at address", "address", rc.address)
 		} else {
 			check := func() error {
 				if refresh {
@@ -716,7 +716,7 @@ func (rc *RobotClient) PackageManager() packages.Manager {
 //	resource_names := machine.ResourceNames()
 func (rc *RobotClient) ResourceNames() []resource.Name {
 	if err := rc.checkConnected(); err != nil {
-		rc.Logger().Errorw("failed to get remote resource names", "error", err)
+		rc.Logger().Errorw("failed to get remote resource names", "error", err.Error())
 		return nil
 	}
 	rc.mu.RLock()
@@ -886,6 +886,7 @@ func (rc *RobotClient) Status(ctx context.Context, resourceNames []resource.Name
 		names = append(names, rprotoutils.ResourceNameToProto(name))
 	}
 
+	//nolint:staticcheck // the status API is deprecated
 	resp, err := rc.client.GetStatus(ctx, &pb.GetStatusRequest{ResourceNames: names})
 	if err != nil {
 		return nil, err
@@ -1001,8 +1002,7 @@ func (rc *RobotClient) Shutdown(ctx context.Context) error {
 		if status, ok := status.FromError(err); ok {
 			switch status.Code() { //nolint:exhaustive
 			case codes.Internal, codes.Unknown:
-				rc.Logger().CInfow(ctx, "robot shutdown successful")
-				return nil
+				break
 			case codes.Unavailable:
 				rc.Logger().CWarnw(ctx, "server unavailable, likely due to successful robot shutdown")
 				return err
@@ -1016,6 +1016,6 @@ func (rc *RobotClient) Shutdown(ctx context.Context) error {
 			return err
 		}
 	}
-	rc.Logger().CInfow(ctx, "robot shutdown successful")
+	rc.Logger().CDebug(ctx, "robot shutdown successful")
 	return nil
 }

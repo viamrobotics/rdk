@@ -9,7 +9,6 @@ import (
 	"image/color"
 	"image/jpeg"
 	"math"
-	"os"
 	"sync"
 	"time"
 
@@ -28,7 +27,6 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
-	rutils "go.viam.com/rdk/utils"
 )
 
 var (
@@ -88,11 +86,7 @@ func NewCamera(
 	if cam.RTPPassthrough {
 		msg := "rtp_passthrough is enabled. GetImage will ignore width, height, and animated config params"
 		logger.CWarn(ctx, msg)
-		worldJpegBase64, err := os.ReadFile(rutils.ResolveFile("components/camera/fake/worldJpeg.base64"))
-		if err != nil {
-			return nil, err
-		}
-		d := base64.NewDecoder(base64.StdEncoding, bytes.NewReader(worldJpegBase64))
+		d := base64.NewDecoder(base64.StdEncoding, bytes.NewReader(worldJpeg))
 		img, err := jpeg.Decode(d)
 		if err != nil {
 			return nil, err
@@ -346,33 +340,25 @@ func (c *Camera) Unsubscribe(ctx context.Context, id rtppassthrough.Subscription
 }
 
 func (c *Camera) startPassthrough() error {
-	forma := &format.H264{
-		PayloadTyp:        96,
-		PacketizationMode: 1,
-		SPS: []uint8{
-			0x67, 0x64, 0x0, 0x15, 0xac, 0xb2, 0x3, 0xc1, 0x1f, 0xd6,
-			0x2, 0xdc, 0x8, 0x8, 0x16, 0x94, 0x0, 0x0, 0x3, 0x0, 0x4, 0x0, 0x0, 0x3, 0x0,
-			0xf0, 0x3c, 0x58, 0xb9, 0x20,
-		},
-		PPS: []uint8{0x68, 0xeb, 0xc3, 0xcb, 0x22, 0xc0},
+	forma := &format.H264{}
+	webrtcPayloadMaxSize := 1188 // 1200 - 12 (RTP header)
+	encoder := &rtph264.Encoder{
+		PayloadType:    96,
+		PayloadMaxSize: webrtcPayloadMaxSize,
 	}
-	rtpEnc, err := forma.CreateEncoder()
-	if err != nil {
-		c.logger.Error(err.Error())
+
+	if err := encoder.Init(); err != nil {
 		return err
 	}
+
 	rtpTime := &rtptime.Encoder{ClockRate: forma.ClockRate()}
-	err = rtpTime.Initialize()
+	err := rtpTime.Initialize()
 	if err != nil {
 		c.logger.Error(err.Error())
 		return err
 	}
 	start := time.Now()
-	worldH264Base64, err := os.ReadFile(rutils.ResolveFile("components/camera/fake/worldH264.base64"))
-	if err != nil {
-		return err
-	}
-	b, err := base64.StdEncoding.DecodeString(string(worldH264Base64))
+	b, err := base64.StdEncoding.DecodeString(worldH264Base64)
 	if err != nil {
 		c.logger.Error(err.Error())
 		return err
@@ -391,7 +377,7 @@ func (c *Camera) startPassthrough() error {
 				return
 			}
 
-			pkts, err := rtpEnc.Encode(aus)
+			pkts, err := encoder.Encode(aus)
 			if err != nil {
 				c.logger.Error(err)
 				return
@@ -405,8 +391,9 @@ func (c *Camera) startPassthrough() error {
 			// get current timestamp
 			c.mu.RLock()
 			for _, bufAndCB := range c.bufAndCBByID {
-				// write packets
-				if err := bufAndCB.buf.Publish(func() { bufAndCB.cb(pkts) }); err != nil {
+				if err := bufAndCB.buf.Publish(func() {
+					bufAndCB.cb(pkts)
+				}); err != nil {
 					c.logger.Warn("Publish err: %s", err.Error())
 				}
 			}

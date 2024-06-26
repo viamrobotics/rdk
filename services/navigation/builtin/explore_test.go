@@ -7,9 +7,9 @@ import (
 
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
-	v1 "go.viam.com/api/service/motion/v1"
 	"go.viam.com/test"
 
+	"go.viam.com/rdk/motionplan"
 	frame "go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/testutils/inject"
@@ -23,7 +23,7 @@ func TestExploreMode(t *testing.T) {
 	var points []r3.Vector
 	mockExploreMotionService := &inject.MotionService{}
 	mockExploreMotionService.MoveFunc = func(ctx context.Context, componentName resource.Name,
-		destination *frame.PoseInFrame, worldState *frame.WorldState, constraints *v1.Constraints,
+		destination *frame.PoseInFrame, worldState *frame.WorldState, constraints *motionplan.Constraints,
 		extra map[string]interface{},
 	) (bool, error) {
 		points = append(points, destination.Pose().Point())

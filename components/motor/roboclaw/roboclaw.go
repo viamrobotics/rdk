@@ -253,10 +253,12 @@ func goForMath(rpm, revolutions float64) (float64, time.Duration) {
 }
 
 func (m *roboclawMotor) GoFor(ctx context.Context, rpm, revolutions float64, extra map[string]interface{}) error {
-	speed := math.Abs(rpm)
-	if speed < 0.1 {
-		m.logger.CWarn(ctx, "motor speed is nearly 0 rev_per_min")
-		return motor.NewZeroRPMError()
+	warning, err := motor.CheckSpeed(rpm, m.maxRPM)
+	if warning != "" {
+		m.logger.CWarn(ctx, warning)
+	}
+	if err != nil {
+		return err
 	}
 
 	// If no encoders present, distance traveled is estimated based on max RPM.
@@ -286,8 +288,6 @@ func (m *roboclawMotor) GoFor(ctx context.Context, rpm, revolutions float64, ext
 	ticks := uint32(revolutions * float64(m.conf.TicksPerRotation))
 	ticksPerSecond := int32((rpm * float64(m.conf.TicksPerRotation)) / 60)
 
-	var err error
-
 	switch m.conf.Channel {
 	case 1:
 		err = m.conn.SpeedDistanceM1(m.addr, ticksPerSecond, ticks, true)
@@ -306,6 +306,10 @@ func (m *roboclawMotor) GoTo(ctx context.Context, rpm, positionRevolutions float
 	if m.conf.TicksPerRotation == 0 {
 		return errors.New("roboclaw needs an encoder connected to use GoTo")
 	}
+
+	// ignore the direction of rpm
+	rpm = math.Abs(rpm)
+
 	pos, err := m.Position(ctx, extra)
 	if err != nil {
 		return err

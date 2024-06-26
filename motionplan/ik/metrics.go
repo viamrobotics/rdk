@@ -109,6 +109,16 @@ func NewSquaredNormMetric(goal spatial.Pose) StateMetric {
 	return weightedSqNormDist
 }
 
+// NewScaledSquaredNormMetric is a distance function between two poses. It allows the user to scale the contribution of orientation.
+func NewScaledSquaredNormMetric(goal spatial.Pose, orientationDistanceScale float64) StateMetric {
+	weightedSqNormDist := func(query *State) float64 {
+		delta := spatial.PoseDelta(goal, query.Position)
+		// Increase weight for orientation since it's a small number
+		return delta.Point().Norm2() + spatial.QuatToR3AA(delta.Orientation().Quaternion()).Mul(orientationDistanceScale).Norm2()
+	}
+	return weightedSqNormDist
+}
+
 // NewPosWeightSquaredNormMetric is a distance function between two poses to be used for gradient descent.
 // This changes the magnitude of the position delta used to be smaller and avoid numeric instability issues that happens with large floats.
 // TODO: RSDK-6053 this should probably be done more flexibly.

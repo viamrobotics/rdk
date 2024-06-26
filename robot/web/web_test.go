@@ -859,12 +859,11 @@ func TestWebWithStreams(t *testing.T) {
 
 	// Start a robot with a camera
 	robot := &inject.Robot{}
-	cam1 := &inject.Camera{
-		PropertiesFunc: func(ctx context.Context) (camera.Properties, error) {
-			return camera.Properties{}, nil
-		},
+	cam1 := inject.NewCamera(camera1Key)
+	cam1.PropertiesFunc = func(ctx context.Context) (camera.Properties, error) {
+		return camera.Properties{}, nil
 	}
-	rs := map[resource.Name]resource.Resource{camera.Named(camera1Key): cam1}
+	rs := map[resource.Name]resource.Resource{cam1.Name(): cam1}
 	robot.MockResourcesFromMap(rs)
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -892,13 +891,12 @@ func TestWebWithStreams(t *testing.T) {
 	test.That(t, resp.Names, test.ShouldHaveLength, 1)
 
 	// Add another camera and update
-	cam2 := &inject.Camera{
-		PropertiesFunc: func(ctx context.Context) (camera.Properties, error) {
-			return camera.Properties{}, nil
-		},
+	cam2 := inject.NewCamera(camera2Key)
+	cam2.PropertiesFunc = func(ctx context.Context) (camera.Properties, error) {
+		return camera.Properties{}, nil
 	}
 	robot.Mu.Lock()
-	rs[camera.Named(camera2Key)] = cam2
+	rs[cam2.Name()] = cam2
 	robot.Mu.Unlock()
 	robot.MockResourcesFromMap(rs)
 	err = svc.Reconfigure(context.Background(), rs, resource.Config{})
@@ -958,13 +956,12 @@ func TestWebAddFirstStream(t *testing.T) {
 	test.That(t, resp.Names, test.ShouldHaveLength, 0)
 
 	// Add first camera and update
-	cam1 := &inject.Camera{
-		PropertiesFunc: func(ctx context.Context) (camera.Properties, error) {
-			return camera.Properties{}, nil
-		},
+	cam1 := inject.NewCamera(camera1Key)
+	cam1.PropertiesFunc = func(ctx context.Context) (camera.Properties, error) {
+		return camera.Properties{}, nil
 	}
 	robot.Mu.Lock()
-	rs[camera.Named(camera1Key)] = cam1
+	rs[cam1.Name()] = cam1
 	robot.Mu.Unlock()
 	robot.MockResourcesFromMap(rs)
 	err = svc.Reconfigure(ctx, rs, resource.Config{})
@@ -1191,10 +1188,12 @@ func TestRawClientOperation(t *testing.T) {
 	client := robotpb.NewRobotServiceClient(conn)
 
 	var hdr metadata.MD
+	//nolint:staticcheck // the status API is deprecated
 	_, err = client.GetStatus(ctx, &robotpb.GetStatusRequest{}, grpc.Header(&hdr))
 	test.That(t, err, test.ShouldBeNil)
 	checkOpID(hdr, true)
 
+	//nolint:staticcheck // the status API is deprecated
 	streamClient, err := client.StreamStatus(ctx, &robotpb.StreamStatusRequest{})
 	test.That(t, err, test.ShouldBeNil)
 	md, err := streamClient.Header()
@@ -1256,6 +1255,7 @@ func TestInboundMethodTimeout(t *testing.T) {
 			client := robotpb.NewRobotServiceClient(conn)
 
 			// Use GetStatus to call injected status function.
+			//nolint:staticcheck // the status API is deprecated
 			_, err = client.GetStatus(ctx, &robotpb.GetStatusRequest{})
 			test.That(t, err, test.ShouldBeNil)
 
@@ -1291,6 +1291,7 @@ func TestInboundMethodTimeout(t *testing.T) {
 			// Use GetStatus and a context with a deadline to call injected status function.
 			overrideCtx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 			defer cancel()
+			//nolint:staticcheck // the status API is deprecated
 			_, err = client.GetStatus(overrideCtx, &robotpb.GetStatusRequest{})
 			test.That(t, err, test.ShouldBeNil)
 
@@ -1326,6 +1327,7 @@ func TestInboundMethodTimeout(t *testing.T) {
 			client := robotpb.NewRobotServiceClient(conn)
 
 			// Use GetStatus to call injected status function.
+			//nolint:staticcheck // the status API is deprecated
 			_, err = client.GetStatus(ctx, &robotpb.GetStatusRequest{})
 			test.That(t, err, test.ShouldBeNil)
 
@@ -1360,6 +1362,7 @@ func TestInboundMethodTimeout(t *testing.T) {
 			// Use GetStatus and a context with a deadline to call injected status function.
 			overrideCtx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 			defer cancel()
+			//nolint:staticcheck // the status API is deprecated
 			_, err = client.GetStatus(overrideCtx, &robotpb.GetStatusRequest{})
 			test.That(t, err, test.ShouldBeNil)
 

@@ -12,7 +12,6 @@ package packages
 
 import (
 	"context"
-	"os"
 	"sync"
 
 	"github.com/pkg/errors"
@@ -121,7 +120,7 @@ func (m *deferredPackageManager) getManagerForSync(ctx context.Context, packages
 	}
 
 	// if we are missing packages, run createCloudManager synchronously
-	if m.isMissingPackages(packages) {
+	if !packagesAreSynced(packages, m.cloudManagerArgs.packagesDir, m.logger) {
 		mgr, err := m.createCloudManager(ctx)
 		if err == nil {
 			// err == nil, not != nil
@@ -160,18 +159,6 @@ func (m *deferredPackageManager) createCloudManager(ctx context.Context) (Manage
 		m.cloudManagerArgs.packagesDir,
 		m.cloudManagerArgs.logger,
 	)
-}
-
-// isMissingPackages is used pre-sync to determine if we should force-wait for the connection
-// to be established.
-func (m *deferredPackageManager) isMissingPackages(packages []config.PackageConfig) bool {
-	for _, pkg := range packages {
-		dir := pkg.LocalDataDirectory(m.cloudManagerArgs.packagesDir)
-		if _, err := os.Stat(dir); err != nil {
-			return true
-		}
-	}
-	return false
 }
 
 // SyncOne is a no-op for this package manager variant.

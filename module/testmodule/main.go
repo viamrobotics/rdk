@@ -32,6 +32,9 @@ func main() {
 }
 
 func mainWithArgs(ctx context.Context, args []string, logger logging.Logger) error {
+	if os.Getenv("VIAM_TESTMODULE_PANIC") != "" {
+		panic("there is no flavor town")
+	}
 	logger.Debug("debug mode enabled")
 
 	var err error
@@ -188,13 +191,15 @@ func newOther(
 	ctx context.Context, deps resource.Dependencies, conf resource.Config, logger logging.Logger,
 ) (resource.Resource, error) {
 	return &other{
-		Named: conf.ResourceName().AsNamed(),
+		Named:  conf.ResourceName().AsNamed(),
+		logger: logger,
 	}, nil
 }
 
 type other struct {
 	resource.Named
 	resource.TriviallyCloseable
+	logger              logging.Logger
 	numReconfigurations int
 }
 
@@ -206,6 +211,24 @@ func (o *other) DoCommand(ctx context.Context, req map[string]interface{}) (map[
 	}
 
 	switch req["command"] {
+	case "log":
+		level, err := logging.LevelFromString(req["level"].(string))
+		if err != nil {
+			return nil, err
+		}
+
+		msg := req["msg"].(string)
+		switch level {
+		case logging.DEBUG:
+			o.logger.CDebugw(ctx, msg, "foo", "bar")
+		case logging.INFO:
+			o.logger.CInfow(ctx, msg, "foo", "bar")
+		case logging.WARN:
+			o.logger.CWarnw(ctx, msg, "foo", "bar")
+		case logging.ERROR:
+			o.logger.CErrorw(ctx, msg, "foo", "bar")
+		}
+		return map[string]any{}, nil
 	case "get_num_reconfigurations":
 		return map[string]any{"num_reconfigurations": o.numReconfigurations}, nil
 	default:

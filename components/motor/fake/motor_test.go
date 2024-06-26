@@ -61,7 +61,7 @@ func TestGoFor(t *testing.T) {
 	err = m.GoFor(ctx, 0, 1, nil)
 	allObs := obs.All()
 	latestLoggedEntry := allObs[len(allObs)-1]
-	test.That(t, fmt.Sprint(latestLoggedEntry), test.ShouldContainSubstring, "nearly 0")
+	test.That(t, fmt.Sprint(latestLoggedEntry), test.ShouldContainSubstring, "is 0 rev_per_min")
 	test.That(t, err, test.ShouldBeError, motor.NewZeroRPMError())
 
 	err = m.GoFor(ctx, 60, 1, nil)
@@ -102,16 +102,53 @@ func TestGoTo(t *testing.T) {
 	test.That(t, fmt.Sprint(latestLoggedEntry), test.ShouldContainSubstring, "nearly the max")
 
 	err = m.GoTo(ctx, 0, 1, nil)
-	test.That(t, err, test.ShouldBeNil)
+	test.That(t, err, test.ShouldNotBeNil)
 	allObs = obs.All()
 	latestLoggedEntry = allObs[3]
-	test.That(t, fmt.Sprint(latestLoggedEntry), test.ShouldContainSubstring, "nearly 0")
+	test.That(t, fmt.Sprint(latestLoggedEntry), test.ShouldContainSubstring, "is 0 rev_per_min")
 
 	testutils.WaitForAssertion(t, func(tb testing.TB) {
 		tb.Helper()
 		pos, err := m.Position(ctx, nil)
 		test.That(tb, err, test.ShouldBeNil)
 		test.That(tb, pos, test.ShouldEqual, 1)
+	})
+}
+
+func TestSetRPM(t *testing.T) {
+	logger, obs := logging.NewObservedTestLogger(t)
+	ctx := context.Background()
+
+	enc, err := fake.NewEncoder(context.Background(), resource.Config{
+		ConvertedAttributes: &fake.Config{},
+	}, logger)
+	test.That(t, err, test.ShouldBeNil)
+	m := &Motor{
+		Encoder:           enc.(fake.Encoder),
+		Logger:            logger,
+		PositionReporting: true,
+		MaxRPM:            60,
+		TicksPerRotation:  1,
+		OpMgr:             operation.NewSingleOperationManager(),
+	}
+
+	err = m.SetRPM(ctx, 0, nil)
+	allObs := obs.All()
+	latestLoggedEntry := allObs[len(allObs)-1]
+	test.That(t, fmt.Sprint(latestLoggedEntry), test.ShouldContainSubstring, "is 0 rev_per_min")
+	test.That(t, err, test.ShouldBeError, motor.NewZeroRPMError())
+
+	err = m.SetRPM(ctx, 60, nil)
+	test.That(t, err, test.ShouldBeNil)
+	allObs = obs.All()
+	latestLoggedEntry = allObs[1]
+	test.That(t, fmt.Sprint(latestLoggedEntry), test.ShouldContainSubstring, "nearly the max")
+
+	testutils.WaitForAssertion(t, func(tb testing.TB) {
+		tb.Helper()
+		pos, err := m.Position(ctx, nil)
+		test.That(tb, err, test.ShouldBeNil)
+		test.That(tb, pos, test.ShouldBeGreaterThan, 0)
 	})
 }
 

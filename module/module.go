@@ -229,7 +229,7 @@ func NewModule(ctx context.Context, address string, logger logging.Logger) (*Mod
 	}
 
 	// attempt to construct a PeerConnection
-	pc, err := webrtc.NewPeerConnection(webrtc.Configuration{})
+	pc, err := rgrpc.NewLocalPeerConnection(logger.AsZap())
 	if err != nil {
 		logger.Debugw("Unable to create optional peer connection for module. Skipping WebRTC for module...", "err", err)
 		return m, nil
@@ -412,17 +412,22 @@ func (m *Module) Ready(ctx context.Context, req *pb.ReadyRequest) (*pb.ReadyResp
 	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	m.parentAddr = req.GetParentAddress()
-	if err := m.connectParent(ctx); err != nil {
-		// Return error back to parent if we cannot make a connection from module
-		// -> parent. Something is wrong in that case and the module should not be
-		// operational.
-		return nil, err
-	}
 
-	// If logger is a moduleLogger, start gRPC logging.
-	if moduleLogger, ok := m.logger.(*moduleLogger); ok {
-		moduleLogger.startLoggingViaGRPC(m)
+	// we start the module without connecting to a parent since we
+	// are only concerned with validation and extracting metadata.
+	if os.Getenv("VIAM_NO_MODULE_PARENT") != "true" {
+		m.parentAddr = req.GetParentAddress()
+		if err := m.connectParent(ctx); err != nil {
+			// Return error back to parent if we cannot make a connection from module
+			// -> parent. Something is wrong in that case and the module should not be
+			// operational.
+			return nil, err
+		}
+		// If logger is a moduleLogger, start gRPC logging.
+		// Note that this logging assumes that a valid parent exists.
+		if moduleLogger, ok := m.logger.(*moduleLogger); ok {
+			moduleLogger.startLoggingViaGRPC(m)
+		}
 	}
 
 	resp.Ready = m.ready

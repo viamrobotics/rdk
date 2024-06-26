@@ -585,6 +585,15 @@ func (ms *builtIn) newMoveOnMapRequest(
 		return nil, resource.DependencyNotFoundError(req.SlamName)
 	}
 
+	// verify slam is in localization mode
+	slamProps, err := slamSvc.Properties(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if slamProps.MappingMode != slam.MappingModeLocalizationOnly {
+		return nil, fmt.Errorf("expected SLAM to be in localization only mode, got %v", slamProps.MappingMode)
+	}
+
 	// gets the extents of the SLAM map
 	limits, err := slam.Limits(ctx, slamSvc, true)
 	if err != nil {
@@ -691,7 +700,7 @@ func (ms *builtIn) createBaseMoveRequest(
 		if spatialmath.PoseAlmostCoincidentEps(goal.Pose(), startPose, motionCfg.planDeviationMM) {
 			return nil, motion.ErrGoalWithinPlanDeviation
 		}
-	} else if spatialmath.OrientationAlmostEqual(goal.Pose().Orientation(), spatialmath.NewZeroPose().Orientation()) &&
+	} else if spatialmath.OrientationAlmostEqual(goal.Pose().Orientation(), startPose.Orientation()) &&
 		spatialmath.PoseAlmostCoincidentEps(goal.Pose(), startPose, motionCfg.planDeviationMM) {
 		return nil, motion.ErrGoalWithinPlanDeviation
 	}

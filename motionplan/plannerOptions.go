@@ -5,8 +5,6 @@ package motionplan
 import (
 	"runtime"
 
-	pb "go.viam.com/api/service/motion/v1"
-
 	"go.viam.com/rdk/motionplan/ik"
 	"go.viam.com/rdk/motionplan/tpspace"
 	"go.viam.com/rdk/referenceframe"
@@ -48,10 +46,13 @@ const (
 	defaultTimeout = 300.
 
 	// default number of times to try to smooth the path.
-	defaultSmoothIter = 200
+	defaultSmoothIter = 100
 
 	// default number of position only seeds to use for tp-space planning.
 	defaultTPspacePositionOnlySeeds = 16
+
+	// random seed.
+	defaultRandomSeed = 0
 
 	// descriptions of constraints.
 	defaultLinearConstraintDesc         = "Constraint to follow linear path"
@@ -216,42 +217,42 @@ func (p *plannerOptions) SetMinScore(minScore float64) {
 
 // addPbConstraints will add all constraints from the protobuf constraint specification. This will deal with only the topological
 // constraints. It will return a bool indicating whether there are any to add.
-func (p *plannerOptions) addPbTopoConstraints(from, to spatialmath.Pose, constraints *pb.Constraints) bool {
+func (p *plannerOptions) addPbTopoConstraints(from, to spatialmath.Pose, constraints *Constraints) bool {
 	topoConstraints := false
 	for _, linearConstraint := range constraints.GetLinearConstraint() {
 		topoConstraints = true
-		p.addPbLinearConstraints(from, to, linearConstraint)
+		p.addLinearConstraints(from, to, linearConstraint)
 	}
 	for _, orientationConstraint := range constraints.GetOrientationConstraint() {
 		topoConstraints = true
-		p.addPbOrientationConstraints(from, to, orientationConstraint)
+		p.addOrientationConstraints(from, to, orientationConstraint)
 	}
 	return topoConstraints
 }
 
-func (p *plannerOptions) addPbLinearConstraints(from, to spatialmath.Pose, pbConstraint *pb.LinearConstraint) {
+func (p *plannerOptions) addLinearConstraints(from, to spatialmath.Pose, linConstraint LinearConstraint) {
 	// Linear constraints
-	linTol := pbConstraint.GetLineToleranceMm()
+	linTol := linConstraint.LineToleranceMm
 	if linTol == 0 {
 		// Default
 		linTol = defaultLinearDeviation
 	}
-	orientTol := pbConstraint.GetOrientationToleranceDegs()
+	orientTol := linConstraint.OrientationToleranceDegs
 	if orientTol == 0 {
 		orientTol = defaultOrientationDeviation
 	}
-	constraint, pathDist := NewAbsoluteLinearInterpolatingConstraint(from, to, float64(linTol), float64(orientTol))
+	constraint, pathDist := NewAbsoluteLinearInterpolatingConstraint(from, to, linTol, orientTol)
 	p.AddStateConstraint(defaultLinearConstraintDesc, constraint)
 
 	p.pathMetric = ik.CombineMetrics(p.pathMetric, pathDist)
 }
 
-func (p *plannerOptions) addPbOrientationConstraints(from, to spatialmath.Pose, pbConstraint *pb.OrientationConstraint) {
-	orientTol := pbConstraint.GetOrientationToleranceDegs()
+func (p *plannerOptions) addOrientationConstraints(from, to spatialmath.Pose, orientConstraint OrientationConstraint) {
+	orientTol := orientConstraint.OrientationToleranceDegs
 	if orientTol == 0 {
 		orientTol = defaultOrientationDeviation
 	}
-	constraint, pathDist := NewSlerpOrientationConstraint(from, to, float64(orientTol))
+	constraint, pathDist := NewSlerpOrientationConstraint(from, to, orientTol)
 	p.AddStateConstraint(defaultOrientationConstraintDesc, constraint)
 	p.pathMetric = ik.CombineMetrics(p.pathMetric, pathDist)
 }

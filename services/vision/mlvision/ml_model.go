@@ -234,7 +234,14 @@ func getLabelsFromMetadata(md mlmodel.MLMetadata) []string {
 		}()
 		scanner := bufio.NewScanner(f)
 		for scanner.Scan() {
+			label := strings.TrimSpace(scanner.Text())
+			if label == "" {
+				continue
+			}
 			labels = append(labels, scanner.Text())
+		}
+		if len(labels) == 0 {
+			return nil
 		}
 		// if the labels come out as one line, try splitting that line by spaces or commas to extract labels
 		// Check if the labels should be comma split first and then space split.

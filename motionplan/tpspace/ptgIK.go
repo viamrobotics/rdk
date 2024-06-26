@@ -5,7 +5,6 @@ package tpspace
 import (
 	"context"
 	"errors"
-	"fmt"
 	"math"
 	"sync"
 
@@ -157,16 +156,17 @@ func (ptg *ptgIK) cachedTraj(alpha, end, resolution float64) ([]*TrajNode, error
 }
 
 func (ptg *ptgIK) Trajectory(alpha, start, end, resolution float64) ([]*TrajNode, error) {
-	// TODO: For inverted trajectories, it would probably make more sense to allow this, replacing the current convention of negative dists.
-	if math.Abs(start) > math.Abs(end) {
-		return nil, fmt.Errorf("cannot calculate trajectory, start %f cannot be greater than end %f", start, end)
-	}
-	if end == 0 {
+	if end == start {
 		return computePTG(ptg, alpha, end, resolution)
 	}
 
-	startPos := math.Abs(start)
-	endPos := math.Abs(end)
+	startPos := start
+	endPos := end
+
+	if end < start {
+		startPos, endPos = endPos, startPos
+	}
+
 	trajPrecompute, err := ptg.cachedTraj(alpha, endPos, resolution)
 	if err != nil {
 		return nil, err
@@ -209,7 +209,7 @@ func (ptg *ptgIK) Trajectory(alpha, start, end, resolution float64) ([]*TrajNode
 		}
 		traj = append(traj, lastNode)
 	}
-	if end < 0 {
+	if end < start {
 		return invertComputedPTG(traj), nil
 	}
 

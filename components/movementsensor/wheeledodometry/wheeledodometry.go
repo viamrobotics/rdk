@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"math"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/golang/geo/r3"
@@ -21,7 +22,8 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
-var model = resource.DefaultModelFamily.WithModel("wheeled-odometry")
+// Model is the name of the wheeled odometry model of a movementsensor component.
+var Model = resource.DefaultModelFamily.WithModel("wheeled-odometry")
 
 const (
 	defaultTimeIntervalMSecs = 500
@@ -67,6 +69,7 @@ type odometry struct {
 	linearVelocity  r3.Vector
 	position        r3.Vector
 	orientation     spatialmath.EulerAngles
+	coordUpToDate   atomic.Bool
 	coord           *geo.Point
 	originCoord     *geo.Point
 
@@ -81,7 +84,7 @@ type odometry struct {
 func init() {
 	resource.RegisterComponent(
 		movementsensor.API,
-		model,
+		Model,
 		resource.Registration[movementsensor.MovementSensor, *Config]{Constructor: newWheeledOdometry})
 }
 
@@ -212,8 +215,19 @@ func (o *odometry) Reconfigure(ctx context.Context, deps resource.Dependencies, 
 
 	o.orientation.Yaw = 0
 	o.originCoord = geo.NewPoint(0, 0)
+	o.coordUpToDate.Store(false)
+	o.mu.Unlock()
+	defer o.mu.Lock() // Must be unlocked for trackPosition. We put a Lock on the defer stack so the earlier deferred unlock does not hang.
 	o.trackPosition() // (re-)initializes o.workers
-
+	// Wait for trackPosition to initialize coord so we do not start with stale data
+	for !o.coordUpToDate.Load() {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
+		time.Sleep(time.Duration(o.timeIntervalMSecs) * time.Millisecond)
+	}
 	return nil
 }
 
@@ -434,6 +448,7 @@ func (o *odometry) trackPosition() {
 			distance := math.Hypot(o.position.X, o.position.Y)
 			heading := utils.RadToDeg(math.Atan2(o.position.X, o.position.Y))
 			o.coord = o.originCoord.PointAtDistanceAndBearing(distance*mToKm, heading)
+			o.coordUpToDate.Store(true)
 
 			// Update the linear and angular velocity values using the provided time interval.
 			o.linearVelocity.Y = centerDist / (o.timeIntervalMSecs / 1000)
@@ -461,6 +476,7 @@ func (o *odometry) DoCommand(ctx context.Context,
 	if ok {
 		o.shiftPos = reset
 		o.originCoord = geo.NewPoint(0, 0)
+		o.coord = geo.NewPoint(0, 0)
 		o.position.X = 0
 		o.position.Y = 0
 		o.orientation.Yaw = 0
@@ -472,6 +488,18 @@ func (o *odometry) DoCommand(ctx context.Context,
 	if okY && okX {
 		o.originCoord = geo.NewPoint(lat, long)
 		o.shiftPos = true
+		o.coordUpToDate.Store(false)
+		o.mu.Unlock()
+		// Wait for trackPosition to initialize coord so we do not start with stale data
+		for !o.coordUpToDate.Load() {
+			select {
+			case <-ctx.Done():
+				return nil, ctx.Err()
+			default:
+			}
+			time.Sleep(time.Duration(o.timeIntervalMSecs) * time.Millisecond)
+		}
+		o.mu.Lock()
 
 		resp[setLat] = fmt.Sprintf("lat shifted to %.8f", lat)
 		resp[setLong] = fmt.Sprintf("lng shifted to %.8f", long)

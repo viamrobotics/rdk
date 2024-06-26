@@ -203,14 +203,15 @@ func ServiceConfigToProto(conf *resource.Config) (*pb.ServiceConfig, error) {
 	}
 
 	protoConf := pb.ServiceConfig{
-		Name:           conf.Name,
-		Namespace:      string(conf.API.Type.Namespace),
-		Type:           conf.API.SubtypeName,
-		Api:            conf.API.String(),
-		Model:          conf.Model.String(),
-		Attributes:     attributes,
-		DependsOn:      conf.DependsOn,
-		ServiceConfigs: serviceConfigs,
+		Name:             conf.Name,
+		Namespace:        string(conf.API.Type.Namespace),
+		Type:             conf.API.SubtypeName,
+		Api:              conf.API.String(),
+		Model:            conf.Model.String(),
+		Attributes:       attributes,
+		DependsOn:        conf.DependsOn,
+		ServiceConfigs:   serviceConfigs,
+		LogConfiguration: &pb.LogConfiguration{Level: strings.ToLower(conf.LogConfiguration.Level.String())},
 	}
 
 	return &protoConf, nil
@@ -239,6 +240,16 @@ func ServiceConfigFromProto(protoConf *pb.ServiceConfig) (*resource.Config, erro
 		return nil, err
 	}
 
+	level := logging.INFO
+	if protoConf.GetLogConfiguration() != nil {
+		if level, err = logging.LevelFromString(protoConf.GetLogConfiguration().Level); err != nil {
+			// Don't fail configuration due to a malformed log level.
+			level = logging.INFO
+			logging.Global().Warnw(
+				"Invalid log level.", "name", protoConf.GetName(), "log_level", protoConf.GetLogConfiguration().Level, "error", err)
+		}
+	}
+
 	conf := resource.Config{
 		Name:                      protoConf.GetName(),
 		API:                       api,
@@ -246,6 +257,7 @@ func ServiceConfigFromProto(protoConf *pb.ServiceConfig) (*resource.Config, erro
 		Attributes:                attrs,
 		DependsOn:                 protoConf.GetDependsOn(),
 		AssociatedResourceConfigs: serviceConfigs,
+		LogConfiguration:          resource.LogConfig{Level: level},
 	}
 
 	return &conf, nil

@@ -137,7 +137,7 @@ const run = async () => {
           img.width,
           img.height,
           mime,
-          2_147_483_647
+          100
         );
         let y = 0;
         for (const cls of classifications) {
@@ -177,6 +177,12 @@ const onRefreshKeyPress = async (event: KeyboardEvent) => {
         aria-label="Camera"
         options={cameras.map((cam) => cam.name).join(',')}
         on:input={selectCamera}
+      />
+      <v-notify
+        class="max-w-sm"
+        variant="info"
+        title="Classifications won't show here"
+        message="Right now this card only supports detections. Soon your classifications will show here too."
       />
     </div>
 

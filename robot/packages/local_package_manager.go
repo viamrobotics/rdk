@@ -83,24 +83,29 @@ func (m *localManager) Close(ctx context.Context) error {
 }
 
 // fileCopyHelper is the downloadCallback for local tarball modules.
-func (m *localManager) fileCopyHelper(ctx context.Context, path, dstPath string) (string, error) {
+func (m *localManager) fileCopyHelper(ctx context.Context, path, dstPath string) (string, string, error) {
 	src, err := os.Open(path) //nolint:gosec
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
 	defer src.Close()              //nolint:errcheck
 	dst, err := os.Create(dstPath) //nolint:gosec
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
+
+	hash := crc32Hash()
+	out := io.MultiWriter(dst, hash)
+
 	defer dst.Close() //nolint:errcheck
-	nBytes, err := io.Copy(dst, src)
+	nBytes, err := io.Copy(out, src)
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
 	m.logger.Debugf("copied %d bytes to %s", nBytes, dstPath)
+	checksum := hash.Sum(nil)
 	// note: we can hardcode expected contentType because this is probably a synthetic package which already passed tarballExtensionsRegexp
-	return allowedContentType, nil
+	return string(checksum), allowedContentType, nil
 }
 
 // getAddedAndChanged is a helper for managing maps of things. It returns (map of existing, slice of added).
@@ -123,10 +128,20 @@ func getAddedAndChanged[Key comparable, ManagedVal, Val any](previous map[Key]Ma
 }
 
 // getAddedAndChanged specializes the generic function for managedModuleMap.
-func (m managedModuleMap) getAddedAndChanged(incoming []config.Module) (managedModuleMap, []config.Module) {
+func (m managedModuleMap) getAddedAndChanged(
+	incoming []config.Module,
+	packagesDir string,
+	logger logging.Logger,
+) (managedModuleMap, []config.Module) {
 	return getAddedAndChanged(m, incoming,
 		func(mod config.Module) string { return mod.Name },
-		func(old *managedModule, incoming config.Module) bool { return old.module.ExePath == incoming.ExePath },
+		func(old *managedModule, incoming config.Module) bool {
+			pkg, err := old.module.SyntheticPackage()
+			if err != nil {
+				return false
+			}
+			return packageIsSynced(pkg, packagesDir, logger)
+		},
 	)
 }
 
@@ -137,9 +152,10 @@ func (m *localManager) Sync(ctx context.Context, packages []config.PackageConfig
 
 	// overwrite incoming modules with filtered slice; we only manage local tarball modules
 	modules = rUtils.FilterSlice(modules, config.Module.NeedsSyntheticPackage)
-	existing, changed := m.managedModules.getAddedAndChanged(modules)
+	existing, changed := m.managedModules.getAddedAndChanged(modules, m.packagesDir, m.logger)
+
 	if len(changed) > 0 {
-		m.logger.Info("Local package changes have been detected, starting sync")
+		m.logger.Info("Local package changes have been detected, starting sync...")
 	}
 
 	start := time.Now()
@@ -155,7 +171,8 @@ func (m *localManager) Sync(ctx context.Context, packages []config.PackageConfig
 			outErr = multierr.Append(outErr, err)
 			continue
 		}
-		err = installPackage(ctx, m.logger, m.packagesDir, mod.ExePath, pkg, []string{}, m.fileCopyHelper)
+
+		err = installPackage(ctx, m.logger, m.packagesDir, mod.ExePath, pkg, m.fileCopyHelper)
 		if err != nil {
 			m.logger.Errorf("Failed downloading package %s from %s, %s", mod.Name, mod.ExePath, err)
 			outErr = multierr.Append(outErr, errors.Wrapf(err, "failed downloading package %s from %s",
@@ -181,7 +198,7 @@ func (m *localManager) Sync(ctx context.Context, packages []config.PackageConfig
 
 // Cleanup removes all unknown packages from the working directory.
 func (m *localManager) Cleanup(ctx context.Context) error {
-	m.logger.Debug("Starting package cleanup")
+	m.logger.Debug("Starting package cleanup...")
 
 	// Only allow one rdk process to operate on the manager at once. This is generally safe to keep locked for an extended period of time
 	// since the config reconfiguration process is handled by a single thread.
@@ -239,7 +256,7 @@ func (m *localManager) SyncOne(ctx context.Context, mod config.Module) error {
 	if dirty {
 		m.logger.CDebugf(ctx, "%s is newer, recopying", mod.ExePath)
 		utils.UncheckedError(cleanup(m.packagesDir, pkg))
-		err = installPackage(ctx, m.logger, m.packagesDir, mod.ExePath, pkg, []string{}, m.fileCopyHelper)
+		err = installPackage(ctx, m.logger, m.packagesDir, mod.ExePath, pkg, m.fileCopyHelper)
 		if err != nil {
 			m.logger.Errorf("Failed copying package %s:%s from %s, %s", pkg.Package, pkg.Version, mod.ExePath, err)
 			return errors.Wrapf(err, "failed downloading package %s:%s from %s", pkg.Package, pkg.Version, mod.ExePath)

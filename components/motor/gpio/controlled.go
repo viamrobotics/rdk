@@ -245,6 +245,10 @@ func (cm *controlledMotor) GoTo(ctx context.Context, rpm, targetPosition float64
 		return err
 	}
 	rotations := targetPosition - pos
+
+	// ignore the direction of rpm
+	rpm = math.Abs(rpm)
+
 	// if you call GoFor with 0 revolutions, the motor will spin forever. If we are at the target,
 	// we must avoid this by not calling GoFor.
 	if rdkutils.Float64AlmostEqual(rotations, 0, 0.1) {
@@ -260,9 +264,9 @@ func (cm *controlledMotor) SetRPM(ctx context.Context, rpm float64, extra map[st
 	ctx, done := cm.opMgr.New(ctx)
 	defer done()
 
-	warning, err := checkSpeed(rpm, cm.real.maxRPM)
+	warning, err := motor.CheckSpeed(rpm, cm.real.maxRPM)
 	if warning != "" {
-		cm.logger.CWarnf(ctx, warning)
+		cm.logger.CWarn(ctx, warning)
 	}
 	if err != nil {
 		return err
@@ -298,9 +302,9 @@ func (cm *controlledMotor) GoFor(ctx context.Context, rpm, revolutions float64, 
 	ctx, done := cm.opMgr.New(ctx)
 	defer done()
 
-	warning, err := checkSpeed(rpm, cm.real.maxRPM)
+	warning, err := motor.CheckSpeed(rpm, cm.real.maxRPM)
 	if warning != "" {
-		cm.logger.CWarnf(ctx, warning)
+		cm.logger.CWarn(ctx, warning)
 	}
 	if err != nil {
 		return err
