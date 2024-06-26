@@ -102,8 +102,9 @@ func registerMockModel(tb testing.TB) resource.Model {
 					return nil, errors.Errorf("cannot build %q for some obscure reason", conf.Name)
 				}
 				return &mockFake{
-					Named: conf.ResourceName().AsNamed(),
-					Value: convAttrs.Value,
+					Named:       conf.ResourceName().AsNamed(),
+					Value:       convAttrs.Value,
+					childValues: make(map[string]int),
 				}, nil
 			},
 		})
@@ -601,7 +602,8 @@ func TestRobotReconfigure(t *testing.T) {
 						"pins": map[string]interface{}{
 							"pwm": "1",
 						},
-						"pwm_freq": 1000,
+						"slot":  "1",
+						"value": 1000,
 					},
 					DependsOn: []string{"arm2", "board1"},
 				},
@@ -755,13 +757,9 @@ func TestRobotReconfigure(t *testing.T) {
 		_, err = base.FromRobot(robot, "base2")
 		test.That(t, err, test.ShouldBeNil)
 
-		_, err = robot.ResourceByName(mockNamed("board1"))
+		b, err := robot.ResourceByName(mockNamed("board1"))
 		test.That(t, err, test.ShouldBeNil)
-		// pin, err := b.GPIOPinByName("1")
-		// test.That(t, err, test.ShouldBeNil)
-		// pwmF, err := pin.PWMFreq(context.Background(), nil)
-		// test.That(t, err, test.ShouldBeNil)
-		// test.That(t, pwmF, test.ShouldEqual, 1000)
+		test.That(t, b.(*mockFake).GetChildValue("1"), test.ShouldEqual, 1000)
 
 		_, ok := robot.ProcessManager().ProcessByID("1")
 		test.That(t, ok, test.ShouldBeTrue)
@@ -813,10 +811,11 @@ func TestRobotReconfigure(t *testing.T) {
 					Model: mockWithDepModel,
 					Attributes: rutils.AttributeMap{
 						"mock_dep": "board1",
-						// "pins": map[string]interface{}{
-						// 	"pwm": "5",
-						// },
-						// "pwm_freq": 4000,
+						"pins": map[string]interface{}{
+							"pwm": "5",
+						},
+						"slot":  "5",
+						"value": 4000,
 					},
 					DependsOn: []string{"board1"},
 				},
@@ -888,10 +887,11 @@ func TestRobotReconfigure(t *testing.T) {
 					Model: mockWithDepModel,
 					Attributes: rutils.AttributeMap{
 						"mock_dep": "board1",
-						// "pins": map[string]interface{}{
-						// 	"pwm": "1",
-						// },
-						// "pwm_freq": 1000,
+						"pins": map[string]interface{}{
+							"pwm": "1",
+						},
+						"slot":  "1",
+						"value": 1000,
 					},
 					DependsOn: []string{"arm2", "board1"},
 				},
@@ -977,15 +977,9 @@ func TestRobotReconfigure(t *testing.T) {
 		))
 		rdktestutils.VerifySameElements(t, robot.ProcessManager().ProcessIDs(), []string{"1", "2"})
 
-		_, err := robot.ResourceByName(mockNamed("board1"))
+		b, err := robot.ResourceByName(mockNamed("board1"))
 		test.That(t, err, test.ShouldBeNil)
-		// pin, err := b.GPIOPinByName("5")
-		// test.That(t, err, test.ShouldBeNil)
-		// pwmF, err := pin.PWMFreq(context.Background(), nil)
-		// test.That(t, err, test.ShouldBeNil)
-		// test.That(t, pwmF, test.ShouldEqual, 4000)
-		// _, err = b.DigitalInterruptByName("encoder")
-		// test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, b.(*mockFake).GetChildValue("5"), test.ShouldEqual, 4000)
 
 		robot.Reconfigure(context.Background(), conf2)
 		test.That(t, robot.RemoteNames(), test.ShouldBeEmpty)
@@ -1027,20 +1021,10 @@ func TestRobotReconfigure(t *testing.T) {
 		_, err = base.FromRobot(robot, "base2")
 		test.That(t, err, test.ShouldBeNil)
 
-		_, err = robot.ResourceByName(mockNamed("board1"))
+		b, err = robot.ResourceByName(mockNamed("board1"))
 		test.That(t, err, test.ShouldBeNil)
-		// _, err = b.GPIOPinByName("5")
-		// test.That(t, err, test.ShouldBeNil)
-		// pwmF, err = pin.PWMFreq(context.Background(), nil)
-		// test.That(t, err, test.ShouldBeNil)
-		// test.That(t, pwmF, test.ShouldEqual, 4000)
-		// pin, err = b.GPIOPinByName("1")
-		// test.That(t, err, test.ShouldBeNil)
-		// pwmF, err = pin.PWMFreq(context.Background(), nil)
-		// test.That(t, err, test.ShouldBeNil)
-		// test.That(t, pwmF, test.ShouldEqual, 1000) // TODO double check this is the expected result
-		// _, err = b.DigitalInterruptByName("encoder")
-		// test.That(t, err, test.ShouldBeNil)
+		test.That(t, b.(*mockFake).GetChildValue("5"), test.ShouldEqual, 0)
+		test.That(t, b.(*mockFake).GetChildValue("1"), test.ShouldEqual, 1000)
 
 		_, ok := robot.ProcessManager().ProcessByID("1")
 		test.That(t, ok, test.ShouldBeTrue)
@@ -1095,7 +1079,8 @@ func TestRobotReconfigure(t *testing.T) {
 						"pins": map[string]interface{}{
 							"pwm": "1",
 						},
-						"pwm_freq": 1000,
+						"slot":  "1",
+						"value": 1000,
 					},
 					DependsOn: []string{"arm2", "board1"},
 				},
@@ -1316,7 +1301,8 @@ func TestRobotReconfigure(t *testing.T) {
 						"pins": map[string]interface{}{
 							"pwm": "1",
 						},
-						"pwm_freq": 1000,
+						"slot":  "1",
+						"value": 1000,
 					},
 					DependsOn: []string{"arm2", "board1"},
 				},
@@ -1409,7 +1395,7 @@ func TestRobotReconfigure(t *testing.T) {
 					API:   mockAPI,
 					Model: model1,
 					Attributes: rutils.AttributeMap{
-						"pwm_freq": 4000,
+						"value": 4000,
 					},
 				},
 				{
@@ -1430,7 +1416,7 @@ func TestRobotReconfigure(t *testing.T) {
 						"pins": map[string]interface{}{
 							"pwm": "5",
 						},
-						"pwm_freq": 4000,
+						"value": 4000,
 					},
 					DependsOn: []string{"arm3", "board1"},
 				},
@@ -1513,15 +1499,9 @@ func TestRobotReconfigure(t *testing.T) {
 			resource.DefaultServices(),
 		))
 		rdktestutils.VerifySameElements(t, robot.ProcessManager().ProcessIDs(), []string{"1", "2"})
-		_, err := robot.ResourceByName(mockNamed("board1"))
+		b, err := robot.ResourceByName(mockNamed("board1"))
 		test.That(t, err, test.ShouldBeNil)
-		// pin, err := b.GPIOPinByName("1")
-		// test.That(t, err, test.ShouldBeNil)
-		// pwmF, err := pin.PWMFreq(context.Background(), nil)
-		// test.That(t, err, test.ShouldBeNil)
-		// test.That(t, pwmF, test.ShouldEqual, 1000)
-		// _, err = b.DigitalInterruptByName("encoder")
-		// test.That(t, err, test.ShouldBeNil)
+		test.That(t, b.(*mockFake).GetChildValue("1"), test.ShouldEqual, 1000)
 
 		armNames = []resource.Name{mockNamed("arm1"), mockNamed("arm3")}
 		baseNames = []resource.Name{base.Named("base1"), base.Named("base2")}
@@ -1578,17 +1558,9 @@ func TestRobotReconfigure(t *testing.T) {
 		_, err = base.FromRobot(robot, "base2")
 		test.That(t, err, test.ShouldBeNil)
 
-		_, err = robot.ResourceByName(mockNamed("board1"))
+		b, err = robot.ResourceByName(mockNamed("board1"))
 		test.That(t, err, test.ShouldBeNil)
-		// pin, err = b.GPIOPinByName("1")
-		// test.That(t, err, test.ShouldBeNil)
-		// pwmF, err = pin.PWMFreq(context.Background(), nil)
-		// test.That(t, err, test.ShouldBeNil)
-		// test.That(t, pwmF, test.ShouldEqual, 0)
-		// _, err = b.DigitalInterruptByName("encoder")
-		// test.That(t, err, test.ShouldNotBeNil)
-		// _, err = b.DigitalInterruptByName("encoderC")
-		// test.That(t, err, test.ShouldBeNil)
+		test.That(t, b.(*mockFake).GetChildValue("1"), test.ShouldEqual, 0)
 
 		_, err = robot.ResourceByName(mockNamed("board3"))
 		test.That(t, err, test.ShouldBeNil)
@@ -1653,7 +1625,7 @@ func TestRobotReconfigure(t *testing.T) {
 					API:   mockAPI,
 					Model: model1,
 					Attributes: rutils.AttributeMap{
-						"pwm_freq": 4000,
+						"value": 4000,
 					},
 				},
 				{
@@ -1668,13 +1640,14 @@ func TestRobotReconfigure(t *testing.T) {
 				{
 					Name:  "m5",
 					API:   mockAPI,
-					Model: model1,
+					Model: mockWithDepModel,
 					Attributes: rutils.AttributeMap{
-						"board": "board1",
+						"mock_dep": "board1",
 						"pins": map[string]interface{}{
 							"pwm": "5",
 						},
-						"pwm_freq": 4000,
+						"slot":  "5",
+						"value": 4000,
 					},
 					DependsOn: []string{"arm3", "board1"},
 				},
@@ -1794,17 +1767,9 @@ func TestRobotReconfigure(t *testing.T) {
 		_, err = base.FromRobot(robot, "base2")
 		test.That(t, err, test.ShouldBeNil)
 
-		_, err = robot.ResourceByName(mockNamed("board1"))
+		b, err := robot.ResourceByName(mockNamed("board1"))
 		test.That(t, err, test.ShouldBeNil)
-		// pin, err := b.GPIOPinByName("1")
-		// test.That(t, err, test.ShouldBeNil)
-		// pwmF, err := pin.PWMFreq(context.Background(), nil)
-		// test.That(t, err, test.ShouldBeNil)
-		// test.That(t, pwmF, test.ShouldEqual, 0)
-		// _, err = b.DigitalInterruptByName("encoder")
-		// test.That(t, err, test.ShouldNotBeNil)
-		// _, err = b.DigitalInterruptByName("encoderC")
-		// test.That(t, err, test.ShouldBeNil)
+		test.That(t, b.(*mockFake).GetChildValue("5"), test.ShouldEqual, 4000)
 
 		_, err = robot.ResourceByName(mockNamed("board3"))
 		test.That(t, err, test.ShouldBeNil)
@@ -1913,7 +1878,7 @@ func TestRobotReconfigure(t *testing.T) {
 							"pwm": "5",
 							"dir": "2",
 						},
-						"pwm_freq":           4000,
+						"value":              4000,
 						"max_rpm":            60,
 						"ticks_per_rotation": 1,
 					},
@@ -2162,7 +2127,7 @@ func TestRobotReconfigure(t *testing.T) {
 							"pwm": "5",
 							"dir": "2",
 						},
-						"pwm_freq":           4000,
+						"value":              4000,
 						"max_rpm":            60,
 						"ticks_per_rotation": 1,
 					},
@@ -2270,7 +2235,7 @@ func TestRobotReconfigure(t *testing.T) {
 							"pwm": "5",
 							"dir": "2",
 						},
-						"pwm_freq":           4000,
+						"value":              4000,
 						"max_rpm":            60,
 						"ticks_per_rotation": 1,
 					},
@@ -2552,7 +2517,7 @@ func TestRobotReconfigure(t *testing.T) {
 							"pwm": "5",
 							"dir": "2",
 						},
-						"pwm_freq":           4000,
+						"value":              4000,
 						"max_rpm":            60,
 						"ticks_per_rotation": 1,
 					},
@@ -2660,7 +2625,7 @@ func TestRobotReconfigure(t *testing.T) {
 							"pwm": "5",
 							"dir": "2",
 						},
-						"pwm_freq":           4000,
+						"value":              4000,
 						"max_rpm":            60,
 						"ticks_per_rotation": 1,
 					},
@@ -2952,7 +2917,7 @@ func TestRobotReconfigure(t *testing.T) {
 							"pwm": "5",
 							"dir": "2",
 						},
-						"pwm_freq":           4000,
+						"value":              4000,
 						"max_rpm":            60,
 						"ticks_per_rotation": 1,
 					},
@@ -4402,6 +4367,10 @@ type mockFake struct {
 	closeCtxDeadline time.Time
 	logicalClock     *atomic.Int64
 	Value            int
+
+	// this field can be set by dependent resources.
+	childValues map[string]int
+	mu          sync.Mutex
 }
 
 type mockFakeConfig struct {
@@ -4447,6 +4416,18 @@ func (m *mockFakeConfig) Validate(path string) ([]string, error) {
 	return depOut, nil
 }
 
+func (m *mockFake) SetChildValue(slot string, value int) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.childValues[slot] = value
+}
+
+func (m *mockFake) GetChildValue(slot string) int {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.childValues[slot]
+}
+
 type mockFake2 struct {
 	resource.Named
 	reconfCount int
@@ -4463,15 +4444,22 @@ func (m *mockFake2) Close(ctx context.Context) error {
 	return nil
 }
 
+// mockWithDep is a mock dependency that directly updates a parent mockFake. This is
+// meant to approximate the relationship of a fake motor to a fake board, since the
+// former can directly update the pin values of the latter.
 type mockWithDep struct {
 	resource.Named
-	mockDep     *mockFake
+	parent      *mockFake
+	Slot        string
+	Value       int
 	reconfCount int
 	closeCount  int
 }
 
 type mockWithDepConfig struct {
 	MockDep string `json:"mock_dep"`
+	Slot    string `json:"slot"`
+	Value   int    `json:"value"`
 }
 
 func registerMockWithDepModel(tb testing.TB) resource.Model {
@@ -4494,9 +4482,15 @@ func registerMockWithDepModel(tb testing.TB) resource.Model {
 				if !ok {
 					return nil, errors.New("missing dependency!")
 				}
+				parent := mockDep.(*mockFake)
+				slot := convAttrs.Slot
+				value := convAttrs.Value
+				parent.SetChildValue(slot, value)
 				return &mockWithDep{
-					Named:   conf.ResourceName().AsNamed(),
-					mockDep: mockDep.(*mockFake),
+					Named:  conf.ResourceName().AsNamed(),
+					Slot:   slot,
+					Value:  value,
+					parent: parent,
 				}, nil
 			},
 		})
@@ -4512,17 +4506,19 @@ func (m *mockWithDep) Reconfigure(ctx context.Context, deps resource.Dependencie
 	if !ok {
 		return errors.New("missing dependency!")
 	}
-	m.mockDep = mockDep.(*mockFake)
+	parent := mockDep.(*mockFake)
+	m.parent.SetChildValue(m.Slot, 0)
+	m.parent = parent
+	m.Slot = convAttrs.Slot
+	m.Value = convAttrs.Value
+	m.parent.SetChildValue(m.Slot, m.Value)
 	return nil
 }
 
 func (m *mockWithDep) Close(ctx context.Context) error {
 	m.closeCount++
+	m.parent.SetChildValue(m.Slot, 0)
 	return nil
-}
-
-func (m *mockWithDep) GetDepValue() int {
-	return m.mockDep.Value
 }
 
 func (m *mockWithDepConfig) Validate(path string) ([]string, error) {
