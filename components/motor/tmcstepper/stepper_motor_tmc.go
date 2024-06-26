@@ -427,11 +427,14 @@ func (m *Motor) doJog(ctx context.Context, rpm float64) error {
 	}
 
 	warning, err := motor.CheckSpeed(rpm, m.maxRPM)
-	if warning != "" {
-		m.logger.CWarn(ctx, warning)
-	}
-	if err != nil {
-		m.logger.CError(ctx, err)
+	// only display warnings if rpm != 0 because Stop calls doJog with an rpm of 0
+	if rpm != 0 {
+		if warning != "" {
+			m.logger.CWarn(ctx, warning)
+		}
+		if err != nil {
+			m.logger.CError(ctx, err)
+		}
 	}
 
 	speed := m.rpmToV(math.Abs(rpm))
@@ -524,7 +527,8 @@ func (m *Motor) GoTo(ctx context.Context, rpm, positionRevolutions float64, extr
 
 // SetRPM instructs the motor to move at the specified RPM indefinitely.
 func (m *Motor) SetRPM(ctx context.Context, rpm float64, extra map[string]interface{}) error {
-	return motor.NewSetRPMUnsupportedError(m.Name().ShortName())
+	m.opMgr.CancelRunning(ctx)
+	return m.doJog(ctx, rpm)
 }
 
 // IsPowered returns true if the motor is currently moving.
