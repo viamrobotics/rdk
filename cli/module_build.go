@@ -401,6 +401,7 @@ func ReloadModuleAction(c *cli.Context) error {
 
 // reloadModuleAction is the testable inner reload logic.
 func reloadModuleAction(c *cli.Context, vc *viamClient) error {
+	logger := logging.NewLogger("reload")
 	if len(c.String(partFlag)) > 0 && !c.Bool(moduleBuildRestartOnly) {
 		// todo: remove this warning after remote reloading
 		warningf(c.App.Writer,
@@ -438,11 +439,21 @@ func reloadModuleAction(c *cli.Context, vc *viamClient) error {
 			}
 		}
 		if !c.Bool(moduleFlagLocal) {
-			// todo refactor: stage this change + the configureModule change, make a single updateRobotPart call.
+			if manifest == nil || manifest.Build == nil || manifest.Build.Path == "" {
+				return errors.New(`remote reloading requires a meta.json with the 'build.path' field set. try --local if you are testing on the same machine.`)
+			}
+			if !fileExists(manifest.Build.Path) {
+				return fmt.Errorf("couldn't find expected output bundle at %s", manifest.Build.Path)
+			}
 			if err := addShellService(c, vc, part.Part); err != nil {
 				return err
 			}
-			return errors.New("todo next: bidi filecopy tarball")
+			infof(c.App.Writer, "copying %s to part %s", manifest.Build.Path, part.Part.Id)
+			err = vc.copyFilesToFqdn(part.Part.Fqdn, c.Bool(debugFlag), false, false, []string{manifest.Build.Path}, manifest.Build.Path, logger)
+			if err != nil {
+				return err
+			}
+			return errors.New("todo next: check bidi")
 		}
 		needsRestart, err = configureModule(c, vc, manifest, part.Part)
 		if err != nil {
@@ -453,6 +464,12 @@ func reloadModuleAction(c *cli.Context, vc *viamClient) error {
 		return restartModule(c, vc, part.Part, manifest)
 	}
 	return nil
+}
+
+// fileExists returns true if the path exists.
+func fileExists(path string) bool {
+	_, err := os.Stat(path)
+	return err == nil
 }
 
 // resolvePartID takes an optional provided part ID (from partFlag), and an optional default viam.json, and returns a part ID to use.
