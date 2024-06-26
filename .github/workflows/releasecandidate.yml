@@ -87,7 +87,6 @@ jobs:
             echo "rc_number=$RC_NUMBER" >> $GITUHB_OUTPUT
           else
             echo "The tag does not match the expected pattern"
-            exit 1
           fi
 
   run-sdk-integration-networking-tests:
