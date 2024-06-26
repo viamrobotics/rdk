@@ -26,7 +26,6 @@ import (
 	"go.viam.com/rdk/components/audioinput"
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/components/camera"
-	"go.viam.com/rdk/components/encoder"
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/components/gripper"
 	"go.viam.com/rdk/components/movementsensor"
@@ -116,7 +115,7 @@ func TestRobotReconfigure(t *testing.T) {
 	test.That(t, len(resource.DefaultServices()), test.ShouldEqual, 2)
 
 	model1 := registerMockModel(t)
-	// mockWithDepModel := registerMockWithDepModel(t)
+	mockWithDepModel := registerMockWithDepModel(t)
 
 	modelName2 := utils.RandomAlphaString(5)
 	model2 := resource.DefaultModelFamily.WithModel(modelName2)
@@ -596,9 +595,9 @@ func TestRobotReconfigure(t *testing.T) {
 				{
 					Name:  "m2",
 					API:   mockAPI,
-					Model: model1,
+					Model: mockWithDepModel,
 					Attributes: rutils.AttributeMap{
-						"board": "board1",
+						"mock_dep": "board1",
 						"pins": map[string]interface{}{
 							"pwm": "1",
 						},
@@ -811,13 +810,13 @@ func TestRobotReconfigure(t *testing.T) {
 				{
 					Name:  "m2",
 					API:   mockAPI,
-					Model: model1,
+					Model: mockWithDepModel,
 					Attributes: rutils.AttributeMap{
-						"board": "board1",
-						"pins": map[string]interface{}{
-							"pwm": "5",
-						},
-						"pwm_freq": 4000,
+						"mock_dep": "board1",
+						// "pins": map[string]interface{}{
+						// 	"pwm": "5",
+						// },
+						// "pwm_freq": 4000,
 					},
 					DependsOn: []string{"board1"},
 				},
@@ -886,13 +885,13 @@ func TestRobotReconfigure(t *testing.T) {
 				{
 					Name:  "m2",
 					API:   mockAPI,
-					Model: model1,
+					Model: mockWithDepModel,
 					Attributes: rutils.AttributeMap{
-						"board": "board1",
-						"pins": map[string]interface{}{
-							"pwm": "1",
-						},
-						"pwm_freq": 1000,
+						"mock_dep": "board1",
+						// "pins": map[string]interface{}{
+						// 	"pwm": "1",
+						// },
+						// "pwm_freq": 1000,
 					},
 					DependsOn: []string{"arm2", "board1"},
 				},
@@ -1090,9 +1089,9 @@ func TestRobotReconfigure(t *testing.T) {
 				{
 					Name:  "m2",
 					API:   mockAPI,
-					Model: model1,
+					Model: mockWithDepModel,
 					Attributes: rutils.AttributeMap{
-						"board": "board1",
+						"mock_dep": "board1",
 						"pins": map[string]interface{}{
 							"pwm": "1",
 						},
@@ -1311,9 +1310,9 @@ func TestRobotReconfigure(t *testing.T) {
 				{
 					Name:  "m2",
 					API:   mockAPI,
-					Model: model1,
+					Model: mockWithDepModel,
 					Attributes: rutils.AttributeMap{
-						"board": "board1",
+						"mock_dep": "board1",
 						"pins": map[string]interface{}{
 							"pwm": "1",
 						},
@@ -1397,9 +1396,12 @@ func TestRobotReconfigure(t *testing.T) {
 					DependsOn: []string{"base2"},
 				},
 				{
-					Name:      "m2",
-					API:       mockAPI,
-					Model:     model1,
+					Name:  "m2",
+					API:   mockAPI,
+					Model: mockWithDepModel,
+					Attributes: rutils.AttributeMap{
+						"mock_dep": "board1",
+					},
 					DependsOn: []string{"base1"},
 				},
 				{
@@ -1903,10 +1905,10 @@ func TestRobotReconfigure(t *testing.T) {
 				{
 					Name:  "m1",
 					API:   mockAPI,
-					Model: resource.DefaultModelFamily.WithModel("gpio"),
+					Model: mockWithDepModel,
 					Attributes: rutils.AttributeMap{
-						"board":   "board1",
-						"encoder": "e1",
+						"mock_dep": "board1",
+						"encoder":  "e1",
 						"pins": map[string]interface{}{
 							"pwm": "5",
 							"dir": "2",
@@ -1919,14 +1921,10 @@ func TestRobotReconfigure(t *testing.T) {
 				},
 				{
 					Name:  "e1",
-					API:   encoder.API,
-					Model: resource.DefaultModelFamily.WithModel("incremental"),
+					API:   mockAPI,
+					Model: mockWithDepModel,
 					Attributes: rutils.AttributeMap{
-						"board": "board1",
-						"pins": map[string]interface{}{
-							"a": "encoder",
-							"b": "encoder-b",
-						},
+						"mock_dep": "board1",
 					},
 					DependsOn: []string{"board1"},
 				},
@@ -2038,12 +2036,11 @@ func TestRobotReconfigure(t *testing.T) {
 			mockNamed("mock3"), mockNamed("mock4"), mockNamed("mock5"),
 			mockNamed("mock6"),
 		}
-		encoderNames := []resource.Name{encoder.Named("e1")}
+		encoderNames := []resource.Name{mockNamed("e1")}
 
 		robot.Reconfigure(context.Background(), conf7)
 		test.That(t, robot.RemoteNames(), test.ShouldBeEmpty)
 		test.That(t, base.NamesFromRobot(robot), test.ShouldBeEmpty)
-		rdktestutils.VerifySameElements(t, encoder.NamesFromRobot(robot), rdktestutils.ExtractNames(encoderNames...))
 		test.That(t, camera.NamesFromRobot(robot), test.ShouldBeEmpty)
 		test.That(t, gripper.NamesFromRobot(robot), test.ShouldBeEmpty)
 		test.That(t, sensor.NamesFromRobot(robot), test.ShouldBeEmpty)
@@ -2157,10 +2154,10 @@ func TestRobotReconfigure(t *testing.T) {
 				{
 					Name:  "m1",
 					API:   mockAPI,
-					Model: resource.DefaultModelFamily.WithModel("gpio"),
+					Model: mockWithDepModel,
 					Attributes: rutils.AttributeMap{
-						"board":   "board1",
-						"encoder": "e1",
+						"mock_dep": "board1",
+						"encoder":  "e1",
 						"pins": map[string]interface{}{
 							"pwm": "5",
 							"dir": "2",
@@ -2173,10 +2170,10 @@ func TestRobotReconfigure(t *testing.T) {
 				},
 				{
 					Name:  "e1",
-					API:   encoder.API,
-					Model: resource.DefaultModelFamily.WithModel("incremental"),
+					API:   mockAPI,
+					Model: mockWithDepModel,
 					Attributes: rutils.AttributeMap{
-						"board": "board1",
+						"mock_dep": "board1",
 						"pins": map[string]interface{}{
 							"a": "encoder",
 							"b": "encoder-b",
@@ -2265,10 +2262,10 @@ func TestRobotReconfigure(t *testing.T) {
 				{
 					Name:  "m1",
 					API:   mockAPI,
-					Model: resource.DefaultModelFamily.WithModel("gpio"),
+					Model: mockWithDepModel,
 					Attributes: rutils.AttributeMap{
-						"board":   "board1",
-						"encoder": "e1",
+						"mock_dep": "board1",
+						"encoder":  "e1",
 						"pins": map[string]interface{}{
 							"pwm": "5",
 							"dir": "2",
@@ -2281,10 +2278,10 @@ func TestRobotReconfigure(t *testing.T) {
 				},
 				{
 					Name:  "e1",
-					API:   encoder.API,
-					Model: resource.DefaultModelFamily.WithModel("incremental"),
+					API:   mockAPI,
+					Model: mockWithDepModel,
 					Attributes: rutils.AttributeMap{
-						"board": "board1",
+						"mock_dep": "board1",
 						"pins": map[string]interface{}{
 							"a": "encoder",
 							"b": "encoder-b",
@@ -2346,14 +2343,13 @@ func TestRobotReconfigure(t *testing.T) {
 
 		boardNames := []resource.Name{mockNamed("board1"), mockNamed("board2")}
 		motorNames := []resource.Name{mockNamed("m1")}
-		encoderNames := []resource.Name{encoder.Named("e1")}
+		encoderNames := []resource.Name{mockNamed("e1")}
 		mockNames := []resource.Name{
 			mockNamed("mock1"), mockNamed("mock2"), mockNamed("mock6"),
 			mockNamed("mock3"), mockNamed("mock4"), mockNamed("mock5"),
 		}
 		test.That(t, robot.RemoteNames(), test.ShouldBeEmpty)
 		test.That(t, base.NamesFromRobot(robot), test.ShouldBeEmpty)
-		rdktestutils.VerifySameElements(t, encoder.NamesFromRobot(robot), rdktestutils.ExtractNames(encoderNames...))
 		test.That(t, camera.NamesFromRobot(robot), test.ShouldBeEmpty)
 		test.That(t, gripper.NamesFromRobot(robot), test.ShouldBeEmpty)
 		test.That(t, sensor.NamesFromRobot(robot), test.ShouldBeEmpty)
@@ -2440,7 +2436,6 @@ func TestRobotReconfigure(t *testing.T) {
 		}
 		test.That(t, robot.RemoteNames(), test.ShouldBeEmpty)
 		test.That(t, base.NamesFromRobot(robot), test.ShouldBeEmpty)
-		rdktestutils.VerifySameElements(t, encoder.NamesFromRobot(robot), rdktestutils.ExtractNames(encoderNames...))
 		test.That(t, camera.NamesFromRobot(robot), test.ShouldBeEmpty)
 		test.That(t, gripper.NamesFromRobot(robot), test.ShouldBeEmpty)
 		test.That(t, sensor.NamesFromRobot(robot), test.ShouldBeEmpty)
@@ -2549,10 +2544,10 @@ func TestRobotReconfigure(t *testing.T) {
 				{
 					Name:  "m1",
 					API:   mockAPI,
-					Model: resource.DefaultModelFamily.WithModel("gpio"),
+					Model: mockWithDepModel,
 					Attributes: rutils.AttributeMap{
-						"board":   "board1",
-						"encoder": "e1",
+						"mock_dep": "board1",
+						"encoder":  "e1",
 						"pins": map[string]interface{}{
 							"pwm": "5",
 							"dir": "2",
@@ -2565,10 +2560,10 @@ func TestRobotReconfigure(t *testing.T) {
 				},
 				{
 					Name:  "e1",
-					API:   encoder.API,
-					Model: resource.DefaultModelFamily.WithModel("incremental"),
+					API:   mockAPI,
+					Model: mockWithDepModel,
 					Attributes: rutils.AttributeMap{
-						"board": "board1",
+						"mock_dep": "board1",
 						"pins": map[string]interface{}{
 							"a": "encoder",
 							"b": "encoder-b",
@@ -2657,10 +2652,10 @@ func TestRobotReconfigure(t *testing.T) {
 				{
 					Name:  "m1",
 					API:   mockAPI,
-					Model: resource.DefaultModelFamily.WithModel("gpio"),
+					Model: mockWithDepModel,
 					Attributes: rutils.AttributeMap{
-						"board":   "board1",
-						"encoder": "e1",
+						"mock_dep": "board1",
+						"encoder":  "e1",
 						"pins": map[string]interface{}{
 							"pwm": "5",
 							"dir": "2",
@@ -2673,10 +2668,10 @@ func TestRobotReconfigure(t *testing.T) {
 				},
 				{
 					Name:  "e1",
-					API:   encoder.API,
-					Model: resource.DefaultModelFamily.WithModel("incremental"),
+					API:   mockAPI,
+					Model: mockWithDepModel,
 					Attributes: rutils.AttributeMap{
-						"board": "board1",
+						"mock_dep": "board1",
 						"pins": map[string]interface{}{
 							"a": "encoder",
 							"b": "encoder-b",
@@ -2763,14 +2758,13 @@ func TestRobotReconfigure(t *testing.T) {
 
 		boardNames := []resource.Name{mockNamed("board1"), mockNamed("board2")}
 		motorNames := []resource.Name{mockNamed("m1")}
-		encoderNames := []resource.Name{encoder.Named("e1")}
+		encoderNames := []resource.Name{mockNamed("e1")}
 		mockNames := []resource.Name{
 			mockNamed("mock1"), mockNamed("mock2"),
 			mockNamed("mock3"), mockNamed("mock4"), mockNamed("mock5"),
 			mockNamed("mock6"),
 		}
 		test.That(t, robot.RemoteNames(), test.ShouldBeEmpty)
-		rdktestutils.VerifySameElements(t, encoder.NamesFromRobot(robot), rdktestutils.ExtractNames(encoderNames...))
 
 		rdktestutils.VerifySameResourceNames(t, robot.ResourceNames(), rdktestutils.ConcatResourceNames(
 			boardNames,
@@ -2854,8 +2848,6 @@ func TestRobotReconfigure(t *testing.T) {
 			mockNamed("mock3"),
 		}
 		test.That(t, robot.RemoteNames(), test.ShouldBeEmpty)
-		rdktestutils.VerifySameElements(t, encoder.NamesFromRobot(robot), rdktestutils.ExtractNames(encoderNames...))
-
 		rdktestutils.VerifySameResourceNames(t, robot.ResourceNames(), rdktestutils.ConcatResourceNames(
 			boardNames,
 			resource.DefaultServices(),
@@ -2952,10 +2944,10 @@ func TestRobotReconfigure(t *testing.T) {
 				{
 					Name:  "m1",
 					API:   mockAPI,
-					Model: resource.DefaultModelFamily.WithModel("gpio"),
+					Model: mockWithDepModel,
 					Attributes: rutils.AttributeMap{
-						"board":   "board1",
-						"encoder": "e1",
+						"mock_dep": "board1",
+						"encoder":  "e1",
 						"pins": map[string]interface{}{
 							"pwm": "5",
 							"dir": "2",
@@ -2968,14 +2960,10 @@ func TestRobotReconfigure(t *testing.T) {
 				},
 				{
 					Name:  "e1",
-					API:   encoder.API,
-					Model: resource.DefaultModelFamily.WithModel("incremental"),
+					API:   mockAPI,
+					Model: mockWithDepModel,
 					Attributes: rutils.AttributeMap{
-						"board": "board1",
-						"pins": map[string]interface{}{
-							"a": "encoder",
-							"b": "encoder-b",
-						},
+						"mock_dep": "board1",
 					},
 					DependsOn: []string{"board1"},
 				},
@@ -3057,7 +3045,6 @@ func TestRobotReconfigure(t *testing.T) {
 			mockNamed("mock4"), mockNamed("mock5"),
 		}
 		test.That(t, robot.RemoteNames(), test.ShouldBeEmpty)
-		rdktestutils.VerifySameElements(t, encoder.NamesFromRobot(robot), rdktestutils.ExtractNames(encoderNames...))
 
 		rdktestutils.VerifySameResourceNames(t, robot.ResourceNames(), rdktestutils.ConcatResourceNames(
 			boardNames,
@@ -4494,7 +4481,7 @@ func registerMockWithDepModel(tb testing.TB) resource.Model {
 	model := resource.DefaultModelFamily.WithModel(modelName)
 
 	resource.RegisterComponent(mockAPI, model,
-		resource.Registration[resource.Resource, *mockFakeConfig]{
+		resource.Registration[resource.Resource, *mockWithDepConfig]{
 			Constructor: func(
 				ctx context.Context,
 				deps resource.Dependencies,
