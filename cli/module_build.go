@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"slices"
 	"strings"
 	"text/tabwriter"
@@ -451,11 +452,12 @@ func reloadModuleAction(c *cli.Context, vc *viamClient) error {
 				return err
 			}
 			infof(c.App.Writer, "copying %s to part %s", manifest.Build.Path, part.Part.Id)
-			err = vc.copyFilesToFqdn(part.Part.Fqdn, c.Bool(debugFlag), false, false, []string{manifest.Build.Path}, manifest.Build.Path, logger)
+			err = vc.copyFilesToFqdn(
+				part.Part.Fqdn, c.Bool(debugFlag), false, false, []string{manifest.Build.Path},
+				reloadingDestination(c, manifest.Build), logger)
 			if err != nil {
 				return err
 			}
-			return errors.New("todo next: check bidi")
 		}
 		needsRestart, err = configureModule(c, vc, manifest, part.Part)
 		if err != nil {
@@ -463,9 +465,22 @@ func reloadModuleAction(c *cli.Context, vc *viamClient) error {
 		}
 	}
 	if needsRestart {
-		return restartModule(c, vc, part.Part, manifest)
+		err = restartModule(c, vc, part.Part, manifest)
+		// todo: use GRPC error with checkable error code
+		if strings.Contains(err.Error(), "module not found with") {
+			warningf(c.App.ErrWriter, "viam-server couldn't find your module to restart it; this happens if the module couldn't start, and may not indicate an error")
+		}
+		return err
 	}
 	return nil
+}
+
+// this chooses a destination path for the module archive.
+func reloadingDestination(c *cli.Context, build *manifestBuildInfo) string {
+	// todo: support mkdir in file copy, then pathify module name
+	// todo: download location that gets cleaned up sensibly
+	filepath.Join(c.String(moduleFlagHomeDir), ".viam/packages-local", build.Path)
+	return build.Path
 }
 
 // validateReloadableArchive returns an error if there is a fatal issue (for now just file not found).
@@ -483,7 +498,6 @@ func validateReloadableArchive(c *cli.Context, build *manifestBuildInfo) error {
 	meta_found := false
 	for {
 		header, err := archive.Next()
-		fmt.Printf("header %v err %s", header, err)
 		if errors.Is(err, io.EOF) {
 			break
 		}

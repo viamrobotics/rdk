@@ -49,6 +49,7 @@ const (
 	moduleFlagForce           = "force"
 	moduleFlagBinary          = "binary"
 	moduleFlagLocal           = "local"
+	moduleFlagHomeDir         = "home"
 
 	moduleBuildFlagPath      = "module"
 	moduleBuildFlagRef       = "ref"
@@ -1608,6 +1609,11 @@ Example:
 						&cli.BoolFlag{
 							Name:  moduleFlagLocal,
 							Usage: "if the target machine is localhost, run the entrypoint directly rather than transferring a bundle",
+						},
+						&cli.StringFlag{
+							Name:  moduleFlagHomeDir,
+							Usage: "remote user's home directory. only necessary if you're targeting a remote machine where $HOME is not /root",
+							Value: "/root",
 						},
 					},
 					Action: ReloadModuleAction,

@@ -57,6 +57,8 @@ const (
 	maxNumLogs = 10000
 )
 
+var errNoShellService = errors.New("shell service is not enabled on this machine part")
+
 // viamClient wraps a cli.Context and provides all the CLI command functionality
 // needed to talk to the app and data services but not directly to robot parts.
 type viamClient struct {
@@ -1367,7 +1369,7 @@ func (c *viamClient) connectToShellServiceInner(
 		}
 	}
 	if found == nil {
-		return nil, nil, errors.New("shell service is not enabled on this machine part")
+		return nil, nil, errNoShellService
 	}
 
 	shellRes, err := robotClient.ResourceByName(*found)

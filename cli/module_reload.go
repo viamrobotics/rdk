@@ -5,12 +5,14 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/pkg/errors"
 	"github.com/urfave/cli/v2"
 	apppb "go.viam.com/api/app/v1"
 
 	rdkConfig "go.viam.com/rdk/config"
+	"go.viam.com/rdk/logging"
 	rutils "go.viam.com/rdk/utils"
 )
 
@@ -35,13 +37,30 @@ func addShellService(c *cli.Context, vc *viamClient, part *apppb.RobotPart) erro
 		debugf(c.App.Writer, c.Bool(debugFlag), "shell service found on target machine, not installing")
 		return nil
 	}
-	services = append(services, ServiceMap{"type": "shell"})
+	services = append(services, ServiceMap{"name": "shell", "type": "shell"})
 	asAny, _ := rutils.MapOver(services, func(service ServiceMap) (any, error) {
 		return map[string]any(service), nil
 	})
 	partMap["services"] = asAny
 	infof(c.App.Writer, "installing shell service on target machine for file transfer")
-	return vc.updateRobotPart(part, partMap)
+	err := vc.updateRobotPart(part, partMap)
+	if err != nil {
+		return err
+	}
+	// note: we wait up to 7 seconds; that's 5 seconds for the config watcher and 2 for luck.
+	// If we don't do this, reloading fails on first run.
+	for i := 0; i < 7; i++ {
+		time.Sleep(time.Second)
+		_, closeClient, err := vc.connectToShellServiceFqdn(part.Fqdn, c.Bool(debugFlag), logging.NewLogger("shellsvc"))
+		if err == nil {
+			closeClient(c.Context)
+			return nil
+		}
+		if !errors.Is(err, errNoShellService) {
+			return err
+		}
+	}
+	return errors.New("timed out waiting for shell service to start")
 }
 
 // configureModule is the configuration step of module reloading. Returns (needsRestart, error).
@@ -110,7 +129,7 @@ func mutateModuleConfig(c *cli.Context, modules []ModuleMap, manifest moduleMani
 			return nil, dirty, err
 		}
 	} else {
-		return nil, false, errors.New("todo: entrypoint path in remote case")
+		absEntrypoint = reloadingDestination(c, manifest.Build)
 	}
 
 	if foundMod == nil {
