@@ -80,7 +80,7 @@ jobs:
         id: extract-rc-version
         run: |
           TAG_NAME=${GITHUB_REF#refs/tags/}
-          if [[ $TAG_NAME =~ ^v([0-9]+\.[0-9]+\.[0-9]+)-rc([0-9]+)$ ]]; then
+          if [[ $TAG_NAME =~ v([0-9]+\.[0-9]+\.[0-9]+)-rc([0-9]+) ]]; then
             VERSION="${BASH_REMATCH[1]}"
             RC_NUMBER="${BASH_REMATCH[2]}"
             echo "version=$VERSION" >> $GITUHB_OUTPUT
