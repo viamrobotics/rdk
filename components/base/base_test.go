@@ -4,13 +4,18 @@ import (
 	"context"
 	"testing"
 
+	robotimpl "go.viam.com/rdk/robot/impl"
+
 	"github.com/go-viper/mapstructure/v2"
 	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/test"
 	"go.viam.com/utils/protoutils"
 
 	"go.viam.com/rdk/components/base"
+	_ "go.viam.com/rdk/components/base/fake"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
 )
 
@@ -77,4 +82,37 @@ func TestCreateStatus(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, status1, test.ShouldResemble, status)
 	})
+}
+
+func TestFromRobot(t *testing.T) {
+	jsonData := `{
+		"components": [
+			{
+				"name": "base1",
+				"type": "base",
+				"model": "fake"
+			},
+			{
+				"name": "base2",
+				"type": "base",
+				"model": "fake"
+			}
+		]
+	}`
+
+	conf := testutils.ConfigFromJSON(t, jsonData)
+	logger := logging.NewTestLogger(t)
+	r := robotimpl.SetupLocalRobot(t, context.Background(), conf, logger)
+
+	expected := []string{"base1", "base2"}
+	testutils.VerifySameElements(t, base.NamesFromRobot(r), expected)
+
+	_, err := base.FromRobot(r, "base1")
+	test.That(t, err, test.ShouldBeNil)
+
+	_, err = base.FromRobot(r, "base2")
+	test.That(t, err, test.ShouldBeNil)
+
+	_, err = base.FromRobot(r, "base0")
+	test.That(t, err, test.ShouldNotBeNil)
 }
