@@ -662,7 +662,7 @@ func CheckUpdateAction(c *cli.Context) error {
 
 	if localVersion.LessThan(latestVersion) {
 		warningf(c.App.ErrWriter, "CLI Update Check: Your CLI is out of date. Consider updating to version %s. "+
-		"See https://docs.viam.com/cli/#install", latestVersion.Original())
+			"See https://docs.viam.com/cli/#install", latestVersion.Original())
 	}
 
 	return nil
