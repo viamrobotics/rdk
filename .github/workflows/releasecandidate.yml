@@ -70,6 +70,7 @@ jobs:
 
   extract-rc-version:
     runs-on: ubuntu-latest
+    continue-on-error: true
     outputs:
       version: ${{ steps.extract-rc-version.outputs.version }}
       rc_number: ${{ steps.extract-rc-version.outputs.rc_number }}
