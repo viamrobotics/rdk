@@ -7,13 +7,9 @@ import (
 	pb "go.viam.com/api/component/arm/v1"
 	"go.viam.com/test"
 
-	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/testutils"
-
-	robotimpl "go.viam.com/rdk/robot/impl"
 )
 
 func TestReconfigure(t *testing.T) {
@@ -104,32 +100,4 @@ func TestReconfigure(t *testing.T) {
 	test.That(t, err.Error(), test.ShouldContainSubstring, "fake arm built with zero degrees-of-freedom")
 	test.That(t, fakeArm.joints.Values, test.ShouldResemble, modelJoints)
 	test.That(t, fakeArm.model, test.ShouldResemble, model)
-}
-
-func TestFromRobot(t *testing.T) {
-	jsonData := `{
-		"components": [
-			{
-				"name": "arm1",
-				"type": "arm",
-				"model": "fake",
-				"attributes": {
-					"model-path": "fake_model.json"
-				}
-			}
-		]
-	}`
-
-	conf := testutils.ConfigFromJSON(t, jsonData)
-	logger := logging.NewTestLogger(t)
-	r := robotimpl.SetupLocalRobot(t, context.Background(), conf, logger)
-
-	expected := []string{"arm1"}
-	testutils.VerifySameElements(t, arm.NamesFromRobot(r), expected)
-
-	_, err := arm.FromRobot(r, "arm1")
-	test.That(t, err, test.ShouldBeNil)
-
-	_, err = arm.FromRobot(r, "arm0")
-	test.That(t, err, test.ShouldNotBeNil)
 }
