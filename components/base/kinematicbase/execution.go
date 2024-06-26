@@ -371,10 +371,9 @@ func (ptgk *ptgBaseKinematics) courseCorrect(
 		" linear diff now ", poseDiff.Point().Norm(),
 		" angle diff ", rdkutils.RadToDeg(poseDiff.Orientation().AxisAngles().Theta),
 	)
-
+	ptgk.logger.Debug("expected to be at ", spatialmath.PoseToProtobuf(expectedPose))
+	ptgk.logger.Debug("Localizer says at ", spatialmath.PoseToProtobuf(actualPose.Pose()))
 	if poseDiff.Point().Norm() > allowableDiff || rdkutils.RadToDeg(poseDiff.Orientation().AxisAngles().Theta) > allowableDiff {
-		ptgk.logger.Debug("expected to be at ", spatialmath.PoseToProtobuf(expectedPose))
-		ptgk.logger.Debug("Localizer says at ", spatialmath.PoseToProtobuf(actualPose.Pose()))
 		// Accumulate list of points along the path to try to connect to
 		goals := ptgk.makeCourseCorrectionGoals(
 			goalsToAttempt,
@@ -424,7 +423,8 @@ func (ptgk *ptgBaseKinematics) courseCorrect(
 
 			// Use distances to calculate the % completion of the arc, used to update the time remaining.
 			// We can't use step.durationSeconds because we might connect to a different arc than we're currently in.
-			pctTrajRemaining := (connectionPoint.subTraj[len(connectionPoint.subTraj)-1].Dist -
+			// This is valid because each individual arcstep is guaranteed to have constant velocities across the whole step.
+			pctTrajRemaining := math.Abs(connectionPoint.subTraj[len(connectionPoint.subTraj)-1].Dist-
 				connectionPoint.subTraj[solution.trajIdx].Dist) / arcOriginalLength
 
 			// TODO (RSDK-7515) Start value rewriting here is somewhat complicated. Imagine the old trajectory was [0, 200] and we
@@ -485,7 +485,7 @@ func (ptgk *ptgBaseKinematics) courseCorrect(
 
 func (ptgk *ptgBaseKinematics) getCorrectionSolution(ctx context.Context, goals []courseCorrectionGoal) (courseCorrectionGoal, error) {
 	for _, goal := range goals {
-		solveMetric := ik.NewPosWeightSquaredNormMetric(goal.Goal)
+		solveMetric := ik.NewScaledSquaredNormMetric(goal.Goal, 50)
 		solutionChan := make(chan *ik.Solution, 1)
 		ptgk.logger.Debug("attempting goal ", spatialmath.PoseToProtobuf(goal.Goal))
 		seed := []referenceframe.Input{{math.Pi / 2}, {ptgk.linVelocityMMPerSecond / 2}, {math.Pi / 2}, {ptgk.linVelocityMMPerSecond / 2}}
