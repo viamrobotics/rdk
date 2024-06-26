@@ -1319,7 +1319,29 @@ func (c *viamClient) connectToShellService(orgStr, locStr, robotStr, partStr str
 	if err != nil {
 		return nil, nil, err
 	}
+	return c.connectToShellServiceInner(dialCtx, fqdn, rpcOpts, debug, logger)
+}
 
+// connectToShellServiceFqdn is a shell service dialer that doesn't check org or re-fetch the part.
+func (c *viamClient) connectToShellServiceFqdn(
+	partFqdn string,
+	debug bool,
+	logger logging.Logger,
+) (shell.Service, func(ctx context.Context) error, error) {
+	dialCtx, fqdn, rpcOpts, err := c.prepareDialInner(partFqdn, debug)
+	if err != nil {
+		return nil, nil, err
+	}
+	return c.connectToShellServiceInner(dialCtx, fqdn, rpcOpts, debug, logger)
+}
+
+func (c *viamClient) connectToShellServiceInner(
+	dialCtx context.Context,
+	fqdn string,
+	rpcOpts []rpc.DialOption,
+	debug bool,
+	logger logging.Logger,
+) (shell.Service, func(ctx context.Context) error, error) {
 	if debug {
 		printf(c.c.App.Writer, "Establishing connection...")
 	}
@@ -1492,6 +1514,35 @@ func (c *viamClient) copyFilesToMachine(
 	if err != nil {
 		return err
 	}
+	return c.copyFilesToMachineInner(shellSvc, closeClient, allowRecursion, preserve, paths, destination)
+}
+
+// copyFilesToFqdn is a copyFilesToMachine variant that makes use of pre-fetched part FQDN.
+func (c *viamClient) copyFilesToFqdn(
+	fqdn string,
+	debug bool,
+	allowRecursion bool,
+	preserve bool,
+	paths []string,
+	destination string,
+	logger logging.Logger,
+) error {
+	shellSvc, closeClient, err := c.connectToShellServiceFqdn(fqdn, debug, logger)
+	if err != nil {
+		return err
+	}
+	return c.copyFilesToMachineInner(shellSvc, closeClient, allowRecursion, preserve, paths, destination)
+}
+
+// copyFilesToMachineInner is the common logic for both copyFiles variants.
+func (c *viamClient) copyFilesToMachineInner(
+	shellSvc shell.Service,
+	closeClient func(ctx context.Context) error,
+	allowRecursion bool,
+	preserve bool,
+	paths []string,
+	destination string,
+) error {
 	defer func() {
 		utils.UncheckedError(closeClient(c.c.Context))
 	}()
