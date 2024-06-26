@@ -21,6 +21,7 @@ import (
 	"go.viam.com/utils/pexec"
 	"go.viam.com/utils/testutils"
 
+	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/components/arm/fake"
 	"go.viam.com/rdk/components/audioinput"
 	"go.viam.com/rdk/components/base"
@@ -3656,6 +3657,7 @@ func (s *someTypeWithWeakAndStrongDepsConfig) Validate(_ string) ([]string, erro
 	return depNames, nil
 }
 
+// TODO(RSDK-7884): change all referenced resources to mocks.
 func TestUpdateWeakDependents(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 
@@ -3744,7 +3746,7 @@ func TestUpdateWeakDependents(t *testing.T) {
 	test.That(t, weak1.resources, test.ShouldContainKey, base1Name)
 
 	// Reconfigure again with a new third `arm` component.
-	arm1Name := mockNamed("arm1")
+	arm1Name := arm.Named("arm1")
 	weakCfg3 := config.Config{
 		Components: []resource.Config{
 			{
@@ -3759,7 +3761,7 @@ func TestUpdateWeakDependents(t *testing.T) {
 			},
 			{
 				Name:                arm1Name.Name,
-				API:                 mockAPI,
+				API:                 arm.API,
 				Model:               fake.Model,
 				ConvertedAttributes: &fake.Config{},
 			},
