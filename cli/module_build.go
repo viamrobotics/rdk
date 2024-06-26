@@ -1,6 +1,8 @@
 package cli
 
 import (
+	"archive/tar"
+	"compress/gzip"
 	"context"
 	"fmt"
 	"io"
@@ -442,8 +444,8 @@ func reloadModuleAction(c *cli.Context, vc *viamClient) error {
 			if manifest == nil || manifest.Build == nil || manifest.Build.Path == "" {
 				return errors.New(`remote reloading requires a meta.json with the 'build.path' field set. try --local if you are testing on the same machine.`)
 			}
-			if !fileExists(manifest.Build.Path) {
-				return fmt.Errorf("couldn't find expected output bundle at %s", manifest.Build.Path)
+			if err := validateReloadableArchive(c, manifest.Build); err != nil {
+				return err
 			}
 			if err := addShellService(c, vc, part.Part); err != nil {
 				return err
@@ -466,10 +468,37 @@ func reloadModuleAction(c *cli.Context, vc *viamClient) error {
 	return nil
 }
 
-// fileExists returns true if the path exists.
-func fileExists(path string) bool {
-	_, err := os.Stat(path)
-	return err == nil
+// validateReloadableArchive returns an error if there is a fatal issue (for now just file not found).
+// It also logs warnings for likely problems.
+func validateReloadableArchive(c *cli.Context, build *manifestBuildInfo) error {
+	reader, err := os.Open(build.Path)
+	if err != nil {
+		return err
+	}
+	decompressed, err := gzip.NewReader(reader)
+	if err != nil {
+		return err
+	}
+	archive := tar.NewReader(decompressed)
+	meta_found := false
+	for {
+		header, err := archive.Next()
+		fmt.Printf("header %v err %s", header, err)
+		if errors.Is(err, io.EOF) {
+			break
+		}
+		if err != nil {
+			return errors.Wrapf(err, "reading tar at %s", build.Path)
+		}
+		if header.Name == "meta.json" {
+			meta_found = true
+			break
+		}
+	}
+	if !meta_found {
+		warningf(c.App.ErrWriter, "archive at %s doesn't contain a meta.json, your module will probably fail to start", build.Path)
+	}
+	return nil
 }
 
 // resolvePartID takes an optional provided part ID (from partFlag), and an optional default viam.json, and returns a part ID to use.

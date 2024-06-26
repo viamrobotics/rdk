@@ -6,6 +6,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/pkg/errors"
 	"github.com/urfave/cli/v2"
 	apppb "go.viam.com/api/app/v1"
 
@@ -101,9 +102,15 @@ func mutateModuleConfig(c *cli.Context, modules []ModuleMap, manifest moduleMani
 		}
 	}
 
-	absEntrypoint, err := filepath.Abs(manifest.Entrypoint)
-	if err != nil {
-		return nil, dirty, err
+	var absEntrypoint string
+	var err error
+	if c.Bool(moduleFlagLocal) {
+		absEntrypoint, err = filepath.Abs(manifest.Entrypoint)
+		if err != nil {
+			return nil, dirty, err
+		}
+	} else {
+		return nil, false, errors.New("todo: entrypoint path in remote case")
 	}
 
 	if foundMod == nil {
