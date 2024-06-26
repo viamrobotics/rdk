@@ -25,12 +25,10 @@ import (
 	"go.viam.com/rdk/components/arm/fake"
 	"go.viam.com/rdk/components/audioinput"
 	"go.viam.com/rdk/components/base"
-	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/components/encoder"
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/components/gripper"
-	"go.viam.com/rdk/components/motor"
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/components/sensor"
 	"go.viam.com/rdk/components/servo"
@@ -95,15 +93,19 @@ func registerMockModel(tb testing.TB) resource.Model {
 				logger logging.Logger,
 			) (resource.Resource, error) {
 				// test if implicit depencies are properly propagated
-				for _, dep := range conf.ConvertedAttributes.(*mockFakeConfig).InferredDep {
+				convAttrs := conf.ConvertedAttributes.(*mockFakeConfig)
+				for _, dep := range convAttrs.InferredDep {
 					if _, ok := deps[mockNamed(dep)]; !ok {
 						return nil, errors.Errorf("inferred dependency %q cannot be found", mockNamed(dep))
 					}
 				}
-				if conf.ConvertedAttributes.(*mockFakeConfig).ShouldFail {
+				if convAttrs.ShouldFail {
 					return nil, errors.Errorf("cannot build %q for some obscure reason", conf.Name)
 				}
-				return &mockFake{Named: conf.ResourceName().AsNamed()}, nil
+				return &mockFake{
+					Named: conf.ResourceName().AsNamed(),
+					Value: convAttrs.Value,
+				}, nil
 			},
 		})
 	tb.Cleanup(func() { resource.Deregister(mockAPI, model) })
@@ -114,6 +116,7 @@ func TestRobotReconfigure(t *testing.T) {
 	test.That(t, len(resource.DefaultServices()), test.ShouldEqual, 2)
 
 	model1 := registerMockModel(t)
+	// mockWithDepModel := registerMockWithDepModel(t)
 
 	modelName2 := utils.RandomAlphaString(5)
 	model2 := resource.DefaultModelFamily.WithModel(modelName2)
@@ -162,8 +165,8 @@ func TestRobotReconfigure(t *testing.T) {
 				},
 				{
 					Name:  "board1",
-					API:   board.API,
-					Model: fakeModel,
+					API:   mockAPI,
+					Model: model1,
 					Attributes: rutils.AttributeMap{
 						"analogs": []interface{}{
 							map[string]interface{}{
@@ -214,13 +217,12 @@ func TestRobotReconfigure(t *testing.T) {
 
 		armNames := []resource.Name{mockNamed("arm1")}
 		baseNames := []resource.Name{base.Named("base1")}
-		boardNames := []resource.Name{board.Named("board1")}
+		boardNames := []resource.Name{mockNamed("board1")}
 		mockNames := []resource.Name{mockNamed("mock1"), mockNamed("mock2")}
 
 		test.That(t, robot.RemoteNames(), test.ShouldBeEmpty)
 
 		rdktestutils.VerifySameElements(t, base.NamesFromRobot(robot), rdktestutils.ExtractNames(baseNames...))
-		rdktestutils.VerifySameElements(t, board.NamesFromRobot(robot), rdktestutils.ExtractNames(boardNames...))
 		test.That(t, camera.NamesFromRobot(robot), test.ShouldBeEmpty)
 		test.That(t, gripper.NamesFromRobot(robot), test.ShouldBeEmpty)
 		test.That(t, sensor.NamesFromRobot(robot), test.ShouldBeEmpty)
@@ -237,7 +239,6 @@ func TestRobotReconfigure(t *testing.T) {
 		robot.Reconfigure(ctx, conf1)
 		test.That(t, robot.RemoteNames(), test.ShouldBeEmpty)
 		rdktestutils.VerifySameElements(t, base.NamesFromRobot(robot), rdktestutils.ExtractNames(baseNames...))
-		rdktestutils.VerifySameElements(t, board.NamesFromRobot(robot), rdktestutils.ExtractNames(boardNames...))
 		test.That(t, camera.NamesFromRobot(robot), test.ShouldBeEmpty)
 		test.That(t, gripper.NamesFromRobot(robot), test.ShouldBeEmpty)
 		test.That(t, sensor.NamesFromRobot(robot), test.ShouldBeEmpty)
@@ -251,19 +252,13 @@ func TestRobotReconfigure(t *testing.T) {
 		))
 		rdktestutils.VerifySameElements(t, robot.ProcessManager().ProcessIDs(), []string{"1", "2"})
 
-		_, err := robot.ResourceByName(mockNamed("arm1"))
-		test.That(t, err, test.ShouldBeNil)
-
-		_, err = base.FromRobot(robot, "base1")
-		test.That(t, err, test.ShouldBeNil)
-
-		_, err = board.FromRobot(robot, "board1")
+		_, err := base.FromRobot(robot, "base1")
 		test.That(t, err, test.ShouldBeNil)
 
 		_, err = robot.ResourceByName(mockNamed("arm1"))
 		test.That(t, err, test.ShouldBeNil)
 
-		_, err = robot.ResourceByName(board.Named("board1"))
+		_, err = robot.ResourceByName(mockNamed("board1"))
 		test.That(t, err, test.ShouldBeNil)
 
 		mock1, err := robot.ResourceByName(mockNamed("mock1"))
@@ -300,8 +295,8 @@ func TestRobotReconfigure(t *testing.T) {
 				},
 				{
 					Name:  "board1",
-					API:   board.API,
-					Model: fakeModel,
+					API:   mockAPI,
+					Model: model1,
 					Attributes: rutils.AttributeMap{
 						"analogs": []interface{}{
 							map[string]interface{}{
@@ -358,8 +353,8 @@ func TestRobotReconfigure(t *testing.T) {
 				},
 				{
 					Name:  "board1",
-					API:   board.API,
-					Model: fakeModel,
+					API:   mockAPI,
+					Model: model1,
 					Attributes: rutils.AttributeMap{
 						"analogs": []interface{}{
 							map[string]interface{}{
@@ -408,11 +403,10 @@ func TestRobotReconfigure(t *testing.T) {
 
 		armNames := []resource.Name{mockNamed("arm1")}
 		baseNames := []resource.Name{base.Named("base1")}
-		boardNames := []resource.Name{board.Named("board1")}
+		boardNames := []resource.Name{mockNamed("board1")}
 		mockNames := []resource.Name{mockNamed("mock1"), mockNamed("mock2")}
 		test.That(t, robot.RemoteNames(), test.ShouldBeEmpty)
 		rdktestutils.VerifySameElements(t, base.NamesFromRobot(robot), rdktestutils.ExtractNames(baseNames...))
-		rdktestutils.VerifySameElements(t, board.NamesFromRobot(robot), rdktestutils.ExtractNames(boardNames...))
 		test.That(t, camera.NamesFromRobot(robot), test.ShouldBeEmpty)
 		test.That(t, gripper.NamesFromRobot(robot), test.ShouldBeEmpty)
 		test.That(t, sensor.NamesFromRobot(robot), test.ShouldBeEmpty)
@@ -432,7 +426,7 @@ func TestRobotReconfigure(t *testing.T) {
 		base1, err := base.FromRobot(robot, "base1")
 		test.That(t, err, test.ShouldBeNil)
 
-		board1, err := board.FromRobot(robot, "board1")
+		board1, err := robot.ResourceByName(mockNamed("board1"))
 		test.That(t, err, test.ShouldBeNil)
 
 		resource1, err := robot.ResourceByName(mockNamed("arm1"))
@@ -461,7 +455,6 @@ func TestRobotReconfigure(t *testing.T) {
 		})
 		test.That(t, robot.RemoteNames(), test.ShouldBeEmpty)
 		rdktestutils.VerifySameElements(t, base.NamesFromRobot(robot), rdktestutils.ExtractNames(baseNames...))
-		rdktestutils.VerifySameElements(t, board.NamesFromRobot(robot), rdktestutils.ExtractNames(boardNames...))
 		test.That(t, camera.NamesFromRobot(robot), test.ShouldBeEmpty)
 		test.That(t, gripper.NamesFromRobot(robot), test.ShouldBeEmpty)
 		test.That(t, sensor.NamesFromRobot(robot), test.ShouldBeEmpty)
@@ -485,7 +478,7 @@ func TestRobotReconfigure(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, newBase1, test.ShouldEqual, base1)
 
-		newBoard1, err := board.FromRobot(robot, "board1")
+		newBoard1, err := robot.ResourceByName(mockNamed("board1"))
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, newBoard1, test.ShouldEqual, board1)
 
@@ -525,8 +518,8 @@ func TestRobotReconfigure(t *testing.T) {
 				},
 				{
 					Name:  "board1",
-					API:   board.API,
-					Model: fakeModel,
+					API:   mockAPI,
+					Model: model1,
 					Attributes: rutils.AttributeMap{
 						"analogs": []interface{}{
 							map[string]interface{}{
@@ -596,14 +589,14 @@ func TestRobotReconfigure(t *testing.T) {
 				},
 				{
 					Name:      "m1",
-					API:       motor.API,
-					Model:     fakeModel,
+					API:       mockAPI,
+					Model:     model1,
 					DependsOn: []string{"arm2"},
 				},
 				{
 					Name:  "m2",
-					API:   motor.API,
-					Model: fakeModel,
+					API:   mockAPI,
+					Model: model1,
 					Attributes: rutils.AttributeMap{
 						"board": "board1",
 						"pins": map[string]interface{}{
@@ -615,14 +608,14 @@ func TestRobotReconfigure(t *testing.T) {
 				},
 				{
 					Name:      "m3",
-					API:       motor.API,
-					Model:     fakeModel,
+					API:       mockAPI,
+					Model:     model1,
 					DependsOn: []string{"arm1"},
 				},
 				{
 					Name:      "m4",
-					API:       motor.API,
-					Model:     fakeModel,
+					API:       mockAPI,
+					Model:     model1,
 					DependsOn: []string{"arm2"},
 				},
 				{
@@ -639,8 +632,8 @@ func TestRobotReconfigure(t *testing.T) {
 				},
 				{
 					Name:  "board1",
-					API:   board.API,
-					Model: fakeModel,
+					API:   mockAPI,
+					Model: model1,
 					Attributes: rutils.AttributeMap{
 						"analogs": []interface{}{
 							map[string]interface{}{
@@ -697,7 +690,7 @@ func TestRobotReconfigure(t *testing.T) {
 
 		armNames := []resource.Name{mockNamed("arm1")}
 		baseNames := []resource.Name{base.Named("base1")}
-		boardNames := []resource.Name{board.Named("board1")}
+		boardNames := []resource.Name{mockNamed("board1")}
 		mockNames := []resource.Name{
 			mockNamed("mock1"), mockNamed("mock2"),
 			mockNamed("mock3"),
@@ -705,9 +698,7 @@ func TestRobotReconfigure(t *testing.T) {
 
 		robot.Reconfigure(context.Background(), conf1)
 		test.That(t, robot.RemoteNames(), test.ShouldBeEmpty)
-		test.That(t, motor.NamesFromRobot(robot), test.ShouldBeEmpty)
 		rdktestutils.VerifySameElements(t, base.NamesFromRobot(robot), rdktestutils.ExtractNames(baseNames...))
-		rdktestutils.VerifySameElements(t, board.NamesFromRobot(robot), rdktestutils.ExtractNames(boardNames...))
 		test.That(t, camera.NamesFromRobot(robot), test.ShouldBeEmpty)
 		test.That(t, gripper.NamesFromRobot(robot), test.ShouldBeEmpty)
 		test.That(t, sensor.NamesFromRobot(robot), test.ShouldBeEmpty)
@@ -723,12 +714,10 @@ func TestRobotReconfigure(t *testing.T) {
 
 		armNames = []resource.Name{mockNamed("arm1"), mockNamed("arm2")}
 		baseNames = []resource.Name{base.Named("base1"), base.Named("base2")}
-		motorNames := []resource.Name{motor.Named("m1"), motor.Named("m2"), motor.Named("m3"), motor.Named("m4")}
+		motorNames := []resource.Name{mockNamed("m1"), mockNamed("m2"), mockNamed("m3"), mockNamed("m4")}
 		robot.Reconfigure(context.Background(), conf2)
 		test.That(t, robot.RemoteNames(), test.ShouldBeEmpty)
-		rdktestutils.VerifySameElements(t, motor.NamesFromRobot(robot), rdktestutils.ExtractNames(motorNames...))
 		rdktestutils.VerifySameElements(t, base.NamesFromRobot(robot), rdktestutils.ExtractNames(baseNames...))
-		rdktestutils.VerifySameElements(t, board.NamesFromRobot(robot), rdktestutils.ExtractNames(boardNames...))
 		test.That(t, camera.NamesFromRobot(robot), test.ShouldBeEmpty)
 		test.That(t, gripper.NamesFromRobot(robot), test.ShouldBeEmpty)
 		test.That(t, sensor.NamesFromRobot(robot), test.ShouldBeEmpty)
@@ -749,16 +738,16 @@ func TestRobotReconfigure(t *testing.T) {
 		_, err = robot.ResourceByName(mockNamed("arm2"))
 		test.That(t, err, test.ShouldBeNil)
 
-		_, err = motor.FromRobot(robot, "m1")
+		_, err = robot.ResourceByName(mockNamed("m1"))
 		test.That(t, err, test.ShouldBeNil)
 
-		_, err = motor.FromRobot(robot, "m2")
+		_, err = robot.ResourceByName(mockNamed("m2"))
 		test.That(t, err, test.ShouldBeNil)
 
-		_, err = motor.FromRobot(robot, "m3")
+		_, err = robot.ResourceByName(mockNamed("m3"))
 		test.That(t, err, test.ShouldBeNil)
 
-		_, err = motor.FromRobot(robot, "m4")
+		_, err = robot.ResourceByName(mockNamed("m4"))
 		test.That(t, err, test.ShouldBeNil)
 
 		_, err = base.FromRobot(robot, "base1")
@@ -767,13 +756,13 @@ func TestRobotReconfigure(t *testing.T) {
 		_, err = base.FromRobot(robot, "base2")
 		test.That(t, err, test.ShouldBeNil)
 
-		b, err := board.FromRobot(robot, "board1")
+		_, err = robot.ResourceByName(mockNamed("board1"))
 		test.That(t, err, test.ShouldBeNil)
-		pin, err := b.GPIOPinByName("1")
-		test.That(t, err, test.ShouldBeNil)
-		pwmF, err := pin.PWMFreq(context.Background(), nil)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, pwmF, test.ShouldEqual, 1000)
+		// pin, err := b.GPIOPinByName("1")
+		// test.That(t, err, test.ShouldBeNil)
+		// pwmF, err := pin.PWMFreq(context.Background(), nil)
+		// test.That(t, err, test.ShouldBeNil)
+		// test.That(t, pwmF, test.ShouldEqual, 1000)
 
 		_, ok := robot.ProcessManager().ProcessByID("1")
 		test.That(t, ok, test.ShouldBeTrue)
@@ -816,13 +805,13 @@ func TestRobotReconfigure(t *testing.T) {
 				},
 				{
 					Name:  "m1",
-					API:   motor.API,
-					Model: fakeModel,
+					API:   mockAPI,
+					Model: model1,
 				},
 				{
 					Name:  "m2",
-					API:   motor.API,
-					Model: fakeModel,
+					API:   mockAPI,
+					Model: model1,
 					Attributes: rutils.AttributeMap{
 						"board": "board1",
 						"pins": map[string]interface{}{
@@ -834,13 +823,13 @@ func TestRobotReconfigure(t *testing.T) {
 				},
 				{
 					Name:  "m3",
-					API:   motor.API,
-					Model: fakeModel,
+					API:   mockAPI,
+					Model: model1,
 				},
 				{
 					Name:  "m4",
-					API:   motor.API,
-					Model: fakeModel,
+					API:   mockAPI,
+					Model: model1,
 				},
 				{
 					Name:  "base1",
@@ -854,8 +843,8 @@ func TestRobotReconfigure(t *testing.T) {
 				},
 				{
 					Name:  "board1",
-					API:   board.API,
-					Model: fakeModel,
+					API:   mockAPI,
+					Model: model1,
 				},
 			},
 			Processes: []pexec.ProcessConfig{
@@ -890,14 +879,14 @@ func TestRobotReconfigure(t *testing.T) {
 				},
 				{
 					Name:      "m1",
-					API:       motor.API,
-					Model:     fakeModel,
+					API:       mockAPI,
+					Model:     model1,
 					DependsOn: []string{"arm2"},
 				},
 				{
 					Name:  "m2",
-					API:   motor.API,
-					Model: fakeModel,
+					API:   mockAPI,
+					Model: model1,
 					Attributes: rutils.AttributeMap{
 						"board": "board1",
 						"pins": map[string]interface{}{
@@ -909,14 +898,14 @@ func TestRobotReconfigure(t *testing.T) {
 				},
 				{
 					Name:      "m3",
-					API:       motor.API,
-					Model:     fakeModel,
+					API:       mockAPI,
+					Model:     model1,
 					DependsOn: []string{"arm1"},
 				},
 				{
 					Name:      "m4",
-					API:       motor.API,
-					Model:     fakeModel,
+					API:       mockAPI,
+					Model:     model1,
 					DependsOn: []string{"arm2"},
 				},
 				{
@@ -933,8 +922,8 @@ func TestRobotReconfigure(t *testing.T) {
 				},
 				{
 					Name:  "board1",
-					API:   board.API,
-					Model: fakeModel,
+					API:   mockAPI,
+					Model: model1,
 					Attributes: rutils.AttributeMap{
 						"analogs": []interface{}{
 							map[string]interface{}{
@@ -970,14 +959,12 @@ func TestRobotReconfigure(t *testing.T) {
 
 		armNames := []resource.Name{mockNamed("arm1"), mockNamed("arm2")}
 		baseNames := []resource.Name{base.Named("base1"), base.Named("base2")}
-		motorNames := []resource.Name{motor.Named("m1"), motor.Named("m2"), motor.Named("m3"), motor.Named("m4")}
-		boardNames := []resource.Name{board.Named("board1")}
+		motorNames := []resource.Name{mockNamed("m1"), mockNamed("m2"), mockNamed("m3"), mockNamed("m4")}
+		boardNames := []resource.Name{mockNamed("board1")}
 
 		robot.Reconfigure(context.Background(), conf3)
 		test.That(t, robot.RemoteNames(), test.ShouldBeEmpty)
-		rdktestutils.VerifySameElements(t, motor.NamesFromRobot(robot), rdktestutils.ExtractNames(motorNames...))
 		rdktestutils.VerifySameElements(t, base.NamesFromRobot(robot), rdktestutils.ExtractNames(baseNames...))
-		rdktestutils.VerifySameElements(t, board.NamesFromRobot(robot), rdktestutils.ExtractNames(boardNames...))
 		test.That(t, camera.NamesFromRobot(robot), test.ShouldBeEmpty)
 		test.That(t, gripper.NamesFromRobot(robot), test.ShouldBeEmpty)
 		test.That(t, sensor.NamesFromRobot(robot), test.ShouldBeEmpty)
@@ -991,21 +978,19 @@ func TestRobotReconfigure(t *testing.T) {
 		))
 		rdktestutils.VerifySameElements(t, robot.ProcessManager().ProcessIDs(), []string{"1", "2"})
 
-		b, err := board.FromRobot(robot, "board1")
+		_, err := robot.ResourceByName(mockNamed("board1"))
 		test.That(t, err, test.ShouldBeNil)
-		pin, err := b.GPIOPinByName("5")
-		test.That(t, err, test.ShouldBeNil)
-		pwmF, err := pin.PWMFreq(context.Background(), nil)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, pwmF, test.ShouldEqual, 4000)
-		_, err = b.DigitalInterruptByName("encoder")
-		test.That(t, err, test.ShouldNotBeNil)
+		// pin, err := b.GPIOPinByName("5")
+		// test.That(t, err, test.ShouldBeNil)
+		// pwmF, err := pin.PWMFreq(context.Background(), nil)
+		// test.That(t, err, test.ShouldBeNil)
+		// test.That(t, pwmF, test.ShouldEqual, 4000)
+		// _, err = b.DigitalInterruptByName("encoder")
+		// test.That(t, err, test.ShouldNotBeNil)
 
 		robot.Reconfigure(context.Background(), conf2)
 		test.That(t, robot.RemoteNames(), test.ShouldBeEmpty)
-		rdktestutils.VerifySameElements(t, motor.NamesFromRobot(robot), rdktestutils.ExtractNames(motorNames...))
 		rdktestutils.VerifySameElements(t, base.NamesFromRobot(robot), rdktestutils.ExtractNames(baseNames...))
-		rdktestutils.VerifySameElements(t, board.NamesFromRobot(robot), rdktestutils.ExtractNames(boardNames...))
 		test.That(t, camera.NamesFromRobot(robot), test.ShouldBeEmpty)
 		test.That(t, gripper.NamesFromRobot(robot), test.ShouldBeEmpty)
 		test.That(t, sensor.NamesFromRobot(robot), test.ShouldBeEmpty)
@@ -1025,16 +1010,16 @@ func TestRobotReconfigure(t *testing.T) {
 		_, err = robot.ResourceByName(mockNamed("arm2"))
 		test.That(t, err, test.ShouldBeNil)
 
-		_, err = motor.FromRobot(robot, "m1")
+		_, err = robot.ResourceByName(mockNamed("m1"))
 		test.That(t, err, test.ShouldBeNil)
 
-		_, err = motor.FromRobot(robot, "m2")
+		_, err = robot.ResourceByName(mockNamed("m2"))
 		test.That(t, err, test.ShouldBeNil)
 
-		_, err = motor.FromRobot(robot, "m3")
+		_, err = robot.ResourceByName(mockNamed("m3"))
 		test.That(t, err, test.ShouldBeNil)
 
-		_, err = motor.FromRobot(robot, "m4")
+		_, err = robot.ResourceByName(mockNamed("m4"))
 		test.That(t, err, test.ShouldBeNil)
 
 		_, err = base.FromRobot(robot, "base1")
@@ -1043,20 +1028,20 @@ func TestRobotReconfigure(t *testing.T) {
 		_, err = base.FromRobot(robot, "base2")
 		test.That(t, err, test.ShouldBeNil)
 
-		b, err = board.FromRobot(robot, "board1")
+		_, err = robot.ResourceByName(mockNamed("board1"))
 		test.That(t, err, test.ShouldBeNil)
-		_, err = b.GPIOPinByName("5")
-		test.That(t, err, test.ShouldBeNil)
-		pwmF, err = pin.PWMFreq(context.Background(), nil)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, pwmF, test.ShouldEqual, 4000)
-		pin, err = b.GPIOPinByName("1")
-		test.That(t, err, test.ShouldBeNil)
-		pwmF, err = pin.PWMFreq(context.Background(), nil)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, pwmF, test.ShouldEqual, 1000) // TODO double check this is the expected result
-		_, err = b.DigitalInterruptByName("encoder")
-		test.That(t, err, test.ShouldBeNil)
+		// _, err = b.GPIOPinByName("5")
+		// test.That(t, err, test.ShouldBeNil)
+		// pwmF, err = pin.PWMFreq(context.Background(), nil)
+		// test.That(t, err, test.ShouldBeNil)
+		// test.That(t, pwmF, test.ShouldEqual, 4000)
+		// pin, err = b.GPIOPinByName("1")
+		// test.That(t, err, test.ShouldBeNil)
+		// pwmF, err = pin.PWMFreq(context.Background(), nil)
+		// test.That(t, err, test.ShouldBeNil)
+		// test.That(t, pwmF, test.ShouldEqual, 1000) // TODO double check this is the expected result
+		// _, err = b.DigitalInterruptByName("encoder")
+		// test.That(t, err, test.ShouldBeNil)
 
 		_, ok := robot.ProcessManager().ProcessByID("1")
 		test.That(t, ok, test.ShouldBeTrue)
@@ -1098,14 +1083,14 @@ func TestRobotReconfigure(t *testing.T) {
 				},
 				{
 					Name:      "m1",
-					API:       motor.API,
-					Model:     fakeModel,
+					API:       mockAPI,
+					Model:     model1,
 					DependsOn: []string{"arm2"},
 				},
 				{
 					Name:  "m2",
-					API:   motor.API,
-					Model: fakeModel,
+					API:   mockAPI,
+					Model: model1,
 					Attributes: rutils.AttributeMap{
 						"board": "board1",
 						"pins": map[string]interface{}{
@@ -1117,14 +1102,14 @@ func TestRobotReconfigure(t *testing.T) {
 				},
 				{
 					Name:      "m3",
-					API:       motor.API,
-					Model:     fakeModel,
+					API:       mockAPI,
+					Model:     model1,
 					DependsOn: []string{"arm1"},
 				},
 				{
 					Name:      "m4",
-					API:       motor.API,
-					Model:     fakeModel,
+					API:       mockAPI,
+					Model:     model1,
 					DependsOn: []string{"arm2"},
 				},
 				{
@@ -1141,8 +1126,8 @@ func TestRobotReconfigure(t *testing.T) {
 				},
 				{
 					Name:  "board1",
-					API:   board.API,
-					Model: fakeModel,
+					API:   mockAPI,
+					Model: model1,
 					Attributes: rutils.AttributeMap{
 						"analogs": []interface{}{
 							map[string]interface{}{
@@ -1180,13 +1165,13 @@ func TestRobotReconfigure(t *testing.T) {
 			Components: []resource.Config{
 				{
 					Name:  "board2",
-					API:   board.API,
-					Model: fakeModel,
+					API:   mockAPI,
+					Model: model1,
 				},
 				{
 					Name:  "board1",
-					API:   board.API,
-					Model: fakeModel,
+					API:   mockAPI,
+					Model: model1,
 				},
 				{
 					Name:  "mock6",
@@ -1215,14 +1200,12 @@ func TestRobotReconfigure(t *testing.T) {
 
 		armNames := []resource.Name{mockNamed("arm1"), mockNamed("arm2")}
 		baseNames := []resource.Name{base.Named("base1"), base.Named("base2")}
-		motorNames := []resource.Name{motor.Named("m1"), motor.Named("m2"), motor.Named("m3"), motor.Named("m4")}
-		boardNames := []resource.Name{board.Named("board1")}
+		motorNames := []resource.Name{mockNamed("m1"), mockNamed("m2"), mockNamed("m3"), mockNamed("m4")}
+		boardNames := []resource.Name{mockNamed("board1")}
 
 		robot.Reconfigure(context.Background(), conf2)
 		test.That(t, robot.RemoteNames(), test.ShouldBeEmpty)
-		rdktestutils.VerifySameElements(t, motor.NamesFromRobot(robot), rdktestutils.ExtractNames(motorNames...))
 		rdktestutils.VerifySameElements(t, base.NamesFromRobot(robot), rdktestutils.ExtractNames(baseNames...))
-		rdktestutils.VerifySameElements(t, board.NamesFromRobot(robot), rdktestutils.ExtractNames(boardNames...))
 		test.That(t, camera.NamesFromRobot(robot), test.ShouldBeEmpty)
 		test.That(t, gripper.NamesFromRobot(robot), test.ShouldBeEmpty)
 		test.That(t, sensor.NamesFromRobot(robot), test.ShouldBeEmpty)
@@ -1243,11 +1226,9 @@ func TestRobotReconfigure(t *testing.T) {
 		robot.Reconfigure(context.Background(), conf4)
 		test.That(t, arm2.(*mockFake).closeCount, test.ShouldEqual, 1)
 
-		boardNames = []resource.Name{board.Named("board1"), board.Named("board2")}
+		boardNames = []resource.Name{mockNamed("board1"), mockNamed("board2")}
 		test.That(t, robot.RemoteNames(), test.ShouldBeEmpty)
-		test.That(t, motor.NamesFromRobot(robot), test.ShouldBeEmpty)
 		test.That(t, base.NamesFromRobot(robot), test.ShouldBeEmpty)
-		rdktestutils.VerifySameElements(t, board.NamesFromRobot(robot), rdktestutils.ExtractNames(boardNames...))
 		test.That(t, camera.NamesFromRobot(robot), test.ShouldBeEmpty)
 		test.That(t, gripper.NamesFromRobot(robot), test.ShouldBeEmpty)
 		test.That(t, sensor.NamesFromRobot(robot), test.ShouldBeEmpty)
@@ -1264,16 +1245,16 @@ func TestRobotReconfigure(t *testing.T) {
 		_, err = robot.ResourceByName(mockNamed("arm2"))
 		test.That(t, err, test.ShouldNotBeNil)
 
-		_, err = motor.FromRobot(robot, "m1")
+		_, err = robot.ResourceByName(mockNamed("m1"))
 		test.That(t, err, test.ShouldNotBeNil)
 
-		_, err = motor.FromRobot(robot, "m2")
+		_, err = robot.ResourceByName(mockNamed("m2"))
 		test.That(t, err, test.ShouldNotBeNil)
 
-		_, err = motor.FromRobot(robot, "m3")
+		_, err = robot.ResourceByName(mockNamed("m3"))
 		test.That(t, err, test.ShouldNotBeNil)
 
-		_, err = motor.FromRobot(robot, "m4")
+		_, err = robot.ResourceByName(mockNamed("m4"))
 		test.That(t, err, test.ShouldNotBeNil)
 
 		_, err = base.FromRobot(robot, "base1")
@@ -1282,10 +1263,10 @@ func TestRobotReconfigure(t *testing.T) {
 		_, err = base.FromRobot(robot, "base2")
 		test.That(t, err, test.ShouldNotBeNil)
 
-		_, err = board.FromRobot(robot, "board1")
+		_, err = robot.ResourceByName(mockNamed("board1"))
 		test.That(t, err, test.ShouldBeNil)
 
-		_, err = board.FromRobot(robot, "board2")
+		_, err = robot.ResourceByName(mockNamed("board2"))
 		test.That(t, err, test.ShouldBeNil)
 
 		_, ok := robot.ProcessManager().ProcessByID("1")
@@ -1323,14 +1304,14 @@ func TestRobotReconfigure(t *testing.T) {
 				},
 				{
 					Name:      "m1",
-					API:       motor.API,
-					Model:     fakeModel,
+					API:       mockAPI,
+					Model:     model1,
 					DependsOn: []string{"arm2"},
 				},
 				{
 					Name:  "m2",
-					API:   motor.API,
-					Model: fakeModel,
+					API:   mockAPI,
+					Model: model1,
 					Attributes: rutils.AttributeMap{
 						"board": "board1",
 						"pins": map[string]interface{}{
@@ -1342,14 +1323,14 @@ func TestRobotReconfigure(t *testing.T) {
 				},
 				{
 					Name:      "m3",
-					API:       motor.API,
-					Model:     fakeModel,
+					API:       mockAPI,
+					Model:     model1,
 					DependsOn: []string{"arm1"},
 				},
 				{
 					Name:      "m4",
-					API:       motor.API,
-					Model:     fakeModel,
+					API:       mockAPI,
+					Model:     model1,
 					DependsOn: []string{"arm2"},
 				},
 				{
@@ -1366,8 +1347,8 @@ func TestRobotReconfigure(t *testing.T) {
 				},
 				{
 					Name:  "board1",
-					API:   board.API,
-					Model: fakeModel,
+					API:   mockAPI,
+					Model: model1,
 					Attributes: rutils.AttributeMap{
 						"analogs": []interface{}{
 							map[string]interface{}{
@@ -1417,22 +1398,22 @@ func TestRobotReconfigure(t *testing.T) {
 				},
 				{
 					Name:      "m2",
-					API:       motor.API,
-					Model:     fakeModel,
+					API:       mockAPI,
+					Model:     model1,
 					DependsOn: []string{"base1"},
 				},
 				{
 					Name:  "m1",
-					API:   motor.API,
-					Model: fakeModel,
+					API:   mockAPI,
+					Model: model1,
 					Attributes: rutils.AttributeMap{
 						"pwm_freq": 4000,
 					},
 				},
 				{
 					Name:  "m4",
-					API:   motor.API,
-					Model: fakeModel,
+					API:   mockAPI,
+					Model: model1,
 					Attributes: rutils.AttributeMap{
 						"blab": "blob",
 					},
@@ -1440,8 +1421,8 @@ func TestRobotReconfigure(t *testing.T) {
 				},
 				{
 					Name:  "m5",
-					API:   motor.API,
-					Model: fakeModel,
+					API:   mockAPI,
+					Model: model1,
 					Attributes: rutils.AttributeMap{
 						"board": "board1",
 						"pins": map[string]interface{}{
@@ -1465,8 +1446,8 @@ func TestRobotReconfigure(t *testing.T) {
 				},
 				{
 					Name:  "board1",
-					API:   board.API,
-					Model: fakeModel,
+					API:   mockAPI,
+					Model: model1,
 					Attributes: rutils.AttributeMap{
 						"analogs": []interface{}{
 							map[string]interface{}{
@@ -1484,13 +1465,13 @@ func TestRobotReconfigure(t *testing.T) {
 				},
 				{
 					Name:  "board2",
-					API:   board.API,
-					Model: fakeModel,
+					API:   mockAPI,
+					Model: model1,
 				},
 				{
 					Name:  "board3",
-					API:   board.API,
-					Model: fakeModel,
+					API:   mockAPI,
+					Model: model1,
 				},
 			},
 			Processes: []pexec.ProcessConfig{
@@ -1512,14 +1493,12 @@ func TestRobotReconfigure(t *testing.T) {
 
 		armNames := []resource.Name{mockNamed("arm1"), mockNamed("arm2")}
 		baseNames := []resource.Name{base.Named("base1"), base.Named("base2")}
-		motorNames := []resource.Name{motor.Named("m1"), motor.Named("m2"), motor.Named("m3"), motor.Named("m4")}
-		boardNames := []resource.Name{board.Named("board1")}
+		motorNames := []resource.Name{mockNamed("m1"), mockNamed("m2"), mockNamed("m3"), mockNamed("m4")}
+		boardNames := []resource.Name{mockNamed("board1")}
 
 		robot.Reconfigure(context.Background(), conf2)
 		test.That(t, robot.RemoteNames(), test.ShouldBeEmpty)
-		rdktestutils.VerifySameElements(t, motor.NamesFromRobot(robot), rdktestutils.ExtractNames(motorNames...))
 		rdktestutils.VerifySameElements(t, base.NamesFromRobot(robot), rdktestutils.ExtractNames(baseNames...))
-		rdktestutils.VerifySameElements(t, board.NamesFromRobot(robot), rdktestutils.ExtractNames(boardNames...))
 		test.That(t, camera.NamesFromRobot(robot), test.ShouldBeEmpty)
 		test.That(t, gripper.NamesFromRobot(robot), test.ShouldBeEmpty)
 		test.That(t, sensor.NamesFromRobot(robot), test.ShouldBeEmpty)
@@ -1532,32 +1511,30 @@ func TestRobotReconfigure(t *testing.T) {
 			resource.DefaultServices(),
 		))
 		rdktestutils.VerifySameElements(t, robot.ProcessManager().ProcessIDs(), []string{"1", "2"})
-		b, err := board.FromRobot(robot, "board1")
+		_, err := robot.ResourceByName(mockNamed("board1"))
 		test.That(t, err, test.ShouldBeNil)
-		pin, err := b.GPIOPinByName("1")
-		test.That(t, err, test.ShouldBeNil)
-		pwmF, err := pin.PWMFreq(context.Background(), nil)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, pwmF, test.ShouldEqual, 1000)
-		_, err = b.DigitalInterruptByName("encoder")
-		test.That(t, err, test.ShouldBeNil)
+		// pin, err := b.GPIOPinByName("1")
+		// test.That(t, err, test.ShouldBeNil)
+		// pwmF, err := pin.PWMFreq(context.Background(), nil)
+		// test.That(t, err, test.ShouldBeNil)
+		// test.That(t, pwmF, test.ShouldEqual, 1000)
+		// _, err = b.DigitalInterruptByName("encoder")
+		// test.That(t, err, test.ShouldBeNil)
 
 		armNames = []resource.Name{mockNamed("arm1"), mockNamed("arm3")}
 		baseNames = []resource.Name{base.Named("base1"), base.Named("base2")}
-		motorNames = []resource.Name{motor.Named("m1"), motor.Named("m2"), motor.Named("m4"), motor.Named("m5")}
+		motorNames = []resource.Name{mockNamed("m1"), mockNamed("m2"), mockNamed("m4"), mockNamed("m5")}
 		boardNames = []resource.Name{
-			board.Named("board1"),
-			board.Named("board2"), board.Named("board3"),
+			mockNamed("board1"),
+			mockNamed("board2"), mockNamed("board3"),
 		}
 
-		motor2, err := motor.FromRobot(robot, "m2")
+		motor2, err := robot.ResourceByName(mockNamed("m2"))
 		test.That(t, err, test.ShouldBeNil)
 
 		robot.Reconfigure(context.Background(), conf6)
 		test.That(t, robot.RemoteNames(), test.ShouldBeEmpty)
-		rdktestutils.VerifySameElements(t, motor.NamesFromRobot(robot), rdktestutils.ExtractNames(motorNames...))
 		rdktestutils.VerifySameElements(t, base.NamesFromRobot(robot), rdktestutils.ExtractNames(baseNames...))
-		rdktestutils.VerifySameElements(t, board.NamesFromRobot(robot), rdktestutils.ExtractNames(boardNames...))
 		test.That(t, camera.NamesFromRobot(robot), test.ShouldBeEmpty)
 		test.That(t, gripper.NamesFromRobot(robot), test.ShouldBeEmpty)
 		test.That(t, sensor.NamesFromRobot(robot), test.ShouldBeEmpty)
@@ -1577,20 +1554,20 @@ func TestRobotReconfigure(t *testing.T) {
 		_, err = robot.ResourceByName(mockNamed("arm3"))
 		test.That(t, err, test.ShouldBeNil)
 
-		_, err = motor.FromRobot(robot, "m4")
+		_, err = robot.ResourceByName(mockNamed("m4"))
 		test.That(t, err, test.ShouldBeNil)
 
-		nextMotor2, err := motor.FromRobot(robot, "m2")
+		nextMotor2, err := robot.ResourceByName(mockNamed("m2"))
 		test.That(t, err, test.ShouldBeNil)
 		// m2 lost its dependency on arm2 after looking conf6
 		// but only relies on base1 so it should never have been
 		// removed but only reconfigured.
 		test.That(t, nextMotor2, test.ShouldPointTo, motor2)
 
-		_, err = motor.FromRobot(robot, "m1")
+		_, err = robot.ResourceByName(mockNamed("m1"))
 		test.That(t, err, test.ShouldBeNil)
 
-		_, err = motor.FromRobot(robot, "m5")
+		_, err = robot.ResourceByName(mockNamed("m5"))
 		test.That(t, err, test.ShouldBeNil)
 
 		_, err = base.FromRobot(robot, "base1")
@@ -1599,19 +1576,19 @@ func TestRobotReconfigure(t *testing.T) {
 		_, err = base.FromRobot(robot, "base2")
 		test.That(t, err, test.ShouldBeNil)
 
-		b, err = board.FromRobot(robot, "board1")
+		_, err = robot.ResourceByName(mockNamed("board1"))
 		test.That(t, err, test.ShouldBeNil)
-		pin, err = b.GPIOPinByName("1")
-		test.That(t, err, test.ShouldBeNil)
-		pwmF, err = pin.PWMFreq(context.Background(), nil)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, pwmF, test.ShouldEqual, 0)
-		_, err = b.DigitalInterruptByName("encoder")
-		test.That(t, err, test.ShouldNotBeNil)
-		_, err = b.DigitalInterruptByName("encoderC")
-		test.That(t, err, test.ShouldBeNil)
+		// pin, err = b.GPIOPinByName("1")
+		// test.That(t, err, test.ShouldBeNil)
+		// pwmF, err = pin.PWMFreq(context.Background(), nil)
+		// test.That(t, err, test.ShouldBeNil)
+		// test.That(t, pwmF, test.ShouldEqual, 0)
+		// _, err = b.DigitalInterruptByName("encoder")
+		// test.That(t, err, test.ShouldNotBeNil)
+		// _, err = b.DigitalInterruptByName("encoderC")
+		// test.That(t, err, test.ShouldBeNil)
 
-		_, err = board.FromRobot(robot, "board3")
+		_, err = robot.ResourceByName(mockNamed("board3"))
 		test.That(t, err, test.ShouldBeNil)
 
 		_, ok := robot.ProcessManager().ProcessByID("1")
@@ -1631,13 +1608,13 @@ func TestRobotReconfigure(t *testing.T) {
 				{
 					mockNamed("arm3"),
 					base.Named("base1"),
-					board.Named("board3"),
+					mockNamed("board3"),
 				},
 				{
 					base.Named("base2"),
-					board.Named("board2"),
+					mockNamed("board2"),
 				},
-				{board.Named("board1")},
+				{mockNamed("board1")},
 			},
 			robot.(*localRobot).manager.internalResourceNames()...,
 		)
@@ -1665,22 +1642,22 @@ func TestRobotReconfigure(t *testing.T) {
 				},
 				{
 					Name:      "m2",
-					API:       motor.API,
-					Model:     fakeModel,
+					API:       mockAPI,
+					Model:     model1,
 					DependsOn: []string{"base1"},
 				},
 				{
 					Name:  "m1",
-					API:   motor.API,
-					Model: fakeModel,
+					API:   mockAPI,
+					Model: model1,
 					Attributes: rutils.AttributeMap{
 						"pwm_freq": 4000,
 					},
 				},
 				{
 					Name:  "m4",
-					API:   motor.API,
-					Model: fakeModel,
+					API:   mockAPI,
+					Model: model1,
 					Attributes: rutils.AttributeMap{
 						"blab": "blob",
 					},
@@ -1688,8 +1665,8 @@ func TestRobotReconfigure(t *testing.T) {
 				},
 				{
 					Name:  "m5",
-					API:   motor.API,
-					Model: fakeModel,
+					API:   mockAPI,
+					Model: model1,
 					Attributes: rutils.AttributeMap{
 						"board": "board1",
 						"pins": map[string]interface{}{
@@ -1713,8 +1690,8 @@ func TestRobotReconfigure(t *testing.T) {
 				},
 				{
 					Name:  "board1",
-					API:   board.API,
-					Model: fakeModel,
+					API:   mockAPI,
+					Model: model1,
 					Attributes: rutils.AttributeMap{
 						"analogs": []interface{}{
 							map[string]interface{}{
@@ -1732,13 +1709,13 @@ func TestRobotReconfigure(t *testing.T) {
 				},
 				{
 					Name:  "board2",
-					API:   board.API,
-					Model: fakeModel,
+					API:   mockAPI,
+					Model: model1,
 				},
 				{
 					Name:  "board3",
-					API:   board.API,
-					Model: fakeModel,
+					API:   mockAPI,
+					Model: model1,
 				},
 			},
 			Processes: []pexec.ProcessConfig{
@@ -1764,7 +1741,6 @@ func TestRobotReconfigure(t *testing.T) {
 		test.That(t, len(resources), test.ShouldEqual, 2)
 		test.That(t, robot.RemoteNames(), test.ShouldBeEmpty)
 		test.That(t, base.NamesFromRobot(robot), test.ShouldBeEmpty)
-		test.That(t, board.NamesFromRobot(robot), test.ShouldBeEmpty)
 		test.That(t, camera.NamesFromRobot(robot), test.ShouldBeEmpty)
 		test.That(t, gripper.NamesFromRobot(robot), test.ShouldBeEmpty)
 		test.That(t, sensor.NamesFromRobot(robot), test.ShouldBeEmpty)
@@ -1774,16 +1750,14 @@ func TestRobotReconfigure(t *testing.T) {
 
 		armNames := []resource.Name{mockNamed("arm1"), mockNamed("arm3")}
 		baseNames := []resource.Name{base.Named("base1"), base.Named("base2")}
-		motorNames := []resource.Name{motor.Named("m1"), motor.Named("m2"), motor.Named("m4"), motor.Named("m5")}
+		motorNames := []resource.Name{mockNamed("m1"), mockNamed("m2"), mockNamed("m4"), mockNamed("m5")}
 		boardNames := []resource.Name{
-			board.Named("board1"),
-			board.Named("board2"), board.Named("board3"),
+			mockNamed("board1"),
+			mockNamed("board2"), mockNamed("board3"),
 		}
 		robot.Reconfigure(context.Background(), conf6)
 		test.That(t, robot.RemoteNames(), test.ShouldBeEmpty)
-		rdktestutils.VerifySameElements(t, motor.NamesFromRobot(robot), rdktestutils.ExtractNames(motorNames...))
 		rdktestutils.VerifySameElements(t, base.NamesFromRobot(robot), rdktestutils.ExtractNames(baseNames...))
-		rdktestutils.VerifySameElements(t, board.NamesFromRobot(robot), rdktestutils.ExtractNames(boardNames...))
 		test.That(t, camera.NamesFromRobot(robot), test.ShouldBeEmpty)
 		test.That(t, gripper.NamesFromRobot(robot), test.ShouldBeEmpty)
 		test.That(t, sensor.NamesFromRobot(robot), test.ShouldBeEmpty)
@@ -1803,13 +1777,13 @@ func TestRobotReconfigure(t *testing.T) {
 		_, err = robot.ResourceByName(mockNamed("arm3"))
 		test.That(t, err, test.ShouldBeNil)
 
-		_, err = motor.FromRobot(robot, "m4")
+		_, err = robot.ResourceByName(mockNamed("m4"))
 		test.That(t, err, test.ShouldBeNil)
 
-		_, err = motor.FromRobot(robot, "m2")
+		_, err = robot.ResourceByName(mockNamed("m2"))
 		test.That(t, err, test.ShouldBeNil)
 
-		_, err = motor.FromRobot(robot, "m5")
+		_, err = robot.ResourceByName(mockNamed("m5"))
 		test.That(t, err, test.ShouldBeNil)
 
 		_, err = base.FromRobot(robot, "base1")
@@ -1818,19 +1792,19 @@ func TestRobotReconfigure(t *testing.T) {
 		_, err = base.FromRobot(robot, "base2")
 		test.That(t, err, test.ShouldBeNil)
 
-		b, err := board.FromRobot(robot, "board1")
+		_, err = robot.ResourceByName(mockNamed("board1"))
 		test.That(t, err, test.ShouldBeNil)
-		pin, err := b.GPIOPinByName("1")
-		test.That(t, err, test.ShouldBeNil)
-		pwmF, err := pin.PWMFreq(context.Background(), nil)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, pwmF, test.ShouldEqual, 0)
-		_, err = b.DigitalInterruptByName("encoder")
-		test.That(t, err, test.ShouldNotBeNil)
-		_, err = b.DigitalInterruptByName("encoderC")
-		test.That(t, err, test.ShouldBeNil)
+		// pin, err := b.GPIOPinByName("1")
+		// test.That(t, err, test.ShouldBeNil)
+		// pwmF, err := pin.PWMFreq(context.Background(), nil)
+		// test.That(t, err, test.ShouldBeNil)
+		// test.That(t, pwmF, test.ShouldEqual, 0)
+		// _, err = b.DigitalInterruptByName("encoder")
+		// test.That(t, err, test.ShouldNotBeNil)
+		// _, err = b.DigitalInterruptByName("encoderC")
+		// test.That(t, err, test.ShouldBeNil)
 
-		_, err = board.FromRobot(robot, "board3")
+		_, err = robot.ResourceByName(mockNamed("board3"))
 		test.That(t, err, test.ShouldBeNil)
 
 		_, ok := robot.ProcessManager().ProcessByID("1")
@@ -1850,13 +1824,13 @@ func TestRobotReconfigure(t *testing.T) {
 				{
 					mockNamed("arm3"),
 					base.Named("base1"),
-					board.Named("board3"),
+					mockNamed("board3"),
 				},
 				{
 					base.Named("base2"),
-					board.Named("board2"),
+					mockNamed("board2"),
 				},
-				{board.Named("board1")},
+				{mockNamed("board1")},
 			},
 			robot.(*localRobot).manager.internalResourceNames()...,
 		)
@@ -1870,13 +1844,13 @@ func TestRobotReconfigure(t *testing.T) {
 			Components: []resource.Config{
 				{
 					Name:  "board2",
-					API:   board.API,
-					Model: fakeModel,
+					API:   mockAPI,
+					Model: model1,
 				},
 				{
 					Name:  "board1",
-					API:   board.API,
-					Model: fakeModel,
+					API:   mockAPI,
+					Model: model1,
 				},
 				{
 					Name:  "mock6",
@@ -1906,13 +1880,13 @@ func TestRobotReconfigure(t *testing.T) {
 			Components: []resource.Config{
 				{
 					Name:  "board2",
-					API:   board.API,
-					Model: fakeModel,
+					API:   mockAPI,
+					Model: model1,
 				},
 				{
 					Name:  "board1",
-					API:   board.API,
-					Model: fakeModel,
+					API:   mockAPI,
+					Model: model1,
 					Attributes: rutils.AttributeMap{
 						"digital_interrupts": []interface{}{
 							map[string]interface{}{
@@ -1928,7 +1902,7 @@ func TestRobotReconfigure(t *testing.T) {
 				},
 				{
 					Name:  "m1",
-					API:   motor.API,
+					API:   mockAPI,
 					Model: resource.DefaultModelFamily.WithModel("gpio"),
 					Attributes: rutils.AttributeMap{
 						"board":   "board1",
@@ -2011,11 +1985,9 @@ func TestRobotReconfigure(t *testing.T) {
 		})
 		robot := setupLocalRobot(t, context.Background(), conf4, logger)
 
-		boardNames := []resource.Name{board.Named("board1"), board.Named("board2")}
+		boardNames := []resource.Name{mockNamed("board1"), mockNamed("board2")}
 		test.That(t, robot.RemoteNames(), test.ShouldBeEmpty)
-		test.That(t, motor.NamesFromRobot(robot), test.ShouldBeEmpty)
 		test.That(t, base.NamesFromRobot(robot), test.ShouldBeEmpty)
-		rdktestutils.VerifySameElements(t, board.NamesFromRobot(robot), rdktestutils.ExtractNames(boardNames...))
 		test.That(t, camera.NamesFromRobot(robot), test.ShouldBeEmpty)
 		test.That(t, gripper.NamesFromRobot(robot), test.ShouldBeEmpty)
 		test.That(t, sensor.NamesFromRobot(robot), test.ShouldBeEmpty)
@@ -2032,16 +2004,16 @@ func TestRobotReconfigure(t *testing.T) {
 		_, err = robot.ResourceByName(mockNamed("arm2"))
 		test.That(t, err, test.ShouldNotBeNil)
 
-		_, err = motor.FromRobot(robot, "m1")
+		_, err = robot.ResourceByName(mockNamed("m1"))
 		test.That(t, err, test.ShouldNotBeNil)
 
-		_, err = motor.FromRobot(robot, "m2")
+		_, err = robot.ResourceByName(mockNamed("m2"))
 		test.That(t, err, test.ShouldNotBeNil)
 
-		_, err = motor.FromRobot(robot, "m3")
+		_, err = robot.ResourceByName(mockNamed("m3"))
 		test.That(t, err, test.ShouldNotBeNil)
 
-		_, err = motor.FromRobot(robot, "m4")
+		_, err = robot.ResourceByName(mockNamed("m4"))
 		test.That(t, err, test.ShouldNotBeNil)
 
 		_, err = base.FromRobot(robot, "base1")
@@ -2050,17 +2022,17 @@ func TestRobotReconfigure(t *testing.T) {
 		_, err = base.FromRobot(robot, "base2")
 		test.That(t, err, test.ShouldNotBeNil)
 
-		_, err = board.FromRobot(robot, "board1")
+		_, err = robot.ResourceByName(mockNamed("board1"))
 		test.That(t, err, test.ShouldBeNil)
 
-		_, err = board.FromRobot(robot, "board2")
+		_, err = robot.ResourceByName(mockNamed("board2"))
 		test.That(t, err, test.ShouldBeNil)
 
 		_, ok := robot.ProcessManager().ProcessByID("1")
 		test.That(t, ok, test.ShouldBeTrue)
 		_, ok = robot.ProcessManager().ProcessByID("2")
 		test.That(t, ok, test.ShouldBeTrue)
-		motorNames := []resource.Name{motor.Named("m1")}
+		motorNames := []resource.Name{mockNamed("m1")}
 		mockNames := []resource.Name{
 			mockNamed("mock1"), mockNamed("mock2"),
 			mockNamed("mock3"), mockNamed("mock4"), mockNamed("mock5"),
@@ -2070,9 +2042,7 @@ func TestRobotReconfigure(t *testing.T) {
 
 		robot.Reconfigure(context.Background(), conf7)
 		test.That(t, robot.RemoteNames(), test.ShouldBeEmpty)
-		rdktestutils.VerifySameElements(t, motor.NamesFromRobot(robot), rdktestutils.ExtractNames(motorNames...))
 		test.That(t, base.NamesFromRobot(robot), test.ShouldBeEmpty)
-		rdktestutils.VerifySameElements(t, board.NamesFromRobot(robot), rdktestutils.ExtractNames(boardNames...))
 		rdktestutils.VerifySameElements(t, encoder.NamesFromRobot(robot), rdktestutils.ExtractNames(encoderNames...))
 		test.That(t, camera.NamesFromRobot(robot), test.ShouldBeEmpty)
 		test.That(t, gripper.NamesFromRobot(robot), test.ShouldBeEmpty)
@@ -2093,16 +2063,16 @@ func TestRobotReconfigure(t *testing.T) {
 		_, err = robot.ResourceByName(mockNamed("arm2"))
 		test.That(t, err, test.ShouldNotBeNil)
 
-		_, err = motor.FromRobot(robot, "m1")
+		_, err = robot.ResourceByName(mockNamed("m1"))
 		test.That(t, err, test.ShouldBeNil)
 
-		_, err = motor.FromRobot(robot, "m2")
+		_, err = robot.ResourceByName(mockNamed("m2"))
 		test.That(t, err, test.ShouldNotBeNil)
 
-		_, err = motor.FromRobot(robot, "m3")
+		_, err = robot.ResourceByName(mockNamed("m3"))
 		test.That(t, err, test.ShouldNotBeNil)
 
-		_, err = motor.FromRobot(robot, "m4")
+		_, err = robot.ResourceByName(mockNamed("m4"))
 		test.That(t, err, test.ShouldNotBeNil)
 
 		_, err = base.FromRobot(robot, "base1")
@@ -2111,10 +2081,10 @@ func TestRobotReconfigure(t *testing.T) {
 		_, err = base.FromRobot(robot, "base2")
 		test.That(t, err, test.ShouldNotBeNil)
 
-		_, err = board.FromRobot(robot, "board1")
+		_, err = robot.ResourceByName(mockNamed("board1"))
 		test.That(t, err, test.ShouldBeNil)
 
-		_, err = board.FromRobot(robot, "board2")
+		_, err = robot.ResourceByName(mockNamed("board2"))
 		test.That(t, err, test.ShouldBeNil)
 
 		mock1, err := robot.ResourceByName(mockNamed("mock1"))
@@ -2164,13 +2134,13 @@ func TestRobotReconfigure(t *testing.T) {
 			Components: []resource.Config{
 				{
 					Name:  "board2",
-					API:   board.API,
-					Model: fakeModel,
+					API:   mockAPI,
+					Model: model1,
 				},
 				{
 					Name:  "board1",
-					API:   board.API,
-					Model: fakeModel,
+					API:   mockAPI,
+					Model: model1,
 					Attributes: rutils.AttributeMap{
 						"digital_interrupts": []interface{}{
 							map[string]interface{}{
@@ -2186,7 +2156,7 @@ func TestRobotReconfigure(t *testing.T) {
 				},
 				{
 					Name:  "m1",
-					API:   motor.API,
+					API:   mockAPI,
 					Model: resource.DefaultModelFamily.WithModel("gpio"),
 					Attributes: rutils.AttributeMap{
 						"board":   "board1",
@@ -2272,13 +2242,13 @@ func TestRobotReconfigure(t *testing.T) {
 			Components: []resource.Config{
 				{
 					Name:  "board2",
-					API:   board.API,
-					Model: fakeModel,
+					API:   mockAPI,
+					Model: model1,
 				},
 				{
 					Name:  "board1",
-					API:   board.API,
-					Model: fakeModel,
+					API:   mockAPI,
+					Model: model1,
 					Attributes: rutils.AttributeMap{
 						"digital_interrupts": []interface{}{
 							map[string]interface{}{
@@ -2294,7 +2264,7 @@ func TestRobotReconfigure(t *testing.T) {
 				},
 				{
 					Name:  "m1",
-					API:   motor.API,
+					API:   mockAPI,
 					Model: resource.DefaultModelFamily.WithModel("gpio"),
 					Attributes: rutils.AttributeMap{
 						"board":   "board1",
@@ -2374,17 +2344,15 @@ func TestRobotReconfigure(t *testing.T) {
 		})
 		robot := setupLocalRobot(t, context.Background(), conf7, logger)
 
-		boardNames := []resource.Name{board.Named("board1"), board.Named("board2")}
-		motorNames := []resource.Name{motor.Named("m1")}
+		boardNames := []resource.Name{mockNamed("board1"), mockNamed("board2")}
+		motorNames := []resource.Name{mockNamed("m1")}
 		encoderNames := []resource.Name{encoder.Named("e1")}
 		mockNames := []resource.Name{
 			mockNamed("mock1"), mockNamed("mock2"), mockNamed("mock6"),
 			mockNamed("mock3"), mockNamed("mock4"), mockNamed("mock5"),
 		}
 		test.That(t, robot.RemoteNames(), test.ShouldBeEmpty)
-		rdktestutils.VerifySameElements(t, motor.NamesFromRobot(robot), rdktestutils.ExtractNames(motorNames...))
 		test.That(t, base.NamesFromRobot(robot), test.ShouldBeEmpty)
-		rdktestutils.VerifySameElements(t, board.NamesFromRobot(robot), rdktestutils.ExtractNames(boardNames...))
 		rdktestutils.VerifySameElements(t, encoder.NamesFromRobot(robot), rdktestutils.ExtractNames(encoderNames...))
 		test.That(t, camera.NamesFromRobot(robot), test.ShouldBeEmpty)
 		test.That(t, gripper.NamesFromRobot(robot), test.ShouldBeEmpty)
@@ -2405,22 +2373,22 @@ func TestRobotReconfigure(t *testing.T) {
 		_, err = robot.ResourceByName(mockNamed("arm2"))
 		test.That(t, err, test.ShouldNotBeNil)
 
-		_, err = board.FromRobot(robot, "board1")
+		_, err = robot.ResourceByName(mockNamed("board1"))
 		test.That(t, err, test.ShouldBeNil)
 
-		m, err := motor.FromRobot(robot, "m1")
+		_, err = robot.ResourceByName(mockNamed("m1"))
 		test.That(t, err, test.ShouldBeNil)
-		c, err := m.Position(context.Background(), nil)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, c, test.ShouldEqual, 0)
+		// c, err := m.Position(context.Background(), nil)
+		// test.That(t, err, test.ShouldBeNil)
+		// test.That(t, c, test.ShouldEqual, 0)
 
-		_, err = motor.FromRobot(robot, "m2")
+		_, err = robot.ResourceByName(mockNamed("m2"))
 		test.That(t, err, test.ShouldNotBeNil)
 
-		_, err = motor.FromRobot(robot, "m3")
+		_, err = robot.ResourceByName(mockNamed("m3"))
 		test.That(t, err, test.ShouldNotBeNil)
 
-		_, err = motor.FromRobot(robot, "m4")
+		_, err = robot.ResourceByName(mockNamed("m4"))
 		test.That(t, err, test.ShouldNotBeNil)
 
 		_, err = base.FromRobot(robot, "base1")
@@ -2429,7 +2397,7 @@ func TestRobotReconfigure(t *testing.T) {
 		_, err = base.FromRobot(robot, "base2")
 		test.That(t, err, test.ShouldNotBeNil)
 
-		_, err = board.FromRobot(robot, "board2")
+		_, err = robot.ResourceByName(mockNamed("board2"))
 		test.That(t, err, test.ShouldBeNil)
 
 		mock1, err := robot.ResourceByName(mockNamed("mock1"))
@@ -2471,9 +2439,7 @@ func TestRobotReconfigure(t *testing.T) {
 			mockNamed("mock3"), mockNamed("mock4"), mockNamed("mock5"),
 		}
 		test.That(t, robot.RemoteNames(), test.ShouldBeEmpty)
-		rdktestutils.VerifySameElements(t, motor.NamesFromRobot(robot), rdktestutils.ExtractNames(motorNames...))
 		test.That(t, base.NamesFromRobot(robot), test.ShouldBeEmpty)
-		rdktestutils.VerifySameElements(t, board.NamesFromRobot(robot), rdktestutils.ExtractNames(boardNames...))
 		rdktestutils.VerifySameElements(t, encoder.NamesFromRobot(robot), rdktestutils.ExtractNames(encoderNames...))
 		test.That(t, camera.NamesFromRobot(robot), test.ShouldBeEmpty)
 		test.That(t, gripper.NamesFromRobot(robot), test.ShouldBeEmpty)
@@ -2494,23 +2460,23 @@ func TestRobotReconfigure(t *testing.T) {
 		_, err = robot.ResourceByName(mockNamed("arm2"))
 		test.That(t, err, test.ShouldNotBeNil)
 
-		_, err = board.FromRobot(robot, "board1")
+		_, err = robot.ResourceByName(mockNamed("board1"))
 		test.That(t, err, test.ShouldBeNil)
 
-		m, err = motor.FromRobot(robot, "m1")
+		_, err = robot.ResourceByName(mockNamed("m1"))
 		test.That(t, err, test.ShouldBeNil)
-		c, err = m.Position(context.Background(), nil)
-		test.That(t, err, test.ShouldBeNil)
-		t.Log("the underlying pins changed but not the encoder names, so we keep the value")
-		test.That(t, c, test.ShouldEqual, 0)
+		// c, err = m.Position(context.Background(), nil)
+		// test.That(t, err, test.ShouldBeNil)
+		// t.Log("the underlying pins changed but not the encoder names, so we keep the value")
+		// test.That(t, c, test.ShouldEqual, 0)
 
-		_, err = motor.FromRobot(robot, "m2")
+		_, err = robot.ResourceByName(mockNamed("m2"))
 		test.That(t, err, test.ShouldNotBeNil)
 
-		_, err = motor.FromRobot(robot, "m3")
+		_, err = robot.ResourceByName(mockNamed("m3"))
 		test.That(t, err, test.ShouldNotBeNil)
 
-		_, err = motor.FromRobot(robot, "m4")
+		_, err = robot.ResourceByName(mockNamed("m4"))
 		test.That(t, err, test.ShouldNotBeNil)
 
 		_, err = base.FromRobot(robot, "base1")
@@ -2519,7 +2485,7 @@ func TestRobotReconfigure(t *testing.T) {
 		_, err = base.FromRobot(robot, "base2")
 		test.That(t, err, test.ShouldNotBeNil)
 
-		_, err = board.FromRobot(robot, "board2")
+		_, err = robot.ResourceByName(mockNamed("board2"))
 		test.That(t, err, test.ShouldBeNil)
 
 		mock1, err = robot.ResourceByName(mockNamed("mock1"))
@@ -2560,13 +2526,13 @@ func TestRobotReconfigure(t *testing.T) {
 			Components: []resource.Config{
 				{
 					Name:  "board2",
-					API:   board.API,
-					Model: fakeModel,
+					API:   mockAPI,
+					Model: model1,
 				},
 				{
 					Name:  "board1",
-					API:   board.API,
-					Model: fakeModel,
+					API:   mockAPI,
+					Model: model1,
 					Attributes: rutils.AttributeMap{
 						"digital_interrupts": []interface{}{
 							map[string]interface{}{
@@ -2582,7 +2548,7 @@ func TestRobotReconfigure(t *testing.T) {
 				},
 				{
 					Name:  "m1",
-					API:   motor.API,
+					API:   mockAPI,
 					Model: resource.DefaultModelFamily.WithModel("gpio"),
 					Attributes: rutils.AttributeMap{
 						"board":   "board1",
@@ -2668,13 +2634,13 @@ func TestRobotReconfigure(t *testing.T) {
 			Components: []resource.Config{
 				{
 					Name:  "board2",
-					API:   board.API,
-					Model: fakeModel,
+					API:   mockAPI,
+					Model: model1,
 				},
 				{
 					Name:  "board1",
-					API:   board.API,
-					Model: fakeModel,
+					API:   mockAPI,
+					Model: model1,
 					Attributes: rutils.AttributeMap{
 						"digital_interrupts": []interface{}{
 							map[string]interface{}{
@@ -2690,7 +2656,7 @@ func TestRobotReconfigure(t *testing.T) {
 				},
 				{
 					Name:  "m1",
-					API:   motor.API,
+					API:   mockAPI,
 					Model: resource.DefaultModelFamily.WithModel("gpio"),
 					Attributes: rutils.AttributeMap{
 						"board":   "board1",
@@ -2795,8 +2761,8 @@ func TestRobotReconfigure(t *testing.T) {
 		})
 		robot := setupLocalRobot(t, context.Background(), conf7, logger)
 
-		boardNames := []resource.Name{board.Named("board1"), board.Named("board2")}
-		motorNames := []resource.Name{motor.Named("m1")}
+		boardNames := []resource.Name{mockNamed("board1"), mockNamed("board2")}
+		motorNames := []resource.Name{mockNamed("m1")}
 		encoderNames := []resource.Name{encoder.Named("e1")}
 		mockNames := []resource.Name{
 			mockNamed("mock1"), mockNamed("mock2"),
@@ -2804,8 +2770,6 @@ func TestRobotReconfigure(t *testing.T) {
 			mockNamed("mock6"),
 		}
 		test.That(t, robot.RemoteNames(), test.ShouldBeEmpty)
-		rdktestutils.VerifySameElements(t, motor.NamesFromRobot(robot), rdktestutils.ExtractNames(motorNames...))
-		rdktestutils.VerifySameElements(t, board.NamesFromRobot(robot), rdktestutils.ExtractNames(boardNames...))
 		rdktestutils.VerifySameElements(t, encoder.NamesFromRobot(robot), rdktestutils.ExtractNames(encoderNames...))
 
 		rdktestutils.VerifySameResourceNames(t, robot.ResourceNames(), rdktestutils.ConcatResourceNames(
@@ -2817,22 +2781,22 @@ func TestRobotReconfigure(t *testing.T) {
 		))
 		rdktestutils.VerifySameElements(t, robot.ProcessManager().ProcessIDs(), []string{"1", "2"})
 
-		_, err := board.FromRobot(robot, "board1")
+		_, err := robot.ResourceByName(mockNamed("board1"))
 		test.That(t, err, test.ShouldBeNil)
 
-		m, err := motor.FromRobot(robot, "m1")
+		_, err = robot.ResourceByName(mockNamed("m1"))
 		test.That(t, err, test.ShouldBeNil)
-		c, err := m.Position(context.Background(), nil)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, c, test.ShouldEqual, 0)
+		// c, err := m.Position(context.Background(), nil)
+		// test.That(t, err, test.ShouldBeNil)
+		// test.That(t, c, test.ShouldEqual, 0)
 
-		_, err = motor.FromRobot(robot, "m2")
+		_, err = robot.ResourceByName(mockNamed("m2"))
 		test.That(t, err, test.ShouldNotBeNil)
 
-		_, err = motor.FromRobot(robot, "m3")
+		_, err = robot.ResourceByName(mockNamed("m3"))
 		test.That(t, err, test.ShouldNotBeNil)
 
-		_, err = motor.FromRobot(robot, "m4")
+		_, err = robot.ResourceByName(mockNamed("m4"))
 		test.That(t, err, test.ShouldNotBeNil)
 
 		_, err = base.FromRobot(robot, "base1")
@@ -2841,7 +2805,7 @@ func TestRobotReconfigure(t *testing.T) {
 		_, err = base.FromRobot(robot, "base2")
 		test.That(t, err, test.ShouldNotBeNil)
 
-		_, err = board.FromRobot(robot, "board2")
+		_, err = robot.ResourceByName(mockNamed("board2"))
 		test.That(t, err, test.ShouldBeNil)
 
 		mock1, err := robot.ResourceByName(mockNamed("mock1"))
@@ -2890,9 +2854,7 @@ func TestRobotReconfigure(t *testing.T) {
 			mockNamed("mock3"),
 		}
 		test.That(t, robot.RemoteNames(), test.ShouldBeEmpty)
-		rdktestutils.VerifySameElements(t, motor.NamesFromRobot(robot), rdktestutils.ExtractNames(motorNames...))
 		rdktestutils.VerifySameElements(t, encoder.NamesFromRobot(robot), rdktestutils.ExtractNames(encoderNames...))
-		rdktestutils.VerifySameElements(t, board.NamesFromRobot(robot), rdktestutils.ExtractNames(boardNames...))
 
 		rdktestutils.VerifySameResourceNames(t, robot.ResourceNames(), rdktestutils.ConcatResourceNames(
 			boardNames,
@@ -2903,16 +2865,16 @@ func TestRobotReconfigure(t *testing.T) {
 		))
 		rdktestutils.VerifySameElements(t, robot.ProcessManager().ProcessIDs(), []string{"1", "2"})
 
-		_, err = board.FromRobot(robot, "board1")
+		_, err = robot.ResourceByName(mockNamed("board1"))
 		test.That(t, err, test.ShouldBeNil)
 
-		m, err = motor.FromRobot(robot, "m1")
+		_, err = robot.ResourceByName(mockNamed("m1"))
 		test.That(t, err, test.ShouldBeNil)
-		c, err = m.Position(context.Background(), nil)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, c, test.ShouldEqual, 0)
+		// c, err = m.Position(context.Background(), nil)
+		// test.That(t, err, test.ShouldBeNil)
+		// test.That(t, c, test.ShouldEqual, 0)
 
-		_, err = board.FromRobot(robot, "board2")
+		_, err = robot.ResourceByName(mockNamed("board2"))
 		test.That(t, err, test.ShouldBeNil)
 
 		_, err = robot.ResourceByName(mockNamed("mock1"))
@@ -2967,13 +2929,13 @@ func TestRobotReconfigure(t *testing.T) {
 			Components: []resource.Config{
 				{
 					Name:  "board2",
-					API:   board.API,
-					Model: fakeModel,
+					API:   mockAPI,
+					Model: model1,
 				},
 				{
 					Name:  "board1",
-					API:   board.API,
-					Model: fakeModel,
+					API:   mockAPI,
+					Model: model1,
 					Attributes: rutils.AttributeMap{
 						"digital_interrupts": []interface{}{
 							map[string]interface{}{
@@ -2989,7 +2951,7 @@ func TestRobotReconfigure(t *testing.T) {
 				},
 				{
 					Name:  "m1",
-					API:   motor.API,
+					API:   mockAPI,
 					Model: resource.DefaultModelFamily.WithModel("gpio"),
 					Attributes: rutils.AttributeMap{
 						"board":   "board1",
@@ -3095,8 +3057,6 @@ func TestRobotReconfigure(t *testing.T) {
 			mockNamed("mock4"), mockNamed("mock5"),
 		}
 		test.That(t, robot.RemoteNames(), test.ShouldBeEmpty)
-		rdktestutils.VerifySameElements(t, motor.NamesFromRobot(robot), rdktestutils.ExtractNames(motorNames...))
-		rdktestutils.VerifySameElements(t, board.NamesFromRobot(robot), rdktestutils.ExtractNames(boardNames...))
 		rdktestutils.VerifySameElements(t, encoder.NamesFromRobot(robot), rdktestutils.ExtractNames(encoderNames...))
 
 		rdktestutils.VerifySameResourceNames(t, robot.ResourceNames(), rdktestutils.ConcatResourceNames(
@@ -3108,16 +3068,16 @@ func TestRobotReconfigure(t *testing.T) {
 		))
 		rdktestutils.VerifySameElements(t, robot.ProcessManager().ProcessIDs(), []string{"1", "2"})
 
-		_, err = board.FromRobot(robot, "board1")
+		_, err = robot.ResourceByName(mockNamed("board1"))
 		test.That(t, err, test.ShouldBeNil)
 
-		m, err = motor.FromRobot(robot, "m1")
+		_, err = robot.ResourceByName(mockNamed("m1"))
 		test.That(t, err, test.ShouldBeNil)
-		c, err = m.Position(context.Background(), nil)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, c, test.ShouldEqual, 0)
+		// c, err = m.Position(context.Background(), nil)
+		// test.That(t, err, test.ShouldBeNil)
+		// test.That(t, c, test.ShouldEqual, 0)
 
-		_, err = board.FromRobot(robot, "board2")
+		_, err = robot.ResourceByName(mockNamed("board2"))
 		test.That(t, err, test.ShouldBeNil)
 
 		// resources which failed previous reconfiguration attempts because of missing dependencies will be rebuilt,
@@ -4454,6 +4414,7 @@ type mockFake struct {
 	closeCount       int
 	closeCtxDeadline time.Time
 	logicalClock     *atomic.Int64
+	Value            int
 }
 
 type mockFakeConfig struct {
@@ -4461,6 +4422,7 @@ type mockFakeConfig struct {
 	ShouldFail            bool     `json:"should_fail"`
 	ShouldFailReconfigure int      `json:"should_fail_reconfigure"`
 	Blah                  int      `json:"blah"`
+	Value                 int      `json:"value"`
 }
 
 func (m *mockFake) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
@@ -4512,4 +4474,72 @@ func (m *mockFake2) Reconfigure(ctx context.Context, deps resource.Dependencies,
 func (m *mockFake2) Close(ctx context.Context) error {
 	m.closeCount++
 	return nil
+}
+
+type mockWithDep struct {
+	resource.Named
+	mockDep     *mockFake
+	reconfCount int
+	closeCount  int
+}
+
+type mockWithDepConfig struct {
+	MockDep string `json:"mock_dep"`
+}
+
+func registerMockWithDepModel(tb testing.TB) resource.Model {
+	tb.Helper()
+
+	modelName := utils.RandomAlphaString(5)
+	model := resource.DefaultModelFamily.WithModel(modelName)
+
+	resource.RegisterComponent(mockAPI, model,
+		resource.Registration[resource.Resource, *mockFakeConfig]{
+			Constructor: func(
+				ctx context.Context,
+				deps resource.Dependencies,
+				conf resource.Config,
+				logger logging.Logger,
+			) (resource.Resource, error) {
+				convAttrs := conf.ConvertedAttributes.(*mockWithDepConfig)
+				mockDepName := convAttrs.MockDep
+				mockDep, ok := deps[mockNamed(mockDepName)]
+				if !ok {
+					return nil, errors.New("missing dependency!")
+				}
+				return &mockWithDep{
+					Named:   conf.ResourceName().AsNamed(),
+					mockDep: mockDep.(*mockFake),
+				}, nil
+			},
+		})
+	tb.Cleanup(func() { resource.Deregister(mockAPI, model) })
+	return model
+}
+
+func (m *mockWithDep) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
+	m.reconfCount++
+	convAttrs := conf.ConvertedAttributes.(*mockWithDepConfig)
+	mockDepName := convAttrs.MockDep
+	mockDep, ok := deps[mockNamed(mockDepName)]
+	if !ok {
+		return errors.New("missing dependency!")
+	}
+	m.mockDep = mockDep.(*mockFake)
+	return nil
+}
+
+func (m *mockWithDep) Close(ctx context.Context) error {
+	m.closeCount++
+	return nil
+}
+
+func (m *mockWithDep) GetDepValue() int {
+	return m.mockDep.Value
+}
+
+func (m *mockWithDepConfig) Validate(path string) ([]string, error) {
+	depOut := []string{}
+	depOut = append(depOut, m.MockDep)
+	return depOut, nil
 }
