@@ -312,7 +312,9 @@ func TestPTGKinematicsWithGeom(t *testing.T) {
 
 	t.Run("GoToInputs", func(t *testing.T) {
 		// The transform of current inputs is the remaining step, i.e. where the base will go when the current inputs are done executing.
-		// To mock this up correctly, we need to alter the inputs here to simulate the base moving without a localizer
+		// To mock this up correctly, we need to alter the inputs here to simulate the base moving without a localizer.
+		// Due to limitations of this mockup, this must use a PTG which will produce only one arc step. Full motion testing is provided by
+		// the motion service.
 		ms.PositionFunc = func(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
 			ptgBase.inputLock.RLock()
 			currInputs := ptgBase.currentState.currentInputs
@@ -340,7 +342,13 @@ func TestPTGKinematicsWithGeom(t *testing.T) {
 		// Start by resetting current inputs to 0
 		err = kb.GoToInputs(ctx, waypoints[0])
 		test.That(t, err, test.ShouldBeNil)
-		err = kb.GoToInputs(ctx, waypoints[1])
+		newInputs := []referenceframe.Input{
+			{float64(ptgBase.courseCorrectionIdx)},
+			{math.Pi / 2.},
+			{0},
+			{1100},
+		}
+		err = kb.GoToInputs(ctx, newInputs)
 		test.That(t, err, test.ShouldBeNil)
 	})
 
@@ -367,4 +375,36 @@ func TestPTGKinematicsWithGeom(t *testing.T) {
 		test.That(t, len(geoms), test.ShouldEqual, 1)
 		test.That(t, geoms[0], test.ShouldResemble, baseGeom)
 	})
+}
+
+func TestPTGKinematicsSimpleInputs(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+
+	name := resource.Name{API: resource.NewAPI("is", "a", "fakebase"), Name: "fakebase"}
+	b := &fake.Base{
+		Named:         name.AsNamed(),
+		Geometry:      []spatialmath.Geometry{},
+		WidthMeters:   0.2,
+		TurningRadius: 0,
+	}
+
+	ctx := context.Background()
+	kbo := NewKinematicBaseOptions()
+	kbo.NoSkidSteer = true
+	kbo.UpdateStepSeconds = 0.01
+
+	kb, err := WrapWithKinematics(ctx, b, logger, nil, nil, kbo)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, kb, test.ShouldNotBeNil)
+	ptgBase, ok := kb.(*ptgBaseKinematics)
+	test.That(t, ok, test.ShouldBeTrue)
+	test.That(t, ptgBase, test.ShouldNotBeNil)
+
+	inputs := []referenceframe.Input{{0}, {1.9}, {1300}, {200}}
+	err = ptgBase.GoToInputs(ctx, inputs)
+	test.That(t, err, test.ShouldBeNil)
+
+	inputs = []referenceframe.Input{{0}, {1.9}, {1300}, {0}}
+	err = ptgBase.GoToInputs(ctx, inputs)
+	test.That(t, err, test.ShouldBeNil)
 }
