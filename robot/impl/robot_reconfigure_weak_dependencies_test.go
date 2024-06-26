@@ -4,22 +4,30 @@ import (
 	"context"
 	"testing"
 
-	"github.com/golang/geo/r3"
 	"github.com/google/uuid"
+
+	// TODO(RSDK-7884): change everything that depends on this import to a mock.
 	"go.viam.com/rdk/components/arm"
+	// TODO(RSDK-7884): change everything that depends on this import to a mock.
 	"go.viam.com/rdk/components/arm/fake"
+	// TODO(RSDK-7884): change everything that depends on this import to a mock.
 	"go.viam.com/rdk/components/audioinput"
+	// TODO(RSDK-7884): change everything that depends on this import to a mock.
 	"go.viam.com/rdk/components/base"
+	// TODO(RSDK-7884): change everything that depends on this import to a mock.
 	"go.viam.com/rdk/components/camera"
+	// TODO(RSDK-7884): change everything that depends on this import to a mock.
 	"go.viam.com/rdk/components/generic"
+	// TODO(RSDK-7884): change everything that depends on this import to a mock.
 	"go.viam.com/rdk/components/gripper"
+	// TODO(RSDK-7884): change everything that depends on this import to a mock.
 	"go.viam.com/rdk/components/movementsensor"
+	// TODO(RSDK-7884): change everything that depends on this import to a mock.
+	"go.viam.com/rdk/services/sensors"
+
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
-	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/services/sensors"
-	"go.viam.com/rdk/spatialmath"
 	rdktestutils "go.viam.com/rdk/testutils"
 	rutils "go.viam.com/rdk/utils"
 	"go.viam.com/test"
@@ -50,36 +58,11 @@ func TestSensorsServiceReconfigure(t *testing.T) {
 				Name:  "camera",
 				API:   camera.API,
 				Model: resource.DefaultModelFamily.WithModel("fake"),
-				Frame: &referenceframe.LinkConfig{
-					Parent: "world",
-					Translation: r3.Vector{
-						X: 2000,
-						Y: 500,
-						Z: 1300,
-					},
-					Orientation: &spatialmath.OrientationConfig{
-						Type: spatialmath.OrientationVectorDegreesType,
-						Value: map[string]any{
-							"x":  0,
-							"y":  0,
-							"z":  1,
-							"th": 180,
-						},
-					},
-				},
 			},
 			{
 				Name:  "pieceArm",
 				API:   mockAPI,
 				Model: resource.DefaultModelFamily.WithModel("fake"),
-				Frame: &referenceframe.LinkConfig{
-					Parent: "world",
-					Translation: r3.Vector{
-						X: 500,
-						Y: 500,
-						Z: 1000,
-					},
-				},
 				Attributes: rutils.AttributeMap{
 					"model-path": "../../components/arm/fake/fake_model.json",
 				},
@@ -93,12 +76,6 @@ func TestSensorsServiceReconfigure(t *testing.T) {
 				Name:  "movement_sensor2",
 				API:   movementsensor.API,
 				Model: resource.DefaultModelFamily.WithModel("fake"),
-				Frame: &referenceframe.LinkConfig{
-					Parent: "pieceArm",
-				},
-				Attributes: rutils.AttributeMap{
-					"relative": true,
-				},
 			},
 		},
 	})

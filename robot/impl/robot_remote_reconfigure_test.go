@@ -6,17 +6,19 @@ import (
 	"testing"
 	"time"
 
-	// TODO(RSDK-7884): change all referenced resources to mocks.
-	"go.viam.com/rdk/components/arm"
-	"go.viam.com/rdk/components/arm/fake"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 
-	// TODO(RSDK-7884): change all referenced resources to mocks.
+	// TODO(RSDK-7884): change everything that depends on this import to a mock.
+	"go.viam.com/rdk/components/arm"
+	// TODO(RSDK-7884): change everything that depends on this import to a mock.
+	"go.viam.com/rdk/components/arm/fake"
+	// TODO(RSDK-7884): change everything that depends on this import to a mock.
 	"go.viam.com/rdk/services/motion"
 	// TODO(RSDK-7884): change all referenced resources to mocks.
 	"go.viam.com/rdk/services/sensors"
+
 	rdktestutils "go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/robottestutils"
 	"go.viam.com/test"
