@@ -423,7 +423,8 @@ func (ptgk *ptgBaseKinematics) courseCorrect(
 
 			// Use distances to calculate the % completion of the arc, used to update the time remaining.
 			// We can't use step.durationSeconds because we might connect to a different arc than we're currently in.
-			pctTrajRemaining := (connectionPoint.subTraj[len(connectionPoint.subTraj)-1].Dist -
+			// This is valid because each individual arcstep is guaranteed to have constant velocities across the whole step.
+			pctTrajRemaining := math.Abs(connectionPoint.subTraj[len(connectionPoint.subTraj)-1].Dist-
 				connectionPoint.subTraj[solution.trajIdx].Dist) / arcOriginalLength
 
 			// TODO (RSDK-7515) Start value rewriting here is somewhat complicated. Imagine the old trajectory was [0, 200] and we
