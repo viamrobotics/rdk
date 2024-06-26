@@ -4,7 +4,6 @@ package camera
 import (
 	"context"
 	"image"
-	"sync"
 	"time"
 
 	"github.com/pion/mediadevices/pkg/prop"
@@ -12,7 +11,6 @@ import (
 	"go.opencensus.io/trace"
 	"go.uber.org/multierr"
 	pb "go.viam.com/api/component/camera/v1"
-	viamutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/components/camera/rtppassthrough"
 	"go.viam.com/rdk/data"
@@ -433,37 +431,4 @@ func FromRobot(r robot.Robot, name string) (Camera, error) {
 // NamesFromRobot is a helper for getting all camera names from the given Robot.
 func NamesFromRobot(r robot.Robot) []string {
 	return robot.NamesByAPI(r, API)
-}
-
-// SimultaneousColorDepthNext will call Next on both the color and depth camera as simultaneously as possible.
-func SimultaneousColorDepthNext(ctx context.Context, color, depth gostream.VideoStream) (image.Image, *rimage.DepthMap) {
-	var wg sync.WaitGroup
-	var col image.Image
-	var dm *rimage.DepthMap
-	// do a parallel request for the color and depth image
-	// get color image
-	wg.Add(1)
-	viamutils.PanicCapturingGo(func() {
-		defer wg.Done()
-		var err error
-		col, _, err = color.Next(ctx)
-		if err != nil {
-			panic(err)
-		}
-	})
-	// get depth image
-	wg.Add(1)
-	viamutils.PanicCapturingGo(func() {
-		defer wg.Done()
-		d, _, err := depth.Next(ctx)
-		if err != nil {
-			panic(err)
-		}
-		dm, err = rimage.ConvertImageToDepthMap(ctx, d)
-		if err != nil {
-			panic(err)
-		}
-	})
-	wg.Wait()
-	return col, dm
 }
