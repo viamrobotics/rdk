@@ -146,7 +146,7 @@ func mutateModuleConfig(c *cli.Context, modules []ModuleMap, manifest moduleMani
 			return nil, dirty, err
 		}
 	} else {
-		absEntrypoint = reloadingDestination(c, manifest.Build)
+		absEntrypoint = reloadingDestination(c, &manifest)
 	}
 
 	if foundMod == nil {

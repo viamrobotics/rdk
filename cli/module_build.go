@@ -454,7 +454,7 @@ func reloadModuleAction(c *cli.Context, vc *viamClient) error {
 			infof(c.App.Writer, "copying %s to part %s", manifest.Build.Path, part.Part.Id)
 			err = vc.copyFilesToFqdn(
 				part.Part.Fqdn, c.Bool(debugFlag), false, false, []string{manifest.Build.Path},
-				reloadingDestination(c, manifest.Build), logger)
+				reloadingDestination(c, manifest), logger)
 			if err != nil {
 				return err
 			}
@@ -477,11 +477,11 @@ func reloadModuleAction(c *cli.Context, vc *viamClient) error {
 }
 
 // this chooses a destination path for the module archive.
-func reloadingDestination(c *cli.Context, build *manifestBuildInfo) string {
-	// todo: support mkdir in file copy, then pathify module name
+func reloadingDestination(c *cli.Context, manifest *moduleManifest) string {
 	// todo: download location that gets cleaned up sensibly
 	// todo: support `~` in paths in RDK, get rid of homedir
-	return filepath.Join(c.String(moduleFlagHomeDir), ".viam/packages-local", build.Path)
+	return filepath.Join(c.String(moduleFlagHomeDir), ".viam/packages-local",
+		utils.SanitizePath(localizeModuleID(manifest.ModuleID)+"-"+manifest.Build.Path))
 }
 
 // validateReloadableArchive returns an error if there is a fatal issue (for now just file not found).
