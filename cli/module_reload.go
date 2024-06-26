@@ -10,6 +10,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/urfave/cli/v2"
 	apppb "go.viam.com/api/app/v1"
+	goutils "go.viam.com/utils"
 	"google.golang.org/protobuf/types/known/structpb"
 
 	rdkConfig "go.viam.com/rdk/config"
@@ -31,7 +32,7 @@ func addShellService(c *cli.Context, vc *viamClient, part *apppb.RobotPart) erro
 	if _, ok := partMap["services"]; !ok {
 		partMap["services"] = make([]any, 0, 1)
 	}
-	services, _ := rutils.MapOver(partMap["services"].([]any),
+	services, _ := rutils.MapOver(partMap["services"].([]any), //nolint:errcheck
 		func(raw any) (ServiceMap, error) { return ServiceMap(raw.(map[string]any)), nil },
 	)
 	if slices.ContainsFunc(services, func(service ServiceMap) bool { return service["type"] == "shell" }) {
@@ -39,7 +40,7 @@ func addShellService(c *cli.Context, vc *viamClient, part *apppb.RobotPart) erro
 		return nil
 	}
 	services = append(services, ServiceMap{"name": "shell", "type": "shell"})
-	asAny, _ := rutils.MapOver(services, func(service ServiceMap) (any, error) {
+	asAny, _ := rutils.MapOver(services, func(service ServiceMap) (any, error) { //nolint:errcheck
 		return map[string]any(service), nil
 	})
 	partMap["services"] = asAny
@@ -56,7 +57,7 @@ func addShellService(c *cli.Context, vc *viamClient, part *apppb.RobotPart) erro
 		time.Sleep(time.Second)
 		_, closeClient, err := vc.connectToShellServiceFqdn(part.Fqdn, c.Bool(debugFlag), logging.NewLogger("shellsvc"))
 		if err == nil {
-			closeClient(c.Context)
+			goutils.UncheckedError(closeClient(c.Context))
 			return nil
 		}
 		if !errors.Is(err, errNoShellService) {

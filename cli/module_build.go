@@ -443,7 +443,10 @@ func reloadModuleAction(c *cli.Context, vc *viamClient) error {
 		}
 		if !c.Bool(moduleFlagLocal) {
 			if manifest == nil || manifest.Build == nil || manifest.Build.Path == "" {
-				return errors.New(`remote reloading requires a meta.json with the 'build.path' field set. try --local if you are testing on the same machine.`)
+				return errors.New(
+					"remote reloading requires a meta.json with the 'build.path' field set." +
+						"try --local if you are testing on the same machine.",
+				)
 			}
 			if err := validateReloadableArchive(c, manifest.Build); err != nil {
 				return err
@@ -468,7 +471,10 @@ func reloadModuleAction(c *cli.Context, vc *viamClient) error {
 		err = restartModule(c, vc, part.Part, manifest)
 		// todo: use GRPC error with checkable error code
 		if err != nil && strings.Contains(err.Error(), "module not found with") {
-			warningf(c.App.ErrWriter, "viam-server couldn't find your module to restart it; this happens if the module couldn't start, and may not indicate an error")
+			warningf(c.App.ErrWriter,
+				"viam-server couldn't find your module to restart it;"+
+					"this happens if the module couldn't start, and may not indicate an error",
+			)
 		}
 		return err
 	}
@@ -496,7 +502,7 @@ func validateReloadableArchive(c *cli.Context, build *manifestBuildInfo) error {
 		return err
 	}
 	archive := tar.NewReader(decompressed)
-	meta_found := false
+	metaFound := false
 	for {
 		header, err := archive.Next()
 		if errors.Is(err, io.EOF) {
@@ -506,11 +512,11 @@ func validateReloadableArchive(c *cli.Context, build *manifestBuildInfo) error {
 			return errors.Wrapf(err, "reading tar at %s", build.Path)
 		}
 		if header.Name == "meta.json" {
-			meta_found = true
+			metaFound = true
 			break
 		}
 	}
-	if !meta_found {
+	if !metaFound {
 		warningf(c.App.ErrWriter, "archive at %s doesn't contain a meta.json, your module will probably fail to start", build.Path)
 	}
 	return nil
