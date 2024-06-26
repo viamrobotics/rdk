@@ -176,7 +176,6 @@ func (s *someTypeWithWeakAndStrongDepsConfig) Validate(_ string) ([]string, erro
 	return depNames, nil
 }
 
-// TODO(RSDK-7884): change all referenced resources to mocks.
 func TestUpdateWeakDependents(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 

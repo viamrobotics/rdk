@@ -70,13 +70,26 @@ func ProcessConfig(tb testing.TB, conf *config.Config) *config.Config {
 	return processed
 }
 
-func registerMockModel(tb testing.TB) resource.Model {
+func registerMockComponent[R resource.Resource, CV resource.ConfigValidator](
+	tb testing.TB,
+	registration resource.Registration[R, CV],
+) resource.Model {
 	tb.Helper()
 
 	modelName := utils.RandomAlphaString(5)
 	model := resource.DefaultModelFamily.WithModel(modelName)
 
-	resource.RegisterComponent(mockAPI, model,
+	resource.RegisterComponent(mockAPI, model, registration)
+	tb.Cleanup(func() { resource.Deregister(mockAPI, model) })
+
+	return model
+}
+
+func registerMockFake(tb testing.TB) resource.Model {
+	tb.Helper()
+
+	return registerMockComponent(
+		tb,
 		resource.Registration[resource.Resource, *mockFakeConfig]{
 			Constructor: func(
 				ctx context.Context,
@@ -101,25 +114,45 @@ func registerMockModel(tb testing.TB) resource.Model {
 				}, nil
 			},
 		})
-	tb.Cleanup(func() { resource.Deregister(mockAPI, model) })
-	return model
 }
 
 func TestRobotReconfigure(t *testing.T) {
 	test.That(t, len(resource.DefaultServices()), test.ShouldEqual, 2)
 
-	model1 := registerMockModel(t)
-	mockWithDepModel := registerMockWithDepModel(t)
-
-	modelName2 := utils.RandomAlphaString(5)
-	model2 := resource.DefaultModelFamily.WithModel(modelName2)
-	fakeModel = resource.DefaultModelFamily.WithModel("fake")
+	model1 := registerMockComponent(
+		t,
+		resource.Registration[resource.Resource, *mockFakeConfig]{
+			Constructor: func(
+				ctx context.Context,
+				deps resource.Dependencies,
+				conf resource.Config,
+				logger logging.Logger,
+			) (resource.Resource, error) {
+				// test if implicit depencies are properly propagated
+				convAttrs := conf.ConvertedAttributes.(*mockFakeConfig)
+				for _, dep := range convAttrs.InferredDep {
+					if _, ok := deps[mockNamed(dep)]; !ok {
+						return nil, errors.Errorf("inferred dependency %q cannot be found", mockNamed(dep))
+					}
+				}
+				if convAttrs.ShouldFail {
+					return nil, errors.Errorf("cannot build %q for some obscure reason", conf.Name)
+				}
+				return &mockFake{
+					Named:       conf.ResourceName().AsNamed(),
+					Value:       convAttrs.Value,
+					childValues: make(map[string]int),
+				}, nil
+			},
+		})
 
 	resetComponentFailureState := func() {
 		reconfigurableTrue = true
 		testReconfiguringMismatch = false
 	}
-	resource.RegisterComponent(mockAPI, model2,
+
+	model2 := registerMockComponent(
+		t,
 		resource.Registration[resource.Resource, resource.NoNativeConfig]{
 			Constructor: func(
 				ctx context.Context,
@@ -135,9 +168,31 @@ func TestRobotReconfigure(t *testing.T) {
 			},
 		})
 
-	defer func() {
-		resource.Deregister(mockAPI, model2)
-	}()
+	mockWithDepModel := registerMockComponent(t, resource.Registration[resource.Resource, *mockWithDepConfig]{
+		Constructor: func(
+			ctx context.Context,
+			deps resource.Dependencies,
+			conf resource.Config,
+			logger logging.Logger,
+		) (resource.Resource, error) {
+			convAttrs := conf.ConvertedAttributes.(*mockWithDepConfig)
+			mockDepName := convAttrs.MockDep
+			mockDep, ok := deps[mockNamed(mockDepName)]
+			if !ok {
+				return nil, errors.New("missing dependency!")
+			}
+			parent := mockDep.(*mockFake)
+			slot := convAttrs.Slot
+			value := convAttrs.Value
+			parent.SetChildValue(slot, value)
+			return &mockWithDep{
+				Named:  conf.ResourceName().AsNamed(),
+				Slot:   slot,
+				Value:  value,
+				parent: parent,
+			}, nil
+		},
+	})
 
 	t.Run("no diff", func(t *testing.T) {
 		resetComponentFailureState()
