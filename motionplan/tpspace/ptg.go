@@ -79,7 +79,7 @@ func wrapTo2Pi(theta float64) float64 {
 	return theta - 2*math.Pi*math.Floor(theta/(2*math.Pi))
 }
 
-// ComputePTG will compute all nodes of simPTG at the requested alpha, out to the requested distance, at the specified resolution.
+// computePTG will compute all nodes of simPTG at the requested alpha, out to the requested distance, at the specified resolution.
 func computePTG(simPTG PTG, alpha, dist, resolution float64) ([]*TrajNode, error) {
 	if dist < 0 {
 		return nil, errors.New("computePTG can only be used with dist values >= zero")
@@ -92,6 +92,7 @@ func computePTG(simPTG PTG, alpha, dist, resolution float64) ([]*TrajNode, error
 	var err error
 	var v, w float64
 	distTravelled := 0.
+	setFirstVel := false
 
 	// Step through each time point for this alpha
 	for math.Abs(distTravelled) < math.Abs(dist) {
@@ -106,9 +107,10 @@ func computePTG(simPTG PTG, alpha, dist, resolution float64) ([]*TrajNode, error
 		// Reasoning: if the distance passed in is 0, then we want the first node to return velocity 0. However, if we want a nonzero
 		// distance such that we return two nodes, then the first node, which has zero translation, should set a nonzero velocity so that
 		// the next node, which has a nonzero translation, is arrived at when it ought to be.
-		if len(alphaTraj) > 0 {
-			alphaTraj[len(alphaTraj)-1].LinVel = v
-			alphaTraj[len(alphaTraj)-1].AngVel = w
+		if len(alphaTraj) > 0 && !setFirstVel {
+			alphaTraj[0].LinVel = v
+			alphaTraj[0].AngVel = w
+			setFirstVel = true
 		}
 
 		alphaTraj = append(alphaTraj, nextNode)

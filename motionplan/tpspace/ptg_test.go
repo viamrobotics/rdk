@@ -51,6 +51,7 @@ func TestPtgTransform(t *testing.T) {
 	traj, err := p.PTGSolvers()[0].Trajectory(math.Pi/2, 0, 200, defaultResolution)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, spatialmath.PoseAlmostEqual(pose, traj[len(traj)-1].Pose), test.ShouldBeTrue)
+	test.That(t, spatialmath.PoseAlmostEqual(spatialmath.NewZeroPose(), traj[0].Pose), test.ShouldBeTrue)
 
 	poseInv, err := p.Transform([]referenceframe.Input{{0}, {math.Pi / 2}, {200}, {0}})
 	test.That(t, err, test.ShouldBeNil)
