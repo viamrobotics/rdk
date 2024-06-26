@@ -20,7 +20,15 @@ func TestFromRobot(t *testing.T) {
 			{
 				"name": "board1",
 				"type": "board",
-				"model": "fake"
+				"model": "fake",
+				"attributes": {
+					"digital_interrupts": [
+						{
+							"name": "encoder",
+							"pin": "14"
+						}
+					]
+				}
 			},
 			{
 				"name": "m1",
@@ -51,6 +59,8 @@ func TestFromRobot(t *testing.T) {
 	pwmF, err := pin.PWMFreq(context.Background(), nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, pwmF, test.ShouldEqual, 1000)
+	_, err = b.DigitalInterruptByName("encoder")
+	test.That(t, err, test.ShouldBeNil)
 
 	_, err = board.FromRobot(r, "m0")
 	test.That(t, err, test.ShouldNotBeNil)
