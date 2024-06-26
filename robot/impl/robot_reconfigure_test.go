@@ -19,10 +19,6 @@ import (
 	"go.viam.com/utils/pexec"
 	"go.viam.com/utils/testutils"
 
-	"go.viam.com/rdk/components/camera"
-	"go.viam.com/rdk/components/gripper"
-	"go.viam.com/rdk/components/sensor"
-	"go.viam.com/rdk/components/servo"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
@@ -212,10 +208,6 @@ func TestRobotReconfigure(t *testing.T) {
 
 		test.That(t, robot.RemoteNames(), test.ShouldBeEmpty)
 
-		test.That(t, camera.NamesFromRobot(robot), test.ShouldBeEmpty)
-		test.That(t, gripper.NamesFromRobot(robot), test.ShouldBeEmpty)
-		test.That(t, sensor.NamesFromRobot(robot), test.ShouldBeEmpty)
-		test.That(t, servo.NamesFromRobot(robot), test.ShouldBeEmpty)
 		rdktestutils.VerifySameResourceNames(t, robot.ResourceNames(), rdktestutils.ConcatResourceNames(
 			armNames,
 			baseNames,
@@ -227,10 +219,6 @@ func TestRobotReconfigure(t *testing.T) {
 
 		robot.Reconfigure(ctx, conf1)
 		test.That(t, robot.RemoteNames(), test.ShouldBeEmpty)
-		test.That(t, camera.NamesFromRobot(robot), test.ShouldBeEmpty)
-		test.That(t, gripper.NamesFromRobot(robot), test.ShouldBeEmpty)
-		test.That(t, sensor.NamesFromRobot(robot), test.ShouldBeEmpty)
-		test.That(t, servo.NamesFromRobot(robot), test.ShouldBeEmpty)
 		rdktestutils.VerifySameResourceNames(t, robot.ResourceNames(), rdktestutils.ConcatResourceNames(
 			armNames,
 			baseNames,
@@ -394,10 +382,6 @@ func TestRobotReconfigure(t *testing.T) {
 		boardNames := []resource.Name{mockNamed("board1")}
 		mockNames := []resource.Name{mockNamed("mock1"), mockNamed("mock2")}
 		test.That(t, robot.RemoteNames(), test.ShouldBeEmpty)
-		test.That(t, camera.NamesFromRobot(robot), test.ShouldBeEmpty)
-		test.That(t, gripper.NamesFromRobot(robot), test.ShouldBeEmpty)
-		test.That(t, sensor.NamesFromRobot(robot), test.ShouldBeEmpty)
-		test.That(t, servo.NamesFromRobot(robot), test.ShouldBeEmpty)
 		rdktestutils.VerifySameResourceNames(t, robot.ResourceNames(), rdktestutils.ConcatResourceNames(
 			armNames,
 			baseNames,
@@ -441,10 +425,6 @@ func TestRobotReconfigure(t *testing.T) {
 			test.That(tb, err, test.ShouldBeNil)
 		})
 		test.That(t, robot.RemoteNames(), test.ShouldBeEmpty)
-		test.That(t, camera.NamesFromRobot(robot), test.ShouldBeEmpty)
-		test.That(t, gripper.NamesFromRobot(robot), test.ShouldBeEmpty)
-		test.That(t, sensor.NamesFromRobot(robot), test.ShouldBeEmpty)
-		test.That(t, servo.NamesFromRobot(robot), test.ShouldBeEmpty)
 		rdktestutils.VerifySameResourceNames(t, robot.ResourceNames(), rdktestutils.ConcatResourceNames(
 			armNames,
 			baseNames,
@@ -685,10 +665,6 @@ func TestRobotReconfigure(t *testing.T) {
 
 		robot.Reconfigure(context.Background(), conf1)
 		test.That(t, robot.RemoteNames(), test.ShouldBeEmpty)
-		test.That(t, camera.NamesFromRobot(robot), test.ShouldBeEmpty)
-		test.That(t, gripper.NamesFromRobot(robot), test.ShouldBeEmpty)
-		test.That(t, sensor.NamesFromRobot(robot), test.ShouldBeEmpty)
-		test.That(t, servo.NamesFromRobot(robot), test.ShouldBeEmpty)
 		rdktestutils.VerifySameResourceNames(t, robot.ResourceNames(), rdktestutils.ConcatResourceNames(
 			armNames,
 			baseNames,
@@ -703,10 +679,6 @@ func TestRobotReconfigure(t *testing.T) {
 		motorNames := []resource.Name{mockNamed("m1"), mockNamed("m2"), mockNamed("m3"), mockNamed("m4")}
 		robot.Reconfigure(context.Background(), conf2)
 		test.That(t, robot.RemoteNames(), test.ShouldBeEmpty)
-		test.That(t, camera.NamesFromRobot(robot), test.ShouldBeEmpty)
-		test.That(t, gripper.NamesFromRobot(robot), test.ShouldBeEmpty)
-		test.That(t, sensor.NamesFromRobot(robot), test.ShouldBeEmpty)
-		test.That(t, servo.NamesFromRobot(robot), test.ShouldBeEmpty)
 		rdktestutils.VerifySameResourceNames(t, robot.ResourceNames(), rdktestutils.ConcatResourceNames(
 			armNames,
 			baseNames,
@@ -947,10 +919,6 @@ func TestRobotReconfigure(t *testing.T) {
 
 		robot.Reconfigure(context.Background(), conf3)
 		test.That(t, robot.RemoteNames(), test.ShouldBeEmpty)
-		test.That(t, camera.NamesFromRobot(robot), test.ShouldBeEmpty)
-		test.That(t, gripper.NamesFromRobot(robot), test.ShouldBeEmpty)
-		test.That(t, sensor.NamesFromRobot(robot), test.ShouldBeEmpty)
-		test.That(t, servo.NamesFromRobot(robot), test.ShouldBeEmpty)
 		rdktestutils.VerifySameResourceNames(t, robot.ResourceNames(), rdktestutils.ConcatResourceNames(
 			armNames,
 			baseNames,
@@ -966,10 +934,6 @@ func TestRobotReconfigure(t *testing.T) {
 
 		robot.Reconfigure(context.Background(), conf2)
 		test.That(t, robot.RemoteNames(), test.ShouldBeEmpty)
-		test.That(t, camera.NamesFromRobot(robot), test.ShouldBeEmpty)
-		test.That(t, gripper.NamesFromRobot(robot), test.ShouldBeEmpty)
-		test.That(t, sensor.NamesFromRobot(robot), test.ShouldBeEmpty)
-		test.That(t, servo.NamesFromRobot(robot), test.ShouldBeEmpty)
 		rdktestutils.VerifySameResourceNames(t, robot.ResourceNames(), rdktestutils.ConcatResourceNames(
 			armNames,
 			baseNames,
@@ -1171,10 +1135,6 @@ func TestRobotReconfigure(t *testing.T) {
 
 		robot.Reconfigure(context.Background(), conf2)
 		test.That(t, robot.RemoteNames(), test.ShouldBeEmpty)
-		test.That(t, camera.NamesFromRobot(robot), test.ShouldBeEmpty)
-		test.That(t, gripper.NamesFromRobot(robot), test.ShouldBeEmpty)
-		test.That(t, sensor.NamesFromRobot(robot), test.ShouldBeEmpty)
-		test.That(t, servo.NamesFromRobot(robot), test.ShouldBeEmpty)
 		rdktestutils.VerifySameResourceNames(t, robot.ResourceNames(), rdktestutils.ConcatResourceNames(
 			armNames,
 			baseNames,
@@ -1193,10 +1153,6 @@ func TestRobotReconfigure(t *testing.T) {
 
 		boardNames = []resource.Name{mockNamed("board1"), mockNamed("board2")}
 		test.That(t, robot.RemoteNames(), test.ShouldBeEmpty)
-		test.That(t, camera.NamesFromRobot(robot), test.ShouldBeEmpty)
-		test.That(t, gripper.NamesFromRobot(robot), test.ShouldBeEmpty)
-		test.That(t, sensor.NamesFromRobot(robot), test.ShouldBeEmpty)
-		test.That(t, servo.NamesFromRobot(robot), test.ShouldBeEmpty)
 		rdktestutils.VerifySameResourceNames(t, robot.ResourceNames(), rdktestutils.ConcatResourceNames(
 			boardNames,
 			resource.DefaultServices(),
@@ -1466,10 +1422,6 @@ func TestRobotReconfigure(t *testing.T) {
 
 		robot.Reconfigure(context.Background(), conf2)
 		test.That(t, robot.RemoteNames(), test.ShouldBeEmpty)
-		test.That(t, camera.NamesFromRobot(robot), test.ShouldBeEmpty)
-		test.That(t, gripper.NamesFromRobot(robot), test.ShouldBeEmpty)
-		test.That(t, sensor.NamesFromRobot(robot), test.ShouldBeEmpty)
-		test.That(t, servo.NamesFromRobot(robot), test.ShouldBeEmpty)
 		rdktestutils.VerifySameResourceNames(t, robot.ResourceNames(), rdktestutils.ConcatResourceNames(
 			armNames,
 			baseNames,
@@ -1495,10 +1447,6 @@ func TestRobotReconfigure(t *testing.T) {
 
 		robot.Reconfigure(context.Background(), conf6)
 		test.That(t, robot.RemoteNames(), test.ShouldBeEmpty)
-		test.That(t, camera.NamesFromRobot(robot), test.ShouldBeEmpty)
-		test.That(t, gripper.NamesFromRobot(robot), test.ShouldBeEmpty)
-		test.That(t, sensor.NamesFromRobot(robot), test.ShouldBeEmpty)
-		test.That(t, servo.NamesFromRobot(robot), test.ShouldBeEmpty)
 		rdktestutils.VerifySameResourceNames(t, robot.ResourceNames(), rdktestutils.ConcatResourceNames(
 			armNames,
 			baseNames,
@@ -1693,10 +1641,6 @@ func TestRobotReconfigure(t *testing.T) {
 		resources := robot.ResourceNames()
 		test.That(t, len(resources), test.ShouldEqual, 2)
 		test.That(t, robot.RemoteNames(), test.ShouldBeEmpty)
-		test.That(t, camera.NamesFromRobot(robot), test.ShouldBeEmpty)
-		test.That(t, gripper.NamesFromRobot(robot), test.ShouldBeEmpty)
-		test.That(t, sensor.NamesFromRobot(robot), test.ShouldBeEmpty)
-		test.That(t, servo.NamesFromRobot(robot), test.ShouldBeEmpty)
 		rdktestutils.VerifySameResourceNames(t, robot.ResourceNames(), resource.DefaultServices())
 		test.That(t, robot.ProcessManager().ProcessIDs(), test.ShouldBeEmpty)
 
@@ -1709,10 +1653,6 @@ func TestRobotReconfigure(t *testing.T) {
 		}
 		robot.Reconfigure(context.Background(), conf6)
 		test.That(t, robot.RemoteNames(), test.ShouldBeEmpty)
-		test.That(t, camera.NamesFromRobot(robot), test.ShouldBeEmpty)
-		test.That(t, gripper.NamesFromRobot(robot), test.ShouldBeEmpty)
-		test.That(t, sensor.NamesFromRobot(robot), test.ShouldBeEmpty)
-		test.That(t, servo.NamesFromRobot(robot), test.ShouldBeEmpty)
 		rdktestutils.VerifySameResourceNames(t, robot.ResourceNames(), rdktestutils.ConcatResourceNames(
 			armNames,
 			baseNames,
@@ -1926,10 +1866,6 @@ func TestRobotReconfigure(t *testing.T) {
 
 		boardNames := []resource.Name{mockNamed("board1"), mockNamed("board2")}
 		test.That(t, robot.RemoteNames(), test.ShouldBeEmpty)
-		test.That(t, camera.NamesFromRobot(robot), test.ShouldBeEmpty)
-		test.That(t, gripper.NamesFromRobot(robot), test.ShouldBeEmpty)
-		test.That(t, sensor.NamesFromRobot(robot), test.ShouldBeEmpty)
-		test.That(t, servo.NamesFromRobot(robot), test.ShouldBeEmpty)
 		rdktestutils.VerifySameResourceNames(t, robot.ResourceNames(), rdktestutils.ConcatResourceNames(
 			boardNames,
 			resource.DefaultServices(),
@@ -1980,10 +1916,6 @@ func TestRobotReconfigure(t *testing.T) {
 
 		robot.Reconfigure(context.Background(), conf7)
 		test.That(t, robot.RemoteNames(), test.ShouldBeEmpty)
-		test.That(t, camera.NamesFromRobot(robot), test.ShouldBeEmpty)
-		test.That(t, gripper.NamesFromRobot(robot), test.ShouldBeEmpty)
-		test.That(t, sensor.NamesFromRobot(robot), test.ShouldBeEmpty)
-		test.That(t, servo.NamesFromRobot(robot), test.ShouldBeEmpty)
 		rdktestutils.VerifySameResourceNames(t, robot.ResourceNames(), rdktestutils.ConcatResourceNames(
 			boardNames,
 			resource.DefaultServices(),
@@ -2288,10 +2220,6 @@ func TestRobotReconfigure(t *testing.T) {
 			mockNamed("mock3"), mockNamed("mock4"), mockNamed("mock5"),
 		}
 		test.That(t, robot.RemoteNames(), test.ShouldBeEmpty)
-		test.That(t, camera.NamesFromRobot(robot), test.ShouldBeEmpty)
-		test.That(t, gripper.NamesFromRobot(robot), test.ShouldBeEmpty)
-		test.That(t, sensor.NamesFromRobot(robot), test.ShouldBeEmpty)
-		test.That(t, servo.NamesFromRobot(robot), test.ShouldBeEmpty)
 		rdktestutils.VerifySameResourceNames(t, robot.ResourceNames(), rdktestutils.ConcatResourceNames(
 			boardNames,
 			encoderNames,
@@ -2373,10 +2301,6 @@ func TestRobotReconfigure(t *testing.T) {
 			mockNamed("mock3"), mockNamed("mock4"), mockNamed("mock5"),
 		}
 		test.That(t, robot.RemoteNames(), test.ShouldBeEmpty)
-		test.That(t, camera.NamesFromRobot(robot), test.ShouldBeEmpty)
-		test.That(t, gripper.NamesFromRobot(robot), test.ShouldBeEmpty)
-		test.That(t, sensor.NamesFromRobot(robot), test.ShouldBeEmpty)
-		test.That(t, servo.NamesFromRobot(robot), test.ShouldBeEmpty)
 		rdktestutils.VerifySameResourceNames(t, robot.ResourceNames(), rdktestutils.ConcatResourceNames(
 			boardNames,
 			resource.DefaultServices(),
