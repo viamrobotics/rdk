@@ -10,6 +10,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/urfave/cli/v2"
 	apppb "go.viam.com/api/app/v1"
+	"google.golang.org/protobuf/types/known/structpb"
 
 	rdkConfig "go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
@@ -24,7 +25,7 @@ type ModuleMap map[string]any
 // ServiceMap is the same kind of thing as ModuleMap (see above), a map representing a single service.
 type ServiceMap map[string]any
 
-// addShellService adds a shell service to the services slice if missing.
+// addShellService adds a shell service to the services slice if missing. Mutates part.RobotConfig.
 func addShellService(c *cli.Context, vc *viamClient, part *apppb.RobotPart) error {
 	partMap := part.RobotConfig.AsMap()
 	if _, ok := partMap["services"]; !ok {
@@ -42,9 +43,11 @@ func addShellService(c *cli.Context, vc *viamClient, part *apppb.RobotPart) erro
 		return map[string]any(service), nil
 	})
 	partMap["services"] = asAny
+	if err := writeBackConfig(part, partMap); err != nil {
+		return err
+	}
 	infof(c.App.Writer, "installing shell service on target machine for file transfer")
-	err := vc.updateRobotPart(part, partMap)
-	if err != nil {
+	if err := vc.updateRobotPart(part, partMap); err != nil {
 		return err
 	}
 	// note: we wait up to 7 seconds; that's 5 seconds for the config watcher and 2 for luck.
@@ -63,7 +66,18 @@ func addShellService(c *cli.Context, vc *viamClient, part *apppb.RobotPart) erro
 	return errors.New("timed out waiting for shell service to start")
 }
 
-// configureModule is the configuration step of module reloading. Returns (needsRestart, error).
+// writeBackConfig mutates part.RobotConfig with an edited config; this is necessary so that changes
+// aren't lost when we make multiple updateRobotPart calls.
+func writeBackConfig(part *apppb.RobotPart, configAsMap map[string]any) error {
+	modifiedConfig, err := structpb.NewStruct(configAsMap)
+	if err != nil {
+		return err
+	}
+	part.RobotConfig = modifiedConfig
+	return nil
+}
+
+// configureModule is the configuration step of module reloading. Returns (needsRestart, error). Mutates part.RobotConfig.
 func configureModule(c *cli.Context, vc *viamClient, manifest *moduleManifest, part *apppb.RobotPart) (bool, error) {
 	if manifest == nil {
 		return false, fmt.Errorf("reconfiguration requires valid manifest json passed to --%s", moduleFlagPath)
@@ -92,6 +106,9 @@ func configureModule(c *cli.Context, vc *viamClient, manifest *moduleManifest, p
 		return false, err
 	}
 	partMap["modules"] = modulesAsInterfaces
+	if err := writeBackConfig(part, partMap); err != nil {
+		return false, err
+	}
 	if dirty {
 		debugf(c.App.Writer, c.Bool(debugFlag), "writing back config changes")
 		err = vc.updateRobotPart(part, partMap)

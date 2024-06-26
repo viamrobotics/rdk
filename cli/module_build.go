@@ -467,11 +467,12 @@ func reloadModuleAction(c *cli.Context, vc *viamClient) error {
 	if needsRestart {
 		err = restartModule(c, vc, part.Part, manifest)
 		// todo: use GRPC error with checkable error code
-		if strings.Contains(err.Error(), "module not found with") {
+		if err != nil && strings.Contains(err.Error(), "module not found with") {
 			warningf(c.App.ErrWriter, "viam-server couldn't find your module to restart it; this happens if the module couldn't start, and may not indicate an error")
 		}
 		return err
 	}
+	infof(c.App.Writer, "Reload complete")
 	return nil
 }
 
@@ -479,8 +480,8 @@ func reloadModuleAction(c *cli.Context, vc *viamClient) error {
 func reloadingDestination(c *cli.Context, build *manifestBuildInfo) string {
 	// todo: support mkdir in file copy, then pathify module name
 	// todo: download location that gets cleaned up sensibly
-	filepath.Join(c.String(moduleFlagHomeDir), ".viam/packages-local", build.Path)
-	return build.Path
+	// todo: support `~` in paths in RDK, get rid of homedir
+	return filepath.Join(c.String(moduleFlagHomeDir), ".viam/packages-local", build.Path)
 }
 
 // validateReloadableArchive returns an error if there is a fatal issue (for now just file not found).
