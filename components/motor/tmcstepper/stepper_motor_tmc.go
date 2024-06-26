@@ -427,11 +427,14 @@ func (m *Motor) doJog(ctx context.Context, rpm float64) error {
 	}
 
 	warning, err := motor.CheckSpeed(rpm, m.maxRPM)
-	if warning != "" {
-		m.logger.CWarn(ctx, warning)
-	}
-	if err != nil {
-		m.logger.CError(ctx, err)
+	// only display warnings if rpm != 0 because Stop calls doJog with an rpm of 0
+	if rpm != 0 {
+		if warning != "" {
+			m.logger.CWarn(ctx, warning)
+		}
+		if err != nil {
+			m.logger.CError(ctx, err)
+		}
 	}
 
 	speed := m.rpmToV(math.Abs(rpm))
