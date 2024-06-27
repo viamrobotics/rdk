@@ -1583,8 +1583,9 @@ Example:
 
 	# A full reload command. This will build your module, send the tarball to the machine with given part ID,
 	# and configure or restart it.
+	# The GOARCH env in this case would get passed to an underyling go build (assuming you're targeting an arm device).
 	# Note that you'll still need to add the components for your models after your module is installed.
-	viam module reload --part UUID
+	GOARCH=arm64 viam module reload --part UUID
 
 	# Restart a module running on your local viam server, by name, without building or reconfiguring.
 	viam module reload --restart-only --id viam:python-example-module

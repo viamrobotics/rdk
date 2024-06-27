@@ -586,5 +586,9 @@ func restartModule(c *cli.Context, vc *viamClient, part *apppb.RobotPart, manife
 	defer robotClient.Close(c.Context) //nolint: errcheck
 	debugf(c.App.Writer, c.Bool(debugFlag), "restarting module %v", restartReq)
 	// todo: make this a stream so '--wait' can tell user what's happening
-	return robotClient.RestartModule(c.Context, *restartReq)
+	err = robotClient.RestartModule(c.Context, *restartReq)
+	if err != nil {
+		infof(c.App.Writer, "restarted module.")
+	}
+	return err
 }
