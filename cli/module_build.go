@@ -451,7 +451,7 @@ func reloadModuleAction(c *cli.Context, vc *viamClient) error {
 			if err := validateReloadableArchive(c, manifest.Build); err != nil {
 				return err
 			}
-			if err := addShellService(c, vc, part.Part); err != nil {
+			if err := addShellService(c, vc, part.Part, true); err != nil {
 				return err
 			}
 			infof(c.App.Writer, "copying %s to part %s", manifest.Build.Path, part.Part.Id)

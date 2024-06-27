@@ -70,6 +70,16 @@ func TestFullReloadFlow(t *testing.T) {
 	err = reloadModuleAction(cCtx, vc)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, updateCount, test.ShouldEqual, 1)
+
+	t.Run("addShellService", func(t *testing.T) {
+		part, _ := vc.getRobotPart("id")
+		err := addShellService(cCtx, vc, part.Part, false)
+		test.That(t, err, test.ShouldBeNil)
+		services, ok := part.Part.RobotConfig.AsMap()["services"].([]any)
+		test.That(t, ok, test.ShouldBeTrue)
+		test.That(t, services, test.ShouldNotBeNil)
+		test.That(t, services[0].(map[string]any)["type"], test.ShouldResemble, "shell")
+	})
 }
 
 func TestRestartModule(t *testing.T) {

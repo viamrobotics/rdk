@@ -27,7 +27,7 @@ type ModuleMap map[string]any
 type ServiceMap map[string]any
 
 // addShellService adds a shell service to the services slice if missing. Mutates part.RobotConfig.
-func addShellService(c *cli.Context, vc *viamClient, part *apppb.RobotPart) error {
+func addShellService(c *cli.Context, vc *viamClient, part *apppb.RobotPart, wait bool) error {
 	partMap := part.RobotConfig.AsMap()
 	if _, ok := partMap["services"]; !ok {
 		partMap["services"] = make([]any, 0, 1)
@@ -50,6 +50,9 @@ func addShellService(c *cli.Context, vc *viamClient, part *apppb.RobotPart) erro
 	infof(c.App.Writer, "installing shell service on target machine for file transfer")
 	if err := vc.updateRobotPart(part, partMap); err != nil {
 		return err
+	}
+	if !wait {
+		return nil
 	}
 	// note: we wait up to 7 seconds; that's 5 seconds for the config watcher and 2 for luck.
 	// If we don't do this, reloading fails on first run.
