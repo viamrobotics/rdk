@@ -10,10 +10,8 @@ import (
 	"go.viam.com/utils/protoutils"
 
 	"go.viam.com/rdk/components/base"
-	_ "go.viam.com/rdk/components/base/fake"
-	"go.viam.com/rdk/logging"
+	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/resource"
-	robotimpltest "go.viam.com/rdk/robot/impltest"
 	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
 )
@@ -84,24 +82,13 @@ func TestCreateStatus(t *testing.T) {
 }
 
 func TestFromRobot(t *testing.T) {
-	jsonData := `{
-		"components": [
-			{
-				"name": "base1",
-				"type": "base",
-				"model": "fake"
-			},
-			{
-				"name": "base2",
-				"type": "base",
-				"model": "fake"
-			}
-		]
-	}`
-
-	conf := testutils.ConfigFromJSON(t, jsonData)
-	logger := logging.NewTestLogger(t)
-	r := robotimpltest.SetupLocalRobot(t, context.Background(), conf, logger)
+	r := &inject.Robot{}
+	rs := map[resource.Name]resource.Resource{
+		base.Named("base1"): inject.NewBase("base1"),
+		base.Named("base2"): inject.NewBase("base2"),
+		generic.Named("g"):  inject.NewGenericComponent("g"),
+	}
+	r.MockResourcesFromMap(rs)
 
 	expected := []string{"base1", "base2"}
 	testutils.VerifySameElements(t, base.NamesFromRobot(r), expected)
@@ -113,5 +100,8 @@ func TestFromRobot(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	_, err = base.FromRobot(r, "base0")
+	test.That(t, err, test.ShouldNotBeNil)
+
+	_, err = base.FromRobot(r, "g")
 	test.That(t, err, test.ShouldNotBeNil)
 }

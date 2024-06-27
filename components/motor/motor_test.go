@@ -10,11 +10,9 @@ import (
 	"go.viam.com/test"
 	"go.viam.com/utils/protoutils"
 
+	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/components/motor"
-	_ "go.viam.com/rdk/components/motor/fake"
-	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
-	robotimpltest "go.viam.com/rdk/robot/impltest"
 	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
 )
@@ -136,36 +134,13 @@ func TestCreateStatus(t *testing.T) {
 }
 
 func TestFromRobot(t *testing.T) {
-	jsonData := `{
-		"components": [
-			{
-				"name": "m1",
-				"type": "motor",
-				"model": "fake",
-				"attributes": {
-					"pins": {
-						"pwm": "1"
-					},
-					"pwm_freq": 1000
-				}
-			},
-			{
-				"name": "m2",
-				"type": "motor",
-				"model": "fake",
-				"attributes": {
-					"pins": {
-						"pwm": "5"
-					},
-					"pwm_freq": 4000
-				}
-			}
-		]
-	}`
-
-	conf := testutils.ConfigFromJSON(t, jsonData)
-	logger := logging.NewTestLogger(t)
-	r := robotimpltest.SetupLocalRobot(t, context.Background(), conf, logger)
+	r := &inject.Robot{}
+	rs := map[resource.Name]resource.Resource{
+		motor.Named("m1"):  inject.NewMotor("m1"),
+		motor.Named("m2"):  inject.NewMotor("m2"),
+		generic.Named("g"): inject.NewGenericComponent("g"),
+	}
+	r.MockResourcesFromMap(rs)
 
 	expected := []string{"m1", "m2"}
 	testutils.VerifySameElements(t, motor.NamesFromRobot(r), expected)
@@ -177,5 +152,8 @@ func TestFromRobot(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	_, err = motor.FromRobot(r, "m0")
+	test.That(t, err, test.ShouldNotBeNil)
+
+	_, err = motor.FromRobot(r, "g")
 	test.That(t, err, test.ShouldNotBeNil)
 }
