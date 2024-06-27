@@ -10,7 +10,7 @@ import (
 	"go.viam.com/rdk/components/encoder"
 	_ "go.viam.com/rdk/components/encoder/incremental"
 	"go.viam.com/rdk/logging"
-	robotimpl "go.viam.com/rdk/robot/impl"
+	robotimpltest "go.viam.com/rdk/robot/impltest"
 	"go.viam.com/rdk/testutils"
 )
 
@@ -54,7 +54,7 @@ func TestFromRobot(t *testing.T) {
 
 	conf := testutils.ConfigFromJSON(t, jsonData)
 	logger := logging.NewTestLogger(t)
-	r := robotimpl.SetupLocalRobot(t, context.Background(), conf, logger)
+	r := robotimpltest.SetupLocalRobot(t, context.Background(), conf, logger)
 
 	expected := []string{"e1"}
 	testutils.VerifySameElements(t, encoder.NamesFromRobot(r), expected)

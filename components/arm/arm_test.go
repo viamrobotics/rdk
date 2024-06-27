@@ -19,7 +19,7 @@ import (
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
-	robotimpl "go.viam.com/rdk/robot/impl"
+	robotimpltest "go.viam.com/rdk/robot/impltest"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
@@ -605,7 +605,7 @@ func TestFromRobot(t *testing.T) {
 
 	conf := testutils.ConfigFromJSON(t, jsonData)
 	logger := logging.NewTestLogger(t)
-	r := robotimpl.SetupLocalRobot(t, context.Background(), conf, logger)
+	r := robotimpltest.SetupLocalRobot(t, context.Background(), conf, logger)
 
 	expected := []string{"arm1"}
 	testutils.VerifySameElements(t, arm.NamesFromRobot(r), expected)
