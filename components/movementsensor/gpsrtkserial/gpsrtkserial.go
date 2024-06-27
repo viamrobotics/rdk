@@ -417,11 +417,6 @@ func (g *rtkSerial) receiveAndWriteSerial() {
 			continue // No errors: we're still connected.
 		}
 
-		if msg != nil {
-			// Why would we have a non-nil message with a non-nil error!? Give up entirely.
-			return
-		}
-
 		if g.isClosed {
 			return
 		}

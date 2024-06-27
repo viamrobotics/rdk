@@ -403,11 +403,6 @@ func (g *rtkI2C) receiveAndWriteI2C(ctx context.Context) {
 			continue // No errors: we're still connected.
 		}
 
-		if msg != nil {
-			// Why would we have a non-nil message with a non-nil error!? Give up entirely.
-			return
-		}
-
 		// If we get here, the scanner encountered an error but is supposed to continue going. Try
 		// reconnecting to the mount point.
 		g.logger.CDebug(ctx, "No message... reconnecting to stream...")
