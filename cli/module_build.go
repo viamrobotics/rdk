@@ -21,6 +21,8 @@ import (
 	"go.viam.com/utils/pexec"
 	"go.viam.com/utils/rpc"
 	"golang.org/x/exp/maps"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
@@ -438,7 +440,7 @@ func reloadModuleAction(c *cli.Context, vc *viamClient) error {
 		if !c.Bool(moduleFlagLocal) {
 			if manifest == nil || manifest.Build == nil || manifest.Build.Path == "" {
 				return errors.New(
-					"remote reloading requires a meta.json with the 'build.path' field set." +
+					"remote reloading requires a meta.json with the 'build.path' field set. " +
 						"try --local if you are testing on the same machine.",
 				)
 			}
@@ -463,11 +465,10 @@ func reloadModuleAction(c *cli.Context, vc *viamClient) error {
 	}
 	if needsRestart {
 		err = restartModule(c, vc, part.Part, manifest)
-		// todo: use GRPC error with checkable error code
-		if err != nil && strings.Contains(err.Error(), "module not found with") {
+		if s, ok := status.FromError(err); ok && s.Code() == codes.NotFound {
 			warningf(c.App.ErrWriter,
-				"viam-server couldn't find your module to restart it;"+
-					"this happens if the module couldn't start, and may not indicate an error",
+				"viam-server couldn't find your module to restart it; "+
+					"this happens if the module couldn't start, and may not indicate an error.",
 			)
 		}
 		return err
