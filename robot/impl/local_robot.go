@@ -537,6 +537,7 @@ func newWithResources(
 				trigger = "ticker"
 			case <-r.triggerConfig:
 				trigger = "remote"
+				r.logger.CDebugw(ctx, "configuration attempt triggered by remote")
 			}
 			anyChanges := r.manager.updateRemotesResourceNames(closeCtx)
 			if r.manager.anyResourcesNotConfigured() {
