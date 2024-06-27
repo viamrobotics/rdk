@@ -545,5 +545,30 @@ func TestRunning(t *testing.T) {
 		test.That(t, pos, test.ShouldBeLessThan, 202)
 	})
 
+	t.Run("test calcStepperDelay", func(t *testing.T) {
+		stepper, err := newGPIOStepper(ctx, &b, goodConfig, c.ResourceName(), logger)
+		test.That(t, err, test.ShouldBeNil)
+		defer stepper.Close(ctx)
+
+		m := stepper.(*gpioStepper)
+		stepperdelay := m.calcStepperDelay(50)
+		test.That(t, stepperdelay, test.ShouldEqual, (6 * time.Millisecond))
+
+		stepperdelay = m.calcStepperDelay(-50)
+		test.That(t, stepperdelay, test.ShouldEqual, (6 * time.Millisecond))
+
+		stepperdelay = m.calcStepperDelay(-2)
+		test.That(t, stepperdelay, test.ShouldEqual, (150 * time.Millisecond))
+
+		stepperdelay = m.calcStepperDelay(1)
+		test.That(t, stepperdelay, test.ShouldEqual, (300 * time.Millisecond))
+
+		stepperdelay = m.calcStepperDelay(400)
+		test.That(t, stepperdelay, test.ShouldEqual, (750 * time.Microsecond))
+
+		stepperdelay = m.calcStepperDelay(0)
+		test.That(t, stepperdelay, test.ShouldEqual, (30 * time.Microsecond))
+	})
+
 	cancel()
 }

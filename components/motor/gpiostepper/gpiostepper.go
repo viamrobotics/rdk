@@ -341,6 +341,20 @@ func (m *gpioStepper) GoFor(ctx context.Context, rpm, revolutions float64, extra
 		m.enable(ctx, false))
 }
 
+// calcStepperDelay calculates the delay between steps for the thread that we started in component creation.
+// The delay is found by calculating seconds per step, and then casting that value to a time.Duration.
+func (m *gpioStepper) calcStepperDelay(rpm float64) time.Duration {
+	stepperDelay := time.Duration(int64(float64(time.Minute) / (math.Abs(rpm) * float64(m.stepsPerRotation))))
+	if stepperDelay < m.minDelay || rpm == 0 {
+		stepperDelay = m.minDelay
+		m.logger.Debugf(
+			"calculated delay less than the minimum delay for stepper motor setting to %+v", stepperDelay,
+		)
+	}
+
+	return stepperDelay
+}
+
 func (m *gpioStepper) goForInternal(ctx context.Context, rpm, revolutions float64) error {
 	if revolutions == 0 {
 		// go a large number of revolutions if 0 is passed in, at the desired speed
@@ -361,15 +375,7 @@ func (m *gpioStepper) goForInternal(ctx context.Context, rpm, revolutions float6
 	m.lock.Lock()
 	defer m.lock.Unlock()
 
-	// calculate delay between steps for the thread in the goroutine that we started in component creation.
-	// the delay is found by calculating seconds per step, and then casting that value to a time.Duration.
-	m.stepperDelay = time.Duration(int64(float64(time.Minute) / (math.Abs(rpm) * float64(m.stepsPerRotation))))
-	if m.stepperDelay < m.minDelay {
-		m.stepperDelay = m.minDelay
-		m.logger.CDebugf(ctx,
-			"calculated delay less than the minimum delay for stepper motor setting to %+v", m.stepperDelay,
-		)
-	}
+	m.stepperDelay = m.calcStepperDelay(rpm)
 
 	if !m.threadStarted {
 		return errors.New("thread not started")
@@ -413,13 +419,7 @@ func (m *gpioStepper) SetRPM(ctx context.Context, rpm float64, extra map[string]
 
 	// calculate delay between steps for the thread in the goroutine that we started in component creation.
 	// the delay is found by calculating seconds per step, and then casting that value to a time.Duration.
-	m.stepperDelay = time.Duration(int64(float64(time.Minute) / (math.Abs(rpm) * float64(m.stepsPerRotation))))
-	if m.stepperDelay < m.minDelay {
-		m.stepperDelay = m.minDelay
-		m.logger.CDebugf(ctx,
-			"calculated delay less than the minimum delay for stepper motor setting to %+v", m.stepperDelay,
-		)
-	}
+	m.stepperDelay = m.calcStepperDelay(rpm)
 
 	if !m.threadStarted {
 		return errors.New("thread not started")
