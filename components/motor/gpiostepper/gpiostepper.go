@@ -405,6 +405,11 @@ func (m *gpioStepper) SetRPM(ctx context.Context, rpm float64, extra map[string]
 	m.lock.Lock()
 	defer m.lock.Unlock()
 
+	if math.Abs(rpm) <= .0001 {
+		m.stop()
+		return nil
+	}
+
 	// calculate delay between steps for the thread in the goroutine that we started in component creation
 	m.stepperDelay = time.Duration(int64(float64(time.Minute) / (math.Abs(rpm) * float64(m.stepsPerRotation))))
 	if m.stepperDelay < m.minDelay {
@@ -418,7 +423,11 @@ func (m *gpioStepper) SetRPM(ctx context.Context, rpm float64, extra map[string]
 		return errors.New("thread not started")
 	}
 
-	m.targetStepPosition = int64(math.Inf(int(rpm)))
+	if rpm < 0 {
+		m.targetStepPosition = math.MinInt64
+	} else {
+		m.targetStepPosition = math.MaxInt64
+	}
 
 	return nil
 }
