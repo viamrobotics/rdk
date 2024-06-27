@@ -24,7 +24,6 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
-
 	// TODO(RSDK-7884): change everything that depends on this import to a mock.
 	_ "go.viam.com/rdk/services/datamanager/builtin"
 	// TODO(RSDK-7884): change everything that depends on this import to a mock.
