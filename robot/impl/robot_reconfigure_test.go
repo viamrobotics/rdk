@@ -24,6 +24,7 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
+
 	// TODO(RSDK-7884): change everything that depends on this import to a mock.
 	_ "go.viam.com/rdk/services/datamanager/builtin"
 	// TODO(RSDK-7884): change everything that depends on this import to a mock.
@@ -166,7 +167,6 @@ func TestRobotReconfigure(t *testing.T) {
 		resetComponentFailureState()
 		logger := logging.NewTestLogger(t)
 
-		// conf1 := ConfigFromFile(t, "data/diff_config_1.json")
 		conf1 := processConfig(t, &config.Config{
 			Components: []resource.Config{
 				{
@@ -286,7 +286,6 @@ func TestRobotReconfigure(t *testing.T) {
 		testReconfiguringMismatch = true
 		// processing modify will fail
 		logger := logging.NewTestLogger(t)
-		// conf1 := ConfigFromFile(t, "data/diff_config_1.json")
 		conf1 := processConfig(t, &config.Config{
 			Components: []resource.Config{
 				{
@@ -344,7 +343,6 @@ func TestRobotReconfigure(t *testing.T) {
 				},
 			},
 		})
-		// conf3 := ConfigFromFile(t, "data/diff_config_4_bad.json")
 		conf3 := processConfig(t, &config.Config{
 			Components: []resource.Config{
 				{
@@ -497,7 +495,6 @@ func TestRobotReconfigure(t *testing.T) {
 	t.Run("additive deps diff", func(t *testing.T) {
 		resetComponentFailureState()
 		logger := logging.NewTestLogger(t)
-		// conf1 := ConfigFromFile(t, "data/diff_config_deps1.json")
 		conf1 := processConfig(t, &config.Config{
 			Components: []resource.Config{
 				{
@@ -568,7 +565,6 @@ func TestRobotReconfigure(t *testing.T) {
 				},
 			},
 		})
-		// conf2 := ConfigFromFile(t, "data/diff_config_deps10.json")
 		conf2 := processConfig(t, &config.Config{
 			Components: []resource.Config{
 				{
@@ -773,7 +769,6 @@ func TestRobotReconfigure(t *testing.T) {
 	t.Run("modificative deps diff", func(t *testing.T) {
 		resetComponentFailureState()
 		logger := logging.NewTestLogger(t)
-		// conf3 := ConfigFromFile(t, "data/diff_config_deps3.json")
 		conf3 := processConfig(t, &config.Config{
 			Components: []resource.Config{
 				{
@@ -846,7 +841,6 @@ func TestRobotReconfigure(t *testing.T) {
 				},
 			},
 		})
-		// conf2 := ConfigFromFile(t, "data/diff_config_deps2.json")
 		//nolint:dupl
 		conf2 := processConfig(t, &config.Config{
 			Components: []resource.Config{
@@ -1026,7 +1020,6 @@ func TestRobotReconfigure(t *testing.T) {
 	t.Run("deletion deps diff", func(t *testing.T) {
 		resetComponentFailureState()
 		logger := logging.NewTestLogger(t)
-		// conf2 := ConfigFromFile(t, "data/diff_config_deps2.json")
 		//nolint:dupl
 		conf2 := processConfig(t, &config.Config{
 			Components: []resource.Config{
@@ -1122,7 +1115,6 @@ func TestRobotReconfigure(t *testing.T) {
 			},
 		})
 
-		// conf4 := ConfigFromFile(t, "data/diff_config_deps4.json")
 		conf4 := processConfig(t, &config.Config{
 			Components: []resource.Config{
 				{
@@ -1239,7 +1231,6 @@ func TestRobotReconfigure(t *testing.T) {
 	t.Run("mixed deps diff", func(t *testing.T) {
 		resetComponentFailureState()
 		logger := logging.NewTestLogger(t)
-		// conf2 := ConfigFromFile(t, "data/diff_config_deps2.json")
 		//nolint:dupl
 		conf2 := processConfig(t, &config.Config{
 			Components: []resource.Config{
@@ -1335,7 +1326,6 @@ func TestRobotReconfigure(t *testing.T) {
 			},
 		})
 
-		// conf6 := ConfigFromFile(t, "data/diff_config_deps6.json")
 		conf6 := processConfig(t, &config.Config{
 			Components: []resource.Config{
 				{
@@ -1556,9 +1546,7 @@ func TestRobotReconfigure(t *testing.T) {
 	t.Run("from empty conf with deps", func(t *testing.T) {
 		resetComponentFailureState()
 		logger := logging.NewTestLogger(t)
-		// cempty := ConfigFromFile(t, "data/diff_config_empty.json")
 		cempty := &config.Config{}
-		// conf6 := ConfigFromFile(t, "data/diff_config_deps6.json")
 		conf6 := processConfig(t, &config.Config{
 			Components: []resource.Config{
 				{
@@ -1755,7 +1743,6 @@ func TestRobotReconfigure(t *testing.T) {
 	t.Run("incremental deps config", func(t *testing.T) {
 		resetComponentFailureState()
 		logger := logging.NewTestLogger(t)
-		// conf4 := ConfigFromFile(t, "data/diff_config_deps4.json")
 		conf4 := processConfig(t, &config.Config{
 			Components: []resource.Config{
 				{
@@ -1791,7 +1778,6 @@ func TestRobotReconfigure(t *testing.T) {
 				},
 			},
 		})
-		// conf7 := ConfigFromFile(t, "data/diff_config_deps7.json")
 		conf7 := processConfig(t, &config.Config{
 			Components: []resource.Config{
 				{
@@ -2030,7 +2016,6 @@ func TestRobotReconfigure(t *testing.T) {
 	t.Run("parent attribute change deps config", func(t *testing.T) {
 		resetComponentFailureState()
 		logger := logging.NewTestLogger(t)
-		// conf7 := ConfigFromFile(t, "data/diff_config_deps7.json")
 		//nolint:dupl
 		conf7 := processConfig(t, &config.Config{
 			Components: []resource.Config{
@@ -2139,7 +2124,6 @@ func TestRobotReconfigure(t *testing.T) {
 				},
 			},
 		})
-		// conf8 := ConfigFromFile(t, "data/diff_config_deps8.json")
 		conf8 := processConfig(t, &config.Config{
 			Components: []resource.Config{
 				{
@@ -2411,7 +2395,6 @@ func TestRobotReconfigure(t *testing.T) {
 		testReconfiguringMismatch = true
 		reconfigurableTrue = true
 		logger := logging.NewTestLogger(t)
-		// conf7 := ConfigFromFile(t, "data/diff_config_deps7.json")
 		//nolint:dupl
 		conf7 := processConfig(t, &config.Config{
 			Components: []resource.Config{
@@ -2520,7 +2503,6 @@ func TestRobotReconfigure(t *testing.T) {
 				},
 			},
 		})
-		// conf9 := ConfigFromFile(t, "data/diff_config_deps9_bad.json")
 		conf9 := processConfig(t, &config.Config{
 			Components: []resource.Config{
 				{
@@ -2812,7 +2794,6 @@ func TestRobotReconfigure(t *testing.T) {
 		))
 
 		// This configuration will put `mock6` into a good state after two calls to "reconfigure".
-		// conf9good := ConfigFromFile(t, "data/diff_config_deps9_good.json")
 		conf9good := processConfig(t, &config.Config{
 			Components: []resource.Config{
 				{
@@ -3038,7 +3019,6 @@ func TestRobotReconfigure(t *testing.T) {
 	t.Run("complex diff", func(t *testing.T) {
 		resetComponentFailureState()
 		logger := logging.NewTestLogger(t)
-		// conf1 := ConfigFromFile(t, "data/diff_config_deps11.json")
 		conf1 := processConfig(t, &config.Config{
 			Components: []resource.Config{
 				{
@@ -3081,7 +3061,6 @@ func TestRobotReconfigure(t *testing.T) {
 				},
 			},
 		})
-		// conf2 := ConfigFromFile(t, "data/diff_config_deps12.json")
 		conf2 := processConfig(t, &config.Config{
 			Components: []resource.Config{
 				{
