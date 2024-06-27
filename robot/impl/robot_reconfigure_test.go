@@ -61,13 +61,12 @@ func ConfigFromFile(tb testing.TB, filePath string) *config.Config {
 	return conf
 }
 
-func ProcessConfig(tb testing.TB, conf *config.Config) *config.Config {
+func processConfig(tb testing.TB, conf *config.Config) *config.Config {
 	tb.Helper()
 
 	logger := logging.NewTestLogger(tb)
-	processed, err := config.ProcessConfigLocalConfig(conf, logger)
-	test.That(tb, err, test.ShouldBeNil)
-	return processed
+	test.That(tb, conf.ProcessLocal(logger), test.ShouldBeNil)
+	return conf
 }
 
 func registerMockComponent[R resource.Resource, CV resource.ConfigValidator](
@@ -199,7 +198,7 @@ func TestRobotReconfigure(t *testing.T) {
 		logger := logging.NewTestLogger(t)
 
 		// conf1 := ConfigFromFile(t, "data/diff_config_1.json")
-		conf1 := ProcessConfig(t, &config.Config{
+		conf1 := processConfig(t, &config.Config{
 			Components: []resource.Config{
 				{
 					Name:  "arm1",
@@ -319,7 +318,7 @@ func TestRobotReconfigure(t *testing.T) {
 		// processing modify will fail
 		logger := logging.NewTestLogger(t)
 		// conf1 := ConfigFromFile(t, "data/diff_config_1.json")
-		conf1 := ProcessConfig(t, &config.Config{
+		conf1 := processConfig(t, &config.Config{
 			Components: []resource.Config{
 				{
 					Name:  "arm1",
@@ -377,7 +376,7 @@ func TestRobotReconfigure(t *testing.T) {
 			},
 		})
 		// conf3 := ConfigFromFile(t, "data/diff_config_4_bad.json")
-		conf3 := ProcessConfig(t, &config.Config{
+		conf3 := processConfig(t, &config.Config{
 			Components: []resource.Config{
 				{
 					Name:  "arm1",
@@ -530,7 +529,7 @@ func TestRobotReconfigure(t *testing.T) {
 		resetComponentFailureState()
 		logger := logging.NewTestLogger(t)
 		// conf1 := ConfigFromFile(t, "data/diff_config_deps1.json")
-		conf1 := ProcessConfig(t, &config.Config{
+		conf1 := processConfig(t, &config.Config{
 			Components: []resource.Config{
 				{
 					Name:      "arm1",
@@ -601,7 +600,7 @@ func TestRobotReconfigure(t *testing.T) {
 			},
 		})
 		// conf2 := ConfigFromFile(t, "data/diff_config_deps10.json")
-		conf2 := ProcessConfig(t, &config.Config{
+		conf2 := processConfig(t, &config.Config{
 			Components: []resource.Config{
 				{
 					Name:      "arm1",
@@ -806,7 +805,7 @@ func TestRobotReconfigure(t *testing.T) {
 		resetComponentFailureState()
 		logger := logging.NewTestLogger(t)
 		// conf3 := ConfigFromFile(t, "data/diff_config_deps3.json")
-		conf3 := ProcessConfig(t, &config.Config{
+		conf3 := processConfig(t, &config.Config{
 			Components: []resource.Config{
 				{
 					Name:  "arm1",
@@ -879,7 +878,7 @@ func TestRobotReconfigure(t *testing.T) {
 			},
 		})
 		// conf2 := ConfigFromFile(t, "data/diff_config_deps2.json")
-		conf2 := ProcessConfig(t, &config.Config{
+		conf2 := processConfig(t, &config.Config{
 			Components: []resource.Config{
 				{
 					Name:      "arm1",
@@ -1058,7 +1057,7 @@ func TestRobotReconfigure(t *testing.T) {
 		resetComponentFailureState()
 		logger := logging.NewTestLogger(t)
 		// conf2 := ConfigFromFile(t, "data/diff_config_deps2.json")
-		conf2 := ProcessConfig(t, &config.Config{
+		conf2 := processConfig(t, &config.Config{
 			Components: []resource.Config{
 				{
 					Name:      "arm1",
@@ -1153,7 +1152,7 @@ func TestRobotReconfigure(t *testing.T) {
 		})
 
 		// conf4 := ConfigFromFile(t, "data/diff_config_deps4.json")
-		conf4 := ProcessConfig(t, &config.Config{
+		conf4 := processConfig(t, &config.Config{
 			Components: []resource.Config{
 				{
 					Name:  "board2",
@@ -1270,7 +1269,7 @@ func TestRobotReconfigure(t *testing.T) {
 		resetComponentFailureState()
 		logger := logging.NewTestLogger(t)
 		// conf2 := ConfigFromFile(t, "data/diff_config_deps2.json")
-		conf2 := ProcessConfig(t, &config.Config{
+		conf2 := processConfig(t, &config.Config{
 			Components: []resource.Config{
 				{
 					Name:      "arm1",
@@ -1365,7 +1364,7 @@ func TestRobotReconfigure(t *testing.T) {
 		})
 
 		// conf6 := ConfigFromFile(t, "data/diff_config_deps6.json")
-		conf6 := ProcessConfig(t, &config.Config{
+		conf6 := processConfig(t, &config.Config{
 			Components: []resource.Config{
 				{
 					Name:      "arm1",
@@ -1588,7 +1587,7 @@ func TestRobotReconfigure(t *testing.T) {
 		// cempty := ConfigFromFile(t, "data/diff_config_empty.json")
 		cempty := &config.Config{}
 		// conf6 := ConfigFromFile(t, "data/diff_config_deps6.json")
-		conf6 := ProcessConfig(t, &config.Config{
+		conf6 := processConfig(t, &config.Config{
 			Components: []resource.Config{
 				{
 					Name:      "arm1",
@@ -1785,7 +1784,7 @@ func TestRobotReconfigure(t *testing.T) {
 		resetComponentFailureState()
 		logger := logging.NewTestLogger(t)
 		// conf4 := ConfigFromFile(t, "data/diff_config_deps4.json")
-		conf4 := ProcessConfig(t, &config.Config{
+		conf4 := processConfig(t, &config.Config{
 			Components: []resource.Config{
 				{
 					Name:  "board2",
@@ -1821,7 +1820,7 @@ func TestRobotReconfigure(t *testing.T) {
 			},
 		})
 		// conf7 := ConfigFromFile(t, "data/diff_config_deps7.json")
-		conf7 := ProcessConfig(t, &config.Config{
+		conf7 := processConfig(t, &config.Config{
 			Components: []resource.Config{
 				{
 					Name:  "board2",
@@ -2060,7 +2059,7 @@ func TestRobotReconfigure(t *testing.T) {
 		resetComponentFailureState()
 		logger := logging.NewTestLogger(t)
 		// conf7 := ConfigFromFile(t, "data/diff_config_deps7.json")
-		conf7 := ProcessConfig(t, &config.Config{
+		conf7 := processConfig(t, &config.Config{
 			Components: []resource.Config{
 				{
 					Name:  "board2",
@@ -2168,7 +2167,7 @@ func TestRobotReconfigure(t *testing.T) {
 			},
 		})
 		// conf8 := ConfigFromFile(t, "data/diff_config_deps8.json")
-		conf8 := ProcessConfig(t, &config.Config{
+		conf8 := processConfig(t, &config.Config{
 			Components: []resource.Config{
 				{
 					Name:  "board2",
@@ -2440,7 +2439,7 @@ func TestRobotReconfigure(t *testing.T) {
 		reconfigurableTrue = true
 		logger := logging.NewTestLogger(t)
 		// conf7 := ConfigFromFile(t, "data/diff_config_deps7.json")
-		conf7 := ProcessConfig(t, &config.Config{
+		conf7 := processConfig(t, &config.Config{
 			Components: []resource.Config{
 				{
 					Name:  "board2",
@@ -2548,7 +2547,7 @@ func TestRobotReconfigure(t *testing.T) {
 			},
 		})
 		// conf9 := ConfigFromFile(t, "data/diff_config_deps9_bad.json")
-		conf9 := ProcessConfig(t, &config.Config{
+		conf9 := processConfig(t, &config.Config{
 			Components: []resource.Config{
 				{
 					Name:  "board2",
@@ -2840,7 +2839,7 @@ func TestRobotReconfigure(t *testing.T) {
 
 		// This configuration will put `mock6` into a good state after two calls to "reconfigure".
 		// conf9good := ConfigFromFile(t, "data/diff_config_deps9_good.json")
-		conf9good := ProcessConfig(t, &config.Config{
+		conf9good := processConfig(t, &config.Config{
 			Components: []resource.Config{
 				{
 					Name:  "board2",
@@ -3066,7 +3065,7 @@ func TestRobotReconfigure(t *testing.T) {
 		resetComponentFailureState()
 		logger := logging.NewTestLogger(t)
 		// conf1 := ConfigFromFile(t, "data/diff_config_deps11.json")
-		conf1 := ProcessConfig(t, &config.Config{
+		conf1 := processConfig(t, &config.Config{
 			Components: []resource.Config{
 
 				{
@@ -3110,7 +3109,7 @@ func TestRobotReconfigure(t *testing.T) {
 			},
 		})
 		// conf2 := ConfigFromFile(t, "data/diff_config_deps12.json")
-		conf2 := ProcessConfig(t, &config.Config{
+		conf2 := processConfig(t, &config.Config{
 			Components: []resource.Config{
 
 				{

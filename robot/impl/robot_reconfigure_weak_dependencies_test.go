@@ -42,7 +42,7 @@ func TestSensorsServiceReconfigure(t *testing.T) {
 	emptyCfg := &config.Config{}
 	// cfg, err := config.Read(context.Background(), "data/fake.json", logger)
 	// test.That(t, err, test.ShouldBeNil)
-	cfg := ProcessConfig(t, &config.Config{
+	cfg := processConfig(t, &config.Config{
 		Components: []resource.Config{
 			{
 				Name:  "pieceGripper",

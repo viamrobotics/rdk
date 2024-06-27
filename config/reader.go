@@ -391,7 +391,7 @@ func FromReader(
 	return fromReader(ctx, originalPath, r, logger, true)
 }
 
-// FromReader reads a config from the given reader and specifies
+// fromReader reads a config from the given reader and specifies
 // where, if applicable, the file the reader originated from.
 func fromReader(
 	ctx context.Context,
@@ -421,11 +421,16 @@ func fromReader(
 	return cfgFromDisk, err
 }
 
-// ProcessConfigLocalConfig returns a copy of the current config with all attributes
-// parsed and config validated with the assumption the config came from a local file.
-// Returns an error if the unprocessedConfig is non-valid.
-func ProcessConfigLocalConfig(unprocessedConfig *Config, logger logging.Logger) (*Config, error) {
-	return processConfigLocalConfig(unprocessedConfig, logger)
+// ProcessLocal validates the current config assuming it came from a local file and
+// updates it with all derived fields. Returns an error if the unprocessedConfig is
+// non-valid.
+func (conf *Config) ProcessLocal(logger logging.Logger) error {
+	processed, err := processConfigLocalConfig(conf, logger)
+	if err != nil {
+		return err
+	}
+	*conf = *processed
+	return nil
 }
 
 // processConfigFromCloud returns a copy of the current config with all attributes parsed
