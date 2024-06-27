@@ -200,6 +200,10 @@ jobs:
     - name: Run go unit tests on Pi
       run: make test-pi
 
+  motion_tests:
+    name: Test Longer-running Motion Plans if affected
+    uses: viamrobotics/rdk/.github/workflows/motion-tests.yml@main
+
   test_web_e2e:
     name: Test End-to-End and Web
     runs-on: [buildjet-4vcpu-ubuntu-2204]
@@ -236,7 +240,7 @@ jobs:
 
   test_passing:
     name: All Tests Passing
-    needs: [test_go, test_web_e2e, test_pi, test32]
+    needs: [test_go, test_web_e2e, test_pi, test32, motion_tests]
     runs-on: [ubuntu-latest]
     if: always()
     steps:
@@ -246,10 +250,12 @@ jobs:
           echo Go 32-bit Tests: ${{ needs.test32.result }}
           echo Go Pi Tests: ${{ needs.test_pi.result }}
           echo Web/E2E Tests: ${{ needs.test_web_e2e.result }}
+          echo Motion Tests: ${{ needs.motion_tests.result }}
           [ "${{ needs.test_go.result }}" == "success" ] && \
           [ "${{ needs.test32.result }}" == "success" ] && \
           [ "${{ needs.test_pi.result }}" == "success" ] && \
           [ "${{ needs.test_web_e2e.result }}" == "success" ]
+          [ "${{ needs.motion_tests.result }}" == "success" ]
 
       # Now that RDK is public, can't directly comment without token having full read/write access
       # code-coverage-comment.yml will trigger seperately and post the actual comments

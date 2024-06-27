@@ -76,6 +76,9 @@ const (
 	// defaultNoSkidSteer defines whether motion planning should plan for diff drive bases using skid steer. If true, it will plan using
 	// only rotations and straight lines.
 	defaultNoSkidSteer = false
+
+	// Update CurrentInputs (and check deviation if supported) every this many seconds.
+	defaultUpdateStepSeconds = 0.35
 )
 
 // Options contains values used for execution of base movement.
@@ -121,6 +124,9 @@ type Options struct {
 	// NoSkidSteer defines whether motion planning should plan for diff drive bases using skid steer. If true, it will plan using
 	// only rotations and straight lines. Not used if turning radius > 0, or if UsePTGs is false.
 	NoSkidSteer bool
+
+	// Update CurrentInputs (and check deviation if supported) every this many seconds.
+	UpdateStepSeconds float64
 }
 
 // NewKinematicBaseOptions creates a struct with values used for execution of base movement.
@@ -139,6 +145,7 @@ func NewKinematicBaseOptions() Options {
 		PositionOnlyMode:           defaultPositionOnlyMode,
 		UsePTGs:                    defaultUsePTGs,
 		NoSkidSteer:                defaultNoSkidSteer,
+		UpdateStepSeconds:          defaultUpdateStepSeconds,
 	}
 	return options
 }
