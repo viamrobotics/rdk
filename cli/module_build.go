@@ -22,7 +22,7 @@ import (
 	"go.viam.com/utils/rpc"
 	"golang.org/x/exp/maps"
 
-	rdkConfig "go.viam.com/rdk/config"
+	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/robot/client"
@@ -486,7 +486,8 @@ func reloadModuleAction(c *cli.Context, vc *viamClient) error {
 func reloadingDestination(c *cli.Context, manifest *moduleManifest) string {
 	// todo: download location that gets cleaned up sensibly
 	// todo: support `~` in paths in RDK, get rid of homedir
-	return filepath.Join(c.String(moduleFlagHomeDir), ".viam/packages-local",
+	return filepath.Join(c.String(moduleFlagHomeDir),
+		".viam", config.PackagesDirName+config.LocalPackagesSuffix,
 		utils.SanitizePath(localizeModuleID(manifest.ModuleID)+"-"+manifest.Build.Path))
 }
 
@@ -530,7 +531,7 @@ func resolvePartID(ctx context.Context, partIDFromFlag, cloudJSON string) (strin
 	if len(cloudJSON) == 0 {
 		return "", errors.New("no --part and no default json")
 	}
-	conf, err := rdkConfig.ReadLocalConfig(ctx, cloudJSON, logging.NewLogger("config"))
+	conf, err := config.ReadLocalConfig(ctx, cloudJSON, logging.NewLogger("config"))
 	if err != nil {
 		return "", err
 	}

@@ -36,6 +36,10 @@ var (
 const (
 	initialReadTimeout = 1 * time.Second
 	readTimeout        = 5 * time.Second
+	// PackagesDirName is where packages go underneath viamDotDir.
+	PackagesDirName = "packages"
+	// LocalPackagesSuffix is used by the local package manager.
+	LocalPackagesSuffix = "-local"
 )
 
 func getAgentInfo() (*apppb.AgentInfo, error) {
@@ -84,7 +88,7 @@ var (
 func init() {
 	home := rutils.PlatformHomeDir()
 	ViamDotDir = filepath.Join(home, ".viam")
-	viamPackagesDir = filepath.Join(ViamDotDir, "packages")
+	viamPackagesDir = filepath.Join(ViamDotDir, PackagesDirName)
 }
 
 func getCloudCacheFilePath(id string) string {
