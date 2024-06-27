@@ -146,7 +146,7 @@ func TestRobotReconfigure(t *testing.T) {
 			mockDepName := convAttrs.MockDep
 			mockDep, ok := deps[mockNamed(mockDepName)]
 			if !ok {
-				return nil, errors.New("Missing dependency!")
+				return nil, errors.New("missing dependency")
 			}
 			parent := mockDep.(*mockFake)
 			slot := convAttrs.Slot
@@ -3992,7 +3992,7 @@ func (m *mockWithDep) Reconfigure(ctx context.Context, deps resource.Dependencie
 	mockDepName := convAttrs.MockDep
 	mockDep, ok := deps[mockNamed(mockDepName)]
 	if !ok {
-		return errors.New("Missing dependency!")
+		return errors.New("missing dependency")
 	}
 	parent := mockDep.(*mockFake)
 	m.parent.SetChildValue(m.Slot, 0)
