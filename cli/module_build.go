@@ -404,12 +404,6 @@ func ReloadModuleAction(c *cli.Context) error {
 
 // reloadModuleAction is the testable inner reload logic.
 func reloadModuleAction(c *cli.Context, vc *viamClient) error {
-	logger := logging.NewLogger("reload")
-	if len(c.String(partFlag)) > 0 && !c.Bool(moduleBuildRestartOnly) {
-		// todo: remove this warning after remote reloading
-		warningf(c.App.Writer,
-			"You have passed in a part ID -- if it's for a remote device and your module isn't in the expected path, this will fail")
-	}
 	partID, err := resolvePartID(c.Context, c.String(partFlag), "/etc/viam.json")
 	if err != nil {
 		return err
@@ -457,7 +451,7 @@ func reloadModuleAction(c *cli.Context, vc *viamClient) error {
 			infof(c.App.Writer, "copying %s to part %s", manifest.Build.Path, part.Part.Id)
 			err = vc.copyFilesToFqdn(
 				part.Part.Fqdn, c.Bool(debugFlag), false, false, []string{manifest.Build.Path},
-				reloadingDestination(c, manifest), logger)
+				reloadingDestination(c, manifest), logging.NewLogger("reload"))
 			if err != nil {
 				return err
 			}
@@ -484,8 +478,6 @@ func reloadModuleAction(c *cli.Context, vc *viamClient) error {
 
 // this chooses a destination path for the module archive.
 func reloadingDestination(c *cli.Context, manifest *moduleManifest) string {
-	// todo: download location that gets cleaned up sensibly
-	// todo: support `~` in paths in RDK, get rid of homedir
 	return filepath.Join(c.String(moduleFlagHomeDir),
 		".viam", config.PackagesDirName+config.LocalPackagesSuffix,
 		utils.SanitizePath(localizeModuleID(manifest.ModuleID)+"-"+manifest.Build.Path))
