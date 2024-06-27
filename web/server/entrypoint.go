@@ -147,7 +147,7 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 				ID:         cfgFromDisk.Cloud.ID,
 				Secret:     cfgFromDisk.Cloud.Secret,
 			},
-			nil,
+			nil, false,
 		)
 		if err != nil {
 			return err

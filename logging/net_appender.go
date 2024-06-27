@@ -20,8 +20,9 @@ import (
 )
 
 var (
-	defaultMaxQueueSize = 20000
-	writeBatchSize      = 100
+	defaultMaxQueueSize        = 20000
+	writeBatchSize             = 100
+	errUninitializedConnection = errors.New("sharedConn is true and connection is not initialized")
 )
 
 // CloudConfig contains the necessary inputs to send logs to the app backend over grpc.
@@ -34,22 +35,19 @@ type CloudConfig struct {
 // NewNetAppender creates a NetAppender to send log events to the app backend. NetAppenders ought to
 // be `Close`d prior to shutdown to flush remaining logs.
 // Pass `nil` for `conn` if you want this to create its own connection.
-func NewNetAppender(config *CloudConfig, conn rpc.ClientConn) (*NetAppender, error) {
+func NewNetAppender(config *CloudConfig, conn rpc.ClientConn, sharedConn bool) (*NetAppender, error) {
 	hostname, err := os.Hostname()
 	if err != nil {
 		return nil, err
 	}
 
 	logWriter := &remoteLogWriterGRPC{
-		cfg:            config,
-		rpcClient:      conn,
-		clientIsShared: conn != nil,
-	}
-	if conn != nil {
-		logWriter.service = apppb.NewRobotServiceClient(conn)
+		cfg:        config,
+		sharedConn: sharedConn,
 	}
 
 	cancelCtx, cancel := context.WithCancel(context.Background())
+
 	nl := &NetAppender{
 		hostname:         hostname,
 		cancelCtx:        cancelCtx,
@@ -58,6 +56,8 @@ func NewNetAppender(config *CloudConfig, conn rpc.ClientConn) (*NetAppender, err
 		maxQueueSize:     defaultMaxQueueSize,
 		loggerWithoutNet: NewLogger("netlogger"),
 	}
+
+	nl.SetConn(conn, sharedConn)
 
 	nl.activeBackgroundWorkers.Add(1)
 	utils.ManagedGo(nl.backgroundWorker, nl.activeBackgroundWorkers.Done)
@@ -82,6 +82,32 @@ type NetAppender struct {
 
 	// the netLogger causing a recursive loop.
 	loggerWithoutNet Logger
+}
+
+func (w *remoteLogWriterGRPC) setConn(ctx context.Context, logger Logger, conn rpc.ClientConn, sharedConn bool) {
+	w.clientMutex.Lock()
+	defer w.clientMutex.Unlock()
+	if w.rpcClient != nil && !w.sharedConn {
+		oldClient := w.rpcClient
+		err := oldClient.Close()
+		logger.CErrorf(ctx, "error closing oldClient: %s", err)
+	}
+	w.rpcClient = conn
+	w.service = nil
+	if conn != nil {
+		w.service = apppb.NewRobotServiceClient(conn)
+	}
+	// note: this is tricky. It means that if you ever call setConn, sharedConn is true for all time.
+	w.sharedConn = sharedConn
+}
+
+// SetConn sets the GRPC connection used by the NetAppender.
+// sharedConn should be true in all external calls to this. If sharedConn=false, the NetAppender will close
+// the connection in Close(). conn may be nil.
+func (nl *NetAppender) SetConn(conn rpc.ClientConn, sharedConn bool) {
+	nl.toLogMutex.Lock()
+	defer nl.toLogMutex.Unlock()
+	nl.remoteWriter.setConn(nl.cancelCtx, nl.loggerWithoutNet, conn, sharedConn)
 }
 
 func (nl *NetAppender) queueSize() int {
@@ -230,7 +256,9 @@ func (nl *NetAppender) backgroundWorker() {
 		err := nl.sync()
 		if err != nil && !errors.Is(err, context.Canceled) {
 			interval = abnormalInterval
-			nl.loggerWithoutNet.Infof("error logging to network: %s", err)
+			if !errors.Is(err, errUninitializedConnection) {
+				nl.loggerWithoutNet.Infof("error logging to network: %s", err)
+			}
 		} else {
 			interval = normalInterval
 		}
@@ -308,8 +336,8 @@ type remoteLogWriterGRPC struct {
 	service     apppb.RobotServiceClient
 	rpcClient   rpc.ClientConn
 	clientMutex sync.Mutex
-	// when clientIsShared = true, don't close it in close(); it's externally managed.
-	clientIsShared bool
+	// When sharedConn = true, don't create or destroy connections; use what we're given.
+	sharedConn bool
 }
 
 func (w *remoteLogWriterGRPC) write(logs []*commonpb.LogEntry) error {
@@ -339,6 +367,10 @@ func (w *remoteLogWriterGRPC) getOrCreateClient(ctx context.Context) (apppb.Robo
 		return w.service, nil
 	}
 
+	if w.sharedConn {
+		return nil, errUninitializedConnection
+	}
+
 	client, err := CreateNewGRPCClient(ctx, w.cfg)
 	if err != nil {
 		return nil, err
@@ -350,7 +382,7 @@ func (w *remoteLogWriterGRPC) getOrCreateClient(ctx context.Context) (apppb.Robo
 }
 
 func (w *remoteLogWriterGRPC) close() {
-	if w.clientIsShared {
+	if w.sharedConn {
 		return
 	}
 	w.clientMutex.Lock()
