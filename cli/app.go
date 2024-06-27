@@ -1576,10 +1576,21 @@ Example:
 					},
 				},
 				{
-					Name:  "reload",
-					Usage: "build a module locally and run it on a target device. rebuild & restart if already running",
-					// todo: add --local, remote, and restart-only sample invocations
+					Name:      "reload",
+					Usage:     "build a module locally and run it on a target device. rebuild & restart if already running",
 					UsageText: createUsageText("module reload", []string{}, true),
+					Description: `Example invocations:
+
+	# A full reload command. This will build your module, send the tarball to the machine with given part ID,
+	# and configure or restart it.
+	# Note that you'll still need to add the components for your models after your module is installed.
+	viam module reload --part UUID
+
+	# Restart a module running on your local viam server, by name, without building or reconfiguring.
+	viam module reload --restart-only --id viam:python-example-module
+
+	# Build and configure a module on your local machine without shipping a tarball.
+	viam module reload --local`,
 					Flags: []cli.Flag{
 						&cli.StringFlag{
 							Name:  partFlag,
