@@ -395,10 +395,11 @@ func (g *rtkI2C) receiveAndWriteI2C(ctx context.Context) {
 		default:
 		}
 
-		// Despite this looking like we're getting the next message from the scanner, what we're
-		// really doing is just checking if the scanner is still connected to the mount point. If
-		// it's disconnected, we'll get an error, which is our signal to reconnect.
-		msg, err := scanner.NextMessage()
+		// Calling NextMessage() reads from the scanner until a valid message is found, and returns
+		// that. We don't care about the message: we care that the scanner is able to read messages
+		// at all! So, focus on whether the scanner had errors (which indicate we need to reconnect
+		// to the mount point), and not the message itself.
+		_, err := scanner.NextMessage()
 		if err == nil {
 			continue // No errors: we're still connected.
 		}
