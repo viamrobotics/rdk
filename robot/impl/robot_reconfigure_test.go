@@ -22,7 +22,6 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
-
 	// TODO(RSDK-7884): change everything that depends on this import to a mock.
 	_ "go.viam.com/rdk/services/datamanager/builtin"
 	// TODO(RSDK-7884): change everything that depends on this import to a mock.
@@ -846,6 +845,7 @@ func TestRobotReconfigure(t *testing.T) {
 			},
 		})
 		// conf2 := ConfigFromFile(t, "data/diff_config_deps2.json")
+		//nolint:dupl
 		conf2 := processConfig(t, &config.Config{
 			Components: []resource.Config{
 				{
@@ -1025,6 +1025,7 @@ func TestRobotReconfigure(t *testing.T) {
 		resetComponentFailureState()
 		logger := logging.NewTestLogger(t)
 		// conf2 := ConfigFromFile(t, "data/diff_config_deps2.json")
+		//nolint:dupl
 		conf2 := processConfig(t, &config.Config{
 			Components: []resource.Config{
 				{
@@ -1237,6 +1238,7 @@ func TestRobotReconfigure(t *testing.T) {
 		resetComponentFailureState()
 		logger := logging.NewTestLogger(t)
 		// conf2 := ConfigFromFile(t, "data/diff_config_deps2.json")
+		//nolint:dupl
 		conf2 := processConfig(t, &config.Config{
 			Components: []resource.Config{
 				{
@@ -2027,6 +2029,7 @@ func TestRobotReconfigure(t *testing.T) {
 		resetComponentFailureState()
 		logger := logging.NewTestLogger(t)
 		// conf7 := ConfigFromFile(t, "data/diff_config_deps7.json")
+		//nolint:dupl
 		conf7 := processConfig(t, &config.Config{
 			Components: []resource.Config{
 				{
@@ -2407,6 +2410,7 @@ func TestRobotReconfigure(t *testing.T) {
 		reconfigurableTrue = true
 		logger := logging.NewTestLogger(t)
 		// conf7 := ConfigFromFile(t, "data/diff_config_deps7.json")
+		//nolint:dupl
 		conf7 := processConfig(t, &config.Config{
 			Components: []resource.Config{
 				{
