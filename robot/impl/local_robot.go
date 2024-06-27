@@ -171,17 +171,6 @@ func (r *localRobot) Close(ctx context.Context) error {
 	return err
 }
 
-// CloseWait attempts to cleanly close down all constituent parts of the robot, including
-// reconfigureWorkers that may be running outside code and have unexpected behavior. This
-// method should only be used for testing to ensure there are no goroutine leaks.
-func (r *localRobot) CloseWait(ctx context.Context) error {
-	if err := r.Close(ctx); err != nil {
-		return err
-	}
-	r.reconfigureWorkers.Wait()
-	return nil
-}
-
 // StopAll cancels all current and outstanding operations for the robot and stops all actuators and movement.
 func (r *localRobot) StopAll(ctx context.Context, extra map[resource.Name]map[string]interface{}) error {
 	// Stop all operations

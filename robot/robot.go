@@ -176,11 +176,6 @@ type LocalRobot interface {
 	// visualization.
 	// DOT reference: https://graphviz.org/doc/info/lang.html
 	ExportResourcesAsDot(index int) (resource.GetSnapshotInfo, error)
-
-	// CloseWait attempts to cleanly close down all constituent parts of the robot and
-	// wait for all reconfigure activity to finish, including external modules. This
-	// method should only be used for testing to ensure there are no goroutine leaks.
-	CloseWait(ctx context.Context) error
 }
 
 // A RemoteRobot is a Robot that was created through a connection.
