@@ -361,7 +361,8 @@ func (m *gpioStepper) goForInternal(ctx context.Context, rpm, revolutions float6
 	m.lock.Lock()
 	defer m.lock.Unlock()
 
-	// calculate delay between steps for the thread in the goroutine that we started in component creation
+	// calculate delay between steps for the thread in the goroutine that we started in component creation.
+	// the delay is found by calculating seconds per step, and then casting that value to a time.Duration.
 	m.stepperDelay = time.Duration(int64(float64(time.Minute) / (math.Abs(rpm) * float64(m.stepsPerRotation))))
 	if m.stepperDelay < m.minDelay {
 		m.stepperDelay = m.minDelay
@@ -410,7 +411,8 @@ func (m *gpioStepper) SetRPM(ctx context.Context, rpm float64, extra map[string]
 		return nil
 	}
 
-	// calculate delay between steps for the thread in the goroutine that we started in component creation
+	// calculate delay between steps for the thread in the goroutine that we started in component creation.
+	// the delay is found by calculating seconds per step, and then casting that value to a time.Duration.
 	m.stepperDelay = time.Duration(int64(float64(time.Minute) / (math.Abs(rpm) * float64(m.stepsPerRotation))))
 	if m.stepperDelay < m.minDelay {
 		m.stepperDelay = m.minDelay
