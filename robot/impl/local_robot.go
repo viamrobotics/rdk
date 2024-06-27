@@ -529,13 +529,14 @@ func newWithResources(
 				return
 			}
 
+			var trigger string
 			select {
 			case <-closeCtx.Done():
 				return
 			case <-r.configTicker.C:
-				r.logger.CDebugw(ctx, "configuration attempt triggered by ticker")
+				trigger = "ticker"
 			case <-r.triggerConfig:
-				r.logger.CDebugw(ctx, "configuration attempt triggered by remote")
+				trigger = "remote"
 			}
 			anyChanges := r.manager.updateRemotesResourceNames(closeCtx)
 			if r.manager.anyResourcesNotConfigured() {
@@ -544,9 +545,7 @@ func newWithResources(
 			}
 			if anyChanges {
 				r.updateWeakDependents(ctx)
-				r.logger.CDebugw(ctx, "configuration attempt completed with changes")
-			} else {
-				r.logger.CDebugw(ctx, "configuration attempt completed without changes")
+				r.logger.CDebugw(ctx, "configuration attempt completed with changes", "trigger", trigger)
 			}
 		}
 	}, r.activeBackgroundWorkers.Done)
