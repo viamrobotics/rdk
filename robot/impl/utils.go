@@ -29,6 +29,9 @@ func setupLocalRobot(
 	return r
 }
 
+// SetupLocalRobot create a local robot from a given config and ensure it is shutdown
+// after the test is complete. This includes waiting for any reconfiguration workers to
+// finish.
 func SetupLocalRobot(
 	t *testing.T,
 	ctx context.Context,

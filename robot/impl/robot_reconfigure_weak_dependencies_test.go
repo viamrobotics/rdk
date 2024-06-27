@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
+	"go.viam.com/test"
 
 	// TODO(RSDK-7884): change everything that depends on this import to a mock.
 	"go.viam.com/rdk/components/arm"
@@ -22,15 +23,13 @@ import (
 	"go.viam.com/rdk/components/gripper"
 	// TODO(RSDK-7884): change everything that depends on this import to a mock.
 	"go.viam.com/rdk/components/movementsensor"
-	// TODO(RSDK-7884): change everything that depends on this import to a mock.
-	"go.viam.com/rdk/services/sensors"
-
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
+	// TODO(RSDK-7884): change everything that depends on this import to a mock.
+	"go.viam.com/rdk/services/sensors"
 	rdktestutils "go.viam.com/rdk/testutils"
 	rutils "go.viam.com/rdk/utils"
-	"go.viam.com/test"
 )
 
 // this serves as a test for updateWeakDependents as the sensors service defines a weak

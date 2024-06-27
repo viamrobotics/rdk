@@ -4,8 +4,6 @@ import (
 	"context"
 	"testing"
 
-	robotimpl "go.viam.com/rdk/robot/impl"
-
 	"github.com/go-viper/mapstructure/v2"
 	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/test"
@@ -15,6 +13,7 @@ import (
 	_ "go.viam.com/rdk/components/base/fake"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
+	robotimpl "go.viam.com/rdk/robot/impl"
 	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
 )

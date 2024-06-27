@@ -172,8 +172,8 @@ func (r *localRobot) Close(ctx context.Context) error {
 }
 
 // CloseWait attempts to cleanly close down all constituent parts of the robot, including
-// reconfigureWorkers that may may be running outside code and have unexpected behavior.
-// This method should only be used for testing to ensure there are no goroutine leaks.
+// reconfigureWorkers that may be running outside code and have unexpected behavior. This
+// method should only be used for testing to ensure there are no goroutine leaks.
 func (r *localRobot) CloseWait(ctx context.Context) error {
 	if err := r.Close(ctx); err != nil {
 		return err

@@ -424,12 +424,12 @@ func fromReader(
 // ProcessLocal validates the current config assuming it came from a local file and
 // updates it with all derived fields. Returns an error if the unprocessedConfig is
 // non-valid.
-func (conf *Config) ProcessLocal(logger logging.Logger) error {
-	processed, err := processConfigLocalConfig(conf, logger)
+func (c *Config) ProcessLocal(logger logging.Logger) error {
+	processed, err := processConfigLocalConfig(c, logger)
 	if err != nil {
 		return err
 	}
-	*conf = *processed
+	*c = *processed
 	return nil
 }
 

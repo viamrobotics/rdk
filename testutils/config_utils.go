@@ -6,10 +6,11 @@ import (
 	"strings"
 	"testing"
 
+	"go.viam.com/test"
+
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/test"
 )
 
 // FakeConvertedAttributes is a helper for testing if validation works.
@@ -26,6 +27,8 @@ func (convAttr *FakeConvertedAttributes) Validate(path string) ([]string, error)
 	return nil, nil
 }
 
+// ConfigFromJSON creates a fully-processed config from a JSON-string. This function will
+// fail the current if it encounters any errors.
 func ConfigFromJSON(tb testing.TB, jsonData string) *config.Config {
 	tb.Helper()
 	logger := logging.NewTestLogger(tb)
