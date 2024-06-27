@@ -93,9 +93,7 @@ func LevelFromString(inp string) (Level, error) {
 		return DEBUG, nil
 	case "info":
 		return INFO, nil
-	case "warn":
-		return WARN, nil
-	case "warning":
+	case "warn", "warning":
 		return WARN, nil
 	case "error":
 		return ERROR, nil
