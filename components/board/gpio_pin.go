@@ -31,7 +31,7 @@ import "context"
 //	// Get the GPIOPin with pin number 15.
 //	pin, err := myBoard.GPIOPinByName("15")
 //
-//	// Get if it is true or false that the state of the pin is high.
+//	// Returns the duty cycle.
 //	duty_cycle := pin.PWM(context.Background(), nil)
 //
 // SetPWM example:
