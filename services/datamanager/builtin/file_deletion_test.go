@@ -226,11 +226,10 @@ func TestFilePolling(t *testing.T) {
 
 	// run forward 10ms to capture 4 files then close the collectors,
 	mockClock.Add(captureInterval)
-	flusher, ok := dmsvc.(*builtIn)
-	test.That(t, ok, test.ShouldBeTrue)
+	captureManager := dmsvc.(*builtIn).captureManager
 	// flush and close collectors to ensure we have exactly 4 files
-	flusher.flushCollectors()
-	flusher.closeCollectors()
+	captureManager.FlushCollectors()
+	captureManager.CloseCollectors()
 	// number of capture files is based on the number of unique
 	// collectors in the robot config used in this test
 	waitForCaptureFilesToEqualNFiles(tempDir, 4, logger)

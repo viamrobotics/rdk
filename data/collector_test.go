@@ -373,3 +373,11 @@ func (b *signalingBuffer) Flush() error {
 func (b *signalingBuffer) Path() string {
 	return b.bw.Path()
 }
+
+func TestGetDurationFromHz(t *testing.T) {
+	test.That(t, getDurationFromHz(0.1), test.ShouldEqual, time.Second*10)
+	test.That(t, getDurationFromHz(0.5), test.ShouldEqual, time.Second*2)
+	test.That(t, getDurationFromHz(1), test.ShouldEqual, time.Second)
+	test.That(t, getDurationFromHz(1000), test.ShouldEqual, time.Millisecond)
+	test.That(t, getDurationFromHz(0), test.ShouldEqual, 0)
+}
