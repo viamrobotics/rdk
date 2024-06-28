@@ -956,9 +956,10 @@ func TestStartWaypoint(t *testing.T) {
 		err = s.ns.SetMode(ctx, navigation.ModeWaypoint, nil)
 		test.That(t, err, test.ShouldBeNil)
 
+		pollingFreq := 1.
 		expectedMotionCfg := &motion.MotionConfiguration{
-			PositionPollingFreqHz: 1,
-			ObstaclePollingFreqHz: 1,
+			PositionPollingFreqHz: &pollingFreq,
+			ObstaclePollingFreqHz: &pollingFreq,
 			PlanDeviationMM:       2600,
 			LinearMPerSec:         1,
 			AngularDegsPerSec:     1,

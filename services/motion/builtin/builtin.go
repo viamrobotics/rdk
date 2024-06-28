@@ -53,10 +53,13 @@ const (
 	defaultSmoothIter                  = 30
 	defaultAngularDegsPerSec           = 20.
 	defaultLinearMPerSec               = 0.3
-	defaultObstaclePollingHz           = 1.
 	defaultSlamPlanDeviationM          = 1.
 	defaultGlobePlanDeviationM         = 2.6
-	defaultPositionPollingHz           = 1.
+)
+
+var (
+	defaultPositionPollingHz float64 = 1.
+	defaultObstaclePollingHz float64 = 1.
 )
 
 // inputEnabledActuator is an actuator that interacts with the frame system.

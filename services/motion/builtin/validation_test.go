@@ -135,12 +135,12 @@ func TestMoveCallInputs(t *testing.T) {
 			t.Parallel()
 			_, ms, closeFunc := CreateMoveOnMapTestEnvironment(ctx, t, "pointcloud/octagonspace.pcd", 40, nil)
 			defer closeFunc(ctx)
-
+			pollingFreq := -1.
 			req := motion.MoveOnMapReq{
 				ComponentName: base.Named("test-base"),
 				Destination:   goalPose,
 				SlamName:      slam.Named("test_slam"),
-				MotionCfg:     &motion.MotionConfiguration{ObstaclePollingFreqHz: -1, PlanDeviationMM: 10},
+				MotionCfg:     &motion.MotionConfiguration{ObstaclePollingFreqHz: &pollingFreq, PlanDeviationMM: 10},
 			}
 
 			executionID, err := ms.(*builtIn).MoveOnMap(context.Background(), req)
@@ -152,12 +152,12 @@ func TestMoveCallInputs(t *testing.T) {
 			t.Parallel()
 			_, ms, closeFunc := CreateMoveOnMapTestEnvironment(ctx, t, "pointcloud/octagonspace.pcd", 40, nil)
 			defer closeFunc(ctx)
-
+			pollingFreq := math.NaN()
 			req := motion.MoveOnMapReq{
 				ComponentName: base.Named("test-base"),
 				Destination:   goalPose,
 				SlamName:      slam.Named("test_slam"),
-				MotionCfg:     &motion.MotionConfiguration{ObstaclePollingFreqHz: math.NaN(), PlanDeviationMM: 10},
+				MotionCfg:     &motion.MotionConfiguration{ObstaclePollingFreqHz: &pollingFreq, PlanDeviationMM: 10},
 			}
 
 			executionID, err := ms.(*builtIn).MoveOnMap(context.Background(), req)
@@ -169,12 +169,12 @@ func TestMoveCallInputs(t *testing.T) {
 			t.Parallel()
 			_, ms, closeFunc := CreateMoveOnMapTestEnvironment(ctx, t, "pointcloud/octagonspace.pcd", 40, nil)
 			defer closeFunc(ctx)
-
+			pollingFreq := -1.
 			req := motion.MoveOnMapReq{
 				ComponentName: base.Named("test-base"),
 				Destination:   goalPose,
 				SlamName:      slam.Named("test_slam"),
-				MotionCfg:     &motion.MotionConfiguration{PositionPollingFreqHz: -1, PlanDeviationMM: 10},
+				MotionCfg:     &motion.MotionConfiguration{ObstaclePollingFreqHz: &pollingFreq, PlanDeviationMM: 10},
 			}
 
 			executionID, err := ms.(*builtIn).MoveOnMap(context.Background(), req)
@@ -186,12 +186,12 @@ func TestMoveCallInputs(t *testing.T) {
 			t.Parallel()
 			_, ms, closeFunc := CreateMoveOnMapTestEnvironment(ctx, t, "pointcloud/octagonspace.pcd", 40, nil)
 			defer closeFunc(ctx)
-
+			pollingFreq := math.NaN()
 			req := motion.MoveOnMapReq{
 				ComponentName: base.Named("test-base"),
 				Destination:   goalPose,
 				SlamName:      slam.Named("test_slam"),
-				MotionCfg:     &motion.MotionConfiguration{PositionPollingFreqHz: math.NaN(), PlanDeviationMM: 10},
+				MotionCfg:     &motion.MotionConfiguration{ObstaclePollingFreqHz: &pollingFreq, PlanDeviationMM: 10},
 			}
 
 			executionID, err := ms.(*builtIn).MoveOnMap(context.Background(), req)
@@ -561,12 +561,13 @@ func TestMoveCallInputs(t *testing.T) {
 			t.Parallel()
 			_, ms, closeFunc := CreateMoveOnGlobeTestEnvironment(ctx, t, gpsPoint, 80, nil)
 			defer closeFunc(ctx)
+			pollingFreq := -1.
 			req := motion.MoveOnGlobeReq{
 				ComponentName:      baseResource,
 				MovementSensorName: moveSensorResource,
 				Heading:            90,
 				Destination:        dst,
-				MotionCfg:          &motion.MotionConfiguration{ObstaclePollingFreqHz: -1},
+				MotionCfg:          &motion.MotionConfiguration{ObstaclePollingFreqHz: &pollingFreq},
 			}
 			executionID, err := ms.MoveOnGlobe(ctx, req)
 			test.That(t, err, test.ShouldBeError, errors.New("ObstaclePollingFreqHz may not be negative"))
@@ -577,12 +578,13 @@ func TestMoveCallInputs(t *testing.T) {
 			t.Parallel()
 			_, ms, closeFunc := CreateMoveOnGlobeTestEnvironment(ctx, t, gpsPoint, 80, nil)
 			defer closeFunc(ctx)
+			pollingFreq := math.NaN()
 			req := motion.MoveOnGlobeReq{
 				ComponentName:      baseResource,
 				MovementSensorName: moveSensorResource,
 				Heading:            90,
 				Destination:        dst,
-				MotionCfg:          &motion.MotionConfiguration{ObstaclePollingFreqHz: math.NaN()},
+				MotionCfg:          &motion.MotionConfiguration{ObstaclePollingFreqHz: &pollingFreq},
 			}
 			executionID, err := ms.MoveOnGlobe(ctx, req)
 			test.That(t, err, test.ShouldBeError, errors.New("ObstaclePollingFreqHz may not be NaN"))
@@ -593,12 +595,13 @@ func TestMoveCallInputs(t *testing.T) {
 			t.Parallel()
 			_, ms, closeFunc := CreateMoveOnGlobeTestEnvironment(ctx, t, gpsPoint, 80, nil)
 			defer closeFunc(ctx)
+			pollingFreq := -1.
 			req := motion.MoveOnGlobeReq{
 				ComponentName:      baseResource,
 				MovementSensorName: moveSensorResource,
 				Heading:            90,
 				Destination:        dst,
-				MotionCfg:          &motion.MotionConfiguration{PositionPollingFreqHz: -1},
+				MotionCfg:          &motion.MotionConfiguration{ObstaclePollingFreqHz: &pollingFreq},
 			}
 			executionID, err := ms.MoveOnGlobe(ctx, req)
 			test.That(t, err, test.ShouldBeError, errors.New("PositionPollingFreqHz may not be negative"))
@@ -609,12 +612,13 @@ func TestMoveCallInputs(t *testing.T) {
 			t.Parallel()
 			_, ms, closeFunc := CreateMoveOnGlobeTestEnvironment(ctx, t, gpsPoint, 80, nil)
 			defer closeFunc(ctx)
+			pollingFreq := math.NaN()
 			req := motion.MoveOnGlobeReq{
 				ComponentName:      baseResource,
 				MovementSensorName: moveSensorResource,
 				Heading:            90,
 				Destination:        dst,
-				MotionCfg:          &motion.MotionConfiguration{PositionPollingFreqHz: math.NaN()},
+				MotionCfg:          &motion.MotionConfiguration{ObstaclePollingFreqHz: &pollingFreq},
 			}
 			executionID, err := ms.MoveOnGlobe(ctx, req)
 			test.That(t, err, test.ShouldBeError, errors.New("PositionPollingFreqHz may not be NaN"))
@@ -825,12 +829,13 @@ func TestNewValidatedMotionCfg(t *testing.T) {
 	})
 
 	t.Run("allows overriding defaults", func(t *testing.T) {
+		pollingFreq := 40.
 		vmc, err := newValidatedMotionCfg(&motion.MotionConfiguration{
 			AngularDegsPerSec:     10.,
 			LinearMPerSec:         20.,
 			PlanDeviationMM:       30.,
-			PositionPollingFreqHz: 40,
-			ObstaclePollingFreqHz: 50.,
+			PositionPollingFreqHz: &pollingFreq,
+			ObstaclePollingFreqHz: &pollingFreq,
 			ObstacleDetectors: []motion.ObstacleDetectorName{
 				{
 					VisionServiceName: vision.Named("fakeVision"),

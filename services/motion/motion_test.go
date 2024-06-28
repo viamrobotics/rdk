@@ -759,8 +759,8 @@ func TestConfiguration(t *testing.T) {
 					LinearMPerSec:         linearMPerSec,
 					AngularDegsPerSec:     angularDegsPerSec,
 					PlanDeviationMM:       planDeviationMM,
-					PositionPollingFreqHz: positionPollingFreqHz,
-					ObstaclePollingFreqHz: obstaclePollingFreqHz,
+					PositionPollingFreqHz: &positionPollingFreqHz,
+					ObstaclePollingFreqHz: &obstaclePollingFreqHz,
 				},
 			},
 		}
@@ -801,8 +801,8 @@ func TestConfiguration(t *testing.T) {
 					LinearMPerSec:         linearMPerSec,
 					AngularDegsPerSec:     angularDegsPerSec,
 					PlanDeviationMM:       planDeviationMM,
-					PositionPollingFreqHz: positionPollingFreqHz,
-					ObstaclePollingFreqHz: obstaclePollingFreqHz,
+					PositionPollingFreqHz: &positionPollingFreqHz,
+					ObstaclePollingFreqHz: &obstaclePollingFreqHz,
 				},
 				result: &pb.MotionConfiguration{
 					ObstacleDetectors:          obstacleDetectorsPB,
@@ -1052,8 +1052,8 @@ func TestMoveOnGlobeReq(t *testing.T) {
 						LinearMPerSec:         linearMPerSec,
 						AngularDegsPerSec:     angularDegsPerSec,
 						PlanDeviationMM:       planDeviationMM,
-						PositionPollingFreqHz: positionPollingFreqHz,
-						ObstaclePollingFreqHz: obstaclePollingFreqHz,
+						PositionPollingFreqHz: &positionPollingFreqHz,
+						ObstaclePollingFreqHz: &obstaclePollingFreqHz,
 					},
 					Extra: map[string]interface{}{},
 				},
@@ -1100,13 +1100,14 @@ func TestMoveOnMapReq(t *testing.T) {
 	}
 	myBase := base.Named("mybase")
 	mySlam := slam.Named(("mySlam"))
+	pollingFreq := 5.
 	motionCfg := &MotionConfiguration{
 		ObstacleDetectors:     obstacleDetectors,
 		LinearMPerSec:         1,
 		AngularDegsPerSec:     2,
 		PlanDeviationMM:       3,
-		PositionPollingFreqHz: 4,
-		ObstaclePollingFreqHz: 5,
+		PositionPollingFreqHz: &pollingFreq,
+		ObstaclePollingFreqHz: &pollingFreq,
 	}
 
 	validMoveOnMapReq := MoveOnMapReq{
@@ -1277,16 +1278,9 @@ func TestMoveOnMapReq(t *testing.T) {
 					ComponentName: myBase,
 					Destination:   spatialmath.NewPoseFromPoint(r3.Vector{2700, 0, 0}),
 					SlamName:      mySlam,
-					MotionCfg: &MotionConfiguration{
-						ObstacleDetectors:     []ObstacleDetectorName{},
-						PositionPollingFreqHz: 0,
-						ObstaclePollingFreqHz: 0,
-						PlanDeviationMM:       0,
-						LinearMPerSec:         0,
-						AngularDegsPerSec:     0,
-					},
-					Obstacles: []spatialmath.Geometry{},
-					Extra:     map[string]interface{}{},
+					MotionCfg:     nil,
+					Obstacles:     []spatialmath.Geometry{},
+					Extra:         map[string]interface{}{},
 				},
 				err: nil,
 			},
@@ -1296,22 +1290,15 @@ func TestMoveOnMapReq(t *testing.T) {
 					Destination:     spatialmath.PoseToProtobuf(spatialmath.NewPoseFromPoint(r3.Vector{2700, 0, 0})),
 					ComponentName:   rprotoutils.ResourceNameToProto(myBase),
 					SlamServiceName: rprotoutils.ResourceNameToProto(mySlam),
-					Obstacles:       spatialmath.NewGeometriesToProto([]spatialmath.Geometry{spatialmath.NewPoint(r3.Vector{2, 2, 2}, "pt")}),
+					Obstacles:       spatialmath.NewGeometriesToProto([]spatialmath.Geometry{spatialmath.NewPoint(r3.Vector{}, "pt")}),
 				},
 				result: MoveOnMapReq{
 					ComponentName: myBase,
 					Destination:   spatialmath.NewPoseFromPoint(r3.Vector{2700, 0, 0}),
 					SlamName:      mySlam,
-					MotionCfg: &MotionConfiguration{
-						ObstacleDetectors:     []ObstacleDetectorName{},
-						PositionPollingFreqHz: 0,
-						ObstaclePollingFreqHz: 0,
-						PlanDeviationMM:       0,
-						LinearMPerSec:         0,
-						AngularDegsPerSec:     0,
-					},
-					Obstacles: []spatialmath.Geometry{spatialmath.NewPoint(r3.Vector{2, 2, 2}, "pt")},
-					Extra:     map[string]interface{}{},
+					MotionCfg:     &MotionConfiguration{},
+					Obstacles:     []spatialmath.Geometry{spatialmath.NewPoint(r3.Vector{2, 2, 2}, "pt")},
+					Extra:         map[string]interface{}{},
 				},
 				err: nil,
 			},
@@ -1471,6 +1458,7 @@ func validMoveOnGlobeRequest() MoveOnGlobeReq {
 			CameraName:        pair[1],
 		})
 	}
+	pollingFreq := 5.
 	return MoveOnGlobeReq{
 		ComponentName:      base.Named("my-base"),
 		Destination:        dst,
@@ -1482,8 +1470,8 @@ func validMoveOnGlobeRequest() MoveOnGlobeReq {
 			LinearMPerSec:         1,
 			AngularDegsPerSec:     2,
 			PlanDeviationMM:       3,
-			PositionPollingFreqHz: 4,
-			ObstaclePollingFreqHz: 5,
+			PositionPollingFreqHz: &pollingFreq,
+			ObstaclePollingFreqHz: &pollingFreq,
 		},
 		Extra: nil,
 	}
