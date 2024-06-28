@@ -16,6 +16,7 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/datamanager"
 	"go.viam.com/rdk/services/datamanager/datacapture"
+	"go.viam.com/rdk/services/datamanager/datasync"
 	"go.viam.com/rdk/utils"
 )
 
@@ -29,10 +30,16 @@ const defaultCaptureQueueSize = 250
 // Default bufio.Writer buffer size in bytes.
 const defaultCaptureBufferSize = 4096
 
+// Threshold number of files to check if sync is backed up (defined as >1000 files).
+var minNumFiles = 1000
+
 // Default maximum size in bytes of a data capture file.
 var defaultMaxCaptureSize = int64(256 * 1024)
 
 var viamCaptureDotDir = filepath.Join(os.Getenv("HOME"), ".viam", "capture")
+
+// Default time between checking and logging number of files in capture dir.
+var captureDirSizeLogInterval = 1 * time.Minute
 
 var ErrCaptureDirectoryConfigurationDisabled = errors.New("changing the capture directory is prohibited in this environment")
 
@@ -171,27 +178,27 @@ func (cm *CaptureManager) Reconfigure(ctx context.Context, deps resource.Depende
 	}
 	cm.collectors = newCollectors
 
-	if svc.captureDirPollingCancelFn != nil {
-		svc.captureDirPollingCancelFn()
+	if cm.captureDirPollingCancelFn != nil {
+		cm.captureDirPollingCancelFn()
 	}
-	if svc.captureDirPollingBackgroundWorkers != nil {
-		svc.captureDirPollingBackgroundWorkers.Wait()
+	if cm.captureDirPollingBackgroundWorkers != nil {
+		cm.captureDirPollingBackgroundWorkers.Wait()
 	}
 	captureDirPollCtx, captureDirCancelFunc := context.WithCancel(context.Background())
-	svc.captureDirPollingCancelFn = captureDirCancelFunc
-	svc.captureDirPollingBackgroundWorkers = &sync.WaitGroup{}
-	svc.captureDirPollingBackgroundWorkers.Add(1)
-	go logCaptureDirSize(captureDirPollCtx, svc.captureDir, svc.captureDirPollingBackgroundWorkers, svc.logger)
+	cm.captureDirPollingCancelFn = captureDirCancelFunc
+	cm.captureDirPollingBackgroundWorkers = &sync.WaitGroup{}
+	cm.captureDirPollingBackgroundWorkers.Add(1)
+	go cm.logCaptureDirSize(captureDirPollCtx, cm.captureDir, cm.captureDirPollingBackgroundWorkers, cm.logger)
 
 	return nil
 }
 
 func (cm *CaptureManager) Close() {
-	if svc.captureDirPollingCancelFn != nil {
-		svc.captureDirPollingCancelFn()
+	if cm.captureDirPollingCancelFn != nil {
+		cm.captureDirPollingCancelFn()
 	}
-	if svc.capturePollingWorker != nil {
-		svc.captureDirPollingBackgroundWorkers.Wait()
+	if cm.captureDirPollingBackgroundWorkers != nil {
+		cm.captureDirPollingBackgroundWorkers.Wait()
 	}
 
 	cm.FlushCollectors()
@@ -390,9 +397,8 @@ func getDurationFromHz(captureFrequencyHz float32) time.Duration {
 	return time.Duration(float32(time.Second) / captureFrequencyHz)
 }
 
-func logCaptureDirSize(ctx context.Context, captureDir string, wg *sync.WaitGroup, logger logging.Logger,
-) {
-	t := clock.Ticker(captureDirSizeLogInterval)
+func (cm *CaptureManager) logCaptureDirSize(ctx context.Context, captureDir string, wg *sync.WaitGroup, logger logging.Logger) {
+	t := cm.clk.Ticker(captureDirSizeLogInterval)
 	defer t.Stop()
 	defer wg.Done()
 	for {

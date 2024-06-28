@@ -48,12 +48,6 @@ const defaultFileLastModifiedMillis = 10000.0
 // Default time between disk size checks.
 var filesystemPollInterval = 30 * time.Second
 
-// Threshold number of files to check if sync is backed up (defined as >1000 files).
-var minNumFiles = 1000
-
-// Default time between checking and logging number of files in capture dir.
-var captureDirSizeLogInterval = 1 * time.Minute
-
 var (
 	clock          = clk.New()
 	deletionTicker = clk.New()
@@ -213,7 +207,7 @@ func (svc *builtIn) initSyncer(ctx context.Context) error {
 	}
 
 	client := v1.NewDataSyncServiceClient(conn)
-	syncer, err := svc.syncerConstructor(identity, client, svc.logger, svc.captureManager.CaptureDir(), svc.maxSyncThreads)
+	syncer, err := svc.syncerConstructor(identity, client, svc.logger, svc.captureManager.CaptureDir(), svc.maxSyncThreads, svc.filesToSync)
 	if err != nil {
 		return errors.Wrap(err, "failed to initialize new syncer")
 	}
@@ -442,34 +436,17 @@ func isOffline() bool {
 	return err != nil
 }
 
-func (svc *builtIn) sync() {
+func (svc *builtIn) sync(ctx context.Context) {
 	svc.captureManager.FlushCollectors()
 
 	svc.lock.Lock()
-	if svc.syncer != nil {
-		var toSync []string
-		for _, ap := range svc.additionalSyncPaths {
-			toSync = append(toSync, getAllFilesToSync(ap, svc.fileLastModifiedMillis)...)
-		}
-		syncer := svc.syncer
-		svc.lock.Unlock()
-
-		stopAfter := time.Now().Add(time.Duration(svc.syncIntervalMins * float64(time.Minute)))
-		for _, p := range toSync {
-			syncer.SyncFile(p, stopAfter)
-		}
-	} else {
-		svc.lock.Unlock()
-		return
-	}
 	syncer := svc.syncer
+	syncPaths := svc.additionalSyncPaths
+	fileLastModifiedMillis := svc.fileLastModifiedMillis
 	svc.lock.Unlock()
 
 	// Retrieve all files in capture dir and send them to the syncer
-	getAllFilesToSync(ctx, append([]string{captureDir}, additionalSyncPaths...),
-		fileLastModifiedMillis,
-		syncer,
-	)
+	getAllFilesToSync(ctx, syncPaths, fileLastModifiedMillis, syncer)
 }
 
 //nolint:errcheck,nilerr
