@@ -68,20 +68,6 @@ func Named(name string) resource.Name {
 //	// Get the GPIOPin with pin number 15.
 //	pin, err := myBoard.GPIOPinByName("15")
 //
-// AnalogNames example:
-//
-//	myBoard, err := board.FromRobot(robot, "my_board")
-//
-//	// Get the name of every Analog pin configured on the board.
-//	names := myBoard.AnalogNames()
-//
-// DigitalInterruptNames example:
-//
-//	myBoard, err := board.FromRobot(robot, "my_board")
-//
-//	// Get the name of every DigitalInterrupt configured on the board.
-//	names := myBoard.DigitalInterruptNames()
-//
 // SetPowerMode example:
 //
 //	myBoard, err := board.FromRobot(robot, "my_board")
@@ -106,7 +92,7 @@ func Named(name string) resource.Name {
 //	  interrupts = append(interrupts, di11)
 //	}
 //
-//	// Stream ticks on ticksChan from the listed digital interrupts on pins 8 and 11.
+//	// Show how a ticksChan can be made from the listed digital interrupts on pins 8 and 11.
 //	err = myBoard.StreamTicks(context.Background(), interrupts, ticksChan, nil)
 type Board interface {
 	resource.Resource
@@ -145,7 +131,7 @@ type Board interface {
 //	// Get the analog pin "my_example_analog".
 //	analog, err := myBoard.AnalogByName("my_example_analog")
 //
-//	// Get the value of the digital signal "my_example_analog" has most recently measured.
+//	// Get the value of the analog signal "my_example_analog" has most recently measured.
 //	reading, err := analog.Read(context.Background(), nil)
 //	readingValue := reading.Value
 //	stepSize := reading.StepSize
