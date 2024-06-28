@@ -207,6 +207,7 @@ func (svc *builtIn) initSyncer(ctx context.Context) error {
 	}
 
 	client := v1.NewDataSyncServiceClient(conn)
+	svc.filesToSync = make(chan string)
 	syncer, err := svc.syncerConstructor(identity, client, svc.logger, svc.captureManager.CaptureDir(), svc.maxSyncThreads, svc.filesToSync)
 	if err != nil {
 		return errors.Wrap(err, "failed to initialize new syncer")
