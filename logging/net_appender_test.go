@@ -305,7 +305,7 @@ func TestNetAppenderClose(t *testing.T) {
 		}
 		iters := 0
 		na.close(exitIters, totalIters, func(time.Duration) {
-			iters += 1
+			iters++
 			na.toLog = na.toLog[1:]
 		})
 		test.That(t, iters, test.ShouldEqual, totalIters)
@@ -316,7 +316,7 @@ func TestNetAppenderClose(t *testing.T) {
 		na.toLog = append(na.toLog, &commonpb.LogEntry{})
 		iters := 0
 		na.close(exitIters, totalIters, func(time.Duration) {
-			iters += 1
+			iters++
 		})
 		test.That(t, iters, test.ShouldEqual, exitIters)
 	})
