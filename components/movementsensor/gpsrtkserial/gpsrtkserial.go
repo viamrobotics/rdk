@@ -114,16 +114,15 @@ type rtkSerial struct {
 	mu sync.Mutex
 
 	// everything below this comment is protected by mu
-	isConnectedToNtrip bool
-	ntripClient        *gpsutils.NtripInfo
-	cachedData         *gpsutils.CachedData
-	correctionWriter   io.ReadWriteCloser
-	writePath          string
-	wbaud              int
-	isVirtualBase      bool
-	readerWriter       *bufio.ReadWriter
-	writer             io.Writer
-	reader             io.Reader
+	ntripClient      *gpsutils.NtripInfo
+	cachedData       *gpsutils.CachedData
+	correctionWriter io.ReadWriteCloser
+	writePath        string
+	wbaud            int
+	isVirtualBase    bool
+	readerWriter     *bufio.ReadWriter
+	writer           io.Writer
+	reader           io.Reader
 }
 
 // Reconfigure reconfigures attributes.
@@ -403,56 +402,46 @@ func (g *rtkSerial) receiveAndWriteSerial() {
 		scanner = rtcm3.NewScanner(g.reader)
 	}
 
-	g.mu.Lock()
-	g.isConnectedToNtrip = true
-	g.mu.Unlock()
-
-	// It's okay to skip the mutex on this next line: g.isConnectedToNtrip can only be mutated by this
-	// goroutine itself
-	for g.isConnectedToNtrip && !g.isClosed {
+	for !g.isClosed {
 		select {
 		case <-g.cancelCtx.Done():
 			return
 		default:
 		}
 
-		msg, err := scanner.NextMessage()
-		if err != nil {
-			g.mu.Lock()
-			g.isConnectedToNtrip = false
-			g.mu.Unlock()
+		// Calling NextMessage() reads from the scanner until a valid message is found, and returns
+		// that. We don't care about the message: we care that the scanner is able to read messages
+		// at all! So, focus on whether the scanner had errors (which indicate we need to reconnect
+		// to the mount point), and not the message itself.
+		_, err := scanner.NextMessage()
+		if err == nil {
+			continue // No errors: we're still connected.
+		}
 
-			if msg == nil {
-				if g.isClosed {
-					return
-				}
+		if g.isClosed {
+			return
+		}
 
-				if g.isVirtualBase {
-					g.logger.Debug("reconnecting to the Virtual Reference Station")
-					err = g.getNtripFromVRS()
-					if err != nil && !errors.Is(err, io.EOF) {
-						g.err.Set(err)
-						return
-					}
-					scanner = rtcm3.NewScanner(g.readerWriter)
-				} else {
-					g.logger.Debug("No message... reconnecting to stream...")
-
-					err = g.getStream(g.ntripClient.MountPoint, g.ntripClient.MaxConnectAttempts)
-					if err != nil {
-						g.err.Set(err)
-						return
-					}
-					g.reader = io.TeeReader(g.ntripClient.Stream, g.writer)
-					scanner = rtcm3.NewScanner(g.reader)
-				}
-
-				g.mu.Lock()
-				g.isConnectedToNtrip = true
-				g.mu.Unlock()
-
-				continue
+		// If we get here, the scanner encountered an error but is supposed to continue going. Try
+		// reconnecting to the mount point.
+		if g.isVirtualBase {
+			g.logger.Debug("reconnecting to the Virtual Reference Station")
+			err = g.getNtripFromVRS()
+			if err != nil && !errors.Is(err, io.EOF) {
+				g.err.Set(err)
+				return
 			}
+			scanner = rtcm3.NewScanner(g.readerWriter)
+		} else {
+			g.logger.Debug("No message... reconnecting to stream...")
+
+			err = g.getStream(g.ntripClient.MountPoint, g.ntripClient.MaxConnectAttempts)
+			if err != nil {
+				g.err.Set(err)
+				return
+			}
+			g.reader = io.TeeReader(g.ntripClient.Stream, g.writer)
+			scanner = rtcm3.NewScanner(g.reader)
 		}
 	}
 }
