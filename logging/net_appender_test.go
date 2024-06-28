@@ -282,3 +282,42 @@ func TestSetConn(t *testing.T) {
 	netAppender.Close()
 	test.That(t, server.service.logs, test.ShouldHaveLength, 2)
 }
+
+// construct a NetAppender for testing with no background runers.
+func quickFakeAppender(t *testing.T) *NetAppender {
+	t.Helper()
+	return &NetAppender{
+		toLog:            make([]*commonpb.LogEntry, 0),
+		remoteWriter:     &remoteLogWriterGRPC{},
+		cancel:           func() {},
+		loggerWithoutNet: NewTestLogger(t),
+	}
+}
+
+func TestNetAppenderClose(t *testing.T) {
+	totalIters := 100
+	exitIters := 10
+
+	t.Run("progress", func(t *testing.T) {
+		na := quickFakeAppender(t)
+		for i := 0; i < totalIters; i++ {
+			na.toLog = append(na.toLog, &commonpb.LogEntry{})
+		}
+		iters := 0
+		na.close(exitIters, totalIters, func(time.Duration) {
+			iters += 1
+			na.toLog = na.toLog[1:]
+		})
+		test.That(t, iters, test.ShouldEqual, totalIters)
+	})
+
+	t.Run("no-progress", func(t *testing.T) {
+		na := quickFakeAppender(t)
+		na.toLog = append(na.toLog, &commonpb.LogEntry{})
+		iters := 0
+		na.close(exitIters, totalIters, func(time.Duration) {
+			iters += 1
+		})
+		test.That(t, iters, test.ShouldEqual, exitIters)
+	})
+}
