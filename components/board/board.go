@@ -92,7 +92,6 @@ func Named(name string) resource.Name {
 //	  interrupts = append(interrupts, di11)
 //	}
 //
-//	// Show how a ticksChan can be made from the listed digital interrupts on pins 8 and 11.
 //	err = myBoard.StreamTicks(context.Background(), interrupts, ticksChan, nil)
 type Board interface {
 	resource.Resource
