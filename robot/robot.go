@@ -86,7 +86,6 @@ import (
 //
 //	// Shut down the robot.
 //	err := machine.Shutdown()
-//
 type Robot interface {
 	// DiscoverComponents returns discovered component configurations.
 	DiscoverComponents(ctx context.Context, qs []resource.DiscoveryQuery) ([]resource.Discovery, error)
