@@ -168,13 +168,13 @@ func (e *Encoder) Reconfigure(
 	atomic.StoreInt64(&e.position, 0)
 	e.mu.Unlock()
 
-	e.Start(ctx, board)
+	e.start(ctx, board)
 
 	return nil
 }
 
-// Start starts the Encoder background thread.
-func (e *Encoder) Start(ctx context.Context, b board.Board) {
+// start starts the Encoder background thread.
+func (e *Encoder) start(ctx context.Context, b board.Board) {
 	if e.workers != nil {
 		// We're already listening to an old interrupt. This should never happen! Stop that before
 		// we start listening to the new one.
@@ -253,8 +253,8 @@ func (e *Encoder) Properties(ctx context.Context, extra map[string]interface{}) 
 func (e *Encoder) Close(ctx context.Context) error {
 	e.workers.Stop() // This also shuts down the interrupt stream.
 
-	// During reconfiguration, we might call e.Close() and then e.Start() to restart with a new
-	// interrupt pin. Remove the old StoppableWorkers so e.Start() doesn't try adding workers to an
+	// During reconfiguration, we might call e.Close() and then e.start() to restart with a new
+	// interrupt pin. Remove the old StoppableWorkers so e.start() doesn't try adding workers to an
 	// already-stopped one.
 	e.workers = nil
 	return nil
