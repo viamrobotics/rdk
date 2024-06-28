@@ -54,9 +54,9 @@ func addShellService(c *cli.Context, vc *viamClient, part *apppb.RobotPart, wait
 	if !wait {
 		return nil
 	}
-	// note: we wait up to 7 seconds; that's 5 seconds for the config watcher and 2 for luck.
-	// If we don't do this, reloading fails on first run.
-	for i := 0; i < 7; i++ {
+	// note: we wait up to 11 seconds; that's the 10 second default Cloud.RefreshInterval plus padding.
+	// If we don't wait, the reload command will usually fail on first run.
+	for i := 0; i < 11; i++ {
 		time.Sleep(time.Second)
 		_, closeClient, err := vc.connectToShellServiceFqdn(part.Fqdn, c.Bool(debugFlag), logging.NewLogger("shellsvc"))
 		if err == nil {
