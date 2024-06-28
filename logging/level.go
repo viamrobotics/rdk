@@ -85,7 +85,7 @@ func (level Level) AsZap() zapcore.Level {
 }
 
 // LevelFromString parses an input string to a log level. The string must be one of `debug`, `info`,
-// `warn`, `warning`, or `error`. The parsing is case-insensitive. An error is returned if the input 
+// `warn`, `warning`, or `error`. The parsing is case-insensitive. An error is returned if the input
 // does not match one of labeled cases.
 func LevelFromString(inp string) (Level, error) {
 	switch strings.ToLower(inp) {
