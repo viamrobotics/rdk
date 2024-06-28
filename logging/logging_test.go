@@ -7,7 +7,7 @@ import (
 	"go.viam.com/test"
 )
 
-func TestRoundTrip(t *testing.T) {
+func TestLevelStrings(t *testing.T) {
 	for _, level := range []Level{DEBUG, INFO, WARN, ERROR} {
 		serialzied := level.String()
 		parsed, err := LevelFromString(serialzied)
