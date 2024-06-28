@@ -271,9 +271,8 @@ func (nl *NetAppender) backgroundWorker() {
 	abnormalInterval := 5 * time.Second
 	interval := normalInterval
 	for {
-		cancelled := false
 		if !utils.SelectContextOrWait(nl.cancelCtx, interval) {
-			cancelled = true
+			return
 		}
 		err := nl.sync()
 		if err != nil && !errors.Is(err, context.Canceled) {
@@ -283,9 +282,6 @@ func (nl *NetAppender) backgroundWorker() {
 			}
 		} else {
 			interval = normalInterval
-		}
-		if cancelled {
-			return
 		}
 	}
 }
