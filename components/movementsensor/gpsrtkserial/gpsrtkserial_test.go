@@ -101,7 +101,7 @@ func TestReconfigure(t *testing.T) {
 	test.That(t, g.wbaud, test.ShouldEqual, 115200)
 }
 
-// This sets the position to 12°34.5678' N, 123°45.6789' W, at time 12:34:56.78 UTC
+// This sets the position to 12°34.5678' N, 123°45.6789' W, at time 12:34:56.78 UTC.
 const setPositionSentence = "$GPGLL,1234.5678,N,12345.6789,W,123456.78,A,D*7F"
 
 // initializePosition sets the position in the cached data and returns the point it is set to.
