@@ -285,8 +285,7 @@ func (svc *builtIn) Reconfigure(
 		deleteEveryNthValue = svcConfig.DeleteEveryNthWhenDiskFull
 	}
 
-	if !svcConfig.CaptureDisabled {
-	} else {
+	if svcConfig.CaptureDisabled {
 		svc.fileDeletionRoutineCancelFn = nil
 		svc.fileDeletionBackgroundWorkers = nil
 	}

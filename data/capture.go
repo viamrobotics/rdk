@@ -41,6 +41,8 @@ var viamCaptureDotDir = filepath.Join(os.Getenv("HOME"), ".viam", "capture")
 // Default time between checking and logging number of files in capture dir.
 var captureDirSizeLogInterval = 1 * time.Minute
 
+// ErrCaptureDirectoryConfigurationDisabled happens when the viam-server is run with
+// `-untrusted-env` and the capture directory is not `~/.viam`.
 var ErrCaptureDirectoryConfigurationDisabled = errors.New("changing the capture directory is prohibited in this environment")
 
 func generateMetadataKey(component, method string) string {
@@ -52,7 +54,9 @@ var metadataToAdditionalParamFields = map[string]string{
 	generateMetadataKey("rdk:component:board", "Gpios"):   "pin_name",
 }
 
-// CaptureManager manages polling resources for metrics and writing those metrics to files. There must be only one CaptureManager per DataManager. The lifecycle of a CaptureManager is:
+// CaptureManager manages polling resources for metrics and writing those metrics to files. There
+// must be only one CaptureManager per DataManager. The lifecycle of a CaptureManager is:
+//
 // - NewCaptureManager
 // - Reconfigure (any number of times)
 // - Close (once).
@@ -71,6 +75,7 @@ type CaptureManager struct {
 	clk    clock.Clock
 }
 
+// NewCaptureManager creates a new capture manager.
 func NewCaptureManager(logger logging.Logger, clk clock.Clock) *CaptureManager {
 	return &CaptureManager{
 		logger:                     logger,
@@ -81,14 +86,15 @@ func NewCaptureManager(logger logging.Logger, clk clock.Clock) *CaptureManager {
 	}
 }
 
+// Config is the capture manager config.
 type Config struct {
 	CaptureDisabled             bool
 	CaptureDir                  string
 	Tags                        []string
 	MaximumCaptureFileSizeBytes int64
-	clk                         clock.Clock
 }
 
+// Reconfigure reconfigures the capture manager.
 func (cm *CaptureManager) Reconfigure(ctx context.Context, deps resource.Dependencies, resConfig resource.Config, dataConfig Config) error {
 	captureConfigs, err := cm.updateDataCaptureConfigs(deps, resConfig, dataConfig.CaptureDir)
 	if err != nil {
@@ -193,6 +199,7 @@ func (cm *CaptureManager) Reconfigure(ctx context.Context, deps resource.Depende
 	return nil
 }
 
+// Close closes the capture manager.
 func (cm *CaptureManager) Close() {
 	if cm.captureDirPollingCancelFn != nil {
 		cm.captureDirPollingCancelFn()
@@ -205,6 +212,7 @@ func (cm *CaptureManager) Close() {
 	cm.CloseCollectors()
 }
 
+// CaptureDir returns the capture directory.
 func (cm *CaptureManager) CaptureDir() string {
 	return cm.captureDir
 }
@@ -350,6 +358,7 @@ func (cm *CaptureManager) updateDataCaptureConfigs(
 	return resourceCaptureConfigMap, nil
 }
 
+// CloseCollectors closes collectors.
 func (cm *CaptureManager) CloseCollectors() {
 	var collectorsToClose []Collector
 	cm.mu.Lock()
@@ -370,6 +379,7 @@ func (cm *CaptureManager) CloseCollectors() {
 	wg.Wait()
 }
 
+// FlushCollectors flushes collectors.
 func (cm *CaptureManager) FlushCollectors() {
 	var collectorsToFlush []Collector
 	cm.mu.Lock()
