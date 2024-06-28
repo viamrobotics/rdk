@@ -177,10 +177,12 @@ func setupWithRunningPart(
 	test.That(t, err, test.ShouldBeNil)
 
 	t.Cleanup(func() {
+		defer func() {
+			if t.Failed() {
+				logger.OutputLogs()
+			}
+		}()
 		test.That(t, r.Close(context.Background()), test.ShouldBeNil)
-		if t.Failed() {
-			logger.OutputLogs()
-		}
 	})
 	return cCtx, ac, out, errOut
 }
