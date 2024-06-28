@@ -283,7 +283,7 @@ func TestSetConn(t *testing.T) {
 	test.That(t, server.service.logs, test.ShouldHaveLength, 2)
 }
 
-// construct a NetAppender for testing with no background runers.
+// construct a NetAppender for testing with no background runners.
 func quickFakeAppender(t *testing.T) *NetAppender {
 	t.Helper()
 	return &NetAppender{
