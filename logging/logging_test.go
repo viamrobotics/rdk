@@ -14,6 +14,10 @@ func TestRoundTrip(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, parsed, test.ShouldEqual, level)
 	}
+
+	parsed, err := LevelFromString("warning")
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, parsed, test.ShouldEqual, WARN)
 }
 
 func TestJSONRoundTrip(t *testing.T) {
