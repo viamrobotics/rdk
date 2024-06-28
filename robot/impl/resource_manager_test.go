@@ -1823,6 +1823,7 @@ func managerForDummyRobot(t *testing.T, robot robot.Robot) *resourceManager {
 // combinations of an initial and updated configuration.
 func TestReconfigureParity(t *testing.T) {
 	// TODO(RSDK-7716): add some configurations with modules.
+	// TODO(RSDK-8065): define configurations in-line instead of reading from files.
 	files := []string{
 		"data/diff_config_deps1.json",
 		"data/diff_config_deps2.json",
