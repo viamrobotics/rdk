@@ -36,6 +36,11 @@ type CloudConfig struct {
 // be `Close`d prior to shutdown to flush remaining logs.
 // Pass `nil` for `conn` if you want this to create its own connection.
 func NewNetAppender(config *CloudConfig, conn rpc.ClientConn, sharedConn bool) (*NetAppender, error) {
+	return newNetAppender(config, conn, sharedConn, true)
+}
+
+// inner function for NewNetAppender which can disable background worker in tests.
+func newNetAppender(config *CloudConfig, conn rpc.ClientConn, sharedConn, startBackgroundWorker bool) (*NetAppender, error) {
 	hostname, err := os.Hostname()
 	if err != nil {
 		return nil, err
@@ -59,8 +64,10 @@ func NewNetAppender(config *CloudConfig, conn rpc.ClientConn, sharedConn bool) (
 
 	nl.SetConn(conn, sharedConn)
 
-	nl.activeBackgroundWorkers.Add(1)
-	utils.ManagedGo(nl.backgroundWorker, nl.activeBackgroundWorkers.Done)
+	if startBackgroundWorker {
+		nl.activeBackgroundWorkers.Add(1)
+		utils.ManagedGo(nl.backgroundWorker, nl.activeBackgroundWorkers.Done)
+	}
 	return nl, nil
 }
 

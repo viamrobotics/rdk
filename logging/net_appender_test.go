@@ -108,11 +108,9 @@ func TestNetLoggerSync(t *testing.T) {
 	server := makeServerForRobotLogger(t)
 	defer server.stop()
 
-	netAppender, err := NewNetAppender(server.cloudConfig, nil, false)
-	test.That(t, err, test.ShouldBeNil)
-
 	// This test is testing the behavior of sync(), so the background worker shouldn't be running at the same time.
-	netAppender.cancelBackgroundWorkers()
+	netAppender, err := newNetAppender(server.cloudConfig, nil, false, false)
+	test.That(t, err, test.ShouldBeNil)
 
 	logger := NewDebugLogger("test logger")
 	// The stdout appender is not necessary for test correctness. But it does provide information in
@@ -140,11 +138,9 @@ func TestNetLoggerSyncFailureAndRetry(t *testing.T) {
 	server := makeServerForRobotLogger(t)
 	defer server.stop()
 
-	netAppender, err := NewNetAppender(server.cloudConfig, nil, false)
-	test.That(t, err, test.ShouldBeNil)
-
 	// This test is testing the behavior of sync(), so the background worker shouldn't be running at the same time.
-	netAppender.cancelBackgroundWorkers()
+	netAppender, err := newNetAppender(server.cloudConfig, nil, false, false)
+	test.That(t, err, test.ShouldBeNil)
 
 	logger := NewDebugLogger("test logger")
 	// The stdout appender is not necessary for test correctness. But it does provide information in
