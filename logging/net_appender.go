@@ -308,7 +308,7 @@ func (nl *NetAppender) syncOnce() (bool, error) {
 	batch := nl.toLog[:batchSize]
 	nl.toLogMutex.Unlock()
 
-	if err := nl.remoteWriter.write(batch); err != nil {
+	if err := nl.remoteWriter.write(nl.cancelCtx, batch); err != nil {
 		return false, err
 	}
 
@@ -358,10 +358,8 @@ type remoteLogWriterGRPC struct {
 	sharedConn bool
 }
 
-func (w *remoteLogWriterGRPC) write(logs []*commonpb.LogEntry) error {
-	// we specifically don't use a parented cancellable context here so we can make sure we finish writing but
-	// we will only give it up to 5 seconds to do so in case we are trying to shutdown.
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+func (w *remoteLogWriterGRPC) write(ctx context.Context, logs []*commonpb.LogEntry) error {
+	ctx, cancel := context.WithTimeout(ctx, time.Second*5)
 	defer cancel()
 
 	client, err := w.getOrCreateClient(ctx)
