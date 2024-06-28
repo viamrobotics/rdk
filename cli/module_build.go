@@ -21,8 +21,6 @@ import (
 	"go.viam.com/utils/pexec"
 	"go.viam.com/utils/rpc"
 	"golang.org/x/exp/maps"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
@@ -450,7 +448,7 @@ func reloadModuleAction(c *cli.Context, vc *viamClient) error {
 			if err := addShellService(c, vc, part.Part, true); err != nil {
 				return err
 			}
-			infof(c.App.Writer, "copying %s to part %s", manifest.Build.Path, part.Part.Id)
+			infof(c.App.Writer, "Copying %s to part %s", manifest.Build.Path, part.Part.Id)
 			err = vc.copyFilesToFqdn(
 				part.Part.Fqdn, c.Bool(debugFlag), false, false, []string{manifest.Build.Path},
 				reloadingDestination(c, manifest), logging.NewLogger("reload"))
@@ -464,14 +462,7 @@ func reloadModuleAction(c *cli.Context, vc *viamClient) error {
 		}
 	}
 	if needsRestart {
-		err = restartModule(c, vc, part.Part, manifest)
-		if s, ok := status.FromError(err); ok && s.Code() == codes.NotFound {
-			warningf(c.App.ErrWriter,
-				"viam-server couldn't find your module to restart it; "+
-					"this happens if the module couldn't start, and may not indicate an error.",
-			)
-		}
-		return err
+		return restartModule(c, vc, part.Part, manifest)
 	}
 	infof(c.App.Writer, "Reload complete")
 	return nil
@@ -587,7 +578,7 @@ func restartModule(c *cli.Context, vc *viamClient, part *apppb.RobotPart, manife
 	debugf(c.App.Writer, c.Bool(debugFlag), "restarting module %v", restartReq)
 	// todo: make this a stream so '--wait' can tell user what's happening
 	err = robotClient.RestartModule(c.Context, *restartReq)
-	if err != nil {
+	if err == nil {
 		infof(c.App.Writer, "restarted module.")
 	}
 	return err
