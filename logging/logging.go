@@ -141,5 +141,12 @@ func NewInMemoryLogger(tb testing.TB) *MemLogger {
 		testHelper: tb.Helper,
 	}
 
-	return &MemLogger{logger, tb, observedLogs}
+	memLogger := &MemLogger{logger, tb, observedLogs}
+	// Ensure that logs are always output on failure.
+	tb.Cleanup(func() {
+		if tb.Failed() {
+			memLogger.OutputLogs()
+		}
+	})
+	return memLogger
 }

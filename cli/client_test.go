@@ -151,7 +151,6 @@ func setupWithRunningPart(
 	t.Helper()
 
 	cCtx, ac, out, errOut := setup(asc, dataClient, buildClient, nil, defaultFlags, authMethod, cliArgs...)
-	logger := logging.NewInMemoryLogger(t)
 
 	// this config could later become a parameter
 	r, err := robotimpl.New(cCtx.Context, &robotconfig.Config{
@@ -162,7 +161,7 @@ func setupWithRunningPart(
 				Model: resource.DefaultServiceModel,
 			},
 		},
-	}, logger)
+	}, logging.NewInMemoryLogger(t))
 	test.That(t, err, test.ShouldBeNil)
 
 	options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
@@ -177,11 +176,6 @@ func setupWithRunningPart(
 	test.That(t, err, test.ShouldBeNil)
 
 	t.Cleanup(func() {
-		defer func() {
-			if t.Failed() {
-				logger.OutputLogs()
-			}
-		}()
 		test.That(t, r.Close(context.Background()), test.ShouldBeNil)
 	})
 	return cCtx, ac, out, errOut

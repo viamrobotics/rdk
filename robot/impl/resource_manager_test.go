@@ -1846,11 +1846,6 @@ func TestReconfigureParity(t *testing.T) {
 			t.Parallel()
 			// Capture logs for this sub-test run. Only output the logs if the test fails.
 			logger := logging.NewInMemoryLogger(t)
-			defer func() {
-				if t.Failed() {
-					logger.OutputLogs()
-				}
-			}()
 
 			// Configuration may mutate `*config.Config`, so we read it from
 			// file each time.
