@@ -26,11 +26,8 @@ type Tick struct {
 //	// Get the DigitalInterrupt "my_example_digital_interrupt".
 //	interrupt, err := myBoard.DigitalInterruptByName("my_example_digital_interrupt")
 //
-//	// If using type basic: Get the amount of times this DigitalInterrupt has been interrupted with a tick.
+//	// Get the amount of times this DigitalInterrupt has ticked.
 //	count, err := interrupt.Value(context.Background(), nil)
-//
-//	// If using type servo: Get the rolling average of the pulse width across each time the DigitalInterrupt is interrupted with a tick.
-//	rolling_avg, err := interrupt.Value(context.Background(), nil)
 type DigitalInterrupt interface {
 	// Name returns the name of the interrupt.
 	Name() string
