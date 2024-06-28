@@ -1,4 +1,4 @@
-package datasync
+package sync
 
 import (
 	"context"
@@ -17,7 +17,11 @@ import (
 // StreamingDataCaptureUpload.
 var MaxUnaryFileSize = int64(units.MB)
 
-func uploadDataCaptureFile(ctx context.Context, client v1.DataSyncServiceClient, f *data.CaptureFile, partID string) error {
+func uploadDataCaptureFile(
+	ctx context.Context,
+	f *data.CaptureFile,
+	conn cloudConn,
+) error {
 	md := f.ReadMetadata()
 	sensorData, err := data.SensorDataFromCaptureFile(f)
 	if err != nil {
@@ -65,7 +69,7 @@ func uploadDataCaptureFile(ctx context.Context, client v1.DataSyncServiceClient,
 				},
 			}
 			newUploadMD := &v1.UploadMetadata{
-				PartId:           partID,
+				PartId:           conn.partID,
 				ComponentType:    md.GetComponentType(),
 				ComponentName:    md.GetComponentName(),
 				MethodName:       md.GetMethodName(),
@@ -74,14 +78,14 @@ func uploadDataCaptureFile(ctx context.Context, client v1.DataSyncServiceClient,
 				FileExtension:    getFileExtFromImageFormat(img.GetFormat()),
 				Tags:             md.GetTags(),
 			}
-			if err := uploadSensorData(ctx, client, newUploadMD, newSensorData, f.Size()); err != nil {
+			if err := uploadSensorData(ctx, conn.client, newUploadMD, newSensorData, f.Size()); err != nil {
 				return err
 			}
 		}
 	} else {
 		// Build UploadMetadata
 		uploadMD := &v1.UploadMetadata{
-			PartId:           partID,
+			PartId:           conn.partID,
 			ComponentType:    md.GetComponentType(),
 			ComponentName:    md.GetComponentName(),
 			MethodName:       md.GetMethodName(),
@@ -90,13 +94,17 @@ func uploadDataCaptureFile(ctx context.Context, client v1.DataSyncServiceClient,
 			FileExtension:    md.GetFileExtension(),
 			Tags:             md.GetTags(),
 		}
-		return uploadSensorData(ctx, client, uploadMD, sensorData, f.Size())
+		return uploadSensorData(ctx, conn.client, uploadMD, sensorData, f.Size())
 	}
 	return nil
 }
 
-func uploadSensorData(ctx context.Context, client v1.DataSyncServiceClient, uploadMD *v1.UploadMetadata,
-	sensorData []*v1.SensorData, fileSize int64,
+func uploadSensorData(
+	ctx context.Context,
+	client v1.DataSyncServiceClient,
+	uploadMD *v1.UploadMetadata,
+	sensorData []*v1.SensorData,
+	fileSize int64,
 ) error {
 	// If it's a large binary file, we need to upload it in chunks.
 	if uploadMD.GetType() == v1.DataType_DATA_TYPE_BINARY_SENSOR && fileSize > MaxUnaryFileSize {
@@ -139,7 +147,9 @@ func uploadSensorData(ctx context.Context, client v1.DataSyncServiceClient, uplo
 	return nil
 }
 
-func sendStreamingDCRequests(ctx context.Context, stream v1.DataSyncService_StreamingDataCaptureUploadClient,
+func sendStreamingDCRequests(
+	ctx context.Context,
+	stream v1.DataSyncService_StreamingDataCaptureUploadClient,
 	contents []byte,
 ) error {
 	// Loop until there is no more content to send.

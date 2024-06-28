@@ -1,4 +1,3 @@
-// Package sync implements datasync for the builtin datamanger
 package sync
 
 import (

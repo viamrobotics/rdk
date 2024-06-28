@@ -1,150 +1,211 @@
 package builtin
 
 import (
+	"bytes"
 	"context"
+	"errors"
+	"image"
+	"image/png"
 	"io"
 	"os"
 	"path/filepath"
 	"sort"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
 
-	clk "github.com/benbjohnson/clock"
-	"github.com/pkg/errors"
 	v1 "go.viam.com/api/app/datasync/v1"
 	"go.viam.com/test"
+	"go.viam.com/utils/rpc"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/connectivity"
 
+	"go.viam.com/rdk/components/arm"
+	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/data"
+	"go.viam.com/rdk/gostream"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/services/datamanager/datasync"
+	datasync "go.viam.com/rdk/services/datamanager/builtin/sync"
+	"go.viam.com/rdk/spatialmath"
+	"go.viam.com/rdk/testutils/inject"
 )
 
 const (
 	syncIntervalMins = 0.0008
 	syncInterval     = time.Millisecond * 48
+	waitTime         = syncInterval * 4
 )
 
 // TODO DATA-849: Add a test that validates that sync interval is accurately respected.
 func TestSyncEnabled(t *testing.T) {
-	// https://viam.atlassian.net/browse/DATA-2880
-	// https://viam.atlassian.net/browse/DATA-2879
-	t.Skip()
-	captureInterval := time.Millisecond * 10
 	tests := []struct {
-		name                        string
-		initialServiceDisableStatus bool
-		newServiceDisableStatus     bool
+		name                 string
+		syncStartDisabled    bool
+		syncEndDisabled      bool
+		connStateConstructor func(rpc.ClientConn) datasync.ConnectivityState
+		cloudConnectionErr   error
 	}{
 		{
-			name:                        "config with sync disabled should sync nothing",
-			initialServiceDisableStatus: true,
-			newServiceDisableStatus:     true,
+			name:                 "config with sync disabled while online should sync nothing",
+			syncStartDisabled:    true,
+			syncEndDisabled:      true,
+			connStateConstructor: ConnToConnectivityStateReady,
 		},
 		{
-			name:                        "config with sync enabled should sync",
-			initialServiceDisableStatus: false,
-			newServiceDisableStatus:     false,
+			name:                 "config with sync enabled while online should sync",
+			syncStartDisabled:    false,
+			syncEndDisabled:      false,
+			connStateConstructor: ConnToConnectivityStateReady,
 		},
 		{
-			name:                        "disabling sync should stop syncing",
-			initialServiceDisableStatus: false,
-			newServiceDisableStatus:     true,
+			name:                 "disabling sync while online should stop syncing",
+			syncStartDisabled:    false,
+			syncEndDisabled:      true,
+			connStateConstructor: ConnToConnectivityStateReady,
 		},
 		{
-			name:                        "enabling sync should trigger syncing to start",
-			initialServiceDisableStatus: true,
-			newServiceDisableStatus:     false,
+			name:                 "enabling sync while online should trigger syncing to start",
+			syncStartDisabled:    true,
+			syncEndDisabled:      false,
+			connStateConstructor: ConnToConnectivityStateReady,
+		},
+		{
+			name:               "config with sync disabled while offline should sync nothing",
+			syncStartDisabled:  true,
+			syncEndDisabled:    true,
+			cloudConnectionErr: errors.New("dial error"),
+		},
+		{
+			name:               "config with sync enabled while offline should sync nothing",
+			syncStartDisabled:  false,
+			syncEndDisabled:    false,
+			cloudConnectionErr: errors.New("dial error"),
+		},
+		{
+			name:               "disabling sync while offline should sync nothing",
+			syncStartDisabled:  false,
+			syncEndDisabled:    true,
+			cloudConnectionErr: errors.New("dial error"),
+		},
+		{
+			name:               "enabling sync while offline sync nothing",
+			syncStartDisabled:  true,
+			syncEndDisabled:    false,
+			cloudConnectionErr: errors.New("dial error"),
+		},
+		{
+			name:                 "config with sync disabled while connection is not ready should sync nothing",
+			syncStartDisabled:    true,
+			syncEndDisabled:      true,
+			connStateConstructor: connToConnectivityStateError,
+		},
+		{
+			name:                 "config with sync enabled while connection is not ready should sync nothing",
+			syncStartDisabled:    false,
+			syncEndDisabled:      false,
+			connStateConstructor: connToConnectivityStateError,
+		},
+		{
+			name:                 "disabling sync while connection is not ready should sync nothing",
+			syncStartDisabled:    false,
+			syncEndDisabled:      true,
+			connStateConstructor: connToConnectivityStateError,
+		},
+		{
+			name:                 "enabling sync while connection is not ready sync nothing",
+			syncStartDisabled:    true,
+			syncEndDisabled:      false,
+			connStateConstructor: connToConnectivityStateError,
 		},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			// Set up server.
-			mockClock := clk.NewMock()
-			// Make mockClock the package level clock used by the dmsvc so that we can simulate time's passage
-			clock = mockClock
+			logger := logging.NewTestLogger(t)
 			tmpDir := t.TempDir()
 
-			// Set up data manager.
-			dmsvc, r := newTestDataManager(t)
-			defer dmsvc.Close(context.Background())
-			mockClient := mockDataSyncServiceClient{
-				succesfulDCRequests: make(chan *v1.DataCaptureUploadRequest, 100),
-				failedDCRequests:    make(chan *v1.DataCaptureUploadRequest, 100),
-				fail:                &atomic.Bool{},
+			var secondReconfigure atomic.Bool
+			firstCalledCtx, firstCalledFn := context.WithCancel(context.Background())
+			secondCalledCtx, secondCalledFn := context.WithCancel(context.Background())
+			dataSyncServiceClientConstructor := func(cc grpc.ClientConnInterface) v1.DataSyncServiceClient {
+				return datasync.MockDataSyncServiceClient{
+					T: t,
+					DataCaptureUploadFunc: func(
+						ctx context.Context,
+						in *v1.DataCaptureUploadRequest,
+						opts ...grpc.CallOption,
+					) (*v1.DataCaptureUploadResponse, error) {
+						t.Log("called")
+						if err := ctx.Err(); err != nil {
+							t.Log(err.Error())
+							return nil, err
+						}
+						firstCalledFn()
+						if secondReconfigure.Load() {
+							secondCalledFn()
+						}
+						return &v1.DataCaptureUploadResponse{}, nil
+					},
+				}
 			}
-			dmsvc.SetSyncerConstructor(getTestSyncerConstructorMock(mockClient))
-			cfg, associations, deps := setupConfig(t, enabledBinaryCollectorConfigPath)
 
-			// Set up service config.
-			cfg.CaptureDisabled = false
-			cfg.ScheduledSyncDisabled = tc.initialServiceDisableStatus
-			cfg.CaptureDir = tmpDir
-			cfg.SyncIntervalMins = syncIntervalMins
-
-			resources := resourcesFromDeps(t, r, deps)
-			err := dmsvc.Reconfigure(context.Background(), resources, resource.Config{
-				ConvertedAttributes:  cfg,
-				AssociatedAttributes: associations,
+			imgPng := newImgPng(t)
+			r := setupRobot(tc.cloudConnectionErr, map[resource.Name]resource.Resource{
+				camera.Named("c1"): &inject.Camera{
+					StreamFunc: func(
+						ctx context.Context,
+						errHandlers ...gostream.ErrorHandler,
+					) (gostream.VideoStream, error) {
+						return newVideoStream(imgPng), nil
+					},
+				},
 			})
+			config, deps := setupConfig(t, r, enabledBinaryCollectorConfigPath)
+			c := config.ConvertedAttributes.(*Config)
+			c.CaptureDisabled = false
+			c.ScheduledSyncDisabled = tc.syncStartDisabled
+			c.CaptureDir = tmpDir
+			c.SyncIntervalMins = syncIntervalMins
+
+			b, err := New(context.Background(), deps, config, dataSyncServiceClientConstructor, tc.connStateConstructor, logger)
 			test.That(t, err, test.ShouldBeNil)
-			b := dmsvc.(*builtIn)
-			test.That(t, b.propagateDataSyncConfig(), test.ShouldBeNil)
-			mockClock.Add(captureInterval)
-			waitForCaptureFilesToExceedNFiles(tmpDir, 0)
-			mockClock.Add(syncInterval)
-			var sentReq bool
-			wait := time.After(time.Second)
+			defer b.Close(context.Background())
+			t.Log("waiting for data capture to write a data capture file")
+			waitForCaptureFilesToExceedNFiles(tmpDir, 0, logger)
+			t.Log("got a file")
+			wait := time.After(waitTime)
+			t.Logf("waiting up to %s for a file to be uploaded", waitTime)
 			select {
 			case <-wait:
-			case <-mockClient.succesfulDCRequests:
-				sentReq = true
+			case <-firstCalledCtx.Done():
 			}
 
-			if !tc.initialServiceDisableStatus {
-				test.That(t, sentReq, test.ShouldBeTrue)
+			offline := tc.connStateConstructor == nil || tc.connStateConstructor(nil).GetState() != connectivity.Ready
+			if tc.syncStartDisabled || offline || tc.cloudConnectionErr != nil {
+				test.That(t, firstCalledCtx.Err(), test.ShouldBeNil)
 			} else {
-				test.That(t, sentReq, test.ShouldBeFalse)
+				test.That(t, firstCalledCtx.Err(), test.ShouldBeError, context.Canceled)
 			}
 
-			// Set up service config.
-			cfg.CaptureDisabled = false
-			cfg.ScheduledSyncDisabled = tc.newServiceDisableStatus
-			cfg.CaptureDir = tmpDir
-			cfg.SyncIntervalMins = syncIntervalMins
-
-			resources = resourcesFromDeps(t, r, deps)
-			err = dmsvc.Reconfigure(context.Background(), resources, resource.Config{
-				ConvertedAttributes:  cfg,
-				AssociatedAttributes: associations,
-			})
+			// Set up service end config.
+			c.ScheduledSyncDisabled = tc.syncEndDisabled
+			err = b.Reconfigure(context.Background(), deps, config)
 			test.That(t, err, test.ShouldBeNil)
-			test.That(t, b.propagateDataSyncConfig(), test.ShouldBeNil)
+			secondReconfigure.Store(true)
 
-			// Drain any requests that were already sent before Update returned.
-			for len(mockClient.succesfulDCRequests) > 0 {
-				<-mockClient.succesfulDCRequests
-			}
-			var sentReqAfterUpdate bool
-			mockClock.Add(captureInterval)
-			waitForCaptureFilesToExceedNFiles(tmpDir, 0)
-			mockClock.Add(syncInterval)
-			wait = time.After(time.Second)
+			waitForCaptureFilesToExceedNFiles(tmpDir, 0, logger)
+			wait = time.After(waitTime)
 			select {
 			case <-wait:
-			case <-mockClient.succesfulDCRequests:
-				sentReqAfterUpdate = true
+			case <-secondCalledCtx.Done():
 			}
-			err = dmsvc.Close(context.Background())
-			test.That(t, err, test.ShouldBeNil)
 
-			if !tc.newServiceDisableStatus {
-				test.That(t, sentReqAfterUpdate, test.ShouldBeTrue)
+			if tc.syncEndDisabled || offline || tc.cloudConnectionErr != nil {
+				test.That(t, secondCalledCtx.Err(), test.ShouldBeNil)
 			} else {
-				test.That(t, sentReqAfterUpdate, test.ShouldBeFalse)
+				test.That(t, secondCalledCtx.Err(), test.ShouldBeError, context.Canceled)
 			}
 		})
 	}
@@ -152,10 +213,7 @@ func TestSyncEnabled(t *testing.T) {
 
 // TODO DATA-849: Test concurrent capture and sync more thoroughly.
 func TestDataCaptureUploadIntegration(t *testing.T) {
-	// Set exponential factor to 1 and retry wait time to 20ms so retries happen very quickly.
-	datasync.RetryExponentialFactor.Store(int32(1))
-	datasync.InitialWaitTimeMillis.Store(int32(20))
-
+	logger := logging.NewTestLogger(t)
 	tests := []struct {
 		name                  string
 		dataType              v1.DataType
@@ -163,96 +221,167 @@ func TestDataCaptureUploadIntegration(t *testing.T) {
 		scheduledSyncDisabled bool
 		failTransiently       bool
 		emptyFile             bool
+		connStateConstructor  func(rpc.ClientConn) datasync.ConnectivityState
+		cloudConnectionErr    error
 	}{
 		{
-			name:     "previously captured tabular data should be synced at start up",
-			dataType: v1.DataType_DATA_TYPE_TABULAR_SENSOR,
+			name:                 "previously captured tabular data should be synced at start up if online",
+			dataType:             v1.DataType_DATA_TYPE_TABULAR_SENSOR,
+			connStateConstructor: ConnToConnectivityStateReady,
 		},
 		{
-			name:     "previously captured binary data should be synced at start up",
-			dataType: v1.DataType_DATA_TYPE_BINARY_SENSOR,
+			name:                 "previously captured binary data should be synced at start up if online",
+			dataType:             v1.DataType_DATA_TYPE_BINARY_SENSOR,
+			connStateConstructor: ConnToConnectivityStateReady,
 		},
 		{
-			name:                  "manual sync should successfully sync captured tabular data",
+			name:                  "manual sync should successfully sync captured tabular data if online",
 			dataType:              v1.DataType_DATA_TYPE_TABULAR_SENSOR,
 			manualSync:            true,
 			scheduledSyncDisabled: true,
+			connStateConstructor:  ConnToConnectivityStateReady,
 		},
 		{
-			name:                  "manual sync should successfully sync captured binary data",
+			name:                  "manual sync should successfully sync captured binary data if online",
 			dataType:              v1.DataType_DATA_TYPE_BINARY_SENSOR,
 			manualSync:            true,
 			scheduledSyncDisabled: true,
+			connStateConstructor:  ConnToConnectivityStateReady,
 		},
 		{
-			name:       "running manual and scheduled sync concurrently should not cause data races or duplicate uploads",
-			dataType:   v1.DataType_DATA_TYPE_TABULAR_SENSOR,
-			manualSync: true,
+			name:                 "running manual and scheduled sync concurrently should not cause data races or duplicate uploads if online",
+			dataType:             v1.DataType_DATA_TYPE_TABULAR_SENSOR,
+			manualSync:           true,
+			connStateConstructor: ConnToConnectivityStateReady,
 		},
 		{
-			name:            "if tabular uploads fail transiently, they should be retried until they succeed",
-			dataType:        v1.DataType_DATA_TYPE_TABULAR_SENSOR,
-			failTransiently: true,
+			name:                 "if tabular uploads fail transiently, they should be retried until they succeed if online",
+			dataType:             v1.DataType_DATA_TYPE_TABULAR_SENSOR,
+			failTransiently:      true,
+			connStateConstructor: ConnToConnectivityStateReady,
 		},
 		{
-			name:            "if binary uploads fail transiently, they should be retried until they succeed",
-			dataType:        v1.DataType_DATA_TYPE_BINARY_SENSOR,
-			failTransiently: true,
+			name:                 "if binary uploads fail transiently, they should be retried until they succeed if online",
+			dataType:             v1.DataType_DATA_TYPE_BINARY_SENSOR,
+			failTransiently:      true,
+			connStateConstructor: ConnToConnectivityStateReady,
 		},
 		{
-			name:      "files with no sensor data should not be synced",
-			emptyFile: true,
+			name:                 "files with no sensor data should not be synced if online",
+			emptyFile:            true,
+			connStateConstructor: ConnToConnectivityStateReady,
+		},
+		{
+			name:               "previously captured tabular data should not be synced at start up if offline",
+			dataType:           v1.DataType_DATA_TYPE_TABULAR_SENSOR,
+			cloudConnectionErr: errors.New("dial error"),
+		},
+		{
+			name:               "previously captured binary data should not be synced at start up if offline",
+			dataType:           v1.DataType_DATA_TYPE_BINARY_SENSOR,
+			cloudConnectionErr: errors.New("dial error"),
+		},
+		{
+			//
+			name:               "running manual and scheduled sync concurrently should not cause data races or duplicate uploads if offline",
+			dataType:           v1.DataType_DATA_TYPE_TABULAR_SENSOR,
+			manualSync:         true,
+			cloudConnectionErr: errors.New("dial error"),
+		},
+		{
+			name:               "files with no sensor data should not be synced if offline",
+			emptyFile:          true,
+			cloudConnectionErr: errors.New("dial error"),
+		},
+		{
+			name:                 "previously captured tabular data should not be synced at start up if connection is not ready",
+			dataType:             v1.DataType_DATA_TYPE_TABULAR_SENSOR,
+			connStateConstructor: connToConnectivityStateError,
+		},
+		{
+			name:                 "previously captured binary data should not be synced at start up if connection is not ready",
+			dataType:             v1.DataType_DATA_TYPE_BINARY_SENSOR,
+			connStateConstructor: connToConnectivityStateError,
+		},
+		{
+			name: "running manual and scheduled sync concurrently should not " +
+				"cause data races or duplicate uploads if connection is not ready",
+			dataType:             v1.DataType_DATA_TYPE_TABULAR_SENSOR,
+			manualSync:           true,
+			connStateConstructor: connToConnectivityStateError,
+		},
+		{
+			name:                 "files with no sensor data should not be synced if connection is not ready",
+			emptyFile:            true,
+			connStateConstructor: connToConnectivityStateError,
 		},
 	}
+	initialWaitTimeMillis := datasync.InitialWaitTimeMillis
+	retryExponentialFactor := datasync.RetryExponentialFactor
+	t.Cleanup(func() {
+		datasync.InitialWaitTimeMillis = initialWaitTimeMillis
+		datasync.RetryExponentialFactor = retryExponentialFactor
+	})
+	datasync.InitialWaitTimeMillis = 50
+	datasync.RetryExponentialFactor = 1
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			// Set up server.
-			mockClock := clk.NewMock()
-			clock = mockClock
 			tmpDir := t.TempDir()
 
 			// Set up data manager.
-			dmsvc, r := newTestDataManager(t)
-			defer dmsvc.Close(context.Background())
-			var cfg *Config
-			var associations map[resource.Name]resource.AssociatedConfig
-			var deps []string
+			imgPng := newImgPng(t)
+			var config resource.Config
+			var deps resource.Dependencies
 			captureInterval := time.Millisecond * 10
+			r := setupRobot(tc.cloudConnectionErr, map[resource.Name]resource.Resource{
+				arm.Named("arm1"): &inject.Arm{
+					EndPositionFunc: func(
+						ctx context.Context,
+						extra map[string]interface{},
+					) (spatialmath.Pose, error) {
+						return spatialmath.NewZeroPose(), nil
+					},
+				},
+			})
+
 			if tc.emptyFile {
-				cfg, associations, deps = setupConfig(t, infrequentCaptureTabularCollectorConfigPath)
+				config, deps = setupConfig(t, r, infrequentCaptureTabularCollectorConfigPath)
 			} else {
 				if tc.dataType == v1.DataType_DATA_TYPE_TABULAR_SENSOR {
-					cfg, associations, deps = setupConfig(t, enabledTabularCollectorConfigPath)
+					config, deps = setupConfig(t, r, enabledTabularCollectorConfigPath)
 				} else {
-					cfg, associations, deps = setupConfig(t, enabledBinaryCollectorConfigPath)
+					r = setupRobot(tc.cloudConnectionErr, map[resource.Name]resource.Resource{
+						camera.Named("c1"): &inject.Camera{
+							StreamFunc: func(
+								ctx context.Context,
+								errHandlers ...gostream.ErrorHandler,
+							) (gostream.VideoStream, error) {
+								return newVideoStream(imgPng), nil
+							},
+						},
+					})
+					config, deps = setupConfig(t, r, enabledBinaryCollectorConfigPath)
 				}
 			}
 
 			// Set up service config with only capture enabled.
-			cfg.CaptureDisabled = false
-			cfg.ScheduledSyncDisabled = true
-			cfg.SyncIntervalMins = syncIntervalMins
-			cfg.CaptureDir = tmpDir
+			c := config.ConvertedAttributes.(*Config)
+			c.CaptureDisabled = false
+			c.ScheduledSyncDisabled = true
+			c.SyncIntervalMins = syncIntervalMins
+			c.CaptureDir = tmpDir
 
-			resources := resourcesFromDeps(t, r, deps)
-			err := dmsvc.Reconfigure(context.Background(), resources, resource.Config{
-				ConvertedAttributes:  cfg,
-				AssociatedAttributes: associations,
-			})
+			b, err := New(context.Background(), deps, config, datasync.NoOpCloudClientConstructor, tc.connStateConstructor, logger)
 			test.That(t, err, test.ShouldBeNil)
-			b := dmsvc.(*builtIn)
-			test.That(t, b.propagateDataSyncConfig(), test.ShouldBeNil)
 
-			// Let it capture a bit, then close.
-			for i := 0; i < 20; i++ {
-				mockClock.Add(captureInterval)
-			}
-			err = dmsvc.Close(context.Background())
+			time.Sleep(captureInterval * 20)
+			err = b.Close(context.Background())
 			test.That(t, err, test.ShouldBeNil)
 
 			// Get all captured data.
-			numFiles, capturedData, err := getCapturedData(tmpDir)
+			filePaths := getAllFilePaths(tmpDir)
+			numFiles, capturedData, err := getCapturedData(filePaths)
 			test.That(t, err, test.ShouldBeNil)
 			if tc.emptyFile {
 				test.That(t, len(capturedData), test.ShouldEqual, 0)
@@ -260,168 +389,269 @@ func TestDataCaptureUploadIntegration(t *testing.T) {
 				test.That(t, len(capturedData), test.ShouldBeGreaterThan, 0)
 			}
 
-			// Turn dmsvc back on with capture disabled.
-			newDMSvc, r := newTestDataManager(t)
-			defer newDMSvc.Close(context.Background())
-			mockClient := mockDataSyncServiceClient{
-				succesfulDCRequests: make(chan *v1.DataCaptureUploadRequest, 100),
-				failedDCRequests:    make(chan *v1.DataCaptureUploadRequest, 100),
-				fail:                &atomic.Bool{},
+			// Turn builtin back on with capture disabled.
+			var fail atomic.Bool
+			failChan := make(chan *v1.DataCaptureUploadRequest, numFiles)
+			successChan := make(chan *v1.DataCaptureUploadRequest, numFiles)
+
+			f := func(
+				ctx context.Context,
+				in *v1.DataCaptureUploadRequest,
+				_ ...grpc.CallOption,
+			) (*v1.DataCaptureUploadResponse, error) {
+				if err := ctx.Err(); err != nil {
+					return nil, err
+				}
+				select {
+				case <-ctx.Done():
+					return nil, ctx.Err()
+				case successChan <- in:
+					return &v1.DataCaptureUploadResponse{}, nil
+				}
 			}
-			newDMSvc.SetSyncerConstructor(getTestSyncerConstructorMock(mockClient))
-			cfg.CaptureDisabled = true
-			cfg.ScheduledSyncDisabled = tc.scheduledSyncDisabled
-			cfg.SyncIntervalMins = syncIntervalMins
-			resources = resourcesFromDeps(t, r, deps)
-			err = newDMSvc.Reconfigure(context.Background(), resources, resource.Config{
-				ConvertedAttributes:  cfg,
-				AssociatedAttributes: associations,
-			})
-			test.That(t, err, test.ShouldBeNil)
-			b2 := newDMSvc.(*builtIn)
-			test.That(t, b2.propagateDataSyncConfig(), test.ShouldBeNil)
 
 			if tc.failTransiently {
-				// Simulate the backend returning errors some number of times, and validate that the dmsvc is continuing
-				// to retry.
-				numFails := 3
-				mockClient.fail.Store(true)
-				for i := 0; i < numFails; i++ {
-					mockClock.Add(syncInterval)
-					// Each time we sync, we should get a sync request for each file.
-					for j := 0; j < numFiles; j++ {
-						wait := time.After(time.Second * 5)
+				fail.Store(true)
+				f = func(
+					ctx context.Context,
+					in *v1.DataCaptureUploadRequest,
+					_ ...grpc.CallOption,
+				) (*v1.DataCaptureUploadResponse, error) {
+					if err := ctx.Err(); err != nil {
+						return nil, err
+					}
+
+					if fail.Load() {
 						select {
-						case <-wait:
-							t.Fatalf("timed out waiting for sync request")
-						case <-mockClient.failedDCRequests:
+						case <-ctx.Done():
+							return nil, ctx.Err()
+						case failChan <- in:
+							return nil, errors.New("transient error")
 						}
+					}
+
+					select {
+					case <-ctx.Done():
+						return nil, ctx.Err()
+					case successChan <- in:
+						return &v1.DataCaptureUploadResponse{}, nil
 					}
 				}
 			}
 
-			mockClient.fail.Store(false)
+			dataSyncServiceClientConstructor := func(cc grpc.ClientConnInterface) v1.DataSyncServiceClient {
+				return datasync.MockDataSyncServiceClient{
+					DataCaptureUploadFunc: f,
+				}
+			}
+			c.CaptureDisabled = true
+			c.ScheduledSyncDisabled = tc.scheduledSyncDisabled
+			c.SyncIntervalMins = syncIntervalMins
+
+			b2Svc, err := New(context.Background(), deps, config, dataSyncServiceClientConstructor, tc.connStateConstructor, logger)
+			test.That(t, err, test.ShouldBeNil)
+			b2 := b2Svc.(*builtIn)
+
+			if tc.failTransiently {
+				wait := time.After(waitTime)
+				failCount := 3
+				for i := 0; i < failCount; i++ {
+					t.Logf("waiting for %d files to fail", numFiles)
+					for j := 0; j < numFiles; j++ {
+						select {
+						case <-wait:
+							t.Fatalf("timed out waiting for sync request")
+							return
+						case <-failChan:
+							t.Logf("got file %d", j+1)
+						}
+					}
+				}
+			}
+			fail.Store(false)
+
 			// If testing manual sync, call sync. Call it multiple times to ensure concurrent calls are safe.
 			if tc.manualSync {
-				err = newDMSvc.Sync(context.Background(), nil)
-				test.That(t, err, test.ShouldBeNil)
-				err = newDMSvc.Sync(context.Background(), nil)
-				test.That(t, err, test.ShouldBeNil)
-			}
-
-			var successfulReqs []*v1.DataCaptureUploadRequest
-			// Get the successful requests
-			mockClock.Add(syncInterval)
-			for i := 0; i < numFiles; i++ {
-				wait := time.After(time.Second * 5)
-				select {
-				case <-wait:
-					t.Fatalf("timed out waiting for sync request")
-				case r := <-mockClient.succesfulDCRequests:
-					successfulReqs = append(successfulReqs, r)
+				// wait until sync has gotten a cloud connection
+				if tc.cloudConnectionErr != nil {
+					select {
+					case <-time.After(waitTime):
+					case <-b2.sync.CloudConnReady():
+						t.Fatal("should not happen")
+					}
+				} else {
+					select {
+					case <-time.After(waitTime):
+						t.Fatal("timeout")
+					case <-b2.sync.CloudConnReady():
+					}
+					err = b2.Sync(context.Background(), nil)
+					test.That(t, err, test.ShouldBeNil)
+					err = b2.Sync(context.Background(), nil)
+					test.That(t, err, test.ShouldBeNil)
 				}
 			}
 
-			// Give it time to delete files after upload.
-			waitUntilNoFiles(tmpDir)
-			err = newDMSvc.Close(context.Background())
-			test.That(t, err, test.ShouldBeNil)
+			if tc.cloudConnectionErr == nil {
+				wait := time.After(waitTime)
+				var successfulReqs []*v1.DataCaptureUploadRequest
+				// Get the successful requests
+				for i := 0; i < numFiles; i++ {
+					select {
+					case <-wait:
+						offline := tc.connStateConstructor == nil || tc.connStateConstructor(nil).GetState() != connectivity.Ready
+						if offline && !tc.manualSync {
+							err = b2.Close(context.Background())
+							test.That(t, err, test.ShouldBeNil)
+							// the same captured data from the first instance of data manager should still be on disk
+							numFiles2, capturedData2, err := getCapturedData(filePaths)
+							test.That(t, err, test.ShouldBeNil)
+							test.That(t, numFiles, test.ShouldEqual, numFiles2)
+							compareSensorData(t, tc.dataType, capturedData2, capturedData)
+							// test done, we were offline & we didn't try to upload
+							return
+						}
+						t.Fatalf("timed out waiting for sync request")
+					case r := <-successChan:
+						successfulReqs = append(successfulReqs, r)
+					}
+				}
 
-			// Validate that all captured data was synced.
-			syncedData := getUploadedData(successfulReqs)
-			compareSensorData(t, tc.dataType, syncedData, capturedData)
+				// Give it time to delete files after upload.
+				waitUntilNoFiles(tmpDir)
+				err = b2.Close(context.Background())
+				test.That(t, err, test.ShouldBeNil)
 
-			// After all uploads succeed, all files should be deleted.
-			test.That(t, len(getAllFileInfos(tmpDir)), test.ShouldEqual, 0)
+				// Validate that all captured data was synced.
+				syncedData := getUploadedData(successfulReqs)
+				compareSensorData(t, tc.dataType, syncedData, capturedData)
+
+				// After all uploads succeed, all files should be deleted.
+				test.That(t, len(getAllFileInfos(tmpDir)), test.ShouldEqual, 0)
+			} else {
+				err = b2.Close(context.Background())
+				test.That(t, err, test.ShouldBeNil)
+
+				// Validate that all captured data is still on disk
+				_, capturedData2, err := getCapturedData(getAllFilePaths(tmpDir))
+				test.That(t, err, test.ShouldBeNil)
+				compareSensorData(t, tc.dataType, capturedData2, capturedData)
+			}
 		})
 	}
 }
 
 func TestArbitraryFileUpload(t *testing.T) {
-	// Set exponential factor to 1 and retry wait time to 20ms so retries happen very quickly.
-	datasync.RetryExponentialFactor.Store(int32(1))
+	logger := logging.NewTestLogger(t)
 	fileName := "some_file_name.txt"
 	fileExt := ".txt"
 	emptyFileTestName := "error due to empty file, local files should not be deleted"
 	// Disable the check to see if the file was modified recently,
 	// since we are testing instanteous arbitrary file uploads.
-	datasync.SetFileLastModifiedMillis(0)
 	tests := []struct {
 		name                 string
 		manualSync           bool
 		scheduleSyncDisabled bool
 		serviceFail          bool
+		connStateConstructor func(rpc.ClientConn) datasync.ConnectivityState
+		cloudConnectionErr   error
 	}{
 		{
 			name:                 "scheduled sync of arbitrary files should work",
 			manualSync:           false,
 			scheduleSyncDisabled: false,
+			connStateConstructor: ConnToConnectivityStateReady,
 		},
 		{
 			name:                 "manual sync of arbitrary files should work",
 			manualSync:           true,
 			scheduleSyncDisabled: true,
+			connStateConstructor: ConnToConnectivityStateReady,
 		},
 		{
 			name:                 "running manual and scheduled sync concurrently should work and not lead to duplicate uploads",
 			manualSync:           true,
 			scheduleSyncDisabled: false,
+			connStateConstructor: ConnToConnectivityStateReady,
 		},
 		{
 			name:                 "if an error response is received from the backend, local files should not be deleted",
 			manualSync:           false,
 			scheduleSyncDisabled: false,
 			serviceFail:          true,
+			connStateConstructor: ConnToConnectivityStateReady,
 		},
 		{
 			name:                 emptyFileTestName,
 			manualSync:           false,
 			scheduleSyncDisabled: false,
 			serviceFail:          true,
+			connStateConstructor: ConnToConnectivityStateReady,
 		},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			// Set up server.
-			mockClock := clk.NewMock()
-			clock = mockClock
 			additionalPathsDir := t.TempDir()
 			captureDir := t.TempDir()
 
-			// Set up dmsvc config.
-			dmsvc, r := newTestDataManager(t)
-			defer dmsvc.Close(context.Background())
-			f := atomic.Bool{}
-			f.Store(tc.serviceFail)
-			mockClient := mockDataSyncServiceClient{
-				succesfulDCRequests: make(chan *v1.DataCaptureUploadRequest, 100),
-				failedDCRequests:    make(chan *v1.DataCaptureUploadRequest, 100),
-				fileUploads:         make(chan *mockFileUploadClient, 100),
-				fail:                &f,
+			rs := []*v1.FileUploadRequest{}
+			closeCtx, closeFn := context.WithCancel(context.Background())
+			var uploadCount atomic.Uint64
+			mockClient := datasync.MockDataSyncServiceClient{
+				T: t,
+				FileUploadFunc: func(ctx context.Context, opts ...grpc.CallOption) (v1.DataSyncService_FileUploadClient, error) {
+					return &datasync.ClientStreamingMock[*v1.FileUploadRequest, *v1.FileUploadResponse]{
+						SendFunc: func(r *v1.FileUploadRequest) error {
+							if err := ctx.Err(); err != nil {
+								return err
+							}
+							rs = append(rs, r)
+							return nil
+						},
+						CloseAndRecvFunc: func() (*v1.FileUploadResponse, error) {
+							if err := ctx.Err(); err != nil {
+								return nil, err
+							}
+							if tc.serviceFail {
+								return nil, errors.New("CloseAndRecv")
+							}
+							closeFn()
+							uploadCount.Add(1)
+							return &v1.FileUploadResponse{FileId: "some file id"}, nil
+						},
+					}, nil
+				},
 			}
-			dmsvc.SetSyncerConstructor(getTestSyncerConstructorMock(mockClient))
-			cfg, associations, deps := setupConfig(t, disabledTabularCollectorConfigPath)
-			cfg.ScheduledSyncDisabled = tc.scheduleSyncDisabled
-			cfg.SyncIntervalMins = syncIntervalMins
-			cfg.AdditionalSyncPaths = []string{additionalPathsDir}
-			cfg.CaptureDir = captureDir
 
-			// Start dmsvc.
-			resources := resourcesFromDeps(t, r, deps)
-			err := dmsvc.Reconfigure(context.Background(), resources, resource.Config{
-				ConvertedAttributes:  cfg,
-				AssociatedAttributes: associations,
+			r := setupRobot(tc.cloudConnectionErr, map[resource.Name]resource.Resource{
+				arm.Named("arm1"): &inject.Arm{
+					EndPositionFunc: func(
+						ctx context.Context,
+						extra map[string]interface{},
+					) (spatialmath.Pose, error) {
+						return spatialmath.NewZeroPose(), nil
+					},
+				},
 			})
+			dataSyncServiceClientConstructor := func(cc grpc.ClientConnInterface) v1.DataSyncServiceClient { return mockClient }
+			config, deps := setupConfig(t, r, disabledTabularCollectorConfigPath)
+			c := config.ConvertedAttributes.(*Config)
+			c.ScheduledSyncDisabled = tc.scheduleSyncDisabled
+			c.SyncIntervalMins = syncIntervalMins
+			c.AdditionalSyncPaths = []string{additionalPathsDir}
+			c.CaptureDir = captureDir
+			c.FileLastModifiedMillis = 1
+			t.Logf("cfg.AdditionalSyncPaths: %s, cfg.CaptureDir: %s", additionalPathsDir, c.CaptureDir)
+
+			b, err := New(context.Background(), deps, config, dataSyncServiceClientConstructor, tc.connStateConstructor, logger)
 			test.That(t, err, test.ShouldBeNil)
-			b := dmsvc.(*builtIn)
-			test.That(t, b.propagateDataSyncConfig(), test.ShouldBeNil)
-			// Ensure that we don't wait to sync files.
-			dmsvc.SetFileLastModifiedMillis(0)
+			defer b.Close(context.Background())
 
 			// Write file to the path.
 			var fileContents []byte
 			if tc.name != emptyFileTestName {
+				t.Log("populating FileContents")
 				fileContents = populateFileContents(fileContents)
 			}
 			tmpFile, err := os.Create(filepath.Join(additionalPathsDir, fileName))
@@ -429,42 +659,33 @@ func TestArbitraryFileUpload(t *testing.T) {
 			_, err = tmpFile.Write(fileContents)
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, tmpFile.Close(), test.ShouldBeNil)
-
-			// Advance the clock syncInterval so it tries to sync the files.
-			mockClock.Add(syncInterval)
+			t.Logf("tmpfilepath: %s", filepath.Join(additionalPathsDir, fileName))
+			time.Sleep(time.Millisecond * time.Duration(c.FileLastModifiedMillis) * 2)
 
 			// Call manual sync.
 			if tc.manualSync {
-				err = dmsvc.Sync(context.Background(), nil)
+				t.Log("calling manual sync")
+				err = b.Sync(context.Background(), nil)
 				test.That(t, err, test.ShouldBeNil)
 			}
 
 			// Wait for upload requests.
-			var fileUploads []*mockFileUploadClient
-			var urs []*v1.FileUploadRequest
 			// Get the successful requests
-			wait := time.After(time.Second * 3)
+			wait := time.After(waitTime)
 			select {
 			case <-wait:
 				if !tc.serviceFail {
 					t.Fatalf("timed out waiting for sync request")
 				}
-			case r := <-mockClient.fileUploads:
-				fileUploads = append(fileUploads, r)
-				select {
-				case <-wait:
-					t.Fatalf("timed out waiting for sync request")
-				case <-r.closed:
-					urs = append(urs, r.urs...)
-				}
+			case <-closeCtx.Done():
 			}
 
 			waitUntilNoFiles(additionalPathsDir)
 			if !tc.serviceFail {
 				// Validate first metadata message.
-				test.That(t, len(fileUploads), test.ShouldEqual, 1)
-				test.That(t, len(urs), test.ShouldBeGreaterThan, 0)
-				actMD := urs[0].GetMetadata()
+				test.That(t, uploadCount.Load(), test.ShouldEqual, 1)
+				test.That(t, len(rs), test.ShouldBeGreaterThan, 0)
+				actMD := rs[0].GetMetadata()
 				test.That(t, actMD, test.ShouldNotBeNil)
 				test.That(t, actMD.Type, test.ShouldEqual, v1.DataType_DATA_TYPE_FILE)
 				test.That(t, filepath.Base(actMD.FileName), test.ShouldEqual, fileName)
@@ -472,7 +693,7 @@ func TestArbitraryFileUpload(t *testing.T) {
 				test.That(t, actMD.PartId, test.ShouldNotBeBlank)
 
 				// Validate ensuing data messages.
-				dataRequests := urs[1:]
+				dataRequests := rs[1:]
 				var actData []byte
 				for _, d := range dataRequests {
 					actData = append(actData, d.GetFileContents().GetData()...)
@@ -481,10 +702,10 @@ func TestArbitraryFileUpload(t *testing.T) {
 
 				// Validate file no longer exists.
 				test.That(t, len(getAllFileInfos(additionalPathsDir)), test.ShouldEqual, 0)
-				test.That(t, dmsvc.Close(context.Background()), test.ShouldBeNil)
+				test.That(t, b.Close(context.Background()), test.ShouldBeNil)
 			} else {
 				// Validate no files were successfully uploaded.
-				test.That(t, len(fileUploads), test.ShouldEqual, 0)
+				test.That(t, uploadCount.Load(), test.ShouldEqual, 0)
 				// Validate file still exists.
 				test.That(t, len(getAllFileInfos(additionalPathsDir)), test.ShouldEqual, 1)
 			}
@@ -497,9 +718,9 @@ func TestStreamingDCUpload(t *testing.T) {
 	// value such that other tests take the correct code paths.
 	origSize := datasync.MaxUnaryFileSize
 	datasync.MaxUnaryFileSize = 1
-	defer func() {
+	t.Cleanup(func() {
 		datasync.MaxUnaryFileSize = origSize
-	}()
+	})
 
 	tests := []struct {
 		name        string
@@ -518,103 +739,156 @@ func TestStreamingDCUpload(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			// Set up server.
-			mockClock := clk.NewMock()
-			clock = mockClock
+			logger := logging.NewTestLogger(t)
 			tmpDir := t.TempDir()
 
 			// Set up data manager.
-			dmsvc, r := newTestDataManager(t)
-			defer dmsvc.Close(context.Background())
-			var cfg *Config
-			var associations map[resource.Name]resource.AssociatedConfig
-			var deps []string
-			captureInterval := time.Millisecond * 10
-			cfg, associations, deps = setupConfig(t, enabledBinaryCollectorConfigPath)
+			imgPng := newImgPng(t)
+			r := setupRobot(nil, map[resource.Name]resource.Resource{
+				camera.Named("c1"): &inject.Camera{
+					StreamFunc: func(
+						ctx context.Context,
+						errHandlers ...gostream.ErrorHandler,
+					) (gostream.VideoStream, error) {
+						return newVideoStream(imgPng), nil
+					},
+				},
+			})
+			config, deps := setupConfig(t, r, enabledBinaryCollectorConfigPath)
+			c := config.ConvertedAttributes.(*Config)
 
 			// Set up service config with just capture enabled.
-			cfg.CaptureDisabled = false
-			cfg.ScheduledSyncDisabled = true
-			cfg.SyncIntervalMins = syncIntervalMins
-			cfg.CaptureDir = tmpDir
-
-			resources := resourcesFromDeps(t, r, deps)
-			err := dmsvc.Reconfigure(context.Background(), resources, resource.Config{
-				ConvertedAttributes:  cfg,
-				AssociatedAttributes: associations,
-			})
+			c.CaptureDisabled = false
+			c.ScheduledSyncDisabled = true
+			c.SyncIntervalMins = syncIntervalMins
+			c.CaptureDir = tmpDir
+			b, err := New(context.Background(), deps, config, datasync.NoOpCloudClientConstructor, ConnToConnectivityStateReady, logger)
 			test.That(t, err, test.ShouldBeNil)
-			b := dmsvc.(*builtIn)
-			test.That(t, b.propagateDataSyncConfig(), test.ShouldBeNil)
 
 			// Capture an image, then close.
-			mockClock.Add(captureInterval)
-			waitForCaptureFilesToExceedNFiles(tmpDir, 0)
-			err = dmsvc.Close(context.Background())
+			waitForCaptureFilesToExceedNFiles(tmpDir, 0, logger)
+			err = b.Close(context.Background())
 			test.That(t, err, test.ShouldBeNil)
 
 			// Get all captured data.
-			_, capturedData, err := getCapturedData(tmpDir)
+			filePaths := getAllFilePaths(tmpDir)
+			_, capturedData, err := getCapturedData(filePaths)
 			test.That(t, err, test.ShouldBeNil)
+			t.Logf("capturedData len: %d", len(capturedData))
 
-			// Turn dmsvc back on with capture disabled.
-			newDMSvc, r := newTestDataManager(t)
-			defer newDMSvc.Close(context.Background())
-			f := atomic.Bool{}
-			f.Store(tc.serviceFail)
-			mockClient := mockDataSyncServiceClient{
-				streamingDCUploads: make(chan *mockStreamingDCClient, 10),
-				fail:               &f,
+			// Turn builtin back on with capture disabled.
+			type streamingState struct {
+				mu               sync.Mutex
+				streamingClients []*datasync.ClientStreamingMock[
+					*v1.StreamingDataCaptureUploadRequest,
+					*v1.StreamingDataCaptureUploadResponse,
+				]
+				requests [][]*v1.StreamingDataCaptureUploadRequest
+				contexts []context.Context
 			}
-			newDMSvc.SetSyncerConstructor(getTestSyncerConstructorMock(mockClient))
-			cfg.CaptureDisabled = true
-			cfg.ScheduledSyncDisabled = true
-			resources = resourcesFromDeps(t, r, deps)
-			err = newDMSvc.Reconfigure(context.Background(), resources, resource.Config{
-				ConvertedAttributes:  cfg,
-				AssociatedAttributes: associations,
-			})
+			ss := streamingState{
+				streamingClients: []*datasync.ClientStreamingMock[
+					*v1.StreamingDataCaptureUploadRequest,
+					*v1.StreamingDataCaptureUploadResponse]{},
+				requests: [][]*v1.StreamingDataCaptureUploadRequest{},
+				contexts: []context.Context{},
+			}
+
+			firstSuccesssfulClientCreatedCtx,
+				firstSuccesssfulClientCreatedFn := context.WithCancel(context.Background())
+			streamingDataCaptureUploadFunc := func(
+				ctx context.Context,
+				_ ...grpc.CallOption,
+			) (v1.DataSyncService_StreamingDataCaptureUploadClient, error) {
+				if tc.serviceFail {
+					return nil, errors.New("oh no error")
+				}
+				cancelCtx, cancelFn := context.WithCancel(context.Background())
+				ss.mu.Lock()
+				idx := len(ss.streamingClients)
+				mockStreamingClient := &datasync.ClientStreamingMock[
+					*v1.StreamingDataCaptureUploadRequest,
+					*v1.StreamingDataCaptureUploadResponse,
+				]{
+					T: t,
+					SendFunc: func(in *v1.StreamingDataCaptureUploadRequest) error {
+						ss.mu.Lock()
+						ss.requests[idx] = append(ss.requests[idx], in)
+						ss.mu.Unlock()
+						return nil
+					},
+					CloseAndRecvFunc: func() (*v1.StreamingDataCaptureUploadResponse, error) {
+						cancelFn()
+						return &v1.StreamingDataCaptureUploadResponse{}, nil
+					},
+				}
+				ss.streamingClients = append(ss.streamingClients, mockStreamingClient)
+				ss.contexts = append(ss.contexts, cancelCtx)
+				ss.requests = append(ss.requests, []*v1.StreamingDataCaptureUploadRequest{})
+				ss.mu.Unlock()
+				firstSuccesssfulClientCreatedFn()
+				return mockStreamingClient, nil
+			}
+			mockClient := datasync.MockDataSyncServiceClient{
+				T:                              t,
+				StreamingDataCaptureUploadFunc: streamingDataCaptureUploadFunc,
+			}
+
+			dataSyncServiceClientConstructor := func(cc grpc.ClientConnInterface) v1.DataSyncServiceClient { return mockClient }
+			c.CaptureDisabled = true
+			c.ScheduledSyncDisabled = true
+
+			b2Svc, err := New(context.Background(), deps, config, dataSyncServiceClientConstructor, ConnToConnectivityStateReady, logger)
 			test.That(t, err, test.ShouldBeNil)
-			b2 := newDMSvc.(*builtIn)
-			test.That(t, b2.propagateDataSyncConfig(), test.ShouldBeNil)
+			b2 := b2Svc.(*builtIn)
+			defer b2.Close(context.Background())
+			select {
+			case <-time.After(waitTime):
+				t.Fatal("timeout")
+			case <-b2.sync.CloudConnReady():
+			}
 
 			// Call sync.
-			err = newDMSvc.Sync(context.Background(), nil)
+			err = b2.Sync(context.Background(), nil)
 			test.That(t, err, test.ShouldBeNil)
 
 			// Wait for upload requests.
-			var uploads []*mockStreamingDCClient
-			var urs []*v1.StreamingDataCaptureUploadRequest
-			// Get the successful requests
-			wait := time.After(time.Second * 3)
+			wait := time.After(waitTime)
+			var reqCtx context.Context
 			select {
 			case <-wait:
 				if !tc.serviceFail {
 					t.Fatalf("timed out waiting for sync request")
 				}
-			case r := <-mockClient.streamingDCUploads:
-				uploads = append(uploads, r)
+			case <-firstSuccesssfulClientCreatedCtx.Done():
+				ss.mu.Lock()
+				reqCtx = ss.contexts[0]
+				ss.mu.Unlock()
 				select {
 				case <-wait:
-					t.Fatalf("timed out waiting for sync request")
-				case <-r.closed:
-					urs = append(urs, r.reqs...)
+					if !tc.serviceFail {
+						t.Fatalf("timed out waiting for sync request")
+					}
+				case <-reqCtx.Done():
 				}
 			}
 			waitUntilNoFiles(tmpDir)
 
 			// Validate error and URs.
-			remainingFiles := getAllFilePaths(tmpDir)
 			if tc.serviceFail {
 				// Validate no files were successfully uploaded.
-				test.That(t, len(uploads), test.ShouldEqual, 0)
-				// Error case, file should not be deleted.
-				test.That(t, len(remainingFiles), test.ShouldEqual, 1)
+				test.That(t, firstSuccesssfulClientCreatedCtx.Err(), test.ShouldBeNil)
+				_, capturedData2, err := getCapturedData(getAllFilePaths(tmpDir))
+				test.That(t, err, test.ShouldBeNil)
+				// Error case, data capture data should should be unchanged (aka not deleted)
+				test.That(t, capturedData2, test.ShouldResemble, capturedData)
 			} else {
 				// Validate first metadata message.
-				test.That(t, len(uploads), test.ShouldEqual, 1)
-				test.That(t, len(urs), test.ShouldBeGreaterThan, 0)
-				actMD := urs[0].GetMetadata()
+				ss.mu.Lock()
+				requests := ss.requests[0]
+				ss.mu.Unlock()
+				test.That(t, len(requests), test.ShouldBeGreaterThan, 0)
+				actMD := requests[0].GetMetadata()
 				test.That(t, actMD, test.ShouldNotBeNil)
 				test.That(t, actMD.GetUploadMetadata(), test.ShouldNotBeNil)
 				test.That(t, actMD.GetSensorMetadata(), test.ShouldNotBeNil)
@@ -622,26 +896,22 @@ func TestStreamingDCUpload(t *testing.T) {
 				test.That(t, actMD.GetUploadMetadata().PartId, test.ShouldNotBeBlank)
 
 				// Validate ensuing data messages.
-				dataRequests := urs[1:]
-				var actData []byte
+				dataRequests := requests[1:]
+				var uploadedData []byte
 				for _, d := range dataRequests {
-					actData = append(actData, d.GetData()...)
+					uploadedData = append(uploadedData, d.GetData()...)
 				}
-				test.That(t, actData, test.ShouldResemble, capturedData[0].GetBinary())
+				test.That(t, uploadedData, test.ShouldResemble, capturedData[0].GetBinary())
 
 				// Validate file no longer exists.
 				test.That(t, len(getAllFileInfos(tmpDir)), test.ShouldEqual, 0)
 			}
-			test.That(t, dmsvc.Close(context.Background()), test.ShouldBeNil)
+			test.That(t, b.Close(context.Background()), test.ShouldBeNil)
 		})
 	}
 }
 
 func TestSyncConfigUpdateBehavior(t *testing.T) {
-	// https://viam.atlassian.net/browse/DATA-2880
-	// https://viam.atlassian.net/browse/DATA-2879
-	t.Skip()
-	newSyncIntervalMins := 0.009
 	tests := []struct {
 		name                 string
 		initSyncDisabled     bool
@@ -662,7 +932,7 @@ func TestSyncConfigUpdateBehavior(t *testing.T) {
 			initSyncDisabled:     false,
 			initSyncIntervalMins: syncIntervalMins,
 			newSyncDisabled:      false,
-			newSyncIntervalMins:  newSyncIntervalMins,
+			newSyncIntervalMins:  0.009,
 		},
 		{
 			name:                 "sync gets disabled, syncer should be nil",
@@ -683,90 +953,86 @@ func TestSyncConfigUpdateBehavior(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			// Set up server.
-			mockClock := clk.NewMock()
-			// Make mockClock the package level clock used by the dmsvc so that we can simulate time's passage
-			clock = mockClock
 			tmpDir := t.TempDir()
+			logger := logging.NewTestLogger(t)
 
 			// Set up data manager.
-			dmsvc, r := newTestDataManager(t)
-			defer dmsvc.Close(context.Background())
-			mockClient := mockDataSyncServiceClient{
-				succesfulDCRequests: make(chan *v1.DataCaptureUploadRequest, 100),
-				failedDCRequests:    make(chan *v1.DataCaptureUploadRequest, 100),
-				fail:                &atomic.Bool{},
+			dataSyncServiceClientConstructor := func(cc grpc.ClientConnInterface) v1.DataSyncServiceClient {
+				return datasync.MockDataSyncServiceClient{
+					T: t,
+					StreamingDataCaptureUploadFunc: func(
+						ctx context.Context,
+						_ ...grpc.CallOption,
+					) (v1.DataSyncService_StreamingDataCaptureUploadClient, error) {
+						return &datasync.ClientStreamingMock[
+							*v1.StreamingDataCaptureUploadRequest,
+							*v1.StreamingDataCaptureUploadResponse,
+						]{
+							T: t,
+							SendFunc: func(in *v1.StreamingDataCaptureUploadRequest) error {
+								return nil
+							},
+							CloseAndRecvFunc: func() (*v1.StreamingDataCaptureUploadResponse, error) {
+								return &v1.StreamingDataCaptureUploadResponse{}, nil
+							},
+						}, nil
+					},
+				}
 			}
-			dmsvc.SetSyncerConstructor(getTestSyncerConstructorMock(mockClient))
-			cfg, associations, deps := setupConfig(t, enabledBinaryCollectorConfigPath)
+
+			imgPng := newImgPng(t)
+			r := setupRobot(nil, map[resource.Name]resource.Resource{
+				camera.Named("c1"): &inject.Camera{
+					StreamFunc: func(
+						ctx context.Context,
+						errHandlers ...gostream.ErrorHandler,
+					) (gostream.VideoStream, error) {
+						return newVideoStream(imgPng), nil
+					},
+				},
+			})
+			config, deps := setupConfig(t, r, enabledBinaryCollectorConfigPath)
+			c := config.ConvertedAttributes.(*Config)
 
 			// Set up service config.
-			cfg.CaptureDisabled = false
-			cfg.ScheduledSyncDisabled = tc.initSyncDisabled
-			cfg.CaptureDir = tmpDir
-			cfg.SyncIntervalMins = tc.initSyncIntervalMins
+			c.CaptureDisabled = false
+			c.ScheduledSyncDisabled = tc.initSyncDisabled
+			c.CaptureDir = tmpDir
+			c.SyncIntervalMins = tc.initSyncIntervalMins
 
-			resources := resourcesFromDeps(t, r, deps)
-			err := dmsvc.Reconfigure(context.Background(), resources, resource.Config{
-				ConvertedAttributes:  cfg,
-				AssociatedAttributes: associations,
-			})
+			bSvc, err := New(context.Background(), deps, config, dataSyncServiceClientConstructor, ConnToConnectivityStateReady, logger)
+			test.That(t, err, test.ShouldBeNil)
+			b := bSvc.(*builtIn)
+			defer b.Close(context.Background())
+
+			initTicker := b.sync.ScheduledTicker
+
+			// Reconfigure the builtin with new sync configs
+			c.ScheduledSyncDisabled = tc.newSyncDisabled
+			c.SyncIntervalMins = tc.newSyncIntervalMins
+			c.MaximumNumSyncThreads = tc.newMaxSyncThreads
+
+			err = b.Reconfigure(context.Background(), deps, config)
 			test.That(t, err, test.ShouldBeNil)
 
-			b := dmsvc.(*builtIn)
-			test.That(t, b.propagateDataSyncConfig(), test.ShouldBeNil)
-
-			initTicker := b.syncTicker
-
-			// Reconfigure the dmsvc with new sync configs
-			cfg.ScheduledSyncDisabled = tc.newSyncDisabled
-			cfg.SyncIntervalMins = tc.newSyncIntervalMins
-			cfg.MaximumNumSyncThreads = tc.newMaxSyncThreads
-
-			err = dmsvc.Reconfigure(context.Background(), resources, resource.Config{
-				ConvertedAttributes:  cfg,
-				AssociatedAttributes: associations,
-			})
-			test.That(t, err, test.ShouldBeNil)
-
-			test.That(t, b.propagateDataSyncConfig(), test.ShouldBeNil)
-			newTicker := b.syncTicker
-			newSyncer := b.syncer
-			newFileDeletionBackgroundWorker := b.fileDeletionBackgroundWorkers
-
+			newTicker := b.sync.ScheduledTicker
+			scheduler := b.sync.Scheduler
+			test.That(t, b.sync.FileDeletingWorkers.Context().Err(), test.ShouldBeNil)
 			if tc.newSyncDisabled {
-				test.That(t, newSyncer, test.ShouldBeNil)
+				test.That(t, scheduler.Context().Err(), test.ShouldBeError, context.Canceled)
 			}
-			test.That(t, newFileDeletionBackgroundWorker, test.ShouldNotBeNil)
-			if tc.initSyncDisabled != tc.newSyncDisabled ||
-				tc.initSyncIntervalMins != tc.newSyncIntervalMins {
+			if tc.initSyncIntervalMins != tc.newSyncIntervalMins {
 				test.That(t, initTicker, test.ShouldNotEqual, newTicker)
 			}
 			if tc.newMaxSyncThreads != 0 {
-				test.That(t, b.maxSyncThreads, test.ShouldEqual, tc.newMaxSyncThreads)
+				test.That(t, b.sync.MaxSyncThreads, test.ShouldEqual, tc.newMaxSyncThreads)
 			}
 		})
 	}
 }
 
-func getAllFilePaths(dir string) []string {
-	var filePaths []string
-
-	_ = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
-		if err != nil || info.IsDir() {
-			// ignore errors/unreadable files and directories
-			//nolint:nilerr
-			return nil
-		}
-		filePaths = append(filePaths, path)
-		return nil
-	})
-	return filePaths
-}
-
-func getCapturedData(dir string) (int, []*v1.SensorData, error) {
+func getCapturedData(filePaths []string) (int, []*v1.SensorData, error) {
 	var allFiles []*data.CaptureFile
-	filePaths := getAllFilePaths(dir)
 	var numFiles int
 
 	for _, f := range filePaths {
@@ -812,6 +1078,7 @@ func getUploadedData(urs []*v1.DataCaptureUploadRequest) []*v1.SensorData {
 }
 
 func compareSensorData(t *testing.T, dataType v1.DataType, act, exp []*v1.SensorData) {
+	t.Helper()
 	if len(act) == 0 && len(exp) == 0 {
 		return
 	}
@@ -852,115 +1119,8 @@ func compareSensorData(t *testing.T, dataType v1.DataType, act, exp []*v1.Sensor
 	}
 }
 
-type mockDataSyncServiceClient struct {
-	succesfulDCRequests chan *v1.DataCaptureUploadRequest
-	failedDCRequests    chan *v1.DataCaptureUploadRequest
-	fileUploads         chan *mockFileUploadClient
-	streamingDCUploads  chan *mockStreamingDCClient
-	fail                *atomic.Bool
-}
-
-func (c mockDataSyncServiceClient) DataCaptureUpload(
-	ctx context.Context,
-	ur *v1.DataCaptureUploadRequest,
-	opts ...grpc.CallOption,
-) (*v1.DataCaptureUploadResponse, error) {
-	if c.fail.Load() {
-		select {
-		case <-ctx.Done():
-			return nil, ctx.Err()
-		case c.failedDCRequests <- ur:
-			return nil, errors.New("oh no error")
-		}
-	}
-	select {
-	case <-ctx.Done():
-		return nil, ctx.Err()
-	case c.succesfulDCRequests <- ur:
-		return &v1.DataCaptureUploadResponse{}, nil
-	}
-}
-
-func (c mockDataSyncServiceClient) FileUpload(ctx context.Context, opts ...grpc.CallOption) (v1.DataSyncService_FileUploadClient, error) {
-	if c.fail.Load() {
-		return nil, errors.New("oh no error")
-	}
-	ret := &mockFileUploadClient{closed: make(chan struct{})}
-	select {
-	case <-ctx.Done():
-		return nil, ctx.Err()
-	case c.fileUploads <- ret:
-	}
-	return ret, nil
-}
-
-func (c mockDataSyncServiceClient) StreamingDataCaptureUpload(ctx context.Context,
-	opts ...grpc.CallOption,
-) (v1.DataSyncService_StreamingDataCaptureUploadClient, error) {
-	if c.fail.Load() {
-		return nil, errors.New("oh no error")
-	}
-	ret := &mockStreamingDCClient{closed: make(chan struct{})}
-	select {
-	case <-ctx.Done():
-		return nil, ctx.Err()
-	case c.streamingDCUploads <- ret:
-	}
-	return ret, nil
-}
-
-type mockFileUploadClient struct {
-	urs    []*v1.FileUploadRequest
-	closed chan struct{}
-	grpc.ClientStream
-}
-
-func (m *mockFileUploadClient) Send(req *v1.FileUploadRequest) error {
-	m.urs = append(m.urs, req)
-	return nil
-}
-
-func (m *mockFileUploadClient) CloseAndRecv() (*v1.FileUploadResponse, error) {
-	m.closed <- struct{}{}
-	return &v1.FileUploadResponse{}, nil
-}
-
-func (m *mockFileUploadClient) CloseSend() error {
-	m.closed <- struct{}{}
-	return nil
-}
-
-type mockStreamingDCClient struct {
-	reqs   []*v1.StreamingDataCaptureUploadRequest
-	closed chan struct{}
-	grpc.ClientStream
-}
-
-func (m *mockStreamingDCClient) Send(req *v1.StreamingDataCaptureUploadRequest) error {
-	m.reqs = append(m.reqs, req)
-	return nil
-}
-
-func (m *mockStreamingDCClient) CloseAndRecv() (*v1.StreamingDataCaptureUploadResponse, error) {
-	m.closed <- struct{}{}
-	return &v1.StreamingDataCaptureUploadResponse{}, nil
-}
-
-func (m *mockStreamingDCClient) CloseSend() error {
-	m.closed <- struct{}{}
-	return nil
-}
-
-func getTestSyncerConstructorMock(client mockDataSyncServiceClient) datasync.ManagerConstructor {
-	return func(identity string, _ v1.DataSyncServiceClient, logger logging.Logger,
-		viamCaptureDotDir string, maxSyncThreads int, filesToSync chan string,
-	) datasync.Manager {
-		return datasync.NewManager(identity, client, logger, viamCaptureDotDir, maxSyncThreads, make(chan string))
-	}
-}
-
 func waitUntilNoFiles(dir string) {
-	totalWait := time.Second * 3
+	totalWait := waitTime * 3
 	waitPerCheck := time.Millisecond * 10
 	iterations := int(totalWait / waitPerCheck)
 	files := getAllFileInfos(dir)
@@ -979,4 +1139,21 @@ func populateFileContents(fileContents []byte) []byte {
 	}
 
 	return fileContents
+}
+
+func newVideoStream(imgPng image.Image) gostream.VideoStream {
+	return gostream.NewEmbeddedVideoStreamFromReader(
+		gostream.VideoReaderFunc(func(ctx context.Context) (image.Image, func(), error) {
+			return imgPng, func() {}, nil
+		}),
+	)
+}
+
+func newImgPng(t *testing.T) image.Image {
+	img := image.NewNRGBA(image.Rect(0, 0, 4, 4))
+	var imgBuf bytes.Buffer
+	test.That(t, png.Encode(&imgBuf, img), test.ShouldBeNil)
+	imgPng, err := png.Decode(bytes.NewReader(imgBuf.Bytes()))
+	test.That(t, err, test.ShouldBeNil)
+	return imgPng
 }
