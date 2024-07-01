@@ -399,7 +399,7 @@ func (g *rtkI2C) receiveAndWriteI2C(ctx context.Context) {
 				g.err.Set(err)
 				return
 			}
-			continue // No errors: we're still connected to the caster, and forwarded data over I2C.
+			continue // No errors: we're still connected to the caster and the I2C bus.
 		}
 
 		// If we get here, the scanner encountered an error but is supposed to continue going. Try
