@@ -782,12 +782,11 @@ func getAllFilesToSync(ctx context.Context, dirs []string, lastModifiedMillis in
 			if timeSinceMod < 0 {
 				timeSinceMod = 0
 			}
-			isStuckInProgressCaptureFile := filepath.Ext(path) == datacapture.InProgressFileExt &&
-				timeSinceMod >= defaultFileLastModifiedMillis*time.Millisecond
-			isNonCaptureFileThatIsNotBeingWrittenTo := filepath.Ext(path) != datacapture.InProgressFileExt &&
-				timeSinceMod >= time.Duration(lastModifiedMillis)*time.Millisecond
 			isCompletedCaptureFile := filepath.Ext(path) == datacapture.FileExt
-			if isCompletedCaptureFile || isStuckInProgressCaptureFile || isNonCaptureFileThatIsNotBeingWrittenTo {
+			isNonCaptureFileThatIsNotBeingWrittenTo := filepath.Ext(path) != datacapture.InProgressFileExt &&
+				filepath.Ext(path) != datacapture.FileExt &&
+				timeSinceMod >= time.Duration(lastModifiedMillis)*time.Millisecond
+			if isCompletedCaptureFile || isNonCaptureFileThatIsNotBeingWrittenTo {
 				syncer.SendFileToSync(path)
 			}
 			return nil
