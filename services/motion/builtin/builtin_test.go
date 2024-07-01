@@ -643,10 +643,8 @@ func TestStoppableMoveFunctions(t *testing.T) {
 
 			goal := geo.NewPoint(gpsPoint.Lat()+1e-4, gpsPoint.Lng()+1e-4)
 			motionCfg := motion.MotionConfiguration{
-				PlanDeviationMM:       10000,
-				LinearMPerSec:         10,
-				PositionPollingFreqHz: &defaultPositionPollingHz,
-				ObstaclePollingFreqHz: &defaultObstaclePollingHz,
+				PlanDeviationMM: 10000,
+				LinearMPerSec:   10,
 			}
 
 			req := motion.MoveOnGlobeReq{

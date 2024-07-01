@@ -9,10 +9,9 @@ import (
 )
 
 func configurationFromProto(motionCfg *pb.MotionConfiguration) *MotionConfiguration {
+	var positionPollingHz, obstaclePollingHz *float64
 	obstacleDetectors := []ObstacleDetectorName{}
 	planDeviationM := 0.
-	positionPollingHz := 0.
-	obstaclePollingHz := 0.
 	linearMPerSec := 0.
 	angularDegsPerSec := 0.
 
@@ -26,10 +25,10 @@ func configurationFromProto(motionCfg *pb.MotionConfiguration) *MotionConfigurat
 			}
 		}
 		if motionCfg.PositionPollingFrequencyHz != nil {
-			positionPollingHz = motionCfg.GetPositionPollingFrequencyHz()
+			positionPollingHz = motionCfg.PositionPollingFrequencyHz
 		}
 		if motionCfg.ObstaclePollingFrequencyHz != nil {
-			obstaclePollingHz = motionCfg.GetObstaclePollingFrequencyHz()
+			obstaclePollingHz = motionCfg.ObstaclePollingFrequencyHz
 		}
 		if motionCfg.PlanDeviationM != nil {
 			planDeviationM = motionCfg.GetPlanDeviationM()
@@ -44,8 +43,8 @@ func configurationFromProto(motionCfg *pb.MotionConfiguration) *MotionConfigurat
 
 	return &MotionConfiguration{
 		ObstacleDetectors:     obstacleDetectors,
-		PositionPollingFreqHz: &positionPollingHz,
-		ObstaclePollingFreqHz: &obstaclePollingHz,
+		PositionPollingFreqHz: positionPollingHz,
+		ObstaclePollingFreqHz: obstaclePollingHz,
 		PlanDeviationMM:       1e3 * planDeviationM,
 		LinearMPerSec:         linearMPerSec,
 		AngularDegsPerSec:     angularDegsPerSec,

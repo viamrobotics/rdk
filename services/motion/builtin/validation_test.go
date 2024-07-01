@@ -174,7 +174,7 @@ func TestMoveCallInputs(t *testing.T) {
 				ComponentName: base.Named("test-base"),
 				Destination:   goalPose,
 				SlamName:      slam.Named("test_slam"),
-				MotionCfg:     &motion.MotionConfiguration{ObstaclePollingFreqHz: &pollingFreq, PlanDeviationMM: 10},
+				MotionCfg:     &motion.MotionConfiguration{PositionPollingFreqHz: &pollingFreq, PlanDeviationMM: 10},
 			}
 
 			executionID, err := ms.(*builtIn).MoveOnMap(context.Background(), req)
@@ -191,7 +191,7 @@ func TestMoveCallInputs(t *testing.T) {
 				ComponentName: base.Named("test-base"),
 				Destination:   goalPose,
 				SlamName:      slam.Named("test_slam"),
-				MotionCfg:     &motion.MotionConfiguration{ObstaclePollingFreqHz: &pollingFreq, PlanDeviationMM: 10},
+				MotionCfg:     &motion.MotionConfiguration{PositionPollingFreqHz: &pollingFreq, PlanDeviationMM: 10},
 			}
 
 			executionID, err := ms.(*builtIn).MoveOnMap(context.Background(), req)
@@ -601,7 +601,7 @@ func TestMoveCallInputs(t *testing.T) {
 				MovementSensorName: moveSensorResource,
 				Heading:            90,
 				Destination:        dst,
-				MotionCfg:          &motion.MotionConfiguration{ObstaclePollingFreqHz: &pollingFreq},
+				MotionCfg:          &motion.MotionConfiguration{PositionPollingFreqHz: &pollingFreq},
 			}
 			executionID, err := ms.MoveOnGlobe(ctx, req)
 			test.That(t, err, test.ShouldBeError, errors.New("PositionPollingFreqHz may not be negative"))
@@ -618,7 +618,7 @@ func TestMoveCallInputs(t *testing.T) {
 				MovementSensorName: moveSensorResource,
 				Heading:            90,
 				Destination:        dst,
-				MotionCfg:          &motion.MotionConfiguration{ObstaclePollingFreqHz: &pollingFreq},
+				MotionCfg:          &motion.MotionConfiguration{PositionPollingFreqHz: &pollingFreq},
 			}
 			executionID, err := ms.MoveOnGlobe(ctx, req)
 			test.That(t, err, test.ShouldBeError, errors.New("PositionPollingFreqHz may not be NaN"))
