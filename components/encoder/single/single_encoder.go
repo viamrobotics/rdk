@@ -173,7 +173,8 @@ func (e *Encoder) Reconfigure(
 	return nil
 }
 
-// start starts the Encoder background thread.
+// start starts the Encoder background thread. It should only be called when the encoder's
+// background workers have been stopped (or never started).
 func (e *Encoder) start(ctx context.Context, b board.Board) {
 	e.workers = rdkutils.NewStoppableWorkers()
 
