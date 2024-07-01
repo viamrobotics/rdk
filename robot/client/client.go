@@ -559,10 +559,7 @@ func (rc *RobotClient) ResourceByName(name resource.Name) (resource.Resource, er
 func (rc *RobotClient) createClient(name resource.Name) (resource.Resource, error) {
 	apiInfo, ok := resource.LookupGenericAPIRegistration(name.API)
 	if !ok || apiInfo.RPCClient == nil {
-		if name.API.Type.Namespace != resource.APINamespaceRDK {
-			return grpc.NewForeignResource(name, &rc.conn), nil
-		}
-		return nil, ErrMissingClientRegistration
+		return grpc.NewForeignResource(name, &rc.conn), nil
 	}
 	return apiInfo.RPCClient(rc.backgroundCtx, &rc.conn, rc.remoteName, name, rc.Logger())
 }
