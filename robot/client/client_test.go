@@ -2055,7 +2055,7 @@ func TestShutDown(t *testing.T) {
 	test.That(t, shutdownCalled, test.ShouldBeTrue)
 }
 
-func TestSomething(t *testing.T) {
+func TestUnregisteredResourceByName(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 	listener, err := net.Listen("tcp", "localhost:0")
 	test.That(t, err, test.ShouldBeNil)
