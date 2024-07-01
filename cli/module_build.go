@@ -1,10 +1,13 @@
 package cli
 
 import (
+	"archive/tar"
+	"compress/gzip"
 	"context"
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"slices"
 	"strings"
 	"text/tabwriter"
@@ -19,7 +22,7 @@ import (
 	"go.viam.com/utils/rpc"
 	"golang.org/x/exp/maps"
 
-	rdkConfig "go.viam.com/rdk/config"
+	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/robot/client"
@@ -401,11 +404,6 @@ func ReloadModuleAction(c *cli.Context) error {
 
 // reloadModuleAction is the testable inner reload logic.
 func reloadModuleAction(c *cli.Context, vc *viamClient) error {
-	if len(c.String(partFlag)) > 0 && !c.Bool(moduleBuildRestartOnly) {
-		// todo: remove this warning after remote reloading
-		warningf(c.App.Writer,
-			"You have passed in a part ID -- if it's for a remote device and your module isn't in the expected path, this will fail")
-	}
 	partID, err := resolvePartID(c.Context, c.String(partFlag), "/etc/viam.json")
 	if err != nil {
 		return err
@@ -437,6 +435,27 @@ func reloadModuleAction(c *cli.Context, vc *viamClient) error {
 				return err
 			}
 		}
+		if !c.Bool(moduleFlagLocal) {
+			if manifest == nil || manifest.Build == nil || manifest.Build.Path == "" {
+				return errors.New(
+					"remote reloading requires a meta.json with the 'build.path' field set. " +
+						"try --local if you are testing on the same machine.",
+				)
+			}
+			if err := validateReloadableArchive(c, manifest.Build); err != nil {
+				return err
+			}
+			if err := addShellService(c, vc, part.Part, true); err != nil {
+				return err
+			}
+			infof(c.App.Writer, "Copying %s to part %s", manifest.Build.Path, part.Part.Id)
+			err = vc.copyFilesToFqdn(
+				part.Part.Fqdn, c.Bool(debugFlag), false, false, []string{manifest.Build.Path},
+				reloadingDestination(c, manifest), logging.NewLogger("reload"))
+			if err != nil {
+				return err
+			}
+		}
 		needsRestart, err = configureModule(c, vc, manifest, part.Part)
 		if err != nil {
 			return err
@@ -444,6 +463,46 @@ func reloadModuleAction(c *cli.Context, vc *viamClient) error {
 	}
 	if needsRestart {
 		return restartModule(c, vc, part.Part, manifest)
+	}
+	infof(c.App.Writer, "Reload complete")
+	return nil
+}
+
+// this chooses a destination path for the module archive.
+func reloadingDestination(c *cli.Context, manifest *moduleManifest) string {
+	return filepath.Join(c.String(moduleFlagHomeDir),
+		".viam", config.PackagesDirName+config.LocalPackagesSuffix,
+		utils.SanitizePath(localizeModuleID(manifest.ModuleID)+"-"+manifest.Build.Path))
+}
+
+// validateReloadableArchive returns an error if there is a fatal issue (for now just file not found).
+// It also logs warnings for likely problems.
+func validateReloadableArchive(c *cli.Context, build *manifestBuildInfo) error {
+	reader, err := os.Open(build.Path)
+	if err != nil {
+		return err
+	}
+	decompressed, err := gzip.NewReader(reader)
+	if err != nil {
+		return err
+	}
+	archive := tar.NewReader(decompressed)
+	metaFound := false
+	for {
+		header, err := archive.Next()
+		if errors.Is(err, io.EOF) {
+			break
+		}
+		if err != nil {
+			return errors.Wrapf(err, "reading tar at %s", build.Path)
+		}
+		if header.Name == "meta.json" {
+			metaFound = true
+			break
+		}
+	}
+	if !metaFound {
+		warningf(c.App.ErrWriter, "archive at %s doesn't contain a meta.json, your module will probably fail to start", build.Path)
 	}
 	return nil
 }
@@ -456,7 +515,7 @@ func resolvePartID(ctx context.Context, partIDFromFlag, cloudJSON string) (strin
 	if len(cloudJSON) == 0 {
 		return "", errors.New("no --part and no default json")
 	}
-	conf, err := rdkConfig.ReadLocalConfig(ctx, cloudJSON, logging.NewLogger("config"))
+	conf, err := config.ReadLocalConfig(ctx, cloudJSON, logging.NewLogger("config"))
 	if err != nil {
 		return "", err
 	}
@@ -518,5 +577,9 @@ func restartModule(c *cli.Context, vc *viamClient, part *apppb.RobotPart, manife
 	defer robotClient.Close(c.Context) //nolint: errcheck
 	debugf(c.App.Writer, c.Bool(debugFlag), "restarting module %v", restartReq)
 	// todo: make this a stream so '--wait' can tell user what's happening
-	return robotClient.RestartModule(c.Context, *restartReq)
+	err = robotClient.RestartModule(c.Context, *restartReq)
+	if err == nil {
+		infof(c.App.Writer, "restarted module.")
+	}
+	return err
 }
