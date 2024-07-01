@@ -33,7 +33,6 @@ package gpsrtkpmtk
 */
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -394,7 +393,7 @@ func (g *rtkI2C) receiveAndWriteI2C(ctx context.Context) {
 
 		msg, err := scanner.NextMessage()
 		if err == nil {
-			err = handle.Write(ctx, msg)
+			err = handle.Write(ctx, msg.Serialize())
 			if err != nil {
 				g.logger.CErrorf(ctx, "i2c handle write failed %s", err)
 				g.err.Set(err)
