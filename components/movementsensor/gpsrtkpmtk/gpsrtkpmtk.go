@@ -393,9 +393,12 @@ func (g *rtkI2C) receiveAndWriteI2C(ctx context.Context) {
 
 		msg, err := scanner.NextMessage()
 		if err == nil {
-			err = handle.Write(ctx, msg.Serialize())
+			bytes := msg.Serialize()
+			fmt.Printf("writing %d bytes to handle: ->%#v<-\n", len(bytes), bytes);
+			err = handle.Write(ctx, bytes)
 			if err != nil {
 				g.logger.CErrorf(ctx, "i2c handle write failed %s", err)
+				g.logger.CErrorf(ctx, "the message was ->%#v<- (length: %d)", bytes, len(bytes));
 				g.err.Set(err)
 				return
 			}
