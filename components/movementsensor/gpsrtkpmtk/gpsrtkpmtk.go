@@ -365,9 +365,6 @@ func (g *rtkI2C) receiveAndWriteI2C(ctx context.Context) {
 	}
 
 	// create a buffer
-	w := &bytes.Buffer{}
-	r := io.TeeReader(g.ntripClient.Stream, w)
-
 	buf := make([]byte, 1100)
 	n, err := g.ntripClient.Stream.Read(buf)
 	if err != nil {
@@ -385,7 +382,7 @@ func (g *rtkI2C) receiveAndWriteI2C(ctx context.Context) {
 		return
 	}
 
-	scanner := rtcm3.NewScanner(r)
+	scanner := rtcm3.NewScanner(g.ntripClient.Stream)
 
 	for {
 		select {
@@ -415,9 +412,6 @@ func (g *rtkI2C) receiveAndWriteI2C(ctx context.Context) {
 			return
 		}
 
-		w = &bytes.Buffer{}
-		r = io.TeeReader(g.ntripClient.Stream, w)
-
 		buf = make([]byte, 1100)
 		n, err := g.ntripClient.Stream.Read(buf)
 		if err != nil {
@@ -434,7 +428,7 @@ func (g *rtkI2C) receiveAndWriteI2C(ctx context.Context) {
 			return
 		}
 
-		scanner = rtcm3.NewScanner(r)
+		scanner = rtcm3.NewScanner(g.ntripClient.Stream)
 	}
 }
 
