@@ -58,8 +58,8 @@ const (
 )
 
 var (
-	defaultPositionPollingHz float64 = 1.
-	defaultObstaclePollingHz float64 = 1.
+	defaultPositionPollingHz = 1.
+	defaultObstaclePollingHz = 1.
 )
 
 // inputEnabledActuator is an actuator that interacts with the frame system.
