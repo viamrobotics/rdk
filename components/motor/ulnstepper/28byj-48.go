@@ -31,6 +31,7 @@ import (
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/utils"
 )
 
 var (
@@ -150,6 +151,8 @@ func new28byj(
 	}
 	m.in4 = in4
 
+	m.doRun()
+
 	return m, nil
 }
 
@@ -157,7 +160,6 @@ func new28byj(
 type uln28byj struct {
 	resource.Named
 	resource.AlwaysRebuild
-	resource.TriviallyCloseable
 	theBoard           board.Board
 	ticksPerRotation   int
 	in1, in2, in3, in4 board.GPIOPin
@@ -165,8 +167,9 @@ type uln28byj struct {
 	motorName          string
 
 	// state
-	lock  sync.Mutex
-	opMgr *operation.SingleOperationManager
+	workers utils.StoppableWorkers
+	lock    sync.RWMutex
+	opMgr   *operation.SingleOperationManager
 
 	stepPosition       int64
 	stepperDelay       time.Duration
@@ -174,34 +177,31 @@ type uln28byj struct {
 }
 
 // doRun runs the motor till it reaches target step position.
-func (m *uln28byj) doRun(ctx context.Context) error {
-	for {
-		select {
-		case <-ctx.Done():
-			return nil
-		default:
-		}
+func (m *uln28byj) doRun() {
+	// Spawn a new goroutine to do all the work in the background.
+	m.workers = utils.NewStoppableWorkers(func(ctx context.Context) {
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			default:
+			}
 
-		m.lock.Lock()
+			for m.stepPosition != m.targetStepPosition {
+				err := m.doStep(ctx, m.stepPosition < m.targetStepPosition)
+				if err != nil {
+					m.logger.Errorf("error stepping %v", err)
+					return
+				}
+			}
 
-		// This condition cannot be locked for the duration of the loop as
-		// Stop() modifies m.targetStepPosition to interrupt the run
-		if m.stepPosition == m.targetStepPosition {
 			err := m.setPins(ctx, [4]bool{false, false, false, false})
 			if err != nil {
-				return errors.Wrapf(err, "error while disabling motor (%s)", m.motorName)
+				m.logger.Error(errors.Wrapf(err, "error while disabling motor (%s)", m.motorName))
+				return
 			}
-			m.lock.Unlock()
-			break
 		}
-
-		err := m.doStep(ctx, m.stepPosition < m.targetStepPosition)
-		m.lock.Unlock()
-		if err != nil {
-			return errors.Errorf("error stepping %v", err)
-		}
-	}
-	return nil
+	})
 }
 
 // doStep has to be locked to call.
@@ -264,11 +264,7 @@ func (m *uln28byj) GoFor(ctx context.Context, rpm, revolutions float64, extra ma
 	m.targetStepPosition, m.stepperDelay = m.goMath(rpm, revolutions)
 	m.lock.Unlock()
 
-	err = m.doRun(ctx)
-	if err != nil {
-		return errors.Errorf(" error while running motor %v", err)
-	}
-	return nil
+	return m.opMgr.WaitTillNotPowered(ctx, 10*time.Millisecond, m, m.Stop)
 }
 
 func (m *uln28byj) goMath(rpm, revolutions float64) (int64, time.Duration) {
@@ -318,7 +314,24 @@ func (m *uln28byj) GoTo(ctx context.Context, rpm, positionRevolutions float64, e
 
 // SetRPM instructs the motor to move at the specified RPM indefinitely.
 func (m *uln28byj) SetRPM(ctx context.Context, rpm float64, extra map[string]interface{}) error {
-	return motor.NewSetRPMUnsupportedError(m.Name().ShortName())
+	ctx, done := m.opMgr.New(ctx)
+	defer done()
+
+	warning, err := motor.CheckSpeed(rpm, maxRPM)
+	if warning != "" {
+		m.logger.CWarn(ctx, warning)
+		if err != nil {
+			m.logger.CError(ctx, err)
+		}
+		return m.Stop(ctx, extra)
+	}
+
+	m.lock.Lock()
+	m.targetStepPosition = int64(math.Inf(int(rpm)))
+	m.stepperDelay = m.calcStepperDelay(rpm)
+	m.lock.Unlock()
+
+	return nil
 }
 
 // Set the current position (+/- offset) to be the new zero (home) position.
@@ -332,7 +345,24 @@ func (m *uln28byj) ResetZeroPosition(ctx context.Context, offset float64, extra 
 
 // SetPower is invalid for this motor.
 func (m *uln28byj) SetPower(ctx context.Context, powerPct float64, extra map[string]interface{}) error {
-	return errors.Errorf("raw power not supported in stepper motor (%s)", m.motorName)
+	ctx, done := m.opMgr.New(ctx)
+	defer done()
+
+	warning, err := motor.CheckSpeed(powerPct*maxRPM, maxRPM)
+	if warning != "" {
+		m.logger.CWarn(ctx, warning)
+		if err != nil {
+			m.logger.CError(ctx, err)
+		}
+		return m.Stop(ctx, extra)
+	}
+
+	m.lock.Lock()
+	m.targetStepPosition = int64(math.Inf(int(powerPct)))
+	m.stepperDelay = m.calcStepperDelay(powerPct * maxRPM)
+	m.lock.Unlock()
+
+	return nil
 }
 
 // Position reports the current step position of the motor. If it's not supported, the returned
@@ -378,4 +408,9 @@ func (m *uln28byj) IsPowered(ctx context.Context, extra map[string]interface{}) 
 		percent = 1.0
 	}
 	return on, percent, err
+}
+
+func (m *uln28byj) Close(ctx context.Context) error {
+	m.workers.Stop()
+	return nil
 }
