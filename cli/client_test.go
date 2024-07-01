@@ -147,7 +147,7 @@ func setupWithRunningPart(
 	authMethod string,
 	partFQDN string,
 	cliArgs ...string,
-) (*cli.Context, *viamClient, *testWriter, *testWriter, func()) {
+) (*cli.Context, *viamClient, *testWriter, *testWriter) {
 	t.Helper()
 
 	cCtx, ac, out, errOut := setup(asc, dataClient, buildClient, nil, defaultFlags, authMethod, cliArgs...)
@@ -161,7 +161,7 @@ func setupWithRunningPart(
 				Model: resource.DefaultServiceModel,
 			},
 		},
-	}, logging.NewTestLogger(t))
+	}, logging.NewInMemoryLogger(t))
 	test.That(t, err, test.ShouldBeNil)
 
 	options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
@@ -175,9 +175,10 @@ func setupWithRunningPart(
 	ac.baseURL, _, err = parseBaseURL(ac.conf.BaseURL, false)
 	test.That(t, err, test.ShouldBeNil)
 
-	return cCtx, ac, out, errOut, func() {
+	t.Cleanup(func() {
 		test.That(t, r.Close(context.Background()), test.ShouldBeNil)
-	}
+	})
+	return cCtx, ac, out, errOut
 }
 
 func TestListOrganizationsAction(t *testing.T) {
@@ -572,9 +573,8 @@ func TestShellFileCopy(t *testing.T) {
 			tempDir := t.TempDir()
 
 			args := []string{fmt.Sprintf("machine:%s", tfs.SingleFileNested), tempDir}
-			cCtx, viamClient, _, _, teardown := setupWithRunningPart(
+			cCtx, viamClient, _, _ := setupWithRunningPart(
 				t, asc, nil, nil, partFlags, "token", partFqdn, args...)
-			defer teardown()
 			test.That(t, machinesPartCopyFilesAction(cCtx, viamClient), test.ShouldBeNil)
 
 			rd, err := os.ReadFile(filepath.Join(tempDir, filepath.Base(tfs.SingleFileNested)))
@@ -590,9 +590,8 @@ func TestShellFileCopy(t *testing.T) {
 			test.That(t, os.Chdir(tempDir), test.ShouldBeNil)
 
 			args := []string{fmt.Sprintf("machine:%s", tfs.SingleFileNested), "foo"}
-			cCtx, viamClient, _, _, teardown := setupWithRunningPart(
+			cCtx, viamClient, _, _ := setupWithRunningPart(
 				t, asc, nil, nil, partFlags, "token", partFqdn, args...)
-			defer teardown()
 			test.That(t, machinesPartCopyFilesAction(cCtx, viamClient), test.ShouldBeNil)
 
 			rd, err := os.ReadFile(filepath.Join(tempDir, "foo"))
@@ -606,9 +605,8 @@ func TestShellFileCopy(t *testing.T) {
 			args := []string{fmt.Sprintf("machine:%s", tfs.Root), tempDir}
 
 			t.Log("without recursion set")
-			cCtx, viamClient, _, _, teardown1 := setupWithRunningPart(
+			cCtx, viamClient, _, _ := setupWithRunningPart(
 				t, asc, nil, nil, partFlags, "token", partFqdn, args...)
-			defer teardown1()
 			err := machinesPartCopyFilesAction(cCtx, viamClient)
 			test.That(t, errors.Is(err, errDirectoryCopyRequestNoRecursion), test.ShouldBeTrue)
 			_, err = os.ReadFile(filepath.Join(tempDir, filepath.Base(tfs.SingleFileNested)))
@@ -618,9 +616,8 @@ func TestShellFileCopy(t *testing.T) {
 			partFlagsCopy := make(map[string]any, len(partFlags))
 			maps.Copy(partFlagsCopy, partFlags)
 			partFlagsCopy["recursive"] = true
-			cCtx, viamClient, _, _, teardown2 := setupWithRunningPart(
+			cCtx, viamClient, _, _ = setupWithRunningPart(
 				t, asc, nil, nil, partFlagsCopy, "token", partFqdn, args...)
-			defer teardown2()
 			test.That(t, machinesPartCopyFilesAction(cCtx, viamClient), test.ShouldBeNil)
 			test.That(t, shelltestutils.DirectoryContentsEqual(tfs.Root, filepath.Join(tempDir, filepath.Base(tfs.Root))), test.ShouldBeNil)
 		})
@@ -636,9 +633,8 @@ func TestShellFileCopy(t *testing.T) {
 			partFlagsCopy := make(map[string]any, len(partFlags))
 			maps.Copy(partFlagsCopy, partFlags)
 			partFlagsCopy["recursive"] = true
-			cCtx, viamClient, _, _, teardown := setupWithRunningPart(
+			cCtx, viamClient, _, _ := setupWithRunningPart(
 				t, asc, nil, nil, partFlagsCopy, "token", partFqdn, args...)
-			defer teardown()
 			test.That(t, machinesPartCopyFilesAction(cCtx, viamClient), test.ShouldBeNil)
 
 			rd, err := os.ReadFile(filepath.Join(tempDir, filepath.Base(tfs.SingleFileNested)))
@@ -671,9 +667,8 @@ func TestShellFileCopy(t *testing.T) {
 					maps.Copy(partFlagsCopy, partFlags)
 					partFlagsCopy["recursive"] = true
 					partFlagsCopy["preserve"] = preserve
-					cCtx, viamClient, _, _, teardown := setupWithRunningPart(
+					cCtx, viamClient, _, _ := setupWithRunningPart(
 						t, asc, nil, nil, partFlagsCopy, "token", partFqdn, args...)
-					defer teardown()
 					test.That(t, machinesPartCopyFilesAction(cCtx, viamClient), test.ShouldBeNil)
 					test.That(t, shelltestutils.DirectoryContentsEqual(tfs.Root, filepath.Join(tempDir, filepath.Base(tfs.Root))), test.ShouldBeNil)
 
@@ -698,9 +693,8 @@ func TestShellFileCopy(t *testing.T) {
 			tempDir := t.TempDir()
 
 			args := []string{tfs.SingleFileNested, fmt.Sprintf("machine:%s", tempDir)}
-			cCtx, viamClient, _, _, teardown := setupWithRunningPart(
+			cCtx, viamClient, _, _ := setupWithRunningPart(
 				t, asc, nil, nil, partFlags, "token", partFqdn, args...)
-			defer teardown()
 			test.That(t, machinesPartCopyFilesAction(cCtx, viamClient), test.ShouldBeNil)
 
 			rd, err := os.ReadFile(filepath.Join(tempDir, filepath.Base(tfs.SingleFileNested)))
@@ -715,9 +709,8 @@ func TestShellFileCopy(t *testing.T) {
 			randomPath := filepath.Join(homeDir, randomName)
 			defer os.Remove(randomPath)
 			args := []string{tfs.SingleFileNested, fmt.Sprintf("machine:%s", randomName)}
-			cCtx, viamClient, _, _, teardown := setupWithRunningPart(
+			cCtx, viamClient, _, _ := setupWithRunningPart(
 				t, asc, nil, nil, partFlags, "token", partFqdn, args...)
-			defer teardown()
 			test.That(t, machinesPartCopyFilesAction(cCtx, viamClient), test.ShouldBeNil)
 
 			rd, err := os.ReadFile(randomPath)
@@ -731,9 +724,8 @@ func TestShellFileCopy(t *testing.T) {
 			args := []string{tfs.Root, fmt.Sprintf("machine:%s", tempDir)}
 
 			t.Log("without recursion set")
-			cCtx, viamClient, _, _, teardown1 := setupWithRunningPart(
+			cCtx, viamClient, _, _ := setupWithRunningPart(
 				t, asc, nil, nil, partFlags, "token", partFqdn, args...)
-			defer teardown1()
 			err := machinesPartCopyFilesAction(cCtx, viamClient)
 			test.That(t, errors.Is(err, errDirectoryCopyRequestNoRecursion), test.ShouldBeTrue)
 			_, err = os.ReadFile(filepath.Join(tempDir, filepath.Base(tfs.SingleFileNested)))
@@ -743,9 +735,8 @@ func TestShellFileCopy(t *testing.T) {
 			partFlagsCopy := make(map[string]any, len(partFlags))
 			maps.Copy(partFlagsCopy, partFlags)
 			partFlagsCopy["recursive"] = true
-			cCtx, viamClient, _, _, teardown2 := setupWithRunningPart(
+			cCtx, viamClient, _, _ = setupWithRunningPart(
 				t, asc, nil, nil, partFlagsCopy, "token", partFqdn, args...)
-			defer teardown2()
 			test.That(t, machinesPartCopyFilesAction(cCtx, viamClient), test.ShouldBeNil)
 			test.That(t, shelltestutils.DirectoryContentsEqual(tfs.Root, filepath.Join(tempDir, filepath.Base(tfs.Root))), test.ShouldBeNil)
 		})
@@ -761,9 +752,8 @@ func TestShellFileCopy(t *testing.T) {
 			partFlagsCopy := make(map[string]any, len(partFlags))
 			maps.Copy(partFlagsCopy, partFlags)
 			partFlagsCopy["recursive"] = true
-			cCtx, viamClient, _, _, teardown := setupWithRunningPart(
+			cCtx, viamClient, _, _ := setupWithRunningPart(
 				t, asc, nil, nil, partFlagsCopy, "token", partFqdn, args...)
-			defer teardown()
 			test.That(t, machinesPartCopyFilesAction(cCtx, viamClient), test.ShouldBeNil)
 
 			rd, err := os.ReadFile(filepath.Join(tempDir, filepath.Base(tfs.SingleFileNested)))
@@ -796,9 +786,8 @@ func TestShellFileCopy(t *testing.T) {
 					maps.Copy(partFlagsCopy, partFlags)
 					partFlagsCopy["recursive"] = true
 					partFlagsCopy["preserve"] = preserve
-					cCtx, viamClient, _, _, teardown := setupWithRunningPart(
+					cCtx, viamClient, _, _ := setupWithRunningPart(
 						t, asc, nil, nil, partFlagsCopy, "token", partFqdn, args...)
-					defer teardown()
 					test.That(t, machinesPartCopyFilesAction(cCtx, viamClient), test.ShouldBeNil)
 					test.That(t, shelltestutils.DirectoryContentsEqual(tfs.Root, filepath.Join(tempDir, filepath.Base(tfs.Root))), test.ShouldBeNil)
 
