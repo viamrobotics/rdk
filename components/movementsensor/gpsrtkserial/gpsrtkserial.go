@@ -105,25 +105,22 @@ type rtkSerial struct {
 
 	activeBackgroundWorkers sync.WaitGroup
 
-	err                movementsensor.LastError
-	lastposition       movementsensor.LastPosition
-	lastcompassheading movementsensor.LastCompassHeading
-	InputProtocol      string
-	isClosed           bool
+	err           movementsensor.LastError
+	InputProtocol string
+	isClosed      bool
 
 	mu sync.Mutex
 
 	// everything below this comment is protected by mu
-	isConnectedToNtrip bool
-	ntripClient        *gpsutils.NtripInfo
-	cachedData         *gpsutils.CachedData
-	correctionWriter   io.ReadWriteCloser
-	writePath          string
-	wbaud              int
-	isVirtualBase      bool
-	readerWriter       *bufio.ReadWriter
-	writer             io.Writer
-	reader             io.Reader
+	ntripClient      *gpsutils.NtripInfo
+	cachedData       *gpsutils.CachedData
+	correctionWriter io.ReadWriteCloser
+	writePath        string
+	wbaud            int
+	isVirtualBase    bool
+	readerWriter     *bufio.ReadWriter
+	writer           io.Writer
+	reader           io.Reader
 }
 
 // Reconfigure reconfigures attributes.
@@ -187,13 +184,11 @@ func newRTKSerial(
 
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
 	g := &rtkSerial{
-		Named:              conf.ResourceName().AsNamed(),
-		cancelCtx:          cancelCtx,
-		cancelFunc:         cancelFunc,
-		logger:             logger,
-		err:                movementsensor.NewLastError(1, 1),
-		lastposition:       movementsensor.NewLastPosition(),
-		lastcompassheading: movementsensor.NewLastCompassHeading(),
+		Named:      conf.ResourceName().AsNamed(),
+		cancelCtx:  cancelCtx,
+		cancelFunc: cancelFunc,
+		logger:     logger,
+		err:        movementsensor.NewLastError(1, 1),
 	}
 
 	if err := g.Reconfigure(ctx, deps, conf); err != nil {
@@ -403,56 +398,46 @@ func (g *rtkSerial) receiveAndWriteSerial() {
 		scanner = rtcm3.NewScanner(g.reader)
 	}
 
-	g.mu.Lock()
-	g.isConnectedToNtrip = true
-	g.mu.Unlock()
-
-	// It's okay to skip the mutex on this next line: g.isConnectedToNtrip can only be mutated by this
-	// goroutine itself
-	for g.isConnectedToNtrip && !g.isClosed {
+	for !g.isClosed {
 		select {
 		case <-g.cancelCtx.Done():
 			return
 		default:
 		}
 
-		msg, err := scanner.NextMessage()
-		if err != nil {
-			g.mu.Lock()
-			g.isConnectedToNtrip = false
-			g.mu.Unlock()
+		// Calling NextMessage() reads from the scanner until a valid message is found, and returns
+		// that. We don't care about the message: we care that the scanner is able to read messages
+		// at all! So, focus on whether the scanner had errors (which indicate we need to reconnect
+		// to the mount point), and not the message itself.
+		_, err := scanner.NextMessage()
+		if err == nil {
+			continue // No errors: we're still connected.
+		}
 
-			if msg == nil {
-				if g.isClosed {
-					return
-				}
+		if g.isClosed {
+			return
+		}
 
-				if g.isVirtualBase {
-					g.logger.Debug("reconnecting to the Virtual Reference Station")
-					err = g.getNtripFromVRS()
-					if err != nil && !errors.Is(err, io.EOF) {
-						g.err.Set(err)
-						return
-					}
-					scanner = rtcm3.NewScanner(g.readerWriter)
-				} else {
-					g.logger.Debug("No message... reconnecting to stream...")
-
-					err = g.getStream(g.ntripClient.MountPoint, g.ntripClient.MaxConnectAttempts)
-					if err != nil {
-						g.err.Set(err)
-						return
-					}
-					g.reader = io.TeeReader(g.ntripClient.Stream, g.writer)
-					scanner = rtcm3.NewScanner(g.reader)
-				}
-
-				g.mu.Lock()
-				g.isConnectedToNtrip = true
-				g.mu.Unlock()
-
-				continue
+		// If we get here, the scanner encountered an error but is supposed to continue going. Try
+		// reconnecting to the mount point.
+		if g.isVirtualBase {
+			g.logger.Debug("reconnecting to the Virtual Reference Station")
+			err = g.getNtripFromVRS()
+			if err != nil && !errors.Is(err, io.EOF) {
+				g.err.Set(err)
+				return
 			}
+			scanner = rtcm3.NewScanner(g.readerWriter)
+		} else {
+			g.logger.Debug("No message... reconnecting to stream...")
+
+			err = g.getStream(g.ntripClient.MountPoint, g.ntripClient.MaxConnectAttempts)
+			if err != nil {
+				g.err.Set(err)
+				return
+			}
+			g.reader = io.TeeReader(g.ntripClient.Stream, g.writer)
+			scanner = rtcm3.NewScanner(g.reader)
 		}
 	}
 }
@@ -462,29 +447,20 @@ func (g *rtkSerial) receiveAndWriteSerial() {
 
 // Position returns the current geographic location of the MOVEMENTSENSOR.
 func (g *rtkSerial) Position(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
+	nanPoint := geo.NewPoint(math.NaN(), math.NaN())
+
 	lastError := g.err.Get()
 	if lastError != nil {
-		lastPosition := g.lastposition.GetLastPosition()
-		if lastPosition != nil {
-			return lastPosition, 0, nil
-		}
-		return geo.NewPoint(math.NaN(), math.NaN()), math.NaN(), lastError
+		return nanPoint, math.NaN(), lastError
 	}
 
 	position, alt, err := g.cachedData.Position(ctx, extra)
 	if err != nil {
-		// Use the last known valid position if current position is (0,0)/ NaN.
-		if position != nil && (movementsensor.IsZeroPosition(position) || movementsensor.IsPositionNaN(position)) {
-			lastPosition := g.lastposition.GetLastPosition()
-			if lastPosition != nil {
-				return lastPosition, alt, nil
-			}
-		}
-		return geo.NewPoint(math.NaN(), math.NaN()), math.NaN(), err
+		return nanPoint, math.NaN(), err
 	}
 
 	if movementsensor.IsPositionNaN(position) {
-		position = g.lastposition.GetLastPosition()
+		position = nanPoint
 	}
 	return position, alt, nil
 }

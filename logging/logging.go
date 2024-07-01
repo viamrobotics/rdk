@@ -128,8 +128,9 @@ func (memLogger *MemLogger) OutputLogs() {
 	}
 }
 
-// NewInMemoryLogger creates a MemLogger that can be used to buffer test logs and output them on
-// command. This is handy if a test is noisy, but the output is useful when the test fails.
+// NewInMemoryLogger creates a MemLogger that buffers test logs and only outputs them if
+// requested or if the test fails. This is handy if a test is noisy, but the output is
+// useful when the test fails.
 func NewInMemoryLogger(tb testing.TB) *MemLogger {
 	observerCore, observedLogs := observer.New(zap.LevelEnablerFunc(zapcore.DebugLevel.Enabled))
 	logger := &impl{
@@ -141,5 +142,12 @@ func NewInMemoryLogger(tb testing.TB) *MemLogger {
 		testHelper: tb.Helper,
 	}
 
-	return &MemLogger{logger, tb, observedLogs}
+	memLogger := &MemLogger{logger, tb, observedLogs}
+	// Ensure that logs are always output on failure.
+	tb.Cleanup(func() {
+		if tb.Failed() {
+			memLogger.OutputLogs()
+		}
+	})
+	return memLogger
 }

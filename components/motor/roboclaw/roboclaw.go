@@ -242,7 +242,7 @@ func goForMath(rpm, revolutions float64) (float64, time.Duration) {
 	// If revolutions is 0, the returned wait duration will be 0 representing that
 	// the motor should run indefinitely.
 	if revolutions == 0 {
-		powerPct := 1.0
+		powerPct := rpm / maxRPM
 		return powerPct, 0
 	}
 
@@ -263,10 +263,9 @@ func (m *roboclawMotor) GoFor(ctx context.Context, rpm, revolutions float64, ext
 
 	// If no encoders present, distance traveled is estimated based on max RPM.
 	if m.conf.TicksPerRotation == 0 {
-		if rpm > maxRPM {
-			rpm = maxRPM
-		} else if rpm < -1*maxRPM {
-			rpm = -1 * maxRPM
+		if math.Abs(rpm) > maxRPM {
+			rpm = math.Min(rpm, maxRPM)
+			rpm = math.Max(rpm, -maxRPM)
 		}
 		powerPct, waitDur := goForMath(rpm, revolutions)
 		m.logger.CInfo(ctx, "distance traveled is a time based estimation with max RPM 250. For increased accuracy, connect encoders")
@@ -275,6 +274,7 @@ func (m *roboclawMotor) GoFor(ctx context.Context, rpm, revolutions float64, ext
 			return errors.Wrap(err, "error in GoFor")
 		}
 		if revolutions == 0 {
+			m.logger.CWarn(ctx, "Deprecated: setting revolutions == 0 will spin the motor indefinitely at the specified RPM")
 			return nil
 		}
 		if m.opMgr.NewTimedWaitOp(ctx, waitDur) {
@@ -318,7 +318,44 @@ func (m *roboclawMotor) GoTo(ctx context.Context, rpm, positionRevolutions float
 }
 
 func (m *roboclawMotor) SetRPM(ctx context.Context, rpm float64, extra map[string]interface{}) error {
-	return motor.NewSetRPMUnsupportedError(m.Name().ShortName())
+	warning, err := motor.CheckSpeed(rpm, m.maxRPM)
+	if warning != "" {
+		m.logger.CWarn(ctx, warning)
+	}
+	if err != nil {
+		return err
+	}
+
+	// if TicksPerRotation is 0, no encoders are connected
+	if m.conf.TicksPerRotation == 0 {
+		if math.Abs(rpm) > maxRPM {
+			rpm = math.Min(rpm, maxRPM)
+			rpm = math.Max(rpm, -maxRPM)
+		}
+		powerPct := rpm / maxRPM
+		m.logger.CInfof(
+			ctx, "speed is an estimation based on a max RPM %v, but speed and power do not have a linear relationship. ",
+			"For increased accuracy, connect encoders", maxRPM)
+		err := m.SetPower(ctx, powerPct, extra)
+		if err != nil {
+			return errors.Wrap(err, "error in SetRPM`")
+		}
+		return nil
+	}
+
+	_, done := m.opMgr.New(ctx)
+	defer done()
+
+	ticksPerSecond := int32((rpm * float64(m.conf.TicksPerRotation)) / 60)
+
+	switch m.conf.Channel {
+	case 1:
+		return m.conn.SpeedDistanceM1(m.addr, ticksPerSecond, uint32(math.Inf(int(rpm))), true)
+	case 2:
+		return m.conn.SpeedDistanceM2(m.addr, ticksPerSecond, uint32(math.Inf(int(rpm))), true)
+	default:
+		return m.conf.wrongChannelError()
+	}
 }
 
 func (m *roboclawMotor) ResetZeroPosition(ctx context.Context, offset float64, extra map[string]interface{}) error {

@@ -2054,3 +2054,43 @@ func TestShutDown(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, shutdownCalled, test.ShouldBeTrue)
 }
+
+func TestUnregisteredResourceByName(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+	listener, err := net.Listen("tcp", "localhost:0")
+	test.That(t, err, test.ShouldBeNil)
+
+	testAPI := resource.APINamespace("testNamespace").WithComponentType("encoder")
+	testName := resource.NewName(testAPI, "encoder1")
+
+	testAPI2 := resource.APINamespaceRDK.WithComponentType("fake")
+	testName2 := resource.NewName(testAPI2, "fake")
+
+	resourceList := []resource.Name{
+		testName,
+		testName2,
+	}
+	injectRobot := &inject.Robot{
+		ResourceNamesFunc:   func() []resource.Name { return resourceList },
+		ResourceRPCAPIsFunc: func() []resource.RPCAPI { return nil },
+	}
+
+	gServer := grpc.NewServer()
+	pb.RegisterRobotServiceServer(gServer, server.New(injectRobot))
+
+	go gServer.Serve(listener)
+	defer gServer.Stop()
+
+	client, err := New(context.Background(), listener.Addr().String(), logger)
+	test.That(t, err, test.ShouldBeNil)
+	defer func() {
+		test.That(t, client.Close(context.Background()), test.ShouldBeNil)
+	}()
+
+	// We should not error when trying to create a client for an unregistered
+	// resource, regardless of whether or not it is in RDK namespace.
+	for _, name := range resourceList {
+		_, err = client.ResourceByName(name)
+		test.That(t, err, test.ShouldBeNil)
+	}
+}

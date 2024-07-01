@@ -15,6 +15,8 @@ import (
 	"go.viam.com/rdk/resource"
 )
 
+const minDistanceMoved = 2
+
 func TestConfigs(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -403,7 +405,7 @@ func TestRunning(t *testing.T) {
 		p, err := m.Position(context.Background(), nil)
 		test.That(t, err, test.ShouldBeNil)
 
-		// stop() sets targetStepPosition to the stepPostion value
+		// stop() sets targetStepPosition to the stepPosition value
 		test.That(t, s.targetStepPosition, test.ShouldEqual, s.stepPosition)
 		test.That(t, s.targetStepPosition, test.ShouldBeBetweenOrEqual, 1, 100*200)
 		test.That(t, p, test.ShouldBeBetween, 0, 100)
@@ -478,7 +480,7 @@ func TestRunning(t *testing.T) {
 
 			pos, err := m.Position(ctx, nil)
 			test.That(tb, err, test.ShouldBeNil)
-			test.That(tb, pos, test.ShouldBeGreaterThan, 2)
+			test.That(tb, pos, test.ShouldBeGreaterThan, minDistanceMoved)
 		})
 
 		err = m.Stop(ctx, nil)
@@ -490,7 +492,7 @@ func TestRunning(t *testing.T) {
 
 		pos, err := m.Position(ctx, nil)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, pos, test.ShouldBeGreaterThan, 2)
+		test.That(t, pos, test.ShouldBeGreaterThan, minDistanceMoved)
 		test.That(t, pos, test.ShouldBeLessThan, 202)
 	})
 
@@ -508,6 +510,64 @@ func TestRunning(t *testing.T) {
 		on, _, err := m.IsPowered(ctx, nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, on, test.ShouldEqual, false)
+	})
+
+	t.Run("motor testing with SetRPM", func(t *testing.T) {
+		m, err := newGPIOStepper(ctx, &b, goodConfig, c.ResourceName(), logger)
+		test.That(t, err, test.ShouldBeNil)
+		defer m.Close(ctx)
+
+		err = m.SetRPM(ctx, 1000, nil)
+		test.That(t, err, test.ShouldBeNil)
+
+		testutils.WaitForAssertion(t, func(tb testing.TB) {
+			tb.Helper()
+
+			on, _, err := m.IsPowered(ctx, nil)
+			test.That(tb, err, test.ShouldBeNil)
+			test.That(tb, on, test.ShouldEqual, true)
+
+			pos, err := m.Position(ctx, nil)
+			test.That(tb, err, test.ShouldBeNil)
+			test.That(tb, pos, test.ShouldBeGreaterThan, minDistanceMoved)
+		})
+
+		err = m.Stop(ctx, nil)
+		test.That(t, err, test.ShouldBeNil)
+
+		on, _, err := m.IsPowered(ctx, nil)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, on, test.ShouldEqual, false)
+
+		pos, err := m.Position(ctx, nil)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, pos, test.ShouldBeGreaterThan, minDistanceMoved)
+		test.That(t, pos, test.ShouldBeLessThan, 202)
+	})
+
+	t.Run("test calcStepperDelay", func(t *testing.T) {
+		stepper, err := newGPIOStepper(ctx, &b, goodConfig, c.ResourceName(), logger)
+		test.That(t, err, test.ShouldBeNil)
+		defer stepper.Close(ctx)
+
+		m := stepper.(*gpioStepper)
+		stepperdelay := m.calcStepperDelay(50)
+		test.That(t, stepperdelay, test.ShouldEqual, (6 * time.Millisecond))
+
+		stepperdelay = m.calcStepperDelay(-50)
+		test.That(t, stepperdelay, test.ShouldEqual, (6 * time.Millisecond))
+
+		stepperdelay = m.calcStepperDelay(-2)
+		test.That(t, stepperdelay, test.ShouldEqual, (150 * time.Millisecond))
+
+		stepperdelay = m.calcStepperDelay(1)
+		test.That(t, stepperdelay, test.ShouldEqual, (300 * time.Millisecond))
+
+		stepperdelay = m.calcStepperDelay(400)
+		test.That(t, stepperdelay, test.ShouldEqual, (750 * time.Microsecond))
+
+		stepperdelay = m.calcStepperDelay(0)
+		test.That(t, stepperdelay, test.ShouldEqual, (30 * time.Microsecond))
 	})
 
 	cancel()
