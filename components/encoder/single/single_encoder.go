@@ -103,8 +103,8 @@ func (conf *Config) Validate(path string) ([]string, error) {
 // AttachDirectionalAwareness to pre-created encoder.
 func (e *Encoder) AttachDirectionalAwareness(da DirectionAware) {
 	e.mu.Lock()
+	defer e.mu.Unlock()
 	e.m = da
-	e.mu.Unlock()
 }
 
 // NewSingleEncoder creates a new Encoder.
@@ -168,7 +168,6 @@ func (e *Encoder) Reconfigure(
 
 	if e.workers == nil {
 		e.workers.Stop() // Shut down the old interrupt stream
-		e.workers = nil
 	}
 	e.start(ctx, board) // Start up the new interrupt stream
 	return nil
@@ -176,13 +175,6 @@ func (e *Encoder) Reconfigure(
 
 // start starts the Encoder background thread.
 func (e *Encoder) start(ctx context.Context, b board.Board) {
-	if e.workers != nil {
-		// We're already listening to an old interrupt. This should never happen! Stop that before
-		// we start listening to the new one.
-		utils.Logger.Error(
-			"starting an already-started encoder! Stopping the old interrupt stream...")
-		e.workers.Stop()
-	}
 	e.workers = rdkutils.NewStoppableWorkers()
 
 	encoderChannel := make(chan board.Tick)
