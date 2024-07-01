@@ -339,6 +339,7 @@ type ObstacleDetectorName struct {
 }
 
 // MotionConfiguration specifies how to configure a call.
+//
 //nolint:revive
 type MotionConfiguration struct {
 	ObstacleDetectors     []ObstacleDetectorName
