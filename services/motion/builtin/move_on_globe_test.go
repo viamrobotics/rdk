@@ -275,7 +275,7 @@ func TestObstacleReplanningGlobe(t *testing.T) {
 	}
 
 	cfg := &motion.MotionConfiguration{
-		PositionPollingFreqHz: 1,
+		PositionPollingFreqHz: 0.000001,
 		ObstaclePollingFreqHz: 5,
 		PlanDeviationMM:       epsilonMM,
 		ObstacleDetectors:     obstacleDetectorSlice,
