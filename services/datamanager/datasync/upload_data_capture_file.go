@@ -19,6 +19,7 @@ var MaxUnaryFileSize = int64(units.MB)
 
 func uploadDataCaptureFile(ctx context.Context, client v1.DataSyncServiceClient, f *datacapture.File, partID string) error {
 	md := f.ReadMetadata()
+	// fmt.Printf("\nfile: %s md: %s\n", f.GetPath(), md)
 	sensorData, err := datacapture.SensorDataFromFile(f)
 	if err != nil {
 		return errors.Wrap(err, "error reading sensor data from file")

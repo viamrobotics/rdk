@@ -128,6 +128,9 @@ func (f *File) ReadNext() (*v1.SensorData, error) {
 	r := v1.SensorData{}
 	read, err := pbutil.ReadDelimited(f.file, &r)
 	if err != nil {
+		var bytes []byte
+		_, err := f.file.ReadAt(bytes, f.readOffset)
+		fmt.Printf("\nerror reading raw: %s\n", string(bytes[:]))
 		return nil, err
 	}
 	f.readOffset += int64(read)
