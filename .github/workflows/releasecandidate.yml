@@ -84,8 +84,8 @@ jobs:
           if [[ $TAG_NAME =~ v([0-9]+\.[0-9]+\.[0-9]+)-rc([0-9]+) ]]; then
             VERSION="${BASH_REMATCH[1]}"
             RC_NUMBER="${BASH_REMATCH[2]}"
-            echo "version=$VERSION" >> $GITUHB_OUTPUT
-            echo "rc_number=$RC_NUMBER" >> $GITUHB_OUTPUT
+            echo "version=$VERSION" >> $GITHUB_OUTPUT
+            echo "rc_number=$RC_NUMBER" >> $GITHUB_OUTPUT
           else
             echo "The tag does not match the expected pattern"
           fi
