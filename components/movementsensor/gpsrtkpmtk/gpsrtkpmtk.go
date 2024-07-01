@@ -508,7 +508,6 @@ func (g *rtkI2C) receiveAndWriteI2C(ctx context.Context) {
 		scanner = rtcm3.NewScanner(g.reader)
 	}
 
-
 	// It's okay to skip the mutex on this next line: g.ntripStatus can only be mutated by this
 	// goroutine itself.
 	for {
@@ -530,16 +529,25 @@ func (g *rtkI2C) receiveAndWriteI2C(ctx context.Context) {
 
 		// If we get here, the scanner encountered an error but is supposed to continue going. Try
 		// reconnecting to the mount point.
-		g.logger.CDebug(ctx, "No message... reconnecting to stream...")
-		err = g.getStream(g.ntripClient.MountPoint, g.ntripClient.MaxConnectAttempts)
-		if err != nil {
-			g.err.Set(err)
-			return
-		}
+		if g.isVirtualBase {
+			g.logger.Debug("reconnecting to the Virtual Reference Station")
 
-					g.writer = &bytes.Buffer{}
-					g.reader = io.TeeReader(g.ntripClient.Stream, g.writer)
-				}
+			err = g.getNtripFromVRS()
+			if err != nil && !errors.Is(err, io.EOF) {
+				g.err.Set(err)
+				return
+			}
+		} else {
+			g.logger.CDebug(ctx, "No message... reconnecting to stream...")
+			err = g.getStream(g.ntripClient.MountPoint, g.ntripClient.MaxConnectAttempts)
+			if err != nil {
+				g.err.Set(err)
+				return
+			}
+
+			g.writer = &bytes.Buffer{}
+			g.reader = io.TeeReader(g.ntripClient.Stream, g.writer)
+		}
 
 		buf = make([]byte, 1100)
 		n, err := g.ntripClient.Stream.Read(buf)
@@ -556,24 +564,13 @@ func (g *rtkI2C) receiveAndWriteI2C(ctx context.Context) {
 			g.err.Set(err)
 			return
 		}
-				if g.isVirtualBase {
-					scanner = rtcm3.NewScanner(g.readerWriter)
-				} else {
-					scanner = rtcm3.NewScanner(g.reader)
-				}
-
-			}
+		if g.isVirtualBase {
+			scanner = rtcm3.NewScanner(g.readerWriter)
+		} else {
+			scanner = rtcm3.NewScanner(g.reader)
 		}
-	}
-}
 
-// getNtripConnectionStatus returns true if connection to NTRIP stream is OK, false if not
-//
-//nolint:all
-func (g *rtkI2C) getNtripConnectionStatus() (bool, error) {
-	g.mu.Lock()
-	defer g.mu.Unlock()
-	return g.ntripStatus, g.err.Get()
+	}
 }
 
 // Position returns the current geographic location of the MOVEMENTSENSOR.
