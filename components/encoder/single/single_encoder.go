@@ -166,7 +166,7 @@ func (e *Encoder) Reconfigure(
 	// state is not really valid anymore
 	atomic.StoreInt64(&e.position, 0)
 
-	if e.workers == nil {
+	if e.workers != nil {
 		e.workers.Stop() // Shut down the old interrupt stream
 	}
 	e.start(ctx, board) // Start up the new interrupt stream
