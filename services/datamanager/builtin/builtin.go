@@ -28,9 +28,11 @@ import (
 	"go.viam.com/rdk/services/datamanager/datacapture"
 	"go.viam.com/rdk/services/datamanager/datasync"
 	"go.viam.com/rdk/services/slam"
+	"go.viam.com/rdk/services/vision"
 	"go.viam.com/rdk/utils"
 )
 
+// In order for a collector to be captured by Data Capture, it must be included as a weak dependency.
 func init() {
 	resource.RegisterService(
 		datamanager.API,
@@ -40,6 +42,7 @@ func init() {
 			WeakDependencies: []resource.Matcher{
 				resource.TypeMatcher{Type: resource.APITypeComponentName},
 				resource.SubtypeMatcher{Subtype: slam.SubtypeName},
+				resource.SubtypeMatcher{Subtype: vision.SubtypeName},
 			},
 		})
 }
