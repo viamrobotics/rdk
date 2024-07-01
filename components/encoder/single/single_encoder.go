@@ -132,15 +132,16 @@ func (e *Encoder) Reconfigure(
 	deps resource.Dependencies,
 	conf resource.Config,
 ) error {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+
 	newConf, err := resource.NativeConfig[*Config](conf)
 	if err != nil {
 		return err
 	}
 
-	e.mu.Lock()
 	existingBoardName := e.boardName
 	existingDIPinName := e.diPinName
-	e.mu.Unlock()
 
 	needRestart := existingBoardName != newConf.BoardName ||
 		existingDIPinName != newConf.Pins.I
@@ -158,18 +159,18 @@ func (e *Encoder) Reconfigure(
 	if !needRestart {
 		return nil
 	}
-	utils.UncheckedError(e.Close(ctx))
 
-	e.mu.Lock()
 	e.I = di
 	e.boardName = newConf.BoardName
 	e.diPinName = newConf.Pins.I
 	// state is not really valid anymore
 	atomic.StoreInt64(&e.position, 0)
-	e.mu.Unlock()
 
-	e.start(ctx, board)
-
+	if e.workers == nil {
+		e.workers.Stop() // Shut down the old interrupt stream
+		e.workers = nil
+	}
+	e.start(ctx, board) // Start up the new interrupt stream
 	return nil
 }
 
@@ -251,16 +252,14 @@ func (e *Encoder) Properties(ctx context.Context, extra map[string]interface{}) 
 
 // Close shuts down the Encoder.
 func (e *Encoder) Close(ctx context.Context) error {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+
 	// In unit tests, we construct encoders without calling NewSingleEncoder(), which means they
 	// might not have called e.start(), so might not have initialized e.workers. Don't crash if
 	// that happens.
 	if e.workers != nil {
 		e.workers.Stop() // This also shuts down the interrupt stream.
 	}
-
-	// During reconfiguration, we might call e.Close() and then e.start() to restart with a new
-	// interrupt pin. Remove the old StoppableWorkers so e.start() doesn't try adding workers to an
-	// already-stopped one.
-	e.workers = nil
 	return nil
 }
