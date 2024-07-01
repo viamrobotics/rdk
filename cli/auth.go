@@ -48,7 +48,7 @@ type authFlow struct {
 const (
 	defaultOpenIDDiscoveryPath = "/.well-known/openid-configuration"
 
-	prodAuthDomain = "https://viam-prod.fusionauth.io"
+	prodAuthDomain = "https://auth.viam.com"
 	prodAudience   = "c1e41724-9b29-479f-abcc-7bfbe2e3309a"
 	prodClientID   = "c1e41724-9b29-479f-abcc-7bfbe2e3309a" // native client ID
 
