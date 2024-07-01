@@ -221,6 +221,9 @@ func (e *Encoder) Position(
 	positionType encoder.PositionType,
 	extra map[string]interface{},
 ) (float64, encoder.PositionType, error) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+
 	if positionType == encoder.PositionTypeDegrees {
 		return math.NaN(), encoder.PositionTypeUnspecified, encoder.NewPositionTypeUnsupportedError(positionType)
 	}
