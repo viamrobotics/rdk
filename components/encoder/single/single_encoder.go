@@ -251,7 +251,12 @@ func (e *Encoder) Properties(ctx context.Context, extra map[string]interface{}) 
 
 // Close shuts down the Encoder.
 func (e *Encoder) Close(ctx context.Context) error {
-	e.workers.Stop() // This also shuts down the interrupt stream.
+	// In unit tests, we construct encoders without calling NewSingleEncoder(), which means they
+	// might not have called e.start(), so might not have initialized e.workers. Don't crash if
+	// that happens.
+	if e.workers != nil {
+		e.workers.Stop() // This also shuts down the interrupt stream.
+	}
 
 	// During reconfiguration, we might call e.Close() and then e.start() to restart with a new
 	// interrupt pin. Remove the old StoppableWorkers so e.start() doesn't try adding workers to an
