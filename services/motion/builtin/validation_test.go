@@ -848,8 +848,8 @@ func TestNewValidatedMotionCfg(t *testing.T) {
 			angularDegsPerSec:     10.,
 			linearMPerSec:         20.,
 			planDeviationMM:       30.,
-			positionPollingFreqHz: 40.,
-			obstaclePollingFreqHz: 50.,
+			positionPollingFreqHz: pollingFreq,
+			obstaclePollingFreqHz: pollingFreq,
 			obstacleDetectors: []motion.ObstacleDetectorName{
 				{
 					VisionServiceName: vision.Named("fakeVision"),
