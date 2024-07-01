@@ -72,7 +72,7 @@ func (g *CachedData) start(cancelCtx context.Context) {
 			// Update our struct's gps data in-place
 			err := g.ParseAndUpdate(message)
 			if err != nil {
-				g.logger.CWarnf(cancelCtx, "can't parse nmea sentence: %#v", err)
+				g.logger.CWarnf(cancelCtx, "can't parse nmea sentence '%s': %#v", message, err)
 				g.logger.Debug("Check: GPS requires clear sky view." +
 					"Ensure the antenna is outdoors if signal is weak or unavailable indoors.")
 			}

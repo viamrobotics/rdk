@@ -122,7 +122,7 @@ func TestRPMBounds(t *testing.T) {
 		test.That(t, motorDep.Close(context.Background()), test.ShouldBeNil)
 	}()
 
-	test.That(t, motorDep.GoFor(ctx, 0.05, 6.6, nil), test.ShouldNotBeNil)
+	test.That(t, motorDep.GoFor(ctx, 0.05, 6.6, nil), test.ShouldBeError, motor.NewZeroRPMError())
 	allObs := obs.All()
 	latestLoggedEntry := allObs[len(allObs)-1]
 	test.That(t, fmt.Sprint(latestLoggedEntry), test.ShouldContainSubstring, "nearly 0")
@@ -218,6 +218,22 @@ func TestTMCStepperMotor(t *testing.T) {
 			{167, 0, 2, 17, 149},
 		})
 		test.That(t, motorDep.SetPower(ctx, -0.25, nil), test.ShouldBeNil)
+	})
+
+	t.Run("motor SetRPM testing", func(t *testing.T) {
+		// Test Go forward at half speed
+		fakeSpiHandle.AddExpectedTx([][]byte{
+			{160, 0, 0, 0, 1},
+			{167, 0, 4, 35, 42},
+		})
+		test.That(t, motorDep.SetRPM(ctx, 250, nil), test.ShouldBeNil)
+
+		// Test Go backward at quarter speed
+		fakeSpiHandle.AddExpectedTx([][]byte{
+			{160, 0, 0, 0, 2},
+			{167, 0, 2, 17, 149},
+		})
+		test.That(t, motorDep.SetRPM(ctx, -125, nil), test.ShouldBeNil)
 	})
 
 	t.Run("motor Off testing", func(t *testing.T) {

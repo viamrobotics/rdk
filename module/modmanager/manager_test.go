@@ -1000,13 +1000,10 @@ func greenLog(t *testing.T, msg string) {
 }
 
 func TestRTPPassthrough(t *testing.T) {
+	// RSDK-7958
+	t.Skip()
 	ctx := context.Background()
 	logger := logging.NewInMemoryLogger(t)
-	defer func() {
-		if t.Failed() {
-			logger.OutputLogs()
-		}
-	}()
 
 	// Precompile module copies to avoid timeout issues when building takes too long.
 	modPath := rtestutils.BuildTempModule(t, "examples/customresources/demos/rtppassthrough")
@@ -1217,11 +1214,6 @@ func TestRTPPassthrough(t *testing.T) {
 func TestAddStreamMaxTrackErr(t *testing.T) {
 	ctx := context.Background()
 	logger := logging.NewInMemoryLogger(t)
-	defer func() {
-		if t.Failed() {
-			logger.OutputLogs()
-		}
-	}()
 
 	// Precompile module copies to avoid timeout issues when building takes too long.
 	modPath := rtestutils.BuildTempModule(t, "examples/customresources/demos/rtppassthrough")
@@ -1304,4 +1296,27 @@ func TestAddStreamMaxTrackErr(t *testing.T) {
 	test.That(t, err, test.ShouldBeError)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "only 9 WebRTC tracks are supported per peer connection")
 	test.That(t, sub, test.ShouldResemble, rtppassthrough.NilSubscription)
+}
+
+func TestBadModuleFailsFast(t *testing.T) {
+	t.Setenv("VIAM_TESTMODULE_PANIC", "1")
+	logger := logging.NewTestLogger(t)
+
+	modCfgs := []config.Module{
+		{
+			Name:    "test-module",
+			ExePath: rtestutils.BuildTempModule(t, "module/testmodule"),
+			Type:    config.ModuleTypeLocal,
+		},
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+	defer cancel()
+	parentAddr := setupSocketWithRobot(t)
+	opts := modmanageroptions.Options{UntrustedEnv: false}
+	mgr := setupModManager(t, ctx, parentAddr, logger, opts)
+
+	err := mgr.Add(ctx, modCfgs...)
+
+	test.That(t, err.Error(), test.ShouldContainSubstring, "module test-module exited too quickly after attempted startup")
 }

@@ -82,8 +82,6 @@ func TestWheelBaseMath(t *testing.T) {
 	test.That(t, ok, test.ShouldBeTrue)
 
 	t.Run("basics", func(t *testing.T) {
-		// temporarily skipping this test until SetRPM (RSDK-7754) is implemented in fake motors
-		t.Skip()
 		props, err := wb.Properties(ctx, nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, props.WidthMeters, test.ShouldEqual, 100*0.001)
@@ -92,8 +90,8 @@ func TestWheelBaseMath(t *testing.T) {
 		test.That(t, len(geometries), test.ShouldBeZeroValue)
 		test.That(t, err, test.ShouldBeNil)
 
-		err = wb.SetVelocity(ctx, r3.Vector{X: 0, Y: 10, Z: 0}, r3.Vector{X: 0, Y: 0, Z: 10}, nil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "RPM that is nearly 0")
+		err = wb.SetVelocity(ctx, r3.Vector{X: 0, Y: 0, Z: 0}, r3.Vector{X: 0, Y: 0, Z: 0}, nil)
+		test.That(t, err, test.ShouldBeNil)
 
 		err = wb.SetVelocity(ctx, r3.Vector{X: 0, Y: 100, Z: 0}, r3.Vector{X: 0, Y: 0, Z: 100}, nil)
 		test.That(t, err, test.ShouldBeNil)

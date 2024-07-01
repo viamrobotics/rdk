@@ -15,7 +15,6 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 	pb "go.viam.com/api/component/board/v1"
-	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/board/genericlinux/buses"
@@ -24,6 +23,7 @@ import (
 	"go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/utils"
 )
 
 // RegisterBoard registers a sysfs based board of the given model.
@@ -50,15 +50,12 @@ func NewBoard(
 	convertConfig ConfigConverter,
 	logger logging.Logger,
 ) (board.Board, error) {
-	cancelCtx, cancelFunc := context.WithCancel(context.Background())
-
 	b := &Board{
 		Named:         conf.ResourceName().AsNamed(),
 		convertConfig: convertConfig,
 
-		logger:     logger,
-		cancelCtx:  cancelCtx,
-		cancelFunc: cancelFunc,
+		logger:  logger,
+		workers: utils.NewStoppableWorkers(),
 
 		analogReaders: map[string]*wrappedAnalogReader{},
 		gpios:         map[string]*gpioPin{},
@@ -340,11 +337,9 @@ func (b *Board) reconfigureInterrupts(newConf *LinuxBoardConfig) error {
 
 func (b *Board) createGpioPin(mapping GPIOBoardMapping) *gpioPin {
 	pin := gpioPin{
-		boardWorkers: &b.activeBackgroundWorkers,
-		devicePath:   mapping.GPIOChipDev,
-		offset:       uint32(mapping.GPIO),
-		cancelCtx:    b.cancelCtx,
-		logger:       b.logger,
+		devicePath: mapping.GPIOChipDev,
+		offset:     uint32(mapping.GPIO),
+		logger:     b.logger,
 	}
 	if mapping.HWPWMSupported {
 		pin.hwPwm = newPwmDevice(mapping.PWMSysFsDir, mapping.PWMID, b.logger)
@@ -365,9 +360,7 @@ type Board struct {
 	gpios      map[string]*gpioPin
 	interrupts map[string]*digitalInterrupt
 
-	cancelCtx               context.Context
-	cancelFunc              func()
-	activeBackgroundWorkers sync.WaitGroup
+	workers utils.StoppableWorkers
 }
 
 // AnalogByName returns the analog pin by the given name if it exists.
@@ -481,17 +474,16 @@ func (b *Board) StreamTicks(ctx context.Context, interrupts []board.DigitalInter
 		i.AddChannel(ch)
 	}
 
-	b.activeBackgroundWorkers.Add(1)
-	utils.ManagedGo(func() {
+	b.workers.AddWorkers(func(cancelCtx context.Context) {
 		// Wait until it's time to shut down then remove callbacks.
 		select {
 		case <-ctx.Done():
-		case <-b.cancelCtx.Done():
+		case <-cancelCtx.Done():
 		}
 		for _, i := range rawInterrupts {
 			i.RemoveChannel(ch)
 		}
-	}, b.activeBackgroundWorkers.Done)
+	})
 
 	return nil
 }
@@ -499,9 +491,8 @@ func (b *Board) StreamTicks(ctx context.Context, interrupts []board.DigitalInter
 // Close attempts to cleanly close each part of the board.
 func (b *Board) Close(ctx context.Context) error {
 	b.mu.Lock()
-	b.cancelFunc()
-	b.mu.Unlock()
-	b.activeBackgroundWorkers.Wait()
+	defer b.mu.Unlock()
+	b.workers.Stop()
 
 	var err error
 	for _, pin := range b.gpios {

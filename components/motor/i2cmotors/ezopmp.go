@@ -161,6 +161,10 @@ func (m *Ezopmp) Validate() error {
 	if m.maxFlowRate == 0 {
 		m.maxFlowRate = 50.5
 	}
+	if m.maxFlowRate > 105 {
+		m.maxFlowRate = 105
+	}
+
 	return nil
 }
 
@@ -252,13 +256,12 @@ func (m *Ezopmp) SetPower(ctx context.Context, powerPct float64, extra map[strin
 // GoFor sets a constant flow rate
 // mLPerMin = rpm, mins = revolutions.
 func (m *Ezopmp) GoFor(ctx context.Context, mLPerMin, mins float64, extra map[string]interface{}) error {
-	switch speed := math.Abs(mLPerMin); {
-	case speed < 0.1:
-		m.logger.CWarn(ctx, "motor speed is nearly 0 rev_per_min")
-		return motor.NewZeroRPMError()
-	case m.maxFlowRate > 0 && speed > m.maxFlowRate-0.1:
-		m.logger.CWarnf(ctx, "motor speed is nearly the max rev_per_min (%f)", m.maxFlowRate)
-	default:
+	warning, err := motor.CheckSpeed(mLPerMin, m.maxFlowRate)
+	if warning != "" {
+		m.logger.CWarn(ctx, warning)
+	}
+	if err != nil {
+		return err
 	}
 
 	ctx, done := m.opMgr.New(ctx)
@@ -292,8 +295,18 @@ func (m *Ezopmp) GoTo(ctx context.Context, mLPerMin, mins float64, extra map[str
 }
 
 // SetRPM instructs the motor to move at the specified RPM indefinitely.
-func (m *Ezopmp) SetRPM(ctx context.Context, rpm float64, extra map[string]interface{}) error {
-	return motor.NewSetRPMUnsupportedError(m.Name().ShortName())
+func (m *Ezopmp) SetRPM(ctx context.Context, mLPerMin float64, extra map[string]interface{}) error {
+	warning, err := motor.CheckSpeed(mLPerMin, m.maxFlowRate)
+	if warning != "" {
+		m.logger.CWarn(ctx, warning)
+	}
+	if err != nil {
+		return err
+	}
+
+	powerPct := mLPerMin / m.maxFlowRate
+
+	return m.SetPower(ctx, powerPct, extra)
 }
 
 // ResetZeroPosition clears the amount of volume that has been dispensed.

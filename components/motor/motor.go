@@ -2,6 +2,8 @@ package motor
 
 import (
 	"context"
+	"fmt"
+	"math"
 
 	pb "go.viam.com/api/component/motor/v1"
 
@@ -53,7 +55,7 @@ var API = resource.APINamespaceRDK.WithComponentType(SubtypeName)
 //	// Turn the motor to 8.3 revolutions from home at 75 RPM.
 //	myMotorComponent.GoTo(context.Background(), 75, 8.3, nil)
 //
-// ResetZeroPostion example:
+// ResetZeroPosition example:
 //
 //	// Set the current position as the new home position with no offset.
 //	myMotorComponent.ResetZeroPosition(context.Background(), 0.0, nil)
@@ -90,7 +92,7 @@ type Motor interface {
 	resource.Actuator
 
 	// SetPower sets the percentage of power the motor should employ between -1 and 1.
-	// Negative power corresponds to a backward direction of rotation
+	// Negative power corresponds to a backward direction of rotation.
 	SetPower(ctx context.Context, powerPct float64, extra map[string]interface{}) error
 
 	// GoFor instructs the motor to go in a specific direction for a specific amount of
@@ -103,8 +105,8 @@ type Motor interface {
 
 	// GoTo instructs the motor to go to a specific position (provided in revolutions from home/zero),
 	// at a specific speed. Regardless of the directionality of the RPM this function will move the motor
-	// towards the specified target/position
-	// This will block until the position has been reached
+	// towards the specified target/position.
+	// This will block until the position has been reached.
 	GoTo(ctx context.Context, rpm, positionRevolutions float64, extra map[string]interface{}) error
 
 	// SetRPM instructs the motor to move at the specified RPM indefinitely.
@@ -173,4 +175,16 @@ func CreateStatus(ctx context.Context, m Motor) (*pb.Status, error) {
 		Position:  position,
 		IsMoving:  isMoving,
 	}, nil
+}
+
+// CheckSpeed checks if the input rpm is too slow or fast and returns a warning and/or error.
+func CheckSpeed(rpm, max float64) (string, error) {
+	switch speed := math.Abs(rpm); {
+	case speed < 0.1:
+		return "motor speed is nearly 0 rev_per_min", NewZeroRPMError()
+	case max > 0 && speed > max-0.1:
+		return fmt.Sprintf("motor speed is nearly the max rev_per_min (%f)", max), nil
+	default:
+		return "", nil
+	}
 }

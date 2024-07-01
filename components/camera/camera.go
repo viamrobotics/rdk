@@ -4,7 +4,6 @@ package camera
 import (
 	"context"
 	"image"
-	"sync"
 	"time"
 
 	"github.com/pion/mediadevices/pkg/prop"
@@ -12,7 +11,6 @@ import (
 	"go.opencensus.io/trace"
 	"go.uber.org/multierr"
 	pb "go.viam.com/api/component/camera/v1"
-	viamutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/components/camera/rtppassthrough"
 	"go.viam.com/rdk/data"
@@ -83,49 +81,55 @@ type Camera interface {
 }
 
 // A VideoSource represents anything that can capture frames.
+//
+// Images example:
+//
+//	myCamera, err := camera.FromRobot(machine, "my_camera")
+//
+//	images, metadata, err := myCamera.Images(context.Background())
+//
+// Stream example:
+//
+//	myCamera, err := camera.FromRobot(machine, "my_camera")
+//
+//	// gets the stream from a camera
+//	stream, err := myCamera.Stream(context.Background())
+//
+//	// gets an image from the camera stream
+//	img, release, err := stream.Next(context.Background())
+//	defer release()
+//
+// NextPointCloud example:
+//
+//	myCamera, err := camera.FromRobot(machine, "my_camera")
+//
+//	// gets the properties from a camera
+//	properties, err := myCamera.Properties(context.Background())
+//
+// Close example:
+//
+//	myCamera, err := camera.FromRobot(machine, "my_camera")
+//
+//	err = myCamera.Close(ctx)
 type VideoSource interface {
 	projectorProvider
 	// Images is used for getting simultaneous images from different imagers,
 	// along with associated metadata (just timestamp for now). It's not for getting a time series of images from the same imager.
-	//
-	//    myCamera, err := camera.FromRobot(machine, "my_camera")
-	//
-	//    images, metadata, err := myCamera.Images(context.Background())
 	Images(ctx context.Context) ([]NamedImage, resource.ResponseMetadata, error)
+
 	// Stream returns a stream that makes a best effort to return consecutive images
 	// that may have a MIME type hint dictated in the context via gostream.WithMIMETypeHint.
-	//
-	//    myCamera, err := camera.FromRobot(machine, "my_camera")
-	//
-	//    // gets the stream from a camera
-	//    stream, err := myCamera.Stream(context.Background())
-	//
-	//    // gets an image from the camera stream
-	//    img, release, err := stream.Next(context.Background())
-	//    defer release()
 	Stream(ctx context.Context, errHandlers ...gostream.ErrorHandler) (gostream.VideoStream, error)
 
 	// NextPointCloud returns the next immediately available point cloud, not necessarily one
 	// a part of a sequence. In the future, there could be streaming of point clouds.
-	//
-	//    myCamera, err := camera.FromRobot(machine, "my_camera")
-	//
-	//    pointCloud, err := myCamera.NextPointCloud(context.Background())
 	NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error)
+
 	// Properties returns properties that are intrinsic to the particular
-	// implementation of a camera
-	//
-	//    myCamera, err := camera.FromRobot(machine, "my_camera")
-	//
-	//    // gets the properties from a camera
-	//    properties, err := myCamera.Properties(context.Background())
+	// implementation of a camera.
 	Properties(ctx context.Context) (Properties, error)
 
-	// Close shuts down the resource and prevents further use
-	//
-	//    myCamera, err := camera.FromRobot(machine, "my_camera")
-	//
-	//    err = myCamera.Close(ctx)
+	// Close shuts down the resource and prevents further use.
 	Close(ctx context.Context) error
 }
 
@@ -427,37 +431,4 @@ func FromRobot(r robot.Robot, name string) (Camera, error) {
 // NamesFromRobot is a helper for getting all camera names from the given Robot.
 func NamesFromRobot(r robot.Robot) []string {
 	return robot.NamesByAPI(r, API)
-}
-
-// SimultaneousColorDepthNext will call Next on both the color and depth camera as simultaneously as possible.
-func SimultaneousColorDepthNext(ctx context.Context, color, depth gostream.VideoStream) (image.Image, *rimage.DepthMap) {
-	var wg sync.WaitGroup
-	var col image.Image
-	var dm *rimage.DepthMap
-	// do a parallel request for the color and depth image
-	// get color image
-	wg.Add(1)
-	viamutils.PanicCapturingGo(func() {
-		defer wg.Done()
-		var err error
-		col, _, err = color.Next(ctx)
-		if err != nil {
-			panic(err)
-		}
-	})
-	// get depth image
-	wg.Add(1)
-	viamutils.PanicCapturingGo(func() {
-		defer wg.Done()
-		d, _, err := depth.Next(ctx)
-		if err != nil {
-			panic(err)
-		}
-		dm, err = rimage.ConvertImageToDepthMap(ctx, d)
-		if err != nil {
-			panic(err)
-		}
-	})
-	wg.Wait()
-	return col, dm
 }

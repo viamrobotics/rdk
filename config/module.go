@@ -43,6 +43,9 @@ type Module struct {
 	Status           *AppValidationStatus `json:"status"`
 	alreadyValidated bool
 	cachedErr        error
+
+	// LocalVersion is an in-process fake version used for local module change management.
+	LocalVersion string
 }
 
 // JSONManifest contains meta.json fields that are used by both RDK and CLI.
@@ -126,7 +129,7 @@ func (m Module) SyntheticPackage() (PackageConfig, error) {
 	} else {
 		name = m.Name
 	}
-	return PackageConfig{Name: name, Package: name, Type: PackageTypeModule}, nil
+	return PackageConfig{Name: name, Package: name, Type: PackageTypeModule, Version: m.LocalVersion}, nil
 }
 
 // exeDir returns the parent directory for the unpacked module.
@@ -199,7 +202,8 @@ func (m Module) EvaluateExePath(packagesDir string) (string, error) {
 		}
 		meta, err := parseJSONFile[JSONManifest](metaPath)
 		if err != nil {
-			return "", errors.Wrap(err, "loading side-by-side meta.json")
+			// note: this error deprecates the side-by-side case because the side-by-side case is deprecated.
+			return "", errors.Wrapf(err, "couldn't find meta.json inside tarball %s (or next to it)", m.ExePath)
 		}
 		entrypoint, err := utils.SafeJoinDir(exeDir, meta.Entrypoint)
 		if err != nil {

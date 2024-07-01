@@ -41,22 +41,9 @@ func NewEncoder(
 		positionType: encoder.PositionTypeTicks,
 		logger:       logger,
 	}
-	if err := e.Reconfigure(ctx, nil, cfg); err != nil {
-		return nil, err
-	}
-
-	e.start(ctx)
-	return e, nil
-}
-
-func (e *fakeEncoder) Reconfigure(
-	ctx context.Context,
-	deps resource.Dependencies,
-	conf resource.Config,
-) error {
-	newConf, err := resource.NativeConfig[*Config](conf)
+	newConf, err := resource.NativeConfig[*Config](cfg)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	e.mu.Lock()
 	e.updateRate = newConf.UpdateRate
@@ -64,7 +51,9 @@ func (e *fakeEncoder) Reconfigure(
 		e.updateRate = 100
 	}
 	e.mu.Unlock()
-	return nil
+
+	e.start(ctx)
+	return e, nil
 }
 
 // Config describes the configuration of a fake encoder.
@@ -81,6 +70,7 @@ func (cfg *Config) Validate(path string) ([]string, error) {
 type fakeEncoder struct {
 	resource.Named
 	resource.TriviallyCloseable
+	resource.AlwaysRebuild
 
 	positionType            encoder.PositionType
 	activeBackgroundWorkers sync.WaitGroup
@@ -111,6 +101,11 @@ func (e *fakeEncoder) Position(
 func (e *fakeEncoder) start(cancelCtx context.Context) {
 	e.activeBackgroundWorkers.Add(1)
 	utils.ManagedGo(func() {
+		lastTime := time.Now()
+		e.mu.RLock()
+		updateRate := e.updateRate
+		e.mu.RUnlock()
+		step := time.Duration(updateRate) * time.Millisecond
 		for {
 			select {
 			case <-cancelCtx.Done():
@@ -118,15 +113,14 @@ func (e *fakeEncoder) start(cancelCtx context.Context) {
 			default:
 			}
 
-			e.mu.RLock()
-			updateRate := e.updateRate
-			e.mu.RUnlock()
-			if !utils.SelectContextOrWait(cancelCtx, time.Duration(updateRate)*time.Millisecond) {
+			remainingStep := step - time.Since(lastTime)
+			if !utils.SelectContextOrWait(cancelCtx, remainingStep) {
 				return
 			}
 
 			e.mu.Lock()
-			e.position += e.speed / float64(60*1000/updateRate)
+			e.position += e.speed / (60. * 1000. / (float64(time.Since(lastTime)) / float64(int(time.Millisecond))))
+			lastTime = time.Now()
 			e.mu.Unlock()
 		}
 	}, e.activeBackgroundWorkers.Done)

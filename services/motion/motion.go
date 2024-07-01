@@ -187,6 +187,112 @@ type PlanWithStatus struct {
 }
 
 // A Service controls the flow of moving components.
+//
+// Move example:
+//
+//	motionService, err := motion.FromRobot(robot, "builtin")
+//
+//	// Assumes a gripper configured with name "my_gripper" on the machine
+//	gripperName := gripper.Named("my_gripper")
+//	myFrame := "my_gripper_offset"
+//
+//	goalPose := referenceframe.PoseInFrame(0, 0, 300, 0, 0, 1, 0)
+//
+//	// Move the gripper
+//	moved, err := motionService.Move(context.Background(), gripperName, goalPose, worldState, nil, nil)
+//
+// GetPose example:
+//
+//	// Insert code to connect to your machine.
+//	// (see CONNECT tab of your machine's page in the Viam app)
+//
+//	// Assumes a gripper configured with name "my_gripper" on the machine
+//	gripperName := gripper.Named("my_gripper")
+//	myFrame := "my_gripper_offset"
+//
+//	// Access the motion service
+//	motionService, err := motion.FromRobot(robot, "builtin")
+//	if err != nil {
+//	  logger.Fatal(err)
+//	}
+//
+//	myArmMotionPose, err := motionService.GetPose(context.Background(), my_gripper, referenceframe.World, nil, nil)
+//	if err != nil {
+//	  logger.Fatal(err)
+//	}
+//	logger.Info("Position of myArm from the motion service:", myArmMotionPose.Pose().Point())
+//	logger.Info("Orientation of myArm from the motion service:", myArmMotionPose.Pose().Orientation())
+//
+// MoveOnMap example:
+//
+//	motionService, err := motion.FromRobot(robot, "builtin")
+//
+//	// Get the resource.Names of the base and of the SLAM service
+//	myBaseResourceName := base.Named("myBase")
+//	mySLAMServiceResourceName := slam.Named("my_slam_service")
+//	// Define a destination Pose with respect to the origin of the map from the SLAM service "my_slam_service"
+//	myPose := spatialmath.NewPoseFromPoint(r3.Vector{Y: 10})
+//
+//	// Move the base component to the destination pose of Y=10, a location of (0, 10, 0) in respect to the origin of the map
+//	executionID, err := motionService.MoveOnMap(context.Background(), motion.MoveOnMapReq{
+//	    ComponentName: myBaseResourceName,
+//	    Destination:   myPose,
+//	    SlamName:      mySLAMServiceResourceName,
+//	})
+//
+// MoveOnGlobe example:
+//
+//	motionService, err := motion.FromRobot(robot, "builtin")
+//
+//	// Get the resource.Names of the base and movement sensor
+//	myBaseResourceName := base.Named("myBase")
+//	myMvmntSensorResourceName := movement_sensor.Named("my_movement_sensor")
+//	// Define a destination Point at the GPS coordinates [0, 0]
+//	myDestination := geo.NewPoint(0, 0)
+//
+//	// Move the base component to the designated geographic location, as reported by the movement sensor
+//	ctx := context.Background()
+//	executionID, err := motionService.MoveOnGlobe(ctx, motion.MoveOnGlobeReq{
+//	    ComponentName:      myBaseResourceName,
+//	    Destination:        myDestination,
+//	    MovementSensorName: myMvmntSensorResourceName,
+//	})
+//
+// StopPlan example:
+//
+//	motionService, err := motion.FromRobot(robot, "builtin")
+//	myBaseResourceName := base.Named("myBase")
+//	ctx := context.Background()
+//
+//	// Assuming a move_on_globe started the execution
+//	// myMvmntSensorResourceName := movement_sensor.Named("my_movement_sensor")
+//	// myDestination := geo.NewPoint(0, 0)
+//	// executionID, err := motionService.MoveOnGlobe(ctx, motion.MoveOnGlobeReq{
+//	//     ComponentName:      myBaseResourceName,
+//	//     Destination:        myDestination,
+//	//     MovementSensorName: myMvmntSensorResourceName,
+//	// })
+//
+//	// Stop the base component which was instructed to move by `MoveOnGlobe()` or `MoveOnMap()`
+//	err := motionService.StopPlan(context.Background(), motion.StopPlanReq{
+//	    ComponentName: s.req.ComponentName,
+//	})
+//
+// GetPlan example:
+//
+//	motionService, err := motion.FromRobot(robot, "builtin")
+//	// Get the plan(s) of the base component's most recent execution i.e. `MoveOnGlobe()` or `MoveOnMap()` call.
+//	ctx := context.Background()
+//	planHistory, err := motionService.PlanHistory(ctx, motion.PlanHistoryReq{
+//	    ComponentName: s.req.ComponentName,
+//	})
+//
+// ListPlanStatus example:
+//
+//	motionService, err := motion.FromRobot(robot, "builtin")
+//	// Get the plan(s) of the base component's most recent execution i.e. `MoveOnGlobe()` or `MoveOnMap()` call.
+//	ctx := context.Background()
+//	planStatuses, err := motionService.ListPlanStatuses(ctx, motion.ListPlanStatusesReq{})
 type Service interface {
 	resource.Resource
 	Move(
@@ -194,7 +300,7 @@ type Service interface {
 		componentName resource.Name,
 		destination *referenceframe.PoseInFrame,
 		worldState *referenceframe.WorldState,
-		constraints *pb.Constraints,
+		constraints *motionplan.Constraints,
 		extra map[string]interface{},
 	) (bool, error)
 	MoveOnMap(

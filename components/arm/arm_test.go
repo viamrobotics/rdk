@@ -15,11 +15,13 @@ import (
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/components/arm/fake"
 	ur "go.viam.com/rdk/components/arm/universalrobots"
+	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
+	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
 	"go.viam.com/rdk/utils"
 )
@@ -585,4 +587,25 @@ func locationCheckTestHelper(geomList []spatialmath.Geometry, checkMap map[strin
 		}
 	}
 	return true
+}
+
+func TestFromRobot(t *testing.T) {
+	r := &inject.Robot{}
+	rs := map[resource.Name]resource.Resource{
+		arm.Named("arm1"):  inject.NewArm("arm1"),
+		generic.Named("g"): inject.NewGenericComponent("g"),
+	}
+	r.MockResourcesFromMap(rs)
+
+	expected := []string{"arm1"}
+	testutils.VerifySameElements(t, arm.NamesFromRobot(r), expected)
+
+	_, err := arm.FromRobot(r, "arm1")
+	test.That(t, err, test.ShouldBeNil)
+
+	_, err = arm.FromRobot(r, "arm0")
+	test.That(t, err, test.ShouldNotBeNil)
+
+	_, err = arm.FromRobot(r, "g")
+	test.That(t, err, test.ShouldNotBeNil)
 }

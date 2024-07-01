@@ -46,6 +46,53 @@ func Named(name string) resource.Name {
 
 // A Board represents a physical general purpose board that contains various
 // components such as analogs, and digital interrupts.
+//
+// AnalogByName example:
+//
+//	myBoard, err := board.FromRobot(robot, "my_board")
+//
+//	// Get the Analog pin "my_example_analog".
+//	analog, err := myBoard.AnalogByName("my_example_analog")
+//
+// DigitalInterruptByName example:
+//
+//	myBoard, err := board.FromRobot(robot, "my_board")
+//
+//	// Get the DigitalInterrupt "my_example_digital_interrupt".
+//	interrupt, err := myBoard.DigitalInterruptByName("my_example_digital_interrupt")
+//
+// GPIOPinByName example:
+//
+//	myBoard, err := board.FromRobot(robot, "my_board")
+//
+//	// Get the GPIOPin with pin number 15.
+//	pin, err := myBoard.GPIOPinByName("15")
+//
+// SetPowerMode example:
+//
+//	myBoard, err := board.FromRobot(robot, "my_board")
+//
+//	Set the power mode of the board to OFFLINE_DEEP.
+//	myBoard.SetPowerMode(context.Background(), boardpb.PowerMode_POWER_MODE_OFFLINE_DEEP, nil)
+//
+// StreamTicks example:
+//
+//	myBoard, err := board.FromRobot(robot, "my_board")
+//
+//	// Make a channel to stream ticks
+//	ticksChan := make(chan board.Tick)
+//
+//	interrupts := []*DigitalInterrupt{}
+//
+//	if di8, err := myBoard.DigitalInterruptByName("8"); err == nil {
+//	  interrupts = append(interrupts, di8)
+//	}
+//
+//	if di11, err := myBoard.DigitalInterruptByName("11"); err == nil {
+//	  interrupts = append(interrupts, di11)
+//	}
+//
+//	err = myBoard.StreamTicks(context.Background(), interrupts, ticksChan, nil)
 type Board interface {
 	resource.Resource
 
@@ -75,6 +122,28 @@ type Board interface {
 }
 
 // An Analog represents an analog pin that resides on a board.
+//
+// Read example:
+//
+//	myBoard, err := board.FromRobot(robot, "my_board")
+//
+//	// Get the analog pin "my_example_analog".
+//	analog, err := myBoard.AnalogByName("my_example_analog")
+//
+//	// Get the value of the analog signal "my_example_analog" has most recently measured.
+//	reading, err := analog.Read(context.Background(), nil)
+//	readingValue := reading.Value
+//	stepSize := reading.StepSize
+//
+// Write example:
+//
+//	myBoard, err := board.FromRobot(robot, "my_board")
+//
+//	// Get the Analog pin "my_example_analog".
+//	analog, err := myBoard.AnalogByName("my_example_analog")
+//
+//	// Set the pin to value 48.
+//	err := analog.Write(context.Background(), 48, nil)
 type Analog interface {
 	// Read reads off the current value.
 	Read(ctx context.Context, extra map[string]interface{}) (AnalogValue, error)

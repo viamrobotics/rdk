@@ -2,6 +2,8 @@ package logging
 
 import (
 	"context"
+	"fmt"
+	"os"
 
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -16,6 +18,8 @@ type Logger interface {
 	Sublogger(subname string) Logger
 	AddAppender(appender Appender)
 	AsZap() *zap.SugaredLogger
+	// Unconditionally logs a LogEntry object. Specifically any configured log level is ignored.
+	Write(*LogEntry)
 
 	CDebug(ctx context.Context, args ...interface{})
 	CDebugf(ctx context.Context, template string, args ...interface{})
@@ -162,4 +166,11 @@ func (logger zLogger) CErrorf(ctx context.Context, template string, args ...inte
 
 func (logger zLogger) CErrorw(ctx context.Context, msg string, keysAndValues ...interface{}) {
 	logger.Errorw(msg, keysAndValues...)
+}
+
+func (logger zLogger) Write(entry *LogEntry) {
+	err := logger.Desugar().Core().Write(entry.Entry, entry.fields)
+	if err != nil {
+		fmt.Fprint(os.Stderr, err)
+	}
 }

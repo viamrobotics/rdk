@@ -157,13 +157,13 @@ func (pf *ptgGroupFrame) MarshalJSON() ([]byte, error) {
 // Inputs are: [0] index of PTG to use, [1] index of the trajectory within that PTG, [2] starting point on the trajectory, and [3] distance
 // to travel along that trajectory.
 func (pf *ptgGroupFrame) Transform(inputs []referenceframe.Input) (spatialmath.Pose, error) {
-	if len(inputs) != len(pf.DoF()) {
-		return nil, referenceframe.NewIncorrectInputLengthError(len(inputs), len(pf.DoF()))
+	if err := pf.validInputs(inputs); err != nil {
+		return nil, err
 	}
 
 	ptgIdx := int(math.Round(inputs[ptgIndex].Value))
 
-	pose, err := pf.solvers[ptgIdx].Transform([]referenceframe.Input{
+	endPose, err := pf.solvers[ptgIdx].Transform([]referenceframe.Input{
 		inputs[trajectoryAlphaWithinPTG],
 		inputs[endDistanceAlongTrajectoryIndex],
 	})
@@ -178,14 +178,16 @@ func (pf *ptgGroupFrame) Transform(inputs []referenceframe.Input) (spatialmath.P
 		if err != nil {
 			return nil, err
 		}
-		if inputs[endDistanceAlongTrajectoryIndex].Value < 0 {
-			pose = spatialmath.PoseBetweenInverse(startPose, pose)
+		if inputs[endDistanceAlongTrajectoryIndex].Value < inputs[startDistanceAlongTrajectoryIndex].Value {
+			endPose = spatialmath.PoseBetween(spatialmath.Compose(endPose, flipPose), flipPose)
+			startPose = spatialmath.PoseBetween(spatialmath.Compose(startPose, flipPose), flipPose)
+			endPose = spatialmath.PoseBetweenInverse(endPose, startPose)
 		} else {
-			pose = spatialmath.PoseBetween(startPose, pose)
+			endPose = spatialmath.PoseBetween(startPose, endPose)
 		}
 	}
 
-	return pose, nil
+	return endPose, nil
 }
 
 // Interpolate on a PTG group frame follows the following framework:
@@ -199,24 +201,18 @@ func (pf *ptgGroupFrame) Transform(inputs []referenceframe.Input) (spatialmath.P
 // which does not have knowledge of specific inputs.
 // The above is inverted with negative distances, requiring some complicated logic which should be radically simplified by RSDK-7515.
 func (pf *ptgGroupFrame) Interpolate(from, to []referenceframe.Input, by float64) ([]referenceframe.Input, error) {
-	if len(from) != len(pf.DoF()) {
-		return nil, referenceframe.NewIncorrectInputLengthError(len(from), len(pf.DoF()))
+	if err := pf.validInputs(from); err != nil {
+		return nil, err
 	}
-	if len(to) != len(pf.DoF()) {
-		return nil, referenceframe.NewIncorrectInputLengthError(len(to), len(pf.DoF()))
+	if err := pf.validInputs(to); err != nil {
+		return nil, err
 	}
+
 	// There are two different valid interpretations of `from`. Either it can be an all-zero input, in which case we interpolate across `to`
 	// or it can match `to` in every value except the end distance index, as described above.
 	zeroInputFrom := true
 
-	// Special behavior if we are working with negative distances
-	// TODO RSDK-7515: anything touching this should go away.
-	reversedTraj := to[endDistanceAlongTrajectoryIndex].Value < 0
-
 	nonMatchIndex := endDistanceAlongTrajectoryIndex
-	if reversedTraj {
-		nonMatchIndex = startDistanceAlongTrajectoryIndex
-	}
 	for i, input := range from {
 		if input.Value != 0 {
 			zeroInputFrom = false
@@ -232,30 +228,13 @@ func (pf *ptgGroupFrame) Interpolate(from, to []referenceframe.Input, by float64
 		}
 	}
 
-	startVal := from[nonMatchIndex].Value
+	startVal := from[endDistanceAlongTrajectoryIndex].Value
 	if zeroInputFrom {
 		startVal = to[startDistanceAlongTrajectoryIndex].Value
-		if reversedTraj {
-			startVal = to[endDistanceAlongTrajectoryIndex].Value
-		}
 	}
-	endVal := to[nonMatchIndex].Value
-
-	if endVal < startVal {
-		// TODO RSDK-7515: This will no longer be an error
-		return nil, fmt.Errorf("cannot interpolate from %f to %f, `from` value cannot exceed `to` value", startVal, endVal)
-	}
+	endVal := to[endDistanceAlongTrajectoryIndex].Value
 
 	changeVal := (endVal - startVal) * by
-	if reversedTraj {
-		// Negative distance interpolations should run in reverse
-		return []referenceframe.Input{
-			to[ptgIndex],
-			to[trajectoryAlphaWithinPTG],
-			{startVal + changeVal},
-			{startVal},
-		}, nil
-	}
 	return []referenceframe.Input{
 		to[ptgIndex],
 		to[trajectoryAlphaWithinPTG],
@@ -302,6 +281,22 @@ func (pf *ptgGroupFrame) Geometries(inputs []referenceframe.Input) (*referencefr
 
 func (pf *ptgGroupFrame) PTGSolvers() []PTGSolver {
 	return pf.solvers
+}
+
+// validInputs checks whether the given array of inputs violates any limits.
+func (pf *ptgGroupFrame) validInputs(inputs []referenceframe.Input) error {
+	var errAll error
+	if len(inputs) != len(pf.limits) {
+		return referenceframe.NewIncorrectInputLengthError(len(inputs), len(pf.limits))
+	}
+	for i := 0; i < len(pf.limits); i++ {
+		if inputs[i].Value < pf.limits[i].Min || inputs[i].Value > pf.limits[i].Max {
+			lim := []float64{pf.limits[i].Min, pf.limits[i].Max}
+			multierr.AppendInto(&errAll, fmt.Errorf("%s %s %s, %s %.5f %s %.5f", "input", fmt.Sprint(i),
+				referenceframe.OOBErrString, "input", inputs[i].Value, "needs to be within range", lim))
+		}
+	}
+	return errAll
 }
 
 func initializePTGs(turnRadius float64, constructors []ptgFactory) []PTG {

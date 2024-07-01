@@ -270,9 +270,9 @@ func (m *Motor) GoFor(ctx context.Context, rpm, revolutions float64, extra map[s
 		return errors.New("not supported, define max_rpm attribute != 0")
 	}
 
-	warning, err := checkSpeed(rpm, m.maxRPM)
+	warning, err := motor.CheckSpeed(rpm, m.maxRPM)
 	if warning != "" {
-		m.logger.CWarnf(ctx, warning)
+		m.logger.CWarn(ctx, warning)
 	}
 	if err != nil {
 		return err
@@ -328,9 +328,9 @@ func (m *Motor) SetRPM(ctx context.Context, rpm float64, extra map[string]interf
 		return errors.New("not supported, define max_rpm attribute != 0")
 	}
 
-	warning, err := checkSpeed(rpm, m.maxRPM)
+	warning, err := motor.CheckSpeed(rpm, m.maxRPM)
 	if warning != "" {
-		m.logger.CWarnf(ctx, warning)
+		m.logger.CWarn(ctx, warning)
 	}
 	if err != nil {
 		return err

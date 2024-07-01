@@ -34,6 +34,7 @@ type ptgBaseKinematics struct {
 	logger                         logging.Logger
 	frame                          referenceframe.Frame
 	ptgs                           []tpspace.PTGSolver
+	opts                           Options
 	courseCorrectionIdx            int
 	linVelocityMMPerSecond         float64
 	angVelocityDegsPerSecond       float64
@@ -145,6 +146,7 @@ func wrapWithPTGKinematics(
 		Localizer:                      localizer,
 		logger:                         logger,
 		frame:                          frame,
+		opts:                           options,
 		ptgs:                           ptgs,
 		courseCorrectionIdx:            courseCorrectionIdx,
 		linVelocityMMPerSecond:         linVelocityMMPerSecond,
