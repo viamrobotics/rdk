@@ -69,7 +69,7 @@ func NewLocalManager(conf *config.Config, logger logging.Logger) (ManagerSyncer,
 // LocalPackagesDir transforms a packagesDir string to the suffixed version for localManager.
 // local + cloud manager need separate parent dirs so they don't delete each other in Cleanup.
 func LocalPackagesDir(packagesDir string) string {
-	return filepath.Clean(packagesDir) + "-local"
+	return filepath.Clean(packagesDir) + config.LocalPackagesSuffix
 }
 
 // PackagePath returns the package if it exists and already downloaded. If it does not exist it returns a ErrPackageMissing error.

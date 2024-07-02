@@ -3,6 +3,8 @@ package utils
 import (
 	"flag"
 	"math/rand"
+	"os"
+	"strings"
 )
 
 // AssertType attempts to assert that the given interface argument is
@@ -87,4 +89,12 @@ func MapOver[T, U any](items []T, fn func(T) (U, error)) ([]U, error) {
 		ret = append(ret, newItem)
 	}
 	return ret, nil
+}
+
+// SanitizePath conservatively sanitizes a string for use as a path. It replaces all
+// characters outside of [A-Za-z0-9] with '-'. Use this for relatively safe input, for example
+// a user running something on hardware they own, not for user input running in a secure context.
+// In sensitive contexts please use a third-party library for this.
+func SanitizePath(path string) string {
+	return strings.ReplaceAll(path, string(os.PathSeparator), "-")
 }

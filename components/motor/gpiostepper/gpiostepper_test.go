@@ -405,7 +405,7 @@ func TestRunning(t *testing.T) {
 		p, err := m.Position(context.Background(), nil)
 		test.That(t, err, test.ShouldBeNil)
 
-		// stop() sets targetStepPosition to the stepPostion value
+		// stop() sets targetStepPosition to the stepPosition value
 		test.That(t, s.targetStepPosition, test.ShouldEqual, s.stepPosition)
 		test.That(t, s.targetStepPosition, test.ShouldBeBetweenOrEqual, 1, 100*200)
 		test.That(t, p, test.ShouldBeBetween, 0, 100)

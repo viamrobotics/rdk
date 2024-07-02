@@ -55,7 +55,7 @@ var API = resource.APINamespaceRDK.WithComponentType(SubtypeName)
 //	// Turn the motor to 8.3 revolutions from home at 75 RPM.
 //	myMotorComponent.GoTo(context.Background(), 75, 8.3, nil)
 //
-// ResetZeroPostion example:
+// ResetZeroPosition example:
 //
 //	// Set the current position as the new home position with no offset.
 //	myMotorComponent.ResetZeroPosition(context.Background(), 0.0, nil)
