@@ -130,6 +130,7 @@ func deleteFiles(ctx context.Context, syncer datasync.Manager, deleteEveryNth in
 					}
 					return err
 				}
+				logger.Infof("successfully deleted %s", d.Name())
 				deletedFileCount++
 			}
 			// only increment on completed files

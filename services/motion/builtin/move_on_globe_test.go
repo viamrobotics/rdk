@@ -274,9 +274,11 @@ func TestObstacleReplanningGlobe(t *testing.T) {
 		{VisionServiceName: vision.Named("injectedVisionSvc"), CameraName: camera.Named("injectedCamera")},
 	}
 
+	obstaclePollingFreq := 5.
+	positionPollingFreq := 0.
 	cfg := &motion.MotionConfiguration{
-		PositionPollingFreqHz: 1,
-		ObstaclePollingFreqHz: 5,
+		PositionPollingFreqHz: &positionPollingFreq,
+		ObstaclePollingFreqHz: &obstaclePollingFreq,
 		PlanDeviationMM:       epsilonMM,
 		ObstacleDetectors:     obstacleDetectorSlice,
 		LinearMPerSec:         0.5,

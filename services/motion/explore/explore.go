@@ -255,7 +255,7 @@ func (ms *explore) Move(
 	// Start polling for obstacles
 	ms.backgroundWorkers.Add(1)
 	goutils.ManagedGo(func() {
-		ms.checkForObstacles(cancelCtx, obstacleDetectors, kb, plan, motionCfg.ObstaclePollingFreqHz)
+		ms.checkForObstacles(cancelCtx, obstacleDetectors, kb, plan, *motionCfg.ObstaclePollingFreqHz)
 	}, ms.backgroundWorkers.Done)
 
 	// Start executing plan

@@ -125,7 +125,6 @@ type rtkI2C struct {
 
 	mu          sync.Mutex
 	ntripClient *gpsutils.NtripInfo
-	ntripStatus bool
 
 	err          movementsensor.LastError
 	lastposition movementsensor.LastPosition
@@ -388,13 +387,7 @@ func (g *rtkI2C) receiveAndWriteI2C(ctx context.Context) {
 
 	scanner := rtcm3.NewScanner(r)
 
-	g.mu.Lock()
-	g.ntripStatus = true
-	g.mu.Unlock()
-
-	// It's okay to skip the mutex on this next line: g.ntripStatus can only be mutated by this
-	// goroutine itself.
-	for g.ntripStatus {
+	for {
 		select {
 		case <-g.cancelCtx.Done():
 			g.err.Set(err)
@@ -402,56 +395,45 @@ func (g *rtkI2C) receiveAndWriteI2C(ctx context.Context) {
 		default:
 		}
 
-		msg, err := scanner.NextMessage()
-		if err != nil {
-			g.mu.Lock()
-			g.ntripStatus = false
-			g.mu.Unlock()
-
-			if msg == nil {
-				g.logger.CDebug(ctx, "No message... reconnecting to stream...")
-				err = g.getStream(g.ntripClient.MountPoint, g.ntripClient.MaxConnectAttempts)
-				if err != nil {
-					g.err.Set(err)
-					return
-				}
-
-				w = &bytes.Buffer{}
-				r = io.TeeReader(g.ntripClient.Stream, w)
-
-				buf = make([]byte, 1100)
-				n, err := g.ntripClient.Stream.Read(buf)
-				if err != nil {
-					g.err.Set(err)
-					return
-				}
-				wI2C := movementsensor.PMTKAddChk(buf[:n])
-
-				err = handle.Write(ctx, wI2C)
-
-				if err != nil {
-					g.logger.CErrorf(ctx, "i2c handle write failed %s", err)
-					g.err.Set(err)
-					return
-				}
-
-				scanner = rtcm3.NewScanner(r)
-				g.mu.Lock()
-				g.ntripStatus = true
-				g.mu.Unlock()
-				continue
-			}
+		// Calling NextMessage() reads from the scanner until a valid message is found, and returns
+		// that. We don't care about the message: we care that the scanner is able to read messages
+		// at all! So, focus on whether the scanner had errors (which indicate we need to reconnect
+		// to the mount point), and not the message itself.
+		_, err := scanner.NextMessage()
+		if err == nil {
+			continue // No errors: we're still connected.
 		}
-	}
-}
 
-// getNtripConnectionStatus returns true if connection to NTRIP stream is OK, false if not
-//
-//nolint:all
-func (g *rtkI2C) getNtripConnectionStatus() (bool, error) {
-	g.mu.Lock()
-	defer g.mu.Unlock()
-	return g.ntripStatus, g.err.Get()
+		// If we get here, the scanner encountered an error but is supposed to continue going. Try
+		// reconnecting to the mount point.
+		g.logger.CDebug(ctx, "No message... reconnecting to stream...")
+		err = g.getStream(g.ntripClient.MountPoint, g.ntripClient.MaxConnectAttempts)
+		if err != nil {
+			g.err.Set(err)
+			return
+		}
+
+		w = &bytes.Buffer{}
+		r = io.TeeReader(g.ntripClient.Stream, w)
+
+		buf = make([]byte, 1100)
+		n, err := g.ntripClient.Stream.Read(buf)
+		if err != nil {
+			g.err.Set(err)
+			return
+		}
+		wI2C := movementsensor.PMTKAddChk(buf[:n])
+
+		err = handle.Write(ctx, wI2C)
+
+		if err != nil {
+			g.logger.CErrorf(ctx, "i2c handle write failed %s", err)
+			g.err.Set(err)
+			return
+		}
+
+		scanner = rtcm3.NewScanner(r)
+	}
 }
 
 // Position returns the current geographic location of the MOVEMENTSENSOR.

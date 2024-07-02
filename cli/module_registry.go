@@ -692,12 +692,16 @@ func createTarballForUpload(moduleUploadPath string, stdout io.Writer) (string, 
 }
 
 func readModels(path string, logger logging.Logger) ([]ModuleComponent, error) {
-	parentAddr, err := os.MkdirTemp("", "viam-cli-test-*")
+	tmpdir, err := os.MkdirTemp("", "viam-cli-test-*")
 	if err != nil {
 		return nil, err
 	}
-	defer vutils.UncheckedErrorFunc(func() error { return os.RemoveAll(parentAddr) })
-	parentAddr += "/parent.sock"
+	defer func() {
+		if err := os.RemoveAll(tmpdir); err != nil {
+			logger.Warnw("failed to delete temp directory", "path", tmpdir, "error", err)
+		}
+	}()
+	parentAddr := tmpdir + "/parent.sock"
 
 	// allows a module to start without connecting to a parent
 	if err := os.Setenv("VIAM_NO_MODULE_PARENT", "true"); err != nil {

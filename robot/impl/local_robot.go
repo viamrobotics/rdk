@@ -6,7 +6,6 @@ package robotimpl
 
 import (
 	"context"
-	"fmt"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -20,6 +19,8 @@ import (
 	goutils "go.viam.com/utils"
 	"go.viam.com/utils/pexec"
 	"go.viam.com/utils/rpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	"go.viam.com/rdk/cloud"
 	"go.viam.com/rdk/config"
@@ -529,12 +530,14 @@ func newWithResources(
 				return
 			}
 
+			var trigger string
 			select {
 			case <-closeCtx.Done():
 				return
 			case <-r.configTicker.C:
-				r.logger.CDebugw(ctx, "configuration attempt triggered by ticker")
+				trigger = "ticker"
 			case <-r.triggerConfig:
+				trigger = "remote"
 				r.logger.CDebugw(ctx, "configuration attempt triggered by remote")
 			}
 			anyChanges := r.manager.updateRemotesResourceNames(closeCtx)
@@ -544,9 +547,7 @@ func newWithResources(
 			}
 			if anyChanges {
 				r.updateWeakDependents(ctx)
-				r.logger.CDebugw(ctx, "configuration attempt completed with changes")
-			} else {
-				r.logger.CDebugw(ctx, "configuration attempt completed without changes")
+				r.logger.CDebugw(ctx, "configuration attempt completed with changes", "trigger", trigger)
 			}
 		}
 	}, r.activeBackgroundWorkers.Done)
@@ -1340,7 +1341,7 @@ func (r *localRobot) restartSingleModule(ctx context.Context, mod *config.Module
 func (r *localRobot) RestartModule(ctx context.Context, req robot.RestartModuleRequest) error {
 	mod := utils.FindInSlice(r.Config().Modules, req.MatchesModule)
 	if mod == nil {
-		return fmt.Errorf(
+		return status.Errorf(codes.NotFound,
 			"module not found with id=%s, name=%s. make sure it is configured and running on your machine",
 			req.ModuleID, req.ModuleName)
 	}

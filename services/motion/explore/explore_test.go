@@ -27,10 +27,11 @@ var (
 	testCameraName2          = resource.NewName(camera.API, "test_camera2")
 	testFrameServiceName     = resource.NewName(framesystem.API, "test_fs")
 	defaultCollisionBufferMM = 1e-8
+	defaultObstaclePollingHz = 2.
 	defaultMotionCfg         = motion.MotionConfiguration{
 		AngularDegsPerSec:     0.25,
 		LinearMPerSec:         0.1,
-		ObstaclePollingFreqHz: 2,
+		ObstaclePollingFreqHz: &defaultObstaclePollingHz,
 	}
 )
 
@@ -236,7 +237,7 @@ func TestExploreCheckForObstacles(t *testing.T) {
 
 			msStruct.backgroundWorkers.Add(1)
 			goutils.ManagedGo(func() {
-				msStruct.checkForObstacles(ctxTimeout, obstacleDetectors, kb, plan, defaultMotionCfg.ObstaclePollingFreqHz)
+				msStruct.checkForObstacles(ctxTimeout, obstacleDetectors, kb, plan, *defaultMotionCfg.ObstaclePollingFreqHz)
 			}, msStruct.backgroundWorkers.Done)
 
 			time.Sleep(20 * time.Millisecond)
@@ -374,7 +375,7 @@ func TestMultipleObstacleDetectors(t *testing.T) {
 
 			msStruct.backgroundWorkers.Add(1)
 			goutils.ManagedGo(func() {
-				msStruct.checkForObstacles(ctxTimeout, obstacleDetectors, kb, plan, defaultMotionCfg.ObstaclePollingFreqHz)
+				msStruct.checkForObstacles(ctxTimeout, obstacleDetectors, kb, plan, *defaultMotionCfg.ObstaclePollingFreqHz)
 			}, msStruct.backgroundWorkers.Done)
 
 			resp := <-msStruct.obstacleResponseChan
