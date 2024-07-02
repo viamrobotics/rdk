@@ -217,8 +217,8 @@ func TestNew(t *testing.T) {
 		test.That(t, svcStruct.motionCfg.ObstacleDetectors, test.ShouldBeNil)
 		test.That(t, svcStruct.motionCfg.AngularDegsPerSec, test.ShouldEqual, defaultAngularDegsPerSec)
 		test.That(t, svcStruct.motionCfg.LinearMPerSec, test.ShouldEqual, defaultLinearMPerSec)
-		test.That(t, svcStruct.motionCfg.PositionPollingFreqHz, test.ShouldEqual, defaultPositionPollingHz)
-		test.That(t, svcStruct.motionCfg.ObstaclePollingFreqHz, test.ShouldEqual, defaultObstaclePollingHz)
+		test.That(t, *svcStruct.motionCfg.PositionPollingFreqHz, test.ShouldEqual, defaultPositionPollingHz)
+		test.That(t, *svcStruct.motionCfg.ObstaclePollingFreqHz, test.ShouldEqual, defaultObstaclePollingHz)
 		test.That(t, svcStruct.motionCfg.PlanDeviationMM, test.ShouldEqual, defaultPlanDeviationM*1e3)
 	})
 
@@ -299,8 +299,8 @@ func TestNew(t *testing.T) {
 
 		test.That(t, svcStruct.motionCfg.AngularDegsPerSec, test.ShouldEqual, cfg.DegPerSec)
 		test.That(t, svcStruct.motionCfg.LinearMPerSec, test.ShouldEqual, cfg.MetersPerSec)
-		test.That(t, svcStruct.motionCfg.PositionPollingFreqHz, test.ShouldEqual, cfg.PositionPollingFrequencyHz)
-		test.That(t, svcStruct.motionCfg.ObstaclePollingFreqHz, test.ShouldEqual, cfg.ObstaclePollingFrequencyHz)
+		test.That(t, *svcStruct.motionCfg.PositionPollingFreqHz, test.ShouldEqual, cfg.PositionPollingFrequencyHz)
+		test.That(t, *svcStruct.motionCfg.ObstaclePollingFreqHz, test.ShouldEqual, cfg.ObstaclePollingFrequencyHz)
 		test.That(t, svcStruct.motionCfg.PlanDeviationMM, test.ShouldEqual, cfg.PlanDeviationM*1e3)
 	})
 
@@ -956,9 +956,10 @@ func TestStartWaypoint(t *testing.T) {
 		err = s.ns.SetMode(ctx, navigation.ModeWaypoint, nil)
 		test.That(t, err, test.ShouldBeNil)
 
+		pollingFreq := 1.
 		expectedMotionCfg := &motion.MotionConfiguration{
-			PositionPollingFreqHz: 1,
-			ObstaclePollingFreqHz: 1,
+			PositionPollingFreqHz: &pollingFreq,
+			ObstaclePollingFreqHz: &pollingFreq,
 			PlanDeviationMM:       2600,
 			LinearMPerSec:         1,
 			AngularDegsPerSec:     1,

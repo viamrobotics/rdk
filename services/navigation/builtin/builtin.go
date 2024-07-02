@@ -411,8 +411,8 @@ func (svc *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies,
 		LinearMPerSec:         metersPerSec,
 		AngularDegsPerSec:     degPerSec,
 		PlanDeviationMM:       1e3 * planDeviationM,
-		PositionPollingFreqHz: positionPollingFrequencyHz,
-		ObstaclePollingFreqHz: obstaclePollingFrequencyHz,
+		PositionPollingFreqHz: &positionPollingFrequencyHz,
+		ObstaclePollingFreqHz: &obstaclePollingFrequencyHz,
 	}
 
 	return nil

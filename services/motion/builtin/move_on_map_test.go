@@ -29,7 +29,13 @@ const PlanDeviationMM = 150
 func TestMoveOnMap(t *testing.T) {
 	ctx := context.Background()
 	logger := logging.NewTestLogger(t)
-	motionCfg := &motion.MotionConfiguration{PositionPollingFreqHz: 0.0000001, PlanDeviationMM: 100, LinearMPerSec: 0.3, AngularDegsPerSec: 60}
+	var pollingFreq float64
+	motionCfg := &motion.MotionConfiguration{
+		PositionPollingFreqHz: &pollingFreq,
+		PlanDeviationMM:       100,
+		LinearMPerSec:         0.3,
+		AngularDegsPerSec:     60,
+	}
 
 	t.Run("Timeout", func(t *testing.T) {
 		cfg, err := config.Read(ctx, "../data/real_wheeled_base.json", logger)
