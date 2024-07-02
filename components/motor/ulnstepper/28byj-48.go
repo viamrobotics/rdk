@@ -38,7 +38,6 @@ var (
 	model                = resource.DefaultModelFamily.WithModel("28byj48")
 	minDelayBetweenTicks = 100 * time.Microsecond // minimum sleep time between each ticks
 	maxRPM               = 146.0                  // max rpm of the 28byj-48 motor from the datasheet
-	stopped              = false
 )
 
 // stepSequence contains switching signal for uln2003 pins.
