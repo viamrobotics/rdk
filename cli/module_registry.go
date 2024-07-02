@@ -698,7 +698,7 @@ func readModels(path string, logger logging.Logger) ([]ModuleComponent, error) {
 	}
 	defer func() {
 		if err := os.RemoveAll(tmpdir); err != nil {
-			logger.Warnw("failed to delete temp directory", "error", err)
+			logger.Warnw("failed to delete temp directory", "path", tmpdir, "error", err)
 		}
 	}()
 	parentAddr := tmpdir + "/parent.sock"
