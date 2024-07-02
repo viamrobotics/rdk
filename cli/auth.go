@@ -468,14 +468,14 @@ func (c *viamClient) ensureLoggedIn() error {
 	if ok && authToken.isExpired() {
 		if !authToken.canRefresh() {
 			utils.UncheckedError(c.logout())
-			return errors.New("token expired and cannot refresh")
+			return errors.New("token expired and cannot refresh, logging out. Please log in again.")
 		}
 
 		// expired.
 		newToken, err := c.authFlow.refreshToken(c.c.Context, authToken)
 		if err != nil {
 			utils.UncheckedError(c.logout()) // clear cache if failed to refresh
-			return errors.Wrapf(err, "error while refreshing token")
+			return errors.New("error while refreshing token, logging out. Please log in again.")
 		}
 
 		// write token to config.
