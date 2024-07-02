@@ -324,6 +324,7 @@ func (g *rtkI2C) receiveAndWriteI2C(ctx context.Context) {
 	}
 
 	// establish I2C connection
+	fmt.Println("opening handle on I2C address", g.addr)
 	handle, err := g.bus.OpenHandle(g.addr)
 	if err != nil {
 		g.logger.CErrorf(ctx, "can't open gps i2c %s", err)
@@ -363,6 +364,13 @@ func (g *rtkI2C) receiveAndWriteI2C(ctx context.Context) {
 		return
 	}
 
+	buffer, err := handle.Read(ctx, 1024)
+	if err != nil {
+		g.err.Set(err)
+		return
+	}
+	fmt.Printf("read %d bytes: %#v\n", len(buffer), buffer)
+
 	// create a buffer
 	buf := make([]byte, 1100)
 	n, err := g.ntripClient.Stream.Read(buf)
@@ -370,8 +378,10 @@ func (g *rtkI2C) receiveAndWriteI2C(ctx context.Context) {
 		g.err.Set(err)
 		return
 	}
+	fmt.Printf("initial stream buffer has %d bytes: %#v\n", len(buf), buf)
 
 	wI2C := movementsensor.PMTKAddChk(buf[:n])
+	fmt.Printf("wI2C has %d bytes: %#v\n", len(wI2C), wI2C)
 
 	// port still open
 	err = handle.Write(ctx, wI2C)
@@ -394,7 +404,7 @@ func (g *rtkI2C) receiveAndWriteI2C(ctx context.Context) {
 		msg, err := scanner.NextMessage()
 		if err == nil {
 			bytes := msg.Serialize()
-			fmt.Printf("writing %d bytes to handle: ->%#v<-\n", len(bytes), bytes);
+			//fmt.Printf("writing %d bytes to handle: ->%#v<-\n", len(bytes), bytes);
 			err = handle.Write(ctx, bytes)
 			if err != nil {
 				g.logger.CErrorf(ctx, "i2c handle write failed %s", err)
@@ -407,6 +417,24 @@ func (g *rtkI2C) receiveAndWriteI2C(ctx context.Context) {
 
 		// If we get here, the scanner encountered an error but is supposed to continue going. Try
 		// reconnecting to the mount point.
+
+		buffer, err := handle.Read(ctx, 1024)
+		if err != nil {
+			g.err.Set(err)
+			return
+		}
+		buffstr := string(buffer)
+		fmt.Printf("read from I2C pre-reconnecting: %d bytes: %#v\n", len(buffer), buffstr)
+		start := strings.Index(buffstr, "$")
+		end := strings.LastIndex(buffstr, "\n")
+		if (start == -1 || end == -1) {
+			fmt.Println("could not find message in I2C buffer!")
+		} else {
+			shortened := buffstr[start:end+1]
+			fmt.Printf("extracted the good part: ->%s<-\n", shortened)
+		}
+
+
 		g.logger.CDebug(ctx, "No message... reconnecting to stream...")
 		err = g.getStream(g.ntripClient.MountPoint, g.ntripClient.MaxConnectAttempts)
 		if err != nil {
