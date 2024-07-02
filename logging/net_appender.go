@@ -366,7 +366,7 @@ type remoteLogWriterGRPC struct {
 }
 
 func (w *remoteLogWriterGRPC) write(ctx context.Context, logs []*commonpb.LogEntry) error {
-	ctx, cancel := context.WithTimeout(ctx, time.Second*5)
+	ctx, cancel := context.WithTimeout(ctx, time.Second*4)
 	defer cancel()
 
 	client, err := w.getOrCreateClient(ctx)
