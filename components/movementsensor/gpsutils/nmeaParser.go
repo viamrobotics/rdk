@@ -31,6 +31,7 @@ type NmeaParser struct {
 	CompassHeading      float64 // true compass heading in degree
 	isEast              bool    // direction for magnetic variation which outputs East or West.
 	validCompassHeading bool    // true if we get course of direction instead of empty strings.
+	GGAMessage          string
 }
 
 func errInvalidFix(sentenceType, badFix, goodFix string) error {
@@ -187,6 +188,7 @@ func (g *NmeaParser) updateGGA(gga nmea.GGA) error {
 	g.SatsInUse = int(gga.NumSatellites)
 	g.HDOP = gga.HDOP
 	g.Alt = gga.Altitude
+	g.GGAMessage = gga.String()
 	return nil
 }
 

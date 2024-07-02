@@ -89,6 +89,17 @@ func (g *CachedData) ParseAndUpdate(line string) error {
 }
 
 // Position returns the position and altitide of the sensor, or an error.
+func (g *CachedData) GGA() (string, error) {
+	g.mu.RLock()
+	defer g.mu.RUnlock()
+
+	if g.nmeaData.GGAMessage == "" {
+		return "", errors.New("empty gga message, check nmea message parsing")
+	}
+	return g.nmeaData.GGAMessage, g.err.Get()
+}
+
+// Position returns the position and altitide of the sensor, or an error.
 func (g *CachedData) Position(
 	ctx context.Context, extra map[string]interface{},
 ) (*geo.Point, float64, error) {

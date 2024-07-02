@@ -417,6 +417,7 @@ func (g *rtkSerial) receiveAndWriteSerial() {
 		if g.isClosed {
 			return
 		}
+		g.logger.Error(err)
 
 		// If we get here, the scanner encountered an error but is supposed to continue going. Try
 		// reconnecting to the mount point.
