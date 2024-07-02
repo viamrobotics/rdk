@@ -38,6 +38,7 @@ var (
 	model                = resource.DefaultModelFamily.WithModel("28byj48")
 	minDelayBetweenTicks = 100 * time.Microsecond // minimum sleep time between each ticks
 	maxRPM               = 146.0                  // max rpm of the 28byj-48 motor from the datasheet
+	stopped              = false
 )
 
 // stepSequence contains switching signal for uln2003 pins.
@@ -174,6 +175,7 @@ type uln28byj struct {
 	stepPosition       int64
 	stepperDelay       time.Duration
 	targetStepPosition int64
+	lastTargetPosition int64
 }
 
 // doRun runs the motor till it reaches target step position.
@@ -187,18 +189,30 @@ func (m *uln28byj) doRun() {
 			default:
 			}
 
-			for m.stepPosition != m.targetStepPosition {
+			m.lock.Lock()
+			// if the target position hasn't changed, don't do anything
+			if m.targetStepPosition == m.lastTargetPosition {
+				m.lock.Unlock()
+				continue
+			}
+
+			// This condition cannot be locked for the duration of the loop as
+			// Stop() modifies m.targetStepPosition to interrupt the run
+			if m.stepPosition == m.targetStepPosition {
+				err := m.setPins(ctx, [4]bool{false, false, false, false})
+				m.lastTargetPosition = m.targetStepPosition
+				m.lock.Unlock()
+				if err != nil {
+					m.logger.Error(errors.Wrapf(err, "error while disabling motor (%s)", m.motorName))
+					return
+				}
+			} else {
 				err := m.doStep(ctx, m.stepPosition < m.targetStepPosition)
+				m.lock.Unlock()
 				if err != nil {
 					m.logger.Errorf("error stepping %v", err)
 					return
 				}
-			}
-
-			err := m.setPins(ctx, [4]bool{false, false, false, false})
-			if err != nil {
-				m.logger.Error(errors.Wrapf(err, "error while disabling motor (%s)", m.motorName))
-				return
 			}
 		}
 	})
