@@ -33,7 +33,6 @@ package gpsrtkpmtk
 */
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -365,9 +364,6 @@ func (g *rtkI2C) receiveAndWriteI2C(ctx context.Context) {
 	}
 
 	// create a buffer
-	w := &bytes.Buffer{}
-	r := io.TeeReader(g.ntripClient.Stream, w)
-
 	buf := make([]byte, 1100)
 	n, err := g.ntripClient.Stream.Read(buf)
 	if err != nil {
@@ -385,7 +381,7 @@ func (g *rtkI2C) receiveAndWriteI2C(ctx context.Context) {
 		return
 	}
 
-	scanner := rtcm3.NewScanner(r)
+	scanner := rtcm3.NewScanner(g.ntripClient.Stream)
 
 	for {
 		select {
@@ -395,13 +391,15 @@ func (g *rtkI2C) receiveAndWriteI2C(ctx context.Context) {
 		default:
 		}
 
-		// Calling NextMessage() reads from the scanner until a valid message is found, and returns
-		// that. We don't care about the message: we care that the scanner is able to read messages
-		// at all! So, focus on whether the scanner had errors (which indicate we need to reconnect
-		// to the mount point), and not the message itself.
-		_, err := scanner.NextMessage()
+		msg, err := scanner.NextMessage()
 		if err == nil {
-			continue // No errors: we're still connected.
+			err = handle.Write(ctx, msg.Serialize())
+			if err != nil {
+				g.logger.CErrorf(ctx, "i2c handle write failed %s", err)
+				g.err.Set(err)
+				return
+			}
+			continue // No errors: we're still connected to the caster and the I2C bus.
 		}
 
 		// If we get here, the scanner encountered an error but is supposed to continue going. Try
@@ -412,9 +410,6 @@ func (g *rtkI2C) receiveAndWriteI2C(ctx context.Context) {
 			g.err.Set(err)
 			return
 		}
-
-		w = &bytes.Buffer{}
-		r = io.TeeReader(g.ntripClient.Stream, w)
 
 		buf = make([]byte, 1100)
 		n, err := g.ntripClient.Stream.Read(buf)
@@ -432,7 +427,7 @@ func (g *rtkI2C) receiveAndWriteI2C(ctx context.Context) {
 			return
 		}
 
-		scanner = rtcm3.NewScanner(r)
+		scanner = rtcm3.NewScanner(g.ntripClient.Stream)
 	}
 }
 
