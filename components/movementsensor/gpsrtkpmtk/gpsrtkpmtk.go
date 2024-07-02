@@ -526,6 +526,7 @@ func (g *rtkI2C) receiveAndWriteI2C(ctx context.Context) {
 		if err == nil {
 			continue // No errors: we're still connected.
 		}
+		g.logger.Error(err)
 
 		// If we get here, the scanner encountered an error but is supposed to continue going. Try
 		// reconnecting to the mount point.

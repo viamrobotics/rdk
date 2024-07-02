@@ -237,7 +237,7 @@ func (n *NtripInfo) Connect(ctx context.Context, logger logging.Logger) error {
 		default:
 		}
 
-		c, err = ntrip.NewClient(n.URL, ntrip.Options{Username: n.username, Password: n.password})
+		c, err = ntrip.NewClient(n.URL, ntrip.Options{Username: n.username, Password: n.password, Timeout: 180})
 		if err == nil { // Success!
 			logger.Info("Connected to NTRIP caster")
 			n.Client = c
