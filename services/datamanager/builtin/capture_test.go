@@ -102,6 +102,7 @@ func TestDataCaptureEnabled(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
+			logger := logging.NewTestLogger(t)
 			// Set up capture directories.
 			initCaptureDir := t.TempDir()
 			updatedCaptureDir := t.TempDir()
@@ -143,7 +144,7 @@ func TestDataCaptureEnabled(t *testing.T) {
 			donePassingTime1 := passTime(passTimeCtx1, mockClock, captureInterval)
 
 			if !tc.initialServiceDisableStatus && !tc.initialCollectorDisableStatus {
-				waitForCaptureFilesToExceedNFiles(initCaptureDir, 0)
+				waitForCaptureFilesToExceedNFiles(initCaptureDir, 0, logger)
 				testFilesContainSensorData(t, initCaptureDir)
 			} else {
 				initialCaptureFiles := getAllFileInfos(initCaptureDir)
@@ -177,7 +178,7 @@ func TestDataCaptureEnabled(t *testing.T) {
 			donePassingTime2 := passTime(passTimeCtx2, mockClock, captureInterval)
 
 			if !tc.newServiceDisableStatus && !tc.newCollectorDisableStatus {
-				waitForCaptureFilesToExceedNFiles(updatedCaptureDir, 0)
+				waitForCaptureFilesToExceedNFiles(updatedCaptureDir, 0, logger)
 				testFilesContainSensorData(t, updatedCaptureDir)
 			} else {
 				updatedCaptureFiles := getAllFileInfos(updatedCaptureDir)
@@ -195,6 +196,7 @@ func TestDataCaptureEnabled(t *testing.T) {
 }
 
 func TestSwitchResource(t *testing.T) {
+	logger := logging.NewTestLogger(t)
 	captureDir := t.TempDir()
 	mockClock := clk.NewMock()
 	// Make mockClock the package level clock used by the dmsvc so that we can simulate time's passage
@@ -221,7 +223,7 @@ func TestSwitchResource(t *testing.T) {
 	passTimeCtx1, cancelPassTime1 := context.WithCancel(context.Background())
 	donePassingTime1 := passTime(passTimeCtx1, mockClock, captureInterval)
 
-	waitForCaptureFilesToExceedNFiles(captureDir, 0)
+	waitForCaptureFilesToExceedNFiles(captureDir, 0, logger)
 	testFilesContainSensorData(t, captureDir)
 
 	cancelPassTime1()
@@ -252,7 +254,7 @@ func TestSwitchResource(t *testing.T) {
 	donePassingTime2 := passTime(passTimeCtx2, mockClock, captureInterval)
 
 	// Test that sensor data is captured from the new collector.
-	waitForCaptureFilesToExceedNFiles(captureDir, len(getAllFileInfos(captureDir)))
+	waitForCaptureFilesToExceedNFiles(captureDir, len(getAllFileInfos(captureDir)), logger)
 	testFilesContainSensorData(t, captureDir)
 
 	filePaths := getAllFilePaths(captureDir)
@@ -345,7 +347,9 @@ func testFilesContainSensorData(t *testing.T, dir string) {
 
 // waitForCaptureFilesToExceedNFiles returns once `captureDir` contains more than `n` files of at
 // least `emptyFileBytesSize` bytes. This is not suitable for waiting for file deletion to happen.
-func waitForCaptureFilesToExceedNFiles(captureDir string, n int) {
+func waitForCaptureFilesToExceedNFiles(captureDir string, n int, logger logging.Logger) {
+	var diagnostics sync.Once
+	start := time.Now()
 	for {
 		files := getAllFileInfos(captureDir)
 		nonEmptyFiles := 0
@@ -363,6 +367,14 @@ func waitForCaptureFilesToExceedNFiles(captureDir string, n int) {
 		}
 
 		time.Sleep(10 * time.Millisecond)
+		if time.Since(start) > 10*time.Second {
+			diagnostics.Do(func() {
+				logger.Infow("waitForCaptureFilesToEqualNFiles diagnostics after 10 seconds of waiting", "numFiles", len(files), "expectedFiles", n)
+				for idx, file := range files {
+					logger.Infow("File information", "idx", idx, "dir", captureDir, "name", file.Name(), "size", file.Size())
+				}
+			})
+		}
 	}
 }
 

@@ -32,6 +32,7 @@ import (
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/services/datamanager"
 	"go.viam.com/rdk/services/shell"
 	"go.viam.com/rdk/spatialmath"
 	rutils "go.viam.com/rdk/utils"
@@ -69,6 +70,8 @@ func TestConfigRobot(t *testing.T) {
 	test.That(t, newBc, test.ShouldResemble, bc)
 }
 
+// TestConfig3 depends on the `datamanager` package *not* being loaded. Its `init` function
+// registers an associated API that alters `AssociatedResourceConfigs` results.
 func TestConfig3(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 
@@ -107,6 +110,7 @@ func TestConfig3(t *testing.T) {
 		MaxPowerPct:      0.5,
 		TicksPerRotation: 10000,
 	})
+
 	test.That(t, cfg.Components[2].AssociatedResourceConfigs, test.ShouldHaveLength, 1)
 	test.That(t, cfg.Components[2].AssociatedResourceConfigs[0], test.ShouldResemble, resource.AssociatedResourceConfig{
 		API: resource.APINamespaceRDK.WithServiceType("data_manager"),
@@ -114,6 +118,7 @@ func TestConfig3(t *testing.T) {
 			"hi":     1.1,
 			"friend": 2.2,
 		},
+		ConvertedAttributes: &datamanager.AssociatedConfig{},
 	})
 
 	test.That(t, cfg.Components[3].ConvertedAttributes, test.ShouldResemble, &incremental.Config{
@@ -135,7 +140,8 @@ func TestConfig3(t *testing.T) {
 			"hi":     3.3,
 			"friend": 4.4,
 		},
-		RemoteName: "rem1",
+		ConvertedAttributes: &datamanager.AssociatedConfig{},
+		RemoteName:          "rem1",
 	})
 	test.That(t, cfg.Remotes[0].AssociatedResourceConfigs[1], test.ShouldResemble, resource.AssociatedResourceConfig{
 		API: resource.APINamespaceRDK.WithServiceType("some_type"),

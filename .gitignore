@@ -43,6 +43,7 @@ coverage.xml
 profile*.pdf
 code-coverage-results.md
 metadata
+data.ndjson
 
 *~
 *#
@@ -53,7 +54,6 @@ metadata
 # act
 .secrets
 
-/data/
 out/
 .idea/*
 bin/

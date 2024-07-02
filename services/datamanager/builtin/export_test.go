@@ -14,6 +14,3 @@ func (svc *builtIn) SetSyncerConstructor(fn datasync.ManagerConstructor) {
 func (svc *builtIn) SetFileLastModifiedMillis(s int) {
 	svc.fileLastModifiedMillis = s
 }
-
-// Make getDurationFromHz global for tests.
-var GetDurationFromHz = getDurationFromHz
