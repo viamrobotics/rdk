@@ -30,7 +30,6 @@ import (
 
 	"go.viam.com/rdk/cloud"
 	"go.viam.com/rdk/components/arm"
-	"go.viam.com/rdk/components/arm/fake"
 	fakearm "go.viam.com/rdk/components/arm/fake"
 	"go.viam.com/rdk/components/base"
 	fakebase "go.viam.com/rdk/components/base/fake"
@@ -1601,7 +1600,7 @@ func TestRemoteConnClosedOnReconfigure(t *testing.T) {
 		Name:                "arm",
 		Model:               resource.DefaultModelFamily.WithModel("fake"),
 		API:                 arm.API,
-		ConvertedAttributes: &fake.Config{},
+		ConvertedAttributes: &fakearm.Config{},
 	}
 
 	remoteCfg1 := &config.Config{

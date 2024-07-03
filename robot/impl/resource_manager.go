@@ -836,11 +836,13 @@ func (manager *resourceManager) processRemote(
 	config config.Remote,
 	gNode *resource.GraphNode,
 ) (*client.RobotClient, error) {
-
 	// if there was an existing client (i.e. remote was modified), close old client before making a new one
 	res, err := gNode.Resource()
 	if err == nil {
-		res.Close(ctx)
+		err = res.Close(ctx)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	dialOpts := remoteDialOptions(config, manager.opts)
