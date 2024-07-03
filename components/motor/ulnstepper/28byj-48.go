@@ -14,7 +14,7 @@ package uln28byj
 	stepSequence below. The motor takes 5.625*(1/64)° per step. For 360° the motor will take 4096 steps.
 
     The motor can run at a max speed of ~146rpm. Though it is recommended to not run the motor at max speed as it can
-	damage the gears.
+	damage the gears. The max rpm of the motor shaft after gear reduction is ~15rpm.
 */
 
 import (
@@ -37,7 +37,7 @@ import (
 var (
 	model                = resource.DefaultModelFamily.WithModel("28byj48")
 	minDelayBetweenTicks = 100 * time.Microsecond // minimum sleep time between each ticks
-	maxRPM               = 146.0                  // max rpm of the 28byj-48 motor from the datasheet
+	maxRPM               = 15.0                   // max rpm of the 28byj-48 motor after gear reduction
 )
 
 // stepSequence contains switching signal for uln2003 pins.
@@ -277,7 +277,22 @@ func (m *uln28byj) GoFor(ctx context.Context, rpm, revolutions float64, extra ma
 	m.targetStepPosition, m.stepperDelay = m.goMath(rpm, revolutions)
 	m.lock.Unlock()
 
-	return m.opMgr.WaitTillNotPowered(ctx, 10*time.Millisecond, m, m.Stop)
+	positionReached := func(ctx context.Context) (bool, error) {
+		return m.targetStepPosition == m.stepPosition, nil
+	}
+
+	err = m.opMgr.WaitForSuccess(
+		ctx,
+		m.stepperDelay,
+		positionReached,
+	)
+	// Ignore the context canceled error - this occurs when the motor is stopped
+	// at the beginning of goForInternal
+	if !errors.Is(err, context.Canceled) {
+		return err
+	}
+
+	return nil
 }
 
 func (m *uln28byj) goMath(rpm, revolutions float64) (int64, time.Duration) {
@@ -327,24 +342,8 @@ func (m *uln28byj) GoTo(ctx context.Context, rpm, positionRevolutions float64, e
 
 // SetRPM instructs the motor to move at the specified RPM indefinitely.
 func (m *uln28byj) SetRPM(ctx context.Context, rpm float64, extra map[string]interface{}) error {
-	ctx, done := m.opMgr.New(ctx)
-	defer done()
-
-	warning, err := motor.CheckSpeed(rpm, maxRPM)
-	if warning != "" {
-		m.logger.CWarn(ctx, warning)
-		if err != nil {
-			m.logger.CError(ctx, err)
-		}
-		return m.Stop(ctx, extra)
-	}
-
-	m.lock.Lock()
-	m.targetStepPosition = int64(math.Inf(int(rpm)))
-	m.stepperDelay = m.calcStepperDelay(rpm)
-	m.lock.Unlock()
-
-	return nil
+	powerPct := rpm / maxRPM
+	return m.SetPower(ctx, powerPct, extra)
 }
 
 // Set the current position (+/- offset) to be the new zero (home) position.
