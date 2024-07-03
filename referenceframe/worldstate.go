@@ -121,7 +121,7 @@ func (ws *WorldState) String() string {
 			})
 		}
 	}
-	return t.Render()
+	return "\n" + t.Render()
 }
 
 // ObstacleNames returns the set of geometry names that have been registered in the WorldState, represented as a map.
