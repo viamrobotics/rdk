@@ -407,7 +407,9 @@ var grpcConnectionTimeout = 10 * time.Second
 func (svc *builtIn) initSyncer(ctx context.Context) error {
 	ctx, cancel := context.WithTimeout(ctx, grpcConnectionTimeout)
 	defer cancel()
-	identity, conn, err := svc.cloudConnSvc.AcquireConnection(ctx)
+	timeoutCtx, timeoutFn := context.WithTimeout(ctx, time.Second)
+	defer timeoutFn()
+	identity, conn, err := svc.cloudConnSvc.AcquireConnection(timeoutCtx)
 	if errors.Is(err, cloud.ErrNotCloudManaged) {
 		svc.logger.CDebug(ctx, "Using no-op sync manager when not cloud managed")
 		svc.syncer = datasync.NewNoopManager()
@@ -454,6 +456,8 @@ func (svc *builtIn) Reconfigure(
 	deps resource.Dependencies,
 	conf resource.Config,
 ) error {
+	g := utils.NewGuard(func() { goutils.UncheckedError(svc.Close(ctx)) })
+	defer g.OnFail()
 	svc.lock.Lock()
 	defer svc.lock.Unlock()
 	svcConfig, err := resource.NativeConfig[*Config](conf)
@@ -655,6 +659,7 @@ func (svc *builtIn) Reconfigure(
 			svc.captureDir, deleteEveryNthValue, svc.syncer, svc.logger)
 	}
 
+	g.Success()
 	return nil
 }
 
@@ -727,7 +732,7 @@ func (svc *builtIn) uploadData(cancelCtx context.Context, intervalMins float64) 
 }
 
 func isOffline() bool {
-	timeout := 5 * time.Second
+	timeout := time.Second
 	_, err := net.DialTimeout("tcp", "app.viam.com:443", timeout)
 	// If there's an error, the system is likely offline.
 	return err != nil
