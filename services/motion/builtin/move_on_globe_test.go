@@ -314,7 +314,7 @@ func TestObstacleReplanningGlobe(t *testing.T) {
 				// Note: for CreateMoveOnGlobeTestEnvironment, the camera is given an orientation such that it is pointing left, not
 				// forwards. Thus, an obstacle in front of the base will be seen as being in +X.
 				obstaclePosition := spatialmath.NewPoseFromPoint(r3.Vector{X: 300, Y: 0, Z: 0})
-				box, err := spatialmath.NewBox(obstaclePosition, r3.Vector{X: 20, Y: 20, Z: 10}, caseName)
+				box, err := spatialmath.NewBox(obstaclePosition, r3.Vector{X: 40, Y: 40, Z: 10}, caseName)
 				test.That(t, err, test.ShouldBeNil)
 
 				detection, err := viz.NewObjectWithLabel(pointcloud.New(), caseName+"-detection", box.ToProtobuf())
@@ -362,7 +362,7 @@ func TestObstacleReplanningGlobe(t *testing.T) {
 			ctx,
 			t,
 			gpsOrigin,
-			1,
+			2,
 			nil,
 		)
 		defer closeFunc(ctx)

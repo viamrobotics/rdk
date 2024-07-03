@@ -155,6 +155,8 @@ func checkPlanRelative(
 	); err != nil {
 		return err
 	}
+	// change from 60mm to 30mm so we have finer interpolation along segments
+	sfPlanner.planOpts.Resolution = 30
 
 	currentInputs := executionState.CurrentInputs()
 	wayPointIdx := executionState.Index()
