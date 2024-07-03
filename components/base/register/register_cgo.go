@@ -1,8 +1,9 @@
+//go:build !no_cgo
+
 // Package register registers all relevant bases
 package register
 
 import (
 	// register bases.
-	_ "go.viam.com/rdk/components/base/fake"
-	_ "go.viam.com/rdk/components/base/wheeled"
+	_ "go.viam.com/rdk/components/base/sensorcontrolled"
 )
