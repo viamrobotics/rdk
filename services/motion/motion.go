@@ -195,26 +195,26 @@ type PlanWithStatus struct {
 //	// Assumes a gripper configured with name "my_gripper" on the machine
 //	gripperName := gripper.Named("my_gripper")
 //
-//	// Add a table obstacle to a WorldState
-//	obstacles := []spatialmath.Geometry{
-//		spatialmath.NewBox(
-//			spatialmath.NewPose(r3.Vector{X: 0.0, Y: 0.0, Z: -19.0}, &spatialmath.OrientationVectorDegrees{0X: 0.0, 0Y: 0.0, 0Z: 1.0, Theta: 0.0}),
-//			r3.Vector{X: 2000.0, Y: 2000.0, Z: 38.0},
-//			"table",
-//		),
-//	}
+//	// Define destination
+//	destination := referenceframe.NewPoseInFrame("world", spatialmath.NewPoseFromPoint(r3.Vector{X: 0.1, Y: 0.0, Z: 0.0})) // 10 cm in X direction
 //
-//	// Create a WorldState that has geometries included
-//	worldState := &referenceframe.WorldState{
-//		Obstacles: []*referenceframe.GeometriesInFrame{
-//			referenceframe.NewGeometriesInFrame(referenceframe.World, obstacles),
-//		},
-//	}
+//	// Create obstacles
+//	boxPose := spatialmath.NewPoseFromPoint(r3.Vector{X: 0.0, Y: 0.0, Z: 0.0})
+//	boxDims := r3.Vector{X: 0.2, Y: 0.2, Z: 0.2} // 20cm x 20cm x 20cm box
+//	obstacle, _ := spatialmath.NewBox(boxPose, boxDims, "obstacle_1")
 //
-//	goalPose := referenceframe.NewPoseInFrame("my_gripper", spatialmath.NewPoseFromPoint(r3.Vector{X:-3, Y:0.5}))
+//	geometryInFrame := referenceframe.NewGeometriesInFrame("base", []spatialmath.Geometry{obstacle})
+//	obstacles := []*referenceframe.GeometriesInFrame{geometryInFrame}
 //
-//	// Move the gripper
-//	moved, err := motionService.Move(context.Background(), gripperName, goalPose, worldState, nil, nil)
+//	// Create transforms
+//	transform := referenceframe.NewLinkInFrame("gripper", spatialmath.NewPoseFromPoint(r3.Vector{X: 0.1, Y: 0.0, Z: 0.1}), "transform_1", nil)
+//	transforms := []*referenceframe.LinkInFrame{transform}
+//
+//	// Create a WorldState
+//	worldState, err := referenceframe.NewWorldState(obstacles, transforms)
+//
+//	// Move gripper component
+//	moved, err := motionService.Move(context.Background(), gripperName, destination, worldState, nil, nil)
 //
 // MoveOnMap example:
 //
