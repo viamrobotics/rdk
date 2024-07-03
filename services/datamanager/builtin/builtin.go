@@ -402,14 +402,12 @@ func (svc *builtIn) closeSyncer() {
 	}
 }
 
-var grpcConnectionTimeout = 10 * time.Second
+var grpcConnectionTimeout = time.Second
 
 func (svc *builtIn) initSyncer(ctx context.Context) error {
 	ctx, cancel := context.WithTimeout(ctx, grpcConnectionTimeout)
 	defer cancel()
-	timeoutCtx, timeoutFn := context.WithTimeout(ctx, time.Second)
-	defer timeoutFn()
-	identity, conn, err := svc.cloudConnSvc.AcquireConnection(timeoutCtx)
+	identity, conn, err := svc.cloudConnSvc.AcquireConnection(ctx)
 	if errors.Is(err, cloud.ErrNotCloudManaged) {
 		svc.logger.CDebug(ctx, "Using no-op sync manager when not cloud managed")
 		svc.syncer = datasync.NewNoopManager()
