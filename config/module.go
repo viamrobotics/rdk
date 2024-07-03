@@ -202,7 +202,8 @@ func (m Module) EvaluateExePath(packagesDir string) (string, error) {
 		}
 		meta, err := parseJSONFile[JSONManifest](metaPath)
 		if err != nil {
-			return "", errors.Wrap(err, "loading side-by-side meta.json")
+			// note: this error deprecates the side-by-side case because the side-by-side case is deprecated.
+			return "", errors.Wrapf(err, "couldn't find meta.json inside tarball %s (or next to it)", m.ExePath)
 		}
 		entrypoint, err := utils.SafeJoinDir(exeDir, meta.Entrypoint)
 		if err != nil {

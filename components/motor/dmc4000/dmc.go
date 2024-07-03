@@ -456,9 +456,6 @@ func (m *Motor) SetPower(ctx context.Context, powerPct float64, extra map[string
 		m.logger.CError(ctx, err)
 		return m.Stop(ctx, extra)
 	}
-	if strings.Contains(warning, "nearly 0 rev_per_min") {
-		return m.Stop(ctx, extra)
-	}
 
 	m.powerPct = powerPct
 	return m.Jog(ctx, powerPct*m.maxRPM)
@@ -559,7 +556,16 @@ func (m *Motor) GoTo(ctx context.Context, rpm, position float64, extra map[strin
 
 // SetRPM instructs the motor to move at the specified RPM indefinitely.
 func (m *Motor) SetRPM(ctx context.Context, rpm float64, extra map[string]interface{}) error {
-	return motor.NewSetRPMUnsupportedError(m.Name().ShortName())
+	warning, err := motor.CheckSpeed(rpm, m.maxRPM)
+	if warning != "" {
+		m.logger.CWarn(ctx, warning)
+	}
+	if err != nil {
+		m.logger.CError(ctx, err)
+		return m.Stop(ctx, extra)
+	}
+
+	return m.Jog(ctx, rpm)
 }
 
 // ResetZeroPosition defines the current position to be zero (+/- offset).

@@ -538,7 +538,13 @@ func (c *viamClient) prepareDial(
 	if err != nil {
 		return nil, "", nil, err
 	}
+	return c.prepareDialInner(part.Fqdn, debug)
+}
 
+func (c *viamClient) prepareDialInner(
+	partFqdn string,
+	debug bool,
+) (context.Context, string, []rpc.DialOption, error) {
 	rpcDialer := rpc.NewCachedDialer()
 	defer func() {
 		utils.UncheckedError(rpcDialer.Close())
@@ -549,13 +555,13 @@ func (c *viamClient) prepareDial(
 	if err != nil {
 		return nil, "", nil, err
 	}
-	rpcOpts = append(rpcOpts, rpc.WithExternalAuth(c.baseURL.Host, part.Fqdn))
+	rpcOpts = append(rpcOpts, rpc.WithExternalAuth(c.baseURL.Host, partFqdn))
 
 	if debug {
 		rpcOpts = append(rpcOpts, rpc.WithDialDebug())
 	}
 
-	return dialCtx, part.Fqdn, rpcOpts, nil
+	return dialCtx, partFqdn, rpcOpts, nil
 }
 
 func (t *token) isExpired() bool {

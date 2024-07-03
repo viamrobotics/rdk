@@ -11,6 +11,7 @@ import (
 	servicepb "go.viam.com/api/service/vision/v1"
 
 	"go.viam.com/rdk/components/camera"
+	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	viz "go.viam.com/rdk/vision"
@@ -27,6 +28,10 @@ func init() {
 		RPCServiceDesc:              &servicepb.VisionService_ServiceDesc,
 		RPCClient:                   NewClientFromConn,
 	})
+	data.RegisterCollector(data.MethodMetadata{
+		API:        API,
+		MethodName: captureAllFromCamera.String(),
+	}, newCaptureAllFromCameraCollector)
 }
 
 // A Service that implements various computer vision algorithms like detection and segmentation.
@@ -342,10 +347,10 @@ func (vm *vizModel) CaptureAllFromCamera(
 		return viscapture.VisCapture{}, errors.Wrapf(err, "could not get image from %s", cameraName)
 	}
 	defer release()
+	logger := vm.r.Logger()
 	var detections []objectdetection.Detection
 	if opt.ReturnDetections {
 		if !vm.properties.DetectionSupported {
-			logger := vm.r.Logger()
 			logger.Debugf("detections requested but vision model %q does not implement a Detector", vm.Named.Name())
 		} else {
 			detections, err = vm.Detections(ctx, img, extra)
@@ -356,8 +361,8 @@ func (vm *vizModel) CaptureAllFromCamera(
 	}
 	var classifications classification.Classifications
 	if opt.ReturnClassifications {
+		logger := vm.r.Logger()
 		if !vm.properties.ClassificationSupported {
-			logger := vm.r.Logger()
 			logger.Debugf("classifications requested in CaptureAll but vision model %q does not implement a Classifier",
 				vm.Named.Name())
 		} else {

@@ -22,9 +22,8 @@ import (
 )
 
 const (
-	updateStepSeconds = 0.35 // Update CurrentInputs and check deviation every this many seconds.
-	lookaheadDistMult = 2.   // Look ahead distance for path correction will be this times the turning radius
-	goalsToAttempt    = 10   // Divide the lookahead distance into this many discrete goals to attempt to correct towards.
+	lookaheadDistMult = 3  // Look ahead distance for path correction will be this times the turning radius
+	goalsToAttempt    = 10 // Divide the lookahead distance into this many discrete goals to attempt to correct towards.
 
 	// Before post-processing trajectory will have velocities every this many mm (or degs if spinning in place).
 	stepDistResolution = 1.
@@ -33,6 +32,7 @@ const (
 	// inputUpdateStepSeconds, and will correct if deviation is larger than this percent of that amount.
 	minDeviationToCorrectPct = 50.
 	microsecondsPerSecond    = 1e6
+	courseCorrectionMaxScore = 50. // Course correction solutions must score better than this
 )
 
 type arcStep struct {
@@ -104,6 +104,7 @@ func (ptgk *ptgBaseKinematics) GoToInputs(ctx context.Context, inputSteps ...[]r
 	ptgk.inputLock.Lock()
 	ptgk.currentState.currentExecutingSteps = arcSteps
 	ptgk.inputLock.Unlock()
+	updateDuration := ptgk.opts.UpdateStepSeconds
 
 	for i := 0; i < len(arcSteps); i++ {
 		if ctx.Err() != nil {
@@ -117,7 +118,7 @@ func (ptgk *ptgBaseKinematics) GoToInputs(ctx context.Context, inputSteps ...[]r
 
 		ptgk.logger.Debugf("step, i %d \n %s", i, step.String())
 
-		err := ptgk.Base.SetVelocity(
+		err = ptgk.Base.SetVelocity(
 			ctx,
 			step.linVelMMps,
 			step.angVelDegps,
@@ -126,25 +127,30 @@ func (ptgk *ptgBaseKinematics) GoToInputs(ctx context.Context, inputSteps ...[]r
 		if err != nil {
 			return tryStop(err)
 		}
+
 		arcStartTime := time.Now()
 		// Now we are moving. We need to do several things simultaneously:
 		// - move until we think we have finished the arc, then move on to the next step
 		// - update our CurrentInputs tracking where we are through the arc
 		// - Check where we are relative to where we think we are, and tweak velocities accordingly
+		stepDuration := time.Duration(step.durationSeconds*1000) * time.Millisecond
 
 		// Check if this arc is shorter than our typical check time; if so just run that and do not course correct.
-		if step.durationSeconds < updateStepSeconds {
-			utils.SelectContextOrWait(ctx, (time.Duration(step.durationSeconds*1000) * time.Millisecond))
+		if step.durationSeconds < updateDuration {
+			utils.SelectContextOrWait(ctx, stepDuration)
 			if ctx.Err() != nil {
 				return tryStop(ctx.Err())
 			}
+			ptgk.logger.Debugf("step %d done", i)
 			continue
 		}
+		courseCorrected := false // used to distinguish between a break due to course correction, or running out the loop
 
-		for timeElapsedSeconds := updateStepSeconds; timeElapsedSeconds <= step.durationSeconds; timeElapsedSeconds += updateStepSeconds {
+		for timeElapsedSeconds := updateDuration; timeElapsedSeconds <= step.durationSeconds; timeElapsedSeconds += updateDuration {
 			if ctx.Err() != nil {
 				return ctx.Err()
 			}
+
 			// Account for 1) timeElapsedSeconds being inputUpdateStepSeconds ahead of actual elapsed time, and the fact that the loop takes
 			// nonzero time to run especially when using the localizer.
 			actualTimeElapsed := time.Since(arcStartTime)
@@ -187,10 +193,18 @@ func (ptgk *ptgBaseKinematics) GoToInputs(ctx context.Context, inputSteps ...[]r
 					ptgk.currentState.currentExecutingSteps = newArcSteps
 					ptgk.inputLock.Unlock()
 					arcSteps = newArcSteps
+					courseCorrected = true
 					break
 				}
 			}
 		}
+		if time.Since(arcStartTime) < stepDuration && !courseCorrected {
+			utils.SelectContextOrWait(ctx, stepDuration-time.Since(arcStartTime))
+			if ctx.Err() != nil {
+				return tryStop(ctx.Err())
+			}
+		}
+		ptgk.logger.Debugf("step %d done", i)
 	}
 	return tryStop(nil)
 }
@@ -256,6 +270,15 @@ func (ptgk *ptgBaseKinematics) trajectoryArcSteps(
 		nextStep.subTraj = append(nextStep.subTraj, trajPt)
 		nextLinVel := r3.Vector{0, trajPt.LinVel * ptgk.linVelocityMMPerSecond, 0}
 		nextAngVel := r3.Vector{0, 0, trajPt.AngVel * ptgk.angVelocityDegsPerSecond}
+
+		distIncrement := trajPt.Dist - curDist
+
+		curDist += distIncrement
+		if lastLinVel.Y != 0 {
+			timeStep += math.Abs(distIncrement / (math.Abs(lastLinVel.Y)))
+		} else if lastAngVel.Z != 0 {
+			timeStep += math.Abs(distIncrement / (math.Abs(lastAngVel.Z)))
+		}
 		// Check if this traj node has different velocities from the last one. If so, end our segment and start a new segment.
 		if nextStep.linVelMMps.Sub(nextLinVel).Norm2() > 1e-6 || nextStep.angVelDegps.Sub(nextAngVel).Norm2() > 1e-6 {
 			// Changed velocity, make a new step
@@ -296,13 +319,8 @@ func (ptgk *ptgBaseKinematics) trajectoryArcSteps(
 			}
 			timeStep = 0.
 		}
-		distIncrement := trajPt.Dist - curDist
-		curDist = trajPt.Dist
-		if nextStep.linVelMMps.Y != 0 {
-			timeStep += distIncrement / (math.Abs(nextStep.linVelMMps.Y))
-		} else if nextStep.angVelDegps.Z != 0 {
-			timeStep += distIncrement / (math.Abs(nextStep.angVelDegps.Z))
-		}
+		lastLinVel = nextLinVel
+		lastAngVel = nextAngVel
 	}
 	nextStep.durationSeconds = timeStep
 	finalInputs := []referenceframe.Input{
@@ -347,16 +365,15 @@ func (ptgk *ptgBaseKinematics) courseCorrect(
 	// This is where actually are on the trajectory
 	poseDiff := spatialmath.PoseBetween(actualPose.Pose(), expectedPose)
 
-	allowableDiff := ptgk.linVelocityMMPerSecond * updateStepSeconds * (minDeviationToCorrectPct / 100)
+	allowableDiff := ptgk.linVelocityMMPerSecond * ptgk.opts.UpdateStepSeconds * (minDeviationToCorrectPct / 100)
 	ptgk.logger.Debug(
 		"allowable diff ", allowableDiff,
 		" linear diff now ", poseDiff.Point().Norm(),
 		" angle diff ", rdkutils.RadToDeg(poseDiff.Orientation().AxisAngles().Theta),
 	)
-
+	ptgk.logger.Debug("expected to be at ", spatialmath.PoseToProtobuf(expectedPose))
+	ptgk.logger.Debug("Localizer says at ", spatialmath.PoseToProtobuf(actualPose.Pose()))
 	if poseDiff.Point().Norm() > allowableDiff || rdkutils.RadToDeg(poseDiff.Orientation().AxisAngles().Theta) > allowableDiff {
-		ptgk.logger.Debug("expected to be at ", spatialmath.PoseToProtobuf(expectedPose))
-		ptgk.logger.Debug("Localizer says at ", spatialmath.PoseToProtobuf(actualPose.Pose()))
 		// Accumulate list of points along the path to try to connect to
 		goals := ptgk.makeCourseCorrectionGoals(
 			goalsToAttempt,
@@ -406,7 +423,8 @@ func (ptgk *ptgBaseKinematics) courseCorrect(
 
 			// Use distances to calculate the % completion of the arc, used to update the time remaining.
 			// We can't use step.durationSeconds because we might connect to a different arc than we're currently in.
-			pctTrajRemaining := (connectionPoint.subTraj[len(connectionPoint.subTraj)-1].Dist -
+			// This is valid because each individual arcstep is guaranteed to have constant velocities across the whole step.
+			pctTrajRemaining := math.Abs(connectionPoint.subTraj[len(connectionPoint.subTraj)-1].Dist-
 				connectionPoint.subTraj[solution.trajIdx].Dist) / arcOriginalLength
 
 			// TODO (RSDK-7515) Start value rewriting here is somewhat complicated. Imagine the old trajectory was [0, 200] and we
@@ -415,6 +433,19 @@ func (ptgk *ptgBaseKinematics) courseCorrect(
 			// Now, the new start configuration should be [-160, -160] and the new end configuration should be [0, -160]. RSDK-7515 will
 			// simplify this significantly.
 			startVal := connectionPoint.subTraj[solution.trajIdx].Dist
+
+			// We need to know the point along the segment where we are expecting to reconnect
+			skippedSegment := []referenceframe.Input{
+				connectionPoint.arcSegment.EndConfiguration[ptgIndex],
+				connectionPoint.arcSegment.EndConfiguration[trajectoryAlphaWithinPTG],
+				connectionPoint.arcSegment.EndConfiguration[startDistanceAlongTrajectoryIndex],
+				{startVal},
+			}
+			skippedPose, err := ptgk.Kinematics().Transform(skippedSegment)
+			if err != nil {
+				return nil, err
+			}
+
 			isReverse := connectionPoint.arcSegment.EndConfiguration[endDistanceAlongTrajectoryIndex].Value < 0
 			if isReverse {
 				startVal += connectionPoint.arcSegment.EndConfiguration[endDistanceAlongTrajectoryIndex].Value
@@ -427,8 +458,10 @@ func (ptgk *ptgBaseKinematics) courseCorrect(
 			} else {
 				connectionPoint.arcSegment.EndConfiguration[startDistanceAlongTrajectoryIndex].Value = startVal
 			}
-			// The start position should be where the connection connected
-			connectionPoint.arcSegment.StartPosition = correctiveArcSteps[len(correctiveArcSteps)-1].arcSegment.EndPosition
+			// The start position should be where the connection tried to get to.
+			// This needs to be the Goal, as that is the point along the original path, not the solved point, which is just somewhere near
+			// that based on courseCorrectionMaxScore.
+			connectionPoint.arcSegment.StartPosition = spatialmath.Compose(connectionPoint.arcSegment.StartPosition, skippedPose)
 
 			connectionPoint.durationSeconds *= pctTrajRemaining
 			connectionPoint.subTraj = connectionPoint.subTraj[solution.trajIdx:]
@@ -452,7 +485,7 @@ func (ptgk *ptgBaseKinematics) courseCorrect(
 
 func (ptgk *ptgBaseKinematics) getCorrectionSolution(ctx context.Context, goals []courseCorrectionGoal) (courseCorrectionGoal, error) {
 	for _, goal := range goals {
-		solveMetric := ik.NewSquaredNormMetric(goal.Goal)
+		solveMetric := ik.NewScaledSquaredNormMetric(goal.Goal, 50)
 		solutionChan := make(chan *ik.Solution, 1)
 		ptgk.logger.Debug("attempting goal ", spatialmath.PoseToProtobuf(goal.Goal))
 		seed := []referenceframe.Input{{math.Pi / 2}, {ptgk.linVelocityMMPerSecond / 2}, {math.Pi / 2}, {ptgk.linVelocityMMPerSecond / 2}}
@@ -479,7 +512,7 @@ func (ptgk *ptgBaseKinematics) getCorrectionSolution(ctx context.Context, goals 
 		default:
 		}
 		ptgk.logger.Debug("solution ", solution)
-		if solution.Score < 100. {
+		if solution.Score < courseCorrectionMaxScore {
 			goal.Solution = solution.Configuration
 			return goal, nil
 		}
@@ -496,7 +529,7 @@ func (ptgk *ptgBaseKinematics) makeCourseCorrectionGoals(
 	currentInputs []referenceframe.Input,
 ) []courseCorrectionGoal {
 	goals := []courseCorrectionGoal{}
-	currDist := currentInputs[startDistanceAlongTrajectoryIndex].Value
+	currDist := currentInputs[endDistanceAlongTrajectoryIndex].Value
 	stepsPerGoal := int((ptgk.nonzeroBaseTurningRadiusMeters*lookaheadDistMult*1000)/stepDistResolution) / nGoals
 
 	if stepsPerGoal < 1 {
@@ -535,6 +568,7 @@ func (ptgk *ptgBaseKinematics) makeCourseCorrectionGoals(
 				steps[i].arcSegment.StartConfiguration[startDistanceAlongTrajectoryIndex],
 				{steps[i].subTraj[goalTrajPtIdx].Dist},
 			}
+
 			arcPose, err := ptgk.Kinematics().Transform(arcTrajInputs)
 			if err != nil {
 				return []courseCorrectionGoal{}
