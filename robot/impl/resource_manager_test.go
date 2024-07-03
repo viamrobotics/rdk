@@ -1698,7 +1698,7 @@ func TestRemoteConnClosedOnReconfigure(t *testing.T) {
 		mainCfgCopy2.Remotes[0].Address = addr1
 		mainRobot.Reconfigure(context.Background(), &mainCfgCopy2)
 
-		// Check that we were able to grab the arm from remote1 through the main robot and successfully call IsPowered()
+		// Check that we were able to grab the arm from remote1 through the main robot and successfully call IsMoving()
 		remoteFromMain, ok := mainRobot.RemoteByName("remote")
 		test.That(t, ok, test.ShouldBeTrue)
 
