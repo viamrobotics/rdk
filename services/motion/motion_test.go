@@ -759,8 +759,8 @@ func TestConfiguration(t *testing.T) {
 					LinearMPerSec:         linearMPerSec,
 					AngularDegsPerSec:     angularDegsPerSec,
 					PlanDeviationMM:       planDeviationMM,
-					PositionPollingFreqHz: positionPollingFreqHz,
-					ObstaclePollingFreqHz: obstaclePollingFreqHz,
+					PositionPollingFreqHz: &positionPollingFreqHz,
+					ObstaclePollingFreqHz: &obstaclePollingFreqHz,
 				},
 			},
 		}
@@ -801,8 +801,8 @@ func TestConfiguration(t *testing.T) {
 					LinearMPerSec:         linearMPerSec,
 					AngularDegsPerSec:     angularDegsPerSec,
 					PlanDeviationMM:       planDeviationMM,
-					PositionPollingFreqHz: positionPollingFreqHz,
-					ObstaclePollingFreqHz: obstaclePollingFreqHz,
+					PositionPollingFreqHz: &positionPollingFreqHz,
+					ObstaclePollingFreqHz: &obstaclePollingFreqHz,
 				},
 				result: &pb.MotionConfiguration{
 					ObstacleDetectors:          obstacleDetectorsPB,
@@ -827,29 +827,6 @@ func TestConfiguration(t *testing.T) {
 func TestMoveOnGlobeReq(t *testing.T) {
 	name := "somename"
 	dst := geo.NewPoint(1, 2)
-
-	t.Run("String()", func(t *testing.T) {
-		s := "motion.MoveOnGlobeReq{ComponentName: " +
-			"rdk:component:base/my-base, Destination: " +
-			"&{lat:1 lng:2}, Heading: 0.500000, MovementSensorName: " +
-			"rdk:component:movement_sensor/my-movementsensor, " +
-			"Obstacles: [], BoundingRegions: [], MotionCfg: &motion.MotionConfiguration{" +
-			"ObstacleDetectors:[]motion.ObstacleDetectorName{" +
-			"motion.ObstacleDetectorName{VisionServiceName:resource.Name{" +
-			"API:resource.API{Type:resource.APIType{Namespace:\"rdk\", Name:\"service\"}, " +
-			"SubtypeName:\"vision\"}, Remote:\"\", Name:\"vision service 1\"}, " +
-			"CameraName:resource.Name{API:resource.API{Type:resource.APIType{" +
-			"Namespace:\"rdk\", Name:\"component\"}, SubtypeName:\"camera\"}, " +
-			"Remote:\"\", Name:\"camera 1\"}}, motion.ObstacleDetectorName{" +
-			"VisionServiceName:resource.Name{API:resource.API{Type:resource.APIType{" +
-			"Namespace:\"rdk\", Name:\"service\"}, SubtypeName:\"vision\"}, " +
-			"Remote:\"\", Name:\"vision service 2\"}, CameraName:resource.Name{" +
-			"API:resource.API{Type:resource.APIType{Namespace:\"rdk\", " +
-			"Name:\"component\"}, SubtypeName:\"camera\"}, Remote:\"\", " +
-			"Name:\"camera 2\"}}}, PositionPollingFreqHz:4, ObstaclePollingFreqHz:5, " +
-			"PlanDeviationMM:3, LinearMPerSec:1, AngularDegsPerSec:2}, Extra: map[]}"
-		test.That(t, validMoveOnGlobeRequest().String(), test.ShouldResemble, s)
-	})
 
 	t.Run("toProto", func(t *testing.T) {
 		t.Run("error due to nil destination", func(t *testing.T) {
@@ -1052,8 +1029,8 @@ func TestMoveOnGlobeReq(t *testing.T) {
 						LinearMPerSec:         linearMPerSec,
 						AngularDegsPerSec:     angularDegsPerSec,
 						PlanDeviationMM:       planDeviationMM,
-						PositionPollingFreqHz: positionPollingFreqHz,
-						ObstaclePollingFreqHz: obstaclePollingFreqHz,
+						PositionPollingFreqHz: &positionPollingFreqHz,
+						ObstaclePollingFreqHz: &obstaclePollingFreqHz,
 					},
 					Extra: map[string]interface{}{},
 				},
@@ -1100,13 +1077,14 @@ func TestMoveOnMapReq(t *testing.T) {
 	}
 	myBase := base.Named("mybase")
 	mySlam := slam.Named(("mySlam"))
+	pollingFreq := 5.
 	motionCfg := &MotionConfiguration{
 		ObstacleDetectors:     obstacleDetectors,
 		LinearMPerSec:         1,
 		AngularDegsPerSec:     2,
 		PlanDeviationMM:       3,
-		PositionPollingFreqHz: 4,
-		ObstaclePollingFreqHz: 5,
+		PositionPollingFreqHz: &pollingFreq,
+		ObstaclePollingFreqHz: &pollingFreq,
 	}
 
 	validMoveOnMapReq := MoveOnMapReq{
@@ -1277,16 +1255,9 @@ func TestMoveOnMapReq(t *testing.T) {
 					ComponentName: myBase,
 					Destination:   spatialmath.NewPoseFromPoint(r3.Vector{2700, 0, 0}),
 					SlamName:      mySlam,
-					MotionCfg: &MotionConfiguration{
-						ObstacleDetectors:     []ObstacleDetectorName{},
-						PositionPollingFreqHz: 0,
-						ObstaclePollingFreqHz: 0,
-						PlanDeviationMM:       0,
-						LinearMPerSec:         0,
-						AngularDegsPerSec:     0,
-					},
-					Obstacles: []spatialmath.Geometry{},
-					Extra:     map[string]interface{}{},
+					MotionCfg:     &MotionConfiguration{ObstacleDetectors: []ObstacleDetectorName{}},
+					Obstacles:     []spatialmath.Geometry{},
+					Extra:         map[string]interface{}{},
 				},
 				err: nil,
 			},
@@ -1296,22 +1267,17 @@ func TestMoveOnMapReq(t *testing.T) {
 					Destination:     spatialmath.PoseToProtobuf(spatialmath.NewPoseFromPoint(r3.Vector{2700, 0, 0})),
 					ComponentName:   rprotoutils.ResourceNameToProto(myBase),
 					SlamServiceName: rprotoutils.ResourceNameToProto(mySlam),
-					Obstacles:       spatialmath.NewGeometriesToProto([]spatialmath.Geometry{spatialmath.NewPoint(r3.Vector{2, 2, 2}, "pt")}),
+					Obstacles: spatialmath.NewGeometriesToProto(
+						[]spatialmath.Geometry{spatialmath.NewPoint(r3.Vector{X: 2, Y: 2, Z: 2}, "pt")},
+					),
 				},
 				result: MoveOnMapReq{
 					ComponentName: myBase,
 					Destination:   spatialmath.NewPoseFromPoint(r3.Vector{2700, 0, 0}),
 					SlamName:      mySlam,
-					MotionCfg: &MotionConfiguration{
-						ObstacleDetectors:     []ObstacleDetectorName{},
-						PositionPollingFreqHz: 0,
-						ObstaclePollingFreqHz: 0,
-						PlanDeviationMM:       0,
-						LinearMPerSec:         0,
-						AngularDegsPerSec:     0,
-					},
-					Obstacles: []spatialmath.Geometry{spatialmath.NewPoint(r3.Vector{2, 2, 2}, "pt")},
-					Extra:     map[string]interface{}{},
+					MotionCfg:     &MotionConfiguration{ObstacleDetectors: []ObstacleDetectorName{}},
+					Obstacles:     []spatialmath.Geometry{spatialmath.NewPoint(r3.Vector{X: 2, Y: 2, Z: 2}, "pt")},
+					Extra:         map[string]interface{}{},
 				},
 				err: nil,
 			},
@@ -1471,6 +1437,7 @@ func validMoveOnGlobeRequest() MoveOnGlobeReq {
 			CameraName:        pair[1],
 		})
 	}
+	pollingFreq := 5.
 	return MoveOnGlobeReq{
 		ComponentName:      base.Named("my-base"),
 		Destination:        dst,
@@ -1482,8 +1449,8 @@ func validMoveOnGlobeRequest() MoveOnGlobeReq {
 			LinearMPerSec:         1,
 			AngularDegsPerSec:     2,
 			PlanDeviationMM:       3,
-			PositionPollingFreqHz: 4,
-			ObstaclePollingFreqHz: 5,
+			PositionPollingFreqHz: &pollingFreq,
+			ObstaclePollingFreqHz: &pollingFreq,
 		},
 		Extra: nil,
 	}

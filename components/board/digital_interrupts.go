@@ -18,6 +18,16 @@ type Tick struct {
 
 // A DigitalInterrupt represents a configured interrupt on the board that
 // when interrupted, calls the added callbacks.
+//
+// Value example:
+//
+//	myBoard, err := board.FromRobot(robot, "my_board")
+//
+//	// Get the DigitalInterrupt "my_example_digital_interrupt".
+//	interrupt, err := myBoard.DigitalInterruptByName("my_example_digital_interrupt")
+//
+//	// Get the amount of times this DigitalInterrupt has ticked.
+//	count, err := interrupt.Value(context.Background(), nil)
 type DigitalInterrupt interface {
 	// Name returns the name of the interrupt.
 	Name() string

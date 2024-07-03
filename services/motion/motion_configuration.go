@@ -9,10 +9,9 @@ import (
 )
 
 func configurationFromProto(motionCfg *pb.MotionConfiguration) *MotionConfiguration {
+	var positionPollingHz, obstaclePollingHz *float64
 	obstacleDetectors := []ObstacleDetectorName{}
 	planDeviationM := 0.
-	positionPollingHz := 0.
-	obstaclePollingHz := 0.
 	linearMPerSec := 0.
 	angularDegsPerSec := 0.
 
@@ -26,10 +25,10 @@ func configurationFromProto(motionCfg *pb.MotionConfiguration) *MotionConfigurat
 			}
 		}
 		if motionCfg.PositionPollingFrequencyHz != nil {
-			positionPollingHz = motionCfg.GetPositionPollingFrequencyHz()
+			positionPollingHz = motionCfg.PositionPollingFrequencyHz
 		}
 		if motionCfg.ObstaclePollingFrequencyHz != nil {
-			obstaclePollingHz = motionCfg.GetObstaclePollingFrequencyHz()
+			obstaclePollingHz = motionCfg.ObstaclePollingFrequencyHz
 		}
 		if motionCfg.PlanDeviationM != nil {
 			planDeviationM = motionCfg.GetPlanDeviationM()
@@ -53,18 +52,15 @@ func configurationFromProto(motionCfg *pb.MotionConfiguration) *MotionConfigurat
 }
 
 func (motionCfg MotionConfiguration) toProto() *pb.MotionConfiguration {
-	proto := &pb.MotionConfiguration{}
+	proto := &pb.MotionConfiguration{
+		PositionPollingFrequencyHz: motionCfg.PositionPollingFreqHz,
+		ObstaclePollingFrequencyHz: motionCfg.ObstaclePollingFreqHz,
+	}
 	if !math.IsNaN(motionCfg.LinearMPerSec) && motionCfg.LinearMPerSec != 0 {
 		proto.LinearMPerSec = &motionCfg.LinearMPerSec
 	}
 	if !math.IsNaN(motionCfg.AngularDegsPerSec) && motionCfg.AngularDegsPerSec != 0 {
 		proto.AngularDegsPerSec = &motionCfg.AngularDegsPerSec
-	}
-	if !math.IsNaN(motionCfg.ObstaclePollingFreqHz) && motionCfg.ObstaclePollingFreqHz > 0 {
-		proto.ObstaclePollingFrequencyHz = &motionCfg.ObstaclePollingFreqHz
-	}
-	if !math.IsNaN(motionCfg.PositionPollingFreqHz) && motionCfg.PositionPollingFreqHz > 0 {
-		proto.PositionPollingFrequencyHz = &motionCfg.PositionPollingFreqHz
 	}
 	if !math.IsNaN(motionCfg.PlanDeviationMM) && motionCfg.PlanDeviationMM >= 0 {
 		planDeviationM := 1e-3 * motionCfg.PlanDeviationMM

@@ -254,9 +254,10 @@ func TestPositionalReplanning(t *testing.T) {
 	gpsPoint := geo.NewPoint(0, 0)
 	dst := geo.NewPoint(gpsPoint.Lat(), gpsPoint.Lng()+1e-5)
 	epsilonMM := 150.
+	pollingFreq := 10.
 	motionCfg := &motion.MotionConfiguration{
-		PositionPollingFreqHz: 10,
-		ObstaclePollingFreqHz: 1,
+		PositionPollingFreqHz: &pollingFreq,
+		ObstaclePollingFreqHz: &defaultObstaclePollingHz,
 		PlanDeviationMM:       epsilonMM,
 		LinearMPerSec:         0.2,
 		AngularDegsPerSec:     20,
@@ -380,12 +381,17 @@ func TestObstacleReplanningSlam(t *testing.T) {
 	obstacleDetectorSlice := []motion.ObstacleDetectorName{
 		{VisionServiceName: vision.Named("test-vision"), CameraName: camera.Named("test-camera")},
 	}
+	positionPollingFreq := 0.
+	obstaclePollingFreq := 5.
 	req := motion.MoveOnMapReq{
 		ComponentName: base.Named("test-base"),
 		Destination:   spatialmath.NewPoseFromPoint(r3.Vector{X: 800, Y: 0, Z: 0}),
 		SlamName:      slam.Named("test_slam"),
 		MotionCfg: &motion.MotionConfiguration{
-			PositionPollingFreqHz: 0.000001, ObstaclePollingFreqHz: 5, PlanDeviationMM: 1000, ObstacleDetectors: obstacleDetectorSlice,
+			PositionPollingFreqHz: &positionPollingFreq,
+			ObstaclePollingFreqHz: &obstaclePollingFreq,
+			PlanDeviationMM:       1000,
+			ObstacleDetectors:     obstacleDetectorSlice,
 		},
 		Extra: map[string]interface{}{"smooth_iter": 20},
 	}
@@ -637,10 +643,8 @@ func TestStoppableMoveFunctions(t *testing.T) {
 
 			goal := geo.NewPoint(gpsPoint.Lat()+1e-4, gpsPoint.Lng()+1e-4)
 			motionCfg := motion.MotionConfiguration{
-				PlanDeviationMM:       10000,
-				LinearMPerSec:         10,
-				PositionPollingFreqHz: 4,
-				ObstaclePollingFreqHz: 1,
+				PlanDeviationMM: 10000,
+				LinearMPerSec:   10,
 			}
 
 			req := motion.MoveOnGlobeReq{
