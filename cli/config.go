@@ -7,6 +7,7 @@ import (
 
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
+	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 )
 
@@ -16,9 +17,14 @@ func getCLICachePath() string {
 	return filepath.Join(viamDotDir, "cached_cli_config.json")
 }
 
-// ConfigFromCache parses the cached json into a Config.
+// ConfigFromCache parses the cached json into a Config. Removes the config from cache on any error.
 // TODO(RSDK-7812): maybe move shared code to common location.
-func ConfigFromCache() (*Config, error) {
+func ConfigFromCache() (_ *Config, err error) {
+	defer func() {
+		if err != nil && !os.IsNotExist(err) {
+			utils.UncheckedError(removeConfigFromCache())
+		}
+	}()
 	rd, err := os.ReadFile(getCLICachePath())
 	if err != nil {
 		return nil, err
