@@ -3,6 +3,7 @@ package register
 
 import (
 	// register components.
+	_ "go.viam.com/rdk/components/base/register"
 	_ "go.viam.com/rdk/components/board/register"
 	_ "go.viam.com/rdk/components/camera/register"
 	_ "go.viam.com/rdk/components/encoder/register"
