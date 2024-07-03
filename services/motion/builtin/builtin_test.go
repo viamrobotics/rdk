@@ -910,7 +910,6 @@ func TestBaseInputs(t *testing.T) {
 	defer closeFunc(ctx)
 	err := kb.GoToInputs(ctx, []referenceframe.Input{{0}, {0.001 + math.Pi/2}, {0}, {91}})
 	test.That(t, err, test.ShouldBeNil)
-
 }
 
 func TestCheckPlan(t *testing.T) {
@@ -918,11 +917,17 @@ func TestCheckPlan(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 	origin := geo.NewPoint(0, 0)
 
-	movementSensor, _, fakeBase, ms := createMoveOnGlobeEnvironment(ctx, t, origin, nil, 5)
-	defer ms.Close(ctx)
+	localizer, ms, closeFunc := CreateMoveOnGlobeTestEnvironment(ctx, t, origin, 30, spatialmath.NewZeroPose())
+	defer closeFunc(ctx)
 
 	dst := geo.NewPoint(origin.Lat(), origin.Lng()+5e-5)
 	// Note: spatialmath.GeoPointToPoint(dst, origin) produces r3.Vector{5559.746, 0, 0}
+
+	movementSensor, ok := localizer.(movementsensor.MovementSensor)
+	test.That(t, ok, test.ShouldBeTrue)
+
+	fakeBase, ok := ms.(*builtIn).components[baseResource]
+	test.That(t, ok, test.ShouldBeTrue)
 
 	req := motion.MoveOnGlobeReq{
 		ComponentName:      fakeBase.Name(),
