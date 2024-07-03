@@ -766,7 +766,7 @@ func newViamClient(c *cli.Context) (*viamClient, error) {
 	if err != nil {
 		if !os.IsNotExist(err) {
 			debugf(c.App.Writer, c.Bool(debugFlag), "Cached config parse error: %v", err)
-			return nil, errors.New("failed to parse cached config. Please log in again.")
+			return nil, errors.New("failed to parse cached config. Please log in again")
 		}
 		conf = &Config{}
 	}

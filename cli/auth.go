@@ -158,14 +158,14 @@ func (c *viamClient) loginAction(cCtx *cli.Context) error {
 		if err != nil {
 			debugf(c.c.App.Writer, c.c.Bool(debugFlag), "Token refresh error: %v", err)
 			utils.UncheckedError(c.logout()) // clear cache if failed to refresh
-			return errors.New("error while refreshing token, logging out. Please log in again.")
+			return errors.New("error while refreshing token, logging out. Please log in again")
 		}
 	} else {
 		t, err = c.authFlow.loginAsUser(c.c.Context)
 		if err != nil {
 			debugf(c.c.App.Writer, c.c.Bool(debugFlag), "Login error: %v", err)
-			utils.UncheckedError(c.logout()) //clear cache on any error
-			return errors.New("error while logging in. Please try again.")
+
+			return errors.New("error while logging in. Please try again")
 		}
 	}
 
@@ -471,7 +471,7 @@ func (c *viamClient) ensureLoggedIn() error {
 	if ok && authToken.isExpired() {
 		if !authToken.canRefresh() {
 			utils.UncheckedError(c.logout())
-			return errors.New("token expired and cannot refresh, logging out. Please log in again.")
+			return errors.New("token expired and cannot refresh, logging out. Please log in again")
 		}
 
 		// expired.
@@ -479,7 +479,7 @@ func (c *viamClient) ensureLoggedIn() error {
 		if err != nil {
 			debugf(c.c.App.Writer, c.c.Bool(debugFlag), "Token refresh error: %v", err)
 			utils.UncheckedError(c.logout()) // clear cache if failed to refresh
-			return errors.New("error while refreshing token, logging out. Please log in again.")
+			return errors.New("error while refreshing token, logging out. Please log in again")
 		}
 
 		// write token to config.
