@@ -27,7 +27,7 @@ var globalLogger struct {
 func InitLoggingSettings(logger logging.Logger, cmdLineDebugFlag bool) {
 	globalLogger.logger = logger
 	globalLogger.cmdLineDebugFlag = cmdLineDebugFlag
-	gologLogger := golog.NewDebugLogger("robot_server.golog")
+	gologLogger := golog.NewDebugLogger("rdk.golog")
 
 	if cmdLineDebugFlag {
 		logging.GlobalLogLevel.SetLevel(zapcore.DebugLevel)
@@ -35,7 +35,7 @@ func InitLoggingSettings(logger logging.Logger, cmdLineDebugFlag bool) {
 	} else {
 		logging.GlobalLogLevel.SetLevel(zapcore.InfoLevel)
 		logger.SetLevel(logging.INFO)
-		gologLogger = golog.NewLogger("robot_server.golog")
+		gologLogger = golog.NewLogger("rdk.golog")
 	}
 
 	golog.ReplaceGloabl(gologLogger)
