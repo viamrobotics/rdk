@@ -169,7 +169,7 @@ func openPort(filePath string, baud uint) (io.ReadWriteCloser, error) {
 	var err error
 	correctionWriter, err := slib.Open(options)
 	if err != nil {
-		return nil, fmt.Errorf("serial.Open: %v", err)
+		return nil, fmt.Errorf("serial.Open: %w", err)
 	}
 
 	return correctionWriter, nil

@@ -28,7 +28,7 @@ func (d *mockDataReader) Close() error {
 func TestValidateRTK(t *testing.T) {
 	path := "path"
 	t.Run("valid config", func(t *testing.T) {
-		cfg := Config{
+		cfg := SerialConfig{
 			NtripURL:             "http//fakeurl",
 			NtripConnectAttempts: 10,
 			NtripPass:            "somepass",
@@ -42,7 +42,7 @@ func TestValidateRTK(t *testing.T) {
 	})
 
 	t.Run("invalid config", func(t *testing.T) {
-		cfg := Config{
+		cfg := SerialConfig{
 			NtripURL:             "",
 			NtripConnectAttempts: 10,
 			NtripPass:            "somepass",
@@ -58,7 +58,7 @@ func TestValidateRTK(t *testing.T) {
 	})
 
 	t.Run("invalid config", func(t *testing.T) {
-		cfg := Config{
+		cfg := SerialConfig{
 			NtripURL:             "http//fakeurl",
 			NtripConnectAttempts: 10,
 			NtripPass:            "somepass",
@@ -83,7 +83,7 @@ func TestReconfigure(t *testing.T) {
 
 	conf := resource.Config{
 		Name: "reconfig1",
-		ConvertedAttributes: &Config{
+		ConvertedAttributes: &SerialConfig{
 			SerialPath:           "/dev/ttyUSB1",
 			SerialBaudRate:       115200,
 			NtripURL:             "http//fakeurl",

@@ -85,8 +85,8 @@ func newRTKI2C(
 // makeRTKI2C is separate from newRTKI2C, above, so we can pass in a non-nil mock I2C bus during
 // unit tests.
 func makeRTKI2C(
-	ctx context.Context,
-	deps resource.Dependencies,
+	_ context.Context,
+	_ resource.Dependencies,
 	conf resource.Config,
 	logger logging.Logger,
 	mockI2c buses.I2C,
@@ -98,11 +98,11 @@ func makeRTKI2C(
 
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
 	g := &rtkSerial{
-		Named:        conf.ResourceName().AsNamed(),
-		cancelCtx:    cancelCtx,
-		cancelFunc:   cancelFunc,
-		logger:       logger,
-		err:          movementsensor.NewLastError(1, 1),
+		Named:      conf.ResourceName().AsNamed(),
+		cancelCtx:  cancelCtx,
+		cancelFunc: cancelFunc,
+		logger:     logger,
+		err:        movementsensor.NewLastError(1, 1),
 	}
 
 	ntripConfig := &gpsutils.NtripConfig{
@@ -156,8 +156,8 @@ func newCorrectionWriter(busname string, address byte) (io.ReadWriteCloser, erro
 	if err != nil {
 		return nil, err
 	}
-	correctionWriter := i2cCorrectionWriter {
-		bus: bus,
+	correctionWriter := i2cCorrectionWriter{
+		bus:    bus,
 		handle: handle,
 	}
 	return &correctionWriter, nil
