@@ -6,6 +6,7 @@ package gpsrtkserial
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 
 	"go.viam.com/rdk/components/board/genericlinux/buses"
@@ -38,6 +39,7 @@ func (i *i2cCorrectionWriter) Read(p []byte) (int, error) {
 }
 
 func (i *i2cCorrectionWriter) Write(p []byte) (int, error) {
+	fmt.Printf("writing %d bytes to I2C\n", len(p))
 	err := i.handle.Write(context.Background(), p)
 	if err != nil {
 		return 0, err

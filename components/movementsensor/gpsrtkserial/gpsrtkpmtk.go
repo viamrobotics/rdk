@@ -132,6 +132,20 @@ func makeRTKI2C(
 		err:          movementsensor.NewLastError(1, 1),
 	}
 
+	ntripConfig := &gpsutils.NtripConfig{
+		NtripURL:             newConf.NtripURL,
+		NtripUser:            newConf.NtripUser,
+		NtripPass:            newConf.NtripPass,
+		NtripMountpoint:      newConf.NtripMountpoint,
+		NtripConnectAttempts: newConf.NtripConnectAttempts,
+	}
+
+	g.ntripClient, err = gpsutils.NewNtripInfo(ntripConfig, g.logger)
+	if err != nil {
+		return nil, err
+	}
+	g.InputProtocol = "i2c"
+
 	config := gpsutils.I2CConfig{
 		I2CBus:      newConf.I2CBus,
 		I2CBaudRate: newConf.I2CBaudRate,
