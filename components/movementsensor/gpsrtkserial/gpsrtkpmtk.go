@@ -42,7 +42,7 @@ import (
 	"go.viam.com/rdk/resource"
 )
 
-var rtkmodel = resource.DefaultModelFamily.WithModel("gps-nmea-rtk-pmtk")
+var i2cRtkmodel = resource.DefaultModelFamily.WithModel("gps-nmea-rtk-pmtk")
 
 // I2CConfig is used for converting NMEA MovementSensor with RTK capabilities config attributes.
 type I2CConfig struct {
@@ -94,7 +94,7 @@ func (cfg *I2CConfig) validateNtrip(path string) error {
 func init() {
 	resource.RegisterComponent(
 		movementsensor.API,
-		rtkmodel,
+		i2cRtkmodel,
 		resource.Registration[movementsensor.MovementSensor, *I2CConfig]{
 			Constructor: newRTKI2C,
 		})
@@ -149,7 +149,10 @@ func makeRTKI2C(
 	}
 	g.cachedData = gpsutils.NewCachedData(dev, logger)
 
-	g.correctionWriter = NewCorrectionWriter(newConf.I2CBus, byte(newConf.I2CAddr))
+	g.correctionWriter, err = NewCorrectionWriter(newConf.I2CBus, byte(newConf.I2CAddr))
+	if err != nil {
+		return nil, err
+	}
 
 	if err := g.start(); err != nil {
 		return nil, err
