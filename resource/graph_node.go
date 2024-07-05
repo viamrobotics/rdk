@@ -26,12 +26,14 @@ const (
 	// NodeStateConfiguring denotes a resource is being configured.
 	NodeStateConfiguring
 
-	// NodeStateReady denotes a resource that has been initialized and is not being
-	// configured or removed. A resource in this state may be unhealthy.
+	// NodeStateReady denotes a resource that has been configured and is healthy.
 	NodeStateReady
 
 	// NodeStateRemoving denotes a resource is being removed from the resource graph.
 	NodeStateRemoving
+
+	// NodeStateUnhealthy denotes a resource is unhealthy.
+	NodeStateUnhealthy
 )
 
 // A GraphNode contains the current state of a resource.
@@ -276,9 +278,10 @@ func (w *GraphNode) MarkedForRemoval() bool {
 // The additional `args` should come in key/value pairs for structured logging.
 func (w *GraphNode) LogAndSetLastError(err error, args ...any) {
 	w.mu.Lock()
+	defer w.mu.Unlock()
+
 	w.lastErr = err
-	// TODO(RSDK-7903): transition to an "unhealthy" state.
-	w.mu.Unlock()
+	w.transitionTo(NodeStateUnhealthy)
 
 	if w.logger != nil {
 		w.logger.Errorw(err.Error(), args...)
