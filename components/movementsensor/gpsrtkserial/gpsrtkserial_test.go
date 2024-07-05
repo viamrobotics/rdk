@@ -1,4 +1,4 @@
-package gpsrtkserial
+package gpsrtk
 
 import (
 	"context"

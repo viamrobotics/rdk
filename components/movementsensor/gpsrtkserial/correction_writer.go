@@ -1,7 +1,7 @@
 //go:build linux
 
-// Package gpsrtkpmtk implements a gps using serial connection
-package gpsrtkserial
+// Package gpsrtk implements a gps over an I2C connection
+package gpsrtk
 
 import (
 	"context"
