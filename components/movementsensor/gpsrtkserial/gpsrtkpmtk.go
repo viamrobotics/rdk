@@ -37,7 +37,6 @@ import (
 
 	"go.viam.com/rdk/components/board/genericlinux/buses"
 	"go.viam.com/rdk/components/movementsensor"
-	"go.viam.com/rdk/components/movementsensor/gpsrtkserial"
 	"go.viam.com/rdk/components/movementsensor/gpsutils"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
@@ -125,7 +124,7 @@ func makeRTKI2C(
 	}
 
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
-	g := &gpsrtkserial.RtkSerial{
+	g := &rtkSerial{
 		Named:        conf.ResourceName().AsNamed(),
 		cancelCtx:    cancelCtx,
 		cancelFunc:   cancelFunc,

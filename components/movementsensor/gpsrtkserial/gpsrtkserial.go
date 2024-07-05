@@ -124,8 +124,6 @@ type rtkSerial struct {
 	reader           io.Reader
 }
 
-type RtkSerial = rtkSerial
-
 func newRTKSerial(
 	ctx context.Context,
 	deps resource.Dependencies,
