@@ -753,7 +753,6 @@ func (svc *builtIn) uploadData(cancelCtx context.Context, intervalMins float64) 
 	})
 }
 
-// NOTE: Caller must be holding svc.lock.
 func isOffline() bool {
 	timeout := 5 * time.Second
 	_, err := net.DialTimeout("tcp", "app.viam.com:443", timeout)
