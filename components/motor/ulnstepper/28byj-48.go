@@ -166,7 +166,7 @@ type uln28byj struct {
 
 	// state
 	workers   utils.StoppableWorkers
-	lock      sync.RWMutex
+	lock      sync.Mutex
 	opMgr     *operation.SingleOperationManager
 	doRunDone func()
 
@@ -176,7 +176,7 @@ type uln28byj struct {
 }
 
 // doRun runs the motor till it reaches target step position.
-func (m *uln28byj) doRun(ctx context.Context, targetStepPosition int64) {
+func (m *uln28byj) doRun(ctx context.Context) {
 	// cancel doRun if it already exists
 	if m.doRunDone != nil {
 		m.doRunDone()
@@ -193,15 +193,13 @@ func (m *uln28byj) doRun(ctx context.Context, targetStepPosition int64) {
 			default:
 			}
 
-			// This condition cannot be locked for the duration of the loop as
-			// Stop() modifies m.targetStepPosition to interrupt the run
-			if m.stepPosition == targetStepPosition {
+			if m.stepPosition == m.targetStepPosition {
 				if err := m.setPins(doRunCtx, [4]bool{false, false, false, false}); err != nil {
 					m.logger.Errorf("error setting pins to zero %v", err)
 					return
 				}
 			} else {
-				err := m.doStep(ctx, m.stepPosition < targetStepPosition)
+				err := m.doStep(ctx, m.stepPosition < m.targetStepPosition)
 				if err != nil {
 					m.logger.Errorf("error stepping %v", err)
 					return
@@ -270,10 +268,9 @@ func (m *uln28byj) GoFor(ctx context.Context, rpm, revolutions float64, extra ma
 	m.lock.Lock()
 	defer m.lock.Unlock()
 
-	var targetStepPosition int64
-	targetStepPosition, m.stepperDelay = m.goMath(rpm, revolutions)
+	m.targetStepPosition, m.stepperDelay = m.goMath(rpm, revolutions)
 
-	m.doRun(ctx, targetStepPosition)
+	m.doRun(ctx)
 
 	positionReached := func(ctx context.Context) (bool, error) {
 		return m.targetStepPosition == m.stepPosition, nil
@@ -346,10 +343,12 @@ func (m *uln28byj) SetRPM(ctx context.Context, rpm float64, extra map[string]int
 
 // Set the current position (+/- offset) to be the new zero (home) position.
 func (m *uln28byj) ResetZeroPosition(ctx context.Context, offset float64, extra map[string]interface{}) error {
+	if err := m.Stop(ctx, extra); err != nil {
+		return err
+	}
 	m.lock.Lock()
 	defer m.lock.Unlock()
 	m.stepPosition = int64(-1 * offset * float64(m.ticksPerRotation))
-	m.targetStepPosition = m.stepPosition
 	return nil
 }
 
@@ -369,10 +368,10 @@ func (m *uln28byj) SetPower(ctx context.Context, powerPct float64, extra map[str
 
 	m.lock.Lock()
 	defer m.lock.Unlock()
-	targetStepPosition := int64(math.Inf(int(powerPct)))
+	m.targetStepPosition = int64(math.Inf(int(powerPct)))
 	m.stepperDelay = m.calcStepperDelay(powerPct * maxRPM)
 
-	m.doRun(ctx, targetStepPosition)
+	m.doRun(ctx)
 
 	return nil
 }
