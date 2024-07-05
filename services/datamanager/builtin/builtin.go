@@ -664,10 +664,9 @@ func (svc *builtIn) Reconfigure(
 }
 
 func (svc *builtIn) startSync() {
-	svc.lock.Lock()
-	defer svc.lock.Lock()
 
 	for goutils.SelectContextOrWait(svc.closedCtx, time.Second) {
+		svc.lock.Lock()
 		if svc.syncConfigUpdated {
 			svc.cancelSyncScheduler()
 			if !svc.syncDisabled && svc.syncIntervalMins != 0.0 {
@@ -694,6 +693,7 @@ func (svc *builtIn) startSync() {
 			}
 			svc.syncConfigUpdated = false
 		}
+		svc.lock.Unlock()
 	}
 }
 
