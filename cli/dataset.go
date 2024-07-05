@@ -2,18 +2,25 @@ package cli
 
 import (
 	"context"
+	"encoding/json"
+	"os"
+	"path/filepath"
 
 	"github.com/pkg/errors"
 	"github.com/urfave/cli/v2"
+	"go.uber.org/multierr"
+	datapb "go.viam.com/api/app/data/v1"
+	v1 "go.viam.com/api/app/data/v1"
 	datasetpb "go.viam.com/api/app/dataset/v1"
 )
 
 const (
-	datasetFlagName       = "name"
-	datasetFlagDatasetID  = "dataset-id"
-	datasetFlagDatasetIDs = "dataset-ids"
-	dataFlagLocationID    = "location-id"
-	dataFlagFileIDs       = "file-ids"
+	datasetFlagName             = "name"
+	datasetFlagDatasetID        = "dataset-id"
+	datasetFlagDatasetIDs       = "dataset-ids"
+	dataFlagLocationID          = "location-id"
+	dataFlagFileIDs             = "file-ids"
+	datasetFlagIncludeJSONLines = "jsonl"
 )
 
 // DatasetCreateAction is the corresponding action for 'dataset create'.
@@ -148,5 +155,127 @@ func (c *viamClient) deleteDataset(datasetID string) error {
 		return errors.Wrapf(err, "received error from server")
 	}
 	printf(c.c.App.Writer, "Dataset with ID %s deleted", datasetID)
+	return nil
+}
+
+// DatasetDeleteAction is the corresponding action for 'dataset rename'.
+func DatasetDownloadAction(c *cli.Context) error {
+	client, err := newViamClient(c)
+	if err != nil {
+		return err
+	}
+	if err := client.downloadDataset(c.Path(dataFlagDestination), c.String(datasetFlagDatasetID), c.Bool(datasetFlagIncludeJSONLines)); err != nil {
+		return err
+	}
+	return nil
+}
+
+// downloadDataset downloads a dataset with the specified ID.
+func (c *viamClient) downloadDataset(dst, datasetID string, includeJSONLines bool) error {
+	if err := c.ensureLoggedIn(); err != nil {
+		return err
+	}
+
+	var datasetFile *os.File
+	if includeJSONLines {
+		//nolint:gosec
+		datasetPath := filepath.Join(dst, "dataset.jsonl")
+		if err := os.MkdirAll(filepath.Dir(datasetPath), 0o700); err != nil {
+			return errors.Wrapf(err, "could not create dataset directory %s", filepath.Dir(datasetPath))
+		}
+		//nolint:gosec
+		datasetFile, err := os.Create(datasetPath)
+		if err != nil {
+			return err
+		}
+		defer func() {
+			if err := datasetFile.Close(); err != nil {
+				Errorf(c.c.App.ErrWriter, "failed to close dataset file %q", datasetFile.Name())
+			}
+		}()
+	}
+
+	return c.performActionOnBinaryDataFromFilter(
+		func(id *datapb.BinaryID) error {
+			downloadErr := downloadBinary(c.c.Context, c.dataClient, dst, id, c.authFlow.httpClient, c.conf.Auth)
+			var datasetErr error
+			if includeJSONLines {
+				datasetErr = binaryDataToJSONLines(c.c.Context, c.dataClient, datasetFile, id)
+			}
+			return multierr.Combine(downloadErr, datasetErr)
+		},
+		&datapb.Filter{
+			DatasetId: datasetID,
+		}, 100,
+		func(i int32) {
+			printf(c.c.App.Writer, "Downloaded %d files", i)
+		},
+	)
+}
+
+// Annotation holds the label associated with the image.
+type Annotation struct {
+	AnnotationLabel string `json:"annotation_label"`
+}
+
+// ObjectDetection defines the format of the data in jsonlines for object detection.
+type ObjectDetection struct {
+	ImageGCSURI     string           `json:"image_gcs_uri"`
+	BBoxAnnotations []BBoxAnnotation `json:"bounding_box_annotations"`
+}
+
+// ImageMetadata defines the format of the data in jsonlines for custom training.
+type ImageMetadata struct {
+	ImagePath                 string                `json:"image_path"`
+	ClassificationAnnotations []Annotation          `json:"classification_annotations"`
+	BBoxAnnotations           []*datapb.BoundingBox `json:"bounding_box_annotations"`
+}
+
+// BBoxAnnotation holds the information associated with each bounding box.
+type BBoxAnnotation struct {
+	AnnotationLabel string  `json:"annotation_label"`
+	XMinNormalized  float64 `json:"x_min_normalized"`
+	XMaxNormalized  float64 `json:"x_max_normalized"`
+	YMinNormalized  float64 `json:"y_min_normalized"`
+	YMaxNormalized  float64 `json:"y_max_normalized"`
+}
+
+func binaryDataToJSONLines(ctx context.Context, client v1.DataServiceClient, file *os.File,
+	id *datapb.BinaryID,
+) error {
+	resp, err := client.BinaryDataByIDs(ctx, &datapb.BinaryDataByIDsRequest{
+		BinaryIds:     []*datapb.BinaryID{id},
+		IncludeBinary: false,
+	})
+
+	data := resp.GetData()
+	if len(data) != 1 {
+		return errors.Errorf("expected a single response, received %d", len(data))
+	}
+	datum := data[0]
+
+	// Make JSONLines file
+	var jsonl interface{}
+
+	annotations := []Annotation{}
+	for _, tag := range datum.GetMetadata().GetCaptureMetadata().GetTags() {
+		annotations = append(annotations, Annotation{AnnotationLabel: tag})
+	}
+	jsonl = ImageMetadata{
+		ImagePath:                 filenameForDownload(datum.GetMetadata()),
+		ClassificationAnnotations: annotations,
+		BBoxAnnotations:           datum.GetMetadata().GetAnnotations().GetBboxes(),
+	}
+
+	line, err := json.Marshal(jsonl)
+	if err != nil {
+		return errors.Wrap(err, "error formatting JSON")
+	}
+	line = append(line, "\n"...)
+	_, err = file.Write(line)
+	if err != nil {
+		return errors.Wrap(err, "error writing to file")
+	}
+
 	return nil
 }
