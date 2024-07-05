@@ -409,7 +409,6 @@ func (svc *builtIn) closeSyncer() {
 	}
 	if svc.cloudConn != nil {
 		goutils.UncheckedError(svc.cloudConn.Close())
-		svc.cloudConn = nil
 	}
 }
 
