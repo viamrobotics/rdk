@@ -1,33 +1,17 @@
-// Package gpsrtkserial implements a gps using serial connection
-package gpsrtkserial
+// Package gpsrtk implements a gps
+package gpsrtk
 
 /*
 	This package supports GPS RTK (Real Time Kinematics), which takes in the normal signals
 	from the GNSS (Global Navigation Satellite Systems) along with a correction stream to achieve
-	positional accuracy (accuracy tbd), over Serial.
+	positional accuracy (accuracy tbd). This file is the main implementation, agnostic of how we
+	communicate with the chip.
 
 	Example GPS RTK chip datasheet:
 	https://content.u-blox.com/sites/default/files/ZED-F9P-04B_DataSheet_UBX-21044850.pdf
 
 	Ntrip Documentation:
 	https://gssc.esa.int/wp-content/uploads/2018/07/NtripDocumentation.pdf
-
-	Example configuration:
-	{
-      "type": "movement_sensor",
-	  "model": "gps-nmea-rtk-serial",
-      "name": "my-gps-rtk"
-      "attributes": {
-        "ntrip_url": "url",
-        "ntrip_username": "usr",
-        "ntrip_connect_attempts": 10,
-        "ntrip_mountpoint": "MTPT",
-        "ntrip_password": "pwd",
-		"serial_baud_rate": 115200,
-        "serial_path": "serial-path"
-      },
-      "depends_on": [],
-    }
 
 */
 
@@ -43,7 +27,6 @@ import (
 
 	"github.com/go-gnss/rtcm/rtcm3"
 	"github.com/golang/geo/r3"
-	slib "github.com/jacobsa/go-serial/serial"
 	geo "github.com/kellydunn/golang-geo"
 	"go.viam.com/utils"
 
@@ -53,48 +36,6 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
 )
-
-var rtkmodel = resource.DefaultModelFamily.WithModel("gps-nmea-rtk-serial")
-
-const (
-	serialStr = "serial"
-	ntripStr  = "ntrip"
-)
-
-// Config is used for converting NMEA MovementSensor with RTK capabilities config attributes.
-type Config struct {
-	resource.AlwaysRebuild
-	SerialPath     string `json:"serial_path"`
-	SerialBaudRate int    `json:"serial_baud_rate,omitempty"`
-
-	NtripURL             string `json:"ntrip_url"`
-	NtripConnectAttempts int    `json:"ntrip_connect_attempts,omitempty"`
-	NtripMountpoint      string `json:"ntrip_mountpoint,omitempty"`
-	NtripPass            string `json:"ntrip_password,omitempty"`
-	NtripUser            string `json:"ntrip_username,omitempty"`
-}
-
-// Validate ensures all parts of the config are valid.
-func (cfg *Config) Validate(path string) ([]string, error) {
-	if cfg.SerialPath == "" {
-		return nil, resource.NewConfigValidationFieldRequiredError(path, "serial_path")
-	}
-
-	if cfg.NtripURL == "" {
-		return nil, resource.NewConfigValidationFieldRequiredError(path, "ntrip_url")
-	}
-
-	return nil, nil
-}
-
-func init() {
-	resource.RegisterComponent(
-		movementsensor.API,
-		rtkmodel,
-		resource.Registration[movementsensor.MovementSensor, *Config]{
-			Constructor: newRTKSerial,
-		})
-}
 
 // rtkSerial is an nmea movementsensor model that can intake RTK correction data.
 type rtkSerial struct {
@@ -124,82 +65,13 @@ type rtkSerial struct {
 	reader           io.Reader
 }
 
-func newRTKSerial(
-	ctx context.Context,
-	deps resource.Dependencies,
-	conf resource.Config,
-	logger logging.Logger,
-) (movementsensor.MovementSensor, error) {
-	newConf, err := resource.NativeConfig[*Config](conf)
-	if err != nil {
-		return nil, err
-	}
-
-	cancelCtx, cancelFunc := context.WithCancel(context.Background())
-	g := &rtkSerial{
-		Named:      conf.ResourceName().AsNamed(),
-		cancelCtx:  cancelCtx,
-		cancelFunc: cancelFunc,
-		logger:     logger,
-		err:        movementsensor.NewLastError(1, 1),
-	}
-
-	if newConf.SerialPath != "" {
-		g.writePath = newConf.SerialPath
-		g.logger.CInfof(ctx, "updated serial_path to %#v", newConf.SerialPath)
-	}
-
-	if newConf.SerialBaudRate != 0 {
-		g.wbaud = newConf.SerialBaudRate
-		g.logger.CInfof(ctx, "updated serial_baud_rate to %v", newConf.SerialBaudRate)
-	} else {
-		g.wbaud = 38400
-		g.logger.CInfo(ctx, "serial_baud_rate using default baud rate 38400")
-	}
-
-	ntripConfig := &gpsutils.NtripConfig{
-		NtripURL:             newConf.NtripURL,
-		NtripUser:            newConf.NtripUser,
-		NtripPass:            newConf.NtripPass,
-		NtripMountpoint:      newConf.NtripMountpoint,
-		NtripConnectAttempts: newConf.NtripConnectAttempts,
-	}
-
-	g.ntripClient, err = gpsutils.NewNtripInfo(ntripConfig, g.logger)
-	if err != nil {
-		return nil, err
-	}
-	g.InputProtocol = serialStr
-
-	serialConfig := &gpsutils.SerialConfig{
-		SerialPath:     newConf.SerialPath,
-		SerialBaudRate: newConf.SerialBaudRate,
-	}
-	dev, err := gpsutils.NewSerialDataReader(serialConfig, logger)
-	if err != nil {
-		return nil, err
-	}
-	g.cachedData = gpsutils.NewCachedData(dev, logger)
-
-	// Initialize g.correctionWriter
-	g.correctionWriter, err = openPort(newConf.SerialPath, uint(newConf.SerialBaudRate))
-	if err != nil {
-		return nil, err
-	}
-
-	if err := g.start(); err != nil {
-		return nil, err
-	}
-	return g, g.err.Get()
-}
-
 func (g *rtkSerial) start() error {
 	err := g.connectToNTRIP()
 	if err != nil {
 		return err
 	}
 	g.activeBackgroundWorkers.Add(1)
-	utils.PanicCapturingGo(g.receiveAndWriteSerial)
+	utils.PanicCapturingGo(g.receiveAndWriteCorrectionData)
 	return g.err.Get()
 }
 
@@ -242,26 +114,7 @@ func (g *rtkSerial) getStream(mountPoint string, maxAttempts int) error {
 	return g.err.Get()
 }
 
-// openPort opens the serial port for writing.
-func openPort(filePath string, baud uint) (io.ReadWriteCloser, error) {
-	options := slib.OpenOptions{
-		PortName:        filePath,
-		BaudRate:        baud,
-		DataBits:        8,
-		StopBits:        1,
-		MinimumReadSize: 1,
-	}
-
-	var err error
-	correctionWriter, err := slib.Open(options)
-	if err != nil {
-		return nil, fmt.Errorf("serial.Open: %v", err)
-	}
-
-	return correctionWriter, nil
-}
-
-// closePort closes the serial port.
+// closePort closes the correctionWriter.
 func (g *rtkSerial) closePort() {
 	g.mu.Lock()
 	defer g.mu.Unlock()
@@ -355,8 +208,9 @@ func (g *rtkSerial) connectToNTRIP() error {
 	return nil
 }
 
-// receiveAndWriteSerial connects to NTRIP receiver and sends correction stream to the MovementSensor through serial.
-func (g *rtkSerial) receiveAndWriteSerial() {
+// receiveAndWriteCorrectionData connects to the NTRIP receiver and sends the correction stream to
+// the MovementSensor.
+func (g *rtkSerial) receiveAndWriteCorrectionData() {
 	defer g.activeBackgroundWorkers.Done()
 	defer g.closePort()
 
@@ -552,7 +406,7 @@ func (g *rtkSerial) Close(ctx context.Context) error {
 	g.mu.Lock()
 	g.cancelFunc()
 
-	g.logger.Debug("Closing GPS RTK Serial")
+	g.logger.Debug("Closing GPS RTK")
 	if err := g.cachedData.Close(ctx); err != nil {
 		g.mu.Unlock()
 		return err
@@ -589,7 +443,7 @@ func (g *rtkSerial) Close(ctx context.Context) error {
 		return err
 	}
 
-	g.logger.Debug("GPS RTK Serial is closed")
+	g.logger.Debug("GPS RTK is closed")
 	return nil
 }
 

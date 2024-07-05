@@ -1,36 +1,7 @@
 //go:build linux
 
-// Package gpsrtkpmtk implements a gps using serial connection
-package gpsrtkserial
-
-/*
-	This package supports GPS RTK (Real Time Kinematics), which takes in the normal signals
-	from the GNSS (Global Navigation Satellite Systems) along with a correction stream to achieve
-	positional accuracy (accuracy tbd), over I2C bus.
-
-	Example GPS RTK chip datasheet:
-	https://content.u-blox.com/sites/default/files/ZED-F9P-04B_DataSheet_UBX-21044850.pdf
-
-	Example configuration:
-
-	{
-		"name": "my-gps-rtk",
-		"type": "movement_sensor",
-		"model": "gps-nmea-rtk-pmtk",
-		"attributes": {
-			"i2c_bus": "1",
-			"i2c_addr": 66,
-			"i2c_baud_rate": 115200,
-			"ntrip_connect_attempts": 12,
-			"ntrip_mountpoint": "MNTPT",
-			"ntrip_password": "pass",
-			"ntrip_url": "http://ntrip/url",
-			"ntrip_username": "usr"
-		},
-		"depends_on": [],
-	}
-
-*/
+// Package gpsrtk implements a gps. This file is for connecting to the chip over I2C.
+package gpsrtk
 
 import (
 	"context"
