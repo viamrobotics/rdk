@@ -419,12 +419,6 @@ func (svc *builtIn) initSyncer(ctx context.Context) error {
 	ctx, cancel := context.WithTimeout(ctx, grpcConnectionTimeout)
 	defer cancel()
 	identity, conn, err := svc.cloudConnSvc.AcquireConnection(ctx)
-	if errors.Is(err, cloud.ErrNotCloudManaged) {
-		svc.logger.CDebug(ctx, "Using no-op sync manager when not cloud managed")
-		svc.syncer = datasync.NewNoopManager()
-		return nil
-	}
-
 	if err != nil {
 		return err
 	}
@@ -658,15 +652,23 @@ func (svc *builtIn) startSync() {
 			if !svc.syncDisabled && svc.syncIntervalMins != 0.0 {
 				if svc.syncer == nil {
 					if err := svc.initSyncer(svc.closedCtx); err != nil {
-						svc.logger.Infof("initSyncer err: %s", err.Error())
 						svc.lock.Unlock()
+						if errors.Is(err, cloud.ErrNotCloudManaged) {
+							svc.logger.Debug("Using no-op sync manager when not cloud managed")
+							return
+						}
+						svc.logger.Infof("initSyncer err: %s", err.Error())
 						continue
 					}
 				} else if svc.reinitSyncer {
 					svc.closeSyncer()
 					if err := svc.initSyncer(svc.closedCtx); err != nil {
-						svc.logger.Infof("initSyncer err: %s", err.Error())
 						svc.lock.Unlock()
+						if errors.Is(err, cloud.ErrNotCloudManaged) {
+							svc.logger.Debug("Using no-op sync manager when not cloud managed")
+							return
+						}
+						svc.logger.Infof("initSyncer err: %s", err.Error())
 						continue
 					}
 				}
