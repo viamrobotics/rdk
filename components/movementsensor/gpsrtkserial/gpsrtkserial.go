@@ -63,6 +63,7 @@ const (
 
 // Config is used for converting NMEA MovementSensor with RTK capabilities config attributes.
 type Config struct {
+	resource.AlwaysRebuild
 	SerialPath     string `json:"serial_path"`
 	SerialBaudRate int    `json:"serial_baud_rate,omitempty"`
 
@@ -123,54 +124,6 @@ type rtkSerial struct {
 	reader           io.Reader
 }
 
-// Reconfigure reconfigures attributes.
-func (g *rtkSerial) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
-	g.mu.Lock()
-	defer g.mu.Unlock()
-
-	newConf, err := resource.NativeConfig[*Config](conf)
-	if err != nil {
-		return err
-	}
-
-	if newConf.SerialPath != "" {
-		g.writePath = newConf.SerialPath
-		g.logger.CInfof(ctx, "updated serial_path to %#v", newConf.SerialPath)
-	}
-
-	if newConf.SerialBaudRate != 0 {
-		g.wbaud = newConf.SerialBaudRate
-		g.logger.CInfof(ctx, "updated serial_baud_rate to %v", newConf.SerialBaudRate)
-	} else {
-		g.wbaud = 38400
-		g.logger.CInfo(ctx, "serial_baud_rate using default baud rate 38400")
-	}
-
-	ntripConfig := &gpsutils.NtripConfig{
-		NtripURL:             newConf.NtripURL,
-		NtripUser:            newConf.NtripUser,
-		NtripPass:            newConf.NtripPass,
-		NtripMountpoint:      newConf.NtripMountpoint,
-		NtripConnectAttempts: newConf.NtripConnectAttempts,
-	}
-
-	// Init ntripInfo from attributes
-	tempNtripClient, err := gpsutils.NewNtripInfo(ntripConfig, g.logger)
-	if err != nil {
-		return err
-	}
-
-	if g.ntripClient != nil { // Copy over the old state
-		tempNtripClient.Client = g.ntripClient.Client
-		tempNtripClient.Stream = g.ntripClient.Stream
-	}
-
-	g.ntripClient = tempNtripClient
-
-	g.logger.Debug("done reconfiguring")
-	return nil
-}
-
 func newRTKSerial(
 	ctx context.Context,
 	deps resource.Dependencies,
@@ -195,6 +148,31 @@ func newRTKSerial(
 		return nil, err
 	}
 
+	if newConf.SerialPath != "" {
+		g.writePath = newConf.SerialPath
+		g.logger.CInfof(ctx, "updated serial_path to %#v", newConf.SerialPath)
+	}
+
+	if newConf.SerialBaudRate != 0 {
+		g.wbaud = newConf.SerialBaudRate
+		g.logger.CInfof(ctx, "updated serial_baud_rate to %v", newConf.SerialBaudRate)
+	} else {
+		g.wbaud = 38400
+		g.logger.CInfo(ctx, "serial_baud_rate using default baud rate 38400")
+	}
+
+	ntripConfig := &gpsutils.NtripConfig{
+		NtripURL:             newConf.NtripURL,
+		NtripUser:            newConf.NtripUser,
+		NtripPass:            newConf.NtripPass,
+		NtripMountpoint:      newConf.NtripMountpoint,
+		NtripConnectAttempts: newConf.NtripConnectAttempts,
+	}
+
+	g.ntripClient, err := gpsutils.NewNtripInfo(ntripConfig, g.logger)
+	if err != nil {
+		return nil, err
+	}
 	g.InputProtocol = serialStr
 
 	serialConfig := &gpsutils.SerialConfig{
