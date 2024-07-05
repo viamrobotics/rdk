@@ -169,7 +169,7 @@ func newRTKSerial(
 		NtripConnectAttempts: newConf.NtripConnectAttempts,
 	}
 
-	g.ntripClient, err := gpsutils.NewNtripInfo(ntripConfig, g.logger)
+	g.ntripClient, err = gpsutils.NewNtripInfo(ntripConfig, g.logger)
 	if err != nil {
 		return nil, err
 	}
