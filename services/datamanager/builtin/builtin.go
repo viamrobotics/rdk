@@ -4,6 +4,7 @@ package builtin
 import (
 	"context"
 	"fmt"
+	"net"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -17,8 +18,6 @@ import (
 	v1 "go.viam.com/api/app/datasync/v1"
 	goutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/connectivity"
 
 	"go.viam.com/rdk/components/sensor"
 	"go.viam.com/rdk/data"
@@ -155,7 +154,6 @@ type builtIn struct {
 	reinitSyncer        bool
 	cloudConnSvc        cloud.ConnectionService
 	cloudConn           rpc.ClientConn
-	grpcCloudConn       *grpc.ClientConn
 	syncTicker          *clk.Ticker
 	maxCaptureFileSize  int64
 
@@ -199,12 +197,11 @@ func NewBuiltIn(
 		componentMethodFrequencyHz: make(map[resourceMethodMetadata]float32),
 	}
 
-	svc.backgroundWorkers.Add(1)
-	goutils.ManagedGo(svc.startSync, svc.backgroundWorkers.Done)
-
 	if err := svc.Reconfigure(ctx, deps, conf); err != nil {
 		return nil, err
 	}
+	svc.backgroundWorkers.Add(1)
+	goutils.ManagedGo(svc.startSync, svc.backgroundWorkers.Done)
 
 	return svc, nil
 }
@@ -416,30 +413,31 @@ func (svc *builtIn) closeSyncer() {
 	if svc.cloudConn != nil {
 		goutils.UncheckedError(svc.cloudConn.Close())
 		svc.cloudConn = nil
-		svc.grpcCloudConn = nil
 	}
 }
 
 var grpcConnectionTimeout = 10 * time.Second
 
 func (svc *builtIn) initSyncer(ctx context.Context) error {
+	svc.logger.Infof("initSyncer START")
+	defer svc.logger.Infof("initSyncer END")
 	ctx, cancel := context.WithTimeout(ctx, grpcConnectionTimeout)
 	defer cancel()
 	identity, conn, err := svc.cloudConnSvc.AcquireConnection(ctx)
 	if errors.Is(err, cloud.ErrNotCloudManaged) {
 		svc.nonCloudManaged.Store(true)
 		svc.logger.CDebug(ctx, "Using no-op sync manager when not cloud managed")
-	}
-	if err != nil {
 		svc.syncer = datasync.NewNoopManager()
+		return nil
+	}
+
+	if err != nil {
 		return err
 	}
 
 	client := v1.NewDataSyncServiceClient(conn)
 	svc.filesToSync = make(chan string, svc.maxSyncThreads)
 	svc.syncer = svc.syncerConstructor(identity, client, svc.logger, svc.captureDir, svc.maxSyncThreads, svc.filesToSync)
-	connI := conn.(grpc.ClientConnInterface)
-	svc.grpcCloudConn = connI.(*grpc.ClientConn)
 	svc.cloudConn = conn
 
 	return nil
@@ -453,11 +451,6 @@ func (svc *builtIn) initSyncer(ctx context.Context) error {
 // regardless of whether or not is the scheduled time.
 func (svc *builtIn) Sync(ctx context.Context, _ map[string]interface{}) error {
 	svc.lock.Lock()
-	if !svc.isOnline() {
-		svc.lock.Unlock()
-		return errors.New("unable to sync, not connected to cloud")
-	}
-
 	if svc.syncer == nil {
 		err := svc.initSyncer(ctx)
 		if err != nil {
@@ -664,21 +657,30 @@ func (svc *builtIn) Reconfigure(
 }
 
 func (svc *builtIn) startSync() {
-
+	svc.logger.Info("startSync START")
+	defer svc.logger.Info("startSync END")
+	var i int
 	for goutils.SelectContextOrWait(svc.closedCtx, time.Second) {
+		i++
+		svc.logger.Infof("startSync %d", i)
 		svc.lock.Lock()
 		if svc.syncConfigUpdated {
+			svc.logger.Infof("startSync svc.syncConfigUpdated")
 			svc.cancelSyncScheduler()
 			if !svc.syncDisabled && svc.syncIntervalMins != 0.0 {
+				svc.logger.Infof("startSync !svc.syncDisabled && svc.syncIntervalMins != 0.0 ")
 				if svc.syncer == nil {
 					if err := svc.initSyncer(svc.closedCtx); err != nil {
 						svc.logger.Infof("initSyncer err: %s", err.Error())
+						svc.lock.Unlock()
 						continue
 					}
 				} else if svc.reinitSyncer {
+					svc.logger.Infof("startSync svc.reinitSyncer")
 					svc.closeSyncer()
 					if err := svc.initSyncer(svc.closedCtx); err != nil {
 						svc.logger.Infof("initSyncer err: %s", err.Error())
+						svc.lock.Unlock()
 						continue
 					}
 				}
@@ -754,7 +756,7 @@ func (svc *builtIn) uploadData(cancelCtx context.Context, intervalMins float64) 
 					}
 					svc.lock.Unlock()
 
-					if svc.isOnline() && shouldSync {
+					if !isOffline() && shouldSync {
 						svc.sync(cancelCtx)
 					}
 				} else {
@@ -766,11 +768,11 @@ func (svc *builtIn) uploadData(cancelCtx context.Context, intervalMins float64) 
 }
 
 // NOTE: Caller must be holding svc.lock.
-func (svc *builtIn) isOnline() bool {
-	if svc.grpcCloudConn != nil {
-		return svc.grpcCloudConn.GetState() == connectivity.Ready
-	}
-	return false
+func isOffline() bool {
+	timeout := 5 * time.Second
+	_, err := net.DialTimeout("tcp", "app.viam.com:443", timeout)
+	// If there's an error, the system is likely offline.
+	return err != nil
 }
 
 func (svc *builtIn) sync(ctx context.Context) {
