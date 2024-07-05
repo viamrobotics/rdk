@@ -402,7 +402,7 @@ func (svc *builtIn) closeSyncer() {
 	}
 }
 
-var grpcConnectionTimeout = time.Second
+var grpcConnectionTimeout = 10 * time.Second
 
 func (svc *builtIn) initSyncer(ctx context.Context) error {
 	ctx, cancel := context.WithTimeout(ctx, grpcConnectionTimeout)
@@ -730,7 +730,7 @@ func (svc *builtIn) uploadData(cancelCtx context.Context, intervalMins float64) 
 }
 
 func isOffline() bool {
-	timeout := time.Second
+	timeout := 5 * time.Second
 	_, err := net.DialTimeout("tcp", "app.viam.com:443", timeout)
 	// If there's an error, the system is likely offline.
 	return err != nil
