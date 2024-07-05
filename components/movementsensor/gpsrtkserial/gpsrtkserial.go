@@ -124,6 +124,8 @@ type rtkSerial struct {
 	reader           io.Reader
 }
 
+type RtkSerial = rtkSerial
+
 func newRTKSerial(
 	ctx context.Context,
 	deps resource.Dependencies,
@@ -142,10 +144,6 @@ func newRTKSerial(
 		cancelFunc: cancelFunc,
 		logger:     logger,
 		err:        movementsensor.NewLastError(1, 1),
-	}
-
-	if err := g.Reconfigure(ctx, deps, conf); err != nil {
-		return nil, err
 	}
 
 	if newConf.SerialPath != "" {
@@ -184,6 +182,12 @@ func newRTKSerial(
 		return nil, err
 	}
 	g.cachedData = gpsutils.NewCachedData(dev, logger)
+
+	// Initialize g.correctionWriter
+	g.correctionWriter, err = openPort(newConf.SerialPath, uint(newConf.SerialBaudRate))
+	if err != nil {
+		return nil, err
+	}
 
 	if err := g.start(); err != nil {
 		return nil, err
@@ -241,27 +245,22 @@ func (g *rtkSerial) getStream(mountPoint string, maxAttempts int) error {
 }
 
 // openPort opens the serial port for writing.
-func (g *rtkSerial) openPort() error {
+func openPort(filePath string, baud uint) (io.ReadWriteCloser, error) {
 	options := slib.OpenOptions{
-		PortName:        g.writePath,
-		BaudRate:        uint(g.wbaud),
+		PortName:        filePath,
+		BaudRate:        baud,
 		DataBits:        8,
 		StopBits:        1,
 		MinimumReadSize: 1,
 	}
 
-	if err := g.cancelCtx.Err(); err != nil {
-		return err
-	}
-
 	var err error
-	g.correctionWriter, err = slib.Open(options)
+	correctionWriter, err := slib.Open(options)
 	if err != nil {
-		g.logger.Errorf("serial.Open: %v", err)
-		return err
+		return nil, fmt.Errorf("serial.Open: %v", err)
 	}
 
-	return nil
+	return correctionWriter, nil
 }
 
 // closePort closes the serial port.
@@ -334,11 +333,6 @@ func (g *rtkSerial) connectToNTRIP() error {
 	default:
 	}
 	err := g.connectAndParseSourceTable()
-	if err != nil {
-		return err
-	}
-
-	err = g.openPort()
 	if err != nil {
 		return err
 	}

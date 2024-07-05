@@ -11,12 +11,12 @@ import (
 	"go.viam.com/rdk/components/board/genericlinux/buses"
 )
 
-func NewCorrectionWriter() (io.ReadWriteCloser, error) {
-	bus, err := buses.NewI2cBus("1")
+func NewCorrectionWriter(busname string, address byte) (io.ReadWriteCloser, error) {
+	bus, err := buses.NewI2cBus(busname)
 	if err != nil {
 		return nil, err
 	}
-	handle, err := bus.OpenHandle(66)
+	handle, err := bus.OpenHandle(address)
 	if err != nil {
 		return nil, err
 	}
