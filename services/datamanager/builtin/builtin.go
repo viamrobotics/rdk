@@ -4,12 +4,12 @@ package builtin
 import (
 	"context"
 	"fmt"
-	"net"
 	"os"
 	"path/filepath"
 	"reflect"
 	"runtime"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	clk "github.com/benbjohnson/clock"
@@ -17,6 +17,8 @@ import (
 	v1 "go.viam.com/api/app/datasync/v1"
 	goutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/connectivity"
 
 	"go.viam.com/rdk/components/sensor"
 	"go.viam.com/rdk/data"
@@ -129,6 +131,8 @@ func readyToSync(ctx context.Context, s selectiveSyncer, logger logging.Logger) 
 // builtIn initializes and orchestrates data capture collectors for registered component/methods.
 type builtIn struct {
 	resource.Named
+	closedCtx              context.Context
+	closedCancelFn         context.CancelFunc
 	logger                 logging.Logger
 	captureDir             string
 	captureDisabled        bool
@@ -147,8 +151,11 @@ type builtIn struct {
 	syncerConstructor   datasync.ManagerConstructor
 	filesToSync         chan string
 	maxSyncThreads      int
+	syncConfigUpdated   bool
+	reinitSyncer        bool
 	cloudConnSvc        cloud.ConnectionService
 	cloudConn           rpc.ClientConn
+	grpcCloudConn       *grpc.ClientConn
 	syncTicker          *clk.Ticker
 	maxCaptureFileSize  int64
 
@@ -162,6 +169,8 @@ type builtIn struct {
 
 	captureDirPollingCancelFn          context.CancelFunc
 	captureDirPollingBackgroundWorkers *sync.WaitGroup
+
+	nonCloudManaged atomic.Bool
 }
 
 var viamCaptureDotDir = filepath.Join(os.Getenv("HOME"), ".viam", "capture")
@@ -173,7 +182,10 @@ func NewBuiltIn(
 	conf resource.Config,
 	logger logging.Logger,
 ) (datamanager.Service, error) {
+	closedCtx, closedCancelFn := context.WithCancel(context.Background())
 	svc := &builtIn{
+		closedCtx:                  closedCtx,
+		closedCancelFn:             closedCancelFn,
 		Named:                      conf.ResourceName().AsNamed(),
 		logger:                     logger,
 		captureDir:                 viamCaptureDotDir,
@@ -187,6 +199,9 @@ func NewBuiltIn(
 		componentMethodFrequencyHz: make(map[resourceMethodMetadata]float32),
 	}
 
+	svc.backgroundWorkers.Add(1)
+	goutils.ManagedGo(svc.startSync, svc.backgroundWorkers.Done)
+
 	if err := svc.Reconfigure(ctx, deps, conf); err != nil {
 		return nil, err
 	}
@@ -196,6 +211,7 @@ func NewBuiltIn(
 
 // Close releases all resources managed by data_manager.
 func (svc *builtIn) Close(_ context.Context) error {
+	svc.closedCancelFn()
 	svc.lock.Lock()
 	svc.closeCollectors()
 	svc.closeSyncer()
@@ -399,6 +415,8 @@ func (svc *builtIn) closeSyncer() {
 	}
 	if svc.cloudConn != nil {
 		goutils.UncheckedError(svc.cloudConn.Close())
+		svc.cloudConn = nil
+		svc.grpcCloudConn = nil
 	}
 }
 
@@ -409,17 +427,21 @@ func (svc *builtIn) initSyncer(ctx context.Context) error {
 	defer cancel()
 	identity, conn, err := svc.cloudConnSvc.AcquireConnection(ctx)
 	if errors.Is(err, cloud.ErrNotCloudManaged) {
+		svc.nonCloudManaged.Store(true)
 		svc.logger.CDebug(ctx, "Using no-op sync manager when not cloud managed")
-		svc.syncer = datasync.NewNoopManager()
 	}
 	if err != nil {
+		svc.syncer = datasync.NewNoopManager()
 		return err
 	}
 
 	client := v1.NewDataSyncServiceClient(conn)
 	svc.filesToSync = make(chan string, svc.maxSyncThreads)
 	svc.syncer = svc.syncerConstructor(identity, client, svc.logger, svc.captureDir, svc.maxSyncThreads, svc.filesToSync)
+	connI := conn.(grpc.ClientConnInterface)
+	svc.grpcCloudConn = connI.(*grpc.ClientConn)
 	svc.cloudConn = conn
+
 	return nil
 }
 
@@ -431,6 +453,11 @@ func (svc *builtIn) initSyncer(ctx context.Context) error {
 // regardless of whether or not is the scheduled time.
 func (svc *builtIn) Sync(ctx context.Context, _ map[string]interface{}) error {
 	svc.lock.Lock()
+	if !svc.isOnline() {
+		svc.lock.Unlock()
+		return errors.New("unable to sync, not connected to cloud")
+	}
+
 	if svc.syncer == nil {
 		err := svc.initSyncer(ctx)
 		if err != nil {
@@ -469,7 +496,7 @@ func (svc *builtIn) Reconfigure(
 	if svcConfig.MaximumNumSyncThreads != 0 {
 		newMaxSyncThreadValue = svcConfig.MaximumNumSyncThreads
 	}
-	reinitSyncer := cloudConnSvc != svc.cloudConnSvc || newMaxSyncThreadValue != svc.maxSyncThreads
+	svc.reinitSyncer = cloudConnSvc != svc.cloudConnSvc || newMaxSyncThreadValue != svc.maxSyncThreads
 	svc.cloudConnSvc = cloudConnSvc
 
 	captureConfigs, err := svc.updateDataCaptureConfigs(deps, conf, svcConfig.CaptureDir)
@@ -608,40 +635,19 @@ func (svc *builtIn) Reconfigure(
 	if svc.syncSensor != syncSensor {
 		svc.syncSensor = syncSensor
 	}
-
 	syncConfigUpdated := svc.syncDisabled != svcConfig.ScheduledSyncDisabled || svc.syncIntervalMins != svcConfig.SyncIntervalMins ||
 		!reflect.DeepEqual(svc.tags, svcConfig.Tags) || svc.fileLastModifiedMillis != fileLastModifiedMillis ||
 		svc.maxSyncThreads != newMaxSyncThreadValue
 
 	if syncConfigUpdated {
+		svc.syncConfigUpdated = syncConfigUpdated
 		svc.syncDisabled = svcConfig.ScheduledSyncDisabled
 		svc.syncIntervalMins = svcConfig.SyncIntervalMins
 		svc.tags = svcConfig.Tags
 		svc.fileLastModifiedMillis = fileLastModifiedMillis
 		svc.maxSyncThreads = newMaxSyncThreadValue
-
-		svc.cancelSyncScheduler()
-		if !svc.syncDisabled && svc.syncIntervalMins != 0.0 {
-			if svc.syncer == nil {
-				if err := svc.initSyncer(ctx); err != nil {
-					return err
-				}
-			} else if reinitSyncer {
-				svc.closeSyncer()
-				if err := svc.initSyncer(ctx); err != nil {
-					return err
-				}
-			}
-			svc.syncer.SetArbitraryFileTags(svc.tags)
-			svc.startSyncScheduler(svc.syncIntervalMins)
-		} else {
-			if svc.syncTicker != nil {
-				svc.syncTicker.Stop()
-				svc.syncTicker = nil
-			}
-			svc.closeSyncer()
-		}
 	}
+
 	// if datacapture is enabled, kick off a go routine to check if disk space is filling due to
 	// cached datacapture files
 	if !svc.captureDisabled {
@@ -655,6 +661,40 @@ func (svc *builtIn) Reconfigure(
 
 	g.Success()
 	return nil
+}
+
+func (svc *builtIn) startSync() {
+	svc.lock.Lock()
+	defer svc.lock.Lock()
+
+	for goutils.SelectContextOrWait(svc.closedCtx, time.Second) {
+		if svc.syncConfigUpdated {
+			svc.cancelSyncScheduler()
+			if !svc.syncDisabled && svc.syncIntervalMins != 0.0 {
+				if svc.syncer == nil {
+					if err := svc.initSyncer(svc.closedCtx); err != nil {
+						svc.logger.Infof("initSyncer err: %s", err.Error())
+						continue
+					}
+				} else if svc.reinitSyncer {
+					svc.closeSyncer()
+					if err := svc.initSyncer(svc.closedCtx); err != nil {
+						svc.logger.Infof("initSyncer err: %s", err.Error())
+						continue
+					}
+				}
+				svc.syncer.SetArbitraryFileTags(svc.tags)
+				svc.startSyncScheduler(svc.syncIntervalMins)
+			} else {
+				if svc.syncTicker != nil {
+					svc.syncTicker.Stop()
+					svc.syncTicker = nil
+				}
+				svc.closeSyncer()
+			}
+			svc.syncConfigUpdated = false
+		}
+	}
 }
 
 // startSyncScheduler starts the goroutine that calls Sync repeatedly if scheduled sync is enabled.
@@ -714,7 +754,7 @@ func (svc *builtIn) uploadData(cancelCtx context.Context, intervalMins float64) 
 					}
 					svc.lock.Unlock()
 
-					if !isOffline() && shouldSync {
+					if svc.isOnline() && shouldSync {
 						svc.sync(cancelCtx)
 					}
 				} else {
@@ -725,11 +765,12 @@ func (svc *builtIn) uploadData(cancelCtx context.Context, intervalMins float64) 
 	})
 }
 
-func isOffline() bool {
-	timeout := 5 * time.Second
-	_, err := net.DialTimeout("tcp", "app.viam.com:443", timeout)
-	// If there's an error, the system is likely offline.
-	return err != nil
+// NOTE: Caller must be holding svc.lock.
+func (svc *builtIn) isOnline() bool {
+	if svc.grpcCloudConn != nil {
+		return svc.grpcCloudConn.GetState() == connectivity.Ready
+	}
+	return false
 }
 
 func (svc *builtIn) sync(ctx context.Context) {
