@@ -1,6 +1,6 @@
 //go:build linux
 
-package gpsrtkpmtk
+package gpsrtkserial
 
 import (
 	"context"

@@ -1,7 +1,7 @@
 //go:build linux
 
 // Package gpsrtkpmtk implements a gps using serial connection
-package gpsrtkpmtk
+package gpsrtkserial
 
 /*
 	This package supports GPS RTK (Real Time Kinematics), which takes in the normal signals
