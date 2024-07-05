@@ -198,7 +198,7 @@ func NewBuiltIn(
 		return nil, err
 	}
 	svc.backgroundWorkers.Add(1)
-	goutils.ManagedGo(svc.startSync, svc.backgroundWorkers.Done)
+	goutils.ManagedGo(svc.asyncInitDataSync, svc.backgroundWorkers.Done)
 
 	return svc, nil
 }
@@ -643,7 +643,7 @@ func (svc *builtIn) Reconfigure(
 	return nil
 }
 
-func (svc *builtIn) startSync() {
+func (svc *builtIn) asyncInitDataSync() {
 	for goutils.SelectContextOrWait(svc.closedCtx, time.Second) {
 		svc.lock.Lock()
 		if svc.syncConfigUpdated {
