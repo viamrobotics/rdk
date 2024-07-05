@@ -10,7 +10,6 @@ import (
 	"reflect"
 	"runtime"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	clk "github.com/benbjohnson/clock"
@@ -167,8 +166,6 @@ type builtIn struct {
 
 	captureDirPollingCancelFn          context.CancelFunc
 	captureDirPollingBackgroundWorkers *sync.WaitGroup
-
-	nonCloudManaged atomic.Bool
 }
 
 var viamCaptureDotDir = filepath.Join(os.Getenv("HOME"), ".viam", "capture")
@@ -419,13 +416,10 @@ func (svc *builtIn) closeSyncer() {
 var grpcConnectionTimeout = 10 * time.Second
 
 func (svc *builtIn) initSyncer(ctx context.Context) error {
-	svc.logger.Infof("initSyncer START")
-	defer svc.logger.Infof("initSyncer END")
 	ctx, cancel := context.WithTimeout(ctx, grpcConnectionTimeout)
 	defer cancel()
 	identity, conn, err := svc.cloudConnSvc.AcquireConnection(ctx)
 	if errors.Is(err, cloud.ErrNotCloudManaged) {
-		svc.nonCloudManaged.Store(true)
 		svc.logger.CDebug(ctx, "Using no-op sync manager when not cloud managed")
 		svc.syncer = datasync.NewNoopManager()
 		return nil
@@ -657,18 +651,11 @@ func (svc *builtIn) Reconfigure(
 }
 
 func (svc *builtIn) startSync() {
-	svc.logger.Info("startSync START")
-	defer svc.logger.Info("startSync END")
-	var i int
 	for goutils.SelectContextOrWait(svc.closedCtx, time.Second) {
-		i++
-		svc.logger.Infof("startSync %d", i)
 		svc.lock.Lock()
 		if svc.syncConfigUpdated {
-			svc.logger.Infof("startSync svc.syncConfigUpdated")
 			svc.cancelSyncScheduler()
 			if !svc.syncDisabled && svc.syncIntervalMins != 0.0 {
-				svc.logger.Infof("startSync !svc.syncDisabled && svc.syncIntervalMins != 0.0 ")
 				if svc.syncer == nil {
 					if err := svc.initSyncer(svc.closedCtx); err != nil {
 						svc.logger.Infof("initSyncer err: %s", err.Error())
@@ -676,7 +663,6 @@ func (svc *builtIn) startSync() {
 						continue
 					}
 				} else if svc.reinitSyncer {
-					svc.logger.Infof("startSync svc.reinitSyncer")
 					svc.closeSyncer()
 					if err := svc.initSyncer(svc.closedCtx); err != nil {
 						svc.logger.Infof("initSyncer err: %s", err.Error())
