@@ -21,7 +21,6 @@ import (
 	"context"
 	"math"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/pkg/errors"
@@ -152,8 +151,6 @@ func new28byj(
 	}
 	m.in4 = in4
 
-	m.doRun()
-
 	return m, nil
 }
 
@@ -168,43 +165,43 @@ type uln28byj struct {
 	motorName          string
 
 	// state
-	workers utils.StoppableWorkers
-	lock    sync.RWMutex
-	opMgr   *operation.SingleOperationManager
+	workers   utils.StoppableWorkers
+	lock      sync.RWMutex
+	opMgr     *operation.SingleOperationManager
+	doRunDone func()
 
 	stepPosition       int64
 	stepperDelay       time.Duration
 	targetStepPosition int64
-	lastTargetPosition int64
 }
 
 // doRun runs the motor till it reaches target step position.
-func (m *uln28byj) doRun() {
-	// Spawn a new goroutine to do all the work in the background.
+func (m *uln28byj) doRun(ctx context.Context, targetStepPosition int64) {
+	// cancel doRun if it already exists
+	if m.doRunDone != nil {
+		m.doRunDone()
+	}
+
+	// start a new doRun
+	var doRunCtx context.Context
+	doRunCtx, m.doRunDone = context.WithCancel(ctx)
 	m.workers = utils.NewStoppableWorkers(func(ctx context.Context) {
 		for {
 			select {
-			case <-ctx.Done():
+			case <-doRunCtx.Done():
 				return
 			default:
 			}
 
-			// if the target position hasn't changed, don't do anything
-			if atomic.LoadInt64(&m.targetStepPosition) == m.lastTargetPosition {
-				continue
-			}
-
 			// This condition cannot be locked for the duration of the loop as
 			// Stop() modifies m.targetStepPosition to interrupt the run
-			if m.stepPosition == atomic.LoadInt64(&m.targetStepPosition) {
-				err := m.doStop(ctx)
-				m.lastTargetPosition = atomic.LoadInt64(&m.targetStepPosition)
-				if err != nil {
-					m.logger.Error(errors.Wrapf(err, "error while disabling motor (%s)", m.motorName))
+			if m.stepPosition == targetStepPosition {
+				if err := m.setPins(doRunCtx, [4]bool{false, false, false, false}); err != nil {
+					m.logger.Errorf("error setting pins to zero %v", err)
 					return
 				}
 			} else {
-				err := m.doStep(ctx, m.stepPosition < atomic.LoadInt64(&m.targetStepPosition))
+				err := m.doStep(ctx, m.stepPosition < targetStepPosition)
 				if err != nil {
 					m.logger.Errorf("error stepping %v", err)
 					return
@@ -214,20 +211,10 @@ func (m *uln28byj) doRun() {
 	})
 }
 
-// doStop sets all the pins to 0 to stop the motor
-func (m *uln28byj) doStop(ctx context.Context) error {
-	m.lock.Lock()
-	defer m.lock.Unlock()
-
-	return m.setPins(ctx, [4]bool{false, false, false, false})
-}
-
 // doStep has to be locked to call.
 // Depending on the direction, doStep will either treverse the stepSequence array in ascending
 // or descending order.
 func (m *uln28byj) doStep(ctx context.Context, forward bool) error {
-	m.lock.Lock()
-	defer m.lock.Unlock()
 	if forward {
 		m.stepPosition++
 	} else {
@@ -281,12 +268,14 @@ func (m *uln28byj) GoFor(ctx context.Context, rpm, revolutions float64, extra ma
 	}
 
 	m.lock.Lock()
-	m.targetStepPosition, m.stepperDelay = m.goMath(rpm, revolutions)
-	m.lock.Unlock()
+	defer m.lock.Unlock()
+
+	var targetStepPosition int64
+	targetStepPosition, m.stepperDelay = m.goMath(rpm, revolutions)
+
+	m.doRun(ctx, targetStepPosition)
 
 	positionReached := func(ctx context.Context) (bool, error) {
-		m.lock.Lock()
-		defer m.lock.Unlock()
 		return m.targetStepPosition == m.stepPosition, nil
 	}
 
@@ -380,8 +369,10 @@ func (m *uln28byj) SetPower(ctx context.Context, powerPct float64, extra map[str
 
 	m.lock.Lock()
 	defer m.lock.Unlock()
-	m.targetStepPosition = int64(math.Inf(int(powerPct)))
+	targetStepPosition := int64(math.Inf(int(powerPct)))
 	m.stepperDelay = m.calcStepperDelay(powerPct * maxRPM)
+
+	m.doRun(ctx, targetStepPosition)
 
 	return nil
 }
@@ -410,9 +401,11 @@ func (m *uln28byj) IsMoving(ctx context.Context) (bool, error) {
 
 // Stop turns the power to the motor off immediately, without any gradual step down.
 func (m *uln28byj) Stop(ctx context.Context, extra map[string]interface{}) error {
+	if m.doRunDone != nil {
+		m.doRunDone()
+	}
 	m.lock.Lock()
 	defer m.lock.Unlock()
-	m.targetStepPosition = m.stepPosition
 	return nil
 }
 

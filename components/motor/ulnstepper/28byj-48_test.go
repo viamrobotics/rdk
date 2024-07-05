@@ -338,7 +338,9 @@ func TestState(t *testing.T) {
 	m := mm.(*uln28byj)
 
 	t.Run("test state", func(t *testing.T) {
+		m.lock.Lock()
 		m.stepPosition = 9
+		m.lock.Unlock()
 		b := m.theBoard
 		var pin1Arr []bool
 		var pin2Arr []bool
