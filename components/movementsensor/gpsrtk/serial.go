@@ -153,7 +153,17 @@ func newRTKSerial(
 	if err := g.start(); err != nil {
 		return nil, err
 	}
-	return g, g.err.Get()
+
+	// It's possible that we've taken so long to start up that the resource manager has given up on
+	// us and tried constructing a new component instead. If that happens, we don't want 2
+	// components talking to the same chip. So, if our context is canceled, close our component
+	// instead of returning it.
+	if (ctx.Err() != nil) {
+		logger.Warn("context canceled by the end of the constructor! Closing the new component...")
+		return nil, fmt.Errorf("timed out constructing serial RTK reader. Closing: %w", g.Close(ctx))
+	}
+
+	return g, nil
 }
 
 // openPort opens the serial port for writing.

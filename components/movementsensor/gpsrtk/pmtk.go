@@ -6,6 +6,7 @@ package gpsrtk
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 
 	"go.viam.com/rdk/components/board/genericlinux/buses"
@@ -85,7 +86,7 @@ func newRTKI2C(
 // makeRTKI2C is separate from newRTKI2C, above, so we can pass in a non-nil mock I2C bus during
 // unit tests.
 func makeRTKI2C(
-	_ context.Context,
+	ctx context.Context,
 	_ resource.Dependencies,
 	conf resource.Config,
 	logger logging.Logger,
@@ -144,6 +145,16 @@ func makeRTKI2C(
 	if err := g.start(); err != nil {
 		return nil, err
 	}
+
+	// It's possible that we've taken so long to start up that the resource manager has given up on
+	// us and tried constructing a new component instead. If that happens, we don't want 2
+	// components talking to the same chip. So, if our context is canceled, close our component
+	// instead of returning it.
+	if (ctx.Err() != nil) {
+		logger.Warn("context canceled by the end of the constructor! Closing the new component...")
+		return nil, fmt.Errorf("timed out constructing I2C RTK reader. Closing: %w", g.Close(ctx))
+	}
+
 	return g, nil
 }
 
