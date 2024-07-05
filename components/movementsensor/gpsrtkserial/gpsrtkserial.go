@@ -135,7 +135,7 @@ func (g *rtkSerial) Reconfigure(ctx context.Context, deps resource.Dependencies,
 
 	if newConf.SerialPath != "" {
 		g.writePath = newConf.SerialPath
-		g.logger.CInfof(ctx, "updated serial_path to #%v", newConf.SerialPath)
+		g.logger.CInfof(ctx, "updated serial_path to %#v", newConf.SerialPath)
 	}
 
 	if newConf.SerialBaudRate != 0 {
