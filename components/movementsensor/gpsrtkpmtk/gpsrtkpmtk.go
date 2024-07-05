@@ -403,7 +403,7 @@ func (g *rtkI2C) receiveAndWriteI2C(ctx context.Context) {
 		msg, err := scanner.NextMessage()
 		if err == nil {
 			bytes := msg.Serialize()
-			//fmt.Printf("writing %d bytes to handle: ->%#v<-\n", len(bytes), bytes);
+			fmt.Printf("writing %d bytes to handle:\n", len(bytes))// ->%#v<-\n", len(bytes), bytes);
 			err = handle.Write(ctx, bytes)
 			if err != nil {
 				g.logger.CErrorf(ctx, "i2c handle write failed %s", err)
@@ -417,6 +417,7 @@ func (g *rtkI2C) receiveAndWriteI2C(ctx context.Context) {
 		// If we get here, the scanner encountered an error but is supposed to continue going. Try
 		// reconnecting to the mount point.
 
+		/*
 		buffer, err := handle.Read(ctx, 1024)
 		if err != nil {
 			g.err.Set(err)
@@ -432,6 +433,7 @@ func (g *rtkI2C) receiveAndWriteI2C(ctx context.Context) {
 			shortened := buffstr[start:end+1]
 			fmt.Printf("extracted the good part: ->%s<-\n", shortened)
 		}
+		*/
 
 
 		g.logger.CDebug(ctx, "No message... reconnecting to stream...")
