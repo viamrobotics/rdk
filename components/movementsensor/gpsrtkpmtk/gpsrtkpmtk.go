@@ -129,7 +129,6 @@ type rtkI2C struct {
 	lastposition movementsensor.LastPosition
 
 	cachedData       *gpsutils.CachedData
-	correctionWriter io.ReadWriteCloser
 
 	bus     buses.I2C
 	mockI2c buses.I2C // Will be nil unless we're in a unit test
@@ -632,15 +631,6 @@ func (g *rtkI2C) Close(ctx context.Context) error {
 	if err := g.cachedData.Close(ctx); err != nil {
 		g.mu.Unlock()
 		return err
-	}
-
-	// close ntrip writer
-	if g.correctionWriter != nil {
-		if err := g.correctionWriter.Close(); err != nil {
-			g.mu.Unlock()
-			return err
-		}
-		g.correctionWriter = nil
 	}
 
 	// close ntrip client and stream
