@@ -37,8 +37,8 @@ import (
 	"go.viam.com/rdk/spatialmath"
 )
 
-// rtkSerial is an nmea movementsensor model that can intake RTK correction data.
-type rtkSerial struct {
+// gpsrtk is an nmea movementsensor model that can intake RTK correction data.
+type gpsrtk struct {
 	resource.Named
 	resource.AlwaysRebuild
 	logger     logging.Logger
@@ -65,7 +65,7 @@ type rtkSerial struct {
 	reader           io.Reader
 }
 
-func (g *rtkSerial) start() error {
+func (g *gpsrtk) start() error {
 	err := g.connectToNTRIP()
 	if err != nil {
 		return err
@@ -76,7 +76,7 @@ func (g *rtkSerial) start() error {
 }
 
 // getStream attempts to connect to ntrip stream. We give up after maxAttempts unsuccessful tries.
-func (g *rtkSerial) getStream(mountPoint string, maxAttempts int) error {
+func (g *gpsrtk) getStream(mountPoint string, maxAttempts int) error {
 	success := false
 	attempts := 0
 
@@ -115,7 +115,7 @@ func (g *rtkSerial) getStream(mountPoint string, maxAttempts int) error {
 }
 
 // closePort closes the correctionWriter.
-func (g *rtkSerial) closePort() {
+func (g *gpsrtk) closePort() {
 	g.mu.Lock()
 	defer g.mu.Unlock()
 
@@ -129,7 +129,7 @@ func (g *rtkSerial) closePort() {
 
 // connectAndParseSourceTable connects to the NTRIP caster, gets and parses source table
 // from the caster.
-func (g *rtkSerial) connectAndParseSourceTable() error {
+func (g *gpsrtk) connectAndParseSourceTable() error {
 	if err := g.cancelCtx.Err(); err != nil {
 		return g.err.Get()
 	}
@@ -177,7 +177,7 @@ func (g *rtkSerial) connectAndParseSourceTable() error {
 }
 
 // connectToNTRIP connects to NTRIP stream.
-func (g *rtkSerial) connectToNTRIP() error {
+func (g *gpsrtk) connectToNTRIP() error {
 	select {
 	case <-g.cancelCtx.Done():
 		return errors.New("context canceled")
@@ -210,7 +210,7 @@ func (g *rtkSerial) connectToNTRIP() error {
 
 // receiveAndWriteCorrectionData connects to the NTRIP receiver and sends the correction stream to
 // the MovementSensor.
-func (g *rtkSerial) receiveAndWriteCorrectionData() {
+func (g *gpsrtk) receiveAndWriteCorrectionData() {
 	defer g.activeBackgroundWorkers.Done()
 	defer g.closePort()
 
@@ -270,7 +270,7 @@ func (g *rtkSerial) receiveAndWriteCorrectionData() {
 // it's own mutex and not having mutex around g.err is alright.
 
 // Position returns the current geographic location of the MOVEMENTSENSOR.
-func (g *rtkSerial) Position(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
+func (g *gpsrtk) Position(ctx context.Context, extra map[string]interface{}) (*geo.Point, float64, error) {
 	nanPoint := geo.NewPoint(math.NaN(), math.NaN())
 
 	lastError := g.err.Get()
@@ -290,7 +290,7 @@ func (g *rtkSerial) Position(ctx context.Context, extra map[string]interface{}) 
 }
 
 // LinearVelocity passthrough.
-func (g *rtkSerial) LinearVelocity(ctx context.Context, extra map[string]interface{}) (r3.Vector, error) {
+func (g *gpsrtk) LinearVelocity(ctx context.Context, extra map[string]interface{}) (r3.Vector, error) {
 	lastError := g.err.Get()
 	if lastError != nil {
 		return r3.Vector{}, lastError
@@ -300,7 +300,7 @@ func (g *rtkSerial) LinearVelocity(ctx context.Context, extra map[string]interfa
 }
 
 // LinearAcceleration passthrough.
-func (g *rtkSerial) LinearAcceleration(ctx context.Context, extra map[string]interface{}) (r3.Vector, error) {
+func (g *gpsrtk) LinearAcceleration(ctx context.Context, extra map[string]interface{}) (r3.Vector, error) {
 	lastError := g.err.Get()
 	if lastError != nil {
 		return r3.Vector{}, lastError
@@ -309,7 +309,7 @@ func (g *rtkSerial) LinearAcceleration(ctx context.Context, extra map[string]int
 }
 
 // AngularVelocity passthrough.
-func (g *rtkSerial) AngularVelocity(ctx context.Context, extra map[string]interface{}) (spatialmath.AngularVelocity, error) {
+func (g *gpsrtk) AngularVelocity(ctx context.Context, extra map[string]interface{}) (spatialmath.AngularVelocity, error) {
 	lastError := g.err.Get()
 	if lastError != nil {
 		return spatialmath.AngularVelocity{}, lastError
@@ -319,7 +319,7 @@ func (g *rtkSerial) AngularVelocity(ctx context.Context, extra map[string]interf
 }
 
 // CompassHeading passthrough.
-func (g *rtkSerial) CompassHeading(ctx context.Context, extra map[string]interface{}) (float64, error) {
+func (g *gpsrtk) CompassHeading(ctx context.Context, extra map[string]interface{}) (float64, error) {
 	lastError := g.err.Get()
 	if lastError != nil {
 		return 0, lastError
@@ -328,7 +328,7 @@ func (g *rtkSerial) CompassHeading(ctx context.Context, extra map[string]interfa
 }
 
 // Orientation passthrough.
-func (g *rtkSerial) Orientation(ctx context.Context, extra map[string]interface{}) (spatialmath.Orientation, error) {
+func (g *gpsrtk) Orientation(ctx context.Context, extra map[string]interface{}) (spatialmath.Orientation, error) {
 	lastError := g.err.Get()
 	if lastError != nil {
 		return spatialmath.NewZeroOrientation(), lastError
@@ -337,7 +337,7 @@ func (g *rtkSerial) Orientation(ctx context.Context, extra map[string]interface{
 }
 
 // readFix passthrough.
-func (g *rtkSerial) readFix(ctx context.Context) (int, error) {
+func (g *gpsrtk) readFix(ctx context.Context) (int, error) {
 	lastError := g.err.Get()
 	if lastError != nil {
 		return 0, lastError
@@ -346,7 +346,7 @@ func (g *rtkSerial) readFix(ctx context.Context) (int, error) {
 }
 
 // readSatsInView returns the number of satellites in view.
-func (g *rtkSerial) readSatsInView(ctx context.Context) (int, error) {
+func (g *gpsrtk) readSatsInView(ctx context.Context) (int, error) {
 	lastError := g.err.Get()
 	if lastError != nil {
 		return 0, lastError
@@ -356,7 +356,7 @@ func (g *rtkSerial) readSatsInView(ctx context.Context) (int, error) {
 }
 
 // Properties passthrough.
-func (g *rtkSerial) Properties(ctx context.Context, extra map[string]interface{}) (*movementsensor.Properties, error) {
+func (g *gpsrtk) Properties(ctx context.Context, extra map[string]interface{}) (*movementsensor.Properties, error) {
 	lastError := g.err.Get()
 	if lastError != nil {
 		return &movementsensor.Properties{}, lastError
@@ -366,7 +366,7 @@ func (g *rtkSerial) Properties(ctx context.Context, extra map[string]interface{}
 }
 
 // Accuracy passthrough.
-func (g *rtkSerial) Accuracy(ctx context.Context, extra map[string]interface{}) (*movementsensor.Accuracy, error,
+func (g *gpsrtk) Accuracy(ctx context.Context, extra map[string]interface{}) (*movementsensor.Accuracy, error,
 ) {
 	lastError := g.err.Get()
 	if lastError != nil {
@@ -377,7 +377,7 @@ func (g *rtkSerial) Accuracy(ctx context.Context, extra map[string]interface{}) 
 }
 
 // Readings will use the default MovementSensor Readings if not provided.
-func (g *rtkSerial) Readings(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
+func (g *gpsrtk) Readings(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
 	readings, err := movementsensor.DefaultAPIReadings(ctx, g, extra)
 	if err != nil {
 		return nil, err
@@ -399,8 +399,8 @@ func (g *rtkSerial) Readings(ctx context.Context, extra map[string]interface{}) 
 	return readings, nil
 }
 
-// Close shuts down the rtkSerial.
-func (g *rtkSerial) Close(ctx context.Context) error {
+// Close shuts down the gpsrtk.
+func (g *gpsrtk) Close(ctx context.Context) error {
 	g.mu.Lock()
 	g.cancelFunc()
 
@@ -447,7 +447,7 @@ func (g *rtkSerial) Close(ctx context.Context) error {
 
 // getNtripFromVRS sends GGA messages to the NTRIP Caster over a TCP connection
 // to get the NTRIP steam when the mount point is a Virtual Reference Station.
-func (g *rtkSerial) getNtripFromVRS() error {
+func (g *gpsrtk) getNtripFromVRS() error {
 	g.mu.Lock()
 	defer g.mu.Unlock()
 	var err error

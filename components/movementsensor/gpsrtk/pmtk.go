@@ -98,7 +98,7 @@ func makeRTKI2C(
 	}
 
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
-	g := &rtkSerial{
+	g := &gpsrtk{
 		Named:      conf.ResourceName().AsNamed(),
 		cancelCtx:  cancelCtx,
 		cancelFunc: cancelFunc,

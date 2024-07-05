@@ -88,7 +88,7 @@ func TestPosition(t *testing.T) {
 
 	// If there is last error and no last position, return NaN
 	t.Run("position with last error and no last position", func(t *testing.T) {
-		g := &rtkSerial{
+		g := &gpsrtk{
 			err: movementsensor.NewLastError(1, 1),
 		}
 		g.err.Set(errors.New("last error test"))
@@ -101,7 +101,7 @@ func TestPosition(t *testing.T) {
 
 	// If there is last error and last position, return last position
 	t.Run("position with last error and last position", func(t *testing.T) {
-		g := &rtkSerial{
+		g := &gpsrtk{
 			err:        movementsensor.NewLastError(1, 1),
 			cachedData: gpsutils.NewCachedData(&mockDataReader{}, logging.NewTestLogger(t)),
 		}
@@ -119,7 +119,7 @@ func TestPosition(t *testing.T) {
 
 	// If there is no last error, invalid current position and no last position, return NaN
 	t.Run("invalid position with invalid last position, with position error", func(t *testing.T) {
-		g := &rtkSerial{
+		g := &gpsrtk{
 			err:        movementsensor.NewLastError(1, 1),
 			cachedData: gpsutils.NewCachedData(&mockDataReader{}, logging.NewTestLogger(t)),
 		}
@@ -132,7 +132,7 @@ func TestPosition(t *testing.T) {
 
 	// If there is no last error, invalid current position and valid last position, return last position
 	t.Run("invalid position with valid last position, with position error", func(t *testing.T) {
-		g := &rtkSerial{
+		g := &gpsrtk{
 			err:        movementsensor.NewLastError(1, 1),
 			cachedData: gpsutils.NewCachedData(&mockDataReader{}, logging.NewTestLogger(t)),
 		}
@@ -151,7 +151,7 @@ func TestPosition(t *testing.T) {
 
 	// Invalid current position from NMEA message, return last known position
 	t.Run("invalid position with valid last position, no error", func(t *testing.T) {
-		g := &rtkSerial{
+		g := &gpsrtk{
 			err:        movementsensor.NewLastError(1, 1),
 			cachedData: gpsutils.NewCachedData(&mockDataReader{}, logging.NewTestLogger(t)),
 		}
@@ -168,7 +168,7 @@ func TestPosition(t *testing.T) {
 
 	// Valid current position, should return current position
 	t.Run("valid position, no error", func(t *testing.T) {
-		g := &rtkSerial{
+		g := &gpsrtk{
 			err:        movementsensor.NewLastError(1, 1),
 			cachedData: gpsutils.NewCachedData(&mockDataReader{}, logging.NewTestLogger(t)),
 		}
