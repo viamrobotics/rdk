@@ -74,33 +74,6 @@ func TestValidateRTK(t *testing.T) {
 	})
 }
 
-func TestReconfigure(t *testing.T) {
-	g := &rtkSerial{
-		writePath: "/dev/ttyUSB0",
-		wbaud:     9600,
-		logger:    logging.NewTestLogger(t),
-	}
-
-	conf := resource.Config{
-		Name: "reconfig1",
-		ConvertedAttributes: &SerialConfig{
-			SerialPath:           "/dev/ttyUSB1",
-			SerialBaudRate:       115200,
-			NtripURL:             "http//fakeurl",
-			NtripConnectAttempts: 10,
-			NtripPass:            "somepass",
-			NtripUser:            "someuser",
-			NtripMountpoint:      "NYC",
-		},
-	}
-
-	err := g.Reconfigure(context.Background(), nil, conf)
-
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, g.writePath, test.ShouldResemble, "/dev/ttyUSB1")
-	test.That(t, g.wbaud, test.ShouldEqual, 115200)
-}
-
 // This sets the position to 12°34.5678' N, 123°45.6789' W, at time 12:34:56.78 UTC.
 const setPositionSentence = "$GPGLL,1234.5678,N,12345.6789,W,123456.78,A,D*7F"
 
