@@ -44,8 +44,8 @@ import (
 
 var rtkmodel = resource.DefaultModelFamily.WithModel("gps-nmea-rtk-pmtk")
 
-// Config is used for converting NMEA MovementSensor with RTK capabilities config attributes.
-type Config struct {
+// I2CConfig is used for converting NMEA MovementSensor with RTK capabilities config attributes.
+type I2CConfig struct {
 	I2CBus      string `json:"i2c_bus"`
 	I2CAddr     int    `json:"i2c_addr"`
 	I2CBaudRate int    `json:"i2c_baud_rate,omitempty"`
@@ -58,7 +58,7 @@ type Config struct {
 }
 
 // Validate ensures all parts of the config are valid.
-func (cfg *Config) Validate(path string) ([]string, error) {
+func (cfg *I2CConfig) Validate(path string) ([]string, error) {
 	err := cfg.validateI2C(path)
 	if err != nil {
 		return nil, err
@@ -73,7 +73,7 @@ func (cfg *Config) Validate(path string) ([]string, error) {
 }
 
 // validateI2C ensures all parts of the config are valid.
-func (cfg *Config) validateI2C(path string) error {
+func (cfg *I2CConfig) validateI2C(path string) error {
 	if cfg.I2CBus == "" {
 		return resource.NewConfigValidationFieldRequiredError(path, "i2c_bus")
 	}
@@ -84,7 +84,7 @@ func (cfg *Config) validateI2C(path string) error {
 }
 
 // validateNtrip ensures all parts of the config are valid.
-func (cfg *Config) validateNtrip(path string) error {
+func (cfg *I2CConfig) validateNtrip(path string) error {
 	if cfg.NtripURL == "" {
 		return resource.NewConfigValidationFieldRequiredError(path, "ntrip_url")
 	}
@@ -95,7 +95,7 @@ func init() {
 	resource.RegisterComponent(
 		movementsensor.API,
 		rtkmodel,
-		resource.Registration[movementsensor.MovementSensor, *Config]{
+		resource.Registration[movementsensor.MovementSensor, *I2CConfig]{
 			Constructor: newRTKI2C,
 		})
 }
@@ -118,7 +118,7 @@ func makeRTKI2C(
 	logger logging.Logger,
 	mockI2c buses.I2C,
 ) (movementsensor.MovementSensor, error) {
-	newConf, err := resource.NativeConfig[*Config](conf)
+	newConf, err := resource.NativeConfig[*I2CConfig](conf)
 	if err != nil {
 		return nil, err
 	}

@@ -24,7 +24,7 @@ const (
 
 func TestValidateRTK(t *testing.T) {
 	path := "path"
-	cfg := Config{
+	cfg := I2CConfig{
 		NtripURL:             "http://fakeurl",
 		NtripConnectAttempts: 10,
 		NtripPass:            "somepass",
@@ -39,7 +39,7 @@ func TestValidateRTK(t *testing.T) {
 	})
 
 	t.Run("invalid ntrip url", func(t *testing.T) {
-		cfg := Config{
+		cfg := I2CConfig{
 			NtripURL:             "",
 			NtripConnectAttempts: 10,
 			NtripPass:            "somepass",
@@ -54,7 +54,7 @@ func TestValidateRTK(t *testing.T) {
 	})
 
 	t.Run("invalid i2c bus", func(t *testing.T) {
-		cfg := Config{
+		cfg := I2CConfig{
 			I2CBus:               "",
 			NtripURL:             "http://fakeurl",
 			NtripConnectAttempts: 10,
@@ -69,7 +69,7 @@ func TestValidateRTK(t *testing.T) {
 	})
 
 	t.Run("invalid i2c addr", func(t *testing.T) {
-		cfg := Config{
+		cfg := I2CConfig{
 			I2CAddr:              0,
 			NtripURL:             "http://fakeurl",
 			NtripConnectAttempts: 10,
@@ -94,7 +94,7 @@ func TestReconfigure(t *testing.T) {
 	}
 	conf := resource.Config{
 		Name: "reconfig1",
-		ConvertedAttributes: &Config{
+		ConvertedAttributes: &I2CConfig{
 			NtripURL:             "http://fakeurl",
 			NtripConnectAttempts: 10,
 			NtripPass:            "somepass",
