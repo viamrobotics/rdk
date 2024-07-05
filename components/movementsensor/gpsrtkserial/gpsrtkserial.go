@@ -382,7 +382,7 @@ func (g *rtkSerial) receiveAndWriteSerial() {
 		msg, err := scanner.NextMessage()
 		if err == nil {
 			bytes := msg.Serialize()
-			fmt.Printf("writing %d bytes to serial\n", len(bytes))
+			g.logger.Debugf("writing %d bytes to GPS", len(bytes))
 			continue // No errors: we're still connected.
 		}
 
