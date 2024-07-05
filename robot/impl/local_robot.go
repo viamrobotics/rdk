@@ -1339,7 +1339,11 @@ func (r *localRobot) restartSingleModule(ctx context.Context, mod *config.Module
 }
 
 func (r *localRobot) RestartModule(ctx context.Context, req robot.RestartModuleRequest) error {
-	mod := utils.FindInSlice(r.Config().Modules, req.MatchesModule)
+	cfg := r.mostRecentCfg.Load().(config.Config)
+	var mod *config.Module
+	if cfg.Modules != nil {
+		mod = utils.FindInSlice(cfg.Modules, req.MatchesModule)
+	}
 	if mod == nil {
 		return status.Errorf(codes.NotFound,
 			"module not found with id=%s, name=%s. make sure it is configured and running on your machine",
