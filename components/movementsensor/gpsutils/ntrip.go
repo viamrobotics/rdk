@@ -248,7 +248,6 @@ func (n *NtripInfo) Connect(ctx context.Context, logger logging.Logger) error {
 			n.Client = c
 			return nil
 		}
-
 	}
 
 	logger.Errorf("Can't connect to NTRIP caster: %s", err)
