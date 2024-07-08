@@ -54,7 +54,6 @@ const (
 
 // SerialConfig is used for converting NMEA MovementSensor with RTK capabilities config attributes.
 type SerialConfig struct {
-	resource.AlwaysRebuild
 	SerialPath     string `json:"serial_path"`
 	SerialBaudRate int    `json:"serial_baud_rate,omitempty"`
 
