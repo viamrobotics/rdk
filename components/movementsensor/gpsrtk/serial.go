@@ -47,11 +47,6 @@ import (
 
 var rtkmodel = resource.DefaultModelFamily.WithModel("gps-nmea-rtk-serial")
 
-const (
-	serialStr = "serial"
-	ntripStr  = "ntrip"
-)
-
 // SerialConfig is used for converting NMEA MovementSensor with RTK capabilities config attributes.
 type SerialConfig struct {
 	SerialPath     string `json:"serial_path"`
@@ -131,7 +126,6 @@ func newRTKSerial(
 	if err != nil {
 		return nil, err
 	}
-	g.InputProtocol = serialStr
 
 	serialConfig := &gpsutils.SerialConfig{
 		SerialPath:     newConf.SerialPath,

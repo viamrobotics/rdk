@@ -49,7 +49,6 @@ type gpsrtk struct {
 	activeBackgroundWorkers sync.WaitGroup
 
 	err           movementsensor.LastError
-	InputProtocol string
 	isClosed      bool
 
 	mu sync.Mutex

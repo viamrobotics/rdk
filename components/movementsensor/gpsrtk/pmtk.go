@@ -118,7 +118,6 @@ func makeRTKI2C(
 	if err != nil {
 		return nil, err
 	}
-	g.InputProtocol = "i2c"
 
 	i2cConfig := gpsutils.I2CConfig{
 		I2CBus:      newConf.I2CBus,
