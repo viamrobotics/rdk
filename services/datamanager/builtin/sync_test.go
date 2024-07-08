@@ -565,7 +565,7 @@ func TestStreamingDCUpload(t *testing.T) {
 				AssociatedAttributes: associations,
 			})
 			test.That(t, err, test.ShouldBeNil)
-			b2 := dmsvc.(*builtIn)
+			b2 := newDMSvc.(*builtIn)
 			test.That(t, b2.propagateDataSyncConfig(), test.ShouldBeNil)
 
 			// Call sync.
