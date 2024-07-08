@@ -127,6 +127,7 @@ func makeRTKI2C(
 	}
 	if config.I2CBaudRate == 0 {
 		config.I2CBaudRate = 115200
+		logger.Infof("no I2C baud rate specified, defaulting to %d", config.I2CBaudRate)
 	}
 
 	// If we have a mock I2C bus, pass that in, too. If we don't, it'll be nil and constructing the
