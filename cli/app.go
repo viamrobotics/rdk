@@ -844,6 +844,12 @@ var app = &cli.App{
 							Usage:    "option to include JSON Lines files for local testing",
 							Value:    false,
 						},
+						&cli.UintFlag{
+							Name:     dataFlagParallelDownloads,
+							Required: false,
+							Usage:    "number of download requests to make in parallel",
+							Value:    100,
+						},
 					},
 					Action: DatasetDownloadAction,
 				},

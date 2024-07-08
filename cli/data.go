@@ -68,7 +68,7 @@ func (c *viamClient) dataExportAction(cCtx *cli.Context) error {
 
 	switch cCtx.String(dataFlagDataType) {
 	case dataTypeBinary:
-		if err := c.binaryData(cCtx.Path(dataFlagDestination), filter, cCtx.Uint(dataFlagParallelDownloads), false); err != nil {
+		if err := c.binaryData(cCtx.Path(dataFlagDestination), filter, cCtx.Uint(dataFlagParallelDownloads)); err != nil {
 			return err
 		}
 	case dataTypeTabular:
@@ -264,7 +264,7 @@ func createDataFilter(c *cli.Context) (*datapb.Filter, error) {
 }
 
 // BinaryData downloads binary data matching filter to dst.
-func (c *viamClient) binaryData(dst string, filter *datapb.Filter, parallelDownloads uint, includeJSONL bool) error {
+func (c *viamClient) binaryData(dst string, filter *datapb.Filter, parallelDownloads uint) error {
 	if err := c.ensureLoggedIn(); err != nil {
 		return err
 	}

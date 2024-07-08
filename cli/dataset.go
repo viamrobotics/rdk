@@ -10,7 +10,6 @@ import (
 	"github.com/urfave/cli/v2"
 	"go.uber.org/multierr"
 	datapb "go.viam.com/api/app/data/v1"
-	v1 "go.viam.com/api/app/data/v1"
 	datasetpb "go.viam.com/api/app/dataset/v1"
 )
 
@@ -132,7 +131,7 @@ func (c *viamClient) listDatasetByOrg(orgID string) error {
 	return nil
 }
 
-// DatasetDeleteAction is the corresponding action for 'dataset rename'.
+// DatasetDeleteAction is the corresponding action for 'dataset delete'.
 func DatasetDeleteAction(c *cli.Context) error {
 	client, err := newViamClient(c)
 	if err != nil {
@@ -158,33 +157,34 @@ func (c *viamClient) deleteDataset(datasetID string) error {
 	return nil
 }
 
-// DatasetDeleteAction is the corresponding action for 'dataset rename'.
+// DatasetDownloadAction is the corresponding action for 'dataset download'.
 func DatasetDownloadAction(c *cli.Context) error {
 	client, err := newViamClient(c)
 	if err != nil {
 		return err
 	}
-	if err := client.downloadDataset(c.Path(dataFlagDestination), c.String(datasetFlagDatasetID), c.Bool(datasetFlagIncludeJSONLines)); err != nil {
+	if err := client.downloadDataset(c.Path(dataFlagDestination), c.String(datasetFlagDatasetID),
+		c.Bool(datasetFlagIncludeJSONLines), c.Uint(dataFlagParallelDownloads)); err != nil {
 		return err
 	}
 	return nil
 }
 
 // downloadDataset downloads a dataset with the specified ID.
-func (c *viamClient) downloadDataset(dst, datasetID string, includeJSONLines bool) error {
+func (c *viamClient) downloadDataset(dst, datasetID string, includeJSONLines bool, parallelDownloads uint) error {
 	if err := c.ensureLoggedIn(); err != nil {
 		return err
 	}
 
 	var datasetFile *os.File
+	var err error
 	if includeJSONLines {
-		//nolint:gosec
 		datasetPath := filepath.Join(dst, "dataset.jsonl")
 		if err := os.MkdirAll(filepath.Dir(datasetPath), 0o700); err != nil {
 			return errors.Wrapf(err, "could not create dataset directory %s", filepath.Dir(datasetPath))
 		}
 		//nolint:gosec
-		datasetFile, err := os.Create(datasetPath)
+		datasetFile, err = os.Create(datasetPath)
 		if err != nil {
 			return err
 		}
@@ -206,7 +206,7 @@ func (c *viamClient) downloadDataset(dst, datasetID string, includeJSONLines boo
 		},
 		&datapb.Filter{
 			DatasetId: datasetID,
-		}, 100,
+		}, parallelDownloads,
 		func(i int32) {
 			printf(c.c.App.Writer, "Downloaded %d files", i)
 		},
@@ -218,17 +218,11 @@ type Annotation struct {
 	AnnotationLabel string `json:"annotation_label"`
 }
 
-// ObjectDetection defines the format of the data in jsonlines for object detection.
-type ObjectDetection struct {
-	ImageGCSURI     string           `json:"image_gcs_uri"`
-	BBoxAnnotations []BBoxAnnotation `json:"bounding_box_annotations"`
-}
-
 // ImageMetadata defines the format of the data in jsonlines for custom training.
 type ImageMetadata struct {
-	ImagePath                 string                `json:"image_path"`
-	ClassificationAnnotations []Annotation          `json:"classification_annotations"`
-	BBoxAnnotations           []*datapb.BoundingBox `json:"bounding_box_annotations"`
+	ImagePath                 string           `json:"image_path"`
+	ClassificationAnnotations []Annotation     `json:"classification_annotations"`
+	BBoxAnnotations           []BBoxAnnotation `json:"bounding_box_annotations"`
 }
 
 // BBoxAnnotation holds the information associated with each bounding box.
@@ -240,13 +234,23 @@ type BBoxAnnotation struct {
 	YMaxNormalized  float64 `json:"y_max_normalized"`
 }
 
-func binaryDataToJSONLines(ctx context.Context, client v1.DataServiceClient, file *os.File,
+func binaryDataToJSONLines(ctx context.Context, client datapb.DataServiceClient, file *os.File,
 	id *datapb.BinaryID,
 ) error {
-	resp, err := client.BinaryDataByIDs(ctx, &datapb.BinaryDataByIDsRequest{
-		BinaryIds:     []*datapb.BinaryID{id},
-		IncludeBinary: false,
-	})
+	var resp *datapb.BinaryDataByIDsResponse
+	var err error
+	for count := 0; count < maxRetryCount; count++ {
+		resp, err = client.BinaryDataByIDs(ctx, &datapb.BinaryDataByIDsRequest{
+			BinaryIds:     []*datapb.BinaryID{id},
+			IncludeBinary: false,
+		})
+		if err == nil {
+			break
+		}
+	}
+	if err != nil {
+		return errors.Wrapf(err, serverErrorMessage)
+	}
 
 	data := resp.GetData()
 	if len(data) != 1 {
@@ -254,17 +258,18 @@ func binaryDataToJSONLines(ctx context.Context, client v1.DataServiceClient, fil
 	}
 	datum := data[0]
 
-	// Make JSONLines file
+	// Make JSONLines
 	var jsonl interface{}
 
 	annotations := []Annotation{}
 	for _, tag := range datum.GetMetadata().GetCaptureMetadata().GetTags() {
 		annotations = append(annotations, Annotation{AnnotationLabel: tag})
 	}
+	bboxAnnotations := convertBoundingBoxes(datum.GetMetadata().GetAnnotations().GetBboxes())
 	jsonl = ImageMetadata{
 		ImagePath:                 filenameForDownload(datum.GetMetadata()),
 		ClassificationAnnotations: annotations,
-		BBoxAnnotations:           datum.GetMetadata().GetAnnotations().GetBboxes(),
+		BBoxAnnotations:           bboxAnnotations,
 	}
 
 	line, err := json.Marshal(jsonl)
@@ -278,4 +283,18 @@ func binaryDataToJSONLines(ctx context.Context, client v1.DataServiceClient, fil
 	}
 
 	return nil
+}
+
+func convertBoundingBoxes(protoBBoxes []*datapb.BoundingBox) []BBoxAnnotation {
+	bboxes := make([]BBoxAnnotation, len(protoBBoxes))
+	for i, box := range protoBBoxes {
+		bboxes[i] = BBoxAnnotation{
+			AnnotationLabel: box.GetLabel(),
+			XMinNormalized:  box.GetXMinNormalized(),
+			XMaxNormalized:  box.GetXMaxNormalized(),
+			YMinNormalized:  box.GetYMinNormalized(),
+			YMaxNormalized:  box.GetYMaxNormalized(),
+		}
+	}
+	return bboxes
 }
