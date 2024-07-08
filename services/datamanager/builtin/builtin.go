@@ -196,8 +196,6 @@ func NewBuiltIn(
 	}
 
 	if err := svc.Reconfigure(ctx, deps, conf); err != nil {
-		// close to not leak closedCtx
-		closedCancelFn()
 		return nil, err
 	}
 	svc.startPropagateDataSyncConfig()
@@ -207,12 +205,6 @@ func NewBuiltIn(
 // Close releases all resources managed by data_manager.
 func (svc *builtIn) Close(_ context.Context) error {
 	svc.closedCancelFn()
-	svc.internalClose()
-	svc.dataCaptureWorkers.Wait()
-	return nil
-}
-
-func (svc *builtIn) internalClose() {
 	svc.lock.Lock()
 	svc.closeCollectors()
 	svc.closeSyncer()
@@ -237,6 +229,8 @@ func (svc *builtIn) internalClose() {
 	if capturePollingWorker != nil {
 		capturePollingWorker.Wait()
 	}
+	svc.dataCaptureWorkers.Wait()
+	return nil
 }
 
 func (svc *builtIn) closeCollectors() {
@@ -462,7 +456,7 @@ func (svc *builtIn) Reconfigure(
 	deps resource.Dependencies,
 	conf resource.Config,
 ) error {
-	g := utils.NewGuard(svc.internalClose)
+	g := utils.NewGuard(func() { goutils.UncheckedError(svc.Close(ctx)) })
 	defer g.OnFail()
 	svc.lock.Lock()
 	defer svc.lock.Unlock()
