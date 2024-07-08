@@ -460,7 +460,7 @@ func (svc *builtIn) Reconfigure(
 	deps resource.Dependencies,
 	conf resource.Config,
 ) error {
-	g := utils.NewGuard(func() { svc.internalClose() })
+	g := utils.NewGuard(svc.internalClose)
 	defer g.OnFail()
 	svc.lock.Lock()
 	defer svc.lock.Unlock()
