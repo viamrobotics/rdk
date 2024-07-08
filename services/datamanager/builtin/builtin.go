@@ -199,7 +199,7 @@ func NewBuiltIn(
 		closedCancelFn()
 		return nil, err
 	}
-	svc.asyncPollDataSync()
+	svc.startPropagateDataSyncConfig()
 	return svc, nil
 }
 
@@ -646,18 +646,18 @@ func (svc *builtIn) Reconfigure(
 	return nil
 }
 
-func (svc *builtIn) asyncPollDataSync() {
+func (svc *builtIn) startPropagateDataSyncConfig() {
 	svc.backgroundWorkers.Add(1)
-	goutils.ManagedGo(svc.pollDataSync, svc.backgroundWorkers.Done)
+	goutils.ManagedGo(svc.propagateDataSyncConfig, svc.backgroundWorkers.Done)
 }
 
-// pollDataSync runs until Close() is called on *builtIn
+// propagateDataSyncConfig runs until Close() is called on *builtIn
 // Every second it checks if the datasync configuration has changes which
 // have not propagated to datasync.
 // If so it propagates the changes and marks the datasync configuration as propagated.
 // Otherwise it sleeps for another second.
 // Takes the builtIn lock every iteration.
-func (svc *builtIn) pollDataSync() {
+func (svc *builtIn) propagateDataSyncConfig() {
 	for goutils.SelectContextOrWait(svc.closedCtx, time.Second) {
 		svc.lock.Lock()
 		if svc.syncConfigUpdated {
