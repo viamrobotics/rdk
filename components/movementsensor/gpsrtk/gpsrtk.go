@@ -1,11 +1,12 @@
-// Package gpsrtk implements a gps
+// Package gpsrtk implements a GPS RTK that we communicate with via either serial port or I2C.
 package gpsrtk
 
 /*
 	This package supports GPS RTK (Real Time Kinematics), which takes in the normal signals
 	from the GNSS (Global Navigation Satellite Systems) along with a correction stream to achieve
 	positional accuracy (accuracy tbd). This file is the main implementation, agnostic of how we
-	communicate with the chip.
+	communicate with the chip. This package has ways to communicate with the chip via the serial
+	port and the I2C bus.
 
 	Example GPS RTK chip datasheet:
 	https://content.u-blox.com/sites/default/files/ZED-F9P-04B_DataSheet_UBX-21044850.pdf
