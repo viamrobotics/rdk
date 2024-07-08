@@ -180,6 +180,9 @@ type i2cCorrectionWriter struct {
 	handle buses.I2CHandle
 }
 
+// Read (vacuously) implements the io.ReadWriteCloser interface for this struct. We need that
+// interface for the moment because `gpsutils.GetGGAMessage()` requires it. However, that code will
+// be changed in summer of 2024 to no longer read via this struct, and then we can remove this.
 func (i *i2cCorrectionWriter) Read(p []byte) (int, error) {
 	return 0, errors.New("unimplemented")
 }
