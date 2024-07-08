@@ -206,6 +206,11 @@ func NewBuiltIn(
 // Close releases all resources managed by data_manager.
 func (svc *builtIn) Close(_ context.Context) error {
 	svc.closedCancelFn()
+	svc.internalClose()
+	return nil
+}
+
+func (svc *builtIn) internalClose() {
 	svc.lock.Lock()
 	svc.closeCollectors()
 	svc.closeSyncer()
@@ -230,8 +235,6 @@ func (svc *builtIn) Close(_ context.Context) error {
 	if capturePollingWorker != nil {
 		capturePollingWorker.Wait()
 	}
-
-	return nil
 }
 
 func (svc *builtIn) closeCollectors() {
@@ -457,7 +460,7 @@ func (svc *builtIn) Reconfigure(
 	deps resource.Dependencies,
 	conf resource.Config,
 ) error {
-	g := utils.NewGuard(func() { goutils.UncheckedError(svc.Close(ctx)) })
+	g := utils.NewGuard(func() { svc.internalClose() })
 	defer g.OnFail()
 	svc.lock.Lock()
 	defer svc.lock.Unlock()
