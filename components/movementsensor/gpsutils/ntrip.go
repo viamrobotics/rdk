@@ -240,9 +240,15 @@ func (n *NtripInfo) Connect(ctx context.Context, logger logging.Logger) error {
 		c, err = ntrip.NewClient(n.URL, ntrip.Options{Username: n.username, Password: n.password})
 		if err == nil { // Success!
 			logger.Info("Connected to NTRIP caster")
+			// setting the Timeout to 0 on the http client to prevent the ntrip stream from canceling itself.
+			// ntrip.NewClient() defaults sets this value to 15 seconds, which causes us to disconnect
+			// the ntrip stream and require a reconnection.
+			// Setting the Timeout on the http client to be 0 removes the timeout.
+			c.Client.Timeout = 0
 			n.Client = c
 			return nil
 		}
+
 	}
 
 	logger.Errorf("Can't connect to NTRIP caster: %s", err)
