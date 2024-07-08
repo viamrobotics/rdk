@@ -195,11 +195,11 @@ func NewBuiltIn(
 	}
 
 	if err := svc.Reconfigure(ctx, deps, conf); err != nil {
+		// close to not leak closedCtx
+		closedCancelFn()
 		return nil, err
 	}
-	svc.backgroundWorkers.Add(1)
-	goutils.ManagedGo(svc.asyncInitDataSync, svc.backgroundWorkers.Done)
-
+	svc.asyncPollDataSync()
 	return svc, nil
 }
 
@@ -646,7 +646,18 @@ func (svc *builtIn) Reconfigure(
 	return nil
 }
 
-func (svc *builtIn) asyncInitDataSync() {
+func (svc *builtIn) asyncPollDataSync() {
+	svc.backgroundWorkers.Add(1)
+	goutils.ManagedGo(svc.pollDataSync, svc.backgroundWorkers.Done)
+}
+
+// pollDataSync runs until Close() is called on *builtIn
+// Every second it checks if the datasync configuration has changes which
+// have not propagated to datasync.
+// If so it propagates the changes and marks the datasync configuration as propagated.
+// Otherwise it sleeps for another second.
+// Takes the builtIn lock every iteration.
+func (svc *builtIn) pollDataSync() {
 	for goutils.SelectContextOrWait(svc.closedCtx, time.Second) {
 		svc.lock.Lock()
 		if svc.syncConfigUpdated {
