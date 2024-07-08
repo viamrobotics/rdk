@@ -236,23 +236,20 @@ func TestFunctions(t *testing.T) {
 	})
 
 	t.Run("test position", func(t *testing.T) {
-		m.lock.Lock()
-		m.stepPosition = 3
-		m.lock.Unlock()
+		err := m.ResetZeroPosition(ctx, -0.03, nil)
+		test.That(t, err, test.ShouldBeNil)
 		pos, err := m.Position(ctx, nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, pos, test.ShouldEqual, 0.03)
 
-		m.lock.Lock()
-		m.stepPosition = -3
-		m.lock.Unlock()
+		err = m.ResetZeroPosition(ctx, 0.03, nil)
+		test.That(t, err, test.ShouldBeNil)
 		pos, err = m.Position(ctx, nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, pos, test.ShouldEqual, -0.03)
 
-		m.lock.Lock()
-		m.stepPosition = 0
-		m.lock.Unlock()
+		err = m.ResetZeroPosition(ctx, 0, nil)
+		test.That(t, err, test.ShouldBeNil)
 		pos, err = m.Position(ctx, nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, pos, test.ShouldEqual, 0)
@@ -338,9 +335,8 @@ func TestState(t *testing.T) {
 	m := mm.(*uln28byj)
 
 	t.Run("test state", func(t *testing.T) {
-		m.lock.Lock()
-		m.stepPosition = 9
-		m.lock.Unlock()
+		err := m.ResetZeroPosition(ctx, -0.09, nil)
+		test.That(t, err, test.ShouldBeNil)
 		b := m.theBoard
 		var pin1Arr []bool
 		var pin2Arr []bool
