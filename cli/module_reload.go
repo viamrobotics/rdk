@@ -3,12 +3,18 @@ package cli
 import (
 	"fmt"
 	"path/filepath"
+	"slices"
 	"strings"
+	"time"
 
+	"github.com/pkg/errors"
 	"github.com/urfave/cli/v2"
 	apppb "go.viam.com/api/app/v1"
+	goutils "go.viam.com/utils"
+	"google.golang.org/protobuf/types/known/structpb"
 
 	rdkConfig "go.viam.com/rdk/config"
+	"go.viam.com/rdk/logging"
 	rutils "go.viam.com/rdk/utils"
 )
 
@@ -17,14 +23,72 @@ import (
 // Using maps directly also saves a lot of high-maintenance ser/des work.
 type ModuleMap map[string]any
 
-// configureModule is the configuration step of module reloading. Returns (needsRestart, error).
+// ServiceMap is the same kind of thing as ModuleMap (see above), a map representing a single service.
+type ServiceMap map[string]any
+
+// addShellService adds a shell service to the services slice if missing. Mutates part.RobotConfig.
+func addShellService(c *cli.Context, vc *viamClient, part *apppb.RobotPart, wait bool) error {
+	partMap := part.RobotConfig.AsMap()
+	if _, ok := partMap["services"]; !ok {
+		partMap["services"] = make([]any, 0, 1)
+	}
+	services, _ := rutils.MapOver(partMap["services"].([]any), //nolint:errcheck
+		func(raw any) (ServiceMap, error) { return ServiceMap(raw.(map[string]any)), nil },
+	)
+	if slices.ContainsFunc(services, func(service ServiceMap) bool { return service["type"] == "shell" }) {
+		debugf(c.App.Writer, c.Bool(debugFlag), "shell service found on target machine, not installing")
+		return nil
+	}
+	services = append(services, ServiceMap{"name": "shell", "type": "shell"})
+	asAny, _ := rutils.MapOver(services, func(service ServiceMap) (any, error) { //nolint:errcheck
+		return map[string]any(service), nil
+	})
+	partMap["services"] = asAny
+	if err := writeBackConfig(part, partMap); err != nil {
+		return err
+	}
+	infof(c.App.Writer, "installing shell service on target machine for file transfer")
+	if err := vc.updateRobotPart(part, partMap); err != nil {
+		return err
+	}
+	if !wait {
+		return nil
+	}
+	// note: we wait up to 11 seconds; that's the 10 second default Cloud.RefreshInterval plus padding.
+	// If we don't wait, the reload command will usually fail on first run.
+	for i := 0; i < 11; i++ {
+		time.Sleep(time.Second)
+		_, closeClient, err := vc.connectToShellServiceFqdn(part.Fqdn, c.Bool(debugFlag), logging.NewLogger("shellsvc"))
+		if err == nil {
+			goutils.UncheckedError(closeClient(c.Context))
+			return nil
+		}
+		if !errors.Is(err, errNoShellService) {
+			return err
+		}
+	}
+	return errors.New("timed out waiting for shell service to start")
+}
+
+// writeBackConfig mutates part.RobotConfig with an edited config; this is necessary so that changes
+// aren't lost when we make multiple updateRobotPart calls.
+func writeBackConfig(part *apppb.RobotPart, configAsMap map[string]any) error {
+	modifiedConfig, err := structpb.NewStruct(configAsMap)
+	if err != nil {
+		return err
+	}
+	part.RobotConfig = modifiedConfig
+	return nil
+}
+
+// configureModule is the configuration step of module reloading. Returns (needsRestart, error). Mutates part.RobotConfig.
 func configureModule(c *cli.Context, vc *viamClient, manifest *moduleManifest, part *apppb.RobotPart) (bool, error) {
 	if manifest == nil {
 		return false, fmt.Errorf("reconfiguration requires valid manifest json passed to --%s", moduleFlagPath)
 	}
 	partMap := part.RobotConfig.AsMap()
 	if _, ok := partMap["modules"]; !ok {
-		partMap["modules"] = make([]any, 0)
+		partMap["modules"] = make([]any, 0, 1)
 	}
 	modules, err := rutils.MapOver(
 		partMap["modules"].([]any),
@@ -46,6 +110,9 @@ func configureModule(c *cli.Context, vc *viamClient, manifest *moduleManifest, p
 		return false, err
 	}
 	partMap["modules"] = modulesAsInterfaces
+	if err := writeBackConfig(part, partMap); err != nil {
+		return false, err
+	}
 	if dirty {
 		debugf(c.App.Writer, c.Bool(debugFlag), "writing back config changes")
 		err = vc.updateRobotPart(part, partMap)
@@ -75,9 +142,15 @@ func mutateModuleConfig(c *cli.Context, modules []ModuleMap, manifest moduleMani
 		}
 	}
 
-	absEntrypoint, err := filepath.Abs(manifest.Entrypoint)
-	if err != nil {
-		return nil, dirty, err
+	var absEntrypoint string
+	var err error
+	if c.Bool(moduleFlagLocal) {
+		absEntrypoint, err = filepath.Abs(manifest.Entrypoint)
+		if err != nil {
+			return nil, dirty, err
+		}
+	} else {
+		absEntrypoint = reloadingDestination(c, &manifest)
 	}
 
 	if foundMod == nil {

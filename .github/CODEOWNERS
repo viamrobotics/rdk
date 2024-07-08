@@ -1,13 +1,13 @@
 # No code owners for all files
 *
 
-# TODO(APP-3043): Remove code owners
+# TODO(APP-5348): Remove code owners
 #
-# This code owners is to make sure that the fleet team is aware
+# This code owners is to make sure that the Visualization team is aware
 # of any changes that are going into RC while the team is updating
 # the RC implementation in App.
 #
 # Code owners are no longer needed once RDK uses the shared,
 # updated remote control cards from App. For any questions reach
 # out to @ethanlook.
-web/frontend @ethanlook @micheal-parks @dtcurrie
+web/frontend @ethanlook @micheal-parks @dtcurrie @zaporter-work

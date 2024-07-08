@@ -2,6 +2,7 @@ package logging
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net"
 	"sync"
@@ -107,11 +108,9 @@ func TestNetLoggerSync(t *testing.T) {
 	server := makeServerForRobotLogger(t)
 	defer server.stop()
 
-	netAppender, err := NewNetAppender(server.cloudConfig, nil)
-	test.That(t, err, test.ShouldBeNil)
-
 	// This test is testing the behavior of sync(), so the background worker shouldn't be running at the same time.
-	netAppender.cancelBackgroundWorkers()
+	netAppender, err := newNetAppender(server.cloudConfig, nil, false, false)
+	test.That(t, err, test.ShouldBeNil)
 
 	logger := NewDebugLogger("test logger")
 	// The stdout appender is not necessary for test correctness. But it does provide information in
@@ -139,11 +138,9 @@ func TestNetLoggerSyncFailureAndRetry(t *testing.T) {
 	server := makeServerForRobotLogger(t)
 	defer server.stop()
 
-	netAppender, err := NewNetAppender(server.cloudConfig, nil)
-	test.That(t, err, test.ShouldBeNil)
-
 	// This test is testing the behavior of sync(), so the background worker shouldn't be running at the same time.
-	netAppender.cancelBackgroundWorkers()
+	netAppender, err := newNetAppender(server.cloudConfig, nil, false, false)
+	test.That(t, err, test.ShouldBeNil)
 
 	logger := NewDebugLogger("test logger")
 	// The stdout appender is not necessary for test correctness. But it does provide information in
@@ -193,7 +190,7 @@ func TestNetLoggerOverflowDuringWrite(t *testing.T) {
 	server := makeServerForRobotLogger(t)
 	defer server.stop()
 
-	netAppender, err := NewNetAppender(server.cloudConfig, nil)
+	netAppender, err := NewNetAppender(server.cloudConfig, nil, false)
 	test.That(t, err, test.ShouldBeNil)
 	logger := NewDebugLogger("test logger")
 	logger.AddAppender(netAppender)
@@ -239,7 +236,7 @@ func TestProvidedClientConn(t *testing.T) {
 	conn, err := CreateNewGRPCClient(context.Background(), server.cloudConfig)
 	test.That(t, err, test.ShouldBeNil)
 	defer conn.Close()
-	netAppender, err := NewNetAppender(server.cloudConfig, conn)
+	netAppender, err := NewNetAppender(server.cloudConfig, conn, true)
 	test.That(t, err, test.ShouldBeNil)
 	// make sure these are the same object, i.e. that the constructor set it properly.
 	test.That(t, netAppender.remoteWriter.rpcClient == conn, test.ShouldBeTrue)
@@ -248,8 +245,75 @@ func TestProvidedClientConn(t *testing.T) {
 	logger := NewDebugLogger("provided-client-conn")
 	logger.AddAppender(netAppender)
 
-	test.That(t, len(server.service.logs), test.ShouldBeZeroValue)
+	test.That(t, server.service.logs, test.ShouldBeEmpty)
 	logger.Info("hello")
 	netAppender.Close()
-	test.That(t, len(server.service.logs), test.ShouldEqual, 1)
+	test.That(t, server.service.logs, test.ShouldHaveLength, 1)
+}
+
+func TestSetConn(t *testing.T) {
+	server := makeServerForRobotLogger(t)
+	defer server.stop()
+
+	// when inheritConn=true, getOrCreateClient should return uninitializedConnectionError
+	netAppender, err := NewNetAppender(server.cloudConfig, nil, true)
+	test.That(t, err, test.ShouldBeNil)
+	client, err := netAppender.remoteWriter.getOrCreateClient(context.Background())
+	test.That(t, client, test.ShouldBeNil)
+	test.That(t, errors.Is(err, errUninitializedConnection), test.ShouldBeTrue)
+
+	// write a line before the connection is up
+	logger := NewDebugLogger("provided-client-conn")
+	logger.AddAppender(netAppender)
+	logger.Info("pre-connect")
+
+	// now set a connection
+	conn, err := CreateNewGRPCClient(context.Background(), server.cloudConfig)
+	test.That(t, err, test.ShouldBeNil)
+	netAppender.SetConn(conn, true)
+	test.That(t, server.service.logs, test.ShouldBeEmpty)
+
+	// and log, and make sure both lines sync
+	logger.Info("post-connect")
+	netAppender.Close()
+	test.That(t, server.service.logs, test.ShouldHaveLength, 2)
+}
+
+// construct a NetAppender for testing with no background runners.
+func quickFakeAppender(t *testing.T) *NetAppender {
+	t.Helper()
+	return &NetAppender{
+		toLog:            make([]*commonpb.LogEntry, 0),
+		remoteWriter:     &remoteLogWriterGRPC{},
+		cancel:           func() {},
+		loggerWithoutNet: NewTestLogger(t),
+	}
+}
+
+func TestNetAppenderClose(t *testing.T) {
+	totalIters := 100
+	exitIters := 10
+
+	t.Run("progress", func(t *testing.T) {
+		na := quickFakeAppender(t)
+		for i := 0; i < totalIters; i++ {
+			na.toLog = append(na.toLog, &commonpb.LogEntry{})
+		}
+		iters := 0
+		na.close(exitIters, totalIters, func(time.Duration) {
+			iters++
+			na.toLog = na.toLog[1:]
+		})
+		test.That(t, iters, test.ShouldEqual, totalIters)
+	})
+
+	t.Run("no-progress", func(t *testing.T) {
+		na := quickFakeAppender(t)
+		na.toLog = append(na.toLog, &commonpb.LogEntry{})
+		iters := 0
+		na.close(exitIters, totalIters, func(time.Duration) {
+			iters++
+		})
+		test.That(t, iters, test.ShouldEqual, exitIters)
+	})
 }

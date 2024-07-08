@@ -186,7 +186,8 @@ func (s *syncer) syncDataCaptureFile(f *datacapture.File) {
 		func(ctx context.Context) error {
 			err := uploadDataCaptureFile(ctx, s.client, f, s.partID)
 			if err != nil {
-				s.syncErrs <- errors.Wrap(err, fmt.Sprintf("error uploading file %s", f.GetPath()))
+				s.syncErrs <- errors.Wrap(err, fmt.Sprintf("error uploading file %s, size: %d, md: %s",
+					f.GetPath(), f.Size(), f.ReadMetadata()))
 			}
 			return err
 		},

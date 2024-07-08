@@ -20,8 +20,9 @@ import (
 )
 
 var (
-	defaultMaxQueueSize = 20000
-	writeBatchSize      = 100
+	defaultMaxQueueSize        = 20000
+	writeBatchSize             = 100
+	errUninitializedConnection = errors.New("sharedConn is true and connection is not initialized")
 )
 
 // CloudConfig contains the necessary inputs to send logs to the app backend over grpc.
@@ -34,22 +35,24 @@ type CloudConfig struct {
 // NewNetAppender creates a NetAppender to send log events to the app backend. NetAppenders ought to
 // be `Close`d prior to shutdown to flush remaining logs.
 // Pass `nil` for `conn` if you want this to create its own connection.
-func NewNetAppender(config *CloudConfig, conn rpc.ClientConn) (*NetAppender, error) {
+func NewNetAppender(config *CloudConfig, conn rpc.ClientConn, sharedConn bool) (*NetAppender, error) {
+	return newNetAppender(config, conn, sharedConn, true)
+}
+
+// inner function for NewNetAppender which can disable background worker in tests.
+func newNetAppender(config *CloudConfig, conn rpc.ClientConn, sharedConn, startBackgroundWorker bool) (*NetAppender, error) {
 	hostname, err := os.Hostname()
 	if err != nil {
 		return nil, err
 	}
 
 	logWriter := &remoteLogWriterGRPC{
-		cfg:            config,
-		rpcClient:      conn,
-		clientIsShared: conn != nil,
-	}
-	if conn != nil {
-		logWriter.service = apppb.NewRobotServiceClient(conn)
+		cfg:        config,
+		sharedConn: sharedConn,
 	}
 
 	cancelCtx, cancel := context.WithCancel(context.Background())
+
 	nl := &NetAppender{
 		hostname:         hostname,
 		cancelCtx:        cancelCtx,
@@ -59,8 +62,12 @@ func NewNetAppender(config *CloudConfig, conn rpc.ClientConn) (*NetAppender, err
 		loggerWithoutNet: NewLogger("netlogger"),
 	}
 
-	nl.activeBackgroundWorkers.Add(1)
-	utils.ManagedGo(nl.backgroundWorker, nl.activeBackgroundWorkers.Done)
+	nl.SetConn(conn, sharedConn)
+
+	if startBackgroundWorker {
+		nl.activeBackgroundWorkers.Add(1)
+		utils.ManagedGo(nl.backgroundWorker, nl.activeBackgroundWorkers.Done)
+	}
 	return nl, nil
 }
 
@@ -84,6 +91,32 @@ type NetAppender struct {
 	loggerWithoutNet Logger
 }
 
+func (w *remoteLogWriterGRPC) setConn(ctx context.Context, logger Logger, conn rpc.ClientConn, sharedConn bool) {
+	w.clientMutex.Lock()
+	defer w.clientMutex.Unlock()
+	if w.rpcClient != nil && !w.sharedConn {
+		oldClient := w.rpcClient
+		err := oldClient.Close()
+		logger.CErrorf(ctx, "error closing oldClient: %s", err)
+	}
+	w.rpcClient = conn
+	w.service = nil
+	if conn != nil {
+		w.service = apppb.NewRobotServiceClient(conn)
+	}
+	// note: this is tricky. It means that if you ever call setConn, sharedConn is true for all time.
+	w.sharedConn = sharedConn
+}
+
+// SetConn sets the GRPC connection used by the NetAppender.
+// sharedConn should be true in all external calls to this. If sharedConn=false, the NetAppender will close
+// the connection in Close(). conn may be nil.
+func (nl *NetAppender) SetConn(conn rpc.ClientConn, sharedConn bool) {
+	nl.toLogMutex.Lock()
+	defer nl.toLogMutex.Unlock()
+	nl.remoteWriter.setConn(nl.cancelCtx, nl.loggerWithoutNet, conn, sharedConn)
+}
+
 func (nl *NetAppender) queueSize() int {
 	nl.toLogMutex.Lock()
 	defer nl.toLogMutex.Unlock()
@@ -102,17 +135,39 @@ func (nl *NetAppender) cancelBackgroundWorkers() {
 
 // Close the NetAppender. This makes a best effort at sending all logs before returning.
 func (nl *NetAppender) Close() {
+	nl.close(150, 1000, func(durt time.Duration) { time.Sleep(durt) })
+}
+
+// The inner close() can take a mocked sleep function for testing.
+// `exitIfNoProgressIters` is a stopping condition; if this many iters pass without the log
+// queue shrinking, we break the loop. This behavior prevents slow shutdown when offline.
+
+// `totalIters` is the longest possible wait time.
+// `sleepFn` is called between every iter.
+func (nl *NetAppender) close(exitIfNoProgressIters, totalIters int, sleepFn func(durt time.Duration)) {
+	prevQueue := nl.queueSize()
+	lastProgressIter := 0
+	sleepInterval := 10 * time.Millisecond
 	if nl.cancel != nil {
 		// try for up to 10 seconds for log queue to clear before cancelling it
-		for i := 0; i < 1000; i++ {
+		for i := 0; i < totalIters; i++ {
+			curQueue := nl.queueSize()
 			// A batch can be popped from the queue for a sync by the background worker, and re-enqueued
 			// due to an error. This check does not account for this case. It will cancel the background
 			// worker once the last batch is in flight. Successful or not.
-			if nl.queueSize() == 0 {
+			if curQueue == 0 {
 				break
 			}
-
-			time.Sleep(10 * time.Millisecond)
+			if curQueue < prevQueue {
+				prevQueue = curQueue
+				lastProgressIter = i
+			}
+			if i-lastProgressIter >= exitIfNoProgressIters {
+				nl.loggerWithoutNet.Warnf("NetAppender.Close() did not progress in %s, closing with %d still in queue",
+					time.Duration(exitIfNoProgressIters)*sleepInterval, curQueue)
+				break
+			}
+			sleepFn(sleepInterval)
 		}
 	}
 	nl.cancelBackgroundWorkers()
@@ -223,19 +278,17 @@ func (nl *NetAppender) backgroundWorker() {
 	abnormalInterval := 5 * time.Second
 	interval := normalInterval
 	for {
-		cancelled := false
 		if !utils.SelectContextOrWait(nl.cancelCtx, interval) {
-			cancelled = true
+			return
 		}
 		err := nl.sync()
 		if err != nil && !errors.Is(err, context.Canceled) {
 			interval = abnormalInterval
-			nl.loggerWithoutNet.Infof("error logging to network: %s", err)
+			if !errors.Is(err, errUninitializedConnection) {
+				nl.loggerWithoutNet.Infof("error logging to network: %s", err)
+			}
 		} else {
 			interval = normalInterval
-		}
-		if cancelled {
-			return
 		}
 	}
 }
@@ -262,7 +315,7 @@ func (nl *NetAppender) syncOnce() (bool, error) {
 	batch := nl.toLog[:batchSize]
 	nl.toLogMutex.Unlock()
 
-	if err := nl.remoteWriter.write(batch); err != nil {
+	if err := nl.remoteWriter.write(nl.cancelCtx, batch); err != nil {
 		return false, err
 	}
 
@@ -308,14 +361,12 @@ type remoteLogWriterGRPC struct {
 	service     apppb.RobotServiceClient
 	rpcClient   rpc.ClientConn
 	clientMutex sync.Mutex
-	// when clientIsShared = true, don't close it in close(); it's externally managed.
-	clientIsShared bool
+	// When sharedConn = true, don't create or destroy connections; use what we're given.
+	sharedConn bool
 }
 
-func (w *remoteLogWriterGRPC) write(logs []*commonpb.LogEntry) error {
-	// we specifically don't use a parented cancellable context here so we can make sure we finish writing but
-	// we will only give it up to 5 seconds to do so in case we are trying to shutdown.
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+func (w *remoteLogWriterGRPC) write(ctx context.Context, logs []*commonpb.LogEntry) error {
+	ctx, cancel := context.WithTimeout(ctx, time.Second*4)
 	defer cancel()
 
 	client, err := w.getOrCreateClient(ctx)
@@ -339,6 +390,10 @@ func (w *remoteLogWriterGRPC) getOrCreateClient(ctx context.Context) (apppb.Robo
 		return w.service, nil
 	}
 
+	if w.sharedConn {
+		return nil, errUninitializedConnection
+	}
+
 	client, err := CreateNewGRPCClient(ctx, w.cfg)
 	if err != nil {
 		return nil, err
@@ -350,7 +405,7 @@ func (w *remoteLogWriterGRPC) getOrCreateClient(ctx context.Context) (apppb.Robo
 }
 
 func (w *remoteLogWriterGRPC) close() {
-	if w.clientIsShared {
+	if w.sharedConn {
 		return
 	}
 	w.clientMutex.Lock()

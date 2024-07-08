@@ -2,10 +2,28 @@ name: Trigger Networking Tests in sdk-integration-tests
 
 on:
     workflow_call:
-        secrets:
-            REPO_READ_TOKEN:
-              required: true
+      inputs:
+        version:
+          type: string
+          description: 'Version number'
+          required: true
+        rc_number:
+          type: string
+          description: 'RC number'
+          required: true
+      secrets:
+          REPO_READ_TOKEN:
+            required: true     
     workflow_dispatch:
+      inputs:
+        version:
+          description: 'Version number'
+          required: true
+          type: string
+        rc_number:
+          description: 'RC number'
+          required: true
+          type: string
 
 jobs:
     run-networking-tests:
@@ -14,8 +32,14 @@ jobs:
         steps:
         - name: Trigger Workflow
           run: |
-            curl -X POST \
+            curl -f -X POST \
             -H "Authorization: token ${{ secrets.REPO_READ_TOKEN }}" \
             -H "Accept: application/vnd.github+json" \
             https://api.github.com/repos/viamrobotics/sdk-integration-tests/dispatches \
-            -d '{"event_type":"new_rc_branch"}'
+            -d '{
+              "event_type": "new_rc_branch",
+              "client_payload": {
+                "version": "${{ github.event.inputs.version }}",
+                "rc_number": "${{ github.event.inputs.rc_number }}"
+              }
+            }'

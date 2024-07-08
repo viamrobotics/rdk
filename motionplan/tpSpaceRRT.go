@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"math"
 	"math/rand"
+	"sort"
 	"sync"
 
 	"github.com/golang/geo/r3"
@@ -845,16 +846,11 @@ func (mp *tpSpaceRRTMotionPlanner) make2DTPSpaceDistanceOptions(ptg tpspace.PTGS
 	return opts, &m
 }
 
+// smoothPath takes in a path and attempts to smooth it by randomly sampling edges in the path and seeing
+// if they can be connected.
 func (mp *tpSpaceRRTMotionPlanner) smoothPath(ctx context.Context, path []node) []node {
 	toIter := int(math.Min(float64(len(path)*len(path))/2, float64(mp.planOpts.SmoothIter)))
 	currCost := sumCosts(path)
-
-	maxCost := math.Inf(-1)
-	for _, wp := range path {
-		if wp.Cost() > maxCost {
-			maxCost = wp.Cost()
-		}
-	}
 	smoothPlannerMP, err := newTPSpaceMotionPlanner(mp.frame, mp.randseed, mp.logger, mp.planOpts)
 	if err != nil {
 		return path
@@ -870,10 +866,19 @@ func (mp *tpSpaceRRTMotionPlanner) smoothPath(ctx context.Context, path []node) 
 		}
 		// get start node of first edge. Cannot be either the last or second-to-last node.
 		// Intn will return an int in the half-open interval half-open interval [0,n)
-		firstEdge := mp.randseed.Intn(len(path) - 2)
-		secondEdge := firstEdge + 1 + mp.randseed.Intn((len(path)-2)-firstEdge)
+		firstEdge := mp.randseed.Intn(len(path))
+		cdf := generateCDF(firstEdge, len(path))
+		sample := mp.randseed.Float64()
+		secondEdge := sort.Search(len(cdf), func(i int) bool {
+			return cdf[i] >= sample
+		})
+
+		if secondEdge < firstEdge {
+			secondEdge, firstEdge = firstEdge, secondEdge
+		}
 
 		newInputSteps, err := mp.attemptSmooth(ctx, path, firstEdge, secondEdge, smoothPlanner)
+
 		if err != nil || newInputSteps == nil {
 			continue
 		}
@@ -903,15 +908,13 @@ func (mp *tpSpaceRRTMotionPlanner) smoothPath(ctx context.Context, path []node) 
 			}
 			for i, pt := range trajPts {
 				intPose := spatialmath.Compose(lastPose, pt.Pose)
+
 				if i == 0 {
 					mp.logger.Debugf("$SMOOTHWP,%f,%f", intPose.Point().X, intPose.Point().Y)
 				}
 				mp.logger.Debugf("$SMOOTHPATH,%f,%f", intPose.Point().X, intPose.Point().Y)
-				if pt.Dist >= math.Abs(mynode.Q()[3].Value) {
-					lastPose = intPose
-					break
-				}
 			}
+			lastPose = spatialmath.Compose(lastPose, trajPts[len(trajPts)-1].Pose)
 		}
 	}
 
@@ -1075,4 +1078,71 @@ func flipNode(n node) node {
 		pose:   spatialmath.Compose(n.Pose(), flipPose),
 		corner: n.Corner(),
 	}
+}
+
+// generateHeuristic returns a list of heuristics for each node in the path
+// This is converted into a probability distribution through the softmax function.
+func generateLookAheadHeuristic(firstEdge, pathLen int) []float64 {
+	// The heuristic implemented here takes in the firstEdge and defines a lookAhead.
+	// For nodes in each direction around firstEdge, the algorithm will increment by one
+	// until it reaches firstEdge + lookAhead and firstEdge - lookAhead indices
+	// From then on, it will decrement by one until it gets to the edge of the list
+	// All values are passed into a softmax to convert the real-valued heuristics into a probability distribution
+
+	// It is better to have a lookAhead that is shorter because biasing towards collapsing shorter paths is
+	// more likely to yield success than finding one long one. Another observation to note is that sampling
+	// edges that are not connectable is very costly because the algorithm cycles through all PTGs in hopes
+	// of connecting them. Thus, finding short, connectable paths is best
+	lookAhead := 3.0
+	heuristics := make([]float64, pathLen)
+	for i := 0; i < pathLen; i++ {
+		// Creates ascending list until lookAhead and then descending list
+		heuristics[i] = math.Pow(math.Max(1, lookAhead-math.Abs(lookAhead-math.Abs(float64(firstEdge-i)))), 2)
+	}
+
+	// firstEdge + adjacent edges should not be sampled, so set their heuristic to -Inf
+	// This gets converted to zero probability by softmax
+	heuristics[firstEdge] = math.Inf(-1)
+	if firstEdge-1 >= 0 {
+		heuristics[firstEdge-1] = math.Inf(-1)
+	}
+	if firstEdge+1 < pathLen {
+		heuristics[firstEdge+1] = math.Inf(-1)
+	}
+	return heuristics
+}
+
+// softmax takes in a heuristic list and converts it into a proability distribution function
+// This means the sum of the returned softmaxArr is equal to one.
+func softmax(heuristics []float64) []float64 {
+	sum := 0.0
+	for _, heuristic := range heuristics {
+		sum += math.Exp(heuristic)
+	}
+
+	softmaxArr := make([]float64, len(heuristics))
+	// Account for case where sum equals zero. In this case, assign equal weight to all indices
+	if sum == 0 {
+		for i := 0; i < len(heuristics); i++ {
+			softmaxArr[i] = 1.0 / float64(len(heuristics))
+		}
+	} else {
+		for i, heuristic := range heuristics {
+			softmaxArr[i] = math.Exp(heuristic) / sum
+		}
+	}
+	return softmaxArr
+}
+
+// generateCDF returns a cumulative distribution function that can be used to
+// sample the secondEdge for the smoothing algorithm.
+func generateCDF(firstEdge, pathLen int) []float64 {
+	heuristics := generateLookAheadHeuristic(firstEdge, pathLen)
+	softmaxArr := softmax(heuristics)
+
+	// sum all successive values in the softmaxArr to convert it from a PDF to a CDF
+	for i := 1; i < len(softmaxArr); i++ {
+		softmaxArr[i] += softmaxArr[i-1]
+	}
+	return softmaxArr
 }

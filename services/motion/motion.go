@@ -190,16 +190,89 @@ type PlanWithStatus struct {
 //
 // Move example:
 //
-//	motionService, err := motion.FromRobot(robot, "builtin")
+//	motionService, err := motion.FromRobot(machine, "builtin")
 //
 //	// Assumes a gripper configured with name "my_gripper" on the machine
 //	gripperName := gripper.Named("my_gripper")
-//	myFrame := "my_gripper_offset"
 //
-//	goalPose := referenceframe.PoseInFrame(0, 0, 300, 0, 0, 1, 0)
+//	// Define a destination Pose
+//	destination := referenceframe.NewPoseInFrame("world", spatialmath.NewPoseFromPoint(r3.Vector{X: 0.1, Y: 0.0, Z: 0.0}))
 //
-//	// Move the gripper
-//	moved, err := motionService.Move(context.Background(), gripperName, goalPose, worldState, nil, nil)
+//	// Create obstacles
+//	boxPose := spatialmath.NewPoseFromPoint(r3.Vector{X: 0.0, Y: 0.0, Z: 0.0})
+//	boxDims := r3.Vector{X: 0.2, Y: 0.2, Z: 0.2} // 20cm x 20cm x 20cm box
+//	obstacle, _ := spatialmath.NewBox(boxPose, boxDims, "obstacle_1")
+//
+//	geometryInFrame := referenceframe.NewGeometriesInFrame("base", []spatialmath.Geometry{obstacle})
+//	obstacles := []*referenceframe.GeometriesInFrame{geometryInFrame}
+//
+//	// Create transforms
+//	transform := referenceframe.NewLinkInFrame("gripper",
+//		spatialmath.NewPoseFromPoint(r3.Vector{X: 0.1, Y: 0.0, Z: 0.1}), "transform_1", nil
+//	)
+//	transforms := []*referenceframe.LinkInFrame{transform}
+//
+//	// Create WorldState
+//	worldState, err := referenceframe.NewWorldState(obstacles, transforms)
+//
+//	// Move gripper component
+//	moved, err := motionService.Move(context.Background(), gripperName, destination, worldState, nil, nil)
+//
+// MoveOnMap example:
+//
+//	// Assumes a base with the name "my_base" is configured on the machine
+//	myBaseResourceName := base.Named("my_base")
+//	mySLAMServiceResourceName := slam.Named("my_slam_service")
+//
+//	// Define a destination Pose
+//	myPose := spatialmath.NewPoseFromPoint(r3.Vector{Y: 10})
+//
+//	// Move the base component to the destination pose
+//	executionID, err := motionService.MoveOnMap(context.Background(), motion.MoveOnMapReq{
+//		ComponentName: myBaseResourceName,
+//		Destination:   myPose,
+//		SlamName:      mySLAMServiceResourceName,
+//	})
+//
+//	// MoveOnMap is a non-blocking method and this line can optionally be added to block until the movement is done
+//	err = motion.PollHistoryUntilSuccessOrError(
+//		context.Background(),
+//		motionService,
+//		time.Duration(time.Second),
+//		motion.PlanHistoryReq{
+//			ComponentName: myBaseResourceName,
+//			ExecutionID:   executionID,
+//		},
+//	)
+//
+// MoveOnGlobe example:
+//
+//	// Assumes a base with the name "myBase" is configured on the machine
+//	// Get the resource names of the base and movement sensor
+//	myBaseResourceName := base.Named("myBase")
+//	myMvmntSensorResourceName := movementsensor.Named("my_movement_sensor")
+//
+//	// Define a destination Point at the GPS coordinates [0, 0]
+//	myDestination := geo.NewPoint(0, 0)
+//
+//	// Move the base component to the designated geographic location, as reported by the movement sensor
+//	executionID, err := motionService.MoveOnGlobe(context.Background(), motion.MoveOnGlobeReq{
+//		ComponentName:      myBaseResourceName,
+//		Destination:        myDestination,
+//		MovementSensorName: myMvmntSensorResourceName,
+//	})
+//
+//	// Assumes there is an active MoveOnMap() or MoveonGlobe() in progress for myBase
+//	//	MoveOnGlobe is a non-blocking method and this line can optionally be added to block until the movement is done
+//	err = motion.PollHistoryUntilSuccessOrError(
+//		context.Background(),
+//		motionService,
+//		time.Duration(time.Second),
+//		motion.PlanHistoryReq{
+//			ComponentName: myBaseResourceName,
+//			ExecutionID:   executionID,
+//		},
+//	)
 //
 // GetPose example:
 //
@@ -208,10 +281,9 @@ type PlanWithStatus struct {
 //
 //	// Assumes a gripper configured with name "my_gripper" on the machine
 //	gripperName := gripper.Named("my_gripper")
-//	myFrame := "my_gripper_offset"
 //
 //	// Access the motion service
-//	motionService, err := motion.FromRobot(robot, "builtin")
+//	motionService, err := motion.FromRobot(machine, "builtin")
 //	if err != nil {
 //	  logger.Fatal(err)
 //	}
@@ -223,78 +295,42 @@ type PlanWithStatus struct {
 //	logger.Info("Position of myArm from the motion service:", myArmMotionPose.Pose().Point())
 //	logger.Info("Orientation of myArm from the motion service:", myArmMotionPose.Pose().Orientation())
 //
-// MoveOnMap example:
-//
-//	motionService, err := motion.FromRobot(robot, "builtin")
-//
-//	// Get the resource.Names of the base and of the SLAM service
-//	myBaseResourceName := base.Named("myBase")
-//	mySLAMServiceResourceName := slam.Named("my_slam_service")
-//	// Define a destination Pose with respect to the origin of the map from the SLAM service "my_slam_service"
-//	myPose := spatialmath.NewPoseFromPoint(r3.Vector{Y: 10})
-//
-//	// Move the base component to the destination pose of Y=10, a location of (0, 10, 0) in respect to the origin of the map
-//	executionID, err := motionService.MoveOnMap(context.Background(), motion.MoveOnMapReq{
-//	    ComponentName: myBaseResourceName,
-//	    Destination:   myPose,
-//	    SlamName:      mySLAMServiceResourceName,
-//	})
-//
-// MoveOnGlobe example:
-//
-//	motionService, err := motion.FromRobot(robot, "builtin")
-//
-//	// Get the resource.Names of the base and movement sensor
-//	myBaseResourceName := base.Named("myBase")
-//	myMvmntSensorResourceName := movement_sensor.Named("my_movement_sensor")
-//	// Define a destination Point at the GPS coordinates [0, 0]
-//	myDestination := geo.NewPoint(0, 0)
-//
-//	// Move the base component to the designated geographic location, as reported by the movement sensor
-//	ctx := context.Background()
-//	executionID, err := motionService.MoveOnGlobe(ctx, motion.MoveOnGlobeReq{
-//	    ComponentName:      myBaseResourceName,
-//	    Destination:        myDestination,
-//	    MovementSensorName: myMvmntSensorResourceName,
-//	})
-//
 // StopPlan example:
 //
-//	motionService, err := motion.FromRobot(robot, "builtin")
+//	motionService, err := motion.FromRobot(machine, "builtin")
 //	myBaseResourceName := base.Named("myBase")
-//	ctx := context.Background()
 //
-//	// Assuming a move_on_globe started the execution
-//	// myMvmntSensorResourceName := movement_sensor.Named("my_movement_sensor")
-//	// myDestination := geo.NewPoint(0, 0)
-//	// executionID, err := motionService.MoveOnGlobe(ctx, motion.MoveOnGlobeReq{
-//	//     ComponentName:      myBaseResourceName,
-//	//     Destination:        myDestination,
-//	//     MovementSensorName: myMvmntSensorResourceName,
-//	// })
+//	myMvmntSensorResourceName := movement_sensor.Named("my_movement_sensor")
+//	myDestination := geo.NewPoint(0, 0)
 //
+//	// Assuming a `MoveOnGlobe()`` started the execution
 //	// Stop the base component which was instructed to move by `MoveOnGlobe()` or `MoveOnMap()`
 //	err := motionService.StopPlan(context.Background(), motion.StopPlanReq{
 //	    ComponentName: s.req.ComponentName,
 //	})
 //
-// GetPlan example:
+// ListPlanStatuses example:
 //
-//	motionService, err := motion.FromRobot(robot, "builtin")
+//	motionService, err := motion.FromRobot(machine, "builtin")
+//
 //	// Get the plan(s) of the base component's most recent execution i.e. `MoveOnGlobe()` or `MoveOnMap()` call.
-//	ctx := context.Background()
-//	planHistory, err := motionService.PlanHistory(ctx, motion.PlanHistoryReq{
-//	    ComponentName: s.req.ComponentName,
+//	planStatuses, err := motionService.ListPlanStatuses(context.Background(), motion.ListPlanStatusesReq{})
+//
+// PlanHistory example:
+//
+//	// Get the resource name of the base component
+//	myBaseResourceName := base.Named("myBase")
+//
+//	// Get the plan history of the base component's most recent execution (e.g., MoveOnGlobe or MoveOnMap call)
+//	planHistory, err := motionService.PlanHistory(context.Background(), motion.PlanHistoryReq{
+//		ComponentName: myBaseResourceName,
 //	})
-//
-// ListPlanStatus example:
-//
-//	motionService, err := motion.FromRobot(robot, "builtin")
-//	// Get the plan(s) of the base component's most recent execution i.e. `MoveOnGlobe()` or `MoveOnMap()` call.
-//	ctx := context.Background()
-//	planStatuses, err := motionService.ListPlanStatuses(ctx, motion.ListPlanStatusesReq{})
 type Service interface {
 	resource.Resource
+
+	// Move is the primary method to move multiple components or any object to a specified location.
+	// Given a destination pose and a component, Move constructs a kinematic chain from goal to destination,
+	// solves it while adhering to constraints, and executes the movement to avoid collisions with the machine itself and other known objects.
 	Move(
 		ctx context.Context,
 		componentName resource.Name,
@@ -303,14 +339,28 @@ type Service interface {
 		constraints *motionplan.Constraints,
 		extra map[string]interface{},
 	) (bool, error)
+
+	// MoveOnMap moves a base component to a destination Pose on a SLAM map and returns a unique ExecutionID.
+	// If the machine is already within PlanDeviationM of the goal, an error is returned.
+	// Monitor progress with `GetPlan()` and `ListPlanStatuses()`, and check the machine's position via the SLAM service.
+	// Designed for autonomous indoor navigation of rover bases.
 	MoveOnMap(
 		ctx context.Context,
 		req MoveOnMapReq,
 	) (ExecutionID, error)
+
+	// MoveOnGlobe moves a base component to a destination GPS point(latitude, longitude and returns a unique ExecutionID.
+	// If the machine is already within PlanDeviationM of the goal, an error is returned.
+	// This non-blocking method uses a movement sensor to verify the location of the base.
+	// You can monitor progress with `GetPlan()` and `ListPlanStatuses()`. Designed for autonomous GPS navigation of rover bases.
 	MoveOnGlobe(
 		ctx context.Context,
 		req MoveOnGlobeReq,
 	) (ExecutionID, error)
+
+	// GetPose returns the location and orientation of a component within a frame system.
+	// It returns a `PoseInFrame` describing the pose of the specified component relative to the specified destination frame.
+	// The `supplemental_transforms` argument can be used to augment the machine's existing frame system with additional frames.
 	GetPose(
 		ctx context.Context,
 		componentName resource.Name,
@@ -318,14 +368,25 @@ type Service interface {
 		supplementalTransforms []*referenceframe.LinkInFrame,
 		extra map[string]interface{},
 	) (*referenceframe.PoseInFrame, error)
+
+	// StopPlan stops a base component being moved by an in progress `MoveOnGlobe()` or `MoveOnMap()` call.
 	StopPlan(
 		ctx context.Context,
 		req StopPlanReq,
 	) error
+
+	// ListPlanStatuses returns the statuses of plans created by `MoveOnGlobe()` or `MoveOnMap()` since the motion service initialized.
+	// It includes plans that are in progress or have changed state in the last 24 hours.
+	// All repeated fields are in chronological order.
 	ListPlanStatuses(
 		ctx context.Context,
 		req ListPlanStatusesReq,
 	) ([]PlanStatusWithID, error)
+
+	// PlanHistory returns the plan history of the most recent `MoveOnGlobe()` or `MoveOnMap()` call by default.
+	// The history for earlier executions can be requested by providing an ExecutionID.
+	// It returns a result if the execution is active or has changed state in the last 24 hours and the machine has not reinitialized.
+	// Plans never change; replans always create new plans and replans share the ExecutionID of the previously executing plan.
 	PlanHistory(
 		ctx context.Context,
 		req PlanHistoryReq,
@@ -338,13 +399,13 @@ type ObstacleDetectorName struct {
 	CameraName        resource.Name
 }
 
-// MotionConfiguration specifies how to configure a call
+// MotionConfiguration specifies how to configure a call.
 //
 //nolint:revive
 type MotionConfiguration struct {
 	ObstacleDetectors     []ObstacleDetectorName
-	PositionPollingFreqHz float64
-	ObstaclePollingFreqHz float64
+	PositionPollingFreqHz *float64
+	ObstaclePollingFreqHz *float64
 	PlanDeviationMM       float64
 	LinearMPerSec         float64
 	AngularDegsPerSec     float64

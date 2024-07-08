@@ -147,6 +147,16 @@ func (dr *PmtkI2cDataReader) start() {
 			}
 
 			for _, b := range buffer {
+				if b == 0xFF {
+					continue // This byte indicates that the chip did not have data to send us.
+				}
+
+				// Otherwise, the chip is trying to communicate with us. However, sometimes the
+				// data has the most significant bit of the byte set, even though it should only
+				// send ASCII (which never sets the most significant bit). So, to reduce checksum
+				// errors, we mask out that bit.
+				b &= 0x7F
+
 				// PMTK uses CRLF line endings to terminate sentences, but just LF to blank data.
 				// Since CR should never appear except at the end of our sentence, we use that to
 				// determine sentence end. LF is merely ignored.
@@ -170,7 +180,7 @@ func (dr *PmtkI2cDataReader) start() {
 						default:
 						}
 					}
-				} else if b != 0x0A && b < 0x7F { // only append valid (printable) bytes
+				} else if b != 0x0A { // Skip the newlines, as described earlier
 					strBuf += string(b)
 				}
 			}

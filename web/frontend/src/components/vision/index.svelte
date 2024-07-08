@@ -178,6 +178,12 @@ const onRefreshKeyPress = async (event: KeyboardEvent) => {
         options={cameras.map((cam) => cam.name).join(',')}
         on:input={selectCamera}
       />
+      <v-notify
+        class="max-w-sm"
+        variant="info"
+        title="Classifications won't show here"
+        message="Right now this card only supports detections. Soon your classifications will show here too."
+      />
     </div>
 
     <div class="flex min-w-fit flex-col gap-4 p-4">

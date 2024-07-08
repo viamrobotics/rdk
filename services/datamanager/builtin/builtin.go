@@ -28,9 +28,11 @@ import (
 	"go.viam.com/rdk/services/datamanager/datacapture"
 	"go.viam.com/rdk/services/datamanager/datasync"
 	"go.viam.com/rdk/services/slam"
+	"go.viam.com/rdk/services/vision"
 	"go.viam.com/rdk/utils"
 )
 
+// In order for a collector to be captured by Data Capture, it must be included as a weak dependency.
 func init() {
 	resource.RegisterService(
 		datamanager.API,
@@ -40,6 +42,7 @@ func init() {
 			WeakDependencies: []resource.Matcher{
 				resource.TypeMatcher{Type: resource.APITypeComponentName},
 				resource.SubtypeMatcher{Subtype: slam.SubtypeName},
+				resource.SubtypeMatcher{Subtype: vision.SubtypeName},
 			},
 		})
 }
@@ -779,12 +782,11 @@ func getAllFilesToSync(ctx context.Context, dirs []string, lastModifiedMillis in
 			if timeSinceMod < 0 {
 				timeSinceMod = 0
 			}
-			isStuckInProgressCaptureFile := filepath.Ext(path) == datacapture.InProgressFileExt &&
-				timeSinceMod >= defaultFileLastModifiedMillis*time.Millisecond
-			isNonCaptureFileThatIsNotBeingWrittenTo := filepath.Ext(path) != datacapture.InProgressFileExt &&
-				timeSinceMod >= time.Duration(lastModifiedMillis)*time.Millisecond
 			isCompletedCaptureFile := filepath.Ext(path) == datacapture.FileExt
-			if isCompletedCaptureFile || isStuckInProgressCaptureFile || isNonCaptureFileThatIsNotBeingWrittenTo {
+			isNonCaptureFileThatIsNotBeingWrittenTo := filepath.Ext(path) != datacapture.InProgressFileExt &&
+				filepath.Ext(path) != datacapture.FileExt &&
+				timeSinceMod >= time.Duration(lastModifiedMillis)*time.Millisecond
+			if isCompletedCaptureFile || isNonCaptureFileThatIsNotBeingWrittenTo {
 				syncer.SendFileToSync(path)
 			}
 			return nil

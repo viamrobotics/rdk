@@ -77,7 +77,7 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 	// Replace logger with logger based on flags.
 	logger := logging.NewLogger("")
 	logging.ReplaceGlobal(logger)
-	logger = logger.Sublogger("robot_server")
+	logger = logger.Sublogger("rdk")
 	config.InitLoggingSettings(logger, argsParsed.Debug)
 
 	// Always log the version, return early if the '-version' flag was provided
@@ -147,7 +147,7 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 				ID:         cfgFromDisk.Cloud.ID,
 				Secret:     cfgFromDisk.Cloud.Secret,
 			},
-			nil,
+			nil, false,
 		)
 		if err != nil {
 			return err
