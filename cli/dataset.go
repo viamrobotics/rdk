@@ -19,7 +19,7 @@ const (
 	datasetFlagDatasetIDs       = "dataset-ids"
 	dataFlagLocationID          = "location-id"
 	dataFlagFileIDs             = "file-ids"
-	datasetFlagIncludeJSONLines = "jsonl"
+	datasetFlagIncludeJSONLines = "include-jsonl"
 )
 
 // DatasetCreateAction is the corresponding action for 'dataset create'.
