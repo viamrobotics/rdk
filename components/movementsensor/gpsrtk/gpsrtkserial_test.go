@@ -74,49 +74,6 @@ func TestValidateSerialRTK(t *testing.T) {
 	})
 }
 
-func TestValidatePMTKRTK(t *testing.T) {
-	path := "path"
-	validConfig := I2CConfig{
-		I2CBus:  "1",
-		I2CAddr: 66,
-
-		NtripURL:             "http://fakeurl",
-		NtripConnectAttempts: 10,
-		NtripMountpoint:      "NYC",
-		NtripPass:            "somepass",
-		NtripUser:            "someuser",
-	}
-	t.Run("valid config", func(t *testing.T) {
-		cfg := validConfig
-		_, err := cfg.Validate(path)
-		test.That(t, err, test.ShouldBeNil)
-	})
-
-	t.Run("missing bus", func(t *testing.T) {
-		cfg := validConfig
-		cfg.I2CBus = ""
-		_, err := cfg.Validate(path)
-		test.That(t, err, test.ShouldBeError,
-			resource.NewConfigValidationFieldRequiredError(path, "i2c_bus"))
-	})
-
-	t.Run("missing address", func(t *testing.T) {
-		cfg := validConfig
-		cfg.I2CAddr = 0
-		_, err := cfg.Validate(path)
-		test.That(t, err, test.ShouldBeError,
-			resource.NewConfigValidationFieldRequiredError(path, "i2c_addr"))
-	})
-
-	t.Run("missing url", func(t *testing.T) {
-		cfg := validConfig
-		cfg.NtripURL = ""
-		_, err := cfg.Validate(path)
-		test.That(t, err, test.ShouldBeError,
-			resource.NewConfigValidationFieldRequiredError(path, "ntrip_url"))
-	})
-}
-
 // This sets the position to 12°34.5678' N, 123°45.6789' W, at time 12:34:56.78 UTC.
 const setPositionSentence = "$GPGLL,1234.5678,N,12345.6789,W,123456.78,A,D*7F"
 
