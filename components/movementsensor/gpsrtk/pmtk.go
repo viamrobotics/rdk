@@ -120,19 +120,19 @@ func makeRTKI2C(
 	}
 	g.InputProtocol = "i2c"
 
-	config := gpsutils.I2CConfig{
+	i2cConfig := gpsutils.I2CConfig{
 		I2CBus:      newConf.I2CBus,
 		I2CBaudRate: newConf.I2CBaudRate,
 		I2CAddr:     newConf.I2CAddr,
 	}
-	if config.I2CBaudRate == 0 {
-		config.I2CBaudRate = 115200
-		logger.Infof("no I2C baud rate specified, defaulting to %d", config.I2CBaudRate)
+	if i2cConfig.I2CBaudRate == 0 {
+		i2cConfig.I2CBaudRate = 115200
+		logger.Infof("no I2C baud rate specified, defaulting to %d", i2cConfig.I2CBaudRate)
 	}
 
 	// If we have a mock I2C bus, pass that in, too. If we don't, it'll be nil and constructing the
 	// reader will create a real I2C bus instead.
-	dev, err := gpsutils.NewI2cDataReader(config, mockI2c, logger)
+	dev, err := gpsutils.NewI2cDataReader(i2cConfig, mockI2c, logger)
 	if err != nil {
 		return nil, err
 	}
