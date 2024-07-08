@@ -1604,11 +1604,11 @@ func TestRemoteConnClosedOnReconfigure(t *testing.T) {
 	}
 
 	remoteCfg1 := &config.Config{
-		Components: []resource.Config{fakeArm},
+		Components: []resource.Config{fakeMotor},
 	}
 
 	remoteCfg2 := &config.Config{
-		Components: []resource.Config{fakeMotor},
+		Components: []resource.Config{fakeArm},
 	}
 
 	t.Run("remotes with same exact resources", func(t *testing.T) {
@@ -1664,8 +1664,8 @@ func TestRemoteConnClosedOnReconfigure(t *testing.T) {
 	})
 
 	t.Run("remotes with different resources", func(t *testing.T) {
-		remote1 := setupLocalRobot(t, ctx, remoteCfg1, logger.Sublogger("remote1"))
-		remote2 := setupLocalRobot(t, ctx, remoteCfg2, logger.Sublogger("remote2"))
+		remote1 := setupLocalRobot(t, ctx, remoteCfg2, logger.Sublogger("remote1"))
+		remote2 := setupLocalRobot(t, ctx, remoteCfg1, logger.Sublogger("remote2"))
 
 		options1, _, addr1 := robottestutils.CreateBaseOptionsAndListener(t)
 		err := remote1.StartWeb(ctx, options1)
