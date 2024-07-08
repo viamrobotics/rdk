@@ -25,7 +25,7 @@ func (d *mockDataReader) Close() error {
 	return nil
 }
 
-func TestValidateRTK(t *testing.T) {
+func TestValidateSerialRTK(t *testing.T) {
 	path := "path"
 	t.Run("valid config", func(t *testing.T) {
 		cfg := SerialConfig{
@@ -41,7 +41,7 @@ func TestValidateRTK(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 	})
 
-	t.Run("invalid config", func(t *testing.T) {
+	t.Run("invalid url config", func(t *testing.T) {
 		cfg := SerialConfig{
 			NtripURL:             "",
 			NtripConnectAttempts: 10,
@@ -57,7 +57,7 @@ func TestValidateRTK(t *testing.T) {
 			resource.NewConfigValidationFieldRequiredError(path, "ntrip_url"))
 	})
 
-	t.Run("invalid config", func(t *testing.T) {
+	t.Run("invalid path config", func(t *testing.T) {
 		cfg := SerialConfig{
 			NtripURL:             "http//fakeurl",
 			NtripConnectAttempts: 10,
@@ -71,6 +71,51 @@ func TestValidateRTK(t *testing.T) {
 		_, err := cfg.Validate(path)
 		test.That(t, err, test.ShouldBeError,
 			resource.NewConfigValidationFieldRequiredError(path, "serial_path"))
+	})
+}
+
+func TestValidatePMTKRTK(t *testing.T) {
+	path := "path"
+	validConfig := I2CConfig{
+		I2CBus: "1",
+		I2CAddr: 66,
+
+		NtripURL: "http://fakeurl",
+		NtripConnectAttempts: 10,
+		NtripMountpoint: "NYC",
+		NtripPass: "somepass",
+		NtripUser: "someuser",
+	}
+
+
+	t.Run("valid config", func(t *testing.T) {
+		cfg := validConfig
+		_, err := cfg.Validate(path)
+		test.That(t, err, test.ShouldBeNil)
+	})
+
+	t.Run("missing bus", func(t *testing.T) {
+		cfg := validConfig
+		cfg.I2CBus = ""
+		_, err := cfg.Validate(path)
+		test.That(t, err, test.ShouldBeError,
+			resource.NewConfigValidationFieldRequiredError(path, "i2c_bus"))
+	})
+
+	t.Run("missing address", func(t *testing.T) {
+		cfg := validConfig
+		cfg.I2CAddr = 0
+		_, err := cfg.Validate(path)
+		test.That(t, err, test.ShouldBeError,
+			resource.NewConfigValidationFieldRequiredError(path, "i2c_addr"))
+	})
+
+	t.Run("missing url", func(t *testing.T) {
+		cfg := validConfig
+		cfg.NtripURL = ""
+		_, err := cfg.Validate(path)
+		test.That(t, err, test.ShouldBeError,
+			resource.NewConfigValidationFieldRequiredError(path, "ntrip_url"))
 	})
 }
 
