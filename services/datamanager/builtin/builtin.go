@@ -627,7 +627,7 @@ func (svc *builtIn) Reconfigure(
 		svc.maxSyncThreads = newMaxSyncThreadValue
 	}
 
-	// if datacapture is enabled, kick off a go routine to check if disk space is filling due to
+	// if datacapture is enabled, kick off a go routine to handle disk space filling due to
 	// cached datacapture files
 	if !svc.captureDisabled {
 		fileDeletionCtx, cancelFunc := context.WithCancel(context.Background())
