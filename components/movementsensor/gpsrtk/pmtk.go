@@ -137,7 +137,7 @@ func makeRTKI2C(
 	}
 	g.cachedData = gpsutils.NewCachedData(dev, logger)
 
-	g.correctionWriter, err = newCorrectionWriter(newConf.I2CBus, byte(newConf.I2CAddr))
+	g.correctionWriter, err = newI2CCorrectionWriter(newConf.I2CBus, byte(newConf.I2CAddr))
 	if err != nil {
 		return nil, err
 	}
@@ -158,7 +158,7 @@ func makeRTKI2C(
 	return g, nil
 }
 
-func newCorrectionWriter(busname string, address byte) (io.ReadWriteCloser, error) {
+func newI2CCorrectionWriter(busname string, address byte) (io.ReadWriteCloser, error) {
 	bus, err := buses.NewI2cBus(busname)
 	if err != nil {
 		return nil, err

@@ -145,7 +145,8 @@ func newRTKSerial(
 	g.cachedData = gpsutils.NewCachedData(dev, logger)
 
 	// Initialize g.correctionWriter
-	g.correctionWriter, err = openPort(newConf.SerialPath, uint(newConf.SerialBaudRate))
+	g.correctionWriter, err = newSerialCorrectionWriter(
+		newConf.SerialPath, uint(newConf.SerialBaudRate))
 	if err != nil {
 		return nil, err
 	}
@@ -166,8 +167,8 @@ func newRTKSerial(
 	return g, nil
 }
 
-// openPort opens the serial port for writing.
-func openPort(filePath string, baud uint) (io.ReadWriteCloser, error) {
+// newSerialCorrectionWriter opens the serial port for writing.
+func newSerialCorrectionWriter(filePath string, baud uint) (io.ReadWriteCloser, error) {
 	options := slib.OpenOptions{
 		PortName:        filePath,
 		BaudRate:        baud,
