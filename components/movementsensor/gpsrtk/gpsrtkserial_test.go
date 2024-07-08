@@ -77,17 +77,15 @@ func TestValidateSerialRTK(t *testing.T) {
 func TestValidatePMTKRTK(t *testing.T) {
 	path := "path"
 	validConfig := I2CConfig{
-		I2CBus: "1",
+		I2CBus:  "1",
 		I2CAddr: 66,
 
-		NtripURL: "http://fakeurl",
+		NtripURL:             "http://fakeurl",
 		NtripConnectAttempts: 10,
-		NtripMountpoint: "NYC",
-		NtripPass: "somepass",
-		NtripUser: "someuser",
+		NtripMountpoint:      "NYC",
+		NtripPass:            "somepass",
+		NtripUser:            "someuser",
 	}
-
-
 	t.Run("valid config", func(t *testing.T) {
 		cfg := validConfig
 		_, err := cfg.Validate(path)
