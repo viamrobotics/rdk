@@ -182,8 +182,8 @@ func (q dualQuaternion) Transformation(by dualquat.Number) dualquat.Number {
 	}
 }
 
-func (dualQuaternion) String() string {
-	return "bitch"
+func (dq dualQuaternion) String() string {
+	return "fuck"
 }
 
 // OffsetBy takes two offsets and computes the final position.

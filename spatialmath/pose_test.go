@@ -13,14 +13,18 @@ import (
 )
 
 type Swearer interface {
-	fmt.Stringer
+	MyFunc()
 }
 
-type swear struct{}
+type swear struct {
+	A dualQuaternion
+}
 
 func (s swear) String() string {
 	return "fuck"
 }
+
+func (s swear) MyFunc() {}
 
 func NewSwear() Swearer {
 	return swear{}
@@ -29,6 +33,18 @@ func NewSwear() Swearer {
 func TestStringer(t *testing.T) {
 	fuck := NewSwear()
 	test.That(t, fmt.Sprint(fuck), test.ShouldEqual, "fuck")
+}
+
+func TestPose(t *testing.T) {
+	p := NewZeroPose()
+	stringer, ok := p.(fmt.Stringer)
+	test.That(t, ok, test.ShouldBeTrue)
+	fmt.Println(p)
+	fmt.Println(stringer)
+	dq, ok := p.(dualQuaternion)
+	test.That(t, ok, test.ShouldBeTrue)
+	fmt.Println(dq)
+	fmt.Println(dq.String())
 }
 
 func TestBasicPoseConstruction(t *testing.T) {
