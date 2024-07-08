@@ -138,6 +138,7 @@ type builtIn struct {
 	collectors             map[resourceMethodMetadata]*collectorAndConfig
 	lock                   sync.Mutex
 	backgroundWorkers      sync.WaitGroup
+	dataCaptureWorkers     sync.WaitGroup
 	fileLastModifiedMillis int
 
 	additionalSyncPaths []string
@@ -207,6 +208,7 @@ func NewBuiltIn(
 func (svc *builtIn) Close(_ context.Context) error {
 	svc.closedCancelFn()
 	svc.internalClose()
+	svc.dataCaptureWorkers.Wait()
 	return nil
 }
 
@@ -647,57 +649,68 @@ func (svc *builtIn) Reconfigure(
 }
 
 func (svc *builtIn) startPropagateDataSyncConfig() {
-	svc.backgroundWorkers.Add(1)
-	goutils.ManagedGo(svc.propagateDataSyncConfig, svc.backgroundWorkers.Done)
+	svc.dataCaptureWorkers.Add(1)
+	goutils.ManagedGo(svc.propagateDataSyncConfigLoop, svc.dataCaptureWorkers.Done)
 }
 
-// propagateDataSyncConfig runs until Close() is called on *builtIn
-// Every second it checks if the datasync configuration has changes which
+// propagateDataSyncConfigLoop runs until Close() is called on *builtIn
+// Immediately on first execution and every second afterwards it
+// checks if the datasync configuration has changes which
 // have not propagated to datasync.
 // If so it propagates the changes and marks the datasync configuration as propagated.
 // Otherwise it sleeps for another second.
 // Takes the builtIn lock every iteration.
-func (svc *builtIn) propagateDataSyncConfig() {
-	for goutils.SelectContextOrWait(svc.closedCtx, time.Second) {
-		svc.lock.Lock()
-		if svc.syncConfigUpdated {
-			svc.cancelSyncScheduler()
-			if !svc.syncDisabled && svc.syncIntervalMins != 0.0 {
-				if svc.syncer == nil {
-					if err := svc.initSyncer(svc.closedCtx); err != nil {
-						svc.lock.Unlock()
-						if errors.Is(err, cloud.ErrNotCloudManaged) {
-							svc.logger.Debug("Using no-op sync manager when not cloud managed")
-							return
-						}
-						svc.logger.Infof("initSyncer err: %s", err.Error())
-						continue
-					}
-				} else if svc.reinitSyncer {
-					svc.closeSyncer()
-					if err := svc.initSyncer(svc.closedCtx); err != nil {
-						svc.lock.Unlock()
-						if errors.Is(err, cloud.ErrNotCloudManaged) {
-							svc.logger.Debug("Using no-op sync manager when not cloud managed")
-							return
-						}
-						svc.logger.Infof("initSyncer err: %s", err.Error())
-						continue
-					}
-				}
-				svc.syncer.SetArbitraryFileTags(svc.tags)
-				svc.startSyncScheduler(svc.syncIntervalMins)
-			} else {
-				if svc.syncTicker != nil {
-					svc.syncTicker.Stop()
-					svc.syncTicker = nil
-				}
-				svc.closeSyncer()
-			}
-			svc.syncConfigUpdated = false
-		}
-		svc.lock.Unlock()
+func (svc *builtIn) propagateDataSyncConfigLoop() {
+	if err := svc.propagateDataSyncConfig(); err != nil {
+		return
 	}
+	for goutils.SelectContextOrWait(svc.closedCtx, time.Second) {
+		if err := svc.propagateDataSyncConfig(); err != nil {
+			return
+		}
+	}
+}
+
+func (svc *builtIn) propagateDataSyncConfig() error {
+	svc.lock.Lock()
+	if svc.syncConfigUpdated {
+		svc.cancelSyncScheduler()
+		if !svc.syncDisabled && svc.syncIntervalMins != 0.0 {
+			if svc.syncer == nil {
+				if err := svc.initSyncer(svc.closedCtx); err != nil {
+					svc.lock.Unlock()
+					if errors.Is(err, cloud.ErrNotCloudManaged) {
+						svc.logger.Debug("Using no-op sync manager when not cloud managed")
+						return err
+					}
+					svc.logger.Infof("initSyncer err: %s", err.Error())
+					return nil
+				}
+			} else if svc.reinitSyncer {
+				svc.closeSyncer()
+				if err := svc.initSyncer(svc.closedCtx); err != nil {
+					svc.lock.Unlock()
+					if errors.Is(err, cloud.ErrNotCloudManaged) {
+						svc.logger.Debug("Using no-op sync manager when not cloud managed")
+						return err
+					}
+					svc.logger.Infof("initSyncer err: %s", err.Error())
+					return nil
+				}
+			}
+			svc.syncer.SetArbitraryFileTags(svc.tags)
+			svc.startSyncScheduler(svc.syncIntervalMins)
+		} else {
+			if svc.syncTicker != nil {
+				svc.syncTicker.Stop()
+				svc.syncTicker = nil
+			}
+			svc.closeSyncer()
+		}
+		svc.syncConfigUpdated = false
+	}
+	svc.lock.Unlock()
+	return nil
 }
 
 // startSyncScheduler starts the goroutine that calls Sync repeatedly if scheduled sync is enabled.

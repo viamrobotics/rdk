@@ -326,5 +326,7 @@ func newDMSvc(t *testing.T, tempDir string) (internal.DMService, mockDataSyncSer
 		AssociatedAttributes: associations,
 	})
 	test.That(t, err, test.ShouldBeNil)
+	b := dmsvc.(*builtIn)
+	test.That(t, b.propagateDataSyncConfig(), test.ShouldBeNil)
 	return dmsvc, mockClient
 }
