@@ -409,10 +409,8 @@ func TestArbitraryFileUpload(t *testing.T) {
 
 			// Write file to the path.
 			var fileContents []byte
-			for i := 0; i < 1000; i++ {
-				if tc.name != emptyFileTestName {
-					fileContents = append(fileContents, []byte("happy cows come from california\n")...)
-				}
+			if tc.name != emptyFileTestName {
+				fileContents = populateFileContents(fileContents)
 			}
 			tmpFile, err := os.Create(filepath.Join(additionalPathsDir, fileName))
 			test.That(t, err, test.ShouldBeNil)
@@ -952,4 +950,12 @@ func waitUntilNoFiles(dir string) {
 		time.Sleep(waitPerCheck)
 		files = getAllFileInfos(dir)
 	}
+}
+
+func populateFileContents(fileContents []byte) []byte {
+	for i := 0; i < 1000; i++ {
+		fileContents = append(fileContents, []byte("happy cows come from california\n")...)
+	}
+
+	return fileContents
 }
