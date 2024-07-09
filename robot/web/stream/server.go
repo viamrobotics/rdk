@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/pion/webrtc/v3"
 	"github.com/pkg/errors"
+	"github.com/viamrobotics/webrtc/v3"
 	"go.opencensus.io/trace"
 	"go.uber.org/multierr"
 	streampb "go.viam.com/api/stream/v1"
