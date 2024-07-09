@@ -709,7 +709,7 @@ func (svc *builtIn) propagateDataSyncConfig() error {
 
 // startSyncScheduler starts the goroutine that calls Sync repeatedly if scheduled sync is enabled.
 func (svc *builtIn) startSyncScheduler(intervalMins float64) {
-	cancelCtx, fn := context.WithCancel(context.Background())
+	cancelCtx, fn := context.WithCancel(svc.closedCtx)
 	svc.syncRoutineCancelFn = fn
 	svc.uploadData(cancelCtx, intervalMins)
 }
@@ -735,11 +735,12 @@ func (svc *builtIn) uploadData(cancelCtx context.Context, intervalMins float64) 
 	intervalMillis := 60000.0 * intervalMins
 	// The ticker must be created before uploadData returns to prevent race conditions between clock.Ticker and
 	// clock.Add in sync_test.go.
-	svc.syncTicker = clock.Ticker(time.Millisecond * time.Duration(intervalMillis))
+	tkr := clock.Ticker(time.Millisecond * time.Duration(intervalMillis))
+	svc.syncTicker = tkr
 	svc.backgroundWorkers.Add(1)
 	goutils.PanicCapturingGo(func() {
 		defer svc.backgroundWorkers.Done()
-		defer svc.syncTicker.Stop()
+		defer tkr.Stop()
 
 		for {
 			if err := cancelCtx.Err(); err != nil {
@@ -752,7 +753,7 @@ func (svc *builtIn) uploadData(cancelCtx context.Context, intervalMins float64) 
 			select {
 			case <-cancelCtx.Done():
 				return
-			case <-svc.syncTicker.C:
+			case <-tkr.C:
 				svc.lock.Lock()
 				if svc.syncer != nil {
 					// If selective sync is disabled, sync. If it is enabled, check the condition below.
