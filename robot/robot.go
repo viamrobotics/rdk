@@ -64,7 +64,7 @@ import (
 //
 //	status, err := machine.Status(ctx)
 //
-// GetCloudMetadata example:
+// CloudMetadata example:
 //
 //	metadata, err := machine.CloudMetadata()
 //	machine_id = metadata.MachineID
