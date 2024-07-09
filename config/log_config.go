@@ -15,18 +15,17 @@ type LoggerPatternConfig struct {
 	Level   string `json:"level"`
 }
 
-var (
-	validLoggerNameCharPattern = `[a-zA-Z0-9_-]`
-	loggerPatternRegexp        = regexp.MustCompile(`^` + validLoggerNameCharPattern + `+$|^\*$`)
+const (
+	validLoggerSectionName             = `[a-zA-Z0-9]+([_-]*[a-zA-Z0-9]+)*`
+	validLoggerSectionNameWithWildcard = `(` + validLoggerSectionName + `|\*)`
+	validLoggerSections                = validLoggerSectionNameWithWildcard + `(\.` + validLoggerSectionNameWithWildcard + `)*`
+	validLoggerName                    = `^` + validLoggerSections + `$`
 )
 
+var loggerPatternRegexp = regexp.MustCompile(validLoggerName)
+
 func validatePattern(pattern string) bool {
-	for _, sep := range strings.Split(pattern, ".") {
-		if !loggerPatternRegexp.MatchString(sep) {
-			return false
-		}
-	}
-	return true
+	return loggerPatternRegexp.MatchString(pattern)
 }
 
 // UpdateLoggerRegistry updates the logger registry if necessary  with the specified logConfig.
@@ -43,9 +42,9 @@ func UpdateLoggerRegistry(logConfig []LoggerPatternConfig, loggerRegistry map[st
 			switch ch {
 			case '*':
 				if idx == len(lpc.Pattern)-1 {
-					matcher.WriteString(validLoggerNameCharPattern + `+(\.` + validLoggerNameCharPattern + `+)*`)
+					matcher.WriteString(validLoggerSections)
 				} else {
-					matcher.WriteString(validLoggerNameCharPattern + `+`)
+					matcher.WriteString(validLoggerSectionNameWithWildcard)
 				}
 			case '.':
 				matcher.WriteString(`\.`)
