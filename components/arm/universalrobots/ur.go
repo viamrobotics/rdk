@@ -4,6 +4,7 @@ package universalrobots
 import (
 	"bufio"
 	"context"
+
 	// for embedding model file.
 	_ "embed"
 	"encoding/binary"
@@ -700,7 +701,7 @@ func (ua *urArm) moveWithURHostedKinematics(ctx context.Context, pose spatialmat
 			return err
 		}
 		delta := spatialmath.PoseDelta(pose, cur)
-		if delta.Point().Norm() <= 1.5 && delta.Orientation().AxisAngles().ToR3().Norm() <= 1.0 {
+		if delta.Point().Norm() <= 5 && delta.Orientation().AxisAngles().ToR3().Norm() <= 1.0 {
 			return nil
 		}
 
