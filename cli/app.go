@@ -70,6 +70,7 @@ const (
 	mlTrainingFlagDraft       = "draft"
 	mlTrainingFlagVisibility  = "visibility"
 	mlTrainingFlagDescription = "description"
+	mlTrainingFlagURL         = "url"
 
 	dataFlagDestination                    = "destination"
 	dataFlagDataType                       = "data-type"
@@ -1755,6 +1756,11 @@ Example:
 						&cli.BoolFlag{
 							Name:     mlTrainingFlagDraft,
 							Usage:    "indicate draft mode, drafts will not be viewable in the registry",
+							Required: false,
+						},
+						&cli.StringFlag{
+							Name:     mlTrainingFlagURL,
+							Usage:    "url of Github repository associated with the training scripts",
 							Required: false,
 						},
 					},

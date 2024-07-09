@@ -52,8 +52,8 @@ func MLSubmitCustomTrainingJobWithUpload(c *cli.Context) error {
 	}
 
 	err = client.uploadTrainingScript(true, c.String(trainFlagModelType), c.String(mlTrainingFlagFramework),
-		c.String(trainFlagModelOrgID), c.String(mlTrainingFlagName), c.String(mlTrainingFlagVersion),
-		c.Path(mlTrainingFlagPath))
+		c.String(mlTrainingFlagURL), c.String(trainFlagModelOrgID), c.String(mlTrainingFlagName),
+		c.String(mlTrainingFlagVersion), c.Path(mlTrainingFlagPath))
 	if err != nil {
 		return err
 	}
@@ -253,7 +253,7 @@ func MLTrainingUploadAction(c *cli.Context) error {
 	}
 
 	err = client.uploadTrainingScript(c.Bool(mlTrainingFlagDraft), c.String(mlTrainingFlagType),
-		c.String(mlTrainingFlagFramework), c.String(generalFlagOrgID), c.String(mlTrainingFlagName),
+		c.String(mlTrainingFlagFramework), c.String(mlTrainingFlagURL), c.String(generalFlagOrgID), c.String(mlTrainingFlagName),
 		c.String(mlTrainingFlagVersion), c.Path(mlTrainingFlagPath),
 	)
 	if err != nil {
@@ -269,8 +269,8 @@ func MLTrainingUploadAction(c *cli.Context) error {
 	return nil
 }
 
-func (c *viamClient) uploadTrainingScript(draft bool, modelType, framework, orgID, name, version, path string) error {
-	metadata, err := createMetadata(draft, modelType, framework)
+func (c *viamClient) uploadTrainingScript(draft bool, modelType, framework, url, orgID, name, version, path string) error {
+	metadata, err := createMetadata(draft, modelType, framework, url)
 	if err != nil {
 		return err
 	}
@@ -389,9 +389,10 @@ type MLMetadata struct {
 	Draft     bool
 	ModelType string
 	Framework string
+	URL       string
 }
 
-func createMetadata(draft bool, modelType, framework string) (*MLMetadata, error) {
+func createMetadata(draft bool, modelType, framework, url string) (*MLMetadata, error) {
 	t, typeErr := findValueOrSetDefault(modelTypes, modelType, string(ModelTypeUnspecified))
 	f, frameWorkErr := findValueOrSetDefault(modelFrameworks, framework, string(ModelFrameworkUnspecified))
 
@@ -403,6 +404,7 @@ func createMetadata(draft bool, modelType, framework string) (*MLMetadata, error
 		Draft:     draft,
 		ModelType: t,
 		Framework: f,
+		URL:       url,
 	}, nil
 }
 
@@ -424,6 +426,7 @@ var (
 	modelTypeKey      = "model_type"
 	modelFrameworkKey = "model_framework"
 	draftKey          = "draft"
+	urlKey            = "url"
 )
 
 func convertMetadataToStruct(metadata MLMetadata) (*structpb.Struct, error) {
@@ -431,6 +434,7 @@ func convertMetadataToStruct(metadata MLMetadata) (*structpb.Struct, error) {
 	metadataMap[modelTypeKey] = metadata.ModelType
 	metadataMap[modelFrameworkKey] = metadata.Framework
 	metadataMap[draftKey] = metadata.Draft
+	metadataMap[urlKey] = metadata.URL
 	metadataStruct, err := structpb.NewStruct(metadataMap)
 	if err != nil {
 		return nil, err
