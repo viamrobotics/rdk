@@ -40,7 +40,7 @@ func UpdateLoggerRegistry(logConfig []LoggerPatternConfig, loggerRegistry map[st
 			switch ch {
 			case '*':
 				if idx == len(lpc.Pattern)-1 {
-					matcher.WriteString(`(\w|\.)+`)
+					matcher.WriteString(`\w+(\.\w+)*`)
 				} else {
 					matcher.WriteString(`\w+`)
 				}
