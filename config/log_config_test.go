@@ -3,8 +3,9 @@ package config
 import (
 	"testing"
 
-	"go.viam.com/rdk/logging"
 	"go.viam.com/test"
+
+	"go.viam.com/rdk/logging"
 )
 
 func TestValidatePattern(t *testing.T) {
