@@ -21,6 +21,13 @@ func TestValidatePattern(t *testing.T) {
 	test.That(t, validatePattern(".robot_server.resource_manager"), test.ShouldBeFalse)
 	test.That(t, validatePattern("robot_server.resource_manager.**"), test.ShouldBeFalse)
 	test.That(t, validatePattern("robot_server.**.resource_manager"), test.ShouldBeFalse)
+
+	test.That(t, validatePattern("_.robot_server.resource_manager"), test.ShouldBeFalse)
+	test.That(t, validatePattern("-.robot_server"), test.ShouldBeFalse)
+	test.That(t, validatePattern("robot_server.-"), test.ShouldBeFalse)
+	test.That(t, validatePattern("robot_server.-"), test.ShouldBeFalse)
+	test.That(t, validatePattern("robot_server.-.resource_manager"), test.ShouldBeFalse)
+	test.That(t, validatePattern("robot_server._.resource_manager"), test.ShouldBeFalse)
 }
 
 func TestUpdateLoggerRegistry(t *testing.T) {
