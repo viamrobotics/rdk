@@ -10,7 +10,6 @@ import (
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/components/board"
-	"go.viam.com/rdk/components/motor"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/testutils/inject"
@@ -237,17 +236,20 @@ func TestFunctions(t *testing.T) {
 	})
 
 	t.Run("test position", func(t *testing.T) {
-		m.stepPosition = 3
+		err := m.ResetZeroPosition(ctx, -0.03, nil)
+		test.That(t, err, test.ShouldBeNil)
 		pos, err := m.Position(ctx, nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, pos, test.ShouldEqual, 0.03)
 
-		m.stepPosition = -3
+		err = m.ResetZeroPosition(ctx, 0.03, nil)
+		test.That(t, err, test.ShouldBeNil)
 		pos, err = m.Position(ctx, nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, pos, test.ShouldEqual, -0.03)
 
-		m.stepPosition = 0
+		err = m.ResetZeroPosition(ctx, 0, nil)
+		test.That(t, err, test.ShouldBeNil)
 		pos, err = m.Position(ctx, nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, pos, test.ShouldEqual, 0)
@@ -272,7 +274,38 @@ func TestFunctions(t *testing.T) {
 
 	t.Run("test SetRPM", func(t *testing.T) {
 		err := m.SetRPM(ctx, 0, nil)
-		test.That(t, err, test.ShouldBeError, motor.NewSetRPMUnsupportedError(m.Name().ShortName()))
+		test.That(t, err, test.ShouldBeNil)
+
+		allObs := obs.All()
+		latestLoggedEntry := allObs[len(allObs)-1]
+		test.That(t, fmt.Sprint(latestLoggedEntry), test.ShouldContainSubstring, "nearly 0")
+
+		err = m.SetRPM(ctx, -.009, nil)
+		test.That(t, err, test.ShouldBeNil)
+
+		err = m.SetRPM(ctx, 146, nil)
+		test.That(t, err, test.ShouldBeNil)
+		allObs = obs.All()
+		latestLoggedEntry = allObs[len(allObs)-1]
+		test.That(t, fmt.Sprint(latestLoggedEntry), test.ShouldContainSubstring, "nearly the max")
+	})
+
+	t.Run("test SetPower", func(t *testing.T) {
+		err := m.SetPower(ctx, 0, nil)
+		test.That(t, err, test.ShouldBeNil)
+
+		allObs := obs.All()
+		latestLoggedEntry := allObs[len(allObs)-1]
+		test.That(t, fmt.Sprint(latestLoggedEntry), test.ShouldContainSubstring, "nearly 0")
+
+		err = m.SetPower(ctx, -.009, nil)
+		test.That(t, err, test.ShouldBeNil)
+
+		err = m.SetPower(ctx, 146, nil)
+		test.That(t, err, test.ShouldBeNil)
+		allObs = obs.All()
+		latestLoggedEntry = allObs[len(allObs)-1]
+		test.That(t, fmt.Sprint(latestLoggedEntry), test.ShouldContainSubstring, "nearly the max")
 	})
 
 	cancel()
@@ -302,7 +335,8 @@ func TestState(t *testing.T) {
 	m := mm.(*uln28byj)
 
 	t.Run("test state", func(t *testing.T) {
-		m.stepPosition = 9
+		err := m.ResetZeroPosition(ctx, -0.09, nil)
+		test.That(t, err, test.ShouldBeNil)
 		b := m.theBoard
 		var pin1Arr []bool
 		var pin2Arr []bool
