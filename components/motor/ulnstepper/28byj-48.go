@@ -216,7 +216,6 @@ func (m *uln28byj) doStop(ctx context.Context) error {
 	return m.setPins(ctx, [4]bool{false, false, false, false})
 }
 
-// doStep has to be locked to call.
 // Depending on the direction, doStep will either treverse the stepSequence array in ascending
 // or descending order.
 func (m *uln28byj) doStep(ctx context.Context, forward bool) error {
