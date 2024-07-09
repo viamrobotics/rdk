@@ -396,8 +396,10 @@ func (m *uln28byj) SetPower(ctx context.Context, powerPct float64, extra map[str
 		return m.Stop(ctx, extra)
 	}
 
-	m.setTargetStepPosition(int64(math.Inf(int(powerPct))))
-	m.setStepperDelay(m.calcStepperDelay(powerPct * maxRPM))
+	m.lock.Lock()
+	defer m.lock.Unlock()
+	m.targetStepPosition = int64(math.Inf(int(powerPct)))
+	m.stepperDelay = m.calcStepperDelay(powerPct * maxRPM)
 
 	m.doRun()
 
