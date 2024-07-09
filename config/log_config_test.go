@@ -89,7 +89,6 @@ func TestUpdateLoggerRegistry(t *testing.T) {
 		test.That(t, ok, test.ShouldBeTrue)
 		test.That(t, logger.GetLevel(), test.ShouldEqual, logging.ERROR)
 		logger.SetLevel(logging.INFO)
-
 	})
 
 	t.Run("overwrite existing registry entries", func(t *testing.T) {
