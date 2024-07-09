@@ -76,5 +76,5 @@ func TestString(t *testing.T) {
 		"camera",
 	})
 
-	test.That(t, ws.String(), test.ShouldEqual, testTable.Render())
+	test.That(t, fmt.Sprint(ws), test.ShouldEqual, testTable.Render())
 }
