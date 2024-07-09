@@ -44,6 +44,9 @@ func uploadArbitraryFile(ctx context.Context, client v1.DataSyncServiceClient, f
 	if err != nil {
 		return err
 	}
+	if info.Size() == 0 {
+		return errors.New("file is empty (0 bytes)")
+	}
 	timeSinceMod := clock.Since(info.ModTime())
 	if timeSinceMod < time.Duration(fileLastModifiedMillis)*time.Millisecond {
 		return errors.New("file modified too recently")
