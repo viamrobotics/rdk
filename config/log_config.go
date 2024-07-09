@@ -9,25 +9,17 @@ import (
 	"go.viam.com/rdk/logging"
 )
 
-// LogPatternConfig is an instance of a level specification for a given logger.
-type LogPatternConfig struct {
+// LoggerPatternConfig is an instance of a level specification for a given logger.
+type LoggerPatternConfig struct {
 	Pattern string `json:"pattern"`
 	Level   string `json:"level"`
 }
 
+var loggerPatternRegexp = regexp.MustCompile(`^[a-z_-]+$|^\*$`)
+
 func validatePattern(pattern string) bool {
-	size := len(pattern)
-	if size == 0 || pattern[0] == '.' || pattern[size-1] == '.' {
-		return false
-	}
-	for i := 1; i < size; i++ {
-		if pattern[i] == '.' && pattern[i-1] == '.' {
-			return false
-		}
-	}
-	r := regexp.MustCompile(`^[a-z_-]+$|^\*$`)
 	for _, sep := range strings.Split(pattern, ".") {
-		if !r.MatchString(sep) {
+		if !loggerPatternRegexp.MatchString(sep) {
 			return false
 		}
 	}
@@ -35,7 +27,7 @@ func validatePattern(pattern string) bool {
 }
 
 // UpdateLoggerRegistry updates the logger registry if necessary  with the specified logConfig.
-func UpdateLoggerRegistry(logConfig []LogPatternConfig, loggerRegistry map[string]logging.Logger) (map[string]logging.Logger, error) {
+func UpdateLoggerRegistry(logConfig []LoggerPatternConfig, loggerRegistry map[string]logging.Logger) (map[string]logging.Logger, error) {
 	newLogRegistry := make(map[string]logging.Logger)
 
 	for _, lpc := range logConfig {
@@ -43,23 +35,29 @@ func UpdateLoggerRegistry(logConfig []LogPatternConfig, loggerRegistry map[strin
 			return nil, errors.New("Failed to Validate a Pattern")
 		}
 
-		matcher := "^"
-		for _, ch := range lpc.Pattern {
-			if ch == '*' {
-				matcher += `(\w|\.)+`
-			} else {
-				matcher += string(ch)
+		var matcher strings.Builder
+		for idx, ch := range lpc.Pattern {
+			switch ch {
+			case '*':
+				if idx == len(lpc.Pattern)-1 {
+					matcher.WriteString(`(\w|\.)+`)
+				} else {
+					matcher.WriteString(`\w+`)
+				}
+			case '.':
+				matcher.WriteString(`\.`)
+			default:
+				matcher.WriteRune(ch)
 			}
 		}
-		matcher += "$"
-		r := regexp.MustCompile(matcher)
+		r := regexp.MustCompile(matcher.String())
 
 		for name, logger := range loggerRegistry {
 			if _, ok := newLogRegistry[name]; !ok {
 				newLogRegistry[name] = logger
 			}
 			if r.MatchString(name) {
-				switch lowercaseLevel := strings.ToLower(lpc.Level); lowercaseLevel {
+				switch strings.ToLower(lpc.Level) {
 				case "debug":
 					newLogRegistry[name].SetLevel(logging.DEBUG)
 				case "info":

@@ -30,7 +30,7 @@ func TestUpdateLoggerRegistry(t *testing.T) {
 		"rdk.network_traffic":             logging.NewLogger("rdk.network_traffic"),
 	}
 	t.Run("basic case", func(t *testing.T) {
-		logCfg := []LogPatternConfig{
+		logCfg := []LoggerPatternConfig{
 			{
 				Pattern: "rdk.resource_manager",
 				Level:   "WARN",
@@ -47,7 +47,7 @@ func TestUpdateLoggerRegistry(t *testing.T) {
 	})
 
 	t.Run("wildcard case", func(t *testing.T) {
-		logCfg := []LogPatternConfig{
+		logCfg := []LoggerPatternConfig{
 			{
 				Pattern: "rdk.*",
 				Level:   "DEBUG",
@@ -63,7 +63,7 @@ func TestUpdateLoggerRegistry(t *testing.T) {
 	})
 
 	t.Run("overwrite existing registry entries", func(t *testing.T) {
-		logCfg := []LogPatternConfig{
+		logCfg := []LoggerPatternConfig{
 			{
 				Pattern: "rdk.*",
 				Level:   "DEBUG",

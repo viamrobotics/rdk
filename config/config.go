@@ -38,7 +38,7 @@ type Config struct {
 	Auth            AuthConfig
 	Debug           bool
 	GlobalLogConfig []GlobalLogConfig
-	LogConfig       []LogPatternConfig
+	LogConfig       []LoggerPatternConfig
 
 	ConfigFilePath string
 
@@ -83,7 +83,7 @@ type configData struct {
 	DisablePartialStart bool                  `json:"disable_partial_start"`
 	EnableWebProfile    bool                  `json:"enable_web_profile"`
 	GlobalLogConfig     []GlobalLogConfig     `json:"global_log_configuration"`
-	LogConfig           []LogPatternConfig    `json:"log"`
+	LogConfig           []LoggerPatternConfig `json:"log"`
 }
 
 // AppValidationStatus refers to the.
