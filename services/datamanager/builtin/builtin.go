@@ -709,7 +709,7 @@ func (svc *builtIn) propagateDataSyncConfig() error {
 
 // startSyncScheduler starts the goroutine that calls Sync repeatedly if scheduled sync is enabled.
 func (svc *builtIn) startSyncScheduler(intervalMins float64) {
-	cancelCtx, fn := context.WithCancel(context.Background())
+	cancelCtx, fn := context.WithCancel(svc.closedCtx)
 	svc.syncRoutineCancelFn = fn
 	svc.uploadData(cancelCtx, intervalMins)
 }
