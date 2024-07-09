@@ -823,6 +823,37 @@ var app = &cli.App{
 					},
 					Action: DatasetCreateAction,
 				},
+				{
+					Name:  "download",
+					Usage: "download data from a dataset",
+					UsageText: createUsageText("dataset download",
+						[]string{datasetFlagDatasetID, datasetFlagName}, false),
+					Flags: []cli.Flag{
+						&cli.PathFlag{
+							Name:     dataFlagDestination,
+							Required: true,
+							Usage:    "output directory for downloaded data",
+						},
+						&cli.StringFlag{
+							Name:     datasetFlagDatasetID,
+							Required: true,
+							Usage:    "dataset ID of the dataset to be downloaded",
+						},
+						&cli.BoolFlag{
+							Name:     datasetFlagIncludeJSONLines,
+							Required: false,
+							Usage:    "option to include JSON Lines files for local testing",
+							Value:    false,
+						},
+						&cli.UintFlag{
+							Name:     dataFlagParallelDownloads,
+							Required: false,
+							Usage:    "number of download requests to make in parallel",
+							Value:    100,
+						},
+					},
+					Action: DatasetDownloadAction,
+				},
 			},
 		},
 		{
