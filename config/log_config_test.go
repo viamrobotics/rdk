@@ -35,6 +35,7 @@ func TestUpdateLoggerRegistry(t *testing.T) {
 		"rdk.resource_manager":            logging.NewLogger("rdk.resource_manager"),
 		"rdk.resource_manager.modmanager": logging.NewLogger("rdk.resource_manager.modmanager"),
 		"rdk.network_traffic":             logging.NewLogger("rdk.network_traffic"),
+		"rdk.test_manager.modmanager":     logging.NewLogger("rdk.test_manager.modmanager"),
 	}
 	t.Run("basic case", func(t *testing.T) {
 		logCfg := []LoggerPatternConfig{
@@ -53,7 +54,7 @@ func TestUpdateLoggerRegistry(t *testing.T) {
 		testRegistry["rdk.resource_manager"].SetLevel(logging.INFO)
 	})
 
-	t.Run("wildcard case", func(t *testing.T) {
+	t.Run("ending wildcard case", func(t *testing.T) {
 		logCfg := []LoggerPatternConfig{
 			{
 				Pattern: "rdk.*",
@@ -67,6 +68,28 @@ func TestUpdateLoggerRegistry(t *testing.T) {
 			test.That(t, logger.GetLevel(), test.ShouldEqual, logging.DEBUG)
 			newRegistry[name].SetLevel(logging.INFO)
 		}
+	})
+
+	t.Run("middle wildcard case", func(t *testing.T) {
+		logCfg := []LoggerPatternConfig{
+			{
+				Pattern: "rdk.*.modmanager",
+				Level:   "ERROR",
+			},
+		}
+		newRegistry, err := UpdateLoggerRegistry(logCfg, testRegistry)
+		test.That(t, err, test.ShouldBeNil)
+
+		logger, ok := newRegistry["rdk.resource_manager.modmanager"]
+		test.That(t, ok, test.ShouldBeTrue)
+		test.That(t, logger.GetLevel(), test.ShouldEqual, logging.ERROR)
+		logger.SetLevel(logging.INFO)
+
+		logger, ok = newRegistry["rdk.test_manager.modmanager"]
+		test.That(t, ok, test.ShouldBeTrue)
+		test.That(t, logger.GetLevel(), test.ShouldEqual, logging.ERROR)
+		logger.SetLevel(logging.INFO)
+
 	})
 
 	t.Run("overwrite existing registry entries", func(t *testing.T) {
@@ -86,5 +109,16 @@ func TestUpdateLoggerRegistry(t *testing.T) {
 		logger, ok := newRegistry["rdk.resource_manager"]
 		test.That(t, ok, test.ShouldBeTrue)
 		test.That(t, logger.GetLevel(), test.ShouldEqual, logging.WARN)
+	})
+
+	t.Run("error case", func(t *testing.T) {
+		logCfg := []LoggerPatternConfig{
+			{
+				Pattern: "_.*.modmanager",
+				Level:   "DEBUG",
+			},
+		}
+		_, err := UpdateLoggerRegistry(logCfg, testRegistry)
+		test.That(t, err, test.ShouldNotBeNil)
 	})
 }
