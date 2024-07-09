@@ -15,7 +15,10 @@ type LoggerPatternConfig struct {
 	Level   string `json:"level"`
 }
 
-var loggerPatternRegexp = regexp.MustCompile(`^[a-z_-]+$|^\*$`)
+var (
+	validLoggerNameCharPattern = `[a-zA-Z0-9_-]`
+	loggerPatternRegexp        = regexp.MustCompile(`^` + validLoggerNameCharPattern + `+$|^\*$`)
+)
 
 func validatePattern(pattern string) bool {
 	for _, sep := range strings.Split(pattern, ".") {
@@ -40,9 +43,9 @@ func UpdateLoggerRegistry(logConfig []LoggerPatternConfig, loggerRegistry map[st
 			switch ch {
 			case '*':
 				if idx == len(lpc.Pattern)-1 {
-					matcher.WriteString(`\w+(\.\w+)*`)
+					matcher.WriteString(validLoggerNameCharPattern + `+(\.` + validLoggerNameCharPattern + `+)*`)
 				} else {
-					matcher.WriteString(`\w+`)
+					matcher.WriteString(validLoggerNameCharPattern + `+`)
 				}
 			case '.':
 				matcher.WriteString(`\.`)
