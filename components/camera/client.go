@@ -10,8 +10,8 @@ import (
 	"sync"
 
 	"github.com/pion/rtp"
-	"github.com/pion/webrtc/v3"
 	"github.com/pkg/errors"
+	"github.com/viamrobotics/webrtc/v3"
 	"go.opencensus.io/trace"
 	pb "go.viam.com/api/component/camera/v1"
 	streampb "go.viam.com/api/stream/v1"
