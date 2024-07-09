@@ -177,10 +177,11 @@ func (ptgk *ptgBaseKinematics) ExecutionState(ctx context.Context) (motionplan.E
 		return motionplan.ExecutionState{}, errors.New("cannot call ExecutionState on a base without a localizer")
 	}
 	ptgk.inputLock.RLock()
+	defer ptgk.inputLock.RUnlock()
+
 	currentIdx := ptgk.currentState.currentIdx
 	currentInputs := ptgk.currentState.currentInputs
 	currentExecutingSteps := ptgk.currentState.currentExecutingSteps
-	ptgk.inputLock.RUnlock()
 
 	actualPIF, err := ptgk.CurrentPosition(ctx)
 	if err != nil {
