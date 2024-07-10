@@ -63,7 +63,7 @@ type gpsrtk struct {
 	vrsReaderWriter  *bufio.ReadWriter // readerWriter that is connected to the VRS corrections stream
 	writer           io.Writer         // writer that takes correction data and sends it to the gps
 	// reader is the TeeReader to write the corrections stream to the gps chip.
-	// We also use it to scan RTCM messages to ensure there are no errors from the streams
+	// Additionally used to scan RTCM messages to ensure there are no errors from the streams
 	reader io.Reader
 }
 
