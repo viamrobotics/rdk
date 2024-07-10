@@ -18,8 +18,9 @@ type LoggerPatternConfig struct {
 const (
 	validLoggerSectionName             = `[a-zA-Z0-9]+([_-]*[a-zA-Z0-9]+)*`
 	validLoggerSectionNameWithWildcard = `(` + validLoggerSectionName + `|\*)`
-	validLoggerSections                = validLoggerSectionNameWithWildcard + `(\.` + validLoggerSectionNameWithWildcard + `)*`
-	validLoggerName                    = `^` + validLoggerSections + `$`
+	validLoggerSections                = validLoggerSectionName + `(\.` + validLoggerSectionName + `)*`
+	validLoggerSectionsWithWildcard    = validLoggerSectionNameWithWildcard + `(\.` + validLoggerSectionNameWithWildcard + `)*`
+	validLoggerName                    = `^` + validLoggerSectionsWithWildcard + `$`
 )
 
 var loggerPatternRegexp = regexp.MustCompile(validLoggerName)
@@ -34,25 +35,24 @@ func UpdateLoggerRegistry(logConfig []LoggerPatternConfig, loggerRegistry map[st
 
 	for _, lpc := range logConfig {
 		if !validatePattern(lpc.Pattern) {
-			return nil, errors.New("Failed to Validate a Pattern")
+			return nil, errors.New("failed to validate a pattern")
 		}
 
 		var matcher strings.Builder
-		for idx, ch := range lpc.Pattern {
+		for _, ch := range lpc.Pattern {
 			switch ch {
 			case '*':
-				if idx == len(lpc.Pattern)-1 {
-					matcher.WriteString(validLoggerSections)
-				} else {
-					matcher.WriteString(validLoggerSectionNameWithWildcard)
-				}
+				matcher.WriteString(validLoggerSections)
 			case '.':
 				matcher.WriteString(`\.`)
 			default:
 				matcher.WriteRune(ch)
 			}
 		}
-		r := regexp.MustCompile(matcher.String())
+		r, err := regexp.Compile(matcher.String())
+		if err != nil {
+			return nil, err
+		}
 
 		for name, logger := range loggerRegistry {
 			if _, ok := newLogRegistry[name]; !ok {
