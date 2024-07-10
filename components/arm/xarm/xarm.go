@@ -3,6 +3,7 @@ package xarm
 
 import (
 	"context"
+	"time"
 	// for embedding model file.
 	_ "embed"
 	"fmt"
@@ -217,4 +218,25 @@ func (x *xArm) Geometries(ctx context.Context, extra map[string]interface{}) ([]
 // ModelFrame returns all the information necessary for including the arm in a FrameSystem.
 func (x *xArm) ModelFrame() referenceframe.Model {
 	return x.model
+}
+
+func (x *xArm) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	if _, ok := cmd["open"]; ok {
+		fmt.Println("opening")
+		err := x.openGripper(ctx)
+		if err != nil {
+			return nil, err
+		}
+		time.Sleep(1500 * time.Millisecond)
+		return nil, x.stopGripper(ctx)
+	} else if _, ok := cmd["close"]; ok {
+		err := x.closeGripper(ctx)
+		if err != nil {
+			return nil, err
+		}
+		time.Sleep(1500 * time.Millisecond)
+		//~ return nil, x.stopGripper(ctx)
+		return nil, nil
+	}
+	return nil, nil
 }
