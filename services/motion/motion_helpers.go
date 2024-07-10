@@ -14,6 +14,12 @@ import (
 	"go.viam.com/rdk/spatialmath"
 )
 
+var (
+	defaultArmPlannerOptions = &motionplan.Constraints{
+		LinearConstraint: []motionplan.LinearConstraint{},
+	}
+)
+
 // PollHistoryUntilSuccessOrError polls `PlanHistory()` with `req` every `interval`
 // until a terminal state is reached.
 // An error is returned if the terminal state is Failed, Stopped or an invalid state
@@ -75,7 +81,7 @@ func MoveArm(ctx context.Context, logger logging.Logger, a arm.Arm, dst spatialm
 		return err
 	}
 
-	plan, err := motionplan.PlanFrameMotion(ctx, logger, dst, model, inputs, nil, nil)
+	plan, err := motionplan.PlanFrameMotion(ctx, logger, dst, model, inputs, defaultArmPlannerOptions, nil)
 	if err != nil {
 		return err
 	}
