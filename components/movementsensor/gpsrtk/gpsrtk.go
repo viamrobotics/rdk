@@ -238,7 +238,7 @@ func (g *gpsrtk) receiveAndWriteCorrectionData() {
 		}
 
 		// added a log so we do not always swallow the error
-		g.logger.Debug(err)
+		g.logger.Debugf("no longer connected to NTRIP scanner: %s", err)
 
 		if g.isClosed {
 			return
@@ -479,9 +479,9 @@ func (g *gpsrtk) getNtripFromVRS() error {
 		return err
 	}
 
-	g.logger.Debugf("Writing GGA message: %v\n", (ggaMessage))
+	g.logger.Debugf("Writing GGA message: %v\n", ggaMessage)
 
-	_, err = g.readerWriter.WriteString((ggaMessage))
+	_, err = g.readerWriter.WriteString(ggaMessage)
 	if err != nil {
 		g.logger.Error("Failed to send NMEA data:", err)
 		return err

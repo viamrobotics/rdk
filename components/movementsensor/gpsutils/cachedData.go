@@ -93,10 +93,10 @@ func (g *CachedData) GGA() (string, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 
-	if g.nmeaData.GGAMessage == "" {
+	if g.nmeaData.LastGGAMessage == "" {
 		return "", errors.New("empty gga message, check nmea message parsing")
 	}
-	return g.nmeaData.GGAMessage, g.err.Get()
+	return g.nmeaData.LastGGAMessage, g.err.Get()
 }
 
 // Position returns the position and altitide of the sensor, or an error.
