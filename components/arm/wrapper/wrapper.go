@@ -109,7 +109,7 @@ func (wrapper *Arm) EndPosition(ctx context.Context, extra map[string]interface{
 	wrapper.mu.RLock()
 	defer wrapper.mu.RUnlock()
 
-	joints, err := wrapper.JointPositions(ctx, extra)
+	joints, err := wrapper.CurrentInputs(ctx)
 	if err != nil {
 		return nil, err
 	}

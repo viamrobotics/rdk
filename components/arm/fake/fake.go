@@ -144,7 +144,7 @@ func (a *Arm) ModelFrame() referenceframe.Model {
 
 // EndPosition returns the set position.
 func (a *Arm) EndPosition(ctx context.Context, extra map[string]interface{}) (spatialmath.Pose, error) {
-	joints, err := a.JointPositions(ctx, extra)
+	joints, err := a.CurrentInputs(ctx)
 	if err != nil {
 		return nil, err
 	}

@@ -347,7 +347,7 @@ func (ua *urArm) JointPositions(ctx context.Context, extra map[string]interface{
 
 // EndPosition computes and returns the current cartesian position.
 func (ua *urArm) EndPosition(ctx context.Context, extra map[string]interface{}) (spatialmath.Pose, error) {
-	joints, err := ua.JointPositions(ctx, extra)
+	joints, err := ua.CurrentInputs(ctx)
 	if err != nil {
 		return nil, err
 	}

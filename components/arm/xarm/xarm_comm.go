@@ -423,7 +423,7 @@ func (x *xArm) MoveToJointPositions(ctx context.Context, newPositions *pb.JointP
 
 // EndPosition computes and returns the current cartesian position.
 func (x *xArm) EndPosition(ctx context.Context, extra map[string]interface{}) (spatialmath.Pose, error) {
-	joints, err := x.JointPositions(ctx, extra)
+	joints, err := x.CurrentInputs(ctx)
 	if err != nil {
 		return nil, err
 	}

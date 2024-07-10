@@ -140,7 +140,7 @@ func (e *eva) JointPositions(ctx context.Context, extra map[string]interface{}) 
 
 // EndPosition computes and returns the current cartesian position.
 func (e *eva) EndPosition(ctx context.Context, extra map[string]interface{}) (spatialmath.Pose, error) {
-	joints, err := e.JointPositions(ctx, extra)
+	joints, err := e.CurrentInputs(ctx)
 	if err != nil {
 		return nil, err
 	}
