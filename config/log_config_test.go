@@ -15,9 +15,17 @@ func verifySetLevels(registry map[string]logging.Logger, expectedMatches map[str
 		if !ok || !strings.EqualFold(level, logger.GetLevel().String()) {
 			return false
 		}
-		registry[name].SetLevel(logging.INFO)
 	}
 	return true
+}
+
+func createTestRegistry(loggerNames ...string) map[string]logging.Logger {
+	registry := make(map[string]logging.Logger)
+	for _, name := range loggerNames {
+		registry[name] = logging.NewLogger(name)
+
+	}
+	return registry
 }
 
 func TestValidatePattern(t *testing.T) {
@@ -43,14 +51,8 @@ func TestValidatePattern(t *testing.T) {
 }
 
 func TestUpdateLoggerRegistry(t *testing.T) {
-	testRegistry := map[string]logging.Logger{
-		"rdk.resource_manager":                            logging.NewLogger("rdk.resource_manager"),
-		"rdk.resource_manager.modmanager":                 logging.NewLogger("rdk.resource_manager.modmanager"),
-		"rdk.network_traffic":                             logging.NewLogger("rdk.network_traffic"),
-		"rdk.test_manager.modmanager":                     logging.NewLogger("rdk.test_manager.modmanager"),
-		"rdk.resource_manager.package_manager.modmanager": logging.NewLogger("rdk.resource_manager.package_manager.modmanager"),
-	}
 	t.Run("basic case", func(t *testing.T) {
+		testRegistry := createTestRegistry("rdk.resource_manager", "rdk.resource_manager.modmanager", "rdk.network_traffic")
 		logCfg := []LoggerPatternConfig{
 			{
 				Pattern: "rdk.resource_manager",
@@ -67,6 +69,7 @@ func TestUpdateLoggerRegistry(t *testing.T) {
 	})
 
 	t.Run("ending wildcard case", func(t *testing.T) {
+		testRegistry := createTestRegistry("rdk.resource_manager", "rdk.test_manager.modmanager", "rdk.resource_manager.package_manager.modmanager")
 		logCfg := []LoggerPatternConfig{
 			{
 				Pattern: "rdk.*",
@@ -75,8 +78,6 @@ func TestUpdateLoggerRegistry(t *testing.T) {
 		}
 		expectedMatches := map[string]string{
 			"rdk.resource_manager":                            "DEBUG",
-			"rdk.resource_manager.modmanager":                 "DEBUG",
-			"rdk.network_traffic":                             "DEBUG",
 			"rdk.test_manager.modmanager":                     "DEBUG",
 			"rdk.resource_manager.package_manager.modmanager": "DEBUG",
 		}
@@ -87,6 +88,7 @@ func TestUpdateLoggerRegistry(t *testing.T) {
 	})
 
 	t.Run("middle wildcard case", func(t *testing.T) {
+		testRegistry := createTestRegistry("rdk.resource_manager.modmanager", "rdk.test_manager.modmanager", "rdk.resource_manager.test_manager")
 		logCfg := []LoggerPatternConfig{
 			{
 				Pattern: "rdk.*.modmanager",
@@ -104,6 +106,7 @@ func TestUpdateLoggerRegistry(t *testing.T) {
 	})
 
 	t.Run("overwrite existing registry entries", func(t *testing.T) {
+		testRegistry := createTestRegistry("rdk.resource_manager")
 		logCfg := []LoggerPatternConfig{
 			{
 				Pattern: "rdk.*",
@@ -124,6 +127,7 @@ func TestUpdateLoggerRegistry(t *testing.T) {
 	})
 
 	t.Run("greedy wildcard matching case", func(t *testing.T) {
+		testRegistry := createTestRegistry("rdk.resource_manager.modmanager", "rdk.resource_manager.package_manager.modmanager")
 		logCfg := []LoggerPatternConfig{
 			{
 				Pattern: "rdk.*.modmanager",
@@ -141,6 +145,7 @@ func TestUpdateLoggerRegistry(t *testing.T) {
 	})
 
 	t.Run("error case", func(t *testing.T) {
+		testRegistry := createTestRegistry("rdk.resource_manager")
 		logCfg := []LoggerPatternConfig{
 			{
 				Pattern: "_.*.modmanager",
