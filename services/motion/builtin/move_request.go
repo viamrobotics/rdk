@@ -772,27 +772,6 @@ func (ms *builtIn) createBaseMoveRequest(
 		}
 	}
 
-	// // If we are not working with a differential drive base then we need to create a separate framesystem
-	// // used for planning.
-	// // This is because we rely on our starting configuration to place ourselves in our absolute position in the world.
-	// // If we are not working with a differential drive base then our base frame
-	// // is relative aka a PTG frame and therefore is not able to accurately place itself in its absolute position.
-	// // For this reason, we add a static transform which allows us to place the base in its absolute position in the
-	// // world frame.
-	// planningFS := referenceframe.NewEmptyFrameSystem("store-starting point")
-	// transformFrame, err := referenceframe.NewStaticFrame(kb.LocalizationFrame().Name(), startPose)
-	// if err != nil {
-	// 	return nil, err
-	// }
-	// err = planningFS.AddFrame(transformFrame, planningFS.World())
-	// if err != nil {
-	// 	return nil, err
-	// }
-	// err = planningFS.MergeFrameSystem(baseOnlyFS, transformFrame)
-	// if err != nil {
-	// 	return nil, err
-	// }
-
 	// We create a wrapperFrame and a collision framesystem so that we may place
 	// observed transient obstacles in their absolute position in the world frame.
 	// The collision framesystem is used by CheckPlan so that we may solely rely on
