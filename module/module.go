@@ -16,8 +16,8 @@ import (
 	"github.com/jhump/protoreflect/desc"
 	"github.com/jhump/protoreflect/grpcreflect"
 	"github.com/pion/rtp"
-	"github.com/pion/webrtc/v3"
 	"github.com/pkg/errors"
+	"github.com/viamrobotics/webrtc/v3"
 	"go.opencensus.io/trace"
 	"go.uber.org/multierr"
 	pb "go.viam.com/api/module/v1"
@@ -236,7 +236,7 @@ func NewModule(ctx context.Context, address string, logger logging.Logger) (*Mod
 	}
 
 	// attempt to configure PeerConnection
-	pcReady, pcClosed, err := rpc.ConfigureForRenegotiation(pc, logger.AsZap())
+	pcReady, pcClosed, err := rpc.ConfigureForRenegotiation(pc, rpc.PeerRoleServer, logger.AsZap())
 	if err != nil {
 		msg := "Error creating renegotiation channel for module. Unable to " +
 			"create optional peer connection for module. Skipping WebRTC for module..."
