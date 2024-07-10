@@ -19,7 +19,7 @@ func verifySetLevels(registry map[string]logging.Logger, expectedMatches map[str
 	return true
 }
 
-func createTestRegistry(loggerNames ...string) map[string]logging.Logger {
+func createTestRegistry(loggerNames []string) map[string]logging.Logger {
 	registry := make(map[string]logging.Logger)
 	for _, name := range loggerNames {
 		registry[name] = logging.NewLogger(name)
@@ -50,108 +50,129 @@ func TestValidatePattern(t *testing.T) {
 }
 
 func TestUpdateLoggerRegistry(t *testing.T) {
-	t.Run("basic case", func(t *testing.T) {
-		testRegistry := createTestRegistry("rdk.resource_manager", "rdk.resource_manager.modmanager", "rdk.network_traffic")
-		logCfg := []LoggerPatternConfig{
-			{
-				Pattern: "rdk.resource_manager",
-				Level:   "WARN",
+	type testCfg struct {
+		loggerConfig    []LoggerPatternConfig
+		loggerNames     []string
+		expectedMatches map[string]string
+		doesError       bool
+	}
+
+	tests := []testCfg{
+		{
+			loggerConfig: []LoggerPatternConfig{
+				{
+					Pattern: "rdk.resource_manager",
+					Level:   "WARN",
+				},
 			},
+			loggerNames: []string{
+				"rdk.resource_manager",
+				"rdk.resource_manager.modmanager",
+				"rdk.network_traffic",
+			},
+			expectedMatches: map[string]string{
+				"rdk.resource_manager": "WARN",
+			},
+			doesError: false,
+		},
+		{
+			loggerConfig: []LoggerPatternConfig{
+				{
+					Pattern: "rdk.*",
+					Level:   "DEBUG",
+				},
+			},
+			loggerNames: []string{
+				"rdk.resource_manager",
+				"rdk.test_manager.modmanager",
+				"rdk.resource_manager.package.modmanager",
+			},
+			expectedMatches: map[string]string{
+				"rdk.resource_manager":                    "DEBUG",
+				"rdk.test_manager.modmanager":             "DEBUG",
+				"rdk.resource_manager.package.modmanager": "DEBUG",
+			},
+			doesError: false,
+		},
+		{
+			loggerConfig: []LoggerPatternConfig{
+				{
+					Pattern: "rdk.*.modmanager",
+					Level:   "ERROR",
+				},
+			},
+			loggerNames: []string{
+				"rdk.resource_manager.modmanager",
+				"rdk.test_manager.modmanager",
+				"rdk.resource_manager.test_manager",
+			},
+			expectedMatches: map[string]string{
+				"rdk.resource_manager.modmanager": "ERROR",
+				"rdk.test_manager.modmanager":     "ERROR",
+			},
+			doesError: false,
+		},
+		{
+			loggerConfig: []LoggerPatternConfig{
+				{
+					Pattern: "rdk.*",
+					Level:   "DEBUG",
+				},
+				{
+					Pattern: "rdk.resource_manager",
+					Level:   "WARN",
+				},
+			},
+			loggerNames: []string{
+				"rdk.resource_manager",
+			},
+			expectedMatches: map[string]string{
+				"rdk.resource_manager": "WARN",
+			},
+			doesError: false,
+		},
+		{
+			loggerConfig: []LoggerPatternConfig{
+				{
+					Pattern: "rdk.*.modmanager",
+					Level:   "WARN",
+				},
+			},
+			loggerNames: []string{
+				"rdk.resource_manager.modmanager",
+				"rdk.resource_manager.package_manager.modmanager",
+			},
+			expectedMatches: map[string]string{
+				"rdk.resource_manager.modmanager":                 "WARN",
+				"rdk.resource_manager.package_manager.modmanager": "WARN",
+			},
+			doesError: false,
+		},
+		{
+			loggerConfig: []LoggerPatternConfig{
+				{
+					Pattern: "_.*.modmanager",
+					Level:   "DEBUG",
+				},
+			},
+			loggerNames: []string{
+				"rdk.resource_manager",
+			},
+			expectedMatches: map[string]string{},
+			doesError:       true,
+		},
+	}
+
+	for _, tc := range tests {
+		testRegistry := createTestRegistry(tc.loggerNames)
+
+		newRegistry, err := UpdateLoggerRegistry(tc.loggerConfig, testRegistry)
+		if tc.doesError {
+			test.That(t, err, test.ShouldNotBeNil)
+			continue
 		}
-		expectedMatches := map[string]string{
-			"rdk.resource_manager": "WARN",
-		}
-		newRegistry, err := UpdateLoggerRegistry(logCfg, testRegistry)
 		test.That(t, err, test.ShouldBeNil)
 
-		test.That(t, verifySetLevels(newRegistry, expectedMatches), test.ShouldBeTrue)
-	})
-
-	t.Run("ending wildcard case", func(t *testing.T) {
-		testRegistry := createTestRegistry("rdk.resource_manager", "rdk.test_manager.modmanager", "rdk.resource_manager.package.modmanager")
-		logCfg := []LoggerPatternConfig{
-			{
-				Pattern: "rdk.*",
-				Level:   "DEBUG",
-			},
-		}
-		expectedMatches := map[string]string{
-			"rdk.resource_manager":                    "DEBUG",
-			"rdk.test_manager.modmanager":             "DEBUG",
-			"rdk.resource_manager.package.modmanager": "DEBUG",
-		}
-		newRegistry, err := UpdateLoggerRegistry(logCfg, testRegistry)
-		test.That(t, err, test.ShouldBeNil)
-
-		test.That(t, verifySetLevels(newRegistry, expectedMatches), test.ShouldBeTrue)
-	})
-
-	t.Run("middle wildcard case", func(t *testing.T) {
-		testRegistry := createTestRegistry("rdk.resource_manager.modmanager", "rdk.test_manager.modmanager", "rdk.resource_manager.test_manager")
-		logCfg := []LoggerPatternConfig{
-			{
-				Pattern: "rdk.*.modmanager",
-				Level:   "ERROR",
-			},
-		}
-		expectedMatches := map[string]string{
-			"rdk.resource_manager.modmanager": "ERROR",
-			"rdk.test_manager.modmanager":     "ERROR",
-		}
-		newRegistry, err := UpdateLoggerRegistry(logCfg, testRegistry)
-		test.That(t, err, test.ShouldBeNil)
-
-		test.That(t, verifySetLevels(newRegistry, expectedMatches), test.ShouldBeTrue)
-	})
-
-	t.Run("overwrite existing registry entries", func(t *testing.T) {
-		testRegistry := createTestRegistry("rdk.resource_manager")
-		logCfg := []LoggerPatternConfig{
-			{
-				Pattern: "rdk.*",
-				Level:   "DEBUG",
-			},
-			{
-				Pattern: "rdk.resource_manager",
-				Level:   "WARN",
-			},
-		}
-		expectedMatches := map[string]string{
-			"rdk.resource_manager": "WARN",
-		}
-		newRegistry, err := UpdateLoggerRegistry(logCfg, testRegistry)
-		test.That(t, err, test.ShouldBeNil)
-
-		test.That(t, verifySetLevels(newRegistry, expectedMatches), test.ShouldBeTrue)
-	})
-
-	t.Run("greedy wildcard matching case", func(t *testing.T) {
-		testRegistry := createTestRegistry("rdk.resource_manager.modmanager", "rdk.resource_manager.package_manager.modmanager")
-		logCfg := []LoggerPatternConfig{
-			{
-				Pattern: "rdk.*.modmanager",
-				Level:   "WARN",
-			},
-		}
-		expectedMatches := map[string]string{
-			"rdk.resource_manager.modmanager":                 "WARN",
-			"rdk.resource_manager.package_manager.modmanager": "WARN",
-		}
-		newRegistry, err := UpdateLoggerRegistry(logCfg, testRegistry)
-		test.That(t, err, test.ShouldBeNil)
-
-		test.That(t, verifySetLevels(newRegistry, expectedMatches), test.ShouldBeTrue)
-	})
-
-	t.Run("error case", func(t *testing.T) {
-		testRegistry := createTestRegistry("rdk.resource_manager")
-		logCfg := []LoggerPatternConfig{
-			{
-				Pattern: "_.*.modmanager",
-				Level:   "DEBUG",
-			},
-		}
-		_, err := UpdateLoggerRegistry(logCfg, testRegistry)
-		test.That(t, err, test.ShouldNotBeNil)
-	})
+		test.That(t, verifySetLevels(newRegistry, tc.expectedMatches), test.ShouldBeTrue)
+	}
 }
