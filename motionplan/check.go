@@ -55,9 +55,9 @@ func CheckPlan(
 		return err
 	}
 	// This should be done for any plan whose configurations are specified in relative terms rather than absolute ones.
-	// Currently this is only TP-space, so we check if the DoF of checkFrame is 11, indication that is a wrapper frame,
-	// housing the ptgFrame with 4 Dof and localization frame with 7 DoF.
-	if len(checkFrame.DoF()) == 11 {
+	// Currently this is only TP-space, so we check if the PTG length is >0.
+	// The solver frame will have had its PTGs filled in the newPlanManager() call, if applicable.
+	if sfPlanner.useTPspace {
 		return checkPlanRelative(checkFrame, executionState, worldState, fs, lookAheadDistanceMM, sfPlanner)
 	}
 	return checkPlanAbsolute(checkFrame, executionState, worldState, fs, lookAheadDistanceMM, sfPlanner)
@@ -126,7 +126,7 @@ func checkPlanRelative(
 	// determine plan's starting pose
 	planStartPiF, ok := plan.Path()[0][checkFrame.Name()]
 	if !ok {
-		return errCheckFrameNotInPath // THIS ERROR APPEARS TWICE, SO WE CAN MAKE IT INTO A VAR
+		return errCheckFrameNotInPath
 	}
 	planStartPoseWorld, err := toWorld(planStartPiF, plan.Trajectory()[0])
 	if err != nil {
@@ -162,7 +162,7 @@ func checkPlanRelative(
 	wayPointIdx := executionState.Index()
 	sf := sfPlanner.frame
 
-	// construct first segmenet's start configuration
+	// construct first segment's start configuration
 	// get checkFrame's currentInputs
 	// *currently* it is guaranteed that a relative frame will constitute 100% of a solver frame's dof
 	checkFrameCurrentInputs, err := sf.mapToSlice(currentInputs)
@@ -170,14 +170,14 @@ func checkPlanRelative(
 		return err
 	}
 
-	// construct first segmenet's end configuration
+	// construct first segment's end configuration
 	currentWayPointTraj := plan.Trajectory()[wayPointIdx]
 	arcEndInputs, err := sf.mapToSlice(currentWayPointTraj)
 	if err != nil {
 		return err
 	}
 
-	// construct first segmenet's startPosition
+	// construct first segment's startPosition
 	currentPoses := executionState.CurrentPoses()
 	if currentPoses == nil {
 		return errors.New("executionState had nil return from CurrentPoses")
@@ -192,7 +192,7 @@ func checkPlanRelative(
 		return err
 	}
 
-	// construct first segmenet's endPosition
+	// construct first segment's endPosition
 	// Check that path pose is valid
 	stepEndPiF, ok := plan.Path()[wayPointIdx][checkFrame.Name()]
 	if !ok {
@@ -230,6 +230,7 @@ func checkPlanRelative(
 	currentArcEndPose := spatialmath.Compose(expectedArcEndInWorld.Pose(), errorState)
 
 	segments := make([]*ik.Segment, 0, len(plan.Path())-wayPointIdx)
+	// pre-pend to segments so we can connect to the input we have not finished actuating yet
 	segments = append(segments, &ik.Segment{
 		StartPosition:      currentPoseInWorld.Pose(),
 		EndPosition:        currentArcEndPose,

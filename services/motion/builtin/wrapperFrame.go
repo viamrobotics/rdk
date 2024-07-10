@@ -5,6 +5,7 @@ import (
 	"go.uber.org/multierr"
 	pb "go.viam.com/api/component/arm/v1"
 
+	"go.viam.com/rdk/motionplan/tpspace"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
@@ -18,20 +19,26 @@ type wrapperFrame struct {
 	executionFrame    referenceframe.Frame
 	seedMap           map[string][]referenceframe.Input
 	fs                referenceframe.FrameSystem
+	ptgSolvers        []tpspace.PTGSolver
 }
 
 func newWrapperFrame(
 	localizationFrame, executionFrame referenceframe.Frame,
 	seedMap map[string][]referenceframe.Input,
 	fs referenceframe.FrameSystem,
-) referenceframe.Frame {
+) (referenceframe.Frame, error) {
+	ptgFrame, ok := executionFrame.(tpspace.PTGProvider)
+	if !ok {
+		return nil, errors.New("cannot type assert localizationFrame into a tpspace.PTGProvider")
+	}
 	return &wrapperFrame{
 		name:              executionFrame.Name(),
 		localizationFrame: localizationFrame,
 		executionFrame:    executionFrame,
 		seedMap:           seedMap,
 		fs:                fs,
-	}
+		ptgSolvers:        ptgFrame.PTGSolvers(),
+	}, nil
 }
 
 // Name returns the name of the wrapper frame's execution frame's name.
@@ -156,4 +163,8 @@ func (wf *wrapperFrame) sliceToMap(inputSlice []referenceframe.Input) map[string
 	inputs[wf.executionFrame.Name()] = inputSlice[:len(wf.executionFrame.DoF())]
 	inputs[wf.localizationFrame.Name()] = inputSlice[len(wf.executionFrame.DoF()):]
 	return inputs
+}
+
+func (wf *wrapperFrame) PTGSolvers() []tpspace.PTGSolver {
+	return wf.ptgSolvers
 }

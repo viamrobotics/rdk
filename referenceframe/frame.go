@@ -448,12 +448,12 @@ func (rf rotationalFrame) MarshalJSON() ([]byte, error) {
 
 type poseFrame struct {
 	*baseFrame
-	geometry spatial.Geometry
+	geometries []spatial.Geometry
 }
 
 // NewPoseFrame creates an orientation vector frame, i.e a frame with
 // 7 degrees of freedom: X, Y, Z, OX, OY, OZ, and Theta in radians.
-func NewPoseFrame(name string, geometry spatial.Geometry) (Frame, error) {
+func NewPoseFrame(name string, geometry []spatial.Geometry) (Frame, error) {
 	orientationVector := spatial.OrientationVector{
 		OX:    math.Inf(1),
 		OY:    math.Inf(1),
@@ -511,10 +511,14 @@ func (pf *poseFrame) Geometries(inputs []Input) (*GeometriesInFrame, error) {
 	if err != nil {
 		return nil, err
 	}
-	if pf.geometry == nil {
+	if len(pf.geometries) == 0 {
 		return NewGeometriesInFrame(pf.name, []spatial.Geometry{}), nil
 	}
-	return NewGeometriesInFrame(pf.name, []spatial.Geometry{pf.geometry.Transform(transformByPose)}), nil
+	transformedGeometries := []spatial.Geometry{}
+	for _, geom := range pf.geometries {
+		transformedGeometries = append(transformedGeometries, geom.Transform(transformByPose))
+	}
+	return NewGeometriesInFrame(pf.name, transformedGeometries), nil
 }
 
 // DoF returns the number of degrees of freedom within a model.

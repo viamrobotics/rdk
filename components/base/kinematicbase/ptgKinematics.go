@@ -141,10 +141,7 @@ func wrapWithPTGKinematics(
 	}
 	startingState := baseState{currentInputs: zeroInput}
 
-	// we intentionally set our OX, OY, OZ values to be greater than 1 since
-	// a possible orientation which a planner produces may have the following
-	// values: OZ: 1.0000000002, Theta: t.
-	localizationFrame, err := referenceframe.NewPoseFrame(b.Name().ShortName()+"LocalizationFrame", nil)
+	localizationFrame, err := referenceframe.NewPoseFrame(b.Name().ShortName()+"_LocalizationFrame", nil)
 	if err != nil {
 		return nil, err
 	}

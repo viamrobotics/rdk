@@ -754,7 +754,10 @@ func (ms *builtIn) createBaseMoveRequest(
 	wrapperFrameSeedMap := map[string][]referenceframe.Input{}
 	wrapperFrameSeedMap[executionFrame.Name()] = make([]referenceframe.Input, len(executionFrame.DoF()))
 	wrapperFrameSeedMap[localizationFrame.Name()] = make([]referenceframe.Input, len(localizationFrame.DoF()))
-	wf := newWrapperFrame(localizationFrame, executionFrame, wrapperFrameSeedMap, wrapperFS)
+	wf, err := newWrapperFrame(localizationFrame, executionFrame, wrapperFrameSeedMap, wrapperFS)
+	if err != nil {
+		return nil, err
+	}
 	collisionFS := baseOnlyFS
 	err = collisionFS.ReplaceFrame(wf)
 	if err != nil {
