@@ -57,7 +57,7 @@ func (p *basicPID) Next(ctx context.Context, x []*Signal, dt time.Duration) ([]*
 			p.kP = p.tuner.kP
 			p.logger.Info("\n\n-------- ***** PID GAINS CALCULATED **** --------")
 			p.logger.CInfof(ctx, "Calculated gains are p: %1.6f, i: %1.6f, d: %1.6f", p.kP, p.kI, p.kD)
-			p.logger.CInfof(ctx, "You must MANUALLY ADD p, i and d gains to the robot config to use the values after tuning\n\n")
+			p.logger.CInfof(ctx, "You must MANUALLY ADD p, i and d gains to the robot config to use the values after tuning")
 			p.tuning = false
 		}
 		p.y[0].SetSignalValueAt(0, out)
