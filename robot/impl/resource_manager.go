@@ -211,13 +211,27 @@ func (manager *resourceManager) updateRemoteResourceNames(
 
 		if _, alreadyCurrent := activeResourceNames[resName]; alreadyCurrent {
 			activeResourceNames[resName] = true
-			if ok && !gNode.IsUninitialized() && !recreateAllClients {
-				continue
+			if ok && !gNode.IsUninitialized() {
+				if !recreateAllClients {
+					continue
+				}
+				if err := manager.markChildrenForUpdate(resName); err != nil {
+					manager.logger.CErrorw(ctx,
+						"failed to mark children of remote for update",
+						"resource", resName,
+						"reason", err)
+					continue
+				}
+				if err := gNode.Close(ctx); err != nil {
+					manager.logger.CErrorw(ctx,
+						"failed to close remote node",
+						"resource", resName,
+						"reason", err)
+				}
 			}
 		}
 
 		if ok {
-			gNode.Close(ctx)
 			gNode.SwapResource(res, unknownModel)
 		} else {
 			gNode = resource.NewConfiguredGraphNode(resource.Config{}, res, unknownModel)
