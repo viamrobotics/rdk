@@ -310,16 +310,16 @@ func (e *ExecutionState) CurrentPoses() map[string]*referenceframe.PoseInFrame {
 
 // CalculateFrameErrorState takes an ExecutionState and a Frame and calculates the error between the Frame's expected
 // and actual positions.
-func CalculateFrameErrorState(e ExecutionState, frame referenceframe.Frame) (spatialmath.Pose, error) {
-	currentInputs, ok := e.CurrentInputs()[frame.Name()]
+func CalculateFrameErrorState(e ExecutionState, executionFrame, localizationFrame referenceframe.Frame) (spatialmath.Pose, error) {
+	currentInputs, ok := e.CurrentInputs()[executionFrame.Name()]
 	if !ok {
-		return nil, fmt.Errorf("could not find frame %s in ExecutionState", frame.Name())
+		return nil, fmt.Errorf("1could not find frame %s in ExecutionState", executionFrame.Name())
 	}
-	currentPose, ok := e.CurrentPoses()[frame.Name()]
+	currentPose, ok := e.CurrentPoses()[localizationFrame.Name()]
 	if !ok {
-		return nil, fmt.Errorf("could not find frame %s in ExecutionState", frame.Name())
+		return nil, fmt.Errorf("2could not find frame %s in ExecutionState", localizationFrame.Name())
 	}
-	currPoseInArc, err := frame.Transform(currentInputs)
+	currPoseInArc, err := executionFrame.Transform(currentInputs)
 	if err != nil {
 		return nil, err
 	}
@@ -334,9 +334,9 @@ func CalculateFrameErrorState(e ExecutionState, frame referenceframe.Frame) (spa
 	if index < 0 || index >= len(path) {
 		return nil, fmt.Errorf("index %d out of bounds for Path of length %d", index, len(path))
 	}
-	pose, ok := path[index][frame.Name()]
+	pose, ok := path[index][executionFrame.Name()]
 	if !ok {
-		return nil, fmt.Errorf("could not find frame %s in ExecutionState", frame.Name())
+		return nil, fmt.Errorf("could not find frame %s in ExecutionState", executionFrame.Name())
 	}
 	if pose.Parent() != currentPose.Parent() {
 		return nil, errors.New("cannot compose two PoseInFrames with different parents")

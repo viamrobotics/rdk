@@ -166,7 +166,7 @@ func (mr *moveRequest) deviatedFromPlan(ctx context.Context, plan motionplan.Pla
 	if err != nil {
 		return state.ExecuteResponse{}, err
 	}
-	errorState, err := motionplan.CalculateFrameErrorState(executionState, mr.kinematicBase.Kinematics())
+	errorState, err := motionplan.CalculateFrameErrorState(executionState, mr.kinematicBase.Kinematics(), mr.kinematicBase.LocalizationFrame())
 	if err != nil {
 		return state.ExecuteResponse{}, err
 	}
