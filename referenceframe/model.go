@@ -286,10 +286,10 @@ func New2DMobileModelFrame(name string, limits []Limit, collisionGeometry spatia
 	return model, nil
 }
 
-// ComputeOOBPosition takes a model and a protobuf JointPositions in degrees and returns the cartesian
+// ComputePosition takes a model and a slice of Inputs and returns the cartesian
 // position of the end effector as a protobuf ArmPosition even when the arm is in an out of bounds state.
 // This is performed statelessly without changing any data.
-func ComputeOOBPosition(model Frame, joints []Input) (spatialmath.Pose, error) {
+func ComputePosition(model Frame, joints []Input) (spatialmath.Pose, error) {
 	if joints == nil {
 		return nil, ErrNilJointPositions
 	}
