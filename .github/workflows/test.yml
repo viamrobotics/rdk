@@ -254,7 +254,7 @@ jobs:
           [ "${{ needs.test_go.result }}" == "success" ] && \
           [ "${{ needs.test32.result }}" == "success" ] && \
           [ "${{ needs.test_pi.result }}" == "success" ] && \
-          [ "${{ needs.test_web_e2e.result }}" == "success" ]
+          [ "${{ needs.test_web_e2e.result }}" == "success" ] && \
           [ "${{ needs.motion_tests.result }}" == "success" ]
 
       # Now that RDK is public, can't directly comment without token having full read/write access
