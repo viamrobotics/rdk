@@ -1312,7 +1312,7 @@ func (r *localRobot) CloudMetadata(ctx context.Context) (cloud.Metadata, error) 
 }
 
 // restartSingleModule constructs a single-module diff and calls updateResources with it.
-func (r *localRobot) restartSingleModule(ctx context.Context, mod *config.Module) error {
+func (r *localRobot) restartSingleModule(ctx context.Context, mod *config.Module, isRunning bool) error {
 	if mod.Type == config.ModuleTypeLocal {
 		// note: this version incrementing matters for local tarballs because we want the system to
 		// unpack into a new directory rather than reusing the old one. Local tarball path matters
@@ -1329,11 +1329,16 @@ func (r *localRobot) restartSingleModule(ctx context.Context, mod *config.Module
 		}
 	}
 	diff := config.Diff{
-		Left:     r.Config(),
-		Right:    r.Config(),
-		Added:    &config.Config{},
-		Modified: &config.ModifiedConfigDiff{Modules: []config.Module{*mod}},
-		Removed:  &config.Config{},
+		Left:    r.Config(),
+		Right:   r.Config(),
+		Removed: &config.Config{},
+	}
+	if isRunning {
+		diff.Added = &config.Config{}
+		diff.Modified = &config.ModifiedConfigDiff{Modules: []config.Module{*mod}}
+	} else {
+		diff.Added = &config.Config{Modules: []config.Module{*mod}}
+		diff.Modified = &config.ModifiedConfigDiff{}
 	}
 	return r.manager.updateResources(ctx, &diff)
 }
@@ -1349,7 +1354,9 @@ func (r *localRobot) RestartModule(ctx context.Context, req robot.RestartModuleR
 			"module not found with id=%s, name=%s. make sure it is configured and running on your machine",
 			req.ModuleID, req.ModuleName)
 	}
-	err := r.restartSingleModule(ctx, mod)
+	activeModules := r.manager.createConfig().Modules
+	isRunning := activeModules != nil && utils.FindInSlice(activeModules, req.MatchesModule) != nil
+	err := r.restartSingleModule(ctx, mod, isRunning)
 	if err != nil {
 		return errors.Wrapf(err, "while restarting module id=%s, name=%s", req.ModuleID, req.ModuleName)
 	}
