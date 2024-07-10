@@ -51,7 +51,7 @@ const (
 	maxTravelDistanceMM                = 5e6 // this is equivalent to 5km
 	lookAheadDistanceMM        float64 = 5e6
 	defaultSmoothIter                  = 30
-	defaultAngularDegsPerSec           = 20.
+	defaultAngularDegsPerSec           = 60.
 	defaultLinearMPerSec               = 0.3
 	defaultSlamPlanDeviationM          = 1.
 	defaultGlobePlanDeviationM         = 2.6
