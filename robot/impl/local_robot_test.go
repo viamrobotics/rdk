@@ -18,6 +18,7 @@ import (
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.uber.org/zap"
+
 	// registers all components.
 	commonpb "go.viam.com/api/common/v1"
 	armpb "go.viam.com/api/component/arm/v1"
@@ -3523,12 +3524,27 @@ func TestRestartModule(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 	simplePath := rtestutils.BuildTempModule(t, "examples/customresources/demos/simplemodule")
 	mod := &config.Module{Name: "restartSingleModule-test", ExePath: simplePath, Type: config.ModuleTypeLocal}
-	r := setupLocalRobot(t, ctx, &config.Config{Modules: []config.Module{*mod}}, logger)
-	test.That(t, mod.LocalVersion, test.ShouldBeEmpty)
 
-	// test restart. note: we're not testing that the PID rolls over because we don't have access to
-	// that state. 'no error' + 'version incremented' is a cheap proxy for that.
-	err := r.(*localRobot).restartSingleModule(ctx, mod)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, mod.LocalVersion, test.ShouldResemble, "0.0.1")
+	t.Run("isRunning=false", func(t *testing.T) {
+		// Config is missing the module to exercise the case where the module is not currently
+		// running and needs to be added instead of modified. Ideally we'd do an e2e test
+		// of the RestartModule call, but I think we don't have enough control of the process
+		// manager to do that simply.
+		r := setupLocalRobot(t, ctx, &config.Config{}, logger)
+		test.That(t, mod.LocalVersion, test.ShouldBeEmpty)
+
+		err := r.(*localRobot).restartSingleModule(ctx, mod, false)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, mod.LocalVersion, test.ShouldResemble, "0.0.1")
+	})
+
+	t.Run("isRunning=true", func(t *testing.T) {
+		r := setupLocalRobot(t, ctx, &config.Config{Modules: []config.Module{*mod}}, logger)
+
+		// test restart. note: we're not testing that the PID rolls over because we don't have access to
+		// that state. 'no error' + 'version incremented' is a cheap proxy for that.
+		err := r.(*localRobot).restartSingleModule(ctx, mod, true)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, mod.LocalVersion, test.ShouldResemble, "0.0.1")
+	})
 }
