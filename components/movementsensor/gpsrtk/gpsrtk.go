@@ -480,15 +480,16 @@ func (g *gpsrtk) getNtripFromVRS() error {
 		}
 	}
 
-	ggaMessage, err := gpsutils.GetGGAMessage(g.correctionWriter, g.logger)
+	// get the GGA message from cached data
+	ggaMessage, err := g.cachedData.GGA()
 	if err != nil {
 		g.logger.Error("Failed to get GGA message")
 		return err
 	}
 
-	g.logger.Debugf("Writing GGA message: %v\n", string(ggaMessage))
+	g.logger.Debugf("Writing GGA message: %v\n", (ggaMessage))
 
-	_, err = g.readerWriter.WriteString(string(ggaMessage))
+	_, err = g.readerWriter.WriteString((ggaMessage))
 	if err != nil {
 		g.logger.Error("Failed to send NMEA data:", err)
 		return err
