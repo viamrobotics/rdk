@@ -13,7 +13,7 @@ import (
 	"go.viam.com/rdk/web/server"
 )
 
-var logger = logging.NewDebugLogger("robot_server")
+var logger = logging.NewDebugLogger("rdk")
 
 func main() {
 	utils.ContextualMain(server.RunServer, logger)

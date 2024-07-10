@@ -149,9 +149,7 @@ func TestFileDeletion(t *testing.T) {
 			if tc.syncEnabled {
 				filesToSync := make(chan string)
 				defer close(filesToSync)
-				s, err := datasync.NewManager("rick astley", mockClient, logger, tempCaptureDir, datasync.MaxParallelSyncRoutines, filesToSync)
-				test.That(t, err, test.ShouldBeNil)
-				syncer = s
+				syncer = datasync.NewManager("rick astley", mockClient, logger, tempCaptureDir, datasync.MaxParallelSyncRoutines, filesToSync)
 				defer syncer.Close()
 			}
 
@@ -328,5 +326,7 @@ func newDMSvc(t *testing.T, tempDir string) (internal.DMService, mockDataSyncSer
 		AssociatedAttributes: associations,
 	})
 	test.That(t, err, test.ShouldBeNil)
+	b := dmsvc.(*builtIn)
+	test.That(t, b.propagateDataSyncConfig(), test.ShouldBeNil)
 	return dmsvc, mockClient
 }

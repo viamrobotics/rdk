@@ -1,4 +1,4 @@
-package gpsrtkserial
+package gpsrtk
 
 import (
 	"context"
@@ -25,10 +25,10 @@ func (d *mockDataReader) Close() error {
 	return nil
 }
 
-func TestValidateRTK(t *testing.T) {
+func TestValidateSerialRTK(t *testing.T) {
 	path := "path"
 	t.Run("valid config", func(t *testing.T) {
-		cfg := Config{
+		cfg := SerialConfig{
 			NtripURL:             "http//fakeurl",
 			NtripConnectAttempts: 10,
 			NtripPass:            "somepass",
@@ -41,8 +41,8 @@ func TestValidateRTK(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 	})
 
-	t.Run("invalid config", func(t *testing.T) {
-		cfg := Config{
+	t.Run("invalid url config", func(t *testing.T) {
+		cfg := SerialConfig{
 			NtripURL:             "",
 			NtripConnectAttempts: 10,
 			NtripPass:            "somepass",
@@ -57,8 +57,8 @@ func TestValidateRTK(t *testing.T) {
 			resource.NewConfigValidationFieldRequiredError(path, "ntrip_url"))
 	})
 
-	t.Run("invalid config", func(t *testing.T) {
-		cfg := Config{
+	t.Run("invalid path config", func(t *testing.T) {
+		cfg := SerialConfig{
 			NtripURL:             "http//fakeurl",
 			NtripConnectAttempts: 10,
 			NtripPass:            "somepass",
@@ -72,33 +72,6 @@ func TestValidateRTK(t *testing.T) {
 		test.That(t, err, test.ShouldBeError,
 			resource.NewConfigValidationFieldRequiredError(path, "serial_path"))
 	})
-}
-
-func TestReconfigure(t *testing.T) {
-	g := &rtkSerial{
-		writePath: "/dev/ttyUSB0",
-		wbaud:     9600,
-		logger:    logging.NewTestLogger(t),
-	}
-
-	conf := resource.Config{
-		Name: "reconfig1",
-		ConvertedAttributes: &Config{
-			SerialPath:           "/dev/ttyUSB1",
-			SerialBaudRate:       115200,
-			NtripURL:             "http//fakeurl",
-			NtripConnectAttempts: 10,
-			NtripPass:            "somepass",
-			NtripUser:            "someuser",
-			NtripMountpoint:      "NYC",
-		},
-	}
-
-	err := g.Reconfigure(context.Background(), nil, conf)
-
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, g.writePath, test.ShouldResemble, "/dev/ttyUSB1")
-	test.That(t, g.wbaud, test.ShouldEqual, 115200)
 }
 
 // This sets the position to 12°34.5678' N, 123°45.6789' W, at time 12:34:56.78 UTC.
@@ -115,7 +88,7 @@ func TestPosition(t *testing.T) {
 
 	// If there is last error and no last position, return NaN
 	t.Run("position with last error and no last position", func(t *testing.T) {
-		g := &rtkSerial{
+		g := &gpsrtk{
 			err: movementsensor.NewLastError(1, 1),
 		}
 		g.err.Set(errors.New("last error test"))
@@ -128,7 +101,7 @@ func TestPosition(t *testing.T) {
 
 	// If there is last error and last position, return last position
 	t.Run("position with last error and last position", func(t *testing.T) {
-		g := &rtkSerial{
+		g := &gpsrtk{
 			err:        movementsensor.NewLastError(1, 1),
 			cachedData: gpsutils.NewCachedData(&mockDataReader{}, logging.NewTestLogger(t)),
 		}
@@ -146,7 +119,7 @@ func TestPosition(t *testing.T) {
 
 	// If there is no last error, invalid current position and no last position, return NaN
 	t.Run("invalid position with invalid last position, with position error", func(t *testing.T) {
-		g := &rtkSerial{
+		g := &gpsrtk{
 			err:        movementsensor.NewLastError(1, 1),
 			cachedData: gpsutils.NewCachedData(&mockDataReader{}, logging.NewTestLogger(t)),
 		}
@@ -159,7 +132,7 @@ func TestPosition(t *testing.T) {
 
 	// If there is no last error, invalid current position and valid last position, return last position
 	t.Run("invalid position with valid last position, with position error", func(t *testing.T) {
-		g := &rtkSerial{
+		g := &gpsrtk{
 			err:        movementsensor.NewLastError(1, 1),
 			cachedData: gpsutils.NewCachedData(&mockDataReader{}, logging.NewTestLogger(t)),
 		}
@@ -178,7 +151,7 @@ func TestPosition(t *testing.T) {
 
 	// Invalid current position from NMEA message, return last known position
 	t.Run("invalid position with valid last position, no error", func(t *testing.T) {
-		g := &rtkSerial{
+		g := &gpsrtk{
 			err:        movementsensor.NewLastError(1, 1),
 			cachedData: gpsutils.NewCachedData(&mockDataReader{}, logging.NewTestLogger(t)),
 		}
@@ -195,7 +168,7 @@ func TestPosition(t *testing.T) {
 
 	// Valid current position, should return current position
 	t.Run("valid position, no error", func(t *testing.T) {
-		g := &rtkSerial{
+		g := &gpsrtk{
 			err:        movementsensor.NewLastError(1, 1),
 			cachedData: gpsutils.NewCachedData(&mockDataReader{}, logging.NewTestLogger(t)),
 		}

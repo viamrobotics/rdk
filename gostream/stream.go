@@ -13,7 +13,7 @@ import (
 	"github.com/pion/mediadevices/pkg/prop"
 	"github.com/pion/mediadevices/pkg/wave"
 	"github.com/pion/rtp"
-	"github.com/pion/webrtc/v3"
+	"github.com/viamrobotics/webrtc/v3"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/gostream/codec"
