@@ -230,7 +230,7 @@ func (g *NmeaParser) updateGNS(gns nmea.GNS) error {
 	}
 
 	g.Location = geo.NewPoint(gns.Latitude, gns.Longitude)
-
+	g.SatsInUse = int(gns.SVs)
 	g.HDOP = gns.HDOP
 	g.Alt = gns.Altitude
 	return nil
