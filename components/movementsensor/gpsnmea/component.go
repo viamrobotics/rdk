@@ -96,6 +96,11 @@ func (g *NMEAMovementSensor) ReadSatsInView(ctx context.Context) (int, error) {
 	return g.cachedData.ReadSatsInView(ctx)
 }
 
+// ReadSatsInUse returns the number of satellites in use.
+func (g *NMEAMovementSensor) ReadSatsInUse(ctx context.Context) (int, error) {
+	return g.cachedData.ReadSatsInUse(ctx)
+}
+
 // Readings will use return all of the MovementSensor Readings.
 func (g *NMEAMovementSensor) Readings(
 	ctx context.Context, extra map[string]interface{},
@@ -113,8 +118,13 @@ func (g *NMEAMovementSensor) Readings(
 	if err != nil {
 		return nil, err
 	}
+	satsInUse, err := g.ReadSatsInUse(ctx)
+	if err != nil {
+		return nil, err
+	}
 	readings["fix"] = fix
 	readings["satellites_in_view"] = satsInView
+	readings["satellites_in_use"] = satsInUse
 
 	return readings, nil
 }

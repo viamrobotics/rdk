@@ -355,6 +355,16 @@ func (g *gpsrtk) readSatsInView(ctx context.Context) (int, error) {
 	return g.cachedData.ReadSatsInView(ctx)
 }
 
+// readSatsInUse returns the number of satellites in use.
+func (g *gpsrtk) readSatsInUse(ctx context.Context) (int, error) {
+	lastError := g.err.Get()
+	if lastError != nil {
+		return 0, lastError
+	}
+
+	return g.cachedData.ReadSatsInUse(ctx)
+}
+
 // Properties passthrough.
 func (g *gpsrtk) Properties(ctx context.Context, extra map[string]interface{}) (*movementsensor.Properties, error) {
 	lastError := g.err.Get()
@@ -393,8 +403,14 @@ func (g *gpsrtk) Readings(ctx context.Context, extra map[string]interface{}) (ma
 		return nil, err
 	}
 
+	satsInUse, err := g.readSatsInUse(ctx)
+	if err != nil {
+		return nil, err
+	}
+
 	readings["fix"] = fix
 	readings["satellites_in_view"] = satsInView
+	readings["satellites_in_use"] = satsInUse
 
 	return readings, nil
 }
