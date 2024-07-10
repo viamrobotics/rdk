@@ -23,7 +23,6 @@ func createTestRegistry(loggerNames ...string) map[string]logging.Logger {
 	registry := make(map[string]logging.Logger)
 	for _, name := range loggerNames {
 		registry[name] = logging.NewLogger(name)
-
 	}
 	return registry
 }
@@ -69,7 +68,7 @@ func TestUpdateLoggerRegistry(t *testing.T) {
 	})
 
 	t.Run("ending wildcard case", func(t *testing.T) {
-		testRegistry := createTestRegistry("rdk.resource_manager", "rdk.test_manager.modmanager", "rdk.resource_manager.package_manager.modmanager")
+		testRegistry := createTestRegistry("rdk.resource_manager", "rdk.test_manager.modmanager", "rdk.resource_manager.package.modmanager")
 		logCfg := []LoggerPatternConfig{
 			{
 				Pattern: "rdk.*",
@@ -77,9 +76,9 @@ func TestUpdateLoggerRegistry(t *testing.T) {
 			},
 		}
 		expectedMatches := map[string]string{
-			"rdk.resource_manager":                            "DEBUG",
-			"rdk.test_manager.modmanager":                     "DEBUG",
-			"rdk.resource_manager.package_manager.modmanager": "DEBUG",
+			"rdk.resource_manager":                    "DEBUG",
+			"rdk.test_manager.modmanager":             "DEBUG",
+			"rdk.resource_manager.package.modmanager": "DEBUG",
 		}
 		newRegistry, err := UpdateLoggerRegistry(logCfg, testRegistry)
 		test.That(t, err, test.ShouldBeNil)
