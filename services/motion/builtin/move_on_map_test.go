@@ -308,14 +308,14 @@ func TestMoveOnMapStaticObs(t *testing.T) {
 		augmentedBaseExecutionState, err := mr.augmentBaseExecutionState(baseExecutionState)
 		test.That(t, err, test.ShouldBeNil)
 
-		wrapperFrame := mr.localizaingFS.Frame(mr.kinematicBase.Name().Name)
+		wrapperFrame := mr.localizingFS.Frame(mr.kinematicBase.Name().Name)
 
 		test.That(t, err, test.ShouldBeNil)
 		err = motionplan.CheckPlan(
 			wrapperFrame,
 			augmentedBaseExecutionState,
 			wrldSt,
-			mr.localizaingFS,
+			mr.localizingFS,
 			lookAheadDistanceMM,
 			logger,
 		)

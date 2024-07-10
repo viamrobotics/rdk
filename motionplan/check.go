@@ -104,11 +104,6 @@ func checkPlanRelative(
 	}
 
 	toWorld := func(pif *referenceframe.PoseInFrame, inputs map[string][]referenceframe.Input) (*referenceframe.PoseInFrame, error) {
-		// Check our current position is valid
-		err := validateRelPiF(pif)
-		if err != nil {
-			return nil, err
-		}
 		transformable, err := fs.Transform(inputs, pif, referenceframe.World)
 		if err != nil {
 			return nil, err
@@ -122,23 +117,16 @@ func checkPlanRelative(
 	}
 
 	plan := executionState.Plan()
+	zeroPosePIF := referenceframe.NewPoseInFrame(checkFrame.Name(), spatialmath.NewZeroPose())
 
 	// determine plan's starting pose
-	planStartPiF, ok := plan.Path()[0][checkFrame.Name()]
-	if !ok {
-		return errCheckFrameNotInPath
-	}
-	planStartPoseWorld, err := toWorld(planStartPiF, plan.Trajectory()[0])
+	planStartPoseWorld, err := toWorld(zeroPosePIF, plan.Trajectory()[0])
 	if err != nil {
 		return err
 	}
 
 	// determine plan's ending pose
-	planEndPiF, ok := plan.Path()[len(plan.Path())-1][checkFrame.Name()]
-	if !ok {
-		return errCheckFrameNotInPath
-	}
-	planEndPoseWorld, err := toWorld(planEndPiF, plan.Trajectory()[len(plan.Path())-1])
+	planEndPoseWorld, err := toWorld(zeroPosePIF, plan.Trajectory()[len(plan.Path())-1])
 	if err != nil {
 		return err
 	}
@@ -171,8 +159,7 @@ func checkPlanRelative(
 	}
 
 	// construct first segment's end configuration
-	currentWayPointTraj := plan.Trajectory()[wayPointIdx]
-	arcEndInputs, err := sf.mapToSlice(currentWayPointTraj)
+	arcEndInputs, err := sf.mapToSlice(plan.Trajectory()[wayPointIdx])
 	if err != nil {
 		return err
 	}
@@ -187,19 +174,17 @@ func checkPlanRelative(
 	if !ok {
 		return errors.New("checkFrame not found in current pose map")
 	}
+	err = validateRelPiF(currentPoseIF)
+	if err != nil {
+		return err
+	}
 	currentPoseInWorld, err := toWorld(currentPoseIF, currentInputs)
 	if err != nil {
 		return err
 	}
 
 	// construct first segment's endPosition
-	// Check that path pose is valid
-	stepEndPiF, ok := plan.Path()[wayPointIdx][checkFrame.Name()]
-	if !ok {
-		return errCheckFrameNotInPath
-	}
-
-	expectedArcEndInWorld, err := toWorld(stepEndPiF, plan.Trajectory()[wayPointIdx])
+	expectedArcEndInWorld, err := toWorld(zeroPosePIF, plan.Trajectory()[wayPointIdx])
 	if err != nil {
 		return err
 	}
@@ -243,11 +228,7 @@ func checkPlanRelative(
 
 	// iterate through remaining plan and append remaining segments to check
 	for i := wayPointIdx + 1; i <= len(plan.Path())-1; i++ {
-		thisArcEndPoseTf, ok := plan.Path()[i][checkFrame.Name()]
-		if !ok {
-			return errCheckFrameNotInPath
-		}
-		thisArcEndPoseInWorld, err := toWorld(thisArcEndPoseTf, plan.Trajectory()[i])
+		thisArcEndPoseInWorld, err := toWorld(zeroPosePIF, plan.Trajectory()[i])
 		if err != nil {
 			return err
 		}

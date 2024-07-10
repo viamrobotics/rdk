@@ -16,6 +16,7 @@ import (
 	"go.viam.com/rdk/components/base/kinematicbase"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan"
+	"go.viam.com/rdk/motionplan/tpspace"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
@@ -66,7 +67,13 @@ type moveRequest struct {
 	obstacleDetectors map[vision.Service][]resource.Name
 	replanCostFactor  float64
 	fsService         framesystem.Service
-	localizaingFS     referenceframe.FrameSystem
+	// localizingFS is used for placing observed transient obstacles into their absolute world position when
+	// they are observed. It is also used by CheckPlan to perform collision checking.
+	// The localizingFS combines a kinematic bases localization and kinematics(aka execution) frames into a
+	// singulare frame moniker wrapperFrame. The wrapperFrame allows us to position the geometries of the base
+	// using only provided referenceframe.Input values and we do not have to compose with a separate pose
+	/// to absolutely position ourselves in the world frame.
+	localizingFS referenceframe.FrameSystem
 
 	executeBackgroundWorkers *sync.WaitGroup
 	responseChan             chan moveResponse
@@ -209,7 +216,7 @@ func (mr *moveRequest) getTransientDetections(
 			label += "_" + geometry.Label()
 		}
 		geometry.SetLabel(label)
-		tf, err := mr.localizaingFS.Transform(
+		tf, err := mr.localizingFS.Transform(
 			inputMap,
 			referenceframe.NewGeometriesInFrame(camName.ShortName(), []spatialmath.Geometry{geometry}),
 			referenceframe.World,
@@ -274,9 +281,13 @@ func (mr *moveRequest) obstaclesIntersectPlan(
 			// build representation of frame system's inputs
 			// TODO(pl): in the case where we have e.g. an arm (not moving) mounted on a base, we should be passing its current
 			// configuration rather than the zero inputs
-			updatedBaseExecutionState, err := mr.augmentBaseExecutionState(baseExecutionState)
-			if err != nil {
-				return state.ExecuteResponse{}, err
+			updatedBaseExecutionState := baseExecutionState
+			_, ok := mr.kinematicBase.Kinematics().(tpspace.PTGProvider)
+			if ok {
+				updatedBaseExecutionState, err = mr.augmentBaseExecutionState(baseExecutionState)
+				if err != nil {
+					return state.ExecuteResponse{}, err
+				}
 			}
 
 			mr.logger.CDebugf(ctx, "CheckPlan inputs: \n currentPosition: %v\n currentInputs: %v\n worldstate: %s",
@@ -284,12 +295,11 @@ func (mr *moveRequest) obstaclesIntersectPlan(
 				updatedBaseExecutionState.CurrentInputs(),
 				worldState.String(),
 			)
-
 			if err := motionplan.CheckPlan(
-				mr.localizaingFS.Frame(mr.kinematicBase.Kinematics().Name()), // frame we wish to check for collisions
+				mr.localizingFS.Frame(mr.kinematicBase.Kinematics().Name()), // frame we wish to check for collisions
 				updatedBaseExecutionState,
 				worldState, // detected obstacles by this instance of camera + service
-				mr.localizaingFS,
+				mr.localizingFS,
 				lookAheadDistanceMM,
 				mr.planRequest.Logger,
 			); err != nil {
@@ -301,6 +311,15 @@ func (mr *moveRequest) obstaclesIntersectPlan(
 	return state.ExecuteResponse{}, nil
 }
 
+// In order for the localizingFS to work as intended when working with PTGs we must update the baseExectionState.
+// The original baseExecutionState passed into this method contains a plan, currentPoses, and currentInputs.
+// We update the plan object such that the trajectory which is of form referenceframe.Input also houses information
+// about where we are in the world. This changes the plans trajectory from being of length 4 into being of length
+// 11. This is because we add 7 values corresponding the X, Y, Z, OX, OY, OZ, Theta(radians).
+// We update the currentInputs information so that when the wrapperFrame transforms off its inputs, the resulting
+// pose is its position in world and we do not need to compose the resultant value with another pose.
+// We update the currentPoses so that it is now in the name of the wrapperFrame which shares its name with
+// kinematicBase.Kinematics.
 func (mr *moveRequest) augmentBaseExecutionState(
 	baseExecutionState motionplan.ExecutionState,
 ) (motionplan.ExecutionState, error) {
@@ -547,13 +566,9 @@ func (ms *builtIn) newMoveOnGlobeRequest(
 	// these limits need to be updated so that they are in 7DOF
 	// what is a good limit for what OX, OY, OZ should be?
 	limits := []referenceframe.Limit{
-		{Min: -straightlineDistance * 3, Max: straightlineDistance * 3}, // X
-		{Min: -straightlineDistance * 3, Max: straightlineDistance * 3}, // Y
-		{Min: -straightlineDistance * 3, Max: straightlineDistance * 3}, // Z
-		{Min: -1, Max: 1},                     // OX
-		{Min: -1, Max: 1},                     // OY
-		{Min: -1, Max: 1},                     // OZ
-		{Min: -2 * math.Pi, Max: 2 * math.Pi}, // Theta
+		{Min: -straightlineDistance * 3, Max: straightlineDistance * 3},
+		{Min: -straightlineDistance * 3, Max: straightlineDistance * 3},
+		{Min: -2 * math.Pi, Max: 2 * math.Pi},
 	} // Note: this is only for diff drive, not used for PTGs
 	kb, err := kinematicbase.WrapWithKinematics(ctx, b, ms.logger, localizer, limits, kinematicsOptions)
 	if err != nil {
@@ -634,6 +649,7 @@ func (ms *builtIn) newMoveOnMapRequest(
 	if err != nil {
 		return nil, err
 	}
+	limits = append(limits, referenceframe.Limit{Min: -2 * math.Pi, Max: 2 * math.Pi})
 
 	// create a KinematicBase from the componentName
 	component, ok := ms.components[req.ComponentName]
@@ -724,22 +740,56 @@ func (ms *builtIn) createBaseMoveRequest(
 		return nil, err
 	}
 
-	// create fs used for planning
-	planningFS := referenceframe.NewEmptyFrameSystem("store-starting point")
-	transformFrame, err := referenceframe.NewStaticFrame(kb.LocalizationFrame().Name(), startPose)
-	if err != nil {
-		return nil, err
-	}
-	err = planningFS.AddFrame(transformFrame, planningFS.World())
-	if err != nil {
-		return nil, err
-	}
-	err = planningFS.MergeFrameSystem(baseOnlyFS, transformFrame)
-	if err != nil {
-		return nil, err
+	planningFS := baseOnlyFS
+	_, ok := kinematicFrame.(tpspace.PTGProvider)
+	if ok {
+		// If we are not working with a differential drive base then we need to create a separate framesystem
+		// used for planning.
+		// This is because we rely on our starting configuration to place ourselves in our absolute position in the world.
+		// If we are not working with a differential drive base then our base frame
+		// is relative aka a PTG frame and therefore is not able to accurately place itself in its absolute position.
+		// For this reason, we add a static transform which allows us to place the base in its absolute position in the
+		// world frame.
+		planningFS = referenceframe.NewEmptyFrameSystem("store-starting point")
+		transformFrame, err := referenceframe.NewStaticFrame(kb.LocalizationFrame().Name(), startPose)
+		if err != nil {
+			return nil, err
+		}
+		err = planningFS.AddFrame(transformFrame, planningFS.World())
+		if err != nil {
+			return nil, err
+		}
+		err = planningFS.MergeFrameSystem(baseOnlyFS, transformFrame)
+		if err != nil {
+			return nil, err
+		}
 	}
 
-	// create wrapperFrame and fs used for collision checks
+	// // If we are not working with a differential drive base then we need to create a separate framesystem
+	// // used for planning.
+	// // This is because we rely on our starting configuration to place ourselves in our absolute position in the world.
+	// // If we are not working with a differential drive base then our base frame
+	// // is relative aka a PTG frame and therefore is not able to accurately place itself in its absolute position.
+	// // For this reason, we add a static transform which allows us to place the base in its absolute position in the
+	// // world frame.
+	// planningFS := referenceframe.NewEmptyFrameSystem("store-starting point")
+	// transformFrame, err := referenceframe.NewStaticFrame(kb.LocalizationFrame().Name(), startPose)
+	// if err != nil {
+	// 	return nil, err
+	// }
+	// err = planningFS.AddFrame(transformFrame, planningFS.World())
+	// if err != nil {
+	// 	return nil, err
+	// }
+	// err = planningFS.MergeFrameSystem(baseOnlyFS, transformFrame)
+	// if err != nil {
+	// 	return nil, err
+	// }
+
+	// We create a wrapperFrame and a collision framesystem so that we may place
+	// observed transient obstacles in their absolute position in the world frame.
+	// The collision framesystem is used by CheckPlan so that we may solely rely on
+	// referenceframe.Input information to position ourselves correctly in the world.
 	executionFrame := kb.Kinematics()
 	localizationFrame := kb.LocalizationFrame()
 	wrapperFS := referenceframe.NewEmptyFrameSystem("wrapperFS")
@@ -840,7 +890,7 @@ func (ms *builtIn) createBaseMoveRequest(
 		replanCostFactor:  valExtra.replanCostFactor,
 		obstacleDetectors: obstacleDetectors,
 		fsService:         ms.fsService,
-		localizaingFS:     collisionFS,
+		localizingFS:      collisionFS,
 
 		executeBackgroundWorkers: &backgroundWorkers,
 

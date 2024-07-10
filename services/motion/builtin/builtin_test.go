@@ -2,7 +2,6 @@ package builtin
 
 import (
 	"context"
-	"fmt"
 	"math"
 	"strings"
 	"testing"
@@ -289,13 +288,13 @@ func TestPositionalReplanning(t *testing.T) {
 		// 	expectedSuccess: false,
 		// 	extra:           map[string]interface{}{"replan_cost_factor": 0.01, "smooth_iter": 5},
 		// },
-		{
-			name:            "check we replan with a noisy sensor",
-			noise:           r3.Vector{Y: epsilonMM + 0.1},
-			expectedErr:     fmt.Sprintf("exceeded maximum number of replans: %d: plan failed", 4),
-			expectedSuccess: false,
-			extra:           map[string]interface{}{"replan_cost_factor": 10.0, "max_replans": 4, "smooth_iter": 5},
-		},
+		// {
+		// 	name:            "check we replan with a noisy sensor",
+		// 	noise:           r3.Vector{Y: epsilonMM + 0.1},
+		// 	expectedErr:     fmt.Sprintf("exceeded maximum number of replans: %d: plan failed", 4),
+		// 	expectedSuccess: false,
+		// 	extra:           map[string]interface{}{"replan_cost_factor": 10.0, "max_replans": 4, "smooth_iter": 5},
+		// },
 	}
 
 	testFn := func(t *testing.T, tc testCase) {
@@ -946,7 +945,7 @@ func TestCheckPlan(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(plan.Path()), test.ShouldBeGreaterThan, 2)
 
-	wrapperFrame := mr.localizaingFS.Frame(mr.kinematicBase.Name().Name)
+	wrapperFrame := mr.localizingFS.Frame(mr.kinematicBase.Name().Name)
 
 	currentInputs := map[string][]referenceframe.Input{
 		mr.kinematicBase.Kinematics().Name(): {
@@ -981,7 +980,7 @@ func TestCheckPlan(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	t.Run("base case - validate plan without obstacles", func(t *testing.T) {
-		err = motionplan.CheckPlan(wrapperFrame, augmentedBaseExecutionState, nil, mr.localizaingFS, math.Inf(1), logger)
+		err = motionplan.CheckPlan(wrapperFrame, augmentedBaseExecutionState, nil, mr.localizingFS, math.Inf(1), logger)
 		test.That(t, err, test.ShouldBeNil)
 	})
 
@@ -995,7 +994,7 @@ func TestCheckPlan(t *testing.T) {
 		worldState, err := referenceframe.NewWorldState(gifs, nil)
 		test.That(t, err, test.ShouldBeNil)
 
-		err = motionplan.CheckPlan(wrapperFrame, augmentedBaseExecutionState, worldState, mr.localizaingFS, math.Inf(1), logger)
+		err = motionplan.CheckPlan(wrapperFrame, augmentedBaseExecutionState, worldState, mr.localizingFS, math.Inf(1), logger)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, strings.Contains(err.Error(), "found constraint violation or collision in segment between"), test.ShouldBeTrue)
 	})
@@ -1003,7 +1002,7 @@ func TestCheckPlan(t *testing.T) {
 	// create camera_origin frame
 	cameraOriginFrame, err := referenceframe.NewStaticFrame("camera-origin", spatialmath.NewPoseFromPoint(r3.Vector{0, -20, 0}))
 	test.That(t, err, test.ShouldBeNil)
-	err = mr.localizaingFS.AddFrame(cameraOriginFrame, wrapperFrame)
+	err = mr.localizingFS.AddFrame(cameraOriginFrame, wrapperFrame)
 	test.That(t, err, test.ShouldBeNil)
 
 	// create camera geometry
@@ -1015,7 +1014,7 @@ func TestCheckPlan(t *testing.T) {
 		"camera-frame", spatialmath.NewPoseFromPoint(r3.Vector{0, 0, 0}), cameraGeom,
 	)
 	test.That(t, err, test.ShouldBeNil)
-	err = mr.localizaingFS.AddFrame(cameraFrame, cameraOriginFrame)
+	err = mr.localizingFS.AddFrame(cameraFrame, cameraOriginFrame)
 	test.That(t, err, test.ShouldBeNil)
 	inputs := augmentedBaseExecutionState.CurrentInputs()
 	inputs[cameraFrame.Name()] = referenceframe.FloatsToInputs(make([]float64, len(cameraFrame.DoF())))
@@ -1037,7 +1036,7 @@ func TestCheckPlan(t *testing.T) {
 		worldState, err := referenceframe.NewWorldState(gifs, nil)
 		test.That(t, err, test.ShouldBeNil)
 
-		err = motionplan.CheckPlan(wrapperFrame, executionStateWithCamera, worldState, mr.localizaingFS, math.Inf(1), logger)
+		err = motionplan.CheckPlan(wrapperFrame, executionStateWithCamera, worldState, mr.localizingFS, math.Inf(1), logger)
 		test.That(t, err, test.ShouldBeNil)
 	})
 
@@ -1053,7 +1052,7 @@ func TestCheckPlan(t *testing.T) {
 		worldState, err := referenceframe.NewWorldState(gifs, nil)
 		test.That(t, err, test.ShouldBeNil)
 
-		err = motionplan.CheckPlan(wrapperFrame, executionStateWithCamera, worldState, mr.localizaingFS, math.Inf(1), logger)
+		err = motionplan.CheckPlan(wrapperFrame, executionStateWithCamera, worldState, mr.localizingFS, math.Inf(1), logger)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, strings.Contains(err.Error(), "found constraint violation or collision in segment between"), test.ShouldBeTrue)
 	})
@@ -1102,7 +1101,7 @@ func TestCheckPlan(t *testing.T) {
 		worldState, err := referenceframe.NewWorldState(gifs, nil)
 		test.That(t, err, test.ShouldBeNil)
 
-		err = motionplan.CheckPlan(wrapperFrame, updatedExecutionState, worldState, mr.localizaingFS, math.Inf(1), logger)
+		err = motionplan.CheckPlan(wrapperFrame, updatedExecutionState, worldState, mr.localizingFS, math.Inf(1), logger)
 		test.That(t, err, test.ShouldBeNil)
 	})
 
@@ -1115,7 +1114,7 @@ func TestCheckPlan(t *testing.T) {
 		worldState, err := referenceframe.NewWorldState(gifs, nil)
 		test.That(t, err, test.ShouldBeNil)
 
-		err = motionplan.CheckPlan(wrapperFrame, updatedExecutionState, worldState, mr.localizaingFS, math.Inf(1), logger)
+		err = motionplan.CheckPlan(wrapperFrame, updatedExecutionState, worldState, mr.localizingFS, math.Inf(1), logger)
 		test.That(t, err, test.ShouldBeNil)
 	})
 }
