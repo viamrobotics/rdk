@@ -38,6 +38,7 @@ type Config struct {
 	Auth            AuthConfig
 	Debug           bool
 	GlobalLogConfig []GlobalLogConfig
+	LogConfig       []LoggerPatternConfig
 
 	ConfigFilePath string
 
@@ -82,6 +83,7 @@ type configData struct {
 	DisablePartialStart bool                  `json:"disable_partial_start"`
 	EnableWebProfile    bool                  `json:"enable_web_profile"`
 	GlobalLogConfig     []GlobalLogConfig     `json:"global_log_configuration"`
+	LogConfig           []LoggerPatternConfig `json:"log"`
 }
 
 // AppValidationStatus refers to the.
@@ -270,6 +272,7 @@ func (c *Config) UnmarshalJSON(data []byte) error {
 	c.DisablePartialStart = conf.DisablePartialStart
 	c.EnableWebProfile = conf.EnableWebProfile
 	c.GlobalLogConfig = conf.GlobalLogConfig
+	c.LogConfig = conf.LogConfig
 
 	return nil
 }
@@ -300,6 +303,7 @@ func (c Config) MarshalJSON() ([]byte, error) {
 		DisablePartialStart: c.DisablePartialStart,
 		EnableWebProfile:    c.EnableWebProfile,
 		GlobalLogConfig:     c.GlobalLogConfig,
+		LogConfig:           c.LogConfig,
 	})
 }
 
