@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan"
@@ -14,11 +15,9 @@ import (
 	"go.viam.com/rdk/spatialmath"
 )
 
-var (
-	defaultArmPlannerOptions = &motionplan.Constraints{
-		LinearConstraint: []motionplan.LinearConstraint{},
-	}
-)
+var defaultArmPlannerOptions = &motionplan.Constraints{
+	LinearConstraint: []motionplan.LinearConstraint{},
+}
 
 // PollHistoryUntilSuccessOrError polls `PlanHistory()` with `req` every `interval`
 // until a terminal state is reached.

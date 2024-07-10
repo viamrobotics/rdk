@@ -11,7 +11,6 @@ import (
 	pb "go.viam.com/api/component/arm/v1"
 
 	"go.viam.com/rdk/data"
-	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
@@ -136,7 +135,7 @@ func CreateStatus(ctx context.Context, a Arm) (*pb.Status, error) {
 	model := a.ModelFrame()
 
 	var endPosition *v1.Pose
-	if endPose, err := motionplan.ComputeOOBPosition(model, jointPositions); err == nil {
+	if endPose, err := referenceframe.ComputeOOBPosition(model, jointPositions); err == nil {
 		endPosition = spatialmath.PoseToProtobuf(endPose)
 	}
 

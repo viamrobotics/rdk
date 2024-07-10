@@ -11,7 +11,6 @@ import (
 
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/logging"
-	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/referenceframe/urdf"
@@ -114,7 +113,7 @@ func (wrapper *Arm) EndPosition(ctx context.Context, extra map[string]interface{
 	if err != nil {
 		return nil, err
 	}
-	return motionplan.ComputeOOBPosition(wrapper.model, joints)
+	return referenceframe.ComputeOOBPosition(wrapper.model, joints)
 }
 
 // MoveToPosition sets the position.

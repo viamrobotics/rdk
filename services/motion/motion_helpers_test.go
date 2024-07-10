@@ -7,14 +7,13 @@ import (
 
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
+	pb "go.viam.com/api/component/arm/v1"
 	"go.viam.com/test"
 
-	pb "go.viam.com/api/component/arm/v1"
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/components/arm/fake"
 	_ "go.viam.com/rdk/components/register"
 	"go.viam.com/rdk/logging"
-	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/motion"
@@ -124,7 +123,7 @@ func TestOOBArmMotion(t *testing.T) {
 
 	t.Run("EndPosition works when OOB", func(t *testing.T) {
 		jPositions := pb.JointPositions{Values: []float64{0, 0, 0, 0, 0, 720}}
-		pose, err := motionplan.ComputeOOBPosition(injectedArm.ModelFrame(), &jPositions)
+		pose, err := referenceframe.ComputeOOBPosition(injectedArm.ModelFrame(), &jPositions)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, pose, test.ShouldNotBeNil)
 	})

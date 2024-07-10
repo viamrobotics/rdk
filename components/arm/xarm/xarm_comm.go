@@ -11,7 +11,6 @@ import (
 	pb "go.viam.com/api/component/arm/v1"
 	"go.viam.com/utils"
 
-	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/services/motion"
 	"go.viam.com/rdk/spatialmath"
@@ -428,7 +427,7 @@ func (x *xArm) EndPosition(ctx context.Context, extra map[string]interface{}) (s
 	if err != nil {
 		return nil, err
 	}
-	return motionplan.ComputePosition(x.model, joints)
+	return referenceframe.ComputeOOBPosition(x.model, joints)
 }
 
 // MoveToPosition moves the arm to the specified cartesian position.

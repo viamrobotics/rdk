@@ -33,7 +33,7 @@ func testUR5eForwardKinematics(t *testing.T, jointRadians []float64, correct r3.
 	m, err := referenceframe.UnmarshalModelJSON(ur5modeljson, "")
 	test.That(t, err, test.ShouldBeNil)
 
-	pos, err := motionplan.ComputePosition(m, referenceframe.JointPositionsFromRadians(jointRadians))
+	pos, err := referenceframe.ComputePosition(m, referenceframe.JointPositionsFromRadians(jointRadians))
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, spatialmath.PoseAlmostCoincidentEps(pos, spatialmath.NewPoseFromPoint(correct), 0.01), test.ShouldBeTrue)
 
