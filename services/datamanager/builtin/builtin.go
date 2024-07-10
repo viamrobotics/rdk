@@ -112,27 +112,27 @@ type builtIn struct {
 	closedCtx      context.Context
 
 	// Capture
-	fileLastModifiedMillis int
-	tags                   []string
+	tags []string
 
 	// Sync
-	syncPaths                    []string
 	cloudConn                    rpc.ClientConn
 	cloudConnSvc                 cloud.ConnectionService
 	datasyncBackgroundWorkers    sync.WaitGroup
+	fileLastModifiedMillis       int
 	filesToSync                  chan string
 	maxSyncThreads               int
 	propagateDataSyncConfigWG    sync.WaitGroup
+	selectiveSyncEnabled         bool
 	syncConfigUpdated            bool
 	syncDisabled                 bool
 	syncIntervalMins             float64
+	syncPaths                    []string
 	syncRoutineCancelFn          context.CancelFunc
+	syncSensor                   selectiveSyncer
 	syncTicker                   *clk.Ticker
 	syncer                       datasync.Manager
 	syncerConstructor            datasync.ManagerConstructor
 	syncerNeedsToBeReInitialized bool
-	syncSensor                   selectiveSyncer
-	selectiveSyncEnabled         bool
 
 	fileDeletionRoutineCancelFn   context.CancelFunc
 	fileDeletionBackgroundWorkers *sync.WaitGroup
