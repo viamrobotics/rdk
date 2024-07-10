@@ -27,18 +27,17 @@ import (
 
 // A Config describes the configuration of a robot.
 type Config struct {
-	Cloud           *Cloud
-	Modules         []Module
-	Remotes         []Remote
-	Components      []resource.Config
-	Processes       []pexec.ProcessConfig
-	Services        []resource.Config
-	Packages        []PackageConfig
-	Network         NetworkConfig
-	Auth            AuthConfig
-	Debug           bool
-	GlobalLogConfig []GlobalLogConfig
-	LogConfig       []LoggerPatternConfig
+	Cloud      *Cloud
+	Modules    []Module
+	Remotes    []Remote
+	Components []resource.Config
+	Processes  []pexec.ProcessConfig
+	Services   []resource.Config
+	Packages   []PackageConfig
+	Network    NetworkConfig
+	Auth       AuthConfig
+	Debug      bool
+	LogConfig  []LoggerPatternConfig
 
 	ConfigFilePath string
 
@@ -82,7 +81,6 @@ type configData struct {
 	Debug               bool                  `json:"debug,omitempty"`
 	DisablePartialStart bool                  `json:"disable_partial_start"`
 	EnableWebProfile    bool                  `json:"enable_web_profile"`
-	GlobalLogConfig     []GlobalLogConfig     `json:"global_log_configuration"`
 	LogConfig           []LoggerPatternConfig `json:"log"`
 }
 
@@ -223,12 +221,6 @@ func (c *Config) Ensure(fromCloud bool, logger logging.Logger) error {
 		}
 	}
 
-	for idx, globalLogConfig := range c.GlobalLogConfig {
-		if err := globalLogConfig.Validate(fmt.Sprintf("global_log_configuration.%d", idx)); err != nil {
-			logger.Errorw("log configuration error", "err", err)
-		}
-	}
-
 	return nil
 }
 
@@ -271,7 +263,6 @@ func (c *Config) UnmarshalJSON(data []byte) error {
 	c.Debug = conf.Debug
 	c.DisablePartialStart = conf.DisablePartialStart
 	c.EnableWebProfile = conf.EnableWebProfile
-	c.GlobalLogConfig = conf.GlobalLogConfig
 	c.LogConfig = conf.LogConfig
 
 	return nil
@@ -302,7 +293,6 @@ func (c Config) MarshalJSON() ([]byte, error) {
 		Debug:               c.Debug,
 		DisablePartialStart: c.DisablePartialStart,
 		EnableWebProfile:    c.EnableWebProfile,
-		GlobalLogConfig:     c.GlobalLogConfig,
 		LogConfig:           c.LogConfig,
 	})
 }
