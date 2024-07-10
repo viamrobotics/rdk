@@ -4,6 +4,7 @@ package motion
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -12,6 +13,8 @@ import (
 	pb "go.viam.com/api/service/motion/v1"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"go.viam.com/rdk/components/arm"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan"
 	rprotoutils "go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/referenceframe"
@@ -579,4 +582,26 @@ func PollHistoryUntilSuccessOrError(
 
 		time.Sleep(interval)
 	}
+}
+
+// MoveArm is a helper function to abstract away movement for general arms.
+func MoveArm(ctx context.Context, logger logging.Logger, a arm.Arm, dst spatialmath.Pose) error {
+	inputs, err := a.CurrentInputs(ctx)
+	if err != nil {
+		return err
+	}
+
+	model := a.ModelFrame()
+	_, err = model.Transform(inputs)
+	if err != nil && strings.Contains(err.Error(), referenceframe.OOBErrString) {
+		return errors.New("cannot move arm: " + err.Error())
+	} else if err != nil {
+		return err
+	}
+
+	plan, err := motionplan.PlanFrameMotion(ctx, logger, dst, model, inputs, nil, nil)
+	if err != nil {
+		return err
+	}
+	return arm.GoToWaypoints(ctx, a, plan)
 }

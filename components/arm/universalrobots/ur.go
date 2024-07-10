@@ -28,6 +28,7 @@ import (
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/services/motion"
 	"go.viam.com/rdk/spatialmath"
 	rdkutils "go.viam.com/rdk/utils"
 )
@@ -372,7 +373,7 @@ func (ua *urArm) MoveToPosition(ctx context.Context, pos spatialmath.Pose, extra
 	if usingHostedKinematics {
 		return ua.moveWithURHostedKinematics(ctx, pos)
 	}
-	return arm.Move(ctx, ua.logger, ua, pos)
+	return motion.MoveArm(ctx, ua.logger, ua, pos)
 }
 
 // MoveToJointPositions moves the UR arm to the specified joint positions.
