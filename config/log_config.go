@@ -59,16 +59,11 @@ func UpdateLoggerRegistry(logConfig []LoggerPatternConfig, loggerRegistry map[st
 				newLogRegistry[name] = logger
 			}
 			if r.MatchString(name) {
-				switch strings.ToLower(lpc.Level) {
-				case "debug":
-					newLogRegistry[name].SetLevel(logging.DEBUG)
-				case "info":
-					newLogRegistry[name].SetLevel(logging.INFO)
-				case "warn":
-					newLogRegistry[name].SetLevel(logging.WARN)
-				case "error":
-					newLogRegistry[name].SetLevel(logging.ERROR)
+				level, err := logging.LevelFromString(lpc.Level)
+				if err != nil {
+					return nil, err
 				}
+				newLogRegistry[name].SetLevel(level)
 			}
 		}
 	}
