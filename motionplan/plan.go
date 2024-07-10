@@ -307,3 +307,40 @@ func (e *ExecutionState) CurrentInputs() map[string][]referenceframe.Input {
 func (e *ExecutionState) CurrentPoses() map[string]*referenceframe.PoseInFrame {
 	return e.currentPose
 }
+
+// CalculateFrameErrorState takes an ExecutionState and a Frame and calculates the error between the Frame's expected
+// and actual positions.
+func CalculateFrameErrorState(e ExecutionState, frame referenceframe.Frame) (spatialmath.Pose, error) {
+	currentInputs, ok := e.CurrentInputs()[frame.Name()]
+	if !ok {
+		return nil, fmt.Errorf("could not find frame %s in ExecutionState", frame.Name())
+	}
+	currentPose, ok := e.CurrentPoses()[frame.Name()]
+	if !ok {
+		return nil, fmt.Errorf("could not find frame %s in ExecutionState", frame.Name())
+	}
+	currPoseInArc, err := frame.Transform(currentInputs)
+	if err != nil {
+		return nil, err
+	}
+	path := e.Plan().Path()
+	if path == nil {
+		return nil, errors.New("cannot calculate error state on a nil Path")
+	}
+	if len(path) == 0 {
+		return spatialmath.NewZeroPose(), nil
+	}
+	index := e.Index() - 1
+	if index < 0 || index >= len(path) {
+		return nil, fmt.Errorf("index %d out of bounds for Path of length %d", index, len(path))
+	}
+	pose, ok := path[index][frame.Name()]
+	if !ok {
+		return nil, fmt.Errorf("could not find frame %s in ExecutionState", frame.Name())
+	}
+	if pose.Parent() != currentPose.Parent() {
+		return nil, errors.New("cannot compose two PoseInFrames with different parents")
+	}
+	nominalPose := spatialmath.Compose(pose.Pose(), currPoseInArc)
+	return spatialmath.PoseBetween(nominalPose, currentPose.Pose()), nil
+}

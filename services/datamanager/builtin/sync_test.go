@@ -88,6 +88,8 @@ func TestSyncEnabled(t *testing.T) {
 				AssociatedAttributes: associations,
 			})
 			test.That(t, err, test.ShouldBeNil)
+			b := dmsvc.(*builtIn)
+			test.That(t, b.propagateDataSyncConfig(), test.ShouldBeNil)
 			mockClock.Add(captureInterval)
 			waitForCaptureFilesToExceedNFiles(tmpDir, 0)
 			mockClock.Add(syncInterval)
@@ -117,6 +119,7 @@ func TestSyncEnabled(t *testing.T) {
 				AssociatedAttributes: associations,
 			})
 			test.That(t, err, test.ShouldBeNil)
+			test.That(t, b.propagateDataSyncConfig(), test.ShouldBeNil)
 
 			// Drain any requests that were already sent before Update returned.
 			for len(mockClient.succesfulDCRequests) > 0 {
@@ -235,6 +238,8 @@ func TestDataCaptureUploadIntegration(t *testing.T) {
 				AssociatedAttributes: associations,
 			})
 			test.That(t, err, test.ShouldBeNil)
+			b := dmsvc.(*builtIn)
+			test.That(t, b.propagateDataSyncConfig(), test.ShouldBeNil)
 
 			// Let it capture a bit, then close.
 			for i := 0; i < 20; i++ {
@@ -270,6 +275,8 @@ func TestDataCaptureUploadIntegration(t *testing.T) {
 				AssociatedAttributes: associations,
 			})
 			test.That(t, err, test.ShouldBeNil)
+			b2 := newDMSvc.(*builtIn)
+			test.That(t, b2.propagateDataSyncConfig(), test.ShouldBeNil)
 
 			if tc.failTransiently {
 				// Simulate the backend returning errors some number of times, and validate that the dmsvc is continuing
@@ -397,6 +404,8 @@ func TestArbitraryFileUpload(t *testing.T) {
 				AssociatedAttributes: associations,
 			})
 			test.That(t, err, test.ShouldBeNil)
+			b := dmsvc.(*builtIn)
+			test.That(t, b.propagateDataSyncConfig(), test.ShouldBeNil)
 			// Ensure that we don't wait to sync files.
 			dmsvc.SetFileLastModifiedMillis(0)
 
@@ -525,6 +534,8 @@ func TestStreamingDCUpload(t *testing.T) {
 				AssociatedAttributes: associations,
 			})
 			test.That(t, err, test.ShouldBeNil)
+			b := dmsvc.(*builtIn)
+			test.That(t, b.propagateDataSyncConfig(), test.ShouldBeNil)
 
 			// Capture an image, then close.
 			mockClock.Add(captureInterval)
@@ -554,6 +565,8 @@ func TestStreamingDCUpload(t *testing.T) {
 				AssociatedAttributes: associations,
 			})
 			test.That(t, err, test.ShouldBeNil)
+			b2 := newDMSvc.(*builtIn)
+			test.That(t, b2.propagateDataSyncConfig(), test.ShouldBeNil)
 
 			// Call sync.
 			err = newDMSvc.Sync(context.Background(), nil)
@@ -687,8 +700,10 @@ func TestSyncConfigUpdateBehavior(t *testing.T) {
 			})
 			test.That(t, err, test.ShouldBeNil)
 
-			builtInSvc := dmsvc.(*builtIn)
-			initTicker := builtInSvc.syncTicker
+			b := dmsvc.(*builtIn)
+			test.That(t, b.propagateDataSyncConfig(), test.ShouldBeNil)
+
+			initTicker := b.syncTicker
 
 			// Reconfigure the dmsvc with new sync configs
 			cfg.ScheduledSyncDisabled = tc.newSyncDisabled
@@ -701,10 +716,10 @@ func TestSyncConfigUpdateBehavior(t *testing.T) {
 			})
 			test.That(t, err, test.ShouldBeNil)
 
-			newBuildInSvc := dmsvc.(*builtIn)
-			newTicker := newBuildInSvc.syncTicker
-			newSyncer := newBuildInSvc.syncer
-			newFileDeletionBackgroundWorker := newBuildInSvc.fileDeletionBackgroundWorkers
+			test.That(t, b.propagateDataSyncConfig(), test.ShouldBeNil)
+			newTicker := b.syncTicker
+			newSyncer := b.syncer
+			newFileDeletionBackgroundWorker := b.fileDeletionBackgroundWorkers
 
 			if tc.newSyncDisabled {
 				test.That(t, newSyncer, test.ShouldBeNil)
@@ -715,7 +730,7 @@ func TestSyncConfigUpdateBehavior(t *testing.T) {
 				test.That(t, initTicker, test.ShouldNotEqual, newTicker)
 			}
 			if tc.newMaxSyncThreads != 0 {
-				test.That(t, newBuildInSvc.maxSyncThreads, test.ShouldEqual, tc.newMaxSyncThreads)
+				test.That(t, b.maxSyncThreads, test.ShouldEqual, tc.newMaxSyncThreads)
 			}
 		})
 	}
@@ -926,7 +941,7 @@ func (m *mockStreamingDCClient) CloseSend() error {
 func getTestSyncerConstructorMock(client mockDataSyncServiceClient) datasync.ManagerConstructor {
 	return func(identity string, _ v1.DataSyncServiceClient, logger logging.Logger,
 		viamCaptureDotDir string, maxSyncThreads int, filesToSync chan string,
-	) (datasync.Manager, error) {
+	) datasync.Manager {
 		return datasync.NewManager(identity, client, logger, viamCaptureDotDir, maxSyncThreads, make(chan string))
 	}
 }
