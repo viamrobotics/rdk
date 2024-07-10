@@ -4,12 +4,9 @@ package gpsutils
 import (
 	"bufio"
 	"encoding/base64"
-	"errors"
 	"fmt"
-	"io"
 	"net"
 	"net/url"
-	"strings"
 
 	"go.viam.com/rdk/logging"
 )
@@ -56,39 +53,6 @@ func ConnectToVirtualBase(ntripInfo *NtripInfo, logger logging.Logger) (*bufio.R
 	logger.Debugf("request header: %v\n", httpHeaders)
 	logger.Debug("HTTP headers sent successfully.")
 	return rw, nil
-}
-
-// GetGGAMessage checks if a GGA message exists in the buffer and returns it.
-func GetGGAMessage(correctionWriter io.ReadWriteCloser, logger logging.Logger) ([]byte, error) {
-	buffer := make([]byte, 1024)
-	var totalBytesRead int
-
-	for {
-		n, err := correctionWriter.Read(buffer[totalBytesRead:])
-		if err != nil {
-			logger.Errorf("Error reading from Ntrip stream: %v", err)
-			return nil, err
-		}
-
-		totalBytesRead += n
-
-		// Check if the received data contains "GGA"
-		if ContainsGGAMessage(buffer[:totalBytesRead]) {
-			return buffer[:totalBytesRead], nil
-		}
-
-		// If we haven't found the "GGA" message, and we've reached the end of
-		// the buffer, return error.
-		if totalBytesRead >= len(buffer) {
-			return nil, errors.New("GGA message not found in the received data")
-		}
-	}
-}
-
-// ContainsGGAMessage returns true if data contains GGA message.
-func ContainsGGAMessage(data []byte) bool {
-	dataStr := string(data)
-	return strings.Contains(dataStr, "GGA")
 }
 
 // HasVRSStream returns the NMEA field associated with the given mountpoint
