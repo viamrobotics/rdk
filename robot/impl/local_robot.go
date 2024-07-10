@@ -1329,16 +1329,18 @@ func (r *localRobot) restartSingleModule(ctx context.Context, mod *config.Module
 		}
 	}
 	diff := config.Diff{
-		Left:    r.Config(),
-		Right:   r.Config(),
-		Removed: &config.Config{},
+		Left:     r.Config(),
+		Right:    r.Config(),
+		Added:    &config.Config{},
+		Modified: &config.ModifiedConfigDiff{},
+		Removed:  &config.Config{},
 	}
+	// note: if !isRunning (i.e. the module is in config but it crashed), putting it in diff.Modified
+	// results in a no-op; we use .Added instead.
 	if isRunning {
-		diff.Added = &config.Config{}
-		diff.Modified = &config.ModifiedConfigDiff{Modules: []config.Module{*mod}}
+		diff.Modified.Modules = append(diff.Modified.Modules, *mod)
 	} else {
-		diff.Added = &config.Config{Modules: []config.Module{*mod}}
-		diff.Modified = &config.ModifiedConfigDiff{}
+		diff.Added.Modules = append(diff.Added.Modules, *mod)
 	}
 	return r.manager.updateResources(ctx, &diff)
 }
