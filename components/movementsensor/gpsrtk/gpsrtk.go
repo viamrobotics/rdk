@@ -56,7 +56,7 @@ type gpsrtk struct {
 	// everything below this comment is protected by mu
 	ntripClient      *gpsutils.NtripInfo
 	cachedData       *gpsutils.CachedData
-	correctionWriter io.ReadWriteCloser
+	correctionWriter io.WriteCloser
 	writePath        string
 	wbaud            int
 	isVirtualBase    bool

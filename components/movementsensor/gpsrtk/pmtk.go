@@ -5,7 +5,6 @@ package gpsrtk
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"io"
 
@@ -158,7 +157,7 @@ func makeRTKI2C(
 	return g, nil
 }
 
-func newI2CCorrectionWriter(busname string, address byte) (io.ReadWriteCloser, error) {
+func newI2CCorrectionWriter(busname string, address byte) (io.WriteCloser, error) {
 	bus, err := buses.NewI2cBus(busname)
 	if err != nil {
 		return nil, err
@@ -178,13 +177,6 @@ func newI2CCorrectionWriter(busname string, address byte) (io.ReadWriteCloser, e
 type i2cCorrectionWriter struct {
 	bus    buses.I2C
 	handle buses.I2CHandle
-}
-
-// Read (vacuously) implements the io.ReadWriteCloser interface for this struct. We need that
-// interface for the moment because `gpsutils.GetGGAMessage()` requires it. However, that code will
-// be changed in summer of 2024 to no longer read via this struct, and then we can remove this.
-func (i *i2cCorrectionWriter) Read(p []byte) (int, error) {
-	return 0, errors.New("unimplemented")
 }
 
 func (i *i2cCorrectionWriter) Write(p []byte) (int, error) {
