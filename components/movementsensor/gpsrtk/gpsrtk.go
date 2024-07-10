@@ -211,7 +211,6 @@ func (g *gpsrtk) getStream() (io.Reader, error) {
 		return nil, err
 	}
 	return io.TeeReader(g.ntripClient.Stream, g.writer), nil
-
 }
 
 // receiveAndWriteCorrectionData connects to the NTRIP receiver and sends the correction stream to
@@ -442,7 +441,6 @@ func (g *gpsrtk) getNtripFromVRS() error {
 	defer g.mu.Unlock()
 	var err error
 	g.readerWriter, err = gpsutils.ConnectToVirtualBase(g.ntripClient, g.logger)
-
 	if err != nil {
 		return err
 	}
