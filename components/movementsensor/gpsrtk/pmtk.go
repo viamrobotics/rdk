@@ -173,7 +173,7 @@ func newI2CCorrectionWriter(busname string, address byte) (io.WriteCloser, error
 	return &correctionWriter, nil
 }
 
-// This implements the io.ReadWriteCloser interface.
+// This implements the io.WriteCloser interface.
 type i2cCorrectionWriter struct {
 	bus    buses.I2C
 	handle buses.I2CHandle
