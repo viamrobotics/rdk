@@ -1635,25 +1635,51 @@ func TestRemoteConnClosedOnReconfigure(t *testing.T) {
 
 		// Make a copy of the main robot config as reconfigure will directly modify it
 		mainCfgCopy := *mainRobotCfg
-		mainRobot := setupLocalRobot(t, context.Background(), mainRobotCfg, logger.Sublogger("main"))
+		mainRobot := setupLocalRobot(t, ctx, mainRobotCfg, logger.Sublogger("main"))
+
+		// Grab motor of remote1 to check that it won't work after switching remotes
+		motor1, err := motor.FromRobot(mainRobot, "motor")
+		test.That(t, err, test.ShouldBeNil)
+
+		moving, speed, err := motor1.IsPowered(ctx, nil)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, moving, test.ShouldBeFalse)
+		test.That(t, speed, test.ShouldEqual, 0.0)
 
 		// Change address in config copy to reference address of the remote2, make a copy of the config, and reconfigure
 		mainCfgCopy.Remotes[0].Address = addr2
 		mainCfgCopy2 := mainCfgCopy
-		mainRobot.Reconfigure(context.Background(), &mainCfgCopy)
+		mainRobot.Reconfigure(ctx, &mainCfgCopy)
 
-		// Change address back to original remote, and reconfigure
-		mainCfgCopy2.Remotes[0].Address = addr1
-		mainRobot.Reconfigure(context.Background(), &mainCfgCopy2)
+		// Verify that motor of remote1 no longer works
+		_, _, err = motor1.IsPowered(ctx, nil)
+		test.That(t, err, test.ShouldNotBeNil)
 
-		// Check that we were able to grab the motor from remote1 through the main robot and successfully call IsPowered()
-		remoteFromMain, ok := mainRobot.RemoteByName("remote")
-		test.That(t, ok, test.ShouldBeTrue)
-
-		res, err := motor.FromRobot(remoteFromMain, "motor")
+		// Grab motor of remote2 to check that it won't work after switching remotes
+		motor2, err := motor.FromRobot(mainRobot, "motor")
 		test.That(t, err, test.ShouldBeNil)
 
-		moving, speed, err := res.IsPowered(context.Background(), nil)
+		moving, speed, _ = motor2.IsPowered(ctx, nil)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, moving, test.ShouldBeFalse)
+		test.That(t, speed, test.ShouldEqual, 0.0)
+
+		// Change address back to remote1, and reconfigure
+		mainCfgCopy2.Remotes[0].Address = addr1
+		mainRobot.Reconfigure(ctx, &mainCfgCopy2)
+
+		// Close second remote connection
+		remote2.Close(ctx)
+
+		// Verify that motor of remote2 no longer works
+		_, _, err = motor2.IsPowered(ctx, nil)
+		test.That(t, err, test.ShouldNotBeNil)
+
+		// Check that we were able to grab the motor from remote1 through the main robot and successfully call IsPowered()
+		motor1, err = motor.FromRobot(mainRobot, "motor")
+		test.That(t, err, test.ShouldBeNil)
+
+		moving, speed, err = motor1.IsPowered(ctx, nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, moving, test.ShouldBeFalse)
 		test.That(t, speed, test.ShouldEqual, 0.0)
@@ -1687,25 +1713,50 @@ func TestRemoteConnClosedOnReconfigure(t *testing.T) {
 
 		// Make a copy of the main robot config as reconfigure will directly modify it
 		mainCfgCopy := *mainRobotCfg
-		mainRobot := setupLocalRobot(t, context.Background(), mainRobotCfg, logger.Sublogger("main"))
+		mainRobot := setupLocalRobot(t, ctx, mainRobotCfg, logger.Sublogger("main"))
+
+		// Grab arm of remote1 to check that it won't work after switching remotes
+		arm1, err := arm.FromRobot(mainRobot, "arm")
+		test.That(t, err, test.ShouldBeNil)
+
+		moving, err := arm1.IsMoving(ctx)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, moving, test.ShouldBeFalse)
 
 		// Change address in config copy to reference address of the remote2, make a copy of the config, and reconfigure
 		mainCfgCopy.Remotes[0].Address = addr2
 		mainCfgCopy2 := mainCfgCopy
-		mainRobot.Reconfigure(context.Background(), &mainCfgCopy)
+		mainRobot.Reconfigure(ctx, &mainCfgCopy)
 
-		// Change address back to original remote, and reconfigure
-		mainCfgCopy2.Remotes[0].Address = addr1
-		mainRobot.Reconfigure(context.Background(), &mainCfgCopy2)
+		// Verify that arm of remote1 no longer works
+		_, err = arm1.IsMoving(ctx)
+		test.That(t, err, test.ShouldNotBeNil)
 
-		// Check that we were able to grab the arm from remote1 through the main robot and successfully call IsMoving()
-		remoteFromMain, ok := mainRobot.RemoteByName("remote")
-		test.That(t, ok, test.ShouldBeTrue)
-
-		res, err := arm.FromRobot(remoteFromMain, "arm")
+		// Grab motor of remote2 to check that it won't work after switching remotes
+		motor1, err := motor.FromRobot(mainRobot, "motor")
 		test.That(t, err, test.ShouldBeNil)
 
-		moving, err := res.IsMoving(ctx)
+		moving, speed, _ := motor1.IsPowered(ctx, nil)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, moving, test.ShouldBeFalse)
+		test.That(t, speed, test.ShouldEqual, 0.0)
+
+		// Change address back to remote1, and reconfigure
+		mainCfgCopy2.Remotes[0].Address = addr1
+		mainRobot.Reconfigure(ctx, &mainCfgCopy2)
+
+		// Close second remote connection
+		remote2.Close(ctx)
+
+		// Verify that motor of remote2 no longer works
+		_, _, err = motor1.IsPowered(ctx, nil)
+		test.That(t, err, test.ShouldNotBeNil)
+
+		// Check that we were able to grab the arm from remote1 through the main robot and successfully call IsMoving()
+		arm1, err = arm.FromRobot(mainRobot, "arm")
+		test.That(t, err, test.ShouldBeNil)
+
+		moving, err = arm1.IsMoving(ctx)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, moving, test.ShouldBeFalse)
 

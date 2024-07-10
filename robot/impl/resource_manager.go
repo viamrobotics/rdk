@@ -139,7 +139,7 @@ func (manager *resourceManager) addRemote(
 	} else {
 		gNode.SwapResource(rr, builtinModel)
 	}
-	manager.updateRemoteResourceNames(ctx, rName, rr)
+	manager.updateRemoteResourceNames(ctx, rName, rr, true)
 }
 
 func (manager *resourceManager) remoteResourceNames(remoteName resource.Name) []resource.Name {
@@ -178,6 +178,7 @@ func (manager *resourceManager) updateRemoteResourceNames(
 	ctx context.Context,
 	remoteName resource.Name,
 	rr internalRemoteRobot,
+	recreateAllClients bool,
 ) bool {
 	manager.logger.CDebugw(ctx, "updating remote resource names", "remote", remoteName)
 	activeResourceNames := map[resource.Name]bool{}
@@ -210,12 +211,13 @@ func (manager *resourceManager) updateRemoteResourceNames(
 
 		if _, alreadyCurrent := activeResourceNames[resName]; alreadyCurrent {
 			activeResourceNames[resName] = true
-			if ok && !gNode.IsUninitialized() {
+			if ok && !gNode.IsUninitialized() && !recreateAllClients {
 				continue
 			}
 		}
 
 		if ok {
+			gNode.Close(ctx)
 			gNode.SwapResource(res, unknownModel)
 		} else {
 			gNode = resource.NewConfiguredGraphNode(resource.Config{}, res, unknownModel)
@@ -282,7 +284,7 @@ func (manager *resourceManager) updateRemotesResourceNames(ctx context.Context) 
 			if err == nil {
 				if rr, ok := res.(internalRemoteRobot); ok {
 					// updateRemoteResourceNames must be first, otherwise there's a chance it will not be evaluated
-					anythingChanged = manager.updateRemoteResourceNames(ctx, name, rr) || anythingChanged
+					anythingChanged = manager.updateRemoteResourceNames(ctx, name, rr, false) || anythingChanged
 				}
 			}
 		}
