@@ -69,19 +69,26 @@ func (wf *wrapperFrame) Interpolate(from, to []referenceframe.Input, by float64)
 	}
 	interp := make([]referenceframe.Input, 0, len(to))
 
+	// both from and to are lists with length = 11
+	// the first four values correspond to ptg(execution) frame values we want the interpolate
+	// the latter seven values correspond to pose(localization) frame values we want the interpolate
+
 	// executionFrame interpolation
-	fromSubset := from[:len(wf.executionFrame.DoF())]
-	toSubset := to[:len(wf.executionFrame.DoF())]
-	interpSub, err := wf.executionFrame.Interpolate(fromSubset, toSubset, by)
+	executionFrameFromSubset := from[:len(wf.executionFrame.DoF())]
+	executionFrameToSubset := to[:len(wf.executionFrame.DoF())]
+	interpSub, err := wf.executionFrame.Interpolate(executionFrameFromSubset, executionFrameToSubset, by)
 	if err != nil {
 		return nil, err
 	}
 	interp = append(interp, interpSub...)
 
 	// localizationFrame interpolation
-	fromSubset = from[len(wf.executionFrame.DoF()):]
-	toSubset = to[len(wf.executionFrame.DoF()):]
-	interpSub, err = wf.localizationFrame.Interpolate(fromSubset, toSubset, by)
+	// interpolating the localizationFrame is a special case
+	// the ToSubset of the localizationFrame does not matter since the executionFrame interpolations
+	// move us through a given segment and the localizationFrame input values are what we compose with
+	// the position ourselves in our absolute position in world.
+	localizationFrameFromSubset := from[len(wf.executionFrame.DoF()):]
+	interpSub, err = wf.localizationFrame.Interpolate(localizationFrameFromSubset, localizationFrameFromSubset, by)
 	if err != nil {
 		return nil, err
 	}
