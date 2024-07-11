@@ -249,7 +249,7 @@ func (g *gpsrtk) receiveAndWriteCorrectionData() {
 		// added a log so we do not always swallow the error
 		g.logger.Debugf("no longer connected to NTRIP scanner: %s", err)
 
-		if g.isClosed {
+		if g.isClosed || g.cancelCtx.Err() != nil {
 			return
 		}
 
