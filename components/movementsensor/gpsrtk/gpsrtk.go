@@ -449,6 +449,10 @@ func (g *gpsrtk) Close(ctx context.Context) error {
 		}
 	}
 
+	// WARNING: if the background goroutine is calling `getStream()` and is waiting on the mutex
+	// before initializing `g.ntripClient.Stream`, we might finish closing and then initialize a new
+	// stream. This could be fixed by putting the background goroutine in a StoppableWorkers which
+	// we shut down at the top of this function, which can happen in the near future.
 	if g.ntripClient.Stream != nil {
 		if err := g.ntripClient.Stream.Close(); err != nil {
 			g.mu.Unlock()
