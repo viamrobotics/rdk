@@ -482,7 +482,7 @@ func (pf *poseFrame) Transform(inputs []Input) (spatial.Pose, error) {
 	if err := pf.baseFrame.validInputs(inputs); err != nil {
 		return nil, NewIncorrectInputLengthError(len(inputs), 7)
 	}
-	return InputsToPose(inputs), nil
+	return inputsToPose(inputs), nil
 }
 
 // Interpolate interpolates the given amount between the two sets of inputs.
@@ -562,8 +562,8 @@ func PoseToInputs(p spatial.Pose) []Input {
 	})
 }
 
-// InputsToPose is a convience method for turning inputs into a spatial.Pose.
-func InputsToPose(inputs []Input) spatial.Pose {
+// inputsToPose is a convience method for turning inputs into a spatial.Pose.
+func inputsToPose(inputs []Input) spatial.Pose {
 	return spatial.NewPose(
 		r3.Vector{X: inputs[0].Value, Y: inputs[1].Value, Z: inputs[2].Value},
 		&spatial.OrientationVector{
