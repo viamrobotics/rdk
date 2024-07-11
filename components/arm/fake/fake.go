@@ -150,7 +150,7 @@ func (a *Arm) EndPosition(ctx context.Context, extra map[string]interface{}) (sp
 	}
 	a.mu.RLock()
 	defer a.mu.RUnlock()
-	return referenceframe.ComputeOOBPosition(a.model, joints)
+	return referenceframe.ComputePosition(a.model, joints)
 }
 
 // MoveToPosition sets the position.
@@ -192,6 +192,8 @@ func (a *Arm) MoveToJointPositions(ctx context.Context, joints *pb.JointPosition
 
 // JointPositions returns joints.
 func (a *Arm) JointPositions(ctx context.Context, extra map[string]interface{}) (*pb.JointPositions, error) {
+	a.mu.RLock()
+	defer a.mu.RUnlock()
 	retJoint := &pb.JointPositions{Values: referenceframe.InputsToFloats(a.joints)}
 	return retJoint, nil
 }

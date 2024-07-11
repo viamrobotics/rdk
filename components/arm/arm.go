@@ -135,7 +135,7 @@ func CreateStatus(ctx context.Context, a Arm) (*pb.Status, error) {
 	model := a.ModelFrame()
 
 	var endPosition *v1.Pose
-	if endPose, err := referenceframe.ComputeOOBPosition(model, jointPositions); err == nil {
+	if endPose, err := referenceframe.ComputePosition(model, jointPositions); err == nil {
 		endPosition = spatialmath.PoseToProtobuf(endPose)
 	}
 

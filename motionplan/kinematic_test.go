@@ -84,7 +84,7 @@ func TestForwardKinematics(t *testing.T) {
 
 	// Test out of bounds. Note that ComputeOOBPosition will NOT return nil on OOB.
 	newPos = []float64{-45, 0, 0, 0, 0, 999}
-	pos, err = frame.ComputeOOBPosition(m, frame.FloatsToInputs(newPos))
+	pos, err = frame.ComputePosition(m, frame.FloatsToInputs(newPos))
 	expect = spatial.NewPose(
 		r3.Vector{X: 146.37, Y: -146.37, Z: 112},
 		&spatial.R4AA{Theta: math.Pi, RX: 0.31, RY: -0.95, RZ: 0},
@@ -323,7 +323,7 @@ func TestComputeOOBPosition(t *testing.T) {
 	jointPositions := frame.FloatsToInputs([]float64{1.1, 2.2, 3.3, 1.1, 2.2, 3.3})
 
 	t.Run("succeed", func(t *testing.T) {
-		pose, err := frame.ComputeOOBPosition(model, jointPositions)
+		pose, err := frame.ComputePosition(model, jointPositions)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, pose, test.ShouldNotBeNil)
 	})
@@ -331,7 +331,7 @@ func TestComputeOOBPosition(t *testing.T) {
 	t.Run("fail when model frame is nil", func(t *testing.T) {
 		var NilModel frame.Model
 
-		pose, err := frame.ComputeOOBPosition(NilModel, jointPositions)
+		pose, err := frame.ComputePosition(NilModel, jointPositions)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, pose, test.ShouldBeNil)
 		test.That(t, err, test.ShouldEqual, frame.ErrNilModelFrame)

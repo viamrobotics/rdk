@@ -114,16 +114,19 @@ func TestOOBArmMotion(t *testing.T) {
 	// instantiate out of bounds arm
 	notReal, err := fake.NewArm(context.Background(), nil, cfg, logger)
 	test.That(t, err, test.ShouldBeNil)
+	OOBFloats := []float64{0, 0, 0, 0, 0, 720}
 	injectedArm := &inject.Arm{
 		Arm: notReal,
 		JointPositionsFunc: func(ctx context.Context, extra map[string]interface{}) (*pb.JointPositions, error) {
-			return &pb.JointPositions{Values: []float64{0, 0, 0, 0, 0, 720}}, nil
+			return &pb.JointPositions{Values: OOBFloats}, nil
+		},
+		CurrentInputsFunc: func(ctx context.Context) ([]referenceframe.Input, error) {
+			return referenceframe.FloatsToInputs(OOBFloats), nil
 		},
 	}
 
 	t.Run("EndPosition works when OOB", func(t *testing.T) {
-		jPositions := pb.JointPositions{Values: []float64{0, 0, 0, 0, 0, 720}}
-		pose, err := referenceframe.ComputeOOBPosition(injectedArm.ModelFrame(), &jPositions)
+		pose, err := injectedArm.EndPosition(context.Background(), nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, pose, test.ShouldNotBeNil)
 	})
@@ -131,11 +134,17 @@ func TestOOBArmMotion(t *testing.T) {
 	t.Run("MoveArm fails when OOB", func(t *testing.T) {
 		pose := spatialmath.NewPoseFromPoint(r3.Vector{200, 200, 200})
 		err := motion.MoveArm(context.Background(), logger, injectedArm, pose)
-		test.That(t, err.Error(), test.ShouldContain, referenceframe.OOBErrString)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, referenceframe.OOBErrString)
 	})
 
-	t.Run("MoveToJointPositions fails when OOB", func(t *testing.T) {
+	t.Run("MoveToJointPositions fails OOB and moving further OOB", func(t *testing.T) {
+		err := injectedArm.MoveToJointPositions(context.Background(), &pb.JointPositions{Values: []float64{0, 0, 0, 0, 0, 900}}, nil)
+		test.That(t, err, test.ShouldNotBeNil)
+	})
+
+	t.Run("MoveToJointPositions succeeds when OOB and moving further in-bounds", func(t *testing.T) {
 		err := injectedArm.MoveToJointPositions(context.Background(), &pb.JointPositions{Values: []float64{0, 0, 0, 0, 0, 0}}, nil)
-		test.That(t, err.Error(), test.ShouldContain, referenceframe.OOBErrString)
+		test.That(t, err, test.ShouldBeNil)
 	})
 }
