@@ -2,6 +2,7 @@ package builtin
 
 import (
 	"context"
+	"fmt"
 	"math"
 	"strings"
 	"testing"
@@ -288,13 +289,13 @@ func TestPositionalReplanning(t *testing.T) {
 		// 	expectedSuccess: false,
 		// 	extra:           map[string]interface{}{"replan_cost_factor": 0.01, "smooth_iter": 5},
 		// },
-		// {
-		// 	name:            "check we replan with a noisy sensor",
-		// 	noise:           r3.Vector{Y: epsilonMM + 0.1},
-		// 	expectedErr:     fmt.Sprintf("exceeded maximum number of replans: %d: plan failed", 4),
-		// 	expectedSuccess: false,
-		// 	extra:           map[string]interface{}{"replan_cost_factor": 10.0, "max_replans": 4, "smooth_iter": 5},
-		// },
+		{
+			name:            "check we replan with a noisy sensor",
+			noise:           r3.Vector{Y: epsilonMM + 0.1},
+			expectedErr:     fmt.Sprintf("exceeded maximum number of replans: %d: plan failed", 4),
+			expectedSuccess: false,
+			extra:           map[string]interface{}{"replan_cost_factor": 10.0, "max_replans": 4, "smooth_iter": 5},
+		},
 	}
 
 	testFn := func(t *testing.T, tc testCase) {
