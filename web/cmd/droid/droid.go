@@ -10,12 +10,13 @@ import (
 	// registers all components.
 	_ "go.viam.com/rdk/components/register"
 	"go.viam.com/rdk/logging"
+
 	// registers all services.
 	_ "go.viam.com/rdk/services/register"
 	"go.viam.com/rdk/web/server"
 )
 
-var logger = logging.NewDebugLogger("rdk")
+var logger = logging.NewDebugLogger("entrypoint")
 
 // DroidStopHook used by android harness to stop the RDK.
 func DroidStopHook() { //nolint:revive

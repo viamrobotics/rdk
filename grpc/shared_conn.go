@@ -8,7 +8,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/edaniels/golog"
 	"github.com/pion/interceptor"
 	pionLogging "github.com/pion/logging"
 	"github.com/pion/webrtc/v3"
@@ -186,7 +185,7 @@ func (sc *SharedConn) ResetConn(conn rpc.ClientConn, moduleLogger logging.Logger
 		sc.peerConn = nil
 	}
 
-	peerConn, err := NewLocalPeerConnection(sc.logger.AsZap())
+	peerConn, err := NewLocalPeerConnection(sc.logger)
 	if err != nil {
 		sc.logger.Warnw("Unable to create optional peer connection for module. Ignoring.", "err", err)
 		return
@@ -328,7 +327,7 @@ func (sc *SharedConn) Close() error {
 
 // NewLocalPeerConnection creates a peer connection that only accepts loopback
 // address candidates.
-func NewLocalPeerConnection(logger golog.Logger) (*webrtc.PeerConnection, error) {
+func NewLocalPeerConnection(logger logging.Logger) (*webrtc.PeerConnection, error) {
 	m := webrtc.MediaEngine{}
 	if err := m.RegisterDefaultCodecs(); err != nil {
 		return nil, err
@@ -374,15 +373,16 @@ func NewLocalPeerConnection(logger golog.Logger) (*webrtc.PeerConnection, error)
 
 // WebRTCLoggerFactory wraps a golog.Logger for use with pion's webrtc logging system.
 type WebRTCLoggerFactory struct {
-	Logger golog.Logger
+	Logger logging.Logger
 }
 
 type webrtcLogger struct {
-	logger golog.Logger
+	logger logging.Logger
 }
 
-func (l webrtcLogger) loggerWithSkip() golog.Logger {
-	return l.logger.Desugar().WithOptions(zap.AddCallerSkip(1)).Sugar()
+func (l webrtcLogger) loggerWithSkip() logging.Logger {
+	logger := logging.FromZapCompatible(l.logger.WithOptions(zap.AddCallerSkip(1)))
+	return logger
 }
 
 func (l webrtcLogger) Trace(msg string) {
@@ -427,5 +427,6 @@ func (l webrtcLogger) Errorf(format string, args ...interface{}) {
 
 // NewLogger returns a new webrtc logger under the given scope.
 func (lf WebRTCLoggerFactory) NewLogger(scope string) pionLogging.LeveledLogger {
-	return webrtcLogger{lf.Logger.Named(scope)}
+	logger := lf.Logger.Sublogger(scope)
+	return webrtcLogger{logger}
 }

@@ -53,7 +53,7 @@ type Arguments struct {
 	Port   utils.NetPortFlag `flag:"port,default=8080"`
 }
 
-var logger = logging.NewDebugLogger("rdk")
+var logger = logging.NewDebugLogger("entrypoint")
 
 func main() {
 	utils.ContextualMain(mainWithArgs, logger)

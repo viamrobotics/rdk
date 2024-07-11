@@ -71,12 +71,16 @@ func (imp *impl) Sublogger(subname string) Logger {
 
 	// Force all parameters to be passed. Avoid bugs where adding members to `impl` silently
 	// succeeds without a change here.
-	return &impl{
+	sublogger := &impl{
 		newName,
 		NewAtomicLevelAt(imp.level.Get()),
 		imp.appenders,
 		imp.testHelper,
 	}
+
+	loggerManager.RegisterLogger(newName, sublogger)
+
+	return sublogger
 }
 
 func (imp *impl) Named(name string) *zap.SugaredLogger {
