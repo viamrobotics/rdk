@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"io"
 	"math"
+	"net"
 	"strings"
 	"sync"
 
@@ -60,8 +61,8 @@ type gpsrtk struct {
 	writePath        string
 	wbaud            int
 	isVirtualBase    bool
-	vrsReaderWriter  *bufio.ReadWriter // readerWriter that is connected to the VRS corrections stream
-	writer           io.Writer         // writer that takes correction data and sends it to the gps
+	vrsReaderWriter  *bufio.ReadWriter
+	vrsConn          net.Conn
 	// reader is the TeeReader to write the corrections stream to the gps chip.
 	// Additionally used to scan RTCM messages to ensure there are no errors from the streams
 	reader io.Reader
@@ -190,7 +191,6 @@ func (g *gpsrtk) connectToNTRIP() error {
 		return err
 	}
 
-	g.writer = bufio.NewWriter(g.correctionWriter)
 	g.reader, err = g.getStream()
 	if err != nil {
 		return err
@@ -205,14 +205,14 @@ func (g *gpsrtk) getStream() (io.Reader, error) {
 		if err != nil {
 			return nil, err
 		}
-		return io.TeeReader(g.vrsReaderWriter, g.writer), nil
+		return io.TeeReader(g.vrsReaderWriter, g.correctionWriter), nil
 	}
 	g.logger.Debug("connecting to NTRIP stream........")
 	err := g.getStreamFromMountPoint(g.ntripClient.MountPoint, g.ntripClient.MaxConnectAttempts)
 	if err != nil {
 		return nil, err
 	}
-	return io.TeeReader(g.ntripClient.Stream, g.writer), nil
+	return io.TeeReader(g.ntripClient.Stream, g.correctionWriter), nil
 }
 
 // receiveAndWriteCorrectionData connects to the NTRIP receiver and sends the correction stream to
@@ -417,6 +417,14 @@ func (g *gpsrtk) Close(ctx context.Context) error {
 		g.ntripClient.Client = nil
 	}
 
+	if g.vrsConn != nil {
+		if err := g.vrsConn.Close(); err != nil {
+			g.mu.Unlock()
+			return err
+		}
+
+	}
+
 	if g.ntripClient.Stream != nil {
 		if err := g.ntripClient.Stream.Close(); err != nil {
 			g.mu.Unlock()
@@ -442,7 +450,12 @@ func (g *gpsrtk) getNtripFromVRS() error {
 	g.mu.Lock()
 	defer g.mu.Unlock()
 	var err error
-	g.vrsReaderWriter, err = gpsutils.ConnectToVirtualBase(g.ntripClient, g.logger)
+	if g.vrsConn != nil {
+		if err := g.vrsConn.Close(); err != nil {
+			return err
+		}
+	}
+	g.vrsReaderWriter, g.vrsConn, err = gpsutils.ConnectToVirtualBase(g.ntripClient, g.logger)
 	if err != nil {
 		return err
 	}

@@ -13,7 +13,7 @@ import (
 
 // ConnectToVirtualBase is responsible for establishing a connection to
 // a virtual base station using the NTRIP protocol with enhanced error handling and retries.
-func ConnectToVirtualBase(ntripInfo *NtripInfo, logger logging.Logger) (*bufio.ReadWriter, error) {
+func ConnectToVirtualBase(ntripInfo *NtripInfo, logger logging.Logger) (*bufio.ReadWriter, net.Conn, error) {
 	mp := "/" + ntripInfo.MountPoint
 	credentials := ntripInfo.username + ":" + ntripInfo.password
 	credentialsBase64 := base64.StdEncoding.EncodeToString([]byte(credentials))
@@ -21,17 +21,17 @@ func ConnectToVirtualBase(ntripInfo *NtripInfo, logger logging.Logger) (*bufio.R
 	// Process the server URL
 	serverAddr, err := url.Parse(ntripInfo.URL)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	conn, err := net.Dial("tcp", serverAddr.Host)
 	if err != nil {
 		logger.Errorf("Failed to connect to server %s: %v", serverAddr, err)
-		return nil, err
+
+		return nil, nil, err
 	}
 
 	rw := bufio.NewReadWriter(bufio.NewReader(conn), bufio.NewWriter(conn))
-
 	// Construct HTTP headers with CRLF line endings
 	httpHeaders := "GET " + mp + " HTTP/1.1\r\n" +
 		"Host: " + serverAddr.Host + "\r\n" +
@@ -43,16 +43,17 @@ func ConnectToVirtualBase(ntripInfo *NtripInfo, logger logging.Logger) (*bufio.R
 	// Send HTTP headers over the TCP connection
 	_, err = rw.Write([]byte(httpHeaders))
 	if err != nil {
-		return nil, fmt.Errorf("failed to send HTTP headers: %w", err)
+
+		return nil, nil, fmt.Errorf("failed to send HTTP headers: %w %w", err, conn.Close())
 	}
 	err = rw.Flush()
 	if err != nil {
-		return nil, fmt.Errorf("failed to write to buffer: %w", err)
+		return nil, nil, fmt.Errorf("failed to write to buffer: %w  %w", err, conn.Close())
 	}
 
 	logger.Debugf("request header: %v\n", httpHeaders)
 	logger.Debug("HTTP headers sent successfully.")
-	return rw, nil
+	return rw, conn, nil
 }
 
 // HasVRSStream returns the NMEA field associated with the given mountpoint

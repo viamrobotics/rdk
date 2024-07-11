@@ -38,6 +38,7 @@ import (
 	"io"
 
 	slib "github.com/jacobsa/go-serial/serial"
+	"go.uber.org/multierr"
 
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/components/movementsensor/gpsutils"
@@ -141,11 +142,11 @@ func newRTKSerial(
 	g.correctionWriter, err = newSerialCorrectionWriter(
 		newConf.SerialPath, uint(newConf.SerialBaudRate))
 	if err != nil {
-		return nil, err
+		return nil, multierr.Combine(err, g.Close(ctx))
 	}
 
 	if err := g.start(); err != nil {
-		return nil, err
+		return nil, multierr.Combine(err, g.Close(ctx))
 	}
 
 	// It's possible that we've taken so long to start up that the resource manager has given up on
