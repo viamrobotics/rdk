@@ -2,7 +2,6 @@ package builtin
 
 import (
 	"github.com/pkg/errors"
-	"go.uber.org/multierr"
 	pb "go.viam.com/api/component/arm/v1"
 
 	"go.viam.com/rdk/motionplan/tpspace"
@@ -17,15 +16,11 @@ type wrapperFrame struct {
 	name              string
 	localizationFrame referenceframe.Frame
 	executionFrame    referenceframe.Frame
-	seedMap           map[string][]referenceframe.Input
-	fs                referenceframe.FrameSystem
 	ptgSolvers        []tpspace.PTGSolver
 }
 
 func newWrapperFrame(
 	localizationFrame, executionFrame referenceframe.Frame,
-	seedMap map[string][]referenceframe.Input,
-	fs referenceframe.FrameSystem,
 ) (referenceframe.Frame, error) {
 	ptgFrame, ok := executionFrame.(tpspace.PTGProvider)
 	if !ok {
@@ -35,8 +30,6 @@ func newWrapperFrame(
 		name:              executionFrame.Name(),
 		localizationFrame: localizationFrame,
 		executionFrame:    executionFrame,
-		seedMap:           seedMap,
-		fs:                fs,
 		ptgSolvers:        ptgFrame.PTGSolvers(),
 	}, nil
 }
@@ -51,12 +44,15 @@ func (wf *wrapperFrame) Transform(inputs []referenceframe.Input) (spatialmath.Po
 	if len(inputs) != len(wf.DoF()) {
 		return nil, referenceframe.NewIncorrectInputLengthError(len(inputs), len(wf.DoF()))
 	}
-	pf := referenceframe.NewPoseInFrame(wf.Name(), spatialmath.NewZeroPose())
-	tf, err := wf.fs.Transform(wf.sliceToMap(inputs), pf, referenceframe.World)
+	executionFramePose, err := wf.executionFrame.Transform(inputs[:len(wf.executionFrame.DoF())])
 	if err != nil {
 		return nil, err
 	}
-	return tf.(*referenceframe.PoseInFrame).Pose(), nil
+	localizationFramePose, err := wf.localizationFrame.Transform(inputs[len(wf.executionFrame.DoF()):])
+	if err != nil {
+		return nil, err
+	}
+	return spatialmath.Compose(executionFramePose, localizationFramePose), nil
 }
 
 // Interpolate interpolates the given amount between the two sets of inputs.
@@ -102,40 +98,26 @@ func (wf *wrapperFrame) Geometries(inputs []referenceframe.Input) (*referencefra
 	if len(inputs) != len(wf.DoF()) {
 		return nil, referenceframe.NewIncorrectInputLengthError(len(inputs), len(wf.DoF()))
 	}
-	var errAll error
-	inputMap := wf.sliceToMap(inputs)
 	sfGeometries := []spatialmath.Geometry{}
-	for _, fName := range wf.fs.FrameNames() {
-		f := wf.fs.Frame(fName)
-		if f == nil {
-			return nil, referenceframe.NewFrameMissingError(fName)
-		}
-		inputs, err := referenceframe.GetFrameInputs(f, inputMap)
-		if err != nil {
-			return nil, err
-		}
-		gf, err := f.Geometries(inputs)
-		if gf == nil {
-			// only propagate errors that result in nil geometry
-			multierr.AppendInto(&errAll, err)
-			continue
-		}
-		var tf referenceframe.Transformable
-		tf, err = wf.fs.Transform(inputMap, gf, referenceframe.World)
-		if err != nil {
-			return nil, err
-		}
-		sfGeometries = append(sfGeometries, tf.(*referenceframe.GeometriesInFrame).Geometries()...)
+	gf, err := wf.executionFrame.Geometries(make([]referenceframe.Input, len(wf.executionFrame.DoF())))
+	if err != nil {
+		return nil, err
 	}
-	return referenceframe.NewGeometriesInFrame(referenceframe.World, sfGeometries), errAll
+	transformBy, err := wf.Transform(inputs)
+	if err != nil {
+		return nil, err
+	}
+	for _, g := range gf.Geometries() {
+		sfGeometries = append(sfGeometries, g.Transform(transformBy))
+	}
+	return referenceframe.NewGeometriesInFrame(referenceframe.World, sfGeometries), nil
 }
 
 // DoF returns the number of degrees of freedom within a given frame.
 func (wf *wrapperFrame) DoF() []referenceframe.Limit {
 	var limits []referenceframe.Limit
-	for _, name := range wf.fs.FrameNames() {
-		limits = append(limits, wf.fs.Frame(name).DoF()...)
-	}
+	limits = append(limits, wf.executionFrame.DoF()...)
+	limits = append(limits, wf.localizationFrame.DoF()...)
 	return limits
 }
 
@@ -160,16 +142,6 @@ func (wf *wrapperFrame) ProtobufFromInput(input []referenceframe.Input) *pb.Join
 		n[idx] = utils.RadToDeg(a.Value)
 	}
 	return &pb.JointPositions{Values: n}
-}
-
-func (wf *wrapperFrame) sliceToMap(inputSlice []referenceframe.Input) map[string][]referenceframe.Input {
-	inputs := map[string][]referenceframe.Input{}
-	for k, v := range wf.seedMap {
-		inputs[k] = v
-	}
-	inputs[wf.executionFrame.Name()] = inputSlice[:len(wf.executionFrame.DoF())]
-	inputs[wf.localizationFrame.Name()] = inputSlice[len(wf.executionFrame.DoF()):]
-	return inputs
 }
 
 func (wf *wrapperFrame) PTGSolvers() []tpspace.PTGSolver {
