@@ -42,6 +42,8 @@ func (lr *loggerRegistry) loggerNamed(name string) (logger Logger, ok bool) {
 }
 
 func (lr *loggerRegistry) updateLoggerLevel(name string, level Level) error {
+	lr.mu.Lock()
+	defer lr.mu.Unlock()
 	logger, ok := lr.loggers[name]
 	if !ok {
 		return fmt.Errorf("logger named %s not recognized", name)
