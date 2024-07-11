@@ -422,7 +422,6 @@ func (g *gpsrtk) Close(ctx context.Context) error {
 			g.mu.Unlock()
 			return err
 		}
-
 	}
 
 	if g.ntripClient.Stream != nil {

@@ -43,7 +43,6 @@ func ConnectToVirtualBase(ntripInfo *NtripInfo, logger logging.Logger) (*bufio.R
 	// Send HTTP headers over the TCP connection
 	_, err = rw.Write([]byte(httpHeaders))
 	if err != nil {
-
 		return nil, nil, fmt.Errorf("failed to send HTTP headers: %w %w", err, conn.Close())
 	}
 	err = rw.Flush()

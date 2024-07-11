@@ -184,7 +184,6 @@ func parseStream(line string) (Stream, error) {
 	}
 	carrier, err := strconv.Atoi(fields[carrierField])
 	if err != nil {
-
 		return Stream{}, fmt.Errorf("cannot parse the streams carrier in line: %s", line)
 	}
 

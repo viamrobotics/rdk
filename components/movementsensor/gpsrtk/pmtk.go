@@ -9,6 +9,7 @@ import (
 	"io"
 
 	"go.uber.org/multierr"
+
 	"go.viam.com/rdk/components/board/genericlinux/buses"
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/components/movementsensor/gpsutils"
