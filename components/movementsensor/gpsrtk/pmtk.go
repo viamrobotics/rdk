@@ -5,7 +5,6 @@ package gpsrtk
 
 import (
 	"context"
-	"fmt"
 	"io"
 
 	"go.uber.org/multierr"
