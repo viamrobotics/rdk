@@ -179,6 +179,9 @@ func parseStream(line string) (Stream, error) {
 		return Stream{}, fmt.Errorf("missing fields at stream line: %s", line)
 	}
 
+	if fields[carrierField] == "" {
+		fields[carrierField] = "0"
+	}
 	carrier, err := strconv.Atoi(fields[carrierField])
 	if err != nil {
 		return Stream{}, fmt.Errorf("cannot parse the streams carrier in line: %s", line)
@@ -244,13 +247,6 @@ func (n *NtripInfo) Connect(ctx context.Context, logger logging.Logger) error {
 		c, err = ntrip.NewClient(n.URL, ntrip.Options{Username: n.username, Password: n.password})
 		if err == nil { // Success!
 			logger.Info("Connected to NTRIP caster")
-			// setting the Timeout to 0 on the http client to prevent the ntrip stream from canceling itself.
-			// ntrip.NewClient() defaults sets this value to 15 seconds, which causes us to disconnect
-			// the ntrip stream and require a reconnection.
-			// Setting the Timeout on the http client to be 0 removes the timeout. It's possible we want to have different
-			// timeouts configured when reading from the source table vs receiving RCTM corrections.
-			// Additionally, this should be tested with other CORS.
-			c.Client.Timeout = 0
 			n.Client = c
 			return nil
 		}
