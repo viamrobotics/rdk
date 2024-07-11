@@ -24,7 +24,7 @@ func newWrapperFrame(
 ) (referenceframe.Frame, error) {
 	ptgFrame, ok := executionFrame.(tpspace.PTGProvider)
 	if !ok {
-		return nil, errors.New("cannot type assert localizationFrame into a tpspace.PTGProvider")
+		return nil, errors.New("cannot type assert executionFrame into a tpspace.PTGProvider")
 	}
 	return &wrapperFrame{
 		name:              executionFrame.Name(),
