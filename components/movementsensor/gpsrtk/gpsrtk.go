@@ -120,8 +120,8 @@ func (g *gpsrtk) getStreamFromMountPoint(mountPoint string, maxAttempts int) err
 	return g.err.Get()
 }
 
-// closePort closes the correctionWriter.
-func (g *gpsrtk) closePort() {
+// closeCorrectionWriter closes the correctionWriter.
+func (g *gpsrtk) closeCorrectionWriter() {
 	g.mu.Lock()
 	defer g.mu.Unlock()
 
@@ -222,7 +222,7 @@ func (g *gpsrtk) getStream() (io.Reader, error) {
 // the MovementSensor.
 func (g *gpsrtk) receiveAndWriteCorrectionData() {
 	defer g.activeBackgroundWorkers.Done()
-	defer g.closePort()
+	defer g.closeCorrectionWriter()
 
 	err := g.connectToNTRIP()
 	if err != nil {
