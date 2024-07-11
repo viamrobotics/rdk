@@ -169,8 +169,9 @@ type internalRemoteRobot interface {
 }
 
 // updateRemoteResourceNames is called when the Remote robot has changed (either connection or disconnection).
-// It will pull the current remote resources and update the resource tree adding or removing nodes accordingly
-// If any local resources are dependent on a remote resource two things can happen
+// It will pull the current remote resources and update the resource tree adding or removing nodes accordingly.
+// The recreateAllClients flag will re-add all remote resource nodes if true and only new / uninitalized
+// resource names if false. If any local resources are dependent on a remote resource two things can happen
 //  1. The remote resource already is in the tree and nothing will happen.
 //  2. A remote resource is being deleted but a local resource depends on it; it will be removed
 //     and its local children will be destroyed.
