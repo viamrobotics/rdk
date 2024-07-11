@@ -69,7 +69,6 @@ func NewLogger(name string) Logger {
 	}
 
 	loggerManager.registerLogger(name, logger)
-	globalLogger.Warn("now registering", name, logger)
 	return logger
 }
 
