@@ -213,6 +213,13 @@ func (g *CachedData) ReadSatsInView(ctx context.Context) (int, error) {
 	return g.nmeaData.SatsInView, nil
 }
 
+// ReadSatsInUse returns the number of satellites in use to calculate fix type.
+func (g *CachedData) ReadSatsInUse(ctx context.Context) (int, error) {
+	g.mu.RLock()
+	defer g.mu.RUnlock()
+	return g.nmeaData.SatsInUse, nil
+}
+
 // Properties returns what movement sensor capabilities we have.
 func (g *CachedData) Properties(
 	ctx context.Context, extra map[string]interface{},
