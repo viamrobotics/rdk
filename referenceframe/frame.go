@@ -458,7 +458,7 @@ func NewPoseFrame(name string, geometry []spatial.Geometry) (Frame, error) {
 		OX:    math.Inf(1),
 		OY:    math.Inf(1),
 		OZ:    math.Inf(1),
-		Theta: math.Pi,
+		Theta: math.Inf(1),
 	}
 	orientationVector.Normalize()
 	limits := []Limit{
