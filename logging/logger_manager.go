@@ -1,38 +1,51 @@
 package logging
 
 import (
+	"fmt"
 	"sync"
 )
 
-type LoggerRegistry struct {
+type loggerRegistry struct {
 	mu      sync.Mutex
 	loggers map[string]Logger
 	names   map[Logger]string
 }
 
-var loggerManager = NewLoggerManager()
+var loggerManager = newLoggerManager()
 
-func NewLoggerManager() *LoggerRegistry {
-	return &LoggerRegistry{
+func newLoggerManager() *loggerRegistry {
+	return &loggerRegistry{
 		loggers: make(map[string]Logger),
 		names:   make(map[Logger]string),
 	}
 }
 
-func (lr *LoggerRegistry) RegisterLogger(name string, logger Logger) {
+func (lr *loggerRegistry) registerLogger(name string, logger Logger) {
 	lr.mu.Lock()
 	defer lr.mu.Unlock()
 	lr.loggers[name] = logger
 	lr.names[logger] = name
 }
 
-func (lr *LoggerRegistry) NameOf(logger Logger) (name string, ok bool) {
+func (lr *loggerRegistry) nameOf(logger Logger) (name string, ok bool) {
 	lr.mu.Lock()
 	defer lr.mu.Unlock()
 	name, ok = lr.names[logger]
 	return name, ok
 }
 
-func (lr *LoggerRegistry) UpdateLoggerLevel(name string, level Level) {
-	lr.loggers[name].SetLevel(level)
+func (lr *loggerRegistry) loggerNamed(name string) (logger Logger, ok bool) {
+	lr.mu.Lock()
+	defer lr.mu.Unlock()
+	logger, ok = lr.loggers[name]
+	return logger, ok
+}
+
+func (lr *loggerRegistry) updateLoggerLevel(name string, level Level) error {
+	logger, ok := lr.loggers[name]
+	if !ok {
+		return fmt.Errorf("logger named %s not recognized", name)
+	}
+	logger.SetLevel(level)
+	return nil
 }

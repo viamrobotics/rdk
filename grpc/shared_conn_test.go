@@ -16,9 +16,9 @@ import (
 func TestNewLocalPeerConnection(t *testing.T) {
 	t.Run("both NewLocalPeerConnections", func(t *testing.T) {
 		logger := logging.NewTestLogger(t)
-		client, err := NewLocalPeerConnection(logger.AsZap())
+		client, err := NewLocalPeerConnection(logger)
 		test.That(t, err, test.ShouldBeNil)
-		server, err := NewLocalPeerConnection(logger.AsZap())
+		server, err := NewLocalPeerConnection(logger)
 		test.That(t, err, test.ShouldBeNil)
 		var cMu sync.Mutex
 		clientCandates := []*webrtc.ICECandidate{}
@@ -87,7 +87,7 @@ func TestNewLocalPeerConnection(t *testing.T) {
 
 	t.Run("one NewLocalPeerConnection non local server", func(t *testing.T) {
 		logger := logging.NewTestLogger(t)
-		client, err := NewLocalPeerConnection(logger.AsZap())
+		client, err := NewLocalPeerConnection(logger)
 		test.That(t, err, test.ShouldBeNil)
 		server, err := webrtc.NewPeerConnection(webrtc.Configuration{})
 		test.That(t, err, test.ShouldBeNil)
@@ -97,7 +97,7 @@ func TestNewLocalPeerConnection(t *testing.T) {
 
 	t.Run("one NewLocalPeerConnection non local client", func(t *testing.T) {
 		logger := logging.NewTestLogger(t)
-		server, err := NewLocalPeerConnection(logger.AsZap())
+		server, err := NewLocalPeerConnection(logger)
 		test.That(t, err, test.ShouldBeNil)
 		client, err := webrtc.NewPeerConnection(webrtc.Configuration{})
 		test.That(t, err, test.ShouldBeNil)

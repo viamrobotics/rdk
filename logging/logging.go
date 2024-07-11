@@ -14,6 +14,7 @@ import (
 var (
 	globalMu     sync.RWMutex
 	globalLogger = NewDebugLogger("startup")
+
 	// GlobalLogLevel should be used whenever a zap logger is created that wants to obey the debug
 	// flag from the CLI or robot config.
 	GlobalLogLevel = zap.NewAtomicLevelAt(zap.InfoLevel)
@@ -67,7 +68,8 @@ func NewLogger(name string) Logger {
 		testHelper: func() {},
 	}
 
-	loggerManager.RegisterLogger(name, logger)
+	loggerManager.registerLogger(name, logger)
+	globalLogger.Warn("now registering", name, logger)
 	return logger
 }
 
@@ -80,7 +82,7 @@ func NewDebugLogger(name string) Logger {
 		testHelper: func() {},
 	}
 
-	loggerManager.RegisterLogger(name, logger)
+	loggerManager.registerLogger(name, logger)
 	return logger
 }
 
@@ -94,7 +96,7 @@ func NewBlankLogger(name string) Logger {
 		testHelper: func() {},
 	}
 
-	loggerManager.RegisterLogger(name, logger)
+	loggerManager.registerLogger(name, logger)
 	return logger
 }
 
