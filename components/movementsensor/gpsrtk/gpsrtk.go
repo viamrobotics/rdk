@@ -69,10 +69,6 @@ type gpsrtk struct {
 }
 
 func (g *gpsrtk) start() error {
-	err := g.connectToNTRIP()
-	if err != nil {
-		return err
-	}
 	g.activeBackgroundWorkers.Add(1)
 	utils.PanicCapturingGo(g.receiveAndWriteCorrectionData)
 	return g.err.Get()
@@ -228,6 +224,12 @@ func (g *gpsrtk) receiveAndWriteCorrectionData() {
 	defer g.activeBackgroundWorkers.Done()
 	defer g.closePort()
 
+	err := g.connectToNTRIP()
+	if err != nil {
+		g.err.Set(err)
+		g.logger.Error("unable to connect to NTRIP stream! Giving up on RTK messages")
+		return
+	}
 	scanner := rtcm3.NewScanner(g.reader)
 
 	for !g.isClosed {
