@@ -929,3 +929,19 @@ func logAnyFragmentOverwriteErrors(logger logging.Logger, overwriteFragmentStatu
 		logger.Errorw("error in overwriting fragment", "error", status.GetError())
 	}
 }
+
+// LogConfigToProto converts a LoggerPatternConfig type to its proto equivalent.
+func LogConfigToProto(logConfig LoggerPatternConfig) (*pb.LogPatternConfig, error) {
+	return &pb.LogPatternConfig{
+		Pattern: logConfig.Pattern,
+		Level:   logConfig.Level,
+	}, nil
+}
+
+// LogConfigFromProto converts a proto LoggerPatternConfig to the rdk version.
+func LogConfigFromProto(proto *pb.LogPatternConfig) (LoggerPatternConfig, error) {
+	return LoggerPatternConfig{
+		Pattern: proto.Pattern,
+		Level:   proto.Level,
+	}, nil
+}
