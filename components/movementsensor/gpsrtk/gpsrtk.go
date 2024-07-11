@@ -531,5 +531,4 @@ func (g *gpsrtk) getNtripFromVRS() error {
 
 	g.vrs.StartGGAThread(g.cachedData.GGA)
 	return nil
-
 }

@@ -14,7 +14,7 @@ import (
 	"go.viam.com/rdk/logging"
 )
 
-// VRS contains the VRS
+// VRS contains the VRS.
 type VRS struct {
 	ntripInfo               *NtripInfo
 	ReaderWriter            *bufio.ReadWriter
@@ -83,12 +83,14 @@ func HasVRSStream(sourceTable *Sourcetable, mountPoint string) (bool, error) {
 	return stream.Nmea, nil
 }
 
+// Close closes the VRS connection and any other background threads.
 func (vrs *VRS) Close() error {
 	vrs.cancelFunc()
 	vrs.activeBackgroundWorkers.Wait()
 	return vrs.Conn.Close()
 }
 
+// StartGGAThread starts a thread that writes GGA messages to the VRS.
 func (vrs *VRS) StartGGAThread(ggaFunc func() (string, error)) {
 	vrs.activeBackgroundWorkers.Add(1)
 	go func() {
@@ -125,6 +127,5 @@ func (vrs *VRS) StartGGAThread(ggaFunc func() (string, error)) {
 				}
 			}
 		}
-
 	}()
 }
