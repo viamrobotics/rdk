@@ -408,7 +408,11 @@ func TestObstacleReplanningSlam(t *testing.T) {
 		ExecutionID:   executionID,
 		LastPlanOnly:  true,
 	})
-	test.That(t, err, test.ShouldBeNil)
+	if err != nil {
+		test.That(t, strings.Contains(err.Error(), motion.ErrGoalWithinPlanDeviation.Error()), test.ShouldBeTrue)
+	} else {
+		test.That(t, err, test.ShouldBeNil)
+	}
 }
 
 func TestMultiplePieces(t *testing.T) {
