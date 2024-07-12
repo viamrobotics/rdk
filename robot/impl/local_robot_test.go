@@ -3519,35 +3519,6 @@ func TestSendTriggerConfig(t *testing.T) {
 	test.That(t, len(actualR.triggerConfig), test.ShouldEqual, 1)
 }
 
-// // waitForFile waits up to timeout for a file to appear at path, and returns its contents.
-// func waitForFile(t *testing.T, ctx context.Context, path string, timeout time.Duration) []byte {
-// 	t.Helper()
-// 	watcher, err := fsnotify.NewWatcher()
-// 	test.That(t, err, test.ShouldBeNil)
-// 	defer watcher.Close()
-// 	err = watcher.Add(path)
-// 	test.That(t, err, test.ShouldBeNil)
-// 	ctx, cancel := context.WithTimeout(ctx, timeout)
-// 	defer cancel()
-// 	for {
-// 		select {
-// 		case event, ok := <-watcher.Events:
-// 			if !ok {
-// 				t.Error("fsnotify watcher failed")
-// 				return nil
-// 			}
-// 			if event.Name == path && event.Has(fsnotify.Write) {
-// 				contents, err := os.ReadFile(path)
-// 				test.That(t, err, test.ShouldBeNil)
-// 				return contents
-// 			}
-// 		case <-ctx.Done():
-// 			t.Errorf("waitForFile timed out for %s", path)
-// 			return nil
-// 		}
-// 	}
-// }
-
 func assertContents(t *testing.T, path, expectedContents string) {
 	t.Helper()
 	contents, err := os.ReadFile(path)
