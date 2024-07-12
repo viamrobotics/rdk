@@ -86,31 +86,36 @@ func NewCaptureManager(logger logging.Logger, clk clock.Clock) *CaptureManager {
 	}
 }
 
-// Config is the capture manager config.
-type Config struct {
+// CaptureConfig is the capture manager config.
+type CaptureConfig struct {
 	CaptureDisabled             bool
 	CaptureDir                  string
 	Tags                        []string
 	MaximumCaptureFileSizeBytes int64
 }
 
-// Reconfigure reconfigures the capture manager.
-func (cm *CaptureManager) Reconfigure(ctx context.Context, deps resource.Dependencies, resConfig resource.Config, dataConfig Config) error {
-	captureConfigs, err := cm.updateDataCaptureConfigs(deps, resConfig, dataConfig.CaptureDir)
+// ReconfigureCapture reconfigures the capture manager.
+func (cm *CaptureManager) ReconfigureCapture(
+	ctx context.Context,
+	deps resource.Dependencies,
+	config resource.Config,
+	captureConfig CaptureConfig,
+) error {
+	captureConfigs, err := cm.updateDataCaptureConfigs(deps, config, captureConfig.CaptureDir)
 	if err != nil {
 		return err
 	}
 
-	if !utils.IsTrustedEnvironment(ctx) && dataConfig.CaptureDir != "" && dataConfig.CaptureDir != viamCaptureDotDir {
+	if !utils.IsTrustedEnvironment(ctx) && captureConfig.CaptureDir != "" && captureConfig.CaptureDir != viamCaptureDotDir {
 		return ErrCaptureDirectoryConfigurationDisabled
 	}
 
-	if dataConfig.CaptureDir != "" {
-		cm.captureDir = dataConfig.CaptureDir
+	if captureConfig.CaptureDir != "" {
+		cm.captureDir = captureConfig.CaptureDir
 	} else {
 		cm.captureDir = viamCaptureDotDir
 	}
-	cm.captureDisabled = dataConfig.CaptureDisabled
+	cm.captureDisabled = captureConfig.CaptureDisabled
 	// Service is disabled, so close all collectors and clear the map so we can instantiate new ones if we enable this service.
 	if cm.captureDisabled {
 		cm.CloseCollectors()
@@ -154,13 +159,13 @@ func (cm *CaptureManager) Reconfigure(ctx context.Context, deps resource.Depende
 				// without it, we will be logging the same message over and over for no reason
 				cm.componentMethodFrequencyHz[componentMethodMetadata] = resConf.CaptureFrequencyHz
 
-				maxCaptureFileSize := dataConfig.MaximumCaptureFileSizeBytes
+				maxCaptureFileSize := captureConfig.MaximumCaptureFileSizeBytes
 				if maxCaptureFileSize == 0 {
 					maxCaptureFileSize = defaultMaxCaptureSize
 				}
 				if !resConf.Disabled && (resConf.CaptureFrequencyHz > 0 || cm.maxCaptureFileSize != maxCaptureFileSize) {
 					// We only use service-level tags.
-					resConf.Tags = dataConfig.Tags
+					resConf.Tags = captureConfig.Tags
 
 					maxFileSizeChanged := cm.maxCaptureFileSize != maxCaptureFileSize
 					cm.maxCaptureFileSize = maxCaptureFileSize

@@ -58,17 +58,20 @@ var (
 
 // Config describes how to configure the service.
 type Config struct {
-	CaptureDir                  string   `json:"capture_dir"`
-	AdditionalSyncPaths         []string `json:"additional_sync_paths"`
-	SyncIntervalMins            float64  `json:"sync_interval_mins"`
-	CaptureDisabled             bool     `json:"capture_disabled"`
-	ScheduledSyncDisabled       bool     `json:"sync_disabled"`
-	Tags                        []string `json:"tags"`
-	FileLastModifiedMillis      int      `json:"file_last_modified_millis"`
-	SelectiveSyncerName         string   `json:"selective_syncer_name"`
-	MaximumNumSyncThreads       int      `json:"maximum_num_sync_threads"`
-	DeleteEveryNthWhenDiskFull  int      `json:"delete_every_nth_when_disk_full"`
-	MaximumCaptureFileSizeBytes int64    `json:"maximum_capture_file_size_bytes"`
+	// Sync & Capture
+	CaptureDir string   `json:"capture_dir"`
+	Tags       []string `json:"tags"`
+	// Capture
+	CaptureDisabled             bool  `json:"capture_disabled"`
+	DeleteEveryNthWhenDiskFull  int   `json:"delete_every_nth_when_disk_full"`
+	MaximumCaptureFileSizeBytes int64 `json:"maximum_capture_file_size_bytes"`
+	// Sync
+	AdditionalSyncPaths    []string `json:"additional_sync_paths"`
+	FileLastModifiedMillis int      `json:"file_last_modified_millis"`
+	MaximumNumSyncThreads  int      `json:"maximum_num_sync_threads"`
+	ScheduledSyncDisabled  bool     `json:"sync_disabled"`
+	SelectiveSyncerName    string   `json:"selective_syncer_name"`
+	SyncIntervalMins       float64  `json:"sync_interval_mins"`
 }
 
 // Validate returns components which will be depended upon weakly due to the above matcher.
@@ -105,39 +108,38 @@ func readyToSync(ctx context.Context, s selectiveSyncer, logger logging.Logger) 
 
 // builtIn initializes and orchestrates data capture collectors for registered component/methods.
 type builtIn struct {
+	// Live for lifetime of builtIn
 	resource.Named
 	logger         logging.Logger
-	lock           sync.Mutex
 	closedCancelFn context.CancelFunc
 	closedCtx      context.Context
+	lock           sync.Mutex
 
 	// Capture
-	tags []string
+	captureManager *data.CaptureManager
 
 	// Sync
-	cloudConn                    rpc.ClientConn
-	cloudConnSvc                 cloud.ConnectionService
-	datasyncBackgroundWorkers    sync.WaitGroup
-	fileLastModifiedMillis       int
-	filesToSync                  chan string
-	maxSyncThreads               int
-	propagateDataSyncConfigWG    sync.WaitGroup
-	selectiveSyncEnabled         bool
-	syncConfigUpdated            bool
-	syncDisabled                 bool
-	syncIntervalMins             float64
-	syncPaths                    []string
-	syncRoutineCancelFn          context.CancelFunc
-	syncSensor                   selectiveSyncer
-	syncTicker                   *clk.Ticker
-	syncer                       datasync.Manager
-	syncerConstructor            datasync.ManagerConstructor
-	syncerNeedsToBeReInitialized bool
-
-	fileDeletionRoutineCancelFn   context.CancelFunc
+	cloudConn                     rpc.ClientConn
+	cloudConnSvc                  cloud.ConnectionService
+	datasyncBackgroundWorkers     sync.WaitGroup
 	fileDeletionBackgroundWorkers *sync.WaitGroup
-
-	captureManager *data.CaptureManager
+	fileDeletionRoutineCancelFn   context.CancelFunc
+	fileLastModifiedMillis        int
+	filesToSync                   chan string
+	maxSyncThreads                int
+	propagateDataSyncConfigWG     sync.WaitGroup
+	selectiveSyncEnabled          bool
+	syncConfigUpdated             bool
+	syncDisabled                  bool
+	syncIntervalMins              float64
+	syncPaths                     []string
+	syncRoutineCancelFn           context.CancelFunc
+	syncSensor                    selectiveSyncer
+	syncTicker                    *clk.Ticker
+	syncer                        datasync.Manager
+	syncerConstructor             datasync.ManagerConstructor
+	syncerNeedsToBeReInitialized  bool
+	tags                          []string
 }
 
 // NewBuiltIn returns a new data manager service for the given robot.
@@ -264,13 +266,13 @@ func (svc *builtIn) Reconfigure(
 		return err
 	}
 
-	dataConfig := data.Config{
+	captureConfig := data.CaptureConfig{
 		CaptureDisabled:             svcConfig.CaptureDisabled,
 		CaptureDir:                  svcConfig.CaptureDir,
 		Tags:                        svcConfig.Tags,
 		MaximumCaptureFileSizeBytes: svcConfig.MaximumCaptureFileSizeBytes,
 	}
-	if err = svc.captureManager.Reconfigure(ctx, deps, conf, dataConfig); err != nil {
+	if err = svc.captureManager.ReconfigureCapture(ctx, deps, conf, captureConfig); err != nil {
 		svc.logger.Warnw("DataCapture reconfigure error", "err", err)
 		return err
 	}
