@@ -9,6 +9,7 @@ import (
 	"net"
 	"os"
 	"path"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -3518,17 +3519,53 @@ func TestSendTriggerConfig(t *testing.T) {
 	test.That(t, len(actualR.triggerConfig), test.ShouldEqual, 1)
 }
 
+func assertContents(t *testing.T, path, expectedContents string) {
+	t.Helper()
+	contents, err := os.ReadFile(path)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, contents, test.ShouldResemble, []byte(expectedContents))
+}
+
 func TestRestartModule(t *testing.T) {
 	ctx := context.Background()
 	logger := logging.NewTestLogger(t)
-	simplePath := rtestutils.BuildTempModule(t, "examples/customresources/demos/simplemodule")
-	mod := &config.Module{Name: "restartSingleModule-test", ExePath: simplePath, Type: config.ModuleTypeLocal}
-	r := setupLocalRobot(t, ctx, &config.Config{Modules: []config.Module{*mod}}, logger)
-	test.That(t, mod.LocalVersion, test.ShouldBeEmpty)
 
-	// test restart. note: we're not testing that the PID rolls over because we don't have access to
-	// that state. 'no error' + 'version incremented' is a cheap proxy for that.
-	err := r.(*localRobot).restartSingleModule(ctx, mod)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, mod.LocalVersion, test.ShouldResemble, "0.0.1")
+	t.Run("isRunning=false", func(t *testing.T) {
+		tmp := t.TempDir()
+		badExePath := filepath.Join(tmp, "/nosuchexe")
+		const bash = `#!/usr/bin/env bash
+		echo STARTED > result.txt
+		echo exiting right away
+		`
+		os.WriteFile(badExePath, []byte(bash), 0o700)
+		mod := &config.Module{Name: "restartSingleModule-test", ExePath: badExePath, Type: config.ModuleTypeLocal}
+		r := setupLocalRobot(t, ctx, &config.Config{Modules: []config.Module{*mod}}, logger)
+		test.That(t, mod.LocalVersion, test.ShouldBeEmpty)
+
+		// make sure this started + failed
+		outputPath := filepath.Join(tmp, "result.txt")
+		assertContents(t, outputPath, "STARTED\n")
+		// clear this so the restart attempt writes it again
+		test.That(t, os.Remove(outputPath), test.ShouldBeNil)
+
+		// confirm that we don't error
+		err := r.RestartModule(ctx, robot.RestartModuleRequest{ModuleName: mod.Name})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, r.(*localRobot).localModuleVersions[mod.Name].String(), test.ShouldResemble, "0.0.1")
+		// make sure it really ran again
+		assertContents(t, outputPath, "STARTED\n")
+	})
+
+	t.Run("isRunning=true", func(t *testing.T) {
+		logger, _ := logging.NewObservedTestLogger(t)
+		simplePath := rtestutils.BuildTempModule(t, "examples/customresources/demos/simplemodule")
+		mod := &config.Module{Name: "restartSingleModule-test", ExePath: simplePath, Type: config.ModuleTypeLocal}
+		r := setupLocalRobot(t, ctx, &config.Config{Modules: []config.Module{*mod}}, logger)
+
+		// test restart. note: we're not testing that the PID rolls over because we don't have access to
+		// that state. 'no error' + 'version incremented' is a cheap proxy for that.
+		err := r.RestartModule(ctx, robot.RestartModuleRequest{ModuleName: mod.Name})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, r.(*localRobot).localModuleVersions[mod.Name].String(), test.ShouldResemble, "0.0.1")
+	})
 }
