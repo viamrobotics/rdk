@@ -10,10 +10,10 @@ import (
 	"io"
 	"net"
 	"net/url"
-	"sync"
 	"time"
 
 	"go.viam.com/rdk/logging"
+	"go.viam.com/rdk/utils"
 )
 
 const (
@@ -22,13 +22,11 @@ const (
 
 // VRS contains the VRS.
 type VRS struct {
-	ntripInfo               *NtripInfo
-	readerWriter            *bufio.ReadWriter
-	conn                    net.Conn
-	activeBackgroundWorkers sync.WaitGroup
-	cancelCtx               context.Context
-	cancelFunc              func()
-	logger                  logging.Logger
+	ntripInfo    *NtripInfo
+	readerWriter *bufio.ReadWriter
+	conn         net.Conn
+	workers      utils.StoppableWorkers
+	logger       logging.Logger
 }
 
 // ConnectToVirtualBase is responsible for establishing a connection to
@@ -72,8 +70,7 @@ func ConnectToVirtualBase(ctx context.Context, ntripInfo *NtripInfo, logger logg
 
 	logger.Debugf("request header: %v\n", httpHeaders)
 	logger.Debug("HTTP headers sent successfully.")
-	cancelCtx, cancel := context.WithCancel(ctx)
-	vrs := &VRS{ntripInfo: ntripInfo, readerWriter: rw, conn: conn, cancelCtx: cancelCtx, cancelFunc: cancel, logger: logger}
+	vrs := &VRS{ntripInfo: ntripInfo, readerWriter: rw, conn: conn, logger: logger}
 	return vrs, nil
 }
 
@@ -91,22 +88,24 @@ func HasVRSStream(sourceTable *Sourcetable, mountPoint string) (bool, error) {
 
 // Close closes the VRS connection and any other background threads.
 func (vrs *VRS) Close() error {
-	vrs.cancelFunc()
-	vrs.activeBackgroundWorkers.Wait()
+	vrs.workers.Stop()
 	return vrs.conn.Close()
 }
 
 // StartGGAThread starts a thread that writes GGA messages to the VRS.
 func (vrs *VRS) StartGGAThread(getGGA func() (string, error)) {
-	vrs.activeBackgroundWorkers.Add(1)
-	go func() {
-		defer vrs.activeBackgroundWorkers.Done()
+	if vrs.workers != nil {
+		// ensure the previous worker is stopped and begin a new one
+		vrs.workers.Stop()
+	}
+
+	vrs.workers = utils.NewStoppableWorkers(func(cancelCtx context.Context) {
 		ticker := time.NewTicker(time.Duration(vrsGGARateSec) * time.Second)
 		defer ticker.Stop()
 
 		for {
 			select {
-			case <-vrs.cancelCtx.Done():
+			case <-cancelCtx.Done():
 				return
 			case <-ticker.C:
 				// We currently only write the GGA message when we try to reconnect to VRS. Some documentation for VRS states that we
@@ -127,7 +126,7 @@ func (vrs *VRS) StartGGAThread(getGGA func() (string, error)) {
 				}
 			}
 		}
-	}()
+	})
 }
 
 // ReadLine reads a line from the vrs's readerWriter.
