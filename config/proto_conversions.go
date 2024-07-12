@@ -936,7 +936,7 @@ func logAnyFragmentOverwriteErrors(logger logging.Logger, overwriteFragmentStatu
 }
 
 // LogConfigToProto converts a LoggerPatternConfig type to its proto equivalent.
-func LogConfigToProto(logConfig LoggerPatternConfig) (*pb.LogPatternConfig, error) {
+func LogConfigToProto(logConfig *LoggerPatternConfig) (*pb.LogPatternConfig, error) {
 	return &pb.LogPatternConfig{
 		Pattern: logConfig.Pattern,
 		Level:   logConfig.Level,

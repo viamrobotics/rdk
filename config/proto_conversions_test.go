@@ -272,7 +272,7 @@ func TestPackageConfigConversions(t *testing.T) {
 }
 
 func TestLogConfigConversions(t *testing.T) {
-	proto, err := LogConfigToProto(testLogConfig)
+	proto, err := LogConfigToProto(&testLogConfig)
 	test.That(t, err, test.ShouldBeNil)
 
 	out, err := LogConfigFromProto(proto)
