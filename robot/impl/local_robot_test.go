@@ -3594,8 +3594,8 @@ func TestRestartModule(t *testing.T) {
 
 		// test restart. note: we're not testing that the PID rolls over because we don't have access to
 		// that state. 'no error' + 'version incremented' is a cheap proxy for that.
-		err := r.(*localRobot).restartSingleModule(ctx, mod, true)
+		err := r.RestartModule(ctx, robot.RestartModuleRequest{ModuleName: mod.Name})
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, mod.LocalVersion, test.ShouldResemble, "0.0.1")
+		test.That(t, r.(*localRobot).localModuleVersions[mod.Name].String(), test.ShouldResemble, "0.0.1")
 	})
 }
