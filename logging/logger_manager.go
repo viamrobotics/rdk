@@ -6,7 +6,7 @@ import (
 )
 
 type loggerRegistry struct {
-	mu      sync.Mutex
+	mu      sync.RWMutex
 	loggers map[string]Logger
 	names   map[Logger]string
 }
@@ -28,22 +28,22 @@ func (lr *loggerRegistry) registerLogger(name string, logger Logger) {
 }
 
 func (lr *loggerRegistry) nameOf(logger Logger) (name string, ok bool) {
-	lr.mu.Lock()
-	defer lr.mu.Unlock()
+	lr.mu.RLock()
+	defer lr.mu.RUnlock()
 	name, ok = lr.names[logger]
 	return name, ok
 }
 
 func (lr *loggerRegistry) loggerNamed(name string) (logger Logger, ok bool) {
-	lr.mu.Lock()
-	defer lr.mu.Unlock()
+	lr.mu.RLock()
+	defer lr.mu.RUnlock()
 	logger, ok = lr.loggers[name]
 	return logger, ok
 }
 
 func (lr *loggerRegistry) updateLoggerLevel(name string, level Level) error {
-	lr.mu.Lock()
-	defer lr.mu.Unlock()
+	lr.mu.RLock()
+	defer lr.mu.RUnlock()
 	logger, ok := lr.loggers[name]
 	if !ok {
 		return fmt.Errorf("logger named %s not recognized", name)
