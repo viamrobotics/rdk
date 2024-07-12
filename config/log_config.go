@@ -39,6 +39,7 @@ func UpdateLoggerRegistry(logConfig []LoggerPatternConfig, loggerRegistry map[st
 		}
 
 		var matcher strings.Builder
+		matcher.WriteRune('^')
 		for _, ch := range lpc.Pattern {
 			switch ch {
 			case '*':
@@ -49,6 +50,7 @@ func UpdateLoggerRegistry(logConfig []LoggerPatternConfig, loggerRegistry map[st
 				matcher.WriteRune(ch)
 			}
 		}
+		matcher.WriteRune('$')
 		r, err := regexp.Compile(matcher.String())
 		if err != nil {
 			return nil, err
