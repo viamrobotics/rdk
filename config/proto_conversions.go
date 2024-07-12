@@ -87,6 +87,11 @@ func FromProto(proto *pb.RobotConfig, logger logging.Logger) (*Config, error) {
 
 	cfg.EnableWebProfile = proto.EnableWebProfile
 
+	cfg.LogConfig, err = toRDKSlice(proto.Log, LogConfigFromProto, disablePartialStart, logger)
+	if err != nil {
+		return nil, errors.Wrap(err, "error converting log config from proto")
+	}
+
 	logAnyFragmentOverwriteErrors(logger, proto.OverwriteFragmentStatus)
 
 	return &cfg, nil
@@ -939,8 +944,8 @@ func LogConfigToProto(logConfig LoggerPatternConfig) (*pb.LogPatternConfig, erro
 }
 
 // LogConfigFromProto converts a proto LoggerPatternConfig to the rdk version.
-func LogConfigFromProto(proto *pb.LogPatternConfig) (LoggerPatternConfig, error) {
-	return LoggerPatternConfig{
+func LogConfigFromProto(proto *pb.LogPatternConfig) (*LoggerPatternConfig, error) {
+	return &LoggerPatternConfig{
 		Pattern: proto.Pattern,
 		Level:   proto.Level,
 	}, nil

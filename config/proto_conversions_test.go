@@ -278,7 +278,7 @@ func TestLogConfigConversions(t *testing.T) {
 	out, err := LogConfigFromProto(proto)
 	test.That(t, err, test.ShouldBeNil)
 
-	test.That(t, testLogConfig, test.ShouldResemble, out)
+	test.That(t, testLogConfig, test.ShouldResemble, *out)
 }
 
 func TestModuleConfigToProto(t *testing.T) {
