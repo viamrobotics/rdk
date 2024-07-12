@@ -19,7 +19,6 @@ import (
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.uber.org/zap"
-
 	// registers all components.
 	commonpb "go.viam.com/api/common/v1"
 	armpb "go.viam.com/api/component/arm/v1"
@@ -3567,7 +3566,7 @@ func TestRestartModule(t *testing.T) {
 		echo STARTED > result.txt
 		echo exiting right away
 		`
-		os.WriteFile(badExePath, []byte(bash), 0700)
+		os.WriteFile(badExePath, []byte(bash), 0o700)
 		mod := &config.Module{Name: "restartSingleModule-test", ExePath: badExePath, Type: config.ModuleTypeLocal}
 		r := setupLocalRobot(t, ctx, &config.Config{Modules: []config.Module{*mod}}, logger)
 		test.That(t, mod.LocalVersion, test.ShouldBeEmpty)
