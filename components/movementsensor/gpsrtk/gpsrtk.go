@@ -209,7 +209,7 @@ func (g *gpsrtk) getStream() (io.Reader, error) {
 		if err != nil {
 			return nil, err
 		}
-		return io.TeeReader(g.vrs.ReaderWriter, g.correctionWriter), nil
+		return io.TeeReader(g.vrs.GetReaderWriter(), g.correctionWriter), nil
 	}
 	g.logger.Debug("connecting to NTRIP stream........")
 	err := g.getStreamFromMountPoint(g.ntripClient.MountPoint, g.ntripClient.MaxConnectAttempts)
@@ -483,14 +483,8 @@ func (g *gpsrtk) getNtripFromVRS() error {
 	// read from the socket until we know if a successful connection has been
 	// established.
 	for {
-		line, _, err := g.vrs.ReaderWriter.ReadLine()
-		response := string(line)
+		response, err := g.vrs.ReadLine()
 		if err != nil {
-			if errors.Is(err, io.EOF) {
-				g.vrs.ReaderWriter = nil
-				return err
-			}
-			g.logger.Error("Failed to read server response:", err)
 			return err
 		}
 
@@ -515,13 +509,7 @@ func (g *gpsrtk) getNtripFromVRS() error {
 
 	g.logger.Debugf("Writing GGA message: %v\n", ggaMessage)
 
-	_, err = g.vrs.ReaderWriter.WriteString(ggaMessage)
-	if err != nil {
-		g.logger.Error("Failed to send NMEA data:", err)
-		return err
-	}
-
-	err = g.vrs.ReaderWriter.Flush()
+	err = g.vrs.WriteLine(ggaMessage)
 	if err != nil {
 		g.logger.Error("failed to write to buffer: ", err)
 		return err

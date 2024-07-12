@@ -5,7 +5,9 @@ import (
 	"bufio"
 	"context"
 	"encoding/base64"
+	"errors"
 	"fmt"
+	"io"
 	"net"
 	"net/url"
 	"sync"
@@ -17,8 +19,8 @@ import (
 // VRS contains the VRS.
 type VRS struct {
 	ntripInfo               *NtripInfo
-	ReaderWriter            *bufio.ReadWriter
-	Conn                    net.Conn
+	readerWriter            *bufio.ReadWriter
+	conn                    net.Conn
 	activeBackgroundWorkers sync.WaitGroup
 	cancelCtx               context.Context
 	cancelFunc              func()
@@ -67,7 +69,7 @@ func ConnectToVirtualBase(ctx context.Context, ntripInfo *NtripInfo, logger logg
 	logger.Debugf("request header: %v\n", httpHeaders)
 	logger.Debug("HTTP headers sent successfully.")
 	cancelCtx, cancel := context.WithCancel(ctx)
-	vrs := &VRS{ntripInfo: ntripInfo, ReaderWriter: rw, Conn: conn, cancelCtx: cancelCtx, cancelFunc: cancel, logger: logger}
+	vrs := &VRS{ntripInfo: ntripInfo, readerWriter: rw, conn: conn, cancelCtx: cancelCtx, cancelFunc: cancel, logger: logger}
 	return vrs, nil
 }
 
@@ -87,7 +89,7 @@ func HasVRSStream(sourceTable *Sourcetable, mountPoint string) (bool, error) {
 func (vrs *VRS) Close() error {
 	vrs.cancelFunc()
 	vrs.activeBackgroundWorkers.Wait()
-	return vrs.Conn.Close()
+	return vrs.conn.Close()
 }
 
 // StartGGAThread starts a thread that writes GGA messages to the VRS.
@@ -114,13 +116,7 @@ func (vrs *VRS) StartGGAThread(ggaFunc func() (string, error)) {
 
 				vrs.logger.Debugf("Writing GGA message: %v\n", ggaMessage)
 
-				_, err = vrs.ReaderWriter.WriteString(ggaMessage)
-				if err != nil {
-					vrs.logger.Error("Failed to send NMEA data:", err)
-					continue
-				}
-
-				err = vrs.ReaderWriter.Flush()
+				err = vrs.WriteLine(ggaMessage)
 				if err != nil {
 					vrs.logger.Error("failed to write to buffer: ", err)
 					continue
@@ -128,4 +124,37 @@ func (vrs *VRS) StartGGAThread(ggaFunc func() (string, error)) {
 			}
 		}
 	}()
+}
+
+// ReadLine reads a line from the vrs's readerWriter.
+func (vrs *VRS) ReadLine() (string, error) {
+	line, _, err := vrs.readerWriter.ReadLine()
+	if err != nil {
+		if errors.Is(err, io.EOF) {
+			vrs.readerWriter = nil
+			return "", err
+		}
+		vrs.logger.Error("Failed to read server response: ", err)
+		return "", err
+	}
+	return string(line), nil
+}
+
+// WriteLine writes a line to the vrs's readerWriter.
+func (vrs *VRS) WriteLine(line string) error {
+	_, err := vrs.readerWriter.WriteString(line)
+	if err != nil {
+		return err
+	}
+
+	err = vrs.readerWriter.Flush()
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+// GetReaderWriter gets the readerWriter that wraps the tcp connection for the VRS.
+func (vrs *VRS) GetReaderWriter() *bufio.ReadWriter {
+	return vrs.readerWriter
 }
