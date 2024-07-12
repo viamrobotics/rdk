@@ -16,6 +16,10 @@ import (
 	"go.viam.com/rdk/logging"
 )
 
+const (
+	vrsGGARateSec = 20 // rate to send GGA messages to the VRS in seconds
+)
+
 // VRS contains the VRS.
 type VRS struct {
 	ntripInfo               *NtripInfo
@@ -97,7 +101,7 @@ func (vrs *VRS) StartGGAThread(ggaFunc func() (string, error)) {
 	vrs.activeBackgroundWorkers.Add(1)
 	go func() {
 		defer vrs.activeBackgroundWorkers.Done()
-		ticker := time.NewTicker(time.Duration(1000.*20) * time.Millisecond)
+		ticker := time.NewTicker(time.Duration(vrsGGARateSec) * time.Second)
 		defer ticker.Stop()
 
 		for {
