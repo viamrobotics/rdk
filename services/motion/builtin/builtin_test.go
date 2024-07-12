@@ -1062,7 +1062,6 @@ func TestCheckPlan(t *testing.T) {
 		test.That(t, strings.Contains(err.Error(), "found constraint violation or collision in segment between"), test.ShouldBeTrue)
 	})
 
-	remainingPlan, err := motionplan.RemainingPlan(plan, 2)
 	currentInputs = map[string][]referenceframe.Input{
 		mr.kinematicBase.Kinematics().Name(): {
 			{Value: 0}, // ptg index
@@ -1071,24 +1070,24 @@ func TestCheckPlan(t *testing.T) {
 			{Value: 0}, // end distace along trajectory index
 		},
 		mr.kinematicBase.LocalizationFrame().Name(): {
-			{Value: 2727.25}, // X
-			{Value: 0},       // Y
-			{Value: 0},       // Z
-			{Value: 0},       // OX
-			{Value: 0},       // OY
-			{Value: 1},       // OZ
-			{Value: -90},     // Theta
+			{Value: 2779.937}, // X
+			{Value: 0},        // Y
+			{Value: 0},        // Z
+			{Value: 0},        // OX
+			{Value: 0},        // OY
+			{Value: 1},        // OZ
+			{Value: -90},      // Theta
 		},
 		cameraFrame.Name(): referenceframe.FloatsToInputs(make([]float64, len(cameraFrame.DoF()))),
 	}
 	currentPoses := map[string]*referenceframe.PoseInFrame{
 		mr.kinematicBase.LocalizationFrame().Name(): referenceframe.NewPoseInFrame(referenceframe.World, spatialmath.NewPose(
-			r3.Vector{X: 2727.25, Y: 0, Z: 0},
+			r3.Vector{X: 2779.937, Y: 0, Z: 0},
 			&spatialmath.OrientationVectorDegrees{OZ: 1, Theta: -90},
 		)),
 	}
 
-	newExecutionState, err := motionplan.NewExecutionState(remainingPlan, 0, currentInputs, currentPoses)
+	newExecutionState, err := motionplan.NewExecutionState(plan, 2, currentInputs, currentPoses)
 	test.That(t, err, test.ShouldBeNil)
 	updatedExecutionState, err := mr.augmentBaseExecutionState(newExecutionState)
 	test.That(t, err, test.ShouldBeNil)

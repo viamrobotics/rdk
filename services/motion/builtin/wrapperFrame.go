@@ -11,7 +11,6 @@ import (
 )
 
 // WrapperFrame is a frame which merges the planning and localization frames of a PTG base.
-// This struct is used so that we do not break abstractions made in CheckPlan.
 type wrapperFrame struct {
 	name              string
 	localizationFrame referenceframe.Frame
@@ -52,7 +51,7 @@ func (wf *wrapperFrame) Transform(inputs []referenceframe.Input) (spatialmath.Po
 	if err != nil {
 		return nil, err
 	}
-	return spatialmath.Compose(executionFramePose, localizationFramePose), nil
+	return spatialmath.Compose(localizationFramePose, executionFramePose), nil
 }
 
 // Interpolate interpolates the given amount between the two sets of inputs.
@@ -70,7 +69,7 @@ func (wf *wrapperFrame) Interpolate(from, to []referenceframe.Input, by float64)
 	// the latter seven values correspond to pose(localization) frame values we want the interpolate
 
 	// executionFrame interpolation
-	executionFrameFromSubset := from[:len(wf.executionFrame.DoF())]
+	executionFrameFromSubset := make([]referenceframe.Input, len(wf.executionFrame.DoF()))
 	executionFrameToSubset := to[:len(wf.executionFrame.DoF())]
 	interpSub, err := wf.executionFrame.Interpolate(executionFrameFromSubset, executionFrameToSubset, by)
 	if err != nil {

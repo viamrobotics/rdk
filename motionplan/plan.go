@@ -313,11 +313,11 @@ func (e *ExecutionState) CurrentPoses() map[string]*referenceframe.PoseInFrame {
 func CalculateFrameErrorState(e ExecutionState, executionFrame, localizationFrame referenceframe.Frame) (spatialmath.Pose, error) {
 	currentInputs, ok := e.CurrentInputs()[executionFrame.Name()]
 	if !ok {
-		return nil, fmt.Errorf("1could not find frame %s in ExecutionState", executionFrame.Name())
+		return nil, newFrameNotFoundError(executionFrame.Name())
 	}
 	currentPose, ok := e.CurrentPoses()[localizationFrame.Name()]
 	if !ok {
-		return nil, fmt.Errorf("2could not find frame %s in ExecutionState", localizationFrame.Name())
+		return nil, newFrameNotFoundError(localizationFrame.Name())
 	}
 	currPoseInArc, err := executionFrame.Transform(currentInputs)
 	if err != nil {
@@ -336,11 +336,16 @@ func CalculateFrameErrorState(e ExecutionState, executionFrame, localizationFram
 	}
 	pose, ok := path[index][executionFrame.Name()]
 	if !ok {
-		return nil, fmt.Errorf("could not find frame %s in ExecutionState", executionFrame.Name())
+		return nil, newFrameNotFoundError(executionFrame.Name())
 	}
 	if pose.Parent() != currentPose.Parent() {
 		return nil, errors.New("cannot compose two PoseInFrames with different parents")
 	}
 	nominalPose := spatialmath.Compose(pose.Pose(), currPoseInArc)
 	return spatialmath.PoseBetween(nominalPose, currentPose.Pose()), nil
+}
+
+// newFrameNotFoundError returns an error indicating that a given frame was not found in the given ExecutionState.
+func newFrameNotFoundError(frameName string) error {
+	return fmt.Errorf("could not find frame %s in ExecutionState", frameName)
 }

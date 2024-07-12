@@ -14,10 +14,7 @@ import (
 	"go.viam.com/rdk/spatialmath"
 )
 
-var (
-	errCheckFrameNotInPath = errors.New("checkFrame given not in plan.Path() map")
-	ptgDoFLen              = 4
-)
+var errCheckFrameNotInPath = errors.New("checkFrame given not in plan.Path() map")
 
 // CheckPlan checks if obstacles intersect the trajectory of the frame following the plan. If one is
 // detected, the interpolated position of the rover when a collision is detected is returned along
@@ -233,18 +230,8 @@ func checkPlanRelative(
 			return err
 		}
 		thisArcEndPose := spatialmath.Compose(thisArcEndPoseInWorld.Pose(), errorState)
-		startInputs := map[string][]referenceframe.Input{}
-		for k, v := range plan.Trajectory()[i] {
-			if k == checkFrame.Name() {
-				// Starting inputs for relative frames should be all-zero
-				correctedInputs := make([]referenceframe.Input, ptgDoFLen)
-				correctedInputs = append(correctedInputs, v[ptgDoFLen:]...)
-				startInputs[k] = correctedInputs
-			} else {
-				startInputs[k] = v
-			}
-		}
-		nextInputs := plan.Trajectory()[i]
+		startInputs := plan.Trajectory()[i]
+		nextInputs := startInputs
 		segment, err := createSegment(sf, lastArcEndPose, thisArcEndPose, startInputs, nextInputs)
 		if err != nil {
 			return err
