@@ -170,7 +170,7 @@ type internalRemoteRobot interface {
 
 // updateRemoteResourceNames is called when the Remote robot has changed (either connection or disconnection).
 // It will pull the current remote resources and update the resource tree adding or removing nodes accordingly.
-// The recreateAllClients flag will re-add all remote resource nodes if true and only new / uninitalized
+// The recreateAllClients flag will re-add all remote resource nodes if true and only new / uninitialized
 // resource names if false. If any local resources are dependent on a remote resource two things can happen
 //  1. The remote resource already is in the tree and nothing will happen.
 //  2. A remote resource is being deleted but a local resource depends on it; it will be removed
@@ -213,19 +213,24 @@ func (manager *resourceManager) updateRemoteResourceNames(
 		if _, alreadyCurrent := activeResourceNames[resName]; alreadyCurrent {
 			activeResourceNames[resName] = true
 			if ok && !gNode.IsUninitialized() {
+				// resources that enter this block represent those with names that already exist in the resource graph.
+				// it is possible that we are switching to a new remote with a identical resource name(s), so we may
+				// need to create these resource clients.
 				if !recreateAllClients {
+					// ticker event, likely no changes to remote resources, skip closing and readding duplicate name resource clients
 					continue
 				}
+				// reconfiguration attempt, remote could have changed, so close all duplicate name remote resource clients and readd new ones later
 				if err := manager.markChildrenForUpdate(resName); err != nil {
 					manager.logger.CErrorw(ctx,
-						"failed to mark children of remote for update",
+						"failed to mark children of remote resource for update",
 						"resource", resName,
 						"reason", err)
 					continue
 				}
 				if err := gNode.Close(ctx); err != nil {
 					manager.logger.CErrorw(ctx,
-						"failed to close remote node",
+						"failed to close remote resource node",
 						"resource", resName,
 						"reason", err)
 				}
