@@ -97,7 +97,7 @@ func (vrs *VRS) Close() error {
 }
 
 // StartGGAThread starts a thread that writes GGA messages to the VRS.
-func (vrs *VRS) StartGGAThread(ggaFunc func() (string, error)) {
+func (vrs *VRS) StartGGAThread(getGGA func() (string, error)) {
 	vrs.activeBackgroundWorkers.Add(1)
 	go func() {
 		defer vrs.activeBackgroundWorkers.Done()
@@ -112,7 +112,7 @@ func (vrs *VRS) StartGGAThread(ggaFunc func() (string, error)) {
 				// We currently only write the GGA message when we try to reconnect to VRS. Some documentation for VRS states that we
 				// should try to send a GGA message every 5-60 seconds, but more testing is needed to determine if that is required.
 				// get the GGA message from cached data
-				ggaMessage, err := ggaFunc()
+				ggaMessage, err := getGGA()
 				if err != nil {
 					vrs.logger.Error("Failed to get GGA message: ", err)
 					continue
