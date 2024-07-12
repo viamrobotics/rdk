@@ -3520,27 +3520,74 @@ func TestSendTriggerConfig(t *testing.T) {
 	test.That(t, len(actualR.triggerConfig), test.ShouldEqual, 1)
 }
 
+// // waitForFile waits up to timeout for a file to appear at path, and returns its contents.
+// func waitForFile(t *testing.T, ctx context.Context, path string, timeout time.Duration) []byte {
+// 	t.Helper()
+// 	watcher, err := fsnotify.NewWatcher()
+// 	test.That(t, err, test.ShouldBeNil)
+// 	defer watcher.Close()
+// 	err = watcher.Add(path)
+// 	test.That(t, err, test.ShouldBeNil)
+// 	ctx, cancel := context.WithTimeout(ctx, timeout)
+// 	defer cancel()
+// 	for {
+// 		select {
+// 		case event, ok := <-watcher.Events:
+// 			if !ok {
+// 				t.Error("fsnotify watcher failed")
+// 				return nil
+// 			}
+// 			if event.Name == path && event.Has(fsnotify.Write) {
+// 				contents, err := os.ReadFile(path)
+// 				test.That(t, err, test.ShouldBeNil)
+// 				return contents
+// 			}
+// 		case <-ctx.Done():
+// 			t.Errorf("waitForFile timed out for %s", path)
+// 			return nil
+// 		}
+// 	}
+// }
+
+func assertContents(t *testing.T, path, expectedContents string) {
+	t.Helper()
+	contents, err := os.ReadFile(path)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, contents, test.ShouldResemble, []byte(expectedContents))
+}
+
 func TestRestartModule(t *testing.T) {
 	ctx := context.Background()
 	logger := logging.NewTestLogger(t)
 
 	t.Run("isRunning=false", func(t *testing.T) {
-		// Config is missing the module to exercise the case where the module is not currently
-		// running and needs to be added instead of modified. Ideally we'd do an e2e test
-		// of the RestartModule call, but I think we don't have enough control of the process
-		// manager to do that simply.
-		badExePath := filepath.Join(t.TempDir(), "/nosuchexe")
-		os.WriteFile(badExePath, []byte("#!/usr/bin/env bash\necho exiting right away"), 0700)
+		tmp := t.TempDir()
+		badExePath := filepath.Join(tmp, "/nosuchexe")
+		const bash = `#!/usr/bin/env bash
+		echo STARTED > result.txt
+		echo exiting right away
+		`
+		os.WriteFile(badExePath, []byte(bash), 0700)
 		mod := &config.Module{Name: "restartSingleModule-test", ExePath: badExePath, Type: config.ModuleTypeLocal}
-		r := setupLocalRobot(t, ctx, &config.Config{}, logger)
+		r := setupLocalRobot(t, ctx, &config.Config{Modules: []config.Module{*mod}}, logger)
 		test.That(t, mod.LocalVersion, test.ShouldBeEmpty)
 
-		err := r.(*localRobot).restartSingleModule(ctx, mod, false)
+		// make sure this started + failed
+		outputPath := filepath.Join(tmp, "result.txt")
+		assertContents(t, outputPath, "STARTED\n")
+		// clear this so the restart attempt writes it again
+		test.That(t, os.Remove(outputPath), test.ShouldBeNil)
+
+		// confirm that we don't error
+		err := r.RestartModule(ctx, robot.RestartModuleRequest{ModuleName: mod.Name})
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, mod.LocalVersion, test.ShouldResemble, "0.0.1")
+		test.That(t, r.(*localRobot).localModuleVersions[mod.Name].String(), test.ShouldResemble, "0.0.1")
+		// make sure it really ran again
+		assertContents(t, outputPath, "STARTED\n")
 	})
 
 	t.Run("isRunning=true", func(t *testing.T) {
+		logger, _ := logging.NewObservedTestLogger(t)
 		simplePath := rtestutils.BuildTempModule(t, "examples/customresources/demos/simplemodule")
 		mod := &config.Module{Name: "restartSingleModule-test", ExePath: simplePath, Type: config.ModuleTypeLocal}
 		r := setupLocalRobot(t, ctx, &config.Config{Modules: []config.Module{*mod}}, logger)
