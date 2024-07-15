@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/golang/geo/r3"
+	pb "go.viam.com/api/component/arm/v1"
 	"go.viam.com/test"
 	"gonum.org/v1/gonum/num/quat"
 
@@ -58,8 +59,8 @@ func TestForwardKinematics(t *testing.T) {
 	_, err = m.Transform(frame.FloatsToInputs(make([]float64, 7)))
 	test.That(t, err, test.ShouldNotBeNil)
 
-	newPos := []float64{45, -45, 0, 0, 0, 0}
-	pos, err = m.Transform(frame.FloatsToInputs(newPos))
+	newPos := &pb.JointPositions{Values: []float64{45, -45, 0, 0, 0, 0}}
+	pos, err = m.Transform(m.InputFromProtobuf(newPos))
 	test.That(t, err, test.ShouldBeNil)
 	expect = spatial.NewPose(
 		r3.Vector{X: 181, Y: 181, Z: 303.76},
@@ -67,8 +68,8 @@ func TestForwardKinematics(t *testing.T) {
 	)
 	test.That(t, spatial.PoseAlmostEqualEps(expect, pos, 0.01), test.ShouldBeTrue)
 
-	newPos = []float64{-45, 0, 0, 0, 0, 45}
-	pos, err = m.Transform(frame.FloatsToInputs(newPos))
+	newPos = &pb.JointPositions{Values: []float64{-45, 0, 0, 0, 0, 45}}
+	pos, err = m.Transform(m.InputFromProtobuf(newPos))
 	test.That(t, err, test.ShouldBeNil)
 	expect = spatial.NewPose(
 		r3.Vector{X: 146.37, Y: -146.37, Z: 112},
@@ -76,15 +77,14 @@ func TestForwardKinematics(t *testing.T) {
 	)
 	test.That(t, spatial.PoseAlmostEqualEps(expect, pos, 0.01), test.ShouldBeTrue)
 
-	// Test out of bounds. Note that m.Transform(l return nil on OOB.
-	newPos = []float64{-45, 0, 0, 0, 0, 999}
-	pos, err = m.Transform(frame.FloatsToInputs(newPos))
-	test.That(t, pos, test.ShouldBeNil)
+	// Test out of bounds. Note that m.Transform will return error on OOB.
+	newPos = &pb.JointPositions{Values: []float64{-45, 0, 0, 0, 0, 999}}
+	_, err = m.Transform(m.InputFromProtobuf(newPos))
 	test.That(t, err, test.ShouldNotBeNil)
 
 	// Test out of bounds. Note that ComputeOOBPosition will NOT return nil on OOB.
-	newPos = []float64{-45, 0, 0, 0, 0, 999}
-	pos, err = frame.ComputePosition(m, frame.FloatsToInputs(newPos))
+	newPos = &pb.JointPositions{Values: []float64{-45, 0, 0, 0, 0, 999}}
+	pos, err = frame.ComputePosition(m, m.InputFromProtobuf(newPos))
 	expect = spatial.NewPose(
 		r3.Vector{X: 146.37, Y: -146.37, Z: 112},
 		&spatial.R4AA{Theta: math.Pi, RX: 0.31, RY: -0.95, RZ: 0},
