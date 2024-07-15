@@ -15,7 +15,7 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
-// Constants for map keys
+// Constants for map keys.
 const (
 	FixValueKey   = 1
 	SatsInViewKey = 2
