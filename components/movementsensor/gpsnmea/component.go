@@ -14,13 +14,6 @@ import (
 	"go.viam.com/rdk/spatialmath"
 )
 
-// Constants for map keys
-const (
-	FixValueKey   = 1
-	SatsInViewKey = 2
-	SatsInUseKey  = 3
-)
-
 // NMEAMovementSensor allows the use of any MovementSensor chip via a DataReader.
 type NMEAMovementSensor struct {
 	resource.Named
@@ -108,32 +101,6 @@ func (g *NMEAMovementSensor) ReadSatsInUse(ctx context.Context) (int, error) {
 	return g.cachedData.ReadSatsInUse(ctx)
 }
 
-// GetCommonReadings returns a map including fix value, sats in view and sats in use.
-func (g *NMEAMovementSensor) GetCommonReadings(ctx context.Context) (map[int]interface{}, error) {
-	commonReadings := make(map[int]interface{})
-
-	fixValue, err := g.cachedData.ReadFix(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	satsInView, err := g.cachedData.ReadSatsInView(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	satsInUse, err := g.cachedData.ReadSatsInUse(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	commonReadings[FixValueKey] = fixValue
-	commonReadings[SatsInViewKey] = satsInView
-	commonReadings[SatsInUseKey] = satsInUse
-
-	return commonReadings, nil
-}
-
 // Readings will use return all of the MovementSensor Readings.
 func (g *NMEAMovementSensor) Readings(
 	ctx context.Context, extra map[string]interface{},
@@ -143,14 +110,14 @@ func (g *NMEAMovementSensor) Readings(
 		return nil, err
 	}
 
-	commonReadings, err := g.GetCommonReadings(ctx)
+	commonReadings, err := g.cachedData.GetCommonReadings(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	readings["fix"] = commonReadings[FixValueKey]
-	readings["satellites_in_view"] = commonReadings[SatsInViewKey]
-	readings["satellites_in_use"] = commonReadings[SatsInUseKey]
+	readings["fix"] = commonReadings[gpsutils.FixValueKey]
+	readings["satellites_in_view"] = commonReadings[gpsutils.SatsInViewKey]
+	readings["satellites_in_use"] = commonReadings[gpsutils.SatsInUseKey]
 
 	return readings, nil
 }

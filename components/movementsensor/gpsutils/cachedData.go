@@ -15,6 +15,13 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
+// Constants for map keys
+const (
+	FixValueKey   = 1
+	SatsInViewKey = 2
+	SatsInUseKey  = 3
+)
+
 var errNilLocation = errors.New("nil gps location, check nmea message parsing")
 
 // DataReader represents a way to get data from a GPS NMEA device. We can read data from it using
@@ -229,6 +236,32 @@ func (g *CachedData) ReadSatsInUse(ctx context.Context) (int, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 	return g.nmeaData.SatsInUse, nil
+}
+
+// GetCommonReadings returns a map including fix value, sats in view and sats in use.
+func (g *CachedData) GetCommonReadings(ctx context.Context) (map[int]interface{}, error) {
+	commonReadings := make(map[int]interface{})
+
+	fixValue, err := g.ReadFix(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	satsInView, err := g.ReadSatsInView(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	satsInUse, err := g.ReadSatsInUse(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	commonReadings[FixValueKey] = fixValue
+	commonReadings[SatsInViewKey] = satsInView
+	commonReadings[SatsInUseKey] = satsInUse
+
+	return commonReadings, nil
 }
 
 // Properties returns what movement sensor capabilities we have.
