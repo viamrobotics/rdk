@@ -749,33 +749,12 @@ func TestStopAll(t *testing.T) {
 	test.That(t, stopAllErr, test.ShouldBeNil)
 }
 
-type dummyBoard struct {
-	board.Board
-	closeCount int
-}
-
-func (db *dummyBoard) Name() resource.Name {
-	return board.Named("bad")
-}
-
-func (db *dummyBoard) AnalogNames() []string {
-	return nil
-}
-
-func (db *dummyBoard) DigitalInterruptNames() []string {
-	return nil
-}
-
-func (db *dummyBoard) Close(ctx context.Context) error {
-	db.closeCount++
-	return nil
-}
-
 func TestNewTeardown(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 
 	model := resource.DefaultModelFamily.WithModel(utils.RandomAlphaString(8))
-	var dummyBoard1 dummyBoard
+
+	var closeCount int
 	resource.RegisterComponent(
 		board.API,
 		model,
@@ -785,7 +764,12 @@ func TestNewTeardown(t *testing.T) {
 			conf resource.Config,
 			logger logging.Logger,
 		) (board.Board, error) {
-			return &dummyBoard1, nil
+			return &inject.Board{
+				CloseFunc: func(ctx context.Context) error {
+					closeCount++
+					return nil
+				},
+			}, nil
 		}})
 	resource.RegisterComponent(
 		gripper.API,
@@ -826,7 +810,7 @@ func TestNewTeardown(t *testing.T) {
 	ctx := context.Background()
 	r := setupLocalRobot(t, ctx, cfg, logger)
 	test.That(t, r.Close(ctx), test.ShouldBeNil)
-	test.That(t, dummyBoard1.closeCount, test.ShouldEqual, 1)
+	test.That(t, closeCount, test.ShouldEqual, 1)
 }
 
 func TestMetadataUpdate(t *testing.T) {
