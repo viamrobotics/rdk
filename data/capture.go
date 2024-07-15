@@ -112,7 +112,7 @@ func (cm *CaptureManager) ReconfigureCapture(
 	config resource.Config,
 	captureConfig CaptureConfig,
 ) error {
-	dataCollectorConfigsByResource, err := cm.getDataCollectorConfigs(deps, config)
+	dataCollectorConfigsByResource, err := cm.getDataCollectorConfigs(deps, config, captureConfig.CaptureDir)
 	if err != nil {
 		return err
 	}
@@ -339,6 +339,7 @@ func (cm *CaptureManager) initializeOrUpdateCollector(
 func (cm *CaptureManager) getDataCollectorConfigs(
 	resources resource.Dependencies,
 	conf resource.Config,
+	captureDir string,
 ) (map[resource.Resource][]datamanager.DataCaptureConfig, error) {
 	resourceCaptureConfigMap := make(map[resource.Resource][]datamanager.DataCaptureConfig)
 	for name, assocCfg := range conf.AssociatedAttributes {
@@ -353,7 +354,12 @@ func (cm *CaptureManager) getDataCollectorConfigs(
 			continue
 		}
 
-		resourceCaptureConfigMap[res] = append([]datamanager.DataCaptureConfig{}, associatedConf.CaptureMethods...)
+		captureCopies := make([]datamanager.DataCaptureConfig, len(associatedConf.CaptureMethods))
+		for _, method := range associatedConf.CaptureMethods {
+			method.CaptureDirectory = captureDir
+			captureCopies = append(captureCopies, method)
+		}
+		resourceCaptureConfigMap[res] = captureCopies
 	}
 	return resourceCaptureConfigMap, nil
 }
