@@ -61,33 +61,42 @@ func NewZapLoggerConfig() zap.Config {
 
 // NewLogger returns a new logger that outputs Info+ logs to stdout in UTC.
 func NewLogger(name string) Logger {
-	return &impl{
+	logger := &impl{
 		name:       name,
 		level:      NewAtomicLevelAt(INFO),
 		appenders:  []Appender{NewStdoutAppender()},
 		testHelper: func() {},
 	}
+
+	loggerManager.registerLogger(name, logger)
+	return logger
 }
 
 // NewDebugLogger returns a new logger that outputs Debug+ logs to stdout in UTC.
 func NewDebugLogger(name string) Logger {
-	return &impl{
+	logger := &impl{
 		name:       name,
 		level:      NewAtomicLevelAt(DEBUG),
 		appenders:  []Appender{NewStdoutAppender()},
 		testHelper: func() {},
 	}
+
+	loggerManager.registerLogger(name, logger)
+	return logger
 }
 
 // NewBlankLogger returns a new logger that outputs Debug+ logs in UTC, but without any
 // pre-existing appenders/outputs.
 func NewBlankLogger(name string) Logger {
-	return &impl{
+	logger := &impl{
 		name:       name,
 		level:      NewAtomicLevelAt(DEBUG),
 		appenders:  []Appender{},
 		testHelper: func() {},
 	}
+
+	loggerManager.registerLogger(name, logger)
+	return logger
 }
 
 // NewTestLogger returns a new logger that outputs Debug+ logs to stdout in local time.
