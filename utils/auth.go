@@ -26,10 +26,7 @@ const (
 
 // Credentials packages up both a type of credential along with its payload which
 // is formatted specific to the type.
-type Credentials struct {
-	Type    CredentialsType `json:"type"`
-	Payload string          `json:"payload"`
-}
+type Credentials = goutils.Credentials
 
 // WithEntityCredentials returns a DialOption which sets the entity credentials
 // to use for authenticating the request. This is mutually exclusive with
