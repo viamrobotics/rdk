@@ -626,60 +626,43 @@ func TestConfigRemoteWithTLSAuth(t *testing.T) {
 	test.That(t, convMap, test.ShouldResemble, armStatus)
 }
 
-type dummyArm struct {
-	arm.Arm
-	stopCount int
-	extra     map[string]interface{}
-	channel   chan struct{}
-}
-
-func (da *dummyArm) Name() resource.Name {
-	return arm.Named("bad")
-}
-
-func (da *dummyArm) MoveToPosition(
-	ctx context.Context,
-	pose spatialmath.Pose,
-	extra map[string]interface{},
-) error {
-	return nil
-}
-
-func (da *dummyArm) MoveToJointPositions(ctx context.Context, positionDegs *armpb.JointPositions, extra map[string]interface{}) error {
-	return nil
-}
-
-func (da *dummyArm) JointPositions(ctx context.Context, extra map[string]interface{}) (*armpb.JointPositions, error) {
-	return nil, errors.New("fake error")
-}
-
-func (da *dummyArm) ModelFrame() referenceframe.Model {
-	return nil
-}
-
-func (da *dummyArm) Stop(ctx context.Context, extra map[string]interface{}) error {
-	da.stopCount++
-	da.extra = extra
-	return nil
-}
-
-func (da *dummyArm) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
-	close(da.channel)
-	<-ctx.Done()
-	return nil, ctx.Err()
-}
-
-func (da *dummyArm) Close(ctx context.Context) error {
-	return nil
-}
-
 func TestStopAll(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 	channel := make(chan struct{})
 
 	model := resource.DefaultModelFamily.WithModel(utils.RandomAlphaString(8))
-	dummyArm1 := dummyArm{channel: channel}
-	dummyArm2 := dummyArm{channel: channel}
+
+	var (
+		stopCount1 int
+		stopCount2 int
+
+		extraOptions1 map[string]interface{}
+		extraOptions2 map[string]interface{}
+	)
+	dummyArm1 := &inject.Arm{
+		StopFunc: func(ctx context.Context, extra map[string]interface{}) error {
+			stopCount1++
+			extraOptions1 = extra
+			return nil
+		},
+		DoFunc: func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+			close(channel)
+			<-ctx.Done()
+			return nil, ctx.Err()
+		},
+	}
+	dummyArm2 := &inject.Arm{
+		StopFunc: func(ctx context.Context, extra map[string]interface{}) error {
+			stopCount2++
+			extraOptions2 = extra
+			return nil
+		},
+		DoFunc: func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+			close(channel)
+			<-ctx.Done()
+			return nil, ctx.Err()
+		},
+	}
 	resource.RegisterComponent(
 		arm.API,
 		model,
@@ -690,9 +673,9 @@ func TestStopAll(t *testing.T) {
 			logger logging.Logger,
 		) (arm.Arm, error) {
 			if conf.Name == "arm1" {
-				return &dummyArm1, nil
+				return dummyArm1, nil
 			}
-			return &dummyArm2, nil
+			return dummyArm2, nil
 		}})
 
 	armConfig := fmt.Sprintf(`{
@@ -720,20 +703,20 @@ func TestStopAll(t *testing.T) {
 	ctx := context.Background()
 	r := setupLocalRobot(t, ctx, cfg, logger)
 
-	test.That(t, dummyArm1.stopCount, test.ShouldEqual, 0)
-	test.That(t, dummyArm2.stopCount, test.ShouldEqual, 0)
+	test.That(t, stopCount1, test.ShouldEqual, 0)
+	test.That(t, stopCount2, test.ShouldEqual, 0)
 
-	test.That(t, dummyArm1.extra, test.ShouldBeNil)
-	test.That(t, dummyArm2.extra, test.ShouldBeNil)
+	test.That(t, extraOptions1, test.ShouldBeNil)
+	test.That(t, extraOptions2, test.ShouldBeNil)
 
 	err = r.StopAll(ctx, map[resource.Name]map[string]interface{}{arm.Named("arm2"): {"foo": "bar"}})
 	test.That(t, err, test.ShouldBeNil)
 
-	test.That(t, dummyArm1.stopCount, test.ShouldEqual, 1)
-	test.That(t, dummyArm2.stopCount, test.ShouldEqual, 1)
+	test.That(t, stopCount1, test.ShouldEqual, 1)
+	test.That(t, stopCount2, test.ShouldEqual, 1)
 
-	test.That(t, dummyArm1.extra, test.ShouldBeNil)
-	test.That(t, dummyArm2.extra, test.ShouldResemble, map[string]interface{}{"foo": "bar"})
+	test.That(t, extraOptions1, test.ShouldBeNil)
+	test.That(t, extraOptions2, test.ShouldResemble, map[string]interface{}{"foo": "bar"})
 
 	// Test OPID cancellation
 	options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
