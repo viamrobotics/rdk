@@ -39,11 +39,6 @@ func TestLoggerRegistration(t *testing.T) {
 
 	test.That(t, actualLogger, test.ShouldEqual, expectedLogger)
 	test.That(t, ok, test.ShouldBeTrue)
-
-	actualName, ok := manager.nameOf(actualLogger)
-
-	test.That(t, actualName, test.ShouldEqual, expectedName)
-	test.That(t, ok, test.ShouldBeTrue)
 }
 
 func TestLoggerRetrieval(t *testing.T) {
@@ -56,14 +51,6 @@ func TestLoggerRetrieval(t *testing.T) {
 	sublogger2, ok := manager.loggerNamed("sublogger-2")
 	test.That(t, ok, test.ShouldBeFalse)
 	test.That(t, sublogger2, test.ShouldBeNil)
-
-	name2, ok := manager.nameOf(l2)
-	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, name2, test.ShouldEqual, "logger-2")
-
-	name3, ok := manager.nameOf(l3)
-	test.That(t, ok, test.ShouldBeFalse)
-	test.That(t, name3, test.ShouldEqual, "")
 }
 
 func TestLoggersRegisteredOnCreation(t *testing.T) {
@@ -76,18 +63,10 @@ func TestLoggersRegisteredOnCreation(t *testing.T) {
 	test.That(t, logger, test.ShouldEqual, newLogger)
 	test.That(t, ok, test.ShouldBeTrue)
 
-	loggerName, ok := manager.nameOf(newLogger)
-	test.That(t, loggerName, test.ShouldEqual, "new")
-	test.That(t, ok, test.ShouldBeTrue)
-
 	debugLogger := NewDebugLogger("debug")
 
 	logger, ok = manager.loggerNamed("debug")
 	test.That(t, logger, test.ShouldEqual, debugLogger)
-	test.That(t, ok, test.ShouldBeTrue)
-
-	loggerName, ok = manager.nameOf(debugLogger)
-	test.That(t, loggerName, test.ShouldEqual, "debug")
 	test.That(t, ok, test.ShouldBeTrue)
 
 	blankLogger := NewBlankLogger("blank")
@@ -96,19 +75,11 @@ func TestLoggersRegisteredOnCreation(t *testing.T) {
 	test.That(t, logger, test.ShouldEqual, blankLogger)
 	test.That(t, ok, test.ShouldBeTrue)
 
-	loggerName, ok = manager.nameOf(blankLogger)
-	test.That(t, loggerName, test.ShouldEqual, "blank")
-	test.That(t, ok, test.ShouldBeTrue)
-
 	sublogger := l1.Sublogger("sublogger-1")
 	subloggerName := fmt.Sprintf("%s.%s", "logger-1", "sublogger-1")
 
 	logger, ok = manager.loggerNamed(subloggerName)
 	test.That(t, logger, test.ShouldEqual, sublogger)
-	test.That(t, ok, test.ShouldBeTrue)
-
-	loggerName, ok = manager.nameOf(sublogger)
-	test.That(t, loggerName, test.ShouldEqual, subloggerName)
 	test.That(t, ok, test.ShouldBeTrue)
 }
 
