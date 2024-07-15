@@ -72,13 +72,13 @@ func TestReconfigure(t *testing.T) {
 	test.That(t, fakeArm.Reconfigure(context.Background(), nil, conf1), test.ShouldBeNil)
 	model, err = modelFromName(conf1.ConvertedAttributes.(*Config).ArmModel, cfg.Name)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, fakeArm.joints, test.ShouldResemble, make([]float64, len(model.DoF())))
+	test.That(t, fakeArm.joints, test.ShouldResemble, make([]referenceframe.Input, len(model.DoF())))
 	test.That(t, fakeArm.model, test.ShouldResemble, model)
 
 	test.That(t, fakeArm.Reconfigure(context.Background(), nil, conf2), test.ShouldBeNil)
 	model, err = referenceframe.ParseModelJSONFile(conf2.ConvertedAttributes.(*Config).ModelFilePath, cfg.Name)
 	test.That(t, err, test.ShouldBeNil)
-	modelJoints := make([]float64, len(model.DoF()))
+	modelJoints := make([]referenceframe.Input, len(model.DoF()))
 	test.That(t, fakeArm.joints, test.ShouldResemble, modelJoints)
 	test.That(t, fakeArm.model, test.ShouldResemble, model)
 
