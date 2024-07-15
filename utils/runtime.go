@@ -15,6 +15,8 @@ import (
 	"go.uber.org/goleak"
 )
 
+// all copied from goutils
+
 const (
 	ctxKeyQuitSignaler = ctxKey(iota)
 	ctxKeyReadyFunc
