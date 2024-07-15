@@ -105,14 +105,11 @@ func (g *NMEAMovementSensor) Readings(
 		return nil, err
 	}
 
-	commonReadings, err := g.cachedData.GetCommonReadings(ctx)
-	if err != nil {
-		return nil, err
-	}
+	commonReadings := g.cachedData.GetCommonReadings(ctx)
 
-	readings["fix"] = commonReadings[gpsutils.FixValueKey]
-	readings["satellites_in_view"] = commonReadings[gpsutils.SatsInViewKey]
-	readings["satellites_in_use"] = commonReadings[gpsutils.SatsInUseKey]
+	readings["fix"] = commonReadings.FixValue
+	readings["satellites_in_view"] = commonReadings.SatsInView
+	readings["satellites_in_use"] = commonReadings.SatsInUse
 
 	return readings, nil
 }

@@ -15,13 +15,6 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
-// Constants for map keys.
-const (
-	FixValueKey   = 1
-	SatsInViewKey = 2
-	SatsInUseKey  = 3
-)
-
 var errNilLocation = errors.New("nil gps location, check nmea message parsing")
 
 // DataReader represents a way to get data from a GPS NMEA device. We can read data from it using
@@ -44,6 +37,13 @@ type CachedData struct {
 	logger logging.Logger
 
 	workers utils.StoppableWorkers
+}
+
+// CommonReadings struct contains the most common values we output in sensor reading.
+type CommonReadings struct {
+	FixValue   int
+	SatsInView int
+	SatsInUse  int
 }
 
 // NewCachedData creates a new CachedData object.
@@ -232,14 +232,15 @@ func (g *CachedData) ReadSatsInView(ctx context.Context) (int, error) {
 }
 
 // GetCommonReadings returns a map including fix value, sats in view and sats in use.
-func (g *CachedData) GetCommonReadings(ctx context.Context) (map[int]interface{}, error) {
-	commonReadings := make(map[int]interface{})
+func (g *CachedData) GetCommonReadings(ctx context.Context) *CommonReadings {
+	g.mu.Lock()
+	defer g.mu.Unlock()
 
-	commonReadings[FixValueKey] = g.nmeaData.FixQuality
-	commonReadings[SatsInViewKey] = g.nmeaData.SatsInView
-	commonReadings[SatsInUseKey] = g.nmeaData.SatsInUse
-
-	return commonReadings, nil
+	return &CommonReadings{
+		FixValue:   g.nmeaData.FixQuality,
+		SatsInView: g.nmeaData.SatsInView,
+		SatsInUse:  g.nmeaData.SatsInUse,
+	}
 }
 
 // Properties returns what movement sensor capabilities we have.
