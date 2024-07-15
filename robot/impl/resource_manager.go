@@ -221,6 +221,7 @@ func (manager *resourceManager) updateRemoteResourceNames(
 					continue
 				}
 				// reconfiguration attempt, remote could have changed, so close all duplicate name remote resource clients and readd new ones later
+				manager.logger.CDebugw(ctx, "attempting to remove remote resource", "name", resName)
 				if err := manager.markChildrenForUpdate(resName); err != nil {
 					manager.logger.CErrorw(ctx,
 						"failed to mark children of remote resource for update",
@@ -276,14 +277,14 @@ func (manager *resourceManager) updateRemoteResourceNames(
 		}
 		if err := manager.markChildrenForUpdate(resName); err != nil {
 			manager.logger.CErrorw(ctx,
-				"failed to mark children of remote for update",
+				"failed to mark children of remote resource for update",
 				"resource", resName,
 				"reason", err)
 			continue
 		}
 		if err := gNode.Close(ctx); err != nil {
 			manager.logger.CErrorw(ctx,
-				"failed to close remote node",
+				"failed to close remote resource node",
 				"resource", resName,
 				"reason", err)
 		}
