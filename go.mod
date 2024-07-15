@@ -85,7 +85,6 @@ require (
 	go.mongodb.org/mongo-driver v1.11.6
 	go.opencensus.io v0.24.0
 	go.uber.org/atomic v1.10.0
-	go.uber.org/goleak v1.2.1
 	go.uber.org/multierr v1.11.0
 	go.uber.org/zap v1.24.0
 	go.viam.com/api v0.1.322
@@ -368,6 +367,7 @@ require (
 	github.com/zitadel/oidc v1.13.4 // indirect
 	gitlab.com/bosi/decorder v0.4.1 // indirect
 	go.tmz.dev/musttag v0.7.1 // indirect
+	go.uber.org/goleak v1.2.1 // indirect
 	go4.org/unsafe/assume-no-moving-gc v0.0.0-20230525183740-e7c30c78aeb2 // indirect
 	golang.org/x/crypto v0.23.0 // indirect
 	golang.org/x/exp/typeparams v0.0.0-20230224173230-c95f2b4c22f2 // indirect
