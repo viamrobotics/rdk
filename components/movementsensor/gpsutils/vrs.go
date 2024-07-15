@@ -33,8 +33,8 @@ type VRS struct {
 // ConnectToVirtualBase is responsible for establishing a connection to
 // a virtual base station using the NTRIP protocol with enhanced error handling and retries.
 func ConnectToVirtualBase(ctx context.Context, ntripInfo *NtripInfo,
-	getGGA func() (string, error), logger logging.Logger) (*VRS, error) {
-
+	getGGA func() (string, error), logger logging.Logger,
+) (*VRS, error) {
 	mp := "/" + ntripInfo.MountPoint
 	credentials := ntripInfo.username + ":" + ntripInfo.password
 	credentialsBase64 := base64.StdEncoding.EncodeToString([]byte(credentials))
@@ -95,7 +95,6 @@ func ConnectToVirtualBase(ctx context.Context, ntripInfo *NtripInfo,
 			vrs.logger.Errorf("Bad HTTP response: %v", response)
 			return nil, fmt.Errorf("server responded with non-OK status: %s %w", response, conn.Close())
 		}
-
 	}
 
 	// We currently only write the GGA message when we try to reconnect to VRS. Some documentation for VRS states that we
@@ -111,7 +110,6 @@ func ConnectToVirtualBase(ctx context.Context, ntripInfo *NtripInfo,
 
 	err = vrs.WriteLine(ggaMessage)
 	if err != nil {
-
 		vrs.logger.Error(fmt.Errorf("failed to write to buffer: %w %w", err, conn.Close()))
 		return nil, err
 	}
