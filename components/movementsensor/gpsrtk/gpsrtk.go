@@ -69,10 +69,6 @@ type gpsrtk struct {
 }
 
 func (g *gpsrtk) start() error {
-	err := g.connectToNTRIP()
-	if err != nil {
-		return err
-	}
 	g.activeBackgroundWorkers.Add(1)
 	utils.PanicCapturingGo(g.receiveAndWriteCorrectionData)
 	return g.err.Get()
@@ -124,8 +120,8 @@ func (g *gpsrtk) getStreamFromMountPoint(mountPoint string, maxAttempts int) err
 	return g.err.Get()
 }
 
-// closePort closes the correctionWriter.
-func (g *gpsrtk) closePort() {
+// closeCorrectionWriter closes the correctionWriter.
+func (g *gpsrtk) closeCorrectionWriter() {
 	g.mu.Lock()
 	defer g.mu.Unlock()
 
@@ -226,8 +222,14 @@ func (g *gpsrtk) getStream() (io.Reader, error) {
 // the MovementSensor.
 func (g *gpsrtk) receiveAndWriteCorrectionData() {
 	defer g.activeBackgroundWorkers.Done()
-	defer g.closePort()
+	defer g.closeCorrectionWriter()
 
+	err := g.connectToNTRIP()
+	if err != nil {
+		g.err.Set(err)
+		g.logger.Error("unable to connect to NTRIP stream! Giving up on RTK messages")
+		return
+	}
 	scanner := rtcm3.NewScanner(g.reader)
 
 	for !g.isClosed {
@@ -447,6 +449,10 @@ func (g *gpsrtk) Close(ctx context.Context) error {
 		}
 	}
 
+	// WARNING: if the background goroutine is calling `getStream()` and is waiting on the mutex
+	// before initializing `g.ntripClient.Stream`, we might finish closing and then initialize a new
+	// stream. This could be fixed by putting the background goroutine in a StoppableWorkers which
+	// we shut down at the top of this function, which can happen in the near future.
 	if g.ntripClient.Stream != nil {
 		if err := g.ntripClient.Stream.Close(); err != nil {
 			g.mu.Unlock()
