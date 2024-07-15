@@ -1668,7 +1668,7 @@ func TestRemoteConnClosedOnReconfigure(t *testing.T) {
 		mainCfgCopy2.Remotes[0].Address = addr1
 		mainRobot.Reconfigure(ctx, &mainCfgCopy2)
 
-		// Close second remote connection
+		// Close second remote robot
 		remote2.Close(ctx)
 
 		// Verify that motor of remote2 no longer works
