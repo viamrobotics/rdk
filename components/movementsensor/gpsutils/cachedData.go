@@ -231,35 +231,13 @@ func (g *CachedData) ReadSatsInView(ctx context.Context) (int, error) {
 	return g.nmeaData.SatsInView, nil
 }
 
-// ReadSatsInUse returns the number of satellites in use to calculate fix type.
-func (g *CachedData) ReadSatsInUse(ctx context.Context) (int, error) {
-	g.mu.RLock()
-	defer g.mu.RUnlock()
-	return g.nmeaData.SatsInUse, nil
-}
-
 // GetCommonReadings returns a map including fix value, sats in view and sats in use.
 func (g *CachedData) GetCommonReadings(ctx context.Context) (map[int]interface{}, error) {
 	commonReadings := make(map[int]interface{})
 
-	fixValue, err := g.ReadFix(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	satsInView, err := g.ReadSatsInView(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	satsInUse, err := g.ReadSatsInUse(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	commonReadings[FixValueKey] = fixValue
-	commonReadings[SatsInViewKey] = satsInView
-	commonReadings[SatsInUseKey] = satsInUse
+	commonReadings[FixValueKey] = g.nmeaData.FixQuality
+	commonReadings[SatsInViewKey] = g.nmeaData.SatsInView
+	commonReadings[SatsInUseKey] = g.nmeaData.SatsInUse
 
 	return commonReadings, nil
 }
