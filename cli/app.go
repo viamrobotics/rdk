@@ -396,7 +396,7 @@ var app = &cli.App{
 						},
 						&cli.UintFlag{
 							Name:  dataFlagParallelDownloads,
-							Usage: "number of download requests to make in parallel",
+							Usage: "number of download requests to make in parallel (binary data only)",
 							Value: 100,
 						},
 						&cli.StringSliceFlag{
