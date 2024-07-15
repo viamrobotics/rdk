@@ -35,7 +35,7 @@ const (
 	metadataDir   = "metadata"
 	maxRetryCount = 5
 	logEveryN     = 100
-	maxLimit      = 100
+	maxLimit      = 100000
 
 	dataTypeBinary  = "binary"
 	dataTypeTabular = "tabular"
