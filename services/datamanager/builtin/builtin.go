@@ -218,8 +218,7 @@ func (svc *builtIn) initSyncer(ctx context.Context) error {
 
 	client := v1.NewDataSyncServiceClient(conn)
 	svc.filesToSync = make(chan string)
-	syncer := svc.syncerConstructor(identity, client, svc.logger, svc.captureManager.CaptureDir(), svc.maxSyncThreads, svc.filesToSync)
-	svc.syncer = syncer
+	svc.syncer = svc.syncerConstructor(identity, client, svc.logger, svc.captureManager.CaptureDir(), svc.maxSyncThreads, svc.filesToSync)
 	svc.cloudConn = conn
 
 	return nil

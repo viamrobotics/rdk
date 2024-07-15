@@ -14,8 +14,8 @@ import (
 	"github.com/matttproud/golang_protobuf_extensions/pbutil"
 	"github.com/pkg/errors"
 	v1 "go.viam.com/api/app/datasync/v1"
+	"google.golang.org/protobuf/types/known/anypb"
 
-	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/utils"
 )
@@ -212,13 +212,9 @@ func BuildCaptureMetadata(
 	compName string,
 	method string,
 	additionalParams map[string]string,
+	methodParams map[string]*anypb.Any,
 	tags []string,
-) (*v1.DataCaptureMetadata, error) {
-	methodParams, err := protoutils.ConvertStringMapToAnyPBMap(additionalParams)
-	if err != nil {
-		return nil, err
-	}
-
+) *v1.DataCaptureMetadata {
 	dataType := getDataType(method)
 	return &v1.DataCaptureMetadata{
 		ComponentType:    compAPI.String(),
@@ -228,7 +224,7 @@ func BuildCaptureMetadata(
 		MethodParameters: methodParams,
 		FileExtension:    GetFileExt(dataType, method, additionalParams),
 		Tags:             tags,
-	}, nil
+	}
 }
 
 // IsDataCaptureFile returns whether or not f is a data capture file.

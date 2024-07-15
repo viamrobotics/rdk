@@ -67,13 +67,17 @@ func TestBuildCaptureMetadata(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			actualMetadata, err := BuildCaptureMetadata(
-				resource.APINamespaceRDK.WithComponentType(tc.componentType),
-				tc.componentName, tc.method, tc.additionalParams, tc.tags)
-			test.That(t, err, test.ShouldEqual, nil)
-
 			methodParams, err := protoutils.ConvertStringMapToAnyPBMap(tc.additionalParams)
 			test.That(t, err, test.ShouldEqual, nil)
+
+			actualMetadata := BuildCaptureMetadata(
+				resource.APINamespaceRDK.WithComponentType(tc.componentType),
+				tc.componentName,
+				tc.method,
+				tc.additionalParams,
+				methodParams,
+				tc.tags,
+			)
 
 			expectedMetadata := v1.DataCaptureMetadata{
 				ComponentType:    resource.APINamespaceRDK.WithComponentType(tc.componentType).String(),
