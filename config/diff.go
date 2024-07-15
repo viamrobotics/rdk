@@ -23,6 +23,7 @@ type Diff struct {
 	ResourcesEqual bool
 	NetworkEqual   bool
 	PrettyDiff     string
+	RevisionEqual  bool
 }
 
 // ModifiedConfigDiff is the modificative different between two configs.
@@ -79,6 +80,9 @@ func DiffConfigs(left, right Config, revealSensitiveConfigDiffs bool) (_ *Diff, 
 
 	networkDifferent := diffNetworkingCfg(&left, &right)
 	diff.NetworkEqual = !networkDifferent
+
+	// TODO: drop if we don't actually need this.
+	diff.RevisionEqual = left.Revision != right.Revision
 
 	return &diff, nil
 }

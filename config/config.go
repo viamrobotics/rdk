@@ -65,6 +65,9 @@ type Config struct {
 
 	// EnableWebProfile turns pprof http server in localhost. Defaults to false.
 	EnableWebProfile bool
+
+	// Revision contains the current revision of the config.
+	Revision string
 }
 
 // NOTE: This data must be maintained with what is in Config.
@@ -82,6 +85,7 @@ type configData struct {
 	DisablePartialStart bool                          `json:"disable_partial_start"`
 	EnableWebProfile    bool                          `json:"enable_web_profile"`
 	LogConfig           []logging.LoggerPatternConfig `json:"log,omitempty"`
+	Revision            string                        `json:"revision"`
 }
 
 // AppValidationStatus refers to the.
