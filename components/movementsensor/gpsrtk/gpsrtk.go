@@ -22,7 +22,6 @@ import (
 	"fmt"
 	"io"
 	"math"
-	"strings"
 	"sync"
 
 	"github.com/go-gnss/rtcm/rtcm3"
@@ -475,48 +474,10 @@ func (g *gpsrtk) getNtripFromVRS() error {
 		}
 		g.vrs = nil
 	}
-	g.vrs, err = gpsutils.ConnectToVirtualBase(g.cancelCtx, g.ntripClient, g.logger)
+	g.vrs, err = gpsutils.ConnectToVirtualBase(g.cancelCtx, g.ntripClient, g.cachedData.GGA, g.logger)
 	if err != nil {
 		return err
 	}
 
-	// read from the socket until we know if a successful connection has been
-	// established.
-	for {
-		response, err := g.vrs.ReadLine()
-		if err != nil {
-			return err
-		}
-
-		if strings.HasPrefix(response, "HTTP/1.1 ") {
-			if strings.Contains(response, "200 OK") {
-				g.logger.Debug("Successful connection established with NTRIP caster.")
-				break
-			}
-			g.logger.Errorf("Bad HTTP response: %v", response)
-			return fmt.Errorf("server responded with non-OK status: %s", response)
-		}
-	}
-
-	// We currently only write the GGA message when we try to reconnect to VRS. Some documentation for VRS states that we
-	// should try to send a GGA message every 5-60 seconds, but more testing is needed to determine if that is required.
-	// get the GGA message from cached data
-	ggaMessage, err := g.cachedData.GGA()
-	if err != nil {
-		g.logger.Error("Failed to get GGA message")
-		return err
-	}
-
-	g.logger.Debugf("Writing GGA message: %v\n", ggaMessage)
-
-	err = g.vrs.WriteLine(ggaMessage)
-	if err != nil {
-		g.logger.Error("failed to write to buffer: ", err)
-		return err
-	}
-
-	g.logger.Debug("GGA message sent successfully.")
-
-	g.vrs.StartGGAThread(g.cachedData.GGA)
 	return nil
 }

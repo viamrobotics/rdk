@@ -10,6 +10,7 @@ import (
 	"io"
 	"net"
 	"net/url"
+	"strings"
 	"time"
 
 	"go.viam.com/rdk/logging"
@@ -31,7 +32,9 @@ type VRS struct {
 
 // ConnectToVirtualBase is responsible for establishing a connection to
 // a virtual base station using the NTRIP protocol with enhanced error handling and retries.
-func ConnectToVirtualBase(ctx context.Context, ntripInfo *NtripInfo, logger logging.Logger) (*VRS, error) {
+func ConnectToVirtualBase(ctx context.Context, ntripInfo *NtripInfo,
+	getGGA func() (string, error), logger logging.Logger) (*VRS, error) {
+
 	mp := "/" + ntripInfo.MountPoint
 	credentials := ntripInfo.username + ":" + ntripInfo.password
 	credentialsBase64 := base64.StdEncoding.EncodeToString([]byte(credentials))
@@ -71,6 +74,51 @@ func ConnectToVirtualBase(ctx context.Context, ntripInfo *NtripInfo, logger logg
 	logger.Debugf("request header: %v\n", httpHeaders)
 	logger.Debug("HTTP headers sent successfully.")
 	vrs := &VRS{ntripInfo: ntripInfo, readerWriter: rw, conn: conn, logger: logger}
+
+	// read from the socket until we know if a successful connection has been
+	// established.
+	for {
+		if ctx.Err() != nil {
+			return nil, fmt.Errorf("%w %w", ctx.Err(), conn.Close())
+		}
+
+		response, err := vrs.ReadLine()
+		if err != nil {
+			return nil, err
+		}
+
+		if strings.HasPrefix(response, "HTTP/1.1 ") {
+			if strings.Contains(response, "200 OK") {
+				vrs.logger.Debug("Successful connection established with NTRIP caster.")
+				break
+			}
+			vrs.logger.Errorf("Bad HTTP response: %v", response)
+			return nil, fmt.Errorf("server responded with non-OK status: %s %w", response, conn.Close())
+		}
+
+	}
+
+	// We currently only write the GGA message when we try to reconnect to VRS. Some documentation for VRS states that we
+	// should try to send a GGA message every 5-60 seconds, but more testing is needed to determine if that is required.
+	// get the GGA message from cached data
+	ggaMessage, err := getGGA()
+	if err != nil {
+		vrs.logger.Error(fmt.Errorf("failed to get GGA message %w", conn.Close()))
+		return nil, err
+	}
+
+	vrs.logger.Debugf("Writing GGA message: %v\n", ggaMessage)
+
+	err = vrs.WriteLine(ggaMessage)
+	if err != nil {
+
+		vrs.logger.Error(fmt.Errorf("failed to write to buffer: %w %w", err, conn.Close()))
+		return nil, err
+	}
+
+	vrs.logger.Debug("GGA message sent successfully.")
+
+	vrs.startGGAThread(getGGA)
 	return vrs, nil
 }
 
@@ -92,8 +140,8 @@ func (vrs *VRS) Close() error {
 	return vrs.conn.Close()
 }
 
-// StartGGAThread starts a thread that writes GGA messages to the VRS.
-func (vrs *VRS) StartGGAThread(getGGA func() (string, error)) {
+// startGGAThread starts a thread that writes GGA messages to the VRS.
+func (vrs *VRS) startGGAThread(getGGA func() (string, error)) {
 	if vrs.workers != nil {
 		// ensure the previous worker is stopped and begin a new one
 		vrs.workers.Stop()
