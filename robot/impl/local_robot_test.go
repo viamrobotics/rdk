@@ -19,6 +19,7 @@ import (
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.uber.org/zap"
+
 	// registers all components.
 	commonpb "go.viam.com/api/common/v1"
 	armpb "go.viam.com/api/component/arm/v1"
@@ -651,6 +652,10 @@ func (da *dummyArm) MoveToJointPositions(ctx context.Context, positionDegs *armp
 
 func (da *dummyArm) JointPositions(ctx context.Context, extra map[string]interface{}) (*armpb.JointPositions, error) {
 	return nil, errors.New("fake error")
+}
+
+func (da *dummyArm) ModelFrame() referenceframe.Model {
+	return nil
 }
 
 func (da *dummyArm) Stop(ctx context.Context, extra map[string]interface{}) error {
