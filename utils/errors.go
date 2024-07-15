@@ -59,14 +59,14 @@ func timeoutErrorHelper(id string, timeout time.Duration, timeoutMsg string) err
 
 // NewConfigValidationError returns a config validation error
 // occurring at a given path.
-// copied from goutils
+// copied from goutils.
 func NewConfigValidationError(path string, err error) error {
 	return errors.Wrapf(err, "error validating %q", path)
 }
 
 // NewConfigValidationFieldRequiredError returns a config validation
 // error for a field missing at a given path.
-// copied from goutils
+// copied from goutils.
 func NewConfigValidationFieldRequiredError(path, field string) error {
 	return NewConfigValidationError(path, errors.Errorf("%q is required", field))
 }
@@ -76,7 +76,7 @@ func NewConfigValidationFieldRequiredError(path, field string) error {
 // would return nil. Furthermore, if err was a multierr containing
 // a context.Canceled, it would also be filtered out from a new
 // multierr.
-// copied from goutils
+// copied from goutils.
 func FilterOutError(err, target error) error {
 	if err == nil {
 		return nil

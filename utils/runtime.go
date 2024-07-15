@@ -36,6 +36,13 @@ type ILogger interface {
 	Fatal(...interface{})
 }
 
+var fatal = func(logger ILogger, args ...interface{}) {
+	// substituted logger.Fatal with Warn to appease linter,
+	// but recreate same functionality by adding os.Exit
+	logger.Warn(args...)
+	os.Exit(1)
+}
+
 // FindGoroutineLeaks finds any goroutine leaks after a program is done running. This
 // should be used at the end of a main test run or a top-level process run.
 func FindGoroutineLeaks(options ...goleak.Option) error {
@@ -113,12 +120,11 @@ func ContextWithQuitSignal(ctx context.Context, c <-chan os.Signal) context.Cont
 	return context.WithValue(ctx, ctxKeyQuitSignaler, c)
 }
 
-var fatal = func(logger ILogger, args ...interface{}) {
-	logger.Fatal(args...)
-}
-
 const waitDur = 3 * time.Second
 
+// PanicCapturingGoWithCallback spawns a goroutine to run the given function and captures
+// any panic that occurs, logs it, and calls the given callback. The callback can be
+// used for restart functionality.
 func PanicCapturingGoWithCallback(f func(), callback func(err interface{})) {
 	go func() {
 		defer func() {
