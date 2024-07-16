@@ -3,7 +3,6 @@ package xarm
 
 import (
 	"context"
-	"time"
 
 	// for embedding model file.
 	_ "embed"
@@ -222,22 +221,19 @@ func (x *xArm) ModelFrame() referenceframe.Model {
 }
 
 func (x *xArm) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
-	if _, ok := cmd["open"]; ok {
-		fmt.Println("opening")
-		err := x.openGripper(ctx)
-		if err != nil {
-			return nil, err
-		}
-		time.Sleep(1500 * time.Millisecond)
-		return nil, x.stopGripper(ctx)
-	} else if _, ok := cmd["close"]; ok {
-		fmt.Println("closing")
-		err := x.closeGripper(ctx)
-		if err != nil {
-			return nil, err
-		}
-		time.Sleep(1500 * time.Millisecond)
-		return nil, x.stopGripper(ctx)
+	err := x.enableGripper(ctx)
+	if err != nil {
+		return nil, err
 	}
+	if err = x.setGripperMode(ctx, false); err != nil {
+		return nil, err
+	}
+	if _, ok := cmd["open"]; ok {
+		x.setGripperPosition(ctx, 400)
+	}
+	if _, ok := cmd["close"]; ok {
+		x.setGripperPosition(ctx, 200)
+	}
+	x.logger.Info("success")
 	return nil, nil
 }

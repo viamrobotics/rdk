@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/binary"
 	"errors"
-	"fmt"
 	"math"
 	"time"
 
@@ -88,25 +87,26 @@ var armBoxWarnMap = map[byte]string{
 }
 
 var regMap = map[string]byte{
-	"Version":     0x01,
-	"Shutdown":    0x0A,
-	"ToggleServo": 0x0B,
-	"SetState":    0x0C,
-	"GetState":    0x0D,
-	"CmdCount":    0x0E,
-	"GetError":    0x0F,
-	"ClearError":  0x10,
-	"ClearWarn":   0x11,
-	"ToggleBrake": 0x12,
-	"SetMode":     0x13,
-	"MoveJoints":  0x1D,
-	"ZeroJoints":  0x19,
-	"JointPos":    0x2A,
-	"SetBound":    0x34,
-	"EnableBound": 0x34,
-	"SetEEModel":  0x4E,
-	"ServoError":  0x6A,
-	"Gripper":     0x7F,
+	"Version":        0x01,
+	"Shutdown":       0x0A,
+	"ToggleServo":    0x0B,
+	"SetState":       0x0C,
+	"GetState":       0x0D,
+	"CmdCount":       0x0E,
+	"GetError":       0x0F,
+	"ClearError":     0x10,
+	"ClearWarn":      0x11,
+	"ToggleBrake":    0x12,
+	"SetMode":        0x13,
+	"MoveJoints":     0x1D,
+	"ZeroJoints":     0x19,
+	"JointPos":       0x2A,
+	"SetBound":       0x34,
+	"EnableBound":    0x34,
+	"SetEEModel":     0x4E,
+	"ServoError":     0x6A,
+	"GripperControl": 0x7C,
+	"GripperGPIO":    0x7F,
 }
 
 type cmd struct {
@@ -496,49 +496,97 @@ func getMaxDiff(from, to []referenceframe.Input) float64 {
 	return maxDiff
 }
 
-func (x *xArm) openGripper(ctx context.Context) error {
-	err1 := x.tgpioSetDigital(ctx, 0, 1)
-	err2 := x.tgpioSetDigital(ctx, 1, 0)
-	return multierr.Combine(err1, err2)
-}
-
-func (x *xArm) closeGripper(ctx context.Context) error {
-	err1 := x.tgpioSetDigital(ctx, 0, 0)
-	err2 := x.tgpioSetDigital(ctx, 1, 1)
-	return multierr.Combine(err1, err2)
-}
-
-func (x *xArm) stopGripper(ctx context.Context) error {
-	err1 := x.tgpioSetDigital(ctx, 0, 0)
-	err2 := x.tgpioSetDigital(ctx, 1, 0)
-	return multierr.Combine(err1, err2)
-}
-
-// Paraphrased from ufactory SDK
-func (x *xArm) tgpioSetDigital(ctx context.Context, ionum, value int) error {
-	var tmp int32
-	c := x.newCmd(regMap["Gripper"])
-	c.params = append(c.params, 9)
-	c.params = append(c.params, 0x0A)
-	c.params = append(c.params, 0x15)
-
-	if ionum == 0 {
-		tmp = tmp | 0x0100
-		if value > 0 {
-			tmp = tmp | 0x0001
-		}
-	} else if ionum == 1 {
-		tmp = tmp | 0x0200
-		if value > 0 {
-			tmp = tmp | 0x0002
-		}
-	}
-
-	tmpBytes := make([]byte, 4)
-	binary.LittleEndian.PutUint32(tmpBytes, math.Float32bits(float32(tmp)))
-	fmt.Println("tmpBytes", tmpBytes)
-	c.params = append(c.params, tmpBytes...)
-
+func (x *xArm) enableGripper(ctx context.Context) error {
+	c := x.newCmd(regMap["GripperControl"])
+	c.params = append(c.params, 0x09)
+	c.params = append(c.params, 0x08)
+	c.params = append(c.params, 0x10)
+	c.params = append(c.params, 0x01, 0x00)
+	c.params = append(c.params, 0x00, 0x01)
+	c.params = append(c.params, 0x02)
+	c.params = append(c.params, 0x00, 0x01)
 	_, err := x.send(ctx, c, true)
 	return err
 }
+
+func (x *xArm) setGripperMode(ctx context.Context, speed bool) error {
+	c := x.newCmd(regMap["GripperControl"])
+	c.params = append(c.params, 0x09)
+	c.params = append(c.params, 0x08)
+	c.params = append(c.params, 0x10)
+	c.params = append(c.params, 0x01, 0x01)
+	c.params = append(c.params, 0x00, 0x01)
+	c.params = append(c.params, 0x02)
+	if speed {
+		c.params = append(c.params, 0x00, 0x01)
+	} else {
+		c.params = append(c.params, 0x00, 0x00)
+	}
+	_, err := x.send(ctx, c, true)
+	return err
+}
+
+func (x *xArm) setGripperPosition(ctx context.Context, position uint32) error {
+	c := x.newCmd(regMap["GripperControl"])
+	c.params = append(c.params, 0x09)
+	c.params = append(c.params, 0x08)
+	c.params = append(c.params, 0x10)
+	c.params = append(c.params, 0x07, 0x00)
+	c.params = append(c.params, 0x00, 0x02)
+	c.params = append(c.params, 0x04)
+	tmpBytes := make([]byte, 4)
+	binary.LittleEndian.PutUint32(tmpBytes, position)
+	// 	fmt.Println("tmpBytes", tmpBytes)
+	c.params = append(c.params, tmpBytes...)
+	_, err := x.send(ctx, c, true)
+	return err
+}
+
+// The below is for the xarm lite builtin gripper
+
+// func (x *xArm) openGripper(ctx context.Context) error {
+// 	err1 := x.tgpioSetDigital(ctx, 0, 1)
+// 	err2 := x.tgpioSetDigital(ctx, 1, 0)
+// 	return multierr.Combine(err1, err2)
+// }
+
+// func (x *xArm) closeGripper(ctx context.Context) error {
+// 	err1 := x.tgpioSetDigital(ctx, 0, 0)
+// 	err2 := x.tgpioSetDigital(ctx, 1, 1)
+// 	return multierr.Combine(err1, err2)
+// }
+
+// func (x *xArm) stopGripper(ctx context.Context) error {
+// 	err1 := x.tgpioSetDigital(ctx, 0, 0)
+// 	err2 := x.tgpioSetDigital(ctx, 1, 0)
+// 	return multierr.Combine(err1, err2)
+// }
+
+// // Paraphrased from ufactory SDK
+// func (x *xArm) tgpioSetDigital(ctx context.Context, ionum, value int) error {
+// 	var tmp int32
+// 	c := x.newCmd(regMap["GripperGPIO"])
+// 	c.params = append(c.params, 0x09)
+// 	c.params = append(c.params, 0x0A)
+// 	c.params = append(c.params, 0x15)
+
+// 	if ionum == 0 {
+// 		tmp = tmp | 0x0100
+// 		if value > 0 {
+// 			tmp = tmp | 0x0001
+// 		}
+// 	} else if ionum == 1 {
+// 		tmp = tmp | 0x0200
+// 		if value > 0 {
+// 			tmp = tmp | 0x0002
+// 		}
+// 	}
+
+// 	tmpBytes := make([]byte, 4)
+// 	binary.LittleEndian.PutUint32(tmpBytes, math.Float32bits(float32(tmp)))
+// 	fmt.Println("tmpBytes", tmpBytes)
+// 	c.params = append(c.params, tmpBytes...)
+
+// 	_, err := x.send(ctx, c, true)
+// 	return err
+// }
