@@ -367,7 +367,7 @@ func (sm *Sync) propagateDataSyncConfigLoop() {
 	if err := sm.propagateDataSyncConfig(); err != nil {
 		return
 	}
-	for goutils.SelectContextOrWait(sm.closedCtx, time.Second) {
+	for goutils.SelectContextOrWait(sm.closedCtx, time.Millisecond*100) {
 		if err := sm.propagateDataSyncConfig(); err != nil {
 			return
 		}

@@ -95,6 +95,7 @@ func TestSyncEnabled(t *testing.T) {
 			test.That(t, err, test.ShouldBeNil)
 			b := dmsvc.(*builtIn)
 			testutils.WaitForAssertion(t, func(tb testing.TB) {
+				tb.Helper()
 				test.That(tb, b.sync.ConfigPropagated.Load(), test.ShouldBeTrue)
 			})
 			mockClock.Add(captureInterval)
@@ -127,6 +128,7 @@ func TestSyncEnabled(t *testing.T) {
 			})
 			test.That(t, err, test.ShouldBeNil)
 			testutils.WaitForAssertion(t, func(tb testing.TB) {
+				tb.Helper()
 				test.That(tb, b.sync.ConfigPropagated.Load(), test.ShouldBeTrue)
 			})
 
@@ -249,6 +251,7 @@ func TestDataCaptureUploadIntegration(t *testing.T) {
 			test.That(t, err, test.ShouldBeNil)
 			b := dmsvc.(*builtIn)
 			testutils.WaitForAssertion(t, func(tb testing.TB) {
+				tb.Helper()
 				test.That(tb, b.sync.ConfigPropagated.Load(), test.ShouldBeTrue)
 			})
 
@@ -288,6 +291,7 @@ func TestDataCaptureUploadIntegration(t *testing.T) {
 			test.That(t, err, test.ShouldBeNil)
 			b2 := newDMSvc.(*builtIn)
 			testutils.WaitForAssertion(t, func(tb testing.TB) {
+				tb.Helper()
 				test.That(tb, b2.sync.ConfigPropagated.Load(), test.ShouldBeTrue)
 			})
 
@@ -426,6 +430,7 @@ func TestArbitraryFileUpload(t *testing.T) {
 			test.That(t, err, test.ShouldBeNil)
 			b := dmsvc.(*builtIn)
 			testutils.WaitForAssertion(t, func(tb testing.TB) {
+				tb.Helper()
 				test.That(tb, b.sync.ConfigPropagated.Load(), test.ShouldBeTrue)
 			})
 			// Ensure that we don't wait to sync files.
@@ -559,6 +564,7 @@ func TestStreamingDCUpload(t *testing.T) {
 			test.That(t, err, test.ShouldBeNil)
 			b := dmsvc.(*builtIn)
 			testutils.WaitForAssertion(t, func(tb testing.TB) {
+				tb.Helper()
 				test.That(tb, b.sync.ConfigPropagated.Load(), test.ShouldBeTrue)
 			})
 
@@ -592,6 +598,7 @@ func TestStreamingDCUpload(t *testing.T) {
 			test.That(t, err, test.ShouldBeNil)
 			b2 := newDMSvc.(*builtIn)
 			testutils.WaitForAssertion(t, func(tb testing.TB) {
+				tb.Helper()
 				test.That(tb, b2.sync.ConfigPropagated.Load(), test.ShouldBeTrue)
 			})
 
@@ -732,6 +739,7 @@ func TestSyncConfigUpdateBehavior(t *testing.T) {
 
 			b := dmsvc.(*builtIn)
 			testutils.WaitForAssertion(t, func(tb testing.TB) {
+				tb.Helper()
 				test.That(tb, b.sync.ConfigPropagated.Load(), test.ShouldBeTrue)
 			})
 
@@ -749,6 +757,7 @@ func TestSyncConfigUpdateBehavior(t *testing.T) {
 			test.That(t, err, test.ShouldBeNil)
 
 			testutils.WaitForAssertion(t, func(tb testing.TB) {
+				tb.Helper()
 				test.That(tb, b.sync.ConfigPropagated.Load(), test.ShouldBeTrue)
 			})
 			newTicker := b.sync.SyncTicker

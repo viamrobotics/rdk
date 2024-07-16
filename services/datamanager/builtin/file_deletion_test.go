@@ -346,6 +346,7 @@ func newDMSvc(t *testing.T, tempDir string) (internal.DMService, mockDataSyncSer
 	test.That(t, err, test.ShouldBeNil)
 	b := dmsvc.(*builtIn)
 	testutils.WaitForAssertion(t, func(tb testing.TB) {
+		tb.Helper()
 		test.That(tb, b.sync.ConfigPropagated.Load(), test.ShouldBeTrue)
 	})
 	return dmsvc, mockClient

@@ -143,6 +143,7 @@ func TestDataCaptureEnabled(t *testing.T) {
 			test.That(t, err, test.ShouldBeNil)
 			b := dmsvc.(*builtIn)
 			testutils.WaitForAssertion(t, func(tb testing.TB) {
+				tb.Helper()
 				test.That(tb, b.sync.ConfigPropagated.Load(), test.ShouldBeTrue)
 			})
 			passTimeCtx1, cancelPassTime1 := context.WithCancel(context.Background())
@@ -179,6 +180,7 @@ func TestDataCaptureEnabled(t *testing.T) {
 			})
 			test.That(t, err, test.ShouldBeNil)
 			testutils.WaitForAssertion(t, func(tb testing.TB) {
+				tb.Helper()
 				test.That(tb, b.sync.ConfigPropagated.Load(), test.ShouldBeTrue)
 			})
 			oldCaptureDirFiles := getAllFileInfos(initCaptureDir)
@@ -230,6 +232,7 @@ func TestSwitchResource(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	b := dmsvc.(*builtIn)
 	testutils.WaitForAssertion(t, func(tb testing.TB) {
+		tb.Helper()
 		test.That(tb, b.sync.ConfigPropagated.Load(), test.ShouldBeTrue)
 	})
 	passTimeCtx1, cancelPassTime1 := context.WithCancel(context.Background())
@@ -259,6 +262,7 @@ func TestSwitchResource(t *testing.T) {
 	})
 	test.That(t, err, test.ShouldBeNil)
 	testutils.WaitForAssertion(t, func(tb testing.TB) {
+		tb.Helper()
 		test.That(tb, b.sync.ConfigPropagated.Load(), test.ShouldBeTrue)
 	})
 
