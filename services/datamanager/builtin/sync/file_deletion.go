@@ -16,15 +16,15 @@ import (
 )
 
 var (
-	// temporarily public for tests.
+	// FSThresholdToTriggerDeletion temporarily public for tests.
 	FSThresholdToTriggerDeletion = .90
-	// temporarily public for tests.
+	// CaptureDirToFSUsageRatio temporarily public for tests.
 	CaptureDirToFSUsageRatio = .5
 )
 
 var errAtSizeThreshold = errors.New("capture directory has reached or exceeded disk usage threshold for deletion")
 
-// temporarily public for tests.
+// ShouldDeleteBasedOnDiskUsage temporarily public for tests.
 func ShouldDeleteBasedOnDiskUsage(ctx context.Context, captureDirPath string, logger logging.Logger) (bool, error) {
 	usage := diskusage.NewDiskUsage(captureDirPath)
 	// we get usage this way to ensure we get the amount of remaining space in the partition.
@@ -89,7 +89,7 @@ func exceedsDeletionThreshold(ctx context.Context, captureDirPath string, fsSize
 	return false, nil
 }
 
-// temporarily public for tests.
+// DeleteFiles temporarily public for tests.
 func DeleteFiles(ctx context.Context, syncer datasync.Manager, deleteEveryNth int,
 	captureDirPath string, logger logging.Logger,
 ) (int, error) {

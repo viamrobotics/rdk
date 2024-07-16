@@ -62,8 +62,8 @@ func (c *Config) Validate(path string) ([]string, error) {
 type builtIn struct {
 	resource.Named
 	logger  logging.Logger
-	capture *capture.Manager
-	sync    *sync.Manager
+	capture *capture.Capture
+	sync    *sync.Sync
 }
 
 // NewBuiltIn returns a new data manager service for the given robot.
@@ -73,12 +73,12 @@ func NewBuiltIn(
 	conf resource.Config,
 	logger logging.Logger,
 ) (datamanager.Service, error) {
-	cm := capture.NewCaptureManager(logger.Sublogger("capture"), clock)
+	cm := capture.NewManager(logger.Sublogger("capture"), clock)
 	svc := &builtIn{
 		Named:   conf.ResourceName().AsNamed(),
 		logger:  logger,
 		capture: cm,
-		sync:    sync.NewSyncManager(logger.Sublogger("sync"), clock, cm.FlushCollectors),
+		sync:    sync.NewSync(logger.Sublogger("sync"), clock, cm.FlushCollectors),
 	}
 
 	if err := svc.Reconfigure(ctx, deps, conf); err != nil {
@@ -118,18 +118,18 @@ func (svc *builtIn) Reconfigure(
 		return err
 	}
 
-	captureConfig := capture.CaptureConfig{
+	captureConfig := capture.Config{
 		CaptureDisabled:             svcConfig.CaptureDisabled,
 		CaptureDir:                  svcConfig.CaptureDir,
 		Tags:                        svcConfig.Tags,
 		MaximumCaptureFileSizeBytes: svcConfig.MaximumCaptureFileSizeBytes,
 	}
-	if err = svc.capture.ReconfigureCapture(ctx, deps, conf, captureConfig); err != nil {
+	if err = svc.capture.Reconfigure(ctx, deps, conf, captureConfig); err != nil {
 		svc.logger.Warnw("DataCapture reconfigure error", "err", err)
 		return err
 	}
 
-	syncConfig := sync.SyncConfig{
+	syncConfig := sync.Config{
 		AdditionalSyncPaths:        svcConfig.AdditionalSyncPaths,
 		Tags:                       svcConfig.Tags,
 		CaptureDir:                 svc.capture.CaptureDir(),
@@ -141,7 +141,7 @@ func (svc *builtIn) Reconfigure(
 		SelectiveSyncerName:        svcConfig.SelectiveSyncerName,
 		SyncIntervalMins:           svcConfig.SyncIntervalMins,
 	}
-	if err = svc.sync.ReconfigureSync(ctx, deps, conf, syncConfig); err != nil {
+	if err = svc.sync.Reconfigure(ctx, deps, conf, syncConfig); err != nil {
 		svc.logger.Warnw("DataSync reconfigure error", "err", err)
 		return err
 	}

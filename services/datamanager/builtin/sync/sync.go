@@ -1,4 +1,4 @@
-// Package sync ....
+// Package sync implements datasync for the builtin datamanger
 package sync
 
 import (
@@ -29,18 +29,25 @@ import (
 )
 
 var (
-	// temporarily public for tests.
+	// DefaultDeleteEveryNth temporarily public for tests.
 	DefaultDeleteEveryNth = 5
-	// temporarily public for tests.
+	// DeletionTicker temporarily public for tests.
 	DeletionTicker = clock.New()
-	// temporarily public for tests.
+	// FilesystemPollInterval temporarily public for tests.
 	FilesystemPollInterval = 30 * time.Second
 )
 
 type selectiveSyncer interface {
 	sensor.Sensor
 }
-type Manager struct {
+
+// Sync manages uploading metrics from files to the cloud & deleting the upload files.
+// There must be only one Capture per DataManager. The lifecycle of a Capture is:
+//
+// - NewSync
+// - Reconfigure (any number of times)
+// - Close (once).
+type Sync struct {
 	logger                      logging.Logger
 	closedCancelFn              context.CancelFunc
 	closedCtx                   context.Context
@@ -53,13 +60,13 @@ type Manager struct {
 	cloudConn                 rpc.ClientConn
 	cloudConnSvc              cloud.ConnectionService
 	datasyncBackgroundWorkers sync.WaitGroup
-	// temporarily public for tests
+	// FileDeletionBackgroundWorkers temporarily public for tests
 	FileDeletionBackgroundWorkers *sync.WaitGroup
 	fileDeletionRoutineCancelFn   context.CancelFunc
-	// temporarily public for tests
+	// FileLastModifiedMillis temporarily public for tests
 	FileLastModifiedMillis int
 	filesToSync            chan string
-	// temporarily public for tests
+	// MaxSyncThreads temporarily public for tests
 	MaxSyncThreads            int
 	propagateDataSyncConfigWG sync.WaitGroup
 	selectiveSyncEnabled      bool
@@ -69,18 +76,18 @@ type Manager struct {
 	syncPaths                 []string
 	syncRoutineCancelFn       context.CancelFunc
 	syncSensor                selectiveSyncer
-	// temporarily public for tests
+	// SyncTicker temporarily public for tests
 	SyncTicker *clock.Ticker
-	// temporarily public for tests
+	// Syncer temporarily public for tests
 	Syncer datasync.Manager
-	// temporarily public for tests
+	// SyncerConstructor temporarily public for tests
 	SyncerConstructor            datasync.ManagerConstructor
 	syncerNeedsToBeReInitialized bool
 	tags                         []string
 }
 
-// CaptureConfig is the capture manager config.
-type SyncConfig struct {
+// Config is the sync config.
+type Config struct {
 	AdditionalSyncPaths        []string
 	CaptureDir                 string
 	CaptureDisabled            bool
@@ -96,13 +103,14 @@ type SyncConfig struct {
 // Default time to wait in milliseconds to check if a file has been modified.
 const defaultFileLastModifiedMillis = 10000.0
 
-func NewSyncManager(
+// NewSync creates a new Manager.
+func NewSync(
 	logger logging.Logger,
 	clk clock.Clock,
 	flushCollectors func(),
-) *Manager {
+) *Sync {
 	closedCtx, closedCancelFn := context.WithCancel(context.Background())
-	return &Manager{
+	return &Sync{
 		flushCollectors:        flushCollectors,
 		clk:                    clk,
 		closedCtx:              closedCtx,
@@ -115,12 +123,12 @@ func NewSyncManager(
 	}
 }
 
-// ReconfigureCapture reconfigures the capture manager.
-func (sm *Manager) ReconfigureSync(
+// Reconfigure reconfigures Sync.
+func (sm *Sync) Reconfigure(
 	ctx context.Context,
 	deps resource.Dependencies,
 	config resource.Config,
-	syncConfig SyncConfig,
+	syncConfig Config,
 ) error {
 	sm.mu.Lock()
 	defer sm.mu.Unlock()
@@ -267,7 +275,7 @@ func pollFilesystem(ctx context.Context, wg *sync.WaitGroup, captureDir string,
 }
 
 // Close releases all resources managed by data_manager.
-func (sm *Manager) Close() error {
+func (sm *Sync) Close() {
 	sm.closedCancelFn()
 	sm.mu.Lock()
 	sm.closeSyncer()
@@ -286,11 +294,9 @@ func (sm *Manager) Close() error {
 		fileDeletionBackgroundWorkers.Wait()
 	}
 	sm.propagateDataSyncConfigWG.Wait()
-
-	return nil
 }
 
-func (sm *Manager) closeSyncer() {
+func (sm *Sync) closeSyncer() {
 	if sm.Syncer != nil {
 		// If previously we were syncing, close the old syncer and cancel the old updateCollectors goroutine.
 		sm.Syncer.Close()
@@ -304,7 +310,7 @@ func (sm *Manager) closeSyncer() {
 
 var grpcConnectionTimeout = 10 * time.Second
 
-func (sm *Manager) initSyncer(ctx context.Context) error {
+func (sm *Sync) initSyncer(ctx context.Context) error {
 	ctx, cancel := context.WithTimeout(ctx, grpcConnectionTimeout)
 	defer cancel()
 	identity, conn, err := sm.cloudConnSvc.AcquireConnection(ctx)
@@ -326,7 +332,7 @@ func (sm *Manager) initSyncer(ctx context.Context) error {
 // Sync performs a non-scheduled sync of the data in the capture directory.
 // If automated sync is also enabled, calling Sync will upload the files,
 // regardless of whether or not is the scheduled time.
-func (sm *Manager) Sync(ctx context.Context, _ map[string]interface{}) error {
+func (sm *Sync) Sync(ctx context.Context, _ map[string]interface{}) error {
 	sm.mu.Lock()
 	if sm.Syncer == nil {
 		err := sm.initSyncer(ctx)
@@ -341,7 +347,7 @@ func (sm *Manager) Sync(ctx context.Context, _ map[string]interface{}) error {
 	return nil
 }
 
-func (sm *Manager) startPropagateDataSyncConfig() {
+func (sm *Sync) startPropagateDataSyncConfig() {
 	sm.propagateDataSyncConfigWG.Add(1)
 	goutils.ManagedGo(sm.propagateDataSyncConfigLoop, sm.propagateDataSyncConfigWG.Done)
 }
@@ -353,7 +359,7 @@ func (sm *Manager) startPropagateDataSyncConfig() {
 // If so it propagates the changes and marks the datasync configuration as propagated.
 // Otherwise it sleeps for another second.
 // Takes the builtIn lock every iteration.
-func (sm *Manager) propagateDataSyncConfigLoop() {
+func (sm *Sync) propagateDataSyncConfigLoop() {
 	if err := sm.PropagateDataSyncConfig(); err != nil {
 		return
 	}
@@ -364,7 +370,9 @@ func (sm *Manager) propagateDataSyncConfigLoop() {
 	}
 }
 
-func (sm *Manager) PropagateDataSyncConfig() error {
+// PropagateDataSyncConfig is temporarily public for tests
+// it applies the data sync config set in the previous Reconfigure call.
+func (sm *Sync) PropagateDataSyncConfig() error {
 	sm.mu.Lock()
 	defer sm.mu.Unlock()
 	if !sm.syncConfigUpdated {
@@ -407,7 +415,7 @@ func (sm *Manager) PropagateDataSyncConfig() error {
 }
 
 // startSyncScheduler starts the goroutine that calls Sync repeatedly if scheduled sync is enabled.
-func (sm *Manager) startSyncScheduler(intervalMins float64) {
+func (sm *Sync) startSyncScheduler(intervalMins float64) {
 	cancelCtx, fn := context.WithCancel(sm.closedCtx)
 	sm.syncRoutineCancelFn = fn
 	sm.uploadData(cancelCtx, intervalMins)
@@ -415,7 +423,7 @@ func (sm *Manager) startSyncScheduler(intervalMins float64) {
 
 // cancelSyncScheduler cancels the goroutine that calls Sync repeatedly if scheduled sync is enabled.
 // It does not close the syncer or any in progress uploads.
-func (sm *Manager) cancelSyncScheduler() {
+func (sm *Sync) cancelSyncScheduler() {
 	if sm.syncRoutineCancelFn != nil {
 		sm.syncRoutineCancelFn()
 		sm.syncRoutineCancelFn = nil
@@ -429,7 +437,7 @@ func (sm *Manager) cancelSyncScheduler() {
 	}
 }
 
-func (sm *Manager) uploadData(cancelCtx context.Context, intervalMins float64) {
+func (sm *Sync) uploadData(cancelCtx context.Context, intervalMins float64) {
 	// time.Duration loses precision at low floating point values, so turn intervalMins to milliseconds.
 	intervalMillis := 60000.0 * intervalMins
 	// The ticker must be created before uploadData returns to prevent race conditions between clock.Ticker and
@@ -482,7 +490,7 @@ func isOffline() bool {
 	return err != nil
 }
 
-func (sm *Manager) sync(ctx context.Context) {
+func (sm *Sync) sync(ctx context.Context) {
 	sm.flushCollectors()
 
 	sm.mu.Lock()
