@@ -350,7 +350,7 @@ func (ua *urArm) EndPosition(ctx context.Context, extra map[string]interface{}) 
 	if err != nil {
 		return nil, err
 	}
-	return referenceframe.ComputePosition(ua.model, joints)
+	return referenceframe.ComputeOOBPosition(ua.model, joints)
 }
 
 // MoveToPosition moves the arm to the specified cartesian position.

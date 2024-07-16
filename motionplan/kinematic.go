@@ -3,7 +3,6 @@ package motionplan
 import (
 	"math"
 
-	"gonum.org/v1/gonum/floats"
 	"gonum.org/v1/gonum/num/quat"
 )
 
@@ -47,13 +46,4 @@ func deriv(q quat.Number) []quat.Number {
 		quatD = append(quatD, quat.Number{0, 0, 0, 1})
 	}
 	return quatD
-}
-
-// L2Distance returns the L2 normalized difference between two equal length arrays.
-func L2Distance(q1, q2 []float64) float64 {
-	for i := 0; i < len(q1); i++ {
-		q1[i] -= q2[i]
-	}
-	// 2 is the L value returning a standard L2 Normalization
-	return floats.Norm(q1, 2)
 }

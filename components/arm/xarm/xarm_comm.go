@@ -427,7 +427,7 @@ func (x *xArm) EndPosition(ctx context.Context, extra map[string]interface{}) (s
 	if err != nil {
 		return nil, err
 	}
-	return referenceframe.ComputePosition(x.model, joints)
+	return referenceframe.ComputeOOBPosition(x.model, joints)
 }
 
 // MoveToPosition moves the arm to the specified cartesian position.

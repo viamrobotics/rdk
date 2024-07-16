@@ -13,6 +13,7 @@ import (
 	"go.uber.org/multierr"
 	pb "go.viam.com/api/component/arm/v1"
 
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/spatialmath"
 )
 
@@ -286,21 +287,40 @@ func New2DMobileModelFrame(name string, limits []Limit, collisionGeometry spatia
 	return model, nil
 }
 
-// ComputePosition takes a model and a slice of Inputs and returns the cartesian
-// position of the end effector as a protobuf ArmPosition even when the arm is in an out of bounds state.
+// ComputeOOBPosition takes a frame and a slice of Inputs and returns the cartesian position of the frame after
+// transforming it by the given inputs even when if the inputs given would violate the Limits of the frame.
 // This is performed statelessly without changing any data.
-func ComputePosition(model Frame, joints []Input) (spatialmath.Pose, error) {
-	if joints == nil {
-		return nil, ErrNilJointPositions
+func ComputeOOBPosition(frame Frame, inputs []Input) (spatialmath.Pose, error) {
+	if inputs == nil {
+		return nil, errors.New("cannot compute position for nil joints")
 	}
-	if model == nil {
-		return nil, ErrNilModelFrame
+	if frame == nil {
+		return nil, errors.New("cannot compute position for nil frame")
 	}
 
-	pose, err := model.Transform(joints)
+	pose, err := frame.Transform(inputs)
 	if err != nil && !strings.Contains(err.Error(), OOBErrString) {
 		return nil, err
 	}
 
 	return pose, nil
+}
+
+// ComputePosition takes a frame and a slice of Inputs and returns the cartesian position of the frame.
+func ComputePosition(frame Frame, inputs []Input) (spatialmath.Pose, error) {
+	// TODO: delete this function
+	logging.Global().Warn("ComputePosition is deprecated and will be removed in a future update. Swap to Transform()")
+
+	if inputs == nil {
+		return nil, errors.New("cannot compute position for nil joints")
+	}
+	if frame == nil {
+		return nil, errors.New("cannot compute position for nil frame")
+	}
+
+	pose, err := frame.Transform(inputs)
+	if err != nil {
+		return nil, err
+	}
+	return pose, err
 }

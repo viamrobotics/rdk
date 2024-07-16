@@ -138,7 +138,7 @@ func CreateStatus(ctx context.Context, a Arm) (*pb.Status, error) {
 	var endPosition *v1.Pose
 	model := a.ModelFrame()
 	if model != nil && joints != nil {
-		if endPose, err := referenceframe.ComputePosition(model, model.InputFromProtobuf(jointPositions)); err == nil {
+		if endPose, err := referenceframe.ComputeOOBPosition(model, model.InputFromProtobuf(jointPositions)); err == nil {
 			endPosition = spatialmath.PoseToProtobuf(endPose)
 		}
 	}
