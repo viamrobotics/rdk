@@ -44,17 +44,17 @@ func (lr *loggerRegistry) updateLoggerLevel(name string, level Level) error {
 
 // Exported Functions specifically for use on global logger manager.
 
-// RegisterLogger registers a new logger with a given name
+// RegisterLogger registers a new logger with a given name.
 func RegisterLogger(name string, logger Logger) {
 	loggerManager.registerLogger(name, logger)
 }
 
-// LoggerNamed returns logger with specified name if exists
+// LoggerNamed returns logger with specified name if exists.
 func LoggerNamed(name string) (logger Logger, ok bool) {
 	return loggerManager.loggerNamed(name)
 }
 
-// UpdateLoggerLevel assigns level to appropriate logger in the registry
+// UpdateLoggerLevel assigns level to appropriate logger in the registry.
 func UpdateLoggerLevel(name string, level Level) error {
 	return loggerManager.updateLoggerLevel(name, level)
 }
