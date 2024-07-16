@@ -192,7 +192,7 @@ func (sc *SharedConn) ResetConn(conn rpc.ClientConn, moduleLogger logging.Logger
 	}
 
 	sc.peerConn = peerConn
-	sc.peerConnReady, sc.peerConnClosed, err = rpc.ConfigureForRenegotiation(peerConn, rpc.PeerRoleClient, sc.logger.AsZap())
+	sc.peerConnReady, sc.peerConnClosed, err = rpc.ConfigureForRenegotiation(peerConn, rpc.PeerRoleClient, sc.logger)
 	if err != nil {
 		sc.logger.Warnw("Unable to create optional renegotiation channel for module. Ignoring.", "err", err)
 		return

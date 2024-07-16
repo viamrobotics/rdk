@@ -439,7 +439,7 @@ func CreateNewGRPCClient(ctx context.Context, cloudCfg *CloudConfig) (rpc.Client
 		dialOpts = append(dialOpts, rpc.WithInsecure())
 	}
 
-	return rpc.DialDirectGRPC(ctx, grpcURL.Host, NewLogger("netlogger").AsZap(), dialOpts...)
+	return rpc.DialDirectGRPC(ctx, grpcURL.Host, NewLogger("netlogger"), dialOpts...)
 }
 
 // A NetAppender must implement a zapcore such that it gets copied when downconverting on

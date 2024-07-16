@@ -109,7 +109,7 @@ func ServerAsSeparateProcess(t *testing.T, cfgFileName string, logger logging.Lo
 		CWD:         utils.ResolveFile("./"),
 		Environment: map[string]string{"HOME": testTempHome},
 		Log:         true,
-	}, logger.AsZap())
+	}, logger)
 	return server
 }
 
@@ -119,7 +119,7 @@ func ServerAsSeparateProcess(t *testing.T, cfgFileName string, logger logging.Lo
 //
 // WaitForServing will return true if the server has started successfully in the allotted time, and
 // false otherwise.
-//nolint
+// nolint
 func WaitForServing(observer *observer.ObservedLogs, port int) bool {
 	// Message:"\n\\_ 2024-02-07T20:47:03.576Z\tINFO\trobot_server\tweb/web.go:598\tserving\t{\"url\":\"http://127.0.0.1:20000\"}"
 	successRegex := regexp.MustCompile(fmt.Sprintf("\tserving\t.*:%d\"", port))
