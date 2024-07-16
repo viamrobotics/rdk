@@ -115,9 +115,3 @@ func (f *MovementSensor) Start(ctx context.Context) error { return nil }
 func (f *MovementSensor) Close(ctx context.Context) error {
 	return nil
 }
-
-// ReadFix returns the fix of a fake gps movementsensor.
-func (f *MovementSensor) ReadFix(ctx context.Context) (int, error) { return 1, nil }
-
-// ReadSatsInView returns the number of satellites in view.
-func (f *MovementSensor) ReadSatsInView(ctx context.Context) (int, error) { return 2, nil }
