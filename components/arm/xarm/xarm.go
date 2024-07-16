@@ -228,12 +228,12 @@ func (x *xArm) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[s
 	if err = x.setGripperMode(ctx, false); err != nil {
 		return nil, err
 	}
-	if _, ok := cmd["open"]; ok {
-		x.setGripperPosition(ctx, 400)
+	if val, ok := cmd["move_gripper"]; ok {
+		position, ok := val.(float64)
+		if !ok || position < 0 || position > 840 {
+			return nil, fmt.Errorf("must move gripper to an int between 0 and 840 %v", val)
+		}
+		x.setGripperPosition(ctx, uint32(position))
 	}
-	if _, ok := cmd["close"]; ok {
-		x.setGripperPosition(ctx, 200)
-	}
-	x.logger.Info("success")
 	return nil, nil
 }

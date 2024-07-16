@@ -105,7 +105,6 @@ var regMap = map[string]byte{
 	"SetEEModel":     0x4E,
 	"ServoError":     0x6A,
 	"GripperControl": 0x7C,
-	"GripperGPIO":    0x7F,
 }
 
 type cmd struct {
@@ -534,58 +533,9 @@ func (x *xArm) setGripperPosition(ctx context.Context, position uint32) error {
 	c.params = append(c.params, 0x00, 0x02)
 	c.params = append(c.params, 0x04)
 	tmpBytes := make([]byte, 4)
-	binary.LittleEndian.PutUint32(tmpBytes, position)
-	// 	fmt.Println("tmpBytes", tmpBytes)
+	binary.BigEndian.PutUint32(tmpBytes, position)
+	x.logger.Info("tmpBytes", tmpBytes)
 	c.params = append(c.params, tmpBytes...)
 	_, err := x.send(ctx, c, true)
 	return err
 }
-
-// The below is for the xarm lite builtin gripper
-
-// func (x *xArm) openGripper(ctx context.Context) error {
-// 	err1 := x.tgpioSetDigital(ctx, 0, 1)
-// 	err2 := x.tgpioSetDigital(ctx, 1, 0)
-// 	return multierr.Combine(err1, err2)
-// }
-
-// func (x *xArm) closeGripper(ctx context.Context) error {
-// 	err1 := x.tgpioSetDigital(ctx, 0, 0)
-// 	err2 := x.tgpioSetDigital(ctx, 1, 1)
-// 	return multierr.Combine(err1, err2)
-// }
-
-// func (x *xArm) stopGripper(ctx context.Context) error {
-// 	err1 := x.tgpioSetDigital(ctx, 0, 0)
-// 	err2 := x.tgpioSetDigital(ctx, 1, 0)
-// 	return multierr.Combine(err1, err2)
-// }
-
-// // Paraphrased from ufactory SDK
-// func (x *xArm) tgpioSetDigital(ctx context.Context, ionum, value int) error {
-// 	var tmp int32
-// 	c := x.newCmd(regMap["GripperGPIO"])
-// 	c.params = append(c.params, 0x09)
-// 	c.params = append(c.params, 0x0A)
-// 	c.params = append(c.params, 0x15)
-
-// 	if ionum == 0 {
-// 		tmp = tmp | 0x0100
-// 		if value > 0 {
-// 			tmp = tmp | 0x0001
-// 		}
-// 	} else if ionum == 1 {
-// 		tmp = tmp | 0x0200
-// 		if value > 0 {
-// 			tmp = tmp | 0x0002
-// 		}
-// 	}
-
-// 	tmpBytes := make([]byte, 4)
-// 	binary.LittleEndian.PutUint32(tmpBytes, math.Float32bits(float32(tmp)))
-// 	fmt.Println("tmpBytes", tmpBytes)
-// 	c.params = append(c.params, tmpBytes...)
-
-// 	_, err := x.send(ctx, c, true)
-// 	return err
-// }
