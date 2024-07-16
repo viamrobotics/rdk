@@ -153,6 +153,10 @@ type Robot interface {
 
 	// Shutdown shuts down the robot.
 	Shutdown(ctx context.Context) error
+
+	// MachineStatus returns the operational status of the robot and it's constituent
+	// parts.
+	MachineStatus(ctx context.Context) MachineStatus
 }
 
 // A LocalRobot is a Robot that can have its parts modified.
@@ -316,4 +320,21 @@ func (rmr *RestartModuleRequest) MatchesModule(mod config.Module) bool {
 		return mod.ModuleID == rmr.ModuleID
 	}
 	return mod.Name == rmr.ModuleName
+}
+
+type MachineStatus struct {
+	Config    ConfigStatus
+	Resources []ResourceStatus
+}
+
+type ConfigStatus struct {
+	Revision    string
+	LastUpdated time.Time
+}
+
+type ResourceStatus struct {
+	Name        resource.Name
+	State       resource.NodeState
+	LastUpdated time.Time
+	Revision    string
 }

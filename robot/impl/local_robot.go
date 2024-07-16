@@ -1373,3 +1373,7 @@ func (r *localRobot) Shutdown(ctx context.Context) error {
 	}
 	return nil
 }
+
+func (r *localRobot) MachineStatus(ctx context.Context) robot.MachineStatus {
+	return robot.MachineStatus{}
+}
