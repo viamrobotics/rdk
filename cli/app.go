@@ -397,7 +397,7 @@ var app = &cli.App{
 						},
 						&cli.UintFlag{
 							Name:  dataFlagChunkLimit,
-							Usage: "maximum number of results per download chunk (tabular data only)",
+							Usage: "maximum number of results per download request (tabular data only)",
 							Value: 100000,
 						},
 						&cli.UintFlag{
