@@ -69,6 +69,10 @@ type GraphNode struct {
 	// transitionedAt stores the timestamp of when resource entered its current lifecycle
 	// state.
 	transitionedAt time.Time
+
+	// revision stores the revision of the last config that successfully configured the
+	// resource.
+	revision string
 }
 
 var (
@@ -234,6 +238,7 @@ func (w *GraphNode) SwapResource(newRes Resource, newModel Model) {
 	defer w.mu.Unlock()
 	w.current = newRes
 	w.currentModel = newModel
+	w.revision = w.config.Revision
 	w.lastErr = nil
 	w.transitionTo(NodeStateReady)
 

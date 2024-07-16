@@ -32,6 +32,9 @@ type Config struct {
 	alreadyValidated   bool
 	cachedImplicitDeps []string
 	cachedErr          error
+
+	// Revision stores a denormalized copy of the parent config revision
+	Revision string
 }
 
 // A LogConfig describes the LogConfig config object.
@@ -195,6 +198,7 @@ func (conf Config) Equals(other Config) bool {
 	conf.ConvertedAttributes = nil
 	conf.AssociatedResourceConfigs = nil
 	conf.AssociatedAttributes = nil
+	conf.Revision = ""
 
 	other.alreadyValidated = false
 	other.ImplicitDependsOn = nil
@@ -203,6 +207,7 @@ func (conf Config) Equals(other Config) bool {
 	other.ConvertedAttributes = nil
 	other.AssociatedResourceConfigs = nil
 	other.AssociatedAttributes = nil
+	other.Revision = ""
 
 	//nolint:govet
 	return reflect.DeepEqual(conf, other)

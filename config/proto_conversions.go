@@ -60,6 +60,9 @@ func FromProto(proto *pb.RobotConfig, logger logging.Logger) (*Config, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "error converting components config from proto")
 	}
+	for i := range cfg.Components {
+		cfg.Components[i].Revision = cfg.Revision
+	}
 
 	cfg.Remotes, err = toRDKSlice(proto.Remotes, RemoteConfigFromProto, disablePartialStart, logger)
 	if err != nil {
@@ -74,6 +77,9 @@ func FromProto(proto *pb.RobotConfig, logger logging.Logger) (*Config, error) {
 	cfg.Services, err = toRDKSlice(proto.Services, ServiceConfigFromProto, disablePartialStart, logger)
 	if err != nil {
 		return nil, errors.Wrap(err, "error converting services config from proto")
+	}
+	for i := range cfg.Services {
+		cfg.Services[i].Revision = cfg.Revision
 	}
 
 	cfg.Packages, err = toRDKSlice(proto.Packages, PackageConfigFromProto, disablePartialStart, logger)

@@ -493,9 +493,10 @@ func processConfig(unprocessedConfig *Config, fromCloud bool, logger logging.Log
 
 	for _, defaultServiceName := range unconfiguredDefaultServices {
 		cfg.Services = append(cfg.Services, resource.Config{
-			Name:  defaultServiceName.Name,
-			Model: resource.DefaultServiceModel,
-			API:   defaultServiceName.API,
+			Name:     defaultServiceName.Name,
+			Model:    resource.DefaultServiceModel,
+			API:      defaultServiceName.API,
+			Revision: cfg.Revision,
 		})
 	}
 
@@ -529,6 +530,9 @@ func processConfig(unprocessedConfig *Config, fromCloud bool, logger logging.Log
 				return errors.Wrapf(err, "error converting attributes for (%s, %s)", resName.API, copied.Model)
 			}
 			confs[idx].ConvertedAttributes = converted
+
+			// Denormalize Revision onto individual resource configs
+			confs[idx].Revision = cfg.Revision
 		}
 		return nil
 	}
