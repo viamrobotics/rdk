@@ -86,6 +86,7 @@ const (
 	dataFlagMimeTypes                      = "mime-types"
 	dataFlagStart                          = "start"
 	dataFlagEnd                            = "end"
+	dataFlagChunkLimit                     = "chunk-limit"
 	dataFlagParallelDownloads              = "parallel"
 	dataFlagTags                           = "tags"
 	dataFlagBboxLabels                     = "bbox-labels"
@@ -393,6 +394,11 @@ var app = &cli.App{
 							Name:     dataFlagDestination,
 							Required: true,
 							Usage:    "output directory for downloaded data",
+						},
+						&cli.UintFlag{
+							Name:  dataFlagChunkLimit,
+							Usage: "maximum number of results per download chunk (tabular data only)",
+							Value: 100000,
 						},
 						&cli.UintFlag{
 							Name:  dataFlagParallelDownloads,
