@@ -106,6 +106,7 @@ var regMap = map[string]byte{
 	"EnableBound": 0x34,
 	"SetEEModel":  0x4E,
 	"ServoError":  0x6A,
+	"Gripper":     0x7F,
 }
 
 type cmd struct {
@@ -496,9 +497,7 @@ func getMaxDiff(from, to []referenceframe.Input) float64 {
 }
 
 func (x *xArm) openGripper(ctx context.Context) error {
-	fmt.Println("set1")
 	err1 := x.tgpioSetDigital(ctx, 0, 1)
-	fmt.Println("set2", err1)
 	err2 := x.tgpioSetDigital(ctx, 1, 0)
 	return multierr.Combine(err1, err2)
 }

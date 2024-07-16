@@ -4,6 +4,7 @@ package xarm
 import (
 	"context"
 	"time"
+
 	// for embedding model file.
 	_ "embed"
 	"fmt"
@@ -230,13 +231,13 @@ func (x *xArm) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[s
 		time.Sleep(1500 * time.Millisecond)
 		return nil, x.stopGripper(ctx)
 	} else if _, ok := cmd["close"]; ok {
+		fmt.Println("closing")
 		err := x.closeGripper(ctx)
 		if err != nil {
 			return nil, err
 		}
 		time.Sleep(1500 * time.Millisecond)
-		//~ return nil, x.stopGripper(ctx)
-		return nil, nil
+		return nil, x.stopGripper(ctx)
 	}
 	return nil, nil
 }
