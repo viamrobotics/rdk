@@ -1,4 +1,4 @@
-package builtin
+package sync
 
 import (
 	"context"
@@ -16,14 +16,16 @@ import (
 )
 
 var (
-	fsThresholdToTriggerDeletion = .90
-	captureDirToFSUsageRatio     = .5
-	defaultDeleteEveryNth        = 5
+	// temporarily public for tests.
+	FSThresholdToTriggerDeletion = .90
+	// temporarily public for tests.
+	CaptureDirToFSUsageRatio = .5
 )
 
 var errAtSizeThreshold = errors.New("capture directory has reached or exceeded disk usage threshold for deletion")
 
-func shouldDeleteBasedOnDiskUsage(ctx context.Context, captureDirPath string, logger logging.Logger) (bool, error) {
+// temporarily public for tests.
+func ShouldDeleteBasedOnDiskUsage(ctx context.Context, captureDirPath string, logger logging.Logger) (bool, error) {
 	usage := diskusage.NewDiskUsage(captureDirPath)
 	// we get usage this way to ensure we get the amount of remaining space in the partition.
 	// calling usage.Usage() returns the usage of the whole disk, not the user partition
@@ -31,7 +33,7 @@ func shouldDeleteBasedOnDiskUsage(ctx context.Context, captureDirPath string, lo
 	if math.IsNaN(usedSpace) {
 		return false, nil
 	}
-	if usedSpace < fsThresholdToTriggerDeletion {
+	if usedSpace < FSThresholdToTriggerDeletion {
 		logger.Debugf("disk not full enough, exiting. Used space: %f, available space: %d, size: %d",
 			usedSpace, usage.Available(), usage.Size())
 		return false, nil
@@ -40,7 +42,7 @@ func shouldDeleteBasedOnDiskUsage(ctx context.Context, captureDirPath string, lo
 	shouldDelete, err := exceedsDeletionThreshold(ctx, captureDirPath, float64(usage.Size()), logger)
 	if err != nil && !shouldDelete {
 		logger.Warnf("Disk nearing capacity but data capture directory is below %f of that size, file deletion will not run",
-			captureDirToFSUsageRatio)
+			CaptureDirToFSUsageRatio)
 	}
 	return shouldDelete, err
 }
@@ -68,9 +70,9 @@ func exceedsDeletionThreshold(ctx context.Context, captureDirPath string, fsSize
 				return err
 			}
 			dirSize += fileInfo.Size()
-			if float64(dirSize)/fsSize >= captureDirToFSUsageRatio {
+			if float64(dirSize)/fsSize >= CaptureDirToFSUsageRatio {
 				logger.Warnf("current disk usage of the data capture directory (%f) exceeds threshold (%f)",
-					float64(dirSize)/fsSize, captureDirToFSUsageRatio)
+					float64(dirSize)/fsSize, CaptureDirToFSUsageRatio)
 				return errAtSizeThreshold
 			}
 		}
@@ -87,7 +89,8 @@ func exceedsDeletionThreshold(ctx context.Context, captureDirPath string, fsSize
 	return false, nil
 }
 
-func deleteFiles(ctx context.Context, syncer datasync.Manager, deleteEveryNth int,
+// temporarily public for tests.
+func DeleteFiles(ctx context.Context, syncer datasync.Manager, deleteEveryNth int,
 	captureDirPath string, logger logging.Logger,
 ) (int, error) {
 	index := 0

@@ -93,7 +93,7 @@ func TestSyncEnabled(t *testing.T) {
 			})
 			test.That(t, err, test.ShouldBeNil)
 			b := dmsvc.(*builtIn)
-			test.That(t, b.propagateDataSyncConfig(), test.ShouldBeNil)
+			test.That(t, b.syncManager.PropagateDataSyncConfig(), test.ShouldBeNil)
 			mockClock.Add(captureInterval)
 			waitForCaptureFilesToExceedNFiles(tmpDir, 0, logger)
 			mockClock.Add(syncInterval)
@@ -123,7 +123,7 @@ func TestSyncEnabled(t *testing.T) {
 				AssociatedAttributes: associations,
 			})
 			test.That(t, err, test.ShouldBeNil)
-			test.That(t, b.propagateDataSyncConfig(), test.ShouldBeNil)
+			test.That(t, b.syncManager.PropagateDataSyncConfig(), test.ShouldBeNil)
 
 			// Drain any requests that were already sent before Update returned.
 			for len(mockClient.succesfulDCRequests) > 0 {
@@ -243,7 +243,7 @@ func TestDataCaptureUploadIntegration(t *testing.T) {
 			})
 			test.That(t, err, test.ShouldBeNil)
 			b := dmsvc.(*builtIn)
-			test.That(t, b.propagateDataSyncConfig(), test.ShouldBeNil)
+			test.That(t, b.syncManager.PropagateDataSyncConfig(), test.ShouldBeNil)
 
 			// Let it capture a bit, then close.
 			for i := 0; i < 20; i++ {
@@ -280,7 +280,7 @@ func TestDataCaptureUploadIntegration(t *testing.T) {
 			})
 			test.That(t, err, test.ShouldBeNil)
 			b2 := newDMSvc.(*builtIn)
-			test.That(t, b2.propagateDataSyncConfig(), test.ShouldBeNil)
+			test.That(t, b2.syncManager.PropagateDataSyncConfig(), test.ShouldBeNil)
 
 			if tc.failTransiently {
 				// Simulate the backend returning errors some number of times, and validate that the dmsvc is continuing
@@ -416,7 +416,7 @@ func TestArbitraryFileUpload(t *testing.T) {
 			})
 			test.That(t, err, test.ShouldBeNil)
 			b := dmsvc.(*builtIn)
-			test.That(t, b.propagateDataSyncConfig(), test.ShouldBeNil)
+			test.That(t, b.syncManager.PropagateDataSyncConfig(), test.ShouldBeNil)
 			// Ensure that we don't wait to sync files.
 			dmsvc.SetFileLastModifiedMillis(0)
 
@@ -547,7 +547,7 @@ func TestStreamingDCUpload(t *testing.T) {
 			})
 			test.That(t, err, test.ShouldBeNil)
 			b := dmsvc.(*builtIn)
-			test.That(t, b.propagateDataSyncConfig(), test.ShouldBeNil)
+			test.That(t, b.syncManager.PropagateDataSyncConfig(), test.ShouldBeNil)
 
 			// Capture an image, then close.
 			mockClock.Add(captureInterval)
@@ -578,7 +578,7 @@ func TestStreamingDCUpload(t *testing.T) {
 			})
 			test.That(t, err, test.ShouldBeNil)
 			b2 := newDMSvc.(*builtIn)
-			test.That(t, b2.propagateDataSyncConfig(), test.ShouldBeNil)
+			test.That(t, b2.syncManager.PropagateDataSyncConfig(), test.ShouldBeNil)
 
 			// Call sync.
 			err = newDMSvc.Sync(context.Background(), nil)
@@ -716,9 +716,9 @@ func TestSyncConfigUpdateBehavior(t *testing.T) {
 			test.That(t, err, test.ShouldBeNil)
 
 			b := dmsvc.(*builtIn)
-			test.That(t, b.propagateDataSyncConfig(), test.ShouldBeNil)
+			test.That(t, b.syncManager.PropagateDataSyncConfig(), test.ShouldBeNil)
 
-			initTicker := b.syncTicker
+			initTicker := b.syncManager.SyncTicker
 
 			// Reconfigure the dmsvc with new sync configs
 			cfg.ScheduledSyncDisabled = tc.newSyncDisabled
@@ -731,10 +731,10 @@ func TestSyncConfigUpdateBehavior(t *testing.T) {
 			})
 			test.That(t, err, test.ShouldBeNil)
 
-			test.That(t, b.propagateDataSyncConfig(), test.ShouldBeNil)
-			newTicker := b.syncTicker
-			newSyncer := b.syncer
-			newFileDeletionBackgroundWorker := b.fileDeletionBackgroundWorkers
+			test.That(t, b.syncManager.PropagateDataSyncConfig(), test.ShouldBeNil)
+			newTicker := b.syncManager.SyncTicker
+			newSyncer := b.syncManager.Syncer
+			newFileDeletionBackgroundWorker := b.syncManager.FileDeletionBackgroundWorkers
 
 			if tc.newSyncDisabled {
 				test.That(t, newSyncer, test.ShouldBeNil)
@@ -745,7 +745,7 @@ func TestSyncConfigUpdateBehavior(t *testing.T) {
 				test.That(t, initTicker, test.ShouldNotEqual, newTicker)
 			}
 			if tc.newMaxSyncThreads != 0 {
-				test.That(t, b.maxSyncThreads, test.ShouldEqual, tc.newMaxSyncThreads)
+				test.That(t, b.syncManager.MaxSyncThreads, test.ShouldEqual, tc.newMaxSyncThreads)
 			}
 		})
 	}

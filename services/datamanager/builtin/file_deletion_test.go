@@ -23,6 +23,7 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/services/datamanager"
+	"go.viam.com/rdk/services/datamanager/builtin/sync"
 	"go.viam.com/rdk/services/datamanager/datasync"
 	"go.viam.com/rdk/services/datamanager/internal"
 	"go.viam.com/rdk/spatialmath"
@@ -81,10 +82,16 @@ func TestFileDeletionUsageCheck(t *testing.T) {
 				writeFiles(t, tempCaptureDir, []string{"1.capture", "2.capture"})
 			}
 			// overwrite thresholds
-			fsThresholdToTriggerDeletion = tc.triggerThreshold
-			captureDirToFSUsageRatio = tc.captureUsageRatio
+			fsThresholdToTriggerDeletion := sync.FSThresholdToTriggerDeletion
+			captureDirToFSUsageRatio := sync.CaptureDirToFSUsageRatio
+			sync.FSThresholdToTriggerDeletion = tc.triggerThreshold
+			sync.CaptureDirToFSUsageRatio = tc.captureUsageRatio
+			t.Cleanup(func() {
+				sync.FSThresholdToTriggerDeletion = fsThresholdToTriggerDeletion
+				sync.CaptureDirToFSUsageRatio = captureDirToFSUsageRatio
+			})
 			logger := logging.NewTestLogger(t)
-			willDelete, err := shouldDeleteBasedOnDiskUsage(context.Background(), tempCaptureDir, logger)
+			willDelete, err := sync.ShouldDeleteBasedOnDiskUsage(context.Background(), tempCaptureDir, logger)
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, willDelete, test.ShouldEqual, tc.deletionExpected)
 		})
@@ -163,7 +170,7 @@ func TestFileDeletion(t *testing.T) {
 			if tc.shouldCancelContext {
 				cancelFunc()
 			}
-			deletedFileCount, err := deleteFiles(ctx, syncer, defaultDeleteEveryNth, tempCaptureDir, logger)
+			deletedFileCount, err := sync.DeleteFiles(ctx, syncer, 5, tempCaptureDir, logger)
 			if tc.shouldCancelContext {
 				test.That(t, err, test.ShouldBeError, context.Canceled)
 			} else {
@@ -211,12 +218,23 @@ func TestFilePolling(t *testing.T) {
 	mockClock := clk.NewMock()
 	// Make mockClock the package level clock used by the dmsvc so that we can simulate time's passage
 	clock = mockClock
-	deletionTicker = mockClock
-	filesystemPollInterval = time.Millisecond * 20
-
 	tempDir := t.TempDir()
-	fsThresholdToTriggerDeletion = math.SmallestNonzeroFloat64
-	captureDirToFSUsageRatio = math.SmallestNonzeroFloat64
+
+	deletionTicker := sync.DeletionTicker
+	filesystemPollInterval := sync.FilesystemPollInterval
+	fsThresholdToTriggerDeletion := sync.FSThresholdToTriggerDeletion
+	captureDirToFSUsageRatio := sync.CaptureDirToFSUsageRatio
+	t.Cleanup(func() {
+		sync.DeletionTicker = deletionTicker
+		sync.FilesystemPollInterval = filesystemPollInterval
+		sync.FSThresholdToTriggerDeletion = fsThresholdToTriggerDeletion
+		sync.CaptureDirToFSUsageRatio = captureDirToFSUsageRatio
+	})
+
+	sync.DeletionTicker = mockClock
+	sync.FilesystemPollInterval = time.Millisecond * 20
+	sync.FSThresholdToTriggerDeletion = math.SmallestNonzeroFloat64
+	sync.CaptureDirToFSUsageRatio = math.SmallestNonzeroFloat64
 
 	// Set up data manager.
 	dmsvc, _ := newDMSvc(t, tempDir)
@@ -239,7 +257,7 @@ func TestFilePolling(t *testing.T) {
 	expectedDeletedFile := files[0]
 
 	// run forward 20ms to delete any files
-	mockClock.Add(filesystemPollInterval)
+	mockClock.Add(sync.FilesystemPollInterval)
 	waitForCaptureFilesToEqualNFiles(tempDir, 3, logger)
 	newFiles := getAllFileInfos(tempDir)
 	test.That(t, len(newFiles), test.ShouldEqual, 3)
@@ -326,6 +344,6 @@ func newDMSvc(t *testing.T, tempDir string) (internal.DMService, mockDataSyncSer
 	})
 	test.That(t, err, test.ShouldBeNil)
 	b := dmsvc.(*builtIn)
-	test.That(t, b.propagateDataSyncConfig(), test.ShouldBeNil)
+	test.That(t, b.syncManager.PropagateDataSyncConfig(), test.ShouldBeNil)
 	return dmsvc, mockClient
 }

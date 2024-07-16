@@ -1,4 +1,4 @@
-package data
+package capture
 
 import (
 	"context"
@@ -12,6 +12,7 @@ import (
 	"github.com/pkg/errors"
 	goutils "go.viam.com/utils"
 
+	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
@@ -78,7 +79,7 @@ type CaptureManager struct {
 func componentMethodMetadata(resConf datamanager.DataCaptureConfig) resourceMethodMetadata {
 	return resourceMethodMetadata{
 		ResourceName: resConf.Name.ShortName(),
-		MethodMetadata: MethodMetadata{
+		MethodMetadata: data.MethodMetadata{
 			API:        resConf.Name.API,
 			MethodName: resConf.Method,
 		},
@@ -230,7 +231,7 @@ func (cm *CaptureManager) CaptureDir() string {
 // Parameters stored for each collector.
 type collectorAndConfig struct {
 	Resource  resource.Resource
-	Collector Collector
+	Collector data.Collector
 	Config    datamanager.DataCaptureConfig
 }
 
@@ -239,7 +240,7 @@ type collectorAndConfig struct {
 type resourceMethodMetadata struct {
 	ResourceName   string
 	MethodParams   string
-	MethodMetadata MethodMetadata
+	MethodMetadata data.MethodMetadata
 }
 
 func (r resourceMethodMetadata) String() string {
@@ -274,7 +275,7 @@ func (cm *CaptureManager) initializeOrUpdateCollector(
 	}
 
 	// Get collector constructor for the component API and method.
-	collectorConstructor := CollectorLookup(md.MethodMetadata)
+	collectorConstructor := data.CollectorLookup(md.MethodMetadata)
 	if collectorConstructor == nil {
 		return nil, errors.Errorf("failed to find collector constructor for %s", md.MethodMetadata)
 	}
@@ -316,8 +317,8 @@ func (cm *CaptureManager) initializeOrUpdateCollector(
 		config.Tags,
 	)
 	// Parameters to initialize collector.
-	interval := getDurationFromHz(config.CaptureFrequencyHz)
-	collector, err := collectorConstructor(res, CollectorParams{
+	interval := data.GetDurationFromHz(config.CaptureFrequencyHz)
+	collector, err := collectorConstructor(res, data.CollectorParams{
 		ComponentName: config.Name.ShortName(),
 		Interval:      interval,
 		MethodParams:  methodParams,
@@ -366,7 +367,7 @@ func (cm *CaptureManager) getDataCollectorConfigs(
 
 // CloseCollectors closes collectors.
 func (cm *CaptureManager) CloseCollectors() {
-	var collectorsToClose []Collector
+	var collectorsToClose []data.Collector
 	cm.mu.Lock()
 	for _, collectorAndConfig := range cm.collectors {
 		collectorsToClose = append(collectorsToClose, collectorAndConfig.Collector)
@@ -385,7 +386,7 @@ func (cm *CaptureManager) CloseCollectors() {
 
 // FlushCollectors flushes collectors.
 func (cm *CaptureManager) FlushCollectors() {
-	var collectorsToFlush []Collector
+	var collectorsToFlush []data.Collector
 	cm.mu.Lock()
 	for _, collectorAndConfig := range cm.collectors {
 		collectorsToFlush = append(collectorsToFlush, collectorAndConfig.Collector)
@@ -399,14 +400,6 @@ func (cm *CaptureManager) FlushCollectors() {
 		goutils.ManagedGo(c.Flush, wg.Done)
 	}
 	wg.Wait()
-}
-
-// Get time.Duration from hz.
-func getDurationFromHz(captureFrequencyHz float32) time.Duration {
-	if captureFrequencyHz == 0 {
-		return time.Duration(0)
-	}
-	return time.Duration(float32(time.Second) / captureFrequencyHz)
 }
 
 func (cm *CaptureManager) logCaptureDirSize(ctx context.Context) {
