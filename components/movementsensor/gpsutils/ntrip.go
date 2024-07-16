@@ -44,13 +44,16 @@ const (
 
 // NtripInfo contains the information necessary to connect to a mountpoint.
 type NtripInfo struct {
+	// All of these should be considered immutable.
 	URL                string
 	username           string
 	password           string
 	MountPoint         string
-	Client             *ntrip.Client
-	Stream             io.ReadCloser
 	MaxConnectAttempts int
+
+	// These ones are mutable!
+	Client *ntrip.Client
+	Stream io.ReadCloser
 }
 
 // NtripConfig is used for converting attributes for a correction source.
