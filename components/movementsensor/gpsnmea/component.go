@@ -86,16 +86,6 @@ func (g *NMEAMovementSensor) CompassHeading(
 	return g.cachedData.CompassHeading(ctx, extra)
 }
 
-// ReadFix returns Fix quality of MovementSensor measurements.
-func (g *NMEAMovementSensor) ReadFix(ctx context.Context) (int, error) {
-	return g.cachedData.ReadFix(ctx)
-}
-
-// ReadSatsInView returns the number of satellites in view.
-func (g *NMEAMovementSensor) ReadSatsInView(ctx context.Context) (int, error) {
-	return g.cachedData.ReadSatsInView(ctx)
-}
-
 // Readings will use return all of the MovementSensor Readings.
 func (g *NMEAMovementSensor) Readings(
 	ctx context.Context, extra map[string]interface{},

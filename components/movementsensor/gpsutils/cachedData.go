@@ -217,20 +217,6 @@ func (g *CachedData) CompassHeading(
 	return currentHeading, nil
 }
 
-// ReadFix returns Fix quality of MovementSensor measurements.
-func (g *CachedData) ReadFix(ctx context.Context) (int, error) {
-	g.mu.RLock()
-	defer g.mu.RUnlock()
-	return g.nmeaData.FixQuality, nil
-}
-
-// ReadSatsInView returns the number of satellites in view.
-func (g *CachedData) ReadSatsInView(ctx context.Context) (int, error) {
-	g.mu.RLock()
-	defer g.mu.RUnlock()
-	return g.nmeaData.SatsInView, nil
-}
-
 // GetCommonReadings returns a map including fix value, sats in view and sats in use.
 func (g *CachedData) GetCommonReadings(ctx context.Context) *CommonReadings {
 	g.mu.Lock()
