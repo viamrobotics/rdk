@@ -141,7 +141,7 @@ func TestDataCaptureEnabled(t *testing.T) {
 			})
 			test.That(t, err, test.ShouldBeNil)
 			b := dmsvc.(*builtIn)
-			test.That(t, b.syncManager.PropagateDataSyncConfig(), test.ShouldBeNil)
+			test.That(t, b.sync.PropagateDataSyncConfig(), test.ShouldBeNil)
 			passTimeCtx1, cancelPassTime1 := context.WithCancel(context.Background())
 			donePassingTime1 := passTime(passTimeCtx1, mockClock, captureInterval)
 
@@ -175,7 +175,7 @@ func TestDataCaptureEnabled(t *testing.T) {
 				AssociatedAttributes: associations,
 			})
 			test.That(t, err, test.ShouldBeNil)
-			test.That(t, b.syncManager.PropagateDataSyncConfig(), test.ShouldBeNil)
+			test.That(t, b.sync.PropagateDataSyncConfig(), test.ShouldBeNil)
 			oldCaptureDirFiles := getAllFileInfos(initCaptureDir)
 			passTimeCtx2, cancelPassTime2 := context.WithCancel(context.Background())
 			donePassingTime2 := passTime(passTimeCtx2, mockClock, captureInterval)
@@ -224,7 +224,7 @@ func TestSwitchResource(t *testing.T) {
 	})
 	test.That(t, err, test.ShouldBeNil)
 	b := dmsvc.(*builtIn)
-	test.That(t, b.syncManager.PropagateDataSyncConfig(), test.ShouldBeNil)
+	test.That(t, b.sync.PropagateDataSyncConfig(), test.ShouldBeNil)
 	passTimeCtx1, cancelPassTime1 := context.WithCancel(context.Background())
 	donePassingTime1 := passTime(passTimeCtx1, mockClock, captureInterval)
 
@@ -251,7 +251,7 @@ func TestSwitchResource(t *testing.T) {
 		AssociatedAttributes: associations,
 	})
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, b.syncManager.PropagateDataSyncConfig(), test.ShouldBeNil)
+	test.That(t, b.sync.PropagateDataSyncConfig(), test.ShouldBeNil)
 
 	dataBeforeSwitch, err := getSensorData(captureDir)
 	test.That(t, err, test.ShouldBeNil)

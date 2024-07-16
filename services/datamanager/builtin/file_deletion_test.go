@@ -242,7 +242,7 @@ func TestFilePolling(t *testing.T) {
 
 	// run forward 10ms to capture 4 files then close the collectors,
 	mockClock.Add(captureInterval)
-	captureManager := dmsvc.(*builtIn).captureManager
+	captureManager := dmsvc.(*builtIn).capture
 	// flush and close collectors to ensure we have exactly 4 files
 	captureManager.FlushCollectors()
 	captureManager.CloseCollectors()
@@ -344,6 +344,6 @@ func newDMSvc(t *testing.T, tempDir string) (internal.DMService, mockDataSyncSer
 	})
 	test.That(t, err, test.ShouldBeNil)
 	b := dmsvc.(*builtIn)
-	test.That(t, b.syncManager.PropagateDataSyncConfig(), test.ShouldBeNil)
+	test.That(t, b.sync.PropagateDataSyncConfig(), test.ShouldBeNil)
 	return dmsvc, mockClient
 }

@@ -40,7 +40,7 @@ var (
 type selectiveSyncer interface {
 	sensor.Sensor
 }
-type SyncManager struct {
+type Manager struct {
 	logger                      logging.Logger
 	closedCancelFn              context.CancelFunc
 	closedCtx                   context.Context
@@ -100,9 +100,9 @@ func NewSyncManager(
 	logger logging.Logger,
 	clk clock.Clock,
 	flushCollectors func(),
-) *SyncManager {
+) *Manager {
 	closedCtx, closedCancelFn := context.WithCancel(context.Background())
-	return &SyncManager{
+	return &Manager{
 		flushCollectors:        flushCollectors,
 		clk:                    clk,
 		closedCtx:              closedCtx,
@@ -116,7 +116,7 @@ func NewSyncManager(
 }
 
 // ReconfigureCapture reconfigures the capture manager.
-func (sm *SyncManager) ReconfigureSync(
+func (sm *Manager) ReconfigureSync(
 	ctx context.Context,
 	deps resource.Dependencies,
 	config resource.Config,
@@ -267,7 +267,7 @@ func pollFilesystem(ctx context.Context, wg *sync.WaitGroup, captureDir string,
 }
 
 // Close releases all resources managed by data_manager.
-func (sm *SyncManager) Close() error {
+func (sm *Manager) Close() error {
 	sm.closedCancelFn()
 	sm.mu.Lock()
 	sm.closeSyncer()
@@ -290,7 +290,7 @@ func (sm *SyncManager) Close() error {
 	return nil
 }
 
-func (sm *SyncManager) closeSyncer() {
+func (sm *Manager) closeSyncer() {
 	if sm.Syncer != nil {
 		// If previously we were syncing, close the old syncer and cancel the old updateCollectors goroutine.
 		sm.Syncer.Close()
@@ -304,7 +304,7 @@ func (sm *SyncManager) closeSyncer() {
 
 var grpcConnectionTimeout = 10 * time.Second
 
-func (sm *SyncManager) initSyncer(ctx context.Context) error {
+func (sm *Manager) initSyncer(ctx context.Context) error {
 	ctx, cancel := context.WithTimeout(ctx, grpcConnectionTimeout)
 	defer cancel()
 	identity, conn, err := sm.cloudConnSvc.AcquireConnection(ctx)
@@ -326,7 +326,7 @@ func (sm *SyncManager) initSyncer(ctx context.Context) error {
 // Sync performs a non-scheduled sync of the data in the capture directory.
 // If automated sync is also enabled, calling Sync will upload the files,
 // regardless of whether or not is the scheduled time.
-func (sm *SyncManager) Sync(ctx context.Context, _ map[string]interface{}) error {
+func (sm *Manager) Sync(ctx context.Context, _ map[string]interface{}) error {
 	sm.mu.Lock()
 	if sm.Syncer == nil {
 		err := sm.initSyncer(ctx)
@@ -341,7 +341,7 @@ func (sm *SyncManager) Sync(ctx context.Context, _ map[string]interface{}) error
 	return nil
 }
 
-func (sm *SyncManager) startPropagateDataSyncConfig() {
+func (sm *Manager) startPropagateDataSyncConfig() {
 	sm.propagateDataSyncConfigWG.Add(1)
 	goutils.ManagedGo(sm.propagateDataSyncConfigLoop, sm.propagateDataSyncConfigWG.Done)
 }
@@ -353,7 +353,7 @@ func (sm *SyncManager) startPropagateDataSyncConfig() {
 // If so it propagates the changes and marks the datasync configuration as propagated.
 // Otherwise it sleeps for another second.
 // Takes the builtIn lock every iteration.
-func (sm *SyncManager) propagateDataSyncConfigLoop() {
+func (sm *Manager) propagateDataSyncConfigLoop() {
 	if err := sm.PropagateDataSyncConfig(); err != nil {
 		return
 	}
@@ -364,7 +364,7 @@ func (sm *SyncManager) propagateDataSyncConfigLoop() {
 	}
 }
 
-func (sm *SyncManager) PropagateDataSyncConfig() error {
+func (sm *Manager) PropagateDataSyncConfig() error {
 	sm.mu.Lock()
 	defer sm.mu.Unlock()
 	if !sm.syncConfigUpdated {
@@ -407,7 +407,7 @@ func (sm *SyncManager) PropagateDataSyncConfig() error {
 }
 
 // startSyncScheduler starts the goroutine that calls Sync repeatedly if scheduled sync is enabled.
-func (sm *SyncManager) startSyncScheduler(intervalMins float64) {
+func (sm *Manager) startSyncScheduler(intervalMins float64) {
 	cancelCtx, fn := context.WithCancel(sm.closedCtx)
 	sm.syncRoutineCancelFn = fn
 	sm.uploadData(cancelCtx, intervalMins)
@@ -415,7 +415,7 @@ func (sm *SyncManager) startSyncScheduler(intervalMins float64) {
 
 // cancelSyncScheduler cancels the goroutine that calls Sync repeatedly if scheduled sync is enabled.
 // It does not close the syncer or any in progress uploads.
-func (sm *SyncManager) cancelSyncScheduler() {
+func (sm *Manager) cancelSyncScheduler() {
 	if sm.syncRoutineCancelFn != nil {
 		sm.syncRoutineCancelFn()
 		sm.syncRoutineCancelFn = nil
@@ -429,7 +429,7 @@ func (sm *SyncManager) cancelSyncScheduler() {
 	}
 }
 
-func (sm *SyncManager) uploadData(cancelCtx context.Context, intervalMins float64) {
+func (sm *Manager) uploadData(cancelCtx context.Context, intervalMins float64) {
 	// time.Duration loses precision at low floating point values, so turn intervalMins to milliseconds.
 	intervalMillis := 60000.0 * intervalMins
 	// The ticker must be created before uploadData returns to prevent race conditions between clock.Ticker and
@@ -482,7 +482,7 @@ func isOffline() bool {
 	return err != nil
 }
 
-func (sm *SyncManager) sync(ctx context.Context) {
+func (sm *Manager) sync(ctx context.Context) {
 	sm.flushCollectors()
 
 	sm.mu.Lock()

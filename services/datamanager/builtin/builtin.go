@@ -61,9 +61,9 @@ func (c *Config) Validate(path string) ([]string, error) {
 // builtIn initializes and orchestrates data capture collectors for registered component/methods.
 type builtIn struct {
 	resource.Named
-	logger         logging.Logger
-	captureManager *capture.CaptureManager
-	syncManager    *sync.SyncManager
+	logger  logging.Logger
+	capture *capture.Manager
+	sync    *sync.Manager
 }
 
 // NewBuiltIn returns a new data manager service for the given robot.
@@ -75,10 +75,10 @@ func NewBuiltIn(
 ) (datamanager.Service, error) {
 	cm := capture.NewCaptureManager(logger.Sublogger("capture"), clock)
 	svc := &builtIn{
-		Named:          conf.ResourceName().AsNamed(),
-		logger:         logger,
-		captureManager: cm,
-		syncManager:    sync.NewSyncManager(logger.Sublogger("sync"), clock, cm.FlushCollectors),
+		Named:   conf.ResourceName().AsNamed(),
+		logger:  logger,
+		capture: cm,
+		sync:    sync.NewSyncManager(logger.Sublogger("sync"), clock, cm.FlushCollectors),
 	}
 
 	if err := svc.Reconfigure(ctx, deps, conf); err != nil {
@@ -89,8 +89,8 @@ func NewBuiltIn(
 
 // Close releases all resources managed by data_manager.
 func (svc *builtIn) Close(_ context.Context) error {
-	svc.captureManager.Close()
-	svc.syncManager.Close()
+	svc.capture.Close()
+	svc.sync.Close()
 	return nil
 }
 
@@ -101,7 +101,7 @@ func (svc *builtIn) Close(_ context.Context) error {
 // If automated sync is also enabled, calling Sync will upload the files,
 // regardless of whether or not is the scheduled time.
 func (svc *builtIn) Sync(ctx context.Context, extra map[string]interface{}) error {
-	return svc.syncManager.Sync(ctx, extra)
+	return svc.sync.Sync(ctx, extra)
 }
 
 // Reconfigure updates the data manager service when the config has changed.
@@ -124,7 +124,7 @@ func (svc *builtIn) Reconfigure(
 		Tags:                        svcConfig.Tags,
 		MaximumCaptureFileSizeBytes: svcConfig.MaximumCaptureFileSizeBytes,
 	}
-	if err = svc.captureManager.ReconfigureCapture(ctx, deps, conf, captureConfig); err != nil {
+	if err = svc.capture.ReconfigureCapture(ctx, deps, conf, captureConfig); err != nil {
 		svc.logger.Warnw("DataCapture reconfigure error", "err", err)
 		return err
 	}
@@ -132,7 +132,7 @@ func (svc *builtIn) Reconfigure(
 	syncConfig := sync.SyncConfig{
 		AdditionalSyncPaths:        svcConfig.AdditionalSyncPaths,
 		Tags:                       svcConfig.Tags,
-		CaptureDir:                 svc.captureManager.CaptureDir(),
+		CaptureDir:                 svc.capture.CaptureDir(),
 		CaptureDisabled:            svcConfig.CaptureDisabled,
 		DeleteEveryNthWhenDiskFull: svcConfig.DeleteEveryNthWhenDiskFull,
 		FileLastModifiedMillis:     svcConfig.FileLastModifiedMillis,
@@ -141,7 +141,7 @@ func (svc *builtIn) Reconfigure(
 		SelectiveSyncerName:        svcConfig.SelectiveSyncerName,
 		SyncIntervalMins:           svcConfig.SyncIntervalMins,
 	}
-	if err = svc.syncManager.ReconfigureSync(ctx, deps, conf, syncConfig); err != nil {
+	if err = svc.sync.ReconfigureSync(ctx, deps, conf, syncConfig); err != nil {
 		svc.logger.Warnw("DataSync reconfigure error", "err", err)
 		return err
 	}

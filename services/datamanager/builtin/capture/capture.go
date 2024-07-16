@@ -56,13 +56,13 @@ var metadataToAdditionalParamFields = map[string]string{
 	generateMetadataKey("rdk:component:board", "Gpios"):   "pin_name",
 }
 
-// CaptureManager manages polling resources for metrics and writing those metrics to files. There
-// must be only one CaptureManager per DataManager. The lifecycle of a CaptureManager is:
+// Manager manages polling resources for metrics and writing those metrics to files. There
+// must be only one Manager per DataManager. The lifecycle of a Manager is:
 //
 // - NewCaptureManager
 // - Reconfigure (any number of times)
 // - Close (once).
-type CaptureManager struct {
+type Manager struct {
 	logger logging.Logger
 	clk    clock.Clock
 
@@ -88,8 +88,8 @@ func componentMethodMetadata(resConf datamanager.DataCaptureConfig) resourceMeth
 }
 
 // NewCaptureManager creates a new capture manager.
-func NewCaptureManager(logger logging.Logger, clk clock.Clock) *CaptureManager {
-	return &CaptureManager{
+func NewCaptureManager(logger logging.Logger, clk clock.Clock) *Manager {
+	return &Manager{
 		logger:                     logger,
 		captureDir:                 viamCaptureDotDir,
 		collectors:                 make(map[resourceMethodMetadata]*collectorAndConfig),
@@ -107,7 +107,7 @@ type CaptureConfig struct {
 }
 
 // ReconfigureCapture reconfigures the capture manager.
-func (cm *CaptureManager) ReconfigureCapture(
+func (cm *Manager) ReconfigureCapture(
 	ctx context.Context,
 	deps resource.Dependencies,
 	config resource.Config,
@@ -211,7 +211,7 @@ func (cm *CaptureManager) ReconfigureCapture(
 }
 
 // Close closes the capture manager.
-func (cm *CaptureManager) Close() {
+func (cm *Manager) Close() {
 	if cm.captureDirPollingCancelFn != nil {
 		cm.captureDirPollingCancelFn()
 	}
@@ -224,7 +224,7 @@ func (cm *CaptureManager) Close() {
 }
 
 // CaptureDir returns the capture directory.
-func (cm *CaptureManager) CaptureDir() string {
+func (cm *Manager) CaptureDir() string {
 	return cm.captureDir
 }
 
@@ -251,7 +251,7 @@ func (r resourceMethodMetadata) String() string {
 
 // Initialize a collector for the component/method or update it if it has previously been created.
 // Return the component/method metadata which is used as a key in the collectors map.
-func (cm *CaptureManager) initializeOrUpdateCollector(
+func (cm *Manager) initializeOrUpdateCollector(
 	res resource.Resource,
 	md resourceMethodMetadata,
 	config datamanager.DataCaptureConfig,
@@ -337,7 +337,7 @@ func (cm *CaptureManager) initializeOrUpdateCollector(
 }
 
 // Build the component configs associated with the data manager service.
-func (cm *CaptureManager) getDataCollectorConfigs(
+func (cm *Manager) getDataCollectorConfigs(
 	resources resource.Dependencies,
 	conf resource.Config,
 	captureDir string,
@@ -366,7 +366,7 @@ func (cm *CaptureManager) getDataCollectorConfigs(
 }
 
 // CloseCollectors closes collectors.
-func (cm *CaptureManager) CloseCollectors() {
+func (cm *Manager) CloseCollectors() {
 	var collectorsToClose []data.Collector
 	cm.mu.Lock()
 	for _, collectorAndConfig := range cm.collectors {
@@ -385,7 +385,7 @@ func (cm *CaptureManager) CloseCollectors() {
 }
 
 // FlushCollectors flushes collectors.
-func (cm *CaptureManager) FlushCollectors() {
+func (cm *Manager) FlushCollectors() {
 	var collectorsToFlush []data.Collector
 	cm.mu.Lock()
 	for _, collectorAndConfig := range cm.collectors {
@@ -402,7 +402,7 @@ func (cm *CaptureManager) FlushCollectors() {
 	wg.Wait()
 }
 
-func (cm *CaptureManager) logCaptureDirSize(ctx context.Context) {
+func (cm *Manager) logCaptureDirSize(ctx context.Context) {
 	t := cm.clk.Ticker(captureDirSizeLogInterval)
 	defer t.Stop()
 	defer cm.captureDirPollingBackgroundWorkers.Done()
