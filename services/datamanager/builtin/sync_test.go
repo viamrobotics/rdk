@@ -14,6 +14,7 @@ import (
 	"github.com/pkg/errors"
 	v1 "go.viam.com/api/app/datasync/v1"
 	"go.viam.com/test"
+	"go.viam.com/utils/testutils"
 	"google.golang.org/grpc"
 
 	"go.viam.com/rdk/logging"
@@ -93,7 +94,9 @@ func TestSyncEnabled(t *testing.T) {
 			})
 			test.That(t, err, test.ShouldBeNil)
 			b := dmsvc.(*builtIn)
-			test.That(t, b.sync.PropagateDataSyncConfig(), test.ShouldBeNil)
+			testutils.WaitForAssertion(t, func(tb testing.TB) {
+				test.That(tb, b.sync.ConfigPropagated.Load(), test.ShouldBeTrue)
+			})
 			mockClock.Add(captureInterval)
 			waitForCaptureFilesToExceedNFiles(tmpDir, 0, logger)
 			mockClock.Add(syncInterval)
@@ -123,7 +126,9 @@ func TestSyncEnabled(t *testing.T) {
 				AssociatedAttributes: associations,
 			})
 			test.That(t, err, test.ShouldBeNil)
-			test.That(t, b.sync.PropagateDataSyncConfig(), test.ShouldBeNil)
+			testutils.WaitForAssertion(t, func(tb testing.TB) {
+				test.That(tb, b.sync.ConfigPropagated.Load(), test.ShouldBeTrue)
+			})
 
 			// Drain any requests that were already sent before Update returned.
 			for len(mockClient.succesfulDCRequests) > 0 {
@@ -243,7 +248,9 @@ func TestDataCaptureUploadIntegration(t *testing.T) {
 			})
 			test.That(t, err, test.ShouldBeNil)
 			b := dmsvc.(*builtIn)
-			test.That(t, b.sync.PropagateDataSyncConfig(), test.ShouldBeNil)
+			testutils.WaitForAssertion(t, func(tb testing.TB) {
+				test.That(tb, b.sync.ConfigPropagated.Load(), test.ShouldBeTrue)
+			})
 
 			// Let it capture a bit, then close.
 			for i := 0; i < 20; i++ {
@@ -280,7 +287,9 @@ func TestDataCaptureUploadIntegration(t *testing.T) {
 			})
 			test.That(t, err, test.ShouldBeNil)
 			b2 := newDMSvc.(*builtIn)
-			test.That(t, b2.sync.PropagateDataSyncConfig(), test.ShouldBeNil)
+			testutils.WaitForAssertion(t, func(tb testing.TB) {
+				test.That(tb, b2.sync.ConfigPropagated.Load(), test.ShouldBeTrue)
+			})
 
 			if tc.failTransiently {
 				// Simulate the backend returning errors some number of times, and validate that the dmsvc is continuing
@@ -416,7 +425,9 @@ func TestArbitraryFileUpload(t *testing.T) {
 			})
 			test.That(t, err, test.ShouldBeNil)
 			b := dmsvc.(*builtIn)
-			test.That(t, b.sync.PropagateDataSyncConfig(), test.ShouldBeNil)
+			testutils.WaitForAssertion(t, func(tb testing.TB) {
+				test.That(tb, b.sync.ConfigPropagated.Load(), test.ShouldBeTrue)
+			})
 			// Ensure that we don't wait to sync files.
 			dmsvc.SetFileLastModifiedMillis(0)
 
@@ -547,7 +558,9 @@ func TestStreamingDCUpload(t *testing.T) {
 			})
 			test.That(t, err, test.ShouldBeNil)
 			b := dmsvc.(*builtIn)
-			test.That(t, b.sync.PropagateDataSyncConfig(), test.ShouldBeNil)
+			testutils.WaitForAssertion(t, func(tb testing.TB) {
+				test.That(tb, b.sync.ConfigPropagated.Load(), test.ShouldBeTrue)
+			})
 
 			// Capture an image, then close.
 			mockClock.Add(captureInterval)
@@ -578,7 +591,9 @@ func TestStreamingDCUpload(t *testing.T) {
 			})
 			test.That(t, err, test.ShouldBeNil)
 			b2 := newDMSvc.(*builtIn)
-			test.That(t, b2.sync.PropagateDataSyncConfig(), test.ShouldBeNil)
+			testutils.WaitForAssertion(t, func(tb testing.TB) {
+				test.That(tb, b2.sync.ConfigPropagated.Load(), test.ShouldBeTrue)
+			})
 
 			// Call sync.
 			err = newDMSvc.Sync(context.Background(), nil)
@@ -716,7 +731,9 @@ func TestSyncConfigUpdateBehavior(t *testing.T) {
 			test.That(t, err, test.ShouldBeNil)
 
 			b := dmsvc.(*builtIn)
-			test.That(t, b.sync.PropagateDataSyncConfig(), test.ShouldBeNil)
+			testutils.WaitForAssertion(t, func(tb testing.TB) {
+				test.That(tb, b.sync.ConfigPropagated.Load(), test.ShouldBeTrue)
+			})
 
 			initTicker := b.sync.SyncTicker
 
@@ -731,7 +748,9 @@ func TestSyncConfigUpdateBehavior(t *testing.T) {
 			})
 			test.That(t, err, test.ShouldBeNil)
 
-			test.That(t, b.sync.PropagateDataSyncConfig(), test.ShouldBeNil)
+			testutils.WaitForAssertion(t, func(tb testing.TB) {
+				test.That(tb, b.sync.ConfigPropagated.Load(), test.ShouldBeTrue)
+			})
 			newTicker := b.sync.SyncTicker
 			newSyncer := b.sync.Syncer
 			newFileDeletionBackgroundWorker := b.sync.FileDeletionBackgroundWorkers

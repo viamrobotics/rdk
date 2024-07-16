@@ -37,7 +37,7 @@ var (
 const FailedDir = "failed"
 
 // MaxParallelSyncRoutines is the maximum number of sync goroutines that can be running at once.
-const MaxParallelSyncRoutines = 1000
+const MaxParallelSyncRoutines = 10
 
 // Manager is responsible for enqueuing files in captureDir and uploading them to the cloud.
 type Manager interface {

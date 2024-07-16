@@ -14,6 +14,7 @@ import (
 	"github.com/pkg/errors"
 	v1 "go.viam.com/api/app/datasync/v1"
 	"go.viam.com/test"
+	"go.viam.com/utils/testutils"
 
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
@@ -141,7 +142,9 @@ func TestDataCaptureEnabled(t *testing.T) {
 			})
 			test.That(t, err, test.ShouldBeNil)
 			b := dmsvc.(*builtIn)
-			test.That(t, b.sync.PropagateDataSyncConfig(), test.ShouldBeNil)
+			testutils.WaitForAssertion(t, func(tb testing.TB) {
+				test.That(tb, b.sync.ConfigPropagated.Load(), test.ShouldBeTrue)
+			})
 			passTimeCtx1, cancelPassTime1 := context.WithCancel(context.Background())
 			donePassingTime1 := passTime(passTimeCtx1, mockClock, captureInterval)
 
@@ -175,7 +178,9 @@ func TestDataCaptureEnabled(t *testing.T) {
 				AssociatedAttributes: associations,
 			})
 			test.That(t, err, test.ShouldBeNil)
-			test.That(t, b.sync.PropagateDataSyncConfig(), test.ShouldBeNil)
+			testutils.WaitForAssertion(t, func(tb testing.TB) {
+				test.That(tb, b.sync.ConfigPropagated.Load(), test.ShouldBeTrue)
+			})
 			oldCaptureDirFiles := getAllFileInfos(initCaptureDir)
 			passTimeCtx2, cancelPassTime2 := context.WithCancel(context.Background())
 			donePassingTime2 := passTime(passTimeCtx2, mockClock, captureInterval)
@@ -224,7 +229,9 @@ func TestSwitchResource(t *testing.T) {
 	})
 	test.That(t, err, test.ShouldBeNil)
 	b := dmsvc.(*builtIn)
-	test.That(t, b.sync.PropagateDataSyncConfig(), test.ShouldBeNil)
+	testutils.WaitForAssertion(t, func(tb testing.TB) {
+		test.That(tb, b.sync.ConfigPropagated.Load(), test.ShouldBeTrue)
+	})
 	passTimeCtx1, cancelPassTime1 := context.WithCancel(context.Background())
 	donePassingTime1 := passTime(passTimeCtx1, mockClock, captureInterval)
 
@@ -251,7 +258,9 @@ func TestSwitchResource(t *testing.T) {
 		AssociatedAttributes: associations,
 	})
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, b.sync.PropagateDataSyncConfig(), test.ShouldBeNil)
+	testutils.WaitForAssertion(t, func(tb testing.TB) {
+		test.That(tb, b.sync.ConfigPropagated.Load(), test.ShouldBeTrue)
+	})
 
 	dataBeforeSwitch, err := getSensorData(captureDir)
 	test.That(t, err, test.ShouldBeNil)

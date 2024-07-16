@@ -14,6 +14,7 @@ import (
 	v1 "go.viam.com/api/app/datasync/v1"
 	pb "go.viam.com/api/component/arm/v1"
 	"go.viam.com/test"
+	"go.viam.com/utils/testutils"
 
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/components/gantry"
@@ -344,6 +345,8 @@ func newDMSvc(t *testing.T, tempDir string) (internal.DMService, mockDataSyncSer
 	})
 	test.That(t, err, test.ShouldBeNil)
 	b := dmsvc.(*builtIn)
-	test.That(t, b.sync.PropagateDataSyncConfig(), test.ShouldBeNil)
+	testutils.WaitForAssertion(t, func(tb testing.TB) {
+		test.That(tb, b.sync.ConfigPropagated.Load(), test.ShouldBeTrue)
+	})
 	return dmsvc, mockClient
 }

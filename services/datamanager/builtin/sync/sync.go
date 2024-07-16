@@ -84,6 +84,9 @@ type Sync struct {
 	SyncerConstructor            datasync.ManagerConstructor
 	syncerNeedsToBeReInitialized bool
 	tags                         []string
+
+	// ConfigPropagated exists only for tests
+	ConfigPropagated atomic.Bool
 }
 
 // Config is the sync config.
@@ -132,6 +135,7 @@ func (sm *Sync) Reconfigure(
 ) error {
 	sm.mu.Lock()
 	defer sm.mu.Unlock()
+	sm.ConfigPropagated.Store(false)
 	cloudConnSvc, err := resource.FromDependencies[cloud.ConnectionService](deps, cloud.InternalServiceName)
 	if err != nil {
 		return err
@@ -360,11 +364,11 @@ func (sm *Sync) startPropagateDataSyncConfig() {
 // Otherwise it sleeps for another second.
 // Takes the builtIn lock every iteration.
 func (sm *Sync) propagateDataSyncConfigLoop() {
-	if err := sm.PropagateDataSyncConfig(); err != nil {
+	if err := sm.propagateDataSyncConfig(); err != nil {
 		return
 	}
 	for goutils.SelectContextOrWait(sm.closedCtx, time.Second) {
-		if err := sm.PropagateDataSyncConfig(); err != nil {
+		if err := sm.propagateDataSyncConfig(); err != nil {
 			return
 		}
 	}
@@ -372,10 +376,11 @@ func (sm *Sync) propagateDataSyncConfigLoop() {
 
 // PropagateDataSyncConfig is temporarily public for tests
 // it applies the data sync config set in the previous Reconfigure call.
-func (sm *Sync) PropagateDataSyncConfig() error {
+func (sm *Sync) propagateDataSyncConfig() error {
 	sm.mu.Lock()
 	defer sm.mu.Unlock()
 	if !sm.syncConfigUpdated {
+		sm.ConfigPropagated.Store(true)
 		return nil
 	}
 	sm.cancelSyncScheduler()
@@ -385,6 +390,7 @@ func (sm *Sync) PropagateDataSyncConfig() error {
 			if err := sm.initSyncer(sm.closedCtx); err != nil {
 				if errors.Is(err, cloud.ErrNotCloudManaged) {
 					sm.logger.Debug("Using no-op sync manager when not cloud managed")
+					sm.ConfigPropagated.Store(true)
 					return err
 				}
 				sm.logger.Infof("initSyncer err: %s", err.Error())
@@ -395,6 +401,7 @@ func (sm *Sync) PropagateDataSyncConfig() error {
 			if err := sm.initSyncer(sm.closedCtx); err != nil {
 				if errors.Is(err, cloud.ErrNotCloudManaged) {
 					sm.logger.Debug("Using no-op sync manager when not cloud managed")
+					sm.ConfigPropagated.Store(true)
 					return err
 				}
 				sm.logger.Infof("initSyncer err: %s", err.Error())
@@ -411,6 +418,7 @@ func (sm *Sync) PropagateDataSyncConfig() error {
 		sm.closeSyncer()
 	}
 	sm.syncConfigUpdated = false
+	sm.ConfigPropagated.Store(true)
 	return nil
 }
 
