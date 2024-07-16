@@ -31,6 +31,6 @@ type Credentials = goutils.Credentials
 // WithEntityCredentials returns a DialOption which sets the entity credentials
 // to use for authenticating the request. This is mutually exclusive with
 // WithCredentials.
-func WithEntityCredentials(entity string, creds goutils.Credentials) goutils.DialOption {
+func WithEntityCredentials(entity string, creds Credentials) goutils.DialOption {
 	return goutils.WithEntityCredentials(entity, creds)
 }
