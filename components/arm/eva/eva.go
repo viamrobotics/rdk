@@ -23,10 +23,10 @@ import (
 
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/logging"
-	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/services/motion"
 	"go.viam.com/rdk/spatialmath"
 )
 
@@ -139,18 +139,18 @@ func (e *eva) JointPositions(ctx context.Context, extra map[string]interface{}) 
 
 // EndPosition computes and returns the current cartesian position.
 func (e *eva) EndPosition(ctx context.Context, extra map[string]interface{}) (spatialmath.Pose, error) {
-	joints, err := e.JointPositions(ctx, extra)
+	joints, err := e.CurrentInputs(ctx)
 	if err != nil {
 		return nil, err
 	}
-	return motionplan.ComputeOOBPosition(e.model, joints)
+	return referenceframe.ComputeOOBPosition(e.model, joints)
 }
 
 // MoveToPosition moves the arm to the specified cartesian position.
 func (e *eva) MoveToPosition(ctx context.Context, pos spatialmath.Pose, extra map[string]interface{}) error {
 	ctx, done := e.opMgr.New(ctx)
 	defer done()
-	return arm.Move(ctx, e.logger, e, pos)
+	return motion.MoveArm(ctx, e.logger, e, pos)
 }
 
 func (e *eva) MoveToJointPositions(ctx context.Context, newPositions *pb.JointPositions, extra map[string]interface{}) error {
