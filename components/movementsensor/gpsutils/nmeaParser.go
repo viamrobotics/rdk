@@ -24,13 +24,14 @@ type NmeaParser struct {
 	Speed               float64 // ground speed in m per sec
 	VDOP                float64 // vertical accuracy
 	HDOP                float64 // horizontal accuracy
-	SatsInView          int     // quantity satellites in view
-	SatsInUse           int     // quantity satellites in view
+	SatsInView          int     // all satellites visible to the receiver, whether or not they are used for positioning.
+	SatsInUse           int     // satellites actively used for positioning and measuring fix type
 	valid               bool
 	FixQuality          int
 	CompassHeading      float64 // true compass heading in degree
 	isEast              bool    // direction for magnetic variation which outputs East or West.
 	validCompassHeading bool    // true if we get course of direction instead of empty strings.
+	LastGGAMessage      string
 }
 
 func errInvalidFix(sentenceType, badFix, goodFix string) error {
@@ -184,9 +185,10 @@ func (g *NmeaParser) updateGGA(gga nmea.GGA) error {
 
 	g.valid = true
 	g.Location = geo.NewPoint(gga.Latitude, gga.Longitude)
-	g.SatsInUse = int(gga.NumSatellites)
+	g.SatsInUse = int(gga.NumSatellites) // gga.NumSatellites can range from 0 through to 24+
 	g.HDOP = gga.HDOP
 	g.Alt = gga.Altitude
+	g.LastGGAMessage = gga.String()
 	return nil
 }
 

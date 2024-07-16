@@ -88,6 +88,17 @@ func (g *CachedData) ParseAndUpdate(line string) error {
 	return g.nmeaData.ParseAndUpdate(line)
 }
 
+// GGA returns the GGA message of the sensor, or an error.
+func (g *CachedData) GGA() (string, error) {
+	g.mu.RLock()
+	defer g.mu.RUnlock()
+
+	if g.nmeaData.LastGGAMessage == "" {
+		return "", errors.New("empty gga message, check nmea message parsing")
+	}
+	return g.nmeaData.LastGGAMessage, g.err.Get()
+}
+
 // Position returns the position and altitide of the sensor, or an error.
 func (g *CachedData) Position(
 	ctx context.Context, extra map[string]interface{},
@@ -211,6 +222,13 @@ func (g *CachedData) ReadSatsInView(ctx context.Context) (int, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 	return g.nmeaData.SatsInView, nil
+}
+
+// ReadSatsInUse returns the number of satellites in use to calculate fix type.
+func (g *CachedData) ReadSatsInUse(ctx context.Context) (int, error) {
+	g.mu.RLock()
+	defer g.mu.RUnlock()
+	return g.nmeaData.SatsInUse, nil
 }
 
 // Properties returns what movement sensor capabilities we have.

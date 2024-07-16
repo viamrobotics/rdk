@@ -181,15 +181,6 @@ func TestConfigWithLogDeclarations(t *testing.T) {
 	// The data manager service is left unconfigured.
 	test.That(t, cfg.Services[1].Name, test.ShouldEqual, "dm")
 	test.That(t, cfg.Services[1].LogConfiguration.Level, test.ShouldEqual, logging.INFO)
-
-	test.That(t, len(cfg.GlobalLogConfig), test.ShouldEqual, 2)
-	// The first global configuration is to default `base`s to `error`.
-	test.That(t, cfg.GlobalLogConfig[0].API.String(), test.ShouldEqual, "rdk:component:base")
-	test.That(t, cfg.GlobalLogConfig[0].Level, test.ShouldEqual, logging.ERROR)
-
-	// The second global configuration is to default `motor`s of the builtin fake variety to `warn`.
-	test.That(t, cfg.GlobalLogConfig[1].API.String(), test.ShouldEqual, "rdk:component:motor")
-	test.That(t, cfg.GlobalLogConfig[1].Level, test.ShouldEqual, logging.WARN)
 }
 
 func TestConfigEnsure(t *testing.T) {

@@ -179,6 +179,9 @@ func parseStream(line string) (Stream, error) {
 		return Stream{}, fmt.Errorf("missing fields at stream line: %s", line)
 	}
 
+	if fields[carrierField] == "" {
+		fields[carrierField] = "0"
+	}
 	carrier, err := strconv.Atoi(fields[carrierField])
 	if err != nil {
 		return Stream{}, fmt.Errorf("cannot parse the streams carrier in line: %s", line)
@@ -237,6 +240,10 @@ func (n *NtripInfo) Connect(ctx context.Context, logger logging.Logger) error {
 		default:
 		}
 
+		// This client is used in two locations in the gps rtk stack.
+		// 1. when reading from the source table of a NTRIP caster
+		// 2. when receiving RCTM corrections for non-vrs mount points.
+		// the VRS implementation creates its own dial connection in vrs.go for receiving corrections and sending GGA messages
 		c, err = ntrip.NewClient(n.URL, ntrip.Options{Username: n.username, Password: n.password})
 		if err == nil { // Success!
 			logger.Info("Connected to NTRIP caster")

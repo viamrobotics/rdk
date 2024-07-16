@@ -824,10 +824,10 @@ var app = &cli.App{
 					Action: DatasetCreateAction,
 				},
 				{
-					Name:  "download",
+					Name:  "export",
 					Usage: "download data from a dataset",
-					UsageText: createUsageText("dataset download",
-						[]string{datasetFlagDatasetID, datasetFlagName}, false),
+					UsageText: createUsageText("dataset export",
+						[]string{dataFlagDestination, datasetFlagDatasetID}, true, datasetFlagIncludeJSONLines, dataFlagParallelDownloads),
 					Flags: []cli.Flag{
 						&cli.PathFlag{
 							Name:     dataFlagDestination,
