@@ -487,3 +487,35 @@ func (s *Server) Shutdown(ctx context.Context, _ *pb.ShutdownRequest) (*pb.Shutd
 	}
 	return &pb.ShutdownResponse{}, nil
 }
+
+// MachineStatus returns the operational status of the machine and it's constituent
+// parts.
+func (s *Server) GetMachineStatus(_ context.Context, _ *pb.GetMachineStatusRequest) (*pb.GetMachineStatusResponse, error) {
+	var result pb.GetMachineStatusResponse
+
+	mStatus := s.robot.MachineStatus()
+	result.Resources = make([]*pb.ResourceStatus, 0, len(mStatus.Resources))
+	for _, resStatus := range mStatus.Resources {
+		pbResStatus := &pb.ResourceStatus{
+			Name:        protoutils.ResourceNameToProto(resStatus.Name),
+			LastUpdated: timestamppb.New(resStatus.LastUpdated),
+		}
+
+		switch resStatus.State {
+		case resource.NodeStateUnconfigured:
+			pbResStatus.State = pb.ResourceStatus_STATE_UNCONFIGURED
+		case resource.NodeStateConfiguring:
+			pbResStatus.State = pb.ResourceStatus_STATE_CONFIGURING
+		case resource.NodeStateReady:
+			pbResStatus.State = pb.ResourceStatus_STATE_READY
+		case resource.NodeStateRemoving:
+			pbResStatus.State = pb.ResourceStatus_STATE_REMOVING
+		default:
+			return nil, errors.New("resource in invalid state")
+		}
+
+		result.Resources = append(result.Resources, pbResStatus)
+	}
+
+	return &result, nil
+}
