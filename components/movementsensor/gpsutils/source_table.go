@@ -63,7 +63,7 @@ type Stream struct {
 	Misc           string   // Miscellaneous information
 }
 
-// ParseStream parses a line from the sourcetable.
+// parseStream parses a line from the sourcetable.
 func parseStream(line string) (Stream, error) {
 	fields := strings.Split(line, ";")
 

@@ -135,6 +135,8 @@ func (n *NtripInfo) Connect(ctx context.Context, logger logging.Logger) error {
 	return nil
 }
 
+// createConnection is a helper function called from within Connect(). It initializes n.client by
+// connecting to the NTRIP caster.
 func (n *NtripInfo) createConnection(ctx context.Context, logger logging.Logger) error {
 	var c *ntrip.Client
 	var err error
@@ -163,6 +165,8 @@ func (n *NtripInfo) createConnection(ctx context.Context, logger logging.Logger)
 	return err
 }
 
+// waitUntilCasterIsLive returns when n.client.IsCasterAlive() is true, or after 5 failed attempts.
+// This is a helper function intended only to be called from within Connect().
 func (n *NtripInfo) waitUntilCasterIsLive(logger logging.Logger) error {
 	if !n.client.IsCasterAlive() {
 		logger.Infof("caster %s seems to be down, retrying", n.url)
