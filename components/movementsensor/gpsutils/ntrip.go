@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"strings"
+	"sync"
 
 	"github.com/de-bkg/gognss/pkg/ntrip"
 
@@ -25,6 +26,7 @@ type NtripInfo struct {
 	maxConnectAttempts int
 
 	// These ones are mutable!
+	mu     sync.Mutex
 	client *ntrip.Client
 	stream io.ReadCloser
 }
@@ -187,6 +189,9 @@ func (n *NtripInfo) GetStreamFromMountPoint(
 	cancelCtx context.Context,
 	logger logging.Logger,
 ) (io.ReadCloser, error) {
+	n.mu.Lock()
+	defer n.mu.Unlock()
+
 	success := false
 	attempts := 0
 
@@ -227,6 +232,9 @@ func (n *NtripInfo) GetStreamFromMountPoint(
 
 // Close shuts down all connections to the NTRIP caster.
 func (n *NtripInfo) Close(ctx context.Context) error {
+	n.mu.Lock()
+	defer n.mu.Unlock()
+
 	var err error
 	if n.client != nil {
 		n.client.CloseIdleConnections()
