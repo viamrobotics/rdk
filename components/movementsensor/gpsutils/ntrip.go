@@ -174,7 +174,7 @@ func (n *NtripInfo) waitUntilCasterIsLive(logger logging.Logger) error {
 
 	logger.Infof("caster %s seems to be down, retrying", n.url)
 	attempts := 0
-	// we will try to connect to the caster five times if it's down.
+	// We will try to connect to the caster five times if it's down.
 	for attempts < 5 {
 		if n.client.IsCasterAlive() {
 			return nil
