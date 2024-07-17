@@ -176,17 +176,14 @@ func (n *NtripInfo) waitUntilCasterIsLive(logger logging.Logger) error {
 	attempts := 0
 	// we will try to connect to the caster five times if it's down.
 	for attempts < 5 {
-		if !n.client.IsCasterAlive() {
-			attempts++
-			logger.Debugf("attempt(s) to connect to caster: %v ", attempts)
-		} else {
-			break
+		if n.client.IsCasterAlive() {
+			return nil
 		}
+
+		attempts++
+		logger.Debugf("attempt(s) to connect to caster: %v ", attempts)
 	}
-	if attempts == 5 {
-		return fmt.Errorf("caster %s is down", n.url)
-	}
-	return nil
+	return fmt.Errorf("caster %s is down", n.url)
 }
 
 // GetStreamFromMountPoint attempts to connect to the NTRIP stream, store it in n.stream, and
