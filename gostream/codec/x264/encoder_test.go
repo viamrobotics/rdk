@@ -11,8 +11,9 @@ import (
 	"testing"
 
 	"github.com/nfnt/resize"
-	"go.viam.com/rdk/logging"
 	"go.viam.com/test"
+
+	"go.viam.com/rdk/logging"
 )
 
 const (

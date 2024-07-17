@@ -3,10 +3,9 @@ package vpx
 import (
 	"fmt"
 
-	"go.viam.com/rdk/logging"
-
 	"go.viam.com/rdk/gostream"
 	"go.viam.com/rdk/gostream/codec"
+	"go.viam.com/rdk/logging"
 )
 
 // DefaultStreamConfig configures vpx as the encoder for a stream.

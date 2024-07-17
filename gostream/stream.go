@@ -13,10 +13,10 @@ import (
 	"github.com/pion/mediadevices/pkg/wave"
 	"github.com/pion/rtp"
 	"github.com/viamrobotics/webrtc/v3"
-	"go.viam.com/rdk/logging"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/gostream/codec"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/rimage"
 	utils2 "go.viam.com/rdk/utils"
 )

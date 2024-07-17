@@ -15,6 +15,7 @@ import (
 	"github.com/pion/mediadevices/pkg/prop"
 	"github.com/pion/mediadevices/pkg/wave"
 	"github.com/pkg/errors"
+
 	"go.viam.com/rdk/logging"
 )
 

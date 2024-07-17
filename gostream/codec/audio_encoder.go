@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/pion/mediadevices/pkg/wave"
+
 	"go.viam.com/rdk/logging"
 )
 

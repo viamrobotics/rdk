@@ -1,9 +1,8 @@
 package gostream
 
 import (
-	"go.viam.com/rdk/logging"
-
 	"go.viam.com/rdk/gostream/codec"
+	"go.viam.com/rdk/logging"
 )
 
 // A StreamConfig describes how a Stream should be managed.
