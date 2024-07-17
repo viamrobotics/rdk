@@ -98,9 +98,7 @@ func (g *gpsrtk) getStreamFromMountPoint(mountPoint string, maxAttempts int) err
 		default:
 		}
 
-		rc, err = func() (io.ReadCloser, error) {
-			return g.ntripClient.Client.GetStream(mountPoint)
-		}()
+		rc, err = g.ntripClient.Client.GetStream(mountPoint)
 		if err == nil {
 			success = true
 		}
