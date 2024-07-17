@@ -25,7 +25,7 @@ type NtripInfo struct {
 	maxConnectAttempts int
 
 	// These ones are mutable!
-	Client *ntrip.Client
+	client *ntrip.Client
 	Stream io.ReadCloser
 }
 
@@ -71,7 +71,7 @@ func NewNtripInfo(cfg *NtripConfig, logger logging.Logger) (*NtripInfo, error) {
 
 // ParseSourcetable gets the sourcetable and parses it.
 func (n *NtripInfo) ParseSourcetable(logger logging.Logger) (*Sourcetable, error) {
-	reader, err := n.Client.GetSourcetable()
+	reader, err := n.client.GetSourcetable()
 	if err != nil {
 		return nil, err
 	}
@@ -152,7 +152,7 @@ func (n *NtripInfo) createConnection(ctx context.Context, logger logging.Logger)
 		c, err = ntrip.NewClient(n.url, ntrip.Options{Username: n.username, Password: n.password})
 		if err == nil { // Success!
 			logger.Info("Connected to NTRIP caster")
-			n.Client = c
+			n.client = c
 			return nil
 		}
 	}
@@ -162,12 +162,12 @@ func (n *NtripInfo) createConnection(ctx context.Context, logger logging.Logger)
 }
 
 func (n *NtripInfo) waitUntilCasterIsLive(logger logging.Logger) error {
-	if !n.Client.IsCasterAlive() {
+	if !n.client.IsCasterAlive() {
 		logger.Infof("caster %s seems to be down, retrying", n.url)
 		attempts := 0
 		// we will try to connect to the caster five times if it's down.
 		for attempts < 5 {
-			if !n.Client.IsCasterAlive() {
+			if !n.client.IsCasterAlive() {
 				attempts++
 				logger.Debugf("attempt(s) to connect to caster: %v ", attempts)
 			} else {
@@ -194,7 +194,7 @@ func (n *NtripInfo) GetStreamFromMountPoint(
 	// ntrip.NewClient() defaults sets this value to 15 seconds, which causes us to disconnect
 	// the ntrip stream and require a reconnection. Additionally, this should be tested with other
 	// CORS.
-	n.Client.Timeout = 0
+	n.client.Timeout = 0
 
 	var rc io.ReadCloser
 	var err error
@@ -208,7 +208,7 @@ func (n *NtripInfo) GetStreamFromMountPoint(
 		default:
 		}
 
-		rc, err = n.Client.GetStream(n.MountPoint)
+		rc, err = n.client.GetStream(n.MountPoint)
 		if err == nil {
 			success = true
 		}
@@ -216,7 +216,7 @@ func (n *NtripInfo) GetStreamFromMountPoint(
 	}
 
 	if err != nil {
-	logger.Errorf("Can't connect to NTRIP stream: %s", err)
+		logger.Errorf("Can't connect to NTRIP stream: %s", err)
 		return err
 	}
 	logger.Debug("Connected to stream")
@@ -228,9 +228,9 @@ func (n *NtripInfo) GetStreamFromMountPoint(
 // Close shuts down all connections to the NTRIP caster.
 func (n *NtripInfo) Close(ctx context.Context) error {
 	var err error
-	if n.Client != nil {
-		n.Client.CloseIdleConnections()
-		n.Client = nil
+	if n.client != nil {
+		n.client.CloseIdleConnections()
+		n.client = nil
 	}
 	if n.Stream != nil {
 		err = n.Stream.Close()
