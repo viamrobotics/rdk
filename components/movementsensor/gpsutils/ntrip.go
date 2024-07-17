@@ -127,12 +127,7 @@ func (n *NtripInfo) Connect(ctx context.Context, logger logging.Logger) error {
 		return err
 	}
 
-	err = n.waitUntilCasterIsLive(logger)
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return n.waitUntilCasterIsLive(logger)
 }
 
 // createConnection is a helper function called from within Connect(). It initializes n.client by
