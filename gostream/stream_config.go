@@ -2,7 +2,6 @@ package gostream
 
 import (
 	"go.viam.com/rdk/gostream/codec"
-	"go.viam.com/rdk/logging"
 )
 
 // A StreamConfig describes how a Stream should be managed.
@@ -13,6 +12,4 @@ type StreamConfig struct {
 
 	// TargetFrameRate will hint to the stream to try to maintain this frame rate.
 	TargetFrameRate int
-
-	Logger logging.Logger
 }

@@ -60,11 +60,7 @@ type MediaReleasePair[T any] struct {
 
 // NewStream returns a newly configured stream that can begin to handle
 // new connections.
-func NewStream(config StreamConfig) (Stream, error) {
-	logger := config.Logger
-	if logger == nil {
-		logger = logging.Global()
-	}
+func NewStream(config StreamConfig, logger logging.Logger) (Stream, error) {
 	if config.VideoEncoderFactory == nil && config.AudioEncoderFactory == nil {
 		return nil, errors.New("at least one audio or video encoder factory must be set")
 	}
