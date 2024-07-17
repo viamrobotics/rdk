@@ -1016,3 +1016,39 @@ func (rc *RobotClient) Shutdown(ctx context.Context) error {
 	rc.Logger().CDebug(ctx, "robot shutdown successful")
 	return nil
 }
+
+// MachineStatus returns the operational status of the machine and it's constituent
+// parts.
+func (rc *RobotClient) MachineStatus(ctx context.Context) (robot.MachineStatus, error) {
+	mStatus := robot.MachineStatus{}
+
+	req := &pb.GetMachineStatusRequest{}
+	resp, err := rc.client.GetMachineStatus(ctx, req)
+	if err != nil {
+		return mStatus, err
+	}
+
+	for _, pbResStatus := range resp.Resources {
+		resStatus := resource.Status{
+			Name:        rprotoutils.ResourceNameFromProto(pbResStatus.Name),
+			LastUpdated: pbResStatus.LastUpdated.AsTime(),
+		}
+
+		switch pbResStatus.State {
+		case pb.ResourceStatus_STATE_UNCONFIGURED:
+			resStatus.State = resource.NodeStateUnconfigured
+		case pb.ResourceStatus_STATE_CONFIGURING:
+			resStatus.State = resource.NodeStateConfiguring
+		case pb.ResourceStatus_STATE_READY:
+			resStatus.State = resource.NodeStateReady
+		case pb.ResourceStatus_STATE_REMOVING:
+			resStatus.State = resource.NodeStateRemoving
+		default:
+			return mStatus, errors.New("resource in invalid state")
+		}
+
+		mStatus.Resources = append(mStatus.Resources, resStatus)
+	}
+
+	return mStatus, nil
+}

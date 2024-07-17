@@ -501,6 +501,7 @@ func (s *Server) GetMachineStatus(_ context.Context, _ *pb.GetMachineStatusReque
 			LastUpdated: timestamppb.New(resStatus.LastUpdated),
 		}
 
+		// TODO: add conversion function
 		switch resStatus.State {
 		case resource.NodeStateUnconfigured:
 			pbResStatus.State = pb.ResourceStatus_STATE_UNCONFIGURED
