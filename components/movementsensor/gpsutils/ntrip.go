@@ -22,7 +22,7 @@ type NtripInfo struct {
 	username           string
 	password           string
 	MountPoint         string
-	MaxConnectAttempts int
+	maxConnectAttempts int
 
 	// These ones are mutable!
 	Client *ntrip.Client
@@ -59,10 +59,10 @@ func NewNtripInfo(cfg *NtripConfig, logger logging.Logger) (*NtripInfo, error) {
 	if n.MountPoint == "" {
 		logger.Info("ntrip_mountpoint set to empty")
 	}
-	n.MaxConnectAttempts = cfg.NtripConnectAttempts
-	if n.MaxConnectAttempts == 0 {
+	n.maxConnectAttempts = cfg.NtripConnectAttempts
+	if n.maxConnectAttempts == 0 {
 		logger.Info("ntrip_connect_attempts using default 10")
-		n.MaxConnectAttempts = 10
+		n.maxConnectAttempts = 10
 	}
 
 	logger.Debug("Returning n")
@@ -138,7 +138,7 @@ func (n *NtripInfo) createConnection(ctx context.Context, logger logging.Logger)
 	var err error
 
 	logger.Debug("Connecting to NTRIP caster")
-	for attempts := 0; attempts < n.MaxConnectAttempts; attempts++ {
+	for attempts := 0; attempts < n.maxConnectAttempts; attempts++ {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
@@ -182,7 +182,7 @@ func (n *NtripInfo) waitUntilCasterIsLive(logger logging.Logger) error {
 }
 
 // GetStreamFromMountPoint attempts to connect to the NTRIP stream and store it in n.Stream. We
-// give up and return an error after n.MaxConnectAttempts unsuccessful tries.
+// give up and return an error after n.maxConnectAttempts unsuccessful tries.
 func (n *NtripInfo) GetStreamFromMountPoint(
 	cancelCtx context.Context,
 	logger logging.Logger,
@@ -201,7 +201,7 @@ func (n *NtripInfo) GetStreamFromMountPoint(
 
 	logger.Debug("Getting NTRIP stream")
 
-	for !success && attempts < n.MaxConnectAttempts {
+	for !success && attempts < n.maxConnectAttempts {
 		select {
 		case <-cancelCtx.Done():
 			return errors.New("Canceled")
