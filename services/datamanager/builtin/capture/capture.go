@@ -39,14 +39,8 @@ var minNumFiles = 1000
 // Default maximum size in bytes of a data capture file.
 var defaultMaxCaptureSize = int64(256 * 1024)
 
-var viamCaptureDotDir = filepath.Join(os.Getenv("HOME"), ".viam", "capture")
-
 // Default time between checking and logging number of files in capture dir.
 var captureDirSizeLogInterval = 1 * time.Minute
-
-// ErrCaptureDirectoryConfigurationDisabled happens when the viam-server is run with
-// `-untrusted-env` and the capture directory is not `~/.viam`.
-var ErrCaptureDirectoryConfigurationDisabled = errors.New("changing the capture directory is prohibited in this environment")
 
 func generateMetadataKey(component, method string) string {
 	return fmt.Sprintf("%s/%s", component, method)
@@ -71,7 +65,6 @@ type Capture struct {
 
 	mu                                 sync.Mutex
 	captureDir                         string
-	captureDisabled                    bool
 	collectors                         map[resourceMethodMetadata]*collectorAndConfig
 	maxCaptureFileSize                 int64
 	componentMethodFrequencyHz         map[resourceMethodMetadata]float32
@@ -90,11 +83,31 @@ func componentMethodMetadata(resConf datamanager.DataCaptureConfig) resourceMeth
 	}
 }
 
+func (cm *Capture) maybeLogCollectorConfigChange(
+	componentMethodMetadata resourceMethodMetadata,
+	resConf datamanager.DataCaptureConfig,
+) {
+	prevFreqHz, ok := cm.componentMethodFrequencyHz[componentMethodMetadata]
+
+	// Only log capture frequency if the component frequency is new or the frequency has changed
+	// otherwise we'll be logging way too much
+	// equal to a bit more than one iteration a day
+	newCaptureFreq := !ok || !utils.Float32AlmostEqual(resConf.CaptureFrequencyHz, prevFreqHz, 0.00001)
+	if newCaptureFreq {
+		syncVal := "will"
+		if resConf.CaptureFrequencyHz == 0 || resConf.Disabled {
+			syncVal += " not"
+		}
+		cm.logger.Infof(
+			"capture frequency for %s is set to %.2fHz and %s sync", componentMethodMetadata, resConf.CaptureFrequencyHz, syncVal,
+		)
+	}
+}
+
 // NewManager creates a new capture manager.
 func NewManager(logger logging.Logger, clk clock.Clock) *Capture {
 	return &Capture{
 		logger:                     logger,
-		captureDir:                 viamCaptureDotDir,
 		collectors:                 make(map[resourceMethodMetadata]*collectorAndConfig),
 		componentMethodFrequencyHz: make(map[resourceMethodMetadata]float32),
 		clk:                        clk,
@@ -116,24 +129,8 @@ func (cm *Capture) Reconfigure(
 	config resource.Config,
 	captureConfig Config,
 ) error {
-	dataCollectorConfigsByResource, err := cm.getDataCollectorConfigs(deps, config, captureConfig.CaptureDir)
-	if err != nil {
-		return err
-	}
-
-	if !utils.IsTrustedEnvironment(ctx) && captureConfig.CaptureDir != "" && captureConfig.CaptureDir != viamCaptureDotDir {
-		return ErrCaptureDirectoryConfigurationDisabled
-	}
-
-	if captureConfig.CaptureDir != "" {
-		cm.captureDir = captureConfig.CaptureDir
-	} else {
-		cm.captureDir = viamCaptureDotDir
-	}
-
-	cm.captureDisabled = captureConfig.CaptureDisabled
 	// Service is disabled, so close all collectors and clear the map so we can instantiate new ones if we enable this service.
-	if cm.captureDisabled {
+	if captureConfig.CaptureDisabled {
 		cm.CloseCollectors()
 		cm.collectors = make(map[resourceMethodMetadata]*collectorAndConfig)
 		if cm.captureDirPollingCancelFn != nil {
@@ -145,47 +142,35 @@ func (cm *Capture) Reconfigure(
 		return nil
 	}
 
+	dataCollectorConfigsByResource, err := cm.getDataCollectorConfigs(deps, config, captureConfig.CaptureDir)
+	if err != nil {
+		return err
+	}
+
+	maxCaptureFileSize := defaultIfZeroVal(captureConfig.MaximumCaptureFileSizeBytes, defaultMaxCaptureSize)
+	maxFileSizeChanged := cm.maxCaptureFileSize != maxCaptureFileSize
+	cm.maxCaptureFileSize = maxCaptureFileSize
+
 	// Initialize or add collectors based on changes to the component configurations.
 	newCollectors := make(map[resourceMethodMetadata]*collectorAndConfig)
 	for res, dataCaptgureConfigs := range dataCollectorConfigsByResource {
 		for _, resConf := range dataCaptgureConfigs {
-			// Create component/method metadata
 			componentMethodMetadata := componentMethodMetadata(resConf)
-			_, ok := cm.componentMethodFrequencyHz[componentMethodMetadata]
-
-			// Only log capture frequency if the component frequency is new or the frequency has changed
-			// otherwise we'll be logging way too much
-			if !ok || (ok && resConf.CaptureFrequencyHz != cm.componentMethodFrequencyHz[componentMethodMetadata]) {
-				syncVal := "will"
-				if resConf.CaptureFrequencyHz == 0 {
-					syncVal += " not"
-				}
-				cm.logger.Infof(
-					"capture frequency for %s is set to %.2fHz and %s sync", componentMethodMetadata, resConf.CaptureFrequencyHz, syncVal,
-				)
-			}
-
-			// we need this map to keep track of if state has changed in the configs
-			// without it, we will be logging the same message over and over for no reason
+			// logging
+			cm.maybeLogCollectorConfigChange(componentMethodMetadata, resConf)
+			// record to minimize duplicate logging
 			cm.componentMethodFrequencyHz[componentMethodMetadata] = resConf.CaptureFrequencyHz
 
-			maxCaptureFileSize := captureConfig.MaximumCaptureFileSizeBytes
-			if maxCaptureFileSize == 0 {
-				maxCaptureFileSize = defaultMaxCaptureSize
-			}
-			if !resConf.Disabled && (resConf.CaptureFrequencyHz > 0 || cm.maxCaptureFileSize != maxCaptureFileSize) {
-				// We only use service-level tags.
-				resConf.Tags = captureConfig.Tags
-
-				maxFileSizeChanged := cm.maxCaptureFileSize != maxCaptureFileSize
-				cm.maxCaptureFileSize = maxCaptureFileSize
-
+			// We only use service-level tags.
+			resConf.Tags = captureConfig.Tags
+			collectorEnabledAndHasConfigChanges := !resConf.Disabled && (resConf.CaptureFrequencyHz > 0 || maxFileSizeChanged)
+			if collectorEnabledAndHasConfigChanges {
 				newCollectorAndConfig, err := cm.initializeOrUpdateCollector(res, componentMethodMetadata, resConf, maxFileSizeChanged)
 				if err != nil {
 					cm.logger.CErrorw(ctx, "failed to initialize or update collector", "error", err)
-				} else {
-					newCollectors[componentMethodMetadata] = newCollectorAndConfig
+					continue
 				}
+				newCollectors[componentMethodMetadata] = newCollectorAndConfig
 			}
 		}
 	}
@@ -284,18 +269,13 @@ func (cm *Capture) initializeOrUpdateCollector(
 	}
 
 	// Set queue size to defaultCaptureQueueSize if it was not set in the config.
-	captureQueueSize := config.CaptureQueueSize
-	if captureQueueSize == 0 {
-		captureQueueSize = defaultCaptureQueueSize
-	}
+	captureQueueSize := defaultIfZeroVal(config.CaptureQueueSize, defaultCaptureQueueSize)
+	captureBufferSize := defaultIfZeroVal(config.CaptureBufferSize, defaultCaptureBufferSize)
 
-	captureBufferSize := config.CaptureBufferSize
-	if captureBufferSize == 0 {
-		captureBufferSize = defaultCaptureBufferSize
-	}
-	additionalParamKey, ok := metadataToAdditionalParamFields[generateMetadataKey(
+	metadataKey := generateMetadataKey(
 		md.MethodMetadata.API.String(),
-		md.MethodMetadata.MethodName)]
+		md.MethodMetadata.MethodName)
+	additionalParamKey, ok := metadataToAdditionalParamFields[metadataKey]
 	if ok {
 		if _, ok := config.AdditionalParams[additionalParamKey]; !ok {
 			return nil, errors.Errorf("failed to validate additional_params for %s, must supply %s",
@@ -457,4 +437,12 @@ func countCaptureDirFiles(ctx context.Context, captureDir string) int {
 		return nil
 	})
 	return numFiles
+}
+
+func defaultIfZeroVal[T comparable](val, defaultVal T) T {
+	var zeroVal T
+	if val == zeroVal {
+		return defaultVal
+	}
+	return val
 }

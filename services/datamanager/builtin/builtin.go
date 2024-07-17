@@ -3,8 +3,12 @@ package builtin
 
 import (
 	"context"
+	"errors"
+	"os"
+	"path/filepath"
 
 	clk "github.com/benbjohnson/clock"
+	"go.uber.org/multierr"
 	goutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/internal/cloud"
@@ -16,6 +20,13 @@ import (
 	"go.viam.com/rdk/services/slam"
 	"go.viam.com/rdk/services/vision"
 	"go.viam.com/rdk/utils"
+)
+
+// ErrCaptureDirectoryConfigurationDisabled happens when the viam-server is run with
+// `-untrusted-env` and the capture directory is not `~/.viam`.
+var (
+	ErrCaptureDirectoryConfigurationDisabled = errors.New("changing the capture directory is prohibited in this environment")
+	viamCaptureDotDir                        = filepath.Join(os.Getenv("HOME"), ".viam", "capture")
 )
 
 // In order for a collector to be captured by Data Capture, it must be included as a weak dependency.
@@ -113,39 +124,57 @@ func (svc *builtIn) Reconfigure(
 	// TODO: Move this into each of captureManger and syncManager
 	g := utils.NewGuard(func() { goutils.UncheckedError(svc.Close(ctx)) })
 	defer g.OnFail()
-	svcConfig, err := resource.NativeConfig[*Config](conf)
+	c, err := resource.NativeConfig[*Config](conf)
 	if err != nil {
 		return err
 	}
 
-	captureConfig := capture.Config{
-		CaptureDisabled:             svcConfig.CaptureDisabled,
-		CaptureDir:                  svcConfig.CaptureDir,
-		Tags:                        svcConfig.Tags,
-		MaximumCaptureFileSizeBytes: svcConfig.MaximumCaptureFileSizeBytes,
-	}
-	if err = svc.capture.Reconfigure(ctx, deps, conf, captureConfig); err != nil {
-		svc.logger.Warnw("DataCapture reconfigure error", "err", err)
-		return err
+	if !utils.IsTrustedEnvironment(ctx) && c.CaptureDir != "" && c.CaptureDir != viamCaptureDotDir {
+		return ErrCaptureDirectoryConfigurationDisabled
 	}
 
-	syncConfig := sync.Config{
-		AdditionalSyncPaths:        svcConfig.AdditionalSyncPaths,
-		Tags:                       svcConfig.Tags,
-		CaptureDir:                 svc.capture.CaptureDir(),
-		CaptureDisabled:            svcConfig.CaptureDisabled,
-		DeleteEveryNthWhenDiskFull: svcConfig.DeleteEveryNthWhenDiskFull,
-		FileLastModifiedMillis:     svcConfig.FileLastModifiedMillis,
-		MaximumNumSyncThreads:      svcConfig.MaximumNumSyncThreads,
-		ScheduledSyncDisabled:      svcConfig.ScheduledSyncDisabled,
-		SelectiveSyncerName:        svcConfig.SelectiveSyncerName,
-		SyncIntervalMins:           svcConfig.SyncIntervalMins,
-	}
-	if err = svc.sync.Reconfigure(ctx, deps, conf, syncConfig); err != nil {
-		svc.logger.Warnw("DataSync reconfigure error", "err", err)
-		return err
+	captureDir := viamCaptureDotDir
+	if c.CaptureDir != "" {
+		captureDir = c.CaptureDir
 	}
 
+	errCapture := svc.capture.Reconfigure(ctx, deps, conf, captureConfig(c, captureDir))
+	if errCapture != nil {
+		svc.logger.Warnw("DataCapture reconfigure error", "err", errCapture)
+	}
+
+	errSync := svc.sync.Reconfigure(ctx, deps, conf, syncConfig(c, captureDir))
+	if errSync != nil {
+		svc.logger.Warnw("DataSync reconfigure error", "err", errSync)
+	}
+
+	if err = multierr.Append(errCapture, errSync); err != nil {
+		return err
+	}
 	g.Success()
 	return nil
+}
+
+func captureConfig(c *Config, captureDir string) capture.Config {
+	return capture.Config{
+		CaptureDisabled:             c.CaptureDisabled,
+		CaptureDir:                  captureDir,
+		Tags:                        c.Tags,
+		MaximumCaptureFileSizeBytes: c.MaximumCaptureFileSizeBytes,
+	}
+}
+
+func syncConfig(c *Config, captureDir string) sync.Config {
+	return sync.Config{
+		AdditionalSyncPaths:        c.AdditionalSyncPaths,
+		Tags:                       c.Tags,
+		CaptureDir:                 captureDir,
+		CaptureDisabled:            c.CaptureDisabled,
+		DeleteEveryNthWhenDiskFull: c.DeleteEveryNthWhenDiskFull,
+		FileLastModifiedMillis:     c.FileLastModifiedMillis,
+		MaximumNumSyncThreads:      c.MaximumNumSyncThreads,
+		ScheduledSyncDisabled:      c.ScheduledSyncDisabled,
+		SelectiveSyncerName:        c.SelectiveSyncerName,
+		SyncIntervalMins:           c.SyncIntervalMins,
+	}
 }

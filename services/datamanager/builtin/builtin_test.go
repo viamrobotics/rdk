@@ -22,7 +22,6 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/services/datamanager"
-	"go.viam.com/rdk/services/datamanager/builtin/capture"
 	"go.viam.com/rdk/services/datamanager/internal"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils/inject"
@@ -147,7 +146,7 @@ func TestUntrustedEnv(t *testing.T) {
 		ConvertedAttributes:  config,
 		AssociatedAttributes: associations,
 	})
-	test.That(t, err, test.ShouldEqual, capture.ErrCaptureDirectoryConfigurationDisabled)
+	test.That(t, err, test.ShouldEqual, ErrCaptureDirectoryConfigurationDisabled)
 }
 
 func getAllFileInfos(dir string) []os.FileInfo {
