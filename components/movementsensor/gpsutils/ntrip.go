@@ -156,11 +156,10 @@ func (n *NtripInfo) GetStreamFromMountPoint(
 	success := false
 	attempts := 0
 
-	// setting the Timeout to 0 on the http client to prevent the ntrip stream from canceling itself.
+	// Set the Timeout to 0 on the http client to prevent the ntrip stream from canceling itself.
 	// ntrip.NewClient() defaults sets this value to 15 seconds, which causes us to disconnect
-	// the ntrip stream and require a reconnection.
-	// Setting the Timeout on the http client to be 0 removes the timeout. It's possible we want to have different
-	// Additionally, this should be tested with other CORS.
+	// the ntrip stream and require a reconnection. Additionally, this should be tested with other
+	// CORS.
 	n.Client.Timeout = 0
 
 	var rc io.ReadCloser
