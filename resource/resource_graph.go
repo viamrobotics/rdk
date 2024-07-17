@@ -648,7 +648,7 @@ func (g *Graph) Status() []Status {
 	var result []Status
 	// TODO: filter/error on nodes that are in an unknown state
 	for _, node := range g.nodes {
-		result = append(result, node.Status())
+		result = append(result, node.ResourceStatus())
 	}
 
 	return result
