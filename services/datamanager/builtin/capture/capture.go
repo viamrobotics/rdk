@@ -18,8 +18,8 @@ import (
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/datamanager"
+	datasync "go.viam.com/rdk/services/datamanager/builtin/sync"
 	"go.viam.com/rdk/services/datamanager/datacapture"
-	"go.viam.com/rdk/services/datamanager/datasync"
 	"go.viam.com/rdk/utils"
 )
 

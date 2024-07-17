@@ -11,7 +11,6 @@ import (
 
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/services/datamanager/datacapture"
-	"go.viam.com/rdk/services/datamanager/datasync"
 	"go.viam.com/rdk/utils/diskusage"
 )
 
@@ -90,7 +89,7 @@ func exceedsDeletionThreshold(ctx context.Context, captureDirPath string, fsSize
 }
 
 // DeleteFiles temporarily public for tests.
-func DeleteFiles(ctx context.Context, syncer datasync.Manager, deleteEveryNth int,
+func DeleteFiles(ctx context.Context, syncer Manager, deleteEveryNth int,
 	captureDirPath string, logger logging.Logger,
 ) (int, error) {
 	index := 0

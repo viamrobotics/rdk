@@ -19,8 +19,8 @@ import (
 
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/services/datamanager/builtin/sync"
 	"go.viam.com/rdk/services/datamanager/datacapture"
-	"go.viam.com/rdk/services/datamanager/datasync"
 )
 
 const (
@@ -161,8 +161,8 @@ func TestSyncEnabled(t *testing.T) {
 // TODO DATA-849: Test concurrent capture and sync more thoroughly.
 func TestDataCaptureUploadIntegration(t *testing.T) {
 	// Set exponential factor to 1 and retry wait time to 20ms so retries happen very quickly.
-	datasync.RetryExponentialFactor.Store(int32(1))
-	datasync.InitialWaitTimeMillis.Store(int32(20))
+	sync.RetryExponentialFactor.Store(int32(1))
+	sync.InitialWaitTimeMillis.Store(int32(20))
 
 	tests := []struct {
 		name                  string
@@ -353,13 +353,13 @@ func TestDataCaptureUploadIntegration(t *testing.T) {
 
 func TestArbitraryFileUpload(t *testing.T) {
 	// Set exponential factor to 1 and retry wait time to 20ms so retries happen very quickly.
-	datasync.RetryExponentialFactor.Store(int32(1))
+	sync.RetryExponentialFactor.Store(int32(1))
 	fileName := "some_file_name.txt"
 	fileExt := ".txt"
 	emptyFileTestName := "error due to empty file, local files should not be deleted"
 	// Disable the check to see if the file was modified recently,
 	// since we are testing instanteous arbitrary file uploads.
-	datasync.SetFileLastModifiedMillis(0)
+	sync.SetFileLastModifiedMillis(0)
 	tests := []struct {
 		name                 string
 		manualSync           bool
@@ -512,10 +512,10 @@ func TestArbitraryFileUpload(t *testing.T) {
 func TestStreamingDCUpload(t *testing.T) {
 	// Set max unary file size to 1 byte, so it uses the streaming rpc. Reset the original
 	// value such that other tests take the correct code paths.
-	origSize := datasync.MaxUnaryFileSize
-	datasync.MaxUnaryFileSize = 1
+	origSize := sync.MaxUnaryFileSize
+	sync.MaxUnaryFileSize = 1
 	defer func() {
-		datasync.MaxUnaryFileSize = origSize
+		sync.MaxUnaryFileSize = origSize
 	}()
 
 	tests := []struct {
@@ -981,11 +981,11 @@ func (m *mockStreamingDCClient) CloseSend() error {
 	return nil
 }
 
-func getTestSyncerConstructorMock(client mockDataSyncServiceClient) datasync.ManagerConstructor {
+func getTestSyncerConstructorMock(client mockDataSyncServiceClient) sync.ManagerConstructor {
 	return func(identity string, _ v1.DataSyncServiceClient, logger logging.Logger,
 		viamCaptureDotDir string, maxSyncThreads int, filesToSync chan string,
-	) datasync.Manager {
-		return datasync.NewManager(identity, client, logger, viamCaptureDotDir, maxSyncThreads, make(chan string))
+	) sync.Manager {
+		return sync.NewManager(identity, client, logger, viamCaptureDotDir, maxSyncThreads, make(chan string))
 	}
 }
 

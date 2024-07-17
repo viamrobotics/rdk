@@ -2,11 +2,11 @@
 package builtin
 
 import (
-	"go.viam.com/rdk/services/datamanager/datasync"
+	"go.viam.com/rdk/services/datamanager/builtin/sync"
 )
 
 // SetSyncerConstructor sets the syncer constructor for the data manager to use when creating its syncer.
-func (svc *builtIn) SetSyncerConstructor(fn datasync.ManagerConstructor) {
+func (svc *builtIn) SetSyncerConstructor(fn sync.ManagerConstructor) {
 	svc.sync.SyncerConstructor = fn
 }
 

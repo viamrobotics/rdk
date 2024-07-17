@@ -25,7 +25,6 @@ import (
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/services/datamanager"
 	"go.viam.com/rdk/services/datamanager/builtin/sync"
-	"go.viam.com/rdk/services/datamanager/datasync"
 	"go.viam.com/rdk/services/datamanager/internal"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils/inject"
@@ -153,11 +152,11 @@ func TestFileDeletion(t *testing.T) {
 				fail:                &atomic.Bool{},
 			}
 
-			var syncer datasync.Manager
+			var syncer sync.Manager
 			if tc.syncEnabled {
 				filesToSync := make(chan string)
 				defer close(filesToSync)
-				syncer = datasync.NewManager("rick astley", mockClient, logger, tempCaptureDir, datasync.MaxParallelSyncRoutines, filesToSync)
+				syncer = sync.NewManager("rick astley", mockClient, logger, tempCaptureDir, sync.MaxParallelSyncRoutines, filesToSync)
 				defer syncer.Close()
 			}
 
