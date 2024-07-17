@@ -77,7 +77,7 @@ func parsePinConfig(filePath string, logger logging.Logger) ([]genericlinux.PinD
 
 // This function is separate from parsePinConfig to make it testable without interacting with the
 // file system. The filePath is passed in just for logging purposes.
-func parseRawPinData(pinData []byte, filePath string, logger logging.Logger) ([]genericlinux.PinDefinition, error) {
+func parseRawPinData(pinData []byte, filePath string, _ logging.Logger) ([]genericlinux.PinDefinition, error) {
 	var parsedPinData genericlinux.PinDefinitions
 	if err := json.Unmarshal(pinData, &parsedPinData); err != nil {
 		return nil, err

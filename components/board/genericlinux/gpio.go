@@ -277,6 +277,7 @@ func (pin *gpioPin) halfPwmCycle(ctx context.Context, shouldBeOn bool) bool {
 	// Make local copies of these, then release the mutex
 	var dutyCycle float64
 	var freqHz uint
+
 	// We encapsulate some of this code into its own function, to ensure that the mutex is unlocked
 	// at the appropriate time even if we return early.
 	shouldContinue := func() bool {
