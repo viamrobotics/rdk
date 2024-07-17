@@ -479,8 +479,15 @@ func (w *GraphNode) Status() Status {
 	w.mu.RLock()
 	defer w.mu.RUnlock()
 
+	var resName Name
+	if w.current == nil {
+		resName = w.config.ResourceName()
+	} else {
+		resName = w.current.Name()
+	}
+
 	return Status{
-		Name:        w.current.Name(),
+		Name:        resName,
 		State:       w.state,
 		LastUpdated: w.transitionedAt,
 	}
