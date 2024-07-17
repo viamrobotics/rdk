@@ -43,6 +43,16 @@ func (lr *loggerRegistry) updateLoggerLevel(name string, level Level) error {
 	return nil
 }
 
+func (lr *loggerRegistry) GetRegisteredLoggerNames() []string {
+	lr.mu.RLock()
+	defer lr.mu.RUnlock()
+	registeredNames := make([]string, 0, len(loggerManager.loggers))
+	for name := range lr.loggers {
+		registeredNames = append(registeredNames, name)
+	}
+	return registeredNames
+}
+
 // Exported Functions specifically for use on global logger manager.
 
 // RegisterLogger registers a new logger with a given name.
@@ -58,4 +68,9 @@ func LoggerNamed(name string) (logger Logger, ok bool) {
 // UpdateLoggerLevel assigns level to appropriate logger in the registry.
 func UpdateLoggerLevel(name string, level Level) error {
 	return loggerManager.updateLoggerLevel(name, level)
+}
+
+// GetRegisteredLoggerNames returns the names of all loggers in the registry.
+func GetRegisteredLoggerNames() []string {
+	return GetRegisteredLoggerNames()
 }
