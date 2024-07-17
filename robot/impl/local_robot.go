@@ -1374,6 +1374,18 @@ func (r *localRobot) Shutdown(ctx context.Context) error {
 	return nil
 }
 
-func (r *localRobot) MachineStatus(ctx context.Context) robot.MachineStatus {
-	return robot.MachineStatus{}
+// MachineStatus returns the operational status of the machine and it's constituent
+// parts.
+func (r *localRobot) MachineStatus() robot.MachineStatus {
+	var result robot.MachineStatus
+
+	r.manager.resourceGraphLock.Lock()
+	resourceStatuses := r.manager.resources.Status()
+	r.manager.resourceGraphLock.Unlock()
+
+	for _, status := range resourceStatuses {
+		result.Resources = append(result.Resources, status)
+	}
+
+	return result
 }

@@ -156,7 +156,7 @@ type Robot interface {
 
 	// MachineStatus returns the operational status of the robot and it's constituent
 	// parts.
-	MachineStatus(ctx context.Context) MachineStatus
+	MachineStatus() MachineStatus
 }
 
 // A LocalRobot is a Robot that can have its parts modified.
