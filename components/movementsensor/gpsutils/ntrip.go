@@ -26,7 +26,7 @@ type NtripInfo struct {
 
 	// These ones are mutable!
 	client *ntrip.Client
-	Stream io.ReadCloser
+	stream io.ReadCloser
 }
 
 // NtripConfig is used for converting attributes for a correction source.
@@ -181,7 +181,7 @@ func (n *NtripInfo) waitUntilCasterIsLive(logger logging.Logger) error {
 	return nil
 }
 
-// GetStreamFromMountPoint attempts to connect to the NTRIP stream, store it in n.Stream, and
+// GetStreamFromMountPoint attempts to connect to the NTRIP stream, store it in n.stream, and
 // return it. We give up and return an error after n.maxConnectAttempts unsuccessful tries.
 func (n *NtripInfo) GetStreamFromMountPoint(
 	cancelCtx context.Context,
@@ -221,7 +221,7 @@ func (n *NtripInfo) GetStreamFromMountPoint(
 	}
 	logger.Debug("Connected to stream")
 
-	n.Stream = rc
+	n.stream = rc
 	return rc, nil
 }
 
@@ -232,9 +232,9 @@ func (n *NtripInfo) Close(ctx context.Context) error {
 		n.client.CloseIdleConnections()
 		n.client = nil
 	}
-	if n.Stream != nil {
-		err = n.Stream.Close()
-		n.Stream = nil
+	if n.stream != nil {
+		err = n.stream.Close()
+		n.stream = nil
 	}
 	return err
 }
