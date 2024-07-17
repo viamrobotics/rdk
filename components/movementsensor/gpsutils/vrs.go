@@ -19,7 +19,7 @@ func ConnectToVirtualBase(ntripInfo *NtripInfo, logger logging.Logger) (*bufio.R
 	credentialsBase64 := base64.StdEncoding.EncodeToString([]byte(credentials))
 
 	// Process the server URL
-	serverAddr, err := url.Parse(ntripInfo.URL)
+	serverAddr, err := url.Parse(ntripInfo.url)
 	if err != nil {
 		return nil, nil, err
 	}

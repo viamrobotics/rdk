@@ -18,7 +18,7 @@ import (
 // NtripInfo contains the information necessary to connect to a mountpoint.
 type NtripInfo struct {
 	// All of these should be considered immutable.
-	URL                string
+	url                string
 	username           string
 	password           string
 	MountPoint         string
@@ -43,8 +43,8 @@ func NewNtripInfo(cfg *NtripConfig, logger logging.Logger) (*NtripInfo, error) {
 	n := &NtripInfo{}
 
 	// Init NtripInfo from attributes
-	n.URL = cfg.NtripURL
-	if n.URL == "" {
+	n.url = cfg.NtripURL
+	if n.url == "" {
 		return nil, fmt.Errorf("NTRIP expected non-empty string for %q", cfg.NtripURL)
 	}
 	n.username = cfg.NtripUser
@@ -110,7 +110,7 @@ Loop:
 				logger.Debug("Reached the end of SourceTable")
 				break Loop
 			}
-			return nil, fmt.Errorf("%s: illegal sourcetable line: '%s'", n.URL, ln)
+			return nil, fmt.Errorf("%s: illegal sourcetable line: '%s'", n.url, ln)
 		}
 	}
 
@@ -149,7 +149,7 @@ func (n *NtripInfo) createConnection(ctx context.Context, logger logging.Logger)
 		// 1. when reading from the source table of a NTRIP caster
 		// 2. when receiving RCTM corrections for non-vrs mount points.
 		// the VRS implementation creates its own dial connection in vrs.go for receiving corrections and sending GGA messages
-		c, err = ntrip.NewClient(n.URL, ntrip.Options{Username: n.username, Password: n.password})
+		c, err = ntrip.NewClient(n.url, ntrip.Options{Username: n.username, Password: n.password})
 		if err == nil { // Success!
 			logger.Info("Connected to NTRIP caster")
 			n.Client = c
@@ -163,7 +163,7 @@ func (n *NtripInfo) createConnection(ctx context.Context, logger logging.Logger)
 
 func (n *NtripInfo) waitUntilCasterIsLive(logger logging.Logger) error {
 	if !n.Client.IsCasterAlive() {
-		logger.Infof("caster %s seems to be down, retrying", n.URL)
+		logger.Infof("caster %s seems to be down, retrying", n.url)
 		attempts := 0
 		// we will try to connect to the caster five times if it's down.
 		for attempts < 5 {
@@ -175,7 +175,7 @@ func (n *NtripInfo) waitUntilCasterIsLive(logger logging.Logger) error {
 			}
 		}
 		if attempts == 5 {
-			return fmt.Errorf("caster %s is down", n.URL)
+			return fmt.Errorf("caster %s is down", n.url)
 		}
 	}
 	return nil
