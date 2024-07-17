@@ -86,14 +86,6 @@ func parseRawPinData(pinData []byte, filePath string, logger logging.Logger) ([]
 	var err error
 	for name, pin := range parsedPinData.Pins {
 		err = multierr.Combine(err, pin.Validate(filePath))
-
-		// Until we can reliably switch between gpio and pwm on lots of boards, pins that have
-		// hardware pwm enabled will be hardware pwm only. Disabling gpio functionality on these
-		// pins.
-		if parsedPinData.Pins[name].PwmChipSysfsDir != "" && parsedPinData.Pins[name].LineNumber >= 0 {
-			logger.Warnf("pin %s can be used for PWM only", parsedPinData.Pins[name].Name)
-			parsedPinData.Pins[name].LineNumber = -1
-		}
 	}
 	if err != nil {
 		return nil, err
