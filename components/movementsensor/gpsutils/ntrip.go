@@ -120,6 +120,20 @@ Loop:
 // Connect attempts to initialize a new ntrip client. If we're unable to connect after multiple
 // attempts, we return the last error.
 func (n *NtripInfo) Connect(ctx context.Context, logger logging.Logger) error {
+	err := n.createConnection(ctx, logger)
+	if err != nil {
+		return err
+	}
+
+	err = n.waitUntilCasterIsLive(logger)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (n *NtripInfo) createConnection(ctx context.Context, logger logging.Logger) error {
 	var c *ntrip.Client
 	var err error
 
@@ -145,6 +159,26 @@ func (n *NtripInfo) Connect(ctx context.Context, logger logging.Logger) error {
 
 	logger.Errorf("Can't connect to NTRIP caster: %s", err)
 	return err
+}
+
+func (n *NtripInfo) waitUntilCasterIsLive(logger logging.Logger) error {
+	if !n.Client.IsCasterAlive() {
+		logger.Infof("caster %s seems to be down, retrying", n.URL)
+		attempts := 0
+		// we will try to connect to the caster five times if it's down.
+		for attempts < 5 {
+			if !n.Client.IsCasterAlive() {
+				attempts++
+				logger.Debugf("attempt(s) to connect to caster: %v ", attempts)
+			} else {
+				break
+			}
+		}
+		if attempts == 5 {
+			return fmt.Errorf("caster %s is down", n.URL)
+		}
+	}
+	return nil
 }
 
 // GetStreamFromMountPoint attempts to connect to the NTRIP stream and store it in n.Stream. We

@@ -37,6 +37,7 @@ func TestConnectSucceeds(t *testing.T) {
 	ntripInfo, err := NewNtripInfo(&config, logger)
 	test.That(t, err, test.ShouldBeNil)
 
-	err = ntripInfo.Connect(cancelCtx, logger)
+	// Create the connection but don't wait for it to become live.
+	err = ntripInfo.createConnection(cancelCtx, logger)
 	test.That(t, err, test.ShouldBeNil)
 }

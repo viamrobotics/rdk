@@ -100,23 +100,6 @@ func (g *gpsrtk) connectAndParseSourceTable() error {
 		return g.err.Get()
 	}
 
-	if !g.ntripClient.Client.IsCasterAlive() {
-		g.logger.Infof("caster %s seems to be down, retrying", g.ntripClient.URL)
-		attempts := 0
-		// we will try to connect to the caster five times if it's down.
-		for attempts < 5 {
-			if !g.ntripClient.Client.IsCasterAlive() {
-				attempts++
-				g.logger.Debugf("attempt(s) to connect to caster: %v ", attempts)
-			} else {
-				break
-			}
-		}
-		if attempts == 5 {
-			return fmt.Errorf("caster %s is down", g.ntripClient.URL)
-		}
-	}
-
 	g.logger.Debug("getting source table")
 
 	srcTable, err := g.ntripClient.ParseSourcetable(g.logger)
