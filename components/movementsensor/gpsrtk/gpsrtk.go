@@ -394,12 +394,6 @@ func (g *gpsrtk) Close(ctx context.Context) error {
 		g.correctionWriter = nil
 	}
 
-	// close ntrip client and stream
-	if g.ntripClient.Client != nil {
-		g.ntripClient.Client.CloseIdleConnections()
-		g.ntripClient.Client = nil
-	}
-
 	if g.vrsConn != nil {
 		if err := g.vrsConn.Close(); err != nil {
 			g.mu.Unlock()
@@ -411,12 +405,9 @@ func (g *gpsrtk) Close(ctx context.Context) error {
 	// before initializing `g.ntripClient.Stream`, we might finish closing and then initialize a new
 	// stream. This could be fixed by putting the background goroutine in a StoppableWorkers which
 	// we shut down at the top of this function, which can happen in the near future.
-	if g.ntripClient.Stream != nil {
-		if err := g.ntripClient.Stream.Close(); err != nil {
-			g.mu.Unlock()
-			return err
-		}
-		g.ntripClient.Stream = nil
+	if err := g.ntripClient.Close(ctx); err != nil {
+		g.mu.Unlock()
+		return err
 	}
 
 	g.mu.Unlock()

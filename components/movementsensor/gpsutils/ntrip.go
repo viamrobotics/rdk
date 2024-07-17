@@ -145,3 +145,17 @@ func (n *NtripInfo) Connect(ctx context.Context, logger logging.Logger) error {
 	logger.Errorf("Can't connect to NTRIP caster: %s", err)
 	return err
 }
+
+// Close shuts down all connections to the NTRIP caster.
+func (n *NtripInfo) Close(ctx context.Context) error {
+	var err error
+	if n.Client != nil {
+		n.Client.CloseIdleConnections()
+		n.Client = nil
+	}
+	if n.Stream != nil {
+		err = n.Stream.Close()
+		n.Stream = nil
+	}
+	return err
+}
