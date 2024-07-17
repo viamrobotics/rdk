@@ -127,8 +127,12 @@ func (pin *gpioPin) setInternal(isHigh bool) (err error) {
 	if pin.hwPwm != nil {
 		var value float64
 		if isHigh {
-			value = 1
+			value = 1.0
 		}
+
+		// Set pwm with a frequency of 10 Hz. Any frequency value would work.
+		// Note that pin.pwmFreqHz is not modified, so a previously used frequency
+		// is still avaliable to use later.
 		err := pin.hwPwm.SetPwm(10, value)
 		if err != nil {
 			return fmt.Errorf("could not set pin: %w", err)
@@ -273,7 +277,6 @@ func (pin *gpioPin) halfPwmCycle(ctx context.Context, shouldBeOn bool) bool {
 	// Make local copies of these, then release the mutex
 	var dutyCycle float64
 	var freqHz uint
-
 	// We encapsulate some of this code into its own function, to ensure that the mutex is unlocked
 	// at the appropriate time even if we return early.
 	shouldContinue := func() bool {
