@@ -474,3 +474,20 @@ func (w *GraphNode) transitionTo(state NodeState) {
 	w.state = state
 	w.transitionedAt = time.Now()
 }
+
+func (w *GraphNode) Status() Status {
+	w.mu.RLock()
+	defer w.mu.RUnlock()
+
+	return Status{
+		Name:        w.current.Name(),
+		State:       w.state,
+		LastUpdated: w.transitionedAt,
+	}
+}
+
+type Status struct {
+	Name        Name
+	State       NodeState
+	LastUpdated time.Time
+}

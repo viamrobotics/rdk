@@ -640,3 +640,16 @@ func (g *Graph) SubGraphFrom(node Name) (*Graph, error) {
 	}
 	return subGraph, nil
 }
+
+func (g *Graph) Status() []Status {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+
+	var result []Status
+	// TODO: filter/error on nodes that are in an unknown state
+	for _, node := range g.nodes {
+		result = append(result, node.Status())
+	}
+
+	return result
+}
