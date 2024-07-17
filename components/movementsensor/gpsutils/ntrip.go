@@ -181,12 +181,12 @@ func (n *NtripInfo) waitUntilCasterIsLive(logger logging.Logger) error {
 	return nil
 }
 
-// GetStreamFromMountPoint attempts to connect to the NTRIP stream and store it in n.Stream. We
-// give up and return an error after n.maxConnectAttempts unsuccessful tries.
+// GetStreamFromMountPoint attempts to connect to the NTRIP stream, store it in n.Stream, and
+// return it. We give up and return an error after n.maxConnectAttempts unsuccessful tries.
 func (n *NtripInfo) GetStreamFromMountPoint(
 	cancelCtx context.Context,
 	logger logging.Logger,
-) error {
+) (io.ReadCloser, error) {
 	success := false
 	attempts := 0
 
@@ -204,7 +204,7 @@ func (n *NtripInfo) GetStreamFromMountPoint(
 	for !success && attempts < n.maxConnectAttempts {
 		select {
 		case <-cancelCtx.Done():
-			return errors.New("Canceled")
+			return nil, errors.New("Canceled")
 		default:
 		}
 
@@ -217,12 +217,12 @@ func (n *NtripInfo) GetStreamFromMountPoint(
 
 	if err != nil {
 		logger.Errorf("Can't connect to NTRIP stream: %s", err)
-		return err
+		return nil, err
 	}
 	logger.Debug("Connected to stream")
 
 	n.Stream = rc
-	return nil
+	return rc, nil
 }
 
 // Close shuts down all connections to the NTRIP caster.

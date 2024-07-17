@@ -148,11 +148,11 @@ func (g *gpsrtk) getStream() (io.Reader, error) {
 		return io.TeeReader(g.vrsReaderWriter, g.correctionWriter), nil
 	}
 	g.logger.Debug("connecting to NTRIP stream........")
-	err := g.ntripClient.GetStreamFromMountPoint(g.cancelCtx, g.logger)
+	stream, err := g.ntripClient.GetStreamFromMountPoint(g.cancelCtx, g.logger)
 	if err != nil {
 		return nil, err
 	}
-	return io.TeeReader(g.ntripClient.Stream, g.correctionWriter), nil
+	return io.TeeReader(stream, g.correctionWriter), nil
 }
 
 // receiveAndWriteCorrectionData connects to the NTRIP receiver and sends the correction stream to
