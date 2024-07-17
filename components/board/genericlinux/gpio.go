@@ -131,7 +131,7 @@ func (pin *gpioPin) setInternal(isHigh bool) (err error) {
 		}
 		err := pin.hwPwm.SetPwm(10, value)
 		if err != nil {
-			return fmt.Errorf("could not set pin: %w")
+			return fmt.Errorf("could not set pin: %w", err)
 		}
 		return nil
 	}

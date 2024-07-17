@@ -84,7 +84,7 @@ func parseRawPinData(pinData []byte, filePath string, logger logging.Logger) ([]
 	}
 
 	var err error
-	for name, pin := range parsedPinData.Pins {
+	for _, pin := range parsedPinData.Pins {
 		err = multierr.Combine(err, pin.Validate(filePath))
 	}
 	if err != nil {
