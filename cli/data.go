@@ -72,7 +72,7 @@ func (c *viamClient) dataExportAction(cCtx *cli.Context) error {
 			return err
 		}
 	case dataTypeTabular:
-		if err := c.tabularData(cCtx.Path(dataFlagDestination), filter); err != nil {
+		if err := c.tabularData(cCtx.Path(dataFlagDestination), filter, cCtx.Uint(dataFlagChunkLimit)); err != nil {
 			return err
 		}
 	default:
@@ -584,7 +584,7 @@ func filenameForDownload(meta *datapb.BinaryMetadata) string {
 }
 
 // tabularData downloads binary data matching filter to dst.
-func (c *viamClient) tabularData(dst string, filter *datapb.Filter) error {
+func (c *viamClient) tabularData(dst string, filter *datapb.Filter, limit uint) error {
 	if err := c.ensureLoggedIn(); err != nil {
 		return err
 	}
@@ -612,7 +612,7 @@ func (c *viamClient) tabularData(dst string, filter *datapb.Filter) error {
 			resp, err = c.dataClient.TabularDataByFilter(context.Background(), &datapb.TabularDataByFilterRequest{
 				DataRequest: &datapb.DataRequest{
 					Filter: filter,
-					Limit:  maxLimit,
+					Limit:  uint64(limit),
 					Last:   last,
 				},
 				CountOnly: false,
