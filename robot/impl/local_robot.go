@@ -1374,9 +1374,8 @@ func (r *localRobot) Shutdown(ctx context.Context) error {
 	return nil
 }
 
-// MachineStatus returns the operational status of the machine and it's constituent
-// parts.
-func (r *localRobot) MachineStatus() robot.MachineStatus {
+// MachineStatus returns the current status of the robot.
+func (r *localRobot) MachineStatus() (robot.MachineStatus, error) {
 	var result robot.MachineStatus
 
 	r.manager.resourceGraphLock.Lock()
@@ -1387,5 +1386,5 @@ func (r *localRobot) MachineStatus() robot.MachineStatus {
 		result.Resources = append(result.Resources, status)
 	}
 
-	return result
+	return result, nil
 }

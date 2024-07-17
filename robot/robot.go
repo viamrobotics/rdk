@@ -154,9 +154,8 @@ type Robot interface {
 	// Shutdown shuts down the robot.
 	Shutdown(ctx context.Context) error
 
-	// MachineStatus returns the operational status of the robot and it's constituent
-	// parts.
-	MachineStatus() MachineStatus
+	// MachineStatus returns the current status of the robot.
+	MachineStatus() (MachineStatus, error)
 }
 
 // A LocalRobot is a Robot that can have its parts modified.

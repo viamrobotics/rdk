@@ -488,12 +488,15 @@ func (s *Server) Shutdown(ctx context.Context, _ *pb.ShutdownRequest) (*pb.Shutd
 	return &pb.ShutdownResponse{}, nil
 }
 
-// MachineStatus returns the operational status of the machine and it's constituent
-// parts.
+// GetMachineStatus returns the current status of the robot.
 func (s *Server) GetMachineStatus(_ context.Context, _ *pb.GetMachineStatusRequest) (*pb.GetMachineStatusResponse, error) {
 	var result pb.GetMachineStatusResponse
 
-	mStatus := s.robot.MachineStatus()
+	mStatus, err := s.robot.MachineStatus()
+	if err != nil {
+		return nil, err
+	}
+
 	result.Resources = make([]*pb.ResourceStatus, 0, len(mStatus.Resources))
 	for _, resStatus := range mStatus.Resources {
 		pbResStatus := &pb.ResourceStatus{
