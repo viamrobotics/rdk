@@ -168,21 +168,23 @@ func (n *NtripInfo) createConnection(ctx context.Context, logger logging.Logger)
 // waitUntilCasterIsLive returns when n.client.IsCasterAlive() is true, or after 5 failed attempts.
 // This is a helper function intended only to be called from within Connect().
 func (n *NtripInfo) waitUntilCasterIsLive(logger logging.Logger) error {
-	if !n.client.IsCasterAlive() {
-		logger.Infof("caster %s seems to be down, retrying", n.url)
-		attempts := 0
-		// we will try to connect to the caster five times if it's down.
-		for attempts < 5 {
-			if !n.client.IsCasterAlive() {
-				attempts++
-				logger.Debugf("attempt(s) to connect to caster: %v ", attempts)
-			} else {
-				break
-			}
+	if n.client.IsCasterAlive() {
+		return nil
+	}
+
+	logger.Infof("caster %s seems to be down, retrying", n.url)
+	attempts := 0
+	// we will try to connect to the caster five times if it's down.
+	for attempts < 5 {
+		if !n.client.IsCasterAlive() {
+			attempts++
+			logger.Debugf("attempt(s) to connect to caster: %v ", attempts)
+		} else {
+			break
 		}
-		if attempts == 5 {
-			return fmt.Errorf("caster %s is down", n.url)
-		}
+	}
+	if attempts == 5 {
+		return fmt.Errorf("caster %s is down", n.url)
 	}
 	return nil
 }
