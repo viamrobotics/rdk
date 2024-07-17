@@ -56,7 +56,10 @@ func (lr *loggerRegistry) updateLoggerRegistry(logConfig []LoggerPatternConfig) 
 				if err != nil {
 					return err
 				}
-				lr.updateLoggerLevel(name, level)
+				err = lr.updateLoggerLevel(name, level)
+				if err != nil {
+					return err
+				}
 			}
 		}
 	}
@@ -65,6 +68,6 @@ func (lr *loggerRegistry) updateLoggerRegistry(logConfig []LoggerPatternConfig) 
 }
 
 // UpdateLoggerRegistry updates the logger registry if necessary  with the specified logConfig.
-func UpdateLoggerRegistry(logConfig []LoggerPatternConfig) {
-	loggerManager.updateLoggerRegistry(logConfig)
+func UpdateLoggerRegistry(logConfig []LoggerPatternConfig) error {
+	return loggerManager.updateLoggerRegistry(logConfig)
 }
