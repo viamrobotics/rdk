@@ -43,7 +43,7 @@ func (lr *loggerRegistry) updateLoggerLevel(name string, level Level) error {
 	return nil
 }
 
-func (lr *loggerRegistry) GetRegisteredLoggerNames() []string {
+func (lr *loggerRegistry) getRegisteredLoggerNames() []string {
 	lr.mu.RLock()
 	defer lr.mu.RUnlock()
 	registeredNames := make([]string, 0, len(loggerManager.loggers))
@@ -72,5 +72,5 @@ func UpdateLoggerLevel(name string, level Level) error {
 
 // GetRegisteredLoggerNames returns the names of all loggers in the registry.
 func GetRegisteredLoggerNames() []string {
-	return GetRegisteredLoggerNames()
+	return loggerManager.getRegisteredLoggerNames()
 }
