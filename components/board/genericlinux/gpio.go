@@ -132,7 +132,7 @@ func (pin *gpioPin) setInternal(isHigh bool) (err error) {
 
 		// Set pwm with a frequency of 10 Hz. Any frequency value would work.
 		// Note that pin.pwmFreqHz is not modified, so a previously used frequency
-		// is still avaliable to use later.
+		// is still available to use later.
 		err := pin.hwPwm.SetPwm(10, value)
 		if err != nil {
 			return fmt.Errorf("could not set pin: %w", err)
