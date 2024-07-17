@@ -74,50 +74,6 @@ func (g *gpsrtk) start() error {
 	return g.err.Get()
 }
 
-// getStreamFromMountPoint attempts to connect to ntrip stream. We give up after maxAttempts unsuccessful tries.
-func (g *gpsrtk) getStreamFromMountPoint(mountPoint string, maxAttempts int) error {
-	success := false
-	attempts := 0
-
-	// setting the Timeout to 0 on the http client to prevent the ntrip stream from canceling itself.
-	// ntrip.NewClient() defaults sets this value to 15 seconds, which causes us to disconnect
-	// the ntrip stream and require a reconnection.
-	// Setting the Timeout on the http client to be 0 removes the timeout. It's possible we want to have different
-	// Additionally, this should be tested with other CORS.
-	g.ntripClient.Client.Timeout = 0
-
-	var rc io.ReadCloser
-	var err error
-
-	g.logger.Debug("Getting NTRIP stream")
-
-	for !success && attempts < maxAttempts {
-		select {
-		case <-g.cancelCtx.Done():
-			return errors.New("Canceled")
-		default:
-		}
-
-		rc, err = g.ntripClient.Client.GetStream(mountPoint)
-		if err == nil {
-			success = true
-		}
-		attempts++
-	}
-
-	if err != nil {
-		g.logger.Errorf("Can't connect to NTRIP stream: %s", err)
-		return err
-	}
-	g.logger.Debug("Connected to stream")
-
-	g.mu.Lock()
-	defer g.mu.Unlock()
-
-	g.ntripClient.Stream = rc
-	return g.err.Get()
-}
-
 // closeCorrectionWriter closes the correctionWriter.
 func (g *gpsrtk) closeCorrectionWriter() {
 	g.mu.Lock()
@@ -209,7 +165,7 @@ func (g *gpsrtk) getStream() (io.Reader, error) {
 		return io.TeeReader(g.vrsReaderWriter, g.correctionWriter), nil
 	}
 	g.logger.Debug("connecting to NTRIP stream........")
-	err := g.getStreamFromMountPoint(g.ntripClient.MountPoint, g.ntripClient.MaxConnectAttempts)
+	err := g.ntripClient.GetStreamFromMountPoint(g.cancelCtx, g.logger)
 	if err != nil {
 		return nil, err
 	}

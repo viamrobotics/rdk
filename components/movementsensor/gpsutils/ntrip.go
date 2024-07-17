@@ -5,6 +5,7 @@ package gpsutils
 import (
 	"bufio"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"strings"
@@ -144,6 +145,51 @@ func (n *NtripInfo) Connect(ctx context.Context, logger logging.Logger) error {
 
 	logger.Errorf("Can't connect to NTRIP caster: %s", err)
 	return err
+}
+
+// GetStreamFromMountPoint attempts to connect to the NTRIP stream and store it in n.Stream. We
+// give up and return an error after n.MaxConnectAttempts unsuccessful tries.
+func (n *NtripInfo) GetStreamFromMountPoint(
+	cancelCtx context.Context,
+	logger logging.Logger,
+) error {
+	success := false
+	attempts := 0
+
+	// setting the Timeout to 0 on the http client to prevent the ntrip stream from canceling itself.
+	// ntrip.NewClient() defaults sets this value to 15 seconds, which causes us to disconnect
+	// the ntrip stream and require a reconnection.
+	// Setting the Timeout on the http client to be 0 removes the timeout. It's possible we want to have different
+	// Additionally, this should be tested with other CORS.
+	n.Client.Timeout = 0
+
+	var rc io.ReadCloser
+	var err error
+
+	logger.Debug("Getting NTRIP stream")
+
+	for !success && attempts < n.MaxConnectAttempts {
+		select {
+		case <-cancelCtx.Done():
+			return errors.New("Canceled")
+		default:
+		}
+
+		rc, err = n.Client.GetStream(n.MountPoint)
+		if err == nil {
+			success = true
+		}
+		attempts++
+	}
+
+	if err != nil {
+	logger.Errorf("Can't connect to NTRIP stream: %s", err)
+		return err
+	}
+	logger.Debug("Connected to stream")
+
+	n.Stream = rc
+	return nil
 }
 
 // Close shuts down all connections to the NTRIP caster.
