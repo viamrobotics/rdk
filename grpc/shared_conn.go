@@ -371,7 +371,7 @@ func NewLocalPeerConnection(logger logging.Logger) (*webrtc.PeerConnection, erro
 	return pc, nil
 }
 
-// WebRTCLoggerFactory wraps a golog.Logger for use with pion's webrtc logging system.
+// WebRTCLoggerFactory wraps a logging.Logger for use with pion's webrtc logging system.
 type WebRTCLoggerFactory struct {
 	Logger logging.Logger
 }

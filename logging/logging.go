@@ -13,7 +13,7 @@ import (
 
 var (
 	globalMu     sync.RWMutex
-	globalLogger = NewDebugLogger("startup")
+	globalLogger = NewDebugLogger("global")
 
 	// GlobalLogLevel should be used whenever a zap logger is created that wants to obey the debug
 	// flag from the CLI or robot config.

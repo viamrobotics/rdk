@@ -8,12 +8,12 @@ import (
 	"sync"
 	"time"
 
-	"github.com/edaniels/golog"
 	"github.com/google/uuid"
 	"github.com/pion/mediadevices/pkg/prop"
 	"github.com/pion/mediadevices/pkg/wave"
 	"github.com/pion/rtp"
 	"github.com/viamrobotics/webrtc/v3"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/gostream/codec"
@@ -63,7 +63,7 @@ type MediaReleasePair[T any] struct {
 func NewStream(config StreamConfig) (Stream, error) {
 	logger := config.Logger
 	if logger == nil {
-		logger = golog.Global()
+		logger = logging.Global()
 	}
 	if config.VideoEncoderFactory == nil && config.AudioEncoderFactory == nil {
 		return nil, errors.New("at least one audio or video encoder factory must be set")
@@ -142,7 +142,7 @@ type basicStream struct {
 	shutdownCtx             context.Context
 	shutdownCtxCancel       func()
 	activeBackgroundWorkers sync.WaitGroup
-	logger                  golog.Logger
+	logger                  logging.Logger
 }
 
 func (bs *basicStream) Name() string {

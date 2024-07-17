@@ -1,7 +1,7 @@
 package gostream
 
 import (
-	"github.com/edaniels/golog"
+	"go.viam.com/rdk/logging"
 
 	"go.viam.com/rdk/gostream/codec"
 )
@@ -15,5 +15,5 @@ type StreamConfig struct {
 	// TargetFrameRate will hint to the stream to try to maintain this frame rate.
 	TargetFrameRate int
 
-	Logger golog.Logger
+	Logger logging.Logger
 }

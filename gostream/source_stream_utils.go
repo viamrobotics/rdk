@@ -3,21 +3,21 @@ package gostream
 import (
 	"context"
 
-	"github.com/edaniels/golog"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/utils"
 )
 
 // StreamVideoSource streams the given video source to the stream forever until context signals cancellation.
 func StreamVideoSource(ctx context.Context, vs VideoSource, stream Stream) error {
 	return streamMediaSource(ctx, vs, stream, func(ctx context.Context, frameErr error) {
-		golog.Global().Debugw("error getting frame", "error", frameErr)
+		logging.Global().Debugw("error getting frame", "error", frameErr)
 	}, stream.InputVideoFrames)
 }
 
 // StreamAudioSource streams the given video source to the stream forever until context signals cancellation.
 func StreamAudioSource(ctx context.Context, as AudioSource, stream Stream) error {
 	return streamMediaSource(ctx, as, stream, func(ctx context.Context, frameErr error) {
-		golog.Global().Debugw("error getting frame", "error", frameErr)
+		logging.Global().Debugw("error getting frame", "error", frameErr)
 	}, stream.InputAudioChunks)
 }
 
@@ -57,10 +57,10 @@ func streamMediaSource[T, U any](
 			var err error
 			props, err = provider.MediaProperties(ctx)
 			if err != nil {
-				golog.Global().Debugw("no properties found for media; will assume empty", "error", err)
+				logging.Global().Debugw("no properties found for media; will assume empty", "error", err)
 			}
 		} else {
-			golog.Global().Debug("no properties found for media; will assume empty")
+			logging.Global().Debug("no properties found for media; will assume empty")
 		}
 		input, err := inputChan(props)
 		if err != nil {

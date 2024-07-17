@@ -256,7 +256,7 @@ func findAndMakeVideoSource(
 		return cam, label, nil
 	}
 
-	source, err := gostream.GetAnyVideoSource(constraints, logger.AsZap())
+	source, err := gostream.GetAnyVideoSource(constraints, logger)
 	if err != nil {
 		return nil, "", errors.Wrap(err, "found no webcams")
 	}
@@ -429,7 +429,7 @@ func getNamedVideoSource(
 			path = resolvedPath
 		}
 	}
-	return gostream.GetNamedVideoSource(filepath.Base(path), constraints, logger.AsZap())
+	return gostream.GetNamedVideoSource(filepath.Base(path), constraints, logger)
 }
 
 // monitoredWebcam tries to ensure its underlying camera stays connected.

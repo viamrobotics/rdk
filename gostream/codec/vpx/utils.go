@@ -3,7 +3,7 @@ package vpx
 import (
 	"fmt"
 
-	"github.com/edaniels/golog"
+	"go.viam.com/rdk/logging"
 
 	"go.viam.com/rdk/gostream"
 	"go.viam.com/rdk/gostream/codec"
@@ -25,7 +25,7 @@ type factory struct {
 	codecVersion Version
 }
 
-func (f *factory) New(width, height, keyFrameInterval int, logger golog.Logger) (codec.VideoEncoder, error) {
+func (f *factory) New(width, height, keyFrameInterval int, logger logging.Logger) (codec.VideoEncoder, error) {
 	return NewEncoder(f.codecVersion, width, height, keyFrameInterval, logger)
 }
 

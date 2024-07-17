@@ -7,11 +7,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/edaniels/golog"
 	"github.com/pion/mediadevices/pkg/codec"
 	"github.com/pion/mediadevices/pkg/codec/opus"
 	"github.com/pion/mediadevices/pkg/prop"
 	"github.com/pion/mediadevices/pkg/wave"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/utils"
 
 	ourcodec "go.viam.com/rdk/gostream/codec"
@@ -21,7 +21,7 @@ type encoder struct {
 	codec                   codec.ReadCloser
 	chunkCh                 chan wave.Audio
 	encodedCh               chan encodedData
-	logger                  golog.Logger
+	logger                  logging.Logger
 	cancelCtx               context.Context
 	cancelFunc              func()
 	activeBackgroundWorkers sync.WaitGroup
@@ -37,7 +37,7 @@ type encodedData struct {
 
 // NewEncoder returns an Opus encoder that can encode images of the given width and height. It will
 // also ensure that it produces key frames at the given interval.
-func NewEncoder(sampleRate, channelCount int, latency time.Duration, logger golog.Logger) (ourcodec.AudioEncoder, error) {
+func NewEncoder(sampleRate, channelCount int, latency time.Duration, logger logging.Logger) (ourcodec.AudioEncoder, error) {
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
 	enc := &encoder{
 		chunkCh:    make(chan wave.Audio, 1),
