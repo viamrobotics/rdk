@@ -10,7 +10,7 @@ type loggerRegistry struct {
 	loggers map[string]Logger
 }
 
-// TODO(RSDK-8250): convert loggerManager from global variable to variable on local robot
+// TODO(RSDK-8250): convert loggerManager from global variable to variable on local robot.
 var loggerManager = newLoggerManager()
 
 func newLoggerManager() *loggerRegistry {
