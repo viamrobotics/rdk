@@ -1975,6 +1975,10 @@ func (rr *dummyRobot) Shutdown(ctx context.Context) error {
 	return rr.robot.Shutdown(ctx)
 }
 
+func (rr *dummyRobot) MachineStatus() (robot.MachineStatus, error) {
+	return rr.robot.MachineStatus()
+}
+
 // managerForDummyRobot integrates all parts from a given robot except for its remotes.
 // It also close itself when the test and all subtests complete.
 func managerForDummyRobot(t *testing.T, robot robot.Robot) *resourceManager {
