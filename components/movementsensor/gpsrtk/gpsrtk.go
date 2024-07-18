@@ -140,12 +140,6 @@ func (g *gpsrtk) receiveAndWriteCorrectionData() {
 	defer g.activeBackgroundWorkers.Done()
 	defer g.closeCorrectionWriter()
 
-	select {
-	case <-g.cancelCtx.Done():
-		return
-	default:
-	}
-
 	err := g.connectAndParseSourceTable()
 	if err != nil {
 		g.err.Set(err)
