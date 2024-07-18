@@ -44,7 +44,7 @@ var boardInfoMappings = map[string]genericlinux.BoardInformation{
 			{Name: "38", DeviceName: "gpiochip0", LineNumber: 260, PwmChipSysfsDir: "", PwmID: -1},
 			{Name: "40", DeviceName: "gpiochip0", LineNumber: 259, PwmChipSysfsDir: "", PwmID: -1},
 		},
-		Compats: []string{"xunlong,orangepi-zero2w", "allwinner,sun50i-h616"},
+		Compats: []string{"xunlong,orangepi-zero2w"},
 	},
 	opzero2: {
 		// OP zero 2 user manual: https://drive.google.com/drive/folders/1ToDjWZQptABxfiRwaeYW1WzQILM5iwpb
@@ -69,7 +69,7 @@ var boardInfoMappings = map[string]genericlinux.BoardInformation{
 			{Name: "24", DeviceName: "gpiochip0", LineNumber: 233, PwmChipSysfsDir: "", PwmID: -1},
 			{Name: "26", DeviceName: "gpiochip0", LineNumber: 74, PwmChipSysfsDir: "", PwmID: -1},
 		},
-		Compats: []string{"xunlong,orangepi-zero2", "allwinner,sun50i-h616"},
+		Compats: []string{"xunlong,orangepi-zero2"},
 	},
 	op3lts: {
 		// OP 3 LTS user manual: https://drive.google.com/file/d/1jka7avWnzNeTIQFkk78LoJdygWaGH2iu/view
@@ -94,6 +94,6 @@ var boardInfoMappings = map[string]genericlinux.BoardInformation{
 			{Name: "24", DeviceName: "gpiochip1", LineNumber: 227, PwmChipSysfsDir: "", PwmID: -1},
 			{Name: "26", DeviceName: "gpiochip0", LineNumber: 8, PwmChipSysfsDir: "", PwmID: -1},
 		},
-		Compats: []string{"xunlong,orangepi-3-lts", "allwinner,sun50i-h6"},
+		Compats: []string{"xunlong,orangepi-3-lts"},
 	},
 }
