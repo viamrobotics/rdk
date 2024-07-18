@@ -174,8 +174,6 @@ func (g *gpsrtk) receiveAndWriteCorrectionData() {
 			// need to reconnect to the mount point), and not the message itself.
 			_, err = scanner.NextMessage()
 		}
-
-		// added a log so we do not always swallow the error
 		g.logger.Debugf("no longer connected to NTRIP scanner: %s", err)
 
 		if g.isClosed || g.cancelCtx.Err() != nil {
