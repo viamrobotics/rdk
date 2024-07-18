@@ -3541,3 +3541,85 @@ func TestRestartModule(t *testing.T) {
 		test.That(t, r.(*localRobot).localModuleVersions[mod.Name].String(), test.ShouldResemble, "0.0.1")
 	})
 }
+
+func TestMachineStatus(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+	ctx := context.Background()
+
+	expectedDefautltStatuses := []resource.Status{
+		{
+			Name: resource.Name{
+				API:  resource.APINamespaceRDKInternal.WithServiceType("framesystem"),
+				Name: "builtin",
+			},
+			State: resource.NodeStateReady,
+		},
+		{
+			Name: resource.Name{
+				API:  resource.APINamespaceRDKInternal.WithServiceType("cloud_connection"),
+				Name: "builtin",
+			},
+			State: resource.NodeStateReady,
+		},
+		{
+			Name: resource.Name{
+				API:  resource.APINamespaceRDKInternal.WithServiceType("packagemanager"),
+				Name: "builtin",
+			},
+			State: resource.NodeStateReady,
+		},
+		{
+			Name: resource.Name{
+				API:  resource.APINamespaceRDKInternal.WithServiceType("web"),
+				Name: "builtin",
+			},
+			State: resource.NodeStateReady,
+		},
+		{
+			Name: resource.Name{
+				API:  resource.APINamespaceRDK.WithServiceType("motion"),
+				Name: "builtin",
+			},
+			State: resource.NodeStateReady,
+		},
+		{
+			Name: resource.Name{
+				API:  resource.APINamespaceRDK.WithServiceType("sensors"),
+				Name: "builtin",
+			},
+			State: resource.NodeStateReady,
+		},
+	}
+
+	lr := setupLocalRobot(t, ctx, &config.Config{}, logger)
+
+	t.Run("default resources", func(t *testing.T) {
+		mStatus, err := lr.MachineStatus()
+		test.That(t, err, test.ShouldBeNil)
+
+		rtestutils.VerifySameResourceStatuses(t, mStatus.Resources, expectedDefautltStatuses)
+	})
+
+	t.Run("reconfigure", func(t *testing.T) {
+		lr.Reconfigure(ctx, &config.Config{
+			Components: []resource.Config{
+				{
+					Name:                "m",
+					Model:               fakeModel,
+					API:                 motor.API,
+					ConvertedAttributes: &fakemotor.Config{},
+				},
+			},
+		})
+		mStatus, err := lr.MachineStatus()
+		test.That(t, err, test.ShouldBeNil)
+
+		expectedStatuses := make([]resource.Status, len(expectedDefautltStatuses))
+		copy(expectedStatuses, expectedDefautltStatuses)
+		expectedStatuses = append(expectedStatuses, resource.Status{
+			Name:  motor.Named("m"),
+			State: resource.NodeStateReady,
+		})
+		rtestutils.VerifySameResourceStatuses(t, mStatus.Resources, expectedStatuses)
+	})
+}

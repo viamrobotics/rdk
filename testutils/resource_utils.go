@@ -5,6 +5,7 @@ import (
 	"context"
 	"slices"
 	"testing"
+	"time"
 
 	"go.viam.com/test"
 
@@ -56,11 +57,39 @@ func newSortedResourceNames(resourceNames []resource.Name) []resource.Name {
 }
 
 // VerifySameResourceNames asserts that two slices of resource.Names contain the same
-// resources.Names without considering order.
+// elements without considering order.
 func VerifySameResourceNames(tb testing.TB, actual, expected []resource.Name) {
 	tb.Helper()
 
 	test.That(tb, newSortedResourceNames(actual), test.ShouldResemble, newSortedResourceNames(expected))
+}
+
+// VerifySameResourceStatuses asserts that two slices of resource.Status contain the same
+// elements without considering order. Does not consider update timestamps when
+// comparing.
+func VerifySameResourceStatuses(tb testing.TB, actual, expected []resource.Status) {
+	tb.Helper()
+
+	sortedActual := newSortedResourceStatuses(actual)
+	sortedExpected := newSortedResourceStatuses(expected)
+
+	for i := range sortedActual {
+		sortedActual[i].LastUpdated = time.Time{}
+	}
+	for i := range sortedExpected {
+		sortedExpected[i].LastUpdated = time.Time{}
+	}
+
+	test.That(tb, sortedActual, test.ShouldResemble, sortedExpected)
+}
+
+func newSortedResourceStatuses(resourceStatuses []resource.Status) []resource.Status {
+	sorted := make([]resource.Status, len(resourceStatuses))
+	copy(sorted, resourceStatuses)
+	slices.SortStableFunc(sorted, func(r1, r2 resource.Status) int {
+		return cmp.Compare(r1.Name.String(), r2.Name.String())
+	})
+	return sorted
 }
 
 // ExtractNames takes a slice of resource.Name objects
