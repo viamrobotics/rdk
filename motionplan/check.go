@@ -70,38 +70,6 @@ func checkPlanRelative(
 	lookAheadDistanceMM float64,
 	sfPlanner *planManager,
 ) error {
-	// Validate the given PoseInFrame of the relative frame. Relative frame poses cannot be given in their own frame, or the frame of
-	// any of their children.
-	// TODO(RSDK-7421): there will need to be checks once there is a real possibility of multiple, hierarchical relative frames, or
-	// something expressly forbidding it.
-	validateRelPiF := func(pif *referenceframe.PoseInFrame) error {
-		observingFrame := fs.Frame(pif.Parent())
-		// Ensure the frame of the pose-in-frame is in the frame system
-		if observingFrame == nil {
-			sfPlanner.logger.Errorf(
-				"pose of %s was given in frame of %s, but no frame with that name was found in the frame system",
-				checkFrame.Name(),
-				pif.Parent(),
-			)
-			return nil
-		}
-		// Ensure nothing between the PiF's frame and World is the relative frame
-		observingParentage, err := fs.TracebackFrame(observingFrame)
-		if err != nil {
-			return err
-		}
-		for _, parent := range observingParentage {
-			if parent.Name() == checkFrame.Name() {
-				return fmt.Errorf(
-					"pose of %s was given in frame of %s, but current pose of checked frame must not be observed by self or child",
-					checkFrame.Name(),
-					pif.Parent(),
-				)
-			}
-		}
-		return nil
-	}
-
 	toWorld := func(pif *referenceframe.PoseInFrame, inputs map[string][]referenceframe.Input) (*referenceframe.PoseInFrame, error) {
 		transformable, err := fs.Transform(inputs, pif, referenceframe.World)
 		if err != nil {
@@ -172,10 +140,6 @@ func checkPlanRelative(
 	currentPoseIF, ok := currentPoses[checkFrame.Name()]
 	if !ok {
 		return errors.New("checkFrame not found in current pose map")
-	}
-	err = validateRelPiF(currentPoseIF)
-	if err != nil {
-		return err
 	}
 	currentPoseInWorld, err := toWorld(currentPoseIF, currentInputs)
 	if err != nil {

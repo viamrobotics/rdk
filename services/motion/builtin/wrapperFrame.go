@@ -105,7 +105,8 @@ func (wf *wrapperFrame) Geometries(inputs []referenceframe.Input) (*referencefra
 	for _, g := range gf.Geometries() {
 		sfGeometries = append(sfGeometries, g.Transform(transformBy))
 	}
-	return referenceframe.NewGeometriesInFrame(referenceframe.World, sfGeometries), nil
+
+	return referenceframe.NewGeometriesInFrame(wf.name, sfGeometries), nil
 }
 
 // DoF returns the number of degrees of freedom within a given frame.
