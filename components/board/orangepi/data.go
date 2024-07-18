@@ -10,6 +10,8 @@ const (
 
 var boardInfoMappings = map[string]genericlinux.BoardInformation{
 	opzero2w: {
+		// OP zero 2w user manual: https://drive.google.com/drive/folders/1KIZMMDBlqf1rKmOEhGH7_7A-COAgYoGZ
+		// Gpio pins can be found on page 131.
 		PinDefinitions: []genericlinux.PinDefinition{
 			{Name: "3", DeviceName: "gpiochip0", LineNumber: 264, PwmChipSysfsDir: "", PwmID: -1},
 			{Name: "5", DeviceName: "gpiochip0", LineNumber: 263, PwmChipSysfsDir: "", PwmID: -1},
