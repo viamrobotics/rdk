@@ -18,7 +18,7 @@ import (
 )
 
 const (
-	vrsGGARateSec = 20 // rate to send GGA messages to the VRS in seconds
+	vrsGGARateSec = 15 // rate to send GGA messages to the VRS in seconds
 )
 
 // VRS contains the VRS.
@@ -134,6 +134,7 @@ func HasVRSStream(sourceTable *Sourcetable, mountPoint string) (bool, error) {
 
 // Close closes the VRS connection and any other background threads.
 func (vrs *VRS) Close() error {
+	vrs.logger.Debug("stopping VRS")
 	vrs.workers.Stop()
 	return vrs.conn.Close()
 }
