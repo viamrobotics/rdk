@@ -63,9 +63,10 @@ type Capture struct {
 	logger logging.Logger
 	clk    clock.Clock
 
-	mu                                 sync.Mutex
+	mu         sync.Mutex
+	collectors map[resourceMethodMetadata]*collectorAndConfig
+
 	captureDir                         string
-	collectors                         map[resourceMethodMetadata]*collectorAndConfig
 	maxCaptureFileSize                 int64
 	componentMethodFrequencyHz         map[resourceMethodMetadata]float32
 	captureDirPollingCancelFn          context.CancelFunc
@@ -131,6 +132,7 @@ func (cm *Capture) Reconfigure(
 ) error {
 	// Service is disabled, so close all collectors and clear the map so we can instantiate new ones if we enable this service.
 	if captureConfig.CaptureDisabled {
+		cm.logger.Debug("Capture Disabled")
 		cm.CloseCollectors()
 		cm.collectors = make(map[resourceMethodMetadata]*collectorAndConfig)
 		if cm.captureDirPollingCancelFn != nil {
@@ -146,7 +148,7 @@ func (cm *Capture) Reconfigure(
 	if err != nil {
 		return err
 	}
-
+	cm.captureDir = captureConfig.CaptureDir
 	maxCaptureFileSize := defaultIfZeroVal(captureConfig.MaximumCaptureFileSizeBytes, defaultMaxCaptureSize)
 	maxFileSizeChanged := cm.maxCaptureFileSize != maxCaptureFileSize
 	cm.maxCaptureFileSize = maxCaptureFileSize
@@ -163,21 +165,30 @@ func (cm *Capture) Reconfigure(
 
 			// We only use service-level tags.
 			resConf.Tags = captureConfig.Tags
-			collectorEnabledAndHasConfigChanges := !resConf.Disabled && (resConf.CaptureFrequencyHz > 0 || maxFileSizeChanged)
-			if collectorEnabledAndHasConfigChanges {
-				newCollectorAndConfig, err := cm.initializeOrUpdateCollector(res, componentMethodMetadata, resConf, maxFileSizeChanged)
-				if err != nil {
-					cm.logger.CErrorw(ctx, "failed to initialize or update collector", "error", err)
-					continue
-				}
-				newCollectors[componentMethodMetadata] = newCollectorAndConfig
+			if resConf.Disabled {
+				cm.logger.Debugf("%s disabled. config: %#v", componentMethodMetadata.String(), resConf)
+				continue
 			}
+
+			if resConf.CaptureFrequencyHz <= 0 {
+				cm.logger.Debugf("%s disabled due to `capture_frequency_hz` being less than or equal to zero. config: %#v", componentMethodMetadata.String(), resConf)
+				continue
+			}
+
+			newCollectorAndConfig, err := cm.initializeOrUpdateCollector(res, componentMethodMetadata, resConf, maxFileSizeChanged)
+			if err != nil {
+				cm.logger.CErrorw(ctx, "failed to initialize or update collector", "error", err)
+				continue
+			}
+			cm.logger.Debugf("%s initialized or updated with config: %#v", componentMethodMetadata.String(), resConf)
+			newCollectors[componentMethodMetadata] = newCollectorAndConfig
 		}
 	}
 
 	// If a component/method has been removed from the config, close the collector.
 	for md, collAndConfig := range cm.collectors {
 		if _, present := newCollectors[md]; !present {
+			cm.logger.Debugf("%s closing collector", md.String())
 			collAndConfig.Collector.Close()
 		}
 	}
@@ -187,6 +198,7 @@ func (cm *Capture) Reconfigure(
 		cm.captureDirPollingCancelFn()
 	}
 	if cm.captureDirPollingBackgroundWorkers != nil {
+		cm.logger.Debug("Reconfigure waiting for captureDirPollingBackgroundWorkers to close")
 		cm.captureDirPollingBackgroundWorkers.Wait()
 	}
 	captureDirPollCtx, captureDirCancelFunc := context.WithCancel(context.Background())
