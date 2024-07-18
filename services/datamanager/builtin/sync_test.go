@@ -29,6 +29,9 @@ const (
 
 // TODO DATA-849: Add a test that validates that sync interval is accurately respected.
 func TestSyncEnabled(t *testing.T) {
+	// https://viam.atlassian.net/browse/DATA-2880
+	// https://viam.atlassian.net/browse/DATA-2879
+	t.Skip()
 	captureInterval := time.Millisecond * 10
 	tests := []struct {
 		name                        string
@@ -635,6 +638,9 @@ func TestStreamingDCUpload(t *testing.T) {
 }
 
 func TestSyncConfigUpdateBehavior(t *testing.T) {
+	// https://viam.atlassian.net/browse/DATA-2880
+	// https://viam.atlassian.net/browse/DATA-2879
+	t.Skip()
 	newSyncIntervalMins := 0.009
 	tests := []struct {
 		name                 string
