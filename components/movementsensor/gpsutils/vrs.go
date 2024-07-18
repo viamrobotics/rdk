@@ -100,8 +100,21 @@ func ConnectToVirtualBase(ctx context.Context, ntripInfo *NtripInfo,
 	// We currently only write the GGA message when we try to reconnect to VRS. Some documentation for VRS states that we
 	// should try to send a GGA message every 5-60 seconds, but more testing is needed to determine if that is required.
 	// get the GGA message from cached data
-	ggaMessage, err := getGGA()
-	if err != nil {
+	var ggaMessage string
+	success := false
+	attempts := 0
+
+	// we want to retry maxConnectionAttempt number of times to get GGA message before giving up
+	for !success && attempts < ntripInfo.maxConnectAttempts {
+		ggaMessage, err = getGGA()
+		vrs.logger.Debug("attempt %v of getting GGA message", ntripInfo.maxConnectAttempts)
+		if err == nil {
+			success = true
+			break
+		}
+		attempts++
+	}
+	if !success {
 		vrs.logger.Error(fmt.Errorf("failed to get GGA message %w", conn.Close()))
 		return nil, err
 	}
