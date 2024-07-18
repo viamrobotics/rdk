@@ -17,14 +17,10 @@ package gpsrtk
 */
 
 import (
-	"bufio"
 	"context"
 	"errors"
-	"fmt"
 	"io"
 	"math"
-	"net"
-	"strings"
 	"sync"
 
 	"github.com/go-gnss/rtcm/rtcm3"
@@ -61,8 +57,7 @@ type gpsrtk struct {
 	writePath        string
 	wbaud            int
 	isVirtualBase    bool
-	vrsReaderWriter  *bufio.ReadWriter
-	vrsConn          net.Conn
+	vrs              *gpsutils.VRS
 	// reader is the TeeReader to write the corrections stream to the gps chip.
 	// Additionally used to scan RTCM messages to ensure there are no errors from the streams
 	reader io.Reader
@@ -71,52 +66,6 @@ type gpsrtk struct {
 func (g *gpsrtk) start() error {
 	g.activeBackgroundWorkers.Add(1)
 	utils.PanicCapturingGo(g.receiveAndWriteCorrectionData)
-	return g.err.Get()
-}
-
-// getStreamFromMountPoint attempts to connect to ntrip stream. We give up after maxAttempts unsuccessful tries.
-func (g *gpsrtk) getStreamFromMountPoint(mountPoint string, maxAttempts int) error {
-	success := false
-	attempts := 0
-
-	// setting the Timeout to 0 on the http client to prevent the ntrip stream from canceling itself.
-	// ntrip.NewClient() defaults sets this value to 15 seconds, which causes us to disconnect
-	// the ntrip stream and require a reconnection.
-	// Setting the Timeout on the http client to be 0 removes the timeout. It's possible we want to have different
-	// Additionally, this should be tested with other CORS.
-	g.ntripClient.Client.Timeout = 0
-
-	var rc io.ReadCloser
-	var err error
-
-	g.logger.Debug("Getting NTRIP stream")
-
-	for !success && attempts < maxAttempts {
-		select {
-		case <-g.cancelCtx.Done():
-			return errors.New("Canceled")
-		default:
-		}
-
-		rc, err = func() (io.ReadCloser, error) {
-			return g.ntripClient.Client.GetStream(mountPoint)
-		}()
-		if err == nil {
-			success = true
-		}
-		attempts++
-	}
-
-	if err != nil {
-		g.logger.Errorf("Can't connect to NTRIP stream: %s", err)
-		return err
-	}
-	g.logger.Debug("Connected to stream")
-
-	g.mu.Lock()
-	defer g.mu.Unlock()
-
-	g.ntripClient.Stream = rc
 	return g.err.Get()
 }
 
@@ -144,23 +93,6 @@ func (g *gpsrtk) connectAndParseSourceTable() error {
 	if err != nil {
 		g.err.Set(err)
 		return g.err.Get()
-	}
-
-	if !g.ntripClient.Client.IsCasterAlive() {
-		g.logger.Infof("caster %s seems to be down, retrying", g.ntripClient.URL)
-		attempts := 0
-		// we will try to connect to the caster five times if it's down.
-		for attempts < 5 {
-			if !g.ntripClient.Client.IsCasterAlive() {
-				attempts++
-				g.logger.Debugf("attempt(s) to connect to caster: %v ", attempts)
-			} else {
-				break
-			}
-		}
-		if attempts == 5 {
-			return fmt.Errorf("caster %s is down", g.ntripClient.URL)
-		}
 	}
 
 	g.logger.Debug("getting source table")
@@ -208,14 +140,14 @@ func (g *gpsrtk) getStream() (io.Reader, error) {
 		if err != nil {
 			return nil, err
 		}
-		return io.TeeReader(g.vrsReaderWriter, g.correctionWriter), nil
+		return io.TeeReader(g.vrs.GetReaderWriter(), g.correctionWriter), nil
 	}
 	g.logger.Debug("connecting to NTRIP stream........")
-	err := g.getStreamFromMountPoint(g.ntripClient.MountPoint, g.ntripClient.MaxConnectAttempts)
+	stream, err := g.ntripClient.GetStreamFromMountPoint(g.cancelCtx, g.logger)
 	if err != nil {
 		return nil, err
 	}
-	return io.TeeReader(g.ntripClient.Stream, g.correctionWriter), nil
+	return io.TeeReader(stream, g.correctionWriter), nil
 }
 
 // receiveAndWriteCorrectionData connects to the NTRIP receiver and sends the correction stream to
@@ -336,35 +268,6 @@ func (g *gpsrtk) Orientation(ctx context.Context, extra map[string]interface{}) 
 	return g.cachedData.Orientation(ctx, extra)
 }
 
-// readFix passthrough.
-func (g *gpsrtk) readFix(ctx context.Context) (int, error) {
-	lastError := g.err.Get()
-	if lastError != nil {
-		return 0, lastError
-	}
-	return g.cachedData.ReadFix(ctx)
-}
-
-// readSatsInView returns the number of satellites in view.
-func (g *gpsrtk) readSatsInView(ctx context.Context) (int, error) {
-	lastError := g.err.Get()
-	if lastError != nil {
-		return 0, lastError
-	}
-
-	return g.cachedData.ReadSatsInView(ctx)
-}
-
-// readSatsInUse returns the number of satellites in use.
-func (g *gpsrtk) readSatsInUse(ctx context.Context) (int, error) {
-	lastError := g.err.Get()
-	if lastError != nil {
-		return 0, lastError
-	}
-
-	return g.cachedData.ReadSatsInUse(ctx)
-}
-
 // Properties passthrough.
 func (g *gpsrtk) Properties(ctx context.Context, extra map[string]interface{}) (*movementsensor.Properties, error) {
 	lastError := g.err.Get()
@@ -393,24 +296,11 @@ func (g *gpsrtk) Readings(ctx context.Context, extra map[string]interface{}) (ma
 		return nil, err
 	}
 
-	fix, err := g.readFix(ctx)
-	if err != nil {
-		return nil, err
-	}
+	commonReadings := g.cachedData.GetCommonReadings(ctx)
 
-	satsInView, err := g.readSatsInView(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	satsInUse, err := g.readSatsInUse(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	readings["fix"] = fix
-	readings["satellites_in_view"] = satsInView
-	readings["satellites_in_use"] = satsInUse
+	readings["fix"] = commonReadings.FixValue
+	readings["satellites_in_view"] = commonReadings.SatsInView
+	readings["satellites_in_use"] = commonReadings.SatsInUse
 
 	return readings, nil
 }
@@ -436,14 +326,8 @@ func (g *gpsrtk) Close(ctx context.Context) error {
 		g.correctionWriter = nil
 	}
 
-	// close ntrip client and stream
-	if g.ntripClient.Client != nil {
-		g.ntripClient.Client.CloseIdleConnections()
-		g.ntripClient.Client = nil
-	}
-
-	if g.vrsConn != nil {
-		if err := g.vrsConn.Close(); err != nil {
+	if g.vrs != nil {
+		if err := g.vrs.Close(ctx); err != nil {
 			g.mu.Unlock()
 			return err
 		}
@@ -453,12 +337,9 @@ func (g *gpsrtk) Close(ctx context.Context) error {
 	// before initializing `g.ntripClient.Stream`, we might finish closing and then initialize a new
 	// stream. This could be fixed by putting the background goroutine in a StoppableWorkers which
 	// we shut down at the top of this function, which can happen in the near future.
-	if g.ntripClient.Stream != nil {
-		if err := g.ntripClient.Stream.Close(); err != nil {
-			g.mu.Unlock()
-			return err
-		}
-		g.ntripClient.Stream = nil
+	if err := g.ntripClient.Close(ctx); err != nil {
+		g.mu.Unlock()
+		return err
 	}
 
 	g.mu.Unlock()
@@ -478,65 +359,16 @@ func (g *gpsrtk) getNtripFromVRS() error {
 	g.mu.Lock()
 	defer g.mu.Unlock()
 	var err error
-	if g.vrsConn != nil {
-		if err := g.vrsConn.Close(); err != nil {
+	if g.vrs != nil {
+		if err := g.vrs.Close(g.cancelCtx); err != nil {
 			return err
 		}
+		g.vrs = nil
 	}
-	g.vrsReaderWriter, g.vrsConn, err = gpsutils.ConnectToVirtualBase(g.ntripClient, g.logger)
+	g.vrs, err = gpsutils.ConnectToVirtualBase(g.cancelCtx, g.ntripClient, g.cachedData.GGA, g.logger)
 	if err != nil {
 		return err
 	}
-
-	// read from the socket until we know if a successful connection has been
-	// established.
-	for {
-		line, _, err := g.vrsReaderWriter.ReadLine()
-		response := string(line)
-		if err != nil {
-			if errors.Is(err, io.EOF) {
-				g.vrsReaderWriter = nil
-				return err
-			}
-			g.logger.Error("Failed to read server response:", err)
-			return err
-		}
-
-		if strings.HasPrefix(response, "HTTP/1.1 ") {
-			if strings.Contains(response, "200 OK") {
-				g.logger.Debug("Successful connection established with NTRIP caster.")
-				break
-			}
-			g.logger.Errorf("Bad HTTP response: %v", response)
-			return fmt.Errorf("server responded with non-OK status: %s", response)
-		}
-	}
-
-	// We currently only write the GGA message when we try to reconnect to VRS. Some documentation for VRS states that we
-	// should try to send a GGA message every 5-60 seconds, but more testing is needed to determine if that is required.
-
-	// get the GGA message from cached data
-	ggaMessage, err := g.cachedData.GGA()
-	if err != nil {
-		g.logger.Error("Failed to get GGA message")
-		return err
-	}
-
-	g.logger.Debugf("Writing GGA message: %v\n", ggaMessage)
-
-	_, err = g.vrsReaderWriter.WriteString(ggaMessage)
-	if err != nil {
-		g.logger.Error("Failed to send NMEA data:", err)
-		return err
-	}
-
-	err = g.vrsReaderWriter.Flush()
-	if err != nil {
-		g.logger.Error("failed to write to buffer: ", err)
-		return err
-	}
-
-	g.logger.Debug("GGA message sent successfully.")
 
 	return nil
 }

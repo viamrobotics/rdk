@@ -8,7 +8,6 @@ import (
 
 	"go.viam.com/test"
 	"go.viam.com/utils/pexec"
-	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/components/base"
@@ -624,11 +623,11 @@ func TestDiffSanitize(t *testing.T) {
 		{
 			Secret: "remsecret1",
 			Auth: config.RemoteAuth{
-				Credentials: &rpc.Credentials{
+				Credentials: &utils.Credentials{
 					Type:    "remauthtype1",
 					Payload: "payload1",
 				},
-				SignalingCreds: &rpc.Credentials{
+				SignalingCreds: &utils.Credentials{
 					Type:    "remauthtypesig1",
 					Payload: "payloadsig1",
 				},
@@ -637,11 +636,11 @@ func TestDiffSanitize(t *testing.T) {
 		{
 			Secret: "remsecret2",
 			Auth: config.RemoteAuth{
-				Credentials: &rpc.Credentials{
+				Credentials: &utils.Credentials{
 					Type:    "remauthtype2",
 					Payload: "payload2",
 				},
-				SignalingCreds: &rpc.Credentials{
+				SignalingCreds: &utils.Credentials{
 					Type:    "remauthtypesig2",
 					Payload: "payloadsig2",
 				},

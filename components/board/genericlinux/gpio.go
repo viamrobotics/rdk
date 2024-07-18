@@ -6,6 +6,7 @@ package genericlinux
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"time"
 
@@ -122,6 +123,23 @@ func (pin *gpioPin) Set(ctx context.Context, isHigh bool,
 // This function assumes you've already locked the mutex. It sets the value of a pin without
 // changing whether the pin is part of a software PWM loop.
 func (pin *gpioPin) setInternal(isHigh bool) (err error) {
+	// if pin is a hw pwm pin, set to either 0% or 100% duty cycle
+	if pin.hwPwm != nil {
+		var value float64
+		if isHigh {
+			value = 1.0
+		}
+
+		// Set pwm with a frequency of 10 Hz. Any frequency value would work.
+		// Note that pin.pwmFreqHz is not modified, so a previously used frequency
+		// is still available to use later.
+		err := pin.hwPwm.SetPwm(10, value)
+		if err != nil {
+			return fmt.Errorf("could not set pin: %w", err)
+		}
+		return nil
+	}
+
 	var value byte
 	if isHigh {
 		value = 1
@@ -150,6 +168,10 @@ func (pin *gpioPin) Get(
 ) (result bool, err error) {
 	pin.mu.Lock()
 	defer pin.mu.Unlock()
+
+	if pin.hwPwm != nil {
+		return false, errors.New("cannot read from a HW pwm pin")
+	}
 
 	if pin.offset == noPin {
 		return false, errors.New("cannot read from non-GPIO pin")

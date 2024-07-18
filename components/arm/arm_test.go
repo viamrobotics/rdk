@@ -3,7 +3,6 @@ package arm_test
 import (
 	"context"
 	"errors"
-	"strings"
 	"testing"
 
 	"github.com/go-viper/mapstructure/v2"
@@ -17,13 +16,11 @@ import (
 	ur "go.viam.com/rdk/components/arm/universalrobots"
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/logging"
-	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
-	"go.viam.com/rdk/utils"
 )
 
 const (
@@ -213,107 +210,6 @@ func TestCreateStatus(t *testing.T) {
 		test.That(t, actualStatus.EndPosition, test.ShouldEqual, expectedStatus.EndPosition)
 		test.That(t, actualStatus.JointPositions, test.ShouldResemble, expectedStatus.JointPositions)
 		test.That(t, actualStatus.IsMoving, test.ShouldEqual, expectedStatus.IsMoving)
-	})
-}
-
-func TestOOBArm(t *testing.T) {
-	logger := logging.NewTestLogger(t)
-	cfg := resource.Config{
-		Name:  arm.API.String(),
-		Model: resource.DefaultModelFamily.WithModel("ur5e"),
-		ConvertedAttributes: &fake.Config{
-			ArmModel: "ur5e",
-		},
-	}
-
-	notReal, err := fake.NewArm(context.Background(), nil, cfg, logger)
-	test.That(t, err, test.ShouldBeNil)
-
-	injectedArm := &inject.Arm{
-		Arm: notReal,
-	}
-
-	jPositions := pb.JointPositions{Values: []float64{0, 0, 0, 0, 0, 720}}
-	injectedArm.JointPositionsFunc = func(ctx context.Context, extra map[string]interface{}) (*pb.JointPositions, error) {
-		return &jPositions, nil
-	}
-
-	// instantiate OOB arm
-	positions, err := injectedArm.JointPositions(context.Background(), nil)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, positions, test.ShouldResemble, &jPositions)
-
-	t.Run("EndPosition works when OOB", func(t *testing.T) {
-		jPositions := pb.JointPositions{Values: []float64{0, 0, 0, 0, 0, 720}}
-		pose, err := motionplan.ComputeOOBPosition(injectedArm.ModelFrame(), &jPositions)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, pose, test.ShouldNotBeNil)
-	})
-
-	t.Run("Move fails when OOB", func(t *testing.T) {
-		pose = spatialmath.NewPoseFromPoint(r3.Vector{200, 200, 200})
-		err := arm.Move(context.Background(), logger, injectedArm, pose)
-		u := "cartesian movements are not allowed when arm joints are out of bounds"
-		v := "joint 0 input out of bounds, input 12.56637 needs to be within range [6.28319 -6.28319]"
-		s := strings.Join([]string{u, v}, ": ")
-		test.That(t, err.Error(), test.ShouldEqual, s)
-	})
-
-	t.Run("MoveToJointPositions fails if more OOB", func(t *testing.T) {
-		vals := referenceframe.FloatsToInputs([]float64{0, 0, 0, 0, 0, 800})
-		err := arm.CheckDesiredJointPositions(context.Background(), injectedArm, vals)
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(
-			t,
-			err.Error(),
-			test.ShouldEqual,
-			"joint 5 needs to be within range [-6.283185307179586, 12.566370614359172] and cannot be moved to 800",
-		)
-	})
-
-	t.Run("GoToInputs fails if more OOB", func(t *testing.T) {
-		goal := []referenceframe.Input{{Value: 11}, {Value: 10}, {Value: 10}, {Value: 11}, {Value: 10}, {Value: 10}}
-		err := arm.CheckDesiredJointPositions(context.Background(), injectedArm, goal)
-		test.That(
-			t,
-			err.Error(),
-			test.ShouldEqual,
-			"joint 0 needs to be within range [-6.283185307179586, 6.283185307179586] and cannot be moved to 11",
-		)
-	})
-
-	t.Run("MoveToJointPositions works if more in bounds", func(t *testing.T) {
-		vals := referenceframe.FloatsToInputs([]float64{0, 0, 0, 0, 0, utils.DegToRad(400)})
-		err := arm.CheckDesiredJointPositions(context.Background(), injectedArm, vals)
-		test.That(t, err, test.ShouldBeNil)
-	})
-
-	t.Run("MoveToJointPositions works if completely in bounds", func(t *testing.T) {
-		vals := []float64{0, 0, 0, 0, 0, 0}
-		err := injectedArm.MoveToJointPositions(context.Background(), &pb.JointPositions{Values: vals}, nil)
-		test.That(t, err, test.ShouldBeNil)
-	})
-
-	t.Run("MoveToJointPositions fails if causes OOB from IB", func(t *testing.T) {
-		vals := []float64{0, 0, 0, 0, 0, 400}
-		err := injectedArm.MoveToJointPositions(context.Background(), &pb.JointPositions{Values: vals}, nil)
-		output := "joint 5 needs to be within range [-6.283185307179586, 6.283185307179586] and cannot be moved to 6.981317007977318"
-		test.That(t, err.Error(), test.ShouldEqual, output)
-	})
-
-	t.Run("MoveToPosition works when IB", func(t *testing.T) {
-		homePose, err := injectedArm.EndPosition(context.Background(), nil)
-		test.That(t, err, test.ShouldBeNil)
-		testLinearMove := r3.Vector{homePose.Point().X + 20, homePose.Point().Y, homePose.Point().Z}
-		testPose := spatialmath.NewPoseFromPoint(testLinearMove)
-		err = injectedArm.MoveToPosition(context.Background(), testPose, nil)
-		test.That(t, err, test.ShouldBeNil)
-	})
-
-	t.Run("GoToInputs works when IB", func(t *testing.T) {
-		goal := []referenceframe.Input{{Value: 0}, {Value: 0}, {Value: 0}, {Value: 0}, {Value: 0}, {Value: 0}}
-		err := injectedArm.GoToInputs(context.Background(), goal)
-		test.That(t, err, test.ShouldBeNil)
 	})
 }
 
