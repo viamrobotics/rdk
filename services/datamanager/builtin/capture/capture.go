@@ -63,8 +63,8 @@ type Capture struct {
 	logger logging.Logger
 	clk    clock.Clock
 
-	mu         sync.Mutex
-	collectors map[resourceMethodMetadata]*collectorAndConfig
+	collectorsMu sync.Mutex
+	collectors   map[resourceMethodMetadata]*collectorAndConfig
 
 	captureDir                         string
 	maxCaptureFileSize                 int64
@@ -363,12 +363,12 @@ func (cm *Capture) getDataCollectorConfigs(
 // CloseCollectors closes collectors.
 func (cm *Capture) CloseCollectors() {
 	var collectorsToClose []data.Collector
-	cm.mu.Lock()
+	cm.collectorsMu.Lock()
 	for _, collectorAndConfig := range cm.collectors {
 		collectorsToClose = append(collectorsToClose, collectorAndConfig.Collector)
 	}
 	cm.collectors = make(map[resourceMethodMetadata]*collectorAndConfig)
-	cm.mu.Unlock()
+	cm.collectorsMu.Unlock()
 
 	var wg sync.WaitGroup
 	for _, collector := range collectorsToClose {
@@ -382,11 +382,11 @@ func (cm *Capture) CloseCollectors() {
 // FlushCollectors flushes collectors.
 func (cm *Capture) FlushCollectors() {
 	var collectorsToFlush []data.Collector
-	cm.mu.Lock()
+	cm.collectorsMu.Lock()
 	for _, collectorAndConfig := range cm.collectors {
 		collectorsToFlush = append(collectorsToFlush, collectorAndConfig.Collector)
 	}
-	cm.mu.Unlock()
+	cm.collectorsMu.Unlock()
 
 	var wg sync.WaitGroup
 	for _, collector := range collectorsToFlush {

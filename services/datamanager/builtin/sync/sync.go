@@ -60,15 +60,17 @@ type Sync struct {
 	clk                         clk.Clock
 	flushCollectors             func()
 	propagationGoroutineStarted atomic.Bool
+	// ConfigPropagated exists only for tests
+	ConfigPropagated atomic.Bool
+	// FileDeletionBackgroundWorkers temporarily public for tests
+	FileDeletionBackgroundWorkers *sync.WaitGroup
+	fileDeletionRoutineCancelFn   context.CancelFunc
 
 	mu                        sync.Mutex
 	captureDir                string
 	cloudConn                 rpc.ClientConn
 	cloudConnSvc              cloud.ConnectionService
 	datasyncBackgroundWorkers sync.WaitGroup
-	// FileDeletionBackgroundWorkers temporarily public for tests
-	FileDeletionBackgroundWorkers *sync.WaitGroup
-	fileDeletionRoutineCancelFn   context.CancelFunc
 	// FileLastModifiedMillis temporarily public for tests
 	FileLastModifiedMillis int
 	filesToSync            chan string
@@ -90,9 +92,6 @@ type Sync struct {
 	SyncerConstructor            ManagerConstructor
 	syncerNeedsToBeReInitialized bool
 	tags                         []string
-
-	// ConfigPropagated exists only for tests
-	ConfigPropagated atomic.Bool
 }
 
 // Config is the sync config.
@@ -139,6 +138,12 @@ func (sm *Sync) Reconfigure(
 	config resource.Config,
 	syncConfig Config,
 ) error {
+	if sm.fileDeletionRoutineCancelFn != nil {
+		sm.fileDeletionRoutineCancelFn()
+	}
+	if sm.FileDeletionBackgroundWorkers != nil {
+		sm.FileDeletionBackgroundWorkers.Wait()
+	}
 	sm.mu.Lock()
 	defer sm.mu.Unlock()
 	sm.ConfigPropagated.Store(false)
@@ -155,12 +160,6 @@ func (sm *Sync) Reconfigure(
 	sm.syncerNeedsToBeReInitialized = cloudConnSvc != sm.cloudConnSvc || newMaxSyncThreadValue != sm.MaxSyncThreads
 	sm.cloudConnSvc = cloudConnSvc
 
-	if sm.fileDeletionRoutineCancelFn != nil {
-		sm.fileDeletionRoutineCancelFn()
-	}
-	if sm.FileDeletionBackgroundWorkers != nil {
-		sm.FileDeletionBackgroundWorkers.Wait()
-	}
 	deleteEveryNthValue := DefaultDeleteEveryNth
 	if syncConfig.DeleteEveryNthWhenDiskFull != 0 {
 		deleteEveryNthValue = syncConfig.DeleteEveryNthWhenDiskFull
@@ -211,8 +210,14 @@ func (sm *Sync) Reconfigure(
 		sm.fileDeletionRoutineCancelFn = cancelFunc
 		sm.FileDeletionBackgroundWorkers = &sync.WaitGroup{}
 		sm.FileDeletionBackgroundWorkers.Add(1)
-		go pollFilesystem(fileDeletionCtx, sm.FileDeletionBackgroundWorkers,
-			syncConfig.CaptureDir, deleteEveryNthValue, sm.Syncer, sm.logger)
+		go deleteExcessFiles(
+			fileDeletionCtx,
+			sm.FileDeletionBackgroundWorkers,
+			syncConfig.CaptureDir,
+			deleteEveryNthValue,
+			sm.Syncer,
+			sm.logger,
+		)
 	}
 
 	if !sm.propagationGoroutineStarted.Swap(true) {
@@ -244,7 +249,7 @@ func readyToSync(ctx context.Context, s selectiveSyncer, logger logging.Logger) 
 	return
 }
 
-func pollFilesystem(ctx context.Context, wg *sync.WaitGroup, captureDir string,
+func deleteExcessFiles(ctx context.Context, wg *sync.WaitGroup, captureDir string,
 	deleteEveryNth int, syncer Manager, logger logging.Logger,
 ) {
 	if runtime.GOOS == "android" {
