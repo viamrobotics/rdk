@@ -187,8 +187,6 @@ func (n *NtripInfo) GetStreamFromMountPoint(
 	n.mu.Lock()
 	defer n.mu.Unlock()
 
-	attempts := 0
-
 	// Set the Timeout to 0 on the http client to prevent the ntrip stream from canceling itself.
 	// ntrip.NewClient() defaults sets this value to 15 seconds, which causes us to disconnect
 	// the ntrip stream and require a reconnection. Additionally, this should be tested with other
@@ -200,7 +198,7 @@ func (n *NtripInfo) GetStreamFromMountPoint(
 
 	logger.Debug("Getting NTRIP stream")
 
-	for attempts < n.maxConnectAttempts {
+	for attempts := 0; attempts < n.maxConnectAttempts; attempts++ {
 		logger.Debugf("unable to get stream after %d attempts, trying again...", attempts)
 		select {
 		case <-cancelCtx.Done():
@@ -214,7 +212,6 @@ func (n *NtripInfo) GetStreamFromMountPoint(
 			n.stream = rc
 			return rc, nil
 		}
-		attempts++
 	}
 
 	logger.Errorf("Can't connect to NTRIP stream: %s", err)
