@@ -188,7 +188,7 @@ func (g *gpsrtk) receiveAndWriteCorrectionData() {
 		scanner, err = g.getStream()
 		if err != nil {
 			g.err.Set(err)
-			g.logger.Error("unable to get reconnect to NTRIP stream! Giving up on RTK messages")
+			g.logger.Error("unable to reconnect to NTRIP stream! Giving up on RTK messages")
 			return
 		}
 	}
