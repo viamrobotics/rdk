@@ -70,8 +70,8 @@ func RegisterLogger(name string, logger Logger) {
 	loggerManager.registerLogger(name, logger)
 }
 
-// DeRegisterLogger attempts to remove a logger from the registry and returns a boolean denoting whether it succeeded.
-func DeRegisterLogger(name string) bool {
+// DeregisterLogger attempts to remove a logger from the registry and returns a boolean denoting whether it succeeded.
+func DeregisterLogger(name string) bool {
 	return loggerManager.deregisterLogger(name)
 }
 

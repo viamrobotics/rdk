@@ -259,7 +259,7 @@ func TestProcessLoggerUpdate(t *testing.T) {
 
 	// verify that the logger config was parsed, and the new level was set
 	test.That(t, fakeLogger.GetLevel().String(), test.ShouldEqual, "Error")
-	test.That(t, logging.DeRegisterLogger("fakelogger"), test.ShouldBeTrue)
+	test.That(t, logging.DeregisterLogger("fakelogger"), test.ShouldBeTrue)
 }
 
 func TestShouldCheckForCert(t *testing.T) {
