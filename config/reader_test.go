@@ -235,6 +235,33 @@ func TestCacheInvalidation(t *testing.T) {
 	test.That(t, os.IsNotExist(err), test.ShouldBeTrue)
 }
 
+func TestProcessLoggerUpdate(t *testing.T) {
+	testLogger := logging.NewTestLogger(t)
+
+	// register a fake logger in the global registry
+	fakeLogger := logging.NewLogger("fakelogger")
+	fakeLogger.SetLevel(logging.INFO)
+	logging.RegisterLogger("fakelogger", fakeLogger)
+
+	logCfg := []logging.LoggerPatternConfig{
+		{
+			Pattern: "fakelogger",
+			Level:   "ERROR",
+		},
+	}
+	unprocessedCfg := Config{
+		LogConfig: logCfg,
+	}
+
+	// process the logger config, should set fake logger to new level
+	_, err := processConfig(&unprocessedCfg, false, testLogger)
+	test.That(t, err, test.ShouldBeNil)
+
+	// verify that the logger config was parsed, and the new level was set
+	test.That(t, fakeLogger.GetLevel().String(), test.ShouldEqual, "Error")
+	test.That(t, logging.DeRegisterLogger("fakelogger"), test.ShouldBeTrue)
+}
+
 func TestShouldCheckForCert(t *testing.T) {
 	cloud1 := Cloud{
 		ManagedBy:        "acme",

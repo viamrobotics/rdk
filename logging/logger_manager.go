@@ -25,6 +25,16 @@ func (lr *loggerRegistry) registerLogger(name string, logger Logger) {
 	lr.loggers[name] = logger
 }
 
+func (lr *loggerRegistry) deregisterLogger(name string) bool {
+	lr.mu.Lock()
+	defer lr.mu.Unlock()
+	_, ok := lr.loggers[name]
+	if ok {
+		delete(lr.loggers, name)
+	}
+	return ok
+}
+
 func (lr *loggerRegistry) loggerNamed(name string) (logger Logger, ok bool) {
 	lr.mu.RLock()
 	defer lr.mu.RUnlock()
@@ -58,6 +68,11 @@ func (lr *loggerRegistry) getRegisteredLoggerNames() []string {
 // RegisterLogger registers a new logger with a given name.
 func RegisterLogger(name string, logger Logger) {
 	loggerManager.registerLogger(name, logger)
+}
+
+// DeRegisterLogger attempts to remove a logger from the registry and returns a boolean denoting whether it succeeded.
+func DeRegisterLogger(name string) bool {
+	return loggerManager.deregisterLogger(name)
 }
 
 // LoggerNamed returns logger with specified name if exists.
