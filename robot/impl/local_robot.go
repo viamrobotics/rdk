@@ -1388,3 +1388,9 @@ func (r *localRobot) MachineStatus() (robot.MachineStatus, error) {
 
 	return result, nil
 }
+
+// resourceStatusStream returns a channel that streams resource updates.
+func (r *localRobot) resourceStatusStream() <-chan resource.Status {
+	// TODO: include config updates
+	return r.manager.resources.StatusStream()
+}

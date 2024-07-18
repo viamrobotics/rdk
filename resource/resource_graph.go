@@ -28,6 +28,10 @@ type Graph struct {
 	// pointer to this logicalClock. Whenever SwapResource is called on a node
 	// (the resource updates), the logicalClock is incremented.
 	logicalClock *atomic.Int64
+
+	// statusUpdates sends a resource status update for a node whenever it changes to a
+	// new state.
+	statusUpdates chan Status
 }
 
 // NewGraph creates a new resource graph.
@@ -38,6 +42,7 @@ func NewGraph() *Graph {
 		nodes:                   graphNodes{},
 		transitiveClosureMatrix: transitiveClosureMatrix{},
 		logicalClock:            &atomic.Int64{},
+		statusUpdates:           make(chan Status),
 	}
 }
 
@@ -273,6 +278,20 @@ func (g *Graph) addNode(node Name, nodeVal *GraphNode) error {
 		}
 	}
 	g.transitiveClosureMatrix[node][node] = 1
+
+	// TODO: hacky - add a more robust way to dictate if we need to subscribe to node
+	// state changes.
+	if node.String() != "rdk-internal:service:web/builtin" {
+		go func(nodeCh <-chan Status) {
+			for msg := range nodeCh {
+				// forward status update without waiting for receivers
+				select {
+				case g.statusUpdates <- msg:
+				default:
+				}
+			}
+		}(nodeVal.StatusStream())
+	}
 	return nil
 }
 
@@ -652,4 +671,8 @@ func (g *Graph) Status() []Status {
 	}
 
 	return result
+}
+
+func (g *Graph) StatusStream() <-chan Status {
+	return g.statusUpdates
 }

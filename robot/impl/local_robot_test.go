@@ -5,12 +5,14 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
+	"log"
 	"math"
 	"net"
 	"os"
 	"path"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -3601,6 +3603,24 @@ func TestMachineStatus(t *testing.T) {
 	})
 
 	t.Run("reconfigure", func(t *testing.T) {
+		var wg sync.WaitGroup
+		statusCtx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			localRobot := lr.(*localRobot)
+			for {
+				select {
+				case <-statusCtx.Done():
+					return
+				case status := <-localRobot.resourceStatusStream():
+					log.Println(">>>", status)
+				}
+			}
+		}()
+
 		lr.Reconfigure(ctx, &config.Config{
 			Components: []resource.Config{
 				{
@@ -3621,5 +3641,25 @@ func TestMachineStatus(t *testing.T) {
 			State: resource.NodeStateReady,
 		})
 		rtestutils.VerifySameResourceStatuses(t, mStatus.Resources, expectedStatuses)
+
+		lr.Reconfigure(ctx, &config.Config{
+			Components: []resource.Config{
+				{
+					Name:  "m",
+					Model: fakeModel,
+					API:   motor.API,
+					ConvertedAttributes: &fakemotor.Config{
+						MaxRPM: 200,
+					},
+				},
+			},
+		})
+		mStatus, err = lr.MachineStatus()
+		test.That(t, err, test.ShouldBeNil)
+
+		rtestutils.VerifySameResourceStatuses(t, mStatus.Resources, expectedStatuses)
+
+		cancel()
+		wg.Wait()
 	})
 }

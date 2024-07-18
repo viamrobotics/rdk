@@ -69,6 +69,10 @@ type GraphNode struct {
 	// transitionedAt stores the timestamp of when resource entered its current lifecycle
 	// state.
 	transitionedAt time.Time
+
+	// statusUpdates sends a resource status update for a node whenever it changes to a
+	// new state.
+	statusUpdates chan Status
 }
 
 var (
@@ -81,6 +85,7 @@ func NewUninitializedNode() *GraphNode {
 	return &GraphNode{
 		state:          NodeStateUnconfigured,
 		transitionedAt: time.Now(),
+		statusUpdates:  make(chan Status),
 	}
 }
 
@@ -373,6 +378,7 @@ func (w *GraphNode) UnresolvedDependencies() []string {
 // Close closes the underlying resource of this node.
 func (w *GraphNode) Close(ctx context.Context) error {
 	w.mu.Lock()
+	close(w.statusUpdates)
 	if w.current == nil {
 		w.mu.Unlock()
 		return nil
@@ -473,12 +479,22 @@ func (w *GraphNode) transitionTo(state NodeState) {
 
 	w.state = state
 	w.transitionedAt = time.Now()
+
+	// send status update without waiting for receivers
+	select {
+	case w.statusUpdates <- w.resourceStatus():
+	default:
+	}
 }
 
 func (w *GraphNode) ResourceStatus() Status {
 	w.mu.RLock()
 	defer w.mu.RUnlock()
 
+	return w.resourceStatus()
+}
+
+func (w *GraphNode) resourceStatus() Status {
 	var resName Name
 	if w.current == nil {
 		resName = w.config.ResourceName()
@@ -497,4 +513,8 @@ type Status struct {
 	Name        Name
 	State       NodeState
 	LastUpdated time.Time
+}
+
+func (w *GraphNode) StatusStream() <-chan Status {
+	return w.statusUpdates
 }
