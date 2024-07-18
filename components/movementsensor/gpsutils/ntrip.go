@@ -202,6 +202,7 @@ func (n *NtripInfo) GetStreamFromMountPoint(
 	logger.Debug("Getting NTRIP stream")
 
 	for !success && attempts < n.maxConnectAttempts {
+		logger.Debugf("unable to get stream after %d attempts, trying again...", attempts)
 		select {
 		case <-cancelCtx.Done():
 			return nil, errors.New("Canceled")

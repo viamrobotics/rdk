@@ -142,7 +142,6 @@ func (g *gpsrtk) receiveAndWriteCorrectionData() {
 
 	select {
 	case <-g.cancelCtx.Done():
-		g.err.Set(errors.New("context canceled"))
 		return
 	default:
 	}
@@ -189,6 +188,7 @@ func (g *gpsrtk) receiveAndWriteCorrectionData() {
 		scanner, err = g.getStream()
 		if err != nil {
 			g.err.Set(err)
+			g.logger.Error("unable to get reconnect to NTRIP stream! Giving up on RTK messages")
 			return
 		}
 	}
