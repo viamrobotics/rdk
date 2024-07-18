@@ -153,42 +153,32 @@ func (g *gpsrtk) receiveAndWriteCorrectionData() {
 		return
 	}
 
-	scanner, err := g.getStream()
-	if err != nil {
-		g.err.Set(err)
-		g.logger.Error("unable to get NTRIP stream! Giving up on RTK messages")
-		return
-	}
-
-	for !g.isClosed {
-		select {
-		case <-g.cancelCtx.Done():
+	for !g.isClosed { // While we're supposed to keep running, (re)connect to the caster.
+		scanner, err := g.getStream()
+		if err != nil {
+			g.err.Set(err)
+			g.logger.Error("unable to get NTRIP stream! Giving up on RTK messages")
 			return
-		default:
 		}
 
-		// Calling NextMessage() reads from the scanner until a valid message is found, and returns
-		// that. We don't care about the message: we care that the scanner is able to read messages
-		// at all! So, focus on whether the scanner had errors (which indicate we need to reconnect
-		// to the mount point), and not the message itself.
-		_, err := scanner.NextMessage()
-		if err == nil {
-			continue // No errors: we're still connected.
+		for err == nil { // Keep checking our connection until it fails and needs to reconnect
+			select {
+			case <-g.cancelCtx.Done():
+				return
+			default:
+			}
+
+			// Calling NextMessage() reads from the scanner until a valid message is found, and returns
+			// that. We don't care about the message: we care that the scanner is able to read messages
+			// at all! So, focus on whether the scanner had errors (which indicate we need to reconnect
+			// to the mount point), and not the message itself.
+			_, err = scanner.NextMessage()
 		}
 
 		// added a log so we do not always swallow the error
 		g.logger.Debugf("no longer connected to NTRIP scanner: %s", err)
 
 		if g.isClosed || g.cancelCtx.Err() != nil {
-			return
-		}
-
-		// If we get here, the scanner encountered an error but is supposed to continue going. Try
-		// reconnecting to the mount point.
-		scanner, err = g.getStream()
-		if err != nil {
-			g.err.Set(err)
-			g.logger.Error("unable to reconnect to NTRIP stream! Giving up on RTK messages")
 			return
 		}
 	}
