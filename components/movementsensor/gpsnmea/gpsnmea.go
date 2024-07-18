@@ -57,12 +57,6 @@ func (cfg *Config) Validate(path string) ([]string, error) {
 
 var model = resource.DefaultModelFamily.WithModel("gps-nmea")
 
-// NmeaMovementSensor implements a gps that sends nmea messages for movement data.
-type NmeaMovementSensor interface {
-	movementsensor.MovementSensor
-	Close(ctx context.Context) error // Close MovementSensor
-}
-
 func init() {
 	resource.RegisterComponent(
 		movementsensor.API,
