@@ -4,7 +4,6 @@ import (
 	"context"
 	"testing"
 
-	pb "go.viam.com/api/component/arm/v1"
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/logging"
@@ -65,7 +64,7 @@ func TestReconfigure(t *testing.T) {
 
 	fakeArm := &Arm{
 		Named:  cfg.ResourceName().AsNamed(),
-		joints: &pb.JointPositions{Values: make([]float64, len(model.DoF()))},
+		joints: referenceframe.FloatsToInputs(make([]float64, len(model.DoF()))),
 		model:  model,
 		logger: logger,
 	}
@@ -73,31 +72,31 @@ func TestReconfigure(t *testing.T) {
 	test.That(t, fakeArm.Reconfigure(context.Background(), nil, conf1), test.ShouldBeNil)
 	model, err = modelFromName(conf1.ConvertedAttributes.(*Config).ArmModel, cfg.Name)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, fakeArm.joints.Values, test.ShouldResemble, make([]float64, len(model.DoF())))
+	test.That(t, fakeArm.joints, test.ShouldResemble, make([]referenceframe.Input, len(model.DoF())))
 	test.That(t, fakeArm.model, test.ShouldResemble, model)
 
 	test.That(t, fakeArm.Reconfigure(context.Background(), nil, conf2), test.ShouldBeNil)
 	model, err = referenceframe.ParseModelJSONFile(conf2.ConvertedAttributes.(*Config).ModelFilePath, cfg.Name)
 	test.That(t, err, test.ShouldBeNil)
-	modelJoints := make([]float64, len(model.DoF()))
-	test.That(t, fakeArm.joints.Values, test.ShouldResemble, modelJoints)
+	modelJoints := make([]referenceframe.Input, len(model.DoF()))
+	test.That(t, fakeArm.joints, test.ShouldResemble, modelJoints)
 	test.That(t, fakeArm.model, test.ShouldResemble, model)
 
 	err = fakeArm.Reconfigure(context.Background(), nil, conf1Err)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "unsupported")
-	test.That(t, fakeArm.joints.Values, test.ShouldResemble, modelJoints)
+	test.That(t, fakeArm.joints, test.ShouldResemble, modelJoints)
 	test.That(t, fakeArm.model, test.ShouldResemble, model)
 
 	err = fakeArm.Reconfigure(context.Background(), nil, conf2Err)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "only files")
-	test.That(t, fakeArm.joints.Values, test.ShouldResemble, modelJoints)
+	test.That(t, fakeArm.joints, test.ShouldResemble, modelJoints)
 	test.That(t, fakeArm.model, test.ShouldResemble, model)
 
 	err = fakeArm.Reconfigure(context.Background(), nil, conf3)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "fake arm built with zero degrees-of-freedom")
-	test.That(t, fakeArm.joints.Values, test.ShouldResemble, modelJoints)
+	test.That(t, fakeArm.joints, test.ShouldResemble, modelJoints)
 	test.That(t, fakeArm.model, test.ShouldResemble, model)
 }

@@ -242,7 +242,7 @@ func TestWebWithAuth(t *testing.T) {
 
 			if tc.Managed {
 				_, err = rgrpc.Dial(context.Background(), addr, logger, rpc.WithAllowInsecureWithCredentialsDowngrade(),
-					rpc.WithEntityCredentials("wrong", rpc.Credentials{
+					rutils.WithEntityCredentials("wrong", rpc.Credentials{
 						Type:    rpc.CredentialsTypeAPIKey,
 						Payload: legacyAPIKey,
 					}))
@@ -251,7 +251,7 @@ func TestWebWithAuth(t *testing.T) {
 
 				_, err = rgrpc.Dial(context.Background(), addr, logger,
 					rpc.WithAllowInsecureWithCredentialsDowngrade(),
-					rpc.WithEntityCredentials("wrong", rpc.Credentials{
+					rutils.WithEntityCredentials("wrong", rpc.Credentials{
 						Type:    rutils.CredentialsTypeRobotLocationSecret,
 						Payload: locationSecrets[0],
 					}),
@@ -510,7 +510,7 @@ func TestWebWithTLSAuth(t *testing.T) {
 
 	_, err = rgrpc.Dial(context.Background(), addr, logger,
 		rpc.WithTLSConfig(clientTLSConfig),
-		rpc.WithEntityCredentials("wrong", rpc.Credentials{
+		rutils.WithEntityCredentials("wrong", rpc.Credentials{
 			Type:    rutils.CredentialsTypeRobotLocationSecret,
 			Payload: locationSecret,
 		}),
@@ -521,7 +521,7 @@ func TestWebWithTLSAuth(t *testing.T) {
 	// use secret
 	conn, err := rgrpc.Dial(context.Background(), addr, logger,
 		rpc.WithTLSConfig(clientTLSConfig),
-		rpc.WithEntityCredentials(options.FQDN, rpc.Credentials{
+		rutils.WithEntityCredentials(options.FQDN, rpc.Credentials{
 			Type:    rutils.CredentialsTypeRobotLocationSecret,
 			Payload: locationSecret,
 		}),

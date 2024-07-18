@@ -15,10 +15,10 @@ var boardInfoMappings = map[string]genericlinux.BoardInformation{
 			{Name: "3", DeviceName: "gpiochip0", LineNumber: 229, PwmChipSysfsDir: "", PwmID: -1},
 			{Name: "5", DeviceName: "gpiochip0", LineNumber: 228, PwmChipSysfsDir: "", PwmID: -1},
 			{Name: "7", DeviceName: "gpiochip0", LineNumber: 73, PwmChipSysfsDir: "", PwmID: -1},
-			// When we can switch between gpio and pwm, this would have line number 226.
-			{Name: "8", DeviceName: "gpiochip0", LineNumber: -1, PwmChipSysfsDir: "300a000.pwm", PwmID: 2},
-			// When we can switch between gpio and pwm, this would have line number 227.
-			{Name: "10", DeviceName: "gpiochip0", LineNumber: -1, PwmChipSysfsDir: "300a000.pwm", PwmID: 1},
+			// Note that gpio input cannot be used on this pin.
+			{Name: "8", DeviceName: "gpiochip0", LineNumber: 226, PwmChipSysfsDir: "300a000.pwm", PwmID: 2},
+			// Note that gpio input cannot be used on this pin.
+			{Name: "10", DeviceName: "gpiochip0", LineNumber: 227, PwmChipSysfsDir: "300a000.pwm", PwmID: 1},
 			{Name: "11", DeviceName: "gpiochip0", LineNumber: 70, PwmChipSysfsDir: "", PwmID: -1},
 			{Name: "12", DeviceName: "gpiochip0", LineNumber: 75, PwmChipSysfsDir: "", PwmID: -1},
 			{Name: "13", DeviceName: "gpiochip0", LineNumber: 69, PwmChipSysfsDir: "", PwmID: -1},
@@ -39,8 +39,8 @@ var boardInfoMappings = map[string]genericlinux.BoardInformation{
 		PinDefinitions: []genericlinux.PinDefinition{
 			{Name: "3", DeviceName: "gpiochip1", LineNumber: 122, PwmChipSysfsDir: "", PwmID: -1},
 			{Name: "5", DeviceName: "gpiochip1", LineNumber: 121, PwmChipSysfsDir: "", PwmID: -1},
-			// When we can switch between gpio and pwm, the line number would be 118.
-			{Name: "7", DeviceName: "gpiochip1", LineNumber: -1, PwmChipSysfsDir: "300a000.pwm", PwmID: 0},
+			// Note that gpio input cannot be used on this pin.
+			{Name: "7", DeviceName: "gpiochip1", LineNumber: 118, PwmChipSysfsDir: "300a000.pwm", PwmID: 0},
 			{Name: "8", DeviceName: "gpiochip0", LineNumber: 2, PwmChipSysfsDir: "", PwmID: -1},
 			{Name: "10", DeviceName: "gpiochip0", LineNumber: 3, PwmChipSysfsDir: "", PwmID: -1},
 			{Name: "11", DeviceName: "gpiochip1", LineNumber: 120, PwmChipSysfsDir: "", PwmID: -1},

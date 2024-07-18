@@ -86,6 +86,7 @@ const (
 	dataFlagMimeTypes                      = "mime-types"
 	dataFlagStart                          = "start"
 	dataFlagEnd                            = "end"
+	dataFlagChunkLimit                     = "chunk-limit"
 	dataFlagParallelDownloads              = "parallel"
 	dataFlagTags                           = "tags"
 	dataFlagBboxLabels                     = "bbox-labels"
@@ -395,8 +396,13 @@ var app = &cli.App{
 							Usage:    "output directory for downloaded data",
 						},
 						&cli.UintFlag{
+							Name:  dataFlagChunkLimit,
+							Usage: "maximum number of results per download request (tabular data only)",
+							Value: 100000,
+						},
+						&cli.UintFlag{
 							Name:  dataFlagParallelDownloads,
-							Usage: "number of download requests to make in parallel",
+							Usage: "number of download requests to make in parallel (binary data only)",
 							Value: 100,
 						},
 						&cli.StringSliceFlag{
@@ -824,10 +830,10 @@ var app = &cli.App{
 					Action: DatasetCreateAction,
 				},
 				{
-					Name:  "download",
+					Name:  "export",
 					Usage: "download data from a dataset",
-					UsageText: createUsageText("dataset download",
-						[]string{datasetFlagDatasetID, datasetFlagName}, false),
+					UsageText: createUsageText("dataset export",
+						[]string{dataFlagDestination, datasetFlagDatasetID}, true, datasetFlagIncludeJSONLines, dataFlagParallelDownloads),
 					Flags: []cli.Flag{
 						&cli.PathFlag{
 							Name:     dataFlagDestination,

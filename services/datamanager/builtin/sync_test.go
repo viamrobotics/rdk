@@ -339,6 +339,7 @@ func TestArbitraryFileUpload(t *testing.T) {
 	datasync.RetryExponentialFactor.Store(int32(1))
 	fileName := "some_file_name.txt"
 	fileExt := ".txt"
+	emptyFileTestName := "error due to empty file, local files should not be deleted"
 	// Disable the check to see if the file was modified recently,
 	// since we are testing instanteous arbitrary file uploads.
 	datasync.SetFileLastModifiedMillis(0)
@@ -365,6 +366,12 @@ func TestArbitraryFileUpload(t *testing.T) {
 		},
 		{
 			name:                 "if an error response is received from the backend, local files should not be deleted",
+			manualSync:           false,
+			scheduleSyncDisabled: false,
+			serviceFail:          true,
+		},
+		{
+			name:                 emptyFileTestName,
 			manualSync:           false,
 			scheduleSyncDisabled: false,
 			serviceFail:          true,
@@ -411,8 +418,8 @@ func TestArbitraryFileUpload(t *testing.T) {
 
 			// Write file to the path.
 			var fileContents []byte
-			for i := 0; i < 1000; i++ {
-				fileContents = append(fileContents, []byte("happy cows come from california\n")...)
+			if tc.name != emptyFileTestName {
+				fileContents = populateFileContents(fileContents)
 			}
 			tmpFile, err := os.Create(filepath.Join(additionalPathsDir, fileName))
 			test.That(t, err, test.ShouldBeNil)
@@ -958,4 +965,12 @@ func waitUntilNoFiles(dir string) {
 		time.Sleep(waitPerCheck)
 		files = getAllFileInfos(dir)
 	}
+}
+
+func populateFileContents(fileContents []byte) []byte {
+	for i := 0; i < 1000; i++ {
+		fileContents = append(fileContents, []byte("happy cows come from california\n")...)
+	}
+
+	return fileContents
 }

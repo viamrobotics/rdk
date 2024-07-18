@@ -5,9 +5,9 @@ package gpsrtk
 
 import (
 	"context"
-	"errors"
-	"fmt"
 	"io"
+
+	"go.uber.org/multierr"
 
 	"go.viam.com/rdk/components/board/genericlinux/buses"
 	"go.viam.com/rdk/components/movementsensor"
@@ -139,26 +139,17 @@ func makeRTKI2C(
 
 	g.correctionWriter, err = newI2CCorrectionWriter(newConf.I2CBus, byte(newConf.I2CAddr))
 	if err != nil {
-		return nil, err
+		return nil, multierr.Combine(err, g.Close(ctx))
 	}
 
 	if err := g.start(); err != nil {
-		return nil, err
-	}
-
-	// It's possible that we've taken so long to start up that the resource manager has given up on
-	// us and tried constructing a new component instead. If that happens, we don't want 2
-	// components talking to the same chip. So, if our context is canceled, close our component
-	// instead of returning it.
-	if ctx.Err() != nil {
-		logger.Warn("context canceled by the end of the constructor! Closing the new component...")
-		return nil, fmt.Errorf("timed out constructing I2C RTK reader. Closing: %w", g.Close(ctx))
+		return nil, multierr.Combine(err, g.Close(ctx))
 	}
 
 	return g, nil
 }
 
-func newI2CCorrectionWriter(busname string, address byte) (io.ReadWriteCloser, error) {
+func newI2CCorrectionWriter(busname string, address byte) (io.WriteCloser, error) {
 	bus, err := buses.NewI2cBus(busname)
 	if err != nil {
 		return nil, err
@@ -174,17 +165,10 @@ func newI2CCorrectionWriter(busname string, address byte) (io.ReadWriteCloser, e
 	return &correctionWriter, nil
 }
 
-// This implements the io.ReadWriteCloser interface.
+// This implements the io.WriteCloser interface.
 type i2cCorrectionWriter struct {
 	bus    buses.I2C
 	handle buses.I2CHandle
-}
-
-// Read (vacuously) implements the io.ReadWriteCloser interface for this struct. We need that
-// interface for the moment because `gpsutils.GetGGAMessage()` requires it. However, that code will
-// be changed in summer of 2024 to no longer read via this struct, and then we can remove this.
-func (i *i2cCorrectionWriter) Read(p []byte) (int, error) {
-	return 0, errors.New("unimplemented")
 }
 
 func (i *i2cCorrectionWriter) Write(p []byte) (int, error) {
