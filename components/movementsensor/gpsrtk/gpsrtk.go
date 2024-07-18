@@ -147,7 +147,8 @@ func (g *gpsrtk) receiveAndWriteCorrectionData() {
 		return
 	}
 
-	for !g.isClosed { // While we're supposed to keep running, (re)connect to the caster.
+	// While we're supposed to keep running, (re)connect to the caster.
+	for !g.isClosed && g.cancelCtx.Err() == nil {
 		scanner, err := g.getStream()
 		if err != nil {
 			g.err.Set(err)
@@ -156,10 +157,8 @@ func (g *gpsrtk) receiveAndWriteCorrectionData() {
 		}
 
 		for err == nil { // Keep checking our connection until it fails and needs to reconnect
-			select {
-			case <-g.cancelCtx.Done():
+			if g.isClosed || g.cancelCtx.Err() != nil {
 				return
-			default:
 			}
 
 			// Calling NextMessage() reads from the scanner until a valid message is found, and
@@ -169,10 +168,6 @@ func (g *gpsrtk) receiveAndWriteCorrectionData() {
 			_, err = scanner.NextMessage()
 		}
 		g.logger.Debugf("no longer connected to NTRIP scanner: %s", err)
-
-		if g.isClosed || g.cancelCtx.Err() != nil {
-			return
-		}
 	}
 }
 
