@@ -209,6 +209,7 @@ func (sm *Sync) Reconfigure(
 
 	// if datacapture is enabled, kick off a go routine to handle disk space filling due to
 	// cached datacapture files
+	// TODO: Make this use stoppable workers
 	if !syncConfig.CaptureDisabled {
 		fileDeletionCtx, cancelFunc := context.WithCancel(context.Background())
 		sm.fileDeletionRoutineCancelFn = cancelFunc
