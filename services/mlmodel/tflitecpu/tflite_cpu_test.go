@@ -37,7 +37,6 @@ func TestValidate(t *testing.T) {
 	_, err = cfg.Validate("")
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "must end in .tflite")
-
 }
 
 func TestEmptyTFLiteConfig(t *testing.T) {
