@@ -326,7 +326,7 @@ func (mr *moveRequest) obstaclesIntersectPlan(
 // We update the currentInputs information so that when the wrapperFrame transforms off its inputs, the resulting
 // pose is its position in world and we do not need to compose the resultant value with another pose.
 // We update the currentPoses so that it is now in the name of the wrapperFrame which shares its name with
-// kinematicBase.Kinematics.
+// mr.kinematicBase.Kinematics().
 func (mr *moveRequest) augmentBaseExecutionState(
 	baseExecutionState motionplan.ExecutionState,
 ) (motionplan.ExecutionState, error) {
@@ -334,14 +334,35 @@ func (mr *moveRequest) augmentBaseExecutionState(
 	existingPlan := baseExecutionState.Plan()
 	newTrajectory := make(motionplan.Trajectory, 0, len(existingPlan.Trajectory()))
 	for idx, currTraj := range existingPlan.Trajectory() {
-		if idx != 0 {
-			idx--
-		}
+		// Suppose we have some plan of the following form:
+		// Path = [s, p1, p2, g, g]
+		// Traj = [  [0,0,0,0], [i1, a1, ds1, de1],
+		// 						[i2, a2, ds2, de2],
+		//						[i3, a3, ds3, de3], [0,0,0,0] ]
+		// To properly interpolate across segments we will create in CheckPlan
+		// we want the inputs of the pose frame to be the start position of that arc,
+		// so we must look at the prior path step for the starting point.
+		// To put this into an example:
+		// [0,0,0,0] is tied to s, here we start at s and end at s
+		// [i1, a1, ds1, de1] is tied to s, here we start at s and end at p1
+		// [i2, a2, ds2, de2] is tied to p1, here we start at p1 and end at p2
+		// [i3, a3, ds3, de3] is tied to p2, here we start at p2 and end at g
+		// [0,0,0,0] is tied to g, here we start at g and end at g.
+
+		// To accomplish this, we use PoseBetweenInverse on the transform of the
+		// trajectory and the path pose for our current index to calculate our path
+		// pose in the previous step.
+
 		currPathStep := existingPlan.Path()[idx]
 		kbPose := currPathStep[mr.kinematicBase.Kinematics().Name()]
 		kbTraj := currTraj[mr.kinematicBase.Name().Name]
+		trajPose, err := mr.kinematicBase.Kinematics().Transform(kbTraj)
+		if err != nil {
+			return baseExecutionState, err
+		}
+		prevPathPose := spatialmath.PoseBetweenInverse(trajPose, kbPose.Pose())
 		updatedTraj := kbTraj
-		updatedTraj = append(updatedTraj, referenceframe.PoseToInputs(kbPose.Pose())...)
+		updatedTraj = append(updatedTraj, referenceframe.PoseToInputs(prevPathPose)...)
 		newTrajectory = append(
 			newTrajectory, map[string][]referenceframe.Input{mr.kinematicBase.Kinematics().Name(): updatedTraj},
 		)
@@ -570,8 +591,8 @@ func (ms *builtIn) newMoveOnGlobeRequest(
 		return nil, fmt.Errorf("cannot move more than %d kilometers", int(maxTravelDistanceMM*1e-6))
 	}
 
-	// these limits need to be updated so that they are in 7DOF
-	// what is a good limit for what OX, OY, OZ should be?
+	// Set the limits for a base if we are using diffential drive.
+	// If we are using PTG kineamtics these limits will be ignored.
 	limits := []referenceframe.Limit{
 		{Min: -straightlineDistance * 3, Max: straightlineDistance * 3},
 		{Min: -straightlineDistance * 3, Max: straightlineDistance * 3},

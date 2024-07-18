@@ -16,6 +16,8 @@ import (
 
 var errCheckFrameNotInPath = errors.New("checkFrame given not in plan.Path() map")
 
+const relativePlanOptsResolution = 30
+
 // CheckPlan checks if obstacles intersect the trajectory of the frame following the plan. If one is
 // detected, the interpolated position of the rover when a collision is detected is returned along
 // with an error with additional collision details.
@@ -141,7 +143,7 @@ func checkPlanRelative(
 		return err
 	}
 	// change from 60mm to 30mm so we have finer interpolation along segments
-	sfPlanner.planOpts.Resolution = 30
+	sfPlanner.planOpts.Resolution = relativePlanOptsResolution
 
 	currentInputs := executionState.CurrentInputs()
 	wayPointIdx := executionState.Index()
@@ -230,8 +232,8 @@ func checkPlanRelative(
 			return err
 		}
 		thisArcEndPose := spatialmath.Compose(thisArcEndPoseInWorld.Pose(), errorState)
-		startInputs := plan.Trajectory()[i]
-		nextInputs := startInputs
+		startInputs := plan.Trajectory()[i-1]
+		nextInputs := plan.Trajectory()[i]
 		segment, err := createSegment(sf, lastArcEndPose, thisArcEndPose, startInputs, nextInputs)
 		if err != nil {
 			return err

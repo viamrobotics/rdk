@@ -82,12 +82,8 @@ func (wf *wrapperFrame) Interpolate(from, to []referenceframe.Input, by float64)
 	// the ToSubset of the localizationFrame does not matter since the executionFrame interpolations
 	// move us through a given segment and the localizationFrame input values are what we compose with
 	// the position ourselves in our absolute position in world.
-	localizationFrameFromSubset := from[len(wf.executionFrame.DoF()):]
-	interpSub, err = wf.localizationFrame.Interpolate(localizationFrameFromSubset, localizationFrameFromSubset, by)
-	if err != nil {
-		return nil, err
-	}
-	interp = append(interp, interpSub...)
+	localizationFrameSubset := to[len(wf.executionFrame.DoF()):]
+	interp = append(interp, localizationFrameSubset...)
 
 	return interp, nil
 }
