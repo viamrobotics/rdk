@@ -58,9 +58,6 @@ type gpsrtk struct {
 	wbaud            int
 	isVirtualBase    bool
 	vrs              *gpsutils.VRS
-	// reader is the TeeReader to write the corrections stream to the gps chip.
-	// Additionally used to scan RTCM messages to ensure there are no errors from the streams
-	reader io.Reader
 }
 
 func (g *gpsrtk) start() error {
@@ -151,14 +148,14 @@ func (g *gpsrtk) receiveAndWriteCorrectionData() {
 		return
 	}
 
-	g.reader, err = g.getStream()
+	reader, err := g.getStream()
 	if err != nil {
 		g.err.Set(err)
 		g.logger.Error("unable to get NTRIP stream! Giving up on RTK messages")
 		return
 	}
 
-	scanner := rtcm3.NewScanner(g.reader)
+	scanner := rtcm3.NewScanner(reader)
 
 	for !g.isClosed {
 		select {
@@ -185,12 +182,12 @@ func (g *gpsrtk) receiveAndWriteCorrectionData() {
 
 		// If we get here, the scanner encountered an error but is supposed to continue going. Try
 		// reconnecting to the mount point.
-		g.reader, err = g.getStream()
+		reader, err = g.getStream()
 		if err != nil {
 			g.err.Set(err)
 			return
 		}
-		scanner = rtcm3.NewScanner(g.reader)
+		scanner = rtcm3.NewScanner(reader)
 	}
 }
 
