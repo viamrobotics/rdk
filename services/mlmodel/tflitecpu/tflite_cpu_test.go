@@ -21,6 +21,25 @@ import (
 	"go.viam.com/rdk/services/mlmodel"
 )
 
+func TestValidate(t *testing.T) {
+	// empty
+	cfg := &TFLiteConfig{}
+	_, err := cfg.Validate("")
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "model_path")
+	// correct
+	cfg = &TFLiteConfig{ModelPath: "/path/to/test_files/model.tflite"}
+	deps, err := cfg.Validate("")
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, deps, test.ShouldBeNil)
+	// incorrect
+	cfg = &TFLiteConfig{ModelPath: "/path/to/test_files/model.onnx"}
+	_, err = cfg.Validate("")
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "must end in .tflite")
+
+}
+
 func TestEmptyTFLiteConfig(t *testing.T) {
 	ctx := context.Background()
 	emptyCfg := TFLiteConfig{} // empty config
