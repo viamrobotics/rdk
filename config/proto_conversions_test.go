@@ -207,7 +207,7 @@ var testPackageConfig = PackageConfig{
 	Type:    PackageTypeModule,
 }
 
-var testLogConfig = LoggerPatternConfig{
+var testLogConfig = logging.LoggerPatternConfig{
 	Pattern: "rdk.resource_manager.modmanager",
 	Level:   "WARN",
 }

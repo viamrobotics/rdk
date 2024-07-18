@@ -78,7 +78,7 @@ func (imp *impl) Sublogger(subname string) Logger {
 		imp.testHelper,
 	}
 
-	loggerManager.registerLogger(newName, sublogger)
+	RegisterLogger(newName, sublogger)
 
 	return sublogger
 }
