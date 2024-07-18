@@ -212,18 +212,15 @@ func (n *NtripInfo) GetStreamFromMountPoint(
 		rc, err = n.client.GetStream(n.MountPoint)
 		if err == nil {
 			success = true
+			logger.Debug("Connected to stream")
+			n.stream = rc
+			return rc, nil
 		}
 		attempts++
 	}
 
-	if err != nil {
-		logger.Errorf("Can't connect to NTRIP stream: %s", err)
-		return nil, err
-	}
-	logger.Debug("Connected to stream")
-
-	n.stream = rc
-	return rc, nil
+	logger.Errorf("Can't connect to NTRIP stream: %s", err)
+	return nil, err
 }
 
 // Close shuts down all connections to the NTRIP caster.
