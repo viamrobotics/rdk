@@ -13,6 +13,8 @@ import (
 	"strings"
 	"time"
 
+	goutils "go.viam.com/utils"
+
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/utils"
 )
@@ -43,6 +45,18 @@ func ConnectToVirtualBase(ctx context.Context, ntripInfo *NtripInfo,
 	serverAddr, err := url.Parse(ntripInfo.url)
 	if err != nil {
 		return nil, err
+	}
+
+	// during startup, we may not yet have a GGA message cached, so wait for a valid one.
+	for {
+		_, err := getGGA()
+		if err == nil {
+			break
+		}
+		logger.Debugf("Error getting GGA message (%v). Will retry.", err)
+		if !goutils.SelectContextOrWait(ctx, time.Second) {
+			return nil, ctx.Err()
+		}
 	}
 
 	conn, err := net.Dial("tcp", serverAddr.Host)
@@ -108,7 +122,7 @@ func ConnectToVirtualBase(ctx context.Context, ntripInfo *NtripInfo,
 
 	vrs.logger.Debugf("Writing GGA message: %v\n", ggaMessage)
 
-	err = vrs.WriteLine(ggaMessage)
+	err = vrs.WriteString(ggaMessage + "\r\n")
 	if err != nil {
 		vrs.logger.Error(fmt.Errorf("failed to write to buffer: %w %w", err, conn.Close()))
 		return nil, err
@@ -166,7 +180,7 @@ func (vrs *VRS) startGGAThread(getGGA func() (string, error)) {
 
 				vrs.logger.Debugf("Writing GGA message: %v\n", ggaMessage)
 
-				err = vrs.WriteLine(ggaMessage)
+				err = vrs.WriteString(ggaMessage + "\r\n")
 				if err != nil {
 					vrs.logger.Error("failed to write to buffer: ", err)
 					continue
@@ -190,8 +204,8 @@ func (vrs *VRS) ReadLine() (string, error) {
 	return string(line), nil
 }
 
-// WriteLine writes a line to the vrs's readerWriter.
-func (vrs *VRS) WriteLine(line string) error {
+// WriteString writes a string to the vrs's readerWriter.
+func (vrs *VRS) WriteString(line string) error {
 	_, err := vrs.readerWriter.WriteString(line)
 	if err != nil {
 		return err
