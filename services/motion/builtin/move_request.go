@@ -372,6 +372,12 @@ func (mr *moveRequest) augmentBaseExecutionState(
 	// update currentInputs
 	allCurrentInputsFromBaseExecutionState := baseExecutionState.CurrentInputs()
 	kinematicBaseCurrentInputs := allCurrentInputsFromBaseExecutionState[mr.kinematicBase.Kinematics().Name()]
+	// The order of inputs here matters as we construct the inputs for our poseFrame.
+	// The poseFrame has DoF = 11.
+	// The first four inputs correspond to the executionFrame's (ptgFrame) inputs which are:
+	// alpha, index, start distance, end distance
+	// The last seven inputs correspond to the localizationFrame's inputs which are:
+	// X, Y, Z, OX, OY, OZ, Theta (in radians)
 	kinematicBaseCurrentInputs = append(
 		kinematicBaseCurrentInputs,
 		referenceframe.PoseToInputs(baseExecutionState.CurrentPoses()[mr.kinematicBase.LocalizationFrame().Name()].Pose())...,
