@@ -3,8 +3,8 @@ package orangepi
 import "go.viam.com/rdk/components/board/genericlinux"
 
 const (
-	opzero2 = "OrangePi Zero2"
-	op3lts  = "OrangePi 3 LTS"
+	opzero2  = "OrangePi Zero2"
+	op3lts   = "OrangePi 3 LTS"
 	opzero2w = "OrangePi Zero 2W"
 )
 
@@ -21,6 +21,7 @@ var boardInfoMappings = map[string]genericlinux.BoardInformation{
 			{Name: "13", DeviceName: "gpiochip0", LineNumber: 227, PwmChipSysfsDir: "", PwmID: -1},
 			{Name: "15", DeviceName: "gpiochip0", LineNumber: 261, PwmChipSysfsDir: "", PwmID: -1},
 			{Name: "16", DeviceName: "gpiochip0", LineNumber: 270, PwmChipSysfsDir: "", PwmID: -1},
+			{Name: "18", DeviceName: "gpiochip0", LineNumber: 228, PwmChipSysfsDir: "", PwmID: -1},
 			{Name: "19", DeviceName: "gpiochip0", LineNumber: 231, PwmChipSysfsDir: "", PwmID: -1},
 			{Name: "21", DeviceName: "gpiochip0", LineNumber: 232, PwmChipSysfsDir: "", PwmID: -1},
 			{Name: "22", DeviceName: "gpiochip0", LineNumber: 262, PwmChipSysfsDir: "", PwmID: -1},
@@ -38,10 +39,10 @@ var boardInfoMappings = map[string]genericlinux.BoardInformation{
 			{Name: "35", DeviceName: "gpiochip0", LineNumber: 258, PwmChipSysfsDir: "", PwmID: -1},
 			{Name: "36", DeviceName: "gpiochip0", LineNumber: 76, PwmChipSysfsDir: "", PwmID: -1},
 			{Name: "37", DeviceName: "gpiochip0", LineNumber: 272, PwmChipSysfsDir: "", PwmID: -1},
-			{Name: "38", DeviceName: "gpiochip0", LineNumber: 260 , PwmChipSysfsDir: "", PwmID: -1},
+			{Name: "38", DeviceName: "gpiochip0", LineNumber: 260, PwmChipSysfsDir: "", PwmID: -1},
 			{Name: "40", DeviceName: "gpiochip0", LineNumber: 259, PwmChipSysfsDir: "", PwmID: -1},
 		},
-		Compats: []string{"xunlong,orangepi-zero2w","allwinner,sun50i-h616"},
+		Compats: []string{"xunlong,orangepi-zero2w", "allwinner,sun50i-h616"},
 	},
 	opzero2: {
 		// OP zero 2 user manual: https://drive.google.com/drive/folders/1ToDjWZQptABxfiRwaeYW1WzQILM5iwpb
