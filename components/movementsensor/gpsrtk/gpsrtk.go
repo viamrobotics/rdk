@@ -111,21 +111,25 @@ func (g *gpsrtk) connectAndParseSourceTable() error {
 	return nil
 }
 
-func (g *gpsrtk) getStream() (io.Reader, error) {
+func (g *gpsrtk) getStream() (*rtcm3.Scanner, error) {
 	if g.isVirtualBase {
 		g.logger.Debug("connecting to Virtual Reference Station")
 		err := g.getNtripFromVRS()
 		if err != nil {
 			return nil, err
 		}
-		return io.TeeReader(g.vrs.GetReaderWriter(), g.correctionWriter), nil
+		reader := io.TeeReader(g.vrs.GetReaderWriter(), g.correctionWriter)
+		scanner := rtcm3.NewScanner(reader)
+		return &scanner, nil
 	}
 	g.logger.Debug("connecting to NTRIP stream........")
 	stream, err := g.ntripClient.GetStreamFromMountPoint(g.cancelCtx, g.logger)
 	if err != nil {
 		return nil, err
 	}
-	return io.TeeReader(stream, g.correctionWriter), nil
+	reader := io.TeeReader(stream, g.correctionWriter)
+	scanner := rtcm3.NewScanner(reader)
+	return &scanner, nil
 }
 
 // receiveAndWriteCorrectionData connects to the NTRIP receiver and sends the correction stream to
@@ -148,14 +152,12 @@ func (g *gpsrtk) receiveAndWriteCorrectionData() {
 		return
 	}
 
-	reader, err := g.getStream()
+	scanner, err := g.getStream()
 	if err != nil {
 		g.err.Set(err)
 		g.logger.Error("unable to get NTRIP stream! Giving up on RTK messages")
 		return
 	}
-
-	scanner := rtcm3.NewScanner(reader)
 
 	for !g.isClosed {
 		select {
@@ -182,12 +184,11 @@ func (g *gpsrtk) receiveAndWriteCorrectionData() {
 
 		// If we get here, the scanner encountered an error but is supposed to continue going. Try
 		// reconnecting to the mount point.
-		reader, err = g.getStream()
+		scanner, err = g.getStream()
 		if err != nil {
 			g.err.Set(err)
 			return
 		}
-		scanner = rtcm3.NewScanner(reader)
 	}
 }
 
