@@ -40,7 +40,7 @@ var minNumFiles = 1000
 var defaultMaxCaptureSize = int64(256 * 1024)
 
 // Default time between checking and logging number of files in capture dir.
-var captureDirSizeLogInterval = 1 * time.Minute
+var captureDirSizeLogInterval = time.Minute
 
 func generateMetadataKey(component, method string) string {
 	return fmt.Sprintf("%s/%s", component, method)
@@ -66,11 +66,12 @@ type Capture struct {
 	collectorsMu sync.Mutex
 	collectors   map[resourceMethodMetadata]*collectorAndConfig
 
-	captureDir                         string
-	maxCaptureFileSize                 int64
-	componentMethodFrequencyHz         map[resourceMethodMetadata]float32
-	captureDirPollingCancelFn          context.CancelFunc
-	captureDirPollingBackgroundWorkers *sync.WaitGroup
+	captureDir                 string
+	maxCaptureFileSize         int64
+	componentMethodFrequencyHz map[resourceMethodMetadata]float32
+	// captureDirPollingCancelFn          context.CancelFunc
+	// captureDirPollingBackgroundWorkers *sync.WaitGroup
+	capturePolling *CaptureDirPoller
 }
 
 func componentMethodMetadata(resConf datamanager.DataCaptureConfig) resourceMethodMetadata {
@@ -130,17 +131,15 @@ func (cm *Capture) Reconfigure(
 	config resource.Config,
 	captureConfig Config,
 ) error {
+	if cm.capturePolling == nil {
+		cm.capturePolling = NewCaptureDirPoller(cm.logger)
+	}
+
+	cm.capturePolling.Reconfigure(ctx, cm.captureDir)
 	// Service is disabled, so close all collectors and clear the map so we can instantiate new ones if we enable this service.
 	if captureConfig.CaptureDisabled {
 		cm.logger.Debug("Capture Disabled")
 		cm.CloseCollectors()
-		cm.collectors = make(map[resourceMethodMetadata]*collectorAndConfig)
-		if cm.captureDirPollingCancelFn != nil {
-			cm.captureDirPollingCancelFn()
-		}
-		if cm.captureDirPollingBackgroundWorkers != nil {
-			cm.captureDirPollingBackgroundWorkers.Wait()
-		}
 		return nil
 	}
 
@@ -194,33 +193,14 @@ func (cm *Capture) Reconfigure(
 	}
 	cm.collectors = newCollectors
 
-	if cm.captureDirPollingCancelFn != nil {
-		cm.captureDirPollingCancelFn()
-	}
-	if cm.captureDirPollingBackgroundWorkers != nil {
-		cm.logger.Debug("Reconfigure waiting for captureDirPollingBackgroundWorkers to close")
-		cm.captureDirPollingBackgroundWorkers.Wait()
-	}
-	captureDirPollCtx, captureDirCancelFunc := context.WithCancel(context.Background())
-	cm.captureDirPollingCancelFn = captureDirCancelFunc
-	cm.captureDirPollingBackgroundWorkers = &sync.WaitGroup{}
-	cm.captureDirPollingBackgroundWorkers.Add(1)
-	go cm.logCaptureDirSize(captureDirPollCtx)
-
 	return nil
 }
 
 // Close closes the capture manager.
 func (cm *Capture) Close() {
-	if cm.captureDirPollingCancelFn != nil {
-		cm.captureDirPollingCancelFn()
-	}
-	if cm.captureDirPollingBackgroundWorkers != nil {
-		cm.captureDirPollingBackgroundWorkers.Wait()
-	}
-
 	cm.FlushCollectors()
 	cm.CloseCollectors()
+	cm.capturePolling.Close()
 }
 
 // CaptureDir returns the capture directory.
@@ -341,6 +321,7 @@ func (cm *Capture) getDataCollectorConfigs(
 	for name, assocCfg := range conf.AssociatedAttributes {
 		associatedConf, err := utils.AssertType[*datamanager.AssociatedConfig](assocCfg)
 		if err != nil {
+			// TODO: Try to get this error to happen
 			return nil, err
 		}
 
@@ -397,29 +378,6 @@ func (cm *Capture) FlushCollectors() {
 	wg.Wait()
 }
 
-func (cm *Capture) logCaptureDirSize(ctx context.Context) {
-	t := cm.clk.Ticker(captureDirSizeLogInterval)
-	defer t.Stop()
-	defer cm.captureDirPollingBackgroundWorkers.Done()
-	for {
-		if err := ctx.Err(); err != nil {
-			if !errors.Is(err, context.Canceled) {
-				cm.logger.Errorw("data manager context closed unexpectedly", "error", err)
-			}
-			return
-		}
-		select {
-		case <-ctx.Done():
-			return
-		case <-t.C:
-			numFiles := countCaptureDirFiles(ctx, cm.captureDir)
-			if numFiles > minNumFiles {
-				cm.logger.Infof("Capture dir contains %d files", numFiles)
-			}
-		}
-	}
-}
-
 func countCaptureDirFiles(ctx context.Context, captureDir string) int {
 	numFiles := 0
 	//nolint:errcheck
@@ -457,4 +415,53 @@ func defaultIfZeroVal[T comparable](val, defaultVal T) T {
 		return defaultVal
 	}
 	return val
+}
+
+type CaptureDirPoller struct {
+	logger logging.Logger
+
+	mu         sync.Mutex
+	captureDir string
+	workers    utils.StoppableWorkers
+}
+
+func NewCaptureDirPoller(logger logging.Logger) *CaptureDirPoller {
+	return &CaptureDirPoller{logger: logger}
+}
+
+func (poller *CaptureDirPoller) Reconfigure(ctx context.Context, captureDir string) {
+	poller.mu.Lock()
+	defer poller.mu.Unlock()
+	if captureDir == poller.captureDir {
+		return
+	}
+
+	poller.captureDir = captureDir
+	if poller.workers != nil {
+		poller.workers.Stop()
+	}
+
+	poller.workers = utils.NewStoppableWorkers(func(stopCtx context.Context) {
+		t := time.NewTicker(captureDirSizeLogInterval)
+		defer t.Stop()
+		for {
+			select {
+			case <-stopCtx.Done():
+				return
+			case <-t.C:
+				numFiles := countCaptureDirFiles(stopCtx, captureDir)
+				if numFiles > minNumFiles {
+					poller.logger.Infof("Capture dir contains %d files", numFiles)
+				}
+			}
+		}
+	})
+}
+
+func (poller *CaptureDirPoller) Close() {
+	poller.mu.Lock()
+	defer poller.mu.Unlock()
+	if poller.workers != nil {
+		poller.workers.Stop()
+	}
 }

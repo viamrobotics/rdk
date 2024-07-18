@@ -8,7 +8,6 @@ import (
 	"path/filepath"
 
 	clk "github.com/benbjohnson/clock"
-	"go.uber.org/multierr"
 	goutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/internal/cloud"
@@ -133,24 +132,24 @@ func (svc *builtIn) Reconfigure(
 		return ErrCaptureDirectoryConfigurationDisabled
 	}
 
+	cloudConnSvc, err := resource.FromDependencies[cloud.ConnectionService](deps, cloud.InternalServiceName)
+	if err != nil {
+		// If this error occurs it's a resource graph error
+		return err
+	}
+
 	captureDir := viamCaptureDotDir
 	if c.CaptureDir != "" {
 		captureDir = c.CaptureDir
 	}
 
-	errCapture := svc.capture.Reconfigure(ctx, deps, conf, captureConfig(c, captureDir))
-	if errCapture != nil {
-		svc.logger.Warnw("DataCapture reconfigure error", "err", errCapture)
-	}
+	svc.sync.Reconfigure(ctx, deps, conf, syncConfig(c, captureDir), cloudConnSvc)
 
-	errSync := svc.sync.Reconfigure(ctx, deps, conf, syncConfig(c, captureDir))
-	if errSync != nil {
-		svc.logger.Warnw("DataSync reconfigure error", "err", errSync)
-	}
-
-	if err = multierr.Append(errCapture, errSync); err != nil {
+	if err := svc.capture.Reconfigure(ctx, deps, conf, captureConfig(c, captureDir)); err != nil {
+		svc.logger.Warnw("DataCapture reconfigure error", "err", err)
 		return err
 	}
+
 	g.Success()
 	return nil
 }

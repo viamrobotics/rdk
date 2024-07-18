@@ -131,13 +131,17 @@ func NewSync(
 	}
 }
 
+// pick up here: Continue to refactor data sync
+// https://github.com/dgottlieb/rdk/blob/72f5b567db2cb2ca08b9752b8710d1e4e784077c/services/datamanager/datasync/manager.go
+// https://github.com/dgottlieb/rdk/blob/72f5b567db2cb2ca08b9752b8710d1e4e784077c/services/datamanager/builtin/builtin.go#L144
 // Reconfigure reconfigures Sync.
 func (sm *Sync) Reconfigure(
 	ctx context.Context,
 	deps resource.Dependencies,
 	config resource.Config,
 	syncConfig Config,
-) error {
+	cloudConnSvc cloud.ConnectionService,
+) {
 	if sm.fileDeletionRoutineCancelFn != nil {
 		sm.fileDeletionRoutineCancelFn()
 	}
@@ -147,10 +151,6 @@ func (sm *Sync) Reconfigure(
 	sm.mu.Lock()
 	defer sm.mu.Unlock()
 	sm.ConfigPropagated.Store(false)
-	cloudConnSvc, err := resource.FromDependencies[cloud.ConnectionService](deps, cloud.InternalServiceName)
-	if err != nil {
-		return err
-	}
 	sm.captureDir = syncConfig.CaptureDir
 	// Syncer should be reinitialized if the max sync threads are updated in the config
 	newMaxSyncThreadValue := MaxParallelSyncRoutines
@@ -177,7 +177,11 @@ func (sm *Sync) Reconfigure(
 		fileLastModifiedMillis = defaultFileLastModifiedMillis
 	}
 
-	var syncSensor sensor.Sensor
+	var (
+		syncSensor sensor.Sensor
+		err        error
+	)
+
 	sm.selectiveSyncEnabled = false
 	if syncConfig.SelectiveSyncerName != "" {
 		sm.selectiveSyncEnabled = true
@@ -223,7 +227,6 @@ func (sm *Sync) Reconfigure(
 	if !sm.propagationGoroutineStarted.Swap(true) {
 		sm.startPropagateDataSyncConfig()
 	}
-	return nil
 }
 
 // readyToSync is a method for getting the bool reading from the selective sync sensor
