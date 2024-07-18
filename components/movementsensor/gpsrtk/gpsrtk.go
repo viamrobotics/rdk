@@ -112,22 +112,24 @@ func (g *gpsrtk) connectAndParseSourceTable() error {
 }
 
 func (g *gpsrtk) getStream() (*rtcm3.Scanner, error) {
+	var streamSource io.Reader
+
 	if g.isVirtualBase {
 		g.logger.Debug("connecting to Virtual Reference Station")
 		err := g.getNtripFromVRS()
 		if err != nil {
 			return nil, err
 		}
-		reader := io.TeeReader(g.vrs.GetReaderWriter(), g.correctionWriter)
-		scanner := rtcm3.NewScanner(reader)
-		return &scanner, nil
+		streamSource = g.vrs.GetReaderWriter()
+	} else {
+		g.logger.Debug("connecting to NTRIP stream........")
+		var err error
+		streamSource, err = g.ntripClient.GetStreamFromMountPoint(g.cancelCtx, g.logger)
+		if err != nil {
+			return nil, err
+		}
 	}
-	g.logger.Debug("connecting to NTRIP stream........")
-	stream, err := g.ntripClient.GetStreamFromMountPoint(g.cancelCtx, g.logger)
-	if err != nil {
-		return nil, err
-	}
-	reader := io.TeeReader(stream, g.correctionWriter)
+	reader := io.TeeReader(streamSource, g.correctionWriter)
 	scanner := rtcm3.NewScanner(reader)
 	return &scanner, nil
 }
