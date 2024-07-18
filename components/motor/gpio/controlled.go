@@ -178,7 +178,8 @@ func (cm *controlledMotor) Stop(ctx context.Context, extra map[string]interface{
 	// after the motor is created, Stop is called, but if the PID controller
 	// is auto-tuning, the loop needs to keep running
 	if cm.loop != nil && !cm.loop.GetTuning(ctx) {
-		cm.loop.Pause()
+		cm.loop.Stop()
+		cm.loop = nil
 	}
 	return cm.real.Stop(ctx, nil)
 }

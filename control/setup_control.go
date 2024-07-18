@@ -442,7 +442,7 @@ func UpdateConstantBlock(ctx context.Context, name string, constVal float64, loo
 }
 
 // CreateTrapzBlock returns a new trapezoidalVelocityProfile block based on the parameters.
-func CreateTrapzBlock(ctx context.Context, name string, maxVel float64, dependsOn []string) BlockConfig {
+func CreateTrapzBlock(ctx context.Context, name string, maxVel, initVel float64, dependsOn []string) BlockConfig {
 	return BlockConfig{
 		Name: name,
 		Type: blockTrapezoidalVelocityProfile,
@@ -451,6 +451,7 @@ func CreateTrapzBlock(ctx context.Context, name string, maxVel float64, dependsO
 			"max_acc":    30000.0,
 			"pos_window": 0.0,
 			"kpp_gain":   0.45,
+			"init_vel":   initVel,
 		},
 		DependsOn: dependsOn,
 	}
@@ -458,7 +459,14 @@ func CreateTrapzBlock(ctx context.Context, name string, maxVel float64, dependsO
 
 // UpdateTrapzBlock creates and sets a control config trapezoidalVelocityProfile block.
 func UpdateTrapzBlock(ctx context.Context, name string, maxVel float64, dependsOn []string, loop *Loop) error {
-	newTrapzBlock := CreateTrapzBlock(ctx, name, maxVel, dependsOn)
+	signals, err := loop.OutputAt(ctx, name)
+	if err != nil {
+		return err
+	}
+	currVel := signals[0].GetSignalValueAt(0)
+
+	newTrapzBlock := CreateTrapzBlock(ctx, name, maxVel, currVel, dependsOn)
+
 	if err := loop.SetConfigAt(ctx, name, newTrapzBlock); err != nil {
 		return err
 	}

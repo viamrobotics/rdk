@@ -67,7 +67,6 @@ func (s *trapezoidVelocityGenerator) Next(ctx context.Context, x []*Signal, dt t
 				s.dir = 1
 			}
 			s.trapDistance = math.Abs(setPoint - pos)
-			s.lastVelCmd = 0
 			s.vDec = math.Min(math.Sqrt(s.trapDistance*s.maxAcc), s.maxVel)
 			s.kPP0 = 2.0 * s.maxAcc / s.vDec
 			s.kPP = s.kppGain * s.kPP0
@@ -94,6 +93,7 @@ func (s *trapezoidVelocityGenerator) Next(ctx context.Context, x []*Signal, dt t
 		s.lastVelCmd = vel
 		s.y[0].SetSignalValueAt(0, vel*float64(s.dir))
 	} else {
+		s.lastVelCmd = 0
 		s.y[0].SetSignalValueAt(0, 0.0)
 		s.currentPhase = rest
 	}
@@ -121,6 +121,10 @@ func (s *trapezoidVelocityGenerator) reset() error {
 	}
 	if s.kppGain == 0 {
 		s.kppGain = 0.45
+	}
+	s.lastVelCmd = 0
+	if s.cfg.Attribute.Has("init_vel") {
+		s.lastVelCmd = s.cfg.Attribute["init_vel"].(float64)
 	}
 
 	s.lastsetPoint = math.NaN()
