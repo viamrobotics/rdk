@@ -17,14 +17,10 @@ package gpsrtk
 */
 
 import (
-	"bufio"
 	"context"
 	"errors"
-	"fmt"
 	"io"
 	"math"
-	"net"
-	"strings"
 	"sync"
 
 	"github.com/go-gnss/rtcm/rtcm3"
@@ -61,8 +57,7 @@ type gpsrtk struct {
 	writePath        string
 	wbaud            int
 	isVirtualBase    bool
-	vrsReaderWriter  *bufio.ReadWriter
-	vrsConn          net.Conn
+	vrs              *gpsutils.VRS
 	// reader is the TeeReader to write the corrections stream to the gps chip.
 	// Additionally used to scan RTCM messages to ensure there are no errors from the streams
 	reader io.Reader
@@ -145,7 +140,7 @@ func (g *gpsrtk) getStream() (io.Reader, error) {
 		if err != nil {
 			return nil, err
 		}
-		return io.TeeReader(g.vrsReaderWriter, g.correctionWriter), nil
+		return io.TeeReader(g.vrs.GetReaderWriter(), g.correctionWriter), nil
 	}
 	g.logger.Debug("connecting to NTRIP stream........")
 	stream, err := g.ntripClient.GetStreamFromMountPoint(g.cancelCtx, g.logger)
@@ -331,8 +326,8 @@ func (g *gpsrtk) Close(ctx context.Context) error {
 		g.correctionWriter = nil
 	}
 
-	if g.vrsConn != nil {
-		if err := g.vrsConn.Close(); err != nil {
+	if g.vrs != nil {
+		if err := g.vrs.Close(ctx); err != nil {
 			g.mu.Unlock()
 			return err
 		}
@@ -364,65 +359,16 @@ func (g *gpsrtk) getNtripFromVRS() error {
 	g.mu.Lock()
 	defer g.mu.Unlock()
 	var err error
-	if g.vrsConn != nil {
-		if err := g.vrsConn.Close(); err != nil {
+	if g.vrs != nil {
+		if err := g.vrs.Close(g.cancelCtx); err != nil {
 			return err
 		}
+		g.vrs = nil
 	}
-	g.vrsReaderWriter, g.vrsConn, err = gpsutils.ConnectToVirtualBase(g.ntripClient, g.logger)
+	g.vrs, err = gpsutils.ConnectToVirtualBase(g.cancelCtx, g.ntripClient, g.cachedData.GGA, g.logger)
 	if err != nil {
 		return err
 	}
-
-	// read from the socket until we know if a successful connection has been
-	// established.
-	for {
-		line, _, err := g.vrsReaderWriter.ReadLine()
-		response := string(line)
-		if err != nil {
-			if errors.Is(err, io.EOF) {
-				g.vrsReaderWriter = nil
-				return err
-			}
-			g.logger.Error("Failed to read server response:", err)
-			return err
-		}
-
-		if strings.HasPrefix(response, "HTTP/1.1 ") {
-			if strings.Contains(response, "200 OK") {
-				g.logger.Debug("Successful connection established with NTRIP caster.")
-				break
-			}
-			g.logger.Errorf("Bad HTTP response: %v", response)
-			return fmt.Errorf("server responded with non-OK status: %s", response)
-		}
-	}
-
-	// We currently only write the GGA message when we try to reconnect to VRS. Some documentation for VRS states that we
-	// should try to send a GGA message every 5-60 seconds, but more testing is needed to determine if that is required.
-
-	// get the GGA message from cached data
-	ggaMessage, err := g.cachedData.GGA()
-	if err != nil {
-		g.logger.Error("Failed to get GGA message")
-		return err
-	}
-
-	g.logger.Debugf("Writing GGA message: %v\n", ggaMessage)
-
-	_, err = g.vrsReaderWriter.WriteString(ggaMessage)
-	if err != nil {
-		g.logger.Error("Failed to send NMEA data:", err)
-		return err
-	}
-
-	err = g.vrsReaderWriter.Flush()
-	if err != nil {
-		g.logger.Error("failed to write to buffer: ", err)
-		return err
-	}
-
-	g.logger.Debug("GGA message sent successfully.")
 
 	return nil
 }
