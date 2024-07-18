@@ -114,25 +114,6 @@ func (g *gpsrtk) connectAndParseSourceTable() error {
 	return nil
 }
 
-// connectToNTRIP connects to NTRIP stream.
-func (g *gpsrtk) connectToNTRIP() error {
-	select {
-	case <-g.cancelCtx.Done():
-		return errors.New("context canceled")
-	default:
-	}
-	err := g.connectAndParseSourceTable()
-	if err != nil {
-		return err
-	}
-
-	g.reader, err = g.getStream()
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
 func (g *gpsrtk) getStream() (io.Reader, error) {
 	if g.isVirtualBase {
 		g.logger.Debug("connecting to Virtual Reference Station")
@@ -156,12 +137,27 @@ func (g *gpsrtk) receiveAndWriteCorrectionData() {
 	defer g.activeBackgroundWorkers.Done()
 	defer g.closeCorrectionWriter()
 
-	err := g.connectToNTRIP()
+	select {
+	case <-g.cancelCtx.Done():
+		g.err.Set(errors.New("context canceled"))
+		return
+	default:
+	}
+
+	err := g.connectAndParseSourceTable()
 	if err != nil {
 		g.err.Set(err)
-		g.logger.Error("unable to connect to NTRIP stream! Giving up on RTK messages")
+		g.logger.Error("unable to parse source table! Giving up on RTK messages")
 		return
 	}
+
+	g.reader, err = g.getStream()
+	if err != nil {
+		g.err.Set(err)
+		g.logger.Error("unable to get NTRIP stream! Giving up on RTK messages")
+		return
+	}
+
 	scanner := rtcm3.NewScanner(g.reader)
 
 	for !g.isClosed {
