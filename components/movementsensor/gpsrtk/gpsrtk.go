@@ -327,7 +327,7 @@ func (g *gpsrtk) Close(ctx context.Context) error {
 	}
 
 	if g.vrs != nil {
-		if err := g.vrs.Close(); err != nil {
+		if err := g.vrs.Close(ctx); err != nil {
 			g.mu.Unlock()
 			return err
 		}
@@ -360,7 +360,7 @@ func (g *gpsrtk) getNtripFromVRS() error {
 	defer g.mu.Unlock()
 	var err error
 	if g.vrs != nil {
-		if err := g.vrs.Close(); err != nil {
+		if err := g.vrs.Close(g.cancelCtx); err != nil {
 			return err
 		}
 		g.vrs = nil

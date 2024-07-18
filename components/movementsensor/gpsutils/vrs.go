@@ -133,7 +133,7 @@ func HasVRSStream(sourceTable *Sourcetable, mountPoint string) (bool, error) {
 }
 
 // Close closes the VRS connection and any other background threads.
-func (vrs *VRS) Close() error {
+func (vrs *VRS) Close(ctx context.Context) error {
 	vrs.logger.Debug("stopping VRS")
 	vrs.workers.Stop()
 	return vrs.conn.Close()
