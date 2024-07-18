@@ -168,10 +168,10 @@ func (g *gpsrtk) receiveAndWriteCorrectionData() {
 			default:
 			}
 
-			// Calling NextMessage() reads from the scanner until a valid message is found, and returns
-			// that. We don't care about the message: we care that the scanner is able to read messages
-			// at all! So, focus on whether the scanner had errors (which indicate we need to reconnect
-			// to the mount point), and not the message itself.
+			// Calling NextMessage() reads from the scanner until a valid message is found, and
+			// returns that. We don't care about the message: we care that the scanner is able to
+			// read messages at all! So, focus on whether the scanner had errors (which indicate we
+			// need to reconnect to the mount point), and not the message itself.
 			_, err = scanner.NextMessage()
 		}
 
