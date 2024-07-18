@@ -40,6 +40,12 @@ export let supportedAuthTypes: string[] | undefined = [];
 export let webrtcEnabled: boolean;
 export let signalingAddress: string;
 export let overrides: RCOverrides | undefined = undefined;
+/* Used in the control tab project to incrementally deliver and conditionally disable showing API subtypes. */
+export let hiddenSubtypes: string[] = [];
+export let hideDoCommand = false;
+export let hideOperationsSessions = false;
+
+$: hidden = new Set(hiddenSubtypes);
 
 const resourceStatusByName = (resource: commonApi.ResourceName.AsObject) => {
   return $statuses[resourceNameToString(resource)];
@@ -102,123 +108,163 @@ const getStatus = (
 
   <div class="flex flex-col gap-4 p-3">
     <!-- ******* BASE *******  -->
-    {#each filterSubtype($components, 'base') as { name } (name)}
-      <Base {name} />
-    {/each}
+    {#if !hidden.has('base')}
+      {#each filterSubtype($components, 'base') as { name } (name)}
+        <Base {name} />
+      {/each}
+    {/if}
 
     <!-- ******* SLAM *******  -->
-    {#each filterSubtype($services, 'slam') as { name } (name)}
-      <Slam
-        {name}
-        motionResourceNames={filterSubtype($services, 'motion')}
-        overrides={overrides?.slam}
-      />
-    {/each}
+    {#if !hidden.has('slam')}
+      {#each filterSubtype($services, 'slam') as { name } (name)}
+        <Slam
+          {name}
+          motionResourceNames={filterSubtype($services, 'motion')}
+          overrides={overrides?.slam}
+        />
+      {/each}
+    {/if}
 
     <!-- ******* ENCODER *******  -->
-    {#each filterSubtype($components, 'encoder') as { name } (name)}
-      <Encoder {name} />
-    {/each}
+    {#if !hidden.has('encoder')}
+      {#each filterSubtype($components, 'encoder') as { name } (name)}
+        <Encoder {name} />
+      {/each}
+    {/if}
 
     <!-- ******* GANTRY *******  -->
-    {#each filterWithStatus($components, $statuses, 'gantry') as gantry (gantry.name)}
-      <Gantry
-        name={gantry.name}
-        status={getStatus($statuses, gantry)}
-      />
-    {/each}
+    {#if !hidden.has('gantry')}
+      {#each filterWithStatus($components, $statuses, 'gantry') as gantry (gantry.name)}
+        <Gantry
+          name={gantry.name}
+          status={getStatus($statuses, gantry)}
+        />
+      {/each}
+    {/if}
 
     <!-- ******* MOVEMENT SENSOR *******  -->
-    {#each filterSubtype($components, 'movement_sensor') as { name } (name)}
-      <MovementSensor {name} />
-    {/each}
+    {#if !hidden.has('movement_sensor')}
+      {#each filterSubtype($components, 'movement_sensor') as { name } (name)}
+        <MovementSensor {name} />
+      {/each}
+    {/if}
 
     <!-- ******* POWER SENSOR *******  -->
-    {#each filterSubtype($components, 'power_sensor') as { name } (name)}
-      <PowerSensor {name} />
-    {/each}
+    {#if !hidden.has('power_sensor')}
+      {#each filterSubtype($components, 'power_sensor') as { name } (name)}
+        <PowerSensor {name} />
+      {/each}
+    {/if}
 
     <!-- ******* ARM *******  -->
-    {#each filterSubtype($components, 'arm') as arm (arm.name)}
-      <Arm
-        name={arm.name}
-        status={getStatus($statuses, arm)}
-      />
-    {/each}
+    {#if !hidden.has('arm')}
+      {#each filterSubtype($components, 'arm') as arm (arm.name)}
+        <Arm
+          name={arm.name}
+          status={getStatus($statuses, arm)}
+        />
+      {/each}
+    {/if}
 
     <!-- ******* GRIPPER *******  -->
-    {#each filterSubtype($components, 'gripper') as { name } (name)}
-      <Gripper {name} />
-    {/each}
+    {#if !hidden.has('gripper')}
+      {#each filterSubtype($components, 'gripper') as { name } (name)}
+        <Gripper {name} />
+      {/each}
+    {/if}
 
     <!-- ******* SERVO *******  -->
-    {#each filterWithStatus($components, $statuses, 'servo') as servo (servo.name)}
-      <Servo
-        name={servo.name}
-        status={getStatus($statuses, servo)}
-      />
-    {/each}
+    {#if !hidden.has('servo')}
+      {#each filterWithStatus($components, $statuses, 'servo') as servo (servo.name)}
+        <Servo
+          name={servo.name}
+          status={getStatus($statuses, servo)}
+        />
+      {/each}
+    {/if}
 
     <!-- ******* MOTOR *******  -->
-    {#each filterWithStatus($components, $statuses, 'motor') as motor (motor.name)}
-      <Motor
-        name={motor.name}
-        status={getStatus($statuses, motor)}
-      />
-    {/each}
+    {#if !hidden.has('motor')}
+      {#each filterWithStatus($components, $statuses, 'motor') as motor (motor.name)}
+        <Motor
+          name={motor.name}
+          status={getStatus($statuses, motor)}
+        />
+      {/each}
+    {/if}
 
     <!-- ******* INPUT VIEW *******  -->
-    {#each filteredInputControllerList as controller (controller.name)}
-      <InputController
-        name={controller.name}
-        status={getStatus($statuses, controller)}
-      />
-    {/each}
+    {#if !hidden.has('input_controller')}
+      {#each filteredInputControllerList as controller (controller.name)}
+        <InputController
+          name={controller.name}
+          status={getStatus($statuses, controller)}
+        />
+      {/each}
+    {/if}
 
     <!-- ******* WEB CONTROLS *******  -->
-    {#each filteredWebGamepads as { name } (name)}
-      <Gamepad {name} />
-    {/each}
+    {#if !hidden.has('input_controller')}
+      {#each filteredWebGamepads as { name } (name)}
+        <Gamepad {name} />
+      {/each}
+    {/if}
 
     <!-- ******* BOARD *******  -->
-    {#each filterWithStatus($components, $statuses, 'board') as board (board.name)}
-      <Board
-        name={board.name}
-        status={getStatus($statuses, board)}
-      />
-    {/each}
+    {#if !hidden.has('board')}
+      {#each filterWithStatus($components, $statuses, 'board') as board (board.name)}
+        <Board
+          name={board.name}
+          status={getStatus($statuses, board)}
+        />
+      {/each}
+    {/if}
 
     <!-- ******* CAMERA *******  -->
-    <CamerasList resources={filterSubtype($components, 'camera')} />
+    {#if !hidden.has('camera')}
+      <CamerasList resources={filterSubtype($components, 'camera')} />
+    {/if}
 
     <!-- ******* NAVIGATION *******  -->
-    {#each filterSubtype($services, 'navigation') as { name } (name)}
-      <Navigation {name} />
-    {/each}
+    {#if !hidden.has('navigation')}
+      {#each filterSubtype($services, 'navigation') as { name } (name)}
+        <Navigation {name} />
+      {/each}
+    {/if}
 
     <!-- ******* SENSOR *******  -->
-    {#if Object.keys($sensorNames).length > 0}
-      <Sensors
-        name={filterSubtype($resources, 'sensors', { remote: false })[0]
-          ?.name ?? ''}
-        sensorNames={$sensorNames}
-      />
+    {#if !hidden.has('sensors')}
+      {#if Object.keys($sensorNames).length > 0}
+        <Sensors
+          name={filterSubtype($resources, 'sensors', { remote: false })[0]
+            ?.name ?? ''}
+          sensorNames={$sensorNames}
+        />
+      {/if}
     {/if}
 
     <!-- ******* AUDIO *******  -->
-    {#each filterSubtype($components, 'audio_input') as { name } (name)}
-      <AudioInput {name} />
-    {/each}
+    {#if !hidden.has('audio_input')}
+      {#each filterSubtype($components, 'audio_input') as { name } (name)}
+        <AudioInput {name} />
+      {/each}
+    {/if}
 
     <!-- ******* VISION *******  -->
-    {#if filterSubtype($services, 'vision').length > 0}
-      <Vision names={filterSubtype($services, 'vision').map((v) => v.name)} />
+    {#if !hidden.has('vision')}
+      {#if filterSubtype($services, 'vision').length > 0}
+        <Vision names={filterSubtype($services, 'vision').map((v) => v.name)} />
+      {/if}
     {/if}
 
     <!-- ******* DO *******  -->
-    <DoCommand resources={[...$components, ...$services]} />
+    {#if !hideDoCommand}
+      <DoCommand resources={[...$components, ...$services]} />
+    {/if}
 
     <!-- ******* OPERATIONS AND SESSIONS *******  -->
-    <OperationsSessions />
+    {#if !hideOperationsSessions}
+      <OperationsSessions />
+    {/if}
   </div>
 </Client>

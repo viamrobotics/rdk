@@ -15,7 +15,7 @@ import (
 	"go.viam.com/rdk/web/server"
 )
 
-var logger = logging.NewDebugLogger("rdk")
+var logger = logging.NewDebugLogger("droid-entrypoint")
 
 // DroidStopHook used by android harness to stop the RDK.
 func DroidStopHook() { //nolint:revive

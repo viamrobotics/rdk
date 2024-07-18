@@ -19,7 +19,6 @@ package gpsrtk
 import (
 	"context"
 	"errors"
-	"fmt"
 	"io"
 	"math"
 	"sync"
@@ -65,63 +64,13 @@ type gpsrtk struct {
 }
 
 func (g *gpsrtk) start() error {
-	err := g.connectToNTRIP()
-	if err != nil {
-		return err
-	}
 	g.activeBackgroundWorkers.Add(1)
 	utils.PanicCapturingGo(g.receiveAndWriteCorrectionData)
 	return g.err.Get()
 }
 
-// getStreamFromMountPoint attempts to connect to ntrip stream. We give up after maxAttempts unsuccessful tries.
-func (g *gpsrtk) getStreamFromMountPoint(mountPoint string, maxAttempts int) error {
-	success := false
-	attempts := 0
-
-	// setting the Timeout to 0 on the http client to prevent the ntrip stream from canceling itself.
-	// ntrip.NewClient() defaults sets this value to 15 seconds, which causes us to disconnect
-	// the ntrip stream and require a reconnection.
-	// Setting the Timeout on the http client to be 0 removes the timeout. It's possible we want to have different
-	// Additionally, this should be tested with other CORS.
-	g.ntripClient.Client.Timeout = 0
-
-	var rc io.ReadCloser
-	var err error
-
-	g.logger.Debug("Getting NTRIP stream")
-
-	for !success && attempts < maxAttempts {
-		select {
-		case <-g.cancelCtx.Done():
-			return errors.New("Canceled")
-		default:
-		}
-
-		rc, err = func() (io.ReadCloser, error) {
-			return g.ntripClient.Client.GetStream(mountPoint)
-		}()
-		if err == nil {
-			success = true
-		}
-		attempts++
-	}
-
-	if err != nil {
-		g.logger.Errorf("Can't connect to NTRIP stream: %s", err)
-		return err
-	}
-	g.logger.Debug("Connected to stream")
-
-	g.mu.Lock()
-	defer g.mu.Unlock()
-
-	g.ntripClient.Stream = rc
-	return g.err.Get()
-}
-
-// closePort closes the correctionWriter.
-func (g *gpsrtk) closePort() {
+// closeCorrectionWriter closes the correctionWriter.
+func (g *gpsrtk) closeCorrectionWriter() {
 	g.mu.Lock()
 	defer g.mu.Unlock()
 
@@ -144,23 +93,6 @@ func (g *gpsrtk) connectAndParseSourceTable() error {
 	if err != nil {
 		g.err.Set(err)
 		return g.err.Get()
-	}
-
-	if !g.ntripClient.Client.IsCasterAlive() {
-		g.logger.Infof("caster %s seems to be down, retrying", g.ntripClient.URL)
-		attempts := 0
-		// we will try to connect to the caster five times if it's down.
-		for attempts < 5 {
-			if !g.ntripClient.Client.IsCasterAlive() {
-				attempts++
-				g.logger.Debugf("attempt(s) to connect to caster: %v ", attempts)
-			} else {
-				break
-			}
-		}
-		if attempts == 5 {
-			return fmt.Errorf("caster %s is down", g.ntripClient.URL)
-		}
 	}
 
 	g.logger.Debug("getting source table")
@@ -211,19 +143,25 @@ func (g *gpsrtk) getStream() (io.Reader, error) {
 		return io.TeeReader(g.vrs.GetReaderWriter(), g.correctionWriter), nil
 	}
 	g.logger.Debug("connecting to NTRIP stream........")
-	err := g.getStreamFromMountPoint(g.ntripClient.MountPoint, g.ntripClient.MaxConnectAttempts)
+	stream, err := g.ntripClient.GetStreamFromMountPoint(g.cancelCtx, g.logger)
 	if err != nil {
 		return nil, err
 	}
-	return io.TeeReader(g.ntripClient.Stream, g.correctionWriter), nil
+	return io.TeeReader(stream, g.correctionWriter), nil
 }
 
 // receiveAndWriteCorrectionData connects to the NTRIP receiver and sends the correction stream to
 // the MovementSensor.
 func (g *gpsrtk) receiveAndWriteCorrectionData() {
 	defer g.activeBackgroundWorkers.Done()
-	defer g.closePort()
+	defer g.closeCorrectionWriter()
 
+	err := g.connectToNTRIP()
+	if err != nil {
+		g.err.Set(err)
+		g.logger.Error("unable to connect to NTRIP stream! Giving up on RTK messages")
+		return
+	}
 	scanner := rtcm3.NewScanner(g.reader)
 
 	for !g.isClosed {
@@ -330,35 +268,6 @@ func (g *gpsrtk) Orientation(ctx context.Context, extra map[string]interface{}) 
 	return g.cachedData.Orientation(ctx, extra)
 }
 
-// readFix passthrough.
-func (g *gpsrtk) readFix(ctx context.Context) (int, error) {
-	lastError := g.err.Get()
-	if lastError != nil {
-		return 0, lastError
-	}
-	return g.cachedData.ReadFix(ctx)
-}
-
-// readSatsInView returns the number of satellites in view.
-func (g *gpsrtk) readSatsInView(ctx context.Context) (int, error) {
-	lastError := g.err.Get()
-	if lastError != nil {
-		return 0, lastError
-	}
-
-	return g.cachedData.ReadSatsInView(ctx)
-}
-
-// readSatsInUse returns the number of satellites in use.
-func (g *gpsrtk) readSatsInUse(ctx context.Context) (int, error) {
-	lastError := g.err.Get()
-	if lastError != nil {
-		return 0, lastError
-	}
-
-	return g.cachedData.ReadSatsInUse(ctx)
-}
-
 // Properties passthrough.
 func (g *gpsrtk) Properties(ctx context.Context, extra map[string]interface{}) (*movementsensor.Properties, error) {
 	lastError := g.err.Get()
@@ -387,24 +296,11 @@ func (g *gpsrtk) Readings(ctx context.Context, extra map[string]interface{}) (ma
 		return nil, err
 	}
 
-	fix, err := g.readFix(ctx)
-	if err != nil {
-		return nil, err
-	}
+	commonReadings := g.cachedData.GetCommonReadings(ctx)
 
-	satsInView, err := g.readSatsInView(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	satsInUse, err := g.readSatsInUse(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	readings["fix"] = fix
-	readings["satellites_in_view"] = satsInView
-	readings["satellites_in_use"] = satsInUse
+	readings["fix"] = commonReadings.FixValue
+	readings["satellites_in_view"] = commonReadings.SatsInView
+	readings["satellites_in_use"] = commonReadings.SatsInUse
 
 	return readings, nil
 }
@@ -430,12 +326,6 @@ func (g *gpsrtk) Close(ctx context.Context) error {
 		g.correctionWriter = nil
 	}
 
-	// close ntrip client and stream
-	if g.ntripClient.Client != nil {
-		g.ntripClient.Client.CloseIdleConnections()
-		g.ntripClient.Client = nil
-	}
-
 	if g.vrs != nil {
 		if err := g.vrs.Close(); err != nil {
 			g.mu.Unlock()
@@ -443,12 +333,13 @@ func (g *gpsrtk) Close(ctx context.Context) error {
 		}
 	}
 
-	if g.ntripClient.Stream != nil {
-		if err := g.ntripClient.Stream.Close(); err != nil {
-			g.mu.Unlock()
-			return err
-		}
-		g.ntripClient.Stream = nil
+	// WARNING: if the background goroutine is calling `getStream()` and is waiting on the mutex
+	// before initializing `g.ntripClient.Stream`, we might finish closing and then initialize a new
+	// stream. This could be fixed by putting the background goroutine in a StoppableWorkers which
+	// we shut down at the top of this function, which can happen in the near future.
+	if err := g.ntripClient.Close(ctx); err != nil {
+		g.mu.Unlock()
+		return err
 	}
 
 	g.mu.Unlock()

@@ -161,6 +161,21 @@ func TestUpdateLoggerRegistry(t *testing.T) {
 			expectedMatches: map[string]string{},
 			doesError:       true,
 		},
+		{
+			loggerConfig: []LoggerPatternConfig{
+				{
+					Pattern: "a.b",
+					Level:   "DEBUG",
+				},
+			},
+			loggerNames: []string{
+				"a.b.c",
+			},
+			expectedMatches: map[string]string{
+				"a.b.c": "INFO",
+			},
+			doesError: false,
+		},
 	}
 
 	for _, tc := range tests {

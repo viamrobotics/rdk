@@ -81,7 +81,7 @@ type configData struct {
 	Debug               bool                  `json:"debug,omitempty"`
 	DisablePartialStart bool                  `json:"disable_partial_start"`
 	EnableWebProfile    bool                  `json:"enable_web_profile"`
-	LogConfig           []LoggerPatternConfig `json:"log"`
+	LogConfig           []LoggerPatternConfig `json:"log,omitempty"`
 }
 
 // AppValidationStatus refers to the.

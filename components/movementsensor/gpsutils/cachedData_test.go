@@ -59,9 +59,10 @@ func TestReadingsSerial(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, speed1.Y, test.ShouldEqual, speed)
 
-	fix1, err := g.ReadFix(ctx)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, fix1, test.ShouldEqual, fix)
+	readings := g.GetCommonReadings(ctx)
+	test.That(t, readings.FixValue, test.ShouldEqual, fix)
+	test.That(t, readings.SatsInUse, test.ShouldEqual, activeSats)
+	test.That(t, readings.SatsInView, test.ShouldEqual, totalSats)
 }
 
 func TestPosition(t *testing.T) {
