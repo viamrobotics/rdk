@@ -226,7 +226,8 @@ func (sb *sensorBase) SetPower(
 func (sb *sensorBase) Stop(ctx context.Context, extra map[string]interface{}) error {
 	sb.opMgr.CancelRunning(ctx)
 	if sb.loop != nil {
-		sb.loop.Pause()
+		sb.loop.Stop()
+		sb.loop = nil
 	}
 	return sb.controlledBase.Stop(ctx, extra)
 }
