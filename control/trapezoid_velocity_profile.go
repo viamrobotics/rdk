@@ -123,8 +123,8 @@ func (s *trapezoidVelocityGenerator) reset() error {
 		s.kppGain = 0.45
 	}
 	s.lastVelCmd = 0
-	if s.cfg.Attribute.Has("init_vel") {
-		s.lastVelCmd = s.cfg.Attribute["init_vel"].(float64)
+	if s.y != nil {
+		s.lastVelCmd = s.y[0].signal[0] //GetSignalValueAt(0)
 	}
 
 	s.lastsetPoint = math.NaN()
