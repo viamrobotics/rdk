@@ -124,7 +124,7 @@ func (s *trapezoidVelocityGenerator) reset() error {
 	}
 	s.lastVelCmd = 0
 	if s.y != nil {
-		s.lastVelCmd = s.y[0].signal[0] //GetSignalValueAt(0)
+		s.lastVelCmd = s.y[0].GetSignalValueAt(0)
 	}
 
 	s.lastsetPoint = math.NaN()
