@@ -68,6 +68,8 @@ func (dr *SerialDataReader) backgroundWorker(cancelCtx context.Context) {
 
 	r := bufio.NewReader(dr.dev)
 	for {
+		// Even if r.ReadString(), below, always returns errors and we never get to the bottom of
+		// the loop, make sure we can still exit when we're supposed to.
 		select {
 		case <-cancelCtx.Done():
 			return
