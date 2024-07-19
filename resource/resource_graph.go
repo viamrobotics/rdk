@@ -1,7 +1,6 @@
 package resource
 
 import (
-	"context"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -32,14 +31,12 @@ type Graph struct {
 
 	// statusUpdates sends a resource status update for a node whenever it changes to a
 	// new state.
-	statusUpdates    chan Status
-	statusUpdatesCtx context.Context
-	cancelUpdates    func()
+	statusUpdates     chan Status
+	statusUpdatesDone chan struct{}
 }
 
 // NewGraph creates a new resource graph.
 func NewGraph() *Graph {
-	ctx, cancel := context.WithCancel(context.Background())
 	return &Graph{
 		children:                resourceDependencies{},
 		parents:                 resourceDependencies{},
@@ -47,8 +44,7 @@ func NewGraph() *Graph {
 		transitiveClosureMatrix: transitiveClosureMatrix{},
 		logicalClock:            &atomic.Int64{},
 		statusUpdates:           make(chan Status),
-		statusUpdatesCtx:        ctx,
-		cancelUpdates:           cancel,
+		statusUpdatesDone:       make(chan struct{}),
 	}
 }
 
@@ -288,7 +284,7 @@ func (g *Graph) addNode(node Name, nodeVal *GraphNode) error {
 	go func(nodeCh <-chan Status) {
 		for {
 			select {
-			case <-g.statusUpdatesCtx.Done():
+			case <-g.statusUpdatesDone:
 				return
 			case msg, open := <-nodeCh:
 				if !open {
@@ -690,5 +686,5 @@ func (g *Graph) StatusStream() <-chan Status {
 
 // Close cleanly shutdowns goroutines spawned by the resource graph.
 func (g *Graph) Close() {
-	g.cancelUpdates()
+	close(g.statusUpdatesDone)
 }
