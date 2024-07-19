@@ -58,9 +58,6 @@ type gpsrtk struct {
 	wbaud            int
 	isVirtualBase    bool
 	vrs              *gpsutils.VRS
-	// reader is the TeeReader to write the corrections stream to the gps chip.
-	// Additionally used to scan RTCM messages to ensure there are no errors from the streams
-	reader io.Reader
 }
 
 func (g *gpsrtk) start() error {
@@ -114,40 +111,27 @@ func (g *gpsrtk) connectAndParseSourceTable() error {
 	return nil
 }
 
-// connectToNTRIP connects to NTRIP stream.
-func (g *gpsrtk) connectToNTRIP() error {
-	select {
-	case <-g.cancelCtx.Done():
-		return errors.New("context canceled")
-	default:
-	}
-	err := g.connectAndParseSourceTable()
-	if err != nil {
-		return err
-	}
+func (g *gpsrtk) getStream() (*rtcm3.Scanner, error) {
+	var streamSource io.Reader
 
-	g.reader, err = g.getStream()
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func (g *gpsrtk) getStream() (io.Reader, error) {
 	if g.isVirtualBase {
 		g.logger.Debug("connecting to Virtual Reference Station")
 		err := g.getNtripFromVRS()
 		if err != nil {
 			return nil, err
 		}
-		return io.TeeReader(g.vrs.GetReaderWriter(), g.correctionWriter), nil
+		streamSource = g.vrs.GetReaderWriter()
+	} else {
+		g.logger.Debug("connecting to NTRIP stream........")
+		var err error
+		streamSource, err = g.ntripClient.GetStreamFromMountPoint(g.cancelCtx, g.logger)
+		if err != nil {
+			return nil, err
+		}
 	}
-	g.logger.Debug("connecting to NTRIP stream........")
-	stream, err := g.ntripClient.GetStreamFromMountPoint(g.cancelCtx, g.logger)
-	if err != nil {
-		return nil, err
-	}
-	return io.TeeReader(stream, g.correctionWriter), nil
+	reader := io.TeeReader(streamSource, g.correctionWriter)
+	scanner := rtcm3.NewScanner(reader)
+	return &scanner, nil
 }
 
 // receiveAndWriteCorrectionData connects to the NTRIP receiver and sends the correction stream to
@@ -156,45 +140,34 @@ func (g *gpsrtk) receiveAndWriteCorrectionData() {
 	defer g.activeBackgroundWorkers.Done()
 	defer g.closeCorrectionWriter()
 
-	err := g.connectToNTRIP()
+	err := g.connectAndParseSourceTable()
 	if err != nil {
 		g.err.Set(err)
-		g.logger.Error("unable to connect to NTRIP stream! Giving up on RTK messages")
+		g.logger.Error("unable to parse source table! Giving up on RTK messages")
 		return
 	}
-	scanner := rtcm3.NewScanner(g.reader)
 
-	for !g.isClosed {
-		select {
-		case <-g.cancelCtx.Done():
-			return
-		default:
-		}
-
-		// Calling NextMessage() reads from the scanner until a valid message is found, and returns
-		// that. We don't care about the message: we care that the scanner is able to read messages
-		// at all! So, focus on whether the scanner had errors (which indicate we need to reconnect
-		// to the mount point), and not the message itself.
-		_, err := scanner.NextMessage()
-		if err == nil {
-			continue // No errors: we're still connected.
-		}
-
-		// added a log so we do not always swallow the error
-		g.logger.Debugf("no longer connected to NTRIP scanner: %s", err)
-
-		if g.isClosed || g.cancelCtx.Err() != nil {
-			return
-		}
-
-		// If we get here, the scanner encountered an error but is supposed to continue going. Try
-		// reconnecting to the mount point.
-		g.reader, err = g.getStream()
+	// While we're supposed to keep running, (re)connect to the caster.
+	for !g.isClosed && g.cancelCtx.Err() == nil {
+		scanner, err := g.getStream()
 		if err != nil {
 			g.err.Set(err)
+			g.logger.Error("unable to get NTRIP stream! Giving up on RTK messages")
 			return
 		}
-		scanner = rtcm3.NewScanner(g.reader)
+
+		for err == nil { // Keep checking our connection until it fails and needs to reconnect
+			if g.isClosed || g.cancelCtx.Err() != nil {
+				return
+			}
+
+			// Calling NextMessage() reads from the scanner until a valid message is found, and
+			// returns that. We don't care about the message: we care that the scanner is able to
+			// read messages at all! So, focus on whether the scanner had errors (which indicate we
+			// need to reconnect to the mount point), and not the message itself.
+			_, err = scanner.NextMessage()
+		}
+		g.logger.Debugf("no longer connected to NTRIP scanner: %s", err)
 	}
 }
 
