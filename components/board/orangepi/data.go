@@ -34,10 +34,10 @@ var boardInfoMappings = map[string]genericlinux.BoardInformation{
 			{Name: "28", DeviceName: "gpiochip0", LineNumber: 265, PwmChipSysfsDir: "", PwmID: -1},
 			{Name: "29", DeviceName: "gpiochip0", LineNumber: 256, PwmChipSysfsDir: "", PwmID: -1},
 			{Name: "31", DeviceName: "gpiochip0", LineNumber: 271, PwmChipSysfsDir: "", PwmID: -1},
-			// When we can switch between gpio and pwm, this would have line number 267.
-			{Name: "32", DeviceName: "gpiochip0", LineNumber: -1, PwmChipSysfsDir: "300a000.pwm", PwmID: 1},
-			// When we can switch between gpio and pwm, this would have line number 268.
-			{Name: "33", DeviceName: "gpiochip0", LineNumber: -1, PwmChipSysfsDir: "300a000.pwm", PwmID: 2},
+			// Note that gpio input cannot be used on this pin.
+			{Name: "32", DeviceName: "gpiochip0", LineNumber: 267, PwmChipSysfsDir: "300a000.pwm", PwmID: 1},
+			// Note that gpio input cannot be used on this pin.
+			{Name: "33", DeviceName: "gpiochip0", LineNumber: 268, PwmChipSysfsDir: "300a000.pwm", PwmID: 2},
 			{Name: "35", DeviceName: "gpiochip0", LineNumber: 258, PwmChipSysfsDir: "", PwmID: -1},
 			{Name: "36", DeviceName: "gpiochip0", LineNumber: 76, PwmChipSysfsDir: "", PwmID: -1},
 			{Name: "37", DeviceName: "gpiochip0", LineNumber: 272, PwmChipSysfsDir: "", PwmID: -1},
