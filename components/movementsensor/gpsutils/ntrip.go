@@ -208,8 +208,8 @@ func (n *NtripInfo) GetStreamFromMountPoint(
 
 		rc, err = n.client.GetStream(n.MountPoint)
 		if err == nil { // Success!
-			logger.Debug("Connected to stream")
 			n.stream = rc
+			logger.Debug("Connected to stream")
 			return rc, nil
 		}
 	}

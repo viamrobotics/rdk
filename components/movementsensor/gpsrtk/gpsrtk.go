@@ -122,7 +122,7 @@ func (g *gpsrtk) getStream() (*rtcm3.Scanner, error) {
 		}
 		streamSource = g.vrs.GetReaderWriter()
 	} else {
-		g.logger.Debug("connecting to NTRIP stream........")
+		g.logger.Debug("connecting to NTRIP stream from static mount point...")
 		var err error
 		streamSource, err = g.ntripClient.GetStreamFromMountPoint(g.cancelCtx, g.logger)
 		if err != nil {
@@ -142,8 +142,7 @@ func (g *gpsrtk) receiveAndWriteCorrectionData() {
 
 	err := g.connectAndParseSourceTable()
 	if err != nil {
-		g.err.Set(err)
-		g.logger.Error("unable to parse source table! Giving up on RTK messages")
+		g.logger.Errorf("unable to parse source table! Aborting: %w", err)
 		return
 	}
 
@@ -151,8 +150,7 @@ func (g *gpsrtk) receiveAndWriteCorrectionData() {
 	for !g.isClosed && g.cancelCtx.Err() == nil {
 		scanner, err := g.getStream()
 		if err != nil {
-			g.err.Set(err)
-			g.logger.Error("unable to get NTRIP stream! Giving up on RTK messages")
+			g.logger.Errorf("unable to get NTRIP stream! Aborting: %w", err)
 			return
 		}
 
