@@ -227,6 +227,10 @@ func (sb *sensorBase) Stop(ctx context.Context, extra map[string]interface{}) er
 	sb.opMgr.CancelRunning(ctx)
 	if sb.loop != nil {
 		sb.loop.Pause()
+		// update pid controllers to be an at rest state
+		if err := sb.updateControlConfig(ctx, 0, 0); err != nil {
+			return err
+		}
 	}
 	return sb.controlledBase.Stop(ctx, extra)
 }

@@ -179,6 +179,15 @@ func (cm *controlledMotor) Stop(ctx context.Context, extra map[string]interface{
 	// is auto-tuning, the loop needs to keep running
 	if cm.loop != nil && !cm.loop.GetTuning(ctx) {
 		cm.loop.Pause()
+
+		// update pid controller to use the current state as the desired state
+		currentTicks, _, err := cm.enc.Position(ctx, encoder.PositionTypeTicks, extra)
+		if err != nil {
+			return err
+		}
+		if err := cm.updateControlBlock(ctx, currentTicks, 0); err != nil {
+			return err
+		}
 	}
 	return cm.real.Stop(ctx, nil)
 }
