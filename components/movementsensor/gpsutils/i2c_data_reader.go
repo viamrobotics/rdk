@@ -68,7 +68,7 @@ func NewI2cDataReader(config I2CConfig, bus buses.I2C, logger logging.Logger) (D
 		return nil, err
 	}
 
-	reader.start()
+	reader.backgroundWorker()
 	return &reader, nil
 }
 
@@ -124,9 +124,9 @@ func (dr *PmtkI2cDataReader) readData() ([]byte, error) {
 	return buffer, nil
 }
 
-// start spins up a background coroutine to read data from the I2C bus and put it into the channel
-// of complete messages.
-func (dr *PmtkI2cDataReader) start() {
+// backgroundWorker should be run in a background coroutine. It reads data from the I2C bus and
+// puts it into the channel of complete messages.
+func (dr *PmtkI2cDataReader) backgroundWorker() {
 	dr.activeBackgroundWorkers.Add(1)
 	utils.PanicCapturingGo(func() {
 		defer dr.activeBackgroundWorkers.Done()
