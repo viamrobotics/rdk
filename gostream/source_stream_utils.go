@@ -9,33 +9,33 @@ import (
 )
 
 // StreamVideoSource streams the given video source to the stream forever until context signals cancellation.
-func StreamVideoSource(ctx context.Context, vs VideoSource, stream Stream) error {
+func StreamVideoSource(ctx context.Context, vs VideoSource, stream Stream, logger logging.Logger) error {
 	return streamMediaSource(ctx, vs, stream, func(ctx context.Context, frameErr error) {
-		logging.Global().Debugw("error getting frame", "error", frameErr)
-	}, stream.InputVideoFrames)
+		logger.Debugw("error getting frame", "error", frameErr)
+	}, stream.InputVideoFrames, logger)
 }
 
 // StreamAudioSource streams the given video source to the stream forever until context signals cancellation.
-func StreamAudioSource(ctx context.Context, as AudioSource, stream Stream) error {
+func StreamAudioSource(ctx context.Context, as AudioSource, stream Stream, logger logging.Logger) error {
 	return streamMediaSource(ctx, as, stream, func(ctx context.Context, frameErr error) {
-		logging.Global().Debugw("error getting frame", "error", frameErr)
-	}, stream.InputAudioChunks)
+		logger.Debugw("error getting frame", "error", frameErr)
+	}, stream.InputAudioChunks, logger)
 }
 
 // StreamVideoSourceWithErrorHandler streams the given video source to the stream forever
 // until context signals cancellation, frame errors are sent via the error handler.
 func StreamVideoSourceWithErrorHandler(
-	ctx context.Context, vs VideoSource, stream Stream, errHandler ErrorHandler,
+	ctx context.Context, vs VideoSource, stream Stream, errHandler ErrorHandler, logger logging.Logger,
 ) error {
-	return streamMediaSource(ctx, vs, stream, errHandler, stream.InputVideoFrames)
+	return streamMediaSource(ctx, vs, stream, errHandler, stream.InputVideoFrames, logger)
 }
 
 // StreamAudioSourceWithErrorHandler streams the given audio source to the stream forever
 // until context signals cancellation, audio errors are sent via the error handler.
 func StreamAudioSourceWithErrorHandler(
-	ctx context.Context, as AudioSource, stream Stream, errHandler ErrorHandler,
+	ctx context.Context, as AudioSource, stream Stream, errHandler ErrorHandler, logger logging.Logger,
 ) error {
-	return streamMediaSource(ctx, as, stream, errHandler, stream.InputAudioChunks)
+	return streamMediaSource(ctx, as, stream, errHandler, stream.InputAudioChunks, logger)
 }
 
 // streamMediaSource will stream a source of media forever to the stream until the given context tells it to cancel.
@@ -45,6 +45,7 @@ func streamMediaSource[T, U any](
 	stream Stream,
 	errHandler ErrorHandler,
 	inputChan func(props U) (chan<- MediaReleasePair[T], error),
+	logger logging.Logger,
 ) error {
 	streamLoop := func() error {
 		readyCh, readyCtx := stream.StreamingReady()
@@ -58,10 +59,10 @@ func streamMediaSource[T, U any](
 			var err error
 			props, err = provider.MediaProperties(ctx)
 			if err != nil {
-				logging.Global().Debugw("no properties found for media; will assume empty", "error", err)
+				logger.Debugw("no properties found for media; will assume empty", "error", err)
 			}
 		} else {
-			logging.Global().Debug("no properties found for media; will assume empty")
+			logger.Debug("no properties found for media; will assume empty")
 		}
 		input, err := inputChan(props)
 		if err != nil {
