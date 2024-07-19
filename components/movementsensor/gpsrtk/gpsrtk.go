@@ -277,20 +277,19 @@ func (g *gpsrtk) Readings(ctx context.Context, extra map[string]interface{}) (ma
 
 // Close shuts down the gpsrtk.
 func (g *gpsrtk) Close(ctx context.Context) error {
-	g.workers.Stop()
-	g.mu.Lock()
-
 	g.logger.Debug("Closing GPS RTK")
+	g.workers.Stop()
+
+	g.mu.Lock()
+	defer g.mu.Unlock()
+
 	if err := g.cachedData.Close(ctx); err != nil {
-		g.mu.Unlock()
 		return err
 	}
 
-	// close ntrip writer
 	if g.correctionWriter != nil {
 		if err := g.correctionWriter.Close(); err != nil {
 			g.isClosed = true
-			g.mu.Unlock()
 			return err
 		}
 		g.correctionWriter = nil
@@ -298,21 +297,13 @@ func (g *gpsrtk) Close(ctx context.Context) error {
 
 	if g.vrs != nil {
 		if err := g.vrs.Close(ctx); err != nil {
-			g.mu.Unlock()
 			return err
 		}
 	}
 
-	// WARNING: if the background goroutine is calling `getStream()` and is waiting on the mutex
-	// before initializing `g.ntripClient.Stream`, we might finish closing and then initialize a new
-	// stream. This could be fixed by putting the background goroutine in a StoppableWorkers which
-	// we shut down at the top of this function, which can happen in the near future.
 	if err := g.ntripClient.Close(ctx); err != nil {
-		g.mu.Unlock()
 		return err
 	}
-
-	g.mu.Unlock()
 
 	if err := g.err.Get(); err != nil && !errors.Is(err, context.Canceled) {
 		return err
