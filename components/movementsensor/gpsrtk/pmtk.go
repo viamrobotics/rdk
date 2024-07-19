@@ -98,9 +98,9 @@ func makeRTKI2C(
 	}
 
 	g := &gpsrtk{
-		Named:      conf.ResourceName().AsNamed(),
-		logger:     logger,
-		err:        movementsensor.NewLastError(1, 1),
+		Named:  conf.ResourceName().AsNamed(),
+		logger: logger,
+		err:    movementsensor.NewLastError(1, 1),
 	}
 
 	ntripConfig := &gpsutils.NtripConfig{

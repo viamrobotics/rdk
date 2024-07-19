@@ -39,7 +39,7 @@ import (
 type gpsrtk struct {
 	resource.Named
 	resource.AlwaysRebuild
-	logger     logging.Logger
+	logger logging.Logger
 
 	workers utils.StoppableWorkers
 
