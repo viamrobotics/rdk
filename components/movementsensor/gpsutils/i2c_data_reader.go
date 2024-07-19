@@ -169,15 +169,11 @@ func (dr *PmtkI2cDataReader) start() {
 							strBuf = "$" + strBuf
 						}
 
-						dr.data <- strBuf
-						strBuf = ""
-
-						// Check if we're supposed to shut down again. Perhaps we waited a long
-						// time to put data into the channel.
 						select {
 						case <-dr.cancelCtx.Done():
 							return
-						default:
+						case dr.data <- strBuf:
+							strBuf = ""
 						}
 					}
 				} else if b != 0x0A { // Skip the newlines, as described earlier
@@ -197,12 +193,6 @@ func (dr *PmtkI2cDataReader) Messages() chan string {
 // Close is part of the DataReader interface. It shuts everything down.
 func (dr *PmtkI2cDataReader) Close() error {
 	dr.cancelFunc()
-	// If the background coroutine is trying to put a new line of data into the channel, it won't
-	// notice that we've canceled it until something tries taking the line out of the channel. So,
-	// let's try to read that out so the coroutine isn't stuck. If the background coroutine shut
-	// itself down already, the channel will be closed and reading something out of it will just
-	// return the empty string.
-	<-dr.data
 	dr.activeBackgroundWorkers.Wait()
 	return nil
 }
