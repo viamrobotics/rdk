@@ -87,7 +87,11 @@ func (dr *SerialDataReader) start() {
 				dr.logger.CErrorf(dr.cancelCtx, "can't read gps serial %s", err)
 				continue // The line has bogus data; don't put it in the channel.
 			}
-			dr.data <- line
+			select {
+			case <-dr.cancelCtx.Done():
+				return
+			case dr.data <- line:
+			}
 		}
 	})
 }
