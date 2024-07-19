@@ -169,6 +169,7 @@ func (r *localRobot) Close(ctx context.Context) error {
 	if r.webSvc != nil {
 		err = multierr.Combine(err, r.webSvc.Close(ctx))
 	}
+	r.manager.resources.Close()
 	return err
 }
 

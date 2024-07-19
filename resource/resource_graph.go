@@ -1,6 +1,7 @@
 package resource
 
 import (
+	"context"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -31,11 +32,14 @@ type Graph struct {
 
 	// statusUpdates sends a resource status update for a node whenever it changes to a
 	// new state.
-	statusUpdates chan Status
+	statusUpdates    chan Status
+	statusUpdatesCtx context.Context
+	cancelUpdates    func()
 }
 
 // NewGraph creates a new resource graph.
 func NewGraph() *Graph {
+	ctx, cancel := context.WithCancel(context.Background())
 	return &Graph{
 		children:                resourceDependencies{},
 		parents:                 resourceDependencies{},
@@ -43,6 +47,8 @@ func NewGraph() *Graph {
 		transitiveClosureMatrix: transitiveClosureMatrix{},
 		logicalClock:            &atomic.Int64{},
 		statusUpdates:           make(chan Status),
+		statusUpdatesCtx:        ctx,
+		cancelUpdates:           cancel,
 	}
 }
 
@@ -279,19 +285,24 @@ func (g *Graph) addNode(node Name, nodeVal *GraphNode) error {
 	}
 	g.transitiveClosureMatrix[node][node] = 1
 
-	// TODO: hacky - add a more robust way to dictate if we need to subscribe to node
-	// state changes.
-	if node.String() != "rdk-internal:service:web/builtin" {
-		go func(nodeCh <-chan Status) {
-			for msg := range nodeCh {
+	go func(nodeCh <-chan Status) {
+		for {
+			select {
+			case <-g.statusUpdatesCtx.Done():
+				return
+			case msg, open := <-nodeCh:
+				if !open {
+					return
+				}
+
 				// forward status update without waiting for receivers
 				select {
 				case g.statusUpdates <- msg:
 				default:
 				}
 			}
-		}(nodeVal.StatusStream())
-	}
+		}
+	}(nodeVal.StatusStream())
 	return nil
 }
 
@@ -675,4 +686,9 @@ func (g *Graph) Status() []Status {
 
 func (g *Graph) StatusStream() <-chan Status {
 	return g.statusUpdates
+}
+
+// Close cleanly shutdowns goroutines spawned by the resource graph.
+func (g *Graph) Close() {
+	g.cancelUpdates()
 }
