@@ -156,6 +156,17 @@ func ConcatResourceNames(values ...[]resource.Name) []resource.Name {
 	return rNames
 }
 
+// ConcatResourceStatus takes a slice of slices of resource.Status objects and returns a
+// concatenated slice of resource.Status for the purposes of comparison in automated
+// tests.
+func ConcatResourceStatuses(values ...[]resource.Status) []resource.Status {
+	var rs []resource.Status
+	for _, v := range values {
+		rs = append(rs, v...)
+	}
+	return rs
+}
+
 // AddSuffixes takes a slice of resource.Name objects and for each suffix,
 // adds the suffix to every object, then returns the entire list.
 func AddSuffixes(values []resource.Name, suffixes ...string) []resource.Name {

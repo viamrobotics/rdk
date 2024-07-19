@@ -3621,6 +3621,7 @@ func TestMachineStatus(t *testing.T) {
 			}
 		}()
 
+		// Add a fake motor to the robot.
 		lr.Reconfigure(ctx, &config.Config{
 			Components: []resource.Config{
 				{
@@ -3633,30 +3634,50 @@ func TestMachineStatus(t *testing.T) {
 		})
 		mStatus, err := lr.MachineStatus()
 		test.That(t, err, test.ShouldBeNil)
-
-		expectedStatuses := make([]resource.Status, len(expectedDefautltStatuses))
-		copy(expectedStatuses, expectedDefautltStatuses)
-		expectedStatuses = append(expectedStatuses, resource.Status{
-			Name:  motor.Named("m"),
-			State: resource.NodeStateReady,
-		})
+		expectedStatuses := rtestutils.ConcatResourceStatuses(
+			expectedDefautltStatuses,
+			[]resource.Status{{Name: motor.Named("m"), State: resource.NodeStateReady}},
+		)
 		rtestutils.VerifySameResourceStatuses(t, mStatus.Resources, expectedStatuses)
 
+		// Update motor attributes. This reconfiguration will trigger an update due to
+		// updated `Attributes`, but not success due to missing `ConvertedAttributes`.
 		lr.Reconfigure(ctx, &config.Config{
 			Components: []resource.Config{
 				{
-					Name:  "m",
-					Model: fakeModel,
-					API:   motor.API,
-					ConvertedAttributes: &fakemotor.Config{
-						MaxRPM: 200,
-					},
+					Name:       "m",
+					Model:      fakeModel,
+					API:        motor.API,
+					Attributes: rutils.AttributeMap{"max_rpm": float64(200)},
 				},
 			},
 		})
 		mStatus, err = lr.MachineStatus()
 		test.That(t, err, test.ShouldBeNil)
+		expectedStatuses = rtestutils.ConcatResourceStatuses(
+			expectedDefautltStatuses,
+			[]resource.Status{{Name: motor.Named("m"), State: resource.NodeStateConfiguring}},
+		)
+		rtestutils.VerifySameResourceStatuses(t, mStatus.Resources, expectedStatuses)
 
+		// Update motor attributes - it should succeed this time.
+		lr.Reconfigure(ctx, &config.Config{
+			Components: []resource.Config{
+				{
+					Name:                "m",
+					Model:               fakeModel,
+					API:                 motor.API,
+					Attributes:          rutils.AttributeMap{"max_rpm": float64(200)},
+					ConvertedAttributes: &fakemotor.Config{MaxRPM: 200},
+				},
+			},
+		})
+		mStatus, err = lr.MachineStatus()
+		test.That(t, err, test.ShouldBeNil)
+		expectedStatuses = rtestutils.ConcatResourceStatuses(
+			expectedDefautltStatuses,
+			[]resource.Status{{Name: motor.Named("m"), State: resource.NodeStateReady}},
+		)
 		rtestutils.VerifySameResourceStatuses(t, mStatus.Resources, expectedStatuses)
 
 		cancel()

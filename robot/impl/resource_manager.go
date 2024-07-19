@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
+	"log"
 	"os"
 	"reflect"
 	"strings"
@@ -682,6 +683,8 @@ func (manager *resourceManager) completeConfig(
 							manager.logger.CErrorw(
 								ctx, "error building resource", "resource", conf.ResourceName(), "model", conf.Model, "error", ctxWithTimeout.Err())
 						} else {
+
+							log.Println(">>> swapping resource", newRes.Name().String(), "state", gNode.State())
 							gNode.SwapResource(newRes, conf.Model)
 						}
 
