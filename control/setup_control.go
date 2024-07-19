@@ -459,7 +459,6 @@ func CreateTrapzBlock(ctx context.Context, name string, maxVel float64, dependsO
 // UpdateTrapzBlock creates and sets a control config trapezoidalVelocityProfile block.
 func UpdateTrapzBlock(ctx context.Context, name string, maxVel float64, dependsOn []string, loop *Loop) error {
 	newTrapzBlock := CreateTrapzBlock(ctx, name, maxVel, dependsOn)
-
 	if err := loop.SetConfigAt(ctx, name, newTrapzBlock); err != nil {
 		return err
 	}
