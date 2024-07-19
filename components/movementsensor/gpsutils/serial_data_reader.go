@@ -63,12 +63,12 @@ func NewSerialDataReader(config *SerialConfig, logger logging.Logger) (DataReade
 		cancelFunc: cancelFunc,
 		logger:     logger,
 	}
-	reader.start()
+	reader.backgroundWorker()
 
 	return &reader, nil
 }
 
-func (dr *SerialDataReader) start() {
+func (dr *SerialDataReader) backgroundWorker() {
 	dr.activeBackgroundWorkers.Add(1)
 	utils.PanicCapturingGo(func() {
 		defer dr.activeBackgroundWorkers.Done()
