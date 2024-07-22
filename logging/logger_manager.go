@@ -139,7 +139,7 @@ func UpdateLoggerLevelWithCfg(name string) error {
 	return loggerManager.updateLoggerLevelWithCfg(name)
 }
 
-// GetCurrentConfig returns the logger config currently being used by the registry
+// GetCurrentConfig returns the logger config currently being used by the registry.
 func GetCurrentConfig() []LoggerPatternConfig {
 	return loggerManager.getCurrentConfig()
 }
