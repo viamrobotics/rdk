@@ -1277,14 +1277,14 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 	appendedLogCfg = append(appendedLogCfg, newConfig.LogConfig...)
 	for _, serv := range newConfig.Services {
 		resLogCfg := logging.LoggerPatternConfig{
-			Pattern: serv.ResourceName().String(),
+			Pattern: "rdk." + serv.ResourceName().String(),
 			Level:   serv.LogConfiguration.Level.String(),
 		}
 		appendedLogCfg = append(appendedLogCfg, resLogCfg)
 	}
 	for _, comp := range newConfig.Components {
 		resLogCfg := logging.LoggerPatternConfig{
-			Pattern: comp.ResourceName().String(),
+			Pattern: "rdk." + comp.ResourceName().String(),
 			Level:   comp.LogConfiguration.Level.String(),
 		}
 		appendedLogCfg = append(appendedLogCfg, resLogCfg)

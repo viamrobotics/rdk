@@ -614,14 +614,14 @@ func processConfig(unprocessedConfig *Config, fromCloud bool, logger logging.Log
 	appendedLogCfg = append(appendedLogCfg, cfg.LogConfig...)
 	for _, serv := range cfg.Services {
 		resLogCfg := logging.LoggerPatternConfig{
-			Pattern: serv.ResourceName().String(),
+			Pattern: "rdk." + serv.ResourceName().String(),
 			Level:   serv.LogConfiguration.Level.String(),
 		}
 		appendedLogCfg = append(appendedLogCfg, resLogCfg)
 	}
 	for _, comp := range cfg.Components {
 		resLogCfg := logging.LoggerPatternConfig{
-			Pattern: comp.ResourceName().String(),
+			Pattern: "rdk." + comp.ResourceName().String(),
 			Level:   comp.LogConfiguration.Level.String(),
 		}
 		appendedLogCfg = append(appendedLogCfg, resLogCfg)
