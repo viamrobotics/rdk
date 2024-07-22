@@ -97,3 +97,11 @@ func TestUpdateLogLevel(t *testing.T) {
 	err = manager.updateLoggerLevel("slogger-1", DEBUG)
 	test.That(t, err, test.ShouldNotBeNil)
 }
+
+func TestGetRegisteredNames(t *testing.T) {
+	manager := mockRegistry()
+	for _, name := range manager.getRegisteredLoggerNames() {
+		_, ok := manager.loggerNamed(name)
+		test.That(t, ok, test.ShouldBeTrue)
+	}
+}

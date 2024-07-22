@@ -1,17 +1,15 @@
-package config
+package logging
 
 import (
 	"strings"
 	"testing"
 
 	"go.viam.com/test"
-
-	"go.viam.com/rdk/logging"
 )
 
-func verifySetLevels(registry map[string]logging.Logger, expectedMatches map[string]string) bool {
+func verifySetLevels(registry *loggerRegistry, expectedMatches map[string]string) bool {
 	for name, level := range expectedMatches {
-		logger, ok := registry[name]
+		logger, ok := registry.loggerNamed(name)
 		if !ok || !strings.EqualFold(level, logger.GetLevel().String()) {
 			return false
 		}
@@ -19,12 +17,12 @@ func verifySetLevels(registry map[string]logging.Logger, expectedMatches map[str
 	return true
 }
 
-func createTestRegistry(loggerNames []string) map[string]logging.Logger {
-	registry := make(map[string]logging.Logger)
+func createTestRegistry(loggerNames []string) *loggerRegistry {
+	manager := newLoggerManager()
 	for _, name := range loggerNames {
-		registry[name] = logging.NewLogger(name)
+		manager.registerLogger(name, NewLogger(name))
 	}
-	return registry
+	return manager
 }
 
 func TestValidatePattern(t *testing.T) {
@@ -181,13 +179,13 @@ func TestUpdateLoggerRegistry(t *testing.T) {
 	for _, tc := range tests {
 		testRegistry := createTestRegistry(tc.loggerNames)
 
-		newRegistry, err := UpdateLoggerRegistry(tc.loggerConfig, testRegistry)
+		err := testRegistry.updateLoggerRegistry(tc.loggerConfig)
 		if tc.doesError {
 			test.That(t, err, test.ShouldNotBeNil)
 			continue
 		}
 		test.That(t, err, test.ShouldBeNil)
 
-		test.That(t, verifySetLevels(newRegistry, tc.expectedMatches), test.ShouldBeTrue)
+		test.That(t, verifySetLevels(testRegistry, tc.expectedMatches), test.ShouldBeTrue)
 	}
 }

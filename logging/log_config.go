@@ -1,12 +1,9 @@
-package config
+package logging
 
 import (
+	"errors"
 	"regexp"
 	"strings"
-
-	"github.com/pkg/errors"
-
-	"go.viam.com/rdk/logging"
 )
 
 // LoggerPatternConfig is an instance of a level specification for a given logger.
@@ -29,13 +26,10 @@ func validatePattern(pattern string) bool {
 	return loggerPatternRegexp.MatchString(pattern)
 }
 
-// UpdateLoggerRegistry updates the logger registry if necessary  with the specified logConfig.
-func UpdateLoggerRegistry(logConfig []LoggerPatternConfig, loggerRegistry map[string]logging.Logger) (map[string]logging.Logger, error) {
-	newLogRegistry := make(map[string]logging.Logger)
-
+func (lr *loggerRegistry) updateLoggerRegistry(logConfig []LoggerPatternConfig) error {
 	for _, lpc := range logConfig {
 		if !validatePattern(lpc.Pattern) {
-			return nil, errors.New("failed to validate a pattern")
+			return errors.New("failed to validate a pattern")
 		}
 
 		var matcher strings.Builder
@@ -53,22 +47,27 @@ func UpdateLoggerRegistry(logConfig []LoggerPatternConfig, loggerRegistry map[st
 		matcher.WriteRune('$')
 		r, err := regexp.Compile(matcher.String())
 		if err != nil {
-			return nil, err
+			return err
 		}
 
-		for name, logger := range loggerRegistry {
-			if _, ok := newLogRegistry[name]; !ok {
-				newLogRegistry[name] = logger
-			}
+		for _, name := range lr.getRegisteredLoggerNames() {
 			if r.MatchString(name) {
-				level, err := logging.LevelFromString(lpc.Level)
+				level, err := LevelFromString(lpc.Level)
 				if err != nil {
-					return nil, err
+					return err
 				}
-				newLogRegistry[name].SetLevel(level)
+				err = lr.updateLoggerLevel(name, level)
+				if err != nil {
+					return err
+				}
 			}
 		}
 	}
 
-	return newLogRegistry, nil
+	return nil
+}
+
+// UpdateLoggerRegistry updates the logger registry if necessary  with the specified logConfig.
+func UpdateLoggerRegistry(logConfig []LoggerPatternConfig) error {
+	return loggerManager.updateLoggerRegistry(logConfig)
 }
