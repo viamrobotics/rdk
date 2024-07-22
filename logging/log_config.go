@@ -21,7 +21,7 @@ const (
 	validLoggerName                    = `^` + validLoggerSectionsWithWildcard + `$`
 
 	// resource configurations
-	validNamespacePattern       = `(\w+|\*)`
+	validNamespacePattern       = `([\w-]+|\*)`
 	validResourceTypePattern    = `(service|component|\*)`
 	validResourceSubTypePattern = validNamespacePattern
 	validModelNamePattern       = validNamespacePattern
