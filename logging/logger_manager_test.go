@@ -105,3 +105,19 @@ func TestGetRegisteredNames(t *testing.T) {
 		test.That(t, ok, test.ShouldBeTrue)
 	}
 }
+
+func TestRegisterConfig(t *testing.T) {
+	manager := mockRegistry()
+	logCfg := []LoggerPatternConfig{
+		{
+			Pattern: "abc",
+			Level:   "WARN",
+		},
+		{
+			Pattern: "def",
+			Level:   "ERROR",
+		},
+	}
+	manager.registerConfig(logCfg)
+	test.That(t, manager.logConfig, test.ShouldResemble, logCfg)
+}

@@ -6,8 +6,9 @@ import (
 )
 
 type loggerRegistry struct {
-	mu      sync.RWMutex
-	loggers map[string]Logger
+	mu        sync.RWMutex
+	loggers   map[string]Logger
+	logConfig []LoggerPatternConfig
 }
 
 // TODO(RSDK-8250): convert loggerManager from global variable to variable on local robot.
@@ -63,6 +64,12 @@ func (lr *loggerRegistry) getRegisteredLoggerNames() []string {
 	return registeredNames
 }
 
+func (lr *loggerRegistry) registerConfig(logConfig []LoggerPatternConfig) {
+	lr.mu.Lock()
+	defer lr.mu.Unlock()
+	lr.logConfig = logConfig
+}
+
 // Exported Functions specifically for use on global logger manager.
 
 // RegisterLogger registers a new logger with a given name.
@@ -88,4 +95,8 @@ func UpdateLoggerLevel(name string, level Level) error {
 // GetRegisteredLoggerNames returns the names of all loggers in the registry.
 func GetRegisteredLoggerNames() []string {
 	return loggerManager.getRegisteredLoggerNames()
+}
+
+func RegisterConfig(logConfig []LoggerPatternConfig) {
+	loggerManager.registerConfig(logConfig)
 }
