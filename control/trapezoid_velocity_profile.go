@@ -109,8 +109,14 @@ func (s *trapezoidVelocityGenerator) reset() error {
 	if !s.cfg.Attribute.Has("max_vel") {
 		return errors.Errorf("trapezoidale velocity profile block %s needs max_vel field", s.cfg.Name)
 	}
-	s.maxAcc = s.cfg.Attribute["max_acc"].(float64) // default 0.0
-	s.maxVel = s.cfg.Attribute["max_vel"].(float64) // default 0.0
+	s.maxAcc = s.cfg.Attribute["max_acc"].(float64)
+	s.maxVel = s.cfg.Attribute["max_vel"].(float64)
+	if s.maxAcc == 0 { // default 1.0, the math breaks if maxAcc = 0
+		s.maxAcc = 0
+	}
+	if s.maxVel == 0 { // default 1.0, the math breaks if maxVel = 0
+		s.maxVel = 1
+	}
 
 	s.posWindow = 0
 	if s.cfg.Attribute.Has("pos_window") {
