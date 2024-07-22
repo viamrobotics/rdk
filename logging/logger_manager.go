@@ -96,6 +96,12 @@ func (lr *loggerRegistry) registerConfig(logConfig []LoggerPatternConfig) {
 	lr.logConfig = logConfig
 }
 
+func (lr *loggerRegistry) getCurrentConfig() []LoggerPatternConfig {
+	lr.mu.RLock()
+	defer lr.mu.RUnlock()
+	return lr.logConfig
+}
+
 // Exported Functions specifically for use on global logger manager.
 
 // RegisterLogger registers a new logger with a given name.
@@ -131,4 +137,9 @@ func RegisterConfig(logConfig []LoggerPatternConfig) {
 // UpdateLoggerLevelWithCfg matches the desired logger to all patterns in the registry and updates its level.
 func UpdateLoggerLevelWithCfg(name string) error {
 	return loggerManager.updateLoggerLevelWithCfg(name)
+}
+
+// GetCurrentConfig returns the logger config currently being used by the registry
+func GetCurrentConfig() []LoggerPatternConfig {
+	return loggerManager.getCurrentConfig()
 }

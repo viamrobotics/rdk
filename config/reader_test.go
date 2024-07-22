@@ -367,3 +367,20 @@ func TestReadTLSFromCache(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 	})
 }
+
+func TestProcessConfigRegistersLogConfig(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+	unprocessedConfig := Config{
+		ConfigFilePath: "path",
+		LogConfig: []logging.LoggerPatternConfig{
+			{
+				Pattern: "a.b.c.d",
+				Level:   "ERROR",
+			},
+		},
+	}
+
+	cfg, err := processConfig(&unprocessedConfig, true, logger)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, cfg.LogConfig, test.ShouldResemble, logging.GetCurrentConfig())
+}

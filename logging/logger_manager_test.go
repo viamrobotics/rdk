@@ -147,3 +147,15 @@ func TestUpdateLoggerLevelWithCfg(t *testing.T) {
 	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, logger.GetLevel().String(), test.ShouldEqual, "Info")
 }
+
+func TestGetCurrentConfig(t *testing.T) {
+	manager := mockRegistry()
+	logCfg := []LoggerPatternConfig{
+		{
+			Pattern: "a.*",
+			Level:   "WARN",
+		},
+	}
+	manager.registerConfig(logCfg)
+	test.That(t, manager.getCurrentConfig(), test.ShouldResemble, logCfg)
+}
