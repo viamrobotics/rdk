@@ -53,6 +53,7 @@ func TestValidatePattern(t *testing.T) {
 	test.That(t, validatePattern("rdk.acme:*:motor/motor1"), test.ShouldBeTrue)
 	test.That(t, validatePattern("rdk.rdk:service:navigation/test-navigation"), test.ShouldBeTrue)
 	test.That(t, validatePattern("rdk.*:*:motor/*"), test.ShouldBeTrue)
+	test.That(t, validatePattern("rdk.rdk:remote:/foo"), test.ShouldBeTrue)
 
 	test.That(t, validatePattern("fake.rdk:service:encoder/encoder1"), test.ShouldBeFalse)
 	test.That(t, validatePattern("rdk.rdk:service:encoder/encoder1 1"), test.ShouldBeFalse)

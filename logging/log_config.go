@@ -25,7 +25,7 @@ const (
 	validResourceTypePattern    = `(service|component|\*)`
 	validResourceSubTypePattern = validNamespacePattern
 	validModelNamePattern       = validNamespacePattern
-	validResourcePattern        = `^rdk.` + validNamespacePattern + `:` + validResourceTypePattern + `:` + validResourceSubTypePattern + `\/` + validModelNamePattern + `$`
+	validResourcePattern        = `^rdk.` + validNamespacePattern + `:(` + validResourceTypePattern + `:` + validResourceSubTypePattern + `|remote:)` + `\/` + validModelNamePattern + `$`
 )
 
 var loggerPatternRegexp = regexp.MustCompile(validLoggerName)
