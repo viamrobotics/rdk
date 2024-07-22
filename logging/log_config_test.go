@@ -26,6 +26,7 @@ func createTestRegistry(loggerNames []string) *loggerRegistry {
 }
 
 func TestValidatePattern(t *testing.T) {
+	// logger pattern matching
 	test.That(t, validatePattern("robot_server.resource_manager"), test.ShouldBeTrue)
 	test.That(t, validatePattern("robot_server.resource_manager.*"), test.ShouldBeTrue)
 	test.That(t, validatePattern("robot_server.*.resource_manager"), test.ShouldBeTrue)
@@ -45,6 +46,20 @@ func TestValidatePattern(t *testing.T) {
 	test.That(t, validatePattern("robot_server.-"), test.ShouldBeFalse)
 	test.That(t, validatePattern("robot_server.-.resource_manager"), test.ShouldBeFalse)
 	test.That(t, validatePattern("robot_server._.resource_manager"), test.ShouldBeFalse)
+
+	// resource pattern matching
+	test.That(t, validatePattern("rdk.rdk:service:encoder/encoder1"), test.ShouldBeTrue)
+	test.That(t, validatePattern("rdk.rdk:component:motor/motor1"), test.ShouldBeTrue)
+	test.That(t, validatePattern("rdk.acme:*:motor/motor1"), test.ShouldBeTrue)
+	test.That(t, validatePattern("rdk.*:*:motor/*"), test.ShouldBeTrue)
+
+	test.That(t, validatePattern("fake.rdk:service:encoder/encoder1"), test.ShouldBeFalse)
+	test.That(t, validatePattern("rdk.rdk:service:encoder/encoder1 1"), test.ShouldBeFalse)
+	test.That(t, validatePattern("1 rdk.rdk:service:encoder/encoder1"), test.ShouldBeFalse)
+	test.That(t, validatePattern("rdk.rdk:fake:encoder/encoder1"), test.ShouldBeFalse)
+	test.That(t, validatePattern("rdk.:service:encoder/encoder1"), test.ShouldBeFalse)
+	test.That(t, validatePattern("rdk.rdk:service:/encoder"), test.ShouldBeFalse)
+	test.That(t, validatePattern("rdk.rdk:service:encoder/"), test.ShouldBeFalse)
 }
 
 func TestUpdateLoggerRegistry(t *testing.T) {

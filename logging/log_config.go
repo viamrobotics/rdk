@@ -13,17 +13,26 @@ type LoggerPatternConfig struct {
 }
 
 const (
+	// pattern matching on loggers
 	validLoggerSectionName             = `[a-zA-Z0-9]+([_-]*[a-zA-Z0-9]+)*`
 	validLoggerSectionNameWithWildcard = `(` + validLoggerSectionName + `|\*)`
 	validLoggerSections                = validLoggerSectionName + `(\.` + validLoggerSectionName + `)*`
 	validLoggerSectionsWithWildcard    = validLoggerSectionNameWithWildcard + `(\.` + validLoggerSectionNameWithWildcard + `)*`
 	validLoggerName                    = `^` + validLoggerSectionsWithWildcard + `$`
+
+	// resource configurations
+	validNamespacePattern       = `(\w+|\*)`
+	validResourceTypePattern    = `(service|component|\*)`
+	validResourceSubTypePattern = validNamespacePattern
+	validModelNamePattern       = validNamespacePattern
+	validResourcePattern        = `^rdk.` + validNamespacePattern + `:` + validResourceTypePattern + `:` + validResourceSubTypePattern + `\/` + validModelNamePattern + `$`
 )
 
 var loggerPatternRegexp = regexp.MustCompile(validLoggerName)
+var resourcePatternRegexp = regexp.MustCompile(validResourcePattern)
 
 func validatePattern(pattern string) bool {
-	return loggerPatternRegexp.MatchString(pattern)
+	return loggerPatternRegexp.MatchString(pattern) || resourcePatternRegexp.MatchString(pattern)
 }
 
 func buildRegexFromPattern(pattern string) string {
