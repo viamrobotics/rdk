@@ -121,3 +121,29 @@ func TestRegisterConfig(t *testing.T) {
 	manager.registerConfig(logCfg)
 	test.That(t, manager.logConfig, test.ShouldResemble, logCfg)
 }
+
+func TestUpdateLoggerLevelWithCfg(t *testing.T) {
+	manager := mockRegistry()
+	manager.registerLogger("a.b.c", NewLogger("a.b.c"))
+	manager.registerLogger("a.b.d", NewLogger("a.b.d"))
+
+	logCfg := []LoggerPatternConfig{
+		{
+			Pattern: "a.*",
+			Level:   "WARN",
+		},
+	}
+	manager.registerConfig(logCfg)
+	err := manager.updateLoggerLevelWithCfg("a.b.c")
+	test.That(t, err, test.ShouldBeNil)
+
+	// ONLY a.b.c hould be modified despite the pattern in
+	// the config matching multiple loggers.
+	logger, ok := manager.loggerNamed("a.b.c")
+	test.That(t, ok, test.ShouldBeTrue)
+	test.That(t, logger.GetLevel().String(), test.ShouldEqual, "Warn")
+
+	logger, ok = manager.loggerNamed("a.b.d")
+	test.That(t, ok, test.ShouldBeTrue)
+	test.That(t, logger.GetLevel().String(), test.ShouldEqual, "Info")
+}

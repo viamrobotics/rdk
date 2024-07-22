@@ -2,6 +2,7 @@ package logging
 
 import (
 	"fmt"
+	"regexp"
 	"sync"
 )
 
@@ -41,6 +42,31 @@ func (lr *loggerRegistry) loggerNamed(name string) (logger Logger, ok bool) {
 	defer lr.mu.RUnlock()
 	logger, ok = lr.loggers[name]
 	return
+}
+
+func (lr *loggerRegistry) updateLoggerLevelWithCfg(name string) error {
+	lr.mu.RLock()
+	defer lr.mu.RUnlock()
+
+	for _, lpc := range lr.logConfig {
+		r, err := regexp.Compile(buildRegexFromPattern(lpc.Pattern))
+		if err != nil {
+			return err
+		}
+		if r.MatchString(name) {
+			logger, ok := lr.loggers[name]
+			if !ok {
+				return fmt.Errorf("logger named %s not recognized", name)
+			}
+			level, err := LevelFromString(lpc.Level)
+			if err != nil {
+				return err
+			}
+			logger.SetLevel(level)
+		}
+	}
+
+	return nil
 }
 
 func (lr *loggerRegistry) updateLoggerLevel(name string, level Level) error {
@@ -97,6 +123,12 @@ func GetRegisteredLoggerNames() []string {
 	return loggerManager.getRegisteredLoggerNames()
 }
 
+// RegisterConfig atomically stores the current known logger config in the registry.
 func RegisterConfig(logConfig []LoggerPatternConfig) {
 	loggerManager.registerConfig(logConfig)
+}
+
+// UpdateLoggerLevelWithCfg matches the desired logger to all patterns in the registry and updates its level.
+func UpdateLoggerLevelWithCfg(name string) error {
+	return loggerManager.updateLoggerLevelWithCfg(name)
 }

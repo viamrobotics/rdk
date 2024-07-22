@@ -79,6 +79,7 @@ func (imp *impl) Sublogger(subname string) Logger {
 	}
 
 	RegisterLogger(newName, sublogger)
+	UpdateLoggerLevelWithCfg(newName)
 
 	return sublogger
 }
