@@ -45,6 +45,8 @@ func newTrapezoidVelocityProfile(config BlockConfig, logger logging.Logger) (Blo
 }
 
 func (s *trapezoidVelocityGenerator) Next(ctx context.Context, x []*Signal, dt time.Duration) ([]*Signal, bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	var pos float64
 	var setPoint float64
 	if len(x) == 2 {

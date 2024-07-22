@@ -185,7 +185,7 @@ func (cm *controlledMotor) Stop(ctx context.Context, extra map[string]interface{
 		if err != nil {
 			return err
 		}
-		if err := cm.updateControlBlock(ctx, currentTicks, 0); err != nil {
+		if err := cm.updateControlBlock(ctx, currentTicks, cm.real.maxRPM*cm.ticksPerRotation/60); err != nil {
 			return err
 		}
 	}
