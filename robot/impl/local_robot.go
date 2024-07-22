@@ -1272,6 +1272,26 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 	// Cleanup extra dirs from previous modules or rogue scripts.
 	allErrs = multierr.Combine(allErrs, r.manager.moduleManager.CleanModuleDataDirectory())
 
+	// update logger configurations
+	appendedLogCfg := make([]logging.LoggerPatternConfig, 0, len(newConfig.LogConfig)+len(newConfig.Services)+len(newConfig.Components))
+	appendedLogCfg = append(appendedLogCfg, newConfig.LogConfig...)
+	for _, serv := range newConfig.Services {
+		resLogCfg := logging.LoggerPatternConfig{
+			Pattern: serv.ResourceName().String(),
+			Level:   serv.LogConfiguration.Level.String(),
+		}
+		appendedLogCfg = append(appendedLogCfg, resLogCfg)
+	}
+	for _, comp := range newConfig.Components {
+		resLogCfg := logging.LoggerPatternConfig{
+			Pattern: comp.ResourceName().String(),
+			Level:   comp.LogConfiguration.Level.String(),
+		}
+		appendedLogCfg = append(appendedLogCfg, resLogCfg)
+	}
+
+	allErrs = multierr.Combine(allErrs, logging.UpdateLoggerRegistry(appendedLogCfg))
+
 	if allErrs != nil {
 		r.logger.CErrorw(ctx, "The following errors were gathered during reconfiguration", "errors", allErrs)
 	} else {

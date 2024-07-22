@@ -610,7 +610,23 @@ func processConfig(unprocessedConfig *Config, fromCloud bool, logger logging.Log
 		}
 	}
 
-	logging.RegisterConfig(cfg.LogConfig)
+	appendedLogCfg := make([]logging.LoggerPatternConfig, 0, len(cfg.LogConfig)+len(cfg.Services)+len(cfg.Components))
+	appendedLogCfg = append(appendedLogCfg, cfg.LogConfig...)
+	for _, serv := range cfg.Services {
+		resLogCfg := logging.LoggerPatternConfig{
+			Pattern: serv.ResourceName().String(),
+			Level:   serv.LogConfiguration.Level.String(),
+		}
+		appendedLogCfg = append(appendedLogCfg, resLogCfg)
+	}
+	for _, comp := range cfg.Components {
+		resLogCfg := logging.LoggerPatternConfig{
+			Pattern: comp.ResourceName().String(),
+			Level:   comp.LogConfiguration.Level.String(),
+		}
+		appendedLogCfg = append(appendedLogCfg, resLogCfg)
+	}
+	logging.RegisterConfig(appendedLogCfg)
 
 	// now that the attribute maps are converted, validate configs and get implicit dependencies for builtin resource models
 	if err := cfg.Ensure(fromCloud, logger); err != nil {
