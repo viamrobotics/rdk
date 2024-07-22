@@ -142,6 +142,6 @@ Support is not well tested yet.
 * rpc: ICE between local connections found via ICE mDNS appear to be flaky in the establishment phase.
 
 ## License
-Copyright 2021-2023 Viam Inc.
+Copyright 2021-2024 Viam Inc.
 
 AGPLv3 - See [LICENSE](https://github.com/viamrobotics/rdk/blob/main/LICENSE) file
