@@ -5,7 +5,6 @@
 package genericlinux
 
 import (
-	"atomic"
 	"context"
 	"fmt"
 	"sync"
@@ -32,7 +31,7 @@ type gpioPin struct {
 	hwPwm                *pwmDevice // Defined in hw_pwm.go, will be nil for pins that don't support it.
 	pwmFreqHz            uint
 	pwmDutyCyclePct      float64
-	enableSoftwarePWM    atomic.Bool
+	enableSoftwarePWM    bool
 	softwarePwm          rdkutils.StoppableWorkers
 	startSoftwarePWMChan chan any // Write to this to tell the software PWM loop to start up (again)
 
@@ -115,7 +114,7 @@ func (pin *gpioPin) Set(ctx context.Context, isHigh bool,
 	defer pin.mu.Unlock()
 
 	// Shut down any software PWM loop that might be running.
-	pin.enableSoftwarePWM.Store(false)
+	pin.enableSoftwarePWM = false
 	return pin.setInternal(isHigh)
 }
 
@@ -194,7 +193,7 @@ func (pin *gpioPin) Get(
 func (pin *gpioPin) startSoftwarePWM() error {
 	if pin.pwmDutyCyclePct == 0 || pin.pwmFreqHz == 0 {
 		// We don't have both parameters set up. Stop any PWM loop we might have started previously.
-		pin.enableSoftwarePWM.Store(false)
+		pin.enableSoftwarePWM = false
 		if pin.hwPwm != nil {
 			return pin.hwPwm.Close()
 		}
@@ -210,7 +209,7 @@ func (pin *gpioPin) startSoftwarePWM() error {
 				return err
 			}
 			// Shut down any software PWM loop that might be running.
-			pin.enableSoftwarePWM.Store(false)
+			pin.enableSoftwarePWM = false
 			return pin.hwPwm.SetPwm(pin.pwmFreqHz, pin.pwmDutyCyclePct)
 		}
 		// Although this pin has hardware PWM support, many PWM chips cannot output signals at
@@ -224,12 +223,12 @@ func (pin *gpioPin) startSoftwarePWM() error {
 	// If we get here, we need a software loop to drive the PWM signal, either because this pin
 	// doesn't have hardware support or because we want to drive it at such a low frequency that
 	// the hardware chip can't do it.
-	if pin.enableSoftwarePWM.Load() {
+	if pin.enableSoftwarePWM {
 		// We already have a software PWM loop running. It will pick up the changes on its own.
 		return nil
 	}
 
-	pin.enableSoftwarePWM.Store(true)
+	pin.enableSoftwarePWM = true
 	pin.startSoftwarePWMChan <- true
 	return nil
 }
@@ -278,7 +277,7 @@ func (pin *gpioPin) halfPwmCycle(ctx context.Context, shouldBeOn bool) bool {
 		pin.mu.Lock()
 		defer pin.mu.Unlock()
 		// Before we modify the pin, check if we should stop running
-		if ctx.Err() != nil || !pin.enableSoftwarePWM.Load() {
+		if ctx.Err() != nil || !pin.enableSoftwarePWM {
 			return false
 		}
 
