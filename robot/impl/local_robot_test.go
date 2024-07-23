@@ -5,7 +5,6 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
-	"log"
 	"math"
 	"net"
 	"os"
@@ -3548,7 +3547,7 @@ func TestMachineStatus(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 	ctx := context.Background()
 
-	expectedDefautltStatuses := []resource.Status{
+	expectedDefaultStatuses := []resource.Status{
 		{
 			Name: resource.Name{
 				API:  resource.APINamespaceRDKInternal.WithServiceType("framesystem"),
@@ -3593,33 +3592,17 @@ func TestMachineStatus(t *testing.T) {
 		},
 	}
 
-	lr := setupLocalRobot(t, ctx, &config.Config{}, logger)
-
 	t.Run("default resources", func(t *testing.T) {
+		lr := setupLocalRobot(t, ctx, &config.Config{}, logger)
+
 		mStatus, err := lr.MachineStatus()
 		test.That(t, err, test.ShouldBeNil)
 
-		rtestutils.VerifySameResourceStatuses(t, mStatus.Resources, expectedDefautltStatuses)
+		rtestutils.VerifySameResourceStatuses(t, mStatus.Resources, expectedDefaultStatuses)
 	})
 
 	t.Run("reconfigure", func(t *testing.T) {
-		var wg sync.WaitGroup
-		statusCtx, cancel := context.WithCancel(context.Background())
-		defer cancel()
-
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			localRobot := lr.(*localRobot)
-			for {
-				select {
-				case <-statusCtx.Done():
-					return
-				case status := <-localRobot.resourceStatusStream():
-					log.Println(">>>", status)
-				}
-			}
-		}()
+		lr := setupLocalRobot(t, ctx, &config.Config{}, logger)
 
 		// Add a fake motor to the robot.
 		lr.Reconfigure(ctx, &config.Config{
@@ -3635,7 +3618,7 @@ func TestMachineStatus(t *testing.T) {
 		mStatus, err := lr.MachineStatus()
 		test.That(t, err, test.ShouldBeNil)
 		expectedStatuses := rtestutils.ConcatResourceStatuses(
-			expectedDefautltStatuses,
+			expectedDefaultStatuses,
 			[]resource.Status{{Name: motor.Named("m"), State: resource.NodeStateReady}},
 		)
 		rtestutils.VerifySameResourceStatuses(t, mStatus.Resources, expectedStatuses)
@@ -3657,7 +3640,7 @@ func TestMachineStatus(t *testing.T) {
 		mStatus, err = lr.MachineStatus()
 		test.That(t, err, test.ShouldBeNil)
 		expectedStatuses = rtestutils.ConcatResourceStatuses(
-			expectedDefautltStatuses,
+			expectedDefaultStatuses,
 			[]resource.Status{{Name: motor.Named("m"), State: resource.NodeStateConfiguring}},
 		)
 		rtestutils.VerifySameResourceStatuses(t, mStatus.Resources, expectedStatuses)
@@ -3680,12 +3663,103 @@ func TestMachineStatus(t *testing.T) {
 		mStatus, err = lr.MachineStatus()
 		test.That(t, err, test.ShouldBeNil)
 		expectedStatuses = rtestutils.ConcatResourceStatuses(
-			expectedDefautltStatuses,
+			expectedDefaultStatuses,
 			[]resource.Status{{Name: motor.Named("m"), State: resource.NodeStateReady}},
 		)
 		rtestutils.VerifySameResourceStatuses(t, mStatus.Resources, expectedStatuses)
+	})
 
-		cancel()
+	t.Run("stream status", func(t *testing.T) {
+		lr := setupLocalRobot(t, ctx, &config.Config{}, logger)
+
+		var (
+			wg       sync.WaitGroup
+			done     = make(chan struct{})
+			statuses []resource.Status
+			mu       sync.Mutex
+		)
+
+		// Listen for machine status updates.
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			lr_ := lr.(*localRobot)
+			for {
+				select {
+				case <-done:
+					return
+				case status := <-lr_.resourceStatusStream():
+					mu.Lock()
+					statuses = append(statuses, status)
+					mu.Unlock()
+				}
+			}
+		}()
+
+		// Update robot with a series of component configuration:
+		// Add working motor.
+		lr.Reconfigure(ctx, &config.Config{
+			Components: []resource.Config{
+				{
+					Name:                "m",
+					Model:               fakeModel,
+					API:                 motor.API,
+					ConvertedAttributes: &fakemotor.Config{},
+				},
+			},
+		})
+		func() {
+			mu.Lock()
+			defer mu.Unlock()
+			expectedStatuses := []resource.Status{
+				{Name: motor.Named("m"), State: resource.NodeStateReady},
+			}
+			rtestutils.VerifySameResourceStatuses(t, statuses, expectedStatuses)
+			statuses = nil
+		}()
+
+		// Update motor attributes.
+		lr.Reconfigure(ctx, &config.Config{
+			Components: []resource.Config{
+				{
+					Name:  "m",
+					Model: fakeModel,
+					API:   motor.API,
+					// We need to specify both `Attributes` and `ConvertedAttributes`.
+					// The former triggers a reconfiguration and the former is actually
+					// used to reconfigure the component.
+					Attributes:          rutils.AttributeMap{"max_rpm": float64(200)},
+					ConvertedAttributes: &fakemotor.Config{MaxRPM: 200},
+				},
+			},
+		})
+		func() {
+			mu.Lock()
+			defer mu.Unlock()
+			expectedStatuses := []resource.Status{
+				{Name: motor.Named("m"), State: resource.NodeStateConfiguring},
+				{Name: motor.Named("m"), State: resource.NodeStateReady},
+			}
+			rtestutils.VerifySameResourceStatuses(t, statuses, expectedStatuses)
+			statuses = nil
+		}()
+
+		// Remove motor.
+		lr.Reconfigure(ctx, &config.Config{
+			Components: []resource.Config{},
+		})
+		func() {
+			mu.Lock()
+			defer mu.Unlock()
+			expectedStatuses := []resource.Status{
+				{Name: motor.Named("m"), State: resource.NodeStateRemoving},
+			}
+			rtestutils.VerifySameResourceStatuses(t, statuses, expectedStatuses)
+			statuses = nil
+		}()
+
+		// Stop listening for status updates after reconfiguration.
+		close(done)
 		wg.Wait()
 	})
 }
