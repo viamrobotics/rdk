@@ -322,11 +322,5 @@ func (rmr *RestartModuleRequest) MatchesModule(mod config.Module) bool {
 }
 
 type MachineStatus struct {
-	Config    ConfigStatus
 	Resources []resource.Status
-}
-
-type ConfigStatus struct {
-	Revision    string
-	LastUpdated time.Time
 }
