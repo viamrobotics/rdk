@@ -82,8 +82,3 @@ func (lr *loggerRegistry) updateLoggerRegistry(logConfig []LoggerPatternConfig) 
 
 	return nil
 }
-
-// UpdateLoggerRegistry updates the logger registry if necessary  with the specified logConfig.
-func UpdateLoggerRegistry(logConfig []LoggerPatternConfig) error {
-	return loggerManager.updateLoggerRegistry(logConfig)
-}

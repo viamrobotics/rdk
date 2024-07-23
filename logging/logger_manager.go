@@ -94,6 +94,7 @@ func (lr *loggerRegistry) registerConfig(logConfig []LoggerPatternConfig) {
 	lr.mu.Lock()
 	defer lr.mu.Unlock()
 	lr.logConfig = logConfig
+	lr.updateLoggerRegistry(logConfig)
 }
 
 func (lr *loggerRegistry) getCurrentConfig() []LoggerPatternConfig {
@@ -129,7 +130,7 @@ func GetRegisteredLoggerNames() []string {
 	return loggerManager.getRegisteredLoggerNames()
 }
 
-// RegisterConfig atomically stores the current known logger config in the registry.
+// RegisterConfig atomically stores the current known logger config in the registry, and updates all registered loggers
 func RegisterConfig(logConfig []LoggerPatternConfig) {
 	loggerManager.registerConfig(logConfig)
 }

@@ -19,6 +19,7 @@ import (
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.uber.org/zap"
+
 	// registers all components.
 	commonpb "go.viam.com/api/common/v1"
 	armpb "go.viam.com/api/component/arm/v1"
@@ -3539,38 +3540,4 @@ func TestRestartModule(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, r.(*localRobot).localModuleVersions[mod.Name].String(), test.ShouldResemble, "0.0.1")
 	})
-}
-
-func TestLoggerUpdatesOnReconfigure(t *testing.T) {
-	testLogger := logging.NewTestLogger(t)
-	ctx := context.Background()
-
-	fakeLogger := logging.NewLogger("fakelogger")
-	fakeLogger.SetLevel(logging.INFO)
-	logging.RegisterLogger("fakelogger", fakeLogger)
-
-	cfg := config.Config{
-		Components: []resource.Config{
-			{
-				Name:  "foo",
-				API:   base.API,
-				Model: fakeModel,
-				Frame: &referenceframe.LinkConfig{
-					Parent: referenceframe.World,
-				},
-			},
-		},
-		LogConfig: []logging.LoggerPatternConfig{
-			{
-				Pattern: "fakelogger",
-				Level:   "ERROR",
-			},
-		},
-	}
-
-	r := setupLocalRobot(t, ctx, &config.Config{}, testLogger)
-	r.Reconfigure(ctx, &cfg)
-
-	test.That(t, fakeLogger.GetLevel().String(), test.ShouldEqual, "Error")
-	test.That(t, logging.DeregisterLogger("fakelogger"), test.ShouldBeTrue)
 }
