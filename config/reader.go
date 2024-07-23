@@ -626,7 +626,10 @@ func processConfig(unprocessedConfig *Config, fromCloud bool, logger logging.Log
 		}
 		appendedLogCfg = append(appendedLogCfg, resLogCfg)
 	}
-	logging.RegisterConfig(appendedLogCfg)
+
+	if err := logging.RegisterConfig(appendedLogCfg); err != nil {
+		return nil, err
+	}
 
 	// now that the attribute maps are converted, validate configs and get implicit dependencies for builtin resource models
 	if err := cfg.Ensure(fromCloud, logger); err != nil {

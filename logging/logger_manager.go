@@ -90,11 +90,11 @@ func (lr *loggerRegistry) getRegisteredLoggerNames() []string {
 	return registeredNames
 }
 
-func (lr *loggerRegistry) registerConfig(logConfig []LoggerPatternConfig) {
+func (lr *loggerRegistry) registerConfig(logConfig []LoggerPatternConfig) error {
 	lr.mu.Lock()
 	defer lr.mu.Unlock()
 	lr.logConfig = logConfig
-	lr.updateLoggerRegistry(logConfig)
+	return lr.updateLoggerRegistry(logConfig)
 }
 
 func (lr *loggerRegistry) getCurrentConfig() []LoggerPatternConfig {
@@ -130,9 +130,9 @@ func GetRegisteredLoggerNames() []string {
 	return loggerManager.getRegisteredLoggerNames()
 }
 
-// RegisterConfig atomically stores the current known logger config in the registry, and updates all registered loggers
-func RegisterConfig(logConfig []LoggerPatternConfig) {
-	loggerManager.registerConfig(logConfig)
+// RegisterConfig atomically stores the current known logger config in the registry, and updates all registered loggers.
+func RegisterConfig(logConfig []LoggerPatternConfig) error {
+	return loggerManager.registerConfig(logConfig)
 }
 
 // UpdateLoggerLevelWithCfg matches the desired logger to all patterns in the registry and updates its level.
