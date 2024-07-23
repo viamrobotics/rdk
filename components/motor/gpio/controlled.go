@@ -179,6 +179,15 @@ func (cm *controlledMotor) Stop(ctx context.Context, extra map[string]interface{
 	// is auto-tuning, the loop needs to keep running
 	if cm.loop != nil && !cm.loop.GetTuning(ctx) {
 		cm.loop.Pause()
+
+		// update pid controller to use the current state as the desired state
+		currentTicks, _, err := cm.enc.Position(ctx, encoder.PositionTypeTicks, extra)
+		if err != nil {
+			return err
+		}
+		if err := cm.updateControlBlock(ctx, currentTicks, cm.real.maxRPM*cm.ticksPerRotation/60); err != nil {
+			return err
+		}
 	}
 	return cm.real.Stop(ctx, nil)
 }
@@ -279,7 +288,6 @@ func (cm *controlledMotor) SetRPM(ctx context.Context, rpm float64, extra map[st
 		}
 	}
 
-	cm.loop.Resume()
 	// set control loop values
 	velVal := math.Abs(rpm * cm.ticksPerRotation / 60)
 	goalPos := math.Inf(int(rpm))
@@ -287,6 +295,7 @@ func (cm *controlledMotor) SetRPM(ctx context.Context, rpm float64, extra map[st
 	if err := cm.updateControlBlock(ctx, goalPos, velVal); err != nil {
 		return err
 	}
+	cm.loop.Resume()
 
 	return nil
 }
@@ -321,7 +330,6 @@ func (cm *controlledMotor) GoFor(ctx context.Context, rpm, revolutions float64, 
 			return err
 		}
 	}
-	cm.loop.Resume()
 
 	goalPos, _, _ := encodedGoForMath(rpm, revolutions, currentTicks, cm.ticksPerRotation)
 
@@ -332,6 +340,7 @@ func (cm *controlledMotor) GoFor(ctx context.Context, rpm, revolutions float64, 
 	if err := cm.updateControlBlock(ctx, goalPos, velVal); err != nil {
 		return err
 	}
+	cm.loop.Resume()
 
 	if revolutions == 0 {
 		cm.logger.Warn("Deprecated: setting revolutions == 0 will spin the motor indefinitely at the specified RPM")
