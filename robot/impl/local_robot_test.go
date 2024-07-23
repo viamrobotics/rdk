@@ -3640,15 +3640,17 @@ func TestMachineStatus(t *testing.T) {
 		)
 		rtestutils.VerifySameResourceStatuses(t, mStatus.Resources, expectedStatuses)
 
-		// Update motor attributes. This reconfiguration will trigger an update due to
-		// updated `Attributes`, but not success due to missing `ConvertedAttributes`.
 		lr.Reconfigure(ctx, &config.Config{
 			Components: []resource.Config{
 				{
-					Name:       "m",
-					Model:      fakeModel,
-					API:        motor.API,
-					Attributes: rutils.AttributeMap{"max_rpm": float64(200)},
+					Name:  "m",
+					Model: fakeModel,
+					API:   motor.API,
+					// We need to specify both `Attributes` and `ConvertedAttributes`.
+					// The former triggers a reconfiguration and the former is actually
+					// used to reconfigure the component.
+					Attributes:          rutils.AttributeMap{"fail": true},
+					ConvertedAttributes: &fakemotor.Config{Fail: true},
 				},
 			},
 		})
@@ -3660,13 +3662,16 @@ func TestMachineStatus(t *testing.T) {
 		)
 		rtestutils.VerifySameResourceStatuses(t, mStatus.Resources, expectedStatuses)
 
-		// Update motor attributes - it should succeed this time.
+		// Update motor with a working config.
 		lr.Reconfigure(ctx, &config.Config{
 			Components: []resource.Config{
 				{
-					Name:                "m",
-					Model:               fakeModel,
-					API:                 motor.API,
+					Name:  "m",
+					Model: fakeModel,
+					API:   motor.API,
+					// We need to specify both `Attributes` and `ConvertedAttributes`.
+					// The former triggers a reconfiguration and the former is actually
+					// used to reconfigure the component.
 					Attributes:          rutils.AttributeMap{"max_rpm": float64(200)},
 					ConvertedAttributes: &fakemotor.Config{MaxRPM: 200},
 				},

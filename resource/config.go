@@ -3,6 +3,7 @@ package resource
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"reflect"
 	"strings"
 
@@ -122,6 +123,7 @@ func (conf Config) MarshalJSON() ([]byte, error) {
 // this should be a method on the type and hide away both Attributes and
 // ConvertedAttributes.
 func NativeConfig[T any](conf Config) (T, error) {
+	log.Println(">>> asserting conf")
 	return utils.AssertType[T](conf.ConvertedAttributes)
 }
 
