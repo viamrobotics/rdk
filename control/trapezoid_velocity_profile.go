@@ -131,7 +131,6 @@ func (s *trapezoidVelocityGenerator) reset() error {
 		s.kppGain = 0.45
 	}
 	s.lastVelCmd = 0
-	//if a previous signal was already in use, preserve it
 	if s.y != nil {
 		s.lastVelCmd = s.y[0].GetSignalValueAt(0)
 	}
