@@ -1290,6 +1290,7 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 		appendedLogCfg = append(appendedLogCfg, resLogCfg)
 	}
 
+	logging.RegisterConfig(appendedLogCfg)
 	allErrs = multierr.Combine(allErrs, logging.UpdateLoggerRegistry(appendedLogCfg))
 
 	if allErrs != nil {
