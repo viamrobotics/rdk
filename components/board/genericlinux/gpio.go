@@ -278,7 +278,7 @@ func (pin *gpioPin) halfPwmCycle(ctx context.Context, shouldBeOn bool) bool {
 		pin.mu.Lock()
 		defer pin.mu.Unlock()
 		// Before we modify the pin, check if we should stop running
-		if ctx.Err() != nil {
+		if ctx.Err() != nil || !pin.enableSoftwarePWM.Load() {
 			return false
 		}
 
@@ -312,10 +312,10 @@ func (pin *gpioPin) softwarePwmLoop(ctx context.Context) {
 		case <-pin.startSoftwarePWMChan:
 		}
 		for {
-			if !pin.halfPwmCycle(ctx, true) || !pin.enableSoftwarePWM.Load() {
+			if !pin.halfPwmCycle(ctx, true) {
 				break
 			}
-			if !pin.halfPwmCycle(ctx, false) || !pin.enableSoftwarePWM.Load() {
+			if !pin.halfPwmCycle(ctx, false) {
 				break
 			}
 		}
