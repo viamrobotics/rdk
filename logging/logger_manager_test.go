@@ -128,8 +128,6 @@ func TestRegisterConfig(t *testing.T) {
 
 func TestUpdateLoggerLevelWithCfg(t *testing.T) {
 	manager := mockRegistry()
-	manager.registerLogger("a.b.c", NewLogger("a.b.c"))
-	manager.registerLogger("a.b.d", NewLogger("a.b.d"))
 
 	logCfg := []LoggerPatternConfig{
 		{
@@ -137,8 +135,13 @@ func TestUpdateLoggerLevelWithCfg(t *testing.T) {
 			Level:   "WARN",
 		},
 	}
-	manager.registerConfig(logCfg)
-	err := manager.updateLoggerLevelWithCfg("a.b.c")
+	err := manager.registerConfig(logCfg)
+	test.That(t, err, test.ShouldBeNil)
+
+	manager.registerLogger("a.b.c", NewLogger("a.b.c"))
+	manager.registerLogger("a.b.d", NewLogger("a.b.d"))
+
+	err = manager.updateLoggerLevelWithCfg("a.b.c")
 	test.That(t, err, test.ShouldBeNil)
 
 	// ONLY a.b.c hould be modified despite the pattern in
