@@ -112,7 +112,7 @@ func (s *trapezoidVelocityGenerator) reset() error {
 	s.maxAcc = s.cfg.Attribute["max_acc"].(float64)
 	s.maxVel = s.cfg.Attribute["max_vel"].(float64)
 	if s.maxAcc == 0 { // default 1.0, the math breaks if maxAcc = 0
-		s.maxAcc = 0
+		s.maxAcc = 1
 	}
 	if s.maxVel == 0 { // default 1.0, the math breaks if maxVel = 0
 		s.maxVel = 1
