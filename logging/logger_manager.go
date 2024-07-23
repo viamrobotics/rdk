@@ -92,8 +92,8 @@ func (lr *loggerRegistry) getRegisteredLoggerNames() []string {
 
 func (lr *loggerRegistry) registerConfig(logConfig []LoggerPatternConfig) error {
 	lr.mu.Lock()
-	defer lr.mu.Unlock()
 	lr.logConfig = logConfig
+	lr.mu.Unlock()
 	return lr.updateLoggerRegistry(logConfig)
 }
 

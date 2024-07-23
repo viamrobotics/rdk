@@ -108,6 +108,8 @@ func TestGetRegisteredNames(t *testing.T) {
 
 func TestRegisterConfig(t *testing.T) {
 	manager := mockRegistry()
+	fakeLogger := NewLogger("abc")
+	manager.registerLogger("abc", fakeLogger)
 	logCfg := []LoggerPatternConfig{
 		{
 			Pattern: "abc",
@@ -118,8 +120,10 @@ func TestRegisterConfig(t *testing.T) {
 			Level:   "ERROR",
 		},
 	}
-	manager.registerConfig(logCfg)
+	err := manager.registerConfig(logCfg)
+	test.That(t, err, test.ShouldBeNil)
 	test.That(t, manager.logConfig, test.ShouldResemble, logCfg)
+	test.That(t, fakeLogger.GetLevel().String(), test.ShouldEqual, "Warn")
 }
 
 func TestUpdateLoggerLevelWithCfg(t *testing.T) {
