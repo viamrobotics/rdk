@@ -230,16 +230,17 @@ func (pin *gpioPin) startSoftwarePWM() error {
 	}
 
 	pin.enableSoftwarePWM = true
-	// Sneaky trick alert! We use startSoftwarePWMChan to tell the background worker to start up.
-	// However, we have acquired the mutex, and if the background worker was already started
-	// (because it had been started, another goroutine told it to stop, and we are running so
-	// soon afterwards that it hasn't yet noticed it should stop), it's possible the background
-	// worker is still running and is about to acquire the mutex. If we tried sending a message on
-	// the channel in that situation, we would deadlock (we would wait until something can read
-	// from the channel, and the only goroutine that can read from it would wait until the mutex is
-	// unlocked). So, instead, we send the message by closing the old channel and creating a new
-	// one: if the background worker was waiting on the channel, it will wake up when it closes,
-	// and if it was not waiting on the channel, we don't block waiting for it to start waiting.
+	// Sneaky trick alert! We use startSoftwarePWMChan to tell the background worker to start
+	// toggling the pin in a loop. However, we have locked the mutex, and if the background worker
+	// is already in progress (because the software PWM loop had been started, another goroutine
+	// told it to pause, and we are running so soon afterwards that it hasn't yet noticed it should
+	// pause), it's possible the background worker is still looping and is about to lock the mutex
+	// so it can toggle the pin. If we tried sending a message on the channel in that situation, we
+	// would deadlock (we would wait until something can read from the channel, and the only
+	// goroutine that can read from it would wait until the mutex is unlocked). So, instead, we
+	// send the message by closing the old channel and creating a new one: if the background worker
+	// was waiting on the channel, it will wake up when it closes, and if it was not waiting on the
+	// channel, we don't block waiting for it to check the channel.
 	close(pin.startSoftwarePWMChan)
 	pin.startSoftwarePWMChan = make(chan any)
 	return nil
