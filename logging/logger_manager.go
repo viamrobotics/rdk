@@ -1,6 +1,7 @@
 package logging
 
 import (
+	"errors"
 	"fmt"
 	"regexp"
 	"sync"
@@ -77,6 +78,34 @@ func (lr *loggerRegistry) updateLoggerLevel(name string, level Level) error {
 		return fmt.Errorf("logger named %s not recognized", name)
 	}
 	logger.SetLevel(level)
+	return nil
+}
+
+func (lr *loggerRegistry) updateLoggerRegistry(logConfig []LoggerPatternConfig) error {
+	for _, lpc := range logConfig {
+		if !validatePattern(lpc.Pattern) {
+			return errors.New("failed to validate a pattern")
+		}
+
+		r, err := regexp.Compile(buildRegexFromPattern(lpc.Pattern))
+		if err != nil {
+			return err
+		}
+
+		for _, name := range lr.getRegisteredLoggerNames() {
+			if r.MatchString(name) {
+				level, err := LevelFromString(lpc.Level)
+				if err != nil {
+					return err
+				}
+				err = lr.updateLoggerLevel(name, level)
+				if err != nil {
+					return err
+				}
+			}
+		}
+	}
+
 	return nil
 }
 
