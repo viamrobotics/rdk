@@ -32,7 +32,7 @@ type gpioPin struct {
 	pwmFreqHz            uint
 	pwmDutyCyclePct      float64
 	enableSoftwarePWM    bool     // Indicates whether a software PWM loop should continue running
-	startSoftwarePWMChan chan any // Close and reinitialize this to (re)start the SW PWM loop
+	startSoftwarePWMChan *chan any // Close and reinitialize this to (re)start the SW PWM loop
 
 	softwarePwm rdkutils.StoppableWorkers
 
@@ -241,8 +241,9 @@ func (pin *gpioPin) startSoftwarePWM() error {
 	// send the message by closing the old channel and creating a new one: if the background worker
 	// was waiting on the channel, it will wake up when it closes, and if it was not waiting on the
 	// channel, we don't block waiting for it to check the channel.
-	close(pin.startSoftwarePWMChan)
-	pin.startSoftwarePWMChan = make(chan any)
+	newSoftwarePWMChan := make(chan any)
+	close(*pin.startSoftwarePWMChan)
+	pin.startSoftwarePWMChan = &newSoftwarePWMChan
 	return nil
 }
 
@@ -322,16 +323,16 @@ func (pin *gpioPin) softwarePwmLoop(ctx context.Context) {
 		// it, and we might be running on a board with a small enough CPU that pointer assignment
 		// is not atomic. Lock the mutex when getting a copy of the channel, so we don't
 		// accidentally get half a pointer to an old one and half a pointer to a new one.
-		startSoftwarePWMChan := func() *chan any {
+		startSoftwarePWMChan := func() chan any {
 			pin.mu.Lock()
 			defer pin.mu.Unlock()
-			return &pin.startSoftwarePWMChan
+			return *pin.startSoftwarePWMChan
 		}()
 
 		select {
 		case <-ctx.Done():
 			return
-		case <-*startSoftwarePWMChan:
+		case <-startSoftwarePWMChan:
 		}
 		for {
 			if !pin.halfPwmCycle(ctx, true) {
