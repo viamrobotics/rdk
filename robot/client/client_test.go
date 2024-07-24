@@ -15,7 +15,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/edaniels/golog"
 	"github.com/go-viper/mapstructure/v2"
 	"github.com/golang/geo/r3"
 	"github.com/google/uuid"
@@ -160,7 +159,7 @@ var resourceFunc2 = func(*pb.ResourceNamesRequest) (*pb.ResourceNamesResponse, e
 	return &pb.ResourceNamesResponse{Resources: rNames}, nil
 }
 
-func makeRPCServer(logger golog.Logger, option rpc.ServerOption) (rpc.Server, net.Listener, error) {
+func makeRPCServer(logger logging.Logger, option rpc.ServerOption) (rpc.Server, net.Listener, error) {
 	err := errors.New("failed to make rpc server")
 	var addr string
 	var listener net.Listener
@@ -197,10 +196,10 @@ func TestUnimplementedRPCSubtypes(t *testing.T) {
 	logger1 := logging.NewTestLogger(t)
 	logger2 := logging.NewTestLogger(t)
 
-	rpcServer1, listener1, err := makeRPCServer(logger1.AsZap(), rpc.WithUnauthenticated())
+	rpcServer1, listener1, err := makeRPCServer(logger1, rpc.WithUnauthenticated())
 	test.That(t, err, test.ShouldBeNil)
 
-	rpcServer2, listener2, err := makeRPCServer(logger2.AsZap(), rpc.WithUnauthenticated())
+	rpcServer2, listener2, err := makeRPCServer(logger2, rpc.WithUnauthenticated())
 	test.That(t, err, test.ShouldBeNil)
 
 	defer func() {

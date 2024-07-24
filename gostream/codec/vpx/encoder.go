@@ -6,18 +6,18 @@ import (
 	"fmt"
 	"image"
 
-	"github.com/edaniels/golog"
 	"github.com/pion/mediadevices/pkg/codec"
 	"github.com/pion/mediadevices/pkg/codec/vpx"
 	"github.com/pion/mediadevices/pkg/prop"
 
 	ourcodec "go.viam.com/rdk/gostream/codec"
+	"go.viam.com/rdk/logging"
 )
 
 type encoder struct {
 	codec  codec.ReadCloser
 	img    image.Image
-	logger golog.Logger
+	logger logging.Logger
 }
 
 // Version determines the version of a vpx codec.
@@ -34,7 +34,7 @@ const bitrate = 3_200_000
 
 // NewEncoder returns a vpx encoder of the given type that can encode images of the given width and height. It will
 // also ensure that it produces key frames at the given interval.
-func NewEncoder(codecVersion Version, width, height, keyFrameInterval int, logger golog.Logger) (ourcodec.VideoEncoder, error) {
+func NewEncoder(codecVersion Version, width, height, keyFrameInterval int, logger logging.Logger) (ourcodec.VideoEncoder, error) {
 	enc := &encoder{logger: logger}
 
 	var builder codec.VideoEncoderBuilder
