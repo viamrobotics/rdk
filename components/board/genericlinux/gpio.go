@@ -31,7 +31,7 @@ type gpioPin struct {
 	hwPwm                *pwmDevice // Defined in hw_pwm.go, will be nil for pins that don't support it.
 	pwmFreqHz            uint
 	pwmDutyCyclePct      float64
-	enableSoftwarePWM    bool     // Indicates whether a software PWM loop should continue running
+	enableSoftwarePWM    bool      // Indicates whether a software PWM loop should continue running
 	startSoftwarePWMChan *chan any // Close and reinitialize this to (re)start the SW PWM loop
 
 	softwarePwm rdkutils.StoppableWorkers

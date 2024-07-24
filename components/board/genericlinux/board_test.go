@@ -138,13 +138,13 @@ func TestNewBoard(t *testing.T) {
 	// was constructed at the beginning of the test. That was so recent that the Go runtime
 	// environment will think there is a race condition when the test framework walks that part of
 	// the struct. To avoid that, we don't use the test framework directly here.
-	if (gn1 == nil ) {
+	if gn1 == nil {
 		t.FailNow()
 	}
 
 	gn2, err := b.GPIOPinByName("2")
 	test.That(t, err, test.ShouldBeNil)
-	if (gn2 == nil ) {
+	if gn2 == nil {
 		t.FailNow()
 	}
 }
