@@ -321,6 +321,7 @@ func (rmr *RestartModuleRequest) MatchesModule(mod config.Module) bool {
 	return mod.Name == rmr.ModuleName
 }
 
+// MachineStatus encapsulates the current status of the robot.
 type MachineStatus struct {
 	Resources []resource.Status
 }

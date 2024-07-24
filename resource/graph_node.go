@@ -486,6 +486,7 @@ func (w *GraphNode) transitionTo(state NodeState) {
 	}
 }
 
+// ResourceStatus returns the current [Status].
 func (w *GraphNode) ResourceStatus() Status {
 	w.mu.RLock()
 	defer w.mu.RUnlock()
@@ -508,12 +509,15 @@ func (w *GraphNode) resourceStatus() Status {
 	}
 }
 
+// Status encapsulates a resource name along with state transition metadata.
 type Status struct {
 	Name        Name
 	State       NodeState
 	LastUpdated time.Time
 }
 
+// StatusStream returns a channel that yields a [Status] whenever there is a state change
+// to the current [GraphNode].
 func (w *GraphNode) StatusStream() <-chan Status {
 	return w.statusUpdates
 }

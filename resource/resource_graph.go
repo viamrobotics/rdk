@@ -667,12 +667,12 @@ func (g *Graph) SubGraphFrom(node Name) (*Graph, error) {
 	return subGraph, nil
 }
 
+// Status returns a slice of all graph node statuses.
 func (g *Graph) Status() []Status {
 	g.mu.Lock()
 	defer g.mu.Unlock()
 
 	var result []Status
-	// TODO: filter/error on nodes that are in an unknown state
 	for _, node := range g.nodes {
 		result = append(result, node.ResourceStatus())
 	}
@@ -680,6 +680,7 @@ func (g *Graph) Status() []Status {
 	return result
 }
 
+// StatusStream returns a channel that streams updates to graph node statuses.
 func (g *Graph) StatusStream() <-chan Status {
 	return g.statusUpdates
 }

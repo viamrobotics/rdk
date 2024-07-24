@@ -1380,18 +1380,15 @@ func (r *localRobot) MachineStatus() (robot.MachineStatus, error) {
 	var result robot.MachineStatus
 
 	r.manager.resourceGraphLock.Lock()
-	resourceStatuses := r.manager.resources.Status()
+	result.Resources = append(result.Resources, r.manager.resources.Status()...)
 	r.manager.resourceGraphLock.Unlock()
-
-	for _, status := range resourceStatuses {
-		result.Resources = append(result.Resources, status)
-	}
 
 	return result, nil
 }
 
 // resourceStatusStream returns a channel that streams resource updates.
+// TODO(RSDK-8109): Make this method public and add to the [LocalRobot] interface
+// if end up implementing a public MachineStatus streaming API.
 func (r *localRobot) resourceStatusStream() <-chan resource.Status {
-	// TODO: include config updates
 	return r.manager.resources.StatusStream()
 }

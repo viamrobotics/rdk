@@ -1034,6 +1034,8 @@ func (rc *RobotClient) MachineStatus() (robot.MachineStatus, error) {
 		}
 
 		switch pbResStatus.State {
+		case pb.ResourceStatus_STATE_UNSPECIFIED:
+			return mStatus, errors.New("resource in an unspecified state")
 		case pb.ResourceStatus_STATE_UNCONFIGURED:
 			resStatus.State = resource.NodeStateUnconfigured
 		case pb.ResourceStatus_STATE_CONFIGURING:
@@ -1042,8 +1044,6 @@ func (rc *RobotClient) MachineStatus() (robot.MachineStatus, error) {
 			resStatus.State = resource.NodeStateReady
 		case pb.ResourceStatus_STATE_REMOVING:
 			resStatus.State = resource.NodeStateRemoving
-		default:
-			return mStatus, errors.New("resource in invalid state")
 		}
 
 		mStatus.Resources = append(mStatus.Resources, resStatus)

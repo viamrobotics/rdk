@@ -504,8 +504,9 @@ func (s *Server) GetMachineStatus(_ context.Context, _ *pb.GetMachineStatusReque
 			LastUpdated: timestamppb.New(resStatus.LastUpdated),
 		}
 
-		// TODO: add conversion function
 		switch resStatus.State {
+		case resource.NodeStateUnknown:
+			return nil, errors.New("resource in unknown state")
 		case resource.NodeStateUnconfigured:
 			pbResStatus.State = pb.ResourceStatus_STATE_UNCONFIGURED
 		case resource.NodeStateConfiguring:
@@ -514,8 +515,6 @@ func (s *Server) GetMachineStatus(_ context.Context, _ *pb.GetMachineStatusReque
 			pbResStatus.State = pb.ResourceStatus_STATE_READY
 		case resource.NodeStateRemoving:
 			pbResStatus.State = pb.ResourceStatus_STATE_REMOVING
-		default:
-			return nil, errors.New("resource in invalid state")
 		}
 
 		result.Resources = append(result.Resources, pbResStatus)

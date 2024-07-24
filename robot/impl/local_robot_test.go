@@ -20,7 +20,6 @@ import (
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.uber.org/zap"
-
 	// registers all components.
 	commonpb "go.viam.com/api/common/v1"
 	armpb "go.viam.com/api/component/arm/v1"
@@ -3623,6 +3622,7 @@ func TestMachineStatus(t *testing.T) {
 		)
 		rtestutils.VerifySameResourceStatuses(t, mStatus.Resources, expectedStatuses)
 
+		// Update motor config to cause reconfiguration to fail.
 		lr.Reconfigure(ctx, &config.Config{
 			Components: []resource.Config{
 				{
@@ -3683,12 +3683,12 @@ func TestMachineStatus(t *testing.T) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			lr_ := lr.(*localRobot)
+			llr := lr.(*localRobot)
 			for {
 				select {
 				case <-done:
 					return
-				case status := <-lr_.resourceStatusStream():
+				case status := <-llr.resourceStatusStream():
 					mu.Lock()
 					statuses = append(statuses, status)
 					mu.Unlock()
@@ -3696,7 +3696,6 @@ func TestMachineStatus(t *testing.T) {
 			}
 		}()
 
-		// Update robot with a series of component configuration:
 		// Add working motor.
 		lr.Reconfigure(ctx, &config.Config{
 			Components: []resource.Config{
