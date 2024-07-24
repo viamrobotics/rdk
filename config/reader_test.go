@@ -374,12 +374,7 @@ func TestProcessConfigRegistersLogConfig(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 	unprocessedConfig := Config{
 		ConfigFilePath: "path",
-		LogConfig: []logging.LoggerPatternConfig{
-			{
-				Pattern: "a.b.c.d",
-				Level:   "ERROR",
-			},
-		},
+		LogConfig:      []logging.LoggerPatternConfig{},
 		Services: []resource.Config{
 			{
 				Name:  "shell1",
@@ -391,11 +386,19 @@ func TestProcessConfigRegistersLogConfig(t *testing.T) {
 			},
 		},
 	}
+	resourceLoggerName := "rdk." + unprocessedConfig.Services[0].ResourceName().String()
+	logging.RegisterLogger(resourceLoggerName, logging.NewLogger(resourceLoggerName))
+
+	// create a conflict between pattern matching configurations and resource configurations
+	unprocessedConfig.LogConfig = append(unprocessedConfig.LogConfig, logging.LoggerPatternConfig{
+		Pattern: resourceLoggerName,
+		Level:   "ERROR",
+	})
 
 	expectedRegisteredCfg := []logging.LoggerPatternConfig{
 		unprocessedConfig.LogConfig[0],
 		{
-			Pattern: "rdk." + unprocessedConfig.Services[0].ResourceName().String(),
+			Pattern: resourceLoggerName,
 			Level:   "Warn",
 		},
 	}
@@ -403,4 +406,10 @@ func TestProcessConfigRegistersLogConfig(t *testing.T) {
 	_, err := processConfig(&unprocessedConfig, true, logger)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, expectedRegisteredCfg, test.ShouldResemble, logging.GetCurrentConfig())
+
+	// the resource log level configuration should be prioritized
+	logger, ok := logging.LoggerNamed(resourceLoggerName)
+	test.That(t, ok, test.ShouldBeTrue)
+	test.That(t, logger.GetLevel().String(), test.ShouldEqual, "Warn")
+	test.That(t, logging.DeregisterLogger(resourceLoggerName), test.ShouldBeTrue)
 }
