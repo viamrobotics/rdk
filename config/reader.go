@@ -615,23 +615,7 @@ func processConfig(unprocessedConfig *Config, fromCloud bool, logger logging.Log
 	// resources to have priority over pattern matching configurations in the case of conflicts, so we append
 	// the resource configurations to the end. This works because we process the entire log config in top-down order,
 	// so the pattern lowest in the config that matches a given logger name will set the level for the logger.
-	appendedLogCfg := make([]logging.LoggerPatternConfig, 0, len(cfg.LogConfig)+len(cfg.Services)+len(cfg.Components))
-	appendedLogCfg = append(appendedLogCfg, cfg.LogConfig...)
-	for _, serv := range cfg.Services {
-		resLogCfg := logging.LoggerPatternConfig{
-			Pattern: "rdk." + serv.ResourceName().String(),
-			Level:   serv.LogConfiguration.Level.String(),
-		}
-		appendedLogCfg = append(appendedLogCfg, resLogCfg)
-	}
-	for _, comp := range cfg.Components {
-		resLogCfg := logging.LoggerPatternConfig{
-			Pattern: "rdk." + comp.ResourceName().String(),
-			Level:   comp.LogConfiguration.Level.String(),
-		}
-		appendedLogCfg = append(appendedLogCfg, resLogCfg)
-	}
-
+	appendedLogCfg := combinePatternAndResourceLogConfig(cfg.LogConfig, cfg.Services, cfg.Components)
 	if err := logging.RegisterConfig(appendedLogCfg); err != nil {
 		return nil, err
 	}
@@ -642,6 +626,26 @@ func processConfig(unprocessedConfig *Config, fromCloud bool, logger logging.Log
 	}
 
 	return cfg, nil
+}
+
+func combinePatternAndResourceLogConfig(patternCfg []logging.LoggerPatternConfig, serviceCfg, componentCfg []resource.Config) []logging.LoggerPatternConfig {
+	appendedLogCfg := make([]logging.LoggerPatternConfig, 0, len(patternCfg)+len(serviceCfg)+len(componentCfg))
+	appendedLogCfg = append(appendedLogCfg, patternCfg...)
+	for _, serv := range serviceCfg {
+		resLogCfg := logging.LoggerPatternConfig{
+			Pattern: "rdk." + serv.ResourceName().String(),
+			Level:   serv.LogConfiguration.Level.String(),
+		}
+		appendedLogCfg = append(appendedLogCfg, resLogCfg)
+	}
+	for _, comp := range componentCfg {
+		resLogCfg := logging.LoggerPatternConfig{
+			Pattern: "rdk." + comp.ResourceName().String(),
+			Level:   comp.LogConfiguration.Level.String(),
+		}
+		appendedLogCfg = append(appendedLogCfg, resLogCfg)
+	}
+	return appendedLogCfg
 }
 
 // getFromCloudOrCache returns the config from the gRPC endpoint. If failures during cloud lookup fallback to the
