@@ -31,7 +31,7 @@ type gpioPin struct {
 	hwPwm                *pwmDevice // Defined in hw_pwm.go, will be nil for pins that don't support it.
 	pwmFreqHz            uint
 	pwmDutyCyclePct      float64
-	enableSoftwarePWM    bool // Indicates whether a software PWM loop should continue running
+	enableSoftwarePWM    bool     // Indicates whether a software PWM loop should continue running
 	startSoftwarePWMChan chan any // Close and reinitialize this to (re)start the SW PWM loop
 
 	softwarePwm rdkutils.StoppableWorkers
@@ -233,7 +233,7 @@ func (pin *gpioPin) startSoftwarePWM() error {
 	// Sneaky trick alert! We use startSoftwarePWMChan to tell the background worker to start up.
 	// However, we have acquired the mutex, and if the background worker was already started
 	// (because it had been started, another goroutine told it to stop, and we are running so
-	// soon after that that it hasn't yet noticed it should stop), it's possible the background
+	// soon afterwards that it hasn't yet noticed it should stop), it's possible the background
 	// worker is still running and is about to acquire the mutex. If we tried sending a message on
 	// the channel in that situation, we would deadlock (we would wait until something can read
 	// from the channel, and the only goroutine that can read from it would wait until the mutex is
