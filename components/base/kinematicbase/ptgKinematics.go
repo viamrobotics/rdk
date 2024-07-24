@@ -98,7 +98,10 @@ func wrapWithPTGKinematics(
 
 	geometries, err := b.Geometries(ctx, nil)
 	if len(geometries) == 0 || err != nil {
-		logger.CWarn(ctx, "base %s not configured with a geometry, will be considered a 300mm sphere for collision detection purposes.", b.Name().Name)
+		logger.CWarn(
+			ctx, "base %s not configured with a geometry, will be considered a 300mm sphere for collision detection purposes.",
+			b.Name().Name,
+		)
 		sphere, err := spatialmath.NewSphere(spatialmath.NewZeroPose(), 150., b.Name().Name)
 		if err != nil {
 			return nil, err
