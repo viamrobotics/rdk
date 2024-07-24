@@ -16,6 +16,8 @@ import (
 
 	"go.viam.com/rdk/config/testutils"
 	"go.viam.com/rdk/logging"
+	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/services/shell"
 )
 
 func TestFromReader(t *testing.T) {
@@ -378,9 +380,27 @@ func TestProcessConfigRegistersLogConfig(t *testing.T) {
 				Level:   "ERROR",
 			},
 		},
+		Services: []resource.Config{
+			{
+				Name:  "shell1",
+				API:   shell.API,
+				Model: resource.DefaultServiceModel,
+				LogConfiguration: resource.LogConfig{
+					Level: logging.WARN,
+				},
+			},
+		},
 	}
 
-	cfg, err := processConfig(&unprocessedConfig, true, logger)
+	expectedRegisteredCfg := []logging.LoggerPatternConfig{
+		unprocessedConfig.LogConfig[0],
+		{
+			Pattern: "rdk." + unprocessedConfig.Services[0].ResourceName().String(),
+			Level:   "Warn",
+		},
+	}
+
+	_, err := processConfig(&unprocessedConfig, true, logger)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, cfg.LogConfig, test.ShouldResemble, logging.GetCurrentConfig())
+	test.That(t, expectedRegisteredCfg, test.ShouldResemble, logging.GetCurrentConfig())
 }
