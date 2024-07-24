@@ -385,21 +385,45 @@ func TestProcessConfigRegistersLogConfig(t *testing.T) {
 				},
 			},
 		},
+		Components: []resource.Config{
+			{
+				Name:  "helper1",
+				API:   shell.API,
+				Model: resource.NewModel("rdk", "test", "helper"),
+				LogConfiguration: resource.LogConfig{
+					Level: logging.DEBUG,
+				},
+			},
+		},
 	}
-	resourceLoggerName := "rdk." + unprocessedConfig.Services[0].ResourceName().String()
-	logging.RegisterLogger(resourceLoggerName, logging.NewLogger(resourceLoggerName))
+	serviceLoggerName := "rdk." + unprocessedConfig.Services[0].ResourceName().String()
+	componentLoggerName := "rdk." + unprocessedConfig.Components[0].ResourceName().String()
+
+	logging.RegisterLogger(serviceLoggerName, logging.NewLogger(serviceLoggerName))
+	logging.RegisterLogger(componentLoggerName, logging.NewLogger(componentLoggerName))
 
 	// create a conflict between pattern matching configurations and resource configurations
-	unprocessedConfig.LogConfig = append(unprocessedConfig.LogConfig, logging.LoggerPatternConfig{
-		Pattern: resourceLoggerName,
-		Level:   "ERROR",
-	})
+	unprocessedConfig.LogConfig = append(unprocessedConfig.LogConfig,
+		logging.LoggerPatternConfig{
+			Pattern: serviceLoggerName,
+			Level:   "ERROR",
+		},
+		logging.LoggerPatternConfig{
+			Pattern: componentLoggerName,
+			Level:   "ERROR",
+		},
+	)
 
 	expectedRegisteredCfg := []logging.LoggerPatternConfig{
 		unprocessedConfig.LogConfig[0],
+		unprocessedConfig.LogConfig[1],
 		{
-			Pattern: resourceLoggerName,
+			Pattern: serviceLoggerName,
 			Level:   "Warn",
+		},
+		{
+			Pattern: componentLoggerName,
+			Level:   "Debug",
 		},
 	}
 
@@ -407,9 +431,14 @@ func TestProcessConfigRegistersLogConfig(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, expectedRegisteredCfg, test.ShouldResemble, logging.GetCurrentConfig())
 
-	// the resource log level configuration should be prioritized
-	logger, ok := logging.LoggerNamed(resourceLoggerName)
+	// the resource log level configurations should be prioritized
+	logger, ok := logging.LoggerNamed(serviceLoggerName)
 	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, logger.GetLevel().String(), test.ShouldEqual, "Warn")
-	test.That(t, logging.DeregisterLogger(resourceLoggerName), test.ShouldBeTrue)
+	test.That(t, logging.DeregisterLogger(serviceLoggerName), test.ShouldBeTrue)
+
+	logger, ok = logging.LoggerNamed(componentLoggerName)
+	test.That(t, ok, test.ShouldBeTrue)
+	test.That(t, logger.GetLevel().String(), test.ShouldEqual, "Debug")
+	test.That(t, logging.DeregisterLogger(componentLoggerName), test.ShouldBeTrue)
 }
