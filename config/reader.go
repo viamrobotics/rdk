@@ -615,7 +615,7 @@ func processConfig(unprocessedConfig *Config, fromCloud bool, logger logging.Log
 	// resources to have priority over pattern matching configurations in the case of conflicts, so we append
 	// the resource configurations to the end. This works because we process the entire log config in top-down order,
 	// so the pattern lowest in the config that matches a given logger name will set the level for the logger.
-	appendedLogCfg := combinePatternAndResourceLogConfig(cfg.LogConfig, cfg.Services, cfg.Components)
+	appendedLogCfg := combineLogConfigs(cfg.LogConfig, cfg.Services, cfg.Components)
 	if err := logging.RegisterConfig(appendedLogCfg); err != nil {
 		return nil, err
 	}
@@ -628,7 +628,8 @@ func processConfig(unprocessedConfig *Config, fromCloud bool, logger logging.Log
 	return cfg, nil
 }
 
-func combinePatternAndResourceLogConfig(patternCfg []logging.LoggerPatternConfig, serviceCfg, componentCfg []resource.Config) []logging.LoggerPatternConfig {
+// combines the pattern and resource configs into a single array of LoggerPatternConfig objects.
+func combineLogConfigs(patternCfg []logging.LoggerPatternConfig, serviceCfg, componentCfg []resource.Config) []logging.LoggerPatternConfig {
 	appendedLogCfg := make([]logging.LoggerPatternConfig, 0, len(patternCfg)+len(serviceCfg)+len(componentCfg))
 	appendedLogCfg = append(appendedLogCfg, patternCfg...)
 	for _, serv := range serviceCfg {
