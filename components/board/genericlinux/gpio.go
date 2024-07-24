@@ -322,11 +322,9 @@ func (pin *gpioPin) softwarePwmLoop(ctx context.Context) {
 		// it, and we might be running on a board with a small enough CPU that pointer assignment
 		// is not atomic. Lock the mutex when getting a copy of the channel, so we don't
 		// accidentally get half a pointer to an old one and half a pointer to a new one.
-		startSoftwarePWMChan := func() chan any {
-			pin.mu.Lock()
-			defer pin.mu.Unlock()
-			return pin.startSoftwarePWMChan
-		}()
+		pin.mu.Lock()
+		startSoftwarePWMChan := pin.startSoftwarePWMChan
+		pin.mu.Unlock()
 
 		select {
 		case <-ctx.Done():
