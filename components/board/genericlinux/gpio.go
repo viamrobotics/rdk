@@ -318,10 +318,20 @@ func (pin *gpioPin) halfPwmCycle(ctx context.Context, shouldBeOn bool) bool {
 
 func (pin *gpioPin) softwarePwmLoop(ctx context.Context) {
 	for {
+		// It's possible another goroutine has closed startSoftwarePWMCHan and is reinitializing
+		// it, and we might be running on a board with a small enough CPU that pointer assignment
+		// is not atomic. Lock the mutex when getting a copy of the channel, so we don't
+		// accidentally get half a pointer to an old one and half a pointer to a new one.
+		startSoftwarePWMChan := func() chan any {
+			pin.mu.Lock()
+			defer pin.mu.Unlock()
+			return pin.startSoftwarePWMChan
+		}()
+
 		select {
 		case <-ctx.Done():
 			return
-		case <-pin.startSoftwarePWMChan:
+		case <-startSoftwarePWMChan:
 		}
 		for {
 			if !pin.halfPwmCycle(ctx, true) {
