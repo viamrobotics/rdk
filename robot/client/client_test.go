@@ -2095,36 +2095,83 @@ func TestUnregisteredResourceByName(t *testing.T) {
 }
 
 func TestMachineStatus(t *testing.T) {
-	logger := logging.NewTestLogger(t)
-	listener, err := net.Listen("tcp", "localhost:0")
-	test.That(t, err, test.ShouldBeNil)
-	gServer := grpc.NewServer()
-
-	// TODO: add non-empty resource responses
-	injectMachineStatus := robot.MachineStatus{Resources: []resource.Status{}}
-	injectRobot := &inject.Robot{
-		ResourceNamesFunc:   func() []resource.Name { return nil },
-		ResourceRPCAPIsFunc: func() []resource.RPCAPI { return nil },
-		MachineStatusFunc: func() (robot.MachineStatus, error) {
-			return injectMachineStatus, nil
+	for _, tc := range []struct {
+		name                string
+		errExpectation      func(actual interface{}, expected ...interface{}) string
+		injectMachineStatus robot.MachineStatus
+	}{
+		{
+			"no resources",
+			test.ShouldBeNil,
+			robot.MachineStatus{Resources: []resource.Status{}},
 		},
+		{
+			"resource with unknown status",
+			test.ShouldNotBeNil,
+			robot.MachineStatus{Resources: []resource.Status{
+				{
+					Name: arm.Named("badArm"),
+				},
+			}},
+		},
+		{
+			"resource with valid status",
+			test.ShouldBeNil,
+			robot.MachineStatus{Resources: []resource.Status{
+				{
+					Name:  arm.Named("goodArm"),
+					State: resource.NodeStateConfiguring,
+				},
+			}},
+		},
+		{
+			"resources with mixed valid and invalid statuses",
+			test.ShouldNotBeNil,
+			robot.MachineStatus{Resources: []resource.Status{
+				{
+					Name:  arm.Named("goodArm"),
+					State: resource.NodeStateConfiguring,
+				},
+				{
+					Name: arm.Named("badArm"),
+				},
+			}},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+
+			logger := logging.NewTestLogger(t)
+			listener, err := net.Listen("tcp", "localhost:0")
+			test.That(t, err, test.ShouldBeNil)
+			gServer := grpc.NewServer()
+
+			injectRobot := &inject.Robot{
+				ResourceNamesFunc:   func() []resource.Name { return nil },
+				ResourceRPCAPIsFunc: func() []resource.RPCAPI { return nil },
+				MachineStatusFunc: func() (robot.MachineStatus, error) {
+					return tc.injectMachineStatus, nil
+				},
+			}
+			// TODO(RSDK-882): will update this so that this is not necessary
+			injectRobot.FrameSystemConfigFunc = func(ctx context.Context) (*framesystem.Config, error) {
+				return &framesystem.Config{}, nil
+			}
+			pb.RegisterRobotServiceServer(gServer, server.New(injectRobot))
+
+			go gServer.Serve(listener)
+			defer gServer.Stop()
+
+			client, err := New(context.Background(), listener.Addr().String(), logger)
+			test.That(t, err, test.ShouldBeNil)
+			defer func() {
+				test.That(t, client.Close(context.Background()), test.ShouldBeNil)
+			}()
+
+			md, err := client.MachineStatus()
+			test.That(t, err, tc.errExpectation)
+			if err == nil {
+				test.That(t, md, test.ShouldResemble, tc.injectMachineStatus)
+			}
+		})
 	}
-	// TODO(RSDK-882): will update this so that this is not necessary
-	injectRobot.FrameSystemConfigFunc = func(ctx context.Context) (*framesystem.Config, error) {
-		return &framesystem.Config{}, nil
-	}
-	pb.RegisterRobotServiceServer(gServer, server.New(injectRobot))
-
-	go gServer.Serve(listener)
-	defer gServer.Stop()
-
-	client, err := New(context.Background(), listener.Addr().String(), logger)
-	test.That(t, err, test.ShouldBeNil)
-	defer func() {
-		test.That(t, client.Close(context.Background()), test.ShouldBeNil)
-	}()
-
-	md, err := client.MachineStatus()
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, md, test.ShouldResemble, injectMachineStatus)
 }

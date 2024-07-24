@@ -75,16 +75,74 @@ func TestServer(t *testing.T) {
 	})
 
 	t.Run("GetMachineStatus", func(t *testing.T) {
-		injectRobot := &inject.Robot{}
-		server := server.New(injectRobot)
-		req := pb.GetMachineStatusRequest{}
-		// TODO: add responses with resources
-		injectRobot.MachineStatusFunc = func() (robot.MachineStatus, error) {
-			return robot.MachineStatus{Resources: []resource.Status{}}, nil
+		for _, tc := range []struct {
+			name                string
+			errExpectation      func(actual interface{}, expected ...interface{}) string
+			injectMachineStatus robot.MachineStatus
+			expResources        []*pb.ResourceStatus
+		}{
+			{
+				"no resources",
+				test.ShouldBeNil,
+				robot.MachineStatus{Resources: []resource.Status{}},
+				[]*pb.ResourceStatus{},
+			},
+			{
+				"resource with unknown status",
+				test.ShouldNotBeNil,
+				robot.MachineStatus{Resources: []resource.Status{
+					{
+						Name: arm.Named("badArm"),
+					},
+				}},
+				nil, // doesn't matter
+			},
+			{
+				"resource with valid status",
+				test.ShouldBeNil,
+				robot.MachineStatus{Resources: []resource.Status{
+					{
+						Name:  arm.Named("goodArm"),
+						State: resource.NodeStateConfiguring,
+					},
+				}},
+				[]*pb.ResourceStatus{
+					{
+						Name:  protoutils.ResourceNameToProto(arm.Named("goodArm")),
+						State: pb.ResourceStatus_STATE_CONFIGURING,
+					},
+				},
+			},
+			{
+				"resources with mixed valid and invalid statuses",
+				test.ShouldNotBeNil,
+				robot.MachineStatus{Resources: []resource.Status{
+					{
+						Name:  arm.Named("goodArm"),
+						State: resource.NodeStateConfiguring,
+					},
+					{
+						Name: arm.Named("badArm"),
+					},
+				}},
+				nil, // doesn't matter
+			},
+		} {
+			injectRobot := &inject.Robot{}
+			server := server.New(injectRobot)
+			req := pb.GetMachineStatusRequest{}
+			injectRobot.MachineStatusFunc = func() (robot.MachineStatus, error) {
+				return tc.injectMachineStatus, nil
+			}
+			resp, err := server.GetMachineStatus(context.Background(), &req)
+			test.That(t, err, tc.errExpectation)
+			if err == nil {
+				for i, res := range resp.GetResources() {
+					test.That(t, res.GetName(), test.ShouldResemble, tc.expResources[i].Name)
+					test.That(t, res.GetState(), test.ShouldResemble, tc.expResources[i].State)
+				}
+			}
 		}
-		resp, err := server.GetMachineStatus(context.Background(), &req)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, resp.GetResources(), test.ShouldResemble, []*pb.ResourceStatus{})
 	})
 
 	t.Run("GetCloudMetadata", func(t *testing.T) {
