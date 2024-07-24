@@ -10,6 +10,7 @@ type loggerRegistry struct {
 	loggers map[string]Logger
 }
 
+// TODO(RSDK-8250): convert loggerManager from global variable to variable on local robot.
 var loggerManager = newLoggerManager()
 
 func newLoggerManager() *loggerRegistry {
@@ -24,11 +25,21 @@ func (lr *loggerRegistry) registerLogger(name string, logger Logger) {
 	lr.loggers[name] = logger
 }
 
+func (lr *loggerRegistry) deregisterLogger(name string) bool {
+	lr.mu.Lock()
+	defer lr.mu.Unlock()
+	_, ok := lr.loggers[name]
+	if ok {
+		delete(lr.loggers, name)
+	}
+	return ok
+}
+
 func (lr *loggerRegistry) loggerNamed(name string) (logger Logger, ok bool) {
 	lr.mu.RLock()
 	defer lr.mu.RUnlock()
 	logger, ok = lr.loggers[name]
-	return logger, ok
+	return
 }
 
 func (lr *loggerRegistry) updateLoggerLevel(name string, level Level) error {
@@ -40,4 +51,41 @@ func (lr *loggerRegistry) updateLoggerLevel(name string, level Level) error {
 	}
 	logger.SetLevel(level)
 	return nil
+}
+
+func (lr *loggerRegistry) getRegisteredLoggerNames() []string {
+	lr.mu.RLock()
+	defer lr.mu.RUnlock()
+	registeredNames := make([]string, 0, len(loggerManager.loggers))
+	for name := range lr.loggers {
+		registeredNames = append(registeredNames, name)
+	}
+	return registeredNames
+}
+
+// Exported Functions specifically for use on global logger manager.
+
+// RegisterLogger registers a new logger with a given name.
+func RegisterLogger(name string, logger Logger) {
+	loggerManager.registerLogger(name, logger)
+}
+
+// DeregisterLogger attempts to remove a logger from the registry and returns a boolean denoting whether it succeeded.
+func DeregisterLogger(name string) bool {
+	return loggerManager.deregisterLogger(name)
+}
+
+// LoggerNamed returns logger with specified name if exists.
+func LoggerNamed(name string) (logger Logger, ok bool) {
+	return loggerManager.loggerNamed(name)
+}
+
+// UpdateLoggerLevel assigns level to appropriate logger in the registry.
+func UpdateLoggerLevel(name string, level Level) error {
+	return loggerManager.updateLoggerLevel(name, level)
+}
+
+// GetRegisteredLoggerNames returns the names of all loggers in the registry.
+func GetRegisteredLoggerNames() []string {
+	return loggerManager.getRegisteredLoggerNames()
 }

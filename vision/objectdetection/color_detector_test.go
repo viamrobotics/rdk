@@ -40,15 +40,11 @@ func TestColorDetector(t *testing.T) {
 
 	cfg.ValueCutoff = 1.
 	_, err = NewColorDetector(cfg)
-	test.That(t, err, test.ShouldBeError,
-		errors.New("the chosen color to detect has a saturation of 0.73333 which is less than saturation_cutoff_pct 1.00000"),
-	)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "too unsaturated")
 
 	cfg.SaturationCutoff = 0.2
 	_, err = NewColorDetector(cfg)
-	test.That(t, err, test.ShouldBeError,
-		errors.New("the chosen color to detect has a value of 0.30980 which is less than value_cutoff_pct 1.00000"),
-	)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "too dark")
 
 	cfg.ValueCutoff = 0.3
 	cfg.DetectColorString = "#000000" // black

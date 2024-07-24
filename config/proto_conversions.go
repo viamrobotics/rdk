@@ -936,7 +936,7 @@ func logAnyFragmentOverwriteErrors(logger logging.Logger, overwriteFragmentStatu
 }
 
 // LogConfigToProto converts a LoggerPatternConfig type to its proto equivalent.
-func LogConfigToProto(logConfig *LoggerPatternConfig) (*pb.LogPatternConfig, error) {
+func LogConfigToProto(logConfig *logging.LoggerPatternConfig) (*pb.LogPatternConfig, error) {
 	return &pb.LogPatternConfig{
 		Pattern: logConfig.Pattern,
 		Level:   logConfig.Level,
@@ -944,8 +944,8 @@ func LogConfigToProto(logConfig *LoggerPatternConfig) (*pb.LogPatternConfig, err
 }
 
 // LogConfigFromProto converts a proto LoggerPatternConfig to the rdk version.
-func LogConfigFromProto(proto *pb.LogPatternConfig) (*LoggerPatternConfig, error) {
-	return &LoggerPatternConfig{
+func LogConfigFromProto(proto *pb.LogPatternConfig) (*logging.LoggerPatternConfig, error) {
+	return &logging.LoggerPatternConfig{
 		Pattern: proto.Pattern,
 		Level:   proto.Level,
 	}, nil

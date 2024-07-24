@@ -30,12 +30,12 @@ func (sb *sensorBase) SetVelocity(
 			return err
 		}
 	}
-	sb.loop.Resume()
 
 	// convert linear.Y mmPerSec to mPerSec, angular.Z is degPerSec
 	if err := sb.updateControlConfig(ctx, linear.Y/1000.0, angular.Z); err != nil {
 		return err
 	}
+	sb.loop.Resume()
 
 	return nil
 }

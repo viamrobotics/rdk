@@ -68,7 +68,7 @@ func NewLogger(name string) Logger {
 		testHelper: func() {},
 	}
 
-	loggerManager.registerLogger(name, logger)
+	RegisterLogger(name, logger)
 	return logger
 }
 
@@ -81,7 +81,7 @@ func NewDebugLogger(name string) Logger {
 		testHelper: func() {},
 	}
 
-	loggerManager.registerLogger(name, logger)
+	RegisterLogger(name, logger)
 	return logger
 }
 
@@ -95,7 +95,7 @@ func NewBlankLogger(name string) Logger {
 		testHelper: func() {},
 	}
 
-	loggerManager.registerLogger(name, logger)
+	RegisterLogger(name, logger)
 	return logger
 }
 
