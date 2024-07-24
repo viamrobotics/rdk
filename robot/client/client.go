@@ -1027,6 +1027,7 @@ func (rc *RobotClient) MachineStatus() (robot.MachineStatus, error) {
 		return mStatus, err
 	}
 
+	mStatus.Resources = make([]resource.Status, 0, len(resp.Resources))
 	for _, pbResStatus := range resp.Resources {
 		resStatus := resource.Status{
 			Name:        rprotoutils.ResourceNameFromProto(pbResStatus.Name),

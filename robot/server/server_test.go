@@ -74,6 +74,19 @@ func TestServer(t *testing.T) {
 		test.That(t, resourceResp.Resources, test.ShouldResemble, serverOneResourceResponse)
 	})
 
+	t.Run("GetMachineStatus", func(t *testing.T) {
+		injectRobot := &inject.Robot{}
+		server := server.New(injectRobot)
+		req := pb.GetMachineStatusRequest{}
+		// TODO: add responses with resources
+		injectRobot.MachineStatusFunc = func() (robot.MachineStatus, error) {
+			return robot.MachineStatus{Resources: []resource.Status{}}, nil
+		}
+		resp, err := server.GetMachineStatus(context.Background(), &req)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, resp.GetResources(), test.ShouldResemble, []*pb.ResourceStatus{})
+	})
+
 	t.Run("GetCloudMetadata", func(t *testing.T) {
 		injectRobot := &inject.Robot{}
 		server := server.New(injectRobot)

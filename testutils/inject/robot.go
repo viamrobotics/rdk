@@ -49,6 +49,7 @@ type Robot struct {
 	StatusFunc              func(ctx context.Context, resourceNames []resource.Name) ([]robot.Status, error)
 	ModuleAddressFunc       func() (string, error)
 	CloudMetadataFunc       func(ctx context.Context) (cloud.Metadata, error)
+	MachineStatusFunc       func() (robot.MachineStatus, error)
 	ShutdownFunc            func(ctx context.Context) error
 
 	ops        *operation.Manager
@@ -293,6 +294,16 @@ func (r *Robot) CloudMetadata(ctx context.Context) (cloud.Metadata, error) {
 		return r.LocalRobot.CloudMetadata(ctx)
 	}
 	return r.CloudMetadataFunc(ctx)
+}
+
+// MachineStatus calls the injected MachineStatus or the real one.
+func (r *Robot) MachineStatus() (robot.MachineStatus, error) {
+	r.Mu.RLock()
+	defer r.Mu.RUnlock()
+	if r.MachineStatusFunc == nil {
+		return r.LocalRobot.MachineStatus()
+	}
+	return r.MachineStatusFunc()
 }
 
 // Shutdown calls the injected Shutdown or the real one.
