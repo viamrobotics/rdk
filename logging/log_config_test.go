@@ -18,7 +18,7 @@ func verifySetLevels(registry *loggerRegistry, expectedMatches map[string]string
 }
 
 func createTestRegistry(loggerNames []string) *loggerRegistry {
-	manager := newLoggerManager()
+	manager := newLoggerRegistry()
 	for _, name := range loggerNames {
 		manager.registerLogger(name, NewLogger(name))
 	}

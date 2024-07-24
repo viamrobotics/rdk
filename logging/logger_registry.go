@@ -14,9 +14,9 @@ type loggerRegistry struct {
 }
 
 // TODO(RSDK-8250): convert loggerManager from global variable to variable on local robot.
-var loggerManager = newLoggerManager()
+var globalLoggerRegistry = newLoggerRegistry()
 
-func newLoggerManager() *loggerRegistry {
+func newLoggerRegistry() *loggerRegistry {
 	return &loggerRegistry{
 		loggers: make(map[string]Logger),
 	}
@@ -112,7 +112,7 @@ func (lr *loggerRegistry) updateLoggerRegistry(logConfig []LoggerPatternConfig) 
 func (lr *loggerRegistry) getRegisteredLoggerNames() []string {
 	lr.mu.RLock()
 	defer lr.mu.RUnlock()
-	registeredNames := make([]string, 0, len(loggerManager.loggers))
+	registeredNames := make([]string, 0, len(globalLoggerRegistry.loggers))
 	for name := range lr.loggers {
 		registeredNames = append(registeredNames, name)
 	}
@@ -136,40 +136,40 @@ func (lr *loggerRegistry) getCurrentConfig() []LoggerPatternConfig {
 
 // RegisterLogger registers a new logger with a given name.
 func RegisterLogger(name string, logger Logger) {
-	loggerManager.registerLogger(name, logger)
+	globalLoggerRegistry.registerLogger(name, logger)
 }
 
 // DeregisterLogger attempts to remove a logger from the registry and returns a boolean denoting whether it succeeded.
 func DeregisterLogger(name string) bool {
-	return loggerManager.deregisterLogger(name)
+	return globalLoggerRegistry.deregisterLogger(name)
 }
 
 // LoggerNamed returns logger with specified name if exists.
 func LoggerNamed(name string) (logger Logger, ok bool) {
-	return loggerManager.loggerNamed(name)
+	return globalLoggerRegistry.loggerNamed(name)
 }
 
 // UpdateLoggerLevel assigns level to appropriate logger in the registry.
 func UpdateLoggerLevel(name string, level Level) error {
-	return loggerManager.updateLoggerLevel(name, level)
+	return globalLoggerRegistry.updateLoggerLevel(name, level)
 }
 
 // GetRegisteredLoggerNames returns the names of all loggers in the registry.
 func GetRegisteredLoggerNames() []string {
-	return loggerManager.getRegisteredLoggerNames()
+	return globalLoggerRegistry.getRegisteredLoggerNames()
 }
 
 // RegisterConfig atomically stores the current known logger config in the registry, and updates all registered loggers.
 func RegisterConfig(logConfig []LoggerPatternConfig) error {
-	return loggerManager.registerConfig(logConfig)
+	return globalLoggerRegistry.registerConfig(logConfig)
 }
 
 // UpdateLoggerLevelWithCfg matches the desired logger to all patterns in the registry and updates its level.
 func UpdateLoggerLevelWithCfg(name string) error {
-	return loggerManager.updateLoggerLevelWithCfg(name)
+	return globalLoggerRegistry.updateLoggerLevelWithCfg(name)
 }
 
 // GetCurrentConfig returns the logger config currently being used by the registry.
 func GetCurrentConfig() []LoggerPatternConfig {
-	return loggerManager.getCurrentConfig()
+	return globalLoggerRegistry.getCurrentConfig()
 }

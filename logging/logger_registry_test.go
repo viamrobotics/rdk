@@ -14,11 +14,11 @@ var (
 )
 
 func mockRegistry() *loggerRegistry {
-	manager := newLoggerManager()
+	manager := newLoggerRegistry()
 	manager.registerLogger("logger-1", l1)
 	manager.registerLogger("logger-2", l2)
 	l3.Sublogger("sublogger-1")
-	loggerManager = manager
+	globalLoggerRegistry = manager
 	return manager
 }
 

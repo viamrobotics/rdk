@@ -610,6 +610,11 @@ func processConfig(unprocessedConfig *Config, fromCloud bool, logger logging.Log
 		}
 	}
 
+	// pattern match configurations and resource log level configurations are both necessary for the logger registry
+	// to identify the appropriate level for each newly registered logger. We want logger configurations applied to
+	// resources to have priority over pattern matching configurations in the case of conflicts, so we append
+	// the resource configurations to the end. This works because we process the entire log config in top-down order,
+	// so the pattern lowest in the config that matches a given logger name will set the level for the logger.
 	appendedLogCfg := make([]logging.LoggerPatternConfig, 0, len(cfg.LogConfig)+len(cfg.Services)+len(cfg.Components))
 	appendedLogCfg = append(appendedLogCfg, cfg.LogConfig...)
 	for _, serv := range cfg.Services {
