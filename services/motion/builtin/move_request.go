@@ -183,6 +183,7 @@ func (mr *moveRequest) deviatedFromPlan(ctx context.Context, plan motionplan.Pla
 // getTransientDetections returns a list of geometries as observed by the provided vision service and camera.
 // Depending on the caller, the geometries returned are either in their relative position
 // with respect to the base or in their absolute position with respect to the world.
+// TODO(RSDK-8340): Explore usefulness of pointcloud instead of spatialmath.Geometry.
 func (mr *moveRequest) getTransientDetections(
 	ctx context.Context,
 	visSrvc vision.Service,
@@ -552,9 +553,14 @@ func (ms *builtIn) newMoveOnGlobeRequest(
 	if !ok {
 		return nil, resource.DependencyNotFoundError(req.MovementSensorName)
 	}
-	origin, _, err := movementSensor.Position(ctx, nil)
-	if err != nil {
-		return nil, err
+
+	// if we have some previous origin we've already recorded,
+	// use that instead of resetting the origin
+	if ms.globeOrigin == nil {
+		ms.globeOrigin, _, err = movementSensor.Position(ctx, nil)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	heading, err := movementSensor.CompassHeading(ctx, nil)
@@ -570,7 +576,7 @@ func (ms *builtIn) newMoveOnGlobeRequest(
 		movementSensorToBase = baseOrigin
 	}
 	// Create a localizer from the movement sensor, and collapse reported orientations to 2d
-	localizer := motion.TwoDLocalizer(motion.NewMovementSensorLocalizer(movementSensor, origin, movementSensorToBase.Pose()))
+	localizer := motion.TwoDLocalizer(motion.NewMovementSensorLocalizer(movementSensor, ms.globeOrigin, movementSensorToBase.Pose()))
 
 	// create a KinematicBase from the componentName
 	baseComponent, ok := ms.components[req.ComponentName]
@@ -590,7 +596,7 @@ func (ms *builtIn) newMoveOnGlobeRequest(
 	// Important: GeoPointToPose will create a pose such that incrementing latitude towards north increments +Y, and incrementing
 	// longitude towards east increments +X. Heading is not taken into account. This pose must therefore be transformed based on the
 	// orientation of the base such that it is a pose relative to the base's current location.
-	goalPoseRaw := spatialmath.NewPoseFromPoint(spatialmath.GeoPointToPoint(req.Destination, origin))
+	goalPoseRaw := spatialmath.NewPoseFromPoint(spatialmath.GeoPointToPoint(req.Destination, ms.globeOrigin))
 	// construct limits
 	straightlineDistance := goalPoseRaw.Point().Norm()
 	if straightlineDistance > maxTravelDistanceMM {
@@ -610,10 +616,10 @@ func (ms *builtIn) newMoveOnGlobeRequest(
 	}
 
 	// convert obstacles of type []GeoGeometry into []Geometry
-	geomsRaw := spatialmath.GeoGeometriesToGeometries(obstacles, origin)
+	geomsRaw := spatialmath.GeoGeometriesToGeometries(obstacles, ms.globeOrigin)
 
 	// convert bounding regions which are GeoGeometries into Geometries
-	boundingRegions := spatialmath.GeoGeometriesToGeometries(req.BoundingRegions, origin)
+	boundingRegions := spatialmath.GeoGeometriesToGeometries(req.BoundingRegions, ms.globeOrigin)
 
 	mr, err := ms.createBaseMoveRequest(
 		ctx,
@@ -631,7 +637,7 @@ func (ms *builtIn) newMoveOnGlobeRequest(
 	mr.seedPlan = seedPlan
 	mr.replanCostFactor = valExtra.replanCostFactor
 	mr.requestType = requestTypeMoveOnGlobe
-	mr.geoPoseOrigin = spatialmath.NewGeoPose(origin, heading)
+	mr.geoPoseOrigin = spatialmath.NewGeoPose(ms.globeOrigin, heading)
 	mr.planRequest.BoundingRegions = boundingRegions
 	return mr, nil
 }
@@ -799,21 +805,12 @@ func (ms *builtIn) createBaseMoveRequest(
 		}
 	}
 
-	// We create a wrapperFrame and a collision framesystem so that we may place
-	// observed transient obstacles in their absolute position in the world frame.
-	// The collision framesystem is used by CheckPlan so that we may solely rely on
-	// referenceframe.Input information to position ourselves correctly in the world.
+	// We create a wrapperFrame so that we may place observed transient obstacles in
+	// their absolute position in the world frame. The collision framesystem is used
+	// by CheckPlan so that we may solely rely on referenceframe.Input information
+	// to position ourselves correctly in the world.
 	executionFrame := kb.Kinematics()
 	localizationFrame := kb.LocalizationFrame()
-	wrapperFS := referenceframe.NewEmptyFrameSystem("wrapperFS")
-	err = wrapperFS.AddFrame(localizationFrame, wrapperFS.World())
-	if err != nil {
-		return nil, err
-	}
-	err = wrapperFS.AddFrame(executionFrame, localizationFrame)
-	if err != nil {
-		return nil, err
-	}
 	wf, err := newWrapperFrame(localizationFrame, executionFrame)
 	if err != nil {
 		return nil, err
