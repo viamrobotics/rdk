@@ -307,6 +307,15 @@ type anotherResource struct {
 }
 
 // Close calls the injected Close or the real version.
+func (a *anotherResource) Name() resource.Name {
+	return resource.Name{
+		Name:   "anotherOne",
+		API:    resource.APINamespaceRDK.WithComponentType("mock"),
+		Remote: "",
+	}
+}
+
+// Close calls the injected Close or the real version.
 func (a *anotherResource) Close(ctx context.Context) error {
 	if a.CloseFunc == nil {
 		return errors.New("oops")
