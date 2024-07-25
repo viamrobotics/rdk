@@ -57,7 +57,7 @@ func newSortedResourceNames(resourceNames []resource.Name) []resource.Name {
 }
 
 // VerifySameResourceNames asserts that two slices of resource.Names contain the same
-// elements without considering order.
+// resources.Names without considering order.
 func VerifySameResourceNames(tb testing.TB, actual, expected []resource.Name) {
 	tb.Helper()
 
