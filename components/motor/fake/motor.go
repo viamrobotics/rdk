@@ -50,14 +50,10 @@ type Config struct {
 	MaxRPM           float64   `json:"max_rpm,omitempty"`
 	TicksPerRotation int       `json:"ticks_per_rotation,omitempty"`
 	DirectionFlip    bool      `json:"direction_flip,omitempty"`
-	Fail             bool      `json:"fail,omitempty"`
 }
 
 // Validate ensures all parts of the config are valid.
 func (cfg *Config) Validate(path string) ([]string, error) {
-	if cfg.Fail {
-		return nil, errors.New("whoops")
-	}
 	var deps []string
 	if cfg.BoardName != "" {
 		deps = append(deps, cfg.BoardName)
