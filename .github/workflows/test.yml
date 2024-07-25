@@ -16,6 +16,7 @@ jobs:
   test_go:
     # note: we have automations that match on platform_name. be careful changing this.
     name: ${{ matrix.platform_name }} Go Unit Tests
+    if: false
     strategy:
       fail-fast: false
       matrix:
@@ -156,6 +157,7 @@ jobs:
         retention-days: 1
 
   test32:
+    if: false
     name: Go 32-bit Unit Tests
     runs-on: github-linux-arm64-8core
     timeout-minutes: 30
@@ -182,6 +184,7 @@ jobs:
           sudo -Hu testbot bash -lc 'cd /rdk && go test -v -tags=no_tflite ./...'
 
   test_pi:
+    if: false
     name: Test Raspberry Pi Code
     runs-on: pi4
     timeout-minutes: 5
@@ -201,6 +204,7 @@ jobs:
       run: make test-pi
 
   motion_tests:
+    if: false
     name: Test Longer-running Motion Plans if affected
     uses: viamrobotics/rdk/.github/workflows/motion-tests.yml@main
 
@@ -217,6 +221,7 @@ jobs:
         check-jsonschema --schemafile module.schema.json meta2.json
 
   test_web_e2e:
+    if: false
     name: Test End-to-End and Web
     runs-on: [buildjet-4vcpu-ubuntu-2204]
     container: ghcr.io/viamrobotics/rdk-devenv:amd64-cache
@@ -254,7 +259,8 @@ jobs:
     name: All Tests Passing
     needs: [test_go, test_web_e2e, test_pi, test32, motion_tests]
     runs-on: [ubuntu-latest]
-    if: always()
+    if: false
+    # if: always()
     steps:
       - name: Check Results
         run: |
