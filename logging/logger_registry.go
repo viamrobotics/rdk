@@ -83,7 +83,10 @@ func (lr *loggerRegistry) updateLoggerLevel(name string, level Level) error {
 
 func (lr *loggerRegistry) updateLoggerRegistry(logConfig []LoggerPatternConfig) error {
 	for _, name := range lr.getRegisteredLoggerNames() {
-		lr.updateLoggerLevel(name, INFO)
+		err := lr.updateLoggerLevel(name, INFO)
+		if err != nil {
+			return nil
+		}
 	}
 	for _, lpc := range logConfig {
 		if !validatePattern(lpc.Pattern) {
