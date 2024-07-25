@@ -946,7 +946,7 @@ var app = &cli.App{
 										},
 										&cli.StringFlag{
 											Name:     mlTrainingFlagName,
-											Usage:    "registry name of the ML training script to use for training",
+											Usage:    "registry name of the ML training script to use for training, which should be formatted as prefix:itemname where prefix is either the org ID or the namespace.",
 											Required: true,
 										},
 										&cli.StringFlag{
