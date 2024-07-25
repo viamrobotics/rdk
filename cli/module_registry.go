@@ -70,6 +70,7 @@ var defaultBuildInfo = manifestBuildInfo{
 
 // moduleManifest is used to create & parse manifest.json.
 type moduleManifest struct {
+	Schema      string            `json:"$schema"`
 	ModuleID    string            `json:"module_id"`
 	Visibility  moduleVisibility  `json:"visibility"`
 	URL         string            `json:"url"`
@@ -155,6 +156,7 @@ func CreateModuleAction(c *cli.Context) error {
 
 	if shouldWriteNewEmptyManifest {
 		emptyManifest := moduleManifest{
+			Schema:     "https://go.viam.com/metaschema",
 			ModuleID:   returnedModuleID.String(),
 			Visibility: moduleVisibilityPrivate,
 			// This is done so that the json has an empty example

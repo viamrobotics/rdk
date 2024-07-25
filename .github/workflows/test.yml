@@ -204,6 +204,17 @@ jobs:
     name: Test Longer-running Motion Plans if affected
     uses: viamrobotics/rdk/.github/workflows/motion-tests.yml@main
 
+  jsonschema:
+    name: Test meta.json jsonschema
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - run: |
+        go run ./cli/viam/ module create --local-only --name schematest --public-namespace ns
+        cat meta.json | jq '.models = [{"api": "x:y:z", "model": "x:y:z"}]' > meta2.json
+        pip install check-jsonschema
+        check-jsonschema --schemafile module.schema.json meta2.json
+
   test_web_e2e:
     name: Test End-to-End and Web
     runs-on: [buildjet-4vcpu-ubuntu-2204]

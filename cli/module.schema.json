@@ -1,0 +1,111 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "https://viam.com/module.schema.json",
+    "title": "Manifest",
+    "type": "object",
+    "properties": {
+        "module_id": {
+            "type": "string",
+            "pattern": "^[^:]+:[^:]+$",
+            "description": "Colon-separated ORG:NAME. ORG is your org's UUID or public namespace. NAME is a unique name for the module (unique within your org)."
+        },
+        "visibility": {
+            "enum": [
+                "private",
+                "public"
+            ]
+        },
+        "url": {
+            "type": "string",
+            "description": "Path to git repo or information page. If you're using cloud build, this must be the URL of a public git repo.",
+            "format": "uri"
+        },
+        "description": {
+            "type": "string",
+            "description": "Short description of this module."
+        },
+        "models": {
+            "type": "array",
+            "description": "The models provided by this module.",
+            "items": {
+                "$ref": "#/$defs/module_component"
+            }
+        },
+        "entrypoint": {
+            "type": "string",
+            "description": "Relative path to the executable entrypoint in your tarball."
+        },
+        "build": {
+            "$ref": "#/$defs/build_section"
+        }
+    },
+    "required": [
+        "module_id",
+        "visibility",
+        "description",
+        "models",
+        "entrypoint"
+    ],
+    "$defs": {
+        "module_component": {
+            "type": "object",
+            "properties": {
+                "api": {
+                    "type": "string",
+                    "pattern": "^[^:]+:[^:]+:[^:]+$",
+                    "description": "Colon-delimited triple of NAMESPACE:TYPE:NAME.",
+                    "examples": [
+                        "rdk:component:sensor"
+                    ]
+                },
+                "model": {
+                    "type": "string",
+                    "pattern": "^[^:]+:[^:]+:[^:]+$",
+                    "description": "A colon-delimited triple of NAMESPACE:ANYTHING:NAME. Namespace must match your org's public namespace (if you have one)."
+                }
+            },
+            "required": [
+                "api",
+                "model"
+            ]
+        },
+        "build_section": {
+            "type": "object",
+            "description": "Build instructions; required if you're using cloud build or code reloading",
+            "properties": {
+                "build": {
+                    "type": "string",
+                    "default": "make module.tar.gz",
+                    "description": "Shell command to build your module's tarball",
+                    "examples": [
+                        "make module.tar.gz",
+                        "./run.sh"
+                    ]
+                },
+                "setup": {
+                    "type": "string",
+                    "description": "Optional shell command for one-time setup.",
+                    "examples": [
+                        "sudo apt install nlopt"
+                    ]
+                },
+                "path": {
+                    "type": "string",
+                    "default": "module.tar.gz",
+                    "description": "The location of the built tarball produced by the 'build' command."
+                },
+                "arch": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "description": "Cloud build iterates over this and buidls for each listed platform.",
+                    "default": [
+                        "linux/amd64",
+                        "linux/arm64"
+                    ]
+                }
+            }
+        }
+    }
+}
