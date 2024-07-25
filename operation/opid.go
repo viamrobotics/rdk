@@ -72,7 +72,8 @@ func (o *Operation) cleanup() {
 
 // NewManager creates a new manager for holding Operations.
 func NewManager(logger logging.Logger) *Manager {
-	return &Manager{ops: map[string]*Operation{}, logger: logger}
+	opLogger := logger.Sublogger("operation_manager")
+	return &Manager{ops: map[string]*Operation{}, logger: opLogger}
 }
 
 // Manager holds Operations.
