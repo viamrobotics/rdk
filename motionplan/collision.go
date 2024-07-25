@@ -164,6 +164,9 @@ func (gg *geometryGraph) setDistance(xName, yName string, distance float64) {
 	if _, ok := gg.distances[yName][xName]; ok {
 		gg.distances[yName][xName] = distance
 	} else {
+		if _, ok := gg.distances[xName]; !ok {
+			gg.distances[xName] = make(map[string]float64)
+		}
 		gg.distances[xName][yName] = distance
 	}
 }
