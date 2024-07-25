@@ -945,8 +945,9 @@ var app = &cli.App{
 											Usage: "version of ML model. defaults to current timestamp if unspecified.",
 										},
 										&cli.StringFlag{
-											Name:     mlTrainingFlagName,
-											Usage:    "registry name of the ML training script to use for training, which should be formatted as prefix:itemname where prefix is either the org ID or the namespace.",
+											Name: mlTrainingFlagName,
+											Usage: "registry name of the ML training script to use for training, " +
+												"which should be formatted as prefix:itemname where prefix is either the org ID or the namespace.",
 											Required: true,
 										},
 										&cli.StringFlag{

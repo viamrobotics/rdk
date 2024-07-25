@@ -271,7 +271,9 @@ func MLTrainingUploadAction(c *cli.Context) error {
 		name:   c.String(mlTrainingFlagName),
 	}
 	url := moduleID.ToDetailURL(client.baseURL.Hostname(), PackageTypeMLTraining)
-	printf(c.App.Writer, "Version successfully uploaded! you can view your changes online here: %s. \n To use your training script in the from-registry command, use %s:%s as the script name", url, moduleID.prefix, moduleID.name)
+	printf(c.App.Writer, "Version successfully uploaded! you can view your changes online here: %s. \n"+
+		"To use your training script in the from-registry command, use %s:%s as the script name", url,
+		moduleID.prefix, moduleID.name)
 	return nil
 }
 
