@@ -60,7 +60,7 @@ type gpsrtk struct {
 
 func (g *gpsrtk) start() error {
 	if g.workers != nil {
-		return errors.New("do not double-start background goroutines")
+		return errors.New("do not call start() twice on the same object")
 	}
 	g.workers = utils.NewStoppableWorkers(g.receiveAndWriteCorrectionData)
 	return nil
