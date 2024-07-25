@@ -166,3 +166,30 @@ func TestGetCurrentConfig(t *testing.T) {
 	manager.registerConfig(logCfg)
 	test.That(t, manager.getCurrentConfig(), test.ShouldResemble, logCfg)
 }
+
+func TestLoggerLevelReset(t *testing.T) {
+	manager := mockRegistry()
+	manager.registerLogger("a", NewLogger("a"))
+	logCfg := []LoggerPatternConfig{
+		{
+			Pattern: "a",
+			Level:   "WARN",
+		},
+	}
+
+	err := manager.registerConfig(logCfg)
+	test.That(t, err, test.ShouldBeNil)
+
+	logger, ok := manager.loggerNamed("a")
+	test.That(t, ok, test.ShouldBeTrue)
+	test.That(t, logger.GetLevel().String(), test.ShouldEqual, "Warn")
+
+	logCfg = []LoggerPatternConfig{}
+
+	err = manager.registerConfig(logCfg)
+	test.That(t, err, test.ShouldBeNil)
+
+	logger, ok = manager.loggerNamed("a")
+	test.That(t, ok, test.ShouldBeTrue)
+	test.That(t, logger.GetLevel().String(), test.ShouldEqual, "Info")
+}
