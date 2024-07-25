@@ -1975,8 +1975,8 @@ func (rr *dummyRobot) Shutdown(ctx context.Context) error {
 	return rr.robot.Shutdown(ctx)
 }
 
-func (rr *dummyRobot) MachineStatus() (robot.MachineStatus, error) {
-	return rr.robot.MachineStatus()
+func (rr *dummyRobot) MachineStatus(ctx context.Context) (robot.MachineStatus, error) {
+	return rr.robot.MachineStatus(ctx)
 }
 
 // managerForDummyRobot integrates all parts from a given robot except for its remotes.

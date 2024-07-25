@@ -131,7 +131,7 @@ func TestServer(t *testing.T) {
 			injectRobot := &inject.Robot{}
 			server := server.New(injectRobot)
 			req := pb.GetMachineStatusRequest{}
-			injectRobot.MachineStatusFunc = func() (robot.MachineStatus, error) {
+			injectRobot.MachineStatusFunc = func(ctx context.Context) (robot.MachineStatus, error) {
 				return tc.injectMachineStatus, nil
 			}
 			resp, err := server.GetMachineStatus(context.Background(), &req)

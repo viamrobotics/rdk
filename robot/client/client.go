@@ -1018,11 +1018,11 @@ func (rc *RobotClient) Shutdown(ctx context.Context) error {
 }
 
 // MachineStatus returns the current status of the robot.
-func (rc *RobotClient) MachineStatus() (robot.MachineStatus, error) {
+func (rc *RobotClient) MachineStatus(ctx context.Context) (robot.MachineStatus, error) {
 	mStatus := robot.MachineStatus{}
 
 	req := &pb.GetMachineStatusRequest{}
-	resp, err := rc.client.GetMachineStatus(context.Background(), req)
+	resp, err := rc.client.GetMachineStatus(ctx, req)
 	if err != nil {
 		return mStatus, err
 	}

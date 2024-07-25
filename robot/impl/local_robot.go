@@ -1375,7 +1375,7 @@ func (r *localRobot) Shutdown(ctx context.Context) error {
 }
 
 // MachineStatus returns the current status of the robot.
-func (r *localRobot) MachineStatus() (robot.MachineStatus, error) {
+func (r *localRobot) MachineStatus(ctx context.Context) (robot.MachineStatus, error) {
 	var result robot.MachineStatus
 
 	r.manager.resourceGraphLock.Lock()

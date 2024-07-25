@@ -489,10 +489,10 @@ func (s *Server) Shutdown(ctx context.Context, _ *pb.ShutdownRequest) (*pb.Shutd
 }
 
 // GetMachineStatus returns the current status of the robot.
-func (s *Server) GetMachineStatus(_ context.Context, _ *pb.GetMachineStatusRequest) (*pb.GetMachineStatusResponse, error) {
+func (s *Server) GetMachineStatus(ctx context.Context, _ *pb.GetMachineStatusRequest) (*pb.GetMachineStatusResponse, error) {
 	var result pb.GetMachineStatusResponse
 
-	mStatus, err := s.robot.MachineStatus()
+	mStatus, err := s.robot.MachineStatus(ctx)
 	if err != nil {
 		return nil, err
 	}

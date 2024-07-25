@@ -2147,7 +2147,7 @@ func TestMachineStatus(t *testing.T) {
 			injectRobot := &inject.Robot{
 				ResourceNamesFunc:   func() []resource.Name { return nil },
 				ResourceRPCAPIsFunc: func() []resource.RPCAPI { return nil },
-				MachineStatusFunc: func() (robot.MachineStatus, error) {
+				MachineStatusFunc: func(ctx context.Context) (robot.MachineStatus, error) {
 					return tc.injectMachineStatus, nil
 				},
 			}
@@ -2166,7 +2166,7 @@ func TestMachineStatus(t *testing.T) {
 				test.That(t, client.Close(context.Background()), test.ShouldBeNil)
 			}()
 
-			md, err := client.MachineStatus()
+			md, err := client.MachineStatus(context.Background())
 			test.That(t, err, tc.errExpectation)
 			if err == nil {
 				test.That(t, md, test.ShouldResemble, tc.injectMachineStatus)
