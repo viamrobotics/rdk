@@ -213,7 +213,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
-    - uses: actions/setup.go@v5
+    - uses: actions/setup-go@v5
     - run: |
         go run ./cli/viam/ module create --local-only --name schematest --public-namespace ns
         cat meta.json | jq '.models = [{"api": "x:y:z", "model": "x:y:z"}]' > meta2.json
