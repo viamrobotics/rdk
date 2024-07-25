@@ -85,7 +85,7 @@ func (lr *loggerRegistry) updateLoggerRegistry(logConfig []LoggerPatternConfig) 
 	for _, name := range lr.getRegisteredLoggerNames() {
 		err := lr.updateLoggerLevel(name, INFO)
 		if err != nil {
-			return nil
+			return err
 		}
 	}
 	for _, lpc := range logConfig {
