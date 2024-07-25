@@ -91,14 +91,22 @@ func CreateModuleAction(c *cli.Context) error {
 	moduleNameArg := c.String(moduleFlagName)
 	publicNamespaceArg := c.String(moduleFlagPublicNamespace)
 	orgIDArg := c.String(generalFlagOrgID)
+	dryRun := c.Bool(moduleCreateLocalOnly)
 
-	client, err := newViamClient(c)
-	if err != nil {
-		return err
-	}
-	org, err := resolveOrg(client, publicNamespaceArg, orgIDArg)
-	if err != nil {
-		return err
+	var client *viamClient
+	var err error
+	var org *apppb.Organization
+	if dryRun {
+		org = &apppb.Organization{Id: orgIDArg, PublicNamespace: publicNamespaceArg}
+	} else {
+		client, err = newViamClient(c)
+		if err != nil {
+			return err
+		}
+		org, err = resolveOrg(client, publicNamespaceArg, orgIDArg)
+		if err != nil {
+			return err
+		}
 	}
 
 	shouldWriteNewEmptyManifest := true
@@ -122,19 +130,27 @@ func CreateModuleAction(c *cli.Context) error {
 		shouldWriteNewEmptyManifest = false
 	}
 
-	response, err := client.createModule(moduleNameArg, org.GetId())
-	if err != nil {
-		return errors.Wrap(err, "failed to register the module on app.viam.com")
-	}
-
-	returnedModuleID, err := parseModuleID(response.GetModuleId())
-	if err != nil {
-		return err
-	}
-
-	printf(c.App.Writer, "Successfully created '%s'", returnedModuleID.String())
-	if response.GetUrl() != "" {
-		printf(c.App.Writer, "You can view it here: %s", response.GetUrl())
+	var returnedModuleID moduleID
+	if dryRun {
+		returnedModuleID.name = moduleNameArg
+		if org.PublicNamespace != "" {
+			returnedModuleID.prefix = org.PublicNamespace
+		} else {
+			returnedModuleID.prefix = org.Id
+		}
+	} else {
+		response, err := client.createModule(moduleNameArg, org.GetId())
+		if err != nil {
+			return errors.Wrap(err, "failed to register the module on app.viam.com")
+		}
+		returnedModuleID, err = parseModuleID(response.GetModuleId())
+		if err != nil {
+			return err
+		}
+		printf(c.App.Writer, "Successfully created '%s'", returnedModuleID.String())
+		if response.GetUrl() != "" {
+			printf(c.App.Writer, "You can view it here: %s", response.GetUrl())
+		}
 	}
 
 	if shouldWriteNewEmptyManifest {

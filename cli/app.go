@@ -50,6 +50,7 @@ const (
 	moduleFlagBinary          = "binary"
 	moduleFlagLocal           = "local"
 	moduleFlagHomeDir         = "home"
+	moduleCreateLocalOnly     = "local-only"
 
 	moduleBuildFlagPath      = "module"
 	moduleBuildFlagRef       = "ref"
@@ -1407,6 +1408,10 @@ After creation, use 'viam module update' to push your new module to app.viam.com
 						&cli.StringFlag{
 							Name:  generalFlagOrgID,
 							Usage: "id of the organization that will host the module",
+						},
+						&cli.BoolFlag{
+							Name:  moduleCreateLocalOnly,
+							Usage: "create a meta.json file for local use, but don't create the module on the backend",
 						},
 					},
 					Action: CreateModuleAction,
