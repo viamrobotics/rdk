@@ -3661,7 +3661,7 @@ func TestMachineStatus(t *testing.T) {
 	t.Run("reconfigure", func(t *testing.T) {
 		lr := setupLocalRobot(t, ctx, &config.Config{}, logger)
 
-		// Add a fake motor to the robot.
+		// Add a fake resource to the robot.
 		lr.Reconfigure(ctx, &config.Config{
 			Components: []resource.Config{
 				{
@@ -3680,7 +3680,7 @@ func TestMachineStatus(t *testing.T) {
 		)
 		rtestutils.VerifySameResourceStatuses(t, mStatus.Resources, expectedStatuses)
 
-		// Update motor config to cause reconfiguration to fail.
+		// Update resource config to cause reconfiguration to fail.
 		lr.Reconfigure(ctx, &config.Config{
 			Components: []resource.Config{
 				{
@@ -3703,7 +3703,7 @@ func TestMachineStatus(t *testing.T) {
 		)
 		rtestutils.VerifySameResourceStatuses(t, mStatus.Resources, expectedStatuses)
 
-		// Update motor with a working config.
+		// Update resource with a working config.
 		lr.Reconfigure(ctx, &config.Config{
 			Components: []resource.Config{
 				{
@@ -3754,7 +3754,7 @@ func TestMachineStatus(t *testing.T) {
 			}
 		}()
 
-		// Add working motor.
+		// Add working resource.
 		lr.Reconfigure(ctx, &config.Config{
 			Components: []resource.Config{
 				{
@@ -3775,7 +3775,7 @@ func TestMachineStatus(t *testing.T) {
 			statuses = nil
 		}()
 
-		// Update motor attributes.
+		// Update resource attributes.
 		lr.Reconfigure(ctx, &config.Config{
 			Components: []resource.Config{
 				{
@@ -3801,7 +3801,7 @@ func TestMachineStatus(t *testing.T) {
 			statuses = nil
 		}()
 
-		// Remove motor.
+		// Remove resource.
 		lr.Reconfigure(ctx, &config.Config{
 			Components: []resource.Config{},
 		})
