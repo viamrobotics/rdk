@@ -64,9 +64,9 @@ func VerifySameResourceNames(tb testing.TB, actual, expected []resource.Name) {
 	test.That(tb, newSortedResourceNames(actual), test.ShouldResemble, newSortedResourceNames(expected))
 }
 
-// VerifySameResourceStatuses asserts that two slices of resource.Status contain the same
-// elements without considering order. Does not consider update timestamps when
-// comparing.
+// VerifySameResourceStatuses asserts that two slices of [resource.Status] contain the
+// same elements without considering order. Does not consider
+// [resource.Status.LastUpdated] timestamps when comparing.
 func VerifySameResourceStatuses(tb testing.TB, actual, expected []resource.Status) {
 	tb.Helper()
 
