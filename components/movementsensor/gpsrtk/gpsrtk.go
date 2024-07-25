@@ -76,6 +76,7 @@ func (g *gpsrtk) closeCorrectionWriter() {
 		if err != nil {
 			g.logger.Errorf("Error closing port: %v", err)
 		}
+		g.correctionWriter = nil
 	}
 }
 
