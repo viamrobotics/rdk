@@ -133,9 +133,18 @@ func TestNewBoard(t *testing.T) {
 
 	gn1, err := b.GPIOPinByName("1")
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, gn1, test.ShouldNotBeNil)
+	// Our test framework uses reflection to walk the structs it asserts on. However, gn1 (and
+	// later gn2) contains a mutex that was locked and unlocked by a background goroutine when it
+	// was constructed at the beginning of the test. That was so recent that the Go runtime
+	// environment will think there is a race condition when the test framework walks that part of
+	// the struct. To avoid that, we don't use the test framework directly here.
+	if gn1 == nil {
+		t.FailNow()
+	}
 
 	gn2, err := b.GPIOPinByName("2")
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, gn2, test.ShouldNotBeNil)
+	if gn2 == nil {
+		t.FailNow()
+	}
 }

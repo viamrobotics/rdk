@@ -12,6 +12,7 @@ import "C"
 import (
 	"context"
 	"math"
+	"path"
 	fp "path/filepath"
 	"strconv"
 	"strings"
@@ -25,6 +26,7 @@ import (
 	"go.viam.com/rdk/ml/inference/tflite_metadata"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/mlmodel"
+	"go.viam.com/rdk/utils"
 )
 
 var sModel = resource.DefaultModelFamily.WithModel("tflite_cpu")
@@ -56,9 +58,14 @@ type TFLiteConfig struct {
 }
 
 // Validate will check if the config is valid.
-func (conf *TFLiteConfig) Validate(path string) ([]string, error) {
+func (conf *TFLiteConfig) Validate(validatePath string) ([]string, error) {
 	if conf.ModelPath == "" {
-		return nil, errors.New("model_path attribute cannot be empty")
+		return nil, utils.NewConfigValidationFieldRequiredError(validatePath, "model_path")
+	}
+	ext := path.Ext(conf.ModelPath)
+	if ext != ".tflite" {
+		base := path.Base(conf.ModelPath)
+		return nil, errors.Errorf("model_path filename must end in .tflite. The filename is %s", base)
 	}
 	return nil, nil
 }

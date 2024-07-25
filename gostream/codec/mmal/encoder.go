@@ -8,8 +8,8 @@ import (
 	"image"
 
 	ourcodec "go.viam.com/rdk/gostream/codec"
+	"go.viam.com/rdk/logging"
 
-	"github.com/edaniels/golog"
 	"github.com/pion/mediadevices/pkg/codec"
 	"github.com/pion/mediadevices/pkg/codec/mmal"
 	"github.com/pion/mediadevices/pkg/prop"
@@ -18,7 +18,7 @@ import (
 type encoder struct {
 	codec  codec.ReadCloser
 	img    image.Image
-	logger golog.Logger
+	logger logging.Logger
 }
 
 // Gives suitable results. Probably want to make this configurable this in the future.
@@ -26,7 +26,7 @@ const bitrate = 3_200_000
 
 // NewEncoder returns an MMAL encoder that can encode images of the given width and height. It will
 // also ensure that it produces key frames at the given interval.
-func NewEncoder(width, height, keyFrameInterval int, logger golog.Logger) (ourcodec.VideoEncoder, error) {
+func NewEncoder(width, height, keyFrameInterval int, logger logging.Logger) (ourcodec.VideoEncoder, error) {
 	enc := &encoder{logger: logger}
 
 	var builder codec.VideoEncoderBuilder

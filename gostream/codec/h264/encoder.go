@@ -11,13 +11,13 @@ import (
 	"time"
 	"unsafe"
 
-	"github.com/edaniels/golog"
 	"github.com/pion/mediadevices/pkg/io/video"
 	"github.com/pkg/errors"
 
 	"go.viam.com/rdk/gostream/codec"
 	"go.viam.com/rdk/gostream/ffmpeg/avcodec"
 	"go.viam.com/rdk/gostream/ffmpeg/avutil"
+	"go.viam.com/rdk/logging"
 )
 
 const (
@@ -41,7 +41,7 @@ type encoder struct {
 	height  int
 	frame   *avutil.Frame
 	pts     int64
-	logger  golog.Logger
+	logger  logging.Logger
 }
 
 func (h *encoder) Read() (img image.Image, release func(), err error) {
@@ -50,7 +50,7 @@ func (h *encoder) Read() (img image.Image, release func(), err error) {
 
 // NewEncoder returns an h264 encoder that can encode images of the given width and height. It will
 // also ensure that it produces key frames at the given interval.
-func NewEncoder(width, height, keyFrameInterval int, logger golog.Logger) (codec.VideoEncoder, error) {
+func NewEncoder(width, height, keyFrameInterval int, logger logging.Logger) (codec.VideoEncoder, error) {
 	h := &encoder{width: width, height: height, logger: logger}
 
 	if h.codec = avcodec.FindEncoderByName(V4l2m2m); h.codec == nil {

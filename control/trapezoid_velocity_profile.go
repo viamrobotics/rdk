@@ -45,6 +45,8 @@ func newTrapezoidVelocityProfile(config BlockConfig, logger logging.Logger) (Blo
 }
 
 func (s *trapezoidVelocityGenerator) Next(ctx context.Context, x []*Signal, dt time.Duration) ([]*Signal, bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	var pos float64
 	var setPoint float64
 	if len(x) == 2 {
@@ -67,7 +69,6 @@ func (s *trapezoidVelocityGenerator) Next(ctx context.Context, x []*Signal, dt t
 				s.dir = 1
 			}
 			s.trapDistance = math.Abs(setPoint - pos)
-			s.lastVelCmd = 0
 			s.vDec = math.Min(math.Sqrt(s.trapDistance*s.maxAcc), s.maxVel)
 			s.kPP0 = 2.0 * s.maxAcc / s.vDec
 			s.kPP = s.kppGain * s.kPP0
@@ -94,6 +95,7 @@ func (s *trapezoidVelocityGenerator) Next(ctx context.Context, x []*Signal, dt t
 		s.lastVelCmd = vel
 		s.y[0].SetSignalValueAt(0, vel*float64(s.dir))
 	} else {
+		s.lastVelCmd = 0
 		s.y[0].SetSignalValueAt(0, 0.0)
 		s.currentPhase = rest
 	}
@@ -107,8 +109,14 @@ func (s *trapezoidVelocityGenerator) reset() error {
 	if !s.cfg.Attribute.Has("max_vel") {
 		return errors.Errorf("trapezoidale velocity profile block %s needs max_vel field", s.cfg.Name)
 	}
-	s.maxAcc = s.cfg.Attribute["max_acc"].(float64) // default 0.0
-	s.maxVel = s.cfg.Attribute["max_vel"].(float64) // default 0.0
+	s.maxAcc = s.cfg.Attribute["max_acc"].(float64)
+	s.maxVel = s.cfg.Attribute["max_vel"].(float64)
+	if s.maxAcc == 0 { // default 1.0, the math breaks if maxAcc = 0
+		s.maxAcc = 1
+	}
+	if s.maxVel == 0 { // default 1.0, the math breaks if maxVel = 0
+		s.maxVel = 1
+	}
 
 	s.posWindow = 0
 	if s.cfg.Attribute.Has("pos_window") {
@@ -121,6 +129,10 @@ func (s *trapezoidVelocityGenerator) reset() error {
 	}
 	if s.kppGain == 0 {
 		s.kppGain = 0.45
+	}
+	s.lastVelCmd = 0
+	if s.y != nil {
+		s.lastVelCmd = s.y[0].GetSignalValueAt(0)
 	}
 
 	s.lastsetPoint = math.NaN()

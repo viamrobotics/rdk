@@ -1,17 +1,15 @@
-package config
+package logging
 
 import (
 	"strings"
 	"testing"
 
 	"go.viam.com/test"
-
-	"go.viam.com/rdk/logging"
 )
 
-func verifySetLevels(registry map[string]logging.Logger, expectedMatches map[string]string) bool {
+func verifySetLevels(registry *loggerRegistry, expectedMatches map[string]string) bool {
 	for name, level := range expectedMatches {
-		logger, ok := registry[name]
+		logger, ok := registry.loggerNamed(name)
 		if !ok || !strings.EqualFold(level, logger.GetLevel().String()) {
 			return false
 		}
@@ -19,34 +17,70 @@ func verifySetLevels(registry map[string]logging.Logger, expectedMatches map[str
 	return true
 }
 
-func createTestRegistry(loggerNames []string) map[string]logging.Logger {
-	registry := make(map[string]logging.Logger)
+func createTestRegistry(loggerNames []string) *loggerRegistry {
+	manager := newLoggerRegistry()
 	for _, name := range loggerNames {
-		registry[name] = logging.NewLogger(name)
+		manager.registerLogger(name, NewLogger(name))
 	}
-	return registry
+	return manager
 }
 
 func TestValidatePattern(t *testing.T) {
-	test.That(t, validatePattern("robot_server.resource_manager"), test.ShouldBeTrue)
-	test.That(t, validatePattern("robot_server.resource_manager.*"), test.ShouldBeTrue)
-	test.That(t, validatePattern("robot_server.*.resource_manager"), test.ShouldBeTrue)
-	test.That(t, validatePattern("robot_server.*.*"), test.ShouldBeTrue)
-	test.That(t, validatePattern("*.resource_manager"), test.ShouldBeTrue)
-	test.That(t, validatePattern("*"), test.ShouldBeTrue)
+	t.Parallel()
 
-	test.That(t, validatePattern("robot_server..resource_manager"), test.ShouldBeFalse)
-	test.That(t, validatePattern("robot_server.resource_manager."), test.ShouldBeFalse)
-	test.That(t, validatePattern(".robot_server.resource_manager"), test.ShouldBeFalse)
-	test.That(t, validatePattern("robot_server.resource_manager.**"), test.ShouldBeFalse)
-	test.That(t, validatePattern("robot_server.**.resource_manager"), test.ShouldBeFalse)
+	type testCfg struct {
+		pattern string
+		isValid bool
+	}
 
-	test.That(t, validatePattern("_.robot_server.resource_manager"), test.ShouldBeFalse)
-	test.That(t, validatePattern("-.robot_server"), test.ShouldBeFalse)
-	test.That(t, validatePattern("robot_server.-"), test.ShouldBeFalse)
-	test.That(t, validatePattern("robot_server.-"), test.ShouldBeFalse)
-	test.That(t, validatePattern("robot_server.-.resource_manager"), test.ShouldBeFalse)
-	test.That(t, validatePattern("robot_server._.resource_manager"), test.ShouldBeFalse)
+	tests := []testCfg{
+		// Valid patterns
+		{"robot_server.resource_manager", true},
+		{"robot_server.resource_manager.*", true},
+		{"robot_server.*.resource_manager", true},
+		{"robot_server.*.*", true},
+		{"*.resource_manager", true},
+		{"*", true},
+
+		// Invalid patterns
+		{"robot_server..resource_manager", false},
+		{"robot_server.resource_manager.", false},
+		{".robot_server.resource_manager", false},
+		{"robot_server.resource_manager.**", false},
+		{"robot_server.**.resource_manager", false},
+
+		// Invalid patterns with special characters
+		{"_.robot_server.resource_manager", false},
+		{"-.robot_server", false},
+		{"robot_server.-", false},
+		{"robot_server.-.resource_manager", false},
+		{"robot_server._.resource_manager", false},
+
+		// Resource pattern matching (valid patterns)
+		{"rdk.rdk:service:encoder/encoder1", true},
+		{"rdk.rdk:component:motor/motor1", true},
+		{"rdk.acme:*:motor/motor1", true},
+		{"rdk.rdk:service:navigation/test-navigation", true},
+		{"rdk.*:*:motor/*", true},
+		{"rdk.rdk:remote:/foo", true},
+
+		// Resource pattern matching (invalid patterns)
+		{"fake.rdk:service:encoder/encoder1", false},
+		{"rdk.rdk:service:encoder/encoder1 1", false},
+		{"1 rdk.rdk:service:encoder/encoder1", false},
+		{"rdk.rdk:fake:encoder/encoder1", false},
+		{"rdk.:service:encoder/encoder1", false},
+		{"rdk.rdk:service:/encoder", false},
+		{"rdk.rdk:service:encoder/", false},
+	}
+
+	for _, tc := range tests {
+		tc := tc
+		t.Run(tc.pattern, func(t *testing.T) {
+			t.Parallel()
+			test.That(t, validatePattern(tc.pattern), test.ShouldEqual, tc.isValid)
+		})
+	}
 }
 
 func TestUpdateLoggerRegistry(t *testing.T) {
@@ -181,13 +215,13 @@ func TestUpdateLoggerRegistry(t *testing.T) {
 	for _, tc := range tests {
 		testRegistry := createTestRegistry(tc.loggerNames)
 
-		newRegistry, err := UpdateLoggerRegistry(tc.loggerConfig, testRegistry)
+		err := testRegistry.updateLoggerRegistry(tc.loggerConfig)
 		if tc.doesError {
 			test.That(t, err, test.ShouldNotBeNil)
 			continue
 		}
 		test.That(t, err, test.ShouldBeNil)
 
-		test.That(t, verifySetLevels(newRegistry, tc.expectedMatches), test.ShouldBeTrue)
+		test.That(t, verifySetLevels(testRegistry, tc.expectedMatches), test.ShouldBeTrue)
 	}
 }

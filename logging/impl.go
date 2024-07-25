@@ -78,8 +78,10 @@ func (imp *impl) Sublogger(subname string) Logger {
 		imp.testHelper,
 	}
 
-	loggerManager.registerLogger(newName, sublogger)
-
+	RegisterLogger(newName, sublogger)
+	if err := UpdateLoggerLevelWithCfg(newName); err != nil {
+		sublogger.Error(err)
+	}
 	return sublogger
 }
 

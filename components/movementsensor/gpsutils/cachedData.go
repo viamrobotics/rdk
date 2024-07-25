@@ -39,6 +39,13 @@ type CachedData struct {
 	workers utils.StoppableWorkers
 }
 
+// CommonReadings struct contains the most common values we output in sensor reading.
+type CommonReadings struct {
+	FixValue   int
+	SatsInView int
+	SatsInUse  int
+}
+
 // NewCachedData creates a new CachedData object.
 func NewCachedData(dev DataReader, logger logging.Logger) *CachedData {
 	g := CachedData{
@@ -210,25 +217,16 @@ func (g *CachedData) CompassHeading(
 	return currentHeading, nil
 }
 
-// ReadFix returns Fix quality of MovementSensor measurements.
-func (g *CachedData) ReadFix(ctx context.Context) (int, error) {
-	g.mu.RLock()
-	defer g.mu.RUnlock()
-	return g.nmeaData.FixQuality, nil
-}
+// GetCommonReadings returns a map including fix value, sats in view and sats in use.
+func (g *CachedData) GetCommonReadings(ctx context.Context) *CommonReadings {
+	g.mu.Lock()
+	defer g.mu.Unlock()
 
-// ReadSatsInView returns the number of satellites in view.
-func (g *CachedData) ReadSatsInView(ctx context.Context) (int, error) {
-	g.mu.RLock()
-	defer g.mu.RUnlock()
-	return g.nmeaData.SatsInView, nil
-}
-
-// ReadSatsInUse returns the number of satellites in use to calculate fix type.
-func (g *CachedData) ReadSatsInUse(ctx context.Context) (int, error) {
-	g.mu.RLock()
-	defer g.mu.RUnlock()
-	return g.nmeaData.SatsInUse, nil
+	return &CommonReadings{
+		FixValue:   g.nmeaData.FixQuality,
+		SatsInView: g.nmeaData.SatsInView,
+		SatsInUse:  g.nmeaData.SatsInUse,
+	}
 }
 
 // Properties returns what movement sensor capabilities we have.

@@ -109,14 +109,14 @@ func moduleBuildLocalAction(cCtx *cli.Context, manifest *moduleManifest) error {
 	if manifest.Build.Setup != "" {
 		infof(cCtx.App.Writer, "Starting setup step: %q", manifest.Build.Setup)
 		processConfig.Args = []string{"-c", manifest.Build.Setup}
-		proc := pexec.NewManagedProcess(processConfig, logger.AsZap())
+		proc := pexec.NewManagedProcess(processConfig, logger)
 		if err := proc.Start(cCtx.Context); err != nil {
 			return err
 		}
 	}
 	infof(cCtx.App.Writer, "Starting build step: %q", manifest.Build.Build)
 	processConfig.Args = []string{"-c", manifest.Build.Build}
-	proc := pexec.NewManagedProcess(processConfig, logger.AsZap())
+	proc := pexec.NewManagedProcess(processConfig, logger)
 	if err := proc.Start(cCtx.Context); err != nil {
 		return err
 	}

@@ -34,9 +34,8 @@ If you have a bug or an idea, please open an issue [here](https://viam.atlassian
 Example with a dummy configuration: `go run web/cmd/server/main.go -config etc/configs/fake.json`. Then visit http://localhost:8080 to access remote control.
 
 ### Examples
+* [CustomResources](https://pkg.go.dev/go.viam.com/rdk/examples/customresources) - example for creating custom resources.
 * [SimpleServer](https://pkg.go.dev/go.viam.com/rdk/examples/simpleserver) - example for creating a simple custom server.
-* [MySensor](https://pkg.go.dev/go.viam.com/rdk/examples/mysensor) - example for creating a custom sensor.
-* [MyComponent](https://pkg.go.dev/go.viam.com/rdk/examples/mycomponent) - example for creating a custom resource API.
 
 ### SDKs
 
@@ -143,6 +142,6 @@ Support is not well tested yet.
 * rpc: ICE between local connections found via ICE mDNS appear to be flaky in the establishment phase.
 
 ## License
-Copyright 2021-2023 Viam Inc.
+Copyright 2021-2024 Viam Inc.
 
 AGPLv3 - See [LICENSE](https://github.com/viamrobotics/rdk/blob/main/LICENSE) file

@@ -109,7 +109,7 @@ func ServerAsSeparateProcess(t *testing.T, cfgFileName string, logger logging.Lo
 		CWD:         utils.ResolveFile("./"),
 		Environment: map[string]string{"HOME": testTempHome},
 		Log:         true,
-	}, logger.AsZap())
+	}, logger)
 	return server
 }
 

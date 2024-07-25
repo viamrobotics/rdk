@@ -8,6 +8,7 @@ import (
 	"context"
 	"errors"
 
+	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 )
@@ -19,7 +20,7 @@ func NewPmtkI2CGPSNMEA(
 	name resource.Name,
 	conf *Config,
 	logger logging.Logger,
-) (NmeaMovementSensor, error) {
+) (movementsensor.MovementSensor, error) {
 	// The nil on this next line means "use a real I2C bus, because we're not going to pass in a
 	// mock one."
 	return nil, errors.New("all I2C components are only available on Linux")

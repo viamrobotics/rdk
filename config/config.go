@@ -37,7 +37,7 @@ type Config struct {
 	Network    NetworkConfig
 	Auth       AuthConfig
 	Debug      bool
-	LogConfig  []LoggerPatternConfig
+	LogConfig  []logging.LoggerPatternConfig
 
 	ConfigFilePath string
 
@@ -69,19 +69,19 @@ type Config struct {
 
 // NOTE: This data must be maintained with what is in Config.
 type configData struct {
-	Cloud               *Cloud                `json:"cloud,omitempty"`
-	Modules             []Module              `json:"modules,omitempty"`
-	Remotes             []Remote              `json:"remotes,omitempty"`
-	Components          []resource.Config     `json:"components,omitempty"`
-	Processes           []pexec.ProcessConfig `json:"processes,omitempty"`
-	Services            []resource.Config     `json:"services,omitempty"`
-	Packages            []PackageConfig       `json:"packages,omitempty"`
-	Network             NetworkConfig         `json:"network"`
-	Auth                AuthConfig            `json:"auth"`
-	Debug               bool                  `json:"debug,omitempty"`
-	DisablePartialStart bool                  `json:"disable_partial_start"`
-	EnableWebProfile    bool                  `json:"enable_web_profile"`
-	LogConfig           []LoggerPatternConfig `json:"log,omitempty"`
+	Cloud               *Cloud                        `json:"cloud,omitempty"`
+	Modules             []Module                      `json:"modules,omitempty"`
+	Remotes             []Remote                      `json:"remotes,omitempty"`
+	Components          []resource.Config             `json:"components,omitempty"`
+	Processes           []pexec.ProcessConfig         `json:"processes,omitempty"`
+	Services            []resource.Config             `json:"services,omitempty"`
+	Packages            []PackageConfig               `json:"packages,omitempty"`
+	Network             NetworkConfig                 `json:"network"`
+	Auth                AuthConfig                    `json:"auth"`
+	Debug               bool                          `json:"debug,omitempty"`
+	DisablePartialStart bool                          `json:"disable_partial_start"`
+	EnableWebProfile    bool                          `json:"enable_web_profile"`
+	LogConfig           []logging.LoggerPatternConfig `json:"log,omitempty"`
 }
 
 // AppValidationStatus refers to the.

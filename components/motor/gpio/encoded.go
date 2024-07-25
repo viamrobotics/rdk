@@ -296,7 +296,13 @@ func (m *EncodedMotor) goForInternal(rpm, goalPos, direction float64) error {
 	m.activeBackgroundWorkers.Add(1)
 	go func() {
 		defer m.activeBackgroundWorkers.Done()
-		if err := m.real.SetPower(adjustmentsCtx, 0.2*direction, nil); err != nil {
+		_, lastPowerPct, err := m.real.IsPowered(adjustmentsCtx, nil)
+		if err != nil {
+			m.logger.Error(err)
+			return
+		}
+
+		if err := m.real.SetPower(adjustmentsCtx, calcStartingPower(lastPowerPct, direction), nil); err != nil {
 			m.logger.Error(err)
 			return
 		}
@@ -307,6 +313,17 @@ func (m *EncodedMotor) goForInternal(rpm, goalPos, direction float64) error {
 	}()
 
 	return nil
+}
+
+func calcStartingPower(currPower, direction float64) float64 {
+	defaultPower := .2
+	if sign(currPower) != direction {
+		return defaultPower * direction
+	}
+	if math.Abs(currPower) < defaultPower {
+		return defaultPower * direction
+	}
+	return currPower
 }
 
 // GoTo instructs the motor to go to a specific position (provided in revolutions from home/zero),
