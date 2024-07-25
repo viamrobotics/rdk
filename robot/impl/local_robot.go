@@ -169,7 +169,6 @@ func (r *localRobot) Close(ctx context.Context) error {
 	if r.webSvc != nil {
 		err = multierr.Combine(err, r.webSvc.Close(ctx))
 	}
-	r.manager.resources.Close()
 	return err
 }
 
@@ -1384,11 +1383,4 @@ func (r *localRobot) MachineStatus() (robot.MachineStatus, error) {
 	r.manager.resourceGraphLock.Unlock()
 
 	return result, nil
-}
-
-// resourceStatusStream returns a channel that streams resource updates.
-// TODO(RSDK-8109): Make this method public and add to the [LocalRobot] interface
-// if end up implementing a public MachineStatus streaming API.
-func (r *localRobot) resourceStatusStream() <-chan resource.Status {
-	return r.manager.resources.StatusStream()
 }

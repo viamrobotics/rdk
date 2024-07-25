@@ -1,7 +1,6 @@
 package resource
 
 import (
-	"context"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -29,27 +28,16 @@ type Graph struct {
 	// pointer to this logicalClock. Whenever SwapResource is called on a node
 	// (the resource updates), the logicalClock is incremented.
 	logicalClock *atomic.Int64
-
-	// statusUpdates sends a resource status update for a node whenever it changes to a
-	// new state.
-	statusUpdates       chan Status
-	statusUpdatesCtx    context.Context
-	statusUpdatesCancel func()
 }
 
 // NewGraph creates a new resource graph.
 func NewGraph() *Graph {
-	ctx, cancel := context.WithCancel(context.Background())
-
 	return &Graph{
 		children:                resourceDependencies{},
 		parents:                 resourceDependencies{},
 		nodes:                   graphNodes{},
 		transitiveClosureMatrix: transitiveClosureMatrix{},
 		logicalClock:            &atomic.Int64{},
-		statusUpdates:           make(chan Status),
-		statusUpdatesCtx:        ctx,
-		statusUpdatesCancel:     cancel,
 	}
 }
 
@@ -285,25 +273,6 @@ func (g *Graph) addNode(node Name, nodeVal *GraphNode) error {
 		}
 	}
 	g.transitiveClosureMatrix[node][node] = 1
-
-	go func(nodeCh <-chan Status) {
-		for {
-			select {
-			case <-g.statusUpdatesCtx.Done():
-				return
-			case msg, open := <-nodeCh:
-				if !open {
-					return
-				}
-
-				// forward status update without waiting for receivers
-				select {
-				case g.statusUpdates <- msg:
-				default:
-				}
-			}
-		}
-	}(nodeVal.StatusStream())
 	return nil
 }
 
@@ -683,15 +652,4 @@ func (g *Graph) Status() []Status {
 	}
 
 	return result
-}
-
-// StatusStream returns a channel that streams updates to graph node statuses.
-func (g *Graph) StatusStream() <-chan Status {
-	return g.statusUpdates
-}
-
-// Close cleanly shutdowns go-routines spawned by the resource graph. Must be called to
-// free resources. Safe to call multiple times or concurrently.
-func (g *Graph) Close() {
-	g.statusUpdatesCancel()
 }

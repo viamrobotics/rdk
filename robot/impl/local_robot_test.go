@@ -11,7 +11,6 @@ import (
 	"path"
 	"path/filepath"
 	"strings"
-	"sync"
 	"testing"
 	"time"
 
@@ -20,6 +19,7 @@ import (
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.uber.org/zap"
+
 	// registers all components.
 	commonpb "go.viam.com/api/common/v1"
 	armpb "go.viam.com/api/component/arm/v1"
@@ -3725,98 +3725,5 @@ func TestMachineStatus(t *testing.T) {
 			[]resource.Status{{Name: mockNamed("m"), State: resource.NodeStateReady}},
 		)
 		rtestutils.VerifySameResourceStatuses(t, mStatus.Resources, expectedStatuses)
-	})
-
-	t.Run("stream status", func(t *testing.T) {
-		lr := setupLocalRobot(t, ctx, &config.Config{}, logger)
-
-		var (
-			wg       sync.WaitGroup
-			done     = make(chan struct{})
-			statuses []resource.Status
-			mu       sync.Mutex
-		)
-
-		// Listen for machine status updates.
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			llr := lr.(*localRobot)
-			for {
-				select {
-				case <-done:
-					return
-				case status := <-llr.resourceStatusStream():
-					mu.Lock()
-					statuses = append(statuses, status)
-					mu.Unlock()
-				}
-			}
-		}()
-
-		// Add working resource.
-		lr.Reconfigure(ctx, &config.Config{
-			Components: []resource.Config{
-				{
-					Name:                "m",
-					Model:               mockModel,
-					API:                 mockAPI,
-					ConvertedAttributes: &mockConfig{},
-				},
-			},
-		})
-		func() {
-			mu.Lock()
-			defer mu.Unlock()
-			expectedStatuses := []resource.Status{
-				{Name: mockNamed("m"), State: resource.NodeStateReady},
-			}
-			rtestutils.VerifySameResourceStatuses(t, statuses, expectedStatuses)
-			statuses = nil
-		}()
-
-		// Update resource attributes.
-		lr.Reconfigure(ctx, &config.Config{
-			Components: []resource.Config{
-				{
-					Name:  "m",
-					Model: mockModel,
-					API:   mockAPI,
-					// We need to specify both `Attributes` and `ConvertedAttributes`.
-					// The former triggers a reconfiguration and the former is actually
-					// used to reconfigure the component.
-					Attributes:          rutils.AttributeMap{"value": 100},
-					ConvertedAttributes: &mockConfig{Value: 100},
-				},
-			},
-		})
-		func() {
-			mu.Lock()
-			defer mu.Unlock()
-			expectedStatuses := []resource.Status{
-				{Name: mockNamed("m"), State: resource.NodeStateConfiguring},
-				{Name: mockNamed("m"), State: resource.NodeStateReady},
-			}
-			rtestutils.VerifySameResourceStatuses(t, statuses, expectedStatuses)
-			statuses = nil
-		}()
-
-		// Remove resource.
-		lr.Reconfigure(ctx, &config.Config{
-			Components: []resource.Config{},
-		})
-		func() {
-			mu.Lock()
-			defer mu.Unlock()
-			expectedStatuses := []resource.Status{
-				{Name: mockNamed("m"), State: resource.NodeStateRemoving},
-			}
-			rtestutils.VerifySameResourceStatuses(t, statuses, expectedStatuses)
-			statuses = nil
-		}()
-
-		// Stop listening for status updates after reconfiguration.
-		close(done)
-		wg.Wait()
 	})
 }
