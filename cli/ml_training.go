@@ -124,7 +124,7 @@ func (c *viamClient) mlSubmitCustomTrainingJob(datasetID, registryItemID, regist
 	splitName := strings.Split(registryItemID, ":")
 	if len(splitName) != 2 {
 		return "", errors.Errorf("invalid training script name '%s'."+
-			" Training script name must be in the form 'public-namespace:module-name' for public training scripts"+
+			" Training script name must be in the form 'public-namespace:registry-name' for public training scripts"+
 			" or 'org-id:registry-name' for private training scripts in organizations without a public namespace", registryItemID)
 	}
 	if modelVersion == "" {
