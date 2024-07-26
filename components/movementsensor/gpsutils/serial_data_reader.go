@@ -8,7 +8,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"sync"
 
 	"github.com/jacobsa/go-serial/serial"
 

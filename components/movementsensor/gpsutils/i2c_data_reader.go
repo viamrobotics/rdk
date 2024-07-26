@@ -8,7 +8,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"sync"
 
 	"go.viam.com/utils"
 
@@ -32,7 +31,12 @@ type PmtkI2cDataReader struct {
 }
 
 // NewI2cDataReader constructs a new DataReader that gets its NMEA messages over an I2C bus.
-func NewI2cDataReader(config I2CConfig, bus buses.I2C, logger logging.Logger) (DataReader, error) {
+func NewI2cDataReader(
+	ctx context.Context,
+	config I2CConfig,
+	bus buses.I2C,
+	logger logging.Logger,
+) (DataReader, error) {
 	if bus == nil {
 		var err error
 		bus, err = buses.NewI2cBus(config.I2CBus)
@@ -59,7 +63,7 @@ func NewI2cDataReader(config I2CConfig, bus buses.I2C, logger logging.Logger) (D
 		baud:       baud,
 	}
 
-	if err := reader.initialize(); err != nil {
+	if err := reader.initialize(ctx); err != nil {
 		return nil, err
 	}
 
@@ -68,10 +72,10 @@ func NewI2cDataReader(config I2CConfig, bus buses.I2C, logger logging.Logger) (D
 }
 
 // initialize sends commands to the device to put it into a state where we can read data from it.
-func (dr *PmtkI2cDataReader) initialize() error {
+func (dr *PmtkI2cDataReader) initialize(ctx context.Context) error {
 	handle, err := dr.bus.OpenHandle(dr.addr)
 	if err != nil {
-		dr.logger.CErrorf(dr.cancelCtx, "can't open gps i2c %s", err)
+		dr.logger.CErrorf(ctx, "can't open gps i2c %s", err)
 		return err
 	}
 	defer utils.UncheckedErrorFunc(handle.Close)
@@ -86,16 +90,16 @@ func (dr *PmtkI2cDataReader) initialize() error {
 	// Ask for updates every 1000 ms (every second)
 	cmd220 := movementsensor.PMTKAddChk([]byte("PMTK220,1000"))
 
-	err = handle.Write(dr.cancelCtx, cmd251)
+	err = handle.Write(ctx, cmd251)
 	if err != nil {
-		dr.logger.CDebug(dr.cancelCtx, "Failed to set baud rate")
+		dr.logger.CDebug(ctx, "Failed to set baud rate")
 		return err
 	}
-	err = handle.Write(dr.cancelCtx, cmd314)
+	err = handle.Write(ctx, cmd314)
 	if err != nil {
 		return err
 	}
-	err = handle.Write(dr.cancelCtx, cmd220)
+	err = handle.Write(ctx, cmd220)
 	if err != nil {
 		return err
 	}

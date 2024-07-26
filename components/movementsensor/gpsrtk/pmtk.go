@@ -131,7 +131,7 @@ func makeRTKI2C(
 
 	// If we have a mock I2C bus, pass that in, too. If we don't, it'll be nil and constructing the
 	// reader will create a real I2C bus instead.
-	dev, err := gpsutils.NewI2cDataReader(i2cConfig, mockI2c, logger)
+	dev, err := gpsutils.NewI2cDataReader(ctx, i2cConfig, mockI2c, logger)
 	if err != nil {
 		return nil, err
 	}
