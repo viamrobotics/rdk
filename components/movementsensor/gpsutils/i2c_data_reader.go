@@ -123,7 +123,7 @@ func (dr *PmtkI2cDataReader) readData(cancelCtx context.Context) ([]byte, error)
 	return buffer, nil
 }
 
-// backgroundWorker should be run in a background coroutine. It reads data from the I2C bus and
+// backgroundWorker should be run in a background goroutine. It reads data from the I2C bus and
 // puts it into the channel of complete messages.
 func (dr *PmtkI2cDataReader) backgroundWorker(cancelCtx context.Context) {
 	defer close(dr.data)
