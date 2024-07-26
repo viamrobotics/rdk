@@ -12,6 +12,8 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+	"regexp"
+	"runtime"
 	"strings"
 
 	"github.com/google/uuid"
@@ -77,7 +79,8 @@ type moduleManifest struct {
 	Models      []ModuleComponent `json:"models"`
 	// JsonManifest provides fields shared with RDK proper.
 	modconfig.JSONManifest
-	Build *manifestBuildInfo `json:"build,omitempty"`
+	Build     *manifestBuildInfo `json:"build,omitempty"`
+	Overrides map[string]any     `json:"overrides"`
 }
 
 const (
@@ -602,6 +605,66 @@ func isValidOrgID(str string) bool {
 	_, err := uuid.Parse(str)
 	return err == nil
 }
+
+type overridePlatform struct {
+	os   string
+	arch string
+	// careful: dev=false doesn't mean non-dev, it means 'don't check dev'. This is not a tri-state.
+	dev bool
+}
+
+var platformRegex = regexp.MustCompile(`(\w+)?(\/\w+)?(;\w+)*`)
+
+// parse one of these from the map key.
+func parseOverridePlatform(raw string) (overridePlatform, error) {
+	var ret overridePlatform
+	tokens := platformRegex.FindStringSubmatch(raw)
+	if len(raw) == 0 {
+		return ret, errors.New("can't parse empty platform key in overrides")
+	}
+	if len(tokens) == 0 {
+		return ret, fmt.Errorf("cannot parse platform key '%s' in overrides", raw)
+	}
+	for _, tok := range tokens {
+		if tok == "" {
+			continue
+		} else if tok == ";dev" {
+			ret.dev = true
+		} else if tok[0] == '/' {
+			ret.arch = tok[1:]
+		} else {
+			ret.os = tok
+		}
+	}
+	return ret, nil
+}
+
+// returns false if the arguments fall outside op's constraints.
+func (op overridePlatform) check(os, arch string, dev bool) bool {
+	if op.os != "" && op.os != "any" && op.os != os {
+		return false
+	}
+	if op.arch != "" && op.arch != "any" && op.arch != arch {
+		return false
+	}
+	if op.dev && !dev {
+		// note: this isn't a tri-state. op.dev = false means 'don't check', not 'non-dev environment'.
+		return false
+	}
+	return true
+}
+
+// passes the current OS and architecture to op.check.
+func (op overridePlatform) checkCurrent(dev bool) bool {
+	return op.check(runtime.GOOS, runtime.GOARCH, dev)
+}
+
+// applies the `overrides` section to the manifest.
+// func applyManifestOverrides(manifest moduleManifest) error {
+// 	for key, val := range manifest.Overrides {
+// 		strings.Split(key, ";")
+// 	}
+// }
 
 func loadManifest(manifestPath string) (moduleManifest, error) {
 	//nolint:gosec

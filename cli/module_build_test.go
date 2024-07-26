@@ -206,3 +206,46 @@ func TestLocalBuild(t *testing.T) {
 	test.That(t, outMsg, test.ShouldContainSubstring, "setup step msg")
 	test.That(t, outMsg, test.ShouldContainSubstring, "build step msg")
 }
+
+func TestOverrides(t *testing.T) {
+	t.Run("parse", func(t *testing.T) {
+		_, err := parseOverridePlatform("")
+		test.That(t, err, test.ShouldNotBeNil)
+
+		op, err := parseOverridePlatform("linux")
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, op.os, test.ShouldResemble, "linux")
+		test.That(t, op.arch, test.ShouldBeEmpty)
+		test.That(t, op.dev, test.ShouldBeFalse)
+
+		op, err = parseOverridePlatform("linux/arm64")
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, op.os, test.ShouldResemble, "linux")
+		test.That(t, op.arch, test.ShouldResemble, "arm64")
+
+		op, err = parseOverridePlatform("linux/arm64;dev")
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, op.os, test.ShouldResemble, "linux")
+		test.That(t, op.arch, test.ShouldResemble, "arm64")
+		test.That(t, op.dev, test.ShouldBeTrue)
+
+		op, err = parseOverridePlatform("linux;dev")
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, op.os, test.ShouldResemble, "linux")
+		test.That(t, op.arch, test.ShouldBeEmpty)
+		test.That(t, op.dev, test.ShouldBeTrue)
+
+		op, err = parseOverridePlatform(";dev")
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, op.os, test.ShouldBeEmpty)
+		test.That(t, op.arch, test.ShouldBeEmpty)
+		test.That(t, op.dev, test.ShouldBeTrue)
+	})
+}
+
+// override cases for json
+var overrideDot = map[string]any{"darwin": map[string]any{"build.setup": "brew install"}}
+var overrideSlash = map[string]any{"darwin/arm64": map[string]any{"build.setup": "brew install"}}
+var overrideMap = map[string]any{"darwin": map[string]any{"build": map[string]any{"setup": "brew install"}}}
+var overrideDev = map[string]any{"dev": map[string]any{"entrypoint": "run.sh"}}
+var overrideDevPlatform = map[string]any{"linux;dev": map[string]any{"entrypoint": "run.sh"}}
