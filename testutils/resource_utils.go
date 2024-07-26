@@ -5,6 +5,7 @@ import (
 	"context"
 	"slices"
 	"testing"
+	"time"
 
 	"go.viam.com/test"
 
@@ -61,6 +62,34 @@ func VerifySameResourceNames(tb testing.TB, actual, expected []resource.Name) {
 	tb.Helper()
 
 	test.That(tb, newSortedResourceNames(actual), test.ShouldResemble, newSortedResourceNames(expected))
+}
+
+// VerifySameResourceStatuses asserts that two slices of [resource.Status] contain the
+// same elements without considering order. Does not consider
+// [resource.Status.LastUpdated] timestamps when comparing.
+func VerifySameResourceStatuses(tb testing.TB, actual, expected []resource.Status) {
+	tb.Helper()
+
+	sortedActual := newSortedResourceStatuses(actual)
+	sortedExpected := newSortedResourceStatuses(expected)
+
+	for i := range sortedActual {
+		sortedActual[i].LastUpdated = time.Time{}
+	}
+	for i := range sortedExpected {
+		sortedExpected[i].LastUpdated = time.Time{}
+	}
+
+	test.That(tb, sortedActual, test.ShouldResemble, sortedExpected)
+}
+
+func newSortedResourceStatuses(resourceStatuses []resource.Status) []resource.Status {
+	sorted := make([]resource.Status, len(resourceStatuses))
+	copy(sorted, resourceStatuses)
+	slices.SortStableFunc(sorted, func(r1, r2 resource.Status) int {
+		return cmp.Compare(r1.Name.String(), r2.Name.String())
+	})
+	return sorted
 }
 
 // ExtractNames takes a slice of resource.Name objects
@@ -125,6 +154,17 @@ func ConcatResourceNames(values ...[]resource.Name) []resource.Name {
 		rNames = append(rNames, v...)
 	}
 	return rNames
+}
+
+// ConcatResourceStatuses takes a slice of slices of resource.Status objects and returns
+// a concatenated slice of resource.Status for the purposes of comparison in automated
+// tests.
+func ConcatResourceStatuses(values ...[]resource.Status) []resource.Status {
+	var rs []resource.Status
+	for _, v := range values {
+		rs = append(rs, v...)
+	}
+	return rs
 }
 
 // AddSuffixes takes a slice of resource.Name objects and for each suffix,

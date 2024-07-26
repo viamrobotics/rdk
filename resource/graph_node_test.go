@@ -37,13 +37,20 @@ func TestUninitializedLifecycle(t *testing.T) {
 	test.That(t, node.Config(), test.ShouldResemble, resource.Config{})
 	test.That(t, node.NeedsReconfigure(), test.ShouldBeFalse)
 
-	test.That(t, node.State(), test.ShouldEqual, resource.NodeStateUnconfigured)
+	expectedState := resource.NodeStateUnconfigured
+	test.That(t, node.State(), test.ShouldEqual, expectedState)
+
+	status := node.ResourceStatus()
+	test.That(t, status.State, test.ShouldResemble, expectedState)
 
 	lifecycleTest(t, node, []string(nil))
 }
 
 func TestUnconfiguredLifecycle(t *testing.T) {
-	someConf := resource.Config{Attributes: utils.AttributeMap{"3": 4}}
+	someConf := resource.Config{
+		Name:       "foo",
+		Attributes: utils.AttributeMap{"3": 4},
+	}
 	initialDeps := []string{"dep1", "dep2"}
 	node := withTestLogger(t, resource.NewUnconfiguredGraphNode(someConf, initialDeps))
 
@@ -61,7 +68,12 @@ func TestUnconfiguredLifecycle(t *testing.T) {
 	test.That(t, node.NeedsReconfigure(), test.ShouldBeTrue)
 	test.That(t, node.UnresolvedDependencies(), test.ShouldResemble, initialDeps)
 
-	test.That(t, node.State(), test.ShouldEqual, resource.NodeStateConfiguring)
+	expectedState := resource.NodeStateConfiguring
+	test.That(t, node.State(), test.ShouldEqual, expectedState)
+
+	status := node.ResourceStatus()
+	test.That(t, status.Name.Name, test.ShouldEqual, "foo")
+	test.That(t, status.State, test.ShouldResemble, expectedState)
 
 	lifecycleTest(t, node, initialDeps)
 }
@@ -69,7 +81,8 @@ func TestUnconfiguredLifecycle(t *testing.T) {
 func TestConfiguredLifecycle(t *testing.T) {
 	someConf := resource.Config{Attributes: utils.AttributeMap{"3": 4}}
 
-	ourRes := &someResource{Resource: testutils.NewUnimplementedResource(generic.Named("some"))}
+	resName := generic.Named("some")
+	ourRes := &someResource{Resource: testutils.NewUnimplementedResource(resName)}
 	node := withTestLogger(t, resource.NewConfiguredGraphNode(someConf, ourRes, resource.DefaultModelFamily.WithModel("bar")))
 
 	test.That(t, node.IsUninitialized(), test.ShouldBeFalse)
@@ -86,7 +99,12 @@ func TestConfiguredLifecycle(t *testing.T) {
 	test.That(t, node.NeedsReconfigure(), test.ShouldBeFalse)
 	test.That(t, node.UnresolvedDependencies(), test.ShouldBeEmpty)
 
-	test.That(t, node.State(), test.ShouldEqual, resource.NodeStateReady)
+	expectedState := resource.NodeStateReady
+	test.That(t, node.State(), test.ShouldEqual, expectedState)
+
+	status := node.ResourceStatus()
+	test.That(t, status.Name, test.ShouldResemble, resName)
+	test.That(t, status.State, test.ShouldResemble, resource.NodeStateReady)
 
 	lifecycleTest(t, node, []string(nil))
 }
