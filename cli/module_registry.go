@@ -70,6 +70,7 @@ var defaultBuildInfo = manifestBuildInfo{
 
 // moduleManifest is used to create & parse manifest.json.
 type moduleManifest struct {
+	Schema      string            `json:"$schema"`
 	ModuleID    string            `json:"module_id"`
 	Visibility  moduleVisibility  `json:"visibility"`
 	URL         string            `json:"url"`
@@ -91,14 +92,22 @@ func CreateModuleAction(c *cli.Context) error {
 	moduleNameArg := c.String(moduleFlagName)
 	publicNamespaceArg := c.String(moduleFlagPublicNamespace)
 	orgIDArg := c.String(generalFlagOrgID)
+	localOnly := c.Bool(moduleCreateLocalOnly)
 
-	client, err := newViamClient(c)
-	if err != nil {
-		return err
-	}
-	org, err := resolveOrg(client, publicNamespaceArg, orgIDArg)
-	if err != nil {
-		return err
+	var client *viamClient
+	var err error
+	var org *apppb.Organization
+	if localOnly {
+		org = &apppb.Organization{Id: orgIDArg, PublicNamespace: publicNamespaceArg}
+	} else {
+		client, err = newViamClient(c)
+		if err != nil {
+			return err
+		}
+		org, err = resolveOrg(client, publicNamespaceArg, orgIDArg)
+		if err != nil {
+			return err
+		}
 	}
 
 	shouldWriteNewEmptyManifest := true
@@ -122,23 +131,32 @@ func CreateModuleAction(c *cli.Context) error {
 		shouldWriteNewEmptyManifest = false
 	}
 
-	response, err := client.createModule(moduleNameArg, org.GetId())
-	if err != nil {
-		return errors.Wrap(err, "failed to register the module on app.viam.com")
-	}
-
-	returnedModuleID, err := parseModuleID(response.GetModuleId())
-	if err != nil {
-		return err
-	}
-
-	printf(c.App.Writer, "Successfully created '%s'", returnedModuleID.String())
-	if response.GetUrl() != "" {
-		printf(c.App.Writer, "You can view it here: %s", response.GetUrl())
+	var returnedModuleID moduleID
+	if localOnly {
+		returnedModuleID.name = moduleNameArg
+		if org.PublicNamespace != "" {
+			returnedModuleID.prefix = org.PublicNamespace
+		} else {
+			returnedModuleID.prefix = org.Id
+		}
+	} else {
+		response, err := client.createModule(moduleNameArg, org.GetId())
+		if err != nil {
+			return errors.Wrap(err, "failed to register the module on app.viam.com")
+		}
+		returnedModuleID, err = parseModuleID(response.GetModuleId())
+		if err != nil {
+			return err
+		}
+		printf(c.App.Writer, "Successfully created '%s'", returnedModuleID.String())
+		if response.GetUrl() != "" {
+			printf(c.App.Writer, "You can view it here: %s", response.GetUrl())
+		}
 	}
 
 	if shouldWriteNewEmptyManifest {
 		emptyManifest := moduleManifest{
+			Schema:     "https://dl.viam.dev/module.schema.json",
 			ModuleID:   returnedModuleID.String(),
 			Visibility: moduleVisibilityPrivate,
 			// This is done so that the json has an empty example
