@@ -241,6 +241,33 @@ func TestOverrides(t *testing.T) {
 		test.That(t, op.arch, test.ShouldBeEmpty)
 		test.That(t, op.dev, test.ShouldBeTrue)
 	})
+
+	t.Run("check", func(t *testing.T) {
+		op, err := parseOverridePlatform("linux/arm64")
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, op.check("linux", "arm64", false), test.ShouldBeTrue)
+		test.That(t, op.check("linux", "arm64", true), test.ShouldBeTrue)
+		test.That(t, op.check("darwin", "arm64", false), test.ShouldBeFalse)
+		test.That(t, op.check("linux", "amd64", false), test.ShouldBeFalse)
+
+		op, err = parseOverridePlatform("linux")
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, op.check("linux", "arm64", false), test.ShouldBeTrue)
+		test.That(t, op.check("linux", "amd64", false), test.ShouldBeTrue)
+		test.That(t, op.check("darwin", "arm64", false), test.ShouldBeFalse)
+
+		op, err = parseOverridePlatform("linux;dev")
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, op.check("linux", "arm64", true), test.ShouldBeTrue)
+		test.That(t, op.check("linux", "arm64", false), test.ShouldBeFalse)
+		test.That(t, op.check("darwin", "arm64", true), test.ShouldBeFalse)
+
+		op, err = parseOverridePlatform(";dev")
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, op.check("linux", "arm64", true), test.ShouldBeTrue)
+		test.That(t, op.check("linux", "arm64", false), test.ShouldBeFalse)
+		test.That(t, op.check("darwin", "arm64", true), test.ShouldBeTrue)
+	})
 }
 
 // override cases for json
