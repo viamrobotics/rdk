@@ -53,9 +53,9 @@ func NewSerialDataReader(config *SerialConfig, logger logging.Logger) (DataReade
 	data := make(chan string)
 
 	reader := SerialDataReader{
-		dev:        dev,
-		data:       data,
-		logger:     logger,
+		dev:    dev,
+		data:   data,
+		logger: logger,
 	}
 	reader.workers = utils.NewStoppableWorkers(reader.backgroundWorker)
 

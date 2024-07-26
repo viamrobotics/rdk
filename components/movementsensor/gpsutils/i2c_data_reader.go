@@ -56,11 +56,11 @@ func NewI2cDataReader(
 
 	data := make(chan string)
 	reader := PmtkI2cDataReader{
-		data:       data,
-		logger:     logger,
-		bus:        bus,
-		addr:       byte(addr),
-		baud:       baud,
+		data:   data,
+		logger: logger,
+		bus:    bus,
+		addr:   byte(addr),
+		baud:   baud,
 	}
 
 	if err := reader.initialize(ctx); err != nil {
