@@ -20,33 +20,33 @@ jobs:
       matrix:
         include:
         # rdk-devenv
-        - arch: buildjet-2vcpu-ubuntu-2204
+        - arch: ubuntu-latest
           tag: amd64
           platform: linux/amd64
           image: rdk-devenv
           file: etc/Dockerfile.cache
-        - arch: buildjet-4vcpu-ubuntu-2204-arm
+        - arch: ubuntu-small-arm
           tag: arm64
           platform: linux/arm64
           image: rdk-devenv
           file: etc/Dockerfile.cache
-        - arch: buildjet-2vcpu-ubuntu-2204-arm
+        - arch: ubuntu-small-arm
           tag: armhf
           platform: linux/arm/v7
           image: rdk-devenv
           file: etc/Dockerfile.cache
         # antique2
-        - arch: buildjet-2vcpu-ubuntu-2204
+        - arch: ubuntu-latest
           platform: linux/amd64
           image: antique2
           file: etc/Dockerfile.antique-cache
           tag: amd64
-        - arch: buildjet-2vcpu-ubuntu-2204-arm
+        - arch: ubuntu-small-arm
           platform: linux/arm64
           image: antique2
           file: etc/Dockerfile.antique-cache
           tag: arm64
-        - arch: buildjet-2vcpu-ubuntu-2204-arm
+        - arch: ubuntu-small-arm
           platform: linux/arm/v7
           image: antique2
           file: etc/Dockerfile.antique-cache
