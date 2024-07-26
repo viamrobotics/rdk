@@ -77,29 +77,30 @@ func TestServer(t *testing.T) {
 	t.Run("GetMachineStatus", func(t *testing.T) {
 		for _, tc := range []struct {
 			name                string
-			errExpectation      func(actual interface{}, expected ...interface{}) string
 			injectMachineStatus robot.MachineStatus
 			expResources        []*pb.ResourceStatus
 		}{
 			{
 				"no resources",
-				test.ShouldBeNil,
 				robot.MachineStatus{Resources: []resource.Status{}},
 				[]*pb.ResourceStatus{},
 			},
 			{
 				"resource with unknown status",
-				test.ShouldNotBeNil,
 				robot.MachineStatus{Resources: []resource.Status{
 					{
 						Name: arm.Named("badArm"),
 					},
 				}},
-				nil, // doesn't matter
+				[]*pb.ResourceStatus{
+					{
+						Name:  protoutils.ResourceNameToProto(arm.Named("badArm")),
+						State: pb.ResourceStatus_STATE_UNSPECIFIED,
+					},
+				},
 			},
 			{
 				"resource with valid status",
-				test.ShouldBeNil,
 				robot.MachineStatus{Resources: []resource.Status{
 					{
 						Name:  arm.Named("goodArm"),
@@ -115,7 +116,6 @@ func TestServer(t *testing.T) {
 			},
 			{
 				"resources with mixed valid and invalid statuses",
-				test.ShouldNotBeNil,
 				robot.MachineStatus{Resources: []resource.Status{
 					{
 						Name:  arm.Named("goodArm"),
@@ -125,17 +125,30 @@ func TestServer(t *testing.T) {
 						Name: arm.Named("badArm"),
 					},
 				}},
-				nil, // doesn't matter
+				[]*pb.ResourceStatus{
+					{
+						Name:  protoutils.ResourceNameToProto(arm.Named("goodArm")),
+						State: pb.ResourceStatus_STATE_CONFIGURING,
+					},
+					{
+						Name:  protoutils.ResourceNameToProto(arm.Named("badArm")),
+						State: pb.ResourceStatus_STATE_UNSPECIFIED,
+					},
+				},
 			},
 		} {
+			logger := logging.NewTestLogger(t)
 			injectRobot := &inject.Robot{}
 			server := server.New(injectRobot)
 			req := pb.GetMachineStatusRequest{}
+			injectRobot.LoggerFunc = func() logging.Logger {
+				return logger
+			}
 			injectRobot.MachineStatusFunc = func(ctx context.Context) (robot.MachineStatus, error) {
 				return tc.injectMachineStatus, nil
 			}
 			resp, err := server.GetMachineStatus(context.Background(), &req)
-			test.That(t, err, tc.errExpectation)
+			test.That(t, err, test.ShouldBeNil)
 			if err == nil {
 				for i, res := range resp.GetResources() {
 					test.That(t, res.GetName(), test.ShouldResemble, tc.expResources[i].Name)

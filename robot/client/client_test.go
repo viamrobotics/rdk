@@ -2097,26 +2097,23 @@ func TestUnregisteredResourceByName(t *testing.T) {
 func TestMachineStatus(t *testing.T) {
 	for _, tc := range []struct {
 		name                string
-		errExpectation      func(actual interface{}, expected ...interface{}) string
 		injectMachineStatus robot.MachineStatus
 	}{
 		{
 			"no resources",
-			test.ShouldBeNil,
 			robot.MachineStatus{Resources: []resource.Status{}},
 		},
 		{
 			"resource with unknown status",
-			test.ShouldNotBeNil,
 			robot.MachineStatus{Resources: []resource.Status{
 				{
-					Name: arm.Named("badArm"),
+					Name:  arm.Named("badArm"),
+					State: resource.NodeStateUnknown,
 				},
 			}},
 		},
 		{
 			"resource with valid status",
-			test.ShouldBeNil,
 			robot.MachineStatus{Resources: []resource.Status{
 				{
 					Name:  arm.Named("goodArm"),
@@ -2126,14 +2123,14 @@ func TestMachineStatus(t *testing.T) {
 		},
 		{
 			"resources with mixed valid and invalid statuses",
-			test.ShouldNotBeNil,
 			robot.MachineStatus{Resources: []resource.Status{
 				{
 					Name:  arm.Named("goodArm"),
 					State: resource.NodeStateConfiguring,
 				},
 				{
-					Name: arm.Named("badArm"),
+					Name:  arm.Named("badArm"),
+					State: resource.NodeStateUnknown,
 				},
 			}},
 		},
@@ -2145,6 +2142,7 @@ func TestMachineStatus(t *testing.T) {
 			gServer := grpc.NewServer()
 
 			injectRobot := &inject.Robot{
+				LoggerFunc:          func() logging.Logger { return logger },
 				ResourceNamesFunc:   func() []resource.Name { return nil },
 				ResourceRPCAPIsFunc: func() []resource.RPCAPI { return nil },
 				MachineStatusFunc: func(ctx context.Context) (robot.MachineStatus, error) {
@@ -2167,7 +2165,7 @@ func TestMachineStatus(t *testing.T) {
 			}()
 
 			md, err := client.MachineStatus(context.Background())
-			test.That(t, err, tc.errExpectation)
+			test.That(t, err, test.ShouldBeNil)
 			if err == nil {
 				test.That(t, md, test.ShouldResemble, tc.injectMachineStatus)
 			}

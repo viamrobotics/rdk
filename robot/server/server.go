@@ -506,7 +506,8 @@ func (s *Server) GetMachineStatus(ctx context.Context, _ *pb.GetMachineStatusReq
 
 		switch resStatus.State {
 		case resource.NodeStateUnknown:
-			return nil, errors.New("resource in unknown state")
+			s.robot.Logger().CErrorw(ctx, "resource in an unknown state", "resource", resStatus.Name.String())
+			pbResStatus.State = pb.ResourceStatus_STATE_UNSPECIFIED
 		case resource.NodeStateUnconfigured:
 			pbResStatus.State = pb.ResourceStatus_STATE_UNCONFIGURED
 		case resource.NodeStateConfiguring:

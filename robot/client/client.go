@@ -1036,7 +1036,8 @@ func (rc *RobotClient) MachineStatus(ctx context.Context) (robot.MachineStatus, 
 
 		switch pbResStatus.State {
 		case pb.ResourceStatus_STATE_UNSPECIFIED:
-			return mStatus, errors.New("resource in an unspecified state")
+			rc.logger.CErrorw(ctx, "received resource in an unspecified state", "resource", resStatus.Name.String())
+			resStatus.State = resource.NodeStateUnknown
 		case pb.ResourceStatus_STATE_UNCONFIGURED:
 			resStatus.State = resource.NodeStateUnconfigured
 		case pb.ResourceStatus_STATE_CONFIGURING:
