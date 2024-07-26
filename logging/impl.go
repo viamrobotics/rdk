@@ -25,6 +25,7 @@ type (
 		// avoid that. This function is a no-op for non-test loggers. See `NewTestAppender`
 		// documentation for more details.
 		testHelper func()
+		logFields  []zapcore.Field
 	}
 
 	// LogEntry embeds a zapcore Entry and slice of Fields.
@@ -76,6 +77,7 @@ func (imp *impl) Sublogger(subname string) Logger {
 		NewAtomicLevelAt(imp.level.Get()),
 		imp.appenders,
 		imp.testHelper,
+		[]zapcore.Field{},
 	}
 
 	RegisterLogger(newName, sublogger)
@@ -98,12 +100,33 @@ func (imp *impl) Sync() error {
 	return multierr.Combine(errs...)
 }
 
-func (imp *impl) With(args ...interface{}) *zap.SugaredLogger {
-	return imp.AsZap().With(args...)
-}
-
 func (imp *impl) WithOptions(opts ...zap.Option) *zap.SugaredLogger {
 	return imp.AsZap().WithOptions(opts...)
+}
+
+func (imp *impl) WithFields(args ...interface{}) {
+	for keyIdx := 0; keyIdx < len(args); keyIdx += 2 {
+		keyObj := args[keyIdx]
+		var keyStr string
+
+		switch key := keyObj.(type) {
+		case string:
+			keyStr = key
+		case fmt.Stringer:
+			keyStr = key.String()
+		default:
+			continue
+		}
+
+		if keyIdx+1 < len(args) {
+			imp.logFields = append(imp.logFields, zap.Any(keyStr, args[keyIdx+1]))
+		} else {
+			// API mis-use. Rather than logging a logging mis-use, slip in an error message such
+			// that we don't silenlty discard it.
+			imp.logFields = append(imp.logFields, zap.Any(keyStr, errors.New("unpaired log key")))
+		}
+
+	}
 }
 
 func (imp *impl) AsZap() *zap.SugaredLogger {
@@ -173,9 +196,16 @@ func (imp *impl) format(logLevel Level, traceKey string, args ...interface{}) *L
 	logEntry := imp.NewLogEntry()
 	logEntry.Level = logLevel.AsZap()
 	logEntry.Message = fmt.Sprint(args...)
+
+	if len(imp.logFields) != 0 {
+		logEntry.fields = make([]zapcore.Field, 0, len(imp.logFields))
+	}
+
 	if traceKey != emptyTraceKey {
 		logEntry.fields = append(logEntry.fields, zap.String("traceKey", traceKey))
 	}
+
+	logEntry.fields = append(logEntry.fields, imp.logFields...)
 
 	return logEntry
 }
@@ -185,9 +215,16 @@ func (imp *impl) formatf(logLevel Level, traceKey, template string, args ...inte
 	logEntry := imp.NewLogEntry()
 	logEntry.Level = logLevel.AsZap()
 	logEntry.Message = fmt.Sprintf(template, args...)
+
+	if len(imp.logFields) != 0 {
+		logEntry.fields = make([]zapcore.Field, 0, len(imp.logFields))
+	}
+
 	if traceKey != emptyTraceKey {
 		logEntry.fields = append(logEntry.fields, zap.String("traceKey", traceKey))
 	}
+
+	logEntry.fields = append(logEntry.fields, imp.logFields...)
 
 	return logEntry
 }
@@ -201,7 +238,7 @@ func (imp *impl) formatw(logLevel Level, traceKey, msg string, keysAndValues ...
 	logEntry.Level = logLevel.AsZap()
 	logEntry.Message = msg
 
-	logEntry.fields = make([]zapcore.Field, 0, len(keysAndValues)/2+1)
+	logEntry.fields = make([]zapcore.Field, 0, len(imp.logFields)+len(keysAndValues)/2+1)
 	if traceKey != emptyTraceKey {
 		logEntry.fields = append(logEntry.fields, zap.String("traceKey", traceKey))
 	}
@@ -223,6 +260,8 @@ func (imp *impl) formatw(logLevel Level, traceKey, msg string, keysAndValues ...
 			logEntry.fields = append(logEntry.fields, zap.Any(keyStr, errors.New("unpaired log key")))
 		}
 	}
+
+	logEntry.fields = append(logEntry.fields, imp.logFields...)
 
 	return logEntry
 }

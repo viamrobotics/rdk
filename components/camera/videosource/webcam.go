@@ -287,9 +287,11 @@ func NewWebcam(
 	logger logging.Logger,
 ) (camera.Camera, error) {
 	cancelCtx, cancel := context.WithCancel(context.Background())
+	logger.WithFields("camera_name", conf.ResourceName().ShortName())
+
 	cam := &monitoredWebcam{
 		Named:          conf.ResourceName().AsNamed(),
-		logger:         logging.FromZapCompatible(logger.With("camera_name", conf.ResourceName().ShortName())),
+		logger:         logger,
 		originalLogger: logger,
 		cancelCtx:      cancelCtx,
 		cancel:         cancel,
@@ -518,7 +520,8 @@ func (c *monitoredWebcam) reconnectCamera(conf *WebcamConfig) error {
 	if c.targetPath == "" {
 		c.targetPath = foundLabel
 	}
-	c.logger = logging.FromZapCompatible(c.originalLogger.With("camera_label", c.targetPath))
+
+	c.logger.WithFields("camera_label", c.targetPath)
 
 	return nil
 }
