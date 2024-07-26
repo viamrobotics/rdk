@@ -13,6 +13,7 @@ import (
 	"github.com/golang/geo/r3"
 	"github.com/google/uuid"
 	"github.com/jhump/protoreflect/grpcreflect"
+	"go.uber.org/zap/zapcore"
 	commonpb "go.viam.com/api/common/v1"
 	armpb "go.viam.com/api/component/arm/v1"
 	pb "go.viam.com/api/robot/v1"
@@ -79,11 +80,13 @@ func TestServer(t *testing.T) {
 			name                string
 			injectMachineStatus robot.MachineStatus
 			expResources        []*pb.ResourceStatus
+			expBadStateCount    int
 		}{
 			{
 				"no resources",
 				robot.MachineStatus{Resources: []resource.Status{}},
 				[]*pb.ResourceStatus{},
+				0,
 			},
 			{
 				"resource with unknown status",
@@ -98,6 +101,7 @@ func TestServer(t *testing.T) {
 						State: pb.ResourceStatus_STATE_UNSPECIFIED,
 					},
 				},
+				1,
 			},
 			{
 				"resource with valid status",
@@ -113,6 +117,7 @@ func TestServer(t *testing.T) {
 						State: pb.ResourceStatus_STATE_CONFIGURING,
 					},
 				},
+				0,
 			},
 			{
 				"resources with mixed valid and invalid statuses",
@@ -124,6 +129,9 @@ func TestServer(t *testing.T) {
 					{
 						Name: arm.Named("badArm"),
 					},
+					{
+						Name: arm.Named("anotherBadArm"),
+					},
 				}},
 				[]*pb.ResourceStatus{
 					{
@@ -134,10 +142,15 @@ func TestServer(t *testing.T) {
 						Name:  protoutils.ResourceNameToProto(arm.Named("badArm")),
 						State: pb.ResourceStatus_STATE_UNSPECIFIED,
 					},
+					{
+						Name:  protoutils.ResourceNameToProto(arm.Named("anotherBadArm")),
+						State: pb.ResourceStatus_STATE_UNSPECIFIED,
+					},
 				},
+				2,
 			},
 		} {
-			logger := logging.NewTestLogger(t)
+			logger, logs := logging.NewObservedTestLogger(t)
 			injectRobot := &inject.Robot{}
 			server := server.New(injectRobot)
 			req := pb.GetMachineStatusRequest{}
@@ -149,12 +162,13 @@ func TestServer(t *testing.T) {
 			}
 			resp, err := server.GetMachineStatus(context.Background(), &req)
 			test.That(t, err, test.ShouldBeNil)
-			if err == nil {
-				for i, res := range resp.GetResources() {
-					test.That(t, res.GetName(), test.ShouldResemble, tc.expResources[i].Name)
-					test.That(t, res.GetState(), test.ShouldResemble, tc.expResources[i].State)
-				}
+			for i, res := range resp.GetResources() {
+				test.That(t, res.GetName(), test.ShouldResemble, tc.expResources[i].Name)
+				test.That(t, res.GetState(), test.ShouldResemble, tc.expResources[i].State)
 			}
+			const badStateMsg = "resource in an unknown state"
+			badStateCount := logs.FilterLevelExact(zapcore.ErrorLevel).FilterMessageSnippet(badStateMsg).Len()
+			test.That(t, badStateCount, test.ShouldEqual, tc.expBadStateCount)
 		}
 	})
 

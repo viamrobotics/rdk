@@ -20,6 +20,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jhump/protoreflect/grpcreflect"
 	"github.com/pkg/errors"
+	"go.uber.org/zap/zapcore"
 	commonpb "go.viam.com/api/common/v1"
 	armpb "go.viam.com/api/component/arm/v1"
 	basepb "go.viam.com/api/component/base/v1"
@@ -2098,10 +2099,12 @@ func TestMachineStatus(t *testing.T) {
 	for _, tc := range []struct {
 		name                string
 		injectMachineStatus robot.MachineStatus
+		expBadStateCount    int
 	}{
 		{
 			"no resources",
 			robot.MachineStatus{Resources: []resource.Status{}},
+			0,
 		},
 		{
 			"resource with unknown status",
@@ -2111,6 +2114,7 @@ func TestMachineStatus(t *testing.T) {
 					State: resource.NodeStateUnknown,
 				},
 			}},
+			1,
 		},
 		{
 			"resource with valid status",
@@ -2120,6 +2124,7 @@ func TestMachineStatus(t *testing.T) {
 					State: resource.NodeStateConfiguring,
 				},
 			}},
+			0,
 		},
 		{
 			"resources with mixed valid and invalid statuses",
@@ -2132,11 +2137,16 @@ func TestMachineStatus(t *testing.T) {
 					Name:  arm.Named("badArm"),
 					State: resource.NodeStateUnknown,
 				},
+				{
+					Name:  arm.Named("anotherBadArm"),
+					State: resource.NodeStateUnknown,
+				},
 			}},
+			2,
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			logger := logging.NewTestLogger(t)
+			logger, logs := logging.NewObservedTestLogger(t)
 			listener, err := net.Listen("tcp", "localhost:0")
 			test.That(t, err, test.ShouldBeNil)
 			gServer := grpc.NewServer()
@@ -2166,9 +2176,11 @@ func TestMachineStatus(t *testing.T) {
 
 			md, err := client.MachineStatus(context.Background())
 			test.That(t, err, test.ShouldBeNil)
-			if err == nil {
-				test.That(t, md, test.ShouldResemble, tc.injectMachineStatus)
-			}
+			test.That(t, md, test.ShouldResemble, tc.injectMachineStatus)
+
+			const badStateMsg = "received resource in an unspecified state"
+			badStateCount := logs.FilterLevelExact(zapcore.ErrorLevel).FilterMessageSnippet(badStateMsg).Len()
+			test.That(t, badStateCount, test.ShouldEqual, tc.expBadStateCount)
 		})
 	}
 }
