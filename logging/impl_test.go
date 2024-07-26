@@ -442,5 +442,4 @@ func TestLoggingWithFields(t *testing.T) {
 	logger.Info("impl logw")
 	assertLogMatches(t, notStdout,
 		`2023-10-31T14:25:49.124Z	INFO	impl	logging/impl_test.go:177	impl logw	{"8.8.8.8":"val"}`)
-
 }

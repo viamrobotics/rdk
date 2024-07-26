@@ -125,7 +125,6 @@ func (imp *impl) WithFields(args ...interface{}) {
 			// that we don't silenlty discard it.
 			imp.logFields = append(imp.logFields, zap.Any(keyStr, errors.New("unpaired log key")))
 		}
-
 	}
 }
 
