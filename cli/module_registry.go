@@ -156,7 +156,7 @@ func CreateModuleAction(c *cli.Context) error {
 
 	if shouldWriteNewEmptyManifest {
 		emptyManifest := moduleManifest{
-			Schema:     "https://dl.viam.dev/dl/module.schema.json",
+			Schema:     "https://dl.viam.dev/module.schema.json",
 			ModuleID:   returnedModuleID.String(),
 			Visibility: moduleVisibilityPrivate,
 			// This is done so that the json has an empty example
