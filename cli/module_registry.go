@@ -92,12 +92,12 @@ func CreateModuleAction(c *cli.Context) error {
 	moduleNameArg := c.String(moduleFlagName)
 	publicNamespaceArg := c.String(moduleFlagPublicNamespace)
 	orgIDArg := c.String(generalFlagOrgID)
-	dryRun := c.Bool(moduleCreateLocalOnly)
+	localOnly := c.Bool(moduleCreateLocalOnly)
 
 	var client *viamClient
 	var err error
 	var org *apppb.Organization
-	if dryRun {
+	if localOnly {
 		org = &apppb.Organization{Id: orgIDArg, PublicNamespace: publicNamespaceArg}
 	} else {
 		client, err = newViamClient(c)
@@ -132,7 +132,7 @@ func CreateModuleAction(c *cli.Context) error {
 	}
 
 	var returnedModuleID moduleID
-	if dryRun {
+	if localOnly {
 		returnedModuleID.name = moduleNameArg
 		if org.PublicNamespace != "" {
 			returnedModuleID.prefix = org.PublicNamespace
