@@ -71,7 +71,7 @@ func wrapWithDifferentialDriveKinematics(
 		boundingSphere, err = spatialmath.BoundingSphere(geometry)
 	}
 	if boundingSphere == nil || err != nil {
-		logger.CWarn(
+		logger.CWarnf(
 			ctx, "base %s not configured with a geometry, will be considered a 300mm sphere for collision detection purposes.",
 			b.Name().Name,
 		)

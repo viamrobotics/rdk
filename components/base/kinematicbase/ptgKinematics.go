@@ -98,7 +98,7 @@ func wrapWithPTGKinematics(
 
 	geometries, err := b.Geometries(ctx, nil)
 	if len(geometries) == 0 || err != nil {
-		logger.CWarn(
+		logger.CWarnf(
 			ctx, "base %s not configured with a geometry, will be considered a 300mm sphere for collision detection purposes.",
 			b.Name().Name,
 		)
@@ -192,7 +192,7 @@ func (ptgk *ptgBaseKinematics) ExecutionState(ctx context.Context) (motionplan.E
 		return motionplan.ExecutionState{}, errors.New("cannot call ExecutionState on a base without a localizer")
 	}
 
-	actualPIF, err := ptgk.CurrentPosition(ctx)
+	actualPIF, err := ptgk.Localizer.CurrentPosition(ctx)
 	if err != nil {
 		return motionplan.ExecutionState{}, err
 	}
