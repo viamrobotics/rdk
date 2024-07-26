@@ -40,7 +40,7 @@
         },
         "overrides": {
             "type": "object",
-            "description": "Platform overrides that override other fields in meta.json. Keys here take the form 'linux/arm64;dev'; see examples.",
+            "description": "Platform overrides that override other fields in meta.json. Keys here take the form 'linux/arm64;dev'; see examples. The ';dev' suffix applies only in the `module reload` command.",
             "examples": [
                 {";dev": {"entrypoint": "run.sh"}},
                 {"darwin": {"build.setup": "brew install"}},

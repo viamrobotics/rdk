@@ -197,7 +197,7 @@ func TestLocalBuild(t *testing.T) {
 	// run the build local action
 	cCtx, _, out, errOut := setup(&inject.AppServiceClient{}, nil, &inject.BuildServiceClient{},
 		nil, map[string]any{moduleBuildFlagPath: manifestPath, moduleBuildFlagVersion: "1.2.3"}, "token")
-	manifest, err := loadManifest(manifestPath)
+	manifest, err := loadManifest(manifestPath, false)
 	test.That(t, err, test.ShouldBeNil)
 	err = moduleBuildLocalAction(cCtx, &manifest)
 	test.That(t, err, test.ShouldBeNil)

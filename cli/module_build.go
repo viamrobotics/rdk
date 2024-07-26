@@ -55,7 +55,7 @@ func ModuleBuildStartAction(cCtx *cli.Context) error {
 }
 
 func (c *viamClient) moduleBuildStartAction(cCtx *cli.Context) error {
-	manifest, err := loadManifest(cCtx.String(moduleFlagPath))
+	manifest, err := loadManifest(cCtx.String(moduleFlagPath), false)
 	if err != nil {
 		return err
 	}
@@ -86,7 +86,7 @@ func (c *viamClient) moduleBuildStartAction(cCtx *cli.Context) error {
 // ModuleBuildLocalAction runs the module's build commands locally.
 func ModuleBuildLocalAction(cCtx *cli.Context) error {
 	manifestPath := cCtx.String(moduleFlagPath)
-	manifest, err := loadManifest(manifestPath)
+	manifest, err := loadManifest(manifestPath, false)
 	if err != nil {
 		return err
 	}
@@ -142,7 +142,7 @@ func (c *viamClient) moduleBuildListAction(cCtx *cli.Context) error {
 		buildIDFilter = &filter
 	} else {
 		manifestPath := cCtx.String(moduleBuildFlagPath)
-		manifest, err := loadManifest(manifestPath)
+		manifest, err := loadManifest(manifestPath, false)
 		if err != nil {
 			return err
 		}
@@ -408,7 +408,7 @@ func reloadModuleAction(c *cli.Context, vc *viamClient) error {
 	if err != nil {
 		return err
 	}
-	manifest, err := loadManifestOrNil(c.String(moduleFlagPath))
+	manifest, err := loadManifestOrNil(c.String(moduleFlagPath), true)
 	if err != nil {
 		return err
 	}

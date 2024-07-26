@@ -119,7 +119,7 @@ func CreateModuleAction(c *cli.Context) error {
 	// in order to minimize user frustration. We will continue the creation if the args passed to create
 	// match the values in the meta.json
 	if _, err := os.Stat(defaultManifestFilename); err == nil {
-		modManifest, err := loadManifest(defaultManifestFilename)
+		modManifest, err := loadManifest(defaultManifestFilename, false)
 		if err != nil {
 			return errors.New("another meta.json already exists in the current directory. Delete it and try again")
 		}
@@ -187,7 +187,7 @@ func UpdateModuleAction(c *cli.Context) error {
 		return err
 	}
 
-	manifest, err := loadManifest(manifestPath)
+	manifest, err := loadManifest(manifestPath, false)
 	if err != nil {
 		return err
 	}
@@ -262,7 +262,7 @@ func UploadModuleAction(c *cli.Context) error {
 		}
 	} else {
 		// if we can find a manifest, use that
-		manifest, err := loadManifest(manifestPath)
+		manifest, err := loadManifest(manifestPath, false)
 		if err != nil {
 			return err
 		}
@@ -322,7 +322,7 @@ func UpdateModelsAction(c *cli.Context) error {
 		return err
 	}
 
-	manifest, err := loadManifest(c.String(moduleFlagPath))
+	manifest, err := loadManifest(c.String(moduleFlagPath), false)
 	if err != nil {
 		return err
 	}
@@ -729,7 +729,7 @@ func (manifest moduleManifest) applyOverrides(logger logging.Logger, dev bool) (
 	return copy, err
 }
 
-func loadManifest(manifestPath string) (moduleManifest, error) {
+func loadManifest(manifestPath string, devMode bool) (moduleManifest, error) {
 	//nolint:gosec
 	manifestBytes, err := os.ReadFile(manifestPath)
 	if err != nil {
@@ -742,12 +742,12 @@ func loadManifest(manifestPath string) (moduleManifest, error) {
 	if err := json.Unmarshal(manifestBytes, &manifest); err != nil {
 		return moduleManifest{}, err
 	}
-	return manifest, nil
+	return manifest.applyOverrides(logging.Global(), devMode)
 }
 
 // loadManifestOrNil doesn't throw error on missing.
-func loadManifestOrNil(path string) (*moduleManifest, error) {
-	manifest, err := loadManifest(path)
+func loadManifestOrNil(path string, devMode bool) (*moduleManifest, error) {
+	manifest, err := loadManifest(path, devMode)
 	if err == nil {
 		return &manifest, nil
 	}
