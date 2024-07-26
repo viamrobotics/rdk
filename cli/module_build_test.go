@@ -268,6 +268,22 @@ func TestOverrides(t *testing.T) {
 		test.That(t, op.check("linux", "arm64", false), test.ShouldBeFalse)
 		test.That(t, op.check("darwin", "arm64", true), test.ShouldBeTrue)
 	})
+
+	t.Run("apply", func(t *testing.T) {
+		conf := map[string]any{"x": 1}
+		err := applyOverrideField(conf, 2, "x", "x")
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, conf["x"], test.ShouldEqual, 2)
+
+		conf = map[string]any{"x": map[string]any{"y": 1}}
+		err = applyOverrideField(conf, 2, "x.y", strings.Split("x.y", ".")...)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, conf["x"].(map[string]any)["y"], test.ShouldEqual, 2)
+
+		conf = map[string]any{}
+		err = applyOverrideField(conf, 2, "x.y", strings.Split("x.y", ".")...)
+		test.That(t, err, test.ShouldNotBeNil)
+	})
 }
 
 // override cases for json

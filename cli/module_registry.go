@@ -659,6 +659,19 @@ func (op overridePlatform) checkCurrent(dev bool) bool {
 	return op.check(runtime.GOOS, runtime.GOARCH, dev)
 }
 
+// looks up key, which is a decomposed jsonpath, sets configAsMap[key] to val.
+func applyOverrideField(configAsMap map[string]any, val any, origKey string, key ...string) error {
+	if len(key) == 1 {
+		configAsMap[key[0]] = val
+		return nil
+	}
+	subtree, ok := configAsMap[key[0]].(map[string]any)
+	if !ok {
+		return fmt.Errorf("non-map subtree in override key %s at .%s", origKey, strings.Join(key, "."))
+	}
+	return applyOverrideField(subtree, val, origKey, key[1:]...)
+}
+
 // applies the `overrides` section to the manifest.
 // func applyManifestOverrides(manifest moduleManifest) error {
 // 	for key, val := range manifest.Overrides {
