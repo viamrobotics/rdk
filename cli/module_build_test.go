@@ -13,6 +13,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/testutils/inject"
 )
 
@@ -269,7 +270,7 @@ func TestOverrides(t *testing.T) {
 		test.That(t, op.check("darwin", "arm64", true), test.ShouldBeTrue)
 	})
 
-	t.Run("apply", func(t *testing.T) {
+	t.Run("applyOverrideField", func(t *testing.T) {
 		conf := map[string]any{"x": 1}
 		err := applyOverrideField(conf, 2, "x", "x")
 		test.That(t, err, test.ShouldBeNil)
@@ -284,11 +285,28 @@ func TestOverrides(t *testing.T) {
 		err = applyOverrideField(conf, 2, "x.y", strings.Split("x.y", ".")...)
 		test.That(t, err, test.ShouldNotBeNil)
 	})
-}
 
-// override cases for json
-var overrideDot = map[string]any{"darwin": map[string]any{"build.setup": "brew install"}}
-var overrideSlash = map[string]any{"darwin/arm64": map[string]any{"build.setup": "brew install"}}
-var overrideMap = map[string]any{"darwin": map[string]any{"build": map[string]any{"setup": "brew install"}}}
-var overrideDev = map[string]any{"dev": map[string]any{"entrypoint": "run.sh"}}
-var overrideDevPlatform = map[string]any{"linux;dev": map[string]any{"entrypoint": "run.sh"}}
+	t.Run("applyOverrides", func(t *testing.T) {
+		logger := logging.NewTestLogger(t)
+
+		// shallow example
+		manifest := moduleManifest{
+			Build:     &manifestBuildInfo{},
+			Overrides: map[string]any{";dev": map[string]any{"entrypoint": "./run.sh"}},
+		}
+		copy, err := manifest.applyOverrides(logger, true)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, manifest.Entrypoint, test.ShouldBeEmpty)
+		test.That(t, copy.Entrypoint, test.ShouldResemble, "./run.sh")
+
+		// deep example
+		manifest = moduleManifest{
+			Build:     &manifestBuildInfo{},
+			Overrides: map[string]any{";dev": map[string]any{"build.setup": "brew install"}},
+		}
+		copy, err = manifest.applyOverrides(logger, true)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, manifest.Build.Setup, test.ShouldBeEmpty)
+		test.That(t, copy.Build.Setup, test.ShouldResemble, "brew install")
+	})
+}
