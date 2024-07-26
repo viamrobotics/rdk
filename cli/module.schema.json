@@ -37,6 +37,20 @@
         },
         "build": {
             "$ref": "#/$defs/build_section"
+        },
+        "overrides": {
+            "type": "object",
+            "description": "Platform overrides that override other fields in meta.json. Keys here take the form 'linux/arm64;dev'; see examples.",
+            "examples": [
+                {";dev": {"entrypoint": "run.sh"}},
+                {"darwin": {"build.setup": "brew install"}},
+                {"linux/arm64": {}}
+            ],
+            "additionalProperties": {
+                "type": "object",
+                "description": "A map like {\"build.setup\": \"brew install\"}. The keys are dotted paths similar to jsonpath, the values are any replacement value.",
+                "examples": [{"entrypoint": "run.sh"}, {"build.setup": "brew install"}, {"build.setup": "brew install"}]
+            }
         }
     },
     "required": [
