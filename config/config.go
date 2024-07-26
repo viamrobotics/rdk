@@ -1099,3 +1099,10 @@ func (p *PackageConfig) sanitizedVersion() string {
 	// replaces all the . if they exist with _
 	return strings.ReplaceAll(p.Version, ".", "_")
 }
+
+// Status encapsulates the revision of the latest config ingested by the robot along with
+// a timestamp.
+type Status struct {
+	Revision    string
+	LastUpdated time.Time
+}
