@@ -4,6 +4,7 @@ import (
 	"archive/tar"
 	"compress/gzip"
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -445,6 +446,9 @@ func reloadModuleAction(c *cli.Context, vc *viamClient) error {
 			if err := validateReloadableArchive(c, manifest.Build); err != nil {
 				return err
 			}
+			if err := updateArchiveManifest(manifest); err != nil {
+				return err
+			}
 			if err := addShellService(c, vc, part.Part, true); err != nil {
 				return err
 			}
@@ -475,6 +479,19 @@ func reloadingDestination(c *cli.Context, manifest *moduleManifest) string {
 		utils.SanitizePath(localizeModuleID(manifest.ModuleID)+"-"+manifest.Build.Path))
 }
 
+// updateArchiveManifest writes the in-memory manifest to a tarball. This is necessary so that remote-reload
+// modules use ';dev' settings rather than defaults.
+func updateArchiveManifest(manifest *moduleManifest) error {
+	asBytes, err := json.Marshal(manifest)
+	if err != nil {
+		return err
+	}
+	if err := replaceInTarGz(manifest.Build.Path, map[string][]byte{"meta.json": asBytes}); err != nil {
+		return err
+	}
+	return nil
+}
+
 // validateReloadableArchive returns an error if there is a fatal issue (for now just file not found).
 // It also logs warnings for likely problems.
 func validateReloadableArchive(c *cli.Context, build *manifestBuildInfo) error {
@@ -482,10 +499,12 @@ func validateReloadableArchive(c *cli.Context, build *manifestBuildInfo) error {
 	if err != nil {
 		return err
 	}
+	defer reader.Close()
 	decompressed, err := gzip.NewReader(reader)
 	if err != nil {
 		return err
 	}
+	defer decompressed.Close()
 	archive := tar.NewReader(decompressed)
 	metaFound := false
 	for {

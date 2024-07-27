@@ -39,10 +39,10 @@ func TestUpdateModelsAction(t *testing.T) {
 	test.That(t, len(errOut.messages), test.ShouldEqual, 0)
 
 	// verify that models added to meta.json are equivalent to those defined in expected_meta.json
-	metaModels, err := loadManifest(metaPath)
+	metaModels, err := loadManifest(metaPath, false)
 	test.That(t, err, test.ShouldBeNil)
 
-	expectedMetaModels, err := loadManifest(expectedMetaPath)
+	expectedMetaModels, err := loadManifest(expectedMetaPath, false)
 	test.That(t, err, test.ShouldBeNil)
 
 	test.That(t, sameModels(metaModels.Models, expectedMetaModels.Models), test.ShouldBeTrue)

@@ -80,6 +80,7 @@ func createArchive(files []string, buf, stdout io.Writer) error {
 }
 
 func addToArchive(tw *tar.Writer, filename string) error {
+	// TODO(go1.22): use Writer.AddFS.
 	// Open the file which will be written into the archive
 	//nolint:gosec
 	file, err := os.Open(filename)
