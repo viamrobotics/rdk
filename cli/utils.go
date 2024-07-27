@@ -45,28 +45,26 @@ func replaceInTarGz(path string, newEntries map[string][]byte) error {
 	// nested function so the Close() calls finish before we rename.
 	err := func() error {
 		// open reader
-		sourceFile, err := os.Open(path)
+		sourceFile, err := os.Open(path) //nolint:gosec
 		if err != nil {
 			return err
 		}
-		defer sourceFile.Close()
+		defer sourceFile.Close() //nolint:errcheck
 		gzRead, err := gzip.NewReader(sourceFile)
 		if err != nil {
 			return err
 		}
-		defer gzRead.Close()
+		defer gzRead.Close() //nolint:errcheck
 		tarRead := tar.NewReader(gzRead)
 
 		// open writer
-		destFile, err := os.Create(tmpPath)
+		destFile, err := os.Create(tmpPath) //nolint:gosec
 		if err != nil {
 			return err
 		}
-		defer destFile.Close()
+		defer destFile.Close() //nolint:errcheck
 		gzw := gzip.NewWriter(destFile)
-		defer gzw.Close()
 		tarWrite := tar.NewWriter(gzw)
-		defer tarWrite.Close()
 
 		// copy
 		consumed := make(map[string]bool)
@@ -92,7 +90,7 @@ func replaceInTarGz(path string, newEntries map[string][]byte) error {
 				if err := tarWrite.WriteHeader(head); err != nil {
 					return err
 				}
-				if _, err := io.Copy(tarWrite, tarRead); err != nil {
+				if _, err := io.Copy(tarWrite, tarRead); err != nil { //nolint:gosec
 					return err
 				}
 			}
@@ -112,6 +110,12 @@ func replaceInTarGz(path string, newEntries map[string][]byte) error {
 			if _, err := tarWrite.Write(entry); err != nil {
 				return err
 			}
+		}
+		if err := gzw.Close(); err != nil {
+			return err
+		}
+		if err := tarWrite.Close(); err != nil {
+			return err
 		}
 		return nil
 	}()

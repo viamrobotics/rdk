@@ -644,7 +644,7 @@ func parseOverridePlatform(raw string) (overridePlatform, error) {
 		return ret, fmt.Errorf("cannot parse platform key '%s' in overrides", raw)
 	}
 	for _, tok := range tokens {
-		if tok == "" {
+		if tok == "" { //nolint:gocritic
 			continue
 		} else if tok == ";dev" {
 			ret.dev = true
@@ -692,23 +692,23 @@ func applyOverrideField(configAsMap map[string]any, val any, origKey string, key
 
 // applies the `overrides` section to a copy of this manifest, return copy.
 func (manifest moduleManifest) applyOverrides(logger logging.Logger, dev bool) (moduleManifest, error) {
-	var copy moduleManifest
+	var copied moduleManifest
 	asBytes, err := json.Marshal(manifest)
 	if err != nil {
-		return copy, err
+		return copied, err
 	}
 	var asMap map[string]any
 	if err := json.Unmarshal(asBytes, &asMap); err != nil {
-		return copy, err
+		return copied, err
 	}
 	for key, val := range manifest.Overrides {
 		op, err := parseOverridePlatform(key)
 		if err != nil {
-			return copy, err
+			return copied, err
 		}
 		overrides, ok := val.(map[string]any)
 		if !ok {
-			return copy, fmt.Errorf("override section %s is not a map", key)
+			return copied, fmt.Errorf("override section %s is not a map", key)
 		}
 		if !op.checkCurrent(dev) {
 			logger.Debugf("skipping override section %s", key)
@@ -717,16 +717,16 @@ func (manifest moduleManifest) applyOverrides(logger logging.Logger, dev bool) (
 		logger.Debugf("applying override section %s", key)
 		for okey, oval := range overrides {
 			if err := applyOverrideField(asMap, oval, okey, strings.Split(okey, ".")...); err != nil {
-				return copy, err
+				return copied, err
 			}
 		}
 	}
 	asBytes, err = json.Marshal(asMap)
 	if err != nil {
-		return copy, err
+		return copied, err
 	}
-	err = json.Unmarshal(asBytes, &copy)
-	return copy, err
+	err = json.Unmarshal(asBytes, &copied)
+	return copied, err
 }
 
 func loadManifest(manifestPath string, devMode bool) (moduleManifest, error) {

@@ -294,19 +294,24 @@ func TestOverrides(t *testing.T) {
 			Build:     &manifestBuildInfo{},
 			Overrides: map[string]any{";dev": map[string]any{"entrypoint": "./run.sh"}},
 		}
-		copy, err := manifest.applyOverrides(logger, true)
+		copied, err := manifest.applyOverrides(logger, true)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, manifest.Entrypoint, test.ShouldBeEmpty)
-		test.That(t, copy.Entrypoint, test.ShouldResemble, "./run.sh")
+		test.That(t, copied.Entrypoint, test.ShouldResemble, "./run.sh")
 
 		// deep example
 		manifest = moduleManifest{
 			Build:     &manifestBuildInfo{},
 			Overrides: map[string]any{";dev": map[string]any{"build.setup": "brew install"}},
 		}
-		copy, err = manifest.applyOverrides(logger, true)
+		copied, err = manifest.applyOverrides(logger, true)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, manifest.Build.Setup, test.ShouldBeEmpty)
-		test.That(t, copy.Build.Setup, test.ShouldResemble, "brew install")
+		test.That(t, copied.Build.Setup, test.ShouldResemble, "brew install")
+
+		// make sure empty doesn't crash
+		manifest = moduleManifest{}
+		_, err = manifest.applyOverrides(logger, true)
+		test.That(t, err, test.ShouldBeNil)
 	})
 }

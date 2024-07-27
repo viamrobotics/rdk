@@ -499,12 +499,12 @@ func validateReloadableArchive(c *cli.Context, build *manifestBuildInfo) error {
 	if err != nil {
 		return err
 	}
-	defer reader.Close()
+	defer reader.Close() //nolint:errcheck
 	decompressed, err := gzip.NewReader(reader)
 	if err != nil {
 		return err
 	}
-	defer decompressed.Close()
+	defer decompressed.Close() //nolint:errcheck
 	archive := tar.NewReader(decompressed)
 	metaFound := false
 	for {
