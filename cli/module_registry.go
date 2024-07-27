@@ -691,7 +691,7 @@ func applyOverrideField(configAsMap map[string]any, val any, origKey string, key
 }
 
 // applies the `overrides` section to a copy of this manifest, return copy.
-func (manifest moduleManifest) applyOverrides(logger logging.Logger, dev bool) (moduleManifest, error) {
+func (manifest moduleManifest) applyOverrides(dev bool) (moduleManifest, error) {
 	var copied moduleManifest
 	asBytes, err := json.Marshal(manifest)
 	if err != nil {
@@ -711,10 +711,8 @@ func (manifest moduleManifest) applyOverrides(logger logging.Logger, dev bool) (
 			return copied, fmt.Errorf("override section %s is not a map", key)
 		}
 		if !op.checkCurrent(dev) {
-			logger.Debugf("skipping override section %s", key)
 			continue
 		}
-		logger.Debugf("applying override section %s", key)
 		for okey, oval := range overrides {
 			if err := applyOverrideField(asMap, oval, okey, strings.Split(okey, ".")...); err != nil {
 				return copied, err
@@ -742,7 +740,7 @@ func loadManifest(manifestPath string, devMode bool) (moduleManifest, error) {
 	if err := json.Unmarshal(manifestBytes, &manifest); err != nil {
 		return moduleManifest{}, err
 	}
-	return manifest.applyOverrides(logging.Global(), devMode)
+	return manifest.applyOverrides(devMode)
 }
 
 // loadManifestOrNil doesn't throw error on missing.

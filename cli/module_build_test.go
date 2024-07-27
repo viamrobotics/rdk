@@ -13,7 +13,6 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
-	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/testutils/inject"
 )
 
@@ -287,14 +286,12 @@ func TestOverrides(t *testing.T) {
 	})
 
 	t.Run("applyOverrides", func(t *testing.T) {
-		logger := logging.NewTestLogger(t)
-
 		// shallow example
 		manifest := moduleManifest{
 			Build:     &manifestBuildInfo{},
 			Overrides: map[string]any{";dev": map[string]any{"entrypoint": "./run.sh"}},
 		}
-		copied, err := manifest.applyOverrides(logger, true)
+		copied, err := manifest.applyOverrides(true)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, manifest.Entrypoint, test.ShouldBeEmpty)
 		test.That(t, copied.Entrypoint, test.ShouldResemble, "./run.sh")
@@ -304,14 +301,14 @@ func TestOverrides(t *testing.T) {
 			Build:     &manifestBuildInfo{},
 			Overrides: map[string]any{";dev": map[string]any{"build.setup": "brew install"}},
 		}
-		copied, err = manifest.applyOverrides(logger, true)
+		copied, err = manifest.applyOverrides(true)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, manifest.Build.Setup, test.ShouldBeEmpty)
 		test.That(t, copied.Build.Setup, test.ShouldResemble, "brew install")
 
 		// make sure empty doesn't crash
 		manifest = moduleManifest{}
-		_, err = manifest.applyOverrides(logger, true)
+		_, err = manifest.applyOverrides(true)
 		test.That(t, err, test.ShouldBeNil)
 	})
 }
