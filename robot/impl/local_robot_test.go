@@ -19,6 +19,7 @@ import (
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.uber.org/zap"
+
 	// registers all components.
 	commonpb "go.viam.com/api/common/v1"
 	armpb "go.viam.com/api/component/arm/v1"
@@ -3595,6 +3596,7 @@ func (m *mockResource) Reconfigure(
 func TestMachineStatus(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 	ctx := context.Background()
+	initRevision := "initRev"
 
 	resource.RegisterComponent(
 		mockAPI,
@@ -3658,10 +3660,12 @@ func TestMachineStatus(t *testing.T) {
 	})
 
 	t.Run("reconfigure", func(t *testing.T) {
-		lr := setupLocalRobot(t, ctx, &config.Config{}, logger)
+		lr := setupLocalRobot(t, ctx, &config.Config{Revision: initRevision}, logger)
 
 		// Add a fake resource to the robot.
+		rev2 := "rev2"
 		lr.Reconfigure(ctx, &config.Config{
+			Revision: rev2,
 			Components: []resource.Config{
 				{
 					Name:                "m",
@@ -3675,11 +3679,18 @@ func TestMachineStatus(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		expectedStatuses := rtestutils.ConcatResourceStatuses(
 			expectedDefaultStatuses,
-			[]resource.Status{{Name: mockNamed("m"), State: resource.NodeStateReady}},
+			[]resource.Status{
+				{
+					Name:     mockNamed("m"),
+					State:    resource.NodeStateReady,
+					Revision: rev2,
+				},
+			},
 		)
 		rtestutils.VerifySameResourceStatuses(t, mStatus.Resources, expectedStatuses)
 
 		// Update resource config to cause reconfiguration to fail.
+		rev3 := "rev3"
 		lr.Reconfigure(ctx, &config.Config{
 			Components: []resource.Config{
 				{
@@ -3698,11 +3709,18 @@ func TestMachineStatus(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		expectedStatuses = rtestutils.ConcatResourceStatuses(
 			expectedDefaultStatuses,
-			[]resource.Status{{Name: mockNamed("m"), State: resource.NodeStateConfiguring}},
+			[]resource.Status{
+				{
+					Name:     mockNamed("m"),
+					State:    resource.NodeStateConfiguring,
+					Revision: rev3,
+				},
+			},
 		)
 		rtestutils.VerifySameResourceStatuses(t, mStatus.Resources, expectedStatuses)
 
 		// Update resource with a working config.
+		rev4 := "rev4"
 		lr.Reconfigure(ctx, &config.Config{
 			Components: []resource.Config{
 				{
@@ -3721,7 +3739,13 @@ func TestMachineStatus(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		expectedStatuses = rtestutils.ConcatResourceStatuses(
 			expectedDefaultStatuses,
-			[]resource.Status{{Name: mockNamed("m"), State: resource.NodeStateReady}},
+			[]resource.Status{
+				{
+					Name:     mockNamed("m"),
+					State:    resource.NodeStateReady,
+					Revision: rev4,
+				},
+			},
 		)
 		rtestutils.VerifySameResourceStatuses(t, mStatus.Resources, expectedStatuses)
 	})
