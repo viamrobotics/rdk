@@ -496,7 +496,6 @@ func processConfig(unprocessedConfig *Config, fromCloud bool, logger logging.Log
 			Name:     defaultServiceName.Name,
 			Model:    resource.DefaultServiceModel,
 			API:      defaultServiceName.API,
-			Revision: cfg.Revision,
 		})
 	}
 
