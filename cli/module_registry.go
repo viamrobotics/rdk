@@ -80,7 +80,7 @@ type moduleManifest struct {
 	// JsonManifest provides fields shared with RDK proper.
 	modconfig.JSONManifest
 	Build     *manifestBuildInfo `json:"build,omitempty"`
-	Overrides map[string]any     `json:"overrides"`
+	Overrides map[string]any     `json:"overrides,omitempty"`
 }
 
 const (
