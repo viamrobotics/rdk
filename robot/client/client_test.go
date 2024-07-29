@@ -2103,45 +2103,58 @@ func TestMachineStatus(t *testing.T) {
 	}{
 		{
 			"no resources",
-			robot.MachineStatus{Resources: []resource.Status{}},
+			robot.MachineStatus{
+				Config:    config.Status{Revision: "rev1"},
+				Resources: []resource.Status{},
+			},
 			0,
 		},
 		{
 			"resource with unknown status",
-			robot.MachineStatus{Resources: []resource.Status{
-				{
-					Name:  arm.Named("badArm"),
-					State: resource.NodeStateUnknown,
-				},
-			}},
+			robot.MachineStatus{
+				Config: config.Status{Revision: "rev1"},
+				Resources: []resource.Status{
+					{
+						Name:     arm.Named("badArm"),
+						Revision: "rev0",
+					},
+				}},
 			1,
 		},
 		{
 			"resource with valid status",
-			robot.MachineStatus{Resources: []resource.Status{
-				{
-					Name:  arm.Named("goodArm"),
-					State: resource.NodeStateConfiguring,
+			robot.MachineStatus{
+				Config: config.Status{Revision: "rev1"},
+				Resources: []resource.Status{
+					{
+						Name:     arm.Named("goodArm"),
+						State:    resource.NodeStateConfiguring,
+						Revision: "rev1",
+					},
 				},
-			}},
+			},
 			0,
 		},
 		{
 			"resources with mixed valid and invalid statuses",
-			robot.MachineStatus{Resources: []resource.Status{
-				{
-					Name:  arm.Named("goodArm"),
-					State: resource.NodeStateConfiguring,
+			robot.MachineStatus{
+				Config: config.Status{Revision: "rev1"},
+				Resources: []resource.Status{
+					{
+						Name:     arm.Named("goodArm"),
+						State:    resource.NodeStateConfiguring,
+						Revision: "rev1",
+					},
+					{
+						Name:     arm.Named("badArm"),
+						Revision: "rev0",
+					},
+					{
+						Name:     arm.Named("anotherBadArm"),
+						Revision: "rev-1",
+					},
 				},
-				{
-					Name:  arm.Named("badArm"),
-					State: resource.NodeStateUnknown,
-				},
-				{
-					Name:  arm.Named("anotherBadArm"),
-					State: resource.NodeStateUnknown,
-				},
-			}},
+			},
 			2,
 		},
 	} {
@@ -2174,9 +2187,9 @@ func TestMachineStatus(t *testing.T) {
 				test.That(t, client.Close(context.Background()), test.ShouldBeNil)
 			}()
 
-			md, err := client.MachineStatus(context.Background())
+			mStatus, err := client.MachineStatus(context.Background())
 			test.That(t, err, test.ShouldBeNil)
-			test.That(t, md, test.ShouldResemble, tc.injectMachineStatus)
+			test.That(t, mStatus, test.ShouldResemble, tc.injectMachineStatus)
 
 			const badStateMsg = "received resource in an unspecified state"
 			badStateCount := logs.FilterLevelExact(zapcore.ErrorLevel).FilterMessageSnippet(badStateMsg).Len()

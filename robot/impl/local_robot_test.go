@@ -19,6 +19,7 @@ import (
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.uber.org/zap"
+
 	// registers all components.
 	commonpb "go.viam.com/api/common/v1"
 	armpb "go.viam.com/api/component/arm/v1"
@@ -3656,17 +3657,18 @@ func TestMachineStatus(t *testing.T) {
 	}
 
 	t.Run("default resources", func(t *testing.T) {
-		lr := setupLocalRobot(t, ctx, &config.Config{}, logger)
+		lr := setupLocalRobot(t, ctx, &config.Config{Revision: rev1}, logger)
 
 		mStatus, err := lr.MachineStatus(ctx)
 		test.That(t, err, test.ShouldBeNil)
+		test.That(t, mStatus.Config.Revision, test.ShouldEqual, rev1)
 
 		expectedStatuses := getExpectedDefaultStatuses()
 		rtestutils.VerifySameResourceStatuses(t, mStatus.Resources, expectedStatuses)
 	})
 
 	t.Run("reconfigure", func(t *testing.T) {
-		lr := setupLocalRobot(t, ctx, &config.Config{Revision: rev1}, logger)
+		lr := setupLocalRobot(t, ctx, &config.Config{}, logger)
 
 		// Add a fake resource to the robot.
 		rev2 := "rev2"
@@ -3684,6 +3686,7 @@ func TestMachineStatus(t *testing.T) {
 		})
 		mStatus, err := lr.MachineStatus(ctx)
 		test.That(t, err, test.ShouldBeNil)
+		test.That(t, mStatus.Config.Revision, test.ShouldEqual, rev2)
 		expectedStatuses := rtestutils.ConcatResourceStatuses(
 			getExpectedDefaultStatuses(),
 			[]resource.Status{
@@ -3716,6 +3719,7 @@ func TestMachineStatus(t *testing.T) {
 		})
 		mStatus, err = lr.MachineStatus(ctx)
 		test.That(t, err, test.ShouldBeNil)
+		test.That(t, mStatus.Config.Revision, test.ShouldEqual, rev3)
 		expectedStatuses = rtestutils.ConcatResourceStatuses(
 			getExpectedDefaultStatuses(),
 			[]resource.Status{
@@ -3748,6 +3752,7 @@ func TestMachineStatus(t *testing.T) {
 		})
 		mStatus, err = lr.MachineStatus(ctx)
 		test.That(t, err, test.ShouldBeNil)
+		test.That(t, mStatus.Config.Revision, test.ShouldEqual, rev4)
 		expectedStatuses = rtestutils.ConcatResourceStatuses(
 			getExpectedDefaultStatuses(),
 			[]resource.Status{
