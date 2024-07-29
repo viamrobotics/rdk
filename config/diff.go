@@ -16,22 +16,14 @@ import (
 // where left is usually old and right is new. So the diff is the
 // changes from left to right.
 type Diff struct {
-	Left, Right    *Config
-	Added          *Config
-	Modified       *ModifiedConfigDiff
-	Removed        *Config
-	ResourcesEqual bool
-	NetworkEqual   bool
-	PrettyDiff     string
-	NotChanged     *Config
-}
-
-// NewRevision returns the revision from the new config.
-func (diff Diff) NewRevision() string {
-	if diff.Right != nil {
-		return diff.Right.Revision
-	}
-	return ""
+	Left, Right      *Config
+	Added            *Config
+	Modified         *ModifiedConfigDiff
+	Removed          *Config
+	ResourcesEqual   bool
+	NetworkEqual     bool
+	PrettyDiff       string
+	ModifiedRevision *Config
 }
 
 // ModifiedConfigDiff is the modificative different between two configs.
@@ -56,13 +48,13 @@ func DiffConfigs(left, right Config, revealSensitiveConfigDiffs bool) (_ *Diff, 
 	}
 
 	diff := Diff{
-		Left:       &left,
-		Right:      &right,
-		Added:      &Config{},
-		Modified:   &ModifiedConfigDiff{},
-		Removed:    &Config{},
-		PrettyDiff: PrettyDiff,
-		NotChanged: &Config{},
+		Left:             &left,
+		Right:            &right,
+		Added:            &Config{},
+		Modified:         &ModifiedConfigDiff{},
+		Removed:          &Config{},
+		PrettyDiff:       PrettyDiff,
+		ModifiedRevision: &Config{},
 	}
 
 	// All diffs use the following logic:
@@ -72,9 +64,9 @@ func DiffConfigs(left, right Config, revealSensitiveConfigDiffs bool) (_ *Diff, 
 	// If left contains something right does and they are equal => no diff
 	// Note: generics would be nice here!
 	different := diffRemotes(left.Remotes, right.Remotes, &diff)
-	componentsDifferent := diffComponents(left.Components, right.Components, &diff)
+	componentsDifferent := diffComponents(left.Components, right.Components, &diff, right.Revision)
 	different = componentsDifferent || different
-	servicesDifferent := diffServices(left.Services, right.Services, &diff)
+	servicesDifferent := diffServices(left.Services, right.Services, &diff, right.Revision)
 
 	different = servicesDifferent || different
 	processesDifferent := diffProcesses(left.Processes, right.Processes, &diff) || different
@@ -227,7 +219,7 @@ func diffRemote(left, right Remote, diff *Diff) bool {
 }
 
 //nolint:dupl
-func diffComponents(left, right []resource.Config, diff *Diff) bool {
+func diffComponents(left, right []resource.Config, diff *Diff, revision string) bool {
 	leftIndex := make(map[resource.Name]int)
 	leftM := make(map[resource.Name]resource.Config)
 	for idx, l := range left {
@@ -241,11 +233,12 @@ func diffComponents(left, right []resource.Config, diff *Diff) bool {
 	for _, r := range right {
 		l, ok := leftM[r.ResourceName()]
 		delete(leftM, r.ResourceName())
+		r.Revision = revision
 		if ok {
 			componentDifferent := diffComponent(l, r, diff)
 			different = componentDifferent || different
 			if !componentDifferent {
-				diff.NotChanged.Components = append(diff.NotChanged.Components, l)
+				diff.ModifiedRevision.Components = append(diff.ModifiedRevision.Components, r)
 			}
 			continue
 		}
@@ -356,7 +349,7 @@ func diffPackage(left, right PackageConfig, diff *Diff) bool {
 }
 
 //nolint:dupl
-func diffServices(left, right []resource.Config, diff *Diff) bool {
+func diffServices(left, right []resource.Config, diff *Diff, revision string) bool {
 	leftIndex := make(map[resource.Name]int)
 	leftM := make(map[resource.Name]resource.Config)
 	for idx, l := range left {
@@ -370,11 +363,12 @@ func diffServices(left, right []resource.Config, diff *Diff) bool {
 	for _, r := range right {
 		l, ok := leftM[r.ResourceName()]
 		delete(leftM, r.ResourceName())
+		r.Revision = revision
 		if ok {
 			serviceDifferent := diffService(l, r, diff)
 			different = serviceDifferent || different
 			if !serviceDifferent {
-				diff.NotChanged.Services = append(diff.NotChanged.Services, l)
+				diff.ModifiedRevision.Services = append(diff.ModifiedRevision.Services, r)
 			}
 			continue
 		}
