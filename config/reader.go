@@ -529,9 +529,6 @@ func processConfig(unprocessedConfig *Config, fromCloud bool, logger logging.Log
 				return errors.Wrapf(err, "error converting attributes for (%s, %s)", resName.API, copied.Model)
 			}
 			confs[idx].ConvertedAttributes = converted
-
-			// Denormalize Revision onto individual resource configs
-			confs[idx].Revision = cfg.Revision
 		}
 		return nil
 	}
