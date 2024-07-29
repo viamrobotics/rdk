@@ -85,7 +85,7 @@ type configData struct {
 	DisablePartialStart bool                          `json:"disable_partial_start"`
 	EnableWebProfile    bool                          `json:"enable_web_profile"`
 	LogConfig           []logging.LoggerPatternConfig `json:"log,omitempty"`
-	Revision            string                        `json:"revision"`
+	Revision            string                        `json:"revision,omitempty"`
 }
 
 // AppValidationStatus refers to the.
@@ -268,6 +268,7 @@ func (c *Config) UnmarshalJSON(data []byte) error {
 	c.DisablePartialStart = conf.DisablePartialStart
 	c.EnableWebProfile = conf.EnableWebProfile
 	c.LogConfig = conf.LogConfig
+	c.Revision = conf.Revision
 
 	return nil
 }
@@ -298,6 +299,7 @@ func (c Config) MarshalJSON() ([]byte, error) {
 		DisablePartialStart: c.DisablePartialStart,
 		EnableWebProfile:    c.EnableWebProfile,
 		LogConfig:           c.LogConfig,
+		Revision:            c.Revision,
 	})
 }
 
