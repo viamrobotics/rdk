@@ -1200,9 +1200,9 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 			svcCfg = newConfig.Services[existingConfIdx]
 		} else {
 			svcCfg = resource.Config{
-				Name:     name.Name,
-				Model:    resource.DefaultServiceModel,
-				API:      name.API,
+				Name:  name.Name,
+				Model: resource.DefaultServiceModel,
+				API:   name.API,
 			}
 		}
 
