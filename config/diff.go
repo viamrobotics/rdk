@@ -23,7 +23,7 @@ type Diff struct {
 	ResourcesEqual bool
 	NetworkEqual   bool
 	PrettyDiff     string
-	RevisionEqual  bool
+	NotChanged     *Config
 }
 
 // ModifiedConfigDiff is the modificative different between two configs.
@@ -54,6 +54,7 @@ func DiffConfigs(left, right Config, revealSensitiveConfigDiffs bool) (_ *Diff, 
 		Modified:   &ModifiedConfigDiff{},
 		Removed:    &Config{},
 		PrettyDiff: PrettyDiff,
+		NotChanged: &Config{},
 	}
 
 	// All diffs use the following logic:
@@ -80,9 +81,6 @@ func DiffConfigs(left, right Config, revealSensitiveConfigDiffs bool) (_ *Diff, 
 
 	networkDifferent := diffNetworkingCfg(&left, &right)
 	diff.NetworkEqual = !networkDifferent
-
-	// TODO: drop if we don't actually need this.
-	diff.RevisionEqual = left.Revision != right.Revision
 
 	return &diff, nil
 }
@@ -238,6 +236,9 @@ func diffComponents(left, right []resource.Config, diff *Diff) bool {
 		if ok {
 			componentDifferent := diffComponent(l, r, diff)
 			different = componentDifferent || different
+			if !componentDifferent {
+				diff.NotChanged.Components = append(diff.NotChanged.Components, l)
+			}
 			continue
 		}
 		diff.Added.Components = append(diff.Added.Components, r)
@@ -364,6 +365,9 @@ func diffServices(left, right []resource.Config, diff *Diff) bool {
 		if ok {
 			serviceDifferent := diffService(l, r, diff)
 			different = serviceDifferent || different
+			if !serviceDifferent {
+				diff.NotChanged.Services = append(diff.NotChanged.Services, l)
+			}
 			continue
 		}
 		diff.Added.Services = append(diff.Added.Services, r)

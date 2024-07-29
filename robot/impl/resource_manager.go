@@ -1022,6 +1022,13 @@ func (manager *resourceManager) markResourceForUpdate(name resource.Name, conf r
 	return nil
 }
 
+// updateRevision updates the current revision of a node.
+func (manager *resourceManager) updateRevision(name resource.Name, revision string) {
+	if gNode, hasNode := manager.resources.Node(name); hasNode {
+		gNode.UpdateRevision(revision)
+	}
+}
+
 // updateResources will use the difference between the current config
 // and next one to create resource nodes with configs that completeConfig will later on use.
 // Ideally at the end of this function we should have a complete graph representation of the configuration
@@ -1157,6 +1164,12 @@ func (manager *resourceManager) updateResources(
 			continue
 		}
 		manager.processConfigs[p.ID] = p
+	}
+	for _, c := range conf.NotChanged.Components {
+		manager.updateRevision(c.ResourceName(), conf.Right.Revision)
+	}
+	for _, s := range conf.NotChanged.Services {
+		manager.updateRevision(s.ResourceName(), conf.Right.Revision)
 	}
 
 	return allErrs

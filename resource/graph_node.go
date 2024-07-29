@@ -326,6 +326,20 @@ func (w *GraphNode) setNeedsReconfigure(newConfig Config, mustReconfigure bool, 
 	w.unresolvedDependencies = dependencies
 }
 
+// UpdateRevision updates the node config revision if the node is in a [NodeStateReady]
+// state.
+func (w *GraphNode) UpdateRevision(revision string) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	if w.state == NodeStateReady {
+		w.config.Revision = revision
+		w.revision = revision
+		if w.logger != nil {
+			w.logger.Infow("updated revision", "new", revision)
+		}
+	}
+}
+
 // SetNewConfig is used to inform the node that it has been modified
 // and requires a reconfiguration. If the node was previously marked for removal,
 // this unmarks it.

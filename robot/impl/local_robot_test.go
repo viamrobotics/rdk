@@ -3605,55 +3605,59 @@ func TestMachineStatus(t *testing.T) {
 	)
 	defer resource.Deregister(mockAPI, mockModel)
 
-	expectedDefaultStatuses := []resource.Status{
-		{
-			Name: resource.Name{
-				API:  resource.APINamespaceRDKInternal.WithServiceType("framesystem"),
-				Name: "builtin",
+	builtinRev := rev1
+
+	getExpectedDefaultStatuses := func() []resource.Status {
+		return []resource.Status{
+			{
+				Name: resource.Name{
+					API:  resource.APINamespaceRDKInternal.WithServiceType("framesystem"),
+					Name: "builtin",
+				},
+				State:    resource.NodeStateReady,
+				Revision: rev1,
 			},
-			State:    resource.NodeStateReady,
-			Revision: rev1,
-		},
-		{
-			Name: resource.Name{
-				API:  resource.APINamespaceRDKInternal.WithServiceType("cloud_connection"),
-				Name: "builtin",
+			{
+				Name: resource.Name{
+					API:  resource.APINamespaceRDKInternal.WithServiceType("cloud_connection"),
+					Name: "builtin",
+				},
+				State:    resource.NodeStateReady,
+				Revision: rev1,
 			},
-			State:    resource.NodeStateReady,
-			Revision: rev1,
-		},
-		{
-			Name: resource.Name{
-				API:  resource.APINamespaceRDKInternal.WithServiceType("packagemanager"),
-				Name: "builtin",
+			{
+				Name: resource.Name{
+					API:  resource.APINamespaceRDKInternal.WithServiceType("packagemanager"),
+					Name: "builtin",
+				},
+				State:    resource.NodeStateReady,
+				Revision: rev1,
 			},
-			State:    resource.NodeStateReady,
-			Revision: rev1,
-		},
-		{
-			Name: resource.Name{
-				API:  resource.APINamespaceRDKInternal.WithServiceType("web"),
-				Name: "builtin",
+			{
+				Name: resource.Name{
+					API:  resource.APINamespaceRDKInternal.WithServiceType("web"),
+					Name: "builtin",
+				},
+				State:    resource.NodeStateReady,
+				Revision: rev1,
 			},
-			State:    resource.NodeStateReady,
-			Revision: rev1,
-		},
-		{
-			Name: resource.Name{
-				API:  resource.APINamespaceRDK.WithServiceType("motion"),
-				Name: "builtin",
+			{
+				Name: resource.Name{
+					API:  resource.APINamespaceRDK.WithServiceType("motion"),
+					Name: "builtin",
+				},
+				State:    resource.NodeStateReady,
+				Revision: builtinRev,
 			},
-			State:    resource.NodeStateReady,
-			Revision: rev1,
-		},
-		{
-			Name: resource.Name{
-				API:  resource.APINamespaceRDK.WithServiceType("sensors"),
-				Name: "builtin",
+			{
+				Name: resource.Name{
+					API:  resource.APINamespaceRDK.WithServiceType("sensors"),
+					Name: "builtin",
+				},
+				State:    resource.NodeStateReady,
+				Revision: builtinRev,
 			},
-			State:    resource.NodeStateReady,
-			Revision: rev1,
-		},
+		}
 	}
 
 	t.Run("default resources", func(t *testing.T) {
@@ -3662,7 +3666,8 @@ func TestMachineStatus(t *testing.T) {
 		mStatus, err := lr.MachineStatus(ctx)
 		test.That(t, err, test.ShouldBeNil)
 
-		rtestutils.VerifySameResourceStatuses(t, mStatus.Resources, expectedDefaultStatuses)
+		expectedStatuses := getExpectedDefaultStatuses()
+		rtestutils.VerifySameResourceStatuses(t, mStatus.Resources, expectedStatuses)
 	})
 
 	t.Run("reconfigure", func(t *testing.T) {
@@ -3670,6 +3675,7 @@ func TestMachineStatus(t *testing.T) {
 
 		// Add a fake resource to the robot.
 		rev2 := "rev2"
+		builtinRev = rev2
 		lr.Reconfigure(ctx, &config.Config{
 			Revision: rev2,
 			Components: []resource.Config{
@@ -3684,7 +3690,7 @@ func TestMachineStatus(t *testing.T) {
 		mStatus, err := lr.MachineStatus(ctx)
 		test.That(t, err, test.ShouldBeNil)
 		expectedStatuses := rtestutils.ConcatResourceStatuses(
-			expectedDefaultStatuses,
+			getExpectedDefaultStatuses(),
 			[]resource.Status{
 				{
 					Name:     mockNamed("m"),
@@ -3697,6 +3703,7 @@ func TestMachineStatus(t *testing.T) {
 
 		// Update resource config to cause reconfiguration to fail.
 		rev3 := "rev3"
+		builtinRev = rev3
 		lr.Reconfigure(ctx, &config.Config{
 			Revision: rev3,
 			Components: []resource.Config{
@@ -3715,7 +3722,7 @@ func TestMachineStatus(t *testing.T) {
 		mStatus, err = lr.MachineStatus(ctx)
 		test.That(t, err, test.ShouldBeNil)
 		expectedStatuses = rtestutils.ConcatResourceStatuses(
-			expectedDefaultStatuses,
+			getExpectedDefaultStatuses(),
 			[]resource.Status{
 				{
 					Name:     mockNamed("m"),
@@ -3728,6 +3735,7 @@ func TestMachineStatus(t *testing.T) {
 
 		// Update resource with a working config.
 		rev4 := "rev4"
+		builtinRev = rev4
 		lr.Reconfigure(ctx, &config.Config{
 			Revision: rev4,
 			Components: []resource.Config{
@@ -3746,7 +3754,7 @@ func TestMachineStatus(t *testing.T) {
 		mStatus, err = lr.MachineStatus(ctx)
 		test.That(t, err, test.ShouldBeNil)
 		expectedStatuses = rtestutils.ConcatResourceStatuses(
-			expectedDefaultStatuses,
+			getExpectedDefaultStatuses(),
 			[]resource.Status{
 				{
 					Name:     mockNamed("m"),
