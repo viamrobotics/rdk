@@ -742,6 +742,22 @@ func TestDiffRevision(t *testing.T) {
 	}
 	for _, tc := range []testcase{
 		{
+			"no change",
+			config.Config{
+				Components: []resource.Config{{Name: "comp1"}},
+				Services:   []resource.Config{{Name: "serv1"}},
+			},
+			config.Config{
+				Components: []resource.Config{{Name: "comp1"}},
+				Services:   []resource.Config{{Name: "serv1"}},
+			},
+			config.Diff{
+				Added:                &config.Config{},
+				Modified:             &config.ModifiedConfigDiff{},
+				OnlyModifiedRevision: &config.Config{},
+			},
+		},
+		{
 			"only change revision",
 			config.Config{
 				Components: []resource.Config{{Name: "comp1"}},

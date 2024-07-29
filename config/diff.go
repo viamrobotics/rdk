@@ -64,9 +64,9 @@ func DiffConfigs(left, right Config, revealSensitiveConfigDiffs bool) (_ *Diff, 
 	// If left contains something right does and they are equal => no diff
 	// Note: generics would be nice here!
 	different := diffRemotes(left.Remotes, right.Remotes, &diff)
-	componentsDifferent := diffComponents(left.Components, right.Components, &diff, right.Revision)
+	componentsDifferent := diffComponents(left.Components, right.Components, &diff)
 	different = componentsDifferent || different
-	servicesDifferent := diffServices(left.Services, right.Services, &diff, right.Revision)
+	servicesDifferent := diffServices(left.Services, right.Services, &diff)
 
 	different = servicesDifferent || different
 	processesDifferent := diffProcesses(left.Processes, right.Processes, &diff) || different
@@ -219,7 +219,7 @@ func diffRemote(left, right Remote, diff *Diff) bool {
 }
 
 //nolint:dupl
-func diffComponents(left, right []resource.Config, diff *Diff, revision string) bool {
+func diffComponents(left, right []resource.Config, diff *Diff) bool {
 	leftIndex := make(map[resource.Name]int)
 	leftM := make(map[resource.Name]resource.Config)
 	for idx, l := range left {
@@ -233,11 +233,11 @@ func diffComponents(left, right []resource.Config, diff *Diff, revision string) 
 	for _, r := range right {
 		l, ok := leftM[r.ResourceName()]
 		delete(leftM, r.ResourceName())
-		r.Revision = revision
+		r.Revision = diff.Right.Revision
 		if ok {
 			componentDifferent := diffComponent(l, r, diff)
 			different = componentDifferent || different
-			if !componentDifferent {
+			if !componentDifferent && diff.Left.Revision != diff.Right.Revision {
 				diff.OnlyModifiedRevision.Components = append(diff.OnlyModifiedRevision.Components, r)
 			}
 			continue
@@ -349,7 +349,7 @@ func diffPackage(left, right PackageConfig, diff *Diff) bool {
 }
 
 //nolint:dupl
-func diffServices(left, right []resource.Config, diff *Diff, revision string) bool {
+func diffServices(left, right []resource.Config, diff *Diff) bool {
 	leftIndex := make(map[resource.Name]int)
 	leftM := make(map[resource.Name]resource.Config)
 	for idx, l := range left {
@@ -363,11 +363,11 @@ func diffServices(left, right []resource.Config, diff *Diff, revision string) bo
 	for _, r := range right {
 		l, ok := leftM[r.ResourceName()]
 		delete(leftM, r.ResourceName())
-		r.Revision = revision
+		r.Revision = diff.Right.Revision
 		if ok {
 			serviceDifferent := diffService(l, r, diff)
 			different = serviceDifferent || different
-			if !serviceDifferent {
+			if !serviceDifferent && diff.Left.Revision != diff.Right.Revision {
 				diff.OnlyModifiedRevision.Services = append(diff.OnlyModifiedRevision.Services, r)
 			}
 			continue
