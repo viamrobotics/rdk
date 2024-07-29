@@ -71,7 +71,7 @@ type Capture struct {
 	componentMethodFrequencyHz map[resourceMethodMetadata]float32
 	// captureDirPollingCancelFn          context.CancelFunc
 	// captureDirPollingBackgroundWorkers *sync.WaitGroup
-	capturePolling *CaptureDirPoller
+	capturePolling *captureDirPoller
 }
 
 func componentMethodMetadata(resConf datamanager.DataCaptureConfig) resourceMethodMetadata {
@@ -132,10 +132,10 @@ func (cm *Capture) Reconfigure(
 	captureConfig Config,
 ) error {
 	if cm.capturePolling == nil {
-		cm.capturePolling = NewCaptureDirPoller(cm.logger)
+		cm.capturePolling = newCaptureDirPoller(cm.logger)
 	}
 
-	cm.capturePolling.Reconfigure(ctx, cm.captureDir)
+	cm.capturePolling.reconfigure(cm.captureDir)
 	// Service is disabled, so close all collectors and clear the map so we can instantiate new ones if we enable this service.
 	if captureConfig.CaptureDisabled {
 		cm.logger.Debug("Capture Disabled")
@@ -170,7 +170,8 @@ func (cm *Capture) Reconfigure(
 			}
 
 			if resConf.CaptureFrequencyHz <= 0 {
-				cm.logger.Debugf("%s disabled due to `capture_frequency_hz` being less than or equal to zero. config: %#v", componentMethodMetadata.String(), resConf)
+				msg := "%s disabled due to `capture_frequency_hz` being less than or equal to zero. config: %#v"
+				cm.logger.Debugf(msg, componentMethodMetadata.String(), resConf)
 				continue
 			}
 
@@ -200,7 +201,7 @@ func (cm *Capture) Reconfigure(
 func (cm *Capture) Close() {
 	cm.FlushCollectors()
 	cm.CloseCollectors()
-	cm.capturePolling.Close()
+	cm.capturePolling.close()
 }
 
 // CaptureDir returns the capture directory.
@@ -417,7 +418,7 @@ func defaultIfZeroVal[T comparable](val, defaultVal T) T {
 	return val
 }
 
-type CaptureDirPoller struct {
+type captureDirPoller struct {
 	logger logging.Logger
 
 	mu         sync.Mutex
@@ -425,11 +426,11 @@ type CaptureDirPoller struct {
 	workers    utils.StoppableWorkers
 }
 
-func NewCaptureDirPoller(logger logging.Logger) *CaptureDirPoller {
-	return &CaptureDirPoller{logger: logger}
+func newCaptureDirPoller(logger logging.Logger) *captureDirPoller {
+	return &captureDirPoller{logger: logger}
 }
 
-func (poller *CaptureDirPoller) Reconfigure(ctx context.Context, captureDir string) {
+func (poller *captureDirPoller) reconfigure(captureDir string) {
 	poller.mu.Lock()
 	defer poller.mu.Unlock()
 	if captureDir == poller.captureDir {
@@ -458,7 +459,7 @@ func (poller *CaptureDirPoller) Reconfigure(ctx context.Context, captureDir stri
 	})
 }
 
-func (poller *CaptureDirPoller) Close() {
+func (poller *captureDirPoller) close() {
 	poller.mu.Lock()
 	defer poller.mu.Unlock()
 	if poller.workers != nil {

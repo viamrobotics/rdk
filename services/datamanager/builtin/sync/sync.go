@@ -131,9 +131,6 @@ func NewSync(
 	}
 }
 
-// pick up here: Continue to refactor data sync
-// https://github.com/dgottlieb/rdk/blob/72f5b567db2cb2ca08b9752b8710d1e4e784077c/services/datamanager/datasync/manager.go
-// https://github.com/dgottlieb/rdk/blob/72f5b567db2cb2ca08b9752b8710d1e4e784077c/services/datamanager/builtin/builtin.go#L144
 // Reconfigure reconfigures Sync.
 func (sm *Sync) Reconfigure(
 	ctx context.Context,
