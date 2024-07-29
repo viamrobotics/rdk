@@ -66,8 +66,8 @@ func replaceInTarGz(path string, newEntries map[string][]byte) error {
 		gzw := gzip.NewWriter(destFile)
 		tarWrite := tar.NewWriter(gzw)
 
-		// copy
 		consumed := make(map[string]bool)
+		// copy existing files, using newEntries where necessary
 		for {
 			head, err := tarRead.Next()
 			if errors.Is(err, io.EOF) {
@@ -95,6 +95,8 @@ func replaceInTarGz(path string, newEntries map[string][]byte) error {
 				}
 			}
 		}
+
+		// copy any remaining newEntries
 		for name, entry := range newEntries {
 			if consumed[name] {
 				continue
@@ -111,10 +113,12 @@ func replaceInTarGz(path string, newEntries map[string][]byte) error {
 				return err
 			}
 		}
-		if err := gzw.Close(); err != nil {
+
+		// cleanup
+		if err := tarWrite.Close(); err != nil {
 			return err
 		}
-		if err := tarWrite.Close(); err != nil {
+		if err := gzw.Close(); err != nil {
 			return err
 		}
 		return nil
