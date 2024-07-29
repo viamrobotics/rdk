@@ -755,7 +755,7 @@ func TestDiffRevision(t *testing.T) {
 			config.Diff{
 				Added:    &config.Config{},
 				Modified: &config.ModifiedConfigDiff{},
-				ModifiedRevision: &config.Config{
+				OnlyModifiedRevision: &config.Config{
 					Components: []resource.Config{
 						{
 							Name:     "comp1",
@@ -792,7 +792,7 @@ func TestDiffRevision(t *testing.T) {
 					},
 				},
 				Modified: &config.ModifiedConfigDiff{},
-				ModifiedRevision: &config.Config{
+				OnlyModifiedRevision: &config.Config{
 					Components: []resource.Config{
 						{
 							Name:     "comp1",
@@ -829,7 +829,7 @@ func TestDiffRevision(t *testing.T) {
 					},
 				},
 				Modified: &config.ModifiedConfigDiff{},
-				ModifiedRevision: &config.Config{
+				OnlyModifiedRevision: &config.Config{
 					Components: []resource.Config{
 						{
 							Name:     "comp1",
@@ -872,7 +872,7 @@ func TestDiffRevision(t *testing.T) {
 						},
 					},
 				},
-				ModifiedRevision: &config.Config{
+				OnlyModifiedRevision: &config.Config{
 					Services: []resource.Config{
 						{
 							Name:     "serv1",
@@ -907,7 +907,7 @@ func TestDiffRevision(t *testing.T) {
 						},
 					},
 				},
-				ModifiedRevision: &config.Config{
+				OnlyModifiedRevision: &config.Config{
 					Components: []resource.Config{
 						{
 							Name:     "comp1",
@@ -923,6 +923,6 @@ func TestDiffRevision(t *testing.T) {
 
 		test.That(t, diff.Added, test.ShouldResemble, tc.expectedDiff.Added)
 		test.That(t, diff.Modified, test.ShouldResemble, tc.expectedDiff.Modified)
-		test.That(t, diff.ModifiedRevision, test.ShouldResemble, tc.expectedDiff.ModifiedRevision)
+		test.That(t, diff.OnlyModifiedRevision, test.ShouldResemble, tc.expectedDiff.OnlyModifiedRevision)
 	}
 }

@@ -1165,10 +1165,10 @@ func (manager *resourceManager) updateResources(
 		}
 		manager.processConfigs[p.ID] = p
 	}
-	for _, c := range conf.ModifiedRevision.Components {
+	for _, c := range conf.OnlyModifiedRevision.Components {
 		manager.updateRevision(c.ResourceName(), c.Revision)
 	}
-	for _, s := range conf.ModifiedRevision.Services {
+	for _, s := range conf.OnlyModifiedRevision.Services {
 		manager.updateRevision(s.ResourceName(), s.Revision)
 	}
 
