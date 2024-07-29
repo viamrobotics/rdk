@@ -125,7 +125,7 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 
 	// Read the config from disk and use it to initialize the remote logger.
 	initialReadCtx, cancel := context.WithTimeout(ctx, time.Second*5)
-	cfgFromDisk, err := config.ReadLocalConfig(initialReadCtx, argsParsed.ConfigFile, logger)
+	cfgFromDisk, err := config.ReadLocalConfig(initialReadCtx, argsParsed.ConfigFile, logger.Sublogger("config"))
 	if err != nil {
 		cancel()
 		return err
@@ -368,7 +368,7 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 	}()
 
 	// watch for and deliver changes to the robot
-	watcher, err := config.NewWatcher(ctx, cfg, s.logger)
+	watcher, err := config.NewWatcher(ctx, cfg, s.logger.Sublogger("config"))
 	if err != nil {
 		cancel()
 		return err
