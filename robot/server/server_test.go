@@ -103,7 +103,8 @@ func TestServer(t *testing.T) {
 							Name:     arm.Named("badArm"),
 							Revision: "rev0",
 						},
-					}},
+					},
+				},
 				&pb.ConfigStatus{Revision: "rev1"},
 				[]*pb.ResourceStatus{
 					{
@@ -142,8 +143,8 @@ func TestServer(t *testing.T) {
 					Config: config.Status{Revision: "rev1"},
 					Resources: []resource.Status{
 						{
-							Name:  arm.Named("goodArm"),
-							State: resource.NodeStateConfiguring,
+							Name:     arm.Named("goodArm"),
+							State:    resource.NodeStateConfiguring,
 							Revision: "rev1",
 						},
 						{

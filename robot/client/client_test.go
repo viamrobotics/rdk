@@ -2118,7 +2118,8 @@ func TestMachineStatus(t *testing.T) {
 						Name:     arm.Named("badArm"),
 						Revision: "rev0",
 					},
-				}},
+				},
+			},
 			1,
 		},
 		{
