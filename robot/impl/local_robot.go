@@ -1203,7 +1203,6 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 				Name:     name.Name,
 				Model:    resource.DefaultServiceModel,
 				API:      name.API,
-				Revision: newConfig.Revision,
 			}
 		}
 
