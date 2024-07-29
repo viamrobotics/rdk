@@ -81,7 +81,7 @@ func (ss *Server) NewStream(config gostream.StreamConfig) (gostream.Stream, erro
 		return nil, &StreamAlreadyRegisteredError{config.Name}
 	}
 
-	stream, err := gostream.NewStream(config)
+	stream, err := gostream.NewStream(config, ss.logger)
 	if err != nil {
 		return nil, err
 	}

@@ -7,7 +7,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/edaniels/golog"
 	"github.com/pion/mediadevices"
 	"github.com/pion/mediadevices/pkg/driver"
 	"github.com/pion/mediadevices/pkg/driver/availability"
@@ -16,6 +15,8 @@ import (
 	"github.com/pion/mediadevices/pkg/prop"
 	"github.com/pion/mediadevices/pkg/wave"
 	"github.com/pkg/errors"
+
+	"go.viam.com/rdk/logging"
 )
 
 // below adapted from github.com/pion/mediadevices
@@ -48,7 +49,7 @@ var DefaultConstraints = mediadevices.MediaStreamConstraints{
 func GetNamedScreenSource(
 	name string,
 	constraints mediadevices.MediaStreamConstraints,
-	logger golog.Logger,
+	logger logging.Logger,
 ) (MediaSource[image.Image], error) {
 	d, selectedMedia, err := getScreenDriver(constraints, &name, logger)
 	if err != nil {
@@ -61,7 +62,7 @@ func GetNamedScreenSource(
 func GetPatternedScreenSource(
 	labelPattern *regexp.Regexp,
 	constraints mediadevices.MediaStreamConstraints,
-	logger golog.Logger,
+	logger logging.Logger,
 ) (MediaSource[image.Image], error) {
 	d, selectedMedia, err := getScreenDriverPattern(constraints, labelPattern, logger)
 	if err != nil {
@@ -74,7 +75,7 @@ func GetPatternedScreenSource(
 func GetNamedVideoSource(
 	name string,
 	constraints mediadevices.MediaStreamConstraints,
-	logger golog.Logger,
+	logger logging.Logger,
 ) (MediaSource[image.Image], error) {
 	d, selectedMedia, err := getUserVideoDriver(constraints, &name, logger)
 	if err != nil {
@@ -87,7 +88,7 @@ func GetNamedVideoSource(
 func GetPatternedVideoSource(
 	labelPattern *regexp.Regexp,
 	constraints mediadevices.MediaStreamConstraints,
-	logger golog.Logger,
+	logger logging.Logger,
 ) (MediaSource[image.Image], error) {
 	d, selectedMedia, err := getUserVideoDriverPattern(constraints, labelPattern, logger)
 	if err != nil {
@@ -99,7 +100,7 @@ func GetPatternedVideoSource(
 // GetAnyScreenSource attempts to find any suitable screen device.
 func GetAnyScreenSource(
 	constraints mediadevices.MediaStreamConstraints,
-	logger golog.Logger,
+	logger logging.Logger,
 ) (MediaSource[image.Image], error) {
 	d, selectedMedia, err := getScreenDriver(constraints, nil, logger)
 	if err != nil {
@@ -111,7 +112,7 @@ func GetAnyScreenSource(
 // GetAnyVideoSource attempts to find any suitable video device (not a screen).
 func GetAnyVideoSource(
 	constraints mediadevices.MediaStreamConstraints,
-	logger golog.Logger,
+	logger logging.Logger,
 ) (MediaSource[image.Image], error) {
 	d, selectedMedia, err := getUserVideoDriver(constraints, nil, logger)
 	if err != nil {
@@ -123,7 +124,7 @@ func GetAnyVideoSource(
 // GetAnyAudioSource attempts to find any suitable audio device.
 func GetAnyAudioSource(
 	constraints mediadevices.MediaStreamConstraints,
-	logger golog.Logger,
+	logger logging.Logger,
 ) (MediaSource[wave.Audio], error) {
 	d, selectedMedia, err := getUserAudioDriver(constraints, nil, logger)
 	if err != nil {
@@ -136,7 +137,7 @@ func GetAnyAudioSource(
 func GetNamedAudioSource(
 	name string,
 	constraints mediadevices.MediaStreamConstraints,
-	logger golog.Logger,
+	logger logging.Logger,
 ) (MediaSource[wave.Audio], error) {
 	d, selectedMedia, err := getUserAudioDriver(constraints, &name, logger)
 	if err != nil {
@@ -149,7 +150,7 @@ func GetNamedAudioSource(
 func GetPatternedAudioSource(
 	labelPattern *regexp.Regexp,
 	constraints mediadevices.MediaStreamConstraints,
-	logger golog.Logger,
+	logger logging.Logger,
 ) (MediaSource[wave.Audio], error) {
 	d, selectedMedia, err := getUserAudioDriverPattern(constraints, labelPattern, logger)
 	if err != nil {
@@ -235,7 +236,7 @@ func getDriverLabels(d driver.Driver, useSep bool) []string {
 func getScreenDriver(
 	constraints mediadevices.MediaStreamConstraints,
 	label *string,
-	logger golog.Logger,
+	logger logging.Logger,
 ) (driver.Driver, prop.Media, error) {
 	var videoConstraints mediadevices.MediaTrackConstraints
 	if constraints.Video != nil {
@@ -247,7 +248,7 @@ func getScreenDriver(
 func getScreenDriverPattern(
 	constraints mediadevices.MediaStreamConstraints,
 	labelPattern *regexp.Regexp,
-	logger golog.Logger,
+	logger logging.Logger,
 ) (driver.Driver, prop.Media, error) {
 	var videoConstraints mediadevices.MediaTrackConstraints
 	if constraints.Video != nil {
@@ -259,7 +260,7 @@ func getScreenDriverPattern(
 func getUserVideoDriver(
 	constraints mediadevices.MediaStreamConstraints,
 	label *string,
-	logger golog.Logger,
+	logger logging.Logger,
 ) (driver.Driver, prop.Media, error) {
 	var videoConstraints mediadevices.MediaTrackConstraints
 	if constraints.Video != nil {
@@ -271,7 +272,7 @@ func getUserVideoDriver(
 func getUserVideoDriverPattern(
 	constraints mediadevices.MediaStreamConstraints,
 	labelPattern *regexp.Regexp,
-	logger golog.Logger,
+	logger logging.Logger,
 ) (driver.Driver, prop.Media, error) {
 	var videoConstraints mediadevices.MediaTrackConstraints
 	if constraints.Video != nil {
@@ -308,7 +309,7 @@ func newVideoSourceFromDriver(
 func getUserAudioDriver(
 	constraints mediadevices.MediaStreamConstraints,
 	label *string,
-	logger golog.Logger,
+	logger logging.Logger,
 ) (driver.Driver, prop.Media, error) {
 	var audioConstraints mediadevices.MediaTrackConstraints
 	if constraints.Audio != nil {
@@ -320,7 +321,7 @@ func getUserAudioDriver(
 func getUserAudioDriverPattern(
 	constraints mediadevices.MediaStreamConstraints,
 	labelPattern *regexp.Regexp,
-	logger golog.Logger,
+	logger logging.Logger,
 ) (driver.Driver, prop.Media, error) {
 	var audioConstraints mediadevices.MediaTrackConstraints
 	if constraints.Audio != nil {
@@ -332,7 +333,7 @@ func getUserAudioDriverPattern(
 func newAudioSourceFromDriver(
 	audioDriver driver.Driver,
 	mediaProp prop.Media,
-	logger golog.Logger,
+	logger logging.Logger,
 ) (MediaSource[wave.Audio], error) {
 	recorder, ok := audioDriver.(driver.AudioRecorder)
 	if !ok {
@@ -388,7 +389,7 @@ func labelFilterPattern(labelPattern *regexp.Regexp, useSep bool) driver.FilterF
 func selectVideo(
 	constraints mediadevices.MediaTrackConstraints,
 	label *string,
-	logger golog.Logger,
+	logger logging.Logger,
 ) (driver.Driver, prop.Media, error) {
 	return selectBestDriver(getVideoFilterBase(), getVideoFilter(label), constraints, logger)
 }
@@ -396,7 +397,7 @@ func selectVideo(
 func selectVideoPattern(
 	constraints mediadevices.MediaTrackConstraints,
 	labelPattern *regexp.Regexp,
-	logger golog.Logger,
+	logger logging.Logger,
 ) (driver.Driver, prop.Media, error) {
 	return selectBestDriver(getVideoFilterBase(), getVideoFilterPattern(labelPattern), constraints, logger)
 }
@@ -404,7 +405,7 @@ func selectVideoPattern(
 func selectScreen(
 	constraints mediadevices.MediaTrackConstraints,
 	label *string,
-	logger golog.Logger,
+	logger logging.Logger,
 ) (driver.Driver, prop.Media, error) {
 	return selectBestDriver(getScreenFilterBase(), getScreenFilter(label), constraints, logger)
 }
@@ -412,7 +413,7 @@ func selectScreen(
 func selectScreenPattern(
 	constraints mediadevices.MediaTrackConstraints,
 	labelPattern *regexp.Regexp,
-	logger golog.Logger,
+	logger logging.Logger,
 ) (driver.Driver, prop.Media, error) {
 	return selectBestDriver(getScreenFilterBase(), getScreenFilterPattern(labelPattern), constraints, logger)
 }
@@ -420,7 +421,7 @@ func selectScreenPattern(
 func selectAudio(
 	constraints mediadevices.MediaTrackConstraints,
 	label *string,
-	logger golog.Logger,
+	logger logging.Logger,
 ) (driver.Driver, prop.Media, error) {
 	return selectBestDriver(getAudioFilterBase(), getAudioFilter(label), constraints, logger)
 }
@@ -483,7 +484,7 @@ func selectBestDriver(
 	baseFilter driver.FilterFn,
 	filter driver.FilterFn,
 	constraints mediadevices.MediaTrackConstraints,
-	logger golog.Logger,
+	logger logging.Logger,
 ) (driver.Driver, prop.Media, error) {
 	var bestDriver driver.Driver
 	var bestProp prop.Media
@@ -541,7 +542,7 @@ func selectBestDriver(
 
 func queryDriverProperties(
 	filter driver.FilterFn,
-	logger golog.Logger,
+	logger logging.Logger,
 ) map[driver.Driver][]prop.Media {
 	var needToClose []driver.Driver
 	drivers := driver.GetManager().Query(filter)

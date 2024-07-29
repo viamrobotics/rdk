@@ -440,6 +440,8 @@ func newWithResources(
 		}
 	}()
 
+	packageLogger := logger.Sublogger("package_manager")
+
 	if cfg.Cloud != nil && cfg.Cloud.AppAddress != "" {
 		r.packageManager = packages.NewDeferredPackageManager(
 			ctx,
@@ -449,13 +451,13 @@ func newWithResources(
 			},
 			cfg.Cloud,
 			cfg.PackagePath,
-			logger,
+			packageLogger,
 		)
 	} else {
 		r.logger.CDebug(ctx, "Using no-op PackageManager when Cloud config is not available")
 		r.packageManager = packages.NewNoopManager()
 	}
-	r.localPackages, err = packages.NewLocalManager(cfg, logger)
+	r.localPackages, err = packages.NewLocalManager(cfg, packageLogger)
 	if err != nil {
 		return nil, err
 	}
@@ -1372,4 +1374,15 @@ func (r *localRobot) Shutdown(ctx context.Context) error {
 		r.Logger().CErrorw(ctx, "shutdown function not defined")
 	}
 	return nil
+}
+
+// MachineStatus returns the current status of the robot.
+func (r *localRobot) MachineStatus(ctx context.Context) (robot.MachineStatus, error) {
+	var result robot.MachineStatus
+
+	r.manager.resourceGraphLock.Lock()
+	result.Resources = append(result.Resources, r.manager.resources.Status()...)
+	r.manager.resourceGraphLock.Unlock()
+
+	return result, nil
 }

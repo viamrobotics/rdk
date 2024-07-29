@@ -16,6 +16,8 @@ import (
 
 	"go.viam.com/rdk/config/testutils"
 	"go.viam.com/rdk/logging"
+	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/services/shell"
 )
 
 func TestFromReader(t *testing.T) {
@@ -235,33 +237,6 @@ func TestCacheInvalidation(t *testing.T) {
 	test.That(t, os.IsNotExist(err), test.ShouldBeTrue)
 }
 
-func TestProcessLoggerUpdate(t *testing.T) {
-	testLogger := logging.NewTestLogger(t)
-
-	// register a fake logger in the global registry
-	fakeLogger := logging.NewLogger("fakelogger")
-	fakeLogger.SetLevel(logging.INFO)
-	logging.RegisterLogger("fakelogger", fakeLogger)
-
-	logCfg := []logging.LoggerPatternConfig{
-		{
-			Pattern: "fakelogger",
-			Level:   "ERROR",
-		},
-	}
-	unprocessedCfg := Config{
-		LogConfig: logCfg,
-	}
-
-	// process the logger config, should set fake logger to new level
-	_, err := processConfig(&unprocessedCfg, false, testLogger)
-	test.That(t, err, test.ShouldBeNil)
-
-	// verify that the logger config was parsed, and the new level was set
-	test.That(t, fakeLogger.GetLevel().String(), test.ShouldEqual, "Error")
-	test.That(t, logging.DeregisterLogger("fakelogger"), test.ShouldBeTrue)
-}
-
 func TestShouldCheckForCert(t *testing.T) {
 	cloud1 := Cloud{
 		ManagedBy:        "acme",
@@ -393,4 +368,77 @@ func TestReadTLSFromCache(t *testing.T) {
 		err = tls.readFromCache(robotPartID, logger)
 		test.That(t, err, test.ShouldBeNil)
 	})
+}
+
+func TestProcessConfigRegistersLogConfig(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+	unprocessedConfig := Config{
+		ConfigFilePath: "path",
+		LogConfig:      []logging.LoggerPatternConfig{},
+		Services: []resource.Config{
+			{
+				Name:  "shell1",
+				API:   shell.API,
+				Model: resource.DefaultServiceModel,
+				LogConfiguration: resource.LogConfig{
+					Level: logging.WARN,
+				},
+			},
+		},
+		Components: []resource.Config{
+			{
+				Name:  "helper1",
+				API:   shell.API,
+				Model: resource.NewModel("rdk", "test", "helper"),
+				LogConfiguration: resource.LogConfig{
+					Level: logging.DEBUG,
+				},
+			},
+		},
+	}
+	serviceLoggerName := "rdk." + unprocessedConfig.Services[0].ResourceName().String()
+	componentLoggerName := "rdk." + unprocessedConfig.Components[0].ResourceName().String()
+
+	logging.RegisterLogger(serviceLoggerName, logging.NewLogger(serviceLoggerName))
+	logging.RegisterLogger(componentLoggerName, logging.NewLogger(componentLoggerName))
+
+	// create a conflict between pattern matching configurations and resource configurations
+	unprocessedConfig.LogConfig = append(unprocessedConfig.LogConfig,
+		logging.LoggerPatternConfig{
+			Pattern: serviceLoggerName,
+			Level:   "ERROR",
+		},
+		logging.LoggerPatternConfig{
+			Pattern: componentLoggerName,
+			Level:   "ERROR",
+		},
+	)
+
+	expectedRegisteredCfg := []logging.LoggerPatternConfig{
+		unprocessedConfig.LogConfig[0],
+		unprocessedConfig.LogConfig[1],
+		{
+			Pattern: serviceLoggerName,
+			Level:   "Warn",
+		},
+		{
+			Pattern: componentLoggerName,
+			Level:   "Debug",
+		},
+	}
+
+	_, err := processConfig(&unprocessedConfig, true, logger)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, expectedRegisteredCfg, test.ShouldResemble, logging.GetCurrentConfig())
+
+	// the resource log level configurations should be prioritized
+	logger, ok := logging.LoggerNamed(serviceLoggerName)
+	test.That(t, ok, test.ShouldBeTrue)
+	test.That(t, logger.GetLevel().String(), test.ShouldEqual, "Warn")
+	test.That(t, logging.DeregisterLogger(serviceLoggerName), test.ShouldBeTrue)
+
+	logger, ok = logging.LoggerNamed(componentLoggerName)
+	test.That(t, ok, test.ShouldBeTrue)
+	test.That(t, logger.GetLevel().String(), test.ShouldEqual, "Debug")
+	test.That(t, logging.DeregisterLogger(componentLoggerName), test.ShouldBeTrue)
 }

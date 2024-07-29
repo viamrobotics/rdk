@@ -71,12 +71,13 @@ func newResourceManager(
 	opts resourceManagerOptions,
 	logger logging.Logger,
 ) *resourceManager {
+	resLogger := logger.Sublogger("resource_manager")
 	return &resourceManager{
 		resources:      resource.NewGraph(),
 		processManager: newProcessManager(opts, logger),
 		processConfigs: make(map[string]pexec.ProcessConfig),
 		opts:           opts,
-		logger:         logger,
+		logger:         resLogger,
 	}
 }
 
@@ -87,7 +88,7 @@ func newProcessManager(
 	if opts.untrustedEnv {
 		return pexec.NoopProcessManager
 	}
-	return pexec.NewProcessManager(logger.AsZap())
+	return pexec.NewProcessManager(logger)
 }
 
 func fromRemoteNameToRemoteNodeName(name string) resource.Name {

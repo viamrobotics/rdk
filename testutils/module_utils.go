@@ -27,7 +27,7 @@ func MakeRobotForModuleLogging(t *testing.T, parentAddr string) rpc.Server {
 	logger := logging.NewTestLogger(t)
 	listener, err := net.Listen("unix", parentAddr)
 	test.That(t, err, test.ShouldBeNil)
-	rpcServer, err := rpc.NewServer(logger.AsZap(), rpc.WithUnauthenticated())
+	rpcServer, err := rpc.NewServer(logger, rpc.WithUnauthenticated())
 	test.That(t, err, test.ShouldBeNil)
 
 	robotService := &mockRobotService{}

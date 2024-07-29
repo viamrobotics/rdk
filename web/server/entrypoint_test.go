@@ -124,8 +124,8 @@ func TestShutdown(t *testing.T) {
 		testLogger := logging.NewTestLogger(t)
 		// Pass in a separate logger to the managed server process that only outputs WARN+
 		// logs. This avoids the test spamming stdout with stack traces from the shutdown command.
-		serverLogger, serverLogObserver := logging.NewObservedTestLogger(t)
-		serverLogger.SetLevel(logging.WARN)
+		serverLogger := logging.NewInMemoryLogger(t)
+		serverLogObserver := serverLogger.Observer
 
 		cfgFilename := utils.ResolveFile("/etc/configs/fake.json")
 		cfg, err := config.Read(context.Background(), cfgFilename, testLogger)

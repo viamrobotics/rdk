@@ -25,6 +25,9 @@ const (
 	defaultOptimalityMultiple      = 2.0
 	defaultFallbackTimeout         = 1.5
 	defaultTPspaceOrientationScale = 500.
+
+	cbirrtName  = "cbirrt"
+	rrtstarName = "rrtstar"
 )
 
 // planManager is intended to be the single entry point to motion planners, wrapping all others, dealing with fallbacks, etc.
@@ -548,9 +551,6 @@ func (pm *planManager) plannerSetupFromMoveRequest(
 	}
 
 	hasTopoConstraint := opt.addPbTopoConstraints(from, to, constraints)
-	if hasTopoConstraint {
-		planAlg = "cbirrt"
-	}
 
 	// error handling around extracting motion_profile information from map[string]interface{}
 	var motionProfile string
@@ -578,21 +578,26 @@ func (pm *planManager) plannerSetupFromMoveRequest(
 		if !ok {
 			return nil, errors.New("could not interpret planning_alg field as string")
 		}
-		if pm.useTPspace && planAlg != "" {
-			return nil, fmt.Errorf("cannot specify a planning_alg when planning for a TP-space frame. alg specified was %s", planAlg)
+	}
+	if pm.useTPspace && planAlg != "" {
+		return nil, fmt.Errorf("cannot specify a planning_alg when planning for a TP-space frame. alg specified was %s", planAlg)
+	}
+	if hasTopoConstraint {
+		if planAlg != "" && planAlg != cbirrtName {
+			return nil, fmt.Errorf("cannot specify a planning alg other than cbirrt with topo constraints. alg specified was %s", planAlg)
 		}
-		switch planAlg {
-		// TODO(pl): make these consts
-		case "cbirrt":
-			opt.PlannerConstructor = newCBiRRTMotionPlanner
-		case "rrtstar":
-			// no motion profiles for RRT*
-			opt.PlannerConstructor = newRRTStarConnectMotionPlanner
-			// TODO(pl): more logic for RRT*?
-			return opt, nil
-		default:
-			// use default, already set
-		}
+		planAlg = cbirrtName
+	}
+	switch planAlg {
+	case cbirrtName:
+		opt.PlannerConstructor = newCBiRRTMotionPlanner
+	case rrtstarName:
+		// no motion profiles for RRT*
+		opt.PlannerConstructor = newRRTStarConnectMotionPlanner
+		// TODO(pl): more logic for RRT*?
+		return opt, nil
+	default:
+		// use default, already set
 	}
 	if pm.useTPspace {
 		// overwrite default with TP space

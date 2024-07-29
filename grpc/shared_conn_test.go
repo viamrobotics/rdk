@@ -27,7 +27,7 @@ func TestNewLocalPeerConnection(t *testing.T) {
 			defer cMu.Unlock()
 			clientCandates = append(clientCandates, i)
 		})
-		clientPeerConnReady, clientPeerConnClosed, err := rpc.ConfigureForRenegotiation(client, rpc.PeerRoleClient, logger.AsZap())
+		clientPeerConnReady, clientPeerConnClosed, err := rpc.ConfigureForRenegotiation(client, rpc.PeerRoleClient, logger)
 		test.That(t, err, test.ShouldBeNil)
 
 		var sMu sync.Mutex
@@ -42,7 +42,7 @@ func TestNewLocalPeerConnection(t *testing.T) {
 			test.That(t, client.Close(), test.ShouldBeNil)
 			<-clientPeerConnClosed
 		}()
-		serverPeerConnReady, serverPeerConnClosed, err := rpc.ConfigureForRenegotiation(server, rpc.PeerRoleServer, logger.AsZap())
+		serverPeerConnReady, serverPeerConnClosed, err := rpc.ConfigureForRenegotiation(server, rpc.PeerRoleServer, logger)
 		test.That(t, err, test.ShouldBeNil)
 		defer func() {
 			server.Close()
@@ -126,14 +126,14 @@ func signalPair(t *testing.T, left, right *webrtc.PeerConnection) {
 }
 
 func testClientServer(t *testing.T, client, server *webrtc.PeerConnection, logger logging.Logger) {
-	clientPeerConnReady, clientPeerConnClosed, err := rpc.ConfigureForRenegotiation(client, rpc.PeerRoleClient, logger.AsZap())
+	clientPeerConnReady, clientPeerConnClosed, err := rpc.ConfigureForRenegotiation(client, rpc.PeerRoleClient, logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	defer func() {
 		test.That(t, client.Close(), test.ShouldBeNil)
 		<-clientPeerConnClosed
 	}()
-	serverPeerConnReady, serverPeerConnClosed, err := rpc.ConfigureForRenegotiation(server, rpc.PeerRoleServer, logger.AsZap())
+	serverPeerConnReady, serverPeerConnClosed, err := rpc.ConfigureForRenegotiation(server, rpc.PeerRoleServer, logger)
 	test.That(t, err, test.ShouldBeNil)
 	defer func() {
 		server.Close()

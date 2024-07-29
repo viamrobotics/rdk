@@ -79,7 +79,9 @@ func (imp *impl) Sublogger(subname string) Logger {
 	}
 
 	RegisterLogger(newName, sublogger)
-
+	if err := UpdateLoggerLevelWithCfg(newName); err != nil {
+		sublogger.Error(err)
+	}
 	return sublogger
 }
 
