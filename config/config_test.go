@@ -1217,3 +1217,11 @@ func TestConfigRobotWebProfile(t *testing.T) {
 
 	test.That(t, cfg.EnableWebProfile, test.ShouldBeTrue)
 }
+
+func TestConfigRobotRevision(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+	cfg, err := config.Read(context.Background(), "data/config_with_revision.json", logger)
+	test.That(t, err, test.ShouldBeNil)
+
+	test.That(t, cfg.Revision, test.ShouldEqual, "rev1")
+}
