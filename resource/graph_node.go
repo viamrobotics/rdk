@@ -500,6 +500,7 @@ func (w *GraphNode) resourceStatus() Status {
 		Name:        resName,
 		State:       w.state,
 		LastUpdated: w.transitionedAt,
+		Revision:    w.revision,
 	}
 }
 
@@ -508,4 +509,5 @@ type Status struct {
 	Name        Name
 	State       NodeState
 	LastUpdated time.Time
+	Revision    string
 }
