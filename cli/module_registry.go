@@ -13,6 +13,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strings"
 
 	"github.com/google/uuid"
@@ -632,7 +633,7 @@ type overridePlatform struct {
 
 // parse one of these from the map key.
 func parseOverridePlatform(raw string) (overridePlatform, error) {
-	if raw == "dev" {
+	if raw == devKey {
 		return overridePlatform{dev: true}, nil
 	}
 	if len(raw) == 0 {
@@ -678,6 +679,39 @@ func applyOverrideField(configAsMap map[string]any, val any, origKey string, key
 	return applyOverrideField(subtree, val, origKey, key[1:]...)
 }
 
+// A generic pair type.
+type pair[A, B any] struct {
+	a A
+	b B
+}
+
+const devKey = "dev"
+
+// Return a slice of pair{a: key, b: val} sorted alphabetically by key but with 'dev' key last.
+// We do this to create a comprehensible sort order. Ideally we'd use the order the user
+// provides, but json.Unmarshal doesn't preserve key order.
+func sortOverrides(overrides map[string]any) []pair[string, any] {
+	keys := make([]string, 0, len(overrides))
+	for key := range overrides {
+		keys = append(keys, key)
+	}
+	slices.SortFunc[[]string, string](keys, func(a, b string) int {
+		// hack to get dev to be last.
+		if a == devKey {
+			a = "zzz"
+		}
+		if b == devKey {
+			b = "zzz"
+		}
+		return strings.Compare(a, b)
+	})
+	ret := make([]pair[string, any], 0, len(overrides))
+	for _, key := range keys {
+		ret = append(ret, pair[string, any]{key, overrides[key]})
+	}
+	return ret
+}
+
 // applies the `overrides` section to a copy of this manifest, return copy.
 func (manifest moduleManifest) applyOverrides(dev bool) (moduleManifest, error) {
 	var copied moduleManifest
@@ -689,14 +723,14 @@ func (manifest moduleManifest) applyOverrides(dev bool) (moduleManifest, error) 
 	if err := json.Unmarshal(asBytes, &asMap); err != nil {
 		return copied, err
 	}
-	for key, val := range manifest.Overrides {
-		op, err := parseOverridePlatform(key)
+	for _, pair := range sortOverrides(manifest.Overrides) {
+		op, err := parseOverridePlatform(pair.a)
 		if err != nil {
 			return copied, err
 		}
-		overrides, ok := val.(map[string]any)
+		overrides, ok := pair.b.(map[string]any)
 		if !ok {
-			return copied, fmt.Errorf("override section %s is not a map", key)
+			return copied, fmt.Errorf("override section %s is not a map", pair.a)
 		}
 		if !op.checkCurrent(dev) {
 			continue

@@ -47,3 +47,12 @@ func TestUpdateModelsAction(t *testing.T) {
 
 	test.That(t, sameModels(metaModels.Models, expectedMetaModels.Models), test.ShouldBeTrue)
 }
+
+func TestSortOverrides(t *testing.T) {
+	sorted := sortOverrides(map[string]any{"linux": true, "dev": true, "darwin": true})
+	keys := make([]string, 0, len(sorted))
+	for _, pair := range sorted {
+		keys = append(keys, pair.a)
+	}
+	test.That(t, keys, test.ShouldResemble, []string{"darwin", "linux", "dev"})
+}
