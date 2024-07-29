@@ -1075,7 +1075,7 @@ func (manager *resourceManager) updateResources(
 
 	for _, s := range conf.Added.Services {
 		rName := s.ResourceName()
-		s.Revision = conf.Right.Revision
+		s.Revision = conf.NewRevision()
 		if manager.opts.untrustedEnv && rName.API == shell.API {
 			allErrs = multierr.Combine(allErrs, errShellServiceDisabled)
 			continue
@@ -1084,7 +1084,7 @@ func (manager *resourceManager) updateResources(
 	}
 	for _, c := range conf.Added.Components {
 		rName := c.ResourceName()
-		c.Revision = conf.Right.Revision
+		c.Revision = conf.NewRevision()
 		allErrs = multierr.Combine(allErrs, manager.markResourceForUpdate(rName, c, c.Dependencies()))
 	}
 	for _, r := range conf.Added.Remotes {
@@ -1094,12 +1094,12 @@ func (manager *resourceManager) updateResources(
 	}
 	for _, c := range conf.Modified.Components {
 		rName := c.ResourceName()
-		c.Revision = conf.Right.Revision
+		c.Revision = conf.NewRevision()
 		allErrs = multierr.Combine(allErrs, manager.markResourceForUpdate(rName, c, c.Dependencies()))
 	}
 	for _, s := range conf.Modified.Services {
 		rName := s.ResourceName()
-		s.Revision = conf.Right.Revision
+		s.Revision = conf.NewRevision()
 
 		// Disable shell service when in untrusted env
 		if manager.opts.untrustedEnv && rName.API == shell.API {
@@ -1166,10 +1166,10 @@ func (manager *resourceManager) updateResources(
 		manager.processConfigs[p.ID] = p
 	}
 	for _, c := range conf.NotChanged.Components {
-		manager.updateRevision(c.ResourceName(), conf.Right.Revision)
+		manager.updateRevision(c.ResourceName(), conf.NewRevision())
 	}
 	for _, s := range conf.NotChanged.Services {
-		manager.updateRevision(s.ResourceName(), conf.Right.Revision)
+		manager.updateRevision(s.ResourceName(), conf.NewRevision())
 	}
 
 	return allErrs

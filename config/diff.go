@@ -26,6 +26,14 @@ type Diff struct {
 	NotChanged     *Config
 }
 
+// NewRevision returns the revision from the new config.
+func (diff Diff) NewRevision() string {
+	if diff.Right != nil {
+		return diff.Right.Revision
+	}
+	return ""
+}
+
 // ModifiedConfigDiff is the modificative different between two configs.
 type ModifiedConfigDiff struct {
 	Remotes    []Remote

@@ -685,6 +685,7 @@ func TestManagerNewComponent(t *testing.T) {
 		Modified: &config.ModifiedConfigDiff{
 			Components: []resource.Config{},
 		},
+		NotChanged: &config.Config{},
 	}
 
 	diff.Modified.Components = append(diff.Modified.Components, resource.Config{
@@ -1282,6 +1283,7 @@ func TestConfigUntrustedEnv(t *testing.T) {
 			Modified: &config.ModifiedConfigDiff{
 				Processes: []pexec.ProcessConfig{{ID: "id2", Name: "echo"}},
 			},
+			NotChanged: &config.Config{},
 		})
 		test.That(t, errors.Is(err, errProcessesDisabled), test.ShouldBeTrue)
 
@@ -1305,6 +1307,7 @@ func TestConfigUntrustedEnv(t *testing.T) {
 					API:  shell.API,
 				}},
 			},
+			NotChanged: &config.Config{},
 		})
 		test.That(t, errors.Is(err, errShellServiceDisabled), test.ShouldBeTrue)
 
