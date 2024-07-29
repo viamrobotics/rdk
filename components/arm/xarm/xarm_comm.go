@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/binary"
 	"errors"
+	"fmt"
 	"math"
 	"time"
 
@@ -87,6 +88,7 @@ var armBoxWarnMap = map[byte]string{
 
 var regMap = map[string]byte{
 	"Version":        0x01,
+	"ActualCurrent":  0x05,
 	"Shutdown":       0x0A,
 	"ToggleServo":    0x0B,
 	"SetState":       0x0C,
@@ -102,9 +104,11 @@ var regMap = map[string]byte{
 	"JointPos":       0x2A,
 	"SetBound":       0x34,
 	"EnableBound":    0x34,
+	"CurrentTorque":  0x37,
 	"SetEEModel":     0x4E,
 	"ServoError":     0x6A,
 	"GripperControl": 0x7C,
+	"LoadID":         0xCC,
 }
 
 type cmd struct {
@@ -538,4 +542,18 @@ func (x *xArm) setGripperPosition(ctx context.Context, position uint32) error {
 	c.params = append(c.params, tmpBytes...)
 	_, err := x.send(ctx, c, true)
 	return err
+}
+
+func (x *xArm) getLoad(ctx context.Context) (map[string]interface{}, error) {
+	c := x.newCmd(regMap["CurrentTorque"])
+	//~ c.params = append(c.params, 0x01)
+	loadData, err := x.send(ctx, c, true)
+	var loads []float64
+	for i := 0; i < x.dof; i++ {
+		idx := i*4 + 1
+		loads = append(loads, float64(rutils.Float32FromBytesLE((loadData.params[idx : idx+4]))))
+	}
+	fmt.Println(loads)
+	
+	return map[string]interface{}{"load":loads}, err
 }
