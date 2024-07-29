@@ -212,33 +212,13 @@ func TestOverrides(t *testing.T) {
 		_, err := parseOverridePlatform("")
 		test.That(t, err, test.ShouldNotBeNil)
 
-		op, err := parseOverridePlatform("linux")
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, op.os, test.ShouldResemble, "linux")
-		test.That(t, op.arch, test.ShouldBeEmpty)
-		test.That(t, op.dev, test.ShouldBeFalse)
-
-		op, err = parseOverridePlatform("linux/arm64")
+		op, err := parseOverridePlatform("linux/arm64")
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, op.os, test.ShouldResemble, "linux")
 		test.That(t, op.arch, test.ShouldResemble, "arm64")
 
-		op, err = parseOverridePlatform("linux/arm64;dev")
+		op, err = parseOverridePlatform("dev")
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, op.os, test.ShouldResemble, "linux")
-		test.That(t, op.arch, test.ShouldResemble, "arm64")
-		test.That(t, op.dev, test.ShouldBeTrue)
-
-		op, err = parseOverridePlatform("linux;dev")
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, op.os, test.ShouldResemble, "linux")
-		test.That(t, op.arch, test.ShouldBeEmpty)
-		test.That(t, op.dev, test.ShouldBeTrue)
-
-		op, err = parseOverridePlatform(";dev")
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, op.os, test.ShouldBeEmpty)
-		test.That(t, op.arch, test.ShouldBeEmpty)
 		test.That(t, op.dev, test.ShouldBeTrue)
 	})
 
@@ -250,19 +230,13 @@ func TestOverrides(t *testing.T) {
 		test.That(t, op.check("darwin", "arm64", false), test.ShouldBeFalse)
 		test.That(t, op.check("linux", "amd64", false), test.ShouldBeFalse)
 
-		op, err = parseOverridePlatform("linux")
+		op, err = parseOverridePlatform("linux/any")
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, op.check("linux", "arm64", false), test.ShouldBeTrue)
 		test.That(t, op.check("linux", "amd64", false), test.ShouldBeTrue)
 		test.That(t, op.check("darwin", "arm64", false), test.ShouldBeFalse)
 
-		op, err = parseOverridePlatform("linux;dev")
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, op.check("linux", "arm64", true), test.ShouldBeTrue)
-		test.That(t, op.check("linux", "arm64", false), test.ShouldBeFalse)
-		test.That(t, op.check("darwin", "arm64", true), test.ShouldBeFalse)
-
-		op, err = parseOverridePlatform(";dev")
+		op, err = parseOverridePlatform("dev")
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, op.check("linux", "arm64", true), test.ShouldBeTrue)
 		test.That(t, op.check("linux", "arm64", false), test.ShouldBeFalse)
@@ -289,7 +263,7 @@ func TestOverrides(t *testing.T) {
 		// shallow example
 		manifest := moduleManifest{
 			Build:     &manifestBuildInfo{},
-			Overrides: map[string]any{";dev": map[string]any{"entrypoint": "./run.sh"}},
+			Overrides: map[string]any{"dev": map[string]any{"entrypoint": "./run.sh"}},
 		}
 		copied, err := manifest.applyOverrides(true)
 		test.That(t, err, test.ShouldBeNil)
@@ -299,7 +273,7 @@ func TestOverrides(t *testing.T) {
 		// deep example
 		manifest = moduleManifest{
 			Build:     &manifestBuildInfo{},
-			Overrides: map[string]any{";dev": map[string]any{"build.setup": "brew install"}},
+			Overrides: map[string]any{"dev": map[string]any{"build.setup": "brew install"}},
 		}
 		copied, err = manifest.applyOverrides(true)
 		test.That(t, err, test.ShouldBeNil)

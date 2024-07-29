@@ -12,7 +12,6 @@ import (
 	"math"
 	"os"
 	"path/filepath"
-	"regexp"
 	"runtime"
 	"strings"
 
@@ -631,30 +630,19 @@ type overridePlatform struct {
 	dev bool
 }
 
-var platformRegex = regexp.MustCompile(`(\w+)?(\/\w+)?(;\w+)*`)
-
 // parse one of these from the map key.
 func parseOverridePlatform(raw string) (overridePlatform, error) {
-	var ret overridePlatform
-	tokens := platformRegex.FindStringSubmatch(raw)
+	if raw == "dev" {
+		return overridePlatform{dev: true}, nil
+	}
 	if len(raw) == 0 {
-		return ret, errors.New("can't parse empty platform key in overrides")
+		return overridePlatform{}, errors.New("can't parse empty platform key in overrides")
 	}
-	if len(tokens) == 0 {
-		return ret, fmt.Errorf("cannot parse platform key '%s' in overrides", raw)
+	before, after, _ := strings.Cut(raw, "/")
+	if len(before) == 0 || len(after) == 0 {
+		return overridePlatform{}, fmt.Errorf("cannot parse platform key '%s' in overrides", raw)
 	}
-	for _, tok := range tokens {
-		if tok == "" { //nolint:gocritic
-			continue
-		} else if tok == ";dev" {
-			ret.dev = true
-		} else if tok[0] == '/' {
-			ret.arch = tok[1:]
-		} else {
-			ret.os = tok
-		}
-	}
-	return ret, nil
+	return overridePlatform{os: before, arch: after}, nil
 }
 
 // returns false if the arguments fall outside op's constraints.
