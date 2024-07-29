@@ -19,6 +19,7 @@ import (
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.uber.org/zap"
+
 	// registers all components.
 	commonpb "go.viam.com/api/common/v1"
 	armpb "go.viam.com/api/component/arm/v1"
@@ -3595,7 +3596,6 @@ func (m *mockResource) Reconfigure(
 func TestMachineStatus(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 	ctx := context.Background()
-	rev1 := "rev1"
 
 	resource.RegisterComponent(
 		mockAPI,
@@ -3604,6 +3604,7 @@ func TestMachineStatus(t *testing.T) {
 	)
 	defer resource.Deregister(mockAPI, mockModel)
 
+	rev1 := "rev1"
 	builtinRev := rev1
 
 	getExpectedDefaultStatuses := func() []resource.Status {
@@ -3613,32 +3614,28 @@ func TestMachineStatus(t *testing.T) {
 					API:  resource.APINamespaceRDKInternal.WithServiceType("framesystem"),
 					Name: "builtin",
 				},
-				State:    resource.NodeStateReady,
-				Revision: rev1,
+				State: resource.NodeStateReady,
 			},
 			{
 				Name: resource.Name{
 					API:  resource.APINamespaceRDKInternal.WithServiceType("cloud_connection"),
 					Name: "builtin",
 				},
-				State:    resource.NodeStateReady,
-				Revision: rev1,
+				State: resource.NodeStateReady,
 			},
 			{
 				Name: resource.Name{
 					API:  resource.APINamespaceRDKInternal.WithServiceType("packagemanager"),
 					Name: "builtin",
 				},
-				State:    resource.NodeStateReady,
-				Revision: rev1,
+				State: resource.NodeStateReady,
 			},
 			{
 				Name: resource.Name{
 					API:  resource.APINamespaceRDKInternal.WithServiceType("web"),
 					Name: "builtin",
 				},
-				State:    resource.NodeStateReady,
-				Revision: rev1,
+				State: resource.NodeStateReady,
 			},
 			{
 				Name: resource.Name{

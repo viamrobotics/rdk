@@ -493,9 +493,9 @@ func processConfig(unprocessedConfig *Config, fromCloud bool, logger logging.Log
 
 	for _, defaultServiceName := range unconfiguredDefaultServices {
 		cfg.Services = append(cfg.Services, resource.Config{
-			Name:     defaultServiceName.Name,
-			Model:    resource.DefaultServiceModel,
-			API:      defaultServiceName.API,
+			Name:  defaultServiceName.Name,
+			Model: resource.DefaultServiceModel,
+			API:   defaultServiceName.API,
 		})
 	}
 

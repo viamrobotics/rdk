@@ -481,22 +481,22 @@ func newWithResources(
 	}
 	if err := r.manager.resources.AddNode(
 		web.InternalServiceName,
-		resource.NewConfiguredGraphNode(resource.Config{Revision: cfg.Revision}, r.webSvc, builtinModel)); err != nil {
+		resource.NewConfiguredGraphNode(resource.Config{}, r.webSvc, builtinModel)); err != nil {
 		return nil, err
 	}
 	if err := r.manager.resources.AddNode(
 		framesystem.InternalServiceName,
-		resource.NewConfiguredGraphNode(resource.Config{Revision: cfg.Revision}, r.frameSvc, builtinModel)); err != nil {
+		resource.NewConfiguredGraphNode(resource.Config{}, r.frameSvc, builtinModel)); err != nil {
 		return nil, err
 	}
 	if err := r.manager.resources.AddNode(
 		r.packageManager.Name(),
-		resource.NewConfiguredGraphNode(resource.Config{Revision: cfg.Revision}, r.packageManager, builtinModel)); err != nil {
+		resource.NewConfiguredGraphNode(resource.Config{}, r.packageManager, builtinModel)); err != nil {
 		return nil, err
 	}
 	if err := r.manager.resources.AddNode(
 		r.cloudConnSvc.Name(),
-		resource.NewConfiguredGraphNode(resource.Config{Revision: cfg.Revision}, r.cloudConnSvc, builtinModel)); err != nil {
+		resource.NewConfiguredGraphNode(resource.Config{}, r.cloudConnSvc, builtinModel)); err != nil {
 		return nil, err
 	}
 
