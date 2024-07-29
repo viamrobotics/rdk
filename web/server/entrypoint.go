@@ -367,8 +367,14 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 		err = multierr.Combine(err, myRobot.Close(context.Background()))
 	}()
 
+	var watcherLogger logging.Logger
+	if l, ok := logging.LoggerNamed("config"); ok {
+		watcherLogger = l
+	} else {
+		watcherLogger = logging.NewLogger("config")
+	}
 	// watch for and deliver changes to the robot
-	watcher, err := config.NewWatcher(ctx, cfg, s.logger.Sublogger("config.watcher"))
+	watcher, err := config.NewWatcher(ctx, cfg, watcherLogger)
 	if err != nil {
 		cancel()
 		return err
