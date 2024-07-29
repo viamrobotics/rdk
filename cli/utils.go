@@ -126,5 +126,7 @@ func replaceInTarGz(path string, newEntries map[string][]byte) error {
 	if err != nil {
 		return err
 	}
+	// note: body of function is closure-scoped so the `defer close` actions finish
+	// before the Rename below.
 	return os.Rename(tmpPath, path)
 }
