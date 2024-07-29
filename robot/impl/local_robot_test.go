@@ -3596,7 +3596,7 @@ func (m *mockResource) Reconfigure(
 func TestMachineStatus(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 	ctx := context.Background()
-	initRevision := "initRev"
+	rev1 := "rev1"
 
 	resource.RegisterComponent(
 		mockAPI,
@@ -3611,42 +3611,48 @@ func TestMachineStatus(t *testing.T) {
 				API:  resource.APINamespaceRDKInternal.WithServiceType("framesystem"),
 				Name: "builtin",
 			},
-			State: resource.NodeStateReady,
+			State:    resource.NodeStateReady,
+			Revision: rev1,
 		},
 		{
 			Name: resource.Name{
 				API:  resource.APINamespaceRDKInternal.WithServiceType("cloud_connection"),
 				Name: "builtin",
 			},
-			State: resource.NodeStateReady,
+			State:    resource.NodeStateReady,
+			Revision: rev1,
 		},
 		{
 			Name: resource.Name{
 				API:  resource.APINamespaceRDKInternal.WithServiceType("packagemanager"),
 				Name: "builtin",
 			},
-			State: resource.NodeStateReady,
+			State:    resource.NodeStateReady,
+			Revision: rev1,
 		},
 		{
 			Name: resource.Name{
 				API:  resource.APINamespaceRDKInternal.WithServiceType("web"),
 				Name: "builtin",
 			},
-			State: resource.NodeStateReady,
+			State:    resource.NodeStateReady,
+			Revision: rev1,
 		},
 		{
 			Name: resource.Name{
 				API:  resource.APINamespaceRDK.WithServiceType("motion"),
 				Name: "builtin",
 			},
-			State: resource.NodeStateReady,
+			State:    resource.NodeStateReady,
+			Revision: rev1,
 		},
 		{
 			Name: resource.Name{
 				API:  resource.APINamespaceRDK.WithServiceType("sensors"),
 				Name: "builtin",
 			},
-			State: resource.NodeStateReady,
+			State:    resource.NodeStateReady,
+			Revision: rev1,
 		},
 	}
 
@@ -3660,7 +3666,7 @@ func TestMachineStatus(t *testing.T) {
 	})
 
 	t.Run("reconfigure", func(t *testing.T) {
-		lr := setupLocalRobot(t, ctx, &config.Config{Revision: initRevision}, logger)
+		lr := setupLocalRobot(t, ctx, &config.Config{Revision: rev1}, logger)
 
 		// Add a fake resource to the robot.
 		rev2 := "rev2"
@@ -3692,6 +3698,7 @@ func TestMachineStatus(t *testing.T) {
 		// Update resource config to cause reconfiguration to fail.
 		rev3 := "rev3"
 		lr.Reconfigure(ctx, &config.Config{
+			Revision: rev3,
 			Components: []resource.Config{
 				{
 					Name:  "m",
@@ -3713,7 +3720,7 @@ func TestMachineStatus(t *testing.T) {
 				{
 					Name:     mockNamed("m"),
 					State:    resource.NodeStateConfiguring,
-					Revision: rev3,
+					Revision: rev2,
 				},
 			},
 		)
@@ -3722,6 +3729,7 @@ func TestMachineStatus(t *testing.T) {
 		// Update resource with a working config.
 		rev4 := "rev4"
 		lr.Reconfigure(ctx, &config.Config{
+			Revision: rev4,
 			Components: []resource.Config{
 				{
 					Name:  "m",
