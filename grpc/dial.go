@@ -35,7 +35,7 @@ func Dial(ctx context.Context, address string, logger logging.Logger, opts ...rp
 	ctx, cancel := contextutils.ContextWithTimeoutIfNoDeadline(ctx, defaultDialTimeout)
 	defer cancel()
 
-	return rpc.Dial(ctx, address, logging.LoggerNamedOrNew("network_outgoing"), optsCopy...)
+	return rpc.Dial(ctx, address, logger, optsCopy...)
 }
 
 // InferSignalingServerAddress returns the appropriate WebRTC signaling server address

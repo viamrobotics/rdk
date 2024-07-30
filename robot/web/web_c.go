@@ -215,7 +215,7 @@ func (svc *webService) makeStreamServer(ctx context.Context) (*StreamServer, err
 		streamTypes = append(streamTypes, false)
 	}
 
-	streamServer, err := webstream.NewServer(streams, svc.r, logging.LoggerNamedOrNew("network_outgoing"))
+	streamServer, err := webstream.NewServer(streams, svc.r, logging.LoggerNamedOrNew("rdk.network_outgoing"))
 	if err != nil {
 		return nil, err
 	}

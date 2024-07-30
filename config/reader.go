@@ -739,7 +739,7 @@ func CreateNewGRPCClient(ctx context.Context, cloudCfg *Cloud, logger logging.Lo
 		dialOpts = append(dialOpts, rpc.WithInsecure())
 	}
 
-	return rpc.DialDirectGRPC(ctx, u.Host, logging.LoggerNamedOrNew("network_outgoing"), dialOpts...)
+	return rpc.DialDirectGRPC(ctx, u.Host, logging.LoggerNamedOrNew("rdk.network_outgoing"), dialOpts...)
 }
 
 // CreateNewGRPCClientWithAPIKey creates a new grpc cloud configured to communicate with the robot service
@@ -765,5 +765,5 @@ func CreateNewGRPCClientWithAPIKey(ctx context.Context, cloudCfg *Cloud,
 		dialOpts = append(dialOpts, rpc.WithInsecure())
 	}
 
-	return rpc.DialDirectGRPC(ctx, u.Host, logger, dialOpts...)
+	return rpc.DialDirectGRPC(ctx, u.Host, logging.LoggerNamedOrNew("rdk.network_outgoing"), dialOpts...)
 }
