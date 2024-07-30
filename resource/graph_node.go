@@ -334,9 +334,6 @@ func (w *GraphNode) UpdateRevision(revision string) {
 	if w.state == NodeStateReady {
 		w.config.Revision = revision
 		w.revision = revision
-		if w.logger != nil {
-			w.logger.Infow("updated revision", "new", revision)
-		}
 	}
 }
 
