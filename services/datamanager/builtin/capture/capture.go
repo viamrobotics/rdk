@@ -58,18 +58,21 @@ var metadataToAdditionalParamFields = map[string]string{
 //
 // - NewCapture
 // - Reconfigure (any number of times)
-// - Close (once).
+// - Close (any number of times).
 type Capture struct {
-	logger logging.Logger
-	clk    clock.Clock
+	logger          logging.Logger
+	clk             clock.Clock
+	fileCountLogger *fileCountLogger
 
 	collectorsMu sync.Mutex
 	collectors   map[resourceMethodMetadata]*collectorAndConfig
 
-	captureDir                 string
-	maxCaptureFileSize         int64
-	componentMethodFrequencyHz map[resourceMethodMetadata]float32
-	capturePolling             *captureDirPoller
+	// captureDir is only stored on Capture so that we can detect when it changs
+	captureDir string
+	// maxCaptureFileSize is only stored on Capture so that we can detect when it changs
+	maxCaptureFileSize int64
+	// resourceMethodFrequencyHz is only used to ensure we only log capture frequency values when they change in the config
+	resourceMethodFrequencyHz map[resourceMethodMetadata]float32
 }
 
 // Parameters stored for each collector.
@@ -107,10 +110,11 @@ func componentMethodMetadata(resConf datamanager.DataCaptureConfig) resourceMeth
 // New creates a new capture manager.
 func New(logger logging.Logger, clk clock.Clock) *Capture {
 	return &Capture{
-		logger:                     logger,
-		collectors:                 make(map[resourceMethodMetadata]*collectorAndConfig),
-		componentMethodFrequencyHz: make(map[resourceMethodMetadata]float32),
-		clk:                        clk,
+		logger:                    logger,
+		collectors:                make(map[resourceMethodMetadata]*collectorAndConfig),
+		resourceMethodFrequencyHz: make(map[resourceMethodMetadata]float32),
+		clk:                       clk,
+		fileCountLogger:           newFileCountLogger(logger),
 	}
 }
 
@@ -122,6 +126,50 @@ type Config struct {
 	MaximumCaptureFileSizeBytes int64
 }
 
+func (c *Capture) newCollectors(
+	captureMethodConfigsByResource captureMethodConfigsByResource,
+	captureConfig Config,
+) map[resourceMethodMetadata]*collectorAndConfig {
+	// Initialize or add collectors based on changes to the component configurations.
+	newCollectors := make(map[resourceMethodMetadata]*collectorAndConfig)
+	for resource, captureMethodConfigs := range captureMethodConfigsByResource {
+		for _, captureMethodConfig := range captureMethodConfigs {
+			md := componentMethodMetadata(captureMethodConfig)
+			// logging
+			c.maybeLogMethodConfigChange(md, captureMethodConfig)
+			// record to minimize duplicate logging
+			c.resourceMethodFrequencyHz[md] = captureMethodConfig.CaptureFrequencyHz
+
+			// We only use service-level tags.
+			captureMethodConfig.Tags = captureConfig.Tags
+			if captureMethodConfig.Disabled {
+				c.logger.Debugf("%s disabled. config: %#v", md.String(), captureMethodConfig)
+				continue
+			}
+
+			if captureMethodConfig.CaptureFrequencyHz <= 0 {
+				msg := "%s disabled due to `capture_frequency_hz` being less than or equal to zero. config: %#v"
+				c.logger.Debugf(msg, md.String(), captureMethodConfig)
+				continue
+			}
+
+			newCollectorAndConfig, err := c.initializeOrUpdateCollector(
+				resource,
+				md,
+				captureMethodConfig,
+				captureConfig,
+			)
+			if err != nil {
+				c.logger.Errorw("failed to initialize or update collector", "error", err)
+				continue
+			}
+			c.logger.Debugf("%s initialized or updated with config: %#v", md.String(), captureMethodConfig)
+			newCollectors[md] = newCollectorAndConfig
+		}
+	}
+	return newCollectors
+}
+
 // Reconfigure reconfigures Capture.
 // It is only called by the builtin data manager.
 func (c *Capture) Reconfigure(
@@ -130,61 +178,27 @@ func (c *Capture) Reconfigure(
 	config resource.Config,
 	captureConfig Config,
 ) error {
-	if c.capturePolling == nil {
-		c.capturePolling = newCaptureDirPoller(c.logger)
-	}
-
 	// Service is disabled, so close all collectors and clear the map so we can instantiate new ones if we enable this service.
 	if captureConfig.CaptureDisabled {
-		c.logger.Debug("Capture Disabled")
+		c.logger.Debug("Capture Disabled, flushing & shutting down collectors")
 		c.Close()
 		return nil
 	}
-	c.capturePolling.reconfigure(c.captureDir)
 
-	// TODO: How does this happen?
-	dataCollectorConfigsByResource, err := c.getDataCollectorConfigs(deps, config, captureConfig.CaptureDir)
+	captureConfig.MaximumCaptureFileSizeBytes = defaultIfZeroVal(captureConfig.MaximumCaptureFileSizeBytes, defaultMaxCaptureSize)
+	if c.captureDir != captureConfig.CaptureDir {
+		c.fileCountLogger.reconfigure(captureConfig.CaptureDir)
+	}
+
+	captureMethodConfigsByResource, err := getCaptureMethodConfigsByResource(deps, config, captureConfig.CaptureDir, c.logger)
 	if err != nil {
 		// This would only happen if there is a bug in resource graph
 		return err
 	}
-	c.captureDir = captureConfig.CaptureDir
-	maxCaptureFileSize := defaultIfZeroVal(captureConfig.MaximumCaptureFileSizeBytes, defaultMaxCaptureSize)
-	maxFileSizeChanged := c.maxCaptureFileSize != maxCaptureFileSize
-	c.maxCaptureFileSize = maxCaptureFileSize
-
-	// Initialize or add collectors based on changes to the component configurations.
-	newCollectors := make(map[resourceMethodMetadata]*collectorAndConfig)
-	for res, dataCaptgureConfigs := range dataCollectorConfigsByResource {
-		for _, resConf := range dataCaptgureConfigs {
-			componentMethodMetadata := componentMethodMetadata(resConf)
-			// logging
-			c.maybeLogCollectorConfigChange(componentMethodMetadata, resConf)
-			// record to minimize duplicate logging
-			c.componentMethodFrequencyHz[componentMethodMetadata] = resConf.CaptureFrequencyHz
-
-			// We only use service-level tags.
-			resConf.Tags = captureConfig.Tags
-			if resConf.Disabled {
-				c.logger.Debugf("%s disabled. config: %#v", componentMethodMetadata.String(), resConf)
-				continue
-			}
-
-			if resConf.CaptureFrequencyHz <= 0 {
-				msg := "%s disabled due to `capture_frequency_hz` being less than or equal to zero. config: %#v"
-				c.logger.Debugf(msg, componentMethodMetadata.String(), resConf)
-				continue
-			}
-
-			newCollectorAndConfig, err := c.initializeOrUpdateCollector(res, componentMethodMetadata, resConf, maxFileSizeChanged)
-			if err != nil {
-				c.logger.CErrorw(ctx, "failed to initialize or update collector", "error", err)
-				continue
-			}
-			c.logger.Debugf("%s initialized or updated with config: %#v", componentMethodMetadata.String(), resConf)
-			newCollectors[componentMethodMetadata] = newCollectorAndConfig
-		}
-	}
+	newCollectors := c.newCollectors(
+		captureMethodConfigsByResource,
+		captureConfig,
+	)
 
 	// If a component/method has been removed from the config, close the collector.
 	for md, collAndConfig := range c.collectors {
@@ -194,7 +208,8 @@ func (c *Capture) Reconfigure(
 		}
 	}
 	c.collectors = newCollectors
-
+	c.captureDir = captureConfig.CaptureDir
+	c.maxCaptureFileSize = captureConfig.MaximumCaptureFileSizeBytes
 	return nil
 }
 
@@ -202,7 +217,7 @@ func (c *Capture) Reconfigure(
 func (c *Capture) Close() {
 	c.FlushCollectors()
 	c.CloseCollectors()
-	c.capturePolling.close()
+	c.fileCountLogger.close()
 }
 
 // Initialize a collector for the component/method or update it if it has previously been created.
@@ -210,17 +225,18 @@ func (c *Capture) Close() {
 func (c *Capture) initializeOrUpdateCollector(
 	res resource.Resource,
 	md resourceMethodMetadata,
-	config datamanager.DataCaptureConfig,
-	maxFileSizeChanged bool,
+	resourceMethodConfig datamanager.DataCaptureConfig,
+	config Config,
 ) (*collectorAndConfig, error) {
 	// TODO(DATA-451): validate method params
-	methodParams, err := protoutils.ConvertStringMapToAnyPBMap(config.AdditionalParams)
+	methodParams, err := protoutils.ConvertStringMapToAnyPBMap(resourceMethodConfig.AdditionalParams)
 	if err != nil {
 		return nil, err
 	}
 
+	maxFileSizeChanged := c.maxCaptureFileSize != config.MaximumCaptureFileSizeBytes
 	if storedCollectorAndConfig, ok := c.collectors[md]; ok {
-		if storedCollectorAndConfig.Config.Equals(&config) &&
+		if storedCollectorAndConfig.Config.Equals(&resourceMethodConfig) &&
 			res == storedCollectorAndConfig.Resource &&
 			!maxFileSizeChanged {
 			// If the attributes have not changed, do nothing and leave the existing collector.
@@ -236,16 +252,10 @@ func (c *Capture) initializeOrUpdateCollector(
 		return nil, errors.Errorf("failed to find collector constructor for %s", md.MethodMetadata)
 	}
 
-	// Set queue size to defaultCaptureQueueSize if it was not set in the config.
-	captureQueueSize := defaultIfZeroVal(config.CaptureQueueSize, defaultCaptureQueueSize)
-	captureBufferSize := defaultIfZeroVal(config.CaptureBufferSize, defaultCaptureBufferSize)
-
-	metadataKey := generateMetadataKey(
-		md.MethodMetadata.API.String(),
-		md.MethodMetadata.MethodName)
+	metadataKey := generateMetadataKey(md.MethodMetadata.API.String(), md.MethodMetadata.MethodName)
 	additionalParamKey, ok := metadataToAdditionalParamFields[metadataKey]
 	if ok {
-		if _, ok := config.AdditionalParams[additionalParamKey]; !ok {
+		if _, ok := resourceMethodConfig.AdditionalParams[additionalParamKey]; !ok {
 			return nil, errors.Errorf("failed to validate additional_params for %s, must supply %s",
 				md.MethodMetadata.API.String(), additionalParamKey)
 		}
@@ -253,68 +263,72 @@ func (c *Capture) initializeOrUpdateCollector(
 
 	// Create a collector for this resource and method.
 	targetDir := datacapture.FilePathWithReplacedReservedChars(
-		filepath.Join(c.captureDir, config.Name.API.String(),
-			config.Name.ShortName(), config.Method))
+		filepath.Join(config.CaptureDir, resourceMethodConfig.Name.API.String(),
+			resourceMethodConfig.Name.ShortName(), resourceMethodConfig.Method))
 	if err := os.MkdirAll(targetDir, 0o700); err != nil {
 		return nil, err
 	}
 	// Build metadata.
 	captureMetadata := datacapture.BuildCaptureMetadata(
-		config.Name.API,
-		config.Name.ShortName(),
-		config.Method,
-		config.AdditionalParams,
+		resourceMethodConfig.Name.API,
+		resourceMethodConfig.Name.ShortName(),
+		resourceMethodConfig.Method,
+		resourceMethodConfig.AdditionalParams,
 		methodParams,
-		config.Tags,
+		resourceMethodConfig.Tags,
 	)
 	// Parameters to initialize collector.
-	interval := data.GetDurationFromHz(config.CaptureFrequencyHz)
 	collector, err := collectorConstructor(res, data.CollectorParams{
-		ComponentName: config.Name.ShortName(),
-		Interval:      interval,
+		ComponentName: resourceMethodConfig.Name.ShortName(),
+		Interval:      data.GetDurationFromHz(resourceMethodConfig.CaptureFrequencyHz),
 		MethodParams:  methodParams,
-		Target:        datacapture.NewBuffer(targetDir, captureMetadata, c.maxCaptureFileSize),
-		QueueSize:     captureQueueSize,
-		BufferSize:    captureBufferSize,
-		Logger:        c.logger,
-		Clock:         c.clk,
+		Target:        datacapture.NewBuffer(targetDir, captureMetadata, config.MaximumCaptureFileSizeBytes),
+		// Set queue size to defaultCaptureQueueSize if it was not set in the config.
+		QueueSize:  defaultIfZeroVal(resourceMethodConfig.CaptureQueueSize, defaultCaptureQueueSize),
+		BufferSize: defaultIfZeroVal(resourceMethodConfig.CaptureBufferSize, defaultCaptureBufferSize),
+		Logger:     c.logger,
+		Clock:      c.clk,
 	})
 	if err != nil {
 		return nil, err
 	}
+
 	collector.Collect()
 
-	return &collectorAndConfig{res, collector, config}, nil
+	return &collectorAndConfig{res, collector, resourceMethodConfig}, nil
 }
 
+type captureMethodConfigsByResource map[resource.Resource][]datamanager.DataCaptureConfig
+
 // Build the component configs associated with the data manager service.
-func (c *Capture) getDataCollectorConfigs(
+func getCaptureMethodConfigsByResource(
 	resources resource.Dependencies,
 	conf resource.Config,
 	captureDir string,
-) (map[resource.Resource][]datamanager.DataCaptureConfig, error) {
-	resourceCaptureConfigMap := make(map[resource.Resource][]datamanager.DataCaptureConfig)
+	logger logging.Logger,
+) (captureMethodConfigsByResource, error) {
+	captureMethodConfigsByResource := captureMethodConfigsByResource{}
 	for name, assocCfg := range conf.AssociatedAttributes {
 		associatedConf, err := utils.AssertType[*datamanager.AssociatedConfig](assocCfg)
 		if err != nil {
 			// This would only happen if there is a bug in resource graph
 			return nil, err
 		}
-
 		res, err := resources.Lookup(name)
 		if err != nil {
-			c.logger.Warnw("datamanager failed to lookup resource from config", "error", err)
+			logger.Warnw("datamanager failed to lookup resource from config", "error", err)
 			continue
 		}
 
-		captureCopies := make([]datamanager.DataCaptureConfig, len(associatedConf.CaptureMethods))
-		for _, method := range associatedConf.CaptureMethods {
-			method.CaptureDirectory = captureDir
-			captureCopies = append(captureCopies, method)
+		captureMethodConfigs := []datamanager.DataCaptureConfig{}
+		for _, captureMethodConfig := range associatedConf.CaptureMethods {
+			// we need to set the CaptureDirectory to that in the data manager config
+			captureMethodConfig.CaptureDirectory = captureDir
+			captureMethodConfigs = append(captureMethodConfigs, captureMethodConfig)
 		}
-		resourceCaptureConfigMap[res] = captureCopies
+		captureMethodConfigsByResource[res] = captureMethodConfigs
 	}
-	return resourceCaptureConfigMap, nil
+	return captureMethodConfigsByResource, nil
 }
 
 // CloseCollectors closes collectors.
@@ -329,9 +343,9 @@ func (c *Capture) CloseCollectors() {
 
 	var wg sync.WaitGroup
 	for _, collector := range collectorsToClose {
-		c := collector
+		tmp := collector
 		wg.Add(1)
-		goutils.ManagedGo(c.Close, wg.Done)
+		goutils.ManagedGo(tmp.Close, wg.Done)
 	}
 	wg.Wait()
 }
@@ -347,18 +361,18 @@ func (c *Capture) FlushCollectors() {
 
 	var wg sync.WaitGroup
 	for _, collector := range collectorsToFlush {
-		c := collector
+		tmp := collector
 		wg.Add(1)
-		goutils.ManagedGo(c.Flush, wg.Done)
+		goutils.ManagedGo(tmp.Flush, wg.Done)
 	}
 	wg.Wait()
 }
 
-func (c *Capture) maybeLogCollectorConfigChange(
+func (c *Capture) maybeLogMethodConfigChange(
 	componentMethodMetadata resourceMethodMetadata,
 	resConf datamanager.DataCaptureConfig,
 ) {
-	prevFreqHz, ok := c.componentMethodFrequencyHz[componentMethodMetadata]
+	prevFreqHz, ok := c.resourceMethodFrequencyHz[componentMethodMetadata]
 
 	// Only log capture frequency if the component frequency is new or the frequency has changed
 	// otherwise we'll be logging way too much
@@ -375,10 +389,9 @@ func (c *Capture) maybeLogCollectorConfigChange(
 	}
 }
 
-func countCaptureDirFiles(ctx context.Context, captureDir string) int {
+func countFiles(ctx context.Context, captureDir string) int {
 	numFiles := 0
-	//nolint:errcheck
-	_ = filepath.Walk(captureDir, func(path string, info os.FileInfo, err error) error {
+	goutils.UncheckedError(filepath.Walk(captureDir, func(path string, info os.FileInfo, err error) error {
 		if ctx.Err() != nil {
 			return filepath.SkipAll
 		}
@@ -402,7 +415,7 @@ func countCaptureDirFiles(ctx context.Context, captureDir string) int {
 			numFiles++
 		}
 		return nil
-	})
+	}))
 	return numFiles
 }
 
@@ -414,30 +427,25 @@ func defaultIfZeroVal[T comparable](val, defaultVal T) T {
 	return val
 }
 
-type captureDirPoller struct {
+type fileCountLogger struct {
 	logger logging.Logger
 
-	mu         sync.Mutex
-	captureDir string
-	workers    utils.StoppableWorkers
+	// mu      sync.Mutex
+	workers utils.StoppableWorkers
 }
 
-func newCaptureDirPoller(logger logging.Logger) *captureDirPoller {
-	return &captureDirPoller{logger: logger}
+func newFileCountLogger(logger logging.Logger) *fileCountLogger {
+	return &fileCountLogger{
+		logger:  logger,
+		workers: utils.NewStoppableWorkers(),
+	}
 }
 
-func (poller *captureDirPoller) reconfigure(captureDir string) {
-	poller.mu.Lock()
-	defer poller.mu.Unlock()
-	if captureDir == poller.captureDir {
-		return
-	}
+func (poller *fileCountLogger) reconfigure(captureDir string) {
+	// poller.mu.Lock()
+	// defer poller.mu.Unlock()
 
-	poller.captureDir = captureDir
-	if poller.workers != nil {
-		poller.workers.Stop()
-	}
-
+	poller.workers.Stop()
 	poller.workers = utils.NewStoppableWorkers(func(stopCtx context.Context) {
 		t := time.NewTicker(captureDirSizeLogInterval)
 		defer t.Stop()
@@ -446,7 +454,7 @@ func (poller *captureDirPoller) reconfigure(captureDir string) {
 			case <-stopCtx.Done():
 				return
 			case <-t.C:
-				numFiles := countCaptureDirFiles(stopCtx, captureDir)
+				numFiles := countFiles(stopCtx, captureDir)
 				if numFiles > minNumFiles {
 					poller.logger.Infof("Capture dir contains %d files", numFiles)
 				}
@@ -455,10 +463,8 @@ func (poller *captureDirPoller) reconfigure(captureDir string) {
 	})
 }
 
-func (poller *captureDirPoller) close() {
-	poller.mu.Lock()
-	defer poller.mu.Unlock()
-	if poller.workers != nil {
-		poller.workers.Stop()
-	}
+func (poller *fileCountLogger) close() {
+	// poller.mu.Lock()
+	// defer poller.mu.Unlock()
+	poller.workers.Stop()
 }
