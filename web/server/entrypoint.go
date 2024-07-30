@@ -368,7 +368,7 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 	}()
 
 	// watch for and deliver changes to the robot
-	watcher, err := config.NewWatcher(ctx, cfg, logging.LoggerNamedOrNew("rdk.config"))
+	watcher, err := config.NewWatcher(ctx, cfg, logging.GetOrNewLogger("rdk.config"))
 	if err != nil {
 		cancel()
 		return err

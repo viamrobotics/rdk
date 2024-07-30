@@ -159,7 +159,7 @@ func LoggerNamed(name string) (logger Logger, ok bool) {
 	return globalLoggerRegistry.loggerNamed(name)
 }
 
-func LoggerNamedOrNew(name string) (logger Logger) {
+func GetOrNewLogger(name string) (logger Logger) {
 	logger, ok := globalLoggerRegistry.loggerNamed(name)
 	if !ok {
 		return NewLogger(name)
