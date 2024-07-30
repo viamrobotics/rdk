@@ -1073,6 +1073,12 @@ func (manager *resourceManager) updateResources(
 		}
 	}
 
+	for _, c := range conf.OnlyModifiedRevision.Components {
+		manager.updateRevision(c.ResourceName(), c.Revision)
+	}
+	for _, s := range conf.OnlyModifiedRevision.Services {
+		manager.updateRevision(s.ResourceName(), s.Revision)
+	}
 	for _, s := range conf.Added.Services {
 		rName := s.ResourceName()
 		if manager.opts.untrustedEnv && rName.API == shell.API {
@@ -1161,13 +1167,6 @@ func (manager *resourceManager) updateResources(
 		}
 		manager.processConfigs[p.ID] = p
 	}
-	for _, c := range conf.OnlyModifiedRevision.Components {
-		manager.updateRevision(c.ResourceName(), c.Revision)
-	}
-	for _, s := range conf.OnlyModifiedRevision.Services {
-		manager.updateRevision(s.ResourceName(), s.Revision)
-	}
-
 	return allErrs
 }
 
