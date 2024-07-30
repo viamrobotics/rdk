@@ -160,7 +160,7 @@ func (svc *webService) makeStreamServer(ctx context.Context) (*StreamServer, err
 		if len(svc.videoSources) != 0 || len(svc.audioSources) != 0 {
 			svc.logger.Debug("not starting streams due to no stream config being set")
 		}
-		noopServer, err := webstream.NewServer(streams, svc.r, logging.LoggerNamedOrNew("network_outgoing"))
+		noopServer, err := webstream.NewServer(streams, svc.r, logging.LoggerNamedOrNew("rdk.network_outgoing"))
 		return &StreamServer{noopServer, false}, err
 	}
 
