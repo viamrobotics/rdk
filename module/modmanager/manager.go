@@ -984,7 +984,6 @@ func (m *module) dial() error {
 	// contains a working WebRTC offer and answer, the PeerConnection will succeed in connecting. If
 	// there is an error exchanging offers and answers, the PeerConnection object will be nil'ed
 	// out.
-	// should we edit this line / ResetConn
 	m.sharedConn.ResetConn(rpc.GrpcOverHTTPClientConn{ClientConn: conn}, m.logger)
 	m.client = pb.NewModuleServiceClient(m.sharedConn.GrpcConn())
 	return nil
