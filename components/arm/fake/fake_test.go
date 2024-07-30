@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	pb "go.viam.com/api/component/arm/v1"
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/logging"
@@ -99,4 +100,34 @@ func TestReconfigure(t *testing.T) {
 	test.That(t, err.Error(), test.ShouldContainSubstring, "fake arm built with zero degrees-of-freedom")
 	test.That(t, fakeArm.joints, test.ShouldResemble, modelJoints)
 	test.That(t, fakeArm.model, test.ShouldResemble, model)
+}
+
+func TestJointPositions(t *testing.T) {
+	ctx := context.Background()
+	logger := logging.NewTestLogger(t)
+	cfg := resource.Config{
+		Name: "testArm",
+		ConvertedAttributes: &Config{
+			ArmModel: "ur5e",
+		},
+	}
+
+	// Round trip test for MoveToJointPositions -> JointPositions
+	arm, err := NewArm(ctx, nil, cfg, logger)
+	test.That(t, err, test.ShouldBeNil)
+	samplePositions := &pb.JointPositions{Values: []float64{0, 30, 60, 90, 60, 30}}
+	test.That(t, arm.MoveToJointPositions(ctx, samplePositions, nil), test.ShouldBeNil)
+	positions, err := arm.JointPositions(ctx, nil)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(positions.Values), test.ShouldEqual, len(samplePositions.Values))
+	for i := range samplePositions.Values {
+		test.That(t, positions.Values[i], test.ShouldAlmostEqual, samplePositions.Values[i])
+	}
+
+	// Round trip test for GoToInputs -> CurrentInputs
+	sampleInputs := make([]referenceframe.Input, len(arm.ModelFrame().DoF()))
+	test.That(t, arm.GoToInputs(ctx, sampleInputs), test.ShouldBeNil)
+	inputs, err := arm.CurrentInputs(ctx)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, sampleInputs, test.ShouldResemble, inputs)
 }

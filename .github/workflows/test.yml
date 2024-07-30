@@ -20,11 +20,11 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - arch: [buildjet-8vcpu-ubuntu-2204]
+          - arch: ubuntu-large
             image: ghcr.io/viamrobotics/rdk-devenv:amd64-cache
             platform: linux/amd64
             platform_name: linux-amd64
-          - arch: github-linux-arm64-8core
+          - arch: ubuntu-large-arm
             image: ghcr.io/viamrobotics/rdk-devenv:arm64-cache
             platform: linux/arm64
             platform_name: linux-arm64
@@ -92,11 +92,11 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - arch: [buildjet-8vcpu-ubuntu-2204]
+          - arch: ubuntu-large
             image: ghcr.io/viamrobotics/rdk-devenv:amd64-cache
             platform: linux/amd64
             platform_name: linux-amd64
-          - arch: github-linux-arm64-8core
+          - arch: ubuntu-large-arm
             image: ghcr.io/viamrobotics/rdk-devenv:arm64-cache
             platform: linux/arm64
             platform_name: linux-arm64
@@ -157,7 +157,7 @@ jobs:
 
   test32:
     name: Go 32-bit Unit Tests
-    runs-on: github-linux-arm64-8core
+    runs-on: ubuntu-large-arm
     timeout-minutes: 30
 
     steps:
@@ -204,9 +204,24 @@ jobs:
     name: Test Longer-running Motion Plans if affected
     uses: viamrobotics/rdk/.github/workflows/motion-tests.yml@main
 
+  jsonschema:
+    name: Test meta.json jsonschema
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - uses: actions/setup-go@v5
+    - uses: actions/setup-python@v5
+      with:
+        cache-dependency-path: cli/test-requirements.txt
+    - run: |
+        go run ./cli/viam/ module create --local-only --name schematest --public-namespace ns
+        cat meta.json | jq '.models = [{"api": "x:y:z", "model": "x:y:z"}]' > meta2.json
+        pip install -r cli/test-requirements.txt
+        check-jsonschema --schemafile ./cli/module.schema.json meta2.json
+
   test_web_e2e:
     name: Test End-to-End and Web
-    runs-on: [buildjet-4vcpu-ubuntu-2204]
+    runs-on: ubuntu-latest
     container: ghcr.io/viamrobotics/rdk-devenv:amd64-cache
     timeout-minutes: 15
     steps:

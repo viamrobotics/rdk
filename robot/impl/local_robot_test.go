@@ -3540,3 +3540,189 @@ func TestRestartModule(t *testing.T) {
 		test.That(t, r.(*localRobot).localModuleVersions[mod.Name].String(), test.ShouldResemble, "0.0.1")
 	})
 }
+
+var mockModel = resource.DefaultModelFamily.WithModel("mockmodel")
+
+type mockResource struct {
+	resource.Named
+	resource.TriviallyCloseable
+	name  string
+	value int
+}
+
+type mockConfig struct {
+	Value int  `json:"value"`
+	Fail  bool `json:"fail"`
+}
+
+func (cfg *mockConfig) Validate(path string) ([]string, error) {
+	if cfg.Fail {
+		return nil, errors.New("whoops")
+	}
+	return []string{}, nil
+}
+
+func newMock(
+	ctx context.Context,
+	deps resource.Dependencies,
+	conf resource.Config,
+	logger logging.Logger,
+) (resource.Resource, error) {
+	m := &mockResource{name: conf.Name}
+	if err := m.Reconfigure(ctx, deps, conf); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
+func (m *mockResource) Name() resource.Name {
+	return mockNamed(m.name)
+}
+
+func (m *mockResource) Reconfigure(
+	ctx context.Context,
+	deps resource.Dependencies,
+	conf resource.Config,
+) error {
+	mConf, err := resource.NativeConfig[*mockConfig](conf)
+	if err != nil {
+		return err
+	}
+	m.value = mConf.Value
+	return nil
+}
+
+func TestMachineStatus(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+	ctx := context.Background()
+
+	resource.RegisterComponent(
+		mockAPI,
+		mockModel,
+		resource.Registration[resource.Resource, *mockConfig]{Constructor: newMock},
+	)
+	defer resource.Deregister(mockAPI, mockModel)
+
+	expectedDefaultStatuses := []resource.Status{
+		{
+			Name: resource.Name{
+				API:  resource.APINamespaceRDKInternal.WithServiceType("framesystem"),
+				Name: "builtin",
+			},
+			State: resource.NodeStateReady,
+		},
+		{
+			Name: resource.Name{
+				API:  resource.APINamespaceRDKInternal.WithServiceType("cloud_connection"),
+				Name: "builtin",
+			},
+			State: resource.NodeStateReady,
+		},
+		{
+			Name: resource.Name{
+				API:  resource.APINamespaceRDKInternal.WithServiceType("packagemanager"),
+				Name: "builtin",
+			},
+			State: resource.NodeStateReady,
+		},
+		{
+			Name: resource.Name{
+				API:  resource.APINamespaceRDKInternal.WithServiceType("web"),
+				Name: "builtin",
+			},
+			State: resource.NodeStateReady,
+		},
+		{
+			Name: resource.Name{
+				API:  resource.APINamespaceRDK.WithServiceType("motion"),
+				Name: "builtin",
+			},
+			State: resource.NodeStateReady,
+		},
+		{
+			Name: resource.Name{
+				API:  resource.APINamespaceRDK.WithServiceType("sensors"),
+				Name: "builtin",
+			},
+			State: resource.NodeStateReady,
+		},
+	}
+
+	t.Run("default resources", func(t *testing.T) {
+		lr := setupLocalRobot(t, ctx, &config.Config{}, logger)
+
+		mStatus, err := lr.MachineStatus(ctx)
+		test.That(t, err, test.ShouldBeNil)
+
+		rtestutils.VerifySameResourceStatuses(t, mStatus.Resources, expectedDefaultStatuses)
+	})
+
+	t.Run("reconfigure", func(t *testing.T) {
+		lr := setupLocalRobot(t, ctx, &config.Config{}, logger)
+
+		// Add a fake resource to the robot.
+		lr.Reconfigure(ctx, &config.Config{
+			Components: []resource.Config{
+				{
+					Name:                "m",
+					Model:               mockModel,
+					API:                 mockAPI,
+					ConvertedAttributes: &mockConfig{},
+				},
+			},
+		})
+		mStatus, err := lr.MachineStatus(ctx)
+		test.That(t, err, test.ShouldBeNil)
+		expectedStatuses := rtestutils.ConcatResourceStatuses(
+			expectedDefaultStatuses,
+			[]resource.Status{{Name: mockNamed("m"), State: resource.NodeStateReady}},
+		)
+		rtestutils.VerifySameResourceStatuses(t, mStatus.Resources, expectedStatuses)
+
+		// Update resource config to cause reconfiguration to fail.
+		lr.Reconfigure(ctx, &config.Config{
+			Components: []resource.Config{
+				{
+					Name:  "m",
+					Model: mockModel,
+					API:   mockAPI,
+					// We need to specify both `Attributes` and `ConvertedAttributes`.
+					// The former triggers a reconfiguration and the former is actually
+					// used to reconfigure the component.
+					Attributes:          rutils.AttributeMap{"fail": true},
+					ConvertedAttributes: &mockConfig{Fail: true},
+				},
+			},
+		})
+		mStatus, err = lr.MachineStatus(ctx)
+		test.That(t, err, test.ShouldBeNil)
+		expectedStatuses = rtestutils.ConcatResourceStatuses(
+			expectedDefaultStatuses,
+			[]resource.Status{{Name: mockNamed("m"), State: resource.NodeStateConfiguring}},
+		)
+		rtestutils.VerifySameResourceStatuses(t, mStatus.Resources, expectedStatuses)
+
+		// Update resource with a working config.
+		lr.Reconfigure(ctx, &config.Config{
+			Components: []resource.Config{
+				{
+					Name:  "m",
+					Model: mockModel,
+					API:   mockAPI,
+					// We need to specify both `Attributes` and `ConvertedAttributes`.
+					// The former triggers a reconfiguration and the former is actually
+					// used to reconfigure the component.
+					Attributes:          rutils.AttributeMap{"value": 200},
+					ConvertedAttributes: &mockConfig{Value: 200},
+				},
+			},
+		})
+		mStatus, err = lr.MachineStatus(ctx)
+		test.That(t, err, test.ShouldBeNil)
+		expectedStatuses = rtestutils.ConcatResourceStatuses(
+			expectedDefaultStatuses,
+			[]resource.Status{{Name: mockNamed("m"), State: resource.NodeStateReady}},
+		)
+		rtestutils.VerifySameResourceStatuses(t, mStatus.Resources, expectedStatuses)
+	})
+}

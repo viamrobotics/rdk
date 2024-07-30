@@ -104,7 +104,7 @@ func TestPoseInterpolation(t *testing.T) {
 	p2 = NewPose(r3.Vector{100, 200, 200}, ov)
 	intP = Interpolate(p1, p2, 0.1)
 	ptCompare(t, intP.Point(), r3.Vector{100, 110, 200})
-	
+
 	// Set up from/to dual quats with the same real orientation but flipped signs
 	// p1 and p2 have a OV of OX: -1
 	// And so should all intermediate poses
@@ -116,7 +116,7 @@ func TestPoseInterpolation(t *testing.T) {
 		Real: quat.Number{0, -0.7071, 0, 0.7071},
 		Dual: quat.Number{-253.144227664784, 5.303300858899092, 165.46298679765218, 5.303300858899096},
 	}}
-	
+
 	intP = Interpolate(p1, p3, 0.4)
 	test.That(t, OrientationAlmostEqual(p1.Orientation(), intP.Orientation()), test.ShouldBeTrue)
 	intP = Interpolate(p1, p3, 0.5)

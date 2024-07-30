@@ -50,6 +50,7 @@ const (
 	moduleFlagBinary          = "binary"
 	moduleFlagLocal           = "local"
 	moduleFlagHomeDir         = "home"
+	moduleCreateLocalOnly     = "local-only"
 
 	moduleBuildFlagPath      = "module"
 	moduleBuildFlagRef       = "ref"
@@ -945,8 +946,9 @@ var app = &cli.App{
 											Usage: "version of ML model. defaults to current timestamp if unspecified.",
 										},
 										&cli.StringFlag{
-											Name:     mlTrainingFlagName,
-											Usage:    "registry name of the ML training script to use for training",
+											Name: mlTrainingFlagName,
+											Usage: "registry name of the ML training script to use for training, " +
+												"which should be formatted as prefix:itemname where prefix is either the org ID or the namespace.",
 											Required: true,
 										},
 										&cli.StringFlag{
@@ -1407,6 +1409,10 @@ After creation, use 'viam module update' to push your new module to app.viam.com
 						&cli.StringFlag{
 							Name:  generalFlagOrgID,
 							Usage: "id of the organization that will host the module",
+						},
+						&cli.BoolFlag{
+							Name:  moduleCreateLocalOnly,
+							Usage: "create a meta.json file for local use, but don't create the module on the backend",
 						},
 					},
 					Action: CreateModuleAction,
