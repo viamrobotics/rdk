@@ -772,18 +772,8 @@ func TestDiffRevision(t *testing.T) {
 				Added:    &config.Config{},
 				Modified: &config.ModifiedConfigDiff{},
 				OnlyModifiedRevision: &config.Config{
-					Components: []resource.Config{
-						{
-							Name:     "comp1",
-							Revision: "some-revision",
-						},
-					},
-					Services: []resource.Config{
-						{
-							Name:     "serv1",
-							Revision: "some-revision",
-						},
-					},
+					Components: []resource.Config{{Name: "comp1"}},
+					Services:   []resource.Config{{Name: "serv1"}},
 				},
 			},
 		},
@@ -800,27 +790,12 @@ func TestDiffRevision(t *testing.T) {
 			},
 			config.Diff{
 				Added: &config.Config{
-					Components: []resource.Config{
-						{
-							Name:     "comp2",
-							Revision: "some-revision",
-						},
-					},
+					Components: []resource.Config{{Name: "comp2"}},
 				},
 				Modified: &config.ModifiedConfigDiff{},
 				OnlyModifiedRevision: &config.Config{
-					Components: []resource.Config{
-						{
-							Name:     "comp1",
-							Revision: "some-revision",
-						},
-					},
-					Services: []resource.Config{
-						{
-							Name:     "serv1",
-							Revision: "some-revision",
-						},
-					},
+					Components: []resource.Config{{Name: "comp1"}},
+					Services:   []resource.Config{{Name: "serv1"}},
 				},
 			},
 		},
@@ -837,27 +812,12 @@ func TestDiffRevision(t *testing.T) {
 			},
 			config.Diff{
 				Added: &config.Config{
-					Services: []resource.Config{
-						{
-							Name:     "serv2",
-							Revision: "some-revision",
-						},
-					},
+					Services: []resource.Config{{Name: "serv2"}},
 				},
 				Modified: &config.ModifiedConfigDiff{},
 				OnlyModifiedRevision: &config.Config{
-					Components: []resource.Config{
-						{
-							Name:     "comp1",
-							Revision: "some-revision",
-						},
-					},
-					Services: []resource.Config{
-						{
-							Name:     "serv1",
-							Revision: "some-revision",
-						},
-					},
+					Components: []resource.Config{{Name: "comp1"}},
+					Services:   []resource.Config{{Name: "serv1"}},
 				},
 			},
 		},
@@ -884,17 +844,11 @@ func TestDiffRevision(t *testing.T) {
 						{
 							Name:       "comp1",
 							Attributes: utils.AttributeMap{"value": 1},
-							Revision:   "some-revision",
 						},
 					},
 				},
 				OnlyModifiedRevision: &config.Config{
-					Services: []resource.Config{
-						{
-							Name:     "serv1",
-							Revision: "some-revision",
-						},
-					},
+					Services: []resource.Config{{Name: "serv1"}},
 				},
 			},
 		},
@@ -919,17 +873,11 @@ func TestDiffRevision(t *testing.T) {
 						{
 							Name:       "serv1",
 							Attributes: utils.AttributeMap{"value": 1},
-							Revision:   "some-revision",
 						},
 					},
 				},
 				OnlyModifiedRevision: &config.Config{
-					Components: []resource.Config{
-						{
-							Name:     "comp1",
-							Revision: "some-revision",
-						},
-					},
+					Components: []resource.Config{{Name: "comp1"}},
 				},
 			},
 		},
@@ -937,6 +885,7 @@ func TestDiffRevision(t *testing.T) {
 		diff, err := config.DiffConfigs(tc.oldCfg, tc.newCfg, false)
 		test.That(t, err, test.ShouldBeNil)
 
+		test.That(t, diff.NewRevision(), test.ShouldEqual, tc.newCfg.Revision)
 		test.That(t, diff.Added, test.ShouldResemble, tc.expectedDiff.Added)
 		test.That(t, diff.Modified, test.ShouldResemble, tc.expectedDiff.Modified)
 		test.That(t, diff.OnlyModifiedRevision, test.ShouldResemble, tc.expectedDiff.OnlyModifiedRevision)

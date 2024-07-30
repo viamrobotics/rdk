@@ -36,6 +36,14 @@ type ModifiedConfigDiff struct {
 	Modules    []Module
 }
 
+// NewRevision returns the revision from the new config if available.
+func (diff Diff) NewRevision() string {
+	if diff.Right != nil {
+		return diff.Right.Revision
+	}
+	return ""
+}
+
 // DiffConfigs returns the difference between the two given configs
 // from left to right.
 func DiffConfigs(left, right Config, revealSensitiveConfigDiffs bool) (_ *Diff, err error) {
@@ -233,7 +241,6 @@ func diffComponents(left, right []resource.Config, diff *Diff) bool {
 	for _, r := range right {
 		l, ok := leftM[r.ResourceName()]
 		delete(leftM, r.ResourceName())
-		r.Revision = diff.Right.Revision
 		if ok {
 			componentDifferent := diffComponent(l, r, diff)
 			different = componentDifferent || different
@@ -363,7 +370,6 @@ func diffServices(left, right []resource.Config, diff *Diff) bool {
 	for _, r := range right {
 		l, ok := leftM[r.ResourceName()]
 		delete(leftM, r.ResourceName())
-		r.Revision = diff.Right.Revision
 		if ok {
 			serviceDifferent := diffService(l, r, diff)
 			different = serviceDifferent || different

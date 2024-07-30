@@ -1240,6 +1240,15 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 		r.logger.CErrorw(ctx, "error diffing the configs", "error", err)
 		return
 	}
+
+	revision := diff.NewRevision()
+	for _, c := range diff.OnlyModifiedRevision.Components {
+		r.manager.updateRevision(c.ResourceName(), revision)
+	}
+	for _, s := range diff.OnlyModifiedRevision.Services {
+		r.manager.updateRevision(s.ResourceName(), revision)
+	}
+
 	if diff.ResourcesEqual {
 		return
 	}

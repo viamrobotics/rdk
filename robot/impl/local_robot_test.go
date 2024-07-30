@@ -3667,7 +3667,7 @@ func TestMachineStatus(t *testing.T) {
 	})
 
 	t.Run("reconfigure", func(t *testing.T) {
-		lr := setupLocalRobot(t, ctx, &config.Config{}, logger)
+		lr := setupLocalRobot(t, ctx, &config.Config{Revision: rev1}, logger)
 
 		// Add a fake resource to the robot.
 		rev2 := "rev2"

@@ -1005,10 +1005,11 @@ func (manager *resourceManager) processResource(
 // markResourceForUpdate marks the given resource in the graph to be updated. If it does not exist, a new node
 // is inserted. If it does exist, it's properly marked. Once this is done, all information needed to build/reconfigure
 // will be available when we call completeConfig.
-func (manager *resourceManager) markResourceForUpdate(name resource.Name, conf resource.Config, deps []string) error {
+func (manager *resourceManager) markResourceForUpdate(name resource.Name, conf resource.Config, deps []string, revision string) error {
 	gNode, hasNode := manager.resources.Node(name)
 	if hasNode {
 		gNode.SetNewConfig(conf, deps)
+		gNode.UpdatePendingRevision(revision)
 		// reset parentage
 		for _, parent := range manager.resources.GetAllParentsOf(name) {
 			manager.resources.RemoveChild(name, parent)
@@ -1016,6 +1017,7 @@ func (manager *resourceManager) markResourceForUpdate(name resource.Name, conf r
 		return nil
 	}
 	gNode = resource.NewUnconfiguredGraphNode(conf, deps)
+	gNode.UpdatePendingRevision(revision)
 	if err := manager.resources.AddNode(name, gNode); err != nil {
 		return errors.Errorf("failed to add new node for unconfigured resource %q: %v", name, err)
 	}
@@ -1073,32 +1075,27 @@ func (manager *resourceManager) updateResources(
 		}
 	}
 
-	for _, c := range conf.OnlyModifiedRevision.Components {
-		manager.updateRevision(c.ResourceName(), c.Revision)
-	}
-	for _, s := range conf.OnlyModifiedRevision.Services {
-		manager.updateRevision(s.ResourceName(), s.Revision)
-	}
+	revision := conf.NewRevision()
 	for _, s := range conf.Added.Services {
 		rName := s.ResourceName()
 		if manager.opts.untrustedEnv && rName.API == shell.API {
 			allErrs = multierr.Combine(allErrs, errShellServiceDisabled)
 			continue
 		}
-		allErrs = multierr.Combine(allErrs, manager.markResourceForUpdate(rName, s, s.Dependencies()))
+		allErrs = multierr.Combine(allErrs, manager.markResourceForUpdate(rName, s, s.Dependencies(), revision))
 	}
 	for _, c := range conf.Added.Components {
 		rName := c.ResourceName()
-		allErrs = multierr.Combine(allErrs, manager.markResourceForUpdate(rName, c, c.Dependencies()))
+		allErrs = multierr.Combine(allErrs, manager.markResourceForUpdate(rName, c, c.Dependencies(), revision))
 	}
 	for _, r := range conf.Added.Remotes {
 		rName := fromRemoteNameToRemoteNodeName(r.Name)
 		rCopy := r
-		allErrs = multierr.Combine(allErrs, manager.markResourceForUpdate(rName, resource.Config{ConvertedAttributes: &rCopy}, []string{}))
+		allErrs = multierr.Combine(allErrs, manager.markResourceForUpdate(rName, resource.Config{ConvertedAttributes: &rCopy}, []string{}, revision))
 	}
 	for _, c := range conf.Modified.Components {
 		rName := c.ResourceName()
-		allErrs = multierr.Combine(allErrs, manager.markResourceForUpdate(rName, c, c.Dependencies()))
+		allErrs = multierr.Combine(allErrs, manager.markResourceForUpdate(rName, c, c.Dependencies(), revision))
 	}
 	for _, s := range conf.Modified.Services {
 		rName := s.ResourceName()
@@ -1109,12 +1106,12 @@ func (manager *resourceManager) updateResources(
 			continue
 		}
 
-		allErrs = multierr.Combine(allErrs, manager.markResourceForUpdate(rName, s, s.Dependencies()))
+		allErrs = multierr.Combine(allErrs, manager.markResourceForUpdate(rName, s, s.Dependencies(), revision))
 	}
 	for _, r := range conf.Modified.Remotes {
 		rName := fromRemoteNameToRemoteNodeName(r.Name)
 		rCopy := r
-		allErrs = multierr.Combine(allErrs, manager.markResourceForUpdate(rName, resource.Config{ConvertedAttributes: &rCopy}, []string{}))
+		allErrs = multierr.Combine(allErrs, manager.markResourceForUpdate(rName, resource.Config{ConvertedAttributes: &rCopy}, []string{}, revision))
 	}
 
 	// processes are not added into the resource tree as they belong to a process manager
