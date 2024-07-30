@@ -25,7 +25,6 @@ import (
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/services/datamanager"
 	"go.viam.com/rdk/services/datamanager/builtin/sync"
-	"go.viam.com/rdk/services/datamanager/internal"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils/inject"
 )
@@ -237,15 +236,15 @@ func TestFilePolling(t *testing.T) {
 	sync.CaptureDirToFSUsageRatio = math.SmallestNonzeroFloat64
 
 	// Set up data manager.
-	dmsvc, _ := newDMSvc(t, tempDir)
-	defer dmsvc.Close(context.Background())
+	b, _ := newDMSvc(t, tempDir)
+	defer b.Close(context.Background())
 
 	// run forward 10ms to capture 4 files then close the collectors,
 	mockClock.Add(captureInterval)
-	captureManager := dmsvc.(*builtIn).capture
+	capture := b.capture
 	// flush and close collectors to ensure we have exactly 4 files
-	captureManager.FlushCollectors()
-	captureManager.CloseCollectors()
+	capture.FlushCollectors()
+	capture.CloseCollectors()
 	// number of capture files is based on the number of unique
 	// collectors in the robot config used in this test
 	waitForCaptureFilesToEqualNFiles(tempDir, 4, logger)
@@ -296,7 +295,7 @@ func get2ComponentInjectedRobot() *inject.Robot {
 	return r
 }
 
-func newTestDataManagerWithMultipleComponents(t *testing.T) (internal.DMService, robot.Robot) {
+func newTestDataManagerWithMultipleComponents(t *testing.T) (*builtIn, robot.Robot) {
 	t.Helper()
 	dmCfg := &Config{
 		// set capture disabled to avoid kicking off polling twice in test
@@ -317,17 +316,17 @@ func newTestDataManagerWithMultipleComponents(t *testing.T) (internal.DMService,
 		t.Log(err)
 		t.FailNow()
 	}
-	return svc.(internal.DMService), r
+	return svc.(*builtIn), r
 }
 
-func newDMSvc(t *testing.T, tempDir string) (internal.DMService, mockDataSyncServiceClient) {
-	dmsvc, r := newTestDataManagerWithMultipleComponents(t)
+func newDMSvc(t *testing.T, tempDir string) (*builtIn, mockDataSyncServiceClient) {
+	b, r := newTestDataManagerWithMultipleComponents(t)
 	mockClient := mockDataSyncServiceClient{
 		succesfulDCRequests: make(chan *v1.DataCaptureUploadRequest, 100),
 		failedDCRequests:    make(chan *v1.DataCaptureUploadRequest, 100),
 		fail:                &atomic.Bool{},
 	}
-	dmsvc.SetSyncerConstructor(getTestSyncerConstructorMock(mockClient))
+	b.SetSyncerConstructor(getTestSyncerConstructorMock(mockClient))
 
 	cfg, associations, deps := setupConfig(t, enabledTabularManyCollectorsConfigPath)
 
@@ -338,15 +337,14 @@ func newDMSvc(t *testing.T, tempDir string) (internal.DMService, mockDataSyncSer
 	cfg.SyncIntervalMins = syncIntervalMins
 
 	resources := resourcesFromDeps(t, r, deps)
-	err := dmsvc.Reconfigure(context.Background(), resources, resource.Config{
+	err := b.Reconfigure(context.Background(), resources, resource.Config{
 		ConvertedAttributes:  cfg,
 		AssociatedAttributes: associations,
 	})
 	test.That(t, err, test.ShouldBeNil)
-	b := dmsvc.(*builtIn)
 	testutils.WaitForAssertion(t, func(tb testing.TB) {
 		tb.Helper()
 		test.That(tb, b.sync.ConfigPropagated.Load(), test.ShouldBeTrue)
 	})
-	return dmsvc, mockClient
+	return b, mockClient
 }

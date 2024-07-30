@@ -6,11 +6,11 @@ import (
 )
 
 // SetSyncerConstructor sets the syncer constructor for the data manager to use when creating its syncer.
-func (svc *builtIn) SetSyncerConstructor(fn sync.ManagerConstructor) {
-	svc.sync.SyncerConstructor = fn
+func (b *builtIn) SetSyncerConstructor(fn sync.ManagerConstructor) {
+	b.sync.SyncerConstructor = fn
 }
 
 // SetFileLastModifiedMillis sets the wait time for the syncer to use when initialized/changed in Service.Update.
-func (svc *builtIn) SetFileLastModifiedMillis(s int) {
-	svc.sync.FileLastModifiedMillis = s
+func (b *builtIn) SetFileLastModifiedMillis(s int) {
+	b.sync.FileLastModifiedMillis = s
 }

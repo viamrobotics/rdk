@@ -30,9 +30,6 @@ const (
 
 // TODO DATA-849: Add a test that validates that sync interval is accurately respected.
 func TestSyncEnabled(t *testing.T) {
-	// https://viam.atlassian.net/browse/DATA-2880
-	// https://viam.atlassian.net/browse/DATA-2879
-	t.Skip()
 	captureInterval := time.Millisecond * 10
 	tests := []struct {
 		name                        string
@@ -71,14 +68,14 @@ func TestSyncEnabled(t *testing.T) {
 			tmpDir := t.TempDir()
 
 			// Set up data manager.
-			dmsvc, r := newTestDataManager(t)
-			defer dmsvc.Close(context.Background())
+			b, r := newBuiltIn(t)
+			defer b.Close(context.Background())
 			mockClient := mockDataSyncServiceClient{
 				succesfulDCRequests: make(chan *v1.DataCaptureUploadRequest, 100),
 				failedDCRequests:    make(chan *v1.DataCaptureUploadRequest, 100),
 				fail:                &atomic.Bool{},
 			}
-			dmsvc.SetSyncerConstructor(getTestSyncerConstructorMock(mockClient))
+			b.SetSyncerConstructor(getTestSyncerConstructorMock(mockClient))
 			cfg, associations, deps := setupConfig(t, enabledBinaryCollectorConfigPath)
 
 			// Set up service config.
@@ -88,12 +85,11 @@ func TestSyncEnabled(t *testing.T) {
 			cfg.SyncIntervalMins = syncIntervalMins
 
 			resources := resourcesFromDeps(t, r, deps)
-			err := dmsvc.Reconfigure(context.Background(), resources, resource.Config{
+			err := b.Reconfigure(context.Background(), resources, resource.Config{
 				ConvertedAttributes:  cfg,
 				AssociatedAttributes: associations,
 			})
 			test.That(t, err, test.ShouldBeNil)
-			b := dmsvc.(*builtIn)
 			testutils.WaitForAssertion(t, func(tb testing.TB) {
 				tb.Helper()
 				test.That(tb, b.sync.ConfigPropagated.Load(), test.ShouldBeTrue)
@@ -122,7 +118,7 @@ func TestSyncEnabled(t *testing.T) {
 			cfg.SyncIntervalMins = syncIntervalMins
 
 			resources = resourcesFromDeps(t, r, deps)
-			err = dmsvc.Reconfigure(context.Background(), resources, resource.Config{
+			err = b.Reconfigure(context.Background(), resources, resource.Config{
 				ConvertedAttributes:  cfg,
 				AssociatedAttributes: associations,
 			})
@@ -146,7 +142,7 @@ func TestSyncEnabled(t *testing.T) {
 			case <-mockClient.succesfulDCRequests:
 				sentReqAfterUpdate = true
 			}
-			err = dmsvc.Close(context.Background())
+			err = b.Close(context.Background())
 			test.That(t, err, test.ShouldBeNil)
 
 			if !tc.newServiceDisableStatus {
@@ -221,8 +217,8 @@ func TestDataCaptureUploadIntegration(t *testing.T) {
 			tmpDir := t.TempDir()
 
 			// Set up data manager.
-			dmsvc, r := newTestDataManager(t)
-			defer dmsvc.Close(context.Background())
+			b, r := newBuiltIn(t)
+			defer b.Close(context.Background())
 			var cfg *Config
 			var associations map[resource.Name]resource.AssociatedConfig
 			var deps []string
@@ -244,12 +240,11 @@ func TestDataCaptureUploadIntegration(t *testing.T) {
 			cfg.CaptureDir = tmpDir
 
 			resources := resourcesFromDeps(t, r, deps)
-			err := dmsvc.Reconfigure(context.Background(), resources, resource.Config{
+			err := b.Reconfigure(context.Background(), resources, resource.Config{
 				ConvertedAttributes:  cfg,
 				AssociatedAttributes: associations,
 			})
 			test.That(t, err, test.ShouldBeNil)
-			b := dmsvc.(*builtIn)
 			testutils.WaitForAssertion(t, func(tb testing.TB) {
 				tb.Helper()
 				test.That(tb, b.sync.ConfigPropagated.Load(), test.ShouldBeTrue)
@@ -259,7 +254,7 @@ func TestDataCaptureUploadIntegration(t *testing.T) {
 			for i := 0; i < 20; i++ {
 				mockClock.Add(captureInterval)
 			}
-			err = dmsvc.Close(context.Background())
+			err = b.Close(context.Background())
 			test.That(t, err, test.ShouldBeNil)
 
 			// Get all captured data.
@@ -272,24 +267,23 @@ func TestDataCaptureUploadIntegration(t *testing.T) {
 			}
 
 			// Turn dmsvc back on with capture disabled.
-			newDMSvc, r := newTestDataManager(t)
-			defer newDMSvc.Close(context.Background())
+			b2, r := newBuiltIn(t)
+			defer b2.Close(context.Background())
 			mockClient := mockDataSyncServiceClient{
 				succesfulDCRequests: make(chan *v1.DataCaptureUploadRequest, 100),
 				failedDCRequests:    make(chan *v1.DataCaptureUploadRequest, 100),
 				fail:                &atomic.Bool{},
 			}
-			newDMSvc.SetSyncerConstructor(getTestSyncerConstructorMock(mockClient))
+			b2.SetSyncerConstructor(getTestSyncerConstructorMock(mockClient))
 			cfg.CaptureDisabled = true
 			cfg.ScheduledSyncDisabled = tc.scheduledSyncDisabled
 			cfg.SyncIntervalMins = syncIntervalMins
 			resources = resourcesFromDeps(t, r, deps)
-			err = newDMSvc.Reconfigure(context.Background(), resources, resource.Config{
+			err = b2.Reconfigure(context.Background(), resources, resource.Config{
 				ConvertedAttributes:  cfg,
 				AssociatedAttributes: associations,
 			})
 			test.That(t, err, test.ShouldBeNil)
-			b2 := newDMSvc.(*builtIn)
 			testutils.WaitForAssertion(t, func(tb testing.TB) {
 				tb.Helper()
 				test.That(tb, b2.sync.ConfigPropagated.Load(), test.ShouldBeTrue)
@@ -317,9 +311,9 @@ func TestDataCaptureUploadIntegration(t *testing.T) {
 			mockClient.fail.Store(false)
 			// If testing manual sync, call sync. Call it multiple times to ensure concurrent calls are safe.
 			if tc.manualSync {
-				err = newDMSvc.Sync(context.Background(), nil)
+				err = b2.Sync(context.Background(), nil)
 				test.That(t, err, test.ShouldBeNil)
-				err = newDMSvc.Sync(context.Background(), nil)
+				err = b2.Sync(context.Background(), nil)
 				test.That(t, err, test.ShouldBeNil)
 			}
 
@@ -338,7 +332,7 @@ func TestDataCaptureUploadIntegration(t *testing.T) {
 
 			// Give it time to delete files after upload.
 			waitUntilNoFiles(tmpDir)
-			err = newDMSvc.Close(context.Background())
+			err = b2.Close(context.Background())
 			test.That(t, err, test.ShouldBeNil)
 
 			// Validate that all captured data was synced.
@@ -403,9 +397,9 @@ func TestArbitraryFileUpload(t *testing.T) {
 			additionalPathsDir := t.TempDir()
 			captureDir := t.TempDir()
 
-			// Set up dmsvc config.
-			dmsvc, r := newTestDataManager(t)
-			defer dmsvc.Close(context.Background())
+			// Set up b config.
+			b, r := newBuiltIn(t)
+			defer b.Close(context.Background())
 			f := atomic.Bool{}
 			f.Store(tc.serviceFail)
 			mockClient := mockDataSyncServiceClient{
@@ -414,7 +408,7 @@ func TestArbitraryFileUpload(t *testing.T) {
 				fileUploads:         make(chan *mockFileUploadClient, 100),
 				fail:                &f,
 			}
-			dmsvc.SetSyncerConstructor(getTestSyncerConstructorMock(mockClient))
+			b.SetSyncerConstructor(getTestSyncerConstructorMock(mockClient))
 			cfg, associations, deps := setupConfig(t, disabledTabularCollectorConfigPath)
 			cfg.ScheduledSyncDisabled = tc.scheduleSyncDisabled
 			cfg.SyncIntervalMins = syncIntervalMins
@@ -423,18 +417,17 @@ func TestArbitraryFileUpload(t *testing.T) {
 
 			// Start dmsvc.
 			resources := resourcesFromDeps(t, r, deps)
-			err := dmsvc.Reconfigure(context.Background(), resources, resource.Config{
+			err := b.Reconfigure(context.Background(), resources, resource.Config{
 				ConvertedAttributes:  cfg,
 				AssociatedAttributes: associations,
 			})
 			test.That(t, err, test.ShouldBeNil)
-			b := dmsvc.(*builtIn)
 			testutils.WaitForAssertion(t, func(tb testing.TB) {
 				tb.Helper()
 				test.That(tb, b.sync.ConfigPropagated.Load(), test.ShouldBeTrue)
 			})
 			// Ensure that we don't wait to sync files.
-			dmsvc.SetFileLastModifiedMillis(0)
+			b.SetFileLastModifiedMillis(0)
 
 			// Write file to the path.
 			var fileContents []byte
@@ -452,7 +445,7 @@ func TestArbitraryFileUpload(t *testing.T) {
 
 			// Call manual sync.
 			if tc.manualSync {
-				err = dmsvc.Sync(context.Background(), nil)
+				err = b.Sync(context.Background(), nil)
 				test.That(t, err, test.ShouldBeNil)
 			}
 
@@ -498,7 +491,7 @@ func TestArbitraryFileUpload(t *testing.T) {
 
 				// Validate file no longer exists.
 				test.That(t, len(getAllFileInfos(additionalPathsDir)), test.ShouldEqual, 0)
-				test.That(t, dmsvc.Close(context.Background()), test.ShouldBeNil)
+				test.That(t, b.Close(context.Background()), test.ShouldBeNil)
 			} else {
 				// Validate no files were successfully uploaded.
 				test.That(t, len(fileUploads), test.ShouldEqual, 0)
@@ -542,8 +535,8 @@ func TestStreamingDCUpload(t *testing.T) {
 			tmpDir := t.TempDir()
 
 			// Set up data manager.
-			dmsvc, r := newTestDataManager(t)
-			defer dmsvc.Close(context.Background())
+			b, r := newBuiltIn(t)
+			defer b.Close(context.Background())
 			var cfg *Config
 			var associations map[resource.Name]resource.AssociatedConfig
 			var deps []string
@@ -557,12 +550,11 @@ func TestStreamingDCUpload(t *testing.T) {
 			cfg.CaptureDir = tmpDir
 
 			resources := resourcesFromDeps(t, r, deps)
-			err := dmsvc.Reconfigure(context.Background(), resources, resource.Config{
+			err := b.Reconfigure(context.Background(), resources, resource.Config{
 				ConvertedAttributes:  cfg,
 				AssociatedAttributes: associations,
 			})
 			test.That(t, err, test.ShouldBeNil)
-			b := dmsvc.(*builtIn)
 			testutils.WaitForAssertion(t, func(tb testing.TB) {
 				tb.Helper()
 				test.That(tb, b.sync.ConfigPropagated.Load(), test.ShouldBeTrue)
@@ -571,7 +563,7 @@ func TestStreamingDCUpload(t *testing.T) {
 			// Capture an image, then close.
 			mockClock.Add(captureInterval)
 			waitForCaptureFilesToExceedNFiles(tmpDir, 0, logger)
-			err = dmsvc.Close(context.Background())
+			err = b.Close(context.Background())
 			test.That(t, err, test.ShouldBeNil)
 
 			// Get all captured data.
@@ -579,31 +571,30 @@ func TestStreamingDCUpload(t *testing.T) {
 			test.That(t, err, test.ShouldBeNil)
 
 			// Turn dmsvc back on with capture disabled.
-			newDMSvc, r := newTestDataManager(t)
-			defer newDMSvc.Close(context.Background())
+			b2, r := newBuiltIn(t)
+			defer b2.Close(context.Background())
 			f := atomic.Bool{}
 			f.Store(tc.serviceFail)
 			mockClient := mockDataSyncServiceClient{
 				streamingDCUploads: make(chan *mockStreamingDCClient, 10),
 				fail:               &f,
 			}
-			newDMSvc.SetSyncerConstructor(getTestSyncerConstructorMock(mockClient))
+			b2.SetSyncerConstructor(getTestSyncerConstructorMock(mockClient))
 			cfg.CaptureDisabled = true
 			cfg.ScheduledSyncDisabled = true
 			resources = resourcesFromDeps(t, r, deps)
-			err = newDMSvc.Reconfigure(context.Background(), resources, resource.Config{
+			err = b2.Reconfigure(context.Background(), resources, resource.Config{
 				ConvertedAttributes:  cfg,
 				AssociatedAttributes: associations,
 			})
 			test.That(t, err, test.ShouldBeNil)
-			b2 := newDMSvc.(*builtIn)
 			testutils.WaitForAssertion(t, func(tb testing.TB) {
 				tb.Helper()
 				test.That(tb, b2.sync.ConfigPropagated.Load(), test.ShouldBeTrue)
 			})
 
 			// Call sync.
-			err = newDMSvc.Sync(context.Background(), nil)
+			err = b2.Sync(context.Background(), nil)
 			test.That(t, err, test.ShouldBeNil)
 
 			// Wait for upload requests.
@@ -656,15 +647,12 @@ func TestStreamingDCUpload(t *testing.T) {
 				// Validate file no longer exists.
 				test.That(t, len(getAllFileInfos(tmpDir)), test.ShouldEqual, 0)
 			}
-			test.That(t, dmsvc.Close(context.Background()), test.ShouldBeNil)
+			test.That(t, b.Close(context.Background()), test.ShouldBeNil)
 		})
 	}
 }
 
 func TestSyncConfigUpdateBehavior(t *testing.T) {
-	// https://viam.atlassian.net/browse/DATA-2880
-	// https://viam.atlassian.net/browse/DATA-2879
-	t.Skip()
 	newSyncIntervalMins := 0.009
 	tests := []struct {
 		name                 string
@@ -714,14 +702,14 @@ func TestSyncConfigUpdateBehavior(t *testing.T) {
 			tmpDir := t.TempDir()
 
 			// Set up data manager.
-			dmsvc, r := newTestDataManager(t)
-			defer dmsvc.Close(context.Background())
+			b, r := newBuiltIn(t)
+			defer b.Close(context.Background())
 			mockClient := mockDataSyncServiceClient{
 				succesfulDCRequests: make(chan *v1.DataCaptureUploadRequest, 100),
 				failedDCRequests:    make(chan *v1.DataCaptureUploadRequest, 100),
 				fail:                &atomic.Bool{},
 			}
-			dmsvc.SetSyncerConstructor(getTestSyncerConstructorMock(mockClient))
+			b.SetSyncerConstructor(getTestSyncerConstructorMock(mockClient))
 			cfg, associations, deps := setupConfig(t, enabledBinaryCollectorConfigPath)
 
 			// Set up service config.
@@ -731,13 +719,12 @@ func TestSyncConfigUpdateBehavior(t *testing.T) {
 			cfg.SyncIntervalMins = tc.initSyncIntervalMins
 
 			resources := resourcesFromDeps(t, r, deps)
-			err := dmsvc.Reconfigure(context.Background(), resources, resource.Config{
+			err := b.Reconfigure(context.Background(), resources, resource.Config{
 				ConvertedAttributes:  cfg,
 				AssociatedAttributes: associations,
 			})
 			test.That(t, err, test.ShouldBeNil)
 
-			b := dmsvc.(*builtIn)
 			testutils.WaitForAssertion(t, func(tb testing.TB) {
 				tb.Helper()
 				test.That(tb, b.sync.ConfigPropagated.Load(), test.ShouldBeTrue)
@@ -750,7 +737,7 @@ func TestSyncConfigUpdateBehavior(t *testing.T) {
 			cfg.SyncIntervalMins = tc.newSyncIntervalMins
 			cfg.MaximumNumSyncThreads = tc.newMaxSyncThreads
 
-			err = dmsvc.Reconfigure(context.Background(), resources, resource.Config{
+			err = b.Reconfigure(context.Background(), resources, resource.Config{
 				ConvertedAttributes:  cfg,
 				AssociatedAttributes: associations,
 			})
@@ -768,8 +755,7 @@ func TestSyncConfigUpdateBehavior(t *testing.T) {
 				test.That(t, newSyncer, test.ShouldBeNil)
 			}
 			test.That(t, newFileDeletionBackgroundWorker, test.ShouldNotBeNil)
-			if tc.initSyncDisabled != tc.newSyncDisabled ||
-				tc.initSyncIntervalMins != tc.newSyncIntervalMins {
+			if tc.initSyncIntervalMins != tc.newSyncIntervalMins {
 				test.That(t, initTicker, test.ShouldNotEqual, newTicker)
 			}
 			if tc.newMaxSyncThreads != 0 {

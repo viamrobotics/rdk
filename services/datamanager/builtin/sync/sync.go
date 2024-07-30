@@ -55,35 +55,32 @@ type selectiveSyncer interface {
 // - Close (once).
 type Sync struct {
 	logger                      logging.Logger
-	closedCancelFn              context.CancelFunc
-	closedCtx                   context.Context
 	clk                         clk.Clock
 	flushCollectors             func()
 	propagationGoroutineStarted atomic.Bool
 	// ConfigPropagated exists only for tests
 	ConfigPropagated atomic.Bool
 	// FileDeletionBackgroundWorkers temporarily public for tests
-	FileDeletionBackgroundWorkers *sync.WaitGroup
-	fileDeletionRoutineCancelFn   context.CancelFunc
+	FileDeletionBackgroundWorkers utils.StoppableWorkers
 
 	mu                        sync.Mutex
 	captureDir                string
 	cloudConn                 rpc.ClientConn
 	cloudConnSvc              cloud.ConnectionService
-	datasyncBackgroundWorkers sync.WaitGroup
+	datasyncBackgroundWorkers utils.StoppableWorkers
 	// FileLastModifiedMillis temporarily public for tests
 	FileLastModifiedMillis int
 	filesToSync            chan string
 	// MaxSyncThreads temporarily public for tests
-	MaxSyncThreads            int
-	propagateDataSyncConfigWG sync.WaitGroup
-	selectiveSyncEnabled      bool
-	syncConfigUpdated         bool
-	syncDisabled              bool
-	syncIntervalMins          float64
-	syncPaths                 []string
-	syncRoutineCancelFn       context.CancelFunc
-	syncSensor                selectiveSyncer
+	MaxSyncThreads                 int
+	propagateDataSyncConfigWorkers utils.StoppableWorkers
+	selectiveSyncEnabled           bool
+	syncConfigUpdated              bool
+	syncDisabled                   bool
+	syncIntervalMins               float64
+	syncPaths                      []string
+	// syncRoutineCancelFn            context.CancelFunc
+	syncSensor selectiveSyncer
 	// SyncTicker temporarily public for tests
 	SyncTicker *clk.Ticker
 	// Syncer temporarily public for tests
@@ -111,18 +108,15 @@ type Config struct {
 // Default time to wait in milliseconds to check if a file has been modified.
 const defaultFileLastModifiedMillis = 10000.0
 
-// NewSync creates a new Manager.
-func NewSync(
+// New creates a new Manager.
+func New(
 	logger logging.Logger,
 	clk clk.Clock,
 	flushCollectors func(),
 ) *Sync {
-	closedCtx, closedCancelFn := context.WithCancel(context.Background())
 	return &Sync{
 		flushCollectors:        flushCollectors,
 		clk:                    clk,
-		closedCtx:              closedCtx,
-		closedCancelFn:         closedCancelFn,
 		logger:                 logger,
 		syncPaths:              []string{},
 		tags:                   []string{},
@@ -132,30 +126,28 @@ func NewSync(
 }
 
 // Reconfigure reconfigures Sync.
-func (sm *Sync) Reconfigure(
+// It is only called by the builtin data manager
+// https://github.com/dgottlieb/rdk/blob/72f5b567db2cb2ca08b9752b8710d1e4e784077c/services/datamanager/datasync/manager.go
+// https://github.com/dgottlieb/rdk/blob/72f5b567db2cb2ca08b9752b8710d1e4e784077c/services/datamanager/builtin/builtin.go#L144
+func (s *Sync) Reconfigure(
 	ctx context.Context,
 	deps resource.Dependencies,
 	config resource.Config,
 	syncConfig Config,
 	cloudConnSvc cloud.ConnectionService,
 ) {
-	if sm.fileDeletionRoutineCancelFn != nil {
-		sm.fileDeletionRoutineCancelFn()
+	s.ConfigPropagated.Store(false)
+	if s.FileDeletionBackgroundWorkers != nil {
+		s.FileDeletionBackgroundWorkers.Stop()
 	}
-	if sm.FileDeletionBackgroundWorkers != nil {
-		sm.FileDeletionBackgroundWorkers.Wait()
-	}
-	sm.mu.Lock()
-	defer sm.mu.Unlock()
-	sm.ConfigPropagated.Store(false)
-	sm.captureDir = syncConfig.CaptureDir
+	s.captureDir = syncConfig.CaptureDir
 	// Syncer should be reinitialized if the max sync threads are updated in the config
 	newMaxSyncThreadValue := MaxParallelSyncRoutines
 	if syncConfig.MaximumNumSyncThreads != 0 {
 		newMaxSyncThreadValue = syncConfig.MaximumNumSyncThreads
 	}
-	sm.syncerNeedsToBeReInitialized = cloudConnSvc != sm.cloudConnSvc || newMaxSyncThreadValue != sm.MaxSyncThreads
-	sm.cloudConnSvc = cloudConnSvc
+	s.syncerNeedsToBeReInitialized = cloudConnSvc != s.cloudConnSvc || newMaxSyncThreadValue != s.MaxSyncThreads
+	s.cloudConnSvc = cloudConnSvc
 
 	deleteEveryNthValue := DefaultDeleteEveryNth
 	if syncConfig.DeleteEveryNthWhenDiskFull != 0 {
@@ -163,11 +155,10 @@ func (sm *Sync) Reconfigure(
 	}
 
 	if syncConfig.CaptureDisabled {
-		sm.fileDeletionRoutineCancelFn = nil
-		sm.FileDeletionBackgroundWorkers = nil
+		s.FileDeletionBackgroundWorkers = nil
 	}
 
-	sm.syncPaths = append([]string{syncConfig.CaptureDir}, syncConfig.AdditionalSyncPaths...)
+	s.syncPaths = append([]string{syncConfig.CaptureDir}, syncConfig.AdditionalSyncPaths...)
 
 	fileLastModifiedMillis := syncConfig.FileLastModifiedMillis
 	if fileLastModifiedMillis <= 0 {
@@ -179,51 +170,52 @@ func (sm *Sync) Reconfigure(
 		err        error
 	)
 
-	sm.selectiveSyncEnabled = false
+	s.selectiveSyncEnabled = false
 	if syncConfig.SelectiveSyncerName != "" {
-		sm.selectiveSyncEnabled = true
+		s.selectiveSyncEnabled = true
 		syncSensor, err = sensor.FromDependencies(deps, syncConfig.SelectiveSyncerName)
 		if err != nil {
-			sm.logger.CErrorw(
+			s.logger.CErrorw(
 				ctx, "unable to initialize selective syncer; will not sync at all until fixed or removed from config", "error", err.Error())
 		}
 	}
-	if sm.syncSensor != syncSensor {
-		sm.syncSensor = syncSensor
+	if s.syncSensor != syncSensor {
+		s.syncSensor = syncSensor
 	}
-	syncConfigUpdated := sm.syncDisabled != syncConfig.ScheduledSyncDisabled || sm.syncIntervalMins != syncConfig.SyncIntervalMins ||
-		!reflect.DeepEqual(sm.tags, syncConfig.Tags) || sm.FileLastModifiedMillis != fileLastModifiedMillis ||
-		sm.MaxSyncThreads != newMaxSyncThreadValue
+	syncConfigUpdated := s.syncDisabled != syncConfig.ScheduledSyncDisabled || s.syncIntervalMins != syncConfig.SyncIntervalMins ||
+		!reflect.DeepEqual(s.tags, syncConfig.Tags) || s.FileLastModifiedMillis != fileLastModifiedMillis ||
+		s.MaxSyncThreads != newMaxSyncThreadValue
 
 	if syncConfigUpdated {
-		sm.syncConfigUpdated = syncConfigUpdated
-		sm.syncDisabled = syncConfig.ScheduledSyncDisabled
-		sm.syncIntervalMins = syncConfig.SyncIntervalMins
-		sm.tags = syncConfig.Tags
-		sm.FileLastModifiedMillis = fileLastModifiedMillis
-		sm.MaxSyncThreads = newMaxSyncThreadValue
+		s.mu.Lock()
+		s.syncConfigUpdated = syncConfigUpdated
+		s.syncDisabled = syncConfig.ScheduledSyncDisabled
+		s.syncIntervalMins = syncConfig.SyncIntervalMins
+		s.tags = syncConfig.Tags
+		s.FileLastModifiedMillis = fileLastModifiedMillis
+		s.MaxSyncThreads = newMaxSyncThreadValue
+		s.mu.Unlock()
 	}
 
 	// if datacapture is enabled, kick off a go routine to handle disk space filling due to
 	// cached datacapture files
-	// TODO: Make this use stoppable workers
 	if !syncConfig.CaptureDisabled {
-		fileDeletionCtx, cancelFunc := context.WithCancel(context.Background())
-		sm.fileDeletionRoutineCancelFn = cancelFunc
-		sm.FileDeletionBackgroundWorkers = &sync.WaitGroup{}
-		sm.FileDeletionBackgroundWorkers.Add(1)
-		go deleteExcessFiles(
-			fileDeletionCtx,
-			sm.FileDeletionBackgroundWorkers,
-			syncConfig.CaptureDir,
-			deleteEveryNthValue,
-			sm.Syncer,
-			sm.logger,
-		)
+		s.mu.Lock()
+		syncer := s.Syncer
+		s.mu.Unlock()
+		s.FileDeletionBackgroundWorkers = utils.NewStoppableWorkers(func(stopCtx context.Context) {
+			deleteExcessFiles(
+				stopCtx,
+				syncConfig.CaptureDir,
+				deleteEveryNthValue,
+				syncer,
+				s.logger,
+			)
+		})
 	}
 
-	if !sm.propagationGoroutineStarted.Swap(true) {
-		sm.startPropagateDataSyncConfig()
+	if !s.propagationGoroutineStarted.Swap(true) {
+		s.propagateDataSyncConfigWorkers = utils.NewStoppableWorkers(s.propagateDataSyncConfigLoop)
 	}
 }
 
@@ -250,8 +242,7 @@ func readyToSync(ctx context.Context, s selectiveSyncer, logger logging.Logger) 
 	return
 }
 
-func deleteExcessFiles(ctx context.Context, wg *sync.WaitGroup, captureDir string,
-	deleteEveryNth int, syncer Manager, logger logging.Logger,
+func deleteExcessFiles(ctx context.Context, captureDir string, deleteEveryNth int, syncer Manager, logger logging.Logger,
 ) {
 	if runtime.GOOS == "android" {
 		logger.Debug("file deletion if disk is full is not currently supported on Android")
@@ -259,7 +250,6 @@ func deleteExcessFiles(ctx context.Context, wg *sync.WaitGroup, captureDir strin
 	}
 	t := DeletionTicker.Ticker(FilesystemPollInterval)
 	defer t.Stop()
-	defer wg.Done()
 	for {
 		if err := ctx.Err(); err != nil {
 			if !errors.Is(err, context.Canceled) {
@@ -291,53 +281,48 @@ func deleteExcessFiles(ctx context.Context, wg *sync.WaitGroup, captureDir strin
 }
 
 // Close releases all resources managed by data_manager.
-func (sm *Sync) Close() {
-	sm.closedCancelFn()
-	sm.mu.Lock()
-	sm.closeSyncer()
-	if sm.syncRoutineCancelFn != nil {
-		sm.syncRoutineCancelFn()
-	}
-	if sm.fileDeletionRoutineCancelFn != nil {
-		sm.fileDeletionRoutineCancelFn()
-	}
+func (s *Sync) Close() {
+	s.mu.Lock()
+	s.closeSyncer()
 
-	fileDeletionBackgroundWorkers := sm.FileDeletionBackgroundWorkers
-	sm.mu.Unlock()
-	sm.datasyncBackgroundWorkers.Wait()
+	fileDeletionBackgroundWorkers := s.FileDeletionBackgroundWorkers
+	s.mu.Unlock()
+	if s.datasyncBackgroundWorkers != nil {
+		s.datasyncBackgroundWorkers.Stop()
+	}
 
 	if fileDeletionBackgroundWorkers != nil {
-		fileDeletionBackgroundWorkers.Wait()
+		fileDeletionBackgroundWorkers.Stop()
 	}
-	sm.propagateDataSyncConfigWG.Wait()
+	s.propagateDataSyncConfigWorkers.Stop()
 }
 
-func (sm *Sync) closeSyncer() {
-	if sm.Syncer != nil {
+func (s *Sync) closeSyncer() {
+	if s.Syncer != nil {
 		// If previously we were syncing, close the old syncer and cancel the old updateCollectors goroutine.
-		sm.Syncer.Close()
-		close(sm.filesToSync)
-		sm.Syncer = nil
+		s.Syncer.Close()
+		close(s.filesToSync)
+		s.Syncer = nil
 	}
-	if sm.cloudConn != nil {
-		goutils.UncheckedError(sm.cloudConn.Close())
+	if s.cloudConn != nil {
+		goutils.UncheckedError(s.cloudConn.Close())
 	}
 }
 
 var grpcConnectionTimeout = 10 * time.Second
 
-func (sm *Sync) initSyncer(ctx context.Context) error {
+func (s *Sync) initSyncer(ctx context.Context) error {
 	ctx, cancel := context.WithTimeout(ctx, grpcConnectionTimeout)
 	defer cancel()
-	identity, conn, err := sm.cloudConnSvc.AcquireConnection(ctx)
+	identity, conn, err := s.cloudConnSvc.AcquireConnection(ctx)
 	if err != nil {
 		return err
 	}
 
 	client := v1.NewDataSyncServiceClient(conn)
-	sm.filesToSync = make(chan string)
-	sm.Syncer = sm.SyncerConstructor(identity, client, sm.logger, sm.captureDir, sm.MaxSyncThreads, sm.filesToSync)
-	sm.cloudConn = conn
+	s.filesToSync = make(chan string)
+	s.Syncer = s.SyncerConstructor(identity, client, s.logger, s.captureDir, s.MaxSyncThreads, s.filesToSync)
+	s.cloudConn = conn
 
 	return nil
 }
@@ -348,24 +333,19 @@ func (sm *Sync) initSyncer(ctx context.Context) error {
 // Sync performs a non-scheduled sync of the data in the capture directory.
 // If automated sync is also enabled, calling Sync will upload the files,
 // regardless of whether or not is the scheduled time.
-func (sm *Sync) Sync(ctx context.Context, _ map[string]interface{}) error {
-	sm.mu.Lock()
-	if sm.Syncer == nil {
-		err := sm.initSyncer(ctx)
+func (s *Sync) Sync(ctx context.Context, _ map[string]interface{}) error {
+	s.mu.Lock()
+	if s.Syncer == nil {
+		err := s.initSyncer(ctx)
 		if err != nil {
-			sm.mu.Unlock()
+			s.mu.Unlock()
 			return err
 		}
 	}
 
-	sm.mu.Unlock()
-	sm.sync(ctx)
+	s.mu.Unlock()
+	s.sync(ctx)
 	return nil
-}
-
-func (sm *Sync) startPropagateDataSyncConfig() {
-	sm.propagateDataSyncConfigWG.Add(1)
-	goutils.ManagedGo(sm.propagateDataSyncConfigLoop, sm.propagateDataSyncConfigWG.Done)
 }
 
 // propagateDataSyncConfigLoop runs until Close() is called on *builtIn
@@ -375,12 +355,12 @@ func (sm *Sync) startPropagateDataSyncConfig() {
 // If so it propagates the changes and marks the datasync configuration as propagated.
 // Otherwise it sleeps for another second.
 // Takes the builtIn lock every iteration.
-func (sm *Sync) propagateDataSyncConfigLoop() {
-	if err := sm.propagateDataSyncConfig(); err != nil {
+func (s *Sync) propagateDataSyncConfigLoop(ctx context.Context) {
+	if err := s.propagateDataSyncConfig(ctx); err != nil {
 		return
 	}
-	for goutils.SelectContextOrWait(sm.closedCtx, time.Millisecond*100) {
-		if err := sm.propagateDataSyncConfig(); err != nil {
+	for goutils.SelectContextOrWait(ctx, time.Millisecond*100) {
+		if err := s.propagateDataSyncConfig(ctx); err != nil {
 			return
 		}
 	}
@@ -388,119 +368,108 @@ func (sm *Sync) propagateDataSyncConfigLoop() {
 
 // PropagateDataSyncConfig is temporarily public for tests
 // it applies the data sync config set in the previous Reconfigure call.
-func (sm *Sync) propagateDataSyncConfig() error {
-	sm.mu.Lock()
-	defer sm.mu.Unlock()
-	if !sm.syncConfigUpdated {
-		sm.ConfigPropagated.Store(true)
+func (s *Sync) propagateDataSyncConfig(ctx context.Context) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if !s.syncConfigUpdated {
+		s.ConfigPropagated.Store(true)
 		return nil
 	}
-	sm.cancelSyncScheduler()
-	enabled := !sm.syncDisabled && sm.syncIntervalMins != 0.0
-	if enabled {
-		if sm.Syncer == nil {
-			if err := sm.initSyncer(sm.closedCtx); err != nil {
-				if errors.Is(err, cloud.ErrNotCloudManaged) {
-					sm.logger.Debug("Using no-op sync manager when not cloud managed")
-					sm.ConfigPropagated.Store(true)
-					return err
-				}
-				sm.logger.Infof("initSyncer err: %s", err.Error())
-				return nil
-			}
-		} else if sm.syncerNeedsToBeReInitialized {
-			sm.closeSyncer()
-			if err := sm.initSyncer(sm.closedCtx); err != nil {
-				if errors.Is(err, cloud.ErrNotCloudManaged) {
-					sm.logger.Debug("Using no-op sync manager when not cloud managed")
-					sm.ConfigPropagated.Store(true)
-					return err
-				}
-				sm.logger.Infof("initSyncer err: %s", err.Error())
-				return nil
-			}
-		}
-		sm.Syncer.SetArbitraryFileTags(sm.tags)
-		sm.startSyncScheduler(sm.syncIntervalMins)
-	} else {
-		if sm.SyncTicker != nil {
-			sm.SyncTicker.Stop()
-			sm.SyncTicker = nil
-		}
-		sm.closeSyncer()
+	s.cancelSyncScheduler()
+	enabled := !s.syncDisabled && s.syncIntervalMins != 0.0
+	if !enabled {
+		s.closeSyncer()
+		s.syncConfigUpdated = false
+		s.ConfigPropagated.Store(true)
+		return nil
 	}
-	sm.syncConfigUpdated = false
-	sm.ConfigPropagated.Store(true)
+
+	if s.Syncer == nil {
+		if err := s.initSyncer(ctx); err != nil {
+			if errors.Is(err, cloud.ErrNotCloudManaged) {
+				s.logger.Debug("Using no-op sync manager when not cloud managed")
+				s.ConfigPropagated.Store(true)
+				return err
+			}
+			s.logger.Infof("initSyncer err: %s", err.Error())
+			return nil
+		}
+	} else if s.syncerNeedsToBeReInitialized {
+		s.closeSyncer()
+		if err := s.initSyncer(ctx); err != nil {
+			if errors.Is(err, cloud.ErrNotCloudManaged) {
+				s.logger.Debug("Using no-op sync manager when not cloud managed")
+				s.ConfigPropagated.Store(true)
+				return err
+			}
+			s.logger.Infof("initSyncer err: %s", err.Error())
+			return nil
+		}
+	}
+	s.Syncer.SetArbitraryFileTags(s.tags)
+	s.startSyncScheduler(s.syncIntervalMins)
+	s.syncConfigUpdated = false
+	s.ConfigPropagated.Store(true)
 	return nil
 }
 
 // startSyncScheduler starts the goroutine that calls Sync repeatedly if scheduled sync is enabled.
-func (sm *Sync) startSyncScheduler(intervalMins float64) {
-	cancelCtx, fn := context.WithCancel(sm.closedCtx)
-	sm.syncRoutineCancelFn = fn
-	sm.uploadData(cancelCtx, intervalMins)
-}
-
-// cancelSyncScheduler cancels the goroutine that calls Sync repeatedly if scheduled sync is enabled.
-// It does not close the syncer or any in progress uploads.
-func (sm *Sync) cancelSyncScheduler() {
-	if sm.syncRoutineCancelFn != nil {
-		sm.syncRoutineCancelFn()
-		sm.syncRoutineCancelFn = nil
-		// DATA-2664: A goroutine calling this method must currently be holding the data manager
-		// lock. The `uploadData` background goroutine can also acquire the data manager lock prior
-		// to learning to exit. Thus we release the lock such that the `uploadData` goroutine can
-		// make progress and exit.
-		sm.mu.Unlock()
-		sm.datasyncBackgroundWorkers.Wait()
-		sm.mu.Lock()
-	}
-}
-
-func (sm *Sync) uploadData(cancelCtx context.Context, intervalMins float64) {
+func (s *Sync) startSyncScheduler(intervalMins float64) {
 	// time.Duration loses precision at low floating point values, so turn intervalMins to milliseconds.
 	intervalMillis := 60000.0 * intervalMins
 	// The ticker must be created before uploadData returns to prevent race conditions between clock.Ticker and
 	// clock.Add in sync_test.go.
-	tkr := sm.clk.Ticker(time.Millisecond * time.Duration(intervalMillis))
-	sm.SyncTicker = tkr
-	sm.datasyncBackgroundWorkers.Add(1)
-	goutils.PanicCapturingGo(func() {
-		defer sm.datasyncBackgroundWorkers.Done()
-		defer tkr.Stop()
+	tkr := s.clk.Ticker(time.Millisecond * time.Duration(intervalMillis))
+	// this is only set  for test purposes
+	s.SyncTicker = tkr
+	selectiveSyncEnabled := s.selectiveSyncEnabled
+	syncSensor := s.syncSensor
+	sync := s.sync
+	s.datasyncBackgroundWorkers = utils.NewStoppableWorkers(func(ctx context.Context) {
+		maybeSyncOnInterval(ctx, sync, tkr, selectiveSyncEnabled, syncSensor, s.logger)
+	})
+}
 
-		for {
-			if err := cancelCtx.Err(); err != nil {
-				if !errors.Is(err, context.Canceled) {
-					sm.logger.Errorw("data manager context closed unexpectedly", "error", err)
-				}
-				return
+// cancelSyncScheduler cancels the goroutine that calls Sync repeatedly if scheduled sync is enabled.
+// It does not close the syncer or any in progress uploads.
+func (s *Sync) cancelSyncScheduler() {
+	if s.datasyncBackgroundWorkers != nil {
+		s.datasyncBackgroundWorkers.Stop()
+	}
+}
+
+func maybeSyncOnInterval(cancelCtx context.Context,
+	sync func(ctx context.Context),
+	tkr *clk.Ticker,
+	selectiveSyncEnabled bool,
+	syncSensor selectiveSyncer,
+	logger logging.Logger,
+) {
+	defer tkr.Stop()
+
+	for {
+		if err := cancelCtx.Err(); err != nil {
+			return
+		}
+
+		select {
+		case <-cancelCtx.Done():
+			return
+		case <-tkr.C:
+			// TODO: how is this possible?
+			// If selective sync is disabled, sync. If it is enabled, check the condition below.
+			shouldSync := !selectiveSyncEnabled
+			// If selective sync is enabled and the sensor has been properly initialized,
+			// try to get the reading from the selective sensor that indicates whether to sync
+			if syncSensor != nil && selectiveSyncEnabled {
+				shouldSync = readyToSync(cancelCtx, syncSensor, logger)
 			}
 
-			select {
-			case <-cancelCtx.Done():
-				return
-			case <-tkr.C:
-				sm.mu.Lock()
-				if sm.Syncer != nil {
-					// If selective sync is disabled, sync. If it is enabled, check the condition below.
-					shouldSync := !sm.selectiveSyncEnabled
-					// If selective sync is enabled and the sensor has been properly initialized,
-					// try to get the reading from the selective sensor that indicates whether to sync
-					if sm.syncSensor != nil && sm.selectiveSyncEnabled {
-						shouldSync = readyToSync(cancelCtx, sm.syncSensor, sm.logger)
-					}
-					sm.mu.Unlock()
-
-					if !isOffline() && shouldSync {
-						sm.sync(cancelCtx)
-					}
-				} else {
-					sm.mu.Unlock()
-				}
+			if !isOffline() && shouldSync {
+				sync(cancelCtx)
 			}
 		}
-	})
+	}
 }
 
 func isOffline() bool {
@@ -510,17 +479,17 @@ func isOffline() bool {
 	return err != nil
 }
 
-func (sm *Sync) sync(ctx context.Context) {
-	sm.flushCollectors()
+func (s *Sync) sync(ctx context.Context) {
+	s.flushCollectors()
 
-	sm.mu.Lock()
-	syncer := sm.Syncer
-	syncPaths := sm.syncPaths
-	fileLastModifiedMillis := sm.FileLastModifiedMillis
-	sm.mu.Unlock()
+	s.mu.Lock()
+	syncer := s.Syncer
+	syncPaths := s.syncPaths
+	fileLastModifiedMillis := s.FileLastModifiedMillis
+	s.mu.Unlock()
 
 	// Retrieve all files in capture dir and send them to the syncer
-	getAllFilesToSync(ctx, syncPaths, fileLastModifiedMillis, syncer, sm.clk)
+	getAllFilesToSync(ctx, syncPaths, fileLastModifiedMillis, syncer, s.clk)
 }
 
 //nolint:errcheck,nilerr
@@ -615,12 +584,17 @@ type ManagerConstructor func(identity string, client v1.DataSyncServiceClient, l
 	captureDir string, maxSyncThreadsConfig int, filesToSync chan string) Manager
 
 // NewManager returns a new syncer.
-func NewManager(identity string, client v1.DataSyncServiceClient, logger logging.Logger,
-	captureDir string, maxSyncThreads int, filesToSync chan string,
+func NewManager(
+	identity string,
+	client v1.DataSyncServiceClient,
+	logger logging.Logger,
+	captureDir string,
+	maxSyncThreads int,
+	filesToSync chan string,
 ) Manager {
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
 	logger.Infof("Making new syncer with %d max threads", maxSyncThreads)
-	ret := syncer{
+	s := syncer{
 		partID:            identity,
 		client:            client,
 		logger:            logger,
@@ -632,16 +606,13 @@ func NewManager(identity string, client v1.DataSyncServiceClient, logger logging
 		filesToSync:       filesToSync,
 		captureDir:        captureDir,
 	}
-	ret.logRoutine.Add(1)
-	goutils.PanicCapturingGo(func() {
-		defer ret.logRoutine.Done()
-		ret.logSyncErrs()
-	})
+	s.logRoutine.Add(1)
+	goutils.ManagedGo(s.logSyncErrs, s.logRoutine.Done)
 
 	for i := 0; i < maxSyncThreads; i++ {
-		ret.backgroundWorkers.Add(1)
+		s.backgroundWorkers.Add(1)
 		go func() {
-			defer ret.backgroundWorkers.Done()
+			defer s.backgroundWorkers.Done()
 			for {
 				if cancelCtx.Err() != nil {
 					return
@@ -649,17 +620,17 @@ func NewManager(identity string, client v1.DataSyncServiceClient, logger logging
 				select {
 				case <-cancelCtx.Done():
 					return
-				case path, ok := <-ret.filesToSync:
+				case path, ok := <-s.filesToSync:
 					if !ok {
 						return
 					}
-					ret.SyncFile(path)
+					s.SyncFile(path)
 				}
 			}
 		}()
 	}
 
-	return &ret
+	return &s
 }
 
 // Close closes all resources (goroutines) associated with s.

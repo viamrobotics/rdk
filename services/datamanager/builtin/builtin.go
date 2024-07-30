@@ -6,6 +6,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"sync"
 
 	clk "github.com/benbjohnson/clock"
 	goutils "go.viam.com/utils"
@@ -15,7 +16,7 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/datamanager"
 	"go.viam.com/rdk/services/datamanager/builtin/capture"
-	"go.viam.com/rdk/services/datamanager/builtin/sync"
+	datasync "go.viam.com/rdk/services/datamanager/builtin/sync"
 	"go.viam.com/rdk/services/slam"
 	"go.viam.com/rdk/services/vision"
 	"go.viam.com/rdk/utils"
@@ -71,9 +72,11 @@ func (c *Config) Validate(path string) ([]string, error) {
 // builtIn initializes and orchestrates data capture collectors for registered component/methods.
 type builtIn struct {
 	resource.Named
-	logger  logging.Logger
+	logger logging.Logger
+
+	mu      sync.Mutex
 	capture *capture.Capture
-	sync    *sync.Sync
+	sync    *datasync.Sync
 }
 
 // NewBuiltIn returns a new data manager service for the given robot.
@@ -83,12 +86,13 @@ func NewBuiltIn(
 	conf resource.Config,
 	logger logging.Logger,
 ) (datamanager.Service, error) {
-	cm := capture.NewManager(logger.Sublogger("capture"), clock)
+	capture := capture.New(logger.Sublogger("capture"), clock)
+	sync := datasync.New(logger.Sublogger("sync"), clock, capture.FlushCollectors)
 	svc := &builtIn{
 		Named:   conf.ResourceName().AsNamed(),
 		logger:  logger,
-		capture: cm,
-		sync:    sync.NewSync(logger.Sublogger("sync"), clock, cm.FlushCollectors),
+		capture: capture,
+		sync:    sync,
 	}
 
 	if err := svc.Reconfigure(ctx, deps, conf); err != nil {
@@ -98,9 +102,11 @@ func NewBuiltIn(
 }
 
 // Close releases all resources managed by data_manager.
-func (svc *builtIn) Close(_ context.Context) error {
-	svc.capture.Close()
-	svc.sync.Close()
+func (b *builtIn) Close(_ context.Context) error {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	b.capture.Close()
+	b.sync.Close()
 	return nil
 }
 
@@ -110,21 +116,26 @@ func (svc *builtIn) Close(_ context.Context) error {
 // Sync performs a non-scheduled sync of the data in the capture directory.
 // If automated sync is also enabled, calling Sync will upload the files,
 // regardless of whether or not is the scheduled time.
-func (svc *builtIn) Sync(ctx context.Context, extra map[string]interface{}) error {
-	return svc.sync.Sync(ctx, extra)
+func (b *builtIn) Sync(ctx context.Context, extra map[string]interface{}) error {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.sync.Sync(ctx, extra)
 }
 
 // Reconfigure updates the data manager service when the config has changed.
-func (svc *builtIn) Reconfigure(
+func (b *builtIn) Reconfigure(
 	ctx context.Context,
 	deps resource.Dependencies,
 	conf resource.Config,
 ) error {
-	// TODO: Move this into each of captureManger and syncManager
-	g := utils.NewGuard(func() { goutils.UncheckedError(svc.Close(ctx)) })
+	b.mu.Lock()
+	g := utils.NewGuard(func() { goutils.UncheckedError(b.Close(context.Background())) })
 	defer g.OnFail()
+	defer b.mu.Unlock()
 	c, err := resource.NativeConfig[*Config](conf)
 	if err != nil {
+		// If this error occurs it is due to the builtin.Config not being a native config which is a
+		// static error that could only be introduced at compile time.
 		return err
 	}
 
@@ -143,14 +154,13 @@ func (svc *builtIn) Reconfigure(
 		captureDir = c.CaptureDir
 	}
 
-	svc.sync.Reconfigure(ctx, deps, conf, syncConfig(c, captureDir), cloudConnSvc)
+	b.sync.Reconfigure(ctx, deps, conf, syncConfig(c, captureDir), cloudConnSvc)
 
-	if err := svc.capture.Reconfigure(ctx, deps, conf, captureConfig(c, captureDir)); err != nil {
-		svc.logger.Warnw("DataCapture reconfigure error", "err", err)
+	if err := b.capture.Reconfigure(ctx, deps, conf, captureConfig(c, captureDir)); err != nil {
 		return err
 	}
-
 	g.Success()
+
 	return nil
 }
 
@@ -163,8 +173,8 @@ func captureConfig(c *Config, captureDir string) capture.Config {
 	}
 }
 
-func syncConfig(c *Config, captureDir string) sync.Config {
-	return sync.Config{
+func syncConfig(c *Config, captureDir string) datasync.Config {
+	return datasync.Config{
 		AdditionalSyncPaths:        c.AdditionalSyncPaths,
 		Tags:                       c.Tags,
 		CaptureDir:                 captureDir,

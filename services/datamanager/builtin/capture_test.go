@@ -130,18 +130,17 @@ func TestDataCaptureEnabled(t *testing.T) {
 			initConfig.CaptureDir = initCaptureDir
 
 			// Build and start data manager.
-			dmsvc, r := newTestDataManager(t)
+			b, r := newBuiltIn(t)
 			defer func() {
-				test.That(t, dmsvc.Close(context.Background()), test.ShouldBeNil)
+				test.That(t, b.Close(context.Background()), test.ShouldBeNil)
 			}()
 
 			resources := resourcesFromDeps(t, r, deps)
-			err := dmsvc.Reconfigure(context.Background(), resources, resource.Config{
+			err := b.Reconfigure(context.Background(), resources, resource.Config{
 				ConvertedAttributes:  initConfig,
 				AssociatedAttributes: associations,
 			})
 			test.That(t, err, test.ShouldBeNil)
-			b := dmsvc.(*builtIn)
 			testutils.WaitForAssertion(t, func(tb testing.TB) {
 				tb.Helper()
 				test.That(tb, b.sync.ConfigPropagated.Load(), test.ShouldBeTrue)
@@ -174,7 +173,7 @@ func TestDataCaptureEnabled(t *testing.T) {
 
 			// Update to new config and let it run for a bit.
 			resources = resourcesFromDeps(t, r, deps)
-			err = dmsvc.Reconfigure(context.Background(), resources, resource.Config{
+			err = b.Reconfigure(context.Background(), resources, resource.Config{
 				ConvertedAttributes:  updatedConfig,
 				AssociatedAttributes: associations,
 			})
@@ -219,18 +218,17 @@ func TestSwitchResource(t *testing.T) {
 	config.CaptureDir = captureDir
 
 	// Build and start data manager.
-	dmsvc, r := newTestDataManager(t)
+	b, r := newBuiltIn(t)
 	defer func() {
-		test.That(t, dmsvc.Close(context.Background()), test.ShouldBeNil)
+		test.That(t, b.Close(context.Background()), test.ShouldBeNil)
 	}()
 
 	resources := resourcesFromDeps(t, r, deps)
-	err := dmsvc.Reconfigure(context.Background(), resources, resource.Config{
+	err := b.Reconfigure(context.Background(), resources, resource.Config{
 		ConvertedAttributes:  config,
 		AssociatedAttributes: associations,
 	})
 	test.That(t, err, test.ShouldBeNil)
-	b := dmsvc.(*builtIn)
 	testutils.WaitForAssertion(t, func(tb testing.TB) {
 		tb.Helper()
 		test.That(tb, b.sync.ConfigPropagated.Load(), test.ShouldBeTrue)
@@ -256,7 +254,7 @@ func TestSwitchResource(t *testing.T) {
 		}
 	}
 
-	err = dmsvc.Reconfigure(context.Background(), resources, resource.Config{
+	err = b.Reconfigure(context.Background(), resources, resource.Config{
 		ConvertedAttributes:  config,
 		AssociatedAttributes: associations,
 	})

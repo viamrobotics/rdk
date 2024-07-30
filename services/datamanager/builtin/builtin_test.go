@@ -22,7 +22,6 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/services/datamanager"
-	"go.viam.com/rdk/services/datamanager/internal"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils/inject"
 	"go.viam.com/rdk/utils"
@@ -66,7 +65,7 @@ func getInjectedRobot() *inject.Robot {
 	return r
 }
 
-func newTestDataManager(t *testing.T) (internal.DMService, robot.Robot) {
+func newBuiltIn(t *testing.T) (*builtIn, robot.Robot) {
 	t.Helper()
 	dmCfg := &Config{}
 	cfgService := resource.Config{
@@ -88,7 +87,7 @@ func newTestDataManager(t *testing.T) (internal.DMService, robot.Robot) {
 		t.Log(err)
 		t.FailNow()
 	}
-	return svc.(internal.DMService), r
+	return svc.(*builtIn), r
 }
 
 func setupConfig(t *testing.T, relativePath string) (*Config, map[resource.Name]resource.AssociatedConfig, []string) {
@@ -134,7 +133,7 @@ func TestEmptyConfig(t *testing.T) {
 }
 
 func TestUntrustedEnv(t *testing.T) {
-	dmsvc, r := newTestDataManager(t)
+	dmsvc, r := newBuiltIn(t)
 	defer dmsvc.Close(context.Background())
 
 	config, associations, deps := setupConfig(t, enabledTabularCollectorConfigPath)
