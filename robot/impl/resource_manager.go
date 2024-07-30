@@ -1082,20 +1082,24 @@ func (manager *resourceManager) updateResources(
 			allErrs = multierr.Combine(allErrs, errShellServiceDisabled)
 			continue
 		}
-		allErrs = multierr.Combine(allErrs, manager.markResourceForUpdate(rName, s, s.Dependencies(), revision))
+		markErr := manager.markResourceForUpdate(rName, s, s.Dependencies(), revision)
+		allErrs = multierr.Combine(allErrs, markErr)
 	}
 	for _, c := range conf.Added.Components {
 		rName := c.ResourceName()
-		allErrs = multierr.Combine(allErrs, manager.markResourceForUpdate(rName, c, c.Dependencies(), revision))
+		markErr := manager.markResourceForUpdate(rName, c, c.Dependencies(), revision)
+		allErrs = multierr.Combine(allErrs, markErr)
 	}
 	for _, r := range conf.Added.Remotes {
 		rName := fromRemoteNameToRemoteNodeName(r.Name)
 		rCopy := r
-		allErrs = multierr.Combine(allErrs, manager.markResourceForUpdate(rName, resource.Config{ConvertedAttributes: &rCopy}, []string{}, revision))
+		markErr := manager.markResourceForUpdate(rName, resource.Config{ConvertedAttributes: &rCopy}, []string{}, revision)
+		allErrs = multierr.Combine(allErrs, markErr)
 	}
 	for _, c := range conf.Modified.Components {
 		rName := c.ResourceName()
-		allErrs = multierr.Combine(allErrs, manager.markResourceForUpdate(rName, c, c.Dependencies(), revision))
+		markErr := manager.markResourceForUpdate(rName, c, c.Dependencies(), revision)
+		allErrs = multierr.Combine(allErrs, markErr)
 	}
 	for _, s := range conf.Modified.Services {
 		rName := s.ResourceName()
@@ -1106,12 +1110,14 @@ func (manager *resourceManager) updateResources(
 			continue
 		}
 
-		allErrs = multierr.Combine(allErrs, manager.markResourceForUpdate(rName, s, s.Dependencies(), revision))
+		markErr := manager.markResourceForUpdate(rName, s, s.Dependencies(), revision)
+		allErrs = multierr.Combine(allErrs, markErr)
 	}
 	for _, r := range conf.Modified.Remotes {
 		rName := fromRemoteNameToRemoteNodeName(r.Name)
 		rCopy := r
-		allErrs = multierr.Combine(allErrs, manager.markResourceForUpdate(rName, resource.Config{ConvertedAttributes: &rCopy}, []string{}, revision))
+		markErr := manager.markResourceForUpdate(rName, resource.Config{ConvertedAttributes: &rCopy}, []string{}, revision)
+		allErrs = multierr.Combine(allErrs, markErr)
 	}
 
 	// processes are not added into the resource tree as they belong to a process manager
