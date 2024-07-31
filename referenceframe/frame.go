@@ -502,7 +502,7 @@ func (pf *poseFrame) Interpolate(from, to []Input, by float64) ([]Input, error) 
 		return nil, err
 	}
 	interpolatedPose := spatial.Interpolate(fromPose, toPose, by)
-	return PoseToInputs(interpolatedPose), nil
+	return PoseToInputsRadians(interpolatedPose), nil
 }
 
 // Geometries returns an object representing the 3D space associeted with the staticFrame.
@@ -549,10 +549,10 @@ func (pf *poseFrame) ProtobufFromInput(input []Input) *pb.JointPositions {
 	return &pb.JointPositions{Values: n}
 }
 
-// PoseToInputs is a convience method for turning poses into inputs
+// PoseToInputsRadians is a convience method for turning poses into inputs
 // We note that the orientation of the pose will be understood
 // as OrientationVectorRadians.
-func PoseToInputs(p spatial.Pose) []Input {
+func PoseToInputsRadians(p spatial.Pose) []Input {
 	return FloatsToInputs([]float64{
 		p.Point().X, p.Point().Y, p.Point().Z,
 		p.Orientation().OrientationVectorRadians().OX,
@@ -562,7 +562,8 @@ func PoseToInputs(p spatial.Pose) []Input {
 	})
 }
 
-// inputsToPose is a convience method for turning inputs into a spatial.Pose.
+// inputsToPose is a convience method on the poseFrame for turning inputs into a pose.
+// We expect the inputs orientation's theta to be in radians
 func inputsToPose(inputs []Input) spatial.Pose {
 	return spatial.NewPose(
 		r3.Vector{X: inputs[0].Value, Y: inputs[1].Value, Z: inputs[2].Value},
