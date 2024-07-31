@@ -124,7 +124,7 @@ func (g *NmeaParser) updateGSV(gsv nmea.GSV) error {
 	index := g.TalkerToArrIndex(gsv.BaseSentence)
 
 	if index == -1 {
-		return fmt.Errorf("invalid sats in view from GSV message, %v", gsv.Talker)
+		return fmt.Errorf("unrecognizable talker in GSV %v", gsv.Talker)
 	}
 
 	// Adding sats in view from all constellations.
