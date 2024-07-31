@@ -185,7 +185,6 @@ func (g *NmeaParser) updateGSA(gsa nmea.GSA) error {
 		sum += satsInView
 	}
 
-	fmt.Println(g.SatsInUseArr)
 	g.SatsInUse = sum
 	return nil
 }
@@ -312,9 +311,8 @@ func (g *NmeaParser) parseRMC(message string) {
 // GB/BG - BeiDou
 // GI - NavIC
 // GN - Multiple constellations
-// GQ - QZSS
+// GQ - QZSS.
 func (g *NmeaParser) TalkerToArrIndex(sentence nmea.BaseSentence) int {
-
 	switch sentence.Talker {
 	case "GP":
 		return 0
