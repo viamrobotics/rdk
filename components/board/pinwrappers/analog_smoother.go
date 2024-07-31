@@ -76,7 +76,7 @@ func (as *AnalogSmoother) Read(ctx context.Context, extra map[string]interface{}
 
 	if as.data == nil { // We're using raw data, and not averaging
 		analogVal.Value = as.lastData
-		return as.analogVal, nil
+		return analogVal, nil
 	}
 	avg := as.data.Average()
 	lastErr := as.lastError.Load()
