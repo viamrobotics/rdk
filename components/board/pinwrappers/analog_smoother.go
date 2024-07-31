@@ -62,11 +62,6 @@ func (as *AnalogSmoother) Close(ctx context.Context) error {
 
 // Read returns the smoothed out reading.
 func (as *AnalogSmoother) Read(ctx context.Context, extra map[string]interface{}) (board.AnalogValue, error) {
-	// If as.lastData is all 0's, we haven't read anything yet, and should return an error saying so.
-	if as.lastData.Min == 0 && as.lastData.Max == 0 && as.lastData.StepSize == 0 && as.lastData.Value == 0 {
-		return 0, errors.New("no data received from analog reader yet")
-	}
-
 	if as.data == nil { // We're using raw data, and not averaging
 		return as.lastData, nil
 	}
