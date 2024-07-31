@@ -25,6 +25,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/bep/debounce"
 	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
 	"github.com/pkg/errors"
@@ -67,6 +68,7 @@ type TapConfig struct {
 	ExcludeZ         bool    `json:"exclude_z,omitempty"`
 	Threshold        float32 `json:"threshold,omitempty"`
 	Dur              float32 `json:"dur_us,omitempty"`
+	DebounceMs       int     `json:"debounce_ms,omitempty"`
 }
 
 // FreeFallConfig is a description of the configs for free fall registers.
@@ -162,6 +164,7 @@ type adxl345 struct {
 	logger                   logging.Logger
 	interruptsEnabled        byte
 	interruptsFound          map[InterruptID]int
+	debounceMs               int
 	configuredRegisterValues map[byte]byte
 
 	// Used only to remove the callbacks from the interrupts upon closing component.
@@ -334,6 +337,14 @@ func makeAdxl345(
 		if err != nil {
 			return nil, err
 		}
+
+		if newConf.SingleTap.DebounceMs > 0 {
+			sensor.debounceMs = newConf.SingleTap.DebounceMs
+		} else {
+			// default is 3ms
+			sensor.debounceMs = 3
+		}
+
 		sensor.startInterruptMonitoring(ticksChan)
 	}
 
@@ -341,6 +352,7 @@ func makeAdxl345(
 }
 
 func (adxl *adxl345) startInterruptMonitoring(ticksChan chan board.Tick) {
+	debounced := debounce.New(time.Millisecond * time.Duration(adxl.debounceMs))
 	adxl.workers.AddWorkers(func(cancelContext context.Context) {
 		for {
 			select {
@@ -348,7 +360,7 @@ func (adxl *adxl345) startInterruptMonitoring(ticksChan chan board.Tick) {
 				return
 			case tick := <-ticksChan:
 				if tick.High {
-					utils.UncheckedError(adxl.readInterrupts(cancelContext))
+					debounced(func() { utils.UncheckedError(adxl.readInterrupts(cancelContext)) })
 				}
 			}
 		}
