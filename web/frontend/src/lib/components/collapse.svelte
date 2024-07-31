@@ -36,7 +36,10 @@ onMount(() => {
 });
 </script>
 
-<div class="relative w-full" id={title}>
+<div
+  class="relative w-full"
+  id={encodeURIComponent(title)}
+>
   <div
     class="
       flex-reverse flex w-full cursor-pointer items-center justify-between
