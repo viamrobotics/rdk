@@ -32,6 +32,7 @@ type NmeaParser struct {
 	isEast              bool    // direction for magnetic variation which outputs East or West.
 	validCompassHeading bool    // true if we get course of direction instead of empty strings.
 	LastGGAMessage      string
+	SatsInViewArr       [7]int // this array keeps track of all the sats in view given by each constellation.
 }
 
 func errInvalidFix(sentenceType, badFix, goodFix string) error {
@@ -118,8 +119,20 @@ func (g *NmeaParser) updateData(s nmea.Sentence) error {
 // GSV (GPS Satellites in View) data.
 func (g *NmeaParser) updateGSV(gsv nmea.GSV) error {
 	// GSV provides the number of satellites in view
+	sum := 0
+	index := g.TalkerToArrIndex(gsv.BaseSentence)
 
-	g.SatsInView = int(gsv.NumberSVsInView)
+	if index == -1 {
+		return fmt.Errorf("invalid sats in view from GSV message, %v", gsv.Talker)
+	}
+
+	// Adding sats in view from all constellations.
+	g.SatsInViewArr[index] = int(gsv.NumberSVsInView)
+	for _, satsInView := range g.SatsInViewArr {
+		sum += satsInView
+	}
+
+	g.SatsInView = sum
 	return nil
 }
 
@@ -185,7 +198,6 @@ func (g *NmeaParser) updateGGA(gga nmea.GGA) error {
 
 	g.valid = true
 	g.Location = geo.NewPoint(gga.Latitude, gga.Longitude)
-	g.SatsInUse = int(gga.NumSatellites) // gga.NumSatellites can range from 0 through to 24+
 	g.HDOP = gga.HDOP
 	g.Alt = gga.Altitude
 	g.LastGGAMessage = gga.String()
@@ -232,7 +244,6 @@ func (g *NmeaParser) updateGNS(gns nmea.GNS) error {
 	}
 
 	g.Location = geo.NewPoint(gns.Latitude, gns.Longitude)
-	g.SatsInUse = int(gns.SVs)
 	g.HDOP = gns.HDOP
 	g.Alt = gns.Altitude
 	return nil
@@ -282,4 +293,35 @@ func (g *NmeaParser) parseRMC(message string) {
 
 	// Check if the magnetic declination is East or West
 	g.isEast = strings.Contains(data[10], "E")
+}
+
+// TalkerToArrIndex looks at the talker id of an NMEA message and converts it to
+// array index. Talker id for constellations are:
+// GPS - GP
+// GL - GLONASS
+// GA - Galileo
+// GB/BG - BeiDou
+// GI - NavIC
+// GN - Multiple constellations
+// GQ - QZSS
+func (g *NmeaParser) TalkerToArrIndex(sentence nmea.BaseSentence) int {
+
+	switch sentence.Talker {
+	case "GP":
+		return 0
+	case "GL":
+		return 1
+	case "GA":
+		return 2
+	case "GB":
+	case "BG":
+		return 3
+	case "GI":
+		return 4
+	case "GN":
+		return 5
+	case "GQ":
+		return 6
+	}
+	return -1
 }
