@@ -544,6 +544,26 @@ func (x *xArm) setGripperPosition(ctx context.Context, position uint32) error {
 	return err
 }
 
+func (x *xArm) getGripperPosition(ctx context.Context, position uint32) error {
+	c := x.newCmd(regMap["GripperControl"])
+	c.params = append(c.params, 0x09)
+	c.params = append(c.params, 0x08)
+	c.params = append(c.params, 0x10)
+	c.params = append(c.params, 0x07, 0x02)
+	c.params = append(c.params, 0x00, 0x02)
+	c.params = append(c.params, 0x04)
+	tmpBytes := make([]byte, 4)
+	binary.BigEndian.PutUint32(tmpBytes, position)
+	x.logger.Info("tmpBytes", tmpBytes)
+	c.params = append(c.params, tmpBytes...)
+	resp, err := x.send(ctx, c, true)
+	if err != nil {
+		return false, err
+	}
+	resp.params[1]
+	return err
+}
+
 func (x *xArm) getLoad(ctx context.Context) (map[string]interface{}, error) {
 	c := x.newCmd(regMap["CurrentTorque"])
 	//~ c.params = append(c.params, 0x01)
@@ -554,6 +574,6 @@ func (x *xArm) getLoad(ctx context.Context) (map[string]interface{}, error) {
 		loads = append(loads, float64(rutils.Float32FromBytesLE((loadData.params[idx : idx+4]))))
 	}
 	fmt.Println(loads)
-	
-	return map[string]interface{}{"load":loads}, err
+
+	return map[string]interface{}{"load": loads}, err
 }
