@@ -159,12 +159,15 @@ type adxl345 struct {
 	resource.Named
 	resource.AlwaysRebuild
 
-	bus                      buses.I2C
-	i2cAddress               byte
-	logger                   logging.Logger
-	interruptsEnabled        byte
-	interruptsFound          map[InterruptID]int
-	debounceMs               int
+	bus               buses.I2C
+	i2cAddress        byte
+	logger            logging.Logger
+	interruptsEnabled byte
+	interruptsFound   map[InterruptID]int
+
+	tapInterruptName string
+	debounceMs       int
+
 	configuredRegisterValues map[byte]byte
 
 	// Used only to remove the callbacks from the interrupts upon closing component.
@@ -313,6 +316,9 @@ func makeAdxl345(
 	interruptList := []string{}
 	if (newConf.SingleTap != nil) && (newConf.SingleTap.InterruptPin != "") {
 		interruptList = append(interruptList, newConf.SingleTap.InterruptPin)
+
+		// track the interrupt pin for single tap for debouncing
+		sensor.tapInterruptName = newConf.SingleTap.InterruptPin
 	}
 
 	if (newConf.FreeFall != nil) && (newConf.FreeFall.InterruptPin != "") {
@@ -360,7 +366,13 @@ func (adxl *adxl345) startInterruptMonitoring(ticksChan chan board.Tick) {
 				return
 			case tick := <-ticksChan:
 				if tick.High {
-					debounced(func() { utils.UncheckedError(adxl.readInterrupts(cancelContext)) })
+					if tick.Name == adxl.tapInterruptName {
+						// debounce on tap interrupt
+						debounced(func() { utils.UncheckedError(adxl.readInterrupts(cancelContext)) })
+					} else {
+						// freefall interrupt
+						utils.UncheckedError(adxl.readInterrupts(cancelContext))
+					}
 				}
 			}
 		}
