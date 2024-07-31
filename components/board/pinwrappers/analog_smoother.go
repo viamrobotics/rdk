@@ -63,22 +63,22 @@ func (as *AnalogSmoother) Close(ctx context.Context) error {
 // Read returns the smoothed out reading.
 func (as *AnalogSmoother) Read(ctx context.Context, extra map[string]interface{}) (board.AnalogValue, error) {
 	lastDataPointer := as.lastData.Load()
+	if lastDataPointer == nil {
+		return board.AnalogValue{}, errors.New("have not yet read any analog data")
+	}
+
 	if as.data == nil { // We're using raw data, and not averaging
-		if lastDataPointer == nil {
-			return board.AnalogValue{}, errors.New("have not yet read any analog data")
-		}
 		return *lastDataPointer, nil
 	}
-	avg := as.data.Average()
-	lastErr := as.lastError.Load()
 
 	analogVal := board.AnalogValue{
 		Min:      lastDataPointer.Min,
 		Max:      lastDataPointer.Max,
 		StepSize: lastDataPointer.StepSize,
+		Value:    as.data.Average(),
 	}
-	analogVal.Value = avg
 
+	lastErr := as.lastError.Load()
 	if lastErr == nil {
 		return analogVal, nil
 	}
