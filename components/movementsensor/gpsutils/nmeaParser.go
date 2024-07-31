@@ -33,6 +33,7 @@ type NmeaParser struct {
 	validCompassHeading bool    // true if we get course of direction instead of empty strings.
 	LastGGAMessage      string
 	SatsInViewArr       [7]int // this array keeps track of all the sats in view given by each constellation.
+	SatsInUseArr        [7]int // this array keeps track of number of sats in use from different constellations.
 }
 
 func errInvalidFix(sentenceType, badFix, goodFix string) error {
@@ -159,6 +160,8 @@ func (g *NmeaParser) updateRMC(rmc nmea.RMC) error {
 // updateGSA updates the NmeaParser object with the information from the provided
 // GSA (GPS DOP and Active Satellites) data.
 func (g *NmeaParser) updateGSA(gsa nmea.GSA) error {
+	sum := 0
+
 	switch gsa.FixType {
 	case "2":
 		// 2d fix, valid lat/lon but invalid Alt
@@ -176,8 +179,14 @@ func (g *NmeaParser) updateGSA(gsa nmea.GSA) error {
 		g.VDOP = gsa.VDOP
 		g.HDOP = gsa.HDOP
 	}
-	g.SatsInUse = len(gsa.SV)
 
+	g.SatsInUseArr[gsa.SystemID] = len(gsa.SV)
+	for _, satsInView := range g.SatsInUseArr {
+		sum += satsInView
+	}
+
+	fmt.Println(g.SatsInUseArr)
+	g.SatsInUse = sum
 	return nil
 }
 
