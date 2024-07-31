@@ -138,6 +138,7 @@ func (m *EncodedMotor) makeAdjustments(ctx context.Context, goalRPM, goalPos, di
 		return err
 	}
 	lastPowerPct = math.Abs(lastPowerPct) * direction
+	zeroRPMTracker := 0
 	for {
 		timer := time.NewTimer(50 * time.Millisecond)
 		select {
@@ -172,7 +173,14 @@ func (m *EncodedMotor) makeAdjustments(ctx context.Context, goalRPM, goalPos, di
 			currentRPM = 0
 		} else {
 			currentRPM = deltaPos / deltaTime
+			if currentRPM == 0 {
+				zeroRPMTracker++
+			}
 		}
+		if zeroRPMTracker > 10 {
+			m.logger.Errorf("error running motor %v, desired rpm is too low for stable motion: %v", m.Name().Name, goalRPM)
+		}
+		m.logger.Info("current rpm: ", currentRPM)
 
 		newPower, err := m.calcNewPowerPct(ctx, currentRPM, goalRPM, lastPowerPct, direction)
 		if err != nil {
