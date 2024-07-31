@@ -25,7 +25,7 @@ type AnalogSmoother struct {
 	AverageOverMillis int
 	SamplesPerSecond  int
 	data              *utils.RollingAverage
-	lastData          board.AnalogValue
+	lastData          atomic.Pointer[board.AnalogValue]
 	lastError         atomic.Pointer[errValue]
 	logger            logging.Logger
 	workers           utils.StoppableWorkers
@@ -62,16 +62,20 @@ func (as *AnalogSmoother) Close(ctx context.Context) error {
 
 // Read returns the smoothed out reading.
 func (as *AnalogSmoother) Read(ctx context.Context, extra map[string]interface{}) (board.AnalogValue, error) {
+	lastDataPointer := as.lastData.Load()
 	if as.data == nil { // We're using raw data, and not averaging
-		return as.lastData, nil
+		if lastDataPointer == nil {
+			return board.AnalogValue{}, errors.New("have not yet read any analog data")
+		}
+		return *lastDataPointer, nil
 	}
 	avg := as.data.Average()
 	lastErr := as.lastError.Load()
 
 	analogVal := board.AnalogValue{
-		Min:      as.lastData.Min,
-		Max:      as.lastData.Max,
-		StepSize: as.lastData.StepSize,
+		Min:      lastDataPointer.Min,
+		Max:      lastDataPointer.Max,
+		StepSize: lastDataPointer.StepSize,
 	}
 	analogVal.Value = avg
 
@@ -126,7 +130,7 @@ func (as *AnalogSmoother) Start() {
 			reading, err := as.Raw.Read(ctx, nil)
 			as.lastError.Store(&errValue{err != nil, err})
 			if err == nil {
-				as.lastData = reading
+				as.lastData.Store(&reading)
 				if as.data != nil {
 					as.data.Add(reading.Value)
 				}
