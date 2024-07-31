@@ -1242,11 +1242,8 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 	}
 
 	revision := diff.NewRevision()
-	for _, c := range diff.OnlyModifiedRevision.Components {
-		r.manager.updateRevision(c.ResourceName(), revision)
-	}
-	for _, s := range diff.OnlyModifiedRevision.Services {
-		r.manager.updateRevision(s.ResourceName(), revision)
+	for _, res := range diff.UnmodifiedResources {
+		r.manager.updateRevision(res.ResourceName(), revision)
 	}
 
 	if diff.ResourcesEqual {
@@ -1352,12 +1349,11 @@ func (r *localRobot) restartSingleModule(ctx context.Context, mod *config.Module
 		}
 	}
 	diff := config.Diff{
-		Left:                 r.Config(),
-		Right:                r.Config(),
-		Added:                &config.Config{},
-		Modified:             &config.ModifiedConfigDiff{},
-		Removed:              &config.Config{},
-		OnlyModifiedRevision: &config.Config{},
+		Left:     r.Config(),
+		Right:    r.Config(),
+		Added:    &config.Config{},
+		Modified: &config.ModifiedConfigDiff{},
+		Removed:  &config.Config{},
 	}
 	// note: if !isRunning (i.e. the module is in config but it crashed), putting it in diff.Modified
 	// results in a no-op; we use .Added instead.

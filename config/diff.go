@@ -16,14 +16,14 @@ import (
 // where left is usually old and right is new. So the diff is the
 // changes from left to right.
 type Diff struct {
-	Left, Right          *Config
-	Added                *Config
-	Modified             *ModifiedConfigDiff
-	Removed              *Config
-	ResourcesEqual       bool
-	NetworkEqual         bool
-	PrettyDiff           string
-	OnlyModifiedRevision *Config
+	Left, Right         *Config
+	Added               *Config
+	Modified            *ModifiedConfigDiff
+	Removed             *Config
+	ResourcesEqual      bool
+	NetworkEqual        bool
+	PrettyDiff          string
+	UnmodifiedResources []resource.Config
 }
 
 // ModifiedConfigDiff is the modificative different between two configs.
@@ -56,13 +56,12 @@ func DiffConfigs(left, right Config, revealSensitiveConfigDiffs bool) (_ *Diff, 
 	}
 
 	diff := Diff{
-		Left:                 &left,
-		Right:                &right,
-		Added:                &Config{},
-		Modified:             &ModifiedConfigDiff{},
-		Removed:              &Config{},
-		PrettyDiff:           PrettyDiff,
-		OnlyModifiedRevision: &Config{},
+		Left:       &left,
+		Right:      &right,
+		Added:      &Config{},
+		Modified:   &ModifiedConfigDiff{},
+		Removed:    &Config{},
+		PrettyDiff: PrettyDiff,
 	}
 
 	// All diffs use the following logic:
@@ -245,7 +244,7 @@ func diffComponents(left, right []resource.Config, diff *Diff) bool {
 			componentDifferent := diffComponent(l, r, diff)
 			different = componentDifferent || different
 			if !componentDifferent && diff.Left.Revision != diff.Right.Revision {
-				diff.OnlyModifiedRevision.Components = append(diff.OnlyModifiedRevision.Components, r)
+				diff.UnmodifiedResources = append(diff.UnmodifiedResources, r)
 			}
 			continue
 		}
@@ -374,7 +373,7 @@ func diffServices(left, right []resource.Config, diff *Diff) bool {
 			serviceDifferent := diffService(l, r, diff)
 			different = serviceDifferent || different
 			if !serviceDifferent && diff.Left.Revision != diff.Right.Revision {
-				diff.OnlyModifiedRevision.Services = append(diff.OnlyModifiedRevision.Services, r)
+				diff.UnmodifiedResources = append(diff.UnmodifiedResources, r)
 			}
 			continue
 		}
