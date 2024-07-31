@@ -105,6 +105,8 @@ func (imp *impl) WithOptions(opts ...zap.Option) *zap.SugaredLogger {
 }
 
 func (imp *impl) WithFields(args ...interface{}) {
+	// Calls to WithFields with duplicate keys will retain all values instead of the most recent
+	// key overwriting the previous duplicate key(s).
 	for keyIdx := 0; keyIdx < len(args); keyIdx += 2 {
 		keyObj := args[keyIdx]
 		var keyStr string
