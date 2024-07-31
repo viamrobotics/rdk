@@ -2104,7 +2104,7 @@ func TestMachineStatus(t *testing.T) {
 		{
 			"no resources",
 			robot.MachineStatus{
-				Config:    config.Status{Revision: "rev1"},
+				Config:    config.Revision{Revision: "rev1"},
 				Resources: []resource.Status{},
 			},
 			0,
@@ -2112,7 +2112,7 @@ func TestMachineStatus(t *testing.T) {
 		{
 			"resource with unknown status",
 			robot.MachineStatus{
-				Config: config.Status{Revision: "rev1"},
+				Config: config.Revision{Revision: "rev1"},
 				Resources: []resource.Status{
 					{
 						Name:     arm.Named("badArm"),
@@ -2125,7 +2125,7 @@ func TestMachineStatus(t *testing.T) {
 		{
 			"resource with valid status",
 			robot.MachineStatus{
-				Config: config.Status{Revision: "rev1"},
+				Config: config.Revision{Revision: "rev1"},
 				Resources: []resource.Status{
 					{
 						Name:     arm.Named("goodArm"),
@@ -2139,7 +2139,7 @@ func TestMachineStatus(t *testing.T) {
 		{
 			"resources with mixed valid and invalid statuses",
 			robot.MachineStatus{
-				Config: config.Status{Revision: "rev1"},
+				Config: config.Revision{Revision: "rev1"},
 				Resources: []resource.Status{
 					{
 						Name:     arm.Named("goodArm"),

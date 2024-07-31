@@ -75,7 +75,7 @@ type localRobot struct {
 
 	// configStatus stores the revision of the latest config ingested during
 	// reconfigurations along with a timestamp.
-	configStatus   config.Status
+	configStatus   config.Revision
 	configStatusMu sync.RWMutex
 
 	// internal services that are in the graph but we also hold onto
@@ -1163,7 +1163,7 @@ func (r *localRobot) applyLocalModuleVersions(cfg *config.Config) {
 
 func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, forceSync bool) {
 	r.configStatusMu.Lock()
-	r.configStatus = config.Status{
+	r.configStatus = config.Revision{
 		Revision:    newConfig.Revision,
 		LastUpdated: time.Now(),
 	}

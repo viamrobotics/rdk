@@ -1029,7 +1029,7 @@ func (rc *RobotClient) MachineStatus(ctx context.Context) (robot.MachineStatus, 
 	}
 
 	if resp.Config != nil {
-		mStatus.Config = config.Status{
+		mStatus.Config = config.Revision{
 			Revision:    resp.Config.Revision,
 			LastUpdated: resp.Config.LastUpdated.AsTime(),
 		}
