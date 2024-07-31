@@ -354,6 +354,9 @@ func (mr *moveRequest) augmentBaseExecutionState(
 		// trajectory and the path pose for our current index to calculate our path
 		// pose in the previous step.
 
+		// The exception to this is if we are at the index we are currently executing, then
+		// we will use the base's reported current position.
+
 		currPathStep := existingPlan.Path()[idx]
 		kbPose := currPathStep[mr.kinematicBase.Kinematics().Name()]
 		kbTraj := currTraj[mr.kinematicBase.Name().Name]
@@ -361,7 +364,12 @@ func (mr *moveRequest) augmentBaseExecutionState(
 		if err != nil {
 			return baseExecutionState, err
 		}
-		prevPathPose := spatialmath.PoseBetweenInverse(trajPose, kbPose.Pose())
+		var prevPathPose spatialmath.Pose
+		if idx == baseExecutionState.Index() {
+			prevPathPose = baseExecutionState.CurrentPoses()[mr.kinematicBase.LocalizationFrame().Name()].Pose()
+		} else {
+			prevPathPose = spatialmath.PoseBetweenInverse(trajPose, kbPose.Pose())
+		}
 		updatedTraj := kbTraj
 		updatedTraj = append(updatedTraj, referenceframe.PoseToInputsRadians(prevPathPose)...)
 		newTrajectory = append(
