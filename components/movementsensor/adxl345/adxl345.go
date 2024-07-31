@@ -170,9 +170,6 @@ type adxl345 struct {
 
 	configuredRegisterValues map[byte]byte
 
-	// Used only to remove the callbacks from the interrupts upon closing component.
-	interruptChannels map[board.DigitalInterrupt]chan board.Tick
-
 	// Lock the mutex when you want to read or write either the acceleration or the last error.
 	mu                 sync.Mutex
 	linearAcceleration r3.Vector
@@ -241,7 +238,6 @@ func makeAdxl345(
 		logger:                   logger,
 		configuredRegisterValues: configuredRegisterValues,
 		interruptsFound:          make(map[InterruptID]int),
-		interruptChannels:        make(map[board.DigitalInterrupt]chan board.Tick),
 
 		// On overloaded boards, sometimes the I2C bus can be flaky. Only report errors if at least
 		// 5 of the last 10 times we've tried interacting with the device have had problems.
