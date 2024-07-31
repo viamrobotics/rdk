@@ -196,6 +196,10 @@ func (ptgk *ptgBaseKinematics) ExecutionState(ctx context.Context) (motionplan.E
 	if err != nil {
 		return motionplan.ExecutionState{}, err
 	}
+	actualPIFInRadians := referenceframe.NewPoseInFrame(
+		actualPIF.Parent(),
+		spatialmath.NewPose(actualPIF.Pose().Point(), actualPIF.Pose().Orientation().OrientationVectorRadians()),
+	)
 
 	ptgk.inputLock.RLock()
 	currentIdx := ptgk.currentState.currentIdx
@@ -208,7 +212,7 @@ func (ptgk *ptgBaseKinematics) ExecutionState(ctx context.Context) (motionplan.E
 		currentPlan,
 		currentIdx,
 		map[string][]referenceframe.Input{ptgk.Kinematics().Name(): currentInputs},
-		map[string]*referenceframe.PoseInFrame{ptgk.LocalizationFrame().Name(): actualPIF},
+		map[string]*referenceframe.PoseInFrame{ptgk.LocalizationFrame().Name(): actualPIFInRadians},
 	)
 }
 
