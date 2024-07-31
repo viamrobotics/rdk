@@ -106,17 +106,17 @@ func (dr *PmtkI2cDataReader) initialize(ctx context.Context) error {
 	return nil
 }
 
-func (dr *PmtkI2cDataReader) readData(cancelCtx context.Context) ([]byte, error) {
+func (dr *PmtkI2cDataReader) readData(ctx context.Context) ([]byte, error) {
 	handle, err := dr.bus.OpenHandle(dr.addr)
 	if err != nil {
-		dr.logger.CErrorf(cancelCtx, "can't open gps i2c %s", err)
+		dr.logger.CErrorf(ctx, "can't open gps i2c %s", err)
 		return nil, err
 	}
 	defer utils.UncheckedErrorFunc(handle.Close)
 
-	buffer, err := handle.Read(cancelCtx, 1024)
+	buffer, err := handle.Read(ctx, 1024)
 	if err != nil {
-		dr.logger.CErrorf(cancelCtx, "failed to read handle %s", err)
+		dr.logger.CErrorf(ctx, "failed to read handle %s", err)
 		return nil, err
 	}
 
@@ -125,20 +125,20 @@ func (dr *PmtkI2cDataReader) readData(cancelCtx context.Context) ([]byte, error)
 
 // backgroundWorker should be run in a background goroutine. It reads data from the I2C bus and
 // puts it into the channel of complete messages.
-func (dr *PmtkI2cDataReader) backgroundWorker(cancelCtx context.Context) {
+func (dr *PmtkI2cDataReader) backgroundWorker(ctx context.Context) {
 	defer close(dr.data)
 
 	strBuf := ""
 	for {
 		select {
-		case <-cancelCtx.Done():
+		case <-ctx.Done():
 			return
 		default:
 		}
 
-		buffer, err := dr.readData(cancelCtx)
+		buffer, err := dr.readData(ctx)
 		if err != nil {
-			dr.logger.CErrorf(cancelCtx, "failed to read data, retrying: %s", err)
+			dr.logger.CErrorf(ctx, "failed to read data, retrying: %s", err)
 			continue
 		}
 
@@ -166,7 +166,7 @@ func (dr *PmtkI2cDataReader) backgroundWorker(cancelCtx context.Context) {
 					}
 
 					select {
-					case <-cancelCtx.Done():
+					case <-ctx.Done():
 						return
 					case dr.data <- strBuf:
 						strBuf = ""
