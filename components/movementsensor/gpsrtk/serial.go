@@ -132,7 +132,7 @@ func newRTKSerial(
 		SerialPath:     newConf.SerialPath,
 		SerialBaudRate: newConf.SerialBaudRate,
 	}
-	dev, err := gpsutils.NewSerialDataReader(serialConfig, logger)
+	dev, err := gpsutils.NewSerialDataReader(ctx, serialConfig, logger)
 	if err != nil {
 		return nil, err
 	}

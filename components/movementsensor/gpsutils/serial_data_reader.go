@@ -25,7 +25,11 @@ type SerialDataReader struct {
 }
 
 // NewSerialDataReader constructs a new DataReader that gets its NMEA messages over a serial port.
-func NewSerialDataReader(config *SerialConfig, logger logging.Logger) (DataReader, error) {
+func NewSerialDataReader(
+	ctx context.Context,
+	config *SerialConfig,
+	logger logging.Logger,
+) (DataReader, error) {
 	serialPath := config.SerialPath
 	if serialPath == "" {
 		return nil, fmt.Errorf("SerialNMEAMovementSensor expected non-empty string for %q", config.SerialPath)
