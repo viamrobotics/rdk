@@ -563,7 +563,7 @@ func PoseToInputsRadians(p spatial.Pose) []Input {
 }
 
 // inputsToPose is a convience method on the poseFrame for turning inputs into a pose.
-// We expect the inputs orientation's theta to be in radians
+// We expect the inputs orientation's theta to be in radians.
 func inputsToPose(inputs []Input) spatial.Pose {
 	return spatial.NewPose(
 		r3.Vector{X: inputs[0].Value, Y: inputs[1].Value, Z: inputs[2].Value},

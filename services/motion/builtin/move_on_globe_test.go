@@ -313,7 +313,7 @@ func TestObstacleReplanningGlobe(t *testing.T) {
 				// The camera is parented to the base. Thus, this will always see an obstacle 300mm in front of where the base is.
 				// Note: for CreateMoveOnGlobeTestEnvironment, the camera is given an orientation such that it is pointing left, not
 				// forwards. Thus, an obstacle in front of the base will be seen as being in +X.
-				// NOTE: the orientation of the camera is OY:1, Theta: -90 degrees, this influences both the positon and dimensions of
+				// NOTE: the orientation of the camera is OY:1, Theta: -90 degrees, this influences both the position and dimensions of
 				// the observed obstacle in this test case.
 				obstaclePosition := spatialmath.NewPoseFromPoint(r3.Vector{X: 0, Y: 0, Z: 300})
 				box, err := spatialmath.NewBox(obstaclePosition, r3.Vector{X: 40, Y: 10, Z: 40}, caseName)

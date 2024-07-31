@@ -906,7 +906,6 @@ func TestGetTransientDetectionsMath(t *testing.T) {
 
 		cam, ok := ms.(*builtIn).components[resource.NewName(camera.API, "injectedCamera")]
 		test.That(t, ok, test.ShouldBeTrue)
-		fmt.Println("inputMap: ", inputMap)
 
 		tf, err := mr.localizingFS.Transform(
 			inputMap,
@@ -935,7 +934,7 @@ func TestGetTransientDetectionsMath(t *testing.T) {
 			expectedGeomPose: spatialmath.NewPose(r3.Vector{X: 10, Y: 1500, Z: 30}, &spatialmath.OrientationVectorDegrees{OY: 1, Theta: -90}),
 		},
 		{
-			name:             "base slighly from origin with zero theta",
+			name:             "base slightly from origin with zero theta",
 			basePose:         spatialmath.NewPose(r3.Vector{X: 3, Y: 9, Z: 0}, &spatialmath.OrientationVectorDegrees{OZ: 1}),
 			obstaclePose:     spatialmath.NewPoseFromPoint(r3.Vector{X: 10, Y: -30, Z: 1500}),
 			expectedGeomPose: spatialmath.NewPose(r3.Vector{X: 13, Y: 1509, Z: 30}, &spatialmath.OrientationVectorDegrees{OY: 1, Theta: -90}),
@@ -949,7 +948,7 @@ func TestGetTransientDetectionsMath(t *testing.T) {
 			),
 		},
 		{
-			name:         "base slighly from origin with non-zero theta",
+			name:         "base slightly from origin with non-zero theta",
 			basePose:     spatialmath.NewPose(r3.Vector{X: 3, Y: 9, Z: 0}, &spatialmath.OrientationVectorDegrees{OZ: 1, Theta: -45}),
 			obstaclePose: spatialmath.NewPoseFromPoint(r3.Vector{X: 0, Y: 0, Z: math.Sqrt2}),
 			expectedGeomPose: spatialmath.NewPose(
