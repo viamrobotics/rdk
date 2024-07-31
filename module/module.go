@@ -477,6 +477,13 @@ func (m *Module) AddResource(ctx context.Context, req *pb.AddResourceRequest) (*
 		return nil, err
 	}
 
+	// If context has errored, even if construction succeeded we should close the resource and return the context error
+	// Use the shutdown context because otherwise any Close operations that rely on the context will immediately fail
+	if ctx.Err() != nil {
+		m.logger.CDebugw(ctx, "resource successfully constructed but context is done, closing constructed resource", "err", ctx.Err().Error())
+		return nil, multierr.Combine(ctx.Err(), res.Close(m.shutdownCtx))
+	}
+
 	var passthroughSource rtppassthrough.Source
 	if p, ok := res.(rtppassthrough.Source); ok {
 		passthroughSource = p

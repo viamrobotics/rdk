@@ -488,6 +488,18 @@ func (mgr *Manager) addResource(ctx context.Context, conf resource.Config, deps 
 
 	_, err = mod.client.AddResource(ctx, &pb.AddResourceRequest{Config: confProto, Dependencies: deps})
 	if err != nil {
+		// if there is an error while adding a modular resource, send a RemoveResource call to attempt clean up.
+		// this way, the next time the robot attempts to add the resource, it will succeed.
+		resName := conf.ResourceName().String()
+		mgr.logger.CDebugw(ctx, "failed modular resource construction", "name", resName, "err", err)
+		mgr.logger.CDebugw(ctx, "attempting to clean up failed modular resource construction", "name", resName)
+		removeCtx, cancel := context.WithTimeout(mgr.restartCtx, 10*time.Second)
+		defer cancel()
+		if _, errRemove := mod.client.RemoveResource(removeCtx, &pb.RemoveResourceRequest{Name: resName}); errRemove != nil {
+			mgr.logger.CDebugw(ctx, "error while attempting to clean up failed modular resource construction", "name", resName, "err", errRemove)
+		} else {
+			mgr.logger.CDebugw(ctx, "cleaned up failed modular resource construction", "name", resName)
+		}
 		return nil, err
 	}
 	mgr.rMap.Store(conf.ResourceName(), mod)

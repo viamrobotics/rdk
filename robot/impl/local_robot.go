@@ -705,12 +705,23 @@ func (r *localRobot) newResource(
 	}
 
 	if resInfo.Constructor != nil {
-		return resInfo.Constructor(ctx, deps, conf, gNode.Logger())
-	}
-	if resInfo.DeprecatedRobotConstructor == nil {
+		res, err = resInfo.Constructor(ctx, deps, conf, gNode.Logger())
+	} else if resInfo.DeprecatedRobotConstructor == nil {
 		return nil, errors.Errorf("invariant: no constructor for %q", conf.API)
+	} else {
+		res, err = resInfo.DeprecatedRobotConstructor(ctx, r, conf, gNode.Logger())
 	}
-	return resInfo.DeprecatedRobotConstructor(ctx, r, conf, gNode.Logger())
+	if err != nil {
+		return nil, err
+	}
+
+	// If context has errored, even if construction succeeded we should close the resource and return the context error
+	// Use the shutdown context because otherwise any Close operations that rely on the context will immediately fail
+	if ctx.Err() != nil {
+		r.logger.CDebugw(ctx, "resource successfully constructed but context is done, closing constructed resource")
+		return nil, multierr.Combine(ctx.Err(), res.Close(r.closeContext))
+	}
+	return res, nil
 }
 
 func (r *localRobot) updateWeakDependents(ctx context.Context) {
