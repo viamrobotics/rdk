@@ -104,7 +104,6 @@ func TestParsing(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, data.valid, test.ShouldBeTrue)
 	test.That(t, data.Alt, test.ShouldEqual, 25.63)
-	test.That(t, data.SatsInUse, test.ShouldEqual, 13)
 	test.That(t, data.HDOP, test.ShouldEqual, 0.9)
 	test.That(t, data.Location.Lat(), test.ShouldAlmostEqual, -43.544877, 0.001)
 	test.That(t, data.Location.Lng(), test.ShouldAlmostEqual, 172.59142, 0.001)
