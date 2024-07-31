@@ -165,8 +165,12 @@ func PoseInverse(p Pose) Pose {
 // p1 and p2 are the two poses to interpolate between, by is a float representing the amount to interpolate between them.
 // by == 0 will return p1, by == 1 will return p2, and by == 0.5 will return the pose halfway between them.
 func Interpolate(p1, p2 Pose, by float64) Pose {
+	p2Orient := p2.Orientation().Quaternion()
+	if OrientationBetween(p1.Orientation(), p2.Orientation()).Quaternion().Real < 0 {
+		p2Orient = quat.Scale(-1, p2Orient)
+	}
 	intQ := newDualQuaternion()
-	intQ.Real = slerp(p1.Orientation().Quaternion(), p2.Orientation().Quaternion(), by)
+	intQ.Real = slerp(p1.Orientation().Quaternion(), p2Orient, by)
 
 	intQ.SetTranslation(r3.Vector{
 		(p1.Point().X + (p2.Point().X-p1.Point().X)*by),

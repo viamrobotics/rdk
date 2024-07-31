@@ -75,7 +75,7 @@ func CombineMetrics(metrics ...StateMetric) StateMetric {
 
 // OrientDist returns the arclength between two orientations in degrees.
 func OrientDist(o1, o2 spatial.Orientation) float64 {
-	return utils.RadToDeg(spatial.QuatToR4AA(spatial.OrientationBetween(o1, o2).Quaternion()).Theta)
+	return math.Abs(utils.RadToDeg(spatial.QuatToR4AA(spatial.OrientationBetween(o1, o2).Quaternion()).Theta))
 }
 
 // OrientDistToRegion will return a function which will tell you how far the unit sphere component of an orientation
