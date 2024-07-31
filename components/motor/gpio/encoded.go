@@ -207,6 +207,8 @@ func (m *EncodedMotor) calcNewPowerPct(
 		newPowerPct = lastPowerPct
 	}
 
+	newPowerPct = fixPowerPct(newPowerPct, m.maxPowerPct)
+
 	if err := m.real.SetPower(ctx, newPowerPct, nil); err != nil {
 		return 0, err
 	}
