@@ -277,7 +277,7 @@ func (mr *moveRequest) obstaclesIntersectPlan(
 				return state.ExecuteResponse{}, err
 			}
 			if len(gifs.Geometries()) == 0 {
-				mr.logger.CDebug(ctx, "will not check if obstacles intersect path since nothing was detected")
+				mr.logger.CDebug(ctx, "no obstacles detected")
 				continue
 			}
 
@@ -326,7 +326,7 @@ func (mr *moveRequest) obstaclesIntersectPlan(
 	return state.ExecuteResponse{}, nil
 }
 
-// In order for the localizingFS to work as intended when working with PTGs we must update the baseExectionState.
+// In order for the localizingFS to work as intended when working with PTGs we must update the baseExecutionState.
 // The original baseExecutionState passed into this method contains a plan, currentPoses, and currentInputs.
 // We update the plan object such that the trajectory which is of form referenceframe.Input also houses information
 // about where we are in the world. This changes the plans trajectory from being of length 4 into being of length

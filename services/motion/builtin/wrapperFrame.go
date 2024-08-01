@@ -18,12 +18,10 @@ type wrapperFrame struct {
 	ptgSolvers        []tpspace.PTGSolver
 }
 
-func newWrapperFrame(
-	localizationFrame, executionFrame referenceframe.Frame,
-) (referenceframe.Frame, error) {
-	ptgFrame, ok := executionFrame.(tpspace.PTGProvider)
-	if !ok {
-		return nil, errors.New("cannot type assert executionFrame into a tpspace.PTGProvider")
+func newWrapperFrame(localizationFrame, executionFrame referenceframe.Frame) (referenceframe.Frame, error) {
+	ptgFrame, err := utils.AssertType[tpspace.PTGProvider](executionFrame)
+	if err != nil {
+		return nil, err
 	}
 	return &wrapperFrame{
 		name:              executionFrame.Name(),
@@ -134,7 +132,7 @@ func (wf *wrapperFrame) MarshalJSON() ([]byte, error) {
 func (wf *wrapperFrame) InputFromProtobuf(jp *pb.JointPositions) []referenceframe.Input {
 	n := make([]referenceframe.Input, len(jp.Values))
 	for idx, d := range jp.Values {
-		n[idx] = referenceframe.Input{Value: utils.DegToRad(d)}
+		n[idx] = referenceframe.Input{Value: d}
 	}
 	return n
 }

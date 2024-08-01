@@ -284,13 +284,13 @@ func TestMoveOnMapStaticObs(t *testing.T) {
 				{Value: 0}, // end distace along trajectory index
 			},
 			mr.kinematicBase.LocalizationFrame().Name(): {
-				{Value: 587.720000000000027284841053},  // X
-				{Value: -808.259999999999990905052982}, // Y
-				{Value: 0},                             // Z
-				{Value: 0},                             // OX
-				{Value: 0},                             // OY
-				{Value: 1},                             // OZ
-				{Value: 0},                             // Theta
+				{Value: 587},  // X
+				{Value: -808}, // Y
+				{Value: 0},    // Z
+				{Value: 0},    // OX
+				{Value: 0},    // OY
+				{Value: 1},    // OZ
+				{Value: 0},    // Theta
 			},
 		}
 

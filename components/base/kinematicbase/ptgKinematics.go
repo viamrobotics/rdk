@@ -183,8 +183,7 @@ func (ptgk *ptgBaseKinematics) CurrentInputs(ctx context.Context) ([]referencefr
 	ptgk.inputLock.RLock()
 	defer ptgk.inputLock.RUnlock()
 
-	planningFrameInputs := ptgk.currentState.currentInputs
-	return planningFrameInputs, nil
+	return ptgk.currentState.currentInputs, nil
 }
 
 func (ptgk *ptgBaseKinematics) ExecutionState(ctx context.Context) (motionplan.ExecutionState, error) {

@@ -480,9 +480,17 @@ func NewPoseFrame(name string, geometry []spatial.Geometry) (Frame, error) {
 // in a 7DoF pose. We note that theta should be in radians.
 func (pf *poseFrame) Transform(inputs []Input) (spatial.Pose, error) {
 	if err := pf.baseFrame.validInputs(inputs); err != nil {
-		return nil, NewIncorrectInputLengthError(len(inputs), 7)
+		return nil, err
 	}
-	return inputsToPose(inputs), nil
+	return spatial.NewPose(
+		r3.Vector{X: inputs[0].Value, Y: inputs[1].Value, Z: inputs[2].Value},
+		&spatial.OrientationVector{
+			OX:    inputs[3].Value,
+			OY:    inputs[4].Value,
+			OZ:    inputs[5].Value,
+			Theta: inputs[6].Value,
+		},
+	), nil
 }
 
 // Interpolate interpolates the given amount between the two sets of inputs.
@@ -535,7 +543,7 @@ func (pf *poseFrame) MarshalJSON() ([]byte, error) {
 func (pf *poseFrame) InputFromProtobuf(jp *pb.JointPositions) []Input {
 	n := make([]Input, len(jp.Values))
 	for idx, d := range jp.Values {
-		n[idx] = Input{utils.DegToRad(d)}
+		n[idx] = Input{d}
 	}
 	return n
 }
@@ -549,9 +557,9 @@ func (pf *poseFrame) ProtobufFromInput(input []Input) *pb.JointPositions {
 	return &pb.JointPositions{Values: n}
 }
 
-// PoseToInputsRadians is a convience method for turning poses into inputs
-// We note that the orientation of the pose will be understood
-// as OrientationVectorRadians.
+// PoseToInputsRadians is a convenience method for turning a pose into a slice of inputs
+// in the form [X, Y, Z, OX, OY, OZ, Theta (in radians)]
+// This is the format that is expected by the poseFrame type and should not be used with other frames.
 func PoseToInputsRadians(p spatial.Pose) []Input {
 	return FloatsToInputs([]float64{
 		p.Point().X, p.Point().Y, p.Point().Z,
@@ -560,18 +568,4 @@ func PoseToInputsRadians(p spatial.Pose) []Input {
 		p.Orientation().OrientationVectorRadians().OZ,
 		p.Orientation().OrientationVectorRadians().Theta,
 	})
-}
-
-// inputsToPose is a convience method on the poseFrame for turning inputs into a pose.
-// We expect the inputs orientation's theta to be in radians.
-func inputsToPose(inputs []Input) spatial.Pose {
-	return spatial.NewPose(
-		r3.Vector{X: inputs[0].Value, Y: inputs[1].Value, Z: inputs[2].Value},
-		&spatial.OrientationVector{
-			OX:    inputs[3].Value,
-			OY:    inputs[4].Value,
-			OZ:    inputs[5].Value,
-			Theta: inputs[6].Value,
-		},
-	)
 }
