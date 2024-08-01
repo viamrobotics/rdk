@@ -346,7 +346,15 @@ func (rc *RobotClient) connectWithLock(ctx context.Context) error {
 	if err := rc.conn.Close(); err != nil {
 		return err
 	}
-	conn, err := grpc.Dial(ctx, rc.address, rc.logger.Sublogger("networking"), rc.dialOptions...)
+
+	var dialLogger logging.Logger
+	if l, ok := logging.LoggerNamed("rdk.networking"); ok {
+		dialLogger = l
+	} else {
+		dialLogger = rc.logger.Sublogger("networking")
+	}
+
+	conn, err := grpc.Dial(ctx, rc.address, dialLogger, rc.dialOptions...)
 	if err != nil {
 		return err
 	}
