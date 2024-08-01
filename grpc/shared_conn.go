@@ -156,7 +156,7 @@ func (sc *SharedConn) ResetConn(conn rpc.ClientConn, moduleLogger logging.Logger
 		// The first call to `ResetConn` happens before anything can access `sc.logger`. So long as
 		// we never write to the member variable, everything can continue to access this without
 		// locks.
-		sc.logger = moduleLogger.Sublogger("network_outgoing.conn")
+		sc.logger = moduleLogger.Sublogger("networking.conn")
 	}
 
 	if sc.resOnTrackCBs == nil {

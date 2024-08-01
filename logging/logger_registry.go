@@ -159,16 +159,6 @@ func LoggerNamed(name string) (logger Logger, ok bool) {
 	return globalLoggerRegistry.loggerNamed(name)
 }
 
-// GetOrNewLogger returns a logger with the specified name if it exists, otherwise it
-// creates and registers one with the same name.
-func GetOrNewLogger(name string) (logger Logger) {
-	logger, ok := globalLoggerRegistry.loggerNamed(name)
-	if !ok {
-		return NewLogger(name)
-	}
-	return logger
-}
-
 // UpdateLoggerLevel assigns level to appropriate logger in the registry.
 func UpdateLoggerLevel(name string, level Level) error {
 	return globalLoggerRegistry.updateLoggerLevel(name, level)

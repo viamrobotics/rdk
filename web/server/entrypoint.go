@@ -78,7 +78,12 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 	logger := logging.NewLogger("")
 	logging.ReplaceGlobal(logger)
 	logger = logger.Sublogger("rdk")
+
+	// create logging logger here for access later
 	logger.Sublogger("logging")
+
+	// create networking logger here for access later
+	logger.Sublogger("networking")
 
 	config.InitLoggingSettings(logger, argsParsed.Debug)
 
