@@ -75,7 +75,7 @@ type localRobot struct {
 
 	// configRevision stores the revision of the latest config ingested during
 	// reconfigurations along with a timestamp.
-	configRevision   config.Revision
+	configRevision config.Revision
 	configStatusMu sync.RWMutex
 
 	// internal services that are in the graph but we also hold onto
