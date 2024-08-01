@@ -73,9 +73,9 @@ type localRobot struct {
 	// logical clock when updateWeakDependents was called.
 	lastWeakDependentsRound atomic.Int64
 
-	// configStatus stores the revision of the latest config ingested during
+	// configRevision stores the revision of the latest config ingested during
 	// reconfigurations along with a timestamp.
-	configStatus   config.Revision
+	configRevision   config.Revision
 	configStatusMu sync.RWMutex
 
 	// internal services that are in the graph but we also hold onto
@@ -1163,7 +1163,7 @@ func (r *localRobot) applyLocalModuleVersions(cfg *config.Config) {
 
 func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, forceSync bool) {
 	r.configStatusMu.Lock()
-	r.configStatus = config.Revision{
+	r.configRevision = config.Revision{
 		Revision:    newConfig.Revision,
 		LastUpdated: time.Now(),
 	}
@@ -1403,7 +1403,7 @@ func (r *localRobot) MachineStatus(ctx context.Context) (robot.MachineStatus, er
 	r.manager.resourceGraphLock.Unlock()
 
 	r.configStatusMu.RLock()
-	result.Config = r.configStatus
+	result.Config = r.configRevision
 	r.configStatusMu.RUnlock()
 
 	return result, nil
