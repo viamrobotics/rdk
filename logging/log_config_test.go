@@ -88,7 +88,6 @@ func TestUpdateLoggerRegistry(t *testing.T) {
 		loggerConfig    []LoggerPatternConfig
 		loggerNames     []string
 		expectedMatches map[string]string
-		doesError       bool
 	}
 
 	tests := []testCfg{
@@ -107,7 +106,6 @@ func TestUpdateLoggerRegistry(t *testing.T) {
 			expectedMatches: map[string]string{
 				"rdk.resource_manager": "WARN",
 			},
-			doesError: false,
 		},
 		{
 			loggerConfig: []LoggerPatternConfig{
@@ -126,7 +124,6 @@ func TestUpdateLoggerRegistry(t *testing.T) {
 				"rdk.test_manager.modmanager":             "DEBUG",
 				"rdk.resource_manager.package.modmanager": "DEBUG",
 			},
-			doesError: false,
 		},
 		{
 			loggerConfig: []LoggerPatternConfig{
@@ -144,7 +141,6 @@ func TestUpdateLoggerRegistry(t *testing.T) {
 				"rdk.resource_manager.modmanager": "ERROR",
 				"rdk.test_manager.modmanager":     "ERROR",
 			},
-			doesError: false,
 		},
 		{
 			loggerConfig: []LoggerPatternConfig{
@@ -163,7 +159,6 @@ func TestUpdateLoggerRegistry(t *testing.T) {
 			expectedMatches: map[string]string{
 				"rdk.resource_manager": "WARN",
 			},
-			doesError: false,
 		},
 		{
 			loggerConfig: []LoggerPatternConfig{
@@ -180,7 +175,6 @@ func TestUpdateLoggerRegistry(t *testing.T) {
 				"rdk.resource_manager.modmanager":                 "WARN",
 				"rdk.resource_manager.package_manager.modmanager": "WARN",
 			},
-			doesError: false,
 		},
 		{
 			loggerConfig: []LoggerPatternConfig{
@@ -193,7 +187,6 @@ func TestUpdateLoggerRegistry(t *testing.T) {
 				"rdk.resource_manager",
 			},
 			expectedMatches: map[string]string{},
-			doesError:       true,
 		},
 		{
 			loggerConfig: []LoggerPatternConfig{
@@ -208,7 +201,6 @@ func TestUpdateLoggerRegistry(t *testing.T) {
 			expectedMatches: map[string]string{
 				"a.b.c": "INFO",
 			},
-			doesError: false,
 		},
 	}
 
@@ -216,12 +208,7 @@ func TestUpdateLoggerRegistry(t *testing.T) {
 		testRegistry := createTestRegistry(tc.loggerNames)
 
 		err := testRegistry.updateLoggerRegistry(tc.loggerConfig)
-		if tc.doesError {
-			test.That(t, err, test.ShouldNotBeNil)
-			continue
-		}
 		test.That(t, err, test.ShouldBeNil)
-
 		test.That(t, verifySetLevels(testRegistry, tc.expectedMatches), test.ShouldBeTrue)
 	}
 }
