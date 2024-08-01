@@ -364,15 +364,25 @@ func (x *xArm) MoveToJointPositions(ctx context.Context, newPositions *pb.JointP
 		}
 	}
 	to := x.model.InputFromProtobuf(newPositions)
+	return x.executeInputs(ctx, to, true, true, extra)
+}
+
+func (x *xArm) executeInputs(
+	ctx context.Context,
+	to []referenceframe.Input,
+	doAccelerate, doDecelerate bool,
+	extra map[string]interface{},
+) error {
 	curPos, err := x.JointPositions(ctx, extra)
 	if err != nil {
 		return err
 	}
 	from := x.model.InputFromProtobuf(curPos)
 
-	diff := getMaxDiff(from, to)
 	x.mu.RLock()
-	nSteps := int((diff / float64(x.speed)) * x.moveHZ)
+	speed := x.speed
+	acceleration := x.acceleration
+	moveHZ := x.moveHZ
 	x.mu.RUnlock()
 
 	// convenience for structuring and sending individual joint steps
@@ -401,14 +411,60 @@ func (x *xArm) MoveToJointPositions(ctx context.Context, newPositions *pb.JointP
 		}
 		return nil
 	}
-
-	// every step except the last, skipped if diff is small enough.
-	// Note that if diff calculations are small enough, nSteps could be zero, leading to a bad situation inside the loop
-	for i := 1; i < nSteps; i++ {
-		stepInputs, err := x.model.Interpolate(from, to, float64(i)/float64(nSteps))
+	
+	// Generate list of joint positions to pass through
+	// This is almost-calculus but not quite because it's explicitly discretized
+	accelStep := acceleration/float64(moveHZ)
+	diff := getMaxDiff(from, to)
+	
+	// Diff amount on each side to accelerate/decelerate
+	// Assume constant acceleration, i.e. 0 jerk, ignoring start and stop.
+	accelDiff := speed/2.
+	if diff < speed {
+		accelDiff = diff/2.
+	}
+	
+	steps := [][]referenceframe.Input{}
+	lastInputs := from
+	currSpeed := accelStep
+	if !doAccelerate {
+		currSpeed = speed
+	}
+	fmt.Println("accelStep", accelStep)
+	fmt.Println("diff", diff)
+	fmt.Println("currSpeed", currSpeed)
+	
+	for currDiff := getMaxDiff(lastInputs, to); currDiff > 0;  currDiff = getMaxDiff(lastInputs, to){
+		nSteps := (currDiff / float64(currSpeed)) * moveHZ
+		if nSteps <= 1 {
+			break
+		}
+		//~ fmt.Println(currDiff, nSteps)
+		nextInputs, err := x.model.Interpolate(lastInputs, to, 1./nSteps)
 		if err != nil {
 			return err
 		}
+		steps = append(steps, nextInputs)
+		
+		if currDiff < accelDiff && doDecelerate {
+			currSpeed -= accelStep
+			if currSpeed < 0 {
+				break
+			}
+		} else if diff - currDiff < accelDiff && doAccelerate {
+			currSpeed += accelStep
+			if currSpeed > speed {
+				currSpeed = speed
+			}
+		}
+		lastInputs = nextInputs
+	}
+	fmt.Println("currSpeed after", currSpeed)
+
+	// every step except the last, skipped if diff is small enough.
+	// Note that if diff calculations are small enough, nSteps could be zero, leading to a bad situation inside the loop
+	for _, stepInputs := range steps {
+		//~ fmt.Println("step", stepInputs)
 		step := referenceframe.InputsToFloats(stepInputs)
 		err = sendMoveJointsCmd(ctx, step)
 		if err != nil {

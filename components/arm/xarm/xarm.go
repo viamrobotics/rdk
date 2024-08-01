@@ -38,7 +38,8 @@ func (cfg *Config) Validate(path string) ([]string, error) {
 }
 
 const (
-	defaultSpeed  = 20. // degrees per second
+	defaultSpeed  = 30. // degrees per second
+	defaultAccel  = 10. // degrees per second per second
 	defaultPort   = "502"
 	defaultMoveHz = 100. // Don't change this
 )
@@ -56,7 +57,8 @@ type xArm struct {
 
 	mu    sync.RWMutex
 	conn  net.Conn
-	speed float32 // speed=max joint radians per second
+	speed float64 // speed=max joint radians per second
+	acceleration float64 // acceleration= joint radians per second increase per second
 }
 
 //go:embed xarm6_kinematics.json
@@ -145,8 +147,13 @@ func (x *xArm) Reconfigure(ctx context.Context, deps resource.Dependencies, conf
 	if speed == 0 {
 		speed = defaultSpeed
 	}
-	if speed < 0 {
-		return fmt.Errorf("given speed %f cannot be negative", speed)
+
+	acceleration := newConf.Acceleration
+	if acceleration == 0 {
+		acceleration = defaultAccel
+	}
+	if acceleration < 0 {
+		return fmt.Errorf("given acceleration %f cannot be negative", acceleration)
 	}
 
 	port := fmt.Sprintf("%d", newConf.Port)
@@ -177,7 +184,8 @@ func (x *xArm) Reconfigure(ctx context.Context, deps resource.Dependencies, conf
 		}
 	}
 
-	x.speed = float32(utils.DegToRad(float64(speed)))
+	x.acceleration = utils.DegToRad(float64(acceleration))
+	x.speed = utils.DegToRad(float64(speed))
 	return nil
 }
 
@@ -190,12 +198,12 @@ func (x *xArm) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error
 }
 
 func (x *xArm) GoToInputs(ctx context.Context, inputSteps ...[]referenceframe.Input) error {
-	for _, goal := range inputSteps {
+	for i, goal := range inputSteps {
 		// check that joint positions are not out of bounds
 		if err := arm.CheckDesiredJointPositions(ctx, x, goal); err != nil {
 			return err
 		}
-		err := x.MoveToJointPositions(ctx, x.model.ProtobufFromInput(goal), nil)
+		err := x.executeInputs(ctx, goal, i==0, i==len(inputSteps)-1, nil)
 		if err != nil {
 			return err
 		}

@@ -230,6 +230,8 @@ func (ms *builtIn) Move(
 	}
 
 	// move all the components
+	// Batch GoToInputs calls if possible; components may want to blend between inputs
+	//~ allSteps := plan.Trajectory()
 	for _, step := range plan.Trajectory() {
 		for name, inputs := range step {
 			if len(inputs) == 0 {
