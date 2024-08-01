@@ -36,6 +36,15 @@ const (
 	NodeStateUnhealthy
 )
 
+type GraphNodeError struct {
+	err       error
+	lastState NodeState
+}
+
+func (wErr *GraphNodeError) Error() string {
+	return wErr.err.Error()
+}
+
 // A GraphNode contains the current state of a resource.
 // Based on these states, the underlying Resource may or may not be available.
 // Additionally, the node can be informed that the resource either needs to be
@@ -60,7 +69,7 @@ type GraphNode struct {
 	// GraphNode was constructed or last reconfigured. It returns nil if the GraphNode is
 	// unconfigured.
 	lastReconfigured          *time.Time
-	lastErr                   error
+	lastErr                   *GraphNodeError
 	unresolvedDependencies    []string
 	needsDependencyResolution bool
 
@@ -280,7 +289,7 @@ func (w *GraphNode) LogAndSetLastError(err error, args ...any) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 
-	w.lastErr = err
+	w.lastErr = &GraphNodeError{err: err, lastState: w.state}
 	w.transitionTo(NodeStateUnhealthy)
 
 	if w.logger != nil {
@@ -302,6 +311,9 @@ func (w *GraphNode) Config() Config {
 func (w *GraphNode) NeedsReconfigure() bool {
 	w.mu.RLock()
 	defer w.mu.RUnlock()
+	if w.state == NodeStateUnhealthy {
+		return w.lastErr.lastState == NodeStateConfiguring
+	}
 	return w.state == NodeStateConfiguring
 }
 
