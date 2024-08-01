@@ -25,11 +25,10 @@ type AnalogSmoother struct {
 	AverageOverMillis int
 	SamplesPerSecond  int
 	data              *utils.RollingAverage
-	lastData          int
+	lastData          atomic.Pointer[board.AnalogValue]
 	lastError         atomic.Pointer[errValue]
 	logger            logging.Logger
 	workers           utils.StoppableWorkers
-	analogVal         board.AnalogValue
 }
 
 // SmoothAnalogReader wraps the given reader in a smoother.
@@ -44,11 +43,6 @@ func SmoothAnalogReader(r board.Analog, c board.AnalogReaderConfig, logger loggi
 		logger.Debug("Can't read nonpositive samples per second; defaulting to 1 instead")
 		smoother.SamplesPerSecond = 1
 	}
-
-	// Store the analog reader info
-	analogVal, err := smoother.Raw.Read(context.Background(), nil)
-	smoother.lastError.Store(&errValue{err != nil, err})
-	smoother.analogVal = analogVal
 
 	smoother.Start()
 	return smoother
@@ -68,19 +62,23 @@ func (as *AnalogSmoother) Close(ctx context.Context) error {
 
 // Read returns the smoothed out reading.
 func (as *AnalogSmoother) Read(ctx context.Context, extra map[string]interface{}) (board.AnalogValue, error) {
-	analogVal := board.AnalogValue{
-		Min:      as.analogVal.Min,
-		Max:      as.analogVal.Max,
-		StepSize: as.analogVal.StepSize,
+	lastDataPointer := as.lastData.Load()
+	if lastDataPointer == nil {
+		return board.AnalogValue{}, errors.New("have not yet read any analog data")
 	}
 
 	if as.data == nil { // We're using raw data, and not averaging
-		analogVal.Value = as.lastData
-		return as.analogVal, nil
+		return *lastDataPointer, nil
 	}
-	avg := as.data.Average()
+
+	analogVal := board.AnalogValue{
+		Min:      lastDataPointer.Min,
+		Max:      lastDataPointer.Max,
+		StepSize: lastDataPointer.StepSize,
+		Value:    as.data.Average(),
+	}
+
 	lastErr := as.lastError.Load()
-	analogVal.Value = avg
 	if lastErr == nil {
 		return analogVal, nil
 	}
@@ -132,7 +130,7 @@ func (as *AnalogSmoother) Start() {
 			reading, err := as.Raw.Read(ctx, nil)
 			as.lastError.Store(&errValue{err != nil, err})
 			if err == nil {
-				as.lastData = reading.Value
+				as.lastData.Store(&reading)
 				if as.data != nil {
 					as.data.Add(reading.Value)
 				}
