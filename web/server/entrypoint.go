@@ -78,6 +78,10 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 	logger := logging.NewLogger("")
 	logging.ReplaceGlobal(logger)
 	logger = logger.Sublogger("rdk")
+
+	//nolint:UnusedVar
+	registryLogger := logger.Sublogger("logging")
+
 	config.InitLoggingSettings(logger, argsParsed.Debug)
 
 	// Always log the version, return early if the '-version' flag was provided
