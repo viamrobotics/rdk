@@ -703,13 +703,13 @@ func (r *localRobot) newResource(
 			}
 		}
 	}
-
-	if resInfo.Constructor != nil {
+	switch {
+	case resInfo.Constructor != nil:
 		res, err = resInfo.Constructor(ctx, deps, conf, gNode.Logger())
-	} else if resInfo.DeprecatedRobotConstructor == nil {
-		return nil, errors.Errorf("invariant: no constructor for %q", conf.API)
-	} else {
+	case resInfo.DeprecatedRobotConstructor != nil:
 		res, err = resInfo.DeprecatedRobotConstructor(ctx, r, conf, gNode.Logger())
+	default:
+		return nil, errors.Errorf("invariant: no constructor for %q", conf.API)
 	}
 	if err != nil {
 		return nil, err

@@ -489,7 +489,7 @@ func (mgr *Manager) addResource(ctx context.Context, conf resource.Config, deps 
 	_, err = mod.client.AddResource(ctx, &pb.AddResourceRequest{Config: confProto, Dependencies: deps})
 	if err != nil {
 		// if there is an error while adding a modular resource, send a RemoveResource call to attempt clean up.
-		// this way, the next time the robot attempts to add the resource, it will succeed.
+		// this way, the next time the robot attempts to add the resource, the module will hopefully have a clean slate.
 		resName := conf.ResourceName().String()
 		mgr.logger.CDebugw(ctx, "failed modular resource construction", "name", resName, "err", err)
 		mgr.logger.CDebugw(ctx, "attempting to clean up failed modular resource construction", "name", resName)
