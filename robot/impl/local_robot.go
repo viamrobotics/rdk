@@ -1131,7 +1131,7 @@ func dialRobotClient(
 	robotClient, err := client.New(
 		ctx,
 		config.Address,
-		logging.GetOrNewLogger("rdk.networking"),
+		logger,
 		rOpts...,
 	)
 	if err != nil {
