@@ -1408,3 +1408,8 @@ func (r *localRobot) MachineStatus(ctx context.Context) (robot.MachineStatus, er
 
 	return result, nil
 }
+
+// Version returns version information about the robot.
+func (r *localRobot) Version(ctx context.Context) (robot.VersionResponse, error) {
+	return robot.Version()
+}

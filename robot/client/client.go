@@ -1062,3 +1062,19 @@ func (rc *RobotClient) MachineStatus(ctx context.Context) (robot.MachineStatus, 
 
 	return mStatus, nil
 }
+
+// Version returns version information about the robot.
+func (rc *RobotClient) Version(ctx context.Context) (robot.VersionResponse, error) {
+	mVersion := robot.VersionResponse{}
+
+	resp, err := rc.client.GetVersion(ctx, &pb.GetVersionRequest{})
+	if err != nil {
+		return mVersion, err
+	}
+
+	mVersion.Platform = resp.Platform
+	mVersion.Version = resp.Version
+	mVersion.APIVersion = resp.ApiVersion
+
+	return mVersion, nil
+}

@@ -450,6 +450,18 @@ func TestServer(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, shutdownCalled, test.ShouldBeTrue)
 	})
+
+	t.Run("GetVersion", func(t *testing.T) {
+		injectRobot := &inject.Robot{}
+		req := pb.GetVersionRequest{}
+
+		server := server.New(injectRobot)
+		resp, err := server.GetVersion(context.Background(), &req)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, resp.GetPlatform(), test.ShouldEqual, "rdk")
+		test.That(t, resp.GetVersion(), test.ShouldEqual, "dev-unknown")
+		test.That(t, resp.GetApiVersion(), test.ShouldEqual, "?")
+	})
 }
 
 func TestServerFrameSystemConfig(t *testing.T) {

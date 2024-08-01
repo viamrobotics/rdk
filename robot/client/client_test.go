@@ -2198,3 +2198,35 @@ func TestMachineStatus(t *testing.T) {
 		})
 	}
 }
+
+func TestVersion(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+	listener, err := net.Listen("tcp", "localhost:0")
+	test.That(t, err, test.ShouldBeNil)
+	gServer := grpc.NewServer()
+
+	injectRobot := &inject.Robot{
+		ResourceNamesFunc:   func() []resource.Name { return nil },
+		ResourceRPCAPIsFunc: func() []resource.RPCAPI { return nil },
+	}
+
+	pb.RegisterRobotServiceServer(gServer, server.New(injectRobot))
+
+	go gServer.Serve(listener)
+	defer gServer.Stop()
+
+	client, err := New(context.Background(), listener.Addr().String(), logger)
+	test.That(t, err, test.ShouldBeNil)
+	defer func() {
+		test.That(t, client.Close(context.Background()), test.ShouldBeNil)
+	}()
+
+	version := robot.VersionResponse{
+		Platform:   "rdk",
+		Version:    "dev-unknown",
+		APIVersion: "?",
+	}
+	md, err := client.Version(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, md, test.ShouldResemble, version)
+}
