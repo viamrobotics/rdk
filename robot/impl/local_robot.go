@@ -75,8 +75,8 @@ type localRobot struct {
 
 	// configRevision stores the revision of the latest config ingested during
 	// reconfigurations along with a timestamp.
-	configRevision config.Revision
-	configStatusMu sync.RWMutex
+	configRevision   config.Revision
+	configRevisionMu sync.RWMutex
 
 	// internal services that are in the graph but we also hold onto
 	webSvc   web.Service
@@ -1162,12 +1162,12 @@ func (r *localRobot) applyLocalModuleVersions(cfg *config.Config) {
 }
 
 func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, forceSync bool) {
-	r.configStatusMu.Lock()
+	r.configRevisionMu.Lock()
 	r.configRevision = config.Revision{
 		Revision:    newConfig.Revision,
 		LastUpdated: time.Now(),
 	}
-	r.configStatusMu.Unlock()
+	r.configRevisionMu.Unlock()
 
 	var allErrs error
 
@@ -1402,9 +1402,9 @@ func (r *localRobot) MachineStatus(ctx context.Context) (robot.MachineStatus, er
 	result.Resources = append(result.Resources, r.manager.resources.Status()...)
 	r.manager.resourceGraphLock.Unlock()
 
-	r.configStatusMu.RLock()
+	r.configRevisionMu.RLock()
 	result.Config = r.configRevision
-	r.configStatusMu.RUnlock()
+	r.configRevisionMu.RUnlock()
 
 	return result, nil
 }
