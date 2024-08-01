@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"runtime"
+	"sync"
 	"testing"
 	"time"
 
@@ -24,8 +25,9 @@ type (
 		// Logging to a `testing.T` always includes a filename/line number. We use this helper to
 		// avoid that. This function is a no-op for non-test loggers. See `NewTestAppender`
 		// documentation for more details.
-		testHelper func()
-		logFields  []zapcore.Field
+		testHelper  func()
+		logFields   []zapcore.Field
+		logFieldsMu sync.RWMutex
 	}
 
 	// LogEntry embeds a zapcore Entry and slice of Fields.
@@ -78,6 +80,7 @@ func (imp *impl) Sublogger(subname string) Logger {
 		imp.appenders,
 		imp.testHelper,
 		[]zapcore.Field{},
+		sync.RWMutex{},
 	}
 
 	RegisterLogger(newName, sublogger)
@@ -107,6 +110,8 @@ func (imp *impl) WithOptions(opts ...zap.Option) *zap.SugaredLogger {
 }
 
 func (imp *impl) WithFields(args ...interface{}) {
+	imp.logFieldsMu.Lock()
+	defer imp.logFieldsMu.Unlock()
 	// Calls to WithFields with duplicate keys will retain all values instead of the most recent
 	// key overwriting the previous duplicate key(s).
 	for keyIdx := 0; keyIdx < len(args); keyIdx += 2 {
@@ -196,6 +201,8 @@ func (imp *impl) Write(entry *LogEntry) {
 
 // Constructs the log message by forwarding to `fmt.Sprint`. `traceKey` may be the empty string.
 func (imp *impl) format(logLevel Level, traceKey string, args ...interface{}) *LogEntry {
+	imp.logFieldsMu.RLock()
+	defer imp.logFieldsMu.RUnlock()
 	logEntry := imp.NewLogEntry()
 	logEntry.Level = logLevel.AsZap()
 	logEntry.Message = fmt.Sprint(args...)
@@ -215,6 +222,8 @@ func (imp *impl) format(logLevel Level, traceKey string, args ...interface{}) *L
 
 // Constructs the log message by forwarding to `fmt.Sprintf`. `traceKey` may be the empty string.
 func (imp *impl) formatf(logLevel Level, traceKey, template string, args ...interface{}) *LogEntry {
+	imp.logFieldsMu.RLock()
+	defer imp.logFieldsMu.RUnlock()
 	logEntry := imp.NewLogEntry()
 	logEntry.Level = logLevel.AsZap()
 	logEntry.Message = fmt.Sprintf(template, args...)
@@ -237,6 +246,8 @@ func (imp *impl) formatf(logLevel Level, traceKey, template string, args ...inte
 // serialized. Only public fields are included in the serialization. `traceKey` may be the empty
 // string.
 func (imp *impl) formatw(logLevel Level, traceKey, msg string, keysAndValues ...interface{}) *LogEntry {
+	imp.logFieldsMu.RLock()
+	defer imp.logFieldsMu.RUnlock()
 	logEntry := imp.NewLogEntry()
 	logEntry.Level = logLevel.AsZap()
 	logEntry.Message = msg
