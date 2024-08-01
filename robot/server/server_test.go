@@ -27,6 +27,7 @@ import (
 	"go.viam.com/rdk/cloud"
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/components/movementsensor"
+	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/protoutils"
@@ -79,72 +80,99 @@ func TestServer(t *testing.T) {
 		for _, tc := range []struct {
 			name                string
 			injectMachineStatus robot.MachineStatus
+			expConfig           *pb.ConfigStatus
 			expResources        []*pb.ResourceStatus
 			expBadStateCount    int
 		}{
 			{
 				"no resources",
-				robot.MachineStatus{Resources: []resource.Status{}},
+				robot.MachineStatus{
+					Config:    config.Revision{Revision: "rev1"},
+					Resources: []resource.Status{},
+				},
+				&pb.ConfigStatus{Revision: "rev1"},
 				[]*pb.ResourceStatus{},
 				0,
 			},
 			{
 				"resource with unknown status",
-				robot.MachineStatus{Resources: []resource.Status{
-					{
-						Name: arm.Named("badArm"),
+				robot.MachineStatus{
+					Config: config.Revision{Revision: "rev1"},
+					Resources: []resource.Status{
+						{
+							Name:     arm.Named("badArm"),
+							Revision: "rev0",
+						},
 					},
-				}},
+				},
+				&pb.ConfigStatus{Revision: "rev1"},
 				[]*pb.ResourceStatus{
 					{
-						Name:  protoutils.ResourceNameToProto(arm.Named("badArm")),
-						State: pb.ResourceStatus_STATE_UNSPECIFIED,
+						Name:     protoutils.ResourceNameToProto(arm.Named("badArm")),
+						State:    pb.ResourceStatus_STATE_UNSPECIFIED,
+						Revision: "rev0",
 					},
 				},
 				1,
 			},
 			{
 				"resource with valid status",
-				robot.MachineStatus{Resources: []resource.Status{
-					{
-						Name:  arm.Named("goodArm"),
-						State: resource.NodeStateConfiguring,
+				robot.MachineStatus{
+					Config: config.Revision{Revision: "rev1"},
+					Resources: []resource.Status{
+						{
+							Name:     arm.Named("goodArm"),
+							State:    resource.NodeStateConfiguring,
+							Revision: "rev1",
+						},
 					},
-				}},
+				},
+				&pb.ConfigStatus{Revision: "rev1"},
 				[]*pb.ResourceStatus{
 					{
-						Name:  protoutils.ResourceNameToProto(arm.Named("goodArm")),
-						State: pb.ResourceStatus_STATE_CONFIGURING,
+						Name:     protoutils.ResourceNameToProto(arm.Named("goodArm")),
+						State:    pb.ResourceStatus_STATE_CONFIGURING,
+						Revision: "rev1",
 					},
 				},
 				0,
 			},
 			{
 				"resources with mixed valid and invalid statuses",
-				robot.MachineStatus{Resources: []resource.Status{
-					{
-						Name:  arm.Named("goodArm"),
-						State: resource.NodeStateConfiguring,
+				robot.MachineStatus{
+					Config: config.Revision{Revision: "rev1"},
+					Resources: []resource.Status{
+						{
+							Name:     arm.Named("goodArm"),
+							State:    resource.NodeStateConfiguring,
+							Revision: "rev1",
+						},
+						{
+							Name:     arm.Named("badArm"),
+							Revision: "rev0",
+						},
+						{
+							Name:     arm.Named("anotherBadArm"),
+							Revision: "rev-1",
+						},
 					},
-					{
-						Name: arm.Named("badArm"),
-					},
-					{
-						Name: arm.Named("anotherBadArm"),
-					},
-				}},
+				},
+				&pb.ConfigStatus{Revision: "rev1"},
 				[]*pb.ResourceStatus{
 					{
-						Name:  protoutils.ResourceNameToProto(arm.Named("goodArm")),
-						State: pb.ResourceStatus_STATE_CONFIGURING,
+						Name:     protoutils.ResourceNameToProto(arm.Named("goodArm")),
+						State:    pb.ResourceStatus_STATE_CONFIGURING,
+						Revision: "rev1",
 					},
 					{
-						Name:  protoutils.ResourceNameToProto(arm.Named("badArm")),
-						State: pb.ResourceStatus_STATE_UNSPECIFIED,
+						Name:     protoutils.ResourceNameToProto(arm.Named("badArm")),
+						State:    pb.ResourceStatus_STATE_UNSPECIFIED,
+						Revision: "rev0",
 					},
 					{
-						Name:  protoutils.ResourceNameToProto(arm.Named("anotherBadArm")),
-						State: pb.ResourceStatus_STATE_UNSPECIFIED,
+						Name:     protoutils.ResourceNameToProto(arm.Named("anotherBadArm")),
+						State:    pb.ResourceStatus_STATE_UNSPECIFIED,
+						Revision: "rev-1",
 					},
 				},
 				2,
@@ -162,9 +190,11 @@ func TestServer(t *testing.T) {
 			}
 			resp, err := server.GetMachineStatus(context.Background(), &req)
 			test.That(t, err, test.ShouldBeNil)
+			test.That(t, resp.GetConfig().GetRevision(), test.ShouldEqual, tc.expConfig.Revision)
 			for i, res := range resp.GetResources() {
 				test.That(t, res.GetName(), test.ShouldResemble, tc.expResources[i].Name)
 				test.That(t, res.GetState(), test.ShouldResemble, tc.expResources[i].State)
+				test.That(t, res.GetRevision(), test.ShouldEqual, tc.expResources[i].Revision)
 			}
 			const badStateMsg = "resource in an unknown state"
 			badStateCount := logs.FilterLevelExact(zapcore.ErrorLevel).FilterMessageSnippet(badStateMsg).Len()

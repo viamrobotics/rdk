@@ -497,11 +497,16 @@ func (s *Server) GetMachineStatus(ctx context.Context, _ *pb.GetMachineStatusReq
 		return nil, err
 	}
 
+	result.Config = &pb.ConfigStatus{
+		Revision:    mStatus.Config.Revision,
+		LastUpdated: timestamppb.New(mStatus.Config.LastUpdated),
+	}
 	result.Resources = make([]*pb.ResourceStatus, 0, len(mStatus.Resources))
 	for _, resStatus := range mStatus.Resources {
 		pbResStatus := &pb.ResourceStatus{
 			Name:        protoutils.ResourceNameToProto(resStatus.Name),
 			LastUpdated: timestamppb.New(resStatus.LastUpdated),
+			Revision:    resStatus.Revision,
 		}
 
 		switch resStatus.State {
