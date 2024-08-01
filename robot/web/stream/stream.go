@@ -23,7 +23,7 @@ func StreamVideoSource(
 	backoffOpts *BackoffTuningOptions,
 	logger logging.Logger,
 ) error {
-	return gostream.StreamVideoSourceWithErrorHandler(ctx, source, stream, backoffOpts.getErrorThrottledHandler(logger))
+	return gostream.StreamVideoSourceWithErrorHandler(ctx, source, stream, backoffOpts.getErrorThrottledHandler(logger), logger)
 }
 
 // StreamAudioSource starts a stream from an audio source with a throttled error handler.
@@ -34,7 +34,7 @@ func StreamAudioSource(
 	backoffOpts *BackoffTuningOptions,
 	logger logging.Logger,
 ) error {
-	return gostream.StreamAudioSourceWithErrorHandler(ctx, source, stream, backoffOpts.getErrorThrottledHandler(logger))
+	return gostream.StreamAudioSourceWithErrorHandler(ctx, source, stream, backoffOpts.getErrorThrottledHandler(logger), logger)
 }
 
 // BackoffTuningOptions represents a set of parameters for determining exponential

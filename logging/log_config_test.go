@@ -18,7 +18,7 @@ func verifySetLevels(registry *loggerRegistry, expectedMatches map[string]string
 }
 
 func createTestRegistry(loggerNames []string) *loggerRegistry {
-	manager := newLoggerManager()
+	manager := newLoggerRegistry()
 	for _, name := range loggerNames {
 		manager.registerLogger(name, NewLogger(name))
 	}
@@ -26,25 +26,61 @@ func createTestRegistry(loggerNames []string) *loggerRegistry {
 }
 
 func TestValidatePattern(t *testing.T) {
-	test.That(t, validatePattern("robot_server.resource_manager"), test.ShouldBeTrue)
-	test.That(t, validatePattern("robot_server.resource_manager.*"), test.ShouldBeTrue)
-	test.That(t, validatePattern("robot_server.*.resource_manager"), test.ShouldBeTrue)
-	test.That(t, validatePattern("robot_server.*.*"), test.ShouldBeTrue)
-	test.That(t, validatePattern("*.resource_manager"), test.ShouldBeTrue)
-	test.That(t, validatePattern("*"), test.ShouldBeTrue)
+	t.Parallel()
 
-	test.That(t, validatePattern("robot_server..resource_manager"), test.ShouldBeFalse)
-	test.That(t, validatePattern("robot_server.resource_manager."), test.ShouldBeFalse)
-	test.That(t, validatePattern(".robot_server.resource_manager"), test.ShouldBeFalse)
-	test.That(t, validatePattern("robot_server.resource_manager.**"), test.ShouldBeFalse)
-	test.That(t, validatePattern("robot_server.**.resource_manager"), test.ShouldBeFalse)
+	type testCfg struct {
+		pattern string
+		isValid bool
+	}
 
-	test.That(t, validatePattern("_.robot_server.resource_manager"), test.ShouldBeFalse)
-	test.That(t, validatePattern("-.robot_server"), test.ShouldBeFalse)
-	test.That(t, validatePattern("robot_server.-"), test.ShouldBeFalse)
-	test.That(t, validatePattern("robot_server.-"), test.ShouldBeFalse)
-	test.That(t, validatePattern("robot_server.-.resource_manager"), test.ShouldBeFalse)
-	test.That(t, validatePattern("robot_server._.resource_manager"), test.ShouldBeFalse)
+	tests := []testCfg{
+		// Valid patterns
+		{"robot_server.resource_manager", true},
+		{"robot_server.resource_manager.*", true},
+		{"robot_server.*.resource_manager", true},
+		{"robot_server.*.*", true},
+		{"*.resource_manager", true},
+		{"*", true},
+
+		// Invalid patterns
+		{"robot_server..resource_manager", false},
+		{"robot_server.resource_manager.", false},
+		{".robot_server.resource_manager", false},
+		{"robot_server.resource_manager.**", false},
+		{"robot_server.**.resource_manager", false},
+
+		// Invalid patterns with special characters
+		{"_.robot_server.resource_manager", false},
+		{"-.robot_server", false},
+		{"robot_server.-", false},
+		{"robot_server.-.resource_manager", false},
+		{"robot_server._.resource_manager", false},
+
+		// Resource pattern matching (valid patterns)
+		{"rdk.rdk:service:encoder/encoder1", true},
+		{"rdk.rdk:component:motor/motor1", true},
+		{"rdk.acme:*:motor/motor1", true},
+		{"rdk.rdk:service:navigation/test-navigation", true},
+		{"rdk.*:*:motor/*", true},
+		{"rdk.rdk:remote:/foo", true},
+
+		// Resource pattern matching (invalid patterns)
+		{"fake.rdk:service:encoder/encoder1", false},
+		{"rdk.rdk:service:encoder/encoder1 1", false},
+		{"1 rdk.rdk:service:encoder/encoder1", false},
+		{"rdk.rdk:fake:encoder/encoder1", false},
+		{"rdk.:service:encoder/encoder1", false},
+		{"rdk.rdk:service:/encoder", false},
+		{"rdk.rdk:service:encoder/", false},
+	}
+
+	for _, tc := range tests {
+		tc := tc
+		t.Run(tc.pattern, func(t *testing.T) {
+			t.Parallel()
+			test.That(t, validatePattern(tc.pattern), test.ShouldEqual, tc.isValid)
+		})
+	}
 }
 
 func TestUpdateLoggerRegistry(t *testing.T) {

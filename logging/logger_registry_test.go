@@ -14,11 +14,11 @@ var (
 )
 
 func mockRegistry() *loggerRegistry {
-	manager := newLoggerManager()
+	manager := newLoggerRegistry()
 	manager.registerLogger("logger-1", l1)
 	manager.registerLogger("logger-2", l2)
 	l3.Sublogger("sublogger-1")
-	loggerManager = manager
+	globalLoggerRegistry = manager
 	return manager
 }
 
@@ -104,4 +104,65 @@ func TestGetRegisteredNames(t *testing.T) {
 		_, ok := manager.loggerNamed(name)
 		test.That(t, ok, test.ShouldBeTrue)
 	}
+}
+
+func TestRegisterConfig(t *testing.T) {
+	manager := mockRegistry()
+	fakeLogger := NewLogger("abc")
+	manager.registerLogger("abc", fakeLogger)
+	logCfg := []LoggerPatternConfig{
+		{
+			Pattern: "abc",
+			Level:   "WARN",
+		},
+		{
+			Pattern: "def",
+			Level:   "ERROR",
+		},
+	}
+	err := manager.registerConfig(logCfg)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, manager.logConfig, test.ShouldResemble, logCfg)
+	test.That(t, fakeLogger.GetLevel().String(), test.ShouldEqual, "Warn")
+}
+
+func TestUpdateLoggerLevelWithCfg(t *testing.T) {
+	manager := mockRegistry()
+
+	logCfg := []LoggerPatternConfig{
+		{
+			Pattern: "a.*",
+			Level:   "WARN",
+		},
+	}
+	err := manager.registerConfig(logCfg)
+	test.That(t, err, test.ShouldBeNil)
+
+	manager.registerLogger("a.b.c", NewLogger("a.b.c"))
+	manager.registerLogger("a.b.d", NewLogger("a.b.d"))
+
+	err = manager.updateLoggerLevelWithCfg("a.b.c")
+	test.That(t, err, test.ShouldBeNil)
+
+	// ONLY a.b.c hould be modified despite the pattern in
+	// the config matching multiple loggers.
+	logger, ok := manager.loggerNamed("a.b.c")
+	test.That(t, ok, test.ShouldBeTrue)
+	test.That(t, logger.GetLevel().String(), test.ShouldEqual, "Warn")
+
+	logger, ok = manager.loggerNamed("a.b.d")
+	test.That(t, ok, test.ShouldBeTrue)
+	test.That(t, logger.GetLevel().String(), test.ShouldEqual, "Info")
+}
+
+func TestGetCurrentConfig(t *testing.T) {
+	manager := mockRegistry()
+	logCfg := []LoggerPatternConfig{
+		{
+			Pattern: "a.*",
+			Level:   "WARN",
+		},
+	}
+	manager.registerConfig(logCfg)
+	test.That(t, manager.getCurrentConfig(), test.ShouldResemble, logCfg)
 }

@@ -1086,7 +1086,7 @@ func (m *module) startProcess(
 		pconf.Args = append(pconf.Args, fmt.Sprintf(logLevelArgumentTemplate, "debug"))
 	}
 
-	m.process = pexec.NewManagedProcess(pconf, logger.AsZap())
+	m.process = pexec.NewManagedProcess(pconf, logger)
 
 	if err := m.process.Start(context.Background()); err != nil {
 		return errors.WithMessage(err, "module startup failed")

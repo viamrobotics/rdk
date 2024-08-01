@@ -97,13 +97,10 @@ func makeRTKI2C(
 		return nil, err
 	}
 
-	cancelCtx, cancelFunc := context.WithCancel(context.Background())
 	g := &gpsrtk{
-		Named:      conf.ResourceName().AsNamed(),
-		cancelCtx:  cancelCtx,
-		cancelFunc: cancelFunc,
-		logger:     logger,
-		err:        movementsensor.NewLastError(1, 1),
+		Named:  conf.ResourceName().AsNamed(),
+		logger: logger,
+		err:    movementsensor.NewLastError(1, 1),
 	}
 
 	ntripConfig := &gpsutils.NtripConfig{
@@ -131,7 +128,7 @@ func makeRTKI2C(
 
 	// If we have a mock I2C bus, pass that in, too. If we don't, it'll be nil and constructing the
 	// reader will create a real I2C bus instead.
-	dev, err := gpsutils.NewI2cDataReader(i2cConfig, mockI2c, logger)
+	dev, err := gpsutils.NewI2cDataReader(ctx, i2cConfig, mockI2c, logger)
 	if err != nil {
 		return nil, err
 	}

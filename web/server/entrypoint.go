@@ -222,7 +222,7 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 
 	hungShutdownDeadline := 90 * time.Second
 	slowWatcher, slowWatcherCancel := utils.SlowGoroutineWatcherAfterContext(
-		ctx, hungShutdownDeadline, "server is taking a while to shutdown", s.logger.AsZap())
+		ctx, hungShutdownDeadline, "server is taking a while to shutdown", s.logger)
 
 	doneServing := make(chan struct{})
 

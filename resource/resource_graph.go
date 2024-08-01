@@ -640,3 +640,16 @@ func (g *Graph) SubGraphFrom(node Name) (*Graph, error) {
 	}
 	return subGraph, nil
 }
+
+// Status returns a slice of all graph node statuses.
+func (g *Graph) Status() []Status {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+
+	var result []Status
+	for _, node := range g.nodes {
+		result = append(result, node.ResourceStatus())
+	}
+
+	return result
+}

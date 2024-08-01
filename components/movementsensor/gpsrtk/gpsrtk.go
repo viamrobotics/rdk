@@ -26,24 +26,22 @@ import (
 	"github.com/go-gnss/rtcm/rtcm3"
 	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
-	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/components/movementsensor/gpsutils"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
+	"go.viam.com/rdk/utils"
 )
 
 // gpsrtk is an nmea movementsensor model that can intake RTK correction data.
 type gpsrtk struct {
 	resource.Named
 	resource.AlwaysRebuild
-	logger     logging.Logger
-	cancelCtx  context.Context
-	cancelFunc func()
+	logger logging.Logger
 
-	activeBackgroundWorkers sync.WaitGroup
+	workers utils.StoppableWorkers
 
 	err      movementsensor.LastError
 	isClosed bool
@@ -61,9 +59,11 @@ type gpsrtk struct {
 }
 
 func (g *gpsrtk) start() error {
-	g.activeBackgroundWorkers.Add(1)
-	utils.PanicCapturingGo(g.receiveAndWriteCorrectionData)
-	return g.err.Get()
+	if g.workers != nil {
+		return errors.New("do not call start() twice on the same object")
+	}
+	g.workers = utils.NewStoppableWorkers(g.receiveAndWriteCorrectionData)
+	return nil
 }
 
 // closeCorrectionWriter closes the correctionWriter.
@@ -76,17 +76,18 @@ func (g *gpsrtk) closeCorrectionWriter() {
 		if err != nil {
 			g.logger.Errorf("Error closing port: %v", err)
 		}
+		g.correctionWriter = nil
 	}
 }
 
 // connectAndParseSourceTable connects to the NTRIP caster, gets and parses source table
 // from the caster.
-func (g *gpsrtk) connectAndParseSourceTable() error {
-	if err := g.cancelCtx.Err(); err != nil {
+func (g *gpsrtk) connectAndParseSourceTable(cancelCtx context.Context) error {
+	if err := cancelCtx.Err(); err != nil {
 		return g.err.Get()
 	}
 
-	err := g.ntripClient.Connect(g.cancelCtx, g.logger)
+	err := g.ntripClient.Connect(cancelCtx, g.logger)
 	if err != nil {
 		g.err.Set(err)
 		return g.err.Get()
@@ -111,12 +112,12 @@ func (g *gpsrtk) connectAndParseSourceTable() error {
 	return nil
 }
 
-func (g *gpsrtk) getStream() (*rtcm3.Scanner, error) {
+func (g *gpsrtk) getStream(cancelCtx context.Context) (*rtcm3.Scanner, error) {
 	var streamSource io.Reader
 
 	if g.isVirtualBase {
 		g.logger.Debug("connecting to Virtual Reference Station")
-		err := g.getNtripFromVRS()
+		err := g.getNtripFromVRS(cancelCtx)
 		if err != nil {
 			return nil, err
 		}
@@ -124,7 +125,7 @@ func (g *gpsrtk) getStream() (*rtcm3.Scanner, error) {
 	} else {
 		g.logger.Debug("connecting to NTRIP stream from static mount point...")
 		var err error
-		streamSource, err = g.ntripClient.GetStreamFromMountPoint(g.cancelCtx, g.logger)
+		streamSource, err = g.ntripClient.GetStreamFromMountPoint(cancelCtx, g.logger)
 		if err != nil {
 			return nil, err
 		}
@@ -136,26 +137,25 @@ func (g *gpsrtk) getStream() (*rtcm3.Scanner, error) {
 
 // receiveAndWriteCorrectionData connects to the NTRIP receiver and sends the correction stream to
 // the MovementSensor.
-func (g *gpsrtk) receiveAndWriteCorrectionData() {
-	defer g.activeBackgroundWorkers.Done()
+func (g *gpsrtk) receiveAndWriteCorrectionData(cancelCtx context.Context) {
 	defer g.closeCorrectionWriter()
 
-	err := g.connectAndParseSourceTable()
+	err := g.connectAndParseSourceTable(cancelCtx)
 	if err != nil {
 		g.logger.Errorf("unable to parse source table! Aborting: %w", err)
 		return
 	}
 
 	// While we're supposed to keep running, (re)connect to the caster.
-	for !g.isClosed && g.cancelCtx.Err() == nil {
-		scanner, err := g.getStream()
+	for !g.isClosed && cancelCtx.Err() == nil {
+		scanner, err := g.getStream(cancelCtx)
 		if err != nil {
 			g.logger.Errorf("unable to get NTRIP stream! Aborting: %w", err)
 			return
 		}
 
 		for err == nil { // Keep checking our connection until it fails and needs to reconnect
-			if g.isClosed || g.cancelCtx.Err() != nil {
+			if g.isClosed || cancelCtx.Err() != nil {
 				return
 			}
 
@@ -270,7 +270,6 @@ func (g *gpsrtk) Readings(ctx context.Context, extra map[string]interface{}) (ma
 	commonReadings := g.cachedData.GetCommonReadings(ctx)
 
 	readings["fix"] = commonReadings.FixValue
-	readings["satellites_in_view"] = commonReadings.SatsInView
 	readings["satellites_in_use"] = commonReadings.SatsInUse
 
 	return readings, nil
@@ -278,20 +277,19 @@ func (g *gpsrtk) Readings(ctx context.Context, extra map[string]interface{}) (ma
 
 // Close shuts down the gpsrtk.
 func (g *gpsrtk) Close(ctx context.Context) error {
-	g.mu.Lock()
-	g.cancelFunc()
-
 	g.logger.Debug("Closing GPS RTK")
+	g.workers.Stop()
+
+	g.mu.Lock()
+	defer g.mu.Unlock()
+
 	if err := g.cachedData.Close(ctx); err != nil {
-		g.mu.Unlock()
 		return err
 	}
 
-	// close ntrip writer
 	if g.correctionWriter != nil {
 		if err := g.correctionWriter.Close(); err != nil {
 			g.isClosed = true
-			g.mu.Unlock()
 			return err
 		}
 		g.correctionWriter = nil
@@ -299,22 +297,13 @@ func (g *gpsrtk) Close(ctx context.Context) error {
 
 	if g.vrs != nil {
 		if err := g.vrs.Close(ctx); err != nil {
-			g.mu.Unlock()
 			return err
 		}
 	}
 
-	// WARNING: if the background goroutine is calling `getStream()` and is waiting on the mutex
-	// before initializing `g.ntripClient.Stream`, we might finish closing and then initialize a new
-	// stream. This could be fixed by putting the background goroutine in a StoppableWorkers which
-	// we shut down at the top of this function, which can happen in the near future.
 	if err := g.ntripClient.Close(ctx); err != nil {
-		g.mu.Unlock()
 		return err
 	}
-
-	g.mu.Unlock()
-	g.activeBackgroundWorkers.Wait()
 
 	if err := g.err.Get(); err != nil && !errors.Is(err, context.Canceled) {
 		return err
@@ -326,17 +315,17 @@ func (g *gpsrtk) Close(ctx context.Context) error {
 
 // getNtripFromVRS sends GGA messages to the NTRIP Caster over a TCP connection
 // to get the NTRIP steam when the mount point is a Virtual Reference Station.
-func (g *gpsrtk) getNtripFromVRS() error {
+func (g *gpsrtk) getNtripFromVRS(cancelCtx context.Context) error {
 	g.mu.Lock()
 	defer g.mu.Unlock()
 	var err error
 	if g.vrs != nil {
-		if err := g.vrs.Close(g.cancelCtx); err != nil {
+		if err := g.vrs.Close(cancelCtx); err != nil {
 			return err
 		}
 		g.vrs = nil
 	}
-	g.vrs, err = gpsutils.ConnectToVirtualBase(g.cancelCtx, g.ntripClient, g.cachedData.GGA, g.logger)
+	g.vrs, err = gpsutils.ConnectToVirtualBase(cancelCtx, g.ntripClient, g.cachedData.GGA, g.logger)
 	if err != nil {
 		return err
 	}

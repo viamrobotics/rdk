@@ -32,7 +32,7 @@ jobs:
   motion-tests-extended:
     name:  Motion Extended Tests
     needs: check-files
-    runs-on: [buildjet-8vcpu-ubuntu-2204]
+    runs-on: ubuntu-large
     container: ghcr.io/viamrobotics/rdk-devenv:amd64-cache
     if: ${{ needs.check-files.outputs.EXTENDED_MOTION_TEST == 'true' }}
     timeout-minutes: 30

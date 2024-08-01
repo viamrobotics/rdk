@@ -192,7 +192,7 @@ func (svc *webService) makeStreamServer(ctx context.Context) (*StreamServer, err
 		} else {
 			config.AudioEncoderFactory = svc.opts.streamConfig.AudioEncoderFactory
 		}
-		stream, err := gostream.NewStream(config)
+		stream, err := gostream.NewStream(config, svc.logger)
 		if err != nil {
 			return streams, err
 		}

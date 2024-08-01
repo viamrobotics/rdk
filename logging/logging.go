@@ -13,7 +13,7 @@ import (
 
 var (
 	globalMu     sync.RWMutex
-	globalLogger = NewDebugLogger("startup")
+	globalLogger = NewDebugLogger("global")
 
 	// GlobalLogLevel should be used whenever a zap logger is created that wants to obey the debug
 	// flag from the CLI or robot config.
@@ -126,13 +126,13 @@ type MemLogger struct {
 	Logger
 
 	tb       testing.TB
-	observer *observer.ObservedLogs
+	Observer *observer.ObservedLogs
 }
 
 // OutputLogs writes in-memory logs to the test object MemLogger was constructed with.
 func (memLogger *MemLogger) OutputLogs() {
 	appender := NewTestAppender(memLogger.tb)
-	for _, loggedEntry := range memLogger.observer.All() {
+	for _, loggedEntry := range memLogger.Observer.All() {
 		utils.UncheckedError(appender.Write(loggedEntry.Entry, loggedEntry.Context))
 	}
 }

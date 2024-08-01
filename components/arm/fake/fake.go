@@ -194,8 +194,7 @@ func (a *Arm) MoveToJointPositions(ctx context.Context, joints *pb.JointPosition
 func (a *Arm) JointPositions(ctx context.Context, extra map[string]interface{}) (*pb.JointPositions, error) {
 	a.mu.RLock()
 	defer a.mu.RUnlock()
-	retJoint := &pb.JointPositions{Values: referenceframe.InputsToFloats(a.joints)}
-	return retJoint, nil
+	return a.model.ProtobufFromInput(a.joints), nil
 }
 
 // Stop doesn't do anything for a fake arm.
@@ -208,24 +207,19 @@ func (a *Arm) IsMoving(ctx context.Context) (bool, error) {
 	return false, nil
 }
 
-// CurrentInputs TODO.
+// CurrentInputs returns the current inputs of the fake arm.
 func (a *Arm) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
-	res, err := a.JointPositions(ctx, nil)
-	if err != nil {
-		return nil, err
-	}
-	return a.model.InputFromProtobuf(res), nil
+	a.mu.RLock()
+	defer a.mu.RUnlock()
+	return a.joints, nil
 }
 
-// GoToInputs TODO.
+// GoToInputs moves the fake arm to the given inputs.
 func (a *Arm) GoToInputs(ctx context.Context, inputSteps ...[]referenceframe.Input) error {
 	for _, goal := range inputSteps {
 		a.mu.RLock()
 		positionDegs := a.model.ProtobufFromInput(goal)
 		a.mu.RUnlock()
-		if err := arm.CheckDesiredJointPositions(ctx, a, goal); err != nil {
-			return err
-		}
 		err := a.MoveToJointPositions(ctx, positionDegs, nil)
 		if err != nil {
 			return err

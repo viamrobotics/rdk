@@ -200,7 +200,7 @@ func (c *viamClient) downloadDataset(dst, datasetID string, includeJSONLines boo
 			downloadErr := downloadBinary(c.c.Context, c.dataClient, dst, id, c.authFlow.httpClient, c.conf.Auth)
 			var datasetErr error
 			if includeJSONLines {
-				datasetErr = binaryDataToJSONLines(c.c.Context, c.dataClient, datasetFile, id)
+				datasetErr = binaryDataToJSONLines(c.c.Context, c.dataClient, dst, datasetFile, id)
 			}
 			return multierr.Combine(downloadErr, datasetErr)
 		},
@@ -234,7 +234,7 @@ type BBoxAnnotation struct {
 	YMaxNormalized  float64 `json:"y_max_normalized"`
 }
 
-func binaryDataToJSONLines(ctx context.Context, client datapb.DataServiceClient, file *os.File,
+func binaryDataToJSONLines(ctx context.Context, client datapb.DataServiceClient, dst string, file *os.File,
 	id *datapb.BinaryID,
 ) error {
 	var resp *datapb.BinaryDataByIDsResponse
@@ -267,7 +267,7 @@ func binaryDataToJSONLines(ctx context.Context, client datapb.DataServiceClient,
 	}
 	bboxAnnotations := convertBoundingBoxes(datum.GetMetadata().GetAnnotations().GetBboxes())
 	jsonl = ImageMetadata{
-		ImagePath:                 filenameForDownload(datum.GetMetadata()),
+		ImagePath:                 filepath.Join(dst, dataDir, filenameForDownload(datum.GetMetadata())),
 		ClassificationAnnotations: annotations,
 		BBoxAnnotations:           bboxAnnotations,
 	}

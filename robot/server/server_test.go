@@ -13,6 +13,7 @@ import (
 	"github.com/golang/geo/r3"
 	"github.com/google/uuid"
 	"github.com/jhump/protoreflect/grpcreflect"
+	"go.uber.org/zap/zapcore"
 	commonpb "go.viam.com/api/common/v1"
 	armpb "go.viam.com/api/component/arm/v1"
 	pb "go.viam.com/api/robot/v1"
@@ -72,6 +73,103 @@ func TestServer(t *testing.T) {
 		resourceResp, err = server.ResourceNames(context.Background(), &pb.ResourceNamesRequest{})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, resourceResp.Resources, test.ShouldResemble, serverOneResourceResponse)
+	})
+
+	t.Run("GetMachineStatus", func(t *testing.T) {
+		for _, tc := range []struct {
+			name                string
+			injectMachineStatus robot.MachineStatus
+			expResources        []*pb.ResourceStatus
+			expBadStateCount    int
+		}{
+			{
+				"no resources",
+				robot.MachineStatus{Resources: []resource.Status{}},
+				[]*pb.ResourceStatus{},
+				0,
+			},
+			{
+				"resource with unknown status",
+				robot.MachineStatus{Resources: []resource.Status{
+					{
+						Name: arm.Named("badArm"),
+					},
+				}},
+				[]*pb.ResourceStatus{
+					{
+						Name:  protoutils.ResourceNameToProto(arm.Named("badArm")),
+						State: pb.ResourceStatus_STATE_UNSPECIFIED,
+					},
+				},
+				1,
+			},
+			{
+				"resource with valid status",
+				robot.MachineStatus{Resources: []resource.Status{
+					{
+						Name:  arm.Named("goodArm"),
+						State: resource.NodeStateConfiguring,
+					},
+				}},
+				[]*pb.ResourceStatus{
+					{
+						Name:  protoutils.ResourceNameToProto(arm.Named("goodArm")),
+						State: pb.ResourceStatus_STATE_CONFIGURING,
+					},
+				},
+				0,
+			},
+			{
+				"resources with mixed valid and invalid statuses",
+				robot.MachineStatus{Resources: []resource.Status{
+					{
+						Name:  arm.Named("goodArm"),
+						State: resource.NodeStateConfiguring,
+					},
+					{
+						Name: arm.Named("badArm"),
+					},
+					{
+						Name: arm.Named("anotherBadArm"),
+					},
+				}},
+				[]*pb.ResourceStatus{
+					{
+						Name:  protoutils.ResourceNameToProto(arm.Named("goodArm")),
+						State: pb.ResourceStatus_STATE_CONFIGURING,
+					},
+					{
+						Name:  protoutils.ResourceNameToProto(arm.Named("badArm")),
+						State: pb.ResourceStatus_STATE_UNSPECIFIED,
+					},
+					{
+						Name:  protoutils.ResourceNameToProto(arm.Named("anotherBadArm")),
+						State: pb.ResourceStatus_STATE_UNSPECIFIED,
+					},
+				},
+				2,
+			},
+		} {
+			logger, logs := logging.NewObservedTestLogger(t)
+			injectRobot := &inject.Robot{}
+			server := server.New(injectRobot)
+			req := pb.GetMachineStatusRequest{}
+			injectRobot.LoggerFunc = func() logging.Logger {
+				return logger
+			}
+			injectRobot.MachineStatusFunc = func(ctx context.Context) (robot.MachineStatus, error) {
+				return tc.injectMachineStatus, nil
+			}
+			resp, err := server.GetMachineStatus(context.Background(), &req)
+			test.That(t, err, test.ShouldBeNil)
+			for i, res := range resp.GetResources() {
+				test.That(t, res.GetName(), test.ShouldResemble, tc.expResources[i].Name)
+				test.That(t, res.GetState(), test.ShouldResemble, tc.expResources[i].State)
+			}
+			const badStateMsg = "resource in an unknown state"
+			badStateCount := logs.FilterLevelExact(zapcore.ErrorLevel).FilterMessageSnippet(badStateMsg).Len()
+			test.That(t, badStateCount, test.ShouldEqual, tc.expBadStateCount)
+		}
 	})
 
 	t.Run("GetCloudMetadata", func(t *testing.T) {

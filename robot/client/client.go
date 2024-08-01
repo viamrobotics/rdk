@@ -1016,3 +1016,40 @@ func (rc *RobotClient) Shutdown(ctx context.Context) error {
 	rc.Logger().CDebug(ctx, "robot shutdown successful")
 	return nil
 }
+
+// MachineStatus returns the current status of the robot.
+func (rc *RobotClient) MachineStatus(ctx context.Context) (robot.MachineStatus, error) {
+	mStatus := robot.MachineStatus{}
+
+	req := &pb.GetMachineStatusRequest{}
+	resp, err := rc.client.GetMachineStatus(ctx, req)
+	if err != nil {
+		return mStatus, err
+	}
+
+	mStatus.Resources = make([]resource.Status, 0, len(resp.Resources))
+	for _, pbResStatus := range resp.Resources {
+		resStatus := resource.Status{
+			Name:        rprotoutils.ResourceNameFromProto(pbResStatus.Name),
+			LastUpdated: pbResStatus.LastUpdated.AsTime(),
+		}
+
+		switch pbResStatus.State {
+		case pb.ResourceStatus_STATE_UNSPECIFIED:
+			rc.logger.CErrorw(ctx, "received resource in an unspecified state", "resource", resStatus.Name.String())
+			resStatus.State = resource.NodeStateUnknown
+		case pb.ResourceStatus_STATE_UNCONFIGURED:
+			resStatus.State = resource.NodeStateUnconfigured
+		case pb.ResourceStatus_STATE_CONFIGURING:
+			resStatus.State = resource.NodeStateConfiguring
+		case pb.ResourceStatus_STATE_READY:
+			resStatus.State = resource.NodeStateReady
+		case pb.ResourceStatus_STATE_REMOVING:
+			resStatus.State = resource.NodeStateRemoving
+		}
+
+		mStatus.Resources = append(mStatus.Resources, resStatus)
+	}
+
+	return mStatus, nil
+}

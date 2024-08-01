@@ -93,13 +93,10 @@ func newRTKSerial(
 		return nil, err
 	}
 
-	cancelCtx, cancelFunc := context.WithCancel(context.Background())
 	g := &gpsrtk{
-		Named:      conf.ResourceName().AsNamed(),
-		cancelCtx:  cancelCtx,
-		cancelFunc: cancelFunc,
-		logger:     logger,
-		err:        movementsensor.NewLastError(1, 1),
+		Named:  conf.ResourceName().AsNamed(),
+		logger: logger,
+		err:    movementsensor.NewLastError(1, 1),
 	}
 
 	if newConf.SerialPath != "" {
@@ -132,7 +129,7 @@ func newRTKSerial(
 		SerialPath:     newConf.SerialPath,
 		SerialBaudRate: newConf.SerialBaudRate,
 	}
-	dev, err := gpsutils.NewSerialDataReader(serialConfig, logger)
+	dev, err := gpsutils.NewSerialDataReader(ctx, serialConfig, logger)
 	if err != nil {
 		return nil, err
 	}
