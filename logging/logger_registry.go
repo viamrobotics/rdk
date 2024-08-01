@@ -184,6 +184,8 @@ func GetCurrentConfig() []LoggerPatternConfig {
 	return globalLoggerRegistry.getCurrentConfig()
 }
 
+// GetOrNewLogger returns a logger with the specified name if it exists, otherwise it
+// creates and registers one with the same name.
 // Consider removing this as a part of or after RSDK-8291 (https://viam.atlassian.net/browse/RSDK-8291)
 // which may consolidate various calls to the rdk.networking logger into one.
 func GetOrNewLogger(name string) (logger Logger) {
