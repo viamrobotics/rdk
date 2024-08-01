@@ -43,10 +43,13 @@ func (wf *wrapperFrame) Transform(inputs []referenceframe.Input) (spatialmath.Po
 	if len(inputs) != len(wf.DoF()) {
 		return nil, referenceframe.NewIncorrectInputLengthError(len(inputs), len(wf.DoF()))
 	}
+	// executionFramePose is our pose in a given set of plan.Trajectory inputs
 	executionFramePose, err := wf.executionFrame.Transform(inputs[:len(wf.executionFrame.DoF())])
 	if err != nil {
 		return nil, err
 	}
+	// localizationFramePose is where the executionFramePose is supposed to be relative to
+	// since the executionFramePose is always first with respect to the origin
 	localizationFramePose, err := wf.localizationFrame.Transform(inputs[len(wf.executionFrame.DoF()):])
 	if err != nil {
 		return nil, err
@@ -68,6 +71,9 @@ func (wf *wrapperFrame) Interpolate(from, to []referenceframe.Input, by float64)
 	// the first four values correspond to ptg(execution) frame values we want the interpolate
 	// the latter seven values correspond to pose(localization) frame values we want the interpolate
 
+	// Note: since we are working with a ptg frame all interpolations of any inputs list
+	// will always begin at the origin, i.e. the zero pose
+
 	// executionFrame interpolation
 	executionFrameFromSubset := make([]referenceframe.Input, len(wf.executionFrame.DoF()))
 	executionFrameToSubset := to[:len(wf.executionFrame.DoF())]
@@ -77,11 +83,13 @@ func (wf *wrapperFrame) Interpolate(from, to []referenceframe.Input, by float64)
 	}
 	interp = append(interp, interpSub...)
 
-	// localizationFrame interpolation
-	// interpolating the localizationFrame is a special case
-	// the ToSubset of the localizationFrame does not matter since the executionFrame interpolations
-	// move us through a given segment and the localizationFrame input values are what we compose with
-	// the position ourselves in our absolute position in world.
+	// interpolating the localization frame is a special case
+	// we do not need to interpolate the values of the localization frame at all
+	// the localization frame informs where the execution frame's interpolations
+	// are supposed to begin, i.e. be with respect to in case the pose the
+	// localizationFrameSubset produces is not the origin
+
+	// execution(localization) frame interpolation
 	localizationFrameSubset := to[len(wf.executionFrame.DoF()):]
 	interp = append(interp, localizationFrameSubset...)
 

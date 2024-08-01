@@ -199,6 +199,9 @@ func (mr *moveRequest) getTransientDetections(
 	if err != nil {
 		return nil, err
 	}
+	// the inputMap informs where we are in the world
+	// the inputMap will be used downstream to transform the observed geometry from the camera frame
+	// into the world frame
 	inputMap, _, err := mr.fsService.CurrentInputs(ctx)
 	if err != nil {
 		return nil, err
@@ -224,6 +227,10 @@ func (mr *moveRequest) getTransientDetections(
 			label += "_" + geometry.Label()
 		}
 		geometry.SetLabel(label)
+
+		// the geometry is originally in the frame of the camera that observed it
+		// here we use a framesystem which has the wrapper frame to position the geometry
+		// in the world frame
 		tf, err := mr.localizingFS.Transform(
 			inputMap,
 			referenceframe.NewGeometriesInFrame(camName.ShortName(), []spatialmath.Geometry{geometry}),
@@ -358,18 +365,21 @@ func (mr *moveRequest) augmentBaseExecutionState(
 		// we will use the base's reported current position.
 
 		currPathStep := existingPlan.Path()[idx]
-		kbPose := currPathStep[mr.kinematicBase.Kinematics().Name()]
 		kbTraj := currTraj[mr.kinematicBase.Name().Name]
-		trajPose, err := mr.kinematicBase.Kinematics().Transform(kbTraj)
-		if err != nil {
-			return baseExecutionState, err
-		}
+
+		// determine which pose should be used as the origin of a ptg input
 		var prevPathPose spatialmath.Pose
 		if idx == baseExecutionState.Index() {
 			prevPathPose = baseExecutionState.CurrentPoses()[mr.kinematicBase.LocalizationFrame().Name()].Pose()
 		} else {
+			kbPose := currPathStep[mr.kinematicBase.Kinematics().Name()]
+			trajPose, err := mr.kinematicBase.Kinematics().Transform(kbTraj)
+			if err != nil {
+				return baseExecutionState, err
+			}
 			prevPathPose = spatialmath.PoseBetweenInverse(trajPose, kbPose.Pose())
 		}
+
 		updatedTraj := kbTraj
 		updatedTraj = append(updatedTraj, referenceframe.PoseToInputsRadians(prevPathPose)...)
 		newTrajectory = append(
@@ -393,7 +403,9 @@ func (mr *moveRequest) augmentBaseExecutionState(
 	)
 	allCurrentInputsFromBaseExecutionState[mr.kinematicBase.Kinematics().Name()] = kinematicBaseCurrentInputs
 
-	// update currentPoses
+	// originally currenPoses are in the name of the localization frame
+	// here to transfer them to be in the name of the kinematics frame
+	// the kinematic frame's name is the same as the wrapper frame
 	existingCurrentPoses := baseExecutionState.CurrentPoses()
 	localizationFramePose := existingCurrentPoses[mr.kinematicBase.LocalizationFrame().Name()]
 	existingCurrentPoses[mr.kinematicBase.Name().Name] = localizationFramePose
