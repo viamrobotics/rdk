@@ -10,6 +10,7 @@ import (
 	"go.viam.com/utils/rpc"
 	"google.golang.org/grpc"
 
+	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/utils/contextutils"
 )
@@ -65,15 +66,16 @@ func InferSignalingServerAddress(address string) (string, bool, bool) {
 }
 
 func addVersionMetadataToContext(ctx context.Context) context.Context {
+	version := config.Version
+	if version == "" {
+		version = "dev-"
+		if config.GitRevision != "" {
+			version = config.GitRevision
+		} else {
+			version = "unknown"
+		}
+	}
 	info, _ := debug.ReadBuildInfo()
-	settings := make(map[string]string, len(info.Settings))
-	for _, setting := range info.Settings {
-			settings[setting.Key] = setting.Value
-	}
-	version := "?"
-	if rev, ok := settings["vcs.revision"]; ok {
-			version = rev[:8]
-	}
 	deps := make(map[string]*debug.Module, len(info.Deps))
 	for _, dep := range info.Deps {
 			deps[dep.Path] = dep
