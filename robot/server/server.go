@@ -6,6 +6,7 @@ package server
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"strings"
 	"time"
 
@@ -523,6 +524,8 @@ func (s *Server) GetMachineStatus(ctx context.Context, _ *pb.GetMachineStatusReq
 			pbResStatus.State = pb.ResourceStatus_STATE_READY
 		case resource.NodeStateRemoving:
 			pbResStatus.State = pb.ResourceStatus_STATE_REMOVING
+		case resource.NodeStateUnhealthy:
+			panic(fmt.Sprintf("unexpected resource.NodeState: %#v", resStatus.State))
 		}
 
 		result.Resources = append(result.Resources, pbResStatus)
