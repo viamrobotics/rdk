@@ -188,7 +188,6 @@ func (e *execution[R]) start(ctx context.Context) error {
 			// replan
 			default:
 				replanCount++
-
 				newPWE, err := e.newPlanWithExecutor(e.cancelCtx, lastPWE.plan.Plan, replanCount)
 				// replan failed
 				if err != nil {
