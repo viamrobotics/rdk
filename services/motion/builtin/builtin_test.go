@@ -893,7 +893,7 @@ func TestGetTransientDetectionsMath(t *testing.T) {
 		inputMap, _, err := mr.fsService.CurrentInputs(ctx)
 		test.That(t, err, test.ShouldBeNil)
 		kbInputs := make([]referenceframe.Input, len(mr.kinematicBase.Kinematics().DoF()))
-		kbInputs = append(kbInputs, referenceframe.PoseToInputsRadians(currentPose)...)
+		kbInputs = append(kbInputs, referenceframe.PoseToInputs(currentPose)...)
 		inputMap[mr.kinematicBase.Name().ShortName()] = kbInputs
 
 		fakeDetectionGeometry, err := spatialmath.NewBox(

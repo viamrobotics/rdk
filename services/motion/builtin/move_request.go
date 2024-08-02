@@ -207,7 +207,7 @@ func (mr *moveRequest) getTransientDetections(
 		return nil, err
 	}
 	kbInputs := make([]referenceframe.Input, len(mr.kinematicBase.Kinematics().DoF()))
-	kbInputs = append(kbInputs, referenceframe.PoseToInputsRadians(
+	kbInputs = append(kbInputs, referenceframe.PoseToInputs(
 		baseExecutionState.CurrentPoses()[mr.kinematicBase.LocalizationFrame().Name()].Pose(),
 	)...)
 	inputMap[mr.kinematicBase.Name().ShortName()] = kbInputs
@@ -381,7 +381,7 @@ func (mr *moveRequest) augmentBaseExecutionState(
 		}
 
 		updatedTraj := kbTraj
-		updatedTraj = append(updatedTraj, referenceframe.PoseToInputsRadians(prevPathPose)...)
+		updatedTraj = append(updatedTraj, referenceframe.PoseToInputs(prevPathPose)...)
 		newTrajectory = append(
 			newTrajectory, map[string][]referenceframe.Input{mr.kinematicBase.Kinematics().Name(): updatedTraj},
 		)
@@ -399,7 +399,7 @@ func (mr *moveRequest) augmentBaseExecutionState(
 	// X, Y, Z, OX, OY, OZ, Theta (in radians)
 	kinematicBaseCurrentInputs = append(
 		kinematicBaseCurrentInputs,
-		referenceframe.PoseToInputsRadians(baseExecutionState.CurrentPoses()[mr.kinematicBase.LocalizationFrame().Name()].Pose())...,
+		referenceframe.PoseToInputs(baseExecutionState.CurrentPoses()[mr.kinematicBase.LocalizationFrame().Name()].Pose())...,
 	)
 	allCurrentInputsFromBaseExecutionState[mr.kinematicBase.Kinematics().Name()] = kinematicBaseCurrentInputs
 

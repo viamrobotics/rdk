@@ -117,10 +117,7 @@ func (wf *wrapperFrame) Geometries(inputs []referenceframe.Input) (*referencefra
 
 // DoF returns the number of degrees of freedom within a given frame.
 func (wf *wrapperFrame) DoF() []referenceframe.Limit {
-	var limits []referenceframe.Limit
-	limits = append(limits, wf.executionFrame.DoF()...)
-	limits = append(limits, wf.localizationFrame.DoF()...)
-	return limits
+	return append(wf.executionFrame.DoF(), wf.localizationFrame.DoF()...)
 }
 
 // MarshalJSON serializes a given frame.

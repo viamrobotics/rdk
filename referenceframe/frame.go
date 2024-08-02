@@ -510,7 +510,7 @@ func (pf *poseFrame) Interpolate(from, to []Input, by float64) ([]Input, error) 
 		return nil, err
 	}
 	interpolatedPose := spatial.Interpolate(fromPose, toPose, by)
-	return PoseToInputsRadians(interpolatedPose), nil
+	return PoseToInputs(interpolatedPose), nil
 }
 
 // Geometries returns an object representing the 3D space associeted with the staticFrame.
@@ -560,7 +560,7 @@ func (pf *poseFrame) ProtobufFromInput(input []Input) *pb.JointPositions {
 // PoseToInputsRadians is a convenience method for turning a pose into a slice of inputs
 // in the form [X, Y, Z, OX, OY, OZ, Theta (in radians)]
 // This is the format that is expected by the poseFrame type and should not be used with other frames.
-func PoseToInputsRadians(p spatial.Pose) []Input {
+func PoseToInputs(p spatial.Pose) []Input {
 	return FloatsToInputs([]float64{
 		p.Point().X, p.Point().Y, p.Point().Z,
 		p.Orientation().OrientationVectorRadians().OX,
