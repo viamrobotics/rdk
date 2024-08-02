@@ -270,6 +270,7 @@ func (w *GraphNode) SwapResource(newRes Resource, newModel Model) {
 func (w *GraphNode) MarkForRemoval() {
 	w.mu.Lock()
 	defer w.mu.Unlock()
+	// TODO: what if node is unhealthy?
 	w.transitionTo(NodeStateRemoving)
 }
 
@@ -292,8 +293,11 @@ func (w *GraphNode) LogAndSetLastError(err error, args ...any) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 
-	w.lastErr = &GraphNodeError{err: err, lastState: w.state}
-	w.transitionTo(NodeStateUnhealthy)
+	// TODO: what should we do if the node is already unhealthy?
+	if w.state != NodeStateUnhealthy {
+		w.lastErr = &GraphNodeError{err: err, lastState: w.state}
+		w.transitionTo(NodeStateUnhealthy)
+	}
 
 	if w.logger != nil {
 		w.logger.Errorw(err.Error(), args...)
@@ -331,6 +335,7 @@ func (w *GraphNode) hasUnresolvedDependencies() bool {
 func (w *GraphNode) setNeedsReconfigure(newConfig Config, mustReconfigure bool, dependencies []string) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
+	// TODO what if the node is unhealthy here?
 	if !mustReconfigure && w.state == NodeStateRemoving {
 		// This is the case where the node is being asked to update
 		// with no new config but it was marked for removal otherwise.
