@@ -189,9 +189,9 @@ func GetCurrentConfig() []LoggerPatternConfig {
 // Consider removing this as a part of or after RSDK-8291 (https://viam.atlassian.net/browse/RSDK-8291)
 // which may consolidate various calls to the rdk.networking logger into one.
 func GetOrNewLogger(name string) (logger Logger) {
-	logger, ok := globalLoggerRegistry.loggerNamed(name)
 	globalLoggerRegistry.mu.Lock()
 	defer globalLoggerRegistry.mu.Unlock()
+	logger, ok := globalLoggerRegistry.loggers[name]
 	if !ok {
 		logger = &impl{
 			name:       name,
