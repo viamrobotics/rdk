@@ -2,15 +2,11 @@ package grpc
 
 import (
 	"context"
-	"fmt"
-	"runtime/debug"
 	"strings"
 	"time"
 
 	"go.viam.com/utils/rpc"
-	"google.golang.org/grpc"
 
-	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/utils/contextutils"
 )
@@ -30,12 +26,6 @@ func Dial(ctx context.Context, address string, logger logging.Logger, opts ...rp
 		webrtcOpts.SignalingInsecure = !secure
 		webrtcOpts.SignalingServerAddress = signalingServerAddress
 	}
-
-	opts = append(
-		opts, 
-		rpc.WithUnaryClientInterceptor(unaryClientInterceptor()), 
-		rpc.WithStreamClientInterceptor(streamClientInterceptor()),
-	)
 
 	optsCopy := make([]rpc.DialOption, len(opts)+2)
 	optsCopy[0] = rpc.WithWebRTCOptions(webrtcOpts)
@@ -65,53 +55,3 @@ func InferSignalingServerAddress(address string) (string, bool, bool) {
 	return "", false, false
 }
 
-func addVersionMetadataToContext(ctx context.Context) context.Context {
-	version := config.Version
-	if version == "" {
-		version = "dev-"
-		if config.GitRevision != "" {
-			version = config.GitRevision
-		} else {
-			version = "unknown"
-		}
-	}
-	info, _ := debug.ReadBuildInfo()
-	deps := make(map[string]*debug.Module, len(info.Deps))
-	for _, dep := range info.Deps {
-			deps[dep.Path] = dep
-	}
-	apiVersion := "?"
-	if dep, ok := deps["go.viam.com/api"]; ok {
-			apiVersion = dep.Version
-	}
-	versionMetadata := fmt.Sprintf("go;v%s;v%s", version, apiVersion)
-	return context.WithValue(ctx, "viam_client", versionMetadata)
-}
-
-func unaryClientInterceptor() grpc.UnaryClientInterceptor{
-	return func(
-			ctx context.Context,
-			method string,
-			req, reply interface{},
-			cc *grpc.ClientConn,
-			invoker grpc.UnaryInvoker,
-			opts ...grpc.CallOption,
-	) error {
-		ctx = addVersionMetadataToContext(ctx)
-		return invoker(ctx, method, req, reply, cc, opts...)
-	}
-}
-
-func streamClientInterceptor() grpc.StreamClientInterceptor {
-	return func(
-		ctx context.Context, 
-		desc *grpc.StreamDesc, 
-		cc *grpc.ClientConn, 
-		method string, 
-		streamer grpc.Streamer, 
-		opts ...grpc.CallOption,
-	) (cs grpc.ClientStream, err error) {
-		ctx = addVersionMetadataToContext(ctx)
-		return streamer(ctx, desc, cc, method, opts...)
-	}
-}

@@ -6,6 +6,7 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"runtime/debug"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -27,6 +28,7 @@ import (
 	"go.viam.com/utils/rpc"
 	googlegrpc "google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/metadata"
 	reflectpb "google.golang.org/grpc/reflection/grpc_reflection_v1alpha"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/structpb"
@@ -250,6 +252,9 @@ func New(ctx context.Context, address string, clientLogger logging.ZapCompatible
 		rpc.WithUnaryClientInterceptor(operation.UnaryClientInterceptor),
 		rpc.WithStreamClientInterceptor(operation.StreamClientInterceptor),
 		rpc.WithUnaryClientInterceptor(logging.UnaryClientInterceptor),
+		// sending version metadata
+		rpc.WithUnaryClientInterceptor(unaryClientInterceptor()), 
+		rpc.WithStreamClientInterceptor(streamClientInterceptor()),
 	)
 
 	if err := rc.connect(ctx); err != nil {
@@ -1077,4 +1082,54 @@ func (rc *RobotClient) Version(ctx context.Context) (robot.VersionResponse, erro
 	mVersion.APIVersion = resp.ApiVersion
 
 	return mVersion, nil
+}
+
+func addVersionMetadataToContext(ctx context.Context) context.Context {
+	info, _ := debug.ReadBuildInfo()
+	settings := make(map[string]string, len(info.Settings))
+	for _, setting := range info.Settings {
+			settings[setting.Key] = setting.Value
+	}
+	version := "?"
+	if rev, ok := settings["vcs.revision"]; ok {
+			version = rev[:8]
+	}
+	deps := make(map[string]*debug.Module, len(info.Deps))
+	for _, dep := range info.Deps {
+			deps[dep.Path] = dep
+	}
+	apiVersion := "?"
+	if dep, ok := deps["go.viam.com/api"]; ok {
+			apiVersion = dep.Version
+	}
+	versionMetadata := fmt.Sprintf("go;v%s;%s", version, apiVersion)
+	return metadata.AppendToOutgoingContext(ctx, "viam_client", versionMetadata)
+}
+
+func unaryClientInterceptor() googlegrpc.UnaryClientInterceptor{
+	return func(
+			ctx context.Context,
+			method string,
+			req, reply interface{},
+			cc *googlegrpc.ClientConn,
+			invoker googlegrpc.UnaryInvoker,
+			opts ...googlegrpc.CallOption,
+	) error {
+		ctx = addVersionMetadataToContext(ctx)
+		return invoker(ctx, method, req, reply, cc, opts...)
+	}
+}
+
+func streamClientInterceptor() googlegrpc.StreamClientInterceptor {
+	return func(
+		ctx context.Context, 
+		desc *googlegrpc.StreamDesc, 
+		cc *googlegrpc.ClientConn, 
+		method string, 
+		streamer googlegrpc.Streamer, 
+		opts ...googlegrpc.CallOption,
+	) (cs googlegrpc.ClientStream, err error) {
+		ctx = addVersionMetadataToContext(ctx)
+		return streamer(ctx, desc, cc, method, opts...)
+	}
 }
