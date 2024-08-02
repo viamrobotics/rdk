@@ -282,17 +282,6 @@ func (e *execution[R]) notifyStatePlanStopped(plan motion.PlanWithMetadata, time
 	})
 }
 
-func (e *execution[R]) notifyUnableToGiveGlobeOrigin(plan motion.PlanWithMetadata, reason string, time time.Time) {
-	e.state.mu.Lock()
-	defer e.state.mu.Unlock()
-	e.state.updateStateStatusUpdate(stateUpdateMsg{
-		componentName: e.componentName,
-		executionID:   e.id,
-		planID:        plan.ID,
-		planStatus:    motion.PlanStatus{State: motion.PlanStateFailed, Timestamp: time, Reason: &reason},
-	})
-}
-
 // State is the state of the builtin motion service
 // It keeps track of the builtin motion service's executions.
 type State struct {
