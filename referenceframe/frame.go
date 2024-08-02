@@ -542,9 +542,10 @@ func (pf *poseFrame) MarshalJSON() ([]byte, error) {
 // InputFromProtobuf converts pb.JointPosition to inputs.
 func (pf *poseFrame) InputFromProtobuf(jp *pb.JointPositions) []Input {
 	n := make([]Input, len(jp.Values))
-	for idx, d := range jp.Values {
+	for idx, d := range jp.Values[:len(jp.Values)-1] {
 		n[idx] = Input{d}
 	}
+	n[len(jp.Values)-1] = Input{utils.DegToRad(jp.Values[len(jp.Values)-1])}
 	return n
 }
 

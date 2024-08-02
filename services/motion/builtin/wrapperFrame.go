@@ -137,9 +137,10 @@ func (wf *wrapperFrame) InputFromProtobuf(jp *pb.JointPositions) []referencefram
 // ProtobufFromInput converts inputs to pb.JointPosition.
 func (wf *wrapperFrame) ProtobufFromInput(input []referenceframe.Input) *pb.JointPositions {
 	n := make([]float64, len(input))
-	for idx, a := range input {
-		n[idx] = utils.RadToDeg(a.Value)
+	for idx, a := range input[:len(input)-1] {
+		n[idx] = a.Value
 	}
+	n[len(input)-1] = utils.DegToRad(input[len(input)-1].Value)
 	return &pb.JointPositions{Values: n}
 }
 

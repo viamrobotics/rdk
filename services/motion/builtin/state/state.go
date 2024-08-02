@@ -12,7 +12,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
-
 	"go.viam.com/utils"
 	"golang.org/x/exp/maps"
 
@@ -21,7 +20,6 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/motion"
 	"go.viam.com/rdk/spatialmath"
-	rutils "go.viam.com/rdk/utils"
 )
 
 // PlannerExecutor implements Plan and Execute.
@@ -190,17 +188,6 @@ func (e *execution[R]) start(ctx context.Context) error {
 			// replan
 			default:
 				replanCount++
-
-				// if we are dealing with a MoveOnGlobeReq, record the exsiting geoPose origin in the extras param
-				// so we can keep track of where the robot originally started
-				mogReq, err := rutils.AssertType[motion.MoveOnGlobeReq](e.req)
-				if err == nil {
-					mogReq.Extra["globeOrigin"] = originalPlanWithExecutor.executor.AnchorGeoPose()
-					e.req, err = rutils.AssertType[R](mogReq)
-					if err != nil {
-						e.notifyUnableToGiveGlobeOrigin(lastPWE.plan, err.Error(), time.Now())
-					}
-				}
 
 				newPWE, err := e.newPlanWithExecutor(e.cancelCtx, lastPWE.plan.Plan, replanCount)
 				// replan failed
