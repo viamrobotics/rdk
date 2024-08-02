@@ -73,11 +73,11 @@ type device struct {
 
 // Config is a builder object used to create virtual cameras.
 type Config struct {
-	deviceMap               map[int]bool
-	devices                 []device
-	err                     error
-	workers                 utils.StoppableWorkers
-	logger                  logging.Logger
+	deviceMap map[int]bool
+	devices   []device
+	err       error
+	workers   utils.StoppableWorkers
+	logger    logging.Logger
 }
 
 // Builder creates a new vcamera.Config builder object.
