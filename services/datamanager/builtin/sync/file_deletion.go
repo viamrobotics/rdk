@@ -23,8 +23,8 @@ var (
 
 var errAtSizeThreshold = errors.New("capture directory has reached or exceeded disk usage threshold for deletion")
 
-// ShouldDeleteBasedOnDiskUsage temporarily public for tests.
-func ShouldDeleteBasedOnDiskUsage(ctx context.Context, captureDirPath string, logger logging.Logger) (bool, error) {
+// shouldDeleteBasedOnDiskUsage temporarily public for tests.
+func shouldDeleteBasedOnDiskUsage(ctx context.Context, captureDirPath string, logger logging.Logger) (bool, error) {
 	usage := diskusage.NewDiskUsage(captureDirPath)
 	// we get usage this way to ensure we get the amount of remaining space in the partition.
 	// calling usage.Usage() returns the usage of the whole disk, not the user partition

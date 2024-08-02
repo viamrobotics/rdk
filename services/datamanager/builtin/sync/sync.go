@@ -356,7 +356,7 @@ func deleteExcessFiles(ctx context.Context, captureDir string, deleteEveryNth in
 			return
 		case <-t.C:
 			logger.Debug("checking disk usage")
-			shouldDelete, err := ShouldDeleteBasedOnDiskUsage(ctx, captureDir, logger)
+			shouldDelete, err := shouldDeleteBasedOnDiskUsage(ctx, captureDir, logger)
 			if err != nil {
 				logger.Warnw("error checking file system stats", "error", err)
 			}

@@ -156,7 +156,7 @@ func TestFileDeletionUsageCheck(t *testing.T) {
 				CaptureDirToFSUsageRatio = captureDirToFSUsageRatio
 			})
 			logger := logging.NewTestLogger(t)
-			willDelete, err := ShouldDeleteBasedOnDiskUsage(context.Background(), tempCaptureDir, logger)
+			willDelete, err := shouldDeleteBasedOnDiskUsage(context.Background(), tempCaptureDir, logger)
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, willDelete, test.ShouldEqual, tc.deletionExpected)
 		})
