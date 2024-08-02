@@ -58,6 +58,7 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/logging"
+	rdkutils "go.viam.com/rdk/utils"
 )
 
 // Resolution stores the Width and Height in pixels for a camera resolution.
@@ -77,19 +78,15 @@ type Config struct {
 	deviceMap               map[int]bool
 	devices                 []device
 	err                     error
-	cancelCtx               context.Context
-	cancelFn                func()
-	activeBackgroundWorkers sync.WaitGroup
+	workers                 rdkutils.StoppableWorkers
 	logger                  logging.Logger
 }
 
 // Builder creates a new vcamera.Config builder object.
 func Builder(logger logging.Logger) *Config {
-	cancelCtx, cancelFn := context.WithCancel(context.Background())
 	return &Config{
 		deviceMap: make(map[int]bool),
-		cancelFn:  cancelFn,
-		cancelCtx: cancelCtx,
+		workers:   rdkutils.NewStoppableWorkers(),
 		logger:    logger,
 	}
 }
@@ -136,7 +133,7 @@ func createCameras(c *Config) error {
 
 func startStream(config *Config, dev device) (<-chan struct{}, error) {
 	//nolint:gosec
-	cmd := exec.CommandContext(config.cancelCtx, "bash", "-c", fmt.Sprintf(
+	cmd := exec.CommandContext(config.workers.Context(), "bash", "-c", fmt.Sprintf(
 		"gst-launch-1.0 -v videotestsrc "+
 			"! video/x-raw,format=YUY2,width=320,height=240 "+
 			"! videoscale "+
@@ -154,25 +151,21 @@ func startStream(config *Config, dev device) (<-chan struct{}, error) {
 		return nil, err
 	}
 
-	// wait for cmd to finish to avoid leak
-	config.activeBackgroundWorkers.Add(1)
-	go func() {
-		defer config.activeBackgroundWorkers.Done()
+	// Wait for cmd to finish to avoid leak.
+	config.workers.AddWorkers(func(ctx context.Context) {
 		if err := cmd.Wait(); err != nil {
 			config.logger.Warn(err)
 		}
-	}()
+	})
 
 	// broadcast channel, closed when stream is in state "PLAYING"
 	readyCh := make(chan struct{})
 	scanner := bufio.NewScanner(stdout)
 
-	config.activeBackgroundWorkers.Add(1)
-	utils.PanicCapturingGo(func() {
-		defer config.activeBackgroundWorkers.Done()
+	config.workers.AddWorkers(func(cancelCtx context.Context) {
 		for {
 			select {
-			case <-config.cancelCtx.Done():
+			case <-cancelCtx.Done():
 				return
 			default:
 				scanner.Scan()
@@ -226,8 +219,7 @@ func (c *Config) Stream() (*Config, error) {
 
 // Shutdown stops streaming to and removes all virtual cameras.
 func (c *Config) Shutdown() error {
-	c.cancelFn()
-	c.activeBackgroundWorkers.Wait()
+	c.workers.Stop()
 	c.err = errors.New("stopped streaming")
 
 	// removes all virtual cameras
