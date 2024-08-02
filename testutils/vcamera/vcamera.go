@@ -51,14 +51,12 @@ import (
 	"os/exec"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/pkg/errors"
-	"go.viam.com/utils"
 
 	"go.viam.com/rdk/logging"
-	rdkutils "go.viam.com/rdk/utils"
+	"go.viam.com/rdk/utils"
 )
 
 // Resolution stores the Width and Height in pixels for a camera resolution.
@@ -78,7 +76,7 @@ type Config struct {
 	deviceMap               map[int]bool
 	devices                 []device
 	err                     error
-	workers                 rdkutils.StoppableWorkers
+	workers                 utils.StoppableWorkers
 	logger                  logging.Logger
 }
 
@@ -86,7 +84,7 @@ type Config struct {
 func Builder(logger logging.Logger) *Config {
 	return &Config{
 		deviceMap: make(map[int]bool),
-		workers:   rdkutils.NewStoppableWorkers(),
+		workers:   utils.NewStoppableWorkers(),
 		logger:    logger,
 	}
 }
