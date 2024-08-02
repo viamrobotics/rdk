@@ -253,7 +253,7 @@ func New(ctx context.Context, address string, clientLogger logging.ZapCompatible
 		rpc.WithStreamClientInterceptor(operation.StreamClientInterceptor),
 		rpc.WithUnaryClientInterceptor(logging.UnaryClientInterceptor),
 		// sending version metadata
-		rpc.WithUnaryClientInterceptor(unaryClientInterceptor()), 
+		rpc.WithUnaryClientInterceptor(unaryClientInterceptor()),
 		rpc.WithStreamClientInterceptor(streamClientInterceptor()),
 	)
 
@@ -1088,32 +1088,32 @@ func addVersionMetadataToContext(ctx context.Context) context.Context {
 	info, _ := debug.ReadBuildInfo()
 	settings := make(map[string]string, len(info.Settings))
 	for _, setting := range info.Settings {
-			settings[setting.Key] = setting.Value
+		settings[setting.Key] = setting.Value
 	}
 	version := "?"
 	if rev, ok := settings["vcs.revision"]; ok {
-			version = rev[:8]
+		version = rev[:8]
 	}
 	deps := make(map[string]*debug.Module, len(info.Deps))
 	for _, dep := range info.Deps {
-			deps[dep.Path] = dep
+		deps[dep.Path] = dep
 	}
 	apiVersion := "?"
 	if dep, ok := deps["go.viam.com/api"]; ok {
-			apiVersion = dep.Version
+		apiVersion = dep.Version
 	}
 	versionMetadata := fmt.Sprintf("go;v%s;%s", version, apiVersion)
 	return metadata.AppendToOutgoingContext(ctx, "viam_client", versionMetadata)
 }
 
-func unaryClientInterceptor() googlegrpc.UnaryClientInterceptor{
+func unaryClientInterceptor() googlegrpc.UnaryClientInterceptor {
 	return func(
-			ctx context.Context,
-			method string,
-			req, reply interface{},
-			cc *googlegrpc.ClientConn,
-			invoker googlegrpc.UnaryInvoker,
-			opts ...googlegrpc.CallOption,
+		ctx context.Context,
+		method string,
+		req, reply interface{},
+		cc *googlegrpc.ClientConn,
+		invoker googlegrpc.UnaryInvoker,
+		opts ...googlegrpc.CallOption,
 	) error {
 		ctx = addVersionMetadataToContext(ctx)
 		return invoker(ctx, method, req, reply, cc, opts...)
@@ -1122,11 +1122,11 @@ func unaryClientInterceptor() googlegrpc.UnaryClientInterceptor{
 
 func streamClientInterceptor() googlegrpc.StreamClientInterceptor {
 	return func(
-		ctx context.Context, 
-		desc *googlegrpc.StreamDesc, 
-		cc *googlegrpc.ClientConn, 
-		method string, 
-		streamer googlegrpc.Streamer, 
+		ctx context.Context,
+		desc *googlegrpc.StreamDesc,
+		cc *googlegrpc.ClientConn,
+		method string,
+		streamer googlegrpc.Streamer,
 		opts ...googlegrpc.CallOption,
 	) (cs googlegrpc.ClientStream, err error) {
 		ctx = addVersionMetadataToContext(ctx)
