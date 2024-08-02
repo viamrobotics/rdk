@@ -54,4 +54,3 @@ func InferSignalingServerAddress(address string) (string, bool, bool) {
 	}
 	return "", false, false
 }
-
