@@ -74,7 +74,7 @@ func (s *interruptStream) startStream(ctx context.Context, interrupts []DigitalI
 }
 
 func (s *interruptStream) recieveFromStream(ctx context.Context, stream pb.BoardService_StreamTicksClient, ch chan Tick) {
-	// Close the stream ready channel so the above function returns.
+	// Close the stream ready channel so startStream returns.
 	if s.streamReady != nil {
 		close(s.streamReady)
 	}
