@@ -35,7 +35,9 @@ import (
 
 // logTSKey is the key used in conjunction with the timestamp of logs received
 // by the RDK.
-const logTSKey = "log_ts"
+const (
+	logTSKey = "log_ts"
+)
 
 // Server implements the contract from robot.proto that ultimately satisfies
 // a robot.Robot as a gRPC server.
@@ -527,4 +529,18 @@ func (s *Server) GetMachineStatus(ctx context.Context, _ *pb.GetMachineStatusReq
 	}
 
 	return &result, nil
+}
+
+// GetVersion returns version information about the robot.
+func (s *Server) GetVersion(ctx context.Context, _ *pb.GetVersionRequest) (*pb.GetVersionResponse, error) {
+	result, err := robot.Version()
+	if err != nil {
+		return nil, err
+	}
+
+	return &pb.GetVersionResponse{
+		Platform:   result.Platform,
+		Version:    result.Version,
+		ApiVersion: result.APIVersion,
+	}, nil
 }
