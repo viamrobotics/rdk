@@ -526,11 +526,17 @@ func (w *GraphNode) resourceStatus() Status {
 		resName = w.current.Name()
 	}
 
+	var err error
+	if w.state == NodeStateUnhealthy {
+		err = w.lastErr
+	}
+
 	return Status{
 		Name:        resName,
 		State:       w.state,
 		LastUpdated: w.transitionedAt,
 		Revision:    w.revision,
+		Error:       err,
 	}
 }
 
@@ -540,4 +546,8 @@ type Status struct {
 	State       NodeState
 	LastUpdated time.Time
 	Revision    string
+
+	// Error contains any errors on the resource if it currently unhealthy.
+	// This field will be nil if the resource is not in the [NodeStateUnhealthy] state.
+	Error error
 }
