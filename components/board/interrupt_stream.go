@@ -11,9 +11,9 @@ import (
 
 type interruptStream struct {
 	*client
-	streamCancel  context.CancelFunc
-	streamReady   chan bool // Close this channel to indicate the stream is initialized
-	streamMu      sync.Mutex
+	streamCancel context.CancelFunc
+	streamReady  chan bool // Close this channel to indicate the stream is initialized
+	streamMu     sync.Mutex
 
 	activeBackgroundWorkers sync.WaitGroup
 	extra                   *structpb.Struct
