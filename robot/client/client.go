@@ -1063,6 +1063,11 @@ func (rc *RobotClient) MachineStatus(ctx context.Context) (robot.MachineStatus, 
 			resStatus.State = resource.NodeStateReady
 		case pb.ResourceStatus_STATE_REMOVING:
 			resStatus.State = resource.NodeStateRemoving
+		case pb.ResourceStatus_STATE_UNHEALTHY:
+			resStatus.State = resource.NodeStateUnhealthy
+			if pbResStatus.Error != "" {
+				resStatus.Error = errors.New(pbResStatus.Error)
+			}
 		}
 
 		mStatus.Resources = append(mStatus.Resources, resStatus)

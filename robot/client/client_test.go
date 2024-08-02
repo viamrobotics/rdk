@@ -2158,6 +2158,21 @@ func TestMachineStatus(t *testing.T) {
 			},
 			2,
 		},
+		{
+			"unhealthy status",
+			robot.MachineStatus{
+				Config: config.Revision{Revision: "rev1"},
+				Resources: []resource.Status{
+					{
+						Name:     arm.Named("brokenArm"),
+						State:    resource.NodeStateUnhealthy,
+						Error:    errors.New("bad configuration"),
+						Revision: "rev1",
+					},
+				},
+			},
+			0,
+		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			logger, logs := logging.NewObservedTestLogger(t)
