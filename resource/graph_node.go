@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+	"go.uber.org/multierr"
 
 	"go.viam.com/rdk/logging"
 )
@@ -36,15 +37,6 @@ const (
 	NodeStateUnhealthy
 )
 
-type GraphNodeError struct {
-	err       error
-	lastState NodeState
-}
-
-func (wErr *GraphNodeError) Error() string {
-	return wErr.err.Error()
-}
-
 // A GraphNode contains the current state of a resource.
 // Based on these states, the underlying Resource may or may not be available.
 // Additionally, the node can be informed that the resource either needs to be
@@ -69,7 +61,7 @@ type GraphNode struct {
 	// GraphNode was constructed or last reconfigured. It returns nil if the GraphNode is
 	// unconfigured.
 	lastReconfigured          *time.Time
-	lastErr                   *GraphNodeError
+	lastErr                   error
 	unresolvedDependencies    []string
 	needsDependencyResolution bool
 
@@ -270,7 +262,6 @@ func (w *GraphNode) SwapResource(newRes Resource, newModel Model) {
 func (w *GraphNode) MarkForRemoval() {
 	w.mu.Lock()
 	defer w.mu.Unlock()
-	// TODO: what if node is unhealthy?
 	w.transitionTo(NodeStateRemoving)
 }
 
@@ -278,9 +269,6 @@ func (w *GraphNode) MarkForRemoval() {
 func (w *GraphNode) MarkedForRemoval() bool {
 	w.mu.Lock()
 	defer w.mu.Unlock()
-	if w.state == NodeStateUnhealthy {
-		return w.lastErr.lastState == NodeStateRemoving
-	}
 	return w.state == NodeStateRemoving
 }
 
@@ -293,11 +281,8 @@ func (w *GraphNode) LogAndSetLastError(err error, args ...any) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 
-	// TODO: what should we do if the node is already unhealthy?
-	if w.state != NodeStateUnhealthy {
-		w.lastErr = &GraphNodeError{err: err, lastState: w.state}
-		w.transitionTo(NodeStateUnhealthy)
-	}
+	w.lastErr = multierr.Append(w.lastErr, err)
+	w.transitionTo(NodeStateUnhealthy)
 
 	if w.logger != nil {
 		w.logger.Errorw(err.Error(), args...)
@@ -318,10 +303,7 @@ func (w *GraphNode) Config() Config {
 func (w *GraphNode) NeedsReconfigure() bool {
 	w.mu.RLock()
 	defer w.mu.RUnlock()
-	if w.state == NodeStateUnhealthy {
-		return w.lastErr.lastState == NodeStateConfiguring
-	}
-	return w.state == NodeStateConfiguring
+	return w.state == NodeStateConfiguring || w.state == NodeStateUnhealthy
 }
 
 // hasUnresolvedDependencies returns whether or not this node has any
@@ -335,7 +317,6 @@ func (w *GraphNode) hasUnresolvedDependencies() bool {
 func (w *GraphNode) setNeedsReconfigure(newConfig Config, mustReconfigure bool, dependencies []string) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
-	// TODO what if the node is unhealthy here?
 	if !mustReconfigure && w.state == NodeStateRemoving {
 		// This is the case where the node is being asked to update
 		// with no new config but it was marked for removal otherwise.
@@ -494,7 +475,7 @@ func (w *GraphNode) canTransitionTo(state NodeState) bool {
 	case NodeStateConfiguring:
 		//nolint
 		switch state {
-		case NodeStateReady:
+		case NodeStateReady, NodeStateUnhealthy:
 			return true
 		}
 	case NodeStateReady:
@@ -504,6 +485,12 @@ func (w *GraphNode) canTransitionTo(state NodeState) bool {
 			return true
 		}
 	case NodeStateRemoving:
+	case NodeStateUnhealthy:
+		//nolint
+		switch state {
+		case NodeStateConfiguring, NodeStateReady, NodeStateRemoving, NodeStateUnhealthy:
+			return true
+		}
 	}
 	return false
 }
