@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	geo "github.com/kellydunn/golang-geo"
 	"github.com/pkg/errors"
 	goutils "go.viam.com/utils"
 
@@ -26,6 +27,7 @@ import (
 	"go.viam.com/rdk/services/slam"
 	"go.viam.com/rdk/services/vision"
 	"go.viam.com/rdk/spatialmath"
+	"go.viam.com/rdk/utils"
 )
 
 const (
@@ -576,16 +578,21 @@ func (ms *builtIn) newMoveOnGlobeRequest(
 
 	// if we have some previous origin we've already recorded,
 	// use that instead of resetting the origin
-	if ms.globeOrigin == nil {
-		ms.globeOrigin, _, err = movementSensor.Position(ctx, nil)
+	var globeOriginPoint *geo.Point
+	var globeHeading float64
+	geoPoseOrigin, err := utils.AssertType[*spatialmath.GeoPose](req.Extra["globeOrigin"])
+	if err != nil {
+		globeOriginPoint, _, err = movementSensor.Position(ctx, nil)
 		if err != nil {
 			return nil, err
 		}
-	}
-
-	heading, err := movementSensor.CompassHeading(ctx, nil)
-	if err != nil {
-		return nil, err
+		globeHeading, err = movementSensor.CompassHeading(ctx, nil)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		globeOriginPoint = geoPoseOrigin.Location()
+		globeHeading = geoPoseOrigin.Heading()
 	}
 
 	// add an offset between the movement sensor and the base if it is applicable
@@ -596,7 +603,7 @@ func (ms *builtIn) newMoveOnGlobeRequest(
 		movementSensorToBase = baseOrigin
 	}
 	// Create a localizer from the movement sensor, and collapse reported orientations to 2d
-	localizer := motion.TwoDLocalizer(motion.NewMovementSensorLocalizer(movementSensor, ms.globeOrigin, movementSensorToBase.Pose()))
+	localizer := motion.TwoDLocalizer(motion.NewMovementSensorLocalizer(movementSensor, globeOriginPoint, movementSensorToBase.Pose()))
 
 	// create a KinematicBase from the componentName
 	baseComponent, ok := ms.components[req.ComponentName]
@@ -616,7 +623,7 @@ func (ms *builtIn) newMoveOnGlobeRequest(
 	// Important: GeoPointToPose will create a pose such that incrementing latitude towards north increments +Y, and incrementing
 	// longitude towards east increments +X. Heading is not taken into account. This pose must therefore be transformed based on the
 	// orientation of the base such that it is a pose relative to the base's current location.
-	goalPoseRaw := spatialmath.NewPoseFromPoint(spatialmath.GeoPointToPoint(req.Destination, ms.globeOrigin))
+	goalPoseRaw := spatialmath.NewPoseFromPoint(spatialmath.GeoPointToPoint(req.Destination, globeOriginPoint))
 	// construct limits
 	straightlineDistance := goalPoseRaw.Point().Norm()
 	if straightlineDistance > maxTravelDistanceMM {
@@ -636,10 +643,10 @@ func (ms *builtIn) newMoveOnGlobeRequest(
 	}
 
 	// convert obstacles of type []GeoGeometry into []Geometry
-	geomsRaw := spatialmath.GeoGeometriesToGeometries(obstacles, ms.globeOrigin)
+	geomsRaw := spatialmath.GeoGeometriesToGeometries(obstacles, globeOriginPoint)
 
 	// convert bounding regions which are GeoGeometries into Geometries
-	boundingRegions := spatialmath.GeoGeometriesToGeometries(req.BoundingRegions, ms.globeOrigin)
+	boundingRegions := spatialmath.GeoGeometriesToGeometries(req.BoundingRegions, globeOriginPoint)
 
 	mr, err := ms.createBaseMoveRequest(
 		ctx,
@@ -657,7 +664,7 @@ func (ms *builtIn) newMoveOnGlobeRequest(
 	mr.seedPlan = seedPlan
 	mr.replanCostFactor = valExtra.replanCostFactor
 	mr.requestType = requestTypeMoveOnGlobe
-	mr.geoPoseOrigin = spatialmath.NewGeoPose(ms.globeOrigin, heading)
+	mr.geoPoseOrigin = spatialmath.NewGeoPose(globeOriginPoint, globeHeading)
 	mr.planRequest.BoundingRegions = boundingRegions
 	return mr, nil
 }

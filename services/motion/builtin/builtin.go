@@ -9,7 +9,6 @@ import (
 
 	"github.com/golang/geo/r3"
 	"github.com/google/uuid"
-	geo "github.com/kellydunn/golang-geo"
 	"github.com/pkg/errors"
 
 	"go.viam.com/rdk/components/movementsensor"
@@ -160,7 +159,6 @@ type builtIn struct {
 	components      map[resource.Name]resource.Resource
 	logger          logging.Logger
 	state           *state.State
-	globeOrigin     *geo.Point
 }
 
 func (ms *builtIn) Close(ctx context.Context) error {

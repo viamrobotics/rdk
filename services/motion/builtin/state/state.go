@@ -12,6 +12,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
+
 	"go.viam.com/utils"
 	"golang.org/x/exp/maps"
 
@@ -20,6 +21,7 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/motion"
 	"go.viam.com/rdk/spatialmath"
+	rutils "go.viam.com/rdk/utils"
 )
 
 // PlannerExecutor implements Plan and Execute.
@@ -188,6 +190,18 @@ func (e *execution[R]) start(ctx context.Context) error {
 			// replan
 			default:
 				replanCount++
+
+				// if we are dealing with a MoveOnGlobeReq, record the exsiting geoPose origin in the extras param
+				// so we can keep track of where the robot originally started
+				mogReq, err := rutils.AssertType[motion.MoveOnGlobeReq](e.req)
+				if err == nil {
+					mogReq.Extra["globeOrigin"] = originalPlanWithExecutor.executor.AnchorGeoPose()
+					e.req, err = rutils.AssertType[R](mogReq)
+					if err != nil {
+						e.notifyUnableToGiveGlobeOrigin(lastPWE.plan, err.Error(), time.Now())
+					}
+				}
+
 				newPWE, err := e.newPlanWithExecutor(e.cancelCtx, lastPWE.plan.Plan, replanCount)
 				// replan failed
 				if err != nil {
@@ -278,6 +292,17 @@ func (e *execution[R]) notifyStatePlanStopped(plan motion.PlanWithMetadata, time
 		executionID:   e.id,
 		planID:        plan.ID,
 		planStatus:    motion.PlanStatus{State: motion.PlanStateStopped, Timestamp: time},
+	})
+}
+
+func (e *execution[R]) notifyUnableToGiveGlobeOrigin(plan motion.PlanWithMetadata, reason string, time time.Time) {
+	e.state.mu.Lock()
+	defer e.state.mu.Unlock()
+	e.state.updateStateStatusUpdate(stateUpdateMsg{
+		componentName: e.componentName,
+		executionID:   e.id,
+		planID:        plan.ID,
+		planStatus:    motion.PlanStatus{State: motion.PlanStateFailed, Timestamp: time, Reason: &reason},
 	})
 }
 
