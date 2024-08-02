@@ -557,7 +557,7 @@ func (pf *poseFrame) ProtobufFromInput(input []Input) *pb.JointPositions {
 	return &pb.JointPositions{Values: n}
 }
 
-// PoseToInputsRadians is a convenience method for turning a pose into a slice of inputs
+// PoseToInputs is a convenience method for turning a pose into a slice of inputs
 // in the form [X, Y, Z, OX, OY, OZ, Theta (in radians)]
 // This is the format that is expected by the poseFrame type and should not be used with other frames.
 func PoseToInputs(p spatial.Pose) []Input {
