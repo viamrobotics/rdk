@@ -277,6 +277,9 @@ func (w *GraphNode) MarkForRemoval() {
 func (w *GraphNode) MarkedForRemoval() bool {
 	w.mu.Lock()
 	defer w.mu.Unlock()
+	if w.state == NodeStateUnhealthy {
+		return w.lastErr.lastState == NodeStateRemoving
+	}
 	return w.state == NodeStateRemoving
 }
 
