@@ -3,7 +3,6 @@ package sync
 import (
 	"context"
 	"fmt"
-	"net"
 	"os"
 	"path"
 	"path/filepath"
@@ -15,8 +14,8 @@ import (
 	v1 "go.viam.com/api/app/datasync/v1"
 	goutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
-	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/connectivity"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
 
@@ -25,99 +24,6 @@ import (
 	"go.viam.com/rdk/services/datamanager/datacapture"
 	"go.viam.com/rdk/utils"
 )
-
-func (s *Syncer) maybeSyncOnInterval(ctx context.Context) {
-	// time.Duration loses precision at low floating point values, so turn intervalMins to milliseconds.
-	intervalMillis := 60000.0 * s.syncIntervalMins
-	// The ticker must be created before uploadData returns to prevent race conditions between clock.Ticker and
-	// clock.Add in sync_test.go.
-	interval := time.Millisecond * time.Duration(intervalMillis)
-
-	tkr := s.clock.Ticker(interval)
-	defer tkr.Stop()
-	s.logger.Infof("maybeSyncOnInterval START %p", tkr)
-	defer s.logger.Info("maybeSyncOnInterval END")
-
-	for {
-		if err := ctx.Err(); err != nil {
-			return
-		}
-
-		select {
-		case <-ctx.Done():
-			return
-		case <-tkr.C:
-			// TODO: how is this possible?
-			// If selective sync is disabled, sync. If it is enabled, check the condition below.
-			shouldSync := s.syncSensor == nil
-			// If selective sync is enabled and the sensor has been properly initialized,
-			// try to get the reading from the selective sensor that indicates whether to sync
-			if s.syncSensor != nil {
-				shouldSync = readyToSync(ctx, s.syncSensor, s.logger)
-			}
-
-			if !isOffline() && shouldSync {
-				s.flushAndSendFilesToSync(ctx)
-			}
-		}
-	}
-}
-
-func isOffline() bool {
-	timeout := 5 * time.Second
-	_, err := net.DialTimeout("tcp", "app.viam.com:443", timeout)
-	// If there's an error, the system is likely offline.
-	return err != nil
-}
-
-func (s *Syncer) flushAndSendFilesToSync(ctx context.Context) {
-	// Retrieve all files in capture dir and send them to the syncer
-	s.flushCollectors()
-	s.getAllFilesToSync(ctx)
-}
-
-func (s *Syncer) getAllFilesToSync(ctx context.Context) {
-	// syncer.logger.Info("getAllFilesToSync")
-	for _, dir := range s.syncPaths {
-		err := filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
-			if ctx.Err() != nil {
-				s.logger.Info(path + " err: " + ctx.Err().Error())
-				return filepath.SkipAll
-			}
-			if err != nil {
-				s.logger.Info(path + " err: " + err.Error())
-				//nolint:nilerr
-				return nil
-			}
-
-			// Do not sync the files in the corrupted data directory.
-			if info.IsDir() && info.Name() == FailedDir {
-				return filepath.SkipDir
-			}
-
-			if info.IsDir() {
-				return nil
-			}
-			// If a file was modified within the past lastModifiedMillis, do not sync it (data
-			// may still be being written).
-			timeSinceMod := s.clock.Since(info.ModTime())
-			// When using a mock clock in tests, this can be negative since the file system will still use the system clock.
-			// Take max(timeSinceMod, 0) to account for this.
-			if timeSinceMod < 0 {
-				timeSinceMod = 0
-			}
-			isCompletedCaptureFile := filepath.Ext(path) == datacapture.FileExt
-			isNonCaptureFileThatIsNotBeingWrittenTo := filepath.Ext(path) != datacapture.InProgressFileExt &&
-				filepath.Ext(path) != datacapture.FileExt &&
-				timeSinceMod >= time.Duration(s.fileLastModifiedMillis)*time.Millisecond
-			if isCompletedCaptureFile || isNonCaptureFileThatIsNotBeingWrittenTo && !s.InProgress(path) {
-				s.SendFileToSync(ctx, path)
-			}
-			return nil
-		})
-		goutils.UncheckedError(err)
-	}
-}
 
 var (
 	// InitialWaitTimeMillis defines the time to wait on the first retried upload attempt.
@@ -169,7 +75,7 @@ type SyncerConstructor func(
 func NewSyncer(
 	configWithDeps configWithDeps,
 	partID string,
-	clientConstructor func(cc grpc.ClientConnInterface) v1.DataSyncServiceClient,
+	client v1.DataSyncServiceClient,
 	conn rpc.ClientConn,
 	clock clk.Clock,
 	flushCollectors func(),
@@ -178,14 +84,13 @@ func NewSyncer(
 ) *Syncer {
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
 	logger.Infof("Making new syncer with %d max threads", configWithDeps.config.MaximumNumSyncThreads)
-	client := clientConstructor(conn)
 	s := Syncer{
+		cancelCtx:              cancelCtx,
+		cancelFunc:             cancelFunc,
 		partID:                 partID,
 		clock:                  clock,
 		client:                 client,
 		logger:                 logger,
-		cancelCtx:              cancelCtx,
-		cancelFunc:             cancelFunc,
 		arbitraryFileTags:      configWithDeps.config.Tags,
 		inProgress:             make(map[string]bool),
 		filesToSync:            make(chan string),
@@ -244,6 +149,98 @@ func (s *Syncer) SendFileToSync(ctx context.Context, path string) {
 		return
 	case s.filesToSync <- path:
 		return
+	}
+}
+
+func (s *Syncer) maybeSyncOnInterval(ctx context.Context) {
+	// time.Duration loses precision at low floating point values, so turn intervalMins to milliseconds.
+	intervalMillis := 60000.0 * s.syncIntervalMins
+	// The ticker must be created before uploadData returns to prevent race conditions between clock.Ticker and
+	// clock.Add in sync_test.go.
+	interval := time.Millisecond * time.Duration(intervalMillis)
+
+	tkr := s.clock.Ticker(interval)
+	defer tkr.Stop()
+	s.logger.Infof("maybeSyncOnInterval START %p", tkr)
+	defer s.logger.Info("maybeSyncOnInterval END")
+
+	for {
+		if err := ctx.Err(); err != nil {
+			return
+		}
+
+		select {
+		case <-ctx.Done():
+			return
+		case <-tkr.C:
+			// TODO: how is this possible?
+			// If selective sync is disabled, sync. If it is enabled, check the condition below.
+			shouldSync := s.syncSensor == nil
+			// If selective sync is enabled and the sensor has been properly initialized,
+			// try to get the reading from the selective sensor that indicates whether to sync
+			if s.syncSensor != nil {
+				shouldSync = readyToSync(ctx, s.syncSensor, s.logger)
+			}
+
+			c, ok := s.cloudConn.(*rpc.GrpcOverHTTPClientConn)
+			if !ok {
+				s.logger.Error("can't turn s.cloudConn into a grpc.ClientConn")
+				return
+			}
+
+			if online := c.ClientConn.GetState() == connectivity.Ready; online && shouldSync {
+				s.flushAndSendFilesToSync(ctx)
+			}
+		}
+	}
+}
+
+func (s *Syncer) flushAndSendFilesToSync(ctx context.Context) {
+	// Retrieve all files in capture dir and send them to the syncer
+	s.flushCollectors()
+	s.getAllFilesToSync(ctx)
+}
+
+func (s *Syncer) getAllFilesToSync(ctx context.Context) {
+	// syncer.logger.Info("getAllFilesToSync")
+	for _, dir := range s.syncPaths {
+		err := filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
+			if ctx.Err() != nil {
+				s.logger.Info(path + " err: " + ctx.Err().Error())
+				return filepath.SkipAll
+			}
+			if err != nil {
+				s.logger.Info(path + " err: " + err.Error())
+				//nolint:nilerr
+				return nil
+			}
+
+			// Do not sync the files in the corrupted data directory.
+			if info.IsDir() && info.Name() == FailedDir {
+				return filepath.SkipDir
+			}
+
+			if info.IsDir() {
+				return nil
+			}
+			// If a file was modified within the past lastModifiedMillis, do not sync it (data
+			// may still be being written).
+			timeSinceMod := s.clock.Since(info.ModTime())
+			// When using a mock clock in tests, this can be negative since the file system will still use the system clock.
+			// Take max(timeSinceMod, 0) to account for this.
+			if timeSinceMod < 0 {
+				timeSinceMod = 0
+			}
+			isCompletedCaptureFile := filepath.Ext(path) == datacapture.FileExt
+			isNonCaptureFileThatIsNotBeingWrittenTo := filepath.Ext(path) != datacapture.InProgressFileExt &&
+				filepath.Ext(path) != datacapture.FileExt &&
+				timeSinceMod >= time.Duration(s.fileLastModifiedMillis)*time.Millisecond
+			if isCompletedCaptureFile || isNonCaptureFileThatIsNotBeingWrittenTo && !s.InProgress(path) {
+				s.SendFileToSync(ctx, path)
+			}
+			return nil
+		})
+		goutils.UncheckedError(err)
 	}
 }
 

@@ -423,7 +423,7 @@ func (s *Sync) initSyncer(
 	syncer := NewSyncer(
 		configWithDeps,
 		partID,
-		s.DataSyncServiceClientConstructor,
+		s.DataSyncServiceClientConstructor(conn),
 		conn,
 		s.clock,
 		s.flushCollectors,
