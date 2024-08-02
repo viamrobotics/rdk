@@ -28,7 +28,6 @@ func (s *interruptStream) startStream(ctx context.Context, interrupts []DigitalI
 	}
 
 	s.streamReady = make(chan bool)
-	s.activeBackgroundWorkers.Add(1)
 	ctx, cancel := context.WithCancel(ctx)
 	s.streamCancel = cancel
 
@@ -60,6 +59,7 @@ func (s *interruptStream) startStream(ctx context.Context, interrupts []DigitalI
 	// Create a background go routine to receive from the server stream.
 	// We rely on calling the Done function here rather than in close stream
 	// since managed go calls that function when the routine exits.
+	s.activeBackgroundWorkers.Add(1)
 	utils.ManagedGo(func() {
 		s.recieveFromStream(ctx, stream, ch)
 	},
