@@ -3724,7 +3724,7 @@ func TestMachineStatus(t *testing.T) {
 			[]resource.Status{
 				{
 					Name:     mockNamed("m"),
-					State:    resource.NodeStateConfiguring,
+					State:    resource.NodeStateUnhealthy,
 					Revision: rev2,
 				},
 			},
