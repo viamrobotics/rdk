@@ -12,7 +12,6 @@ import (
 type interruptStream struct {
 	*client
 	streamCancel  context.CancelFunc
-	streamRunning bool
 	streamReady   chan bool
 	streamMu      sync.Mutex
 
@@ -28,7 +27,6 @@ func (s *interruptStream) startStream(ctx context.Context, interrupts []DigitalI
 		return ctx.Err()
 	}
 
-	s.streamRunning = true
 	s.streamReady = make(chan bool)
 	s.activeBackgroundWorkers.Add(1)
 	ctx, cancel := context.WithCancel(ctx)
@@ -76,11 +74,6 @@ func (s *interruptStream) startStream(ctx context.Context, interrupts []DigitalI
 }
 
 func (s *interruptStream) recieveFromStream(ctx context.Context, stream pb.BoardService_StreamTicksClient, ch chan Tick) {
-	defer func() {
-		s.streamMu.Lock()
-		defer s.streamMu.Unlock()
-		s.streamRunning = false
-	}()
 	// Close the stream ready channel so the above function returns.
 	if s.streamReady != nil {
 		close(s.streamReady)
