@@ -9,7 +9,6 @@ import (
 	"testing"
 	"time"
 
-	clk "github.com/benbjohnson/clock"
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
 	v1 "go.viam.com/api/app/datasync/v1"
@@ -107,9 +106,9 @@ func TestDataCaptureEnabled(t *testing.T) {
 			// Set up capture directories.
 			initCaptureDir := t.TempDir()
 			updatedCaptureDir := t.TempDir()
-			mockClock := clk.NewMock()
-			// Make mockClock the package level clock used by the dmsvc so that we can simulate time's passage
-			clock = mockClock
+			// mockClock := clk.NewMock()
+			// Make mockClock the package level clock used by the builtin so that we can simulate time's passage
+			// clock = mockClock
 
 			// Set up robot config.
 			var initConfig *Config
@@ -131,10 +130,7 @@ func TestDataCaptureEnabled(t *testing.T) {
 
 			// Build and start data manager.
 			b, r := newBuiltIn(t)
-			defer func() {
-				test.That(t, b.Close(context.Background()), test.ShouldBeNil)
-			}()
-
+			defer func() { test.That(t, b.Close(context.Background()), test.ShouldBeNil) }()
 			resources := resourcesFromDeps(t, r, deps)
 			err := b.Reconfigure(context.Background(), resources, resource.Config{
 				ConvertedAttributes:  initConfig,
@@ -143,10 +139,10 @@ func TestDataCaptureEnabled(t *testing.T) {
 			test.That(t, err, test.ShouldBeNil)
 			testutils.WaitForAssertion(t, func(tb testing.TB) {
 				tb.Helper()
-				test.That(tb, b.sync.ConfigPropagated.Load(), test.ShouldBeTrue)
+				test.That(tb, b.sync.ConfigApplied(), test.ShouldBeTrue)
 			})
-			passTimeCtx1, cancelPassTime1 := context.WithCancel(context.Background())
-			donePassingTime1 := passTime(passTimeCtx1, mockClock, captureInterval)
+			// passTimeCtx1, cancelPassTime1 := context.WithCancel(context.Background())
+			// donePassingTime1 := passTime(passTimeCtx1, clk.New(), captureInterval)
 
 			if !tc.initialServiceDisableStatus && !tc.initialCollectorDisableStatus {
 				waitForCaptureFilesToExceedNFiles(initCaptureDir, 0, logger)
@@ -155,8 +151,8 @@ func TestDataCaptureEnabled(t *testing.T) {
 				initialCaptureFiles := getAllFileInfos(initCaptureDir)
 				test.That(t, len(initialCaptureFiles), test.ShouldEqual, 0)
 			}
-			cancelPassTime1()
-			<-donePassingTime1
+			// cancelPassTime1()
+			// <-donePassingTime1
 
 			// Set up updated robot config.
 			var updatedConfig *Config
@@ -180,11 +176,11 @@ func TestDataCaptureEnabled(t *testing.T) {
 			test.That(t, err, test.ShouldBeNil)
 			testutils.WaitForAssertion(t, func(tb testing.TB) {
 				tb.Helper()
-				test.That(tb, b.sync.ConfigPropagated.Load(), test.ShouldBeTrue)
+				test.That(tb, b.sync.ConfigApplied(), test.ShouldBeTrue)
 			})
 			oldCaptureDirFiles := getAllFileInfos(initCaptureDir)
-			passTimeCtx2, cancelPassTime2 := context.WithCancel(context.Background())
-			donePassingTime2 := passTime(passTimeCtx2, mockClock, captureInterval)
+			// passTimeCtx2, cancelPassTime2 := context.WithCancel(context.Background())
+			// donePassingTime2 := passTime(passTimeCtx2, mockClock, captureInterval)
 
 			if !tc.newServiceDisableStatus && !tc.newCollectorDisableStatus {
 				waitForCaptureFilesToExceedNFiles(updatedCaptureDir, 0, logger)
@@ -198,8 +194,8 @@ func TestDataCaptureEnabled(t *testing.T) {
 					test.That(t, oldCaptureDirFiles[i].Size(), test.ShouldEqual, oldCaptureDirFilesAfterWait[i].Size())
 				}
 			}
-			cancelPassTime2()
-			<-donePassingTime2
+			// cancelPassTime2()
+			// <-donePassingTime2
 		})
 	}
 }
@@ -207,9 +203,9 @@ func TestDataCaptureEnabled(t *testing.T) {
 func TestSwitchResource(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 	captureDir := t.TempDir()
-	mockClock := clk.NewMock()
-	// Make mockClock the package level clock used by the dmsvc so that we can simulate time's passage
-	clock = mockClock
+	// mockClock := clk.NewMock()
+	// Make mockClock the package level clock used by the builtin so that we can simulate time's passage
+	// clock = mockClock
 
 	// Set up robot config.
 	config, associations, deps := setupConfig(t, enabledTabularCollectorConfigPath)
@@ -231,16 +227,16 @@ func TestSwitchResource(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	testutils.WaitForAssertion(t, func(tb testing.TB) {
 		tb.Helper()
-		test.That(tb, b.sync.ConfigPropagated.Load(), test.ShouldBeTrue)
+		test.That(tb, b.sync.ConfigApplied(), test.ShouldBeTrue)
 	})
-	passTimeCtx1, cancelPassTime1 := context.WithCancel(context.Background())
-	donePassingTime1 := passTime(passTimeCtx1, mockClock, captureInterval)
+	// passTimeCtx1, cancelPassTime1 := context.WithCancel(context.Background())
+	// donePassingTime1 := passTime(passTimeCtx1, mockClock, captureInterval)
 
 	waitForCaptureFilesToExceedNFiles(captureDir, 0, logger)
 	testFilesContainSensorData(t, captureDir)
 
-	cancelPassTime1()
-	<-donePassingTime1
+	// cancelPassTime1()
+	// <-donePassingTime1
 
 	// Change the resource named arm1 to show that the data manager recognizes that the collector has changed with no other config changes.
 	for resource := range resources {
@@ -261,14 +257,14 @@ func TestSwitchResource(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	testutils.WaitForAssertion(t, func(tb testing.TB) {
 		tb.Helper()
-		test.That(tb, b.sync.ConfigPropagated.Load(), test.ShouldBeTrue)
+		test.That(tb, b.sync.ConfigApplied(), test.ShouldBeTrue)
 	})
 
 	dataBeforeSwitch, err := getSensorData(captureDir)
 	test.That(t, err, test.ShouldBeNil)
 
-	passTimeCtx2, cancelPassTime2 := context.WithCancel(context.Background())
-	donePassingTime2 := passTime(passTimeCtx2, mockClock, captureInterval)
+	// passTimeCtx2, cancelPassTime2 := context.WithCancel(context.Background())
+	// donePassingTime2 := passTime(passTimeCtx2, mockClock, captureInterval)
 
 	// Test that sensor data is captured from the new collector.
 	waitForCaptureFilesToExceedNFiles(captureDir, len(getAllFileInfos(captureDir)), logger)
@@ -305,27 +301,27 @@ func TestSwitchResource(t *testing.T) {
 	// Assert that the updated arm1 resource is capturing data.
 	test.That(t, len(newData), test.ShouldBeGreaterThan, 0)
 
-	cancelPassTime2()
-	<-donePassingTime2
+	// cancelPassTime2()
+	// <-donePassingTime2
 }
 
 // passTime repeatedly increments mc by interval until the context is canceled.
-func passTime(ctx context.Context, mc *clk.Mock, interval time.Duration) chan struct{} {
-	done := make(chan struct{})
-	go func() {
-		for {
-			select {
-			case <-ctx.Done():
-				close(done)
-				return
-			default:
-				time.Sleep(10 * time.Millisecond)
-				mc.Add(interval)
-			}
-		}
-	}()
-	return done
-}
+// func passTime(ctx context.Context, mc *clk.Mock, interval time.Duration) chan struct{} {
+// 	done := make(chan struct{})
+// 	go func() {
+// 		for {
+// 			select {
+// 			case <-ctx.Done():
+// 				close(done)
+// 				return
+// 			default:
+// 				time.Sleep(10 * time.Millisecond)
+// 				mc.Add(interval)
+// 			}
+// 		}
+// 	}()
+// 	return done
+// }
 
 func getSensorData(dir string) ([]*v1.SensorData, error) {
 	var sd []*v1.SensorData

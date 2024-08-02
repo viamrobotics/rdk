@@ -17,7 +17,12 @@ import (
 // StreamingDataCaptureUpload.
 var MaxUnaryFileSize = int64(units.MB)
 
-func uploadDataCaptureFile(ctx context.Context, client v1.DataSyncServiceClient, f *datacapture.File, partID string) error {
+func uploadDataCaptureFile(
+	ctx context.Context,
+	client v1.DataSyncServiceClient,
+	f *datacapture.File,
+	partID string,
+) error {
 	md := f.ReadMetadata()
 	sensorData, err := datacapture.SensorDataFromFile(f)
 	if err != nil {
@@ -95,8 +100,12 @@ func uploadDataCaptureFile(ctx context.Context, client v1.DataSyncServiceClient,
 	return nil
 }
 
-func uploadSensorData(ctx context.Context, client v1.DataSyncServiceClient, uploadMD *v1.UploadMetadata,
-	sensorData []*v1.SensorData, fileSize int64,
+func uploadSensorData(
+	ctx context.Context,
+	client v1.DataSyncServiceClient,
+	uploadMD *v1.UploadMetadata,
+	sensorData []*v1.SensorData,
+	fileSize int64,
 ) error {
 	// If it's a large binary file, we need to upload it in chunks.
 	if uploadMD.GetType() == v1.DataType_DATA_TYPE_BINARY_SENSOR && fileSize > MaxUnaryFileSize {
@@ -139,7 +148,9 @@ func uploadSensorData(ctx context.Context, client v1.DataSyncServiceClient, uplo
 	return nil
 }
 
-func sendStreamingDCRequests(ctx context.Context, stream v1.DataSyncService_StreamingDataCaptureUploadClient,
+func sendStreamingDCRequests(
+	ctx context.Context,
+	stream v1.DataSyncService_StreamingDataCaptureUploadClient,
 	contents []byte,
 ) error {
 	// Loop until there is no more content to send.

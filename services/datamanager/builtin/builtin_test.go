@@ -67,10 +67,9 @@ func getInjectedRobot() *inject.Robot {
 
 func newBuiltIn(t *testing.T) (*builtIn, robot.Robot) {
 	t.Helper()
-	dmCfg := &Config{}
 	cfgService := resource.Config{
 		API:                 datamanager.API,
-		ConvertedAttributes: dmCfg,
+		ConvertedAttributes: &Config{},
 	}
 	logger := logging.NewTestLogger(t)
 

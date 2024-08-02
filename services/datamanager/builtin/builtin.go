@@ -44,7 +44,7 @@ func init() {
 		})
 }
 
-var clock = clk.New()
+// var clock = clk.New()
 
 // Config describes how to configure the service.
 type Config struct {
@@ -86,8 +86,8 @@ func NewBuiltIn(
 	conf resource.Config,
 	logger logging.Logger,
 ) (datamanager.Service, error) {
-	capture := capture.New(logger.Sublogger("capture"), clock)
-	sync := datasync.New(logger.Sublogger("sync"), clock, capture.FlushCollectors)
+	capture := capture.New(logger.Sublogger("capture"), clk.New())
+	sync := datasync.New(logger.Sublogger("sync"), clk.New(), capture.FlushCollectors)
 	svc := &builtIn{
 		Named:   conf.ResourceName().AsNamed(),
 		logger:  logger,
@@ -154,7 +154,7 @@ func (b *builtIn) Reconfigure(
 		captureDir = c.CaptureDir
 	}
 
-	b.sync.Reconfigure(ctx, deps, conf, syncConfig(c, captureDir), cloudConnSvc)
+	b.sync.Reconfigure(ctx, deps, syncConfig(c, captureDir), cloudConnSvc)
 
 	if err := b.capture.Reconfigure(ctx, deps, conf, captureConfig(c, captureDir)); err != nil {
 		return err
@@ -182,7 +182,7 @@ func syncConfig(c *Config, captureDir string) datasync.Config {
 		DeleteEveryNthWhenDiskFull: c.DeleteEveryNthWhenDiskFull,
 		FileLastModifiedMillis:     c.FileLastModifiedMillis,
 		MaximumNumSyncThreads:      c.MaximumNumSyncThreads,
-		ScheduledSyncDisabled:      c.ScheduledSyncDisabled,
+		SyncDisabled:               c.ScheduledSyncDisabled,
 		SelectiveSyncerName:        c.SelectiveSyncerName,
 		SyncIntervalMins:           c.SyncIntervalMins,
 	}

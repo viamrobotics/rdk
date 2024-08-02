@@ -88,9 +88,13 @@ func exceedsDeletionThreshold(ctx context.Context, captureDirPath string, fsSize
 	return false, nil
 }
 
-// DeleteFiles temporarily public for tests.
-func DeleteFiles(ctx context.Context, syncer Manager, deleteEveryNth int,
-	captureDirPath string, logger logging.Logger,
+// deleteFiles temporarily public for tests.
+func deleteFiles(
+	ctx context.Context,
+	syncer *Syncer,
+	deleteEveryNth int,
+	captureDirPath string,
+	logger logging.Logger,
 ) (int, error) {
 	index := 0
 	deletedFileCount := 0
@@ -127,6 +131,7 @@ func DeleteFiles(ctx context.Context, syncer Manager, deleteEveryNth int,
 				}
 				if err := os.Remove(path); err != nil {
 					logger.Warnw("error deleting file", "error", err)
+					// TODO: I'm pretty sure this code is leaking memory
 					if syncer != nil {
 						syncer.UnmarkInProgress(path)
 					}
