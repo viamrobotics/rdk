@@ -2,12 +2,11 @@ package resource
 
 import (
 	"context"
+	"errors"
 	"sync"
+
 	"sync/atomic"
 	"time"
-
-	"github.com/pkg/errors"
-	"go.uber.org/multierr"
 
 	"go.viam.com/rdk/logging"
 )
@@ -281,7 +280,7 @@ func (w *GraphNode) LogAndSetLastError(err error, args ...any) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 
-	w.lastErr = multierr.Append(w.lastErr, err)
+	w.lastErr = errors.Join(w.lastErr, err)
 	w.transitionTo(NodeStateUnhealthy)
 
 	if w.logger != nil {
