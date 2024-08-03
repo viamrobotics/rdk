@@ -3,6 +3,7 @@ package client
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"image"
 	"image/png"
@@ -19,7 +20,6 @@ import (
 	"github.com/golang/geo/r3"
 	"github.com/google/uuid"
 	"github.com/jhump/protoreflect/grpcreflect"
-	"github.com/pkg/errors"
 	"go.uber.org/zap/zapcore"
 	commonpb "go.viam.com/api/common/v1"
 	armpb "go.viam.com/api/component/arm/v1"
@@ -1325,12 +1325,12 @@ func TestClientDiscovery(t *testing.T) {
 
 func ensurePartsAreEqual(part, otherPart *referenceframe.FrameSystemPart) error {
 	if part.FrameConfig.Name() != otherPart.FrameConfig.Name() {
-		return errors.Errorf("part had name %s while other part had name %s", part.FrameConfig.Name(), otherPart.FrameConfig.Name())
+		return fmt.Errorf("part had name %s while other part had name %s", part.FrameConfig.Name(), otherPart.FrameConfig.Name())
 	}
 	frameConfig := part.FrameConfig
 	otherFrameConfig := otherPart.FrameConfig
 	if frameConfig.Parent() != otherFrameConfig.Parent() {
-		return errors.Errorf("part had parent %s while other part had parent %s", frameConfig.Parent(), otherFrameConfig.Parent())
+		return fmt.Errorf("part had parent %s while other part had parent %s", frameConfig.Parent(), otherFrameConfig.Parent())
 	}
 	if !spatialmath.R3VectorAlmostEqual(frameConfig.Pose().Point(), otherFrameConfig.Pose().Point(), 1e-8) {
 		return errors.New("translations of parts not equal")
