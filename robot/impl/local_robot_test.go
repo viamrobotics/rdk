@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
+	"errors"
 	"fmt"
 	"math"
 	"net"
@@ -16,7 +17,7 @@ import (
 
 	"github.com/go-viper/mapstructure/v2"
 	"github.com/golang/geo/r3"
-	"github.com/pkg/errors"
+	legacyerrors "github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.uber.org/zap"
 	// registers all components.
@@ -986,7 +987,7 @@ func TestStatus(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		_, err = r.Status(context.Background(), []resource.Name{fail1})
-		test.That(t, err, test.ShouldBeError, errors.Wrapf(errFailed, "failed to get status from %q", fail1))
+		test.That(t, err, test.ShouldBeError, legacyerrors.Wrapf(errFailed, "failed to get status from %q", fail1))
 	})
 
 	t.Run("many status", func(t *testing.T) {
@@ -1024,7 +1025,7 @@ func TestStatus(t *testing.T) {
 		test.That(t, resp[1].Status, test.ShouldResemble, expected[resp[1].Name])
 
 		_, err = r.Status(context.Background(), resourceNames)
-		test.That(t, err, test.ShouldBeError, errors.Wrapf(errFailed, "failed to get status from %q", fail1))
+		test.That(t, err, test.ShouldBeError, legacyerrors.Wrapf(errFailed, "failed to get status from %q", fail1))
 	})
 
 	t.Run("get all status", func(t *testing.T) {
@@ -2639,13 +2640,13 @@ func TestDependentAndOrphanedResources(t *testing.T) {
 				if rName.API == gizmoapi.API {
 					gizmo, ok := res.(gizmoapi.Gizmo)
 					if !ok {
-						return nil, errors.Errorf("resource %s is not a gizmo", rName.Name)
+						return nil, fmt.Errorf("resource %s is not a gizmo", rName.Name)
 					}
 					newDoodad.gizmo = gizmo
 				}
 			}
 			if newDoodad.gizmo == nil {
-				return nil, errors.Errorf("doodad %s must depend on a gizmo", conf.Name)
+				return nil, fmt.Errorf("doodad %s must depend on a gizmo", conf.Name)
 			}
 			return newDoodad, nil
 		},
@@ -3555,9 +3556,11 @@ type mockConfig struct {
 	Fail  bool `json:"fail"`
 }
 
+var errMockValidation = errors.New("whoops")
+
 func (cfg *mockConfig) Validate(path string) ([]string, error) {
 	if cfg.Fail {
-		return nil, errors.New("whoops")
+		return nil, errMockValidation
 	}
 	return []string{}, nil
 }
@@ -3669,6 +3672,8 @@ func TestMachineStatus(t *testing.T) {
 	t.Run("reconfigure", func(t *testing.T) {
 		lr := setupLocalRobot(t, ctx, &config.Config{Revision: rev1}, logger)
 
+		expectedConfigError := fmt.Errorf("resource config validation error: %w", errMockValidation)
+
 		// Add a fake resource to the robot.
 		rev2 := "rev2"
 		builtinRev = rev2
@@ -3726,6 +3731,7 @@ func TestMachineStatus(t *testing.T) {
 					Name:     mockNamed("m"),
 					State:    resource.NodeStateUnhealthy,
 					Revision: rev2,
+					Error:    errors.Join(expectedConfigError),
 				},
 			},
 		)
