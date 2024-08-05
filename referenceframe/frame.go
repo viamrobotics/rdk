@@ -462,13 +462,13 @@ func NewPoseFrame(name string, geometry []spatial.Geometry) (Frame, error) {
 	}
 	orientationVector.Normalize()
 	limits := []Limit{
-		{Min: math.Inf(-1), Max: math.Inf(1)},                         // X
-		{Min: math.Inf(-1), Max: math.Inf(1)},                         // Y
-		{Min: math.Inf(-1), Max: math.Inf(1)},                         // Z
-		{Min: -orientationVector.OX, Max: orientationVector.OX},       // OX
-		{Min: -orientationVector.OY, Max: orientationVector.OY},       // OY
-		{Min: -orientationVector.OZ, Max: orientationVector.OZ},       // OZ
-		{Min: -orientationVector.Theta, Max: orientationVector.Theta}, // Theta
+		{Min: math.Inf(-1), Max: math.Inf(1)}, // X
+		{Min: math.Inf(-1), Max: math.Inf(1)}, // Y
+		{Min: math.Inf(-1), Max: math.Inf(1)}, // Z
+		{Min: math.Inf(-1), Max: math.Inf(1)}, // OX
+		{Min: math.Inf(-1), Max: math.Inf(1)}, // OY
+		{Min: math.Inf(-1), Max: math.Inf(1)}, // OZ
+		{Min: math.Inf(-1), Max: math.Inf(1)}, // Theta
 	}
 	return &poseFrame{
 		&baseFrame{name, limits},
