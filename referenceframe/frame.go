@@ -454,13 +454,6 @@ type poseFrame struct {
 // NewPoseFrame creates an orientation vector frame, i.e a frame with
 // 7 degrees of freedom: X, Y, Z, OX, OY, OZ, and Theta in radians.
 func NewPoseFrame(name string, geometry []spatial.Geometry) (Frame, error) {
-	orientationVector := spatial.OrientationVector{
-		OX:    math.Inf(1),
-		OY:    math.Inf(1),
-		OZ:    math.Inf(1),
-		Theta: math.Inf(1),
-	}
-	orientationVector.Normalize()
 	limits := []Limit{
 		{Min: math.Inf(-1), Max: math.Inf(1)}, // X
 		{Min: math.Inf(-1), Max: math.Inf(1)}, // Y

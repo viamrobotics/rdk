@@ -183,7 +183,6 @@ func (mr *moveRequest) deviatedFromPlan(ctx context.Context, plan motionplan.Pla
 // getTransientDetections returns a list of geometries as observed by the provided vision service and camera.
 // Depending on the caller, the geometries returned are either in their relative position
 // with respect to the base or in their absolute position with respect to the world.
-// TODO(RSDK-8340): Explore usefulness of pointcloud instead of spatialmath.Geometry.
 func (mr *moveRequest) getTransientDetections(
 	ctx context.Context,
 	visSrvc vision.Service,
