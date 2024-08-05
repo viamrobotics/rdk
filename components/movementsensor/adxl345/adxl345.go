@@ -399,7 +399,7 @@ func getSingleTapRegisterValues(singleTapConfigs *TapConfig, logger logging.Logg
 		registerValues[durAddr] = byte((singleTapConfigs.Dur / durScaleFactor))
 	}
 
-	logger.Infof("Consider experimenting with dur_us and threshold attributes to achieve best results with single tap")
+	logger.Info("Consider experimenting with dur_us and threshold attributes to achieve best results with single tap")
 	return registerValues
 }
 
