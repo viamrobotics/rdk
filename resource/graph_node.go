@@ -69,6 +69,12 @@ type GraphNode struct {
 	// transitionedAt stores the timestamp of when resource entered its current lifecycle
 	// state.
 	transitionedAt time.Time
+
+	// pendingRevision stores the next revision that will be applied to the graph node
+	// once the underlying resource is successfully configured - that revision will be
+	// stored the on the revision field.
+	pendingRevision string
+	revision        string
 }
 
 var (
@@ -234,6 +240,7 @@ func (w *GraphNode) SwapResource(newRes Resource, newModel Model) {
 	defer w.mu.Unlock()
 	w.current = newRes
 	w.currentModel = newModel
+	w.revision = w.pendingRevision
 	w.lastErr = nil
 	w.transitionTo(NodeStateReady)
 
@@ -319,6 +326,26 @@ func (w *GraphNode) setNeedsReconfigure(newConfig Config, mustReconfigure bool, 
 	w.config = newConfig
 	w.transitionTo(NodeStateConfiguring)
 	w.unresolvedDependencies = dependencies
+}
+
+// UpdatePendingRevision sets the next revision to be applied once the node is in a
+// [NodeStateReady] state.
+func (w *GraphNode) UpdatePendingRevision(revision string) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+
+	w.pendingRevision = revision
+}
+
+// UpdateRevision updates the node config revision if the node is in a [NodeStateReady]
+// state.
+func (w *GraphNode) UpdateRevision(revision string) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	if w.state == NodeStateReady {
+		w.pendingRevision = revision
+		w.revision = revision
+	}
 }
 
 // SetNewConfig is used to inform the node that it has been modified
@@ -495,6 +522,7 @@ func (w *GraphNode) resourceStatus() Status {
 		Name:        resName,
 		State:       w.state,
 		LastUpdated: w.transitionedAt,
+		Revision:    w.revision,
 	}
 }
 
@@ -503,4 +531,5 @@ type Status struct {
 	Name        Name
 	State       NodeState
 	LastUpdated time.Time
+	Revision    string
 }

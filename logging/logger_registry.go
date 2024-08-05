@@ -1,7 +1,6 @@
 package logging
 
 import (
-	"errors"
 	"fmt"
 	"regexp"
 	"sync"
@@ -82,9 +81,12 @@ func (lr *loggerRegistry) updateLoggerLevel(name string, level Level) error {
 }
 
 func (lr *loggerRegistry) updateLoggerRegistry(logConfig []LoggerPatternConfig) error {
+	appliedConfigs := make(map[string]Level)
 	for _, lpc := range logConfig {
 		if !validatePattern(lpc.Pattern) {
-			return errors.New("failed to validate a pattern")
+			logger := GetOrNewLogger("rdk.logging")
+			logger.Info("failed to validate a pattern", "pattern", lpc.Pattern)
+			continue
 		}
 
 		r, err := regexp.Compile(buildRegexFromPattern(lpc.Pattern))
@@ -98,11 +100,19 @@ func (lr *loggerRegistry) updateLoggerRegistry(logConfig []LoggerPatternConfig) 
 				if err != nil {
 					return err
 				}
-				err = lr.updateLoggerLevel(name, level)
-				if err != nil {
-					return err
-				}
+				appliedConfigs[name] = level
 			}
+		}
+	}
+
+	for _, name := range lr.getRegisteredLoggerNames() {
+		level, ok := appliedConfigs[name]
+		if !ok {
+			level = INFO
+		}
+		err := lr.updateLoggerLevel(name, level)
+		if err != nil {
+			return err
 		}
 	}
 
@@ -172,4 +182,24 @@ func UpdateLoggerLevelWithCfg(name string) error {
 // GetCurrentConfig returns the logger config currently being used by the registry.
 func GetCurrentConfig() []LoggerPatternConfig {
 	return globalLoggerRegistry.getCurrentConfig()
+}
+
+// GetOrNewLogger returns a logger with the specified name if it exists, otherwise it
+// creates and registers one with the same name.
+// Consider removing this as a part of or after RSDK-8291 (https://viam.atlassian.net/browse/RSDK-8291)
+// which may consolidate various calls to the rdk.networking logger into one.
+func GetOrNewLogger(name string) (logger Logger) {
+	globalLoggerRegistry.mu.Lock()
+	defer globalLoggerRegistry.mu.Unlock()
+	logger, ok := globalLoggerRegistry.loggers[name]
+	if !ok {
+		logger = &impl{
+			name:       name,
+			level:      NewAtomicLevelAt(INFO),
+			appenders:  []Appender{NewStdoutAppender()},
+			testHelper: func() {},
+		}
+		globalLoggerRegistry.loggers[name] = logger
+	}
+	return logger
 }

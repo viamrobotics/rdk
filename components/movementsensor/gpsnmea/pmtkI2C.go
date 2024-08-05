@@ -37,7 +37,7 @@ func MakePmtkI2cGpsNmea(
 	logger logging.Logger,
 	i2cBus buses.I2C,
 ) (movementsensor.MovementSensor, error) {
-	dev, err := gpsutils.NewI2cDataReader(*conf.I2CConfig, i2cBus, logger)
+	dev, err := gpsutils.NewI2cDataReader(ctx, *conf.I2CConfig, i2cBus, logger)
 	if err != nil {
 		return nil, err
 	}

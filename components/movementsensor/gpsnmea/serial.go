@@ -12,7 +12,7 @@ import (
 
 // NewSerialGPSNMEA creates a component that communicates over a serial port.
 func NewSerialGPSNMEA(ctx context.Context, name resource.Name, conf *Config, logger logging.Logger) (movementsensor.MovementSensor, error) {
-	dev, err := gpsutils.NewSerialDataReader(conf.SerialConfig, logger)
+	dev, err := gpsutils.NewSerialDataReader(ctx, conf.SerialConfig, logger)
 	if err != nil {
 		return nil, err
 	}
