@@ -127,20 +127,23 @@ func (wf *wrapperFrame) MarshalJSON() ([]byte, error) {
 
 // InputFromProtobuf converts pb.JointPosition to inputs.
 func (wf *wrapperFrame) InputFromProtobuf(jp *pb.JointPositions) []referenceframe.Input {
-	n := make([]referenceframe.Input, len(jp.Values))
-	for idx, d := range jp.Values {
-		n[idx] = referenceframe.Input{Value: d}
-	}
-	return n
+	jpValues := jp.GetValues()
+
+	executionFrameSubset := jpValues[:len(wf.executionFrame.DoF())]
+	executionFrameInputs := wf.executionFrame.InputFromProtobuf(&pb.JointPositions{Values: executionFrameSubset})
+
+	localizationFrameSubset := jpValues[len(wf.executionFrame.DoF()):]
+	localizationFrameInputs := wf.localizationFrame.InputFromProtobuf(&pb.JointPositions{Values: localizationFrameSubset})
+
+	return append(executionFrameInputs, localizationFrameInputs...)
 }
 
 // ProtobufFromInput converts inputs to pb.JointPosition.
 func (wf *wrapperFrame) ProtobufFromInput(input []referenceframe.Input) *pb.JointPositions {
 	n := make([]float64, len(input))
-	for idx, a := range input[:len(input)-1] {
+	for idx, a := range input {
 		n[idx] = a.Value
 	}
-	n[len(input)-1] = utils.DegToRad(input[len(input)-1].Value)
 	return &pb.JointPositions{Values: n}
 }
 

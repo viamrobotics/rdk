@@ -545,7 +545,7 @@ func (pf *poseFrame) InputFromProtobuf(jp *pb.JointPositions) []Input {
 	for idx, d := range jp.Values[:len(jp.Values)-1] {
 		n[idx] = Input{d}
 	}
-	n[len(jp.Values)-1] = Input{utils.DegToRad(jp.Values[len(jp.Values)-1])}
+	n[len(jp.Values)-1] = Input{utils.RadToDeg(jp.Values[len(jp.Values)-1])}
 	return n
 }
 
@@ -553,7 +553,7 @@ func (pf *poseFrame) InputFromProtobuf(jp *pb.JointPositions) []Input {
 func (pf *poseFrame) ProtobufFromInput(input []Input) *pb.JointPositions {
 	n := make([]float64, len(input))
 	for idx, a := range input {
-		n[idx] = utils.RadToDeg(a.Value)
+		n[idx] = a.Value
 	}
 	return &pb.JointPositions{Values: n}
 }
