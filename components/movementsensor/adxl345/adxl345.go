@@ -223,7 +223,7 @@ func makeAdxl345(
 
 	interruptConfigurations := getInterruptConfigurations(newConf)
 	configuredRegisterValues := getFreeFallRegisterValues(newConf.FreeFall)
-	for k, v := range getSingleTapRegisterValues(newConf.SingleTap) {
+	for k, v := range getSingleTapRegisterValues(newConf.SingleTap, logger) {
 		configuredRegisterValues[k] = v
 	}
 
@@ -383,7 +383,7 @@ func getInterruptConfigurations(cfg *Config) map[byte]byte {
 }
 
 // This returns a map from register addresses to data which should be written to that register to configure single tap.
-func getSingleTapRegisterValues(singleTapConfigs *TapConfig) map[byte]byte {
+func getSingleTapRegisterValues(singleTapConfigs *TapConfig, logger logging.Logger) map[byte]byte {
 	registerValues := map[byte]byte{}
 	if singleTapConfigs == nil {
 		return registerValues
@@ -397,6 +397,8 @@ func getSingleTapRegisterValues(singleTapConfigs *TapConfig) map[byte]byte {
 	if singleTapConfigs.Dur != 0 {
 		registerValues[durAddr] = byte((singleTapConfigs.Dur / durScaleFactor))
 	}
+
+	logger.Info("Consider experimenting with dur_us and threshold attributes to achieve best results with single tap")
 	return registerValues
 }
 
