@@ -140,11 +140,13 @@ func (wf *wrapperFrame) InputFromProtobuf(jp *pb.JointPositions) []referencefram
 
 // ProtobufFromInput converts inputs to pb.JointPosition.
 func (wf *wrapperFrame) ProtobufFromInput(input []referenceframe.Input) *pb.JointPositions {
-	n := make([]float64, len(input))
-	for idx, a := range input {
-		n[idx] = a.Value
-	}
-	return &pb.JointPositions{Values: n}
+	executionFrameSubset := input[:len(wf.executionFrame.DoF())]
+	executionFrameJP := wf.executionFrame.ProtobufFromInput(executionFrameSubset)
+
+	localizationFrameSubset := input[len(wf.executionFrame.DoF()):]
+	localizationFrameJP := wf.localizationFrame.ProtobufFromInput(localizationFrameSubset)
+
+	return &pb.JointPositions{Values: append(executionFrameJP.GetValues(), localizationFrameJP.GetValues()...)}
 }
 
 func (wf *wrapperFrame) PTGSolvers() []tpspace.PTGSolver {
