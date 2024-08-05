@@ -127,7 +127,7 @@ func (wf *wrapperFrame) MarshalJSON() ([]byte, error) {
 
 // InputFromProtobuf converts pb.JointPosition to inputs.
 func (wf *wrapperFrame) InputFromProtobuf(jp *pb.JointPositions) []referenceframe.Input {
-	jpValues := jp.GetValues()
+	jpValues := jp.Values
 
 	executionFrameSubset := jpValues[:len(wf.executionFrame.DoF())]
 	executionFrameInputs := wf.executionFrame.InputFromProtobuf(&pb.JointPositions{Values: executionFrameSubset})
@@ -146,7 +146,7 @@ func (wf *wrapperFrame) ProtobufFromInput(input []referenceframe.Input) *pb.Join
 	localizationFrameSubset := input[len(wf.executionFrame.DoF()):]
 	localizationFrameJP := wf.localizationFrame.ProtobufFromInput(localizationFrameSubset)
 
-	return &pb.JointPositions{Values: append(executionFrameJP.GetValues(), localizationFrameJP.GetValues()...)}
+	return &pb.JointPositions{Values: append(executionFrameJP.Values, localizationFrameJP.Values...)}
 }
 
 func (wf *wrapperFrame) PTGSolvers() []tpspace.PTGSolver {
