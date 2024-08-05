@@ -185,29 +185,22 @@ func (manager *resourceManager) updateRemoteResourceNames(
 	manager.logger.CDebugw(ctx, "updating remote resource names", "remote", remoteName)
 	activeResourceNames := map[resource.Name]bool{}
 	newResources := rr.ResourceNames()
-	oldResources := manager.remoteResourceNames(remoteName)
-	for _, res := range oldResources {
+	if newResources == nil {
+		// nil implies our connection to the remote is currently broken. Return without changing any
+		// state for this remote.
+		return false
+	}
+
+	// Initialize a map with all existing resources as a map item. We will iterate through all of
+	// the `newResources` and set the map value for that item to true. Anything left with `false` at
+	// the end has been removed and will be marked for removal.
+	for _, res := range manager.remoteResourceNames(remoteName) {
 		activeResourceNames[res] = false
 	}
 
 	anythingChanged := false
-
 	for _, resName := range newResources {
 		remoteResName := resName
-		res, err := rr.ResourceByName(remoteResName) // this returns a remote known OR foreign resource client
-		if err != nil {
-			if errors.Is(err, client.ErrMissingClientRegistration) {
-				manager.logger.CDebugw(ctx, "couldn't obtain remote resource interface",
-					"name", remoteResName,
-					"reason", err)
-			} else {
-				manager.logger.CErrorw(ctx, "couldn't obtain remote resource interface",
-					"name", remoteResName,
-					"reason", err)
-			}
-			continue
-		}
-
 		resName = resName.PrependRemote(remoteName.Name)
 		gNode, ok := manager.resources.Node(resName)
 
@@ -237,6 +230,25 @@ func (manager *resourceManager) updateRemoteResourceNames(
 						"reason", err)
 				}
 			}
+		}
+
+		// ResourceByName on the robot client will construct and return the client resource that
+		// should be added into the resource graph. This method can return an error if the
+		// connection to the remote has been lost. In this case, the resource has already been
+		// deemed "active" and will not be removed in the "mark for update" stage of updating remote
+		// resources.
+		res, err := rr.ResourceByName(remoteResName) // this returns a remote known OR foreign resource client
+		if err != nil {
+			if errors.Is(err, client.ErrMissingClientRegistration) {
+				manager.logger.CDebugw(ctx, "couldn't obtain remote resource interface",
+					"name", remoteResName,
+					"reason", err)
+			} else {
+				manager.logger.CErrorw(ctx, "couldn't obtain remote resource interface",
+					"name", remoteResName,
+					"reason", err)
+			}
+			continue
 		}
 
 		if ok {
