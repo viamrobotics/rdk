@@ -377,7 +377,6 @@ func getInterruptConfigurations(cfg *Config) map[byte]byte {
 			// Clear the single tap bit in the map to send the signal to pin INT1.
 			intMap &^= interruptBitPosition[singleTap]
 		}
-
 	}
 
 	return map[byte]byte{intEnableAddr: intEnabled, intMapAddr: intMap}
