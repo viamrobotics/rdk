@@ -620,7 +620,7 @@ func (rc *RobotClient) resources(ctx context.Context) ([]resource.Name, []resour
 		defer cancel()
 	}
 
-	resp, err := rc.client.ResourceNames(ctx, &pb.ResourceNamesRequest{})
+	resp, err := rc.MachineStatus(ctx)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -628,9 +628,8 @@ func (rc *RobotClient) resources(ctx context.Context) ([]resource.Name, []resour
 	var resTypes []resource.RPCAPI
 
 	resources := make([]resource.Name, 0, len(resp.Resources))
-	for _, name := range resp.Resources {
-		newName := rprotoutils.ResourceNameFromProto(name)
-		resources = append(resources, newName)
+	for _, status := range resp.Resources {
+		resources = append(resources, status.Name)
 	}
 
 	// resource has previously returned an unimplemented response, skip rpc call

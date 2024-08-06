@@ -1,5 +1,4 @@
 package robotimpl
-
 import (
 	"context"
 	"crypto/tls"
@@ -367,6 +366,23 @@ func (manager *resourceManager) ResourceNames() []resource.Name {
 		names = append(names, k)
 	}
 	return names
+}
+
+// ResourceStatuses returns the names of all resources in the manager.
+func (manager *resourceManager) ResourceStatuses() []resource.Status {
+	result := []resource.Status{}
+	for _, k := range manager.resources.Names() {
+		if k.API == client.RemoteAPI ||
+			k.API.Type.Namespace == resource.APINamespaceRDKInternal {
+			continue
+		}
+		gNode, ok := manager.resources.Node(k)
+		if !ok || !gNode.HasResource() {
+			continue
+		}
+		result = append(result, gNode.ResourceStatus())
+	}
+	return result
 }
 
 // ResourceRPCAPIs returns the types of all resource RPC APIs in use by the manager.
