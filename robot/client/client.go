@@ -1095,7 +1095,7 @@ func addVersionMetadataToContext(ctx context.Context) context.Context {
 		apiVersion = dep.Version
 	}
 	version := config.Version
-	if version == "" && config.GitRevision != ""{
+	if version == "" && config.GitRevision != "" {
 		version = "git-" + config.GitRevision
 	}
 	if version == "" {
