@@ -26,12 +26,11 @@ func CheckPlan(
 	logger logging.Logger,
 ) error {
 	plan := executionState.Plan()
-	startingInputs := plan.Trajectory()[0]
 	wayPointIdx := executionState.Index()
 
 	// ensure that we can actually perform the check
-	if len(plan.Path()) < 1 {
-		return errors.New("plan must have at least one element")
+	if len(plan.Path()) < 1 || len(plan.Trajectory()) < 1 {
+		return errors.New("plan's path and trajectory both must have at least one element")
 	}
 	if len(plan.Path()) <= wayPointIdx || wayPointIdx < 0 {
 		return errors.New("wayPointIdx outside of plan bounds")
@@ -40,7 +39,7 @@ func CheckPlan(
 	// construct solverFrame
 	// Note that this requires all frames which move as part of the plan, to have an
 	// entry in the very first plan waypoint
-	sf, err := newSolverFrame(fs, checkFrame.Name(), referenceframe.World, startingInputs)
+	sf, err := newSolverFrame(fs, checkFrame.Name(), referenceframe.World, plan.Trajectory()[0])
 	if err != nil {
 		return err
 	}
