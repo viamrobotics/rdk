@@ -2171,8 +2171,9 @@ func TestOfflineRemoteResources(t *testing.T) {
 	})
 	test.That(t, err, test.ShouldBeNil)
 
-	// Wait until the main robot sees the remote is online.
-	testutils.WaitForAssertion(t, func(tb testing.TB) {
+	// Wait until the main robot sees the remote is online. This gets stuck behind a 10 second dial
+	// timeout. So we must manually increase the time we're willing to wait.
+	testutils.WaitForAssertionWithSleep(t, 50*time.Millisecond, 1000, func(tb testing.TB) {
 		tb.Helper()
 		test.That(tb, mainToRemoteClient.Connected(), test.ShouldBeTrue)
 	})

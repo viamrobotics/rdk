@@ -347,9 +347,7 @@ func (rc *RobotClient) connectWithLock(ctx context.Context) error {
 		return err
 	}
 
-	cancelCtx, stop := context.WithTimeout(ctx, time.Second)
-	defer stop()
-	conn, err := grpc.Dial(cancelCtx, rc.address, rc.logger, rc.dialOptions...)
+	conn, err := grpc.Dial(ctx, rc.address, rc.logger, rc.dialOptions...)
 	if err != nil {
 		return err
 	}
@@ -409,7 +407,6 @@ func (rc *RobotClient) checkConnection(ctx context.Context, checkEvery, reconnec
 				return
 			}
 		}
-		rc.logger.Info("Waiting to recheck. WaitTime:", waitTime)
 		if !utils.SelectContextOrWait(ctx, waitTime) {
 			return
 		}
