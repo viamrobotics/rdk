@@ -415,5 +415,4 @@ func TestLoggingWithFields(t *testing.T) {
 	loggerWith.CDebugw(ctxWithDebug, "Debugw log", "k", "v")
 	assertLogMatches(t, notStdout,
 		`2023-10-30T09:12:09.459Z	DEBUG	impl	logging/impl_test.go:200	Debugw log	{"traceKey":"foobar","k":"v","key":"value"}`)
-
 }

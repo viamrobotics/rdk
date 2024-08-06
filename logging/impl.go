@@ -553,6 +553,7 @@ func (imp *implWith) AsZap() *zap.SugaredLogger {
 func (imp *implWith) Write(entry *LogEntry) {
 	imp.logger.Write(entry)
 }
+
 func (imp *implWith) WithFields(args ...interface{}) Logger {
 	return imp.logger.WithFields(args)
 }
@@ -787,6 +788,7 @@ func (imp *implWith) CErrorf(ctx context.Context, template string, args ...inter
 		imp.Write(entry)
 	}
 }
+
 func (imp *implWith) Errorw(msg string, keysAndValues ...interface{}) {
 	imp.logger.testHelper()
 	if imp.logger.shouldLog(ERROR) {
