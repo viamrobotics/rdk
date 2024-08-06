@@ -112,12 +112,7 @@ func init() {
 // CaptureAllFromCamera example:
 //
 //	// The data to capture and return from the camera
-//	captOpts := viscapture.CaptureOptions{
-//	ReturnImage:           true,
-//			ReturnClassifications: true,
-//			ReturnDetections:      true,
-//			ReturnObject:          true,
-//	}
+//	captOpts := viscapture.CaptureOptions{}
 //	// Get the captured data for a camera
 //	capture, err := visService.CaptureAllFromCamera(context.Background(), "cam1", captOpts, nil)
 //	if err != nil {
