@@ -1086,14 +1086,6 @@ func (rc *RobotClient) Version(ctx context.Context) (robot.VersionResponse, erro
 
 func addVersionMetadataToContext(ctx context.Context) context.Context {
 	info, _ := debug.ReadBuildInfo()
-	settings := make(map[string]string, len(info.Settings))
-	for _, setting := range info.Settings {
-		settings[setting.Key] = setting.Value
-	}
-	version := "?"
-	if rev, ok := settings["vcs.revision"]; ok {
-		version = rev[:8]
-	}
 	deps := make(map[string]*debug.Module, len(info.Deps))
 	for _, dep := range info.Deps {
 		deps[dep.Path] = dep
@@ -1101,6 +1093,10 @@ func addVersionMetadataToContext(ctx context.Context) context.Context {
 	apiVersion := "?"
 	if dep, ok := deps["go.viam.com/api"]; ok {
 		apiVersion = dep.Version
+	}
+	version := "?"
+	if dep, ok := deps["go.viam.com/rdk"]; ok {
+			version = dep.Version
 	}
 	versionMetadata := fmt.Sprintf("go;v%s;%s", version, apiVersion)
 	return metadata.AppendToOutgoingContext(ctx, "viam_client", versionMetadata)
