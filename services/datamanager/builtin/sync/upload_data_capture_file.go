@@ -19,9 +19,8 @@ var MaxUnaryFileSize = int64(units.MB)
 
 func uploadDataCaptureFile(
 	ctx context.Context,
-	client v1.DataSyncServiceClient,
 	f *datacapture.File,
-	partID string,
+	conn cloudConn,
 ) error {
 	md := f.ReadMetadata()
 	sensorData, err := datacapture.SensorDataFromFile(f)
@@ -70,7 +69,7 @@ func uploadDataCaptureFile(
 				},
 			}
 			newUploadMD := &v1.UploadMetadata{
-				PartId:           partID,
+				PartId:           conn.partID,
 				ComponentType:    md.GetComponentType(),
 				ComponentName:    md.GetComponentName(),
 				MethodName:       md.GetMethodName(),
@@ -79,14 +78,14 @@ func uploadDataCaptureFile(
 				FileExtension:    getFileExtFromImageFormat(img.GetFormat()),
 				Tags:             md.GetTags(),
 			}
-			if err := uploadSensorData(ctx, client, newUploadMD, newSensorData, f.Size()); err != nil {
+			if err := uploadSensorData(ctx, conn.client, newUploadMD, newSensorData, f.Size()); err != nil {
 				return err
 			}
 		}
 	} else {
 		// Build UploadMetadata
 		uploadMD := &v1.UploadMetadata{
-			PartId:           partID,
+			PartId:           conn.partID,
 			ComponentType:    md.GetComponentType(),
 			ComponentName:    md.GetComponentName(),
 			MethodName:       md.GetMethodName(),
@@ -95,7 +94,7 @@ func uploadDataCaptureFile(
 			FileExtension:    md.GetFileExtension(),
 			Tags:             md.GetTags(),
 		}
-		return uploadSensorData(ctx, client, uploadMD, sensorData, f.Size())
+		return uploadSensorData(ctx, conn.client, uploadMD, sensorData, f.Size())
 	}
 	return nil
 }

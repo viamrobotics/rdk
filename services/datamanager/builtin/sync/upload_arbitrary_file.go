@@ -7,7 +7,6 @@ import (
 	"path/filepath"
 	"time"
 
-	clk "github.com/benbjohnson/clock"
 	"github.com/pkg/errors"
 	v1 "go.viam.com/api/app/datasync/v1"
 )
@@ -19,14 +18,12 @@ var UploadChunkSize = 64 * 1024
 // what happens if any of these errors happen? Does it get retried forever?
 func uploadArbitraryFile(
 	ctx context.Context,
-	client v1.DataSyncServiceClient,
 	f *os.File,
-	partID string,
+	conn cloudConn,
 	tags []string,
 	fileLastModifiedMillis int,
-	clock clk.Clock,
 ) error {
-	stream, err := client.FileUpload(ctx)
+	stream, err := conn.client.FileUpload(ctx)
 	if err != nil {
 		return err
 	}
@@ -47,7 +44,7 @@ func uploadArbitraryFile(
 		return errors.New("file is empty (0 bytes)")
 	}
 
-	timeSinceMod := clock.Since(info.ModTime())
+	timeSinceMod := time.Since(info.ModTime())
 	if timeSinceMod < time.Duration(fileLastModifiedMillis)*time.Millisecond {
 		return errors.New("file modified too recently")
 	}
@@ -56,7 +53,7 @@ func uploadArbitraryFile(
 	if err := stream.Send(&v1.FileUploadRequest{
 		UploadPacket: &v1.FileUploadRequest_Metadata{
 			Metadata: &v1.UploadMetadata{
-				PartId:        partID,
+				PartId:        conn.partID,
 				Type:          v1.DataType_DATA_TYPE_FILE,
 				FileName:      path,
 				FileExtension: filepath.Ext(f.Name()),

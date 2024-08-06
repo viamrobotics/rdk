@@ -112,12 +112,11 @@ func collectorConfigToMetadata(c datamanager.DataCaptureConfig) collectorMetadat
 }
 
 // New creates a new capture manager.
-func New(logger logging.Logger, clk clock.Clock) *Capture {
+func New(logger logging.Logger) *Capture {
 	return &Capture{
 		logger:               logger,
 		collectors:           collectors{},
 		collectorFrequencyHz: make(map[collectorMetadata]float32),
-		clk:                  clk,
 		fileCountLogger:      newFileCountLogger(logger),
 	}
 }

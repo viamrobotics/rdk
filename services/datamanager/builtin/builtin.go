@@ -8,9 +8,9 @@ import (
 	"path/filepath"
 	"sync"
 
-	clk "github.com/benbjohnson/clock"
-	goutils "go.viam.com/utils"
+	v1 "go.viam.com/api/app/datasync/v1"
 
+	"go.viam.com/rdk/components/sensor"
 	"go.viam.com/rdk/internal/cloud"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
@@ -44,8 +44,6 @@ func init() {
 		})
 }
 
-// var clock = clk.New()
-
 // Config describes how to configure the service.
 type Config struct {
 	// Sync & Capture
@@ -69,6 +67,14 @@ func (c *Config) Validate(path string) ([]string, error) {
 	return []string{cloud.InternalServiceName.String()}, nil
 }
 
+func (c *Config) getCaptureDir() string {
+	captureDir := viamCaptureDotDir
+	if c.CaptureDir != "" {
+		captureDir = c.CaptureDir
+	}
+	return captureDir
+}
+
 // builtIn initializes and orchestrates data capture collectors for registered component/methods.
 type builtIn struct {
 	resource.Named
@@ -86,8 +92,12 @@ func NewBuiltIn(
 	conf resource.Config,
 	logger logging.Logger,
 ) (datamanager.Service, error) {
-	capture := capture.New(logger.Sublogger("capture"), clk.New())
-	sync := datasync.New(logger.Sublogger("sync"), clk.New(), capture.FlushCollectors)
+	capture := capture.New(logger.Sublogger("capture"))
+	sync := datasync.New(
+		v1.NewDataSyncServiceClient,
+		capture.FlushCollectors,
+		logger.Sublogger("sync"),
+	)
 	svc := &builtIn{
 		Named:   conf.ResourceName().AsNamed(),
 		logger:  logger,
@@ -105,9 +115,13 @@ func NewBuiltIn(
 func (b *builtIn) Close(_ context.Context) error {
 	b.mu.Lock()
 	defer b.mu.Unlock()
+	b.close()
+	return nil
+}
+
+func (b *builtIn) close() {
 	b.capture.Close()
 	b.sync.Close()
-	return nil
 }
 
 // TODO: Determine desired behavior if sync is disabled. Do we wan to allow manual syncs, then?
@@ -128,11 +142,17 @@ func (b *builtIn) Reconfigure(
 	deps resource.Dependencies,
 	conf resource.Config,
 ) error {
+	var err error
+	failFunc := func() {
+		b.logger.Errorf("unrecoverable datamanager Reconfigure error: %s", err.Error())
+		b.close()
+	}
 	b.mu.Lock()
-	g := utils.NewGuard(func() { goutils.UncheckedError(b.Close(context.Background())) })
-	defer g.OnFail()
 	defer b.mu.Unlock()
-	c, err := resource.NativeConfig[*Config](conf)
+	g := utils.NewGuard(failFunc)
+	defer g.OnFail()
+	var c *Config
+	c, err = resource.NativeConfig[*Config](conf)
 	if err != nil {
 		// If this error occurs it is due to the builtin.Config not being a native config which is a
 		// static error that could only be introduced at compile time.
@@ -140,23 +160,22 @@ func (b *builtIn) Reconfigure(
 	}
 
 	if !utils.IsTrustedEnvironment(ctx) && c.CaptureDir != "" && c.CaptureDir != viamCaptureDotDir {
-		return ErrCaptureDirectoryConfigurationDisabled
+		err = ErrCaptureDirectoryConfigurationDisabled
+		return err
 	}
 
-	cloudConnSvc, err := resource.FromDependencies[cloud.ConnectionService](deps, cloud.InternalServiceName)
+	var cloudConnSvc cloud.ConnectionService
+	cloudConnSvc, err = resource.FromDependencies[cloud.ConnectionService](deps, cloud.InternalServiceName)
 	if err != nil {
 		// If this error occurs it's a resource graph error
 		return err
 	}
 
-	captureDir := viamCaptureDotDir
-	if c.CaptureDir != "" {
-		captureDir = c.CaptureDir
-	}
-
-	b.sync.Reconfigure(ctx, deps, syncConfig(c, captureDir), cloudConnSvc)
-
-	if err := b.capture.Reconfigure(ctx, deps, conf, captureConfig(c, captureDir)); err != nil {
+	syncSensor := syncSensorFromDeps(c.SelectiveSyncerName, deps, b.logger)
+	b.sync.Reconfigure(ctx, syncConfig(c, syncSensor), cloudConnSvc)
+	err = b.capture.Reconfigure(ctx, deps, conf, captureConfig(c))
+	if err != nil {
+		// If this error occurs it's a resource graph error
 		return err
 	}
 	g.Success()
@@ -164,20 +183,46 @@ func (b *builtIn) Reconfigure(
 	return nil
 }
 
-func captureConfig(c *Config, captureDir string) capture.Config {
+func captureConfig(c *Config) capture.Config {
 	return capture.Config{
 		CaptureDisabled:             c.CaptureDisabled,
-		CaptureDir:                  captureDir,
+		CaptureDir:                  c.getCaptureDir(),
 		Tags:                        c.Tags,
 		MaximumCaptureFileSizeBytes: c.MaximumCaptureFileSizeBytes,
 	}
 }
 
-func syncConfig(c *Config, captureDir string) datasync.Config {
+const (
+	// Default time to wait in milliseconds to check if a file has been modified.
+	defaultFileLastModifiedMillis = 10000.0
+	// DefaultMaxParallelSyncRoutines is the maximum number of sync goroutines that can be running at once.
+	DefaultMaxParallelSyncRoutines = 100
+	// DefaultDeleteEveryNth temporarily public for tests.
+	DefaultDeleteEveryNth = 5
+)
+
+func syncConfig(c *Config, syncSensor sensor.Sensor) datasync.Config {
+	newMaxSyncThreadValue := DefaultMaxParallelSyncRoutines
+	if c.MaximumNumSyncThreads != 0 {
+		newMaxSyncThreadValue = c.MaximumNumSyncThreads
+	}
+	c.MaximumNumSyncThreads = newMaxSyncThreadValue
+
+	deleteEveryNthValue := DefaultDeleteEveryNth
+	if c.DeleteEveryNthWhenDiskFull != 0 {
+		deleteEveryNthValue = c.DeleteEveryNthWhenDiskFull
+	}
+	c.DeleteEveryNthWhenDiskFull = deleteEveryNthValue
+
+	fileLastModifiedMillis := c.FileLastModifiedMillis
+	if fileLastModifiedMillis <= 0 {
+		fileLastModifiedMillis = defaultFileLastModifiedMillis
+	}
+	c.FileLastModifiedMillis = fileLastModifiedMillis
 	return datasync.Config{
 		AdditionalSyncPaths:        c.AdditionalSyncPaths,
 		Tags:                       c.Tags,
-		CaptureDir:                 captureDir,
+		CaptureDir:                 c.getCaptureDir(),
 		CaptureDisabled:            c.CaptureDisabled,
 		DeleteEveryNthWhenDiskFull: c.DeleteEveryNthWhenDiskFull,
 		FileLastModifiedMillis:     c.FileLastModifiedMillis,
@@ -185,5 +230,19 @@ func syncConfig(c *Config, captureDir string) datasync.Config {
 		SyncDisabled:               c.ScheduledSyncDisabled,
 		SelectiveSyncerName:        c.SelectiveSyncerName,
 		SyncIntervalMins:           c.SyncIntervalMins,
+		SyncSensor:                 syncSensor,
 	}
+}
+
+func syncSensorFromDeps(selectiveSyncerName string, deps resource.Dependencies, logger logging.Logger) sensor.Sensor {
+	var syncSensor sensor.Sensor
+	if selectiveSyncerName != "" {
+		tmp, err := sensor.FromDependencies(deps, selectiveSyncerName)
+		if err != nil {
+			logger.Errorw(
+				"unable to initialize selective syncer; will not sync at all until fixed or removed from config", "error", err.Error())
+		}
+		syncSensor = tmp
+	}
+	return syncSensor
 }

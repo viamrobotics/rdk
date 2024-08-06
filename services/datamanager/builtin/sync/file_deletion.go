@@ -91,7 +91,7 @@ func exceedsDeletionThreshold(ctx context.Context, captureDirPath string, fsSize
 // deleteFiles temporarily public for tests.
 func deleteFiles(
 	ctx context.Context,
-	syncer *Syncer,
+	fileTracker *fileTracker,
 	deleteEveryNth int,
 	captureDirPath string,
 	logger logging.Logger,
@@ -125,16 +125,14 @@ func deleteFiles(
 			isCompletedDataCaptureFile := strings.Contains(fileInfo.Name(), datacapture.FileExt)
 			// if at nth file and the file is not currently being written, mark as in progress if possible
 			if isCompletedDataCaptureFile && index%deleteEveryNth == 0 {
-				if syncer != nil && !syncer.MarkInProgress(path) {
+				if !fileTracker.markInProgress(path) {
 					logger.Debugw("Tried to mark file as in progress but lock already held", "file", d.Name())
 					return nil
 				}
 				if err := os.Remove(path); err != nil {
 					logger.Warnw("error deleting file", "error", err)
 					// TODO: I'm pretty sure this code is leaking memory
-					if syncer != nil {
-						syncer.UnmarkInProgress(path)
-					}
+					fileTracker.unmarkInProgress(path)
 					return err
 				}
 				logger.Infof("successfully deleted %s", d.Name())
