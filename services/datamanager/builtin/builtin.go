@@ -9,6 +9,7 @@ import (
 	"sync"
 
 	v1 "go.viam.com/api/app/datasync/v1"
+	"google.golang.org/grpc"
 
 	"go.viam.com/rdk/components/sensor"
 	"go.viam.com/rdk/internal/cloud"
@@ -31,48 +32,25 @@ var (
 
 // In order for a collector to be captured by Data Capture, it must be included as a weak dependency.
 func init() {
+	constructor := func(
+		ctx context.Context,
+		deps resource.Dependencies,
+		conf resource.Config,
+		logger logging.Logger,
+	) (datamanager.Service, error) {
+		return NewBuiltIn(ctx, deps, conf, v1.NewDataSyncServiceClient, logger)
+	}
 	resource.RegisterService(
 		datamanager.API,
 		resource.DefaultServiceModel,
 		resource.Registration[datamanager.Service, *Config]{
-			Constructor: NewBuiltIn,
+			Constructor: constructor,
 			WeakDependencies: []resource.Matcher{
 				resource.TypeMatcher{Type: resource.APITypeComponentName},
 				resource.SubtypeMatcher{Subtype: slam.SubtypeName},
 				resource.SubtypeMatcher{Subtype: vision.SubtypeName},
 			},
 		})
-}
-
-// Config describes how to configure the service.
-type Config struct {
-	// Sync & Capture
-	CaptureDir string   `json:"capture_dir"`
-	Tags       []string `json:"tags"`
-	// Capture
-	CaptureDisabled             bool  `json:"capture_disabled"`
-	DeleteEveryNthWhenDiskFull  int   `json:"delete_every_nth_when_disk_full"`
-	MaximumCaptureFileSizeBytes int64 `json:"maximum_capture_file_size_bytes"`
-	// Sync
-	AdditionalSyncPaths    []string `json:"additional_sync_paths"`
-	FileLastModifiedMillis int      `json:"file_last_modified_millis"`
-	MaximumNumSyncThreads  int      `json:"maximum_num_sync_threads"`
-	ScheduledSyncDisabled  bool     `json:"sync_disabled"`
-	SelectiveSyncerName    string   `json:"selective_syncer_name"`
-	SyncIntervalMins       float64  `json:"sync_interval_mins"`
-}
-
-// Validate returns components which will be depended upon weakly due to the above matcher.
-func (c *Config) Validate(path string) ([]string, error) {
-	return []string{cloud.InternalServiceName.String()}, nil
-}
-
-func (c *Config) getCaptureDir() string {
-	captureDir := viamCaptureDotDir
-	if c.CaptureDir != "" {
-		captureDir = c.CaptureDir
-	}
-	return captureDir
 }
 
 // builtIn initializes and orchestrates data capture collectors for registered component/methods.
@@ -90,14 +68,11 @@ func NewBuiltIn(
 	ctx context.Context,
 	deps resource.Dependencies,
 	conf resource.Config,
+	cloudClientConstructor func(grpc.ClientConnInterface) v1.DataSyncServiceClient,
 	logger logging.Logger,
 ) (datamanager.Service, error) {
 	capture := capture.New(logger.Sublogger("capture"))
-	sync := datasync.New(
-		v1.NewDataSyncServiceClient,
-		capture.FlushCollectors,
-		logger.Sublogger("sync"),
-	)
+	sync := datasync.New(cloudClientConstructor, capture.FlushCollectors, logger.Sublogger("sync"))
 	svc := &builtIn{
 		Named:   conf.ResourceName().AsNamed(),
 		logger:  logger,
@@ -137,11 +112,7 @@ func (b *builtIn) Sync(ctx context.Context, extra map[string]interface{}) error 
 }
 
 // Reconfigure updates the data manager service when the config has changed.
-func (b *builtIn) Reconfigure(
-	ctx context.Context,
-	deps resource.Dependencies,
-	conf resource.Config,
-) error {
+func (b *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
 	var err error
 	failFunc := func() {
 		b.logger.Errorf("unrecoverable datamanager Reconfigure error: %s", err.Error())
@@ -171,78 +142,68 @@ func (b *builtIn) Reconfigure(
 		return err
 	}
 
-	syncSensor := syncSensorFromDeps(c.SelectiveSyncerName, deps, b.logger)
-	b.sync.Reconfigure(ctx, syncConfig(c, syncSensor), cloudConnSvc)
-	err = b.capture.Reconfigure(ctx, deps, conf, captureConfig(c))
+	captureConfig := captureConfig(c)
+
+	var collectorConfigsByResource map[resource.Resource][]datamanager.DataCaptureConfig
+	collectorConfigsByResource, err = lookupCollectorConfigsByResource(deps, conf, captureConfig.CaptureDir, b.logger)
 	if err != nil {
 		// If this error occurs it's a resource graph error
 		return err
 	}
+
+	b.capture.Reconfigure(ctx, collectorConfigsByResource, captureConfig)
+	syncSensor, syncSensorEnabled := syncSensorFromDeps(c.SelectiveSyncerName, deps, b.logger)
+	b.sync.Reconfigure(ctx, syncConfig(c, syncSensor, syncSensorEnabled), cloudConnSvc)
 	g.Success()
 
 	return nil
 }
 
-func captureConfig(c *Config) capture.Config {
-	return capture.Config{
-		CaptureDisabled:             c.CaptureDisabled,
-		CaptureDir:                  c.getCaptureDir(),
-		Tags:                        c.Tags,
-		MaximumCaptureFileSizeBytes: c.MaximumCaptureFileSizeBytes,
+func syncSensorFromDeps(
+	selectiveSyncerName string,
+	deps resource.Dependencies,
+	logger logging.Logger,
+) (sensor.Sensor, bool) {
+	if selectiveSyncerName == "" {
+		return nil, false
 	}
+	syncSensor, err := sensor.FromDependencies(deps, selectiveSyncerName)
+	if err != nil {
+		// see sync.Config.schedulerEnabled() for how this affects whether or not scheduled sync will run
+		logger.Errorw(
+			"unable to initialize selective syncer; will not schedule sync at all until fixed or removed from config", "error", err.Error())
+		return nil, true
+	}
+	return syncSensor, true
 }
 
-const (
-	// Default time to wait in milliseconds to check if a file has been modified.
-	defaultFileLastModifiedMillis = 10000.0
-	// DefaultMaxParallelSyncRoutines is the maximum number of sync goroutines that can be running at once.
-	DefaultMaxParallelSyncRoutines = 100
-	// DefaultDeleteEveryNth temporarily public for tests.
-	DefaultDeleteEveryNth = 5
-)
-
-func syncConfig(c *Config, syncSensor sensor.Sensor) datasync.Config {
-	newMaxSyncThreadValue := DefaultMaxParallelSyncRoutines
-	if c.MaximumNumSyncThreads != 0 {
-		newMaxSyncThreadValue = c.MaximumNumSyncThreads
-	}
-	c.MaximumNumSyncThreads = newMaxSyncThreadValue
-
-	deleteEveryNthValue := DefaultDeleteEveryNth
-	if c.DeleteEveryNthWhenDiskFull != 0 {
-		deleteEveryNthValue = c.DeleteEveryNthWhenDiskFull
-	}
-	c.DeleteEveryNthWhenDiskFull = deleteEveryNthValue
-
-	fileLastModifiedMillis := c.FileLastModifiedMillis
-	if fileLastModifiedMillis <= 0 {
-		fileLastModifiedMillis = defaultFileLastModifiedMillis
-	}
-	c.FileLastModifiedMillis = fileLastModifiedMillis
-	return datasync.Config{
-		AdditionalSyncPaths:        c.AdditionalSyncPaths,
-		Tags:                       c.Tags,
-		CaptureDir:                 c.getCaptureDir(),
-		CaptureDisabled:            c.CaptureDisabled,
-		DeleteEveryNthWhenDiskFull: c.DeleteEveryNthWhenDiskFull,
-		FileLastModifiedMillis:     c.FileLastModifiedMillis,
-		MaximumNumSyncThreads:      c.MaximumNumSyncThreads,
-		SyncDisabled:               c.ScheduledSyncDisabled,
-		SelectiveSyncerName:        c.SelectiveSyncerName,
-		SyncIntervalMins:           c.SyncIntervalMins,
-		SyncSensor:                 syncSensor,
-	}
-}
-
-func syncSensorFromDeps(selectiveSyncerName string, deps resource.Dependencies, logger logging.Logger) sensor.Sensor {
-	var syncSensor sensor.Sensor
-	if selectiveSyncerName != "" {
-		tmp, err := sensor.FromDependencies(deps, selectiveSyncerName)
+// Lookup the collector configs associated with the data manager service.
+func lookupCollectorConfigsByResource(
+	deps resource.Dependencies,
+	resConfig resource.Config,
+	captureDir string,
+	logger logging.Logger,
+) (map[resource.Resource][]datamanager.DataCaptureConfig, error) {
+	collectorConfigsByResource := map[resource.Resource][]datamanager.DataCaptureConfig{}
+	for name, rawAssocCfg := range resConfig.AssociatedAttributes {
+		assocCfg, err := utils.AssertType[*datamanager.AssociatedConfig](rawAssocCfg)
 		if err != nil {
-			logger.Errorw(
-				"unable to initialize selective syncer; will not sync at all until fixed or removed from config", "error", err.Error())
+			// This would only happen if there is a bug in resource graph
+			return nil, err
 		}
-		syncSensor = tmp
+		res, err := deps.Lookup(name)
+		if err != nil {
+			logger.Warnw("datamanager failed to lookup resource from config", "error", err)
+			continue
+		}
+
+		collectorConfigs := []datamanager.DataCaptureConfig{}
+		for _, collectorConfig := range assocCfg.CaptureMethods {
+			// we need to set the CaptureDirectory to that in the data manager config
+			collectorConfig.CaptureDirectory = captureDir
+			collectorConfigs = append(collectorConfigs, collectorConfig)
+		}
+		collectorConfigsByResource[res] = collectorConfigs
 	}
-	return syncSensor
+	return collectorConfigsByResource, nil
 }

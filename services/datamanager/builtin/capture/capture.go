@@ -36,9 +36,6 @@ const defaultCaptureBufferSize = 4096
 // Threshold number of files to check if sync is backed up (defined as >1000 files).
 var minNumFiles = 1000
 
-// Default maximum size in bytes of a data capture file.
-var defaultMaxCaptureSize = int64(256 * 1024)
-
 // Default time between checking and logging number of files in capture dir.
 var captureDirSizeLogInterval = time.Minute
 
@@ -76,8 +73,6 @@ type Capture struct {
 }
 
 type collectors map[collectorMetadata]*collectorAndConfig
-
-type collectorConfigsByResource map[resource.Resource][]datamanager.DataCaptureConfig
 
 // Parameters stored for each collector.
 type collectorAndConfig struct {
@@ -121,20 +116,10 @@ func New(logger logging.Logger) *Capture {
 	}
 }
 
-// Config is the capture config.
-type Config struct {
-	CaptureDisabled             bool
-	CaptureDir                  string
-	Tags                        []string
-	MaximumCaptureFileSizeBytes int64
-}
-
-func (c *Capture) newCollectors(deps resource.Dependencies, resConfig resource.Config, config Config) (collectors, error) {
-	collectorConfigsByResource, err := lookupCollectorConfigsByResource(deps, resConfig, config.CaptureDir, c.logger)
-	if err != nil {
-		return nil, err
-	}
-
+func (c *Capture) newCollectors(
+	collectorConfigsByResource map[resource.Resource][]datamanager.DataCaptureConfig,
+	config Config,
+) collectors {
 	// Initialize or add collectors based on changes to the component configurations.
 	newCollectors := make(map[collectorMetadata]*collectorAndConfig)
 	for res, cfgs := range collectorConfigsByResource {
@@ -167,38 +152,28 @@ func (c *Capture) newCollectors(deps resource.Dependencies, resConfig resource.C
 			newCollectors[md] = newCollectorAndConfig
 		}
 	}
-	return newCollectors, nil
+	return newCollectors
 }
 
 // Reconfigure reconfigures Capture.
 // It is only called by the builtin data manager.
 func (c *Capture) Reconfigure(
 	ctx context.Context,
-	deps resource.Dependencies,
-	resConfig resource.Config,
+	collectorConfigsByResource map[resource.Resource][]datamanager.DataCaptureConfig,
 	config Config,
-) error {
+) {
 	// Service is disabled, so close all collectors and clear the map so we can instantiate new ones if we enable this service.
 	if config.CaptureDisabled {
 		c.logger.Debug("Capture Disabled, flushing & shutting down collectors")
 		c.Close()
-		return nil
+		return
 	}
 
-	config.MaximumCaptureFileSizeBytes = defaultIfZeroVal(
-		config.MaximumCaptureFileSizeBytes,
-		defaultMaxCaptureSize,
-	)
 	if c.captureDir != config.CaptureDir {
 		c.fileCountLogger.reconfigure(config.CaptureDir)
 	}
 
-	newCollectors, err := c.newCollectors(deps, resConfig, config)
-	if err != nil {
-		// This would only happen if there is a bug in resource graph
-		return err
-	}
-
+	newCollectors := c.newCollectors(collectorConfigsByResource, config)
 	// If a component/method has been removed from the config, close the collector.
 	c.collectorsMu.Lock()
 	for md, collAndConfig := range c.collectors {
@@ -211,7 +186,6 @@ func (c *Capture) Reconfigure(
 	c.collectorsMu.Unlock()
 	c.captureDir = config.CaptureDir
 	c.maxCaptureFileSize = config.MaximumCaptureFileSizeBytes
-	return nil
 }
 
 // Close closes the capture manager.
@@ -297,37 +271,6 @@ func (c *Capture) initializeOrUpdateCollector(
 	collector.Collect()
 
 	return &collectorAndConfig{res, collector, collectorConfig}, nil
-}
-
-// Lookup the collector configs associated with the data manager service.
-func lookupCollectorConfigsByResource(
-	deps resource.Dependencies,
-	resConfig resource.Config,
-	captureDir string,
-	logger logging.Logger,
-) (collectorConfigsByResource, error) {
-	collectorConfigsByResource := collectorConfigsByResource{}
-	for name, rawAssocCfg := range resConfig.AssociatedAttributes {
-		assocCfg, err := utils.AssertType[*datamanager.AssociatedConfig](rawAssocCfg)
-		if err != nil {
-			// This would only happen if there is a bug in resource graph
-			return nil, err
-		}
-		res, err := deps.Lookup(name)
-		if err != nil {
-			logger.Warnw("datamanager failed to lookup resource from config", "error", err)
-			continue
-		}
-
-		collectorConfigs := []datamanager.DataCaptureConfig{}
-		for _, collectorConfig := range assocCfg.CaptureMethods {
-			// we need to set the CaptureDirectory to that in the data manager config
-			collectorConfig.CaptureDirectory = captureDir
-			collectorConfigs = append(collectorConfigs, collectorConfig)
-		}
-		collectorConfigsByResource[res] = collectorConfigs
-	}
-	return collectorConfigsByResource, nil
 }
 
 // CloseCollectors closes collectors.

@@ -55,21 +55,19 @@ const (
 // - Reconfigure (any number of times)
 // - Close (once).
 type Sync struct {
-	logger    logging.Logger
-	workersWg sync.WaitGroup
-
-	configCtx        context.Context
-	configCancelFunc func()
-
+	logger          logging.Logger
+	workersWg       sync.WaitGroup
 	flushCollectors func()
-	cloudSvc        cloudSvc
-
-	fileTracker *fileTracker
+	fileTracker     *fileTracker
+	filesToSync     chan string
 
 	configMu sync.Mutex
 	config   Config
 
-	filesToSync chan string
+	configCtx        context.Context
+	configCancelFunc func()
+
+	cloudSvc cloudSvc
 
 	cloudConn cloudConn
 
@@ -109,11 +107,12 @@ func New(
 // 2. sets the cloud.ConnectionService if it hans't been set yet (only needs to be set once)
 // and notifies the cloud connection manager so it can make a cloud connection
 // 3. starts up the appropriate workers which use the new config.
-func (s *Sync) Reconfigure(
-	_ context.Context,
-	config Config,
-	cloudConnSvc cloud.ConnectionService,
-) {
+func (s *Sync) Reconfigure(_ context.Context, config Config, cloudConnSvc cloud.ConnectionService) {
+	if s.config.equal(config) && s.cloudSvc.cloudConnSvc != nil {
+		// if config has not changed and cloudConnSvc is not nil then reconfigure doesn't need
+		// to execute, don't stop workers
+		return
+	}
 	s.configCancelFunc()
 	s.fileDeletingWorkers.Stop()
 	s.scheduler.Stop()
@@ -132,7 +131,7 @@ func (s *Sync) Reconfigure(
 
 	// start workers
 	s.startWorkers(config)
-	if !config.disabled() {
+	if config.schedulerEnabled() {
 		s.scheduler = utils.NewStoppableWorkers(func(ctx context.Context) {
 			s.runScheduler(ctx, config)
 		})
@@ -333,11 +332,11 @@ func (s *Sync) runScheduler(ctx context.Context, config Config) {
 			return
 		case <-tkr.C:
 			// If selective sync is disabled, sync. If it is enabled, check the condition below.
-			shouldSync := config.SyncSensor == nil
+			shouldSync := config.SelectiveSyncSensor == nil
 			// If selective sync is enabled and the sensor has been properly initialized,
 			// try to get the reading from the selective sensor that indicates whether to sync
-			if config.SyncSensor != nil {
-				shouldSync = readyToSync(ctx, config.SyncSensor, s.logger)
+			if config.SelectiveSyncSensor != nil {
+				shouldSync = readyToSync(ctx, config.SelectiveSyncSensor, s.logger)
 			}
 
 			if online := s.cloudConn.grpcConn.GetState() == connectivity.Ready; online && shouldSync {

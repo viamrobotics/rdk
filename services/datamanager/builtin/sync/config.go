@@ -19,15 +19,18 @@ type Config struct {
 	SelectiveSyncerName        string
 	SyncIntervalMins           float64
 	Tags                       []string
-	SyncSensor                 sensor.Sensor
+	SelectiveSyncSensorEnabled bool
+	SelectiveSyncSensor        sensor.Sensor
 }
 
-func (c Config) disabled() bool {
-	return c.SyncDisabled || utils.Float64AlmostEqual(c.SyncIntervalMins, 0.0, 0.00001)
+func (c Config) schedulerEnabled() bool {
+	configDisabled := c.SyncDisabled || utils.Float64AlmostEqual(c.SyncIntervalMins, 0.0, 0.00001)
+	selectiveSyncerInvalid := c.SelectiveSyncSensorEnabled && c.SelectiveSyncSensor == nil
+	return !configDisabled && !selectiveSyncerInvalid
 }
 
-// Equal returns true when two Configs are semantically equivalent.
-func (c Config) Equal(o Config) bool {
+// equal returns true when two Configs are semantically equivalent.
+func (c Config) equal(o Config) bool {
 	return reflect.DeepEqual(c.AdditionalSyncPaths, o.AdditionalSyncPaths) &&
 		c.CaptureDir == o.CaptureDir &&
 		c.CaptureDisabled == o.CaptureDisabled &&
@@ -38,7 +41,8 @@ func (c Config) Equal(o Config) bool {
 		c.SelectiveSyncerName == o.SelectiveSyncerName &&
 		c.SyncIntervalMins == o.SyncIntervalMins &&
 		reflect.DeepEqual(c.Tags, o.Tags) &&
-		c.SyncSensor == o.SyncSensor
+		c.SelectiveSyncSensor == o.SelectiveSyncSensor &&
+		c.SelectiveSyncSensorEnabled == o.SelectiveSyncSensorEnabled
 }
 
 // TODO: Confirm this works for an empty config.
