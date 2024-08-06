@@ -148,8 +148,7 @@ func newSolverFrame(fs frame.FrameSystem, solveFrameName, goalFrameName string, 
 	}
 
 	var ptgs []tpspace.PTGSolver
-	anyPTG := false     // Whether PTG frames have been observed
-	anyNonzero := false // Whether non-PTG frames
+	anyPTG := false // Whether PTG frames have been observed
 	for _, movingFrame := range frames {
 		if ptgFrame, isPTGframe := movingFrame.(tpspace.PTGProvider); isPTGframe {
 			if anyPTG {
@@ -157,11 +156,6 @@ func newSolverFrame(fs frame.FrameSystem, solveFrameName, goalFrameName string, 
 			}
 			anyPTG = true
 			ptgs = ptgFrame.PTGSolvers()
-		} else if len(movingFrame.DoF()) > 0 {
-			anyNonzero = true
-		}
-		if anyNonzero && anyPTG {
-			return nil, errors.New("cannot combine ptg with other nonzero DOF frames in a single planning call")
 		}
 	}
 
@@ -210,13 +204,13 @@ func (sf *solverFrame) Interpolate(from, to []frame.Input, by float64) ([]frame.
 	}
 	interp := make([]frame.Input, 0, len(to))
 	posIdx := 0
-	for _, frame := range sf.frames {
-		dof := len(frame.DoF()) + posIdx
+	for _, currFrame := range sf.frames {
+		dof := len(currFrame.DoF()) + posIdx
 		fromSubset := from[posIdx:dof]
 		toSubset := to[posIdx:dof]
 		posIdx = dof
 
-		interpSub, err := frame.Interpolate(fromSubset, toSubset, by)
+		interpSub, err := currFrame.Interpolate(fromSubset, toSubset, by)
 		if err != nil {
 			return nil, err
 		}

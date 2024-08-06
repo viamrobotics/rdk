@@ -71,14 +71,17 @@ func wrapWithDifferentialDriveKinematics(
 		boundingSphere, err = spatialmath.BoundingSphere(geometry)
 	}
 	if boundingSphere == nil || err != nil {
-		logger.CWarn(ctx, "base %s not configured with a geometry, will be considered a 300mm sphere for collision detection purposes.")
+		logger.CWarnf(
+			ctx, "base %s not configured with a geometry, will be considered a 300mm sphere for collision detection purposes.",
+			b.Name().Name,
+		)
 		boundingSphere, err = spatialmath.NewSphere(spatialmath.NewZeroPose(), 150., b.Name().ShortName())
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	ddk.executionFrame, err = referenceframe.New2DMobileModelFrame(b.Name().ShortName(), limits, boundingSphere)
+	ddk.localizationFrame, err = referenceframe.New2DMobileModelFrame(b.Name().ShortName(), limits, boundingSphere)
 	if err != nil {
 		return nil, err
 	}
@@ -89,7 +92,7 @@ func wrapWithDifferentialDriveKinematics(
 			return nil, err
 		}
 	} else {
-		ddk.planningFrame = ddk.executionFrame
+		ddk.planningFrame = ddk.localizationFrame
 	}
 
 	ddk.noLocalizerCacheInputs = originInputs
@@ -99,17 +102,21 @@ func wrapWithDifferentialDriveKinematics(
 type differentialDriveKinematics struct {
 	base.Base
 	motion.Localizer
-	logger                        logging.Logger
-	planningFrame, executionFrame referenceframe.Model
-	options                       Options
-	noLocalizerCacheInputs        []referenceframe.Input
-	currentTrajectory             [][]referenceframe.Input
-	currentIdx                    int
-	mutex                         sync.RWMutex
+	logger                           logging.Logger
+	planningFrame, localizationFrame referenceframe.Frame
+	options                          Options
+	noLocalizerCacheInputs           []referenceframe.Input
+	currentTrajectory                [][]referenceframe.Input
+	currentIdx                       int
+	mutex                            sync.RWMutex
 }
 
 func (ddk *differentialDriveKinematics) Kinematics() referenceframe.Frame {
 	return ddk.planningFrame
+}
+
+func (ddk *differentialDriveKinematics) LocalizationFrame() referenceframe.Frame {
+	return ddk.localizationFrame
 }
 
 func (ddk *differentialDriveKinematics) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
@@ -310,7 +317,7 @@ func (ddk *differentialDriveKinematics) inputDiff(current, desired []referencefr
 	)
 
 	// transform the goal pose such that it is in the base frame
-	currentPose, err := ddk.executionFrame.Transform(current)
+	currentPose, err := ddk.localizationFrame.Transform(current)
 	if err != nil {
 		return 0, 0, err
 	}
