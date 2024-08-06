@@ -108,6 +108,25 @@ func init() {
 //	if len(objects) > 0 {
 //			logger.Info(objects[0])
 //	}
+//
+// CaptureAllFromCamera example:
+//
+//	// The data to capture and return from the camera
+//	captOpts := viscapture.CaptureOptions{
+//	ReturnImage:           true,
+//			ReturnClassifications: true,
+//			ReturnDetections:      true,
+//			ReturnObject:          true,
+//	}
+//	// Get the captured data for a camera
+//	capture, err := visService.CaptureAllFromCamera(context.Background(), "cam1", captOpts, nil)
+//	if err != nil {
+//			logger.Fatalf("Could not get capture data from vision service: %v", err)
+//	}
+//	image := capture.Image
+//	detections := capture.Detections
+//	classifications := capture.Classifications
+//	objects := capture.Objects
 type Service interface {
 	resource.Resource
 	// DetectionsFromCamera returns a list of detections from the next image from a specified camera using a configured detector.
@@ -136,6 +155,8 @@ type Service interface {
 	GetObjectPointClouds(ctx context.Context, cameraName string, extra map[string]interface{}) ([]*viz.Object, error)
 	// properties
 	GetProperties(ctx context.Context, extra map[string]interface{}) (*Properties, error)
+	// CaptureAllFromCamera returns the next image, detections, classifications, and objects all together, given a camera name. Used for
+	// visualization.
 	CaptureAllFromCamera(ctx context.Context,
 		cameraName string,
 		opts viscapture.CaptureOptions,
