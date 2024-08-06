@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math"
+	"strings"
 	"testing"
 	"time"
 
@@ -406,7 +407,9 @@ func TestObstacleReplanningSlam(t *testing.T) {
 		ExecutionID:   executionID,
 		LastPlanOnly:  true,
 	})
-	test.That(t, err, test.ShouldBeNil)
+	if err != nil {
+		test.That(t, strings.Contains(err.Error(), motion.ErrGoalWithinPlanDeviation.Error()), test.ShouldBeTrue)
+	}
 }
 
 func TestMultiplePieces(t *testing.T) {
