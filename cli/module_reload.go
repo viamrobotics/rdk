@@ -174,7 +174,9 @@ func mutateModuleConfig(c *cli.Context, modules []ModuleMap, manifest moduleMani
 				warningf(c.App.Writer, "you're replacing a registry module. we're converting it to a local module")
 				foundMod["type"] = string(rdkConfig.ModuleTypeLocal)
 				foundMod["name"] = localName
-				foundMod["module_id"] = ""
+				delete(foundMod, "module_id")
+				// TODO(APP-5844): stop clearing this once backend no longer rejects; we will use it for revert
+				delete(foundMod, "version")
 			}
 			foundMod["executable_path"] = absEntrypoint
 		}
