@@ -1090,15 +1090,20 @@ func addVersionMetadataToContext(ctx context.Context) context.Context {
 	for _, dep := range info.Deps {
 		deps[dep.Path] = dep
 	}
-	apiVersion := "?"
+	var apiVersion string
 	if dep, ok := deps["go.viam.com/api"]; ok {
 		apiVersion = dep.Version
 	}
-	version := "?"
-	if dep, ok := deps["go.viam.com/rdk"]; ok {
-			version = dep.Version
+	version := config.Version
+	if version == "" && config.GitRevision != ""{
+		version = "git-" + config.GitRevision
 	}
-	versionMetadata := fmt.Sprintf("go;v%s;%s", version, apiVersion)
+	if version == "" {
+		if dep, ok := deps["go.viam.com/rdk"]; ok {
+			version = dep.Version
+		}
+	}
+	versionMetadata := fmt.Sprintf("go;%s;%s", version, apiVersion)
 	return metadata.AppendToOutgoingContext(ctx, "viam_client", versionMetadata)
 }
 
