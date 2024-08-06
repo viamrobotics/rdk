@@ -291,7 +291,7 @@ func NewWebcam(
 
 	cam := &monitoredWebcam{
 		Named:          conf.ResourceName().AsNamed(),
-		logger:         logger,
+		logger:         logger.WithFields("camera_name", conf.ResourceName().ShortName()),
 		originalLogger: logger,
 		cancelCtx:      cancelCtx,
 		cancel:         cancel,
@@ -521,7 +521,7 @@ func (c *monitoredWebcam) reconnectCamera(conf *WebcamConfig) error {
 		c.targetPath = foundLabel
 	}
 
-	c.logger.WithFields("camera_label", c.targetPath)
+	c.logger = c.originalLogger.WithFields("camera_label", c.targetPath)
 
 	return nil
 }

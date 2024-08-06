@@ -10,7 +10,6 @@ import (
 	"strings"
 	"testing"
 
-	"go.uber.org/zap/zapcore"
 	"go.viam.com/test"
 )
 
@@ -304,75 +303,61 @@ func TestSublogger(t *testing.T) {
 func TestLoggingWithFields(t *testing.T) {
 	// A logger object that will write to the `notStdout` buffer.
 	notStdout := &bytes.Buffer{}
-	logger := &impl{
-		name:       "impl",
-		level:      NewAtomicLevelAt(DEBUG),
-		appenders:  []Appender{NewWriterAppender(notStdout)},
-		testHelper: func() {},
-		logFields:  []zapcore.Field{},
-	}
-
-	logger.WithFields("key", "value")
-	logger.Info("impl logw")
-	assertLogMatches(t, notStdout,
-		`2023-10-30T13:19:45.806Z	INFO	impl	logging/impl_test.go:132	impl logw	{"key":"value"}`)
-
-	logger.Infof("impl logw %s", "test")
-	assertLogMatches(t, notStdout,
-		`2023-10-30T13:19:45.806Z	INFO	impl	logging/impl_test.go:132	impl logw test	{"key":"value"}`)
-
-	logger.Infow("impl logw", "key1", "val1")
-	assertLogMatches(t, notStdout,
-		`2023-10-30T13:19:45.806Z	INFO	impl	logging/impl_test.go:132	impl logw	{"key1":"val1","key":"value"}`)
+	var logger Logger
+	var loggerWith Logger
 
 	logger = &impl{
 		name:       "impl",
 		level:      NewAtomicLevelAt(DEBUG),
 		appenders:  []Appender{NewWriterAppender(notStdout)},
 		testHelper: func() {},
-		logFields:  []zapcore.Field{},
 	}
 
-	// A few examples of structs.
-	logger.WithFields("key", "val", "StructWithAnonymousStruct", StructWithAnonymousStruct{1, struct{ Y1 string }{"y1"}, "foo"})
-	logger.Info("impl logw")
+	// Basic test
+	loggerWith = logger.WithFields("key", "value")
+	loggerWith.Info("impl logw")
+	assertLogMatches(t, notStdout,
+		`2023-10-30T13:19:45.806Z	INFO	impl	logging/impl_test.go:132	impl logw	{"key":"value"}`)
+
+	loggerWith.Infof("impl logw %s", "test")
+	assertLogMatches(t, notStdout,
+		`2023-10-30T13:19:45.806Z	INFO	impl	logging/impl_test.go:132	impl logw test	{"key":"value"}`)
+
+	loggerWith.Infow("impl logw", "key1", "val1")
+	assertLogMatches(t, notStdout,
+		`2023-10-30T13:19:45.806Z	INFO	impl	logging/impl_test.go:132	impl logw	{"key1":"val1","key":"value"}`)
+
+	// Test with all log levels
+	loggerWith = logger.WithFields("key", "value")
+	loggerWith.Debug("impl logw")
+	assertLogMatches(t, notStdout,
+		`2023-10-30T13:19:45.806Z	DEBUG	impl	logging/impl_test.go:132	impl logw	{"key":"value"}`)
+
+	loggerWith.Warn("impl logw")
+	assertLogMatches(t, notStdout,
+		`2023-10-30T13:19:45.806Z	WARN	impl	logging/impl_test.go:132	impl logw	{"key":"value"}`)
+
+	loggerWith.Error("impl logw")
+	assertLogMatches(t, notStdout,
+		`2023-10-30T13:19:45.806Z	ERROR	impl	logging/impl_test.go:132	impl logw	{"key":"value"}`)
+
+	// Tests with a few examples of different structs.
+
+	loggerWith = logger.WithFields("key", "val", "StructWithAnonymousStruct", StructWithAnonymousStruct{1, struct{ Y1 string }{"y1"}, "foo"})
+	loggerWith.Info("impl logw")
 	assertLogMatches(t, notStdout,
 		//nolint:lll
 		`2023-10-31T14:25:10.239Z	INFO	impl	logging/impl_test.go:148	impl logw	{"key":"val","StructWithAnonymousStruct":{"Y":{"Y1":"y1"},"Z":"foo"}}`)
 
-	logger = &impl{
-		name:       "impl",
-		level:      NewAtomicLevelAt(DEBUG),
-		appenders:  []Appender{NewWriterAppender(notStdout)},
-		testHelper: func() {},
-		logFields:  []zapcore.Field{},
-	}
-
-	logger.WithFields("key", "val", "StructWithStruct", StructWithStruct{1, User{"alice"}, "foo"})
-	logger.Info("StructWithStruct")
+	loggerWith = logger.WithFields("key", "val", "StructWithStruct", StructWithStruct{1, User{"alice"}, "foo"})
+	loggerWith.Info("StructWithStruct")
 	assertLogMatches(t, notStdout,
 		`2023-10-31T14:25:21.095Z	INFO	impl	logging/impl_test.go:153	StructWithStruct	{"key":"val","StructWithStruct":{"Y":{"Name":"alice"}}}`)
 
-	logger = &impl{
-		name:       "impl",
-		level:      NewAtomicLevelAt(DEBUG),
-		appenders:  []Appender{NewWriterAppender(notStdout)},
-		testHelper: func() {},
-		logFields:  []zapcore.Field{},
-	}
-
-	logger.WithFields("implOneKey", "1val", "BasicStruct", BasicStruct{1, "alice", "foo"})
-	logger.Info("BasicStruct")
+	loggerWith = logger.WithFields("implOneKey", "1val", "BasicStruct", BasicStruct{1, "alice", "foo"})
+	loggerWith.Info("BasicStruct")
 	assertLogMatches(t, notStdout,
 		`2023-10-31T14:25:29.927Z	INFO	impl	logging/impl_test.go:157	BasicStruct	{"implOneKey":"1val","BasicStruct":{"X":1}}`)
-
-	logger = &impl{
-		name:       "impl",
-		level:      NewAtomicLevelAt(DEBUG),
-		appenders:  []Appender{NewWriterAppender(notStdout)},
-		testHelper: func() {},
-		logFields:  []zapcore.Field{},
-	}
 
 	// Define a completely anonymous struct.
 	anonymousTypedValue := struct {
@@ -385,61 +370,50 @@ func TestLoggingWithFields(t *testing.T) {
 
 	// Even though `y.Y1` is public, it is not included in the output. It isn't a rule that must be
 	// excluded. This is tested just as a description of the current behavior.
-	logger.WithFields("key", "val", "anonymous struct", anonymousTypedValue)
-	logger.Info("impl logw")
+	loggerWith = logger.WithFields("key", "val", "anonymous struct", anonymousTypedValue)
+	loggerWith.Info("impl logw")
 	assertLogMatches(t, notStdout,
 		`2023-10-31T14:25:39.320Z	INFO	impl	logging/impl_test.go:172	impl logw	{"key":"val","anonymous struct":{"Z":"z"}}`)
 
-	logger = &impl{
-		name:       "impl",
-		level:      NewAtomicLevelAt(DEBUG),
-		appenders:  []Appender{NewWriterAppender(notStdout)},
-		testHelper: func() {},
-		logFields:  []zapcore.Field{},
-	}
-
 	// Represent a struct as a string using `fmt.Sprintf`.
-	logger.WithFields("key", "val", "fmt.Sprintf", fmt.Sprintf("%+v", anonymousTypedValue))
-	logger.Info("impl logw")
+	loggerWith = logger.WithFields("key", "val", "fmt.Sprintf", fmt.Sprintf("%+v", anonymousTypedValue))
+	loggerWith.Info("impl logw")
 	assertLogMatches(t, notStdout,
 		`2023-10-31T14:25:49.124Z	INFO	impl	logging/impl_test.go:177	impl logw	{"key":"val","fmt.Sprintf":"{x:1 y:{Y1:y1} Z:z}"}`)
 
-	logger = &impl{
-		name:       "impl",
-		level:      NewAtomicLevelAt(DEBUG),
-		appenders:  []Appender{NewWriterAppender(notStdout)},
-		testHelper: func() {},
-		logFields:  []zapcore.Field{},
-	}
-
-	logger.WithFields("key", "val", "unpaired key")
-	logger.Info("impl logw")
+	// Test with odd number of keys
+	loggerWith = logger.WithFields("key", "val", "unpaired key")
+	loggerWith.Info("impl logw")
 	assertLogMatches(t, notStdout,
 		`2023-10-31T14:25:49.124Z	INFO	impl	logging/impl_test.go:177	impl logw	{"key":"val","unpaired key":"unpaired log key"}`)
 
-	logger = &impl{
-		name:       "impl",
-		level:      NewAtomicLevelAt(DEBUG),
-		appenders:  []Appender{NewWriterAppender(notStdout)},
-		testHelper: func() {},
-		logFields:  []zapcore.Field{},
-	}
-
-	logger.WithFields(BasicStruct{}, "val")
-	logger.Info("impl logw")
+	// Test with non-string key
+	loggerWith = logger.WithFields(BasicStruct{}, "val")
+	loggerWith.Info("impl logw")
 	assertLogMatches(t, notStdout,
 		`2023-10-31T14:25:49.124Z	INFO	impl	logging/impl_test.go:177	impl logw`)
 
-	logger = &impl{
-		name:       "impl",
-		level:      NewAtomicLevelAt(DEBUG),
-		appenders:  []Appender{NewWriterAppender(notStdout)},
-		testHelper: func() {},
-		logFields:  []zapcore.Field{},
-	}
-
-	logger.WithFields(net.IPv4(8, 8, 8, 8), "val")
-	logger.Info("impl logw")
+	// Test with Stringer key
+	loggerWith = logger.WithFields(net.IPv4(8, 8, 8, 8), "val")
+	loggerWith.Info("impl logw")
 	assertLogMatches(t, notStdout,
 		`2023-10-31T14:25:49.124Z	INFO	impl	logging/impl_test.go:177	impl logw	{"8.8.8.8":"val"}`)
+
+	// Test with context logging
+	ctxNoDebug := context.Background()
+	traceKey := "foobar"
+	ctxWithDebug := EnableDebugModeWithKey(ctxNoDebug, traceKey)
+	loggerWith = logger.WithFields("key", "value")
+	loggerWith.CDebug(ctxWithDebug, "Debug log")
+	assertLogMatches(t, notStdout,
+		`2023-10-30T09:12:09.459Z	DEBUG	impl	logging/impl_test.go:200	Debug log	{"traceKey":"foobar","key":"value"}`)
+
+	loggerWith.CDebugf(ctxWithDebug, "Debugf log %v", "Debugf")
+	assertLogMatches(t, notStdout,
+		`2023-10-30T09:12:09.459Z	DEBUG	impl	logging/impl_test.go:200	Debugf log Debugf	{"traceKey":"foobar","key":"value"}`)
+
+	loggerWith.CDebugw(ctxWithDebug, "Debugw log", "k", "v")
+	assertLogMatches(t, notStdout,
+		`2023-10-30T09:12:09.459Z	DEBUG	impl	logging/impl_test.go:200	Debugw log	{"traceKey":"foobar","k":"v","key":"value"}`)
+
 }

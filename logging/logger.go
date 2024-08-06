@@ -20,7 +20,7 @@ type Logger interface {
 	AsZap() *zap.SugaredLogger
 	// Unconditionally logs a LogEntry object. Specifically any configured log level is ignored.
 	Write(*LogEntry)
-	WithFields(args ...interface{})
+	WithFields(args ...interface{}) Logger
 
 	CDebug(ctx context.Context, args ...interface{})
 	CDebugf(ctx context.Context, template string, args ...interface{})
@@ -111,8 +111,9 @@ func (logger *zLogger) AddAppender(appender Appender) {
 	// Not supported
 }
 
-func (logger zLogger) WithFields(args ...interface{}) {
+func (logger zLogger) WithFields(args ...interface{}) Logger {
 	// Not supported. Use With() instead.
+	return nil
 }
 
 // AsZap converts the logger to a zap logger.

@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"os"
 	"runtime"
-	"sync"
 	"testing"
 	"time"
 
@@ -25,15 +24,18 @@ type (
 		// Logging to a `testing.T` always includes a filename/line number. We use this helper to
 		// avoid that. This function is a no-op for non-test loggers. See `NewTestAppender`
 		// documentation for more details.
-		testHelper  func()
-		logFields   []zapcore.Field
-		logFieldsMu sync.RWMutex
+		testHelper func()
 	}
 
 	// LogEntry embeds a zapcore Entry and slice of Fields.
 	LogEntry struct {
 		zapcore.Entry
 		fields []zapcore.Field
+	}
+
+	implWith struct {
+		logger    *impl
+		logFields []zapcore.Field
 	}
 )
 
@@ -79,8 +81,6 @@ func (imp *impl) Sublogger(subname string) Logger {
 		NewAtomicLevelAt(imp.level.Get()),
 		imp.appenders,
 		imp.testHelper,
-		[]zapcore.Field{},
-		sync.RWMutex{},
 	}
 
 	RegisterLogger(newName, sublogger)
@@ -109,11 +109,10 @@ func (imp *impl) WithOptions(opts ...zap.Option) *zap.SugaredLogger {
 	return imp.AsZap().WithOptions(opts...)
 }
 
-func (imp *impl) WithFields(args ...interface{}) {
-	imp.logFieldsMu.Lock()
-	defer imp.logFieldsMu.Unlock()
-	// Calls to WithFields with duplicate keys will retain all values instead of the most recent
-	// key overwriting the previous duplicate key(s).
+func (imp *impl) WithFields(args ...interface{}) Logger {
+	// fields will always get added as the last key-value pair(s) to a log line
+	fields := make([]zapcore.Field, 0, len(args)/2+1)
+
 	for keyIdx := 0; keyIdx < len(args); keyIdx += 2 {
 		keyObj := args[keyIdx]
 		var keyStr string
@@ -128,12 +127,17 @@ func (imp *impl) WithFields(args ...interface{}) {
 		}
 
 		if keyIdx+1 < len(args) {
-			imp.logFields = append(imp.logFields, zap.Any(keyStr, args[keyIdx+1]))
+			fields = append(fields, zap.Any(keyStr, args[keyIdx+1]))
 		} else {
 			// API mis-use. Rather than logging a logging mis-use, slip in an error message such
 			// that we don't silenlty discard it.
-			imp.logFields = append(imp.logFields, zap.Any(keyStr, errors.New("unpaired log key")))
+			fields = append(fields, zap.Any(keyStr, errors.New("unpaired log key")))
 		}
+	}
+
+	return &implWith{
+		logger:    imp,
+		logFields: fields,
 	}
 }
 
@@ -201,42 +205,26 @@ func (imp *impl) Write(entry *LogEntry) {
 
 // Constructs the log message by forwarding to `fmt.Sprint`. `traceKey` may be the empty string.
 func (imp *impl) format(logLevel Level, traceKey string, args ...interface{}) *LogEntry {
-	imp.logFieldsMu.RLock()
-	defer imp.logFieldsMu.RUnlock()
 	logEntry := imp.NewLogEntry()
 	logEntry.Level = logLevel.AsZap()
 	logEntry.Message = fmt.Sprint(args...)
 
-	if len(imp.logFields) != 0 {
-		logEntry.fields = make([]zapcore.Field, 0, len(imp.logFields))
-	}
-
 	if traceKey != emptyTraceKey {
 		logEntry.fields = append(logEntry.fields, zap.String("traceKey", traceKey))
 	}
-
-	logEntry.fields = append(logEntry.fields, imp.logFields...)
 
 	return logEntry
 }
 
 // Constructs the log message by forwarding to `fmt.Sprintf`. `traceKey` may be the empty string.
 func (imp *impl) formatf(logLevel Level, traceKey, template string, args ...interface{}) *LogEntry {
-	imp.logFieldsMu.RLock()
-	defer imp.logFieldsMu.RUnlock()
 	logEntry := imp.NewLogEntry()
 	logEntry.Level = logLevel.AsZap()
 	logEntry.Message = fmt.Sprintf(template, args...)
 
-	if len(imp.logFields) != 0 {
-		logEntry.fields = make([]zapcore.Field, 0, len(imp.logFields))
-	}
-
 	if traceKey != emptyTraceKey {
 		logEntry.fields = append(logEntry.fields, zap.String("traceKey", traceKey))
 	}
-
-	logEntry.fields = append(logEntry.fields, imp.logFields...)
 
 	return logEntry
 }
@@ -246,13 +234,11 @@ func (imp *impl) formatf(logLevel Level, traceKey, template string, args ...inte
 // serialized. Only public fields are included in the serialization. `traceKey` may be the empty
 // string.
 func (imp *impl) formatw(logLevel Level, traceKey, msg string, keysAndValues ...interface{}) *LogEntry {
-	imp.logFieldsMu.RLock()
-	defer imp.logFieldsMu.RUnlock()
 	logEntry := imp.NewLogEntry()
 	logEntry.Level = logLevel.AsZap()
 	logEntry.Message = msg
 
-	logEntry.fields = make([]zapcore.Field, 0, len(imp.logFields)+len(keysAndValues)/2+1)
+	logEntry.fields = make([]zapcore.Field, 0, len(keysAndValues)/2+1)
 	if traceKey != emptyTraceKey {
 		logEntry.fields = append(logEntry.fields, zap.String("traceKey", traceKey))
 	}
@@ -274,8 +260,6 @@ func (imp *impl) formatw(logLevel Level, traceKey, msg string, keysAndValues ...
 			logEntry.fields = append(logEntry.fields, zap.Any(keyStr, errors.New("unpaired log key")))
 		}
 	}
-
-	logEntry.fields = append(logEntry.fields, imp.logFields...)
 
 	return logEntry
 }
@@ -524,4 +508,326 @@ func getCaller() zapcore.EntryCaller {
 	}
 
 	return entryCaller
+}
+
+func (imp *implWith) Desugar() *zap.Logger {
+	return imp.AsZap().Desugar()
+}
+
+func (imp *implWith) SetLevel(level Level) {
+	imp.logger.SetLevel(level)
+}
+
+func (imp *implWith) GetLevel() Level {
+	return imp.logger.GetLevel()
+}
+
+func (imp *implWith) Level() zapcore.Level {
+	return imp.GetLevel().AsZap()
+}
+
+func (imp *implWith) Sublogger(subname string) Logger {
+	return imp.logger.Sublogger(subname)
+}
+
+func (imp *implWith) Named(name string) *zap.SugaredLogger {
+	return imp.AsZap().Named(name)
+}
+
+func (imp *implWith) Sync() error {
+	return imp.logger.Sync()
+}
+
+func (imp *implWith) WithOptions(opts ...zap.Option) *zap.SugaredLogger {
+	return imp.AsZap().WithOptions(opts...)
+}
+
+func (imp *implWith) AddAppender(appender Appender) {
+	imp.logger.AddAppender(appender)
+}
+
+func (imp *implWith) AsZap() *zap.SugaredLogger {
+	return imp.logger.AsZap()
+}
+
+func (imp *implWith) Write(entry *LogEntry) {
+	imp.logger.Write(entry)
+}
+func (imp *implWith) WithFields(args ...interface{}) Logger {
+	return imp.logger.WithFields(args)
+}
+
+func (imp *implWith) Debug(args ...interface{}) {
+	imp.logger.testHelper()
+	if imp.logger.shouldLog(DEBUG) {
+		entry := imp.logger.format(DEBUG, emptyTraceKey, args...)
+		entry.fields = append(entry.fields, imp.logFields...)
+		imp.Write(entry)
+	}
+}
+
+func (imp *implWith) CDebug(ctx context.Context, args ...interface{}) {
+	imp.logger.testHelper()
+	dbgName := GetName(ctx)
+
+	// We log if the logger is configured for debug, or if there's a trace key.
+	if imp.logger.shouldLog(DEBUG) || dbgName != emptyTraceKey {
+		entry := imp.logger.format(DEBUG, dbgName, args...)
+		entry.fields = append(entry.fields, imp.logFields...)
+		imp.Write(entry)
+	}
+}
+
+func (imp *implWith) Debugf(template string, args ...interface{}) {
+	imp.logger.testHelper()
+	if imp.logger.shouldLog(DEBUG) {
+		entry := imp.logger.formatf(DEBUG, emptyTraceKey, template, args...)
+		entry.fields = append(entry.fields, imp.logFields...)
+		imp.Write(entry)
+	}
+}
+
+func (imp *implWith) CDebugf(ctx context.Context, template string, args ...interface{}) {
+	imp.logger.testHelper()
+	dbgName := GetName(ctx)
+
+	// We log if the logger is configured for debug, or if there's a trace key.
+	if imp.logger.shouldLog(DEBUG) || dbgName != emptyTraceKey {
+		entry := imp.logger.formatf(DEBUG, dbgName, template, args...)
+		entry.fields = append(entry.fields, imp.logFields...)
+		imp.Write(entry)
+	}
+}
+
+func (imp *implWith) Debugw(msg string, keysAndValues ...interface{}) {
+	imp.logger.testHelper()
+	if imp.logger.shouldLog(DEBUG) {
+		entry := imp.logger.formatw(DEBUG, emptyTraceKey, msg, keysAndValues...)
+		entry.fields = append(entry.fields, imp.logFields...)
+		imp.Write(entry)
+	}
+}
+
+func (imp *implWith) CDebugw(ctx context.Context, msg string, keysAndValues ...interface{}) {
+	imp.logger.testHelper()
+	dbgName := GetName(ctx)
+
+	// We log if the logger is configured for debug, or if there's a trace key.
+	if imp.logger.shouldLog(DEBUG) || dbgName != emptyTraceKey {
+		entry := imp.logger.formatw(DEBUG, dbgName, msg, keysAndValues...)
+		entry.fields = append(entry.fields, imp.logFields...)
+		imp.Write(entry)
+	}
+}
+
+func (imp *implWith) Info(args ...interface{}) {
+	imp.logger.testHelper()
+	if imp.logger.shouldLog(INFO) {
+		entry := imp.logger.format(INFO, emptyTraceKey, args...)
+		entry.fields = append(entry.fields, imp.logFields...)
+		imp.Write(entry)
+	}
+}
+
+func (imp *implWith) CInfo(ctx context.Context, args ...interface{}) {
+	imp.logger.testHelper()
+	dbgName := GetName(ctx)
+
+	// We log if the logger is configured for debug, or if there's a trace key.
+	if imp.logger.shouldLog(INFO) || dbgName != emptyTraceKey {
+		entry := imp.logger.format(INFO, dbgName, args...)
+		entry.fields = append(entry.fields, imp.logFields...)
+		imp.Write(entry)
+	}
+}
+
+func (imp *implWith) Infof(template string, args ...interface{}) {
+	imp.logger.testHelper()
+	if imp.logger.shouldLog(INFO) {
+		entry := imp.logger.formatf(INFO, emptyTraceKey, template, args...)
+		entry.fields = append(entry.fields, imp.logFields...)
+		imp.Write(entry)
+	}
+}
+
+func (imp *implWith) CInfof(ctx context.Context, template string, args ...interface{}) {
+	imp.logger.testHelper()
+	dbgName := GetName(ctx)
+
+	// We log if the logger is configured for debug, or if there's a trace key.
+	if imp.logger.shouldLog(INFO) || dbgName != emptyTraceKey {
+		entry := imp.logger.formatf(INFO, dbgName, template, args...)
+		entry.fields = append(entry.fields, imp.logFields...)
+		imp.Write(entry)
+	}
+}
+
+func (imp *implWith) Infow(msg string, keysAndValues ...interface{}) {
+	imp.logger.testHelper()
+	if imp.logger.shouldLog(INFO) {
+		entry := imp.logger.formatw(INFO, emptyTraceKey, msg, keysAndValues...)
+		entry.fields = append(entry.fields, imp.logFields...)
+		imp.Write(entry)
+	}
+}
+
+func (imp *implWith) CInfow(ctx context.Context, msg string, keysAndValues ...interface{}) {
+	imp.logger.testHelper()
+	dbgName := GetName(ctx)
+
+	// We log if the logger is configured for debug, or if there's a trace key.
+	if imp.logger.shouldLog(INFO) || dbgName != emptyTraceKey {
+		entry := imp.logger.formatw(INFO, dbgName, msg, keysAndValues...)
+		entry.fields = append(entry.fields, imp.logFields...)
+		imp.Write(entry)
+	}
+}
+
+func (imp *implWith) Warn(args ...interface{}) {
+	imp.logger.testHelper()
+	if imp.logger.shouldLog(WARN) {
+		entry := imp.logger.format(WARN, emptyTraceKey, args...)
+		entry.fields = append(entry.fields, imp.logFields...)
+		imp.Write(entry)
+	}
+}
+
+func (imp *implWith) CWarn(ctx context.Context, args ...interface{}) {
+	imp.logger.testHelper()
+	dbgName := GetName(ctx)
+
+	// We log if the logger is configured for debug, or if there's a trace key.
+	if imp.logger.shouldLog(WARN) || dbgName != emptyTraceKey {
+		entry := imp.logger.format(WARN, dbgName, args...)
+		entry.fields = append(entry.fields, imp.logFields...)
+		imp.Write(entry)
+	}
+}
+
+func (imp *implWith) Warnf(template string, args ...interface{}) {
+	imp.logger.testHelper()
+	if imp.logger.shouldLog(WARN) {
+		entry := imp.logger.formatf(WARN, emptyTraceKey, template, args...)
+		entry.fields = append(entry.fields, imp.logFields...)
+		imp.Write(entry)
+	}
+}
+
+func (imp *implWith) CWarnf(ctx context.Context, template string, args ...interface{}) {
+	imp.logger.testHelper()
+	dbgName := GetName(ctx)
+
+	// We log if the logger is configured for debug, or if there's a trace key.
+	if imp.logger.shouldLog(WARN) || dbgName != emptyTraceKey {
+		entry := imp.logger.formatf(WARN, dbgName, template, args...)
+		entry.fields = append(entry.fields, imp.logFields...)
+		imp.Write(entry)
+	}
+}
+
+func (imp *implWith) Warnw(msg string, keysAndValues ...interface{}) {
+	imp.logger.testHelper()
+	if imp.logger.shouldLog(WARN) {
+		entry := imp.logger.formatw(WARN, emptyTraceKey, msg, keysAndValues...)
+		entry.fields = append(entry.fields, imp.logFields...)
+		imp.Write(entry)
+	}
+}
+
+func (imp *implWith) CWarnw(ctx context.Context, msg string, keysAndValues ...interface{}) {
+	imp.logger.testHelper()
+	dbgName := GetName(ctx)
+
+	// We log if the logger is configured for debug, or if there's a trace key.
+	if imp.logger.shouldLog(WARN) || dbgName != emptyTraceKey {
+		entry := imp.logger.formatw(WARN, dbgName, msg, keysAndValues...)
+		entry.fields = append(entry.fields, imp.logFields...)
+		imp.Write(entry)
+	}
+}
+
+func (imp *implWith) Error(args ...interface{}) {
+	imp.logger.testHelper()
+	if imp.logger.shouldLog(ERROR) {
+		entry := imp.logger.format(ERROR, emptyTraceKey, args...)
+		entry.fields = append(entry.fields, imp.logFields...)
+		imp.Write(entry)
+	}
+}
+
+func (imp *implWith) CError(ctx context.Context, args ...interface{}) {
+	imp.logger.testHelper()
+	dbgName := GetName(ctx)
+
+	// We log if the logger is configured for debug, or if there's a trace key.
+	if imp.logger.shouldLog(ERROR) || dbgName != emptyTraceKey {
+		entry := imp.logger.format(ERROR, dbgName, args...)
+		entry.fields = append(entry.fields, imp.logFields...)
+		imp.Write(entry)
+	}
+}
+
+func (imp *implWith) Errorf(template string, args ...interface{}) {
+	imp.logger.testHelper()
+	if imp.logger.shouldLog(ERROR) {
+		entry := imp.logger.formatf(ERROR, emptyTraceKey, template, args...)
+		entry.fields = append(entry.fields, imp.logFields...)
+		imp.Write(entry)
+	}
+}
+
+func (imp *implWith) CErrorf(ctx context.Context, template string, args ...interface{}) {
+	imp.logger.testHelper()
+	dbgName := GetName(ctx)
+
+	// We log if the logger is configured for debug, or if there's a trace key.
+	if imp.logger.shouldLog(ERROR) || dbgName != emptyTraceKey {
+		entry := imp.logger.formatf(ERROR, dbgName, template, args...)
+		entry.fields = append(entry.fields, imp.logFields...)
+		imp.Write(entry)
+	}
+}
+func (imp *implWith) Errorw(msg string, keysAndValues ...interface{}) {
+	imp.logger.testHelper()
+	if imp.logger.shouldLog(ERROR) {
+		entry := imp.logger.formatw(ERROR, emptyTraceKey, msg, keysAndValues...)
+		entry.fields = append(entry.fields, imp.logFields...)
+		imp.Write(entry)
+	}
+}
+
+func (imp *implWith) CErrorw(ctx context.Context, msg string, keysAndValues ...interface{}) {
+	imp.logger.testHelper()
+	dbgName := GetName(ctx)
+
+	// We log if the logger is configured for debug, or if there's a trace key.
+	if imp.logger.shouldLog(ERROR) || dbgName != emptyTraceKey {
+		entry := imp.logger.formatw(ERROR, dbgName, msg, keysAndValues...)
+		entry.fields = append(entry.fields, imp.logFields...)
+		imp.Write(entry)
+	}
+}
+
+func (imp *implWith) Fatal(args ...interface{}) {
+	imp.logger.testHelper()
+	entry := imp.logger.format(ERROR, emptyTraceKey, args...)
+	entry.fields = append(entry.fields, imp.logFields...)
+	imp.Write(entry)
+	os.Exit(1)
+}
+
+func (imp *implWith) Fatalf(template string, args ...interface{}) {
+	imp.logger.testHelper()
+	entry := imp.logger.formatf(ERROR, emptyTraceKey, template, args...)
+	entry.fields = append(entry.fields, imp.logFields...)
+	imp.Write(entry)
+	os.Exit(1)
+}
+
+func (imp *implWith) Fatalw(msg string, keysAndValues ...interface{}) {
+	imp.logger.testHelper()
+	entry := imp.logger.formatw(ERROR, emptyTraceKey, msg, keysAndValues...)
+	entry.fields = append(entry.fields, imp.logFields...)
+	imp.Write(entry)
+	os.Exit(1)
 }
