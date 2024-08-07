@@ -52,7 +52,10 @@ func ParseFileType(raw string) string {
 		rawArch = groups[5]
 	}
 	osLookup := map[string]string{"ELF": "linux", "Mach-O": "darwin"}
-	// todo: double-check 'arm' is right for arm32
-	archLookup := map[string]string{"x86-64": "amd64", "ARM aarch64": "arm64", "ARM": "arm", "x86_64": "amd64", "arm64": "arm64"}
+	archLookup := map[string]string{"x86-64": "amd64", "ARM aarch64": "arm64", "ARM": "arm32", "x86_64": "amd64", "arm64": "arm64"}
+	if archLookup[rawArch] == "arm32" {
+		// if we ever parse the different arm versions, give arm32v6 etc. for now, return "" to prevent checking this case.
+		return ""
+	}
 	return fmt.Sprintf("%s/%s", osLookup[rawOs], archLookup[rawArch])
 }

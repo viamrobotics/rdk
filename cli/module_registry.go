@@ -533,9 +533,9 @@ func getExecutableArch(reader *tar.Reader) string {
 	if _, err := io.CopyN(f, reader, 1024); err != nil && !errors.Is(err, io.EOF) {
 		return ""
 	}
-	f.Close()
-	output, err := exec.Command("file", f.Name()).Output()
-	os.Remove(f.Name())
+	f.Close()                                              //nolint:errcheck,gosec
+	output, err := exec.Command("file", f.Name()).Output() //nolint:gosec
+	os.Remove(f.Name())                                    //nolint:errcheck,gosec
 	if err != nil {
 		return ""
 	}
