@@ -629,6 +629,10 @@ func (rc *RobotClient) resources(ctx context.Context) ([]resource.Name, []resour
 
 	resources := make([]resource.Name, 0, len(resp.Resources))
 	for _, status := range resp.Resources {
+		if status.Name.API == RemoteAPI ||
+			status.Name.API.Type.Namespace == resource.APINamespaceRDKInternal {
+			continue
+		}
 		resources = append(resources, status.Name)
 	}
 
