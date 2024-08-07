@@ -34,7 +34,7 @@ func getMapString(m map[string]any, key string) string {
 	return ""
 }
 
-var fileTypeRegex = regexp.MustCompile(`^((ELF) [^,]+, ([^,]+),|(Mach-O) [^\ ]+ ([^\ ]+) executable)`)
+var fileTypeRegex = regexp.MustCompile(`^[^:]+: ((ELF) [^,]+, ([^,]+),|(Mach-O) [^\ ]+ ([^\ ]+) executable)`)
 
 // ParseFileType parses output from the `file` command. Returns a platform string like "linux/amd64".
 // Empty string means failed to parse.
