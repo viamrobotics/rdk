@@ -2,6 +2,7 @@ package builtin
 
 import (
 	"context"
+	"maps"
 	"testing"
 
 	"github.com/pkg/errors"
@@ -36,20 +37,81 @@ func TestUntrustedEnv(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 	ctx, err := utils.WithTrustedEnvironment(context.Background(), false)
 	test.That(t, err, test.ShouldBeNil)
-	r := getInjectedRobot(connectedConn, map[resource.Name]resource.Resource{
+	mockDeps := mockDeps(connectedConn, map[resource.Name]resource.Resource{
 		arm.Named("arm1"): &inject.Arm{},
 	})
+	r := getInjectedRobot(mockDeps)
 	config, deps := setupConfig(t, r, enabledTabularCollectorConfigPath)
 	_, err = NewBuiltIn(ctx, deps, config, noOpCloudClientConstructor, logger)
-	test.That(t, err, test.ShouldEqual, ErrCaptureDirectoryConfigurationDisabled)
+	test.That(t, err, test.ShouldBeError, ErrCaptureDirectoryConfigurationDisabled)
 }
 
-func getInjectedRobot(conn rpc.ClientConn, rs map[resource.Name]resource.Resource) *inject.Robot {
-	r := &inject.Robot{}
-	rs[cloud.InternalServiceName] = &cloudinject.CloudConnectionService{
-		Named: cloud.InternalServiceName.AsNamed(),
-		Conn:  conn,
+func TestNewBuiltIn(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+	ctx := context.Background()
+	deps := mockDeps(connectedConn, nil)
+
+	t.Run("returns an error if called with a resource.Config that can't be converted into a builtin.*Config", func(t *testing.T) {
+		_, err := NewBuiltIn(ctx, deps, resource.Config{}, noOpCloudClientConstructor, logger)
+		test.That(t, err, test.ShouldBeError, errors.New("expected *builtin.Config but got <nil>"))
+	})
+
+	t.Run("when run in an untrusted environment", func(t *testing.T) {
+		t.Run("does NOT return an error if config doesn't specify a capture_dir", func(t *testing.T) {
+			_, err := NewBuiltIn(ctx, deps, resource.Config{}, noOpCloudClientConstructor, logger)
+			test.That(t, err, test.ShouldBeError, errors.New("expected *builtin.Config but got <nil>"))
+			t.Fatal("unimplemented")
+		})
+
+		t.Run("does NOT return an error if config specifies the default capture_dir", func(t *testing.T) {
+			_, err := NewBuiltIn(ctx, deps, resource.Config{}, noOpCloudClientConstructor, logger)
+			test.That(t, err, test.ShouldBeError, errors.New("expected *builtin.Config but got <nil>"))
+			t.Fatal("unimplemented")
+		})
+
+		t.Run("returns an error if booted in an untrusted environment with a non default capture_dir", func(t *testing.T) {
+			_, err := NewBuiltIn(ctx, deps, resource.Config{}, noOpCloudClientConstructor, logger)
+			test.That(t, err, test.ShouldBeError, errors.New("expected *builtin.Config but got <nil>"))
+			t.Fatal("unimplemented")
+		})
+	})
+
+	t.Run("returns an error if deps don't contain the internal cloud service", func(t *testing.T) {
+		t.Fatal("unimplemented")
+	})
+
+	t.Run("returns an error if any of the config.AssociatedAttributes can't be converted into a *datamanager.AssociatedConfig", func(t *testing.T) {
+		t.Fatal("unimplemented")
+	})
+}
+
+func TestReconfigure(t *testing.T) {
+	t.Fatal("unimplemented")
+}
+
+func TestSync(t *testing.T) {
+	t.Fatal("unimplemented")
+}
+
+func TestClose(t *testing.T) {
+	t.Fatal("unimplemented")
+}
+
+func mockDeps(conn rpc.ClientConn, deps resource.Dependencies) resource.Dependencies {
+	d := resource.Dependencies{
+		cloud.InternalServiceName: &cloudinject.CloudConnectionService{
+			Named: cloud.InternalServiceName.AsNamed(),
+			Conn:  conn,
+		},
 	}
+	maps.Copy(d, deps)
+	return d
+}
+
+func getInjectedRobot(deps resource.Dependencies) *inject.Robot {
+	r := &inject.Robot{}
+	r.MockResourcesFromMap(deps)
+	return r
 
 	// injectedArm := &inject.Arm{}
 	// injectedArm.EndPositionFunc = func(ctx context.Context, extra map[string]interface{}) (spatialmath.Pose, error) {
@@ -77,8 +139,6 @@ func getInjectedRobot(conn rpc.ClientConn, rs map[resource.Name]resource.Resourc
 	// }
 	// rs[camera.Named("c1")] = injectedCam
 
-	r.MockResourcesFromMap(rs)
-	return r
 }
 
 // func newBuiltIn(
