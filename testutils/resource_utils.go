@@ -12,6 +12,7 @@ import (
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/robot"
 )
 
 // NewUnimplementedResource returns a resource that has all methods
@@ -233,4 +234,15 @@ func AddRemotes(values []resource.Name, remotes ...string) []resource.Name {
 		}
 	}
 	return rNames
+}
+
+// ResourcesToMachineStatus converts a slice of [resource.Name] to a [robot.MachineStatus] with the
+// `Resources` field populated with that same resources, all in the [NodeStateReady] state.
+func ResourcesToMachineStatus(names []resource.Name) robot.MachineStatus {
+	ms := robot.MachineStatus{}
+	for _, name := range names {
+		s := resource.Status{Name: name, State: resource.NodeStateReady}
+		ms.Resources = append(ms.Resources, s)
+	}
+	return ms
 }
