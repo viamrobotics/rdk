@@ -525,17 +525,9 @@ func getExecutableArch(reader *tar.Reader) string {
 	if _, err := exec.LookPath("file"); err != nil {
 		return ""
 	}
-	f, err := os.CreateTemp("", "")
-	if err != nil {
-		return ""
-	}
-	// note: we limit this to prefix because binaries can get huge and `file` only needs the beginning.
-	if _, err := io.CopyN(f, reader, 1024); err != nil && !errors.Is(err, io.EOF) {
-		return ""
-	}
-	f.Close()                                              //nolint:errcheck,gosec
-	output, err := exec.Command("file", f.Name()).Output() //nolint:gosec
-	os.Remove(f.Name())                                    //nolint:errcheck,gosec
+	cmd := exec.Command("file", "-")
+	cmd.Stdin = reader
+	output, err := cmd.Output()
 	if err != nil {
 		return ""
 	}
