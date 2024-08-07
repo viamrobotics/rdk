@@ -55,19 +55,18 @@ const (
 // - Reconfigure (any number of times)
 // - Close (once).
 type Sync struct {
-	logger          logging.Logger
-	workersWg       sync.WaitGroup
-	flushCollectors func()
-	fileTracker     *fileTracker
-	filesToSync     chan string
+	logger            logging.Logger
+	workersWg         sync.WaitGroup
+	flushCollectors   func()
+	fileTracker       *fileTracker
+	filesToSync       chan string
+	clientConstructor func(cc grpc.ClientConnInterface) v1.DataSyncServiceClient
 
 	configMu sync.Mutex
 	config   Config
 
 	configCtx        context.Context
 	configCancelFunc func()
-
-	cloudSvc cloudSvc
 
 	cloudConn cloudConn
 
@@ -82,19 +81,19 @@ func New(
 	flushCollectors func(),
 	logger logging.Logger,
 ) *Sync {
+	configCtx, configCancelFunc := context.WithCancel(context.Background())
 	s := Sync{
+		configCtx:           configCtx,
+		configCancelFunc:    configCancelFunc,
+		clientConstructor:   clientConstructor,
 		logger:              logger,
 		fileTracker:         newFileTracker(),
 		filesToSync:         make(chan string),
 		flushCollectors:     flushCollectors,
 		scheduler:           utils.NewStoppableWorkers(),
-		cloudSvc:            cloudSvc{ready: make(chan struct{})},
 		cloudConn:           cloudConn{ready: make(chan struct{})},
 		fileDeletingWorkers: utils.NewStoppableWorkers(),
 	}
-	s.cloudConnManager = utils.NewStoppableWorkers(func(ctx context.Context) {
-		s.runCloudConnManager(ctx, clientConstructor)
-	})
 	return &s
 }
 
@@ -108,7 +107,12 @@ func New(
 // and notifies the cloud connection manager so it can make a cloud connection
 // 3. starts up the appropriate workers which use the new config.
 func (s *Sync) Reconfigure(_ context.Context, config Config, cloudConnSvc cloud.ConnectionService) {
-	if s.config.equal(config) && s.cloudSvc.cloudConnSvc != nil {
+	if s.cloudConnManager == nil {
+		s.cloudConnManager = utils.NewStoppableWorkers(func(ctx context.Context) {
+			s.runCloudConnManager(ctx, cloudConnSvc)
+		})
+	}
+	if s.config.equal(config) {
 		// if config has not changed and cloudConnSvc is not nil then reconfigure doesn't need
 		// to execute, don't stop workers
 		return
@@ -124,10 +128,10 @@ func (s *Sync) Reconfigure(_ context.Context, config Config, cloudConnSvc cloud.
 	// set up nwe config
 	s.configCtx, s.configCancelFunc = context.WithCancel(context.Background())
 	// set cloud connection service if we don't have one yet
-	if s.cloudSvc.cloudConnSvc == nil {
-		s.cloudSvc.cloudConnSvc = cloudConnSvc
-		close(s.cloudSvc.ready)
-	}
+	// if s.cloudSvc.cloudConnSvc == nil {
+	// 	s.cloudSvc.cloudConnSvc = cloudConnSvc
+	// 	close(s.cloudSvc.ready)
+	// }
 
 	// start workers
 	s.startWorkers(config)
@@ -159,7 +163,9 @@ func (s *Sync) Close() {
 	s.fileDeletingWorkers.Stop()
 	s.scheduler.Stop()
 	s.workersWg.Wait()
-	s.cloudConnManager.Stop()
+	if s.cloudConnManager != nil {
+		s.cloudConnManager.Stop()
+	}
 }
 
 // TODO: Determine desired behavior if sync is disabled. Do we wan to allow manual syncs, then?
@@ -184,38 +190,29 @@ func (s *Sync) Sync(ctx context.Context, _ map[string]interface{}) error {
 
 type cloudConn struct {
 	// closed by cloud conn manager
-	ready    chan struct{}
-	partID   string
-	client   v1.DataSyncServiceClient
-	conn     rpc.ClientConn
-	grpcConn *rpc.GrpcOverHTTPClientConn
-}
-type cloudSvc struct {
-	// closed by reconfigure
-	ready        chan struct{}
-	cloudConnSvc cloud.ConnectionService
+	ready                        chan struct{}
+	partID                       string
+	client                       v1.DataSyncServiceClient
+	conn                         rpc.ClientConn
+	connectivityStateEnabledConn connectivityStateEnabled
 }
 
 // Ensures that a cloud connection is established.
-// Handles closing & recreating a cloud connection if the cloud service ever changes
-// Lives for the lifetime of the Sync.
+// Handles creating a cloud connection from the cloud service
+// and notifying Sync when the cloud connection is ready.
+// Also handles closing the cloud connection once Close is called
+// Lives for the lifetime of the Sync insance.
 func (s *Sync) runCloudConnManager(
 	ctx context.Context,
-	clientConstructor func(cc grpc.ClientConnInterface) v1.DataSyncServiceClient,
+	cloudConnSvc cloud.ConnectionService,
 ) {
 	for {
 		if err := ctx.Err(); err != nil {
 			return
 		}
-		// wait until either the syncer is closed or we have a cloud service
-		select {
-		case <-ctx.Done():
-			return
-		case <-s.cloudSvc.ready:
-		}
 
 		// once we have a cloud service we determine if we can get a cloud connection
-		partID, conn, grpcConn, err := newCloudConn(ctx, s.cloudSvc.cloudConnSvc)
+		partID, conn, grpcConn, err := newCloudConn(ctx, cloudConnSvc)
 		if errors.Is(err, errGrpcClientConnUnrecoverable) {
 			// if it is impossible we log an irricoverable error & give up
 			s.logger.Error("datamanager can't sync due to unrecoverable error: " + err.Error())
@@ -238,8 +235,8 @@ func (s *Sync) runCloudConnManager(
 		// set the values & connunicate that it is ready
 		s.cloudConn.partID = partID
 		s.cloudConn.conn = conn
-		s.cloudConn.grpcConn = grpcConn
-		s.cloudConn.client = clientConstructor(conn)
+		s.cloudConn.connectivityStateEnabledConn = grpcConn
+		s.cloudConn.client = s.clientConstructor(conn)
 		close(s.cloudConn.ready)
 		// now that we have a connection we wait until the connecivity manager is cancelled
 		break
@@ -249,18 +246,26 @@ func (s *Sync) runCloudConnManager(
 	goutils.UncheckedError(s.cloudConn.conn.Close())
 }
 
+// This interface allows us to check the connectivity state of
+// the connection
+// see https://github.com/grpc/grpc-go/blob/master/clientconn.go#L648
+type connectivityStateEnabled interface {
+	GetState() connectivity.State
+}
+
 func newCloudConn(
 	ctx context.Context,
 	cloudConnSvc cloud.ConnectionService,
-) (string, rpc.ClientConn, *rpc.GrpcOverHTTPClientConn, error) {
+) (string, rpc.ClientConn, connectivityStateEnabled, error) {
 	grpcCtx, grpcCancel := context.WithTimeout(ctx, grpcConnectionTimeout)
 	defer grpcCancel()
 	partID, conn, err := cloudConnSvc.AcquireConnection(grpcCtx)
 	if err != nil {
 		return "", nil, nil, err
 	}
+	fmt.Printf("cloudConnSvc: %#v, conn: %#v", cloudConnSvc, conn)
 
-	grpcConn, ok := conn.(*rpc.GrpcOverHTTPClientConn)
+	grpcConn, ok := conn.(connectivityStateEnabled)
 	if !ok {
 		goutils.UncheckedError(conn.Close())
 		return "", nil, nil, errGrpcClientConnUnrecoverable
@@ -339,7 +344,7 @@ func (s *Sync) runScheduler(ctx context.Context, config Config) {
 				shouldSync = readyToSync(ctx, config.SelectiveSyncSensor, s.logger)
 			}
 
-			if online := s.cloudConn.grpcConn.GetState() == connectivity.Ready; online && shouldSync {
+			if online := s.cloudConn.connectivityStateEnabledConn.GetState() == connectivity.Ready; online && shouldSync {
 				goutils.UncheckedError(s.sendFilesToSync(ctx, config))
 			}
 		}

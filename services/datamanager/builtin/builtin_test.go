@@ -33,6 +33,27 @@ var (
 
 var connectedConn = newConnectingNoOpClientConnWithConnectivity()
 
+func TestConfig(t *testing.T) {
+	t.Run("Validate returns the internal cloud service name", func(t *testing.T) {
+		c := &Config{}
+		deps, err := c.Validate("")
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, deps, test.ShouldResemble, []string{cloud.InternalServiceName.String()})
+	})
+
+	t.Run("getCaptureDir", func(t *testing.T) {
+		t.Run("returns the default capture directory by default", func(t *testing.T) {
+			c := &Config{}
+			test.That(t, c.getCaptureDir(), test.ShouldResemble, viamCaptureDotDir)
+		})
+
+		t.Run("returns CaptureDir if set", func(t *testing.T) {
+			c := &Config{CaptureDir: "/tmp/some/path"}
+			test.That(t, c.getCaptureDir(), test.ShouldResemble, "/tmp/some/path")
+		})
+	})
+}
+
 func TestUntrustedEnv(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 	ctx, err := utils.WithTrustedEnvironment(context.Background(), false)
@@ -49,53 +70,71 @@ func TestUntrustedEnv(t *testing.T) {
 func TestNewBuiltIn(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 	ctx := context.Background()
-	deps := mockDeps(connectedConn, nil)
 
 	t.Run("returns an error if called with a resource.Config that can't be converted into a builtin.*Config", func(t *testing.T) {
-		_, err := NewBuiltIn(ctx, deps, resource.Config{}, noOpCloudClientConstructor, logger)
+		mockDeps := mockDeps(connectedConn, nil)
+		_, err := NewBuiltIn(ctx, mockDeps, resource.Config{}, noOpCloudClientConstructor, logger)
 		test.That(t, err, test.ShouldBeError, errors.New("expected *builtin.Config but got <nil>"))
 	})
 
-	t.Run("when run in an untrusted environment", func(t *testing.T) {
-		t.Run("does NOT return an error if config doesn't specify a capture_dir", func(t *testing.T) {
-			_, err := NewBuiltIn(ctx, deps, resource.Config{}, noOpCloudClientConstructor, logger)
-			test.That(t, err, test.ShouldBeError, errors.New("expected *builtin.Config but got <nil>"))
-			t.Fatal("unimplemented")
-		})
+	// t.Run("when run in an untrusted environment", func(t *testing.T) {
+	// 	t.Run("does NOT return an error if config doesn't specify a capture_dir", func(t *testing.T) {
+	// 		mockDeps := mockDeps(connectedConn, nil)
+	// 		_, err := NewBuiltIn(ctx, mockDeps, resource.Config{}, noOpCloudClientConstructor, logger)
+	// 		test.That(t, err, test.ShouldBeError, errors.New("expected *builtin.Config but got <nil>"))
+	// 		t.Fatal("unimplemented")
+	// 	})
 
-		t.Run("does NOT return an error if config specifies the default capture_dir", func(t *testing.T) {
-			_, err := NewBuiltIn(ctx, deps, resource.Config{}, noOpCloudClientConstructor, logger)
-			test.That(t, err, test.ShouldBeError, errors.New("expected *builtin.Config but got <nil>"))
-			t.Fatal("unimplemented")
-		})
+	// 	t.Run("does NOT return an error if config specifies the default capture_dir", func(t *testing.T) {
+	// 		mockDeps := mockDeps(connectedConn, nil)
+	// 		_, err := NewBuiltIn(ctx, mockDeps, resource.Config{}, noOpCloudClientConstructor, logger)
+	// 		test.That(t, err, test.ShouldBeError, errors.New("expected *builtin.Config but got <nil>"))
+	// 		t.Fatal("unimplemented")
+	// 	})
 
-		t.Run("returns an error if booted in an untrusted environment with a non default capture_dir", func(t *testing.T) {
-			_, err := NewBuiltIn(ctx, deps, resource.Config{}, noOpCloudClientConstructor, logger)
-			test.That(t, err, test.ShouldBeError, errors.New("expected *builtin.Config but got <nil>"))
-			t.Fatal("unimplemented")
-		})
-	})
+	// 	t.Run("returns an error if booted in an untrusted environment with a non default capture_dir", func(t *testing.T) {
+	// 		mockDeps := mockDeps(connectedConn, nil)
+	// 		_, err := NewBuiltIn(ctx, mockDeps, resource.Config{}, noOpCloudClientConstructor, logger)
+	// 		test.That(t, err, test.ShouldBeError, errors.New("expected *builtin.Config but got <nil>"))
+	// 		t.Fatal("unimplemented")
+	// 	})
+
+	// })
 
 	t.Run("returns an error if deps don't contain the internal cloud service", func(t *testing.T) {
-		t.Fatal("unimplemented")
+		r := getInjectedRobot(map[resource.Name]resource.Resource{
+			arm.Named("arm1"): &inject.Arm{},
+		})
+		config, deps := setupConfig(t, r, enabledTabularCollectorConfigPath)
+		_, err := NewBuiltIn(ctx, deps, config, noOpCloudClientConstructor, logger)
+		test.That(t, err, test.ShouldBeError, errors.New("Resource missing from dependencies. Resource: rdk-internal:service:cloud_connection/builtin"))
 	})
 
-	t.Run("returns an error if any of the config.AssociatedAttributes can't be converted into a *datamanager.AssociatedConfig", func(t *testing.T) {
-		t.Fatal("unimplemented")
+	// t.Run("returns an error if any of the config.AssociatedAttributes can't be converted into a *datamanager.AssociatedConfig", func(t *testing.T) {
+	// 	t.Fatal("unimplemented")
+	// })
+
+	t.Run("otherwise returns a new builtin and no error", func(t *testing.T) {
+		r := getInjectedRobot(mockDeps(connectedConn, map[resource.Name]resource.Resource{
+			arm.Named("arm1"): &inject.Arm{},
+		}))
+		config, deps := setupConfig(t, r, enabledTabularCollectorConfigPath)
+		_, err := NewBuiltIn(ctx, deps, config, noOpCloudClientConstructor, logger)
+		test.That(t, err, test.ShouldBeNil)
 	})
 }
 
-func TestReconfigure(t *testing.T) {
-	t.Fatal("unimplemented")
-}
+// func TestReconfigure(t *testing.T) {
+// 	t.Fatal("unimplemented")
+// }
 
-func TestSync(t *testing.T) {
-	t.Fatal("unimplemented")
-}
+// func TestSync(t *testing.T) {
+// 	t.Fatal("unimplemented")
+// }
 
-func TestClose(t *testing.T) {
-	t.Fatal("unimplemented")
-}
+// func TestClose(t *testing.T) {
+// 	t.Fatal("unimplemented")
+// }
 
 func mockDeps(conn rpc.ClientConn, deps resource.Dependencies) resource.Dependencies {
 	d := resource.Dependencies{
@@ -201,6 +240,17 @@ func resourceConfigAndDeps(t *testing.T, cfg *config.Config, r *inject.Robot) (r
 		}
 	}
 	test.That(t, config, test.ShouldNotBeNil)
+	builtinConfig, ok := config.ConvertedAttributes.(*Config)
+	test.That(t, ok, test.ShouldBeTrue)
+	ds, err := builtinConfig.Validate("")
+	test.That(t, err, test.ShouldBeNil)
+	for _, d := range ds {
+		resName, err := resource.NewFromString(d)
+		test.That(t, err, test.ShouldBeNil)
+		res, err := r.ResourceByName(resName)
+		test.That(t, err, test.ShouldBeNil)
+		deps[resName] = res
+	}
 	return *config, deps
 }
 
