@@ -358,35 +358,179 @@ func (x *xArm) Close(ctx context.Context) error {
 func (x *xArm) MoveToJointPositions(ctx context.Context, newPositions *pb.JointPositions, extra map[string]interface{}) error {
 	ctx, done := x.opMgr.New(ctx)
 	defer done()
-	if !x.started {
-		if err := x.start(ctx); err != nil {
-			return err
-		}
-	}
-	to := x.model.InputFromProtobuf(newPositions)
-	return x.executeInputs(ctx, to, true, true, extra)
+	return x.GoToInputs(ctx, x.model.InputFromProtobuf(newPositions))
 }
 
-func (x *xArm) executeInputs(
-	ctx context.Context,
-	to []referenceframe.Input,
-	doAccelerate, doDecelerate bool,
-	extra map[string]interface{},
-) error {
-	curPos, err := x.JointPositions(ctx, extra)
-	if err != nil {
-		return err
-	}
-	from := x.model.InputFromProtobuf(curPos)
-
+// Using the configured moveHz, joint speed, and joint acceleration, create the series of joint positions for the arm to follow,
+// using a trapezoidal velocity profile to blend between waypoints to the extent possible.
+func (x *xArm) createRawJointSteps(startInputs []referenceframe.Input, inputSteps [][]referenceframe.Input) ([][]float64, error) {
 	x.mu.RLock()
 	speed := x.speed
 	acceleration := x.acceleration
 	moveHZ := x.moveHZ
 	x.mu.RUnlock()
+	// Generate list of joint positions to pass through
+	// This is almost-calculus but not quite because it's explicitly discretized
+	accelStep := acceleration/float64(moveHZ)
+	interwaypointAccelStep := interwaypointAccel/float64(moveHZ)
+	
+	from := referenceframe.InputsToFloats(startInputs)
+	
+	// We want smooth acceleration/motion but there's no guarantee the provided inputs have continuous velocity signs
+	floatDiffs := func(from, to []float64) (float64, int, []float64) {
+		max := 0.
+		maxI := 0
+		diffs := []float64{}
+		for i, toInput := range to {
+			diffs = append(diffs, toInput - from[i])
+			diff := math.Abs(diffs[i])
+			if diff > max {
+				max = diff
+				maxI = i
+			}
+		}
+		return max, maxI, diffs
+	}
+
+	
+	// Preprocess steps into step counts
+	stepTotal := 0.
+	displacementTotal := 0.
+	
+	for _, toInputs := range inputSteps {
+		to := referenceframe.InputsToFloats(toInputs)
+		max, _, _ := floatDiffs(from, to)
+		displacementTotal += max
+		nSteps := (math.Abs(max) / speed) * moveHZ
+		stepTotal += nSteps
+		from = to
+	}
+	
+	nominalAccelSteps := int((speed / acceleration) * moveHZ) // This many steps to accelerate, and the same to decelerate
+	fmt.Println("speed", speed)
+	fmt.Println("displacementTotal", displacementTotal)
+	fmt.Println("initial stepTotal", stepTotal)
+	fmt.Println("initial nominalAccelSteps", nominalAccelSteps)
+	if float64(nominalAccelSteps) > stepTotal * 0.95 {
+		nominalAccelSteps = int(0.95 * math.Sqrt(displacementTotal/acceleration) * moveHZ)
+	}
+	maxVel := (float64(nominalAccelSteps)/moveHZ) * acceleration
+	
+	fmt.Println("nominalAccelSteps", nominalAccelSteps)
+	fmt.Println("startInputs", startInputs)
+	fmt.Println("len(inputSteps)", len(inputSteps))
+	
+	inputStepsReversed := [][]referenceframe.Input{}
+	for i := len(inputSteps)-1; i >= 0; i-- {
+		inputStepsReversed = append(inputStepsReversed, inputSteps[i])
+	}
+	inputStepsReversed = append(inputStepsReversed, startInputs)
+	fmt.Println("inputStepsReversed", inputStepsReversed)
+	
+	accelCurve := func(
+		startInputs []referenceframe.Input,
+		allInputSteps [][]referenceframe.Input,
+		stopVel float64,
+	) (int, [][]float64, error) {
+		fmt.Println("stopVel", stopVel)
+		currSpeed := accelStep
+		steps := [][]float64{}
+		from = referenceframe.InputsToFloats(startInputs)
+		lastInputs := startInputs
+		for i, toInputs := range allInputSteps {
+			fmt.Println("toInputs", toInputs)
+			to := referenceframe.InputsToFloats(toInputs)
+			runningFrom := from
+			//~ fmt.Println(floatDiffs(runningFrom, to))
+
+			for currDiff, _, _ := floatDiffs(runningFrom, to); currDiff > 1e-6; currDiff, _, _ = floatDiffs(runningFrom, to){
+				if currSpeed <= 0 {
+					break
+				}
+				nSteps := (currDiff / float64(currSpeed)) * moveHZ
+				stepSize := 1.
+				if nSteps <= 1 {
+					if currDiff == 0 {
+						break
+					}
+					stepSize = nSteps
+				}
+				//~ fmt.Println("currDiff", currDiff)
+				fmt.Println(len(steps), "currSpeed", currSpeed)
+				nextInputs, err := x.model.Interpolate(lastInputs, toInputs, stepSize/nSteps)
+				if err != nil {
+					return 0, nil, err
+				}
+				runningFrom = referenceframe.InputsToFloats(nextInputs)
+				steps = append(steps, referenceframe.InputsToFloats(nextInputs))
+				fmt.Println("nextInputs", nextInputs)
+				
+				if currSpeed < speed {
+					//~ fmt.Println("accelerating")
+					currSpeed += accelStep * stepSize
+					if currSpeed > speed {
+						currSpeed = speed
+					}
+				} else {
+					// If we reach max speed, accelerate at max for the remainder of the move
+					accelStep = interwaypointAccelStep
+				}
+				
+				if currSpeed >= stopVel - 1e-6 {
+					return i, steps, nil
+				}
+				
+				lastInputs = nextInputs
+			}
+			lastInputs = toInputs
+			from = to
+		}
+		return len(allInputSteps), steps, nil
+	}
+	
+	decelStart, decelSteps, err := accelCurve(inputStepsReversed[0], inputStepsReversed, maxVel)
+	fmt.Println("got decel", decelSteps)
+	fmt.Println("decelStart", decelStart)
+	if err != nil {
+		fmt.Println("errD", err)
+		return nil, err
+	}
+	accelStop := len(inputSteps) - decelStart
+	fmt.Println("accelStop", accelStop)
+	accelInputSteps := [][]referenceframe.Input{}
+	for i, inputStep := range inputSteps {
+		if i == accelStop {
+			accelInputSteps = append(accelInputSteps, referenceframe.FloatsToInputs(decelSteps[len(decelSteps)-1]))
+			break
+		}
+		accelInputSteps = append(accelInputSteps, inputStep)
+	}
+	fmt.Println("startInputs", startInputs)
+	fmt.Println("accelInputSteps", accelInputSteps)
+	_, accelSteps, err := accelCurve(startInputs, accelInputSteps, math.Inf(1))
+	fmt.Println("got accel", accelSteps)
+	if err != nil {
+		fmt.Println("err", err)
+		return nil, err
+	}
+	for i := len(decelSteps) - 2; i >= 0; i-- {
+		accelSteps = append(accelSteps, decelSteps[i])
+	}
+	
+	fmt.Println("len steps", len(accelSteps))
+	return accelSteps, nil
+}
+
+func (x *xArm) executeInputs(ctx context.Context, rawSteps [][]float64) error {
+	if !x.started {
+		if err := x.start(ctx); err != nil {
+			return err
+		}
+	}
 
 	// convenience for structuring and sending individual joint steps
-	sendMoveJointsCmd := func(ctx context.Context, step []float64) error {
+	for _, step := range rawSteps {
+		fmt.Println("move step", step)
 		c := x.newCmd(regMap["MoveJoints"])
 		jFloatBytes := make([]byte, 4)
 		for _, jRad := range step {
@@ -401,82 +545,13 @@ func (x *xArm) executeInputs(
 		c.params = append(c.params, 0, 0, 0, 0)
 		c.params = append(c.params, 0, 0, 0, 0)
 		c.params = append(c.params, 0, 0, 0, 0)
-		_, err = x.send(ctx, c, true)
-
+		_, err := x.send(ctx, c, true)
 		if err != nil {
 			return err
 		}
 		if !utils.SelectContextOrWait(ctx, time.Duration(1000000./x.moveHZ)*time.Microsecond) {
 			return ctx.Err()
 		}
-		return nil
-	}
-	
-	// Generate list of joint positions to pass through
-	// This is almost-calculus but not quite because it's explicitly discretized
-	accelStep := acceleration/float64(moveHZ)
-	diff := getMaxDiff(from, to)
-	
-	// Diff amount on each side to accelerate/decelerate
-	// Assume constant acceleration, i.e. 0 jerk, ignoring start and stop.
-	accelDiff := speed/2.
-	if diff < speed {
-		accelDiff = diff/2.
-	}
-	
-	steps := [][]referenceframe.Input{}
-	lastInputs := from
-	currSpeed := accelStep
-	if !doAccelerate {
-		currSpeed = speed
-	}
-	fmt.Println("accelStep", accelStep)
-	fmt.Println("diff", diff)
-	fmt.Println("currSpeed", currSpeed)
-	
-	for currDiff := getMaxDiff(lastInputs, to); currDiff > 0;  currDiff = getMaxDiff(lastInputs, to){
-		nSteps := (currDiff / float64(currSpeed)) * moveHZ
-		if nSteps <= 1 {
-			break
-		}
-		//~ fmt.Println(currDiff, nSteps)
-		nextInputs, err := x.model.Interpolate(lastInputs, to, 1./nSteps)
-		if err != nil {
-			return err
-		}
-		steps = append(steps, nextInputs)
-		
-		if currDiff < accelDiff && doDecelerate {
-			currSpeed -= accelStep
-			if currSpeed < 0 {
-				break
-			}
-		} else if diff - currDiff < accelDiff && doAccelerate {
-			currSpeed += accelStep
-			if currSpeed > speed {
-				currSpeed = speed
-			}
-		}
-		lastInputs = nextInputs
-	}
-	fmt.Println("currSpeed after", currSpeed)
-
-	// every step except the last, skipped if diff is small enough.
-	// Note that if diff calculations are small enough, nSteps could be zero, leading to a bad situation inside the loop
-	for _, stepInputs := range steps {
-		//~ fmt.Println("step", stepInputs)
-		step := referenceframe.InputsToFloats(stepInputs)
-		err = sendMoveJointsCmd(ctx, step)
-		if err != nil {
-			return err
-		}
-	}
-
-	// send the last step
-	finalStep := referenceframe.InputsToFloats(to)
-	err = sendMoveJointsCmd(ctx, finalStep)
-	if err != nil {
-		return err
 	}
 
 	return nil
@@ -541,17 +616,6 @@ func (x *xArm) Stop(ctx context.Context, extra map[string]interface{}) error {
 // IsMoving returns whether the arm is moving.
 func (x *xArm) IsMoving(ctx context.Context) (bool, error) {
 	return x.opMgr.OpRunning(), nil
-}
-
-func getMaxDiff(from, to []referenceframe.Input) float64 {
-	maxDiff := 0.
-	for i, fromI := range from {
-		diff := math.Abs(fromI.Value - to[i].Value)
-		if diff > maxDiff {
-			maxDiff = diff
-		}
-	}
-	return maxDiff
 }
 
 func (x *xArm) enableGripper(ctx context.Context) error {

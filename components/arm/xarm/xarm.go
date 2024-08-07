@@ -38,10 +38,12 @@ func (cfg *Config) Validate(path string) ([]string, error) {
 }
 
 const (
-	defaultSpeed  = 30. // degrees per second
-	defaultAccel  = 10. // degrees per second per second
+	defaultSpeed  = 80. // degrees per second
+	defaultAccel  = 200. // degrees per second per second
 	defaultPort   = "502"
 	defaultMoveHz = 100. // Don't change this
+	
+	interwaypointAccel  = 800. // degrees per second per second. All xarms max out at 1145
 )
 
 type xArm struct {
@@ -76,7 +78,7 @@ const (
 	ModelNameLite = "lite6" // ModelNameLite is the name of a UFactory Lite 6
 )
 
-// MakeModelFrame returns the kinematics model of the xarm arm, which has all Frame information.
+// MakeModelFrame returwwns the kinematics model of the xarm arm, which has all Frame information.
 func MakeModelFrame(name, modelName string) (referenceframe.Model, error) {
 	switch modelName {
 	case ModelName6DOF:
@@ -198,17 +200,25 @@ func (x *xArm) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error
 }
 
 func (x *xArm) GoToInputs(ctx context.Context, inputSteps ...[]referenceframe.Input) error {
-	for i, goal := range inputSteps {
+	for _, goal := range inputSteps {
+		fmt.Println("step", goal)
+	}
+	for _, goal := range inputSteps {
 		// check that joint positions are not out of bounds
 		if err := arm.CheckDesiredJointPositions(ctx, x, goal); err != nil {
 			return err
 		}
-		err := x.executeInputs(ctx, goal, i==0, i==len(inputSteps)-1, nil)
-		if err != nil {
-			return err
-		}
 	}
-	return nil
+	curPos, err := x.JointPositions(ctx, nil)
+	if err != nil {
+		return err
+	}
+	from := x.model.InputFromProtobuf(curPos)
+	armRawSteps, err := x.createRawJointSteps(from, inputSteps)
+	if err != nil {
+		return err
+	}
+	return x.executeInputs(ctx, armRawSteps)
 }
 
 func (x *xArm) Geometries(ctx context.Context, extra map[string]interface{}) ([]spatialmath.Geometry, error) {

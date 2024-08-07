@@ -231,14 +231,58 @@ func (ms *builtIn) Move(
 
 	// move all the components
 	// Batch GoToInputs calls if possible; components may want to blend between inputs
-	//~ allSteps := plan.Trajectory()
-	for _, step := range plan.Trajectory() {
+	combinedSteps := []map[string][][]referenceframe.Input{}
+	currStep := map[string][][]referenceframe.Input{}
+	//~ fmt.Println("traj", plan.Trajectory())
+	for i, step := range plan.Trajectory() {
+		if i == 0 {
+			for name, inputs := range step {
+				currStep[name] = append(currStep[name], inputs)
+			}
+			continue
+		}
+		changed := ""
+		if len(currStep) > 0 {
+			reset := false
+			for name, inputs := range step {
+				if priorInputs, ok := currStep[name]; ok {
+					for i, input := range inputs {
+						if input != priorInputs[len(priorInputs)-1][i] {
+							if changed == "" {
+								changed = name
+							}
+							if changed != "" && changed != name {
+								reset = true
+								break
+							}
+						}
+					}
+				} else {
+					reset = true
+				}
+				if reset {
+					break
+				}
+			}
+			if reset {
+				combinedSteps = append(combinedSteps, currStep)
+				currStep = map[string][][]referenceframe.Input{}
+			}
+			for name, inputs := range step {
+				currStep[name] = append(currStep[name], inputs)
+			}
+		}
+	}
+	combinedSteps = append(combinedSteps, currStep)
+	
+	for _, step := range combinedSteps {
+		fmt.Println("step", step)
 		for name, inputs := range step {
 			if len(inputs) == 0 {
 				continue
 			}
 			r := resources[name]
-			if err := r.GoToInputs(ctx, inputs); err != nil {
+			if err := r.GoToInputs(ctx, inputs...); err != nil {
 				// If there is an error on GoToInputs, stop the component if possible before returning the error
 				if actuator, ok := r.(inputEnabledActuator); ok {
 					if stopErr := actuator.Stop(ctx, nil); stopErr != nil {
