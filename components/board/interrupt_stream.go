@@ -12,7 +12,6 @@ import (
 type interruptStream struct {
 	*client
 	streamCancel context.CancelFunc
-	streamReady  chan bool // Close this channel to indicate the stream is initialized
 	streamMu     sync.Mutex
 
 	activeBackgroundWorkers sync.WaitGroup
@@ -27,7 +26,6 @@ func (s *interruptStream) startStream(ctx context.Context, interrupts []DigitalI
 		return ctx.Err()
 	}
 
-	s.streamReady = make(chan bool)
 	ctx, cancel := context.WithCancel(ctx)
 	s.streamCancel = cancel
 
@@ -61,24 +59,13 @@ func (s *interruptStream) startStream(ctx context.Context, interrupts []DigitalI
 	// since managed go calls that function when the routine exits.
 	s.activeBackgroundWorkers.Add(1)
 	utils.ManagedGo(func() {
-		s.receiveFromStream(ctx, stream, ch)
-	},
-		s.activeBackgroundWorkers.Done)
-
-	select {
-	case <-ctx.Done():
-		return ctx.Err()
-	case <-s.streamReady:
-		return nil
-	}
+			s.receiveFromStream(ctx, stream, ch)
+		},
+		s.activeBackgroundWorkers.Done
+	)
 }
 
 func (s *interruptStream) receiveFromStream(ctx context.Context, stream pb.BoardService_StreamTicksClient, ch chan Tick) {
-	// Close the stream ready channel so startStream returns.
-	if s.streamReady != nil {
-		close(s.streamReady)
-	}
-	s.streamReady = nil
 	defer s.closeStream()
 
 	// repeatly receive from the stream
