@@ -150,7 +150,7 @@ func (server *serviceServer) CopyFilesToMachine(srv pb.ShellService_CopyFilesToM
 	if err != nil {
 		var pathErr *fs.PathError
 		var errno syscall.Errno
-		if errors.As(err, &pathErr) && errors.As(pathErr.Err, &errno) {
+		if errors.As(err, &pathErr) && errors.As(pathErr.Err, &errno) && errno == syscall.EACCES {
 			// we use an error code here so CLI can detect this case and give instructions
 			return status.New(codes.PermissionDenied, err.Error()).Err()
 		}
