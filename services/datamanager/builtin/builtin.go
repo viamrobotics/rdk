@@ -1,5 +1,12 @@
-// Package builtin contains a service type that can be used to capture data from a robot's components.
+// Package builtin contains a service type that can be used to capture data from a robot's components and sync it to the cloud.
 package builtin
+
+// Design note:
+// builtin is a thin wrapper around builtin.capture and builtin.sync packages which manage data capture and data sync (respectively)
+// data manager can operate with either sync, capture, both or neither enabled.
+// the main responsibility of the builtin package is to collect the dependencies requried by sync and capture from resource graph
+// and to provide a thread safe interface for resource graph to call into the datasync and data capture durring initialization,
+// reconfiguration, and shutdown.
 
 import (
 	"context"
@@ -23,9 +30,9 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
-// ErrCaptureDirectoryConfigurationDisabled happens when the viam-server is run with
-// `-untrusted-env` and the capture directory is not `~/.viam`.
 var (
+	// ErrCaptureDirectoryConfigurationDisabled happens when the viam-server is run with
+	// `-untrusted-env` and the capture directory is not `~/.viam`.
 	ErrCaptureDirectoryConfigurationDisabled = errors.New("changing the capture directory is prohibited in this environment")
 	viamCaptureDotDir                        = filepath.Join(os.Getenv("HOME"), ".viam", "capture")
 )
@@ -38,6 +45,7 @@ func init() {
 		conf resource.Config,
 		logger logging.Logger,
 	) (datamanager.Service, error) {
+		// we inject v1.NewDataSyncServiceClient as a dependency for tests
 		return NewBuiltIn(ctx, deps, conf, v1.NewDataSyncServiceClient, logger)
 	}
 	resource.RegisterService(
@@ -53,7 +61,7 @@ func init() {
 		})
 }
 
-// builtIn initializes and orchestrates data capture collectors for registered component/methods.
+// builtIn initializes and orchestrates data capture and data sync based on the config
 type builtIn struct {
 	resource.Named
 	logger logging.Logger
@@ -63,7 +71,7 @@ type builtIn struct {
 	sync    *datasync.Sync
 }
 
-// NewBuiltIn returns a new data manager service for the given robot.
+// NewBuiltIn returns a new builtin data manager service for the given robot.
 func NewBuiltIn(
 	ctx context.Context,
 	deps resource.Dependencies,
@@ -72,6 +80,8 @@ func NewBuiltIn(
 	logger logging.Logger,
 ) (datamanager.Service, error) {
 	capture := capture.New(logger.Sublogger("capture"))
+	// sync needs to be able to flush collectors so that in memory data can be flushed to disk before a given sync interval
+	// or manual sync call
 	sync := datasync.New(cloudClientConstructor, capture.FlushCollectors, logger.Sublogger("sync"))
 	svc := &builtIn{
 		Named:   conf.ResourceName().AsNamed(),
@@ -90,13 +100,9 @@ func NewBuiltIn(
 func (b *builtIn) Close(_ context.Context) error {
 	b.mu.Lock()
 	defer b.mu.Unlock()
-	b.close()
-	return nil
-}
-
-func (b *builtIn) close() {
 	b.capture.Close()
 	b.sync.Close()
+	return nil
 }
 
 // TODO: Determine desired behavior if sync is disabled. Do we wan to allow manual syncs, then?
@@ -112,18 +118,24 @@ func (b *builtIn) Sync(ctx context.Context, extra map[string]interface{}) error 
 }
 
 // Reconfigure updates the data manager service when the config has changed.
+// At time of writing Reconfigure only returns an error in one of the following unrecoverable error cases:
+//  1. There is some static (aka compile time) error which we currently are only able to detected at runtime:
+//     a. Config isn't a NativeConfig,
+//     b. resource graph didn't boot the internal cloud service before booting datamanager (which would be a resource graph bug)
+//     c. the resource.Config.AssociatedAttributes were not of type *datamanager.AssociatedConfig
+//     (which would be a bug in resource graph or in the collector framework code in resource graph)
+//
+// 2. The user is running data manager in an untrusted env (see the comment above ErrCaptureDirectoryConfigurationDisabled
+// for more details) and has specified a non default capture directory.
+//
+// If any of these unrecoverable erros happen, to prevent DataManager leaking resources, Reconfigure will call close on itself, which
+// will prevent it from doing any work. The only way to recover from any of these errros is to fix the static errors (aka fix resource graph)
+// or boot viam-server in a
 func (b *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
-	var err error
-	failFunc := func() {
-		b.logger.Errorf("unrecoverable datamanager Reconfigure error: %s", err.Error())
-		b.close()
-	}
 	b.mu.Lock()
 	defer b.mu.Unlock()
-	g := utils.NewGuard(failFunc)
-	defer g.OnFail()
 	var c *Config
-	c, err = resource.NativeConfig[*Config](conf)
+	c, err := resource.NativeConfig[*Config](conf)
 	if err != nil {
 		// If this error occurs it is due to the builtin.Config not being a native config which is a
 		// static error that could only be introduced at compile time.
@@ -131,21 +143,18 @@ func (b *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies, c
 	}
 
 	if !utils.IsTrustedEnvironment(ctx) && c.CaptureDir != "" && c.CaptureDir != viamCaptureDotDir {
-		err = ErrCaptureDirectoryConfigurationDisabled
-		return err
+		// see comment above this error definition for when this happens
+		return ErrCaptureDirectoryConfigurationDisabled
 	}
 
-	var cloudConnSvc cloud.ConnectionService
-	cloudConnSvc, err = resource.FromDependencies[cloud.ConnectionService](deps, cloud.InternalServiceName)
+	cloudConnSvc, err := resource.FromDependencies[cloud.ConnectionService](deps, cloud.InternalServiceName)
 	if err != nil {
 		// If this error occurs it's a resource graph error
 		return err
 	}
 
 	captureConfig := captureConfig(c)
-
-	var collectorConfigsByResource map[resource.Resource][]datamanager.DataCaptureConfig
-	collectorConfigsByResource, err = lookupCollectorConfigsByResource(deps, conf, captureConfig.CaptureDir, b.logger)
+	collectorConfigsByResource, err := lookupCollectorConfigsByResource(deps, conf, captureConfig.CaptureDir, b.logger)
 	if err != nil {
 		// If this error occurs it's a resource graph error
 		return err
@@ -154,7 +163,6 @@ func (b *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies, c
 	b.capture.Reconfigure(ctx, collectorConfigsByResource, captureConfig)
 	syncSensor, syncSensorEnabled := syncSensorFromDeps(c.SelectiveSyncerName, deps, b.logger)
 	b.sync.Reconfigure(ctx, syncConfig(c, syncSensor, syncSensorEnabled), cloudConnSvc)
-	g.Success()
 
 	return nil
 }
@@ -169,7 +177,7 @@ func syncSensorFromDeps(
 	}
 	syncSensor, err := sensor.FromDependencies(deps, selectiveSyncerName)
 	if err != nil {
-		// see sync.Config.schedulerEnabled() for how this affects whether or not scheduled sync will run
+		// see sync.Config for how this affects whether or not scheduled sync will run
 		logger.Errorw(
 			"unable to initialize selective syncer; will not schedule sync at all until fixed or removed from config", "error", err.Error())
 		return nil, true
@@ -183,8 +191,8 @@ func lookupCollectorConfigsByResource(
 	resConfig resource.Config,
 	captureDir string,
 	logger logging.Logger,
-) (map[resource.Resource][]datamanager.DataCaptureConfig, error) {
-	collectorConfigsByResource := map[resource.Resource][]datamanager.DataCaptureConfig{}
+) (datamanager.CollectorConfigsByResource, error) {
+	collectorConfigsByResource := datamanager.CollectorConfigsByResource{}
 	for name, rawAssocCfg := range resConfig.AssociatedAttributes {
 		assocCfg, err := utils.AssertType[*datamanager.AssociatedConfig](rawAssocCfg)
 		if err != nil {

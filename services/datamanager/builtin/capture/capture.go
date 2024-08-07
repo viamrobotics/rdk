@@ -116,10 +116,7 @@ func New(logger logging.Logger) *Capture {
 	}
 }
 
-func (c *Capture) newCollectors(
-	collectorConfigsByResource map[resource.Resource][]datamanager.DataCaptureConfig,
-	config Config,
-) collectors {
+func (c *Capture) newCollectors(collectorConfigsByResource datamanager.CollectorConfigsByResource, config Config) collectors {
 	// Initialize or add collectors based on changes to the component configurations.
 	newCollectors := make(map[collectorMetadata]*collectorAndConfig)
 	for res, cfgs := range collectorConfigsByResource {
@@ -159,7 +156,7 @@ func (c *Capture) newCollectors(
 // It is only called by the builtin data manager.
 func (c *Capture) Reconfigure(
 	ctx context.Context,
-	collectorConfigsByResource map[resource.Resource][]datamanager.DataCaptureConfig,
+	collectorConfigsByResource datamanager.CollectorConfigsByResource,
 	config Config,
 ) {
 	// Service is disabled, so close all collectors and clear the map so we can instantiate new ones if we enable this service.
