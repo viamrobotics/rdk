@@ -1,6 +1,8 @@
 // Package datacapture contains tools for interacting with Viam datacapture files.
 package datacapture
 
+// TODO: Move this package into data with collectors
+
 import (
 	"bufio"
 	"fmt"

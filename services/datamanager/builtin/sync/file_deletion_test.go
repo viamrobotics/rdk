@@ -27,7 +27,8 @@ import (
 // 	}{
 // 		{
 // 			name:                    "if sync disabled, file deleter should delete every 5th file",
-// 			fileList:                []string{"0shouldDelete.capture", "1.capture", "2.capture", "3.capture", "4.capture", "5shouldDelete.capture"},
+// 			fileList:                []string{"0shouldDelete.capture", "1.capture", "2.capture", "3.capture",
+// "4.capture", "5shouldDelete.capture"},
 // 			expectedDeleteFilenames: []string{"0shouldDelete.capture", "5shouldDelete.capture"},
 // 		},
 // 		{
@@ -176,28 +177,42 @@ func writeFiles(t *testing.T, dir string, filenames []string) map[string]string 
 	return filePaths
 }
 
-func getFiles(t *testing.T, path string) []string {
-	t.Helper()
-	dir, err := os.Open(path)
-	test.That(t, err, test.ShouldBeNil)
-	defer dir.Close()
-	files, err := dir.Readdir(-1)
-	test.That(t, err, test.ShouldBeNil)
-	output := []string{}
-	for _, file := range files {
-		output = append(output, file.Name())
-	}
-	return output
-}
+// func getFiles(t *testing.T, path string) []string {
+// 	t.Helper()
+// 	dir, err := os.Open(path)
+// 	test.That(t, err, test.ShouldBeNil)
+// 	defer dir.Close()
+// 	files, err := dir.Readdir(-1)
+// 	test.That(t, err, test.ShouldBeNil)
+// 	output := []string{}
+// 	for _, file := range files {
+// 		output = append(output, file.Name())
+// 	}
+// 	return output
+// }
 
 type MockDataSyncServiceClient struct {
-	T                              *testing.T
-	DataCaptureUploadFunc          func(ctx context.Context, in *v1.DataCaptureUploadRequest, opts ...grpc.CallOption) (*v1.DataCaptureUploadResponse, error)
-	FileUploadFunc                 func(ctx context.Context, opts ...grpc.CallOption) (v1.DataSyncService_FileUploadClient, error)
-	StreamingDataCaptureUploadFunc func(ctx context.Context, opts ...grpc.CallOption) (v1.DataSyncService_StreamingDataCaptureUploadClient, error)
+	T                     *testing.T
+	DataCaptureUploadFunc func(
+		ctx context.Context,
+		in *v1.DataCaptureUploadRequest,
+		opts ...grpc.CallOption,
+	) (*v1.DataCaptureUploadResponse, error)
+	FileUploadFunc func(
+		ctx context.Context,
+		opts ...grpc.CallOption,
+	) (v1.DataSyncService_FileUploadClient, error)
+	StreamingDataCaptureUploadFunc func(
+		ctx context.Context,
+		opts ...grpc.CallOption,
+	) (v1.DataSyncService_StreamingDataCaptureUploadClient, error)
 }
 
-func (c MockDataSyncServiceClient) DataCaptureUpload(ctx context.Context, in *v1.DataCaptureUploadRequest, opts ...grpc.CallOption) (*v1.DataCaptureUploadResponse, error) {
+func (c MockDataSyncServiceClient) DataCaptureUpload(
+	ctx context.Context,
+	in *v1.DataCaptureUploadRequest,
+	opts ...grpc.CallOption,
+) (*v1.DataCaptureUploadResponse, error) {
 	if c.DataCaptureUploadFunc == nil {
 		err := errors.New("DataCaptureUpload unimplemented")
 		c.T.Log(err)
@@ -207,7 +222,10 @@ func (c MockDataSyncServiceClient) DataCaptureUpload(ctx context.Context, in *v1
 	return c.DataCaptureUploadFunc(ctx, in, opts...)
 }
 
-func (c MockDataSyncServiceClient) FileUpload(ctx context.Context, opts ...grpc.CallOption) (v1.DataSyncService_FileUploadClient, error) {
+func (c MockDataSyncServiceClient) FileUpload(
+	ctx context.Context,
+	opts ...grpc.CallOption,
+) (v1.DataSyncService_FileUploadClient, error) {
 	if c.FileUploadFunc == nil {
 		err := errors.New("FileUpload unimplmented")
 		c.T.Log(err)
@@ -217,7 +235,10 @@ func (c MockDataSyncServiceClient) FileUpload(ctx context.Context, opts ...grpc.
 	return c.FileUploadFunc(ctx, opts...)
 }
 
-func (c MockDataSyncServiceClient) StreamingDataCaptureUpload(ctx context.Context, opts ...grpc.CallOption) (v1.DataSyncService_StreamingDataCaptureUploadClient, error) {
+func (c MockDataSyncServiceClient) StreamingDataCaptureUpload(
+	ctx context.Context,
+	opts ...grpc.CallOption,
+) (v1.DataSyncService_StreamingDataCaptureUploadClient, error) {
 	if c.StreamingDataCaptureUploadFunc == nil {
 		err := errors.New("StreamingDataCaptureUpload unimplmented")
 		c.T.Log(err)
@@ -227,13 +248,13 @@ func (c MockDataSyncServiceClient) StreamingDataCaptureUpload(ctx context.Contex
 	return c.StreamingDataCaptureUploadFunc(ctx, opts...)
 }
 
-type DataSyncService_FileUploadClientMock struct {
+type DataSyncServiceFileUploadClientMock struct {
 	T                *testing.T
 	SendFunc         func(*v1.FileUploadRequest) error
 	CloseAndRecvFunc func() (*v1.FileUploadResponse, error)
 }
 
-func (m *DataSyncService_FileUploadClientMock) Send(in *v1.FileUploadRequest) error {
+func (m *DataSyncServiceFileUploadClientMock) Send(in *v1.FileUploadRequest) error {
 	if m.SendFunc == nil {
 		err := errors.New("Send unimplmented")
 		m.T.Log(err)
@@ -243,7 +264,7 @@ func (m *DataSyncService_FileUploadClientMock) Send(in *v1.FileUploadRequest) er
 	return m.SendFunc(in)
 }
 
-func (m *DataSyncService_FileUploadClientMock) CloseAndRecv() (*v1.FileUploadResponse, error) {
+func (m *DataSyncServiceFileUploadClientMock) CloseAndRecv() (*v1.FileUploadResponse, error) {
 	if m.CloseAndRecvFunc == nil {
 		err := errors.New("CloseAndRecv unimplmented")
 		m.T.Log(err)
@@ -253,40 +274,40 @@ func (m *DataSyncService_FileUploadClientMock) CloseAndRecv() (*v1.FileUploadRes
 	return m.CloseAndRecvFunc()
 }
 
-func (m *DataSyncService_FileUploadClientMock) Header() (metadata.MD, error) {
+func (m *DataSyncServiceFileUploadClientMock) Header() (metadata.MD, error) {
 	err := errors.New("Header unimplmented")
 	m.T.Log(err)
 	m.T.FailNow()
 	return nil, err
 }
 
-func (m *DataSyncService_FileUploadClientMock) Trailer() metadata.MD {
+func (m *DataSyncServiceFileUploadClientMock) Trailer() metadata.MD {
 	m.T.Log("Trailer unimplemented")
 	m.T.FailNow()
 	return metadata.MD{}
 }
 
-func (m *DataSyncService_FileUploadClientMock) CloseSend() error {
+func (m *DataSyncServiceFileUploadClientMock) CloseSend() error {
 	err := errors.New("CloseSend unimplmented")
 	m.T.Log(err)
 	m.T.FailNow()
 	return err
 }
 
-func (m *DataSyncService_FileUploadClientMock) Context() context.Context {
+func (m *DataSyncServiceFileUploadClientMock) Context() context.Context {
 	m.T.Log("Context unimplmented")
 	m.T.FailNow()
 	return nil
 }
 
-func (m *DataSyncService_FileUploadClientMock) SendMsg(any) error {
+func (m *DataSyncServiceFileUploadClientMock) SendMsg(any) error {
 	err := errors.New("SendMsg unimplmented")
 	m.T.Log(err)
 	m.T.FailNow()
 	return err
 }
 
-func (m *DataSyncService_FileUploadClientMock) RecvMsg(any) error {
+func (m *DataSyncServiceFileUploadClientMock) RecvMsg(any) error {
 	err := errors.New("RecvMsg unimplmented")
 	m.T.Log(err)
 	m.T.FailNow()
