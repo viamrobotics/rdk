@@ -1095,9 +1095,6 @@ func addVersionMetadataToContext(ctx context.Context) context.Context {
 		apiVersion = dep.Version
 	}
 	version := config.Version
-	if version == "" && config.GitRevision != "" {
-		version = "git-" + config.GitRevision
-	}
 	if version == "" {
 		if dep, ok := deps["go.viam.com/rdk"]; ok {
 			version = dep.Version
