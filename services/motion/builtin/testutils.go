@@ -406,7 +406,9 @@ func CreateMoveOnGlobeTestEnvironment(ctx context.Context, t *testing.T, origin 
 	injectedCamera := inject.NewCamera("injectedCamera")
 	cameraLink := referenceframe.NewLinkInFrame(
 		baseLink.Name(),
-		spatialmath.NewPose(r3.Vector{X: 1}, &spatialmath.OrientationVectorDegrees{OZ: 1, Theta: 90}),
+		// we recreate an intel real sense orientation placed along the +Y axis of the base's coordinate frame.
+		// i.e. the camera is pointed along the axis in which the base moves forward
+		spatialmath.NewPose(r3.Vector{}, &spatialmath.OrientationVectorDegrees{OY: 1, Theta: -90}),
 		"injectedCamera",
 		cameraGeom,
 	)

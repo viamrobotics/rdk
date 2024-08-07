@@ -24,6 +24,7 @@ import (
 	_ "go.viam.com/rdk/components/register"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
+	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
@@ -783,8 +784,7 @@ func TestStoppableMoveFunctions(t *testing.T) {
 	})
 }
 
-func TestGetTransientDetections(t *testing.T) {
-	t.Parallel()
+func TestGetTransientDetectionsSlam(t *testing.T) {
 	ctx := context.Background()
 
 	_, ms, closeFunc := CreateMoveOnMapTestEnvironment(
@@ -831,40 +831,18 @@ func TestGetTransientDetections(t *testing.T) {
 
 	type testCase struct {
 		name          string
-		f             spatialmath.Pose
 		detectionPose spatialmath.Pose
 	}
 	testCases := []testCase{
 		{
 			name:          "relative - SLAM/base theta does not matter",
-			f:             spatialmath.NewZeroPose(),
 			detectionPose: spatialmath.NewPose(r3.Vector{4, 10, -8}, &spatialmath.OrientationVectorDegrees{OY: 1, Theta: -90}),
-		},
-		{
-			name:          "absolute - SLAM theta: 0, base theta: -90 == 270",
-			f:             spatialmath.NewPose(r3.Vector{-4, -10, 0}, &spatialmath.OrientationVectorDegrees{OZ: 1, Theta: -90}),
-			detectionPose: spatialmath.NewPose(r3.Vector{6, -14, -8}, &spatialmath.OrientationVectorDegrees{OX: 1, Theta: -90}),
-		},
-		{
-			name:          "absolute - SLAM theta: 90, base theta: 0",
-			f:             spatialmath.NewPose(r3.Vector{-4, -10, 0}, &spatialmath.OrientationVectorDegrees{OZ: 1, Theta: 0}),
-			detectionPose: spatialmath.NewPose(r3.Vector{0, 0, -8}, &spatialmath.OrientationVectorDegrees{OY: 1, Theta: -90}),
-		},
-		{
-			name:          "absolute - SLAM theta: 180, base theta: 90",
-			f:             spatialmath.NewPose(r3.Vector{-4, -10, 0}, &spatialmath.OrientationVectorDegrees{OZ: 1, Theta: 90}),
-			detectionPose: spatialmath.NewPose(r3.Vector{-14, -6, -8}, &spatialmath.OrientationVectorDegrees{OX: -1, Theta: -90}),
-		},
-		{
-			name:          "absolute - SLAM theta: 270, base theta: 180",
-			f:             spatialmath.NewPose(r3.Vector{-4, -10, 0}, &spatialmath.OrientationVectorDegrees{OZ: 1, Theta: 180}),
-			detectionPose: spatialmath.NewPose(r3.Vector{-8, -20, -8}, &spatialmath.OrientationVectorDegrees{OY: -1, Theta: -90}),
 		},
 	}
 
 	testFn := func(t *testing.T, tc testCase) {
 		t.Helper()
-		transformedGeoms, err := mr.getTransientDetections(ctx, injectedVis, camera.Named("test-camera"), tc.f)
+		transformedGeoms, err := mr.getTransientDetections(ctx, injectedVis, camera.Named("test-camera"))
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, transformedGeoms.Parent(), test.ShouldEqual, referenceframe.World)
 		test.That(t, len(transformedGeoms.Geometries()), test.ShouldEqual, 1)
@@ -874,7 +852,121 @@ func TestGetTransientDetections(t *testing.T) {
 	for _, tc := range testCases {
 		c := tc // needed to workaround loop variable not being captured by func literals
 		t.Run(c.name, func(t *testing.T) {
-			t.Parallel()
+			testFn(t, c)
+		})
+	}
+}
+
+func TestGetTransientDetectionsMath(t *testing.T) {
+	ctx := context.Background()
+
+	_, ms, closeFunc := CreateMoveOnGlobeTestEnvironment(
+		ctx, t, geo.NewPoint(0, 0), 300, spatialmath.NewZeroPose(),
+	)
+	t.Cleanup(func() { closeFunc(ctx) })
+
+	destinationPose := spatialmath.NewPoseFromPoint(r3.Vector{0, 3000, 0})
+	geoPoseOrigin := spatialmath.NewGeoPose(geo.NewPoint(0, 0), 0)
+	destinationGeoPose := spatialmath.PoseToGeoPose(geoPoseOrigin, destinationPose)
+
+	moveSensor, ok := ms.(*builtIn).movementSensors[resource.NewName(movementsensor.API, moveSensorName)]
+	test.That(t, ok, test.ShouldBeTrue)
+
+	// construct move request
+	moveReq := motion.MoveOnGlobeReq{
+		ComponentName:      base.Named("test-base"),
+		Destination:        destinationGeoPose.Location(),
+		MovementSensorName: moveSensor.Name(),
+		MotionCfg: &motion.MotionConfiguration{
+			PlanDeviationMM: 1,
+			ObstacleDetectors: []motion.ObstacleDetectorName{
+				{VisionServiceName: vision.Named("injectedVisionSvc"), CameraName: camera.Named("test-camera")},
+			},
+		},
+	}
+
+	planExecutor, err := ms.(*builtIn).newMoveOnGlobeRequest(ctx, moveReq, nil, 0)
+	test.That(t, err, test.ShouldBeNil)
+
+	mr, ok := planExecutor.(*moveRequest)
+	test.That(t, ok, test.ShouldBeTrue)
+
+	getTransientDetectionMock := func(currentPose, obstaclePose spatialmath.Pose) []spatialmath.Geometry {
+		inputMap, _, err := mr.fsService.CurrentInputs(ctx)
+		test.That(t, err, test.ShouldBeNil)
+		kbInputs := make([]referenceframe.Input, len(mr.kinematicBase.Kinematics().DoF()))
+		kbInputs = append(kbInputs, referenceframe.PoseToInputs(currentPose)...)
+		inputMap[mr.kinematicBase.Name().ShortName()] = kbInputs
+
+		fakeDetectionGeometry, err := spatialmath.NewBox(
+			obstaclePose, r3.Vector{X: 8, Y: 4, Z: 2}, "box",
+		)
+		test.That(t, err, test.ShouldBeNil)
+
+		cam, ok := ms.(*builtIn).components[resource.NewName(camera.API, "injectedCamera")]
+		test.That(t, ok, test.ShouldBeTrue)
+
+		tf, err := mr.localizingFS.Transform(
+			inputMap,
+			referenceframe.NewGeometriesInFrame(
+				cam.Name().ShortName(), []spatialmath.Geometry{fakeDetectionGeometry},
+			),
+			referenceframe.World,
+		)
+		test.That(t, err, test.ShouldBeNil)
+
+		worldGifs, ok := tf.(*referenceframe.GeometriesInFrame)
+		test.That(t, ok, test.ShouldBeTrue)
+		return worldGifs.Geometries()
+	}
+
+	type testCase struct {
+		name                                     string
+		basePose, obstaclePose, expectedGeomPose spatialmath.Pose
+	}
+
+	testCases := []testCase{
+		{
+			name:             "base at zero pose",
+			basePose:         spatialmath.NewPose(r3.Vector{X: 0, Y: 0, Z: 0}, &spatialmath.OrientationVectorDegrees{OZ: 1}),
+			obstaclePose:     spatialmath.NewPoseFromPoint(r3.Vector{X: 10, Y: -30, Z: 1500}),
+			expectedGeomPose: spatialmath.NewPose(r3.Vector{X: 10, Y: 1500, Z: 30}, &spatialmath.OrientationVectorDegrees{OY: 1, Theta: -90}),
+		},
+		{
+			name:             "base slightly from origin with zero theta",
+			basePose:         spatialmath.NewPose(r3.Vector{X: 3, Y: 9, Z: 0}, &spatialmath.OrientationVectorDegrees{OZ: 1}),
+			obstaclePose:     spatialmath.NewPoseFromPoint(r3.Vector{X: 10, Y: -30, Z: 1500}),
+			expectedGeomPose: spatialmath.NewPose(r3.Vector{X: 13, Y: 1509, Z: 30}, &spatialmath.OrientationVectorDegrees{OY: 1, Theta: -90}),
+		},
+		{
+			name:         "base at origin with non-zero theta",
+			basePose:     spatialmath.NewPose(r3.Vector{X: 0, Y: 0, Z: 0}, &spatialmath.OrientationVectorDegrees{OZ: 1, Theta: -45}),
+			obstaclePose: spatialmath.NewPoseFromPoint(r3.Vector{X: 0, Y: 0, Z: math.Sqrt2}),
+			expectedGeomPose: spatialmath.NewPose(
+				r3.Vector{X: 1, Y: 1, Z: 0}, &spatialmath.OrientationVectorDegrees{OX: 0.7071067811865478, OY: 0.7071067811865474, Theta: -90},
+			),
+		},
+		{
+			name:         "base slightly from origin with non-zero theta",
+			basePose:     spatialmath.NewPose(r3.Vector{X: 3, Y: 9, Z: 0}, &spatialmath.OrientationVectorDegrees{OZ: 1, Theta: -45}),
+			obstaclePose: spatialmath.NewPoseFromPoint(r3.Vector{X: 0, Y: 0, Z: math.Sqrt2}),
+			expectedGeomPose: spatialmath.NewPose(
+				r3.Vector{X: 4, Y: 10, Z: 0}, &spatialmath.OrientationVectorDegrees{OX: 0.7071067811865478, OY: 0.7071067811865474, Theta: -90},
+			),
+		},
+	}
+
+	testFn := func(t *testing.T, tc testCase) {
+		t.Helper()
+		transformedGeoms := getTransientDetectionMock(tc.basePose, tc.obstaclePose)
+		test.That(t, len(transformedGeoms), test.ShouldEqual, 1)
+
+		test.That(t, spatialmath.PoseAlmostEqual(transformedGeoms[0].Pose(), tc.expectedGeomPose), test.ShouldBeTrue)
+	}
+
+	for _, tc := range testCases {
+		c := tc // needed to workaround loop variable not being captured by func literals
+		t.Run(c.name, func(t *testing.T) {
 			testFn(t, c)
 		})
 	}
@@ -935,4 +1027,211 @@ func TestBaseInputs(t *testing.T) {
 	defer closeFunc(ctx)
 	err := kb.GoToInputs(ctx, []referenceframe.Input{{0}, {0.001 + math.Pi/2}, {0}, {91}})
 	test.That(t, err, test.ShouldBeNil)
+}
+
+func TestCheckPlan(t *testing.T) {
+	ctx := context.Background()
+	logger := logging.NewTestLogger(t)
+	origin := geo.NewPoint(0, 0)
+
+	localizer, ms, closeFunc := CreateMoveOnGlobeTestEnvironment(ctx, t, origin, 30, spatialmath.NewZeroPose())
+	defer closeFunc(ctx)
+
+	dst := geo.NewPoint(origin.Lat(), origin.Lng()+5e-5)
+	// Note: spatialmath.GeoPointToPoint(dst, origin) produces r3.Vector{5559.746, 0, 0}
+
+	movementSensor, ok := localizer.(movementsensor.MovementSensor)
+	test.That(t, ok, test.ShouldBeTrue)
+
+	fakeBase, ok := ms.(*builtIn).components[baseResource]
+	test.That(t, ok, test.ShouldBeTrue)
+
+	req := motion.MoveOnGlobeReq{
+		ComponentName:      fakeBase.Name(),
+		Destination:        dst,
+		MovementSensorName: movementSensor.Name(),
+	}
+
+	// construct move request
+	planExecutor, err := ms.(*builtIn).newMoveOnGlobeRequest(ctx, req, nil, 0)
+	test.That(t, err, test.ShouldBeNil)
+	mr, ok := planExecutor.(*moveRequest)
+	test.That(t, ok, test.ShouldBeTrue)
+
+	// construct plan
+	plan, err := mr.Plan(ctx)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(plan.Path()), test.ShouldBeGreaterThan, 2)
+
+	wrapperFrame := mr.localizingFS.Frame(mr.kinematicBase.Name().Name)
+
+	currentInputs := map[string][]referenceframe.Input{
+		mr.kinematicBase.Kinematics().Name(): {
+			{Value: 0}, // ptg index
+			{Value: 0}, // trajectory alpha within ptg
+			{Value: 0}, // start distance along trajectory index
+			{Value: 0}, // end distace along trajectory index
+		},
+		mr.kinematicBase.LocalizationFrame().Name(): {
+			{Value: 0}, // X
+			{Value: 0}, // Y
+			{Value: 0}, // Z
+			{Value: 0}, // OX
+			{Value: 0}, // OY
+			{Value: 1}, // OZ
+			{Value: 0}, // Theta
+		},
+	}
+
+	baseExecutionState, err := motionplan.NewExecutionState(
+		plan, 0, currentInputs,
+		map[string]*referenceframe.PoseInFrame{
+			mr.kinematicBase.LocalizationFrame().Name(): referenceframe.NewPoseInFrame(referenceframe.World, spatialmath.NewPose(
+				r3.Vector{X: 0, Y: 0, Z: 0},
+				&spatialmath.OrientationVectorDegrees{OZ: 1, Theta: 0},
+			)),
+		},
+	)
+	test.That(t, err, test.ShouldBeNil)
+
+	augmentedBaseExecutionState, err := mr.augmentBaseExecutionState(baseExecutionState)
+	test.That(t, err, test.ShouldBeNil)
+
+	t.Run("base case - validate plan without obstacles", func(t *testing.T) {
+		err = motionplan.CheckPlan(wrapperFrame, augmentedBaseExecutionState, nil, mr.localizingFS, math.Inf(1), logger)
+		test.That(t, err, test.ShouldBeNil)
+	})
+
+	t.Run("obstacles blocking path", func(t *testing.T) {
+		obstacle, err := spatialmath.NewBox(spatialmath.NewPoseFromPoint(r3.Vector{2000, 0, 0}), r3.Vector{20, 2000, 1}, "")
+		test.That(t, err, test.ShouldBeNil)
+
+		geoms := []spatialmath.Geometry{obstacle}
+		gifs := []*referenceframe.GeometriesInFrame{referenceframe.NewGeometriesInFrame(referenceframe.World, geoms)}
+
+		worldState, err := referenceframe.NewWorldState(gifs, nil)
+		test.That(t, err, test.ShouldBeNil)
+
+		err = motionplan.CheckPlan(wrapperFrame, augmentedBaseExecutionState, worldState, mr.localizingFS, math.Inf(1), logger)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, strings.Contains(err.Error(), "found constraint violation or collision in segment between"), test.ShouldBeTrue)
+	})
+
+	// create camera_origin frame
+	cameraOriginFrame, err := referenceframe.NewStaticFrame("camera-origin", spatialmath.NewPoseFromPoint(r3.Vector{0, -20, 0}))
+	test.That(t, err, test.ShouldBeNil)
+	err = mr.localizingFS.AddFrame(cameraOriginFrame, wrapperFrame)
+	test.That(t, err, test.ShouldBeNil)
+
+	// create camera geometry
+	cameraGeom, err := spatialmath.NewBox(spatialmath.NewZeroPose(), r3.Vector{1, 1, 1}, "camera")
+	test.That(t, err, test.ShouldBeNil)
+
+	// create cameraFrame and add to framesystem
+	cameraFrame, err := referenceframe.NewStaticFrameWithGeometry(
+		"camera-frame", spatialmath.NewPoseFromPoint(r3.Vector{0, 0, 0}), cameraGeom,
+	)
+	test.That(t, err, test.ShouldBeNil)
+	err = mr.localizingFS.AddFrame(cameraFrame, cameraOriginFrame)
+	test.That(t, err, test.ShouldBeNil)
+	inputs := augmentedBaseExecutionState.CurrentInputs()
+	inputs[cameraFrame.Name()] = referenceframe.FloatsToInputs(make([]float64, len(cameraFrame.DoF())))
+	executionStateWithCamera, err := motionplan.NewExecutionState(
+		augmentedBaseExecutionState.Plan(), augmentedBaseExecutionState.Index(),
+		inputs, augmentedBaseExecutionState.CurrentPoses(),
+	)
+	test.That(t, err, test.ShouldBeNil)
+
+	t.Run("obstacles NOT in world frame - no collision - integration test", func(t *testing.T) {
+		obstacle, err := spatialmath.NewBox(
+			spatialmath.NewPoseFromPoint(r3.Vector{25000, -40, 0}),
+			r3.Vector{10, 10, 1}, "obstacle",
+		)
+		test.That(t, err, test.ShouldBeNil)
+		geoms := []spatialmath.Geometry{obstacle}
+		gifs := []*referenceframe.GeometriesInFrame{referenceframe.NewGeometriesInFrame(cameraFrame.Name(), geoms)}
+
+		worldState, err := referenceframe.NewWorldState(gifs, nil)
+		test.That(t, err, test.ShouldBeNil)
+
+		err = motionplan.CheckPlan(wrapperFrame, executionStateWithCamera, worldState, mr.localizingFS, math.Inf(1), logger)
+		test.That(t, err, test.ShouldBeNil)
+	})
+
+	t.Run("obstacles NOT in world frame cause collision - integration test", func(t *testing.T) {
+		obstacle, err := spatialmath.NewBox(
+			spatialmath.NewPoseFromPoint(r3.Vector{2500, 20, 0}),
+			r3.Vector{10, 2000, 1}, "obstacle",
+		)
+		test.That(t, err, test.ShouldBeNil)
+		geoms := []spatialmath.Geometry{obstacle}
+		gifs := []*referenceframe.GeometriesInFrame{referenceframe.NewGeometriesInFrame(cameraFrame.Name(), geoms)}
+
+		worldState, err := referenceframe.NewWorldState(gifs, nil)
+		test.That(t, err, test.ShouldBeNil)
+
+		err = motionplan.CheckPlan(wrapperFrame, executionStateWithCamera, worldState, mr.localizingFS, math.Inf(1), logger)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, strings.Contains(err.Error(), "found constraint violation or collision in segment between"), test.ShouldBeTrue)
+	})
+
+	currentInputs = map[string][]referenceframe.Input{
+		mr.kinematicBase.Kinematics().Name(): {
+			{Value: 0}, // ptg index
+			{Value: 0}, // trajectory alpha within ptg
+			{Value: 0}, // start distance along trajectory index
+			{Value: 0}, // end distace along trajectory index
+		},
+		mr.kinematicBase.LocalizationFrame().Name(): {
+			{Value: 2779.937}, // X
+			{Value: 0},        // Y
+			{Value: 0},        // Z
+			{Value: 0},        // OX
+			{Value: 0},        // OY
+			{Value: 1},        // OZ
+			{Value: -math.Pi}, // Theta
+		},
+		cameraFrame.Name(): referenceframe.FloatsToInputs(make([]float64, len(cameraFrame.DoF()))),
+	}
+	currentPoses := map[string]*referenceframe.PoseInFrame{
+		mr.kinematicBase.LocalizationFrame().Name(): referenceframe.NewPoseInFrame(referenceframe.World, spatialmath.NewPose(
+			r3.Vector{X: 2779.937, Y: 0, Z: 0},
+			&spatialmath.OrientationVectorDegrees{OZ: 1, Theta: -90},
+		)),
+	}
+
+	newExecutionState, err := motionplan.NewExecutionState(plan, 2, currentInputs, currentPoses)
+	test.That(t, err, test.ShouldBeNil)
+	updatedExecutionState, err := mr.augmentBaseExecutionState(newExecutionState)
+	test.That(t, err, test.ShouldBeNil)
+
+	t.Run("checking from partial-plan, ensure success with obstacles - integration test", func(t *testing.T) {
+		// create obstacle behind where we are
+		obstacle, err := spatialmath.NewBox(
+			spatialmath.NewPoseFromPoint(r3.Vector{0, 20, 0}),
+			r3.Vector{10, 200, 1}, "obstacle",
+		)
+		test.That(t, err, test.ShouldBeNil)
+		geoms := []spatialmath.Geometry{obstacle}
+		gifs := []*referenceframe.GeometriesInFrame{referenceframe.NewGeometriesInFrame(referenceframe.World, geoms)}
+
+		worldState, err := referenceframe.NewWorldState(gifs, nil)
+		test.That(t, err, test.ShouldBeNil)
+
+		err = motionplan.CheckPlan(wrapperFrame, updatedExecutionState, worldState, mr.localizingFS, math.Inf(1), logger)
+		test.That(t, err, test.ShouldBeNil)
+	})
+
+	t.Run("verify partial plan with non-nil errorState and obstacle", func(t *testing.T) {
+		// create obstacle which is behind where the robot already is, but is on the path it has already traveled
+		box, err := spatialmath.NewBox(spatialmath.NewZeroPose(), r3.Vector{10, 10, 1}, "obstacle")
+		test.That(t, err, test.ShouldBeNil)
+		gifs := []*referenceframe.GeometriesInFrame{referenceframe.NewGeometriesInFrame(referenceframe.World, []spatialmath.Geometry{box})}
+
+		worldState, err := referenceframe.NewWorldState(gifs, nil)
+		test.That(t, err, test.ShouldBeNil)
+
+		err = motionplan.CheckPlan(wrapperFrame, updatedExecutionState, worldState, mr.localizingFS, math.Inf(1), logger)
+		test.That(t, err, test.ShouldBeNil)
+	})
 }
