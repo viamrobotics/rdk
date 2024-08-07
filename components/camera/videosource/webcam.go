@@ -287,7 +287,6 @@ func NewWebcam(
 	logger logging.Logger,
 ) (camera.Camera, error) {
 	cancelCtx, cancel := context.WithCancel(context.Background())
-	logger.WithFields("camera_name", conf.ResourceName().ShortName())
 
 	cam := &monitoredWebcam{
 		Named:          conf.ResourceName().AsNamed(),
