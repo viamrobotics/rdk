@@ -4,11 +4,15 @@ import (
 	"context"
 	"errors"
 	"io"
+	"io/fs"
+	"syscall"
 
 	"go.uber.org/multierr"
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/service/shell/v1"
 	"go.viam.com/utils"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
@@ -144,6 +148,12 @@ func (server *serviceServer) CopyFilesToMachine(srv pb.ShellService_CopyFilesToM
 		md.Metadata.Preserve,
 		md.Metadata.Extra.AsMap())
 	if err != nil {
+		var pathErr *fs.PathError
+		var errno syscall.Errno
+		if errors.As(err, &pathErr) && errors.As(pathErr.Err, &errno) && errno == syscall.EACCES {
+			// we use an error code here so CLI can detect this case and give instructions
+			return status.New(codes.PermissionDenied, err.Error()).Err()
+		}
 		return err
 	}
 	defer func() {
