@@ -2356,7 +2356,9 @@ func TestMachineStatus(t *testing.T) {
 
 			const badStateMsg = "received resource in an unspecified state"
 			badStateCount := logs.FilterLevelExact(zapcore.ErrorLevel).FilterMessageSnippet(badStateMsg).Len()
-			test.That(t, badStateCount, test.ShouldEqual, tc.expBadStateCount)
+			// MachineStatus is also used for loading resources in a robot client, so every resource-specific error log will appear twice.
+			dedupedBadStateCount := badStateCount / 2
+			test.That(t, dedupedBadStateCount, test.ShouldEqual, tc.expBadStateCount)
 		})
 	}
 }
@@ -2395,3 +2397,4 @@ func TestVersion(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, md, test.ShouldResemble, version)
 }
+
