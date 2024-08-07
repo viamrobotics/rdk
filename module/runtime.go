@@ -9,10 +9,6 @@ import (
 	"go.viam.com/rdk/resource"
 )
 
-// APIModel is a glorified (resource.API, resource.Model) pair. Pass as many of these as you want
-// to ModularMain, to have this module support those models.
-type APIModel = resource.APIModel
-
 // ModularMain can be called as the main function from a module. It will start up a module with all
 // the provided APIModels added to it.
 func ModularMain(moduleName string, models ...resource.APIModel) {
