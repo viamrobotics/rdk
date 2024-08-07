@@ -6,7 +6,6 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	"runtime/debug"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -1084,26 +1083,6 @@ func (rc *RobotClient) Version(ctx context.Context) (robot.VersionResponse, erro
 	return mVersion, nil
 }
 
-func addVersionMetadataToContext(ctx context.Context) context.Context {
-	info, _ := debug.ReadBuildInfo()
-	deps := make(map[string]*debug.Module, len(info.Deps))
-	for _, dep := range info.Deps {
-		deps[dep.Path] = dep
-	}
-	var apiVersion string
-	if dep, ok := deps["go.viam.com/api"]; ok {
-		apiVersion = dep.Version
-	}
-	version := config.Version
-	if version == "" {
-		if dep, ok := deps["go.viam.com/rdk"]; ok {
-			version = dep.Version
-		}
-	}
-	versionMetadata := fmt.Sprintf("go;%s;%s", version, apiVersion)
-	return metadata.AppendToOutgoingContext(ctx, "viam_client", versionMetadata)
-}
-
 func unaryClientInterceptor() googlegrpc.UnaryClientInterceptor {
 	return func(
 		ctx context.Context,
@@ -1113,7 +1092,9 @@ func unaryClientInterceptor() googlegrpc.UnaryClientInterceptor {
 		invoker googlegrpc.UnaryInvoker,
 		opts ...googlegrpc.CallOption,
 	) error {
-		ctx = addVersionMetadataToContext(ctx)
+		md, _ := robot.Version()
+		stringMd := fmt.Sprintf("go;%s;%s", md.Version, md.APIVersion)
+		ctx = metadata.AppendToOutgoingContext(ctx, "viam_client", stringMd)
 		return invoker(ctx, method, req, reply, cc, opts...)
 	}
 }
@@ -1127,7 +1108,9 @@ func streamClientInterceptor() googlegrpc.StreamClientInterceptor {
 		streamer googlegrpc.Streamer,
 		opts ...googlegrpc.CallOption,
 	) (cs googlegrpc.ClientStream, err error) {
-		ctx = addVersionMetadataToContext(ctx)
+		md, _ := robot.Version()
+		stringMd := fmt.Sprintf("go;%s;%s", md.Version, md.APIVersion)
+		ctx = metadata.AppendToOutgoingContext(ctx, "viam_client", stringMd)
 		return streamer(ctx, desc, cc, method, opts...)
 	}
 }
