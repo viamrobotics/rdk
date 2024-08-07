@@ -148,11 +148,11 @@ func (server *serviceServer) CopyFilesToMachine(srv pb.ShellService_CopyFilesToM
 		md.Metadata.Preserve,
 		md.Metadata.Extra.AsMap())
 	if err != nil {
-		if pathErr, ok := err.(*fs.PathError); ok {
-			if errno, ok := pathErr.Err.(syscall.Errno); ok && errno == syscall.EACCES {
-				// we use an error code here so CLI can detect this case and give instructions
-				return status.New(codes.PermissionDenied, err.Error()).Err()
-			}
+		var pathErr *fs.PathError
+		var errno syscall.Errno
+		if errors.As(err, &pathErr) && errors.As(pathErr.Err, &errno) {
+			// we use an error code here so CLI can detect this case and give instructions
+			return status.New(codes.PermissionDenied, err.Error()).Err()
 		}
 		return err
 	}
