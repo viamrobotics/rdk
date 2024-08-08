@@ -81,205 +81,191 @@ func init() {
 func TestClientSessionOptions(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
-
-	type testcase struct {
-		webrtcDisabled   bool
-		withRemoteName   bool
-		sessionsDisabled bool
-	}
-
-	var testcases []testcase
 	for _, webrtcDisabled := range []bool{false, true} {
 		for _, sessionsDisabled := range []bool{false, true} {
 			for _, withRemoteName := range []bool{false, true} {
-				tc := testcase{
-					webrtcDisabled:   webrtcDisabled,
-					withRemoteName:   withRemoteName,
-					sessionsDisabled: sessionsDisabled,
-				}
-				testcases = append(testcases, tc)
-			}
-		}
-	}
+				webrtcDisabledCopy := webrtcDisabled
+				withRemoteNameCopy := withRemoteName
+				sessionsDisabledCopy := sessionsDisabled
 
-	for _, tc := range testcases {
-		tc := tc
-		t.Run(
-			fmt.Sprintf(
-				"webrtc disabled=%t,with remote name=%t,sessions disabled=%t",
-				tc.webrtcDisabled,
-				tc.withRemoteName,
-				tc.sessionsDisabled,
-			),
-			func(t *testing.T) {
-				t.Parallel()
+				t.Run(
+					fmt.Sprintf(
+						"webrtc disabled=%t,with remote name=%t,sessions disabled=%t",
+						webrtcDisabledCopy,
+						withRemoteNameCopy,
+						sessionsDisabledCopy,
+					),
+					func(t *testing.T) {
+						t.Parallel()
 
-				logger := logging.NewTestLogger(t)
+						logger := logging.NewTestLogger(t)
 
-				sessMgr := &sessionManager{}
-				arbName := resource.NewName(echoAPI, "woo")
-				injectResources := []resource.Name{arbName}
-				injectRobot := &inject.Robot{
-					ResourceNamesFunc: func() []resource.Name { return injectResources },
-					MachineStatusFunc: func(ctx context.Context) (robot.MachineStatus, error) {
-						return rdktestutils.ResourcesToMachineStatus(injectResources), nil
-					},
-					ResourceByNameFunc: func(name resource.Name) (resource.Resource, error) {
-						return &dummyEcho{Named: arbName.AsNamed()}, nil
-					},
-					ResourceRPCAPIsFunc: func() []resource.RPCAPI { return nil },
-					LoggerFunc:          func() logging.Logger { return logger },
-					SessMgr:             sessMgr,
-				}
+						sessMgr := &sessionManager{}
+						arbName := resource.NewName(echoAPI, "woo")
+						injectResources := []resource.Name{arbName}
+						injectRobot := &inject.Robot{
+							ResourceNamesFunc: func() []resource.Name { return injectResources },
+							MachineStatusFunc: func(ctx context.Context) (robot.MachineStatus, error) {
+								return rdktestutils.ResourcesToMachineStatus(injectResources), nil
+							},
+							ResourceByNameFunc: func(name resource.Name) (resource.Resource, error) {
+								return &dummyEcho{Named: arbName.AsNamed()}, nil
+							},
+							ResourceRPCAPIsFunc: func() []resource.RPCAPI { return nil },
+							LoggerFunc:          func() logging.Logger { return logger },
+							SessMgr:             sessMgr,
+						}
 
-				svc := web.New(injectRobot, logger)
+						svc := web.New(injectRobot, logger)
 
-				options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
-				err := svc.Start(ctx, options)
-				test.That(t, err, test.ShouldBeNil)
+						options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
+						err := svc.Start(ctx, options)
+						test.That(t, err, test.ShouldBeNil)
 
-				var opts []client.RobotClientOption
-				if tc.sessionsDisabled {
-					opts = append(opts, client.WithDisableSessions())
-				}
-				if tc.withRemoteName {
-					opts = append(opts, client.WithRemoteName("rem1"))
-				}
-				if tc.webrtcDisabled {
-					opts = append(opts, client.WithDialOptions(rpc.WithWebRTCOptions(rpc.DialWebRTCOptions{
-						Disable: true,
-					})))
-				}
-				roboClient, err := client.New(ctx, addr, logger, opts...)
-				test.That(t, err, test.ShouldBeNil)
+						var opts []client.RobotClientOption
+						if sessionsDisabledCopy {
+							opts = append(opts, client.WithDisableSessions())
+						}
+						if withRemoteNameCopy {
+							opts = append(opts, client.WithRemoteName("rem1"))
+						}
+						if webrtcDisabledCopy {
+							opts = append(opts, client.WithDialOptions(rpc.WithWebRTCOptions(rpc.DialWebRTCOptions{
+								Disable: true,
+							})))
+						}
+						roboClient, err := client.New(ctx, addr, logger, opts...)
+						test.That(t, err, test.ShouldBeNil)
 
-				injectRobot.Mu.Lock()
-				injectRobot.StatusFunc = func(ctx context.Context, resourceNames []resource.Name) ([]robot.Status, error) {
-					session.SafetyMonitorResourceName(ctx, someTargetName1)
-					return []robot.Status{}, nil
-				}
-				injectRobot.Mu.Unlock()
+						injectRobot.Mu.Lock()
+						injectRobot.StatusFunc = func(ctx context.Context, resourceNames []resource.Name) ([]robot.Status, error) {
+							session.SafetyMonitorResourceName(ctx, someTargetName1)
+							return []robot.Status{}, nil
+						}
+						injectRobot.Mu.Unlock()
 
-				var capMu sync.Mutex
-				var startCalled int
-				var findCalled int
-				var capOwnerID string
-				var capID uuid.UUID
-				var associateCount int
-				var storedID uuid.UUID
-				var storedResourceName resource.Name
+						var capMu sync.Mutex
+						var startCalled int
+						var findCalled int
+						var capOwnerID string
+						var capID uuid.UUID
+						var associateCount int
+						var storedID uuid.UUID
+						var storedResourceName resource.Name
 
-				sess1 := session.New(context.Background(), "ownerID", 5*time.Second, func(id uuid.UUID, resourceName resource.Name) {
-					capMu.Lock()
-					associateCount++
-					storedID = id
-					storedResourceName = resourceName
-					capMu.Unlock()
-				})
-				nextCtx := session.ToContext(ctx, sess1)
+						sess1 := session.New(context.Background(), "ownerID", 5*time.Second, func(id uuid.UUID, resourceName resource.Name) {
+							capMu.Lock()
+							associateCount++
+							storedID = id
+							storedResourceName = resourceName
+							capMu.Unlock()
+						})
+						nextCtx := session.ToContext(ctx, sess1)
 
-				sessMgr.mu.Lock()
-				sessMgr.StartFunc = func(ctx context.Context, ownerID string) (*session.Session, error) {
-					capMu.Lock()
-					startCalled++
-					capOwnerID = ownerID
-					capMu.Unlock()
-					return sess1, nil
-				}
-				sessMgr.FindByIDFunc = func(ctx context.Context, id uuid.UUID, ownerID string) (*session.Session, error) {
-					if id != sess1.ID() {
-						return nil, errors.New("session id mismatch")
-					}
-					capMu.Lock()
-					findCalled++
-					capID = id
-					capOwnerID = ownerID
-					capMu.Unlock()
-					sess1.Heartbeat(ctx) // gotta keep session alive
-					return sess1, nil
-				}
-				sessMgr.mu.Unlock()
+						sessMgr.mu.Lock()
+						sessMgr.StartFunc = func(ctx context.Context, ownerID string) (*session.Session, error) {
+							capMu.Lock()
+							startCalled++
+							capOwnerID = ownerID
+							capMu.Unlock()
+							return sess1, nil
+						}
+						sessMgr.FindByIDFunc = func(ctx context.Context, id uuid.UUID, ownerID string) (*session.Session, error) {
+							if id != sess1.ID() {
+								return nil, errors.New("session id mismatch")
+							}
+							capMu.Lock()
+							findCalled++
+							capID = id
+							capOwnerID = ownerID
+							capMu.Unlock()
+							sess1.Heartbeat(ctx) // gotta keep session alive
+							return sess1, nil
+						}
+						sessMgr.mu.Unlock()
 
-				resp, err := roboClient.Status(nextCtx, []resource.Name{})
-				test.That(t, err, test.ShouldBeNil)
-				test.That(t, len(resp), test.ShouldEqual, 0)
+						resp, err := roboClient.Status(nextCtx, []resource.Name{})
+						test.That(t, err, test.ShouldBeNil)
+						test.That(t, len(resp), test.ShouldEqual, 0)
 
-				if tc.sessionsDisabled {
-					// wait for any kind of heartbeat
-					time.Sleep(2 * time.Second)
+						if sessionsDisabledCopy {
+							// wait for any kind of heartbeat
+							time.Sleep(2 * time.Second)
 
-					capMu.Lock()
-					test.That(t, startCalled, test.ShouldEqual, 0)
-					test.That(t, findCalled, test.ShouldEqual, 0)
-					capMu.Unlock()
-				} else {
-					capMu.Lock()
-					test.That(t, startCalled, test.ShouldEqual, 1)
-					test.That(t, findCalled, test.ShouldEqual, 0)
+							capMu.Lock()
+							test.That(t, startCalled, test.ShouldEqual, 0)
+							test.That(t, findCalled, test.ShouldEqual, 0)
+							capMu.Unlock()
+						} else {
+							capMu.Lock()
+							test.That(t, startCalled, test.ShouldEqual, 1)
+							test.That(t, findCalled, test.ShouldEqual, 0)
 
-					if tc.webrtcDisabled {
-						test.That(t, capOwnerID, test.ShouldEqual, "")
-					} else {
-						test.That(t, capOwnerID, test.ShouldNotEqual, "")
-					}
-					capMu.Unlock()
+							if webrtcDisabledCopy {
+								test.That(t, capOwnerID, test.ShouldEqual, "")
+							} else {
+								test.That(t, capOwnerID, test.ShouldNotEqual, "")
+							}
+							capMu.Unlock()
 
-					startAt := time.Now()
-					testutils.WaitForAssertionWithSleep(t, time.Second, 10, func(tb testing.TB) {
-						tb.Helper()
+							startAt := time.Now()
+							testutils.WaitForAssertionWithSleep(t, time.Second, 10, func(tb testing.TB) {
+								tb.Helper()
+
+								capMu.Lock()
+								defer capMu.Unlock()
+								test.That(tb, findCalled, test.ShouldBeGreaterThanOrEqualTo, 5)
+								test.That(tb, capID, test.ShouldEqual, sess1.ID())
+
+								if webrtcDisabledCopy {
+									test.That(tb, capOwnerID, test.ShouldEqual, "")
+								} else {
+									test.That(tb, capOwnerID, test.ShouldNotEqual, "")
+								}
+							})
+							// testing against time but fairly generous range
+							test.That(t, time.Since(startAt), test.ShouldBeBetween, 4*time.Second, 7*time.Second)
+						}
 
 						capMu.Lock()
-						defer capMu.Unlock()
-						test.That(tb, findCalled, test.ShouldBeGreaterThanOrEqualTo, 5)
-						test.That(tb, capID, test.ShouldEqual, sess1.ID())
-
-						if tc.webrtcDisabled {
-							test.That(tb, capOwnerID, test.ShouldEqual, "")
+						if withRemoteNameCopy {
+							test.That(t, associateCount, test.ShouldEqual, 1)
+							test.That(t, storedID, test.ShouldEqual, sess1.ID())
+							test.That(t, storedResourceName, test.ShouldResemble, someTargetName1.PrependRemote("rem1"))
 						} else {
-							test.That(tb, capOwnerID, test.ShouldNotEqual, "")
+							test.That(t, associateCount, test.ShouldEqual, 0)
 						}
+						capMu.Unlock()
+
+						echoRes, err := roboClient.ResourceByName(arbName)
+						test.That(t, err, test.ShouldBeNil)
+						echoClient := echoRes.(*dummyClient).client
+
+						echoMultiClient, err := echoClient.EchoResourceMultiple(nextCtx, &echopb.EchoResourceMultipleRequest{
+							Name:    arbName.Name,
+							Message: "doesnotmatter",
+						})
+						test.That(t, err, test.ShouldBeNil)
+						_, err = echoMultiClient.Recv() // EOF; okay
+						test.That(t, err, test.ShouldBeError, io.EOF)
+
+						err = roboClient.Close(context.Background())
+						test.That(t, err, test.ShouldBeNil)
+
+						capMu.Lock()
+						if withRemoteNameCopy {
+							test.That(t, associateCount, test.ShouldEqual, 2)
+							test.That(t, storedID, test.ShouldEqual, sess1.ID())
+							test.That(t, storedResourceName, test.ShouldResemble, someTargetName2.PrependRemote("rem1"))
+						} else {
+							test.That(t, associateCount, test.ShouldEqual, 0)
+						}
+						capMu.Unlock()
+
+						test.That(t, svc.Close(ctx), test.ShouldBeNil)
 					})
-					// testing against time but fairly generous range
-					test.That(t, time.Since(startAt), test.ShouldBeBetween, 4*time.Second, 7*time.Second)
-				}
-
-				capMu.Lock()
-				if tc.withRemoteName {
-					test.That(t, associateCount, test.ShouldEqual, 1)
-					test.That(t, storedID, test.ShouldEqual, sess1.ID())
-					test.That(t, storedResourceName, test.ShouldResemble, someTargetName1.PrependRemote("rem1"))
-				} else {
-					test.That(t, associateCount, test.ShouldEqual, 0)
-				}
-				capMu.Unlock()
-
-				echoRes, err := roboClient.ResourceByName(arbName)
-				test.That(t, err, test.ShouldBeNil)
-				echoClient := echoRes.(*dummyClient).client
-
-				echoMultiClient, err := echoClient.EchoResourceMultiple(nextCtx, &echopb.EchoResourceMultipleRequest{
-					Name:    arbName.Name,
-					Message: "doesnotmatter",
-				})
-				test.That(t, err, test.ShouldBeNil)
-				_, err = echoMultiClient.Recv() // EOF; okay
-				test.That(t, err, test.ShouldBeError, io.EOF)
-
-				err = roboClient.Close(context.Background())
-				test.That(t, err, test.ShouldBeNil)
-
-				capMu.Lock()
-				if tc.withRemoteName {
-					test.That(t, associateCount, test.ShouldEqual, 2)
-					test.That(t, storedID, test.ShouldEqual, sess1.ID())
-					test.That(t, storedResourceName, test.ShouldResemble, someTargetName2.PrependRemote("rem1"))
-				} else {
-					test.That(t, associateCount, test.ShouldEqual, 0)
-				}
-				capMu.Unlock()
-
-				test.That(t, svc.Close(ctx), test.ShouldBeNil)
-			})
+			}
+		}
 	}
 }
 
