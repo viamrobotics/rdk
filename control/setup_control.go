@@ -165,6 +165,10 @@ func (p *PIDLoop) TunePIDLoop(ctx context.Context, cancelFunc context.CancelFunc
 
 			p.ControlLoop.Stop()
 			p.ControlLoop = nil
+
+			p.PIDVals[0].P = p.ControlLoop.pidBlocks[0].kP
+			p.PIDVals[0].I = p.ControlLoop.pidBlocks[0].kI
+			p.PIDVals[0].D = p.ControlLoop.pidBlocks[0].kD
 		}
 		if p.Options.SensorFeedback2DVelocityControl {
 			// check if linear needs to be tuned
@@ -174,6 +178,9 @@ func (p *PIDLoop) TunePIDLoop(ctx context.Context, cancelFunc context.CancelFunc
 					errs = multierr.Combine(errs, err)
 				}
 			}
+			p.PIDVals[0].P = p.ControlLoop.pidBlocks[0].kP
+			p.PIDVals[0].I = p.ControlLoop.pidBlocks[0].kI
+			p.PIDVals[0].D = p.ControlLoop.pidBlocks[0].kD
 
 			// check if angular needs to be tuned
 			if p.PIDVals[1].NeedsAutoTuning() {
@@ -182,6 +189,9 @@ func (p *PIDLoop) TunePIDLoop(ctx context.Context, cancelFunc context.CancelFunc
 					errs = multierr.Combine(errs, err)
 				}
 			}
+			p.PIDVals[1].P = p.ControlLoop.pidBlocks[1].kP
+			p.PIDVals[1].I = p.ControlLoop.pidBlocks[1].kI
+			p.PIDVals[1].D = p.ControlLoop.pidBlocks[1].kD
 		}
 	})
 	return errs
