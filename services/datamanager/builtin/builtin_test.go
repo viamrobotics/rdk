@@ -32,7 +32,7 @@ var (
 	// captureInterval                             = time.Millisecond * 10.
 )
 
-var connectedConn = newConnectingNoOpClientConnWithConnectivity()
+var offlineConn = newConnectingNoOpClientConnWithConnectivity()
 
 type pathologicalAssociatedConfig struct{}
 
@@ -45,7 +45,7 @@ func TestNewBuiltIn(t *testing.T) {
 
 	t.Run("returns an error if called with a resource.Config that can't be converted into a builtin.*Config", func(t *testing.T) {
 		ctx := context.Background()
-		mockDeps := mockDeps(connectedConn, nil)
+		mockDeps := mockDeps(offlineConn, nil)
 		_, err := NewBuiltIn(ctx, mockDeps, resource.Config{}, noOpCloudClientConstructor, logger)
 		test.That(t, err, test.ShouldBeError, errors.New("expected *builtin.Config but got <nil>"))
 	})
@@ -54,7 +54,7 @@ func TestNewBuiltIn(t *testing.T) {
 		ctx, err := utils.WithTrustedEnvironment(context.Background(), false)
 		test.That(t, err, test.ShouldBeNil)
 		t.Run("returns successfully if config uses the default capture dir", func(t *testing.T) {
-			mockDeps := mockDeps(connectedConn, nil)
+			mockDeps := mockDeps(offlineConn, nil)
 			c := &Config{}
 			test.That(t, c.getCaptureDir(), test.ShouldResemble, viamCaptureDotDir)
 			b, err := NewBuiltIn(ctx, mockDeps, resource.Config{ConvertedAttributes: c}, noOpCloudClientConstructor, logger)
@@ -83,14 +83,14 @@ func TestNewBuiltIn(t *testing.T) {
 		ctx := context.Background()
 		aa := map[resource.Name]resource.AssociatedConfig{arm.Named("arm1"): &pathologicalAssociatedConfig{}}
 		config := resource.Config{ConvertedAttributes: &Config{}, AssociatedAttributes: aa}
-		deps := mockDeps(connectedConn, resource.Dependencies{arm.Named("arm1"): &inject.Arm{}})
+		deps := mockDeps(offlineConn, resource.Dependencies{arm.Named("arm1"): &inject.Arm{}})
 		_, err := NewBuiltIn(ctx, deps, config, noOpCloudClientConstructor, logger)
 		test.That(t, err, test.ShouldBeError, errors.New("expected *datamanager.AssociatedConfig but got *builtin.pathologicalAssociatedConfig"))
 	})
 
 	t.Run("otherwise returns a new builtin and no error", func(t *testing.T) {
 		ctx := context.Background()
-		r := getInjectedRobot(mockDeps(connectedConn, map[resource.Name]resource.Resource{
+		r := getInjectedRobot(mockDeps(offlineConn, map[resource.Name]resource.Resource{
 			arm.Named("arm1"): &inject.Arm{
 				EndPositionFunc: func(
 					ctx context.Context,
@@ -107,18 +107,82 @@ func TestNewBuiltIn(t *testing.T) {
 		test.That(t, b.Close(context.Background()), test.ShouldBeNil)
 	})
 }
+func TestReconfigure(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+	b, closeFunc := builtinWithEmptyConfig(t, logger)
+	defer closeFunc()
 
-// func TestReconfigure(t *testing.T) {
-// 	t.Fatal("unimplemented")
-// }
+	t.Run("returns an error if called with a resource.Config that can't be converted into a builtin.*Config", func(t *testing.T) {
+		ctx := context.Background()
+		err := b.Reconfigure(ctx, mockDeps(offlineConn, nil), resource.Config{})
+		test.That(t, err, test.ShouldBeError, errors.New("expected *builtin.Config but got <nil>"))
+	})
 
+	t.Run("when run in an untrusted environment", func(t *testing.T) {
+		ctx, err := utils.WithTrustedEnvironment(context.Background(), false)
+		test.That(t, err, test.ShouldBeNil)
+		t.Run("returns successfully if config uses the default capture dir", func(t *testing.T) {
+			mockDeps := mockDeps(offlineConn, nil)
+			c := &Config{}
+			test.That(t, c.getCaptureDir(), test.ShouldResemble, viamCaptureDotDir)
+			err := b.Reconfigure(ctx, mockDeps, resource.Config{ConvertedAttributes: c})
+			test.That(t, err, test.ShouldBeNil)
+		})
+
+		t.Run("returns an error if booted in an untrusted environment with a non default capture_dir", func(t *testing.T) {
+			config := resource.Config{ConvertedAttributes: &Config{CaptureDir: "/tmp/sth/else"}}
+			err := b.Reconfigure(ctx, nil, config)
+			test.That(t, err, test.ShouldBeError, ErrCaptureDirectoryConfigurationDisabled)
+		})
+	})
+
+	t.Run("returns an error if deps don't contain the internal cloud service", func(t *testing.T) {
+		ctx := context.Background()
+		deps := resource.Dependencies{}
+		config := resource.Config{ConvertedAttributes: &Config{}}
+		err := b.Reconfigure(ctx, deps, config)
+		test.That(t, err, test.ShouldBeError, errors.New("Resource missing from dependencies. Resource: rdk-internal:service:cloud_connection/builtin"))
+	})
+
+	t.Run("returns an error if any of the config.AssociatedAttributes can't be converted into a *datamanager.AssociatedConfig", func(t *testing.T) {
+		ctx := context.Background()
+		aa := map[resource.Name]resource.AssociatedConfig{arm.Named("arm1"): &pathologicalAssociatedConfig{}}
+		config := resource.Config{ConvertedAttributes: &Config{}, AssociatedAttributes: aa}
+		deps := mockDeps(offlineConn, resource.Dependencies{arm.Named("arm1"): &inject.Arm{}})
+		err := b.Reconfigure(ctx, deps, config)
+		test.That(t, err, test.ShouldBeError, errors.New("expected *datamanager.AssociatedConfig but got *builtin.pathologicalAssociatedConfig"))
+	})
+
+	t.Run("otherwise succeeds", func(t *testing.T) {
+		ctx := context.Background()
+		r := getInjectedRobot(mockDeps(offlineConn, map[resource.Name]resource.Resource{
+			arm.Named("arm1"): &inject.Arm{
+				EndPositionFunc: func(
+					ctx context.Context,
+					extra map[string]interface{},
+				) (spatialmath.Pose, error) {
+					return spatialmath.NewZeroPose(), nil
+				}},
+		}))
+		config, deps := setupConfig(t, r, enabledTabularCollectorConfigPath)
+		err := b.Reconfigure(ctx, deps, config)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, b, test.ShouldNotBeNil)
+		test.That(t, b.Close(context.Background()), test.ShouldBeNil)
+	})
+}
+
+// TODO
 // func TestSync(t *testing.T) {
 // 	t.Fatal("unimplemented")
 // }
 
-// func TestClose(t *testing.T) {
-// 	t.Fatal("unimplemented")
-// }
+func builtinWithEmptyConfig(t *testing.T, logger logging.Logger) (datamanager.Service, func()) {
+	mockDeps := mockDeps(offlineConn, nil)
+	b, err := NewBuiltIn(context.Background(), mockDeps, resource.Config{ConvertedAttributes: &Config{}}, noOpCloudClientConstructor, logger)
+	test.That(t, err, test.ShouldBeNil)
+	return b, func() { test.That(t, b.Close(context.Background()), test.ShouldBeNil) }
+}
 
 func mockDeps(conn rpc.ClientConn, deps resource.Dependencies) resource.Dependencies {
 	d := resource.Dependencies{
