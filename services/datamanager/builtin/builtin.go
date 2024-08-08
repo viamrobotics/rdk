@@ -153,7 +153,7 @@ func (b *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies, c
 		return err
 	}
 
-	captureConfig := captureConfig(c)
+	captureConfig := c.captureConfig()
 	collectorConfigsByResource, err := lookupCollectorConfigsByResource(deps, conf, captureConfig.CaptureDir, b.logger)
 	if err != nil {
 		// If this error occurs it's a resource graph error
@@ -162,7 +162,7 @@ func (b *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies, c
 
 	b.capture.Reconfigure(ctx, collectorConfigsByResource, captureConfig)
 	syncSensor, syncSensorEnabled := syncSensorFromDeps(c.SelectiveSyncerName, deps, b.logger)
-	b.sync.Reconfigure(ctx, syncConfig(c, syncSensor, syncSensorEnabled), cloudConnSvc)
+	b.sync.Reconfigure(ctx, c.syncConfig(syncSensor, syncSensorEnabled), cloudConnSvc)
 
 	return nil
 }

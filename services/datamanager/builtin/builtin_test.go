@@ -16,6 +16,7 @@ import (
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/datamanager"
+	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils/inject"
 	"go.viam.com/rdk/utils"
 )
@@ -33,94 +34,77 @@ var (
 
 var connectedConn = newConnectingNoOpClientConnWithConnectivity()
 
-func TestConfig(t *testing.T) {
-	t.Run("Validate returns the internal cloud service name", func(t *testing.T) {
-		c := &Config{}
-		deps, err := c.Validate("")
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, deps, test.ShouldResemble, []string{cloud.InternalServiceName.String()})
-	})
+type pathologicalAssociatedConfig struct{}
 
-	t.Run("getCaptureDir", func(t *testing.T) {
-		t.Run("returns the default capture directory by default", func(t *testing.T) {
-			c := &Config{}
-			test.That(t, c.getCaptureDir(), test.ShouldResemble, viamCaptureDotDir)
-		})
-
-		t.Run("returns CaptureDir if set", func(t *testing.T) {
-			c := &Config{CaptureDir: "/tmp/some/path"}
-			test.That(t, c.getCaptureDir(), test.ShouldResemble, "/tmp/some/path")
-		})
-	})
-}
-
-func TestUntrustedEnv(t *testing.T) {
-	logger := logging.NewTestLogger(t)
-	ctx, err := utils.WithTrustedEnvironment(context.Background(), false)
-	test.That(t, err, test.ShouldBeNil)
-	mockDeps := mockDeps(connectedConn, map[resource.Name]resource.Resource{
-		arm.Named("arm1"): &inject.Arm{},
-	})
-	r := getInjectedRobot(mockDeps)
-	config, deps := setupConfig(t, r, enabledTabularCollectorConfigPath)
-	_, err = NewBuiltIn(ctx, deps, config, noOpCloudClientConstructor, logger)
-	test.That(t, err, test.ShouldBeError, ErrCaptureDirectoryConfigurationDisabled)
-}
+func (p *pathologicalAssociatedConfig) Equals(resource.AssociatedConfig) bool                   { return false }
+func (p *pathologicalAssociatedConfig) UpdateResourceNames(func(n resource.Name) resource.Name) {}
+func (p *pathologicalAssociatedConfig) Link(conf *resource.Config)                              {}
 
 func TestNewBuiltIn(t *testing.T) {
 	logger := logging.NewTestLogger(t)
-	ctx := context.Background()
 
 	t.Run("returns an error if called with a resource.Config that can't be converted into a builtin.*Config", func(t *testing.T) {
+		ctx := context.Background()
 		mockDeps := mockDeps(connectedConn, nil)
 		_, err := NewBuiltIn(ctx, mockDeps, resource.Config{}, noOpCloudClientConstructor, logger)
 		test.That(t, err, test.ShouldBeError, errors.New("expected *builtin.Config but got <nil>"))
 	})
 
-	// t.Run("when run in an untrusted environment", func(t *testing.T) {
-	// 	t.Run("does NOT return an error if config doesn't specify a capture_dir", func(t *testing.T) {
-	// 		mockDeps := mockDeps(connectedConn, nil)
-	// 		_, err := NewBuiltIn(ctx, mockDeps, resource.Config{}, noOpCloudClientConstructor, logger)
-	// 		test.That(t, err, test.ShouldBeError, errors.New("expected *builtin.Config but got <nil>"))
-	// 		t.Fatal("unimplemented")
-	// 	})
+	t.Run("when run in an untrusted environment", func(t *testing.T) {
+		ctx, err := utils.WithTrustedEnvironment(context.Background(), false)
+		test.That(t, err, test.ShouldBeNil)
+		t.Run("returns successfully if config uses the default capture dir", func(t *testing.T) {
+			mockDeps := mockDeps(connectedConn, nil)
+			c := &Config{}
+			test.That(t, c.getCaptureDir(), test.ShouldResemble, viamCaptureDotDir)
+			b, err := NewBuiltIn(ctx, mockDeps, resource.Config{ConvertedAttributes: c}, noOpCloudClientConstructor, logger)
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, b, test.ShouldNotBeNil)
+			test.That(t, b.Close(context.Background()), test.ShouldBeNil)
+		})
 
-	// 	t.Run("does NOT return an error if config specifies the default capture_dir", func(t *testing.T) {
-	// 		mockDeps := mockDeps(connectedConn, nil)
-	// 		_, err := NewBuiltIn(ctx, mockDeps, resource.Config{}, noOpCloudClientConstructor, logger)
-	// 		test.That(t, err, test.ShouldBeError, errors.New("expected *builtin.Config but got <nil>"))
-	// 		t.Fatal("unimplemented")
-	// 	})
-
-	// 	t.Run("returns an error if booted in an untrusted environment with a non default capture_dir", func(t *testing.T) {
-	// 		mockDeps := mockDeps(connectedConn, nil)
-	// 		_, err := NewBuiltIn(ctx, mockDeps, resource.Config{}, noOpCloudClientConstructor, logger)
-	// 		test.That(t, err, test.ShouldBeError, errors.New("expected *builtin.Config but got <nil>"))
-	// 		t.Fatal("unimplemented")
-	// 	})
-
-	// })
+		t.Run("returns an error if booted in an untrusted environment with a non default capture_dir", func(t *testing.T) {
+			config := resource.Config{ConvertedAttributes: &Config{CaptureDir: "/tmp/sth/else"}}
+			_, err = NewBuiltIn(ctx, nil, config, noOpCloudClientConstructor, logger)
+			test.That(t, err, test.ShouldBeError, ErrCaptureDirectoryConfigurationDisabled)
+		})
+	})
 
 	t.Run("returns an error if deps don't contain the internal cloud service", func(t *testing.T) {
-		r := getInjectedRobot(map[resource.Name]resource.Resource{
-			arm.Named("arm1"): &inject.Arm{},
-		})
-		config, deps := setupConfig(t, r, enabledTabularCollectorConfigPath)
-		_, err := NewBuiltIn(ctx, deps, config, noOpCloudClientConstructor, logger)
+		ctx := context.Background()
+		_, err := NewBuiltIn(
+			ctx,
+			resource.Dependencies{},
+			resource.Config{ConvertedAttributes: &Config{}}, noOpCloudClientConstructor, logger)
 		test.That(t, err, test.ShouldBeError, errors.New("Resource missing from dependencies. Resource: rdk-internal:service:cloud_connection/builtin"))
 	})
 
-	// t.Run("returns an error if any of the config.AssociatedAttributes can't be converted into a *datamanager.AssociatedConfig", func(t *testing.T) {
-	// 	t.Fatal("unimplemented")
-	// })
+	t.Run("returns an error if any of the config.AssociatedAttributes can't be converted into a *datamanager.AssociatedConfig", func(t *testing.T) {
+		ctx := context.Background()
+		aa := map[resource.Name]resource.AssociatedConfig{arm.Named("arm1"): &pathologicalAssociatedConfig{}}
+		config := resource.Config{ConvertedAttributes: &Config{}, AssociatedAttributes: aa}
+		deps := mockDeps(connectedConn, resource.Dependencies{arm.Named("arm1"): &inject.Arm{}})
+		_, err := NewBuiltIn(ctx, deps, config, noOpCloudClientConstructor, logger)
+		test.That(t, err, test.ShouldBeError, errors.New("expected *datamanager.AssociatedConfig but got *builtin.pathologicalAssociatedConfig"))
+	})
 
 	t.Run("otherwise returns a new builtin and no error", func(t *testing.T) {
+		ctx := context.Background()
 		r := getInjectedRobot(mockDeps(connectedConn, map[resource.Name]resource.Resource{
-			arm.Named("arm1"): &inject.Arm{},
+			arm.Named("arm1"): &inject.Arm{
+				EndPositionFunc: func(
+					ctx context.Context,
+					extra map[string]interface{},
+				) (spatialmath.Pose, error) {
+					return spatialmath.NewZeroPose(), nil
+				}},
 		}))
+
 		config, deps := setupConfig(t, r, enabledTabularCollectorConfigPath)
-		_, err := NewBuiltIn(ctx, deps, config, noOpCloudClientConstructor, logger)
+		b, err := NewBuiltIn(ctx, deps, config, noOpCloudClientConstructor, logger)
 		test.That(t, err, test.ShouldBeNil)
+		test.That(t, b, test.ShouldNotBeNil)
+		test.That(t, b.Close(context.Background()), test.ShouldBeNil)
 	})
 }
 
@@ -218,6 +202,7 @@ func setupConfig(t *testing.T, r *inject.Robot, configPath string) (resource.Con
 }
 
 func resourceConfigAndDeps(t *testing.T, cfg *config.Config, r *inject.Robot) (resource.Config, resource.Dependencies) {
+	t.Helper()
 	var config *resource.Config
 	deps := resource.Dependencies{}
 	// datamanager config should be in the config, if not test is inavlif

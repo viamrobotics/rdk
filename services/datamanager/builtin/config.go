@@ -52,7 +52,7 @@ func (c *Config) getCaptureDir() string {
 	return captureDir
 }
 
-func captureConfig(c *Config) capture.Config {
+func (c *Config) captureConfig() capture.Config {
 	maximumCaptureFileSizeBytes := defaultMaxCaptureSize
 	if c.MaximumCaptureFileSizeBytes != 0 {
 		maximumCaptureFileSizeBytes = c.MaximumCaptureFileSizeBytes
@@ -65,7 +65,7 @@ func captureConfig(c *Config) capture.Config {
 	}
 }
 
-func syncConfig(c *Config, syncSensor sensor.Sensor, syncSensorEnabled bool) datasync.Config {
+func (c *Config) syncConfig(syncSensor sensor.Sensor, syncSensorEnabled bool) datasync.Config {
 	newMaxSyncThreadValue := defaultMaxParallelSyncRoutines
 	if c.MaximumNumSyncThreads != 0 {
 		newMaxSyncThreadValue = c.MaximumNumSyncThreads
@@ -91,7 +91,7 @@ func syncConfig(c *Config, syncSensor sensor.Sensor, syncSensorEnabled bool) dat
 		DeleteEveryNthWhenDiskFull: c.DeleteEveryNthWhenDiskFull,
 		FileLastModifiedMillis:     c.FileLastModifiedMillis,
 		MaximumNumSyncThreads:      c.MaximumNumSyncThreads,
-		SyncDisabled:               c.ScheduledSyncDisabled,
+		ScheduledSyncDisabled:      c.ScheduledSyncDisabled,
 		SelectiveSyncerName:        c.SelectiveSyncerName,
 		SyncIntervalMins:           c.SyncIntervalMins,
 		SelectiveSyncSensor:        syncSensor,

@@ -15,7 +15,7 @@ type Config struct {
 	DeleteEveryNthWhenDiskFull int
 	FileLastModifiedMillis     int
 	MaximumNumSyncThreads      int
-	SyncDisabled               bool
+	ScheduledSyncDisabled      bool
 	SelectiveSyncerName        string
 	SyncIntervalMins           float64
 	Tags                       []string
@@ -24,7 +24,7 @@ type Config struct {
 }
 
 func (c Config) schedulerEnabled() bool {
-	configDisabled := c.SyncDisabled || utils.Float64AlmostEqual(c.SyncIntervalMins, 0.0, 0.00001)
+	configDisabled := c.ScheduledSyncDisabled || utils.Float64AlmostEqual(c.SyncIntervalMins, 0.0, 0.00001)
 	selectiveSyncerInvalid := c.SelectiveSyncSensorEnabled && c.SelectiveSyncSensor == nil
 	return !configDisabled && !selectiveSyncerInvalid
 }
@@ -37,7 +37,7 @@ func (c Config) equal(o Config) bool {
 		c.DeleteEveryNthWhenDiskFull == o.DeleteEveryNthWhenDiskFull &&
 		c.FileLastModifiedMillis == o.FileLastModifiedMillis &&
 		c.MaximumNumSyncThreads == o.MaximumNumSyncThreads &&
-		c.SyncDisabled == o.SyncDisabled &&
+		c.ScheduledSyncDisabled == o.ScheduledSyncDisabled &&
 		c.SelectiveSyncerName == o.SelectiveSyncerName &&
 		c.SyncIntervalMins == o.SyncIntervalMins &&
 		reflect.DeepEqual(c.Tags, o.Tags) &&
