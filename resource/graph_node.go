@@ -277,10 +277,9 @@ func (w *GraphNode) MarkedForRemoval() bool {
 // The additional `args` should come in key/value pairs for structured logging.
 func (w *GraphNode) LogAndSetLastError(err error, args ...any) {
 	w.mu.Lock()
-	defer w.mu.Unlock()
-
 	w.lastErr = errors.Join(w.lastErr, err)
 	w.transitionTo(NodeStateUnhealthy)
+	w.mu.Unlock()
 
 	if w.logger != nil {
 		w.logger.Errorw(err.Error(), args...)
