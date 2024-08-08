@@ -708,26 +708,14 @@ func (r *localRobot) newResource(
 			}
 		}
 	}
-	switch {
-	case resInfo.Constructor != nil:
-		res, err = resInfo.Constructor(ctx, deps, conf, gNode.Logger())
-	case resInfo.DeprecatedRobotConstructor != nil:
-		res, err = resInfo.DeprecatedRobotConstructor(ctx, r, conf, gNode.Logger())
-	default:
+
+	if resInfo.Constructor != nil {
+		return resInfo.Constructor(ctx, deps, conf, gNode.Logger())
+	}
+	if resInfo.DeprecatedRobotConstructor == nil {
 		return nil, errors.Errorf("invariant: no constructor for %q", conf.API)
 	}
-	if err != nil {
-		return nil, err
-	}
-
-	// If context has errored, even if construction succeeded we should close the resource and return the context error.
-	// Use closeContext because otherwise any Close operations that rely on the context will immediately fail.
-	// The deadline associated with the context passed in to this function is utils.GetResourceConfigurationTimeout.
-	if ctx.Err() != nil {
-		r.logger.CDebugw(ctx, "resource successfully constructed but context is done, closing constructed resource")
-		return nil, multierr.Combine(ctx.Err(), res.Close(r.closeContext))
-	}
-	return res, nil
+	return resInfo.DeprecatedRobotConstructor(ctx, r, conf, gNode.Logger())
 }
 
 func (r *localRobot) updateWeakDependents(ctx context.Context) {
@@ -1190,26 +1178,14 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 	// if anything has changed.
 	err := r.packageManager.Sync(ctx, newConfig.Packages, newConfig.Modules)
 	if err != nil {
-		r.Logger().CErrorw(ctx, "reconfiguration aborted because cloud modules or packages download failed", "error", err)
-		return
+		allErrs = multierr.Combine(allErrs, err)
 	}
 	// For local tarball modules, we create synthetic versions for package management. The `localRobot` keeps track of these because
 	// config reader would overwrite if we just stored it in config. Here, we copy the synthetic version from the `localRobot` into the
 	// appropriate `config.Module` object inside the `cfg.Modules` slice. Thus, when a local tarball module is reloaded, the viam-server
 	// can unpack it into a fresh directory rather than reusing the previous one.
 	r.applyLocalModuleVersions(newConfig)
-	err = r.localPackages.Sync(ctx, newConfig.Packages, newConfig.Modules)
-	if err != nil {
-		r.Logger().CErrorw(ctx, "reconfiguration aborted because local modules or packages sync failed", "error", err)
-		return
-	}
-
-	if newConfig.Cloud != nil {
-		r.Logger().CDebug(ctx, "updating cached config")
-		if err := newConfig.StoreToCache(); err != nil {
-			r.logger.CErrorw(ctx, "error storing the config", "error", err)
-		}
-	}
+	allErrs = multierr.Combine(allErrs, r.localPackages.Sync(ctx, newConfig.Packages, newConfig.Modules))
 
 	// Add default services and process their dependencies. Dependencies may
 	// already come from config validation so we check that here.
@@ -1422,7 +1398,7 @@ func (r *localRobot) Shutdown(ctx context.Context) error {
 func (r *localRobot) MachineStatus(ctx context.Context) (robot.MachineStatus, error) {
 	var result robot.MachineStatus
 
-	result.Resources = append(result.Resources, r.manager.resources.Status()...)
+	result.Resources = r.manager.ResourceStatuses()
 
 	r.configRevisionMu.RLock()
 	result.Config = r.configRevision
