@@ -3,6 +3,8 @@ package builtin
 import (
 	"context"
 	"maps"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/pkg/errors"
@@ -28,7 +30,7 @@ var (
 	// enabledBinaryCollectorConfigPath            = "services/datamanager/data/robot_with_cam_capture.json"
 	// infrequentCaptureTabularCollectorConfigPath = "services/datamanager/data/fake_robot_with_infrequent_capture.json"
 	// remoteCollectorConfigPath                   = "services/datamanager/data/fake_robot_with_remote_and_data_manager.json"
-	// emptyFileBytesSize                          = 90 // a "rounded down" size of leading metadata message
+	emptyFileBytesSize = 90 // a "rounded down" size of leading metadata message
 	// captureInterval                             = time.Millisecond * 10.
 )
 
@@ -329,19 +331,19 @@ func resourceConfigAndDeps(t *testing.T, cfg *config.Config, r *inject.Robot) (r
 // 	return nil, nil, nil
 // }
 
-//func getAllFileInfos(dir string) []os.FileInfo {
-//	var files []os.FileInfo
-//	_ = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
-//		if err != nil || info.IsDir() {
-//			// ignore errors/unreadable files and directories
-//			//nolint:nilerr
-//			return nil
-//		}
-//		files = append(files, info)
-//		return nil
-//	})
-//	return files
-//}
+func getAllFileInfos(dir string) []os.FileInfo {
+	var files []os.FileInfo
+	_ = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
+		if err != nil || info.IsDir() {
+			// ignore errors/unreadable files and directories
+			//nolint:nilerr
+			return nil
+		}
+		files = append(files, info)
+		return nil
+	})
+	return files
+}
 
 // func resourcesFromDeps(t *testing.T, r robot.Robot, deps []string) resource.Dependencies {
 // 	t.Helper()

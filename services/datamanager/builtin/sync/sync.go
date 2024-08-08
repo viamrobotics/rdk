@@ -30,12 +30,15 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
-// DeletionTicker temporarily public for tests.
-var errGrpcClientConnUnrecoverable = errors.New("can't turn s.cloudConn into a grpc.ClientConn")
+var (
+	// DeletionTicker temporarily public for tests.
+	errGrpcClientConnUnrecoverable = errors.New("can't turn s.cloudConn into a grpc.ClientConn")
 
-const (
 	// FilesystemPollInterval temporarily public for tests.
 	FilesystemPollInterval = 30 * time.Second
+)
+
+const (
 	// FailedDir is a subdirectory of the capture directory that holds any files that could not be synced.
 	FailedDir = "failed"
 	// InitialWaitTimeMillis defines the time to wait on the first retried upload attempt.
