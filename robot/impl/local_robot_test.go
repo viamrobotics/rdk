@@ -1095,11 +1095,11 @@ func TestStatusRemote(t *testing.T) {
 		return robot.MachineStatus{
 			Resources: []resource.Status{
 				{
-					Name: arm.Named("arm1"),
+					Name:  arm.Named("arm1"),
 					State: resource.NodeStateReady,
 				},
 				{
-					Name: arm.Named("arm2"),
+					Name:  arm.Named("arm2"),
 					State: resource.NodeStateReady,
 				},
 			},
