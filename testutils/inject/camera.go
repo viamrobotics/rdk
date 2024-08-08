@@ -65,17 +65,6 @@ func (c *Camera) Stream(
 	return nil, errors.Wrap(ctx.Err(), "no stream function available")
 }
 
-// Projector calls the injected Projector or the real version.
-func (c *Camera) Projector(ctx context.Context) (transform.Projector, error) {
-	if c.ProjectorFunc != nil {
-		return c.ProjectorFunc(ctx)
-	}
-	if c.Camera != nil {
-		return c.Camera.Projector(ctx)
-	}
-	return nil, errors.New("Projector unimplemented")
-}
-
 // Properties calls the injected Properties or the real version.
 func (c *Camera) Properties(ctx context.Context) (camera.Properties, error) {
 	if c.PropertiesFunc == nil {

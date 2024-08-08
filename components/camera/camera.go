@@ -112,7 +112,6 @@ type Camera interface {
 //
 //	err = myCamera.Close(ctx)
 type VideoSource interface {
-	projectorProvider
 	// Images is used for getting simultaneous images from different imagers,
 	// along with associated metadata (just timestamp for now). It's not for getting a time series of images from the same imager.
 	Images(ctx context.Context) ([]NamedImage, resource.ResponseMetadata, error)
@@ -138,7 +137,7 @@ func ReadImage(ctx context.Context, src gostream.VideoSource) (image.Image, func
 	return gostream.ReadImage(ctx, src)
 }
 
-type projectorProvider interface {
+type ProjectorProvider interface {
 	Projector(ctx context.Context) (transform.Projector, error)
 }
 
