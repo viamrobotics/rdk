@@ -39,7 +39,7 @@ func (cfg *Config) Validate(path string) ([]string, error) {
 
 const (
 	defaultSpeed  = 80. // degrees per second
-	defaultAccel  = 200. // degrees per second per second
+	defaultAccel  = 100. // degrees per second per second
 	defaultPort   = "502"
 	defaultMoveHz = 100. // Don't change this
 	
