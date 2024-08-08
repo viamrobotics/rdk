@@ -1248,6 +1248,34 @@ var app = &cli.App{
 							Action: RobotsPartLogsAction,
 						},
 						{
+							Name:      "restart",
+							Aliases:   []string{},
+							Usage:     "request part restart",
+							UsageText: createUsageText("machines part restart", []string{machineFlag, partFlag}, true),
+							Flags: []cli.Flag{
+								&cli.StringFlag{
+									Name:        organizationFlag,
+									DefaultText: "first organization alphabetically",
+								},
+								&cli.StringFlag{
+									Name:        locationFlag,
+									DefaultText: "first location alphabetically",
+								},
+								&AliasStringFlag{
+									cli.StringFlag{
+										Name:     machineFlag,
+										Aliases:  []string{aliasRobotFlag},
+										Required: true,
+									},
+								},
+								&cli.StringFlag{
+									Name:     partFlag,
+									Required: true,
+								},
+							},
+							Action: RobotsPartRestartAction,
+						},
+						{
 							Name:  "run",
 							Usage: "run a command on a machine part",
 							UsageText: createUsageText("machines part run", []string{

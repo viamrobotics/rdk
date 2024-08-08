@@ -372,6 +372,34 @@ func (c *viamClient) robotsPartLogsAction(cCtx *cli.Context) error {
 	)
 }
 
+// RobotsPartRestartAction is the corresponding Action for 'machines part restart'.
+func RobotsPartRestartAction(c *cli.Context) error {
+	client, err := newViamClient(c)
+	if err != nil {
+		return err
+	}
+
+	return client.robotPartRestart(c)
+}
+
+func (c *viamClient) robotPartRestart(cCtx *cli.Context) error {
+	orgStr := cCtx.String(organizationFlag)
+	locStr := cCtx.String(locationFlag)
+	robotStr := cCtx.String(machineFlag)
+	partStr := cCtx.String(partFlag)
+
+	part, err := c.robotPart(orgStr, locStr, robotStr, partStr)
+	if err != nil {
+		return err
+	}
+	_, err = c.client.MarkPartForRestart(cCtx.Context, &apppb.MarkPartForRestartRequest{PartId: part.Id})
+	if err != nil {
+		return err
+	}
+	infof(c.c.App.Writer, "Request to restart part sent successfully")
+	return nil
+}
+
 // RobotsPartRunAction is the corresponding Action for 'machines part run'.
 func RobotsPartRunAction(c *cli.Context) error {
 	svcMethod := c.Args().First()
