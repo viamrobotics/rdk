@@ -171,19 +171,6 @@ func toMachineStatusFunc(
 	}
 }
 
-// func machineStatusFunc1(*pb.GetMachineStatusRequest) (*pb.GetMachineStatusResponse, error) {
-// 	resp, err := resourceFunc1(&pb.ResourceNamesRequest{})
-// 	if err != nil {
-// 		return nil, err
-// 	}
-// 	statuses := make([]*pb.ResourceStatus, 0, len(resp.Resources))
-// 	for _, name := range resp.Resources {
-// 		s := &pb.ResourceStatus{Name: name, State: pb.ResourceStatus_STATE_READY}
-// 		statuses = append(statuses, s)
-// 	}
-// 	return &pb.GetMachineStatusResponse{Resources: statuses}, nil
-// }
-
 var resourceFunc2 = func(*pb.ResourceNamesRequest) (*pb.ResourceNamesResponse, error) {
 	board1 := board.Named("board1")
 	board2 := board.Named("board2")
@@ -2397,4 +2384,3 @@ func TestVersion(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, md, test.ShouldResemble, version)
 }
-
