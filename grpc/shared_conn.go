@@ -172,7 +172,7 @@ func (sc *SharedConn) ResetConn(conn rpc.ClientConn, moduleLogger logging.Logger
 	// steps.
 	guard := rutils.NewGuard(func() {
 		if sc.peerConn != nil {
-			utils.UncheckedError(sc.peerConn.Close())
+			utils.UncheckedError(sc.peerConn.GracefulClose())
 		}
 		sc.peerConn = nil
 		close(sc.peerConnFailed)
@@ -181,7 +181,7 @@ func (sc *SharedConn) ResetConn(conn rpc.ClientConn, moduleLogger logging.Logger
 
 	if sc.peerConn != nil {
 		sc.logger.Warn("SharedConn is being reset with an active peer connection.")
-		utils.UncheckedError(sc.peerConn.Close())
+		utils.UncheckedError(sc.peerConn.GracefulClose())
 		sc.peerConn = nil
 	}
 
@@ -222,7 +222,7 @@ func (sc *SharedConn) ResetConn(conn rpc.ClientConn, moduleLogger logging.Logger
 func (sc *SharedConn) GenerateEncodedOffer() (string, error) {
 	// If this generating an offer fails for any reason, we perform the following cleanup steps.
 	guard := rutils.NewGuard(func() {
-		utils.UncheckedError(sc.peerConn.Close())
+		utils.UncheckedError(sc.peerConn.GracefulClose())
 		sc.peerConnMu.Lock()
 		sc.peerConn = nil
 		sc.peerConnMu.Unlock()
@@ -265,7 +265,7 @@ func (sc *SharedConn) GenerateEncodedOffer() (string, error) {
 // `Reset`.
 func (sc *SharedConn) ProcessEncodedAnswer(encodedAnswer string) error {
 	guard := rutils.NewGuard(func() {
-		utils.UncheckedError(sc.peerConn.Close())
+		utils.UncheckedError(sc.peerConn.GracefulClose())
 		sc.peerConnMu.Lock()
 		sc.peerConn = nil
 		sc.peerConnMu.Unlock()
@@ -301,7 +301,7 @@ func (sc *SharedConn) Close() error {
 	var err error
 	sc.peerConnMu.Lock()
 	if sc.peerConn != nil {
-		err = sc.peerConn.Close()
+		err = sc.peerConn.GracefulClose()
 		// `PeerConnection.Close` returning does not guarantee that background workers have
 		// stopped. We've added best-effort hooks to observe when a peer connection has completely
 		// cleaned up.
