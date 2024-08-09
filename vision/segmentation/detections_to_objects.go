@@ -46,7 +46,7 @@ func cameraToProjector(
 	if err != nil {
 		return nil, camera.NewPropertiesError("source camera")
 	}
-	var cameraModel transform.PinholeCameraModel
+	cameraModel := transform.PinholeCameraModel{}
 	cameraModel.PinholeCameraIntrinsics = props.IntrinsicParams
 
 	if props.DistortionParams != nil {
