@@ -1131,7 +1131,7 @@ func dialRobotClient(
 	robotClient, err := client.New(
 		ctx,
 		config.Address,
-		logger,
+		logger.Sublogger("networking"),
 		rOpts...,
 	)
 	if err != nil {

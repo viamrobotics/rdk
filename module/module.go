@@ -341,7 +341,7 @@ func (m *Module) connectParent(ctx context.Context) error {
 	// moduleLoggers may be creating the client connection below, so use a
 	// different logger here to avoid a deadlock where the client connection
 	// tries to recursively connect to the parent.
-	clientLogger := logging.NewLogger("module-connection")
+	clientLogger := logging.NewLogger("networking.module-connection")
 	clientLogger.SetLevel(m.logger.GetLevel())
 	// TODO(PRODUCT-343): add session support to modules
 	rc, err := client.New(ctx, "unix://"+m.parentAddr, clientLogger, client.WithDisableSessions())
