@@ -39,13 +39,13 @@ func TestNewLocalPeerConnection(t *testing.T) {
 		})
 
 		defer func() {
-			test.That(t, client.Close(), test.ShouldBeNil)
+			test.That(t, client.GracefulClose(), test.ShouldBeNil)
 			<-clientPeerConnClosed
 		}()
 		serverPeerConnReady, serverPeerConnClosed, err := rpc.ConfigureForRenegotiation(server, rpc.PeerRoleServer, logger)
 		test.That(t, err, test.ShouldBeNil)
 		defer func() {
-			server.Close()
+			server.GracefulClose()
 			<-serverPeerConnClosed
 		}()
 		timeoutCtx, timeoutFn := context.WithTimeout(context.Background(), time.Second*10)
@@ -130,13 +130,13 @@ func testClientServer(t *testing.T, client, server *webrtc.PeerConnection, logge
 	test.That(t, err, test.ShouldBeNil)
 
 	defer func() {
-		test.That(t, client.Close(), test.ShouldBeNil)
+		test.That(t, client.GracefulClose(), test.ShouldBeNil)
 		<-clientPeerConnClosed
 	}()
 	serverPeerConnReady, serverPeerConnClosed, err := rpc.ConfigureForRenegotiation(server, rpc.PeerRoleServer, logger)
 	test.That(t, err, test.ShouldBeNil)
 	defer func() {
-		server.Close()
+		server.GracefulClose()
 		<-serverPeerConnClosed
 	}()
 	timeoutCtx, timeoutFn := context.WithTimeout(context.Background(), time.Second*10)
