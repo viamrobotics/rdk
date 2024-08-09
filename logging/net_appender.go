@@ -59,7 +59,7 @@ func newNetAppender(config *CloudConfig, conn rpc.ClientConn, sharedConn, startB
 		cancel:           cancel,
 		remoteWriter:     logWriter,
 		maxQueueSize:     defaultMaxQueueSize,
-		loggerWithoutNet: NewLogger("netlogger"),
+		loggerWithoutNet: GetOrNewLogger("rdk.networking").Sublogger("netlogger"),
 	}
 
 	nl.SetConn(conn, sharedConn)
@@ -439,7 +439,7 @@ func CreateNewGRPCClient(ctx context.Context, cloudCfg *CloudConfig) (rpc.Client
 		dialOpts = append(dialOpts, rpc.WithInsecure())
 	}
 
-	return rpc.DialDirectGRPC(ctx, grpcURL.Host, NewLogger("netlogger"), dialOpts...)
+	return rpc.DialDirectGRPC(ctx, grpcURL.Host, GetOrNewLogger("rdk.networking.netlogger"), dialOpts...)
 }
 
 // A NetAppender must implement a zapcore such that it gets copied when downconverting on

@@ -501,7 +501,7 @@ func (svc *webService) runWeb(ctx context.Context, options weboptions.Options) (
 		return err
 	}
 
-	svc.rpcServer, err = rpc.NewServer(svc.logger, rpcOpts...)
+	svc.rpcServer, err = rpc.NewServer(logging.GetOrNewLogger("rdk.networking"), rpcOpts...)
 	if err != nil {
 		return err
 	}
