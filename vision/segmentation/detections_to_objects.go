@@ -35,6 +35,27 @@ func (dsc *DetectionSegmenterConfig) ConvertAttributes(am utils.AttributeMap) er
 	return decoder.Decode(am)
 }
 
+func cameraToProjector(
+	ctx context.Context,
+	source camera.VideoSource,
+) (*transform.PinholeCameraModel, error) {
+	if source == nil {
+		return nil, errors.New("cannot have a nil source")
+	}
+	props, err := source.Properties(ctx)
+	if err != nil {
+		return nil, camera.NewPropertiesError("source camera")
+	}
+	var cameraModel transform.PinholeCameraModel
+	cameraModel.PinholeCameraIntrinsics = props.IntrinsicParams
+
+	if props.DistortionParams != nil {
+		cameraModel.Distortion = props.DistortionParams
+	}
+
+	return &cameraModel, nil
+}
+
 // DetectionSegmenter will take an objectdetector.Detector and turn it into a Segementer.
 // The params for the segmenter are "mean_k" and "sigma" for the statistical filter on the point clouds.
 func DetectionSegmenter(detector objectdetection.Detector, meanK int, sigma, confidenceThresh float64) (Segmenter, error) {
@@ -53,7 +74,7 @@ func DetectionSegmenter(detector objectdetection.Detector, meanK int, sigma, con
 	}
 	// return the segmenter
 	seg := func(ctx context.Context, src camera.VideoSource) ([]*vision.Object, error) {
-		proj, err := src.Projector(ctx)
+		proj, err := cameraToProjector(ctx, src)
 		if err != nil {
 			return nil, err
 		}
