@@ -364,6 +364,7 @@ func (manager *resourceManager) ResourceNames() []resource.Name {
 		if !ok || !gNode.HasResource() {
 			continue
 		}
+		fmt.Println(">>> local -> legacy resource", k)
 		names = append(names, k)
 	}
 	return names
@@ -377,7 +378,11 @@ func (manager *resourceManager) ResourceStatuses() []resource.Status {
 		if !ok || gNode.IsUninitialized() {
 			continue
 		}
-		result = append(result, gNode.ResourceStatus())
+		s := gNode.ResourceStatus()
+		fmt.Println(">>> local -> status resource", name, "vs", s.Name)
+		// replace with fully-qualified remote name
+		s.Name = name
+		result = append(result, s)
 	}
 	return result
 }

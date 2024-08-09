@@ -629,11 +629,28 @@ func (rc *RobotClient) resources(ctx context.Context) ([]resource.Status, []reso
 
 	resources := make([]resource.Status, 0, len(resp.Resources))
 	for _, rs := range resp.Resources {
-		if rs.Name.API == RemoteAPI ||
-			rs.Name.API.Type.Namespace == resource.APINamespaceRDKInternal {
+		if rs.Name.API == RemoteAPI {
 			continue
 		}
+		if rs.Name.API.Type.Namespace == resource.APINamespaceRDKInternal {
+			continue
+		}
+		if rs.State == resource.NodeStateUnhealthy {
+			continue
+		}
+		fmt.Println(">>> client -> status resource", "name", rs.Name)
 		resources = append(resources, rs)
+	}
+
+	resp2, err := rc.client.ResourceNames(ctx, &pb.ResourceNamesRequest{})
+	if err != nil {
+		return nil, nil, err
+	}
+	for _, name := range resp2.Resources {
+		newName := rprotoutils.ResourceNameFromProto(name)
+		fmt.Println(">>> client -> legacy resource", "name", newName)
+		// s := resource.Status{Name: newName}
+		// resources = append(resources, s)
 	}
 
 	// resource has previously returned an unimplemented response, skip rpc call
