@@ -1979,6 +1979,10 @@ func (rr *dummyRobot) MachineStatus(ctx context.Context) (robot.MachineStatus, e
 	return rr.robot.MachineStatus(ctx)
 }
 
+func (rr *dummyRobot) Version(ctx context.Context) (robot.VersionResponse, error) {
+	return rr.robot.Version(ctx)
+}
+
 // managerForDummyRobot integrates all parts from a given robot except for its remotes.
 // It also close itself when the test and all subtests complete.
 func managerForDummyRobot(t *testing.T, robot robot.Robot) *resourceManager {

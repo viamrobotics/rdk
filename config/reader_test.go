@@ -435,10 +435,38 @@ func TestProcessConfigRegistersLogConfig(t *testing.T) {
 	logger, ok := logging.LoggerNamed(serviceLoggerName)
 	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, logger.GetLevel().String(), test.ShouldEqual, "Warn")
-	test.That(t, logging.DeregisterLogger(serviceLoggerName), test.ShouldBeTrue)
 
 	logger, ok = logging.LoggerNamed(componentLoggerName)
 	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, logger.GetLevel().String(), test.ShouldEqual, "Debug")
+
+	// remove resource patterns
+	unprocessedConfig.Components = nil
+	unprocessedConfig.Services = nil
+	_, err = processConfig(&unprocessedConfig, true, logger)
+	test.That(t, err, test.ShouldBeNil)
+
+	logger, ok = logging.LoggerNamed(serviceLoggerName)
+	test.That(t, ok, test.ShouldBeTrue)
+	test.That(t, logger.GetLevel().String(), test.ShouldEqual, "Error")
+
+	logger, ok = logging.LoggerNamed(componentLoggerName)
+	test.That(t, ok, test.ShouldBeTrue)
+	test.That(t, logger.GetLevel().String(), test.ShouldEqual, "Error")
+
+	// remove log patterns
+	unprocessedConfig.LogConfig = nil
+	_, err = processConfig(&unprocessedConfig, true, logger)
+	test.That(t, err, test.ShouldBeNil)
+
+	logger, ok = logging.LoggerNamed(serviceLoggerName)
+	test.That(t, ok, test.ShouldBeTrue)
+	test.That(t, logger.GetLevel().String(), test.ShouldEqual, "Info")
+
+	logger, ok = logging.LoggerNamed(componentLoggerName)
+	test.That(t, ok, test.ShouldBeTrue)
+	test.That(t, logger.GetLevel().String(), test.ShouldEqual, "Info")
+
+	test.That(t, logging.DeregisterLogger(serviceLoggerName), test.ShouldBeTrue)
 	test.That(t, logging.DeregisterLogger(componentLoggerName), test.ShouldBeTrue)
 }

@@ -296,18 +296,8 @@ func (m *Module) Close(ctx context.Context) {
 		m.mu.Lock()
 		parent := m.parent
 		if m.pc != nil {
-			if err := m.pc.Close(); err != nil {
+			if err := m.pc.GracefulClose(); err != nil {
 				m.logger.CErrorw(ctx, "WebRTC Peer Connection Close", "err", err)
-			}
-			// `PeerConnection.Close` returning does not guarantee that background workers have
-			// stopped. We've added best-effort hooks to observe when a peer connection has completely
-			// cleaned up.
-			if m.pcClosed != nil {
-				select {
-				case <-m.pcReady:
-					<-m.pcClosed
-				default:
-				}
 			}
 		}
 		m.mu.Unlock()

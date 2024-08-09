@@ -33,6 +33,7 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"go.viam.com/rdk/cloud"
+	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/operation"
@@ -1027,11 +1028,19 @@ func (rc *RobotClient) MachineStatus(ctx context.Context) (robot.MachineStatus, 
 		return mStatus, err
 	}
 
+	if resp.Config != nil {
+		mStatus.Config = config.Revision{
+			Revision:    resp.Config.Revision,
+			LastUpdated: resp.Config.LastUpdated.AsTime(),
+		}
+	}
+
 	mStatus.Resources = make([]resource.Status, 0, len(resp.Resources))
 	for _, pbResStatus := range resp.Resources {
 		resStatus := resource.Status{
 			Name:        rprotoutils.ResourceNameFromProto(pbResStatus.Name),
 			LastUpdated: pbResStatus.LastUpdated.AsTime(),
+			Revision:    pbResStatus.Revision,
 		}
 
 		switch pbResStatus.State {
@@ -1052,4 +1061,20 @@ func (rc *RobotClient) MachineStatus(ctx context.Context) (robot.MachineStatus, 
 	}
 
 	return mStatus, nil
+}
+
+// Version returns version information about the robot.
+func (rc *RobotClient) Version(ctx context.Context) (robot.VersionResponse, error) {
+	mVersion := robot.VersionResponse{}
+
+	resp, err := rc.client.GetVersion(ctx, &pb.GetVersionRequest{})
+	if err != nil {
+		return mVersion, err
+	}
+
+	mVersion.Platform = resp.Platform
+	mVersion.Version = resp.Version
+	mVersion.APIVersion = resp.ApiVersion
+
+	return mVersion, nil
 }
