@@ -1337,7 +1337,8 @@ func TestClientResources(t *testing.T) {
 	// no reflection
 	resources, rpcAPIs, err := client.resources(context.Background())
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, resources, test.ShouldResemble, finalResources)
+	names := testutils.ResourceStatusesToNames(resources)
+	test.That(t, names, test.ShouldResemble, finalResources)
 	test.That(t, rpcAPIs, test.ShouldBeEmpty)
 
 	err = client.Close(context.Background())
@@ -1359,7 +1360,8 @@ func TestClientResources(t *testing.T) {
 
 	resources, rpcAPIs, err = client.resources(context.Background())
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, resources, test.ShouldResemble, finalResources)
+	names = testutils.ResourceStatusesToNames(resources)
+	test.That(t, names, test.ShouldResemble, finalResources)
 
 	test.That(t, rpcAPIs, test.ShouldHaveLength, len(respWith))
 	for idx, rpcType := range rpcAPIs {
