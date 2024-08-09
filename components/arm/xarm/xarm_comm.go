@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/binary"
 	"errors"
+	"fmt"
 	"math"
 	"time"
 
@@ -86,24 +87,28 @@ var armBoxWarnMap = map[byte]string{
 }
 
 var regMap = map[string]byte{
-	"Version":     0x01,
-	"Shutdown":    0x0A,
-	"ToggleServo": 0x0B,
-	"SetState":    0x0C,
-	"GetState":    0x0D,
-	"CmdCount":    0x0E,
-	"GetError":    0x0F,
-	"ClearError":  0x10,
-	"ClearWarn":   0x11,
-	"ToggleBrake": 0x12,
-	"SetMode":     0x13,
-	"MoveJoints":  0x1D,
-	"ZeroJoints":  0x19,
-	"JointPos":    0x2A,
-	"SetBound":    0x34,
-	"EnableBound": 0x34,
-	"SetEEModel":  0x4E,
-	"ServoError":  0x6A,
+	"Version":        0x01,
+	"ActualCurrent":  0x05,
+	"Shutdown":       0x0A,
+	"ToggleServo":    0x0B,
+	"SetState":       0x0C,
+	"GetState":       0x0D,
+	"CmdCount":       0x0E,
+	"GetError":       0x0F,
+	"ClearError":     0x10,
+	"ClearWarn":      0x11,
+	"ToggleBrake":    0x12,
+	"SetMode":        0x13,
+	"MoveJoints":     0x1D,
+	"ZeroJoints":     0x19,
+	"JointPos":       0x2A,
+	"SetBound":       0x34,
+	"EnableBound":    0x34,
+	"CurrentTorque":  0x37,
+	"SetEEModel":     0x4E,
+	"ServoError":     0x6A,
+	"GripperControl": 0x7C,
+	"LoadID":         0xCC,
 }
 
 type cmd struct {
@@ -491,4 +496,84 @@ func getMaxDiff(from, to []referenceframe.Input) float64 {
 		}
 	}
 	return maxDiff
+}
+
+func (x *xArm) enableGripper(ctx context.Context) error {
+	c := x.newCmd(regMap["GripperControl"])
+	c.params = append(c.params, 0x09)
+	c.params = append(c.params, 0x08)
+	c.params = append(c.params, 0x10)
+	c.params = append(c.params, 0x01, 0x00)
+	c.params = append(c.params, 0x00, 0x01)
+	c.params = append(c.params, 0x02)
+	c.params = append(c.params, 0x00, 0x01)
+	_, err := x.send(ctx, c, true)
+	return err
+}
+
+func (x *xArm) setGripperMode(ctx context.Context, speed bool) error {
+	c := x.newCmd(regMap["GripperControl"])
+	c.params = append(c.params, 0x09)
+	c.params = append(c.params, 0x08)
+	c.params = append(c.params, 0x10)
+	c.params = append(c.params, 0x01, 0x01)
+	c.params = append(c.params, 0x00, 0x01)
+	c.params = append(c.params, 0x02)
+	if speed {
+		c.params = append(c.params, 0x00, 0x01)
+	} else {
+		c.params = append(c.params, 0x00, 0x00)
+	}
+	_, err := x.send(ctx, c, true)
+	return err
+}
+
+func (x *xArm) setGripperPosition(ctx context.Context, position uint32) error {
+	c := x.newCmd(regMap["GripperControl"])
+	c.params = append(c.params, 0x09)
+	c.params = append(c.params, 0x08)
+	c.params = append(c.params, 0x10)
+	c.params = append(c.params, 0x07, 0x00)
+	c.params = append(c.params, 0x00, 0x02)
+	c.params = append(c.params, 0x04)
+	tmpBytes := make([]byte, 4)
+	binary.BigEndian.PutUint32(tmpBytes, position)
+	x.logger.Info("tmpBytes", tmpBytes)
+	c.params = append(c.params, tmpBytes...)
+	_, err := x.send(ctx, c, true)
+	return err
+}
+
+func (x *xArm) getGripperPosition(ctx context.Context, position uint32) error {
+	c := x.newCmd(regMap["GripperControl"])
+	c.params = append(c.params, 0x09)
+	c.params = append(c.params, 0x08)
+	c.params = append(c.params, 0x10)
+	c.params = append(c.params, 0x07, 0x02)
+	c.params = append(c.params, 0x00, 0x02)
+	c.params = append(c.params, 0x04)
+	tmpBytes := make([]byte, 4)
+	binary.BigEndian.PutUint32(tmpBytes, position)
+	x.logger.Info("tmpBytes", tmpBytes)
+	c.params = append(c.params, tmpBytes...)
+	resp, err := x.send(ctx, c, true)
+	if err != nil {
+		return false, err
+	}
+	resp.params[1]
+	return err
+}
+
+func (x *xArm) getLoad(ctx context.Context) (map[string]interface{}, error) {
+	c := x.newCmd(regMap["CurrentTorque"])
+	//~ c.params = append(c.params, 0x01)
+	loadData, err := x.send(ctx, c, true)
+	var loads []float64
+	for i := 0; i < x.dof; i++ {
+		idx := i*4 + 1
+		loads = append(loads, float64(rutils.Float32FromBytesLE((loadData.params[idx : idx+4]))))
+	}
+	fmt.Println(loads)
+
+	return map[string]interface{}{"load": loads}, err
 }

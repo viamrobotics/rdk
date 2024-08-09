@@ -21,6 +21,7 @@ import (
 type Model interface {
 	Frame
 	ModelConfig() *ModelConfig
+	ModelPieceFrames([]Input) (map[string]*staticFrame, error)
 }
 
 // ModelFramer has a method that returns the kinematics information needed to build a dynamic referenceframe.
@@ -187,6 +188,18 @@ func (m *SimpleModel) DoF() []Limit {
 // MarshalJSON serializes a Model.
 func (m *SimpleModel) MarshalJSON() ([]byte, error) {
 	return json.Marshal(m.modelConfig)
+}
+
+func (m *SimpleModel) ModelPieceFrames(inputs []Input) (map[string]*staticFrame, error) {
+	poses, err := m.inputsToFrames(inputs, true)
+	if err != nil {
+		return nil, err
+	}
+	frameMap := map[string]*staticFrame{}
+	for _, sFrame := range poses {
+		frameMap[sFrame.Name()] = sFrame
+	}
+	return frameMap, nil
 }
 
 // TODO(rb) better comment

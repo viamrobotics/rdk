@@ -3,6 +3,7 @@ package xarm
 
 import (
 	"context"
+
 	// for embedding model file.
 	_ "embed"
 	"fmt"
@@ -217,4 +218,25 @@ func (x *xArm) Geometries(ctx context.Context, extra map[string]interface{}) ([]
 // ModelFrame returns all the information necessary for including the arm in a FrameSystem.
 func (x *xArm) ModelFrame() referenceframe.Model {
 	return x.model
+}
+
+func (x *xArm) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	err := x.enableGripper(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if err = x.setGripperMode(ctx, false); err != nil {
+		return nil, err
+	}
+	if val, ok := cmd["move_gripper"]; ok {
+		position, ok := val.(float64)
+		if !ok || position < -10 || position > 850 {
+			return nil, fmt.Errorf("must move gripper to an int between 0 and 840 %v", val)
+		}
+		x.setGripperPosition(ctx, uint32(position))
+	}
+	if _, ok := cmd["load"]; ok {
+		return x.getLoad(ctx)
+	}
+	return nil, nil
 }
