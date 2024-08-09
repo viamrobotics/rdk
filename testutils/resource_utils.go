@@ -246,3 +246,12 @@ func ResourcesToMachineStatus(names []resource.Name) robot.MachineStatus {
 	}
 	return ms
 }
+
+// ResourceStatusesToNames converts a slice of [resource.Status] to a slice of [resource.Name].
+func ResourceStatusesToNames(statuses []resource.Status) []resource.Name {
+	names := make([]resource.Name, 0, len(statuses))
+	for _, rs := range statuses {
+		names = append(names, rs.Name)
+	}
+	return names
+}
