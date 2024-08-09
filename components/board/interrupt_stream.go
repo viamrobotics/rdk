@@ -11,10 +11,9 @@ import (
 
 type interruptStream struct {
 	*client
-	streamCancel  context.CancelFunc
-	streamRunning bool
-	streamReady   chan bool
-	streamMu      sync.Mutex
+	streamCancel context.CancelFunc
+	streamReady  chan bool // Close this channel to indicate the stream is initialized
+	streamMu     sync.Mutex
 
 	activeBackgroundWorkers sync.WaitGroup
 	extra                   *structpb.Struct
@@ -28,9 +27,7 @@ func (s *interruptStream) startStream(ctx context.Context, interrupts []DigitalI
 		return ctx.Err()
 	}
 
-	s.streamRunning = true
 	s.streamReady = make(chan bool)
-	s.activeBackgroundWorkers.Add(1)
 	ctx, cancel := context.WithCancel(ctx)
 	s.streamCancel = cancel
 
@@ -62,8 +59,9 @@ func (s *interruptStream) startStream(ctx context.Context, interrupts []DigitalI
 	// Create a background go routine to receive from the server stream.
 	// We rely on calling the Done function here rather than in close stream
 	// since managed go calls that function when the routine exits.
+	s.activeBackgroundWorkers.Add(1)
 	utils.ManagedGo(func() {
-		s.recieveFromStream(ctx, stream, ch)
+		s.receiveFromStream(ctx, stream, ch)
 	},
 		s.activeBackgroundWorkers.Done)
 
@@ -75,13 +73,8 @@ func (s *interruptStream) startStream(ctx context.Context, interrupts []DigitalI
 	}
 }
 
-func (s *interruptStream) recieveFromStream(ctx context.Context, stream pb.BoardService_StreamTicksClient, ch chan Tick) {
-	defer func() {
-		s.streamMu.Lock()
-		defer s.streamMu.Unlock()
-		s.streamRunning = false
-	}()
-	// Close the stream ready channel so the above function returns.
+func (s *interruptStream) receiveFromStream(ctx context.Context, stream pb.BoardService_StreamTicksClient, ch chan Tick) {
+	// Close the stream ready channel so startStream returns.
 	if s.streamReady != nil {
 		close(s.streamReady)
 	}
