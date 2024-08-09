@@ -177,6 +177,30 @@ func TestServer(t *testing.T) {
 				},
 				2,
 			},
+			{
+				"unhealthy status",
+				robot.MachineStatus{
+					Config: config.Revision{Revision: "rev1"},
+					Resources: []resource.Status{
+						{
+							Name:     arm.Named("brokenArm"),
+							Revision: "rev1",
+							State:    resource.NodeStateUnhealthy,
+							Error:    errors.New("bad configuration"),
+						},
+					},
+				},
+				&pb.ConfigStatus{Revision: "rev1"},
+				[]*pb.ResourceStatus{
+					{
+						Name:     protoutils.ResourceNameToProto(arm.Named("brokenArm")),
+						State:    pb.ResourceStatus_STATE_UNHEALTHY,
+						Revision: "rev1",
+						Error:    "bad configuration",
+					},
+				},
+				0,
+			},
 		} {
 			logger, logs := logging.NewObservedTestLogger(t)
 			injectRobot := &inject.Robot{}

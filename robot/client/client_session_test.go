@@ -25,6 +25,7 @@ import (
 	"go.viam.com/rdk/robot/client"
 	"go.viam.com/rdk/robot/web"
 	"go.viam.com/rdk/session"
+	rdktestutils "go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
 	"go.viam.com/rdk/testutils/robottestutils"
 )
@@ -101,8 +102,12 @@ func TestClientSessionOptions(t *testing.T) {
 
 						sessMgr := &sessionManager{}
 						arbName := resource.NewName(echoAPI, "woo")
+						injectResources := []resource.Name{arbName}
 						injectRobot := &inject.Robot{
-							ResourceNamesFunc: func() []resource.Name { return []resource.Name{arbName} },
+							ResourceNamesFunc: func() []resource.Name { return injectResources },
+							MachineStatusFunc: func(ctx context.Context) (robot.MachineStatus, error) {
+								return rdktestutils.ResourcesToMachineStatus(injectResources), nil
+							},
 							ResourceByNameFunc: func(name resource.Name) (resource.Resource, error) {
 								return &dummyEcho{Named: arbName.AsNamed()}, nil
 							},
@@ -284,8 +289,12 @@ func TestClientSessionExpiration(t *testing.T) {
 				arbName := resource.NewName(echoAPI, "woo")
 
 				var dummyEcho1 dummyEcho
+				injectResources := []resource.Name{arbName}
 				injectRobot := &inject.Robot{
-					ResourceNamesFunc: func() []resource.Name { return []resource.Name{arbName} },
+					ResourceNamesFunc: func() []resource.Name { return injectResources },
+					MachineStatusFunc: func(ctx context.Context) (robot.MachineStatus, error) {
+						return rdktestutils.ResourcesToMachineStatus(injectResources), nil
+					},
 					ResourceByNameFunc: func(name resource.Name) (resource.Resource, error) {
 						return &dummyEcho1, nil
 					},
@@ -478,7 +487,10 @@ func TestClientSessionResume(t *testing.T) {
 
 				sessMgr := &sessionManager{}
 				injectRobot := &inject.Robot{
-					ResourceNamesFunc:   func() []resource.Name { return []resource.Name{} },
+					ResourceNamesFunc: func() []resource.Name { return []resource.Name{} },
+					MachineStatusFunc: func(ctx context.Context) (robot.MachineStatus, error) {
+						return robot.MachineStatus{}, nil
+					},
 					ResourceRPCAPIsFunc: func() []resource.RPCAPI { return nil },
 					LoggerFunc:          func() logging.Logger { return logger },
 					SessMgr:             sessMgr,

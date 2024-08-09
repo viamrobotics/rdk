@@ -371,6 +371,19 @@ func (manager *resourceManager) ResourceNames() []resource.Name {
 	return names
 }
 
+// ResourceStatuses returns the names of all resources in the manager.
+func (manager *resourceManager) ResourceStatuses() []resource.Status {
+	result := []resource.Status{}
+	for _, name := range manager.resources.Names() {
+		gNode, ok := manager.resources.Node(name)
+		if !ok || gNode.IsUninitialized() {
+			continue
+		}
+		result = append(result, gNode.ResourceStatus())
+	}
+	return result
+}
+
 // ResourceRPCAPIs returns the types of all resource RPC APIs in use by the manager.
 func (manager *resourceManager) ResourceRPCAPIs() []resource.RPCAPI {
 	resourceAPIs := resource.RegisteredAPIs()

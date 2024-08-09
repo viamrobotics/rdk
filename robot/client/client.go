@@ -3,6 +3,7 @@ package client
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -15,7 +16,6 @@ import (
 	grpc_retry "github.com/grpc-ecosystem/go-grpc-middleware/retry"
 	"github.com/jhump/protoreflect/desc"
 	"github.com/jhump/protoreflect/grpcreflect"
-	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -70,7 +70,7 @@ type RobotClient struct {
 	dialOptions []rpc.DialOption
 
 	mu                       sync.RWMutex
-	resourceNames            []resource.Name
+	resourceStatuses         []resource.Status
 	resourceRPCAPIs          []resource.RPCAPI
 	resourceClients          map[resource.Name]resource.Resource
 	remoteNameMap            map[resource.Name]resource.Name
@@ -131,7 +131,7 @@ func isClosedPipeError(err error) bool {
 }
 
 func (rc *RobotClient) notConnectedToRemoteError() error {
-	return errors.Errorf("not connected to remote robot at %s", rc.address)
+	return fmt.Errorf("not connected to remote robot at %s", rc.address)
 }
 
 func (rc *RobotClient) handleUnaryDisconnect(
@@ -374,8 +374,8 @@ func (rc *RobotClient) connectWithLock(ctx context.Context) error {
 func (rc *RobotClient) updateResourceClients(ctx context.Context) error {
 	activeResources := make(map[resource.Name]bool)
 
-	for _, name := range rc.resourceNames {
-		activeResources[name] = true
+	for _, rs := range rc.resourceStatuses {
+		activeResources[rs.Name] = true
 	}
 
 	for resourceName, client := range rc.resourceClients {
@@ -544,8 +544,8 @@ func (rc *RobotClient) ResourceByName(name resource.Name) (resource.Resource, er
 	}
 
 	// finally, before adding a new resource, make sure this name exists and is known
-	for _, knownName := range rc.resourceNames {
-		if name == knownName {
+	for _, rs := range rc.resourceStatuses {
+		if name == rs.Name {
 			resourceClient, err := rc.createClient(name)
 			if err != nil {
 				return nil, err
@@ -565,7 +565,7 @@ func (rc *RobotClient) createClient(name resource.Name) (resource.Resource, erro
 	return apiInfo.RPCClient(rc.backgroundCtx, &rc.conn, rc.remoteName, name, rc.Logger())
 }
 
-func (rc *RobotClient) resources(ctx context.Context) ([]resource.Name, []resource.RPCAPI, error) {
+func (rc *RobotClient) resources(ctx context.Context) ([]resource.Status, []resource.RPCAPI, error) {
 	// RSDK-5356 If we are in a testing environment, never apply
 	// defaultResourcesTimeout. Tests run in parallel, and if execution of a test
 	// pauses for longer than 5s, below calls to ResourceNames or
@@ -580,17 +580,20 @@ func (rc *RobotClient) resources(ctx context.Context) ([]resource.Name, []resour
 		defer cancel()
 	}
 
-	resp, err := rc.client.ResourceNames(ctx, &pb.ResourceNamesRequest{})
+	resp, err := rc.MachineStatus(ctx)
 	if err != nil {
 		return nil, nil, err
 	}
 
 	var resTypes []resource.RPCAPI
 
-	resources := make([]resource.Name, 0, len(resp.Resources))
-	for _, name := range resp.Resources {
-		newName := rprotoutils.ResourceNameFromProto(name)
-		resources = append(resources, newName)
+	resources := make([]resource.Status, 0, len(resp.Resources))
+	for _, rs := range resp.Resources {
+		if rs.Name.API == RemoteAPI ||
+			rs.Name.API.Type.Namespace == resource.APINamespaceRDKInternal {
+			continue
+		}
+		resources = append(resources, rs)
 	}
 
 	// resource has previously returned an unimplemented response, skip rpc call
@@ -616,7 +619,7 @@ func (rc *RobotClient) resources(ctx context.Context) ([]resource.Name, []resour
 			}
 			svcDesc, ok := symDesc.(*desc.ServiceDescriptor)
 			if !ok {
-				return nil, nil, errors.Errorf("expected descriptor to be service descriptor but got %T", symDesc)
+				return nil, nil, fmt.Errorf("expected descriptor to be service descriptor but got %T", symDesc)
 			}
 			resTypes = append(resTypes, resource.RPCAPI{
 				API:  rprotoutils.ResourceNameFromProto(resAPI.Subtype).API,
@@ -646,13 +649,13 @@ func (rc *RobotClient) Refresh(ctx context.Context) (err error) {
 func (rc *RobotClient) updateResources(ctx context.Context) error {
 	// call metadata service.
 
-	names, rpcAPIs, err := rc.resources(ctx)
+	statuses, rpcAPIs, err := rc.resources(ctx)
 	if err != nil && status.Code(err) != codes.Unimplemented {
 		return err
 	}
 
-	rc.resourceNames = make([]resource.Name, 0, len(names))
-	rc.resourceNames = append(rc.resourceNames, names...)
+	rc.resourceStatuses = make([]resource.Status, 0, len(statuses))
+	rc.resourceStatuses = append(rc.resourceStatuses, statuses...)
 	rc.resourceRPCAPIs = rpcAPIs
 
 	rc.updateRemoteNameMap()
@@ -663,17 +666,17 @@ func (rc *RobotClient) updateResources(ctx context.Context) error {
 func (rc *RobotClient) updateRemoteNameMap() {
 	tempMap := make(map[resource.Name]resource.Name)
 	dupMap := make(map[resource.Name]bool)
-	for _, n := range rc.resourceNames {
-		if err := n.Validate(); err != nil {
+	for _, rs := range rc.resourceStatuses {
+		if err := rs.Name.Validate(); err != nil {
 			rc.Logger().Error(err)
 			continue
 		}
-		tempName := resource.RemoveRemoteName(n)
+		tempName := resource.RemoveRemoteName(rs.Name)
 		// If the short name already exists in the map then there is a collision and we make the long name empty.
 		if _, ok := tempMap[tempName]; ok {
 			dupMap[tempName] = true
 		} else {
-			tempMap[tempName] = n
+			tempMap[tempName] = rs.Name
 		}
 	}
 	for key := range dupMap {
@@ -719,8 +722,10 @@ func (rc *RobotClient) ResourceNames() []resource.Name {
 	}
 	rc.mu.RLock()
 	defer rc.mu.RUnlock()
-	names := make([]resource.Name, 0, len(rc.resourceNames))
-	names = append(names, rc.resourceNames...)
+	names := make([]resource.Name, 0, len(rc.resourceStatuses))
+	for _, rs := range rc.resourceStatuses {
+		names = append(names, rs.Name)
+	}
 	return names
 }
 
@@ -1055,6 +1060,11 @@ func (rc *RobotClient) MachineStatus(ctx context.Context) (robot.MachineStatus, 
 			resStatus.State = resource.NodeStateReady
 		case pb.ResourceStatus_STATE_REMOVING:
 			resStatus.State = resource.NodeStateRemoving
+		case pb.ResourceStatus_STATE_UNHEALTHY:
+			resStatus.State = resource.NodeStateUnhealthy
+			if pbResStatus.Error != "" {
+				resStatus.Error = errors.New(pbResStatus.Error)
+			}
 		}
 
 		mStatus.Resources = append(mStatus.Resources, resStatus)
