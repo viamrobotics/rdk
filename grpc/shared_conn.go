@@ -302,21 +302,6 @@ func (sc *SharedConn) Close() error {
 	sc.peerConnMu.Lock()
 	if sc.peerConn != nil {
 		err = sc.peerConn.GracefulClose()
-		// `PeerConnection.Close` returning does not guarantee that background workers have
-		// stopped. We've added best-effort hooks to observe when a peer connection has completely
-		// cleaned up.
-		if sc.peerConnClosed != nil {
-			select {
-			case <-sc.peerConnReady:
-				// RSDK-7691: There's evidence that closing peer connections is also not sufficient
-				// for its background goroutines to exit. See the ticket for more detail. For now we
-				// admit to leaked goroutines and add exempt these goroutines from causing test
-				// failures.
-				//
-				// <-sc.peerConnClosed
-			default:
-			}
-		}
 		sc.peerConn = nil
 		close(sc.peerConnFailed)
 	}
