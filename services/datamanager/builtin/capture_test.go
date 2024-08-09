@@ -9,11 +9,11 @@ import (
 	"testing"
 	"time"
 
-	clk "github.com/benbjohnson/clock"
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
 	v1 "go.viam.com/api/app/datasync/v1"
 	"go.viam.com/test"
+	"go.viam.com/utils/testutils"
 
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
@@ -102,12 +102,13 @@ func TestDataCaptureEnabled(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
+			logger := logging.NewTestLogger(t)
 			// Set up capture directories.
 			initCaptureDir := t.TempDir()
 			updatedCaptureDir := t.TempDir()
-			mockClock := clk.NewMock()
-			// Make mockClock the package level clock used by the dmsvc so that we can simulate time's passage
-			clock = mockClock
+			// mockClock := clk.NewMock()
+			// Make mockClock the package level clock used by the builtin so that we can simulate time's passage
+			// clock = mockClock
 
 			// Set up robot config.
 			var initConfig *Config
@@ -128,31 +129,30 @@ func TestDataCaptureEnabled(t *testing.T) {
 			initConfig.CaptureDir = initCaptureDir
 
 			// Build and start data manager.
-			dmsvc, r := newTestDataManager(t)
-			defer func() {
-				test.That(t, dmsvc.Close(context.Background()), test.ShouldBeNil)
-			}()
-
+			b, r := newBuiltIn(t)
+			defer func() { test.That(t, b.Close(context.Background()), test.ShouldBeNil) }()
 			resources := resourcesFromDeps(t, r, deps)
-			err := dmsvc.Reconfigure(context.Background(), resources, resource.Config{
+			err := b.Reconfigure(context.Background(), resources, resource.Config{
 				ConvertedAttributes:  initConfig,
 				AssociatedAttributes: associations,
 			})
 			test.That(t, err, test.ShouldBeNil)
-			b := dmsvc.(*builtIn)
-			test.That(t, b.propagateDataSyncConfig(), test.ShouldBeNil)
-			passTimeCtx1, cancelPassTime1 := context.WithCancel(context.Background())
-			donePassingTime1 := passTime(passTimeCtx1, mockClock, captureInterval)
+			testutils.WaitForAssertion(t, func(tb testing.TB) {
+				tb.Helper()
+				test.That(tb, b.sync.ConfigApplied(), test.ShouldBeTrue)
+			})
+			// passTimeCtx1, cancelPassTime1 := context.WithCancel(context.Background())
+			// donePassingTime1 := passTime(passTimeCtx1, clk.New(), captureInterval)
 
 			if !tc.initialServiceDisableStatus && !tc.initialCollectorDisableStatus {
-				waitForCaptureFilesToExceedNFiles(initCaptureDir, 0)
+				waitForCaptureFilesToExceedNFiles(initCaptureDir, 0, logger)
 				testFilesContainSensorData(t, initCaptureDir)
 			} else {
 				initialCaptureFiles := getAllFileInfos(initCaptureDir)
 				test.That(t, len(initialCaptureFiles), test.ShouldEqual, 0)
 			}
-			cancelPassTime1()
-			<-donePassingTime1
+			// cancelPassTime1()
+			// <-donePassingTime1
 
 			// Set up updated robot config.
 			var updatedConfig *Config
@@ -169,18 +169,21 @@ func TestDataCaptureEnabled(t *testing.T) {
 
 			// Update to new config and let it run for a bit.
 			resources = resourcesFromDeps(t, r, deps)
-			err = dmsvc.Reconfigure(context.Background(), resources, resource.Config{
+			err = b.Reconfigure(context.Background(), resources, resource.Config{
 				ConvertedAttributes:  updatedConfig,
 				AssociatedAttributes: associations,
 			})
 			test.That(t, err, test.ShouldBeNil)
-			test.That(t, b.propagateDataSyncConfig(), test.ShouldBeNil)
+			testutils.WaitForAssertion(t, func(tb testing.TB) {
+				tb.Helper()
+				test.That(tb, b.sync.ConfigApplied(), test.ShouldBeTrue)
+			})
 			oldCaptureDirFiles := getAllFileInfos(initCaptureDir)
-			passTimeCtx2, cancelPassTime2 := context.WithCancel(context.Background())
-			donePassingTime2 := passTime(passTimeCtx2, mockClock, captureInterval)
+			// passTimeCtx2, cancelPassTime2 := context.WithCancel(context.Background())
+			// donePassingTime2 := passTime(passTimeCtx2, mockClock, captureInterval)
 
 			if !tc.newServiceDisableStatus && !tc.newCollectorDisableStatus {
-				waitForCaptureFilesToExceedNFiles(updatedCaptureDir, 0)
+				waitForCaptureFilesToExceedNFiles(updatedCaptureDir, 0, logger)
 				testFilesContainSensorData(t, updatedCaptureDir)
 			} else {
 				updatedCaptureFiles := getAllFileInfos(updatedCaptureDir)
@@ -191,17 +194,18 @@ func TestDataCaptureEnabled(t *testing.T) {
 					test.That(t, oldCaptureDirFiles[i].Size(), test.ShouldEqual, oldCaptureDirFilesAfterWait[i].Size())
 				}
 			}
-			cancelPassTime2()
-			<-donePassingTime2
+			// cancelPassTime2()
+			// <-donePassingTime2
 		})
 	}
 }
 
 func TestSwitchResource(t *testing.T) {
+	logger := logging.NewTestLogger(t)
 	captureDir := t.TempDir()
-	mockClock := clk.NewMock()
-	// Make mockClock the package level clock used by the dmsvc so that we can simulate time's passage
-	clock = mockClock
+	// mockClock := clk.NewMock()
+	// Make mockClock the package level clock used by the builtin so that we can simulate time's passage
+	// clock = mockClock
 
 	// Set up robot config.
 	config, associations, deps := setupConfig(t, enabledTabularCollectorConfigPath)
@@ -210,27 +214,29 @@ func TestSwitchResource(t *testing.T) {
 	config.CaptureDir = captureDir
 
 	// Build and start data manager.
-	dmsvc, r := newTestDataManager(t)
+	b, r := newBuiltIn(t)
 	defer func() {
-		test.That(t, dmsvc.Close(context.Background()), test.ShouldBeNil)
+		test.That(t, b.Close(context.Background()), test.ShouldBeNil)
 	}()
 
 	resources := resourcesFromDeps(t, r, deps)
-	err := dmsvc.Reconfigure(context.Background(), resources, resource.Config{
+	err := b.Reconfigure(context.Background(), resources, resource.Config{
 		ConvertedAttributes:  config,
 		AssociatedAttributes: associations,
 	})
 	test.That(t, err, test.ShouldBeNil)
-	b := dmsvc.(*builtIn)
-	test.That(t, b.propagateDataSyncConfig(), test.ShouldBeNil)
-	passTimeCtx1, cancelPassTime1 := context.WithCancel(context.Background())
-	donePassingTime1 := passTime(passTimeCtx1, mockClock, captureInterval)
+	testutils.WaitForAssertion(t, func(tb testing.TB) {
+		tb.Helper()
+		test.That(tb, b.sync.ConfigApplied(), test.ShouldBeTrue)
+	})
+	// passTimeCtx1, cancelPassTime1 := context.WithCancel(context.Background())
+	// donePassingTime1 := passTime(passTimeCtx1, mockClock, captureInterval)
 
-	waitForCaptureFilesToExceedNFiles(captureDir, 0)
+	waitForCaptureFilesToExceedNFiles(captureDir, 0, logger)
 	testFilesContainSensorData(t, captureDir)
 
-	cancelPassTime1()
-	<-donePassingTime1
+	// cancelPassTime1()
+	// <-donePassingTime1
 
 	// Change the resource named arm1 to show that the data manager recognizes that the collector has changed with no other config changes.
 	for resource := range resources {
@@ -244,21 +250,24 @@ func TestSwitchResource(t *testing.T) {
 		}
 	}
 
-	err = dmsvc.Reconfigure(context.Background(), resources, resource.Config{
+	err = b.Reconfigure(context.Background(), resources, resource.Config{
 		ConvertedAttributes:  config,
 		AssociatedAttributes: associations,
 	})
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, b.propagateDataSyncConfig(), test.ShouldBeNil)
+	testutils.WaitForAssertion(t, func(tb testing.TB) {
+		tb.Helper()
+		test.That(tb, b.sync.ConfigApplied(), test.ShouldBeTrue)
+	})
 
 	dataBeforeSwitch, err := getSensorData(captureDir)
 	test.That(t, err, test.ShouldBeNil)
 
-	passTimeCtx2, cancelPassTime2 := context.WithCancel(context.Background())
-	donePassingTime2 := passTime(passTimeCtx2, mockClock, captureInterval)
+	// passTimeCtx2, cancelPassTime2 := context.WithCancel(context.Background())
+	// donePassingTime2 := passTime(passTimeCtx2, mockClock, captureInterval)
 
 	// Test that sensor data is captured from the new collector.
-	waitForCaptureFilesToExceedNFiles(captureDir, len(getAllFileInfos(captureDir)))
+	waitForCaptureFilesToExceedNFiles(captureDir, len(getAllFileInfos(captureDir)), logger)
 	testFilesContainSensorData(t, captureDir)
 
 	filePaths := getAllFilePaths(captureDir)
@@ -292,27 +301,27 @@ func TestSwitchResource(t *testing.T) {
 	// Assert that the updated arm1 resource is capturing data.
 	test.That(t, len(newData), test.ShouldBeGreaterThan, 0)
 
-	cancelPassTime2()
-	<-donePassingTime2
+	// cancelPassTime2()
+	// <-donePassingTime2
 }
 
 // passTime repeatedly increments mc by interval until the context is canceled.
-func passTime(ctx context.Context, mc *clk.Mock, interval time.Duration) chan struct{} {
-	done := make(chan struct{})
-	go func() {
-		for {
-			select {
-			case <-ctx.Done():
-				close(done)
-				return
-			default:
-				time.Sleep(10 * time.Millisecond)
-				mc.Add(interval)
-			}
-		}
-	}()
-	return done
-}
+// func passTime(ctx context.Context, mc *clk.Mock, interval time.Duration) chan struct{} {
+// 	done := make(chan struct{})
+// 	go func() {
+// 		for {
+// 			select {
+// 			case <-ctx.Done():
+// 				close(done)
+// 				return
+// 			default:
+// 				time.Sleep(10 * time.Millisecond)
+// 				mc.Add(interval)
+// 			}
+// 		}
+// 	}()
+// 	return done
+// }
 
 func getSensorData(dir string) ([]*v1.SensorData, error) {
 	var sd []*v1.SensorData
@@ -351,7 +360,9 @@ func testFilesContainSensorData(t *testing.T, dir string) {
 
 // waitForCaptureFilesToExceedNFiles returns once `captureDir` contains more than `n` files of at
 // least `emptyFileBytesSize` bytes. This is not suitable for waiting for file deletion to happen.
-func waitForCaptureFilesToExceedNFiles(captureDir string, n int) {
+func waitForCaptureFilesToExceedNFiles(captureDir string, n int, logger logging.Logger) {
+	var diagnostics sync.Once
+	start := time.Now()
 	for {
 		files := getAllFileInfos(captureDir)
 		nonEmptyFiles := 0
@@ -369,6 +380,14 @@ func waitForCaptureFilesToExceedNFiles(captureDir string, n int) {
 		}
 
 		time.Sleep(10 * time.Millisecond)
+		if time.Since(start) > 10*time.Second {
+			diagnostics.Do(func() {
+				logger.Infow("waitForCaptureFilesToEqualNFiles diagnostics after 10 seconds of waiting", "numFiles", len(files), "expectedFiles", n)
+				for idx, file := range files {
+					logger.Infow("File information", "idx", idx, "dir", captureDir, "name", file.Name(), "size", file.Size())
+				}
+			})
+		}
 	}
 }
 

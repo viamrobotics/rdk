@@ -1,5 +1,7 @@
 package datacapture
 
+// TODO: Move this package into data with collectors
+
 import (
 	"sync"
 

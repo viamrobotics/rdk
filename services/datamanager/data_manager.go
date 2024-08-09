@@ -130,6 +130,8 @@ func (ac *AssociatedConfig) Link(conf *resource.Config) {
 	conf.AssociatedAttributes[name] = &AssociatedConfig{CaptureMethods: captureMethodCopies}
 }
 
+type CollectorConfigsByResource map[resource.Resource][]DataCaptureConfig
+
 // DataCaptureConfig is used to initialize a collector for a component or remote.
 type DataCaptureConfig struct {
 	Name               resource.Name     `json:"name"`
