@@ -2,11 +2,10 @@ package resource
 
 import (
 	"context"
+	"errors"
 	"sync"
 	"sync/atomic"
 	"time"
-
-	"github.com/pkg/errors"
 
 	"go.viam.com/rdk/logging"
 )
@@ -26,12 +25,14 @@ const (
 	// NodeStateConfiguring denotes a resource is being configured.
 	NodeStateConfiguring
 
-	// NodeStateReady denotes a resource that has been initialized and is not being
-	// configured or removed. A resource in this state may be unhealthy.
+	// NodeStateReady denotes a resource that has been configured and is healthy.
 	NodeStateReady
 
 	// NodeStateRemoving denotes a resource is being removed from the resource graph.
 	NodeStateRemoving
+
+	// NodeStateUnhealthy denotes a resource is unhealthy.
+	NodeStateUnhealthy
 )
 
 // A GraphNode contains the current state of a resource.
@@ -276,8 +277,8 @@ func (w *GraphNode) MarkedForRemoval() bool {
 // The additional `args` should come in key/value pairs for structured logging.
 func (w *GraphNode) LogAndSetLastError(err error, args ...any) {
 	w.mu.Lock()
-	w.lastErr = err
-	// TODO(RSDK-7903): transition to an "unhealthy" state.
+	w.lastErr = errors.Join(w.lastErr, err)
+	w.transitionTo(NodeStateUnhealthy)
 	w.mu.Unlock()
 
 	if w.logger != nil {
@@ -299,7 +300,7 @@ func (w *GraphNode) Config() Config {
 func (w *GraphNode) NeedsReconfigure() bool {
 	w.mu.RLock()
 	defer w.mu.RUnlock()
-	return w.state == NodeStateConfiguring
+	return w.state == NodeStateConfiguring || w.state == NodeStateUnhealthy
 }
 
 // hasUnresolvedDependencies returns whether or not this node has any
@@ -471,7 +472,7 @@ func (w *GraphNode) canTransitionTo(state NodeState) bool {
 	case NodeStateConfiguring:
 		//nolint
 		switch state {
-		case NodeStateReady:
+		case NodeStateReady, NodeStateUnhealthy:
 			return true
 		}
 	case NodeStateReady:
@@ -481,6 +482,12 @@ func (w *GraphNode) canTransitionTo(state NodeState) bool {
 			return true
 		}
 	case NodeStateRemoving:
+	case NodeStateUnhealthy:
+		//nolint
+		switch state {
+		case NodeStateReady, NodeStateRemoving, NodeStateUnhealthy:
+			return true
+		}
 	}
 	return false
 }
@@ -518,11 +525,17 @@ func (w *GraphNode) resourceStatus() Status {
 		resName = w.current.Name()
 	}
 
+	var err error
+	if w.state == NodeStateUnhealthy {
+		err = w.lastErr
+	}
+
 	return Status{
 		Name:        resName,
 		State:       w.state,
 		LastUpdated: w.transitionedAt,
 		Revision:    w.revision,
+		Error:       err,
 	}
 }
 
@@ -532,4 +545,8 @@ type Status struct {
 	State       NodeState
 	LastUpdated time.Time
 	Revision    string
+
+	// Error contains any errors on the resource if it currently unhealthy.
+	// This field will be nil if the resource is not in the [NodeStateUnhealthy] state.
+	Error error
 }

@@ -147,9 +147,9 @@ func lifecycleTest(t *testing.T, node *resource.GraphNode, initialDeps []string)
 	node.LogAndSetLastError(ourErr)
 	_, err = node.Resource()
 	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "pending removal")
+	test.That(t, err.Error(), test.ShouldContainSubstring, "whoops")
 
-	verifySameState(t, node)
+	verifyStateTransition(t, node, resource.NodeStateUnhealthy)
 
 	test.That(t, node.UnresolvedDependencies(), test.ShouldResemble, initialDeps)
 
@@ -185,7 +185,7 @@ func lifecycleTest(t *testing.T, node *resource.GraphNode, initialDeps []string)
 	test.That(t, res, test.ShouldEqual, ourRes)
 	test.That(t, node.IsUninitialized(), test.ShouldBeFalse)
 
-	verifySameState(t, node)
+	verifyStateTransition(t, node, resource.NodeStateUnhealthy)
 
 	// it reconfigured
 	ourRes2 := &someResource{Resource: testutils.NewUnimplementedResource(generic.Named("foo"))}
@@ -226,7 +226,7 @@ func lifecycleTest(t *testing.T, node *resource.GraphNode, initialDeps []string)
 	res, err = node.UnsafeResource()
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, res, test.ShouldEqual, ourRes2)
-	verifySameState(t, node)
+	verifyStateTransition(t, node, resource.NodeStateUnhealthy)
 
 	// it reconfigured
 	ourRes3 := &someResource{Resource: testutils.NewUnimplementedResource(generic.Named("fooa"))}
