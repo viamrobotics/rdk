@@ -38,12 +38,12 @@ func (cfg *Config) Validate(path string) ([]string, error) {
 }
 
 const (
-	defaultSpeed  = 80. // degrees per second
+	defaultSpeed  = 50. // degrees per second
 	defaultAccel  = 100. // degrees per second per second
 	defaultPort   = "502"
 	defaultMoveHz = 100. // Don't change this
 	
-	interwaypointAccel  = 800. // degrees per second per second. All xarms max out at 1145
+	interwaypointAccel  = 600. // degrees per second per second. All xarms max out at 1145
 )
 
 type xArm struct {

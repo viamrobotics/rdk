@@ -155,7 +155,7 @@ func (x *xArm) send(ctx context.Context, c cmd, checkError bool) (cmd, error) {
 	if err != nil {
 		return cmd{}, err
 	}
-
+	fmt.Println(c2.params[0])
 	if checkError {
 		state := c2.params[0]
 		if state&96 != 0 {
@@ -217,6 +217,7 @@ func (x *xArm) CheckServoErrors(ctx context.Context) error {
 }
 
 func (x *xArm) clearErrorAndWarning(ctx context.Context) error {
+	return nil
 	c1 := x.newCmd(regMap["ClearError"])
 	c2 := x.newCmd(regMap["ClearWarn"])
 	_, err1 := x.send(ctx, c1, false)
@@ -235,11 +236,19 @@ func (x *xArm) readError(ctx context.Context) error {
 	if len(e.params) < 3 {
 		return errors.New("bad arm error query response")
 	}
+	fmt.Println("err code, warn code", e.params)
 
 	errCode := e.params[1]
 	warnCode := e.params[2]
 	errMsg, isErr := armBoxErrorMap[errCode]
 	warnMsg, isWarn := armBoxWarnMap[warnCode]
+	if errCode == 60 {
+		// WTF is error code 60 (0x3c)
+		// It is not in the xarm documentation
+		// but it keeps breaking my demo
+		fmt.Println("error code 60")
+		//~ return nil
+	}
 	if isErr || isWarn {
 		return multierr.Combine(errors.New(errMsg),
 			errors.New(warnMsg))
@@ -438,7 +447,7 @@ func (x *xArm) createRawJointSteps(startInputs []referenceframe.Input, inputStep
 		from = referenceframe.InputsToFloats(startInputs)
 		lastInputs := startInputs
 		for i, toInputs := range allInputSteps {
-			fmt.Println("toInputs", toInputs)
+			//~ fmt.Println("toInputs", toInputs)
 			to := referenceframe.InputsToFloats(toInputs)
 			runningFrom := from
 			//~ fmt.Println(floatDiffs(runningFrom, to))
@@ -456,14 +465,14 @@ func (x *xArm) createRawJointSteps(startInputs []referenceframe.Input, inputStep
 					stepSize = nSteps
 				}
 				//~ fmt.Println("currDiff", currDiff)
-				fmt.Println(len(steps), "currSpeed", currSpeed)
+				//~ fmt.Println(len(steps), "currSpeed", currSpeed)
 				nextInputs, err := x.model.Interpolate(lastInputs, toInputs, stepSize/nSteps)
 				if err != nil {
 					return 0, nil, err
 				}
 				runningFrom = referenceframe.InputsToFloats(nextInputs)
 				steps = append(steps, referenceframe.InputsToFloats(nextInputs))
-				fmt.Println("nextInputs", nextInputs)
+				//~ fmt.Println("nextInputs", nextInputs)
 				
 				if currSpeed < speed {
 					//~ fmt.Println("accelerating")
@@ -508,7 +517,7 @@ func (x *xArm) createRawJointSteps(startInputs []referenceframe.Input, inputStep
 	fmt.Println("startInputs", startInputs)
 	fmt.Println("accelInputSteps", accelInputSteps)
 	_, accelSteps, err := accelCurve(startInputs, accelInputSteps, math.Inf(1))
-	fmt.Println("got accel", accelSteps)
+	//~ fmt.Println("got accel", accelSteps)
 	if err != nil {
 		fmt.Println("err", err)
 		return nil, err
@@ -547,9 +556,11 @@ func (x *xArm) executeInputs(ctx context.Context, rawSteps [][]float64) error {
 		c.params = append(c.params, 0, 0, 0, 0)
 		_, err := x.send(ctx, c, true)
 		if err != nil {
+			fmt.Println("send err", err)
 			return err
 		}
 		if !utils.SelectContextOrWait(ctx, time.Duration(1000000./x.moveHZ)*time.Microsecond) {
+			fmt.Println("ctx err", ctx.Err())
 			return ctx.Err()
 		}
 	}
