@@ -32,9 +32,9 @@ func TestTransformPipelineColor(t *testing.T) {
 
 	img, err := rimage.NewImageFromFile(artifact.MustPath("rimage/board1_small.png"))
 	test.That(t, err, test.ShouldBeNil)
-	source := gostream.NewVideoSource(&videosource.StaticSource{ColorImg: img}, prop.Video{})
-	src, err := camera.WrapVideoSourceWithProjector(context.Background(), source, nil, camera.ColorStream)
-	test.That(t, err, test.ShouldBeNil)
+	src := gostream.NewVideoSource(&videosource.StaticSource{ColorImg: img}, prop.Video{})
+	// src, err := camera.WrapVideoSourceWithProjector(context.Background(), source, nil, camera.ColorStream)
+	// test.That(t, err, test.ShouldBeNil)
 	inImg, _, err := camera.ReadImage(context.Background(), src)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, inImg.Bounds().Dx(), test.ShouldEqual, 128)
@@ -75,9 +75,9 @@ func TestTransformPipelineDepth(t *testing.T) {
 
 	dm, err := rimage.NewDepthMapFromFile(context.Background(), artifact.MustPath("rimage/board1_gray_small.png"))
 	test.That(t, err, test.ShouldBeNil)
-	source := gostream.NewVideoSource(&videosource.StaticSource{DepthImg: dm}, prop.Video{})
-	src, err := camera.WrapVideoSourceWithProjector(context.Background(), source, nil, camera.DepthStream)
-	test.That(t, err, test.ShouldBeNil)
+	src := gostream.NewVideoSource(&videosource.StaticSource{DepthImg: dm}, prop.Video{})
+	// src, err := camera.WrapVideoSourceWithProjector(context.Background(), source, nil, camera.DepthStream)
+	// test.That(t, err, test.ShouldBeNil)
 	inImg, _, err := camera.ReadImage(context.Background(), src)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, inImg.Bounds().Dx(), test.ShouldEqual, 128)
@@ -99,7 +99,7 @@ func TestTransformPipelineDepth(t *testing.T) {
 	test.That(t, outPc, test.ShouldBeNil)
 
 	test.That(t, depth.Close(context.Background()), test.ShouldBeNil)
-	test.That(t, source.Close(context.Background()), test.ShouldBeNil)
+	test.That(t, src.Close(context.Background()), test.ShouldBeNil)
 }
 
 func TestTransformPipelineDepth2(t *testing.T) {

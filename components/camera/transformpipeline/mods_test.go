@@ -517,12 +517,12 @@ func BenchmarkColorRotate(b *testing.B) {
 	test.That(b, err, test.ShouldBeNil)
 
 	source := gostream.NewVideoSource(&videosource.StaticSource{ColorImg: img}, prop.Video{})
-	src, err := camera.WrapVideoSourceWithProjector(context.Background(), source, nil, camera.ColorStream)
+	// src, err := camera.WrapVideoSourceWithProjector(context.Background(), source, nil, camera.ColorStream)
 	test.That(b, err, test.ShouldBeNil)
 	am := utils.AttributeMap{
 		"angle_degs": 180,
 	}
-	rs, stream, err := newRotateTransform(context.Background(), src, camera.ColorStream, am)
+	rs, stream, err := newRotateTransform(context.Background(), source, camera.ColorStream, am)
 	test.That(b, err, test.ShouldBeNil)
 	test.That(b, stream, test.ShouldEqual, camera.ColorStream)
 
@@ -541,12 +541,12 @@ func BenchmarkDepthRotate(b *testing.B) {
 	test.That(b, err, test.ShouldBeNil)
 
 	source := gostream.NewVideoSource(&videosource.StaticSource{DepthImg: img}, prop.Video{})
-	src, err := camera.WrapVideoSourceWithProjector(context.Background(), source, nil, camera.DepthStream)
+	// src, err := camera.WrapVideoSourceWithProjector(context.Background(), source, nil, camera.DepthStream)
 	test.That(b, err, test.ShouldBeNil)
 	am := utils.AttributeMap{
 		"angle_degs": 180,
 	}
-	rs, stream, err := newRotateTransform(context.Background(), src, camera.DepthStream, am)
+	rs, stream, err := newRotateTransform(context.Background(), source, camera.DepthStream, am)
 	test.That(b, err, test.ShouldBeNil)
 	test.That(b, stream, test.ShouldEqual, camera.DepthStream)
 

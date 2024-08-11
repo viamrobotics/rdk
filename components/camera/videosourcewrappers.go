@@ -86,7 +86,7 @@ func NewVideoSourceFromReader(
 // argument is for detecting whether or not the resulting camera supports return
 // of pointcloud data in the absence of an implemented NextPointCloud function.
 // If this is unknown or not applicable, a value of camera.Unspecified stream can be supplied.
-func WrapVideoSourceWithProjector(
+func wrapVideoSourceWithProjector(
 	ctx context.Context,
 	source gostream.VideoSource,
 	syst *transform.PinholeCameraModel, imageType ImageType,
