@@ -238,8 +238,26 @@ func (pi *piPigpio) reconfigureAnalogReaders(ctx context.Context, cfg *Config) e
 			return errors.Errorf("bad analog pin (%s)", ac.Pin)
 		}
 
-		bus := &piPigpioSPI{pi: pi, busSelect: ac.SPIBus}
-		ar := &mcp3008helper.MCP3008AnalogReader{channel, bus, ac.ChipSelect}
+		var chipEnablePin string
+		// For backwards compatibility with a previous implementation, we let users specify the
+		// physical pin number for the chip select, but we'd prefer the chip select index itself.
+		switch ac.SPIBus {
+		case "24", "0":
+			chipEnablePin = "0"
+		case "26", "1":
+			chipEnablePin = "1"
+		default:
+			// If the user has gone out of their way to enable a non-default SPI bus, this error
+			// message is not strictly true. but a user who knows how to do that will know how to
+			// interpret this message correctly.
+			return fmt.Errorf(
+				"invalid chip select pin %s for analog reader %s, choose either chip select " +
+				"0 (physical pin 24) or 1 (pin 26)",
+				ac.SPIBus, ac.Name)
+		}
+
+		bus := buses.NewSpiBus(ac.SPIBus)
+		ar := &mcp3008helper.MCP3008AnalogReader{channel, bus, chipEnablePin}
 
 		pi.analogReaders[ac.Name] = pinwrappers.SmoothAnalogReader(ar, board.AnalogReaderConfig{
 			AverageOverMillis: ac.AverageOverMillis, SamplesPerSecond: ac.SamplesPerSecond,
