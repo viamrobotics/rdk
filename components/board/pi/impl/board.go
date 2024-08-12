@@ -251,8 +251,7 @@ func (pi *piPigpio) reconfigureAnalogReaders(ctx context.Context, cfg *Config) e
 			// message is not strictly true. but a user who knows how to do that will know how to
 			// interpret this message correctly.
 			return fmt.Errorf(
-				"invalid chip select pin %s for analog reader %s, choose either chip select " +
-				"0 (physical pin 24) or 1 (pin 26)",
+				"invalid chip select pin %s for analog reader %s, choose either chip select 0 (physical pin 24) or 1 (pin 26)",
 				ac.SPIBus, ac.Name)
 		}
 
