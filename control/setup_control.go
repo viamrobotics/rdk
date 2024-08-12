@@ -162,42 +162,34 @@ func (p *PIDLoop) TunePIDLoop(ctx context.Context, cancelFunc context.CancelFunc
 			}
 
 			p.ControlLoop.MonitorTuning(ctx)
+			UpdateTunedPIDBlock(p.ControlConf, linearPIDIndex, p.ControlLoop.GetPIDVals(0))
+			p.ControlConf.Blocks[sumIndex].DependsOn[0] = "trapz"
 
 			p.ControlLoop.Stop()
 			p.ControlLoop = nil
-
-			p.PIDVals[0].P = p.ControlLoop.pidBlocks[0].kP
-			p.PIDVals[0].I = p.ControlLoop.pidBlocks[0].kI
-			p.PIDVals[0].D = p.ControlLoop.pidBlocks[0].kD
 		}
 		if p.Options.SensorFeedback2DVelocityControl {
 			// check if linear needs to be tuned
 			if p.PIDVals[0].NeedsAutoTuning() {
 				p.logger.Info("tuning linear PID")
-				if err := p.tuneSinglePID(ctx, angularPIDIndex); err != nil {
+				if err := p.tuneSinglePID(ctx, angularPIDIndex, 0); err != nil {
 					errs = multierr.Combine(errs, err)
 				}
 			}
-			p.PIDVals[0].P = p.ControlLoop.pidBlocks[0].kP
-			p.PIDVals[0].I = p.ControlLoop.pidBlocks[0].kI
-			p.PIDVals[0].D = p.ControlLoop.pidBlocks[0].kD
 
 			// check if angular needs to be tuned
 			if p.PIDVals[1].NeedsAutoTuning() {
 				p.logger.Info("tuning angular PID")
-				if err := p.tuneSinglePID(ctx, linearPIDIndex); err != nil {
+				if err := p.tuneSinglePID(ctx, linearPIDIndex, 1); err != nil {
 					errs = multierr.Combine(errs, err)
 				}
 			}
-			p.PIDVals[1].P = p.ControlLoop.pidBlocks[1].kP
-			p.PIDVals[1].I = p.ControlLoop.pidBlocks[1].kI
-			p.PIDVals[1].D = p.ControlLoop.pidBlocks[1].kD
 		}
 	})
 	return errs
 }
 
-func (p *PIDLoop) tuneSinglePID(ctx context.Context, blockIndex int) error {
+func (p *PIDLoop) tuneSinglePID(ctx context.Context, blockIndex, pidIndex int) error {
 	// preserve old values and set them to be non-zero
 	pOld := p.ControlConf.Blocks[blockIndex].Attribute["kP"]
 	iOld := p.ControlConf.Blocks[blockIndex].Attribute["kI"]
@@ -209,6 +201,7 @@ func (p *PIDLoop) tuneSinglePID(ctx context.Context, blockIndex int) error {
 	}
 
 	p.ControlLoop.MonitorTuning(ctx)
+	UpdateTunedPIDBlock(p.ControlConf, angularPIDIndex, p.ControlLoop.GetPIDVals(pidIndex))
 
 	p.ControlLoop.Stop()
 	p.ControlLoop = nil
