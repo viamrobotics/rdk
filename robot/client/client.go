@@ -1094,6 +1094,7 @@ func unaryClientInterceptor() googlegrpc.UnaryClientInterceptor {
 	) error {
 		md, err := robot.Version()
 		if err != nil {
+			ctx = metadata.AppendToOutgoingContext(ctx, "viam_client", "go;unknown;unknown")
 			return invoker(ctx, method, req, reply, cc, opts...)
 		}
 		stringMd := fmt.Sprintf("go;%s;%s", md.Version, md.APIVersion)
@@ -1113,6 +1114,7 @@ func streamClientInterceptor() googlegrpc.StreamClientInterceptor {
 	) (cs googlegrpc.ClientStream, err error) {
 		md, err := robot.Version()
 		if err != nil {
+			ctx = metadata.AppendToOutgoingContext(ctx, "viam_client", "go;unknown;unknown")
 			return streamer(ctx, desc, cc, method, opts...)
 		}
 		stringMd := fmt.Sprintf("go;%s;%s", md.Version, md.APIVersion)
