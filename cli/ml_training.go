@@ -287,7 +287,8 @@ func MLTrainingUploadAction(c *cli.Context) error {
 }
 
 func (c *viamClient) uploadTrainingScript(draft bool, modelType, framework, url, orgID, name, version, path string) (
-	*packagespb.CreatePackageResponse, error) {
+	*packagespb.CreatePackageResponse, error,
+) {
 	metadata, err := createMetadata(draft, modelType, framework, url)
 	if err != nil {
 		return nil, err
