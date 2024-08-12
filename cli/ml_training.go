@@ -11,6 +11,7 @@ import (
 	"github.com/urfave/cli/v2"
 	"go.uber.org/multierr"
 	mltrainingpb "go.viam.com/api/app/mltraining/v1"
+	packagespb "go.viam.com/api/app/packages/v1"
 	v1 "go.viam.com/api/app/v1"
 	"google.golang.org/protobuf/types/known/structpb"
 )
@@ -51,16 +52,24 @@ func MLSubmitCustomTrainingJobWithUpload(c *cli.Context) error {
 		return err
 	}
 
-	err = client.uploadTrainingScript(true, c.String(trainFlagModelType), c.String(mlTrainingFlagFramework),
+	resp, err := client.uploadTrainingScript(true, c.String(trainFlagModelType), c.String(mlTrainingFlagFramework),
 		c.String(mlTrainingFlagURL), c.String(trainFlagModelOrgID), c.String(mlTrainingFlagName),
 		c.String(mlTrainingFlagVersion), c.Path(mlTrainingFlagPath))
 	if err != nil {
 		return err
 	}
 	registryItemID := fmt.Sprintf("%s:%s", c.String(trainFlagModelOrgID), c.String(mlTrainingFlagName))
-	printf(c.App.Writer, "successfully uploaded training script to %s", registryItemID)
+
+	moduleID := moduleID{
+		prefix: c.String(generalFlagOrgID),
+		name:   c.String(mlTrainingFlagName),
+	}
+	url := moduleID.ToDetailURL(client.baseURL.Hostname(), PackageTypeMLTraining)
+	printf(c.App.Writer, "Version successfully uploaded! you can view your changes online here: %s. \n"+
+		"To use your training script in the from-registry command, use %s as the script name", url,
+		registryItemID)
 	trainingJobID, err := client.mlSubmitCustomTrainingJob(
-		c.String(datasetFlagDatasetID), registryItemID, c.String(mlTrainingFlagVersion), c.String(trainFlagModelOrgID),
+		c.String(datasetFlagDatasetID), registryItemID, resp.Version, c.String(trainFlagModelOrgID),
 		c.String(trainFlagModelName), c.String(trainFlagModelVersion))
 	if err != nil {
 		return err
@@ -258,7 +267,7 @@ func MLTrainingUploadAction(c *cli.Context) error {
 		return err
 	}
 
-	err = client.uploadTrainingScript(c.Bool(mlTrainingFlagDraft), c.String(mlTrainingFlagType),
+	_, err = client.uploadTrainingScript(c.Bool(mlTrainingFlagDraft), c.String(mlTrainingFlagType),
 		c.String(mlTrainingFlagFramework), c.String(mlTrainingFlagURL), c.String(generalFlagOrgID), c.String(mlTrainingFlagName),
 		c.String(mlTrainingFlagVersion), c.Path(mlTrainingFlagPath),
 	)
@@ -277,26 +286,29 @@ func MLTrainingUploadAction(c *cli.Context) error {
 	return nil
 }
 
-func (c *viamClient) uploadTrainingScript(draft bool, modelType, framework, url, orgID, name, version, path string) error {
+func (c *viamClient) uploadTrainingScript(draft bool, modelType, framework, url, orgID, name, version, path string) (
+	*packagespb.CreatePackageResponse, error,
+) {
 	metadata, err := createMetadata(draft, modelType, framework, url)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	metadataStruct, err := convertMetadataToStruct(*metadata)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	if _, err := c.uploadPackage(orgID,
+	resp, err := c.uploadPackage(orgID,
 		name,
 		version,
 		string(PackageTypeMLTraining),
 		path,
 		metadataStruct,
-	); err != nil {
-		return err
+	)
+	if err != nil {
+		return nil, err
 	}
-	return nil
+	return resp, nil
 }
 
 // MLTrainingUpdateAction updates the visibility of training scripts.
