@@ -93,7 +93,10 @@ func newTransformPipeline(
 	cfg *transformConfig,
 	r robot.Robot,
 	logger logging.Logger,
-) (camera.VideoSource, error) {
+) (camera.VideoSource,
+	// func(),
+	error,
+) {
 	if source == nil {
 		return nil, errors.New("no source camera for transform pipeline")
 	}
@@ -130,12 +133,22 @@ func newTransformPipeline(
 	}
 	lastSourceStream := gostream.NewEmbeddedVideoStream(lastSource)
 	cameraModel := camera.NewPinholeModelWithBrownConradyDistortion(cfg.CameraParameters, cfg.DistortionParameters)
-	return camera.NewVideoSourceFromReader(
+	vs, err := camera.NewVideoSourceFromReader(
 		ctx,
 		transformPipeline{pipeline, lastSourceStream, cfg.CameraParameters, logger},
 		&cameraModel,
 		streamType,
 	)
+	if err != nil {
+		return nil,
+			// nil,
+			err
+	}
+
+	// closer := func() {}
+	return vs,
+		// closer,
+		nil
 }
 
 type transformPipeline struct {

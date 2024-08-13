@@ -348,13 +348,13 @@ func (c *monitoredWebcam) Reconfigure(
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	// cameraModel := camera.NewPinholeModelWithBrownConradyDistortion(newConf.CameraParameters, newConf.DistortionParameters)
-	// projector, err := camera.WrapVideoSourceWithProjector(
-	// 	ctx,
-	// 	&noopCloser{c},
-	// 	&cameraModel,
-	// 	camera.ColorStream,
-	// )
+	cameraModel := camera.NewPinholeModelWithBrownConradyDistortion(newConf.CameraParameters, newConf.DistortionParameters)
+	projector, err := camera.WrapVideoSourceWithProjector(
+		ctx,
+		&noopCloser{c},
+		&cameraModel,
+		camera.ColorStream,
+	)
 	if err != nil {
 		return err
 	}
@@ -363,7 +363,7 @@ func (c *monitoredWebcam) Reconfigure(
 	if c.exposedProjector != nil {
 		goutils.UncheckedError(c.exposedProjector.Close(ctx))
 	}
-	// c.exposedProjector = projector
+	c.exposedProjector = projector
 
 	if c.underlyingSource != nil && !needDriverReinit {
 		c.conf = *newConf

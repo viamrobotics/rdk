@@ -105,5 +105,7 @@ func (ds *detectorSource) Read(ctx context.Context) (image.Image, func(), error)
 }
 
 func (ds *detectorSource) Close(ctx context.Context) error {
+	// maybe be removing the interface conrete type might have been
+	// check if the semantics of close may have changed
 	return ds.stream.Close(ctx)
 }
