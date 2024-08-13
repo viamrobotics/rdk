@@ -73,6 +73,11 @@ type localRobot struct {
 	// logical clock when updateWeakDependents was called.
 	lastWeakDependentsRound atomic.Int64
 
+	// configRevision stores the revision of the latest config ingested during
+	// reconfigurations along with a timestamp.
+	configRevision   config.Revision
+	configRevisionMu sync.RWMutex
+
 	// internal services that are in the graph but we also hold onto
 	webSvc   web.Service
 	frameSvc framesystem.Service
@@ -557,8 +562,8 @@ func newWithResources(
 	r.Reconfigure(ctx, cfg)
 
 	for name, res := range resources {
-		if err := r.manager.resources.AddNode(
-			name, resource.NewConfiguredGraphNode(resource.Config{}, res, unknownModel)); err != nil {
+		node := resource.NewConfiguredGraphNode(resource.Config{}, res, unknownModel)
+		if err := r.manager.resources.AddNode(name, node); err != nil {
 			return nil, err
 		}
 	}
@@ -1126,7 +1131,7 @@ func dialRobotClient(
 	robotClient, err := client.New(
 		ctx,
 		config.Address,
-		logger,
+		logger.Sublogger("networking"),
 		rOpts...,
 	)
 	if err != nil {
@@ -1157,6 +1162,13 @@ func (r *localRobot) applyLocalModuleVersions(cfg *config.Config) {
 }
 
 func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, forceSync bool) {
+	r.configRevisionMu.Lock()
+	r.configRevision = config.Revision{
+		Revision:    newConfig.Revision,
+		LastUpdated: time.Now(),
+	}
+	r.configRevisionMu.Unlock()
+
 	var allErrs error
 
 	// Sync Packages before reconfiguring rest of robot and resolving references to any packages
@@ -1228,6 +1240,12 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 		r.logger.CErrorw(ctx, "error diffing the configs", "error", err)
 		return
 	}
+
+	revision := diff.NewRevision()
+	for _, res := range diff.UnmodifiedResources {
+		r.manager.updateRevision(res.ResourceName(), revision)
+	}
+
 	if diff.ResourcesEqual {
 		return
 	}
@@ -1384,5 +1402,14 @@ func (r *localRobot) MachineStatus(ctx context.Context) (robot.MachineStatus, er
 	result.Resources = append(result.Resources, r.manager.resources.Status()...)
 	r.manager.resourceGraphLock.Unlock()
 
+	r.configRevisionMu.RLock()
+	result.Config = r.configRevision
+	r.configRevisionMu.RUnlock()
+
 	return result, nil
+}
+
+// Version returns version information about the robot.
+func (r *localRobot) Version(ctx context.Context) (robot.VersionResponse, error) {
+	return robot.Version()
 }

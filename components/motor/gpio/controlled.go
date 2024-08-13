@@ -185,7 +185,7 @@ func (cm *controlledMotor) Stop(ctx context.Context, extra map[string]interface{
 		if err != nil {
 			return err
 		}
-		if err := cm.updateControlBlock(ctx, currentTicks, cm.real.maxRPM*cm.ticksPerRotation/60); err != nil {
+		if err := cm.updateControlBlock(ctx, currentTicks+cm.offsetInTicks, cm.real.maxRPM*cm.ticksPerRotation/60); err != nil {
 			return err
 		}
 	}
@@ -331,7 +331,7 @@ func (cm *controlledMotor) GoFor(ctx context.Context, rpm, revolutions float64, 
 		}
 	}
 
-	goalPos, _, _ := encodedGoForMath(rpm, revolutions, currentTicks, cm.ticksPerRotation)
+	goalPos, _, _ := encodedGoForMath(rpm, revolutions, currentTicks+cm.offsetInTicks, cm.ticksPerRotation)
 
 	// set control loop values
 	velVal := math.Abs(rpm * cm.ticksPerRotation / 60)
@@ -353,7 +353,7 @@ func (cm *controlledMotor) GoFor(ctx context.Context, rpm, revolutions float64, 
 		var errs error
 		pos, _, posErr := cm.enc.Position(ctx, encoder.PositionTypeTicks, extra)
 		errs = multierr.Combine(errs, posErr)
-		if rdkutils.Float64AlmostEqual(pos, goalPos, 2.0) {
+		if rdkutils.Float64AlmostEqual(pos+cm.offsetInTicks, goalPos, 2.0) {
 			stopErr := cm.Stop(ctx, extra)
 			errs = multierr.Combine(errs, stopErr)
 			return true, errs

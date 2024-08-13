@@ -321,9 +321,9 @@ func (b *Board) reconfigureInterrupts(newConf *LinuxBoardConfig) error {
 			oldInterrupt = nil
 		}
 
-		gpioMapping, ok := b.gpioMappings[config.Name]
+		gpioMapping, ok := b.gpioMappings[config.Pin]
 		if !ok {
-			return fmt.Errorf("cannot create digital interrupt on unknown pin %s", config.Name)
+			return fmt.Errorf("cannot create digital interrupt on unknown pin %s", config.Pin)
 		}
 		interrupt, err := newDigitalInterrupt(config, gpioMapping, oldInterrupt)
 		if err != nil {

@@ -2,6 +2,7 @@ package builtin
 
 import (
 	"context"
+	"strings"
 	"testing"
 	"time"
 
@@ -265,7 +266,6 @@ func TestMoveOnMapStaticObs(t *testing.T) {
 
 		// place obstacle in opposte position and show that the generate path
 		// collides with obstacleLeft
-
 		wrldSt, err := referenceframe.NewWorldState(
 			[]*referenceframe.GeometriesInFrame{
 				referenceframe.NewGeometriesInFrame(
@@ -275,27 +275,52 @@ func TestMoveOnMapStaticObs(t *testing.T) {
 			}, nil,
 		)
 		test.That(t, err, test.ShouldBeNil)
-		executionState, err := motionplan.NewExecutionState(
-			plan,
-			1,
-			referenceframe.StartPositions(mr.planRequest.FrameSystem),
+
+		currentInputs := map[string][]referenceframe.Input{
+			mr.kinematicBase.Kinematics().Name(): {
+				{Value: 0}, // ptg index
+				{Value: 0}, // trajectory alpha within ptg
+				{Value: 0}, // start distance along trajectory index
+				{Value: 0}, // end distace along trajectory index
+			},
+			mr.kinematicBase.LocalizationFrame().Name(): {
+				{Value: 587},  // X
+				{Value: -808}, // Y
+				{Value: 0},    // Z
+				{Value: 0},    // OX
+				{Value: 0},    // OY
+				{Value: 1},    // OZ
+				{Value: 0},    // Theta
+			},
+		}
+
+		baseExecutionState, err := motionplan.NewExecutionState(
+			plan, 1, currentInputs,
 			map[string]*referenceframe.PoseInFrame{
-				mr.planRequest.Frame.Name(): referenceframe.NewPoseInFrame(referenceframe.World, spatialmath.NewPose(
+				mr.kinematicBase.LocalizationFrame().Name(): referenceframe.NewPoseInFrame(referenceframe.World, spatialmath.NewPose(
 					r3.Vector{X: 0.58772e3, Y: -0.80826e3, Z: 0},
 					&spatialmath.OrientationVectorDegrees{OZ: 1, Theta: 0},
 				)),
 			},
 		)
 		test.That(t, err, test.ShouldBeNil)
+
+		augmentedBaseExecutionState, err := mr.augmentBaseExecutionState(baseExecutionState)
+		test.That(t, err, test.ShouldBeNil)
+
+		wrapperFrame := mr.localizingFS.Frame(mr.kinematicBase.Name().Name)
+
+		test.That(t, err, test.ShouldBeNil)
 		err = motionplan.CheckPlan(
-			mr.planRequest.Frame,
-			executionState,
+			wrapperFrame,
+			augmentedBaseExecutionState,
 			wrldSt,
-			mr.planRequest.FrameSystem,
+			mr.localizingFS,
 			lookAheadDistanceMM,
 			logger,
 		)
 		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, strings.Contains(err.Error(), "found constraint violation or collision in segment between"), test.ShouldBeTrue)
 	})
 
 	t.Run("fail due to obstacles enclosing goals", func(t *testing.T) {

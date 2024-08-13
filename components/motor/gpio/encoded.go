@@ -83,11 +83,13 @@ func newEncodedMotor(
 	em.logger.Warn(
 		"recommended: for more accurate motor control, configure 'control_parameters' in the motor config")
 
-	if em.rampRate < 0 || em.rampRate > 1 {
-		return nil, fmt.Errorf("ramp rate needs to be (0, 1] but is %v", em.rampRate)
+	if em.rampRate < 0 {
+		return nil, fmt.Errorf("ramp rate can not be a negative number but is %v", em.rampRate)
 	}
-	if em.rampRate == 0 {
+
+	if em.rampRate == 0 || em.rampRate > 0.5 {
 		em.rampRate = 0.05 // Use a conservative value by default.
+		em.logger.Warnf("setting ramp rate to default value of 0.05 instead of %v", em.rampRate)
 	}
 
 	if em.maxPowerPct < 0 || em.maxPowerPct > 1 {
@@ -138,6 +140,7 @@ func (m *EncodedMotor) makeAdjustments(ctx context.Context, goalRPM, goalPos, di
 		return err
 	}
 	lastPowerPct = math.Abs(lastPowerPct) * direction
+	zeroRPMTracker := 0
 	for {
 		timer := time.NewTimer(50 * time.Millisecond)
 		select {
@@ -172,6 +175,12 @@ func (m *EncodedMotor) makeAdjustments(ctx context.Context, goalRPM, goalPos, di
 			currentRPM = 0
 		} else {
 			currentRPM = deltaPos / deltaTime
+			if currentRPM == 0 {
+				zeroRPMTracker++
+			}
+		}
+		if zeroRPMTracker > 10 {
+			m.logger.Errorf("error running motor %v, desired rpm is too low for stable motion: %v", m.Name().Name, goalRPM)
 		}
 
 		newPower, err := m.calcNewPowerPct(ctx, currentRPM, goalRPM, lastPowerPct, direction)
@@ -206,6 +215,8 @@ func (m *EncodedMotor) calcNewPowerPct(
 	if sign(newPowerPct) != direction {
 		newPowerPct = lastPowerPct
 	}
+
+	newPowerPct = fixPowerPct(newPowerPct, m.maxPowerPct)
 
 	if err := m.real.SetPower(ctx, newPowerPct, nil); err != nil {
 		return 0, err

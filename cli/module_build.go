@@ -21,6 +21,8 @@ import (
 	"go.viam.com/utils/pexec"
 	"go.viam.com/utils/rpc"
 	"golang.org/x/exp/maps"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
@@ -453,6 +455,11 @@ func reloadModuleAction(c *cli.Context, vc *viamClient) error {
 				part.Part.Fqdn, c.Bool(debugFlag), false, false, []string{manifest.Build.Path},
 				reloadingDestination(c, manifest), logging.NewLogger("reload"))
 			if err != nil {
+				if s, ok := status.FromError(err); ok && s.Code() == codes.PermissionDenied {
+					warningf(c.App.ErrWriter, "RDK couldn't write to the default file copy destination. "+
+						"If you're running as non-root, try adding --home $HOME or --home /user/username to your CLI command. "+
+						"Alternatively, run the RDK as root.")
+				}
 				return err
 			}
 		}

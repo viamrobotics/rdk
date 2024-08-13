@@ -38,6 +38,8 @@ func (config *MCP3008AnalogConfig) Validate(path string) error {
 	return nil
 }
 
+// Read returns a board.AnalogValue, but the Min, Max, and StepSize within it are never initialized
+// and will always be 0!
 func (mar *MCP3008AnalogReader) Read(ctx context.Context, extra map[string]interface{}) (
 	analogVal board.AnalogValue, err error,
 ) {

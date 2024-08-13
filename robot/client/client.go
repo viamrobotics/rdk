@@ -27,12 +27,14 @@ import (
 	"go.viam.com/utils/rpc"
 	googlegrpc "google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/metadata"
 	reflectpb "google.golang.org/grpc/reflection/grpc_reflection_v1alpha"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"go.viam.com/rdk/cloud"
+	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/operation"
@@ -249,6 +251,9 @@ func New(ctx context.Context, address string, clientLogger logging.ZapCompatible
 		rpc.WithUnaryClientInterceptor(operation.UnaryClientInterceptor),
 		rpc.WithStreamClientInterceptor(operation.StreamClientInterceptor),
 		rpc.WithUnaryClientInterceptor(logging.UnaryClientInterceptor),
+		// sending version metadata
+		rpc.WithUnaryClientInterceptor(unaryClientInterceptor()),
+		rpc.WithStreamClientInterceptor(streamClientInterceptor()),
 	)
 
 	if err := rc.connect(ctx); err != nil {
@@ -345,7 +350,15 @@ func (rc *RobotClient) connectWithLock(ctx context.Context) error {
 	if err := rc.conn.Close(); err != nil {
 		return err
 	}
-	conn, err := grpc.Dial(ctx, rc.address, rc.logger, rc.dialOptions...)
+
+	var dialLogger logging.Logger
+	if l, ok := logging.LoggerNamed("rdk.networking"); ok {
+		dialLogger = l
+	} else {
+		dialLogger = rc.logger.Sublogger("networking")
+	}
+
+	conn, err := grpc.Dial(ctx, rc.address, dialLogger, rc.dialOptions...)
 	if err != nil {
 		return err
 	}
@@ -1027,11 +1040,19 @@ func (rc *RobotClient) MachineStatus(ctx context.Context) (robot.MachineStatus, 
 		return mStatus, err
 	}
 
+	if resp.Config != nil {
+		mStatus.Config = config.Revision{
+			Revision:    resp.Config.Revision,
+			LastUpdated: resp.Config.LastUpdated.AsTime(),
+		}
+	}
+
 	mStatus.Resources = make([]resource.Status, 0, len(resp.Resources))
 	for _, pbResStatus := range resp.Resources {
 		resStatus := resource.Status{
 			Name:        rprotoutils.ResourceNameFromProto(pbResStatus.Name),
 			LastUpdated: pbResStatus.LastUpdated.AsTime(),
+			Revision:    pbResStatus.Revision,
 		}
 
 		switch pbResStatus.State {
@@ -1052,4 +1073,60 @@ func (rc *RobotClient) MachineStatus(ctx context.Context) (robot.MachineStatus, 
 	}
 
 	return mStatus, nil
+}
+
+// Version returns version information about the robot.
+func (rc *RobotClient) Version(ctx context.Context) (robot.VersionResponse, error) {
+	mVersion := robot.VersionResponse{}
+
+	resp, err := rc.client.GetVersion(ctx, &pb.GetVersionRequest{})
+	if err != nil {
+		return mVersion, err
+	}
+
+	mVersion.Platform = resp.Platform
+	mVersion.Version = resp.Version
+	mVersion.APIVersion = resp.ApiVersion
+
+	return mVersion, nil
+}
+
+func unaryClientInterceptor() googlegrpc.UnaryClientInterceptor {
+	return func(
+		ctx context.Context,
+		method string,
+		req, reply interface{},
+		cc *googlegrpc.ClientConn,
+		invoker googlegrpc.UnaryInvoker,
+		opts ...googlegrpc.CallOption,
+	) error {
+		md, err := robot.Version()
+		if err != nil {
+			ctx = metadata.AppendToOutgoingContext(ctx, "viam_client", "go;unknown;unknown")
+			return invoker(ctx, method, req, reply, cc, opts...)
+		}
+		stringMd := fmt.Sprintf("go;%s;%s", md.Version, md.APIVersion)
+		ctx = metadata.AppendToOutgoingContext(ctx, "viam_client", stringMd)
+		return invoker(ctx, method, req, reply, cc, opts...)
+	}
+}
+
+func streamClientInterceptor() googlegrpc.StreamClientInterceptor {
+	return func(
+		ctx context.Context,
+		desc *googlegrpc.StreamDesc,
+		cc *googlegrpc.ClientConn,
+		method string,
+		streamer googlegrpc.Streamer,
+		opts ...googlegrpc.CallOption,
+	) (cs googlegrpc.ClientStream, err error) {
+		md, err := robot.Version()
+		if err != nil {
+			ctx = metadata.AppendToOutgoingContext(ctx, "viam_client", "go;unknown;unknown")
+			return streamer(ctx, desc, cc, method, opts...)
+		}
+		stringMd := fmt.Sprintf("go;%s;%s", md.Version, md.APIVersion)
+		ctx = metadata.AppendToOutgoingContext(ctx, "viam_client", stringMd)
+		return streamer(ctx, desc, cc, method, opts...)
+	}
 }
