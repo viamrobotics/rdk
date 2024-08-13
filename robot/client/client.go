@@ -896,7 +896,6 @@ func (rc *RobotClient) Status(ctx context.Context, resourceNames []resource.Name
 		names = append(names, rprotoutils.ResourceNameToProto(name))
 	}
 
-	//nolint:staticcheck // the status API is deprecated
 	resp, err := rc.client.GetStatus(ctx, &pb.GetStatusRequest{ResourceNames: names})
 	if err != nil {
 		return nil, err

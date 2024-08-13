@@ -269,7 +269,6 @@ func binaryDataToJSONLines(ctx context.Context, client datapb.DataServiceClient,
 
 	fileName := filepath.Join(dst, dataDir, filenameForDownload(datum.GetMetadata()))
 	ext := datum.GetMetadata().GetFileExt()
-	// If the file is gzipped, unzip.
 	if ext != gzFileExt && filepath.Ext(fileName) != ext {
 		// If the file name did not already include the extension (e.g. for data capture files), add it.
 		// Don't do this for files that we're unzipping.
