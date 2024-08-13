@@ -98,7 +98,7 @@ func newBasicPlannerOptions(frame referenceframe.Frame) *plannerOptions {
 	opt.MaxSolutions = defaultSolutionsToSeed
 	opt.MinScore = defaultMinIkScore
 	opt.Resolution = defaultResolution
-	if _, isPTGframe := frame.(tpspace.PTGProvider); isPTGframe {
+	if ptgFrame, isPTGframe := frame.(tpspace.PTGProvider); isPTGframe && len(ptgFrame.PTGSolvers()) > 0 {
 		opt.Resolution = defaultPTGCollisionResolution
 	}
 	opt.Timeout = defaultTimeout
