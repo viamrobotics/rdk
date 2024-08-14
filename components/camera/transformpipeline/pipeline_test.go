@@ -32,10 +32,9 @@ func TestTransformPipelineColor(t *testing.T) {
 
 	img, err := rimage.NewImageFromFile(artifact.MustPath("rimage/board1_small.png"))
 	test.That(t, err, test.ShouldBeNil)
-	src := gostream.NewVideoSource(&videosource.StaticSource{ColorImg: img}, prop.Video{})
-	defer src.Close(context.Background())
-	// src, err := camera.WrapVideoSourceWithProjector(context.Background(), source, nil, camera.ColorStream)
-	// test.That(t, err, test.ShouldBeNil)
+	source := gostream.NewVideoSource(&videosource.StaticSource{ColorImg: img}, prop.Video{})
+	src, err := camera.WrapVideoSourceWithProjector(context.Background(), source, nil, camera.ColorStream)
+	test.That(t, err, test.ShouldBeNil)
 	inImg, _, err := camera.ReadImage(context.Background(), src)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, inImg.Bounds().Dx(), test.ShouldEqual, 128)

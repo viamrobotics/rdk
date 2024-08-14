@@ -14,7 +14,6 @@ import (
 	pc "go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
-	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/services/vision"
 	"go.viam.com/rdk/testutils/inject"
 	"go.viam.com/rdk/vision/objectdetection"
@@ -41,8 +40,8 @@ func Test3DSegmentsFromDetector(t *testing.T) {
 	cam.ImagesFunc = func(ctx context.Context) ([]camera.NamedImage, resource.ResponseMetadata, error) {
 		return nil, resource.ResponseMetadata{}, errors.New("no images")
 	}
-	cam.ProjectorFunc = func(ctx context.Context) (transform.Projector, error) {
-		return &transform.ParallelProjection{}, nil
+	cam.PropertiesFunc = func(ctx context.Context) (camera.Properties, error) {
+		return camera.Properties{}, nil
 	}
 	r.ResourceNamesFunc = func() []resource.Name {
 		return []resource.Name{camera.Named("fakeCamera"), name}
@@ -120,7 +119,7 @@ func Test3DSegmentsFromDetector(t *testing.T) {
 	objects, err := seg.GetObjectPointClouds(context.Background(), "fakeCamera", map[string]interface{}{})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(objects), test.ShouldEqual, 1)
-	test.That(t, objects[0].Size(), test.ShouldEqual, 2)
+	test.That(t, objects[0].Size(), test.ShouldEqual, 2) // what's expected here
 	// does  implement detector
 	dets, err := seg.Detections(context.Background(), nil, nil)
 	test.That(t, err, test.ShouldBeNil)
