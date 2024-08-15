@@ -628,7 +628,7 @@ func (manager *resourceManager) completeConfig(
 					if gNode.IsUninitialized() {
 						verb = "configuring"
 
-						level := logging.INFO
+						level := logging.WARN
 						if logCfg := conf.LogConfiguration; logCfg != nil {
 							level = logCfg.Level
 						}
@@ -971,12 +971,10 @@ func (manager *resourceManager) processResource(
 			return currentRes, false, nil
 		}
 
-		level := logging.ERROR
 		if logCfg := conf.LogConfiguration; logCfg != nil {
-			level = logCfg.Level
+			gNode.SetLogLevel(logCfg.Level)
 		}
 
-		gNode.SetLogLevel(level)
 		err = currentRes.Reconfigure(ctx, deps, conf)
 		if err == nil {
 			return currentRes, false, nil
