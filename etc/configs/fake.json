@@ -85,7 +85,7 @@
                     "b": "2",
                     "pwm": "3"
                 },
-                "ticks_per_rotation": 101
+                "ticks_per_rotation": 100
             },
             "depends_on": [
                 "board1",
