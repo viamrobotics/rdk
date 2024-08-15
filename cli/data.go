@@ -907,8 +907,11 @@ func (c *viamClient) dataRemoveFromDataset(datasetID, orgID, locationID string, 
 // it asks for the user to confirm that they are aware that they are changing the authentication
 // credentials of their database
 func DataConfigureDatabaseUserConfirmation(c *cli.Context) error {
-	printf(c.App.Writer, "WARNING!!!")
-	printf(c.App.Writer, "Proceed? y/n")
+	yellow := "\033[1;33m%s\033[0m"
+	printf(c.App.Writer, yellow, "WARNING!!!")
+	printf(c.App.Writer, yellow, "this will change the password of the database")
+	printf(c.App.Writer, yellow, "do you want to continue?")
+	printf(c.App.Writer, "Continue: y/n")
 	if err := c.Err(); err != nil {
 		return err
 	}
@@ -920,7 +923,7 @@ func DataConfigureDatabaseUserConfirmation(c *cli.Context) error {
 
 	input := strings.ToUpper(strings.TrimSpace(rawInput))
 	if input != "Y" {
-		return errors.New("not confirmed")
+		return errors.New("aborted")
 	}
 	return nil
 }
