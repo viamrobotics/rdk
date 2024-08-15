@@ -203,12 +203,3 @@ func GetOrNewLogger(name string) (logger Logger) {
 	}
 	return logger
 }
-
-// GetRegisteredLoggerNames returns the names of all loggers in the registry.
-func LogAll(logger Logger) {
-	loggers := globalLoggerRegistry.getRegisteredLoggerNames()
-	for _, name := range loggers {
-		logger, _ := globalLoggerRegistry.loggerNamed(name)
-		logger.Errorw(name, "level", logger.GetLevel())
-	}
-}

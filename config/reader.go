@@ -632,16 +632,12 @@ func processConfig(unprocessedConfig *Config, fromCloud bool, logger logging.Log
 func combineLogConfigs(patternCfg []logging.LoggerPatternConfig, serviceCfg, componentCfg []resource.Config) []logging.LoggerPatternConfig {
 	appendedLogCfg := make([]logging.LoggerPatternConfig, 0, len(patternCfg)+len(serviceCfg)+len(componentCfg))
 	appendedLogCfg = append(appendedLogCfg, patternCfg...)
-
-	logger := logging.NewLogger("whatever")
-
 	for _, serv := range serviceCfg {
 		if serv.LogConfiguration != nil {
 			resLogCfg := logging.LoggerPatternConfig{
 				Pattern: "rdk.resource_manager." + serv.ResourceName().String(),
 				Level:   serv.LogConfiguration.Level.String(),
 			}
-			logger.Errorw("configuring pattern", "rdk.resource_manager."+serv.ResourceName().String(), "level", serv.LogConfiguration.Level.String())
 			appendedLogCfg = append(appendedLogCfg, resLogCfg)
 		}
 	}
@@ -651,7 +647,6 @@ func combineLogConfigs(patternCfg []logging.LoggerPatternConfig, serviceCfg, com
 				Pattern: "rdk.resource_manager." + comp.ResourceName().String(),
 				Level:   comp.LogConfiguration.Level.String(),
 			}
-			logger.Errorw("configuring pattern", "rdk.resource_manager."+comp.ResourceName().String(), "level", comp.LogConfiguration.Level.String())
 			appendedLogCfg = append(appendedLogCfg, resLogCfg)
 		}
 	}

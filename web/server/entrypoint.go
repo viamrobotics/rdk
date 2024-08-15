@@ -400,12 +400,8 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 					continue
 				}
 
-				logjer := s.logger.Sublogger("entrypointer")
-				logging.LogAll(logjer)
-
 				// flag to restart web service if necessary
 				diff, err := config.DiffConfigs(*oldCfg, *processedConfig, s.args.RevealSensitiveConfigDiffs)
-				logjer.Errorw("w", "lvl", processedConfig.Components[0].LogConfiguration)
 				if err != nil {
 					s.logger.Errorw("reconfiguration aborted: error diffing config", "error", err)
 					continue

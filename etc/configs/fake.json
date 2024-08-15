@@ -57,10 +57,7 @@
         {
             "name": "gantry1",
             "type": "gantry",
-            "model": "fake",
-            "log_configuration": {
-                "level": "DEBUG"
-            }
+            "model": "fake"
         },
         {
             "name": "generic1",
@@ -88,7 +85,7 @@
                     "b": "2",
                     "pwm": "3"
                 },
-                "ticks_per_rotation": 100
+                "ticks_per_rotation": 101
             },
             "depends_on": [
                 "board1",
@@ -258,11 +255,6 @@
             "name": "generic1",
             "type": "generic",
             "model": "fake"
-        }
-    ],
-    "log": [
-        {   "pattern": "*",
-            "level": "ERROR"
         }
     ]
 }
