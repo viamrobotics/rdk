@@ -396,8 +396,8 @@ func TestProcessConfigRegistersLogConfig(t *testing.T) {
 			},
 		},
 	}
-	serviceLoggerName := "rdk." + unprocessedConfig.Services[0].ResourceName().String()
-	componentLoggerName := "rdk." + unprocessedConfig.Components[0].ResourceName().String()
+	serviceLoggerName := "rdk.resource_manager." + unprocessedConfig.Services[0].ResourceName().String()
+	componentLoggerName := "rdk.resource_manager." + unprocessedConfig.Components[0].ResourceName().String()
 
 	logging.RegisterLogger(serviceLoggerName, logging.NewLogger(serviceLoggerName))
 	logging.RegisterLogger(componentLoggerName, logging.NewLogger(componentLoggerName))
