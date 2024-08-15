@@ -25,7 +25,7 @@ const (
 	validResourceSubTypePattern = validNamespacePattern
 	validModelNamePattern       = validNamespacePattern
 	validTypeSubsectionPattern  = `(` + validResourceTypePattern + `:` + validResourceSubTypePattern + `|remote:)`
-	validResourcePattern        = `^rdk.` + validNamespacePattern + `:` + validTypeSubsectionPattern + `\/` + validModelNamePattern + `$`
+	validResourcePattern        = `^rdk.resource_manager.` + validNamespacePattern + `:` + validTypeSubsectionPattern + `\/` + validModelNamePattern + `$`
 )
 
 var (
@@ -43,7 +43,7 @@ func buildRegexFromPattern(pattern string) string {
 	for _, ch := range pattern {
 		switch ch {
 		case '*':
-			matcher.WriteString(validLoggerSections)
+			matcher.WriteString(`.*`)
 		case '.':
 			matcher.WriteString(`\.`)
 		default:

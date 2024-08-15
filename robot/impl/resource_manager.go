@@ -627,8 +627,14 @@ func (manager *resourceManager) completeConfig(
 					conf := gNode.Config()
 					if gNode.IsUninitialized() {
 						verb = "configuring"
+
+						level := logging.INFO
+						if logCfg := conf.LogConfiguration; logCfg != nil {
+							level = logCfg.Level
+						}
+
 						gNode.InitializeLogger(
-							manager.logger, resName.String(), conf.LogConfiguration.Level,
+							manager.logger, resName.String(), level,
 						)
 					} else {
 						verb = "reconfiguring"
@@ -965,7 +971,12 @@ func (manager *resourceManager) processResource(
 			return currentRes, false, nil
 		}
 
-		gNode.SetLogLevel(conf.LogConfiguration.Level)
+		level := logging.ERROR
+		if logCfg := conf.LogConfiguration; logCfg != nil {
+			level = logCfg.Level
+		}
+
+		gNode.SetLogLevel(level)
 		err = currentRes.Reconfigure(ctx, deps, conf)
 		if err == nil {
 			return currentRes, false, nil

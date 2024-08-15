@@ -57,7 +57,10 @@
         {
             "name": "gantry1",
             "type": "gantry",
-            "model": "fake"
+            "model": "fake",
+            "log_configuration": {
+                "level": "DEBUG"
+            }
         },
         {
             "name": "generic1",
@@ -255,6 +258,11 @@
             "name": "generic1",
             "type": "generic",
             "model": "fake"
+        }
+    ],
+    "log": [
+        {   "pattern": "*",
+            "level": "ERROR"
         }
     ]
 }

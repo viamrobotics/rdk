@@ -180,7 +180,7 @@ func ComponentConfigFromProto(protoConf *pb.ComponentConfig) (*resource.Config, 
 		Attributes:                attrs,
 		DependsOn:                 protoConf.GetDependsOn(),
 		AssociatedResourceConfigs: serviceConfigs,
-		LogConfiguration:          resource.LogConfig{Level: level},
+		LogConfiguration:          &resource.LogConfig{Level: level},
 	}
 
 	if protoConf.GetFrame() != nil {
@@ -264,7 +264,7 @@ func ServiceConfigFromProto(protoConf *pb.ServiceConfig) (*resource.Config, erro
 		Attributes:                attrs,
 		DependsOn:                 protoConf.GetDependsOn(),
 		AssociatedResourceConfigs: serviceConfigs,
-		LogConfiguration:          resource.LogConfig{Level: level},
+		LogConfiguration:          &resource.LogConfig{Level: level},
 	}
 
 	return &conf, nil

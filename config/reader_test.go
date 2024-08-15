@@ -380,7 +380,7 @@ func TestProcessConfigRegistersLogConfig(t *testing.T) {
 				Name:  "shell1",
 				API:   shell.API,
 				Model: resource.DefaultServiceModel,
-				LogConfiguration: resource.LogConfig{
+				LogConfiguration: &resource.LogConfig{
 					Level: logging.WARN,
 				},
 			},
@@ -390,7 +390,7 @@ func TestProcessConfigRegistersLogConfig(t *testing.T) {
 				Name:  "helper1",
 				API:   shell.API,
 				Model: resource.NewModel("rdk", "test", "helper"),
-				LogConfiguration: resource.LogConfig{
+				LogConfiguration: &resource.LogConfig{
 					Level: logging.DEBUG,
 				},
 			},
