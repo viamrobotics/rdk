@@ -77,7 +77,7 @@ require (
 	github.com/urfave/cli/v2 v2.10.3
 	github.com/viam-labs/go-libjpeg v0.3.1
 	github.com/viamrobotics/evdev v0.1.3
-	github.com/viamrobotics/webrtc/v3 v3.99.5
+	github.com/viamrobotics/webrtc/v3 v3.99.8
 	github.com/xfmoulet/qoi v0.2.0
 	go-hep.org/x/hep v0.32.1
 	go.mongodb.org/mongo-driver v1.11.6
@@ -87,7 +87,7 @@ require (
 	go.uber.org/zap v1.24.0
 	go.viam.com/api v0.1.330
 	go.viam.com/test v1.1.1-0.20220913152726-5da9916c08a2
-	go.viam.com/utils v0.1.92
+	go.viam.com/utils v0.1.94
 	goji.io v2.0.2+incompatible
 	golang.org/x/image v0.15.0
 	golang.org/x/mobile v0.0.0-20240112133503-c713f31d574b
@@ -293,7 +293,7 @@ require (
 	github.com/pion/mdns v0.0.12 // indirect
 	github.com/pion/randutil v0.1.0 // indirect
 	github.com/pion/rtcp v1.2.14 // indirect
-	github.com/pion/sctp v1.8.19 // indirect
+	github.com/pion/sctp v1.8.33 // indirect
 	github.com/pion/sdp/v3 v3.0.9 // indirect
 	github.com/pion/srtp/v2 v2.0.20 // indirect
 	github.com/pion/stun v0.6.1 // indirect
