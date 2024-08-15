@@ -25,7 +25,8 @@ const (
 	validResourceSubTypePattern = validNamespacePattern
 	validModelNamePattern       = validNamespacePattern
 	validTypeSubsectionPattern  = `(` + validResourceTypePattern + `:` + validResourceSubTypePattern + `|remote:)`
-	validResourcePattern        = `^rdk.resource_manager.` + validNamespacePattern + `:` + validTypeSubsectionPattern + `\/` + validModelNamePattern + `$`
+	validResourcePattern        = `^rdk.resource_manager.` + validNamespacePattern + `:` + validTypeSubsectionPattern + `\/` +
+		validModelNamePattern + `$`
 )
 
 var (
