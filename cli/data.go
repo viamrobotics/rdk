@@ -903,6 +903,28 @@ func (c *viamClient) dataRemoveFromDataset(datasetID, orgID, locationID string, 
 	return nil
 }
 
+// DataConfigureDatabaseUserConfirmation is the Before action for 'data database configure'.
+// it asks for the user to confirm that they are aware that they are changing the authentication
+// credentials of their database
+func DataConfigureDatabaseUserConfirmation(c *cli.Context) error {
+	printf(c.App.Writer, "WARNING!!!")
+	printf(c.App.Writer, "Proceed? y/n")
+	if err := c.Err(); err != nil {
+		return err
+	}
+
+	rawInput, err := bufio.NewReader(c.App.Reader).ReadString('\n')
+	if err != nil {
+		return err
+	}
+
+	input := strings.ToUpper(strings.TrimSpace(rawInput))
+	if input != "Y" {
+		return errors.New("not confirmed")
+	}
+	return nil
+}
+
 // DataConfigureDatabaseUser is the corresponding action for 'data database configure'.
 func DataConfigureDatabaseUser(c *cli.Context) error {
 	client, err := newViamClient(c)

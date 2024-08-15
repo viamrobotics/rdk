@@ -1,6 +1,8 @@
 package cli
 
 import (
+	"bufio"
+	"errors"
 	"fmt"
 	"io"
 	"strings"
@@ -544,6 +546,53 @@ var app = &cli.App{
 								},
 							},
 							Action: DataGetDatabaseConnection,
+						},
+					},
+				},
+				{
+					Name:      "nick",
+					Usage:     "do nick stuff",
+					UsageText: createUsageText("data database", nil, true),
+					Subcommands: []*cli.Command{
+						{
+							Name:      "configure",
+							Usage:     "configures a nick",
+							UsageText: createUsageText("data nick configure", []string{generalFlagOrgID, dataFlagDatabasePassword}, false),
+							Flags: []cli.Flag{
+								&cli.StringFlag{
+									Name:     generalFlagOrgID,
+									Usage:    "org ID for the database user being configured",
+									Required: true,
+								},
+								&cli.StringFlag{
+									Name:     dataFlagDatabasePassword,
+									Usage:    "password for the database user being configured",
+									Required: true,
+								},
+							},
+							Before: func(ctx *cli.Context) error {
+								printf(ctx.App.Writer, "WARNING!!!")
+								printf(ctx.App.Writer, "Proceed? y/n")
+								reader := bufio.NewReader(ctx.App.Reader)
+								if err := ctx.Err(); err != nil {
+									return err
+								}
+
+								s, err := reader.ReadString('\n')
+								if err != nil {
+									return err
+								}
+
+								input := strings.ToUpper(strings.TrimSpace(s))
+								if input != "Y" {
+									return errors.New("not confirmed")
+								}
+								return nil
+							},
+							Action: func(ctx *cli.Context) error {
+								printf(ctx.App.Writer, "DO THE THING")
+								return nil
+							},
 						},
 					},
 				},
