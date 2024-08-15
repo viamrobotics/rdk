@@ -489,7 +489,7 @@ func TestDynamicModularComponentLogging(t *testing.T) {
 		Name:  "helper",
 		API:   generic.API,
 		Model: resource.NewModel("rdk", "test", "helper"),
-		LogConfiguration: resource.LogConfig{
+		LogConfiguration: &resource.LogConfig{
 			Level: logging.INFO,
 		},
 	}
@@ -566,7 +566,7 @@ func TestDynamicModularServiceLogging(t *testing.T) {
 		Attributes: utils.AttributeMap{
 			"bar": "baz",
 		},
-		LogConfiguration: resource.LogConfig{Level: logging.INFO},
+		LogConfiguration: &resource.LogConfig{Level: logging.INFO},
 	}
 
 	cfg := &config.Config{

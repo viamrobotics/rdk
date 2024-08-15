@@ -397,7 +397,7 @@ func TestReadTLSFromCache(t *testing.T) {
 
 // TODO(replace with local robot integration test)
 // func TestProcessConfigRegistersLogConfig(t *testing.T) {
-//logger, registry := logging.NewLoggerWithRegistry("rdk") // mimic an "rdk" logger
+// logger, registry := logging.NewLoggerWithRegistry("rdk") // mimic an "rdk" logger
 //unprocessedConfig := Config{
 //ConfigFilePath: "path",
 //LogConfig:      []logging.LoggerPatternConfig{},
@@ -437,30 +437,29 @@ func TestReadTLSFromCache(t *testing.T) {
 //{
 //Pattern: componentLoggerName,
 //Level:   "Error",
-//},
+// },
 //}
 //unprocessedConfig.LogConfig = append(unprocessedConfig.LogConfig, expectedLogConfig...)
 
 // _, err := processConfig(&unprocessedConfig, true, logger)
 
-
 //// Assert registry's config was updated as expected.
 // registry := logger.GetRegistry()
 // test.That(t, registry, test.ShouldNotBeNil)
-//test.That(t, registry.GetCurrentConfig(), test.ShouldResemble, expectedLogConfig)
+// test.That(t, registry.GetCurrentConfig(), test.ShouldResemble, expectedLogConfig)
 
 //// Assert logger levels were updated as expected.
 // serviceLogger, ok := registry.LoggerNamed(serviceLoggerName)
 // test.That(t, ok, test.ShouldBeTrue)
-//test.That(t, serviceLogger.GetLevel().String(), test.ShouldEqual, "Error")
+// test.That(t, serviceLogger.GetLevel().String(), test.ShouldEqual, "Error")
 
 // test.That(t, ok, test.ShouldBeTrue)
-//test.That(t, componentLogger.GetLevel().String(), test.ShouldEqual, "Error")
+
 
 //// Remove logger pattern configs.
 // unprocessedConfig.LogConfig = nil
 // _, err = processConfig(&unprocessedConfig, true, logger)
-//test.That(t, err, test.ShouldBeNil)
+// test.That(t, err, test.ShouldBeNil)
 
 //// Assert registry's config is now empty.
 // test.That(t, registry, test.ShouldNotBeNil)
@@ -469,9 +468,9 @@ func TestReadTLSFromCache(t *testing.T) {
 //// Assert logger levels reset to "Info" default.
 // serviceLogger, ok = registry.LoggerNamed(serviceLoggerName)
 // test.That(t, ok, test.ShouldBeTrue)
-//test.That(t, serviceLogger.GetLevel().String(), test.ShouldEqual, "Info")
+// test.That(t, serviceLogger.GetLevel().String(), test.ShouldEqual, "Info")
 
 // componentLogger, ok = registry.LoggerNamed(componentLoggerName)
 // test.That(t, ok, test.ShouldBeTrue)
-//test.That(t, componentLogger.GetLevel().String(), test.ShouldEqual, "Info")
+// test.That(t, componentLogger.GetLevel().String(), test.ShouldEqual, "Info")
 //}

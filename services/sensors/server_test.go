@@ -32,7 +32,7 @@ func TestServerGetSensors(t *testing.T) {
 		sMap := map[resource.Name]sensors.Service{}
 		server, err := newServer(sMap)
 		test.That(t, err, test.ShouldBeNil)
-		//nolint:staticcheck
+		
 		_, err = server.GetSensors(context.Background(), &pb.GetSensorsRequest{})
 		test.That(t, err, test.ShouldBeError, errors.New("resource \"rdk:service:sensors/\" not found"))
 	})
@@ -49,7 +49,7 @@ func TestServerGetSensors(t *testing.T) {
 			return nil, passedErr
 		}
 
-		//nolint:staticcheck
+		
 		_, err = server.GetSensors(context.Background(), &pb.GetSensorsRequest{Name: testSvcName1.ShortName()})
 		test.That(t, err, test.ShouldBeError, passedErr)
 	})
@@ -72,15 +72,15 @@ func TestServerGetSensors(t *testing.T) {
 		ext, err := protoutils.StructToStructPb(extra)
 		test.That(t, err, test.ShouldBeNil)
 
-		//nolint:staticcheck
+		
 		resp, err := server.GetSensors(context.Background(), &pb.GetSensorsRequest{Name: testSvcName1.ShortName(), Extra: ext})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, extraOptions, test.ShouldResemble, extra)
 
-		//nolint:staticcheck
+		
 		convertedNames := make([]resource.Name, 0, len(resp.SensorNames))
 
-		//nolint:staticcheck
+		
 		for _, rn := range resp.SensorNames {
 			convertedNames = append(convertedNames, rprotoutils.ResourceNameFromProto(rn))
 		}
@@ -94,7 +94,7 @@ func TestServerGetReadings(t *testing.T) {
 		server, err := newServer(sMap)
 		test.That(t, err, test.ShouldBeNil)
 
-		//nolint:staticcheck
+		
 		_, err = server.GetReadings(context.Background(), &pb.GetReadingsRequest{})
 		test.That(t, err, test.ShouldBeError, errors.New("resource \"rdk:service:sensors/\" not found"))
 	})
@@ -113,13 +113,13 @@ func TestServerGetReadings(t *testing.T) {
 			return nil, passedErr
 		}
 
-		//nolint:staticcheck
+		
 		req := &pb.GetReadingsRequest{
 			Name:        testSvcName1.ShortName(),
 			SensorNames: []*commonpb.ResourceName{},
 		}
 
-		//nolint:staticcheck
+		
 		_, err = server.GetReadings(context.Background(), req)
 		test.That(t, err, test.ShouldBeError, passedErr)
 	})
@@ -149,18 +149,18 @@ func TestServerGetReadings(t *testing.T) {
 		ext, err := protoutils.StructToStructPb(extra)
 		test.That(t, err, test.ShouldBeNil)
 
-		//nolint:staticcheck
+		
 		req := &pb.GetReadingsRequest{
 			Name:        testSvcName1.ShortName(),
 			SensorNames: []*commonpb.ResourceName{},
 			Extra:       ext,
 		}
 
-		//nolint:staticcheck
+		
 		resp, err := server.GetReadings(context.Background(), req)
 		test.That(t, err, test.ShouldBeNil)
 
-		//nolint:staticcheck
+		
 		test.That(t, len(resp.Readings), test.ShouldEqual, 2)
 		test.That(t, extraOptions, test.ShouldResemble, extra)
 
@@ -173,10 +173,10 @@ func TestServerGetReadings(t *testing.T) {
 		}
 
 		observed := map[resource.Name]interface{}{
-			//nolint:staticcheck
+			
 			rprotoutils.ResourceNameFromProto(resp.Readings[0].Name): conv(resp.Readings[0].Readings),
 
-			//nolint:staticcheck
+			
 			rprotoutils.ResourceNameFromProto(resp.Readings[1].Name): conv(resp.Readings[1].Readings),
 		}
 		test.That(t, observed, test.ShouldResemble, expected)
@@ -199,7 +199,7 @@ func TestServerDoCommand(t *testing.T) {
 		Command: cmd,
 	}
 
-	//nolint:staticcheck
+	
 	doCommandResponse, err := server.DoCommand(context.Background(), doCommandRequest)
 	test.That(t, err, test.ShouldBeNil)
 

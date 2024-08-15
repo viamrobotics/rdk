@@ -138,6 +138,12 @@ func NewObservedTestLogger(tb testing.TB) (Logger, *observer.ObservedLogs) {
 		testHelper: tb.Helper,
 	}
 
+	// Create these globally-scoped loggers here before actual use,
+	// so that in tests they all use the same test appender
+	logger.Sublogger("rdk.networking")
+	logger.Sublogger("rdk.logging")
+	logger.Sublogger("rdk.config")
+
 	return logger, observedLogs
 }
 

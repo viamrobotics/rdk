@@ -1249,7 +1249,7 @@ func TestConfigRemoteAllowInsecureCreds(t *testing.T) {
 	}, logger)
 
 	gNode := resource.NewUninitializedNode()
-	gNode.InitializeLogger(logger, "remote", logger.GetLevel())
+	gNode.InitializeLogger(logger, "remote")
 	_, err = manager.processRemote(context.Background(), remote, gNode)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "authentication required")

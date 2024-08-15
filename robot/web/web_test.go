@@ -1188,12 +1188,12 @@ func TestRawClientOperation(t *testing.T) {
 	client := robotpb.NewRobotServiceClient(conn)
 
 	var hdr metadata.MD
-	//nolint:staticcheck // the status API is deprecated
+	
 	_, err = client.GetStatus(ctx, &robotpb.GetStatusRequest{}, grpc.Header(&hdr))
 	test.That(t, err, test.ShouldBeNil)
 	checkOpID(hdr, true)
 
-	//nolint:staticcheck // the status API is deprecated
+	
 	streamClient, err := client.StreamStatus(ctx, &robotpb.StreamStatusRequest{})
 	test.That(t, err, test.ShouldBeNil)
 	md, err := streamClient.Header()
@@ -1255,7 +1255,7 @@ func TestInboundMethodTimeout(t *testing.T) {
 			client := robotpb.NewRobotServiceClient(conn)
 
 			// Use GetStatus to call injected status function.
-			//nolint:staticcheck // the status API is deprecated
+			
 			_, err = client.GetStatus(ctx, &robotpb.GetStatusRequest{})
 			test.That(t, err, test.ShouldBeNil)
 
@@ -1291,7 +1291,7 @@ func TestInboundMethodTimeout(t *testing.T) {
 			// Use GetStatus and a context with a deadline to call injected status function.
 			overrideCtx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 			defer cancel()
-			//nolint:staticcheck // the status API is deprecated
+			
 			_, err = client.GetStatus(overrideCtx, &robotpb.GetStatusRequest{})
 			test.That(t, err, test.ShouldBeNil)
 
@@ -1327,7 +1327,7 @@ func TestInboundMethodTimeout(t *testing.T) {
 			client := robotpb.NewRobotServiceClient(conn)
 
 			// Use GetStatus to call injected status function.
-			//nolint:staticcheck // the status API is deprecated
+			
 			_, err = client.GetStatus(ctx, &robotpb.GetStatusRequest{})
 			test.That(t, err, test.ShouldBeNil)
 
@@ -1362,7 +1362,7 @@ func TestInboundMethodTimeout(t *testing.T) {
 			// Use GetStatus and a context with a deadline to call injected status function.
 			overrideCtx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 			defer cancel()
-			//nolint:staticcheck // the status API is deprecated
+			
 			_, err = client.GetStatus(overrideCtx, &robotpb.GetStatusRequest{})
 			test.That(t, err, test.ShouldBeNil)
 

@@ -169,9 +169,8 @@ func (w *GraphNode) TransitionedAt() time.Time {
 }
 
 // InitializeLogger initializes the logger object associated with this resource node.
-func (w *GraphNode) InitializeLogger(parent logging.Logger, subname string, level logging.Level) {
+func (w *GraphNode) InitializeLogger(parent logging.Logger, subname string) {
 	logger := parent.Sublogger(subname)
-	logger.SetLevel(level)
 	w.logger = logger
 }
 

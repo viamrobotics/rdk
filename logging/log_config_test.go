@@ -57,12 +57,12 @@ func TestValidatePattern(t *testing.T) {
 		{"robot_server._.resource_manager", false},
 
 		// Resource pattern matching (valid patterns)
-		{"rdk.rdk:service:encoder/encoder1", true},
-		{"rdk.rdk:component:motor/motor1", true},
-		{"rdk.acme:*:motor/motor1", true},
-		{"rdk.rdk:service:navigation/test-navigation", true},
-		{"rdk.*:*:motor/*", true},
-		{"rdk.rdk:remote:/foo", true},
+		{"rdk.resource_manager.rdk:service:encoder/encoder1", true},
+		{"rdk.resource_manager.rdk:component:motor/motor1", true},
+		{"rdk.resource_manager.acme:*:motor/motor1", true},
+		{"rdk.resource_manager.rdk:service:navigation/test-navigation", true},
+		{"rdk.resource_manager.*:*:motor/*", true},
+		{"rdk.resource_manager.rdk:remote:/foo", true},
 
 		// Resource pattern matching (invalid patterns)
 		{"fake.rdk:service:encoder/encoder1", false},

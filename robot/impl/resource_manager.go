@@ -622,8 +622,10 @@ func (manager *resourceManager) completeConfig(
 					conf := gNode.Config()
 					if gNode.IsUninitialized() {
 						verb = "configuring"
+
 						gNode.InitializeLogger(
-							manager.logger, resName.String(), conf.LogConfiguration.Level)
+							manager.logger, resName.String(),
+						)
 					} else {
 						verb = "reconfiguring"
 					}
@@ -753,7 +755,8 @@ func (manager *resourceManager) completeConfigForRemotes(ctx context.Context, lr
 			}
 			if gNode.IsUninitialized() {
 				gNode.InitializeLogger(
-					manager.logger, fromRemoteNameToRemoteNodeName(remConf.Name).String(), logging.INFO)
+					manager.logger, fromRemoteNameToRemoteNodeName(remConf.Name).String(),
+				)
 			}
 			// this is done in config validation but partial start rules require us to check again
 			if _, err := remConf.Validate(""); err != nil {
@@ -958,7 +961,6 @@ func (manager *resourceManager) processResource(
 			return currentRes, false, nil
 		}
 
-		gNode.SetLogLevel(conf.LogConfiguration.Level)
 		err = currentRes.Reconfigure(ctx, deps, conf)
 		if err == nil {
 			return currentRes, false, nil

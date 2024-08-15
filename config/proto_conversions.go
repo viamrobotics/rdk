@@ -114,6 +114,11 @@ func ComponentConfigToProto(conf *resource.Config) (*pb.ComponentConfig, error) 
 		return nil, errors.Wrap(err, "failed to convert service configs")
 	}
 
+	var logConfig *pb.LogConfiguration
+	if conf.LogConfiguration != nil {
+		logConfig = &pb.LogConfiguration{Level: strings.ToLower(conf.LogConfiguration.Level.String())}
+	}
+
 	protoConf := pb.ComponentConfig{
 		Name:             conf.Name,
 		Namespace:        string(conf.API.Type.Namespace),
@@ -123,7 +128,7 @@ func ComponentConfigToProto(conf *resource.Config) (*pb.ComponentConfig, error) 
 		DependsOn:        conf.DependsOn,
 		ServiceConfigs:   serviceConfigs,
 		Attributes:       attributes,
-		LogConfiguration: &pb.LogConfiguration{Level: strings.ToLower(conf.LogConfiguration.Level.String())},
+		LogConfiguration: logConfig,
 	}
 
 	if conf.Frame != nil {
@@ -164,15 +169,18 @@ func ComponentConfigFromProto(protoConf *pb.ComponentConfig) (*resource.Config, 
 		return nil, err
 	}
 
-	level := logging.INFO
+	var logConfig *resource.LogConfig
 	if protoConf.GetLogConfiguration() != nil {
-		if level, err = logging.LevelFromString(protoConf.GetLogConfiguration().Level); err != nil {
+		level, err := logging.LevelFromString(protoConf.GetLogConfiguration().Level)
+		if err != nil {
 			// Don't fail configuration due to a malformed log level.
 			level = logging.INFO
 			logging.Global().Warnw(
 				"Invalid log level.", "name", protoConf.GetName(), "log_level", protoConf.GetLogConfiguration().Level, "error", err)
 		}
+		logConfig = &resource.LogConfig{Level: level}
 	}
+
 	componentConf := resource.Config{
 		Name:                      protoConf.GetName(),
 		API:                       api,
@@ -180,7 +188,7 @@ func ComponentConfigFromProto(protoConf *pb.ComponentConfig) (*resource.Config, 
 		Attributes:                attrs,
 		DependsOn:                 protoConf.GetDependsOn(),
 		AssociatedResourceConfigs: serviceConfigs,
-		LogConfiguration:          resource.LogConfig{Level: level},
+		LogConfiguration:          logConfig,
 	}
 
 	if protoConf.GetFrame() != nil {
@@ -209,6 +217,11 @@ func ServiceConfigToProto(conf *resource.Config) (*pb.ServiceConfig, error) {
 		return nil, errors.Wrap(err, "failed to convert service configs")
 	}
 
+	var logConfig *pb.LogConfiguration
+	if conf.LogConfiguration != nil {
+		logConfig = &pb.LogConfiguration{Level: strings.ToLower(conf.LogConfiguration.Level.String())}
+	}
+
 	protoConf := pb.ServiceConfig{
 		Name:             conf.Name,
 		Namespace:        string(conf.API.Type.Namespace),
@@ -218,7 +231,7 @@ func ServiceConfigToProto(conf *resource.Config) (*pb.ServiceConfig, error) {
 		Attributes:       attributes,
 		DependsOn:        conf.DependsOn,
 		ServiceConfigs:   serviceConfigs,
-		LogConfiguration: &pb.LogConfiguration{Level: strings.ToLower(conf.LogConfiguration.Level.String())},
+		LogConfiguration: logConfig,
 	}
 
 	return &protoConf, nil
@@ -247,14 +260,16 @@ func ServiceConfigFromProto(protoConf *pb.ServiceConfig) (*resource.Config, erro
 		return nil, err
 	}
 
-	level := logging.INFO
+	var logConfig *resource.LogConfig
 	if protoConf.GetLogConfiguration() != nil {
-		if level, err = logging.LevelFromString(protoConf.GetLogConfiguration().Level); err != nil {
+		level, err := logging.LevelFromString(protoConf.GetLogConfiguration().Level)
+		if err != nil {
 			// Don't fail configuration due to a malformed log level.
 			level = logging.INFO
 			logging.Global().Warnw(
 				"Invalid log level.", "name", protoConf.GetName(), "log_level", protoConf.GetLogConfiguration().Level, "error", err)
 		}
+		logConfig = &resource.LogConfig{Level: level}
 	}
 
 	conf := resource.Config{
@@ -264,7 +279,7 @@ func ServiceConfigFromProto(protoConf *pb.ServiceConfig) (*resource.Config, erro
 		Attributes:                attrs,
 		DependsOn:                 protoConf.GetDependsOn(),
 		AssociatedResourceConfigs: serviceConfigs,
-		LogConfiguration:          resource.LogConfig{Level: level},
+		LogConfiguration:          logConfig,
 	}
 
 	return &conf, nil

@@ -90,7 +90,7 @@ func DiffConfigs(left, right Config, revealSensitiveConfigDiffs bool) (_ *Diff, 
 	networkDifferent := diffNetworkingCfg(&left, &right)
 	diff.NetworkEqual = !networkDifferent
 
-	logDifferent := diffLogCfg(&left, &right)
+	logDifferent := diffLogCfg(&left, &right, servicesDifferent, componentsDifferent)
 	diff.LogEqual = !logDifferent
 
 	return &diff, nil
@@ -518,7 +518,15 @@ func diffModule(left, right Module, diff *Diff) bool {
 	return true
 }
 
-// diffLogCfg returns true if any part of the log config is different.
-func diffLogCfg(left, right *Config) bool {
-	return !reflect.DeepEqual(left.LogConfig, right.LogConfig)
+// diffLogCfg returns true if any part of the log config is different or if any
+// services or components have been updated.
+func diffLogCfg(left, right *Config, servicesDifferent, componentsDifferent bool) bool {
+	if !reflect.DeepEqual(left.LogConfig, right.LogConfig) {
+		return true
+	}
+	// If there was any change in services or components; attempt to update logger levels.
+	if servicesDifferent || componentsDifferent {
+		return true
+	}
+	return false
 }
