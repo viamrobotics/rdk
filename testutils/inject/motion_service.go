@@ -3,7 +3,6 @@ package inject
 import (
 	"context"
 
-	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/motion"
@@ -16,11 +15,7 @@ type MotionService struct {
 	name     resource.Name
 	MoveFunc func(
 		ctx context.Context,
-		componentName resource.Name,
-		grabPose *referenceframe.PoseInFrame,
-		worldState *referenceframe.WorldState,
-		constraints *motionplan.Constraints,
-		extra map[string]interface{},
+		req motion.MoveReq,
 	) (bool, error)
 	MoveOnMapFunc func(
 		ctx context.Context,
@@ -65,18 +60,11 @@ func (mgs *MotionService) Name() resource.Name {
 }
 
 // Move calls the injected Move or the real variant.
-func (mgs *MotionService) Move(
-	ctx context.Context,
-	componentName resource.Name,
-	destination *referenceframe.PoseInFrame,
-	worldState *referenceframe.WorldState,
-	constraints *motionplan.Constraints,
-	extra map[string]interface{},
-) (bool, error) {
+func (mgs *MotionService) Move(ctx context.Context, req motion.MoveReq) (bool, error) {
 	if mgs.MoveFunc == nil {
-		return mgs.Service.Move(ctx, componentName, destination, worldState, constraints, extra)
+		return mgs.Service.Move(ctx, req)
 	}
-	return mgs.MoveFunc(ctx, componentName, destination, worldState, constraints, extra)
+	return mgs.MoveFunc(ctx, req)
 }
 
 // MoveOnMap calls the injected MoveOnMap or the real variant.

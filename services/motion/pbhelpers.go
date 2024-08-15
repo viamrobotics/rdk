@@ -11,7 +11,9 @@ import (
 	vprotoutils "go.viam.com/utils/protoutils"
 
 	"go.viam.com/rdk/motionplan"
+	"go.viam.com/rdk/protoutils"
 	rprotoutils "go.viam.com/rdk/protoutils"
+	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
 )
 
@@ -150,6 +152,40 @@ func planStateFromProto(ps pb.PlanState) PlanState {
 	default:
 		return PlanStateUnspecified
 	}
+}
+
+// toProto converts a MoveRequest to a *pb.MoveRequest.
+func (r MoveReq) toProto(name string) (*pb.MoveRequest, error) {
+	ext, err := vprotoutils.StructToStructPb(r.Extra)
+	if err != nil {
+		return nil, err
+	}
+	worldStateMsg, err := r.WorldState.ToProtobuf()
+	if err != nil {
+		return nil, err
+	}
+	return &pb.MoveRequest{
+		Name:          name,
+		ComponentName: protoutils.ResourceNameToProto(r.ComponentName),
+		Destination:   referenceframe.PoseInFrameToProtobuf(&r.Destination),
+		WorldState:    worldStateMsg,
+		Constraints:   r.Constraints.ToProtobuf(),
+		Extra:         ext,
+	}, nil
+}
+
+func moveReqFromProto(req *pb.MoveRequest) (MoveReq, error) {
+	worldState, err := referenceframe.WorldStateFromProtobuf(req.GetWorldState())
+	if err != nil {
+		return MoveReq{}, err
+	}
+	return MoveReq{
+		protoutils.ResourceNameFromProto(req.GetComponentName()),
+		*referenceframe.ProtobufToPoseInFrame(req.GetDestination()),
+		*worldState,
+		*motionplan.ConstraintsFromProtobuf(req.GetConstraints()),
+		req.Extra.AsMap(),
+	}, nil
 }
 
 // toProto converts a MoveOnGlobeRequest to a *pb.MoveOnGlobeRequest.

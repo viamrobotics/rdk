@@ -170,25 +170,13 @@ func (ms *builtIn) Close(ctx context.Context) error {
 	return nil
 }
 
-// Move takes a goal location and will plan and execute a movement to move a component specified by its name to that destination.
-func (ms *builtIn) Move(
-	ctx context.Context,
-	componentName resource.Name,
-	destination *referenceframe.PoseInFrame,
-	worldState *referenceframe.WorldState,
-	constraints *motionplan.Constraints,
-	extra map[string]interface{},
-) (bool, error) {
+func (ms *builtIn) Move(ctx context.Context, req motion.MoveReq) (bool, error) {
 	ms.mu.RLock()
 	defer ms.mu.RUnlock()
 
 	operation.CancelOtherWithLabel(ctx, builtinOpLabel)
 
-	// get goal frame
-	goalFrameName := destination.Parent()
-	ms.logger.CDebugf(ctx, "goal given in frame of %q", goalFrameName)
-
-	frameSys, err := ms.fsService.FrameSystem(ctx, worldState.Transforms())
+	frameSys, err := ms.fsService.FrameSystem(ctx, req.WorldState.Transforms())
 	if err != nil {
 		return false, err
 	}
@@ -198,17 +186,16 @@ func (ms *builtIn) Move(
 	if err != nil {
 		return false, err
 	}
-
-	movingFrame := frameSys.Frame(componentName.ShortName())
-
 	ms.logger.CDebugf(ctx, "frame system inputs: %v", fsInputs)
+
+	movingFrame := frameSys.Frame(req.ComponentName.ShortName())
 	if movingFrame == nil {
-		return false, fmt.Errorf("component named %s not found in robot frame system", componentName.ShortName())
+		return false, fmt.Errorf("component named %s not found in robot frame system", req.ComponentName.ShortName())
 	}
 
 	// re-evaluate goalPose to be in the frame of World
 	solvingFrame := referenceframe.World // TODO(erh): this should really be the parent of rootName
-	tf, err := frameSys.Transform(fsInputs, destination, solvingFrame)
+	tf, err := frameSys.Transform(fsInputs, &req.Destination, solvingFrame)
 	if err != nil {
 		return false, err
 	}
@@ -221,9 +208,9 @@ func (ms *builtIn) Move(
 		Frame:              movingFrame,
 		StartConfiguration: fsInputs,
 		FrameSystem:        frameSys,
-		WorldState:         worldState,
-		Constraints:        constraints,
-		Options:            extra,
+		WorldState:         &req.WorldState,
+		Constraints:        &req.Constraints,
+		Options:            req.Extra,
 	})
 	if err != nil {
 		return false, err
@@ -391,4 +378,14 @@ func (ms *builtIn) PlanHistory(
 	ms.mu.RLock()
 	defer ms.mu.RUnlock()
 	return ms.state.PlanHistory(req)
+}
+
+func (ms *builtIn) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	moveReq, ok := cmd["Plan"]
+	if ok {
+		// call plan 
+	}
+	if plan, ok := cmd["Execute"]; ok {
+		// call execute
+	}
 }
