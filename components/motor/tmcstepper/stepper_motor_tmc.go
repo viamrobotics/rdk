@@ -6,6 +6,7 @@ package tmcstepper
 import (
 	"context"
 	"math"
+	"sync"
 	"time"
 
 	"github.com/pkg/errors"
@@ -103,6 +104,21 @@ const (
 	baseClk = 13200000 // Nominal 13.2mhz internal clock speed
 	uSteps  = 256      // Microsteps per fullstep
 )
+
+// SNEAKY TRICK ALERT! The TMC5072 always returns the value of the register read/written *last*
+// time, not the current time. This is intended to let you pipeline commands, where you tell it to
+// read a register, then you tell it to write a register, and you get the value of the first
+// register while simultaneously writing an update to the second one. For an example, see the top
+// of page 18 of
+// https://www.analog.com/media/en/technical-documentation/data-sheets/TMC5072_datasheet_rev1.26.pdf
+// In order to read values in a non-pipelined manner, though, you need to request the read twice
+// (the first response will contain the value read/written last time, and the second response has
+// the value you care about). but that means we need to be able to send two commands atomically: if
+// we send the first read, then a second component controlling the other motor sends some other
+// command, and then we send our second read, we're going to get back whatever the second component
+// was doing! So, we need a global mutex to work across multiple components that might all try
+// talking to the same chip at the same time, to ensure that our reads are indeed atomic.
+var globalMu sync.Mutex
 
 // TMC5072 Register Addressses (for motor index 1)
 // TODO full register set.
@@ -325,7 +341,12 @@ func (m *Motor) writeReg(ctx context.Context, addr uint8, value int32) error {
 		}
 	}()
 
-	m.logger.Debug("Write: ", buf)
+	m.logger.Debugf("Write to 0x%x: %v", addr, buf[1:])
+
+	// Ensure we're not writing in the middle of another component attempting to read (which would
+	// otherwise be non-atomic).
+	globalMu.Lock()
+	defer globalMu.Unlock()
 
 	_, err = handle.Xfer(ctx, 1000000, m.csPin, 3, buf[:]) // SPI Mode 3, 1mhz
 	if err != nil {
@@ -351,9 +372,12 @@ func (m *Motor) readReg(ctx context.Context, addr uint8) (int32, error) {
 		}
 	}()
 
-	// m.logger.Debug("ReadT: ", tbuf)
+	// Read access returns data from the address sent in the PREVIOUS "packet," so we transmit,
+	// then read. Ensure that another component can't interact with the chip in between our two
+	// commands.
+	globalMu.Lock()
+	defer globalMu.Unlock()
 
-	// Read access returns data from the address sent in the PREVIOUS "packet," so we transmit, then read
 	_, err = handle.Xfer(ctx, 1000000, m.csPin, 3, tbuf[:]) // SPI Mode 3, 1mhz
 	if err != nil {
 		return 0, err
@@ -373,8 +397,7 @@ func (m *Motor) readReg(ctx context.Context, addr uint8) (int32, error) {
 	value <<= 8
 	value |= int32(rbuf[4])
 
-	m.logger.Debug("ReadR: ", rbuf)
-	m.logger.Debug("Read: ", value)
+	m.logger.Debugf("Read from 0x%x: %d (%v)", addr, value, rbuf[1:])
 
 	return value, nil
 }
