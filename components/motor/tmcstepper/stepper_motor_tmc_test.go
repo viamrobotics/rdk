@@ -88,7 +88,7 @@ func TestRPMBounds(t *testing.T) {
 		// Filter out the debug logs that just indicate what we sent/received on the SPI bus.
 		for _, lineVal := range obs.All() {
 			line := fmt.Sprint(lineVal)
-			if strings.HasPrefix(line, "Read from ") || strings.HasPrefix(line, "Write to ") {
+			if strings.Contains(line, "Read from ") || strings.Contains(line, "Write to ") {
 				continue
 			}
 			lastLine = line
