@@ -16,7 +16,7 @@ import (
 	spatial "go.viam.com/rdk/spatialmath"
 )
 
-var defaultMinStepCount = 3
+var defaultMinStepCount = 2
 
 // Given a constraint input with only frames and input positions, calculates the corresponding poses as needed.
 func resolveSegmentsToPositions(segment *ik.Segment) error {
