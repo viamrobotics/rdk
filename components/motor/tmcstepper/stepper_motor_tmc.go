@@ -325,7 +325,7 @@ func (m *Motor) writeReg(ctx context.Context, addr uint8, value int32) error {
 		}
 	}()
 
-	// m.logger.Debug("Write: ", buf)
+	m.logger.Debug("Write: ", buf)
 
 	_, err = handle.Xfer(ctx, 1000000, m.csPin, 3, buf[:]) // SPI Mode 3, 1mhz
 	if err != nil {
@@ -373,8 +373,8 @@ func (m *Motor) readReg(ctx context.Context, addr uint8) (int32, error) {
 	value <<= 8
 	value |= int32(rbuf[4])
 
-	// m.logger.Debug("ReadR: ", rbuf)
-	// m.logger.Debug("Read: ", value)
+	m.logger.Debug("ReadR: ", rbuf)
+	m.logger.Debug("Read: ", value)
 
 	return value, nil
 }
