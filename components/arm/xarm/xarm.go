@@ -3,7 +3,6 @@ package xarm
 
 import (
 	"context"
-
 	// for embedding model file.
 	_ "embed"
 	"fmt"
@@ -38,12 +37,12 @@ func (cfg *Config) Validate(path string) ([]string, error) {
 }
 
 const (
-	defaultSpeed  = 50. // degrees per second
+	defaultSpeed  = 50.  // degrees per second
 	defaultAccel  = 100. // degrees per second per second
 	defaultPort   = "502"
 	defaultMoveHz = 100. // Don't change this
-	
-	interwaypointAccel  = 600. // degrees per second per second. All xarms max out at 1145
+
+	interwaypointAccel = 600. // degrees per second per second. All xarms max out at 1145
 )
 
 type xArm struct {
@@ -57,9 +56,9 @@ type xArm struct {
 	opMgr    *operation.SingleOperationManager
 	logger   logging.Logger
 
-	mu    sync.RWMutex
-	conn  net.Conn
-	speed float64 // speed=max joint radians per second
+	mu           sync.RWMutex
+	conn         net.Conn
+	speed        float64 // speed=max joint radians per second
 	acceleration float64 // acceleration= joint radians per second increase per second
 }
 
@@ -200,9 +199,6 @@ func (x *xArm) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error
 }
 
 func (x *xArm) GoToInputs(ctx context.Context, inputSteps ...[]referenceframe.Input) error {
-	for _, goal := range inputSteps {
-		fmt.Println("step", goal)
-	}
 	for _, goal := range inputSteps {
 		// check that joint positions are not out of bounds
 		if err := arm.CheckDesiredJointPositions(ctx, x, goal); err != nil {

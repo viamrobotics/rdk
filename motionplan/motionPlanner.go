@@ -392,6 +392,12 @@ IK:
 						// good solution, stopping early
 						break IK
 					}
+					// ~ // Check if this is too close to an already-found solution
+					// ~ for _, oldstep := range solutions {
+					//~ if frame.InputsL2Distance(step, oldstep) < defaultEpsilon {
+					//~ continue IK
+					//~ }
+					//~ }
 
 					solutions[score] = step
 					if len(solutions) >= nSolutions {

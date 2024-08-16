@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/binary"
 	"errors"
-	"fmt"
 	"math"
 	"time"
 
@@ -155,7 +154,6 @@ func (x *xArm) send(ctx context.Context, c cmd, checkError bool) (cmd, error) {
 	if err != nil {
 		return cmd{}, err
 	}
-	fmt.Println(c2.params[0])
 	if checkError {
 		state := c2.params[0]
 		if state&96 != 0 {
@@ -217,7 +215,6 @@ func (x *xArm) CheckServoErrors(ctx context.Context) error {
 }
 
 func (x *xArm) clearErrorAndWarning(ctx context.Context) error {
-	return nil
 	c1 := x.newCmd(regMap["ClearError"])
 	c2 := x.newCmd(regMap["ClearWarn"])
 	_, err1 := x.send(ctx, c1, false)
@@ -236,19 +233,11 @@ func (x *xArm) readError(ctx context.Context) error {
 	if len(e.params) < 3 {
 		return errors.New("bad arm error query response")
 	}
-	fmt.Println("err code, warn code", e.params)
 
 	errCode := e.params[1]
 	warnCode := e.params[2]
 	errMsg, isErr := armBoxErrorMap[errCode]
 	warnMsg, isWarn := armBoxWarnMap[warnCode]
-	if errCode == 60 {
-		// WTF is error code 60 (0x3c)
-		// It is not in the xarm documentation
-		// but it keeps breaking my demo
-		fmt.Println("error code 60")
-		//~ return nil
-	}
 	if isErr || isWarn {
 		return multierr.Combine(errors.New(errMsg),
 			errors.New(warnMsg))
@@ -380,18 +369,18 @@ func (x *xArm) createRawJointSteps(startInputs []referenceframe.Input, inputStep
 	x.mu.RUnlock()
 	// Generate list of joint positions to pass through
 	// This is almost-calculus but not quite because it's explicitly discretized
-	accelStep := acceleration/float64(moveHZ)
-	interwaypointAccelStep := interwaypointAccel/float64(moveHZ)
-	
+	accelStep := acceleration / moveHZ
+	interwaypointAccelStep := interwaypointAccel / moveHZ
+
 	from := referenceframe.InputsToFloats(startInputs)
-	
+
 	// We want smooth acceleration/motion but there's no guarantee the provided inputs have continuous velocity signs
 	floatDiffs := func(from, to []float64) (float64, int, []float64) {
 		max := 0.
 		maxI := 0
 		diffs := []float64{}
 		for i, toInput := range to {
-			diffs = append(diffs, toInput - from[i])
+			diffs = append(diffs, toInput-from[i])
 			diff := math.Abs(diffs[i])
 			if diff > max {
 				max = diff
@@ -401,11 +390,10 @@ func (x *xArm) createRawJointSteps(startInputs []referenceframe.Input, inputStep
 		return max, maxI, diffs
 	}
 
-	
 	// Preprocess steps into step counts
 	stepTotal := 0.
 	displacementTotal := 0.
-	
+
 	for _, toInputs := range inputSteps {
 		to := referenceframe.InputsToFloats(toInputs)
 		max, _, _ := floatDiffs(from, to)
@@ -414,45 +402,33 @@ func (x *xArm) createRawJointSteps(startInputs []referenceframe.Input, inputStep
 		stepTotal += nSteps
 		from = to
 	}
-	
+
 	nominalAccelSteps := int((speed / acceleration) * moveHZ) // This many steps to accelerate, and the same to decelerate
-	fmt.Println("speed", speed)
-	fmt.Println("displacementTotal", displacementTotal)
-	fmt.Println("initial stepTotal", stepTotal)
-	fmt.Println("initial nominalAccelSteps", nominalAccelSteps)
-	if float64(nominalAccelSteps) > stepTotal * 0.95 {
+	if float64(nominalAccelSteps) > stepTotal*0.95 {
 		nominalAccelSteps = int(0.95 * math.Sqrt(displacementTotal/acceleration) * moveHZ)
 	}
-	maxVel := (float64(nominalAccelSteps)/moveHZ) * acceleration
-	
-	fmt.Println("nominalAccelSteps", nominalAccelSteps)
-	fmt.Println("startInputs", startInputs)
-	fmt.Println("len(inputSteps)", len(inputSteps))
-	
+	maxVel := (float64(nominalAccelSteps) / moveHZ) * acceleration
+
 	inputStepsReversed := [][]referenceframe.Input{}
-	for i := len(inputSteps)-1; i >= 0; i-- {
+	for i := len(inputSteps) - 1; i >= 0; i-- {
 		inputStepsReversed = append(inputStepsReversed, inputSteps[i])
 	}
 	inputStepsReversed = append(inputStepsReversed, startInputs)
-	fmt.Println("inputStepsReversed", inputStepsReversed)
-	
+
 	accelCurve := func(
 		startInputs []referenceframe.Input,
 		allInputSteps [][]referenceframe.Input,
 		stopVel float64,
 	) (int, [][]float64, error) {
-		fmt.Println("stopVel", stopVel)
 		currSpeed := accelStep
 		steps := [][]float64{}
 		from = referenceframe.InputsToFloats(startInputs)
 		lastInputs := startInputs
 		for i, toInputs := range allInputSteps {
-			//~ fmt.Println("toInputs", toInputs)
 			to := referenceframe.InputsToFloats(toInputs)
 			runningFrom := from
-			//~ fmt.Println(floatDiffs(runningFrom, to))
 
-			for currDiff, _, _ := floatDiffs(runningFrom, to); currDiff > 1e-6; currDiff, _, _ = floatDiffs(runningFrom, to){
+			for currDiff, _, _ := floatDiffs(runningFrom, to); currDiff > 1e-6; currDiff, _, _ = floatDiffs(runningFrom, to) {
 				if currSpeed <= 0 {
 					break
 				}
@@ -464,18 +440,18 @@ func (x *xArm) createRawJointSteps(startInputs []referenceframe.Input, inputStep
 					}
 					stepSize = nSteps
 				}
-				//~ fmt.Println("currDiff", currDiff)
-				//~ fmt.Println(len(steps), "currSpeed", currSpeed)
+				// ~ fmt.Println("currDiff", currDiff)
+				// ~ fmt.Println(len(steps), "currSpeed", currSpeed)
 				nextInputs, err := x.model.Interpolate(lastInputs, toInputs, stepSize/nSteps)
 				if err != nil {
 					return 0, nil, err
 				}
 				runningFrom = referenceframe.InputsToFloats(nextInputs)
 				steps = append(steps, referenceframe.InputsToFloats(nextInputs))
-				//~ fmt.Println("nextInputs", nextInputs)
-				
+				// ~ fmt.Println("nextInputs", nextInputs)
+
 				if currSpeed < speed {
-					//~ fmt.Println("accelerating")
+					// ~ fmt.Println("accelerating")
 					currSpeed += accelStep * stepSize
 					if currSpeed > speed {
 						currSpeed = speed
@@ -484,11 +460,11 @@ func (x *xArm) createRawJointSteps(startInputs []referenceframe.Input, inputStep
 					// If we reach max speed, accelerate at max for the remainder of the move
 					accelStep = interwaypointAccelStep
 				}
-				
-				if currSpeed >= stopVel - 1e-6 {
+
+				if currSpeed >= stopVel-1e-6 {
 					return i, steps, nil
 				}
-				
+
 				lastInputs = nextInputs
 			}
 			lastInputs = toInputs
@@ -496,16 +472,12 @@ func (x *xArm) createRawJointSteps(startInputs []referenceframe.Input, inputStep
 		}
 		return len(allInputSteps), steps, nil
 	}
-	
+
 	decelStart, decelSteps, err := accelCurve(inputStepsReversed[0], inputStepsReversed, maxVel)
-	fmt.Println("got decel", decelSteps)
-	fmt.Println("decelStart", decelStart)
 	if err != nil {
-		fmt.Println("errD", err)
 		return nil, err
 	}
 	accelStop := len(inputSteps) - decelStart
-	fmt.Println("accelStop", accelStop)
 	accelInputSteps := [][]referenceframe.Input{}
 	for i, inputStep := range inputSteps {
 		if i == accelStop {
@@ -514,19 +486,14 @@ func (x *xArm) createRawJointSteps(startInputs []referenceframe.Input, inputStep
 		}
 		accelInputSteps = append(accelInputSteps, inputStep)
 	}
-	fmt.Println("startInputs", startInputs)
-	fmt.Println("accelInputSteps", accelInputSteps)
 	_, accelSteps, err := accelCurve(startInputs, accelInputSteps, math.Inf(1))
-	//~ fmt.Println("got accel", accelSteps)
 	if err != nil {
-		fmt.Println("err", err)
 		return nil, err
 	}
 	for i := len(decelSteps) - 2; i >= 0; i-- {
 		accelSteps = append(accelSteps, decelSteps[i])
 	}
-	
-	fmt.Println("len steps", len(accelSteps))
+
 	return accelSteps, nil
 }
 
@@ -539,7 +506,6 @@ func (x *xArm) executeInputs(ctx context.Context, rawSteps [][]float64) error {
 
 	// convenience for structuring and sending individual joint steps
 	for _, step := range rawSteps {
-		fmt.Println("move step", step)
 		c := x.newCmd(regMap["MoveJoints"])
 		jFloatBytes := make([]byte, 4)
 		for _, jRad := range step {
@@ -556,11 +522,9 @@ func (x *xArm) executeInputs(ctx context.Context, rawSteps [][]float64) error {
 		c.params = append(c.params, 0, 0, 0, 0)
 		_, err := x.send(ctx, c, true)
 		if err != nil {
-			fmt.Println("send err", err)
 			return err
 		}
 		if !utils.SelectContextOrWait(ctx, time.Duration(1000000./x.moveHZ)*time.Microsecond) {
-			fmt.Println("ctx err", ctx.Err())
 			return ctx.Err()
 		}
 	}
@@ -677,14 +641,13 @@ func (x *xArm) setGripperPosition(ctx context.Context, position uint32) error {
 
 func (x *xArm) getLoad(ctx context.Context) (map[string]interface{}, error) {
 	c := x.newCmd(regMap["CurrentTorque"])
-	//~ c.params = append(c.params, 0x01)
+	// ~ c.params = append(c.params, 0x01)
 	loadData, err := x.send(ctx, c, true)
 	var loads []float64
 	for i := 0; i < x.dof; i++ {
 		idx := i*4 + 1
 		loads = append(loads, float64(rutils.Float32FromBytesLE((loadData.params[idx : idx+4]))))
 	}
-	fmt.Println(loads)
-	
-	return map[string]interface{}{"load":loads}, err
+
+	return map[string]interface{}{"load": loads}, err
 }

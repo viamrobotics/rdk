@@ -233,7 +233,6 @@ func (ms *builtIn) Move(
 	// Batch GoToInputs calls if possible; components may want to blend between inputs
 	combinedSteps := []map[string][][]referenceframe.Input{}
 	currStep := map[string][][]referenceframe.Input{}
-	//~ fmt.Println("traj", plan.Trajectory())
 	for i, step := range plan.Trajectory() {
 		if i == 0 {
 			for name, inputs := range step {
@@ -274,9 +273,8 @@ func (ms *builtIn) Move(
 		}
 	}
 	combinedSteps = append(combinedSteps, currStep)
-	
+
 	for _, step := range combinedSteps {
-		fmt.Println("step", step)
 		for name, inputs := range step {
 			if len(inputs) == 0 {
 				continue
