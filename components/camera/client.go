@@ -8,7 +8,6 @@ import (
 	"image"
 	"io"
 	"os"
-	"runtime/debug"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -37,16 +36,6 @@ import (
 	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/utils"
 )
-
-var (
-	red   = "\033[31m"
-	reset = "\033[0m"
-)
-
-// this helps make the test case much easier to read.
-func (c *client) redLog(msg string) {
-	c.logger.Warn(red + msg + reset)
-}
 
 var (
 	// ErrNoPeerConnection indicates there was no peer connection.
@@ -97,7 +86,6 @@ func NewClientFromConn(
 	streamClient := streampb.NewStreamServiceClient(conn)
 	trackClosed := make(chan struct{})
 	close(trackClosed)
-	logger.SetLevel(logging.DEBUG)
 	return &client{
 		remoteName:     remoteName,
 		Named:          name.PrependRemote(remoteName).AsNamed(),
@@ -370,11 +358,6 @@ func (c *client) Close(ctx context.Context) error {
 	_, span := trace.StartSpan(ctx, "camera::client::Close")
 	defer span.End()
 
-	c.logger.Warn("Close START")
-	defer c.logger.Warn("Close END")
-
-	debug.PrintStack()
-
 	c.healthyClientChMu.Lock()
 	if c.healthyClientCh != nil {
 		close(c.healthyClientCh)
@@ -383,7 +366,6 @@ func (c *client) Close(ctx context.Context) error {
 	c.healthyClientChMu.Unlock()
 
 	// unsubscribe from all video streams that have been established with modular cameras
-
 	c.unsubscribeAll()
 
 	// NOTE: (Nick S) we are intentionally releasing the lock before we wait for
@@ -415,8 +397,6 @@ func (c *client) SubscribeRTP(
 ) (rtppassthrough.Subscription, error) {
 	ctx, span := trace.StartSpan(ctx, "camera::client::SubscribeRTP")
 	defer span.End()
-	c.redLog(fmt.Sprintf("SubscribeRTP START %s client: %p, pc: %p", c.Name().String(), c, c.conn.PeerConn()))
-	defer c.redLog(fmt.Sprintf("SubscribeRTP END %s client: %p, pc: %p", c.Name().String(), c, c.conn.PeerConn()))
 	// RSDK-6340: The resource manager closes remote resources when the underlying
 	// connection goes bad. However, when the connection is re-established, the client
 	// objects these resources represent are not re-initialized/marked "healthy".
@@ -450,7 +430,7 @@ func (c *client) SubscribeRTP(
 		return sub, err
 	}
 	g := utils.NewGuard(func() {
-		c.logger.Info("Error subscribing to RTP. Closing passthrough buffer.")
+		c.logger.CInfo(ctx, "Error subscribing to RTP. Closing passthrough buffer.")
 		rtpPacketBuffer.Close()
 	})
 	defer g.OnFail()
@@ -471,7 +451,7 @@ func (c *client) SubscribeRTP(
 	// for which video stream. The `grpc.Tracker` API is for manipulating that map.
 	tracker, ok := c.conn.(grpc.Tracker)
 	if !ok {
-		c.logger.Errorw("Client conn is not a `Tracker`", "connType", fmt.Sprintf("%T", c.conn))
+		c.logger.CErrorw(ctx, "Client conn is not a `Tracker`", "connType", fmt.Sprintf("%T", c.conn))
 		return rtppassthrough.NilSubscription, ErrNoSharedPeerConnection
 	}
 
@@ -491,6 +471,8 @@ func (c *client) SubscribeRTP(
 	//    the same camera when the remote receives `RemoveStream`, it wouldn't know which to stop
 	//    sending data for.
 	if len(c.runningStreams) == 0 {
+		c.logger.CInfow(ctx, "SubscribeRTP is creating a video track",
+			"client", fmt.Sprintf("%p", c), "peerConnection", fmt.Sprintf("%p", c.conn.PeerConn()))
 		// A previous subscriber/track may have exited, but its resources have not necessarily been
 		// cleaned up. We must wait for that to complete. We additionally select on other error
 		// conditions.
@@ -517,7 +499,6 @@ func (c *client) SubscribeRTP(
 		// Remove the OnTrackSub once we either fail or succeed.
 		defer tracker.RemoveOnTrackSub(c.trackName())
 
-		c.redLog(fmt.Sprintf("SubscribeRTP AddStream CALL %s client: %p, pc: %p", c.trackName(), c, c.conn.PeerConn()))
 		// Call `AddStream` on the remote. In the successful case, this will result in a
 		// PeerConnection renegotiation to add this camera's video track and have the `OnTrack`
 		// callback invoked.
@@ -525,7 +506,6 @@ func (c *client) SubscribeRTP(
 			c.logger.CDebugw(ctx, "SubscribeRTP AddStream hit error", "subID", sub.ID.String(), "trackName", c.trackName(), "err", err)
 			return rtppassthrough.NilSubscription, err
 		}
-		c.redLog(fmt.Sprintf("SubscribeRTP AddStream RETURN %s client: %p, pc: %p", c.trackName(), c, c.conn.PeerConn()))
 
 		// TODO: Test this by adding a sleep before packets are sent. Does anything call `RemoveStream`?
 		//
@@ -537,14 +517,14 @@ func (c *client) SubscribeRTP(
 
 		// To prevent that failure mode, we exit with an error if a track is not received within
 		// the SubscribeRTP context.
-		c.redLog(fmt.Sprintf("SubscribeRTP waiting for track %s client: %p, pc: %p", c.trackName(), c, c.conn.PeerConn()))
+		c.logger.CDebugw(ctx, "SubscribeRTP waiting for track", "client", fmt.Sprintf("%p", c), "pc", fmt.Sprintf("%p", c.conn.PeerConn()))
 		select {
 		case <-ctx.Done():
 			return rtppassthrough.NilSubscription, fmt.Errorf("Track not received within SubscribeRTP provided context %w", ctx.Err())
 		case <-healthyClientCh:
 			return rtppassthrough.NilSubscription, errors.New("Track not received before client closed")
 		case <-trackReceived:
-			c.redLog(fmt.Sprintf("received track %s client: %p, pc: %p", c.trackName(), c, c.conn.PeerConn()))
+			c.logger.CDebugw(ctx, "SubscribeRTP received track data", "client", fmt.Sprintf("%p", c), "pc", fmt.Sprintf("%p", c.conn.PeerConn()))
 		}
 
 		// Set up channel to detect when the track has closed. This can happen in response to an
@@ -750,14 +730,14 @@ func (c *client) unsubscribeAll() {
 func (c *client) unsubscribeChildrenSubs(generationId int) {
 	c.rtpPassthroughMu.Lock()
 	defer c.rtpPassthroughMu.Unlock()
-	c.logger.Debugw("client unsubscribeChildrenSubs called", "name", c.Name(), "generationId", generationId, "numSubs", len(c.associatedSubs))
-	defer c.logger.Debugw("client unsubscribeChildrenSubs done", "name", c.Name(), "generationId", generationId)
+	c.logger.Debugw("client unsubscribeChildrenSubs called", "generationId", generationId, "numSubs", len(c.associatedSubs))
+	defer c.logger.Debugw("client unsubscribeChildrenSubs done", "generationId", generationId)
 	for _, subId := range c.associatedSubs[generationId] {
 		bufAndCB, ok := c.runningStreams[subId]
 		if !ok {
 			continue
 		}
-		c.logger.Debugw("stopping subscription", "name", c.Name(), "generationId", generationId, "subId", subId.String())
+		c.logger.Debugw("stopping subscription", "generationId", generationId, "subId", subId.String())
 		delete(c.runningStreams, subId)
 		bufAndCB.buf.Close()
 	}
