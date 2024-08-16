@@ -6,6 +6,7 @@ package tmcstepper
 import (
 	"context"
 	"fmt"
+	"strings"
 	"testing"
 
 	"go.viam.com/test"
@@ -82,6 +83,19 @@ func TestRPMBounds(t *testing.T) {
 	ctx := context.Background()
 	logger, obs := logging.NewObservedTestLogger(t)
 
+	getLastLogLine := func() string {
+		lastLine := ""
+		// Filter out the debug logs that just indicate what we sent/received on the SPI bus.
+		for _, lineVal := range obs.All() {
+			line := fmt.Sprint(lineVal)
+			if strings.HasPrefix(line, "Read from ") || strings.HasPrefix(line, "Write to ") {
+				continue
+			}
+			lastLine = line
+		}
+		return lastLine
+	}
+
 	fakeSpiHandle, fakeSpi := newFakeSpi(t)
 	var deps resource.Dependencies
 
@@ -123,9 +137,7 @@ func TestRPMBounds(t *testing.T) {
 	}()
 
 	test.That(t, motorDep.GoFor(ctx, 0.05, 6.6, nil), test.ShouldBeError, motor.NewZeroRPMError())
-	allObs := obs.All()
-	latestLoggedEntry := allObs[len(allObs)-1]
-	test.That(t, fmt.Sprint(latestLoggedEntry), test.ShouldContainSubstring, "nearly 0")
+	test.That(t, getLastLogLine(), test.ShouldContainSubstring, "nearly 0")
 
 	// Check with position at 0.0 revolutions
 	fakeSpiHandle.AddExpectedRx(
@@ -149,9 +161,7 @@ func TestRPMBounds(t *testing.T) {
 		},
 	)
 	test.That(t, motorDep.GoFor(ctx, 500, 6.6, nil), test.ShouldBeNil)
-	allObs = obs.All()
-	latestLoggedEntry = allObs[len(allObs)-1]
-	test.That(t, fmt.Sprint(latestLoggedEntry), test.ShouldContainSubstring, "nearly the max")
+	test.That(t, getLastLogLine(), test.ShouldContainSubstring, "nearly the max")
 }
 
 func TestTMCStepperMotor(t *testing.T) {
