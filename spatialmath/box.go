@@ -294,7 +294,6 @@ func boxVsBoxCollision(a, b *box, collisionBufferMM float64) bool {
 			}
 		}
 	}
-	// ~ fmt.Println(a, b)
 	return true
 }
 

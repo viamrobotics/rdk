@@ -264,9 +264,6 @@ func (cg *collisionGraph) checkCollision(x, y spatial.Geometry, collisionBufferM
 		}
 	}
 	if col {
-		// ~ fmt.Println("collisions")
-		// ~ fmt.Println(x.Label(), x)
-		//~ fmt.Println(y.Label(), y)
 		return math.Inf(-1), err
 	}
 	return math.Inf(1), err

@@ -351,7 +351,7 @@ func (m *Motor) readReg(ctx context.Context, addr uint8) (int32, error) {
 		}
 	}()
 
-	m.logger.Debug("ReadT: ", tbuf)
+	// m.logger.Debug("ReadT: ", tbuf)
 
 	// Read access returns data from the address sent in the PREVIOUS "packet," so we transmit, then read
 	_, err = handle.Xfer(ctx, 1000000, m.csPin, 3, tbuf[:]) // SPI Mode 3, 1mhz
@@ -373,8 +373,8 @@ func (m *Motor) readReg(ctx context.Context, addr uint8) (int32, error) {
 	value <<= 8
 	value |= int32(rbuf[4])
 
-	m.logger.Debug("ReadR: ", rbuf)
-	m.logger.Debug("Read: ", value)
+	// m.logger.Debug("ReadR: ", rbuf)
+	// m.logger.Debug("Read: ", value)
 
 	return value, nil
 }
