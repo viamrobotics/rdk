@@ -172,7 +172,7 @@ func (p *basicPID) reset() error {
 		ok := true
 		p.PIDSets, ok = p.cfg.Attribute["PIDSets"].([]*PIDConfig)
 		if !ok {
-			return errors.Errorf("PIDSet did not initalize correctly")
+			return errors.New("PIDSet did not initalize correctly")
 		}
 		if len(p.PIDSets) > 0 {
 			p.useMulti = true

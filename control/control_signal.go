@@ -1,7 +1,6 @@
 package control
 
 import (
-	"fmt"
 	"sync"
 )
 
@@ -23,7 +22,6 @@ func makeSignal(name string, blockType controlBlockType) *Signal {
 	s.time = make([]int, dimension)
 	s.name = name
 	s.blockType = blockType
-	fmt.Printf("made signal %s\n", s.name)
 	return &s
 }
 
@@ -37,8 +35,6 @@ func makeSignals(name string, blockType controlBlockType, dimension int) *Signal
 	s.time = make([]int, dimension)
 	s.name = name
 	s.blockType = blockType
-	fmt.Printf("made signal of length %d \n", dimension)
-	fmt.Printf("made signals %s\n", s.name)
 	return &s
 }
 
@@ -47,7 +43,6 @@ func (s *Signal) GetSignalValueAt(i int) float64 {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if !(i < len(s.signal)) {
-		fmt.Print("erring here\n")
 		return 0.0
 	}
 	return s.signal[i]
@@ -58,7 +53,6 @@ func (s *Signal) SetSignalValueAt(i int, val float64) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if !(i < len(s.signal)) {
-		fmt.Printf("errin here\n")
 		return
 	}
 	s.signal[i] = val
