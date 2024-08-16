@@ -3,6 +3,7 @@ package client
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -15,7 +16,6 @@ import (
 	grpc_retry "github.com/grpc-ecosystem/go-grpc-middleware/retry"
 	"github.com/jhump/protoreflect/desc"
 	"github.com/jhump/protoreflect/grpcreflect"
-	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -132,7 +132,7 @@ func isClosedPipeError(err error) bool {
 }
 
 func (rc *RobotClient) notConnectedToRemoteError() error {
-	return errors.Errorf("not connected to remote robot at %s", rc.address)
+	return fmt.Errorf("not connected to remote robot at %s", rc.address)
 }
 
 func (rc *RobotClient) handleUnaryDisconnect(
@@ -370,11 +370,15 @@ func (rc *RobotClient) connectWithLock(ctx context.Context) error {
 	rc.conn.ReplaceConn(conn)
 	rc.client = client
 	rc.refClient = refClient
+	rc.logger.Warn("connected")
 	rc.connected.Store(true)
 	if len(rc.resourceClients) != 0 {
+		rc.logger.Warn("updateResources START")
 		if err := rc.updateResources(ctx); err != nil {
+			rc.logger.Errorf("updateResources END, err: %s", err.Error())
 			return err
 		}
+		rc.logger.Warnw("updateResources END", "numResources", len(rc.resourceNames))
 	}
 
 	if rc.changeChan != nil {
@@ -393,6 +397,7 @@ func (rc *RobotClient) updateResourceClients(ctx context.Context) error {
 	for resourceName, client := range rc.resourceClients {
 		// check if no longer an active resource
 		if !activeResources[resourceName] {
+			rc.logger.Infow("Removing resource from remote client", "resourceName", resourceName)
 			if err := client.Close(ctx); err != nil {
 				rc.Logger().CError(ctx, err)
 				continue
@@ -463,6 +468,7 @@ func (rc *RobotClient) checkConnection(ctx context.Context, checkEvery, reconnec
 					"reconnect_interval", reconnectEvery.Seconds(),
 				)
 				rc.mu.Lock()
+				rc.logger.Warn("NOT connected")
 				rc.connected.Store(false)
 				if rc.changeChan != nil {
 					rc.changeChan <- true
@@ -574,7 +580,8 @@ func (rc *RobotClient) createClient(name resource.Name) (resource.Resource, erro
 	if !ok || apiInfo.RPCClient == nil {
 		return grpc.NewForeignResource(name, &rc.conn), nil
 	}
-	return apiInfo.RPCClient(rc.backgroundCtx, &rc.conn, rc.remoteName, name, rc.Logger())
+	logger := rc.Logger().Sublogger(resource.RemoveRemoteName(name).ShortName())
+	return apiInfo.RPCClient(rc.backgroundCtx, &rc.conn, rc.remoteName, name, logger)
 }
 
 func (rc *RobotClient) resources(ctx context.Context) ([]resource.Name, []resource.RPCAPI, error) {
@@ -628,7 +635,7 @@ func (rc *RobotClient) resources(ctx context.Context) ([]resource.Name, []resour
 			}
 			svcDesc, ok := symDesc.(*desc.ServiceDescriptor)
 			if !ok {
-				return nil, nil, errors.Errorf("expected descriptor to be service descriptor but got %T", symDesc)
+				return nil, nil, fmt.Errorf("expected descriptor to be service descriptor but got %T", symDesc)
 			}
 			resTypes = append(resTypes, resource.RPCAPI{
 				API:  rprotoutils.ResourceNameFromProto(resAPI.Subtype).API,
@@ -659,7 +666,9 @@ func (rc *RobotClient) updateResources(ctx context.Context) error {
 	// call metadata service.
 
 	names, rpcAPIs, err := rc.resources(ctx)
+	// rc.logger.Infow("robotClient.updateResources", "numNames", len(names), "err", err, "numRc.ResourceNames", len(rc.resourceNames))
 	if err != nil && status.Code(err) != codes.Unimplemented {
+		rc.logger.Infow("robotClient.updateResources -- returning error", "numRc.ResourceNames", len(rc.resourceNames))
 		return err
 	}
 
@@ -721,7 +730,8 @@ func (rc *RobotClient) PackageManager() packages.Manager {
 	return nil
 }
 
-// ResourceNames returns a list of all known resource names connected to this machine.
+// ResourceNames returns a list of all known resource names on the connected remote. Returns nil if
+// the connection is not healthy. The empty slice if it is healthy, but the response was empty.
 //
 //	resource_names := machine.ResourceNames()
 func (rc *RobotClient) ResourceNames() []resource.Name {
@@ -733,6 +743,10 @@ func (rc *RobotClient) ResourceNames() []resource.Name {
 	defer rc.mu.RUnlock()
 	names := make([]resource.Name, 0, len(rc.resourceNames))
 	names = append(names, rc.resourceNames...)
+
+	if len(names) == 0 {
+		rc.Logger().Errorw("ClientResourceNames returning 0 things", "checkConnected", rc.checkConnected())
+	}
 	return names
 }
 

@@ -93,6 +93,8 @@ func (w *Buffer) Close() {
 // where it will be run in the future.
 // If the buffer is full, it returnns an error and does
 // add the callback to the buffer.
+//
+// Dan: Public rtp.Packets and not callbacks? Until we've proved a need for more generality?
 func (w *Buffer) Publish(cb func()) error {
 	rawErr := w.err.Load()
 

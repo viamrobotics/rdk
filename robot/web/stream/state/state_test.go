@@ -16,6 +16,7 @@ import (
 	"github.com/viamrobotics/webrtc/v3"
 	"go.viam.com/test"
 	"go.viam.com/utils"
+	"go.viam.com/utils/testutils"
 
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/components/camera/rtppassthrough"
@@ -123,58 +124,8 @@ func mockRobot(s rtppassthrough.Source) robot.Robot {
 func TestStreamState(t *testing.T) {
 	ctx := context.Background()
 	logger := logging.NewTestLogger(t)
-
-	t.Run("Stream returns the provided stream", func(t *testing.T) {
-		mockRTPPassthroughSource := &mockRTPPassthroughSource{}
-		robot := mockRobot(mockRTPPassthroughSource)
-		streamMock := &mockStream{name: camName, t: t}
-		s := state.New(streamMock, robot, logger)
-		test.That(t, s.Stream, test.ShouldEqual, streamMock)
-	})
-
-	t.Run("close succeeds if no methods have been called", func(t *testing.T) {
-		mockRTPPassthroughSource := &mockRTPPassthroughSource{}
-		robot := mockRobot(mockRTPPassthroughSource)
-		streamMock := &mockStream{name: camName, t: t}
-		s := state.New(streamMock, robot, logger)
-		test.That(t, s.Close(), test.ShouldBeNil)
-	})
-
-	t.Run("Increment() returns an error if Init() is not called first", func(t *testing.T) {
-		mockRTPPassthroughSource := &mockRTPPassthroughSource{}
-		robot := mockRobot(mockRTPPassthroughSource)
-		streamMock := &mockStream{name: camName, t: t}
-		s := state.New(streamMock, robot, logger)
-		test.That(t, s.Increment(ctx), test.ShouldBeError, state.ErrUninitialized)
-	})
-
-	t.Run("Decrement() returns an error if Init() is not called first", func(t *testing.T) {
-		mockRTPPassthroughSource := &mockRTPPassthroughSource{}
-		robot := mockRobot(mockRTPPassthroughSource)
-		streamMock := &mockStream{name: camName, t: t}
-		s := state.New(streamMock, robot, logger)
-		test.That(t, s.Decrement(ctx), test.ShouldBeError, state.ErrUninitialized)
-	})
-
-	t.Run("Increment() returns an error if called after Close()", func(t *testing.T) {
-		mockRTPPassthroughSource := &mockRTPPassthroughSource{}
-		robot := mockRobot(mockRTPPassthroughSource)
-		streamMock := &mockStream{name: camName, t: t}
-		s := state.New(streamMock, robot, logger)
-		s.Init()
-		s.Close()
-		test.That(t, s.Increment(ctx), test.ShouldWrap, state.ErrClosed)
-	})
-
-	t.Run("Decrement() returns an error if called after Close()", func(t *testing.T) {
-		mockRTPPassthroughSource := &mockRTPPassthroughSource{}
-		robot := mockRobot(mockRTPPassthroughSource)
-		streamMock := &mockStream{name: camName, t: t}
-		s := state.New(streamMock, robot, logger)
-		s.Init()
-		s.Close()
-		test.That(t, s.Decrement(ctx), test.ShouldWrap, state.ErrClosed)
-	})
+	// we have to use sleep here as we are asserting the state doesn't change after a given period of time
+	sleepDuration := time.Millisecond * 200
 
 	t.Run("when rtppassthrough.Souce is provided but SubscribeRTP always returns an error", func(t *testing.T) {
 		var startCount atomic.Int64
@@ -225,85 +176,90 @@ func TestStreamState(t *testing.T) {
 		test.That(t, startCount.Load(), test.ShouldEqual, 0)
 		test.That(t, stopCount.Load(), test.ShouldEqual, 0)
 
-		t.Log("the first Increment() calls SubscribeRTP and then calls Start() when an error is reurned")
-		test.That(t, s.Increment(ctx), test.ShouldBeNil)
-		test.That(t, subscribeRTPCount.Load(), test.ShouldEqual, 1)
-		test.That(t, startCount.Load(), test.ShouldEqual, 1)
-		test.That(t, stopCount.Load(), test.ShouldEqual, 0)
-
-		t.Log("subsequent Increment() all calls call SubscribeRTP trying to determine " +
-			"if they can upgrade but don't call any other gostream methods as SubscribeRTP returns an error")
-		test.That(t, s.Increment(ctx), test.ShouldBeNil)
-		test.That(t, s.Increment(ctx), test.ShouldBeNil)
-		test.That(t, subscribeRTPCount.Load(), test.ShouldEqual, 3)
-		test.That(t, startCount.Load(), test.ShouldEqual, 1)
-		test.That(t, stopCount.Load(), test.ShouldEqual, 0)
+		t.Log("the first Increment() eventually calls SubscribeRTP and then calls Start() when an error is reurned")
+		test.That(t, s.Increment(), test.ShouldBeNil)
+		var prevSubscribeRTPCount int64
+		testutils.WaitForAssertion(t, func(tb testing.TB) {
+			test.That(tb, subscribeRTPCount.Load(), test.ShouldBeGreaterThan, 0)
+			prevSubscribeRTPCount = subscribeRTPCount.Load()
+			test.That(tb, startCount.Load(), test.ShouldEqual, 1)
+			test.That(tb, stopCount.Load(), test.ShouldEqual, 0)
+		})
 
 		t.Log("as long as the number of Decrement() calls is less than the number of Increment() calls, no gostream methods are called")
-		test.That(t, s.Decrement(ctx), test.ShouldBeNil)
-		test.That(t, s.Decrement(ctx), test.ShouldBeNil)
-		test.That(t, subscribeRTPCount.Load(), test.ShouldEqual, 3)
+		test.That(t, s.Increment(), test.ShouldBeNil)
+		test.That(t, s.Increment(), test.ShouldBeNil)
+		test.That(t, s.Decrement(), test.ShouldBeNil)
+		test.That(t, s.Decrement(), test.ShouldBeNil)
+		time.Sleep(sleepDuration)
+		testutils.WaitForAssertion(t, func(tb testing.TB) {
+			test.That(tb, subscribeRTPCount.Load(), test.ShouldBeGreaterThan, prevSubscribeRTPCount)
+		})
+		prevSubscribeRTPCount = subscribeRTPCount.Load()
 		test.That(t, startCount.Load(), test.ShouldEqual, 1)
 		test.That(t, stopCount.Load(), test.ShouldEqual, 0)
 
 		t.Log("when the number of Decrement() calls is equal to the number of Increment() calls stop is called")
-		test.That(t, s.Decrement(ctx), test.ShouldBeNil)
-		test.That(t, subscribeRTPCount.Load(), test.ShouldEqual, 3)
+		test.That(t, s.Decrement(), test.ShouldBeNil)
+		time.Sleep(sleepDuration)
+		testutils.WaitForAssertion(t, func(tb testing.TB) {
+			test.That(tb, subscribeRTPCount.Load(), test.ShouldBeGreaterThan, prevSubscribeRTPCount)
+		})
+		prevSubscribeRTPCount = subscribeRTPCount.Load()
 		test.That(t, startCount.Load(), test.ShouldEqual, 1)
 		test.That(t, stopCount.Load(), test.ShouldEqual, 1)
 
-		t.Log("then when the number of Increment() calls exceeds Decrement(), both SubscribeRTP & Start are called again")
-		test.That(t, s.Increment(ctx), test.ShouldBeNil)
-		test.That(t, subscribeRTPCount.Load(), test.ShouldEqual, 4)
-		test.That(t, startCount.Load(), test.ShouldEqual, 2)
-		test.That(t, stopCount.Load(), test.ShouldEqual, 1)
+		t.Log("then when the number of Increment() calls exceeds Decrement(), both SubscribeRTP & Start are eventually called again")
+		test.That(t, s.Increment(), test.ShouldBeNil)
+		testutils.WaitForAssertion(t, func(tb testing.TB) {
+			test.That(tb, subscribeRTPCount.Load(), test.ShouldBeGreaterThan, prevSubscribeRTPCount)
+			test.That(tb, startCount.Load(), test.ShouldEqual, 2)
+			test.That(tb, stopCount.Load(), test.ShouldEqual, 1)
+		})
+		prevSubscribeRTPCount = subscribeRTPCount.Load()
 
 		t.Log("calling Decrement() more times than Increment() has a floor of zero")
-		test.That(t, s.Decrement(ctx), test.ShouldBeNil)
-		test.That(t, subscribeRTPCount.Load(), test.ShouldEqual, 4)
-		test.That(t, startCount.Load(), test.ShouldEqual, 2)
-		test.That(t, stopCount.Load(), test.ShouldEqual, 2)
+		test.That(t, s.Decrement(), test.ShouldBeNil)
+		testutils.WaitForAssertion(t, func(tb testing.TB) {
+			test.That(tb, subscribeRTPCount.Load(), test.ShouldBeGreaterThan, prevSubscribeRTPCount)
+			test.That(tb, startCount.Load(), test.ShouldEqual, 2)
+			test.That(tb, stopCount.Load(), test.ShouldEqual, 2)
+		})
+		prevSubscribeRTPCount = subscribeRTPCount.Load()
 
 		// multiple Decrement() calls when the count is already at zero doesn't call any methods
-		test.That(t, s.Decrement(ctx), test.ShouldBeNil)
-		test.That(t, s.Decrement(ctx), test.ShouldBeNil)
-		test.That(t, s.Decrement(ctx), test.ShouldBeNil)
-		test.That(t, s.Decrement(ctx), test.ShouldBeNil)
+		test.That(t, s.Decrement(), test.ShouldBeNil)
+		test.That(t, s.Decrement(), test.ShouldBeNil)
+		test.That(t, s.Decrement(), test.ShouldBeNil)
+		test.That(t, s.Decrement(), test.ShouldBeNil)
+		time.Sleep(sleepDuration)
 		test.That(t, subscribeRTPCount.Load(), test.ShouldEqual, 4)
 		test.That(t, startCount.Load(), test.ShouldEqual, 2)
 		test.That(t, stopCount.Load(), test.ShouldEqual, 2)
 
 		// once the count is at zero , calling Increment() again calls SubscribeRTP and when it returns an error Start
-		test.That(t, s.Increment(ctx), test.ShouldBeNil)
-		test.That(t, subscribeRTPCount.Load(), test.ShouldEqual, 5)
-		test.That(t, startCount.Load(), test.ShouldEqual, 3)
-		test.That(t, stopCount.Load(), test.ShouldEqual, 2)
+		test.That(t, s.Increment(), test.ShouldBeNil)
+		testutils.WaitForAssertion(t, func(tb testing.TB) {
+			test.That(tb, subscribeRTPCount.Load(), test.ShouldEqual, 5)
+			test.That(tb, startCount.Load(), test.ShouldEqual, 3)
+			test.That(tb, stopCount.Load(), test.ShouldEqual, 2)
+		})
 
 		// set count back to zero
-		test.That(t, s.Decrement(ctx), test.ShouldBeNil)
-		test.That(t, subscribeRTPCount.Load(), test.ShouldEqual, 5)
-		test.That(t, startCount.Load(), test.ShouldEqual, 3)
-		test.That(t, stopCount.Load(), test.ShouldEqual, 3)
+		test.That(t, s.Decrement(), test.ShouldBeNil)
+		testutils.WaitForAssertion(t, func(tb testing.TB) {
+			test.That(tb, subscribeRTPCount.Load(), test.ShouldEqual, 5)
+			test.That(tb, startCount.Load(), test.ShouldEqual, 3)
+			test.That(tb, stopCount.Load(), test.ShouldEqual, 3)
+		})
 
-		t.Log("calling Increment() with a cancelled context returns an error & does not call any gostream or rtppassthrough.Source methods")
-		canceledCtx, cancelFn := context.WithCancel(context.Background())
-		cancelFn()
-		test.That(t, s.Increment(canceledCtx), test.ShouldBeError, context.Canceled)
-		test.That(t, subscribeRTPCount.Load(), test.ShouldEqual, 5)
-		test.That(t, startCount.Load(), test.ShouldEqual, 3)
-		test.That(t, stopCount.Load(), test.ShouldEqual, 3)
-
-		// make it so that non cancelled Decrement() would call stop to confirm that does not happen when context is cancelled
-		test.That(t, s.Increment(ctx), test.ShouldBeNil)
-		test.That(t, subscribeRTPCount.Load(), test.ShouldEqual, 6)
-		test.That(t, startCount.Load(), test.ShouldEqual, 4)
-		test.That(t, stopCount.Load(), test.ShouldEqual, 3)
-
-		t.Log("calling Decrement() with a cancelled context returns an error & does not call any gostream methods")
-		test.That(t, s.Decrement(canceledCtx), test.ShouldBeError, context.Canceled)
-		test.That(t, subscribeRTPCount.Load(), test.ShouldEqual, 6)
-		test.That(t, startCount.Load(), test.ShouldEqual, 4)
-		test.That(t, stopCount.Load(), test.ShouldEqual, 3)
+		// make it so that non cancelled Increment() would call stop to confirm that does not happen when context is cancelled
+		test.That(t, s.Increment(), test.ShouldBeNil)
+		testutils.WaitForAssertion(t, func(tb testing.TB) {
+			test.That(tb, subscribeRTPCount.Load(), test.ShouldEqual, 6)
+			test.That(tb, startCount.Load(), test.ShouldEqual, 4)
+			test.That(tb, stopCount.Load(), test.ShouldEqual, 3)
+		})
 	})
 
 	t.Run("when rtppassthrough.Souce is provided and SubscribeRTP doesn't return an error", func(t *testing.T) {
@@ -386,75 +342,80 @@ func TestStreamState(t *testing.T) {
 		test.That(t, unsubscribeCount.Load(), test.ShouldEqual, 0)
 		test.That(t, writeRTPCalledCtx.Err(), test.ShouldBeNil)
 
-		t.Log("the first Increment() call calls SubscribeRTP()")
-		test.That(t, s.Increment(ctx), test.ShouldBeNil)
-		test.That(t, subscribeRTPCount.Load(), test.ShouldEqual, 1)
-		test.That(t, unsubscribeCount.Load(), test.ShouldEqual, 0)
+		t.Log("the first Increment() eventually call calls SubscribeRTP()")
+		test.That(t, s.Increment(), test.ShouldBeNil)
+		testutils.WaitForAssertion(t, func(tb testing.TB) {
+			test.That(tb, subscribeRTPCount.Load(), test.ShouldEqual, 1)
+			test.That(tb, unsubscribeCount.Load(), test.ShouldEqual, 0)
+		})
 		// WriteRTP is called
 		<-writeRTPCalledCtx.Done()
 
 		t.Log("subsequent Increment() calls don't call any other rtppassthrough.Source methods")
-		test.That(t, s.Increment(ctx), test.ShouldBeNil)
-		test.That(t, s.Increment(ctx), test.ShouldBeNil)
+		test.That(t, s.Increment(), test.ShouldBeNil)
+		test.That(t, s.Increment(), test.ShouldBeNil)
+		time.Sleep(sleepDuration)
 		test.That(t, subscribeRTPCount.Load(), test.ShouldEqual, 1)
 		test.That(t, unsubscribeCount.Load(), test.ShouldEqual, 0)
 
 		t.Log("as long as the number of Decrement() calls is less than the number " +
 			"of Increment() calls, no rtppassthrough.Source methods are called")
-		test.That(t, s.Decrement(ctx), test.ShouldBeNil)
-		test.That(t, s.Decrement(ctx), test.ShouldBeNil)
+		test.That(t, s.Decrement(), test.ShouldBeNil)
+		test.That(t, s.Decrement(), test.ShouldBeNil)
+		time.Sleep(sleepDuration)
 		test.That(t, subscribeRTPCount.Load(), test.ShouldEqual, 1)
 		test.That(t, unsubscribeCount.Load(), test.ShouldEqual, 0)
 
 		t.Log("when the number of Decrement() calls is equal to the number of Increment() calls stop is called")
-		test.That(t, s.Decrement(ctx), test.ShouldBeNil)
-		test.That(t, subscribeRTPCount.Load(), test.ShouldEqual, 1)
-		test.That(t, unsubscribeCount.Load(), test.ShouldEqual, 1)
+		test.That(t, s.Decrement(), test.ShouldBeNil)
+		testutils.WaitForAssertion(t, func(tb testing.TB) {
+			test.That(tb, subscribeRTPCount.Load(), test.ShouldEqual, 1)
+			test.That(tb, unsubscribeCount.Load(), test.ShouldEqual, 1)
+		})
 
 		t.Log("then when the number of Increment() calls exceeds Decrement(), SubscribeRTP is called again")
-		test.That(t, s.Increment(ctx), test.ShouldBeNil)
-		test.That(t, subscribeRTPCount.Load(), test.ShouldEqual, 2)
-		test.That(t, unsubscribeCount.Load(), test.ShouldEqual, 1)
+		test.That(t, s.Increment(), test.ShouldBeNil)
+		testutils.WaitForAssertion(t, func(tb testing.TB) {
+			test.That(tb, subscribeRTPCount.Load(), test.ShouldEqual, 2)
+			test.That(tb, unsubscribeCount.Load(), test.ShouldEqual, 1)
+		})
 
 		t.Log("calling Decrement() more times than Increment() has a floor of zero")
-		test.That(t, s.Decrement(ctx), test.ShouldBeNil)
-		test.That(t, subscribeRTPCount.Load(), test.ShouldEqual, 2)
-		test.That(t, unsubscribeCount.Load(), test.ShouldEqual, 2)
+		test.That(t, s.Decrement(), test.ShouldBeNil)
+		testutils.WaitForAssertion(t, func(tb testing.TB) {
+			test.That(tb, subscribeRTPCount.Load(), test.ShouldEqual, 2)
+			test.That(tb, unsubscribeCount.Load(), test.ShouldEqual, 2)
+		})
 
 		// multiple Decrement() calls when the count is already at zero doesn't call any methods
-		test.That(t, s.Decrement(ctx), test.ShouldBeNil)
-		test.That(t, s.Decrement(ctx), test.ShouldBeNil)
-		test.That(t, s.Decrement(ctx), test.ShouldBeNil)
-		test.That(t, s.Decrement(ctx), test.ShouldBeNil)
+		test.That(t, s.Decrement(), test.ShouldBeNil)
+		test.That(t, s.Decrement(), test.ShouldBeNil)
+		test.That(t, s.Decrement(), test.ShouldBeNil)
+		test.That(t, s.Decrement(), test.ShouldBeNil)
+		time.Sleep(sleepDuration)
 		test.That(t, subscribeRTPCount.Load(), test.ShouldEqual, 2)
 		test.That(t, unsubscribeCount.Load(), test.ShouldEqual, 2)
 
 		// once the count is at zero , calling Increment() again calls start
-		test.That(t, s.Increment(ctx), test.ShouldBeNil)
-		test.That(t, subscribeRTPCount.Load(), test.ShouldEqual, 3)
-		test.That(t, unsubscribeCount.Load(), test.ShouldEqual, 2)
+		test.That(t, s.Increment(), test.ShouldBeNil)
+		testutils.WaitForAssertion(t, func(tb testing.TB) {
+			test.That(tb, subscribeRTPCount.Load(), test.ShouldEqual, 3)
+			test.That(tb, unsubscribeCount.Load(), test.ShouldEqual, 2)
+		})
 
 		// set count back to zero
-		test.That(t, s.Decrement(ctx), test.ShouldBeNil)
-		test.That(t, subscribeRTPCount.Load(), test.ShouldEqual, 3)
-		test.That(t, unsubscribeCount.Load(), test.ShouldEqual, 3)
-
-		t.Log("calling Increment() with a cancelled context returns an error & does not call any rtppassthrough.Source methods")
-		canceledCtx, cancelFn := context.WithCancel(context.Background())
-		cancelFn()
-		test.That(t, s.Increment(canceledCtx), test.ShouldBeError, context.Canceled)
-		test.That(t, subscribeRTPCount.Load(), test.ShouldEqual, 3)
-		test.That(t, unsubscribeCount.Load(), test.ShouldEqual, 3)
+		test.That(t, s.Decrement(), test.ShouldBeNil)
+		testutils.WaitForAssertion(t, func(tb testing.TB) {
+			test.That(tb, subscribeRTPCount.Load(), test.ShouldEqual, 3)
+			test.That(tb, unsubscribeCount.Load(), test.ShouldEqual, 3)
+		})
 
 		// make it so that non cancelled Decrement() would call stop to confirm that does not happen when context is cancelled
-		test.That(t, s.Increment(ctx), test.ShouldBeNil)
-		test.That(t, subscribeRTPCount.Load(), test.ShouldEqual, 4)
-		test.That(t, unsubscribeCount.Load(), test.ShouldEqual, 3)
-
-		t.Log("calling Decrement() with a cancelled context returns an error & does not call any rtppassthrough.Source methods")
-		test.That(t, s.Decrement(canceledCtx), test.ShouldBeError, context.Canceled)
-		test.That(t, subscribeRTPCount.Load(), test.ShouldEqual, 4)
-		test.That(t, unsubscribeCount.Load(), test.ShouldEqual, 3)
+		test.That(t, s.Increment(), test.ShouldBeNil)
+		testutils.WaitForAssertion(t, func(tb testing.TB) {
+			test.That(tb, subscribeRTPCount.Load(), test.ShouldEqual, 4)
+			test.That(tb, unsubscribeCount.Load(), test.ShouldEqual, 3)
+		})
 
 		t.Log("when the subscription terminates while there are still subscribers, SubscribeRTP is called again")
 		var cancelledSubs int
@@ -567,15 +528,18 @@ func TestStreamState(t *testing.T) {
 		test.That(t, stopCount.Load(), test.ShouldEqual, 0)
 
 		t.Log("the first Increment() call calls SubscribeRTP() which returns a success")
-		test.That(t, s.Increment(ctx), test.ShouldBeNil)
-		test.That(t, subscribeRTPCount.Load(), test.ShouldEqual, 1)
-		test.That(t, unsubscribeCount.Load(), test.ShouldEqual, 0)
-		test.That(t, startCount.Load(), test.ShouldEqual, 0)
-		test.That(t, stopCount.Load(), test.ShouldEqual, 0)
+		test.That(t, s.Increment(), test.ShouldBeNil)
+		testutils.WaitForAssertion(t, func(tb testing.TB) {
+			test.That(tb, subscribeRTPCount.Load(), test.ShouldEqual, 1)
+			test.That(tb, unsubscribeCount.Load(), test.ShouldEqual, 0)
+			test.That(tb, startCount.Load(), test.ShouldEqual, 0)
+			test.That(tb, stopCount.Load(), test.ShouldEqual, 0)
+		})
 
 		t.Log("subsequent Increment() calls don't call any other rtppassthrough.Source or gostream methods")
-		test.That(t, s.Increment(ctx), test.ShouldBeNil)
-		test.That(t, s.Increment(ctx), test.ShouldBeNil)
+		test.That(t, s.Increment(), test.ShouldBeNil)
+		test.That(t, s.Increment(), test.ShouldBeNil)
+		time.Sleep(sleepDuration)
 		test.That(t, subscribeRTPCount.Load(), test.ShouldEqual, 1)
 		test.That(t, unsubscribeCount.Load(), test.ShouldEqual, 0)
 		test.That(t, startCount.Load(), test.ShouldEqual, 0)
@@ -610,8 +574,9 @@ func TestStreamState(t *testing.T) {
 
 		t.Log("when the number of Decrement() calls is less than the number of " +
 			"Increment() calls no rtppassthrough.Source or gostream methods are called")
-		test.That(t, s.Decrement(ctx), test.ShouldBeNil)
-		test.That(t, s.Decrement(ctx), test.ShouldBeNil)
+		test.That(t, s.Decrement(), test.ShouldBeNil)
+		test.That(t, s.Decrement(), test.ShouldBeNil)
+		time.Sleep(sleepDuration)
 		test.That(t, subscribeRTPCount.Load(), test.ShouldEqual, 2)
 		test.That(t, unsubscribeCount.Load(), test.ShouldEqual, 0)
 		test.That(t, startCount.Load(), test.ShouldEqual, 1)
@@ -619,7 +584,8 @@ func TestStreamState(t *testing.T) {
 
 		t.Log("when the number of Decrement() calls is equal to the number of " +
 			"Increment() calls stop is called (as gostream is the data source)")
-		test.That(t, s.Decrement(ctx), test.ShouldBeNil)
+		test.That(t, s.Decrement(), test.ShouldBeNil)
+		time.Sleep(sleepDuration)
 		test.That(t, subscribeRTPCount.Load(), test.ShouldEqual, 2)
 		test.That(t, unsubscribeCount.Load(), test.ShouldEqual, 0)
 		test.That(t, startCount.Load(), test.ShouldEqual, 1)
@@ -627,64 +593,77 @@ func TestStreamState(t *testing.T) {
 
 		t.Log("then when the number of Increment() calls exceeds Decrement(), " +
 			"SubscribeRTP is called again followed by Start if it returns an error")
-		test.That(t, s.Increment(ctx), test.ShouldBeNil)
-		test.That(t, subscribeRTPCount.Load(), test.ShouldEqual, 3)
-		test.That(t, unsubscribeCount.Load(), test.ShouldEqual, 0)
-		test.That(t, startCount.Load(), test.ShouldEqual, 2)
-		test.That(t, stopCount.Load(), test.ShouldEqual, 1)
+		test.That(t, s.Increment(), test.ShouldBeNil)
+		testutils.WaitForAssertion(t, func(tb testing.TB) {
+			test.That(tb, subscribeRTPCount.Load(), test.ShouldEqual, 3)
+			test.That(tb, unsubscribeCount.Load(), test.ShouldEqual, 0)
+			test.That(tb, startCount.Load(), test.ShouldEqual, 2)
+			test.That(tb, stopCount.Load(), test.ShouldEqual, 1)
+		})
 
 		t.Log("calling Decrement() more times than Increment() has a floor of zero and calls Stop()")
-		test.That(t, s.Decrement(ctx), test.ShouldBeNil)
-		test.That(t, subscribeRTPCount.Load(), test.ShouldEqual, 3)
-		test.That(t, unsubscribeCount.Load(), test.ShouldEqual, 0)
-		test.That(t, startCount.Load(), test.ShouldEqual, 2)
-		test.That(t, stopCount.Load(), test.ShouldEqual, 2)
+		test.That(t, s.Decrement(), test.ShouldBeNil)
+		testutils.WaitForAssertion(t, func(tb testing.TB) {
+			test.That(tb, subscribeRTPCount.Load(), test.ShouldEqual, 3)
+			test.That(tb, unsubscribeCount.Load(), test.ShouldEqual, 0)
+			test.That(tb, startCount.Load(), test.ShouldEqual, 2)
+			test.That(tb, stopCount.Load(), test.ShouldEqual, 2)
+		})
 
 		// multiple Decrement() calls when the count is already at zero doesn't call any methods
-		test.That(t, s.Decrement(ctx), test.ShouldBeNil)
-		test.That(t, s.Decrement(ctx), test.ShouldBeNil)
-		test.That(t, s.Decrement(ctx), test.ShouldBeNil)
-		test.That(t, s.Decrement(ctx), test.ShouldBeNil)
+		test.That(t, s.Decrement(), test.ShouldBeNil)
+		test.That(t, s.Decrement(), test.ShouldBeNil)
+		test.That(t, s.Decrement(), test.ShouldBeNil)
+		test.That(t, s.Decrement(), test.ShouldBeNil)
+		time.Sleep(sleepDuration)
 		test.That(t, subscribeRTPCount.Load(), test.ShouldEqual, 3)
 		test.That(t, unsubscribeCount.Load(), test.ShouldEqual, 0)
 		test.That(t, startCount.Load(), test.ShouldEqual, 2)
 		test.That(t, stopCount.Load(), test.ShouldEqual, 2)
 
 		// once the count is at zero , calling Increment() again calls SubscribeRTP followed by Start
-		test.That(t, s.Increment(ctx), test.ShouldBeNil)
-		test.That(t, subscribeRTPCount.Load(), test.ShouldEqual, 4)
-		test.That(t, unsubscribeCount.Load(), test.ShouldEqual, 0)
-		test.That(t, startCount.Load(), test.ShouldEqual, 3)
-		test.That(t, stopCount.Load(), test.ShouldEqual, 2)
+		test.That(t, s.Increment(), test.ShouldBeNil)
+		testutils.WaitForAssertion(t, func(tb testing.TB) {
+			test.That(tb, subscribeRTPCount.Load(), test.ShouldEqual, 4)
+			test.That(tb, unsubscribeCount.Load(), test.ShouldEqual, 0)
+			test.That(tb, startCount.Load(), test.ShouldEqual, 3)
+			test.That(tb, stopCount.Load(), test.ShouldEqual, 2)
+		})
 
 		t.Log("if while gostream is being used Increment is called and SubscribeRTP succeeds, Stop is called")
 		subscribeRTPReturnError.Store(false)
-		test.That(t, s.Increment(ctx), test.ShouldBeNil)
-		test.That(t, subscribeRTPCount.Load(), test.ShouldEqual, 5)
-		test.That(t, unsubscribeCount.Load(), test.ShouldEqual, 0)
-		test.That(t, startCount.Load(), test.ShouldEqual, 3)
-		test.That(t, stopCount.Load(), test.ShouldEqual, 3)
+		test.That(t, s.Increment(), test.ShouldBeNil)
+		testutils.WaitForAssertion(t, func(tb testing.TB) {
+			test.That(tb, subscribeRTPCount.Load(), test.ShouldEqual, 5)
+			test.That(tb, unsubscribeCount.Load(), test.ShouldEqual, 0)
+			test.That(tb, startCount.Load(), test.ShouldEqual, 3)
+			test.That(tb, stopCount.Load(), test.ShouldEqual, 3)
+		})
 
 		// calling Decrement() fewer times than Increment() doesn't call any methods
-		test.That(t, s.Decrement(ctx), test.ShouldBeNil)
+		test.That(t, s.Decrement(), test.ShouldBeNil)
+		time.Sleep(sleepDuration)
 		test.That(t, subscribeRTPCount.Load(), test.ShouldEqual, 5)
 		test.That(t, unsubscribeCount.Load(), test.ShouldEqual, 0)
 		test.That(t, startCount.Load(), test.ShouldEqual, 3)
 		test.That(t, stopCount.Load(), test.ShouldEqual, 3)
 
 		t.Log("calling Decrement() more times than Increment() has a floor of zero and calls Unsubscribe()")
-		test.That(t, s.Decrement(ctx), test.ShouldBeNil)
-		test.That(t, subscribeRTPCount.Load(), test.ShouldEqual, 5)
-		test.That(t, unsubscribeCount.Load(), test.ShouldEqual, 1)
-		test.That(t, startCount.Load(), test.ShouldEqual, 3)
-		test.That(t, stopCount.Load(), test.ShouldEqual, 3)
+		test.That(t, s.Decrement(), test.ShouldBeNil)
+		testutils.WaitForAssertion(t, func(tb testing.TB) {
+			test.That(tb, subscribeRTPCount.Load(), test.ShouldEqual, 5)
+			test.That(tb, unsubscribeCount.Load(), test.ShouldEqual, 1)
+			test.That(tb, startCount.Load(), test.ShouldEqual, 3)
+			test.That(tb, stopCount.Load(), test.ShouldEqual, 3)
+		})
 
 		// multiple Decrement() calls when the count is already at zero doesn't call any methods
-		test.That(t, s.Decrement(ctx), test.ShouldBeNil)
-		test.That(t, s.Decrement(ctx), test.ShouldBeNil)
-		test.That(t, s.Decrement(ctx), test.ShouldBeNil)
-		test.That(t, s.Decrement(ctx), test.ShouldBeNil)
-		test.That(t, s.Decrement(ctx), test.ShouldBeNil)
+		test.That(t, s.Decrement(), test.ShouldBeNil)
+		test.That(t, s.Decrement(), test.ShouldBeNil)
+		test.That(t, s.Decrement(), test.ShouldBeNil)
+		test.That(t, s.Decrement(), test.ShouldBeNil)
+		test.That(t, s.Decrement(), test.ShouldBeNil)
+		time.Sleep(sleepDuration)
 		test.That(t, subscribeRTPCount.Load(), test.ShouldEqual, 5)
 		test.That(t, unsubscribeCount.Load(), test.ShouldEqual, 1)
 		test.That(t, startCount.Load(), test.ShouldEqual, 3)
@@ -692,11 +671,13 @@ func TestStreamState(t *testing.T) {
 
 		t.Log("if while rtp_passthrough is being used the the subscription " +
 			"terminates & afterwards rtp_passthrough is no longer supported, Start is called")
-		test.That(t, s.Increment(ctx), test.ShouldBeNil)
-		test.That(t, subscribeRTPCount.Load(), test.ShouldEqual, 6)
-		test.That(t, unsubscribeCount.Load(), test.ShouldEqual, 1)
-		test.That(t, startCount.Load(), test.ShouldEqual, 3)
-		test.That(t, stopCount.Load(), test.ShouldEqual, 3)
+		test.That(t, s.Increment(), test.ShouldBeNil)
+		testutils.WaitForAssertion(t, func(tb testing.TB) {
+			test.That(tb, subscribeRTPCount.Load(), test.ShouldEqual, 6)
+			test.That(tb, unsubscribeCount.Load(), test.ShouldEqual, 1)
+			test.That(tb, startCount.Load(), test.ShouldEqual, 3)
+			test.That(tb, stopCount.Load(), test.ShouldEqual, 3)
+		})
 
 		subscribeRTPReturnError.Store(true)
 
@@ -723,11 +704,13 @@ func TestStreamState(t *testing.T) {
 		test.That(t, stopCount.Load(), test.ShouldEqual, 3)
 
 		// Decrement() calls Stop() as gostream is the data source
-		test.That(t, s.Decrement(ctx), test.ShouldBeNil)
-		test.That(t, subscribeRTPCount.Load(), test.ShouldEqual, 7)
-		test.That(t, unsubscribeCount.Load(), test.ShouldEqual, 1)
-		test.That(t, startCount.Load(), test.ShouldEqual, 4)
-		test.That(t, stopCount.Load(), test.ShouldEqual, 4)
+		test.That(t, s.Decrement(), test.ShouldBeNil)
+		testutils.WaitForAssertion(t, func(tb testing.TB) {
+			test.That(tb, subscribeRTPCount.Load(), test.ShouldEqual, 7)
+			test.That(tb, unsubscribeCount.Load(), test.ShouldEqual, 1)
+			test.That(tb, startCount.Load(), test.ShouldEqual, 4)
+			test.That(tb, stopCount.Load(), test.ShouldEqual, 4)
+		})
 	})
 
 	t.Run("when the camera does not implement rtppassthrough.Souce", func(t *testing.T) {
@@ -754,70 +737,75 @@ func TestStreamState(t *testing.T) {
 		s.Init()
 
 		t.Log("the first Increment() -> Start()")
-		test.That(t, s.Increment(ctx), test.ShouldBeNil)
-		test.That(t, startCount.Load(), test.ShouldEqual, 1)
-		test.That(t, stopCount.Load(), test.ShouldEqual, 0)
+		test.That(t, s.Increment(), test.ShouldBeNil)
+		testutils.WaitForAssertion(t, func(tb testing.TB) {
+			test.That(tb, startCount.Load(), test.ShouldEqual, 1)
+			test.That(tb, stopCount.Load(), test.ShouldEqual, 0)
+		})
 
 		t.Log("subsequent Increment() all calls don't call any other gostream methods")
-		test.That(t, s.Increment(ctx), test.ShouldBeNil)
-		test.That(t, s.Increment(ctx), test.ShouldBeNil)
+		test.That(t, s.Increment(), test.ShouldBeNil)
+		test.That(t, s.Increment(), test.ShouldBeNil)
+		time.Sleep(sleepDuration)
 		test.That(t, startCount.Load(), test.ShouldEqual, 1)
 		test.That(t, stopCount.Load(), test.ShouldEqual, 0)
 
 		t.Log("as long as the number of Decrement() calls is less than the number of Increment() calls, no gostream methods are called")
-		test.That(t, s.Decrement(ctx), test.ShouldBeNil)
-		test.That(t, s.Decrement(ctx), test.ShouldBeNil)
+		test.That(t, s.Decrement(), test.ShouldBeNil)
+		test.That(t, s.Decrement(), test.ShouldBeNil)
+		time.Sleep(sleepDuration)
 		test.That(t, startCount.Load(), test.ShouldEqual, 1)
 		test.That(t, stopCount.Load(), test.ShouldEqual, 0)
 
 		t.Log("when the number of Decrement() calls is equal to the number of Increment() calls stop is called")
-		test.That(t, s.Decrement(ctx), test.ShouldBeNil)
-		test.That(t, startCount.Load(), test.ShouldEqual, 1)
-		test.That(t, stopCount.Load(), test.ShouldEqual, 1)
-		test.That(t, s.Increment(ctx), test.ShouldBeNil)
+		test.That(t, s.Decrement(), test.ShouldBeNil)
+		testutils.WaitForAssertion(t, func(tb testing.TB) {
+			test.That(tb, startCount.Load(), test.ShouldEqual, 1)
+			test.That(tb, stopCount.Load(), test.ShouldEqual, 1)
+		})
 
 		t.Log("then when the number of Increment() calls exceeds Decrement(), Start is called again")
-		test.That(t, startCount.Load(), test.ShouldEqual, 2)
-		test.That(t, stopCount.Load(), test.ShouldEqual, 1)
+		test.That(t, s.Increment(), test.ShouldBeNil)
+		testutils.WaitForAssertion(t, func(tb testing.TB) {
+			test.That(tb, startCount.Load(), test.ShouldEqual, 2)
+			test.That(tb, stopCount.Load(), test.ShouldEqual, 1)
+		})
 
 		t.Log("calling Decrement() more times than Increment() has a floor of zero")
-		test.That(t, s.Decrement(ctx), test.ShouldBeNil)
-		test.That(t, startCount.Load(), test.ShouldEqual, 2)
-		test.That(t, stopCount.Load(), test.ShouldEqual, 2)
+		test.That(t, s.Decrement(), test.ShouldBeNil)
+		testutils.WaitForAssertion(t, func(tb testing.TB) {
+			test.That(tb, startCount.Load(), test.ShouldEqual, 2)
+			test.That(tb, stopCount.Load(), test.ShouldEqual, 2)
+		})
 
 		// multiple Decrement() calls when the count is already at zero doesn't call any methods
-		test.That(t, s.Decrement(ctx), test.ShouldBeNil)
-		test.That(t, s.Decrement(ctx), test.ShouldBeNil)
-		test.That(t, s.Decrement(ctx), test.ShouldBeNil)
-		test.That(t, s.Decrement(ctx), test.ShouldBeNil)
+		test.That(t, s.Decrement(), test.ShouldBeNil)
+		test.That(t, s.Decrement(), test.ShouldBeNil)
+		test.That(t, s.Decrement(), test.ShouldBeNil)
+		test.That(t, s.Decrement(), test.ShouldBeNil)
+		time.Sleep(sleepDuration)
 		test.That(t, startCount.Load(), test.ShouldEqual, 2)
 		test.That(t, stopCount.Load(), test.ShouldEqual, 2)
 
 		// once the count is at zero , calling Increment() again calls start
-		test.That(t, s.Increment(ctx), test.ShouldBeNil)
-		test.That(t, startCount.Load(), test.ShouldEqual, 3)
-		test.That(t, stopCount.Load(), test.ShouldEqual, 2)
+		test.That(t, s.Increment(), test.ShouldBeNil)
+		testutils.WaitForAssertion(t, func(tb testing.TB) {
+			test.That(tb, startCount.Load(), test.ShouldEqual, 3)
+			test.That(tb, stopCount.Load(), test.ShouldEqual, 2)
+		})
 
 		// set count back to zero
-		test.That(t, s.Decrement(ctx), test.ShouldBeNil)
-		test.That(t, startCount.Load(), test.ShouldEqual, 3)
-		test.That(t, stopCount.Load(), test.ShouldEqual, 3)
-
-		t.Log("calling Increment() with a cancelled context returns an error & does not call any gostream methods")
-		canceledCtx, cancelFn := context.WithCancel(context.Background())
-		cancelFn()
-		test.That(t, s.Increment(canceledCtx), test.ShouldBeError, context.Canceled)
-		test.That(t, startCount.Load(), test.ShouldEqual, 3)
-		test.That(t, stopCount.Load(), test.ShouldEqual, 3)
+		test.That(t, s.Decrement(), test.ShouldBeNil)
+		testutils.WaitForAssertion(t, func(tb testing.TB) {
+			test.That(tb, startCount.Load(), test.ShouldEqual, 3)
+			test.That(tb, stopCount.Load(), test.ShouldEqual, 3)
+		})
 
 		// make it so that non cancelled Decrement() would call stop to confirm that does not happen when context is cancelled
-		test.That(t, s.Increment(ctx), test.ShouldBeNil)
-		test.That(t, startCount.Load(), test.ShouldEqual, 4)
-		test.That(t, stopCount.Load(), test.ShouldEqual, 3)
-
-		t.Log("calling Decrement() with a cancelled context returns an error & does not call any gostream methods")
-		test.That(t, s.Decrement(canceledCtx), test.ShouldBeError, context.Canceled)
-		test.That(t, startCount.Load(), test.ShouldEqual, 4)
-		test.That(t, stopCount.Load(), test.ShouldEqual, 3)
+		test.That(t, s.Increment(), test.ShouldBeNil)
+		testutils.WaitForAssertion(t, func(tb testing.TB) {
+			test.That(tb, startCount.Load(), test.ShouldEqual, 4)
+			test.That(tb, stopCount.Load(), test.ShouldEqual, 3)
+		})
 	})
 }

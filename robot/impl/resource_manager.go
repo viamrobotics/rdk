@@ -72,6 +72,7 @@ func newResourceManager(
 	logger logging.Logger,
 ) *resourceManager {
 	resLogger := logger.Sublogger("resource_manager")
+	resLogger.SetLevel(logging.DEBUG)
 	return &resourceManager{
 		resources:      resource.NewGraph(),
 		processManager: newProcessManager(opts, logger),
@@ -182,9 +183,14 @@ func (manager *resourceManager) updateRemoteResourceNames(
 	rr internalRemoteRobot,
 	recreateAllClients bool,
 ) bool {
-	manager.logger.CDebugw(ctx, "updating remote resource names", "remote", remoteName)
+	manager.logger.CDebugw(ctx, "updating remote resource names", "remote", remoteName, "recreateAllClients", recreateAllClients)
 	activeResourceNames := map[resource.Name]bool{}
 	newResources := rr.ResourceNames()
+	if newResources == nil {
+		// Assuming this means a connection error.
+		return false // anythingChanged=false
+	}
+
 	oldResources := manager.remoteResourceNames(remoteName)
 	for _, res := range oldResources {
 		activeResourceNames[res] = false
@@ -194,26 +200,12 @@ func (manager *resourceManager) updateRemoteResourceNames(
 
 	for _, resName := range newResources {
 		remoteResName := resName
-		res, err := rr.ResourceByName(remoteResName) // this returns a remote known OR foreign resource client
-		if err != nil {
-			if errors.Is(err, client.ErrMissingClientRegistration) {
-				manager.logger.CDebugw(ctx, "couldn't obtain remote resource interface",
-					"name", remoteResName,
-					"reason", err)
-			} else {
-				manager.logger.CErrorw(ctx, "couldn't obtain remote resource interface",
-					"name", remoteResName,
-					"reason", err)
-			}
-			continue
-		}
-
 		resName = resName.PrependRemote(remoteName.Name)
-		gNode, ok := manager.resources.Node(resName)
 
+		gNode, nodeAlreadyExists := manager.resources.Node(resName)
 		if _, alreadyCurrent := activeResourceNames[resName]; alreadyCurrent {
 			activeResourceNames[resName] = true
-			if ok && !gNode.IsUninitialized() {
+			if nodeAlreadyExists && !gNode.IsUninitialized() {
 				// resources that enter this block represent those with names that already exist in the resource graph.
 				// it is possible that we are switching to a new remote with a identical resource name(s), so we may
 				// need to create these resource clients.
@@ -239,7 +231,21 @@ func (manager *resourceManager) updateRemoteResourceNames(
 			}
 		}
 
-		if ok {
+		res, err := rr.ResourceByName(remoteResName) // this returns a remote known OR foreign resource client
+		if err != nil {
+			if errors.Is(err, client.ErrMissingClientRegistration) {
+				manager.logger.CDebugw(ctx, "couldn't obtain remote resource interface",
+					"name", remoteResName,
+					"reason", err)
+			} else {
+				manager.logger.CErrorw(ctx, "couldn't obtain remote resource interface",
+					"name", remoteResName,
+					"reason", err)
+			}
+			continue
+		}
+
+		if nodeAlreadyExists {
 			gNode.SwapResource(res, unknownModel)
 		} else {
 			gNode = resource.NewConfiguredGraphNode(resource.Config{}, res, unknownModel)
@@ -628,8 +634,7 @@ func (manager *resourceManager) completeConfig(
 					if gNode.IsUninitialized() {
 						verb = "configuring"
 						gNode.InitializeLogger(
-							manager.logger, resName.String(), conf.LogConfiguration.Level,
-						)
+							manager.logger, resName.String(), conf.LogConfiguration.Level)
 					} else {
 						verb = "reconfiguring"
 					}
@@ -759,8 +764,7 @@ func (manager *resourceManager) completeConfigForRemotes(ctx context.Context, lr
 			}
 			if gNode.IsUninitialized() {
 				gNode.InitializeLogger(
-					manager.logger, fromRemoteNameToRemoteNodeName(remConf.Name).String(), manager.logger.GetLevel(),
-				)
+					manager.logger, fromRemoteNameToRemoteNodeName(remConf.Name).String(), logging.INFO)
 			}
 			// this is done in config validation but partial start rules require us to check again
 			if _, err := remConf.Validate(""); err != nil {

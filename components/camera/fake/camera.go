@@ -294,6 +294,8 @@ func (c *Camera) SubscribeRTP(
 	bufferSize int,
 	packetsCB rtppassthrough.PacketCallback,
 ) (rtppassthrough.Subscription, error) {
+	logging.Global().Warnf("SubscribeRTP FAKE START %s", c.Name().String())
+	defer logging.Global().Warnf("SubscribeRTP FAKE END %s", c.Name().String())
 	if !c.RTPPassthrough {
 		return rtppassthrough.NilSubscription, ErrRTPPassthroughNotEnabled
 	}

@@ -6,7 +6,9 @@ import (
 	"sync"
 
 	"github.com/viamrobotics/webrtc/v3"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/utils/rpc"
+	"golang.org/x/exp/maps"
 	googlegrpc "google.golang.org/grpc"
 )
 
@@ -14,6 +16,9 @@ import (
 type ReconfigurableClientConn struct {
 	connMu sync.RWMutex
 	conn   rpc.ClientConn
+
+	onTrackCBByTrackNameMu sync.Mutex
+	onTrackCBByTrackName   map[string]OnTrackCB
 }
 
 // Return this constant such that backoff error logging can compare consecutive errors and reliably
@@ -57,8 +62,31 @@ func (c *ReconfigurableClientConn) NewStream(
 // ReplaceConn replaces the underlying client connection with the connection passed in. This does not close the
 // old connection, the caller is expected to close it if needed.
 func (c *ReconfigurableClientConn) ReplaceConn(conn rpc.ClientConn) {
+	logging.Global().Info("ReplaceConn START")
+	defer logging.Global().Info("ReplaceConn END")
 	c.connMu.Lock()
 	c.conn = conn
+	// It is safe to access this without a mutex as it is only ever nil once at the beginning of the
+	// ReconfigurableClientConn's lifetime
+	if c.onTrackCBByTrackName == nil {
+		c.onTrackCBByTrackName = make(map[string]OnTrackCB)
+	}
+
+	if pc := conn.PeerConn(); pc != nil {
+		pc.OnTrack(func(trackRemote *webrtc.TrackRemote, rtpReceiver *webrtc.RTPReceiver) {
+			logging.Global().Warnf("OnTrack START %s pc: %p", trackRemote.StreamID(), pc)
+			defer logging.Global().Warnf("OnTrack END %s pc: %p", trackRemote.StreamID(), pc)
+			c.onTrackCBByTrackNameMu.Lock()
+			onTrackCB, ok := c.onTrackCBByTrackName[trackRemote.StreamID()]
+			c.onTrackCBByTrackNameMu.Unlock()
+			if !ok {
+				msg := "Callback not found for StreamID (trackName): %s, keys(resOnTrackCBs): %#v"
+				logging.Global().Errorf(msg, trackRemote.StreamID(), maps.Keys(c.onTrackCBByTrackName))
+				return
+			}
+			onTrackCB(trackRemote, rtpReceiver)
+		})
+	}
 	c.connMu.Unlock()
 }
 
@@ -83,4 +111,18 @@ func (c *ReconfigurableClientConn) Close() error {
 	conn := c.conn
 	c.conn = nil
 	return conn.Close()
+}
+
+// AddOnTrackSub adds an OnTrack subscription for the track.
+func (c *ReconfigurableClientConn) AddOnTrackSub(trackName string, onTrackCB OnTrackCB) {
+	c.onTrackCBByTrackNameMu.Lock()
+	defer c.onTrackCBByTrackNameMu.Unlock()
+	c.onTrackCBByTrackName[trackName] = onTrackCB
+}
+
+// RemoveOnTrackSub removes an OnTrack subscription for the track.
+func (c *ReconfigurableClientConn) RemoveOnTrackSub(trackName string) {
+	c.onTrackCBByTrackNameMu.Lock()
+	defer c.onTrackCBByTrackNameMu.Unlock()
+	delete(c.onTrackCBByTrackName, trackName)
 }

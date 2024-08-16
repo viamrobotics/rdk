@@ -31,6 +31,7 @@ type Stream interface {
 	// Start starts processing frames.
 	Start()
 	WriteRTP(pkt *rtp.Packet) error
+	// VideoStreamSourceChanged()
 
 	// Ready signals that there is at least one client connected and that
 	// streams are ready for input. The returned context should be used for
@@ -161,6 +162,13 @@ func (bs *basicStream) Start() {
 	utils.ManagedGo(bs.processOutputAudioChunks, bs.activeBackgroundWorkers.Done)
 }
 
+func (bs *basicStream) VideoStreamSourceChanged() {
+	bs.videoTrackLocal.rtpTrack.StreamSourceChanged()
+}
+
+// NOTE: (Nick S) This only writes video RTP packets
+// if we also need to support writing audio RTP packets, we should split
+// this method into WriteVideoRTP and WriteAudioRTP
 func (bs *basicStream) WriteRTP(pkt *rtp.Packet) error {
 	return bs.videoTrackLocal.rtpTrack.WriteRTP(pkt)
 }
