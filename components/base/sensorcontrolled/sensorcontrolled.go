@@ -76,6 +76,7 @@ type sensorBase struct {
 	controlLoopConfig control.Config
 	blockNames        map[string][]string
 	loop              *control.Loop
+	tunedVals         []control.PIDConfig
 }
 
 func init() {
@@ -92,9 +93,10 @@ func createSensorBase(
 	logger logging.Logger,
 ) (base.Base, error) {
 	sb := &sensorBase{
-		logger: logger,
-		Named:  conf.ResourceName().AsNamed(),
-		opMgr:  operation.NewSingleOperationManager(),
+		logger:    logger,
+		tunedVals: []control.PIDConfig{{}, {}},
+		Named:     conf.ResourceName().AsNamed(),
+		opMgr:     operation.NewSingleOperationManager(),
 	}
 
 	if err := sb.Reconfigure(ctx, deps, conf); err != nil {
@@ -208,6 +210,10 @@ func (sb *sensorBase) Reconfigure(ctx context.Context, deps resource.Dependencie
 		}
 		// relock the mutex after setting up the control loop since there is still a  defer unlock
 		sb.mu.Lock()
+
+		go func() {
+			sb.waitForTuning()
+		}()
 	}
 
 	return nil

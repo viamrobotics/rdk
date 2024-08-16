@@ -63,9 +63,20 @@ func (sb *sensorBase) setupControlLoop(linear, angular control.PIDConfig) error 
 		ControllableType:                "base_name",
 	}
 
-	// check if either linear or angular need to be tuned
-	if linear.NeedsAutoTuning() || angular.NeedsAutoTuning() {
+	// check if either linear or angular need to be tuned and if any previous tuning values exist
+	switch {
+	case linear.NeedsAutoTuning() && sb.tunedVals[0].NeedsAutoTuning():
 		options.NeedsAutoTuning = true
+	case linear.NeedsAutoTuning() && !sb.tunedVals[0].NeedsAutoTuning():
+		linear = sb.tunedVals[0]
+	case angular.NeedsAutoTuning() && sb.tunedVals[1].NeedsAutoTuning():
+		options.NeedsAutoTuning = true
+	case angular.NeedsAutoTuning() && !sb.tunedVals[1].NeedsAutoTuning():
+		angular = sb.tunedVals[1]
+	case !linear.NeedsAutoTuning() && sb.tunedVals[0].NeedsAutoTuning():
+		sb.tunedVals[0] = linear
+	case !angular.NeedsAutoTuning() && sb.tunedVals[1].NeedsAutoTuning():
+		sb.tunedVals[1] = angular
 	}
 
 	// combine linear and angular back into one control.PIDConfig, with linear first
@@ -82,6 +93,18 @@ func (sb *sensorBase) setupControlLoop(linear, angular control.PIDConfig) error 
 	sb.blockNames = pl.BlockNames
 
 	return nil
+}
+
+func (sb *sensorBase) waitForTuning() {
+	for {
+		if !control.TunedPIDVals[0].NeedsAutoTuning() && !control.TunedPIDVals[1].NeedsAutoTuning() {
+			sb.tunedVals[0] = control.TunedPIDVals[0]
+			sb.tunedVals[1] = control.TunedPIDVals[1]
+			control.UpdateTunedPIDBlock(sb.controlLoopConfig, control.LinearPIDIndex, sb.tunedVals[0])
+			control.UpdateTunedPIDBlock(sb.controlLoopConfig, control.AngularPIDIndex, sb.tunedVals[1])
+			return
+		}
+	}
 }
 
 func (sb *sensorBase) updateControlConfig(
