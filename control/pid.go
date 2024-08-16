@@ -2,6 +2,7 @@ package control
 
 import (
 	"context"
+	"fmt"
 	"math"
 	"sync"
 	"time"
@@ -20,21 +21,32 @@ func (l *Loop) newPID(config BlockConfig, logger logging.Logger) (Block, error) 
 	return p, nil
 }
 
+// type PIDSet struct {
+// 	// error float64
+// 	kI    float64
+// 	kD    float64
+// 	kP    float64
+// 	// int   float64
+// }
+
 // BasicPID is the standard implementation of a PID controller.
 type basicPID struct {
 	mu       sync.Mutex
 	cfg      BlockConfig
-	error    float64
-	kI       float64
-	kD       float64
-	kP       float64
-	int      float64
+	PIDSets  []*PIDConfig
+	error    float64 // MIMO
+	kI       float64 //
+	kD       float64 //
+	kP       float64 //
+	int      float64 // MIMO
 	y        []*Signal
+	useMulti bool
 	satLimUp float64 `default:"255.0"`
 	limUp    float64 `default:"255.0"`
 	satLimLo float64
 	limLo    float64
 	tuner    pidTuner
+	tuners   []*pidTuner
 	tuning   bool
 	logger   logging.Logger
 }
@@ -61,7 +73,26 @@ func (p *basicPID) Next(ctx context.Context, x []*Signal, dt time.Duration) ([]*
 			p.tuning = false
 		}
 		p.y[0].SetSignalValueAt(0, out)
+
+		if p.useMulti {
+			for i := 0; i < len(p.PIDSets); i++ {
+
+				out, done := p.tuners[i].pidTunerStep(math.Abs(x[0].GetSignalValueAt(i)), p.logger)
+				if done {
+
+					p.PIDSets[i].D = p.tuners[i].kD
+					p.PIDSets[i].I = p.tuners[i].kI
+					p.PIDSets[i].P = p.tuners[i].kP
+					p.logger.Info("\n\n-------- ***** PID GAINS CALCULATED **** --------")
+					p.logger.CInfof(ctx, "Calculated gains are p: %1.6f, i: %1.6f, d: %1.6f", p.PIDSets[i].P, p.PIDSets[i].I, p.PIDSets[i].D)
+					p.logger.CInfof(ctx, "You must MANUALLY ADD p, i and d gains to the robot config to use the values after tuning\n\n")
+					p.tuning = false
+				}
+				p.y[0].SetSignalValueAt(i, out)
+			}
+		}
 	} else {
+
 		dtS := dt.Seconds()
 		pvError := x[0].GetSignalValueAt(0)
 		p.int += p.kI * pvError * dtS
@@ -81,7 +112,41 @@ func (p *basicPID) Next(ctx context.Context, x []*Signal, dt time.Duration) ([]*
 			output = p.limLo
 		}
 		p.y[0].SetSignalValueAt(0, output)
+
+		if p.useMulti {
+
+			for i := 0; i < len(p.PIDSets); i++ {
+				dtS := dt.Seconds()
+				pvError := x[0].GetSignalValueAt(i)
+				p.PIDSets[i].int += p.PIDSets[i].I * pvError * dtS
+				//
+				fmt.Printf("\ndts %f pv error 1%f 2 %f.int %f \n", dtS, pvError, x[0].signal[i], p.PIDSets[i].int)
+
+				switch {
+				case p.PIDSets[i].int >= p.satLimUp:
+					p.PIDSets[i].int = p.satLimUp
+				case p.PIDSets[i].int <= p.satLimLo:
+					p.PIDSets[i].int = p.satLimLo
+				default:
+				}
+				deriv := (pvError - p.PIDSets[i].error) / dtS
+				output := p.PIDSets[i].P*pvError + p.PIDSets[i].int + p.PIDSets[i].D*deriv
+				p.PIDSets[i].error = pvError
+				if output > p.limUp {
+					output = p.limUp
+				} else if output < p.limLo {
+					output = p.limLo
+				}
+
+				fmt.Printf("deriv %f output %f .error %f \n\n", deriv, output, p.PIDSets[i].error)
+
+				p.y[0].SetSignalValueAt(i, output) // i
+			}
+		}
+
 	}
+
+	fmt.Printf("done with next. \n")
 	return p.y, true
 }
 
@@ -94,12 +159,30 @@ func (p *basicPID) reset() error {
 		!p.cfg.Attribute.Has("kP") {
 		return errors.Errorf("pid block %s should have at least one kI, kP or kD field", p.cfg.Name)
 	}
-	if len(p.cfg.DependsOn) != 1 {
+	if len(p.cfg.DependsOn) != 1 && !p.useMulti {
 		return errors.Errorf("pid block %s should have 1 input got %d", p.cfg.Name, len(p.cfg.DependsOn))
 	}
 	p.kI = p.cfg.Attribute["kI"].(float64)
 	p.kD = p.cfg.Attribute["kD"].(float64)
 	p.kP = p.cfg.Attribute["kP"].(float64)
+
+	if p.cfg.Attribute.Has("PIDSets") {
+		ok := true
+		p.PIDSets, ok = p.cfg.Attribute["PIDSets"].([]*PIDConfig)
+		if !ok {
+			return errors.Errorf("PIDSet did not initalize correctly")
+		}
+		if len(p.PIDSets) > 0 {
+			p.useMulti = true
+			p.tuners = make([]*pidTuner, len(p.PIDSets))
+
+			for i := 0; i < len(p.PIDSets); i++ {
+				p.PIDSets[i].int = 0
+				p.PIDSets[i].error = 0
+			}
+		}
+
+	}
 
 	// ensure a default of 255
 	p.satLimUp = 255
@@ -126,40 +209,91 @@ func (p *basicPID) reset() error {
 	}
 
 	p.tuning = false
-	if p.kI == 0.0 && p.kD == 0.0 && p.kP == 0.0 {
-		var ssrVal float64
-		if p.cfg.Attribute["tune_ssr_value"] != nil {
-			ssrVal = p.cfg.Attribute["tune_ssr_value"].(float64)
-		}
+	if p.useMulti {
+		for i := 0; i < len(p.PIDSets); i++ {
 
-		tuneStepPct := 0.35
-		if p.cfg.Attribute.Has("tune_step_pct") {
-			tuneStepPct = p.cfg.Attribute["tune_step_pct"].(float64)
-		}
+			if p.PIDSets[i].I == 0.0 && p.PIDSets[i].D == 0.0 && p.PIDSets[i].P == 0.0 {
+				var ssrVal float64
+				if p.cfg.Attribute["tune_ssr_value"] != nil {
+					ssrVal = p.cfg.Attribute["tune_ssr_value"].(float64)
+				}
 
-		tuneMethod := tuneMethodZiegerNicholsPID
-		if p.cfg.Attribute.Has("tune_method") {
-			tuneMethod = tuneCalcMethod(p.cfg.Attribute["tune_method"].(string))
-		}
+				tuneStepPct := 0.35
+				if p.cfg.Attribute.Has("tune_step_pct") {
+					tuneStepPct = p.cfg.Attribute["tune_step_pct"].(float64)
+				}
 
-		p.tuner = pidTuner{
-			limUp:      p.limUp,
-			limLo:      p.limLo,
-			ssRValue:   ssrVal,
-			tuneMethod: tuneMethod,
-			stepPct:    tuneStepPct,
+				tuneMethod := tuneMethodZiegerNicholsPID
+				if p.cfg.Attribute.Has("tune_method") {
+					tuneMethod = tuneCalcMethod(p.cfg.Attribute["tune_method"].(string))
+				}
+
+				p.tuners[i] = &pidTuner{
+					limUp:      p.limUp,
+					limLo:      p.limLo,
+					ssRValue:   ssrVal,
+					tuneMethod: tuneMethod,
+					stepPct:    tuneStepPct,
+					kP:         p.PIDSets[i].P,
+					kI:         p.PIDSets[i].I,
+					kD:         p.PIDSets[i].D,
+				}
+
+				err := p.tuners[i].reset()
+				if err != nil {
+					return err
+				}
+
+				if p.tuners[i].stepPct > 1 || p.tuners[i].stepPct < 0 {
+					return errors.Errorf("tuner pid block %s should have a percentage value between 0-1 for TuneStepPct", p.cfg.Name)
+				}
+				p.tuning = true
+			}
 		}
-		err := p.tuner.reset()
-		if err != nil {
-			return err
+	} else {
+
+		if p.kI == 0.0 && p.kD == 0.0 && p.kP == 0.0 {
+			var ssrVal float64
+			if p.cfg.Attribute["tune_ssr_value"] != nil {
+				ssrVal = p.cfg.Attribute["tune_ssr_value"].(float64)
+			}
+
+			tuneStepPct := 0.35
+			if p.cfg.Attribute.Has("tune_step_pct") {
+				tuneStepPct = p.cfg.Attribute["tune_step_pct"].(float64)
+			}
+
+			tuneMethod := tuneMethodZiegerNicholsPID
+			if p.cfg.Attribute.Has("tune_method") {
+				tuneMethod = tuneCalcMethod(p.cfg.Attribute["tune_method"].(string))
+			}
+
+			p.tuner = pidTuner{
+				limUp:      p.limUp,
+				limLo:      p.limLo,
+				ssRValue:   ssrVal,
+				tuneMethod: tuneMethod,
+				stepPct:    tuneStepPct,
+			}
+			err := p.tuner.reset()
+			if err != nil {
+				return err
+			}
+
+			if p.tuner.stepPct > 1 || p.tuner.stepPct < 0 {
+				return errors.Errorf("tuner pid block %s should have a percentage value between 0-1 for TuneStepPct", p.cfg.Name)
+			}
+			p.tuning = true
 		}
-		if p.tuner.stepPct > 1 || p.tuner.stepPct < 0 {
-			return errors.Errorf("tuner pid block %s should have a percentage value between 0-1 for TuneStepPct", p.cfg.Name)
-		}
-		p.tuning = true
 	}
+
 	p.y = make([]*Signal, 1)
-	p.y[0] = makeSignal(p.cfg.Name, p.cfg.Type)
+	if p.useMulti {
+		p.y[0] = makeSignals(p.cfg.Name, p.cfg.Type, len(p.PIDSets))
+	} else {
+		p.y[0] = makeSignal(p.cfg.Name, p.cfg.Type)
+	}
+
 	return nil
 }
 
@@ -296,6 +430,7 @@ func (p *pidTuner) computeGains() {
 		p.kI = 0.5454 * (kU / pU)
 		p.kD = 0.0
 	}
+
 }
 
 func pidTunerFindTCat(speeds []float64, times []time.Time, speed float64) time.Duration {
@@ -393,5 +528,44 @@ func (p *pidTuner) reset() error {
 	p.kI = 0.0
 	p.kD = 0.0
 	p.kP = 0.0
+
+	// p.currentPhase = 0.0
+	// p.stepRsp = []float64{}
+	// p.stepRespT = []time.Time{}
+	// // p.tS.
+	// p.xF = 0.0
+	// p.vF = 0.0
+	// p.dF = 0.0
+	// p.pPv = 0.0
+
+	// //lastR        time.Time
+	// p.avgSpeedSS = 0.0
+	// //tC           time.Duration
+
+	p.pPeakH = []float64{}
+	p.pPeakL = []float64{}
+
+	// p.pFindDir = 0.0
+	// //tuneMethod   tuneCalcMethod
+	// //stepPct      float64 `default:".35"`
+	// //limUp        float64
+	// //limLo        float64
+	// //ssRValue     float64 `default:"2.0"`
+	// //ccT2         time.Duration
+	// //ccT3         time.Duration
+	// p.out = 0.0
+
 	return nil
 }
+
+/*
+	kI           float64
+	kD           float64
+	kP           float64
+
+	tS           time.Time
+
+
+
+
+*/

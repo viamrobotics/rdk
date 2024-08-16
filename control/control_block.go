@@ -22,6 +22,7 @@ const (
 	blockEncoderToRPM               controlBlockType = "encoderToRpm"
 	blockEndpoint                   controlBlockType = "endpoint"
 	blockFilter                     controlBlockType = "filter"
+	blockMIMOPID                    controlBlockType = "MIMOPID"
 )
 
 // BlockConfig configuration of a given block.
