@@ -192,7 +192,6 @@ func (vs *videoSource) Unsubscribe(ctx context.Context, id rtppassthrough.Subscr
 func NewPinholeModelWithBrownConradyDistortion(pinholeCameraIntrinsics *transform.PinholeCameraIntrinsics,
 	distortion *transform.BrownConrady,
 ) transform.PinholeCameraModel {
-	// is this doing what I just wrote
 	var cameraModel transform.PinholeCameraModel
 	cameraModel.PinholeCameraIntrinsics = pinholeCameraIntrinsics
 
