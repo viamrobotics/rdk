@@ -93,9 +93,7 @@ func newTransformPipeline(
 	cfg *transformConfig,
 	r robot.Robot,
 	logger logging.Logger,
-) (camera.VideoSource,
-	error,
-) {
+) (camera.VideoSource, error) {
 	if source == nil {
 		return nil, errors.New("no source camera for transform pipeline")
 	}
