@@ -52,7 +52,7 @@ func TestTransformPipelineColor(t *testing.T) {
 	test.That(t, err, test.ShouldWrap, transform.ErrNoIntrinsics)
 
 	test.That(t, color.Close(context.Background()), test.ShouldBeNil)
-	test.That(t, src.Close(context.Background()), test.ShouldBeNil)
+	test.That(t, source.Close(context.Background()), test.ShouldBeNil)
 }
 
 func TestTransformPipelineDepth(t *testing.T) {
@@ -102,7 +102,7 @@ func TestTransformPipelineDepth(t *testing.T) {
 	test.That(t, outPc, test.ShouldBeNil)
 
 	test.That(t, depth.Close(context.Background()), test.ShouldBeNil)
-	test.That(t, src.Close(context.Background()), test.ShouldBeNil)
+	test.That(t, source.Close(context.Background()), test.ShouldBeNil)
 }
 
 func TestTransformPipelineDepth2(t *testing.T) {
