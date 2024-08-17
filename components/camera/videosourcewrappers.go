@@ -181,13 +181,6 @@ func (vs *videoSource) NextPointCloud(ctx context.Context) (pointcloud.PointClou
 	return depthadapter.ToPointCloud(dm, vs.system.PinholeCameraIntrinsics), nil
 }
 
-func (vs *videoSource) Projector(ctx context.Context) (transform.Projector, error) {
-	if vs.system == nil || vs.system.PinholeCameraIntrinsics == nil {
-		return nil, transform.NewNoIntrinsicsError("No features in config")
-	}
-	return vs.system.PinholeCameraIntrinsics, nil
-}
-
 func (vs *videoSource) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 	if res, ok := vs.videoSource.(resource.Resource); ok {
 		return res.DoCommand(ctx, cmd)
