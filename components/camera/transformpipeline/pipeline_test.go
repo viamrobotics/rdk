@@ -50,6 +50,9 @@ func TestTransformPipelineColor(t *testing.T) {
 	_, err = color.NextPointCloud(context.Background())
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err, test.ShouldWrap, transform.ErrNoIntrinsics)
+
+	test.That(t, color.Close(context.Background()), test.ShouldBeNil)
+	test.That(t, src.Close(context.Background()), test.ShouldBeNil)
 }
 
 func TestTransformPipelineDepth(t *testing.T) {
