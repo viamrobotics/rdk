@@ -1075,7 +1075,7 @@ func (rc *RobotClient) MachineStatus(ctx context.Context) (robot.MachineStatus, 
 	return mStatus, nil
 }
 
-// Version returns version information about the robot.
+// Version returns version information about the machine.
 func (rc *RobotClient) Version(ctx context.Context) (robot.VersionResponse, error) {
 	mVersion := robot.VersionResponse{}
 
