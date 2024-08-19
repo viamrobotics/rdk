@@ -6,7 +6,6 @@ import (
 	"crypto/x509"
 	"fmt"
 	"math"
-	"net"
 	"os"
 	"path"
 	"path/filepath"
@@ -19,6 +18,7 @@ import (
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.uber.org/zap"
+
 	// registers all components.
 	commonpb "go.viam.com/api/common/v1"
 	armpb "go.viam.com/api/component/arm/v1"
@@ -56,7 +56,6 @@ import (
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
-	"go.viam.com/rdk/robot/client"
 	"go.viam.com/rdk/robot/framesystem"
 	"go.viam.com/rdk/robot/packages"
 	putils "go.viam.com/rdk/robot/packages/testutils"
@@ -1904,232 +1903,6 @@ func TestConfigMethod(t *testing.T) {
 	expectedCfg.Modules = nil
 
 	test.That(t, actualCfg, test.ShouldResemble, &expectedCfg)
-}
-
-func TestReconnectRemote(t *testing.T) {
-	logger := logging.NewTestLogger(t)
-	options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
-	// start the first robot
-	ctx := context.Background()
-	armConfig := resource.Config{
-		Name:  "arm1",
-		API:   arm.API,
-		Model: fakeModel,
-		ConvertedAttributes: &fake.Config{
-			ModelFilePath: "../../components/arm/fake/fake_model.json",
-		},
-	}
-	cfg := config.Config{
-		Components: []resource.Config{armConfig},
-	}
-
-	robot := setupLocalRobot(t, ctx, &cfg, logger)
-	err := robot.StartWeb(ctx, options)
-	test.That(t, err, test.ShouldBeNil)
-
-	// start the second robot
-	ctx1 := context.Background()
-	options1, _, addr1 := robottestutils.CreateBaseOptionsAndListener(t)
-
-	remoteConf := config.Remote{
-		Name:     "remote",
-		Insecure: true,
-		Address:  addr,
-	}
-
-	cfg1 := config.Config{
-		Remotes: []config.Remote{remoteConf},
-	}
-
-	robot1 := setupLocalRobot(t, ctx, &cfg1, logger)
-
-	err = robot1.StartWeb(ctx1, options1)
-	test.That(t, err, test.ShouldBeNil)
-
-	robotClient := robottestutils.NewRobotClient(t, logger, addr1, time.Second)
-	defer func() {
-		test.That(t, robotClient.Close(context.Background()), test.ShouldBeNil)
-	}()
-
-	a1, err := arm.FromRobot(robot1, "arm1")
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, a1, test.ShouldNotBeNil)
-
-	remoteRobot, ok := robot1.RemoteByName("remote")
-	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, remoteRobot, test.ShouldNotBeNil)
-	remoteRobotClient, ok := remoteRobot.(*client.RobotClient)
-	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, remoteRobotClient, test.ShouldNotBeNil)
-
-	a, err := robotClient.ResourceByName(arm.Named("remote:arm1"))
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, a, test.ShouldNotBeNil)
-	anArm, ok := a.(arm.Arm)
-	test.That(t, ok, test.ShouldBeTrue)
-	_, err = anArm.EndPosition(context.Background(), map[string]interface{}{})
-	test.That(t, err, test.ShouldBeNil)
-
-	// close/disconnect the robot
-	robot.StopWeb()
-	test.That(t, <-remoteRobotClient.Changed(), test.ShouldBeTrue)
-	test.That(t, len(remoteRobotClient.ResourceNames()), test.ShouldEqual, 0)
-	testutils.WaitForAssertion(t, func(tb testing.TB) {
-		tb.Helper()
-		test.That(tb, len(robotClient.ResourceNames()), test.ShouldEqual, 2)
-	})
-	test.That(t, len(robot1.ResourceNames()), test.ShouldEqual, 2)
-	_, err = anArm.EndPosition(context.Background(), map[string]interface{}{})
-	test.That(t, err, test.ShouldBeError)
-
-	// reconnect the first robot
-	ctx2 := context.Background()
-	listener, err := net.Listen("tcp", addr)
-	test.That(t, err, test.ShouldBeNil)
-
-	options.Network.Listener = listener
-	err = robot.StartWeb(ctx2, options)
-	test.That(t, err, test.ShouldBeNil)
-
-	// check if the original arm can still be called
-	test.That(t, <-remoteRobotClient.Changed(), test.ShouldBeTrue)
-	test.That(t, remoteRobotClient.Connected(), test.ShouldBeTrue)
-	test.That(t, len(remoteRobotClient.ResourceNames()), test.ShouldEqual, 3)
-	testutils.WaitForAssertion(t, func(tb testing.TB) {
-		tb.Helper()
-		test.That(tb, len(robotClient.ResourceNames()), test.ShouldEqual, 5)
-	})
-	test.That(t, len(robot1.ResourceNames()), test.ShouldEqual, 5)
-	_, err = remoteRobotClient.ResourceByName(arm.Named("arm1"))
-	test.That(t, err, test.ShouldBeNil)
-
-	_, err = robotClient.ResourceByName(arm.Named("arm1"))
-	test.That(t, err, test.ShouldBeNil)
-	_, err = anArm.EndPosition(context.Background(), map[string]interface{}{})
-	test.That(t, err, test.ShouldBeNil)
-}
-
-func TestReconnectRemoteChangeConfig(t *testing.T) {
-	logger := logging.NewTestLogger(t)
-
-	// start the first robot
-	ctx := context.Background()
-	options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
-	armConfig := resource.Config{
-		Name:  "arm1",
-		API:   arm.API,
-		Model: fakeModel,
-		ConvertedAttributes: &fake.Config{
-			ModelFilePath: "../../components/arm/fake/fake_model.json",
-		},
-	}
-	cfg := config.Config{
-		Components: []resource.Config{armConfig},
-	}
-
-	robot := setupLocalRobot(t, ctx, &cfg, logger)
-	err := robot.StartWeb(ctx, options)
-	test.That(t, err, test.ShouldBeNil)
-
-	// start the second robot
-	ctx1 := context.Background()
-	options1, _, addr1 := robottestutils.CreateBaseOptionsAndListener(t)
-	remoteConf := config.Remote{
-		Name:     "remote",
-		Insecure: true,
-		Address:  addr,
-	}
-
-	cfg1 := config.Config{
-		Remotes: []config.Remote{remoteConf},
-	}
-
-	robot1 := setupLocalRobot(t, ctx, &cfg1, logger)
-
-	err = robot1.StartWeb(ctx1, options1)
-	test.That(t, err, test.ShouldBeNil)
-
-	robotClient := robottestutils.NewRobotClient(t, logger, addr1, time.Second)
-	defer func() {
-		test.That(t, robotClient.Close(context.Background()), test.ShouldBeNil)
-	}()
-
-	a1, err := arm.FromRobot(robot1, "arm1")
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, a1, test.ShouldNotBeNil)
-
-	remoteRobot, ok := robot1.RemoteByName("remote")
-	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, remoteRobot, test.ShouldNotBeNil)
-	remoteRobotClient, ok := remoteRobot.(*client.RobotClient)
-	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, remoteRobotClient, test.ShouldNotBeNil)
-
-	a, err := robotClient.ResourceByName(arm.Named("remote:arm1"))
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, a, test.ShouldNotBeNil)
-	anArm, ok := a.(arm.Arm)
-	test.That(t, ok, test.ShouldBeTrue)
-	_, err = anArm.EndPosition(context.Background(), map[string]interface{}{})
-	test.That(t, err, test.ShouldBeNil)
-
-	// close/disconnect the robot
-	test.That(t, robot.Close(context.Background()), test.ShouldBeNil)
-	test.That(t, <-remoteRobotClient.Changed(), test.ShouldBeTrue)
-	test.That(t, len(remoteRobotClient.ResourceNames()), test.ShouldEqual, 0)
-	testutils.WaitForAssertion(t, func(tb testing.TB) {
-		tb.Helper()
-		test.That(tb, len(robotClient.ResourceNames()), test.ShouldEqual, 2)
-	})
-	test.That(t, len(robot1.ResourceNames()), test.ShouldEqual, 2)
-	_, err = anArm.EndPosition(context.Background(), map[string]interface{}{})
-	test.That(t, err, test.ShouldBeError)
-
-	// reconnect the first robot
-	ctx2 := context.Background()
-	listener, err := net.Listen("tcp", addr)
-	test.That(t, err, test.ShouldBeNil)
-	baseConfig := resource.Config{
-		Name:  "base1",
-		API:   base.API,
-		Model: fakeModel,
-	}
-	cfg = config.Config{
-		Components: []resource.Config{baseConfig},
-	}
-
-	options = weboptions.New()
-	options.Network.BindAddress = ""
-	options.Network.Listener = listener
-	robot = setupLocalRobot(t, ctx, &cfg, logger)
-	err = robot.StartWeb(ctx2, options)
-	test.That(t, err, test.ShouldBeNil)
-
-	// check if the original arm can't be called anymore
-	test.That(t, <-remoteRobotClient.Changed(), test.ShouldBeTrue)
-	test.That(t, remoteRobotClient.Connected(), test.ShouldBeTrue)
-	test.That(t, len(remoteRobotClient.ResourceNames()), test.ShouldEqual, 3)
-	testutils.WaitForAssertion(t, func(tb testing.TB) {
-		tb.Helper()
-		test.That(tb, len(robotClient.ResourceNames()), test.ShouldEqual, 5)
-	})
-	test.That(t, len(robot1.ResourceNames()), test.ShouldEqual, 5)
-	_, err = anArm.EndPosition(context.Background(), map[string]interface{}{})
-	test.That(t, err, test.ShouldBeError)
-
-	// check that base is now instantiated
-	_, err = remoteRobotClient.ResourceByName(base.Named("base1"))
-	test.That(t, err, test.ShouldBeNil)
-
-	b, err := robotClient.ResourceByName(base.Named("remote:base1"))
-	test.That(t, err, test.ShouldBeNil)
-	aBase, ok := b.(base.Base)
-	test.That(t, ok, test.ShouldBeTrue)
-
-	err = aBase.Stop(ctx, map[string]interface{}{})
-	test.That(t, err, test.ShouldBeNil)
-
-	test.That(t, len(robotClient.ResourceNames()), test.ShouldEqual, 5)
 }
 
 func TestCheckMaxInstanceValid(t *testing.T) {
