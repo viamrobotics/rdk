@@ -6,6 +6,7 @@ package tmcstepper
 import (
 	"context"
 	"math"
+	"sync"
 	"time"
 
 	"github.com/pkg/errors"
@@ -103,6 +104,13 @@ const (
 	baseClk = 13200000 // Nominal 13.2mhz internal clock speed
 	uSteps  = 256      // Microsteps per fullstep
 )
+
+// SNEAKY TRICK ALERT! The TMC5072 always returns the value of the register from the *previous*
+// command, not the current one. For an example, see the top of page 18 of
+// https://www.analog.com/media/en/technical-documentation/data-sheets/TMC5072_datasheet_rev1.26.pdf
+// So, to get accurate reads, request the read twice. Use a global mutex to ensure no race
+// conditions when multiple components access the chip.
+var globalMu sync.Mutex
 
 // TMC5072 Register Addressses (for motor index 1)
 // TODO full register set.
@@ -325,7 +333,12 @@ func (m *Motor) writeReg(ctx context.Context, addr uint8, value int32) error {
 		}
 	}()
 
-	// m.logger.Debug("Write: ", buf)
+	m.logger.Debugf("Write to 0x%x: %v", addr, buf[1:])
+
+	// Ensure we're not writing in the middle of another component attempting to read (which would
+	// otherwise be non-atomic).
+	globalMu.Lock()
+	defer globalMu.Unlock()
 
 	_, err = handle.Xfer(ctx, 1000000, m.csPin, 3, buf[:]) // SPI Mode 3, 1mhz
 	if err != nil {
@@ -351,9 +364,12 @@ func (m *Motor) readReg(ctx context.Context, addr uint8) (int32, error) {
 		}
 	}()
 
-	// m.logger.Debug("ReadT: ", tbuf)
+	// Read access returns data from the address sent in the PREVIOUS "packet," so we transmit,
+	// then read. Ensure that another component can't interact with the chip in between our two
+	// commands.
+	globalMu.Lock()
+	defer globalMu.Unlock()
 
-	// Read access returns data from the address sent in the PREVIOUS "packet," so we transmit, then read
 	_, err = handle.Xfer(ctx, 1000000, m.csPin, 3, tbuf[:]) // SPI Mode 3, 1mhz
 	if err != nil {
 		return 0, err
@@ -373,8 +389,7 @@ func (m *Motor) readReg(ctx context.Context, addr uint8) (int32, error) {
 	value <<= 8
 	value |= int32(rbuf[4])
 
-	// m.logger.Debug("ReadR: ", rbuf)
-	// m.logger.Debug("Read: ", value)
+	m.logger.Debugf("Read from 0x%x: %d (%v)", addr, value, rbuf[1:])
 
 	return value, nil
 }
