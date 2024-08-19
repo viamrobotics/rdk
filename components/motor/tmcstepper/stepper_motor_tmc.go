@@ -105,19 +105,11 @@ const (
 	uSteps  = 256      // Microsteps per fullstep
 )
 
-// SNEAKY TRICK ALERT! The TMC5072 always returns the value of the register read/written *last*
-// time, not the current time. This is intended to let you pipeline commands, where you tell it to
-// read a register, then you tell it to write a register, and you get the value of the first
-// register while simultaneously writing an update to the second one. For an example, see the top
-// of page 18 of
+// SNEAKY TRICK ALERT! The TMC5072 always returns the value of the register from the *previous*
+// command, not the current one. For an example, see the top of page 18 of
 // https://www.analog.com/media/en/technical-documentation/data-sheets/TMC5072_datasheet_rev1.26.pdf
-// In order to read values in a non-pipelined manner, though, you need to request the read twice
-// (the first response will contain the value read/written last time, and the second response has
-// the value you care about). but that means we need to be able to send two commands atomically: if
-// we send the first read, then a second component controlling the other motor sends some other
-// command, and then we send our second read, we're going to get back whatever the second component
-// was doing! So, we need a global mutex to work across multiple components that might all try
-// talking to the same chip at the same time, to ensure that our reads are indeed atomic.
+// So, to get accurate reads, request the read twice. Use a global mutex to ensure no race
+// conditions when multiple components access the chip.
 var globalMu sync.Mutex
 
 // TMC5072 Register Addressses (for motor index 1)
