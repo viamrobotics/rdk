@@ -17,10 +17,11 @@ import (
 func main() {
 	// We will use a logging.Logger named "complexmodule," and our module will support 4 different
 	// resource models.
-	module.ModularMain("complexmodule",
-	                   resource.APIModel{gizmoapi.API, mygizmo.Model},
-	                   resource.APIModel{summationapi.API, mysum.Model},
-	                   resource.APIModel{base.API, mybase.Model},
-	                   resource.APIModel{navigation.API, mynavigation.Model},
-	                   )
+	module.ModularMain(
+		"complexmodule",
+		resource.APIModel{gizmoapi.API, mygizmo.Model},
+		resource.APIModel{summationapi.API, mysum.Model},
+		resource.APIModel{base.API, mybase.Model},
+		resource.APIModel{navigation.API, mynavigation.Model},
+	)
 }
