@@ -662,8 +662,7 @@ func (rc *RobotClient) updateResources(ctx context.Context) error {
 
 	names, rpcAPIs, err := rc.resources(ctx)
 	if err != nil && status.Code(err) != codes.Unimplemented {
-		rc.logger.Infow("robotClient.updateResources -- returning error", "numRc.ResourceNames", len(rc.resourceNames))
-		return err
+		return fmt.Errorf("error updating resources: %w", err)
 	}
 
 	rc.resourceNames = make([]resource.Name, 0, len(names))
