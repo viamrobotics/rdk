@@ -63,9 +63,14 @@ func newCaptureAllFromCameraCollector(resource interface{}, params data.Collecto
 			ReturnClassifications: true,
 			ReturnObject:          true,
 		}
-		visCapture, err := vision.CaptureAllFromCamera(ctx, cameraName, visCaptureOptions, nil)
+		visCapture, err := vision.CaptureAllFromCamera(ctx, cameraName, visCaptureOptions, data.FromDMExtraMap)
 		if err != nil {
-			return nil, data.FailedToReadErr(cameraName, captureAllFromCamera.String(), err)
+			// A modular filter component can be created to filter the readings from a component. The error ErrNoCaptureToStore
+			// is used in the datamanager to exclude readings from being captured and stored.
+			if errors.Is(err, data.ErrNoCaptureToStore) {
+				return nil, err
+			}
+			return nil, data.FailedToReadErr(params.ComponentName, captureAllFromCamera.String(), err)
 		}
 
 		protoImage, err := imageToProto(ctx, visCapture.Image, cameraName)
