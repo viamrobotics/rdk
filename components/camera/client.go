@@ -39,11 +39,11 @@ import (
 
 var (
 	// ErrNoPeerConnection indicates there was no peer connection.
-	ErrNoPeerConnection = errors.New("No PeerConnection")
+	ErrNoPeerConnection = errors.New("no PeerConnection")
 	// ErrNoSharedPeerConnection indicates there was no shared peer connection.
-	ErrNoSharedPeerConnection = errors.New("No Shared PeerConnection")
+	ErrNoSharedPeerConnection = errors.New("no Shared PeerConnection")
 	// ErrUnknownSubscriptionID indicates that a SubscriptionID is unknown.
-	ErrUnknownSubscriptionID = errors.New("SubscriptionID Unknown")
+	ErrUnknownSubscriptionID = errors.New("subscriptionID Unknown")
 	readRTPTimeout           = time.Millisecond * 200
 )
 
@@ -69,7 +69,7 @@ type client struct {
 
 	rtpPassthroughMu sync.Mutex
 	runningStreams   map[rtppassthrough.SubscriptionID]bufAndCB
-	subGenerationId  int
+	subGenerationID  int
 	associatedSubs   map[int][]rtppassthrough.SubscriptionID
 	trackClosed      <-chan struct{}
 }
@@ -477,7 +477,7 @@ func (c *client) SubscribeRTP(
 		select {
 		case <-c.trackClosed:
 		case <-ctx.Done():
-			return rtppassthrough.NilSubscription, fmt.Errorf("Track not closed within SubscribeRTP provided context %w", ctx.Err())
+			return rtppassthrough.NilSubscription, fmt.Errorf("track not closed within SubscribeRTP provided context %w", ctx.Err())
 		case <-healthyClientCh:
 			return rtppassthrough.NilSubscription, errors.New("camera client is closed")
 		}
@@ -489,11 +489,11 @@ func (c *client) SubscribeRTP(
 
 		// We're creating a new video track. Bump the generation ID and associate all new
 		// subscriptions to this generation.
-		c.subGenerationId += 1
-		c.associatedSubs[c.subGenerationId] = []rtppassthrough.SubscriptionID{}
+		c.subGenerationID++
+		c.associatedSubs[c.subGenerationID] = []rtppassthrough.SubscriptionID{}
 
 		// Add the camera's addOnTrackSubFunc to the SharedConn's map of OnTrack callbacks.
-		tracker.AddOnTrackSub(c.trackName(), c.addOnTrackFunc(healthyClientCh, trackReceived, trackClosed, c.subGenerationId))
+		tracker.AddOnTrackSub(c.trackName(), c.addOnTrackFunc(healthyClientCh, trackReceived, trackClosed, c.subGenerationID))
 		// Remove the OnTrackSub once we either fail or succeed.
 		defer tracker.RemoveOnTrackSub(c.trackName())
 
@@ -518,9 +518,9 @@ func (c *client) SubscribeRTP(
 		c.logger.CDebugw(ctx, "SubscribeRTP waiting for track", "client", fmt.Sprintf("%p", c), "pc", fmt.Sprintf("%p", c.conn.PeerConn()))
 		select {
 		case <-ctx.Done():
-			return rtppassthrough.NilSubscription, fmt.Errorf("Track not received within SubscribeRTP provided context %w", ctx.Err())
+			return rtppassthrough.NilSubscription, fmt.Errorf("track not received within SubscribeRTP provided context %w", ctx.Err())
 		case <-healthyClientCh:
-			return rtppassthrough.NilSubscription, errors.New("Track not received before client closed")
+			return rtppassthrough.NilSubscription, errors.New("track not received before client closed")
 		case <-trackReceived:
 			c.logger.CDebugw(ctx, "SubscribeRTP received track data", "client", fmt.Sprintf("%p", c), "pc", fmt.Sprintf("%p", c.conn.PeerConn()))
 		}
@@ -532,7 +532,7 @@ func (c *client) SubscribeRTP(
 	}
 
 	// Associate this subscription with the current generation.
-	c.associatedSubs[c.subGenerationId] = append(c.associatedSubs[c.subGenerationId], sub.ID)
+	c.associatedSubs[c.subGenerationID] = append(c.associatedSubs[c.subGenerationID], sub.ID)
 
 	// Add the subscription to runningStreams. The goroutine spawned by `addOnTrackFunc` will use
 	// this to know where to forward incoming RTP packets.
@@ -551,9 +551,8 @@ func (c *client) SubscribeRTP(
 
 func (c *client) addOnTrackFunc(
 	healthyClientCh, trackReceived, trackClosed chan struct{},
-	generationId int,
+	generationID int,
 ) grpc.OnTrackCB {
-
 	// This is invoked when `PeerConnection.OnTrack` is called for this camera's stream id.
 	return func(tr *webrtc.TrackRemote, r *webrtc.RTPReceiver) {
 		// Our `OnTrack` was called. Inform `SubscribeRTP` that getting video data was successful.
@@ -565,7 +564,7 @@ func (c *client) addOnTrackFunc(
 			for {
 				select {
 				case <-healthyClientCh:
-					c.logger.Debugw("OnTrack callback terminating as the client is closing", "parentID", generationId)
+					c.logger.Debugw("OnTrack callback terminating as the client is closing", "parentID", generationID)
 					return
 				default:
 				}
@@ -575,27 +574,27 @@ func (c *client) addOnTrackFunc(
 				// `ReadRTP` method.
 				deadline := time.Now().Add(readRTPTimeout)
 				if err := tr.SetReadDeadline(deadline); err != nil {
-					c.logger.Errorw("SetReadDeadline error", "generationId", generationId, "err", err)
+					c.logger.Errorw("SetReadDeadline error", "generationId", generationID, "err", err)
 					return
 				}
 
 				pkt, _, err := tr.ReadRTP()
 				if os.IsTimeout(err) {
-					c.logger.Debugw("ReadRTP read timeout", "generationId", generationId,
+					c.logger.Debugw("ReadRTP read timeout", "generationId", generationID,
 						"err", err, "timeout", readRTPTimeout.String())
 					continue
 				}
 
 				if err != nil {
 					if errors.Is(err, io.EOF) {
-						c.logger.Infow("ReadRTP received EOF", "generationId", generationId, "err", err)
+						c.logger.Infow("ReadRTP received EOF", "generationId", generationID, "err", err)
 					} else {
-						c.logger.Warnw("ReadRTP error", "generationId", generationId, "err", err)
+						c.logger.Warnw("ReadRTP error", "generationId", generationID, "err", err)
 					}
 					// NOTE: (Nick S) We need to remember which subscriptions are consuming packets
 					// from to which tr *webrtc.TrackRemote so that we can terminate the child subscriptions
 					// when their track terminate.
-					c.unsubscribeChildrenSubs(generationId)
+					c.unsubscribeChildrenSubs(generationID)
 					return
 				}
 
@@ -611,7 +610,7 @@ func (c *client) addOnTrackFunc(
 					err := bufAndCB.buf.Publish(func() { bufAndCB.cb(pkt) })
 					if err != nil {
 						c.logger.Debugw("rtp passthrough packet dropped",
-							"generationId", generationId, "err", err)
+							"generationId", generationID, "err", err)
 					}
 				}
 				c.rtpPassthroughMu.Unlock()
@@ -687,10 +686,12 @@ func (c *client) Unsubscribe(ctx context.Context, id rtppassthrough.Subscription
 	case <-c.trackClosed:
 		return nil
 	case <-ctx.Done():
-		c.logger.CWarnw(ctx, "RemoveStream successfully called, but errored waiting for stream to send an EOF", "subID", id.String(), "err", ctx.Err())
+		c.logger.CWarnw(ctx, "RemoveStream successfully called, but errored waiting for stream to send an EOF",
+			"subID", id.String(), "err", ctx.Err())
 		return nil
 	case <-healthyClientCh:
-		c.logger.CWarnw(ctx, "RemoveStream successfully called, but camera closed waiting for stream to send an EOF", "subID", id.String())
+		c.logger.CWarnw(ctx, "RemoveStream successfully called, but camera closed waiting for stream to send an EOF",
+			"subID", id.String())
 		return nil
 	}
 }
@@ -717,29 +718,29 @@ func (c *client) unsubscribeAll() {
 	defer c.rtpPassthroughMu.Unlock()
 	if len(c.runningStreams) > 0 {
 		// shutdown & delete all *rtppassthrough.Buffer and callbacks
-		for subId, bufAndCB := range c.runningStreams {
-			c.logger.Debugw("unsubscribeAll terminating sub", "subID", subId.String())
-			delete(c.runningStreams, subId)
+		for subID, bufAndCB := range c.runningStreams {
+			c.logger.Debugw("unsubscribeAll terminating sub", "subID", subID.String())
+			delete(c.runningStreams, subID)
 			bufAndCB.buf.Close()
 		}
 	}
 }
 
-func (c *client) unsubscribeChildrenSubs(generationId int) {
+func (c *client) unsubscribeChildrenSubs(generationID int) {
 	c.rtpPassthroughMu.Lock()
 	defer c.rtpPassthroughMu.Unlock()
-	c.logger.Debugw("client unsubscribeChildrenSubs called", "generationId", generationId, "numSubs", len(c.associatedSubs))
-	defer c.logger.Debugw("client unsubscribeChildrenSubs done", "generationId", generationId)
-	for _, subId := range c.associatedSubs[generationId] {
-		bufAndCB, ok := c.runningStreams[subId]
+	c.logger.Debugw("client unsubscribeChildrenSubs called", "generationId", generationID, "numSubs", len(c.associatedSubs))
+	defer c.logger.Debugw("client unsubscribeChildrenSubs done", "generationId", generationID)
+	for _, subID := range c.associatedSubs[generationID] {
+		bufAndCB, ok := c.runningStreams[subID]
 		if !ok {
 			continue
 		}
-		c.logger.Debugw("stopping subscription", "generationId", generationId, "subId", subId.String())
-		delete(c.runningStreams, subId)
+		c.logger.Debugw("stopping subscription", "generationId", generationID, "subId", subID.String())
+		delete(c.runningStreams, subID)
 		bufAndCB.buf.Close()
 	}
-	delete(c.associatedSubs, generationId)
+	delete(c.associatedSubs, generationID)
 }
 
 func (c *client) bufAndCBToString() string {

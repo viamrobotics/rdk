@@ -6,10 +6,11 @@ import (
 	"sync"
 
 	"github.com/viamrobotics/webrtc/v3"
-	"go.viam.com/rdk/logging"
 	"go.viam.com/utils/rpc"
 	"golang.org/x/exp/maps"
 	googlegrpc "google.golang.org/grpc"
+
+	"go.viam.com/rdk/logging"
 )
 
 // ReconfigurableClientConn allows for the underlying client connections to be swapped under the hood.

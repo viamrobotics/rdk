@@ -22,10 +22,8 @@ import (
 	streamCamera "go.viam.com/rdk/robot/web/stream/camera"
 )
 
-var (
-	// ErrClosed indicates that the StreamState is already closed.
-	ErrClosed = errors.New("StreamState already closed")
-)
+// ErrClosed indicates that the StreamState is already closed.
+var ErrClosed = errors.New("StreamState already closed")
 
 // StreamState controls the source of the RTP packets being written to the stream's subscribers
 // and ensures there is only one active at a time while there are subsribers.
@@ -167,7 +165,6 @@ func (state *StreamState) sourceEventHandler() {
 		case <-state.closedCtx.Done():
 			return
 		case msg = <-state.msgChan:
-			break
 		case <-ticker.C:
 			state.tick()
 			continue
@@ -295,7 +292,7 @@ func (state *StreamState) streamH264Passthrough() error {
 	// Get the camera and see if it implements the rtp passthrough API of SubscribeRTP + Unsubscribe
 	rtpPassthroughSource, ok := cam.(rtppassthrough.Source)
 	if !ok {
-		return errors.New("Stream does not support RTP passthrough")
+		return errors.New("stream does not support RTP passthrough")
 	}
 
 	var count atomic.Uint64
@@ -315,7 +312,8 @@ func (state *StreamState) streamH264Passthrough() error {
 		for _, pkt := range pkts {
 			// Also, look at unsubscribe error logs. Definitely a bug. Probably benign.
 			if count.Add(1)%10000 == 0 {
-				state.logger.Infow("WriteRTP called. Sampling 1/10000", "stream", state.Stream.Name(), "count", count.Load(), "seqNumber", pkt.Header.SequenceNumber, "ts", pkt.Header.Timestamp)
+				state.logger.Infow("WriteRTP called. Sampling 1/10000",
+					"count", count.Load(), "seqNumber", pkt.Header.SequenceNumber, "ts", pkt.Header.Timestamp)
 			}
 			if err := state.Stream.WriteRTP(pkt); err != nil {
 				state.logger.Debugw("stream.WriteRTP", "name", state.Stream.Name(), "err", err.Error())
@@ -354,7 +352,7 @@ func (state *StreamState) unsubscribeH264Passthrough(ctx context.Context, id rtp
 
 	rtpPassthroughSource, ok := cam.(rtppassthrough.Source)
 	if !ok {
-		return fmt.Errorf("Subscription resource does not implement rtpPassthroughSource. CamType: %T", rtpPassthroughSource)
+		return fmt.Errorf("subscription resource does not implement rtpPassthroughSource. CamType: %T", rtpPassthroughSource)
 	}
 
 	if err := rtpPassthroughSource.Unsubscribe(ctx, id); err != nil {

@@ -869,10 +869,13 @@ func TestMultiplexOverMultiHopRemoteConnection(t *testing.T) {
 	test.That(t, cameraClient.(rtppassthrough.Source).Unsubscribe(mainCtx, sub.ID), test.ShouldBeNil)
 }
 
+//nolint
 // NOTE: These tests fail when this condition occurs:
-//     logger.go:130: 2024-06-17T16:56:14.097-0400 DEBUG   TestGrandRemoteRebooting.remote-1.rdk:remote:/remote-2.webrtc   rpc/wrtc_client_channel.go:299  no stream for id; discarding    {"ch": 0, "id": 11}
+//
+//	logger.go:130: 2024-06-17T16:56:14.097-0400 DEBUG   TestGrandRemoteRebooting.remote-1.rdk:remote:/remote-2.webrtc   rpc/wrtc_client_channel.go:299  no stream for id; discarding    {"ch": 0, "id": 11}
+//
 // https://github.com/viamrobotics/goutils/blob/main/rpc/wrtc_client_channel.go#L299
-
+//
 // go test -race -v -run=TestWhyMustTimeoutOnReadRTP -timeout 10s
 // TestWhyMustTimeoutOnReadRTP shows that if we don't timeout on ReadRTP (and also don't call RemoveStream) on close
 // calling Close() on main's camera client blocks forever if there is a live SubscribeRTP subscription with a remote
@@ -990,8 +993,9 @@ Loop:
 			// rather than out of the select statement
 			break Loop
 		case <-timeoutCtx.Done():
-			t.Log("timed out waiting for SubscribeRTP packets to drain")
-			t.FailNow()
+			// Failure case. The following assertion always fails. We use this to get a failure line
+			// number + error message.
+			test.That(t, true, test.ShouldEqual, "timed out waiting for SubscribeRTP packets to drain")
 		}
 	}
 
@@ -1006,18 +1010,19 @@ Loop:
 // - Ideally, we'd lower robot client reconnect timers down from 10 seconds.
 // - We need to force robot client webrtc connections
 // - WebRTC connections need to disable SRTP replay protection
-
+//
 // This tests the following scenario:
-// 1. main-part (main) -> remote-part-1 (r1) -> remote-part-2 (r2) where r2 has a camera
-// 2. the client in the main part makes an AddStream(r1:r2:rtpPassthroughCamera) request, starting a webrtc video track to be streamed from r2 -> r1 -> main -> client
-// 3. r2 reboots
-// 4. expect that r1 & main stop getting packets
-// 5. when the new instance of r2 comes back online main gets new rtp packets from it's track with r1.
+//  1. main-part (main) -> remote-part-1 (r1) -> remote-part-2 (r2) where r2 has a camera
+//  2. the client in the main part makes an AddStream(r1:r2:rtpPassthroughCamera) request, starting a
+//     webrtc video track to be streamed from r2 -> r1 -> main -> client
+//  3. r2 reboots
+//  4. expect that r1 & main stop getting packets
+//  5. when the new instance of r2 comes back online main gets new rtp packets from it's track with
+//     r1.
 func TestGrandRemoteRebooting(t *testing.T) {
 	logger := logging.NewTestLogger(t).Sublogger(t.Name())
 
 	remoteCfg2 := &config.Config{
-		// Network: config.NetworkConfig{NetworkConfigData: config.NetworkConfigData{Sessions: config.SessionsConfig{HeartbeatWindow: time.Hour}}},
 		Components: []resource.Config{
 			{
 				Name:  "rtpPassthroughCamera",
@@ -1035,7 +1040,6 @@ func TestGrandRemoteRebooting(t *testing.T) {
 	remote2Ctx, remoteRobot2, remoteWebSvc2 := setupRealRobotWithOptions(t, remoteCfg2, logger.Sublogger("remote-2"), options2)
 
 	remoteCfg1 := &config.Config{
-		// Network: config.NetworkConfig{NetworkConfigData: config.NetworkConfigData{Sessions: config.SessionsConfig{HeartbeatWindow: time.Hour}}},
 		Remotes: []config.Remote{
 			{
 				Name:     "remote-2",
@@ -1050,7 +1054,6 @@ func TestGrandRemoteRebooting(t *testing.T) {
 	defer remoteWebSvc1.Close(remote1Ctx)
 
 	mainCfg := &config.Config{
-		// Network: config.NetworkConfig{NetworkConfigData: config.NetworkConfigData{Sessions: config.SessionsConfig{HeartbeatWindow: time.Hour}}},
 		Remotes: []config.Remote{
 			{
 				Name:     "remote-1",
@@ -1133,6 +1136,8 @@ Loop:
 			// rather than out of the select statement
 			break Loop
 		case <-timeoutCtx.Done():
+			// Failure case. The following assertion always fails. We use this to get a failure line
+			// number + error message.
 			test.That(t, true, test.ShouldEqual, "timed out waiting for SubscribeRTP packets to drain")
 		}
 	}
@@ -1171,7 +1176,8 @@ Loop:
 	for !testPassed {
 		select {
 		case <-sub.Terminated.Done():
-			// Right now we are going down this path b/c main's
+			// Failure case. The following assertion always fails. We use this to get a failure line
+			// number + error message.
 			test.That(t, true, test.ShouldEqual, "main's sub terminated due to close")
 		case pkts := <-pktsChan:
 			lastPkt := pkts[len(pkts)-1]
@@ -1180,6 +1186,8 @@ Loop:
 			logger.Info("SubscribeRTP got packets")
 			testPassed = true
 		case <-sndPktTimeoutCtx.Done():
+			// Failure case. The following assertion always fails. We use this to get a failure line
+			// number + error message.
 			test.That(t, true, test.ShouldEqual, "timed out waiting for SubscribeRTP to receive packets")
 		case <-time.After(time.Second):
 			logger.Info("still waiting for RTP packets")

@@ -62,7 +62,7 @@ func (opts *BackoffTuningOptions) GetSleepTimeFromErrorCount(errorCount int) tim
 		return 0
 	}
 
-	errorCount -= 1
+	errorCount--
 	if errorCount >= len(backoffSleeps) {
 		return backoffSleeps[len(backoffSleeps)-1]
 	}

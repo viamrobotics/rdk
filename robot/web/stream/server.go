@@ -287,6 +287,7 @@ func (server *Server) RemoveStream(ctx context.Context, req *streampb.RemoveStre
 		return &streampb.RemoveStreamResponse{}, nil
 	}
 
+	//nolint:nilerr
 	if _, err := streamCamera.Camera(server.robot, streamToRemove.Stream); err != nil {
 		return &streampb.RemoveStreamResponse{}, nil
 	}
@@ -338,7 +339,6 @@ func (server *Server) add(stream gostream.Stream) error {
 	}
 
 	logger := server.logger.Sublogger(streamName)
-	logger.SetLevel(logging.DEBUG)
 	newStreamState := state.New(stream, server.robot, logger)
 	server.nameToStreamState[streamName] = newStreamState
 	server.streamNames = append(server.streamNames, streamName)
