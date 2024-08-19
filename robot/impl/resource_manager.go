@@ -72,7 +72,6 @@ func newResourceManager(
 	logger logging.Logger,
 ) *resourceManager {
 	resLogger := logger.Sublogger("resource_manager")
-	resLogger.SetLevel(logging.DEBUG)
 	return &resourceManager{
 		resources:      resource.NewGraph(),
 		processManager: newProcessManager(opts, logger),

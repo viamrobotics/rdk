@@ -464,7 +464,6 @@ func (rc *RobotClient) checkConnection(ctx context.Context, checkEvery, reconnec
 					"reconnect_interval", reconnectEvery.Seconds(),
 				)
 				rc.mu.Lock()
-				rc.logger.Warn("NOT connected")
 				rc.connected.Store(false)
 				if rc.changeChan != nil {
 					rc.changeChan <- true
@@ -662,7 +661,6 @@ func (rc *RobotClient) updateResources(ctx context.Context) error {
 	// call metadata service.
 
 	names, rpcAPIs, err := rc.resources(ctx)
-	// rc.logger.Infow("robotClient.updateResources", "numNames", len(names), "err", err, "numRc.ResourceNames", len(rc.resourceNames))
 	if err != nil && status.Code(err) != codes.Unimplemented {
 		rc.logger.Infow("robotClient.updateResources -- returning error", "numRc.ResourceNames", len(rc.resourceNames))
 		return err

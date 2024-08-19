@@ -255,8 +255,6 @@ func (state *StreamState) tick() {
 	case state.streamSource == streamSourceUnknown: // && state.activeClients > 0
 		// this is the first subscription, attempt passthrough
 		state.logger.Info("attempting to subscribe to rtp_passthrough")
-
-		// state.Stream.VideoStreamSourceChanged()
 		err := state.streamH264Passthrough()
 		if err != nil {
 			state.logger.Warnw("tick: rtp_passthrough not possible, falling back to GoStream", "err", err)
@@ -268,7 +266,6 @@ func (state *StreamState) tick() {
 		// restart stream if there we were using passthrough but the sub is terminated
 		state.logger.Info("previous subscription terminated attempting to subscribe to rtp_passthrough")
 
-		// state.Stream.VideoStreamSourceChanged()
 		err := state.streamH264Passthrough()
 		if err != nil {
 			state.logger.Warn("rtp_passthrough not possible, falling back to GoStream", "err", err)

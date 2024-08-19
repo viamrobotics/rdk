@@ -230,14 +230,12 @@ func (server *Server) AddStream(ctx context.Context, req *streampb.AddStreamRequ
 
 	guard := rutils.NewGuard(func() {
 		for _, sender := range ps.senders {
-			logging.Global().Infof("calling RemoveTrack on %s pc: %p", sender.Track().StreamID(), pc)
 			utils.UncheckedError(pc.RemoveTrack(sender))
 		}
 	})
 	defer guard.OnFail()
 
 	addTrack := func(track webrtc.TrackLocal) error {
-		// logging.Global().Infof("calling AddTrack on %s pc: %p", track.StreamID(), pc)
 		sender, err := pc.AddTrack(track)
 		if err != nil {
 			return err
@@ -301,7 +299,6 @@ func (server *Server) RemoveStream(ctx context.Context, req *streampb.RemoveStre
 
 	var errs error
 	for _, sender := range server.activePeerStreams[pc][req.Name].senders {
-		// logging.Global().Infof("calling RemoveTrack on %s pc: %p", sender.Track().StreamID(), pc)
 		errs = multierr.Combine(errs, pc.RemoveTrack(sender))
 	}
 	if errs != nil {
