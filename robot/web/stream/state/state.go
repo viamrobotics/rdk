@@ -94,7 +94,6 @@ func (state *StreamState) Decrement() error {
 // Close closes the StreamState.
 func (state *StreamState) Close() error {
 	state.logger.Info("Closing streamState")
-	defer state.logger.Info("Wait completed")
 	state.closedFn()
 	state.wg.Wait()
 	return nil
@@ -237,7 +236,6 @@ func (state *StreamState) stopInputStream() {
 func (state *StreamState) send(msgType msgType) error {
 	select {
 	case state.msgChan <- msg{msgType: msgType}:
-		state.logger.Infow("pushed msg", "type", msgType)
 		return nil
 	case <-state.closedCtx.Done():
 		return state.closedCtx.Err()

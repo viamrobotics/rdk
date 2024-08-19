@@ -64,7 +64,6 @@ func NewServer(
 		activePeerStreams: map[*webrtc.PeerConnection]map[string]*peerState{},
 		isAlive:           true,
 	}
-	server.logger.SetLevel(logging.DEBUG)
 
 	for _, stream := range streams {
 		if err := server.add(stream); err != nil {
@@ -273,7 +272,6 @@ func (server *Server) RemoveStream(ctx context.Context, req *streampb.RemoveStre
 	defer span.End()
 	pc, ok := rpc.ContextPeerConnection(ctx)
 	server.logger.Infow("Removing video stream", "name", req.Name, "peerConn", pc)
-	defer server.logger.Warnf("RemoveStream END %s", req.Name)
 	if !ok {
 		return nil, errors.New("can only remove a stream over a WebRTC based connection")
 	}
@@ -357,8 +355,6 @@ func (server *Server) startMonitorCameraAvailable() {
 	server.activeBackgroundWorkers.Add(1)
 	utils.ManagedGo(func() {
 		logger := server.logger.Sublogger("monitor")
-		logger.Info("Start")
-		defer server.logger.Info("End")
 		for utils.SelectContextOrWait(server.closedCtx, monitorCameraInterval) {
 			server.removeMissingStreams()
 		}

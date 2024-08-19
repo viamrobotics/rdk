@@ -62,8 +62,6 @@ func (c *ReconfigurableClientConn) NewStream(
 // ReplaceConn replaces the underlying client connection with the connection passed in. This does not close the
 // old connection, the caller is expected to close it if needed.
 func (c *ReconfigurableClientConn) ReplaceConn(conn rpc.ClientConn) {
-	logging.Global().Info("ReplaceConn START")
-	defer logging.Global().Info("ReplaceConn END")
 	c.connMu.Lock()
 	c.conn = conn
 	// It is safe to access this without a mutex as it is only ever nil once at the beginning of the
@@ -74,14 +72,12 @@ func (c *ReconfigurableClientConn) ReplaceConn(conn rpc.ClientConn) {
 
 	if pc := conn.PeerConn(); pc != nil {
 		pc.OnTrack(func(trackRemote *webrtc.TrackRemote, rtpReceiver *webrtc.RTPReceiver) {
-			logging.Global().Warnf("OnTrack START %s pc: %p", trackRemote.StreamID(), pc)
-			defer logging.Global().Warnf("OnTrack END %s pc: %p", trackRemote.StreamID(), pc)
 			c.onTrackCBByTrackNameMu.Lock()
 			onTrackCB, ok := c.onTrackCBByTrackName[trackRemote.StreamID()]
 			c.onTrackCBByTrackNameMu.Unlock()
 			if !ok {
-				msg := "Callback not found for StreamID (trackName): %s, keys(resOnTrackCBs): %#v"
-				logging.Global().Errorf(msg, trackRemote.StreamID(), maps.Keys(c.onTrackCBByTrackName))
+				logging.Global().Errorf("Callback not found for StreamID (trackName): %s, keys(resOnTrackCBs): %#v",
+					trackRemote.StreamID(), maps.Keys(c.onTrackCBByTrackName))
 				return
 			}
 			onTrackCB(trackRemote, rtpReceiver)

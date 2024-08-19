@@ -8,9 +8,6 @@ import (
 	"go.viam.com/rdk/robot"
 )
 
-// Dan: After `web/stream/state` is moved into `web/stream` -- this can be moved into
-// `web/stream`. And renamed to `CameraFromStreamName`
-//
 // Camera returns the camera from the robot (derived from the stream) or
 // an error if it has no camera.
 func Camera(robot robot.Robot, stream gostream.Stream) (camera.Camera, error) {
