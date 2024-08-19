@@ -59,7 +59,6 @@ require (
 	github.com/lucasb-eyer/go-colorful v1.2.0
 	github.com/mattn/go-tflite v1.0.4
 	github.com/matttproud/golang_protobuf_extensions v1.0.4
-	github.com/mitchellh/copystructure v1.2.0
 	github.com/mkch/gpio v0.0.0-20190919032813-8327cd97d95e
 	github.com/montanaflynn/stats v0.7.0
 	github.com/muesli/clusters v0.0.0-20200529215643-2700303c1762
@@ -274,6 +273,7 @@ require (
 	github.com/mbilski/exhaustivestruct v1.2.0 // indirect
 	github.com/mgechev/revive v1.3.2 // indirect
 	github.com/miekg/dns v1.1.53 // indirect
+	github.com/mitchellh/copystructure v1.2.0 // indirect
 	github.com/mitchellh/go-homedir v1.1.0 // indirect
 	github.com/mitchellh/mapstructure v1.5.0 // indirect
 	github.com/mitchellh/reflectwalk v1.0.2 // indirect
