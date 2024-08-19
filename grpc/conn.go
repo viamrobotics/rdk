@@ -62,6 +62,16 @@ func (c *ReconfigurableClientConn) ReplaceConn(conn rpc.ClientConn) {
 	c.connMu.Unlock()
 }
 
+// GRPCConn returns the backing rpc.GRPCClientConnInterface object, if applicable. Nil otherwise.
+func (c *ReconfigurableClientConn) GRPCConn() rpc.GRPCClientConnInterface {
+	c.connMu.Lock()
+	defer c.connMu.Unlock()
+	if c.conn == nil {
+		return nil
+	}
+	return c.conn.GRPCConn()
+}
+
 // PeerConn returns the backing PeerConnection object, if applicable. Nil otherwise.
 func (c *ReconfigurableClientConn) PeerConn() *webrtc.PeerConnection {
 	c.connMu.Lock()

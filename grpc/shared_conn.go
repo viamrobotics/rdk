@@ -120,6 +120,15 @@ func (sc *SharedConn) RemoveOnTrackSub(name resource.Name) {
 	delete(sc.resOnTrackCBs, name)
 }
 
+// GRPCConn returns a gRPC capable client connection.
+func (sc *SharedConn) GRPCConn() rpc.GRPCClientConnInterface {
+	g := sc.GrpcConn()
+	if g == nil {
+		return nil
+	}
+	return g.GRPCConn()
+}
+
 // GrpcConn returns a gRPC capable client connection.
 func (sc *SharedConn) GrpcConn() *ReconfigurableClientConn {
 	return &sc.grpcConn
