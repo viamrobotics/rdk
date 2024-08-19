@@ -370,15 +370,11 @@ func (rc *RobotClient) connectWithLock(ctx context.Context) error {
 	rc.conn.ReplaceConn(conn)
 	rc.client = client
 	rc.refClient = refClient
-	rc.logger.Warn("connected")
 	rc.connected.Store(true)
 	if len(rc.resourceClients) != 0 {
-		rc.logger.Warn("updateResources START")
 		if err := rc.updateResources(ctx); err != nil {
-			rc.logger.Errorf("updateResources END, err: %s", err.Error())
 			return err
 		}
-		rc.logger.Warnw("updateResources END", "numResources", len(rc.resourceNames))
 	}
 
 	if rc.changeChan != nil {

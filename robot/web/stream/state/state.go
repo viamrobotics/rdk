@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/pion/rtp"
-	perrors "github.com/pkg/errors"
 	"go.uber.org/multierr"
 	"go.viam.com/utils"
 
@@ -24,8 +23,6 @@ import (
 )
 
 var (
-	// ErrRTPPassthroughNotSupported indicates that rtp_passthrough is not supported by the stream's camera.
-	ErrRTPPassthroughNotSupported = errors.New("RTP Passthrough Not Supported")
 	// ErrClosed indicates that the StreamState is already closed.
 	ErrClosed = errors.New("StreamState already closed")
 )
@@ -268,7 +265,7 @@ func (state *StreamState) tick() {
 			state.streamSource = streamSourceGoStream
 		}
 	case state.streamSource == streamSourcePassthrough && state.streamSourceSub.Terminated.Err() != nil:
-		// restart stream if there we were using passthrough but the sub is termianted
+		// restart stream if there we were using passthrough but the sub is terminated
 		state.logger.Info("previous subscription terminated attempting to subscribe to rtp_passthrough")
 
 		// state.Stream.VideoStreamSourceChanged()
@@ -303,8 +300,7 @@ func (state *StreamState) streamH264Passthrough() error {
 	// Get the camera and see if it implements the rtp passthrough API of SubscribeRTP + Unsubscribe
 	rtpPassthroughSource, ok := cam.(rtppassthrough.Source)
 	if !ok {
-		err := fmt.Errorf("expected %s to implement rtppassthrough.Source", state.Stream.Name())
-		return perrors.Wrap(ErrRTPPassthroughNotSupported, err.Error())
+		return fmt.Errorf("Stream does not support RTP passthrough")
 	}
 
 	var count atomic.Uint64
@@ -334,7 +330,7 @@ func (state *StreamState) streamH264Passthrough() error {
 
 	sub, err := rtpPassthroughSource.SubscribeRTP(state.closedCtx, rtpBufferSize, cb)
 	if err != nil {
-		return perrors.Wrap(ErrRTPPassthroughNotSupported, err.Error())
+		return fmt.Errorf("SubscribeRTP failed: %w", err)
 	}
 	state.logger.Warnw("Stream using experimental H264 passthrough", "name", state.Stream.Name())
 
@@ -363,9 +359,7 @@ func (state *StreamState) unsubscribeH264Passthrough(ctx context.Context, id rtp
 
 	rtpPassthroughSource, ok := cam.(rtppassthrough.Source)
 	if !ok {
-		err := fmt.Errorf("Subscription resource does not implement rtpPassthroughSource",
-			"streamName", state.Stream.Name(), "camType", fmt.Sprintf("%T", rtpPassthroughSource))
-		return perrors.Wrap(ErrRTPPassthroughNotSupported, err.Error())
+		return fmt.Errorf("Subscription resource does not implement rtpPassthroughSource. CamType: %T", rtpPassthroughSource)
 	}
 
 	if err := rtpPassthroughSource.Unsubscribe(ctx, id); err != nil {
