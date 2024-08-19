@@ -54,6 +54,8 @@ type BackoffTuningOptions struct {
 	Cooldown time.Duration
 }
 
+// Dan: This fixes the backoff bugs where we'd overflow the sleep to a negative value. But this no
+// longer obeys the input tuning options. I'm considering that deprecated and to be removed.
 var backoffSleeps = []time.Duration{500 * time.Millisecond, time.Second, 2 * time.Second, 5 * time.Second}
 
 // GetSleepTimeFromErrorCount returns a sleep time from an error count.
