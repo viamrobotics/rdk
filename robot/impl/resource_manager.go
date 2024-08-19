@@ -3,6 +3,7 @@ package robotimpl
 import (
 	"context"
 	"crypto/tls"
+	"errors"
 	"fmt"
 	"os"
 	"reflect"
@@ -11,7 +12,6 @@ import (
 	"time"
 
 	"github.com/jhump/protoreflect/desc"
-	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 	goutils "go.viam.com/utils"
 	"go.viam.com/utils/pexec"
@@ -476,7 +476,7 @@ func (manager *resourceManager) closeResource(ctx context.Context, res resource.
 	resName := res.Name()
 	if manager.moduleManager != nil && manager.moduleManager.IsModularResource(resName) {
 		if err := manager.moduleManager.RemoveResource(closeCtx, resName); err != nil {
-			allErrs = multierr.Combine(allErrs, errors.Wrap(err, "error removing modular resource for closure"))
+			allErrs = multierr.Combine(allErrs, fmt.Errorf("error removing modular resource for closure: %w", err))
 		}
 	}
 
@@ -531,7 +531,7 @@ func (manager *resourceManager) Close(ctx context.Context) error {
 
 	var allErrs error
 	if err := manager.processManager.Stop(); err != nil {
-		allErrs = multierr.Combine(allErrs, errors.Wrap(err, "error stopping process manager"))
+		allErrs = multierr.Combine(allErrs, fmt.Errorf("error stopping process manager: %w", err))
 	}
 
 	// our caller will close web
@@ -545,7 +545,7 @@ func (manager *resourceManager) Close(ctx context.Context) error {
 	// moduleManager may be nil in tests, and must be closed last, after resources within have been closed properly above
 	if manager.moduleManager != nil {
 		if err := manager.moduleManager.Close(ctx); err != nil {
-			allErrs = multierr.Combine(allErrs, errors.Wrap(err, "error closing module manager"))
+			allErrs = multierr.Combine(allErrs, fmt.Errorf("error closing module manager: %w", err))
 		}
 	}
 
@@ -883,7 +883,7 @@ func (manager *resourceManager) processRemote(
 				err = errors.New("must use Config.AllowInsecureCreds to connect to a non-TLS secured robot")
 			}
 		}
-		return nil, errors.Errorf("couldn't connect to robot remote (%s): %s", config.Address, err)
+		return nil, fmt.Errorf("couldn't connect to robot remote (%s): %w", config.Address, err)
 	}
 	manager.logger.CInfow(ctx, "Connected now to remote", "remote", config.Name)
 	return robotClient, nil
@@ -1022,7 +1022,7 @@ func (manager *resourceManager) markResourceForUpdate(name resource.Name, conf r
 	gNode = resource.NewUnconfiguredGraphNode(conf, deps)
 	gNode.UpdatePendingRevision(revision)
 	if err := manager.resources.AddNode(name, gNode); err != nil {
-		return errors.Errorf("failed to add new node for unconfigured resource %q: %v", name, err)
+		return fmt.Errorf("failed to add new node for unconfigured resource %q: %w", name, err)
 	}
 	return nil
 }
