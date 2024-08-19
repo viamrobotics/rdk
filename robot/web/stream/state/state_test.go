@@ -170,7 +170,6 @@ func TestStreamState(t *testing.T) {
 		robot := mockRobot(mockRTPPassthroughSource)
 		s := state.New(streamMock, robot, logger)
 		defer func() { utils.UncheckedError(s.Close()) }()
-		s.Init()
 
 		test.That(t, subscribeRTPCount.Load(), test.ShouldEqual, 0)
 		test.That(t, startCount.Load(), test.ShouldEqual, 0)
@@ -335,8 +334,6 @@ func TestStreamState(t *testing.T) {
 		robot := mockRobot(mockRTPPassthroughSource)
 		s := state.New(streamMock, robot, logger)
 		defer func() { utils.UncheckedError(s.Close()) }()
-
-		s.Init()
 
 		test.That(t, subscribeRTPCount.Load(), test.ShouldEqual, 0)
 		test.That(t, unsubscribeCount.Load(), test.ShouldEqual, 0)
@@ -518,9 +515,6 @@ func TestStreamState(t *testing.T) {
 		robot := mockRobot(mockRTPPassthroughSource)
 		s := state.New(streamMock, robot, logger)
 		defer func() { utils.UncheckedError(s.Close()) }()
-
-		// start with RTPPassthrough being supported
-		s.Init()
 
 		test.That(t, subscribeRTPCount.Load(), test.ShouldEqual, 0)
 		test.That(t, unsubscribeCount.Load(), test.ShouldEqual, 0)
@@ -734,8 +728,6 @@ func TestStreamState(t *testing.T) {
 		robot := mockRobot(nil)
 		s := state.New(streamMock, robot, logger)
 		defer func() { utils.UncheckedError(s.Close()) }()
-		s.Init()
-
 		t.Log("the first Increment() -> Start()")
 		test.That(t, s.Increment(), test.ShouldBeNil)
 		testutils.WaitForAssertion(t, func(tb testing.TB) {

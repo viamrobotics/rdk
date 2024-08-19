@@ -1012,7 +1012,7 @@ Loop:
 // 2. the client in the main part makes an AddStream(r1:r2:rtpPassthroughCamera) request, starting a webrtc video track to be streamed from r2 -> r1 -> main -> client
 // 3. r2 reboots
 // 4. expect that r1 & main stop getting packets
-// 5. when the new instance of r2 comes back online main gets new rtp packets from it's track with r1
+// 5. when the new instance of r2 comes back online main gets new rtp packets from it's track with r1.
 func TestGrandRemoteRebooting(t *testing.T) {
 	logger := logging.NewTestLogger(t).Sublogger(t.Name())
 

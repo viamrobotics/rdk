@@ -363,12 +363,12 @@ func (server *Server) startMonitorCameraAvailable() {
 		logger.Info("Start")
 		defer server.logger.Info("End")
 		for utils.SelectContextOrWait(server.closedCtx, monitorCameraInterval) {
-			server.removeMissingStreams(logger)
+			server.removeMissingStreams()
 		}
 	}, server.activeBackgroundWorkers.Done)
 }
 
-func (server *Server) removeMissingStreams(logger logging.Logger) {
+func (server *Server) removeMissingStreams() {
 	server.mu.Lock()
 	defer server.mu.Unlock()
 	for key, streamState := range server.nameToStreamState {

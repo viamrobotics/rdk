@@ -4,11 +4,8 @@
 package webstream
 
 import (
-	"bytes"
 	"context"
 	"errors"
-	"runtime"
-	"strconv"
 	"time"
 
 	"go.viam.com/utils"
@@ -57,7 +54,7 @@ type BackoffTuningOptions struct {
 	Cooldown time.Duration
 }
 
-var backoffSleeps []time.Duration = []time.Duration{500 * time.Millisecond, time.Second, 2 * time.Second, 5 * time.Second}
+var backoffSleeps = []time.Duration{500 * time.Millisecond, time.Second, 2 * time.Second, 5 * time.Second}
 
 // GetSleepTimeFromErrorCount returns a sleep time from an error count.
 func (opts *BackoffTuningOptions) GetSleepTimeFromErrorCount(errorCount int) time.Duration {
@@ -73,34 +70,6 @@ func (opts *BackoffTuningOptions) GetSleepTimeFromErrorCount(errorCount int) tim
 	return backoffSleeps[errorCount]
 }
 
-// This is terrible, slow, and should never be used.
-func goid() int {
-	var (
-		goroutinePrefix = []byte("goroutine ")
-	)
-
-	buf := make([]byte, 32)
-	n := runtime.Stack(buf, false)
-	buf = buf[:n]
-	// goroutine 1 [running]: ...
-
-	buf, ok := bytes.CutPrefix(buf, goroutinePrefix)
-	if !ok {
-		return -1
-	}
-
-	i := bytes.IndexByte(buf, ' ')
-	if i < 0 {
-		return -1
-	}
-
-	if ret, err := strconv.Atoi(string(buf[:i])); err == nil {
-		return ret
-	} else {
-		return -1
-	}
-}
-
 func (opts *BackoffTuningOptions) getErrorThrottledHandler(logger logging.Logger, streamName string) func(context.Context, error) {
 	var prevErr error
 	var errorCount int
@@ -108,11 +77,6 @@ func (opts *BackoffTuningOptions) getErrorThrottledHandler(logger logging.Logger
 
 	return func(ctx context.Context, err error) {
 		now := time.Now()
-		// logger.Infow("Backoff debug", "this", fmt.Sprintf("%p", opts), "err", err, "lastErr", prevErr, "Is?", errors.Is(prevErr, err), "count", errorCount, "cooldown", opts.Cooldown, "since", now.Sub(lastErrTime), "type", fmt.Sprintf("%T", err), "prevType", fmt.Sprintf("%T", prevErr), "ctxDone?", ctx.Err(), "goroutine", goid())
-		// if ctx.Err() != nil {
-		//  	debug.PrintStack()
-		// }
-
 		if now.Sub(lastErrTime) > opts.Cooldown {
 			errorCount = 0
 		}

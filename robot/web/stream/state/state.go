@@ -223,7 +223,7 @@ func (state *StreamState) stopInputStream() {
 		state.logger.Debug("stopping h264 passthrough stream")
 		defer state.logger.Debug("h264 passthrough stream stopped")
 		err := state.unsubscribeH264Passthrough(state.closedCtx, state.streamSourceSub.ID)
-		if err != nil && err != camera.ErrUnknownSubscriptionID {
+		if err != nil && errors.Is(err, camera.ErrUnknownSubscriptionID) {
 			state.logger.Warnw("Error calling unsubscribe", "err", err)
 			return
 		}

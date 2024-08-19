@@ -10,7 +10,6 @@ import (
 	"runtime"
 	"slices"
 	"sync"
-	"time"
 
 	"github.com/pkg/errors"
 	streampb "go.viam.com/api/stream/v1"
@@ -237,12 +236,7 @@ func (svc *webService) startStream(streamFunc func(opts *webstream.BackoffTuning
 	utils.PanicCapturingGo(func() {
 		defer svc.webWorkers.Done()
 		close(waitCh)
-		opts := &webstream.BackoffTuningOptions{
-			BaseSleep: time.Second,
-			MaxSleep:  2 * time.Second,
-			Cooldown:  5 * time.Second,
-		}
-		if err := streamFunc(opts); err != nil {
+		if err := streamFunc(&webstream.BackoffTuningOptions{}); err != nil {
 			if utils.FilterOutError(err, context.Canceled) != nil {
 				svc.logger.Errorw("error streaming", "error", err)
 			}

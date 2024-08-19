@@ -463,10 +463,8 @@ func (c *client) SubscribeRTP(
 
 	// If we do not currently have a video stream open for this camera, we create one. Otherwise
 	// we'll piggy back on the existing stream. We piggy-back for two reasons:
-	//
-	// 1. Not doing so would result in two webrtc tracks for the same camera sending the exact same RTP
-	//    packets. This would needlessly waste resources.
-	//
+	// 1. Not doing so would result in two webrtc tracks for the same camera sending the exact same
+	//    RTP packets. This would needlessly waste resources.
 	// 2. The signature of `RemoveStream` just takes the camera name. If we had two streams open for
 	//    the same camera when the remote receives `RemoveStream`, it wouldn't know which to stop
 	//    sending data for.
