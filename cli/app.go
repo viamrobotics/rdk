@@ -1030,7 +1030,7 @@ var app = &cli.App{
 							Required: true,
 						},
 					},
-					Action: DataGetTrainingJob,
+					Action: MLGetTrainingJob,
 				},
 				{
 					Name:      "cancel",
@@ -1043,7 +1043,7 @@ var app = &cli.App{
 							Required: true,
 						},
 					},
-					Action: DataCancelTrainingJob,
+					Action: MLCancelTrainingJob,
 				},
 				{
 					Name:      "list",
@@ -1061,7 +1061,24 @@ var app = &cli.App{
 							Required: true,
 						},
 					},
-					Action: DataListTrainingJobs,
+					Action: MLListTrainingJobs,
+				},
+				{
+					Name:      "logs",
+					Usage:     "returns logs for specified training job ID",
+					UsageText: createUsageText("train logs", []string{trainFlagJobID}, true),
+					Flags: []cli.Flag{
+						&cli.StringFlag{
+							Name:        trainFlagJobID,
+							DefaultText: "training job ID",
+						},
+						&cli.IntFlag{
+							Name:        logsFlagCount,
+							Usage:       fmt.Sprintf("number of logs to fetch (max %v)", maxNumLogs),
+							DefaultText: fmt.Sprintf("%v", defaultNumLogs),
+						},
+					},
+					Action: MLGetLogs,
 				},
 			},
 		},
