@@ -354,7 +354,6 @@ func (server *Server) add(stream gostream.Stream) error {
 func (server *Server) startMonitorCameraAvailable() {
 	server.activeBackgroundWorkers.Add(1)
 	utils.ManagedGo(func() {
-		logger := server.logger.Sublogger("monitor")
 		for utils.SelectContextOrWait(server.closedCtx, monitorCameraInterval) {
 			server.removeMissingStreams()
 		}
