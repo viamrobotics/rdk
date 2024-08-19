@@ -1545,6 +1545,8 @@ go.viam.com/test v1.1.1-0.20220913152726-5da9916c08a2 h1:oBiK580EnEIzgFLU4lHOXmG
 go.viam.com/test v1.1.1-0.20220913152726-5da9916c08a2/go.mod h1:XM0tej6riszsiNLT16uoyq1YjuYPWlRBweTPRDanIts=
 go.viam.com/utils v0.1.94 h1:fq/AosNoYd1MW4Avc7OS7gKJb03p5AGDHB+faiPswu4=
 go.viam.com/utils v0.1.94/go.mod h1:hQs6tzFBDRpvSM07K3qurAzASbtlgpHy3JTdRipeGsc=
+go.viam.com/utils v0.1.95 h1:KLVO4cPw4u4HstinXEQxG5/zGcynh5ggd7xjnpt1sks=
+go.viam.com/utils v0.1.95/go.mod h1:WwnkSrPuTZlMd1LRt+32u9ByJwbJSRZyg4vjDEgA1EU=
 go4.org/unsafe/assume-no-moving-gc v0.0.0-20230525183740-e7c30c78aeb2 h1:WJhcL4p+YeDxmZWg141nRm7XC8IDmhz7lk5GpadO1Sg=
 go4.org/unsafe/assume-no-moving-gc v0.0.0-20230525183740-e7c30c78aeb2/go.mod h1:FftLjUGFEDu5k8lt0ddY+HcrH/qU/0qk+H8j9/nTl3E=
 gocv.io/x/gocv v0.25.0/go.mod h1:Rar2PS6DV+T4FL+PM535EImD/h13hGVaHhnCu1xarBs=
