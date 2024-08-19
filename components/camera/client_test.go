@@ -1123,18 +1123,17 @@ Loop:
 		select {
 		case pkts := <-pktsChan:
 			lastPkt := pkts[len(pkts)-1]
-			logger.Info("First RTP packet received. TS: %v", lastPkt.Timestamp)
+			logger.Infof("First RTP packet received. TS: %v", lastPkt.Timestamp)
 			continue
 		case <-pktTimeoutCtx.Done():
-			logger.Info("it has been at least %s since SubscribeRTP has received a packet", pktTimeout)
+			logger.Infow("SubscribeRTP timed out waiting for a packet. The remote is offline.", "pktTimeout", pktTimeout)
 			pktTimeoutFn()
 			// https://go.dev/ref/spec#Break_statements
 			// The 'Loop' label is needed so that we break out of the loop
 			// rather than out of the select statement
 			break Loop
 		case <-timeoutCtx.Done():
-			t.Log("timed out waiting for SubscribeRTP packets to drain")
-			t.FailNow()
+			test.That(t, true, test.ShouldEqual, "timed out waiting for SubscribeRTP packets to drain")
 		}
 	}
 
@@ -1149,7 +1148,7 @@ Loop:
 	// remote-1 which can be detectd
 	// by the fact that sub.Terminated.Done() is always the path this test goes down
 
-	logger.Info("old robot address address %s", addr2)
+	logger.Infow("old robot address", "address", addr2)
 	tcpAddr, ok := options2.Network.Listener.Addr().(*net.TCPAddr)
 	test.That(t, ok, test.ShouldBeTrue)
 	newListener, err := net.ListenTCP("tcp", &net.TCPAddr{Port: tcpAddr.Port})
@@ -1173,8 +1172,7 @@ Loop:
 		select {
 		case <-sub.Terminated.Done():
 			// Right now we are going down this path b/c main's
-			logger.Info("main's sub terminated due to close")
-			t.FailNow()
+			test.That(t, true, test.ShouldEqual, "main's sub terminated due to close")
 		case pkts := <-pktsChan:
 			lastPkt := pkts[len(pkts)-1]
 			logger.Info("Test finale RTP packet received. TS: %v", lastPkt.Timestamp)
@@ -1182,8 +1180,7 @@ Loop:
 			logger.Info("SubscribeRTP got packets")
 			testPassed = true
 		case <-sndPktTimeoutCtx.Done():
-			logger.Info("timed out waiting for SubscribeRTP to receive packets")
-			t.FailNow()
+			test.That(t, true, test.ShouldEqual, "timed out waiting for SubscribeRTP to receive packets")
 		case <-time.After(time.Second):
 			logger.Info("still waiting for RTP packets")
 		}
