@@ -26,7 +26,7 @@ var errAtSizeThreshold = errors.New("capture directory has reached or exceeded d
 func shouldDeleteBasedOnDiskUsage(ctx context.Context, captureDirPath string, logger logging.Logger) (bool, error) {
 	statfs, err := diskusage.Statfs(captureDirPath)
 	if err != nil {
-		//nolint:nilerr
+		logger.Debugf("diskusage.Statfs returned error: %s", err.Error())
 		return false, nil
 	}
 	// we get usage this way to ensure we get the amount of remaining space in the partition.
