@@ -270,7 +270,6 @@ func (g *gpsrtk) Readings(ctx context.Context, extra map[string]interface{}) (ma
 	commonReadings := g.cachedData.GetCommonReadings(ctx)
 
 	readings["fix"] = commonReadings.FixValue
-	readings["satellites_in_view"] = commonReadings.SatsInView
 	readings["satellites_in_use"] = commonReadings.SatsInUse
 
 	return readings, nil

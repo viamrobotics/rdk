@@ -23,7 +23,8 @@ type Segment struct {
 }
 
 func (s *Segment) String() string {
-	return fmt.Sprintf("Segment: StartPosition: %v,\n\t EndPosition: %v,\n\t StartConfiguration:%v,\n\t EndConfiguration:%v,\n\t Frame: %v",
+	return fmt.Sprintf(
+		"Segment: \n\t StartPosition: %v,\n\t EndPosition: %v,\n\t StartConfiguration:%v,\n\t EndConfiguration:%v,\n\t Frame: %v",
 		spatial.PoseToProtobuf(s.StartPosition),
 		spatial.PoseToProtobuf(s.EndPosition),
 		s.StartConfiguration,

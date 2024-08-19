@@ -354,7 +354,7 @@ func (ptgk *ptgBaseKinematics) courseCorrect(
 		return nil, err
 	}
 	// trajPose is the pose we should have nominally reached along the currently executing arc from the start position.
-	trajPose, err := ptgk.frame.Transform(currentInputs)
+	trajPose, err := ptgk.Kinematics().Transform(currentInputs)
 	if err != nil {
 		return nil, err
 	}

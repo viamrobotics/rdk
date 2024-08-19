@@ -92,6 +92,8 @@ func FromProto(proto *pb.RobotConfig, logger logging.Logger) (*Config, error) {
 		return nil, errors.Wrap(err, "error converting log config from proto")
 	}
 
+	cfg.Revision = proto.Revision
+
 	logAnyFragmentOverwriteErrors(logger, proto.OverwriteFragmentStatus)
 
 	return &cfg, nil

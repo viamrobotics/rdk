@@ -83,7 +83,7 @@ func newReadImageCollector(resource interface{}, params data.CollectorParams) (d
 	mimeType := params.MethodParams["mime_type"]
 	if mimeType == nil {
 		// TODO: Potentially log the actual mime type at collector instantiation or include in response.
-		strWrapper := wrapperspb.String(utils.MimeTypeRawRGBA)
+		strWrapper := wrapperspb.String(utils.MimeTypeJPEG)
 		mimeType, err = anypb.New(strWrapper)
 		if err != nil {
 			return nil, err
