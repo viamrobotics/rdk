@@ -149,6 +149,11 @@ func Float64AlmostEqual(a, b, epsilon float64) bool {
 	return (a-b) < epsilon && (b-a) < epsilon
 }
 
+// Float32AlmostEqual compares two float32s and returns if the difference between them is less than epsilon.
+func Float32AlmostEqual(a, b, epsilon float32) bool {
+	return (a-b) < epsilon && (b-a) < epsilon
+}
+
 // Clamp returns min if value is lesser than min, max if value is greater them max or value if the input value is
 // between min and max.
 func Clamp(value, min, max float64) float64 {
