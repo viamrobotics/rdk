@@ -295,7 +295,7 @@ func (state *StreamState) streamH264Passthrough() error {
 	// Get the camera and see if it implements the rtp passthrough API of SubscribeRTP + Unsubscribe
 	rtpPassthroughSource, ok := cam.(rtppassthrough.Source)
 	if !ok {
-		return fmt.Error("Stream does not support RTP passthrough")
+		return error.New("Stream does not support RTP passthrough")
 	}
 
 	var count atomic.Uint64
