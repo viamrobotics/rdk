@@ -31,7 +31,6 @@ type Stream interface {
 	// Start starts processing frames.
 	Start()
 	WriteRTP(pkt *rtp.Packet) error
-	// VideoStreamSourceChanged()
 
 	// Ready signals that there is at least one client connected and that
 	// streams are ready for input. The returned context should be used for
@@ -160,10 +159,6 @@ func (bs *basicStream) Start() {
 	utils.ManagedGo(bs.processOutputFrames, bs.activeBackgroundWorkers.Done)
 	utils.ManagedGo(bs.processInputAudioChunks, bs.activeBackgroundWorkers.Done)
 	utils.ManagedGo(bs.processOutputAudioChunks, bs.activeBackgroundWorkers.Done)
-}
-
-func (bs *basicStream) VideoStreamSourceChanged() {
-	bs.videoTrackLocal.rtpTrack.StreamSourceChanged()
 }
 
 // NOTE: (Nick S) This only writes video RTP packets
