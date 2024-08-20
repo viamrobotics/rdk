@@ -277,7 +277,7 @@ func (p *PIDLoop) basicControlConfig(endpointName string, pidVals PIDConfig, con
 					"kD":             pidVals.D,
 					"kI":             pidVals.I,
 					"kP":             pidVals.P,
-					"PIDSets":        []*PIDConfig{&pidVals}, // commenting out until we use it
+					// "PIDSets":        []*PIDConfig{&pidVals}, // commenting out until we use it
 					"limit_lo":       -255.0,
 					"limit_up":       255.0,
 					"tune_method":    "ziegerNicholsPI",
