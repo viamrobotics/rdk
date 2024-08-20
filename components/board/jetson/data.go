@@ -30,8 +30,8 @@ var jetsonTX2NXPins = []genericlinux.PinDefinition{
 	{Name: "26", DeviceName: "gpiochip0", LineNumber: 163, PwmChipSysfsDir: "", PwmID: -1},
 	{Name: "29", DeviceName: "gpiochip0", LineNumber: 105, PwmChipSysfsDir: "", PwmID: -1},
 	{Name: "31", DeviceName: "gpiochip1", LineNumber: 50, PwmChipSysfsDir: "", PwmID: -1},
-	{Name: "32", DeviceName: "gpiochip1", LineNumber: 8, PwmChipSysfsDir: "3280000.pwm", PwmID: 0},
-	{Name: "33", DeviceName: "gpiochip1", LineNumber: 13, PwmChipSysfsDir: "32a0000.pwm", PwmID: 0},
+	{Name: "32", DeviceName: "gpiochip1", LineNumber: 8, PwmChipSysfsDir: "", PwmID: -1},  // "3280000.pwm", PwmID: 0},
+	{Name: "33", DeviceName: "gpiochip1", LineNumber: 13, PwmChipSysfsDir: "", PwmID: -1}, // "32a0000.pwm", PwmID: 0},
 	{Name: "35", DeviceName: "gpiochip0", LineNumber: 75, PwmChipSysfsDir: "", PwmID: -1},
 	{Name: "36", DeviceName: "gpiochip1", LineNumber: 29, PwmChipSysfsDir: "", PwmID: -1},
 	{Name: "37", DeviceName: "gpiochip1", LineNumber: 19, PwmChipSysfsDir: "", PwmID: -1},
@@ -94,8 +94,8 @@ var jetsonNanoPins = []genericlinux.PinDefinition{
 	{Name: "31", DeviceName: "gpiochip0", LineNumber: 200, PwmChipSysfsDir: "", PwmID: -1},
 	// Older versions of L4T have a DT bug which instantiates a bogus device
 	// which prevents this library from using this PWM channel.
-	{Name: "32", DeviceName: "gpiochip0", LineNumber: 168, PwmChipSysfsDir: "7000a000.pwm", PwmID: 0},
-	{Name: "33", DeviceName: "gpiochip0", LineNumber: 38, PwmChipSysfsDir: "7000a000.pwm", PwmID: 2},
+	{Name: "32", DeviceName: "gpiochip0", LineNumber: 168, PwmChipSysfsDir: "", PwmID: -1}, // "7000a000.pwm", PwmID: 0},
+	{Name: "33", DeviceName: "gpiochip0", LineNumber: 38, PwmChipSysfsDir: "", PwmID: -1},  // "7000a000.pwm", PwmID: 2},
 	{Name: "35", DeviceName: "gpiochip0", LineNumber: 76, PwmChipSysfsDir: "", PwmID: -1},
 	{Name: "36", DeviceName: "gpiochip0", LineNumber: 51, PwmChipSysfsDir: "", PwmID: -1},
 	{Name: "37", DeviceName: "gpiochip0", LineNumber: 12, PwmChipSysfsDir: "", PwmID: -1},
@@ -120,9 +120,9 @@ var jetsonOrinAGXPins = []genericlinux.PinDefinition{
 	{Name: "11", DeviceName: "gpiochip0", LineNumber: 112, PwmChipSysfsDir: "", PwmID: -1},
 	{Name: "12", DeviceName: "gpiochip0", LineNumber: 50, PwmChipSysfsDir: "", PwmID: -1},
 	{Name: "13", DeviceName: "gpiochip0", LineNumber: 108, PwmChipSysfsDir: "", PwmID: -1},
-	{Name: "15", DeviceName: "gpiochip0", LineNumber: 85, PwmChipSysfsDir: "3280000.pwm", PwmID: 0},
+	{Name: "15", DeviceName: "gpiochip0", LineNumber: 85, PwmChipSysfsDir: "", PwmID: -1}, // "3280000.pwm", PwmID: 0},
 	{Name: "16", DeviceName: "gpiochip1", LineNumber: 9, PwmChipSysfsDir: "", PwmID: -1},
-	{Name: "18", DeviceName: "gpiochip0", LineNumber: 43, PwmChipSysfsDir: "32c0000.pwm", PwmID: 0},
+	{Name: "18", DeviceName: "gpiochip0", LineNumber: 43, PwmChipSysfsDir: "", PwmID: -1}, // "32c0000.pwm", PwmID: 0},
 	{Name: "19", DeviceName: "gpiochip0", LineNumber: 135, PwmChipSysfsDir: "", PwmID: -1},
 	{Name: "21", DeviceName: "gpiochip0", LineNumber: 134, PwmChipSysfsDir: "", PwmID: -1},
 	{Name: "22", DeviceName: "gpiochip0", LineNumber: 96, PwmChipSysfsDir: "", PwmID: -1},
@@ -144,12 +144,14 @@ var jetsonOrinAGXPins = []genericlinux.PinDefinition{
 }
 
 // This pin mapping is used for both the Jetson Orin NX and the Jetson Orin Nano.
+//
+//nolint:dupl // This is not actually a duplicate of jetsonTX2NXPins despite what the linter thinks
 var jetsonOrinNXPins = []genericlinux.PinDefinition{
 	{Name: "7", DeviceName: "gpiochip0", LineNumber: 144, PwmChipSysfsDir: "", PwmID: -1},
 	{Name: "11", DeviceName: "gpiochip0", LineNumber: 112, PwmChipSysfsDir: "", PwmID: -1},
 	{Name: "12", DeviceName: "gpiochip0", LineNumber: 50, PwmChipSysfsDir: "", PwmID: -1},
 	{Name: "13", DeviceName: "gpiochip0", LineNumber: 122, PwmChipSysfsDir: "", PwmID: -1},
-	{Name: "15", DeviceName: "gpiochip0", LineNumber: 85, PwmChipSysfsDir: "3280000.pwm", PwmID: 0},
+	{Name: "15", DeviceName: "gpiochip0", LineNumber: 85, PwmChipSysfsDir: "", PwmID: -1}, // "3280000.pwm", PwmID: 0},
 	{Name: "16", DeviceName: "gpiochip0", LineNumber: 126, PwmChipSysfsDir: "", PwmID: -1},
 	{Name: "18", DeviceName: "gpiochip0", LineNumber: 125, PwmChipSysfsDir: "", PwmID: -1},
 	{Name: "19", DeviceName: "gpiochip0", LineNumber: 135, PwmChipSysfsDir: "", PwmID: -1},
@@ -162,7 +164,7 @@ var jetsonOrinNXPins = []genericlinux.PinDefinition{
 	{Name: "31", DeviceName: "gpiochip0", LineNumber: 106, PwmChipSysfsDir: "", PwmID: -1},
 	// Pin 32 supposedly has hardware PWM support, but we've been unable to turn it on.
 	{Name: "32", DeviceName: "gpiochip0", LineNumber: 41, PwmChipSysfsDir: "", PwmID: -1},
-	{Name: "33", DeviceName: "gpiochip0", LineNumber: 43, PwmChipSysfsDir: "32c0000.pwm", PwmID: 0},
+	{Name: "33", DeviceName: "gpiochip0", LineNumber: 43, PwmChipSysfsDir: "", PwmID: -1}, // "32c0000.pwm", PwmID: 0},
 	{Name: "35", DeviceName: "gpiochip0", LineNumber: 53, PwmChipSysfsDir: "", PwmID: -1},
 	{Name: "36", DeviceName: "gpiochip0", LineNumber: 113, PwmChipSysfsDir: "", PwmID: -1},
 	{Name: "37", DeviceName: "gpiochip0", LineNumber: 124, PwmChipSysfsDir: "", PwmID: -1},
