@@ -128,7 +128,6 @@ const (
 	msgTypeUnknown msgType = iota
 	msgTypeIncrement
 	msgTypeDecrement
-	msgTypeTick
 )
 
 func (mt msgType) String() string {
@@ -137,8 +136,6 @@ func (mt msgType) String() string {
 		return "Increment"
 	case msgTypeDecrement:
 		return "Decrement"
-	case msgTypeTick:
-		return "Tick"
 	case msgTypeUnknown:
 		fallthrough
 	default:
@@ -160,6 +157,10 @@ func (state *StreamState) sourceEventHandler() {
 	ticker := time.NewTicker(time.Second)
 	defer ticker.Stop()
 	for {
+		// We wait for:
+		// - A message to be discovered on the `msgChan` queue.
+		// - The `tick` timer to be fired
+		// - The server/stream (i.e: camera) to be shutdown.
 		var msg msg
 		select {
 		case <-state.closedCtx.Done():
@@ -171,8 +172,6 @@ func (state *StreamState) sourceEventHandler() {
 		}
 
 		switch msg.msgType {
-		case msgTypeTick:
-			state.tick()
 		case msgTypeIncrement:
 			state.activeClients++
 			state.logger.Debugw("activeClients incremented", "activeClientCnt", state.activeClients)

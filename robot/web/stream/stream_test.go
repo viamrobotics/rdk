@@ -9,7 +9,6 @@ import (
 	"strings"
 	"sync"
 	"testing"
-	"time"
 
 	"github.com/pion/mediadevices/pkg/prop"
 	"github.com/pion/mediadevices/pkg/wave"
@@ -32,7 +31,6 @@ import (
 	"go.viam.com/rdk/robot"
 	robotimpl "go.viam.com/rdk/robot/impl"
 	"go.viam.com/rdk/robot/web"
-	webstream "go.viam.com/rdk/robot/web/stream"
 	"go.viam.com/rdk/testutils/robottestutils"
 )
 
@@ -99,48 +97,6 @@ func (mS *mockStream) VideoTrackLocal() (webrtc.TrackLocal, bool) {
 
 func (mS *mockStream) AudioTrackLocal() (webrtc.TrackLocal, bool) {
 	return nil, false
-}
-
-func TestStreamSourceErrorBackoff(t *testing.T) {
-	logger := logging.NewTestLogger(t)
-	ctx, cancel := context.WithCancel(context.Background())
-
-	backoffOpts := &webstream.BackoffTuningOptions{
-		BaseSleep: 50 * time.Microsecond,
-		MaxSleep:  250 * time.Millisecond,
-		Cooldown:  time.Second,
-	}
-	calls := 25
-	videoReader := newMockErrorVideoReader(calls)
-	videoSrc := gostream.NewVideoSource(videoReader, prop.Video{})
-	defer func() {
-		test.That(t, videoSrc.Close(context.Background()), test.ShouldBeNil)
-	}()
-
-	totalExpectedSleep := int64(0)
-	// Note that we do not add the expected sleep duration for the last error since the
-	// streaming context will be cancelled during that error.
-	for i := 1; i < calls; i++ {
-		totalExpectedSleep += backoffOpts.GetSleepTimeFromErrorCount(i).Nanoseconds()
-	}
-	str := &mockStream{}
-	readyChan := make(chan struct{})
-	inputChan := make(chan gostream.MediaReleasePair[image.Image])
-	str.streamingReadyFunc = func() <-chan struct{} {
-		return readyChan
-	}
-	str.inputFramesFunc = func() (chan<- gostream.MediaReleasePair[image.Image], error) {
-		return inputChan, nil
-	}
-
-	go webstream.StreamVideoSource(ctx, videoSrc, str, backoffOpts, logger)
-	start := time.Now()
-	readyChan <- struct{}{}
-	videoReader.wg.Wait()
-	cancel()
-
-	duration := time.Since(start).Nanoseconds()
-	test.That(t, duration, test.ShouldBeGreaterThanOrEqualTo, totalExpectedSleep)
 }
 
 // setupRealRobot creates a robot from the input config and starts a WebRTC server with video
