@@ -311,7 +311,7 @@ func (state *StreamState) streamH264Passthrough() error {
 		for _, pkt := range pkts {
 			// Also, look at unsubscribe error logs. Definitely a bug. Probably benign.
 			if count.Add(1)%10000 == 0 {
-				state.logger.Infow("WriteRTP called. Sampling 1/10000",
+				state.logger.Debugw("WriteRTP called. Sampling 1/10000",
 					"count", count.Load(), "seqNumber", pkt.Header.SequenceNumber, "ts", pkt.Header.Timestamp)
 			}
 			if err := state.Stream.WriteRTP(pkt); err != nil {

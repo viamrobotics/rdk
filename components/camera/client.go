@@ -601,7 +601,7 @@ func (c *client) addOnTrackFunc(
 				c.rtpPassthroughMu.Lock()
 				for _, tmp := range c.runningStreams {
 					if count.Add(1)%10000 == 0 {
-						c.logger.Infow("ReadRTP called. Sampling 1/10000", "count", count.Load(), "packetTs", pkt.Header.Timestamp)
+						c.logger.Debugw("ReadRTP called. Sampling 1/10000", "count", count.Load(), "packetTs", pkt.Header.Timestamp)
 					}
 
 					// This is needed to prevent the problem described here:

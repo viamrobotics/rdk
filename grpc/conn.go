@@ -13,7 +13,8 @@ import (
 	"go.viam.com/rdk/logging"
 )
 
-// ReconfigurableClientConn allows for the underlying client connections to be swapped under the hood.
+// ReconfigurableClientConn allows for the underlying client connections to be swapped under the
+// hood. A ReconfigurableClientConn may only be used for a connection to a single logical server.
 type ReconfigurableClientConn struct {
 	connMu sync.RWMutex
 	conn   rpc.ClientConn
@@ -66,7 +67,7 @@ func (c *ReconfigurableClientConn) ReplaceConn(conn rpc.ClientConn) {
 	c.connMu.Lock()
 	c.conn = conn
 	// It is safe to access this without a mutex as it is only ever nil once at the beginning of the
-	// ReconfigurableClientConn's lifetime
+	// ReconfigurableClientConn's lifetime. Before it is shared with clients.
 	if c.onTrackCBByTrackName == nil {
 		c.onTrackCBByTrackName = make(map[string]OnTrackCB)
 	}
