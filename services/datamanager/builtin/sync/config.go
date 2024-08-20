@@ -42,8 +42,8 @@ func (c Config) Equal(o Config) bool {
 		c.SelectiveSyncerName == o.SelectiveSyncerName &&
 		c.SyncIntervalMins == o.SyncIntervalMins &&
 		reflect.DeepEqual(c.Tags, o.Tags) &&
-		c.SelectiveSyncSensor == o.SelectiveSyncSensor &&
-		c.SelectiveSyncSensorEnabled == o.SelectiveSyncSensorEnabled
+		c.SelectiveSyncSensorEnabled == o.SelectiveSyncSensorEnabled &&
+		c.SelectiveSyncSensor == o.SelectiveSyncSensor
 }
 
 func (c Config) syncPaths() []string {
