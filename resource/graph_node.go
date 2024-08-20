@@ -300,6 +300,9 @@ func (w *GraphNode) Config() Config {
 func (w *GraphNode) NeedsReconfigure() bool {
 	w.mu.RLock()
 	defer w.mu.RUnlock()
+
+	// A resource can only become unhealthy during (re)configuration, so we can
+	// assume that an unhealthy node always need to be reconfigured.
 	return w.state == NodeStateConfiguring || w.state == NodeStateUnhealthy
 }
 
