@@ -125,9 +125,8 @@ func NativeConfig[T any](conf Config) (T, error) {
 	val, err := utils.AssertType[T](conf.ConvertedAttributes)
 	if err != nil {
 		err = fmt.Errorf(
-			"unexpected config type passed to NativeConfig: %w. Make sure the "+
-			"config type registered to the resource matches the one passed into "+
-			"NativeConfig", err)
+			"incorrect config type: NativeConfig %w. Make sure the config type registered to the "+
+			"resource matches the one passed into NativeConfig", err)
 	}
 	return val, err
 }
