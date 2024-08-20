@@ -44,7 +44,7 @@ type Config struct {
 	//         }
 	//     }
 	// }
-	//```
+	// ```
 	//
 	// which in english reads:
 	//
