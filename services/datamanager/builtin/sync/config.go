@@ -35,7 +35,7 @@ type Config struct {
 	// if captureEnabled {
 	//     for {
 	//         time.Sleep(time.Second*30)
-	//		     if diskFull() {
+	//         if diskFull() {
 	//             for i, file in range dataCaptureDirFiles {
 	//                 if fileIndex % n == 0 {
 	//                     delete file
