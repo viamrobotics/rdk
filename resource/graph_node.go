@@ -563,7 +563,7 @@ func (w *GraphNode) resourceStatus() Status {
 	switch {
 	case w.state == NodeStateUnhealthy && w.lastErr == nil:
 		logger.Warnw("an unhealthy node doesn't have an error", "resource", resName)
-	case w.state == NodeStateUnhealthy && w.lastErr != nil:
+	case w.state == NodeStateReady && w.lastErr != nil:
 		logger.Warnw("a ready node still has an error", "resource", resName, "error", err)
 		// do not return leftover error in status if the node is ready
 		err = nil
