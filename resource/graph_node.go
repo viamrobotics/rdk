@@ -507,7 +507,6 @@ func (w *GraphNode) canTransitionTo(state NodeState) bool {
 			// See this discussion for more details: https://github.com/viamrobotics/rdk/pull/4257#discussion_r1712173743
 			return true
 		}
-
 	}
 	return false
 }
@@ -537,6 +536,15 @@ func (w *GraphNode) ResourceStatus() Status {
 	return w.resourceStatus()
 }
 
+func (w *GraphNode) getLoggerOrGlobal() logging.Logger {
+	if w.logger == nil {
+		// This node has not yet been configured with a logger - use the global logger as
+		// a fall-back.
+		return logging.Global()
+	}
+	return w.logger
+}
+
 func (w *GraphNode) resourceStatus() Status {
 	var resName Name
 	if w.current == nil {
@@ -545,25 +553,17 @@ func (w *GraphNode) resourceStatus() Status {
 		resName = w.current.Name()
 	}
 
-	var err error
-	if w.state == NodeStateUnhealthy {
-		err = w.lastErr
-		if err == nil && w.logger != nil {
-		// an unhealthy node should always have a non-nil error - log a warning if this
-		// invariant is violated.
-			w.logger.Warnw("an unhealthy node doesn't have an error", "resource", resName)
-		}
-	} else if w.lastErr != nil && w.logger != nil {
-        // a recovered node should not have an error - log a warning if this invariant is
-        // violated.
-		var logf = w.logger.Warnf
-		if w.state == NodeStateRemoving {
-			// a previously-unhealthy node can be marked for removal but still retain the
-			// error - this is not surprising so log at the debug level.
-			logf = w.logger.Debugf
-		}
-		logf("a node has an error but is not unhealthy",
-			"resource", resName, "state", w.state.String(), "error", w.lastErr)
+	err := w.lastErr
+	logger := w.getLoggerOrGlobal()
+
+	// check invariants between state and error
+	switch {
+	case w.state == NodeStateUnhealthy && w.lastErr == nil:
+		logger.Warnw("an unhealthy node doesn't have an error", "resource", resName)
+	case w.state == NodeStateUnhealthy && w.lastErr != nil:
+		logger.Warnw("a ready node still has an error", "resource", resName, "error", err)
+		// do not return leftover error in status if the node is ready
+		err = nil
 	}
 
 	return Status{
