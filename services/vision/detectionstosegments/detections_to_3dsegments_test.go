@@ -119,7 +119,7 @@ func Test3DSegmentsFromDetector(t *testing.T) {
 	objects, err := seg.GetObjectPointClouds(context.Background(), "fakeCamera", map[string]interface{}{})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(objects), test.ShouldEqual, 1)
-	test.That(t, objects[0].Size(), test.ShouldEqual, 2) // what's expected here
+	test.That(t, objects[0].Size(), test.ShouldEqual, 2)
 	// does  implement detector
 	dets, err := seg.Detections(context.Background(), nil, nil)
 	test.That(t, err, test.ShouldBeNil)
