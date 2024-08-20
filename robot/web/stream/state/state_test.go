@@ -507,7 +507,6 @@ func TestStreamState(t *testing.T) {
 		robot := mockRobot(mockRTPPassthroughSource)
 		s := state.New(streamMock, robot, logger)
 		defer func() {
-			fmt.Println("Closing")
 			utils.UncheckedError(s.Close())
 		}()
 
@@ -701,7 +700,6 @@ func TestStreamState(t *testing.T) {
 		robot := mockRobot(nil)
 		s := state.New(streamMock, robot, logger)
 		defer func() {
-			fmt.Println("Closing")
 			utils.UncheckedError(s.Close())
 		}()
 		logger.Info("the first Increment() -> Start()")

@@ -4,16 +4,9 @@ package webstream_test
 
 import (
 	"context"
-	"errors"
-	"image"
 	"strings"
-	"sync"
 	"testing"
 
-	"github.com/pion/mediadevices/pkg/prop"
-	"github.com/pion/mediadevices/pkg/wave"
-	"github.com/pion/rtp"
-	"github.com/viamrobotics/webrtc/v3"
 	streampb "go.viam.com/api/stream/v1"
 	"go.viam.com/test"
 	"go.viam.com/utils/rpc"
@@ -33,71 +26,6 @@ import (
 	"go.viam.com/rdk/robot/web"
 	"go.viam.com/rdk/testutils/robottestutils"
 )
-
-var errImageRetrieval = errors.New("image retrieval failed")
-
-type mockErrorVideoSource struct {
-	callsLeft int
-	wg        sync.WaitGroup
-}
-
-func newMockErrorVideoReader(expectedCalls int) *mockErrorVideoSource {
-	mock := &mockErrorVideoSource{callsLeft: expectedCalls}
-	mock.wg.Add(expectedCalls)
-	return mock
-}
-
-func (videoSource *mockErrorVideoSource) Read(ctx context.Context) (image.Image, func(), error) {
-	if videoSource.callsLeft > 0 {
-		videoSource.wg.Done()
-		videoSource.callsLeft--
-	}
-	return nil, nil, errImageRetrieval
-}
-
-func (videoSource *mockErrorVideoSource) Close(ctx context.Context) error {
-	return nil
-}
-
-type mockStream struct {
-	name               string
-	streamingReadyFunc func() <-chan struct{}
-	inputFramesFunc    func() (chan<- gostream.MediaReleasePair[image.Image], error)
-}
-
-func (mS *mockStream) StreamingReady() (<-chan struct{}, context.Context) {
-	return mS.streamingReadyFunc(), context.Background()
-}
-
-func (mS *mockStream) InputVideoFrames(props prop.Video) (chan<- gostream.MediaReleasePair[image.Image], error) {
-	return mS.inputFramesFunc()
-}
-
-func (mS *mockStream) InputAudioChunks(props prop.Audio) (chan<- gostream.MediaReleasePair[wave.Audio], error) {
-	return make(chan gostream.MediaReleasePair[wave.Audio]), nil
-}
-
-func (mS *mockStream) Name() string {
-	return mS.name
-}
-
-func (mS *mockStream) Start() {
-}
-
-func (mS *mockStream) Stop() {
-}
-
-func (mS *mockStream) WriteRTP(*rtp.Packet) error {
-	return nil
-}
-
-func (mS *mockStream) VideoTrackLocal() (webrtc.TrackLocal, bool) {
-	return nil, false
-}
-
-func (mS *mockStream) AudioTrackLocal() (webrtc.TrackLocal, bool) {
-	return nil, false
-}
 
 // setupRealRobot creates a robot from the input config and starts a WebRTC server with video
 // streaming capabilities.
