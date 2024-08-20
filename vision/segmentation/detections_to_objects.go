@@ -38,13 +38,16 @@ func (dsc *DetectionSegmenterConfig) ConvertAttributes(am utils.AttributeMap) er
 func cameraToProjector(
 	ctx context.Context,
 	source camera.VideoSource,
-) (*transform.PinholeCameraModel, error) {
+) (transform.Projector, error) {
 	if source == nil {
 		return nil, errors.New("cannot have a nil source")
 	}
 	props, err := source.Properties(ctx)
 	if err != nil {
 		return nil, camera.NewPropertiesError("source camera")
+	}
+	if props.IntrinsicParams == nil {
+		return &transform.ParallelProjection{}, nil
 	}
 	cameraModel := transform.PinholeCameraModel{}
 	cameraModel.PinholeCameraIntrinsics = props.IntrinsicParams
