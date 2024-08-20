@@ -488,9 +488,26 @@ func (w *GraphNode) canTransitionTo(state NodeState) bool {
 	case NodeStateUnhealthy:
 		//nolint
 		switch state {
-		case NodeStateReady, NodeStateRemoving, NodeStateUnhealthy:
+		case NodeStateRemoving, NodeStateUnhealthy:
+			return true
+		case NodeStateReady:
+			// TODO(NEEDS TICKET): ideally, a node should "recover" by the following transition
+			// steps: "unhealthy" -> "configuring" -> "ready".
+			//
+			// However, once a node becomes "unhealthy" it is filtered out from most
+			// reconfiguration operations, and is not available to be transitioned to
+			// "configuring" when we want it to be.
+			//
+			// We eventually want to change the reconfiguration system to show unhealthy
+			// nodes instead of filtering them out at each step of the process.
+			//
+			// In the meantime, we allow nodes to "recover" by transitioning directly
+			// from "unhealthy" -> "ready".
+			//
+			// See this discussion for more details: https://github.com/viamrobotics/rdk/pull/4257#discussion_r1712173743
 			return true
 		}
+
 	}
 	return false
 }
