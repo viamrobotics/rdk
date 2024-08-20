@@ -14,8 +14,8 @@ import (
 )
 
 type imageSource struct {
-	Images       []image.Image
-	idx          int
+	Images        []image.Image
+	idx           int
 	releaseCalled bool
 }
 
