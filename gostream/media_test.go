@@ -14,8 +14,9 @@ import (
 )
 
 type imageSource struct {
-	Images []image.Image
-	idx    int
+	Images       []image.Image
+	idx          int
+	releaseCalled bool
 }
 
 // Returns the next image or nil if there are no more images left. This should never error.
@@ -25,7 +26,10 @@ func (is *imageSource) Read(_ context.Context) (image.Image, func(), error) {
 	}
 	img := is.Images[is.idx]
 	is.idx++
-	return img, func() {}, nil
+	release := func() {
+		is.releaseCalled = true
+	}
+	return img, release, nil
 }
 
 func (is *imageSource) Close(_ context.Context) error {
@@ -57,7 +61,8 @@ func TestReadMedia(t *testing.T) {
 	videoSrc := NewVideoSource(&imgSource, prop.Video{})
 	// Test all images are returned in order.
 	for i, expected := range colors {
-		actual, _, err := ReadMedia(context.Background(), videoSrc)
+		imgSource.releaseCalled = false // Reset flag before each read
+		actual, release, err := ReadMedia(context.Background(), videoSrc)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, actual, test.ShouldNotBeNil)
 		for j, col := range colors {
@@ -69,14 +74,23 @@ func TestReadMedia(t *testing.T) {
 			}
 		}
 		test.That(t, actual, test.ShouldEqual, expected)
+
+		// Call release and check if it sets the flag
+		release()
+		test.That(t, imgSource.releaseCalled, test.ShouldBeTrue)
 	}
 
 	// Test image comparison can fail if two images are not the same
 	imgSource.Images = []image.Image{createImage(rimage.Red)}
 	videoSrc = NewVideoSource(&imgSource, prop.Video{})
 
+	imgSource.releaseCalled = false
 	blue := createImage(rimage.Blue)
-	red, _, err := ReadMedia(context.Background(), videoSrc)
+	red, release, err := ReadMedia(context.Background(), videoSrc)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, red, test.ShouldNotEqual, blue)
+
+	// Call release and check if it sets the flag
+	release()
+	test.That(t, imgSource.releaseCalled, test.ShouldBeTrue)
 }
