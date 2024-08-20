@@ -22,23 +22,28 @@ func (l *Loop) newPID(config BlockConfig, logger logging.Logger) (Block, error) 
 
 // BasicPID is the standard implementation of a PID controller.
 type basicPID struct {
-	mu       sync.Mutex
-	cfg      BlockConfig
+	mu     sync.Mutex
+	cfg    BlockConfig
+	logger logging.Logger
+	// used by the single input/output controller
+	error float64
+	kI    float64
+	kD    float64
+	kP    float64
+	int   float64
+	tuner pidTuner
+
+	// MIMO gains + state
 	PIDSets  []*PIDConfig
-	error    float64 // MIMO
-	kI       float64 //
-	kD       float64 //
-	kP       float64 //
-	int      float64 // MIMO
-	y        []*Signal
+	tuners   []*pidTuner
 	useMulti bool
+
+	// used by both
+	y        []*Signal
 	satLimUp float64 `default:"255.0"`
 	limUp    float64 `default:"255.0"`
 	satLimLo float64
 	limLo    float64
-	tuner    pidTuner
-	tuners   []*pidTuner
-	logger   logging.Logger
 }
 
 // GetTuning returns whether the PID block is currently tuning any signals
