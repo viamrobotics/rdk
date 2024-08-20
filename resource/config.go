@@ -126,7 +126,7 @@ func NativeConfig[T any](conf Config) (T, error) {
 	if err != nil {
 		err = fmt.Errorf(
 			"incorrect config type: NativeConfig %w. Make sure the config type registered to the "+
-			"resource matches the one passed into NativeConfig", err)
+				"resource matches the one passed into NativeConfig", err)
 	}
 	return val, err
 }
