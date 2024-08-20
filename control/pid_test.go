@@ -22,12 +22,8 @@ func TestPIDConfig(t *testing.T) {
 	}{
 		{
 			BlockConfig{
-				Name: "PID1",
-				Attribute: utils.AttributeMap{
-					"kD": 0.11,
-					"kP": 0.12,
-					"kI": 0.22,
-				},
+				Name:      "PID1",
+				Attribute: utils.AttributeMap{"kD": 0.11, "kP": 0.12, "kI": 0.22},
 				Type:      "PID",
 				DependsOn: []string{"A", "B"},
 			},
@@ -35,12 +31,8 @@ func TestPIDConfig(t *testing.T) {
 		},
 		{
 			BlockConfig{
-				Name: "PID1",
-				Attribute: utils.AttributeMap{
-					"kD": 0.11,
-					"kP": 0.12,
-					"kI": 0.22,
-				},
+				Name:      "PID1",
+				Attribute: utils.AttributeMap{"kD": 0.11, "kP": 0.12, "kI": 0.22},
 				Type:      "PID",
 				DependsOn: []string{"A"},
 			},
