@@ -59,10 +59,10 @@ func (s *interruptStream) startStream(ctx context.Context, interrupts []DigitalI
 	// since managed go calls that function when the routine exits.
 	s.activeBackgroundWorkers.Add(1)
 	utils.ManagedGo(func() {
-			s.receiveFromStream(ctx, stream, ch)
-		},
-		s.activeBackgroundWorkers.Done
-	)
+		s.receiveFromStream(ctx, stream, ch)
+	},
+		s.activeBackgroundWorkers.Done)
+	return nil
 }
 
 func (s *interruptStream) receiveFromStream(ctx context.Context, stream pb.BoardService_StreamTicksClient, ch chan Tick) {
