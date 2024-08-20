@@ -73,7 +73,7 @@ func (p *basicPID) Next(ctx context.Context, x []*Signal, dt time.Duration) ([]*
 					p.PIDSets[i].I = p.tuners[i].kI
 					p.PIDSets[i].P = p.tuners[i].kP
 					p.logger.Info("\n\n-------- ***** PID GAINS CALCULATED **** --------")
-					p.logger.CInfof(ctx, "Calculated gains are p: %1.6f, i: %1.6f, d: %1.6f", p.PIDSets[i].P, p.PIDSets[i].I, p.PIDSets[i].D)
+					p.logger.CInfof(ctx, "Calculated gains for signal %v are p: %1.6f, i: %1.6f, d: %1.6f", i, p.PIDSets[i].P, p.PIDSets[i].I, p.PIDSets[i].D)
 					p.logger.CInfof(ctx, "You must MANUALLY ADD p, i and d gains to the robot config to use the values after tuning\n\n")
 					p.tuners[i].tuning = false
 				}
@@ -142,9 +142,9 @@ func calculateSignalValue(p *basicPID, x []*Signal, dt time.Duration, sIndex int
 		p.PIDSets[sIndex].int = p.satLimLo
 	default:
 	}
-	deriv := (pvError - p.PIDSets[sIndex].error) / dtS
+	deriv := (pvError - p.PIDSets[sIndex].signalErr) / dtS
 	output := p.PIDSets[sIndex].P*pvError + p.PIDSets[sIndex].int + p.PIDSets[sIndex].D*deriv
-	p.PIDSets[sIndex].error = pvError
+	p.PIDSets[sIndex].signalErr = pvError
 	if output > p.limUp {
 		output = p.limUp
 	} else if output < p.limLo {
@@ -185,7 +185,7 @@ func (p *basicPID) reset() error {
 
 			for i := 0; i < len(p.PIDSets); i++ {
 				p.PIDSets[i].int = 0
-				p.PIDSets[i].error = 0
+				p.PIDSets[i].signalErr = 0
 			}
 		}
 	}
@@ -216,7 +216,7 @@ func (p *basicPID) reset() error {
 
 	if p.useMulti {
 		for i := 0; i < len(p.PIDSets); i++ {
-			if p.PIDSets[i].I == 0.0 && p.PIDSets[i].D == 0.0 && p.PIDSets[i].P == 0.0 {
+			if p.PIDSets[i].NeedsAutoTuning() {
 				var ssrVal float64
 				if p.cfg.Attribute["tune_ssr_value"] != nil {
 					ssrVal = p.cfg.Attribute["tune_ssr_value"].(float64)

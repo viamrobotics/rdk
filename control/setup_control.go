@@ -46,12 +46,15 @@ type PIDLoop struct {
 
 // PIDConfig is values needed to configure a PID control loop.
 type PIDConfig struct {
-	Type  string  `json:"type,omitempty"`
-	P     float64 `json:"p"`
-	I     float64 `json:"i"`
-	D     float64 `json:"d"`
-	int   float64
-	error float64
+	Type string  `json:"type,omitempty"`
+	P    float64 `json:"p"`
+	I    float64 `json:"i"`
+	D    float64 `json:"d"`
+
+	// PID block specific values
+	// these are integral sum and signalErr for the pid signal
+	int       float64
+	signalErr float64
 }
 
 // NeedsAutoTuning checks if the PIDConfig values require auto tuning.
@@ -274,7 +277,7 @@ func (p *PIDLoop) basicControlConfig(endpointName string, pidVals PIDConfig, con
 					"kD":             pidVals.D,
 					"kI":             pidVals.I,
 					"kP":             pidVals.P,
-					"PIDSets":        []*PIDConfig{&pidVals},
+					// "PIDSets":        []*PIDConfig{&pidVals}, // commenting out until we use it
 					"limit_lo":       -255.0,
 					"limit_up":       255.0,
 					"tune_method":    "ziegerNicholsPI",

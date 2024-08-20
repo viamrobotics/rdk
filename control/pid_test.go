@@ -14,6 +14,60 @@ import (
 
 var loop = Loop{}
 
+func TestPIDConfig(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+	for i, tc := range []struct {
+		conf BlockConfig
+		err  string
+	}{
+		{
+			BlockConfig{
+				Name: "PID1",
+				Attribute: utils.AttributeMap{
+					"kD": 0.11,
+					"kP": 0.12,
+					"kI": 0.22,
+				},
+				Type:      "PID",
+				DependsOn: []string{"A", "B"},
+			},
+			"pid block PID1 should have 1 input got 2",
+		},
+		{
+			BlockConfig{
+				Name: "PID1",
+				Attribute: utils.AttributeMap{
+					"kD": 0.11,
+					"kP": 0.12,
+					"kI": 0.22,
+				},
+				Type:      "PID",
+				DependsOn: []string{"A"},
+			},
+			"",
+		},
+		{
+			BlockConfig{
+				Name:      "PID1",
+				Attribute: utils.AttributeMap{"Kdd": 0.11},
+				Type:      "PID",
+				DependsOn: []string{"A"},
+			},
+			"pid block PID1 should have at least one kI, kP or kD field",
+		},
+	} {
+		t.Run(fmt.Sprintf("Test %d", i), func(t *testing.T) {
+			_, err := loop.newPID(tc.conf, logger)
+			if tc.err == "" {
+				test.That(t, err, test.ShouldBeNil)
+			} else {
+				test.That(t, err, test.ShouldNotBeNil)
+				test.That(t, err.Error(), test.ShouldEqual, tc.err)
+			}
+		})
+	}
+}
+
 func TestPIDMultiConfig(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 	for i, tc := range []struct {
@@ -144,13 +198,13 @@ func TestPIDMultiIntegralWindup(t *testing.T) {
 	test.That(t, pid.error, test.ShouldEqual, 0)
 
 	test.That(t, pid.PIDSets[0].int, test.ShouldEqual, 0)
-	test.That(t, pid.PIDSets[0].error, test.ShouldEqual, 0)
+	test.That(t, pid.PIDSets[0].signalErr, test.ShouldEqual, 0)
 	test.That(t, pid.PIDSets[0].P, test.ShouldEqual, .12)
 	test.That(t, pid.PIDSets[0].I, test.ShouldEqual, .22)
 	test.That(t, pid.PIDSets[0].D, test.ShouldEqual, .11)
 
 	test.That(t, pid.PIDSets[1].int, test.ShouldEqual, 0)
-	test.That(t, pid.PIDSets[1].error, test.ShouldEqual, 0)
+	test.That(t, pid.PIDSets[1].signalErr, test.ShouldEqual, 0)
 	test.That(t, pid.PIDSets[1].P, test.ShouldEqual, .33)
 	test.That(t, pid.PIDSets[1].I, test.ShouldEqual, .33)
 	test.That(t, pid.PIDSets[1].D, test.ShouldEqual, .10)
