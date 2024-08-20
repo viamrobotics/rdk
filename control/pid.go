@@ -41,11 +41,23 @@ type basicPID struct {
 	logger   logging.Logger
 }
 
+// GetTuning returns whether the PID block is currently tuning any signals
 func (p *basicPID) GetTuning() bool {
+	// using locks so we do not check for tuning mid reconfigure or mid tune
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return p.getTuning()
+}
+
+func (p *basicPID) getTuning() bool {
 	multiTune := false
+
 	if p.useMulti {
 		for _, tuner := range p.tuners {
-			multiTune = tuner.tuning || multiTune
+			// the tuners  for MIMO only get created if we want to tune
+			if tuner != nil {
+				multiTune = tuner.tuning || multiTune
+			}
 		}
 		return multiTune
 	}
@@ -58,7 +70,7 @@ func (p *basicPID) GetTuning() bool {
 func (p *basicPID) Next(ctx context.Context, x []*Signal, dt time.Duration) ([]*Signal, bool) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	if p.GetTuning() {
+	if p.getTuning() {
 		// Multi Input/Output Implementation
 		if p.useMulti {
 			// For each PID Set and its respective Tuner Object, Step through an iteration of tuning until done.
@@ -159,18 +171,6 @@ func (p *basicPID) reset() error {
 	p.int = 0
 	p.error = 0
 
-	if !p.cfg.Attribute.Has("kI") &&
-		!p.cfg.Attribute.Has("kD") &&
-		!p.cfg.Attribute.Has("kP") {
-		return errors.Errorf("pid block %s should have at least one kI, kP or kD field", p.cfg.Name)
-	}
-	if len(p.cfg.DependsOn) != 1 && !p.useMulti {
-		return errors.Errorf("pid block %s should have 1 input got %d", p.cfg.Name, len(p.cfg.DependsOn))
-	}
-	p.kI = p.cfg.Attribute["kI"].(float64)
-	p.kD = p.cfg.Attribute["kD"].(float64)
-	p.kP = p.cfg.Attribute["kP"].(float64)
-
 	// Each PIDSet is taken from the config, if the attribute exists (it's optional).
 	// If PID Sets was given as an attribute, we know we're in 'multi' mode. For each
 	// set of PIDs we initialize its values to 0 and create a tuner object.
@@ -189,6 +189,18 @@ func (p *basicPID) reset() error {
 			}
 		}
 	}
+
+	if !p.cfg.Attribute.Has("kI") &&
+		!p.cfg.Attribute.Has("kD") &&
+		!p.cfg.Attribute.Has("kP") {
+		return errors.Errorf("pid block %s should have at least one kI, kP or kD field", p.cfg.Name)
+	}
+	if len(p.cfg.DependsOn) != 1 && !p.useMulti {
+		return errors.Errorf("pid block %s should have 1 input got %d", p.cfg.Name, len(p.cfg.DependsOn))
+	}
+	p.kI = p.cfg.Attribute["kI"].(float64)
+	p.kD = p.cfg.Attribute["kD"].(float64)
+	p.kP = p.cfg.Attribute["kP"].(float64)
 
 	// ensure a default of 255
 	p.satLimUp = 255

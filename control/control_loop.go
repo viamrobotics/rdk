@@ -330,17 +330,29 @@ func (l *Loop) GetConfig(ctx context.Context) Config {
 func (l *Loop) MonitorTuning(ctx context.Context) {
 	// wait until tuning has started
 	for {
-		tuning := l.GetTuning(ctx)
-		if tuning {
-			break
+		// 100 Hz is probably faster than we need, but we needed at least a small delay because
+		// GetTuning will lock the PID block
+		if utils.SelectContextOrWait(ctx, 10*time.Millisecond) {
+			tuning := l.GetTuning(ctx)
+			if tuning {
+				break
+			}
+			continue
 		}
+		l.logger.Error("error starting tuner")
+		return
 	}
 	// wait until tuning is done
 	for {
-		tuning := l.GetTuning(ctx)
-		if !tuning {
-			break
+		if utils.SelectContextOrWait(ctx, 10*time.Millisecond) {
+			tuning := l.GetTuning(ctx)
+			if !tuning {
+				break
+			}
+			continue
 		}
+		l.logger.Error("error waiting for tuner")
+		return
 	}
 }
 
