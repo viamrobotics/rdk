@@ -154,8 +154,8 @@ func TestPIDMultiIntegralWindup(t *testing.T) {
 	test.That(t, pid.PIDSets[1].P, test.ShouldEqual, .33)
 	test.That(t, pid.PIDSets[1].I, test.ShouldEqual, .33)
 	test.That(t, pid.PIDSets[1].D, test.ShouldEqual, .10)
-
 }
+
 func TestPIDTuner(t *testing.T) {
 	ctx := context.Background()
 	logger := logging.NewTestLogger(t)
@@ -178,7 +178,7 @@ func TestPIDTuner(t *testing.T) {
 	b, err := loop.newPID(cfg, logger)
 	pid := b.(*basicPID)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, pid.tuning, test.ShouldBeTrue)
+	test.That(t, pid.GetTuning(), test.ShouldBeTrue)
 	test.That(t, pid.tuner.currentPhase, test.ShouldEqual, begin)
 	s := []*Signal{
 		{
@@ -208,13 +208,16 @@ func TestPIDTuner(t *testing.T) {
 func TestPIDMultiTuner(t *testing.T) {
 	ctx := context.Background()
 	logger := logging.NewTestLogger(t)
+
+	// define N PID gains to tune
+	pidConfigs := []*PIDConfig{{P: .0, I: .0, D: .0}, {P: .0, I: .0, D: .0}, {P: .0, I: .0, D: .0}}
 	cfg := BlockConfig{
 		Name: "3 PID Set",
 		Attribute: utils.AttributeMap{
 			"kD":             0.0,
 			"kP":             0.0,
 			"kI":             0.0,
-			"PIDSets":        []*PIDConfig{{P: .0, I: .0, D: .0}, {P: .0, I: .0, D: .0}, {P: .0, I: .0, D: .0}}, // 3 PID Sets defined here
+			"PIDSets":        pidConfigs, // N PID Sets defined here
 			"limit_up":       255.0,
 			"limit_lo":       0.0,
 			"int_sat_lim_up": 255.0,
@@ -228,65 +231,50 @@ func TestPIDMultiTuner(t *testing.T) {
 	b, err := loop.newPID(cfg, logger)
 	pid := b.(*basicPID)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, pid.tuning, test.ShouldBeTrue)
+	test.That(t, pid.GetTuning(), test.ShouldBeTrue)
 	test.That(t, pid.tuner.currentPhase, test.ShouldEqual, begin)
 	s := []*Signal{
 		{
 			name:   "A",
-			signal: make([]float64, 3), // Make 3 signals here
+			signal: make([]float64, len(pidConfigs)), // Make N signals here
 			time:   make([]int, 1),
 		},
 	}
 	dt := time.Millisecond * 10
 
-	// We make a set of 3 Signals. This loop tests each PID controller's response to increasing
-	// input values, verifying that it reaches a steady state such that the output remains constant.
-	for i := 0; i < 22; i++ {
+	// we want to test the tuning behavior for each signal that we defined above
+	for signalIndex := range s[0].signal {
+		// This loop tests each PID controller's response to increasing input values,
+		// verifying that it reaches a steady state such that the output remains constant.
+		for i := 0; i < 22; i++ {
+			s[0].SetSignalValueAt(signalIndex, s[0].GetSignalValueAt(signalIndex)+2)
+			out, hold := pid.Next(ctx, s, dt)
+			test.That(t, out[0].GetSignalValueAt(signalIndex), test.ShouldEqual, 255.0*0.45)
+			test.That(t, hold, test.ShouldBeTrue)
+		}
 
-		s[0].SetSignalValueAt(0, s[0].GetSignalValueAt(0)+2)
-		s[0].SetSignalValueAt(1, s[0].GetSignalValueAt(1)+2)
-		s[0].SetSignalValueAt(2, s[0].GetSignalValueAt(2)+2)
+		// This loop tests each PID controller's response to constant input values, verifying
+		// that it reaches a steady state such that the output remains constant.
+		for i := 0; i < 15; i++ {
+			// Set the signal to a constant value
+			s[0].SetSignalValueAt(signalIndex, 100.0)
+			test.That(t, s[0].GetSignalValueAt(signalIndex), test.ShouldEqual, 100)
+
+			out, hold := pid.Next(ctx, s, dt)
+
+			// Verify that each signal remained the correct output value after call to Next()
+			test.That(t, out[0].GetSignalValueAt(signalIndex), test.ShouldEqual, 255.0*0.45)
+			test.That(t, hold, test.ShouldBeTrue)
+		}
+		// After reaching steady state, these tests verify that each signal responds correctly to
+		// 1 call to Next(). Each Signal should oscillate,
 		out, hold := pid.Next(ctx, s, dt)
+		test.That(t, out[0].GetSignalValueAt(signalIndex), test.ShouldEqual, 255.0*0.45+0.5*255.0*0.45)
+		test.That(t, hold, test.ShouldBeTrue)
 
-		test.That(t, out[0].GetSignalValueAt(2), test.ShouldEqual, 255.0*0.45)
-		test.That(t, hold, test.ShouldBeTrue)
-		test.That(t, out[0].GetSignalValueAt(1), test.ShouldEqual, 255.0*0.45)
-		test.That(t, hold, test.ShouldBeTrue)
-		test.That(t, out[0].GetSignalValueAt(0), test.ShouldEqual, 255.0*0.45)
-		test.That(t, hold, test.ShouldBeTrue)
+		// disable the tuner to test the next signal
+		pid.tuners[signalIndex].tuning = false
 	}
-
-	// This loop tests each PID controller's response to constant input values, verifying
-	// that it reaches a steady state such that the output remains constant.
-	for i := 0; i < 15; i++ {
-
-		// Set all 3 signals to constant value
-		s[0].SetSignalValueAt(0, 100.0)
-		test.That(t, s[0].GetSignalValueAt(0), test.ShouldEqual, 100)
-		s[0].SetSignalValueAt(1, 100.0)
-		test.That(t, s[0].GetSignalValueAt(0), test.ShouldEqual, 100)
-		s[0].SetSignalValueAt(2, 100.0)
-		test.That(t, s[0].GetSignalValueAt(0), test.ShouldEqual, 100)
-
-		out, hold := pid.Next(ctx, s, dt)
-
-		// Verify that each signal remained the correct output value after call to Next()
-		test.That(t, out[0].GetSignalValueAt(2), test.ShouldEqual, 255.0*0.45)
-		test.That(t, hold, test.ShouldBeTrue)
-		test.That(t, out[0].GetSignalValueAt(0), test.ShouldEqual, 255.0*0.45)
-		test.That(t, hold, test.ShouldBeTrue)
-		test.That(t, out[0].GetSignalValueAt(1), test.ShouldEqual, 255.0*0.45)
-		test.That(t, hold, test.ShouldBeTrue)
-	}
-
-	// After reaching steady state, these tests verify that each signal responds correctly to
-	// 1 call to Next(). Each Signal should oscillate,
-	out, hold := pid.Next(ctx, s, dt)
-	test.That(t, out[0].GetSignalValueAt(0), test.ShouldEqual, 255.0*0.45+0.5*255.0*0.45)
-	test.That(t, out[0].GetSignalValueAt(1), test.ShouldEqual, 255.0*0.45+0.5*255.0*0.45)
-	test.That(t, out[0].GetSignalValueAt(2), test.ShouldEqual, 255.0*0.45+0.5*255.0*0.45)
-	test.That(t, hold, test.ShouldBeTrue)
-
 }
 
 func TestMIMOPIDConfig(t *testing.T) {
@@ -297,8 +285,11 @@ func TestMIMOPIDConfig(t *testing.T) {
 	}{
 		{
 			BlockConfig{
-				Name:      "PID1",
-				Attribute: utils.AttributeMap{"kD": 0.11, "kP": 0.12, "kI": 0.22, "PIDSets": []*PIDConfig{{P: .12, I: .13, D: .14}, {P: .22, I: .23, D: .24}}},
+				Name: "PID1",
+				Attribute: utils.AttributeMap{
+					"kD": 0.11, "kP": 0.12, "kI": 0.22,
+					"PIDSets": []*PIDConfig{{P: .12, I: .13, D: .14}, {P: .22, I: .23, D: .24}},
+				},
 				Type:      "PID",
 				DependsOn: []string{"A", "B"},
 			},
