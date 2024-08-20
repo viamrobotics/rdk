@@ -11,6 +11,9 @@ import (
 )
 
 //go:generate stringer -type NodeState -trimprefix NodeState
+//
+// The directive above configures `go generate ./...` to automatically generate a
+// `String` method for the NodeState type.
 
 // NodeState captures the configuration lifecycle state of a resource node.
 type NodeState uint8
