@@ -11,7 +11,7 @@ import (
 // Config is the sync config from builtin.
 type Config struct {
 	// AdditionalSyncPaths defines the file system paths
-	// that should be synced in addition to the CaptureDir
+	// that should be synced in addition to the CaptureDir.
 	// Generally 3rd party programs will write arbitrary
 	// files to these directories which are intended to be
 	// synced to the cloud by data manager.
@@ -19,6 +19,7 @@ type Config struct {
 	// CaptureDir defines the file system path
 	// that data capture will write to and
 	// which data sync should sync from.
+	// defaults to filepath.Join(os.Getenv("HOME"), ".viam", "capture")
 	CaptureDir string
 	// CaptureDisabled, when true disables data capture.
 	// sync needs to know if capture is disabled b/c if it
@@ -26,7 +27,6 @@ type Config struct {
 	// the disk has filled up enough that data sync needs to delete
 	// capture files without syncing them.
 	// See DeleteEveryNthWhenDiskFull for more info.
-	// defaults to filepath.Join(os.Getenv("HOME"), ".viam", "capture")
 	CaptureDisabled bool
 	// DeleteEveryNthWhenDiskFull defines the `n` in
 	// the psudocode:
