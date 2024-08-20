@@ -678,7 +678,7 @@ var app = &cli.App{
 							Usage:    "ID of the dataset to be deleted",
 						},
 					},
-					Action: DatasetCreateAction,
+					Action: DatasetDeleteAction,
 				},
 				{
 					Name:  "export",
