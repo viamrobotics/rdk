@@ -987,6 +987,8 @@ func TestStatus(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		_, err = r.Status(context.Background(), []resource.Name{fail1})
+		// TODO(RSDK-6875): compare errors directly instead by string after
+		// `github.com/pkg/errors` is removed entirely.
 		expectedErr := fmt.Errorf("failed to get status from %q: %w", fail1, errFailed)
 		test.That(t, err.Error(), test.ShouldEqual, expectedErr.Error())
 	})
@@ -1026,6 +1028,8 @@ func TestStatus(t *testing.T) {
 		test.That(t, resp[1].Status, test.ShouldResemble, expected[resp[1].Name])
 
 		_, err = r.Status(context.Background(), resourceNames)
+		// TODO(RSDK-6875): compare errors directly instead by string after
+		// `github.com/pkg/errors` is removed entirely.
 		expectedErr := fmt.Errorf("failed to get status from %q: %w", fail1, errFailed)
 		test.That(t, err.Error(), test.ShouldEqual, expectedErr.Error())
 	})
