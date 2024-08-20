@@ -548,6 +548,22 @@ func (w *GraphNode) resourceStatus() Status {
 	var err error
 	if w.state == NodeStateUnhealthy {
 		err = w.lastErr
+		if err == nil && w.logger != nil {
+		// an unhealthy node should always have a non-nil error - log a warning if this
+		// invariant is violated.
+			w.logger.Warnw("an unhealthy node doesn't have an error", "resource", resName)
+		}
+	} else if w.lastErr != nil && w.logger != nil {
+        // a recovered node should not have an error - log a warning if this invariant is
+        // violated.
+		var logf = w.logger.Warnf
+		if w.state == NodeStateRemoving {
+			// a previously-unhealthy node can be marked for removal but still retain the
+			// error - this is not surprising so log at the debug level.
+			logf = w.logger.Debugf
+		}
+		logf("a node has an error but is not unhealthy",
+			"resource", resName, "state", w.state.String(), "error", w.lastErr)
 	}
 
 	return Status{
