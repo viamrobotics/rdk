@@ -60,6 +60,61 @@ func TestPIDConfig(t *testing.T) {
 	}
 }
 
+func TestPIDBasicIntegralWindup(t *testing.T) {
+	ctx := context.Background()
+	logger := logging.NewTestLogger(t)
+	cfg := BlockConfig{
+		Name: "PID1",
+		Attribute: utils.AttributeMap{
+			"kD":             0.11,
+			"kP":             0.12,
+			"kI":             0.22,
+			"limit_up":       100.0,
+			"limit_lo":       0.0,
+			"int_sat_lim_up": 100.0,
+			"int_sat_lim_lo": 0.0,
+		},
+		Type:      "PID",
+		DependsOn: []string{"A"},
+	}
+	b, err := loop.newPID(cfg, logger)
+	pid := b.(*basicPID)
+	test.That(t, err, test.ShouldBeNil)
+	s := []*Signal{
+		{
+			name:   "A",
+			signal: make([]float64, 1),
+			time:   make([]int, 1),
+		},
+	}
+	for i := 0; i < 50; i++ {
+		dt := time.Duration(1000000 * 10)
+		s[0].SetSignalValueAt(0, 1000.0)
+		out, ok := pid.Next(ctx, s, dt)
+		if i < 46 {
+			test.That(t, ok, test.ShouldBeTrue)
+			test.That(t, out[0].GetSignalValueAt(0), test.ShouldEqual, 100.0)
+		} else {
+			test.That(t, pid.int, test.ShouldBeGreaterThanOrEqualTo, 100)
+			s[0].SetSignalValueAt(0, 0.0)
+			out, ok := pid.Next(ctx, s, dt)
+			test.That(t, ok, test.ShouldBeTrue)
+			test.That(t, pid.int, test.ShouldBeGreaterThanOrEqualTo, 100)
+			test.That(t, out[0].GetSignalValueAt(0), test.ShouldEqual, 0.0)
+			s[0].SetSignalValueAt(0, -1.0)
+			out, ok = pid.Next(ctx, s, dt)
+			test.That(t, ok, test.ShouldBeTrue)
+			test.That(t, pid.int, test.ShouldBeLessThanOrEqualTo, 100)
+			test.That(t, out[0].GetSignalValueAt(0), test.ShouldAlmostEqual, 88.8778)
+			break
+		}
+	}
+	err = pid.Reset(ctx)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, pid.int, test.ShouldEqual, 0)
+	test.That(t, pid.error, test.ShouldEqual, 0)
+}
+
 func TestPIDMultiConfig(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 	for i, tc := range []struct {
