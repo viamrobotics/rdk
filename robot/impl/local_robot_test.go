@@ -17,9 +17,9 @@ import (
 
 	"github.com/go-viper/mapstructure/v2"
 	"github.com/golang/geo/r3"
-	legacyerrors "github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.uber.org/zap"
+
 	// registers all components.
 	commonpb "go.viam.com/api/common/v1"
 	armpb "go.viam.com/api/component/arm/v1"
@@ -987,7 +987,8 @@ func TestStatus(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		_, err = r.Status(context.Background(), []resource.Name{fail1})
-		test.That(t, err, test.ShouldBeError, legacyerrors.Wrapf(errFailed, "failed to get status from %q", fail1))
+		expectedErr := fmt.Errorf("failed to get status from %q: %w", fail1, errFailed)
+		test.That(t, err.Error(), test.ShouldEqual, expectedErr.Error())
 	})
 
 	t.Run("many status", func(t *testing.T) {
@@ -1025,7 +1026,8 @@ func TestStatus(t *testing.T) {
 		test.That(t, resp[1].Status, test.ShouldResemble, expected[resp[1].Name])
 
 		_, err = r.Status(context.Background(), resourceNames)
-		test.That(t, err, test.ShouldBeError, legacyerrors.Wrapf(errFailed, "failed to get status from %q", fail1))
+		expectedErr := fmt.Errorf("failed to get status from %q: %w", fail1, errFailed)
+		test.That(t, err.Error(), test.ShouldEqual, expectedErr.Error())
 	})
 
 	t.Run("get all status", func(t *testing.T) {
