@@ -46,7 +46,7 @@ type basicPID struct {
 	limLo    float64
 }
 
-// GetTuning returns whether the PID block is currently tuning any signals
+// GetTuning returns whether the PID block is currently tuning any signals.
 func (p *basicPID) GetTuning() bool {
 	// using locks so we do not check for tuning mid reconfigure or mid tune
 	p.mu.Lock()
@@ -90,7 +90,8 @@ func (p *basicPID) Next(ctx context.Context, x []*Signal, dt time.Duration) ([]*
 					p.PIDSets[i].I = p.tuners[i].kI
 					p.PIDSets[i].P = p.tuners[i].kP
 					p.logger.Info("\n\n-------- ***** PID GAINS CALCULATED **** --------")
-					p.logger.CInfof(ctx, "Calculated gains for signal %v are p: %1.6f, i: %1.6f, d: %1.6f", i, p.PIDSets[i].P, p.PIDSets[i].I, p.PIDSets[i].D)
+					p.logger.CInfof(ctx, "Calculated gains for signal %v are p: %1.6f, i: %1.6f, d: %1.6f",
+						i, p.PIDSets[i].P, p.PIDSets[i].I, p.PIDSets[i].D)
 					p.logger.CInfof(ctx, "You must MANUALLY ADD p, i and d gains to the robot config to use the values after tuning\n\n")
 					p.tuners[i].tuning = false
 				}
