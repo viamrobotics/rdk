@@ -1335,9 +1335,9 @@ func TestClientResources(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	// no reflection
-	resources, rpcAPIs, err := client.resources(context.Background())
+	mStatus, rpcAPIs, err := client.machineStatusAndRPCAPIs(context.Background())
 	test.That(t, err, test.ShouldBeNil)
-	names := testutils.ResourceStatusesToNames(resources)
+	names := testutils.ResourceStatusesToNames(mStatus.Resources)
 	test.That(t, names, test.ShouldResemble, finalResources)
 	test.That(t, rpcAPIs, test.ShouldBeEmpty)
 
@@ -1358,9 +1358,9 @@ func TestClientResources(t *testing.T) {
 	client, err = New(context.Background(), listener.Addr().String(), logger)
 	test.That(t, err, test.ShouldBeNil)
 
-	resources, rpcAPIs, err = client.resources(context.Background())
+	mStatus, rpcAPIs, err = client.machineStatusAndRPCAPIs(context.Background())
 	test.That(t, err, test.ShouldBeNil)
-	names = testutils.ResourceStatusesToNames(resources)
+	names = testutils.ResourceStatusesToNames(mStatus.Resources)
 	test.That(t, names, test.ShouldResemble, finalResources)
 
 	test.That(t, rpcAPIs, test.ShouldHaveLength, len(respWith))
