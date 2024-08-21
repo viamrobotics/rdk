@@ -1178,6 +1178,11 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 	// if anything has changed.
 	err := r.packageManager.Sync(ctx, newConfig.Packages, newConfig.Modules)
 	if err != nil {
+		r.Logger().CErrorw(ctx, "reconfiguration aborted because package sync failed", "error", err)
+		return
+	}
+	r.Logger().CDebug(ctx, "replacing cache")
+	if err := config.ReplaceCache(newConfig.Cloud.ID); err != nil {
 		allErrs = multierr.Combine(allErrs, err)
 	}
 	// For local tarball modules, we create synthetic versions for package management. The `localRobot` keeps track of these because

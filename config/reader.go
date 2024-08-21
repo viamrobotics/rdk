@@ -95,6 +95,10 @@ func getCloudCacheFilePath(id string) string {
 	return filepath.Join(ViamDotDir, fmt.Sprintf("cached_cloud_config_%s.json", id))
 }
 
+func getNextCloudCacheFilePath(id string) string {
+	return filepath.Join(ViamDotDir, fmt.Sprintf("cached_cloud_config_%s_next.json", id))
+}
+
 func readFromCache(id string) (*Config, error) {
 	r, err := os.Open(getCloudCacheFilePath(id))
 	if err != nil {
@@ -125,9 +129,16 @@ func storeToCache(id string, cfg *Config) error {
 	}
 	reader := bytes.NewReader(md)
 
-	path := getCloudCacheFilePath(id)
+	path := getNextCloudCacheFilePath(id)
 
 	return artifact.AtomicStore(path, reader, id)
+}
+
+func ReplaceCache(id string) error {
+	nextCachePath := getNextCloudCacheFilePath(id)
+	path := getCloudCacheFilePath(id)
+
+	return os.Rename(nextCachePath, path)
 }
 
 func clearCache(id string) {
