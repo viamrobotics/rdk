@@ -502,6 +502,20 @@ func (pi *piPigpio) pwmBcom(bcom int) (float64, error) {
 func (pi *piPigpio) SetPWMBcom(bcom int, dutyCyclePct float64) error {
 	pi.mu.Lock()
 	defer pi.mu.Unlock()
+
+	// Make sure the duty cycle we receive is believable.
+	if dutyCyclePct < 0.0 {
+		return errors.New("cannot set negative duty cycle")
+	}
+	if dutyCyclePct > 1.0 {
+		if dutyCyclePct < 1.01 {
+			// Someone was probably setting it to 1 and had a roundoff error.
+			dutyCyclePct = 1.0
+		} else {
+			return fmt.Errorf("cannot set duty cycle to %f: range is 0.0 to 1.0", dutyCyclePct)
+		}
+	}
+
 	dutyCycle := rdkutils.ScaleByPct(255, dutyCyclePct)
 	pi.duty = int(C.gpioPWM(C.uint(bcom), C.uint(dutyCycle)))
 	if pi.duty != 0 {
