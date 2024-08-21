@@ -4,12 +4,12 @@ package client
 import (
 	"context"
 	"errors"
-	"flag"
 	"fmt"
 	"io"
 	"strings"
 	"sync"
 	"sync/atomic"
+	"testing"
 	"time"
 
 	"github.com/fullstorydev/grpcurl"
@@ -583,10 +583,7 @@ func (rc *RobotClient) resources(ctx context.Context) ([]resource.Name, []resour
 	// pauses for longer than 5s, below calls to ResourceNames or
 	// ResourceRPCSubtypes can result in context errors that appear in client.New
 	// and remote logic.
-	//
-	// TODO(APP-2917): Once we upgrade to go 1.21, replace this if check with if
-	// !testing.Testing().
-	if flag.Lookup("test.v") == nil {
+	if !testing.Testing() {
 		var cancel func()
 		ctx, cancel = contextutils.ContextWithTimeoutIfNoDeadline(ctx, defaultResourcesTimeout)
 		defer cancel()
