@@ -187,7 +187,7 @@ func TestPIDMultiIntegralWindup(t *testing.T) {
 			"int_sat_lim_lo": 0.0,
 		},
 		Type:      "PID",
-		DependsOn: []string{"A"},
+		DependsOn: []string{"A", "B"},
 	}
 	b, err := loop.newPID(cfg, logger)
 	pid := b.(*basicPID)
@@ -312,6 +312,8 @@ func TestPIDMultiTuner(t *testing.T) {
 
 	// define N PID gains to tune
 	pidConfigs := []*PIDConfig{{P: .0, I: .0, D: .0}, {P: .0, I: .0, D: .0}, {P: .0, I: .0, D: .0}}
+	dependsOnNames := []string{"A", "B", "C"}
+
 	cfg := BlockConfig{
 		Name: "3 PID Set",
 		Attribute: utils.AttributeMap{
@@ -327,7 +329,7 @@ func TestPIDMultiTuner(t *testing.T) {
 			"tune_step_pct":  0.45,
 		},
 		Type:      "PID",
-		DependsOn: []string{"A"},
+		DependsOn: dependsOnNames,
 	}
 	b, err := loop.newPID(cfg, logger)
 	pid := b.(*basicPID)
@@ -375,36 +377,5 @@ func TestPIDMultiTuner(t *testing.T) {
 
 		// disable the tuner to test the next signal
 		pid.tuners[signalIndex].tuning = false
-	}
-}
-
-func TestMIMOPIDConfig(t *testing.T) {
-	logger := logging.NewTestLogger(t)
-	for i, tc := range []struct {
-		conf BlockConfig
-		err  string
-	}{
-		{
-			BlockConfig{
-				Name: "PID1",
-				Attribute: utils.AttributeMap{
-					"kD": 0.11, "kP": 0.12, "kI": 0.22,
-					"PIDSets": []*PIDConfig{{P: .12, I: .13, D: .14}, {P: .22, I: .23, D: .24}},
-				},
-				Type:      "PID",
-				DependsOn: []string{"A", "B"},
-			},
-			"pid block PID1 should have 1 input got 2",
-		},
-	} {
-		t.Run(fmt.Sprintf("Test %d", i), func(t *testing.T) {
-			_, err := loop.newPID(tc.conf, logger)
-			if tc.err == "" {
-				test.That(t, err, test.ShouldBeNil)
-			} else {
-				test.That(t, err, test.ShouldNotBeNil)
-				test.That(t, err.Error(), test.ShouldEqual, tc.err)
-			}
-		})
 	}
 }
