@@ -1066,11 +1066,19 @@ func (rc *RobotClient) Shutdown(ctx context.Context) error {
 	return nil
 }
 
+// ErrDisconnected that a robot is disconnected.
+var ErrDisconnected = errors.New("disconnected")
+
 // MachineStatus returns the current status of the robot.
 func (rc *RobotClient) MachineStatus(ctx context.Context) (robot.MachineStatus, error) {
+	var err error
+	if rc.checkConnected() != nil {
+		err = ErrDisconnected
+	}
+
 	rc.mu.Lock()
 	defer rc.mu.Unlock()
-	return rc.cachedMachineStatus, nil
+	return rc.cachedMachineStatus, err
 }
 
 func (rc *RobotClient) machineStatus(ctx context.Context) (robot.MachineStatus, error) {

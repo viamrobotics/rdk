@@ -184,7 +184,16 @@ func (manager *resourceManager) updateRemoteResourceNames(
 ) bool {
 	manager.logger.CDebugw(ctx, "updating remote resource names", "remote", remoteName, "recreateAllClients", recreateAllClients)
 	activeResourceNames := map[resource.Name]bool{}
-	newResources := rr.ResourceNames()
+	mStatus, err := rr.MachineStatus(ctx)
+	if errors.Is(err, client.ErrDisconnected) {
+		// nil implies our connection to the remote is currently broken. Return without changing any
+		// state for this remote.
+		return false
+	}
+	// TODO: handle other kinds of errors?
+
+	newResources := mStatus.Resources
+
 	oldResources := manager.remoteResourceNames(remoteName)
 	for _, res := range oldResources {
 		activeResourceNames[res] = false
@@ -192,7 +201,8 @@ func (manager *resourceManager) updateRemoteResourceNames(
 
 	anythingChanged := false
 
-	for _, resName := range newResources {
+	for _, rs := range newResources {
+		resName := rs.Name
 		remoteResName := resName
 		res, err := rr.ResourceByName(remoteResName) // this returns a remote known OR foreign resource client
 		if err != nil {
