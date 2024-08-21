@@ -201,8 +201,12 @@ func (p *basicPID) reset() error {
 		!p.cfg.Attribute.Has("kP") {
 		return errors.Errorf("pid block %s should have at least one kI, kP or kD field", p.cfg.Name)
 	}
+
 	if len(p.cfg.DependsOn) != 1 && !p.useMulti {
 		return errors.Errorf("pid block %s should have 1 input got %d", p.cfg.Name, len(p.cfg.DependsOn))
+	}
+	if len(p.cfg.DependsOn) != len(p.PIDSets) && p.useMulti {
+		return errors.Errorf("pid block %s should have %d inputs got %d", p.cfg.Name, len(p.PIDSets), len(p.cfg.DependsOn))
 	}
 	p.kI = p.cfg.Attribute["kI"].(float64)
 	p.kD = p.cfg.Attribute["kD"].(float64)

@@ -133,7 +133,7 @@ func TestPIDMultiConfig(t *testing.T) {
 				Type:      "PID",
 				DependsOn: []string{"A", "B"},
 			},
-			"pid block PID1 should have 1 input got 2",
+			"",
 		},
 		{
 			BlockConfig{
@@ -147,7 +147,7 @@ func TestPIDMultiConfig(t *testing.T) {
 				Type:      "PID",
 				DependsOn: []string{"A"},
 			},
-			"",
+			"pid block PID1 should have 2 inputs got 1",
 		},
 		{
 			BlockConfig{
