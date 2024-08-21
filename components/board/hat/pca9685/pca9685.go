@@ -6,7 +6,6 @@ package pca9685
 
 import (
 	"context"
-	"fmt"
 	"strconv"
 	"sync"
 	"time"
@@ -340,17 +339,9 @@ func (gp *gpioPin) SetPWM(ctx context.Context, dutyCyclePct float64, extra map[s
 	gp.pca.mu.RLock()
 	defer gp.pca.mu.RUnlock()
 
-	// Make sure the duty cycle we receive is believable.
-	if dutyCyclePct < 0.0 {
-		return errors.New("cannot set negative duty cycle")
-	}
-	if dutyCyclePct > 1.0 {
-		if dutyCyclePct < 1.01 {
-			// Someone was probably setting it to 1 and had a roundoff error.
-			dutyCyclePct = 1.0
-		} else {
-			return fmt.Errorf("cannot set duty cycle to %f: range is 0.0 to 1.0", dutyCyclePct)
-		}
+	dutyCyclePct, err := board.ValidatePWMDutyCycle(dutyCyclePct)
+	if err != nil {
+		return err
 	}
 
 	dutyCycle := uint16(dutyCyclePct * float64(0xffff))
