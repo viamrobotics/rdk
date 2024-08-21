@@ -24,7 +24,6 @@ import (
 	goutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/components/camera"
-	jetsoncamera "go.viam.com/rdk/components/camera/platforms/jetson"
 	"go.viam.com/rdk/gostream"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/pointcloud"
@@ -458,14 +457,6 @@ func (c *monitoredWebcam) reconnectCamera(conf *WebcamConfig) error {
 
 	newSrc, foundLabel, err := findAndMakeVideoSource(c.cancelCtx, conf, c.targetPath, c.logger)
 	if err != nil {
-		// If we are on a Jetson Orin AGX, we need to validate hardware/software setup.
-		// If not, simply pass through the error.
-		err = jetsoncamera.ValidateSetup(
-			jetsoncamera.OrinAGX,
-			jetsoncamera.ECAM,
-			jetsoncamera.AR0234,
-			err,
-		)
 		return errors.Wrap(err, "failed to find camera")
 	}
 
