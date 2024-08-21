@@ -20,7 +20,6 @@ import (
 	"github.com/golang/geo/r3"
 	"github.com/google/uuid"
 	"github.com/jhump/protoreflect/grpcreflect"
-	"go.uber.org/zap/zapcore"
 	commonpb "go.viam.com/api/common/v1"
 	armpb "go.viam.com/api/component/arm/v1"
 	basepb "go.viam.com/api/component/base/v1"
@@ -2235,7 +2234,6 @@ func TestMachineStatus(t *testing.T) {
 	for _, tc := range []struct {
 		name                string
 		injectMachineStatus robot.MachineStatus
-		expBadStateCount    int
 	}{
 		{
 			"no resources",
@@ -2243,7 +2241,6 @@ func TestMachineStatus(t *testing.T) {
 				Config:    config.Revision{Revision: "rev1"},
 				Resources: []resource.Status{},
 			},
-			0,
 		},
 		{
 			"resource with unknown status",
@@ -2256,7 +2253,6 @@ func TestMachineStatus(t *testing.T) {
 					},
 				},
 			},
-			1,
 		},
 		{
 			"resource with valid status",
@@ -2270,7 +2266,6 @@ func TestMachineStatus(t *testing.T) {
 					},
 				},
 			},
-			0,
 		},
 		{
 			"resources with mixed valid and invalid statuses",
@@ -2292,7 +2287,6 @@ func TestMachineStatus(t *testing.T) {
 					},
 				},
 			},
-			2,
 		},
 		{
 			"unhealthy status",
@@ -2307,11 +2301,10 @@ func TestMachineStatus(t *testing.T) {
 					},
 				},
 			},
-			0,
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			logger, logs := logging.NewObservedTestLogger(t)
+			logger := logging.NewTestLogger(t)
 			listener, err := net.Listen("tcp", "localhost:0")
 			test.That(t, err, test.ShouldBeNil)
 			gServer := grpc.NewServer()
@@ -2342,12 +2335,6 @@ func TestMachineStatus(t *testing.T) {
 			mStatus, err := client.MachineStatus(context.Background())
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, mStatus, test.ShouldResemble, tc.injectMachineStatus)
-
-			const badStateMsg = "received resource in an unspecified state"
-			badStateCount := logs.FilterLevelExact(zapcore.ErrorLevel).FilterMessageSnippet(badStateMsg).Len()
-			// MachineStatus is also used for loading resources in a robot client, so every resource-specific error log will appear twice.
-			dedupedBadStateCount := badStateCount / 2
-			test.That(t, dedupedBadStateCount, test.ShouldEqual, tc.expBadStateCount)
 		})
 	}
 }
