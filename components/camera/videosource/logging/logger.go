@@ -1,2 +1,2 @@
-// // Package logging is to be removed
+// Package logging is to be removed
 package logging
