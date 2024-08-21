@@ -15,7 +15,7 @@ func TestValidatePWMDutyCycle(t *testing.T) {
 	test.That(t, val, test.ShouldEqual, 0.5)
 
 	// No negative values
-	val, err = board.ValidatePWMDutyCycle(-1.0)
+	_, err = board.ValidatePWMDutyCycle(-1.0)
 	test.That(t, err, test.ShouldNotBeNil)
 
 	// Values slightly over 100% get rounded down
@@ -24,6 +24,6 @@ func TestValidatePWMDutyCycle(t *testing.T) {
 	test.That(t, val, test.ShouldEqual, 1.0)
 
 	// No values well over 100%
-	val, err = board.ValidatePWMDutyCycle(2.0)
+	_, err = board.ValidatePWMDutyCycle(2.0)
 	test.That(t, err, test.ShouldNotBeNil)
 }
