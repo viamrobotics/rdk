@@ -111,8 +111,6 @@ func TestMultipleConsumers(t *testing.T) {
 	}
 
 	imgSource := &imageSource{Images: colors}
-	videoSrc := NewVideoSource(imgSource, prop.Video{})
-	defer videoSrc.Close(context.Background())
 
 	numConsumers := 2
 	var wg sync.WaitGroup
@@ -120,7 +118,11 @@ func TestMultipleConsumers(t *testing.T) {
 
 	for i := 0; i < numConsumers; i++ {
 		go func() {
-			defer wg.Done()
+			videoSrc := NewVideoSource(imgSource, prop.Video{})
+			defer func() {
+				videoSrc.Close(context.Background())
+				wg.Done()
+			}()
 			for j := 0; j < len(colors)/numConsumers; j++ {
 				actual, release, err := ReadMedia(context.Background(), videoSrc)
 				test.That(t, err, test.ShouldBeNil)
