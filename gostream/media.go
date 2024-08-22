@@ -224,11 +224,12 @@ func (pc *producerConsumer[T, U]) start() {
 		defer span.End()
 
 		first := true
+		var lastRelease func()
 		for {
 			pc.cancelCtxMu.RLock()
 			if pc.cancelCtx.Err() != nil {
 				pc.cancelCtxMu.RUnlock()
-				return
+				break
 			}
 			pc.cancelCtxMu.RUnlock()
 
@@ -262,13 +263,13 @@ func (pc *producerConsumer[T, U]) start() {
 			}
 			requests, cont := waitForNext()
 			if !cont {
-				return
+				break
 			}
 
 			pc.cancelCtxMu.RLock()
 			if err := pc.cancelCtx.Err(); err != nil {
 				pc.cancelCtxMu.RUnlock()
-				return
+				break
 			}
 			pc.cancelCtxMu.RUnlock()
 
@@ -284,7 +285,9 @@ func (pc *producerConsumer[T, U]) start() {
 					doReadSpan.End()
 				}()
 
-				var lastRelease func()
+				if lastRelease != nil {
+					lastRelease()
+				}
 				if !first {
 					// okay to not hold a lock because we are the only both reader AND writer;
 					// other goroutines are just readers.
@@ -313,10 +316,13 @@ func (pc *producerConsumer[T, U]) start() {
 					}
 				}, err}
 				pc.currentMu.Unlock()
-				if lastRelease != nil {
-					lastRelease()
-				}
 			}()
+		}
+		if lastRelease != nil {
+			lastRelease()
+		}
+		if pc.current != nil && pc.current.Release != nil {
+			pc.current.Release()
 		}
 	}, func() { defer pc.activeBackgroundWorkers.Done(); pc.cancel() })
 }

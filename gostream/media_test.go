@@ -5,6 +5,8 @@ import (
 	_ "embed"
 	"image"
 	"image/color"
+	"sync"
+	"sync/atomic"
 	"testing"
 
 	"github.com/pion/mediadevices/pkg/prop"
@@ -14,20 +16,23 @@ import (
 )
 
 type imageSource struct {
-	Images        []image.Image
-	idx           int
-	releaseCalled bool
+	Images       []image.Image
+	idxMu        sync.Mutex
+	idx          int
+	releaseCount int32
 }
 
-// Returns the next image or nil if there are no more images left. This should never error.
 func (is *imageSource) Read(_ context.Context) (image.Image, func(), error) {
+	is.idxMu.Lock()
+	defer is.idxMu.Unlock()
+
 	if is.idx >= len(is.Images) {
 		return nil, func() {}, nil
 	}
 	img := is.Images[is.idx]
 	is.idx++
 	release := func() {
-		is.releaseCalled = true
+		atomic.AddInt32(&is.releaseCount, 1)
 	}
 	return img, release, nil
 }
@@ -61,7 +66,6 @@ func TestReadMedia(t *testing.T) {
 	videoSrc := NewVideoSource(&imgSource, prop.Video{})
 	// Test all images are returned in order.
 	for i, expected := range colors {
-		imgSource.releaseCalled = false // Reset flag before each read
 		actual, release, err := ReadMedia(context.Background(), videoSrc)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, actual, test.ShouldNotBeNil)
@@ -77,20 +81,57 @@ func TestReadMedia(t *testing.T) {
 
 		// Call release and check if it sets the flag
 		release()
-		test.That(t, imgSource.releaseCalled, test.ShouldBeTrue)
+		test.That(t, atomic.LoadInt32(&imgSource.releaseCount), test.ShouldEqual, i+1)
 	}
+}
 
-	// Test image comparison can fail if two images are not the same
-	imgSource.Images = []image.Image{createImage(rimage.Red)}
-	videoSrc = NewVideoSource(&imgSource, prop.Video{})
+func TestImageComparison(t *testing.T) {
+	// Image comparison should fail if two images are not the same
+	imgSource := imageSource{Images: []image.Image{createImage(rimage.Red)}}
+	videoSrc := NewVideoSource(&imgSource, prop.Video{})
 
-	imgSource.releaseCalled = false
-	blue := createImage(rimage.Blue)
+	pink := createImage(rimage.Pink)
 	red, release, err := ReadMedia(context.Background(), videoSrc)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, red, test.ShouldNotEqual, blue)
+	test.That(t, red, test.ShouldNotEqual, pink)
 
 	// Call release and check if it sets the flag
 	release()
-	test.That(t, imgSource.releaseCalled, test.ShouldBeTrue)
+	test.That(t, atomic.LoadInt32(&imgSource.releaseCount), test.ShouldEqual, 1)
+}
+
+func TestMultipleConsumers(t *testing.T) {
+	colors := []image.Image{
+		createImage(rimage.Red),
+		createImage(rimage.Blue),
+		createImage(rimage.Green),
+		createImage(rimage.Yellow),
+		createImage(rimage.Purple),
+		createImage(rimage.Cyan),
+	}
+
+	imgSource := &imageSource{Images: colors}
+	videoSrc := NewVideoSource(imgSource, prop.Video{})
+	defer videoSrc.Close(context.Background())
+
+	numConsumers := 2
+	var wg sync.WaitGroup
+	wg.Add(numConsumers)
+
+	for i := 0; i < numConsumers; i++ {
+		go func(consumerID int) {
+			defer wg.Done()
+
+			for j := 0; j < len(colors)/numConsumers; j++ {
+				actual, release, err := ReadMedia(context.Background(), videoSrc)
+				test.That(t, err, test.ShouldBeNil)
+				test.That(t, actual, test.ShouldNotBeNil)
+
+				release()
+			}
+		}(i)
+	}
+
+	wg.Wait()
+	test.That(t, atomic.LoadInt32(&imgSource.releaseCount), test.ShouldEqual, int32(len(imgSource.Images)))
 }
