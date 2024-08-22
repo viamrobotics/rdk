@@ -905,26 +905,41 @@ func (c *viamClient) dataRemoveFromDataset(datasetID, orgID, locationID string, 
 
 // DataConfigureDatabaseUserConfirmation is the Before action for 'data database configure'.
 // it asks for the user to confirm that they are aware that they are changing the authentication
-// credentials of their database
+// credentials of their database.
 func DataConfigureDatabaseUserConfirmation(c *cli.Context) error {
-	yellow := "\033[1;33m%s\033[0m"
-	printf(c.App.Writer, yellow, "WARNING!!!")
-	printf(c.App.Writer, yellow, "If you or someone else in your organization have already created this user, the following steps update the password for that user instead. Dashboards or other integrations relying on this password will then need to be updated.")
-	printf(c.App.Writer, yellow, "Do you want to continue?")
-	printf(c.App.Writer, "Continue: y/n")
-	if err := c.Err(); err != nil {
-		return err
-	}
-
-	rawInput, err := bufio.NewReader(c.App.Reader).ReadString('\n')
+	client, err := newViamClient(c)
 	if err != nil {
 		return err
 	}
 
-	input := strings.ToUpper(strings.TrimSpace(rawInput))
-	if input != "Y" {
-		return errors.New("aborted")
+	res, err := client.dataGetDatabaseConnection(c.String(generalFlagOrgID))
+	if err != nil {
+		return err
 	}
+
+	if res.HasDatabaseUser {
+		yellow := "\033[1;33m%s\033[0m"
+		printf(c.App.Writer, yellow, "WARNING!!!")
+		printf(c.App.Writer, yellow, "You or someone else in your organization have already created a user. "+
+			"The following steps update the password for that user. Once you have updated the password, you "+
+			"will need to update all dashboards or other integrations relying on this password.")
+		printf(c.App.Writer, yellow, "Do you want to continue?")
+		printf(c.App.Writer, "Continue: y/n")
+		if err := c.Err(); err != nil {
+			return err
+		}
+
+		rawInput, err := bufio.NewReader(c.App.Reader).ReadString('\n')
+		if err != nil {
+			return err
+		}
+
+		input := strings.ToUpper(strings.TrimSpace(rawInput))
+		if input != "Y" {
+			return errors.New("aborted")
+		}
+	}
+
 	return nil
 }
 
@@ -962,23 +977,24 @@ func DataGetDatabaseConnection(c *cli.Context) error {
 	if err != nil {
 		return err
 	}
-	if err := client.dataGetDatabaseConnection(c.String(generalFlagOrgID)); err != nil {
+	res, err := client.dataGetDatabaseConnection(c.String(generalFlagOrgID))
+	if err != nil {
 		return err
 	}
+	printf(client.c.App.Writer, "MongoDB Atlas Data Federation instance hostname: %s", res.GetHostname())
+	printf(client.c.App.Writer, "MongoDB Atlas Data Federation instance connection URI: %s", res.GetMongodbUri())
 	return nil
 }
 
 // dataGetDatabaseConnection gets the hostname of the MongoDB Atlas Data Federation instance
 // for the given organization ID.
-func (c *viamClient) dataGetDatabaseConnection(orgID string) error {
+func (c *viamClient) dataGetDatabaseConnection(orgID string) (*datapb.GetDatabaseConnectionResponse, error) {
 	if err := c.ensureLoggedIn(); err != nil {
-		return err
+		return nil, err
 	}
 	res, err := c.dataClient.GetDatabaseConnection(context.Background(), &datapb.GetDatabaseConnectionRequest{OrganizationId: orgID})
 	if err != nil {
-		return errors.Wrapf(err, serverErrorMessage)
+		return nil, errors.Wrapf(err, serverErrorMessage)
 	}
-	printf(c.c.App.Writer, "MongoDB Atlas Data Federation instance hostname: %s", res.GetHostname())
-	printf(c.c.App.Writer, "MongoDB Atlas Data Federation instance connection URI: %s", res.GetMongodbUri())
-	return nil
+	return res, nil
 }
