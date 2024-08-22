@@ -1,6 +1,6 @@
 import { type LngLat, formatWaypoints } from '@/api/navigation';
 import { type ServiceError } from '@viamrobotics/sdk';
-import { type Waypoint } from '@viamrobotics/prime-blocks';
+import { Waypoint } from '@viamrobotics/prime-blocks';
 import { writable } from 'svelte/store';
 import { useConnect } from '@/hooks/robot-client';
 import { setAsyncInterval } from '@/lib/schedule';
@@ -24,7 +24,7 @@ export const useWaypoints = (name: string) => {
 
   const addWaypoint = async (lngLat: LngLat) => {
     const location = { latitude: lngLat.lat, longitude: lngLat.lng };
-    const temp = { lng: lngLat.lng, lat: lngLat.lat, id: crypto.randomUUID() };
+    const temp = new Waypoint(lngLat.lng, lngLat.lat, crypto.randomUUID());
 
     try {
       waypoints.update((value) => {
