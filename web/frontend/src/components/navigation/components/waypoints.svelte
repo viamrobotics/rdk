@@ -32,7 +32,6 @@ $: if ($tab === 'Waypoints') {
 $: if ($error) {
   notify.danger($error.message);
 }
-
 </script>
 
 {#each $waypoints as waypoint (waypoint.id)}
