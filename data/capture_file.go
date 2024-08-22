@@ -1,5 +1,4 @@
-// Package datacapture contains tools for interacting with Viam datacapture files.
-package datacapture
+package data
 
 import (
 	"bufio"
@@ -14,19 +13,22 @@ import (
 	"github.com/matttproud/golang_protobuf_extensions/pbutil"
 	"github.com/pkg/errors"
 	v1 "go.viam.com/api/app/datasync/v1"
+	"google.golang.org/protobuf/types/known/anypb"
 
-	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/utils"
 )
 
 // TODO Data-343: Reorganize this into a more standard interface/package, and add tests.
 
-// FileExt defines the file extension for Viam data capture files.
 const (
-	InProgressFileExt = ".prog"
-	FileExt           = ".capture"
-	readImage         = "ReadImage"
+	// InProgressCaptureFileExt defines the file extension for Viam data capture files
+	// which are currently being written to.
+	InProgressCaptureFileExt = ".prog"
+	// CompletedCaptureFileExt defines the file extension for Viam data capture files
+	// which are no longer being written to.
+	CompletedCaptureFileExt = ".capture"
+	readImage               = "ReadImage"
 	// GetImages is used for getting simultaneous images from different imagers.
 	GetImages      = "GetImages"
 	nextPointCloud = "NextPointCloud"
@@ -36,10 +38,10 @@ const (
 	filePathReservedChars = ":"
 )
 
-// File is the data structure containing data captured by collectors. It is backed by a file on disk containing
+// CaptureFile is the data structure containing data captured by collectors. It is backed by a file on disk containing
 // length delimited protobuf messages, where the first message is the CaptureMetadata for the file, and ensuing
 // messages contain the captured data.
-type File struct {
+type CaptureFile struct {
 	path     string
 	lock     sync.Mutex
 	file     *os.File
@@ -52,8 +54,8 @@ type File struct {
 	writeOffset       int64
 }
 
-// ReadFile creates a File struct from a passed os.File previously constructed using NewFile.
-func ReadFile(f *os.File) (*File, error) {
+// ReadCaptureFile creates a File struct from a passed os.File previously constructed using NewFile.
+func ReadCaptureFile(f *os.File) (*CaptureFile, error) {
 	if !IsDataCaptureFile(f) {
 		return nil, errors.Errorf("%s is not a data capture file", f.Name())
 	}
@@ -68,7 +70,7 @@ func ReadFile(f *os.File) (*File, error) {
 		return nil, errors.Wrapf(err, fmt.Sprintf("failed to read DataCaptureMetadata from %s", f.Name()))
 	}
 
-	ret := File{
+	ret := CaptureFile{
 		path:              f.Name(),
 		file:              f,
 		writer:            bufio.NewWriter(f),
@@ -82,10 +84,10 @@ func ReadFile(f *os.File) (*File, error) {
 	return &ret, nil
 }
 
-// NewFile creates a new File with the specified md in the specified directory.
-func NewFile(dir string, md *v1.DataCaptureMetadata) (*File, error) {
-	fileName := FilePathWithReplacedReservedChars(
-		filepath.Join(dir, getFileTimestampName()) + InProgressFileExt)
+// NewCaptureFile creates a new *CaptureFile with the specified md in the specified directory.
+func NewCaptureFile(dir string, md *v1.DataCaptureMetadata) (*CaptureFile, error) {
+	fileName := CaptureFilePathWithReplacedReservedChars(
+		filepath.Join(dir, getFileTimestampName()) + InProgressCaptureFileExt)
 	//nolint:gosec
 	f, err := os.OpenFile(fileName, os.O_APPEND|os.O_RDWR|os.O_CREATE, 0o600)
 	if err != nil {
@@ -97,7 +99,7 @@ func NewFile(dir string, md *v1.DataCaptureMetadata) (*File, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &File{
+	return &CaptureFile{
 		path:              f.Name(),
 		writer:            bufio.NewWriter(f),
 		file:              f,
@@ -109,12 +111,12 @@ func NewFile(dir string, md *v1.DataCaptureMetadata) (*File, error) {
 }
 
 // ReadMetadata reads and returns the metadata in f.
-func (f *File) ReadMetadata() *v1.DataCaptureMetadata {
+func (f *CaptureFile) ReadMetadata() *v1.DataCaptureMetadata {
 	return f.metadata
 }
 
 // ReadNext returns the next SensorData reading.
-func (f *File) ReadNext() (*v1.SensorData, error) {
+func (f *CaptureFile) ReadNext() (*v1.SensorData, error) {
 	f.lock.Lock()
 	defer f.lock.Unlock()
 
@@ -136,7 +138,7 @@ func (f *File) ReadNext() (*v1.SensorData, error) {
 }
 
 // WriteNext writes the next SensorData reading.
-func (f *File) WriteNext(data *v1.SensorData) error {
+func (f *CaptureFile) WriteNext(data *v1.SensorData) error {
 	f.lock.Lock()
 	defer f.lock.Unlock()
 
@@ -153,33 +155,33 @@ func (f *File) WriteNext(data *v1.SensorData) error {
 }
 
 // Flush flushes any buffered writes to disk.
-func (f *File) Flush() error {
+func (f *CaptureFile) Flush() error {
 	f.lock.Lock()
 	defer f.lock.Unlock()
 	return f.writer.Flush()
 }
 
 // Reset resets the read pointer of f.
-func (f *File) Reset() {
+func (f *CaptureFile) Reset() {
 	f.lock.Lock()
 	defer f.lock.Unlock()
 	f.readOffset = f.initialReadOffset
 }
 
 // Size returns the size of the file.
-func (f *File) Size() int64 {
+func (f *CaptureFile) Size() int64 {
 	f.lock.Lock()
 	defer f.lock.Unlock()
 	return f.size
 }
 
 // GetPath returns the path of the underlying os.File.
-func (f *File) GetPath() string {
+func (f *CaptureFile) GetPath() string {
 	return f.path
 }
 
 // Close closes the file.
-func (f *File) Close() error {
+func (f *CaptureFile) Close() error {
 	f.lock.Lock()
 	defer f.lock.Unlock()
 	if err := f.writer.Flush(); err != nil {
@@ -188,7 +190,7 @@ func (f *File) Close() error {
 
 	// Rename file to indicate that it is done being written.
 	withoutExt := strings.TrimSuffix(f.file.Name(), filepath.Ext(f.file.Name()))
-	newName := withoutExt + FileExt
+	newName := withoutExt + CompletedCaptureFileExt
 	if err := os.Rename(f.file.Name(), newName); err != nil {
 		return err
 	}
@@ -196,7 +198,7 @@ func (f *File) Close() error {
 }
 
 // Delete deletes the file.
-func (f *File) Delete() error {
+func (f *CaptureFile) Delete() error {
 	f.lock.Lock()
 	defer f.lock.Unlock()
 	if err := f.file.Close(); err != nil {
@@ -212,13 +214,9 @@ func BuildCaptureMetadata(
 	compName string,
 	method string,
 	additionalParams map[string]string,
+	methodParams map[string]*anypb.Any,
 	tags []string,
-) (*v1.DataCaptureMetadata, error) {
-	methodParams, err := protoutils.ConvertStringMapToAnyPBMap(additionalParams)
-	if err != nil {
-		return nil, err
-	}
-
+) *v1.DataCaptureMetadata {
 	dataType := getDataType(method)
 	return &v1.DataCaptureMetadata{
 		ComponentType:    compAPI.String(),
@@ -228,12 +226,12 @@ func BuildCaptureMetadata(
 		MethodParameters: methodParams,
 		FileExtension:    GetFileExt(dataType, method, additionalParams),
 		Tags:             tags,
-	}, nil
+	}
 }
 
 // IsDataCaptureFile returns whether or not f is a data capture file.
 func IsDataCaptureFile(f *os.File) bool {
-	return filepath.Ext(f.Name()) == FileExt || filepath.Ext(f.Name()) == InProgressFileExt
+	return filepath.Ext(f.Name()) == CompletedCaptureFileExt || filepath.Ext(f.Name()) == InProgressCaptureFileExt
 }
 
 // Create a filename based on the current time.
@@ -285,23 +283,23 @@ func GetFileExt(dataType v1.DataType, methodName string, parameters map[string]s
 	return defaultFileExt
 }
 
-// SensorDataFromFilePath returns all readings in the file at filePath.
-func SensorDataFromFilePath(filePath string) ([]*v1.SensorData, error) {
+// SensorDataFromCaptureFilePath returns all readings in the file at filePath.
+func SensorDataFromCaptureFilePath(filePath string) ([]*v1.SensorData, error) {
 	//nolint:gosec
 	f, err := os.Open(filePath)
 	if err != nil {
 		return nil, err
 	}
-	dcFile, err := ReadFile(f)
+	dcFile, err := ReadCaptureFile(f)
 	if err != nil {
 		return nil, err
 	}
 
-	return SensorDataFromFile(dcFile)
+	return SensorDataFromCaptureFile(dcFile)
 }
 
-// SensorDataFromFile returns all readings in f.
-func SensorDataFromFile(f *File) ([]*v1.SensorData, error) {
+// SensorDataFromCaptureFile returns all readings in f.
+func SensorDataFromCaptureFile(f *CaptureFile) ([]*v1.SensorData, error) {
 	f.Reset()
 	var ret []*v1.SensorData
 	for {
@@ -317,8 +315,8 @@ func SensorDataFromFile(f *File) ([]*v1.SensorData, error) {
 	return ret, nil
 }
 
-// FilePathWithReplacedReservedChars returns the filepath with substitutions
+// CaptureFilePathWithReplacedReservedChars returns the filepath with substitutions
 // for reserved characters.
-func FilePathWithReplacedReservedChars(filepath string) string {
+func CaptureFilePathWithReplacedReservedChars(filepath string) string {
 	return strings.ReplaceAll(filepath, filePathReservedChars, "_")
 }
