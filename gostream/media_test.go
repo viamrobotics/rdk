@@ -119,9 +119,8 @@ func TestMultipleConsumers(t *testing.T) {
 	wg.Add(numConsumers)
 
 	for i := 0; i < numConsumers; i++ {
-		go func(consumerID int) {
+		go func() {
 			defer wg.Done()
-
 			for j := 0; j < len(colors)/numConsumers; j++ {
 				actual, release, err := ReadMedia(context.Background(), videoSrc)
 				test.That(t, err, test.ShouldBeNil)
@@ -129,7 +128,7 @@ func TestMultipleConsumers(t *testing.T) {
 
 				release()
 			}
-		}(i)
+		}()
 	}
 
 	wg.Wait()
