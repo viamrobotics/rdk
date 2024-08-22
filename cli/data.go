@@ -910,7 +910,7 @@ func DataConfigureDatabaseUserConfirmation(c *cli.Context) error {
 	yellow := "\033[1;33m%s\033[0m"
 	printf(c.App.Writer, yellow, "WARNING!!!")
 	printf(c.App.Writer, yellow, "If you or someone else in your organization have already created this user, the following steps update the password for that user instead. Dashboards or other integrations relying on this password will then need to be updated.")
-	printf(c.App.Writer, yellow, "do you want to continue?")
+	printf(c.App.Writer, yellow, "Do you want to continue?")
 	printf(c.App.Writer, "Continue: y/n")
 	if err := c.Err(); err != nil {
 		return err
