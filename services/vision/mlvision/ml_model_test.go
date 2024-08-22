@@ -500,7 +500,7 @@ func TestLabelReader(t *testing.T) {
 	outMD, err := out.Metadata(ctx)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, outMD, test.ShouldNotBeNil)
-	outLabels := getLabelsFromMetadata(outMD)
+	outLabels := getLabelsFromMetadata(outMD, "")
 	test.That(t, len(outLabels), test.ShouldEqual, 12)
 	test.That(t, outLabels[0], test.ShouldResemble, "this")
 	test.That(t, outLabels[1], test.ShouldResemble, "could")
@@ -522,7 +522,7 @@ func TestBlankLabelLines(t *testing.T) {
 	outMD, err := out.Metadata(ctx)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, outMD, test.ShouldNotBeNil)
-	outLabels := getLabelsFromMetadata(outMD)
+	outLabels := getLabelsFromMetadata(outMD, "")
 	test.That(t, len(outLabels), test.ShouldEqual, 91)
 	test.That(t, outLabels[0], test.ShouldResemble, "Person")
 	test.That(t, outLabels[1], test.ShouldResemble, "Bicycle")
@@ -535,7 +535,7 @@ func TestBlankLabelLines(t *testing.T) {
 	test.That(t, out, test.ShouldNotBeNil)
 	outMD, err = out.Metadata(ctx)
 	test.That(t, err, test.ShouldBeNil)
-	outLabels = getLabelsFromMetadata(outMD)
+	outLabels = getLabelsFromMetadata(outMD, "")
 	test.That(t, outLabels, test.ShouldBeNil)
 }
 
@@ -554,7 +554,7 @@ func TestSpaceDelineatedLabels(t *testing.T) {
 	outMD, err := out.Metadata(ctx)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, outMD, test.ShouldNotBeNil)
-	outLabels := getLabelsFromMetadata(outMD)
+	outLabels := getLabelsFromMetadata(outMD, "")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(outLabels), test.ShouldEqual, 10)
 }

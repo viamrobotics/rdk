@@ -70,12 +70,19 @@ type MLModelConfig struct {
 	IsBGR              bool               `json:"input_image_bgr"`
 	DefaultConfidence  float64            `json:"default_minimum_confidence"`
 	LabelConfidenceMap map[string]float64 `json:"label_confidences"`
+	LabelPath          string             `json:"label_path"`
 }
 
 // Validate will add the ModelName as an implicit dependency to the robot.
 func (conf *MLModelConfig) Validate(path string) ([]string, error) {
 	if conf.ModelName == "" {
 		return nil, errors.New("mlmodel_name cannot be empty")
+	}
+	if conf.LabelPath != "" {
+		_, err := os.Stat(conf.LabelPath)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read file %s: %w", conf.LabelPath, err)
+		}
 	}
 	if len(conf.MeanValue) != 0 {
 		if len(conf.MeanValue) < 3 {
@@ -210,8 +217,35 @@ func registerMLModelVisionService(
 	return vision.NewService(name, r, nil, classifierFunc, detectorFunc, segmenter3DFunc)
 }
 
+func getLabelsFromFile(labelPath string) []string {
+	var labels []string
+	f, err := os.Open(filepath.Clean(labelPath))
+	if err != nil {
+		return nil
+	}
+	defer func() {
+		if err := f.Close(); err != nil {
+			logger := logging.NewLogger("labelFile")
+			logger.Warnw("could not get labels from file", "error", err)
+			return
+		}
+	}()
+	scanner := bufio.NewScanner(f)
+	for scanner.Scan() {
+		label := strings.TrimSpace(scanner.Text())
+		if label == "" {
+			continue
+		}
+		labels = append(labels, scanner.Text())
+	}
+	return labels
+}
+
 // getLabelsFromMetadata returns a slice of strings--the intended labels.
-func getLabelsFromMetadata(md mlmodel.MLMetadata) []string {
+func getLabelsFromMetadata(md mlmodel.MLMetadata, labelPath string) []string {
+	if labelPath != "" {
+		return getLabelsFromFile(labelPath)
+	}
 	if len(md.Outputs) < 1 {
 		return nil
 	}
@@ -220,26 +254,7 @@ func getLabelsFromMetadata(md mlmodel.MLMetadata) []string {
 		if labelPath == "" { // no label file specified
 			return nil
 		}
-		var labels []string
-		f, err := os.Open(filepath.Clean(labelPath))
-		if err != nil {
-			return nil
-		}
-		defer func() {
-			if err := f.Close(); err != nil {
-				logger := logging.NewLogger("labelFile")
-				logger.Warnw("could not get labels from file", "error", err)
-				return
-			}
-		}()
-		scanner := bufio.NewScanner(f)
-		for scanner.Scan() {
-			label := strings.TrimSpace(scanner.Text())
-			if label == "" {
-				continue
-			}
-			labels = append(labels, scanner.Text())
-		}
+		labels := getLabelsFromFile(labelPath)
 		if len(labels) == 0 {
 			return nil
 		}
