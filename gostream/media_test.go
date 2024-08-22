@@ -17,20 +17,17 @@ import (
 
 type imageSource struct {
 	Images       []image.Image
-	idxMu        sync.Mutex
-	idx          int
-	releaseCount int32
+	idx          int32 // Use atomic int32 for idx
+	releaseCount int32 // Use atomic int32 for releaseCount
 }
 
 func (is *imageSource) Read(_ context.Context) (image.Image, func(), error) {
-	is.idxMu.Lock()
-	defer is.idxMu.Unlock()
+	currentIdx := atomic.AddInt32(&is.idx, 1) - 1
 
-	if is.idx >= len(is.Images) {
+	if int(currentIdx) >= len(is.Images) {
 		return nil, func() {}, nil
 	}
-	img := is.Images[is.idx]
-	is.idx++
+	img := is.Images[currentIdx]
 	release := func() {
 		atomic.AddInt32(&is.releaseCount, 1)
 	}
@@ -62,33 +59,25 @@ func TestReadMedia(t *testing.T) {
 		createImage(rimage.Cyan),
 	}
 
-	imgSource := imageSource{Images: colors}
-	videoSrc := NewVideoSource(&imgSource, prop.Video{})
+	imgSource := &imageSource{Images: colors}
+	videoSrc := NewVideoSource(imgSource, prop.Video{})
 	// Test all images are returned in order.
 	for i, expected := range colors {
 		actual, release, err := ReadMedia(context.Background(), videoSrc)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, actual, test.ShouldNotBeNil)
-		for j, col := range colors {
-			if col == expected {
-				continue
-			}
-			if actual == col {
-				t.Logf("did not expect actual color to equal other color at %d when expecting %d", j, i)
-			}
-		}
 		test.That(t, actual, test.ShouldEqual, expected)
 
 		// Call release and check if it sets the flag
 		release()
-		test.That(t, atomic.LoadInt32(&imgSource.releaseCount), test.ShouldEqual, i+1)
+		test.That(t, atomic.LoadInt32(&imgSource.releaseCount), test.ShouldEqual, int32(i+1))
 	}
 }
 
 func TestImageComparison(t *testing.T) {
 	// Image comparison should fail if two images are not the same
-	imgSource := imageSource{Images: []image.Image{createImage(rimage.Red)}}
-	videoSrc := NewVideoSource(&imgSource, prop.Video{})
+	imgSource := &imageSource{Images: []image.Image{createImage(rimage.Red)}}
+	videoSrc := NewVideoSource(imgSource, prop.Video{})
 
 	pink := createImage(rimage.Pink)
 	red, release, err := ReadMedia(context.Background(), videoSrc)
