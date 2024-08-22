@@ -919,10 +919,11 @@ func DataConfigureDatabaseUserConfirmation(c *cli.Context) error {
 
 	if res.HasDatabaseUser {
 		yellow := "\033[1;33m%s\033[0m"
-		printf(c.App.Writer, yellow, "WARNING!!!")
-		printf(c.App.Writer, yellow, "You or someone else in your organization have already created a user. "+
-			"The following steps update the password for that user. Once you have updated the password, you "+
-			"will need to update all dashboards or other integrations relying on this password.")
+		printf(c.App.Writer, yellow, "WARNING!!\n")
+		printf(c.App.Writer, yellow, "You or someone else in your organization have already created a user.\n")
+		printf(c.App.Writer, yellow, "The following steps update the password for that user.\n")
+		printf(c.App.Writer, yellow, "Once you have updated the password, you will need to update all dashboards or")
+		printf(c.App.Writer, yellow, "other integrations relying on this password.\n")
 		printf(c.App.Writer, yellow, "Do you want to continue?")
 		printf(c.App.Writer, "Continue: y/n")
 		if err := c.Err(); err != nil {
