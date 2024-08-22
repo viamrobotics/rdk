@@ -60,7 +60,10 @@ func TestNew(t *testing.T) {
 		ctx := context.Background()
 		mockDeps := mockDeps(nil, nil)
 		_, err := New(ctx, mockDeps, resource.Config{}, datasync.NoOpCloudClientConstructor, connToConnectivityStateError, logger)
-		test.That(t, err, test.ShouldBeError, errors.New("expected *builtin.Config but got <nil>"))
+
+		expErr := errors.New("incorrect config type: NativeConfig expected *builtin.Config but got <nil>. " +
+			"Make sure the config type registered to the resource matches the one passed into NativeConfig")
+		test.That(t, err, test.ShouldBeError, expErr)
 	})
 
 	t.Run("when run in an untrusted environment", func(t *testing.T) {
@@ -140,7 +143,9 @@ func TestReconfigure(t *testing.T) {
 	t.Run("returns an error if called with a resource.Config that can't be converted into a builtin.*Config", func(t *testing.T) {
 		ctx := context.Background()
 		err := b.Reconfigure(ctx, mockDeps(nil, nil), resource.Config{})
-		test.That(t, err, test.ShouldBeError, errors.New("expected *builtin.Config but got <nil>"))
+		expErr := errors.New("incorrect config type: NativeConfig expected *builtin.Config but got <nil>. " +
+			"Make sure the config type registered to the resource matches the one passed into NativeConfig")
+		test.That(t, err, test.ShouldBeError, expErr)
 	})
 
 	t.Run("when run in an untrusted environment", func(t *testing.T) {
