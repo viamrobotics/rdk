@@ -530,6 +530,7 @@ var app = &cli.App{
 									Required: true,
 								},
 							},
+							Before: DataConfigureDatabaseUserConfirmation,
 							Action: DataConfigureDatabaseUser,
 						},
 						{
