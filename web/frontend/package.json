@@ -39,8 +39,9 @@
     "@viamrobotics/rpc": ">=0.2",
     "@viamrobotics/sdk": "0.22.0-b.0",
     "google-protobuf": ">=3",
+    "maplibre-gl": ">=4",
     "tailwindcss": ">=3.3",
-    "three": ">=0.155"
+    "three": ">=0.167"
   },
   "devDependencies": {
     "@improbable-eng/grpc-web": "0.15.0",
