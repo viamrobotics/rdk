@@ -382,17 +382,6 @@ var app = &cli.App{
 			},
 		},
 		{
-			Name:  "module",
-			Usage: "work with modules",
-			Subcommands: []*cli.Command{
-				{
-					Name:   "generate",
-					Usage:  "generate module boilerplate",
-					Action: ModuleBoilerplateGenerationAction,
-				},
-			},
-		},
-		{
 			Name:            "data",
 			Usage:           "work with data",
 			HideHelpCommand: true,
@@ -1422,6 +1411,17 @@ Copy multiple files from the machine to a local destination with recursion and k
 			Usage:           "manage your modules in Viam's registry",
 			HideHelpCommand: true,
 			Subcommands: []*cli.Command{
+				{
+					Name:  "experimental",
+					Usage: "Experimental module features. These features are under active development and may change at any time; use with caution",
+					Subcommands: []*cli.Command{
+						{
+							Name:   "generate",
+							Usage:  "generate module boilerplate",
+							Action: ModuleBoilerplateGenerationAction,
+						},
+					},
+				},
 				{
 					Name:  "create",
 					Usage: "create & register a module on app.viam.com",
