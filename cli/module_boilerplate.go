@@ -4,6 +4,7 @@ package cli
 import (
 	"bytes"
 	_ "embed"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -18,23 +19,25 @@ import (
 var executable []byte
 
 func writeExecutableFile(fileName string) error {
-	if err := os.WriteFile(fileName, executable, 0700); err != nil {
+	if err := os.WriteFile(fileName, executable, 0o500); err != nil {
 		return err
 	}
 	return nil
 }
 
-func removeFile(fileName string) {
-	os.Remove(fileName)
+func removeFile(fileName string) error {
+	return os.Remove(fileName)
 }
 
-// ModuleBoilerplateGenerationAction is the corresponding action for 'module generate'
-func ModuleBoilerplateGenerationAction(*cli.Context) error {
+// ModuleBoilerplateGenerationAction is the corresponding action for 'module generate'.
+func ModuleBoilerplateGenerationAction(*cli.Context) (err error) {
 	fileName := goutils.RandomAlphaString(8)
-	if err := writeExecutableFile(fileName); err != nil {
+	if err = writeExecutableFile(fileName); err != nil {
 		return err
 	}
-	defer removeFile(fileName)
+	defer func() {
+		err = removeFile(fileName)
+	}()
 
 	currDir, err := os.Getwd()
 	if err != nil {
@@ -61,22 +64,32 @@ func ModuleBoilerplateGenerationAction(*cli.Context) error {
 	}
 
 	for {
-		var buf = make([]byte, 512)
+		buf := make([]byte, 512)
 		n, err := stdOut.Read(buf)
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			break
 		}
 		if err != nil {
 			return err
 		}
-		fmt.Println(string(buf[:n]))
+		if _, err = os.Stdout.Write(buf[:n]); err != nil {
+			return err
+		}
 		var input string
-		fmt.Scanln(&input)
+		if _, err = fmt.Scanln(&input); err != nil {
+			return err
+		}
 		input = fmt.Sprintf("%s\n", input)
-		stdIn.Write([]byte(input))
+		if _, err = stdIn.Write([]byte(input)); err != nil {
+			return err
+		}
 	}
 
-	stdIn.Close()
-	cmd.Wait()
-	return nil
+	if err = stdIn.Close(); err != nil {
+		return err
+	}
+	if err = cmd.Wait(); err != nil {
+		return err
+	}
+	return err
 }
