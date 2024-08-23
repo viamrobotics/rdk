@@ -186,6 +186,22 @@ func Replan(ctx context.Context, request *PlanRequest, currentPlan Plan, replanC
 	if err != nil {
 		return nil, err
 	}
+	// Check if the PlanRequest's options specify "complex"
+	// This is a list of poses in the same frame as the goal through which the robot must pass
+	if complexOption, ok := request.Options["complex"]; ok {
+		if complexPoses, ok := complexOption.([]spatialmath.Pose); ok {
+			// If "complex" is specified and is a list of PoseInFrame, use it for planning.
+			requestCopy := *request
+			delete(requestCopy.Options, "complex")
+			multiGoalPlan, err := sfPlanner.PlanMultiWaypoint(ctx, &requestCopy, complexPoses)
+			if err != nil {
+				return nil, err
+			}
+			return multiGoalPlan, nil
+		} else {
+			return nil, errors.New("Invalid 'complex' option type. Expected []frame.PoseInFrame")
+		}
+	}
 
 	newPlan, err := sfPlanner.PlanSingleWaypoint(ctx, request, currentPlan)
 	if err != nil {
