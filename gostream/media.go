@@ -224,7 +224,6 @@ func (pc *producerConsumer[T, U]) start() {
 		defer span.End()
 
 		first := true
-		var lastRelease func()
 		for {
 			pc.cancelCtxMu.RLock()
 			if pc.cancelCtx.Err() != nil {
@@ -285,13 +284,11 @@ func (pc *producerConsumer[T, U]) start() {
 					doReadSpan.End()
 				}()
 
-				if lastRelease != nil {
-					lastRelease()
-				}
+				var prevRelease func()
 				if !first {
 					// okay to not hold a lock because we are the only both reader AND writer;
 					// other goroutines are just readers.
-					lastRelease = pc.current.Release
+					prevRelease = pc.current.Release
 				} else {
 					first = false
 				}
@@ -316,10 +313,10 @@ func (pc *producerConsumer[T, U]) start() {
 					}
 				}, err}
 				pc.currentMu.Unlock()
+				if prevRelease != nil {
+					prevRelease()
+				}
 			}()
-		}
-		if lastRelease != nil {
-			lastRelease()
 		}
 		if pc.current != nil && pc.current.Release != nil {
 			pc.current.Release()
