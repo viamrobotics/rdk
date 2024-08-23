@@ -22,6 +22,8 @@ const (
 var defaultMaxCaptureSize = int64(256 * 1024)
 
 // Config describes how to configure the service.
+// See sync.Config and capture.Config for docs on what each field does
+// to both sync & capture respectively.
 type Config struct {
 	// Sync & Capture
 	CaptureDir string   `json:"capture_dir"`
