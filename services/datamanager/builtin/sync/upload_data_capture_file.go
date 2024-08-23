@@ -82,21 +82,20 @@ func uploadDataCaptureFile(
 				return err
 			}
 		}
-	} else {
-		// Build UploadMetadata
-		uploadMD := &v1.UploadMetadata{
-			PartId:           conn.partID,
-			ComponentType:    md.GetComponentType(),
-			ComponentName:    md.GetComponentName(),
-			MethodName:       md.GetMethodName(),
-			Type:             md.GetType(),
-			MethodParameters: md.GetMethodParameters(),
-			FileExtension:    md.GetFileExtension(),
-			Tags:             md.GetTags(),
-		}
-		return uploadSensorData(ctx, conn.client, uploadMD, sensorData, f.Size())
+		return nil
 	}
-	return nil
+	// Build UploadMetadata
+	uploadMD := &v1.UploadMetadata{
+		PartId:           conn.partID,
+		ComponentType:    md.GetComponentType(),
+		ComponentName:    md.GetComponentName(),
+		MethodName:       md.GetMethodName(),
+		Type:             md.GetType(),
+		MethodParameters: md.GetMethodParameters(),
+		FileExtension:    md.GetFileExtension(),
+		Tags:             md.GetTags(),
+	}
+	return uploadSensorData(ctx, conn.client, uploadMD, sensorData, f.Size())
 }
 
 func uploadSensorData(
@@ -134,14 +133,14 @@ func uploadSensorData(
 		if _, err := c.CloseAndRecv(); err != nil {
 			return errors.Wrap(err, "error receiving upload response")
 		}
-	} else {
-		ur := &v1.DataCaptureUploadRequest{
-			Metadata:       uploadMD,
-			SensorContents: sensorData,
-		}
-		if _, err := client.DataCaptureUpload(ctx, ur); err != nil {
-			return err
-		}
+		return nil
+	}
+
+	if _, err := client.DataCaptureUpload(ctx, &v1.DataCaptureUploadRequest{
+		Metadata:       uploadMD,
+		SensorContents: sensorData,
+	}); err != nil {
+		return err
 	}
 
 	return nil

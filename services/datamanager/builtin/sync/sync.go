@@ -314,9 +314,16 @@ func (s *Sync) runWorker(config Config) {
 }
 
 func (s *Sync) syncFile(config Config, filePath string) {
+	// don't sync in progress files
+	if filepath.Ext(filePath) == data.InProgressCaptureFileExt {
+		s.logger.Warn("ignoreing request to sync in progress capture file: %s", filePath)
+		return
+	}
+
 	// If the file is already being synced, do not kick off a new goroutine.
 	// The goroutine will again check and return early if sync is already in progress.
 	if !s.fileTracker.markInProgress(filePath) {
+		s.logger.Warn("ignoreing request to sync file which sync is already working on %s", filePath)
 		return
 	}
 	defer s.fileTracker.unmarkInProgress(filePath)
@@ -389,6 +396,7 @@ func (s *Sync) syncDataCaptureFile(f *os.File, captureDir string, logger logging
 func (s *Sync) syncArbitraryFile(f *os.File, tags []string, fileLastModifiedMillis int, logger logging.Logger) {
 	retry := newExponentialRetry(s.configCtx, s.clock, s.logger, f.Name(), func(ctx context.Context) error {
 		errMetadata := fmt.Sprintf("error uploading file %s", f.Name())
+		logger.Debugf("uploading file %s via FileUpload api", f.Name())
 		return errors.Wrap(uploadArbitraryFile(ctx, f, s.cloudConn, tags, fileLastModifiedMillis, s.clock), errMetadata)
 	})
 	if err := retry.run(); err != nil {

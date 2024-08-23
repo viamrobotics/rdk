@@ -67,11 +67,11 @@ func uploadArbitraryFile(
 	}
 
 	if err := sendFileUploadRequests(ctx, stream, f); err != nil {
-		return errors.Wrapf(err, "error syncing %s", f.Name())
+		return errors.Wrapf(err, "error from FileUpload syncing %s", f.Name())
 	}
 
 	if _, err := stream.CloseAndRecv(); err != nil {
-		return errors.Wrapf(err, "received error response while syncing %s", f.Name())
+		return errors.Wrapf(err, "received error from FileUpload response while syncing %s", f.Name())
 	}
 
 	return nil
