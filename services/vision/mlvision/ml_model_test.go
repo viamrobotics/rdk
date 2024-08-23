@@ -1,5 +1,3 @@
-//go:build !no_tflite
-
 package mlvision
 
 import (
@@ -9,8 +7,10 @@ import (
 
 	"go.viam.com/test"
 	"go.viam.com/utils/artifact"
+	"gorgonia.org/tensor"
 
 	"go.viam.com/rdk/logging"
+	"go.viam.com/rdk/ml"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/services/mlmodel"
 	"go.viam.com/rdk/services/mlmodel/tflitecpu"
@@ -18,18 +18,118 @@ import (
 	"go.viam.com/rdk/vision/classification"
 )
 
-func BenchmarkAddMLVisionModel(b *testing.B) {
-	modelLoc := artifact.MustPath("vision/tflite/effdet0.tflite")
-
-	name := mlmodel.Named("myMLModel")
-	cfg := tflitecpu.TFLiteConfig{
-		ModelPath:  modelLoc,
-		NumThreads: 2,
+func mockEffDetModel(name string, labelLoc string) mlmodel.Service {
+	// using the effdet0.tflite model as a template
+	// pretend it has taken in the picture of "vision/tflite/dogscute.jpeg"
+	effDetMock := inject.NewMLModelService(name)
+	md := mlmodel.MLMetadata{
+		ModelName:        "EfficientDet Lite0 V1",
+		ModelType:        "tflite_detector",
+		ModelDescription: "Identify which of a known set of objects might be present and provide information about their positions within the given image or a video stream.",
 	}
+	inputs := make([]mlmodel.TensorInfo, 0, 1)
+	imageIn := mlmodel.TensorInfo{
+		Name:        "image",
+		Description: "Input image to be detected. The expected image is 320 x 320, with three channels (red, blue, and green) per pixel. Each value in the tensor is a single byte between 0 and 255.",
+		DataType:    "uint8",
+		Shape:       []int{1, 320, 320, 3},
+	}
+	inputs = append(inputs, imageIn)
+	md.Inputs = inputs
+	outputs := make([]mlmodel.TensorInfo, 0, 4)
+	locationOut := mlmodel.TensorInfo{
+		Name:        "location",
+		Description: "The locations of the detected boxes.",
+		DataType:    "float32",
+	}
+	if labelLoc != "" {
+		extra := map[string]interface{}{"labels": labelLoc}
+		locationOut.Extra = extra
+	}
+	outputs = append(outputs, locationOut)
+	categoryOut := mlmodel.TensorInfo{
+		Name:        "category",
+		Description: "The categories of the detected boxes.",
+		DataType:    "float32",
+	}
+	outputs = append(outputs, categoryOut)
+	scoreOut := mlmodel.TensorInfo{
+		Name:        "score",
+		Description: "The scores of the detected boxes.",
+		DataType:    "float32",
+	}
+	outputs = append(outputs, scoreOut)
+	numberOut := mlmodel.TensorInfo{
+		Name:        "number of detections",
+		Description: "The number of the detected boxes.",
+		DataType:    "float32",
+	}
+	outputs = append(outputs, numberOut)
+	md.Outputs = outputs
+	effDetMock.MetadataFunc = func(ctx context.Context) (mlmodel.MLMetadata, error) {
+		return md, nil
+	}
+
+	// now define the output tensors
+	outputInfer := ml.Tensors{}
+	//score
+	score := []float32{0.81640625, 0.6875, 0.109375, 0.09375, 0.0625,
+		0.0546875, 0.05078125, 0.0390625, 0.03515625, 0.03125,
+		0.0234375, 0.0234375, 0.0234375, 0.0234375, 0.01953125,
+		0.01953125, 0.01953125, 0.01953125, 0.01953125, 0.01953125,
+		0.015625, 0.015625, 0.015625, 0.015625, 0.015625}
+	scoreTensor := tensor.New(tensor.WithShape(1, 25), tensor.WithBacking(score))
+	outputInfer["score"] = scoreTensor
+	// nDetections
+	nDetections := []float32{25}
+	detectionTensor := tensor.New(tensor.WithShape(1), tensor.WithBacking(nDetections))
+	outputInfer["number of detections"] = detectionTensor
+	// locations
+	locations := []float32{
+		0.20903039, 0.49185863, 0.82770026, 0.7690754,
+		0.2376312, 0.260224, 0.82330287, 0.5374408,
+		0.21014652, 0.37334082, 0.82086015, 0.67316914,
+		0.9004202, 0.36880112, 0.95539546, 0.41990197,
+		0.19502541, 0.1988186, 0.8602221, 0.77355766,
+		0.836329, 0.86517155, 0.8984374, 0.99401116,
+		0.2503236, 0.2755023, 0.56928396, 0.50930154,
+		0.4401425, 0.35509717, 0.53873336, 0.41215116,
+		0.22128013, 0.51680136, 0.5461217, 0.7506006,
+		0.89365757, 0.6519017, 0.9923049, 0.7121358,
+		0.34879953, 0.47103795, 0.45682132, 0.50783795,
+		0.83736897, 0.94356436, 0.89037156, 0.98691684,
+		0.25913447, 0.12777925, 0.7270005, 0.6214407,
+		0.44479424, 0.21759495, 0.81613976, 0.6628721,
+		0.38580972, 0.5132986, 0.5085694, 0.5617015,
+		0.49028072, 0.00190118, 0.59634674, 0.02697465,
+		0.5979702, 0.9293068, 0.7516399, 0.99569315,
+		0.8964205, 0.33521998, 0.95665455, 0.4144457,
+		0.4158226, 0.2888925, 0.5341774, 0.46885914,
+		0.20846531, 0.2381043, 0.50130117, 0.6228298,
+		0.38078213, 0.34770778, 0.5372853, 0.4334447,
+		0.4441566, 0.45994544, 0.5502226, 0.50924087,
+		0.5679829, 0.98425895, 0.76903045, 0.9965547,
+		0.6335254, 0.97844476, 0.76085377, 0.9946173,
+		0.8215679, 0.07016394, 0.89795077, 0.11853918}
+	locationTensor := tensor.New(tensor.WithShape(1, 25, 4), tensor.WithBacking(locations))
+	outputInfer["location"] = locationTensor
+	// categories
+	categories := []float32{17., 17., 17., 36., 17., 87., 17., 33., 17., 36., 33., 87., 17.,
+		17., 33., 0., 0., 36., 33., 17., 17., 33., 0., 0., 36.}
+	categoryTensor := tensor.New(tensor.WithShape(1, 25), tensor.WithBacking(categories))
+	outputInfer["category"] = categoryTensor
+	effDetMock.InferFunc = func(ctx context.Context, tensors ml.Tensors) (ml.Tensors, error) {
+		return outputInfer, nil
+	}
+	effDetMock.CloseFunc = func(ctx context.Context) error {
+		return nil
+	}
+	return effDetMock
+}
+func BenchmarkAddMLVisionModel(b *testing.B) {
 	ctx := context.Background()
-	out, err := tflitecpu.NewTFLiteCPUModel(ctx, &cfg, name)
-	test.That(b, err, test.ShouldBeNil)
-	test.That(b, out, test.ShouldNotBeNil)
+	out := mockEffDetModel("myMLModel", "")
+	name := out.Name()
 	modelCfg := MLModelConfig{ModelName: name.Name}
 
 	b.ResetTimer()
@@ -42,19 +142,12 @@ func BenchmarkAddMLVisionModel(b *testing.B) {
 }
 
 func BenchmarkUseMLVisionModel(b *testing.B) {
-	modelLoc := artifact.MustPath("vision/tflite/effdet0.tflite")
+	ctx := context.Background()
+	out := mockEffDetModel("myMLModel", "")
+	name := out.Name()
 	pic, err := rimage.NewImageFromFile(artifact.MustPath("vision/tflite/dogscute.jpeg"))
 	test.That(b, err, test.ShouldBeNil)
 	test.That(b, pic, test.ShouldNotBeNil)
-	name := mlmodel.Named("myMLModel")
-	cfg := tflitecpu.TFLiteConfig{
-		ModelPath:  modelLoc,
-		NumThreads: 2,
-	}
-	ctx := context.Background()
-	out, err := tflitecpu.NewTFLiteCPUModel(ctx, &cfg, name)
-	test.That(b, err, test.ShouldBeNil)
-	test.That(b, out, test.ShouldNotBeNil)
 	modelCfg := MLModelConfig{ModelName: name.Name}
 
 	service, err := registerMLModelVisionService(ctx, name, &modelCfg, &inject.Robot{}, logging.NewLogger("benchmark"))
@@ -84,12 +177,9 @@ func getTestMlModel(modelLoc string) (mlmodel.Service, error) {
 }
 
 func TestAddingIncorrectModelTypeToModel(t *testing.T) {
-	modelLocDetector := artifact.MustPath("vision/tflite/effdet0.tflite")
-	ctx := context.Background()
-
 	// get detector model
-	mlm, err := getTestMlModel(modelLocDetector)
-	test.That(t, err, test.ShouldBeNil)
+	ctx := context.Background()
+	mlm := mockEffDetModel("test-model", "")
 
 	inNameMap := &sync.Map{}
 	outNameMap := &sync.Map{}
@@ -136,28 +226,15 @@ func TestAddingIncorrectModelTypeToModel(t *testing.T) {
 func TestNewMLDetector(t *testing.T) {
 	// Test that a detector would give an expected output on the dog image
 	// Set it up as a ML Model
-
 	ctx := context.Background()
-	modelLoc := artifact.MustPath("vision/tflite/effdet0.tflite")
 	labelLoc := artifact.MustPath("vision/tflite/effdetlabels.txt")
-	cfg := tflitecpu.TFLiteConfig{ // detector config
-		ModelPath:  modelLoc,
-		NumThreads: 2,
-		LabelPath:  labelLoc,
-	}
-	noLabelCfg := tflitecpu.TFLiteConfig{ // detector config
-		ModelPath:  modelLoc,
-		NumThreads: 2,
-	}
+	out := mockEffDetModel("test-model", labelLoc)
 
 	pic, err := rimage.NewImageFromFile(artifact.MustPath("vision/tflite/dogscute.jpeg"))
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, pic, test.ShouldNotBeNil)
 
 	// Test that a detector would give the expected output on the dog image
-	out, err := tflitecpu.NewTFLiteCPUModel(ctx, &cfg, mlmodel.Named("myMLDet"))
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, out, test.ShouldNotBeNil)
 	check, err := out.Metadata(ctx)
 	test.That(t, check, test.ShouldNotBeNil)
 	test.That(t, err, test.ShouldBeNil)
@@ -175,12 +252,11 @@ func TestNewMLDetector(t *testing.T) {
 
 	gotDetections, err := gotDetector(ctx, pic)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, gotDetections[0].Score(), test.ShouldBeGreaterThan, 0.789)
-	test.That(t, gotDetections[1].Score(), test.ShouldBeGreaterThan, 0.7)
+	test.That(t, gotDetections[0].Score(), test.ShouldAlmostEqual, 0.81640625)
+	test.That(t, gotDetections[1].Score(), test.ShouldAlmostEqual, 0.6875)
 	test.That(t, gotDetections[0].BoundingBox().Min.X, test.ShouldBeGreaterThan, 124)
 	test.That(t, gotDetections[0].BoundingBox().Min.X, test.ShouldBeLessThan, 127)
-	test.That(t, gotDetections[0].BoundingBox().Min.Y, test.ShouldBeGreaterThan, 40)
-	test.That(t, gotDetections[0].BoundingBox().Min.Y, test.ShouldBeLessThan, 44)
+	test.That(t, gotDetections[0].BoundingBox().Min.Y, test.ShouldEqual, 40)
 	test.That(t, gotDetections[0].BoundingBox().Max.X, test.ShouldBeGreaterThan, 196)
 	test.That(t, gotDetections[0].BoundingBox().Max.X, test.ShouldBeLessThan, 202)
 	test.That(t, gotDetections[0].BoundingBox().Max.Y, test.ShouldBeGreaterThan, 158)
@@ -190,9 +266,7 @@ func TestNewMLDetector(t *testing.T) {
 	test.That(t, gotDetections[1].Label(), test.ShouldResemble, "Dog")
 
 	// Ensure that the same model without labelpath responds similarly
-	outNL, err := tflitecpu.NewTFLiteCPUModel(ctx, &noLabelCfg, mlmodel.Named("myOtherMLDet"))
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, outNL, test.ShouldNotBeNil)
+	outNL := mockEffDetModel("test-model", "")
 	inNameMap = &sync.Map{}
 	outNameMap = &sync.Map{}
 	conf = &MLModelConfig{}
@@ -201,12 +275,11 @@ func TestNewMLDetector(t *testing.T) {
 	test.That(t, gotDetectorNL, test.ShouldNotBeNil)
 	gotDetectionsNL, err := gotDetectorNL(ctx, pic)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, gotDetectionsNL[0].Score(), test.ShouldBeGreaterThan, 0.789)
-	test.That(t, gotDetectionsNL[1].Score(), test.ShouldBeGreaterThan, 0.7)
+	test.That(t, gotDetectionsNL[0].Score(), test.ShouldAlmostEqual, 0.81640625)
+	test.That(t, gotDetectionsNL[1].Score(), test.ShouldAlmostEqual, 0.6875)
 	test.That(t, gotDetectionsNL[0].BoundingBox().Min.X, test.ShouldBeGreaterThan, 124)
 	test.That(t, gotDetectionsNL[0].BoundingBox().Min.X, test.ShouldBeLessThan, 127)
-	test.That(t, gotDetectionsNL[0].BoundingBox().Min.Y, test.ShouldBeGreaterThan, 40)
-	test.That(t, gotDetectionsNL[0].BoundingBox().Min.Y, test.ShouldBeLessThan, 44)
+	test.That(t, gotDetectionsNL[0].BoundingBox().Min.Y, test.ShouldEqual, 40)
 	test.That(t, gotDetectionsNL[0].BoundingBox().Max.X, test.ShouldBeGreaterThan, 196)
 	test.That(t, gotDetectionsNL[0].BoundingBox().Max.X, test.ShouldBeLessThan, 202)
 	test.That(t, gotDetectionsNL[0].BoundingBox().Max.Y, test.ShouldBeGreaterThan, 158)
