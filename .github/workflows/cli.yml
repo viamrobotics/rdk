@@ -34,27 +34,21 @@ jobs:
         go-version: '1.21.x'
 
     - name: Python version dependencies
-      run: apt-get update && apt-get install -y lsb-release && apt-get clean all
+      run: sudo apt-get update && sudo apt-get install -y lsb-release && sudo apt-get clean all
 
     - uses: actions/setup-python@v5
       with:
         python-version: "3.12"
-        cache: poetry
-
-    - name: echo2
-      run: echo "\n\nhere we are 2\n\n\n\n"
 
     - name: build
       env:
         CI_RELEASE: ${{ inputs.release_type }}
       run: |
-        echo "HERE WE ARE"
-        # CR erodkin: add back `-ci` suffix!
-        GOOS=linux GOARCH=amd64 make cli
-        GOOS=linux GOARCH=arm64 make cli
-        GOOS=darwin GOARCH=amd64 make cli
-        GOOS=darwin GOARCH=arm64 make cli
-        GOOS=windows GOARCH=amd64 EXE_SUFFIX=.exe make cli
+        GOOS=linux GOARCH=amd64 make cli-ci
+        GOOS=linux GOARCH=arm64 make cli-ci
+        GOOS=darwin GOARCH=amd64 make cli-ci
+        GOOS=darwin GOARCH=arm64 make cli-ci
+        GOOS=windows GOARCH=amd64 EXE_SUFFIX=.exe make cli-ci
 
     - name: tagged alias
       env:
