@@ -1666,7 +1666,7 @@ This won't work unless you have an existing installation of our GitHub app on yo
 									Usage:    "your module's ID in org-id:name or public-namespace:name format",
 									Required: true,
 								},
-								&cli.BoolFlag{
+								&cli.StringFlag{
 									Name:     moduleBuildFlagRepo,
 									Usage:    "your github repository in account/repository form (e.g. viamrobotics/rdk, not github.com/viamrobotics/rdk)",
 									Required: true,
