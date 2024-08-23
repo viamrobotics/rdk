@@ -27,7 +27,8 @@ jobs:
       if: github.event_name == 'workflow_dispatch' || github.event_name == 'push'
       uses: actions/checkout@v3
     - name: Check out PR branch code
-      if: github.event_name == 'pull_request_target'
+      # CR erodkin: shouldn't run on PR in the future! just for testing, fix before opening
+      if: github.event_name == 'pull_request_target' || github.event_name == 'pull_request'
       uses: actions/checkout@v3
       with:
         ref: ${{ github.event.pull_request.head.sha }}
