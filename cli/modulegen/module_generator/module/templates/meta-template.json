@@ -1,0 +1,13 @@
+{
+  "module_id": "{{ cookiecutter.module_id }}",
+  "visibility": "public",
+  "language": "{{ cookiecutter.language }}",
+  "generator": "{{ cookiecutter.__generator_version }}",
+  "models": [
+    {
+      "api": "{{ cookiecutter.api }}",
+      "model": "{{ cookiecutter.model }}"
+    }
+  ],
+  "entrypoint": "run.sh"
+}

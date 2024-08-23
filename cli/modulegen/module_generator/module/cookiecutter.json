@@ -1,0 +1,7 @@
+{
+  "module_id": "MyModule",
+  "language": "python",
+  "api": ["arm", "base", "motor", "vision"],
+  "model": "org:namespace:api",
+  "__generator_version": ""
+}

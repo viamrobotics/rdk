@@ -27,7 +27,16 @@ build-go:
 
 GOOS ?= $(shell go env GOOS)
 GOARCH ?= $(shell go env GOARCH)
-bin/$(GOOS)-$(GOARCH)/viam-cli:
+
+cli/modulegen/dist/__main__:
+	pip install -r cli/modulegen/requirements.txt
+	cd cli/modulegen/ && \
+	poetry run pyinstaller --onefile --collect-data cookiecutter --add-data module_generator/module:module --hidden-import cookiecutter.extensions module_generator/__main__.py
+
+.PHONY: modulegen
+modulegen: cli/modulegen/dist/__main__
+
+bin/$(GOOS)-$(GOARCH)/viam-cli: cli/modulegen/dist/__main__
 	go build $(LDFLAGS) -tags osusergo,netgo -o $@ ./cli/viam
 
 .PHONY: cli

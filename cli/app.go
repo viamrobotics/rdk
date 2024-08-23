@@ -382,6 +382,17 @@ var app = &cli.App{
 			},
 		},
 		{
+			Name:  "module",
+			Usage: "work with modules",
+			Subcommands: []*cli.Command{
+				{
+					Name:   "generate",
+					Usage:  "generate module boilerplate",
+					Action: ModuleBoilerplateGenerationAction,
+				},
+			},
+		},
+		{
 			Name:            "data",
 			Usage:           "work with data",
 			HideHelpCommand: true,
