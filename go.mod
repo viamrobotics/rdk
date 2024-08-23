@@ -74,7 +74,6 @@ require (
 	github.com/sergi/go-diff v1.3.1
 	github.com/u2takey/ffmpeg-go v0.4.1
 	github.com/urfave/cli/v2 v2.10.3
-	github.com/viam-labs/go-libjpeg v0.3.1
 	github.com/viamrobotics/evdev v0.1.3
 	github.com/viamrobotics/webrtc/v3 v3.99.9
 	github.com/xfmoulet/qoi v0.2.0
