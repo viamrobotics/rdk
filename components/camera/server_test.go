@@ -5,7 +5,6 @@ import (
 	"context"
 	"errors"
 	"image"
-	"image/jpeg"
 	"image/png"
 	"sync"
 	"testing"
@@ -60,11 +59,11 @@ func TestServer(t *testing.T) {
 	test.That(t, png.Encode(&imgBuf, img), test.ShouldBeNil)
 	var imgBufJpeg bytes.Buffer
 
-	test.That(t, jpeg.Encode(&imgBufJpeg, img, &jpeg.Options{Quality: 75}), test.ShouldBeNil)
+	test.That(t, rimage.EncodeJPEG(&imgBufJpeg, img), test.ShouldBeNil)
 
 	imgPng, err := png.Decode(bytes.NewReader(imgBuf.Bytes()))
 	test.That(t, err, test.ShouldBeNil)
-	imgJpeg, err := jpeg.Decode(bytes.NewReader(imgBufJpeg.Bytes()))
+	imgJpeg, err := rimage.DecodeJPEG(bytes.NewReader(imgBufJpeg.Bytes()))
 
 	test.That(t, err, test.ShouldBeNil)
 
