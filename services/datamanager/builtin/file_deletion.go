@@ -9,8 +9,8 @@ import (
 	"path/filepath"
 	"strings"
 
+	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/logging"
-	"go.viam.com/rdk/services/datamanager/datacapture"
 	"go.viam.com/rdk/services/datamanager/datasync"
 	"go.viam.com/rdk/utils/diskusage"
 )
@@ -120,7 +120,7 @@ func deleteFiles(ctx context.Context, syncer datasync.Manager, deleteEveryNth in
 				}
 				return err
 			}
-			isCompletedDataCaptureFile := strings.Contains(fileInfo.Name(), datacapture.FileExt)
+			isCompletedDataCaptureFile := strings.Contains(fileInfo.Name(), data.CompletedCaptureFileExt)
 			// if at nth file and the file is not currently being written, mark as in progress if possible
 			if isCompletedDataCaptureFile && index%deleteEveryNth == 0 {
 				if syncer != nil && !syncer.MarkInProgress(path) {

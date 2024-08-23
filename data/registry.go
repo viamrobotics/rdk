@@ -10,7 +10,6 @@ import (
 
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/services/datamanager/datacapture"
 )
 
 // CollectorConstructor contains a function for constructing an instance of a Collector.
@@ -21,7 +20,7 @@ type CollectorParams struct {
 	ComponentName string
 	Interval      time.Duration
 	MethodParams  map[string]*anypb.Any
-	Target        datacapture.BufferedWriter
+	Target        CaptureBufferedWriter
 	QueueSize     int
 	BufferSize    int
 	Logger        logging.Logger

@@ -27,7 +27,7 @@ import (
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
-	"go.viam.com/rdk/services/datamanager/datacapture"
+	"go.viam.com/rdk/data"
 )
 
 const (
@@ -578,7 +578,7 @@ func filenameForDownload(meta *datapb.BinaryMetadata) string {
 	}
 
 	// Replace reserved characters.
-	fileName = datacapture.FilePathWithReplacedReservedChars(fileName)
+	fileName = data.CaptureFilePathWithReplacedReservedChars(fileName)
 
 	return fileName
 }
