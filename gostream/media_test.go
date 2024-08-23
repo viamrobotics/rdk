@@ -86,10 +86,18 @@ func TestReadMedia(t *testing.T) {
 	imgSource := &imageSource{WrappedImages: colors}
 	videoSrc := NewVideoSource(imgSource, prop.Video{})
 	// Test all images are returned in order.
-	for _, expected := range colors {
+	for i, expected := range colors {
 		actual, release, err := ReadMedia(context.Background(), videoSrc)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, actual, test.ShouldNotBeNil)
+		for j, color := range colors {
+			if color == expected {
+				continue
+			}
+			if actual == color {
+				t.Logf("did not expect actual color to equal other color at %d when expecting %d", j, i)
+			}
+		}
 		test.That(t, actual, test.ShouldEqual, expected)
 
 		// Call release and check if it sets the flag
@@ -135,21 +143,13 @@ func TestStreamMultipleConsumers(t *testing.T) {
 	var wg sync.WaitGroup
 	wg.Add(numConsumers)
 
-	// Makes sure routines finish at the same time
-	var barrier sync.WaitGroup
-	barrier.Add(numConsumers)
-
 	// Coordinates index accesses to images
 	var mu sync.Mutex
 	j := 0
 
 	for i := 0; i < numConsumers; i++ {
 		go func(consumerId int) {
-			defer func() {
-				barrier.Done()
-				barrier.Wait()
-				wg.Done()
-			}()
+			defer wg.Done()
 
 			for {
 				mu.Lock()
