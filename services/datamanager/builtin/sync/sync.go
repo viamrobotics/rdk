@@ -519,6 +519,11 @@ func (s *Sync) walkDirsAndSendFilesToSync(ctx context.Context, config Config) er
 		if info.IsDir() {
 			return nil
 		}
+
+		// if the file is empty, no need to sync
+		if info.Size() == 0 {
+			return nil
+		}
 		// If a non data capture owned file was modified within the past lastModifiedMillis, do not sync it (data
 		// may still be being written).
 		// When using a mock clock in tests, s.clock.Since(info.ModTime()) can be negative since the file system will still use the system clock.
