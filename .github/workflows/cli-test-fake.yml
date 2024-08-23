@@ -54,7 +54,7 @@ jobs:
         GOOS=darwin GOARCH=amd64 make cli
         GOOS=windows GOARCH=amd64 EXE_SUFFIX=.exe make cli
         GOOS=darwin GOARCH=arm64 make cli
-        ./bin/darwin-arm64/viam-cli module generate
+        ./bin/linux-amd64/viam-cli module generate
 
     #- name: tagged alias
       #env:
