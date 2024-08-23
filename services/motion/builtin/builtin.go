@@ -243,6 +243,8 @@ func (ms *builtIn) Move(
 		changed := ""
 		if len(currStep) > 0 {
 			reset := false
+			// Check if the current step moves only the same components as the previous step
+			// If so, batch the inputs
 			for name, inputs := range step {
 				if priorInputs, ok := currStep[name]; ok {
 					for i, input := range inputs {
@@ -251,12 +253,14 @@ func (ms *builtIn) Move(
 								changed = name
 							}
 							if changed != "" && changed != name {
+								// If the current step moves different components than the previous step, reset the batch
 								reset = true
 								break
 							}
 						}
 					}
 				} else {
+					// Previously moved components are no longer moving
 					reset = true
 				}
 				if reset {
