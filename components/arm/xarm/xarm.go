@@ -77,7 +77,7 @@ const (
 	ModelNameLite = "lite6" // ModelNameLite is the name of a UFactory Lite 6
 )
 
-// MakeModelFrame returwwns the kinematics model of the xarm arm, which has all Frame information.
+// MakeModelFrame returns the kinematics model of the xarm arm, which has all Frame information.
 func MakeModelFrame(name, modelName string) (referenceframe.Model, error) {
 	switch modelName {
 	case ModelName6DOF:
