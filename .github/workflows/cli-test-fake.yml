@@ -41,14 +41,13 @@ jobs:
       with:
         python-version: "3.12"
 
-    - name: echo2
-      run: echo "\n\nhere we are 2\n\n\n\n"
+    - name: cat make
+      run: cat Makefile
 
     - name: build
       env:
         CI_RELEASE: ${{ inputs.release_type }}
       run: |
-        echo "HERE WE ARE"
         # CR erodkin: add back `-ci` suffix!
         GOOS=linux GOARCH=amd64 make cli
         GOOS=linux GOARCH=arm64 make cli
@@ -61,11 +60,11 @@ jobs:
          CI_RELEASE: ${{ github.ref_name }}
       if: inputs.release_type == 'stable'
       run: |
-        GOOS=linux GOARCH=amd64 make cli-ci
-        GOOS=linux GOARCH=arm64 make cli-ci
-        GOOS=darwin GOARCH=amd64 make cli-ci
-        GOOS=darwin GOARCH=arm64 make cli-ci
-        GOOS=windows GOARCH=amd64 EXE_SUFFIX=.exe make cli-ci
+        GOOS=linux GOARCH=amd64 make cli
+        GOOS=linux GOARCH=arm64 make cli
+        GOOS=darwin GOARCH=amd64 make cli
+        GOOS=darwin GOARCH=arm64 make cli
+        GOOS=windows GOARCH=amd64 EXE_SUFFIX=.exe make cli
 
     - name: Authorize GCP Upload
       uses: google-github-actions/auth@v1.1.1
