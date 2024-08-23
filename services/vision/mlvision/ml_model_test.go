@@ -214,6 +214,18 @@ func TestNewMLDetector(t *testing.T) {
 
 	test.That(t, gotDetectionsNL[0].Label(), test.ShouldResemble, "17")
 	test.That(t, gotDetectionsNL[1].Label(), test.ShouldResemble, "17")
+
+	// Ensure that the same model without labels but with vision service labels works
+	conf = &MLModelConfig{
+		LabelPath: labelLoc,
+	}
+	gotDetectorNL, err = attemptToBuildDetector(outNL, inNameMap, outNameMap, conf)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, gotDetectorNL, test.ShouldNotBeNil)
+	gotDetectionsNL, err = gotDetectorNL(ctx, pic)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, gotDetectionsNL[0].Label(), test.ShouldResemble, "Dog")
+	test.That(t, gotDetectionsNL[1].Label(), test.ShouldResemble, "Dog")
 }
 
 func TestNewMLClassifier(t *testing.T) {
@@ -281,6 +293,21 @@ func TestNewMLClassifier(t *testing.T) {
 	test.That(t, topNL[0].Label(), test.ShouldContainSubstring, "291")
 	test.That(t, topNL[0].Score(), test.ShouldBeGreaterThan, 0.99)
 	test.That(t, topNL[1].Score(), test.ShouldBeLessThan, 0.01)
+
+	// Ensure that vision service label_path loads
+	conf = &MLModelConfig{
+		LabelPath: labelLoc,
+	}
+	gotClassifierNL, err = attemptToBuildClassifier(outNL, inNameMap, outNameMap, conf)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, gotClassifierNL, test.ShouldNotBeNil)
+	gotClassificationsNL, err = gotClassifierNL(ctx, pic)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, gotClassificationsNL, test.ShouldNotBeNil)
+	topNL, err = gotClassificationsNL.TopN(5)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, topNL, test.ShouldNotBeNil)
+	test.That(t, topNL[0].Label(), test.ShouldContainSubstring, "lion")
 }
 
 func TestMLDetectorWithNoCategory(t *testing.T) {
@@ -505,6 +532,12 @@ func TestLabelReader(t *testing.T) {
 	test.That(t, outLabels[0], test.ShouldResemble, "this")
 	test.That(t, outLabels[1], test.ShouldResemble, "could")
 	test.That(t, outLabels[2], test.ShouldResemble, "be")
+	altLabelLoc := artifact.MustPath("vision/tflite/fakelabels_alt.txt")
+	outLabels = getLabelsFromMetadata(outMD, altLabelLoc)
+	test.That(t, len(outLabels), test.ShouldEqual, 12)
+	test.That(t, outLabels[0], test.ShouldResemble, "alt_this")
+	test.That(t, outLabels[1], test.ShouldResemble, "alt_could")
+	test.That(t, outLabels[2], test.ShouldResemble, "alt_be")
 }
 
 func TestBlankLabelLines(t *testing.T) {
