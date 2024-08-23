@@ -1,21 +1,23 @@
 /* eslint-disable no-underscore-dangle */
 
 import * as THREE from 'three';
-import {
-  type GeoGeometry,
-  type Path as SDKPath,
-  type Waypoint,
+import type {
+  GeoGeometry,
+  Path as SDKPath,
+  Waypoint as SDKWaypoint,
 } from '@viamrobotics/sdk';
 import { ViamObject3D } from '@viamrobotics/three';
 import { notify } from '@viamrobotics/prime';
 import { theme } from '@viamrobotics/prime-core/theme';
-import type {
-  Obstacle,
-  BoxGeometry,
-  CapsuleGeometry,
-  SphereGeometry,
-  Path,
+import {
+  type Obstacle,
+  type BoxGeometry,
+  type CapsuleGeometry,
+  type SphereGeometry,
+  type Path,
+  Waypoint,
 } from '@viamrobotics/prime-blocks';
+import { LngLat } from 'maplibre-gl';
 export * from './types/navigation';
 
 const STATIC_OBSTACLE_LABEL = 'static';
@@ -26,14 +28,14 @@ const TRANSIENT_OBSTACLE_COLOR = theme.extend.colors.hologram;
 /** Transient obstacles will start with this string in the geometry's label. */
 const TRANSIENT_LABEL_SEARCH = 'transient';
 
-export const formatWaypoints = (list: Waypoint[]) => {
+export const formatWaypoints = (list: SDKWaypoint[]) => {
   return list.map((item) => {
     const { location } = item;
-    return {
-      id: item.id,
-      lng: location?.longitude ?? 0,
-      lat: location?.latitude ?? 0,
-    };
+    return new Waypoint(
+      location?.longitude ?? 0,
+      location?.latitude ?? 0,
+      item.id
+    );
   });
 };
 
@@ -68,10 +70,7 @@ export const formatObstacles = (list: GeoGeometry[]): Obstacle[] => {
 
     return {
       name,
-      location: {
-        lng: location?.longitude ?? 0,
-        lat: location?.latitude ?? 0,
-      },
+      location: new LngLat(location?.longitude ?? 0, location?.latitude ?? 0),
       geometries: obstacle.geometriesList.map((geometry) => {
         const { center } = geometry;
         const pose = new ViamObject3D();
@@ -123,9 +122,6 @@ export const formatObstacles = (list: GeoGeometry[]): Obstacle[] => {
 
 export const formatPaths = (list: SDKPath[]): Path[] => {
   return list.map(({ geopointsList }) =>
-    geopointsList.map((geo) => ({
-      lng: geo.longitude,
-      lat: geo.latitude,
-    }))
+    geopointsList.map((geo) => new LngLat(geo.longitude, geo.latitude))
   );
 };

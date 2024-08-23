@@ -13,11 +13,12 @@ func _() {
 	_ = x[NodeStateConfiguring-2]
 	_ = x[NodeStateReady-3]
 	_ = x[NodeStateRemoving-4]
+	_ = x[NodeStateUnhealthy-5]
 }
 
-const _NodeState_name = "UnknownUnconfiguredConfiguringReadyRemoving"
+const _NodeState_name = "UnknownUnconfiguredConfiguringReadyRemovingUnhealthy"
 
-var _NodeState_index = [...]uint8{0, 7, 19, 30, 35, 43}
+var _NodeState_index = [...]uint8{0, 7, 19, 30, 35, 43, 52}
 
 func (i NodeState) String() string {
 	if i >= NodeState(len(_NodeState_index)-1) {

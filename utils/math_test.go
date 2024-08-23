@@ -182,6 +182,11 @@ func TestFloat64AlmostEqual(t *testing.T) {
 	test.That(t, Float64AlmostEqual(1, 1.001, 1e-2), test.ShouldBeTrue)
 }
 
+func TestFloat32AlmostEqual(t *testing.T) {
+	test.That(t, Float32AlmostEqual(1, 1.001, 1e-4), test.ShouldBeFalse)
+	test.That(t, Float32AlmostEqual(1, 1.001, 1e-2), test.ShouldBeTrue)
+}
+
 func TestClamp(t *testing.T) {
 	for i, tc := range []struct {
 		value    float64

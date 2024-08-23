@@ -390,7 +390,7 @@ func (svc *builtIn) initializeOrUpdateCollector(
 		Logger:        svc.logger,
 		Clock:         clock,
 	}
-	collector, err := (*collectorConstructor)(res, params)
+	collector, err := (collectorConstructor)(res, params)
 	if err != nil {
 		return nil, err
 	}
