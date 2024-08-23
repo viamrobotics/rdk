@@ -44,9 +44,6 @@ jobs:
       with:
         python-version: "3.12"
 
-    - name: cat make
-      run: cat Makefile
-
     - name: build
       env:
         CI_RELEASE: ${{ inputs.release_type }}
@@ -57,8 +54,7 @@ jobs:
         GOOS=darwin GOARCH=amd64 make cli
         GOOS=windows GOARCH=amd64 EXE_SUFFIX=.exe make cli
         GOOS=darwin GOARCH=arm64 make cli
-        tree bin
-        ./bin/Darwin-arm64/viam-cli module generate
+        ./bin/darwin-arm64/viam-cli module generate
 
     #- name: tagged alias
       #env:
