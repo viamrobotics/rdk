@@ -35,7 +35,7 @@ jobs:
         go-version: '1.21.x'
 
     - name: Python version dependencies
-      run: apt-get update && apt-get install -y lsb-release && apt-get clean all
+      run: sudo apt-get update && sudo apt-get install -y lsb-release && sudo apt-get clean all
 
     - uses: actions/setup-python@v5
       with:
