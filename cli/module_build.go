@@ -255,6 +255,39 @@ func ModuleBuildLogsAction(c *cli.Context) error {
 	return nil
 }
 
+// ModuleBuildLinkRepoAction links a github repo to your module.
+func ModuleBuildLinkRepoAction(c *cli.Context) error {
+	linkID := c.String(moduleBuildFlagOAuthLink)
+	moduleID := c.String(moduleFlagPath)
+	repo := c.String(moduleBuildFlagRepo)
+
+	req := buildpb.LinkRepoRequest{
+		Link: &buildpb.RepoLink{
+			OauthAppLinkId: linkID,
+			Repo:           repo,
+		},
+	}
+	var found bool
+	req.Link.OrgId, req.Link.ModuleName, found = strings.Cut(moduleID, ":")
+	if !found {
+		return fmt.Errorf("the given module ID '%s' isn't of the form org:name", moduleID)
+	}
+
+	client, err := newViamClient(c)
+	if err != nil {
+		return err
+	}
+	if err := client.ensureLoggedIn(); err != nil {
+		return err
+	}
+	res, err := client.buildClient.LinkRepo(c.Context, &req)
+	if err != nil {
+		return err
+	}
+	infof(c.App.Writer, "Successfully created link with ID %s", res.RepoLinkId)
+	return nil
+}
+
 func (c *viamClient) startBuild(repo, ref, moduleID string, platforms []string, version string) (*buildpb.StartBuildResponse, error) {
 	if err := c.ensureLoggedIn(); err != nil {
 		return nil, err

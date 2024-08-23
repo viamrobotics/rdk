@@ -62,6 +62,8 @@ const (
 	moduleBuildFlagGroupLogs = "group-logs"
 	moduleBuildRestartOnly   = "restart-only"
 	moduleBuildFlagNoBuild   = "no-build"
+	moduleBuildFlagOAuthLink = "oauth-link"
+	moduleBuildFlagRepo      = "repo"
 
 	mlTrainingFlagPath        = "path"
 	mlTrainingFlagName        = "script-name"
@@ -1645,6 +1647,32 @@ Example:
 								},
 							},
 							Action: ModuleBuildLogsAction,
+						},
+						{
+							Name:  "link-repo",
+							Usage: "link a GitHub repository to your module",
+							UsageText: `This command connects a Viam module to a GitHub repository so that repo actions can trigger builds and releases of your module.
+
+This won't work unless you have an existing installation of our GitHub app on your GitHub org. (Details to follow).
+`,
+							Hidden: true,
+							Flags: []cli.Flag{
+								&cli.StringFlag{
+									Name:  moduleBuildFlagOAuthLink,
+									Usage: "ID of the oauth link between your GitHub org and Viam. Only required if you have more than one link",
+								},
+								&cli.StringFlag{
+									Name:     moduleFlagPath,
+									Usage:    "your module's ID in org-id:name or public-namespace:name format",
+									Required: true,
+								},
+								&cli.BoolFlag{
+									Name:     moduleBuildFlagRepo,
+									Usage:    "your github repository in account/repository form (e.g. viamrobotics/rdk, not github.com/viamrobotics/rdk)",
+									Required: true,
+								},
+							},
+							Action: ModuleBuildLinkRepoAction,
 						},
 					},
 				},
