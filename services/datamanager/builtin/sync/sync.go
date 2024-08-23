@@ -32,8 +32,11 @@ var CheckDeleteExcessFilesInterval = 30 * time.Second
 const (
 	// FailedDir is a subdirectory of the capture directory that holds any files that could not be synced.
 	FailedDir = "failed"
-	// grpcConnectionTimeout defintes the timeout for getting a connection with app.viam.com.
+	// grpcConnectionTimeout defines the timeout for getting a connection with app.viam.com.
 	grpcConnectionTimeout = 10 * time.Second
+	// durationBetweenAcquireConnection defines how long to wait after a call to cloud.AcquireConnection fails
+	// with a transient error.
+	durationBetweenAcquireConnection = time.Second
 )
 
 // Sync manages uploading files (both written by data capture and by 3rd party applications)
@@ -243,8 +246,13 @@ func (s *Sync) runCloudConnManager(
 		// continue retrying until newCloudConn succeeds or sync
 		// shuts down
 		if err != nil {
-			s.logger.Debugf("hit transient error trying to get cloud connection, will retry. err: %s", err.Error())
-			continue
+			s.logger.Debugf("hit transient error trying to get cloud connection, "+
+				"will retry in %s err: %s", durationBetweenAcquireConnection, err.Error())
+			if goutils.SelectContextOrWait(ctx, durationBetweenAcquireConnection) {
+				continue
+			}
+			// exit loop if context is cancelled
+			return
 		}
 
 		// we have a working cloudConn,
@@ -338,14 +346,14 @@ func (s *Sync) syncDataCaptureFile(f *os.File, captureDir string, logger logging
 		if err = f.Close(); err != nil {
 			s.logger.Error(errors.Wrap(err, "error closing data capture file").Error())
 		}
-		if err := moveFailedData(f.Name(), captureDir); err != nil {
+		if err := moveFailedData(f.Name(), captureDir, logger); err != nil {
 			s.logger.Error(err)
 		}
 		return
 	}
 
 	// setup a retry struct that will try to upload the capture file
-	retry := newExponentialRetry(s.configCtx, s.clock, s.logger, func(ctx context.Context) error {
+	retry := newExponentialRetry(s.configCtx, s.clock, s.logger, f.Name(), func(ctx context.Context) error {
 		msg := "error uploading data capture file %s, size: %d, md: %s"
 		errMetadata := fmt.Sprintf(msg, captureFile.GetPath(), captureFile.Size(), captureFile.ReadMetadata())
 		return errors.Wrap(uploadDataCaptureFile(ctx, captureFile, s.cloudConn), errMetadata)
@@ -366,7 +374,7 @@ func (s *Sync) syncDataCaptureFile(f *os.File, captureDir string, logger logging
 		logger.Error(err.Error())
 
 		// otherwise we hit a terminal error, and we should move the file to the failed directory
-		if err := moveFailedData(captureFile.GetPath(), captureDir); err != nil {
+		if err := moveFailedData(captureFile.GetPath(), captureDir, logger); err != nil {
 			logger.Error(err)
 		}
 		return
@@ -379,7 +387,7 @@ func (s *Sync) syncDataCaptureFile(f *os.File, captureDir string, logger logging
 }
 
 func (s *Sync) syncArbitraryFile(f *os.File, tags []string, fileLastModifiedMillis int, logger logging.Logger) {
-	retry := newExponentialRetry(s.configCtx, s.clock, s.logger, func(ctx context.Context) error {
+	retry := newExponentialRetry(s.configCtx, s.clock, s.logger, f.Name(), func(ctx context.Context) error {
 		errMetadata := fmt.Sprintf("error uploading file %s", f.Name())
 		return errors.Wrap(uploadArbitraryFile(ctx, f, s.cloudConn, tags, fileLastModifiedMillis, s.clock), errMetadata)
 	})
@@ -397,7 +405,7 @@ func (s *Sync) syncArbitraryFile(f *os.File, tags []string, fileLastModifiedMill
 		logger.Error(err.Error())
 
 		// otherwise we hit a terminal error, and we should move the file to the failed directory
-		if err := moveFailedData(f.Name(), path.Dir(f.Name())); err != nil {
+		if err := moveFailedData(f.Name(), path.Dir(f.Name()), logger); err != nil {
 			logger.Error(err)
 		}
 		return
@@ -414,7 +422,7 @@ func (s *Sync) syncArbitraryFile(f *os.File, tags []string, fileLastModifiedMill
 
 // moveFailedData takes any data that could not be synced in the parentDir and
 // moves it to a new subdirectory "failed" that will not be synced.
-func moveFailedData(path, parentDir string) error {
+func moveFailedData(path, parentDir string, logger logging.Logger) error {
 	// Remove the parentDir part of the path to the corrupted data
 	relativePath, err := filepath.Rel(parentDir, path)
 	if err != nil {
@@ -427,6 +435,7 @@ func moveFailedData(path, parentDir string) error {
 	}
 	// Move the file from parentDir/pathToFile/file.ext to parentDir/corrupted/pathToFile/file.ext
 	newPath := filepath.Join(newDir, filepath.Base(path))
+	logger.Infof("moving file that data manager failed to sync from %s to %s", path, newPath)
 	if err := os.Rename(path, newPath); err != nil {
 		return errors.Wrapf(err, fmt.Sprintf("error moving: %s to %s", path, newPath))
 	}

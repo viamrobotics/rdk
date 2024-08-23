@@ -32,15 +32,17 @@ func newExponentialRetry(
 	ctx context.Context,
 	clock clock.Clock,
 	logger logging.Logger,
+	name string,
 	fun func(context.Context) error,
 ) exponentialRetry {
-	return exponentialRetry{ctx: ctx, clock: clock, logger: logger, fun: fun}
+	return exponentialRetry{ctx: ctx, clock: clock, logger: logger, name: name, fun: fun}
 }
 
 type exponentialRetry struct {
 	ctx    context.Context
 	clock  clock.Clock
 	logger logging.Logger
+	name   string
 	fun    func(context.Context) error
 }
 
@@ -54,14 +56,14 @@ func (er exponentialRetry) run() error {
 	switch {
 	// If no error, return nil for success
 	case err == nil:
-		er.logger.Debug("exponentialRetry.run succeeded")
+		er.logger.Debugf("exponentialRetry.run %s succeeded", er.name)
 		return nil
 	// Don't retry non-retryable errors.
 	case terminalError(err):
-		er.logger.Debugf("exponentialRetry.run: non retryable error: %s", err.Error())
+		er.logger.Debugf("exponentialRetry.run %s hit non retryable error: %s", er.name, err.Error())
 		return err
 	default:
-		er.logger.Debugf("exponentialRetry.run: entering exponential backoff retry due to retryable error: %s", err.Error())
+		er.logger.Debugf("exponentialRetry.run: %s entering exponential backoff retry due to retryable error: %s", er.name, err.Error())
 	}
 
 	// First call failed, so begin exponentialRetry with a factor of RetryExponentialFactor
@@ -81,11 +83,11 @@ func (er exponentialRetry) run() error {
 			switch {
 			// If no error, return nil for success
 			case err == nil:
-				er.logger.Debug("exponentialRetry.run succeeded")
+				er.logger.Debugf("exponentialRetry.run %s succeeded", er.name)
 				return nil
 			// Don't retry terminal errors.
 			case terminalError(err):
-				er.logger.Debugf("exponentialRetry.run: non retryable error: %s", err.Error())
+				er.logger.Debugf("exponentialRetry.run %s hit non retryable error: %s", er.name, err.Error())
 				return err
 			}
 
@@ -100,8 +102,8 @@ func (er exponentialRetry) run() error {
 			if offline {
 				status = "offline"
 			}
-			er.logger.Debugf("exponentialRetry.run: hit transient error, will retry in: %s, "+
-				"error indicates connectivity status is %s", nextWait, status)
+			er.logger.Debugf("exponentialRetry.run %s hit transient error, will retry in: %s, "+
+				"error indicates connectivity status is %s", er.name, nextWait, status)
 			ticker.Reset(nextWait)
 		}
 	}
