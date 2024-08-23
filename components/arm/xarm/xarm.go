@@ -247,10 +247,13 @@ func (x *xArm) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[s
 		if !ok || position < -10 || position > 850 {
 			return nil, fmt.Errorf("must move gripper to an int between 0 and 840 %v", val)
 		}
-		x.setGripperPosition(ctx, uint32(position))
+		err = x.setGripperPosition(ctx, uint32(position))
+		if err != nil {
+			return nil, err
+		}
 	}
 	if _, ok := cmd["load"]; ok {
 		return x.getLoad(ctx)
 	}
-	return nil, nil
+	return nil, errors.New("command not found")
 }

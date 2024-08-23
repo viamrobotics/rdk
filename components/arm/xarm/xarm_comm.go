@@ -375,19 +375,15 @@ func (x *xArm) createRawJointSteps(startInputs []referenceframe.Input, inputStep
 	from := referenceframe.InputsToFloats(startInputs)
 
 	// We want smooth acceleration/motion but there's no guarantee the provided inputs have continuous velocity signs
-	floatDiffs := func(from, to []float64) (float64, int, []float64) {
+	floatMaxDiff := func(from, to []float64) float64 {
 		max := 0.
-		maxI := 0
-		diffs := []float64{}
 		for i, toInput := range to {
-			diffs = append(diffs, toInput-from[i])
-			diff := math.Abs(diffs[i])
+			diff := math.Abs(toInput - from[i])
 			if diff > max {
 				max = diff
-				maxI = i
 			}
 		}
-		return max, maxI, diffs
+		return max
 	}
 
 	// Preprocess steps into step counts
@@ -396,7 +392,7 @@ func (x *xArm) createRawJointSteps(startInputs []referenceframe.Input, inputStep
 
 	for _, toInputs := range inputSteps {
 		to := referenceframe.InputsToFloats(toInputs)
-		max, _, _ := floatDiffs(from, to)
+		max := floatMaxDiff(from, to)
 		displacementTotal += max
 		nSteps := (math.Abs(max) / speed) * moveHZ
 		stepTotal += nSteps
@@ -428,11 +424,11 @@ func (x *xArm) createRawJointSteps(startInputs []referenceframe.Input, inputStep
 			to := referenceframe.InputsToFloats(toInputs)
 			runningFrom := from
 
-			for currDiff, _, _ := floatDiffs(runningFrom, to); currDiff > 1e-6; currDiff, _, _ = floatDiffs(runningFrom, to) {
+			for currDiff := floatMaxDiff(runningFrom, to); currDiff > 1e-6; currDiff = floatMaxDiff(runningFrom, to) {
 				if currSpeed <= 0 {
 					break
 				}
-				nSteps := (currDiff / float64(currSpeed)) * moveHZ
+				nSteps := (currDiff / currSpeed) * moveHZ
 				stepSize := 1.
 				if nSteps <= 1 {
 					if currDiff == 0 {
@@ -440,18 +436,14 @@ func (x *xArm) createRawJointSteps(startInputs []referenceframe.Input, inputStep
 					}
 					stepSize = nSteps
 				}
-				// ~ fmt.Println("currDiff", currDiff)
-				// ~ fmt.Println(len(steps), "currSpeed", currSpeed)
 				nextInputs, err := x.model.Interpolate(lastInputs, toInputs, stepSize/nSteps)
 				if err != nil {
 					return 0, nil, err
 				}
 				runningFrom = referenceframe.InputsToFloats(nextInputs)
 				steps = append(steps, referenceframe.InputsToFloats(nextInputs))
-				// ~ fmt.Println("nextInputs", nextInputs)
 
 				if currSpeed < speed {
-					// ~ fmt.Println("accelerating")
 					currSpeed += accelStep * stepSize
 					if currSpeed > speed {
 						currSpeed = speed
