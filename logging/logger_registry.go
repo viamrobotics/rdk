@@ -6,28 +6,25 @@ import (
 	"sync"
 )
 
-type loggerRegistry struct {
+type Registry struct {
 	mu        sync.RWMutex
 	loggers   map[string]Logger
 	logConfig []LoggerPatternConfig
 }
 
-// TODO(RSDK-8250): convert loggerManager from global variable to variable on local robot.
-var globalLoggerRegistry = newLoggerRegistry()
-
-func newLoggerRegistry() *loggerRegistry {
-	return &loggerRegistry{
+func newRegistry() *Registry {
+	return &Registry{
 		loggers: make(map[string]Logger),
 	}
 }
 
-func (lr *loggerRegistry) registerLogger(name string, logger Logger) {
+func (lr *Registry) registerLogger(name string, logger Logger) {
 	lr.mu.Lock()
 	defer lr.mu.Unlock()
 	lr.loggers[name] = logger
 }
 
-func (lr *loggerRegistry) deregisterLogger(name string) bool {
+func (lr *Registry) deregisterLogger(name string) bool {
 	lr.mu.Lock()
 	defer lr.mu.Unlock()
 	_, ok := lr.loggers[name]
@@ -37,14 +34,14 @@ func (lr *loggerRegistry) deregisterLogger(name string) bool {
 	return ok
 }
 
-func (lr *loggerRegistry) loggerNamed(name string) (logger Logger, ok bool) {
+func (lr *Registry) loggerNamed(name string) (logger Logger, ok bool) {
 	lr.mu.RLock()
 	defer lr.mu.RUnlock()
 	logger, ok = lr.loggers[name]
 	return
 }
 
-func (lr *loggerRegistry) updateLoggerLevelWithCfg(name string) error {
+func (lr *Registry) updateLoggerLevelWithCfg(name string) error {
 	lr.mu.RLock()
 	defer lr.mu.RUnlock()
 
@@ -69,7 +66,7 @@ func (lr *loggerRegistry) updateLoggerLevelWithCfg(name string) error {
 	return nil
 }
 
-func (lr *loggerRegistry) updateLoggerLevel(name string, level Level) error {
+func (lr *Registry) updateLoggerLevel(name string, level Level) error {
 	lr.mu.RLock()
 	defer lr.mu.RUnlock()
 	logger, ok := lr.loggers[name]
@@ -80,12 +77,15 @@ func (lr *loggerRegistry) updateLoggerLevel(name string, level Level) error {
 	return nil
 }
 
-func (lr *loggerRegistry) updateLoggerRegistry(logConfig []LoggerPatternConfig) error {
+func (lr *Registry) UpdateConfig(logConfig []LoggerPatternConfig, errorLogger Logger) error {
+	lr.mu.Lock()
+	lr.logConfig = logConfig
+	lr.mu.Unlock()
+
 	appliedConfigs := make(map[string]Level)
 	for _, lpc := range logConfig {
 		if !validatePattern(lpc.Pattern) {
-			logger := GetOrNewLogger("rdk.logging")
-			logger.Info("failed to validate a pattern", "pattern", lpc.Pattern)
+			errorLogger.Warnw("failed to validate a pattern", "pattern", lpc.Pattern)
 			continue
 		}
 
@@ -119,7 +119,7 @@ func (lr *loggerRegistry) updateLoggerRegistry(logConfig []LoggerPatternConfig) 
 	return nil
 }
 
-func (lr *loggerRegistry) getRegisteredLoggerNames() []string {
+func (lr *Registry) getRegisteredLoggerNames() []string {
 	lr.mu.RLock()
 	defer lr.mu.RUnlock()
 	registeredNames := make([]string, 0, len(globalLoggerRegistry.loggers))
@@ -129,77 +129,30 @@ func (lr *loggerRegistry) getRegisteredLoggerNames() []string {
 	return registeredNames
 }
 
-func (lr *loggerRegistry) registerConfig(logConfig []LoggerPatternConfig) error {
-	lr.mu.Lock()
-	lr.logConfig = logConfig
-	lr.mu.Unlock()
-	return lr.updateLoggerRegistry(logConfig)
-}
-
-func (lr *loggerRegistry) getCurrentConfig() []LoggerPatternConfig {
+func (lr *Registry) getCurrentConfig() []LoggerPatternConfig {
 	lr.mu.RLock()
 	defer lr.mu.RUnlock()
 	return lr.logConfig
 }
 
-// Exported Functions specifically for use on global logger manager.
-
-// RegisterLogger registers a new logger with a given name.
-func RegisterLogger(name string, logger Logger) {
-	globalLoggerRegistry.registerLogger(name, logger)
-}
-
-// DeregisterLogger attempts to remove a logger from the registry and returns a boolean denoting whether it succeeded.
-func DeregisterLogger(name string) bool {
-	return globalLoggerRegistry.deregisterLogger(name)
-}
-
-// LoggerNamed returns logger with specified name if exists.
-func LoggerNamed(name string) (logger Logger, ok bool) {
-	return globalLoggerRegistry.loggerNamed(name)
-}
-
-// UpdateLoggerLevel assigns level to appropriate logger in the registry.
-func UpdateLoggerLevel(name string, level Level) error {
-	return globalLoggerRegistry.updateLoggerLevel(name, level)
-}
-
-// GetRegisteredLoggerNames returns the names of all loggers in the registry.
-func GetRegisteredLoggerNames() []string {
-	return globalLoggerRegistry.getRegisteredLoggerNames()
-}
-
-// RegisterConfig atomically stores the current known logger config in the registry, and updates all registered loggers.
-func RegisterConfig(logConfig []LoggerPatternConfig) error {
-	return globalLoggerRegistry.registerConfig(logConfig)
-}
-
-// UpdateLoggerLevelWithCfg matches the desired logger to all patterns in the registry and updates its level.
-func UpdateLoggerLevelWithCfg(name string) error {
-	return globalLoggerRegistry.updateLoggerLevelWithCfg(name)
-}
-
-// GetCurrentConfig returns the logger config currently being used by the registry.
-func GetCurrentConfig() []LoggerPatternConfig {
-	return globalLoggerRegistry.getCurrentConfig()
-}
-
-// GetOrNewLogger returns a logger with the specified name if it exists, otherwise it
-// creates and registers one with the same name.
-// Consider removing this as a part of or after RSDK-8291 (https://viam.atlassian.net/browse/RSDK-8291)
-// which may consolidate various calls to the rdk.networking logger into one.
-func GetOrNewLogger(name string) (logger Logger) {
-	globalLoggerRegistry.mu.Lock()
-	defer globalLoggerRegistry.mu.Unlock()
-	logger, ok := globalLoggerRegistry.loggers[name]
-	if !ok {
-		logger = &impl{
-			name:       name,
-			level:      NewAtomicLevelAt(INFO),
-			appenders:  []Appender{NewStdoutAppender()},
-			testHelper: func() {},
-		}
-		globalLoggerRegistry.loggers[name] = logger
+// getOrRegister will either:
+//   - return an existing logger for the input logger `name` or
+//   - register the input `logger` for the given logger `name` and configure it based on the
+//     existing patterns.
+//
+// Such that if concurrent callers try registering the same logger, the "winner"s logger will be
+// registered and all losers will return the winning logger.
+//
+// It is expected in racing scenarios that all callers are trying to register behaviorly equivalent
+// `logger` objects.
+func (lr *Registry) getOrRegister(name string, logger Logger) Logger {
+	lr.mu.Lock()
+	defer lr.mu.Unlock()
+	if existingLogger, ok := lr.loggers[name]; ok {
+		return existingLogger
 	}
+
+	lr.loggers[name] = logger
+	lr.updateLoggerLevelWithCfg(name)
 	return logger
 }

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"testing"
 
+	"go.uber.org/zap/zapcore"
 	"go.viam.com/test"
 )
 
@@ -13,13 +14,48 @@ var (
 	l3 = NewLogger("logger-3")
 )
 
-func mockRegistry() *loggerRegistry {
-	manager := newLoggerRegistry()
+func mockRegistry() *Registry {
+	manager := newRegistry()
 	manager.registerLogger("logger-1", l1)
 	manager.registerLogger("logger-2", l2)
 	l3.Sublogger("sublogger-1")
 	globalLoggerRegistry = manager
 	return manager
+}
+
+type memAppender struct {
+	entries []*zapcore.Entry
+}
+
+func (mem *memAppender) Write(entry zapcore.Entry, field []zapcore.Field) error {
+	mem.entries = append(mem.entries, &entry)
+	return nil
+}
+
+func (mem *memAppender) Sync() error {
+	return nil
+}
+
+func TestRegistryIsolation(t *testing.T) {
+	testLogger := NewTestLogger(t)
+	_ = testLogger
+
+	loggerOne := NewLogger("rdk")
+	appenderOne := &memAppender{}
+	loggerOne.AddAppender(appenderOne)
+	loggerOne.Info("foo")
+	test.That(t, len(appenderOne.entries), test.ShouldEqual, 1)
+
+	loggerTwo := NewLogger("rdk")
+	appenderTwo := &memAppender{}
+	loggerTwo.AddAppender(appenderTwo)
+	loggerTwo.Info("foo")
+	test.That(t, len(appenderTwo.entries), test.ShouldEqual, 1)
+
+	// aSub := GetOrNewLogger("rdk.networking")
+	// aSub
+	// bSub := loggerTwo.Sublogger("A")
+
 }
 
 func TestLoggerRegistration(t *testing.T) {
@@ -30,6 +66,7 @@ func TestLoggerRegistration(t *testing.T) {
 		name:       expectedName,
 		level:      NewAtomicLevelAt(INFO),
 		appenders:  []Appender{NewStdoutAppender()},
+		registry:   newRegistry(),
 		testHelper: func() {},
 	}
 
@@ -120,7 +157,7 @@ func TestRegisterConfig(t *testing.T) {
 			Level:   "ERROR",
 		},
 	}
-	err := manager.registerConfig(logCfg)
+	err := manager.UpdateConfig(logCfg)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, manager.logConfig, test.ShouldResemble, logCfg)
 	test.That(t, fakeLogger.GetLevel().String(), test.ShouldEqual, "Warn")
@@ -135,7 +172,7 @@ func TestUpdateLoggerLevelWithCfg(t *testing.T) {
 			Level:   "WARN",
 		},
 	}
-	err := manager.registerConfig(logCfg)
+	err := manager.UpdateConfig(logCfg)
 	test.That(t, err, test.ShouldBeNil)
 
 	manager.registerLogger("a.b.c", NewLogger("a.b.c"))
@@ -163,7 +200,7 @@ func TestGetCurrentConfig(t *testing.T) {
 			Level:   "WARN",
 		},
 	}
-	manager.registerConfig(logCfg)
+	manager.UpdateConfig(logCfg)
 	test.That(t, manager.getCurrentConfig(), test.ShouldResemble, logCfg)
 }
 
@@ -177,7 +214,7 @@ func TestLoggerLevelReset(t *testing.T) {
 		},
 	}
 
-	err := manager.registerConfig(logCfg)
+	err := manager.UpdateConfig(logCfg)
 	test.That(t, err, test.ShouldBeNil)
 
 	logger, ok := manager.loggerNamed("a")
@@ -186,7 +223,7 @@ func TestLoggerLevelReset(t *testing.T) {
 
 	logCfg = []LoggerPatternConfig{}
 
-	err = manager.registerConfig(logCfg)
+	err = manager.UpdateConfig(logCfg)
 	test.That(t, err, test.ShouldBeNil)
 
 	logger, ok = manager.loggerNamed("a")

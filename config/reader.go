@@ -202,6 +202,7 @@ func readFromCloud(
 	prevCfg *Config,
 	shouldReadFromCache bool,
 	checkForNewCert bool,
+	registry *logging.Registry,
 	logger logging.Logger,
 ) (*Config, error) {
 	logger.Debug("reading configuration from the cloud")
@@ -215,7 +216,7 @@ func readFromCloud(
 	}
 
 	// process the config
-	cfg, err := processConfigFromCloud(unprocessedConfig, logger)
+	cfg, err := processConfigFromCloud(unprocessedConfig, registry, logger)
 	if err != nil {
 		// If we cannot process the config from the cache we should clear it.
 		if cached {
@@ -342,7 +343,7 @@ func (tls *tlsConfig) readFromCache(id string, logger logging.Logger) error {
 func Read(
 	ctx context.Context,
 	filePath string,
-	logger logging.Logger,
+	logger logging.RootLogger,
 ) (*Config, error) {
 	buf, err := envsubst.ReadFile(filePath)
 	if err != nil {
@@ -356,7 +357,7 @@ func Read(
 func ReadLocalConfig(
 	ctx context.Context,
 	filePath string,
-	logger logging.Logger,
+	logger logging.RootLogger,
 ) (*Config, error) {
 	buf, err := envsubst.ReadFile(filePath)
 	if err != nil {
@@ -372,7 +373,7 @@ func FromReader(
 	ctx context.Context,
 	originalPath string,
 	r io.Reader,
-	logger logging.Logger,
+	logger logging.RootLogger,
 ) (*Config, error) {
 	return fromReader(ctx, originalPath, r, logger, true)
 }
@@ -383,7 +384,7 @@ func fromReader(
 	ctx context.Context,
 	originalPath string,
 	r io.Reader,
-	logger logging.Logger,
+	rootLogger logging.RootLogger,
 	shouldReadFromCloud bool,
 ) (*Config, error) {
 	// First read and process config from disk
@@ -394,13 +395,15 @@ func fromReader(
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to decode Config from json")
 	}
-	cfgFromDisk, err := processConfigLocalConfig(&unprocessedConfig, logger)
+
+	registry := rootLogger.GetRegistry()
+	cfgFromDisk, err := processConfigLocalConfig(&unprocessedConfig, registry, rootLogger)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to process Config")
 	}
 
 	if shouldReadFromCloud && cfgFromDisk.Cloud != nil {
-		cfg, err := readFromCloud(ctx, cfgFromDisk, nil, true, true, logger)
+		cfg, err := readFromCloud(ctx, cfgFromDisk, nil, true, true, registry, rootLogger)
 		return cfg, err
 	}
 
@@ -410,8 +413,8 @@ func fromReader(
 // ProcessLocal validates the current config assuming it came from a local file and
 // updates it with all derived fields. Returns an error if the unprocessedConfig is
 // non-valid.
-func (c *Config) ProcessLocal(logger logging.Logger) error {
-	processed, err := processConfigLocalConfig(c, logger)
+func (c *Config) ProcessLocal(registry *logging.Registry, logger logging.Logger) error {
+	processed, err := processConfigLocalConfig(c, registry, logger)
 	if err != nil {
 		return err
 	}
@@ -422,21 +425,21 @@ func (c *Config) ProcessLocal(logger logging.Logger) error {
 // processConfigFromCloud returns a copy of the current config with all attributes parsed
 // and config validated with the assumption the config came from the cloud.
 // Returns an error if the unprocessedConfig is non-valid.
-func processConfigFromCloud(unprocessedConfig *Config, logger logging.Logger) (*Config, error) {
-	return processConfig(unprocessedConfig, true, logger)
+func processConfigFromCloud(unprocessedConfig *Config, registry *logging.Registry, logger logging.Logger) (*Config, error) {
+	return processConfig(unprocessedConfig, true, registry, logger)
 }
 
 // processConfigLocalConfig returns a copy of the current config with all attributes parsed
 // and config validated with the assumption the config came from a local file.
 // Returns an error if the unprocessedConfig is non-valid.
-func processConfigLocalConfig(unprocessedConfig *Config, logger logging.Logger) (*Config, error) {
-	return processConfig(unprocessedConfig, false, logger)
+func processConfigLocalConfig(unprocessedConfig *Config, registry *logging.Registry, logger logging.Logger) (*Config, error) {
+	return processConfig(unprocessedConfig, false, registry, logger)
 }
 
 // processConfig processes the config passed in. The config can be either JSON or gRPC derived.
 // If any part of this function errors, the function will exit and no part of the new config will be returned
 // until it is corrected.
-func processConfig(unprocessedConfig *Config, fromCloud bool, logger logging.Logger) (*Config, error) {
+func processConfig(unprocessedConfig *Config, fromCloud bool, registry *logging.Registry, logger logging.Logger) (*Config, error) {
 	// Ensure validates the config but also substitutes in some defaults. Implicit dependencies for builtin resource
 	// models are not filled in until attributes are converted.
 	if err := unprocessedConfig.Ensure(fromCloud, logger); err != nil {
@@ -598,7 +601,7 @@ func processConfig(unprocessedConfig *Config, fromCloud bool, logger logging.Log
 	// the resource configurations to the end. This works because we process the entire log config in top-down order,
 	// so the pattern lowest in the config that matches a given logger name will set the level for the logger.
 	appendedLogCfg := combineLogConfigs(cfg.LogConfig, cfg.Services, cfg.Components)
-	if err := logging.RegisterConfig(appendedLogCfg); err != nil {
+	if err := registry.UpdateConfig(appendedLogCfg, logger); err != nil {
 		return nil, err
 	}
 
@@ -721,7 +724,9 @@ func CreateNewGRPCClient(ctx context.Context, cloudCfg *Cloud, logger logging.Lo
 		dialOpts = append(dialOpts, rpc.WithInsecure())
 	}
 
-	return rpc.DialDirectGRPC(ctx, u.Host, logging.GetOrNewLogger("rdk.networking"), dialOpts...)
+	// Pass in a registry to create a new logger? Or pass in a logger and warn loudly the logger
+	// must not depend on this NetAppender?
+	return rpc.DialDirectGRPC(ctx, u.Host, logging.NewLogger("rdk.networking"), dialOpts...)
 }
 
 // CreateNewGRPCClientWithAPIKey creates a new grpc cloud configured to communicate with the robot service
@@ -747,5 +752,7 @@ func CreateNewGRPCClientWithAPIKey(ctx context.Context, cloudCfg *Cloud,
 		dialOpts = append(dialOpts, rpc.WithInsecure())
 	}
 
-	return rpc.DialDirectGRPC(ctx, u.Host, logging.GetOrNewLogger("rdk.networking"), dialOpts...)
+	// Pass in a registry to create a new logger? Or pass in a logger and warn loudly the logger
+	// must not depend on this NetAppender?
+	return rpc.DialDirectGRPC(ctx, u.Host, logging.NewLogger("rdk.networking"), dialOpts...)
 }

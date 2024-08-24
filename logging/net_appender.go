@@ -54,12 +54,14 @@ func newNetAppender(config *CloudConfig, conn rpc.ClientConn, sharedConn, startB
 	cancelCtx, cancel := context.WithCancel(context.Background())
 
 	nl := &NetAppender{
-		hostname:         hostname,
-		cancelCtx:        cancelCtx,
-		cancel:           cancel,
-		remoteWriter:     logWriter,
-		maxQueueSize:     defaultMaxQueueSize,
-		loggerWithoutNet: GetOrNewLogger("rdk.networking").Sublogger("netlogger"),
+		hostname:     hostname,
+		cancelCtx:    cancelCtx,
+		cancel:       cancel,
+		remoteWriter: logWriter,
+		maxQueueSize: defaultMaxQueueSize,
+		// Pass in a registry to create a new logger? Or pass in a logger and warn loudly the logger
+		// must not depend on this NetAppender?
+		loggerWithoutNet: NewLogger("rdk.networking.netlogger"),
 	}
 
 	nl.SetConn(conn, sharedConn)
@@ -439,7 +441,9 @@ func CreateNewGRPCClient(ctx context.Context, cloudCfg *CloudConfig) (rpc.Client
 		dialOpts = append(dialOpts, rpc.WithInsecure())
 	}
 
-	return rpc.DialDirectGRPC(ctx, grpcURL.Host, GetOrNewLogger("rdk.networking.netlogger"), dialOpts...)
+	// Pass in a registry to create a new logger? Or pass in a logger and warn loudly the logger
+	// must not depend on this NetAppender?
+	return rpc.DialDirectGRPC(ctx, grpcURL.Host, NewLogger("rdk.networking.netlogger"), dialOpts...)
 }
 
 // A NetAppender must implement a zapcore such that it gets copied when downconverting on

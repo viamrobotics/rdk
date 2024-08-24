@@ -9,6 +9,18 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
+type RootLogger struct {
+	*impl
+}
+
+func (rootLogger RootLogger) GetRegistry() *Registry {
+	return rootLogger.impl.registry
+}
+
+func (rootLogger RootLogger) RootSublogger(name string) RootLogger {
+	return RootLogger{rootLogger.Sublogger(name).(*impl)}
+}
+
 // Logger interface for logging to.
 type Logger interface {
 	ZapCompatibleLogger

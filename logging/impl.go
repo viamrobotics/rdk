@@ -21,6 +21,7 @@ type (
 		level AtomicLevel
 
 		appenders []Appender
+		registry  *Registry
 		// Logging to a `testing.T` always includes a filename/line number. We use this helper to
 		// avoid that. This function is a no-op for non-test loggers. See `NewTestAppender`
 		// documentation for more details.
@@ -80,14 +81,16 @@ func (imp *impl) Sublogger(subname string) Logger {
 		newName,
 		NewAtomicLevelAt(imp.level.Get()),
 		imp.appenders,
+		imp.registry,
 		imp.testHelper,
 	}
 
-	RegisterLogger(newName, sublogger)
-	if err := UpdateLoggerLevelWithCfg(newName); err != nil {
-		sublogger.Error(err)
-	}
-	return sublogger
+	// If there are multiple callers racing to create the same logger name (e.g: `rdk.networking`),
+	// all callers will create a `Sublogger`, but only one will "win" the race. All "losers" will
+	// get the same instance that's guaranteed to be in the registry.
+	//
+	// `getOrRegister` will also set the appropriate log level based on the config.
+	return imp.registry.getOrRegister(newName, sublogger)
 }
 
 func (imp *impl) Named(name string) *zap.SugaredLogger {

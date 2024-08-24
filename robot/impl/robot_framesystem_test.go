@@ -30,7 +30,7 @@ import (
 func TestFrameSystemConfigWithRemote(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 	// make the remote robots
-	remoteConfig, err := config.Read(context.Background(), rutils.ResolveFile("robot/impl/data/fake.json"), logger.Sublogger("remote"))
+	remoteConfig, err := config.Read(context.Background(), rutils.ResolveFile("robot/impl/data/fake.json"), logger.RootSublogger("remote"))
 	test.That(t, err, test.ShouldBeNil)
 	ctx := context.Background()
 	remoteRobot := setupLocalRobot(t, ctx, remoteConfig, logger)

@@ -72,18 +72,11 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 		return dumpResourceRegistrations(argsParsed.DumpResourcesPath)
 	}
 
-	// Replace logger with logger based on flags.
-	logger := logging.NewLogger("")
-	logging.ReplaceGlobal(logger)
-	logger = logger.Sublogger("rdk")
+	// Replace rootLogger with rootLogger based on flags.
+	rootLogger := logging.NewLogger("rdk")
+	logging.ReplaceGlobal(rootLogger)
 
-	// create logging logger here for access later
-	logger.Sublogger("logging")
-
-	// create networking logger here for access later
-	logger.Sublogger("networking")
-
-	config.InitLoggingSettings(logger, argsParsed.Debug)
+	config.InitLoggingSettings(rootLogger, argsParsed.Debug)
 
 	// Always log the version, return early if the '-version' flag was provided
 	// fmt.Println would be better but fails linting. Good enough.
@@ -95,16 +88,16 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 		versionFields = append(versionFields, "git_rev", config.GitRevision)
 	}
 	if len(versionFields) != 0 {
-		logger.Infow("Viam RDK", versionFields...)
+		rootLogger.Infow("Viam RDK", versionFields...)
 	} else {
-		logger.Info("Viam RDK built from source; version unknown")
+		rootLogger.Info("Viam RDK built from source; version unknown")
 	}
 	if argsParsed.Version {
 		return
 	}
 
 	if argsParsed.ConfigFile == "" {
-		logger.Error("please specify a config file through the -config parameter.")
+		rootLogger.Error("please specify a config file through the -config parameter.")
 		return
 	}
 
@@ -122,7 +115,7 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 
 	// Read the config from disk and use it to initialize the remote logger.
 	initialReadCtx, cancel := context.WithTimeout(ctx, time.Second*5)
-	cfgFromDisk, err := config.ReadLocalConfig(initialReadCtx, argsParsed.ConfigFile, logger.Sublogger("config"))
+	cfgFromDisk, err := config.ReadLocalConfig(initialReadCtx, argsParsed.ConfigFile, rootLogger.Sublogger("config"))
 	if err != nil {
 		cancel()
 		return err
@@ -153,18 +146,18 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 		}
 		defer netAppender.Close()
 
-		logger.AddAppender(netAppender)
+		rootLogger.AddAppender(netAppender)
 	}
 
 	server := robotServer{
-		logger: logger,
+		logger: rootLogger,
 		args:   argsParsed,
 	}
 
 	// Run the server with remote logging enabled.
 	err = server.runServer(ctx)
 	if err != nil {
-		logger.Error("Fatal error running server, exiting now: ", err)
+		rootLogger.Error("Fatal error running server, exiting now: ", err)
 	}
 
 	return err
@@ -216,7 +209,7 @@ func (s *robotServer) createWebOptions(cfg *config.Config) (weboptions.Options, 
 	return options, nil
 }
 
-func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err error) {
+func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config, rootLogger logging.RootLogger) (err error) {
 	ctx, cancel := context.WithCancel(ctx)
 
 	hungShutdownDeadline := 90 * time.Second
@@ -365,7 +358,7 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 	}()
 
 	// watch for and deliver changes to the robot
-	watcher, err := config.NewWatcher(ctx, cfg, logging.GetOrNewLogger("rdk.config"))
+	watcher, err := config.NewWatcher(ctx, cfg, rootLogger.GetRegistry(), rootLogger.Sublogger("config"))
 	if err != nil {
 		cancel()
 		return err

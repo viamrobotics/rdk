@@ -18,6 +18,7 @@ import (
 	"github.com/golang/geo/r3"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.uber.org/zap"
+
 	// registers all components.
 	commonpb "go.viam.com/api/common/v1"
 	armpb "go.viam.com/api/component/arm/v1"
@@ -113,13 +114,18 @@ func TestConfigRemote(t *testing.T) {
 
 	ctx := context.Background()
 
-	r := setupLocalRobot(t, ctx, cfg, logger)
+	r := setupLocalRobot(t, ctx, cfg, logger.Sublogger("main_robot"))
 
 	options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
 	err = r.StartWeb(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
 
-	o1 := &spatialmath.R4AA{math.Pi / 2., 0, 0, 1}
+	o1 := &spatialmath.R4AA{
+		Theta: math.Pi / 2.,
+		RX:    0,
+		RY:    0,
+		RZ:    1,
+	}
 	o1Cfg, err := spatialmath.NewOrientationConfig(o1)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -170,7 +176,7 @@ func TestConfigRemote(t *testing.T) {
 	}
 
 	ctx2 := context.Background()
-	r2 := setupLocalRobot(t, ctx2, remoteConfig, logger)
+	r2 := setupLocalRobot(t, ctx2, remoteConfig, logger.Sublogger("remote_robot"))
 
 	expected := []resource.Name{
 		motion.Named(resource.DefaultServiceName),

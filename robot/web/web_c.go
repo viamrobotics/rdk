@@ -149,7 +149,7 @@ func (svc *webService) addNewStreams(ctx context.Context) error {
 	return nil
 }
 
-func (svc *webService) makeStreamServer(ctx context.Context) (*StreamServer, error) {
+func (svc *webService) makeStreamServer(ctx context.Context, logger logging.Logger) (*StreamServer, error) {
 	svc.refreshVideoSources()
 	svc.refreshAudioSources()
 	var streams []gostream.Stream
@@ -334,9 +334,9 @@ func (svc *webService) closeStreamServer() {
 	}
 }
 
-func (svc *webService) initStreamServer(ctx context.Context, options *weboptions.Options) error {
+func (svc *webService) initStreamServer(ctx context.Context, options *weboptions.Options, logger logging.Logger) error {
 	var err error
-	svc.streamServer, err = svc.makeStreamServer(ctx)
+	svc.streamServer, err = svc.makeStreamServer(ctx, logger)
 	if err != nil {
 		return err
 	}

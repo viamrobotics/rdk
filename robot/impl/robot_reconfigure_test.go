@@ -23,6 +23,7 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
+
 	// TODO(RSDK-7884): change everything that depends on this import to a mock.
 	_ "go.viam.com/rdk/services/datamanager/builtin"
 	// TODO(RSDK-7884): change everything that depends on this import to a mock.
@@ -64,7 +65,7 @@ func processConfig(tb testing.TB, conf *config.Config) *config.Config {
 	tb.Helper()
 
 	logger := logging.NewTestLogger(tb)
-	test.That(tb, conf.ProcessLocal(logger), test.ShouldBeNil)
+	test.That(tb, conf.ProcessLocal(logger.GetRegistry(), logger), test.ShouldBeNil)
 	return conf
 }
 
