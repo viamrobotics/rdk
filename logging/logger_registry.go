@@ -41,10 +41,8 @@ func (lr *Registry) loggerNamed(name string) (logger Logger, ok bool) {
 	return
 }
 
+// updateLoggerLevelWithCfg must be called with a read or write lock on `lr.mu`.
 func (lr *Registry) updateLoggerLevelWithCfg(name string) error {
-	lr.mu.RLock()
-	defer lr.mu.RUnlock()
-
 	for _, lpc := range lr.logConfig {
 		r, err := regexp.Compile(buildRegexFromPattern(lpc.Pattern))
 		if err != nil {
@@ -122,7 +120,7 @@ func (lr *Registry) UpdateConfig(logConfig []LoggerPatternConfig, errorLogger Lo
 func (lr *Registry) getRegisteredLoggerNames() []string {
 	lr.mu.RLock()
 	defer lr.mu.RUnlock()
-	registeredNames := make([]string, 0, len(globalLoggerRegistry.loggers))
+	registeredNames := make([]string, 0, len(lr.loggers))
 	for name := range lr.loggers {
 		registeredNames = append(registeredNames, name)
 	}
