@@ -502,6 +502,12 @@ func (pi *piPigpio) pwmBcom(bcom int) (float64, error) {
 func (pi *piPigpio) SetPWMBcom(bcom int, dutyCyclePct float64) error {
 	pi.mu.Lock()
 	defer pi.mu.Unlock()
+
+	dutyCyclePct, err := board.ValidatePWMDutyCycle(dutyCyclePct)
+	if err != nil {
+		return err
+	}
+
 	dutyCycle := rdkutils.ScaleByPct(255, dutyCyclePct)
 	pi.duty = int(C.gpioPWM(C.uint(bcom), C.uint(dutyCycle)))
 	if pi.duty != 0 {

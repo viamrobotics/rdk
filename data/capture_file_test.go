@@ -1,4 +1,4 @@
-package datacapture
+package data
 
 import (
 	"testing"
@@ -67,13 +67,17 @@ func TestBuildCaptureMetadata(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			actualMetadata, err := BuildCaptureMetadata(
-				resource.APINamespaceRDK.WithComponentType(tc.componentType),
-				tc.componentName, tc.method, tc.additionalParams, tc.tags)
-			test.That(t, err, test.ShouldEqual, nil)
-
 			methodParams, err := protoutils.ConvertStringMapToAnyPBMap(tc.additionalParams)
 			test.That(t, err, test.ShouldEqual, nil)
+
+			actualMetadata := BuildCaptureMetadata(
+				resource.APINamespaceRDK.WithComponentType(tc.componentType),
+				tc.componentName,
+				tc.method,
+				tc.additionalParams,
+				methodParams,
+				tc.tags,
+			)
 
 			expectedMetadata := v1.DataCaptureMetadata{
 				ComponentType:    resource.APINamespaceRDK.WithComponentType(tc.componentType).String(),
@@ -96,7 +100,7 @@ func TestReadCorruptedFile(t *testing.T) {
 	md := &v1.DataCaptureMetadata{
 		Type: v1.DataType_DATA_TYPE_TABULAR_SENSOR,
 	}
-	f, err := NewFile(dir, md)
+	f, err := NewCaptureFile(dir, md)
 	test.That(t, err, test.ShouldBeNil)
 	numReadings := 100
 	for i := 0; i < numReadings; i++ {
@@ -111,7 +115,7 @@ func TestReadCorruptedFile(t *testing.T) {
 	test.That(t, f.writer.Flush(), test.ShouldBeNil)
 
 	// Should still be able to successfully read all the successfully written data.
-	sd, err := SensorDataFromFilePath(f.GetPath())
+	sd, err := SensorDataFromCaptureFilePath(f.GetPath())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(sd), test.ShouldEqual, numReadings)
 }

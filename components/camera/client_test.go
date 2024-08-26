@@ -186,10 +186,6 @@ func TestClient(t *testing.T) {
 		_, got := pcB.At(5, 5, 5)
 		test.That(t, got, test.ShouldBeTrue)
 
-		projB, err := camera1Client.Projector(context.Background())
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, projB, test.ShouldNotBeNil)
-
 		propsB, err := camera1Client.Properties(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, propsB.SupportsPCD, test.ShouldBeTrue)
@@ -253,10 +249,6 @@ func TestClient(t *testing.T) {
 		_, err = client2.NextPointCloud(context.Background())
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, errGeneratePointCloudFailed.Error())
-
-		_, err = client2.Projector(context.Background())
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, errCameraProjectorFailed.Error())
 
 		_, err = client2.Properties(context.Background())
 		test.That(t, err, test.ShouldNotBeNil)
