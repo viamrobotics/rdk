@@ -20,14 +20,6 @@ default: build lint server
 setup:
 	bash etc/setup.sh
 
-build: build-web build-go
-
-build-go:
-	go build ./...
-
-GOOS ?= $(shell go env GOOS)
-GOARCH ?= $(shell go env GOARCH)
-
 cli/modulegen/dist/__main__:
 	pip install -r cli/modulegen/requirements.txt
 	cd cli/modulegen/ && \
@@ -41,6 +33,17 @@ bin/$(GOOS)-$(GOARCH)/viam-cli: cli/modulegen/dist/__main__
 
 .PHONY: cli
 cli: bin/$(GOOS)-$(GOARCH)/viam-cli
+
+build: build-web build-go
+
+# CR erodkin: testing this dependency to make sure it fixes tests, but we should think long
+# and hard before making this a dependency of the build in general. Maybe we put in a dummy
+# file just to satisy, and have the `cli` make always overwrite it?
+build-go: cli/modulegen/dist/__main__
+	go build ./...
+
+GOOS ?= $(shell go env GOOS)
+GOARCH ?= $(shell go env GOARCH)
 
 .PHONY: cli-ci
 cli-ci: bin/$(GOOS)-$(GOARCH)/viam-cli
