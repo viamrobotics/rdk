@@ -5,6 +5,7 @@ import (
 	"image"
 	"image/color"
 	"sync"
+	"sync/atomic"
 	"testing"
 
 	"github.com/pion/mediadevices/pkg/prop"
@@ -16,34 +17,27 @@ import (
 // WrappedImage wraps an image.Image and includes a bool flag to track release status.
 type WrappedImage struct {
 	Image    image.Image
-	released bool
-	mu       sync.Mutex
+	released atomic.Bool
 	t        *testing.T
 }
 
 // Implement the image.Image interface for WrappedImage.
 func (wi *WrappedImage) ColorModel() color.Model {
-	wi.mu.Lock()
-	defer wi.mu.Unlock()
-	if wi.released {
+	if wi.released.Load() {
 		wi.t.Fatalf("ColorModel method accessed after release")
 	}
 	return wi.Image.ColorModel()
 }
 
 func (wi *WrappedImage) Bounds() image.Rectangle {
-	wi.mu.Lock()
-	defer wi.mu.Unlock()
-	if wi.released {
+	if wi.released.Load() {
 		wi.t.Fatalf("Bounds method accessed after release")
 	}
 	return wi.Image.Bounds()
 }
 
 func (wi *WrappedImage) At(x, y int) color.Color {
-	wi.mu.Lock()
-	defer wi.mu.Unlock()
-	if wi.released {
+	if wi.released.Load() {
 		wi.t.Fatalf("At method accessed after release")
 	}
 	return wi.Image.At(x, y)
@@ -65,9 +59,7 @@ func (is *imageSource) Read(_ context.Context) (image.Image, func(), error) {
 	}
 	wrappedImg := is.WrappedImages[is.idx]
 	release := func() {
-		wrappedImg.mu.Lock()
-		wrappedImg.released = true
-		wrappedImg.mu.Unlock()
+		wrappedImg.released.Store(true)
 	}
 
 	is.idx++
@@ -119,7 +111,7 @@ func TestReadMedia(t *testing.T) {
 		// Call release and check if it sets the flag
 		release()
 		w := actual.(*WrappedImage)
-		test.That(t, w.released, test.ShouldBeTrue)
+		test.That(t, w.released.Load(), test.ShouldBeTrue)
 	}
 }
 
@@ -136,7 +128,7 @@ func TestImageComparison(t *testing.T) {
 	// Call release and check if it sets the flag
 	release()
 	w := red.(*WrappedImage)
-	test.That(t, w.released, test.ShouldBeTrue)
+	test.That(t, w.released.Load(), test.ShouldBeTrue)
 }
 
 // TestMultipleConsumers tests concurrent consumption of images from imageSource via stream.Next().
@@ -195,9 +187,7 @@ func TestStreamMultipleConsumers(t *testing.T) {
 
 	// Verify that all images have been released
 	for i, wrappedImg := range imgSource.WrappedImages {
-		wrappedImg.mu.Lock()
 		t.Logf("Image at index %d.", i)
-		test.That(t, wrappedImg.released, test.ShouldBeTrue)
-		wrappedImg.mu.Unlock()
+		test.That(t, wrappedImg.released.Load(), test.ShouldBeTrue)
 	}
 }
