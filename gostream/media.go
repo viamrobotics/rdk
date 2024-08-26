@@ -220,18 +220,6 @@ func (pc *producerConsumer[T, U]) start() {
 
 	pc.activeBackgroundWorkers.Add(1)
 
-	// cleanup is called to clean up resources, managed go workers, and context
-	// after the goroutine is finished.
-	cleanup := func() {
-		// Since we likely still have an unreleased current, we should call release one last time.
-		if pc.current != nil && pc.current.Release != nil {
-			pc.current.Release()
-		}
-
-		pc.activeBackgroundWorkers.Done()
-		pc.cancel()
-	}
-
 	utils.ManagedGo(func() {
 		defer span.End()
 
@@ -240,7 +228,7 @@ func (pc *producerConsumer[T, U]) start() {
 			pc.cancelCtxMu.RLock()
 			if pc.cancelCtx.Err() != nil {
 				pc.cancelCtxMu.RUnlock()
-				return
+				break
 			}
 			pc.cancelCtxMu.RUnlock()
 
@@ -274,13 +262,13 @@ func (pc *producerConsumer[T, U]) start() {
 			}
 			requests, cont := waitForNext()
 			if !cont {
-				return
+				break
 			}
 
 			pc.cancelCtxMu.RLock()
 			if err := pc.cancelCtx.Err(); err != nil {
 				pc.cancelCtxMu.RUnlock()
-				return
+				break
 			}
 			pc.cancelCtxMu.RUnlock()
 
@@ -330,7 +318,11 @@ func (pc *producerConsumer[T, U]) start() {
 				}
 			}()
 		}
-	}, func() { defer cleanup() })
+		// After loop breaks, we likely still have an unreleased current media.
+		if pc.current != nil && pc.current.Release != nil {
+			pc.current.Release()
+		}
+	}, func() { defer pc.activeBackgroundWorkers.Done(); pc.cancel() })
 }
 
 type mediaRefReleasePairWithError[T any] struct {
