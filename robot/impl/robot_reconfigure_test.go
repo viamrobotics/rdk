@@ -3800,7 +3800,7 @@ func TestResourceConstructTimeout(t *testing.T) {
 func TestResourceConstructCtxCancel(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 
-	contructCount := 0
+	constructCount := 0
 	var wg sync.WaitGroup
 
 	mockAPI := resource.APINamespaceRDK.WithComponentType("mock")
@@ -3819,7 +3819,7 @@ func TestResourceConstructCtxCancel(t *testing.T) {
 			conf resource.Config,
 			logger logging.Logger,
 		) (resource.Resource, error) {
-			contructCount++
+			constructCount++
 			wg.Add(1)
 			defer wg.Done()
 			cFunc.c()
@@ -3852,27 +3852,93 @@ func TestResourceConstructCtxCancel(t *testing.T) {
 		},
 	}
 	t.Run("new", func(t *testing.T) {
-		contructCount = 0
+		constructCount = 0
 		ctxWithCancel, cancel := context.WithCancel(context.Background())
 		cFunc.c = cancel
-		r := setupLocalRobot(t, ctxWithCancel, cfg, logger)
-		test.That(t, r.Close(context.Background()), test.ShouldBeNil)
-
+		setupLocalRobot(t, ctxWithCancel, cfg, logger)
 		wg.Wait()
-		test.That(t, contructCount, test.ShouldEqual, 1)
+		test.That(t, constructCount, test.ShouldEqual, 1)
 	})
 	t.Run("reconfigure", func(t *testing.T) {
-		contructCount = 0
+		constructCount = 0
 		r := setupLocalRobot(t, context.Background(), &config.Config{}, logger)
-		test.That(t, contructCount, test.ShouldEqual, 0)
+		test.That(t, constructCount, test.ShouldEqual, 0)
 
 		ctxWithCancel, cancel := context.WithCancel(context.Background())
 		cFunc.c = cancel
 		r.Reconfigure(ctxWithCancel, cfg)
-		test.That(t, r.Close(context.Background()), test.ShouldBeNil)
-
 		wg.Wait()
-		test.That(t, contructCount, test.ShouldEqual, 1)
+		test.That(t, constructCount, test.ShouldEqual, 1)
+	})
+}
+
+// tests that on context done, the newly constructed resource gets closed.
+func TestResourceConstructCtxDone(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+
+	var (
+		wg           sync.WaitGroup
+		ctx          context.Context
+		cancelFunc   context.CancelFunc
+		shouldCancel bool
+
+		constructCount int
+	)
+
+	mockAPI := resource.APINamespaceRDK.WithComponentType("mock")
+	modelName1 := utils.RandomAlphaString(5)
+	model1 := resource.DefaultModelFamily.WithModel(modelName1)
+	mF := &mockFake{}
+	resource.RegisterComponent(mockAPI, model1, resource.Registration[resource.Resource, resource.NoNativeConfig]{
+		Constructor: func(
+			ctx context.Context,
+			deps resource.Dependencies,
+			conf resource.Config,
+			logger logging.Logger,
+		) (resource.Resource, error) {
+			wg.Add(1)
+			defer wg.Done()
+			constructCount++
+			if shouldCancel {
+				cancelFunc()
+				<-ctx.Done()
+			}
+			return mF, nil
+		},
+	})
+	defer func() {
+		resource.Deregister(mockAPI, model1)
+	}()
+
+	cfg := &config.Config{
+		Components: []resource.Config{
+			{
+				Name:  "one",
+				Model: model1,
+				API:   mockAPI,
+			},
+		},
+	}
+	t.Run("new and add normally", func(t *testing.T) {
+		constructCount = 0
+		mF.closeCount = 0
+		ctx, cancelFunc = context.WithCancel(context.Background())
+		setupLocalRobot(t, ctx, cfg, logger)
+		wg.Wait()
+
+		test.That(t, constructCount, test.ShouldEqual, 1)
+		test.That(t, mF.closeCount, test.ShouldEqual, 0)
+	})
+	t.Run("new but cancel the ctx during construction", func(t *testing.T) {
+		constructCount = 0
+		mF.closeCount = 0
+		shouldCancel = true
+		ctx, cancelFunc = context.WithCancel(context.Background())
+		setupLocalRobot(t, ctx, cfg, logger)
+		wg.Wait()
+
+		test.That(t, constructCount, test.ShouldEqual, 1)
+		test.That(t, mF.closeCount, test.ShouldEqual, 1)
 	})
 }
 
