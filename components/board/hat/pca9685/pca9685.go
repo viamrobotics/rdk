@@ -339,6 +339,11 @@ func (gp *gpioPin) SetPWM(ctx context.Context, dutyCyclePct float64, extra map[s
 	gp.pca.mu.RLock()
 	defer gp.pca.mu.RUnlock()
 
+	dutyCyclePct, err := board.ValidatePWMDutyCycle(dutyCyclePct)
+	if err != nil {
+		return err
+	}
+
 	dutyCycle := uint16(dutyCyclePct * float64(0xffff))
 
 	handle, err := gp.pca.openHandle()
@@ -407,6 +412,10 @@ func (gp *gpioPin) PWMFreq(ctx context.Context, extra map[string]interface{}) (u
 func (gp *gpioPin) SetPWMFreq(ctx context.Context, freqHz uint, extra map[string]interface{}) error {
 	gp.pca.mu.RLock()
 	defer gp.pca.mu.RUnlock()
+
+	if freqHz < 1 {
+		return errors.New("must set PWM frequency to a positive value")
+	}
 
 	return gp.pca.SetFrequency(ctx, float64(freqHz))
 }

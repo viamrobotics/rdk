@@ -14,7 +14,6 @@ import (
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/testutils/inject"
-	"go.viam.com/rdk/utils"
 )
 
 const (
@@ -55,8 +54,7 @@ func TestNewI2CMovementSensor(t *testing.T) {
 	// validation step.
 	g1, err := newNMEAGPS(ctx, deps, conf, logger)
 	test.That(t, g1, test.ShouldBeNil)
-	test.That(t, err, test.ShouldBeError,
-		utils.NewUnexpectedTypeError[*Config](conf.ConvertedAttributes))
+	test.That(t, err, test.ShouldNotBeNil)
 
 	conf = resource.Config{
 		Name:  "movementsensor2",

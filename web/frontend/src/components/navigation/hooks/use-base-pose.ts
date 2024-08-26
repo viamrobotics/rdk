@@ -1,5 +1,5 @@
 import type { ServiceError } from '@viamrobotics/sdk';
-import type { GeoPose } from '@viamrobotics/prime-blocks';
+import { GeoPose } from '@viamrobotics/prime-blocks';
 import { useNavClient } from './use-nav-client';
 import { writable, get } from 'svelte/store';
 import { setAsyncInterval } from '@/lib/schedule';
@@ -20,11 +20,7 @@ export const useBasePose = (name: string) => {
 
       const { latitude, longitude } = location;
 
-      const position = {
-        lat: latitude,
-        lng: longitude,
-        rotation: compassHeading,
-      };
+      const position = new GeoPose(longitude, latitude, compassHeading);
       const { lat, lng, rotation } = get(pose) ?? {};
 
       if (

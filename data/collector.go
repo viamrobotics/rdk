@@ -25,7 +25,6 @@ import (
 
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/services/datamanager/datacapture"
 )
 
 // The cutoff at which if interval < cutoff, a sleep based capture func is used instead of a ticker.
@@ -73,7 +72,7 @@ type collector struct {
 	captureFunc      CaptureFunc
 	closeStarted     atomic.Bool
 	closeFinished    bool
-	target           datacapture.BufferedWriter
+	target           CaptureBufferedWriter
 	lastLoggedErrors map[string]int64
 }
 
@@ -139,6 +138,10 @@ func (c *collector) Collect() {
 		defer c.logRoutine.Done()
 		c.logCaptureErrs()
 	})
+
+	// We must wait on `started` before returning. The sleep/ticker based captures rely on the clock
+	// advancing to do their first "tick". They must make an initial clock reading before unittests
+	// add an "interval". Lest the ticker never fires and a reading is never made.
 	<-started
 }
 

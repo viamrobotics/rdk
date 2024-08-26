@@ -19,8 +19,8 @@ import (
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
 
+	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/logging"
-	"go.viam.com/rdk/services/datamanager/datacapture"
 )
 
 var (
@@ -163,8 +163,8 @@ func (s *syncer) SyncFile(path string) {
 		return
 	}
 
-	if datacapture.IsDataCaptureFile(f) {
-		captureFile, err := datacapture.ReadFile(f)
+	if data.IsDataCaptureFile(f) {
+		captureFile, err := data.ReadCaptureFile(f)
 		if err != nil {
 			if err = f.Close(); err != nil {
 				s.syncErrs <- errors.Wrap(err, "error closing data capture file")
@@ -180,7 +180,7 @@ func (s *syncer) SyncFile(path string) {
 	}
 }
 
-func (s *syncer) syncDataCaptureFile(f *datacapture.File) {
+func (s *syncer) syncDataCaptureFile(f *data.CaptureFile) {
 	uploadErr := exponentialRetry(
 		s.cancelCtx,
 		func(ctx context.Context) error {

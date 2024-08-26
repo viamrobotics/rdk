@@ -266,8 +266,18 @@ func binaryDataToJSONLines(ctx context.Context, client datapb.DataServiceClient,
 		annotations = append(annotations, Annotation{AnnotationLabel: tag})
 	}
 	bboxAnnotations := convertBoundingBoxes(datum.GetMetadata().GetAnnotations().GetBboxes())
+
+	fileName := filepath.Join(dst, dataDir, filenameForDownload(datum.GetMetadata()))
+	ext := datum.GetMetadata().GetFileExt()
+	// If the file is gzipped, unzip.
+	if ext != gzFileExt && filepath.Ext(fileName) != ext {
+		// If the file name did not already include the extension (e.g. for data capture files), add it.
+		// Don't do this for files that we're unzipping.
+		fileName += ext
+	}
+
 	jsonl = ImageMetadata{
-		ImagePath:                 filepath.Join(dst, dataDir, filenameForDownload(datum.GetMetadata())),
+		ImagePath:                 fileName,
 		ClassificationAnnotations: annotations,
 		BBoxAnnotations:           bboxAnnotations,
 	}

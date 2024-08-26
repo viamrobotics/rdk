@@ -15,10 +15,10 @@ import (
 	v1 "go.viam.com/api/app/datasync/v1"
 	"go.viam.com/test"
 
+	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
-	"go.viam.com/rdk/services/datamanager/datacapture"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils/inject"
 )
@@ -264,7 +264,7 @@ func TestSwitchResource(t *testing.T) {
 	filePaths := getAllFilePaths(captureDir)
 	test.That(t, len(filePaths), test.ShouldEqual, 2)
 
-	initialData, err := datacapture.SensorDataFromFilePath(filePaths[0])
+	initialData, err := data.SensorDataFromCaptureFilePath(filePaths[0])
 	test.That(t, err, test.ShouldBeNil)
 	for _, d := range initialData {
 		// Each resource's mocked capture method outputs a different value.
@@ -278,7 +278,7 @@ func TestSwitchResource(t *testing.T) {
 	// Assert that the initial arm1 resource isn't capturing any more data.
 	test.That(t, len(initialData), test.ShouldEqual, len(dataBeforeSwitch))
 
-	newData, err := datacapture.SensorDataFromFilePath(filePaths[1])
+	newData, err := data.SensorDataFromCaptureFilePath(filePaths[1])
 	test.That(t, err, test.ShouldBeNil)
 	for _, d := range newData {
 		// Assert that we see the expected data captured by the updated arm1 resource.
@@ -318,12 +318,12 @@ func getSensorData(dir string) ([]*v1.SensorData, error) {
 	var sd []*v1.SensorData
 	filePaths := getAllFilePaths(dir)
 	for _, path := range filePaths {
-		d, err := datacapture.SensorDataFromFilePath(path)
+		d, err := data.SensorDataFromCaptureFilePath(path)
 		// It's possible a file was closed (and so its extension changed) in between the points where we gathered
 		// file names and here. So if the file does not exist, check if the extension has just been changed.
 		if errors.Is(err, os.ErrNotExist) {
-			path = strings.TrimSuffix(path, filepath.Ext(path)) + datacapture.FileExt
-			d, err = datacapture.SensorDataFromFilePath(path)
+			path = strings.TrimSuffix(path, filepath.Ext(path)) + data.CompletedCaptureFileExt
+			d, err = data.SensorDataFromCaptureFilePath(path)
 			if err != nil {
 				return nil, err
 			}

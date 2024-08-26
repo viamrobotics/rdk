@@ -2,16 +2,18 @@ package resource
 
 import (
 	"context"
+	"errors"
 	"sync"
 	"sync/atomic"
 	"time"
-
-	"github.com/pkg/errors"
 
 	"go.viam.com/rdk/logging"
 )
 
 //go:generate stringer -type NodeState -trimprefix NodeState
+//
+// The directive above configures `go generate ./...` to automatically generate a
+// `String` method for the NodeState type.
 
 // NodeState captures the configuration lifecycle state of a resource node.
 type NodeState uint8
@@ -26,12 +28,14 @@ const (
 	// NodeStateConfiguring denotes a resource is being configured.
 	NodeStateConfiguring
 
-	// NodeStateReady denotes a resource that has been initialized and is not being
-	// configured or removed. A resource in this state may be unhealthy.
+	// NodeStateReady denotes a resource that has been configured and is healthy.
 	NodeStateReady
 
 	// NodeStateRemoving denotes a resource is being removed from the resource graph.
 	NodeStateRemoving
+
+	// NodeStateUnhealthy denotes a resource is unhealthy.
+	NodeStateUnhealthy
 )
 
 // A GraphNode contains the current state of a resource.
@@ -276,8 +280,8 @@ func (w *GraphNode) MarkedForRemoval() bool {
 // The additional `args` should come in key/value pairs for structured logging.
 func (w *GraphNode) LogAndSetLastError(err error, args ...any) {
 	w.mu.Lock()
-	w.lastErr = err
-	// TODO(RSDK-7903): transition to an "unhealthy" state.
+	w.lastErr = errors.Join(w.lastErr, err)
+	w.transitionTo(NodeStateUnhealthy)
 	w.mu.Unlock()
 
 	if w.logger != nil {
@@ -299,7 +303,10 @@ func (w *GraphNode) Config() Config {
 func (w *GraphNode) NeedsReconfigure() bool {
 	w.mu.RLock()
 	defer w.mu.RUnlock()
-	return w.state == NodeStateConfiguring
+
+	// A resource can only become unhealthy during (re)configuration, so we can
+	// assume that an unhealthy node always need to be reconfigured.
+	return w.state == NodeStateConfiguring || w.state == NodeStateUnhealthy
 }
 
 // hasUnresolvedDependencies returns whether or not this node has any
@@ -471,7 +478,7 @@ func (w *GraphNode) canTransitionTo(state NodeState) bool {
 	case NodeStateConfiguring:
 		//nolint
 		switch state {
-		case NodeStateReady:
+		case NodeStateReady, NodeStateUnhealthy:
 			return true
 		}
 	case NodeStateReady:
@@ -481,6 +488,28 @@ func (w *GraphNode) canTransitionTo(state NodeState) bool {
 			return true
 		}
 	case NodeStateRemoving:
+	case NodeStateUnhealthy:
+		//nolint
+		switch state {
+		case NodeStateRemoving, NodeStateUnhealthy:
+			return true
+		case NodeStateReady:
+			// TODO(NEEDS TICKET): ideally, a node should "recover" by the following transition
+			// steps: "unhealthy" -> "configuring" -> "ready".
+			//
+			// However, once a node becomes "unhealthy" it is filtered out from most
+			// reconfiguration operations, and is not available to be transitioned to
+			// "configuring" when we want it to be.
+			//
+			// We eventually want to change the reconfiguration system to show unhealthy
+			// nodes instead of filtering them out at each step of the process.
+			//
+			// In the meantime, we allow nodes to "recover" by transitioning directly
+			// from "unhealthy" -> "ready".
+			//
+			// See this discussion for more details: https://github.com/viamrobotics/rdk/pull/4257#discussion_r1712173743
+			return true
+		}
 	}
 	return false
 }
@@ -510,6 +539,15 @@ func (w *GraphNode) ResourceStatus() Status {
 	return w.resourceStatus()
 }
 
+func (w *GraphNode) getLoggerOrGlobal() logging.Logger {
+	if w.logger == nil {
+		// This node has not yet been configured with a logger - use the global logger as
+		// a fall-back.
+		return logging.Global()
+	}
+	return w.logger
+}
+
 func (w *GraphNode) resourceStatus() Status {
 	var resName Name
 	if w.current == nil {
@@ -518,11 +556,25 @@ func (w *GraphNode) resourceStatus() Status {
 		resName = w.current.Name()
 	}
 
+	err := w.lastErr
+	logger := w.getLoggerOrGlobal()
+
+	// check invariants between state and error
+	switch {
+	case w.state == NodeStateUnhealthy && w.lastErr == nil:
+		logger.Warnw("an unhealthy node doesn't have an error", "resource", resName)
+	case w.state == NodeStateReady && w.lastErr != nil:
+		logger.Warnw("a ready node still has an error", "resource", resName, "error", err)
+		// do not return leftover error in status if the node is ready
+		err = nil
+	}
+
 	return Status{
 		Name:        resName,
 		State:       w.state,
 		LastUpdated: w.transitionedAt,
 		Revision:    w.revision,
+		Error:       err,
 	}
 }
 
@@ -532,4 +584,8 @@ type Status struct {
 	State       NodeState
 	LastUpdated time.Time
 	Revision    string
+
+	// Error contains any errors on the resource if it currently unhealthy.
+	// This field will be nil if the resource is not in the [NodeStateUnhealthy] state.
+	Error error
 }

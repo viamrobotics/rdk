@@ -1,4 +1,4 @@
-package datacapture
+package data
 
 import (
 	"os"
@@ -74,7 +74,7 @@ func TestCaptureQueue(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			tmpDir := t.TempDir()
 			md := &v1.DataCaptureMetadata{Type: tc.dataType}
-			sut := NewBuffer(tmpDir, md, int64(maxFileSize))
+			sut := NewCaptureBuffer(tmpDir, md, int64(maxFileSize))
 			var pushValue *v1.SensorData
 			if tc.dataType == v1.DataType_DATA_TYPE_BINARY_SENSOR {
 				pushValue = binarySensorData
@@ -100,7 +100,7 @@ func TestCaptureQueue(t *testing.T) {
 			// Validate correct values were written.
 			var actCaptures []*v1.SensorData
 			for i := 0; i < len(completeFiles); i++ {
-				c, err := SensorDataFromFilePath(completeFiles[i])
+				c, err := SensorDataFromCaptureFilePath(completeFiles[i])
 				test.That(t, err, test.ShouldBeNil)
 				actCaptures = append(actCaptures, c...)
 			}
@@ -128,10 +128,10 @@ func getCaptureFiles(dir string) (dcFiles, progFiles []string) {
 		if info.IsDir() {
 			return nil
 		}
-		if filepath.Ext(path) == FileExt {
+		if filepath.Ext(path) == CompletedCaptureFileExt {
 			dcFiles = append(dcFiles, path)
 		}
-		if filepath.Ext(path) == InProgressFileExt {
+		if filepath.Ext(path) == InProgressCaptureFileExt {
 			progFiles = append(progFiles, path)
 		}
 		return nil
