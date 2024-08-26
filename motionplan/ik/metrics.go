@@ -23,7 +23,8 @@ type Segment struct {
 }
 
 func (s *Segment) String() string {
-	return fmt.Sprintf("Segment: StartPosition: %v,\n\t EndPosition: %v,\n\t StartConfiguration:%v,\n\t EndConfiguration:%v,\n\t Frame: %v",
+	return fmt.Sprintf(
+		"Segment: \n\t StartPosition: %v,\n\t EndPosition: %v,\n\t StartConfiguration:%v,\n\t EndConfiguration:%v,\n\t Frame: %v",
 		spatial.PoseToProtobuf(s.StartPosition),
 		spatial.PoseToProtobuf(s.EndPosition),
 		s.StartConfiguration,
@@ -75,7 +76,7 @@ func CombineMetrics(metrics ...StateMetric) StateMetric {
 
 // OrientDist returns the arclength between two orientations in degrees.
 func OrientDist(o1, o2 spatial.Orientation) float64 {
-	return utils.RadToDeg(spatial.QuatToR4AA(spatial.OrientationBetween(o1, o2).Quaternion()).Theta)
+	return math.Abs(utils.RadToDeg(spatial.QuatToR4AA(spatial.OrientationBetween(o1, o2).Quaternion()).Theta))
 }
 
 // OrientDistToRegion will return a function which will tell you how far the unit sphere component of an orientation

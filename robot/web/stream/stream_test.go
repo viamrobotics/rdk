@@ -14,7 +14,7 @@ import (
 	"github.com/pion/mediadevices/pkg/prop"
 	"github.com/pion/mediadevices/pkg/wave"
 	"github.com/pion/rtp"
-	"github.com/pion/webrtc/v3"
+	"github.com/viamrobotics/webrtc/v3"
 	streampb "go.viam.com/api/stream/v1"
 	"go.viam.com/test"
 	"go.viam.com/utils/rpc"

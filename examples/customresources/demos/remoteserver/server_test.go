@@ -83,7 +83,7 @@ func TestGizmo(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		processLogger, logObserver := logging.NewObservedTestLogger(t)
-		pmgr := pexec.NewProcessManager(processLogger.Sublogger("remoteA").AsZap())
+		pmgr := pexec.NewProcessManager(processLogger.Sublogger("remoteA"))
 		pCfg := pexec.ProcessConfig{
 			ID:      "Intermediate",
 			Name:    "go",

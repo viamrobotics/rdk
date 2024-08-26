@@ -256,7 +256,7 @@ func findAndMakeVideoSource(
 		return cam, label, nil
 	}
 
-	source, err := gostream.GetAnyVideoSource(constraints, logger.AsZap())
+	source, err := gostream.GetAnyVideoSource(constraints, logger)
 	if err != nil {
 		return nil, "", errors.Wrap(err, "found no webcams")
 	}
@@ -287,9 +287,10 @@ func NewWebcam(
 	logger logging.Logger,
 ) (camera.Camera, error) {
 	cancelCtx, cancel := context.WithCancel(context.Background())
+
 	cam := &monitoredWebcam{
 		Named:          conf.ResourceName().AsNamed(),
-		logger:         logging.FromZapCompatible(logger.With("camera_name", conf.ResourceName().ShortName())),
+		logger:         logger.WithFields("camera_name", conf.ResourceName().ShortName()),
 		originalLogger: logger,
 		cancelCtx:      cancelCtx,
 		cancel:         cancel,
@@ -429,7 +430,7 @@ func getNamedVideoSource(
 			path = resolvedPath
 		}
 	}
-	return gostream.GetNamedVideoSource(filepath.Base(path), constraints, logger.AsZap())
+	return gostream.GetNamedVideoSource(filepath.Base(path), constraints, logger)
 }
 
 // monitoredWebcam tries to ensure its underlying camera stays connected.
@@ -518,7 +519,8 @@ func (c *monitoredWebcam) reconnectCamera(conf *WebcamConfig) error {
 	if c.targetPath == "" {
 		c.targetPath = foundLabel
 	}
-	c.logger = logging.FromZapCompatible(c.originalLogger.With("camera_label", c.targetPath))
+
+	c.logger = c.originalLogger.WithFields("camera_label", c.targetPath)
 
 	return nil
 }
@@ -579,15 +581,6 @@ func (c *monitoredWebcam) Monitor() {
 			}
 		}
 	}, c.activeBackgroundWorkers.Done)
-}
-
-func (c *monitoredWebcam) Projector(ctx context.Context) (transform.Projector, error) {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-	if err := c.ensureActive(); err != nil {
-		return nil, err
-	}
-	return c.exposedProjector.Projector(ctx)
 }
 
 func (c *monitoredWebcam) Images(ctx context.Context) ([]camera.NamedImage, resource.ResponseMetadata, error) {

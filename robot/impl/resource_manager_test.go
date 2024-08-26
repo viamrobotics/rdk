@@ -14,6 +14,7 @@ import (
 	"github.com/jhump/protoreflect/desc"
 	"github.com/jhump/protoreflect/grpcreflect"
 	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.uber.org/zap/zapcore"
 	armpb "go.viam.com/api/component/arm/v1"
 	basepb "go.viam.com/api/component/base/v1"
 	boardpb "go.viam.com/api/component/board/v1"
@@ -1583,6 +1584,188 @@ func TestReconfigure(t *testing.T) {
 	}()
 }
 
+func TestRemoteConnClosedOnReconfigure(t *testing.T) {
+	logger, observer := logging.NewObservedTestLogger(t)
+
+	ctx := context.Background()
+
+	fakeMotor := resource.Config{
+		Name:                "motor",
+		Model:               resource.DefaultModelFamily.WithModel("fake"),
+		API:                 motor.API,
+		ConvertedAttributes: &fakemotor.Config{},
+	}
+
+	fakeArm := resource.Config{
+		Name:                "arm",
+		Model:               resource.DefaultModelFamily.WithModel("fake"),
+		API:                 arm.API,
+		ConvertedAttributes: &fakearm.Config{},
+	}
+
+	remoteCfg1 := &config.Config{
+		Components: []resource.Config{fakeMotor},
+	}
+
+	remoteCfg2 := &config.Config{
+		Components: []resource.Config{fakeArm},
+	}
+
+	t.Run("remotes with same exact resources", func(t *testing.T) {
+		remote1 := setupLocalRobot(t, ctx, remoteCfg1, logger.Sublogger("remote1"))
+		remote2 := setupLocalRobot(t, ctx, remoteCfg1, logger.Sublogger("remote2"))
+
+		options1, _, addr1 := robottestutils.CreateBaseOptionsAndListener(t)
+		err := remote1.StartWeb(ctx, options1)
+		test.That(t, err, test.ShouldBeNil)
+
+		options2, _, addr2 := robottestutils.CreateBaseOptionsAndListener(t)
+		err = remote2.StartWeb(ctx, options2)
+		test.That(t, err, test.ShouldBeNil)
+
+		// Set up a local main robot which is connected to remote1
+		remoteConf := config.Remote{
+			Name:    "remote",
+			Address: addr1,
+		}
+
+		mainRobotCfg := &config.Config{
+			Remotes: []config.Remote{remoteConf},
+		}
+
+		// Make a copy of the main robot config as reconfigure will directly modify it
+		mainCfgCopy := *mainRobotCfg
+		mainRobot := setupLocalRobot(t, ctx, mainRobotCfg, logger.Sublogger("main"))
+
+		// Grab motor of remote1 to check that it won't work after switching remotes
+		motor1, err := motor.FromRobot(mainRobot, "motor")
+		test.That(t, err, test.ShouldBeNil)
+
+		moving, speed, err := motor1.IsPowered(ctx, nil)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, moving, test.ShouldBeFalse)
+		test.That(t, speed, test.ShouldEqual, 0.0)
+
+		// Change address in config copy to reference address of the remote2, make a copy of the config, and reconfigure
+		mainCfgCopy.Remotes[0].Address = addr2
+		mainCfgCopy2 := mainCfgCopy
+		mainRobot.Reconfigure(ctx, &mainCfgCopy)
+
+		// Verify that motor of remote1 no longer works
+		_, _, err = motor1.IsPowered(ctx, nil)
+		test.That(t, err, test.ShouldNotBeNil)
+
+		// Grab motor of remote2 to check that it won't work after switching remotes
+		motor2, err := motor.FromRobot(mainRobot, "motor")
+		test.That(t, err, test.ShouldBeNil)
+
+		moving, speed, _ = motor2.IsPowered(ctx, nil)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, moving, test.ShouldBeFalse)
+		test.That(t, speed, test.ShouldEqual, 0.0)
+
+		// Change address back to remote1, and reconfigure
+		mainCfgCopy2.Remotes[0].Address = addr1
+		mainRobot.Reconfigure(ctx, &mainCfgCopy2)
+
+		// Close second remote robot
+		remote2.Close(ctx)
+
+		// Verify that motor of remote2 no longer works
+		_, _, err = motor2.IsPowered(ctx, nil)
+		test.That(t, err, test.ShouldNotBeNil)
+
+		// Check that we were able to grab the motor from remote1 through the main robot and successfully call IsPowered()
+		motor1, err = motor.FromRobot(mainRobot, "motor")
+		test.That(t, err, test.ShouldBeNil)
+
+		moving, speed, err = motor1.IsPowered(ctx, nil)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, moving, test.ShouldBeFalse)
+		test.That(t, speed, test.ShouldEqual, 0.0)
+
+		// Also check that there are no error logs associated with the main robot trying to reconnect to remote2
+		// Leaked remote connections will cause the test to fail due to goroutine leaks
+		test.That(t, observer.FilterLevelExact(zapcore.ErrorLevel).Len(), test.ShouldEqual, 0)
+	})
+
+	t.Run("remotes with different resources", func(t *testing.T) {
+		remote1 := setupLocalRobot(t, ctx, remoteCfg2, logger.Sublogger("remote1"))
+		remote2 := setupLocalRobot(t, ctx, remoteCfg1, logger.Sublogger("remote2"))
+
+		options1, _, addr1 := robottestutils.CreateBaseOptionsAndListener(t)
+		err := remote1.StartWeb(ctx, options1)
+		test.That(t, err, test.ShouldBeNil)
+
+		options2, _, addr2 := robottestutils.CreateBaseOptionsAndListener(t)
+		err = remote2.StartWeb(ctx, options2)
+		test.That(t, err, test.ShouldBeNil)
+
+		// Set up a local main robot which is connected to remote1
+		remoteConf := config.Remote{
+			Name:    "remote",
+			Address: addr1,
+		}
+
+		mainRobotCfg := &config.Config{
+			Remotes: []config.Remote{remoteConf},
+		}
+
+		// Make a copy of the main robot config as reconfigure will directly modify it
+		mainCfgCopy := *mainRobotCfg
+		mainRobot := setupLocalRobot(t, ctx, mainRobotCfg, logger.Sublogger("main"))
+
+		// Grab arm of remote1 to check that it won't work after switching remotes
+		arm1, err := arm.FromRobot(mainRobot, "arm")
+		test.That(t, err, test.ShouldBeNil)
+
+		moving, err := arm1.IsMoving(ctx)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, moving, test.ShouldBeFalse)
+
+		// Change address in config copy to reference address of the remote2, make a copy of the config, and reconfigure
+		mainCfgCopy.Remotes[0].Address = addr2
+		mainCfgCopy2 := mainCfgCopy
+		mainRobot.Reconfigure(ctx, &mainCfgCopy)
+
+		// Verify that arm of remote1 no longer works
+		_, err = arm1.IsMoving(ctx)
+		test.That(t, err, test.ShouldNotBeNil)
+
+		// Grab motor of remote2 to check that it won't work after switching remotes
+		motor1, err := motor.FromRobot(mainRobot, "motor")
+		test.That(t, err, test.ShouldBeNil)
+
+		moving, speed, _ := motor1.IsPowered(ctx, nil)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, moving, test.ShouldBeFalse)
+		test.That(t, speed, test.ShouldEqual, 0.0)
+
+		// Change address back to remote1, and reconfigure
+		mainCfgCopy2.Remotes[0].Address = addr1
+		mainRobot.Reconfigure(ctx, &mainCfgCopy2)
+
+		// Close second remote robot
+		remote2.Close(ctx)
+
+		// Verify that motor of remote2 no longer works
+		_, _, err = motor1.IsPowered(ctx, nil)
+		test.That(t, err, test.ShouldNotBeNil)
+
+		// Check that we were able to grab the arm from remote1 through the main robot and successfully call IsMoving()
+		arm1, err = arm.FromRobot(mainRobot, "arm")
+		test.That(t, err, test.ShouldBeNil)
+
+		moving, err = arm1.IsMoving(ctx)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, moving, test.ShouldBeFalse)
+
+		// Also check that there are no error logs associated with the main robot trying to reconnect to remote2
+		// Leaked remote connections will cause the test to fail due to goroutine leaks
+		test.That(t, observer.FilterLevelExact(zapcore.ErrorLevel).Len(), test.ShouldEqual, 0)
+	})
+}
+
 func TestResourceCreationPanic(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 	ctx := context.Background()
@@ -1790,6 +1973,14 @@ func (rr *dummyRobot) RestartModule(ctx context.Context, req robot.RestartModule
 
 func (rr *dummyRobot) Shutdown(ctx context.Context) error {
 	return rr.robot.Shutdown(ctx)
+}
+
+func (rr *dummyRobot) MachineStatus(ctx context.Context) (robot.MachineStatus, error) {
+	return rr.robot.MachineStatus(ctx)
+}
+
+func (rr *dummyRobot) Version(ctx context.Context) (robot.VersionResponse, error) {
+	return rr.robot.Version(ctx)
 }
 
 // managerForDummyRobot integrates all parts from a given robot except for its remotes.

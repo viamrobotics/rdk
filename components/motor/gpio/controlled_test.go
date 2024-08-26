@@ -56,11 +56,12 @@ func TestEncodedMotorControls(t *testing.T) {
 	}()
 
 	t.Run("encoded motor controls test loop exists", func(t *testing.T) {
-		test.That(t, cm.GoFor(context.Background(), 10, 1, nil), test.ShouldBeNil)
+		test.That(t, cm.SetRPM(context.Background(), 10, nil), test.ShouldBeNil)
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
 			test.That(tb, cm.loop, test.ShouldNotBeNil)
 		})
+		test.That(t, cm.Stop(context.Background(), nil), test.ShouldBeNil)
 	})
 }
 

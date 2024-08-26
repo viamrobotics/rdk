@@ -68,12 +68,12 @@ func TestWrapWithDifferentialDriveKinematics(t *testing.T) {
 			if err != nil {
 				return
 			}
-			limits := ddk.executionFrame.DoF()
+			limits := ddk.localizationFrame.DoF()
 			test.That(t, limits[0].Min, test.ShouldBeLessThan, 0)
 			test.That(t, limits[1].Min, test.ShouldBeLessThan, 0)
 			test.That(t, limits[0].Max, test.ShouldBeGreaterThan, 0)
 			test.That(t, limits[1].Max, test.ShouldBeGreaterThan, 0)
-			geometry, err := ddk.executionFrame.(*referenceframe.SimpleModel).Geometries(make([]referenceframe.Input, len(limits)))
+			geometry, err := ddk.localizationFrame.(*referenceframe.SimpleModel).Geometries(make([]referenceframe.Input, len(limits)))
 			test.That(t, err, test.ShouldBeNil)
 			equivalent := spatialmath.GeometriesAlmostEqual(
 				geometry.GeometryByName(testCfg.Name+":"+testCfg.Frame.Geometry.Label),

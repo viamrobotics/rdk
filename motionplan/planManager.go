@@ -25,6 +25,9 @@ const (
 	defaultOptimalityMultiple      = 2.0
 	defaultFallbackTimeout         = 1.5
 	defaultTPspaceOrientationScale = 500.
+
+	cbirrtName  = "cbirrt"
+	rrtstarName = "rrtstar"
 )
 
 // planManager is intended to be the single entry point to motion planners, wrapping all others, dealing with fallbacks, etc.
@@ -505,18 +508,6 @@ func (pm *planManager) plannerSetupFromMoveRequest(
 		return nil, err // no geometries defined for frame
 	}
 	movingRobotGeometries := movingGeometriesInFrame.Geometries() // solver frame returns geoms in frame World
-	if pm.useTPspace {
-		// If we are starting a ptg plan at a different place than the origin, then that translation must be represented in the geometries,
-		// all of which need to be in the "correct" position when transformed to the world frame.
-		// At this point in the plan manager, a ptg plan is moving to a goal in the world frame, and the start pose is the base's location
-		// relative to world. Since nothing providing a geometry knows anything about where the base is relative to world, any geometries
-		// need to be transformed by the start position to place them correctly in world.
-		startGeoms := make([]spatialmath.Geometry, 0, len(movingRobotGeometries))
-		for _, geometry := range movingRobotGeometries {
-			startGeoms = append(startGeoms, geometry.Transform(from))
-		}
-		movingRobotGeometries = startGeoms
-	}
 
 	// find all geometries that are not moving but are in the frame system
 	staticRobotGeometries := make([]spatialmath.Geometry, 0)
@@ -560,9 +551,6 @@ func (pm *planManager) plannerSetupFromMoveRequest(
 	}
 
 	hasTopoConstraint := opt.addPbTopoConstraints(from, to, constraints)
-	if hasTopoConstraint {
-		planAlg = "cbirrt"
-	}
 
 	// error handling around extracting motion_profile information from map[string]interface{}
 	var motionProfile string
@@ -590,21 +578,26 @@ func (pm *planManager) plannerSetupFromMoveRequest(
 		if !ok {
 			return nil, errors.New("could not interpret planning_alg field as string")
 		}
-		if pm.useTPspace && planAlg != "" {
-			return nil, fmt.Errorf("cannot specify a planning_alg when planning for a TP-space frame. alg specified was %s", planAlg)
+	}
+	if pm.useTPspace && planAlg != "" {
+		return nil, fmt.Errorf("cannot specify a planning_alg when planning for a TP-space frame. alg specified was %s", planAlg)
+	}
+	if hasTopoConstraint {
+		if planAlg != "" && planAlg != cbirrtName {
+			return nil, fmt.Errorf("cannot specify a planning alg other than cbirrt with topo constraints. alg specified was %s", planAlg)
 		}
-		switch planAlg {
-		// TODO(pl): make these consts
-		case "cbirrt":
-			opt.PlannerConstructor = newCBiRRTMotionPlanner
-		case "rrtstar":
-			// no motion profiles for RRT*
-			opt.PlannerConstructor = newRRTStarConnectMotionPlanner
-			// TODO(pl): more logic for RRT*?
-			return opt, nil
-		default:
-			// use default, already set
-		}
+		planAlg = cbirrtName
+	}
+	switch planAlg {
+	case cbirrtName:
+		opt.PlannerConstructor = newCBiRRTMotionPlanner
+	case rrtstarName:
+		// no motion profiles for RRT*
+		opt.PlannerConstructor = newRRTStarConnectMotionPlanner
+		// TODO(pl): more logic for RRT*?
+		return opt, nil
+	default:
+		// use default, already set
 	}
 	if pm.useTPspace {
 		// overwrite default with TP space
@@ -757,6 +750,18 @@ func (pm *planManager) planToRRTGoalMap(plan Plan, goal spatialmath.Pose) (*rrtM
 // planRelativeWaypoint will solve the solver frame to one individual pose. This is used for solverframes whose inputs are relative, that
 // is, the pose returned by `Transform` is a transformation rather than an absolute position.
 func (pm *planManager) planRelativeWaypoint(ctx context.Context, request *PlanRequest, seedPlan Plan) (Plan, error) {
+	anyNonzero := false // Whether non-PTG frames exist
+	for _, movingFrame := range pm.frame.frames {
+		if _, isPTGframe := movingFrame.(tpspace.PTGProvider); isPTGframe {
+			continue
+		} else if len(movingFrame.DoF()) > 0 {
+			anyNonzero = true
+		}
+		if anyNonzero {
+			return nil, errors.New("cannot combine ptg with other nonzero DOF frames in a single planning call")
+		}
+	}
+
 	if request.StartPose == nil {
 		return nil, errors.New("must provide a startPose if solving for PTGs")
 	}
@@ -808,7 +813,15 @@ func (pm *planManager) planRelativeWaypoint(ctx context.Context, request *PlanRe
 	if err != nil {
 		return nil, err
 	}
+
+	// re-root the frame system on the relative frame
+	relativeOnlyFS, err := pm.frame.fss.FrameSystemSubset(request.Frame)
+	if err != nil {
+		return nil, err
+	}
+	pm.frame.fss = relativeOnlyFS
 	pm.planOpts = opt
+
 	opt.SetGoal(goalPos)
 
 	// Build planner

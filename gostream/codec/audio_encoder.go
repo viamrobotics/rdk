@@ -4,8 +4,9 @@ import (
 	"context"
 	"time"
 
-	"github.com/edaniels/golog"
 	"github.com/pion/mediadevices/pkg/wave"
+
+	"go.viam.com/rdk/logging"
 )
 
 // An AudioEncoder is anything that can encode audo chunks into bytes. This means that
@@ -18,6 +19,6 @@ type AudioEncoder interface {
 
 // An AudioEncoderFactory produces AudioEncoders and provides information about the underlying encoder itself.
 type AudioEncoderFactory interface {
-	New(sampleRate, channelCount int, latency time.Duration, logger golog.Logger) (AudioEncoder, error)
+	New(sampleRate, channelCount int, latency time.Duration, logger logging.Logger) (AudioEncoder, error)
 	MIMEType() string
 }

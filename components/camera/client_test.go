@@ -37,7 +37,7 @@ func TestClient(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 	listener1, err := net.Listen("tcp", "localhost:0")
 	test.That(t, err, test.ShouldBeNil)
-	rpcServer, err := rpc.NewServer(logger.AsZap(), rpc.WithUnauthenticated())
+	rpcServer, err := rpc.NewServer(logger, rpc.WithUnauthenticated())
 	test.That(t, err, test.ShouldBeNil)
 
 	injectCamera := &inject.Camera{}
@@ -186,10 +186,6 @@ func TestClient(t *testing.T) {
 		_, got := pcB.At(5, 5, 5)
 		test.That(t, got, test.ShouldBeTrue)
 
-		projB, err := camera1Client.Projector(context.Background())
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, projB, test.ShouldNotBeNil)
-
 		propsB, err := camera1Client.Properties(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, propsB.SupportsPCD, test.ShouldBeTrue)
@@ -253,10 +249,6 @@ func TestClient(t *testing.T) {
 		_, err = client2.NextPointCloud(context.Background())
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, errGeneratePointCloudFailed.Error())
-
-		_, err = client2.Projector(context.Background())
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, errCameraProjectorFailed.Error())
 
 		_, err = client2.Properties(context.Background())
 		test.That(t, err, test.ShouldNotBeNil)
@@ -338,7 +330,7 @@ func TestClientProperties(t *testing.T) {
 	listener, err := net.Listen("tcp", "localhost:0")
 	test.That(t, err, test.ShouldBeNil)
 
-	server, err := rpc.NewServer(logger.AsZap(), rpc.WithUnauthenticated())
+	server, err := rpc.NewServer(logger, rpc.WithUnauthenticated())
 	test.That(t, err, test.ShouldBeNil)
 
 	injectCamera := &inject.Camera{}
@@ -428,7 +420,7 @@ func TestClientLazyImage(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 	listener1, err := net.Listen("tcp", "localhost:0")
 	test.That(t, err, test.ShouldBeNil)
-	rpcServer, err := rpc.NewServer(logger.AsZap(), rpc.WithUnauthenticated())
+	rpcServer, err := rpc.NewServer(logger, rpc.WithUnauthenticated())
 	test.That(t, err, test.ShouldBeNil)
 
 	injectCamera := &inject.Camera{}
@@ -497,7 +489,7 @@ func TestClientWithInterceptor(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 	listener1, err := net.Listen("tcp", "localhost:0")
 	test.That(t, err, test.ShouldBeNil)
-	rpcServer, err := rpc.NewServer(logger.AsZap(), rpc.WithUnauthenticated())
+	rpcServer, err := rpc.NewServer(logger, rpc.WithUnauthenticated())
 	test.That(t, err, test.ShouldBeNil)
 
 	// Set up camera that adds timestamps into the gRPC response header.
@@ -559,7 +551,7 @@ func TestClientStreamAfterClose(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 	listener, err := net.Listen("tcp", "localhost:0")
 	test.That(t, err, test.ShouldBeNil)
-	rpcServer, err := rpc.NewServer(logger.AsZap(), rpc.WithUnauthenticated())
+	rpcServer, err := rpc.NewServer(logger, rpc.WithUnauthenticated())
 	test.That(t, err, test.ShouldBeNil)
 
 	// Set up camera that can stream images
@@ -633,7 +625,7 @@ func TestRTPPassthroughWithoutWebRTC(t *testing.T) {
 	camName := "rtp_passthrough_camera"
 	listener1, err := net.Listen("tcp", "localhost:0")
 	test.That(t, err, test.ShouldBeNil)
-	rpcServer, err := rpc.NewServer(logger.AsZap(), rpc.WithUnauthenticated())
+	rpcServer, err := rpc.NewServer(logger, rpc.WithUnauthenticated())
 	test.That(t, err, test.ShouldBeNil)
 
 	injectCamera := &inject.Camera{}

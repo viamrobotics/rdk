@@ -173,7 +173,7 @@ func (path Path) String() string {
 	for _, step := range path {
 		str += "\n"
 		for frame, pose := range step {
-			str += fmt.Sprintf("%s: %v %v\t", frame, pose.Pose().Point(), pose.Pose().Orientation().OrientationVectorDegrees())
+			str += fmt.Sprintf("%s: %v %v\t", frame, pose.Pose().Point(), *pose.Pose().Orientation().OrientationVectorDegrees())
 		}
 	}
 	return str
@@ -306,4 +306,46 @@ func (e *ExecutionState) CurrentInputs() map[string][]referenceframe.Input {
 // CurrentPoses returns the current poses in frame of the components associated with the ExecutionState.
 func (e *ExecutionState) CurrentPoses() map[string]*referenceframe.PoseInFrame {
 	return e.currentPose
+}
+
+// CalculateFrameErrorState takes an ExecutionState and a Frame and calculates the error between the Frame's expected
+// and actual positions.
+func CalculateFrameErrorState(e ExecutionState, executionFrame, localizationFrame referenceframe.Frame) (spatialmath.Pose, error) {
+	currentInputs, ok := e.CurrentInputs()[executionFrame.Name()]
+	if !ok {
+		return nil, newFrameNotFoundError(executionFrame.Name())
+	}
+	currentPose, ok := e.CurrentPoses()[localizationFrame.Name()]
+	if !ok {
+		return nil, newFrameNotFoundError(localizationFrame.Name())
+	}
+	currPoseInArc, err := executionFrame.Transform(currentInputs)
+	if err != nil {
+		return nil, err
+	}
+	path := e.Plan().Path()
+	if path == nil {
+		return nil, errors.New("cannot calculate error state on a nil Path")
+	}
+	if len(path) == 0 {
+		return spatialmath.NewZeroPose(), nil
+	}
+	index := e.Index() - 1
+	if index < 0 || index >= len(path) {
+		return nil, fmt.Errorf("index %d out of bounds for Path of length %d", index, len(path))
+	}
+	pose, ok := path[index][executionFrame.Name()]
+	if !ok {
+		return nil, newFrameNotFoundError(executionFrame.Name())
+	}
+	if pose.Parent() != currentPose.Parent() {
+		return nil, errors.New("cannot compose two PoseInFrames with different parents")
+	}
+	nominalPose := spatialmath.Compose(pose.Pose(), currPoseInArc)
+	return spatialmath.PoseBetween(nominalPose, currentPose.Pose()), nil
+}
+
+// newFrameNotFoundError returns an error indicating that a given frame was not found in the given ExecutionState.
+func newFrameNotFoundError(frameName string) error {
+	return fmt.Errorf("could not find frame %s in ExecutionState", frameName)
 }

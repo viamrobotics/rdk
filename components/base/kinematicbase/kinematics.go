@@ -14,7 +14,6 @@ import (
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/services/motion"
-	"go.viam.com/rdk/spatialmath"
 )
 
 // KinematicBase is an interface for Bases that also satisfy the ModelFramer and InputEnabled interfaces.
@@ -24,10 +23,7 @@ type KinematicBase interface {
 	referenceframe.InputEnabled
 
 	Kinematics() referenceframe.Frame
-
-	// ErrorState takes a complete motionplan, as well as the index of the currently-executing set of inputs, and computes the pose
-	// difference between where the robot in fact is, and where it ought to be, i.e. PoseBetween(expected, actual)
-	ErrorState(context.Context) (spatialmath.Pose, error)
+	LocalizationFrame() referenceframe.Frame
 
 	// ExecutionState returns the state of execution of the base, returning the plan (with any edits) that it is executing, the point
 	// along that plan where it currently is, the inputs representing its current state, and its current position.

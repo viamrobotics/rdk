@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"net"
 
-	"github.com/pion/webrtc/v3"
+	"github.com/viamrobotics/webrtc/v3"
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/config"

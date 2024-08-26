@@ -11,6 +11,7 @@ import (
 	"io/fs"
 	"math"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 
@@ -70,6 +71,7 @@ var defaultBuildInfo = manifestBuildInfo{
 
 // moduleManifest is used to create & parse manifest.json.
 type moduleManifest struct {
+	Schema      string            `json:"$schema"`
 	ModuleID    string            `json:"module_id"`
 	Visibility  moduleVisibility  `json:"visibility"`
 	URL         string            `json:"url"`
@@ -91,14 +93,22 @@ func CreateModuleAction(c *cli.Context) error {
 	moduleNameArg := c.String(moduleFlagName)
 	publicNamespaceArg := c.String(moduleFlagPublicNamespace)
 	orgIDArg := c.String(generalFlagOrgID)
+	localOnly := c.Bool(moduleCreateLocalOnly)
 
-	client, err := newViamClient(c)
-	if err != nil {
-		return err
-	}
-	org, err := resolveOrg(client, publicNamespaceArg, orgIDArg)
-	if err != nil {
-		return err
+	var client *viamClient
+	var err error
+	var org *apppb.Organization
+	if localOnly {
+		org = &apppb.Organization{Id: orgIDArg, PublicNamespace: publicNamespaceArg}
+	} else {
+		client, err = newViamClient(c)
+		if err != nil {
+			return err
+		}
+		org, err = resolveOrg(client, publicNamespaceArg, orgIDArg)
+		if err != nil {
+			return err
+		}
 	}
 
 	shouldWriteNewEmptyManifest := true
@@ -122,23 +132,32 @@ func CreateModuleAction(c *cli.Context) error {
 		shouldWriteNewEmptyManifest = false
 	}
 
-	response, err := client.createModule(moduleNameArg, org.GetId())
-	if err != nil {
-		return errors.Wrap(err, "failed to register the module on app.viam.com")
-	}
-
-	returnedModuleID, err := parseModuleID(response.GetModuleId())
-	if err != nil {
-		return err
-	}
-
-	printf(c.App.Writer, "Successfully created '%s'", returnedModuleID.String())
-	if response.GetUrl() != "" {
-		printf(c.App.Writer, "You can view it here: %s", response.GetUrl())
+	var returnedModuleID moduleID
+	if localOnly {
+		returnedModuleID.name = moduleNameArg
+		if org.PublicNamespace != "" {
+			returnedModuleID.prefix = org.PublicNamespace
+		} else {
+			returnedModuleID.prefix = org.Id
+		}
+	} else {
+		response, err := client.createModule(moduleNameArg, org.GetId())
+		if err != nil {
+			return errors.Wrap(err, "failed to register the module on app.viam.com")
+		}
+		returnedModuleID, err = parseModuleID(response.GetModuleId())
+		if err != nil {
+			return err
+		}
+		printf(c.App.Writer, "Successfully created '%s'", returnedModuleID.String())
+		if response.GetUrl() != "" {
+			printf(c.App.Writer, "You can view it here: %s", response.GetUrl())
+		}
 	}
 
 	if shouldWriteNewEmptyManifest {
 		emptyManifest := moduleManifest{
+			Schema:     "https://dl.viam.dev/module.schema.json",
 			ModuleID:   returnedModuleID.String(),
 			Visibility: moduleVisibilityPrivate,
 			// This is done so that the json has an empty example
@@ -276,9 +295,9 @@ func UploadModuleAction(c *cli.Context) error {
 	}
 
 	if !forceUploadArg {
-		if err := validateModuleFile(client, moduleID, tarballPath, versionArg); err != nil {
+		if err := validateModuleFile(client, c, moduleID, tarballPath, versionArg, platformArg); err != nil {
 			return fmt.Errorf(
-				"error validating module: %w. For more details, please visit: https://docs.viam.com/fleet/cli/#module ",
+				"error validating module: %w. For more details, please visit: https://docs.viam.com/cli/#module ",
 				err)
 		}
 	}
@@ -403,7 +422,7 @@ func (c *viamClient) uploadModuleFile(
 	return resp, errs
 }
 
-func validateModuleFile(client *viamClient, moduleID moduleID, tarballPath, version string) error {
+func validateModuleFile(client *viamClient, c *cli.Context, moduleID moduleID, tarballPath, version, platform string) error {
 	getModuleResp, err := client.getModule(moduleID)
 	if err != nil {
 		return err
@@ -466,6 +485,11 @@ func validateModuleFile(client *viamClient, moduleID moduleID, tarballPath, vers
 			// executable file at entrypoint. validation succeeded.
 			// continue looping to find symlinks
 			foundEntrypoint = true
+			if parsed := getExecutableArch(tarReader); parsed != "" && parsed != platform {
+				warningf(c.App.ErrWriter,
+					"You've tagged %s but your binary has platform %s. (This warning is experimental, ignore if it doesn't make sense).",
+					platform, parsed)
+			}
 		}
 		if filepath.Base(path) == filepath.Base(entrypoint) {
 			filesWithSameNameAsEntrypoint = append(filesWithSameNameAsEntrypoint, path)
@@ -494,6 +518,20 @@ func validateModuleFile(client *viamClient, moduleID moduleID, tarballPath, vers
 	}
 	// success
 	return nil
+}
+
+// runs ParseFileType on the output of running `file` on whatever is in the tarball. Returns empty string if anything went wrong.
+func getExecutableArch(reader *tar.Reader) string {
+	if _, err := exec.LookPath("file"); err != nil {
+		return ""
+	}
+	cmd := exec.Command("file", "-")
+	cmd.Stdin = reader
+	output, err := cmd.Output()
+	if err != nil {
+		return ""
+	}
+	return ParseFileType(string(output))
 }
 
 func visibilityToProto(visibility moduleVisibility) (apppb.Visibility, error) {

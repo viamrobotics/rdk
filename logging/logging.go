@@ -13,7 +13,7 @@ import (
 
 var (
 	globalMu     sync.RWMutex
-	globalLogger = NewDebugLogger("startup")
+	globalLogger = NewDebugLogger("global")
 
 	// GlobalLogLevel should be used whenever a zap logger is created that wants to obey the debug
 	// flag from the CLI or robot config.
@@ -61,33 +61,42 @@ func NewZapLoggerConfig() zap.Config {
 
 // NewLogger returns a new logger that outputs Info+ logs to stdout in UTC.
 func NewLogger(name string) Logger {
-	return &impl{
+	logger := &impl{
 		name:       name,
 		level:      NewAtomicLevelAt(INFO),
 		appenders:  []Appender{NewStdoutAppender()},
 		testHelper: func() {},
 	}
+
+	RegisterLogger(name, logger)
+	return logger
 }
 
 // NewDebugLogger returns a new logger that outputs Debug+ logs to stdout in UTC.
 func NewDebugLogger(name string) Logger {
-	return &impl{
+	logger := &impl{
 		name:       name,
 		level:      NewAtomicLevelAt(DEBUG),
 		appenders:  []Appender{NewStdoutAppender()},
 		testHelper: func() {},
 	}
+
+	RegisterLogger(name, logger)
+	return logger
 }
 
 // NewBlankLogger returns a new logger that outputs Debug+ logs in UTC, but without any
 // pre-existing appenders/outputs.
 func NewBlankLogger(name string) Logger {
-	return &impl{
+	logger := &impl{
 		name:       name,
 		level:      NewAtomicLevelAt(DEBUG),
 		appenders:  []Appender{},
 		testHelper: func() {},
 	}
+
+	RegisterLogger(name, logger)
+	return logger
 }
 
 // NewTestLogger returns a new logger that outputs Debug+ logs to stdout in local time.
@@ -117,13 +126,13 @@ type MemLogger struct {
 	Logger
 
 	tb       testing.TB
-	observer *observer.ObservedLogs
+	Observer *observer.ObservedLogs
 }
 
 // OutputLogs writes in-memory logs to the test object MemLogger was constructed with.
 func (memLogger *MemLogger) OutputLogs() {
 	appender := NewTestAppender(memLogger.tb)
-	for _, loggedEntry := range memLogger.observer.All() {
+	for _, loggedEntry := range memLogger.Observer.All() {
 		utils.UncheckedError(appender.Write(loggedEntry.Entry, loggedEntry.Context))
 	}
 }

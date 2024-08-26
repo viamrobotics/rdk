@@ -12,5 +12,8 @@ export const createRcApp = (
     webrtcEnabled: boolean;
     signalingAddress: string;
     overrides?: RCOverrides;
+    hiddenSubtypes?: string[];
+    hideDoCommand?: boolean;
+    hideOperationsSessions?: boolean;
   }
 ) => new RemoteControlCards({ target, props });

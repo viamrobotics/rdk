@@ -4,6 +4,7 @@ package robot
 import (
 	"context"
 	"fmt"
+	"runtime/debug"
 	"strings"
 	"time"
 
@@ -24,6 +25,10 @@ import (
 	"go.viam.com/rdk/robot/packages"
 	weboptions "go.viam.com/rdk/robot/web/options"
 	"go.viam.com/rdk/session"
+)
+
+const (
+	platform = "rdk"
 )
 
 // A Robot encompasses all functionality of some robot comprised
@@ -64,7 +69,7 @@ import (
 //
 //	status, err := machine.Status(ctx)
 //
-// GetCloudMetadata example:
+// CloudMetadata example:
 //
 //	metadata, err := machine.CloudMetadata()
 //	machine_id = metadata.MachineID
@@ -153,6 +158,12 @@ type Robot interface {
 
 	// Shutdown shuts down the robot.
 	Shutdown(ctx context.Context) error
+
+	// MachineStatus returns the current status of the robot.
+	MachineStatus(ctx context.Context) (MachineStatus, error)
+
+	// Version returns version information about the robot.
+	Version(ctx context.Context) (VersionResponse, error)
 }
 
 // A LocalRobot is a Robot that can have its parts modified.
@@ -316,4 +327,53 @@ func (rmr *RestartModuleRequest) MatchesModule(mod config.Module) bool {
 		return mod.ModuleID == rmr.ModuleID
 	}
 	return mod.Name == rmr.ModuleName
+}
+
+// MachineStatus encapsulates the current status of the robot.
+type MachineStatus struct {
+	Resources []resource.Status
+	Config    config.Revision
+}
+
+// VersionResponse encapsulates the version info of the robot.
+type VersionResponse struct {
+	Platform   string
+	Version    string
+	APIVersion string
+}
+
+// Version returns platform, version and API version of the robot.
+// platform will always be `rdk`
+// If built without a version tag,  will be dev-<git hash>.
+func Version() (VersionResponse, error) {
+	var result VersionResponse
+	result.Platform = platform
+
+	version := config.Version
+	if version == "" {
+		version = "dev-"
+		if config.GitRevision != "" {
+			version += config.GitRevision
+		} else {
+			version += "unknown"
+		}
+	}
+	result.Version = version
+
+	info, ok := debug.ReadBuildInfo()
+	if !ok {
+		return result, errors.New("error reading build info")
+	}
+	deps := make(map[string]*debug.Module, len(info.Deps))
+	for _, dep := range info.Deps {
+		deps[dep.Path] = dep
+	}
+
+	apiVersion := "?"
+	if dep, ok := deps["go.viam.com/api"]; ok {
+		apiVersion = dep.Version
+	}
+	result.APIVersion = apiVersion
+
+	return result, nil
 }

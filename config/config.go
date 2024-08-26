@@ -27,17 +27,17 @@ import (
 
 // A Config describes the configuration of a robot.
 type Config struct {
-	Cloud           *Cloud
-	Modules         []Module
-	Remotes         []Remote
-	Components      []resource.Config
-	Processes       []pexec.ProcessConfig
-	Services        []resource.Config
-	Packages        []PackageConfig
-	Network         NetworkConfig
-	Auth            AuthConfig
-	Debug           bool
-	GlobalLogConfig []GlobalLogConfig
+	Cloud      *Cloud
+	Modules    []Module
+	Remotes    []Remote
+	Components []resource.Config
+	Processes  []pexec.ProcessConfig
+	Services   []resource.Config
+	Packages   []PackageConfig
+	Network    NetworkConfig
+	Auth       AuthConfig
+	Debug      bool
+	LogConfig  []logging.LoggerPatternConfig
 
 	ConfigFilePath string
 
@@ -65,23 +65,27 @@ type Config struct {
 
 	// EnableWebProfile turns pprof http server in localhost. Defaults to false.
 	EnableWebProfile bool
+
+	// Revision contains the current revision of the config.
+	Revision string
 }
 
 // NOTE: This data must be maintained with what is in Config.
 type configData struct {
-	Cloud               *Cloud                `json:"cloud,omitempty"`
-	Modules             []Module              `json:"modules,omitempty"`
-	Remotes             []Remote              `json:"remotes,omitempty"`
-	Components          []resource.Config     `json:"components,omitempty"`
-	Processes           []pexec.ProcessConfig `json:"processes,omitempty"`
-	Services            []resource.Config     `json:"services,omitempty"`
-	Packages            []PackageConfig       `json:"packages,omitempty"`
-	Network             NetworkConfig         `json:"network"`
-	Auth                AuthConfig            `json:"auth"`
-	Debug               bool                  `json:"debug,omitempty"`
-	DisablePartialStart bool                  `json:"disable_partial_start"`
-	EnableWebProfile    bool                  `json:"enable_web_profile"`
-	GlobalLogConfig     []GlobalLogConfig     `json:"global_log_configuration"`
+	Cloud               *Cloud                        `json:"cloud,omitempty"`
+	Modules             []Module                      `json:"modules,omitempty"`
+	Remotes             []Remote                      `json:"remotes,omitempty"`
+	Components          []resource.Config             `json:"components,omitempty"`
+	Processes           []pexec.ProcessConfig         `json:"processes,omitempty"`
+	Services            []resource.Config             `json:"services,omitempty"`
+	Packages            []PackageConfig               `json:"packages,omitempty"`
+	Network             NetworkConfig                 `json:"network"`
+	Auth                AuthConfig                    `json:"auth"`
+	Debug               bool                          `json:"debug,omitempty"`
+	DisablePartialStart bool                          `json:"disable_partial_start"`
+	EnableWebProfile    bool                          `json:"enable_web_profile"`
+	LogConfig           []logging.LoggerPatternConfig `json:"log,omitempty"`
+	Revision            string                        `json:"revision,omitempty"`
 }
 
 // AppValidationStatus refers to the.
@@ -221,12 +225,6 @@ func (c *Config) Ensure(fromCloud bool, logger logging.Logger) error {
 		}
 	}
 
-	for idx, globalLogConfig := range c.GlobalLogConfig {
-		if err := globalLogConfig.Validate(fmt.Sprintf("global_log_configuration.%d", idx)); err != nil {
-			logger.Errorw("log configuration error", "err", err)
-		}
-	}
-
 	return nil
 }
 
@@ -269,7 +267,8 @@ func (c *Config) UnmarshalJSON(data []byte) error {
 	c.Debug = conf.Debug
 	c.DisablePartialStart = conf.DisablePartialStart
 	c.EnableWebProfile = conf.EnableWebProfile
-	c.GlobalLogConfig = conf.GlobalLogConfig
+	c.LogConfig = conf.LogConfig
+	c.Revision = conf.Revision
 
 	return nil
 }
@@ -299,7 +298,8 @@ func (c Config) MarshalJSON() ([]byte, error) {
 		Debug:               c.Debug,
 		DisablePartialStart: c.DisablePartialStart,
 		EnableWebProfile:    c.EnableWebProfile,
-		GlobalLogConfig:     c.GlobalLogConfig,
+		LogConfig:           c.LogConfig,
+		Revision:            c.Revision,
 	})
 }
 
@@ -1100,4 +1100,11 @@ func (p *PackageConfig) SanitizedName() string {
 func (p *PackageConfig) sanitizedVersion() string {
 	// replaces all the . if they exist with _
 	return strings.ReplaceAll(p.Version, ".", "_")
+}
+
+// Revision encapsulates the revision of the latest config ingested by the robot along with
+// a timestamp.
+type Revision struct {
+	Revision    string
+	LastUpdated time.Time
 }

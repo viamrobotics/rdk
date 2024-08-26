@@ -321,9 +321,9 @@ func (b *Board) reconfigureInterrupts(newConf *LinuxBoardConfig) error {
 			oldInterrupt = nil
 		}
 
-		gpioMapping, ok := b.gpioMappings[config.Name]
+		gpioMapping, ok := b.gpioMappings[config.Pin]
 		if !ok {
-			return fmt.Errorf("cannot create digital interrupt on unknown pin %s", config.Name)
+			return fmt.Errorf("cannot create digital interrupt on unknown pin %s", config.Pin)
 		}
 		interrupt, err := newDigitalInterrupt(config, gpioMapping, oldInterrupt)
 		if err != nil {
@@ -336,11 +336,14 @@ func (b *Board) reconfigureInterrupts(newConf *LinuxBoardConfig) error {
 }
 
 func (b *Board) createGpioPin(mapping GPIOBoardMapping) *gpioPin {
+	startSoftwarePWMChan := make(chan any)
 	pin := gpioPin{
-		devicePath: mapping.GPIOChipDev,
-		offset:     uint32(mapping.GPIO),
-		logger:     b.logger,
+		devicePath:           mapping.GPIOChipDev,
+		offset:               uint32(mapping.GPIO),
+		logger:               b.logger,
+		startSoftwarePWMChan: &startSoftwarePWMChan,
 	}
+	pin.softwarePwm = utils.NewStoppableWorkers(pin.softwarePwmLoop)
 	if mapping.HWPWMSupported {
 		pin.hwPwm = newPwmDevice(mapping.PWMSysFsDir, mapping.PWMID, b.logger)
 	}

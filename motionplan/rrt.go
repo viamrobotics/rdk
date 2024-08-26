@@ -268,7 +268,12 @@ type rrtPlan struct {
 
 func newRRTPlan(solution []node, sf *solverFrame, relative bool) (Plan, error) {
 	if len(solution) < 2 {
-		return nil, errors.New("cannot construct a Plan using fewer than two nodes")
+		if len(solution) == 1 {
+			// Started at the goal, nothing to do
+			solution = append(solution, solution[0])
+		} else {
+			return nil, errors.New("cannot construct a Plan using fewer than two nodes")
+		}
 	}
 	traj := sf.nodesToTrajectory(solution)
 	path, err := newPath(solution, sf)

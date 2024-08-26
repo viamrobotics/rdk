@@ -104,7 +104,7 @@ type Arm struct {
 	logger     logging.Logger
 
 	mu     sync.RWMutex
-	joints *pb.JointPositions
+	joints []referenceframe.Input
 	model  referenceframe.Model
 }
 
@@ -129,7 +129,7 @@ func (a *Arm) Reconfigure(ctx context.Context, deps resource.Dependencies, conf 
 
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	a.joints = &pb.JointPositions{Values: make([]float64, dof)}
+	a.joints = referenceframe.FloatsToInputs(make([]float64, dof))
 	a.model = model
 
 	return nil
@@ -144,18 +144,34 @@ func (a *Arm) ModelFrame() referenceframe.Model {
 
 // EndPosition returns the set position.
 func (a *Arm) EndPosition(ctx context.Context, extra map[string]interface{}) (spatialmath.Pose, error) {
-	joints, err := a.JointPositions(ctx, extra)
+	joints, err := a.CurrentInputs(ctx)
 	if err != nil {
 		return nil, err
 	}
 	a.mu.RLock()
 	defer a.mu.RUnlock()
-	return motionplan.ComputeOOBPosition(a.model, joints)
+	return referenceframe.ComputeOOBPosition(a.model, joints)
 }
 
 // MoveToPosition sets the position.
-func (a *Arm) MoveToPosition(ctx context.Context, pos spatialmath.Pose, extra map[string]interface{}) error {
-	return arm.Move(ctx, a.logger, a, pos)
+func (a *Arm) MoveToPosition(ctx context.Context, pose spatialmath.Pose, extra map[string]interface{}) error {
+	a.mu.RLock()
+	defer a.mu.RUnlock()
+
+	model := a.model
+	_, err := model.Transform(a.joints)
+	if err != nil && strings.Contains(err.Error(), referenceframe.OOBErrString) {
+		return errors.New("cannot move arm: " + err.Error())
+	} else if err != nil {
+		return err
+	}
+
+	plan, err := motionplan.PlanFrameMotion(ctx, a.logger, pose, model, a.joints, nil, nil)
+	if err != nil {
+		return err
+	}
+	copy(a.joints, plan[len(plan)-1])
+	return nil
 }
 
 // MoveToJointPositions sets the joints.
@@ -166,19 +182,19 @@ func (a *Arm) MoveToJointPositions(ctx context.Context, joints *pb.JointPosition
 	}
 	a.mu.RLock()
 	defer a.mu.RUnlock()
-	pos, err := a.model.Transform(inputs)
+	_, err := a.model.Transform(inputs)
 	if err != nil {
 		return err
 	}
-	_ = pos
-	copy(a.joints.Values, joints.Values)
+	copy(a.joints, inputs)
 	return nil
 }
 
 // JointPositions returns joints.
 func (a *Arm) JointPositions(ctx context.Context, extra map[string]interface{}) (*pb.JointPositions, error) {
-	retJoint := &pb.JointPositions{Values: a.joints.Values}
-	return retJoint, nil
+	a.mu.RLock()
+	defer a.mu.RUnlock()
+	return a.model.ProtobufFromInput(a.joints), nil
 }
 
 // Stop doesn't do anything for a fake arm.
@@ -191,24 +207,19 @@ func (a *Arm) IsMoving(ctx context.Context) (bool, error) {
 	return false, nil
 }
 
-// CurrentInputs TODO.
+// CurrentInputs returns the current inputs of the fake arm.
 func (a *Arm) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
-	res, err := a.JointPositions(ctx, nil)
-	if err != nil {
-		return nil, err
-	}
-	return a.model.InputFromProtobuf(res), nil
+	a.mu.RLock()
+	defer a.mu.RUnlock()
+	return a.joints, nil
 }
 
-// GoToInputs TODO.
+// GoToInputs moves the fake arm to the given inputs.
 func (a *Arm) GoToInputs(ctx context.Context, inputSteps ...[]referenceframe.Input) error {
 	for _, goal := range inputSteps {
 		a.mu.RLock()
 		positionDegs := a.model.ProtobufFromInput(goal)
 		a.mu.RUnlock()
-		if err := arm.CheckDesiredJointPositions(ctx, a, goal); err != nil {
-			return err
-		}
 		err := a.MoveToJointPositions(ctx, positionDegs, nil)
 		if err != nil {
 			return err

@@ -354,7 +354,7 @@ func (ptgk *ptgBaseKinematics) courseCorrect(
 		return nil, err
 	}
 	// trajPose is the pose we should have nominally reached along the currently executing arc from the start position.
-	trajPose, err := ptgk.frame.Transform(currentInputs)
+	trajPose, err := ptgk.Kinematics().Transform(currentInputs)
 	if err != nil {
 		return nil, err
 	}
@@ -465,6 +465,11 @@ func (ptgk *ptgBaseKinematics) courseCorrect(
 
 			connectionPoint.durationSeconds *= pctTrajRemaining
 			connectionPoint.subTraj = connectionPoint.subTraj[solution.trajIdx:]
+
+			// set the end position of the end position of the arcstep we were just on to the end position of the corrective trajectory
+			ptgk.inputLock.Lock()
+			arcSteps[arcIdx].arcSegment.EndPosition = correctiveArcSteps[0].arcSegment.StartPosition
+			ptgk.inputLock.Unlock()
 
 			// Start with the already-executed steps.
 			// We need to include the i-th step because we're about to increment i and want to start with the correction, then

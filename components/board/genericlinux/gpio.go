@@ -6,6 +6,7 @@ package genericlinux
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"time"
 
@@ -13,6 +14,7 @@ import (
 	"github.com/pkg/errors"
 	"go.viam.com/utils"
 
+	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/logging"
 	rdkutils "go.viam.com/rdk/utils"
 )
@@ -25,12 +27,15 @@ type gpioPin struct {
 	offset     uint32
 
 	// These values are mutable. Lock the mutex when interacting with them.
-	line            *gpio.Line
-	isInput         bool
-	hwPwm           *pwmDevice // Defined in hw_pwm.go, will be nil for pins that don't support it.
-	pwmFreqHz       uint
-	pwmDutyCyclePct float64
-	softwarePwm     rdkutils.StoppableWorkers
+	line                 *gpio.Line
+	isInput              bool
+	hwPwm                *pwmDevice // Defined in hw_pwm.go, will be nil for pins that don't support it.
+	pwmFreqHz            uint
+	pwmDutyCyclePct      float64
+	enableSoftwarePWM    bool      // Indicates whether a software PWM loop should continue running
+	startSoftwarePWMChan *chan any // Close and reinitialize this to (re)start the SW PWM loop
+
+	softwarePwm rdkutils.StoppableWorkers
 
 	mu     sync.Mutex
 	logger logging.Logger
@@ -111,17 +116,30 @@ func (pin *gpioPin) Set(ctx context.Context, isHigh bool,
 	defer pin.mu.Unlock()
 
 	// Shut down any software PWM loop that might be running.
-	if pin.softwarePwm != nil {
-		pin.softwarePwm.Stop()
-		pin.softwarePwm = nil
-	}
-
+	pin.enableSoftwarePWM = false
 	return pin.setInternal(isHigh)
 }
 
 // This function assumes you've already locked the mutex. It sets the value of a pin without
 // changing whether the pin is part of a software PWM loop.
 func (pin *gpioPin) setInternal(isHigh bool) (err error) {
+	// if pin is a hw pwm pin, set to either 0% or 100% duty cycle
+	if pin.hwPwm != nil {
+		var value float64
+		if isHigh {
+			value = 1.0
+		}
+
+		// Set pwm with a frequency of 10 Hz. Any frequency value would work.
+		// Note that pin.pwmFreqHz is not modified, so a previously used frequency
+		// is still available to use later.
+		err := pin.hwPwm.SetPwm(10, value)
+		if err != nil {
+			return fmt.Errorf("could not set pin: %w", err)
+		}
+		return nil
+	}
+
 	var value byte
 	if isHigh {
 		value = 1
@@ -151,6 +169,10 @@ func (pin *gpioPin) Get(
 	pin.mu.Lock()
 	defer pin.mu.Unlock()
 
+	if pin.hwPwm != nil {
+		return false, errors.New("cannot read from a HW pwm pin")
+	}
+
 	if pin.offset == noPin {
 		return false, errors.New("cannot read from non-GPIO pin")
 	}
@@ -173,10 +195,7 @@ func (pin *gpioPin) Get(
 func (pin *gpioPin) startSoftwarePWM() error {
 	if pin.pwmDutyCyclePct == 0 || pin.pwmFreqHz == 0 {
 		// We don't have both parameters set up. Stop any PWM loop we might have started previously.
-		if pin.softwarePwm != nil {
-			pin.softwarePwm.Stop()
-			pin.softwarePwm = nil
-		}
+		pin.enableSoftwarePWM = false
 		if pin.hwPwm != nil {
 			return pin.hwPwm.Close()
 		}
@@ -192,10 +211,7 @@ func (pin *gpioPin) startSoftwarePWM() error {
 				return err
 			}
 			// Shut down any software PWM loop that might be running.
-			if pin.softwarePwm != nil {
-				pin.softwarePwm.Stop()
-				pin.softwarePwm = nil
-			}
+			pin.enableSoftwarePWM = false
 			return pin.hwPwm.SetPwm(pin.pwmFreqHz, pin.pwmDutyCyclePct)
 		}
 		// Although this pin has hardware PWM support, many PWM chips cannot output signals at
@@ -209,12 +225,26 @@ func (pin *gpioPin) startSoftwarePWM() error {
 	// If we get here, we need a software loop to drive the PWM signal, either because this pin
 	// doesn't have hardware support or because we want to drive it at such a low frequency that
 	// the hardware chip can't do it.
-	if pin.softwarePwm != nil {
+	if pin.enableSoftwarePWM {
 		// We already have a software PWM loop running. It will pick up the changes on its own.
 		return nil
 	}
 
-	pin.softwarePwm = rdkutils.NewStoppableWorkers(pin.softwarePwmLoop)
+	pin.enableSoftwarePWM = true
+	// Sneaky trick alert! We use startSoftwarePWMChan to tell the background worker to start
+	// toggling the pin in a loop. However, we have locked the mutex, and if the background worker
+	// is already in progress (because the software PWM loop had been started, another goroutine
+	// told it to pause, and we are running so soon afterwards that it hasn't yet noticed it should
+	// pause), it's possible the background worker is still looping and is about to lock the mutex
+	// so it can toggle the pin. If we tried sending a message on the channel in that situation, we
+	// would deadlock (we would wait until something can read from the channel, and the only
+	// goroutine that can read from it would wait until the mutex is unlocked). So, instead, we
+	// send the message by closing the old channel and creating a new one: if the background worker
+	// was waiting on the channel, it will wake up when it closes, and if it was not waiting on the
+	// channel, we don't block waiting for it to check the channel.
+	newSoftwarePWMChan := make(chan any)
+	close(*pin.startSoftwarePWMChan)
+	pin.startSoftwarePWMChan = &newSoftwarePWMChan
 	return nil
 }
 
@@ -262,7 +292,7 @@ func (pin *gpioPin) halfPwmCycle(ctx context.Context, shouldBeOn bool) bool {
 		pin.mu.Lock()
 		defer pin.mu.Unlock()
 		// Before we modify the pin, check if we should stop running
-		if ctx.Err() != nil {
+		if ctx.Err() != nil || !pin.enableSoftwarePWM {
 			return false
 		}
 
@@ -290,11 +320,28 @@ func (pin *gpioPin) halfPwmCycle(ctx context.Context, shouldBeOn bool) bool {
 
 func (pin *gpioPin) softwarePwmLoop(ctx context.Context) {
 	for {
-		if !pin.halfPwmCycle(ctx, true) {
+		// It's possible another goroutine has closed startSoftwarePWMCHan and is reinitializing
+		// it, and we might be running on a board with a small enough CPU that pointer assignment
+		// is not atomic. Lock the mutex when getting a copy of the channel, so we don't
+		// accidentally get half a pointer to an old one and half a pointer to a new one.
+		startSoftwarePWMChan := func() chan any {
+			pin.mu.Lock()
+			defer pin.mu.Unlock()
+			return *pin.startSoftwarePWMChan
+		}()
+
+		select {
+		case <-ctx.Done():
 			return
+		case <-startSoftwarePWMChan:
 		}
-		if !pin.halfPwmCycle(ctx, false) {
-			return
+		for {
+			if !pin.halfPwmCycle(ctx, true) {
+				break
+			}
+			if !pin.halfPwmCycle(ctx, false) {
+				break
+			}
 		}
 	}
 }
@@ -311,6 +358,11 @@ func (pin *gpioPin) PWM(ctx context.Context, extra map[string]interface{}) (floa
 func (pin *gpioPin) SetPWM(ctx context.Context, dutyCyclePct float64, extra map[string]interface{}) error {
 	pin.mu.Lock()
 	defer pin.mu.Unlock()
+
+	dutyCyclePct, err := board.ValidatePWMDutyCycle(dutyCyclePct)
+	if err != nil {
+		return err
+	}
 
 	pin.pwmDutyCyclePct = dutyCyclePct
 	return pin.startSoftwarePWM()
@@ -329,6 +381,10 @@ func (pin *gpioPin) SetPWMFreq(ctx context.Context, freqHz uint, extra map[strin
 	pin.mu.Lock()
 	defer pin.mu.Unlock()
 
+	if freqHz < 1 {
+		return errors.New("must set PWM frequency to a positive value")
+	}
+
 	pin.pwmFreqHz = freqHz
 	return pin.startSoftwarePWM()
 }
@@ -337,13 +393,12 @@ func (pin *gpioPin) Close() error {
 	// We keep the gpio.Line object open indefinitely, so it holds its state for as long as this
 	// struct is around. This function is a way to close it when we're about to go out of scope, so
 	// we don't leak file descriptors.
+
+	// WARNING: the background worker locks the mutex when it interacts with our mutable state, so
+	// we need to stop it when the mutex is unlocked, or risk deadlock!
+	pin.softwarePwm.Stop()
 	pin.mu.Lock()
 	defer pin.mu.Unlock()
-
-	if pin.softwarePwm != nil {
-		pin.softwarePwm.Stop()
-		pin.softwarePwm = nil
-	}
 
 	if pin.hwPwm != nil {
 		if err := pin.hwPwm.Close(); err != nil {

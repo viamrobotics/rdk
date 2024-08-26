@@ -207,6 +207,11 @@ var testPackageConfig = PackageConfig{
 	Type:    PackageTypeModule,
 }
 
+var testLogConfig = logging.LoggerPatternConfig{
+	Pattern: "rdk.resource_manager.modmanager",
+	Level:   "WARN",
+}
+
 var (
 	testInvalidModule    = Module{}
 	testInvalidComponent = resource.Config{
@@ -264,6 +269,16 @@ func TestPackageConfigConversions(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	test.That(t, pckWithErr, test.ShouldResemble, out)
+}
+
+func TestLogConfigConversions(t *testing.T) {
+	proto, err := LogConfigToProto(&testLogConfig)
+	test.That(t, err, test.ShouldBeNil)
+
+	out, err := LogConfigFromProto(proto)
+	test.That(t, err, test.ShouldBeNil)
+
+	test.That(t, testLogConfig, test.ShouldResemble, *out)
 }
 
 func TestModuleConfigToProto(t *testing.T) {

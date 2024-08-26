@@ -8,7 +8,6 @@ import (
 
 	"go.viam.com/test"
 	"go.viam.com/utils/pexec"
-	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/components/base"
@@ -624,11 +623,11 @@ func TestDiffSanitize(t *testing.T) {
 		{
 			Secret: "remsecret1",
 			Auth: config.RemoteAuth{
-				Credentials: &rpc.Credentials{
+				Credentials: &utils.Credentials{
 					Type:    "remauthtype1",
 					Payload: "payload1",
 				},
-				SignalingCreds: &rpc.Credentials{
+				SignalingCreds: &utils.Credentials{
 					Type:    "remauthtypesig1",
 					Payload: "payloadsig1",
 				},
@@ -637,11 +636,11 @@ func TestDiffSanitize(t *testing.T) {
 		{
 			Secret: "remsecret2",
 			Auth: config.RemoteAuth{
-				Credentials: &rpc.Credentials{
+				Credentials: &utils.Credentials{
 					Type:    "remauthtype2",
 					Payload: "payload2",
 				},
-				SignalingCreds: &rpc.Credentials{
+				SignalingCreds: &utils.Credentials{
 					Type:    "remauthtypesig2",
 					Payload: "payloadsig2",
 				},
@@ -732,4 +731,158 @@ func modifiedConfigDiffValidate(c *config.ModifiedConfigDiff) error {
 	}
 
 	return nil
+}
+
+func TestDiffRevision(t *testing.T) {
+	type testcase struct {
+		name         string
+		oldCfg       config.Config
+		newCfg       config.Config
+		expectedDiff config.Diff
+	}
+	for _, tc := range []testcase{
+		{
+			"no change",
+			config.Config{
+				Components: []resource.Config{{Name: "comp1"}},
+				Services:   []resource.Config{{Name: "serv1"}},
+			},
+			config.Config{
+				Components: []resource.Config{{Name: "comp1"}},
+				Services:   []resource.Config{{Name: "serv1"}},
+			},
+			config.Diff{
+				Added:    &config.Config{},
+				Modified: &config.ModifiedConfigDiff{},
+			},
+		},
+		{
+			"only change revision",
+			config.Config{
+				Components: []resource.Config{{Name: "comp1"}},
+				Services:   []resource.Config{{Name: "serv1"}},
+			},
+			config.Config{
+				Revision:   "some-revision",
+				Components: []resource.Config{{Name: "comp1"}},
+				Services:   []resource.Config{{Name: "serv1"}},
+			},
+			config.Diff{
+				Added:    &config.Config{},
+				Modified: &config.ModifiedConfigDiff{},
+				UnmodifiedResources: []resource.Config{
+					{Name: "comp1"},
+					{Name: "serv1"},
+				},
+			},
+		},
+		{
+			"add component",
+			config.Config{
+				Components: []resource.Config{{Name: "comp1"}},
+				Services:   []resource.Config{{Name: "serv1"}},
+			},
+			config.Config{
+				Revision:   "some-revision",
+				Components: []resource.Config{{Name: "comp1"}, {Name: "comp2"}},
+				Services:   []resource.Config{{Name: "serv1"}},
+			},
+			config.Diff{
+				Added: &config.Config{
+					Components: []resource.Config{{Name: "comp2"}},
+				},
+				Modified: &config.ModifiedConfigDiff{},
+				UnmodifiedResources: []resource.Config{
+					{Name: "comp1"},
+					{Name: "serv1"},
+				},
+			},
+		},
+		{
+			"add service",
+			config.Config{
+				Components: []resource.Config{{Name: "comp1"}},
+				Services:   []resource.Config{{Name: "serv1"}},
+			},
+			config.Config{
+				Revision:   "some-revision",
+				Components: []resource.Config{{Name: "comp1"}},
+				Services:   []resource.Config{{Name: "serv1"}, {Name: "serv2"}},
+			},
+			config.Diff{
+				Added: &config.Config{
+					Services: []resource.Config{{Name: "serv2"}},
+				},
+				Modified: &config.ModifiedConfigDiff{},
+				UnmodifiedResources: []resource.Config{
+					{Name: "comp1"},
+					{Name: "serv1"},
+				},
+			},
+		},
+		{
+			"modify component",
+			config.Config{
+				Components: []resource.Config{{Name: "comp1"}},
+				Services:   []resource.Config{{Name: "serv1"}},
+			},
+			config.Config{
+				Revision: "some-revision",
+				Components: []resource.Config{
+					{
+						Name:       "comp1",
+						Attributes: utils.AttributeMap{"value": 1},
+					},
+				},
+				Services: []resource.Config{{Name: "serv1"}},
+			},
+			config.Diff{
+				Added: &config.Config{},
+				Modified: &config.ModifiedConfigDiff{
+					Components: []resource.Config{
+						{
+							Name:       "comp1",
+							Attributes: utils.AttributeMap{"value": 1},
+						},
+					},
+				},
+				UnmodifiedResources: []resource.Config{{Name: "serv1"}},
+			},
+		},
+		{
+			"modify service",
+			config.Config{
+				Components: []resource.Config{{Name: "comp1"}},
+				Services:   []resource.Config{{Name: "serv1"}},
+			},
+			config.Config{
+				Revision:   "some-revision",
+				Components: []resource.Config{{Name: "comp1"}},
+				Services: []resource.Config{{
+					Name:       "serv1",
+					Attributes: utils.AttributeMap{"value": 1},
+				}},
+			},
+			config.Diff{
+				Added: &config.Config{},
+				Modified: &config.ModifiedConfigDiff{
+					Services: []resource.Config{
+						{
+							Name:       "serv1",
+							Attributes: utils.AttributeMap{"value": 1},
+						},
+					},
+				},
+				UnmodifiedResources: []resource.Config{{Name: "comp1"}},
+			},
+		},
+	} {
+		diff, err := config.DiffConfigs(tc.oldCfg, tc.newCfg, false)
+		test.That(t, err, test.ShouldBeNil)
+
+		test.That(t, diff.NewRevision(), test.ShouldEqual, tc.newCfg.Revision)
+		test.That(t, diff.Added, test.ShouldResemble, tc.expectedDiff.Added)
+		test.That(t, diff.Modified, test.ShouldResemble, tc.expectedDiff.Modified)
+		test.That(t, diff.UnmodifiedResources, test.ShouldResemble, tc.expectedDiff.UnmodifiedResources)
+	}
 }

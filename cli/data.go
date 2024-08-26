@@ -27,7 +27,7 @@ import (
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
-	"go.viam.com/rdk/services/datamanager/datacapture"
+	"go.viam.com/rdk/data"
 )
 
 const (
@@ -72,7 +72,7 @@ func (c *viamClient) dataExportAction(cCtx *cli.Context) error {
 			return err
 		}
 	case dataTypeTabular:
-		if err := c.tabularData(cCtx.Path(dataFlagDestination), filter); err != nil {
+		if err := c.tabularData(cCtx.Path(dataFlagDestination), filter, cCtx.Uint(dataFlagChunkLimit)); err != nil {
 			return err
 		}
 	default:
@@ -578,13 +578,13 @@ func filenameForDownload(meta *datapb.BinaryMetadata) string {
 	}
 
 	// Replace reserved characters.
-	fileName = datacapture.FilePathWithReplacedReservedChars(fileName)
+	fileName = data.CaptureFilePathWithReplacedReservedChars(fileName)
 
 	return fileName
 }
 
 // tabularData downloads binary data matching filter to dst.
-func (c *viamClient) tabularData(dst string, filter *datapb.Filter) error {
+func (c *viamClient) tabularData(dst string, filter *datapb.Filter, limit uint) error {
 	if err := c.ensureLoggedIn(); err != nil {
 		return err
 	}
@@ -612,7 +612,7 @@ func (c *viamClient) tabularData(dst string, filter *datapb.Filter) error {
 			resp, err = c.dataClient.TabularDataByFilter(context.Background(), &datapb.TabularDataByFilterRequest{
 				DataRequest: &datapb.DataRequest{
 					Filter: filter,
-					Limit:  maxLimit,
+					Limit:  uint64(limit),
 					Last:   last,
 				},
 				CountOnly: false,
@@ -903,6 +903,47 @@ func (c *viamClient) dataRemoveFromDataset(datasetID, orgID, locationID string, 
 	return nil
 }
 
+// DataConfigureDatabaseUserConfirmation is the Before action for 'data database configure'.
+// it asks for the user to confirm that they are aware that they are changing the authentication
+// credentials of their database.
+func DataConfigureDatabaseUserConfirmation(c *cli.Context) error {
+	client, err := newViamClient(c)
+	if err != nil {
+		return err
+	}
+
+	res, err := client.dataGetDatabaseConnection(c.String(generalFlagOrgID))
+	if err != nil {
+		return err
+	}
+
+	if res.HasDatabaseUser {
+		yellow := "\033[1;33m%s\033[0m"
+		printf(c.App.Writer, yellow, "WARNING!!\n")
+		printf(c.App.Writer, yellow, "You or someone else in your organization have already created a user.\n")
+		printf(c.App.Writer, yellow, "The following steps update the password for that user.\n")
+		printf(c.App.Writer, yellow, "Once you have updated the password, you will need to update all dashboards or")
+		printf(c.App.Writer, yellow, "other integrations relying on this password.\n")
+		printf(c.App.Writer, yellow, "Do you want to continue?")
+		printf(c.App.Writer, "Continue: y/n")
+		if err := c.Err(); err != nil {
+			return err
+		}
+
+		rawInput, err := bufio.NewReader(c.App.Reader).ReadString('\n')
+		if err != nil {
+			return err
+		}
+
+		input := strings.ToUpper(strings.TrimSpace(rawInput))
+		if input != "Y" {
+			return errors.New("aborted")
+		}
+	}
+
+	return nil
+}
+
 // DataConfigureDatabaseUser is the corresponding action for 'data database configure'.
 func DataConfigureDatabaseUser(c *cli.Context) error {
 	client, err := newViamClient(c)
@@ -937,23 +978,24 @@ func DataGetDatabaseConnection(c *cli.Context) error {
 	if err != nil {
 		return err
 	}
-	if err := client.dataGetDatabaseConnection(c.String(generalFlagOrgID)); err != nil {
+	res, err := client.dataGetDatabaseConnection(c.String(generalFlagOrgID))
+	if err != nil {
 		return err
 	}
+	printf(client.c.App.Writer, "MongoDB Atlas Data Federation instance hostname: %s", res.GetHostname())
+	printf(client.c.App.Writer, "MongoDB Atlas Data Federation instance connection URI: %s", res.GetMongodbUri())
 	return nil
 }
 
 // dataGetDatabaseConnection gets the hostname of the MongoDB Atlas Data Federation instance
 // for the given organization ID.
-func (c *viamClient) dataGetDatabaseConnection(orgID string) error {
+func (c *viamClient) dataGetDatabaseConnection(orgID string) (*datapb.GetDatabaseConnectionResponse, error) {
 	if err := c.ensureLoggedIn(); err != nil {
-		return err
+		return nil, err
 	}
 	res, err := c.dataClient.GetDatabaseConnection(context.Background(), &datapb.GetDatabaseConnectionRequest{OrganizationId: orgID})
 	if err != nil {
-		return errors.Wrapf(err, serverErrorMessage)
+		return nil, errors.Wrapf(err, serverErrorMessage)
 	}
-	printf(c.c.App.Writer, "MongoDB Atlas Data Federation instance hostname: %s", res.GetHostname())
-	printf(c.c.App.Writer, "MongoDB Atlas Data Federation instance connection URI: %s", res.GetMongodbUri())
-	return nil
+	return res, nil
 }

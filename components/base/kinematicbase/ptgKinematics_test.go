@@ -237,9 +237,10 @@ func TestPTGKinematicsWithGeom(t *testing.T) {
 		test.That(t, solution, test.ShouldNotBeNil)
 
 		t.Run("ErrorState", func(t *testing.T) {
-			errorState, err := kb.ErrorState(ctx)
+			executionState, err := kb.ExecutionState(ctx)
 			test.That(t, err, test.ShouldBeNil)
-			test.That(t, errorState, test.ShouldNotBeNil)
+			errorState, err := motionplan.CalculateFrameErrorState(executionState, kb.Kinematics(), kb.LocalizationFrame())
+			test.That(t, err, test.ShouldBeNil)
 
 			// Error State should be computed based on current inputs, current executing steps, and the localizer's position function
 			currentPosition, err := kb.CurrentPosition(ctx)
@@ -278,9 +279,10 @@ func TestPTGKinematicsWithGeom(t *testing.T) {
 			ptgBase.currentState.currentInputs = newInputs
 			ptgBase.inputLock.Unlock()
 			// After course correction, error state should always be zero
-			errorState, err := kb.ErrorState(ctx)
+			executionState, err := kb.ExecutionState(ctx)
 			test.That(t, err, test.ShouldBeNil)
-			test.That(t, errorState, test.ShouldNotBeNil)
+			errorState, err := motionplan.CalculateFrameErrorState(executionState, kb.Kinematics(), kb.LocalizationFrame())
+			test.That(t, err, test.ShouldBeNil)
 			test.That(t, spatialmath.PoseAlmostEqualEps(errorState, spatialmath.NewZeroPose(), 1e-5), test.ShouldBeTrue)
 		})
 	})

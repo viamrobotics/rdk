@@ -85,7 +85,7 @@ func NewCloudManager(
 		cloudConfig:     *cloudConfig,
 		packagesDir:     packagesDir,
 		packagesDataDir: packagesDataDir,
-		logger:          logger.Sublogger("package_manager"),
+		logger:          logger,
 	}, nil
 }
 

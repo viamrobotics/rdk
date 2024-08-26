@@ -171,10 +171,13 @@ func mutateModuleConfig(c *cli.Context, modules []ModuleMap, manifest moduleMani
 			debugf(c.App.Writer, c.Bool(debugFlag), "replacing entrypoint")
 			if getMapString(foundMod, "type") == string(rdkConfig.ModuleTypeRegistry) {
 				// warning: there's a chance of inserting a dupe name here in odd cases
-				warningf(c.App.Writer, "you're replacing a registry module. we're converting it to a local module")
+				warningf(c.App.Writer, "You're replacing a registry module. We're converting it to a local module. "+
+					"To revert this change, use your machine's history page on app.viam.com.")
 				foundMod["type"] = string(rdkConfig.ModuleTypeLocal)
 				foundMod["name"] = localName
-				foundMod["module_id"] = ""
+				delete(foundMod, "module_id")
+				// TODO(APP-5844): stop clearing this once backend no longer rejects; we will use it for revert
+				delete(foundMod, "version")
 			}
 			foundMod["executable_path"] = absEntrypoint
 		}

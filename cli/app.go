@@ -50,6 +50,7 @@ const (
 	moduleFlagBinary          = "binary"
 	moduleFlagLocal           = "local"
 	moduleFlagHomeDir         = "home"
+	moduleCreateLocalOnly     = "local-only"
 
 	moduleBuildFlagPath      = "module"
 	moduleBuildFlagRef       = "ref"
@@ -70,6 +71,7 @@ const (
 	mlTrainingFlagDraft       = "draft"
 	mlTrainingFlagVisibility  = "visibility"
 	mlTrainingFlagDescription = "description"
+	mlTrainingFlagURL         = "url"
 
 	dataFlagDestination                    = "destination"
 	dataFlagDataType                       = "data-type"
@@ -85,6 +87,7 @@ const (
 	dataFlagMimeTypes                      = "mime-types"
 	dataFlagStart                          = "start"
 	dataFlagEnd                            = "end"
+	dataFlagChunkLimit                     = "chunk-limit"
 	dataFlagParallelDownloads              = "parallel"
 	dataFlagTags                           = "tags"
 	dataFlagBboxLabels                     = "bbox-labels"
@@ -394,8 +397,13 @@ var app = &cli.App{
 							Usage:    "output directory for downloaded data",
 						},
 						&cli.UintFlag{
+							Name:  dataFlagChunkLimit,
+							Usage: "maximum number of results per download request (tabular data only)",
+							Value: 100000,
+						},
+						&cli.UintFlag{
 							Name:  dataFlagParallelDownloads,
-							Usage: "number of download requests to make in parallel",
+							Usage: "number of download requests to make in parallel (binary data only)",
 							Value: 100,
 						},
 						&cli.StringSliceFlag{
@@ -522,6 +530,7 @@ var app = &cli.App{
 									Required: true,
 								},
 							},
+							Before: DataConfigureDatabaseUserConfirmation,
 							Action: DataConfigureDatabaseUser,
 						},
 						{
@@ -536,156 +545,6 @@ var app = &cli.App{
 								},
 							},
 							Action: DataGetDatabaseConnection,
-						},
-					},
-				},
-				{
-					Name:      "dataset",
-					Usage:     "add or remove data from datasets",
-					UsageText: createUsageText("data dataset", nil, true),
-					Subcommands: []*cli.Command{
-						{
-							Name:  "add",
-							Usage: "adds binary data either by IDs or filter to dataset",
-							Subcommands: []*cli.Command{
-								{
-									Name:  "ids",
-									Usage: "adds binary data with file IDs in a single org and location to dataset",
-									UsageText: createUsageText("data dataset add ids", []string{
-										datasetFlagDatasetID, generalFlagOrgID,
-										dataFlagLocationID, dataFlagFileIDs,
-									}, false),
-									Flags: []cli.Flag{
-										&cli.StringFlag{
-											Name:     datasetFlagDatasetID,
-											Usage:    "dataset ID to which data will be added",
-											Required: true,
-										},
-										&cli.StringFlag{
-											Name:     generalFlagOrgID,
-											Usage:    "org ID to which data belongs",
-											Required: true,
-										},
-										&cli.StringFlag{
-											Name:     dataFlagLocationID,
-											Usage:    "location ID to which data belongs",
-											Required: true,
-										},
-										&cli.StringSliceFlag{
-											Name:     dataFlagFileIDs,
-											Usage:    "file IDs of data belonging to specified org and location",
-											Required: true,
-										},
-									},
-									Action: DataAddToDatasetByIDs,
-								},
-
-								{
-									Name:      "filter",
-									UsageText: createUsageText("data dataset add filter", []string{datasetFlagDatasetID}, true),
-									Flags: []cli.Flag{
-										&cli.StringFlag{
-											Name:     datasetFlagDatasetID,
-											Usage:    "dataset ID to which data will be added",
-											Required: true,
-										},
-										&cli.StringSliceFlag{
-											Name:  dataFlagOrgIDs,
-											Usage: "orgs filter",
-										},
-										&cli.StringSliceFlag{
-											Name:  dataFlagLocationIDs,
-											Usage: "locations filter",
-										},
-										&AliasStringFlag{
-											cli.StringFlag{
-												Name:    generalFlagMachineID,
-												Aliases: []string{generalFlagAliasRobotID},
-												Usage:   "machine id filter",
-											},
-										},
-										&cli.StringFlag{
-											Name:  dataFlagPartID,
-											Usage: "part id filter",
-										},
-										&AliasStringFlag{
-											cli.StringFlag{
-												Name:    dataFlagMachineName,
-												Aliases: []string{dataFlagAliasRobotName},
-												Usage:   "machine name filter",
-											},
-										},
-										&cli.StringFlag{
-											Name:  dataFlagPartName,
-											Usage: "part name filter",
-										},
-										&cli.StringFlag{
-											Name:  dataFlagComponentType,
-											Usage: "component type filter",
-										},
-										&cli.StringFlag{
-											Name:  dataFlagComponentName,
-											Usage: "component name filter",
-										},
-										&cli.StringFlag{
-											Name:  dataFlagMethod,
-											Usage: "method filter",
-										},
-										&cli.StringSliceFlag{
-											Name:  dataFlagMimeTypes,
-											Usage: "mime types filter",
-										},
-										&cli.StringFlag{
-											Name:  dataFlagStart,
-											Usage: "ISO-8601 timestamp indicating the start of the interval filter",
-										},
-										&cli.StringFlag{
-											Name:  dataFlagEnd,
-											Usage: "ISO-8601 timestamp indicating the end of the interval filter",
-										},
-										&cli.StringSliceFlag{
-											Name: dataFlagTags,
-											Usage: "tags filter. " +
-												"accepts tagged for all tagged data, untagged for all untagged data, or a list of tags for all data matching any of the tags",
-										},
-										&cli.StringSliceFlag{
-											Name: dataFlagBboxLabels,
-											Usage: "bbox labels filter. " +
-												"accepts string labels corresponding to bounding boxes within images",
-										},
-									},
-									Action: DataAddToDatasetByFilter,
-								},
-							},
-						},
-						{
-							Name:  "remove",
-							Usage: "removes binary data with file IDs in a single org and location from dataset",
-							UsageText: createUsageText("data dataset remove",
-								[]string{datasetFlagDatasetID, generalFlagOrgID, dataFlagLocationID, dataFlagFileIDs}, false),
-							Flags: []cli.Flag{
-								&cli.StringFlag{
-									Name:     datasetFlagDatasetID,
-									Usage:    "dataset ID from which data will be removed",
-									Required: true,
-								},
-								&cli.StringFlag{
-									Name:     generalFlagOrgID,
-									Usage:    "org ID to which data belongs",
-									Required: true,
-								},
-								&cli.StringFlag{
-									Name:     dataFlagLocationID,
-									Usage:    "location ID to which data belongs",
-									Required: true,
-								},
-								&cli.StringSliceFlag{
-									Name:     dataFlagFileIDs,
-									Usage:    "file IDs of data belonging to specified org and location",
-									Required: true,
-								},
-							},
-							Action: DataRemoveFromDataset,
 						},
 					},
 				},
@@ -820,7 +679,188 @@ var app = &cli.App{
 							Usage:    "ID of the dataset to be deleted",
 						},
 					},
-					Action: DatasetCreateAction,
+					Action: DatasetDeleteAction,
+				},
+				{
+					Name:  "export",
+					Usage: "download data from a dataset",
+					UsageText: createUsageText("dataset export",
+						[]string{dataFlagDestination, datasetFlagDatasetID}, true, datasetFlagIncludeJSONLines, dataFlagParallelDownloads),
+					Flags: []cli.Flag{
+						&cli.PathFlag{
+							Name:     dataFlagDestination,
+							Required: true,
+							Usage:    "output directory for downloaded data",
+						},
+						&cli.StringFlag{
+							Name:     datasetFlagDatasetID,
+							Required: true,
+							Usage:    "dataset ID of the dataset to be downloaded",
+						},
+						&cli.BoolFlag{
+							Name:     datasetFlagIncludeJSONLines,
+							Required: false,
+							Usage:    "option to include JSON Lines files for local testing",
+							Value:    false,
+						},
+						&cli.UintFlag{
+							Name:     dataFlagParallelDownloads,
+							Required: false,
+							Usage:    "number of download requests to make in parallel",
+							Value:    100,
+						},
+					},
+					Action: DatasetDownloadAction,
+				},
+				{
+					Name:      "data",
+					Usage:     "add or remove data from datasets",
+					UsageText: createUsageText("dataset data", nil, true),
+					Subcommands: []*cli.Command{
+						{
+							Name:  "add",
+							Usage: "adds binary data either by IDs or filter to dataset",
+							Subcommands: []*cli.Command{
+								{
+									Name:  "ids",
+									Usage: "adds binary data with file IDs in a single org and location to dataset",
+									UsageText: createUsageText("dataset data add ids", []string{
+										datasetFlagDatasetID, generalFlagOrgID,
+										dataFlagLocationID, dataFlagFileIDs,
+									}, false),
+									Flags: []cli.Flag{
+										&cli.StringFlag{
+											Name:     datasetFlagDatasetID,
+											Usage:    "dataset ID to which data will be added",
+											Required: true,
+										},
+										&cli.StringFlag{
+											Name:     generalFlagOrgID,
+											Usage:    "org ID to which data belongs",
+											Required: true,
+										},
+										&cli.StringFlag{
+											Name:     dataFlagLocationID,
+											Usage:    "location ID to which data belongs",
+											Required: true,
+										},
+										&cli.StringSliceFlag{
+											Name:     dataFlagFileIDs,
+											Usage:    "file IDs of data belonging to specified org and location",
+											Required: true,
+										},
+									},
+									Action: DataAddToDatasetByIDs,
+								},
+								{
+									Name:      "filter",
+									Usage:     "adds binary data from the specified filter to dataset",
+									UsageText: createUsageText("dataset data add filter", []string{datasetFlagDatasetID}, true),
+									Flags: []cli.Flag{
+										&cli.StringFlag{
+											Name:     datasetFlagDatasetID,
+											Usage:    "dataset ID to which data will be added",
+											Required: true,
+										},
+										&cli.StringSliceFlag{
+											Name:  dataFlagOrgIDs,
+											Usage: "orgs filter",
+										},
+										&cli.StringSliceFlag{
+											Name:  dataFlagLocationIDs,
+											Usage: "locations filter",
+										},
+										&AliasStringFlag{
+											cli.StringFlag{
+												Name:    generalFlagMachineID,
+												Aliases: []string{generalFlagAliasRobotID},
+												Usage:   "machine id filter",
+											},
+										},
+										&cli.StringFlag{
+											Name:  dataFlagPartID,
+											Usage: "part id filter",
+										},
+										&AliasStringFlag{
+											cli.StringFlag{
+												Name:    dataFlagMachineName,
+												Aliases: []string{dataFlagAliasRobotName},
+												Usage:   "machine name filter",
+											},
+										},
+										&cli.StringFlag{
+											Name:  dataFlagPartName,
+											Usage: "part name filter",
+										},
+										&cli.StringFlag{
+											Name:  dataFlagComponentType,
+											Usage: "component type filter",
+										},
+										&cli.StringFlag{
+											Name:  dataFlagComponentName,
+											Usage: "component name filter",
+										},
+										&cli.StringFlag{
+											Name:  dataFlagMethod,
+											Usage: "method filter",
+										},
+										&cli.StringSliceFlag{
+											Name:  dataFlagMimeTypes,
+											Usage: "mime types filter",
+										},
+										&cli.StringFlag{
+											Name:  dataFlagStart,
+											Usage: "ISO-8601 timestamp indicating the start of the interval filter",
+										},
+										&cli.StringFlag{
+											Name:  dataFlagEnd,
+											Usage: "ISO-8601 timestamp indicating the end of the interval filter",
+										},
+										&cli.StringSliceFlag{
+											Name: dataFlagTags,
+											Usage: "tags filter. " +
+												"accepts tagged for all tagged data, untagged for all untagged data, or a list of tags for all data matching any of the tags",
+										},
+										&cli.StringSliceFlag{
+											Name: dataFlagBboxLabels,
+											Usage: "bbox labels filter. " +
+												"accepts string labels corresponding to bounding boxes within images",
+										},
+									},
+									Action: DataAddToDatasetByFilter,
+								},
+							},
+						},
+						{
+							Name:  "remove",
+							Usage: "removes binary data with file IDs in a single org and location from dataset",
+							UsageText: createUsageText("dataset data remove",
+								[]string{datasetFlagDatasetID, generalFlagOrgID, dataFlagLocationID, dataFlagFileIDs}, false),
+							Flags: []cli.Flag{
+								&cli.StringFlag{
+									Name:     datasetFlagDatasetID,
+									Usage:    "dataset ID from which data will be removed",
+									Required: true,
+								},
+								&cli.StringFlag{
+									Name:     generalFlagOrgID,
+									Usage:    "org ID to which data belongs",
+									Required: true,
+								},
+								&cli.StringFlag{
+									Name:     dataFlagLocationID,
+									Usage:    "location ID to which data belongs",
+									Required: true,
+								},
+								&cli.StringSliceFlag{
+									Name:     dataFlagFileIDs,
+									Usage:    "file IDs of data belonging to specified org and location",
+									Required: true,
+								},
+							},
+							Action: DataRemoveFromDataset,
+						},
+					},
 				},
 				{
 					Name:  "download",
@@ -938,8 +978,9 @@ var app = &cli.App{
 											Usage: "version of ML model. defaults to current timestamp if unspecified.",
 										},
 										&cli.StringFlag{
-											Name:     mlTrainingFlagName,
-											Usage:    "registry name of the ML training script to use for training",
+											Name: mlTrainingFlagName,
+											Usage: "registry name of the ML training script to use for training, " +
+												"which should be formatted as prefix:itemname where prefix is either the org ID or the namespace.",
 											Required: true,
 										},
 										&cli.StringFlag{
@@ -1239,6 +1280,34 @@ var app = &cli.App{
 							Action: RobotsPartLogsAction,
 						},
 						{
+							Name:      "restart",
+							Aliases:   []string{},
+							Usage:     "request part restart",
+							UsageText: createUsageText("machines part restart", []string{machineFlag, partFlag}, true),
+							Flags: []cli.Flag{
+								&cli.StringFlag{
+									Name:        organizationFlag,
+									DefaultText: "first organization alphabetically",
+								},
+								&cli.StringFlag{
+									Name:        locationFlag,
+									DefaultText: "first location alphabetically",
+								},
+								&AliasStringFlag{
+									cli.StringFlag{
+										Name:     machineFlag,
+										Aliases:  []string{aliasRobotFlag},
+										Required: true,
+									},
+								},
+								&cli.StringFlag{
+									Name:     partFlag,
+									Required: true,
+								},
+							},
+							Action: RobotsPartRestartAction,
+						},
+						{
 							Name:  "run",
 							Usage: "run a command on a machine part",
 							UsageText: createUsageText("machines part run", []string{
@@ -1400,6 +1469,10 @@ After creation, use 'viam module update' to push your new module to app.viam.com
 						&cli.StringFlag{
 							Name:  generalFlagOrgID,
 							Usage: "id of the organization that will host the module",
+						},
+						&cli.BoolFlag{
+							Name:  moduleCreateLocalOnly,
+							Usage: "create a meta.json file for local use, but don't create the module on the backend",
 						},
 					},
 					Action: CreateModuleAction,
@@ -1788,13 +1861,18 @@ Example:
 							Usage:    "indicate draft mode, drafts will not be viewable in the registry",
 							Required: false,
 						},
+						&cli.StringFlag{
+							Name:     mlTrainingFlagURL,
+							Usage:    "url of Github repository associated with the training scripts",
+							Required: false,
+						},
 					},
 					// Upload action
 					Action: MLTrainingUploadAction,
 				},
 				{
 					Name:      "update",
-					Usage:     "update visibility of ML training scripts for custom ML training",
+					Usage:     "update ML training scripts for custom ML training",
 					UsageText: createUsageText("training-script update", []string{generalFlagOrgID, mlTrainingFlagName, mlTrainingFlagVisibility}, true),
 					Flags: []cli.Flag{
 						&cli.StringFlag{
@@ -1815,6 +1893,11 @@ Example:
 						&cli.StringFlag{
 							Name:     mlTrainingFlagDescription,
 							Usage:    "description of the ML training script",
+							Required: false,
+						},
+						&cli.StringFlag{
+							Name:     mlTrainingFlagURL,
+							Usage:    "url of Github repository associated with the training scripts",
 							Required: false,
 						},
 					},

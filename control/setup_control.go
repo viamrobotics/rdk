@@ -4,6 +4,7 @@ import (
 	"context"
 	"sync"
 
+	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 	"go.viam.com/utils"
 
@@ -458,6 +459,9 @@ func CreateTrapzBlock(ctx context.Context, name string, maxVel float64, dependsO
 
 // UpdateTrapzBlock creates and sets a control config trapezoidalVelocityProfile block.
 func UpdateTrapzBlock(ctx context.Context, name string, maxVel float64, dependsOn []string, loop *Loop) error {
+	if maxVel == 0 {
+		return errors.New("maxVel must be a non-zero value")
+	}
 	newTrapzBlock := CreateTrapzBlock(ctx, name, maxVel, dependsOn)
 	if err := loop.SetConfigAt(ctx, name, newTrapzBlock); err != nil {
 		return err

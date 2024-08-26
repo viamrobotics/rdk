@@ -73,6 +73,11 @@ type localRobot struct {
 	// logical clock when updateWeakDependents was called.
 	lastWeakDependentsRound atomic.Int64
 
+	// configRevision stores the revision of the latest config ingested during
+	// reconfigurations along with a timestamp.
+	configRevision   config.Revision
+	configRevisionMu sync.RWMutex
+
 	// internal services that are in the graph but we also hold onto
 	webSvc   web.Service
 	frameSvc framesystem.Service
@@ -440,6 +445,8 @@ func newWithResources(
 		}
 	}()
 
+	packageLogger := logger.Sublogger("package_manager")
+
 	if cfg.Cloud != nil && cfg.Cloud.AppAddress != "" {
 		r.packageManager = packages.NewDeferredPackageManager(
 			ctx,
@@ -449,13 +456,13 @@ func newWithResources(
 			},
 			cfg.Cloud,
 			cfg.PackagePath,
-			logger,
+			packageLogger,
 		)
 	} else {
 		r.logger.CDebug(ctx, "Using no-op PackageManager when Cloud config is not available")
 		r.packageManager = packages.NewNoopManager()
 	}
-	r.localPackages, err = packages.NewLocalManager(cfg, logger)
+	r.localPackages, err = packages.NewLocalManager(cfg, packageLogger)
 	if err != nil {
 		return nil, err
 	}
@@ -555,8 +562,8 @@ func newWithResources(
 	r.Reconfigure(ctx, cfg)
 
 	for name, res := range resources {
-		if err := r.manager.resources.AddNode(
-			name, resource.NewConfiguredGraphNode(resource.Config{}, res, unknownModel)); err != nil {
+		node := resource.NewConfiguredGraphNode(resource.Config{}, res, unknownModel)
+		if err := r.manager.resources.AddNode(name, node); err != nil {
 			return nil, err
 		}
 	}
@@ -1124,7 +1131,7 @@ func dialRobotClient(
 	robotClient, err := client.New(
 		ctx,
 		config.Address,
-		logger,
+		logger.Sublogger("networking"),
 		rOpts...,
 	)
 	if err != nil {
@@ -1155,6 +1162,13 @@ func (r *localRobot) applyLocalModuleVersions(cfg *config.Config) {
 }
 
 func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, forceSync bool) {
+	r.configRevisionMu.Lock()
+	r.configRevision = config.Revision{
+		Revision:    newConfig.Revision,
+		LastUpdated: time.Now(),
+	}
+	r.configRevisionMu.Unlock()
+
 	var allErrs error
 
 	// Sync Packages before reconfiguring rest of robot and resolving references to any packages
@@ -1226,6 +1240,12 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 		r.logger.CErrorw(ctx, "error diffing the configs", "error", err)
 		return
 	}
+
+	revision := diff.NewRevision()
+	for _, res := range diff.UnmodifiedResources {
+		r.manager.updateRevision(res.ResourceName(), revision)
+	}
+
 	if diff.ResourcesEqual {
 		return
 	}
@@ -1312,7 +1332,7 @@ func (r *localRobot) CloudMetadata(ctx context.Context) (cloud.Metadata, error) 
 }
 
 // restartSingleModule constructs a single-module diff and calls updateResources with it.
-func (r *localRobot) restartSingleModule(ctx context.Context, mod *config.Module) error {
+func (r *localRobot) restartSingleModule(ctx context.Context, mod *config.Module, isRunning bool) error {
 	if mod.Type == config.ModuleTypeLocal {
 		// note: this version incrementing matters for local tarballs because we want the system to
 		// unpack into a new directory rather than reusing the old one. Local tarball path matters
@@ -1332,20 +1352,33 @@ func (r *localRobot) restartSingleModule(ctx context.Context, mod *config.Module
 		Left:     r.Config(),
 		Right:    r.Config(),
 		Added:    &config.Config{},
-		Modified: &config.ModifiedConfigDiff{Modules: []config.Module{*mod}},
+		Modified: &config.ModifiedConfigDiff{},
 		Removed:  &config.Config{},
+	}
+	// note: if !isRunning (i.e. the module is in config but it crashed), putting it in diff.Modified
+	// results in a no-op; we use .Added instead.
+	if isRunning {
+		diff.Modified.Modules = append(diff.Modified.Modules, *mod)
+	} else {
+		diff.Added.Modules = append(diff.Added.Modules, *mod)
 	}
 	return r.manager.updateResources(ctx, &diff)
 }
 
 func (r *localRobot) RestartModule(ctx context.Context, req robot.RestartModuleRequest) error {
-	mod := utils.FindInSlice(r.Config().Modules, req.MatchesModule)
+	cfg := r.mostRecentCfg.Load().(config.Config)
+	var mod *config.Module
+	if cfg.Modules != nil {
+		mod = utils.FindInSlice(cfg.Modules, req.MatchesModule)
+	}
 	if mod == nil {
 		return status.Errorf(codes.NotFound,
 			"module not found with id=%s, name=%s. make sure it is configured and running on your machine",
 			req.ModuleID, req.ModuleName)
 	}
-	err := r.restartSingleModule(ctx, mod)
+	activeModules := r.manager.createConfig().Modules
+	isRunning := activeModules != nil && utils.FindInSlice(activeModules, req.MatchesModule) != nil
+	err := r.restartSingleModule(ctx, mod, isRunning)
 	if err != nil {
 		return errors.Wrapf(err, "while restarting module id=%s, name=%s", req.ModuleID, req.ModuleName)
 	}
@@ -1359,4 +1392,24 @@ func (r *localRobot) Shutdown(ctx context.Context) error {
 		r.Logger().CErrorw(ctx, "shutdown function not defined")
 	}
 	return nil
+}
+
+// MachineStatus returns the current status of the robot.
+func (r *localRobot) MachineStatus(ctx context.Context) (robot.MachineStatus, error) {
+	var result robot.MachineStatus
+
+	r.manager.resourceGraphLock.Lock()
+	result.Resources = append(result.Resources, r.manager.resources.Status()...)
+	r.manager.resourceGraphLock.Unlock()
+
+	r.configRevisionMu.RLock()
+	result.Config = r.configRevision
+	r.configRevisionMu.RUnlock()
+
+	return result, nil
+}
+
+// Version returns version information about the robot.
+func (r *localRobot) Version(ctx context.Context) (robot.VersionResponse, error) {
+	return robot.Version()
 }

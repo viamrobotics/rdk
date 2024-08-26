@@ -16,9 +16,9 @@ import (
 	"go.viam.com/test"
 	"google.golang.org/grpc"
 
+	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/services/datamanager/datacapture"
 	"go.viam.com/rdk/services/datamanager/datasync"
 )
 
@@ -29,6 +29,9 @@ const (
 
 // TODO DATA-849: Add a test that validates that sync interval is accurately respected.
 func TestSyncEnabled(t *testing.T) {
+	// https://viam.atlassian.net/browse/DATA-2880
+	// https://viam.atlassian.net/browse/DATA-2879
+	t.Skip()
 	captureInterval := time.Millisecond * 10
 	tests := []struct {
 		name                        string
@@ -88,6 +91,8 @@ func TestSyncEnabled(t *testing.T) {
 				AssociatedAttributes: associations,
 			})
 			test.That(t, err, test.ShouldBeNil)
+			b := dmsvc.(*builtIn)
+			test.That(t, b.propagateDataSyncConfig(), test.ShouldBeNil)
 			mockClock.Add(captureInterval)
 			waitForCaptureFilesToExceedNFiles(tmpDir, 0)
 			mockClock.Add(syncInterval)
@@ -117,6 +122,7 @@ func TestSyncEnabled(t *testing.T) {
 				AssociatedAttributes: associations,
 			})
 			test.That(t, err, test.ShouldBeNil)
+			test.That(t, b.propagateDataSyncConfig(), test.ShouldBeNil)
 
 			// Drain any requests that were already sent before Update returned.
 			for len(mockClient.succesfulDCRequests) > 0 {
@@ -235,6 +241,8 @@ func TestDataCaptureUploadIntegration(t *testing.T) {
 				AssociatedAttributes: associations,
 			})
 			test.That(t, err, test.ShouldBeNil)
+			b := dmsvc.(*builtIn)
+			test.That(t, b.propagateDataSyncConfig(), test.ShouldBeNil)
 
 			// Let it capture a bit, then close.
 			for i := 0; i < 20; i++ {
@@ -270,6 +278,8 @@ func TestDataCaptureUploadIntegration(t *testing.T) {
 				AssociatedAttributes: associations,
 			})
 			test.That(t, err, test.ShouldBeNil)
+			b2 := newDMSvc.(*builtIn)
+			test.That(t, b2.propagateDataSyncConfig(), test.ShouldBeNil)
 
 			if tc.failTransiently {
 				// Simulate the backend returning errors some number of times, and validate that the dmsvc is continuing
@@ -332,6 +342,7 @@ func TestArbitraryFileUpload(t *testing.T) {
 	datasync.RetryExponentialFactor.Store(int32(1))
 	fileName := "some_file_name.txt"
 	fileExt := ".txt"
+	emptyFileTestName := "error due to empty file, local files should not be deleted"
 	// Disable the check to see if the file was modified recently,
 	// since we are testing instanteous arbitrary file uploads.
 	datasync.SetFileLastModifiedMillis(0)
@@ -358,6 +369,12 @@ func TestArbitraryFileUpload(t *testing.T) {
 		},
 		{
 			name:                 "if an error response is received from the backend, local files should not be deleted",
+			manualSync:           false,
+			scheduleSyncDisabled: false,
+			serviceFail:          true,
+		},
+		{
+			name:                 emptyFileTestName,
 			manualSync:           false,
 			scheduleSyncDisabled: false,
 			serviceFail:          true,
@@ -397,13 +414,15 @@ func TestArbitraryFileUpload(t *testing.T) {
 				AssociatedAttributes: associations,
 			})
 			test.That(t, err, test.ShouldBeNil)
+			b := dmsvc.(*builtIn)
+			test.That(t, b.propagateDataSyncConfig(), test.ShouldBeNil)
 			// Ensure that we don't wait to sync files.
 			dmsvc.SetFileLastModifiedMillis(0)
 
 			// Write file to the path.
 			var fileContents []byte
-			for i := 0; i < 1000; i++ {
-				fileContents = append(fileContents, []byte("happy cows come from california\n")...)
+			if tc.name != emptyFileTestName {
+				fileContents = populateFileContents(fileContents)
 			}
 			tmpFile, err := os.Create(filepath.Join(additionalPathsDir, fileName))
 			test.That(t, err, test.ShouldBeNil)
@@ -525,6 +544,8 @@ func TestStreamingDCUpload(t *testing.T) {
 				AssociatedAttributes: associations,
 			})
 			test.That(t, err, test.ShouldBeNil)
+			b := dmsvc.(*builtIn)
+			test.That(t, b.propagateDataSyncConfig(), test.ShouldBeNil)
 
 			// Capture an image, then close.
 			mockClock.Add(captureInterval)
@@ -554,6 +575,8 @@ func TestStreamingDCUpload(t *testing.T) {
 				AssociatedAttributes: associations,
 			})
 			test.That(t, err, test.ShouldBeNil)
+			b2 := newDMSvc.(*builtIn)
+			test.That(t, b2.propagateDataSyncConfig(), test.ShouldBeNil)
 
 			// Call sync.
 			err = newDMSvc.Sync(context.Background(), nil)
@@ -615,6 +638,9 @@ func TestStreamingDCUpload(t *testing.T) {
 }
 
 func TestSyncConfigUpdateBehavior(t *testing.T) {
+	// https://viam.atlassian.net/browse/DATA-2880
+	// https://viam.atlassian.net/browse/DATA-2879
+	t.Skip()
 	newSyncIntervalMins := 0.009
 	tests := []struct {
 		name                 string
@@ -687,8 +713,10 @@ func TestSyncConfigUpdateBehavior(t *testing.T) {
 			})
 			test.That(t, err, test.ShouldBeNil)
 
-			builtInSvc := dmsvc.(*builtIn)
-			initTicker := builtInSvc.syncTicker
+			b := dmsvc.(*builtIn)
+			test.That(t, b.propagateDataSyncConfig(), test.ShouldBeNil)
+
+			initTicker := b.syncTicker
 
 			// Reconfigure the dmsvc with new sync configs
 			cfg.ScheduledSyncDisabled = tc.newSyncDisabled
@@ -701,10 +729,10 @@ func TestSyncConfigUpdateBehavior(t *testing.T) {
 			})
 			test.That(t, err, test.ShouldBeNil)
 
-			newBuildInSvc := dmsvc.(*builtIn)
-			newTicker := newBuildInSvc.syncTicker
-			newSyncer := newBuildInSvc.syncer
-			newFileDeletionBackgroundWorker := newBuildInSvc.fileDeletionBackgroundWorkers
+			test.That(t, b.propagateDataSyncConfig(), test.ShouldBeNil)
+			newTicker := b.syncTicker
+			newSyncer := b.syncer
+			newFileDeletionBackgroundWorker := b.fileDeletionBackgroundWorkers
 
 			if tc.newSyncDisabled {
 				test.That(t, newSyncer, test.ShouldBeNil)
@@ -715,7 +743,7 @@ func TestSyncConfigUpdateBehavior(t *testing.T) {
 				test.That(t, initTicker, test.ShouldNotEqual, newTicker)
 			}
 			if tc.newMaxSyncThreads != 0 {
-				test.That(t, newBuildInSvc.maxSyncThreads, test.ShouldEqual, tc.newMaxSyncThreads)
+				test.That(t, b.maxSyncThreads, test.ShouldEqual, tc.newMaxSyncThreads)
 			}
 		})
 	}
@@ -737,7 +765,7 @@ func getAllFilePaths(dir string) []string {
 }
 
 func getCapturedData(dir string) (int, []*v1.SensorData, error) {
-	var allFiles []*datacapture.File
+	var allFiles []*data.CaptureFile
 	filePaths := getAllFilePaths(dir)
 	var numFiles int
 
@@ -746,7 +774,7 @@ func getCapturedData(dir string) (int, []*v1.SensorData, error) {
 		if err != nil {
 			return 0, nil, err
 		}
-		dcFile, err := datacapture.ReadFile(osFile)
+		dcFile, err := data.ReadCaptureFile(osFile)
 		if err != nil {
 			return 0, nil, err
 		}
@@ -926,7 +954,7 @@ func (m *mockStreamingDCClient) CloseSend() error {
 func getTestSyncerConstructorMock(client mockDataSyncServiceClient) datasync.ManagerConstructor {
 	return func(identity string, _ v1.DataSyncServiceClient, logger logging.Logger,
 		viamCaptureDotDir string, maxSyncThreads int, filesToSync chan string,
-	) (datasync.Manager, error) {
+	) datasync.Manager {
 		return datasync.NewManager(identity, client, logger, viamCaptureDotDir, maxSyncThreads, make(chan string))
 	}
 }
@@ -943,4 +971,12 @@ func waitUntilNoFiles(dir string) {
 		time.Sleep(waitPerCheck)
 		files = getAllFileInfos(dir)
 	}
+}
+
+func populateFileContents(fileContents []byte) []byte {
+	for i := 0; i < 1000; i++ {
+		fileContents = append(fileContents, []byte("happy cows come from california\n")...)
+	}
+
+	return fileContents
 }

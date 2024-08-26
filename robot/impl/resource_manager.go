@@ -71,12 +71,13 @@ func newResourceManager(
 	opts resourceManagerOptions,
 	logger logging.Logger,
 ) *resourceManager {
+	resLogger := logger.Sublogger("resource_manager")
 	return &resourceManager{
 		resources:      resource.NewGraph(),
 		processManager: newProcessManager(opts, logger),
 		processConfigs: make(map[string]pexec.ProcessConfig),
 		opts:           opts,
-		logger:         logger,
+		logger:         resLogger,
 	}
 }
 
@@ -87,7 +88,7 @@ func newProcessManager(
 	if opts.untrustedEnv {
 		return pexec.NoopProcessManager
 	}
-	return pexec.NewProcessManager(logger.AsZap())
+	return pexec.NewProcessManager(logger)
 }
 
 func fromRemoteNameToRemoteNodeName(name string) resource.Name {
@@ -139,7 +140,7 @@ func (manager *resourceManager) addRemote(
 	} else {
 		gNode.SwapResource(rr, builtinModel)
 	}
-	manager.updateRemoteResourceNames(ctx, rName, rr)
+	manager.updateRemoteResourceNames(ctx, rName, rr, true)
 }
 
 func (manager *resourceManager) remoteResourceNames(remoteName resource.Name) []resource.Name {
@@ -169,8 +170,9 @@ type internalRemoteRobot interface {
 }
 
 // updateRemoteResourceNames is called when the Remote robot has changed (either connection or disconnection).
-// It will pull the current remote resources and update the resource tree adding or removing nodes accordingly
-// If any local resources are dependent on a remote resource two things can happen
+// It will pull the current remote resources and update the resource tree adding or removing nodes accordingly.
+// The recreateAllClients flag will re-add all remote resource nodes if true and only new / uninitialized
+// resource names if false. If any local resources are dependent on a remote resource two things can happen
 //  1. The remote resource already is in the tree and nothing will happen.
 //  2. A remote resource is being deleted but a local resource depends on it; it will be removed
 //     and its local children will be destroyed.
@@ -178,6 +180,7 @@ func (manager *resourceManager) updateRemoteResourceNames(
 	ctx context.Context,
 	remoteName resource.Name,
 	rr internalRemoteRobot,
+	recreateAllClients bool,
 ) bool {
 	manager.logger.CDebugw(ctx, "updating remote resource names", "remote", remoteName)
 	activeResourceNames := map[resource.Name]bool{}
@@ -211,7 +214,28 @@ func (manager *resourceManager) updateRemoteResourceNames(
 		if _, alreadyCurrent := activeResourceNames[resName]; alreadyCurrent {
 			activeResourceNames[resName] = true
 			if ok && !gNode.IsUninitialized() {
-				continue
+				// resources that enter this block represent those with names that already exist in the resource graph.
+				// it is possible that we are switching to a new remote with a identical resource name(s), so we may
+				// need to create these resource clients.
+				if !recreateAllClients {
+					// ticker event, likely no changes to remote resources, skip closing and readding duplicate name resource clients
+					continue
+				}
+				// reconfiguration attempt, remote could have changed, so close all duplicate name remote resource clients and readd new ones later
+				manager.logger.CDebugw(ctx, "attempting to remove remote resource", "name", resName)
+				if err := manager.markChildrenForUpdate(resName); err != nil {
+					manager.logger.CErrorw(ctx,
+						"failed to mark children of remote resource for update",
+						"resource", resName,
+						"reason", err)
+					continue
+				}
+				if err := gNode.Close(ctx); err != nil {
+					manager.logger.CErrorw(ctx,
+						"failed to close remote resource node",
+						"resource", resName,
+						"reason", err)
+				}
 			}
 		}
 
@@ -254,14 +278,14 @@ func (manager *resourceManager) updateRemoteResourceNames(
 		}
 		if err := manager.markChildrenForUpdate(resName); err != nil {
 			manager.logger.CErrorw(ctx,
-				"failed to mark children of remote for update",
+				"failed to mark children of remote resource for update",
 				"resource", resName,
 				"reason", err)
 			continue
 		}
 		if err := gNode.Close(ctx); err != nil {
 			manager.logger.CErrorw(ctx,
-				"failed to close remote node",
+				"failed to close remote resource node",
 				"resource", resName,
 				"reason", err)
 		}
@@ -282,7 +306,7 @@ func (manager *resourceManager) updateRemotesResourceNames(ctx context.Context) 
 			if err == nil {
 				if rr, ok := res.(internalRemoteRobot); ok {
 					// updateRemoteResourceNames must be first, otherwise there's a chance it will not be evaluated
-					anythingChanged = manager.updateRemoteResourceNames(ctx, name, rr) || anythingChanged
+					anythingChanged = manager.updateRemoteResourceNames(ctx, name, rr, false) || anythingChanged
 				}
 			}
 		}
@@ -836,6 +860,15 @@ func (manager *resourceManager) processRemote(
 	config config.Remote,
 	gNode *resource.GraphNode,
 ) (*client.RobotClient, error) {
+	// if there was an existing client (i.e. remote was modified), close old client before making a new one
+	res, err := gNode.Resource()
+	if err == nil {
+		err = res.Close(ctx)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	dialOpts := remoteDialOptions(config, manager.opts)
 	manager.logger.CInfow(ctx, "Connecting now to remote", "remote", config.Name)
 	robotClient, err := dialRobotClient(ctx, config, gNode.Logger(), dialOpts...)
@@ -972,10 +1005,11 @@ func (manager *resourceManager) processResource(
 // markResourceForUpdate marks the given resource in the graph to be updated. If it does not exist, a new node
 // is inserted. If it does exist, it's properly marked. Once this is done, all information needed to build/reconfigure
 // will be available when we call completeConfig.
-func (manager *resourceManager) markResourceForUpdate(name resource.Name, conf resource.Config, deps []string) error {
+func (manager *resourceManager) markResourceForUpdate(name resource.Name, conf resource.Config, deps []string, revision string) error {
 	gNode, hasNode := manager.resources.Node(name)
 	if hasNode {
 		gNode.SetNewConfig(conf, deps)
+		gNode.UpdatePendingRevision(revision)
 		// reset parentage
 		for _, parent := range manager.resources.GetAllParentsOf(name) {
 			manager.resources.RemoveChild(name, parent)
@@ -983,10 +1017,18 @@ func (manager *resourceManager) markResourceForUpdate(name resource.Name, conf r
 		return nil
 	}
 	gNode = resource.NewUnconfiguredGraphNode(conf, deps)
+	gNode.UpdatePendingRevision(revision)
 	if err := manager.resources.AddNode(name, gNode); err != nil {
 		return errors.Errorf("failed to add new node for unconfigured resource %q: %v", name, err)
 	}
 	return nil
+}
+
+// updateRevision updates the current revision of a node.
+func (manager *resourceManager) updateRevision(name resource.Name, revision string) {
+	if gNode, hasNode := manager.resources.Node(name); hasNode {
+		gNode.UpdateRevision(revision)
+	}
 }
 
 // updateResources will use the difference between the current config
@@ -1033,26 +1075,31 @@ func (manager *resourceManager) updateResources(
 		}
 	}
 
+	revision := conf.NewRevision()
 	for _, s := range conf.Added.Services {
 		rName := s.ResourceName()
 		if manager.opts.untrustedEnv && rName.API == shell.API {
 			allErrs = multierr.Combine(allErrs, errShellServiceDisabled)
 			continue
 		}
-		allErrs = multierr.Combine(allErrs, manager.markResourceForUpdate(rName, s, s.Dependencies()))
+		markErr := manager.markResourceForUpdate(rName, s, s.Dependencies(), revision)
+		allErrs = multierr.Combine(allErrs, markErr)
 	}
 	for _, c := range conf.Added.Components {
 		rName := c.ResourceName()
-		allErrs = multierr.Combine(allErrs, manager.markResourceForUpdate(rName, c, c.Dependencies()))
+		markErr := manager.markResourceForUpdate(rName, c, c.Dependencies(), revision)
+		allErrs = multierr.Combine(allErrs, markErr)
 	}
 	for _, r := range conf.Added.Remotes {
 		rName := fromRemoteNameToRemoteNodeName(r.Name)
 		rCopy := r
-		allErrs = multierr.Combine(allErrs, manager.markResourceForUpdate(rName, resource.Config{ConvertedAttributes: &rCopy}, []string{}))
+		markErr := manager.markResourceForUpdate(rName, resource.Config{ConvertedAttributes: &rCopy}, []string{}, revision)
+		allErrs = multierr.Combine(allErrs, markErr)
 	}
 	for _, c := range conf.Modified.Components {
 		rName := c.ResourceName()
-		allErrs = multierr.Combine(allErrs, manager.markResourceForUpdate(rName, c, c.Dependencies()))
+		markErr := manager.markResourceForUpdate(rName, c, c.Dependencies(), revision)
+		allErrs = multierr.Combine(allErrs, markErr)
 	}
 	for _, s := range conf.Modified.Services {
 		rName := s.ResourceName()
@@ -1063,12 +1110,14 @@ func (manager *resourceManager) updateResources(
 			continue
 		}
 
-		allErrs = multierr.Combine(allErrs, manager.markResourceForUpdate(rName, s, s.Dependencies()))
+		markErr := manager.markResourceForUpdate(rName, s, s.Dependencies(), revision)
+		allErrs = multierr.Combine(allErrs, markErr)
 	}
 	for _, r := range conf.Modified.Remotes {
 		rName := fromRemoteNameToRemoteNodeName(r.Name)
 		rCopy := r
-		allErrs = multierr.Combine(allErrs, manager.markResourceForUpdate(rName, resource.Config{ConvertedAttributes: &rCopy}, []string{}))
+		markErr := manager.markResourceForUpdate(rName, resource.Config{ConvertedAttributes: &rCopy}, []string{}, revision)
+		allErrs = multierr.Combine(allErrs, markErr)
 	}
 
 	// processes are not added into the resource tree as they belong to a process manager
@@ -1121,7 +1170,6 @@ func (manager *resourceManager) updateResources(
 		}
 		manager.processConfigs[p.ID] = p
 	}
-
 	return allErrs
 }
 

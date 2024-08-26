@@ -19,7 +19,7 @@ const (
 	datasetFlagDatasetIDs       = "dataset-ids"
 	dataFlagLocationID          = "location-id"
 	dataFlagFileIDs             = "file-ids"
-	datasetFlagIncludeJSONLines = "jsonl"
+	datasetFlagIncludeJSONLines = "include-jsonl"
 )
 
 // DatasetCreateAction is the corresponding action for 'dataset create'.
@@ -200,7 +200,7 @@ func (c *viamClient) downloadDataset(dst, datasetID string, includeJSONLines boo
 			downloadErr := downloadBinary(c.c.Context, c.dataClient, dst, id, c.authFlow.httpClient, c.conf.Auth)
 			var datasetErr error
 			if includeJSONLines {
-				datasetErr = binaryDataToJSONLines(c.c.Context, c.dataClient, datasetFile, id)
+				datasetErr = binaryDataToJSONLines(c.c.Context, c.dataClient, dst, datasetFile, id)
 			}
 			return multierr.Combine(downloadErr, datasetErr)
 		},
@@ -234,7 +234,7 @@ type BBoxAnnotation struct {
 	YMaxNormalized  float64 `json:"y_max_normalized"`
 }
 
-func binaryDataToJSONLines(ctx context.Context, client datapb.DataServiceClient, file *os.File,
+func binaryDataToJSONLines(ctx context.Context, client datapb.DataServiceClient, dst string, file *os.File,
 	id *datapb.BinaryID,
 ) error {
 	var resp *datapb.BinaryDataByIDsResponse
@@ -266,8 +266,18 @@ func binaryDataToJSONLines(ctx context.Context, client datapb.DataServiceClient,
 		annotations = append(annotations, Annotation{AnnotationLabel: tag})
 	}
 	bboxAnnotations := convertBoundingBoxes(datum.GetMetadata().GetAnnotations().GetBboxes())
+
+	fileName := filepath.Join(dst, dataDir, filenameForDownload(datum.GetMetadata()))
+	ext := datum.GetMetadata().GetFileExt()
+	// If the file is gzipped, unzip.
+	if ext != gzFileExt && filepath.Ext(fileName) != ext {
+		// If the file name did not already include the extension (e.g. for data capture files), add it.
+		// Don't do this for files that we're unzipping.
+		fileName += ext
+	}
+
 	jsonl = ImageMetadata{
-		ImagePath:                 filenameForDownload(datum.GetMetadata()),
+		ImagePath:                 fileName,
 		ClassificationAnnotations: annotations,
 		BBoxAnnotations:           bboxAnnotations,
 	}

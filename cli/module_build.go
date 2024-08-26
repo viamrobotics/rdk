@@ -21,6 +21,8 @@ import (
 	"go.viam.com/utils/pexec"
 	"go.viam.com/utils/rpc"
 	"golang.org/x/exp/maps"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
@@ -109,14 +111,14 @@ func moduleBuildLocalAction(cCtx *cli.Context, manifest *moduleManifest) error {
 	if manifest.Build.Setup != "" {
 		infof(cCtx.App.Writer, "Starting setup step: %q", manifest.Build.Setup)
 		processConfig.Args = []string{"-c", manifest.Build.Setup}
-		proc := pexec.NewManagedProcess(processConfig, logger.AsZap())
+		proc := pexec.NewManagedProcess(processConfig, logger)
 		if err := proc.Start(cCtx.Context); err != nil {
 			return err
 		}
 	}
 	infof(cCtx.App.Writer, "Starting build step: %q", manifest.Build.Build)
 	processConfig.Args = []string{"-c", manifest.Build.Build}
-	proc := pexec.NewManagedProcess(processConfig, logger.AsZap())
+	proc := pexec.NewManagedProcess(processConfig, logger)
 	if err := proc.Start(cCtx.Context); err != nil {
 		return err
 	}
@@ -453,6 +455,11 @@ func reloadModuleAction(c *cli.Context, vc *viamClient) error {
 				part.Part.Fqdn, c.Bool(debugFlag), false, false, []string{manifest.Build.Path},
 				reloadingDestination(c, manifest), logging.NewLogger("reload"))
 			if err != nil {
+				if s, ok := status.FromError(err); ok && s.Code() == codes.PermissionDenied {
+					warningf(c.App.ErrWriter, "RDK couldn't write to the default file copy destination. "+
+						"If you're running as non-root, try adding --home $HOME or --home /user/username to your CLI command. "+
+						"Alternatively, run the RDK as root.")
+				}
 				return err
 			}
 		}

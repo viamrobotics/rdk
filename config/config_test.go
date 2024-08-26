@@ -69,6 +69,8 @@ func TestConfigRobot(t *testing.T) {
 	test.That(t, newBc, test.ShouldResemble, bc)
 }
 
+// TestConfig3 depends on the `datamanager` package *not* being loaded. Its `init` function
+// registers an associated API that alters `AssociatedResourceConfigs` results.
 func TestConfig3(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 
@@ -181,15 +183,6 @@ func TestConfigWithLogDeclarations(t *testing.T) {
 	// The data manager service is left unconfigured.
 	test.That(t, cfg.Services[1].Name, test.ShouldEqual, "dm")
 	test.That(t, cfg.Services[1].LogConfiguration.Level, test.ShouldEqual, logging.INFO)
-
-	test.That(t, len(cfg.GlobalLogConfig), test.ShouldEqual, 2)
-	// The first global configuration is to default `base`s to `error`.
-	test.That(t, cfg.GlobalLogConfig[0].API.String(), test.ShouldEqual, "rdk:component:base")
-	test.That(t, cfg.GlobalLogConfig[0].Level, test.ShouldEqual, logging.ERROR)
-
-	// The second global configuration is to default `motor`s of the builtin fake variety to `warn`.
-	test.That(t, cfg.GlobalLogConfig[1].API.String(), test.ShouldEqual, "rdk:component:motor")
-	test.That(t, cfg.GlobalLogConfig[1].Level, test.ShouldEqual, logging.WARN)
 }
 
 func TestConfigEnsure(t *testing.T) {
@@ -1225,4 +1218,12 @@ func TestConfigRobotWebProfile(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	test.That(t, cfg.EnableWebProfile, test.ShouldBeTrue)
+}
+
+func TestConfigRobotRevision(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+	cfg, err := config.Read(context.Background(), "data/config_with_revision.json", logger)
+	test.That(t, err, test.ShouldBeNil)
+
+	test.That(t, cfg.Revision, test.ShouldEqual, "rev1")
 }

@@ -24,10 +24,10 @@ import (
 
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/logging"
-	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/services/motion"
 	"go.viam.com/rdk/spatialmath"
 	rdkutils "go.viam.com/rdk/utils"
 )
@@ -346,11 +346,11 @@ func (ua *urArm) JointPositions(ctx context.Context, extra map[string]interface{
 
 // EndPosition computes and returns the current cartesian position.
 func (ua *urArm) EndPosition(ctx context.Context, extra map[string]interface{}) (spatialmath.Pose, error) {
-	joints, err := ua.JointPositions(ctx, extra)
+	joints, err := ua.CurrentInputs(ctx)
 	if err != nil {
 		return nil, err
 	}
-	return motionplan.ComputeOOBPosition(ua.model, joints)
+	return referenceframe.ComputeOOBPosition(ua.model, joints)
 }
 
 // MoveToPosition moves the arm to the specified cartesian position.
@@ -372,7 +372,7 @@ func (ua *urArm) MoveToPosition(ctx context.Context, pos spatialmath.Pose, extra
 	if usingHostedKinematics {
 		return ua.moveWithURHostedKinematics(ctx, pos)
 	}
-	return arm.Move(ctx, ua.logger, ua, pos)
+	return motion.MoveArm(ctx, ua.logger, ua, pos)
 }
 
 // MoveToJointPositions moves the UR arm to the specified joint positions.
@@ -700,7 +700,7 @@ func (ua *urArm) moveWithURHostedKinematics(ctx context.Context, pose spatialmat
 			return err
 		}
 		delta := spatialmath.PoseDelta(pose, cur)
-		if delta.Point().Norm() <= 1.5 && delta.Orientation().AxisAngles().ToR3().Norm() <= 1.0 {
+		if delta.Point().Norm() <= 5 && delta.Orientation().AxisAngles().ToR3().Norm() <= 1.0 {
 			return nil
 		}
 

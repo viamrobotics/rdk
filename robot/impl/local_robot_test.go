@@ -4,18 +4,19 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
+	"errors"
 	"fmt"
 	"math"
 	"net"
 	"os"
 	"path"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/go-viper/mapstructure/v2"
 	"github.com/golang/geo/r3"
-	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.uber.org/zap"
 	// registers all components.
@@ -625,56 +626,43 @@ func TestConfigRemoteWithTLSAuth(t *testing.T) {
 	test.That(t, convMap, test.ShouldResemble, armStatus)
 }
 
-type dummyArm struct {
-	arm.Arm
-	stopCount int
-	extra     map[string]interface{}
-	channel   chan struct{}
-}
-
-func (da *dummyArm) Name() resource.Name {
-	return arm.Named("bad")
-}
-
-func (da *dummyArm) MoveToPosition(
-	ctx context.Context,
-	pose spatialmath.Pose,
-	extra map[string]interface{},
-) error {
-	return nil
-}
-
-func (da *dummyArm) MoveToJointPositions(ctx context.Context, positionDegs *armpb.JointPositions, extra map[string]interface{}) error {
-	return nil
-}
-
-func (da *dummyArm) JointPositions(ctx context.Context, extra map[string]interface{}) (*armpb.JointPositions, error) {
-	return nil, errors.New("fake error")
-}
-
-func (da *dummyArm) Stop(ctx context.Context, extra map[string]interface{}) error {
-	da.stopCount++
-	da.extra = extra
-	return nil
-}
-
-func (da *dummyArm) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
-	close(da.channel)
-	<-ctx.Done()
-	return nil, ctx.Err()
-}
-
-func (da *dummyArm) Close(ctx context.Context) error {
-	return nil
-}
-
 func TestStopAll(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 	channel := make(chan struct{})
 
 	model := resource.DefaultModelFamily.WithModel(utils.RandomAlphaString(8))
-	dummyArm1 := dummyArm{channel: channel}
-	dummyArm2 := dummyArm{channel: channel}
+
+	var (
+		stopCount1 int
+		stopCount2 int
+
+		extraOptions1 map[string]interface{}
+		extraOptions2 map[string]interface{}
+	)
+	dummyArm1 := &inject.Arm{
+		StopFunc: func(ctx context.Context, extra map[string]interface{}) error {
+			stopCount1++
+			extraOptions1 = extra
+			return nil
+		},
+		DoFunc: func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+			close(channel)
+			<-ctx.Done()
+			return nil, ctx.Err()
+		},
+	}
+	dummyArm2 := &inject.Arm{
+		StopFunc: func(ctx context.Context, extra map[string]interface{}) error {
+			stopCount2++
+			extraOptions2 = extra
+			return nil
+		},
+		DoFunc: func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+			close(channel)
+			<-ctx.Done()
+			return nil, ctx.Err()
+		},
+	}
 	resource.RegisterComponent(
 		arm.API,
 		model,
@@ -685,9 +673,9 @@ func TestStopAll(t *testing.T) {
 			logger logging.Logger,
 		) (arm.Arm, error) {
 			if conf.Name == "arm1" {
-				return &dummyArm1, nil
+				return dummyArm1, nil
 			}
-			return &dummyArm2, nil
+			return dummyArm2, nil
 		}})
 
 	armConfig := fmt.Sprintf(`{
@@ -715,20 +703,20 @@ func TestStopAll(t *testing.T) {
 	ctx := context.Background()
 	r := setupLocalRobot(t, ctx, cfg, logger)
 
-	test.That(t, dummyArm1.stopCount, test.ShouldEqual, 0)
-	test.That(t, dummyArm2.stopCount, test.ShouldEqual, 0)
+	test.That(t, stopCount1, test.ShouldEqual, 0)
+	test.That(t, stopCount2, test.ShouldEqual, 0)
 
-	test.That(t, dummyArm1.extra, test.ShouldBeNil)
-	test.That(t, dummyArm2.extra, test.ShouldBeNil)
+	test.That(t, extraOptions1, test.ShouldBeNil)
+	test.That(t, extraOptions2, test.ShouldBeNil)
 
 	err = r.StopAll(ctx, map[resource.Name]map[string]interface{}{arm.Named("arm2"): {"foo": "bar"}})
 	test.That(t, err, test.ShouldBeNil)
 
-	test.That(t, dummyArm1.stopCount, test.ShouldEqual, 1)
-	test.That(t, dummyArm2.stopCount, test.ShouldEqual, 1)
+	test.That(t, stopCount1, test.ShouldEqual, 1)
+	test.That(t, stopCount2, test.ShouldEqual, 1)
 
-	test.That(t, dummyArm1.extra, test.ShouldBeNil)
-	test.That(t, dummyArm2.extra, test.ShouldResemble, map[string]interface{}{"foo": "bar"})
+	test.That(t, extraOptions1, test.ShouldBeNil)
+	test.That(t, extraOptions2, test.ShouldResemble, map[string]interface{}{"foo": "bar"})
 
 	// Test OPID cancellation
 	options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
@@ -761,33 +749,12 @@ func TestStopAll(t *testing.T) {
 	test.That(t, stopAllErr, test.ShouldBeNil)
 }
 
-type dummyBoard struct {
-	board.Board
-	closeCount int
-}
-
-func (db *dummyBoard) Name() resource.Name {
-	return board.Named("bad")
-}
-
-func (db *dummyBoard) AnalogNames() []string {
-	return nil
-}
-
-func (db *dummyBoard) DigitalInterruptNames() []string {
-	return nil
-}
-
-func (db *dummyBoard) Close(ctx context.Context) error {
-	db.closeCount++
-	return nil
-}
-
 func TestNewTeardown(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 
 	model := resource.DefaultModelFamily.WithModel(utils.RandomAlphaString(8))
-	var dummyBoard1 dummyBoard
+
+	var closeCount int
 	resource.RegisterComponent(
 		board.API,
 		model,
@@ -797,7 +764,12 @@ func TestNewTeardown(t *testing.T) {
 			conf resource.Config,
 			logger logging.Logger,
 		) (board.Board, error) {
-			return &dummyBoard1, nil
+			return &inject.Board{
+				CloseFunc: func(ctx context.Context) error {
+					closeCount++
+					return nil
+				},
+			}, nil
 		}})
 	resource.RegisterComponent(
 		gripper.API,
@@ -838,7 +810,7 @@ func TestNewTeardown(t *testing.T) {
 	ctx := context.Background()
 	r := setupLocalRobot(t, ctx, cfg, logger)
 	test.That(t, r.Close(ctx), test.ShouldBeNil)
-	test.That(t, dummyBoard1.closeCount, test.ShouldEqual, 1)
+	test.That(t, closeCount, test.ShouldEqual, 1)
 }
 
 func TestMetadataUpdate(t *testing.T) {
@@ -1014,7 +986,10 @@ func TestStatus(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		_, err = r.Status(context.Background(), []resource.Name{fail1})
-		test.That(t, err, test.ShouldBeError, errors.Wrapf(errFailed, "failed to get status from %q", fail1))
+		// TODO(RSDK-6875): compare errors directly instead by string after
+		// `github.com/pkg/errors` is removed entirely.
+		expectedErr := fmt.Errorf("failed to get status from %q: %w", fail1, errFailed)
+		test.That(t, err.Error(), test.ShouldEqual, expectedErr.Error())
 	})
 
 	t.Run("many status", func(t *testing.T) {
@@ -1052,7 +1027,10 @@ func TestStatus(t *testing.T) {
 		test.That(t, resp[1].Status, test.ShouldResemble, expected[resp[1].Name])
 
 		_, err = r.Status(context.Background(), resourceNames)
-		test.That(t, err, test.ShouldBeError, errors.Wrapf(errFailed, "failed to get status from %q", fail1))
+		// TODO(RSDK-6875): compare errors directly instead by string after
+		// `github.com/pkg/errors` is removed entirely.
+		expectedErr := fmt.Errorf("failed to get status from %q: %w", fail1, errFailed)
+		test.That(t, err.Error(), test.ShouldEqual, expectedErr.Error())
 	})
 
 	t.Run("get all status", func(t *testing.T) {
@@ -2667,13 +2645,13 @@ func TestDependentAndOrphanedResources(t *testing.T) {
 				if rName.API == gizmoapi.API {
 					gizmo, ok := res.(gizmoapi.Gizmo)
 					if !ok {
-						return nil, errors.Errorf("resource %s is not a gizmo", rName.Name)
+						return nil, fmt.Errorf("resource %s is not a gizmo", rName.Name)
 					}
 					newDoodad.gizmo = gizmo
 				}
 			}
 			if newDoodad.gizmo == nil {
-				return nil, errors.Errorf("doodad %s must depend on a gizmo", conf.Name)
+				return nil, fmt.Errorf("doodad %s must depend on a gizmo", conf.Name)
 			}
 			return newDoodad, nil
 		},
@@ -3518,17 +3496,283 @@ func TestSendTriggerConfig(t *testing.T) {
 	test.That(t, len(actualR.triggerConfig), test.ShouldEqual, 1)
 }
 
+func assertContents(t *testing.T, path, expectedContents string) {
+	t.Helper()
+	contents, err := os.ReadFile(path)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, contents, test.ShouldResemble, []byte(expectedContents))
+}
+
 func TestRestartModule(t *testing.T) {
 	ctx := context.Background()
 	logger := logging.NewTestLogger(t)
-	simplePath := rtestutils.BuildTempModule(t, "examples/customresources/demos/simplemodule")
-	mod := &config.Module{Name: "restartSingleModule-test", ExePath: simplePath, Type: config.ModuleTypeLocal}
-	r := setupLocalRobot(t, ctx, &config.Config{Modules: []config.Module{*mod}}, logger)
-	test.That(t, mod.LocalVersion, test.ShouldBeEmpty)
 
-	// test restart. note: we're not testing that the PID rolls over because we don't have access to
-	// that state. 'no error' + 'version incremented' is a cheap proxy for that.
-	err := r.(*localRobot).restartSingleModule(ctx, mod)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, mod.LocalVersion, test.ShouldResemble, "0.0.1")
+	t.Run("isRunning=false", func(t *testing.T) {
+		tmp := t.TempDir()
+		badExePath := filepath.Join(tmp, "/nosuchexe")
+		const bash = `#!/usr/bin/env bash
+		echo STARTED > result.txt
+		echo exiting right away
+		`
+		os.WriteFile(badExePath, []byte(bash), 0o700)
+		mod := &config.Module{Name: "restartSingleModule-test", ExePath: badExePath, Type: config.ModuleTypeLocal}
+		r := setupLocalRobot(t, ctx, &config.Config{Modules: []config.Module{*mod}}, logger)
+		test.That(t, mod.LocalVersion, test.ShouldBeEmpty)
+
+		// make sure this started + failed
+		outputPath := filepath.Join(tmp, "result.txt")
+		assertContents(t, outputPath, "STARTED\n")
+		// clear this so the restart attempt writes it again
+		test.That(t, os.Remove(outputPath), test.ShouldBeNil)
+
+		// confirm that we don't error
+		err := r.RestartModule(ctx, robot.RestartModuleRequest{ModuleName: mod.Name})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, r.(*localRobot).localModuleVersions[mod.Name].String(), test.ShouldResemble, "0.0.1")
+		// make sure it really ran again
+		assertContents(t, outputPath, "STARTED\n")
+	})
+
+	t.Run("isRunning=true", func(t *testing.T) {
+		logger, _ := logging.NewObservedTestLogger(t)
+		simplePath := rtestutils.BuildTempModule(t, "examples/customresources/demos/simplemodule")
+		mod := &config.Module{Name: "restartSingleModule-test", ExePath: simplePath, Type: config.ModuleTypeLocal}
+		r := setupLocalRobot(t, ctx, &config.Config{Modules: []config.Module{*mod}}, logger)
+
+		// test restart. note: we're not testing that the PID rolls over because we don't have access to
+		// that state. 'no error' + 'version incremented' is a cheap proxy for that.
+		err := r.RestartModule(ctx, robot.RestartModuleRequest{ModuleName: mod.Name})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, r.(*localRobot).localModuleVersions[mod.Name].String(), test.ShouldResemble, "0.0.1")
+	})
+}
+
+var mockModel = resource.DefaultModelFamily.WithModel("mockmodel")
+
+type mockResource struct {
+	resource.Named
+	resource.TriviallyCloseable
+	name  string
+	value int
+}
+
+type mockConfig struct {
+	Value int  `json:"value"`
+	Fail  bool `json:"fail"`
+}
+
+var errMockValidation = errors.New("whoops")
+
+func (cfg *mockConfig) Validate(path string) ([]string, error) {
+	if cfg.Fail {
+		return nil, errMockValidation
+	}
+	return []string{}, nil
+}
+
+func newMock(
+	ctx context.Context,
+	deps resource.Dependencies,
+	conf resource.Config,
+	logger logging.Logger,
+) (resource.Resource, error) {
+	m := &mockResource{name: conf.Name}
+	if err := m.Reconfigure(ctx, deps, conf); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
+func (m *mockResource) Name() resource.Name {
+	return mockNamed(m.name)
+}
+
+func (m *mockResource) Reconfigure(
+	ctx context.Context,
+	deps resource.Dependencies,
+	conf resource.Config,
+) error {
+	mConf, err := resource.NativeConfig[*mockConfig](conf)
+	if err != nil {
+		return err
+	}
+	m.value = mConf.Value
+	return nil
+}
+
+func TestMachineStatus(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+	ctx := context.Background()
+
+	resource.RegisterComponent(
+		mockAPI,
+		mockModel,
+		resource.Registration[resource.Resource, *mockConfig]{Constructor: newMock},
+	)
+	defer resource.Deregister(mockAPI, mockModel)
+
+	rev1 := "rev1"
+	builtinRev := rev1
+
+	getExpectedDefaultStatuses := func() []resource.Status {
+		return []resource.Status{
+			{
+				Name: resource.Name{
+					API:  resource.APINamespaceRDKInternal.WithServiceType("framesystem"),
+					Name: "builtin",
+				},
+				State: resource.NodeStateReady,
+			},
+			{
+				Name: resource.Name{
+					API:  resource.APINamespaceRDKInternal.WithServiceType("cloud_connection"),
+					Name: "builtin",
+				},
+				State: resource.NodeStateReady,
+			},
+			{
+				Name: resource.Name{
+					API:  resource.APINamespaceRDKInternal.WithServiceType("packagemanager"),
+					Name: "builtin",
+				},
+				State: resource.NodeStateReady,
+			},
+			{
+				Name: resource.Name{
+					API:  resource.APINamespaceRDKInternal.WithServiceType("web"),
+					Name: "builtin",
+				},
+				State: resource.NodeStateReady,
+			},
+			{
+				Name: resource.Name{
+					API:  resource.APINamespaceRDK.WithServiceType("motion"),
+					Name: "builtin",
+				},
+				State:    resource.NodeStateReady,
+				Revision: builtinRev,
+			},
+			{
+				Name: resource.Name{
+					API:  resource.APINamespaceRDK.WithServiceType("sensors"),
+					Name: "builtin",
+				},
+				State:    resource.NodeStateReady,
+				Revision: builtinRev,
+			},
+		}
+	}
+
+	t.Run("default resources", func(t *testing.T) {
+		lr := setupLocalRobot(t, ctx, &config.Config{Revision: rev1}, logger)
+
+		mStatus, err := lr.MachineStatus(ctx)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, mStatus.Config.Revision, test.ShouldEqual, rev1)
+
+		expectedStatuses := getExpectedDefaultStatuses()
+		rtestutils.VerifySameResourceStatuses(t, mStatus.Resources, expectedStatuses)
+	})
+
+	t.Run("reconfigure", func(t *testing.T) {
+		lr := setupLocalRobot(t, ctx, &config.Config{Revision: rev1}, logger)
+
+		expectedConfigError := fmt.Errorf("resource config validation error: %w", errMockValidation)
+
+		// Add a fake resource to the robot.
+		rev2 := "rev2"
+		builtinRev = rev2
+		lr.Reconfigure(ctx, &config.Config{
+			Revision: rev2,
+			Components: []resource.Config{
+				{
+					Name:                "m",
+					Model:               mockModel,
+					API:                 mockAPI,
+					ConvertedAttributes: &mockConfig{},
+				},
+			},
+		})
+		mStatus, err := lr.MachineStatus(ctx)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, mStatus.Config.Revision, test.ShouldEqual, rev2)
+		expectedStatuses := rtestutils.ConcatResourceStatuses(
+			getExpectedDefaultStatuses(),
+			[]resource.Status{
+				{
+					Name:     mockNamed("m"),
+					State:    resource.NodeStateReady,
+					Revision: rev2,
+				},
+			},
+		)
+		rtestutils.VerifySameResourceStatuses(t, mStatus.Resources, expectedStatuses)
+
+		// Update resource config to cause reconfiguration to fail.
+		rev3 := "rev3"
+		builtinRev = rev3
+		lr.Reconfigure(ctx, &config.Config{
+			Revision: rev3,
+			Components: []resource.Config{
+				{
+					Name:  "m",
+					Model: mockModel,
+					API:   mockAPI,
+					// We need to specify both `Attributes` and `ConvertedAttributes`.
+					// The former triggers a reconfiguration and the former is actually
+					// used to reconfigure the component.
+					Attributes:          rutils.AttributeMap{"fail": true},
+					ConvertedAttributes: &mockConfig{Fail: true},
+				},
+			},
+		})
+		mStatus, err = lr.MachineStatus(ctx)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, mStatus.Config.Revision, test.ShouldEqual, rev3)
+		expectedStatuses = rtestutils.ConcatResourceStatuses(
+			getExpectedDefaultStatuses(),
+			[]resource.Status{
+				{
+					Name:     mockNamed("m"),
+					State:    resource.NodeStateUnhealthy,
+					Revision: rev2,
+					Error:    errors.Join(expectedConfigError),
+				},
+			},
+		)
+		rtestutils.VerifySameResourceStatuses(t, mStatus.Resources, expectedStatuses)
+
+		// Update resource with a working config.
+		rev4 := "rev4"
+		builtinRev = rev4
+		lr.Reconfigure(ctx, &config.Config{
+			Revision: rev4,
+			Components: []resource.Config{
+				{
+					Name:  "m",
+					Model: mockModel,
+					API:   mockAPI,
+					// We need to specify both `Attributes` and `ConvertedAttributes`.
+					// The former triggers a reconfiguration and the former is actually
+					// used to reconfigure the component.
+					Attributes:          rutils.AttributeMap{"value": 200},
+					ConvertedAttributes: &mockConfig{Value: 200},
+				},
+			},
+		})
+		mStatus, err = lr.MachineStatus(ctx)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, mStatus.Config.Revision, test.ShouldEqual, rev4)
+		expectedStatuses = rtestutils.ConcatResourceStatuses(
+			getExpectedDefaultStatuses(),
+			[]resource.Status{
+				{
+					Name:     mockNamed("m"),
+					State:    resource.NodeStateReady,
+					Revision: rev4,
+				},
+			},
+		)
+		rtestutils.VerifySameResourceStatuses(t, mStatus.Resources, expectedStatuses)
+	})
 }

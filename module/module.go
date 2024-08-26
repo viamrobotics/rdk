@@ -16,8 +16,8 @@ import (
 	"github.com/jhump/protoreflect/desc"
 	"github.com/jhump/protoreflect/grpcreflect"
 	"github.com/pion/rtp"
-	"github.com/pion/webrtc/v3"
 	"github.com/pkg/errors"
+	"github.com/viamrobotics/webrtc/v3"
 	"go.opencensus.io/trace"
 	"go.uber.org/multierr"
 	pb "go.viam.com/api/module/v1"
@@ -229,14 +229,14 @@ func NewModule(ctx context.Context, address string, logger logging.Logger) (*Mod
 	}
 
 	// attempt to construct a PeerConnection
-	pc, err := rgrpc.NewLocalPeerConnection(logger.AsZap())
+	pc, err := rgrpc.NewLocalPeerConnection(logger)
 	if err != nil {
 		logger.Debugw("Unable to create optional peer connection for module. Skipping WebRTC for module...", "err", err)
 		return m, nil
 	}
 
 	// attempt to configure PeerConnection
-	pcReady, pcClosed, err := rpc.ConfigureForRenegotiation(pc, logger.AsZap())
+	pcReady, pcClosed, err := rpc.ConfigureForRenegotiation(pc, rpc.PeerRoleServer, logger)
 	if err != nil {
 		msg := "Error creating renegotiation channel for module. Unable to " +
 			"create optional peer connection for module. Skipping WebRTC for module..."
@@ -296,18 +296,8 @@ func (m *Module) Close(ctx context.Context) {
 		m.mu.Lock()
 		parent := m.parent
 		if m.pc != nil {
-			if err := m.pc.Close(); err != nil {
+			if err := m.pc.GracefulClose(); err != nil {
 				m.logger.CErrorw(ctx, "WebRTC Peer Connection Close", "err", err)
-			}
-			// `PeerConnection.Close` returning does not guarantee that background workers have
-			// stopped. We've added best-effort hooks to observe when a peer connection has completely
-			// cleaned up.
-			if m.pcClosed != nil {
-				select {
-				case <-m.pcReady:
-					<-m.pcClosed
-				default:
-				}
 			}
 		}
 		m.mu.Unlock()
@@ -351,7 +341,7 @@ func (m *Module) connectParent(ctx context.Context) error {
 	// moduleLoggers may be creating the client connection below, so use a
 	// different logger here to avoid a deadlock where the client connection
 	// tries to recursively connect to the parent.
-	clientLogger := logging.NewLogger("module-connection")
+	clientLogger := logging.NewLogger("networking.module-connection")
 	clientLogger.SetLevel(m.logger.GetLevel())
 	// TODO(PRODUCT-343): add session support to modules
 	rc, err := client.New(ctx, "unix://"+m.parentAddr, clientLogger, client.WithDisableSessions())
@@ -618,7 +608,7 @@ func (m *Module) ValidateConfig(ctx context.Context,
 // RemoveResource receives the request for resource removal.
 func (m *Module) RemoveResource(ctx context.Context, req *pb.RemoveResourceRequest) (*pb.RemoveResourceResponse, error) {
 	slowWatcher, slowWatcherCancel := utils.SlowGoroutineWatcher(
-		30*time.Second, fmt.Sprintf("module resource %q is taking a while to remove", req.Name), m.logger.AsZap())
+		30*time.Second, fmt.Sprintf("module resource %q is taking a while to remove", req.Name), m.logger)
 	defer func() {
 		slowWatcherCancel()
 		<-slowWatcher

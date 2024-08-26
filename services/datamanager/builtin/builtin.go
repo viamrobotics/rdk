@@ -25,7 +25,6 @@ import (
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/datamanager"
-	"go.viam.com/rdk/services/datamanager/datacapture"
 	"go.viam.com/rdk/services/datamanager/datasync"
 	"go.viam.com/rdk/services/slam"
 	"go.viam.com/rdk/services/vision"
@@ -129,28 +128,33 @@ func readyToSync(ctx context.Context, s selectiveSyncer, logger logging.Logger) 
 // builtIn initializes and orchestrates data capture collectors for registered component/methods.
 type builtIn struct {
 	resource.Named
-	logger                 logging.Logger
-	captureDir             string
-	captureDisabled        bool
-	collectorsMu           sync.Mutex
-	collectors             map[resourceMethodMetadata]*collectorAndConfig
-	lock                   sync.Mutex
-	backgroundWorkers      sync.WaitGroup
-	fileLastModifiedMillis int
+	closedCtx                 context.Context
+	closedCancelFn            context.CancelFunc
+	logger                    logging.Logger
+	captureDir                string
+	captureDisabled           bool
+	collectorsMu              sync.Mutex
+	collectors                map[resourceMethodMetadata]*collectorAndConfig
+	lock                      sync.Mutex
+	backgroundWorkers         sync.WaitGroup
+	propagateDataSyncConfigWG sync.WaitGroup
+	fileLastModifiedMillis    int
 
-	additionalSyncPaths []string
-	tags                []string
-	syncDisabled        bool
-	syncIntervalMins    float64
-	syncRoutineCancelFn context.CancelFunc
-	syncer              datasync.Manager
-	syncerConstructor   datasync.ManagerConstructor
-	filesToSync         chan string
-	maxSyncThreads      int
-	cloudConnSvc        cloud.ConnectionService
-	cloudConn           rpc.ClientConn
-	syncTicker          *clk.Ticker
-	maxCaptureFileSize  int64
+	additionalSyncPaths          []string
+	tags                         []string
+	syncDisabled                 bool
+	syncIntervalMins             float64
+	syncRoutineCancelFn          context.CancelFunc
+	syncer                       datasync.Manager
+	syncerConstructor            datasync.ManagerConstructor
+	filesToSync                  chan string
+	maxSyncThreads               int
+	syncConfigUpdated            bool
+	syncerNeedsToBeReInitialized bool
+	cloudConnSvc                 cloud.ConnectionService
+	cloudConn                    rpc.ClientConn
+	syncTicker                   *clk.Ticker
+	maxCaptureFileSize           int64
 
 	syncSensor           selectiveSyncer
 	selectiveSyncEnabled bool
@@ -173,7 +177,10 @@ func NewBuiltIn(
 	conf resource.Config,
 	logger logging.Logger,
 ) (datamanager.Service, error) {
+	closedCtx, closedCancelFn := context.WithCancel(context.Background())
 	svc := &builtIn{
+		closedCtx:                  closedCtx,
+		closedCancelFn:             closedCancelFn,
 		Named:                      conf.ResourceName().AsNamed(),
 		logger:                     logger,
 		captureDir:                 viamCaptureDotDir,
@@ -190,12 +197,13 @@ func NewBuiltIn(
 	if err := svc.Reconfigure(ctx, deps, conf); err != nil {
 		return nil, err
 	}
-
+	svc.startPropagateDataSyncConfig()
 	return svc, nil
 }
 
 // Close releases all resources managed by data_manager.
 func (svc *builtIn) Close(_ context.Context) error {
+	svc.closedCancelFn()
 	svc.lock.Lock()
 	svc.closeCollectors()
 	svc.closeSyncer()
@@ -220,7 +228,7 @@ func (svc *builtIn) Close(_ context.Context) error {
 	if capturePollingWorker != nil {
 		capturePollingWorker.Wait()
 	}
-
+	svc.propagateDataSyncConfigWG.Wait()
 	return nil
 }
 
@@ -305,19 +313,20 @@ func (svc *builtIn) initializeOrUpdateCollector(
 	config datamanager.DataCaptureConfig,
 	maxFileSizeChanged bool,
 ) (*collectorAndConfig, error) {
+	// TODO(DATA-451): validate method params
+	methodParams, err := protoutils.ConvertStringMapToAnyPBMap(config.AdditionalParams)
+	if err != nil {
+		return nil, err
+	}
 	// Build metadata.
-	captureMetadata, err := datacapture.BuildCaptureMetadata(
+	captureMetadata := data.BuildCaptureMetadata(
 		config.Name.API,
 		config.Name.ShortName(),
 		config.Method,
 		config.AdditionalParams,
+		methodParams,
 		config.Tags,
 	)
-	if err != nil {
-		return nil, err
-	}
-
-	// TODO(DATA-451): validate method params
 
 	svc.collectorsMu.Lock()
 	defer svc.collectorsMu.Unlock()
@@ -359,13 +368,9 @@ func (svc *builtIn) initializeOrUpdateCollector(
 				md.MethodMetadata.API.String(), additionalParamKey)
 		}
 	}
-	methodParams, err := protoutils.ConvertStringMapToAnyPBMap(config.AdditionalParams)
-	if err != nil {
-		return nil, err
-	}
 
 	// Create a collector for this resource and method.
-	targetDir := datacapture.FilePathWithReplacedReservedChars(
+	targetDir := data.CaptureFilePathWithReplacedReservedChars(
 		filepath.Join(svc.captureDir, captureMetadata.GetComponentType(),
 			captureMetadata.GetComponentName(), captureMetadata.GetMethodName()))
 	if err := os.MkdirAll(targetDir, 0o700); err != nil {
@@ -375,13 +380,13 @@ func (svc *builtIn) initializeOrUpdateCollector(
 		ComponentName: config.Name.ShortName(),
 		Interval:      interval,
 		MethodParams:  methodParams,
-		Target:        datacapture.NewBuffer(targetDir, captureMetadata, svc.maxCaptureFileSize),
+		Target:        data.NewCaptureBuffer(targetDir, captureMetadata, svc.maxCaptureFileSize),
 		QueueSize:     captureQueueSize,
 		BufferSize:    captureBufferSize,
 		Logger:        svc.logger,
 		Clock:         clock,
 	}
-	collector, err := (*collectorConstructor)(res, params)
+	collector, err := (collectorConstructor)(res, params)
 	if err != nil {
 		return nil, err
 	}
@@ -408,22 +413,15 @@ func (svc *builtIn) initSyncer(ctx context.Context) error {
 	ctx, cancel := context.WithTimeout(ctx, grpcConnectionTimeout)
 	defer cancel()
 	identity, conn, err := svc.cloudConnSvc.AcquireConnection(ctx)
-	if errors.Is(err, cloud.ErrNotCloudManaged) {
-		svc.logger.CDebug(ctx, "Using no-op sync manager when not cloud managed")
-		svc.syncer = datasync.NewNoopManager()
-	}
 	if err != nil {
 		return err
 	}
 
 	client := v1.NewDataSyncServiceClient(conn)
 	svc.filesToSync = make(chan string, svc.maxSyncThreads)
-	syncer, err := svc.syncerConstructor(identity, client, svc.logger, svc.captureDir, svc.maxSyncThreads, svc.filesToSync)
-	if err != nil {
-		return errors.Wrap(err, "failed to initialize new syncer")
-	}
-	svc.syncer = syncer
+	svc.syncer = svc.syncerConstructor(identity, client, svc.logger, svc.captureDir, svc.maxSyncThreads, svc.filesToSync)
 	svc.cloudConn = conn
+
 	return nil
 }
 
@@ -454,6 +452,8 @@ func (svc *builtIn) Reconfigure(
 	deps resource.Dependencies,
 	conf resource.Config,
 ) error {
+	g := utils.NewGuard(func() { goutils.UncheckedError(svc.Close(ctx)) })
+	defer g.OnFail()
 	svc.lock.Lock()
 	defer svc.lock.Unlock()
 	svcConfig, err := resource.NativeConfig[*Config](conf)
@@ -471,7 +471,7 @@ func (svc *builtIn) Reconfigure(
 	if svcConfig.MaximumNumSyncThreads != 0 {
 		newMaxSyncThreadValue = svcConfig.MaximumNumSyncThreads
 	}
-	reinitSyncer := cloudConnSvc != svc.cloudConnSvc || newMaxSyncThreadValue != svc.maxSyncThreads
+	svc.syncerNeedsToBeReInitialized = cloudConnSvc != svc.cloudConnSvc || newMaxSyncThreadValue != svc.maxSyncThreads
 	svc.cloudConnSvc = cloudConnSvc
 
 	captureConfigs, err := svc.updateDataCaptureConfigs(deps, conf, svcConfig.CaptureDir)
@@ -610,41 +610,20 @@ func (svc *builtIn) Reconfigure(
 	if svc.syncSensor != syncSensor {
 		svc.syncSensor = syncSensor
 	}
-
 	syncConfigUpdated := svc.syncDisabled != svcConfig.ScheduledSyncDisabled || svc.syncIntervalMins != svcConfig.SyncIntervalMins ||
 		!reflect.DeepEqual(svc.tags, svcConfig.Tags) || svc.fileLastModifiedMillis != fileLastModifiedMillis ||
 		svc.maxSyncThreads != newMaxSyncThreadValue
 
 	if syncConfigUpdated {
+		svc.syncConfigUpdated = syncConfigUpdated
 		svc.syncDisabled = svcConfig.ScheduledSyncDisabled
 		svc.syncIntervalMins = svcConfig.SyncIntervalMins
 		svc.tags = svcConfig.Tags
 		svc.fileLastModifiedMillis = fileLastModifiedMillis
 		svc.maxSyncThreads = newMaxSyncThreadValue
-
-		svc.cancelSyncScheduler()
-		if !svc.syncDisabled && svc.syncIntervalMins != 0.0 {
-			if svc.syncer == nil {
-				if err := svc.initSyncer(ctx); err != nil {
-					return err
-				}
-			} else if reinitSyncer {
-				svc.closeSyncer()
-				if err := svc.initSyncer(ctx); err != nil {
-					return err
-				}
-			}
-			svc.syncer.SetArbitraryFileTags(svc.tags)
-			svc.startSyncScheduler(svc.syncIntervalMins)
-		} else {
-			if svc.syncTicker != nil {
-				svc.syncTicker.Stop()
-				svc.syncTicker = nil
-			}
-			svc.closeSyncer()
-		}
 	}
-	// if datacapture is enabled, kick off a go routine to check if disk space is filling due to
+
+	// if datacapture is enabled, kick off a go routine to handle disk space filling due to
 	// cached datacapture files
 	if !svc.captureDisabled {
 		fileDeletionCtx, cancelFunc := context.WithCancel(context.Background())
@@ -655,12 +634,78 @@ func (svc *builtIn) Reconfigure(
 			svc.captureDir, deleteEveryNthValue, svc.syncer, svc.logger)
 	}
 
+	g.Success()
+	return nil
+}
+
+func (svc *builtIn) startPropagateDataSyncConfig() {
+	svc.propagateDataSyncConfigWG.Add(1)
+	goutils.ManagedGo(svc.propagateDataSyncConfigLoop, svc.propagateDataSyncConfigWG.Done)
+}
+
+// propagateDataSyncConfigLoop runs until Close() is called on *builtIn
+// Immediately on first execution and every second afterwards it
+// checks if the datasync configuration has changes which
+// have not propagated to datasync.
+// If so it propagates the changes and marks the datasync configuration as propagated.
+// Otherwise it sleeps for another second.
+// Takes the builtIn lock every iteration.
+func (svc *builtIn) propagateDataSyncConfigLoop() {
+	if err := svc.propagateDataSyncConfig(); err != nil {
+		return
+	}
+	for goutils.SelectContextOrWait(svc.closedCtx, time.Second) {
+		if err := svc.propagateDataSyncConfig(); err != nil {
+			return
+		}
+	}
+}
+
+func (svc *builtIn) propagateDataSyncConfig() error {
+	svc.lock.Lock()
+	defer svc.lock.Unlock()
+	if !svc.syncConfigUpdated {
+		return nil
+	}
+	svc.cancelSyncScheduler()
+	enabled := !svc.syncDisabled && svc.syncIntervalMins != 0.0
+	if enabled {
+		if svc.syncer == nil {
+			if err := svc.initSyncer(svc.closedCtx); err != nil {
+				if errors.Is(err, cloud.ErrNotCloudManaged) {
+					svc.logger.Debug("Using no-op sync manager when not cloud managed")
+					return err
+				}
+				svc.logger.Infof("initSyncer err: %s", err.Error())
+				return nil
+			}
+		} else if svc.syncerNeedsToBeReInitialized {
+			svc.closeSyncer()
+			if err := svc.initSyncer(svc.closedCtx); err != nil {
+				if errors.Is(err, cloud.ErrNotCloudManaged) {
+					svc.logger.Debug("Using no-op sync manager when not cloud managed")
+					return err
+				}
+				svc.logger.Infof("initSyncer err: %s", err.Error())
+				return nil
+			}
+		}
+		svc.syncer.SetArbitraryFileTags(svc.tags)
+		svc.startSyncScheduler(svc.syncIntervalMins)
+	} else {
+		if svc.syncTicker != nil {
+			svc.syncTicker.Stop()
+			svc.syncTicker = nil
+		}
+		svc.closeSyncer()
+	}
+	svc.syncConfigUpdated = false
 	return nil
 }
 
 // startSyncScheduler starts the goroutine that calls Sync repeatedly if scheduled sync is enabled.
 func (svc *builtIn) startSyncScheduler(intervalMins float64) {
-	cancelCtx, fn := context.WithCancel(context.Background())
+	cancelCtx, fn := context.WithCancel(svc.closedCtx)
 	svc.syncRoutineCancelFn = fn
 	svc.uploadData(cancelCtx, intervalMins)
 }
@@ -686,11 +731,12 @@ func (svc *builtIn) uploadData(cancelCtx context.Context, intervalMins float64) 
 	intervalMillis := 60000.0 * intervalMins
 	// The ticker must be created before uploadData returns to prevent race conditions between clock.Ticker and
 	// clock.Add in sync_test.go.
-	svc.syncTicker = clock.Ticker(time.Millisecond * time.Duration(intervalMillis))
+	tkr := clock.Ticker(time.Millisecond * time.Duration(intervalMillis))
+	svc.syncTicker = tkr
 	svc.backgroundWorkers.Add(1)
 	goutils.PanicCapturingGo(func() {
 		defer svc.backgroundWorkers.Done()
-		defer svc.syncTicker.Stop()
+		defer tkr.Stop()
 
 		for {
 			if err := cancelCtx.Err(); err != nil {
@@ -703,7 +749,7 @@ func (svc *builtIn) uploadData(cancelCtx context.Context, intervalMins float64) 
 			select {
 			case <-cancelCtx.Done():
 				return
-			case <-svc.syncTicker.C:
+			case <-tkr.C:
 				svc.lock.Lock()
 				if svc.syncer != nil {
 					// If selective sync is disabled, sync. If it is enabled, check the condition below.
@@ -782,9 +828,9 @@ func getAllFilesToSync(ctx context.Context, dirs []string, lastModifiedMillis in
 			if timeSinceMod < 0 {
 				timeSinceMod = 0
 			}
-			isCompletedCaptureFile := filepath.Ext(path) == datacapture.FileExt
-			isNonCaptureFileThatIsNotBeingWrittenTo := filepath.Ext(path) != datacapture.InProgressFileExt &&
-				filepath.Ext(path) != datacapture.FileExt &&
+			isCompletedCaptureFile := filepath.Ext(path) == data.CompletedCaptureFileExt
+			isNonCaptureFileThatIsNotBeingWrittenTo := filepath.Ext(path) != data.InProgressCaptureFileExt &&
+				filepath.Ext(path) != data.CompletedCaptureFileExt &&
 				timeSinceMod >= time.Duration(lastModifiedMillis)*time.Millisecond
 			if isCompletedCaptureFile || isNonCaptureFileThatIsNotBeingWrittenTo {
 				syncer.SendFileToSync(path)
@@ -913,7 +959,7 @@ func countCaptureDirFiles(ctx context.Context, captureDir string) int {
 		}
 		// this is intentionally not doing as many checkas as getAllFilesToSync because
 		// this is intended for debugging and does not need to be 100% accurate.
-		isCompletedCaptureFile := filepath.Ext(path) == datacapture.FileExt
+		isCompletedCaptureFile := filepath.Ext(path) == data.CompletedCaptureFileExt
 		if isCompletedCaptureFile {
 			numFiles++
 		}

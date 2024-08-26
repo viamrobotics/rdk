@@ -31,14 +31,14 @@ const (
 type ptgBaseKinematics struct {
 	base.Base
 	motion.Localizer
-	logger                         logging.Logger
-	frame                          referenceframe.Frame
-	ptgs                           []tpspace.PTGSolver
-	opts                           Options
-	courseCorrectionIdx            int
-	linVelocityMMPerSecond         float64
-	angVelocityDegsPerSecond       float64
-	nonzeroBaseTurningRadiusMeters float64
+	logger                           logging.Logger
+	planningFrame, localizationFrame referenceframe.Frame
+	ptgs                             []tpspace.PTGSolver
+	opts                             Options
+	courseCorrectionIdx              int
+	linVelocityMMPerSecond           float64
+	angVelocityDegsPerSecond         float64
+	nonzeroBaseTurningRadiusMeters   float64
 
 	// All changeable state of the base is here
 	inputLock    sync.RWMutex
@@ -98,7 +98,10 @@ func wrapWithPTGKinematics(
 
 	geometries, err := b.Geometries(ctx, nil)
 	if len(geometries) == 0 || err != nil {
-		logger.CWarn(ctx, "base %s not configured with a geometry, will be considered a 300mm sphere for collision detection purposes.")
+		logger.CWarnf(
+			ctx, "base %s not configured with a geometry, will be considered a 300mm sphere for collision detection purposes.",
+			b.Name().Name,
+		)
 		sphere, err := spatialmath.NewSphere(spatialmath.NewZeroPose(), 150., b.Name().Name)
 		if err != nil {
 			return nil, err
@@ -107,7 +110,7 @@ func wrapWithPTGKinematics(
 	}
 
 	nonzeroBaseTurningRadiusMeters := (linVelocityMMPerSecond / rdkutils.DegToRad(angVelocityDegsPerSecond)) / 1000.
-	frame, err := tpspace.NewPTGFrameFromKinematicOptions(
+	planningFrame, err := tpspace.NewPTGFrameFromKinematicOptions(
 		b.Name().ShortName(),
 		logger,
 		nonzeroBaseTurningRadiusMeters,
@@ -119,14 +122,14 @@ func wrapWithPTGKinematics(
 	if err != nil {
 		return nil, err
 	}
-	ptgProv, err := rdkutils.AssertType[tpspace.PTGProvider](frame)
+	ptgProv, err := rdkutils.AssertType[tpspace.PTGProvider](planningFrame)
 	if err != nil {
 		return nil, err
 	}
 	ptgs := ptgProv.PTGSolvers()
 	origin := spatialmath.NewZeroPose()
 
-	ptgCourseCorrection, err := rdkutils.AssertType[tpspace.PTGCourseCorrection](frame)
+	ptgCourseCorrection, err := rdkutils.AssertType[tpspace.PTGCourseCorrection](planningFrame)
 	if err != nil {
 		return nil, err
 	}
@@ -141,11 +144,17 @@ func wrapWithPTGKinematics(
 	}
 	startingState := baseState{currentInputs: zeroInput}
 
+	localizationFrame, err := referenceframe.NewPoseFrame(b.Name().ShortName()+"_LocalizationFrame", nil)
+	if err != nil {
+		return nil, err
+	}
+
 	return &ptgBaseKinematics{
 		Base:                           b,
 		Localizer:                      localizer,
 		logger:                         logger,
-		frame:                          frame,
+		planningFrame:                  planningFrame,
+		localizationFrame:              localizationFrame,
 		opts:                           options,
 		ptgs:                           ptgs,
 		courseCorrectionIdx:            courseCorrectionIdx,
@@ -159,7 +168,11 @@ func wrapWithPTGKinematics(
 }
 
 func (ptgk *ptgBaseKinematics) Kinematics() referenceframe.Frame {
-	return ptgk.frame
+	return ptgk.planningFrame
+}
+
+func (ptgk *ptgBaseKinematics) LocalizationFrame() referenceframe.Frame {
+	return ptgk.localizationFrame
 }
 
 // For a ptgBaseKinematics, `CurrentInputs` returns inputs which reflect what the base is currently doing.
@@ -169,6 +182,7 @@ func (ptgk *ptgBaseKinematics) Kinematics() referenceframe.Frame {
 func (ptgk *ptgBaseKinematics) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
 	ptgk.inputLock.RLock()
 	defer ptgk.inputLock.RUnlock()
+
 	return ptgk.currentState.currentInputs, nil
 }
 
@@ -176,56 +190,25 @@ func (ptgk *ptgBaseKinematics) ExecutionState(ctx context.Context) (motionplan.E
 	if ptgk.Localizer == nil {
 		return motionplan.ExecutionState{}, errors.New("cannot call ExecutionState on a base without a localizer")
 	}
-	ptgk.inputLock.RLock()
-	currentIdx := ptgk.currentState.currentIdx
-	currentInputs := ptgk.currentState.currentInputs
-	currentExecutingSteps := ptgk.currentState.currentExecutingSteps
-	ptgk.inputLock.RUnlock()
 
-	actualPIF, err := ptgk.CurrentPosition(ctx)
+	actualPIF, err := ptgk.Localizer.CurrentPosition(ctx)
 	if err != nil {
 		return motionplan.ExecutionState{}, err
 	}
 
+	ptgk.inputLock.RLock()
+	currentIdx := ptgk.currentState.currentIdx
+	currentInputs := ptgk.currentState.currentInputs
+	currentExecutingSteps := ptgk.currentState.currentExecutingSteps
 	currentPlan := ptgk.stepsToPlan(currentExecutingSteps, actualPIF.Parent())
+	ptgk.inputLock.RUnlock()
+
 	return motionplan.NewExecutionState(
 		currentPlan,
 		currentIdx,
 		map[string][]referenceframe.Input{ptgk.Kinematics().Name(): currentInputs},
-		map[string]*referenceframe.PoseInFrame{ptgk.Kinematics().Name(): actualPIF},
+		map[string]*referenceframe.PoseInFrame{ptgk.LocalizationFrame().Name(): actualPIF},
 	)
-}
-
-func (ptgk *ptgBaseKinematics) ErrorState(ctx context.Context) (spatialmath.Pose, error) {
-	if ptgk.Localizer == nil {
-		return nil, errors.New("cannot call ErrorState on a base without a localizer")
-	}
-
-	// Get pose-in-frame of the base via its localizer. The offset between the localizer and its base should already be accounted for.
-	actualPIF, err := ptgk.CurrentPosition(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	// Determine the nominal pose, that is, the pose where the robot ought be if it had followed the plan perfectly up until this point.
-	ptgk.inputLock.RLock()
-	currentIdx := ptgk.currentState.currentIdx
-	currentExecutingSteps := ptgk.currentState.currentExecutingSteps
-	currentInputs := ptgk.currentState.currentInputs
-	ptgk.inputLock.RUnlock()
-
-	if currentExecutingSteps == nil {
-		// We are not currently executing a plan
-		return spatialmath.NewZeroPose(), nil
-	}
-
-	currPoseInArc, err := ptgk.frame.Transform(currentInputs)
-	if err != nil {
-		return nil, err
-	}
-	nominalPose := spatialmath.Compose(currentExecutingSteps[currentIdx].arcSegment.StartPosition, currPoseInArc)
-
-	return spatialmath.PoseBetween(nominalPose, actualPIF.Pose()), nil
 }
 
 func correctAngularVelocityWithTurnRadius(logger logging.Logger, turnRadMeters, velocityMMps, angVelocityDegps float64) (float64, error) {

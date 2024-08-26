@@ -3,6 +3,7 @@ package client
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"image"
 	"image/png"
@@ -15,12 +16,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/edaniels/golog"
 	"github.com/go-viper/mapstructure/v2"
 	"github.com/golang/geo/r3"
 	"github.com/google/uuid"
 	"github.com/jhump/protoreflect/grpcreflect"
-	"github.com/pkg/errors"
+	"go.uber.org/zap/zapcore"
 	commonpb "go.viam.com/api/common/v1"
 	armpb "go.viam.com/api/component/arm/v1"
 	basepb "go.viam.com/api/component/base/v1"
@@ -160,7 +160,7 @@ var resourceFunc2 = func(*pb.ResourceNamesRequest) (*pb.ResourceNamesResponse, e
 	return &pb.ResourceNamesResponse{Resources: rNames}, nil
 }
 
-func makeRPCServer(logger golog.Logger, option rpc.ServerOption) (rpc.Server, net.Listener, error) {
+func makeRPCServer(logger logging.Logger, option rpc.ServerOption) (rpc.Server, net.Listener, error) {
 	err := errors.New("failed to make rpc server")
 	var addr string
 	var listener net.Listener
@@ -197,10 +197,10 @@ func TestUnimplementedRPCSubtypes(t *testing.T) {
 	logger1 := logging.NewTestLogger(t)
 	logger2 := logging.NewTestLogger(t)
 
-	rpcServer1, listener1, err := makeRPCServer(logger1.AsZap(), rpc.WithUnauthenticated())
+	rpcServer1, listener1, err := makeRPCServer(logger1, rpc.WithUnauthenticated())
 	test.That(t, err, test.ShouldBeNil)
 
-	rpcServer2, listener2, err := makeRPCServer(logger2.AsZap(), rpc.WithUnauthenticated())
+	rpcServer2, listener2, err := makeRPCServer(logger2, rpc.WithUnauthenticated())
 	test.That(t, err, test.ShouldBeNil)
 
 	defer func() {
@@ -1325,12 +1325,12 @@ func TestClientDiscovery(t *testing.T) {
 
 func ensurePartsAreEqual(part, otherPart *referenceframe.FrameSystemPart) error {
 	if part.FrameConfig.Name() != otherPart.FrameConfig.Name() {
-		return errors.Errorf("part had name %s while other part had name %s", part.FrameConfig.Name(), otherPart.FrameConfig.Name())
+		return fmt.Errorf("part had name %s while other part had name %s", part.FrameConfig.Name(), otherPart.FrameConfig.Name())
 	}
 	frameConfig := part.FrameConfig
 	otherFrameConfig := otherPart.FrameConfig
 	if frameConfig.Parent() != otherFrameConfig.Parent() {
-		return errors.Errorf("part had parent %s while other part had parent %s", frameConfig.Parent(), otherFrameConfig.Parent())
+		return fmt.Errorf("part had parent %s while other part had parent %s", frameConfig.Parent(), otherFrameConfig.Parent())
 	}
 	if !spatialmath.R3VectorAlmostEqual(frameConfig.Pose().Point(), otherFrameConfig.Pose().Point(), 1e-8) {
 		return errors.New("translations of parts not equal")
@@ -2093,4 +2093,155 @@ func TestUnregisteredResourceByName(t *testing.T) {
 		_, err = client.ResourceByName(name)
 		test.That(t, err, test.ShouldBeNil)
 	}
+}
+
+func TestMachineStatus(t *testing.T) {
+	for _, tc := range []struct {
+		name                string
+		injectMachineStatus robot.MachineStatus
+		expBadStateCount    int
+	}{
+		{
+			"no resources",
+			robot.MachineStatus{
+				Config:    config.Revision{Revision: "rev1"},
+				Resources: []resource.Status{},
+			},
+			0,
+		},
+		{
+			"resource with unknown status",
+			robot.MachineStatus{
+				Config: config.Revision{Revision: "rev1"},
+				Resources: []resource.Status{
+					{
+						Name:     arm.Named("badArm"),
+						Revision: "rev0",
+					},
+				},
+			},
+			1,
+		},
+		{
+			"resource with valid status",
+			robot.MachineStatus{
+				Config: config.Revision{Revision: "rev1"},
+				Resources: []resource.Status{
+					{
+						Name:     arm.Named("goodArm"),
+						State:    resource.NodeStateConfiguring,
+						Revision: "rev1",
+					},
+				},
+			},
+			0,
+		},
+		{
+			"resources with mixed valid and invalid statuses",
+			robot.MachineStatus{
+				Config: config.Revision{Revision: "rev1"},
+				Resources: []resource.Status{
+					{
+						Name:     arm.Named("goodArm"),
+						State:    resource.NodeStateConfiguring,
+						Revision: "rev1",
+					},
+					{
+						Name:     arm.Named("badArm"),
+						Revision: "rev0",
+					},
+					{
+						Name:     arm.Named("anotherBadArm"),
+						Revision: "rev-1",
+					},
+				},
+			},
+			2,
+		},
+		{
+			"unhealthy status",
+			robot.MachineStatus{
+				Config: config.Revision{Revision: "rev1"},
+				Resources: []resource.Status{
+					{
+						Name:     arm.Named("brokenArm"),
+						State:    resource.NodeStateUnhealthy,
+						Error:    errors.New("bad configuration"),
+						Revision: "rev1",
+					},
+				},
+			},
+			0,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			logger, logs := logging.NewObservedTestLogger(t)
+			listener, err := net.Listen("tcp", "localhost:0")
+			test.That(t, err, test.ShouldBeNil)
+			gServer := grpc.NewServer()
+
+			injectRobot := &inject.Robot{
+				LoggerFunc:          func() logging.Logger { return logger },
+				ResourceNamesFunc:   func() []resource.Name { return nil },
+				ResourceRPCAPIsFunc: func() []resource.RPCAPI { return nil },
+				MachineStatusFunc: func(ctx context.Context) (robot.MachineStatus, error) {
+					return tc.injectMachineStatus, nil
+				},
+			}
+			// TODO(RSDK-882): will update this so that this is not necessary
+			injectRobot.FrameSystemConfigFunc = func(ctx context.Context) (*framesystem.Config, error) {
+				return &framesystem.Config{}, nil
+			}
+			pb.RegisterRobotServiceServer(gServer, server.New(injectRobot))
+
+			go gServer.Serve(listener)
+			defer gServer.Stop()
+
+			client, err := New(context.Background(), listener.Addr().String(), logger)
+			test.That(t, err, test.ShouldBeNil)
+			defer func() {
+				test.That(t, client.Close(context.Background()), test.ShouldBeNil)
+			}()
+
+			mStatus, err := client.MachineStatus(context.Background())
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, mStatus, test.ShouldResemble, tc.injectMachineStatus)
+
+			const badStateMsg = "received resource in an unspecified state"
+			badStateCount := logs.FilterLevelExact(zapcore.ErrorLevel).FilterMessageSnippet(badStateMsg).Len()
+			test.That(t, badStateCount, test.ShouldEqual, tc.expBadStateCount)
+		})
+	}
+}
+
+func TestVersion(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+	listener, err := net.Listen("tcp", "localhost:0")
+	test.That(t, err, test.ShouldBeNil)
+	gServer := grpc.NewServer()
+
+	injectRobot := &inject.Robot{
+		ResourceNamesFunc:   func() []resource.Name { return nil },
+		ResourceRPCAPIsFunc: func() []resource.RPCAPI { return nil },
+	}
+
+	pb.RegisterRobotServiceServer(gServer, server.New(injectRobot))
+
+	go gServer.Serve(listener)
+	defer gServer.Stop()
+
+	client, err := New(context.Background(), listener.Addr().String(), logger)
+	test.That(t, err, test.ShouldBeNil)
+	defer func() {
+		test.That(t, client.Close(context.Background()), test.ShouldBeNil)
+	}()
+
+	version := robot.VersionResponse{
+		Platform:   "rdk",
+		Version:    "dev-unknown",
+		APIVersion: "?",
+	}
+	md, err := client.Version(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, md, test.ShouldResemble, version)
 }

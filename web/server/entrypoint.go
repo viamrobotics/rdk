@@ -78,6 +78,13 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 	logger := logging.NewLogger("")
 	logging.ReplaceGlobal(logger)
 	logger = logger.Sublogger("rdk")
+
+	// create logging logger here for access later
+	logger.Sublogger("logging")
+
+	// create networking logger here for access later
+	logger.Sublogger("networking")
+
 	config.InitLoggingSettings(logger, argsParsed.Debug)
 
 	// Always log the version, return early if the '-version' flag was provided
@@ -123,7 +130,7 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 
 	// Read the config from disk and use it to initialize the remote logger.
 	initialReadCtx, cancel := context.WithTimeout(ctx, time.Second*5)
-	cfgFromDisk, err := config.ReadLocalConfig(initialReadCtx, argsParsed.ConfigFile, logger)
+	cfgFromDisk, err := config.ReadLocalConfig(initialReadCtx, argsParsed.ConfigFile, logger.Sublogger("config"))
 	if err != nil {
 		cancel()
 		return err
@@ -222,7 +229,7 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 
 	hungShutdownDeadline := 90 * time.Second
 	slowWatcher, slowWatcherCancel := utils.SlowGoroutineWatcherAfterContext(
-		ctx, hungShutdownDeadline, "server is taking a while to shutdown", s.logger.AsZap())
+		ctx, hungShutdownDeadline, "server is taking a while to shutdown", s.logger)
 
 	doneServing := make(chan struct{})
 
@@ -366,7 +373,7 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 	}()
 
 	// watch for and deliver changes to the robot
-	watcher, err := config.NewWatcher(ctx, cfg, s.logger)
+	watcher, err := config.NewWatcher(ctx, cfg, logging.GetOrNewLogger("rdk.config"))
 	if err != nil {
 		cancel()
 		return err

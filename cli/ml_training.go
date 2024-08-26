@@ -11,6 +11,7 @@ import (
 	"github.com/urfave/cli/v2"
 	"go.uber.org/multierr"
 	mltrainingpb "go.viam.com/api/app/mltraining/v1"
+	packagespb "go.viam.com/api/app/packages/v1"
 	v1 "go.viam.com/api/app/v1"
 	"google.golang.org/protobuf/types/known/structpb"
 )
@@ -51,16 +52,24 @@ func MLSubmitCustomTrainingJobWithUpload(c *cli.Context) error {
 		return err
 	}
 
-	err = client.uploadTrainingScript(true, c.String(trainFlagModelType), c.String(mlTrainingFlagFramework),
-		c.String(trainFlagModelOrgID), c.String(mlTrainingFlagName), c.String(mlTrainingFlagVersion),
-		c.Path(mlTrainingFlagPath))
+	resp, err := client.uploadTrainingScript(true, c.String(trainFlagModelType), c.String(mlTrainingFlagFramework),
+		c.String(mlTrainingFlagURL), c.String(trainFlagModelOrgID), c.String(mlTrainingFlagName),
+		c.String(mlTrainingFlagVersion), c.Path(mlTrainingFlagPath))
 	if err != nil {
 		return err
 	}
 	registryItemID := fmt.Sprintf("%s:%s", c.String(trainFlagModelOrgID), c.String(mlTrainingFlagName))
-	printf(c.App.Writer, "successfully uploaded training script to %s", registryItemID)
+
+	moduleID := moduleID{
+		prefix: c.String(generalFlagOrgID),
+		name:   c.String(mlTrainingFlagName),
+	}
+	url := moduleID.ToDetailURL(client.baseURL.Hostname(), PackageTypeMLTraining)
+	printf(c.App.Writer, "Version successfully uploaded! you can view your changes online here: %s. \n"+
+		"To use your training script in the from-registry command, use %s as the script name", url,
+		registryItemID)
 	trainingJobID, err := client.mlSubmitCustomTrainingJob(
-		c.String(datasetFlagDatasetID), registryItemID, c.String(mlTrainingFlagVersion), c.String(trainFlagModelOrgID),
+		c.String(datasetFlagDatasetID), registryItemID, resp.Version, c.String(trainFlagModelOrgID),
 		c.String(trainFlagModelName), c.String(trainFlagModelVersion))
 	if err != nil {
 		return err
@@ -120,6 +129,12 @@ func (c *viamClient) mlSubmitCustomTrainingJob(datasetID, registryItemID, regist
 ) (string, error) {
 	if err := c.ensureLoggedIn(); err != nil {
 		return "", err
+	}
+	splitName := strings.Split(registryItemID, ":")
+	if len(splitName) != 2 {
+		return "", errors.Errorf("invalid training script name '%s'."+
+			" Training script name must be in the form 'public-namespace:registry-name' for public training scripts"+
+			" or 'org-id:registry-name' for private training scripts in organizations without a public namespace", registryItemID)
 	}
 	if modelVersion == "" {
 		modelVersion = time.Now().Format("2006-01-02T15-04-05")
@@ -252,8 +267,8 @@ func MLTrainingUploadAction(c *cli.Context) error {
 		return err
 	}
 
-	err = client.uploadTrainingScript(c.Bool(mlTrainingFlagDraft), c.String(mlTrainingFlagType),
-		c.String(mlTrainingFlagFramework), c.String(generalFlagOrgID), c.String(mlTrainingFlagName),
+	_, err = client.uploadTrainingScript(c.Bool(mlTrainingFlagDraft), c.String(mlTrainingFlagType),
+		c.String(mlTrainingFlagFramework), c.String(mlTrainingFlagURL), c.String(generalFlagOrgID), c.String(mlTrainingFlagName),
 		c.String(mlTrainingFlagVersion), c.Path(mlTrainingFlagPath),
 	)
 	if err != nil {
@@ -265,30 +280,35 @@ func MLTrainingUploadAction(c *cli.Context) error {
 		name:   c.String(mlTrainingFlagName),
 	}
 	url := moduleID.ToDetailURL(client.baseURL.Hostname(), PackageTypeMLTraining)
-	printf(c.App.Writer, "Version successfully uploaded! you can view your changes online here: %s", url)
+	printf(c.App.Writer, "Version successfully uploaded! you can view your changes online here: %s. \n"+
+		"To use your training script in the from-registry command, use %s:%s as the script name", url,
+		moduleID.prefix, moduleID.name)
 	return nil
 }
 
-func (c *viamClient) uploadTrainingScript(draft bool, modelType, framework, orgID, name, version, path string) error {
-	metadata, err := createMetadata(draft, modelType, framework)
+func (c *viamClient) uploadTrainingScript(draft bool, modelType, framework, url, orgID, name, version, path string) (
+	*packagespb.CreatePackageResponse, error,
+) {
+	metadata, err := createMetadata(draft, modelType, framework, url)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	metadataStruct, err := convertMetadataToStruct(*metadata)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	if _, err := c.uploadPackage(orgID,
+	resp, err := c.uploadPackage(orgID,
 		name,
 		version,
 		string(PackageTypeMLTraining),
 		path,
 		metadataStruct,
-	); err != nil {
-		return err
+	)
+	if err != nil {
+		return nil, err
 	}
-	return nil
+	return resp, nil
 }
 
 // MLTrainingUpdateAction updates the visibility of training scripts.
@@ -299,7 +319,7 @@ func MLTrainingUpdateAction(c *cli.Context) error {
 	}
 
 	err = client.updateTrainingScript(c.String(generalFlagOrgID), c.String(mlTrainingFlagName),
-		c.String(mlTrainingFlagVisibility), c.String(mlTrainingFlagDescription),
+		c.String(mlTrainingFlagVisibility), c.String(mlTrainingFlagDescription), c.String(mlTrainingFlagURL),
 	)
 	if err != nil {
 		return err
@@ -314,7 +334,7 @@ func MLTrainingUpdateAction(c *cli.Context) error {
 	return nil
 }
 
-func (c *viamClient) updateTrainingScript(orgID, name, visibility, description string) error {
+func (c *viamClient) updateTrainingScript(orgID, name, visibility, description, url string) error {
 	if err := c.ensureLoggedIn(); err != nil {
 		return err
 	}
@@ -327,17 +347,23 @@ func (c *viamClient) updateTrainingScript(orgID, name, visibility, description s
 	if err != nil {
 		return err
 	}
+	visibilityProto, err := convertVisibilityToProto(visibility)
+	if err != nil {
+		return err
+	}
 	// Get and validate description and visibility
 	updatedDescription := resp.GetItem().GetDescription()
 	if description != "" {
 		updatedDescription = description
 	}
-	if updatedDescription == "" {
+	if updatedDescription == "" && *visibilityProto == v1.Visibility_VISIBILITY_PUBLIC {
 		return errors.New("no existing description for registry item, description must be provided")
 	}
-	visibilityProto, err := convertVisibilityToProto(visibility)
-	if err != nil {
-		return err
+	var stringURL *string
+	if url != "" {
+		stringURL = &url
+	} else {
+		stringURL = nil
 	}
 	// Update registry item
 	if _, err = c.client.UpdateRegistryItem(c.c.Context, &v1.UpdateRegistryItemRequest{
@@ -345,6 +371,7 @@ func (c *viamClient) updateTrainingScript(orgID, name, visibility, description s
 		Type:        resp.GetItem().GetType(),
 		Description: updatedDescription,
 		Visibility:  *visibilityProto,
+		Url:         stringURL,
 	}); err != nil {
 		return err
 	}
@@ -389,9 +416,10 @@ type MLMetadata struct {
 	Draft     bool
 	ModelType string
 	Framework string
+	URL       string
 }
 
-func createMetadata(draft bool, modelType, framework string) (*MLMetadata, error) {
+func createMetadata(draft bool, modelType, framework, url string) (*MLMetadata, error) {
 	t, typeErr := findValueOrSetDefault(modelTypes, modelType, string(ModelTypeUnspecified))
 	f, frameWorkErr := findValueOrSetDefault(modelFrameworks, framework, string(ModelFrameworkUnspecified))
 
@@ -403,6 +431,7 @@ func createMetadata(draft bool, modelType, framework string) (*MLMetadata, error
 		Draft:     draft,
 		ModelType: t,
 		Framework: f,
+		URL:       url,
 	}, nil
 }
 
@@ -424,6 +453,7 @@ var (
 	modelTypeKey      = "model_type"
 	modelFrameworkKey = "model_framework"
 	draftKey          = "draft"
+	urlKey            = "url"
 )
 
 func convertMetadataToStruct(metadata MLMetadata) (*structpb.Struct, error) {
@@ -431,6 +461,7 @@ func convertMetadataToStruct(metadata MLMetadata) (*structpb.Struct, error) {
 	metadataMap[modelTypeKey] = metadata.ModelType
 	metadataMap[modelFrameworkKey] = metadata.Framework
 	metadataMap[draftKey] = metadata.Draft
+	metadataMap[urlKey] = metadata.URL
 	metadataStruct, err := structpb.NewStruct(metadataMap)
 	if err != nil {
 		return nil, err

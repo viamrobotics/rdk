@@ -25,7 +25,7 @@ type NMEAMovementSensor struct {
 // newNMEAMovementSensor creates a new movement sensor.
 func newNMEAMovementSensor(
 	_ context.Context, name resource.Name, dev gpsutils.DataReader, logger logging.Logger,
-) (NmeaMovementSensor, error) {
+) (movementsensor.MovementSensor, error) {
 	g := &NMEAMovementSensor{
 		Named:      name.AsNamed(),
 		logger:     logger,
@@ -86,16 +86,6 @@ func (g *NMEAMovementSensor) CompassHeading(
 	return g.cachedData.CompassHeading(ctx, extra)
 }
 
-// ReadFix returns Fix quality of MovementSensor measurements.
-func (g *NMEAMovementSensor) ReadFix(ctx context.Context) (int, error) {
-	return g.cachedData.ReadFix(ctx)
-}
-
-// ReadSatsInView returns the number of satellites in view.
-func (g *NMEAMovementSensor) ReadSatsInView(ctx context.Context) (int, error) {
-	return g.cachedData.ReadSatsInView(ctx)
-}
-
 // Readings will use return all of the MovementSensor Readings.
 func (g *NMEAMovementSensor) Readings(
 	ctx context.Context, extra map[string]interface{},
@@ -105,16 +95,10 @@ func (g *NMEAMovementSensor) Readings(
 		return nil, err
 	}
 
-	fix, err := g.ReadFix(ctx)
-	if err != nil {
-		return nil, err
-	}
-	satsInView, err := g.ReadSatsInView(ctx)
-	if err != nil {
-		return nil, err
-	}
-	readings["fix"] = fix
-	readings["satellites_in_view"] = satsInView
+	commonReadings := g.cachedData.GetCommonReadings(ctx)
+
+	readings["fix"] = commonReadings.FixValue
+	readings["satellites_in_use"] = commonReadings.SatsInUse
 
 	return readings, nil
 }

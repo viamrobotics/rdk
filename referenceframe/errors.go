@@ -23,13 +23,6 @@ var ErrMarshalingHighDOFFrame = errors.New("cannot marshal frame with >1 DOF, us
 // ErrNoWorldConnection describes the error when a frame system is built but nothing is connected to the world node.
 var ErrNoWorldConnection = errors.New("there are no robot parts that connect to a 'world' node. Root node must be named 'world'")
 
-// ErrNilJointPositions denotes an error when the joint positions are nil.
-var ErrNilJointPositions = errors.New("joint positions are nil, check that you are" +
-	" passing non-empty joint positions when writing your driver")
-
-// ErrNilModelFrame denotes an error when the kinematics in form of model frames are nil.
-var ErrNilModelFrame = errors.New("the model frame is nil, check that you are passing non-empty kinematics when writing your driver")
-
 // NewParentFrameMissingError returns an error for when a part has named a parent whose part is missing from the collection of Parts
 // that are becoming a FrameSystem object.
 func NewParentFrameMissingError(partName, parentName string) error {

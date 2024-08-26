@@ -7,6 +7,7 @@ import (
 	"context"
 
 	"go.viam.com/rdk/components/board/genericlinux/buses"
+	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/components/movementsensor/gpsutils"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
@@ -19,7 +20,7 @@ func NewPmtkI2CGPSNMEA(
 	name resource.Name,
 	conf *Config,
 	logger logging.Logger,
-) (NmeaMovementSensor, error) {
+) (movementsensor.MovementSensor, error) {
 	// The nil on this next line means "use a real I2C bus, because we're not going to pass in a
 	// mock one."
 	return MakePmtkI2cGpsNmea(ctx, deps, name, conf, logger, nil)
@@ -35,8 +36,8 @@ func MakePmtkI2cGpsNmea(
 	conf *Config,
 	logger logging.Logger,
 	i2cBus buses.I2C,
-) (NmeaMovementSensor, error) {
-	dev, err := gpsutils.NewI2cDataReader(*conf.I2CConfig, i2cBus, logger)
+) (movementsensor.MovementSensor, error) {
+	dev, err := gpsutils.NewI2cDataReader(ctx, *conf.I2CConfig, i2cBus, logger)
 	if err != nil {
 		return nil, err
 	}

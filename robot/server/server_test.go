@@ -13,6 +13,7 @@ import (
 	"github.com/golang/geo/r3"
 	"github.com/google/uuid"
 	"github.com/jhump/protoreflect/grpcreflect"
+	"go.uber.org/zap/zapcore"
 	commonpb "go.viam.com/api/common/v1"
 	armpb "go.viam.com/api/component/arm/v1"
 	pb "go.viam.com/api/robot/v1"
@@ -26,6 +27,7 @@ import (
 	"go.viam.com/rdk/cloud"
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/components/movementsensor"
+	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/protoutils"
@@ -72,6 +74,156 @@ func TestServer(t *testing.T) {
 		resourceResp, err = server.ResourceNames(context.Background(), &pb.ResourceNamesRequest{})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, resourceResp.Resources, test.ShouldResemble, serverOneResourceResponse)
+	})
+
+	t.Run("GetMachineStatus", func(t *testing.T) {
+		for _, tc := range []struct {
+			name                string
+			injectMachineStatus robot.MachineStatus
+			expConfig           *pb.ConfigStatus
+			expResources        []*pb.ResourceStatus
+			expBadStateCount    int
+		}{
+			{
+				"no resources",
+				robot.MachineStatus{
+					Config:    config.Revision{Revision: "rev1"},
+					Resources: []resource.Status{},
+				},
+				&pb.ConfigStatus{Revision: "rev1"},
+				[]*pb.ResourceStatus{},
+				0,
+			},
+			{
+				"resource with unknown status",
+				robot.MachineStatus{
+					Config: config.Revision{Revision: "rev1"},
+					Resources: []resource.Status{
+						{
+							Name:     arm.Named("badArm"),
+							Revision: "rev0",
+						},
+					},
+				},
+				&pb.ConfigStatus{Revision: "rev1"},
+				[]*pb.ResourceStatus{
+					{
+						Name:     protoutils.ResourceNameToProto(arm.Named("badArm")),
+						State:    pb.ResourceStatus_STATE_UNSPECIFIED,
+						Revision: "rev0",
+					},
+				},
+				1,
+			},
+			{
+				"resource with valid status",
+				robot.MachineStatus{
+					Config: config.Revision{Revision: "rev1"},
+					Resources: []resource.Status{
+						{
+							Name:     arm.Named("goodArm"),
+							State:    resource.NodeStateConfiguring,
+							Revision: "rev1",
+						},
+					},
+				},
+				&pb.ConfigStatus{Revision: "rev1"},
+				[]*pb.ResourceStatus{
+					{
+						Name:     protoutils.ResourceNameToProto(arm.Named("goodArm")),
+						State:    pb.ResourceStatus_STATE_CONFIGURING,
+						Revision: "rev1",
+					},
+				},
+				0,
+			},
+			{
+				"resources with mixed valid and invalid statuses",
+				robot.MachineStatus{
+					Config: config.Revision{Revision: "rev1"},
+					Resources: []resource.Status{
+						{
+							Name:     arm.Named("goodArm"),
+							State:    resource.NodeStateConfiguring,
+							Revision: "rev1",
+						},
+						{
+							Name:     arm.Named("badArm"),
+							Revision: "rev0",
+						},
+						{
+							Name:     arm.Named("anotherBadArm"),
+							Revision: "rev-1",
+						},
+					},
+				},
+				&pb.ConfigStatus{Revision: "rev1"},
+				[]*pb.ResourceStatus{
+					{
+						Name:     protoutils.ResourceNameToProto(arm.Named("goodArm")),
+						State:    pb.ResourceStatus_STATE_CONFIGURING,
+						Revision: "rev1",
+					},
+					{
+						Name:     protoutils.ResourceNameToProto(arm.Named("badArm")),
+						State:    pb.ResourceStatus_STATE_UNSPECIFIED,
+						Revision: "rev0",
+					},
+					{
+						Name:     protoutils.ResourceNameToProto(arm.Named("anotherBadArm")),
+						State:    pb.ResourceStatus_STATE_UNSPECIFIED,
+						Revision: "rev-1",
+					},
+				},
+				2,
+			},
+			{
+				"unhealthy status",
+				robot.MachineStatus{
+					Config: config.Revision{Revision: "rev1"},
+					Resources: []resource.Status{
+						{
+							Name:     arm.Named("brokenArm"),
+							Revision: "rev1",
+							State:    resource.NodeStateUnhealthy,
+							Error:    errors.New("bad configuration"),
+						},
+					},
+				},
+				&pb.ConfigStatus{Revision: "rev1"},
+				[]*pb.ResourceStatus{
+					{
+						Name:     protoutils.ResourceNameToProto(arm.Named("brokenArm")),
+						State:    pb.ResourceStatus_STATE_UNHEALTHY,
+						Revision: "rev1",
+						Error:    "bad configuration",
+					},
+				},
+				0,
+			},
+		} {
+			logger, logs := logging.NewObservedTestLogger(t)
+			injectRobot := &inject.Robot{}
+			server := server.New(injectRobot)
+			req := pb.GetMachineStatusRequest{}
+			injectRobot.LoggerFunc = func() logging.Logger {
+				return logger
+			}
+			injectRobot.MachineStatusFunc = func(ctx context.Context) (robot.MachineStatus, error) {
+				return tc.injectMachineStatus, nil
+			}
+			resp, err := server.GetMachineStatus(context.Background(), &req)
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, resp.GetConfig().GetRevision(), test.ShouldEqual, tc.expConfig.Revision)
+			for i, res := range resp.GetResources() {
+				test.That(t, res.GetName(), test.ShouldResemble, tc.expResources[i].Name)
+				test.That(t, res.GetState(), test.ShouldResemble, tc.expResources[i].State)
+				test.That(t, res.GetRevision(), test.ShouldEqual, tc.expResources[i].Revision)
+			}
+			const badStateMsg = "resource in an unknown state"
+			badStateCount := logs.FilterLevelExact(zapcore.ErrorLevel).FilterMessageSnippet(badStateMsg).Len()
+			test.That(t, badStateCount, test.ShouldEqual, tc.expBadStateCount)
+		}
 	})
 
 	t.Run("GetCloudMetadata", func(t *testing.T) {
@@ -321,6 +473,18 @@ func TestServer(t *testing.T) {
 		_, err := server.Shutdown(context.Background(), &req)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, shutdownCalled, test.ShouldBeTrue)
+	})
+
+	t.Run("GetVersion", func(t *testing.T) {
+		injectRobot := &inject.Robot{}
+		req := pb.GetVersionRequest{}
+
+		server := server.New(injectRobot)
+		resp, err := server.GetVersion(context.Background(), &req)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, resp.GetPlatform(), test.ShouldEqual, "rdk")
+		test.That(t, resp.GetVersion(), test.ShouldEqual, "dev-unknown")
+		test.That(t, resp.GetApiVersion(), test.ShouldEqual, "?")
 	})
 }
 

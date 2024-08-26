@@ -71,14 +71,17 @@ func wrapWithDifferentialDriveKinematics(
 		boundingSphere, err = spatialmath.BoundingSphere(geometry)
 	}
 	if boundingSphere == nil || err != nil {
-		logger.CWarn(ctx, "base %s not configured with a geometry, will be considered a 300mm sphere for collision detection purposes.")
+		logger.CWarnf(
+			ctx, "base %s not configured with a geometry, will be considered a 300mm sphere for collision detection purposes.",
+			b.Name().Name,
+		)
 		boundingSphere, err = spatialmath.NewSphere(spatialmath.NewZeroPose(), 150., b.Name().ShortName())
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	ddk.executionFrame, err = referenceframe.New2DMobileModelFrame(b.Name().ShortName(), limits, boundingSphere)
+	ddk.localizationFrame, err = referenceframe.New2DMobileModelFrame(b.Name().ShortName(), limits, boundingSphere)
 	if err != nil {
 		return nil, err
 	}
@@ -89,7 +92,7 @@ func wrapWithDifferentialDriveKinematics(
 			return nil, err
 		}
 	} else {
-		ddk.planningFrame = ddk.executionFrame
+		ddk.planningFrame = ddk.localizationFrame
 	}
 
 	ddk.noLocalizerCacheInputs = originInputs
@@ -99,17 +102,21 @@ func wrapWithDifferentialDriveKinematics(
 type differentialDriveKinematics struct {
 	base.Base
 	motion.Localizer
-	logger                        logging.Logger
-	planningFrame, executionFrame referenceframe.Model
-	options                       Options
-	noLocalizerCacheInputs        []referenceframe.Input
-	currentTrajectory             [][]referenceframe.Input
-	currentIdx                    int
-	mutex                         sync.RWMutex
+	logger                           logging.Logger
+	planningFrame, localizationFrame referenceframe.Frame
+	options                          Options
+	noLocalizerCacheInputs           []referenceframe.Input
+	currentTrajectory                [][]referenceframe.Input
+	currentIdx                       int
+	mutex                            sync.RWMutex
 }
 
 func (ddk *differentialDriveKinematics) Kinematics() referenceframe.Frame {
 	return ddk.planningFrame
+}
+
+func (ddk *differentialDriveKinematics) LocalizationFrame() referenceframe.Frame {
+	return ddk.localizationFrame
 }
 
 func (ddk *differentialDriveKinematics) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
@@ -310,7 +317,7 @@ func (ddk *differentialDriveKinematics) inputDiff(current, desired []referencefr
 	)
 
 	// transform the goal pose such that it is in the base frame
-	currentPose, err := ddk.executionFrame.Transform(current)
+	currentPose, err := ddk.localizationFrame.Transform(current)
 	if err != nil {
 		return 0, 0, err
 	}
@@ -357,43 +364,6 @@ func (ddk *differentialDriveKinematics) newValidRegionCapsule(starting, desired 
 	}
 
 	return capsule, nil
-}
-
-func (ddk *differentialDriveKinematics) ErrorState(ctx context.Context) (spatialmath.Pose, error) {
-	ddk.mutex.RLock()
-	waypoints := ddk.currentTrajectory
-	currentNode := ddk.currentIdx
-	ddk.mutex.RUnlock()
-
-	// Get pose-in-frame of the base via its localizer. The offset between the localizer and its base should already be accounted for.
-	actualPIF, err := ddk.CurrentPosition(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	var nominalPose spatialmath.Pose
-
-	// Determine the nominal pose, that is, the pose where the robot ought be if it had followed the plan perfectly up until this point.
-	// This is done differently depending on what sort of frame we are working with.
-	if len(waypoints) < 2 {
-		return nil, errors.New("diff drive motion plan must have at least two waypoints")
-	}
-	nominalPose, err = ddk.planningFrame.Transform(waypoints[currentNode])
-	if err != nil {
-		return nil, err
-	}
-	pastPose, err := ddk.planningFrame.Transform(waypoints[currentNode-1])
-	if err != nil {
-		return nil, err
-	}
-	// diff drive bases don't have a notion of "distance along the trajectory between waypoints", so instead we compare to the
-	// nearest point on the straight line path.
-	nominalPoint := spatialmath.ClosestPointSegmentPoint(pastPose.Point(), nominalPose.Point(), actualPIF.Pose().Point())
-	pointDiff := nominalPose.Point().Sub(pastPose.Point())
-	desiredHeading := math.Atan2(pointDiff.Y, pointDiff.X)
-	nominalPose = spatialmath.NewPose(nominalPoint, &spatialmath.OrientationVector{OZ: 1, Theta: desiredHeading})
-
-	return spatialmath.PoseBetween(nominalPose, actualPIF.Pose()), nil
 }
 
 func (ddk *differentialDriveKinematics) ExecutionState(ctx context.Context) (motionplan.ExecutionState, error) {

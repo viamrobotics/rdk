@@ -14,8 +14,8 @@ func TestConnectInvalidURL(t *testing.T) {
 	cancelCtx, cancelFn := context.WithCancel(context.Background())
 	defer cancelFn()
 
-	// Note: if MaxConnectAttempts is 0, we don't bother trying to connect.
-	ntripInfo := &NtripInfo{MaxConnectAttempts: 1}
+	// Note: if maxConnectAttempts is 0, we don't bother trying to connect.
+	ntripInfo := &NtripInfo{maxConnectAttempts: 1}
 	err := ntripInfo.Connect(cancelCtx, logger)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, `address must start with http://`)
@@ -37,6 +37,7 @@ func TestConnectSucceeds(t *testing.T) {
 	ntripInfo, err := NewNtripInfo(&config, logger)
 	test.That(t, err, test.ShouldBeNil)
 
-	err = ntripInfo.Connect(cancelCtx, logger)
+	// Create the connection but don't wait for it to become live.
+	err = ntripInfo.createConnection(cancelCtx, logger)
 	test.That(t, err, test.ShouldBeNil)
 }

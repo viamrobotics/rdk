@@ -16,6 +16,8 @@ import (
 	spatial "go.viam.com/rdk/spatialmath"
 )
 
+var defaultMinStepCount = 3
+
 // Given a constraint input with only frames and input positions, calculates the corresponding poses as needed.
 func resolveSegmentsToPositions(segment *ik.Segment) error {
 	if segment.StartPosition == nil {
@@ -155,6 +157,10 @@ func interpolateSegment(ci *ik.Segment, resolution float64) ([][]referenceframe.
 	}
 
 	steps := PathStepCount(ci.StartPosition, ci.EndPosition, resolution)
+	if steps < defaultMinStepCount {
+		// Minimum step count ensures we are not missing anything
+		steps = defaultMinStepCount
+	}
 
 	var interpolatedConfigurations [][]referenceframe.Input
 	for i := 0; i <= steps; i++ {
@@ -601,9 +607,17 @@ func ConstraintsFromProtobuf(pbConstraint *motionpb.Constraints) *Constraints {
 	linConstraintFromProto := func(linConstraints []*motionpb.LinearConstraint) []LinearConstraint {
 		toRet := make([]LinearConstraint, 0, len(linConstraints))
 		for _, linConstraint := range linConstraints {
+			linTol := 0.
+			if linConstraint.LineToleranceMm != nil {
+				linTol = float64(*linConstraint.LineToleranceMm)
+			}
+			orientTol := 0.
+			if linConstraint.OrientationToleranceDegs != nil {
+				orientTol = float64(*linConstraint.OrientationToleranceDegs)
+			}
 			toRet = append(toRet, LinearConstraint{
-				LineToleranceMm:          float64(*linConstraint.LineToleranceMm),
-				OrientationToleranceDegs: float64(*linConstraint.OrientationToleranceDegs),
+				LineToleranceMm:          linTol,
+				OrientationToleranceDegs: orientTol,
 			})
 		}
 		return toRet
