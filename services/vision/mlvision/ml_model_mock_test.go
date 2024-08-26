@@ -3,40 +3,33 @@ package mlvision
 import (
 	"context"
 
+	"gorgonia.org/tensor"
+
 	"go.viam.com/rdk/ml"
 	"go.viam.com/rdk/services/mlmodel"
-	"go.viam.com/rdk/services/mlmodel/tflitecpu"
 	"go.viam.com/rdk/testutils/inject"
-	"gorgonia.org/tensor"
 )
 
-func getTestMlModel(modelLoc string) (mlmodel.Service, error) {
-	ctx := context.Background()
-	testMLModelServiceName := "test-model"
-
-	name := mlmodel.Named(testMLModelServiceName)
-	cfg := tflitecpu.TFLiteConfig{
-		ModelPath:  modelLoc,
-		NumThreads: 2,
-	}
-	return tflitecpu.NewTFLiteCPUModel(ctx, &cfg, name)
-}
-
-func mockEffDetModel(name string, labelLoc string) mlmodel.Service {
+func mockEffDetModel(name, labelLoc string) mlmodel.Service {
 	// using the effdet0.tflite model as a template
 	// pretend it has taken in the picture of "vision/tflite/dogscute.jpeg"
 	effDetMock := inject.NewMLModelService(name)
 	md := mlmodel.MLMetadata{
-		ModelName:        "EfficientDet Lite0 V1",
-		ModelType:        "tflite_detector",
-		ModelDescription: "Identify which of a known set of objects might be present and provide information about their positions within the given image or a video stream.",
+		ModelName: "EfficientDet Lite0 V1",
+		ModelType: "tflite_detector",
+		ModelDescription: "Identify which of a known set of objects" +
+			"might be present and provide information about their positions" +
+			"within the given image or a video stream.",
 	}
 	inputs := make([]mlmodel.TensorInfo, 0, 1)
 	imageIn := mlmodel.TensorInfo{
-		Name:        "image",
-		Description: "Input image to be detected. The expected image is 320 x 320, with three channels (red, blue, and green) per pixel. Each value in the tensor is a single byte between 0 and 255.",
-		DataType:    "uint8",
-		Shape:       []int{1, 320, 320, 3},
+		Name: "image",
+		Description: "Input image to be detected." +
+			"The expected image is 320 x 320, with three channels" +
+			"(red, blue, and green) per pixel. Each value in the tensor" +
+			"is a single byte between 0 and 255.",
+		DataType: "uint8",
+		Shape:    []int{1, 320, 320, 3},
 	}
 	inputs = append(inputs, imageIn)
 	md.Inputs = inputs
@@ -76,12 +69,14 @@ func mockEffDetModel(name string, labelLoc string) mlmodel.Service {
 
 	// now define the output tensors
 	outputInfer := ml.Tensors{}
-	//score
-	score := []float32{0.81640625, 0.6875, 0.109375, 0.09375, 0.0625,
+
+	score := []float32{
+		0.81640625, 0.6875, 0.109375, 0.09375, 0.0625,
 		0.0546875, 0.05078125, 0.0390625, 0.03515625, 0.03125,
 		0.0234375, 0.0234375, 0.0234375, 0.0234375, 0.01953125,
 		0.01953125, 0.01953125, 0.01953125, 0.01953125, 0.01953125,
-		0.015625, 0.015625, 0.015625, 0.015625, 0.015625}
+		0.015625, 0.015625, 0.015625, 0.015625, 0.015625,
+	}
 	scoreTensor := tensor.New(tensor.WithShape(1, 25), tensor.WithBacking(score))
 	outputInfer["score"] = scoreTensor
 	// nDetections
@@ -114,12 +109,15 @@ func mockEffDetModel(name string, labelLoc string) mlmodel.Service {
 		0.4441566, 0.45994544, 0.5502226, 0.50924087,
 		0.5679829, 0.98425895, 0.76903045, 0.9965547,
 		0.6335254, 0.97844476, 0.76085377, 0.9946173,
-		0.8215679, 0.07016394, 0.89795077, 0.11853918}
+		0.8215679, 0.07016394, 0.89795077, 0.11853918,
+	}
 	locationTensor := tensor.New(tensor.WithShape(1, 25, 4), tensor.WithBacking(locations))
 	outputInfer["location"] = locationTensor
 	// categories
-	categories := []float32{17., 17., 17., 36., 17., 87., 17., 33., 17., 36., 33., 87., 17.,
-		17., 33., 0., 0., 36., 33., 17., 17., 33., 0., 0., 36.}
+	categories := []float32{
+		17., 17., 17., 36., 17., 87., 17., 33., 17., 36., 33., 87., 17.,
+		17., 33., 0., 0., 36., 33., 17., 17., 33., 0., 0., 36.,
+	}
 	categoryTensor := tensor.New(tensor.WithShape(1, 25), tensor.WithBacking(categories))
 	outputInfer["category"] = categoryTensor
 	effDetMock.InferFunc = func(ctx context.Context, tensors ml.Tensors) (ml.Tensors, error) {
@@ -131,20 +129,23 @@ func mockEffDetModel(name string, labelLoc string) mlmodel.Service {
 	return effDetMock
 }
 
-func mockEffNetModel(name string, labelLoc string) mlmodel.Service {
+func mockEffNetModel(name, labelLoc string) mlmodel.Service {
 	// using the effnet0.tflite model as a template
 	effNetMock := inject.NewMLModelService(name)
 	md := mlmodel.MLMetadata{
-		ModelName:        "EfficientNet-lite image classifier (quantized)",
-		ModelType:        "tflite_classifier",
-		ModelDescription: "Identify the most prominent object in the image from a set of 1,000 categories such as trees, animals, food, vehicles, person etc.",
+		ModelName: "EfficientNet-lite image classifier (quantized)",
+		ModelType: "tflite_classifier",
+		ModelDescription: "Identify the most prominent object in the image " +
+			"from a set of 1,000 categories such as trees, animals, food, vehicles, person etc.",
 	}
 	inputs := make([]mlmodel.TensorInfo, 0, 1)
 	imageIn := mlmodel.TensorInfo{
-		Name:        "image",
-		Description: "Input image to be classified. The expected image is 260 x 260, with three channels (red, blue, and green) per pixel. Each element in the tensor is a value between min and max, where (per-channel) min is [0] and max is [255].",
-		DataType:    "uint8",
-		Shape:       []int{1, 260, 260, 3},
+		Name: "image",
+		Description: "Input image to be classified. The expected image is 260 x 260," +
+			"with three channels (red, blue, and green) per pixel. Each element in the tensor" +
+			"is a value between min and max, where (per-channel) min is [0] and max is [255].",
+		DataType: "uint8",
+		Shape:    []int{1, 260, 260, 3},
 	}
 	inputs = append(inputs, imageIn)
 	md.Inputs = inputs
@@ -166,8 +167,9 @@ func mockEffNetModel(name string, labelLoc string) mlmodel.Service {
 
 	// now define the output tensors
 	outputInfer := ml.Tensors{}
-	//probability
-	prob := []uint8{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+
+	prob := []uint8{
+		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -243,7 +245,8 @@ func mockEffNetModel(name string, labelLoc string) mlmodel.Service {
 		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
+		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+	}
 	probTensor := tensor.New(tensor.WithShape(1, 1000), tensor.WithBacking(prob))
 	outputInfer["probability"] = probTensor
 	effNetMock.InferFunc = func(ctx context.Context, tensors ml.Tensors) (ml.Tensors, error) {
@@ -255,7 +258,7 @@ func mockEffNetModel(name string, labelLoc string) mlmodel.Service {
 	return effNetMock
 }
 
-func mockYOLOv4Model(name string, labelLoc string) mlmodel.Service {
+func mockYOLOv4Model(name, labelLoc string) mlmodel.Service {
 	// using the yolov4_tiny_416_person.tflite model as a template (only identifies people)
 	yolov4Mock := inject.NewMLModelService(name)
 	md := mlmodel.MLMetadata{}
@@ -286,8 +289,9 @@ func mockYOLOv4Model(name string, labelLoc string) mlmodel.Service {
 
 	// now define the output tensors
 	outputInfer := ml.Tensors{}
-	//location
-	location := []float32{81.89406, 238.29471, 138.18826, 385.18762, 100.097,
+
+	location := []float32{
+		81.89406, 238.29471, 138.18826, 385.18762, 100.097,
 		244.50311, 145.50427, 364.365, 144.53658, 246.79683,
 		107.993904, 324.7564, 176.4969, 244.70546, 135.69273,
 		329.0561, 214.89876, 239.59508, 154.20409, 374.43564,
@@ -366,11 +370,13 @@ func mockYOLOv4Model(name string, labelLoc string) mlmodel.Service {
 		205.38127, 61.060066, 273.28622, 222.80014, 236.86954,
 		60.31771, 293.5936, 236.3346, 272.27332, 58.188156,
 		287.93677, 230.04768, 302.98828, 55.540695, 241.48546,
-		247.45172, 329.62442, 53.879295, 242.36658, 262.1998}
+		247.45172, 329.62442, 53.879295, 242.36658, 262.1998,
+	}
 	locTensor := tensor.New(tensor.WithShape(1, 4, 100), tensor.WithBacking(location))
 	outputInfer["Identity"] = locTensor
-	//score
-	score := []float32{0.7911331, 0.008946889, 5.3105592e-05, 1.8064295e-05,
+
+	score := []float32{
+		0.7911331, 0.008946889, 5.3105592e-05, 1.8064295e-05,
 		0.12412785, 0.06427066, 0.0057058493, 0.9159059, 0.26377064,
 		0.0015523805, 0.0023670984, 0.00045448114, 0.00032615534, 0.161319,
 		0.0055036363, 9.0693655e-05, 5.693414e-05, 0.016499836, 0.047681294,
@@ -389,7 +395,8 @@ func mockYOLOv4Model(name string, labelLoc string) mlmodel.Service {
 		1.6993713e-08, 5.3752025e-09, 5.735855e-09, 1.8100623e-08, 2.9193975e-08,
 		2.210404e-08, 2.722237e-08, 2.6687264e-08, 2.0173228e-08, 3.2263053e-08,
 		5.0503943e-09, 2.1286692e-09, 9.281258e-09, 1.2063204e-08, 3.0449978e-09,
-		3.998848e-09, 9.6701696e-09, 3.225518e-08, 2.3792854e-08, 4.091115e-08, 8.747892e-09}
+		3.998848e-09, 9.6701696e-09, 3.225518e-08, 2.3792854e-08, 4.091115e-08, 8.747892e-09,
+	}
 	scoreTensor := tensor.New(tensor.WithShape(1, 100), tensor.WithBacking(score))
 	outputInfer["Identity_1"] = scoreTensor
 	yolov4Mock.InferFunc = func(ctx context.Context, tensors ml.Tensors) (ml.Tensors, error) {
@@ -399,4 +406,273 @@ func mockYOLOv4Model(name string, labelLoc string) mlmodel.Service {
 		return nil
 	}
 	return yolov4Mock
+}
+
+func mockSSDMobileModel(name, labelLoc string) mlmodel.Service {
+	// using the ssdmobilenet.tflite model as a template
+	ssdMock := inject.NewMLModelService(name)
+	md := mlmodel.MLMetadata{}
+	inputs := make([]mlmodel.TensorInfo, 0, 1)
+	imageIn := mlmodel.TensorInfo{
+		DataType: "float32",
+		Shape:    []int{1, 320, 320, 3},
+	}
+	inputs = append(inputs, imageIn)
+	md.Inputs = inputs
+	outputs := make([]mlmodel.TensorInfo, 0, 4)
+	out1 := mlmodel.TensorInfo{
+		DataType: "float32",
+	}
+	if labelLoc != "" {
+		extra := map[string]interface{}{"labels": labelLoc}
+		out1.Extra = extra
+	}
+	outputs = append(outputs, out1)
+	out2 := mlmodel.TensorInfo{
+		DataType: "float32",
+	}
+	outputs = append(outputs, out2)
+	out3 := mlmodel.TensorInfo{
+		DataType: "float32",
+	}
+	outputs = append(outputs, out3)
+	out4 := mlmodel.TensorInfo{
+		DataType: "float32",
+	}
+	outputs = append(outputs, out4)
+	md.Outputs = outputs
+	ssdMock.MetadataFunc = func(ctx context.Context) (mlmodel.MLMetadata, error) {
+		return md, nil
+	}
+
+	// now define the output tensors
+	outputInfer := ml.Tensors{}
+
+	location := []float32{
+		0.24519253, 0.25807467, 0.8345876, 0.54584837,
+		0.2174618, 0.5038767, 0.8305954, 0.76302826,
+		0.21465456, 0.20848846, 0.84093904, 0.7161549,
+		0., 0.5710928, 0., 0.,
+		0., 0., 0., 0.,
+		0., 0., 0., 0.,
+		0., 0., 0., 0.,
+		0., 0., 0., 2.2204232,
+		0., 0.8956621, 0., 2.6078475,
+		0., 0., 0., 0.,
+	}
+	locTensor := tensor.New(tensor.WithShape(1, 4, 10), tensor.WithBacking(location))
+	outputInfer["TFLite_Detection_PostProcess"] = locTensor
+
+	score := []float32{
+		0.7716708, 0.74740124, 0.32725048, 0., 0.,
+		0., 0., 0.08297043, 0., 2.3404474,
+	}
+	scoreTensor := tensor.New(tensor.WithShape(1, 10), tensor.WithBacking(score))
+	outputInfer["TFLite_Detection_PostProcess:2"] = scoreTensor
+	// category
+	category := []float32{
+		17., 17., 56., 1.8912456, 0.,
+		0., 0., 0., 0.58353734, 0.,
+	}
+	catTensor := tensor.New(tensor.WithShape(1, 10), tensor.WithBacking(category))
+	outputInfer["TFLite_Detection_PostProcess:1"] = catTensor
+	// n detections
+	nDet := []float32{3.}
+	detTensor := tensor.New(tensor.WithShape(1), tensor.WithBacking(nDet))
+	outputInfer["TFLite_Detection_PostProcess:3"] = detTensor
+	ssdMock.InferFunc = func(ctx context.Context, tensors ml.Tensors) (ml.Tensors, error) {
+		return outputInfer, nil
+	}
+	ssdMock.CloseFunc = func(ctx context.Context) error {
+		return nil
+	}
+	return ssdMock
+}
+
+func mockMobileNetClassModel(name string) mlmodel.Service {
+	// using the mobilenetv2_class.tflite model as a template
+	// pretend it has taken in the picture of "vision/tflite/redpanda.jpeg"
+	mobileClassMock := inject.NewMLModelService(name)
+	md := mlmodel.MLMetadata{
+		ModelName:        "google/object_detection/mobile_object_labeler_V1",
+		ModelType:        "tflite_classifier",
+		ModelDescription: "Mobile",
+	}
+	inputs := make([]mlmodel.TensorInfo, 0, 1)
+	imageIn := mlmodel.TensorInfo{
+		Name:        "image",
+		Description: "Input image to be classified. The expected image is 224 x 224 with 3 channels per pixel, with each value in [0.0,255.0].",
+		DataType:    "uint8",
+		Shape:       []int{1, 224, 224, 3},
+	}
+	inputs = append(inputs, imageIn)
+	md.Inputs = inputs
+	outputs := make([]mlmodel.TensorInfo, 0, 1)
+	probOut := mlmodel.TensorInfo{
+		Name:        "probability",
+		Description: "Probabilities of the outputs classes.",
+		DataType:    "uint8",
+	}
+	outputs = append(outputs, probOut)
+	md.Outputs = outputs
+	mobileClassMock.MetadataFunc = func(ctx context.Context) (mlmodel.MLMetadata, error) {
+		return md, nil
+	}
+
+	// now define the output tensors
+	outputInfer := ml.Tensors{}
+
+	prob := []float32{
+		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+		236, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0,
+		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0,
+	}
+	probTensor := tensor.New(tensor.WithShape(1, 631), tensor.WithBacking(prob))
+	outputInfer["probability"] = probTensor
+	mobileClassMock.InferFunc = func(ctx context.Context, tensors ml.Tensors) (ml.Tensors, error) {
+		return outputInfer, nil
+	}
+	mobileClassMock.CloseFunc = func(ctx context.Context) error {
+		return nil
+	}
+	return mobileClassMock
+}
+
+func mockMobileNetImageNetModel(name, labelLoc string) mlmodel.Service {
+	// using the mobilenetv2_imagenet.tflite model as a template
+	// pretend it has taken in the picture of "vision/tflite/lion.jpeg"
+	mobileImageMock := inject.NewMLModelService(name)
+	md := mlmodel.MLMetadata{}
+	inputs := make([]mlmodel.TensorInfo, 0, 1)
+	imageIn := mlmodel.TensorInfo{
+		DataType: "uint8",
+		Shape:    []int{1, 224, 224, 3},
+	}
+	inputs = append(inputs, imageIn)
+	md.Inputs = inputs
+	outputs := make([]mlmodel.TensorInfo, 0, 1)
+	probOut := mlmodel.TensorInfo{
+		DataType: "uint8",
+	}
+	if labelLoc != "" {
+		extra := map[string]interface{}{"labels": labelLoc}
+		probOut.Extra = extra
+	}
+	outputs = append(outputs, probOut)
+	md.Outputs = outputs
+	mobileImageMock.MetadataFunc = func(ctx context.Context) (mlmodel.MLMetadata, error) {
+		return md, nil
+	}
+
+	// now define the output tensors
+	outputInfer := ml.Tensors{}
+
+	prob := []float32{
+		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0,
+		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 232, 0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+		0,
+	}
+	probTensor := tensor.New(tensor.WithShape(1, 1001), tensor.WithBacking(prob))
+	outputInfer["MobilenetV2/Predictions/Softmax"] = probTensor
+	mobileImageMock.InferFunc = func(ctx context.Context, tensors ml.Tensors) (ml.Tensors, error) {
+		return outputInfer, nil
+	}
+	mobileImageMock.CloseFunc = func(ctx context.Context) error {
+		return nil
+	}
+	return mobileImageMock
 }
