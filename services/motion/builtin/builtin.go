@@ -236,6 +236,9 @@ func (ms *builtIn) Move(
 	for i, step := range plan.Trajectory() {
 		if i == 0 {
 			for name, inputs := range step {
+				if len(inputs) == 0 {
+					continue
+				}
 				currStep[name] = append(currStep[name], inputs)
 			}
 			continue
@@ -246,6 +249,9 @@ func (ms *builtIn) Move(
 			// Check if the current step moves only the same components as the previous step
 			// If so, batch the inputs
 			for name, inputs := range step {
+				if len(inputs) == 0 {
+					continue
+				}
 				if priorInputs, ok := currStep[name]; ok {
 					for i, input := range inputs {
 						if input != priorInputs[len(priorInputs)-1][i] {
@@ -272,6 +278,9 @@ func (ms *builtIn) Move(
 				currStep = map[string][][]referenceframe.Input{}
 			}
 			for name, inputs := range step {
+				if len(inputs) == 0 {
+					continue
+				}
 				currStep[name] = append(currStep[name], inputs)
 			}
 		}
@@ -283,7 +292,10 @@ func (ms *builtIn) Move(
 			if len(inputs) == 0 {
 				continue
 			}
-			r := resources[name]
+			r, ok := resources[name]
+			if !ok {
+				return false, fmt.Errorf("plan had step for resource %s but no resource with that name found in framesystem", name)
+			}
 			if err := r.GoToInputs(ctx, inputs...); err != nil {
 				// If there is an error on GoToInputs, stop the component if possible before returning the error
 				if actuator, ok := r.(inputEnabledActuator); ok {
