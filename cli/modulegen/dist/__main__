@@ -1,0 +1,2 @@
+Dummy file to satisfy go compilation requirement without creating a python dependency.
+Should not be interacted with directly.
