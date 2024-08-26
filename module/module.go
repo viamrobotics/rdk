@@ -52,6 +52,9 @@ const (
 	// https://viam.atlassian.net/browse/RSDK-7521
 	// maxSupportedWebRTCTRacks is the max number of WebRTC tracks that can be supported given wihout hitting the sctp SDP message size limit.
 	maxSupportedWebRTCTRacks = 9
+
+	// NoModuleParentEnvVar indicates whether there is a parent for a module being started.
+	NoModuleParentEnvVar = "VIAM_NO_MODULE_PARENT"
 )
 
 // errMaxSupportedWebRTCTrackLimit is the error returned when the MaxSupportedWebRTCTRacks limit is reached.
@@ -405,7 +408,7 @@ func (m *Module) Ready(ctx context.Context, req *pb.ReadyRequest) (*pb.ReadyResp
 
 	// we start the module without connecting to a parent since we
 	// are only concerned with validation and extracting metadata.
-	if os.Getenv("VIAM_NO_MODULE_PARENT") != "true" {
+	if os.Getenv(NoModuleParentEnvVar) != "true" {
 		m.parentAddr = req.GetParentAddress()
 		if err := m.connectParent(ctx); err != nil {
 			// Return error back to parent if we cannot make a connection from module

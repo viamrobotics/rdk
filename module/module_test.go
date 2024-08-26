@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -721,6 +722,75 @@ func TestAttributeConversion(t *testing.T) {
 		test.That(t, convSvcCfg.CaptureMethods[0].Name, test.ShouldResemble, shell.Named("mymock2"))
 		test.That(t, convSvcCfg.CaptureMethods[0].Method, test.ShouldEqual, "Something")
 	})
+}
+
+// setupLocalModule sets up a module without a parent connection.
+func setupLocalModule(t *testing.T, ctx context.Context, logger logging.Logger) *module.Module {
+	t.Helper()
+
+	// Use 'foo.sock' for arbitrary module to test AddModelFromRegistry.
+	m, err := module.NewModule(ctx, filepath.Join(t.TempDir(), "foo.sock"), logger)
+	test.That(t, err, test.ShouldBeNil)
+
+	// Hit Ready as a way to close m.pcFailed, so that AddResource can proceed. Set NoModuleParentEnvVar so that parent connection
+	// will not be attempted.
+	test.That(t, os.Setenv(module.NoModuleParentEnvVar, "true"), test.ShouldBeNil)
+	_, err = m.Ready(ctx, &pb.ReadyRequest{})
+	test.That(t, err, test.ShouldBeNil)
+
+	t.Cleanup(func() {
+		m.Close(ctx)
+		test.That(t, os.Unsetenv(module.NoModuleParentEnvVar), test.ShouldBeNil)
+	})
+	return m
+}
+
+// TestModuleAddResource tests that modular resources gets closed on add if context is done before resource finished creation.
+func TestModuleAddResource(t *testing.T) {
+	ctx := context.Background()
+
+	m := setupLocalModule(t, ctx, logging.NewTestLogger(t))
+
+	var (
+		shouldCancel bool
+
+		constructCount int
+		closeCount     int
+	)
+	ctx, cancel := context.WithCancel(ctx)
+	model := resource.NewModel("inject", "demo", "shell")
+	resource.RegisterService(shell.API, model, resource.Registration[shell.Service, *MockConfig]{
+		Constructor: func(
+			ctx context.Context, deps resource.Dependencies, cfg resource.Config, logger logging.Logger,
+		) (shell.Service, error) {
+			if shouldCancel {
+				cancel()
+			}
+			constructCount++
+			return &inject.ShellService{
+				CloseFunc: func(ctx context.Context) error { closeCount++; return nil },
+			}, nil
+		},
+	})
+	defer resource.Deregister(shell.API, model)
+	test.That(t, m.AddModelFromRegistry(ctx, shell.API, model), test.ShouldBeNil)
+
+	// add resource normally
+	_, err := m.AddResource(ctx, &pb.AddResourceRequest{
+		Config: &v1.ComponentConfig{Name: "mymock", Api: shell.API.String(), Model: model.String()},
+	})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, constructCount, test.ShouldEqual, 1)
+	test.That(t, closeCount, test.ShouldEqual, 0)
+
+	// add resource but cancel the ctx during construction
+	shouldCancel = true
+	_, err = m.AddResource(ctx, &pb.AddResourceRequest{
+		Config: &v1.ComponentConfig{Name: "mymock", Api: shell.API.String(), Model: model.String()},
+	})
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, constructCount, test.ShouldEqual, 2)
+	test.That(t, closeCount, test.ShouldEqual, 1)
 }
 
 func TestModuleSocketAddrTruncation(t *testing.T) {
