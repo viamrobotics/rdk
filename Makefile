@@ -20,15 +20,11 @@ default: build lint server
 setup:
 	bash etc/setup.sh
 
-cli/modulegen/dist/__main__:
-	pip install -r cli/modulegen/requirements.txt
-	cd cli/modulegen/ && \
-	poetry run pyinstaller --onefile --collect-data cookiecutter --add-data module_generator/module:module --hidden-import cookiecutter.extensions module_generator/__main__.py
-
 .PHONY: modulegen
-modulegen: cli/modulegen/dist/__main__
+modulegen:
+	./cli/modulegen/build.sh
 
-bin/$(GOOS)-$(GOARCH)/viam-cli: cli/modulegen/dist/__main__
+bin/$(GOOS)-$(GOARCH)/viam-cli: modulegen
 	go build $(LDFLAGS) -tags osusergo,netgo -o $@ ./cli/viam
 
 .PHONY: cli
@@ -36,9 +32,6 @@ cli: bin/$(GOOS)-$(GOARCH)/viam-cli
 
 build: build-web build-go
 
-# CR erodkin: testing this dependency to make sure it fixes tests, but we should think long
-# and hard before making this a dependency of the build in general. Maybe we put in a dummy
-# file just to satisy, and have the `cli` make always overwrite it?
 build-go: cli/modulegen/dist/__main__
 	go build ./...
 
