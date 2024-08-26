@@ -204,14 +204,14 @@ func (c *client) StreamTicks(ctx context.Context, interrupts []DigitalInterrupt,
 		client: c,
 	}
 
-	c.mu.Lock()
-	c.interruptStreams = append(c.interruptStreams, stream)
-	c.mu.Unlock()
-
 	err = stream.startStream(ctx, interrupts, ch)
 	if err != nil {
 		return err
 	}
+
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.interruptStreams = append(c.interruptStreams, stream)
 	return nil
 }
 

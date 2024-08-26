@@ -16,9 +16,9 @@ import (
 	"go.viam.com/test"
 	"google.golang.org/grpc"
 
+	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/services/datamanager/datacapture"
 	"go.viam.com/rdk/services/datamanager/datasync"
 )
 
@@ -765,7 +765,7 @@ func getAllFilePaths(dir string) []string {
 }
 
 func getCapturedData(dir string) (int, []*v1.SensorData, error) {
-	var allFiles []*datacapture.File
+	var allFiles []*data.CaptureFile
 	filePaths := getAllFilePaths(dir)
 	var numFiles int
 
@@ -774,7 +774,7 @@ func getCapturedData(dir string) (int, []*v1.SensorData, error) {
 		if err != nil {
 			return 0, nil, err
 		}
-		dcFile, err := datacapture.ReadFile(osFile)
+		dcFile, err := data.ReadCaptureFile(osFile)
 		if err != nil {
 			return 0, nil, err
 		}

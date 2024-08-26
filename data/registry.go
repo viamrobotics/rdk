@@ -5,13 +5,11 @@ import (
 	"time"
 
 	"github.com/benbjohnson/clock"
-	"github.com/mitchellh/copystructure"
 	"github.com/pkg/errors"
 	"google.golang.org/protobuf/types/known/anypb"
 
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/services/datamanager/datacapture"
 )
 
 // CollectorConstructor contains a function for constructing an instance of a Collector.
@@ -22,7 +20,7 @@ type CollectorParams struct {
 	ComponentName string
 	Interval      time.Duration
 	MethodParams  map[string]*anypb.Any
-	Target        datacapture.BufferedWriter
+	Target        CaptureBufferedWriter
 	QueueSize     int
 	BufferSize    int
 	Logger        logging.Logger
@@ -53,6 +51,8 @@ func (m MethodMetadata) String() string {
 	return fmt.Sprintf("Api: %v, Method Name: %s", m.API, m.MethodName)
 }
 
+// collectorRegistry is accessed without locks. This is safe because all collectors are registered
+// in package initialization functions. Those functions are executed in series.
 var collectorRegistry = map[MethodMetadata]CollectorConstructor{}
 
 // RegisterCollector registers a Collector to its corresponding MethodMetadata.
@@ -67,18 +67,6 @@ func RegisterCollector(method MethodMetadata, c CollectorConstructor) {
 
 // CollectorLookup looks up a Collector by the given MethodMetadata. nil is returned if
 // there is None.
-func CollectorLookup(method MethodMetadata) *CollectorConstructor {
-	if registration, ok := RegisteredCollectors()[method]; ok {
-		return &registration
-	}
-	return nil
-}
-
-// RegisteredCollectors returns a copy of the registry.
-func RegisteredCollectors() map[MethodMetadata]CollectorConstructor {
-	copied, err := copystructure.Copy(collectorRegistry)
-	if err != nil {
-		panic(err)
-	}
-	return copied.(map[MethodMetadata]CollectorConstructor)
+func CollectorLookup(method MethodMetadata) CollectorConstructor {
+	return collectorRegistry[method]
 }

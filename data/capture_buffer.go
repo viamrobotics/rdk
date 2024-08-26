@@ -1,4 +1,4 @@
-package datacapture
+package data
 
 import (
 	"sync"
@@ -6,25 +6,25 @@ import (
 	v1 "go.viam.com/api/app/datasync/v1"
 )
 
-// BufferedWriter is a buffered, persistent queue of SensorData.
-type BufferedWriter interface {
+// CaptureBufferedWriter is a buffered, persistent queue of SensorData.
+type CaptureBufferedWriter interface {
 	Write(item *v1.SensorData) error
 	Flush() error
 	Path() string
 }
 
-// Buffer is a persistent queue of SensorData backed by a series of datacapture.Files.
-type Buffer struct {
+// CaptureBuffer is a persistent queue of SensorData backed by a series of *data.CaptureFile.
+type CaptureBuffer struct {
 	Directory          string
 	MetaData           *v1.DataCaptureMetadata
-	nextFile           *File
+	nextFile           *CaptureFile
 	lock               sync.Mutex
 	maxCaptureFileSize int64
 }
 
-// NewBuffer returns a new Buffer.
-func NewBuffer(dir string, md *v1.DataCaptureMetadata, maxCaptureFileSize int64) *Buffer {
-	return &Buffer{
+// NewCaptureBuffer returns a new Buffer.
+func NewCaptureBuffer(dir string, md *v1.DataCaptureMetadata, maxCaptureFileSize int64) *CaptureBuffer {
+	return &CaptureBuffer{
 		Directory:          dir,
 		MetaData:           md,
 		maxCaptureFileSize: maxCaptureFileSize,
@@ -36,12 +36,12 @@ func NewBuffer(dir string, md *v1.DataCaptureMetadata, maxCaptureFileSize int64)
 // are still being written to are indicated with the extension
 // InProgressFileExt. Files that have finished being written to are indicated by
 // FileExt.
-func (b *Buffer) Write(item *v1.SensorData) error {
+func (b *CaptureBuffer) Write(item *v1.SensorData) error {
 	b.lock.Lock()
 	defer b.lock.Unlock()
 
 	if item.GetBinary() != nil {
-		binFile, err := NewFile(b.Directory, b.MetaData)
+		binFile, err := NewCaptureFile(b.Directory, b.MetaData)
 		if err != nil {
 			return err
 		}
@@ -55,7 +55,7 @@ func (b *Buffer) Write(item *v1.SensorData) error {
 	}
 
 	if b.nextFile == nil {
-		nextFile, err := NewFile(b.Directory, b.MetaData)
+		nextFile, err := NewCaptureFile(b.Directory, b.MetaData)
 		if err != nil {
 			return err
 		}
@@ -67,7 +67,7 @@ func (b *Buffer) Write(item *v1.SensorData) error {
 		if err := b.nextFile.Close(); err != nil {
 			return err
 		}
-		nextFile, err := NewFile(b.Directory, b.MetaData)
+		nextFile, err := NewCaptureFile(b.Directory, b.MetaData)
 		if err != nil {
 			return err
 		}
@@ -78,7 +78,7 @@ func (b *Buffer) Write(item *v1.SensorData) error {
 }
 
 // Flush flushes all buffered data to disk and marks any in progress file as complete.
-func (b *Buffer) Flush() error {
+func (b *CaptureBuffer) Flush() error {
 	b.lock.Lock()
 	defer b.lock.Unlock()
 	if b.nextFile == nil {
@@ -92,6 +92,6 @@ func (b *Buffer) Flush() error {
 }
 
 // Path returns the path to the directory containing the backing data capture files.
-func (b *Buffer) Path() string {
+func (b *CaptureBuffer) Path() string {
 	return b.Directory
 }

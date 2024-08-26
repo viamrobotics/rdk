@@ -8,7 +8,6 @@ import (
 	"sync/atomic"
 
 	"github.com/pkg/errors"
-	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/logging"
@@ -19,39 +18,15 @@ import (
 var myModel = resource.NewModel("acme", "demo", "mycounter")
 
 func main() {
-	utils.ContextualMain(mainWithArgs, module.NewLoggerFromArgs("simple-module"))
-}
-
-func mainWithArgs(ctx context.Context, args []string, logger logging.Logger) error {
-	// Instantiate the module itself
-	myMod, err := module.NewModuleFromArgs(ctx, logger)
-	if err != nil {
-		return err
-	}
-
 	// We first put our component's constructor in the registry, then tell the module to load it
 	// Note that all resources must be added before the module is started.
 	resource.RegisterComponent(generic.API, myModel, resource.Registration[resource.Resource, resource.NoNativeConfig]{
 		Constructor: newCounter,
 	})
-	err = myMod.AddModelFromRegistry(ctx, generic.API, myModel)
-	if err != nil {
-		return err
-	}
 
-	// The module is started.
-	err = myMod.Start(ctx)
-	// Close is deferred and will run automatically when this function returns.
-	defer myMod.Close(ctx)
-	if err != nil {
-		return err
-	}
-
-	// This will block (leaving the module running) until the context is cancelled.
-	// The utils.ContextualMain catches OS signals and will cancel our context for us when one is sent for shutdown/termination.
-	<-ctx.Done()
-	// The deferred myMod.Close() will now run.
-	return nil
+	// Next, we run a module, which will log things as "simple-module." This module has a single
+	// model in it, the one we have created.
+	module.ModularMain("simple-module", resource.APIModel{generic.API, myModel})
 }
 
 // newCounter is used to create a new instance of our specific model. It is called for each component in the robot's config with this model.

@@ -583,15 +583,6 @@ func (c *monitoredWebcam) Monitor() {
 	}, c.activeBackgroundWorkers.Done)
 }
 
-func (c *monitoredWebcam) Projector(ctx context.Context) (transform.Projector, error) {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-	if err := c.ensureActive(); err != nil {
-		return nil, err
-	}
-	return c.exposedProjector.Projector(ctx)
-}
-
 func (c *monitoredWebcam) Images(ctx context.Context) ([]camera.NamedImage, resource.ResponseMetadata, error) {
 	if c, ok := c.underlyingSource.(camera.ImagesSource); ok {
 		return c.Images(ctx)

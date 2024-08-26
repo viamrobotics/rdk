@@ -530,6 +530,7 @@ var app = &cli.App{
 									Required: true,
 								},
 							},
+							Before: DataConfigureDatabaseUserConfirmation,
 							Action: DataConfigureDatabaseUser,
 						},
 						{
@@ -678,7 +679,7 @@ var app = &cli.App{
 							Usage:    "ID of the dataset to be deleted",
 						},
 					},
-					Action: DatasetCreateAction,
+					Action: DatasetDeleteAction,
 				},
 				{
 					Name:  "export",
@@ -1840,7 +1841,7 @@ Example:
 				},
 				{
 					Name:      "update",
-					Usage:     "update visibility of ML training scripts for custom ML training",
+					Usage:     "update ML training scripts for custom ML training",
 					UsageText: createUsageText("training-script update", []string{generalFlagOrgID, mlTrainingFlagName, mlTrainingFlagVisibility}, true),
 					Flags: []cli.Flag{
 						&cli.StringFlag{
@@ -1861,6 +1862,11 @@ Example:
 						&cli.StringFlag{
 							Name:     mlTrainingFlagDescription,
 							Usage:    "description of the ML training script",
+							Required: false,
+						},
+						&cli.StringFlag{
+							Name:     mlTrainingFlagURL,
+							Usage:    "url of Github repository associated with the training scripts",
 							Required: false,
 						},
 					},
