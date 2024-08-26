@@ -469,6 +469,7 @@ func (ptgk *ptgBaseKinematics) courseCorrect(
 			// set the end position of the end position of the arcstep we were just on to the end position of the corrective trajectory
 			ptgk.inputLock.Lock()
 			arcSteps[arcIdx].arcSegment.EndPosition = correctiveArcSteps[0].arcSegment.StartPosition
+			ptgk.inputLock.Unlock()
 
 			// Start with the already-executed steps.
 			// We need to include the i-th step because we're about to increment i and want to start with the correction, then
@@ -480,7 +481,6 @@ func (ptgk *ptgBaseKinematics) courseCorrect(
 			if solution.stepIdx < len(arcSteps)-1 {
 				newArcSteps = append(newArcSteps, arcSteps[solution.stepIdx+1:]...)
 			}
-			ptgk.inputLock.Unlock()
 			return newArcSteps, nil
 		}
 		return nil, errors.New("failed to find valid course correction")
