@@ -318,6 +318,7 @@ func (pc *producerConsumer[T, U]) start() {
 				}
 			}()
 		}
+		// After loop breaks, we likely still have an unreleased current media.
 		if pc.current != nil && pc.current.Release != nil {
 			pc.current.Release()
 		}
