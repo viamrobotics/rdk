@@ -66,6 +66,7 @@ type moveRequest struct {
 	kinematicBase     kinematicbase.KinematicBase
 	obstacleDetectors map[vision.Service][]resource.Name
 	replanCostFactor  float64
+	motionProfile     string
 	fsService         framesystem.Service
 	// localizingFS is used for placing observed transient obstacles into their absolute world position when
 	// they are observed. It is also used by CheckPlan to perform collision checking.
@@ -140,6 +141,21 @@ func (mr *moveRequest) AnchorGeoPose() *spatialmath.GeoPose {
 // execute attempts to follow a given Plan starting from the index percribed by waypointIndex.
 // Note that waypointIndex is an atomic int that is incremented in this function after each waypoint has been successfully reached.
 func (mr *moveRequest) execute(ctx context.Context, plan motionplan.Plan) (state.ExecuteResponse, error) {
+	// Determine if we already are at the goal
+	// If our motion profile is position_only then, we only check against our current & desired position
+	// Conversely if our motion profile is anything else, then we also need to check again our
+	// current & desired orientation
+	if mr.motionProfile == motionplan.PositionOnlyMotionProfile {
+		if spatialmath.PoseAlmostCoincidentEps(mr.planRequest.Goal.Pose(), mr.planRequest.StartPose, mr.config.planDeviationMM) {
+			mr.logger.Info("no need to move, already within planDeviationMM")
+			return state.ExecuteResponse{Replan: false}, nil
+		}
+	} else if spatialmath.OrientationAlmostEqual(mr.planRequest.Goal.Pose().Orientation(), mr.planRequest.StartPose.Orientation()) &&
+		spatialmath.PoseAlmostCoincidentEps(mr.planRequest.Goal.Pose(), mr.planRequest.StartPose, mr.config.planDeviationMM) {
+		mr.logger.Info("no need to move, already within planDeviationMM")
+		return state.ExecuteResponse{Replan: false}, nil
+	}
+
 	waypoints, err := plan.Trajectory().GetFrameInputs(mr.kinematicBase.Name().ShortName())
 	if err != nil {
 		return state.ExecuteResponse{}, err
@@ -838,19 +854,6 @@ func (ms *builtIn) createBaseMoveRequest(
 
 	goal := referenceframe.NewPoseInFrame(referenceframe.World, goalPoseInWorld)
 
-	// Here we determine if we already are at the goal
-	// If our motion profile is position_only then, we only check against our current & desired position
-	// Conversely if our motion profile is anything else, then we also need to check again our
-	// current & desired orientation
-	if valExtra.motionProfile == motionplan.PositionOnlyMotionProfile {
-		if spatialmath.PoseAlmostCoincidentEps(goal.Pose(), startPose, motionCfg.planDeviationMM) {
-			return nil, motion.ErrGoalWithinPlanDeviation
-		}
-	} else if spatialmath.OrientationAlmostEqual(goal.Pose().Orientation(), startPose.Orientation()) &&
-		spatialmath.PoseAlmostCoincidentEps(goal.Pose(), startPose, motionCfg.planDeviationMM) {
-		return nil, motion.ErrGoalWithinPlanDeviation
-	}
-
 	gif := referenceframe.NewGeometriesInFrame(referenceframe.World, worldObstacles)
 	worldState, err := referenceframe.NewWorldState([]*referenceframe.GeometriesInFrame{gif}, nil)
 	if err != nil {
@@ -910,6 +913,7 @@ func (ms *builtIn) createBaseMoveRequest(
 		},
 		kinematicBase:     kb,
 		replanCostFactor:  valExtra.replanCostFactor,
+		motionProfile:     valExtra.motionProfile,
 		obstacleDetectors: obstacleDetectors,
 		fsService:         ms.fsService,
 		localizingFS:      collisionFS,

@@ -12,6 +12,7 @@ import (
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan"
+	"go.viam.com/rdk/motionplan/ik"
 	"go.viam.com/rdk/motionplan/tpspace"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/services/motion"
@@ -197,9 +198,10 @@ func (ptgk *ptgBaseKinematics) ExecutionState(ctx context.Context) (motionplan.E
 	}
 
 	ptgk.inputLock.RLock()
-	currentIdx := ptgk.currentState.currentIdx
-	currentInputs := ptgk.currentState.currentInputs
-	currentExecutingSteps := ptgk.currentState.currentExecutingSteps
+	baseStateCopy := deepCopyBaseState(ptgk.currentState)
+	currentIdx := baseStateCopy.currentIdx
+	currentInputs := baseStateCopy.currentInputs
+	currentExecutingSteps := baseStateCopy.currentExecutingSteps
 	currentPlan := ptgk.stepsToPlan(currentExecutingSteps, actualPIF.Parent())
 	ptgk.inputLock.RUnlock()
 
@@ -209,6 +211,52 @@ func (ptgk *ptgBaseKinematics) ExecutionState(ctx context.Context) (motionplan.E
 		map[string][]referenceframe.Input{ptgk.Kinematics().Name(): currentInputs},
 		map[string]*referenceframe.PoseInFrame{ptgk.LocalizationFrame().Name(): actualPIF},
 	)
+}
+
+func deepCopyBaseState(original baseState) baseState {
+	// Copy currentInputs
+	newInputs := make([]referenceframe.Input, len(original.currentInputs))
+	copy(newInputs, original.currentInputs)
+
+	// Copy currentExecutingSteps
+	newExecutingSteps := make([]arcStep, len(original.currentExecutingSteps))
+	for i, step := range original.currentExecutingSteps {
+		// Copy each arcStep individually
+		newExecutingSteps[i] = arcStep{
+			linVelMMps:      step.linVelMMps,
+			angVelDegps:     step.angVelDegps,
+			durationSeconds: step.durationSeconds,
+			arcSegment:      ik.Segment{},
+			subTraj:         make([]*tpspace.TrajNode, len(step.subTraj)),
+		}
+
+		// Deep copy subTraj slice
+		for j, trajNode := range step.subTraj {
+			if trajNode != nil {
+				copiedNode := *trajNode
+				newExecutingSteps[i].subTraj[j] = &copiedNode
+			}
+		}
+
+		// Copy arcSegment
+		startCfgCopy := make([]referenceframe.Input, len(step.arcSegment.StartConfiguration))
+		copy(startCfgCopy, step.arcSegment.StartConfiguration)
+		newExecutingSteps[i].arcSegment.StartConfiguration = startCfgCopy
+
+		endCfgCopy := make([]referenceframe.Input, len(step.arcSegment.EndConfiguration))
+		copy(endCfgCopy, step.arcSegment.EndConfiguration)
+		newExecutingSteps[i].arcSegment.EndConfiguration = endCfgCopy
+
+		newExecutingSteps[i].arcSegment.StartPosition = step.arcSegment.StartPosition
+		newExecutingSteps[i].arcSegment.EndPosition = step.arcSegment.EndPosition
+		newExecutingSteps[i].arcSegment.Frame = step.arcSegment.Frame
+	}
+
+	return baseState{
+		currentIdx:            original.currentIdx,
+		currentInputs:         newInputs,
+		currentExecutingSteps: newExecutingSteps,
+	}
 }
 
 func correctAngularVelocityWithTurnRadius(logger logging.Logger, turnRadMeters, velocityMMps, angVelocityDegps float64) (float64, error) {
