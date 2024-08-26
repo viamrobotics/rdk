@@ -238,6 +238,14 @@ func getLabelsFromFile(labelPath string) []string {
 		}
 		labels = append(labels, scanner.Text())
 	}
+	// if the labels come out as one line, try splitting that line by spaces or commas to extract labels
+	// Check if the labels should be comma split first and then space split.
+	if len(labels) == 1 {
+		labels = strings.Split(labels[0], ",")
+	}
+	if len(labels) == 1 {
+		labels = strings.Split(labels[0], " ")
+	}
 	return labels
 }
 
@@ -255,18 +263,9 @@ func getLabelsFromMetadata(md mlmodel.MLMetadata, labelPath string) []string {
 			return nil
 		}
 		labels := getLabelsFromFile(labelPath)
-		if len(labels) == 0 {
-			return nil
+		if len(labels) != 0 {
+			return labels
 		}
-		// if the labels come out as one line, try splitting that line by spaces or commas to extract labels
-		// Check if the labels should be comma split first and then space split.
-		if len(labels) == 1 {
-			labels = strings.Split(labels[0], ",")
-		}
-		if len(labels) == 1 {
-			labels = strings.Split(labels[0], " ")
-		}
-		return labels
 	}
 	return nil
 }
