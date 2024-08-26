@@ -775,22 +775,29 @@ func TestModuleAddResource(t *testing.T) {
 	defer resource.Deregister(shell.API, model)
 	test.That(t, m.AddModelFromRegistry(ctx, shell.API, model), test.ShouldBeNil)
 
-	// add resource normally
-	_, err := m.AddResource(ctx, &pb.AddResourceRequest{
-		Config: &v1.ComponentConfig{Name: "mymock", Api: shell.API.String(), Model: model.String()},
+	t.Run("add resource normally", func(t *testing.T) {
+		constructCount = 0
+		closeCount = 0
+		_, err := m.AddResource(ctx, &pb.AddResourceRequest{
+			Config: &v1.ComponentConfig{Name: "mymock", Api: shell.API.String(), Model: model.String()},
+		})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, constructCount, test.ShouldEqual, 1)
+		test.That(t, closeCount, test.ShouldEqual, 0)
 	})
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, constructCount, test.ShouldEqual, 1)
-	test.That(t, closeCount, test.ShouldEqual, 0)
 
-	// add resource but cancel the ctx during construction
-	shouldCancel = true
-	_, err = m.AddResource(ctx, &pb.AddResourceRequest{
-		Config: &v1.ComponentConfig{Name: "mymock", Api: shell.API.String(), Model: model.String()},
+	t.Run("add resource but cancel the ctx during construction", func(t *testing.T) {
+		shouldCancel = true
+		constructCount = 0
+		closeCount = 0
+
+		_, err := m.AddResource(ctx, &pb.AddResourceRequest{
+			Config: &v1.ComponentConfig{Name: "mymock", Api: shell.API.String(), Model: model.String()},
+		})
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, constructCount, test.ShouldEqual, 1)
+		test.That(t, closeCount, test.ShouldEqual, 1)
 	})
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, constructCount, test.ShouldEqual, 2)
-	test.That(t, closeCount, test.ShouldEqual, 1)
 }
 
 func TestModuleSocketAddrTruncation(t *testing.T) {
