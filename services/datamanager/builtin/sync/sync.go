@@ -347,13 +347,15 @@ func (s *Sync) syncFile(config Config, filePath string) {
 
 func (s *Sync) syncDataCaptureFile(f *os.File, captureDir string, logger logging.Logger) {
 	captureFile, err := data.ReadCaptureFile(f)
-	// if you can't read the capture file, close & move it to the failed directory
+	// if you can't read the capture file's metadata field, close & move it to the failed directory
 	if err != nil {
-		s.logger.Debugf("ReadCaptureFile: err: %s", err.Error())
-		if err = f.Close(); err != nil {
-			s.logger.Error(errors.Wrap(err, "error closing data capture file").Error())
+		cause := errors.Wrap(err, "ReadCaptureFile failed")
+
+		if err := f.Close(); err != nil {
+			logger.Error(errors.Wrapf(err, "failed to close file %s", f.Name()).Error())
 		}
-		if err := moveFailedData(f.Name(), captureDir, logger); err != nil {
+
+		if err := moveFailedData(f.Name(), captureDir, cause, logger); err != nil {
 			s.logger.Error(err)
 		}
 		return
@@ -378,10 +380,8 @@ func (s *Sync) syncDataCaptureFile(f *os.File, captureDir string, logger logging
 			return
 		}
 
-		logger.Error(err.Error())
-
 		// otherwise we hit a terminal error, and we should move the file to the failed directory
-		if err := moveFailedData(captureFile.GetPath(), captureDir, logger); err != nil {
+		if err := moveFailedData(captureFile.GetPath(), captureDir, err, logger); err != nil {
 			logger.Error(err)
 		}
 		return
@@ -396,9 +396,10 @@ func (s *Sync) syncDataCaptureFile(f *os.File, captureDir string, logger logging
 func (s *Sync) syncArbitraryFile(f *os.File, tags []string, fileLastModifiedMillis int, logger logging.Logger) {
 	retry := newExponentialRetry(s.configCtx, s.clock, s.logger, f.Name(), func(ctx context.Context) error {
 		errMetadata := fmt.Sprintf("error uploading file %s", f.Name())
-		logger.Debugf("uploading file %s via FileUpload api", f.Name())
+		logger.Debugf("attempting to upload file %s via FileUpload api", f.Name())
 		return errors.Wrap(uploadArbitraryFile(ctx, f, s.cloudConn, tags, fileLastModifiedMillis, s.clock), errMetadata)
 	})
+
 	if err := retry.run(); err != nil {
 		if closeErr := f.Close(); closeErr != nil {
 			logger.Error(errors.Wrap(closeErr, "error closing data capture file").Error())
@@ -410,11 +411,10 @@ func (s *Sync) syncArbitraryFile(f *os.File, tags []string, fileLastModifiedMill
 			return
 		}
 
-		logger.Error(err.Error())
-
 		// otherwise we hit a terminal error, and we should move the file to the failed directory
-		if err := moveFailedData(f.Name(), path.Dir(f.Name()), logger); err != nil {
-			logger.Error(err)
+		if errMoveFailed := moveFailedData(f.Name(), path.Dir(f.Name()), err, logger); errMoveFailed != nil {
+			msg := "failed to move file %s to failed directory %s due to cause: %v, error hit during move: %v"
+			logger.Errorf(msg, f.Name(), path.Dir(f.Name()), err, errMoveFailed)
 		}
 		return
 	}
@@ -430,22 +430,22 @@ func (s *Sync) syncArbitraryFile(f *os.File, tags []string, fileLastModifiedMill
 
 // moveFailedData takes any data that could not be synced in the parentDir and
 // moves it to a new subdirectory "failed" that will not be synced.
-func moveFailedData(path, parentDir string, logger logging.Logger) error {
+func moveFailedData(path, parentDir string, cause error, logger logging.Logger) error {
 	// Remove the parentDir part of the path to the corrupted data
 	relativePath, err := filepath.Rel(parentDir, path)
 	if err != nil {
-		return errors.Wrapf(err, fmt.Sprintf("error getting relative path between: %s and %s", parentDir, path))
+		return errors.Wrapf(err, "error getting relative path between: %s and %s", parentDir, path)
 	}
 	// Create a new directory parentDir/corrupted/pathToFile
 	newDir := filepath.Join(parentDir, FailedDir, filepath.Dir(relativePath))
 	if err := os.MkdirAll(newDir, 0o700); err != nil {
-		return errors.Wrapf(err, fmt.Sprintf("error making new directory: %s", newDir))
+		return errors.Wrapf(err, "error making new directory: %s", newDir)
 	}
 	// Move the file from parentDir/pathToFile/file.ext to parentDir/corrupted/pathToFile/file.ext
 	newPath := filepath.Join(newDir, filepath.Base(path))
-	logger.Infof("moving file that data manager failed to sync from %s to %s", path, newPath)
+	logger.Warnf("moving file that data manager failed to sync due to err: %v, from %s to %s", cause, path, newPath)
 	if err := os.Rename(path, newPath); err != nil {
-		return errors.Wrapf(err, fmt.Sprintf("error moving: %s to %s", path, newPath))
+		return errors.Wrapf(err, "error moving: %s to %s", path, newPath)
 	}
 	return nil
 }

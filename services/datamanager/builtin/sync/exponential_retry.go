@@ -51,49 +51,53 @@ type exponentialRetry struct {
 // returns nil if completed successfully
 // returns context.Cancelled if ctx is cancelled
 // all other errors are due to an unrecoverable error.
-func (er exponentialRetry) run() error {
-	err := er.fun(er.ctx)
-	switch {
+func (e exponentialRetry) run() error {
+	err := e.fun(e.ctx)
+
 	// If no error, return nil for success
-	case err == nil:
-		er.logger.Debugf("exponentialRetry.run %s succeeded", er.name)
+	if err == nil {
+		e.logger.Debugf("exponentialRetry.run %s succeeded", e.name)
 		return nil
-	// Don't retry non-retryable errors.
-	case terminalError(err):
-		er.logger.Debugf("exponentialRetry.run %s hit non retryable error: %s", er.name, err.Error())
-		return err
-	default:
-		er.logger.Debugf("exponentialRetry.run: %s entering exponential backoff retry due to retryable error: %s", er.name, err.Error())
 	}
+
+	// Don't retry non-retryable errors.
+	if terminalError(err) {
+		e.logger.Warnf("exponentialRetry.run %s hit non retryable error: %v", e.name, err)
+		return err
+	}
+
+	e.logger.Infof("exponentialRetry.run: %s entering exponential backoff retry due to retryable error: %v", e.name, err)
 
 	// First call failed, so begin exponentialRetry with a factor of RetryExponentialFactor
 	nextWait := time.Millisecond * time.Duration(InitialWaitTimeMillis)
-	ticker := er.clock.Ticker(nextWait)
+	ticker := e.clock.Ticker(nextWait)
 	defer ticker.Stop()
 	for {
-		if err := er.ctx.Err(); err != nil {
+		if err := e.ctx.Err(); err != nil {
 			return err
 		}
 
 		select {
-		case <-er.ctx.Done():
-			return er.ctx.Err()
+		case <-e.ctx.Done():
+			return e.ctx.Err()
 		case <-ticker.C:
-			err := er.fun(er.ctx)
-			switch {
+			err := e.fun(e.ctx)
+
 			// If no error, return nil for success
-			case err == nil:
-				er.logger.Debugf("exponentialRetry.run %s succeeded", er.name)
+			if err == nil {
+				e.logger.Debugf("exponentialRetry.run %s succeeded", e.name)
 				return nil
+			}
+
 			// Don't retry terminal errors.
-			case terminalError(err):
-				er.logger.Debugf("exponentialRetry.run %s hit non retryable error: %s", er.name, err.Error())
+			if terminalError(err) {
+				e.logger.Warnf("exponentialRetry.run %s hit non retryable error: %s", e.name, err.Error())
 				return err
 			}
 
 			// Otherwise, try again after nextWait.
 			if !errors.Is(err, context.Canceled) {
-				er.logger.Error(err.Error())
+				e.logger.Infof("exponentialRetry.run: %s continuing exponential backoff retry due to retryable error: %v", e.name, err)
 			}
 
 			offline := isOfflineGRPCError(err)
@@ -102,8 +106,10 @@ func (er exponentialRetry) run() error {
 			if offline {
 				status = "offline"
 			}
-			er.logger.Debugf("exponentialRetry.run %s hit transient error, will retry in: %s, "+
-				"error indicates connectivity status is %s", er.name, nextWait, status)
+			if !errors.Is(err, context.Canceled) {
+				e.logger.Infof("exponentialRetry.run %s continuing exponential backoff retry due to retryable error, will retry in: %s, "+
+					"error indicates connectivity status is: %s, error: %v", e.name, nextWait, status, err)
+			}
 			ticker.Reset(nextWait)
 		}
 	}

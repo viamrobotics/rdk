@@ -55,6 +55,7 @@ type CaptureFile struct {
 }
 
 // ReadCaptureFile creates a File struct from a passed os.File previously constructed using NewFile.
+// TODO: Nick If the DataCaptureFile has metadata but no sensor data, what is returned?
 func ReadCaptureFile(f *os.File) (*CaptureFile, error) {
 	if !IsDataCaptureFile(f) {
 		return nil, errors.Errorf("%s is not a data capture file", f.Name())
@@ -284,6 +285,7 @@ func GetFileExt(dataType v1.DataType, methodName string, parameters map[string]s
 }
 
 // SensorDataFromCaptureFilePath returns all readings in the file at filePath.
+// NOTE: (Nick S) At time of writing this is only used in tests.
 func SensorDataFromCaptureFilePath(filePath string) ([]*v1.SensorData, error) {
 	//nolint:gosec
 	f, err := os.Open(filePath)
@@ -305,6 +307,8 @@ func SensorDataFromCaptureFile(f *CaptureFile) ([]*v1.SensorData, error) {
 	for {
 		next, err := f.ReadNext()
 		if err != nil {
+			// TODO: This swallows errors if the capture file has invalid proto in it
+			// https://viam.atlassian.net/browse/DATA-3068
 			if errors.Is(err, io.EOF) || errors.Is(err, io.ErrUnexpectedEOF) {
 				break
 			}

@@ -70,11 +70,8 @@ func uploadArbitraryFile(
 		return errors.Wrapf(err, "error from FileUpload syncing %s", f.Name())
 	}
 
-	if _, err := stream.CloseAndRecv(); err != nil {
-		return errors.Wrapf(err, "received error from FileUpload response while syncing %s", f.Name())
-	}
-
-	return nil
+	_, err = stream.CloseAndRecv()
+	return errors.Wrapf(err, "received error from FileUpload response while syncing %s", f.Name())
 }
 
 func sendFileUploadRequests(ctx context.Context, stream v1.DataSyncService_FileUploadClient, f *os.File) error {

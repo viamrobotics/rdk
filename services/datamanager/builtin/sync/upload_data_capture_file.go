@@ -17,85 +17,96 @@ import (
 // StreamingDataCaptureUpload.
 var MaxUnaryFileSize = int64(units.MB)
 
-func uploadDataCaptureFile(
-	ctx context.Context,
-	f *data.CaptureFile,
-	conn cloudConn,
-) error {
+// uploadDataCaptureFile uploads the *data.CaptureFile to the cloud using the cloud connection
+// returns context.Cancelled if ctx is cancelled before upload completes.
+// If f is of type BINARY_SENSOR and it's size is over MaxUnaryFileSize,
+// uses StreamingDataCaptureUpload API so as to not exceed the unary response size.
+// Otherwise uploads data over DataCaptureUpload API.
+func uploadDataCaptureFile(ctx context.Context, f *data.CaptureFile, conn cloudConn) error {
 	md := f.ReadMetadata()
 	sensorData, err := data.SensorDataFromCaptureFile(f)
 	if err != nil {
+		// TODO: (Nick) Won't we ddos ourselves here?
 		return errors.Wrap(err, "error reading sensor data from file")
 	}
 
 	// Do not attempt to upload a file without any sensor readings.
 	if len(sensorData) == 0 {
+		// log here as this will delete a .capture file without uploading it and without moving it to the failed directory
 		return nil
 	}
 
 	if md.GetType() == v1.DataType_DATA_TYPE_BINARY_SENSOR && len(sensorData) > 1 {
+		// TODO: (Nick) Won't we ddos ourselves here?
 		return errors.New("binary sensor data file with more than one sensor reading is not supported")
 	}
 
+	// camera.GetImages is a special case. For that API we make 2 binary data upload requests
 	if md.GetType() == v1.DataType_DATA_TYPE_BINARY_SENSOR && md.GetMethodName() == data.GetImages {
-		var res pb.GetImagesResponse
-		if err := mapstructure.Decode(sensorData[0].GetStruct().AsMap(), &res); err != nil {
-			return err
-		}
-
-		// If the GetImagesResponse metadata contains a capture timestamp, use that to
-		// populate SensorMetadata. Otherwise, use the timestamps that the data management
-		// system stored to track when a request was sent and response was received.
-		var timeRequested, timeReceived *timestamppb.Timestamp
-		timeCaptured := res.GetResponseMetadata().GetCapturedAt()
-		if timeCaptured != nil {
-			timeRequested, timeReceived = timeCaptured, timeCaptured
-		} else {
-			sensorMD := sensorData[0].GetMetadata()
-			timeRequested = sensorMD.GetTimeRequested()
-			timeReceived = sensorMD.GetTimeReceived()
-		}
-
-		for _, img := range res.Images {
-			newSensorData := []*v1.SensorData{
-				{
-					Metadata: &v1.SensorMetadata{
-						TimeRequested: timeRequested,
-						TimeReceived:  timeReceived,
-					},
-					Data: &v1.SensorData_Binary{
-						Binary: img.GetImage(),
-					},
-				},
-			}
-			newUploadMD := &v1.UploadMetadata{
-				PartId:           conn.partID,
-				ComponentType:    md.GetComponentType(),
-				ComponentName:    md.GetComponentName(),
-				MethodName:       md.GetMethodName(),
-				Type:             md.GetType(),
-				MethodParameters: md.GetMethodParameters(),
-				FileExtension:    getFileExtFromImageFormat(img.GetFormat()),
-				Tags:             md.GetTags(),
-			}
-			if err := uploadSensorData(ctx, conn.client, newUploadMD, newSensorData, f.Size()); err != nil {
-				return err
-			}
-		}
-		return nil
+		return uploadGetImages(ctx, conn, md, sensorData[0], f.Size())
 	}
-	// Build UploadMetadata
-	uploadMD := &v1.UploadMetadata{
-		PartId:           conn.partID,
+
+	metaData := uploadMetadata(conn.partID, md, md.GetFileExtension())
+	return uploadSensorData(ctx, conn.client, metaData, sensorData, f.Size())
+}
+
+func uploadMetadata(partID string, md *v1.DataCaptureMetadata, fileextension string) *v1.UploadMetadata {
+	return &v1.UploadMetadata{
+		PartId:           partID,
 		ComponentType:    md.GetComponentType(),
 		ComponentName:    md.GetComponentName(),
 		MethodName:       md.GetMethodName(),
 		Type:             md.GetType(),
 		MethodParameters: md.GetMethodParameters(),
-		FileExtension:    md.GetFileExtension(),
 		Tags:             md.GetTags(),
+		FileExtension:    fileextension,
 	}
-	return uploadSensorData(ctx, conn.client, uploadMD, sensorData, f.Size())
+}
+
+func uploadGetImages(ctx context.Context, conn cloudConn, md *v1.DataCaptureMetadata, sd *v1.SensorData, size int64) error {
+	var res pb.GetImagesResponse
+	if err := mapstructure.Decode(sd.GetStruct().AsMap(), &res); err != nil {
+		// TODO: (Nick) Won't we ddos ourselves here?
+		return err
+	}
+	timeRequested, timeReceived := getImagesTimestamps(&res, sd)
+
+	for _, img := range res.Images {
+		newSensorData := []*v1.SensorData{
+			{
+				Metadata: &v1.SensorMetadata{
+					TimeRequested: timeRequested,
+					TimeReceived:  timeReceived,
+				},
+				Data: &v1.SensorData_Binary{
+					Binary: img.GetImage(),
+				},
+			},
+		}
+		metadata := uploadMetadata(conn.partID, md, getFileExtFromImageFormat(img.GetFormat()))
+		// TODO: This is wrong as the size describes the size of the entire GetImages response, but we are only
+		// uploading one of the 2 images in that response here.
+		if err := uploadSensorData(ctx, conn.client, metadata, newSensorData, size); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func getImagesTimestamps(res *pb.GetImagesResponse, sensorData *v1.SensorData) (*timestamppb.Timestamp, *timestamppb.Timestamp) {
+	// If the GetImagesResponse metadata contains a capture timestamp, use that to
+	// populate SensorMetadata. Otherwise, use the timestamps that the data management
+	// system stored to track when a request was sent and response was received.
+	var timeRequested, timeReceived *timestamppb.Timestamp
+	timeCaptured := res.GetResponseMetadata().GetCapturedAt()
+	if timeCaptured != nil {
+		timeRequested, timeReceived = timeCaptured, timeCaptured
+	} else {
+		sensorMD := sensorData.GetMetadata()
+		timeRequested = sensorMD.GetTimeRequested()
+		timeReceived = sensorMD.GetTimeReceived()
+	}
+	return timeRequested, timeReceived
 }
 
 func uploadSensorData(
@@ -130,20 +141,16 @@ func uploadSensorData(
 			return errors.Wrap(err, "error sending streaming data capture requests")
 		}
 
-		if _, err := c.CloseAndRecv(); err != nil {
-			return errors.Wrap(err, "error receiving upload response")
-		}
-		return nil
+		_, err = c.CloseAndRecv()
+		return errors.Wrap(err, "error receiving upload response")
 	}
 
-	if _, err := client.DataCaptureUpload(ctx, &v1.DataCaptureUploadRequest{
+	// Otherwise use the unary endpoint
+	_, err := client.DataCaptureUpload(ctx, &v1.DataCaptureUploadRequest{
 		Metadata:       uploadMD,
 		SensorContents: sensorData,
-	}); err != nil {
-		return err
-	}
-
-	return nil
+	})
+	return err
 }
 
 func sendStreamingDCRequests(
@@ -194,6 +201,7 @@ func getFileExtFromImageFormat(res pb.Format) string {
 	case pb.Format_FORMAT_UNSPECIFIED:
 		fallthrough
 	default:
+		// TODO: Warn if we go down this path
 		return ""
 	}
 }
