@@ -19,7 +19,7 @@ import (
 var executable []byte
 
 func writeExecutableFile(fileName string) error {
-	if err := os.WriteFile(fileName, executable, 0o500); err != nil {
+	if err := os.WriteFile(fileName, executable, 0o600); err != nil {
 		return err
 	}
 	return nil
@@ -45,6 +45,7 @@ func ModuleBoilerplateGenerationAction(*cli.Context) (err error) {
 	}
 	path := filepath.Join(currDir, fileName)
 
+	//nolint:gosec
 	cmd := exec.Command(path)
 	stdIn, err := cmd.StdinPipe()
 	if err != nil {

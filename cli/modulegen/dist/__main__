@@ -1,2 +1,3 @@
-Dummy file to satisfy go compilation requirement without creating a python dependency.
-Should not be interacted with directly.
+This is a dummy file to allow `go build` to run without creating a python dependency. It
+will be overwritten by running `make cli` from directory root and should not be interacted
+with directly.
