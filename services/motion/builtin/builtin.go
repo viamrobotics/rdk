@@ -214,6 +214,12 @@ func (ms *builtIn) Move(
 	}
 	goalPose, _ := tf.(*referenceframe.PoseInFrame)
 
+	// Check that we have some planDeviationMM value for our requested motion
+	_, ok := extra["planDeviationMM"].(float64)
+	if !ok {
+		extra["planDeviationMM"] = 1
+	}
+
 	// the goal is to move the component to goalPose which is specified in coordinates of goalFrameName
 	plan, err := motionplan.PlanMotion(ctx, &motionplan.PlanRequest{
 		Logger:             ms.logger,

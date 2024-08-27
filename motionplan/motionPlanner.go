@@ -106,6 +106,11 @@ func (req *PlanRequest) validatePlanRequest() error {
 		}
 	}
 
+	_, ok := req.Options["planDeviationMM"].(float64)
+	if !ok {
+		return errors.New("planDeviationMM must be specified within the PlanRequest")
+	}
+
 	frameDOF := len(req.Frame.DoF())
 	seedMap, ok := req.StartConfiguration[req.Frame.Name()]
 	if frameDOF > 0 {
@@ -161,7 +166,7 @@ func PlanFrameMotion(ctx context.Context,
 // Replan plans a motion from a provided plan request, and then will return that plan only if its cost is better than the cost of the
 // passed-in plan multiplied by `replanCostFactor`.
 func Replan(ctx context.Context, request *PlanRequest, currentPlan Plan, replanCostFactor float64) (Plan, error) {
-	// make sure request is well formed and not missing vital information
+	// Make sure request is well formed and not missing vital information.
 	if err := request.validatePlanRequest(); err != nil {
 		return nil, err
 	}
@@ -173,6 +178,22 @@ func Replan(ctx context.Context, request *PlanRequest, currentPlan Plan, replanC
 	}
 	if len(sf.DoF()) == 0 {
 		return nil, errors.New("solver frame has no degrees of freedom, cannot perform inverse kinematics")
+	}
+
+	// Make sure that we are not already at the goal. If we are already at the goal we return an empty replan, i.e. a no-op
+	profile, ok := request.Options["motion_profile"].(string)
+	if !ok {
+		profile = ""
+	}
+	planDevMM, _ := request.Options["planDeviationMM"].(float64)
+
+	if profile == PositionOnlyMotionProfile {
+		if spatialmath.PoseAlmostCoincidentEps(request.Goal.Pose(), request.StartPose, planDevMM) {
+			return &rrtPlan{SimplePlan: *NewSimplePlan(make(Path, 0), make(Trajectory, 0)), nodes: []node{}}, nil
+		}
+	} else if spatialmath.OrientationAlmostEqualEps(request.Goal.Pose().Orientation(), request.StartPose.Orientation(), 5) &&
+		spatialmath.PoseAlmostCoincidentEps(request.Goal.Pose(), request.StartPose, planDevMM) {
+		return &rrtPlan{SimplePlan: *NewSimplePlan(make(Path, 0), make(Trajectory, 0)), nodes: []node{}}, nil
 	}
 
 	request.Logger.CDebugf(ctx, "constraint specs for this step: %v", request.Constraints)
