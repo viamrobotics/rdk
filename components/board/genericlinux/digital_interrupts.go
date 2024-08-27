@@ -15,7 +15,6 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/board"
-	rdkutils "go.viam.com/rdk/utils"
 )
 
 type digitalInterrupt struct {
