@@ -3800,75 +3800,77 @@ func TestResourceConstructTimeout(t *testing.T) {
 func TestResourceConstructCtxCancel(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 
-	constructCount := 0
-	var wg sync.WaitGroup
+	type testHarness struct {
+		ctx context.Context
 
-	mockAPI := resource.APINamespaceRDK.WithComponentType("mock")
-	modelName1 := utils.RandomAlphaString(5)
-	model1 := resource.DefaultModelFamily.WithModel(modelName1)
-
-	type cancelFunc struct {
-		c context.CancelFunc
+		wg             sync.WaitGroup
+		cfg            *config.Config
+		constructCount int
 	}
-	var cFunc cancelFunc
 
-	resource.RegisterComponent(mockAPI, model1, resource.Registration[resource.Resource, resource.NoNativeConfig]{
-		Constructor: func(
-			ctx context.Context,
-			deps resource.Dependencies,
-			conf resource.Config,
-			logger logging.Logger,
-		) (resource.Resource, error) {
-			constructCount++
-			wg.Add(1)
-			defer wg.Done()
-			cFunc.c()
-			<-ctx.Done()
-			return &mockFake{Named: conf.ResourceName().AsNamed()}, nil
-		},
-	})
-	defer func() {
-		resource.Deregister(mockAPI, model1)
-	}()
+	setupTest := func(t *testing.T) *testHarness {
+		var th testHarness
 
-	cfg := &config.Config{
-		Components: []resource.Config{
-			{
-				Name:  "one",
-				Model: model1,
-				API:   mockAPI,
+		ctx, cancelFunc := context.WithCancel(context.Background())
+		t.Cleanup(func() { cancelFunc() })
+		th.ctx = ctx
+
+		model1 := registerMockComponent(
+			t,
+			resource.Registration[resource.Resource, resource.NoNativeConfig]{
+				Constructor: func(
+					ctx context.Context,
+					deps resource.Dependencies,
+					conf resource.Config,
+					logger logging.Logger,
+				) (resource.Resource, error) {
+					th.constructCount++
+					th.wg.Add(1)
+					defer th.wg.Done()
+					cancelFunc()
+					<-ctx.Done()
+					return &mockFake{Named: conf.ResourceName().AsNamed()}, nil
+				},
+			})
+
+		th.cfg = &config.Config{
+			Components: []resource.Config{
+				{
+					Name:  "one",
+					Model: model1,
+					API:   mockAPI,
+				},
+				{
+					Name:  "two",
+					Model: model1,
+					API:   mockAPI,
+					// we need "two" to depend on "one" to prevent a flaky test here. the
+					// subtests below assert that only one resource gets configured after we
+					// cancel. however, independent resources are constructed concurrently so
+					// this assertion is not reliable, so we force it by adding a dependency
+					// relationship.
+					DependsOn: []string{"one"},
+				},
 			},
-			{
-				Name:  "two",
-				Model: model1,
-				API:   mockAPI,
-				// we need "two" to depend on "one" to prevent a flaky test here. the
-				// subtests below assert that only one resource gets configured after we
-				// cancel. however, independent resources are constructed concurrently so
-				// this assertion is not reliable, so we force it by adding a dependency
-				// relationship.
-				DependsOn: []string{"one"},
-			},
-		},
+		}
+		return &th
 	}
+
 	t.Run("new", func(t *testing.T) {
-		constructCount = 0
-		ctxWithCancel, cancel := context.WithCancel(context.Background())
-		cFunc.c = cancel
-		setupLocalRobot(t, ctxWithCancel, cfg, logger)
-		wg.Wait()
-		test.That(t, constructCount, test.ShouldEqual, 1)
+		th := setupTest(t)
+		setupLocalRobot(t, th.ctx, th.cfg, logger)
+
+		th.wg.Wait()
+		test.That(t, th.constructCount, test.ShouldEqual, 1)
 	})
 	t.Run("reconfigure", func(t *testing.T) {
-		constructCount = 0
+		th := setupTest(t)
 		r := setupLocalRobot(t, context.Background(), &config.Config{}, logger)
-		test.That(t, constructCount, test.ShouldEqual, 0)
+		test.That(t, th.constructCount, test.ShouldEqual, 0)
 
-		ctxWithCancel, cancel := context.WithCancel(context.Background())
-		cFunc.c = cancel
-		r.Reconfigure(ctxWithCancel, cfg)
-		wg.Wait()
-		test.That(t, constructCount, test.ShouldEqual, 1)
+		r.Reconfigure(th.ctx, th.cfg)
+		th.wg.Wait()
+		test.That(t, th.constructCount, test.ShouldEqual, 1)
 	})
 }
 
