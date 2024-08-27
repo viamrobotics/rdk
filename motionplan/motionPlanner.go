@@ -5,6 +5,7 @@ package motionplan
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"math/rand"
 	"sort"
@@ -13,6 +14,7 @@ import (
 
 	"github.com/pkg/errors"
 	"go.viam.com/utils"
+	commonpb "go.viam.com/api/common/v1"
 
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan/ik"
@@ -189,17 +191,27 @@ func Replan(ctx context.Context, request *PlanRequest, currentPlan Plan, replanC
 	// Check if the PlanRequest's options specify "complex"
 	// This is a list of poses in the same frame as the goal through which the robot must pass
 	if complexOption, ok := request.Options["complex"]; ok {
-		if complexPoses, ok := complexOption.([]spatialmath.Pose); ok {
+		if complexPosesList, ok := complexOption.([]interface{}); ok {
 			// If "complex" is specified and is a list of PoseInFrame, use it for planning.
 			requestCopy := *request
 			delete(requestCopy.Options, "complex")
+			complexPoses := make([]spatialmath.Pose, 0, len(complexPosesList))
+			for _, iface := range complexPosesList {
+				complexPoseJson, err := json.Marshal(iface)
+				if err != nil {
+					return nil, err
+				}
+				complexPosePb := &commonpb.Pose{}
+				json.Unmarshal(complexPoseJson, complexPosePb)
+				complexPoses = append(complexPoses, spatialmath.NewPoseFromProtobuf(complexPosePb))
+			}
 			multiGoalPlan, err := sfPlanner.PlanMultiWaypoint(ctx, &requestCopy, complexPoses)
 			if err != nil {
 				return nil, err
 			}
 			return multiGoalPlan, nil
 		} else {
-			return nil, errors.New("Invalid 'complex' option type. Expected []frame.PoseInFrame")
+			return nil, errors.New("Invalid 'complex' option type. Expected a list of protobuf poses")
 		}
 	}
 
