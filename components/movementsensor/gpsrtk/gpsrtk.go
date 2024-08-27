@@ -26,13 +26,13 @@ import (
 	"github.com/go-gnss/rtcm/rtcm3"
 	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
+	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/components/movementsensor/gpsutils"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
-	"go.viam.com/rdk/utils"
 )
 
 // gpsrtk is an nmea movementsensor model that can intake RTK correction data.
@@ -41,7 +41,7 @@ type gpsrtk struct {
 	resource.AlwaysRebuild
 	logger logging.Logger
 
-	workers utils.StoppableWorkers
+	workers *utils.StoppableWorkers
 
 	err      movementsensor.LastError
 	isClosed bool
@@ -62,7 +62,7 @@ func (g *gpsrtk) start() error {
 	if g.workers != nil {
 		return errors.New("do not call start() twice on the same object")
 	}
-	g.workers = utils.NewStoppableWorkers(g.receiveAndWriteCorrectionData)
+	g.workers = utils.NewBackgroundStoppableWorkers(g.receiveAndWriteCorrectionData)
 	return nil
 }
 

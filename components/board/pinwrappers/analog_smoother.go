@@ -28,7 +28,7 @@ type AnalogSmoother struct {
 	lastData          atomic.Pointer[board.AnalogValue]
 	lastError         atomic.Pointer[errValue]
 	logger            logging.Logger
-	workers           utils.StoppableWorkers
+	workers           *goutils.StoppableWorkers
 }
 
 // SmoothAnalogReader wraps the given reader in a smoother.
@@ -116,7 +116,7 @@ func (as *AnalogSmoother) Start() {
 		as.data = nil
 	}
 
-	as.workers = utils.NewStoppableWorkers(func(ctx context.Context) {
+	as.workers = goutils.NewBackgroundStoppableWorkers(func(ctx context.Context) {
 		consecutiveErrors := 0
 		var lastError error
 
