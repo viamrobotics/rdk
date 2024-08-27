@@ -1044,7 +1044,7 @@ var app = &cli.App{
 							Required: true,
 						},
 					},
-					Action: DataGetTrainingJobLogs,
+					Action: MLGetTrainingJobLogs,
 				},
 				{
 					Name:      "cancel",

@@ -182,12 +182,12 @@ func (c *viamClient) dataGetTrainingJob(trainingJobID string) (*mltrainingpb.Tra
 }
 
 // DataGetTrainingJob is the corresponding action for 'data train logs'.
-func DataGetTrainingJobLogs(c *cli.Context) error {
+func MLGetTrainingJobLogs(c *cli.Context) error {
 	client, err := newViamClient(c)
 	if err != nil {
 		return err
 	}
-	logs, err := client.dataGetTrainingJobLogs(c.String(trainFlagJobID))
+	logs, err := client.mlGetTrainingJobLogs(c.String(trainFlagJobID))
 	if err != nil {
 		return err
 	}
@@ -202,7 +202,7 @@ func DataGetTrainingJobLogs(c *cli.Context) error {
 }
 
 // dataGetTrainingJob gets the training job logs with the given ID.
-func (c *viamClient) dataGetTrainingJobLogs(trainingJobID string) ([]*mltrainingpb.TrainingJobLogEntry, error) {
+func (c *viamClient) mlGetTrainingJobLogs(trainingJobID string) ([]*mltrainingpb.TrainingJobLogEntry, error) {
 	if err := c.ensureLoggedIn(); err != nil {
 		return nil, err
 	}
