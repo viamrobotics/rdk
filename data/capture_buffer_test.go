@@ -9,6 +9,7 @@ import (
 	"time"
 
 	v1 "go.viam.com/api/app/datasync/v1"
+	armPB "go.viam.com/api/component/arm/v1"
 	"go.viam.com/test"
 	"go.viam.com/utils"
 	"go.viam.com/utils/protoutils"
@@ -137,7 +138,7 @@ func TestCaptureBufferReader(t *testing.T) {
 			additionalParams map[string]string
 			tags             []string
 			methodName       string
-			sensorReadings   []*structpb.Struct
+			readings         []*structpb.Struct
 		}
 
 		aStruct, err := structpb.NewStruct(map[string]interface{}{"im": "a struct"})
@@ -145,6 +146,18 @@ func TestCaptureBufferReader(t *testing.T) {
 		aList, err := structpb.NewList([]interface{}{"I'm", "a", "list"})
 		test.That(t, err, test.ShouldBeNil)
 
+		armJointPositionsReading1, err := protoutils.StructToStructPbIgnoreOmitEmpty(armPB.GetJointPositionsResponse{
+			Positions: &armPB.JointPositions{Values: []float64{1.0}},
+		})
+		test.That(t, err, test.ShouldBeNil)
+		armJointPositionsReading2, err := protoutils.StructToStructPbIgnoreOmitEmpty(armPB.GetJointPositionsResponse{
+			Positions: &armPB.JointPositions{Values: []float64{2.0}},
+		})
+		test.That(t, err, test.ShouldBeNil)
+		armJointPositionsReading3, err := protoutils.StructToStructPbIgnoreOmitEmpty(armPB.GetJointPositionsResponse{
+			Positions: &armPB.JointPositions{Values: []float64{3.0}},
+		})
+		test.That(t, err, test.ShouldBeNil)
 		// TODO: Add joint position
 		testCases := []testCase{
 			{
@@ -152,7 +165,7 @@ func TestCaptureBufferReader(t *testing.T) {
 				resourceName:     resource.NewName(resource.APINamespaceRDK.WithComponentType("sensor"), "my-sensor"),
 				additionalParams: map[string]string{"some": "params"},
 				tags:             []string{"my", "tags"},
-				sensorReadings: []*structpb.Struct{
+				readings: []*structpb.Struct{
 					{
 						Fields: map[string]*structpb.Value{
 							"readings": structpb.NewStructValue(
@@ -187,6 +200,18 @@ func TestCaptureBufferReader(t *testing.T) {
 					},
 				},
 				methodName: "Readings",
+			},
+			{
+				name:             "arm.JointPositions",
+				resourceName:     resource.NewName(resource.APINamespaceRDK.WithComponentType("arm"), "my-arm"),
+				additionalParams: map[string]string{"some": "params"},
+				tags:             []string{"my", "tags"},
+				readings: []*structpb.Struct{
+					armJointPositionsReading1,
+					armJointPositionsReading2,
+					armJointPositionsReading3,
+				},
+				methodName: "JointPositions",
 			},
 		}
 
@@ -229,7 +254,7 @@ func TestCaptureBufferReader(t *testing.T) {
 						TimeReceived:  timeReceived,
 					},
 					Data: &v1.SensorData_Struct{
-						Struct: tc.sensorReadings[0],
+						Struct: tc.readings[0],
 					},
 				}
 				test.That(t, b.Write(msg), test.ShouldBeNil)
@@ -262,7 +287,7 @@ func TestCaptureBufferReader(t *testing.T) {
 						TimeReceived:  timeReceived,
 					},
 					Data: &v1.SensorData_Struct{
-						Struct: tc.sensorReadings[1],
+						Struct: tc.readings[1],
 					},
 				}
 				test.That(t, b.Write(msg2), test.ShouldBeNil)
@@ -276,7 +301,7 @@ func TestCaptureBufferReader(t *testing.T) {
 						TimeReceived:  timeReceived,
 					},
 					Data: &v1.SensorData_Struct{
-						Struct: tc.sensorReadings[2],
+						Struct: tc.readings[2],
 					},
 				}
 				test.That(t, b.Write(msg3), test.ShouldBeNil)
@@ -631,7 +656,7 @@ func TestCaptureBufferReader(t *testing.T) {
 	})
 }
 
-//nolint
+// nolint
 func getCaptureFiles(dir string) (dcFiles, progFiles []string) {
 	_ = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
