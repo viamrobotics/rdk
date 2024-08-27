@@ -37,7 +37,7 @@ func attemptToBuildClassifier(mlm mlmodel.Service,
 		return nil, errors.New("no input tensors received")
 	}
 	inType := md.Inputs[0].DataType
-	labels := getLabelsFromMetadata(md)
+	labels := getLabelsFromMetadata(md, params.LabelPath)
 	if shapeLen := len(md.Inputs[0].Shape); shapeLen < 4 {
 		return nil, errors.Errorf("invalid length of shape array (expected 4, got %d)", shapeLen)
 	}

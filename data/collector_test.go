@@ -14,26 +14,11 @@ import (
 	"go.uber.org/zap/zapcore"
 	v1 "go.viam.com/api/app/datasync/v1"
 	"go.viam.com/test"
-	"go.viam.com/utils/protoutils"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
-	"google.golang.org/protobuf/types/known/structpb"
 
 	"go.viam.com/rdk/logging"
-	"go.viam.com/rdk/services/datamanager/datacapture"
 )
-
-type structReading struct {
-	Field1 bool
-}
-
-func (r *structReading) toProto() *structpb.Struct {
-	msg, err := protoutils.StructToStructPb(r)
-	if err != nil {
-		return nil
-	}
-	return msg
-}
 
 var (
 	structCapturer = CaptureFunc(func(ctx context.Context, _ map[string]*anypb.Any) (interface{}, error) {
@@ -61,7 +46,7 @@ func TestNewCollector(t *testing.T) {
 	c2, err2 := NewCollector(nil, CollectorParams{
 		ComponentName: "name",
 		Logger:        logging.NewTestLogger(t),
-		Target:        datacapture.NewBuffer("dir", nil, 50),
+		Target:        NewCaptureBuffer("dir", nil, 50),
 	})
 
 	test.That(t, c2, test.ShouldNotBeNil)
@@ -125,7 +110,7 @@ func TestSuccessfulWrite(t *testing.T) {
 			defer cancel()
 			tmpDir := t.TempDir()
 			md := v1.DataCaptureMetadata{}
-			tgt := datacapture.NewBuffer(tmpDir, &md, 50)
+			tgt := NewCaptureBuffer(tmpDir, &md, 50)
 			test.That(t, tgt, test.ShouldNotBeNil)
 			wrote := make(chan struct{})
 			target := &signalingBuffer{
@@ -185,7 +170,7 @@ func TestSuccessfulWrite(t *testing.T) {
 			var actReadings []*v1.SensorData
 			files := getAllFiles(tmpDir)
 			for _, file := range files {
-				fileReadings, err := datacapture.SensorDataFromFilePath(filepath.Join(tmpDir, file.Name()))
+				fileReadings, err := SensorDataFromCaptureFilePath(filepath.Join(tmpDir, file.Name()))
 				test.That(t, err, test.ShouldBeNil)
 				actReadings = append(actReadings, fileReadings...)
 			}
@@ -201,7 +186,7 @@ func TestClose(t *testing.T) {
 	l := logging.NewTestLogger(t)
 	tmpDir := t.TempDir()
 	md := v1.DataCaptureMetadata{}
-	buf := datacapture.NewBuffer(tmpDir, &md, 50)
+	buf := NewCaptureBuffer(tmpDir, &md, 50)
 	wrote := make(chan struct{})
 	target := &signalingBuffer{
 		bw:    buf,
@@ -251,7 +236,7 @@ func TestClose(t *testing.T) {
 func TestCtxCancelledNotLoggedAfterClose(t *testing.T) {
 	logger, logs := logging.NewObservedTestLogger(t)
 	tmpDir := t.TempDir()
-	target := datacapture.NewBuffer(tmpDir, &v1.DataCaptureMetadata{}, 50)
+	target := NewCaptureBuffer(tmpDir, &v1.DataCaptureMetadata{}, 50)
 	captured := make(chan struct{})
 	errorCapturer := CaptureFunc(func(ctx context.Context, _ map[string]*anypb.Any) (interface{}, error) {
 		select {
@@ -290,7 +275,7 @@ func TestLogErrorsOnlyOnce(t *testing.T) {
 	logger, logs := logging.NewObservedTestLogger(t)
 	tmpDir := t.TempDir()
 	md := v1.DataCaptureMetadata{}
-	buf := datacapture.NewBuffer(tmpDir, &md, 50)
+	buf := NewCaptureBuffer(tmpDir, &md, 50)
 	wrote := make(chan struct{})
 	errorCapturer := CaptureFunc(func(ctx context.Context, _ map[string]*anypb.Any) (interface{}, error) {
 		return nil, errors.New("I am an error")
@@ -356,7 +341,7 @@ func getAllFiles(dir string) []os.FileInfo {
 }
 
 type signalingBuffer struct {
-	bw    datacapture.BufferedWriter
+	bw    CaptureBufferedWriter
 	wrote chan struct{}
 }
 

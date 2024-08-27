@@ -3,19 +3,19 @@ package client
 
 import (
 	"context"
-	"flag"
+	"errors"
 	"fmt"
 	"io"
 	"strings"
 	"sync"
 	"sync/atomic"
+	"testing"
 	"time"
 
 	"github.com/fullstorydev/grpcurl"
 	grpc_retry "github.com/grpc-ecosystem/go-grpc-middleware/retry"
 	"github.com/jhump/protoreflect/desc"
 	"github.com/jhump/protoreflect/grpcreflect"
-	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -132,7 +132,7 @@ func isClosedPipeError(err error) bool {
 }
 
 func (rc *RobotClient) notConnectedToRemoteError() error {
-	return errors.Errorf("not connected to remote robot at %s", rc.address)
+	return fmt.Errorf("not connected to remote robot at %s", rc.address)
 }
 
 func (rc *RobotClient) handleUnaryDisconnect(
@@ -583,10 +583,7 @@ func (rc *RobotClient) resources(ctx context.Context) ([]resource.Name, []resour
 	// pauses for longer than 5s, below calls to ResourceNames or
 	// ResourceRPCSubtypes can result in context errors that appear in client.New
 	// and remote logic.
-	//
-	// TODO(APP-2917): Once we upgrade to go 1.21, replace this if check with if
-	// !testing.Testing().
-	if flag.Lookup("test.v") == nil {
+	if !testing.Testing() {
 		var cancel func()
 		ctx, cancel = contextutils.ContextWithTimeoutIfNoDeadline(ctx, defaultResourcesTimeout)
 		defer cancel()
@@ -628,7 +625,7 @@ func (rc *RobotClient) resources(ctx context.Context) ([]resource.Name, []resour
 			}
 			svcDesc, ok := symDesc.(*desc.ServiceDescriptor)
 			if !ok {
-				return nil, nil, errors.Errorf("expected descriptor to be service descriptor but got %T", symDesc)
+				return nil, nil, fmt.Errorf("expected descriptor to be service descriptor but got %T", symDesc)
 			}
 			resTypes = append(resTypes, resource.RPCAPI{
 				API:  rprotoutils.ResourceNameFromProto(resAPI.Subtype).API,
@@ -1067,6 +1064,11 @@ func (rc *RobotClient) MachineStatus(ctx context.Context) (robot.MachineStatus, 
 			resStatus.State = resource.NodeStateReady
 		case pb.ResourceStatus_STATE_REMOVING:
 			resStatus.State = resource.NodeStateRemoving
+		case pb.ResourceStatus_STATE_UNHEALTHY:
+			resStatus.State = resource.NodeStateUnhealthy
+			if pbResStatus.Error != "" {
+				resStatus.Error = errors.New(pbResStatus.Error)
+			}
 		}
 
 		mStatus.Resources = append(mStatus.Resources, resStatus)
@@ -1075,7 +1077,7 @@ func (rc *RobotClient) MachineStatus(ctx context.Context) (robot.MachineStatus, 
 	return mStatus, nil
 }
 
-// Version returns version information about the robot.
+// Version returns version information about the machine.
 func (rc *RobotClient) Version(ctx context.Context) (robot.VersionResponse, error) {
 	mVersion := robot.VersionResponse{}
 

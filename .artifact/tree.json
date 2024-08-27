@@ -52265,6 +52265,10 @@
         "hash": "9b9d5e11ece4e6fe52246a2851636145",
         "size": 50
       },
+      "fakelabels_alt.txt": {
+        "hash": "810175e2c610f153320652b6132c1c95",
+        "size": 98
+      },
       "imagenetlabels.txt": {
         "hash": "93b03dc453206b6ce0cd083f96066544",
         "size": 23685

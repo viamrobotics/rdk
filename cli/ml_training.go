@@ -319,7 +319,7 @@ func MLTrainingUpdateAction(c *cli.Context) error {
 	}
 
 	err = client.updateTrainingScript(c.String(generalFlagOrgID), c.String(mlTrainingFlagName),
-		c.String(mlTrainingFlagVisibility), c.String(mlTrainingFlagDescription),
+		c.String(mlTrainingFlagVisibility), c.String(mlTrainingFlagDescription), c.String(mlTrainingFlagURL),
 	)
 	if err != nil {
 		return err
@@ -334,7 +334,7 @@ func MLTrainingUpdateAction(c *cli.Context) error {
 	return nil
 }
 
-func (c *viamClient) updateTrainingScript(orgID, name, visibility, description string) error {
+func (c *viamClient) updateTrainingScript(orgID, name, visibility, description, url string) error {
 	if err := c.ensureLoggedIn(); err != nil {
 		return err
 	}
@@ -347,17 +347,23 @@ func (c *viamClient) updateTrainingScript(orgID, name, visibility, description s
 	if err != nil {
 		return err
 	}
+	visibilityProto, err := convertVisibilityToProto(visibility)
+	if err != nil {
+		return err
+	}
 	// Get and validate description and visibility
 	updatedDescription := resp.GetItem().GetDescription()
 	if description != "" {
 		updatedDescription = description
 	}
-	if updatedDescription == "" {
+	if updatedDescription == "" && *visibilityProto == v1.Visibility_VISIBILITY_PUBLIC {
 		return errors.New("no existing description for registry item, description must be provided")
 	}
-	visibilityProto, err := convertVisibilityToProto(visibility)
-	if err != nil {
-		return err
+	var stringURL *string
+	if url != "" {
+		stringURL = &url
+	} else {
+		stringURL = nil
 	}
 	// Update registry item
 	if _, err = c.client.UpdateRegistryItem(c.c.Context, &v1.UpdateRegistryItemRequest{
@@ -365,6 +371,7 @@ func (c *viamClient) updateTrainingScript(orgID, name, visibility, description s
 		Type:        resp.GetItem().GetType(),
 		Description: updatedDescription,
 		Visibility:  *visibilityProto,
+		Url:         stringURL,
 	}); err != nil {
 		return err
 	}
