@@ -138,6 +138,16 @@ func TestMoveOnGlobe(t *testing.T) {
 			MotionCfg:          &motion.MotionConfiguration{},
 			Extra:              extra,
 		}
+
+		// validate that plan is actually empty
+		moveRequest, err := ms.(*builtIn).newMoveOnGlobeRequest(ctx, req, nil, 0)
+		test.That(t, err, test.ShouldBeNil)
+		planResp, err := moveRequest.Plan(ctx)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, len(planResp.Path()), test.ShouldEqual, 0)
+		test.That(t, len(planResp.Trajectory()), test.ShouldEqual, 0)
+
+		// test that nothing breaks in state when we return an empty plan
 		executionID, err := ms.MoveOnGlobe(ctx, req)
 		test.That(t, err, test.ShouldBeNil)
 
