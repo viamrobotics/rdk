@@ -181,7 +181,7 @@ func (c *viamClient) dataGetTrainingJob(trainingJobID string) (*mltrainingpb.Tra
 	return resp.Metadata, nil
 }
 
-// DataGetTrainingJob is the corresponding action for 'data train logs'.
+// MLGetTrainingJobLogs is the corresponding action for 'data train logs'.
 func MLGetTrainingJobLogs(c *cli.Context) error {
 	client, err := newViamClient(c)
 	if err != nil {
@@ -201,7 +201,7 @@ func MLGetTrainingJobLogs(c *cli.Context) error {
 	return nil
 }
 
-// dataGetTrainingJob gets the training job logs with the given ID.
+// mlGetTrainingJobLogs gets the training job logs with the given ID.
 func (c *viamClient) mlGetTrainingJobLogs(trainingJobID string) ([]*mltrainingpb.TrainingJobLogEntry, error) {
 	if err := c.ensureLoggedIn(); err != nil {
 		return nil, err
