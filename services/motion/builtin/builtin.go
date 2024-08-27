@@ -217,7 +217,11 @@ func (ms *builtIn) Move(
 	// Check that we have some planDeviationMM value for our requested motion
 	_, ok := extra["planDeviationMM"].(float64)
 	if !ok {
-		extra["planDeviationMM"] = 1
+		if extra == nil {
+			extra = map[string]interface{}{"planDeviationMM": 1.}
+		} else {
+			extra["planDeviationMM"] = 1.
+		}
 	}
 
 	// the goal is to move the component to goalPose which is specified in coordinates of goalFrameName
@@ -233,6 +237,10 @@ func (ms *builtIn) Move(
 	})
 	if err != nil {
 		return false, err
+	}
+	// if the length of the plan's Path and Trajectory are both equal to zero this means that we started at the goal
+	if len(plan.Path()) == 0 && len(plan.Trajectory()) == 0 {
+		return true, nil
 	}
 
 	// move all the components

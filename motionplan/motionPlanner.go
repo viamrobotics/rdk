@@ -187,12 +187,29 @@ func Replan(ctx context.Context, request *PlanRequest, currentPlan Plan, replanC
 	}
 	planDevMM, _ := request.Options["planDeviationMM"].(float64)
 
-	if profile == PositionOnlyMotionProfile {
-		if spatialmath.PoseAlmostCoincidentEps(request.Goal.Pose(), request.StartPose, planDevMM) {
-			return &rrtPlan{SimplePlan: *NewSimplePlan(make(Path, 0), make(Trajectory, 0)), nodes: []node{}}, nil
+	startPose := request.StartPose
+	// if startPose is nil we entered this function from motion.Move and it is expected that request.StartPose is nil
+	if startPose == nil {
+		seed, err := sf.mapToSlice(request.StartConfiguration)
+		if err != nil {
+			return nil, err
 		}
-	} else if spatialmath.OrientationAlmostEqualEps(request.Goal.Pose().Orientation(), request.StartPose.Orientation(), 5) &&
-		spatialmath.PoseAlmostCoincidentEps(request.Goal.Pose(), request.StartPose, planDevMM) {
+		startPose, err = sf.Transform(seed)
+		if err != nil {
+			return nil, err
+		}
+	}
+	constructPlan := true
+	if profile == PositionOnlyMotionProfile {
+		if spatialmath.PoseAlmostCoincidentEps(request.Goal.Pose(), startPose, planDevMM) {
+			constructPlan = false
+		}
+	} else if spatialmath.OrientationAlmostEqual(request.Goal.Pose().Orientation(), startPose.Orientation()) &&
+		spatialmath.PoseAlmostCoincidentEps(request.Goal.Pose(), startPose, planDevMM) {
+		constructPlan = false
+	}
+	if !constructPlan {
+		request.Logger.Info("already within planDeviationMM of the goal, will not construct a plan")
 		return &rrtPlan{SimplePlan: *NewSimplePlan(make(Path, 0), make(Trajectory, 0)), nodes: []node{}}, nil
 	}
 
