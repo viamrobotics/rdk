@@ -1092,6 +1092,8 @@ github.com/pelletier/go-toml v1.9.5 h1:4yBQzkHv+7BHq2PQUZF3Mx0IYxG7LsP222s7Agd3v
 github.com/pelletier/go-toml v1.9.5/go.mod h1:u1nR/EPcESfeI/szUZKdtJ0xRNbUoANCkoOuaOx1Y+c=
 github.com/pelletier/go-toml/v2 v2.0.8 h1:0ctb6s9mE31h0/lhu+J6OPmVeDxJn+kYnJc2jZR9tGQ=
 github.com/pelletier/go-toml/v2 v2.0.8/go.mod h1:vuYfssBdrU2XDZ9bYydBu6t+6a6PYNcZljzZR9VXg+4=
+github.com/penguinland/goutils v0.0.0-20240827145316-a9b0d59337ad h1:+5S1r47dUWbI2oy7PjGZIJ+m7EbDoIwXr43PuksXRps=
+github.com/penguinland/goutils v0.0.0-20240827145316-a9b0d59337ad/go.mod h1:GCaRsDlW3p3tOnLo73swpPnfrmmqg6r+1oWhNVEHsDo=
 github.com/performancecopilot/speed v3.0.0+incompatible/go.mod h1:/CLtqpZ5gBg1M9iaPbIdPPGyKcA8hKdoy6hAWba7Yac=
 github.com/peterbourgon/diskv v2.0.1+incompatible/go.mod h1:uqqh8zWWbv1HBMNONnaR/tNboyR3/BZd58JJSHlUSCU=
 github.com/phayes/checkstyle v0.0.0-20170904204023-bfd46e6a821d/go.mod h1:3OzsM7FXDQlpCiw2j81fOmAwQLnZnLGXVKUzeKQXIAw=
@@ -1543,8 +1545,6 @@ go.viam.com/api v0.1.331 h1:79ggmTwRuKn92yi/fhTrw+ehHGb7yw5rrrZRtZ50Ih4=
 go.viam.com/api v0.1.331/go.mod h1:msa4TPrMVeRDcG4YzKA/S6wLEUC7GyHQE973JklrQ10=
 go.viam.com/test v1.1.1-0.20220913152726-5da9916c08a2 h1:oBiK580EnEIzgFLU4lHOXmGAE3MxnVbeR7s1wp/F3Ps=
 go.viam.com/test v1.1.1-0.20220913152726-5da9916c08a2/go.mod h1:XM0tej6riszsiNLT16uoyq1YjuYPWlRBweTPRDanIts=
-go.viam.com/utils v0.1.96 h1:lZ7m1jm6pkjn60e9OWeHyHcivFIRrFvS/5NGrPXFaDM=
-go.viam.com/utils v0.1.96/go.mod h1:GCaRsDlW3p3tOnLo73swpPnfrmmqg6r+1oWhNVEHsDo=
 go4.org/unsafe/assume-no-moving-gc v0.0.0-20230525183740-e7c30c78aeb2 h1:WJhcL4p+YeDxmZWg141nRm7XC8IDmhz7lk5GpadO1Sg=
 go4.org/unsafe/assume-no-moving-gc v0.0.0-20230525183740-e7c30c78aeb2/go.mod h1:FftLjUGFEDu5k8lt0ddY+HcrH/qU/0qk+H8j9/nTl3E=
 gocv.io/x/gocv v0.25.0/go.mod h1:Rar2PS6DV+T4FL+PM535EImD/h13hGVaHhnCu1xarBs=

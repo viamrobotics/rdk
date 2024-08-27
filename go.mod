@@ -403,4 +403,4 @@ require (
 	golang.org/x/exp v0.0.0-20230725012225-302865e7556b
 )
 
-replace go.viam.com/utils => ../goutils
+replace go.viam.com/utils => github.com/penguinland/goutils v0.0.0-20240827145316-a9b0d59337ad
