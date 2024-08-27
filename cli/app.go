@@ -1656,6 +1656,7 @@ Example:
 
 This won't work unless you have an existing installation of our GitHub app on your GitHub org. (Details to follow).
 `,
+							// TODO(APP-3604): unhide when this is shipped externally
 							Hidden: true,
 							Flags: []cli.Flag{
 								&cli.StringFlag{
