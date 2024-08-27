@@ -6,7 +6,9 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"net/url"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -260,6 +262,31 @@ func ModuleBuildLinkRepoAction(c *cli.Context) error {
 	linkID := c.String(moduleBuildFlagOAuthLink)
 	moduleID := c.String(moduleFlagPath)
 	repo := c.String(moduleBuildFlagRepo)
+
+	if moduleID == "" {
+		manifest, err := loadManifestOrNil(defaultManifestFilename)
+		if err != nil {
+			return fmt.Errorf("this command needs a module ID from either %s flag or valid %s", moduleFlagPath, defaultManifestFilename)
+		}
+		moduleID = manifest.ModuleID
+		infof(c.App.ErrWriter, "using module ID %s from %s", moduleID, defaultManifestFilename)
+	}
+
+	if repo == "" {
+		remoteURL, err := exec.Command("git", "config", "--get", "remote.origin.url").Output()
+		if err != nil {
+			return fmt.Errorf("no %s provided and unable to get git remote from current directory", moduleBuildFlagRepo)
+		}
+		parsed, err := url.Parse(strings.Trim(string(remoteURL), "\n "))
+		if err != nil {
+			return errors.Wrapf(err, "couldn't parse git remote %s; fix or use %s flag", remoteURL, moduleBuildFlagRepo)
+		}
+		if parsed.Host != "github.com" {
+			return fmt.Errorf("can't use non-github git remote %s. To force this, use the %s flag", parsed.Host, moduleBuildFlagRepo)
+		}
+		repo = strings.Trim(parsed.Path, "/")
+		infof(c.App.ErrWriter, "using repo %s from current folder", repo)
+	}
 
 	req := buildpb.LinkRepoRequest{
 		Link: &buildpb.RepoLink{

@@ -1663,14 +1663,13 @@ This won't work unless you have an existing installation of our GitHub app on yo
 									Usage: "ID of the oauth link between your GitHub org and Viam. Only required if you have more than one link",
 								},
 								&cli.StringFlag{
-									Name:     moduleFlagPath,
-									Usage:    "your module's ID in org-id:name or public-namespace:name format",
-									Required: true,
+									Name: moduleFlagPath,
+									Usage: "your module's ID in org-id:name or public-namespace:name format. " +
+										"If missing, we will try to get this from meta.json file in current directory",
 								},
 								&cli.StringFlag{
-									Name:     moduleBuildFlagRepo,
-									Usage:    "your github repository in account/repository form (e.g. viamrobotics/rdk, not github.com/viamrobotics/rdk)",
-									Required: true,
+									Name:  moduleBuildFlagRepo,
+									Usage: "your github repository in account/repository form (e.g. viamrobotics/rdk, not github.com/viamrobotics/rdk)",
 								},
 							},
 							Action: ModuleBuildLinkRepoAction,
