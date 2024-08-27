@@ -126,6 +126,30 @@ func TestMoveOnGlobe(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, movementSensorInBase.Pose().Point(), test.ShouldResemble, movementSensorInBasePoint)
 	})
+
+	t.Run("starting at the goal", func(t *testing.T) {
+		_, ms, closeFunc := CreateMoveOnGlobeTestEnvironment(ctx, t, gpsPoint, 80, nil)
+		defer closeFunc(ctx)
+
+		req := motion.MoveOnGlobeReq{
+			ComponentName:      baseResource,
+			Destination:        gpsPoint,
+			MovementSensorName: moveSensorResource,
+			MotionCfg:          &motion.MotionConfiguration{},
+			Extra:              extra,
+		}
+		executionID, err := ms.MoveOnGlobe(ctx, req)
+		test.That(t, err, test.ShouldBeNil)
+
+		timeoutCtx, timeoutFn := context.WithTimeout(ctx, time.Minute*5)
+		defer timeoutFn()
+		err = motion.PollHistoryUntilSuccessOrError(timeoutCtx, ms, time.Millisecond*5, motion.PlanHistoryReq{
+			ComponentName: req.ComponentName,
+			ExecutionID:   executionID,
+			LastPlanOnly:  true,
+		})
+		test.That(t, err, test.ShouldBeNil)
+	})
 }
 
 func TestBoundingRegionsConstraint(t *testing.T) {
