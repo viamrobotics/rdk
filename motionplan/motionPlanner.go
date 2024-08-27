@@ -180,7 +180,11 @@ func Replan(ctx context.Context, request *PlanRequest, currentPlan Plan, replanC
 		return nil, errors.New("solver frame has no degrees of freedom, cannot perform inverse kinematics")
 	}
 
-	// Make sure that we are not already at the goal. If we are already at the goal we return an empty replan, i.e. a no-op
+	// Here we determine if we already are at the goal.
+	// If our motion profile is position_only then, we only check against our current & desired position.
+	// Conversely if our motion profile is anything else, then we also need to check again our
+	// current & desired orientation.
+	// If we are already at the goal we return an empty plan.
 	profile, ok := request.Options["motion_profile"].(string)
 	if !ok {
 		profile = ""
