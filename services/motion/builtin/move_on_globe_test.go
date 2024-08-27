@@ -286,7 +286,7 @@ func TestObstacleReplanningGlobe(t *testing.T) {
 	}
 
 	extra := map[string]interface{}{"max_replans": 10, "max_ik_solutions": 1, "smooth_iter": 1, "motion_profile": "position_only"}
-	extraNoReplan := map[string]interface{}{"max_replans": 0, "max_ik_solutions": 1, "smooth_iter": 1}
+	extraNoReplan := map[string]interface{}{"max_replans": 0, "max_ik_solutions": 1, "smooth_iter": 1, "motion_profile": "position_only"}
 
 	// We set a flag here per test case so that detections are not returned the first time each vision service is called
 	testCases := []testCase{
