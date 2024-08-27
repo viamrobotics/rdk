@@ -108,7 +108,8 @@ func (req *PlanRequest) validatePlanRequest() error {
 
 	_, ok := req.Options["planDeviationMM"].(float64)
 	if !ok {
-		return errors.New("planDeviationMM must be specified within the PlanRequest")
+		req.Logger.Info("no planDeviationMM value was provided so we will use the default value of 1")
+		req.Options["planDeviationMM"] = 1
 	}
 
 	frameDOF := len(req.Frame.DoF())
