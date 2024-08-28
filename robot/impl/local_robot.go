@@ -720,8 +720,9 @@ func (r *localRobot) newResource(
 		return nil, err
 	}
 
-	// If context has errored, even if construction succeeded we should close the resource and return the context error
-	// Use the shutdown context because otherwise any Close operations that rely on the context will immediately fail
+	// If context has errored, even if construction succeeded we should close the resource and return the context error.
+	// Use closeContext because otherwise any Close operations that rely on the context will immediately fail.
+	// The deadline associated with the context passed in to this function is utils.GetResourceConfigurationTimeout.
 	if ctx.Err() != nil {
 		r.logger.CDebugw(ctx, "resource successfully constructed but context is done, closing constructed resource")
 		return nil, multierr.Combine(ctx.Err(), res.Close(r.closeContext))
