@@ -218,9 +218,9 @@ func (ms *builtIn) Move(
 	_, ok := extra["planDeviationMM"].(float64)
 	if !ok {
 		if extra == nil {
-			extra = map[string]interface{}{"planDeviationMM": 1.}
+			extra = map[string]interface{}{"planDeviationMM": 1e-4}
 		} else {
-			extra["planDeviationMM"] = 1.
+			extra["planDeviationMM"] = 1e-4
 		}
 	}
 

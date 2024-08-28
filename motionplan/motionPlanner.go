@@ -112,7 +112,7 @@ func (req *PlanRequest) validatePlanRequest() error {
 		if req.Options == nil {
 			req.Options = map[string]interface{}{"planDeviationMM": 1}
 		} else {
-			req.Options["planDeviationMM"] = 1.
+			req.Options["planDeviationMM"] = 1e-4
 		}
 	}
 
