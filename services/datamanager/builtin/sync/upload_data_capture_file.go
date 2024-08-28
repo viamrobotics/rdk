@@ -30,7 +30,6 @@ func uploadDataCaptureFile(ctx context.Context, f *data.CaptureFile, conn cloudC
 	md := f.ReadMetadata()
 	sensorData, err := data.SensorDataFromCaptureFile(f)
 	if err != nil {
-		// TODO: (Nick) Won't we ddos ourselves here?
 		return errors.Wrapf(err, "error reading sensor data from data capture file %s", f.GetPath())
 	}
 
@@ -42,7 +41,6 @@ func uploadDataCaptureFile(ctx context.Context, f *data.CaptureFile, conn cloudC
 	}
 
 	if md.GetType() == v1.DataType_DATA_TYPE_BINARY_SENSOR && len(sensorData) > 1 {
-		// TODO: (Nick) Won't we ddos ourselves here?
 		return fmt.Errorf("binary sensor data file with more than one sensor reading is not supported: %s", f.GetPath())
 	}
 
@@ -80,7 +78,6 @@ func uploadGetImages(
 ) error {
 	var res pb.GetImagesResponse
 	if err := mapstructure.Decode(sd.GetStruct().AsMap(), &res); err != nil {
-		// TODO: (Nick) Won't we ddos ourselves here?
 		return errors.Wrapf(err, "failed to decode camera.GetImagesResponse from data capture file %s", path)
 	}
 	timeRequested, timeReceived := getImagesTimestamps(&res, sd)
@@ -223,7 +220,6 @@ func getFileExtFromImageFormat(res pb.Format) string {
 	case pb.Format_FORMAT_UNSPECIFIED:
 		fallthrough
 	default:
-		// TODO: Warn if we go down this path
 		return ""
 	}
 }

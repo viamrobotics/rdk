@@ -500,53 +500,50 @@ func (s *Sync) runScheduler(ctx context.Context, tkr *clock.Ticker, config Confi
 // returns early with an error if either ctx is cancelled or if the reconfigure is called
 // while walkDirsAndSendFilesToSync.
 func (s *Sync) walkDirsAndSendFilesToSync(ctx context.Context, config Config) error {
-	// Retrieve all files in capture dir and send them to the syncer
-	f := func(path string, info os.FileInfo, err error) error {
-		if err := ctx.Err(); err != nil {
-			// if the context is cancelled, bail out
-			s.logger.Debug(path + " err: " + err.Error())
-			return filepath.SkipAll
-		}
-
-		if err := s.configCtx.Err(); err != nil {
-			s.logger.Debug(path + " err: " + err.Error())
-			return filepath.SkipAll
-		}
-
-		if err != nil {
-			s.logger.Debug(path + " err: " + err.Error())
-			//nolint:nilerr
-			return nil
-		}
-
-		// Do not sync the files in the corrupted data directory.
-		if info.IsDir() && info.Name() == FailedDir {
-			return filepath.SkipDir
-		}
-
-		if info.IsDir() {
-			return nil
-		}
-
-		// if the file is empty, no need to sync
-		if info.Size() == 0 {
-			return nil
-		}
-		// If a non data capture owned file was modified within the past lastModifiedMillis, do not sync it (data
-		// may still be being written).
-		// When using a mock clock in tests, s.clock.Since(info.ModTime()) can be negative since the file system will still use the system clock.
-		// Take max(timeSinceMod, 0) to account for this.
-		timeSinceMod := max(s.clock.Since(info.ModTime()), 0)
-		if readyToSyncFile(timeSinceMod, path, config.FileLastModifiedMillis, s.fileTracker) {
-			s.sendToSync(ctx, path)
-		}
-		return nil
-	}
-
 	s.flushCollectors()
 	var errs []error
 	for _, dir := range config.syncPaths() {
-		errs = append(errs, filepath.Walk(dir, f))
+		// Retrieve all files in capture dir and send them to the syncer
+		err := filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
+			if err := ctx.Err(); err != nil {
+				// if the context is cancelled, bail out
+				return filepath.SkipAll
+			}
+
+			if err := s.configCtx.Err(); err != nil {
+				return filepath.SkipAll
+			}
+
+			if err != nil {
+				s.logger.Debugf("walkDirsAndSendFilesToSync ignoring error walking path: %s, err: %v", path, err)
+
+				return nil
+			}
+
+			// Do not sync the files in the corrupted data directory.
+			if info.IsDir() && info.Name() == FailedDir {
+				return filepath.SkipDir
+			}
+
+			if info.IsDir() {
+				return nil
+			}
+
+			// if the file is empty, no need to sync
+			if info.Size() == 0 {
+				return nil
+			}
+			// If a non data capture owned file was modified within the past lastModifiedMillis, do not sync it (data
+			// may still be being written).
+			// When using a mock clock in tests, s.clock.Since(info.ModTime()) can be negative since the file system will still use the system clock.
+			// Take max(timeSinceMod, 0) to account for this.
+			timeSinceMod := max(s.clock.Since(info.ModTime()), 0)
+			if readyToSyncFile(timeSinceMod, path, config.FileLastModifiedMillis, s.fileTracker) {
+				s.sendToSync(ctx, path)
+			}
+			return nil
+		})
+		errs = append(errs, err)
 	}
 	errs = append(errs, ctx.Err(), s.configCtx.Err())
 	return multierr.Combine(errs...)

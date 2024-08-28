@@ -71,7 +71,7 @@ func TestConfig(t *testing.T) {
 				CaptureDir:                 viamCaptureDotDir,
 				DeleteEveryNthWhenDiskFull: 5,
 				FileLastModifiedMillis:     10000,
-				MaximumNumSyncThreads:      100,
+				MaximumNumSyncThreads:      1000,
 			})
 		})
 		t.Run("returns a sync config with overridden defaults when called on a full config", func(t *testing.T) {

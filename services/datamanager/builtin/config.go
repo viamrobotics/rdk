@@ -12,7 +12,7 @@ const (
 	// Default time to wait in milliseconds to check if a file has been modified.
 	defaultFileLastModifiedMillis = 10000.0
 	// defaultMaxParallelSyncRoutines is the maximum number of sync goroutines that can be running at once.
-	defaultMaxParallelSyncRoutines = 100
+	defaultMaxParallelSyncRoutines = 1000
 	// defaultDeleteEveryNth temporarily public for tests.
 	defaultDeleteEveryNth = 5
 )
