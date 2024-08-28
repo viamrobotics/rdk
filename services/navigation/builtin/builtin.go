@@ -575,10 +575,7 @@ func (svc *builtIn) moveToWaypoint(ctx context.Context, wp navigation.Waypoint, 
 	cancelCtx, cancelFn := context.WithCancel(ctx)
 	defer cancelFn()
 	executionID, err := svc.motionService.MoveOnGlobe(cancelCtx, req)
-	if errors.Is(err, motion.ErrGoalWithinPlanDeviation) {
-		// make an exception for the error that is raised when motion is not possible because already at goal.
-		return svc.waypointReached(cancelCtx)
-	} else if err != nil {
+	if err != nil {
 		return err
 	}
 
