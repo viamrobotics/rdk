@@ -3,6 +3,7 @@ package camera
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"image"
 
 	"github.com/pkg/errors"
@@ -42,6 +43,7 @@ func (s *serviceServer) GetImage(
 	ctx context.Context,
 	req *pb.GetImageRequest,
 ) (*pb.GetImageResponse, error) {
+	fmt.Println("Starting server GetImage")
 	ctx, span := trace.StartSpan(ctx, "camera::server::GetImage")
 	defer span.End()
 	cam, err := s.coll.Resource(req.Name)
@@ -83,6 +85,7 @@ func (s *serviceServer) GetImage(
 		if release != nil {
 			release()
 		}
+		fmt.Println("exiting server GetImage")
 	}()
 	actualMIME, _ := utils.CheckLazyMIMEType(req.MimeType)
 	resp := pb.GetImageResponse{
@@ -93,6 +96,7 @@ func (s *serviceServer) GetImage(
 		return nil, err
 	}
 	resp.Image = outBytes
+
 	return &resp, nil
 }
 

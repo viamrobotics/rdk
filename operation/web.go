@@ -56,7 +56,11 @@ func (m *Manager) UnaryServerInterceptor(
 	ctx, done := m.CreateFromIncomingContext(ctx, info.FullMethod)
 	defer done()
 	if op := Get(ctx); op != nil && op.ID.String() != "" {
-		utils.UncheckedError(grpc.SetHeader(ctx, metadata.MD{opidMetadataKey: []string{op.ID.String()}}))
+		err := grpc.SetHeader(ctx, metadata.MD{opidMetadataKey: []string{op.ID.String()}})
+		if err != nil {
+			utils.UncheckedError(err)
+			// debug.PrintStack()
+		}
 	}
 	return handler(ctx, req)
 }

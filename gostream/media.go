@@ -2,6 +2,7 @@ package gostream
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -199,6 +200,8 @@ func newMediaSource[T, U any](d driver.Driver, r MediaReader[T], p U) MediaSourc
 }
 
 func (pc *producerConsumer[T, U]) start() {
+	fmt.Println("Starting prodcon.")
+	// debug.PrintStack()
 	var startLocalCtx context.Context
 	var span *trace.Span
 
@@ -320,6 +323,7 @@ func (pc *producerConsumer[T, U]) start() {
 		}
 		// After loop breaks, we likely still have an unreleased current media.
 		if pc.current != nil && pc.current.Release != nil {
+			fmt.Println("This is right before the release of the breaking change")
 			pc.current.Release()
 		}
 	}, func() { defer pc.activeBackgroundWorkers.Done(); pc.cancel() })
@@ -386,6 +390,7 @@ func (pc *producerConsumer[T, U]) stopOne() {
 	if pc.listeners == 0 {
 		pc.stop()
 	}
+	// pc.current = nil
 }
 
 func (ms *mediaSource[T, U]) MediaProperties(_ context.Context) (U, error) {
