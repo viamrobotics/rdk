@@ -386,6 +386,8 @@ func (pc *producerConsumer[T, U]) stopOne() {
 	if pc.listeners == 0 {
 		pc.stop()
 	}
+	pc.currentMu.Lock()
+	defer pc.currentMu.Unlock()
 	pc.current = nil
 }
 
