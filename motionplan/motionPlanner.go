@@ -110,7 +110,7 @@ func (req *PlanRequest) validatePlanRequest() error {
 	if !ok {
 		req.Logger.Info("no planDeviationMM value was provided so we will use the default value of 1")
 		if req.Options == nil {
-			req.Options = map[string]interface{}{"planDeviationMM": 1}
+			req.Options = map[string]interface{}{"planDeviationMM": 1e-4}
 		} else {
 			req.Options["planDeviationMM"] = 1e-4
 		}
