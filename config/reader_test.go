@@ -16,6 +16,8 @@ import (
 
 	"go.viam.com/rdk/config/testutils"
 	"go.viam.com/rdk/logging"
+	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/services/shell"
 )
 
 func TestFromReader(t *testing.T) {
@@ -395,103 +397,84 @@ func TestReadTLSFromCache(t *testing.T) {
 	})
 }
 
-// func TestProcessConfigRegistersLogConfig(t *testing.T) {
-//	logger := logging.NewTestLogger(t)
-//	unprocessedConfig := Config{
-//		ConfigFilePath: "path",
-//		LogConfig:		[]logging.LoggerPatternConfig{},
-//		Services: []resource.Config{
-//			{
-//				Name:  "shell1",
-//				API:   shell.API,
-//				Model: resource.DefaultServiceModel,
-//				LogConfiguration: resource.LogConfig{
-//					Level: logging.WARN,
-//				},
-//			},
-//		},
-//		Components: []resource.Config{
-//			{
-//				Name:  "helper1",
-//				API:   shell.API,
-//				Model: resource.NewModel("rdk", "test", "helper"),
-//				LogConfiguration: resource.LogConfig{
-//					Level: logging.DEBUG,
-//				},
-//			},
-//		},
-//	}
-//	serviceLoggerName := "rdk." + unprocessedConfig.Services[0].ResourceName().String()
-//	componentLoggerName := "rdk." + unprocessedConfig.Components[0].ResourceName().String()
-//
-//	logging.RegisterLogger(serviceLoggerName, logging.NewLogger(serviceLoggerName))
-//	logging.RegisterLogger(componentLoggerName, logging.NewLogger(componentLoggerName))
-//
-//	// create a conflict between pattern matching configurations and resource configurations
-//	unprocessedConfig.LogConfig = append(unprocessedConfig.LogConfig,
-//		logging.LoggerPatternConfig{
-//			Pattern: serviceLoggerName,
-//			Level:	 "ERROR",
-//		},
-//		logging.LoggerPatternConfig{
-//			Pattern: componentLoggerName,
-//			Level:	 "ERROR",
-//		},
-//	)
-//
-//	expectedRegisteredCfg := []logging.LoggerPatternConfig{
-//		unprocessedConfig.LogConfig[0],
-//		unprocessedConfig.LogConfig[1],
-//		{
-//			Pattern: serviceLoggerName,
-//			Level:	 "Warn",
-//		},
-//		{
-//			Pattern: componentLoggerName,
-//			Level:	 "Debug",
-//		},
-//	}
-//
-//	_, err := processConfig(&unprocessedConfig, true, logger)
-//	test.That(t, err, test.ShouldBeNil)
-//	test.That(t, expectedRegisteredCfg, test.ShouldResemble, logging.GetCurrentConfig())
-//
-//	// the resource log level configurations should be prioritized
-//	logger, ok := logging.LoggerNamed(serviceLoggerName)
-//	test.That(t, ok, test.ShouldBeTrue)
-//	test.That(t, logger.GetLevel().String(), test.ShouldEqual, "Warn")
-//
-//	logger, ok = logging.LoggerNamed(componentLoggerName)
-//	test.That(t, ok, test.ShouldBeTrue)
-//	test.That(t, logger.GetLevel().String(), test.ShouldEqual, "Debug")
-//
-//	// remove resource patterns
-//	unprocessedConfig.Components = nil
-//	unprocessedConfig.Services = nil
-//	_, err = processConfig(&unprocessedConfig, true, logger)
-//	test.That(t, err, test.ShouldBeNil)
-//
-//	logger, ok = logging.LoggerNamed(serviceLoggerName)
-//	test.That(t, ok, test.ShouldBeTrue)
-//	test.That(t, logger.GetLevel().String(), test.ShouldEqual, "Error")
-//
-//	logger, ok = logging.LoggerNamed(componentLoggerName)
-//	test.That(t, ok, test.ShouldBeTrue)
-//	test.That(t, logger.GetLevel().String(), test.ShouldEqual, "Error")
-//
-//	// remove log patterns
-//	unprocessedConfig.LogConfig = nil
-//	_, err = processConfig(&unprocessedConfig, true, logger)
-//	test.That(t, err, test.ShouldBeNil)
-//
-//	logger, ok = logging.LoggerNamed(serviceLoggerName)
-//	test.That(t, ok, test.ShouldBeTrue)
-//	test.That(t, logger.GetLevel().String(), test.ShouldEqual, "Info")
-//
-//	logger, ok = logging.LoggerNamed(componentLoggerName)
-//	test.That(t, ok, test.ShouldBeTrue)
-//	test.That(t, logger.GetLevel().String(), test.ShouldEqual, "Info")
-//
-//	test.That(t, logging.DeregisterLogger(serviceLoggerName), test.ShouldBeTrue)
-//	test.That(t, logging.DeregisterLogger(componentLoggerName), test.ShouldBeTrue)
-//}
+func TestProcessConfigRegistersLogConfig(t *testing.T) {
+	logger := logging.NewDebugLogger("rdk") // mimic an "rdk" debug logger
+	unprocessedConfig := Config{
+		ConfigFilePath: "path",
+		LogConfig:      []logging.LoggerPatternConfig{},
+		Services: []resource.Config{
+			{
+				Name:  "shell1",
+				API:   shell.API,
+				Model: resource.DefaultServiceModel,
+			},
+		},
+		Components: []resource.Config{
+			{
+				Name:  "helper1",
+				API:   shell.API,
+				Model: resource.NewModel("rdk", "test", "helper"),
+			},
+		},
+	}
+
+	serviceName := unprocessedConfig.Services[0].ResourceName().String()
+	componentName := unprocessedConfig.Components[0].ResourceName().String()
+
+	// Artificially register a logger for the service and component by creating
+	// subloggers.
+	_ = logger.Sublogger(serviceName)
+	_ = logger.Sublogger(componentName)
+
+	// Logger names will be prefixed with top-level logger name: "rdk".
+	serviceLoggerName := "rdk." + serviceName
+	componentLoggerName := "rdk." + componentName
+
+	// Set both to "Error" through logger pattern configs.
+	expectedLogConfig := []logging.LoggerPatternConfig{
+		{
+			Pattern: serviceLoggerName,
+			Level:   "Error",
+		},
+		{
+			Pattern: componentLoggerName,
+			Level:   "Error",
+		},
+	}
+	unprocessedConfig.LogConfig = append(unprocessedConfig.LogConfig, expectedLogConfig...)
+
+	_, err := processConfig(&unprocessedConfig, true, logger)
+	test.That(t, err, test.ShouldBeNil)
+
+	// Assert registry's config was updated as expected.
+	registry := logger.GetRegistry()
+	test.That(t, registry, test.ShouldNotBeNil)
+	test.That(t, registry.GetCurrentConfig(), test.ShouldResemble, expectedLogConfig)
+
+	// Assert logger levels were updated as expected.
+	serviceLogger, ok := registry.LoggerNamed(serviceLoggerName)
+	test.That(t, ok, test.ShouldBeTrue)
+	test.That(t, serviceLogger.GetLevel().String(), test.ShouldEqual, "Error")
+
+	componentLogger, ok := registry.LoggerNamed(componentLoggerName)
+	test.That(t, ok, test.ShouldBeTrue)
+	test.That(t, componentLogger.GetLevel().String(), test.ShouldEqual, "Error")
+
+	// Remove logger pattern configs.
+	unprocessedConfig.LogConfig = nil
+	_, err = processConfig(&unprocessedConfig, true, logger)
+	test.That(t, err, test.ShouldBeNil)
+
+	// Assert registry's config is now empty.
+	test.That(t, registry, test.ShouldNotBeNil)
+	test.That(t, registry.GetCurrentConfig(), test.ShouldBeNil)
+
+	// Assert logger levels reset to "Info" default.
+	serviceLogger, ok = registry.LoggerNamed(serviceLoggerName)
+	test.That(t, ok, test.ShouldBeTrue)
+	test.That(t, serviceLogger.GetLevel().String(), test.ShouldEqual, "Info")
+
+	componentLogger, ok = registry.LoggerNamed(componentLoggerName)
+	test.That(t, ok, test.ShouldBeTrue)
+	test.That(t, componentLogger.GetLevel().String(), test.ShouldEqual, "Info")
+}

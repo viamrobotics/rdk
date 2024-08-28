@@ -13,7 +13,7 @@ import (
 
 var (
 	globalMu     sync.RWMutex
-	globalLogger = Logger(NewDebugLogger("global"))
+	globalLogger = NewDebugLogger("global")
 
 	// GlobalLogLevel should be used whenever a zap logger is created that wants to obey the debug
 	// flag from the CLI or robot config.
@@ -60,7 +60,7 @@ func NewZapLoggerConfig() zap.Config {
 }
 
 // NewLogger returns a new logger that outputs Info+ logs to stdout in UTC.
-func NewLogger(name string) RootLogger {
+func NewLogger(name string) Logger {
 	logger := &impl{
 		name:       name,
 		level:      NewAtomicLevelAt(INFO),
@@ -70,11 +70,11 @@ func NewLogger(name string) RootLogger {
 	}
 
 	logger.registry.registerLogger(name, logger)
-	return RootLogger{logger}
+	return logger
 }
 
 // NewDebugLogger returns a new logger that outputs Debug+ logs to stdout in UTC.
-func NewDebugLogger(name string) RootLogger {
+func NewDebugLogger(name string) Logger {
 	logger := &impl{
 		name:       name,
 		level:      NewAtomicLevelAt(DEBUG),
@@ -84,12 +84,12 @@ func NewDebugLogger(name string) RootLogger {
 	}
 
 	logger.registry.registerLogger(name, logger)
-	return RootLogger{logger}
+	return logger
 }
 
 // NewBlankLogger returns a new logger that outputs Debug+ logs in UTC, but without any
 // pre-existing appenders/outputs.
-func NewBlankLogger(name string) RootLogger {
+func NewBlankLogger(name string) Logger {
 	logger := &impl{
 		name:       name,
 		level:      NewAtomicLevelAt(DEBUG),
@@ -99,17 +99,17 @@ func NewBlankLogger(name string) RootLogger {
 	}
 
 	logger.registry.registerLogger(name, logger)
-	return RootLogger{logger}
+	return logger
 }
 
 // NewTestLogger returns a new logger that outputs Debug+ logs to stdout in local time.
-func NewTestLogger(tb testing.TB) RootLogger {
+func NewTestLogger(tb testing.TB) Logger {
 	logger, _ := NewObservedTestLogger(tb)
 	return logger
 }
 
 // NewObservedTestLogger is like NewTestLogger but also saves logs to an in memory observer.
-func NewObservedTestLogger(tb testing.TB) (RootLogger, *observer.ObservedLogs) {
+func NewObservedTestLogger(tb testing.TB) (Logger, *observer.ObservedLogs) {
 	observerCore, observedLogs := observer.New(zap.LevelEnablerFunc(zapcore.DebugLevel.Enabled))
 	logger := &impl{
 		name:  "",
@@ -122,7 +122,7 @@ func NewObservedTestLogger(tb testing.TB) (RootLogger, *observer.ObservedLogs) {
 		testHelper: tb.Helper,
 	}
 
-	return RootLogger{logger}, observedLogs
+	return logger, observedLogs
 }
 
 // MemLogger stores test logs in memory. And can write them on request with `OutputLogs`.

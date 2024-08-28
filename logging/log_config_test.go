@@ -9,7 +9,7 @@ import (
 
 func verifySetLevels(registry *Registry, expectedMatches map[string]string) bool {
 	for name, level := range expectedMatches {
-		logger, ok := registry.loggerNamed(name)
+		logger, ok := registry.LoggerNamed(name)
 		if !ok || !strings.EqualFold(level, logger.GetLevel().String()) {
 			return false
 		}
@@ -207,7 +207,7 @@ func TestUpdateLoggerRegistry(t *testing.T) {
 	for _, tc := range tests {
 		testRegistry := createTestRegistry(tc.loggerNames)
 
-		err := testRegistry.UpdateConfig(tc.loggerConfig)
+		err := testRegistry.Update(tc.loggerConfig, NewLogger("error-logger"))
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, verifySetLevels(testRegistry, tc.expectedMatches), test.ShouldBeTrue)
 	}

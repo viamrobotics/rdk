@@ -23,7 +23,7 @@ type Watcher interface {
 
 // NewWatcher returns an optimally selected Watcher based on the
 // given config.
-func NewWatcher(ctx context.Context, config *Config, logger logging.RootLogger) (Watcher, error) {
+func NewWatcher(ctx context.Context, config *Config, logger logging.Logger) (Watcher, error) {
 	if err := config.Ensure(false, logger); err != nil {
 		return nil, err
 	}
@@ -47,7 +47,7 @@ const checkForNewCertInterval = time.Hour
 
 // newCloudWatcher returns a cloudWatcher that will periodically fetch
 // new configs from the cloud.
-func newCloudWatcher(ctx context.Context, config *Config, rootLogger logging.RootLogger) *cloudWatcher {
+func newCloudWatcher(ctx context.Context, config *Config, logger logging.Logger) *cloudWatcher {
 	configCh := make(chan *Config)
 	watcherDoneCh := make(chan struct{})
 	cancelCtx, cancel := context.WithCancel(ctx)
@@ -71,9 +71,9 @@ func newCloudWatcher(ctx context.Context, config *Config, rootLogger logging.Roo
 			if time.Now().After(nextCheckForNewCert) {
 				checkForNewCert = true
 			}
-			newConfig, err := readFromCloud(cancelCtx, config, prevCfg, false, checkForNewCert, rootLogger.GetRegistry(), rootLogger)
+			newConfig, err := readFromCloud(cancelCtx, config, prevCfg, false, checkForNewCert, logger)
 			if err != nil {
-				rootLogger.Errorw("error reading cloud config", "error", err)
+				logger.Errorw("error reading cloud config", "error", err)
 				continue
 			}
 			if cp, err := newConfig.CopyOnlyPublicFields(); err == nil {
@@ -119,7 +119,7 @@ type fsConfigWatcher struct {
 
 // newFSWatcher returns a new v that will fetch new configs
 // as soon as the underlying file is written to.
-func newFSWatcher(ctx context.Context, configPath string, logger logging.RootLogger) (*fsConfigWatcher, error) {
+func newFSWatcher(ctx context.Context, configPath string, logger logging.Logger) (*fsConfigWatcher, error) {
 	fsWatcher, err := fsnotify.NewWatcher()
 	if err != nil {
 		return nil, err

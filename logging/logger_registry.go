@@ -6,6 +6,9 @@ import (
 	"sync"
 )
 
+// Registry is a registry of loggers. It is stored on a logger, and holds a map
+// of known subloggers (`loggers`) and a slice of configuration objects
+// (`logConfig`).
 type Registry struct {
 	mu        sync.RWMutex
 	loggers   map[string]Logger
@@ -24,44 +27,12 @@ func (lr *Registry) registerLogger(name string, logger Logger) {
 	lr.loggers[name] = logger
 }
 
-func (lr *Registry) deregisterLogger(name string) bool {
-	lr.mu.Lock()
-	defer lr.mu.Unlock()
-	_, ok := lr.loggers[name]
-	if ok {
-		delete(lr.loggers, name)
-	}
-	return ok
-}
-
-func (lr *Registry) loggerNamed(name string) (logger Logger, ok bool) {
+// LoggerNamed gets the logger named `name` if it exists.
+func (lr *Registry) LoggerNamed(name string) (logger Logger, ok bool) {
 	lr.mu.RLock()
 	defer lr.mu.RUnlock()
 	logger, ok = lr.loggers[name]
 	return
-}
-
-// updateLoggerLevelWithCfg must be called with a read or write lock on `lr.mu`.
-func (lr *Registry) updateLoggerLevelWithCfg(name string) error {
-	for _, lpc := range lr.logConfig {
-		r, err := regexp.Compile(buildRegexFromPattern(lpc.Pattern))
-		if err != nil {
-			return err
-		}
-		if r.MatchString(name) {
-			logger, ok := lr.loggers[name]
-			if !ok {
-				return fmt.Errorf("logger named %s not recognized", name)
-			}
-			level, err := LevelFromString(lpc.Level)
-			if err != nil {
-				return err
-			}
-			logger.SetLevel(level)
-		}
-	}
-
-	return nil
 }
 
 func (lr *Registry) updateLoggerLevel(name string, level Level) error {
@@ -75,7 +46,9 @@ func (lr *Registry) updateLoggerLevel(name string, level Level) error {
 	return nil
 }
 
-func (lr *Registry) UpdateConfig(logConfig []LoggerPatternConfig, errorLogger Logger) error {
+// Update updates the logger registry with the passed in `logConfig`. Invalid patterns
+// are warn-logged through the warnLogger.
+func (lr *Registry) Update(logConfig []LoggerPatternConfig, warnLogger Logger) error {
 	lr.mu.Lock()
 	lr.logConfig = logConfig
 	lr.mu.Unlock()
@@ -83,7 +56,7 @@ func (lr *Registry) UpdateConfig(logConfig []LoggerPatternConfig, errorLogger Lo
 	appliedConfigs := make(map[string]Level)
 	for _, lpc := range logConfig {
 		if !validatePattern(lpc.Pattern) {
-			errorLogger.Warnw("failed to validate a pattern", "pattern", lpc.Pattern)
+			warnLogger.Warnw("failed to validate a pattern", "pattern", lpc.Pattern)
 			continue
 		}
 
@@ -127,7 +100,8 @@ func (lr *Registry) getRegisteredLoggerNames() []string {
 	return registeredNames
 }
 
-func (lr *Registry) getCurrentConfig() []LoggerPatternConfig {
+// GetCurrentConfig gets the current config.
+func (lr *Registry) GetCurrentConfig() []LoggerPatternConfig {
 	lr.mu.RLock()
 	defer lr.mu.RUnlock()
 	return lr.logConfig
@@ -141,7 +115,7 @@ func (lr *Registry) getCurrentConfig() []LoggerPatternConfig {
 // Such that if concurrent callers try registering the same logger, the "winner"s logger will be
 // registered and all losers will return the winning logger.
 //
-// It is expected in racing scenarios that all callers are trying to register behaviorly equivalent
+// It is expected in racing scenarios that all callers are trying to register behavioral equivalent
 // `logger` objects.
 func (lr *Registry) getOrRegister(name string, logger Logger) Logger {
 	lr.mu.Lock()
@@ -151,6 +125,22 @@ func (lr *Registry) getOrRegister(name string, logger Logger) Logger {
 	}
 
 	lr.loggers[name] = logger
-	lr.updateLoggerLevelWithCfg(name)
+	for _, lpc := range lr.logConfig {
+		r, err := regexp.Compile(buildRegexFromPattern(lpc.Pattern))
+		if err != nil {
+			// Can ignore error here; invalid pattern will already have been
+			// warn-logged as part of config reading.
+			continue
+		}
+		if r.MatchString(name) {
+			level, err := LevelFromString(lpc.Level)
+			if err != nil {
+				// Can ignore error here; invalid level will already have been
+				// warn-logged as part of config reading.
+				continue
+			}
+			logger.SetLevel(level)
+		}
+	}
 	return logger
 }

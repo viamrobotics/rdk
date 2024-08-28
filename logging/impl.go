@@ -65,6 +65,10 @@ func (imp *impl) GetLevel() Level {
 	return imp.level.Get()
 }
 
+func (imp *impl) GetRegistry() *Registry {
+	return imp.registry
+}
+
 func (imp *impl) Level() zapcore.Level {
 	return imp.GetLevel().AsZap()
 }
@@ -85,7 +89,7 @@ func (imp *impl) Sublogger(subname string) Logger {
 		imp.testHelper,
 	}
 
-	// If there are multiple callers racing to create the same logger name (e.g: `rdk.networking`),
+	// If there are multiple callers racing to create the same logger name (e.g: `viam.networking`),
 	// all callers will create a `Sublogger`, but only one will "win" the race. All "losers" will
 	// get the same instance that's guaranteed to be in the registry.
 	//

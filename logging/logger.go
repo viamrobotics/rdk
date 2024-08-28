@@ -9,24 +9,13 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
-type RootLogger struct {
-	*impl
-}
-
-func (rootLogger RootLogger) GetRegistry() *Registry {
-	return rootLogger.impl.registry
-}
-
-func (rootLogger RootLogger) RootSublogger(name string) RootLogger {
-	return RootLogger{rootLogger.Sublogger(name).(*impl)}
-}
-
 // Logger interface for logging to.
 type Logger interface {
 	ZapCompatibleLogger
 
 	SetLevel(level Level)
 	GetLevel() Level
+	GetRegistry() *Registry
 	Sublogger(subname string) Logger
 	AddAppender(appender Appender)
 	AsZap() *zap.SugaredLogger
@@ -117,6 +106,11 @@ func (logger *zLogger) SetLevel(level Level) {
 func (logger *zLogger) GetLevel() Level {
 	// Not supported
 	return INFO
+}
+
+func (logger *zLogger) GetRegistry() *Registry {
+	// Not supported
+	return nil
 }
 
 func (logger *zLogger) AddAppender(appender Appender) {

@@ -35,33 +35,43 @@ type CloudConfig struct {
 // NewNetAppender creates a NetAppender to send log events to the app backend. NetAppenders ought to
 // be `Close`d prior to shutdown to flush remaining logs.
 // Pass `nil` for `conn` if you want this to create its own connection.
-func NewNetAppender(config *CloudConfig, conn rpc.ClientConn, sharedConn bool) (*NetAppender, error) {
-	return newNetAppender(config, conn, sharedConn, true)
+func NewNetAppender(
+	config *CloudConfig,
+	conn rpc.ClientConn,
+	sharedConn bool,
+	loggerWithoutNet Logger,
+) (*NetAppender, error) {
+	return newNetAppender(config, conn, sharedConn, true, loggerWithoutNet)
 }
 
 // inner function for NewNetAppender which can disable background worker in tests.
-func newNetAppender(config *CloudConfig, conn rpc.ClientConn, sharedConn, startBackgroundWorker bool) (*NetAppender, error) {
+func newNetAppender(
+	config *CloudConfig,
+	conn rpc.ClientConn,
+	sharedConn,
+	startBackgroundWorker bool,
+	loggerWithoutNet Logger,
+) (*NetAppender, error) {
 	hostname, err := os.Hostname()
 	if err != nil {
 		return nil, err
 	}
 
 	logWriter := &remoteLogWriterGRPC{
-		cfg:        config,
-		sharedConn: sharedConn,
+		cfg:              config,
+		sharedConn:       sharedConn,
+		loggerWithoutNet: loggerWithoutNet,
 	}
 
 	cancelCtx, cancel := context.WithCancel(context.Background())
 
 	nl := &NetAppender{
-		hostname:     hostname,
-		cancelCtx:    cancelCtx,
-		cancel:       cancel,
-		remoteWriter: logWriter,
-		maxQueueSize: defaultMaxQueueSize,
-		// Pass in a registry to create a new logger? Or pass in a logger and warn loudly the logger
-		// must not depend on this NetAppender?
-		loggerWithoutNet: NewLogger("rdk.networking.netlogger"),
+		hostname:         hostname,
+		cancelCtx:        cancelCtx,
+		cancel:           cancel,
+		remoteWriter:     logWriter,
+		maxQueueSize:     defaultMaxQueueSize,
+		loggerWithoutNet: loggerWithoutNet,
 	}
 
 	nl.SetConn(conn, sharedConn)
@@ -89,7 +99,8 @@ type NetAppender struct {
 	cancel                  func()
 	activeBackgroundWorkers sync.WaitGroup
 
-	// the netLogger causing a recursive loop.
+	// `loggerWithoutNet` is the logger to use for meta/internal logs
+	// from the `NetAppender`.
 	loggerWithoutNet Logger
 }
 
@@ -365,6 +376,9 @@ type remoteLogWriterGRPC struct {
 	clientMutex sync.Mutex
 	// When sharedConn = true, don't create or destroy connections; use what we're given.
 	sharedConn bool
+
+	// `loggerWithoutNet` is the logger to use for meta/internal logs from the `remoteLogWriterGRPC`.
+	loggerWithoutNet Logger
 }
 
 func (w *remoteLogWriterGRPC) write(ctx context.Context, logs []*commonpb.LogEntry) error {
@@ -396,7 +410,7 @@ func (w *remoteLogWriterGRPC) getOrCreateClient(ctx context.Context) (apppb.Robo
 		return nil, errUninitializedConnection
 	}
 
-	client, err := CreateNewGRPCClient(ctx, w.cfg)
+	client, err := CreateNewGRPCClient(ctx, w.cfg, w.loggerWithoutNet)
 	if err != nil {
 		return nil, err
 	}
@@ -420,7 +434,7 @@ func (w *remoteLogWriterGRPC) close() {
 
 // CreateNewGRPCClient creates a new grpc cloud configured to communicate with the robot service
 // based on the cloud config given.
-func CreateNewGRPCClient(ctx context.Context, cloudCfg *CloudConfig) (rpc.ClientConn, error) {
+func CreateNewGRPCClient(ctx context.Context, cloudCfg *CloudConfig, logger Logger) (rpc.ClientConn, error) {
 	grpcURL, err := url.Parse(cloudCfg.AppAddress)
 	if err != nil {
 		return nil, err
@@ -441,9 +455,7 @@ func CreateNewGRPCClient(ctx context.Context, cloudCfg *CloudConfig) (rpc.Client
 		dialOpts = append(dialOpts, rpc.WithInsecure())
 	}
 
-	// Pass in a registry to create a new logger? Or pass in a logger and warn loudly the logger
-	// must not depend on this NetAppender?
-	return rpc.DialDirectGRPC(ctx, grpcURL.Host, NewLogger("rdk.networking.netlogger"), dialOpts...)
+	return rpc.DialDirectGRPC(ctx, grpcURL.Host, logger, dialOpts...)
 }
 
 // A NetAppender must implement a zapcore such that it gets copied when downconverting on
