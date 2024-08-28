@@ -13,6 +13,7 @@ import (
 	v1 "go.viam.com/api/app/v1"
 	pb "go.viam.com/api/module/v1"
 	"go.viam.com/test"
+	"go.viam.com/utils"
 	"go.viam.com/utils/protoutils"
 	"go.viam.com/utils/rpc"
 	"google.golang.org/grpc"
@@ -731,72 +732,82 @@ func setupLocalModule(t *testing.T, ctx context.Context, logger logging.Logger) 
 	// Use 'foo.sock' for arbitrary module to test AddModelFromRegistry.
 	m, err := module.NewModule(ctx, filepath.Join(t.TempDir(), "foo.sock"), logger)
 	test.That(t, err, test.ShouldBeNil)
+	t.Cleanup(func() {
+		m.Close(ctx)
+	})
 
 	// Hit Ready as a way to close m.pcFailed, so that AddResource can proceed. Set NoModuleParentEnvVar so that parent connection
 	// will not be attempted.
 	test.That(t, os.Setenv(module.NoModuleParentEnvVar, "true"), test.ShouldBeNil)
-	_, err = m.Ready(ctx, &pb.ReadyRequest{})
-	test.That(t, err, test.ShouldBeNil)
-
 	t.Cleanup(func() {
-		m.Close(ctx)
 		test.That(t, os.Unsetenv(module.NoModuleParentEnvVar), test.ShouldBeNil)
 	})
+
+	_, err = m.Ready(ctx, &pb.ReadyRequest{})
+	test.That(t, err, test.ShouldBeNil)
 	return m
 }
 
 // TestModuleAddResource tests that modular resources gets closed on add if context is done before resource finished creation.
 func TestModuleAddResource(t *testing.T) {
-	ctx := context.Background()
+	type testHarness struct {
+		ctx context.Context
 
-	m := setupLocalModule(t, ctx, logging.NewTestLogger(t))
-
-	var (
-		shouldCancel bool
-
+		m              *module.Module
+		cfg            *v1.ComponentConfig
 		constructCount int
 		closeCount     int
-	)
-	ctx, cancel := context.WithCancel(ctx)
-	model := resource.NewModel("inject", "demo", "shell")
-	resource.RegisterService(shell.API, model, resource.Registration[shell.Service, *MockConfig]{
-		Constructor: func(
-			ctx context.Context, deps resource.Dependencies, cfg resource.Config, logger logging.Logger,
-		) (shell.Service, error) {
-			if shouldCancel {
-				cancel()
-			}
-			constructCount++
-			return &inject.ShellService{
-				CloseFunc: func(ctx context.Context) error { closeCount++; return nil },
-			}, nil
-		},
-	})
-	defer resource.Deregister(shell.API, model)
-	test.That(t, m.AddModelFromRegistry(ctx, shell.API, model), test.ShouldBeNil)
+	}
+
+	setupTest := func(t *testing.T, shouldCancel bool) *testHarness {
+		var th testHarness
+
+		ctx, cancelFunc := context.WithCancel(context.Background())
+		t.Cleanup(func() { cancelFunc() })
+		th.ctx = ctx
+
+		modelName := utils.RandomAlphaString(5)
+		model := resource.DefaultModelFamily.WithModel(modelName)
+
+		resource.RegisterService(shell.API, model, resource.Registration[shell.Service, *MockConfig]{
+			Constructor: func(
+				ctx context.Context, deps resource.Dependencies, cfg resource.Config, logger logging.Logger,
+			) (shell.Service, error) {
+				th.constructCount++
+				if shouldCancel {
+					cancelFunc()
+					<-ctx.Done()
+				}
+				return &inject.ShellService{
+					CloseFunc: func(ctx context.Context) error { th.closeCount++; return nil },
+				}, nil
+			},
+		})
+		t.Cleanup(func() {
+			resource.Deregister(shell.API, model)
+		})
+
+		th.m = setupLocalModule(t, ctx, logging.NewTestLogger(t))
+		test.That(t, th.m.AddModelFromRegistry(ctx, shell.API, model), test.ShouldBeNil)
+
+		th.cfg = &v1.ComponentConfig{Name: "mymock", Api: shell.API.String(), Model: model.String()}
+		return &th
+	}
 
 	t.Run("add resource normally", func(t *testing.T) {
-		constructCount = 0
-		closeCount = 0
-		_, err := m.AddResource(ctx, &pb.AddResourceRequest{
-			Config: &v1.ComponentConfig{Name: "mymock", Api: shell.API.String(), Model: model.String()},
-		})
+		th := setupTest(t, false)
+		_, err := th.m.AddResource(th.ctx, &pb.AddResourceRequest{Config: th.cfg})
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, constructCount, test.ShouldEqual, 1)
-		test.That(t, closeCount, test.ShouldEqual, 0)
+		test.That(t, th.constructCount, test.ShouldEqual, 1)
+		test.That(t, th.closeCount, test.ShouldEqual, 0)
 	})
 
-	t.Run("add resource but cancel the ctx during construction", func(t *testing.T) {
-		shouldCancel = true
-		constructCount = 0
-		closeCount = 0
-
-		_, err := m.AddResource(ctx, &pb.AddResourceRequest{
-			Config: &v1.ComponentConfig{Name: "mymock", Api: shell.API.String(), Model: model.String()},
-		})
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, constructCount, test.ShouldEqual, 1)
-		test.That(t, closeCount, test.ShouldEqual, 1)
+	t.Run("cancel ctx during resource add", func(t *testing.T) {
+		th := setupTest(t, true)
+		_, err := th.m.AddResource(th.ctx, &pb.AddResourceRequest{Config: th.cfg})
+		test.That(t, err, test.ShouldBeError, context.Canceled)
+		test.That(t, th.constructCount, test.ShouldEqual, 1)
+		test.That(t, th.closeCount, test.ShouldEqual, 1)
 	})
 }
 
