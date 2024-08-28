@@ -365,7 +365,7 @@ func (s *Sync) syncDataCaptureFile(f *os.File, captureDir string, logger logging
 	retry := newExponentialRetry(s.configCtx, s.clock, s.logger, f.Name(), func(ctx context.Context) error {
 		msg := "error uploading data capture file %s, size: %d, md: %s"
 		errMetadata := fmt.Sprintf(msg, captureFile.GetPath(), captureFile.Size(), captureFile.ReadMetadata())
-		return errors.Wrap(uploadDataCaptureFile(ctx, captureFile, s.cloudConn), errMetadata)
+		return errors.Wrap(uploadDataCaptureFile(ctx, captureFile, s.cloudConn, logger), errMetadata)
 	})
 
 	if err := retry.run(); err != nil {
@@ -397,7 +397,7 @@ func (s *Sync) syncArbitraryFile(f *os.File, tags []string, fileLastModifiedMill
 	retry := newExponentialRetry(s.configCtx, s.clock, s.logger, f.Name(), func(ctx context.Context) error {
 		errMetadata := fmt.Sprintf("error uploading file %s", f.Name())
 		logger.Debugf("attempting to upload file %s via FileUpload api", f.Name())
-		return errors.Wrap(uploadArbitraryFile(ctx, f, s.cloudConn, tags, fileLastModifiedMillis, s.clock), errMetadata)
+		return errors.Wrap(uploadArbitraryFile(ctx, f, s.cloudConn, tags, fileLastModifiedMillis, s.clock, logger), errMetadata)
 	})
 
 	if err := retry.run(); err != nil {

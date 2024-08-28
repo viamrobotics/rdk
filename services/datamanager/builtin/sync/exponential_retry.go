@@ -35,7 +35,13 @@ func newExponentialRetry(
 	name string,
 	fun func(context.Context) error,
 ) exponentialRetry {
-	return exponentialRetry{ctx: ctx, clock: clock, logger: logger, name: name, fun: fun}
+	return exponentialRetry{
+		ctx:    ctx,
+		clock:  clock,
+		logger: logger,
+		name:   name,
+		fun:    fun,
+	}
 }
 
 type exponentialRetry struct {
