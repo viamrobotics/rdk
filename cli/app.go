@@ -1036,6 +1036,19 @@ var app = &cli.App{
 					Action: DataGetTrainingJob,
 				},
 				{
+					Name:      "logs",
+					Usage:     "gets training job logs from Viam cloud based on training job ID",
+					UsageText: createUsageText("train logs", []string{trainFlagJobID}, false),
+					Flags: []cli.Flag{
+						&cli.StringFlag{
+							Name:     trainFlagJobID,
+							Usage:    "training job ID",
+							Required: true,
+						},
+					},
+					Action: MLGetTrainingJobLogs,
+				},
+				{
 					Name:      "cancel",
 					Usage:     "cancels training job in Viam cloud based on training job ID",
 					UsageText: createUsageText("train cancel", []string{trainFlagJobID}, false),
