@@ -418,34 +418,7 @@ func (ptgk *ptgBaseKinematics) courseCorrect(
 			connectionPoint := arcSteps[solution.stepIdx]
 
 			// Construct deep copy of the connectionPoint to avoid data race
-			connectionPointDeepCopy := arcStep{
-				linVelMMps:      connectionPoint.linVelMMps,
-				angVelDegps:     connectionPoint.angVelDegps,
-				durationSeconds: connectionPoint.durationSeconds,
-				arcSegment:      ik.Segment{},
-				subTraj:         make([]*tpspace.TrajNode, len(connectionPoint.subTraj)),
-			}
-
-			// Deep copy subTraj slice
-			for i, trajNode := range connectionPoint.subTraj {
-				if trajNode != nil {
-					copiedNode := *trajNode
-					connectionPointDeepCopy.subTraj[i] = &copiedNode
-				}
-			}
-
-			// Copy arcSegment
-			startCfgCopy := make([]referenceframe.Input, len(connectionPoint.arcSegment.StartConfiguration))
-			copy(startCfgCopy, connectionPoint.arcSegment.StartConfiguration)
-			connectionPointDeepCopy.arcSegment.StartConfiguration = startCfgCopy
-
-			endCfgCopy := make([]referenceframe.Input, len(connectionPoint.arcSegment.EndConfiguration))
-			copy(endCfgCopy, connectionPoint.arcSegment.EndConfiguration)
-			connectionPointDeepCopy.arcSegment.EndConfiguration = endCfgCopy
-
-			connectionPointDeepCopy.arcSegment.StartPosition = connectionPoint.arcSegment.StartPosition
-			connectionPointDeepCopy.arcSegment.EndPosition = connectionPoint.arcSegment.EndPosition
-			connectionPointDeepCopy.arcSegment.Frame = connectionPoint.arcSegment.Frame
+			connectionPointDeepCopy := copyArcStep(connectionPoint)
 
 			arcOriginalLength := math.Abs(
 				connectionPointDeepCopy.arcSegment.EndConfiguration[endDistanceAlongTrajectoryIndex].Value -
@@ -639,4 +612,38 @@ func (ptgk *ptgBaseKinematics) stepsToPlan(steps []arcStep, parentFrame string) 
 	}
 
 	return motionplan.NewSimplePlan(path, traj)
+}
+
+func copyArcStep(step arcStep) arcStep {
+	// Construct deep copy of the connectionPoint to avoid data race
+	stepDeepCopy := arcStep{
+		linVelMMps:      step.linVelMMps,
+		angVelDegps:     step.angVelDegps,
+		durationSeconds: step.durationSeconds,
+		arcSegment:      ik.Segment{},
+		subTraj:         make([]*tpspace.TrajNode, len(step.subTraj)),
+	}
+
+	// Deep copy subTraj slice
+	for i, trajNode := range step.subTraj {
+		if trajNode != nil {
+			copiedNode := *trajNode
+			stepDeepCopy.subTraj[i] = &copiedNode
+		}
+	}
+
+	// Copy arcSegment
+	startCfgCopy := make([]referenceframe.Input, len(step.arcSegment.StartConfiguration))
+	copy(startCfgCopy, step.arcSegment.StartConfiguration)
+	stepDeepCopy.arcSegment.StartConfiguration = startCfgCopy
+
+	endCfgCopy := make([]referenceframe.Input, len(step.arcSegment.EndConfiguration))
+	copy(endCfgCopy, step.arcSegment.EndConfiguration)
+	stepDeepCopy.arcSegment.EndConfiguration = endCfgCopy
+
+	stepDeepCopy.arcSegment.StartPosition = step.arcSegment.StartPosition
+	stepDeepCopy.arcSegment.EndPosition = step.arcSegment.EndPosition
+	stepDeepCopy.arcSegment.Frame = step.arcSegment.Frame
+
+	return stepDeepCopy
 }
