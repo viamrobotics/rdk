@@ -414,7 +414,8 @@ func TestCaptureBufferReader(t *testing.T) {
 				resourceName:     resource.NewName(resource.APINamespaceRDK.WithServiceType("slam"), "my-slam"),
 				additionalParams: map[string]string{"some": "params"},
 				tags:             []string{"my", "tags"},
-				// NOTE: The fact that this doesn't get a .pcd extension is contrary to
+				// NOTE: The fact that this doesn't get a .pcd extension is inconsistent with
+				// how camera.NextPointCloud is handled
 				methodName: pointCloudMap,
 			},
 		}
