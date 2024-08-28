@@ -114,19 +114,20 @@ func (c *Capture) newCollectors(collectorConfigsByResource CollectorConfigsByRes
 			// We only use service-level tags.
 			cfg.Tags = config.Tags
 			if cfg.Disabled {
-				c.logger.Debugf("%s disabled. config: %#v", md.String(), cfg)
+				c.logger.Infof("%s disabled. config: %#v", md.String(), cfg)
 				continue
 			}
 
 			if cfg.CaptureFrequencyHz <= 0 {
 				msg := "%s disabled due to `capture_frequency_hz` being less than or equal to zero. config: %#v"
-				c.logger.Debugf(msg, md.String(), cfg)
+				c.logger.Warnf(msg, md.String(), cfg)
 				continue
 			}
 
 			newCollectorAndConfig, err := c.initializeOrUpdateCollector(res, md, cfg, config)
 			if err != nil {
-				c.logger.Errorw("failed to initialize or update collector", "error", err)
+				c.logger.Warnw("failed to initialize or update collector",
+					"error", err, "resource_name", res.Name(), "metadata", md, "data capture config", cfg)
 				continue
 			}
 			c.logger.Debugf("%s initialized or updated with config: %#v", md.String(), cfg)
@@ -201,7 +202,7 @@ func (c *Capture) initializeOrUpdateCollector(
 			return c.collectors[md], nil
 		}
 		// If the attributes have changed, close the existing collector.
-		c.logger.Debugf("%s closing collector as config changed", md.String())
+		c.logger.Debugf("%s closing collector as config changed", md)
 		storedCollectorAndConfig.Collector.Close()
 	}
 
@@ -216,7 +217,7 @@ func (c *Capture) initializeOrUpdateCollector(
 	if ok {
 		if _, ok := collectorConfig.AdditionalParams[additionalParamKey]; !ok {
 			return nil, errors.Errorf("failed to validate additional_params for %s, must supply %s",
-				md.MethodMetadata.API.String(), additionalParamKey)
+				md.MethodMetadata.API, additionalParamKey)
 		}
 	}
 
@@ -250,6 +251,7 @@ func (c *Capture) initializeOrUpdateCollector(
 		return nil, err
 	}
 
+	c.logger.Debugf("staring collector for %s", md)
 	collector.Collect()
 
 	return &collectorAndConfig{res, collector, collectorConfig}, nil
