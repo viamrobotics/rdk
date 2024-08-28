@@ -214,16 +214,6 @@ func (ms *builtIn) Move(
 	}
 	goalPose, _ := tf.(*referenceframe.PoseInFrame)
 
-	// Check that we have some planDeviationMM value for our requested motion
-	_, ok := extra["planDeviationMM"].(float64)
-	if !ok {
-		if extra == nil {
-			extra = map[string]interface{}{"planDeviationMM": 1e-4}
-		} else {
-			extra["planDeviationMM"] = 1e-4
-		}
-	}
-
 	// the goal is to move the component to goalPose which is specified in coordinates of goalFrameName
 	plan, err := motionplan.PlanMotion(ctx, &motionplan.PlanRequest{
 		Logger:             ms.logger,
@@ -237,10 +227,6 @@ func (ms *builtIn) Move(
 	})
 	if err != nil {
 		return false, err
-	}
-	// if the length of the plan's Path and Trajectory are both equal to zero this means that we started at the goal
-	if len(plan.Path()) == 0 && len(plan.Trajectory()) == 0 {
-		return true, nil
 	}
 
 	// move all the components

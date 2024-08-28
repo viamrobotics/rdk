@@ -838,6 +838,19 @@ func (ms *builtIn) createBaseMoveRequest(
 
 	goal := referenceframe.NewPoseInFrame(referenceframe.World, goalPoseInWorld)
 
+	// Here we determine if we already are at the goal
+	// If our motion profile is position_only then, we only check against our current & desired position
+	// Conversely if our motion profile is anything else, then we also need to check again our
+	// current & desired orientation
+	if valExtra.motionProfile == motionplan.PositionOnlyMotionProfile {
+		if spatialmath.PoseAlmostCoincidentEps(goal.Pose(), startPose, motionCfg.planDeviationMM) {
+			return nil, motion.ErrGoalWithinPlanDeviation
+		}
+	} else if spatialmath.OrientationAlmostEqual(goal.Pose().Orientation(), startPose.Orientation()) &&
+		spatialmath.PoseAlmostCoincidentEps(goal.Pose(), startPose, motionCfg.planDeviationMM) {
+		return nil, motion.ErrGoalWithinPlanDeviation
+	}
+
 	gif := referenceframe.NewGeometriesInFrame(referenceframe.World, worldObstacles)
 	worldState, err := referenceframe.NewWorldState([]*referenceframe.GeometriesInFrame{gif}, nil)
 	if err != nil {
@@ -868,6 +881,8 @@ func (ms *builtIn) createBaseMoveRequest(
 		return nil, err
 	}
 
+	var backgroundWorkers sync.WaitGroup
+
 	// effectively don't poll if the PositionPollingFreqHz is not provided
 	positionPollingFreq := time.Duration(math.MaxInt64)
 	if motionCfg.positionPollingFreqHz > 0 {
@@ -879,11 +894,6 @@ func (ms *builtIn) createBaseMoveRequest(
 	if motionCfg.obstaclePollingFreqHz > 0 {
 		obstaclePollingFreq = time.Duration(1000/motionCfg.obstaclePollingFreqHz) * time.Millisecond
 	}
-
-	// assign a planDeviationMM to our PlanRequest options so we know if we are already at the goal at plan time
-	valExtra.extra["planDeviationMM"] = motionCfg.planDeviationMM
-
-	var backgroundWorkers sync.WaitGroup
 
 	mr := &moveRequest{
 		config: motionCfg,
