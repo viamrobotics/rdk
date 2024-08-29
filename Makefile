@@ -20,9 +20,12 @@ default: build lint server
 setup:
 	bash etc/setup.sh
 
+GOOS ?= $(shell go env GOOS)
+GOARCH ?= $(shell go env GOARCH)
+
 .PHONY: modulegen
 modulegen:
-	./cli/modulegen/build.sh
+	OS=$(GOOS) ARCH=$(GOARCH) ./cli/modulegen/install.sh
 
 bin/$(GOOS)-$(GOARCH)/viam-cli: modulegen
 	go build $(LDFLAGS) -tags osusergo,netgo -o $@ ./cli/viam
@@ -32,11 +35,8 @@ cli: bin/$(GOOS)-$(GOARCH)/viam-cli
 
 build: build-web build-go
 
-build-go: cli/modulegen/dist/__main__
+build-go: cli/.__module_gen
 	go build ./...
-
-GOOS ?= $(shell go env GOOS)
-GOARCH ?= $(shell go env GOARCH)
 
 .PHONY: cli-ci
 cli-ci: bin/$(GOOS)-$(GOARCH)/viam-cli
@@ -153,6 +153,10 @@ ffmpeg: $(FFMPEG_ROOT)
 
 	# Only keep archive files. Different architectures can share the same source files.
 	find $(FFMPEG_PREFIX)/* -type d ! -wholename $(FFMPEG_PREFIX)/lib | xargs rm -rf
+
+.PHONY: foobar
+foobar:
+	GOOS=$(GOOS) ./cli/modulegen/install.sh
 
 
 include *.make

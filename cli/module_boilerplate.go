@@ -15,7 +15,7 @@ import (
 	goutils "go.viam.com/utils"
 )
 
-//go:embed modulegen/dist/__main__
+//go:embed modulegen/.__module_gen
 var executable []byte
 
 func writeExecutableFile(fileName string) error {
