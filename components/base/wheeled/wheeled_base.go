@@ -315,7 +315,7 @@ func (wb *wheeledBase) runAllGoFor(ctx context.Context, leftRPM, leftRotations, 
 		}
 		// Log the context canceled error as a warning.
 		// This can happen when the UI is closed or something went wrong during the operation.
-		wb.logger.Warn(err)
+		wb.logger.Warnf("Context cancelled during GoFor ", err)
 	}
 	return nil
 }
@@ -361,7 +361,7 @@ func (wb *wheeledBase) runAllSetRPM(ctx context.Context, leftRPM, rightRPM float
 		}
 		// Log the context canceled error as a warning.
 		// This can happen when the UI is closed or something went wrong during the operation.
-		wb.logger.Warn(err)
+		wb.logger.Warn("Context cancelled during SetRPM ", err)
 	}
 	return nil
 }
