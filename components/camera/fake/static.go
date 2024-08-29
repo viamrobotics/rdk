@@ -1,6 +1,4 @@
-//go:build !no_cgo
-
-package videosource
+package fake
 
 import (
 	"context"
