@@ -208,7 +208,8 @@ func (e *Encoder) start(ctx context.Context, b board.Board) {
 					atomic.AddInt64(&e.position, dir)
 				}
 			} else {
-				e.logger.CDebug(ctx, "received tick for encoder that isn't connected to a motor; ignoring")
+				// no motor is attached to the encoder - increase in positive direction.
+				atomic.AddInt64(&e.position, 1)
 			}
 		}
 	})
