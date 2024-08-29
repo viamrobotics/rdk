@@ -35,7 +35,7 @@ cli: bin/$(GOOS)-$(GOARCH)/viam-cli
 
 build: build-web build-go
 
-build-go: cli/.__module_gen
+build-go: cli/modulegen/.__module_gen
 	go build ./...
 
 .PHONY: cli-ci
@@ -153,10 +153,6 @@ ffmpeg: $(FFMPEG_ROOT)
 
 	# Only keep archive files. Different architectures can share the same source files.
 	find $(FFMPEG_PREFIX)/* -type d ! -wholename $(FFMPEG_PREFIX)/lib | xargs rm -rf
-
-.PHONY: foobar
-foobar:
-	GOOS=$(GOOS) ./cli/modulegen/install.sh
 
 
 include *.make
