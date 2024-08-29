@@ -2,6 +2,7 @@ package sync
 
 import (
 	"context"
+	"fmt"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -64,7 +65,7 @@ func maybeDeleteExcessFiles(
 	start := clock.Now()
 	logger.Debug("checking disk usage")
 	usage, err := diskusage.Statfs(captureDir)
-	logger.Debugf("disk usage: %#v", usage)
+	logger.Debugf("disk usage: %s", usage)
 	if err != nil {
 		logger.Error(errors.Wrap(err, "error checking file system stats"))
 		return
@@ -127,8 +128,10 @@ func shouldDeleteBasedOnDiskUsage(
 ) (bool, error) {
 	usedSpace := 1.0 - usage.AvailablePercent()
 	if usedSpace < FSThresholdToTriggerDeletion {
-		logger.Debugf("disk not full enough, exiting. Used space(percent): %f, available space(bytes): %d, size(bytes): %d",
-			usedSpace, usage.AvailableBytes, usage.SizeBytes)
+		logger.Debugf("disk not full enough. Threshold: %s, Used space: %s, %s",
+			fmt.Sprintf("%.2f", FSThresholdToTriggerDeletion*100)+"%",
+			fmt.Sprintf("%.2f", usedSpace*100)+"%",
+			usage)
 		return false, nil
 	}
 	// Walk the dir to get capture stats

@@ -25,12 +25,12 @@ var MaxUnaryFileSize = int64(units.MB)
 // uses StreamingDataCaptureUpload API so as to not exceed the unary response size.
 // Otherwise uploads data over DataCaptureUpload API.
 func uploadDataCaptureFile(ctx context.Context, f *data.CaptureFile, conn cloudConn, logger logging.Logger) error {
-	logger.Debugf("attemping to upload data capture file: %s", f.GetPath())
+	logger.Debugf("preparing to upload data capture file: %s", f.GetPath())
 
 	md := f.ReadMetadata()
 	sensorData, err := data.SensorDataFromCaptureFile(f)
 	if err != nil {
-		return errors.Wrapf(err, "error reading sensor data from data capture file %s", f.GetPath())
+		return errors.Wrap(err, "error reading sensor data")
 	}
 
 	// Do not attempt to upload a file without any sensor readings.
@@ -47,6 +47,7 @@ func uploadDataCaptureFile(ctx context.Context, f *data.CaptureFile, conn cloudC
 	// camera.GetImages is a special case. For that API we make 2 binary data upload requests
 	if md.GetType() == v1.DataType_DATA_TYPE_BINARY_SENSOR && md.GetMethodName() == data.GetImages {
 		logger.Debugf("attemping to upload camera.GetImages data: %s", f.GetPath())
+
 		return uploadGetImages(ctx, conn, md, sensorData[0], f.Size(), f.GetPath(), logger)
 	}
 
@@ -78,7 +79,7 @@ func uploadGetImages(
 ) error {
 	var res pb.GetImagesResponse
 	if err := mapstructure.Decode(sd.GetStruct().AsMap(), &res); err != nil {
-		return errors.Wrapf(err, "failed to decode camera.GetImagesResponse from data capture file %s", path)
+		return errors.Wrap(err, "failed to decode camera.GetImagesResponse")
 	}
 	timeRequested, timeReceived := getImagesTimestamps(&res, sd)
 
@@ -94,12 +95,12 @@ func uploadGetImages(
 				},
 			},
 		}
-		logger.Debugf("attempting to upload camera.GetImages response, index: %d, file: %s", i, path)
+		logger.Debugf("attempting to upload camera.GetImages response, index: %d", i)
 		metadata := uploadMetadata(conn.partID, md, getFileExtFromImageFormat(img.GetFormat()))
 		// TODO: This is wrong as the size describes the size of the entire GetImages response, but we are only
 		// uploading one of the 2 images in that response here.
 		if err := uploadSensorData(ctx, conn.client, metadata, newSensorData, size, path, logger); err != nil {
-			return errors.Wrapf(err, "failed uploading GetImages image index: %d, file: %s", i, path)
+			return errors.Wrapf(err, "failed uploading GetImages image index: %d", i)
 		}
 	}
 	return nil
@@ -135,7 +136,7 @@ func uploadSensorData(
 		logger.Debugf("attempting to upload large binary file using StreamingDataCaptureUpload, file: %s", path)
 		c, err := client.StreamingDataCaptureUpload(ctx)
 		if err != nil {
-			return errors.Wrapf(err, "error creating StreamingDataCaptureUpload client for data capture file: %s", path)
+			return errors.Wrap(err, "error creating StreamingDataCaptureUpload client")
 		}
 
 		toUpload := sensorData[0]
@@ -148,16 +149,16 @@ func uploadSensorData(
 			},
 		}
 		if err := c.Send(&v1.StreamingDataCaptureUploadRequest{UploadPacket: streamMD}); err != nil {
-			return errors.Wrapf(err, "StreamingDataCaptureUpload failed sending metadata for data capture file %s", path)
+			return errors.Wrap(err, "StreamingDataCaptureUpload failed sending metadata")
 		}
 
 		// Then call the function to send the rest.
 		if err := sendStreamingDCRequests(ctx, c, toUpload.GetBinary(), path, logger); err != nil {
-			return errors.Wrapf(err, "StreamingDataCaptureUpload failed to sync data capture file: %s", path)
+			return errors.Wrap(err, "StreamingDataCaptureUpload failed to sync")
 		}
 
 		_, err = c.CloseAndRecv()
-		return errors.Wrapf(err, "DataCaptureUpload CloseAndRecv failed to sync data capture file %s", path)
+		return errors.Wrap(err, "StreamingDataCaptureUpload CloseAndRecv failed")
 	}
 
 	// Otherwise use the unary endpoint
@@ -166,7 +167,7 @@ func uploadSensorData(
 		Metadata:       uploadMD,
 		SensorContents: sensorData,
 	})
-	return errors.Wrapf(err, "DataCaptureUpload failed to sync file: %s", path)
+	return errors.Wrap(err, "DataCaptureUpload failed")
 }
 
 func sendStreamingDCRequests(

@@ -94,6 +94,8 @@ func New(
 	connToConnectivityStateEnabled func(conn rpc.ClientConn) datasync.ConnectivityState,
 	logger logging.Logger,
 ) (datamanager.Service, error) {
+	logger.Debug("New START")
+	defer logger.Debug("New END")
 	capture := capture.New(
 		clk,
 		logger.Sublogger("capture"),
@@ -122,6 +124,8 @@ func New(
 
 // Close releases all resources managed by data_manager.
 func (b *builtIn) Close(_ context.Context) error {
+	b.logger.Debug("Close START")
+	defer b.logger.Debug("Close END")
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	b.capture.Close()
@@ -136,6 +140,8 @@ func (b *builtIn) Close(_ context.Context) error {
 // If automated sync is also enabled, calling Sync will upload the files,
 // regardless of whether or not is the scheduled time.
 func (b *builtIn) Sync(ctx context.Context, extra map[string]interface{}) error {
+	b.logger.Debug("Sync START")
+	defer b.logger.Debug("Sync END")
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	return b.sync.Sync(ctx, extra)

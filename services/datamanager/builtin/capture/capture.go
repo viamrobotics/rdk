@@ -18,7 +18,6 @@ import (
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/datamanager"
-	"go.viam.com/rdk/utils"
 )
 
 // TODO: re-determine if queue size is optimal given we now support 10khz+ capture rates
@@ -66,8 +65,6 @@ type Capture struct {
 	captureDir string
 	// maxCaptureFileSize is only stored on Capture so that we can detect when it changs
 	maxCaptureFileSize int64
-	// collectorFrequencyHz is only used to ensure we only log capture frequency values when they change in the config
-	collectorFrequencyHz map[collectorMetadata]float32
 }
 
 type (
@@ -92,11 +89,10 @@ func New(
 	logger logging.Logger,
 ) *Capture {
 	return &Capture{
-		clk:                  clock,
-		logger:               logger,
-		collectors:           collectors{},
-		collectorFrequencyHz: make(map[collectorMetadata]float32),
-		fileCountLogger:      newFileCountLogger(logger),
+		clk:             clock,
+		logger:          logger,
+		collectors:      collectors{},
+		fileCountLogger: newFileCountLogger(logger),
 	}
 }
 
@@ -106,10 +102,6 @@ func (c *Capture) newCollectors(collectorConfigsByResource CollectorConfigsByRes
 	for res, cfgs := range collectorConfigsByResource {
 		for _, cfg := range cfgs {
 			md := newCollectorMetadata(cfg)
-			// logging
-			c.maybeLogCollectorConfigChange(md, cfg)
-			// record to minimize duplicate logging
-			c.collectorFrequencyHz[md] = cfg.CaptureFrequencyHz
 
 			// We only use service-level tags.
 			cfg.Tags = config.Tags
@@ -130,7 +122,6 @@ func (c *Capture) newCollectors(collectorConfigsByResource CollectorConfigsByRes
 					"error", err, "resource_name", res.Name(), "metadata", md, "data capture config", cfg)
 				continue
 			}
-			c.logger.Debugf("%s initialized or updated with config: %#v", md.String(), cfg)
 			newCollectors[md] = newCollectorAndConfig
 		}
 	}
@@ -224,7 +215,7 @@ func (c *Capture) initializeOrUpdateCollector(
 	targetDir := targetDir(config.CaptureDir, collectorConfig)
 	// Create a collector for this resource and method.
 	if err := os.MkdirAll(targetDir, 0o700); err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "failed to create target directory %s with 700 file permissions", targetDir)
 	}
 	// Build metadata.
 	captureMetadata := data.BuildCaptureMetadata(
@@ -236,25 +227,65 @@ func (c *Capture) initializeOrUpdateCollector(
 		collectorConfig.Tags,
 	)
 	// Parameters to initialize collector.
+	queueSize := defaultIfZeroVal(collectorConfig.CaptureQueueSize, defaultCaptureQueueSize)
+	bufferSize := defaultIfZeroVal(collectorConfig.CaptureBufferSize, defaultCaptureBufferSize)
 	collector, err := collectorConstructor(res, data.CollectorParams{
 		ComponentName: collectorConfig.Name.ShortName(),
 		Interval:      data.GetDurationFromHz(collectorConfig.CaptureFrequencyHz),
 		MethodParams:  methodParams,
 		Target:        data.NewCaptureBuffer(targetDir, captureMetadata, config.MaximumCaptureFileSizeBytes),
 		// Set queue size to defaultCaptureQueueSize if it was not set in the config.
-		QueueSize:  defaultIfZeroVal(collectorConfig.CaptureQueueSize, defaultCaptureQueueSize),
-		BufferSize: defaultIfZeroVal(collectorConfig.CaptureBufferSize, defaultCaptureBufferSize),
+		QueueSize:  queueSize,
+		BufferSize: bufferSize,
 		Logger:     c.logger,
 		Clock:      c.clk,
 	})
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "constructor for collector %s failed with config: %s",
+			md, collectorConfigDescription(collectorConfig, targetDir, config.MaximumCaptureFileSizeBytes, queueSize, bufferSize))
 	}
 
-	c.logger.Debugf("staring collector for %s", md)
+	msg := "collector %s initialized with config: %s"
+	c.logger.Debugf(msg, md, collectorConfigDescription(collectorConfig, targetDir, config.MaximumCaptureFileSizeBytes, queueSize, bufferSize))
 	collector.Collect()
 
 	return &collectorAndConfig{res, collector, collectorConfig}, nil
+}
+
+const (
+	_ = 1 << (10 * iota)
+	kib
+	mib
+	gib
+	tib
+)
+
+func formatBytesI64(b int64) string {
+	switch {
+	case b > tib:
+		return fmt.Sprintf("%.2f TB", float64(b)/tib)
+	case b > gib:
+		return fmt.Sprintf("%.2f GB", float64(b)/gib)
+	case b > mib:
+		return fmt.Sprintf("%.2f MB", float64(b)/mib)
+	case b > kib:
+		return fmt.Sprintf("%.2f KB", float64(b)/kib)
+	default:
+		return fmt.Sprintf("%d Bytes", b)
+	}
+}
+
+func collectorConfigDescription(
+	collectorConfig datamanager.DataCaptureConfig,
+	targetDir string,
+	maximumCaptureFileSizeBytes int64,
+	queueSize,
+	bufferSize int,
+) string {
+	return fmt.Sprintf("[CaptureFrequencyHz: %f, Tags: %v, MaximumCaptureFileSize: %s, "+
+		"CaptureBufferQueueSize: %d, CaptureBufferSize: %d, TargetDir: %s]",
+		collectorConfig.CaptureFrequencyHz, collectorConfig.Tags, formatBytesI64(maximumCaptureFileSizeBytes), queueSize, bufferSize, targetDir,
+	)
 }
 
 func targetDir(captureDir string, collectorConfig datamanager.DataCaptureConfig) string {
@@ -266,18 +297,26 @@ func targetDir(captureDir string, collectorConfig datamanager.DataCaptureConfig)
 // closeCollectors closes collectors.
 func (c *Capture) closeCollectors() {
 	var collectorsToClose []data.Collector
+	var mds []collectorMetadata
 	c.collectorsMu.Lock()
-	for _, collectorAndConfig := range c.collectors {
+	for md, collectorAndConfig := range c.collectors {
 		collectorsToClose = append(collectorsToClose, collectorAndConfig.Collector)
+		mds = append(mds, md)
 	}
 	c.collectors = make(map[collectorMetadata]*collectorAndConfig)
 	c.collectorsMu.Unlock()
 
 	var wg sync.WaitGroup
-	for _, collector := range collectorsToClose {
+	for i, collector := range collectorsToClose {
 		tmp := collector
+		md := mds[i]
 		wg.Add(1)
-		goutils.ManagedGo(tmp.Close, wg.Done)
+		goutils.ManagedGo(
+			func() {
+				c.logger.Debugf("closing collector %s", md)
+				tmp.Close()
+				c.logger.Debugf("collector closed %s", md)
+			}, wg.Done)
 	}
 	wg.Wait()
 }
@@ -285,40 +324,26 @@ func (c *Capture) closeCollectors() {
 // FlushCollectors flushes collectors.
 func (c *Capture) FlushCollectors() {
 	var collectorsToFlush []data.Collector
+	var mds []collectorMetadata
 	c.collectorsMu.Lock()
-	for _, collectorAndConfig := range c.collectors {
+	for md, collectorAndConfig := range c.collectors {
 		collectorsToFlush = append(collectorsToFlush, collectorAndConfig.Collector)
+		mds = append(mds, md)
 	}
 	c.collectorsMu.Unlock()
 
 	var wg sync.WaitGroup
-	for _, collector := range collectorsToFlush {
+	for i, collector := range collectorsToFlush {
 		tmp := collector
+		md := mds[i]
 		wg.Add(1)
-		goutils.ManagedGo(tmp.Flush, wg.Done)
+		goutils.ManagedGo(func() {
+			c.logger.Debugf("flushing collector %s", md)
+			tmp.Flush()
+			c.logger.Debugf("collector flushed %s", md)
+		}, wg.Done)
 	}
 	wg.Wait()
-}
-
-func (c *Capture) maybeLogCollectorConfigChange(
-	componentMethodMetadata collectorMetadata,
-	resConf datamanager.DataCaptureConfig,
-) {
-	prevFreqHz, ok := c.collectorFrequencyHz[componentMethodMetadata]
-
-	// Only log capture frequency if the component frequency is new or the frequency has changed
-	// otherwise we'll be logging way too much
-	// equal to a bit more than one iteration a day
-	newCaptureFreq := !ok || !utils.Float32AlmostEqual(resConf.CaptureFrequencyHz, prevFreqHz, 0.00001)
-	if newCaptureFreq {
-		syncVal := "will"
-		if resConf.CaptureFrequencyHz == 0 || resConf.Disabled {
-			syncVal += " not"
-		}
-		c.logger.Infof(
-			"capture frequency for %s is set to %.2fHz and %s sync", componentMethodMetadata, resConf.CaptureFrequencyHz, syncVal,
-		)
-	}
 }
 
 func defaultIfZeroVal[T comparable](val, defaultVal T) T {

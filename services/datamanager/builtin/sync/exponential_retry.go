@@ -62,17 +62,17 @@ func (e exponentialRetry) run() error {
 
 	// If no error, return nil for success
 	if err == nil {
-		e.logger.Debugf("exponentialRetry.run %s succeeded", e.name)
+		e.logger.Debugf("succeeded: %s", e.name)
 		return nil
 	}
 
 	// Don't retry non-retryable errors.
 	if terminalError(err) {
-		e.logger.Warnf("exponentialRetry.run %s hit non retryable error: %v", e.name, err)
+		e.logger.Warnf("hit non retryable error: %v", err)
 		return err
 	}
 
-	e.logger.Infof("exponentialRetry.run: %s entering exponential backoff retry due to retryable error: %v", e.name, err)
+	e.logger.Infof("entering exponential backoff retry due to retryable error: %v", err)
 
 	// First call failed, so begin exponentialRetry with a factor of RetryExponentialFactor
 	nextWait := time.Millisecond * time.Duration(InitialWaitTimeMillis)
@@ -91,19 +91,19 @@ func (e exponentialRetry) run() error {
 
 			// If no error, return nil for success
 			if err == nil {
-				e.logger.Debugf("exponentialRetry.run %s succeeded", e.name)
+				e.logger.Debugf("succeeded: %s", e.name)
 				return nil
 			}
 
 			// Don't retry terminal errors.
 			if terminalError(err) {
-				e.logger.Warnf("exponentialRetry.run %s hit non retryable error: %s", e.name, err.Error())
+				e.logger.Warnf("hit non retryable error: %v", err)
 				return err
 			}
 
 			// Otherwise, try again after nextWait.
 			if !errors.Is(err, context.Canceled) {
-				e.logger.Infof("exponentialRetry.run: %s continuing exponential backoff retry due to retryable error: %v", e.name, err)
+				e.logger.Infof("hit retryable error, continuing exponential backoff retry error: %v", err)
 			}
 
 			offline := isOfflineGRPCError(err)
@@ -113,8 +113,10 @@ func (e exponentialRetry) run() error {
 				status = "offline"
 			}
 			if !errors.Is(err, context.Canceled) {
-				e.logger.Infof("exponentialRetry.run %s continuing exponential backoff retry due to retryable error, will retry in: %s, "+
-					"error indicates connectivity status is: %s, error: %v", e.name, nextWait, status, err)
+				e.logger.Infof("hit retryable error that "+
+					"indicates connectivity status is: %s "+
+					"continuing exponential backoff retry, "+
+					"will retry in: %s, error: %v", status, nextWait, err)
 			}
 			ticker.Reset(nextWait)
 		}

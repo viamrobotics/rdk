@@ -16,8 +16,8 @@ type collectorMetadata struct {
 
 func (r collectorMetadata) String() string {
 	return fmt.Sprintf(
-		"[API: %s, Resource Name: %s, Method Name: %s, Method Params: %s]",
-		r.MethodMetadata.API, r.ResourceName, r.MethodMetadata.MethodName, r.MethodParams)
+		"[Resource Name: %s, API: %s, Method Name: %s, Method Params: %s]",
+		r.ResourceName, r.MethodMetadata.API, r.MethodMetadata.MethodName, r.MethodParams)
 }
 
 func newCollectorMetadata(c datamanager.DataCaptureConfig) collectorMetadata {

@@ -2,7 +2,6 @@ package sync
 
 import (
 	"context"
-	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -16,7 +15,11 @@ import (
 )
 
 // UploadChunkSize defines the size of the data included in each message of a FileUpload stream.
-var UploadChunkSize = 64 * 1024
+var (
+	UploadChunkSize            = 64 * 1024
+	errFileEmpty               = errors.New("file is empty (0 bytes)")
+	errFileModifiedTooRecently = errors.New("file modified too recently")
+)
 
 func uploadArbitraryFile(
 	ctx context.Context,
@@ -30,7 +33,7 @@ func uploadArbitraryFile(
 	logger.Debugf("attempting to sync arbitrary file: %s", f.Name())
 	path, err := filepath.Abs(f.Name())
 	if err != nil {
-		return errors.Wrapf(err, "failed to get absolute path for arbitrary file %s", f.Name())
+		return errors.Wrap(err, "failed to get absolute path")
 	}
 
 	// Only sync non-datacapture files that have not been modified in the last
@@ -38,21 +41,21 @@ func uploadArbitraryFile(
 	// to written to.
 	info, err := os.Stat(path)
 	if err != nil {
-		return errors.Wrapf(err, "stat failed for arbitrary file %s", path)
+		return errors.Wrap(err, "stat failed")
 	}
 	if info.Size() == 0 {
-		return fmt.Errorf("arbitrary file is empty (0 bytes): %s", path)
+		return errFileEmpty
 	}
 
 	timeSinceMod := clock.Since(info.ModTime())
 	if timeSinceMod < time.Duration(fileLastModifiedMillis)*time.Millisecond {
-		return fmt.Errorf("arbitrary file modified too recently: %s", path)
+		return errFileModifiedTooRecently
 	}
 
 	logger.Debugf("datasync.FileUpload request started for arbitrary file: %s", path)
 	stream, err := conn.client.FileUpload(ctx)
 	if err != nil {
-		return errors.Wrapf(err, "error creating FileUpload client for arbitrary file: %s", path)
+		return errors.Wrap(err, "error creating FileUpload client")
 	}
 
 	// Send metadata FileUploadRequest.
@@ -68,16 +71,16 @@ func uploadArbitraryFile(
 			},
 		},
 	}); err != nil {
-		return errors.Wrapf(err, "FileUpload failed sending metadata for arbitrary file %s", path)
+		return errors.Wrap(err, "FileUpload failed sending metadata")
 	}
 
 	if err := sendFileUploadRequests(ctx, stream, f, path, logger); err != nil {
-		return errors.Wrapf(err, "FileUpload failed to sync arbitrary file: %s", path)
+		return errors.Wrap(err, "FileUpload failed to sync")
 	}
 
 	logger.Debugf("datasync.FileUpload closing for arbitrary file: %s", path)
 	_, err = stream.CloseAndRecv()
-	return errors.Wrapf(err, "FileUpload failed to CloseAndRecv syncing arbitrary file %s", path)
+	return errors.Wrap(err, "FileUpload  CloseAndRecv failed")
 }
 
 func sendFileUploadRequests(

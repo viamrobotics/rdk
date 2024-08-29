@@ -2,6 +2,7 @@ package builtin
 
 import (
 	"context"
+	"io/fs"
 	"math"
 	"os"
 	"path/filepath"
@@ -23,6 +24,7 @@ import (
 	"go.viam.com/rdk/components/gantry"
 	"go.viam.com/rdk/components/sensor"
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/gostream"
 	"go.viam.com/rdk/internal/cloud"
 	cloudinject "go.viam.com/rdk/internal/testutils/inject"
@@ -218,19 +220,15 @@ func TestFileDeletion(t *testing.T) {
 
 	fsThresholdToTriggerDeletion := datasync.FSThresholdToTriggerDeletion
 	captureDirToFSUsageRatio := datasync.CaptureDirToFSUsageRatio
-	checkDeleteExcessFilesInterval := datasync.CheckDeleteExcessFilesInterval
 	t.Cleanup(func() {
 		clk = prevClock
 		datasync.FSThresholdToTriggerDeletion = fsThresholdToTriggerDeletion
 		datasync.CaptureDirToFSUsageRatio = captureDirToFSUsageRatio
-		datasync.CheckDeleteExcessFilesInterval = checkDeleteExcessFilesInterval
 	})
 
 	datasync.FSThresholdToTriggerDeletion = math.SmallestNonzeroFloat64
 	datasync.CaptureDirToFSUsageRatio = math.SmallestNonzeroFloat64
-	datasync.CheckDeleteExcessFilesInterval = time.Millisecond * 20
 
-	// Set up data manager.
 	r := setupRobot(nil, map[resource.Name]resource.Resource{
 		arm.Named("arm1"): &inject.Arm{
 			EndPositionFunc: func(
@@ -262,7 +260,7 @@ func TestFileDeletion(t *testing.T) {
 		},
 	})
 	config, deps := setupConfig(t, r, enabledTabularManyCollectorsConfigPath)
-	timeoutCtx, timeout := context.WithTimeout(ctx, time.Second)
+	timeoutCtx, timeout := context.WithTimeout(ctx, time.Second*2)
 	defer timeout()
 	// create sync clock so we can control when a single iteration of file deltion happens
 	c := config.ConvertedAttributes.(*Config)
@@ -271,7 +269,8 @@ func TestFileDeletion(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	b := bSvc.(*builtIn)
 	defer b.Close(context.Background())
-	mockClock.Add(datasync.CheckDeleteExcessFilesInterval)
+	// advance the clock so that the collectors can start
+	mockClock.Add(data.GetDurationFromHz(100))
 
 	// flush and close collectors to ensure we have exactly 4 files
 	// close capture to stop it from writing more files
@@ -281,20 +280,25 @@ func TestFileDeletion(t *testing.T) {
 	// collectors in the robot config used in this test
 	test.That(t, waitForCaptureFilesToEqualNFiles(timeoutCtx, tempDir, 4, logger), test.ShouldBeNil)
 
-	filesInfos := getAllFileInfos(tempDir)
+	filesInfos := getAllFilePaths(tempDir)
 	test.That(t, len(filesInfos), test.ShouldEqual, 4)
+	t.Log("before")
+	for _, f := range filesInfos {
+		t.Log(f)
+	}
 	// since we've written 4 files and hit the threshold, we expect
 	// the first to be deleted
-	expectedDeletedFile := filesInfos[0].Name()
+	expectedDeletedFile := filesInfos[0]
 
 	// run forward by the CheckDeleteExcessFilesInterval to delete any files
 	mockClock.Add(datasync.CheckDeleteExcessFilesInterval)
 	test.That(t, waitForCaptureFilesToEqualNFiles(timeoutCtx, tempDir, 3, logger), test.ShouldBeNil)
-	newFiles := []string{}
-	for _, x := range getAllFileInfos(tempDir) {
-		newFiles = append(newFiles, x.Name())
-	}
+	newFiles := getAllFilePaths(tempDir)
 
+	t.Log("after")
+	for _, fn := range newFiles {
+		t.Log(fn)
+	}
 	test.That(t, len(newFiles), test.ShouldEqual, 3)
 	test.That(t, newFiles, test.ShouldNotContain, expectedDeletedFile)
 }
@@ -830,12 +834,20 @@ func getAllFiles(dir string) ([]os.FileInfo, []string) {
 func waitForCaptureFilesToEqualNFiles(ctx context.Context, captureDir string, n int, logger logging.Logger) error {
 	var diagnostics sync.Once
 	start := time.Now()
+	nonEmptyFiles := 0
+	files := []fs.FileInfo{}
+	i := 0
 	for {
 		if err := ctx.Err(); err != nil {
+			fNames := []string{}
+			for _, f := range files {
+				fNames = append(fNames, f.Name())
+			}
+			logger.Errorf("target: %d, iterations: %d, nonEmptyFiles: %d, files: %v", n, i, nonEmptyFiles, fNames)
 			return err
 		}
-		files := getAllFileInfos(captureDir)
-		nonEmptyFiles := 0
+		files = getAllFileInfos(captureDir)
+		nonEmptyFiles = 0
 		for idx := range files {
 			if files[idx].Size() > int64(emptyFileBytesSize) {
 				// Every datamanager file has at least 90 bytes of metadata. Wait for that to be
@@ -849,6 +861,7 @@ func waitForCaptureFilesToEqualNFiles(ctx context.Context, captureDir string, n 
 		}
 
 		time.Sleep(10 * time.Millisecond)
+		i++
 		if time.Since(start) > 10*time.Second {
 			diagnostics.Do(func() {
 				logger.Infow("waitForCaptureFilesToEqualNFiles diagnostics after 10 seconds of waiting", "numFiles", len(files), "expectedFiles", n)

@@ -34,7 +34,7 @@ func TestCollectorMetadata(t *testing.T) {
 			Method:           "JointPositions",
 			AdditionalParams: map[string]string{"some": "input"},
 		})
-		exp := "[API: rdk:component:arm, Resource Name: arm1, Method Name: JointPositions, Method Params: map[some:input]]"
+		exp := "[Resource Name: arm1, API: rdk:component:arm, Method Name: JointPositions, Method Params: map[some:input]]"
 		test.That(t, md.String(), test.ShouldResemble, exp)
 	})
 }
