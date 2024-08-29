@@ -360,6 +360,10 @@ func (pc *producerConsumer[T, U]) stop() {
 	pc.consumerCond.L.Unlock()
 	pc.activeBackgroundWorkers.Wait()
 
+	pc.currentMu.Lock()
+	defer pc.currentMu.Unlock()
+	pc.current = nil
+
 	// reset
 	cancelCtx, cancel := context.WithCancel(WithMIMETypeHint(pc.rootCancelCtx, pc.mimeType))
 	pc.cancelCtxMu.Lock()
@@ -386,9 +390,6 @@ func (pc *producerConsumer[T, U]) stopOne() {
 	if pc.listeners == 0 {
 		pc.stop()
 	}
-	pc.currentMu.Lock()
-	defer pc.currentMu.Unlock()
-	pc.current = nil
 }
 
 func (ms *mediaSource[T, U]) MediaProperties(_ context.Context) (U, error) {
