@@ -169,13 +169,13 @@ func (e *Encoder) Reconfigure(
 	if e.workers != nil {
 		e.workers.Stop() // Shut down the old interrupt stream
 	}
-	e.start(ctx, board) // Start up the new interrupt stream
+	e.start(board) // Start up the new interrupt stream
 	return nil
 }
 
 // start starts the Encoder background thread. It should only be called when the encoder's
 // background workers have been stopped (or never started).
-func (e *Encoder) start(ctx context.Context, b board.Board) {
+func (e *Encoder) start(b board.Board) {
 	e.workers = rdkutils.NewStoppableWorkers()
 
 	encoderChannel := make(chan board.Tick)
