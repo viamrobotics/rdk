@@ -591,6 +591,8 @@ func (svc *builtIn) moveToWaypoint(ctx context.Context, wp navigation.Waypoint, 
 	// call StopPlan upon exiting moveOnGlobeSync
 	// is a NoOp if execution has already terminted
 	defer func() {
+		svc.mu.Lock()
+		defer svc.mu.Unlock()
 		timeoutCtx, timeoutCancelFn := context.WithTimeout(context.Background(), time.Second*5)
 		defer timeoutCancelFn()
 		err := svc.motionService.StopPlan(timeoutCtx, motion.StopPlanReq{ComponentName: req.ComponentName})
