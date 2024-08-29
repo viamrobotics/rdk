@@ -112,8 +112,7 @@ func TestEncoder(t *testing.T) {
 		})
 	})
 
-	// this test ensures that digital interrupts are ignored if AttachDirectionalAwareness
-	// is never called
+	// this test ensures that position goes forward if motor not attached
 	t.Run("run no direction", func(t *testing.T) {
 		enc, err := NewSingleEncoder(ctx, deps, rawcfg, logging.NewTestLogger(t))
 		test.That(t, err, test.ShouldBeNil)
@@ -130,7 +129,7 @@ func TestEncoder(t *testing.T) {
 
 		ticks, _, err := enc.Position(context.Background(), encoder.PositionTypeUnspecified, nil)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, ticks, test.ShouldEqual, 0)
+		test.That(t, ticks, test.ShouldEqual, 1)
 	})
 
 	t.Run("reset position", func(t *testing.T) {
