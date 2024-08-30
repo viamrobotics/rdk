@@ -25,6 +25,7 @@ const (
 	sensorDebug        = false
 	typeLinVel         = "linear_velocity"
 	typeAngVel         = "angular_velocity"
+	defaultControlFreq = 10 // Hz
 )
 
 var (
@@ -38,6 +39,7 @@ type Config struct {
 	MovementSensor    []string            `json:"movement_sensor"`
 	Base              string              `json:"base"`
 	ControlParameters []control.PIDConfig `json:"control_parameters,omitempty"`
+	ControlFreq       float64             `json:"control_frequency_hz,omitempty"`
 }
 
 // Validate validates all parts of the sensor controlled base config.
@@ -76,6 +78,7 @@ type sensorBase struct {
 	controlLoopConfig control.Config
 	blockNames        map[string][]string
 	loop              *control.Loop
+	controlFreq       float64
 }
 
 func init() {
@@ -118,6 +121,11 @@ func (sb *sensorBase) Reconfigure(ctx context.Context, deps resource.Dependencie
 
 	sb.mu.Lock()
 	defer sb.mu.Unlock()
+
+	sb.controlFreq = defaultControlFreq
+	if newConf.ControlFreq != 0 {
+		sb.controlFreq = newConf.ControlFreq
+	}
 
 	// reset all sensors
 	sb.allSensors = nil
