@@ -181,6 +181,51 @@ func (c *viamClient) dataGetTrainingJob(trainingJobID string) (*mltrainingpb.Tra
 	return resp.Metadata, nil
 }
 
+// MLGetTrainingJobLogs is the corresponding action for 'data train logs'.
+func MLGetTrainingJobLogs(c *cli.Context) error {
+	client, err := newViamClient(c)
+	if err != nil {
+		return err
+	}
+	logs, err := client.mlGetTrainingJobLogs(c.String(trainFlagJobID))
+	if err != nil {
+		return err
+	}
+
+	if len(logs) == 0 {
+		printf(c.App.Writer, "No logs found for job %s", trainFlagJobID)
+	}
+	for _, log := range logs {
+		printf(c.App.Writer, "{\"Timestamp\": \"%s\", \"Level\": \"%s\", \"Message\": \"%s\"}", log.Time.AsTime(), log.Level, log.Message)
+	}
+	return nil
+}
+
+// mlGetTrainingJobLogs gets the training job logs with the given ID.
+func (c *viamClient) mlGetTrainingJobLogs(trainingJobID string) ([]*mltrainingpb.TrainingJobLogEntry, error) {
+	if err := c.ensureLoggedIn(); err != nil {
+		return nil, err
+	}
+	var allLogs []*mltrainingpb.TrainingJobLogEntry
+	var page string
+
+	// Loop to fetch and accumulate results
+	for {
+		resp, err := c.mlTrainingClient.GetTrainingJobLogs(context.Background(),
+			&mltrainingpb.GetTrainingJobLogsRequest{Id: trainingJobID, PageToken: &page})
+		if err != nil {
+			return nil, err
+		}
+		allLogs = append(allLogs, resp.GetLogs()...)
+
+		if resp.GetNextPageToken() == "" {
+			break
+		}
+		page = resp.GetNextPageToken()
+	}
+	return allLogs, nil
+}
+
 // DataCancelTrainingJob is the corresponding action for 'data train cancel'.
 func DataCancelTrainingJob(c *cli.Context) error {
 	client, err := newViamClient(c)
