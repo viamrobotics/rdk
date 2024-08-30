@@ -4,7 +4,6 @@ package transformpipeline
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"testing"
 
@@ -109,7 +108,6 @@ func TestClassifierSource(t *testing.T) {
 	r, err := buildRobotWithClassifier(logger)
 	test.That(t, err, test.ShouldBeNil)
 
-	fmt.Print(r.ResourceNames())
 	defer func() {
 		test.That(t, r.Close(context.Background()), test.ShouldBeNil)
 	}()
