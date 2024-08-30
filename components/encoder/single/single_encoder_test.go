@@ -152,7 +152,7 @@ func TestEncoder(t *testing.T) {
 			test.That(tb, ticks, test.ShouldEqual, -1)
 		})
 
-		// take off directional awareness. 
+		// take off directional awareness.
 		enc2.m = nil
 
 		err = ii.Tick(context.Background(), true, uint64(time.Now().UnixNano()))
@@ -166,7 +166,6 @@ func TestEncoder(t *testing.T) {
 		ticks, _, err := enc.Position(context.Background(), encoder.PositionTypeUnspecified, nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, ticks, test.ShouldEqual, 0)
-
 	})
 
 	t.Run("reset position", func(t *testing.T) {
