@@ -3,10 +3,12 @@ package sensorcontrolled
 import (
 	"context"
 	"math"
+	"time"
 
 	"github.com/golang/geo/r3"
 
 	"go.viam.com/rdk/control"
+	"go.viam.com/utils"
 )
 
 // SetVelocity commands a base to move at the requested linear and angular velocites.
@@ -65,16 +67,22 @@ func (sb *sensorBase) setupControlLoop(linear, angular control.PIDConfig) error 
 
 	// check if either linear or angular need to be tuned and if any previous tuning values exist
 	switch {
+	// linear config values are 0, and the base hasn't been tuned yet, so tune the base
 	case linear.NeedsAutoTuning() && sb.tunedVals[0].NeedsAutoTuning():
 		options.NeedsAutoTuning = true
+	// linear config values are 0, but the base has already been tuned, so use the tuned values
 	case linear.NeedsAutoTuning() && !sb.tunedVals[0].NeedsAutoTuning():
 		linear = sb.tunedVals[0]
+	// angular config values are 0, and the base hasn't been tuned yet, so tune the base
 	case angular.NeedsAutoTuning() && sb.tunedVals[1].NeedsAutoTuning():
 		options.NeedsAutoTuning = true
+	// angular config values are 0, but the base has already been tuned, so use the tuned values
 	case angular.NeedsAutoTuning() && !sb.tunedVals[1].NeedsAutoTuning():
 		angular = sb.tunedVals[1]
+	// linear config values are non-zero, but the base hasn't been tuned yet, so use the config values
 	case !linear.NeedsAutoTuning() && sb.tunedVals[0].NeedsAutoTuning():
 		sb.tunedVals[0] = linear
+	// angular config values are non-zero, but the base hasn't been tuned yet, so use the config values
 	case !angular.NeedsAutoTuning() && sb.tunedVals[1].NeedsAutoTuning():
 		sb.tunedVals[1] = angular
 	}
@@ -95,8 +103,8 @@ func (sb *sensorBase) setupControlLoop(linear, angular control.PIDConfig) error 
 	return nil
 }
 
-func (sb *sensorBase) waitForTuning() {
-	for {
+func (sb *sensorBase) waitForTuning(ctx context.Context) {
+	for !utils.SelectContextOrWait(ctx, 30*time.Second) {
 		if !control.TunedPIDVals[0].NeedsAutoTuning() && !control.TunedPIDVals[1].NeedsAutoTuning() {
 			sb.tunedVals[0] = control.TunedPIDVals[0]
 			sb.tunedVals[1] = control.TunedPIDVals[1]
@@ -104,7 +112,9 @@ func (sb *sensorBase) waitForTuning() {
 			control.UpdateTunedPIDBlock(sb.controlLoopConfig, control.AngularPIDIndex, sb.tunedVals[1])
 			return
 		}
+		continue
 	}
+	sb.logger.Error("tuning timed out")
 }
 
 func (sb *sensorBase) updateControlConfig(

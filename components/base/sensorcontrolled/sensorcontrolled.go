@@ -212,7 +212,7 @@ func (sb *sensorBase) Reconfigure(ctx context.Context, deps resource.Dependencie
 		sb.mu.Lock()
 
 		go func() {
-			sb.waitForTuning()
+			sb.waitForTuning(context.Background())
 		}()
 	}
 

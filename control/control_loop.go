@@ -41,6 +41,7 @@ type Loop struct {
 	cancel                  context.CancelFunc
 	running                 atomic.Bool
 	pidBlocks               []*basicPID
+	pidGains                []*PIDConfig
 }
 
 // NewLoop construct a new control loop for a specific endpoint.
