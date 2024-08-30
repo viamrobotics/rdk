@@ -5,6 +5,7 @@
 package robotimpl
 
 import (
+	"bytes"
 	"context"
 	"strings"
 	"sync"
@@ -57,6 +58,11 @@ type localRobot struct {
 	cloudConnSvc            icloud.ConnectionService
 	logger                  logging.Logger
 	activeBackgroundWorkers sync.WaitGroup
+
+	// configCleanedUp tracks whether the robot has cleaned up after a successful configuration
+	configCleanUpMu sync.Mutex
+	configCleanedUp bool
+
 	// reconfigureWorkers tracks goroutines spawned by reconfiguration functions. we only
 	// wait on this group in tests to prevent goleak-related failures. however, we do not
 	// wait on this group outside of testing, since the related goroutines may be running
@@ -548,6 +554,7 @@ func newWithResources(
 				r.logger.CDebugw(ctx, "configuration attempt triggered by remote")
 			}
 			anyChanges := r.manager.updateRemotesResourceNames(closeCtx)
+			cfg := r.mostRecentCfg.Load().(config.Config)
 			if r.manager.anyResourcesNotConfigured() {
 				anyChanges = true
 				r.manager.completeConfig(closeCtx, r, false)
@@ -555,6 +562,10 @@ func newWithResources(
 			if anyChanges {
 				r.updateWeakDependents(ctx)
 				r.logger.CDebugw(ctx, "configuration attempt completed with changes", "trigger", trigger)
+
+				if !r.manager.anyResourcesNotConfigured() {
+					r.onConfigurationSuccess(ctx, cfg)
+				}
 			}
 		}
 	}, r.activeBackgroundWorkers.Done)
@@ -1174,13 +1185,6 @@ func (r *localRobot) applyLocalModuleVersions(cfg *config.Config) {
 }
 
 func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, forceSync bool) {
-	r.configRevisionMu.Lock()
-	r.configRevision = config.Revision{
-		Revision:    newConfig.Revision,
-		LastUpdated: time.Now(),
-	}
-	r.configRevisionMu.Unlock()
-
 	var allErrs error
 
 	// Sync Packages before reconfiguring rest of robot and resolving references to any packages
@@ -1190,19 +1194,27 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 	// if anything has changed.
 	err := r.packageManager.Sync(ctx, newConfig.Packages, newConfig.Modules)
 	if err != nil {
-		r.Logger().CErrorw(ctx, "reconfiguration aborted because package sync failed", "error", err)
+		r.Logger().CErrorw(ctx, "reconfiguration aborted because cloud modules or packages download failed", "error", err)
 		return
-	}
-	r.Logger().CDebug(ctx, "replacing cache")
-	if err := config.ReplaceCache(newConfig.Cloud.ID); err != nil {
-		allErrs = multierr.Combine(allErrs, err)
 	}
 	// For local tarball modules, we create synthetic versions for package management. The `localRobot` keeps track of these because
 	// config reader would overwrite if we just stored it in config. Here, we copy the synthetic version from the `localRobot` into the
 	// appropriate `config.Module` object inside the `cfg.Modules` slice. Thus, when a local tarball module is reloaded, the viam-server
 	// can unpack it into a fresh directory rather than reusing the previous one.
 	r.applyLocalModuleVersions(newConfig)
-	allErrs = multierr.Combine(allErrs, r.localPackages.Sync(ctx, newConfig.Packages, newConfig.Modules))
+	err = r.localPackages.Sync(ctx, newConfig.Packages, newConfig.Modules)
+	if err != nil {
+		r.Logger().CErrorw(ctx, "reconfiguration aborted because local modules or packages sync failed", "error", err)
+		return
+	}
+
+	// Update configRevision, as the robot is starting to reconfigure itself.
+	r.configRevisionMu.Lock()
+	r.configRevision = config.Revision{
+		Revision:    newConfig.Revision,
+		LastUpdated: time.Now(),
+	}
+	r.configRevisionMu.Unlock()
 
 	// Add default services and process their dependencies. Dependencies may
 	// already come from config validation so we check that here.
@@ -1274,7 +1286,10 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 	}
 
 	// Set mostRecentConfig if resources were not equal.
+	r.configCleanUpMu.Lock()
 	r.mostRecentCfg.Store(*newConfig)
+	r.configCleanedUp = false
+	r.configCleanUpMu.Unlock()
 
 	// First we mark diff.Removed resources and their children for removal.
 	processesToClose, resourcesToCloseBeforeComplete, _ := r.manager.markRemoved(ctx, diff.Removed, r.logger)
@@ -1302,17 +1317,62 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 		allErrs = multierr.Combine(allErrs, err)
 	}
 
+	if !r.manager.anyResourcesNotConfigured() {
+		r.onConfigurationSuccess(ctx, *newConfig)
+	}
+
+	if allErrs != nil {
+		r.logger.CErrorw(ctx, "The following errors were gathered during reconfiguration", "errors", allErrs)
+	} else {
+		r.logger.CInfow(ctx, "Robot (re)configured")
+	}
+}
+
+func (r *localRobot) onConfigurationSuccess(ctx context.Context, cfg config.Config) {
+	r.configCleanUpMu.Lock()
+	defer r.configCleanUpMu.Unlock()
+
+	if r.configCleanedUp {
+		return
+	}
+
+	r.Logger().CDebug(ctx, "(re)configuration success, starting cleanup...")
+
+	var allErrs error
+
+	// update cache if this is a cloud-connected robot
+	if cfg.Cloud != nil {
+		// check that the unprocessed config in cfg and mostRecentConfig is the same, otherwise it is possible that the config used
+		// for reconfiguration and the latest resource graph may be mismatched.
+		c1, err := cfg.UnprocessedConfig().MarshalJSON()
+		if err != nil {
+			r.Logger().CDebugw(ctx, "error while marshalling JSON after configuration success", "err", err)
+		}
+
+		c2, err := r.mostRecentCfg.Load().(config.Config).UnprocessedConfig().MarshalJSON()
+		if err != nil {
+			r.Logger().CDebugw(ctx, "error while marshalling JSON after configuration success", "err", err)
+		}
+
+		if !bytes.Equal(c1, c2) {
+			return
+		}
+
+		r.Logger().CDebug(ctx, "updating cache")
+		allErrs = cfg.StoreToCache()
+	}
+
 	// Cleanup unused packages after all old resources have been closed above. This ensures
 	// processes are shutdown before any files are deleted they are using.
 	allErrs = multierr.Combine(allErrs, r.packageManager.Cleanup(ctx))
 	allErrs = multierr.Combine(allErrs, r.localPackages.Cleanup(ctx))
 	// Cleanup extra dirs from previous modules or rogue scripts.
 	allErrs = multierr.Combine(allErrs, r.manager.moduleManager.CleanModuleDataDirectory())
-
 	if allErrs != nil {
-		r.logger.CErrorw(ctx, "The following errors were gathered during reconfiguration", "errors", allErrs)
+		r.logger.CDebugw(ctx, "The following errors were gathered during (re)configuration success cleanup", "errors", allErrs)
 	} else {
-		r.logger.CInfow(ctx, "Robot (re)configured")
+		r.configCleanedUp = true
+		r.Logger().CDebug(ctx, "(re)configuration success cleanup successful")
 	}
 }
 

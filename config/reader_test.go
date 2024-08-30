@@ -1,7 +1,9 @@
 package config
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -13,12 +15,29 @@ import (
 	"github.com/google/uuid"
 	pb "go.viam.com/api/app/v1"
 	"go.viam.com/test"
+	"go.viam.com/utils/artifact"
 
 	"go.viam.com/rdk/config/testutils"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/shell"
 )
+
+func storeToCache(id string, cfg *Config) error {
+	if err := os.MkdirAll(ViamDotDir, 0o700); err != nil {
+		return err
+	}
+
+	md, err := json.MarshalIndent(cfg, "", "  ")
+	if err != nil {
+		return err
+	}
+	reader := bytes.NewReader(md)
+
+	path := getCloudCacheFilePath(id)
+
+	return artifact.AtomicStore(path, reader, id)
+}
 
 func TestFromReader(t *testing.T) {
 	const (
@@ -192,12 +211,15 @@ func TestStoreToCache(t *testing.T) {
 	cfg.Cloud = cloud
 
 	// store our config to the cloud
-	err = storeToCache(cfg.Cloud.ID, cfg)
+	cfgToCache := &Config{Cloud: &Cloud{ID: "forCachingTest"}}
+	cfgToCache.setUnprocessedConfig(cfg)
+	err = cfgToCache.StoreToCache()
 	test.That(t, err, test.ShouldBeNil)
 
 	// read config from cloud, confirm consistency
 	cloudCfg, err := readFromCloud(ctx, cfg, nil, true, false, logger)
 	test.That(t, err, test.ShouldBeNil)
+	cloudCfg.unprocessedConfig = nil
 	test.That(t, cloudCfg, test.ShouldResemble, cfg)
 
 	// Modify our config
@@ -207,10 +229,12 @@ func TestStoreToCache(t *testing.T) {
 	// read config from cloud again, confirm that the cached config differs from cfg
 	cloudCfg2, err := readFromCloud(ctx, cfg, nil, true, false, logger)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, cloudCfg2, test.ShouldNotResemble, cfg)
+	cloudCfg2.unprocessedConfig = nil
+	test.That(t, cloudCfg2, test.ShouldNotResemble, cfgToCache)
 
 	// store the updated config to the cloud
-	err = storeToCache(cfg.Cloud.ID, cfg)
+	cfgToCache.setUnprocessedConfig(cfg)
+	err = cfgToCache.StoreToCache()
 	test.That(t, err, test.ShouldBeNil)
 
 	test.That(t, cfg.Ensure(true, logger), test.ShouldBeNil)
@@ -218,6 +242,7 @@ func TestStoreToCache(t *testing.T) {
 	// read updated cloud config, confirm that it now matches our updated cfg
 	cloudCfg3, err := readFromCloud(ctx, cfg, nil, true, false, logger)
 	test.That(t, err, test.ShouldBeNil)
+	cloudCfg3.unprocessedConfig = nil
 	test.That(t, cloudCfg3, test.ShouldResemble, cfg)
 }
 
