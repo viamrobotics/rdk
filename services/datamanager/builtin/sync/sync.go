@@ -434,9 +434,8 @@ func (s *Sync) syncArbitraryFile(f *os.File, tags []string, fileLastModifiedMill
 		}
 
 		// otherwise we hit a terminal error, and we should move the file to the failed directory
-		if errMoveFailed := moveFailedData(f.Name(), path.Dir(f.Name()), err, logger); errMoveFailed != nil {
-			msg := "failed to move file %s to failed directory %s due to cause: %v, error hit during move: %v"
-			logger.Errorf(msg, f.Name(), path.Dir(f.Name()), err, errMoveFailed)
+		if err := moveFailedData(f.Name(), path.Dir(f.Name()), err, logger); err != nil {
+			logger.Error(err.Error())
 		}
 		return
 	}
@@ -456,18 +455,18 @@ func moveFailedData(path, parentDir string, cause error, logger logging.Logger) 
 	// Remove the parentDir part of the path to the corrupted data
 	relativePath, err := filepath.Rel(parentDir, path)
 	if err != nil {
-		return errors.Wrapf(err, "error getting relative path between: %s and %s", parentDir, path)
+		return errors.Wrapf(err, "failed to move file to failed directory: error getting relative path between: %s and %s", parentDir, path)
 	}
 	// Create a new directory parentDir/corrupted/pathToFile
 	newDir := filepath.Join(parentDir, FailedDir, filepath.Dir(relativePath))
 	if err := os.MkdirAll(newDir, 0o700); err != nil {
-		return errors.Wrapf(err, "error making new directory: %s", newDir)
+		return errors.Wrapf(err, "failed to move file to failed directory: error making new failed directory: %s", newDir)
 	}
 	// Move the file from parentDir/pathToFile/file.ext to parentDir/corrupted/pathToFile/file.ext
 	newPath := filepath.Join(newDir, filepath.Base(path))
 	logger.Warnf("moving file that data manager failed to sync due to err: %v, from %s to %s", cause, path, newPath)
 	if err := os.Rename(path, newPath); err != nil {
-		return errors.Wrapf(err, "error moving: %s to %s", path, newPath)
+		return errors.Wrapf(err, "failed to move file to failed directory: error moving: %s to %s", path, newPath)
 	}
 	return nil
 }
@@ -514,7 +513,9 @@ func (s *Sync) runScheduler(ctx context.Context, tkr *clock.Ticker, config Confi
 				continue
 			}
 
-			goutils.UncheckedError(s.walkDirsAndSendFilesToSync(ctx, config))
+			if err := s.walkDirsAndSendFilesToSync(ctx, config); err != nil && !errors.Is(err, context.Canceled) {
+				goutils.UncheckedError(err)
+			}
 		}
 	}
 }

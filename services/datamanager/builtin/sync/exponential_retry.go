@@ -95,6 +95,12 @@ func (e exponentialRetry) run() error {
 				return nil
 			}
 
+			// If the context was cancelled
+			// return the error without logging to not spam
+			if errors.Is(err, context.Canceled) {
+				return err
+			}
+
 			// Don't retry terminal errors.
 			if terminalError(err) {
 				e.logger.Warnf("hit non retryable error: %v", err)
@@ -102,22 +108,16 @@ func (e exponentialRetry) run() error {
 			}
 
 			// Otherwise, try again after nextWait.
-			if !errors.Is(err, context.Canceled) {
-				e.logger.Infof("hit retryable error, continuing exponential backoff retry error: %v", err)
-			}
-
 			offline := isOfflineGRPCError(err)
 			nextWait = getNextWait(nextWait, offline)
 			status := "online"
 			if offline {
 				status = "offline"
 			}
-			if !errors.Is(err, context.Canceled) {
-				e.logger.Infof("hit retryable error that "+
-					"indicates connectivity status is: %s "+
-					"continuing exponential backoff retry, "+
-					"will retry in: %s, error: %v", status, nextWait, err)
-			}
+			e.logger.Infof("hit retryable error that "+
+				"indicates connectivity status is: %s "+
+				"continuing exponential backoff retry, "+
+				"will retry in: %s, error: %v", status, nextWait, err)
 			ticker.Reset(nextWait)
 		}
 	}
