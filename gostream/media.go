@@ -360,6 +360,10 @@ func (pc *producerConsumer[T, U]) stop() {
 	pc.consumerCond.L.Unlock()
 	pc.activeBackgroundWorkers.Wait()
 
+	pc.currentMu.Lock()
+	defer pc.currentMu.Unlock()
+	pc.current = nil
+
 	// reset
 	cancelCtx, cancel := context.WithCancel(WithMIMETypeHint(pc.rootCancelCtx, pc.mimeType))
 	pc.cancelCtxMu.Lock()
