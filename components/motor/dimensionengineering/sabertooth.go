@@ -403,11 +403,6 @@ func (m *Motor) GoFor(ctx context.Context, rpm, revolutions float64, extra map[s
 		return errors.Wrap(err, "error in GoFor")
 	}
 
-	if revolutions == 0 {
-		m.logger.Warn("Deprecated: setting revolutions == 0 will spin the motor indefinitely at the specified RPM")
-		return nil
-	}
-
 	if m.opMgr.NewTimedWaitOp(ctx, waitDur) {
 		return m.Stop(ctx, extra)
 	}
@@ -546,8 +541,6 @@ func (c *command) ToPacket() []byte {
 	return []byte{c.Address, c.Op, c.Data, c.Checksum}
 }
 
-// If revolutions is 0, the returned wait duration will be 0 representing that
-// the motor should run indefinitely.
 func goForMath(maxRPM, rpm, revolutions float64) (float64, time.Duration) {
 	// need to do this so time is reasonable
 	if rpm > maxRPM {
@@ -556,12 +549,13 @@ func goForMath(maxRPM, rpm, revolutions float64) (float64, time.Duration) {
 		rpm = -1 * maxRPM
 	}
 
-	if revolutions == 0 {
-		powerPct := rpm / maxRPM
-		return powerPct, 0
+	dir := 1.0
+	if rpm*revolutions == 0.0 {
+		dir = 0.0
+	} else if rpm*revolutions < 0.0 {
+		dir = -1.0
 	}
 
-	dir := rpm * revolutions / math.Abs(revolutions*rpm)
 	powerPct := math.Abs(rpm) / maxRPM * dir
 	waitDur := time.Duration(math.Abs(revolutions/rpm)*60*1000) * time.Millisecond
 	return powerPct, waitDur

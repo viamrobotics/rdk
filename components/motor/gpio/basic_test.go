@@ -455,11 +455,11 @@ func TestGoForMath(t *testing.T) {
 	test.That(t, waitDur, test.ShouldEqual, 30*time.Second)
 
 	powerPct, waitDur = goForMath(200, 50, 0)
-	test.That(t, powerPct, test.ShouldEqual, 0.25)
+	test.That(t, powerPct, test.ShouldEqual, 0)
 	test.That(t, waitDur, test.ShouldEqual, 0)
 
 	powerPct, waitDur = goForMath(200, -50, 0)
-	test.That(t, powerPct, test.ShouldEqual, -0.25)
+	test.That(t, powerPct, test.ShouldEqual, 0)
 	test.That(t, waitDur, test.ShouldEqual, 0)
 }
 

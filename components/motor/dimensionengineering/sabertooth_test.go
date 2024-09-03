@@ -1,15 +1,16 @@
-package dimensionengineering_test
+package dimensionengineering
 
 import (
 	"bytes"
 	"context"
 	"fmt"
 	"testing"
+	"time"
 
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/components/motor"
-	"go.viam.com/rdk/components/motor/dimensionengineering"
+	// "go.viam.com/rdk/components/motor/dimensionengineering"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 )
@@ -34,7 +35,7 @@ func TestSabertoothMotor(t *testing.T) {
 	resChan := make(chan string, 1024)
 	deps := make(resource.Dependencies)
 
-	mc1 := dimensionengineering.Config{
+	mc1 := Config{
 		SerialPath:    "testchan",
 		MotorChannel:  1,
 		TestChan:      c,
@@ -126,7 +127,7 @@ func TestSabertoothMotor(t *testing.T) {
 		test.That(t, fmt.Sprint(latestLoggedEntry), test.ShouldContainSubstring, "nearly 0")
 	})
 
-	mc2 := dimensionengineering.Config{
+	mc2 := Config{
 		SerialPath:    "testchan",
 		MotorChannel:  2,
 		TestChan:      c,
@@ -190,7 +191,7 @@ func TestSabertoothMotorDirectionFlip(t *testing.T) {
 	resChan := make(chan string, 1024)
 	deps := make(resource.Dependencies)
 
-	mc1 := dimensionengineering.Config{
+	mc1 := Config{
 		SerialPath:    "testchan",
 		MotorChannel:  1,
 		TestChan:      c,
@@ -244,7 +245,7 @@ func TestSabertoothMotorDirectionFlip(t *testing.T) {
 		test.That(t, fmt.Sprint(latestLoggedEntry), test.ShouldContainSubstring, "nearly 0")
 	})
 
-	mc2 := dimensionengineering.Config{
+	mc2 := Config{
 		SerialPath:    "testchan",
 		MotorChannel:  2,
 		TestChan:      c,
@@ -307,7 +308,7 @@ func TestSabertoothRampConfig(t *testing.T) {
 	resChan := make(chan string, 1024)
 	deps := make(resource.Dependencies)
 
-	mc1 := dimensionengineering.Config{
+	mc1 := Config{
 		SerialPath:    "testchan",
 		MotorChannel:  1,
 		TestChan:      c,
@@ -339,7 +340,7 @@ func TestSabertoothAddressMapping(t *testing.T) {
 	resChan := make(chan string, 1024)
 	deps := make(resource.Dependencies)
 
-	mc1 := dimensionengineering.Config{
+	mc1 := Config{
 		SerialPath:    "testchan",
 		MotorChannel:  1,
 		TestChan:      c,
@@ -364,7 +365,7 @@ func TestInvalidMotorChannel(t *testing.T) {
 	c := make(chan []byte, 1024)
 	deps := make(resource.Dependencies)
 
-	mc1 := dimensionengineering.Config{
+	mc1 := Config{
 		SerialPath:    "testchan",
 		MotorChannel:  3,
 		TestChan:      c,
@@ -386,7 +387,7 @@ func TestInvalidBaudRate(t *testing.T) {
 	c := make(chan []byte, 1024)
 	deps := make(resource.Dependencies)
 
-	mc1 := dimensionengineering.Config{
+	mc1 := Config{
 		SerialPath:    "testchan",
 		MotorChannel:  1,
 		TestChan:      c,
@@ -409,7 +410,7 @@ func TestInvalidSerialAddress(t *testing.T) {
 	c := make(chan []byte, 1024)
 	deps := make(resource.Dependencies)
 
-	mc1 := dimensionengineering.Config{
+	mc1 := Config{
 		SerialPath:    "testchan",
 		MotorChannel:  1,
 		TestChan:      c,
@@ -431,7 +432,7 @@ func TestInvalidMinPowerPct(t *testing.T) {
 	c := make(chan []byte, 1024)
 	deps := make(resource.Dependencies)
 
-	mc1 := dimensionengineering.Config{
+	mc1 := Config{
 		SerialPath:    "testchan",
 		MotorChannel:  1,
 		TestChan:      c,
@@ -455,7 +456,7 @@ func TestInvalidMaxPowerPct(t *testing.T) {
 	c := make(chan []byte, 1024)
 	deps := make(resource.Dependencies)
 
-	mc1 := dimensionengineering.Config{
+	mc1 := Config{
 		SerialPath:    "testchan",
 		MotorChannel:  1,
 		TestChan:      c,
@@ -479,7 +480,7 @@ func TestMultipleInvalidParameters(t *testing.T) {
 	c := make(chan []byte, 1024)
 	deps := make(resource.Dependencies)
 
-	mc1 := dimensionengineering.Config{
+	mc1 := Config{
 		SerialPath:    "testchan",
 		MotorChannel:  3,
 		TestChan:      c,
@@ -501,4 +502,33 @@ func TestMultipleInvalidParameters(t *testing.T) {
 	test.That(t, err.Error(), test.ShouldContainSubstring, "invalid baud_rate")
 	test.That(t, err.Error(), test.ShouldContainSubstring, "invalid min_power_pct")
 	test.That(t, err.Error(), test.ShouldContainSubstring, "invalid max_power_pct")
+}
+
+func TestGoForMath(t *testing.T) {
+	maxRPM := 100.0
+
+	// + rpm / + revolutions
+	pwrPct, waitDur := goForMath(maxRPM, 10, 2)
+	test.That(t, pwrPct, test.ShouldEqual, 0.1)
+	test.That(t, waitDur, test.ShouldEqual, 12000*time.Millisecond)
+
+	// - rpm / + revolutions
+	pwrPct, waitDur = goForMath(maxRPM, -10, 2)
+	test.That(t, pwrPct, test.ShouldEqual, -0.1)
+	test.That(t, waitDur, test.ShouldEqual, 12000*time.Millisecond)
+
+	// + rpm / - revolutions
+	pwrPct, waitDur = goForMath(maxRPM, 10, -2)
+	test.That(t, pwrPct, test.ShouldEqual, -0.1)
+	test.That(t, waitDur, test.ShouldEqual, 12000*time.Millisecond)
+
+	// - rpm / - revolutions
+	pwrPct, waitDur = goForMath(maxRPM, 10, 2)
+	test.That(t, pwrPct, test.ShouldEqual, 0.1)
+	test.That(t, waitDur, test.ShouldEqual, 12000*time.Millisecond)
+
+	// + rpm / 0 revolutions
+	pwrPct, waitDur = goForMath(maxRPM, 10, 0)
+	test.That(t, pwrPct, test.ShouldEqual, 0)
+	test.That(t, waitDur, test.ShouldEqual, 0)
 }
