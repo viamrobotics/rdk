@@ -57,7 +57,6 @@ type localRobot struct {
 	cloudConnSvc            icloud.ConnectionService
 	logger                  logging.Logger
 	activeBackgroundWorkers sync.WaitGroup
-
 	// reconfigureWorkers tracks goroutines spawned by reconfiguration functions. we only
 	// wait on this group in tests to prevent goleak-related failures. however, we do not
 	// wait on this group outside of testing, since the related goroutines may be running
