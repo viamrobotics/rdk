@@ -110,14 +110,14 @@ func TestMotorABPWM(t *testing.T) {
 
 	t.Run("motor (A/B/PWM) GoFor testing", func(t *testing.T) {
 		test.That(t, m.GoFor(ctx, 50, 0, nil), test.ShouldBeNil)
-		test.That(t, mustGetGPIOPinByName(b, "1").Get(context.Background()), test.ShouldEqual, true)
+		test.That(t, mustGetGPIOPinByName(b, "1").Get(context.Background()), test.ShouldEqual, false)
 		test.That(t, mustGetGPIOPinByName(b, "2").Get(context.Background()), test.ShouldEqual, false)
-		test.That(t, mustGetGPIOPinByName(b, "3").PWM(context.Background()), test.ShouldEqual, .5)
+		test.That(t, mustGetGPIOPinByName(b, "3").PWM(context.Background()), test.ShouldEqual, 0)
 
 		test.That(t, m.GoFor(ctx, -50, 0, nil), test.ShouldBeNil)
 		test.That(t, mustGetGPIOPinByName(b, "1").Get(context.Background()), test.ShouldEqual, false)
-		test.That(t, mustGetGPIOPinByName(b, "2").Get(context.Background()), test.ShouldEqual, true)
-		test.That(t, mustGetGPIOPinByName(b, "3").PWM(context.Background()), test.ShouldEqual, .5)
+		test.That(t, mustGetGPIOPinByName(b, "2").Get(context.Background()), test.ShouldEqual, false)
+		test.That(t, mustGetGPIOPinByName(b, "3").PWM(context.Background()), test.ShouldEqual, 0)
 
 		test.That(t, m.GoFor(ctx, 0, 1, nil), test.ShouldBeError, motor.NewZeroRPMError())
 		test.That(t, m.Stop(context.Background(), nil), test.ShouldBeNil)
@@ -204,12 +204,12 @@ func TestMotorDirPWM(t *testing.T) {
 
 	t.Run("motor (DIR/PWM) GoFor testing", func(t *testing.T) {
 		test.That(t, m.GoFor(ctx, 50, 0, nil), test.ShouldBeNil)
-		test.That(t, mustGetGPIOPinByName(b, "1").Get(context.Background()), test.ShouldEqual, true)
-		test.That(t, mustGetGPIOPinByName(b, "3").PWM(context.Background()), test.ShouldEqual, .5)
+		test.That(t, mustGetGPIOPinByName(b, "1").Get(context.Background()), test.ShouldEqual, false)
+		test.That(t, mustGetGPIOPinByName(b, "3").PWM(context.Background()), test.ShouldEqual, 0)
 
 		test.That(t, m.GoFor(ctx, -50, 0, nil), test.ShouldBeNil)
 		test.That(t, mustGetGPIOPinByName(b, "1").Get(context.Background()), test.ShouldEqual, false)
-		test.That(t, mustGetGPIOPinByName(b, "3").PWM(context.Background()), test.ShouldEqual, .5)
+		test.That(t, mustGetGPIOPinByName(b, "3").PWM(context.Background()), test.ShouldEqual, 0)
 
 		test.That(t, m.Stop(context.Background(), nil), test.ShouldBeNil)
 	})
