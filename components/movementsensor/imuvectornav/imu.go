@@ -74,7 +74,7 @@ type vectornav struct {
 	spiMu   sync.Mutex
 	polling int
 
-	workers   utils.StoppableWorkers
+	workers   *goutils.StoppableWorkers
 	bus       buses.SPI
 	cs        string
 	speed     int
@@ -217,7 +217,7 @@ func newVectorNav(
 		logger.CDebugf(ctx, "vecnav: will pool at %d Hz", pfreq)
 		waitCh := make(chan struct{})
 		s := 1.0 / float64(pfreq)
-		v.workers = utils.NewStoppableWorkers(func(cancelCtx context.Context) {
+		v.workers = goutils.NewBackgroundStoppableWorkers(func(cancelCtx context.Context) {
 			timer := time.NewTicker(time.Duration(s * float64(time.Second)))
 			defer timer.Stop()
 			close(waitCh)
