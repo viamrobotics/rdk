@@ -10,7 +10,6 @@ import (
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/components/motor"
-	// "go.viam.com/rdk/components/motor/dimensionengineering"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 )
