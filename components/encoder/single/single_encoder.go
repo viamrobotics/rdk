@@ -209,7 +209,7 @@ func (e *Encoder) start(b board.Board) {
 				}
 			} else {
 				// if no motor is attached to the encoder, increase in positive direction.
-				e.logger.Debug("no motor is attached to the encoder, increasing in positive direction")
+				e.logger.Debug("no motor is attached to the encoder, increasing ticks count in the positive direction only")
 				atomic.AddInt64(&e.position, 1)
 			}
 		}
