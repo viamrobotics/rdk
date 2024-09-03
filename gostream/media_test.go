@@ -191,3 +191,25 @@ func TestStreamMultipleConsumers(t *testing.T) {
 		test.That(t, wrappedImg.released.Load(), test.ShouldBeTrue)
 	}
 }
+
+func TestStreamWithoutNext(t *testing.T) {
+	colors := []*WrappedImage{createWrappedImage(t, rimage.Red)}
+
+	imgSource := &imageSource{WrappedImages: colors}
+	videoSrc := NewVideoSource(imgSource, prop.Video{})
+
+	// Start stream
+	stream, err := videoSrc.Stream(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	// Get one frame
+	_, release, err := stream.Next(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	release()
+	// Close stream
+	stream.Close(context.Background())
+
+	// Spin up stream and close without calling Next
+	stream, err = videoSrc.Stream(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	stream.Close(context.Background())
+}

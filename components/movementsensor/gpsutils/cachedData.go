@@ -8,6 +8,7 @@ import (
 	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
 	"github.com/pkg/errors"
+	goutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/logging"
@@ -36,7 +37,7 @@ type CachedData struct {
 	dev    DataReader
 	logger logging.Logger
 
-	workers utils.StoppableWorkers
+	workers *goutils.StoppableWorkers
 }
 
 // CommonReadings struct contains the most common values we output in sensor reading.
@@ -55,7 +56,7 @@ func NewCachedData(dev DataReader, logger logging.Logger) *CachedData {
 		dev:                dev,
 		logger:             logger,
 	}
-	g.workers = utils.NewStoppableWorkers(g.start)
+	g.workers = goutils.NewBackgroundStoppableWorkers(g.start)
 	return &g
 }
 

@@ -169,7 +169,7 @@ type adxl345 struct {
 	linearAcceleration r3.Vector
 	err                movementsensor.LastError
 
-	workers rutils.StoppableWorkers
+	workers *utils.StoppableWorkers
 }
 
 // newAdxl345 is a constructor to create a new object representing an ADXL345 accelerometer.
@@ -256,7 +256,7 @@ func makeAdxl345(
 
 	// Now, turn on the background goroutine that constantly reads from the chip and stores data in
 	// the object we created.
-	sensor.workers = rutils.NewStoppableWorkers(func(cancelContext context.Context) {
+	sensor.workers = utils.NewBackgroundStoppableWorkers(func(cancelContext context.Context) {
 		// Reading data a thousand times per second is probably fast enough.
 		timer := time.NewTicker(time.Millisecond)
 		defer timer.Stop()
@@ -337,7 +337,7 @@ func makeAdxl345(
 }
 
 func (adxl *adxl345) startInterruptMonitoring(ticksChan chan board.Tick) {
-	adxl.workers.AddWorkers(func(cancelContext context.Context) {
+	adxl.workers.Add(func(cancelContext context.Context) {
 		for {
 			select {
 			case <-cancelContext.Done():

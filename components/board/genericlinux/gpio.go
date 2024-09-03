@@ -16,7 +16,6 @@ import (
 
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/logging"
-	rdkutils "go.viam.com/rdk/utils"
 )
 
 const noPin = 0xFFFFFFFF // noPin is the uint32 version of -1. A pin with this offset has no GPIO
@@ -35,7 +34,7 @@ type gpioPin struct {
 	enableSoftwarePWM    bool      // Indicates whether a software PWM loop should continue running
 	startSoftwarePWMChan *chan any // Close and reinitialize this to (re)start the SW PWM loop
 
-	softwarePwm rdkutils.StoppableWorkers
+	softwarePwm *utils.StoppableWorkers
 
 	mu     sync.Mutex
 	logger logging.Logger
