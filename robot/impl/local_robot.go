@@ -58,10 +58,6 @@ type localRobot struct {
 	logger                  logging.Logger
 	activeBackgroundWorkers sync.WaitGroup
 
-	// configCleanedUp tracks whether the robot has cleaned up after a successful configuration
-	configCleanUpMu sync.Mutex
-	configCleanedUp bool
-
 	// reconfigureWorkers tracks goroutines spawned by reconfiguration functions. we only
 	// wait on this group in tests to prevent goleak-related failures. however, we do not
 	// wait on this group outside of testing, since the related goroutines may be running
