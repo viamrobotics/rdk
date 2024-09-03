@@ -252,12 +252,12 @@ func (c *Config) setUnprocessedConfig(cfg *Config) error {
 }
 
 // UnprocessedConfig returns unprocessedConfig.
-func (c Config) UnprocessedConfig() *Config {
+func (c *Config) UnprocessedConfig() *Config {
 	return c.unprocessedConfig
 }
 
 // StoreToCache caches the unprocessedConfig.
-func (c Config) StoreToCache() error {
+func (c *Config) StoreToCache() error {
 	if err := os.MkdirAll(ViamDotDir, 0o700); err != nil {
 		return err
 	}
