@@ -144,14 +144,13 @@ func TestMoveOnGlobe(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		planResp, err := moveRequest.Plan(ctx)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, len(planResp.Path()), test.ShouldEqual, 0)
-		test.That(t, len(planResp.Trajectory()), test.ShouldEqual, 0)
+		test.That(t, planResp, test.ShouldNotBeNil)
 
 		// test that nothing breaks in state when we return an empty plan
 		executionID, err := ms.MoveOnGlobe(ctx, req)
 		test.That(t, err, test.ShouldBeNil)
 
-		timeoutCtx, timeoutFn := context.WithTimeout(ctx, time.Minute*5)
+		timeoutCtx, timeoutFn := context.WithTimeout(ctx, time.Second*5)
 		defer timeoutFn()
 		err = motion.PollHistoryUntilSuccessOrError(timeoutCtx, ms, time.Millisecond*5, motion.PlanHistoryReq{
 			ComponentName: req.ComponentName,

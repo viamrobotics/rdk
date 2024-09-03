@@ -106,16 +106,6 @@ func (req *PlanRequest) validatePlanRequest() error {
 		}
 	}
 
-	_, ok := req.Options["planDeviationMM"].(float64)
-	if !ok {
-		req.Logger.Info("no planDeviationMM value was provided so we will use the default value of 1e-4")
-		if req.Options == nil {
-			req.Options = map[string]interface{}{"planDeviationMM": 1e-4}
-		} else {
-			req.Options["planDeviationMM"] = 1e-4
-		}
-	}
-
 	frameDOF := len(req.Frame.DoF())
 	seedMap, ok := req.StartConfiguration[req.Frame.Name()]
 	if frameDOF > 0 {
@@ -183,43 +173,6 @@ func Replan(ctx context.Context, request *PlanRequest, currentPlan Plan, replanC
 	}
 	if len(sf.DoF()) == 0 {
 		return nil, errors.New("solver frame has no degrees of freedom, cannot perform inverse kinematics")
-	}
-
-	// Here we determine if we already are at the goal.
-	// If our motion profile is position_only then, we only check against our current & desired position.
-	// Conversely if our motion profile is anything else, then we also need to check again our
-	// current & desired orientation.
-	// If we are already at the goal we return an empty plan.
-	profile, ok := request.Options["motion_profile"].(string)
-	if !ok {
-		profile = ""
-	}
-	planDevMM, _ := request.Options["planDeviationMM"].(float64)
-
-	startPose := request.StartPose
-	// if startPose is nil we entered this function from motion.Move and it is expected that request.StartPose is nil
-	if startPose == nil {
-		seed, err := sf.mapToSlice(request.StartConfiguration)
-		if err != nil {
-			return nil, err
-		}
-		startPose, err = sf.Transform(seed)
-		if err != nil {
-			return nil, err
-		}
-	}
-	constructPlan := true
-	if profile == PositionOnlyMotionProfile {
-		if spatialmath.PoseAlmostCoincidentEps(request.Goal.Pose(), startPose, planDevMM) {
-			constructPlan = false
-		}
-	} else if spatialmath.OrientationAlmostEqual(request.Goal.Pose().Orientation(), startPose.Orientation()) &&
-		spatialmath.PoseAlmostCoincidentEps(request.Goal.Pose(), startPose, planDevMM) {
-		constructPlan = false
-	}
-	if !constructPlan {
-		request.Logger.Info("already within planDeviationMM of the goal, will not construct a plan")
-		return &rrtPlan{SimplePlan: *NewSimplePlan(make(Path, 0), make(Trajectory, 0)), nodes: []node{}}, nil
 	}
 
 	request.Logger.CDebugf(ctx, "constraint specs for this step: %v", request.Constraints)
