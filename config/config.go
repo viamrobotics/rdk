@@ -246,8 +246,8 @@ func (c Config) FindComponent(name string) *resource.Config {
 
 // setUnprocessedConfig sets unprocessedConfig with a copy of the config passed in.
 func (c *Config) setUnprocessedConfig(cfg *Config) error {
-	copy, err := cfg.CopyOnlyPublicFields()
-	c.unprocessedConfig = copy
+	cpy, err := cfg.CopyOnlyPublicFields()
+	c.unprocessedConfig = cpy
 	return err
 }
 
