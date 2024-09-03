@@ -244,9 +244,11 @@ func (c Config) FindComponent(name string) *resource.Config {
 	return nil
 }
 
-// setUnprocessedConfig updates unprocessedConfig.
-func (c *Config) setUnprocessedConfig(cfg *Config) {
-	c.unprocessedConfig = cfg
+// setUnprocessedConfig sets unprocessedConfig with a copy of the config passed in.
+func (c *Config) setUnprocessedConfig(cfg *Config) error {
+	copy, err := cfg.CopyOnlyPublicFields()
+	c.unprocessedConfig = copy
+	return err
 }
 
 // UnprocessedConfig returns unprocessedConfig.
@@ -259,7 +261,7 @@ func (c Config) StoreToCache() error {
 	if err := os.MkdirAll(ViamDotDir, 0o700); err != nil {
 		return err
 	}
-	md, err := json.MarshalIndent(c.unprocessedConfig, "", "  ")
+	md, err := json.MarshalIndent(c.UnprocessedConfig(), "", "  ")
 	if err != nil {
 		return err
 	}

@@ -300,8 +300,10 @@ func readFromCloud(
 	mergeCloudConfig(cfg)
 	unprocessedConfig.Cloud.TLSCertificate = tls.certificate
 	unprocessedConfig.Cloud.TLSPrivateKey = tls.privateKey
-	cfg.setUnprocessedConfig(unprocessedConfig)
 
+	if err := cfg.setUnprocessedConfig(unprocessedConfig); err != nil {
+		logger.Errorw("failed to set unprocessed config", "error", err)
+	}
 	return cfg, nil
 }
 
