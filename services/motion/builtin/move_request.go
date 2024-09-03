@@ -174,6 +174,7 @@ func (mr *moveRequest) execute(ctx context.Context, plan motionplan.Plan) (state
 	if !ok {
 		return state.ExecuteResponse{}, errors.New("exeuctionState.CurrentPoses() does not contain an entry for the LocalizationFrame")
 	}
+	fmt.Println("currentPosition.Pose(): ", spatialmath.PoseToProtobuf(currentPosition.Pose()))
 	resp = mr.alreadyAtGoalCheck(currentPosition.Pose())
 	if resp == nil {
 		return state.ExecuteResponse{Replan: true, ReplanReason: "issuing a replan since we are not within planDeviationMM of the goal"}, nil
@@ -196,6 +197,7 @@ func (mr *moveRequest) deviatedFromPlan(ctx context.Context, plan motionplan.Pla
 
 	// check if the error state is outside the acceptable bounds
 	if errorState.Point().Norm() > mr.config.planDeviationMM {
+		fmt.Println("WE ARE RETURNING AN ERROR FROM HERE")
 		msg := "error state exceeds planDeviationMM; planDeviationMM: %f, errorstate.Point().Norm(): %f, errorstate.Point(): %#v "
 		reason := fmt.Sprintf(msg, mr.config.planDeviationMM, errorState.Point().Norm(), errorState.Point())
 		return state.ExecuteResponse{Replan: true, ReplanReason: reason}, nil
@@ -909,7 +911,7 @@ func (ms *builtIn) createBaseMoveRequest(
 			if spatialmath.PoseAlmostCoincidentEps(goal.Pose(), basePose, motionCfg.planDeviationMM) {
 				return &state.ExecuteResponse{Replan: false}
 			}
-		} else if spatialmath.OrientationAlmostEqual(goal.Pose().Orientation(), basePose.Orientation()) &&
+		} else if spatialmath.OrientationAlmostEqualEps(goal.Pose().Orientation(), basePose.Orientation(), 5) &&
 			spatialmath.PoseAlmostCoincidentEps(goal.Pose(), basePose, motionCfg.planDeviationMM) {
 			return &state.ExecuteResponse{Replan: false}
 		}
