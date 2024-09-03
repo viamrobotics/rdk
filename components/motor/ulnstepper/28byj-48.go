@@ -25,13 +25,13 @@ import (
 
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
+	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/motor"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/utils"
 )
 
 var (
@@ -165,7 +165,7 @@ type uln28byj struct {
 	motorName          string
 
 	// state
-	workers   utils.StoppableWorkers
+	workers   *utils.StoppableWorkers
 	lock      sync.Mutex
 	opMgr     *operation.SingleOperationManager
 	doRunDone func()
@@ -185,7 +185,7 @@ func (m *uln28byj) doRun() {
 	// start a new doRun
 	var doRunCtx context.Context
 	doRunCtx, m.doRunDone = context.WithCancel(context.Background())
-	m.workers = utils.NewStoppableWorkers(func(ctx context.Context) {
+	m.workers = utils.NewBackgroundStoppableWorkers(func(ctx context.Context) {
 		for {
 			select {
 			case <-doRunCtx.Done():

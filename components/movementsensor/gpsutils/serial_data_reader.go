@@ -10,9 +10,9 @@ import (
 	"io"
 
 	"github.com/jacobsa/go-serial/serial"
+	"go.viam.com/utils"
 
 	"go.viam.com/rdk/logging"
-	"go.viam.com/rdk/utils"
 )
 
 // SerialDataReader implements the DataReader interface (defined in component.go) by interacting
@@ -20,7 +20,7 @@ import (
 type SerialDataReader struct {
 	dev     io.ReadWriteCloser
 	data    chan string
-	workers utils.StoppableWorkers
+	workers *utils.StoppableWorkers
 	logger  logging.Logger
 }
 
@@ -61,7 +61,7 @@ func NewSerialDataReader(
 		data:   data,
 		logger: logger,
 	}
-	reader.workers = utils.NewStoppableWorkers(reader.backgroundWorker)
+	reader.workers = utils.NewBackgroundStoppableWorkers(reader.backgroundWorker)
 
 	return &reader, nil
 }
