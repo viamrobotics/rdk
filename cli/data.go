@@ -495,7 +495,15 @@ func downloadBinary(ctx context.Context, client datapb.DataServiceClient, dst st
 			req.Header.Add("key", apiKey.KeyCrypto)
 		}
 
-		res, err := httpClient.Do(req)
+		var res *http.Response
+		for count := 0; count < maxRetryCount; count++ {
+			res, err = httpClient.Do(req)
+
+			if err == nil && res.StatusCode == http.StatusOK {
+				break
+			}
+		}
+
 		if err != nil {
 			return errors.Wrapf(err, serverErrorMessage)
 		}
