@@ -903,6 +903,7 @@ func (ms *builtIn) createBaseMoveRequest(
 		obstaclePollingFreq = time.Duration(1000/motionCfg.obstaclePollingFreqHz) * time.Millisecond
 	}
 
+	// TODO(RSDK-8683): move this check into the motionplan package
 	// anonymous function to determine if we are at the requested goal at the start and end of plan's execution
 	atGoalCheck := func(basePose spatialmath.Pose) *state.ExecuteResponse {
 		if valExtra.motionProfile == motionplan.PositionOnlyMotionProfile {
