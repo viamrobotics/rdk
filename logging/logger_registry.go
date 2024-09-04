@@ -78,7 +78,8 @@ func (lr *Registry) Update(logConfig []LoggerPatternConfig, warnLogger Logger) e
 	for _, name := range lr.getRegisteredLoggerNames() {
 		level, ok := appliedConfigs[name]
 		if !ok {
-			level = INFO
+			// If no config was applied; leave logger level as-is.
+			continue
 		}
 		err := lr.updateLoggerLevel(name, level)
 		if err != nil {
