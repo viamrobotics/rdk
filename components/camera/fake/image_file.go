@@ -1,14 +1,13 @@
 //go:build !no_cgo
 
-package videosource
+package fake
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"image"
 	"time"
-
-	"github.com/pkg/errors"
 
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/logging"
