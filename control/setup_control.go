@@ -163,6 +163,7 @@ func (p *PIDLoop) TunePIDLoop(ctx context.Context, cancelFunc context.CancelFunc
 			p.logger.Debug("tuning trapz PID")
 			p.ControlConf.Blocks[sumIndex].DependsOn[0] = p.BlockNames[BlockNameConstant][0]
 			if err := p.StartControlLoop(); err != nil {
+				p.logger.Error(err)
 				errs = multierr.Combine(errs, err)
 			}
 
@@ -176,6 +177,7 @@ func (p *PIDLoop) TunePIDLoop(ctx context.Context, cancelFunc context.CancelFunc
 			if p.PIDVals[0].NeedsAutoTuning() {
 				p.logger.Info("tuning linear PID")
 				if err := p.tuneSinglePID(ctx, angularPIDIndex); err != nil {
+					p.logger.Error(err)
 					errs = multierr.Combine(errs, err)
 				}
 			}
@@ -184,6 +186,7 @@ func (p *PIDLoop) TunePIDLoop(ctx context.Context, cancelFunc context.CancelFunc
 			if p.PIDVals[1].NeedsAutoTuning() {
 				p.logger.Info("tuning angular PID")
 				if err := p.tuneSinglePID(ctx, linearPIDIndex); err != nil {
+					p.logger.Error(err)
 					errs = multierr.Combine(errs, err)
 				}
 			}

@@ -198,7 +198,7 @@ func (p *basicPID) reset() error {
 
 	if !p.cfg.Attribute.Has("kI") &&
 		!p.cfg.Attribute.Has("kD") &&
-		!p.cfg.Attribute.Has("kP") {
+		!p.cfg.Attribute.Has("kP") && !p.useMulti {
 		return errors.Errorf("pid block %s should have at least one kI, kP or kD field", p.cfg.Name)
 	}
 
@@ -208,9 +208,6 @@ func (p *basicPID) reset() error {
 	if len(p.cfg.DependsOn) != len(p.PIDSets) && p.useMulti {
 		return errors.Errorf("pid block %s should have %d inputs got %d", p.cfg.Name, len(p.PIDSets), len(p.cfg.DependsOn))
 	}
-	p.kI = p.cfg.Attribute["kI"].(float64)
-	p.kD = p.cfg.Attribute["kD"].(float64)
-	p.kP = p.cfg.Attribute["kP"].(float64)
 
 	// ensure a default of 255
 	p.satLimUp = 255
@@ -283,6 +280,10 @@ func (p *basicPID) reset() error {
 		p.y = make([]*Signal, 1)
 		p.y[0] = makeSignals(p.cfg.Name, p.cfg.Type, len(p.PIDSets))
 	} else {
+		p.kI = p.cfg.Attribute["kI"].(float64)
+		p.kD = p.cfg.Attribute["kD"].(float64)
+		p.kP = p.cfg.Attribute["kP"].(float64)
+
 		if p.kI == 0.0 && p.kD == 0.0 && p.kP == 0.0 {
 			var ssrVal float64
 			if p.cfg.Attribute["tune_ssr_value"] != nil {
