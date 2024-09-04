@@ -514,9 +514,11 @@ func (c *viamClient) downloadBinary(ctx context.Context, client datapb.DataServi
 		}
 
 		if err != nil {
+			debugf(c.c.App.Writer, c.c.Bool(debugFlag), "Failed downloading large file %s: %s", id.FileId, err)
 			return errors.Wrapf(err, serverErrorMessage)
 		}
 		if res.StatusCode != http.StatusOK {
+			debugf(c.c.App.Writer, c.c.Bool(debugFlag), "Failed downloading large file %s: Server returned %d response", id.FileId, res.StatusCode)
 			return errors.New(serverErrorMessage)
 		}
 		defer func() {
@@ -525,6 +527,7 @@ func (c *viamClient) downloadBinary(ctx context.Context, client datapb.DataServi
 
 		bin, err = io.ReadAll(res.Body)
 		if err != nil {
+			debugf(c.c.App.Writer, c.c.Bool(debugFlag), "Failed downloading large file %s, error occurred while reading: %s", id.FileId, err)
 			return errors.Wrapf(err, serverErrorMessage)
 		}
 	} else {
