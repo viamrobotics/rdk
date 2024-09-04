@@ -197,8 +197,12 @@ func TestStoreToCache(t *testing.T) {
 	}
 	cfg.Cloud = cloud
 
-	// store our config to the cache
+	// errors if no unprocessed config to cache
 	cfgToCache := &Config{Cloud: &Cloud{ID: "forCachingTest"}}
+	err = cfgToCache.StoreToCache()
+	test.That(t, err.Error(), test.ShouldContainSubstring, "no unprocessed config to cache")
+
+	// store our config to the cache
 	cfgToCache.setUnprocessedConfig(cfg)
 	err = cfgToCache.StoreToCache()
 	test.That(t, err, test.ShouldBeNil)
