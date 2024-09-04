@@ -271,7 +271,7 @@ func (c *viamClient) binaryData(dst string, filter *datapb.Filter, parallelDownl
 
 	return c.performActionOnBinaryDataFromFilter(
 		func(id *datapb.BinaryID) error {
-			return downloadBinary(c.c.Context, c.dataClient, dst, id, c.authFlow.httpClient, c.conf.Auth)
+			return c.downloadBinary(c.c.Context, c.dataClient, dst, id, c.authFlow.httpClient, c.conf.Auth)
 		},
 		filter, parallelDownloads,
 		func(i int32) {
@@ -412,9 +412,11 @@ func getMatchingBinaryIDs(ctx context.Context, client datapb.DataServiceClient, 
 	}
 }
 
-func downloadBinary(ctx context.Context, client datapb.DataServiceClient, dst string, id *datapb.BinaryID,
+func (c *viamClient) downloadBinary(ctx context.Context, client datapb.DataServiceClient, dst string, id *datapb.BinaryID,
 	httpClient *http.Client, auth authMethod,
 ) error {
+	debugf(c.c.App.Writer, c.c.Bool(debugFlag), "Attempting to download binary file %s", id.FileId)
+
 	var resp *datapb.BinaryDataByIDsResponse
 	var err error
 	largeFile := false
@@ -426,8 +428,10 @@ func downloadBinary(ctx context.Context, client datapb.DataServiceClient, dst st
 		})
 		// If the file is too large, we break and try a different pathway for downloading
 		if err == nil || status.Code(err) == codes.ResourceExhausted {
+			debugf(c.c.App.Writer, c.c.Bool(debugFlag), "Small file download file %s: attempt %d/%d succeeded", id.FileId, count+1, maxRetryCount)
 			break
 		}
+		debugf(c.c.App.Writer, c.c.Bool(debugFlag), "Small file download for file %s: attempt %d/%d failed", id.FileId, count+1, maxRetryCount)
 	}
 	// For large files, we get the metadata but not the binary itself
 	// Resource exhausted is returned when the message we're receiving exceeds the GRPC maximum limit
@@ -439,8 +443,10 @@ func downloadBinary(ctx context.Context, client datapb.DataServiceClient, dst st
 				IncludeBinary: !largeFile,
 			})
 			if err == nil {
+				debugf(c.c.App.Writer, c.c.Bool(debugFlag), "Metadata fetch for file %s: attempt %d/%d succeeded", id.FileId, count+1, maxRetryCount)
 				break
 			}
+			debugf(c.c.App.Writer, c.c.Bool(debugFlag), "Metadata fetch for file %s: attempt %d/%d failed", id.FileId, count+1, maxRetryCount)
 		}
 	}
 	if err != nil {
@@ -477,6 +483,7 @@ func downloadBinary(ctx context.Context, client datapb.DataServiceClient, dst st
 
 	var bin []byte
 	if largeFile {
+		debugf(c.c.App.Writer, c.c.Bool(debugFlag), "Attempting file %s as a large file download", id.FileId)
 		// Make request to the URI for large files since we exceed the message limit for gRPC
 		req, err := http.NewRequestWithContext(ctx, http.MethodGet, datum.GetMetadata().GetUri(), nil)
 		if err != nil {
@@ -500,8 +507,10 @@ func downloadBinary(ctx context.Context, client datapb.DataServiceClient, dst st
 			res, err = httpClient.Do(req)
 
 			if err == nil && res.StatusCode == http.StatusOK {
+				debugf(c.c.App.Writer, c.c.Bool(debugFlag), "Large file download for file %s: attempt %d/%d succeeded", id.FileId, count+1, maxRetryCount)
 				break
 			}
+			debugf(c.c.App.Writer, c.c.Bool(debugFlag), "Large file download for file %s: attempt %d/%d failed", id.FileId, count+1, maxRetryCount)
 		}
 
 		if err != nil {
