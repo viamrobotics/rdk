@@ -61,7 +61,7 @@ func (sb *sensorBase) setupControlLoop(linear, angular control.PIDConfig) error 
 	// set the necessary options for a sensorcontrolled base
 	options := control.Options{
 		SensorFeedback2DVelocityControl: true,
-		LoopFrequency:                   10,
+		LoopFrequency:                   sb.controlFreq,
 		ControllableType:                "base_name",
 	}
 

@@ -100,9 +100,10 @@ func (sb *sensorBase) MoveStraight(
 	for {
 		select {
 		case <-ctx.Done():
-			// do not return context canceled errors, just log them
+			// context.cancelled can happen due to UI being closed during MoveStraight.
+			// Do not return context canceled errors, just log them
 			if errors.Is(ctx.Err(), context.Canceled) {
-				sb.logger.Error(ctx.Err())
+				sb.logger.Warnf("Context cancelled during MoveStraight ", ctx.Err())
 				return nil
 			}
 			return ctx.Err()

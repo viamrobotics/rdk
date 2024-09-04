@@ -24,8 +24,6 @@ import (
 	goutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/components/camera"
-	jetsoncamera "go.viam.com/rdk/components/camera/platforms/jetson"
-	debugLogger "go.viam.com/rdk/components/camera/videosource/logging"
 	"go.viam.com/rdk/gostream"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/pointcloud"
@@ -121,31 +119,7 @@ func Discover(ctx context.Context, getDrivers func() []driver.Driver, logger log
 		webcams = append(webcams, wc)
 	}
 
-	if err := debugLogger.GLoggerCamComp.Log("discovery service", webcamsToMap(webcams)); err != nil {
-		logger.Debug(err)
-	}
 	return &pb.Webcams{Webcams: webcams}, nil
-}
-
-func webcamsToMap(webcams []*pb.Webcam) debugLogger.InfoMap {
-	info := make(debugLogger.InfoMap)
-	for _, w := range webcams {
-		k := w.Name
-		v := fmt.Sprintf("ID: %s\n", w.Id)
-		v += fmt.Sprintf("Status: %s\n", w.Status)
-		v += fmt.Sprintf("Label: %s\n", w.Label)
-		v += "Properties:"
-		for _, p := range w.Properties {
-			v += fmt.Sprintf(" :%s=%-4d | %s=%-4d | %s=%-5s | %s=%-4.2f\n",
-				"width_px", p.GetWidthPx(),
-				"height_px", p.GetHeightPx(),
-				"frame_format", p.GetFrameFormat(),
-				"frame_rate", p.GetFrameRate(),
-			)
-		}
-		info[k] = v
-	}
-	return info
 }
 
 func getProperties(d driver.Driver) (_ []prop.Media, err error) {
@@ -287,9 +261,10 @@ func NewWebcam(
 	logger logging.Logger,
 ) (camera.Camera, error) {
 	cancelCtx, cancel := context.WithCancel(context.Background())
+
 	cam := &monitoredWebcam{
 		Named:          conf.ResourceName().AsNamed(),
-		logger:         logging.FromZapCompatible(logger.With("camera_name", conf.ResourceName().ShortName())),
+		logger:         logger.WithFields("camera_name", conf.ResourceName().ShortName()),
 		originalLogger: logger,
 		cancelCtx:      cancelCtx,
 		cancel:         cancel,
@@ -301,25 +276,11 @@ func NewWebcam(
 
 	s, err := cam.Stream(ctx)
 	if err != nil {
-		if err := debugLogger.GLoggerCamComp.Log("camera test results",
-			debugLogger.InfoMap{
-				"name":  cam.Name().Name,
-				"error": fmt.Sprint(err),
-			},
-		); err != nil {
-			logger.Debug(err)
-		}
-		return cam, nil
+		logger.Debug(err)
 	}
 
-	img, _, err := s.Next(ctx)
-	if err := debugLogger.GLoggerCamComp.Log("camera test results",
-		debugLogger.InfoMap{
-			"camera name":        cam.Name().Name,
-			"has non-nil image?": fmt.Sprintf("%t", img != nil),
-			"error:":             fmt.Sprintf("%s", err),
-		},
-	); err != nil {
+	_, _, err = s.Next(ctx)
+	if err != nil {
 		logger.Debug(err)
 	}
 
@@ -496,14 +457,6 @@ func (c *monitoredWebcam) reconnectCamera(conf *WebcamConfig) error {
 
 	newSrc, foundLabel, err := findAndMakeVideoSource(c.cancelCtx, conf, c.targetPath, c.logger)
 	if err != nil {
-		// If we are on a Jetson Orin AGX, we need to validate hardware/software setup.
-		// If not, simply pass through the error.
-		err = jetsoncamera.ValidateSetup(
-			jetsoncamera.OrinAGX,
-			jetsoncamera.ECAM,
-			jetsoncamera.AR0234,
-			err,
-		)
 		return errors.Wrap(err, "failed to find camera")
 	}
 
@@ -518,7 +471,8 @@ func (c *monitoredWebcam) reconnectCamera(conf *WebcamConfig) error {
 	if c.targetPath == "" {
 		c.targetPath = foundLabel
 	}
-	c.logger = logging.FromZapCompatible(c.originalLogger.With("camera_label", c.targetPath))
+
+	c.logger = c.originalLogger.WithFields("camera_label", c.targetPath)
 
 	return nil
 }
@@ -579,15 +533,6 @@ func (c *monitoredWebcam) Monitor() {
 			}
 		}
 	}, c.activeBackgroundWorkers.Done)
-}
-
-func (c *monitoredWebcam) Projector(ctx context.Context) (transform.Projector, error) {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-	if err := c.ensureActive(); err != nil {
-		return nil, err
-	}
-	return c.exposedProjector.Projector(ctx)
 }
 
 func (c *monitoredWebcam) Images(ctx context.Context) ([]camera.NamedImage, resource.ResponseMetadata, error) {

@@ -598,10 +598,6 @@ func (manager *resourceManager) completeConfig(
 			// currently only a top-level context cancellation will result in an early
 			// exist - individual resource processing failures will not.
 			processResource := func() error {
-				defer func() {
-					lr.reconfigureWorkers.Done()
-				}()
-
 				resChan := make(chan struct{}, 1)
 				ctxWithTimeout, timeoutCancel := context.WithTimeout(context.WithoutCancel(ctx), timeout)
 				defer timeoutCancel()
@@ -614,6 +610,7 @@ func (manager *resourceManager) completeConfig(
 					defer func() {
 						stopSlowLogger()
 						resChan <- struct{}{}
+						lr.reconfigureWorkers.Done()
 					}()
 					gNode, ok := manager.resources.Node(resName)
 					if !ok || !gNode.NeedsReconfigure() {

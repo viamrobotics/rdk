@@ -164,7 +164,7 @@ func TestReconfigure(t *testing.T) {
 	conn1, err := net.Dial("tcp", listener1.Addr().String())
 	test.That(t, err, test.ShouldBeNil)
 	xArm := &xArm{
-		speed:  float32(utils.DegToRad(float64(conf.Speed))),
+		speed:  utils.DegToRad(float64(conf.Speed)),
 		logger: logging.NewTestLogger(t),
 	}
 	xArm.mu.Lock()

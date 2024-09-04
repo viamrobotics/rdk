@@ -22,7 +22,6 @@ import (
 	"go.viam.com/utils/perf"
 	"go.viam.com/utils/rpc"
 
-	vlogging "go.viam.com/rdk/components/camera/videosource/logging"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
@@ -40,7 +39,6 @@ type Arguments struct {
 	ConfigFile                 string `flag:"config,usage=robot config file"`
 	CPUProfile                 string `flag:"cpuprofile,usage=write cpu profile to file"`
 	Debug                      bool   `flag:"debug"`
-	Logging                    bool   `flag:"logging,default=false,usage=emit periodic resource status information to Viam's hidden folder"`
 	SharedDir                  string `flag:"shareddir,usage=web resource directory"`
 	Version                    bool   `flag:"version,usage=print version"`
 	WebProfile                 bool   `flag:"webprofile,usage=include profiler in http server"`
@@ -78,7 +76,12 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 	logger := logging.NewLogger("")
 	logging.ReplaceGlobal(logger)
 	logger = logger.Sublogger("rdk")
+
+	// create logging logger here for access later
 	logger.Sublogger("logging")
+
+	// create networking logger here for access later
+	logger.Sublogger("networking")
 
 	config.InitLoggingSettings(logger, argsParsed.Debug)
 
@@ -117,15 +120,9 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 		defer pprof.StopCPUProfile()
 	}
 
-	if argsParsed.Logging {
-		if err := vlogging.GLoggerCamComp.Start(ctx); err != nil {
-			logger.Debug(err)
-		}
-	}
-
 	// Read the config from disk and use it to initialize the remote logger.
 	initialReadCtx, cancel := context.WithTimeout(ctx, time.Second*5)
-	cfgFromDisk, err := config.ReadLocalConfig(initialReadCtx, argsParsed.ConfigFile, logger)
+	cfgFromDisk, err := config.ReadLocalConfig(initialReadCtx, argsParsed.ConfigFile, logger.Sublogger("config"))
 	if err != nil {
 		cancel()
 		return err
@@ -368,7 +365,7 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 	}()
 
 	// watch for and deliver changes to the robot
-	watcher, err := config.NewWatcher(ctx, cfg, s.logger)
+	watcher, err := config.NewWatcher(ctx, cfg, logging.GetOrNewLogger("rdk.config"))
 	if err != nil {
 		cancel()
 		return err

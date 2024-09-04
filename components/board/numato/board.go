@@ -26,7 +26,6 @@ import (
 	"go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
-	rdkutils "go.viam.com/rdk/utils"
 )
 
 var model = resource.DefaultModelFamily.WithModel("numato")
@@ -116,7 +115,7 @@ type numatoBoard struct {
 
 	sent    map[string]bool
 	sentMu  sync.Mutex
-	workers rdkutils.StoppableWorkers
+	workers *utils.StoppableWorkers
 
 	maxAnalogVoltage float32
 	stepSize         float32
@@ -465,7 +464,7 @@ func connect(ctx context.Context, name resource.Name, conf *Config, logger loggi
 
 	b.lines = make(chan string)
 
-	b.workers = rdkutils.NewStoppableWorkers(b.readThread)
+	b.workers = utils.NewBackgroundStoppableWorkers(b.readThread)
 
 	ver, err := b.doSendReceive(ctx, "ver")
 	if err != nil {

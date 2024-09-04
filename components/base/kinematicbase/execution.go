@@ -416,29 +416,33 @@ func (ptgk *ptgBaseKinematics) courseCorrect(
 			// the ending configuration's arc start value.
 			// The connection point is the point along the already-created plan where course correction will rejoin.
 			connectionPoint := arcSteps[solution.stepIdx]
+
+			// Construct deep copy of the connectionPoint to avoid data race
+			connectionPointDeepCopy := copyArcStep(connectionPoint)
+
 			arcOriginalLength := math.Abs(
-				connectionPoint.arcSegment.EndConfiguration[endDistanceAlongTrajectoryIndex].Value -
-					connectionPoint.arcSegment.EndConfiguration[startDistanceAlongTrajectoryIndex].Value,
+				connectionPointDeepCopy.arcSegment.EndConfiguration[endDistanceAlongTrajectoryIndex].Value -
+					connectionPointDeepCopy.arcSegment.EndConfiguration[startDistanceAlongTrajectoryIndex].Value,
 			)
 
 			// Use distances to calculate the % completion of the arc, used to update the time remaining.
 			// We can't use step.durationSeconds because we might connect to a different arc than we're currently in.
 			// This is valid because each individual arcstep is guaranteed to have constant velocities across the whole step.
-			pctTrajRemaining := math.Abs(connectionPoint.subTraj[len(connectionPoint.subTraj)-1].Dist-
-				connectionPoint.subTraj[solution.trajIdx].Dist) / arcOriginalLength
+			pctTrajRemaining := math.Abs(connectionPointDeepCopy.subTraj[len(connectionPointDeepCopy.subTraj)-1].Dist-
+				connectionPointDeepCopy.subTraj[solution.trajIdx].Dist) / arcOriginalLength
 
 			// TODO (RSDK-7515) Start value rewriting here is somewhat complicated. Imagine the old trajectory was [0, 200] and we
 			// reconnect at Dist=40. The new start configuration should be [40, 40] and the new end configuration should be [40, 200].
 			// However, traj dist values are always positive. Imagine if the old trajectory was [0,-200] and we reconnect at Dist=40.
 			// Now, the new start configuration should be [-160, -160] and the new end configuration should be [0, -160]. RSDK-7515 will
 			// simplify this significantly.
-			startVal := connectionPoint.subTraj[solution.trajIdx].Dist
+			startVal := connectionPointDeepCopy.subTraj[solution.trajIdx].Dist
 
 			// We need to know the point along the segment where we are expecting to reconnect
 			skippedSegment := []referenceframe.Input{
-				connectionPoint.arcSegment.EndConfiguration[ptgIndex],
-				connectionPoint.arcSegment.EndConfiguration[trajectoryAlphaWithinPTG],
-				connectionPoint.arcSegment.EndConfiguration[startDistanceAlongTrajectoryIndex],
+				connectionPointDeepCopy.arcSegment.EndConfiguration[ptgIndex],
+				connectionPointDeepCopy.arcSegment.EndConfiguration[trajectoryAlphaWithinPTG],
+				connectionPointDeepCopy.arcSegment.EndConfiguration[startDistanceAlongTrajectoryIndex],
 				{startVal},
 			}
 			skippedPose, err := ptgk.Kinematics().Transform(skippedSegment)
@@ -446,25 +450,25 @@ func (ptgk *ptgBaseKinematics) courseCorrect(
 				return nil, err
 			}
 
-			isReverse := connectionPoint.arcSegment.EndConfiguration[endDistanceAlongTrajectoryIndex].Value < 0
+			isReverse := connectionPointDeepCopy.arcSegment.EndConfiguration[endDistanceAlongTrajectoryIndex].Value < 0
 			if isReverse {
-				startVal += connectionPoint.arcSegment.EndConfiguration[endDistanceAlongTrajectoryIndex].Value
+				startVal += connectionPointDeepCopy.arcSegment.EndConfiguration[endDistanceAlongTrajectoryIndex].Value
 			}
 
-			connectionPoint.arcSegment.StartConfiguration[startDistanceAlongTrajectoryIndex].Value = startVal
-			connectionPoint.arcSegment.StartConfiguration[endDistanceAlongTrajectoryIndex].Value = startVal
+			connectionPointDeepCopy.arcSegment.StartConfiguration[startDistanceAlongTrajectoryIndex].Value = startVal
+			connectionPointDeepCopy.arcSegment.StartConfiguration[endDistanceAlongTrajectoryIndex].Value = startVal
 			if isReverse {
-				connectionPoint.arcSegment.EndConfiguration[endDistanceAlongTrajectoryIndex].Value = startVal
+				connectionPointDeepCopy.arcSegment.EndConfiguration[endDistanceAlongTrajectoryIndex].Value = startVal
 			} else {
-				connectionPoint.arcSegment.EndConfiguration[startDistanceAlongTrajectoryIndex].Value = startVal
+				connectionPointDeepCopy.arcSegment.EndConfiguration[startDistanceAlongTrajectoryIndex].Value = startVal
 			}
 			// The start position should be where the connection tried to get to.
 			// This needs to be the Goal, as that is the point along the original path, not the solved point, which is just somewhere near
 			// that based on courseCorrectionMaxScore.
-			connectionPoint.arcSegment.StartPosition = spatialmath.Compose(connectionPoint.arcSegment.StartPosition, skippedPose)
+			connectionPointDeepCopy.arcSegment.StartPosition = spatialmath.Compose(connectionPointDeepCopy.arcSegment.StartPosition, skippedPose)
 
-			connectionPoint.durationSeconds *= pctTrajRemaining
-			connectionPoint.subTraj = connectionPoint.subTraj[solution.trajIdx:]
+			connectionPointDeepCopy.durationSeconds *= pctTrajRemaining
+			connectionPointDeepCopy.subTraj = connectionPointDeepCopy.subTraj[solution.trajIdx:]
 
 			// set the end position of the end position of the arcstep we were just on to the end position of the corrective trajectory
 			ptgk.inputLock.Lock()
@@ -477,7 +481,7 @@ func (ptgk *ptgBaseKinematics) courseCorrect(
 			var newArcSteps []arcStep
 			newArcSteps = append(newArcSteps, arcSteps[:arcIdx+1]...)
 			newArcSteps = append(newArcSteps, correctiveArcSteps...)
-			newArcSteps = append(newArcSteps, connectionPoint)
+			newArcSteps = append(newArcSteps, connectionPointDeepCopy)
 			if solution.stepIdx < len(arcSteps)-1 {
 				newArcSteps = append(newArcSteps, arcSteps[solution.stepIdx+1:]...)
 			}
@@ -608,4 +612,38 @@ func (ptgk *ptgBaseKinematics) stepsToPlan(steps []arcStep, parentFrame string) 
 	}
 
 	return motionplan.NewSimplePlan(path, traj)
+}
+
+func copyArcStep(step arcStep) arcStep {
+	// Construct deep copy of the connectionPoint to avoid data race
+	stepDeepCopy := arcStep{
+		linVelMMps:      step.linVelMMps,
+		angVelDegps:     step.angVelDegps,
+		durationSeconds: step.durationSeconds,
+		arcSegment:      ik.Segment{},
+		subTraj:         make([]*tpspace.TrajNode, len(step.subTraj)),
+	}
+
+	// Deep copy subTraj slice
+	for i, trajNode := range step.subTraj {
+		if trajNode != nil {
+			copiedNode := *trajNode
+			stepDeepCopy.subTraj[i] = &copiedNode
+		}
+	}
+
+	// Copy arcSegment
+	startCfgCopy := make([]referenceframe.Input, len(step.arcSegment.StartConfiguration))
+	copy(startCfgCopy, step.arcSegment.StartConfiguration)
+	stepDeepCopy.arcSegment.StartConfiguration = startCfgCopy
+
+	endCfgCopy := make([]referenceframe.Input, len(step.arcSegment.EndConfiguration))
+	copy(endCfgCopy, step.arcSegment.EndConfiguration)
+	stepDeepCopy.arcSegment.EndConfiguration = endCfgCopy
+
+	stepDeepCopy.arcSegment.StartPosition = step.arcSegment.StartPosition
+	stepDeepCopy.arcSegment.EndPosition = step.arcSegment.EndPosition
+	stepDeepCopy.arcSegment.Frame = step.arcSegment.Frame
+
+	return stepDeepCopy
 }

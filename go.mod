@@ -12,7 +12,7 @@ require (
 	github.com/adrianmo/go-nmea v1.7.0
 	github.com/axw/gocov v1.1.0
 	github.com/aybabtme/uniplot v0.0.0-20151203143629-039c559e5e7e
-	github.com/benbjohnson/clock v1.3.3
+	github.com/benbjohnson/clock v1.3.5
 	github.com/bep/debounce v1.2.1
 	github.com/bluenviron/gortsplib/v4 v4.8.0
 	github.com/bluenviron/mediacommon v1.9.2
@@ -44,7 +44,7 @@ require (
 	github.com/golang/protobuf v1.5.3
 	github.com/golangci/golangci-lint v1.54.0
 	github.com/google/flatbuffers v2.0.6+incompatible
-	github.com/google/go-cmp v0.5.9
+	github.com/google/go-cmp v0.6.0
 	github.com/google/uuid v1.6.0
 	github.com/gotesttools/gotestfmt/v2 v2.4.1
 	github.com/grpc-ecosystem/go-grpc-middleware v1.4.0
@@ -59,25 +59,23 @@ require (
 	github.com/lucasb-eyer/go-colorful v1.2.0
 	github.com/mattn/go-tflite v1.0.4
 	github.com/matttproud/golang_protobuf_extensions v1.0.4
-	github.com/mitchellh/copystructure v1.2.0
 	github.com/mkch/gpio v0.0.0-20190919032813-8327cd97d95e
 	github.com/montanaflynn/stats v0.7.0
 	github.com/muesli/clusters v0.0.0-20200529215643-2700303c1762
 	github.com/muesli/kmeans v0.3.1
 	github.com/nathan-fiscaletti/consolesize-go v0.0.0-20220204101620-317176b6684d
 	github.com/nfnt/resize v0.0.0-20180221191011-83c6a9932646
-	github.com/pion/interceptor v0.1.25
+	github.com/pion/interceptor v0.1.29
 	github.com/pion/logging v0.2.2
 	github.com/pion/mediadevices v0.6.4
-	github.com/pion/rtp v1.8.5
+	github.com/pion/rtp v1.8.7
 	github.com/rhysd/actionlint v1.6.24
-	github.com/rs/cors v1.9.0
+	github.com/rs/cors v1.11.1
 	github.com/sergi/go-diff v1.3.1
 	github.com/u2takey/ffmpeg-go v0.4.1
 	github.com/urfave/cli/v2 v2.10.3
-	github.com/viam-labs/go-libjpeg v0.3.1
 	github.com/viamrobotics/evdev v0.1.3
-	github.com/viamrobotics/webrtc/v3 v3.99.2
+	github.com/viamrobotics/webrtc/v3 v3.99.9
 	github.com/xfmoulet/qoi v0.2.0
 	go-hep.org/x/hep v0.32.1
 	go.mongodb.org/mongo-driver v1.11.6
@@ -85,17 +83,17 @@ require (
 	go.uber.org/atomic v1.10.0
 	go.uber.org/multierr v1.11.0
 	go.uber.org/zap v1.24.0
-	go.viam.com/api v0.1.330
+	go.viam.com/api v0.1.336
 	go.viam.com/test v1.1.1-0.20220913152726-5da9916c08a2
-	go.viam.com/utils v0.1.87
+	go.viam.com/utils v0.1.97
 	goji.io v2.0.2+incompatible
-	golang.org/x/image v0.15.0
+	golang.org/x/image v0.19.0
 	golang.org/x/mobile v0.0.0-20240112133503-c713f31d574b
-	golang.org/x/sync v0.6.0
+	golang.org/x/sync v0.8.0
 	golang.org/x/sys v0.20.0
 	golang.org/x/term v0.20.0
 	golang.org/x/time v0.3.0
-	golang.org/x/tools v0.17.0
+	golang.org/x/tools v0.21.1-0.20240508182429-e35e4ccd0d2d
 	gonum.org/v1/gonum v0.12.0
 	gonum.org/v1/plot v0.12.0
 	google.golang.org/genproto/googleapis/api v0.0.0-20230711160842-782d3b101e98
@@ -274,6 +272,7 @@ require (
 	github.com/mbilski/exhaustivestruct v1.2.0 // indirect
 	github.com/mgechev/revive v1.3.2 // indirect
 	github.com/miekg/dns v1.1.53 // indirect
+	github.com/mitchellh/copystructure v1.2.0 // indirect
 	github.com/mitchellh/go-homedir v1.1.0 // indirect
 	github.com/mitchellh/mapstructure v1.5.0 // indirect
 	github.com/mitchellh/reflectwalk v1.0.2 // indirect
@@ -287,18 +286,18 @@ require (
 	github.com/pelletier/go-toml v1.9.5 // indirect
 	github.com/pelletier/go-toml/v2 v2.0.8 // indirect
 	github.com/pierrec/lz4 v2.0.5+incompatible // indirect
-	github.com/pion/datachannel v1.5.5 // indirect
-	github.com/pion/dtls/v2 v2.2.7 // indirect
-	github.com/pion/ice/v2 v2.3.27 // indirect
+	github.com/pion/datachannel v1.5.8 // indirect
+	github.com/pion/dtls/v2 v2.2.12 // indirect
+	github.com/pion/ice/v2 v2.3.34 // indirect
 	github.com/pion/mdns v0.0.12 // indirect
 	github.com/pion/randutil v0.1.0 // indirect
 	github.com/pion/rtcp v1.2.14 // indirect
-	github.com/pion/sctp v1.8.16 // indirect
+	github.com/pion/sctp v1.8.33 // indirect
 	github.com/pion/sdp/v3 v3.0.9 // indirect
-	github.com/pion/srtp/v2 v2.0.18 // indirect
+	github.com/pion/srtp/v2 v2.0.20 // indirect
 	github.com/pion/stun v0.6.1 // indirect
-	github.com/pion/transport/v2 v2.2.4 // indirect
-	github.com/pion/turn/v2 v2.1.3 // indirect
+	github.com/pion/transport/v2 v2.2.10 // indirect
+	github.com/pion/turn/v2 v2.1.6 // indirect
 	github.com/pion/webrtc/v3 v3.2.36 // indirect
 	github.com/pkg/browser v0.0.0-20210911075715-681adbf594b8 // indirect
 	github.com/pkg/profile v1.6.0 // indirect
@@ -353,6 +352,7 @@ require (
 	github.com/ultraware/funlen v0.1.0 // indirect
 	github.com/ultraware/whitespace v0.0.5 // indirect
 	github.com/uudashr/gocognit v1.0.7 // indirect
+	github.com/wlynxg/anet v0.0.3 // indirect
 	github.com/xdg-go/pbkdf2 v1.0.0 // indirect
 	github.com/xdg-go/scram v1.1.2 // indirect
 	github.com/xdg-go/stringprep v1.0.4 // indirect
@@ -370,10 +370,10 @@ require (
 	go4.org/unsafe/assume-no-moving-gc v0.0.0-20230525183740-e7c30c78aeb2 // indirect
 	golang.org/x/crypto v0.23.0 // indirect
 	golang.org/x/exp/typeparams v0.0.0-20230224173230-c95f2b4c22f2 // indirect
-	golang.org/x/mod v0.14.0 // indirect
+	golang.org/x/mod v0.17.0 // indirect
 	golang.org/x/net v0.25.0 // indirect
 	golang.org/x/oauth2 v0.10.0 // indirect
-	golang.org/x/text v0.15.0 // indirect
+	golang.org/x/text v0.17.0 // indirect
 	golang.org/x/xerrors v0.0.0-20220907171357-04be3eba64a2 // indirect
 	google.golang.org/api v0.126.0 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
