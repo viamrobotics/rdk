@@ -1205,10 +1205,12 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 	}
 
 	// Update configRevision, as the robot is starting to reconfigure itself.
+	r.configRevisionMu.Lock()
 	r.configRevision = config.Revision{
 		Revision:    newConfig.Revision,
 		LastUpdated: time.Now(),
 	}
+	r.configRevisionMu.Unlock()
 
 	// Add default services and process their dependencies. Dependencies may
 	// already come from config validation so we check that here.
