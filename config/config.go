@@ -251,17 +251,15 @@ func (c *Config) setUnprocessedConfig(cfg *Config) error {
 	return err
 }
 
-// UnprocessedConfig returns unprocessedConfig.
-func (c *Config) UnprocessedConfig() *Config {
-	return c.unprocessedConfig
-}
-
 // StoreToCache caches the unprocessedConfig.
 func (c *Config) StoreToCache() error {
+	if c.unprocessedConfig == nil {
+		return errors.New("no unprocessed config to cache")
+	}
 	if err := os.MkdirAll(ViamDotDir, 0o700); err != nil {
 		return err
 	}
-	md, err := json.MarshalIndent(c.UnprocessedConfig(), "", "  ")
+	md, err := json.MarshalIndent(c.unprocessedConfig, "", "  ")
 	if err != nil {
 		return err
 	}

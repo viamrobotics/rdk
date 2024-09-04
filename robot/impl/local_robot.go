@@ -1197,9 +1197,11 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 		return
 	}
 
-	r.Logger().CDebug(ctx, "updating cached config")
-	if err := newConfig.StoreToCache(); err != nil {
-		r.logger.CErrorw(ctx, "error storing the config", "error", err)
+	if newConfig.Cloud != nil {
+		r.Logger().CDebug(ctx, "updating cached config")
+		if err := newConfig.StoreToCache(); err != nil {
+			r.logger.CErrorw(ctx, "error storing the config", "error", err)
+		}
 	}
 
 	// Update configRevision, as the robot is starting to reconfigure itself.
