@@ -302,7 +302,7 @@ func readFromCloud(
 	unprocessedConfig.Cloud.TLSPrivateKey = tls.privateKey
 
 	if err := cfg.SetToCache(unprocessedConfig); err != nil {
-		logger.Errorw("failed to set unprocessed config", "error", err)
+		logger.Errorw("failed to set toCache on config", "error", err)
 	}
 	return cfg, nil
 }
