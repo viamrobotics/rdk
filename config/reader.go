@@ -301,7 +301,7 @@ func readFromCloud(
 	unprocessedConfig.Cloud.TLSCertificate = tls.certificate
 	unprocessedConfig.Cloud.TLSPrivateKey = tls.privateKey
 
-	if err := cfg.setUnprocessedConfig(unprocessedConfig); err != nil {
+	if err := cfg.SetUnprocessedConfig(unprocessedConfig); err != nil {
 		logger.Errorw("failed to set unprocessed config", "error", err)
 	}
 	return cfg, nil

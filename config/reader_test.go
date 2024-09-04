@@ -105,7 +105,7 @@ func TestFromReader(t *testing.T) {
 		cachedConf := &Config{Cloud: cachedCloud}
 
 		cfgToCache := &Config{Cloud: &Cloud{ID: robotPartID}}
-		cfgToCache.setUnprocessedConfig(cachedConf)
+		cfgToCache.SetUnprocessedConfig(cachedConf)
 		err := cfgToCache.StoreToCache()
 		test.That(t, err, test.ShouldBeNil)
 		defer clearCache(robotPartID)
@@ -203,7 +203,7 @@ func TestStoreToCache(t *testing.T) {
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no unprocessed config to cache")
 
 	// store our config to the cache
-	cfgToCache.setUnprocessedConfig(cfg)
+	cfgToCache.SetUnprocessedConfig(cfg)
 	err = cfgToCache.StoreToCache()
 	test.That(t, err, test.ShouldBeNil)
 
@@ -224,7 +224,7 @@ func TestStoreToCache(t *testing.T) {
 	test.That(t, cloudCfg2, test.ShouldNotResemble, cfgToCache)
 
 	// store the updated config to the cloud
-	cfgToCache.setUnprocessedConfig(cfg)
+	cfgToCache.SetUnprocessedConfig(cfg)
 	err = cfgToCache.StoreToCache()
 	test.That(t, err, test.ShouldBeNil)
 
@@ -321,7 +321,7 @@ func TestReadTLSFromCache(t *testing.T) {
 		cfg.Cloud = nil
 
 		cfgToCache := &Config{Cloud: &Cloud{ID: robotPartID}}
-		cfgToCache.setUnprocessedConfig(cfg)
+		cfgToCache.SetUnprocessedConfig(cfg)
 		err = cfgToCache.StoreToCache()
 		test.That(t, err, test.ShouldBeNil)
 
@@ -339,7 +339,7 @@ func TestReadTLSFromCache(t *testing.T) {
 		cfg.Cloud = cloud
 
 		cfgToCache := &Config{Cloud: &Cloud{ID: robotPartID}}
-		cfgToCache.setUnprocessedConfig(cfg)
+		cfgToCache.SetUnprocessedConfig(cfg)
 		err = cfgToCache.StoreToCache()
 		test.That(t, err, test.ShouldBeNil)
 
@@ -361,7 +361,7 @@ func TestReadTLSFromCache(t *testing.T) {
 		cfg.Cloud = cloud
 
 		cfgToCache := &Config{Cloud: &Cloud{ID: robotPartID}}
-		cfgToCache.setUnprocessedConfig(cfg)
+		cfgToCache.SetUnprocessedConfig(cfg)
 		err = cfgToCache.StoreToCache()
 		test.That(t, err, test.ShouldBeNil)
 
@@ -383,7 +383,7 @@ func TestReadTLSFromCache(t *testing.T) {
 		cfg.Cloud = cloud
 
 		cfgToCache := &Config{Cloud: &Cloud{ID: robotPartID}}
-		cfgToCache.setUnprocessedConfig(cfg)
+		cfgToCache.SetUnprocessedConfig(cfg)
 		err = cfgToCache.StoreToCache()
 		test.That(t, err, test.ShouldBeNil)
 

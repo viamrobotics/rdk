@@ -244,8 +244,8 @@ func (c Config) FindComponent(name string) *resource.Config {
 	return nil
 }
 
-// setUnprocessedConfig sets unprocessedConfig with a copy of the config passed in.
-func (c *Config) setUnprocessedConfig(cfg *Config) error {
+// SetUnprocessedConfig sets unprocessedConfig with a copy of the config passed in.
+func (c *Config) SetUnprocessedConfig(cfg *Config) error {
 	cpy, err := cfg.CopyOnlyPublicFields()
 	c.unprocessedConfig = cpy
 	return err
