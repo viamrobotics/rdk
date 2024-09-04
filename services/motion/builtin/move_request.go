@@ -58,14 +58,15 @@ const (
 type moveRequest struct {
 	requestType requestType
 	// geoPoseOrigin is only set if requestType == requestTypeMoveOnGlobe
-	geoPoseOrigin      *spatialmath.GeoPose
-	logger             logging.Logger
-	config             *validatedMotionConfiguration
-	planRequest        *motionplan.PlanRequest
-	seedPlan           motionplan.Plan
-	kinematicBase      kinematicbase.KinematicBase
-	obstacleDetectors  map[vision.Service][]resource.Name
-	replanCostFactor   float64
+	geoPoseOrigin     *spatialmath.GeoPose
+	logger            logging.Logger
+	config            *validatedMotionConfiguration
+	planRequest       *motionplan.PlanRequest
+	seedPlan          motionplan.Plan
+	kinematicBase     kinematicbase.KinematicBase
+	obstacleDetectors map[vision.Service][]resource.Name
+	replanCostFactor  float64
+	// TODO(RSDK-8683): remove alreadyAtGoalCheck and put it in the motionplan package
 	alreadyAtGoalCheck func(basePose spatialmath.Pose) *state.ExecuteResponse
 	fsService          framesystem.Service
 	// localizingFS is used for placing observed transient obstacles into their absolute world position when
