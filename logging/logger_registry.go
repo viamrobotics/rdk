@@ -78,8 +78,11 @@ func (lr *Registry) Update(logConfig []LoggerPatternConfig, warnLogger Logger) e
 	for _, name := range lr.getRegisteredLoggerNames() {
 		level, ok := appliedConfigs[name]
 		if !ok {
-			// If no config was applied; leave logger level as-is.
-			continue
+			// If no config was applied; return logger to level of passed in
+			// warnLogger. Idea being that if _no_ config applies to logger
+			// anymore, warnLogger should be the logger from entrypoint and
+			// therefore the highest in the tree of loggers.
+			level = warnLogger.GetLevel()
 		}
 		err := lr.updateLoggerLevel(name, level)
 		if err != nil {
