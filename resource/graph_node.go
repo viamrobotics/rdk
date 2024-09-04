@@ -529,15 +529,6 @@ func (w *GraphNode) ResourceStatus() Status {
 	return w.resourceStatus()
 }
 
-func (w *GraphNode) getLoggerOrGlobal() logging.Logger {
-	if w.logger == nil {
-		// This node has not yet been configured with a logger - use the global logger as
-		// a fall-back.
-		return logging.Global()
-	}
-	return w.logger
-}
-
 func (w *GraphNode) resourceStatus() Status {
 	var resName Name
 	if w.current == nil {
@@ -547,7 +538,7 @@ func (w *GraphNode) resourceStatus() Status {
 	}
 
 	err := w.lastErr
-	logger := w.getLoggerOrGlobal()
+	logger := w.Logger()
 
 	// check invariants between state and error
 	switch {
