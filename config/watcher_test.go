@@ -278,7 +278,7 @@ func TestNewWatcherCloud(t *testing.T) {
 	confToExpect.Cloud.TLSCertificate = certsToReturn.TLSCertificate
 	confToExpect.Cloud.TLSPrivateKey = certsToReturn.TLSPrivateKey
 	test.That(t, confToExpect.Ensure(true, logger), test.ShouldBeNil)
-	confToExpect.SetUnprocessedConfig(unprocessedFromCfg(confToExpect))
+	confToExpect.SetToCache(unprocessedFromCfg(confToExpect))
 
 	newConf := <-watcher.Config()
 	test.That(t, newConf, test.ShouldResemble, &confToExpect)
@@ -316,7 +316,7 @@ func TestNewWatcherCloud(t *testing.T) {
 	confToExpect.Cloud.TLSCertificate = certsToReturn.TLSCertificate
 	confToExpect.Cloud.TLSPrivateKey = certsToReturn.TLSPrivateKey
 	test.That(t, confToExpect.Ensure(true, logger), test.ShouldBeNil)
-	confToExpect.SetUnprocessedConfig(unprocessedFromCfg(confToExpect))
+	confToExpect.SetToCache(unprocessedFromCfg(confToExpect))
 
 	newConf = <-watcher.Config()
 	test.That(t, newConf, test.ShouldResemble, &confToExpect)
@@ -368,7 +368,7 @@ func TestNewWatcherCloud(t *testing.T) {
 	confToExpect.Cloud.TLSCertificate = certsToReturn.TLSCertificate
 	confToExpect.Cloud.TLSPrivateKey = certsToReturn.TLSPrivateKey
 	test.That(t, confToExpect.Ensure(true, logger), test.ShouldBeNil)
-	confToExpect.SetUnprocessedConfig(unprocessedFromCfg(confToExpect))
+	confToExpect.SetToCache(unprocessedFromCfg(confToExpect))
 
 	newConf = <-watcher.Config()
 	test.That(t, newConf, test.ShouldResemble, &confToExpect)
