@@ -59,7 +59,7 @@ func (p *basicPID) getTuning() bool {
 
 	if p.useMulti {
 		for _, tuner := range p.tuners {
-			// the tuners  for MIMO only get created if we want to tune
+			// the tuners for MIMO are only initialized when we want to tune
 			if tuner != nil {
 				multiTune = tuner.tuning || multiTune
 			}
