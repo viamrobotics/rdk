@@ -65,10 +65,6 @@ func (imp *impl) GetLevel() Level {
 	return imp.level.Get()
 }
 
-func (imp *impl) GetRegistry() *Registry {
-	return imp.registry
-}
-
 func (imp *impl) Level() zapcore.Level {
 	return imp.GetLevel().AsZap()
 }

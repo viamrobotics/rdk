@@ -107,11 +107,6 @@ func (logger *zLogger) GetLevel() Level {
 	return INFO
 }
 
-func (logger *zLogger) GetRegistry() *Registry {
-	// Not supported
-	return nil
-}
-
 func (logger *zLogger) AddAppender(appender Appender) {
 	// Not supported
 }

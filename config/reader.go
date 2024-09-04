@@ -394,7 +394,6 @@ func fromReader(
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to decode Config from json")
 	}
-
 	cfgFromDisk, err := processConfigLocalConfig(&unprocessedConfig, logger)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to process Config")

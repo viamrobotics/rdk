@@ -180,15 +180,6 @@ func (w *GraphNode) Logger() logging.Logger {
 	return w.logger
 }
 
-// SetLogLevel changes the log level of the logger (if available). Processing configs is the main
-// entry point for changing log levels. Which will affect whether models making log calls are
-// suppressed or not.
-func (w *GraphNode) SetLogLevel(level logging.Level) {
-	if w.logger != nil {
-		w.logger.SetLevel(level)
-	}
-}
-
 // UnsafeResource always returns the underlying resource, if
 // initialized, even if it is in an error state. This should
 // only be called during reconfiguration.
