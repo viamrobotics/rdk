@@ -219,9 +219,9 @@ func (sb *sensorBase) Reconfigure(ctx context.Context, deps resource.Dependencie
 		// relock the mutex after setting up the control loop since there is still a  defer unlock
 		sb.mu.Lock()
 
-		go func() {
-			sb.waitForTuning(context.Background())
-		}()
+		// go func() {
+		// 	sb.waitForTuning(context.Background())
+		// }()
 	}
 
 	return nil

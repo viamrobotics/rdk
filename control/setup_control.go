@@ -28,9 +28,9 @@ const (
 var (
 	loopFrequency   = 50.0
 	sumIndex        = 1
-	LinearPIDIndex  = 2
-	AngularPIDIndex = -1
-	TunedPIDVals    = []PIDConfig{{}, {}}
+	linearPIDIndex  = 2
+	angularPIDIndex = -1
+	// TunedPIDVals    = []PIDConfig{{}, {}}
 )
 
 // PIDLoop is used for setting up a PID control loop.
@@ -107,7 +107,7 @@ func SetupPIDControlConfig(
 		ControlLoop:  nil,
 	}
 
-	TunedPIDVals = pidVals
+	// TunedPIDVals = pidVals
 
 	// set controlConf as either an optional custom config, or as the default control config
 	if options.UseCustomConfig {
@@ -139,10 +139,11 @@ func (p *PIDLoop) TunePIDLoop(ctx context.Context, cancelFunc context.CancelFunc
 	utils.PanicCapturingGo(func() {
 		defer func() {
 			cancelFunc()
-			if p.ControlLoop != nil {
-				p.ControlLoop.Stop()
-				p.ControlLoop = nil
-			}
+			// if p.ControlLoop != nil {
+			// 	p.ControlLoop.Stop()
+			// 	p.ControlLoop = nil
+			// }
+			// p.StartControlLoop()
 		}()
 		defer p.activeBackgroundWorkers.Done()
 		select {
@@ -166,14 +167,14 @@ func (p *PIDLoop) TunePIDLoop(ctx context.Context, cancelFunc context.CancelFunc
 
 			p.ControlLoop.MonitorTuning(ctx)
 
-			p.ControlLoop.Stop()
-			p.ControlLoop = nil
+			// p.ControlLoop.Stop()
+			// p.ControlLoop = nil
 		}
 		if p.Options.SensorFeedback2DVelocityControl {
 			// check if linear needs to be tuned
 			if p.PIDVals[0].NeedsAutoTuning() {
 				p.logger.Info("tuning linear PID")
-				if err := p.tuneSinglePID(ctx, AngularPIDIndex, 0); err != nil {
+				if err := p.tuneSinglePID(ctx, angularPIDIndex, 0, 0.0001, 0.0001); err != nil {
 					errs = multierr.Combine(errs, err)
 				}
 			}
@@ -181,7 +182,11 @@ func (p *PIDLoop) TunePIDLoop(ctx context.Context, cancelFunc context.CancelFunc
 			// check if angular needs to be tuned
 			if p.PIDVals[1].NeedsAutoTuning() {
 				p.logger.Info("tuning angular PID")
-				if err := p.tuneSinglePID(ctx, LinearPIDIndex, 1); err != nil {
+				if p.ControlLoop != nil {
+					p.ControlLoop.Stop()
+					p.ControlLoop = nil
+				}
+				if err := p.tuneSinglePID(ctx, linearPIDIndex, 1); err != nil {
 					errs = multierr.Combine(errs, err)
 				}
 			}
@@ -190,24 +195,24 @@ func (p *PIDLoop) TunePIDLoop(ctx context.Context, cancelFunc context.CancelFunc
 	return errs
 }
 
-func (p *PIDLoop) tuneSinglePID(ctx context.Context, blockIndex, pidIndex int) error {
+func (p *PIDLoop) tuneSinglePID(ctx context.Context, blockIndex, pidIndex int, kP, kI float64) error {
 	// preserve old values and set them to be non-zero
 	pOld := p.ControlConf.Blocks[blockIndex].Attribute["kP"]
 	iOld := p.ControlConf.Blocks[blockIndex].Attribute["kI"]
 	// to tune one set of PID values, the other PI values must be non-zero
-	p.ControlConf.Blocks[blockIndex].Attribute["kP"] = 0.0001
-	p.ControlConf.Blocks[blockIndex].Attribute["kI"] = 0.0001
+	p.ControlConf.Blocks[blockIndex].Attribute["kP"] = kP
+	p.ControlConf.Blocks[blockIndex].Attribute["kI"] = kI
 	if err := p.StartControlLoop(); err != nil {
 		return err
 	}
 
 	p.ControlLoop.MonitorTuning(ctx)
-	tunedPID := p.ControlLoop.GetPIDVals(pidIndex)
-	UpdateTunedPIDBlock(p.ControlConf, blockIndex, tunedPID)
-	TunedPIDVals[pidIndex] = tunedPID
+	// tunedPID := p.ControlLoop.GetPIDVals(pidIndex)
+	// UpdateTunedPIDBlock(p.ControlConf, blockIndex, tunedPID)
+	// TunedPIDVals[pidIndex] = tunedPID
 
-	p.ControlLoop.Stop()
-	p.ControlLoop = nil
+	// p.ControlLoop.Stop()
+	// p.ControlLoop = nil
 
 	// reset PI values
 	p.ControlConf.Blocks[blockIndex].Attribute["kP"] = pOld
@@ -393,7 +398,7 @@ func (p *PIDLoop) addSensorFeedbackVelocityControl(angularPIDVals PIDConfig) {
 		DependsOn: []string{"sum"},
 	}
 	p.ControlConf.Blocks = append(p.ControlConf.Blocks, angularPID)
-	AngularPIDIndex = len(p.ControlConf.Blocks) - 1
+	angularPIDIndex = len(p.ControlConf.Blocks) - 1
 
 	// angular gain
 	angularGain := BlockConfig{

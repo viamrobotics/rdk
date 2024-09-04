@@ -354,12 +354,12 @@ func (l *Loop) MonitorTuning(ctx context.Context) {
 	}
 }
 
-func UpdateTunedPIDBlock(controlConf Config, pidIndex int, tunedVals PIDConfig) {
-	// add tuned pid values to config
-	controlConf.Blocks[pidIndex].Attribute["kP"] = tunedVals.P
-	controlConf.Blocks[pidIndex].Attribute["kI"] = tunedVals.I
-	controlConf.Blocks[pidIndex].Attribute["kD"] = tunedVals.D
-}
+// func UpdateTunedPIDBlock(controlConf Config, pidIndex int, tunedVals PIDConfig) {
+// 	// add tuned pid values to config
+// 	controlConf.Blocks[pidIndex].Attribute["kP"] = tunedVals.P
+// 	controlConf.Blocks[pidIndex].Attribute["kI"] = tunedVals.I
+// 	controlConf.Blocks[pidIndex].Attribute["kD"] = tunedVals.D
+// }
 
 // GetTuning returns the current tuning value.
 func (l *Loop) GetTuning(ctx context.Context) bool {

@@ -3,12 +3,10 @@ package sensorcontrolled
 import (
 	"context"
 	"math"
-	"time"
 
 	"github.com/golang/geo/r3"
 
 	"go.viam.com/rdk/control"
-	"go.viam.com/utils"
 )
 
 // SetVelocity commands a base to move at the requested linear and angular velocites.
@@ -103,19 +101,19 @@ func (sb *sensorBase) setupControlLoop(linear, angular control.PIDConfig) error 
 	return nil
 }
 
-func (sb *sensorBase) waitForTuning(ctx context.Context) {
-	for !utils.SelectContextOrWait(ctx, 30*time.Second) {
-		if !control.TunedPIDVals[0].NeedsAutoTuning() && !control.TunedPIDVals[1].NeedsAutoTuning() {
-			sb.tunedVals[0] = control.TunedPIDVals[0]
-			sb.tunedVals[1] = control.TunedPIDVals[1]
-			control.UpdateTunedPIDBlock(sb.controlLoopConfig, control.LinearPIDIndex, sb.tunedVals[0])
-			control.UpdateTunedPIDBlock(sb.controlLoopConfig, control.AngularPIDIndex, sb.tunedVals[1])
-			return
-		}
-		continue
-	}
-	sb.logger.Error("tuning timed out")
-}
+// func (sb *sensorBase) waitForTuning(ctx context.Context) {
+// 	for !utils.SelectContextOrWait(ctx, 30*time.Second) {
+// 		if !control.TunedPIDVals[0].NeedsAutoTuning() && !control.TunedPIDVals[1].NeedsAutoTuning() {
+// 			sb.tunedVals[0] = control.TunedPIDVals[0]
+// 			sb.tunedVals[1] = control.TunedPIDVals[1]
+// 			control.UpdateTunedPIDBlock(sb.controlLoopConfig, control.LinearPIDIndex, sb.tunedVals[0])
+// 			control.UpdateTunedPIDBlock(sb.controlLoopConfig, control.AngularPIDIndex, sb.tunedVals[1])
+// 			return
+// 		}
+// 		continue
+// 	}
+// 	sb.logger.Error("tuning timed out")
+// }
 
 func (sb *sensorBase) updateControlConfig(
 	ctx context.Context, linearValue, angularValue float64,
