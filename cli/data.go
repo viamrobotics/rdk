@@ -499,7 +499,7 @@ func downloadBinary(ctx context.Context, client datapb.DataServiceClient, dst st
 		for count := 0; count < maxRetryCount; count++ {
 			res, err = httpClient.Do(req)
 
-			if err == nil {
+			if err == nil && res.StatusCode == http.StatusOK {
 				break
 			}
 		}
