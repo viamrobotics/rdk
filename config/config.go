@@ -71,9 +71,9 @@ type Config struct {
 	// Revision contains the current revision of the config.
 	Revision string
 
-	// unprocessedConfig stores the unprocessed version of the config that will be cached.
+	// unprocessedConfig stores the JSON marshalled unprocessed version of the config that will be cached.
 	// This version is kept because the config is changed as it moves through the system.
-	unprocessedConfig *Config
+	unprocessedConfig []byte
 }
 
 // NOTE: This data must be maintained with what is in Config.
@@ -246,9 +246,12 @@ func (c Config) FindComponent(name string) *resource.Config {
 
 // SetUnprocessedConfig sets unprocessedConfig with a copy of the config passed in.
 func (c *Config) SetUnprocessedConfig(cfg *Config) error {
-	cpy, err := cfg.CopyOnlyPublicFields()
-	c.unprocessedConfig = cpy
-	return err
+	md, err := json.MarshalIndent(cfg, "", "  ")
+	if err != nil {
+		return err
+	}
+	c.unprocessedConfig = md
+	return nil
 }
 
 // StoreToCache caches the unprocessedConfig.
@@ -259,11 +262,7 @@ func (c *Config) StoreToCache() error {
 	if err := os.MkdirAll(ViamDotDir, 0o700); err != nil {
 		return err
 	}
-	md, err := json.MarshalIndent(c.unprocessedConfig, "", "  ")
-	if err != nil {
-		return err
-	}
-	reader := bytes.NewReader(md)
+	reader := bytes.NewReader(c.unprocessedConfig)
 	path := getCloudCacheFilePath(c.Cloud.ID)
 	return artifact.AtomicStore(path, reader, c.Cloud.ID)
 }
