@@ -51,13 +51,14 @@ type Arguments struct {
 }
 
 type robotServer struct {
-	args   Arguments
-	logger logging.Logger
+	args     Arguments
+	logger   logging.Logger
+	registry *logging.Registry
 }
 
 // RunServer is an entry point to starting the web server that can be called by main in a code
 // sample or otherwise be used to initialize the server.
-func RunServer(ctx context.Context, args []string, logger logging.Logger) (err error) {
+func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error) {
 	var argsParsed Arguments
 	if err := utils.ParseFlags(args, &argsParsed); err != nil {
 		return err
@@ -72,6 +73,7 @@ func RunServer(ctx context.Context, args []string, logger logging.Logger) (err e
 		return dumpResourceRegistrations(argsParsed.DumpResourcesPath)
 	}
 
+	logger, registry := logging.NewLoggerWithRegistry("rdk")
 	logging.ReplaceGlobal(logger)
 	config.InitLoggingSettings(logger, argsParsed.Debug)
 
@@ -147,8 +149,9 @@ func RunServer(ctx context.Context, args []string, logger logging.Logger) (err e
 	}
 
 	server := robotServer{
-		logger: logger,
-		args:   argsParsed,
+		logger:   logger,
+		args:     argsParsed,
+		registry: registry,
 	}
 
 	// Run the server with remote logging enabled.
@@ -171,6 +174,14 @@ func (s *robotServer) runServer(ctx context.Context) error {
 	}
 	cancel()
 	config.UpdateFileConfigDebug(cfg.Debug)
+
+	// Immediately update logger registry with patterns from `LogConfig`. Further
+	// updates to registry will be carried out in config watcher goroutine.
+	if cfg.LogConfig != nil {
+		if err := s.registry.Update(cfg.LogConfig, s.logger); err != nil {
+			return err
+		}
+	}
 
 	err = s.serveWeb(ctx, cfg)
 	if err != nil {
@@ -396,6 +407,16 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 					options, err = s.createWebOptions(processedConfig)
 					if err != nil {
 						s.logger.Errorw("reconfiguration aborted: error creating weboptions", "error", err)
+						continue
+					}
+				}
+
+				// Update logger registry with any changes to `LogConfig`.
+				if !diff.LogEqual {
+					s.logger.Info("Detected changes to log patterns; updating logger levels")
+					if err := s.registry.Update(processedConfig.LogConfig, s.logger); err != nil {
+						s.logger.Errorw("reconfiguration aborted: error processing changes to log patterns",
+							"error", err)
 						continue
 					}
 				}

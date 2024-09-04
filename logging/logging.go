@@ -73,6 +73,22 @@ func NewLogger(name string) Logger {
 	return logger
 }
 
+// NewLoggerWithRegistry is the same as NewLogger but also returns the
+// associated Registry.
+func NewLoggerWithRegistry(name string) (Logger, *Registry) {
+	reg := newRegistry()
+	logger := &impl{
+		name:       name,
+		level:      NewAtomicLevelAt(INFO),
+		appenders:  []Appender{NewStdoutAppender()},
+		registry:   reg,
+		testHelper: func() {},
+	}
+
+	logger.registry.registerLogger(name, logger)
+	return logger, reg
+}
+
 // NewDebugLogger returns a new logger that outputs Debug+ logs to stdout in UTC.
 func NewDebugLogger(name string) Logger {
 	logger := &impl{

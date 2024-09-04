@@ -15,7 +15,6 @@ type Logger interface {
 
 	SetLevel(level Level)
 	GetLevel() Level
-	GetRegistry() *Registry
 	Sublogger(subname string) Logger
 	AddAppender(appender Appender)
 	AsZap() *zap.SugaredLogger

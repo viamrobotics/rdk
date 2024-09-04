@@ -593,13 +593,6 @@ func processConfig(unprocessedConfig *Config, fromCloud bool, logger logging.Log
 		}
 	}
 
-	// update logger registry's config and associated logger levels
-	if registry := logger.GetRegistry(); registry != nil {
-		if err := registry.Update(cfg.LogConfig, logger); err != nil {
-			return nil, err
-		}
-	}
-
 	// now that the attribute maps are converted, validate configs and get implicit dependencies for builtin resource models
 	if err := cfg.Ensure(fromCloud, logger); err != nil {
 		return nil, err

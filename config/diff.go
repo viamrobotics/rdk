@@ -22,6 +22,7 @@ type Diff struct {
 	Removed             *Config
 	ResourcesEqual      bool
 	NetworkEqual        bool
+	LogEqual            bool
 	PrettyDiff          string
 	UnmodifiedResources []resource.Config
 }
@@ -88,6 +89,9 @@ func DiffConfigs(left, right Config, revealSensitiveConfigDiffs bool) (_ *Diff, 
 
 	networkDifferent := diffNetworkingCfg(&left, &right)
 	diff.NetworkEqual = !networkDifferent
+
+	logDifferent := diffLogCfg(&left, &right)
+	diff.LogEqual = !logDifferent
 
 	return &diff, nil
 }
@@ -512,4 +516,9 @@ func diffModule(left, right Module, diff *Diff) bool {
 	}
 	diff.Modified.Modules = append(diff.Modified.Modules, right)
 	return true
+}
+
+// diffLogCfg returns true if any part of the log config is different.
+func diffLogCfg(left, right *Config) bool {
+	return !reflect.DeepEqual(left.LogConfig, right.LogConfig)
 }
