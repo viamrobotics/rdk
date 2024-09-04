@@ -62,6 +62,8 @@ const (
 	moduleBuildFlagGroupLogs = "group-logs"
 	moduleBuildRestartOnly   = "restart-only"
 	moduleBuildFlagNoBuild   = "no-build"
+	moduleBuildFlagOAuthLink = "oauth-link"
+	moduleBuildFlagRepo      = "repo"
 
 	mlTrainingFlagPath        = "path"
 	mlTrainingFlagName        = "script-name"
@@ -530,6 +532,7 @@ var app = &cli.App{
 									Required: true,
 								},
 							},
+							Before: DataConfigureDatabaseUserConfirmation,
 							Action: DataConfigureDatabaseUser,
 						},
 						{
@@ -678,7 +681,7 @@ var app = &cli.App{
 							Usage:    "ID of the dataset to be deleted",
 						},
 					},
-					Action: DatasetCreateAction,
+					Action: DatasetDeleteAction,
 				},
 				{
 					Name:  "export",
@@ -1033,6 +1036,19 @@ var app = &cli.App{
 					Action: DataGetTrainingJob,
 				},
 				{
+					Name:      "logs",
+					Usage:     "gets training job logs from Viam cloud based on training job ID",
+					UsageText: createUsageText("train logs", []string{trainFlagJobID}, false),
+					Flags: []cli.Flag{
+						&cli.StringFlag{
+							Name:     trainFlagJobID,
+							Usage:    "training job ID",
+							Required: true,
+						},
+					},
+					Action: MLGetTrainingJobLogs,
+				},
+				{
 					Name:      "cancel",
 					Usage:     "cancels training job in Viam cloud based on training job ID",
 					UsageText: createUsageText("train cancel", []string{trainFlagJobID}, false),
@@ -1048,7 +1064,7 @@ var app = &cli.App{
 				{
 					Name:      "list",
 					Usage:     "list training jobs in Viam cloud based on organization ID",
-					UsageText: createUsageText("train list", []string{generalFlagOrgID, trainFlagJobStatus}, false),
+					UsageText: createUsageText("train list", []string{generalFlagOrgID}, true),
 					Flags: []cli.Flag{
 						&cli.StringFlag{
 							Name:     generalFlagOrgID,
@@ -1058,7 +1074,8 @@ var app = &cli.App{
 						&cli.StringFlag{
 							Name:     trainFlagJobStatus,
 							Usage:    "training status to filter for. can be one of " + allTrainingStatusValues(),
-							Required: true,
+							Required: false,
+							Value:    defaultTrainingStatus(),
 						},
 					},
 					Action: DataListTrainingJobs,
@@ -1246,6 +1263,34 @@ var app = &cli.App{
 								},
 							},
 							Action: RobotsPartLogsAction,
+						},
+						{
+							Name:      "restart",
+							Aliases:   []string{},
+							Usage:     "request part restart",
+							UsageText: createUsageText("machines part restart", []string{machineFlag, partFlag}, true),
+							Flags: []cli.Flag{
+								&cli.StringFlag{
+									Name:        organizationFlag,
+									DefaultText: "first organization alphabetically",
+								},
+								&cli.StringFlag{
+									Name:        locationFlag,
+									DefaultText: "first location alphabetically",
+								},
+								&AliasStringFlag{
+									cli.StringFlag{
+										Name:     machineFlag,
+										Aliases:  []string{aliasRobotFlag},
+										Required: true,
+									},
+								},
+								&cli.StringFlag{
+									Name:     partFlag,
+									Required: true,
+								},
+							},
+							Action: RobotsPartRestartAction,
 						},
 						{
 							Name:  "run",
@@ -1617,6 +1662,33 @@ Example:
 							},
 							Action: ModuleBuildLogsAction,
 						},
+						{
+							Name:  "link-repo",
+							Usage: "link a GitHub repository to your module",
+							//nolint:lll
+							UsageText: `This command connects a Viam module to a GitHub repository so that repo actions can trigger builds and releases of your module.
+
+This won't work unless you have an existing installation of our GitHub app on your GitHub org. (Details to follow).
+`,
+							// TODO(APP-3604): unhide when this is shipped externally
+							Hidden: true,
+							Flags: []cli.Flag{
+								&cli.StringFlag{
+									Name:  moduleBuildFlagOAuthLink,
+									Usage: "ID of the oauth link between your GitHub org and Viam. Only required if you have more than one link",
+								},
+								&cli.StringFlag{
+									Name: moduleFlagPath,
+									Usage: "your module's ID in org-id:name or public-namespace:name format. " +
+										"If missing, we will try to get this from meta.json file in current directory",
+								},
+								&cli.StringFlag{
+									Name:  moduleBuildFlagRepo,
+									Usage: "your github repository in account/repository form (e.g. viamrobotics/rdk, not github.com/viamrobotics/rdk)",
+								},
+							},
+							Action: ModuleBuildLinkRepoAction,
+						},
 					},
 				},
 				{
@@ -1812,7 +1884,7 @@ Example:
 				},
 				{
 					Name:      "update",
-					Usage:     "update visibility of ML training scripts for custom ML training",
+					Usage:     "update ML training scripts for custom ML training",
 					UsageText: createUsageText("training-script update", []string{generalFlagOrgID, mlTrainingFlagName, mlTrainingFlagVisibility}, true),
 					Flags: []cli.Flag{
 						&cli.StringFlag{
@@ -1833,6 +1905,11 @@ Example:
 						&cli.StringFlag{
 							Name:     mlTrainingFlagDescription,
 							Usage:    "description of the ML training script",
+							Required: false,
+						},
+						&cli.StringFlag{
+							Name:     mlTrainingFlagURL,
+							Usage:    "url of Github repository associated with the training scripts",
 							Required: false,
 						},
 					},

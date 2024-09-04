@@ -10,16 +10,16 @@ import (
 	pb "go.viam.com/api/component/camera/v1"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
-	"go.viam.com/rdk/services/datamanager/datacapture"
+	"go.viam.com/rdk/data"
 )
 
 // MaxUnaryFileSize is the max number of bytes to send using the unary DataCaptureUpload, as opposed to the
 // StreamingDataCaptureUpload.
 var MaxUnaryFileSize = int64(units.MB)
 
-func uploadDataCaptureFile(ctx context.Context, client v1.DataSyncServiceClient, f *datacapture.File, partID string) error {
+func uploadDataCaptureFile(ctx context.Context, client v1.DataSyncServiceClient, f *data.CaptureFile, partID string) error {
 	md := f.ReadMetadata()
-	sensorData, err := datacapture.SensorDataFromFile(f)
+	sensorData, err := data.SensorDataFromCaptureFile(f)
 	if err != nil {
 		return errors.Wrap(err, "error reading sensor data from file")
 	}
@@ -33,7 +33,7 @@ func uploadDataCaptureFile(ctx context.Context, client v1.DataSyncServiceClient,
 		return errors.New("binary sensor data file with more than one sensor reading is not supported")
 	}
 
-	if md.GetType() == v1.DataType_DATA_TYPE_BINARY_SENSOR && md.GetMethodName() == datacapture.GetImages {
+	if md.GetType() == v1.DataType_DATA_TYPE_BINARY_SENSOR && md.GetMethodName() == data.GetImages {
 		var res pb.GetImagesResponse
 		if err := mapstructure.Decode(sensorData[0].GetStruct().AsMap(), &res); err != nil {
 			return err

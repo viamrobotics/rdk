@@ -16,7 +16,6 @@ import (
 	goutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/logging"
-	"go.viam.com/rdk/utils"
 )
 
 const (
@@ -28,7 +27,7 @@ type VRS struct {
 	ntripInfo    *NtripInfo
 	readerWriter *bufio.ReadWriter
 	conn         net.Conn
-	workers      utils.StoppableWorkers
+	workers      *goutils.StoppableWorkers
 	logger       logging.Logger
 }
 
@@ -160,7 +159,7 @@ func (vrs *VRS) startGGAThread(getGGA func() (string, error)) {
 		vrs.workers.Stop()
 	}
 
-	vrs.workers = utils.NewStoppableWorkers(func(cancelCtx context.Context) {
+	vrs.workers = goutils.NewBackgroundStoppableWorkers(func(cancelCtx context.Context) {
 		ticker := time.NewTicker(time.Duration(vrsGGARateSec) * time.Second)
 		defer ticker.Stop()
 

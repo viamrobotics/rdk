@@ -238,8 +238,25 @@ func (pi *piPigpio) reconfigureAnalogReaders(ctx context.Context, cfg *Config) e
 			return errors.Errorf("bad analog pin (%s)", ac.Pin)
 		}
 
-		bus := &piPigpioSPI{pi: pi, busSelect: ac.SPIBus}
-		ar := &mcp3008helper.MCP3008AnalogReader{channel, bus, ac.ChipSelect}
+		var chipEnablePin string
+		// For backwards compatibility with a previous implementation, we let users specify the
+		// physical pin number for the chip select, but we'd prefer the chip select index itself.
+		switch ac.SPIBus {
+		case "24", "0":
+			chipEnablePin = "0"
+		case "26", "1":
+			chipEnablePin = "1"
+		default:
+			// If the user has gone out of their way to enable a non-default SPI bus, this error
+			// message is not strictly true. but a user who knows how to do that will know how to
+			// interpret this message correctly.
+			return fmt.Errorf(
+				"invalid chip select pin %s for analog reader %s, choose either chip select 0 (physical pin 24) or 1 (pin 26)",
+				ac.SPIBus, ac.Name)
+		}
+
+		bus := buses.NewSpiBus(ac.SPIBus)
+		ar := &mcp3008helper.MCP3008AnalogReader{channel, bus, chipEnablePin}
 
 		pi.analogReaders[ac.Name] = pinwrappers.SmoothAnalogReader(ar, board.AnalogReaderConfig{
 			AverageOverMillis: ac.AverageOverMillis, SamplesPerSecond: ac.SamplesPerSecond,
@@ -485,6 +502,12 @@ func (pi *piPigpio) pwmBcom(bcom int) (float64, error) {
 func (pi *piPigpio) SetPWMBcom(bcom int, dutyCyclePct float64) error {
 	pi.mu.Lock()
 	defer pi.mu.Unlock()
+
+	dutyCyclePct, err := board.ValidatePWMDutyCycle(dutyCyclePct)
+	if err != nil {
+		return err
+	}
+
 	dutyCycle := rdkutils.ScaleByPct(255, dutyCyclePct)
 	pi.duty = int(C.gpioPWM(C.uint(bcom), C.uint(dutyCycle)))
 	if pi.duty != 0 {
@@ -514,137 +537,6 @@ func (pi *piPigpio) SetPWMFreqBcom(bcom int, freqHz uint) error {
 	if newRes != C.int(freqHz) {
 		pi.logger.Infof("cannot set pwm freq to %d, setting to closest freq %d", freqHz, newRes)
 	}
-	return nil
-}
-
-type piPigpioSPI struct {
-	pi           *piPigpio
-	mu           sync.Mutex
-	busSelect    string
-	openHandle   *piPigpioSPIHandle
-	nativeCSSeen bool
-	gpioCSSeen   bool
-}
-
-type piPigpioSPIHandle struct {
-	bus      *piPigpioSPI
-	isClosed bool
-}
-
-func (s *piPigpioSPIHandle) Xfer(ctx context.Context, baud uint, chipSelect string, mode uint, tx []byte) ([]byte, error) {
-	if s.isClosed {
-		return nil, errors.New("can't use Xfer() on an already closed SPIHandle")
-	}
-
-	var spiFlags uint
-	var gpioCS bool
-	var nativeCS C.uint
-
-	if s.bus.busSelect == "1" {
-		spiFlags |= 0x100 // Sets AUX SPI bus bit
-		if mode == 1 || mode == 3 {
-			return nil, errors.New("AUX SPI Bus doesn't support Mode 1 or Mode 3")
-		}
-		if chipSelect == "11" || chipSelect == "12" || chipSelect == "36" {
-			s.bus.nativeCSSeen = true
-			if chipSelect == "11" {
-				nativeCS = 1
-			} else if chipSelect == "36" {
-				nativeCS = 2
-			}
-		} else {
-			s.bus.gpioCSSeen = true
-			gpioCS = true
-		}
-	} else {
-		if chipSelect == "24" || chipSelect == "26" {
-			s.bus.nativeCSSeen = true
-			if chipSelect == "26" {
-				nativeCS = 1
-			}
-		} else {
-			s.bus.gpioCSSeen = true
-			gpioCS = true
-		}
-	}
-
-	// Libpigpio will always enable the native CS output on 24 & 26 (or 11, 12, & 36 for aux SPI)
-	// Thus you don't have anything using those pins even when we're directly controlling another (extended/gpio) CS line
-	// Use only the native CS pins OR don't use them at all
-	if s.bus.nativeCSSeen && s.bus.gpioCSSeen {
-		return nil, errors.New("pi SPI cannot use both native CS pins and extended/gpio CS pins at the same time")
-	}
-
-	// Bitfields for mode
-	// Mode POL PHA
-	// 0    0   0
-	// 1    0   1
-	// 2    1   0
-	// 3    1   1
-	spiFlags |= mode
-
-	count := len(tx)
-	rx := make([]byte, count)
-	rxPtr := C.CBytes(rx)
-	defer C.free(rxPtr)
-	txPtr := C.CBytes(tx)
-	defer C.free(txPtr)
-
-	handle := C.spiOpen(nativeCS, (C.uint)(baud), (C.uint)(spiFlags))
-
-	if handle < 0 {
-		errMsg := fmt.Sprintf("error opening SPI Bus %s, flags were %X", s.bus.busSelect, spiFlags)
-		return nil, picommon.ConvertErrorCodeToMessage(int(handle), errMsg)
-	}
-	defer C.spiClose((C.uint)(handle))
-
-	if gpioCS {
-		// We're going to directly control chip select (not using CE0/CE1/CE2 from SPI controller.)
-		// This allows us to use a large number of chips on a single bus.
-		// Per "seen" checks above, cannot be mixed with the native CE0/CE1/CE2
-		chipPin, err := s.bus.pi.GPIOPinByName(chipSelect)
-		if err != nil {
-			return nil, err
-		}
-		err = chipPin.Set(ctx, false, nil)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	ret := C.spiXfer((C.uint)(handle), (*C.char)(txPtr), (*C.char)(rxPtr), (C.uint)(count))
-
-	if gpioCS {
-		chipPin, err := s.bus.pi.GPIOPinByName(chipSelect)
-		if err != nil {
-			return nil, err
-		}
-		err = chipPin.Set(ctx, true, nil)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	if int(ret) != count {
-		return nil, errors.Errorf("error with spiXfer: Wanted %d bytes, got %d bytes", count, ret)
-	}
-
-	return C.GoBytes(rxPtr, (C.int)(count)), nil
-}
-
-func (s *piPigpioSPI) OpenHandle() (buses.SPIHandle, error) {
-	s.mu.Lock()
-	s.openHandle = &piPigpioSPIHandle{bus: s, isClosed: false}
-	return s.openHandle, nil
-}
-
-func (s *piPigpioSPI) Close(ctx context.Context) error {
-	return nil
-}
-
-func (s *piPigpioSPIHandle) Close() error {
-	s.isClosed = true
-	s.bus.mu.Unlock()
 	return nil
 }
 

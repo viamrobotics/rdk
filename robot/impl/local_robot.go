@@ -708,14 +708,26 @@ func (r *localRobot) newResource(
 			}
 		}
 	}
-
-	if resInfo.Constructor != nil {
-		return resInfo.Constructor(ctx, deps, conf, gNode.Logger())
-	}
-	if resInfo.DeprecatedRobotConstructor == nil {
+	switch {
+	case resInfo.Constructor != nil:
+		res, err = resInfo.Constructor(ctx, deps, conf, gNode.Logger())
+	case resInfo.DeprecatedRobotConstructor != nil:
+		res, err = resInfo.DeprecatedRobotConstructor(ctx, r, conf, gNode.Logger())
+	default:
 		return nil, errors.Errorf("invariant: no constructor for %q", conf.API)
 	}
-	return resInfo.DeprecatedRobotConstructor(ctx, r, conf, gNode.Logger())
+	if err != nil {
+		return nil, err
+	}
+
+	// If context has errored, even if construction succeeded we should close the resource and return the context error.
+	// Use closeContext because otherwise any Close operations that rely on the context will immediately fail.
+	// The deadline associated with the context passed in to this function is utils.GetResourceConfigurationTimeout.
+	if ctx.Err() != nil {
+		r.logger.CDebugw(ctx, "resource successfully constructed but context is done, closing constructed resource")
+		return nil, multierr.Combine(ctx.Err(), res.Close(r.closeContext))
+	}
+	return res, nil
 }
 
 func (r *localRobot) updateWeakDependents(ctx context.Context) {
@@ -1131,7 +1143,7 @@ func dialRobotClient(
 	robotClient, err := client.New(
 		ctx,
 		config.Address,
-		logger,
+		logger.Sublogger("networking"),
 		rOpts...,
 	)
 	if err != nil {

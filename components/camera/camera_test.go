@@ -168,8 +168,6 @@ func TestCameraWithNoProjector(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	_, err = noProj.NextPointCloud(context.Background())
 	test.That(t, errors.Is(err, transform.ErrNoIntrinsics), test.ShouldBeTrue)
-	_, err = noProj.Projector(context.Background())
-	test.That(t, errors.Is(err, transform.ErrNoIntrinsics), test.ShouldBeTrue)
 
 	// make a camera with a NextPointCloudFunction
 	videoSrc2 := &cloudSource{Named: camera.Named("foo").AsNamed(), simpleSource: videoSrc}
@@ -213,9 +211,6 @@ func TestCameraWithProjector(t *testing.T) {
 	pc, err := src.NextPointCloud(context.Background())
 	test.That(t, pc.Size(), test.ShouldEqual, 921600)
 	test.That(t, err, test.ShouldBeNil)
-	proj, err := src.Projector(context.Background())
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, proj, test.ShouldNotBeNil)
 	test.That(t, src.Close(context.Background()), test.ShouldBeNil)
 
 	// camera with a point cloud function

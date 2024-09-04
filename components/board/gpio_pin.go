@@ -1,6 +1,11 @@
 package board
 
-import "context"
+import (
+	"context"
+	"fmt"
+
+	"github.com/pkg/errors"
+)
 
 // A GPIOPin represents an individual GPIO pin on a board.
 //
@@ -82,4 +87,20 @@ type GPIOPin interface {
 	// SetPWMFreq sets the given pin to the given PWM frequency. For Raspberry Pis,
 	// 0 will use a default PWM frequency of 800.
 	SetPWMFreq(ctx context.Context, freqHz uint, extra map[string]interface{}) error
+}
+
+// ValidatePWMDutyCycle makes sure the value passed in is a believable duty cycle value. It returns
+// the preferred duty cycle value if it is, and an error if it is not.
+func ValidatePWMDutyCycle(dutyCyclePct float64) (float64, error) {
+	if dutyCyclePct < 0.0 {
+		return 0.0, errors.New("cannot set negative duty cycle")
+	}
+	if dutyCyclePct > 1.0 {
+		if dutyCyclePct < 1.01 {
+			// Someone was probably setting it to 1 and had a roundoff error.
+			return 1.0, nil
+		}
+		return 0.0, fmt.Errorf("cannot set duty cycle to %f: range is 0.0 to 1.0", dutyCyclePct)
+	}
+	return dutyCyclePct, nil
 }

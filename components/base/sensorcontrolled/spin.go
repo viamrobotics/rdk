@@ -82,9 +82,10 @@ func (sb *sensorBase) Spin(ctx context.Context, angleDeg, degsPerSec float64, ex
 
 		select {
 		case <-ctx.Done():
-			// do not return context canceled errors, just log them
+			// context.cancelled can happen due to UI being closed during Spin.
+			// Do not return context canceled errors, just log them
 			if errors.Is(ctx.Err(), context.Canceled) {
-				sb.logger.Error(ctx.Err())
+				sb.logger.Warn("Context cancelled during Spin ", ctx.Err())
 				return nil
 			}
 			return err

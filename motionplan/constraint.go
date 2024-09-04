@@ -16,6 +16,8 @@ import (
 	spatial "go.viam.com/rdk/spatialmath"
 )
 
+var defaultMinStepCount = 2
+
 // Given a constraint input with only frames and input positions, calculates the corresponding poses as needed.
 func resolveSegmentsToPositions(segment *ik.Segment) error {
 	if segment.StartPosition == nil {
@@ -155,6 +157,10 @@ func interpolateSegment(ci *ik.Segment, resolution float64) ([][]referenceframe.
 	}
 
 	steps := PathStepCount(ci.StartPosition, ci.EndPosition, resolution)
+	if steps < defaultMinStepCount {
+		// Minimum step count ensures we are not missing anything
+		steps = defaultMinStepCount
+	}
 
 	var interpolatedConfigurations [][]referenceframe.Input
 	for i := 0; i <= steps; i++ {

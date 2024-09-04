@@ -52,6 +52,9 @@ const (
 	// https://viam.atlassian.net/browse/RSDK-7521
 	// maxSupportedWebRTCTRacks is the max number of WebRTC tracks that can be supported given wihout hitting the sctp SDP message size limit.
 	maxSupportedWebRTCTRacks = 9
+
+	// NoModuleParentEnvVar indicates whether there is a parent for a module being started.
+	NoModuleParentEnvVar = "VIAM_NO_MODULE_PARENT"
 )
 
 // errMaxSupportedWebRTCTrackLimit is the error returned when the MaxSupportedWebRTCTRacks limit is reached.
@@ -341,7 +344,7 @@ func (m *Module) connectParent(ctx context.Context) error {
 	// moduleLoggers may be creating the client connection below, so use a
 	// different logger here to avoid a deadlock where the client connection
 	// tries to recursively connect to the parent.
-	clientLogger := logging.NewLogger("module-connection")
+	clientLogger := logging.NewLogger("networking.module-connection")
 	clientLogger.SetLevel(m.logger.GetLevel())
 	// TODO(PRODUCT-343): add session support to modules
 	rc, err := client.New(ctx, "unix://"+m.parentAddr, clientLogger, client.WithDisableSessions())
@@ -405,7 +408,7 @@ func (m *Module) Ready(ctx context.Context, req *pb.ReadyRequest) (*pb.ReadyResp
 
 	// we start the module without connecting to a parent since we
 	// are only concerned with validation and extracting metadata.
-	if os.Getenv("VIAM_NO_MODULE_PARENT") != "true" {
+	if os.Getenv(NoModuleParentEnvVar) != "true" {
 		m.parentAddr = req.GetParentAddress()
 		if err := m.connectParent(ctx); err != nil {
 			// Return error back to parent if we cannot make a connection from module
@@ -465,6 +468,15 @@ func (m *Module) AddResource(ctx context.Context, req *pb.AddResourceRequest) (*
 	res, err := resInfo.Constructor(ctx, deps, *conf, resLogger)
 	if err != nil {
 		return nil, err
+	}
+
+	// If context has errored, even if construction succeeded we should close the resource and return the context error.
+	// Use shutdownCtx because otherwise any Close operations that rely on the context will immediately fail.
+	// The deadline associated with the context passed in to this function is rutils.GetResourceConfigurationTimeout,
+	// which is propagated to AddResource through gRPC.
+	if ctx.Err() != nil {
+		m.logger.CDebugw(ctx, "resource successfully constructed but context is done, closing constructed resource", "err", ctx.Err().Error())
+		return nil, multierr.Combine(ctx.Err(), res.Close(m.shutdownCtx))
 	}
 
 	var passthroughSource rtppassthrough.Source

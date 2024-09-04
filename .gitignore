@@ -43,6 +43,7 @@ coverage.xml
 profile*.pdf
 code-coverage-results.md
 metadata
+data.ndjson
 
 *~
 *#
@@ -53,7 +54,6 @@ metadata
 # act
 .secrets
 
-/data/
 out/
 .idea/*
 bin/
@@ -89,3 +89,6 @@ web/cmd/server/*.core
 # gomobile / android
 *.aar
 *.jar
+
+# direnv (optional dev tool)
+.envrc

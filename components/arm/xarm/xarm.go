@@ -37,9 +37,12 @@ func (cfg *Config) Validate(path string) ([]string, error) {
 }
 
 const (
-	defaultSpeed  = 20. // degrees per second
+	defaultSpeed  = 50.  // degrees per second
+	defaultAccel  = 100. // degrees per second per second
 	defaultPort   = "502"
 	defaultMoveHz = 100. // Don't change this
+
+	interwaypointAccel = 600. // degrees per second per second. All xarms max out at 1145
 )
 
 type xArm struct {
@@ -53,9 +56,10 @@ type xArm struct {
 	opMgr    *operation.SingleOperationManager
 	logger   logging.Logger
 
-	mu    sync.RWMutex
-	conn  net.Conn
-	speed float32 // speed=max joint radians per second
+	mu           sync.RWMutex
+	conn         net.Conn
+	speed        float64 // speed=max joint radians per second
+	acceleration float64 // acceleration= joint radians per second increase per second
 }
 
 //go:embed xarm6_kinematics.json
@@ -144,8 +148,13 @@ func (x *xArm) Reconfigure(ctx context.Context, deps resource.Dependencies, conf
 	if speed == 0 {
 		speed = defaultSpeed
 	}
-	if speed < 0 {
-		return fmt.Errorf("given speed %f cannot be negative", speed)
+
+	acceleration := newConf.Acceleration
+	if acceleration == 0 {
+		acceleration = defaultAccel
+	}
+	if acceleration < 0 {
+		return fmt.Errorf("given acceleration %f cannot be negative", acceleration)
 	}
 
 	port := fmt.Sprintf("%d", newConf.Port)
@@ -176,7 +185,8 @@ func (x *xArm) Reconfigure(ctx context.Context, deps resource.Dependencies, conf
 		}
 	}
 
-	x.speed = float32(utils.DegToRad(float64(speed)))
+	x.acceleration = utils.DegToRad(float64(acceleration))
+	x.speed = utils.DegToRad(float64(speed))
 	return nil
 }
 
@@ -194,12 +204,17 @@ func (x *xArm) GoToInputs(ctx context.Context, inputSteps ...[]referenceframe.In
 		if err := arm.CheckDesiredJointPositions(ctx, x, goal); err != nil {
 			return err
 		}
-		err := x.MoveToJointPositions(ctx, x.model.ProtobufFromInput(goal), nil)
-		if err != nil {
-			return err
-		}
 	}
-	return nil
+	curPos, err := x.JointPositions(ctx, nil)
+	if err != nil {
+		return err
+	}
+	from := x.model.InputFromProtobuf(curPos)
+	armRawSteps, err := x.createRawJointSteps(from, inputSteps)
+	if err != nil {
+		return err
+	}
+	return x.executeInputs(ctx, armRawSteps)
 }
 
 func (x *xArm) Geometries(ctx context.Context, extra map[string]interface{}) ([]spatialmath.Geometry, error) {
@@ -217,4 +232,28 @@ func (x *xArm) Geometries(ctx context.Context, extra map[string]interface{}) ([]
 // ModelFrame returns all the information necessary for including the arm in a FrameSystem.
 func (x *xArm) ModelFrame() referenceframe.Model {
 	return x.model
+}
+
+func (x *xArm) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	err := x.enableGripper(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if err = x.setGripperMode(ctx, false); err != nil {
+		return nil, err
+	}
+	if val, ok := cmd["move_gripper"]; ok {
+		position, ok := val.(float64)
+		if !ok || position < -10 || position > 850 {
+			return nil, fmt.Errorf("must move gripper to an int between 0 and 840 %v", val)
+		}
+		err = x.setGripperPosition(ctx, uint32(position))
+		if err != nil {
+			return nil, err
+		}
+	}
+	if _, ok := cmd["load"]; ok {
+		return x.getLoad(ctx)
+	}
+	return nil, errors.New("command not found")
 }

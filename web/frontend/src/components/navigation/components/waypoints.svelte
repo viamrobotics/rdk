@@ -1,5 +1,5 @@
 <script lang="ts">
-import { type MapMouseEvent } from 'maplibre-gl';
+import type { MapMouseEvent } from 'maplibre-gl';
 import type { ServiceError } from '@viamrobotics/sdk';
 import { notify } from '@viamrobotics/prime';
 import { useMapLibre, MapLibreMarker } from '@viamrobotics/prime-blocks';
@@ -37,6 +37,7 @@ $: if ($error) {
 {#each $waypoints as waypoint (waypoint.id)}
   <MapLibreMarker
     scale={0.7}
-    pose={{ lat: waypoint.lat, lng: waypoint.lng, rotation: 0 }}
+    lng={waypoint.lng}
+    lat={waypoint.lat}
   />
 {/each}

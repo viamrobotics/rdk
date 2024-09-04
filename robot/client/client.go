@@ -3,19 +3,19 @@ package client
 
 import (
 	"context"
-	"flag"
+	"errors"
 	"fmt"
 	"io"
 	"strings"
 	"sync"
 	"sync/atomic"
+	"testing"
 	"time"
 
 	"github.com/fullstorydev/grpcurl"
 	grpc_retry "github.com/grpc-ecosystem/go-grpc-middleware/retry"
 	"github.com/jhump/protoreflect/desc"
 	"github.com/jhump/protoreflect/grpcreflect"
-	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -27,6 +27,7 @@ import (
 	"go.viam.com/utils/rpc"
 	googlegrpc "google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/metadata"
 	reflectpb "google.golang.org/grpc/reflection/grpc_reflection_v1alpha"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/structpb"
@@ -131,7 +132,7 @@ func isClosedPipeError(err error) bool {
 }
 
 func (rc *RobotClient) notConnectedToRemoteError() error {
-	return errors.Errorf("not connected to remote robot at %s", rc.address)
+	return fmt.Errorf("not connected to remote robot at %s", rc.address)
 }
 
 func (rc *RobotClient) handleUnaryDisconnect(
@@ -250,6 +251,9 @@ func New(ctx context.Context, address string, clientLogger logging.ZapCompatible
 		rpc.WithUnaryClientInterceptor(operation.UnaryClientInterceptor),
 		rpc.WithStreamClientInterceptor(operation.StreamClientInterceptor),
 		rpc.WithUnaryClientInterceptor(logging.UnaryClientInterceptor),
+		// sending version metadata
+		rpc.WithUnaryClientInterceptor(unaryClientInterceptor()),
+		rpc.WithStreamClientInterceptor(streamClientInterceptor()),
 	)
 
 	if err := rc.connect(ctx); err != nil {
@@ -346,7 +350,15 @@ func (rc *RobotClient) connectWithLock(ctx context.Context) error {
 	if err := rc.conn.Close(); err != nil {
 		return err
 	}
-	conn, err := grpc.Dial(ctx, rc.address, rc.logger, rc.dialOptions...)
+
+	var dialLogger logging.Logger
+	if l, ok := logging.LoggerNamed("rdk.networking"); ok {
+		dialLogger = l
+	} else {
+		dialLogger = rc.logger.Sublogger("networking")
+	}
+
+	conn, err := grpc.Dial(ctx, rc.address, dialLogger, rc.dialOptions...)
 	if err != nil {
 		return err
 	}
@@ -571,10 +583,7 @@ func (rc *RobotClient) resources(ctx context.Context) ([]resource.Name, []resour
 	// pauses for longer than 5s, below calls to ResourceNames or
 	// ResourceRPCSubtypes can result in context errors that appear in client.New
 	// and remote logic.
-	//
-	// TODO(APP-2917): Once we upgrade to go 1.21, replace this if check with if
-	// !testing.Testing().
-	if flag.Lookup("test.v") == nil {
+	if !testing.Testing() {
 		var cancel func()
 		ctx, cancel = contextutils.ContextWithTimeoutIfNoDeadline(ctx, defaultResourcesTimeout)
 		defer cancel()
@@ -616,7 +625,7 @@ func (rc *RobotClient) resources(ctx context.Context) ([]resource.Name, []resour
 			}
 			svcDesc, ok := symDesc.(*desc.ServiceDescriptor)
 			if !ok {
-				return nil, nil, errors.Errorf("expected descriptor to be service descriptor but got %T", symDesc)
+				return nil, nil, fmt.Errorf("expected descriptor to be service descriptor but got %T", symDesc)
 			}
 			resTypes = append(resTypes, resource.RPCAPI{
 				API:  rprotoutils.ResourceNameFromProto(resAPI.Subtype).API,
@@ -1055,6 +1064,11 @@ func (rc *RobotClient) MachineStatus(ctx context.Context) (robot.MachineStatus, 
 			resStatus.State = resource.NodeStateReady
 		case pb.ResourceStatus_STATE_REMOVING:
 			resStatus.State = resource.NodeStateRemoving
+		case pb.ResourceStatus_STATE_UNHEALTHY:
+			resStatus.State = resource.NodeStateUnhealthy
+			if pbResStatus.Error != "" {
+				resStatus.Error = errors.New(pbResStatus.Error)
+			}
 		}
 
 		mStatus.Resources = append(mStatus.Resources, resStatus)
@@ -1063,7 +1077,7 @@ func (rc *RobotClient) MachineStatus(ctx context.Context) (robot.MachineStatus, 
 	return mStatus, nil
 }
 
-// Version returns version information about the robot.
+// Version returns version information about the machine.
 func (rc *RobotClient) Version(ctx context.Context) (robot.VersionResponse, error) {
 	mVersion := robot.VersionResponse{}
 
@@ -1077,4 +1091,44 @@ func (rc *RobotClient) Version(ctx context.Context) (robot.VersionResponse, erro
 	mVersion.APIVersion = resp.ApiVersion
 
 	return mVersion, nil
+}
+
+func unaryClientInterceptor() googlegrpc.UnaryClientInterceptor {
+	return func(
+		ctx context.Context,
+		method string,
+		req, reply interface{},
+		cc *googlegrpc.ClientConn,
+		invoker googlegrpc.UnaryInvoker,
+		opts ...googlegrpc.CallOption,
+	) error {
+		md, err := robot.Version()
+		if err != nil {
+			ctx = metadata.AppendToOutgoingContext(ctx, "viam_client", "go;unknown;unknown")
+			return invoker(ctx, method, req, reply, cc, opts...)
+		}
+		stringMd := fmt.Sprintf("go;%s;%s", md.Version, md.APIVersion)
+		ctx = metadata.AppendToOutgoingContext(ctx, "viam_client", stringMd)
+		return invoker(ctx, method, req, reply, cc, opts...)
+	}
+}
+
+func streamClientInterceptor() googlegrpc.StreamClientInterceptor {
+	return func(
+		ctx context.Context,
+		desc *googlegrpc.StreamDesc,
+		cc *googlegrpc.ClientConn,
+		method string,
+		streamer googlegrpc.Streamer,
+		opts ...googlegrpc.CallOption,
+	) (cs googlegrpc.ClientStream, err error) {
+		md, err := robot.Version()
+		if err != nil {
+			ctx = metadata.AppendToOutgoingContext(ctx, "viam_client", "go;unknown;unknown")
+			return streamer(ctx, desc, cc, method, opts...)
+		}
+		stringMd := fmt.Sprintf("go;%s;%s", md.Version, md.APIVersion)
+		ctx = metadata.AppendToOutgoingContext(ctx, "viam_client", stringMd)
+		return streamer(ctx, desc, cc, method, opts...)
+	}
 }
