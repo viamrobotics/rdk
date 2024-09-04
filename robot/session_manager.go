@@ -12,7 +12,6 @@ import (
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/session"
-	rdkutils "go.viam.com/rdk/utils"
 )
 
 // NewSessionManager creates a new manager for holding sessions.
@@ -24,7 +23,7 @@ func NewSessionManager(robot Robot, heartbeatWindow time.Duration) *SessionManag
 		sessions:          map[uuid.UUID]*session.Session{},
 		resourceToSession: map[resource.Name]uuid.UUID{},
 	}
-	m.workers = rdkutils.NewStoppableWorkers(m.expireLoop)
+	m.workers = utils.NewBackgroundStoppableWorkers(m.expireLoop)
 	return m
 }
 
@@ -40,7 +39,7 @@ type SessionManager struct {
 
 	resourceToSession map[resource.Name]uuid.UUID
 
-	workers rdkutils.StoppableWorkers
+	workers *utils.StoppableWorkers
 }
 
 // All returns all active sessions.

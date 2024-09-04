@@ -29,6 +29,7 @@ import (
 	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
 	"github.com/pkg/errors"
+	goutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/components/board/genericlinux/buses"
 	"go.viam.com/rdk/components/movementsensor"
@@ -83,7 +84,7 @@ type mpu6050 struct {
 	// Stores the most recent error from the background goroutine
 	err movementsensor.LastError
 
-	workers utils.StoppableWorkers
+	workers *goutils.StoppableWorkers
 	logger  logging.Logger
 }
 
@@ -167,7 +168,7 @@ func makeMpu6050(
 
 	// Now, turn on the background goroutine that constantly reads from the chip and stores data in
 	// the object we created.
-	sensor.workers = utils.NewStoppableWorkers(func(cancelCtx context.Context) {
+	sensor.workers = goutils.NewBackgroundStoppableWorkers(func(cancelCtx context.Context) {
 		// Reading data a thousand times per second is probably fast enough.
 		timer := time.NewTicker(time.Millisecond)
 		defer timer.Stop()

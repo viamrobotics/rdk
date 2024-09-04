@@ -15,6 +15,7 @@ import (
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan"
+	"go.viam.com/rdk/motionplan/ik"
 	"go.viam.com/rdk/motionplan/tpspace"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
@@ -409,4 +410,31 @@ func TestPTGKinematicsSimpleInputs(t *testing.T) {
 	inputs = []referenceframe.Input{{0}, {1.9}, {1300}, {0}}
 	err = ptgBase.GoToInputs(ctx, inputs)
 	test.That(t, err, test.ShouldBeNil)
+}
+
+func TestCopyArcStep(t *testing.T) {
+	step := &arcStep{
+		linVelMMps:      r3.Vector{1, 2, 3},
+		angVelDegps:     r3.Vector{4, 5, 6},
+		durationSeconds: 3.14,
+		arcSegment: ik.Segment{
+			StartPosition:      spatialmath.NewPoseFromPoint(r3.Vector{1, 2, 3}),
+			EndPosition:        spatialmath.NewPoseFromPoint(r3.Vector{4, 5, 6}),
+			StartConfiguration: []referenceframe.Input{{1}, {2}, {3}},
+			EndConfiguration:   []referenceframe.Input{{4}, {5}, {6}},
+			Frame:              referenceframe.NewZeroStaticFrame("test"),
+		},
+		subTraj: []*tpspace.TrajNode{
+			{
+				Pose:   spatialmath.NewPoseFromPoint(r3.Vector{7, 8, 9}),
+				Dist:   2.72,
+				Alpha:  1.61,
+				LinVel: 0.11,
+				AngVel: 0.22,
+			},
+		},
+	}
+
+	copiedStep := copyArcStep(*step)
+	test.That(t, &copiedStep, test.ShouldResemble, step)
 }

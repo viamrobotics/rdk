@@ -25,7 +25,6 @@ import (
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/datamanager"
-	"go.viam.com/rdk/services/datamanager/datacapture"
 	"go.viam.com/rdk/services/datamanager/datasync"
 	"go.viam.com/rdk/services/slam"
 	"go.viam.com/rdk/services/vision"
@@ -314,19 +313,20 @@ func (svc *builtIn) initializeOrUpdateCollector(
 	config datamanager.DataCaptureConfig,
 	maxFileSizeChanged bool,
 ) (*collectorAndConfig, error) {
+	// TODO(DATA-451): validate method params
+	methodParams, err := protoutils.ConvertStringMapToAnyPBMap(config.AdditionalParams)
+	if err != nil {
+		return nil, err
+	}
 	// Build metadata.
-	captureMetadata, err := datacapture.BuildCaptureMetadata(
+	captureMetadata := data.BuildCaptureMetadata(
 		config.Name.API,
 		config.Name.ShortName(),
 		config.Method,
 		config.AdditionalParams,
+		methodParams,
 		config.Tags,
 	)
-	if err != nil {
-		return nil, err
-	}
-
-	// TODO(DATA-451): validate method params
 
 	svc.collectorsMu.Lock()
 	defer svc.collectorsMu.Unlock()
@@ -368,13 +368,9 @@ func (svc *builtIn) initializeOrUpdateCollector(
 				md.MethodMetadata.API.String(), additionalParamKey)
 		}
 	}
-	methodParams, err := protoutils.ConvertStringMapToAnyPBMap(config.AdditionalParams)
-	if err != nil {
-		return nil, err
-	}
 
 	// Create a collector for this resource and method.
-	targetDir := datacapture.FilePathWithReplacedReservedChars(
+	targetDir := data.CaptureFilePathWithReplacedReservedChars(
 		filepath.Join(svc.captureDir, captureMetadata.GetComponentType(),
 			captureMetadata.GetComponentName(), captureMetadata.GetMethodName()))
 	if err := os.MkdirAll(targetDir, 0o700); err != nil {
@@ -384,7 +380,7 @@ func (svc *builtIn) initializeOrUpdateCollector(
 		ComponentName: config.Name.ShortName(),
 		Interval:      interval,
 		MethodParams:  methodParams,
-		Target:        datacapture.NewBuffer(targetDir, captureMetadata, svc.maxCaptureFileSize),
+		Target:        data.NewCaptureBuffer(targetDir, captureMetadata, svc.maxCaptureFileSize),
 		QueueSize:     captureQueueSize,
 		BufferSize:    captureBufferSize,
 		Logger:        svc.logger,
@@ -832,9 +828,9 @@ func getAllFilesToSync(ctx context.Context, dirs []string, lastModifiedMillis in
 			if timeSinceMod < 0 {
 				timeSinceMod = 0
 			}
-			isCompletedCaptureFile := filepath.Ext(path) == datacapture.FileExt
-			isNonCaptureFileThatIsNotBeingWrittenTo := filepath.Ext(path) != datacapture.InProgressFileExt &&
-				filepath.Ext(path) != datacapture.FileExt &&
+			isCompletedCaptureFile := filepath.Ext(path) == data.CompletedCaptureFileExt
+			isNonCaptureFileThatIsNotBeingWrittenTo := filepath.Ext(path) != data.InProgressCaptureFileExt &&
+				filepath.Ext(path) != data.CompletedCaptureFileExt &&
 				timeSinceMod >= time.Duration(lastModifiedMillis)*time.Millisecond
 			if isCompletedCaptureFile || isNonCaptureFileThatIsNotBeingWrittenTo {
 				syncer.SendFileToSync(path)
@@ -963,7 +959,7 @@ func countCaptureDirFiles(ctx context.Context, captureDir string) int {
 		}
 		// this is intentionally not doing as many checkas as getAllFilesToSync because
 		// this is intended for debugging and does not need to be 100% accurate.
-		isCompletedCaptureFile := filepath.Ext(path) == datacapture.FileExt
+		isCompletedCaptureFile := filepath.Ext(path) == data.CompletedCaptureFileExt
 		if isCompletedCaptureFile {
 			numFiles++
 		}
