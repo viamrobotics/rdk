@@ -1,10 +1,10 @@
 package utils
 
 import (
-	"flag"
 	"math/rand"
 	"os"
 	"strings"
+	"testing"
 )
 
 // AssertType attempts to assert that the given interface argument is
@@ -46,9 +46,9 @@ type Rand interface {
 }
 
 // Testing returns true when you are running in test suite.
+// Deprecated: this is in the standard library now.
 func Testing() bool {
-	// TODO switch to official testing.Testing method when we are on go 1.21
-	return flag.Lookup("test.v") != nil
+	return testing.Testing()
 }
 
 // randWrapper is a pass-through to the shared math/rand functions.
@@ -61,7 +61,7 @@ func (randWrapper) Float64() float64 {
 // SafeTestingRand returns a wrapper around the shared math/rand source in prod,
 // and a deterministic rand.Rand seeded with 0 in test.
 func SafeTestingRand() Rand {
-	if Testing() {
+	if testing.Testing() {
 		return rand.New(rand.NewSource(0)) //nolint:gosec
 	}
 	return randWrapper{}
