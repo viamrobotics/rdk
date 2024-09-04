@@ -67,10 +67,10 @@ type Sync struct {
 
 	cloudConn cloudConn
 
-	Scheduler        utils.StoppableWorkers
-	cloudConnManager utils.StoppableWorkers
+	Scheduler        *goutils.StoppableWorkers
+	cloudConnManager *goutils.StoppableWorkers
 	// FileDeletingWorkers is only public for tests
-	FileDeletingWorkers utils.StoppableWorkers
+	FileDeletingWorkers *goutils.StoppableWorkers
 	// MaxSyncThreads only exists for tests
 	MaxSyncThreads int
 }
@@ -94,9 +94,9 @@ func New(
 		fileTracker:             newFileTracker(),
 		filesToSync:             make(chan string),
 		flushCollectors:         flushCollectors,
-		Scheduler:               utils.NewStoppableWorkers(),
+		Scheduler:               goutils.NewBackgroundStoppableWorkers(),
 		cloudConn:               cloudConn{ready: make(chan struct{})},
-		FileDeletingWorkers:     utils.NewStoppableWorkers(),
+		FileDeletingWorkers:     goutils.NewBackgroundStoppableWorkers(),
 	}
 	return &s
 }
@@ -112,7 +112,7 @@ func (s *Sync) Reconfigure(_ context.Context, config Config, cloudConnSvc cloud.
 	s.logger.Debug("Reconfigure START")
 	defer s.logger.Debug("Reconfigure END")
 	if s.cloudConnManager == nil {
-		s.cloudConnManager = utils.NewStoppableWorkers(func(ctx context.Context) {
+		s.cloudConnManager = goutils.NewBackgroundStoppableWorkers(func(ctx context.Context) {
 			s.runCloudConnManager(ctx, cloudConnSvc)
 		})
 	}
@@ -146,7 +146,7 @@ func (s *Sync) Reconfigure(_ context.Context, config Config, cloudConnSvc cloud.
 		interval := time.Millisecond * time.Duration(intervalMillis)
 		tkr := s.clock.Ticker(interval)
 		s.ScheduledTicker = tkr
-		s.Scheduler = utils.NewStoppableWorkers(func(ctx context.Context) {
+		s.Scheduler = goutils.NewBackgroundStoppableWorkers(func(ctx context.Context) {
 			s.runScheduler(ctx, tkr, config)
 		})
 	}
@@ -155,7 +155,7 @@ func (s *Sync) Reconfigure(_ context.Context, config Config, cloudConnSvc cloud.
 	// cached datacapture files
 	shouldDeleteExcessFiles := !config.CaptureDisabled
 	if shouldDeleteExcessFiles {
-		s.FileDeletingWorkers = utils.NewStoppableWorkers(func(ctx context.Context) {
+		s.FileDeletingWorkers = goutils.NewBackgroundStoppableWorkers(func(ctx context.Context) {
 			deleteExcessFilesOnSchedule(
 				ctx,
 				s.fileTracker,

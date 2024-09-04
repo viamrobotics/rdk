@@ -11,24 +11,23 @@ import (
 	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/logging"
 	datasync "go.viam.com/rdk/services/datamanager/builtin/sync"
-	"go.viam.com/rdk/utils"
 )
 
 type fileCountLogger struct {
 	logger  logging.Logger
-	workers utils.StoppableWorkers
+	workers *goutils.StoppableWorkers
 }
 
 func newFileCountLogger(logger logging.Logger) *fileCountLogger {
 	return &fileCountLogger{
 		logger:  logger,
-		workers: utils.NewStoppableWorkers(),
+		workers: goutils.NewBackgroundStoppableWorkers(),
 	}
 }
 
 func (poller *fileCountLogger) reconfigure(captureDir string) {
 	poller.workers.Stop()
-	poller.workers = utils.NewStoppableWorkers(func(ctx context.Context) {
+	poller.workers = goutils.NewBackgroundStoppableWorkers(func(ctx context.Context) {
 		t := time.NewTicker(captureDirSizeLogInterval)
 		defer t.Stop()
 		for {
