@@ -1174,6 +1174,13 @@ func (r *localRobot) applyLocalModuleVersions(cfg *config.Config) {
 }
 
 func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, forceSync bool) {
+	r.configRevisionMu.Lock()
+	r.configRevision = config.Revision{
+		Revision:    newConfig.Revision,
+		LastUpdated: time.Now(),
+	}
+	r.configRevisionMu.Unlock()
+
 	var allErrs error
 
 	// Sync Packages before reconfiguring rest of robot and resolving references to any packages
@@ -1203,14 +1210,6 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 			r.logger.CErrorw(ctx, "error storing the config", "error", err)
 		}
 	}
-
-	// Update configRevision, as the robot is starting to reconfigure itself.
-	r.configRevisionMu.Lock()
-	r.configRevision = config.Revision{
-		Revision:    newConfig.Revision,
-		LastUpdated: time.Now(),
-	}
-	r.configRevisionMu.Unlock()
 
 	// Add default services and process their dependencies. Dependencies may
 	// already come from config validation so we check that here.
