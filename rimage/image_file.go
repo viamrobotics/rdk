@@ -7,6 +7,7 @@ import (
 	"image"
 	"image/color"
 	"image/draw"
+	"image/jpeg"
 	"image/png"
 	"io"
 	"os"
@@ -166,7 +167,7 @@ func WriteImageToFile(path string, img image.Image) (err error) {
 	case ".png":
 		return png.Encode(f, img)
 	case ".jpg", ".jpeg":
-		return EncodeJPEG(f, img)
+		return jpeg.Encode(f, img, &jpeg.Options{Quality: 75})
 	case ".ppm":
 		return ppm.Encode(f, img)
 	case ".qoi":
@@ -240,7 +241,7 @@ func SaveImage(pic image.Image, loc string) error {
 	if lazyImg, ok := pic.(*LazyEncodedImage); ok {
 		pic = lazyImg.DecodedImage()
 	}
-	if err = EncodeJPEG(f, pic); err != nil {
+	if err = jpeg.Encode(f, pic, &jpeg.Options{Quality: 75}); err != nil {
 		return errors.Wrapf(err, "the 'image' will not encode")
 	}
 	return nil
@@ -257,7 +258,7 @@ func DecodeImage(ctx context.Context, imgBytes []byte, mimeType string) (image.I
 	}
 	switch mimeType {
 	case "":
-		img, err := DecodeJPEG(bytes.NewReader(imgBytes))
+		img, err := jpeg.Decode(bytes.NewReader(imgBytes))
 		if err != nil {
 			img, _, err = image.Decode(bytes.NewReader(imgBytes))
 			if err != nil {
@@ -319,7 +320,7 @@ func EncodeImage(ctx context.Context, img image.Image, mimeType string) ([]byte,
 			return nil, err
 		}
 	case ut.MimeTypeJPEG:
-		if err := EncodeJPEG(&buf, img); err != nil {
+		if err := jpeg.Encode(&buf, img, &jpeg.Options{Quality: 75}); err != nil {
 			return nil, err
 		}
 	case ut.MimeTypeQOI:

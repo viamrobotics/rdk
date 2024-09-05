@@ -336,6 +336,13 @@ func NewLocalPeerConnection(logger logging.Logger) (*webrtc.PeerConnection, erro
 
 		return false
 	})
+
+	// RSDK-8547: WebRTC video streams expect an "increasing" SRTP value. When we forward RTP
+	// packets through different hops, those values are copied as-is. If one connection in this
+	// chain of hops has a blip, it will reset its SRTP value. Other hops in the chain that were not
+	// disconnected will see these unexpected change in SRTP values and interpret it as a replay
+	// attack, dropping the data. We disable this "protection" as per the justification in the noted
+	// ticket.
 	settingEngine.DisableSRTPReplayProtection(true)
 
 	options := []func(a *webrtc.API){webrtc.WithMediaEngine(&m), webrtc.WithInterceptorRegistry(&i)}

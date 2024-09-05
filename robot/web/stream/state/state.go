@@ -68,7 +68,8 @@ func New(
 	// The event handler for a stream input manages the following events:
 	// - There's a new subscriber (bump ref counter)
 	// - A subscriber has left (dec ref counter)
-	// - Camera
+	// - Camera is remevod (dec for all subscribers)
+	// - Peer connection is closed (dec for all subscribers)
 	utils.ManagedGo(ret.sourceEventHandler, ret.wg.Done)
 	return ret
 }
@@ -241,7 +242,7 @@ func (state *StreamState) send(msgType msgType) error {
 func (state *StreamState) tick() {
 	switch {
 	case state.activeClients < 0:
-		state.logger.Fatal("activeClients is less than 0")
+		state.logger.Error("activeClients is less than 0")
 	case state.activeClients == 0:
 		// stop stream if there are no active clients
 		// noop if there is no stream source

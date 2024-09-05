@@ -4,12 +4,12 @@ package client
 import (
 	"context"
 	"errors"
-	"flag"
 	"fmt"
 	"io"
 	"strings"
 	"sync"
 	"sync/atomic"
+	"testing"
 	"time"
 
 	"github.com/fullstorydev/grpcurl"
@@ -585,10 +585,7 @@ func (rc *RobotClient) resources(ctx context.Context) ([]resource.Name, []resour
 	// pauses for longer than 5s, below calls to ResourceNames or
 	// ResourceRPCSubtypes can result in context errors that appear in client.New
 	// and remote logic.
-	//
-	// TODO(APP-2917): Once we upgrade to go 1.21, replace this if check with if
-	// !testing.Testing().
-	if flag.Lookup("test.v") == nil {
+	if !testing.Testing() {
 		var cancel func()
 		ctx, cancel = contextutils.ContextWithTimeoutIfNoDeadline(ctx, defaultResourcesTimeout)
 		defer cancel()
@@ -723,23 +720,18 @@ func (rc *RobotClient) PackageManager() packages.Manager {
 	return nil
 }
 
-// ResourceNames returns a list of all known resource names on the connected remote. Returns nil if
-// the connection is not healthy. The empty slice if it is healthy, but the response was empty.
+// ResourceNames returns a list of all known resource names connected to this machine.
 //
 //	resource_names := machine.ResourceNames()
 func (rc *RobotClient) ResourceNames() []resource.Name {
 	if err := rc.checkConnected(); err != nil {
 		rc.Logger().Errorw("failed to get remote resource names", "error", err.Error())
-		return []resource.Name{}
+		return nil
 	}
 	rc.mu.RLock()
 	defer rc.mu.RUnlock()
 	names := make([]resource.Name, 0, len(rc.resourceNames))
 	names = append(names, rc.resourceNames...)
-
-	if len(names) == 0 {
-		rc.Logger().Errorw("ClientResourceNames returning 0 things", "checkConnected", rc.checkConnected())
-	}
 	return names
 }
 
@@ -1074,6 +1066,11 @@ func (rc *RobotClient) MachineStatus(ctx context.Context) (robot.MachineStatus, 
 			resStatus.State = resource.NodeStateReady
 		case pb.ResourceStatus_STATE_REMOVING:
 			resStatus.State = resource.NodeStateRemoving
+		case pb.ResourceStatus_STATE_UNHEALTHY:
+			resStatus.State = resource.NodeStateUnhealthy
+			if pbResStatus.Error != "" {
+				resStatus.Error = errors.New(pbResStatus.Error)
+			}
 		}
 
 		mStatus.Resources = append(mStatus.Resources, resStatus)
@@ -1082,7 +1079,7 @@ func (rc *RobotClient) MachineStatus(ctx context.Context) (robot.MachineStatus, 
 	return mStatus, nil
 }
 
-// Version returns version information about the robot.
+// Version returns version information about the machine.
 func (rc *RobotClient) Version(ctx context.Context) (robot.VersionResponse, error) {
 	mVersion := robot.VersionResponse{}
 

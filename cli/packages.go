@@ -16,6 +16,7 @@ import (
 	"go.uber.org/multierr"
 	packagespb "go.viam.com/api/app/packages/v1"
 	"go.viam.com/utils"
+	"go.viam.com/utils/rpc"
 	"google.golang.org/protobuf/types/known/structpb"
 )
 
@@ -102,11 +103,12 @@ func (c *viamClient) packageExportAction(orgID, name, version, packageType, dest
 		return err
 	}
 
-	return downloadPackageFromURL(c.c.Context, c.authFlow.httpClient, destination, name, version, resp.GetPackage().GetUrl())
+	return downloadPackageFromURL(c.c.Context, c.authFlow.httpClient, destination, name, version, resp.GetPackage().GetUrl(),
+		c.conf.Auth)
 }
 
 func downloadPackageFromURL(ctx context.Context, httpClient *http.Client,
-	destination, name, version, packageURL string,
+	destination, name, version, packageURL string, auth authMethod,
 ) error {
 	// All packages are stored as .tar.gz
 	packagePath := filepath.Join(destination, version, name+".tar.gz")
@@ -122,6 +124,18 @@ func downloadPackageFromURL(ctx context.Context, httpClient *http.Client,
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, packageURL, nil)
 	if err != nil {
 		return errors.Wrapf(err, serverErrorMessage)
+	}
+
+	// Set the headers so HTTP requests that are not gRPC calls can still be authenticated in app
+	// We can authenticate via token or API key, so we try both.
+	token, ok := auth.(*token)
+	if ok {
+		req.Header.Add(rpc.MetadataFieldAuthorization, rpc.AuthorizationValuePrefixBearer+token.AccessToken)
+	}
+	apiKey, ok := auth.(*apiKey)
+	if ok {
+		req.Header.Add("key_id", apiKey.KeyID)
+		req.Header.Add("key", apiKey.KeyCrypto)
 	}
 	res, err := httpClient.Do(req)
 	if err != nil {

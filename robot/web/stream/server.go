@@ -189,10 +189,9 @@ func (server *Server) AddStream(ctx context.Context, req *streampb.AddStreamRequ
 					// "worker". Given `Close` is expected to `Stop` remaining streams, we can elide
 					// spinning off the below goroutine.
 					//
-					// Given this is an existing race, I'm choosing to add to the tech
-					// debt rather than architect how shutdown should holistically work. Revert this
-					// change and run `TestRobotPeerConnect` (double check the test name at PR time)
-					// to reproduce the race.
+					// Given this is an existing race, I'm choosing to add to the tech debt rather
+					// than architect how shutdown should holistically work. Revert this change and
+					// run `TestAudioTrackIsNotCreatedForVideoStream` to reproduce the race.
 					server.activeBackgroundWorkers.Add(1)
 					utils.PanicCapturingGo(func() {
 						defer server.activeBackgroundWorkers.Done()

@@ -31,7 +31,7 @@ fi
 STRIPPED_ARGS="-g -O2"
 
 # list of arguments to prefix with -Bstatic
-STATIC_ARGS="-lx264 -lnlopt -ljpeg -ltensorflowlite_c -lpigpio -lstdc++"
+STATIC_ARGS="-lx264 -lnlopt -ltensorflowlite_c -lpigpio -lstdc++"
 
 # add explicit static standard library flags
 FILTERED=("-static-libgcc" "-static-libstdc++")

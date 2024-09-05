@@ -14,7 +14,6 @@ import (
 	"go.viam.com/rdk/components/board/genericlinux/buses"
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/logging"
-	rdkutils "go.viam.com/rdk/utils"
 )
 
 // PmtkI2cDataReader implements the DataReader interface for a PMTK device by communicating with it
@@ -22,7 +21,7 @@ import (
 type PmtkI2cDataReader struct {
 	data chan string
 
-	workers rdkutils.StoppableWorkers
+	workers *utils.StoppableWorkers
 	logger  logging.Logger
 
 	bus  buses.I2C
@@ -67,7 +66,7 @@ func NewI2cDataReader(
 		return nil, err
 	}
 
-	reader.workers = rdkutils.NewStoppableWorkers(reader.backgroundWorker)
+	reader.workers = utils.NewBackgroundStoppableWorkers(reader.backgroundWorker)
 	return &reader, nil
 }
 

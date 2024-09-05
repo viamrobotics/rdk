@@ -99,7 +99,7 @@ type wit struct {
 	mu              sync.Mutex
 	reconfigMu      sync.Mutex
 	port            io.ReadWriteCloser
-	workers         rutils.StoppableWorkers
+	workers         *utils.StoppableWorkers
 	logger          logging.Logger
 	baudRate        uint
 	serialPath      string
@@ -298,7 +298,7 @@ func newWit(
 
 func (imu *wit) startUpdateLoop(portReader *bufio.Reader, logger logging.Logger) {
 	imu.hasMagnetometer = false
-	imu.workers = rutils.NewStoppableWorkers(func(ctx context.Context) {
+	imu.workers = utils.NewBackgroundStoppableWorkers(func(ctx context.Context) {
 		defer utils.UncheckedErrorFunc(func() error {
 			if imu.port != nil {
 				if err := imu.port.Close(); err != nil {

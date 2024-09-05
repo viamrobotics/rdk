@@ -19,7 +19,6 @@ import (
 	"go.viam.com/utils/pexec"
 	"go.viam.com/utils/testutils"
 
-	// TODO(RSDK-7884): change everything that depends on this import to a mock.
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
@@ -3800,79 +3799,178 @@ func TestResourceConstructTimeout(t *testing.T) {
 func TestResourceConstructCtxCancel(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 
-	contructCount := 0
-	var wg sync.WaitGroup
+	type testHarness struct {
+		ctx context.Context
 
-	mockAPI := resource.APINamespaceRDK.WithComponentType("mock")
-	modelName1 := utils.RandomAlphaString(5)
-	model1 := resource.DefaultModelFamily.WithModel(modelName1)
-
-	type cancelFunc struct {
-		c context.CancelFunc
+		wg             sync.WaitGroup
+		cfg            *config.Config
+		constructCount int
 	}
-	var cFunc cancelFunc
 
-	resource.RegisterComponent(mockAPI, model1, resource.Registration[resource.Resource, resource.NoNativeConfig]{
-		Constructor: func(
-			ctx context.Context,
-			deps resource.Dependencies,
-			conf resource.Config,
-			logger logging.Logger,
-		) (resource.Resource, error) {
-			contructCount++
-			wg.Add(1)
-			defer wg.Done()
-			cFunc.c()
-			<-ctx.Done()
-			return &mockFake{Named: conf.ResourceName().AsNamed()}, nil
-		},
-	})
-	defer func() {
-		resource.Deregister(mockAPI, model1)
-	}()
+	setupTest := func(t *testing.T) *testHarness {
+		var th testHarness
 
-	cfg := &config.Config{
-		Components: []resource.Config{
-			{
-				Name:  "one",
-				Model: model1,
-				API:   mockAPI,
+		ctx, cancelFunc := context.WithCancel(context.Background())
+		t.Cleanup(func() { cancelFunc() })
+		th.ctx = ctx
+
+		model1 := registerMockComponent(
+			t,
+			resource.Registration[resource.Resource, resource.NoNativeConfig]{
+				Constructor: func(
+					ctx context.Context,
+					deps resource.Dependencies,
+					conf resource.Config,
+					logger logging.Logger,
+				) (resource.Resource, error) {
+					th.constructCount++
+					th.wg.Add(1)
+					defer th.wg.Done()
+					cancelFunc()
+					<-ctx.Done()
+					return &mockFake{Named: conf.ResourceName().AsNamed()}, nil
+				},
+			})
+
+		th.cfg = &config.Config{
+			Components: []resource.Config{
+				{
+					Name:  "one",
+					Model: model1,
+					API:   mockAPI,
+				},
+				{
+					Name:  "two",
+					Model: model1,
+					API:   mockAPI,
+					// we need "two" to depend on "one" to prevent a flaky test here. the
+					// subtests below assert that only one resource gets configured after we
+					// cancel. however, independent resources are constructed concurrently so
+					// this assertion is not reliable, so we force it by adding a dependency
+					// relationship.
+					DependsOn: []string{"one"},
+				},
 			},
-			{
-				Name:  "two",
-				Model: model1,
-				API:   mockAPI,
-				// we need "two" to depend on "one" to prevent a flaky test here. the
-				// subtests below assert that only one resource gets configured after we
-				// cancel. however, independent resources are constructed concurrently so
-				// this assertion is not reliable, so we force it by adding a dependency
-				// relationship.
-				DependsOn: []string{"one"},
-			},
-		},
+		}
+		return &th
 	}
+
 	t.Run("new", func(t *testing.T) {
-		contructCount = 0
-		ctxWithCancel, cancel := context.WithCancel(context.Background())
-		cFunc.c = cancel
-		r := setupLocalRobot(t, ctxWithCancel, cfg, logger)
-		test.That(t, r.Close(context.Background()), test.ShouldBeNil)
+		th := setupTest(t)
+		setupLocalRobot(t, th.ctx, th.cfg, logger)
 
-		wg.Wait()
-		test.That(t, contructCount, test.ShouldEqual, 1)
+		th.wg.Wait()
+		test.That(t, th.constructCount, test.ShouldEqual, 1)
 	})
 	t.Run("reconfigure", func(t *testing.T) {
-		contructCount = 0
+		th := setupTest(t)
 		r := setupLocalRobot(t, context.Background(), &config.Config{}, logger)
-		test.That(t, contructCount, test.ShouldEqual, 0)
+		test.That(t, th.constructCount, test.ShouldEqual, 0)
 
-		ctxWithCancel, cancel := context.WithCancel(context.Background())
-		cFunc.c = cancel
-		r.Reconfigure(ctxWithCancel, cfg)
-		test.That(t, r.Close(context.Background()), test.ShouldBeNil)
+		r.Reconfigure(th.ctx, th.cfg)
+		th.wg.Wait()
+		test.That(t, th.constructCount, test.ShouldEqual, 1)
+	})
+}
 
-		wg.Wait()
-		test.That(t, contructCount, test.ShouldEqual, 1)
+// tests that on context done, the newly constructed resource gets closed.
+func TestResourceConstructCtxDone(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+
+	type testHarness struct {
+		ctx context.Context
+
+		cfg            *config.Config
+		constructCount int
+		mf             *mockFake
+	}
+
+	setupTest := func(t *testing.T, shouldCancel bool) *testHarness {
+		var th testHarness
+
+		ctx, cancelFunc := context.WithCancel(context.Background())
+		t.Cleanup(func() { cancelFunc() })
+		th.ctx = ctx
+
+		model1 := registerMockComponent(
+			t,
+			resource.Registration[resource.Resource, resource.NoNativeConfig]{
+				Constructor: func(
+					ctx context.Context,
+					deps resource.Dependencies,
+					conf resource.Config,
+					logger logging.Logger,
+				) (resource.Resource, error) {
+					th.constructCount++
+					if shouldCancel {
+						cancelFunc()
+						<-ctx.Done()
+					}
+					return th.mf, nil
+				},
+			})
+		mock1Cfg := resource.Config{
+			Name:  "one",
+			Model: model1,
+			API:   mockAPI,
+		}
+
+		th.mf = &mockFake{Named: mock1Cfg.ResourceName().AsNamed()}
+		th.cfg = &config.Config{Components: []resource.Config{mock1Cfg}}
+		return &th
+	}
+
+	t.Run("new and add normally", func(t *testing.T) {
+		th := setupTest(t, false)
+		setupLocalRobot(t, th.ctx, th.cfg, logger)
+
+		test.That(t, th.constructCount, test.ShouldEqual, 1)
+		test.That(t, th.mf.closeCount, test.ShouldEqual, 0)
+	})
+
+	t.Run("reconfiguring and add resource normally", func(t *testing.T) {
+		th := setupTest(t, false)
+
+		r := setupLocalRobot(t, context.Background(), &config.Config{}, logger)
+
+		test.That(t, th.constructCount, test.ShouldEqual, 0)
+		test.That(t, th.mf.closeCount, test.ShouldEqual, 0)
+
+		// test adding the resource during Reconfigure because a new local robot uses the context passed in
+		// for many other routines, so cancelling that creates a lot of side effects.
+		r.Reconfigure(th.ctx, th.cfg)
+
+		// wait for reconfigureWorkers here since we cancelled the context and
+		// the robot doesn't wait for reconfigureWorkers to complete to return from Reconfigure,
+		// but resource close is done by a reconfigureWorker routine.
+		lRobot, ok := r.(*localRobot)
+		test.That(t, ok, test.ShouldBeTrue)
+		lRobot.reconfigureWorkers.Wait()
+
+		test.That(t, th.constructCount, test.ShouldEqual, 1)
+		test.That(t, th.mf.closeCount, test.ShouldEqual, 0)
+	})
+
+	t.Run("reconfiguring and cancel context during resource add", func(t *testing.T) {
+		th := setupTest(t, true)
+
+		r := setupLocalRobot(t, context.Background(), &config.Config{}, logger)
+
+		test.That(t, th.constructCount, test.ShouldEqual, 0)
+		test.That(t, th.mf.closeCount, test.ShouldEqual, 0)
+
+		// test adding the resource during Reconfigure because a new local robot uses the context passed in
+		// for many other routines, so cancelling that creates a lot of side effects.
+		r.Reconfigure(th.ctx, th.cfg)
+
+		// have to wait for reconfigureWorkers here since we cancelled the context and
+		// the robot doesn't wait for reconfigureWorkers to complete.
+		lRobot, ok := r.(*localRobot)
+		test.That(t, ok, test.ShouldBeTrue)
+		lRobot.reconfigureWorkers.Wait()
+
+		test.That(t, th.constructCount, test.ShouldEqual, 1)
+		test.That(t, th.mf.closeCount, test.ShouldEqual, 1)
 	})
 }
 

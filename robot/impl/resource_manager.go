@@ -185,11 +185,6 @@ func (manager *resourceManager) updateRemoteResourceNames(
 	manager.logger.CDebugw(ctx, "updating remote resource names", "remote", remoteName, "recreateAllClients", recreateAllClients)
 	activeResourceNames := map[resource.Name]bool{}
 	newResources := rr.ResourceNames()
-	if newResources == nil {
-		// Assuming this means a connection error.
-		return false // anythingChanged=false
-	}
-
 	oldResources := manager.remoteResourceNames(remoteName)
 	for _, res := range oldResources {
 		activeResourceNames[res] = false
@@ -199,8 +194,20 @@ func (manager *resourceManager) updateRemoteResourceNames(
 
 	for _, resName := range newResources {
 		remoteResName := resName
+		res, err := rr.ResourceByName(remoteResName) // this returns a remote known OR foreign resource client
+		if err != nil {
+			if errors.Is(err, client.ErrMissingClientRegistration) {
+				manager.logger.CDebugw(ctx, "couldn't obtain remote resource interface",
+					"name", remoteResName,
+					"reason", err)
+			} else {
+				manager.logger.CErrorw(ctx, "couldn't obtain remote resource interface",
+					"name", remoteResName,
+					"reason", err)
+			}
+			continue
+		}
 		resName = resName.PrependRemote(remoteName.Name)
-
 		gNode, nodeAlreadyExists := manager.resources.Node(resName)
 		if _, alreadyCurrent := activeResourceNames[resName]; alreadyCurrent {
 			activeResourceNames[resName] = true
@@ -228,20 +235,6 @@ func (manager *resourceManager) updateRemoteResourceNames(
 						"reason", err)
 				}
 			}
-		}
-
-		res, err := rr.ResourceByName(remoteResName) // this returns a remote known OR foreign resource client
-		if err != nil {
-			if errors.Is(err, client.ErrMissingClientRegistration) {
-				manager.logger.CDebugw(ctx, "couldn't obtain remote resource interface",
-					"name", remoteResName,
-					"reason", err)
-			} else {
-				manager.logger.CErrorw(ctx, "couldn't obtain remote resource interface",
-					"name", remoteResName,
-					"reason", err)
-			}
-			continue
 		}
 
 		if nodeAlreadyExists {
@@ -603,10 +596,6 @@ func (manager *resourceManager) completeConfig(
 			// currently only a top-level context cancellation will result in an early
 			// exist - individual resource processing failures will not.
 			processResource := func() error {
-				defer func() {
-					lr.reconfigureWorkers.Done()
-				}()
-
 				resChan := make(chan struct{}, 1)
 				ctxWithTimeout, timeoutCancel := context.WithTimeout(context.WithoutCancel(ctx), timeout)
 				defer timeoutCancel()
@@ -619,6 +608,7 @@ func (manager *resourceManager) completeConfig(
 					defer func() {
 						stopSlowLogger()
 						resChan <- struct{}{}
+						lr.reconfigureWorkers.Done()
 					}()
 					gNode, ok := manager.resources.Node(resName)
 					if !ok || !gNode.NeedsReconfigure() {

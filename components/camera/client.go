@@ -505,16 +505,6 @@ func (c *client) SubscribeRTP(
 			return rtppassthrough.NilSubscription, err
 		}
 
-		// TODO: Test this by adding a sleep before packets are sent. Does anything call `RemoveStream`?
-		//
-		// If the WebRTC peer on the other side of the PeerConnection calls pc.AddTrack followd by pc.RemoveTrack
-		// before the module writes RTP packets
-		// to the track, the client's PeerConnection.OnTrack callback is never called.
-		// That results in the client never receiving RTP packets on subscriptions which never terminate
-		// which is an unacceptable failure mode.
-
-		// To prevent that failure mode, we exit with an error if a track is not received within
-		// the SubscribeRTP context.
 		c.logger.CDebugw(ctx, "SubscribeRTP waiting for track", "client", fmt.Sprintf("%p", c), "pc", fmt.Sprintf("%p", c.conn.PeerConn()))
 		select {
 		case <-ctx.Done():
