@@ -405,6 +405,6 @@ func (server *Server) removeMissingStreams() {
 			}
 			delete(server.activePeerStreams[pc], camName)
 		}
-		streamState.Close()
+		utils.UncheckedError(streamState.Close())
 	}
 }
