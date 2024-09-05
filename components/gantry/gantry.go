@@ -1,4 +1,4 @@
-// Gantry defines a robotic gantry with one or multiple axes.
+// Package gantry defines a robotic gantry with one or multiple axes.
 // For more information, see the [Gantry Component].
 //
 // [Gantry Component]: https://docs.viam.com/components/gantry/
