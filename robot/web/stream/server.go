@@ -40,7 +40,6 @@ type Server struct {
 	closedFn  context.CancelFunc
 
 	mu                      sync.RWMutex
-	streamNames             []string
 	nameToStreamState       map[string]*state.StreamState
 	activePeerStreams       map[*webrtc.PeerConnection]map[string]*peerState
 	activeBackgroundWorkers sync.WaitGroup
@@ -113,10 +112,9 @@ func (server *Server) ListStreams(ctx context.Context, req *streampb.ListStreams
 	server.mu.RLock()
 	defer server.mu.RUnlock()
 
-	names := make([]string, 0, len(server.streamNames))
-	for _, name := range server.streamNames {
-		streamState := server.nameToStreamState[name]
-		names = append(names, streamState.Stream.Name())
+	names := make([]string, 0, len(server.nameToStreamState))
+	for name, _ := range server.nameToStreamState {
+		names = append(names, name)
 	}
 	return &streampb.ListStreamsResponse{Names: names}, nil
 }
@@ -320,8 +318,8 @@ func (server *Server) Close() error {
 	server.isAlive = false
 
 	var errs error
-	for _, name := range server.streamNames {
-		errs = multierr.Combine(errs, server.nameToStreamState[name].Close())
+	for _, streamState := range server.nameToStreamState {
+		errs = multierr.Combine(errs, streamState.Close())
 	}
 	if errs != nil {
 		server.logger.Errorf("Stream Server Close > StreamState.Close() errs: %s", errs)
@@ -340,7 +338,6 @@ func (server *Server) add(stream gostream.Stream) error {
 	logger := server.logger.Sublogger(streamName)
 	newStreamState := state.New(stream, server.robot, logger)
 	server.nameToStreamState[streamName] = newStreamState
-	server.streamNames = append(server.streamNames, streamName)
 	return nil
 }
 
