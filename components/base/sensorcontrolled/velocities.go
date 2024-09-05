@@ -20,7 +20,7 @@ func (sb *sensorBase) SetVelocity(
 	ctx, done := sb.opMgr.New(ctx)
 	defer done()
 
-	if len(sb.controlLoopConfig.Blocks) == 0 {
+	if sb.controlLoopConfig == nil {
 		sb.logger.CWarnf(ctx, "control parameters not configured, using %v's SetVelocity method", sb.controlledBase.Name().ShortName())
 		return sb.controlledBase.SetVelocity(ctx, linear, angular, extra)
 	}
