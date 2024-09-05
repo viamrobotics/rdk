@@ -505,7 +505,8 @@ func (c *viamClient) downloadBinary(dst string, id *datapb.BinaryID) error {
 			res, err = c.authFlow.httpClient.Do(req)
 
 			if err == nil && res.StatusCode == http.StatusOK {
-				debugf(c.c.App.Writer, c.c.Bool(debugFlag), "Large file download for file %s: attempt %d/%d succeeded", id.FileId, count+1, maxRetryCount)
+				debugf(c.c.App.Writer, c.c.Bool(debugFlag),
+					"Large file download for file %s: attempt %d/%d succeeded", id.FileId, count+1, maxRetryCount)
 				break
 			}
 			debugf(c.c.App.Writer, c.c.Bool(debugFlag), "Large file download for file %s: attempt %d/%d failed", id.FileId, count+1, maxRetryCount)
