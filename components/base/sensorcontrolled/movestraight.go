@@ -35,7 +35,7 @@ func (sb *sensorBase) MoveStraight(
 	// If a position movement sensor or controls are not configured, we cannot use this MoveStraight method.
 	// Instead we need to use the MoveStraight method of the base that the sensorcontrolled base wraps.
 	// If there is no valid velocity sensor, there won't be a controlLoopConfig.
-	if len((*sb.controlLoopConfig).Blocks) == 0 {
+	if len(sb.controlLoopConfig.Blocks) == 0 {
 		sb.logger.CWarnf(ctx,
 			"control loop not configured, using base %s's MoveStraight",
 			sb.controlledBase.Name().ShortName())
@@ -106,7 +106,7 @@ func (sb *sensorBase) MoveStraight(
 	prevTime := startTime
 	currDistMm := 0.
 
-	ticker := time.NewTicker(time.Duration(1000./(*sb.controlLoopConfig).Frequency) * time.Millisecond)
+	ticker := time.NewTicker(time.Duration(1000./sb.controlLoopConfig.Frequency) * time.Millisecond)
 	defer ticker.Stop()
 	for {
 		select {

@@ -28,7 +28,7 @@ func (sb *sensorBase) Spin(ctx context.Context, angleDeg, degsPerSec float64, ex
 	// If an orientation movement sensor or controls are not configured, we cannot use this Spin method.
 	// Instead we need to use the Spin method of the base that the sensorBase wraps.
 	// If there is no valid velocity sensor, there won't be a controlLoopConfig.
-	if len((*sb.controlLoopConfig).Blocks) == 0 {
+	if len(sb.controlLoopConfig.Blocks) == 0 {
 		sb.logger.CWarnf(ctx, "control parameters not configured, using %v's Spin method", sb.controlledBase.Name().ShortName())
 		return sb.controlledBase.Spin(ctx, angleDeg, degsPerSec, extra)
 	}
@@ -73,7 +73,7 @@ func (sb *sensorBase) Spin(ctx context.Context, angleDeg, degsPerSec float64, ex
 	}
 	slowDownAng := calcSlowDownAng(angleDeg)
 
-	ticker := time.NewTicker(time.Duration(1000./(*sb.controlLoopConfig).Frequency) * time.Millisecond)
+	ticker := time.NewTicker(time.Duration(1000./sb.controlLoopConfig.Frequency) * time.Millisecond)
 	defer ticker.Stop()
 
 	// timeout duration is a multiplier times the expected time to perform a movement
