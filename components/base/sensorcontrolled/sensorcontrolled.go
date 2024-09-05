@@ -269,7 +269,7 @@ func (sb *sensorBase) DoCommand(ctx context.Context, req map[string]interface{})
 	defer sb.mu.Unlock()
 	ok := req[getPID].(bool)
 	if ok {
-		resp[getPID] = fmt.Sprintf(`"control_parameters": [{p: %v, i: %v, d: %v, type: linear_velocity}, {p: %v, i: %v, d: %v, type: angular_velocity}]`,
+		resp[getPID] = fmt.Sprintf("{p: %v, i: %v, d: %v, type: linear_velocity}, {p: %v, i: %v, d: %v, type: angular_velocity}",
 			(*sb.tunedVals)[0].P, (*sb.tunedVals)[0].I, (*sb.tunedVals)[0].D, (*sb.tunedVals)[1].P, (*sb.tunedVals)[1].I, (*sb.tunedVals)[1].D)
 	}
 
