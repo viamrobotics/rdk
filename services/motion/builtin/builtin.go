@@ -3,6 +3,7 @@ package builtin
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"sync"
 	"time"
@@ -337,9 +338,14 @@ func (ms *builtIn) DoCommand(ctx context.Context, cmd map[string]interface{}) (m
 
 	resp := make(map[string]interface{}, 0)
 	if val, ok := cmd[DoPlan]; ok {
-		moveReq, err := utils.AssertType[motion.MoveReq](val)
+		bytes, err := json.Marshal(val)
 		if err != nil {
 			return nil, err
+		}
+		var moveReq motion.MoveReq
+		err = json.Unmarshal(bytes, &moveReq)
+		if err != nil {
+			return nil, errors.New("couldn't unmarshal to motion.MoveReq")
 		}
 		plan, err := ms.plan(ctx, moveReq)
 		if err != nil {
@@ -348,9 +354,14 @@ func (ms *builtIn) DoCommand(ctx context.Context, cmd map[string]interface{}) (m
 		resp[DoPlan] = plan
 	}
 	if val, ok := cmd[DoExecute]; ok {
-		plan, err := utils.AssertType[motionplan.Plan](val)
+		bytes, err := json.Marshal(val)
 		if err != nil {
 			return nil, err
+		}
+		var plan motionplan.Plan
+		err = json.Unmarshal(bytes, &plan)
+		if err != nil {
+			return nil, errors.New("couldn't unmarshal to motionplan.Plan")
 		}
 		resp[DoExecute] = ms.execute(ctx, plan) != nil
 	}

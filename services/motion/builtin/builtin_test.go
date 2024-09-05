@@ -194,10 +194,8 @@ func TestMove(t *testing.T) {
 		worldState, err := referenceframe.NewWorldState(nil, transforms)
 		test.That(t, err, test.ShouldBeNil)
 		grabPose := referenceframe.NewPoseInFrame("testFrame2", spatialmath.NewPoseFromPoint(r3.Vector{X: -20, Y: -130, Z: -40}))
-		_, err = ms.Move(
-			context.Background(),
-			motion.MoveReq{ComponentName: gripper.Named("pieceGripper"), Destination: *grabPose, WorldState: *worldState},
-		)
+		moveReq := motion.MoveReq{ComponentName: gripper.Named("pieceGripper"), Destination: *grabPose, WorldState: *worldState}
+		_, err = ms.Move(context.Background(), moveReq)
 		test.That(t, err, test.ShouldBeNil)
 	})
 }
