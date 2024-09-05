@@ -7,6 +7,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -121,6 +122,7 @@ func (s *Sync) Reconfigure(_ context.Context, config Config, cloudConnSvc cloud.
 		// to execute, don't stop workers
 		return
 	}
+
 	// config changed... stop workers
 	s.configCancelFunc()
 	s.FileDeletingWorkers.Stop()
@@ -128,6 +130,12 @@ func (s *Sync) Reconfigure(_ context.Context, config Config, cloudConnSvc cloud.
 	s.ScheduledTicker = nil
 	// wait for workers to stop
 	s.workersWg.Wait()
+
+	oldSyncPaths := strings.Join(s.config.syncPaths(), " ")
+	newSyncPaths := strings.Join(config.syncPaths(), " ")
+	if newSyncPaths != oldSyncPaths {
+		s.logger.Infof("sync_paths: %s", newSyncPaths)
+	}
 
 	// update config
 	s.configMu.Lock()
@@ -149,6 +157,8 @@ func (s *Sync) Reconfigure(_ context.Context, config Config, cloudConnSvc cloud.
 		s.Scheduler = goutils.NewBackgroundStoppableWorkers(func(ctx context.Context) {
 			s.runScheduler(ctx, tkr, config)
 		})
+	} else {
+		s.logger.Info("Sync Disabled")
 	}
 
 	// if datacapture is enabled, kick off a go routine to handle disk space filling due to
@@ -261,7 +271,6 @@ func (s *Sync) runCloudConnManager(
 		s.cloudConn.conn = conn
 		s.cloudConn.connectivityStateEnabledConn = s.connToConnectivityState(conn)
 		s.cloudConn.client = s.clientConstructor(conn)
-		s.logger.Debug("cloud connection ready")
 		close(s.cloudConn.ready)
 		// now that we have a connection ...
 		break
@@ -490,7 +499,7 @@ func (s *Sync) runScheduler(ctx context.Context, tkr *clock.Ticker, config Confi
 			return
 		case <-s.cloudConn.ready:
 			if !readyLogged {
-				s.logger.Debug("data sync cloudconn is detected as ready ready!")
+				s.logger.Info("cloud connection ready")
 				readyLogged = true
 			}
 		}
@@ -503,13 +512,13 @@ func (s *Sync) runScheduler(ctx context.Context, tkr *clock.Ticker, config Confi
 			state := s.cloudConn.connectivityStateEnabledConn.GetState()
 			online := state == connectivity.Ready
 			if !online {
-				s.logger.Debugf("data manager: NOT syncing data to the cloud as it's cloud connection is in state: %s"+
+				s.logger.Infof("data manager: NOT syncing data to the cloud as it's cloud connection is in state: %s"+
 					"; waiting for it to be in state: %s", state, connectivity.Ready)
 				continue
 			}
 
 			if !shouldSync {
-				s.logger.Debug("data manager: NOT syncing data to the cloud as it's selective sync sensor is not ready to sync")
+				s.logger.Info("data manager: NOT syncing data to the cloud as it's selective sync sensor is not ready to sync")
 				continue
 			}
 

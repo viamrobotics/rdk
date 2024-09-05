@@ -139,7 +139,7 @@ func (c *Capture) Reconfigure(
 	defer c.logger.Debug("Reconfigure END")
 	// Service is disabled, so close all collectors and clear the map so we can instantiate new ones if we enable this service.
 	if config.CaptureDisabled {
-		c.logger.Debug("Capture Disabled, flushing & shutting down collectors")
+		c.logger.Info("Capture Disabled")
 		c.Close()
 		return
 	}

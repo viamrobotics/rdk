@@ -116,6 +116,16 @@ func (e exponentialRetry) run() error {
 				return err
 			}
 
+			// If the context was cancelled
+			// return the error without logging to not spam
+			if errors.Is(err, context.Canceled) {
+				return err
+			}
+
+			if e.ctx.Err() != nil {
+				return e.ctx.Err()
+			}
+
 			// Otherwise, try again after nextWait.
 			offline := isOfflineGRPCError(err)
 			nextWait = getNextWait(nextWait, offline)
