@@ -26,10 +26,13 @@ func (sb *sensorBase) SetVelocity(
 	}
 
 	// if loop has been tuned but the values haven't been added to the config, error with tuned values
-	if (sb.configPIDVals[0].NeedsAutoTuning() && !(*sb.tunedVals)[0].NeedsAutoTuning()) || (sb.configPIDVals[1].NeedsAutoTuning() && !(*sb.tunedVals)[1].NeedsAutoTuning()) {
+	if (sb.configPIDVals[0].NeedsAutoTuning() && !(*sb.tunedVals)[0].NeedsAutoTuning()) ||
+		(sb.configPIDVals[1].NeedsAutoTuning() && !(*sb.tunedVals)[1].NeedsAutoTuning()) {
 		return fmt.Errorf("%v has been tuned, copy these control parameters into the config to enable movement: "+
-			"\"control_parameters\": [{\"p\": %v, \"i\": %v, \"d\": %v, \"type\": \"linear_velocity\"}, {\"p\": %v, \"i\": %v, \"d\": %v, \"type\": \"angular_velocity\"}]",
-			sb.Name().ShortName(), (*sb.tunedVals)[0].P, (*sb.tunedVals)[0].I, (*sb.tunedVals)[0].D, (*sb.tunedVals)[1].P, (*sb.tunedVals)[1].I, (*sb.tunedVals)[1].D)
+			"\"control_parameters\": [{\"p\": %v, \"i\": %v, \"d\": %v, \"type\": \"linear_velocity\"}, "+
+			"{\"p\": %v, \"i\": %v, \"d\": %v, \"type\": \"angular_velocity\"}]",
+			sb.Name().ShortName(), (*sb.tunedVals)[0].P, (*sb.tunedVals)[0].I, (*sb.tunedVals)[0].D,
+			(*sb.tunedVals)[1].P, (*sb.tunedVals)[1].I, (*sb.tunedVals)[1].D)
 	}
 
 	// make sure the control loop is enabled
