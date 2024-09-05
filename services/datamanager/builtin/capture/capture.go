@@ -145,6 +145,7 @@ func (c *Capture) Reconfigure(
 	}
 
 	if c.captureDir != config.CaptureDir {
+		c.logger.Infof("capture_dir set to: %s", config.CaptureDir)
 		c.fileCountLogger.reconfigure(config.CaptureDir)
 	}
 
