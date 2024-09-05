@@ -72,6 +72,11 @@ func (e exponentialRetry) run() error {
 		return err
 	}
 
+	// If the context was cancelled
+	// return the error without logging to not spam
+	if errors.Is(err, context.Canceled) {
+		return err
+	}
 	e.logger.Infof("entering exponential backoff retry due to retryable error: %v", err)
 
 	// First call failed, so begin exponentialRetry with a factor of RetryExponentialFactor
