@@ -77,6 +77,10 @@ func (e exponentialRetry) run() error {
 	if errors.Is(err, context.Canceled) {
 		return err
 	}
+
+	if e.ctx.Err() != nil {
+		return e.ctx.Err()
+	}
 	e.logger.Infof("entering exponential backoff retry due to retryable error: %v", err)
 
 	// First call failed, so begin exponentialRetry with a factor of RetryExponentialFactor
