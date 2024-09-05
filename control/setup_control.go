@@ -30,14 +30,15 @@ var (
 	sumIndex        = 1
 	linearPIDIndex  = 2
 	angularPIDIndex = -1
-	// TunedPIDVals    = []PIDConfig{{}, {}}
+	// TunedPIDVals    = []PIDConfig{{}, {}}.
 )
 
 // PIDLoop is used for setting up a PID control loop.
 type PIDLoop struct {
 	BlockNames              map[string][]string
 	PIDVals                 []PIDConfig
-	ControlConf             Config
+	TunedVals               *[]PIDConfig
+	ControlConf             *Config
 	ControlLoop             *Loop
 	Options                 Options
 	Controllable            Controllable
@@ -101,17 +102,16 @@ func SetupPIDControlConfig(
 	pidLoop := &PIDLoop{
 		Controllable: c,
 		PIDVals:      pidVals,
+		TunedVals:    &[]PIDConfig{{}, {}},
 		logger:       logger,
 		Options:      options,
-		ControlConf:  Config{},
+		ControlConf:  &Config{},
 		ControlLoop:  nil,
 	}
 
-	// TunedPIDVals = pidVals
-
 	// set controlConf as either an optional custom config, or as the default control config
 	if options.UseCustomConfig {
-		pidLoop.ControlConf = options.CompleteCustomConfig
+		*pidLoop.ControlConf = options.CompleteCustomConfig
 		for i, b := range options.CompleteCustomConfig.Blocks {
 			if b.Type == blockSum {
 				sumIndex = i
@@ -139,11 +139,10 @@ func (p *PIDLoop) TunePIDLoop(ctx context.Context, cancelFunc context.CancelFunc
 	utils.PanicCapturingGo(func() {
 		defer func() {
 			cancelFunc()
-			// if p.ControlLoop != nil {
-			// 	p.ControlLoop.Stop()
-			// 	p.ControlLoop = nil
-			// }
-			// p.StartControlLoop()
+			if p.ControlLoop != nil {
+				p.ControlLoop.Stop()
+				p.ControlLoop = nil
+			}
 		}()
 		defer p.activeBackgroundWorkers.Done()
 		select {
@@ -160,21 +159,21 @@ func (p *PIDLoop) TunePIDLoop(ctx context.Context, cancelFunc context.CancelFunc
 		// switch sum to depend on the setpoint if position control
 		if p.Options.PositionControlUsingTrapz {
 			p.logger.Debug("tuning trapz PID")
-			p.ControlConf.Blocks[sumIndex].DependsOn[0] = p.BlockNames[BlockNameConstant][0]
+			(*p.ControlConf).Blocks[sumIndex].DependsOn[0] = p.BlockNames[BlockNameConstant][0]
 			if err := p.StartControlLoop(); err != nil {
 				errs = multierr.Combine(errs, err)
 			}
 
 			p.ControlLoop.MonitorTuning(ctx)
 
-			// p.ControlLoop.Stop()
-			// p.ControlLoop = nil
+			p.ControlLoop.Stop()
+			p.ControlLoop = nil
 		}
 		if p.Options.SensorFeedback2DVelocityControl {
 			// check if linear needs to be tuned
 			if p.PIDVals[0].NeedsAutoTuning() {
 				p.logger.Info("tuning linear PID")
-				if err := p.tuneSinglePID(ctx, angularPIDIndex, 0, 0.0001, 0.0001); err != nil {
+				if err := p.tuneSinglePID(ctx, angularPIDIndex, 0); err != nil {
 					errs = multierr.Combine(errs, err)
 				}
 			}
@@ -182,10 +181,6 @@ func (p *PIDLoop) TunePIDLoop(ctx context.Context, cancelFunc context.CancelFunc
 			// check if angular needs to be tuned
 			if p.PIDVals[1].NeedsAutoTuning() {
 				p.logger.Info("tuning angular PID")
-				if p.ControlLoop != nil {
-					p.ControlLoop.Stop()
-					p.ControlLoop = nil
-				}
 				if err := p.tuneSinglePID(ctx, linearPIDIndex, 1); err != nil {
 					errs = multierr.Combine(errs, err)
 				}
@@ -195,28 +190,27 @@ func (p *PIDLoop) TunePIDLoop(ctx context.Context, cancelFunc context.CancelFunc
 	return errs
 }
 
-func (p *PIDLoop) tuneSinglePID(ctx context.Context, blockIndex, pidIndex int, kP, kI float64) error {
+func (p *PIDLoop) tuneSinglePID(ctx context.Context, blockIndex, pidIndex int) error {
 	// preserve old values and set them to be non-zero
-	pOld := p.ControlConf.Blocks[blockIndex].Attribute["kP"]
-	iOld := p.ControlConf.Blocks[blockIndex].Attribute["kI"]
+	pOld := (*p.ControlConf).Blocks[blockIndex].Attribute["kP"]
+	iOld := (*p.ControlConf).Blocks[blockIndex].Attribute["kI"]
 	// to tune one set of PID values, the other PI values must be non-zero
-	p.ControlConf.Blocks[blockIndex].Attribute["kP"] = kP
-	p.ControlConf.Blocks[blockIndex].Attribute["kI"] = kI
+	(*p.ControlConf).Blocks[blockIndex].Attribute["kP"] = 0.0001
+	(*p.ControlConf).Blocks[blockIndex].Attribute["kI"] = 0.0001
 	if err := p.StartControlLoop(); err != nil {
 		return err
 	}
 
 	p.ControlLoop.MonitorTuning(ctx)
-	// tunedPID := p.ControlLoop.GetPIDVals(pidIndex)
-	// UpdateTunedPIDBlock(p.ControlConf, blockIndex, tunedPID)
-	// TunedPIDVals[pidIndex] = tunedPID
+	tunedPID := p.ControlLoop.GetPIDVals(pidIndex)
+	(*p.TunedVals)[pidIndex] = tunedPID
 
-	// p.ControlLoop.Stop()
-	// p.ControlLoop = nil
+	p.ControlLoop.Stop()
+	p.ControlLoop = nil
 
 	// reset PI values
-	p.ControlConf.Blocks[blockIndex].Attribute["kP"] = pOld
-	p.ControlConf.Blocks[blockIndex].Attribute["kI"] = iOld
+	(*p.ControlConf).Blocks[blockIndex].Attribute["kP"] = pOld
+	(*p.ControlConf).Blocks[blockIndex].Attribute["kI"] = iOld
 
 	return nil
 }
@@ -245,8 +239,8 @@ func (p *PIDLoop) createControlLoopConfig(pidVals []PIDConfig, componentName str
 	}
 
 	// assign block names
-	p.BlockNames = make(map[string][]string, len(p.ControlConf.Blocks))
-	for _, b := range p.ControlConf.Blocks {
+	p.BlockNames = make(map[string][]string, len((*p.ControlConf).Blocks))
+	for _, b := range (*p.ControlConf).Blocks {
 		p.BlockNames[string(b.Type)] = append(p.BlockNames[string(b.Type)], b.Name)
 	}
 }
@@ -257,7 +251,7 @@ func (p *PIDLoop) basicControlConfig(endpointName string, pidVals PIDConfig, con
 	if p.Options.LoopFrequency != 0.0 {
 		loopFrequency = p.Options.LoopFrequency
 	}
-	p.ControlConf = Config{
+	*p.ControlConf = Config{
 		Blocks: []BlockConfig{
 			{
 				Name: "set_point",
@@ -325,7 +319,7 @@ func (p *PIDLoop) addPositionControl() {
 		},
 		DependsOn: []string{"set_point", "endpoint"},
 	}
-	p.ControlConf.Blocks = append(p.ControlConf.Blocks, trapzBlock)
+	(*p.ControlConf).Blocks = append((*p.ControlConf).Blocks, trapzBlock)
 
 	// add derivative block between the endpoint and sum blocks
 	derivativeType := defaultDerivativeType
@@ -340,21 +334,21 @@ func (p *PIDLoop) addPositionControl() {
 		},
 		DependsOn: []string{"endpoint"},
 	}
-	p.ControlConf.Blocks = append(p.ControlConf.Blocks, derivBlock)
+	(*p.ControlConf).Blocks = append((*p.ControlConf).Blocks, derivBlock)
 
-	p.ControlConf.Blocks[sumIndex].DependsOn[1] = "derivative"
+	(*p.ControlConf).Blocks[sumIndex].DependsOn[1] = "derivative"
 	// change the sum block to depend on the new trapz and derivative blocks
 	if !p.Options.NeedsAutoTuning {
-		p.ControlConf.Blocks[sumIndex].DependsOn[0] = "trapz"
+		(*p.ControlConf).Blocks[sumIndex].DependsOn[0] = "trapz"
 	}
 }
 
 func (p *PIDLoop) addSensorFeedbackVelocityControl(angularPIDVals PIDConfig) {
 	// change current block names to include "linear" excluding sum and endpoint
-	for i, b := range p.ControlConf.Blocks {
+	for i, b := range (*p.ControlConf).Blocks {
 		if b.Type != blockSum && b.Type != blockEndpoint {
 			newName := "linear_" + b.Name
-			p.ControlConf.Blocks[i].Name = newName
+			(*p.ControlConf).Blocks[i].Name = newName
 		} else if b.Type == blockSum {
 			b.Attribute["sum_string"] = "++-"
 		}
@@ -377,7 +371,7 @@ func (p *PIDLoop) addSensorFeedbackVelocityControl(angularPIDVals PIDConfig) {
 		},
 		DependsOn: []string{},
 	}
-	p.ControlConf.Blocks = append(p.ControlConf.Blocks, angularSetpoint)
+	(*p.ControlConf).Blocks = append((*p.ControlConf).Blocks, angularSetpoint)
 
 	// angular PID
 	angularPID := BlockConfig{
@@ -397,8 +391,8 @@ func (p *PIDLoop) addSensorFeedbackVelocityControl(angularPIDVals PIDConfig) {
 		},
 		DependsOn: []string{"sum"},
 	}
-	p.ControlConf.Blocks = append(p.ControlConf.Blocks, angularPID)
-	angularPIDIndex = len(p.ControlConf.Blocks) - 1
+	(*p.ControlConf).Blocks = append((*p.ControlConf).Blocks, angularPID)
+	angularPIDIndex = len((*p.ControlConf).Blocks) - 1
 
 	// angular gain
 	angularGain := BlockConfig{
@@ -409,18 +403,18 @@ func (p *PIDLoop) addSensorFeedbackVelocityControl(angularPIDVals PIDConfig) {
 		},
 		DependsOn: []string{"angular_PID"},
 	}
-	p.ControlConf.Blocks = append(p.ControlConf.Blocks, angularGain)
+	(*p.ControlConf).Blocks = append((*p.ControlConf).Blocks, angularGain)
 
 	// change sum block to depend on the new angular setpoint
-	p.ControlConf.Blocks[sumIndex].DependsOn = []string{"linear_set_point", "angular_set_point", "endpoint"}
+	(*p.ControlConf).Blocks[sumIndex].DependsOn = []string{"linear_set_point", "angular_set_point", "endpoint"}
 
 	// change endpoint block to depend on the new angular gain
-	p.ControlConf.Blocks[4].DependsOn = []string{"linear_gain", "angular_gain"}
+	(*p.ControlConf).Blocks[4].DependsOn = []string{"linear_gain", "angular_gain"}
 }
 
 // StartControlLoop starts a PID control loop.
 func (p *PIDLoop) StartControlLoop() error {
-	loop, err := NewLoop(p.logger, p.ControlConf, p.Controllable)
+	loop, err := NewLoop(p.logger, *p.ControlConf, p.Controllable)
 	if err != nil {
 		return err
 	}

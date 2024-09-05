@@ -4,6 +4,7 @@ package sensorcontrolled
 import (
 	"context"
 	"errors"
+	"fmt"
 	"math"
 	"time"
 
@@ -34,7 +35,7 @@ func (sb *sensorBase) MoveStraight(
 	// If a position movement sensor or controls are not configured, we cannot use this MoveStraight method.
 	// Instead we need to use the MoveStraight method of the base that the sensorcontrolled base wraps.
 	// If there is no valid velocity sensor, there won't be a controlLoopConfig.
-	if len(sb.controlLoopConfig.Blocks) == 0 {
+	if len((*sb.controlLoopConfig).Blocks) == 0 {
 		sb.logger.CWarnf(ctx,
 			"control loop not configured, using base %s's MoveStraight",
 			sb.controlledBase.Name().ShortName())
@@ -52,6 +53,13 @@ func (sb *sensorBase) MoveStraight(
 			distanceMm = -distanceMm
 			mmPerSec = -mmPerSec
 		}
+	}
+
+	// if loop has been tuned but the values haven't been added to the config, error with tuned values
+	if (sb.configPIDVals[0].NeedsAutoTuning() && !(*sb.tunedVals)[0].NeedsAutoTuning()) || (sb.configPIDVals[1].NeedsAutoTuning() && !(*sb.tunedVals)[1].NeedsAutoTuning()) {
+		return fmt.Errorf("%v has been tuned, copy these control parameters into the config to enable movement: "+
+			"\"control_parameters\": [{\"p\": %v, \"i\": %v, \"d\": %v, \"type\": \"linear_velocity\"}, {\"p\": %v, \"i\": %v, \"d\": %v, \"type\": \"angular_velocity\"}]",
+			sb.Name().ShortName(), (*sb.tunedVals)[0].P, (*sb.tunedVals)[0].I, (*sb.tunedVals)[0].D, (*sb.tunedVals)[1].P, (*sb.tunedVals)[1].I, (*sb.tunedVals)[1].D)
 	}
 
 	// make sure the control loop is enabled
@@ -95,7 +103,7 @@ func (sb *sensorBase) MoveStraight(
 	prevTime := startTime
 	currDistMm := 0.
 
-	ticker := time.NewTicker(time.Duration(1000./sb.controlLoopConfig.Frequency) * time.Millisecond)
+	ticker := time.NewTicker(time.Duration(1000./(*sb.controlLoopConfig).Frequency) * time.Millisecond)
 	defer ticker.Stop()
 	for {
 		select {

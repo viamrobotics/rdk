@@ -76,7 +76,7 @@ func (cm *controlledMotor) setupControlLoop(conf *Config) error {
 		return err
 	}
 
-	cm.controlLoopConfig = pl.ControlConf
+	cm.controlLoopConfig = *pl.ControlConf
 	cm.loop = pl.ControlLoop
 	cm.blockNames = pl.BlockNames
 

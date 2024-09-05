@@ -41,7 +41,7 @@ type Loop struct {
 	cancel                  context.CancelFunc
 	running                 atomic.Bool
 	pidBlocks               []*basicPID
-	pidGains                []*PIDConfig
+	pidVals                 []*PIDConfig
 }
 
 // NewLoop construct a new control loop for a specific endpoint.
@@ -353,13 +353,6 @@ func (l *Loop) MonitorTuning(ctx context.Context) {
 		}
 	}
 }
-
-// func UpdateTunedPIDBlock(controlConf Config, pidIndex int, tunedVals PIDConfig) {
-// 	// add tuned pid values to config
-// 	controlConf.Blocks[pidIndex].Attribute["kP"] = tunedVals.P
-// 	controlConf.Blocks[pidIndex].Attribute["kI"] = tunedVals.I
-// 	controlConf.Blocks[pidIndex].Attribute["kD"] = tunedVals.D
-// }
 
 // GetTuning returns the current tuning value.
 func (l *Loop) GetTuning(ctx context.Context) bool {
