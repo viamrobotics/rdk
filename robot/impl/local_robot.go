@@ -1190,14 +1190,26 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 	// if anything has changed.
 	err := r.packageManager.Sync(ctx, newConfig.Packages, newConfig.Modules)
 	if err != nil {
-		allErrs = multierr.Combine(allErrs, err)
+		r.Logger().CErrorw(ctx, "reconfiguration aborted because cloud modules or packages download failed", "error", err)
+		return
 	}
 	// For local tarball modules, we create synthetic versions for package management. The `localRobot` keeps track of these because
 	// config reader would overwrite if we just stored it in config. Here, we copy the synthetic version from the `localRobot` into the
 	// appropriate `config.Module` object inside the `cfg.Modules` slice. Thus, when a local tarball module is reloaded, the viam-server
 	// can unpack it into a fresh directory rather than reusing the previous one.
 	r.applyLocalModuleVersions(newConfig)
-	allErrs = multierr.Combine(allErrs, r.localPackages.Sync(ctx, newConfig.Packages, newConfig.Modules))
+	err = r.localPackages.Sync(ctx, newConfig.Packages, newConfig.Modules)
+	if err != nil {
+		r.Logger().CErrorw(ctx, "reconfiguration aborted because local modules or packages sync failed", "error", err)
+		return
+	}
+
+	if newConfig.Cloud != nil {
+		r.Logger().CDebug(ctx, "updating cached config")
+		if err := newConfig.StoreToCache(); err != nil {
+			r.logger.CErrorw(ctx, "error storing the config", "error", err)
+		}
+	}
 
 	// Add default services and process their dependencies. Dependencies may
 	// already come from config validation so we check that here.

@@ -259,6 +259,16 @@ func TestNewWatcherCloud(t *testing.T) {
 		}},
 	}
 
+	unprocessedFromCfg := func(cfg config.Config) *config.Config {
+		// the unprocessed config uses the original config read from the cloud,
+		// and the cloud config is missing a few fields in the proto, meaning a few fields need to be cleared out.
+		unprocessed, err := cfg.CopyOnlyPublicFields()
+		test.That(t, err, test.ShouldBeNil)
+		unprocessed.Cloud.AppAddress = ""
+		unprocessed.Cloud.RefreshInterval = 10 * time.Second
+		return unprocessed
+	}
+
 	storeConfigInServer(confToReturn)
 
 	watcher, err := config.NewWatcher(context.Background(), &config.Config{Cloud: newCloudConf()}, logger)
@@ -268,6 +278,7 @@ func TestNewWatcherCloud(t *testing.T) {
 	confToExpect.Cloud.TLSCertificate = certsToReturn.TLSCertificate
 	confToExpect.Cloud.TLSPrivateKey = certsToReturn.TLSPrivateKey
 	test.That(t, confToExpect.Ensure(true, logger), test.ShouldBeNil)
+	confToExpect.SetToCache(unprocessedFromCfg(confToExpect))
 
 	newConf := <-watcher.Config()
 	test.That(t, newConf, test.ShouldResemble, &confToExpect)
@@ -305,6 +316,7 @@ func TestNewWatcherCloud(t *testing.T) {
 	confToExpect.Cloud.TLSCertificate = certsToReturn.TLSCertificate
 	confToExpect.Cloud.TLSPrivateKey = certsToReturn.TLSPrivateKey
 	test.That(t, confToExpect.Ensure(true, logger), test.ShouldBeNil)
+	confToExpect.SetToCache(unprocessedFromCfg(confToExpect))
 
 	newConf = <-watcher.Config()
 	test.That(t, newConf, test.ShouldResemble, &confToExpect)
@@ -356,6 +368,7 @@ func TestNewWatcherCloud(t *testing.T) {
 	confToExpect.Cloud.TLSCertificate = certsToReturn.TLSCertificate
 	confToExpect.Cloud.TLSPrivateKey = certsToReturn.TLSPrivateKey
 	test.That(t, confToExpect.Ensure(true, logger), test.ShouldBeNil)
+	confToExpect.SetToCache(unprocessedFromCfg(confToExpect))
 
 	newConf = <-watcher.Config()
 	test.That(t, newConf, test.ShouldResemble, &confToExpect)
