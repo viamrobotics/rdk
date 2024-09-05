@@ -346,10 +346,10 @@ func (server *Server) add(stream gostream.Stream) error {
 
 // startMonitorCameraAvailable monitors whether or not the camera still exists
 // If it no longer exists, it:
-// 1. calls RemoveTrack on all peer connection senders that
+// 1. calls RemoveTrack on the senders of all peer connections that called AddTrack on the camera name.
 // 2. decrements the number of active peers on the stream state (which should result in the
 // stream state having no subscribers and calling gostream.Stop() or rtppaserverthrough.Unsubscribe)
-// streaming tracks from it,.
+// streaming tracks from it.
 func (server *Server) startMonitorCameraAvailable() {
 	server.activeBackgroundWorkers.Add(1)
 	utils.ManagedGo(func() {
