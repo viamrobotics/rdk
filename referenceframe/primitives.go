@@ -59,6 +59,7 @@ func JointPositionsFromRadians(radians []float64) *pb.JointPositions {
 // InputEnabled is a standard interface for all things that interact with the frame system
 // This allows us to figure out where they currently are, and then move them.
 // Input units are always in meters or radians.
+// TODO: this really belongs in the motion service theres nothing stateful about the referenceframe package.
 type InputEnabled interface {
 	CurrentInputs(ctx context.Context) ([]Input, error)
 	GoToInputs(context.Context, ...[]Input) error

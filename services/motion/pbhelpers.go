@@ -11,7 +11,6 @@ import (
 	vprotoutils "go.viam.com/utils/protoutils"
 
 	"go.viam.com/rdk/motionplan"
-	"go.viam.com/rdk/protoutils"
 	rprotoutils "go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
@@ -166,7 +165,7 @@ func (r MoveReq) toProto(name string) (*pb.MoveRequest, error) {
 	}
 	return &pb.MoveRequest{
 		Name:          name,
-		ComponentName: protoutils.ResourceNameToProto(r.ComponentName),
+		ComponentName: rprotoutils.ResourceNameToProto(r.ComponentName),
 		Destination:   referenceframe.PoseInFrameToProtobuf(&r.Destination),
 		WorldState:    worldStateMsg,
 		Constraints:   r.Constraints.ToProtobuf(),
@@ -180,7 +179,7 @@ func moveReqFromProto(req *pb.MoveRequest) (MoveReq, error) {
 		return MoveReq{}, err
 	}
 	return MoveReq{
-		protoutils.ResourceNameFromProto(req.GetComponentName()),
+		rprotoutils.ResourceNameFromProto(req.GetComponentName()),
 		*referenceframe.ProtobufToPoseInFrame(req.GetDestination()),
 		*worldState,
 		*motionplan.ConstraintsFromProtobuf(req.GetConstraints()),

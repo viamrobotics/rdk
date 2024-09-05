@@ -89,14 +89,7 @@ func TestClient(t *testing.T) {
 
 		receivedTransforms := make(map[string]*referenceframe.LinkInFrame)
 		success := true
-		injectMS.MoveFunc = func(
-			ctx context.Context,
-			componentName resource.Name,
-			destination *referenceframe.PoseInFrame,
-			worldState *referenceframe.WorldState,
-			constraints *motionplan.Constraints,
-			extra map[string]interface{},
-		) (bool, error) {
+		injectMS.MoveFunc = func(ctx context.Context, req motion.MoveReq) (bool, error) {
 			return success, nil
 		}
 		injectMS.GetPoseFunc = func(
@@ -114,7 +107,7 @@ func TestClient(t *testing.T) {
 		}
 
 		// Move
-		result, err := client.Move(ctx, gripperName, zeroPoseInFrame, nil, nil, nil)
+		result, err := client.Move(ctx, motion.MoveReq{ComponentName: gripperName, Destination: *zeroPoseInFrame})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, result, test.ShouldEqual, success)
 
@@ -165,14 +158,7 @@ func TestClient(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		passedErr := errors.New("fake move error")
-		injectMS.MoveFunc = func(
-			ctx context.Context,
-			componentName resource.Name,
-			grabPose *referenceframe.PoseInFrame,
-			worldState *referenceframe.WorldState,
-			constraints *motionplan.Constraints,
-			extra map[string]interface{},
-		) (bool, error) {
+		injectMS.MoveFunc = func(ctx context.Context, req motion.MoveReq) (bool, error) {
 			return false, passedErr
 		}
 		passedErr = errors.New("fake GetPose error")
@@ -187,7 +173,7 @@ func TestClient(t *testing.T) {
 		}
 
 		// Move
-		resp, err := client2.Move(ctx, gripperName, zeroPoseInFrame, nil, nil, nil)
+		resp, err := client2.Move(ctx, motion.MoveReq{ComponentName: gripperName, Destination: *zeroPoseInFrame})
 		test.That(t, err.Error(), test.ShouldContainSubstring, passedErr.Error())
 		test.That(t, resp, test.ShouldEqual, false)
 
