@@ -113,7 +113,7 @@ func (server *Server) ListStreams(ctx context.Context, req *streampb.ListStreams
 	defer server.mu.RUnlock()
 
 	names := make([]string, 0, len(server.nameToStreamState))
-	for name, _ := range server.nameToStreamState {
+	for name := range server.nameToStreamState {
 		names = append(names, name)
 	}
 	return &streampb.ListStreamsResponse{Names: names}, nil
