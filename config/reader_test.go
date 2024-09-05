@@ -2,7 +2,6 @@ package config
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"io/fs"
 	"os"
@@ -11,6 +10,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/pkg/errors"
 	pb "go.viam.com/api/app/v1"
 	"go.viam.com/test"
 
@@ -69,7 +69,6 @@ func TestFromReader(t *testing.T) {
 		appAddress := fmt.Sprintf("http://%s", fakeServer.Addr().String())
 		cfgText := fmt.Sprintf(`{"cloud":{"id":%q,"app_address":%q,"secret":%q}}`, robotPartID, appAddress, secret)
 		gotCfg, err := FromReader(ctx, "", strings.NewReader(cfgText), logger)
-		defer clearCache(robotPartID)
 		test.That(t, err, test.ShouldBeNil)
 
 		expectedCloud := *cloudResponse
@@ -79,6 +78,8 @@ func TestFromReader(t *testing.T) {
 		expectedCloud.RefreshInterval = time.Duration(10000000000)
 		test.That(t, gotCfg.Cloud, test.ShouldResemble, &expectedCloud)
 
+		test.That(t, gotCfg.StoreToCache(), test.ShouldBeNil)
+		defer clearCache(robotPartID)
 		cachedCfg, err := readFromCache(robotPartID)
 		test.That(t, err, test.ShouldBeNil)
 		expectedCloud.AppAddress = ""
@@ -102,7 +103,10 @@ func TestFromReader(t *testing.T) {
 			MachineID:        "the-machine",
 		}
 		cachedConf := &Config{Cloud: cachedCloud}
-		err := storeToCache(robotPartID, cachedConf)
+
+		cfgToCache := &Config{Cloud: &Cloud{ID: robotPartID}}
+		cfgToCache.SetToCache(cachedConf)
+		err := cfgToCache.StoreToCache()
 		test.That(t, err, test.ShouldBeNil)
 		defer clearCache(robotPartID)
 
@@ -153,7 +157,6 @@ func TestFromReader(t *testing.T) {
 		appAddress := fmt.Sprintf("http://%s", fakeServer.Addr().String())
 		cfgText := fmt.Sprintf(`{"cloud":{"id":%q,"app_address":%q,"secret":%q}}`, robotPartID, appAddress, secret)
 		gotCfg, err := FromReader(ctx, "", strings.NewReader(cfgText), logger)
-		defer clearCache(robotPartID)
 		test.That(t, err, test.ShouldBeNil)
 
 		expectedCloud := *cloudResponse
@@ -161,6 +164,9 @@ func TestFromReader(t *testing.T) {
 		expectedCloud.RefreshInterval = time.Duration(10000000000)
 		test.That(t, gotCfg.Cloud, test.ShouldResemble, &expectedCloud)
 
+		err = gotCfg.StoreToCache()
+		defer clearCache(robotPartID)
+		test.That(t, err, test.ShouldBeNil)
 		cachedCfg, err := readFromCache(robotPartID)
 		test.That(t, err, test.ShouldBeNil)
 		expectedCloud.AppAddress = ""
@@ -191,13 +197,20 @@ func TestStoreToCache(t *testing.T) {
 	}
 	cfg.Cloud = cloud
 
-	// store our config to the cloud
-	err = storeToCache(cfg.Cloud.ID, cfg)
+	// errors if no unprocessed config to cache
+	cfgToCache := &Config{Cloud: &Cloud{ID: "forCachingTest"}}
+	err = cfgToCache.StoreToCache()
+	test.That(t, err.Error(), test.ShouldContainSubstring, "no unprocessed config to cache")
+
+	// store our config to the cache
+	cfgToCache.SetToCache(cfg)
+	err = cfgToCache.StoreToCache()
 	test.That(t, err, test.ShouldBeNil)
 
 	// read config from cloud, confirm consistency
 	cloudCfg, err := readFromCloud(ctx, cfg, nil, true, false, logger)
 	test.That(t, err, test.ShouldBeNil)
+	cloudCfg.toCache = nil
 	test.That(t, cloudCfg, test.ShouldResemble, cfg)
 
 	// Modify our config
@@ -207,10 +220,12 @@ func TestStoreToCache(t *testing.T) {
 	// read config from cloud again, confirm that the cached config differs from cfg
 	cloudCfg2, err := readFromCloud(ctx, cfg, nil, true, false, logger)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, cloudCfg2, test.ShouldNotResemble, cfg)
+	cloudCfg2.toCache = nil
+	test.That(t, cloudCfg2, test.ShouldNotResemble, cfgToCache)
 
 	// store the updated config to the cloud
-	err = storeToCache(cfg.Cloud.ID, cfg)
+	cfgToCache.SetToCache(cfg)
+	err = cfgToCache.StoreToCache()
 	test.That(t, err, test.ShouldBeNil)
 
 	test.That(t, cfg.Ensure(true, logger), test.ShouldBeNil)
@@ -218,6 +233,7 @@ func TestStoreToCache(t *testing.T) {
 	// read updated cloud config, confirm that it now matches our updated cfg
 	cloudCfg3, err := readFromCloud(ctx, cfg, nil, true, false, logger)
 	test.That(t, err, test.ShouldBeNil)
+	cloudCfg3.toCache = nil
 	test.That(t, cloudCfg3, test.ShouldResemble, cfg)
 }
 
@@ -304,7 +320,9 @@ func TestReadTLSFromCache(t *testing.T) {
 		defer clearCache(robotPartID)
 		cfg.Cloud = nil
 
-		err = storeToCache(robotPartID, cfg)
+		cfgToCache := &Config{Cloud: &Cloud{ID: robotPartID}}
+		cfgToCache.SetToCache(cfg)
+		err = cfgToCache.StoreToCache()
 		test.That(t, err, test.ShouldBeNil)
 
 		tls := tlsConfig{}
@@ -315,11 +333,14 @@ func TestReadTLSFromCache(t *testing.T) {
 	t.Run("invalid cached TLS", func(t *testing.T) {
 		defer clearCache(robotPartID)
 		cloud := &Cloud{
+			ID:            robotPartID,
 			TLSPrivateKey: "key",
 		}
 		cfg.Cloud = cloud
 
-		err = storeToCache(robotPartID, cfg)
+		cfgToCache := &Config{Cloud: &Cloud{ID: robotPartID}}
+		cfgToCache.SetToCache(cfg)
+		err = cfgToCache.StoreToCache()
 		test.That(t, err, test.ShouldBeNil)
 
 		tls := tlsConfig{}
@@ -333,12 +354,15 @@ func TestReadTLSFromCache(t *testing.T) {
 	t.Run("invalid cached TLS but insecure signaling", func(t *testing.T) {
 		defer clearCache(robotPartID)
 		cloud := &Cloud{
+			ID:                robotPartID,
 			TLSPrivateKey:     "key",
 			SignalingInsecure: true,
 		}
 		cfg.Cloud = cloud
 
-		err = storeToCache(robotPartID, cfg)
+		cfgToCache := &Config{Cloud: &Cloud{ID: robotPartID}}
+		cfgToCache.SetToCache(cfg)
+		err = cfgToCache.StoreToCache()
 		test.That(t, err, test.ShouldBeNil)
 
 		tls := tlsConfig{}
@@ -352,12 +376,15 @@ func TestReadTLSFromCache(t *testing.T) {
 	t.Run("valid cached TLS", func(t *testing.T) {
 		defer clearCache(robotPartID)
 		cloud := &Cloud{
+			ID:             robotPartID,
 			TLSCertificate: "cert",
 			TLSPrivateKey:  "key",
 		}
 		cfg.Cloud = cloud
 
-		err = storeToCache(robotPartID, cfg)
+		cfgToCache := &Config{Cloud: &Cloud{ID: robotPartID}}
+		cfgToCache.SetToCache(cfg)
+		err = cfgToCache.StoreToCache()
 		test.That(t, err, test.ShouldBeNil)
 
 		// the config is missing several fields required to start the robot, but this

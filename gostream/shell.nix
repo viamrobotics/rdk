@@ -4,7 +4,7 @@
 
 pkgs.mkShell {
   buildInputs =
-    [ pkgs.which pkgs.htop pkgs.go pkgs.nodejs pkgs.pkg-config pkgs.libvpx pkgs.x264 pkgs.libopus ]
+    [ pkgs.which pkgs.htop pkgs.go pkgs.nodejs pkgs.pkg-config pkgs.x264 pkgs.libopus ]
     ++ pkgs.lib.optionals pkgs.stdenv.isDarwin [
       pkgs.darwin.apple_sdk.frameworks.AVFoundation
       pkgs.darwin.apple_sdk.frameworks.CoreMedia

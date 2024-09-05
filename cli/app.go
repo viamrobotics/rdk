@@ -1064,7 +1064,7 @@ var app = &cli.App{
 				{
 					Name:      "list",
 					Usage:     "list training jobs in Viam cloud based on organization ID",
-					UsageText: createUsageText("train list", []string{generalFlagOrgID, trainFlagJobStatus}, false),
+					UsageText: createUsageText("train list", []string{generalFlagOrgID}, true),
 					Flags: []cli.Flag{
 						&cli.StringFlag{
 							Name:     generalFlagOrgID,
@@ -1074,7 +1074,8 @@ var app = &cli.App{
 						&cli.StringFlag{
 							Name:     trainFlagJobStatus,
 							Usage:    "training status to filter for. can be one of " + allTrainingStatusValues(),
-							Required: true,
+							Required: false,
+							Value:    defaultTrainingStatus(),
 						},
 					},
 					Action: DataListTrainingJobs,

@@ -1,6 +1,6 @@
 module go.viam.com/rdk
 
-go 1.21
+go 1.21.13
 
 require (
 	github.com/AlekSi/gocov-xml v1.0.0
@@ -75,7 +75,7 @@ require (
 	github.com/u2takey/ffmpeg-go v0.4.1
 	github.com/urfave/cli/v2 v2.10.3
 	github.com/viamrobotics/evdev v0.1.3
-	github.com/viamrobotics/webrtc/v3 v3.99.9
+	github.com/viamrobotics/webrtc/v3 v3.99.10
 	github.com/xfmoulet/qoi v0.2.0
 	go-hep.org/x/hep v0.32.1
 	go.mongodb.org/mongo-driver v1.11.6
@@ -85,7 +85,7 @@ require (
 	go.uber.org/zap v1.24.0
 	go.viam.com/api v0.1.336
 	go.viam.com/test v1.1.1-0.20220913152726-5da9916c08a2
-	go.viam.com/utils v0.1.97
+	go.viam.com/utils v0.1.98
 	goji.io v2.0.2+incompatible
 	golang.org/x/image v0.19.0
 	golang.org/x/mobile v0.0.0-20240112133503-c713f31d574b

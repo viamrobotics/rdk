@@ -305,6 +305,10 @@ func allTrainingStatusValues() string {
 	return "[" + strings.Join(formattedStatuses, ", ") + "]"
 }
 
+func defaultTrainingStatus() string {
+	return strings.ToLower(strings.TrimPrefix(mltrainingpb.TrainingStatus_TRAINING_STATUS_UNSPECIFIED.String(), trainingStatusPrefix))
+}
+
 // MLTrainingUploadAction uploads a new custom training script.
 func MLTrainingUploadAction(c *cli.Context) error {
 	client, err := newViamClient(c)
