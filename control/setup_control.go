@@ -2,6 +2,7 @@ package control
 
 import (
 	"context"
+	"fmt"
 	"sync"
 
 	"github.com/pkg/errors"
@@ -472,4 +473,13 @@ func UpdateTrapzBlock(ctx context.Context, name string, maxVel float64, dependsO
 		return err
 	}
 	return nil
+}
+
+// TunedPIDErr returns an error with the stored tuned PID values.
+func TunedPIDErr(tunedVals *[]PIDConfig, name string) error {
+	return fmt.Errorf("%v has been tuned, copy these control parameters into the config to enable movement: "+
+		"\"control_parameters\": [{\"p\": %v, \"i\": %v, \"d\": %v, \"type\": \"linear_velocity\"}, "+
+		"{\"p\": %v, \"i\": %v, \"d\": %v, \"type\": \"angular_velocity\"}]",
+		name, (*tunedVals)[0].P, (*tunedVals)[0].I, (*tunedVals)[0].D,
+		(*tunedVals)[1].P, (*tunedVals)[1].I, (*tunedVals)[1].D)
 }
