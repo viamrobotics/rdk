@@ -1,4 +1,7 @@
-// Package encoder implements the encoder component
+// Package encoder implements the encoder component.
+// For more information, see the [Encoder Component].
+//
+// [Encoder Component]: https://docs.viam.com/components/encoder/
 package encoder
 
 import (

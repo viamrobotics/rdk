@@ -1,6 +1,9 @@
 //go:build !no_cgo
 
 // Package arm defines the arm that a robot uses to manipulate objects.
+// For more information, see the [Arm Component].
+//
+// [Arm Component]: https://docs.viam.com/components/arm/
 package arm
 
 import (

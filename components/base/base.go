@@ -1,4 +1,7 @@
 // Package base defines the base that a robot uses to move around.
+// For more information, see the [Base Component].
+//
+// [Base Component]: https://docs.viam.com/components/base/
 package base
 
 import (

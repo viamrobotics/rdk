@@ -2,6 +2,9 @@
 // such as a Raspberry Pi.
 //
 // Besides the board itself, some other interfaces it defines are analog pins and digital interrupts.
+// For more information, see the [Board Component].
+//
+// [Board Component]: https://docs.viam.com/components/board/
 package board
 
 import (
