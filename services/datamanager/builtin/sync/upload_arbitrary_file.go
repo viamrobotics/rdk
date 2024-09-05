@@ -2,6 +2,7 @@ package sync
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -50,6 +51,21 @@ func uploadArbitraryFile(
 	timeSinceMod := clock.Since(info.ModTime())
 	if timeSinceMod < time.Duration(fileLastModifiedMillis)*time.Millisecond {
 		return errFileModifiedTooRecently
+	}
+
+	// We need to seek to the start of the file as if we have tried to upload this file
+	// previously, the read offset of the file might not be at the beginning, which would
+	// result in partial data loss when uploading to the cloud.
+	// Fixes https://viam.atlassian.net/browse/DATA-3114
+	pos, err := f.Seek(0, io.SeekStart)
+	if err != nil {
+		return errors.Wrap(err, "error trying to Seek to beginning of file")
+	}
+
+	if pos != 0 {
+		msg := "error trying to Seek to beginning of file %s attempted to seek to " +
+			"beginning of file but only got to position: %d, expected to be at position 0"
+		return fmt.Errorf(msg, path, pos)
 	}
 
 	logger.Debugf("datasync.FileUpload request started for arbitrary file: %s", path)

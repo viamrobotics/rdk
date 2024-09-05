@@ -125,7 +125,7 @@ func (f *CaptureFile) ReadNext() (*v1.SensorData, error) {
 		return nil, err
 	}
 
-	if _, err := f.file.Seek(f.readOffset, 0); err != nil {
+	if _, err := f.file.Seek(f.readOffset, io.SeekStart); err != nil {
 		return nil, err
 	}
 	r := v1.SensorData{}
