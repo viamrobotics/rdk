@@ -17,7 +17,6 @@ import (
 	"github.com/pkg/errors"
 	apppb "go.viam.com/api/app/v1"
 	"go.viam.com/utils"
-	"go.viam.com/utils/artifact"
 	"go.viam.com/utils/rpc"
 	"golang.org/x/sys/cpu"
 
@@ -112,22 +111,6 @@ func readFromCache(id string) (*Config, error) {
 		return nil, errors.Wrap(err, "cannot parse the cached config as json")
 	}
 	return unprocessedConfig, nil
-}
-
-func storeToCache(id string, cfg *Config) error {
-	if err := os.MkdirAll(ViamDotDir, 0o700); err != nil {
-		return err
-	}
-
-	md, err := json.MarshalIndent(cfg, "", "  ")
-	if err != nil {
-		return err
-	}
-	reader := bytes.NewReader(md)
-
-	path := getCloudCacheFilePath(id)
-
-	return artifact.AtomicStore(path, reader, id)
 }
 
 func clearCache(id string) {
@@ -318,10 +301,9 @@ func readFromCloud(
 	unprocessedConfig.Cloud.TLSCertificate = tls.certificate
 	unprocessedConfig.Cloud.TLSPrivateKey = tls.privateKey
 
-	if err := storeToCache(cloudCfg.ID, unprocessedConfig); err != nil {
-		logger.Errorw("failed to cache config", "error", err)
+	if err := cfg.SetToCache(unprocessedConfig); err != nil {
+		logger.Errorw("failed to set toCache on config", "error", err)
 	}
-
 	return cfg, nil
 }
 

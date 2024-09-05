@@ -2,6 +2,7 @@
 package config
 
 import (
+	"bytes"
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
@@ -15,6 +16,7 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+	"go.viam.com/utils/artifact"
 	"go.viam.com/utils/jwks"
 	"go.viam.com/utils/pexec"
 	"go.viam.com/utils/rpc"
@@ -68,6 +70,11 @@ type Config struct {
 
 	// Revision contains the current revision of the config.
 	Revision string
+
+	// toCache stores the JSON marshalled version of the config to be cached. It should be a copy of
+	// the config pulled from cloud with minor changes.
+	// This version is kept because the config is changed as it moves through the system.
+	toCache []byte
 }
 
 // NOTE: This data must be maintained with what is in Config.
@@ -236,6 +243,29 @@ func (c Config) FindComponent(name string) *resource.Config {
 		}
 	}
 	return nil
+}
+
+// SetToCache sets toCache with a marshalled copy of the config passed in.
+func (c *Config) SetToCache(cfg *Config) error {
+	md, err := json.MarshalIndent(cfg, "", "  ")
+	if err != nil {
+		return err
+	}
+	c.toCache = md
+	return nil
+}
+
+// StoreToCache caches the toCache.
+func (c *Config) StoreToCache() error {
+	if c.toCache == nil {
+		return errors.New("no unprocessed config to cache")
+	}
+	if err := os.MkdirAll(ViamDotDir, 0o700); err != nil {
+		return err
+	}
+	reader := bytes.NewReader(c.toCache)
+	path := getCloudCacheFilePath(c.Cloud.ID)
+	return artifact.AtomicStore(path, reader, c.Cloud.ID)
 }
 
 // UnmarshalJSON unmarshals JSON into the config and adjusts some

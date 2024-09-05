@@ -17,11 +17,11 @@ import (
 	"time"
 
 	slib "github.com/jacobsa/go-serial/serial"
+	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/utils"
 )
 
 var model905 = resource.DefaultModelFamily.WithModel("imu-wit-hwt905")
@@ -77,7 +77,7 @@ func newWit905(
 
 func (imu *wit) start905UpdateLoop(portReader *bufio.Reader, logger logging.Logger) {
 	imu.hasMagnetometer = false
-	imu.workers = utils.NewStoppableWorkers(func(cancelCtx context.Context) {
+	imu.workers = utils.NewBackgroundStoppableWorkers(func(cancelCtx context.Context) {
 		for {
 			if cancelCtx.Err() != nil {
 				return

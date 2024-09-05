@@ -69,6 +69,8 @@ func TestConfigRobot(t *testing.T) {
 	test.That(t, newBc, test.ShouldResemble, bc)
 }
 
+// TestConfig3 depends on the `datamanager` package *not* being loaded. Its `init` function
+// registers an associated API that alters `AssociatedResourceConfigs` results.
 func TestConfig3(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 

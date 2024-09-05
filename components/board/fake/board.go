@@ -18,7 +18,6 @@ import (
 	"go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
-	rdkutils "go.viam.com/rdk/utils"
 )
 
 // In order to maintain test functionality, testPin will always return the analog value it is set
@@ -83,7 +82,7 @@ func NewBoard(ctx context.Context, conf resource.Config, logger logging.Logger) 
 		Analogs:  map[string]*Analog{},
 		Digitals: map[string]*DigitalInterrupt{},
 		GPIOPins: map[string]*GPIOPin{},
-		workers:  rdkutils.NewStoppableWorkers(),
+		workers:  utils.NewBackgroundStoppableWorkers(),
 		logger:   logger,
 	}
 
@@ -167,7 +166,7 @@ type Board struct {
 	logger     logging.Logger
 	CloseCount int
 
-	workers rdkutils.StoppableWorkers
+	workers *utils.StoppableWorkers
 }
 
 // AnalogByName returns the analog pin by the given name if it exists.
@@ -247,7 +246,7 @@ func (b *Board) StreamTicks(ctx context.Context, interrupts []board.DigitalInter
 
 	for _, di := range interrupts {
 		// Don't need to check if interrupt exists, just did that above
-		b.workers.AddWorkers(func(workersContext context.Context) {
+		b.workers.Add(func(workersContext context.Context) {
 			for {
 				// sleep to avoid a busy loop
 				if !utils.SelectContextOrWait(workersContext, 700*time.Millisecond) {

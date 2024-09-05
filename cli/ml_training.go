@@ -181,6 +181,51 @@ func (c *viamClient) dataGetTrainingJob(trainingJobID string) (*mltrainingpb.Tra
 	return resp.Metadata, nil
 }
 
+// MLGetTrainingJobLogs is the corresponding action for 'data train logs'.
+func MLGetTrainingJobLogs(c *cli.Context) error {
+	client, err := newViamClient(c)
+	if err != nil {
+		return err
+	}
+	logs, err := client.mlGetTrainingJobLogs(c.String(trainFlagJobID))
+	if err != nil {
+		return err
+	}
+
+	if len(logs) == 0 {
+		printf(c.App.Writer, "No logs found for job %s", trainFlagJobID)
+	}
+	for _, log := range logs {
+		printf(c.App.Writer, "{\"Timestamp\": \"%s\", \"Level\": \"%s\", \"Message\": \"%s\"}", log.Time.AsTime(), log.Level, log.Message)
+	}
+	return nil
+}
+
+// mlGetTrainingJobLogs gets the training job logs with the given ID.
+func (c *viamClient) mlGetTrainingJobLogs(trainingJobID string) ([]*mltrainingpb.TrainingJobLogEntry, error) {
+	if err := c.ensureLoggedIn(); err != nil {
+		return nil, err
+	}
+	var allLogs []*mltrainingpb.TrainingJobLogEntry
+	var page string
+
+	// Loop to fetch and accumulate results
+	for {
+		resp, err := c.mlTrainingClient.GetTrainingJobLogs(context.Background(),
+			&mltrainingpb.GetTrainingJobLogsRequest{Id: trainingJobID, PageToken: &page})
+		if err != nil {
+			return nil, err
+		}
+		allLogs = append(allLogs, resp.GetLogs()...)
+
+		if resp.GetNextPageToken() == "" {
+			break
+		}
+		page = resp.GetNextPageToken()
+	}
+	return allLogs, nil
+}
+
 // DataCancelTrainingJob is the corresponding action for 'data train cancel'.
 func DataCancelTrainingJob(c *cli.Context) error {
 	client, err := newViamClient(c)
@@ -260,6 +305,10 @@ func allTrainingStatusValues() string {
 	return "[" + strings.Join(formattedStatuses, ", ") + "]"
 }
 
+func defaultTrainingStatus() string {
+	return strings.ToLower(strings.TrimPrefix(mltrainingpb.TrainingStatus_TRAINING_STATUS_UNSPECIFIED.String(), trainingStatusPrefix))
+}
+
 // MLTrainingUploadAction uploads a new custom training script.
 func MLTrainingUploadAction(c *cli.Context) error {
 	client, err := newViamClient(c)
@@ -319,7 +368,7 @@ func MLTrainingUpdateAction(c *cli.Context) error {
 	}
 
 	err = client.updateTrainingScript(c.String(generalFlagOrgID), c.String(mlTrainingFlagName),
-		c.String(mlTrainingFlagVisibility), c.String(mlTrainingFlagDescription),
+		c.String(mlTrainingFlagVisibility), c.String(mlTrainingFlagDescription), c.String(mlTrainingFlagURL),
 	)
 	if err != nil {
 		return err
@@ -334,7 +383,7 @@ func MLTrainingUpdateAction(c *cli.Context) error {
 	return nil
 }
 
-func (c *viamClient) updateTrainingScript(orgID, name, visibility, description string) error {
+func (c *viamClient) updateTrainingScript(orgID, name, visibility, description, url string) error {
 	if err := c.ensureLoggedIn(); err != nil {
 		return err
 	}
@@ -347,17 +396,23 @@ func (c *viamClient) updateTrainingScript(orgID, name, visibility, description s
 	if err != nil {
 		return err
 	}
+	visibilityProto, err := convertVisibilityToProto(visibility)
+	if err != nil {
+		return err
+	}
 	// Get and validate description and visibility
 	updatedDescription := resp.GetItem().GetDescription()
 	if description != "" {
 		updatedDescription = description
 	}
-	if updatedDescription == "" {
+	if updatedDescription == "" && *visibilityProto == v1.Visibility_VISIBILITY_PUBLIC {
 		return errors.New("no existing description for registry item, description must be provided")
 	}
-	visibilityProto, err := convertVisibilityToProto(visibility)
-	if err != nil {
-		return err
+	var stringURL *string
+	if url != "" {
+		stringURL = &url
+	} else {
+		stringURL = nil
 	}
 	// Update registry item
 	if _, err = c.client.UpdateRegistryItem(c.c.Context, &v1.UpdateRegistryItemRequest{
@@ -365,6 +420,7 @@ func (c *viamClient) updateTrainingScript(orgID, name, visibility, description s
 		Type:        resp.GetItem().GetType(),
 		Description: updatedDescription,
 		Visibility:  *visibilityProto,
+		Url:         stringURL,
 	}); err != nil {
 		return err
 	}

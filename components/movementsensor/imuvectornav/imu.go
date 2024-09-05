@@ -74,13 +74,12 @@ type vectornav struct {
 	spiMu   sync.Mutex
 	polling int
 
-	cancelFunc              func()
-	activeBackgroundWorkers sync.WaitGroup
-	bus                     buses.SPI
-	cs                      string
-	speed                   int
-	logger                  logging.Logger
-	busClosed               bool
+	workers   *goutils.StoppableWorkers
+	bus       buses.SPI
+	cs        string
+	speed     int
+	logger    logging.Logger
+	busClosed bool
 
 	bdVX float64
 	bdVY float64
@@ -212,16 +211,13 @@ func newVectorNav(
 	if err != nil {
 		return nil, err
 	}
-	var cancelCtx context.Context
-	cancelCtx, v.cancelFunc = context.WithCancel(context.Background())
+
 	// optionally start a polling goroutine
 	if pfreq > 0 {
 		logger.CDebugf(ctx, "vecnav: will pool at %d Hz", pfreq)
 		waitCh := make(chan struct{})
 		s := 1.0 / float64(pfreq)
-		v.activeBackgroundWorkers.Add(1)
-		goutils.PanicCapturingGo(func() {
-			defer v.activeBackgroundWorkers.Done()
+		v.workers = goutils.NewBackgroundStoppableWorkers(func(cancelCtx context.Context) {
 			timer := time.NewTicker(time.Duration(s * float64(time.Second)))
 			defer timer.Stop()
 			close(waitCh)
@@ -539,9 +535,8 @@ func (vn *vectornav) compensateDVBias(ctx context.Context, smpSize uint) error {
 
 func (vn *vectornav) Close(ctx context.Context) error {
 	vn.logger.CDebug(ctx, "closing vecnav imu")
-	vn.cancelFunc()
 	vn.busClosed = true
-	vn.activeBackgroundWorkers.Wait()
+	vn.workers.Stop()
 	vn.logger.CDebug(ctx, "closed vecnav imu")
 	return nil
 }
