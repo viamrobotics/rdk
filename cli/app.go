@@ -1763,9 +1763,9 @@ This won't work unless you have an existing installation of our GitHub app on yo
 						}, false),
 					Flags: []cli.Flag{
 						&cli.PathFlag{
-							Name:     packageFlagDestination,
-							Required: true,
-							Usage:    "output directory for downloaded package",
+							Name:  packageFlagDestination,
+							Usage: "output directory for downloaded package",
+							Value: ".",
 						},
 						&cli.StringFlag{
 							Name:  generalFlagOrgID,
