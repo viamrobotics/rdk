@@ -31,7 +31,7 @@ var (
 )
 
 // limitErrorMargin is added or subtracted from the location of the limit switch to ensure the switch is not passed.
-const limitErrorMargin = 0.25
+const limitErrorMargin = 0.0
 
 // Config is used for converting singleAxis config attributes.
 type Config struct {
@@ -372,7 +372,7 @@ func (g *singleAxis) homeLimSwitch(ctx context.Context) error {
 	if g.positionRange == 0 {
 		g.logger.CError(ctx, "positionRange is 0 or not a valid number")
 	} else {
-		g.logger.CDebugf(ctx, "positionA: %0.2f positionB: %0.2f range: %0.2f", positionA, positionB, g.positionRange)
+		g.logger.CInfof(ctx, "positionA: %0.2f positionB: %0.2f range: %0.2f", positionA, positionB, g.positionRange)
 	}
 
 	// Go to start position at the middle of the axis.
@@ -548,15 +548,15 @@ func (g *singleAxis) MoveToPosition(ctx context.Context, positions, speeds []flo
 	// Currently needs to be moved by underlying gantry motor.
 	if len(g.limitSwitchPins) > 0 {
 		// Stops if position x is past the 0 limit switch
-		if x <= (g.positionLimits[0] + limitErrorMargin) {
-			g.logger.CError(ctx, "Cannot move past limit switch!")
-			return g.motor.Stop(ctx, extra)
+		if x < (g.positionLimits[0] + limitErrorMargin) {
+			err := errors.New("Cannot move past limit switch!")
+			return multierr.Combine(err, g.motor.Stop(ctx, extra))
 		}
 
 		// Stops if position x is past the at-length limit switch
-		if x >= (g.positionLimits[1] - limitErrorMargin) {
-			g.logger.CError(ctx, "Cannot move past limit switch!")
-			return g.motor.Stop(ctx, extra)
+		if x > (g.positionLimits[1] - limitErrorMargin) {
+			err := errors.New("Cannot move past limit switch!")
+			return multierr.Combine(err, g.motor.Stop(ctx, extra))
 		}
 	}
 
