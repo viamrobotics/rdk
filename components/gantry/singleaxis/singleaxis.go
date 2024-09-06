@@ -546,13 +546,13 @@ func (g *singleAxis) MoveToPosition(ctx context.Context, positions, speeds []flo
 	if len(g.limitSwitchPins) > 0 {
 		// Stops if position x is past the 0 limit switch
 		if x < g.positionLimits[0] {
-			err := errors.New("cannot move past limit switch!")
+			err := errors.New("cannot move past limit switch")
 			return multierr.Combine(err, g.motor.Stop(ctx, extra))
 		}
 
 		// Stops if position x is past the at-length limit switch
 		if x > g.positionLimits[1] {
-			err := errors.New("cannot move past limit switch!")
+			err := errors.New("cannot move past limit switch")
 			return multierr.Combine(err, g.motor.Stop(ctx, extra))
 		}
 	}
