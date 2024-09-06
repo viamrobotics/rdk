@@ -55,7 +55,6 @@ type CaptureFile struct {
 }
 
 // ReadCaptureFile creates a File struct from a passed os.File previously constructed using NewFile.
-// TODO: Nick If the DataCaptureFile has metadata but no sensor data, what is returned?
 func ReadCaptureFile(f *os.File) (*CaptureFile, error) {
 	if !IsDataCaptureFile(f) {
 		return nil, errors.Errorf("%s is not a data capture file", f.Name())

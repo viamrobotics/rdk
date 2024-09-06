@@ -13,21 +13,26 @@ import (
 	datasync "go.viam.com/rdk/services/datamanager/builtin/sync"
 )
 
+// fileCountLogger logs the number of completed capture files that
+// are eligible to be synced in the capture directory.
+// It excludes files in failed directories
+// This is a temporary measure to provide some imperfect signal into what
+// data capture files are eligible to be synced on the robot.
 type fileCountLogger struct {
-	logger  logging.Logger
-	workers *goutils.StoppableWorkers
+	logger logging.Logger
+	worker *goutils.StoppableWorkers
 }
 
 func newFileCountLogger(logger logging.Logger) *fileCountLogger {
 	return &fileCountLogger{
-		logger:  logger,
-		workers: goutils.NewBackgroundStoppableWorkers(),
+		logger: logger,
+		worker: goutils.NewBackgroundStoppableWorkers(),
 	}
 }
 
 func (poller *fileCountLogger) reconfigure(captureDir string) {
-	poller.workers.Stop()
-	poller.workers = goutils.NewBackgroundStoppableWorkers(func(ctx context.Context) {
+	poller.worker.Stop()
+	poller.worker = goutils.NewBackgroundStoppableWorkers(func(ctx context.Context) {
 		t := time.NewTicker(captureDirSizeLogInterval)
 		defer t.Stop()
 		for {
@@ -45,7 +50,7 @@ func (poller *fileCountLogger) reconfigure(captureDir string) {
 }
 
 func (poller *fileCountLogger) close() {
-	poller.workers.Stop()
+	poller.worker.Stop()
 }
 
 func countFiles(ctx context.Context, captureDir string) int {
