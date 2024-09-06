@@ -30,9 +30,6 @@ const defaultCaptureQueueSize = 250
 // Default bufio.Writer buffer size in bytes.
 const defaultCaptureBufferSize = 4096
 
-// Threshold number of files to check if sync is backed up (defined as >1000 files).
-var minNumFiles = 1000
-
 // Default time between checking and logging number of files in capture dir.
 var captureDirSizeLogInterval = time.Minute
 

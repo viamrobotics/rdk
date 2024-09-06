@@ -13,6 +13,9 @@ import (
 	datasync "go.viam.com/rdk/services/datamanager/builtin/sync"
 )
 
+// Threshold number of files to check if sync is backed up (defined as >1000 files).
+var minNumFilesToLog = 1000
+
 // fileCountLogger logs the number of completed capture files that
 // are eligible to be synced in the capture directory.
 // It excludes files in failed directories
@@ -41,7 +44,7 @@ func (poller *fileCountLogger) reconfigure(captureDir string) {
 				return
 			case <-t.C:
 				numFiles := countFiles(ctx, captureDir)
-				if numFiles > minNumFiles {
+				if numFiles > minNumFilesToLog {
 					poller.logger.Infof("Capture dir contains %d files", numFiles)
 				}
 			}
