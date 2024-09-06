@@ -690,7 +690,7 @@ func TestStreamState(t *testing.T) {
 		test.That(t, startCount.Load(), test.ShouldEqual, 3)
 		test.That(t, stopCount.Load(), test.ShouldEqual, 3)
 
-		t.Log("if while rtp_passthrough is being used the the subscription " +
+		t.Log("if while rtp_passthrough is being used the subscription " +
 			"terminates & afterwards rtp_passthrough is no longer supported, Start is called")
 		test.That(t, s.Increment(ctx), test.ShouldBeNil)
 		test.That(t, subscribeRTPCount.Load(), test.ShouldEqual, 6)
