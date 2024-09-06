@@ -476,10 +476,7 @@ func UpdateTrapzBlock(ctx context.Context, name string, maxVel float64, dependsO
 }
 
 // TunedPIDErr returns an error with the stored tuned PID values.
-func TunedPIDErr(tunedVals *[]PIDConfig, name string) error {
-	return fmt.Errorf("%v has been tuned, copy these control parameters into the config to enable movement: "+
-		"\"control_parameters\": [{\"p\": %v, \"i\": %v, \"d\": %v, \"type\": \"linear_velocity\"}, "+
-		"{\"p\": %v, \"i\": %v, \"d\": %v, \"type\": \"angular_velocity\"}]",
-		name, (*tunedVals)[0].P, (*tunedVals)[0].I, (*tunedVals)[0].D,
-		(*tunedVals)[1].P, (*tunedVals)[1].I, (*tunedVals)[1].D)
+func TunedPIDErr(tunedVals PIDConfig) string {
+	return fmt.Sprintf("{\"p\": %v, \"i\": %v, \"d\": %v, \"type\": \"%v\"}",
+		tunedVals.P, tunedVals.I, tunedVals.D, tunedVals.Type)
 }
