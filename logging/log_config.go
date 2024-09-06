@@ -12,21 +12,34 @@ type LoggerPatternConfig struct {
 }
 
 const (
-	// pattern matching on loggers.
-	validLoggerSectionName             = `[a-zA-Z0-9]+([_-]*[a-zA-Z0-9]+)*`
-	validLoggerSectionNameWithWildcard = `(` + validLoggerSectionName + `|\*)`
-	validLoggerSections                = validLoggerSectionName + `(\.` + validLoggerSectionName + `)*`
-	validLoggerSectionsWithWildcard    = validLoggerSectionNameWithWildcard + `(\.` + validLoggerSectionNameWithWildcard + `)*`
-	validLoggerName                    = `^` + validLoggerSectionsWithWildcard + `$`
+	// Pattern matching on loggers. Examples describe regular expression below.
 
-	// resource configurations.
-	validNamespacePattern       = `([\w-]+|\*)`
-	validResourceTypePattern    = `(service|component|\*)`
+	// e.g. "foo"
+	validLoggerSectionName = `[a-zA-Z0-9]+([_-]*[a-zA-Z0-9]+)*`
+	// e.g. "foo" or "*"
+	validLoggerSectionNameWithWildcard = `(` + validLoggerSectionName + `|\*)`
+	// e.g. "foo.bar"
+	validLoggerSections = validLoggerSectionName + `(\.` + validLoggerSectionName + `)*`
+	// e.g. "foo.*.foo"
+	validLoggerSectionsWithWildcard = validLoggerSectionNameWithWildcard + `(\.` + validLoggerSectionNameWithWildcard + `)*`
+	// Restricts above regex to be the entire pattern.
+	validLoggerName = `^` + validLoggerSectionsWithWildcard + `$`
+
+	// Resource configurations. Examples describe regular expression below.
+
+	// e.g. "foo-bar"
+	validNamespacePattern = `([\w-]+|\*)`
+	// e.g. "service" or "component" or "*"
+	validResourceTypePattern = `(service|component|\*)`
+	// e.g. "foo-bar"
 	validResourceSubTypePattern = validNamespacePattern
-	validModelNamePattern       = validNamespacePattern
-	validTypeSubsectionPattern  = `(` + validResourceTypePattern + `:` + validResourceSubTypePattern + `|remote:)`
-	validResourcePattern        = `^rdk.resource_manager.` + validNamespacePattern + `:` + validTypeSubsectionPattern + `\/` +
-		validModelNamePattern + `$`
+	// e.g. "foo-bar"
+	validModelNamePattern = validNamespacePattern
+	// e.g. "service:foo" or "remote:"
+	validTypeSubsectionPattern = `(` + validResourceTypePattern + `:` + validResourceSubTypePattern + `|remote:)`
+	// e.g. "rdk.resource_manager.rdk:component:motor/foo"
+	validResourcePattern = `^rdk.resource_manager.` + validNamespacePattern + `:` + validTypeSubsectionPattern + `\/` +
+		validModelNamePattern + `$` // e.g. "rdk.resource_manager.rdk:component:motor/foo"
 )
 
 var (
