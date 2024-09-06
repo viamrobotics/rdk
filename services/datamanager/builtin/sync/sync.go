@@ -271,6 +271,7 @@ func (s *Sync) runCloudConnManager(
 		s.cloudConn.conn = conn
 		s.cloudConn.connectivityStateEnabledConn = s.connToConnectivityState(conn)
 		s.cloudConn.client = s.clientConstructor(conn)
+		s.logger.Info("cloud connection ready")
 		close(s.cloudConn.ready)
 		// now that we have a connection ...
 		break
@@ -499,7 +500,6 @@ func (s *Sync) runScheduler(ctx context.Context, tkr *clock.Ticker, config Confi
 			return
 		case <-s.cloudConn.ready:
 			if !readyLogged {
-				s.logger.Info("cloud connection ready")
 				readyLogged = true
 			}
 		}
