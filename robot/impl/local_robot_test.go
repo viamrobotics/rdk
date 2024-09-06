@@ -6,11 +6,13 @@ import (
 	"crypto/x509"
 	"errors"
 	"fmt"
+	"log"
 	"math"
 	"os"
 	"path"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -18,6 +20,7 @@ import (
 	"github.com/golang/geo/r3"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.uber.org/zap"
+
 	// registers all components.
 	commonpb "go.viam.com/api/common/v1"
 	armpb "go.viam.com/api/component/arm/v1"
@@ -3329,8 +3332,9 @@ type mockResource struct {
 }
 
 type mockConfig struct {
-	Value int  `json:"value"`
-	Fail  bool `json:"fail"`
+	Value int    `json:"value"`
+	Fail  bool   `json:"fail"`
+	Sleep string `json:"sleep"`
 }
 
 var errMockValidation = errors.New("whoops")
@@ -3367,6 +3371,12 @@ func (m *mockResource) Reconfigure(
 	mConf, err := resource.NativeConfig[*mockConfig](conf)
 	if err != nil {
 		return err
+	}
+	if mConf.Sleep != "" {
+		if d, err := time.ParseDuration(mConf.Sleep); err == nil {
+			log.Printf("sleeping for %s\n", d)
+			time.Sleep(d)
+		}
 	}
 	m.value = mConf.Value
 	return nil
@@ -3542,6 +3552,62 @@ func TestMachineStatus(t *testing.T) {
 					Name:     mockNamed("m"),
 					State:    resource.NodeStateReady,
 					Revision: rev4,
+				},
+			},
+		)
+		rtestutils.VerifySameResourceStatuses(t, mStatus.Resources, expectedStatuses)
+
+		// Update resource with a working config that is slow to reconfigure.
+		rev5 := "rev5"
+		builtinRev = rev4
+		var wg sync.WaitGroup
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			lr.Reconfigure(ctx, &config.Config{
+				Revision: rev5,
+				Components: []resource.Config{
+					{
+						Name:  "m",
+						Model: mockModel,
+						API:   mockAPI,
+						// We need to specify both `Attributes` and `ConvertedAttributes`.
+						// The former triggers a reconfiguration and the former is actually
+						// used to reconfigure the component.
+						Attributes:          rutils.AttributeMap{"value": 300, "sleep": "1s"},
+						ConvertedAttributes: &mockConfig{Value: 300, Sleep: "1s"},
+					},
+				},
+			})
+		}()
+		// while reconfiguring
+		mStatus, err = lr.MachineStatus(ctx)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, mStatus.Config.Revision, test.ShouldEqual, rev4)
+		expectedStatuses = rtestutils.ConcatResourceStatuses(
+			getExpectedDefaultStatuses(),
+			[]resource.Status{
+				{
+					Name:     mockNamed("m"),
+					State:    resource.NodeStateConfiguring,
+					Revision: rev4,
+				},
+			},
+		)
+		rtestutils.VerifySameResourceStatuses(t, mStatus.Resources, expectedStatuses)
+		wg.Wait()
+		// after reconfigure finishes
+		builtinRev = rev5
+		mStatus, err = lr.MachineStatus(ctx)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, mStatus.Config.Revision, test.ShouldEqual, rev5)
+		expectedStatuses = rtestutils.ConcatResourceStatuses(
+			getExpectedDefaultStatuses(),
+			[]resource.Status{
+				{
+					Name:     mockNamed("m"),
+					State:    resource.NodeStateReady,
+					Revision: rev5,
 				},
 			},
 		)
