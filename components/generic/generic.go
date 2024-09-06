@@ -1,7 +1,7 @@
 // Package generic defines an abstract generic device and DoCommand() method.
-// For more information, see the [Generic Component].
+// For more information, see the [generic component docs].
 //
-// [Generic Component]: https://docs.viam.com/components/generic/
+// [generic component docs]: https://docs.viam.com/components/generic/
 package generic
 
 import (

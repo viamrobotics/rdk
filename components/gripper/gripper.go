@@ -1,7 +1,7 @@
 // Package gripper defines a robotic gripper.
-// For more information, see the [Gripper Component].
+// For more information, see the [gripper component docs].
 //
-// [Gripper Component]: https://docs.viam.com/components/gripper/
+// [gripper component docs]: https://docs.viam.com/components/gripper/
 package gripper
 
 import (

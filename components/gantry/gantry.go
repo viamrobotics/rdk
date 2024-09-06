@@ -1,7 +1,7 @@
 // Package gantry defines a robotic gantry with one or multiple axes.
-// For more information, see the [Gantry Component].
+// For more information, see the [gantry component docs].
 //
-// [Gantry Component]: https://docs.viam.com/components/gantry/
+// [gantry component docs]: https://docs.viam.com/components/gantry/
 package gantry
 
 import (
