@@ -22,6 +22,9 @@ var (
 	errFileModifiedTooRecently = errors.New("file modified too recently")
 )
 
+// uploadArbitraryFile uploads files which were not writted by the builtin datamanager's data capture package.
+// They are frequently files written by 3rd party programs such as images, videos, logs, written to
+// the capture directory or a subdirectory or to additional sync paths (or their sub directories).
 func uploadArbitraryFile(
 	ctx context.Context,
 	f *os.File,
