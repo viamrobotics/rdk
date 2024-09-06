@@ -1757,10 +1757,7 @@ This won't work unless you have an existing installation of our GitHub app on yo
 					Name:  "export",
 					Usage: "download a package from Viam cloud",
 					UsageText: createUsageText("packages export",
-						[]string{
-							packageFlagDestination, generalFlagOrgID, packageFlagName,
-							packageFlagVersion, packageFlagType,
-						}, false),
+						[]string{packageFlagType}, false),
 					Flags: []cli.Flag{
 						&cli.PathFlag{
 							Name:  packageFlagDestination,
