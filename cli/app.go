@@ -1776,9 +1776,9 @@ This won't work unless you have an existing installation of our GitHub app on yo
 							Usage: "name of the requested package. if missing, will try to read from meta.json",
 						},
 						&cli.StringFlag{
-							Name:     packageFlagVersion,
-							Required: true,
-							Usage:    "version of the requested package, can be `latest` to get the most recent version",
+							Name:  packageFlagVersion,
+							Usage: "version of the requested package, can be `latest` to get the most recent version",
+							Value: "latest",
 						},
 						&cli.StringFlag{
 							Name:     packageFlagType,
