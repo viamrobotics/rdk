@@ -3,7 +3,6 @@ package grpc
 import (
 	"context"
 	"errors"
-	"fmt"
 	"net"
 	"sync"
 	"time"
@@ -15,10 +14,10 @@ import (
 	"go.uber.org/zap"
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
+	"golang.org/x/exp/maps"
 	googlegrpc "google.golang.org/grpc"
 
 	"go.viam.com/rdk/logging"
-	"go.viam.com/rdk/resource"
 	rutils "go.viam.com/rdk/utils"
 )
 
@@ -80,8 +79,8 @@ type SharedConn struct {
 	// set to nil before this channel is closed.
 	peerConnFailed chan struct{}
 
-	resOnTrackMu  sync.Mutex
-	resOnTrackCBs map[resource.Name]OnTrackCB
+	onTrackCBByTrackNameMu sync.Mutex
+	onTrackCBByTrackName   map[string]OnTrackCB
 
 	logger logging.Logger
 }
@@ -106,18 +105,18 @@ func (sc *SharedConn) NewStream(
 	return sc.grpcConn.NewStream(ctx, desc, method, opts...)
 }
 
-// AddOnTrackSub adds an OnTrack subscription for the resource.
-func (sc *SharedConn) AddOnTrackSub(name resource.Name, onTrackCB OnTrackCB) {
-	sc.resOnTrackMu.Lock()
-	defer sc.resOnTrackMu.Unlock()
-	sc.resOnTrackCBs[name] = onTrackCB
+// AddOnTrackSub adds an OnTrack subscription for the track.
+func (sc *SharedConn) AddOnTrackSub(trackName string, onTrackCB OnTrackCB) {
+	sc.onTrackCBByTrackNameMu.Lock()
+	defer sc.onTrackCBByTrackNameMu.Unlock()
+	sc.onTrackCBByTrackName[trackName] = onTrackCB
 }
 
-// RemoveOnTrackSub removes an OnTrack subscription for the resource.
-func (sc *SharedConn) RemoveOnTrackSub(name resource.Name) {
-	sc.resOnTrackMu.Lock()
-	defer sc.resOnTrackMu.Unlock()
-	delete(sc.resOnTrackCBs, name)
+// RemoveOnTrackSub removes an OnTrack subscription for the track.
+func (sc *SharedConn) RemoveOnTrackSub(trackName string) {
+	sc.onTrackCBByTrackNameMu.Lock()
+	defer sc.onTrackCBByTrackNameMu.Unlock()
+	delete(sc.onTrackCBByTrackName, trackName)
 }
 
 // GrpcConn returns a gRPC capable client connection.
@@ -159,9 +158,11 @@ func (sc *SharedConn) ResetConn(conn rpc.ClientConn, moduleLogger logging.Logger
 		sc.logger = moduleLogger.Sublogger("networking.conn")
 	}
 
-	if sc.resOnTrackCBs == nil {
+	// It is safe to access this without a mutex as it is only ever nil once at the beginning of the
+	// SharedConn's lifetime
+	if sc.onTrackCBByTrackName == nil {
 		// Same initilization argument as above with the logger.
-		sc.resOnTrackCBs = make(map[resource.Name]OnTrackCB)
+		sc.onTrackCBByTrackName = make(map[string]OnTrackCB)
 	}
 
 	sc.peerConnMu.Lock()
@@ -199,16 +200,12 @@ func (sc *SharedConn) ResetConn(conn rpc.ClientConn, moduleLogger logging.Logger
 	}
 
 	sc.peerConn.OnTrack(func(trackRemote *webrtc.TrackRemote, rtpReceiver *webrtc.RTPReceiver) {
-		name, err := resource.NewFromString(trackRemote.StreamID())
-		if err != nil {
-			sc.logger.Errorw("StreamID did not parse as a ResourceName", "sharedConn", fmt.Sprintf("%p", sc), "streamID", trackRemote.StreamID())
-			return
-		}
-		sc.resOnTrackMu.Lock()
-		onTrackCB, ok := sc.resOnTrackCBs[name]
-		sc.resOnTrackMu.Unlock()
+		sc.onTrackCBByTrackNameMu.Lock()
+		onTrackCB, ok := sc.onTrackCBByTrackName[trackRemote.StreamID()]
+		sc.onTrackCBByTrackNameMu.Unlock()
 		if !ok {
-			sc.logger.Errorw("Callback not found for StreamID", "sharedConn", fmt.Sprintf("%p", sc), "streamID", trackRemote.StreamID())
+			msg := "Callback not found for StreamID: %s, keys(resOnTrackCBs): %#v"
+			sc.logger.Errorf(msg, trackRemote.StreamID(), maps.Keys(sc.onTrackCBByTrackName))
 			return
 		}
 		onTrackCB(trackRemote, rtpReceiver)
@@ -339,6 +336,14 @@ func NewLocalPeerConnection(logger logging.Logger) (*webrtc.PeerConnection, erro
 
 		return false
 	})
+
+	// RSDK-8547: WebRTC video streams expect an "increasing" SRTP value. When we forward RTP
+	// packets through different hops, those values are copied as-is. If one connection in this
+	// chain of hops has a blip, it will reset its SRTP value. Other hops in the chain that were not
+	// disconnected will see these unexpected change in SRTP values and interpret it as a replay
+	// attack, dropping the data. We disable this "protection" as per the justification in the noted
+	// ticket.
+	settingEngine.DisableSRTPReplayProtection(true)
 
 	options := []func(a *webrtc.API){webrtc.WithMediaEngine(&m), webrtc.WithInterceptorRegistry(&i)}
 	if utils.Debug {
