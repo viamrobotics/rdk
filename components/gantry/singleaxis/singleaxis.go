@@ -30,9 +30,6 @@ var (
 	homingTimeout = time.Duration(15e9)
 )
 
-// limitErrorMargin is added or subtracted from the location of the limit switch to ensure the switch is not passed.
-const limitErrorMargin = 0.0
-
 // Config is used for converting singleAxis config attributes.
 type Config struct {
 	Board           string   `json:"board,omitempty"` // used to read limit switch pins and control motor with gpio pins
@@ -548,13 +545,13 @@ func (g *singleAxis) MoveToPosition(ctx context.Context, positions, speeds []flo
 	// Currently needs to be moved by underlying gantry motor.
 	if len(g.limitSwitchPins) > 0 {
 		// Stops if position x is past the 0 limit switch
-		if x < (g.positionLimits[0] + limitErrorMargin) {
+		if x < g.positionLimits[0] {
 			err := errors.New("Cannot move past limit switch!")
 			return multierr.Combine(err, g.motor.Stop(ctx, extra))
 		}
 
 		// Stops if position x is past the at-length limit switch
-		if x > (g.positionLimits[1] - limitErrorMargin) {
+		if x > g.positionLimits[1] {
 			err := errors.New("Cannot move past limit switch!")
 			return multierr.Combine(err, g.motor.Stop(ctx, extra))
 		}
