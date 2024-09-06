@@ -1768,14 +1768,12 @@ This won't work unless you have an existing installation of our GitHub app on yo
 							Usage:    "output directory for downloaded package",
 						},
 						&cli.StringFlag{
-							Name:     generalFlagOrgID,
-							Required: true,
-							Usage:    "organization ID of the requested package",
+							Name:  generalFlagOrgID,
+							Usage: "organization ID or namespace of the requested package. if missing, will try to read from meta.json",
 						},
 						&cli.StringFlag{
-							Name:     packageFlagName,
-							Required: true,
-							Usage:    "name of the requested package",
+							Name:  packageFlagName,
+							Usage: "name of the requested package. if missing, will try to read from meta.json",
 						},
 						&cli.StringFlag{
 							Name:     packageFlagVersion,
