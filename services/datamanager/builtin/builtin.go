@@ -35,7 +35,7 @@ import (
 
 var (
 	// ErrCaptureDirectoryConfigurationDisabled happens when the viam-server is run with
-	// `-untrusted-env` and the capture directory is not `~/.viam`.
+	// `-untrusted-env` and the capture directory is not `~/.viam/capture`.
 	ErrCaptureDirectoryConfigurationDisabled = errors.New("changing the capture directory is prohibited in this environment")
 	viamCaptureDotDir                        = filepath.Join(os.Getenv("HOME"), ".viam", "capture")
 	// This clock only exists for tests.
