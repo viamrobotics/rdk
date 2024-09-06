@@ -19,11 +19,11 @@ import (
 // StreamingDataCaptureUpload.
 var MaxUnaryFileSize = int64(units.MB)
 
-// uploadDataCaptureFile uploads the *data.CaptureFile to the cloud using the cloud connection
+// uploadDataCaptureFile uploads the *data.CaptureFile to the cloud using the cloud connection.
 // returns context.Cancelled if ctx is cancelled before upload completes.
-// If f is of type BINARY_SENSOR and it's size is over MaxUnaryFileSize,
+// If f is of type BINARY_SENSOR and its size is over MaxUnaryFileSize,
 // uses StreamingDataCaptureUpload API so as to not exceed the unary response size.
-// Otherwise uploads data over DataCaptureUpload API.
+// Otherwise, uploads data over DataCaptureUpload API.
 func uploadDataCaptureFile(ctx context.Context, f *data.CaptureFile, conn cloudConn, logger logging.Logger) error {
 	logger.Debugf("preparing to upload data capture file: %s", f.GetPath())
 
