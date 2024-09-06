@@ -1,4 +1,7 @@
-// Package powersensor defines the interfaces of a powersensor
+// Package powersensor defines the interfaces of a powersensor.
+// For more information, see the [power sensor component docs].
+//
+// [power sensor component docs]: https://docs.viam.com/components/power-sensor/
 package powersensor
 
 import (

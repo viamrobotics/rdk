@@ -1,4 +1,7 @@
-// Package movementsensor defines the interfaces of a MovementSensor
+// Package movementsensor defines the interfaces of a MovementSensor.
+// For more information, see the [movement sensor component docs].
+//
+// [movement sensor component docs]: https://docs.viam.com/components/movement-sensor/
 package movementsensor
 
 import (

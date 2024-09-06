@@ -1,3 +1,7 @@
+// Package servo supports “RC” or “hobby” servo motors.
+// For more information, see the [servo component docs].
+//
+// [servo component docs]: https://docs.viam.com/components/servo/
 package servo
 
 import (

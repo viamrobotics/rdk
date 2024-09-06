@@ -1,4 +1,7 @@
 // Package input provides human input, such as buttons, switches, knobs, gamepads, joysticks, keyboards, mice, etc.
+// For more information, see the [input controller component docs].
+//
+// [input controller component docs]: https://docs.viam.com/components/input-controller/
 package input
 
 import (

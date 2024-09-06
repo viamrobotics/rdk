@@ -1,5 +1,5 @@
 // Package posetracker contains the interface and gRPC infrastructure
-// for a pose tracker component
+// for a pose tracker component.
 package posetracker
 
 import (

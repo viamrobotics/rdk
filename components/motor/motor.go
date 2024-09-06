@@ -1,3 +1,7 @@
+// Package motor defines machines that convert electricity into rotary motion.
+// For more information, see the [motor component docs].
+//
+// [motor component docs]: https://docs.viam.com/components/motor/
 package motor
 
 import (
