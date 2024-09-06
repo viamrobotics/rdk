@@ -209,37 +209,6 @@ func (s *robotServer) createWebOptions(cfg *config.Config) (weboptions.Options, 
 	return options, nil
 }
 
-func (s *robotServer) updateLoggerRegistry(cfg *config.Config) {
-	var combinedLogCfg []logging.LoggerPatternConfig
-	if cfg.LogConfig != nil {
-		combinedLogCfg = append(combinedLogCfg, cfg.LogConfig...)
-	}
-
-	for _, serv := range cfg.Services {
-		if serv.LogConfiguration != nil {
-			resLogCfg := logging.LoggerPatternConfig{
-				Pattern: "rdk.resource_manager." + serv.ResourceName().String(),
-				Level:   serv.LogConfiguration.Level.String(),
-			}
-			combinedLogCfg = append(combinedLogCfg, resLogCfg)
-		}
-	}
-	for _, comp := range cfg.Components {
-		if comp.LogConfiguration != nil {
-			resLogCfg := logging.LoggerPatternConfig{
-				Pattern: "rdk.resource_manager." + comp.ResourceName().String(),
-				Level:   comp.LogConfiguration.Level.String(),
-			}
-			combinedLogCfg = append(combinedLogCfg, resLogCfg)
-		}
-	}
-
-	if err := s.registry.Update(combinedLogCfg, s.logger); err != nil {
-		s.logger.Errorw("Error processing log patterns",
-			"error", err)
-	}
-}
-
 func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err error) {
 	ctx, cancel := context.WithCancel(ctx)
 
@@ -337,7 +306,7 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 
 	// Update logger registry as soon as we have fully processed config. Further
 	// updates to the registry will be handled by the config watcher goroutine.
-	s.updateLoggerRegistry(processedConfig)
+	config.UpdateLoggerRegistryFromConfig(s.registry, processedConfig, s.logger)
 
 	if processedConfig.Cloud != nil {
 		cloudRestartCheckerActive = make(chan struct{})
@@ -442,7 +411,7 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 				// Update logger registry if log patterns may have changed.
 				if !diff.LogEqual {
 					s.logger.Debug("Detected potential changes to log patterns; updating logger levels")
-					s.updateLoggerRegistry(processedConfig)
+					config.UpdateLoggerRegistryFromConfig(s.registry, processedConfig, s.logger)
 				}
 
 				myRobot.Reconfigure(ctx, processedConfig)

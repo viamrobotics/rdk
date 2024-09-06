@@ -12,34 +12,34 @@ type LoggerPatternConfig struct {
 }
 
 const (
-	// Pattern matching on loggers. Examples describe regular expression below.
+	// Regular expressions for logger names (non-resource loggers). Examples
+	// describe the regular expression that follows.
 
-	// e.g. "foo"
+	// e.g. "foo".
 	validLoggerSectionName = `[a-zA-Z0-9]+([_-]*[a-zA-Z0-9]+)*`
-	// e.g. "foo" or "*"
+	// e.g. "foo" or "*".
 	validLoggerSectionNameWithWildcard = `(` + validLoggerSectionName + `|\*)`
-	// e.g. "foo.bar"
-	validLoggerSections = validLoggerSectionName + `(\.` + validLoggerSectionName + `)*`
-	// e.g. "foo.*.foo"
+	// e.g. "foo.*.foo".
 	validLoggerSectionsWithWildcard = validLoggerSectionNameWithWildcard + `(\.` + validLoggerSectionNameWithWildcard + `)*`
 	// Restricts above regex to be the entire pattern.
 	validLoggerName = `^` + validLoggerSectionsWithWildcard + `$`
 
-	// Resource configurations. Examples describe regular expression below.
+	// Regular expressions for resource logger names. Examples describe the
+	// regular expression that follows.
 
-	// e.g. "foo-bar"
+	// e.g. "foo-bar".
 	validNamespacePattern = `([\w-]+|\*)`
-	// e.g. "service" or "component" or "*"
+	// e.g. "service" or "component" or "*".
 	validResourceTypePattern = `(service|component|\*)`
-	// e.g. "foo-bar"
+	// e.g. "foo-bar".
 	validResourceSubTypePattern = validNamespacePattern
-	// e.g. "foo-bar"
+	// e.g. "foo-bar".
 	validModelNamePattern = validNamespacePattern
-	// e.g. "service:foo" or "remote:"
+	// e.g. "service:foo" or "remote:".
 	validTypeSubsectionPattern = `(` + validResourceTypePattern + `:` + validResourceSubTypePattern + `|remote:)`
-	// e.g. "rdk.resource_manager.rdk:component:motor/foo"
+	// e.g. "rdk.resource_manager.rdk:component:motor/foo".
 	validResourcePattern = `^rdk.resource_manager.` + validNamespacePattern + `:` + validTypeSubsectionPattern + `\/` +
-		validModelNamePattern + `$` // e.g. "rdk.resource_manager.rdk:component:motor/foo"
+		validModelNamePattern + `$`
 )
 
 var (

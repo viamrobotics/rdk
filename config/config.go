@@ -1138,3 +1138,36 @@ type Revision struct {
 	Revision    string
 	LastUpdated time.Time
 }
+
+// UpdateLoggerRegistryFromConfig will update the passed in registry with all log patterns in
+// `cfg.LogConfig` and each resource's `LogConfiguration` field if present.
+func UpdateLoggerRegistryFromConfig(registry *logging.Registry, cfg *Config, warnLogger logging.Logger) {
+	var combinedLogCfg []logging.LoggerPatternConfig
+	if cfg.LogConfig != nil {
+		combinedLogCfg = append(combinedLogCfg, cfg.LogConfig...)
+	}
+
+	for _, serv := range cfg.Services {
+		if serv.LogConfiguration != nil {
+			resLogCfg := logging.LoggerPatternConfig{
+				Pattern: "rdk.resource_manager." + serv.ResourceName().String(),
+				Level:   serv.LogConfiguration.Level.String(),
+			}
+			combinedLogCfg = append(combinedLogCfg, resLogCfg)
+		}
+	}
+	for _, comp := range cfg.Components {
+		if comp.LogConfiguration != nil {
+			resLogCfg := logging.LoggerPatternConfig{
+				Pattern: "rdk.resource_manager." + comp.ResourceName().String(),
+				Level:   comp.LogConfiguration.Level.String(),
+			}
+			combinedLogCfg = append(combinedLogCfg, resLogCfg)
+		}
+	}
+
+	if err := registry.Update(combinedLogCfg, warnLogger); err != nil {
+		warnLogger.Warnw("Error processing log patterns",
+			"error", err)
+	}
+}
