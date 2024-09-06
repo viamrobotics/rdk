@@ -868,10 +868,10 @@ func TestGoToInputs(t *testing.T) {
 
 	inputs = []referenceframe.Input{{Value: 1.0}}
 	err = fakegantry.GoToInputs(ctx, inputs)
-	test.That(t, err, test.ShouldBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "cannot move past limit switch")
 
 	err = fakegantry.GoToInputs(ctx, inputs, inputs)
-	test.That(t, err, test.ShouldBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "cannot move past limit switch")
 
 	err = fakegantry.GoToInputs(ctx)
 	test.That(t, err, test.ShouldBeNil)
