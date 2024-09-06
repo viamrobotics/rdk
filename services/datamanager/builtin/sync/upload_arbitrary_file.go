@@ -66,9 +66,7 @@ func uploadArbitraryFile(
 	}
 
 	if pos != 0 {
-		msg := "error trying to Seek to beginning of file %s attempted to seek to " +
-			"beginning of file but only got to position: %d, expected to be at position 0"
-		return fmt.Errorf(msg, path, pos)
+		return fmt.Errorf("error trying to seek to beginning of file %s: expected position 0, instead got to position %d.", path, pos)
 	}
 
 	logger.Debugf("datasync.FileUpload request started for arbitrary file: %s", path)
