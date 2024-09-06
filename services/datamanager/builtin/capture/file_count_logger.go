@@ -67,7 +67,7 @@ func countFiles(ctx context.Context, captureDir string) int {
 		if info.IsDir() {
 			return nil
 		}
-		// this is intentionally not doing as many checkas as getAllFilesToSync because
+		// this is intentionally not doing as many checks as getAllFilesToSync because
 		// this is intended for debugging and does not need to be 100% accurate.
 		isCompletedCaptureFile := filepath.Ext(path) == data.CompletedCaptureFileExt
 		if isCompletedCaptureFile {
