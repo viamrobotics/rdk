@@ -87,9 +87,9 @@ func maybeDeleteExcessFiles(
 
 	switch {
 	case err != nil:
-		logger.Errorw("error deleting cached datacapture files", "error", err, "execution time", duration.Seconds())
+		logger.Errorw("error deleting cached datacapture files", "error", err, "execution time", duration.String())
 	case deletedFileCount > 0:
-		logger.Infof("%d files have been deleted to avoid the disk filling up, execution time: %f", deletedFileCount, duration.Seconds())
+		logger.Infof("%d files have been deleted to avoid the disk filling up, execution time: %s", deletedFileCount, duration.String())
 	default:
 		logger.Infof("no files deleted, execution time: %s", duration)
 	}
