@@ -3541,7 +3541,6 @@ func TestMachineStatus(t *testing.T) {
 	})
 
 	t.Run("poll during reconfiguration", func(t *testing.T) {
-		t.Skip()
 		rev4 := "rev4"
 		lr := setupLocalRobot(t, ctx, &config.Config{
 			Revision:   rev4,
@@ -3556,13 +3555,14 @@ func TestMachineStatus(t *testing.T) {
 			defer wg.Done()
 			lr.Reconfigure(ctx, &config.Config{
 				Revision:   rev5,
-				Components: []resource.Config{newMockConfig("m", 300, false, "1s")},
+				Components: []resource.Config{newMockConfig("m", 300, false, "5s")},
 			})
 		}()
+		time.Sleep(time.Millisecond * 100)
 		// while reconfiguring
 		mStatus, err := lr.MachineStatus(ctx)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, mStatus.Config.Revision, test.ShouldEqual, rev4)
+		test.That(t, mStatus.Config.Revision, test.ShouldEqual, rev5)
 		expectedStatuses := rtestutils.ConcatResourceStatuses(
 			getExpectedDefaultStatuses(rev4),
 			[]resource.Status{

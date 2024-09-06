@@ -1422,13 +1422,13 @@ func (r *localRobot) Shutdown(ctx context.Context) error {
 func (r *localRobot) MachineStatus(ctx context.Context) (robot.MachineStatus, error) {
 	var result robot.MachineStatus
 
-	r.manager.resourceGraphLock.Lock()
+	// r.manager.resourceGraphLock.Lock()
 	result.Resources = append(result.Resources, r.manager.resources.Status()...)
-	r.manager.resourceGraphLock.Unlock()
+	// r.manager.resourceGraphLock.Unlock()
 
-	r.configRevisionMu.RLock()
+	// r.configRevisionMu.RLock()
 	result.Config = r.configRevision
-	r.configRevisionMu.RUnlock()
+	// r.configRevisionMu.RUnlock()
 
 	return result, nil
 }
