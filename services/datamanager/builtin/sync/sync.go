@@ -7,7 +7,6 @@ import (
 	"os"
 	"path"
 	"path/filepath"
-	"strings"
 	"sync"
 	"time"
 
@@ -122,6 +121,7 @@ func (s *Sync) Reconfigure(_ context.Context, config Config, cloudConnSvc cloud.
 		// to execute, don't stop workers
 		return
 	}
+	s.config.logDiff(config, s.logger)
 
 	// config changed... stop workers
 	s.configCancelFunc()
@@ -130,12 +130,6 @@ func (s *Sync) Reconfigure(_ context.Context, config Config, cloudConnSvc cloud.
 	s.ScheduledTicker = nil
 	// wait for workers to stop
 	s.workersWg.Wait()
-
-	oldSyncPaths := strings.Join(s.config.syncPaths(), " ")
-	newSyncPaths := strings.Join(config.syncPaths(), " ")
-	if newSyncPaths != oldSyncPaths {
-		s.logger.Infof("sync_paths: %s", newSyncPaths)
-	}
 
 	// update config
 	s.configMu.Lock()
@@ -240,7 +234,7 @@ func (s *Sync) runCloudConnManager(
 		}
 
 		// once we have a cloud service we determine if we can get a cloud connection
-		s.logger.Debug("attempting to acquire cloud connection")
+		s.logger.Info("attempting to acquire cloud connection")
 		partID, conn, err := newCloudConn(ctx, cloudConnSvc)
 
 		if errors.Is(err, cloud.ErrNotCloudManaged) {
@@ -256,7 +250,7 @@ func (s *Sync) runCloudConnManager(
 		// continue retrying until newCloudConn succeeds or sync
 		// shuts down
 		if err != nil {
-			s.logger.Debugf("hit transient error trying to get cloud connection, "+
+			s.logger.Infof("hit transient error trying to get cloud connection, "+
 				"will retry in %s err: %s", durationBetweenAcquireConnection, err.Error())
 			if goutils.SelectContextOrWait(ctx, durationBetweenAcquireConnection) {
 				continue

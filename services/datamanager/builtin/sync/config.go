@@ -2,8 +2,10 @@ package sync
 
 import (
 	"reflect"
+	"strings"
 
 	"go.viam.com/rdk/components/sensor"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/utils"
 )
 
@@ -106,6 +108,61 @@ func (c Config) Equal(o Config) bool {
 		reflect.DeepEqual(c.Tags, o.Tags) &&
 		c.SelectiveSyncSensorEnabled == o.SelectiveSyncSensorEnabled &&
 		c.SelectiveSyncSensor == o.SelectiveSyncSensor
+}
+
+func (c *Config) logDiff(o Config, logger logging.Logger) {
+	if c.Equal(o) {
+		return
+	}
+
+	logger.Info("sync config changes:")
+	if !reflect.DeepEqual(c.AdditionalSyncPaths, o.AdditionalSyncPaths) {
+		logger.Infof("additional_sync_paths: %s", strings.Join(o.AdditionalSyncPaths, " "))
+	}
+
+	if c.CaptureDir != o.CaptureDir {
+		logger.Infof("capture_dir: %s", o.CaptureDir)
+	}
+
+	if c.CaptureDisabled != o.CaptureDisabled {
+		logger.Infof("capture_disabled: %t", o.CaptureDisabled)
+	}
+
+	if c.DeleteEveryNthWhenDiskFull != o.DeleteEveryNthWhenDiskFull {
+		logger.Infof("delete_every_nth_when_disk_full: %d", o.DeleteEveryNthWhenDiskFull)
+	}
+
+	if c.FileLastModifiedMillis != o.FileLastModifiedMillis {
+		logger.Infof("file_last_modified_millis: %d", o.FileLastModifiedMillis)
+	}
+
+	if c.MaximumNumSyncThreads != o.MaximumNumSyncThreads {
+		logger.Infof("maximum_num_sync_threads: %d", o.MaximumNumSyncThreads)
+	}
+
+	if c.ScheduledSyncDisabled != o.ScheduledSyncDisabled {
+		logger.Infof("sync_disabled: %d", o.ScheduledSyncDisabled)
+	}
+
+	if c.SelectiveSyncerName != o.SelectiveSyncerName {
+		logger.Infof("selective_syncer_name: %s", o.SelectiveSyncerName)
+	}
+
+	if c.SyncIntervalMins != o.SyncIntervalMins {
+		logger.Infof("sync_interval_mins: %s", o.SyncIntervalMins)
+	}
+
+	if !reflect.DeepEqual(c.Tags, o.Tags) {
+		logger.Infof("tags: %s", strings.Join(o.Tags, " "))
+	}
+
+	if c.SelectiveSyncSensorEnabled != o.SelectiveSyncSensorEnabled {
+		logger.Infof("SelectiveSyncSensorEnabled: %t", o.SelectiveSyncSensorEnabled)
+	}
+
+	if c.SelectiveSyncSensor != o.SelectiveSyncSensor {
+		logger.Infof("SelectiveSyncSensor: %s", o.SelectiveSyncSensor.Name())
+	}
 }
 
 func (c Config) syncPaths() []string {
