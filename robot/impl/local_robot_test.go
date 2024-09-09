@@ -3337,6 +3337,7 @@ type mockConfig struct {
 	Sleep string `json:"sleep"`
 }
 
+//nolint:unparam - the resource name is currently always "m" but this could easily change
 func newMockConfig(name string, val int, fail bool, sleep string) resource.Config {
 	return resource.Config{
 		Name:  name,
