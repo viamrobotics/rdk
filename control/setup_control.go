@@ -31,7 +31,6 @@ var (
 	sumIndex        = 1
 	linearPIDIndex  = 2
 	angularPIDIndex = -1
-	// TunedPIDVals    = []PIDConfig{{}, {}}.
 )
 
 // PIDLoop is used for setting up a PID control loop.
@@ -204,6 +203,11 @@ func (p *PIDLoop) tuneSinglePID(ctx context.Context, blockIndex, pidIndex int) e
 
 	p.ControlLoop.MonitorTuning(ctx)
 	tunedPID := p.ControlLoop.GetPIDVals(pidIndex)
+	if pidIndex == 0 {
+		tunedPID.Type = "linear_velocity"
+	} else if pidIndex == 1 {
+		tunedPID.Type = "angular_velocity"
+	}
 	(*p.TunedVals)[pidIndex] = tunedPID
 
 	p.ControlLoop.Stop()
