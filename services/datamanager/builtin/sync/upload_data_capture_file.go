@@ -178,6 +178,7 @@ func sendStreamingDCRequests(
 	logger logging.Logger,
 ) error {
 	// Loop until there is no more content to send.
+	chunkCount := 0
 	for i := 0; i < len(contents); i += UploadChunkSize {
 		select {
 		case <-ctx.Done():
@@ -198,10 +199,11 @@ func sendStreamingDCRequests(
 			}
 
 			// Send request
-			logger.Debugf("datasync.StreamingDataCaptureUpload sending chunk %d for file: %s", i, path)
+			logger.Debugf("datasync.StreamingDataCaptureUpload sending chunk %d starting at byte index %d for file: %s", chunkCount, i, path)
 			if err := stream.Send(uploadReq); err != nil {
 				return err
 			}
+			chunkCount++
 		}
 	}
 
