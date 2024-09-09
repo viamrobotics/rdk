@@ -248,7 +248,6 @@ func deleteFiles(
 			logger.Infof("successfully deleted %s", d.Name())
 			deletedFileCount++
 		}
-		logger.Info("ignored: " + fileInfo.Name())
 		// only increment on completed files
 		if isCompletedDataCaptureFile {
 			index++
