@@ -93,6 +93,12 @@ func New(
 	}
 }
 
+func format(c datamanager.DataCaptureConfig) string {
+	return fmt.Sprintf("datamanager.DataCaptureConfig{"+
+		"Name: %s, Method: %s, CaptureFrequencyHz: %f, CaptureQueueSize: %d, AdditionalParams:	%v, Disabled: %t, Tags: %v, CaptureDirectory: %s}",
+		c.Name, c.Method, c.CaptureFrequencyHz, c.CaptureQueueSize, c.AdditionalParams, c.Disabled, c.Tags, c.CaptureDirectory)
+}
+
 func (c *Capture) newCollectors(collectorConfigsByResource CollectorConfigsByResource, config Config) collectors {
 	// Initialize or add collectors based on changes to the component configurations.
 	newCollectors := make(map[collectorMetadata]*collectorAndConfig)
@@ -103,20 +109,20 @@ func (c *Capture) newCollectors(collectorConfigsByResource CollectorConfigsByRes
 			// We only use service-level tags.
 			cfg.Tags = config.Tags
 			if cfg.Disabled {
-				c.logger.Infof("%s disabled. config: %#v", md.String(), cfg)
+				c.logger.Infof("%s disabled. config: %s", md.String(), format(cfg))
 				continue
 			}
 
 			if cfg.CaptureFrequencyHz <= 0 {
 				msg := "%s disabled due to `capture_frequency_hz` being less than or equal to zero. config: %#v"
-				c.logger.Warnf(msg, md.String(), cfg)
+				c.logger.Warnf(msg, md.String(), format(cfg))
 				continue
 			}
 
 			newCollectorAndConfig, err := c.initializeOrUpdateCollector(res, md, cfg, config)
 			if err != nil {
 				c.logger.Warnw("failed to initialize or update collector",
-					"error", err, "resource_name", res.Name(), "metadata", md, "data capture config", cfg)
+					"error", err, "resource_name", res.Name(), "metadata", md, "data capture config", format(cfg))
 				continue
 			}
 			newCollectors[md] = newCollectorAndConfig
