@@ -248,8 +248,8 @@ func (c *Capture) initializeOrUpdateCollector(
 			md, collectorConfigDescription(collectorConfig, targetDir, config.MaximumCaptureFileSizeBytes, queueSize, bufferSize))
 	}
 
-	msg := "collector %s initialized with config: %s"
-	c.logger.Debugf(msg, md, collectorConfigDescription(collectorConfig, targetDir, config.MaximumCaptureFileSizeBytes, queueSize, bufferSize))
+	c.logger.Debugf("collector initialized; collector: %s, config: %s",
+		md, collectorConfigDescription(collectorConfig, targetDir, config.MaximumCaptureFileSizeBytes, queueSize, bufferSize))
 	collector.Collect()
 
 	return &collectorAndConfig{res, collector, collectorConfig}, nil
