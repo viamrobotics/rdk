@@ -68,6 +68,7 @@ func Named(name string) resource.Name {
 }
 
 // A MovementSensor reports information about the robot's direction, position and speed.
+// For more information, see the [movement sensor component docs].
 //
 // Position example:
 //
@@ -120,6 +121,8 @@ func Named(name string) resource.Name {
 //
 //	// Get the accuracy of the movement sensor.
 //	accuracy, err := myMovementSensor.Accuracy(context.Background(), nil)
+//
+// [movement sensor component docs]: https://docs.viam.com/components/movement-sensor/
 type MovementSensor interface {
 	resource.Sensor
 	resource.Resource
