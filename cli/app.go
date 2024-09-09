@@ -926,7 +926,7 @@ var app = &cli.App{
 									UsageText: createUsageText("train submit custom from-registry",
 										[]string{
 											datasetFlagDatasetID, generalFlagOrgID, trainFlagModelName,
-											mlTrainingFlagName, mlTrainingFlagVersion,
+											mlTrainingFlagName, mlTrainingFlagVersion, trainCliArgs,
 										}, true),
 									Flags: []cli.Flag{
 										&cli.StringFlag{
@@ -959,6 +959,11 @@ var app = &cli.App{
 											Usage:    "version of the ML training script to use for training.",
 											Required: true,
 										},
+										&cli.StringFlag{
+											Name:     trainCliArgs,
+											Usage:    "optional command line arguments to run the training script with " + "which should be formatted as --option1=value1,--option2=value2",
+											Required: false,
+										},
 									},
 									Action: MLSubmitCustomTrainingJob,
 								},
@@ -968,7 +973,7 @@ var app = &cli.App{
 									UsageText: createUsageText("train submit custom with-upload",
 										[]string{
 											datasetFlagDatasetID, generalFlagOrgID, trainFlagModelName,
-											mlTrainingFlagPath, mlTrainingFlagName,
+											mlTrainingFlagPath, mlTrainingFlagName, trainCliArgs,
 										}, true),
 									Flags: []cli.Flag{
 										&cli.StringFlag{
@@ -1013,6 +1018,11 @@ var app = &cli.App{
 										&cli.StringFlag{
 											Name:     trainFlagModelType,
 											Usage:    "task type of the ML training script to upload, can be: " + strings.Join(modelTypes, ", "),
+											Required: false,
+										},
+										&cli.StringFlag{
+											Name:     trainCliArgs,
+											Usage:    "optional command line arguments to run the training script with " + "which should be formatted as --option1=value1,--option2=value2",
 											Required: false,
 										},
 									},

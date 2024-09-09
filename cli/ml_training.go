@@ -24,6 +24,7 @@ const (
 	trainFlagModelVersion = "model-version"
 	trainFlagModelType    = "model-type"
 	trainFlagModelLabels  = "model-labels"
+	trainCliArgs          = "args"
 
 	trainingStatusPrefix = "TRAINING_STATUS_"
 )
@@ -37,7 +38,7 @@ func MLSubmitCustomTrainingJob(c *cli.Context) error {
 
 	trainingJobID, err := client.mlSubmitCustomTrainingJob(
 		c.String(datasetFlagDatasetID), c.String(mlTrainingFlagName), c.String(mlTrainingFlagVersion), c.String(generalFlagOrgID),
-		c.String(trainFlagModelName), c.String(trainFlagModelVersion))
+		c.String(trainFlagModelName), c.String(trainFlagModelVersion), c.String(trainCliArgs))
 	if err != nil {
 		return err
 	}
@@ -70,7 +71,7 @@ func MLSubmitCustomTrainingJobWithUpload(c *cli.Context) error {
 		registryItemID)
 	trainingJobID, err := client.mlSubmitCustomTrainingJob(
 		c.String(datasetFlagDatasetID), registryItemID, resp.Version, c.String(trainFlagModelOrgID),
-		c.String(trainFlagModelName), c.String(trainFlagModelVersion))
+		c.String(trainFlagModelName), c.String(trainFlagModelVersion), c.String(trainCliArgs))
 	if err != nil {
 		return err
 	}
@@ -125,7 +126,7 @@ func (c *viamClient) mlSubmitTrainingJob(datasetID, orgID, modelName, modelVersi
 
 // mlSubmitCustomTrainingJob trains on data with the specified dataset and registry item.
 func (c *viamClient) mlSubmitCustomTrainingJob(datasetID, registryItemID, registryItemVersion, orgID, modelName,
-	modelVersion string,
+	modelVersion, args string,
 ) (string, error) {
 	if err := c.ensureLoggedIn(); err != nil {
 		return "", err
@@ -140,15 +141,30 @@ func (c *viamClient) mlSubmitCustomTrainingJob(datasetID, registryItemID, regist
 		modelVersion = time.Now().Format("2006-01-02T15-04-05")
 	}
 
-	resp, err := c.mlTrainingClient.SubmitCustomTrainingJob(context.Background(),
-		&mltrainingpb.SubmitCustomTrainingJobRequest{
-			DatasetId:           datasetID,
-			RegistryItemId:      registryItemID,
-			RegistryItemVersion: registryItemVersion,
-			OrganizationId:      orgID,
-			ModelName:           modelName,
-			ModelVersion:        modelVersion,
-		})
+	req := &mltrainingpb.SubmitCustomTrainingJobRequest{
+		DatasetId:           datasetID,
+		RegistryItemId:      registryItemID,
+		RegistryItemVersion: registryItemVersion,
+		OrganizationId:      orgID,
+		ModelName:           modelName,
+		ModelVersion:        modelVersion,
+	}
+
+	var argMap map[string]string
+	splitArgs := strings.Split(args, ",")
+
+	for _, optionVal := range splitArgs {
+		splitOptionVal := strings.Split(optionVal, "=")
+		if len(splitOptionVal) != 2 {
+			return "", errors.Errorf("invalid format for command line arguments, passed:", args)
+		}
+		argMap[splitOptionVal[0]] = splitOptionVal[1]
+	}
+	if argMap != nil {
+		req.Arguments = argMap
+	}
+
+	resp, err := c.mlTrainingClient.SubmitCustomTrainingJob(context.Background(), req)
 	if err != nil {
 		return "", errors.Wrapf(err, "received error from server")
 	}
