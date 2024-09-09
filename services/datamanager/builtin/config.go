@@ -14,6 +14,9 @@ const (
 	// defaultMaxParallelSyncRoutines is the maximum number of sync goroutines that can be running at once.
 	defaultMaxParallelSyncRoutines = 1000
 	// defaultDeleteEveryNth temporarily public for tests.
+	// defaultDeleteEveryNth configures the N in the following expression `captureFileIndex % N == 0`
+	// which is evaluated if the file deletion threshold has been reached. If `captureFileIndex % N == 0`
+	// return true then the file will be deleted to free up space.
 	defaultDeleteEveryNth = 5
 )
 
