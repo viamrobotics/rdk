@@ -1,4 +1,7 @@
 // Package navigation is the service that allows you to navigate along waypoints.
+// For more information, see the [navigation service docs].
+//
+// [navigation service docs]: https://docs.viam.com/services/navigation/
 package navigation
 
 import (
@@ -80,6 +83,7 @@ type Properties struct {
 }
 
 // A Service controls the navigation for a robot.
+// For more information, see the [navigation service docs].
 //
 // Mode example:
 //
@@ -134,6 +138,8 @@ type Properties struct {
 //
 //	// Get the properties of the current navigation service.
 //	navProperties, err := myNav.Properties(context.Background())
+//
+// [navigation service docs]: https://docs.viam.com/services/navigation/
 type Service interface {
 	resource.Resource
 
