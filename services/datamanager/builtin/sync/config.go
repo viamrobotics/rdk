@@ -141,7 +141,7 @@ func (c *Config) logDiff(o Config, logger logging.Logger) {
 	}
 
 	if c.ScheduledSyncDisabled != o.ScheduledSyncDisabled {
-		logger.Infof("sync_disabled: %d", o.ScheduledSyncDisabled)
+		logger.Infof("sync_disabled: %t", o.ScheduledSyncDisabled)
 	}
 
 	if c.SelectiveSyncerName != o.SelectiveSyncerName {
@@ -149,7 +149,7 @@ func (c *Config) logDiff(o Config, logger logging.Logger) {
 	}
 
 	if c.SyncIntervalMins != o.SyncIntervalMins {
-		logger.Infof("sync_interval_mins: %s", o.SyncIntervalMins)
+		logger.Infof("sync_interval_mins: %f", o.SyncIntervalMins)
 	}
 
 	if !reflect.DeepEqual(c.Tags, o.Tags) {
