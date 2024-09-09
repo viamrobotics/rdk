@@ -109,13 +109,12 @@ func (c *Capture) newCollectors(collectorConfigsByResource CollectorConfigsByRes
 			// We only use service-level tags.
 			cfg.Tags = config.Tags
 			if cfg.Disabled {
-				c.logger.Infof("%s disabled. config: %s", md.String(), format(cfg))
+				c.logger.Infof("collector disabled due to config `disabled` being true; collector: %s", md)
 				continue
 			}
 
 			if cfg.CaptureFrequencyHz <= 0 {
-				msg := "%s disabled due to `capture_frequency_hz` being less than or equal to zero. config: %#v"
-				c.logger.Warnf(msg, md.String(), format(cfg))
+				c.logger.Warnf("collector disabled due to config `capture_frequency_hz` being less than or equal to zero. collector: %s", md)
 				continue
 			}
 
