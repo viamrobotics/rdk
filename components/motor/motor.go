@@ -1,3 +1,7 @@
+// Package motor defines machines that convert electricity into rotary motion.
+// For more information, see the [motor component docs].
+//
+// [motor component docs]: https://docs.viam.com/components/motor/
 package motor
 
 import (
@@ -37,6 +41,7 @@ const SubtypeName = "motor"
 var API = resource.APINamespaceRDK.WithComponentType(SubtypeName)
 
 // A Motor represents a physical motor connected to a board.
+// For more information, see the [motor component docs].
 //
 // SetPower example:
 //
@@ -92,6 +97,8 @@ var API = resource.APINamespaceRDK.WithComponentType(SubtypeName)
 //	logger.Info(powered)
 //	logger.Info("Power percent:")
 //	logger.Info(pct)
+//
+// [motor component docs]: https://docs.viam.com/components/motor/
 type Motor interface {
 	resource.Resource
 	resource.Actuator
