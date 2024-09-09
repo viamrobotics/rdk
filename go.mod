@@ -405,4 +405,4 @@ require (
 	golang.org/x/exp v0.0.0-20230725012225-302865e7556b
 )
 
-replace go.viam.com/api => github.com/viamrobotics/api v0.1.338-0.20240906184640-16a974029c9e // <FEATURE-BRANCH-NAME>
+replace go.viam.com/api => github.com/viamrobotics/api v0.1.338-0.20240906184640-16a974029c9e // DATA-3094
