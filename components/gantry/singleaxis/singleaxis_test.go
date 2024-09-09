@@ -666,12 +666,14 @@ func TestMoveToPosition(t *testing.T) {
 	err = fakegantry.MoveToPosition(ctx, pos, speed, nil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "out of range")
 
+	pos = []float64{0}
 	fakegantry.lengthMm = float64(4)
 	fakegantry.positionLimits = []float64{0, 4}
 	fakegantry.limitSwitchPins = []string{"1", "2"}
 	err = fakegantry.MoveToPosition(ctx, pos, speed, nil)
 	test.That(t, err, test.ShouldBeNil)
 
+	pos = []float64{1}
 	fakegantry.lengthMm = float64(4)
 	fakegantry.positionLimits = []float64{0.01, .01}
 	fakegantry.limitSwitchPins = []string{"1", "2"}
