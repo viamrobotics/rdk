@@ -65,7 +65,7 @@ func maybeDeleteExcessFiles(
 	start := clock.Now()
 	logger.Debug("checking disk usage")
 	usage, err := diskusage.Statfs(captureDir)
-	logger.Debugf("disk usage: %s", usage)
+	logger.Infof("disk usage: %s", usage)
 	if err != nil {
 		logger.Error(errors.Wrap(err, "error checking file system stats"))
 		return
