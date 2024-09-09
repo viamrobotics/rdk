@@ -51,6 +51,7 @@ func Named(name string) resource.Name {
 }
 
 // An Arm represents a physical robotic arm that exists in three-dimensional space.
+// For more information, see the [arm component docs].
 //
 // EndPosition example:
 //
@@ -90,6 +91,8 @@ func Named(name string) resource.Name {
 //
 //	// Get the current position of each joint on the arm as JointPositions.
 //	pos, err := myArm.JointPositions(context.Background(), nil)
+//
+// [arm component docs]: https://docs.viam.com/components/arm/
 type Arm interface {
 	resource.Resource
 	referenceframe.ModelFramer
