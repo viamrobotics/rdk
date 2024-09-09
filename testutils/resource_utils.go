@@ -83,6 +83,20 @@ func VerifySameResourceStatuses(tb testing.TB, actual, expected []resource.Statu
 	test.That(tb, sortedActual, test.ShouldResemble, sortedExpected)
 }
 
+// FilterByStatus takes a slice of [resource.Status] and a [resource.NodeState] and
+// returns a slice of [resource.Status] that are in the given [resource.NodeState].
+func FilterByStatus(tb testing.TB, resourceStatuses []resource.Status, state resource.NodeState) []resource.Status {
+	tb.Helper()
+
+	var result []resource.Status
+	for _, rs := range resourceStatuses {
+		if rs.State == state {
+			result = append(result, rs)
+		}
+	}
+	return result
+}
+
 func newSortedResourceStatuses(resourceStatuses []resource.Status) []resource.Status {
 	sorted := make([]resource.Status, len(resourceStatuses))
 	copy(sorted, resourceStatuses)

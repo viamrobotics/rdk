@@ -3457,9 +3457,8 @@ func TestMachineStatus(t *testing.T) {
 	)
 	defer resource.Deregister(mockAPI, mockModel)
 
-	rev1 := "rev1"
-
 	t.Run("default resources", func(t *testing.T) {
+		rev1 := "rev1"
 		lr := setupLocalRobot(t, ctx, &config.Config{Revision: rev1}, logger)
 
 		mStatus, err := lr.MachineStatus(ctx)
@@ -3471,7 +3470,7 @@ func TestMachineStatus(t *testing.T) {
 	})
 
 	t.Run("poll after working and failing reconfigures", func(t *testing.T) {
-		lr := setupLocalRobot(t, ctx, &config.Config{Revision: rev1}, logger)
+		lr := setupLocalRobot(t, ctx, &config.Config{Revision: "rev1"}, logger)
 
 		// Add a fake resource to the robot.
 		rev2 := "rev2"
@@ -3541,51 +3540,67 @@ func TestMachineStatus(t *testing.T) {
 	})
 
 	t.Run("poll during reconfiguration", func(t *testing.T) {
-		rev4 := "rev4"
+		rev1 := "rev1"
 		lr := setupLocalRobot(t, ctx, &config.Config{
-			Revision:   rev4,
+			Revision:   rev1,
 			Components: []resource.Config{newMockConfig("m", 200, false, "")},
 		}, logger)
 
-		// Update resource with a working config that is slow to reconfigure.
-		rev5 := "rev5"
+		// update resource with a working config that is slow to reconfigure.
+		rev2 := "rev2"
 		var wg sync.WaitGroup
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
 			lr.Reconfigure(ctx, &config.Config{
-				Revision:   rev5,
-				Components: []resource.Config{newMockConfig("m", 300, false, "5s")},
+				Revision:   rev2,
+				Components: []resource.Config{newMockConfig("m", 300, false, "1s")},
 			})
 		}()
+		// sleep for a short amount of time to allow the machine to receive a new
+		// revision. this sleep should be shorter than the resource update duration
+		// defined above so that updated resource is still in a "configuring" state.
 		time.Sleep(time.Millisecond * 100)
-		// while reconfiguring
+
+		// get status while reconfiguring
 		mStatus, err := lr.MachineStatus(ctx)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, mStatus.Config.Revision, test.ShouldEqual, rev5)
-		expectedStatuses := rtestutils.ConcatResourceStatuses(
-			getExpectedDefaultStatuses(rev4),
-			[]resource.Status{
-				{
-					Name:     mockNamed("m"),
-					State:    resource.NodeStateConfiguring,
-					Revision: rev4,
-				},
+		test.That(t, mStatus.Config.Revision, test.ShouldEqual, rev2)
+
+		// the component whose config changed should be the only component in a
+		// "configuring" state and associated with the original revision.
+		filterConfiguring := rtestutils.FilterByStatus(t, mStatus.Resources, resource.NodeStateConfiguring)
+		expectedConfiguring := []resource.Status{
+			{
+				Name:     mockNamed("m"),
+				State:    resource.NodeStateConfiguring,
+				Revision: rev1,
 			},
-		)
-		rtestutils.VerifySameResourceStatuses(t, mStatus.Resources, expectedStatuses)
+		}
+		rtestutils.VerifySameResourceStatuses(t, filterConfiguring, expectedConfiguring)
+
+		// all other components should be in the "ready" state and associated with the
+		// new revision.
+		filterReady := rtestutils.FilterByStatus(t, mStatus.Resources, resource.NodeStateReady)
+		expectedReady := getExpectedDefaultStatuses(rev2)
+		rtestutils.VerifySameResourceStatuses(t, filterReady, expectedReady)
+
 		wg.Wait()
-		// after reconfigure finishes
+
+		// get status after reconfigure finishes
 		mStatus, err = lr.MachineStatus(ctx)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, mStatus.Config.Revision, test.ShouldEqual, rev5)
-		expectedStatuses = rtestutils.ConcatResourceStatuses(
-			getExpectedDefaultStatuses(rev5),
+		test.That(t, mStatus.Config.Revision, test.ShouldEqual, rev2)
+
+		// now all components, including the one whose config changed, should all be in
+		// the "ready" state and associated with the new revision.
+		expectedStatuses := rtestutils.ConcatResourceStatuses(
+			getExpectedDefaultStatuses(rev2),
 			[]resource.Status{
 				{
 					Name:     mockNamed("m"),
 					State:    resource.NodeStateReady,
-					Revision: rev5,
+					Revision: rev2,
 				},
 			},
 		)
