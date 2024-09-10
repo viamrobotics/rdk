@@ -201,14 +201,14 @@ func (sb *sensorBase) Reconfigure(ctx context.Context, deps resource.Dependencie
 
 	if sb.velocities != nil && len(newConf.ControlParameters) != 0 {
 		// assign linear and angular PID correctly based on the given type
-		for _, c := range newConf.ControlParameters {
-			switch c.Type {
+		for _, pidConf := range newConf.ControlParameters {
+			switch pidConf.Type {
 			case typeLinVel:
 				// configPIDVals at index 0 is linear
-				sb.configPIDVals[0] = c
+				sb.configPIDVals[0] = pidConf
 			case typeAngVel:
 				// configPIDVals at index 1 is angular
-				sb.configPIDVals[1] = c
+				sb.configPIDVals[1] = pidConf
 			default:
 				sb.logger.Error("control_parameters type must be 'linear_velocity' or 'angular_velocity'")
 			}
@@ -269,8 +269,13 @@ func (sb *sensorBase) DoCommand(ctx context.Context, req map[string]interface{})
 	defer sb.mu.Unlock()
 	ok := req[getPID].(bool)
 	if ok {
-		resp[getPID] = fmt.Sprintf("{p: %v, i: %v, d: %v, type: linear_velocity}, {p: %v, i: %v, d: %v, type: angular_velocity}",
-			(*sb.tunedVals)[0].P, (*sb.tunedVals)[0].I, (*sb.tunedVals)[0].D, (*sb.tunedVals)[1].P, (*sb.tunedVals)[1].I, (*sb.tunedVals)[1].D)
+		var respStr string
+		for _, pidConf := range *sb.tunedVals {
+			if !pidConf.NeedsAutoTuning() {
+				respStr += fmt.Sprintf("{p: %v, i: %v, d: %v, type: %v} ", pidConf.P, pidConf.I, pidConf.D, pidConf.Type)
+			}
+		}
+		resp[getPID] = respStr
 	}
 
 	return resp, nil

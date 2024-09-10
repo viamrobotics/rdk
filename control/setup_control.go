@@ -166,6 +166,10 @@ func (p *PIDLoop) TunePIDLoop(ctx context.Context, cancelFunc context.CancelFunc
 
 			p.ControlLoop.MonitorTuning(ctx)
 
+			tunedPID := p.ControlLoop.GetPIDVals(0)
+			tunedPID.Type = p.PIDVals[0].Type
+			(*p.TunedVals)[0] = tunedPID
+
 			p.ControlLoop.Stop()
 			p.ControlLoop = nil
 		}
@@ -203,11 +207,7 @@ func (p *PIDLoop) tuneSinglePID(ctx context.Context, blockIndex, pidIndex int) e
 
 	p.ControlLoop.MonitorTuning(ctx)
 	tunedPID := p.ControlLoop.GetPIDVals(pidIndex)
-	if pidIndex == 0 {
-		tunedPID.Type = "linear_velocity"
-	} else if pidIndex == 1 {
-		tunedPID.Type = "angular_velocity"
-	}
+	tunedPID.Type = p.PIDVals[pidIndex].Type
 	(*p.TunedVals)[pidIndex] = tunedPID
 
 	p.ControlLoop.Stop()
@@ -480,7 +480,20 @@ func UpdateTrapzBlock(ctx context.Context, name string, maxVel float64, dependsO
 }
 
 // TunedPIDErr returns an error with the stored tuned PID values.
-func TunedPIDErr(tunedVals PIDConfig) string {
-	return fmt.Sprintf("{\"p\": %v, \"i\": %v, \"d\": %v, \"type\": \"%v\"}",
-		tunedVals.P, tunedVals.I, tunedVals.D, tunedVals.Type)
+func TunedPIDErr(name string, tunedVals []PIDConfig) error {
+	var tunedStr string
+	for i, pid := range tunedVals {
+		if i > 0 {
+			tunedStr += `, `
+		}
+		if !pid.NeedsAutoTuning() {
+			tunedStr += fmt.Sprintf(`{"p": %v, "i": %v, "d": %v, "type": "%v"}`, pid.P, pid.I, pid.D, pid.Type)
+		}
+	}
+	return fmt.Errorf(`%v has been tuned, please copy the following control values into your config: %v`, name, tunedStr)
+}
+
+// TuningInProgressErr returns an error when the loop is actively tuning
+func TuningInProgressErr(name string) error {
+	return fmt.Errorf(`tuning for %v is in progress`, name)
 }

@@ -58,7 +58,7 @@ func (cm *controlledMotor) setupControlLoop(conf *Config) error {
 	}
 
 	// convert the motor config ControlParameters to the control.PIDConfig structure for use in setup_control.go
-	convertedControlParams := []control.PIDConfig{{
+	cm.configPIDVals = []control.PIDConfig{{
 		Type: "",
 		P:    conf.ControlParameters.P,
 		I:    conf.ControlParameters.I,
@@ -67,11 +67,11 @@ func (cm *controlledMotor) setupControlLoop(conf *Config) error {
 
 	// auto tune motor if all ControlParameters are 0
 	// since there's only one set of PID values for a motor, they will always be at convertedControlParams[0]
-	if convertedControlParams[0].NeedsAutoTuning() {
+	if cm.configPIDVals[0].NeedsAutoTuning() {
 		options.NeedsAutoTuning = true
 	}
 
-	pl, err := control.SetupPIDControlConfig(convertedControlParams, cm.Name().ShortName(), options, cm, cm.logger)
+	pl, err := control.SetupPIDControlConfig(cm.configPIDVals, cm.Name().ShortName(), options, cm, cm.logger)
 	if err != nil {
 		return err
 	}
@@ -79,6 +79,7 @@ func (cm *controlledMotor) setupControlLoop(conf *Config) error {
 	cm.controlLoopConfig = *pl.ControlConf
 	cm.loop = pl.ControlLoop
 	cm.blockNames = pl.BlockNames
+	cm.tunedVals = pl.TunedVals
 
 	return nil
 }
@@ -117,6 +118,7 @@ func setupMotorWithControls(
 		Named:            cfg.ResourceName().AsNamed(),
 		logger:           logger,
 		opMgr:            operation.NewSingleOperationManager(),
+		tunedVals:        &[]control.PIDConfig{{}},
 		ticksPerRotation: tpr,
 		real:             m,
 		enc:              enc,
@@ -150,6 +152,8 @@ type controlledMotor struct {
 	controlLoopConfig control.Config
 	blockNames        map[string][]string
 	loop              *control.Loop
+	configPIDVals     []control.PIDConfig
+	tunedVals         *[]control.PIDConfig
 }
 
 // SetPower sets the percentage of power the motor should employ between -1 and 1.
@@ -281,6 +285,14 @@ func (cm *controlledMotor) SetRPM(ctx context.Context, rpm float64, extra map[st
 		return err
 	}
 
+	// if loop is tuning, return an error
+	// if loop has been tuned but the values haven't been added to the config, error with tuned values
+	if cm.loop != nil && cm.loop.GetTuning(ctx) {
+		return control.TuningInProgressErr(cm.Name().ShortName())
+	} else if cm.configPIDVals[0].NeedsAutoTuning() && !(*cm.tunedVals)[0].NeedsAutoTuning() {
+		return control.TunedPIDErr(cm.Name().ShortName(), *cm.tunedVals)
+	}
+
 	if cm.loop == nil {
 		// create new control loop
 		if err := cm.startControlLoop(); err != nil {
@@ -322,6 +334,14 @@ func (cm *controlledMotor) GoFor(ctx context.Context, rpm, revolutions float64, 
 	currentTicks, _, err := cm.enc.Position(ctx, encoder.PositionTypeTicks, extra)
 	if err != nil {
 		return err
+	}
+
+	// if loop is tuning, return an error
+	// if loop has been tuned but the values haven't been added to the config, error with tuned values
+	if cm.loop != nil && cm.loop.GetTuning(ctx) {
+		return control.TuningInProgressErr(cm.Name().ShortName())
+	} else if cm.configPIDVals[0].NeedsAutoTuning() && !(*cm.tunedVals)[0].NeedsAutoTuning() {
+		return control.TunedPIDErr(cm.Name().ShortName(), *cm.tunedVals)
 	}
 
 	if cm.loop == nil {

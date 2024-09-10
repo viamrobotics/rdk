@@ -4,7 +4,6 @@ package sensorcontrolled
 import (
 	"context"
 	"errors"
-	"fmt"
 	"math"
 	"time"
 
@@ -57,24 +56,13 @@ func (sb *sensorBase) MoveStraight(
 		}
 	}
 
+	// if loop is tuning, return an error
 	// if loop has been tuned but the values haven't been added to the config, error with tuned values
-	switch {
-	case (sb.configPIDVals[0].NeedsAutoTuning() && !(*sb.tunedVals)[0].NeedsAutoTuning()) &&
-		(sb.configPIDVals[1].NeedsAutoTuning() && !(*sb.tunedVals)[1].NeedsAutoTuning()):
-		err := "\"control_parameters\": ["
-		err += control.TunedPIDErr((*sb.tunedVals)[0]) + ", "
-		err += control.TunedPIDErr((*sb.tunedVals)[1]) + "]"
-		return fmt.Errorf("%v has been tuned, copy these control parameters into the config to enable movement: %v",
-			sb.Name().ShortName(), err)
-	case sb.configPIDVals[0].NeedsAutoTuning() && !(*sb.tunedVals)[0].NeedsAutoTuning():
-		err := control.TunedPIDErr((*sb.tunedVals)[0])
-		return fmt.Errorf("%v has been tuned, copy these linear control parameters into the config to enable movement: %v",
-			sb.Name().ShortName(), err)
-	case sb.configPIDVals[1].NeedsAutoTuning() && !(*sb.tunedVals)[1].NeedsAutoTuning():
-		err := control.TunedPIDErr((*sb.tunedVals)[1])
-		return fmt.Errorf("%v has been tuned, copy these angular control parameters into the config to enable movement: %v",
-			sb.Name().ShortName(), err)
-	default:
+	if sb.loop != nil && sb.loop.GetTuning(ctx) {
+		return control.TuningInProgressErr(sb.Name().ShortName())
+	} else if (sb.configPIDVals[0].NeedsAutoTuning() && !(*sb.tunedVals)[0].NeedsAutoTuning()) ||
+		(sb.configPIDVals[1].NeedsAutoTuning() && !(*sb.tunedVals)[1].NeedsAutoTuning()) {
+		return control.TunedPIDErr(sb.Name().ShortName(), *sb.tunedVals)
 	}
 
 	// make sure the control loop is enabled
