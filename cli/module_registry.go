@@ -12,7 +12,10 @@ import (
 	"math"
 	"os"
 	"os/exec"
+	"path"
 	"path/filepath"
+	"runtime"
+	"slices"
 	"strings"
 
 	"github.com/google/uuid"
@@ -876,4 +879,77 @@ func getNextModuleUploadRequest(file *os.File) (*apppb.UploadModuleFileRequest, 
 			File: byteArr,
 		},
 	}, nil
+}
+
+// DownloadModuleAction downloads a module.
+func DownloadModuleAction(c *cli.Context) error {
+	moduleID := c.String(moduleFlagID)
+	if moduleID == "" {
+		manifest, err := loadManifest(defaultManifestFilename)
+		if err != nil {
+			return errors.Wrap(err, "trying to get package ID from meta.json")
+		}
+		moduleID = manifest.ModuleID
+	}
+	client, err := newViamClient(c)
+	if err != nil {
+		return err
+	}
+	if err := client.ensureLoggedIn(); err != nil {
+		return err
+	}
+	req := &apppb.GetModuleRequest{ModuleId: moduleID}
+	res, err := client.client.GetModule(c.Context, req)
+	if err != nil {
+		return err
+	}
+	if len(res.Module.Versions) == 0 {
+		return errors.New("module has 0 uploaded versions, nothing to download")
+	}
+	requestedVersion := c.String(packageFlagVersion)
+	var ver *apppb.VersionHistory
+	if requestedVersion == "latest" {
+		ver = res.Module.Versions[len(res.Module.Versions)-1]
+	} else {
+		for _, iVer := range res.Module.Versions {
+			if iVer.Version == requestedVersion {
+				ver = iVer
+				break
+			}
+		}
+		if ver == nil {
+			return fmt.Errorf("version %s not found in versions for module", requestedVersion)
+		}
+	}
+	infof(c.App.ErrWriter, "found version %s", ver.Version)
+	if len(ver.Files) == 0 {
+		return fmt.Errorf("version %s has 0 files uploaded", ver.Version)
+	}
+	platform := c.String(moduleFlagPlatform)
+	if platform == "" {
+		platform = fmt.Sprintf("%s/%s", runtime.GOOS, runtime.GOARCH)
+		infof(c.App.ErrWriter, "using default platform %s", platform)
+	}
+	if !slices.ContainsFunc(ver.Files, func(file *apppb.Uploads) bool { return file.Platform == platform }) {
+		return fmt.Errorf("platform %s not present for version %s", platform, ver.Version)
+	}
+	include := true
+	packageType := packagespb.PackageType_PACKAGE_TYPE_MODULE
+	// note: this is working around a GetPackage quirk where platform messes with version
+	fullVersion := fmt.Sprintf("%s-%s", ver.Version, strings.ReplaceAll(platform, "/", "-"))
+	pkg, err := client.packageClient.GetPackage(c.Context, &packagespb.GetPackageRequest{
+		Id:         strings.ReplaceAll(moduleID, ":", "/"),
+		Version:    fullVersion,
+		IncludeUrl: &include,
+		Type:       &packageType,
+	})
+	if err != nil {
+		return err
+	}
+	destName := strings.ReplaceAll(moduleID, ":", "-")
+	infof(c.App.ErrWriter, "saving to %s", path.Join(c.String(packageFlagDestination), fullVersion, destName+".tar.gz"))
+	return downloadPackageFromURL(c.Context, client.authFlow.httpClient,
+		c.String(packageFlagDestination), destName,
+		fullVersion, pkg.Package.Url, client.conf.Auth,
+	)
 }
