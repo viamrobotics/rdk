@@ -886,21 +886,27 @@ type AuthHandlerConfig struct {
 // Validate ensures all parts of the config are valid. If it exists, updates ExternalAuthConfig's ValidatedKeySet once validated.
 // A sample AuthConfig in JSON form is shown below, where "handlers" contains a list of auth handlers. The only accepted credential
 // type for the RDK in the config is "api-key" currently. An auth handler for utils.CredentialsTypeRobotLocationSecret may be added
-// later by the RDK during processing.
+// later by the RDK during processing. Note that the "config" field inside of the "api-key" auth handler should be structured to contain
+// key ID/key pairings of NON-legacy keys, as well as a list of all non-legacy key ID's and legacy keys associated with a "keys" field.
 //
-//	"auth": {
-//			"handlers": [
-//				{
-//					"type": "api-key",
-//					"config": {
-//						"API_KEY_ID": "API_KEY",
-//						"API_KEY_ID_2": "API_KEY_2",
-//						"keys": ["API_KEY_ID", "API_KEY_ID_2"]
+//		"auth": {
+//				"handlers": [
+//					{
+//						"type": "api-key",
+//						"config": {
+//							"NON_LEGACY_API_KEY_ID": "NON_LEGACY_API_KEY",
+//							"NON_LEGACY_API_KEY_ID_2": "NON_LEGACY_API_KEY_2",
+//							"keys": [
+//	                         "NON_LEGACY_API_KEY_ID",
+//	                         "NON_LEGACY_API_KEY_ID_2",
+//	                         "LEGACY_API_KEY",
+//	                         "LEGACY_API_KEY_2"
+//	                     ]
+//						}
 //					}
-//				}
-//			],
-//		"external_auth_config": {}
-//	}
+//				],
+//			"external_auth_config": {}
+//		}
 func (config *AuthConfig) Validate(path string) error {
 	seenTypes := make(map[string]struct{}, len(config.Handlers))
 	for idx, handler := range config.Handlers {
