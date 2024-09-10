@@ -20,6 +20,7 @@ import (
 	"github.com/golang/geo/r3"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.uber.org/zap"
+
 	// registers all components.
 	commonpb "go.viam.com/api/common/v1"
 	armpb "go.viam.com/api/component/arm/v1"
@@ -3557,38 +3558,45 @@ func TestMachineStatus(t *testing.T) {
 				Components: []resource.Config{newMockConfig("m", 300, false, "1s")},
 			})
 		}()
-		// sleep for a short amount of time to allow the machine to receive a new
-		// revision. this sleep should be shorter than the resource update duration
-		// defined above so that updated resource is still in a "configuring" state.
-		time.Sleep(time.Millisecond * 100)
 
-		// get status while reconfiguring
-		mStatus, err := lr.MachineStatus(ctx)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, mStatus.Config.Revision, test.ShouldEqual, rev2)
+		// poll machine status during reconfiguration until the following state is
+		// detected:
+		//
+		// - config revision is updated to rev2
+		// - mock component "m" has state "configuring" and still has revision rev1
+		// - all other components are ready and have revisions updated to rev2
+		testutils.WaitForAssertion(
+			t,
+			func(tb testing.TB) {
+				// get status while reconfiguring
+				mStatus, err := lr.MachineStatus(ctx)
+				test.That(t, err, test.ShouldBeNil)
+				test.That(t, mStatus.Config.Revision, test.ShouldEqual, rev2)
 
-		// the component whose config changed should be the only component in a
-		// "configuring" state and associated with the original revision.
-		filterConfiguring := rtestutils.FilterByStatus(t, mStatus.Resources, resource.NodeStateConfiguring)
-		expectedConfiguring := []resource.Status{
-			{
-				Name:     mockNamed("m"),
-				State:    resource.NodeStateConfiguring,
-				Revision: rev1,
+				// the component whose config changed should be the only component in a
+				// "configuring" state and associated with the original revision.
+				filterConfiguring := rtestutils.FilterByStatus(t, mStatus.Resources, resource.NodeStateConfiguring)
+				expectedConfiguring := []resource.Status{
+					{
+						Name:     mockNamed("m"),
+						State:    resource.NodeStateConfiguring,
+						Revision: rev1,
+					},
+				}
+				rtestutils.VerifySameResourceStatuses(t, filterConfiguring, expectedConfiguring)
+
+				// all other components should be in the "ready" state and associated with the
+				// new revision.
+				filterReady := rtestutils.FilterByStatus(t, mStatus.Resources, resource.NodeStateReady)
+				expectedReady := getExpectedDefaultStatuses(rev2)
+				rtestutils.VerifySameResourceStatuses(t, filterReady, expectedReady)
 			},
-		}
-		rtestutils.VerifySameResourceStatuses(t, filterConfiguring, expectedConfiguring)
-
-		// all other components should be in the "ready" state and associated with the
-		// new revision.
-		filterReady := rtestutils.FilterByStatus(t, mStatus.Resources, resource.NodeStateReady)
-		expectedReady := getExpectedDefaultStatuses(rev2)
-		rtestutils.VerifySameResourceStatuses(t, filterReady, expectedReady)
+		)
 
 		wg.Wait()
 
 		// get status after reconfigure finishes
-		mStatus, err = lr.MachineStatus(ctx)
+		mStatus, err := lr.MachineStatus(ctx)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, mStatus.Config.Revision, test.ShouldEqual, rev2)
 
