@@ -2,6 +2,7 @@ package gpio
 
 import (
 	"context"
+	"fmt"
 	"math"
 	"sync"
 	"time"
@@ -17,6 +18,8 @@ import (
 	"go.viam.com/rdk/resource"
 	rdkutils "go.viam.com/rdk/utils"
 )
+
+const getPID = "get_tuned_pid"
 
 // SetState sets the state of the motor for the built-in control loop.
 func (cm *controlledMotor) SetState(ctx context.Context, state []*control.Signal) error {
@@ -392,4 +395,22 @@ func (cm *controlledMotor) GoFor(ctx context.Context, rpm, revolutions float64, 
 	}
 
 	return nil
+}
+
+func (cm *controlledMotor) DoCommand(ctx context.Context, req map[string]interface{}) (map[string]interface{}, error) {
+	resp := make(map[string]interface{})
+
+	cm.mu.Lock()
+	defer cm.mu.Unlock()
+	ok := req[getPID].(bool)
+	if ok {
+		var respStr string
+		if !(*cm.tunedVals)[0].NeedsAutoTuning() {
+			respStr += fmt.Sprintf("{p: %v, i: %v, d: %v, type: %v} ",
+				(*cm.tunedVals)[0].P, (*cm.tunedVals)[0].I, (*cm.tunedVals)[0].D, (*cm.tunedVals)[0].Type)
+		}
+		resp[getPID] = respStr
+	}
+
+	return resp, nil
 }

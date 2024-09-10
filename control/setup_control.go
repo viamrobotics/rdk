@@ -493,7 +493,7 @@ func TunedPIDErr(name string, tunedVals []PIDConfig) error {
 	return fmt.Errorf(`%v has been tuned, please copy the following control values into your config: %v`, name, tunedStr)
 }
 
-// TuningInProgressErr returns an error when the loop is actively tuning
+// TuningInProgressErr returns an error when the loop is actively tuning.
 func TuningInProgressErr(name string) error {
 	return fmt.Errorf(`tuning for %v is in progress`, name)
 }
