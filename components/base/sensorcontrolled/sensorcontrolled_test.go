@@ -3,6 +3,7 @@ package sensorcontrolled
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 	"sync"
 	"testing"
@@ -510,4 +511,27 @@ func TestSensorBaseMoveStraight(t *testing.T) {
 		}
 		orientationValue = defaultOrientationValue
 	})
+}
+
+func TestSensorBaseDoCommand(t *testing.T) {
+	ctx := context.Background()
+	logger := logging.NewTestLogger(t)
+	deps, cfg := msDependencies(t, []string{"setvel1", "position1", "orientation1"})
+	b, err := createSensorBase(ctx, deps, cfg, logger)
+	test.That(t, err, test.ShouldBeNil)
+
+	sb, ok := b.(*sensorBase)
+	test.That(t, ok, test.ShouldBeTrue)
+
+	expectedPID := control.PIDConfig{P: 0.1, I: 2.0, D: 0.0}
+	sb.tunedVals = &[]control.PIDConfig{expectedPID, {}}
+	expectedeMap := make(map[string]interface{})
+	expectedeMap["get_tuned_pid"] = (fmt.Sprintf("{p: %v, i: %v, d: %v, type: %v} ",
+		expectedPID.P, expectedPID.I, expectedPID.D, expectedPID.Type))
+
+	req := make(map[string]interface{})
+	req["get_tuned_pid"] = true
+	resp, err := b.DoCommand(ctx, req)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resp, test.ShouldResemble, expectedeMap)
 }
