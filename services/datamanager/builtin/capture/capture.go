@@ -7,7 +7,6 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
-	"time"
 
 	"github.com/benbjohnson/clock"
 	"github.com/pkg/errors"
@@ -30,9 +29,6 @@ const defaultCaptureQueueSize = 250
 // Default bufio.Writer buffer size in bytes.
 const defaultCaptureBufferSize = 4096
 
-// Default time between checking and logging number of files in capture dir.
-var captureDirSizeLogInterval = time.Minute
-
 func generateMetadataKey(component, method string) string {
 	return fmt.Sprintf("%s/%s", component, method)
 }
@@ -51,9 +47,8 @@ var metadataToAdditionalParamFields = map[string]string{
 // - Reconfigure (any number of times)
 // - Close (any number of times).
 type Capture struct {
-	logger          logging.Logger
-	clk             clock.Clock
-	fileCountLogger *fileCountLogger
+	logger logging.Logger
+	clk    clock.Clock
 
 	collectorsMu sync.Mutex
 	collectors   collectors
@@ -86,10 +81,9 @@ func New(
 	logger logging.Logger,
 ) *Capture {
 	return &Capture{
-		clk:             clock,
-		logger:          logger,
-		collectors:      collectors{},
-		fileCountLogger: newFileCountLogger(logger),
+		clk:        clock,
+		logger:     logger,
+		collectors: collectors{},
 	}
 }
 
@@ -148,7 +142,6 @@ func (c *Capture) Reconfigure(
 
 	if c.captureDir != config.CaptureDir {
 		c.logger.Infof("capture_dir set to: %s", config.CaptureDir)
-		c.fileCountLogger.reconfigure(config.CaptureDir)
 	}
 
 	newCollectors := c.newCollectors(collectorConfigsByResource, config)
@@ -170,7 +163,6 @@ func (c *Capture) Reconfigure(
 func (c *Capture) Close() {
 	c.FlushCollectors()
 	c.closeCollectors()
-	c.fileCountLogger.close()
 }
 
 // Initialize a collector for the component/method or update it if it has previously been created.
@@ -255,29 +247,6 @@ func (c *Capture) initializeOrUpdateCollector(
 	return &collectorAndConfig{res, collector, collectorConfig}, nil
 }
 
-const (
-	_ = 1 << (10 * iota)
-	kib
-	mib
-	gib
-	tib
-)
-
-func formatBytesI64(b int64) string {
-	switch {
-	case b > tib:
-		return fmt.Sprintf("%.2f TB", float64(b)/tib)
-	case b > gib:
-		return fmt.Sprintf("%.2f GB", float64(b)/gib)
-	case b > mib:
-		return fmt.Sprintf("%.2f MB", float64(b)/mib)
-	case b > kib:
-		return fmt.Sprintf("%.2f KB", float64(b)/kib)
-	default:
-		return fmt.Sprintf("%d Bytes", b)
-	}
-}
-
 func collectorConfigDescription(
 	collectorConfig datamanager.DataCaptureConfig,
 	targetDir string,
@@ -287,7 +256,8 @@ func collectorConfigDescription(
 ) string {
 	return fmt.Sprintf("[CaptureFrequencyHz: %f, Tags: %v, MaximumCaptureFileSize: %s, "+
 		"CaptureBufferQueueSize: %d, CaptureBufferSize: %d, TargetDir: %s]",
-		collectorConfig.CaptureFrequencyHz, collectorConfig.Tags, formatBytesI64(maximumCaptureFileSizeBytes), queueSize, bufferSize, targetDir,
+		collectorConfig.CaptureFrequencyHz, collectorConfig.Tags, data.FormatBytesI64(maximumCaptureFileSizeBytes),
+		queueSize, bufferSize, targetDir,
 	)
 }
 

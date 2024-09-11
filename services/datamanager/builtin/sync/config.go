@@ -165,6 +165,7 @@ func (c *Config) logDiff(o Config, logger logging.Logger) {
 	}
 }
 
-func (c Config) syncPaths() []string {
+// SyncPaths returns the capture directory and additional sync paths as a slice.
+func (c Config) SyncPaths() []string {
 	return append([]string{c.CaptureDir}, c.AdditionalSyncPaths...)
 }

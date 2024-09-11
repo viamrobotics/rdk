@@ -349,29 +349,6 @@ func (s *Sync) syncFile(config Config, filePath string) {
 	}
 }
 
-const (
-	_ = 1 << (10 * iota)
-	kib
-	mib
-	gib
-	tib
-)
-
-func formatBytesI64(b int64) string {
-	switch {
-	case b > tib:
-		return fmt.Sprintf("%.2f TB", float64(b)/tib)
-	case b > gib:
-		return fmt.Sprintf("%.2f GB", float64(b)/gib)
-	case b > mib:
-		return fmt.Sprintf("%.2f MB", float64(b)/mib)
-	case b > kib:
-		return fmt.Sprintf("%.2f KB", float64(b)/kib)
-	default:
-		return fmt.Sprintf("%d Bytes", b)
-	}
-}
-
 func (s *Sync) syncDataCaptureFile(f *os.File, captureDir string, logger logging.Logger) {
 	captureFile, err := data.ReadCaptureFile(f)
 	// if you can't read the capture file's metadata field, close & move it to the failed directory
@@ -391,7 +368,7 @@ func (s *Sync) syncDataCaptureFile(f *os.File, captureDir string, logger logging
 	// setup a retry struct that will try to upload the capture file
 	retry := newExponentialRetry(s.configCtx, s.clock, s.logger, f.Name(), func(ctx context.Context) error {
 		msg := "error uploading data capture file %s, size: %s, md: %s"
-		errMetadata := fmt.Sprintf(msg, captureFile.GetPath(), formatBytesI64(captureFile.Size()), captureFile.ReadMetadata())
+		errMetadata := fmt.Sprintf(msg, captureFile.GetPath(), data.FormatBytesI64(captureFile.Size()), captureFile.ReadMetadata())
 		return errors.Wrap(uploadDataCaptureFile(ctx, captureFile, s.cloudConn, logger), errMetadata)
 	})
 
@@ -528,7 +505,7 @@ func (s *Sync) runScheduler(ctx context.Context, tkr *clock.Ticker, config Confi
 func (s *Sync) walkDirsAndSendFilesToSync(ctx context.Context, config Config) error {
 	s.flushCollectors()
 	var errs []error
-	for _, dir := range config.syncPaths() {
+	for _, dir := range config.SyncPaths() {
 		// Retrieve all files in capture dir and send them to the syncer
 		err := filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
 			if err := ctx.Err(); err != nil {

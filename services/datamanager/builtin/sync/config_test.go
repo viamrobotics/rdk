@@ -221,7 +221,7 @@ func TestConfig(t *testing.T) {
 		captureDir := "/some/capture/dir"
 		empty := Config{CaptureDir: captureDir}
 		full := Config{CaptureDir: captureDir, AdditionalSyncPaths: []string{"/some/other", "/paths"}}
-		test.That(t, empty.syncPaths(), test.ShouldResemble, []string{captureDir})
-		test.That(t, full.syncPaths(), test.ShouldResemble, []string{captureDir, "/some/other", "/paths"})
+		test.That(t, empty.SyncPaths(), test.ShouldResemble, []string{captureDir})
+		test.That(t, full.SyncPaths(), test.ShouldResemble, []string{captureDir, "/some/other", "/paths"})
 	})
 }

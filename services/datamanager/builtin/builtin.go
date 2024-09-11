@@ -15,6 +15,7 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
+	"time"
 
 	"github.com/benbjohnson/clock"
 	v1 "go.viam.com/api/app/datasync/v1"
@@ -42,6 +43,8 @@ var (
 	// At time of writing only a single test depends on it.
 	// We should endevor to not add more tests that depend on it unless absolutiely necessary.
 	clk = clock.New()
+	// diskSummaryLogInterval is the frequency a summary of the sync paths are logged.
+	diskSummaryLogInterval = time.Minute
 )
 
 // In order for a collector to be captured by Data Capture, it must be included as a weak dependency.
@@ -80,9 +83,10 @@ type builtIn struct {
 	resource.Named
 	logger logging.Logger
 
-	mu      sync.Mutex
-	capture *capture.Capture
-	sync    *datasync.Sync
+	mu                sync.Mutex
+	capture           *capture.Capture
+	sync              *datasync.Sync
+	diskSummaryLogger *diskSummaryLogger
 }
 
 // New returns a new builtin data manager service for the given robot.
@@ -109,11 +113,13 @@ func New(
 		clk,
 		logger.Sublogger("sync"),
 	)
+	diskSummaryLogger := newDiskSummaryLogger(logger)
 	svc := &builtIn{
-		Named:   conf.ResourceName().AsNamed(),
-		logger:  logger,
-		capture: capture,
-		sync:    sync,
+		Named:             conf.ResourceName().AsNamed(),
+		logger:            logger,
+		capture:           capture,
+		sync:              sync,
+		diskSummaryLogger: diskSummaryLogger,
 	}
 
 	if err := svc.Reconfigure(ctx, deps, conf); err != nil {
@@ -128,6 +134,7 @@ func (b *builtIn) Close(_ context.Context) error {
 	defer b.logger.Debug("Close END")
 	b.mu.Lock()
 	defer b.mu.Unlock()
+	b.diskSummaryLogger.close()
 	b.capture.Close()
 	b.sync.Close()
 	return nil
@@ -199,6 +206,7 @@ func (b *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies, c
 	// These Reconfigure calls are the only methods in builtin.Reconfigure which create / destroy resources.
 	// It is important that no errors happen for a given Reconfigure call after we being callin Reconfigure on capture & sync
 	// or we could leak goroutines, wasting resources and cauing bugs due to duplicate work.
+	b.diskSummaryLogger.reconfigure(syncConfig.SyncPaths(), diskSummaryLogInterval)
 	b.capture.Reconfigure(ctx, collectorConfigsByResource, captureConfig)
 	b.sync.Reconfigure(ctx, syncConfig, cloudConnSvc)
 
