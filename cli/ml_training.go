@@ -152,7 +152,7 @@ func (c *viamClient) mlSubmitCustomTrainingJob(datasetID, registryItemID, regist
 
 	if args != "" {
 		splitArgs := strings.Split(args, ",")
-		argMap := make(map[string]string, 0)
+		argMap := make(map[string]string)
 
 		for _, optionVal := range splitArgs {
 			splitOptionVal := strings.Split(optionVal, "=")
