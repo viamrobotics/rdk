@@ -534,4 +534,10 @@ func TestSensorBaseDoCommand(t *testing.T) {
 	resp, err := b.DoCommand(ctx, req)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, resp, test.ShouldResemble, expectedeMap)
+
+	emptyMap := make(map[string]interface{})
+	req["get_tuned_pid"] = false
+	resp, err = b.DoCommand(ctx, req)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resp, test.ShouldResemble, emptyMap)
 }

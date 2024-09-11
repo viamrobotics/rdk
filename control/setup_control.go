@@ -482,12 +482,9 @@ func UpdateTrapzBlock(ctx context.Context, name string, maxVel float64, dependsO
 // TunedPIDErr returns an error with the stored tuned PID values.
 func TunedPIDErr(name string, tunedVals []PIDConfig) error {
 	var tunedStr string
-	for i, pid := range tunedVals {
-		if i > 0 {
-			tunedStr += `, `
-		}
+	for _, pid := range tunedVals {
 		if !pid.NeedsAutoTuning() {
-			tunedStr += fmt.Sprintf(`{"p": %v, "i": %v, "d": %v, "type": "%v"}`, pid.P, pid.I, pid.D, pid.Type)
+			tunedStr += fmt.Sprintf(`{"p": %v, "i": %v, "d": %v, "type": "%v"} `, pid.P, pid.I, pid.D, pid.Type)
 		}
 	}
 	return fmt.Errorf(`%v has been tuned, please copy the following control values into your config: %v`, name, tunedStr)

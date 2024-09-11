@@ -114,4 +114,10 @@ func TestControlledMotorCreation(t *testing.T) {
 	resp, err := m.DoCommand(context.Background(), req)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, resp, test.ShouldResemble, expectedeMap)
+
+	emptyMap := make(map[string]interface{})
+	req["get_tuned_pid"] = false
+	resp, err = cm.DoCommand(context.Background(), req)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resp, test.ShouldResemble, emptyMap)
 }
