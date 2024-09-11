@@ -311,6 +311,7 @@ func (pm *planManager) planAtomicWaypoints(
 
 	// try to solve each goal, one at a time
 	for i, goal := range goals {
+		pm.logger.Debug("start planning for ", spatialmath.PoseToProtobuf(goal))
 		// Check if ctx is done between each waypoint
 		select {
 		case <-ctx.Done():
@@ -338,11 +339,12 @@ func (pm *planManager) planAtomicWaypoints(
 
 	// All goals have been submitted for solving. Reconstruct in order
 	resultSlices := []node{}
-	for _, future := range resultPromises {
+	for i, future := range resultPromises {
 		steps, err := future.result()
 		if err != nil {
 			return nil, err
 		}
+		pm.logger.Debug("completed planning for ", spatialmath.PoseToProtobuf(goals[i]))
 		resultSlices = append(resultSlices, steps...)
 	}
 

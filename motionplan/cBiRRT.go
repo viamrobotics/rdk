@@ -169,6 +169,9 @@ func (mp *cBiRRTMotionPlanner) rrtBackgroundRunner(
 			return
 		default:
 		}
+		if i > 0 && i % 100 == 0 {
+			mp.logger.CDebugf(ctx, "CBiRRT planner iteration %d", i)
+		}
 
 		tryExtend := func(target node) (node, node, error) {
 			// attempt to extend maps 1 and 2 towards the target
