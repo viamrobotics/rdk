@@ -5,8 +5,6 @@ import (
 	"errors"
 	"math"
 	"time"
-
-	"go.viam.com/rdk/control"
 )
 
 const (
@@ -34,13 +32,9 @@ func (sb *sensorBase) Spin(ctx context.Context, angleDeg, degsPerSec float64, ex
 		return sb.controlledBase.Spin(ctx, angleDeg, degsPerSec, extra)
 	}
 
-	// if loop is tuning, return an error
-	// if loop has been tuned but the values haven't been added to the config, error with tuned values
-	if sb.loop != nil && sb.loop.GetTuning(ctx) {
-		return control.TuningInProgressErr(sb.Name().ShortName())
-	} else if (sb.configPIDVals[0].NeedsAutoTuning() && !(*sb.tunedVals)[0].NeedsAutoTuning()) ||
-		(sb.configPIDVals[1].NeedsAutoTuning() && !(*sb.tunedVals)[1].NeedsAutoTuning()) {
-		return control.TunedPIDErr(sb.Name().ShortName(), *sb.tunedVals)
+	// check tuning status
+	if err := sb.checkTuningStatus(); err != nil {
+		return err
 	}
 
 	prevAngle, hasOrientation, err := sb.headingFunc(ctx)

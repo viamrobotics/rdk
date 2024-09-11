@@ -210,7 +210,8 @@ func (sb *sensorBase) Reconfigure(ctx context.Context, deps resource.Dependencie
 				// configPIDVals at index 1 is angular
 				sb.configPIDVals[1] = pidConf
 			default:
-				sb.logger.Error("control_parameters type must be 'linear_velocity' or 'angular_velocity'")
+				return fmt.Errorf("control_parameters type '%v' not accepted, type must be 'linear_velocity' or 'angular_velocity'",
+					pidConf.Type)
 			}
 		}
 
@@ -339,4 +340,16 @@ func (sb *sensorBase) determineHeadingFunc(ctx context.Context,
 			return 0, false, nil
 		}
 	}
+}
+
+// if loop is tuning, return an error
+// if loop has been tuned but the values haven't been added to the config, error with tuned values.
+func (sb *sensorBase) checkTuningStatus() error {
+	if sb.loop != nil && sb.loop.GetTuning(context.Background()) {
+		return control.TuningInProgressErr(sb.Name().ShortName())
+	} else if (sb.configPIDVals[0].NeedsAutoTuning() && !(*sb.tunedVals)[0].NeedsAutoTuning()) ||
+		(sb.configPIDVals[1].NeedsAutoTuning() && !(*sb.tunedVals)[1].NeedsAutoTuning()) {
+		return control.TunedPIDErr(sb.Name().ShortName(), *sb.tunedVals)
+	}
+	return nil
 }

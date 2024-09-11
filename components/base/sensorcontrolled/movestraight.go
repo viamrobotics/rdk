@@ -8,8 +8,6 @@ import (
 	"time"
 
 	geo "github.com/kellydunn/golang-geo"
-
-	"go.viam.com/rdk/control"
 )
 
 const (
@@ -56,13 +54,9 @@ func (sb *sensorBase) MoveStraight(
 		}
 	}
 
-	// if loop is tuning, return an error
-	// if loop has been tuned but the values haven't been added to the config, error with tuned values
-	if sb.loop != nil && sb.loop.GetTuning(ctx) {
-		return control.TuningInProgressErr(sb.Name().ShortName())
-	} else if (sb.configPIDVals[0].NeedsAutoTuning() && !(*sb.tunedVals)[0].NeedsAutoTuning()) ||
-		(sb.configPIDVals[1].NeedsAutoTuning() && !(*sb.tunedVals)[1].NeedsAutoTuning()) {
-		return control.TunedPIDErr(sb.Name().ShortName(), *sb.tunedVals)
+	// check tuning status
+	if err := sb.checkTuningStatus(); err != nil {
+		return err
 	}
 
 	// make sure the control loop is enabled

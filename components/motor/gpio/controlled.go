@@ -288,12 +288,8 @@ func (cm *controlledMotor) SetRPM(ctx context.Context, rpm float64, extra map[st
 		return err
 	}
 
-	// if loop is tuning, return an error
-	// if loop has been tuned but the values haven't been added to the config, error with tuned values
-	if cm.loop != nil && cm.loop.GetTuning(ctx) {
-		return control.TuningInProgressErr(cm.Name().ShortName())
-	} else if cm.configPIDVals[0].NeedsAutoTuning() && !(*cm.tunedVals)[0].NeedsAutoTuning() {
-		return control.TunedPIDErr(cm.Name().ShortName(), *cm.tunedVals)
+	if err := cm.checkTuningStatus(); err != nil {
+		return err
 	}
 
 	if cm.loop == nil {
@@ -339,12 +335,8 @@ func (cm *controlledMotor) GoFor(ctx context.Context, rpm, revolutions float64, 
 		return err
 	}
 
-	// if loop is tuning, return an error
-	// if loop has been tuned but the values haven't been added to the config, error with tuned values
-	if cm.loop != nil && cm.loop.GetTuning(ctx) {
-		return control.TuningInProgressErr(cm.Name().ShortName())
-	} else if cm.configPIDVals[0].NeedsAutoTuning() && !(*cm.tunedVals)[0].NeedsAutoTuning() {
-		return control.TunedPIDErr(cm.Name().ShortName(), *cm.tunedVals)
+	if err := cm.checkTuningStatus(); err != nil {
+		return err
 	}
 
 	if cm.loop == nil {
@@ -413,4 +405,15 @@ func (cm *controlledMotor) DoCommand(ctx context.Context, req map[string]interfa
 	}
 
 	return resp, nil
+}
+
+// if loop is tuning, return an error
+// if loop has been tuned but the values haven't been added to the config, error with tuned values.
+func (cm *controlledMotor) checkTuningStatus() error {
+	if cm.loop != nil && cm.loop.GetTuning(context.Background()) {
+		return control.TuningInProgressErr(cm.Name().ShortName())
+	} else if cm.configPIDVals[0].NeedsAutoTuning() && !(*cm.tunedVals)[0].NeedsAutoTuning() {
+		return control.TunedPIDErr(cm.Name().ShortName(), *cm.tunedVals)
+	}
+	return nil
 }
