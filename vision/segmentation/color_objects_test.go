@@ -8,7 +8,7 @@ import (
 	"go.viam.com/utils/artifact"
 
 	"go.viam.com/rdk/components/camera"
-	"go.viam.com/rdk/components/camera/videosource"
+	"go.viam.com/rdk/components/camera/fake"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/utils"
@@ -24,7 +24,7 @@ func TestColorObjects(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	params, err := transform.NewDepthColorIntrinsicsExtrinsicsFromJSONFile(intel515ParamsPath)
 	test.That(t, err, test.ShouldBeNil)
-	c := &videosource.StaticSource{ColorImg: img, DepthImg: dm, Proj: &params.ColorCamera}
+	c := &fake.StaticSource{ColorImg: img, DepthImg: dm, Proj: &params.ColorCamera}
 	src, err := camera.NewVideoSourceFromReader(
 		context.Background(),
 		c,

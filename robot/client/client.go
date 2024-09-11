@@ -393,6 +393,7 @@ func (rc *RobotClient) updateResourceClients(ctx context.Context) error {
 	for resourceName, client := range rc.resourceClients {
 		// check if no longer an active resource
 		if !activeResources[resourceName] {
+			rc.logger.Infow("Removing resource from remote client", "resourceName", resourceName)
 			if err := client.Close(ctx); err != nil {
 				rc.Logger().CError(ctx, err)
 				continue
@@ -574,7 +575,8 @@ func (rc *RobotClient) createClient(name resource.Name) (resource.Resource, erro
 	if !ok || apiInfo.RPCClient == nil {
 		return grpc.NewForeignResource(name, &rc.conn), nil
 	}
-	return apiInfo.RPCClient(rc.backgroundCtx, &rc.conn, rc.remoteName, name, rc.Logger())
+	logger := rc.Logger().Sublogger(resource.RemoveRemoteName(name).ShortName())
+	return apiInfo.RPCClient(rc.backgroundCtx, &rc.conn, rc.remoteName, name, logger)
 }
 
 func (rc *RobotClient) resources(ctx context.Context) ([]resource.Name, []resource.RPCAPI, error) {
@@ -657,7 +659,7 @@ func (rc *RobotClient) updateResources(ctx context.Context) error {
 
 	names, rpcAPIs, err := rc.resources(ctx)
 	if err != nil && status.Code(err) != codes.Unimplemented {
-		return err
+		return fmt.Errorf("error updating resources: %w", err)
 	}
 
 	rc.resourceNames = make([]resource.Name, 0, len(names))

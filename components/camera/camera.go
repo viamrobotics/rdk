@@ -1,4 +1,7 @@
 // Package camera defines an image capturing device.
+// For more information, see the [camera component docs].
+//
+// [camera component docs]: https://docs.viam.com/components/camera/
 package camera
 
 import (
@@ -75,6 +78,7 @@ type Camera interface {
 }
 
 // A VideoSource represents anything that can capture frames.
+// For more information, see the [camera component docs].
 //
 // Images example:
 //
@@ -105,6 +109,8 @@ type Camera interface {
 //	myCamera, err := camera.FromRobot(machine, "my_camera")
 //
 //	err = myCamera.Close(ctx)
+//
+// [camera component docs]: https://docs.viam.com/components/camera/
 type VideoSource interface {
 	// Images is used for getting simultaneous images from different imagers,
 	// along with associated metadata (just timestamp for now). It's not for getting a time series of images from the same imager.

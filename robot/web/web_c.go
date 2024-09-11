@@ -10,7 +10,6 @@ import (
 	"runtime"
 	"slices"
 	"sync"
-	"time"
 
 	"github.com/pkg/errors"
 	streampb "go.viam.com/api/stream/v1"
@@ -160,7 +159,7 @@ func (svc *webService) makeStreamServer(ctx context.Context) (*StreamServer, err
 		if len(svc.videoSources) != 0 || len(svc.audioSources) != 0 {
 			svc.logger.Debug("not starting streams due to no stream config being set")
 		}
-		noopServer, err := webstream.NewServer(streams, svc.r, logging.GetOrNewLogger("rdk.networking"))
+		noopServer, err := webstream.NewServer(streams, svc.r, svc.logger.Sublogger("stream"))
 		return &StreamServer{noopServer, false}, err
 	}
 
@@ -215,7 +214,7 @@ func (svc *webService) makeStreamServer(ctx context.Context) (*StreamServer, err
 		streamTypes = append(streamTypes, false)
 	}
 
-	streamServer, err := webstream.NewServer(streams, svc.r, logging.GetOrNewLogger("rdk.networking"))
+	streamServer, err := webstream.NewServer(streams, svc.r, svc.logger.Sublogger("stream"))
 	if err != nil {
 		return nil, err
 	}
@@ -237,12 +236,7 @@ func (svc *webService) startStream(streamFunc func(opts *webstream.BackoffTuning
 	utils.PanicCapturingGo(func() {
 		defer svc.webWorkers.Done()
 		close(waitCh)
-		opts := &webstream.BackoffTuningOptions{
-			BaseSleep: 50 * time.Microsecond,
-			MaxSleep:  2 * time.Second,
-			Cooldown:  5 * time.Second,
-		}
-		if err := streamFunc(opts); err != nil {
+		if err := streamFunc(&webstream.BackoffTuningOptions{}); err != nil {
 			if utils.FilterOutError(err, context.Canceled) != nil {
 				svc.logger.Errorw("error streaming", "error", err)
 			}

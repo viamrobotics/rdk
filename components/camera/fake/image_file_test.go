@@ -1,4 +1,4 @@
-package videosource
+package fake
 
 import (
 	"context"

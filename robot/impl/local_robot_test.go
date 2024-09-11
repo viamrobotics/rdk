@@ -6,12 +6,13 @@ import (
 	"crypto/x509"
 	"errors"
 	"fmt"
+	"log"
 	"math"
-	"net"
 	"os"
 	"path"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -56,7 +57,6 @@ import (
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
-	"go.viam.com/rdk/robot/client"
 	"go.viam.com/rdk/robot/framesystem"
 	"go.viam.com/rdk/robot/packages"
 	putils "go.viam.com/rdk/robot/packages/testutils"
@@ -1912,232 +1912,6 @@ func TestConfigMethod(t *testing.T) {
 	test.That(t, actualCfg, test.ShouldResemble, &expectedCfg)
 }
 
-func TestReconnectRemote(t *testing.T) {
-	logger := logging.NewTestLogger(t)
-	options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
-	// start the first robot
-	ctx := context.Background()
-	armConfig := resource.Config{
-		Name:  "arm1",
-		API:   arm.API,
-		Model: fakeModel,
-		ConvertedAttributes: &fake.Config{
-			ModelFilePath: "../../components/arm/fake/fake_model.json",
-		},
-	}
-	cfg := config.Config{
-		Components: []resource.Config{armConfig},
-	}
-
-	robot := setupLocalRobot(t, ctx, &cfg, logger)
-	err := robot.StartWeb(ctx, options)
-	test.That(t, err, test.ShouldBeNil)
-
-	// start the second robot
-	ctx1 := context.Background()
-	options1, _, addr1 := robottestutils.CreateBaseOptionsAndListener(t)
-
-	remoteConf := config.Remote{
-		Name:     "remote",
-		Insecure: true,
-		Address:  addr,
-	}
-
-	cfg1 := config.Config{
-		Remotes: []config.Remote{remoteConf},
-	}
-
-	robot1 := setupLocalRobot(t, ctx, &cfg1, logger)
-
-	err = robot1.StartWeb(ctx1, options1)
-	test.That(t, err, test.ShouldBeNil)
-
-	robotClient := robottestutils.NewRobotClient(t, logger, addr1, time.Second)
-	defer func() {
-		test.That(t, robotClient.Close(context.Background()), test.ShouldBeNil)
-	}()
-
-	a1, err := arm.FromRobot(robot1, "arm1")
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, a1, test.ShouldNotBeNil)
-
-	remoteRobot, ok := robot1.RemoteByName("remote")
-	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, remoteRobot, test.ShouldNotBeNil)
-	remoteRobotClient, ok := remoteRobot.(*client.RobotClient)
-	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, remoteRobotClient, test.ShouldNotBeNil)
-
-	a, err := robotClient.ResourceByName(arm.Named("remote:arm1"))
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, a, test.ShouldNotBeNil)
-	anArm, ok := a.(arm.Arm)
-	test.That(t, ok, test.ShouldBeTrue)
-	_, err = anArm.EndPosition(context.Background(), map[string]interface{}{})
-	test.That(t, err, test.ShouldBeNil)
-
-	// close/disconnect the robot
-	robot.StopWeb()
-	test.That(t, <-remoteRobotClient.Changed(), test.ShouldBeTrue)
-	test.That(t, len(remoteRobotClient.ResourceNames()), test.ShouldEqual, 0)
-	testutils.WaitForAssertion(t, func(tb testing.TB) {
-		tb.Helper()
-		test.That(tb, len(robotClient.ResourceNames()), test.ShouldEqual, 2)
-	})
-	test.That(t, len(robot1.ResourceNames()), test.ShouldEqual, 2)
-	_, err = anArm.EndPosition(context.Background(), map[string]interface{}{})
-	test.That(t, err, test.ShouldBeError)
-
-	// reconnect the first robot
-	ctx2 := context.Background()
-	listener, err := net.Listen("tcp", addr)
-	test.That(t, err, test.ShouldBeNil)
-
-	options.Network.Listener = listener
-	err = robot.StartWeb(ctx2, options)
-	test.That(t, err, test.ShouldBeNil)
-
-	// check if the original arm can still be called
-	test.That(t, <-remoteRobotClient.Changed(), test.ShouldBeTrue)
-	test.That(t, remoteRobotClient.Connected(), test.ShouldBeTrue)
-	test.That(t, len(remoteRobotClient.ResourceNames()), test.ShouldEqual, 3)
-	testutils.WaitForAssertion(t, func(tb testing.TB) {
-		tb.Helper()
-		test.That(tb, len(robotClient.ResourceNames()), test.ShouldEqual, 5)
-	})
-	test.That(t, len(robot1.ResourceNames()), test.ShouldEqual, 5)
-	_, err = remoteRobotClient.ResourceByName(arm.Named("arm1"))
-	test.That(t, err, test.ShouldBeNil)
-
-	_, err = robotClient.ResourceByName(arm.Named("arm1"))
-	test.That(t, err, test.ShouldBeNil)
-	_, err = anArm.EndPosition(context.Background(), map[string]interface{}{})
-	test.That(t, err, test.ShouldBeNil)
-}
-
-func TestReconnectRemoteChangeConfig(t *testing.T) {
-	logger := logging.NewTestLogger(t)
-
-	// start the first robot
-	ctx := context.Background()
-	options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
-	armConfig := resource.Config{
-		Name:  "arm1",
-		API:   arm.API,
-		Model: fakeModel,
-		ConvertedAttributes: &fake.Config{
-			ModelFilePath: "../../components/arm/fake/fake_model.json",
-		},
-	}
-	cfg := config.Config{
-		Components: []resource.Config{armConfig},
-	}
-
-	robot := setupLocalRobot(t, ctx, &cfg, logger)
-	err := robot.StartWeb(ctx, options)
-	test.That(t, err, test.ShouldBeNil)
-
-	// start the second robot
-	ctx1 := context.Background()
-	options1, _, addr1 := robottestutils.CreateBaseOptionsAndListener(t)
-	remoteConf := config.Remote{
-		Name:     "remote",
-		Insecure: true,
-		Address:  addr,
-	}
-
-	cfg1 := config.Config{
-		Remotes: []config.Remote{remoteConf},
-	}
-
-	robot1 := setupLocalRobot(t, ctx, &cfg1, logger)
-
-	err = robot1.StartWeb(ctx1, options1)
-	test.That(t, err, test.ShouldBeNil)
-
-	robotClient := robottestutils.NewRobotClient(t, logger, addr1, time.Second)
-	defer func() {
-		test.That(t, robotClient.Close(context.Background()), test.ShouldBeNil)
-	}()
-
-	a1, err := arm.FromRobot(robot1, "arm1")
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, a1, test.ShouldNotBeNil)
-
-	remoteRobot, ok := robot1.RemoteByName("remote")
-	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, remoteRobot, test.ShouldNotBeNil)
-	remoteRobotClient, ok := remoteRobot.(*client.RobotClient)
-	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, remoteRobotClient, test.ShouldNotBeNil)
-
-	a, err := robotClient.ResourceByName(arm.Named("remote:arm1"))
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, a, test.ShouldNotBeNil)
-	anArm, ok := a.(arm.Arm)
-	test.That(t, ok, test.ShouldBeTrue)
-	_, err = anArm.EndPosition(context.Background(), map[string]interface{}{})
-	test.That(t, err, test.ShouldBeNil)
-
-	// close/disconnect the robot
-	test.That(t, robot.Close(context.Background()), test.ShouldBeNil)
-	test.That(t, <-remoteRobotClient.Changed(), test.ShouldBeTrue)
-	test.That(t, len(remoteRobotClient.ResourceNames()), test.ShouldEqual, 0)
-	testutils.WaitForAssertion(t, func(tb testing.TB) {
-		tb.Helper()
-		test.That(tb, len(robotClient.ResourceNames()), test.ShouldEqual, 2)
-	})
-	test.That(t, len(robot1.ResourceNames()), test.ShouldEqual, 2)
-	_, err = anArm.EndPosition(context.Background(), map[string]interface{}{})
-	test.That(t, err, test.ShouldBeError)
-
-	// reconnect the first robot
-	ctx2 := context.Background()
-	listener, err := net.Listen("tcp", addr)
-	test.That(t, err, test.ShouldBeNil)
-	baseConfig := resource.Config{
-		Name:  "base1",
-		API:   base.API,
-		Model: fakeModel,
-	}
-	cfg = config.Config{
-		Components: []resource.Config{baseConfig},
-	}
-
-	options = weboptions.New()
-	options.Network.BindAddress = ""
-	options.Network.Listener = listener
-	robot = setupLocalRobot(t, ctx, &cfg, logger)
-	err = robot.StartWeb(ctx2, options)
-	test.That(t, err, test.ShouldBeNil)
-
-	// check if the original arm can't be called anymore
-	test.That(t, <-remoteRobotClient.Changed(), test.ShouldBeTrue)
-	test.That(t, remoteRobotClient.Connected(), test.ShouldBeTrue)
-	test.That(t, len(remoteRobotClient.ResourceNames()), test.ShouldEqual, 3)
-	testutils.WaitForAssertion(t, func(tb testing.TB) {
-		tb.Helper()
-		test.That(tb, len(robotClient.ResourceNames()), test.ShouldEqual, 5)
-	})
-	test.That(t, len(robot1.ResourceNames()), test.ShouldEqual, 5)
-	_, err = anArm.EndPosition(context.Background(), map[string]interface{}{})
-	test.That(t, err, test.ShouldBeError)
-
-	// check that base is now instantiated
-	_, err = remoteRobotClient.ResourceByName(base.Named("base1"))
-	test.That(t, err, test.ShouldBeNil)
-
-	b, err := robotClient.ResourceByName(base.Named("remote:base1"))
-	test.That(t, err, test.ShouldBeNil)
-	aBase, ok := b.(base.Base)
-	test.That(t, ok, test.ShouldBeTrue)
-
-	err = aBase.Stop(ctx, map[string]interface{}{})
-	test.That(t, err, test.ShouldBeNil)
-
-	test.That(t, len(robotClient.ResourceNames()), test.ShouldEqual, 5)
-}
-
 func TestCheckMaxInstanceValid(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 	cfg := &config.Config{
@@ -3557,8 +3331,23 @@ type mockResource struct {
 }
 
 type mockConfig struct {
-	Value int  `json:"value"`
-	Fail  bool `json:"fail"`
+	Value int    `json:"value"`
+	Fail  bool   `json:"fail"`
+	Sleep string `json:"sleep"`
+}
+
+//nolint:unparam // the resource name is currently always "m" but this could easily change
+func newMockConfig(name string, val int, fail bool, sleep string) resource.Config {
+	return resource.Config{
+		Name:  name,
+		Model: mockModel,
+		API:   mockAPI,
+		// We need to specify both `Attributes` and `ConvertedAttributes`.
+		// The former triggers a reconfiguration and the former is actually
+		// used to reconfigure the component.
+		Attributes:          rutils.AttributeMap{"value": val, "fail": fail, "sleep": sleep},
+		ConvertedAttributes: &mockConfig{Value: val, Fail: fail, Sleep: sleep},
+	}
 }
 
 var errMockValidation = errors.New("whoops")
@@ -3596,8 +3385,65 @@ func (m *mockResource) Reconfigure(
 	if err != nil {
 		return err
 	}
+	if mConf.Sleep != "" {
+		if d, err := time.ParseDuration(mConf.Sleep); err == nil {
+			log.Printf("sleeping for %s\n", d)
+			time.Sleep(d)
+		}
+	}
 	m.value = mConf.Value
 	return nil
+}
+
+// getExpectedDefaultStatuses returns a slice of default [resource.Status] with a given
+// revision set for motion and sensor services.
+func getExpectedDefaultStatuses(revision string) []resource.Status {
+	return []resource.Status{
+		{
+			Name: resource.Name{
+				API:  resource.APINamespaceRDKInternal.WithServiceType("framesystem"),
+				Name: "builtin",
+			},
+			State: resource.NodeStateReady,
+		},
+		{
+			Name: resource.Name{
+				API:  resource.APINamespaceRDKInternal.WithServiceType("cloud_connection"),
+				Name: "builtin",
+			},
+			State: resource.NodeStateReady,
+		},
+		{
+			Name: resource.Name{
+				API:  resource.APINamespaceRDKInternal.WithServiceType("packagemanager"),
+				Name: "builtin",
+			},
+			State: resource.NodeStateReady,
+		},
+		{
+			Name: resource.Name{
+				API:  resource.APINamespaceRDKInternal.WithServiceType("web"),
+				Name: "builtin",
+			},
+			State: resource.NodeStateReady,
+		},
+		{
+			Name: resource.Name{
+				API:  resource.APINamespaceRDK.WithServiceType("motion"),
+				Name: "builtin",
+			},
+			State:    resource.NodeStateReady,
+			Revision: revision,
+		},
+		{
+			Name: resource.Name{
+				API:  resource.APINamespaceRDK.WithServiceType("sensors"),
+				Name: "builtin",
+			},
+			State:    resource.NodeStateReady,
+			Revision: revision,
+		},
+	}
 }
 
 func TestMachineStatus(t *testing.T) {
@@ -3611,93 +3457,32 @@ func TestMachineStatus(t *testing.T) {
 	)
 	defer resource.Deregister(mockAPI, mockModel)
 
-	rev1 := "rev1"
-	builtinRev := rev1
-
-	getExpectedDefaultStatuses := func() []resource.Status {
-		return []resource.Status{
-			{
-				Name: resource.Name{
-					API:  resource.APINamespaceRDKInternal.WithServiceType("framesystem"),
-					Name: "builtin",
-				},
-				State: resource.NodeStateReady,
-			},
-			{
-				Name: resource.Name{
-					API:  resource.APINamespaceRDKInternal.WithServiceType("cloud_connection"),
-					Name: "builtin",
-				},
-				State: resource.NodeStateReady,
-			},
-			{
-				Name: resource.Name{
-					API:  resource.APINamespaceRDKInternal.WithServiceType("packagemanager"),
-					Name: "builtin",
-				},
-				State: resource.NodeStateReady,
-			},
-			{
-				Name: resource.Name{
-					API:  resource.APINamespaceRDKInternal.WithServiceType("web"),
-					Name: "builtin",
-				},
-				State: resource.NodeStateReady,
-			},
-			{
-				Name: resource.Name{
-					API:  resource.APINamespaceRDK.WithServiceType("motion"),
-					Name: "builtin",
-				},
-				State:    resource.NodeStateReady,
-				Revision: builtinRev,
-			},
-			{
-				Name: resource.Name{
-					API:  resource.APINamespaceRDK.WithServiceType("sensors"),
-					Name: "builtin",
-				},
-				State:    resource.NodeStateReady,
-				Revision: builtinRev,
-			},
-		}
-	}
-
 	t.Run("default resources", func(t *testing.T) {
+		rev1 := "rev1"
 		lr := setupLocalRobot(t, ctx, &config.Config{Revision: rev1}, logger)
 
 		mStatus, err := lr.MachineStatus(ctx)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, mStatus.Config.Revision, test.ShouldEqual, rev1)
 
-		expectedStatuses := getExpectedDefaultStatuses()
+		expectedStatuses := getExpectedDefaultStatuses(rev1)
 		rtestutils.VerifySameResourceStatuses(t, mStatus.Resources, expectedStatuses)
 	})
 
-	t.Run("reconfigure", func(t *testing.T) {
-		lr := setupLocalRobot(t, ctx, &config.Config{Revision: rev1}, logger)
-
-		expectedConfigError := fmt.Errorf("resource config validation error: %w", errMockValidation)
+	t.Run("poll after working and failing reconfigures", func(t *testing.T) {
+		lr := setupLocalRobot(t, ctx, &config.Config{Revision: "rev1"}, logger)
 
 		// Add a fake resource to the robot.
 		rev2 := "rev2"
-		builtinRev = rev2
 		lr.Reconfigure(ctx, &config.Config{
-			Revision: rev2,
-			Components: []resource.Config{
-				{
-					Name:                "m",
-					Model:               mockModel,
-					API:                 mockAPI,
-					ConvertedAttributes: &mockConfig{},
-				},
-			},
+			Revision:   rev2,
+			Components: []resource.Config{newMockConfig("m", 0, false, "")},
 		})
 		mStatus, err := lr.MachineStatus(ctx)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, mStatus.Config.Revision, test.ShouldEqual, rev2)
 		expectedStatuses := rtestutils.ConcatResourceStatuses(
-			getExpectedDefaultStatuses(),
+			getExpectedDefaultStatuses(rev2),
 			[]resource.Status{
 				{
 					Name:     mockNamed("m"),
@@ -3710,27 +3495,17 @@ func TestMachineStatus(t *testing.T) {
 
 		// Update resource config to cause reconfiguration to fail.
 		rev3 := "rev3"
-		builtinRev = rev3
 		lr.Reconfigure(ctx, &config.Config{
-			Revision: rev3,
-			Components: []resource.Config{
-				{
-					Name:  "m",
-					Model: mockModel,
-					API:   mockAPI,
-					// We need to specify both `Attributes` and `ConvertedAttributes`.
-					// The former triggers a reconfiguration and the former is actually
-					// used to reconfigure the component.
-					Attributes:          rutils.AttributeMap{"fail": true},
-					ConvertedAttributes: &mockConfig{Fail: true},
-				},
-			},
+			Revision:   rev3,
+			Components: []resource.Config{newMockConfig("m", 0, true, "")},
 		})
 		mStatus, err = lr.MachineStatus(ctx)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, mStatus.Config.Revision, test.ShouldEqual, rev3)
+
+		expectedConfigError := fmt.Errorf("resource config validation error: %w", errMockValidation)
 		expectedStatuses = rtestutils.ConcatResourceStatuses(
-			getExpectedDefaultStatuses(),
+			getExpectedDefaultStatuses(rev3),
 			[]resource.Status{
 				{
 					Name:     mockNamed("m"),
@@ -3744,32 +3519,88 @@ func TestMachineStatus(t *testing.T) {
 
 		// Update resource with a working config.
 		rev4 := "rev4"
-		builtinRev = rev4
 		lr.Reconfigure(ctx, &config.Config{
-			Revision: rev4,
-			Components: []resource.Config{
-				{
-					Name:  "m",
-					Model: mockModel,
-					API:   mockAPI,
-					// We need to specify both `Attributes` and `ConvertedAttributes`.
-					// The former triggers a reconfiguration and the former is actually
-					// used to reconfigure the component.
-					Attributes:          rutils.AttributeMap{"value": 200},
-					ConvertedAttributes: &mockConfig{Value: 200},
-				},
-			},
+			Revision:   rev4,
+			Components: []resource.Config{newMockConfig("m", 200, false, "")},
 		})
 		mStatus, err = lr.MachineStatus(ctx)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, mStatus.Config.Revision, test.ShouldEqual, rev4)
 		expectedStatuses = rtestutils.ConcatResourceStatuses(
-			getExpectedDefaultStatuses(),
+			getExpectedDefaultStatuses(rev4),
 			[]resource.Status{
 				{
 					Name:     mockNamed("m"),
 					State:    resource.NodeStateReady,
 					Revision: rev4,
+				},
+			},
+		)
+		rtestutils.VerifySameResourceStatuses(t, mStatus.Resources, expectedStatuses)
+	})
+
+	t.Run("poll during reconfiguration", func(t *testing.T) {
+		rev1 := "rev1"
+		lr := setupLocalRobot(t, ctx, &config.Config{
+			Revision:   rev1,
+			Components: []resource.Config{newMockConfig("m", 200, false, "")},
+		}, logger)
+
+		// update resource with a working config that is slow to reconfigure.
+		rev2 := "rev2"
+		var wg sync.WaitGroup
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			lr.Reconfigure(ctx, &config.Config{
+				Revision:   rev2,
+				Components: []resource.Config{newMockConfig("m", 300, false, "1s")},
+			})
+		}()
+		// sleep for a short amount of time to allow the machine to receive a new
+		// revision. this sleep should be shorter than the resource update duration
+		// defined above so that updated resource is still in a "configuring" state.
+		time.Sleep(time.Millisecond * 100)
+
+		// get status while reconfiguring
+		mStatus, err := lr.MachineStatus(ctx)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, mStatus.Config.Revision, test.ShouldEqual, rev2)
+
+		// the component whose config changed should be the only component in a
+		// "configuring" state and associated with the original revision.
+		filterConfiguring := rtestutils.FilterByStatus(t, mStatus.Resources, resource.NodeStateConfiguring)
+		expectedConfiguring := []resource.Status{
+			{
+				Name:     mockNamed("m"),
+				State:    resource.NodeStateConfiguring,
+				Revision: rev1,
+			},
+		}
+		rtestutils.VerifySameResourceStatuses(t, filterConfiguring, expectedConfiguring)
+
+		// all other components should be in the "ready" state and associated with the
+		// new revision.
+		filterReady := rtestutils.FilterByStatus(t, mStatus.Resources, resource.NodeStateReady)
+		expectedReady := getExpectedDefaultStatuses(rev2)
+		rtestutils.VerifySameResourceStatuses(t, filterReady, expectedReady)
+
+		wg.Wait()
+
+		// get status after reconfigure finishes
+		mStatus, err = lr.MachineStatus(ctx)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, mStatus.Config.Revision, test.ShouldEqual, rev2)
+
+		// now all components, including the one whose config changed, should all be in
+		// the "ready" state and associated with the new revision.
+		expectedStatuses := rtestutils.ConcatResourceStatuses(
+			getExpectedDefaultStatuses(rev2),
+			[]resource.Status{
+				{
+					Name:     mockNamed("m"),
+					State:    resource.NodeStateReady,
+					Revision: rev2,
 				},
 			},
 		)
