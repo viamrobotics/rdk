@@ -71,6 +71,9 @@ func TestGoFor(t *testing.T) {
 	latestLoggedEntry = allObs[1]
 	test.That(t, fmt.Sprint(latestLoggedEntry), test.ShouldContainSubstring, "nearly the max")
 
+	// zero revs error
+	test.That(t, m.GoFor(ctx, 10, 0, nil), test.ShouldBeError, motor.NewZeroRevsError())
+
 	testutils.WaitForAssertion(t, func(tb testing.TB) {
 		tb.Helper()
 		pos, err := m.Position(ctx, nil)

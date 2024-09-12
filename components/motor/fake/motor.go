@@ -31,8 +31,9 @@ var (
 	}
 )
 
-const defaultMaxRpm = 100
-const defaultNonZeroRevs = -1
+const (
+	defaultMaxRpm = 100
+)
 
 // PinConfig defines the mapping of where motor are wired.
 type PinConfig struct {

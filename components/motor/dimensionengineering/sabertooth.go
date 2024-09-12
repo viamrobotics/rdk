@@ -393,7 +393,7 @@ func (m *Motor) SetPower(ctx context.Context, powerPct float64, extra map[string
 // for this so power is determined via a linear relationship with the maxRPM and the distance
 // traveled is a time based estimation based on desired RPM.
 func (m *Motor) GoFor(ctx context.Context, rpm, revolutions float64, extra map[string]interface{}) error {
-	if m.maxRPM == 0 {
+	if m.maxRPM == 0 || rpm == 0 {
 		return motor.NewZeroRPMError()
 	}
 

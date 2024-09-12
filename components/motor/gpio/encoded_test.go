@@ -209,6 +209,10 @@ func TestEncodedMotor(t *testing.T) {
 		test.That(t, initpos > finalpos, test.ShouldBeTrue)
 	})
 
+	t.Run("encoded motor test GoFor zero revolutions", func(t *testing.T) {
+		test.That(t, m.GoFor(context.Background(), 10, 0, nil), test.ShouldBeError, motor.NewZeroRevsError())
+	})
+
 	t.Run("encoded motor test encodedGoForMath", func(t *testing.T) {
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()

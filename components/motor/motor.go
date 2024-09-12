@@ -200,7 +200,7 @@ func CheckSpeed(rpm, max float64) (string, error) {
 	}
 }
 
-// CheckRevolutions checks if the input revolutions is non-zero
+// CheckRevolutions checks if the input revolutions is non-zero.
 func CheckRevolutions(revs float64) error {
 	if revs == 0 {
 		return NewZeroRevsError()
@@ -208,7 +208,7 @@ func CheckRevolutions(revs float64) error {
 	return nil
 }
 
-// GetDirection returns the direction based on the rpm and revolutions
+// GetDirection returns the direction based on the rpm and revolutions.
 func GetDirection(rpm, revolutions float64) float64 {
 	dir := 1.0
 	if rpm*revolutions == 0.0 {

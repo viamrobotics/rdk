@@ -20,8 +20,7 @@ func NewZeroRPMError() error {
 	return errors.New("Cannot move motor at an RPM that is nearly 0")
 }
 
-// NewZeroRPMError returns an error representing a request to move a motor at
-// zero speed (i.e., moving the motor without moving the motor).
+// NewZeroRevsError returns an error representing a request to move a motor for 0 revolutions.
 func NewZeroRevsError() error {
 	return errors.New("Cannot move motor for 0 revolutions")
 }

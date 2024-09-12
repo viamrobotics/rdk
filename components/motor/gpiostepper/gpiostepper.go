@@ -353,8 +353,7 @@ func (m *gpioStepper) calcStepperDelay(rpm float64) time.Duration {
 func (m *gpioStepper) goForInternal(ctx context.Context, rpm, revolutions float64) error {
 	speed := math.Abs(rpm)
 	if speed < 0.1 {
-		m.logger.CWarn(ctx, "motor speed is nearly 0 rev_per_min")
-		return m.Stop(ctx, nil)
+		return multierr.Combine(m.Stop(ctx, nil), motor.NewZeroRPMError())
 	}
 
 	if err := motor.CheckRevolutions(revolutions); err != nil {
