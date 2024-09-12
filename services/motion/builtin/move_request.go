@@ -66,10 +66,10 @@ type moveRequest struct {
 	kinematicBase     kinematicbase.KinematicBase
 	obstacleDetectors map[vision.Service][]resource.Name
 	replanCostFactor  float64
-	// TODO(RSDK-8683): remove alreadyAtGoalCheck and put it in the motionplan package
-	// alreadyAtGoalCheck func(basePose spatialmath.Pose) *state.ExecuteResponse
-	alreadyAtGoalCheck func(basePose spatialmath.Pose) bool
-	fsService          framesystem.Service
+	// TODO(RSDK-8683): remove atGoalCheck and put it in the motionplan package
+	// atGoalCheck func(basePose spatialmath.Pose) *state.ExecuteResponse
+	atGoalCheck func(basePose spatialmath.Pose) bool
+	fsService   framesystem.Service
 	// localizingFS is used for placing observed transient obstacles into their absolute world position when
 	// they are observed. It is also used by CheckPlan to perform collision checking.
 	// The localizingFS combines a kinematic bases localization and kinematics(aka execution) frames into a
@@ -147,7 +147,7 @@ func (mr *moveRequest) execute(ctx context.Context, plan motionplan.Plan) (state
 	// If our motion profile is position_only then, we only check against our current & desired position
 	// Conversely if our motion profile is anything else, then we also need to check again our
 	// current & desired orientation
-	if resp := mr.alreadyAtGoalCheck(mr.planRequest.StartPose); resp {
+	if resp := mr.atGoalCheck(mr.planRequest.StartPose); resp {
 		mr.logger.Info("no need to move, already within planDeviationMM of the goal")
 		return state.ExecuteResponse{Replan: false}, nil
 	}
@@ -175,7 +175,7 @@ func (mr *moveRequest) execute(ctx context.Context, plan motionplan.Plan) (state
 	if !ok {
 		return state.ExecuteResponse{}, errors.New("exeuctionState.CurrentPoses() does not contain an entry for the LocalizationFrame")
 	}
-	if resp := mr.alreadyAtGoalCheck(currentPosition.Pose()); !resp {
+	if resp := mr.atGoalCheck(currentPosition.Pose()); !resp {
 		return state.ExecuteResponse{Replan: true, ReplanReason: "issuing a replan since we are not within planDeviationMM of the goal"}, nil
 	}
 	return state.ExecuteResponse{Replan: false}, nil
@@ -928,12 +928,12 @@ func (ms *builtIn) createBaseMoveRequest(
 			WorldState:         worldState,
 			Options:            valExtra.extra,
 		},
-		kinematicBase:      kb,
-		replanCostFactor:   valExtra.replanCostFactor,
-		alreadyAtGoalCheck: atGoalCheck,
-		obstacleDetectors:  obstacleDetectors,
-		fsService:          ms.fsService,
-		localizingFS:       collisionFS,
+		kinematicBase:     kb,
+		replanCostFactor:  valExtra.replanCostFactor,
+		atGoalCheck:       atGoalCheck,
+		obstacleDetectors: obstacleDetectors,
+		fsService:         ms.fsService,
+		localizingFS:      collisionFS,
 
 		executeBackgroundWorkers: &backgroundWorkers,
 
