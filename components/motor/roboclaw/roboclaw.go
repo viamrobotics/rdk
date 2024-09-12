@@ -239,12 +239,7 @@ func (m *roboclawMotor) SetPower(ctx context.Context, powerPct float64, extra ma
 }
 
 func goForMath(rpm, revolutions float64) (float64, time.Duration) {
-	dir := 1.0
-	if rpm*revolutions == 0.0 {
-		dir = 0.0
-	} else if rpm*revolutions < 0.0 {
-		dir = -1.0
-	}
+	dir := motor.GetDirection(rpm, revolutions)
 
 	powerPct := math.Abs(rpm) / maxRPM * dir
 	waitDur := time.Duration(math.Abs(revolutions/rpm)*minutesToMS) * time.Millisecond

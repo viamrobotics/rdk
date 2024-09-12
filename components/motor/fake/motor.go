@@ -260,16 +260,7 @@ func goForMath(maxRPM, rpm, revolutions float64) (float64, time.Duration, float6
 		rpm = -1 * maxRPM
 	}
 
-	dir := 1.0
-	if rpm*revolutions == 0.0 {
-		dir = 0.0
-	} else if rpm*revolutions < 0.0 {
-		dir = -1.0
-	}
-
-	if rpm == 0 {
-		return 0, 0, dir
-	}
+	dir := motor.GetDirection(rpm, revolutions)
 
 	powerPct := math.Abs(rpm) / maxRPM * dir
 	waitDur := time.Duration(math.Abs(revolutions/rpm)*60*1000) * time.Millisecond
