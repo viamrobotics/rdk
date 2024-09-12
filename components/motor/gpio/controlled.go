@@ -305,7 +305,6 @@ func (cm *controlledMotor) SetRPM(ctx context.Context, rpm float64, extra map[st
 // can be assigned negative values to move in a backwards direction. Note: if both are
 // negative the motor will spin in the forward direction.
 // If revolutions != 0, this will block until the number of revolutions has been completed or another operation comes in.
-// Deprecated: If revolutions is 0, this will run the motor at rpm indefinitely.
 func (cm *controlledMotor) GoFor(ctx context.Context, rpm, revolutions float64, extra map[string]interface{}) error {
 	cm.opMgr.CancelRunning(ctx)
 	ctx, done := cm.opMgr.New(ctx)
@@ -316,6 +315,10 @@ func (cm *controlledMotor) GoFor(ctx context.Context, rpm, revolutions float64, 
 		cm.logger.CWarn(ctx, warning)
 	}
 	if err != nil {
+		return err
+	}
+
+	if err := motor.CheckRevolutions(revolutions); err != nil {
 		return err
 	}
 
@@ -341,11 +344,6 @@ func (cm *controlledMotor) GoFor(ctx context.Context, rpm, revolutions float64, 
 		return err
 	}
 	cm.loop.Resume()
-
-	if revolutions == 0 {
-		cm.logger.Warn("Deprecated: setting revolutions == 0 will spin the motor indefinitely at the specified RPM")
-		return nil
-	}
 
 	// we can probably use something in controls to make GoFor blockign without this
 	// helper function
