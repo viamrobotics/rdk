@@ -208,8 +208,8 @@ func CheckRevolutions(revs float64) error {
 	return nil
 }
 
-// GetDirection returns the direction based on the rpm and revolutions.
-func GetDirection(rpm, revolutions float64) float64 {
+// GetRequestedDirection returns the direction based on the rpm and revolutions.
+func GetRequestedDirection(rpm, revolutions float64) float64 {
 	dir := 1.0
 	if rpm*revolutions == 0.0 {
 		dir = 0.0
