@@ -1,4 +1,7 @@
 // Package motion is the service that allows you to plan and execute movements.
+// For more information, see the [motion service docs].
+//
+// [motion service docs]: https://docs.viam.com/services/motion/
 package motion
 
 import (
@@ -186,6 +189,7 @@ type PlanWithStatus struct {
 }
 
 // A Service controls the flow of moving components.
+// For more information, see the [motion service docs].
 //
 // Move example:
 //
@@ -324,6 +328,8 @@ type PlanWithStatus struct {
 //	planHistory, err := motionService.PlanHistory(context.Background(), motion.PlanHistoryReq{
 //		ComponentName: myBaseResourceName,
 //	})
+//
+// [motion service docs]: https://docs.viam.com/services/motion/
 type Service interface {
 	resource.Resource
 

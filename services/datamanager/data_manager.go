@@ -1,4 +1,7 @@
 // Package datamanager contains a service type that can be used to capture data from a robot's components.
+// For more information, see the [data management service docs].
+//
+// [data management service docs]: https://docs.viam.com/services/data/
 package datamanager
 
 import (
@@ -31,11 +34,14 @@ func init() {
 }
 
 // Service defines what a Data Manager Service should expose to the users.
+// For more information, see the [data management service docs].
 //
 // Sync example:
 //
 //	// Sync data stored on the machine to the cloud.
 //	err := data.Sync(context.Background(), nil)
+//
+// [data management service docs]: https://docs.viam.com/services/data/
 type Service interface {
 	resource.Resource
 	// Sync will sync data stored on the machine to the cloud.
