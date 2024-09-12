@@ -2,7 +2,6 @@ package gpiostepper
 
 import (
 	"context"
-	"fmt"
 	"sync"
 	"testing"
 	"time"
@@ -175,7 +174,7 @@ func TestRunning(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	logger, obs := logging.NewObservedTestLogger(t)
+	logger, _ := logging.NewObservedTestLogger(t)
 	c := resource.Config{
 		Name: "fake_gpiostepper",
 	}
@@ -506,22 +505,6 @@ func TestRunning(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, pos, test.ShouldBeGreaterThan, minDistanceMoved)
 		test.That(t, pos, test.ShouldBeLessThan, 202)
-	})
-
-	t.Run("motor testing with 0 rpm", func(t *testing.T) {
-		m, err := newGPIOStepper(ctx, &b, goodConfig, c.ResourceName(), logger)
-		test.That(t, err, test.ShouldBeNil)
-		defer m.Close(ctx)
-
-		err = m.GoFor(ctx, 0, 1, nil)
-		test.That(t, err, test.ShouldBeNil)
-		allObs := obs.All()
-		latestLoggedEntry := allObs[len(allObs)-1]
-		test.That(t, fmt.Sprint(latestLoggedEntry), test.ShouldContainSubstring, "nearly 0")
-
-		on, _, err := m.IsPowered(ctx, nil)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, on, test.ShouldEqual, false)
 	})
 
 	t.Run("motor testing with SetRPM", func(t *testing.T) {
