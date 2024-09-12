@@ -67,7 +67,8 @@ type moveRequest struct {
 	obstacleDetectors map[vision.Service][]resource.Name
 	replanCostFactor  float64
 	// TODO(RSDK-8683): remove alreadyAtGoalCheck and put it in the motionplan package
-	alreadyAtGoalCheck func(basePose spatialmath.Pose) *state.ExecuteResponse
+	// alreadyAtGoalCheck func(basePose spatialmath.Pose) *state.ExecuteResponse
+	alreadyAtGoalCheck func(basePose spatialmath.Pose) bool
 	fsService          framesystem.Service
 	// localizingFS is used for placing observed transient obstacles into their absolute world position when
 	// they are observed. It is also used by CheckPlan to perform collision checking.
@@ -146,10 +147,9 @@ func (mr *moveRequest) execute(ctx context.Context, plan motionplan.Plan) (state
 	// If our motion profile is position_only then, we only check against our current & desired position
 	// Conversely if our motion profile is anything else, then we also need to check again our
 	// current & desired orientation
-	resp := mr.alreadyAtGoalCheck(mr.planRequest.StartPose)
-	if resp != nil {
+	if resp := mr.alreadyAtGoalCheck(mr.planRequest.StartPose); resp {
 		mr.logger.Info("no need to move, already within planDeviationMM of the goal")
-		return *resp, nil
+		return state.ExecuteResponse{Replan: false}, nil
 	}
 
 	waypoints, err := plan.Trajectory().GetFrameInputs(mr.kinematicBase.Name().ShortName())
@@ -175,11 +175,10 @@ func (mr *moveRequest) execute(ctx context.Context, plan motionplan.Plan) (state
 	if !ok {
 		return state.ExecuteResponse{}, errors.New("exeuctionState.CurrentPoses() does not contain an entry for the LocalizationFrame")
 	}
-	resp = mr.alreadyAtGoalCheck(currentPosition.Pose())
-	if resp == nil {
+	if resp := mr.alreadyAtGoalCheck(currentPosition.Pose()); !resp {
 		return state.ExecuteResponse{Replan: true, ReplanReason: "issuing a replan since we are not within planDeviationMM of the goal"}, nil
 	}
-	return *resp, nil
+	return state.ExecuteResponse{Replan: false}, nil
 }
 
 // deviatedFromPlan takes a plan and an index of a waypoint on that Plan and returns whether or not it is still
@@ -905,17 +904,13 @@ func (ms *builtIn) createBaseMoveRequest(
 	}
 
 	// TODO(RSDK-8683): move this check into the motionplan package
-	// anonymous function to determine if we are at the requested goal at the start and end of plan's execution
-	atGoalCheck := func(basePose spatialmath.Pose) *state.ExecuteResponse {
+	atGoalCheck := func(basePose spatialmath.Pose) bool {
 		if valExtra.motionProfile == motionplan.PositionOnlyMotionProfile {
-			if spatialmath.PoseAlmostCoincidentEps(goal.Pose(), basePose, motionCfg.planDeviationMM) {
-				return &state.ExecuteResponse{Replan: false}
-			}
-		} else if spatialmath.OrientationAlmostEqualEps(goal.Pose().Orientation(), basePose.Orientation(), 5) &&
-			spatialmath.PoseAlmostCoincidentEps(goal.Pose(), basePose, motionCfg.planDeviationMM) {
-			return &state.ExecuteResponse{Replan: false}
+			return spatialmath.PoseAlmostCoincidentEps(goal.Pose(), basePose, motionCfg.planDeviationMM)
+		} else {
+			return spatialmath.OrientationAlmostEqualEps(goal.Pose().Orientation(), basePose.Orientation(), 5) &&
+				spatialmath.PoseAlmostCoincidentEps(goal.Pose(), basePose, motionCfg.planDeviationMM)
 		}
-		return nil
 	}
 
 	var backgroundWorkers sync.WaitGroup
