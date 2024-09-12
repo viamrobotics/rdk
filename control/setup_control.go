@@ -2,6 +2,7 @@ package control
 
 import (
 	"context"
+	"fmt"
 	"sync"
 
 	"github.com/pkg/errors"
@@ -36,7 +37,8 @@ var (
 type PIDLoop struct {
 	BlockNames              map[string][]string
 	PIDVals                 []PIDConfig
-	ControlConf             Config
+	TunedVals               *[]PIDConfig
+	ControlConf             *Config
 	ControlLoop             *Loop
 	Options                 Options
 	Controllable            Controllable
@@ -100,15 +102,16 @@ func SetupPIDControlConfig(
 	pidLoop := &PIDLoop{
 		Controllable: c,
 		PIDVals:      pidVals,
+		TunedVals:    &[]PIDConfig{{}, {}},
 		logger:       logger,
 		Options:      options,
-		ControlConf:  Config{},
+		ControlConf:  &Config{},
 		ControlLoop:  nil,
 	}
 
 	// set controlConf as either an optional custom config, or as the default control config
 	if options.UseCustomConfig {
-		pidLoop.ControlConf = options.CompleteCustomConfig
+		*pidLoop.ControlConf = options.CompleteCustomConfig
 		for i, b := range options.CompleteCustomConfig.Blocks {
 			if b.Type == blockSum {
 				sumIndex = i
@@ -163,6 +166,10 @@ func (p *PIDLoop) TunePIDLoop(ctx context.Context, cancelFunc context.CancelFunc
 
 			p.ControlLoop.MonitorTuning(ctx)
 
+			tunedPID := p.ControlLoop.GetPIDVals(0)
+			tunedPID.Type = p.PIDVals[0].Type
+			(*p.TunedVals)[0] = tunedPID
+
 			p.ControlLoop.Stop()
 			p.ControlLoop = nil
 		}
@@ -170,7 +177,7 @@ func (p *PIDLoop) TunePIDLoop(ctx context.Context, cancelFunc context.CancelFunc
 			// check if linear needs to be tuned
 			if p.PIDVals[0].NeedsAutoTuning() {
 				p.logger.Info("tuning linear PID")
-				if err := p.tuneSinglePID(ctx, angularPIDIndex); err != nil {
+				if err := p.tuneSinglePID(ctx, angularPIDIndex, 0); err != nil {
 					errs = multierr.Combine(errs, err)
 				}
 			}
@@ -178,7 +185,7 @@ func (p *PIDLoop) TunePIDLoop(ctx context.Context, cancelFunc context.CancelFunc
 			// check if angular needs to be tuned
 			if p.PIDVals[1].NeedsAutoTuning() {
 				p.logger.Info("tuning angular PID")
-				if err := p.tuneSinglePID(ctx, linearPIDIndex); err != nil {
+				if err := p.tuneSinglePID(ctx, linearPIDIndex, 1); err != nil {
 					errs = multierr.Combine(errs, err)
 				}
 			}
@@ -187,7 +194,7 @@ func (p *PIDLoop) TunePIDLoop(ctx context.Context, cancelFunc context.CancelFunc
 	return errs
 }
 
-func (p *PIDLoop) tuneSinglePID(ctx context.Context, blockIndex int) error {
+func (p *PIDLoop) tuneSinglePID(ctx context.Context, blockIndex, pidIndex int) error {
 	// preserve old values and set them to be non-zero
 	pOld := p.ControlConf.Blocks[blockIndex].Attribute["kP"]
 	iOld := p.ControlConf.Blocks[blockIndex].Attribute["kI"]
@@ -199,6 +206,9 @@ func (p *PIDLoop) tuneSinglePID(ctx context.Context, blockIndex int) error {
 	}
 
 	p.ControlLoop.MonitorTuning(ctx)
+	tunedPID := p.ControlLoop.GetPIDVals(pidIndex)
+	tunedPID.Type = p.PIDVals[pidIndex].Type
+	(*p.TunedVals)[pidIndex] = tunedPID
 
 	p.ControlLoop.Stop()
 	p.ControlLoop = nil
@@ -246,7 +256,7 @@ func (p *PIDLoop) basicControlConfig(endpointName string, pidVals PIDConfig, con
 	if p.Options.LoopFrequency != 0.0 {
 		loopFrequency = p.Options.LoopFrequency
 	}
-	p.ControlConf = Config{
+	*p.ControlConf = Config{
 		Blocks: []BlockConfig{
 			{
 				Name: "set_point",
@@ -409,7 +419,7 @@ func (p *PIDLoop) addSensorFeedbackVelocityControl(angularPIDVals PIDConfig) {
 
 // StartControlLoop starts a PID control loop.
 func (p *PIDLoop) StartControlLoop() error {
-	loop, err := NewLoop(p.logger, p.ControlConf, p.Controllable)
+	loop, err := NewLoop(p.logger, *p.ControlConf, p.Controllable)
 	if err != nil {
 		return err
 	}
@@ -467,4 +477,20 @@ func UpdateTrapzBlock(ctx context.Context, name string, maxVel float64, dependsO
 		return err
 	}
 	return nil
+}
+
+// TunedPIDErr returns an error with the stored tuned PID values.
+func TunedPIDErr(name string, tunedVals []PIDConfig) error {
+	var tunedStr string
+	for _, pid := range tunedVals {
+		if !pid.NeedsAutoTuning() {
+			tunedStr += fmt.Sprintf(`{"p": %v, "i": %v, "d": %v, "type": "%v"} `, pid.P, pid.I, pid.D, pid.Type)
+		}
+	}
+	return fmt.Errorf(`%v has been tuned, please copy the following control values into your config: %v`, name, tunedStr)
+}
+
+// TuningInProgressErr returns an error when the loop is actively tuning.
+func TuningInProgressErr(name string) error {
+	return fmt.Errorf(`tuning for %v is in progress`, name)
 }

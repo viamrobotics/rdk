@@ -3,6 +3,7 @@ package sensorcontrolled
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 	"sync"
 	"testing"
@@ -28,6 +29,8 @@ const (
 	// compassValue and orientationValue should be different for tests.
 	defaultCompassValue     = 45.
 	defaultOrientationValue = 40.
+	wrongTypeLinVel         = "linear"
+	wrongTypeAngVel         = "angulr_velocity"
 )
 
 var (
@@ -145,16 +148,16 @@ func TestSensorBase(t *testing.T) {
 	test.That(t, sb.Close(ctx), test.ShouldBeNil)
 }
 
-func sBaseTestConfig(msNames []string, freq float64) resource.Config {
+func sBaseTestConfig(msNames []string, freq float64, linType, angType string) resource.Config {
 	controlParams := make([]control.PIDConfig, 2)
 	controlParams[0] = control.PIDConfig{
-		Type: typeLinVel,
+		Type: linType,
 		P:    0.5,
 		I:    0.5,
 		D:    0.0,
 	}
 	controlParams[1] = control.PIDConfig{
-		Type: typeAngVel,
+		Type: angType,
 		P:    0.5,
 		I:    0.5,
 		D:    0.0,
@@ -177,7 +180,7 @@ func msDependencies(t *testing.T, msNames []string,
 ) (resource.Dependencies, resource.Config) {
 	t.Helper()
 
-	cfg := sBaseTestConfig(msNames, defaultControlFreq)
+	cfg := sBaseTestConfig(msNames, defaultControlFreq, typeLinVel, typeAngVel)
 
 	deps := make(resource.Dependencies)
 
@@ -279,7 +282,7 @@ func TestReconfig(t *testing.T) {
 
 	deps, _ = msDependencies(t, []string{"setvel2"})
 	// generate a config with a non default freq
-	cfg = sBaseTestConfig([]string{"setvel2"}, 100)
+	cfg = sBaseTestConfig([]string{"setvel2"}, 100, typeLinVel, typeAngVel)
 	err = b.Reconfigure(ctx, deps, cfg)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, sb.velocities.Name().ShortName(), test.ShouldResemble, "setvel2")
@@ -336,6 +339,12 @@ func TestReconfig(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, headingSupported, test.ShouldBeFalse)
 	test.That(t, headingBad, test.ShouldEqual, 0)
+
+	deps, _ = msDependencies(t, []string{"setvel2"})
+	// generate a config with invalid pid types
+	cfg = sBaseTestConfig([]string{"setvel2"}, 100, wrongTypeLinVel, wrongTypeAngVel)
+	err = b.Reconfigure(ctx, deps, cfg)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "type must be 'linear_velocity' or 'angular_velocity'")
 }
 
 func TestSensorBaseWithVelocitiesSensor(t *testing.T) {
@@ -343,7 +352,7 @@ func TestSensorBaseWithVelocitiesSensor(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 	deps, _ := msDependencies(t, []string{"setvel1"})
 	// generate a config with a non default freq
-	cfg := sBaseTestConfig([]string{"setvel1"}, 100)
+	cfg := sBaseTestConfig([]string{"setvel1"}, 100, typeLinVel, typeAngVel)
 
 	b, err := createSensorBase(ctx, deps, cfg, logger)
 	test.That(t, err, test.ShouldBeNil)
@@ -510,4 +519,33 @@ func TestSensorBaseMoveStraight(t *testing.T) {
 		}
 		orientationValue = defaultOrientationValue
 	})
+}
+
+func TestSensorBaseDoCommand(t *testing.T) {
+	ctx := context.Background()
+	logger := logging.NewTestLogger(t)
+	deps, cfg := msDependencies(t, []string{"setvel1", "position1", "orientation1"})
+	b, err := createSensorBase(ctx, deps, cfg, logger)
+	test.That(t, err, test.ShouldBeNil)
+
+	sb, ok := b.(*sensorBase)
+	test.That(t, ok, test.ShouldBeTrue)
+
+	expectedPID := control.PIDConfig{P: 0.1, I: 2.0, D: 0.0}
+	sb.tunedVals = &[]control.PIDConfig{expectedPID, {}}
+	expectedeMap := make(map[string]interface{})
+	expectedeMap["get_tuned_pid"] = (fmt.Sprintf("{p: %v, i: %v, d: %v, type: %v} ",
+		expectedPID.P, expectedPID.I, expectedPID.D, expectedPID.Type))
+
+	req := make(map[string]interface{})
+	req["get_tuned_pid"] = true
+	resp, err := b.DoCommand(ctx, req)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resp, test.ShouldResemble, expectedeMap)
+
+	emptyMap := make(map[string]interface{})
+	req["get_tuned_pid"] = false
+	resp, err = b.DoCommand(ctx, req)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resp, test.ShouldResemble, emptyMap)
 }
