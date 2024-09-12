@@ -8,6 +8,7 @@ import (
 	"path"
 	"path/filepath"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/benbjohnson/clock"
@@ -58,6 +59,7 @@ type Sync struct {
 	filesToSync             chan string
 	clientConstructor       func(cc grpc.ClientConnInterface) v1.DataSyncServiceClient
 	clock                   clock.Clock
+	atomicUploadStats       *atomicUploadStats
 
 	configMu sync.Mutex
 	config   Config
@@ -71,8 +73,31 @@ type Sync struct {
 	cloudConnManager *goutils.StoppableWorkers
 	// FileDeletingWorkers is only public for tests
 	FileDeletingWorkers *goutils.StoppableWorkers
+	statsWorker         *statsWorker
 	// MaxSyncThreads only exists for tests
 	MaxSyncThreads int
+}
+
+type atomicUploadStats struct {
+	binary    atomicStat
+	tabular   atomicStat
+	arbitrary atomicStat
+}
+
+type atomicStat struct {
+	uploadedFileCount     atomic.Uint64
+	uploadFailedFileCount atomic.Uint64
+}
+
+type uploadStats struct {
+	binary    stat
+	tabular   stat
+	arbitrary stat
+}
+
+type stat struct {
+	uploadedFileCount     uint64
+	uploadFailedFileCount uint64
 }
 
 // New creates a new Sync.
@@ -84,6 +109,8 @@ func New(
 	logger logging.Logger,
 ) *Sync {
 	configCtx, configCancelFunc := context.WithCancel(context.Background())
+	var atomicUploadStats atomicUploadStats
+	statsWorker := newStatsWorker(logger)
 	s := Sync{
 		connToConnectivityState: connToConnectivityState,
 		clock:                   clock,
@@ -97,8 +124,114 @@ func New(
 		Scheduler:               goutils.NewBackgroundStoppableWorkers(),
 		cloudConn:               cloudConn{ready: make(chan struct{})},
 		FileDeletingWorkers:     goutils.NewBackgroundStoppableWorkers(),
+		statsWorker:             statsWorker,
+		atomicUploadStats:       &atomicUploadStats,
 	}
 	return &s
+}
+
+type statsWorker struct {
+	worker *goutils.StoppableWorkers
+	logger logging.Logger
+}
+
+func newStatsWorker(logger logging.Logger) *statsWorker {
+	return &statsWorker{goutils.NewBackgroundStoppableWorkers(), logger}
+}
+
+func (sw *statsWorker) reconfigure(atomicStats *atomicUploadStats, interval time.Duration) {
+	sw.worker.Stop()
+	sw.worker = goutils.NewBackgroundStoppableWorkers(func(ctx context.Context) {
+		oldState := newUploadStats(atomicStats)
+		t := time.NewTicker(interval)
+		defer t.Stop()
+		for {
+			if ctx.Err() != nil {
+				return
+			}
+
+			select {
+			case <-ctx.Done():
+				return
+			case <-t.C:
+				newState := newUploadStats(atomicStats)
+				summary := summary(oldState, newState, interval)
+				for _, line := range summary {
+					sw.logger.Info(line)
+				}
+				oldState = newState
+			}
+		}
+	})
+}
+
+func newStat(s *atomicStat) stat {
+	return stat{
+		uploadedFileCount:     s.uploadedFileCount.Load(),
+		uploadFailedFileCount: s.uploadFailedFileCount.Load(),
+	}
+}
+
+func newUploadStats(stats *atomicUploadStats) uploadStats {
+	return uploadStats{
+		binary:    newStat(&stats.binary),
+		tabular:   newStat(&stats.tabular),
+		arbitrary: newStat(&stats.arbitrary),
+	}
+}
+
+func perSecond(v uint64, interval time.Duration) float64 {
+	return float64(v) / interval.Seconds()
+}
+
+func totalSummary(oldState uploadStats, newState uploadStats, interval time.Duration) []string {
+	sumFileCount := newState.arbitrary.uploadedFileCount + newState.binary.uploadedFileCount + newState.tabular.uploadedFileCount
+	aFileCoundDiff := newState.arbitrary.uploadedFileCount - oldState.arbitrary.uploadedFileCount
+	bFileCoundDiff := newState.binary.uploadedFileCount - oldState.binary.uploadedFileCount
+	tFileCoundDiff := newState.tabular.uploadedFileCount - oldState.tabular.uploadedFileCount
+	sumDiffFileCount := aFileCoundDiff + bFileCoundDiff + tFileCoundDiff
+
+	sumFailedCount := newState.arbitrary.uploadFailedFileCount + newState.binary.uploadFailedFileCount + newState.tabular.uploadFailedFileCount
+	aFailedFileCoundDiff := newState.arbitrary.uploadFailedFileCount - oldState.arbitrary.uploadFailedFileCount
+	bFailedFileCoundDiff := newState.binary.uploadFailedFileCount - oldState.binary.uploadFailedFileCount
+	tFailedFileCoundDiff := newState.tabular.uploadFailedFileCount - oldState.tabular.uploadFailedFileCount
+	sumDiffFailedFileCount := aFailedFileCoundDiff + bFailedFileCoundDiff + tFailedFileCoundDiff
+
+	return []string{
+		fmt.Sprintf("total uploads: %d, rate: %f/sec", sumFileCount, perSecond(sumDiffFileCount, interval)),
+		fmt.Sprintf("total failed uploads: %d, rate: %f/sec", sumFailedCount, perSecond(sumDiffFailedFileCount, interval)),
+	}
+}
+
+func summary(oldState uploadStats, newState uploadStats, interval time.Duration) []string {
+	summary := totalSummary(oldState, newState, interval)
+	var empty stat
+	if oldState.arbitrary != empty && newState.arbitrary != empty {
+		successRate := perSecond(newState.arbitrary.uploadedFileCount-oldState.arbitrary.uploadedFileCount, interval)
+		failRate := perSecond(newState.arbitrary.uploadFailedFileCount-oldState.arbitrary.uploadFailedFileCount, interval)
+		summary = append(summary, fmt.Sprintf("arbitrary file uploads: total: %d, rate: %f/sec", newState.arbitrary.uploadedFileCount, successRate))
+		summary = append(summary, fmt.Sprintf("arbitrary file failed uploads: total: %d, rate: %f/sec", newState.arbitrary.uploadFailedFileCount, failRate))
+	}
+
+	if oldState.binary != empty && newState.binary != empty {
+		successRate := perSecond(newState.binary.uploadedFileCount-oldState.binary.uploadedFileCount, interval)
+		failRate := perSecond(newState.binary.uploadFailedFileCount-oldState.binary.uploadFailedFileCount, interval)
+		summary = append(summary, fmt.Sprintf("binary file uploads: total: %d, rate: %f/sec", newState.binary.uploadedFileCount, successRate))
+		summary = append(summary, fmt.Sprintf("binary file failed uploads: total: %d, rate: %f/sec", newState.binary.uploadFailedFileCount, failRate))
+	}
+
+	if oldState.tabular != empty && newState.tabular != empty {
+		successRate := perSecond(newState.tabular.uploadedFileCount-oldState.tabular.uploadedFileCount, interval)
+		failRate := perSecond(newState.tabular.uploadFailedFileCount-oldState.tabular.uploadFailedFileCount, interval)
+		summary = append(summary, fmt.Sprintf("tabular file uploads: total: %d, rate: %f/sec", newState.tabular.uploadedFileCount, successRate))
+		summary = append(summary, fmt.Sprintf("tabular file failed uploads: total: %d, rate: %f/sec", newState.tabular.uploadFailedFileCount, failRate))
+	}
+
+	return summary
+}
+
+func (sw *statsWorker) close() {
+	sw.worker.Stop()
 }
 
 // Reconfigure reconfigures Sync and is only called by the builtin data manager
@@ -121,6 +254,7 @@ func (s *Sync) Reconfigure(_ context.Context, config Config, cloudConnSvc cloud.
 		// to execute, don't stop workers
 		return
 	}
+	s.statsWorker.reconfigure(s.atomicUploadStats, time.Minute)
 	s.config.logDiff(config, s.logger)
 
 	// config changed... stop workers
@@ -175,6 +309,7 @@ func (s *Sync) Reconfigure(_ context.Context, config Config, cloudConnSvc cloud.
 // Close releases all resources managed by data_manager.
 func (s *Sync) Close() {
 	s.configCancelFunc()
+	s.statsWorker.close()
 	s.FileDeletingWorkers.Stop()
 	s.Scheduler.Stop()
 	s.workersWg.Wait()
@@ -362,8 +497,10 @@ func (s *Sync) syncDataCaptureFile(f *os.File, captureDir string, logger logging
 		if err := moveFailedData(f.Name(), captureDir, cause, logger); err != nil {
 			s.logger.Error(err)
 		}
+		s.atomicUploadStats.tabular.uploadFailedFileCount.Add(1)
 		return
 	}
+	isBinary := captureFile.ReadMetadata().GetType() == v1.DataType_DATA_TYPE_BINARY_SENSOR
 
 	// setup a retry struct that will try to upload the capture file
 	retry := newExponentialRetry(s.configCtx, s.clock, s.logger, f.Name(), func(ctx context.Context) error {
@@ -388,12 +525,22 @@ func (s *Sync) syncDataCaptureFile(f *os.File, captureDir string, logger logging
 		if err := moveFailedData(captureFile.GetPath(), captureDir, err, logger); err != nil {
 			logger.Error(err)
 		}
+		if isBinary {
+			s.atomicUploadStats.binary.uploadFailedFileCount.Add(1)
+		} else {
+			s.atomicUploadStats.tabular.uploadFailedFileCount.Add(1)
+		}
 		return
 	}
 
 	// file was successfully uploaded, delete it and log an error if unable to delete
 	if err := captureFile.Delete(); err != nil {
 		logger.Error(errors.Wrap(err, "error deleting data capture file").Error())
+	}
+	if isBinary {
+		s.atomicUploadStats.binary.uploadedFileCount.Add(1)
+	} else {
+		s.atomicUploadStats.tabular.uploadedFileCount.Add(1)
 	}
 }
 
@@ -418,6 +565,7 @@ func (s *Sync) syncArbitraryFile(f *os.File, tags []string, fileLastModifiedMill
 		if err := moveFailedData(f.Name(), path.Dir(f.Name()), err, logger); err != nil {
 			logger.Error(err.Error())
 		}
+		s.atomicUploadStats.arbitrary.uploadFailedFileCount.Add(1)
 		return
 	}
 
@@ -428,6 +576,7 @@ func (s *Sync) syncArbitraryFile(f *os.File, tags []string, fileLastModifiedMill
 	if err := os.Remove(f.Name()); err != nil {
 		logger.Error(errors.Wrap(err, fmt.Sprintf("error deleting file %s", f.Name())).Error())
 	}
+	s.atomicUploadStats.arbitrary.uploadedFileCount.Add(1)
 }
 
 // moveFailedData takes any data that could not be synced in the parentDir and
@@ -506,6 +655,7 @@ func (s *Sync) walkDirsAndSendFilesToSync(ctx context.Context, config Config) er
 	s.flushCollectors()
 	var errs []error
 	for _, dir := range config.SyncPaths() {
+		s.logger.Info("syncing from: %s", dir)
 		// Retrieve all files in capture dir and send them to the syncer
 		err := filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
 			if err := ctx.Err(); err != nil {
