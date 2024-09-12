@@ -199,3 +199,11 @@ func CheckSpeed(rpm, max float64) (string, error) {
 		return "", nil
 	}
 }
+
+// CheckRevolutions checks if the input revolutions is non-zero
+func CheckRevolutions(revs float64) error {
+	if revs == 0 {
+		return NewZeroRevsError()
+	}
+	return nil
+}

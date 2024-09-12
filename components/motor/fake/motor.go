@@ -32,6 +32,7 @@ var (
 )
 
 const defaultMaxRpm = 100
+const defaultNonZeroRevs = -1
 
 // PinConfig defines the mapping of where motor are wired.
 type PinConfig struct {
@@ -300,6 +301,10 @@ func (m *Motor) GoFor(ctx context.Context, rpm, revolutions float64, extra map[s
 		return err
 	}
 
+	if err := motor.CheckRevolutions(revolutions); err != nil {
+		return err
+	}
+
 	powerPct, waitDur, dir := goForMath(m.MaxRPM, rpm, revolutions)
 
 	var finalPos float64
@@ -347,8 +352,9 @@ func (m *Motor) GoTo(ctx context.Context, rpm, pos float64, extra map[string]int
 	if err != nil {
 		return err
 	}
-	if curPos == pos {
-		return nil
+
+	if err := motor.CheckRevolutions(pos - curPos); err != nil {
+		return err
 	}
 
 	revolutions := pos - curPos

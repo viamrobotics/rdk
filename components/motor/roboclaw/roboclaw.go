@@ -260,6 +260,10 @@ func (m *roboclawMotor) GoFor(ctx context.Context, rpm, revolutions float64, ext
 		return err
 	}
 
+	if err := motor.CheckRevolutions(revolutions); err != nil {
+		return err
+	}
+
 	// If no encoders present, distance traveled is estimated based on max RPM.
 	if m.conf.TicksPerRotation == 0 {
 		if math.Abs(rpm) > maxRPM {

@@ -318,6 +318,10 @@ func (cm *controlledMotor) GoFor(ctx context.Context, rpm, revolutions float64, 
 		return err
 	}
 
+	if err := motor.CheckRevolutions(revolutions); err != nil {
+		return err
+	}
+
 	currentTicks, _, err := cm.enc.Position(ctx, encoder.PositionTypeTicks, extra)
 	if err != nil {
 		return err

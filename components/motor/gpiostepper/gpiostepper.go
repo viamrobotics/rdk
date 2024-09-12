@@ -357,6 +357,10 @@ func (m *gpioStepper) goForInternal(ctx context.Context, rpm, revolutions float6
 		return m.Stop(ctx, nil)
 	}
 
+	if err := motor.CheckRevolutions(revolutions); err != nil {
+		return err
+	}
+
 	var d int64 = 1
 	if math.Signbit(revolutions) != math.Signbit(rpm) {
 		d = -1
