@@ -907,10 +907,9 @@ func (ms *builtIn) createBaseMoveRequest(
 	atGoalCheck := func(basePose spatialmath.Pose) bool {
 		if valExtra.motionProfile == motionplan.PositionOnlyMotionProfile {
 			return spatialmath.PoseAlmostCoincidentEps(goal.Pose(), basePose, motionCfg.planDeviationMM)
-		} else {
-			return spatialmath.OrientationAlmostEqualEps(goal.Pose().Orientation(), basePose.Orientation(), 5) &&
-				spatialmath.PoseAlmostCoincidentEps(goal.Pose(), basePose, motionCfg.planDeviationMM)
 		}
+		return spatialmath.OrientationAlmostEqualEps(goal.Pose().Orientation(), basePose.Orientation(), 5) &&
+			spatialmath.PoseAlmostCoincidentEps(goal.Pose(), basePose, motionCfg.planDeviationMM)
 	}
 
 	var backgroundWorkers sync.WaitGroup
