@@ -4,11 +4,11 @@ package sync
 import (
 	"context"
 	"fmt"
+	"io/fs"
 	"os"
 	"path"
 	"path/filepath"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/benbjohnson/clock"
@@ -78,28 +78,6 @@ type Sync struct {
 	MaxSyncThreads int
 }
 
-type atomicUploadStats struct {
-	binary    atomicStat
-	tabular   atomicStat
-	arbitrary atomicStat
-}
-
-type atomicStat struct {
-	uploadedFileCount     atomic.Uint64
-	uploadFailedFileCount atomic.Uint64
-}
-
-type uploadStats struct {
-	binary    stat
-	tabular   stat
-	arbitrary stat
-}
-
-type stat struct {
-	uploadedFileCount     uint64
-	uploadFailedFileCount uint64
-}
-
 // New creates a new Sync.
 func New(
 	clientConstructor func(cc grpc.ClientConnInterface) v1.DataSyncServiceClient,
@@ -128,110 +106,6 @@ func New(
 		atomicUploadStats:       &atomicUploadStats,
 	}
 	return &s
-}
-
-type statsWorker struct {
-	worker *goutils.StoppableWorkers
-	logger logging.Logger
-}
-
-func newStatsWorker(logger logging.Logger) *statsWorker {
-	return &statsWorker{goutils.NewBackgroundStoppableWorkers(), logger}
-}
-
-func (sw *statsWorker) reconfigure(atomicStats *atomicUploadStats, interval time.Duration) {
-	sw.worker.Stop()
-	sw.worker = goutils.NewBackgroundStoppableWorkers(func(ctx context.Context) {
-		oldState := newUploadStats(atomicStats)
-		t := time.NewTicker(interval)
-		defer t.Stop()
-		for {
-			if ctx.Err() != nil {
-				return
-			}
-
-			select {
-			case <-ctx.Done():
-				return
-			case <-t.C:
-				newState := newUploadStats(atomicStats)
-				summary := summary(oldState, newState, interval)
-				for _, line := range summary {
-					sw.logger.Info(line)
-				}
-				oldState = newState
-			}
-		}
-	})
-}
-
-func newStat(s *atomicStat) stat {
-	return stat{
-		uploadedFileCount:     s.uploadedFileCount.Load(),
-		uploadFailedFileCount: s.uploadFailedFileCount.Load(),
-	}
-}
-
-func newUploadStats(stats *atomicUploadStats) uploadStats {
-	return uploadStats{
-		binary:    newStat(&stats.binary),
-		tabular:   newStat(&stats.tabular),
-		arbitrary: newStat(&stats.arbitrary),
-	}
-}
-
-func perSecond(v uint64, interval time.Duration) float64 {
-	return float64(v) / interval.Seconds()
-}
-
-func totalSummary(oldState uploadStats, newState uploadStats, interval time.Duration) []string {
-	sumFileCount := newState.arbitrary.uploadedFileCount + newState.binary.uploadedFileCount + newState.tabular.uploadedFileCount
-	aFileCoundDiff := newState.arbitrary.uploadedFileCount - oldState.arbitrary.uploadedFileCount
-	bFileCoundDiff := newState.binary.uploadedFileCount - oldState.binary.uploadedFileCount
-	tFileCoundDiff := newState.tabular.uploadedFileCount - oldState.tabular.uploadedFileCount
-	sumDiffFileCount := aFileCoundDiff + bFileCoundDiff + tFileCoundDiff
-
-	sumFailedCount := newState.arbitrary.uploadFailedFileCount + newState.binary.uploadFailedFileCount + newState.tabular.uploadFailedFileCount
-	aFailedFileCoundDiff := newState.arbitrary.uploadFailedFileCount - oldState.arbitrary.uploadFailedFileCount
-	bFailedFileCoundDiff := newState.binary.uploadFailedFileCount - oldState.binary.uploadFailedFileCount
-	tFailedFileCoundDiff := newState.tabular.uploadFailedFileCount - oldState.tabular.uploadFailedFileCount
-	sumDiffFailedFileCount := aFailedFileCoundDiff + bFailedFileCoundDiff + tFailedFileCoundDiff
-
-	return []string{
-		fmt.Sprintf("total uploads: %d, rate: %f/sec", sumFileCount, perSecond(sumDiffFileCount, interval)),
-		fmt.Sprintf("total failed uploads: %d, rate: %f/sec", sumFailedCount, perSecond(sumDiffFailedFileCount, interval)),
-	}
-}
-
-func summary(oldState uploadStats, newState uploadStats, interval time.Duration) []string {
-	summary := totalSummary(oldState, newState, interval)
-	var empty stat
-	if oldState.arbitrary != empty && newState.arbitrary != empty {
-		successRate := perSecond(newState.arbitrary.uploadedFileCount-oldState.arbitrary.uploadedFileCount, interval)
-		failRate := perSecond(newState.arbitrary.uploadFailedFileCount-oldState.arbitrary.uploadFailedFileCount, interval)
-		summary = append(summary, fmt.Sprintf("arbitrary file uploads: total: %d, rate: %f/sec", newState.arbitrary.uploadedFileCount, successRate))
-		summary = append(summary, fmt.Sprintf("arbitrary file failed uploads: total: %d, rate: %f/sec", newState.arbitrary.uploadFailedFileCount, failRate))
-	}
-
-	if oldState.binary != empty && newState.binary != empty {
-		successRate := perSecond(newState.binary.uploadedFileCount-oldState.binary.uploadedFileCount, interval)
-		failRate := perSecond(newState.binary.uploadFailedFileCount-oldState.binary.uploadFailedFileCount, interval)
-		summary = append(summary, fmt.Sprintf("binary file uploads: total: %d, rate: %f/sec", newState.binary.uploadedFileCount, successRate))
-		summary = append(summary, fmt.Sprintf("binary file failed uploads: total: %d, rate: %f/sec", newState.binary.uploadFailedFileCount, failRate))
-	}
-
-	if oldState.tabular != empty && newState.tabular != empty {
-		successRate := perSecond(newState.tabular.uploadedFileCount-oldState.tabular.uploadedFileCount, interval)
-		failRate := perSecond(newState.tabular.uploadFailedFileCount-oldState.tabular.uploadFailedFileCount, interval)
-		summary = append(summary, fmt.Sprintf("tabular file uploads: total: %d, rate: %f/sec", newState.tabular.uploadedFileCount, successRate))
-		summary = append(summary, fmt.Sprintf("tabular file failed uploads: total: %d, rate: %f/sec", newState.tabular.uploadFailedFileCount, failRate))
-	}
-
-	return summary
-}
-
-func (sw *statsWorker) close() {
-	sw.worker.Stop()
 }
 
 // Reconfigure reconfigures Sync and is only called by the builtin data manager
@@ -503,13 +377,15 @@ func (s *Sync) syncDataCaptureFile(f *os.File, captureDir string, logger logging
 	isBinary := captureFile.ReadMetadata().GetType() == v1.DataType_DATA_TYPE_BINARY_SENSOR
 
 	// setup a retry struct that will try to upload the capture file
-	retry := newExponentialRetry(s.configCtx, s.clock, s.logger, f.Name(), func(ctx context.Context) error {
+	retry := newExponentialRetry(s.configCtx, s.clock, s.logger, f.Name(), func(ctx context.Context) (uint64, error) {
 		msg := "error uploading data capture file %s, size: %s, md: %s"
 		errMetadata := fmt.Sprintf(msg, captureFile.GetPath(), data.FormatBytesI64(captureFile.Size()), captureFile.ReadMetadata())
-		return errors.Wrap(uploadDataCaptureFile(ctx, captureFile, s.cloudConn, logger), errMetadata)
+		bytesUploaded, err := uploadDataCaptureFile(ctx, captureFile, s.cloudConn, logger)
+		return bytesUploaded, errors.Wrap(err, errMetadata)
 	})
 
-	if err := retry.run(); err != nil {
+	bytesUploaded, err := retry.run()
+	if err != nil {
 		// if unable to upload the capture file
 		if closeErr := captureFile.Close(); closeErr != nil {
 			logger.Error(errors.Wrap(closeErr, "error closing data capture file").Error())
@@ -539,18 +415,22 @@ func (s *Sync) syncDataCaptureFile(f *os.File, captureDir string, logger logging
 	}
 	if isBinary {
 		s.atomicUploadStats.binary.uploadedFileCount.Add(1)
+		s.atomicUploadStats.binary.uploadedBytes.Add(bytesUploaded)
 	} else {
 		s.atomicUploadStats.tabular.uploadedFileCount.Add(1)
+		s.atomicUploadStats.tabular.uploadedBytes.Add(bytesUploaded)
 	}
 }
 
 func (s *Sync) syncArbitraryFile(f *os.File, tags []string, fileLastModifiedMillis int, logger logging.Logger) {
-	retry := newExponentialRetry(s.configCtx, s.clock, s.logger, f.Name(), func(ctx context.Context) error {
+	retry := newExponentialRetry(s.configCtx, s.clock, s.logger, f.Name(), func(ctx context.Context) (uint64, error) {
 		errMetadata := fmt.Sprintf("error uploading arbitrary file %s", f.Name())
-		return errors.Wrap(uploadArbitraryFile(ctx, f, s.cloudConn, tags, fileLastModifiedMillis, s.clock, logger), errMetadata)
+		bytesUploaded, err := uploadArbitraryFile(ctx, f, s.cloudConn, tags, fileLastModifiedMillis, s.clock, logger)
+		return bytesUploaded, errors.Wrap(err, errMetadata)
 	})
 
-	if err := retry.run(); err != nil {
+	bytesUploaded, err := retry.run()
+	if err != nil {
 		if closeErr := f.Close(); closeErr != nil {
 			logger.Error(errors.Wrap(closeErr, "error closing data capture file").Error())
 		}
@@ -577,6 +457,7 @@ func (s *Sync) syncArbitraryFile(f *os.File, tags []string, fileLastModifiedMill
 		logger.Error(errors.Wrap(err, fmt.Sprintf("error deleting file %s", f.Name())).Error())
 	}
 	s.atomicUploadStats.arbitrary.uploadedFileCount.Add(1)
+	s.atomicUploadStats.arbitrary.uploadedBytes.Add(bytesUploaded)
 }
 
 // moveFailedData takes any data that could not be synced in the parentDir and
@@ -681,16 +562,12 @@ func (s *Sync) walkDirsAndSendFilesToSync(ctx context.Context, config Config) er
 				return nil
 			}
 
-			// if the file is empty, no need to sync
-			if info.Size() == 0 {
-				return nil
-			}
 			// If a non data capture owned file was modified within the past lastModifiedMillis, do not sync it (data
 			// may still be being written).
 			// When using a mock clock in tests, s.clock.Since(info.ModTime()) can be negative since the file system will still use the system clock.
 			// Take max(timeSinceMod, 0) to account for this.
 			timeSinceMod := max(s.clock.Since(info.ModTime()), 0)
-			if readyToSyncFile(timeSinceMod, path, config.FileLastModifiedMillis, s.fileTracker) {
+			if readyToSyncFile(timeSinceMod, path, info, config.FileLastModifiedMillis, s.fileTracker) {
 				s.sendToSync(ctx, path)
 			}
 			return nil
@@ -701,24 +578,29 @@ func (s *Sync) walkDirsAndSendFilesToSync(ctx context.Context, config Config) er
 	return multierr.Combine(errs...)
 }
 
-func readyToSyncFile(timeSinceMod time.Duration, path string, fileLastModifiedMillis int, fileTracker *fileTracker) bool {
+func readyToSyncFile(timeSinceMod time.Duration, path string, info fs.FileInfo, fileLastModifiedMillis int, fileTracker *fileTracker) bool {
 	// if file is in progress, it is not ready to sync as some other goroutine is acting on it
 	if fileTracker.inProgress(path) {
 		return false
 	}
 
-	return isCompletedCaptureFile(path) ||
-		isNonCaptureFileThatIsNotBeingWrittenTo(timeSinceMod, path, fileLastModifiedMillis)
+	if isCompletedCaptureFile(path) {
+		return true
+	}
+
+	return isNonCaptureFileThatIsNotBeingWrittenTo(timeSinceMod, path, info, fileLastModifiedMillis)
 }
 
 func isCompletedCaptureFile(path string) bool {
 	return filepath.Ext(path) == data.CompletedCaptureFileExt
 }
 
-func isNonCaptureFileThatIsNotBeingWrittenTo(timeSinceMod time.Duration, path string, fileLastModifiedMillis int) bool {
+func isNonCaptureFileThatIsNotBeingWrittenTo(timeSinceMod time.Duration, path string, info fs.FileInfo, fileLastModifiedMillis int) bool {
 	return filepath.Ext(path) != data.InProgressCaptureFileExt &&
 		filepath.Ext(path) != data.CompletedCaptureFileExt &&
-		timeSinceMod >= time.Duration(fileLastModifiedMillis)*time.Millisecond
+		timeSinceMod >= time.Duration(fileLastModifiedMillis)*time.Millisecond &&
+		// if the file size is 0 then there is nothing to sync from this arbitrary file
+		info.Size() > 0
 }
 
 func (s *Sync) sendToSync(ctx context.Context, path string) {

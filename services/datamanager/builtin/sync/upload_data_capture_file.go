@@ -24,35 +24,36 @@ var MaxUnaryFileSize = int64(units.MB)
 // If f is of type BINARY_SENSOR and its size is over MaxUnaryFileSize,
 // uses StreamingDataCaptureUpload API so as to not exceed the unary response size.
 // Otherwise, uploads data over DataCaptureUpload API.
-func uploadDataCaptureFile(ctx context.Context, f *data.CaptureFile, conn cloudConn, logger logging.Logger) error {
+// Note: the bytes size returned is the size of the input file. It only returns a non 0 value in the success case.
+func uploadDataCaptureFile(ctx context.Context, f *data.CaptureFile, conn cloudConn, logger logging.Logger) (uint64, error) {
 	logger.Debugf("preparing to upload data capture file: %s", f.GetPath())
 
 	md := f.ReadMetadata()
 	sensorData, err := data.SensorDataFromCaptureFile(f)
 	if err != nil {
-		return errors.Wrap(err, "error reading sensor data")
+		return 0, errors.Wrap(err, "error reading sensor data")
 	}
 
 	// Do not attempt to upload a file without any sensor readings.
 	if len(sensorData) == 0 {
 		logger.Warnf("ignoring and deleting empty capture file without syncing it: %s", f.GetPath())
 		// log here as this will delete a .capture file without uploading it and without moving it to the failed directory
-		return nil
+		return 0, nil
 	}
 
 	if md.GetType() == v1.DataType_DATA_TYPE_BINARY_SENSOR && len(sensorData) > 1 {
-		return fmt.Errorf("binary sensor data file with more than one sensor reading is not supported: %s", f.GetPath())
+		return 0, fmt.Errorf("binary sensor data file with more than one sensor reading is not supported: %s", f.GetPath())
 	}
 
 	// camera.GetImages is a special case. For that API we make 2 binary data upload requests
 	if md.GetType() == v1.DataType_DATA_TYPE_BINARY_SENSOR && md.GetMethodName() == data.GetImages {
 		logger.Debugf("attemping to upload camera.GetImages data: %s", f.GetPath())
 
-		return uploadGetImages(ctx, conn, md, sensorData[0], f.Size(), f.GetPath(), logger)
+		return uint64(f.Size()), uploadGetImages(ctx, conn, md, sensorData[0], f.Size(), f.GetPath(), logger)
 	}
 
 	metaData := uploadMetadata(conn.partID, md, md.GetFileExtension())
-	return uploadSensorData(ctx, conn.client, metaData, sensorData, f.Size(), f.GetPath(), logger)
+	return uint64(f.Size()), uploadSensorData(ctx, conn.client, metaData, sensorData, f.Size(), f.GetPath(), logger)
 }
 
 func uploadMetadata(partID string, md *v1.DataCaptureMetadata, fileextension string) *v1.UploadMetadata {

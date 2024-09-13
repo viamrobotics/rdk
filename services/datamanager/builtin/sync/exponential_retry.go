@@ -28,12 +28,14 @@ const (
 	maxRetryInterval       = time.Hour
 )
 
+type uploadFunc func(context.Context) (uint64, error)
+
 func newExponentialRetry(
 	ctx context.Context,
 	clock clock.Clock,
 	logger logging.Logger,
 	name string,
-	fun func(context.Context) error,
+	fun uploadFunc,
 ) exponentialRetry {
 	return exponentialRetry{
 		ctx:    ctx,
@@ -49,7 +51,7 @@ type exponentialRetry struct {
 	clock  clock.Clock
 	logger logging.Logger
 	name   string
-	fun    func(context.Context) error
+	fun    uploadFunc
 }
 
 // run calls fn and retries with exponentially increasing waits from initialWait to a
@@ -57,29 +59,29 @@ type exponentialRetry struct {
 // returns nil if completed successfully
 // returns context.Cancelled if ctx is cancelled
 // all other errors are due to an unrecoverable error.
-func (e exponentialRetry) run() error {
-	err := e.fun(e.ctx)
+func (e exponentialRetry) run() (uint64, error) {
+	bytesUploaded, err := e.fun(e.ctx)
 
 	// If no error, return nil for success
 	if err == nil {
 		e.logger.Debugf("succeeded: %s", e.name)
-		return nil
+		return bytesUploaded, nil
 	}
 
 	// Don't retry non-retryable errors.
 	if terminalError(err) {
 		e.logger.Warnf("hit non retryable error: %v", err)
-		return err
+		return 0, err
 	}
 
 	// If the context was cancelled
 	// return the error without logging to not spam
 	if errors.Is(err, context.Canceled) {
-		return err
+		return 0, err
 	}
 
 	if e.ctx.Err() != nil {
-		return e.ctx.Err()
+		return 0, e.ctx.Err()
 	}
 	e.logger.Infof("entering exponential backoff retry due to retryable error: %v", err)
 
@@ -89,41 +91,41 @@ func (e exponentialRetry) run() error {
 	defer ticker.Stop()
 	for {
 		if err := e.ctx.Err(); err != nil {
-			return err
+			return 0, err
 		}
 
 		select {
 		case <-e.ctx.Done():
-			return e.ctx.Err()
+			return 0, e.ctx.Err()
 		case <-ticker.C:
-			err := e.fun(e.ctx)
+			bytesUploaded, err := e.fun(e.ctx)
 
 			// If no error, return nil for success
 			if err == nil {
 				e.logger.Debugf("succeeded: %s", e.name)
-				return nil
+				return bytesUploaded, nil
 			}
 
 			// If the context was cancelled
 			// return the error without logging to not spam
 			if errors.Is(err, context.Canceled) {
-				return err
+				return 0, err
 			}
 
 			// Don't retry terminal errors.
 			if terminalError(err) {
 				e.logger.Warnf("hit non retryable error: %v", err)
-				return err
+				return 0, err
 			}
 
 			// If the context was cancelled
 			// return the error without logging to not spam
 			if errors.Is(err, context.Canceled) {
-				return err
+				return 0, err
 			}
 
 			if e.ctx.Err() != nil {
-				return e.ctx.Err()
+				return 0, e.ctx.Err()
 			}
 
 			// Otherwise, try again after nextWait.

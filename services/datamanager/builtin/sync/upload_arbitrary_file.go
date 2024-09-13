@@ -25,6 +25,7 @@ var (
 // uploadArbitraryFile uploads files which were not writted by the builtin datamanager's data capture package.
 // They are frequently files written by 3rd party programs such as images, videos, logs, written to
 // the capture directory or a subdirectory or to additional sync paths (or their sub directories).
+// Note: the bytes size returned is the size of the input file. It only returns a non 0 value in the success case.
 func uploadArbitraryFile(
 	ctx context.Context,
 	f *os.File,
@@ -33,11 +34,11 @@ func uploadArbitraryFile(
 	fileLastModifiedMillis int,
 	clock clock.Clock,
 	logger logging.Logger,
-) error {
+) (uint64, error) {
 	logger.Debugf("attempting to sync arbitrary file: %s", f.Name())
 	path, err := filepath.Abs(f.Name())
 	if err != nil {
-		return errors.Wrap(err, "failed to get absolute path")
+		return 0, errors.Wrap(err, "failed to get absolute path")
 	}
 
 	// Only sync non-datacapture files that have not been modified in the last
@@ -45,15 +46,15 @@ func uploadArbitraryFile(
 	// to written to.
 	info, err := os.Stat(path)
 	if err != nil {
-		return errors.Wrap(err, "stat failed")
+		return 0, errors.Wrap(err, "stat failed")
 	}
 	if info.Size() == 0 {
-		return errFileEmpty
+		return 0, errFileEmpty
 	}
 
 	timeSinceMod := clock.Since(info.ModTime())
 	if timeSinceMod < time.Duration(fileLastModifiedMillis)*time.Millisecond {
-		return errFileModifiedTooRecently
+		return 0, errFileModifiedTooRecently
 	}
 
 	// We need to seek to the start of the file as if we have tried to upload this file
@@ -62,17 +63,17 @@ func uploadArbitraryFile(
 	// Fixes https://viam.atlassian.net/browse/DATA-3114
 	pos, err := f.Seek(0, io.SeekStart)
 	if err != nil {
-		return errors.Wrap(err, "error trying to Seek to beginning of file")
+		return 0, errors.Wrap(err, "error trying to Seek to beginning of file")
 	}
 
 	if pos != 0 {
-		return fmt.Errorf("error trying to seek to beginning of file %s: expected position 0, instead got to position %d", path, pos)
+		return 0, fmt.Errorf("error trying to seek to beginning of file %s: expected position 0, instead got to position %d", path, pos)
 	}
 
 	logger.Debugf("datasync.FileUpload request started for arbitrary file: %s", path)
 	stream, err := conn.client.FileUpload(ctx)
 	if err != nil {
-		return errors.Wrap(err, "error creating FileUpload client")
+		return 0, errors.Wrap(err, "error creating FileUpload client")
 	}
 
 	// Send metadata FileUploadRequest.
@@ -88,16 +89,18 @@ func uploadArbitraryFile(
 			},
 		},
 	}); err != nil {
-		return errors.Wrap(err, "FileUpload failed sending metadata")
+		return 0, errors.Wrap(err, "FileUpload failed sending metadata")
 	}
 
 	if err := sendFileUploadRequests(ctx, stream, f, path, logger); err != nil {
-		return errors.Wrap(err, "FileUpload failed to sync")
+		return 0, errors.Wrap(err, "FileUpload failed to sync")
 	}
 
 	logger.Debugf("datasync.FileUpload closing for arbitrary file: %s", path)
-	_, err = stream.CloseAndRecv()
-	return errors.Wrap(err, "FileUpload  CloseAndRecv failed")
+	if _, err = stream.CloseAndRecv(); err != nil {
+		return 0, errors.Wrap(err, "FileUpload  CloseAndRecv failed")
+	}
+	return uint64(info.Size()), nil
 }
 
 func sendFileUploadRequests(
