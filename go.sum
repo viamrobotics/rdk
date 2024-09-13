@@ -1439,8 +1439,6 @@ github.com/valyala/quicktemplate v1.6.3/go.mod h1:fwPzK2fHuYEODzJ9pkw0ipCPNHZ2tD
 github.com/valyala/tcplisten v0.0.0-20161114210144-ceec8f93295a/go.mod h1:v3UYOV9WzVtRmSR+PDvWpU/qWl4Wa5LApYYX4ZtKbio=
 github.com/viam-labs/go-libjpeg v0.3.1 h1:J/byavXHFqRI1PFPrnPbP+wFCr1y+Cn1CwKXrORCPD0=
 github.com/viam-labs/go-libjpeg v0.3.1/go.mod h1:b0ISpf9lJv9MO1h1gXAmSA/osG19cKGYjfYc6aeEjqs=
-github.com/viamrobotics/api v0.1.338-0.20240906184640-16a974029c9e h1:b2zCyRPLgKpGBkmsf/OYC42sIcVjSNTyQ7lfRB4rKak=
-github.com/viamrobotics/api v0.1.338-0.20240906184640-16a974029c9e/go.mod h1:5lpVRxMsKFCaahqsnJfPGwJ9baoQ6PIKQu3lxvy6Wtw=
 github.com/viamrobotics/evdev v0.1.3 h1:mR4HFafvbc5Wx4Vp1AUJp6/aITfVx9AKyXWx+rWjpfc=
 github.com/viamrobotics/evdev v0.1.3/go.mod h1:N6nuZmPz7HEIpM7esNWwLxbYzqWqLSZkfI/1Sccckqk=
 github.com/viamrobotics/webrtc/v3 v3.99.9 h1:5FCctlMhO9lr4SJ1TC2WCFocBIriUMb3Sw7i9oDlz2o=
@@ -1541,6 +1539,8 @@ go.uber.org/zap v1.18.1/go.mod h1:xg/QME4nWcxGxrpdeYfq7UvYrLh66cuVKdrbD1XF/NI=
 go.uber.org/zap v1.23.0/go.mod h1:D+nX8jyLsMHMYrln8A0rJjFt/T/9/bGgIhAqxv5URuY=
 go.uber.org/zap v1.24.0 h1:FiJd5l1UOLj0wCgbSE0rwwXHzEdAZS6hiiSnxJN/D60=
 go.uber.org/zap v1.24.0/go.mod h1:2kMP+WWQ8aoFoedH3T2sq6iJ2yDWpHbP0f6MQbS9Gkg=
+go.viam.com/api v0.1.336 h1:mcz3Y5rivgXhsTu/bXkAVDw0/otarq3lCPIRcxhNnIY=
+go.viam.com/api v0.1.336/go.mod h1:msa4TPrMVeRDcG4YzKA/S6wLEUC7GyHQE973JklrQ10=
 go.viam.com/test v1.1.1-0.20220913152726-5da9916c08a2 h1:oBiK580EnEIzgFLU4lHOXmGAE3MxnVbeR7s1wp/F3Ps=
 go.viam.com/test v1.1.1-0.20220913152726-5da9916c08a2/go.mod h1:XM0tej6riszsiNLT16uoyq1YjuYPWlRBweTPRDanIts=
 go.viam.com/utils v0.1.96 h1:lZ7m1jm6pkjn60e9OWeHyHcivFIRrFvS/5NGrPXFaDM=
