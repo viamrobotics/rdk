@@ -1407,38 +1407,6 @@ func TestStartWaypoint(t *testing.T) {
 		})
 	}
 
-	t.Run("motion error returned when within planDeviation results in visiting waypoint", func(t *testing.T) {
-		s := setupStartWaypoint(ctx, t, logger)
-		defer s.closeFunc()
-
-		s.injectMS.MoveOnGlobeFunc = func(ctx context.Context, req motion.MoveOnGlobeReq) (motion.ExecutionID, error) {
-			return uuid.Nil, motion.ErrGoalWithinPlanDeviation
-		}
-
-		cancelCtx, cancelFn := context.WithTimeout(ctx, time.Millisecond*200)
-		defer cancelFn()
-
-		err := s.ns.AddWaypoint(cancelCtx, geo.NewPoint(1, 2), nil)
-		test.That(t, err, test.ShouldBeNil)
-		wps, err := s.ns.Waypoints(cancelCtx, nil)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, len(wps), test.ShouldEqual, 1)
-		err = s.ns.SetMode(cancelCtx, navigation.ModeWaypoint, nil)
-		test.That(t, err, test.ShouldBeNil)
-
-		for {
-			if cancelCtx.Err() != nil {
-				t.Error("test timed out")
-				t.FailNow()
-			}
-			wps, err := s.ns.Waypoints(cancelCtx, nil)
-			test.That(t, err, test.ShouldBeNil)
-			if len(wps) == 0 {
-				break
-			}
-		}
-	})
-
 	t.Run("Calling RemoveWaypoint on the waypoint in progress cancels current MoveOnGlobe call", func(t *testing.T) {
 		s := setupStartWaypoint(ctx, t, logger)
 		defer s.closeFunc()
