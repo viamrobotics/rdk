@@ -506,3 +506,16 @@ func TestServer(t *testing.T) {
 		test.That(t, err.Error(), test.ShouldContainSubstring, errStreamFailed.Error())
 	})
 }
+
+func TestCameraClientIsReadImager(t *testing.T) {
+	// RSDK-8663: Enforce that a camera client always satisfies the optimized `ReadImager`
+	// interface.
+	cameraClient, err := camera.NewClientFromConn(nil, nil, "", resource.Name{}, nil)
+	test.That(t, err, test.ShouldBeNil)
+
+	if _, isReadImager := cameraClient.(camera.ReadImager); isReadImager {
+		// Success
+	} else {
+		t.Fatalf("Camera client is expected to be a `ReadImager`. Client type: %T", cameraClient)
+	}
+}
