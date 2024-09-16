@@ -1,6 +1,8 @@
 package builtin
 
 import (
+	"runtime"
+
 	"go.viam.com/rdk/components/sensor"
 	"go.viam.com/rdk/internal/cloud"
 	"go.viam.com/rdk/services/datamanager/builtin/capture"
@@ -11,8 +13,6 @@ import (
 const (
 	// Default time to wait in milliseconds to check if a file has been modified.
 	defaultFileLastModifiedMillis = 10000.0
-	// defaultMaxParallelSyncRoutines is the maximum number of sync goroutines that can be running at once.
-	defaultMaxParallelSyncRoutines = 1000
 	// defaultDeleteEveryNth temporarily public for tests.
 	// defaultDeleteEveryNth configures the N in the following expression `captureFileIndex % N == 0`
 	// which is evaluated if the file deletion threshold has been reached. If `captureFileIndex % N == 0`
@@ -71,7 +71,7 @@ func (c *Config) captureConfig() capture.Config {
 }
 
 func (c *Config) syncConfig(syncSensor sensor.Sensor, syncSensorEnabled bool) datasync.Config {
-	newMaxSyncThreadValue := defaultMaxParallelSyncRoutines
+	newMaxSyncThreadValue := runtime.NumCPU()
 	if c.MaximumNumSyncThreads != 0 {
 		newMaxSyncThreadValue = c.MaximumNumSyncThreads
 	}

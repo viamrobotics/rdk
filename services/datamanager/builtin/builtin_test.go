@@ -36,6 +36,7 @@ import (
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils/inject"
 	"go.viam.com/rdk/utils"
+	goutils "go.viam.com/utils"
 )
 
 var (
@@ -501,6 +502,7 @@ func TestSync(t *testing.T) {
 				case <-b2.sync.CloudConnReady():
 					t.Fatal("should not happen")
 				}
+
 				err = b2.Sync(context.Background(), nil)
 				test.That(t, err, test.ShouldBeError, errors.New("not connected to the cloud"))
 				err = b2.Close(context.Background())
@@ -516,10 +518,13 @@ func TestSync(t *testing.T) {
 					t.Fatal("timeout")
 				case <-b2.sync.CloudConnReady():
 				}
-				err = b2.Sync(context.Background(), nil)
-				test.That(t, err, test.ShouldBeNil)
-
-				wait := time.After(time.Second * 5)
+				waitTime := time.Second * 5
+				timeoutCtx, timeoutFn := context.WithTimeout(context.Background(), waitTime)
+				defer timeoutFn()
+				w := goutils.NewStoppableWorkers(timeoutCtx)
+				defer w.Stop()
+				w.Add(func(ctx context.Context) { test.That(t, b2.Sync(ctx, nil), test.ShouldBeNil) })
+				wait := time.After(waitTime)
 				if tc.failTransiently {
 					failCount := 3
 					for i := 0; i < failCount; i++ {

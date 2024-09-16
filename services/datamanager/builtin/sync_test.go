@@ -172,9 +172,9 @@ func TestSyncEnabled(t *testing.T) {
 			b, err := New(context.Background(), deps, config, dataSyncServiceClientConstructor, tc.connStateConstructor, logger)
 			test.That(t, err, test.ShouldBeNil)
 			defer b.Close(context.Background())
-			t.Log("waiting for data capture to write a data capture file")
+			t.Logf("waiting for data capture to write a data capture file %s", time.Now())
 			waitForCaptureFilesToExceedNFiles(tmpDir, 0, logger)
-			t.Log("got a file")
+			t.Logf("got a file %s", time.Now())
 			wait := time.After(waitTime)
 			t.Logf("waiting up to %s for a file to be uploaded", waitTime)
 			select {
@@ -453,7 +453,7 @@ func TestDataCaptureUploadIntegration(t *testing.T) {
 			b2 := b2Svc.(*builtIn)
 
 			if tc.failTransiently {
-				wait := time.After(waitTime)
+				wait := time.After(waitTime * 4)
 				failCount := 3
 				for i := 0; i < failCount; i++ {
 					t.Logf("waiting for %d files to fail", numFiles)
@@ -481,14 +481,12 @@ func TestDataCaptureUploadIntegration(t *testing.T) {
 					}
 				} else {
 					select {
-					case <-time.After(waitTime):
+					case <-time.After(waitTime * 10):
 						t.Fatal("timeout")
 					case <-b2.sync.CloudConnReady():
 					}
-					err = b2.Sync(context.Background(), nil)
-					test.That(t, err, test.ShouldBeNil)
-					err = b2.Sync(context.Background(), nil)
-					test.That(t, err, test.ShouldBeNil)
+					test.That(t, b2.Sync(context.Background(), nil), test.ShouldBeNil)
+					test.That(t, b2.Sync(context.Background(), nil), test.ShouldBeNil)
 				}
 			}
 
