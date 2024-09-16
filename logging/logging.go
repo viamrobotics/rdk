@@ -141,6 +141,25 @@ func NewObservedTestLogger(tb testing.TB) (Logger, *observer.ObservedLogs) {
 	return logger, observedLogs
 }
 
+// NewObservedTestLoggerWithRegistry is like NewObservedTestLogger but also returns the
+// associated registry.
+func NewObservedTestLoggerWithRegistry(tb testing.TB) (Logger, *observer.ObservedLogs, *Registry) {
+	observerCore, observedLogs := observer.New(zap.LevelEnablerFunc(zapcore.DebugLevel.Enabled))
+	registry := newRegistry()
+	logger := &impl{
+		name:  "",
+		level: NewAtomicLevelAt(DEBUG),
+		appenders: []Appender{
+			NewTestAppender(tb),
+			observerCore,
+		},
+		registry:   newRegistry(),
+		testHelper: tb.Helper,
+	}
+
+	return logger, observedLogs, registry
+}
+
 // MemLogger stores test logs in memory. And can write them on request with `OutputLogs`.
 type MemLogger struct {
 	Logger
