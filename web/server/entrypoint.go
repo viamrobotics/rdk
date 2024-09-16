@@ -306,6 +306,8 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 
 	// Update logger registry as soon as we have fully processed config. Further
 	// updates to the registry will be handled by the config watcher goroutine.
+	//
+	// This functionality is tested in `TestLogPropagation` in `local_robot_test.go`.
 	config.UpdateLoggerRegistryFromConfig(s.registry, processedConfig, s.logger)
 
 	if processedConfig.Cloud != nil {
@@ -409,6 +411,8 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 				}
 
 				// Update logger registry if log patterns may have changed.
+				//
+				// This functionality is tested in `TestLogPropagation` in `local_robot_test.go`.
 				if !diff.LogEqual {
 					s.logger.Debug("Detected potential changes to log patterns; updating logger levels")
 					config.UpdateLoggerRegistryFromConfig(s.registry, processedConfig, s.logger)
