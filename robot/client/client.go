@@ -256,7 +256,7 @@ func New(ctx context.Context, address string, clientLogger logging.ZapCompatible
 		rpc.WithStreamClientInterceptor(streamClientInterceptor()),
 	)
 
-	if err := rc.connect(ctx); err != nil {
+	if err := rc.Connect(ctx); err != nil {
 		return nil, err
 	}
 
@@ -331,7 +331,7 @@ func (rc *RobotClient) Changed() <-chan bool {
 	return rc.changeChan
 }
 
-func (rc *RobotClient) connect(ctx context.Context) error {
+func (rc *RobotClient) Connect(ctx context.Context) error {
 	if err := rc.connectWithLock(ctx); err != nil {
 		return err
 	}
@@ -424,7 +424,7 @@ func (rc *RobotClient) checkConnection(ctx context.Context, checkEvery, reconnec
 		}
 		if !rc.connected.Load() {
 			rc.Logger().CInfow(ctx, "trying to reconnect to remote at address", "address", rc.address)
-			if err := rc.connect(ctx); err != nil {
+			if err := rc.Connect(ctx); err != nil {
 				rc.Logger().CErrorw(ctx, "failed to reconnect remote", "error", err, "address", rc.address)
 				continue
 			}
