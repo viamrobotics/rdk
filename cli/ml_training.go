@@ -157,7 +157,7 @@ func (c *viamClient) mlSubmitCustomTrainingJob(datasetID, registryItemID, regist
 		for _, optionVal := range splitArgs {
 			splitOptionVal := strings.Split(optionVal, "=")
 			if len(splitOptionVal) != 2 {
-				return "", errors.Errorf("invalid format for command line arguments, passed:", args)
+				return "", errors.Errorf("invalid format for command line arguments, passed: %s", args)
 			}
 			argMap[splitOptionVal[0]] = splitOptionVal[1]
 		}

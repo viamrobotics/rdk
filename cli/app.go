@@ -960,8 +960,9 @@ var app = &cli.App{
 											Required: true,
 										},
 										&cli.StringFlag{
-											Name:     trainCliArgs,
-											Usage:    "optional command line arguments to run the training script with " + "which should be formatted as --option1=value1,--option2=value2",
+											Name: trainCliArgs,
+											Usage: "optional command line arguments to run the training script with " +
+												"which should be formatted as option1=value1,option2=value2",
 											Required: false,
 										},
 									},
@@ -1021,8 +1022,9 @@ var app = &cli.App{
 											Required: false,
 										},
 										&cli.StringFlag{
-											Name:     trainCliArgs,
-											Usage:    "optional command line arguments to run the training script with " + "which should be formatted as --option1=value1,--option2=value2",
+											Name: trainCliArgs,
+											Usage: "optional command line arguments to run the training script with " +
+												"which should be formatted as option1=value1,option2=value2",
 											Required: false,
 										},
 									},
