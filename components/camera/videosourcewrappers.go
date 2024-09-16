@@ -23,15 +23,15 @@ import (
 // Note: this strips away Reconfiguration and DoCommand abilities.
 // If needed, implement the Camera another way. For example, a webcam
 // implements a Camera manually so that it can atomically reconfigure itself.
-func FromVideoSource(name resource.Name, src VideoSource, logger logging.Logger) Camera {
+func FromVideoSource(name resource.Name, src Camera, logger logging.Logger) Camera {
 	var rtpPassthroughSource rtppassthrough.Source
 	if ps, ok := src.(rtppassthrough.Source); ok {
 		rtpPassthroughSource = ps
 	}
 	return &sourceBasedCamera{
-		rtpPassthroughSource: rtpPassthroughSource,
 		Named:                name.AsNamed(),
 		VideoSource:          src,
+		rtpPassthroughSource: rtpPassthroughSource,
 		Logger:               logger,
 	}
 }
@@ -104,7 +104,7 @@ func NewVideoSourceFromReader(
 	ctx context.Context,
 	reader gostream.VideoReader,
 	syst *transform.PinholeCameraModel, imageType ImageType,
-) (VideoSource, error) {
+) (Camera, error) {
 	if reader == nil {
 		return nil, errors.New("cannot have a nil reader")
 	}
@@ -116,7 +116,7 @@ func NewVideoSourceFromReader(
 	vs := gostream.NewVideoSource(reader, prop.Video{})
 	actualSystem := syst
 	if actualSystem == nil {
-		srcCam, ok := reader.(VideoSource)
+		srcCam, ok := reader.(Camera)
 		if ok {
 			props, err := srcCam.Properties(ctx)
 			if err != nil {
