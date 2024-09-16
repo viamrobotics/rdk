@@ -3764,6 +3764,7 @@ func TestLogPropagation(t *testing.T) {
 	// Assert that all resources' loggers are now configured at DEBUG level (INFO
 	// level and DEBUG level logs appear). `LogConfiguration` fields should be
 	// honored above `LogConfig` fields.
+	//nolint:dupl
 	for i, name := range resourceNames {
 		// Use index (offset by 4 to account for previous logs) to differentiate
 		// logs from different resources.
@@ -3801,6 +3802,7 @@ func TestLogPropagation(t *testing.T) {
 	// (INFO level and DEBUG level logs appear). In the absence of any log
 	// configuration, log levels should fall back to level of top-level logger
 	// (DEBUG in this case, due to using a test logger).
+	//nolint:dupl
 	for i, name := range resourceNames {
 		// Use index (offset by 8 to account for previous logs) to differentiate logs from different resources.
 		infoLogLine := fmt.Sprintf("info-level log line %d", i+8)
