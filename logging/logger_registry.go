@@ -103,13 +103,6 @@ func (lr *Registry) getRegisteredLoggerNames() []string {
 	return registeredNames
 }
 
-// GetLoggers gets the current logger map. Should only be used for testing.
-func (lr *Registry) GetLoggers() map[string]Logger {
-	lr.mu.RLock()
-	defer lr.mu.RUnlock()
-	return lr.loggers
-}
-
 // GetCurrentConfig gets the current config.
 func (lr *Registry) GetCurrentConfig() []LoggerPatternConfig {
 	lr.mu.RLock()

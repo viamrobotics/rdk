@@ -142,18 +142,18 @@ func NewObservedTestLogger(tb testing.TB) (Logger, *observer.ObservedLogs) {
 }
 
 // NewObservedTestLoggerWithRegistry is like NewObservedTestLogger but also returns the
-// associated registry.
-func NewObservedTestLoggerWithRegistry(tb testing.TB) (Logger, *observer.ObservedLogs, *Registry) {
+// associated registry. It also takes a name for the logger.
+func NewObservedTestLoggerWithRegistry(tb testing.TB, name string) (Logger, *observer.ObservedLogs, *Registry) {
 	observerCore, observedLogs := observer.New(zap.LevelEnablerFunc(zapcore.DebugLevel.Enabled))
 	registry := newRegistry()
 	logger := &impl{
-		name:  "",
+		name:  name,
 		level: NewAtomicLevelAt(DEBUG),
 		appenders: []Appender{
 			NewTestAppender(tb),
 			observerCore,
 		},
-		registry:   newRegistry(),
+		registry:   registry,
 		testHelper: tb.Helper,
 	}
 
