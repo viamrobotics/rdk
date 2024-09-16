@@ -282,6 +282,10 @@ func (s *serviceServer) GetProperties(
 		}
 	}
 
+	if props.FrameRate != 0 {
+		result.FrameRate = &props.FrameRate
+	}
+
 	result.MimeTypes = props.MimeTypes
 	return result, nil
 }

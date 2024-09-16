@@ -93,6 +93,7 @@ func TestServer(t *testing.T) {
 			SupportsPCD:     true,
 			IntrinsicParams: intrinsics,
 			MimeTypes:       []string{utils.MimeTypeJPEG, utils.MimeTypePNG, utils.MimeTypeH264},
+			FrameRate:       float32(10.0),
 		}, nil
 	}
 	injectCamera.ImagesFunc = func(ctx context.Context) ([]camera.NamedImage, resource.ResponseMetadata, error) {
@@ -148,6 +149,7 @@ func TestServer(t *testing.T) {
 			SupportsPCD:     true,
 			IntrinsicParams: intrinsics,
 			ImageType:       camera.DepthStream,
+			FrameRate:       float32(10.0),
 		}, nil
 	}
 	injectCameraDepth.ProjectorFunc = func(ctx context.Context) (transform.Projector, error) {
@@ -422,6 +424,8 @@ func TestServer(t *testing.T) {
 		test.That(t, resp.MimeTypes, test.ShouldContain, utils.MimeTypeJPEG)
 		test.That(t, resp.MimeTypes, test.ShouldContain, utils.MimeTypePNG)
 		test.That(t, resp.MimeTypes, test.ShouldContain, utils.MimeTypeH264)
+		test.That(t, resp.FrameRate, test.ShouldNotBeNil)
+		test.That(t, *resp.FrameRate, test.ShouldEqual, 10.0)
 	})
 
 	t.Run("GetImage with extra", func(t *testing.T) {
