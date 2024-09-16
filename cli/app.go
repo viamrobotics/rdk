@@ -74,6 +74,7 @@ const (
 	mlTrainingFlagVisibility  = "visibility"
 	mlTrainingFlagDescription = "description"
 	mlTrainingFlagURL         = "url"
+	mlTrainingFlagArgs        = "args"
 
 	dataFlagDestination                    = "destination"
 	dataFlagDataType                       = "data-type"
@@ -926,7 +927,7 @@ var app = &cli.App{
 									UsageText: createUsageText("train submit custom from-registry",
 										[]string{
 											datasetFlagDatasetID, generalFlagOrgID, trainFlagModelName,
-											mlTrainingFlagName, mlTrainingFlagVersion, trainCliArgs,
+											mlTrainingFlagName, mlTrainingFlagVersion, mlTrainingFlagArgs,
 										}, true),
 									Flags: []cli.Flag{
 										&cli.StringFlag{
@@ -960,7 +961,7 @@ var app = &cli.App{
 											Required: true,
 										},
 										&cli.StringFlag{
-											Name: trainCliArgs,
+											Name: mlTrainingFlagArgs,
 											Usage: "optional command line arguments to run the training script with " +
 												"which should be formatted as option1=value1,option2=value2",
 											Required: false,
@@ -974,7 +975,7 @@ var app = &cli.App{
 									UsageText: createUsageText("train submit custom with-upload",
 										[]string{
 											datasetFlagDatasetID, generalFlagOrgID, trainFlagModelName,
-											mlTrainingFlagPath, mlTrainingFlagName, trainCliArgs,
+											mlTrainingFlagPath, mlTrainingFlagName, mlTrainingFlagArgs,
 										}, true),
 									Flags: []cli.Flag{
 										&cli.StringFlag{
@@ -1022,7 +1023,7 @@ var app = &cli.App{
 											Required: false,
 										},
 										&cli.StringFlag{
-											Name: trainCliArgs,
+											Name: mlTrainingFlagArgs,
 											Usage: "optional command line arguments to run the training script with " +
 												"which should be formatted as option1=value1,option2=value2",
 											Required: false,

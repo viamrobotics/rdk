@@ -24,7 +24,6 @@ const (
 	trainFlagModelVersion = "model-version"
 	trainFlagModelType    = "model-type"
 	trainFlagModelLabels  = "model-labels"
-	trainCliArgs          = "args"
 
 	trainingStatusPrefix = "TRAINING_STATUS_"
 )
@@ -38,7 +37,7 @@ func MLSubmitCustomTrainingJob(c *cli.Context) error {
 
 	trainingJobID, err := client.mlSubmitCustomTrainingJob(
 		c.String(datasetFlagDatasetID), c.String(mlTrainingFlagName), c.String(mlTrainingFlagVersion), c.String(generalFlagOrgID),
-		c.String(trainFlagModelName), c.String(trainFlagModelVersion), c.String(trainCliArgs))
+		c.String(trainFlagModelName), c.String(trainFlagModelVersion), c.String(mlTrainingFlagArgs))
 	if err != nil {
 		return err
 	}
@@ -71,7 +70,7 @@ func MLSubmitCustomTrainingJobWithUpload(c *cli.Context) error {
 		registryItemID)
 	trainingJobID, err := client.mlSubmitCustomTrainingJob(
 		c.String(datasetFlagDatasetID), registryItemID, resp.Version, c.String(trainFlagModelOrgID),
-		c.String(trainFlagModelName), c.String(trainFlagModelVersion), c.String(trainCliArgs))
+		c.String(trainFlagModelName), c.String(trainFlagModelVersion), c.String(mlTrainingFlagArgs))
 	if err != nil {
 		return err
 	}
