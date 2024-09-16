@@ -51,7 +51,8 @@ func TestSummary(t *testing.T) {
 			prev:     empty,
 			curr:     populatedUploadStats(),
 			interval: time.Minute,
-			exp: []string{"total uploads: 12, rate: 0.20/sec",
+			exp: []string{
+				"total uploads: 12, rate: 0.20/sec",
 				"total uploaded: 1.00 GB, rate: 17.08 MB/sec",
 				"total failed uploads: 18, rate: 0.30/sec",
 				"arbitrary file, (files uploaded): total: 1, rate: 0.016667/sec",
