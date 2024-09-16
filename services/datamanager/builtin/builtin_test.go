@@ -16,6 +16,7 @@ import (
 	v1 "go.viam.com/api/app/datasync/v1"
 	v1Arm "go.viam.com/api/component/arm/v1"
 	"go.viam.com/test"
+	goutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 	"google.golang.org/grpc"
 
@@ -36,7 +37,6 @@ import (
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils/inject"
 	"go.viam.com/rdk/utils"
-	goutils "go.viam.com/utils"
 )
 
 var (

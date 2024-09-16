@@ -71,7 +71,7 @@ func (c *Config) captureConfig() capture.Config {
 }
 
 func (c *Config) syncConfig(syncSensor sensor.Sensor, syncSensorEnabled bool) datasync.Config {
-	newMaxSyncThreadValue := runtime.NumCPU()
+	newMaxSyncThreadValue := runtime.NumCPU() / 2
 	if c.MaximumNumSyncThreads != 0 {
 		newMaxSyncThreadValue = c.MaximumNumSyncThreads
 	}

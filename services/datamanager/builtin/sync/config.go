@@ -67,7 +67,7 @@ type Config struct {
 	FileLastModifiedMillis int
 	// MaximumNumSyncThreads defines the maximum number of goroutines which
 	// data sync should create to sync data to the cloud
-	// defaults to runtime.NumCpu()
+	// defaults to runtime.NumCpu() / 2
 	MaximumNumSyncThreads int
 	// ScheduledSyncDisabled, when true disables data capture syncing every SyncIntervalMins
 	ScheduledSyncDisabled bool

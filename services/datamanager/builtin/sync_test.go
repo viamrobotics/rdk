@@ -453,13 +453,13 @@ func TestDataCaptureUploadIntegration(t *testing.T) {
 			b2 := b2Svc.(*builtIn)
 
 			if tc.failTransiently {
-				wait := time.After(waitTime * 4)
+				timeout := time.After(waitTime * 10)
 				failCount := 3
 				for i := 0; i < failCount; i++ {
 					t.Logf("waiting for %d files to fail", numFiles)
 					for j := 0; j < numFiles; j++ {
 						select {
-						case <-wait:
+						case <-timeout:
 							t.Fatalf("timed out waiting for sync request")
 							return
 						case <-failChan:
