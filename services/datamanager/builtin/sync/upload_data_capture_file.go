@@ -26,7 +26,7 @@ var MaxUnaryFileSize = int64(units.MB)
 // Otherwise, uploads data over DataCaptureUpload API.
 // Note: the bytes size returned is the size of the input file. It only returns a non 0 value in the success case.
 func uploadDataCaptureFile(ctx context.Context, f *data.CaptureFile, conn cloudConn, logger logging.Logger) (uint64, error) {
-	logger.Debugf("preparing to upload data capture file: %s", f.GetPath())
+	logger.Debugf("preparing to upload data capture file: %s, size: %d", f.GetPath(), f.Size())
 
 	md := f.ReadMetadata()
 	sensorData, err := data.SensorDataFromCaptureFile(f)

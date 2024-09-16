@@ -3,6 +3,7 @@ package builtin
 import (
 	"context"
 	"errors"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -65,6 +66,9 @@ func DiskSummary(ctx context.Context, rootPath string) []DirSummary {
 			dataTimeRange = parseTimeRange(child.Name(), dataTimeRange)
 			fileCount++
 			info, err := child.Info()
+			if errors.Is(err, fs.ErrNotExist) {
+				continue
+			}
 			if err != nil {
 				// aggregate all errors encountered on files in this directory
 				// TODO: Test ErrPermission actually happens if you don't have permissions

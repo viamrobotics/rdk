@@ -38,6 +38,9 @@ const (
 	// durationBetweenAcquireConnection defines how long to wait after a call to cloud.AcquireConnection fails
 	// with a transient error.
 	durationBetweenAcquireConnection = time.Second
+	// syncStatsLogInterval is the interval at which statistics about
+	// data sync are logged.
+	syncStatsLogInterval = time.Minute
 )
 
 // Sync manages uploading files (both written by data capture and by 3rd party applications)
@@ -128,7 +131,7 @@ func (s *Sync) Reconfigure(_ context.Context, config Config, cloudConnSvc cloud.
 		// to execute, don't stop workers
 		return
 	}
-	s.statsWorker.reconfigure(s.atomicUploadStats, time.Minute)
+	s.statsWorker.reconfigure(s.atomicUploadStats, syncStatsLogInterval)
 	s.config.logDiff(config, s.logger)
 
 	// config changed... stop workers
@@ -381,7 +384,11 @@ func (s *Sync) syncDataCaptureFile(f *os.File, captureDir string, logger logging
 		msg := "error uploading data capture file %s, size: %s, md: %s"
 		errMetadata := fmt.Sprintf(msg, captureFile.GetPath(), data.FormatBytesI64(captureFile.Size()), captureFile.ReadMetadata())
 		bytesUploaded, err := uploadDataCaptureFile(ctx, captureFile, s.cloudConn, logger)
-		return bytesUploaded, errors.Wrap(err, errMetadata)
+		if err != nil {
+			return 0, errors.Wrap(err, errMetadata)
+		}
+		logger.Debugf("uploadDataCaptureFile uploaded: %d bytes", bytesUploaded)
+		return bytesUploaded, nil
 	})
 
 	bytesUploaded, err := retry.run()
@@ -426,7 +433,11 @@ func (s *Sync) syncArbitraryFile(f *os.File, tags []string, fileLastModifiedMill
 	retry := newExponentialRetry(s.configCtx, s.clock, s.logger, f.Name(), func(ctx context.Context) (uint64, error) {
 		errMetadata := fmt.Sprintf("error uploading arbitrary file %s", f.Name())
 		bytesUploaded, err := uploadArbitraryFile(ctx, f, s.cloudConn, tags, fileLastModifiedMillis, s.clock, logger)
-		return bytesUploaded, errors.Wrap(err, errMetadata)
+		if err != nil {
+			return 0, errors.Wrap(err, errMetadata)
+		}
+		logger.Debugf("uploadArbitraryFile uploaded: %d bytes", bytesUploaded)
+		return bytesUploaded, nil
 	})
 
 	bytesUploaded, err := retry.run()

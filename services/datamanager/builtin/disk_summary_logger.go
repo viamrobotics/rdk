@@ -59,7 +59,7 @@ func (poller *diskSummaryLogger) reconfigure(dirs []string, interval time.Durati
 					)
 					if s.DataTimeRange != nil {
 						dtr := *s.DataTimeRange
-						dataTimeRange = dtr.End.Sub(dtr.Start).String()
+						dataTimeRange = dtr.End.Sub(dtr.Start).Round(time.Second).String()
 						dataStart = dtr.Start.String()
 						dataEnd = dtr.End.String()
 					}
