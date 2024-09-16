@@ -117,51 +117,61 @@ func (c *Config) logDiff(o Config, logger logging.Logger) {
 
 	logger.Info("sync config changes:")
 	if !reflect.DeepEqual(c.AdditionalSyncPaths, o.AdditionalSyncPaths) {
-		logger.Infof("additional_sync_paths: %s", strings.Join(o.AdditionalSyncPaths, " "))
+		logger.Infof("additional_sync_paths: old: %s, new: %s",
+			strings.Join(c.AdditionalSyncPaths, " "), strings.Join(o.AdditionalSyncPaths, " "))
 	}
 
 	if c.CaptureDir != o.CaptureDir {
-		logger.Infof("capture_dir: %s", o.CaptureDir)
+		logger.Infof("capture_dir: old: %s, new: %s", c.CaptureDir, o.CaptureDir)
 	}
 
 	if c.CaptureDisabled != o.CaptureDisabled {
-		logger.Infof("capture_disabled: %t", o.CaptureDisabled)
+		logger.Infof("capture_disabled: old: %t, new: %t", c.CaptureDisabled, o.CaptureDisabled)
 	}
 
 	if c.DeleteEveryNthWhenDiskFull != o.DeleteEveryNthWhenDiskFull {
-		logger.Infof("delete_every_nth_when_disk_full: %d", o.DeleteEveryNthWhenDiskFull)
+		logger.Infof("delete_every_nth_when_disk_full: old: %d, new: %d",
+			c.DeleteEveryNthWhenDiskFull, o.DeleteEveryNthWhenDiskFull)
 	}
 
 	if c.FileLastModifiedMillis != o.FileLastModifiedMillis {
-		logger.Infof("file_last_modified_millis: %d", o.FileLastModifiedMillis)
+		logger.Infof("file_last_modified_millis: old: %d, new: %Bd", c.FileLastModifiedMillis, o.FileLastModifiedMillis)
 	}
 
 	if c.MaximumNumSyncThreads != o.MaximumNumSyncThreads {
-		logger.Infof("maximum_num_sync_threads: %d", o.MaximumNumSyncThreads)
+		logger.Infof("maximum_num_sync_threads: old: %d, new: %d", c.MaximumNumSyncThreads, o.MaximumNumSyncThreads)
 	}
 
 	if c.ScheduledSyncDisabled != o.ScheduledSyncDisabled {
-		logger.Infof("sync_disabled: %t", o.ScheduledSyncDisabled)
+		logger.Infof("sync_disabled: old: %t, new: %t", c.ScheduledSyncDisabled, o.ScheduledSyncDisabled)
 	}
 
 	if c.SelectiveSyncerName != o.SelectiveSyncerName {
-		logger.Infof("selective_syncer_name: %s", o.SelectiveSyncerName)
+		logger.Infof("selective_syncer_name: old: %s, new: %s", c.SelectiveSyncerName, o.SelectiveSyncerName)
 	}
 
 	if c.SyncIntervalMins != o.SyncIntervalMins {
-		logger.Infof("sync_interval_mins: %f", o.SyncIntervalMins)
+		logger.Infof("sync_interval_mins: old: %f, new: %f", c.SyncIntervalMins, o.SyncIntervalMins)
 	}
 
 	if !reflect.DeepEqual(c.Tags, o.Tags) {
-		logger.Infof("tags: %s", strings.Join(o.Tags, " "))
+		logger.Infof("tags: old: %s, new: %s", strings.Join(c.Tags, " "), strings.Join(o.Tags, " "))
 	}
 
 	if c.SelectiveSyncSensorEnabled != o.SelectiveSyncSensorEnabled {
-		logger.Infof("SelectiveSyncSensorEnabled: %t", o.SelectiveSyncSensorEnabled)
+		logger.Infof("SelectiveSyncSensorEnabled: old: %t, new: %t", c.SelectiveSyncSensorEnabled, o.SelectiveSyncSensorEnabled)
 	}
 
 	if c.SelectiveSyncSensor != o.SelectiveSyncSensor {
-		logger.Infof("SelectiveSyncSensor: %s", o.SelectiveSyncSensor.Name())
+		oldName := ""
+		if c.SelectiveSyncSensor != nil {
+			oldName = c.SelectiveSyncSensor.Name().String()
+		}
+		newName := ""
+		if c.SelectiveSyncSensor != nil {
+			newName = o.SelectiveSyncSensor.Name().String()
+		}
+		logger.Infof("SelectiveSyncSensor: old: %s, new: %s", oldName, newName)
 	}
 }
 
