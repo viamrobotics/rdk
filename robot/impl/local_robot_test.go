@@ -20,6 +20,7 @@ import (
 	"github.com/golang/geo/r3"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.uber.org/zap"
+
 	// registers all components.
 	commonpb "go.viam.com/api/common/v1"
 	armpb "go.viam.com/api/component/arm/v1"
@@ -3427,7 +3428,7 @@ func getExpectedDefaultStatuses(revision string) []resource.Status {
 	return []resource.Status{
 		{
 			Name: resource.Name{
-				API:  resource.APINamespaceRDKInternal.WithServiceType("framesystem"),
+				API:  resource.APINamespaceRDKInternal.WithServiceType("frame_system"),
 				Name: "builtin",
 			},
 			State: resource.NodeStateReady,
