@@ -11,10 +11,8 @@ import (
 	"github.com/pkg/errors"
 	pb "go.viam.com/api/component/camera/v1"
 
-	"go.viam.com/rdk/components/camera/rtppassthrough"
 	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/gostream"
-	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage/transform"
@@ -145,66 +143,6 @@ type PointCloudSource interface {
 // A ImagesSource is a source that can return a list of images with timestamp.
 type ImagesSource interface {
 	Images(ctx context.Context) ([]NamedImage, resource.ResponseMetadata, error)
-}
-
-type sourceBasedCamera struct {
-	resource.Named
-	resource.AlwaysRebuild
-	VideoSource
-	rtpPassthroughSource rtppassthrough.Source
-	logging.Logger
-}
-
-func (vs *sourceBasedCamera) SubscribeRTP(
-	ctx context.Context,
-	bufferSize int,
-	packetsCB rtppassthrough.PacketCallback,
-) (rtppassthrough.Subscription, error) {
-	if vs.rtpPassthroughSource != nil {
-		return vs.rtpPassthroughSource.SubscribeRTP(ctx, bufferSize, packetsCB)
-	}
-	return rtppassthrough.NilSubscription, errors.New("SubscribeRTP unimplemented")
-}
-
-func (vs *sourceBasedCamera) Unsubscribe(ctx context.Context, id rtppassthrough.SubscriptionID) error {
-	if vs.rtpPassthroughSource != nil {
-		return vs.rtpPassthroughSource.Unsubscribe(ctx, id)
-	}
-	return errors.New("Unsubscribe unimplemented")
-}
-
-func (vs *videoSource) SubscribeRTP(
-	ctx context.Context,
-	bufferSize int,
-	packetsCB rtppassthrough.PacketCallback,
-) (rtppassthrough.Subscription, error) {
-	if vs.rtpPassthroughSource != nil {
-		return vs.rtpPassthroughSource.SubscribeRTP(ctx, bufferSize, packetsCB)
-	}
-	return rtppassthrough.NilSubscription, errors.New("SubscribeRTP unimplemented")
-}
-
-func (vs *videoSource) Unsubscribe(ctx context.Context, id rtppassthrough.SubscriptionID) error {
-	if vs.rtpPassthroughSource != nil {
-		return vs.rtpPassthroughSource.Unsubscribe(ctx, id)
-	}
-	return errors.New("Unsubscribe unimplemented")
-}
-
-// NewPinholeModelWithBrownConradyDistortion creates a transform.PinholeCameraModel from
-// a *transform.PinholeCameraIntrinsics and a *transform.BrownConrady.
-// If *transform.BrownConrady is `nil`, transform.PinholeCameraModel.Distortion
-// is not set & remains nil, to prevent https://go.dev/doc/faq#nil_error.
-func NewPinholeModelWithBrownConradyDistortion(pinholeCameraIntrinsics *transform.PinholeCameraIntrinsics,
-	distortion *transform.BrownConrady,
-) transform.PinholeCameraModel {
-	var cameraModel transform.PinholeCameraModel
-	cameraModel.PinholeCameraIntrinsics = pinholeCameraIntrinsics
-
-	if distortion != nil {
-		cameraModel.Distortion = distortion
-	}
-	return cameraModel
 }
 
 // NewPropertiesError returns an error specific to a failure in Properties.
