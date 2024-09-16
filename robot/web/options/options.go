@@ -45,9 +45,9 @@ type Options struct {
 	// service is added.
 	Debug bool
 
-	// WebRTC configures whether or not to instruct all clients to prefer to
-	// WebRTC connections over direct gRPC connections.
-	WebRTC bool
+	// PreferWebRTC configures whether or not to instruct all clients to prefer to
+	// PreferWebRTC connections over direct gRPC connections.
+	PreferWebRTC bool
 
 	// Network describes networking settings for the web server.
 	Network config.NetworkConfig

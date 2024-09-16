@@ -132,7 +132,7 @@ func (app *robotWebApp) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	data.Host = app.options.FQDN
-	if app.options.WebRTC && r.Form.Get("grpc") != "true" {
+	if app.options.PreferWebRTC && r.Form.Get("grpc") != "true" {
 		data.WebRTCEnabled = true
 	}
 
