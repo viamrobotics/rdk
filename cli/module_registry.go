@@ -31,11 +31,15 @@ import (
 	"go.viam.com/rdk/module"
 	"go.viam.com/rdk/module/modmanager"
 	modmanageroptions "go.viam.com/rdk/module/modmanager/options"
+	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/utils"
 )
 
 // moduleUploadChunkSize sets the number of bytes included in each chunk of the upload stream.
-var moduleUploadChunkSize = 32 * 1024
+var (
+	moduleUploadChunkSize = 32 * 1024
+	rdkAPITypes           = []string{resource.APITypeServiceName, resource.APITypeComponentName}
+)
 
 // moduleVisibility determines whether modules are public or private.
 type moduleVisibility string
@@ -45,6 +49,14 @@ const (
 	moduleVisibilityPrivate moduleVisibility = "private"
 	moduleVisibilityPublic  moduleVisibility = "public"
 )
+
+type unknownRdkAPITypeError struct {
+	APIType string
+}
+
+func (err unknownRdkAPITypeError) Error() string {
+	return fmt.Sprintf("rdk API with unknown type %s, expected one of %s", err.APIType, strings.Join(rdkAPITypes, ", "))
+}
 
 // ModuleComponent represents an api - model pair.
 type ModuleComponent struct {
@@ -199,6 +211,8 @@ func UpdateModuleAction(c *cli.Context) error {
 		return err
 	}
 
+	validateModels(c.App.ErrWriter, &manifest)
+
 	response, err := client.updateModule(moduleID, manifest)
 	if err != nil {
 		return err
@@ -283,6 +297,8 @@ func UploadModuleAction(c *cli.Context) error {
 			return err
 		}
 
+		validateModels(c.App.ErrWriter, &manifest)
+
 		_, err = client.updateModule(moduleID, manifest)
 		if err != nil {
 			return errors.Wrap(err, "Module update failed. Please correct the following issues in your meta.json")
@@ -313,6 +329,30 @@ func UploadModuleAction(c *cli.Context) error {
 
 	printf(c.App.Writer, "Version successfully uploaded! you can view your changes online here: %s", response.GetUrl())
 
+	return nil
+}
+
+// call validateModelAPI on all models in manifest and warn if violations.
+func validateModels(errWriter io.Writer, manifest *moduleManifest) {
+	for _, model := range manifest.Models {
+		if err := validateModelAPI(model.API); err != nil {
+			warningf(errWriter, "error validating API string %s: %s", model.API, err)
+		}
+	}
+}
+
+// return a useful error if the model string looks wrong.
+func validateModelAPI(modelAPI string) error {
+	api, err := resource.ParseAPIString(modelAPI)
+	if err != nil {
+		return errors.Wrap(err, "unparseable model string")
+	}
+	if err := api.Validate(); err != nil {
+		return errors.Wrap(err, "failed to validate API")
+	}
+	if api.Type.Namespace == resource.APINamespaceRDK && !slices.Contains(rdkAPITypes, api.Type.Name) {
+		return unknownRdkAPITypeError{APIType: api.Type.Name}
+	}
 	return nil
 }
 
