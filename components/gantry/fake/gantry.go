@@ -11,7 +11,6 @@ import (
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/testutils"
 )
 
 func init() {
@@ -33,15 +32,13 @@ func init() {
 // NewGantry returns a new fake gantry.
 func NewGantry(name resource.Name, logger logging.Logger) gantry.Gantry {
 	return &Gantry{
-		testutils.NewUnimplementedResource(name),
-		resource.TriviallyReconfigurable{},
-		resource.TriviallyCloseable{},
-		[]float64{1.2},
-		[]float64{120},
-		[]float64{5},
-		2,
-		r3.Vector{X: 1, Y: 0, Z: 0},
-		logger,
+		name:           name,
+		positionsMm:    []float64{1.2},
+		speedsMmPerSec: []float64{120},
+		lengths:        []float64{5},
+		lengthMeters:   2,
+		frame:          r3.Vector{X: 1, Y: 0, Z: 0},
+		logger:         logger,
 	}
 }
 
@@ -50,6 +47,7 @@ type Gantry struct {
 	resource.Named
 	resource.TriviallyReconfigurable
 	resource.TriviallyCloseable
+	name           resource.Name
 	positionsMm    []float64
 	speedsMmPerSec []float64
 	lengths        []float64
@@ -94,7 +92,8 @@ func (g *Gantry) IsMoving(ctx context.Context) (bool, error) {
 // ModelFrame returns a Gantry frame.
 func (g *Gantry) ModelFrame() referenceframe.Model {
 	m := referenceframe.NewSimpleModel("")
-	f, err := referenceframe.NewTranslationalFrame(g.Name().ShortName(), g.frame, referenceframe.Limit{0, g.lengthMeters})
+	limit := referenceframe.Limit{Min: 0, Max: g.lengthMeters}
+	f, err := referenceframe.NewTranslationalFrame(g.Name().ShortName(), g.frame, limit)
 	if err != nil {
 		panic(fmt.Errorf("error creating frame: %w", err))
 	}
