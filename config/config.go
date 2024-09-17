@@ -928,7 +928,7 @@ func (config *AuthHandlerConfig) Validate(path string) error {
 	switch config.Type {
 	case rpc.CredentialsTypeAPIKey:
 		if len(config.Config) == 0 || config.Config == nil {
-			return errors.New("API key handler must contain at least 1 key")
+			return resource.NewConfigValidationError(fmt.Sprintf("%s.config", path), errors.New("At least 1 key required for API key handler"))
 		}
 	case rpc.CredentialsTypeExternal:
 		return errors.New("robot cannot issue external auth tokens")
