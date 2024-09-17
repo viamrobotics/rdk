@@ -69,13 +69,12 @@ type NamedImage struct {
 	SourceName string
 }
 
-// A Camera is a resource that can capture frames.
-type Camera interface {
-	resource.Resource
-	VideoSource
+// A VideoSource is a resource that can capture frames.
+type VideoSource interface {
+	Camera
 }
 
-// A VideoSource represents anything that can capture frames.
+// A Camera represents anything that can capture frames.
 // For more information, see the [camera component docs].
 //
 // Images example:
@@ -109,7 +108,9 @@ type Camera interface {
 //	err = myCamera.Close(ctx)
 //
 // [camera component docs]: https://docs.viam.com/components/camera/
-type VideoSource interface {
+type Camera interface {
+	resource.Resource
+
 	// Images is used for getting simultaneous images from different imagers,
 	// along with associated metadata (just timestamp for now). It's not for getting a time series of images from the same imager.
 	Images(ctx context.Context) ([]NamedImage, resource.ResponseMetadata, error)

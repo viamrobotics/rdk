@@ -30,15 +30,12 @@ func FromVideoSource(name resource.Name, src VideoSource, logger logging.Logger)
 	}
 	return &sourceBasedCamera{
 		rtpPassthroughSource: rtpPassthroughSource,
-		Named:                name.AsNamed(),
 		VideoSource:          src,
 		Logger:               logger,
 	}
 }
 
 type sourceBasedCamera struct {
-	resource.Named
-	resource.AlwaysRebuild
 	VideoSource
 	rtpPassthroughSource rtppassthrough.Source
 	logging.Logger
@@ -155,6 +152,7 @@ func WrapVideoSourceWithProjector(
 		return nil, errors.New("cannot have a nil source")
 	}
 
+	var resourceName resource.Named
 	actualSystem := syst
 	if actualSystem == nil {
 		//nolint:staticcheck
@@ -172,9 +170,12 @@ func WrapVideoSourceWithProjector(
 			}
 
 			actualSystem = &cameraModel
+
+			resourceName = srcCam.Name().AsNamed()
 		}
 	}
 	return &videoSource{
+		Named:        resourceName,
 		system:       actualSystem,
 		videoSource:  source,
 		videoStream:  gostream.NewEmbeddedVideoStream(source),
@@ -191,6 +192,8 @@ type videoSource struct {
 	actualSource         interface{}
 	system               *transform.PinholeCameraModel
 	imageType            ImageType
+	resource.Named
+	resource.AlwaysRebuild
 }
 
 func (vs *videoSource) Stream(ctx context.Context, errHandlers ...gostream.ErrorHandler) (gostream.VideoStream, error) {
