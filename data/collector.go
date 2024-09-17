@@ -178,11 +178,7 @@ func (c *collector) sleepBasedCapture(started chan struct{}) {
 			close(c.captureResults)
 			return
 		default:
-			captureWorkers.Add(1)
-			utils.PanicCapturingGo(func() {
-				defer captureWorkers.Done()
-				c.getAndPushNextReading()
-			})
+			c.getAndPushNextReading()
 		}
 		next = next.Add(c.interval)
 		until = c.clock.Until(next)
@@ -208,11 +204,7 @@ func (c *collector) tickerBasedCapture(started chan struct{}) {
 			close(c.captureResults)
 			return
 		case <-ticker.C:
-			captureWorkers.Add(1)
-			utils.PanicCapturingGo(func() {
-				defer captureWorkers.Done()
-				c.getAndPushNextReading()
-			})
+			c.getAndPushNextReading()
 		}
 	}
 }
