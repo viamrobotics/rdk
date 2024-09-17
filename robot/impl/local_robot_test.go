@@ -20,6 +20,7 @@ import (
 	"github.com/golang/geo/r3"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.uber.org/zap"
+
 	// registers all components.
 	commonpb "go.viam.com/api/common/v1"
 	armpb "go.viam.com/api/component/arm/v1"
@@ -57,6 +58,7 @@ import (
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
+	"go.viam.com/rdk/robot/client"
 	"go.viam.com/rdk/robot/framesystem"
 	"go.viam.com/rdk/robot/packages"
 	putils "go.viam.com/rdk/robot/packages/testutils"
@@ -3606,4 +3608,69 @@ func TestMachineStatus(t *testing.T) {
 		)
 		rtestutils.VerifySameResourceStatuses(t, mStatus.Resources, expectedStatuses)
 	})
+}
+
+// dialWithShortTimeout chooses a smaller timeout value to keep the test
+func dialWithShortTimeout(client *client.RobotClient) error {
+	ctx, done := context.WithTimeout(context.Background(), 500*time.Millisecond)
+	defer done()
+	return client.Connect(ctx)
+}
+
+// TestStickyWebRTCConnection ensures that once a RobotClient object makes a WebRTC connection, it
+// will only make future WebRTC connections.
+func TestStickyWebRTCConnection(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+	ctx := context.Background()
+
+	// Start a robot and stand up its "web".
+	robot := setupLocalRobot(t, ctx, &config.Config{}, logger.Sublogger("robot"))
+	options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
+	err := robot.StartWeb(ctx, options)
+	test.That(t, err, test.ShouldBeNil)
+	defer robot.StopWeb()
+
+	// Connect to the robot with a client. This should be a WebRTC connection, but we do not assert
+	// that.
+	robotClient, connectionErr := client.New(ctx, addr, logger.Sublogger("client"))
+	test.That(t, err, test.ShouldBeNil)
+	defer robotClient.Close(ctx)
+
+	// Stop the "web".
+	robot.StopWeb()
+	// Explicitly reconnect the RobotClient. The "web" is down therefore this client will time out
+	// and error.
+	connectionErr = dialWithShortTimeout(robotClient)
+	test.That(t, connectionErr, test.ShouldNotBeNil)
+
+	// Massage the options to restart the "web" on the same port as before. Note: this can result in
+	// a test bug/failure as another test may have picked up the same port in the meantime.
+	options.Network.BindAddress = addr
+	options.Network.Listener = nil
+	err = robot.StartWeb(ctx, options)
+	test.That(t, err, test.ShouldBeNil)
+
+	// Explicitly reconnect with the robot client. Reconnecting will succeed, and this should be a
+	// WebRTC connection.
+	connectionErr = dialWithShortTimeout(robotClient)
+	test.That(t, connectionErr, test.ShouldBeNil)
+
+	// Stop the "web" again. Assert we can no longer connect.
+	robot.StopWeb()
+	connectionErr = dialWithShortTimeout(robotClient)
+	test.That(t, connectionErr, test.ShouldNotBeNil)
+
+	// Restart the "web" but only accept direct gRPC connections.
+	options.DisallowWebRTC = true
+	err = robot.StartWeb(ctx, options)
+
+	// Explicitly reconnect with the RobotClient. The RobotClient should only try creating a WebRTC
+	// connection and thus fail this attempt.
+	connectionErr = dialWithShortTimeout(robotClient)
+	test.That(t, connectionErr, test.ShouldNotBeNil)
+
+	// However, a new RobotClient should happily create a direct gRPC connection.
+	cleanClient, err := client.New(ctx, addr, logger.Sublogger("clean_client"))
+	test.That(t, err, test.ShouldBeNil)
+	cleanClient.Close(ctx)
 }

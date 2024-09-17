@@ -604,27 +604,36 @@ func (svc *webService) runWeb(ctx context.Context, options weboptions.Options) (
 			svc.logger.Errorw("error serving http", "error", serveErr)
 		}
 	})
+
 	return err
 }
 
 // Initialize RPC Server options.
 func (svc *webService) initRPCOptions(listenerTCPAddr *net.TCPAddr, options weboptions.Options) ([]rpc.ServerOption, error) {
 	hosts := options.GetHosts(listenerTCPAddr)
+
+	webrtcOptions := rpc.WebRTCServerOptions{
+		Enable:                    true,
+		EnableInternalSignaling:   true,
+		ExternalSignalingDialOpts: options.SignalingDialOpts,
+		ExternalSignalingAddress:  options.SignalingAddress,
+		ExternalSignalingHosts:    hosts.External,
+		InternalSignalingHosts:    hosts.Internal,
+		Config:                    &grpc.DefaultWebRTCConfiguration,
+		OnPeerAdded:               options.WebRTCOnPeerAdded,
+		OnPeerRemoved:             options.WebRTCOnPeerRemoved,
+	}
+	if options.DisallowWebRTC {
+		webrtcOptions = rpc.WebRTCServerOptions{
+			Enable: false,
+		}
+	}
+
 	rpcOpts := []rpc.ServerOption{
 		rpc.WithAuthIssuer(options.FQDN),
 		rpc.WithAuthAudience(options.FQDN),
 		rpc.WithInstanceNames(hosts.Names...),
-		rpc.WithWebRTCServerOptions(rpc.WebRTCServerOptions{
-			Enable:                    true,
-			EnableInternalSignaling:   true,
-			ExternalSignalingDialOpts: options.SignalingDialOpts,
-			ExternalSignalingAddress:  options.SignalingAddress,
-			ExternalSignalingHosts:    hosts.External,
-			InternalSignalingHosts:    hosts.Internal,
-			Config:                    &grpc.DefaultWebRTCConfiguration,
-			OnPeerAdded:               options.WebRTCOnPeerAdded,
-			OnPeerRemoved:             options.WebRTCOnPeerRemoved,
-		}),
+		rpc.WithWebRTCServerOptions(webrtcOptions),
 	}
 	if options.DisableMulticastDNS {
 		rpcOpts = append(rpcOpts, rpc.WithDisableMulticastDNS())

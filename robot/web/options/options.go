@@ -45,6 +45,10 @@ type Options struct {
 	// service is added.
 	Debug bool
 
+	// DisallowWebRTC controls whether only an http grpc server is spun up, or if we'll also start
+	// WebRTC answering to create PeerConnections.
+	DisallowWebRTC bool
+
 	// PreferWebRTC configures whether or not to instruct all clients to prefer to
 	// PreferWebRTC connections over direct gRPC connections.
 	PreferWebRTC bool
