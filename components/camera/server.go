@@ -88,7 +88,7 @@ func (s *serviceServer) GetImage(
 		// RSDK-8663: If available, call a method that reads exactly one image. The default
 		// `ReadImage` implementation will otherwise create a gostream `Stream`, call `Next` and
 		// `Close` the stream. However, between `Next` and `Close`, the stream may have pulled a
-		// second image from the underlying camera. This is particularly noticable on camera
+		// second image from the underlying camera. This is particularly noticeable on camera
 		// clients. Where a second `GetImage` request can be processed/returned over the
 		// network. Just to be discarded.
 		img, release, err = castedCam.Read(ctx)
