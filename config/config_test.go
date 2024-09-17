@@ -381,6 +381,11 @@ func TestConfigEnsure(t *testing.T) {
 	invalidAuthConfig.Auth.Handlers = []config.AuthHandlerConfig{
 		{Type: rpc.CredentialsTypeAPIKey},
 	}
+	err = invalidAuthConfig.Ensure(false, logger)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, `auth.handlers.0`)
+	test.That(t, err.Error(), test.ShouldContainSubstring, `required`)
+	test.That(t, err.Error(), test.ShouldContainSubstring, `key`)
 
 	validAPIKeyHandler := config.AuthHandlerConfig{
 		Type: rpc.CredentialsTypeAPIKey,
@@ -595,6 +600,11 @@ func TestConfigEnsurePartialStart(t *testing.T) {
 	invalidAuthConfig.Auth.Handlers = []config.AuthHandlerConfig{
 		{Type: rpc.CredentialsTypeAPIKey},
 	}
+	err = invalidAuthConfig.Ensure(false, logger)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, `auth.handlers.0`)
+	test.That(t, err.Error(), test.ShouldContainSubstring, `required`)
+	test.That(t, err.Error(), test.ShouldContainSubstring, `key`)
 
 	validAPIKeyHandler := config.AuthHandlerConfig{
 		Type: rpc.CredentialsTypeAPIKey,

@@ -927,12 +927,15 @@ func (config *AuthHandlerConfig) Validate(path string) error {
 	}
 	switch config.Type {
 	case rpc.CredentialsTypeAPIKey:
-		return nil
+		if len(config.Config) == 0 || config.Config == nil {
+			return errors.New("API key handler must contain at least 1 key")
+		}
 	case rpc.CredentialsTypeExternal:
 		return errors.New("robot cannot issue external auth tokens")
 	default:
 		return resource.NewConfigValidationError(path, errors.Errorf("do not know how to handle auth for %q", config.Type))
 	}
+	return nil
 }
 
 // TLSConfig stores the TLS config for the robot.
