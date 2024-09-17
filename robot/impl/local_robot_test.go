@@ -3610,7 +3610,7 @@ func TestMachineStatus(t *testing.T) {
 	})
 }
 
-// dialWithShortTimeout chooses a smaller timeout value to keep the test
+// dialWithShortTimeout chooses a smaller timeout value to keep the test.
 func dialWithShortTimeout(client *client.RobotClient) error {
 	ctx, done := context.WithTimeout(context.Background(), 500*time.Millisecond)
 	defer done()
@@ -3633,7 +3633,7 @@ func TestStickyWebRTCConnection(t *testing.T) {
 	// Connect to the robot with a client. This should be a WebRTC connection, but we do not assert
 	// that.
 	robotClient, connectionErr := client.New(ctx, addr, logger.Sublogger("client"))
-	test.That(t, err, test.ShouldBeNil)
+	test.That(t, connectionErr, test.ShouldBeNil)
 	defer robotClient.Close(ctx)
 
 	// Stop the "web".
@@ -3663,6 +3663,7 @@ func TestStickyWebRTCConnection(t *testing.T) {
 	// Restart the "web" but only accept direct gRPC connections.
 	options.DisallowWebRTC = true
 	err = robot.StartWeb(ctx, options)
+	test.That(t, err, test.ShouldBeNil)
 
 	// Explicitly reconnect with the RobotClient. The RobotClient should only try creating a WebRTC
 	// connection and thus fail this attempt.

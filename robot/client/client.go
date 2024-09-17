@@ -337,6 +337,7 @@ func (rc *RobotClient) Changed() <-chan bool {
 	return rc.changeChan
 }
 
+// Connect will close any existing connection and try to reconnect to the remote.
 func (rc *RobotClient) Connect(ctx context.Context) error {
 	if err := rc.connectWithLock(ctx); err != nil {
 		return err
@@ -357,8 +358,7 @@ func (rc *RobotClient) connectWithLock(ctx context.Context) error {
 		return err
 	}
 
-	var dialLogger logging.Logger
-	dialLogger = rc.logger.Sublogger("networking")
+	dialLogger := rc.logger.Sublogger("networking")
 
 	// Try forcing a webrtc connection.
 	dialOptionsWebRTCOnly := make([]rpc.DialOption, len(rc.dialOptions)+1)
