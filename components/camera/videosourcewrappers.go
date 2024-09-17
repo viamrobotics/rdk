@@ -30,14 +30,13 @@ func FromVideoSource(name resource.Name, src VideoSource, logger logging.Logger)
 	}
 	return &sourceBasedCamera{
 		rtpPassthroughSource: rtpPassthroughSource,
-		VideoSource:          src,
+		Camera:               src,
 		Logger:               logger,
-		Named:                src.Name().AsNamed(),
 	}
 }
 
 type sourceBasedCamera struct {
-	VideoSource
+	Camera
 	rtpPassthroughSource rtppassthrough.Source
 	logging.Logger
 }
@@ -113,8 +112,9 @@ func NewVideoSourceFromReader(
 	}
 	vs := gostream.NewVideoSource(reader, prop.Video{})
 	actualSystem := syst
+	resourceName := resource.Name{}
 	if actualSystem == nil {
-		srcCam, ok := reader.(VideoSource)
+		srcCam, ok := reader.(Camera)
 		if ok {
 			props, err := srcCam.Properties(ctx)
 			if err != nil {
@@ -128,6 +128,8 @@ func NewVideoSourceFromReader(
 				cameraModel.Distortion = props.DistortionParams
 			}
 			actualSystem = &cameraModel
+
+			resourceName = srcCam.Name()
 		}
 	}
 	return &videoSource{
@@ -137,6 +139,7 @@ func NewVideoSourceFromReader(
 		videoStream:          gostream.NewEmbeddedVideoStream(vs),
 		actualSource:         reader,
 		imageType:            imageType,
+		Named:                resourceName.AsNamed(),
 	}, nil
 }
 
