@@ -3,6 +3,7 @@ package sensorcontrolled
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"time"
 
@@ -26,6 +27,7 @@ const (
 	typeLinVel         = "linear_velocity"
 	typeAngVel         = "angular_velocity"
 	defaultControlFreq = 10 // Hz
+	getPID             = "get_tuned_pid"
 )
 
 var (
@@ -48,13 +50,20 @@ func (cfg *Config) Validate(path string) ([]string, error) {
 	if len(cfg.MovementSensor) == 0 {
 		return nil, resource.NewConfigValidationError(path, errors.New("need at least one movement sensor for base"))
 	}
-
 	deps = append(deps, cfg.MovementSensor...)
+
 	if cfg.Base == "" {
 		return nil, resource.NewConfigValidationFieldRequiredError(path, "base")
 	}
-
 	deps = append(deps, cfg.Base)
+
+	for _, pidConf := range cfg.ControlParameters {
+		if pidConf.Type != typeLinVel && pidConf.Type != typeAngVel {
+			return nil, resource.NewConfigValidationError(path,
+				errors.New("control_parameters type must be 'linear_velocity' or 'angular_velocity'"))
+		}
+	}
+
 	return deps, nil
 }
 
@@ -75,9 +84,11 @@ type sensorBase struct {
 	// headingFunc returns the current angle between (-180,180) and whether Spin is supported
 	headingFunc func(ctx context.Context) (float64, bool, error)
 
-	controlLoopConfig control.Config
+	controlLoopConfig *control.Config
 	blockNames        map[string][]string
 	loop              *control.Loop
+	configPIDVals     []control.PIDConfig
+	tunedVals         *[]control.PIDConfig
 	controlFreq       float64
 }
 
@@ -95,9 +106,11 @@ func createSensorBase(
 	logger logging.Logger,
 ) (base.Base, error) {
 	sb := &sensorBase{
-		logger: logger,
-		Named:  conf.ResourceName().AsNamed(),
-		opMgr:  operation.NewSingleOperationManager(),
+		logger:        logger,
+		tunedVals:     &[]control.PIDConfig{{}, {}},
+		configPIDVals: []control.PIDConfig{{}, {}},
+		Named:         conf.ResourceName().AsNamed(),
+		opMgr:         operation.NewSingleOperationManager(),
 	}
 
 	if err := sb.Reconfigure(ctx, deps, conf); err != nil {
@@ -195,26 +208,28 @@ func (sb *sensorBase) Reconfigure(ctx context.Context, deps resource.Dependencie
 
 	if sb.velocities != nil && len(newConf.ControlParameters) != 0 {
 		// assign linear and angular PID correctly based on the given type
-		var linear, angular control.PIDConfig
-		for _, c := range newConf.ControlParameters {
-			switch c.Type {
+		for _, pidConf := range newConf.ControlParameters {
+			switch pidConf.Type {
 			case typeLinVel:
-				linear = c
+				// configPIDVals at index 0 is linear
+				sb.configPIDVals[0] = pidConf
 			case typeAngVel:
-				angular = c
+				// configPIDVals at index 1 is angular
+				sb.configPIDVals[1] = pidConf
 			default:
-				sb.logger.Warn("control_parameters type must be 'linear_velocity' or 'angular_velocity'")
+				return fmt.Errorf("control_parameters type '%v' not accepted, type must be 'linear_velocity' or 'angular_velocity'",
+					pidConf.Type)
 			}
 		}
 
 		// unlock the mutex before setting up the control loop so that the motors
 		// are not locked, and can run if any auto-tuning is necessary
 		sb.mu.Unlock()
-		if err := sb.setupControlLoop(linear, angular); err != nil {
+		if err := sb.setupControlLoop(sb.configPIDVals[0], sb.configPIDVals[1]); err != nil {
 			sb.mu.Lock()
 			return err
 		}
-		// relock the mutex after setting up the control loop since there is still a  defer unlock
+		// relock the mutex after setting up the control loop since there is still a defer unlock
 		sb.mu.Lock()
 	}
 
@@ -253,6 +268,25 @@ func (sb *sensorBase) Properties(ctx context.Context, extra map[string]interface
 
 func (sb *sensorBase) Geometries(ctx context.Context, extra map[string]interface{}) ([]spatialmath.Geometry, error) {
 	return sb.controlledBase.Geometries(ctx, extra)
+}
+
+func (sb *sensorBase) DoCommand(ctx context.Context, req map[string]interface{}) (map[string]interface{}, error) {
+	resp := make(map[string]interface{})
+
+	sb.mu.Lock()
+	defer sb.mu.Unlock()
+	ok := req[getPID].(bool)
+	if ok {
+		var respStr string
+		for _, pidConf := range *sb.tunedVals {
+			if !pidConf.NeedsAutoTuning() {
+				respStr += fmt.Sprintf("{p: %v, i: %v, d: %v, type: %v} ", pidConf.P, pidConf.I, pidConf.D, pidConf.Type)
+			}
+		}
+		resp[getPID] = respStr
+	}
+
+	return resp, nil
 }
 
 func (sb *sensorBase) Close(ctx context.Context) error {
@@ -313,4 +347,16 @@ func (sb *sensorBase) determineHeadingFunc(ctx context.Context,
 			return 0, false, nil
 		}
 	}
+}
+
+// if loop is tuning, return an error
+// if loop has been tuned but the values haven't been added to the config, error with tuned values.
+func (sb *sensorBase) checkTuningStatus() error {
+	if sb.loop != nil && sb.loop.GetTuning(context.Background()) {
+		return control.TuningInProgressErr(sb.Name().ShortName())
+	} else if (sb.configPIDVals[0].NeedsAutoTuning() && !(*sb.tunedVals)[0].NeedsAutoTuning()) ||
+		(sb.configPIDVals[1].NeedsAutoTuning() && !(*sb.tunedVals)[1].NeedsAutoTuning()) {
+		return control.TunedPIDErr(sb.Name().ShortName(), *sb.tunedVals)
+	}
+	return nil
 }

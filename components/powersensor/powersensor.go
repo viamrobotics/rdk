@@ -1,4 +1,7 @@
-// Package powersensor defines the interfaces of a powersensor
+// Package powersensor defines the interfaces of a powersensor.
+// For more information, see the [power sensor component docs].
+//
+// [power sensor component docs]: https://docs.viam.com/components/power-sensor/
 package powersensor
 
 import (
@@ -48,6 +51,7 @@ func Named(name string) resource.Name {
 }
 
 // A PowerSensor reports information about voltage, current and power.
+// For more information, see the [power sensor component docs].
 //
 // Voltage example:
 //
@@ -63,6 +67,8 @@ func Named(name string) resource.Name {
 //
 //	// Get the power measurement from device in watts.
 //	power, err := myPowerSensor.Power(context.Background(), nil)
+//
+// [power sensor component docs]: https://docs.viam.com/components/power-sensor/
 type PowerSensor interface {
 	resource.Sensor
 	resource.Resource

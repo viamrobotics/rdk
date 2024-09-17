@@ -2,6 +2,9 @@
 // such as a Raspberry Pi.
 //
 // Besides the board itself, some other interfaces it defines are analog pins and digital interrupts.
+// For more information, see the [board component docs].
+//
+// [board component docs]: https://docs.viam.com/components/board/
 package board
 
 import (
@@ -46,6 +49,7 @@ func Named(name string) resource.Name {
 
 // A Board represents a physical general purpose board that contains various
 // components such as analogs, and digital interrupts.
+// For more information, see the [board component docs].
 //
 // AnalogByName example:
 //
@@ -93,6 +97,8 @@ func Named(name string) resource.Name {
 //	}
 //
 //	err = myBoard.StreamTicks(context.Background(), interrupts, ticksChan, nil)
+//
+// [board component docs]: https://docs.viam.com/components/board/
 type Board interface {
 	resource.Resource
 

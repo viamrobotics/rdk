@@ -2,6 +2,7 @@ package gpio
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	"go.viam.com/test"
@@ -9,6 +10,7 @@ import (
 
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/encoder"
+	"go.viam.com/rdk/control"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/resource"
@@ -99,4 +101,23 @@ func TestControlledMotorCreation(t *testing.T) {
 
 	test.That(t, cm.enc.Name().ShortName(), test.ShouldEqual, encoderName)
 	test.That(t, cm.real.Name().ShortName(), test.ShouldEqual, motorName)
+
+	// test DoCommand
+	expectedPID := control.PIDConfig{P: 0.1, I: 2.0, D: 0.0}
+	cm.tunedVals = &[]control.PIDConfig{expectedPID, {}}
+	expectedeMap := make(map[string]interface{})
+	expectedeMap["get_tuned_pid"] = (fmt.Sprintf("{p: %v, i: %v, d: %v, type: %v} ",
+		expectedPID.P, expectedPID.I, expectedPID.D, expectedPID.Type))
+
+	req := make(map[string]interface{})
+	req["get_tuned_pid"] = true
+	resp, err := m.DoCommand(context.Background(), req)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resp, test.ShouldResemble, expectedeMap)
+
+	emptyMap := make(map[string]interface{})
+	req["get_tuned_pid"] = false
+	resp, err = cm.DoCommand(context.Background(), req)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resp, test.ShouldResemble, emptyMap)
 }

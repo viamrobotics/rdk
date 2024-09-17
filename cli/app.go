@@ -51,6 +51,7 @@ const (
 	moduleFlagLocal           = "local"
 	moduleFlagHomeDir         = "home"
 	moduleCreateLocalOnly     = "local-only"
+	moduleFlagID              = "id"
 
 	moduleBuildFlagPath      = "module"
 	moduleBuildFlagRef       = "ref"
@@ -1746,6 +1747,32 @@ This won't work unless you have an existing installation of our GitHub app on yo
 					},
 					Action: ReloadModuleAction,
 				},
+				{
+					Name:      "download",
+					Usage:     "download a module package from the registry",
+					UsageText: createUsageText("module download", []string{}, false),
+					Flags: []cli.Flag{
+						&cli.PathFlag{
+							Name:  packageFlagDestination,
+							Usage: "output directory for downloaded package",
+							Value: ".",
+						},
+						&cli.StringFlag{
+							Name:  moduleFlagID,
+							Usage: "module ID as org-id:name or namespace:name. if missing, will try to read from meta.json",
+						},
+						&cli.StringFlag{
+							Name:  packageFlagVersion,
+							Usage: "version of the requested package, can be `latest` to get the most recent version",
+							Value: "latest",
+						},
+						&cli.StringFlag{
+							Name:  moduleFlagPlatform,
+							Usage: "platform like 'linux/amd64'. if missing, will use platform of the CLI binary",
+						},
+					},
+					Action: DownloadModuleAction,
+				},
 			},
 		},
 		{
@@ -1757,30 +1784,25 @@ This won't work unless you have an existing installation of our GitHub app on yo
 					Name:  "export",
 					Usage: "download a package from Viam cloud",
 					UsageText: createUsageText("packages export",
-						[]string{
-							packageFlagDestination, generalFlagOrgID, packageFlagName,
-							packageFlagVersion, packageFlagType,
-						}, false),
+						[]string{packageFlagType}, false),
 					Flags: []cli.Flag{
 						&cli.PathFlag{
-							Name:     packageFlagDestination,
-							Required: true,
-							Usage:    "output directory for downloaded package",
+							Name:  packageFlagDestination,
+							Usage: "output directory for downloaded package",
+							Value: ".",
 						},
 						&cli.StringFlag{
-							Name:     generalFlagOrgID,
-							Required: true,
-							Usage:    "organization ID of the requested package",
+							Name:  generalFlagOrgID,
+							Usage: "organization ID or namespace of the requested package. if missing, will try to read from meta.json",
 						},
 						&cli.StringFlag{
-							Name:     packageFlagName,
-							Required: true,
-							Usage:    "name of the requested package",
+							Name:  packageFlagName,
+							Usage: "name of the requested package. if missing, will try to read from meta.json",
 						},
 						&cli.StringFlag{
-							Name:     packageFlagVersion,
-							Required: true,
-							Usage:    "version of the requested package, can be `latest` to get the most recent version",
+							Name:  packageFlagVersion,
+							Usage: "version of the requested package, can be `latest` to get the most recent version",
+							Value: "latest",
 						},
 						&cli.StringFlag{
 							Name:     packageFlagType,

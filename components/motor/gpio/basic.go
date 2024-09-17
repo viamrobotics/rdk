@@ -278,15 +278,14 @@ func (m *Motor) GoFor(ctx context.Context, rpm, revolutions float64, extra map[s
 		return err
 	}
 
+	if err := motor.CheckRevolutions(revolutions); err != nil {
+		return err
+	}
+
 	powerPct, waitDur := goForMath(m.maxRPM, rpm, revolutions)
 	err = m.SetPower(ctx, powerPct, extra)
 	if err != nil {
 		return errors.Wrap(err, "error in GoFor")
-	}
-
-	if revolutions == 0 {
-		m.logger.Warn("Deprecated: setting revolutions == 0 will spin the motor indefinitely at the specified RPM")
-		return nil
 	}
 
 	if m.opMgr.NewTimedWaitOp(ctx, waitDur) {

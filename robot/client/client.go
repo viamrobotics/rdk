@@ -99,6 +99,12 @@ type RobotClient struct {
 	heartbeatWorkers   sync.WaitGroup
 	heartbeatCtx       context.Context
 	heartbeatCtxCancel func()
+
+	// If we ever connect to a server using webrtc, we want all subsequent connections to force
+	// webrtc. Some operations such as video streaming are much more performant when using
+	// webrtc. We don't want a network disconnect to result in reconnecting over tcp such that
+	// performance would be impacted.
+	serverIsWebrtcEnabled bool
 }
 
 // RemoteTypeName is the type name used for a remote. This is for internal use.
@@ -256,7 +262,7 @@ func New(ctx context.Context, address string, clientLogger logging.ZapCompatible
 		rpc.WithStreamClientInterceptor(streamClientInterceptor()),
 	)
 
-	if err := rc.connect(ctx); err != nil {
+	if err := rc.Connect(ctx); err != nil {
 		return nil, err
 	}
 
@@ -331,7 +337,8 @@ func (rc *RobotClient) Changed() <-chan bool {
 	return rc.changeChan
 }
 
-func (rc *RobotClient) connect(ctx context.Context) error {
+// Connect will close any existing connection and try to reconnect to the remote.
+func (rc *RobotClient) Connect(ctx context.Context) error {
 	if err := rc.connectWithLock(ctx); err != nil {
 		return err
 	}
@@ -351,7 +358,36 @@ func (rc *RobotClient) connectWithLock(ctx context.Context) error {
 		return err
 	}
 
-	conn, err := grpc.Dial(ctx, rc.address, rc.logger.Sublogger("networking"), rc.dialOptions...)
+	// Try forcing a webrtc connection.
+	dialOptionsWebRTCOnly := make([]rpc.DialOption, len(rc.dialOptions)+1)
+	// Put our "disable GRPC" option in front and the user input values at the end. This ensures
+	// user inputs take precedence.
+	copy(dialOptionsWebRTCOnly[1:], rc.dialOptions)
+	dialOptionsWebRTCOnly[0] = rpc.WithDisableDirectGRPC()
+
+	dialLogger := rc.logger.Sublogger("networking")
+	conn, err := grpc.Dial(ctx, rc.address, dialLogger, dialOptionsWebRTCOnly...)
+	if err == nil {
+		// If we succeed with a webrtc connection, flip the `serverIsWebrtcEnabled` to force all future
+		// connections to use webrtc.
+		if !rc.serverIsWebrtcEnabled {
+			rc.logger.Info("A WebRTC connection was made to the robot. ",
+				"Reconnects will disallow direct gRPC connections.")
+			rc.serverIsWebrtcEnabled = true
+		}
+	} else if !rc.serverIsWebrtcEnabled {
+		// If we failed to connect via webrtc and* we've never previously connected over webrtc, try
+		// to connect with a grpc over a tcp connection.
+		dialOptionsGRPCOnly := dialOptionsWebRTCOnly
+		dialOptionsGRPCOnly[0] = rpc.WithForceDirectGRPC()
+		grpcConn, grpcErr := grpc.Dial(ctx, rc.address, dialLogger, dialOptionsGRPCOnly...)
+		if grpcErr == nil {
+			conn = grpcConn
+			err = nil
+		} else {
+			err = multierr.Combine(err, grpcErr)
+		}
+	}
 	if err != nil {
 		return err
 	}
@@ -417,7 +453,7 @@ func (rc *RobotClient) checkConnection(ctx context.Context, checkEvery, reconnec
 		}
 		if !rc.connected.Load() {
 			rc.Logger().CInfow(ctx, "trying to reconnect to remote at address", "address", rc.address)
-			if err := rc.connect(ctx); err != nil {
+			if err := rc.Connect(ctx); err != nil {
 				rc.Logger().CErrorw(ctx, "failed to reconnect remote", "error", err, "address", rc.address)
 				continue
 			}

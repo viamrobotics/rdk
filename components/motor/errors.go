@@ -20,6 +20,11 @@ func NewZeroRPMError() error {
 	return errors.New("Cannot move motor at an RPM that is nearly 0")
 }
 
+// NewZeroRevsError returns an error representing a request to move a motor for 0 revolutions.
+func NewZeroRevsError() error {
+	return errors.New("Cannot move motor for 0 revolutions")
+}
+
 // NewGoToUnsupportedError returns error when a motor is required to support GoTo feature.
 func NewGoToUnsupportedError(motorName string) error {
 	return errors.Errorf("motor with name %s does not support GoTo", motorName)

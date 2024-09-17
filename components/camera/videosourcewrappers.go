@@ -36,6 +36,66 @@ func FromVideoSource(name resource.Name, src VideoSource, logger logging.Logger)
 	}
 }
 
+type sourceBasedCamera struct {
+	resource.Named
+	resource.AlwaysRebuild
+	VideoSource
+	rtpPassthroughSource rtppassthrough.Source
+	logging.Logger
+}
+
+func (vs *sourceBasedCamera) SubscribeRTP(
+	ctx context.Context,
+	bufferSize int,
+	packetsCB rtppassthrough.PacketCallback,
+) (rtppassthrough.Subscription, error) {
+	if vs.rtpPassthroughSource != nil {
+		return vs.rtpPassthroughSource.SubscribeRTP(ctx, bufferSize, packetsCB)
+	}
+	return rtppassthrough.NilSubscription, errors.New("SubscribeRTP unimplemented")
+}
+
+func (vs *sourceBasedCamera) Unsubscribe(ctx context.Context, id rtppassthrough.SubscriptionID) error {
+	if vs.rtpPassthroughSource != nil {
+		return vs.rtpPassthroughSource.Unsubscribe(ctx, id)
+	}
+	return errors.New("Unsubscribe unimplemented")
+}
+
+func (vs *videoSource) SubscribeRTP(
+	ctx context.Context,
+	bufferSize int,
+	packetsCB rtppassthrough.PacketCallback,
+) (rtppassthrough.Subscription, error) {
+	if vs.rtpPassthroughSource != nil {
+		return vs.rtpPassthroughSource.SubscribeRTP(ctx, bufferSize, packetsCB)
+	}
+	return rtppassthrough.NilSubscription, errors.New("SubscribeRTP unimplemented")
+}
+
+func (vs *videoSource) Unsubscribe(ctx context.Context, id rtppassthrough.SubscriptionID) error {
+	if vs.rtpPassthroughSource != nil {
+		return vs.rtpPassthroughSource.Unsubscribe(ctx, id)
+	}
+	return errors.New("Unsubscribe unimplemented")
+}
+
+// NewPinholeModelWithBrownConradyDistortion creates a transform.PinholeCameraModel from
+// a *transform.PinholeCameraIntrinsics and a *transform.BrownConrady.
+// If *transform.BrownConrady is `nil`, transform.PinholeCameraModel.Distortion
+// is not set & remains nil, to prevent https://go.dev/doc/faq#nil_error.
+func NewPinholeModelWithBrownConradyDistortion(pinholeCameraIntrinsics *transform.PinholeCameraIntrinsics,
+	distortion *transform.BrownConrady,
+) transform.PinholeCameraModel {
+	var cameraModel transform.PinholeCameraModel
+	cameraModel.PinholeCameraIntrinsics = pinholeCameraIntrinsics
+
+	if distortion != nil {
+		cameraModel.Distortion = distortion
+	}
+	return cameraModel
+}
+
 // NewVideoSourceFromReader creates a VideoSource either with or without a projector. The stream type
 // argument is for detecting whether or not the resulting camera supports return
 // of pointcloud data in the absence of an implemented NextPointCloud function.

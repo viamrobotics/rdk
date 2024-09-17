@@ -56,6 +56,21 @@ type robotServer struct {
 	registry *logging.Registry
 }
 
+func logVersion(logger logging.Logger) {
+	var versionFields []interface{}
+	if config.Version != "" {
+		versionFields = append(versionFields, "version", config.Version)
+	}
+	if config.GitRevision != "" {
+		versionFields = append(versionFields, "git_rev", config.GitRevision)
+	}
+	if len(versionFields) != 0 {
+		logger.Infow("Viam RDK", versionFields...)
+	} else {
+		logger.Info("Viam RDK built from source; version unknown")
+	}
+}
+
 // RunServer is an entry point to starting the web server that can be called by main in a code
 // sample or otherwise be used to initialize the server.
 func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error) {
@@ -77,23 +92,20 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 	logging.ReplaceGlobal(logger)
 	config.InitLoggingSettings(logger, argsParsed.Debug)
 
-	// Always log the version, return early if the '-version' flag was provided
-	// fmt.Println would be better but fails linting. Good enough.
-	var versionFields []interface{}
-	if config.Version != "" {
-		versionFields = append(versionFields, "version", config.Version)
-	}
-	if config.GitRevision != "" {
-		versionFields = append(versionFields, "git_rev", config.GitRevision)
-	}
-	if len(versionFields) != 0 {
-		logger.Infow("Viam RDK", versionFields...)
-	} else {
-		logger.Info("Viam RDK built from source; version unknown")
-	}
 	if argsParsed.Version {
+		// log version here and return if version flag.
+		logVersion(logger)
 		return
 	}
+
+	// log version locally if server fails and exits while attempting to start up
+	var versionLogged bool
+	defer func() {
+		if !versionLogged {
+			logger.CInfo(ctx, "error starting viam-server, logging version and exiting")
+			logVersion(logger)
+		}
+	}()
 
 	if argsParsed.ConfigFile == "" {
 		logger.Error("please specify a config file through the -config parameter.")
@@ -147,6 +159,9 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 
 		logger.AddAppender(netAppender)
 	}
+	// log version after netlogger is initialized so it's captured in cloud machine logs.
+	logVersion(logger)
+	versionLogged = true
 
 	server := robotServer{
 		logger:   logger,
@@ -191,7 +206,7 @@ func (s *robotServer) createWebOptions(cfg *config.Config) (weboptions.Options, 
 	options.Pprof = s.args.WebProfile || cfg.EnableWebProfile
 	options.SharedDir = s.args.SharedDir
 	options.Debug = s.args.Debug || cfg.Debug
-	options.WebRTC = s.args.WebRTC
+	options.PreferWebRTC = s.args.WebRTC
 	options.DisableMulticastDNS = s.args.DisableMulticastDNS
 	if cfg.Cloud != nil && s.args.AllowInsecureCreds {
 		options.SignalingDialOpts = append(options.SignalingDialOpts, rpc.WithAllowInsecureWithCredentialsDowngrade())

@@ -239,14 +239,8 @@ func (m *roboclawMotor) SetPower(ctx context.Context, powerPct float64, extra ma
 }
 
 func goForMath(rpm, revolutions float64) (float64, time.Duration) {
-	// If revolutions is 0, the returned wait duration will be 0 representing that
-	// the motor should run indefinitely.
-	if revolutions == 0 {
-		powerPct := rpm / maxRPM
-		return powerPct, 0
-	}
+	dir := motor.GetRequestedDirection(rpm, revolutions)
 
-	dir := rpm * revolutions / math.Abs(revolutions*rpm)
 	powerPct := math.Abs(rpm) / maxRPM * dir
 	waitDur := time.Duration(math.Abs(revolutions/rpm)*minutesToMS) * time.Millisecond
 	return powerPct, waitDur
@@ -258,6 +252,10 @@ func (m *roboclawMotor) GoFor(ctx context.Context, rpm, revolutions float64, ext
 		m.logger.CWarn(ctx, warning)
 	}
 	if err != nil {
+		return err
+	}
+
+	if err := motor.CheckRevolutions(revolutions); err != nil {
 		return err
 	}
 
@@ -273,10 +271,7 @@ func (m *roboclawMotor) GoFor(ctx context.Context, rpm, revolutions float64, ext
 		if err != nil {
 			return errors.Wrap(err, "error in GoFor")
 		}
-		if revolutions == 0 {
-			m.logger.CWarn(ctx, "Deprecated: setting revolutions == 0 will spin the motor indefinitely at the specified RPM")
-			return nil
-		}
+
 		if m.opMgr.NewTimedWaitOp(ctx, waitDur) {
 			return m.Stop(ctx, extra)
 		}

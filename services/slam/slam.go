@@ -1,5 +1,8 @@
 // Package slam implements simultaneous localization and mapping.
 // This is an Experimental package.
+// For more information, see the [SLAM service docs].
+//
+// [SLAM service docs]: https://docs.viam.com/services/slam/
 package slam
 
 import (
@@ -122,6 +125,7 @@ func FromDependencies(deps resource.Dependencies, name string) (Service, error) 
 // The Go SDK implements helper functions that concatenate streaming
 // responses. Some of the following examples use corresponding
 // helper methods instead of interface methods.
+// For more information, see the [SLAM service docs].
 //
 // Position example:
 //
@@ -146,6 +150,8 @@ func FromDependencies(deps resource.Dependencies, name string) (Service, error) 
 //
 //	// Get the properties of your current SLAM session
 //	properties, err := mySLAMService.Properties(context.Background())
+//
+// [SLAM service docs]: https://docs.viam.com/services/slam/
 type Service interface {
 	resource.Resource
 	Position(ctx context.Context) (spatialmath.Pose, error)

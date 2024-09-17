@@ -84,6 +84,16 @@ func (c *viamClient) packageExportAction(orgID, name, version, packageType, dest
 	if err := c.ensureLoggedIn(); err != nil {
 		return err
 	}
+	if orgID == "" || name == "" {
+		if orgID != "" || name != "" {
+			return fmt.Errorf("if either of %s or %s is missing, both must be missing", generalFlagOrgID, packageFlagName)
+		}
+		manifest, err := loadManifest(defaultManifestFilename)
+		if err != nil {
+			return errors.Wrap(err, "trying to get package ID from meta.json")
+		}
+		orgID, name, _ = strings.Cut(manifest.ModuleID, ":")
+	}
 	// Package ID is the <organization-ID>/<package-name>
 	packageID := path.Join(orgID, name)
 	packageTypeProto, err := convertPackageTypeToProto(packageType)

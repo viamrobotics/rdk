@@ -1,3 +1,7 @@
+// Package motor defines machines that convert electricity into rotary motion.
+// For more information, see the [motor component docs].
+//
+// [motor component docs]: https://docs.viam.com/components/motor/
 package motor
 
 import (
@@ -37,6 +41,7 @@ const SubtypeName = "motor"
 var API = resource.APINamespaceRDK.WithComponentType(SubtypeName)
 
 // A Motor represents a physical motor connected to a board.
+// For more information, see the [motor component docs].
 //
 // SetPower example:
 //
@@ -92,6 +97,8 @@ var API = resource.APINamespaceRDK.WithComponentType(SubtypeName)
 //	logger.Info(powered)
 //	logger.Info("Power percent:")
 //	logger.Info(pct)
+//
+// [motor component docs]: https://docs.viam.com/components/motor/
 type Motor interface {
 	resource.Resource
 	resource.Actuator
@@ -105,7 +112,6 @@ type Motor interface {
 	// can be assigned negative values to move in a backwards direction. Note: if both are
 	// negative the motor will spin in the forward direction.
 	// If revolutions != 0, this will block until the number of revolutions has been completed or another operation comes in.
-	// Deprecated: If revolutions is 0, this will run the motor at rpm indefinitely.
 	GoFor(ctx context.Context, rpm, revolutions float64, extra map[string]interface{}) error
 
 	// GoTo instructs the motor to go to a specific position (provided in revolutions from home/zero),
@@ -192,4 +198,23 @@ func CheckSpeed(rpm, max float64) (string, error) {
 	default:
 		return "", nil
 	}
+}
+
+// CheckRevolutions checks if the input revolutions is non-zero.
+func CheckRevolutions(revs float64) error {
+	if revs == 0 {
+		return NewZeroRevsError()
+	}
+	return nil
+}
+
+// GetRequestedDirection returns the direction based on the rpm and revolutions.
+func GetRequestedDirection(rpm, revolutions float64) float64 {
+	dir := 1.0
+	if rpm*revolutions == 0.0 {
+		dir = 0.0
+	} else if rpm*revolutions < 0.0 {
+		dir = -1.0
+	}
+	return dir
 }
