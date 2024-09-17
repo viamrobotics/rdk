@@ -32,6 +32,7 @@ func FromVideoSource(name resource.Name, src VideoSource, logger logging.Logger)
 		rtpPassthroughSource: rtpPassthroughSource,
 		VideoSource:          src,
 		Logger:               logger,
+		Named:                src.Name().AsNamed(),
 	}
 }
 
