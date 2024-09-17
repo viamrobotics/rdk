@@ -37,7 +37,7 @@ func MLSubmitCustomTrainingJob(c *cli.Context) error {
 
 	trainingJobID, err := client.mlSubmitCustomTrainingJob(
 		c.String(datasetFlagDatasetID), c.String(mlTrainingFlagName), c.String(mlTrainingFlagVersion), c.String(generalFlagOrgID),
-		c.String(trainFlagModelName), c.String(trainFlagModelVersion), c.String(mlTrainingFlagArgs))
+		c.String(trainFlagModelName), c.String(trainFlagModelVersion), c.StringSlice(mlTrainingFlagArgs))
 	if err != nil {
 		return err
 	}
@@ -70,7 +70,7 @@ func MLSubmitCustomTrainingJobWithUpload(c *cli.Context) error {
 		registryItemID)
 	trainingJobID, err := client.mlSubmitCustomTrainingJob(
 		c.String(datasetFlagDatasetID), registryItemID, resp.Version, c.String(trainFlagModelOrgID),
-		c.String(trainFlagModelName), c.String(trainFlagModelVersion), c.String(mlTrainingFlagArgs))
+		c.String(trainFlagModelName), c.String(trainFlagModelVersion), c.StringSlice(mlTrainingFlagArgs))
 	if err != nil {
 		return err
 	}
@@ -125,7 +125,7 @@ func (c *viamClient) mlSubmitTrainingJob(datasetID, orgID, modelName, modelVersi
 
 // mlSubmitCustomTrainingJob trains on data with the specified dataset and registry item.
 func (c *viamClient) mlSubmitCustomTrainingJob(datasetID, registryItemID, registryItemVersion, orgID, modelName,
-	modelVersion, args string,
+	modelVersion string, args []string,
 ) (string, error) {
 	if err := c.ensureLoggedIn(); err != nil {
 		return "", err
@@ -149,11 +149,9 @@ func (c *viamClient) mlSubmitCustomTrainingJob(datasetID, registryItemID, regist
 		ModelVersion:        modelVersion,
 	}
 
-	if args != "" {
-		splitArgs := strings.Split(args, ",")
+	if len(args) > 0 {
 		argMap := make(map[string]string)
-
-		for _, optionVal := range splitArgs {
+		for _, optionVal := range args {
 			splitOptionVal := strings.Split(optionVal, "=")
 			if len(splitOptionVal) != 2 {
 				return "", errors.Errorf("invalid format for command line arguments, passed: %s", args)

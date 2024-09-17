@@ -960,7 +960,7 @@ var app = &cli.App{
 											Usage:    "version of the ML training script to use for training.",
 											Required: true,
 										},
-										&cli.StringFlag{
+										&cli.StringSliceFlag{
 											Name: mlTrainingFlagArgs,
 											Usage: "optional command line arguments to run the training script with " +
 												"which should be formatted as option1=value1,option2=value2",
@@ -974,7 +974,7 @@ var app = &cli.App{
 									Usage: "submits custom training job with an upload training script on data in Viam cloud",
 									UsageText: createUsageText("train submit custom with-upload",
 										[]string{
-											datasetFlagDatasetID, generalFlagOrgID, trainFlagModelName,
+											datasetFlagDatasetID, trainFlagModelOrgID, trainFlagModelName,
 											mlTrainingFlagPath, mlTrainingFlagName, mlTrainingFlagArgs,
 										}, true),
 									Flags: []cli.Flag{
@@ -1022,7 +1022,7 @@ var app = &cli.App{
 											Usage:    "task type of the ML training script to upload, can be: " + strings.Join(modelTypes, ", "),
 											Required: false,
 										},
-										&cli.StringFlag{
+										&cli.StringSliceFlag{
 											Name: mlTrainingFlagArgs,
 											Usage: "optional command line arguments to run the training script with " +
 												"which should be formatted as option1=value1,option2=value2",
