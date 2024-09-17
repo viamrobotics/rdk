@@ -1967,7 +1967,12 @@ func (rr *dummyRobot) Shutdown(ctx context.Context) error {
 }
 
 func (rr *dummyRobot) MachineStatus(ctx context.Context) (robot.MachineStatus, error) {
-	return rr.robot.MachineStatus(ctx)
+	var ms robot.MachineStatus
+	for _, name := range rr.ResourceNames() {
+		s := resource.Status{Name: name}
+		ms.Resources = append(ms.Resources, s)
+	}
+	return ms, nil
 }
 
 func (rr *dummyRobot) Version(ctx context.Context) (robot.VersionResponse, error) {
