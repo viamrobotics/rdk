@@ -55,7 +55,7 @@ type unknownRdkAPITypeError struct {
 }
 
 func (err unknownRdkAPITypeError) Error() string {
-	return fmt.Sprintf("rdk API with unknown type %s, expected one of %s", err.APIType, strings.Join(rdkAPITypes, ", "))
+	return fmt.Sprintf("API with unknown type '%s', expected one of %s", err.APIType, strings.Join(rdkAPITypes, ", "))
 }
 
 // ModuleComponent represents an api - model pair.
@@ -350,7 +350,7 @@ func validateModelAPI(modelAPI string) error {
 	if err := api.Validate(); err != nil {
 		return errors.Wrap(err, "failed to validate API")
 	}
-	if api.Type.Namespace == resource.APINamespaceRDK && !slices.Contains(rdkAPITypes, api.Type.Name) {
+	if !slices.Contains(rdkAPITypes, api.Type.Name) {
 		return unknownRdkAPITypeError{APIType: api.Type.Name}
 	}
 	return nil
