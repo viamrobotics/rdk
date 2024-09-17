@@ -11,8 +11,21 @@ import (
 	"go.viam.com/rdk/components/sensor"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/motion"
-	"go.viam.com/rdk/testutils"
 )
+
+// FakeConvertedAttributes is a helper for testing if validation works.
+type FakeConvertedAttributes struct {
+	Thing string
+}
+
+// Validate validates that the single fake attribute Thing exists properly
+// in the struct, meant to implement the validator interface in component.go.
+func (convAttr *FakeConvertedAttributes) Validate(path string) ([]string, error) {
+	if convAttr.Thing == "" {
+		return nil, resource.NewConfigValidationFieldRequiredError(path, "Thing")
+	}
+	return nil, nil
+}
 
 var (
 	acmeAPINamespace  = resource.APINamespace("acme")
@@ -89,7 +102,7 @@ func TestComponentValidate(t *testing.T) {
 				Name:                "foo",
 				API:                 base.API,
 				Model:               fakeModel,
-				ConvertedAttributes: &testutils.FakeConvertedAttributes{Thing: ""},
+				ConvertedAttributes: &FakeConvertedAttributes{Thing: ""},
 			}
 			deps, err := invalidConf.Validate("path", resource.APITypeComponentName)
 			test.That(t, deps, test.ShouldBeNil)
@@ -102,7 +115,7 @@ func TestComponentValidate(t *testing.T) {
 				Name:  "foo",
 				API:   arm.API,
 				Model: fakeModel,
-				ConvertedAttributes: &testutils.FakeConvertedAttributes{
+				ConvertedAttributes: &FakeConvertedAttributes{
 					Thing: "i am a thing!",
 				},
 			}
@@ -437,7 +450,7 @@ func TestServiceValidate(t *testing.T) {
 			invalidConf := resource.Config{
 				Name:                "frame1",
 				API:                 resource.APINamespaceRDK.WithServiceType("frame_system"),
-				ConvertedAttributes: &testutils.FakeConvertedAttributes{Thing: ""},
+				ConvertedAttributes: &FakeConvertedAttributes{Thing: ""},
 			}
 			deps, err := invalidConf.Validate("path", resource.APITypeServiceName)
 			test.That(t, deps, test.ShouldBeNil)
@@ -449,7 +462,7 @@ func TestServiceValidate(t *testing.T) {
 			invalidConf := resource.Config{
 				Name: "frame1",
 				API:  resource.APINamespaceRDK.WithServiceType("frame_system"),
-				ConvertedAttributes: &testutils.FakeConvertedAttributes{
+				ConvertedAttributes: &FakeConvertedAttributes{
 					Thing: "i am a thing!",
 				},
 			}

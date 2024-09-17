@@ -149,6 +149,7 @@ func TestConsoleOutputFormat(t *testing.T) {
 		name:       "impl",
 		level:      NewAtomicLevelAt(DEBUG),
 		appenders:  []Appender{NewWriterAppender(notStdout)},
+		registry:   newRegistry(),
 		testHelper: func() {},
 	}
 
@@ -213,6 +214,7 @@ func TestContextLogging(t *testing.T) {
 		name:       "impl",
 		level:      NewAtomicLevelAt(ERROR),
 		appenders:  []Appender{NewWriterAppender(notStdout)},
+		registry:   newRegistry(),
 		testHelper: func() {},
 	}
 
@@ -287,6 +289,7 @@ func TestSublogger(t *testing.T) {
 		name:       "impl",
 		level:      NewAtomicLevelAt(DEBUG),
 		appenders:  []Appender{NewWriterAppender(notStdout)},
+		registry:   newRegistry(),
 		testHelper: func() {},
 	}
 
@@ -310,6 +313,7 @@ func TestLoggingWithFields(t *testing.T) {
 		name:       "impl",
 		level:      NewAtomicLevelAt(DEBUG),
 		appenders:  []Appender{NewWriterAppender(notStdout)},
+		registry:   newRegistry(),
 		testHelper: func() {},
 	}
 

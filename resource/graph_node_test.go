@@ -17,7 +17,7 @@ import (
 
 func withTestLogger(t *testing.T, node *resource.GraphNode) *resource.GraphNode {
 	logger := logging.NewTestLogger(t)
-	node.InitializeLogger(logger, "testnode", logger.GetLevel())
+	node.InitializeLogger(logger, "testnode")
 	return node
 }
 

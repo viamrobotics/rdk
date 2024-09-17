@@ -358,8 +358,6 @@ func (rc *RobotClient) connectWithLock(ctx context.Context) error {
 		return err
 	}
 
-	dialLogger := rc.logger.Sublogger("networking")
-
 	// Try forcing a webrtc connection.
 	dialOptionsWebRTCOnly := make([]rpc.DialOption, len(rc.dialOptions)+1)
 	// Put our "disable GRPC" option in front and the user input values at the end. This ensures
@@ -367,6 +365,7 @@ func (rc *RobotClient) connectWithLock(ctx context.Context) error {
 	copy(dialOptionsWebRTCOnly[1:], rc.dialOptions)
 	dialOptionsWebRTCOnly[0] = rpc.WithDisableDirectGRPC()
 
+	dialLogger := rc.logger.Sublogger("networking")
 	conn, err := grpc.Dial(ctx, rc.address, dialLogger, dialOptionsWebRTCOnly...)
 	if err == nil {
 		// If we succeed with a webrtc connection, flip the `serverIsWebrtcEnabled` to force all future

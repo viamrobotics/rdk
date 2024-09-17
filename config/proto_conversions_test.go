@@ -69,7 +69,7 @@ var testComponent = resource.Config{
 		},
 	},
 	Frame:            testFrame,
-	LogConfiguration: resource.LogConfig{Level: logging.DEBUG},
+	LogConfiguration: &resource.LogConfig{Level: logging.DEBUG},
 }
 
 var testRemote = Remote{
@@ -119,7 +119,7 @@ var testService = resource.Config{
 			},
 		},
 	},
-	LogConfiguration: resource.LogConfig{Level: logging.DEBUG},
+	LogConfiguration: &resource.LogConfig{Level: logging.DEBUG},
 }
 
 var testProcessConfig = pexec.ProcessConfig{

@@ -116,13 +116,18 @@ func TestConfigRemote(t *testing.T) {
 
 	ctx := context.Background()
 
-	r := setupLocalRobot(t, ctx, cfg, logger)
+	r := setupLocalRobot(t, ctx, cfg, logger.Sublogger("main_robot"))
 
 	options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
 	err = r.StartWeb(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
 
-	o1 := &spatialmath.R4AA{math.Pi / 2., 0, 0, 1}
+	o1 := &spatialmath.R4AA{
+		Theta: math.Pi / 2.,
+		RX:    0,
+		RY:    0,
+		RZ:    1,
+	}
 	o1Cfg, err := spatialmath.NewOrientationConfig(o1)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -173,7 +178,7 @@ func TestConfigRemote(t *testing.T) {
 	}
 
 	ctx2 := context.Background()
-	r2 := setupLocalRobot(t, ctx2, remoteConfig, logger)
+	r2 := setupLocalRobot(t, ctx2, remoteConfig, logger.Sublogger("remote_robot"))
 
 	expected := []resource.Name{
 		motion.Named(resource.DefaultServiceName),
@@ -3673,4 +3678,276 @@ func TestStickyWebRTCConnection(t *testing.T) {
 	cleanClient, err := client.New(ctx, addr, logger.Sublogger("clean_client"))
 	test.That(t, err, test.ShouldBeNil)
 	cleanClient.Close(ctx)
+}
+
+var (
+	fooModel = resource.DefaultModelFamily.WithModel("foo")
+	barModel = resource.DefaultModelFamily.WithModel("bar")
+)
+
+// fooComponent is an RDK-built component that can output logs.
+type fooComponent struct {
+	resource.Named
+	resource.AlwaysRebuild
+	resource.TriviallyCloseable
+	logger logging.Logger
+}
+
+// DoCommand accepts a "log" command.
+func (fc *fooComponent) DoCommand(ctx context.Context, req map[string]interface{}) (map[string]interface{}, error) {
+	return doCommand(ctx, req, fc.logger)
+}
+
+// barService is an RDK-built service that can output logs.
+type barService struct {
+	resource.Named
+	resource.AlwaysRebuild
+	resource.TriviallyCloseable
+	logger logging.Logger
+}
+
+// DoCommand accepts a "log" command.
+func (bs *barService) DoCommand(ctx context.Context, req map[string]interface{}) (map[string]interface{}, error) {
+	return doCommand(ctx, req, bs.logger)
+}
+
+func doCommand(ctx context.Context, req map[string]interface{}, logger logging.Logger) (map[string]interface{}, error) {
+	cmd, ok := req["command"]
+	if !ok {
+		return nil, errors.New("missing 'command' string")
+	}
+
+	switch req["command"] {
+	case "log":
+		level, err := logging.LevelFromString(req["level"].(string))
+		if err != nil {
+			return nil, err
+		}
+
+		msg := req["msg"].(string)
+		switch level {
+		case logging.DEBUG:
+			logger.CDebugw(ctx, msg)
+		case logging.INFO:
+			logger.CInfow(ctx, msg)
+		case logging.WARN:
+			logger.CWarnw(ctx, msg)
+		case logging.ERROR:
+			logger.CErrorw(ctx, msg)
+		}
+
+		return map[string]any{}, nil
+	default:
+		return nil, fmt.Errorf("unknown command string %s", cmd)
+	}
+}
+
+func TestLogPropagation(t *testing.T) {
+	// Mimic what entrypoint code does: use a config to update a registry, and
+	// assert log levels are propagated to a robot. This means we call
+	// `UpdateLoggerRegistryFromConfig` and _then_ `setupLocalRobot` or
+	// `Reconfigure`.
+
+	ctx := context.Background()
+	logger, observer, registry := logging.NewObservedTestLoggerWithRegistry(t, "rdk")
+	helperModel := resource.NewModel("rdk", "test", "helper")
+	otherModel := resource.NewModel("rdk", "test", "other")
+	testPath := rtestutils.BuildTempModule(t, "module/testmodule")
+
+	// Register a foo component and defer its deregistration.
+	resource.RegisterComponent(generic.API, fooModel, resource.Registration[resource.Resource,
+		resource.NoNativeConfig]{
+		Constructor: func(
+			ctx context.Context,
+			deps resource.Dependencies,
+			conf resource.Config,
+			logger logging.Logger,
+		) (resource.Resource, error) {
+			return &fooComponent{
+				Named:  conf.ResourceName().AsNamed(),
+				logger: logger,
+			}, nil
+		},
+	})
+	defer func() {
+		resource.Deregister(generic.API, fooModel)
+	}()
+
+	// Register a bar service and defer its deregistration.
+	resource.RegisterService(genericservice.API, barModel, resource.Registration[resource.Resource, resource.NoNativeConfig]{
+		Constructor: func(
+			ctx context.Context,
+			deps resource.Dependencies,
+			conf resource.Config,
+			logger logging.Logger,
+		) (resource.Resource, error) {
+			return &barService{
+				Named:  conf.ResourceName().AsNamed(),
+				logger: logger,
+			}, nil
+		},
+	})
+	defer func() {
+		resource.Deregister(genericservice.API, barModel)
+	}()
+
+	cfg := &config.Config{
+		Modules: []config.Module{
+			{
+				Name:    "mod",
+				ExePath: testPath,
+			},
+		},
+		Components: []resource.Config{
+			{
+				Name:  "foo", // built-in component
+				API:   generic.API,
+				Model: fooModel,
+			},
+			{
+				Name:  "helper", // modular component
+				API:   generic.API,
+				Model: helperModel,
+			},
+		},
+		Services: []resource.Config{
+			{
+				Name:  "bar", // built-in service
+				API:   genericservice.API,
+				Model: barModel,
+			},
+			{
+				Name:  "other", // modular service
+				API:   genericservice.API,
+				Model: otherModel,
+			},
+		},
+		LogConfig: []logging.LoggerPatternConfig{
+			{
+				Pattern: "rdk.resource_manager.rdk:component:generic/foo",
+				Level:   "INFO",
+			},
+			{
+				Pattern: "rdk.TestModule.rdk:component:generic/helper",
+				Level:   "INFO",
+			},
+			{
+				Pattern: "rdk.resource_manager.rdk:service:generic/bar",
+				Level:   "INFO",
+			},
+			{
+				Pattern: "rdk.TestModule.rdk:service:generic/other",
+				Level:   "INFO",
+			},
+		},
+	}
+
+	config.UpdateLoggerRegistryFromConfig(registry, cfg, logger)
+	lr := setupLocalRobot(t, ctx, cfg, logger)
+
+	resourceNames := []resource.Name{
+		generic.Named("foo"),
+		generic.Named("helper"),
+		genericservice.Named("bar"),
+		genericservice.Named("other"),
+	}
+
+	// Assert that all resources' loggers are configured at INFO level
+	// (INFO level logs appear but DEBUG level logs do not) due to `LogConfig`
+	// patterns.
+	for i, name := range resourceNames {
+		// Use index to differentiate logs from different resources.
+		infoLogLine := fmt.Sprintf("INFO level log line %d", i)
+		infoLogCmd := map[string]interface{}{"command": "log", "msg": infoLogLine, "level": "INFO"}
+		debugLogLine := fmt.Sprintf("debug-level log line %d", i)
+		debugLogCmd := map[string]interface{}{"command": "log", "msg": debugLogLine, "level": "DEBUG"}
+
+		res, err := lr.ResourceByName(name)
+		test.That(t, err, test.ShouldBeNil)
+		_, err = res.DoCommand(ctx, infoLogCmd)
+		test.That(t, err, test.ShouldBeNil)
+		_, err = res.DoCommand(ctx, debugLogCmd)
+		test.That(t, err, test.ShouldBeNil)
+
+		// Each should output one INFO level log and no DEBUG level logs.
+		testutils.WaitForAssertion(t, func(tb testing.TB) {
+			tb.Helper()
+			test.That(tb, observer.FilterMessageSnippet(infoLogLine).Len(), test.ShouldEqual, 1)
+		})
+		test.That(t, observer.FilterMessage(debugLogLine+"\n").Len(), test.ShouldEqual, 0)
+	}
+
+	// Mutate config to set `LogConfiguration` fields to DEBUG for all resources.
+	debugLogConfiguration := &resource.LogConfig{Level: logging.DEBUG}
+	cfg.Components[0].LogConfiguration = debugLogConfiguration
+	cfg.Components[1].LogConfiguration = debugLogConfiguration
+	cfg.Services[0].LogConfiguration = debugLogConfiguration
+	cfg.Services[1].LogConfiguration = debugLogConfiguration
+
+	config.UpdateLoggerRegistryFromConfig(registry, cfg, logger)
+	lr.Reconfigure(ctx, cfg)
+
+	// Assert that all resources' loggers are now configured at DEBUG level (INFO
+	// level and DEBUG level logs appear). `LogConfiguration` fields should be
+	// honored above `LogConfig` fields.
+	//nolint:dupl
+	for i, name := range resourceNames {
+		// Use index (offset by 4 to account for previous logs) to differentiate
+		// logs from different resources.
+		infoLogLine := fmt.Sprintf("info-level log line %d", i+4)
+		infoLogCmd := map[string]interface{}{"command": "log", "msg": infoLogLine, "level": "info"}
+		debugLogLine := fmt.Sprintf("debug-level log line %d", i+4)
+		debugLogCmd := map[string]interface{}{"command": "log", "msg": debugLogLine, "level": "debug"}
+
+		res, err := lr.ResourceByName(name)
+		test.That(t, err, test.ShouldBeNil)
+		_, err = res.DoCommand(ctx, infoLogCmd)
+		test.That(t, err, test.ShouldBeNil)
+		_, err = res.DoCommand(ctx, debugLogCmd)
+		test.That(t, err, test.ShouldBeNil)
+
+		// Each should output both an INFO level log and a DEBUG level log.
+		testutils.WaitForAssertion(t, func(tb testing.TB) {
+			tb.Helper()
+			test.That(tb, observer.FilterMessageSnippet(infoLogLine).Len(), test.ShouldEqual, 1)
+			test.That(t, observer.FilterMessageSnippet(debugLogLine).Len(), test.ShouldEqual, 1)
+		})
+	}
+
+	// Mutate config to remove all log configurations.
+	cfg.Components[0].LogConfiguration = nil
+	cfg.Components[1].LogConfiguration = nil
+	cfg.Services[0].LogConfiguration = nil
+	cfg.Services[1].LogConfiguration = nil
+	cfg.LogConfig = nil
+
+	config.UpdateLoggerRegistryFromConfig(registry, cfg, logger)
+	lr.Reconfigure(ctx, cfg)
+
+	// Assert that all resources' loggers are still configured at DEBUG level
+	// (INFO level and DEBUG level logs appear). In the absence of any log
+	// configuration, log levels should fall back to level of top-level logger
+	// (DEBUG in this case, due to using a test logger).
+	//nolint:dupl
+	for i, name := range resourceNames {
+		// Use index (offset by 8 to account for previous logs) to differentiate logs from different resources.
+		infoLogLine := fmt.Sprintf("info-level log line %d", i+8)
+		infoLogCmd := map[string]interface{}{"command": "log", "msg": infoLogLine, "level": "info"}
+		debugLogLine := fmt.Sprintf("debug-level log line %d", i+8)
+		debugLogCmd := map[string]interface{}{"command": "log", "msg": debugLogLine, "level": "debug"}
+
+		res, err := lr.ResourceByName(name)
+		test.That(t, err, test.ShouldBeNil)
+		_, err = res.DoCommand(ctx, infoLogCmd)
+		test.That(t, err, test.ShouldBeNil)
+		_, err = res.DoCommand(ctx, debugLogCmd)
+		test.That(t, err, test.ShouldBeNil)
+
+		// Each should output both an INFO level log and a DEBUG level log.
+		testutils.WaitForAssertion(t, func(tb testing.TB) {
+			tb.Helper()
+			test.That(tb, observer.FilterMessageSnippet(infoLogLine).Len(), test.ShouldEqual, 1)
+			test.That(t, observer.FilterMessageSnippet(debugLogLine).Len(), test.ShouldEqual, 1)
+		})
+	}
 }

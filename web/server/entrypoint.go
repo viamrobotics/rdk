@@ -51,8 +51,9 @@ type Arguments struct {
 }
 
 type robotServer struct {
-	args   Arguments
-	logger logging.Logger
+	args     Arguments
+	logger   logging.Logger
+	registry *logging.Registry
 }
 
 func logVersion(logger logging.Logger) {
@@ -87,17 +88,8 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 		return dumpResourceRegistrations(argsParsed.DumpResourcesPath)
 	}
 
-	// Replace logger with logger based on flags.
-	logger := logging.NewLogger("")
+	logger, registry := logging.NewLoggerWithRegistry("rdk")
 	logging.ReplaceGlobal(logger)
-	logger = logger.Sublogger("rdk")
-
-	// create logging logger here for access later
-	logger.Sublogger("logging")
-
-	// create networking logger here for access later
-	logger.Sublogger("networking")
-
 	config.InitLoggingSettings(logger, argsParsed.Debug)
 
 	if argsParsed.Version {
@@ -158,7 +150,7 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 				ID:         cfgFromDisk.Cloud.ID,
 				Secret:     cfgFromDisk.Cloud.Secret,
 			},
-			nil, false,
+			nil, false, logger.Sublogger("networking").Sublogger("netlogger"),
 		)
 		if err != nil {
 			return err
@@ -172,8 +164,9 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 	versionLogged = true
 
 	server := robotServer{
-		logger: logger,
-		args:   argsParsed,
+		logger:   logger,
+		args:     argsParsed,
+		registry: registry,
 	}
 
 	// Run the server with remote logging enabled.
@@ -325,6 +318,13 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 	if err != nil {
 		return err
 	}
+
+	// Update logger registry as soon as we have fully processed config. Further
+	// updates to the registry will be handled by the config watcher goroutine.
+	//
+	// This functionality is tested in `TestLogPropagation` in `local_robot_test.go`.
+	config.UpdateLoggerRegistryFromConfig(s.registry, processedConfig, s.logger)
+
 	if processedConfig.Cloud != nil {
 		cloudRestartCheckerActive = make(chan struct{})
 		utils.PanicCapturingGo(func() {
@@ -380,7 +380,7 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 	}()
 
 	// watch for and deliver changes to the robot
-	watcher, err := config.NewWatcher(ctx, cfg, logging.GetOrNewLogger("rdk.config"))
+	watcher, err := config.NewWatcher(ctx, cfg, s.logger.Sublogger("config"))
 	if err != nil {
 		cancel()
 		return err
@@ -423,6 +423,14 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 						s.logger.Errorw("reconfiguration aborted: error creating weboptions", "error", err)
 						continue
 					}
+				}
+
+				// Update logger registry if log patterns may have changed.
+				//
+				// This functionality is tested in `TestLogPropagation` in `local_robot_test.go`.
+				if !diff.LogEqual {
+					s.logger.Debug("Detected potential changes to log patterns; updating logger levels")
+					config.UpdateLoggerRegistryFromConfig(s.registry, processedConfig, s.logger)
 				}
 
 				myRobot.Reconfigure(ctx, processedConfig)
