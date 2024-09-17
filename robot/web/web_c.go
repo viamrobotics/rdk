@@ -350,7 +350,7 @@ func (svc *webService) initStreamServer(ctx context.Context, options *weboptions
 	}
 	if svc.streamServer.HasStreams {
 		// force WebRTC template rendering
-		options.WebRTC = true
+		options.PreferWebRTC = true
 	}
 	return nil
 }
