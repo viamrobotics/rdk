@@ -548,6 +548,7 @@ func (s *Sync) walkDirsAndSendFilesToSync(ctx context.Context, config Config) er
 	var errs []error
 	for _, dir := range config.SyncPaths() {
 		s.logger.Infof("syncing from: %s", dir)
+		loggedDirPaths := map[string]bool{}
 		// Retrieve all files in capture dir and send them to the syncer
 		err := filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
 			if err := ctx.Err(); err != nil {
@@ -579,6 +580,11 @@ func (s *Sync) walkDirsAndSendFilesToSync(ctx context.Context, config Config) er
 			// Take max(timeSinceMod, 0) to account for this.
 			timeSinceMod := max(s.clock.Since(info.ModTime()), 0)
 			if readyToSyncFile(timeSinceMod, path, info, config.FileLastModifiedMillis, s.fileTracker) {
+				dirPath := filepath.Dir(path)
+				if !loggedDirPaths[dirPath] {
+					loggedDirPaths[dirPath] = true
+					s.logger.Infof("syncing from subdirectory: %s", dirPath)
+				}
 				s.sendToSync(ctx, path)
 			}
 			return nil
