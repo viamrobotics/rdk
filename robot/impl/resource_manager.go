@@ -186,8 +186,8 @@ func (manager *resourceManager) updateRemoteResourceNames(
 	activeResourceNames := map[resource.Name]bool{}
 	mStatus, err := rr.MachineStatus(ctx)
 	if errors.Is(err, client.ErrDisconnected) {
-		// nil implies our connection to the remote is currently broken. Return without changing any
-		// state for this remote.
+		// Our connection to the remote is broken, but the remote itself might be working
+		// fine. Return without changing any state in this case.
 		return false
 	}
 	// TODO: handle other kinds of errors?
