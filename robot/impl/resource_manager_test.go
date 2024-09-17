@@ -1976,22 +1976,24 @@ func (rr *dummyRobot) Version(ctx context.Context) (robot.VersionResponse, error
 
 // managerForDummyRobot integrates all parts from a given robot except for its remotes.
 // It also close itself when the test and all subtests complete.
-func managerForDummyRobot(t *testing.T, robot robot.Robot) *resourceManager {
+func managerForDummyRobot(t *testing.T, rbt robot.Robot) *resourceManager {
 	t.Helper()
 
-	manager := newResourceManager(resourceManagerOptions{}, robot.Logger().Sublogger("manager"))
+	ctx := context.Background()
+	logger := rbt.Logger()
+	manager := newResourceManager(resourceManagerOptions{}, logger.Sublogger("manager"))
 	t.Cleanup(func() {
-		test.That(t, manager.Close(context.Background()), test.ShouldBeNil)
+		test.That(t, manager.Close(ctx), test.ShouldBeNil)
 	})
 
 	// start a dummy module manager so calls to moduleManager.Provides() do not
 	// panic.
-	manager.startModuleManager(context.Background(), "", nil, false, "", "", robot.Logger(), t.TempDir())
+	manager.startModuleManager(ctx, "", nil, false, "", "", logger, t.TempDir())
 
-	for _, name := range robot.ResourceNames() {
-		res, err := robot.ResourceByName(name)
+	for _, name := range rbt.ResourceNames() {
+		res, err := rbt.ResourceByName(name)
 		if err != nil {
-			robot.Logger().Debugw("error getting resource", "resource", name, "error", err)
+			logger.Debugw("error getting resource", "resource", name, "error", err)
 			continue
 		}
 		gNode := resource.NewConfiguredGraphNode(resource.Config{}, res, unknownModel)
