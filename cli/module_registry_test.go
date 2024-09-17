@@ -47,3 +47,20 @@ func TestUpdateModelsAction(t *testing.T) {
 
 	test.That(t, sameModels(metaModels.Models, expectedMetaModels.Models), test.ShouldBeTrue)
 }
+
+func TestValidateModelAPI(t *testing.T) {
+	err := validateModelAPI("rdk:component:x")
+	test.That(t, err, test.ShouldBeNil)
+	err = validateModelAPI("rdk:service:x")
+	test.That(t, err, test.ShouldBeNil)
+	err = validateModelAPI("rdk:unknown:x")
+	test.That(t, err, test.ShouldHaveSameTypeAs, unknownRdkAPITypeError{})
+	err = validateModelAPI("other:unknown:x")
+	test.That(t, err, test.ShouldHaveSameTypeAs, unknownRdkAPITypeError{})
+	err = validateModelAPI("rdk:component")
+	test.That(t, err, test.ShouldNotBeNil)
+	err = validateModelAPI("other:component:$x")
+	test.That(t, err, test.ShouldNotBeNil)
+	err = validateModelAPI("other:component:x_")
+	test.That(t, err, test.ShouldBeNil)
+}
