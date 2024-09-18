@@ -353,18 +353,18 @@ func (ms *builtIn) DoCommand(ctx context.Context, cmd map[string]interface{}) (m
 		}
 		resp[DoPlan] = plan
 	}
-	if val, ok := cmd[DoExecute]; ok {
-		bytes, err := json.Marshal(val)
-		if err != nil {
-			return nil, err
-		}
-		var plan motionplan.Plan
-		err = json.Unmarshal(bytes, &plan)
-		if err != nil {
-			return nil, errors.New("couldn't unmarshal to motionplan.Plan")
-		}
-		resp[DoExecute] = ms.execute(ctx, plan) != nil
-	}
+	// if val, ok := cmd[DoExecute]; ok {
+	// 	bytes, err := json.Marshal(val)
+	// 	if err != nil {
+	// 		return nil, err
+	// 	}
+	// 	var plan motionplan.Plan
+	// 	err = json.Unmarshal(bytes, &plan)
+	// 	if err != nil {
+	// 		return nil, errors.New("couldn't unmarshal to motionplan.Plan")
+	// 	}
+	// 	resp[DoExecute] = ms.execute(ctx, plan) != nil
+	// }
 	return resp, nil
 }
 

@@ -11,6 +11,8 @@ import (
 	"github.com/google/uuid"
 	geo "github.com/kellydunn/golang-geo"
 	"github.com/pkg/errors"
+	commonpb "go.viam.com/api/common/v1"
+	pb "go.viam.com/api/service/motion/v1"
 	"go.viam.com/test"
 	"go.viam.com/utils/rpc"
 
@@ -24,6 +26,7 @@ import (
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/motion"
+	"go.viam.com/rdk/services/motion/builtin"
 	"go.viam.com/rdk/services/slam"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils"
@@ -34,6 +37,55 @@ var (
 	testMotionServiceName  = motion.Named("motion1")
 	testMotionServiceName2 = motion.Named("motion2")
 )
+
+func TestDoCommandClient(t *testing.T) {
+	ctx := context.Background()
+	logger := logging.NewTestLogger(t)
+	listener1, err := net.Listen("tcp", "localhost:0")
+	test.That(t, err, test.ShouldBeNil)
+	rpcServer, err := rpc.NewServer(logger, rpc.WithUnauthenticated())
+	test.That(t, err, test.ShouldBeNil)
+
+	ms, err := builtin.NewBuiltIn(ctx, resource.Dependencies{}, resource.Config{ConvertedAttributes: &builtin.Config{}}, logging.NewLogger(""))
+	test.That(t, err, test.ShouldBeNil)
+	resources := map[resource.Name]motion.Service{
+		testMotionServiceName: ms,
+	}
+
+	svc, err := resource.NewAPIResourceCollection(motion.API, resources)
+	test.That(t, err, test.ShouldBeNil)
+	resourceAPI, ok, err := resource.LookupAPIRegistration[motion.Service](motion.API)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, ok, test.ShouldBeTrue)
+	test.That(t, resourceAPI.RegisterRPCService(context.Background(), rpcServer, svc), test.ShouldBeNil)
+
+	go func() {
+		test.That(t, rpcServer.Serve(listener1), test.ShouldBeNil)
+	}()
+
+	defer func() {
+		test.That(t, rpcServer.Stop(), test.ShouldBeNil)
+	}()
+
+	conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
+
+	test.That(t, err, test.ShouldBeNil)
+
+	client, err := motion.NewClientFromConn(context.Background(), conn, "", testMotionServiceName, logger)
+	test.That(t, err, test.ShouldBeNil)
+
+	cmd := make(map[string]interface{})
+	cmd[builtin.DoPlan] = pb.MoveRequest{
+		Name: "builtin",
+		Destination: &commonpb.PoseInFrame{
+			ReferenceFrame: "world",
+			Pose:           spatialmath.PoseToProtobuf(spatialmath.NewZeroPose()),
+		},
+		ComponentName: &commonpb.ResourceName{},
+	}
+
+	client.DoCommand(ctx, cmd)
+}
 
 func TestClient(t *testing.T) {
 	ctx := context.Background()
