@@ -13,6 +13,7 @@ import (
 	"github.com/pkg/errors"
 	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/test"
+	"go.viam.com/utils/protoutils"
 
 	"go.viam.com/rdk/components/arm"
 	armFake "go.viam.com/rdk/components/arm/fake"
@@ -35,6 +36,7 @@ import (
 	"go.viam.com/rdk/services/vision"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils/inject"
+	"go.viam.com/rdk/utils"
 	viz "go.viam.com/rdk/vision"
 )
 
@@ -1250,12 +1252,26 @@ func TestDoCommand(t *testing.T) {
 		proto, err := moveReq.ToProto(ms.Name().Name)
 		test.That(t, err, test.ShouldBeNil)
 		cmd := map[string]interface{}{DoPlan: proto}
-		// command, err := protoutils.StructToStructPb(cmd)
-		// if err != nil {
-		// 	return nil, err
-		// }
+
 		// need to simulate what its like being converted to a proto struct and back to ensure it serialized/deserialized correctly
-		_ = cmd
+		command, err := protoutils.StructToStructPb(cmd)
 		test.That(t, err, test.ShouldBeNil)
+		arg := command.AsMap()
+
+		// make call to DoCommand
+		resp, err := ms.DoCommand(ctx, arg)
+		test.That(t, err, test.ShouldBeNil)
+		val, ok := resp[DoPlan]
+		test.That(t, ok, test.ShouldBeTrue)
+		plan, err := utils.AssertType[motionplan.Plan](val)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, len(plan.Trajectory()), test.ShouldEqual, 2)
+
+		// now simulate what happens to the response as it goes back over the wire
+		// planProto, err := protoutils.StructToStructPb(plan)
+		// test.That(t, err, test.ShouldBeNil)
+		// _ = planProto
+		// planProtoMap := planProto.AsMap()
+		// _ = planProtoMap
 	})
 }
