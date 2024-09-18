@@ -29,7 +29,7 @@ func (server *serviceServer) Move(ctx context.Context, req *pb.MoveRequest) (*pb
 	if err != nil {
 		return nil, err
 	}
-	r, err := moveReqFromProto(req)
+	r, err := MoveReqFromProto(req)
 	if err != nil {
 		return nil, err
 	}

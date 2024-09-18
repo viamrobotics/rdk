@@ -43,7 +43,7 @@ func NewClientFromConn(
 }
 
 func (c *client) Move(ctx context.Context, req MoveReq) (bool, error) {
-	protoReq, err := req.toProto(c.name)
+	protoReq, err := req.ToProto(c.name)
 	if err != nil {
 		return false, err
 	}

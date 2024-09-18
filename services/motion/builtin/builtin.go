@@ -12,6 +12,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
 
+	pb "go.viam.com/api/service/motion/v1"
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan"
@@ -342,10 +343,14 @@ func (ms *builtIn) DoCommand(ctx context.Context, cmd map[string]interface{}) (m
 		if err != nil {
 			return nil, err
 		}
-		var moveReq motion.MoveReq
-		err = json.Unmarshal(bytes, &moveReq)
+		var moveReqProto pb.MoveRequest
+		err = json.Unmarshal(bytes, &moveReqProto)
 		if err != nil {
-			return nil, errors.New("couldn't unmarshal to motion.MoveReq")
+			return nil, err
+		}
+		moveReq, err := motion.MoveReqFromProto(&moveReqProto)
+		if err != nil {
+			return nil, err
 		}
 		plan, err := ms.plan(ctx, moveReq)
 		if err != nil {
@@ -390,7 +395,7 @@ func (ms *builtIn) plan(ctx context.Context, req motion.MoveReq) (motionplan.Pla
 
 	// re-evaluate goalPose to be in the frame of World
 	solvingFrame := referenceframe.World // TODO(erh): this should really be the parent of rootName
-	tf, err := frameSys.Transform(fsInputs, &req.Destination, solvingFrame)
+	tf, err := frameSys.Transform(fsInputs, req.Destination, solvingFrame)
 	if err != nil {
 		return nil, err
 	}
@@ -403,8 +408,8 @@ func (ms *builtIn) plan(ctx context.Context, req motion.MoveReq) (motionplan.Pla
 		Frame:              movingFrame,
 		StartConfiguration: fsInputs,
 		FrameSystem:        frameSys,
-		WorldState:         &req.WorldState,
-		Constraints:        &req.Constraints,
+		WorldState:         req.WorldState,
+		Constraints:        req.Constraints,
 		Options:            req.Extra,
 	})
 	if err != nil {

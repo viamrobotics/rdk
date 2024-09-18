@@ -45,11 +45,11 @@ type MoveReq struct {
 	// ComponentName of the component to move
 	ComponentName resource.Name
 	// Goal destination the component should be moved to
-	Destination referenceframe.PoseInFrame
+	Destination *referenceframe.PoseInFrame
 	// The external environment to be considered for the duration of the move
-	WorldState referenceframe.WorldState
+	WorldState *referenceframe.WorldState
 	// Constraints which need to be satisfied during the movement
-	Constraints motionplan.Constraints
+	Constraints *motionplan.Constraints
 	Extra       map[string]interface{}
 }
 

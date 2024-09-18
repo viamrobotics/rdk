@@ -130,7 +130,7 @@ func TestMoveFailures(t *testing.T) {
 	ctx := context.Background()
 	t.Run("fail on not finding gripper", func(t *testing.T) {
 		grabPose := referenceframe.NewPoseInFrame("fakeCamera", spatialmath.NewPoseFromPoint(r3.Vector{X: 10.0, Y: 10.0, Z: 10.0}))
-		_, err = ms.Move(ctx, motion.MoveReq{ComponentName: camera.Named("fake"), Destination: *grabPose})
+		_, err = ms.Move(ctx, motion.MoveReq{ComponentName: camera.Named("fake"), Destination: grabPose})
 		test.That(t, err, test.ShouldNotBeNil)
 	})
 
@@ -145,7 +145,7 @@ func TestMoveFailures(t *testing.T) {
 		worldState, err := referenceframe.NewWorldState(nil, transforms)
 		test.That(t, err, test.ShouldBeNil)
 		poseInFrame := referenceframe.NewPoseInFrame("frame2", spatialmath.NewZeroPose())
-		_, err = ms.Move(ctx, motion.MoveReq{ComponentName: arm.Named("arm1"), Destination: *poseInFrame, WorldState: *worldState})
+		_, err = ms.Move(ctx, motion.MoveReq{ComponentName: arm.Named("arm1"), Destination: poseInFrame, WorldState: worldState})
 		test.That(t, err, test.ShouldBeError, referenceframe.NewParentFrameMissingError("frame2", "noParent"))
 	})
 }
@@ -158,7 +158,7 @@ func TestMove(t *testing.T) {
 		ms, teardown := setupMotionServiceFromConfig(t, "../data/moving_arm.json")
 		defer teardown()
 		grabPose := referenceframe.NewPoseInFrame("c", spatialmath.NewPoseFromPoint(r3.Vector{X: 0, Y: -30, Z: -50}))
-		_, err = ms.Move(ctx, motion.MoveReq{ComponentName: gripper.Named("pieceGripper"), Destination: *grabPose})
+		_, err = ms.Move(ctx, motion.MoveReq{ComponentName: gripper.Named("pieceGripper"), Destination: grabPose})
 		test.That(t, err, test.ShouldBeNil)
 	})
 
@@ -166,7 +166,7 @@ func TestMove(t *testing.T) {
 		ms, teardown := setupMotionServiceFromConfig(t, "../data/moving_arm.json")
 		defer teardown()
 		grabPose := referenceframe.NewPoseInFrame("pieceArm", spatialmath.NewPoseFromPoint(r3.Vector{X: 0, Y: -30, Z: -50}))
-		_, err = ms.Move(ctx, motion.MoveReq{ComponentName: arm.Named("pieceArm"), Destination: *grabPose})
+		_, err = ms.Move(ctx, motion.MoveReq{ComponentName: arm.Named("pieceArm"), Destination: grabPose})
 		test.That(t, err, test.ShouldBeNil)
 	})
 
@@ -174,7 +174,7 @@ func TestMove(t *testing.T) {
 		ms, teardown := setupMotionServiceFromConfig(t, "../data/moving_arm.json")
 		defer teardown()
 		grabPose := referenceframe.NewPoseInFrame("pieceGripper", spatialmath.NewPoseFromPoint(r3.Vector{X: 0, Y: -30, Z: -50}))
-		_, err = ms.Move(ctx, motion.MoveReq{ComponentName: gripper.Named("pieceGripper"), Destination: *grabPose})
+		_, err = ms.Move(ctx, motion.MoveReq{ComponentName: gripper.Named("pieceGripper"), Destination: grabPose})
 		test.That(t, err, test.ShouldBeNil)
 	})
 
@@ -194,7 +194,7 @@ func TestMove(t *testing.T) {
 		worldState, err := referenceframe.NewWorldState(nil, transforms)
 		test.That(t, err, test.ShouldBeNil)
 		grabPose := referenceframe.NewPoseInFrame("testFrame2", spatialmath.NewPoseFromPoint(r3.Vector{X: -20, Y: -130, Z: -40}))
-		moveReq := motion.MoveReq{ComponentName: gripper.Named("pieceGripper"), Destination: *grabPose, WorldState: *worldState}
+		moveReq := motion.MoveReq{ComponentName: gripper.Named("pieceGripper"), Destination: grabPose, WorldState: worldState}
 		_, err = ms.Move(context.Background(), moveReq)
 		test.That(t, err, test.ShouldBeNil)
 	})
@@ -245,7 +245,7 @@ func TestMoveWithObstacles(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		_, err = ms.Move(
 			context.Background(),
-			motion.MoveReq{ComponentName: gripper.Named("pieceArm"), Destination: *grabPose, WorldState: *worldState},
+			motion.MoveReq{ComponentName: gripper.Named("pieceArm"), Destination: grabPose, WorldState: worldState},
 		)
 		// This fails due to a large obstacle being in the way
 		test.That(t, err, test.ShouldNotBeNil)
@@ -420,7 +420,7 @@ func TestMultiplePieces(t *testing.T) {
 	ms, teardown := setupMotionServiceFromConfig(t, "../data/fake_tomato.json")
 	defer teardown()
 	grabPose := referenceframe.NewPoseInFrame("c", spatialmath.NewPoseFromPoint(r3.Vector{X: -0, Y: -30, Z: -50}))
-	_, err = ms.Move(context.Background(), motion.MoveReq{ComponentName: gripper.Named("gr"), Destination: *grabPose})
+	_, err = ms.Move(context.Background(), motion.MoveReq{ComponentName: gripper.Named("gr"), Destination: grabPose})
 	test.That(t, err, test.ShouldBeNil)
 }
 
@@ -572,7 +572,7 @@ func TestStoppableMoveFunctions(t *testing.T) {
 
 		t.Run("stop during Move(...) call", func(t *testing.T) {
 			calledStopFunc = false
-			success, err := ms.Move(ctx, motion.MoveReq{ComponentName: injectArmName, Destination: *goal, Extra: extra})
+			success, err := ms.Move(ctx, motion.MoveReq{ComponentName: injectArmName, Destination: goal, Extra: extra})
 			testIfStoppable(t, success, err, failToReachGoalError)
 		})
 	})
@@ -1234,6 +1234,28 @@ func TestCheckPlan(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		err = motionplan.CheckPlan(wrapperFrame, updatedExecutionState, worldState, mr.localizingFS, math.Inf(1), logger)
+		test.That(t, err, test.ShouldBeNil)
+	})
+}
+
+func TestDoCommand(t *testing.T) {
+	ctx := context.Background()
+	t.Run("DoPlan", func(t *testing.T) {
+		ms, teardown := setupMotionServiceFromConfig(t, "../data/moving_arm.json")
+		defer teardown()
+		moveReq := motion.MoveReq{
+			ComponentName: gripper.Named("pieceGripper"),
+			Destination:   referenceframe.NewPoseInFrame("c", spatialmath.NewPoseFromPoint(r3.Vector{X: 0, Y: -30, Z: -50})),
+		}
+		proto, err := moveReq.ToProto(ms.Name().Name)
+		test.That(t, err, test.ShouldBeNil)
+		cmd := map[string]interface{}{DoPlan: proto}
+		// command, err := protoutils.StructToStructPb(cmd)
+		// if err != nil {
+		// 	return nil, err
+		// }
+		// need to simulate what its like being converted to a proto struct and back to ensure it serialized/deserialized correctly
+		_ = cmd
 		test.That(t, err, test.ShouldBeNil)
 	})
 }

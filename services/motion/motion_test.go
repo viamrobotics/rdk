@@ -1429,12 +1429,12 @@ func TestPlanHistoryReq(t *testing.T) {
 func TestMoveReq(t *testing.T) {
 	req := MoveReq{
 		ComponentName: arm.Named("fake"),
-		Destination:   *referenceframe.NewPoseInFrame("world", spatialmath.NewZeroPose()),
-		WorldState:    *referenceframe.NewEmptyWorldState(),
+		Destination:   referenceframe.NewPoseInFrame("world", spatialmath.NewZeroPose()),
+		WorldState:    referenceframe.NewEmptyWorldState(),
 		Extra: map[string]interface{}{
 			"oops": 1,
 		},
-		Constraints: *motionplan.NewConstraints([]motionplan.LinearConstraint{{LineToleranceMm: 10}}, nil, nil),
+		Constraints: motionplan.NewConstraints([]motionplan.LinearConstraint{{LineToleranceMm: 10}}, nil, nil),
 	}
 	bytes, err := json.Marshal(req)
 	test.That(t, err, test.ShouldBeNil)

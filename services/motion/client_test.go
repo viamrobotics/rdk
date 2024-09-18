@@ -83,7 +83,6 @@ func TestDoCommandClient(t *testing.T) {
 		},
 		ComponentName: &commonpb.ResourceName{},
 	}
-
 	client.DoCommand(ctx, cmd)
 }
 
@@ -159,7 +158,7 @@ func TestClient(t *testing.T) {
 		}
 
 		// Move
-		result, err := client.Move(ctx, motion.MoveReq{ComponentName: gripperName, Destination: *zeroPoseInFrame})
+		result, err := client.Move(ctx, motion.MoveReq{ComponentName: gripperName, Destination: zeroPoseInFrame})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, result, test.ShouldEqual, success)
 
@@ -225,7 +224,7 @@ func TestClient(t *testing.T) {
 		}
 
 		// Move
-		resp, err := client2.Move(ctx, motion.MoveReq{ComponentName: gripperName, Destination: *zeroPoseInFrame})
+		resp, err := client2.Move(ctx, motion.MoveReq{ComponentName: gripperName, Destination: zeroPoseInFrame})
 		test.That(t, err.Error(), test.ShouldContainSubstring, passedErr.Error())
 		test.That(t, resp, test.ShouldEqual, false)
 

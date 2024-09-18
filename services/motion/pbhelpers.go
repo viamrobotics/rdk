@@ -153,8 +153,7 @@ func planStateFromProto(ps pb.PlanState) PlanState {
 	}
 }
 
-// toProto converts a MoveRequest to a *pb.MoveRequest.
-func (r MoveReq) toProto(name string) (*pb.MoveRequest, error) {
+func (r MoveReq) ToProto(name string) (*pb.MoveRequest, error) {
 	ext, err := vprotoutils.StructToStructPb(r.Extra)
 	if err != nil {
 		return nil, err
@@ -166,23 +165,23 @@ func (r MoveReq) toProto(name string) (*pb.MoveRequest, error) {
 	return &pb.MoveRequest{
 		Name:          name,
 		ComponentName: rprotoutils.ResourceNameToProto(r.ComponentName),
-		Destination:   referenceframe.PoseInFrameToProtobuf(&r.Destination),
+		Destination:   referenceframe.PoseInFrameToProtobuf(r.Destination),
 		WorldState:    worldStateMsg,
 		Constraints:   r.Constraints.ToProtobuf(),
 		Extra:         ext,
 	}, nil
 }
 
-func moveReqFromProto(req *pb.MoveRequest) (MoveReq, error) {
+func MoveReqFromProto(req *pb.MoveRequest) (MoveReq, error) {
 	worldState, err := referenceframe.WorldStateFromProtobuf(req.GetWorldState())
 	if err != nil {
 		return MoveReq{}, err
 	}
 	return MoveReq{
 		rprotoutils.ResourceNameFromProto(req.GetComponentName()),
-		*referenceframe.ProtobufToPoseInFrame(req.GetDestination()),
-		*worldState,
-		*motionplan.ConstraintsFromProtobuf(req.GetConstraints()),
+		referenceframe.ProtobufToPoseInFrame(req.GetDestination()),
+		worldState,
+		motionplan.ConstraintsFromProtobuf(req.GetConstraints()),
 		req.Extra.AsMap(),
 	}, nil
 }

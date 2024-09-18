@@ -13,23 +13,22 @@ import (
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/service/motion/v1"
 	"go.viam.com/test"
+	vprotoutils "go.viam.com/utils/protoutils"
 
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/components/gripper"
 	"go.viam.com/rdk/components/movementsensor"
-	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/motion"
-	"go.viam.com/rdk/services/motion/builtin"
 	"go.viam.com/rdk/services/slam"
 	"go.viam.com/rdk/services/vision"
 	"go.viam.com/rdk/spatialmath"
+	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
-	"go.viam.com/rdk/utils"
 )
 
 func newServer(resources map[resource.Name]motion.Service) (pb.MotionServiceServer, error) {
@@ -751,49 +750,25 @@ func TestServerGetPlan(t *testing.T) {
 }
 
 func TestServerDoCommand(t *testing.T) {
-	ctx := context.Background()
-
-	ms, err := builtin.NewBuiltIn(ctx, resource.Dependencies{}, resource.Config{ConvertedAttributes: &builtin.Config{}}, logging.NewLogger(""))
-	test.That(t, err, test.ShouldBeNil)
-
 	resourceMap := map[resource.Name]motion.Service{
-		testMotionServiceName: ms,
+		testMotionServiceName: &inject.MotionService{
+			DoCommandFunc: testutils.EchoFunc,
+		},
 	}
-
-	// resourceMap := map[resource.Name]motion.Service{
-	// 	testMotionServiceName: &inject.MotionService{
-	// 		DoCommandFunc: testutils.EchoFunc,
-	// 	},
-	// }
 	server, err := newServer(resourceMap)
 	test.That(t, err, test.ShouldBeNil)
 
-	motionServer, err := utils.AssertType[motion.Service](server)
+	cmd, err := vprotoutils.StructToStructPb(testutils.TestCommand)
+	test.That(t, err, test.ShouldBeNil)
+	doCommandRequest := &commonpb.DoCommandRequest{
+		Name:    testMotionServiceName.ShortName(),
+		Command: cmd,
+	}
+	doCommandResponse, err := server.DoCommand(context.Background(), doCommandRequest)
 	test.That(t, err, test.ShouldBeNil)
 
-	// cmd, err := vprotoutils.StructToStructPb(testutils.TestCommand)
-	// test.That(t, err, test.ShouldBeNil)
-	// doCommandRequest := &commonpb.DoCommandRequest{
-	// 	Name:    testMotionServiceName.ShortName(),
-	// 	Command: cmd,
-	// }
-	// doCommandResponse, err := server.DoCommand(context.Background(), doCommandRequest)
-	// test.That(t, err, test.ShouldBeNil)
-
-	// // Assert that do command response is an echoed request.
-	// respMap := doCommandResponse.Result.AsMap()
-	// test.That(t, respMap["command"], test.ShouldResemble, "test")
-	// test.That(t, respMap["data"], test.ShouldResemble, 500.0)
-
-	cmd := make(map[string]interface{})
-	cmd[builtin.DoPlan] = pb.MoveRequest{
-		Name: "builtin",
-		Destination: &commonpb.PoseInFrame{
-			ReferenceFrame: "world",
-			Pose:           spatialmath.PoseToProtobuf(spatialmath.NewZeroPose()),
-		},
-		ComponentName: &commonpb.ResourceName{},
-	}
-
-	motionServer.DoCommand(ctx, cmd)
+	// Assert that do command response is an echoed request.
+	respMap := doCommandResponse.Result.AsMap()
+	test.That(t, respMap["command"], test.ShouldResemble, "test")
+	test.That(t, respMap["data"], test.ShouldResemble, 500.0)
 }
