@@ -118,6 +118,8 @@ func getExtra(ctx context.Context) (*structpb.Struct, error) {
 	return ext, nil
 }
 
+// RSDK-8663: This method signature is depended on by the `camera.serviceServer` optimization that
+// avoids using an image stream just to get a single image.
 func (c *client) Read(ctx context.Context) (image.Image, func(), error) {
 	ctx, span := trace.StartSpan(ctx, "camera::client::Read")
 	defer span.End()
