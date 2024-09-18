@@ -404,7 +404,7 @@ func TestClientProperties(t *testing.T) {
 				FrameRate:        fakeFrameRate,
 			},
 		}, {
-			name: "nil frame rate parameters",
+			name: "no frame rate parameters",
 			props: camera.Properties{
 				SupportsPCD:      true,
 				ImageType:        camera.UnspecifiedStream,

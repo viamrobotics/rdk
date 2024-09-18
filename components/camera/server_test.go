@@ -35,24 +35,26 @@ var (
 	errCameraUnimplemented      = errors.New("not found")
 )
 
-func newServer() (pb.CameraServiceServer, *inject.Camera, *inject.Camera, *inject.Camera, error) {
+func newServer() (pb.CameraServiceServer, *inject.Camera, *inject.Camera, *inject.Camera, *inject.Camera, error) {
 	injectCamera := &inject.Camera{}
 	injectCameraDepth := &inject.Camera{}
 	injectCamera2 := &inject.Camera{}
+	injectCamera3 := &inject.Camera{}
 	cameras := map[resource.Name]camera.Camera{
 		camera.Named(testCameraName):  injectCamera,
 		camera.Named(depthCameraName): injectCameraDepth,
 		camera.Named(failCameraName):  injectCamera2,
+		camera.Named(noFrameRateName): injectCamera3,
 	}
 	cameraSvc, err := resource.NewAPIResourceCollection(camera.API, cameras)
 	if err != nil {
-		return nil, nil, nil, nil, err
+		return nil, nil, nil, nil, nil, err
 	}
-	return camera.NewRPCServiceServer(cameraSvc).(pb.CameraServiceServer), injectCamera, injectCameraDepth, injectCamera2, nil
+	return camera.NewRPCServiceServer(cameraSvc).(pb.CameraServiceServer), injectCamera, injectCameraDepth, injectCamera2, injectCamera3, nil
 }
 
 func TestServer(t *testing.T) {
-	cameraServer, injectCamera, injectCameraDepth, injectCamera2, err := newServer()
+	cameraServer, injectCamera, injectCameraDepth, injectCamera2, injectCamera3, err := newServer()
 	test.That(t, err, test.ShouldBeNil)
 
 	img := image.NewRGBA(image.Rect(0, 0, 4, 4))
@@ -175,6 +177,14 @@ func TestServer(t *testing.T) {
 	}
 	injectCamera2.StreamFunc = func(ctx context.Context, errHandlers ...gostream.ErrorHandler) (gostream.VideoStream, error) {
 		return nil, errStreamFailed
+	}
+	// no frame rate camera
+	injectCamera3.PropertiesFunc = func(ctx context.Context) (camera.Properties, error) {
+		return camera.Properties{
+			SupportsPCD:     true,
+			IntrinsicParams: intrinsics,
+			MimeTypes:       []string{utils.MimeTypeJPEG, utils.MimeTypePNG, utils.MimeTypeH264},
+		}, nil
 	}
 	// does a depth camera transfer its depth image properly
 	t.Run("GetImage", func(t *testing.T) {
@@ -426,6 +436,10 @@ func TestServer(t *testing.T) {
 		test.That(t, resp.MimeTypes, test.ShouldContain, utils.MimeTypeH264)
 		test.That(t, resp.FrameRate, test.ShouldNotBeNil)
 		test.That(t, *resp.FrameRate, test.ShouldEqual, 10.0)
+
+		resp2, err := cameraServer.GetProperties(context.Background(), &pb.GetPropertiesRequest{Name: noFrameRateName})
+		test.That(t, resp2.FrameRate, test.ShouldBeNil)
+
 	})
 
 	t.Run("GetImage with extra", func(t *testing.T) {
