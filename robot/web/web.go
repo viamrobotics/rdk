@@ -745,9 +745,9 @@ func (svc *webService) initAuthHandlers(listenerTCPAddr *net.TCPAddr, options we
 
 				if len(apiKeys) == 0 {
 					return nil, errors.Errorf("%q handler requires non-empty API key or keys", handler.Type)
-				} else {
-					rpcOpts = append(rpcOpts, rpc.WithAuthHandler(handler.Type, rpc.MakeSimpleMultiAuthPairHandler(apiKeys)))
 				}
+
+				rpcOpts = append(rpcOpts, rpc.WithAuthHandler(handler.Type, rpc.MakeSimpleMultiAuthPairHandler(apiKeys)))
 			case rutils.CredentialsTypeRobotLocationSecret:
 				locationSecrets := handler.Config.StringSlice("secrets")
 				if len(locationSecrets) == 0 {
