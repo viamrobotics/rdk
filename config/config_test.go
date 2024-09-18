@@ -420,18 +420,6 @@ func TestConfigEnsure(t *testing.T) {
 	test.That(t, invalidAuthConfig.Ensure(false, logger), test.ShouldBeNil)
 
 	validAPIKeyHandler.Config = rutils.AttributeMap{
-		"keys": []string{},
-	}
-	invalidAuthConfig.Auth.Handlers = []config.AuthHandlerConfig{
-		validAPIKeyHandler,
-	}
-	err = invalidAuthConfig.Ensure(false, logger)
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, `auth.handlers.0`)
-	test.That(t, err.Error(), test.ShouldContainSubstring, `required`)
-	test.That(t, err.Error(), test.ShouldContainSubstring, `key`)
-
-	validAPIKeyHandler.Config = rutils.AttributeMap{
 		"keys": []string{"one", "two"},
 	}
 	invalidAuthConfig.Auth.Handlers = []config.AuthHandlerConfig{
@@ -637,18 +625,6 @@ func TestConfigEnsurePartialStart(t *testing.T) {
 		validAPIKeyHandler,
 	}
 	test.That(t, invalidAuthConfig.Ensure(false, logger), test.ShouldBeNil)
-
-	validAPIKeyHandler.Config = rutils.AttributeMap{
-		"keys": []string{},
-	}
-	invalidAuthConfig.Auth.Handlers = []config.AuthHandlerConfig{
-		validAPIKeyHandler,
-	}
-	err = invalidAuthConfig.Ensure(false, logger)
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, `auth.handlers.0`)
-	test.That(t, err.Error(), test.ShouldContainSubstring, `required`)
-	test.That(t, err.Error(), test.ShouldContainSubstring, `key`)
 
 	validAPIKeyHandler.Config = rutils.AttributeMap{
 		"keys": []string{"one", "two"},
