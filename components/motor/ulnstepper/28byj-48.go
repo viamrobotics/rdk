@@ -282,8 +282,10 @@ func (m *uln28byj) setStepperDelay(delay time.Duration) {
 
 // GoFor instructs the motor to go in a specific direction for a specific amount of
 // revolutions at a given speed in revolutions per minute. Both the RPM and the revolutions
-// can be assigned negative values to move in a backwards direction. Note: if both are negative
-// the motor will spin in the forward direction.
+// can be assigned negative values to move in a backwards direction. Note: if both are
+// negative the motor will spin in the forward direction.
+// If revolutions != 0, this will block until the number of revolutions has been completed or another operation comes in.
+// revolutions may not be 0.
 func (m *uln28byj) GoFor(ctx context.Context, rpm, revolutions float64, extra map[string]interface{}) error {
 	ctx, done := m.opMgr.New(ctx)
 	defer done()

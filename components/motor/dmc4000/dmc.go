@@ -500,6 +500,8 @@ func (m *Motor) stopJog() error {
 // revolutions at a given speed in revolutions per minute. Both the RPM and the revolutions
 // can be assigned negative values to move in a backwards direction. Note: if both are
 // negative the motor will spin in the forward direction.
+// If revolutions != 0, this will block until the number of revolutions has been completed or another operation comes in.
+// revolutions may not be 0.
 func (m *Motor) GoFor(ctx context.Context, rpm, revolutions float64, extra map[string]interface{}) error {
 	warning, err := motor.CheckSpeed(rpm, m.maxRPM)
 	if warning != "" {
