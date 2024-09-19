@@ -182,13 +182,14 @@ func (ms *builtIn) Close(ctx context.Context) error {
 func (ms *builtIn) Move(ctx context.Context, req motion.MoveReq) (bool, error) {
 	ms.mu.RLock()
 	defer ms.mu.RUnlock()
+	operation.CancelOtherWithLabel(ctx, builtinOpLabel)
 
 	plan, err := ms.plan(ctx, req)
 	if err != nil {
 		return false, err
 	}
 	err = ms.execute(ctx, plan.Trajectory())
-	return err != nil, err
+	return err == nil, err
 }
 
 func (ms *builtIn) MoveOnMap(ctx context.Context, req motion.MoveOnMapReq) (motion.ExecutionID, error) {
@@ -337,6 +338,7 @@ func (ms *builtIn) PlanHistory(
 func (ms *builtIn) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 	ms.mu.RLock()
 	defer ms.mu.RUnlock()
+	operation.CancelOtherWithLabel(ctx, builtinOpLabel)
 
 	resp := make(map[string]interface{}, 0)
 	if req, ok := cmd[DoPlan]; ok {
@@ -373,8 +375,6 @@ func (ms *builtIn) DoCommand(ctx context.Context, cmd map[string]interface{}) (m
 }
 
 func (ms *builtIn) plan(ctx context.Context, req motion.MoveReq) (motionplan.Plan, error) {
-	operation.CancelOtherWithLabel(ctx, builtinOpLabel)
-
 	frameSys, err := ms.fsService.FrameSystem(ctx, req.WorldState.Transforms())
 	if err != nil {
 		return nil, err

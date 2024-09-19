@@ -1242,7 +1242,6 @@ func TestCheckPlan(t *testing.T) {
 
 func TestDoCommand(t *testing.T) {
 	ctx := context.Background()
-
 	moveReq := motion.MoveReq{
 		ComponentName: gripper.Named("pieceGripper"),
 		Destination:   referenceframe.NewPoseInFrame("c", spatialmath.NewPoseFromPoint(r3.Vector{X: 0, Y: -30, Z: -50})),

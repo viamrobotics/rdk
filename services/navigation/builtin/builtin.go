@@ -25,6 +25,7 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot/framesystem"
 	"go.viam.com/rdk/services/motion"
+	"go.viam.com/rdk/services/motion/explore"
 	"go.viam.com/rdk/services/navigation"
 	"go.viam.com/rdk/services/vision"
 	"go.viam.com/rdk/spatialmath"
@@ -391,11 +392,11 @@ func (svc *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies,
 
 	// Create explore motion service
 	// Note: this service will disappear after the explore motion model is integrated into builtIn
-	// exploreMotionConf := resource.Config{ConvertedAttributes: &explore.Config{}}
-	// svc.exploreMotionService, err = explore.NewExplore(ctx, deps, exploreMotionConf, svc.logger)
-	// if err != nil {
-	// 	return err
-	// }
+	exploreMotionConf := resource.Config{ConvertedAttributes: &explore.Config{}}
+	svc.exploreMotionService, err = explore.NewExplore(ctx, deps, exploreMotionConf, svc.logger)
+	if err != nil {
+		return err
+	}
 
 	svc.mode = navigation.ModeManual
 	svc.base = baseComponent
@@ -458,8 +459,7 @@ func (svc *builtIn) SetMode(ctx context.Context, mode navigation.Mode, extra map
 		if len(svc.motionCfg.ObstacleDetectors) == 0 {
 			return errors.New("explore mode requires at least one vision service")
 		}
-		panic("no way to explore")
-		// svc.startExploreMode(cancelCtx)
+		svc.startExploreMode(cancelCtx)
 	}
 
 	return nil
