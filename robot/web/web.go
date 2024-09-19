@@ -742,23 +742,12 @@ func (svc *webService) initAuthHandlers(listenerTCPAddr *net.TCPAddr, options we
 			switch handler.Type {
 			case rpc.CredentialsTypeAPIKey:
 				apiKeys := parseAPIKeys(handler)
-				legacyAPIKeys := parseLegacyAPIKeys(handler, apiKeys)
-				hasAPIKeys := len(apiKeys) != 0
-				hasLegacyAPIKeys := len(legacyAPIKeys) != 0
 
-				switch {
-				case !hasLegacyAPIKeys && !hasAPIKeys:
-					return nil, errors.Errorf("%q handler requires non-empty API key or keys", handler.Type)
-				case hasLegacyAPIKeys && !hasAPIKeys:
-					rpcOpts = append(rpcOpts, rpc.WithAuthHandler(
-						handler.Type,
-						rpc.MakeSimpleMultiAuthHandler(authEntities, legacyAPIKeys),
-					))
-				case !hasLegacyAPIKeys && hasAPIKeys:
-					rpcOpts = append(rpcOpts, rpc.WithAuthHandler(handler.Type, rpc.MakeSimpleMultiAuthPairHandler(apiKeys)))
-				default:
-					rpcOpts = append(rpcOpts, rpc.WithAuthHandler(handler.Type, makeMultiStepAPIKeyAuthHandler(authEntities, legacyAPIKeys, apiKeys)))
+				if len(apiKeys) == 0 {
+					return nil, errors.Errorf("%q handler requires non-empty API keys", handler.Type)
 				}
+
+				rpcOpts = append(rpcOpts, rpc.WithAuthHandler(handler.Type, rpc.MakeSimpleMultiAuthPairHandler(apiKeys)))
 			case rutils.CredentialsTypeRobotLocationSecret:
 				locationSecrets := handler.Config.StringSlice("secrets")
 				if len(locationSecrets) == 0 {
