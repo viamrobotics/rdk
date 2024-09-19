@@ -327,7 +327,7 @@ func TestConfigRemoteWithAuth(t *testing.T) {
 					Type: rpc.CredentialsTypeAPIKey,
 					Config: rutils.AttributeMap{
 						apiKeyID: apiKey,
-						"keys":   []string{apiKey},
+						"keys":   []string{apiKeyID},
 					},
 				},
 				{
@@ -393,7 +393,7 @@ func TestConfigRemoteWithAuth(t *testing.T) {
 				test.That(t, ok, test.ShouldBeFalse)
 				test.That(t, remoteBot, test.ShouldBeNil)
 
-				remoteConfig.Remotes[0].Auth.Entity = entityName
+				remoteConfig.Remotes[0].Auth.Entity = apiKeyID
 				remoteConfig.Remotes[1].Auth.Entity = entityName
 				test.That(t, setupLocalRobot(t, context.Background(), remoteConfig, logger).Close(context.Background()), test.ShouldBeNil)
 
