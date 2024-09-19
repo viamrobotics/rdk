@@ -44,8 +44,10 @@ type MotionService struct {
 		ctx context.Context,
 		req motion.PlanHistoryReq,
 	) ([]motion.PlanWithStatus, error)
-	DoCommandFunc func(ctx context.Context,
-		cmd map[string]interface{}) (map[string]interface{}, error)
+	DoCommandFunc func(
+		ctx context.Context,
+		cmd map[string]interface{}) (map[string]interface{}, error,
+	)
 	CloseFunc func(ctx context.Context) error
 }
 
