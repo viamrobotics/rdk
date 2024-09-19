@@ -10,6 +10,7 @@ import (
 
 	"github.com/golang/geo/r3"
 	"github.com/google/uuid"
+	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
 
 	pb "go.viam.com/api/service/motion/v1"
@@ -186,7 +187,7 @@ func (ms *builtIn) Move(ctx context.Context, req motion.MoveReq) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	err = ms.execute(ctx, plan)
+	err = ms.execute(ctx, plan.Trajectory())
 	return err != nil, err
 }
 
@@ -338,8 +339,8 @@ func (ms *builtIn) DoCommand(ctx context.Context, cmd map[string]interface{}) (m
 	defer ms.mu.RUnlock()
 
 	resp := make(map[string]interface{}, 0)
-	if val, ok := cmd[DoPlan]; ok {
-		bytes, err := json.Marshal(val)
+	if req, ok := cmd[DoPlan]; ok {
+		bytes, err := json.Marshal(req)
 		if err != nil {
 			return nil, err
 		}
@@ -356,20 +357,18 @@ func (ms *builtIn) DoCommand(ctx context.Context, cmd map[string]interface{}) (m
 		if err != nil {
 			return nil, err
 		}
-		resp[DoPlan] = plan
+		resp[DoPlan] = plan.Trajectory()
 	}
-	// if val, ok := cmd[DoExecute]; ok {
-	// 	bytes, err := json.Marshal(val)
-	// 	if err != nil {
-	// 		return nil, err
-	// 	}
-	// 	var plan motionplan.Plan
-	// 	err = json.Unmarshal(bytes, &plan)
-	// 	if err != nil {
-	// 		return nil, errors.New("couldn't unmarshal to motionplan.Plan")
-	// 	}
-	// 	resp[DoExecute] = ms.execute(ctx, plan) != nil
-	// }
+	if req, ok := cmd[DoExecute]; ok {
+		var trajectory motionplan.Trajectory
+		if err := mapstructure.Decode(req, &trajectory); err != nil {
+			return nil, err
+		}
+		if err := ms.execute(ctx, trajectory); err != nil {
+			return nil, err
+		}
+		resp[DoExecute] = true
+	}
 	return resp, nil
 }
 
@@ -418,8 +417,8 @@ func (ms *builtIn) plan(ctx context.Context, req motion.MoveReq) (motionplan.Pla
 	return plan, nil
 }
 
-func (ms *builtIn) execute(ctx context.Context, plan motionplan.Plan) error {
-	// build maps of relevant components and inputs from initial inputs
+func (ms *builtIn) execute(ctx context.Context, trajectory motionplan.Trajectory) error {
+	// build maps of relevant components from initial inputs
 	_, resources, err := ms.fsService.CurrentInputs(ctx)
 	if err != nil {
 		return err
@@ -428,7 +427,7 @@ func (ms *builtIn) execute(ctx context.Context, plan motionplan.Plan) error {
 	// Batch GoToInputs calls if possible; components may want to blend between inputs
 	combinedSteps := []map[string][][]referenceframe.Input{}
 	currStep := map[string][][]referenceframe.Input{}
-	for i, step := range plan.Trajectory() {
+	for i, step := range trajectory {
 		if i == 0 {
 			for name, inputs := range step {
 				if len(inputs) == 0 {
