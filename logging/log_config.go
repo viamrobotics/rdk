@@ -12,20 +12,34 @@ type LoggerPatternConfig struct {
 }
 
 const (
-	// pattern matching on loggers.
-	validLoggerSectionName             = `[a-zA-Z0-9]+([_-]*[a-zA-Z0-9]+)*`
-	validLoggerSectionNameWithWildcard = `(` + validLoggerSectionName + `|\*)`
-	validLoggerSections                = validLoggerSectionName + `(\.` + validLoggerSectionName + `)*`
-	validLoggerSectionsWithWildcard    = validLoggerSectionNameWithWildcard + `(\.` + validLoggerSectionNameWithWildcard + `)*`
-	validLoggerName                    = `^` + validLoggerSectionsWithWildcard + `$`
+	// Regular expressions for logger names (non-resource loggers). Examples
+	// describe the regular expression that follows.
 
-	// resource configurations.
-	validNamespacePattern       = `([\w-]+|\*)`
-	validResourceTypePattern    = `(service|component|\*)`
+	// e.g. "foo".
+	validLoggerSectionName = `[a-zA-Z0-9]+([_-]*[a-zA-Z0-9]+)*`
+	// e.g. "foo" or "*".
+	validLoggerSectionNameWithWildcard = `(` + validLoggerSectionName + `|\*)`
+	// e.g. "foo.*.foo".
+	validLoggerSectionsWithWildcard = validLoggerSectionNameWithWildcard + `(\.` + validLoggerSectionNameWithWildcard + `)*`
+	// Restricts above regex to be the entire pattern.
+	validLoggerName = `^` + validLoggerSectionsWithWildcard + `$`
+
+	// Regular expressions for resource logger names. Examples describe the
+	// regular expression that follows.
+
+	// e.g. "foo-bar".
+	validNamespacePattern = `([\w-]+|\*)`
+	// e.g. "service" or "component" or "*".
+	validResourceTypePattern = `(service|component|\*)`
+	// e.g. "foo-bar".
 	validResourceSubTypePattern = validNamespacePattern
-	validModelNamePattern       = validNamespacePattern
-	validTypeSubsectionPattern  = `(` + validResourceTypePattern + `:` + validResourceSubTypePattern + `|remote:)`
-	validResourcePattern        = `^rdk.` + validNamespacePattern + `:` + validTypeSubsectionPattern + `\/` + validModelNamePattern + `$`
+	// e.g. "foo-bar".
+	validModelNamePattern = validNamespacePattern
+	// e.g. "service:foo" or "remote:".
+	validTypeSubsectionPattern = `(` + validResourceTypePattern + `:` + validResourceSubTypePattern + `|remote:)`
+	// e.g. "rdk.resource_manager.rdk:component:motor/foo".
+	validResourcePattern = `^rdk.resource_manager.` + validNamespacePattern + `:` + validTypeSubsectionPattern + `\/` +
+		validModelNamePattern + `$`
 )
 
 var (
@@ -43,7 +57,7 @@ func buildRegexFromPattern(pattern string) string {
 	for _, ch := range pattern {
 		switch ch {
 		case '*':
-			matcher.WriteString(validLoggerSections)
+			matcher.WriteString(`.*`)
 		case '.':
 			matcher.WriteString(`\.`)
 		default:

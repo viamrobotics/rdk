@@ -150,11 +150,14 @@ func ContainsReservedCharacter(val string) error {
 
 // A Sensor represents a general purpose sensor that can give arbitrary readings
 // of all readings that it is sensing.
+// For more information, see the [sensor component docs].
 //
 // Readings example:
 //
 //	// Get the readings provided by the sensor.
 //	readings, err := mySensor.Readings(context.Background(), nil)
+//
+// [sensor component docs]: https://docs.viam.com/components/sensor/
 type Sensor interface {
 	// Readings return data specific to the type of sensor and can be of any type.
 	Readings(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error)

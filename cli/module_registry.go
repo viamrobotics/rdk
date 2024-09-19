@@ -12,7 +12,10 @@ import (
 	"math"
 	"os"
 	"os/exec"
+	"path"
 	"path/filepath"
+	"runtime"
+	"slices"
 	"strings"
 
 	"github.com/google/uuid"
@@ -28,11 +31,15 @@ import (
 	"go.viam.com/rdk/module"
 	"go.viam.com/rdk/module/modmanager"
 	modmanageroptions "go.viam.com/rdk/module/modmanager/options"
+	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/utils"
 )
 
 // moduleUploadChunkSize sets the number of bytes included in each chunk of the upload stream.
-var moduleUploadChunkSize = 32 * 1024
+var (
+	moduleUploadChunkSize = 32 * 1024
+	rdkAPITypes           = []string{resource.APITypeServiceName, resource.APITypeComponentName}
+)
 
 // moduleVisibility determines whether modules are public or private.
 type moduleVisibility string
@@ -42,6 +49,14 @@ const (
 	moduleVisibilityPrivate moduleVisibility = "private"
 	moduleVisibilityPublic  moduleVisibility = "public"
 )
+
+type unknownRdkAPITypeError struct {
+	APIType string
+}
+
+func (err unknownRdkAPITypeError) Error() string {
+	return fmt.Sprintf("API with unknown type '%s', expected one of %s", err.APIType, strings.Join(rdkAPITypes, ", "))
+}
 
 // ModuleComponent represents an api - model pair.
 type ModuleComponent struct {
@@ -196,6 +211,8 @@ func UpdateModuleAction(c *cli.Context) error {
 		return err
 	}
 
+	validateModels(c.App.ErrWriter, &manifest)
+
 	response, err := client.updateModule(moduleID, manifest)
 	if err != nil {
 		return err
@@ -280,6 +297,8 @@ func UploadModuleAction(c *cli.Context) error {
 			return err
 		}
 
+		validateModels(c.App.ErrWriter, &manifest)
+
 		_, err = client.updateModule(moduleID, manifest)
 		if err != nil {
 			return errors.Wrap(err, "Module update failed. Please correct the following issues in your meta.json")
@@ -310,6 +329,30 @@ func UploadModuleAction(c *cli.Context) error {
 
 	printf(c.App.Writer, "Version successfully uploaded! you can view your changes online here: %s", response.GetUrl())
 
+	return nil
+}
+
+// call validateModelAPI on all models in manifest and warn if violations.
+func validateModels(errWriter io.Writer, manifest *moduleManifest) {
+	for _, model := range manifest.Models {
+		if err := validateModelAPI(model.API); err != nil {
+			warningf(errWriter, "error validating API string %s: %s", model.API, err)
+		}
+	}
+}
+
+// return a useful error if the model string looks wrong.
+func validateModelAPI(modelAPI string) error {
+	api, err := resource.ParseAPIString(modelAPI)
+	if err != nil {
+		return errors.Wrap(err, "unparseable model string")
+	}
+	if err := api.Validate(); err != nil {
+		return errors.Wrap(err, "failed to validate API")
+	}
+	if !slices.Contains(rdkAPITypes, api.Type.Name) {
+		return unknownRdkAPITypeError{APIType: api.Type.Name}
+	}
 	return nil
 }
 
@@ -876,4 +919,77 @@ func getNextModuleUploadRequest(file *os.File) (*apppb.UploadModuleFileRequest, 
 			File: byteArr,
 		},
 	}, nil
+}
+
+// DownloadModuleAction downloads a module.
+func DownloadModuleAction(c *cli.Context) error {
+	moduleID := c.String(moduleFlagID)
+	if moduleID == "" {
+		manifest, err := loadManifest(defaultManifestFilename)
+		if err != nil {
+			return errors.Wrap(err, "trying to get package ID from meta.json")
+		}
+		moduleID = manifest.ModuleID
+	}
+	client, err := newViamClient(c)
+	if err != nil {
+		return err
+	}
+	if err := client.ensureLoggedIn(); err != nil {
+		return err
+	}
+	req := &apppb.GetModuleRequest{ModuleId: moduleID}
+	res, err := client.client.GetModule(c.Context, req)
+	if err != nil {
+		return err
+	}
+	if len(res.Module.Versions) == 0 {
+		return errors.New("module has 0 uploaded versions, nothing to download")
+	}
+	requestedVersion := c.String(packageFlagVersion)
+	var ver *apppb.VersionHistory
+	if requestedVersion == "latest" {
+		ver = res.Module.Versions[len(res.Module.Versions)-1]
+	} else {
+		for _, iVer := range res.Module.Versions {
+			if iVer.Version == requestedVersion {
+				ver = iVer
+				break
+			}
+		}
+		if ver == nil {
+			return fmt.Errorf("version %s not found in versions for module", requestedVersion)
+		}
+	}
+	infof(c.App.ErrWriter, "found version %s", ver.Version)
+	if len(ver.Files) == 0 {
+		return fmt.Errorf("version %s has 0 files uploaded", ver.Version)
+	}
+	platform := c.String(moduleFlagPlatform)
+	if platform == "" {
+		platform = fmt.Sprintf("%s/%s", runtime.GOOS, runtime.GOARCH)
+		infof(c.App.ErrWriter, "using default platform %s", platform)
+	}
+	if !slices.ContainsFunc(ver.Files, func(file *apppb.Uploads) bool { return file.Platform == platform }) {
+		return fmt.Errorf("platform %s not present for version %s", platform, ver.Version)
+	}
+	include := true
+	packageType := packagespb.PackageType_PACKAGE_TYPE_MODULE
+	// note: this is working around a GetPackage quirk where platform messes with version
+	fullVersion := fmt.Sprintf("%s-%s", ver.Version, strings.ReplaceAll(platform, "/", "-"))
+	pkg, err := client.packageClient.GetPackage(c.Context, &packagespb.GetPackageRequest{
+		Id:         strings.ReplaceAll(moduleID, ":", "/"),
+		Version:    fullVersion,
+		IncludeUrl: &include,
+		Type:       &packageType,
+	})
+	if err != nil {
+		return err
+	}
+	destName := strings.ReplaceAll(moduleID, ":", "-")
+	infof(c.App.ErrWriter, "saving to %s", path.Join(c.String(packageFlagDestination), fullVersion, destName+".tar.gz"))
+	return downloadPackageFromURL(c.Context, client.authFlow.httpClient,
+		c.String(packageFlagDestination), destName,
+		fullVersion, pkg.Package.Url, client.conf.Auth,
+	)
 }

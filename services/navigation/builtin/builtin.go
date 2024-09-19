@@ -575,10 +575,7 @@ func (svc *builtIn) moveToWaypoint(ctx context.Context, wp navigation.Waypoint, 
 	cancelCtx, cancelFn := context.WithCancel(ctx)
 	defer cancelFn()
 	executionID, err := svc.motionService.MoveOnGlobe(cancelCtx, req)
-	if errors.Is(err, motion.ErrGoalWithinPlanDeviation) {
-		// make an exception for the error that is raised when motion is not possible because already at goal.
-		return svc.waypointReached(cancelCtx)
-	} else if err != nil {
+	if err != nil {
 		return err
 	}
 
@@ -591,6 +588,8 @@ func (svc *builtIn) moveToWaypoint(ctx context.Context, wp navigation.Waypoint, 
 	// call StopPlan upon exiting moveOnGlobeSync
 	// is a NoOp if execution has already terminted
 	defer func() {
+		svc.mu.Lock()
+		defer svc.mu.Unlock()
 		timeoutCtx, timeoutCancelFn := context.WithTimeout(context.Background(), time.Second*5)
 		defer timeoutCancelFn()
 		err := svc.motionService.StopPlan(timeoutCtx, motion.StopPlanReq{ComponentName: req.ComponentName})

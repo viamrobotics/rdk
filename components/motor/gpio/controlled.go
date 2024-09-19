@@ -2,6 +2,7 @@ package gpio
 
 import (
 	"context"
+	"fmt"
 	"math"
 	"sync"
 	"time"
@@ -17,6 +18,8 @@ import (
 	"go.viam.com/rdk/resource"
 	rdkutils "go.viam.com/rdk/utils"
 )
+
+const getPID = "get_tuned_pid"
 
 // SetState sets the state of the motor for the built-in control loop.
 func (cm *controlledMotor) SetState(ctx context.Context, state []*control.Signal) error {
@@ -58,7 +61,7 @@ func (cm *controlledMotor) setupControlLoop(conf *Config) error {
 	}
 
 	// convert the motor config ControlParameters to the control.PIDConfig structure for use in setup_control.go
-	convertedControlParams := []control.PIDConfig{{
+	cm.configPIDVals = []control.PIDConfig{{
 		Type: "",
 		P:    conf.ControlParameters.P,
 		I:    conf.ControlParameters.I,
@@ -67,18 +70,19 @@ func (cm *controlledMotor) setupControlLoop(conf *Config) error {
 
 	// auto tune motor if all ControlParameters are 0
 	// since there's only one set of PID values for a motor, they will always be at convertedControlParams[0]
-	if convertedControlParams[0].NeedsAutoTuning() {
+	if cm.configPIDVals[0].NeedsAutoTuning() {
 		options.NeedsAutoTuning = true
 	}
 
-	pl, err := control.SetupPIDControlConfig(convertedControlParams, cm.Name().ShortName(), options, cm, cm.logger)
+	pl, err := control.SetupPIDControlConfig(cm.configPIDVals, cm.Name().ShortName(), options, cm, cm.logger)
 	if err != nil {
 		return err
 	}
 
-	cm.controlLoopConfig = pl.ControlConf
+	cm.controlLoopConfig = *pl.ControlConf
 	cm.loop = pl.ControlLoop
 	cm.blockNames = pl.BlockNames
+	cm.tunedVals = pl.TunedVals
 
 	return nil
 }
@@ -117,6 +121,7 @@ func setupMotorWithControls(
 		Named:            cfg.ResourceName().AsNamed(),
 		logger:           logger,
 		opMgr:            operation.NewSingleOperationManager(),
+		tunedVals:        &[]control.PIDConfig{{}},
 		ticksPerRotation: tpr,
 		real:             m,
 		enc:              enc,
@@ -150,6 +155,8 @@ type controlledMotor struct {
 	controlLoopConfig control.Config
 	blockNames        map[string][]string
 	loop              *control.Loop
+	configPIDVals     []control.PIDConfig
+	tunedVals         *[]control.PIDConfig
 }
 
 // SetPower sets the percentage of power the motor should employ between -1 and 1.
@@ -281,6 +288,10 @@ func (cm *controlledMotor) SetRPM(ctx context.Context, rpm float64, extra map[st
 		return err
 	}
 
+	if err := cm.checkTuningStatus(); err != nil {
+		return err
+	}
+
 	if cm.loop == nil {
 		// create new control loop
 		if err := cm.startControlLoop(); err != nil {
@@ -305,7 +316,6 @@ func (cm *controlledMotor) SetRPM(ctx context.Context, rpm float64, extra map[st
 // can be assigned negative values to move in a backwards direction. Note: if both are
 // negative the motor will spin in the forward direction.
 // If revolutions != 0, this will block until the number of revolutions has been completed or another operation comes in.
-// Deprecated: If revolutions is 0, this will run the motor at rpm indefinitely.
 func (cm *controlledMotor) GoFor(ctx context.Context, rpm, revolutions float64, extra map[string]interface{}) error {
 	cm.opMgr.CancelRunning(ctx)
 	ctx, done := cm.opMgr.New(ctx)
@@ -319,8 +329,16 @@ func (cm *controlledMotor) GoFor(ctx context.Context, rpm, revolutions float64, 
 		return err
 	}
 
+	if err := motor.CheckRevolutions(revolutions); err != nil {
+		return err
+	}
+
 	currentTicks, _, err := cm.enc.Position(ctx, encoder.PositionTypeTicks, extra)
 	if err != nil {
+		return err
+	}
+
+	if err := cm.checkTuningStatus(); err != nil {
 		return err
 	}
 
@@ -341,11 +359,6 @@ func (cm *controlledMotor) GoFor(ctx context.Context, rpm, revolutions float64, 
 		return err
 	}
 	cm.loop.Resume()
-
-	if revolutions == 0 {
-		cm.logger.Warn("Deprecated: setting revolutions == 0 will spin the motor indefinitely at the specified RPM")
-		return nil
-	}
 
 	// we can probably use something in controls to make GoFor blockign without this
 	// helper function
@@ -371,5 +384,34 @@ func (cm *controlledMotor) GoFor(ctx context.Context, rpm, revolutions float64, 
 		return err
 	}
 
+	return nil
+}
+
+func (cm *controlledMotor) DoCommand(ctx context.Context, req map[string]interface{}) (map[string]interface{}, error) {
+	resp := make(map[string]interface{})
+
+	cm.mu.Lock()
+	defer cm.mu.Unlock()
+	ok := req[getPID].(bool)
+	if ok {
+		var respStr string
+		if !(*cm.tunedVals)[0].NeedsAutoTuning() {
+			respStr += fmt.Sprintf("{p: %v, i: %v, d: %v, type: %v} ",
+				(*cm.tunedVals)[0].P, (*cm.tunedVals)[0].I, (*cm.tunedVals)[0].D, (*cm.tunedVals)[0].Type)
+		}
+		resp[getPID] = respStr
+	}
+
+	return resp, nil
+}
+
+// if loop is tuning, return an error
+// if loop has been tuned but the values haven't been added to the config, error with tuned values.
+func (cm *controlledMotor) checkTuningStatus() error {
+	if cm.loop != nil && cm.loop.GetTuning(context.Background()) {
+		return control.TuningInProgressErr(cm.Name().ShortName())
+	} else if cm.configPIDVals[0].NeedsAutoTuning() && !(*cm.tunedVals)[0].NeedsAutoTuning() {
+		return control.TunedPIDErr(cm.Name().ShortName(), *cm.tunedVals)
+	}
 	return nil
 }

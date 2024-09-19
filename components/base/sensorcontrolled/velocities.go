@@ -19,9 +19,14 @@ func (sb *sensorBase) SetVelocity(
 	ctx, done := sb.opMgr.New(ctx)
 	defer done()
 
-	if len(sb.controlLoopConfig.Blocks) == 0 {
+	if sb.controlLoopConfig == nil {
 		sb.logger.CWarnf(ctx, "control parameters not configured, using %v's SetVelocity method", sb.controlledBase.Name().ShortName())
 		return sb.controlledBase.SetVelocity(ctx, linear, angular, extra)
+	}
+
+	// check tuning status
+	if err := sb.checkTuningStatus(); err != nil {
+		return err
 	}
 
 	// make sure the control loop is enabled
@@ -43,7 +48,7 @@ func (sb *sensorBase) SetVelocity(
 // startControlLoop uses the control config to initialize a control loop and store it on the sensor controlled base struct.
 // The sensor base is the controllable interface that implements State and GetState called from the endpoint block of the control loop.
 func (sb *sensorBase) startControlLoop() error {
-	loop, err := control.NewLoop(sb.logger, sb.controlLoopConfig, sb)
+	loop, err := control.NewLoop(sb.logger, *sb.controlLoopConfig, sb)
 	if err != nil {
 		return err
 	}
@@ -80,6 +85,7 @@ func (sb *sensorBase) setupControlLoop(linear, angular control.PIDConfig) error 
 	sb.controlLoopConfig = pl.ControlConf
 	sb.loop = pl.ControlLoop
 	sb.blockNames = pl.BlockNames
+	sb.tunedVals = pl.TunedVals
 
 	return nil
 }

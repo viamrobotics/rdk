@@ -51,6 +51,7 @@ const (
 	moduleFlagLocal           = "local"
 	moduleFlagHomeDir         = "home"
 	moduleCreateLocalOnly     = "local-only"
+	moduleFlagID              = "id"
 
 	moduleBuildFlagPath      = "module"
 	moduleBuildFlagRef       = "ref"
@@ -74,6 +75,7 @@ const (
 	mlTrainingFlagVisibility  = "visibility"
 	mlTrainingFlagDescription = "description"
 	mlTrainingFlagURL         = "url"
+	mlTrainingFlagArgs        = "args"
 
 	dataFlagDestination                    = "destination"
 	dataFlagDataType                       = "data-type"
@@ -926,7 +928,7 @@ var app = &cli.App{
 									UsageText: createUsageText("train submit custom from-registry",
 										[]string{
 											datasetFlagDatasetID, generalFlagOrgID, trainFlagModelName,
-											mlTrainingFlagName, mlTrainingFlagVersion,
+											mlTrainingFlagName, mlTrainingFlagVersion, mlTrainingFlagArgs,
 										}, true),
 									Flags: []cli.Flag{
 										&cli.StringFlag{
@@ -959,6 +961,12 @@ var app = &cli.App{
 											Usage:    "version of the ML training script to use for training.",
 											Required: true,
 										},
+										&cli.StringSliceFlag{
+											Name: mlTrainingFlagArgs,
+											Usage: "optional command line arguments to run the training script with " +
+												"which should be formatted as option1=value1,option2=value2",
+											Required: false,
+										},
 									},
 									Action: MLSubmitCustomTrainingJob,
 								},
@@ -967,8 +975,8 @@ var app = &cli.App{
 									Usage: "submits custom training job with an upload training script on data in Viam cloud",
 									UsageText: createUsageText("train submit custom with-upload",
 										[]string{
-											datasetFlagDatasetID, generalFlagOrgID, trainFlagModelName,
-											mlTrainingFlagPath, mlTrainingFlagName,
+											datasetFlagDatasetID, trainFlagModelOrgID, trainFlagModelName,
+											mlTrainingFlagPath, mlTrainingFlagName, mlTrainingFlagArgs,
 										}, true),
 									Flags: []cli.Flag{
 										&cli.StringFlag{
@@ -1013,6 +1021,12 @@ var app = &cli.App{
 										&cli.StringFlag{
 											Name:     trainFlagModelType,
 											Usage:    "task type of the ML training script to upload, can be: " + strings.Join(modelTypes, ", "),
+											Required: false,
+										},
+										&cli.StringSliceFlag{
+											Name: mlTrainingFlagArgs,
+											Usage: "optional command line arguments to run the training script with " +
+												"which should be formatted as option1=value1,option2=value2",
 											Required: false,
 										},
 									},
@@ -1746,6 +1760,32 @@ This won't work unless you have an existing installation of our GitHub app on yo
 					},
 					Action: ReloadModuleAction,
 				},
+				{
+					Name:      "download",
+					Usage:     "download a module package from the registry",
+					UsageText: createUsageText("module download", []string{}, false),
+					Flags: []cli.Flag{
+						&cli.PathFlag{
+							Name:  packageFlagDestination,
+							Usage: "output directory for downloaded package",
+							Value: ".",
+						},
+						&cli.StringFlag{
+							Name:  moduleFlagID,
+							Usage: "module ID as org-id:name or namespace:name. if missing, will try to read from meta.json",
+						},
+						&cli.StringFlag{
+							Name:  packageFlagVersion,
+							Usage: "version of the requested package, can be `latest` to get the most recent version",
+							Value: "latest",
+						},
+						&cli.StringFlag{
+							Name:  moduleFlagPlatform,
+							Usage: "platform like 'linux/amd64'. if missing, will use platform of the CLI binary",
+						},
+					},
+					Action: DownloadModuleAction,
+				},
 			},
 		},
 		{
@@ -1757,30 +1797,25 @@ This won't work unless you have an existing installation of our GitHub app on yo
 					Name:  "export",
 					Usage: "download a package from Viam cloud",
 					UsageText: createUsageText("packages export",
-						[]string{
-							packageFlagDestination, generalFlagOrgID, packageFlagName,
-							packageFlagVersion, packageFlagType,
-						}, false),
+						[]string{packageFlagType}, false),
 					Flags: []cli.Flag{
 						&cli.PathFlag{
-							Name:     packageFlagDestination,
-							Required: true,
-							Usage:    "output directory for downloaded package",
+							Name:  packageFlagDestination,
+							Usage: "output directory for downloaded package",
+							Value: ".",
 						},
 						&cli.StringFlag{
-							Name:     generalFlagOrgID,
-							Required: true,
-							Usage:    "organization ID of the requested package",
+							Name:  generalFlagOrgID,
+							Usage: "organization ID or namespace of the requested package. if missing, will try to read from meta.json",
 						},
 						&cli.StringFlag{
-							Name:     packageFlagName,
-							Required: true,
-							Usage:    "name of the requested package",
+							Name:  packageFlagName,
+							Usage: "name of the requested package. if missing, will try to read from meta.json",
 						},
 						&cli.StringFlag{
-							Name:     packageFlagVersion,
-							Required: true,
-							Usage:    "version of the requested package, can be `latest` to get the most recent version",
+							Name:  packageFlagVersion,
+							Usage: "version of the requested package, can be `latest` to get the most recent version",
+							Value: "latest",
 						},
 						&cli.StringFlag{
 							Name:     packageFlagType,

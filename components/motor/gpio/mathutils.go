@@ -24,8 +24,6 @@ func sign(x float64) float64 { // A quick helper function
 	return 1.0
 }
 
-// If revolutions is 0, the returned wait duration will be 0 representing that
-// the motor should run indefinitely.
 func goForMath(maxRPM, rpm, revolutions float64) (float64, time.Duration) {
 	// need to do this so time is reasonable
 	if rpm > maxRPM {
@@ -34,12 +32,7 @@ func goForMath(maxRPM, rpm, revolutions float64) (float64, time.Duration) {
 		rpm = -1 * maxRPM
 	}
 
-	if revolutions == 0 {
-		powerPct := rpm / maxRPM
-		return powerPct, 0
-	}
-
-	dir := rpm * revolutions / math.Abs(revolutions*rpm)
+	dir := sign(rpm * revolutions)
 	powerPct := math.Abs(rpm) / maxRPM * dir
 	waitDur := time.Duration(math.Abs(revolutions/rpm)*60*1000) * time.Millisecond
 	return powerPct, waitDur
@@ -48,16 +41,9 @@ func goForMath(maxRPM, rpm, revolutions float64) (float64, time.Duration) {
 // goForMath calculates goalPos, goalRPM, and direction based on the given GoFor rpm and revolutions, and the current position.
 func encodedGoForMath(rpm, revolutions, currentPos, ticksPerRotation float64) (float64, float64, float64) {
 	direction := sign(rpm * revolutions)
-	if revolutions == 0 {
-		direction = sign(rpm)
-	}
 
 	goalPos := (math.Abs(revolutions) * ticksPerRotation * direction) + currentPos
 	goalRPM := math.Abs(rpm) * direction
-
-	if revolutions == 0 {
-		goalPos = math.Inf(int(direction))
-	}
 
 	return goalPos, goalRPM, direction
 }

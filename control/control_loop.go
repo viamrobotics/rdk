@@ -208,6 +208,15 @@ func (l *Loop) BlockList(ctx context.Context) ([]string, error) {
 	return out, nil
 }
 
+// GetPIDVals returns the tuned PID values.
+func (l *Loop) GetPIDVals(pidIndex int) PIDConfig {
+	return PIDConfig{
+		P: l.pidBlocks[pidIndex].kP,
+		I: l.pidBlocks[pidIndex].kI,
+		D: l.pidBlocks[pidIndex].kD,
+	}
+}
+
 // Frequency returns the loop's frequency.
 func (l *Loop) Frequency(ctx context.Context) (float64, error) {
 	return l.cfg.Frequency, nil

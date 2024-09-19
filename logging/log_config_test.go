@@ -7,7 +7,7 @@ import (
 	"go.viam.com/test"
 )
 
-func verifySetLevels(registry *loggerRegistry, expectedMatches map[string]string) bool {
+func verifySetLevels(registry *Registry, expectedMatches map[string]string) bool {
 	for name, level := range expectedMatches {
 		logger, ok := registry.loggerNamed(name)
 		if !ok || !strings.EqualFold(level, logger.GetLevel().String()) {
@@ -17,8 +17,8 @@ func verifySetLevels(registry *loggerRegistry, expectedMatches map[string]string
 	return true
 }
 
-func createTestRegistry(loggerNames []string) *loggerRegistry {
-	manager := newLoggerRegistry()
+func createTestRegistry(loggerNames []string) *Registry {
+	manager := newRegistry()
 	for _, name := range loggerNames {
 		manager.registerLogger(name, NewLogger(name))
 	}
@@ -57,12 +57,12 @@ func TestValidatePattern(t *testing.T) {
 		{"robot_server._.resource_manager", false},
 
 		// Resource pattern matching (valid patterns)
-		{"rdk.rdk:service:encoder/encoder1", true},
-		{"rdk.rdk:component:motor/motor1", true},
-		{"rdk.acme:*:motor/motor1", true},
-		{"rdk.rdk:service:navigation/test-navigation", true},
-		{"rdk.*:*:motor/*", true},
-		{"rdk.rdk:remote:/foo", true},
+		{"rdk.resource_manager.rdk:service:encoder/encoder1", true},
+		{"rdk.resource_manager.rdk:component:motor/motor1", true},
+		{"rdk.resource_manager.acme:*:motor/motor1", true},
+		{"rdk.resource_manager.rdk:service:navigation/test-navigation", true},
+		{"rdk.resource_manager.*:*:motor/*", true},
+		{"rdk.resource_manager.rdk:remote:/foo", true},
 
 		// Resource pattern matching (invalid patterns)
 		{"fake.rdk:service:encoder/encoder1", false},
@@ -207,7 +207,7 @@ func TestUpdateLoggerRegistry(t *testing.T) {
 	for _, tc := range tests {
 		testRegistry := createTestRegistry(tc.loggerNames)
 
-		err := testRegistry.updateLoggerRegistry(tc.loggerConfig)
+		err := testRegistry.Update(tc.loggerConfig, NewLogger("error-logger"))
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, verifySetLevels(testRegistry, tc.expectedMatches), test.ShouldBeTrue)
 	}

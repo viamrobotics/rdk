@@ -1,3 +1,7 @@
+// Package gantry defines a robotic gantry with one or multiple axes.
+// For more information, see the [gantry component docs].
+//
+// [gantry component docs]: https://docs.viam.com/components/gantry/
 package gantry
 
 import (
@@ -41,6 +45,7 @@ func Named(name string) resource.Name {
 }
 
 // Gantry is used for controlling gantries of N axis.
+// For more information, see the [gantry component docs].
 //
 // Position example:
 //
@@ -74,6 +79,8 @@ func Named(name string) resource.Name {
 //	myGantry, err := gantry.FromRobot(machine, "my_gantry")
 //
 //	myGantry.Home(context.Background(), nil)
+//
+// [gantry component docs]: https://docs.viam.com/components/gantry/
 type Gantry interface {
 	resource.Resource
 	resource.Actuator

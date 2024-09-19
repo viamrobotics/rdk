@@ -36,6 +36,12 @@ func NewRPCServiceServer(coll resource.APIResourceCollection[Camera]) interface{
 	return &serviceServer{coll: coll, logger: logger, imgTypes: imgTypes}
 }
 
+// ReadImager is an interface that cameras can implement when they allow for returning a single
+// image object.
+type ReadImager interface {
+	Read(ctx context.Context) (image.Image, func(), error)
+}
+
 // GetImage returns an image from a camera of the underlying robot. If a specific MIME type
 // is requested and is not available, an error is returned.
 func (s *serviceServer) GetImage(
@@ -75,7 +81,20 @@ func (s *serviceServer) GetImage(
 	ext := req.Extra.AsMap()
 	ctx = NewContext(ctx, ext)
 
-	img, release, err := ReadImage(gostream.WithMIMETypeHint(ctx, req.MimeType), cam)
+	var img image.Image
+	var release func()
+	switch castedCam := cam.(type) {
+	case ReadImager:
+		// RSDK-8663: If available, call a method that reads exactly one image. The default
+		// `ReadImage` implementation will otherwise create a gostream `Stream`, call `Next` and
+		// `Close` the stream. However, between `Next` and `Close`, the stream may have pulled a
+		// second image from the underlying camera. This is particularly noticeable on camera
+		// clients. Where a second `GetImage` request can be processed/returned over the
+		// network. Just to be discarded.
+		img, release, err = castedCam.Read(ctx)
+	default:
+		img, release, err = ReadImage(gostream.WithMIMETypeHint(ctx, req.MimeType), cam)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -84,6 +103,7 @@ func (s *serviceServer) GetImage(
 			release()
 		}
 	}()
+
 	actualMIME, _ := utils.CheckLazyMIMEType(req.MimeType)
 	resp := pb.GetImageResponse{
 		MimeType: actualMIME,

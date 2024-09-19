@@ -331,11 +331,6 @@ func (m *gpioStepper) GoFor(ctx context.Context, rpm, revolutions float64, extra
 			errors.Wrapf(err, "error in GoFor from motor (%s)", m.Name().Name))
 	}
 
-	// this is a long-running operation, do not wait for Stop, do not disable enable pins
-	if revolutions == 0 {
-		return nil
-	}
-
 	return multierr.Combine(
 		m.opMgr.WaitTillNotPowered(ctx, time.Millisecond, m, m.Stop),
 		m.enable(ctx, false))
@@ -356,15 +351,13 @@ func (m *gpioStepper) calcStepperDelay(rpm float64) time.Duration {
 }
 
 func (m *gpioStepper) goForInternal(ctx context.Context, rpm, revolutions float64) error {
-	if revolutions == 0 {
-		// go a large number of revolutions if 0 is passed in, at the desired speed
-		revolutions = math.MaxInt64
-	}
-
 	speed := math.Abs(rpm)
 	if speed < 0.1 {
-		m.logger.CWarn(ctx, "motor speed is nearly 0 rev_per_min")
-		return m.Stop(ctx, nil)
+		return multierr.Combine(m.Stop(ctx, nil), motor.NewZeroRPMError())
+	}
+
+	if err := motor.CheckRevolutions(revolutions); err != nil {
+		return err
 	}
 
 	var d int64 = 1

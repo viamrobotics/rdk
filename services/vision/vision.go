@@ -1,5 +1,8 @@
 // Package vision is the service that allows you to access various computer vision algorithms
 // (like detection, segmentation, tracking, etc) that usually only require a camera or image input.
+// For more information, see the [vision service docs].
+//
+// [vision service docs]: https://docs.viam.com/services/vision/
 package vision
 
 import (
@@ -34,7 +37,8 @@ func init() {
 	}, newCaptureAllFromCameraCollector)
 }
 
-// A Service that implements various computer vision algorithms like detection and segmentation.
+// A Service implements various computer vision algorithms like detection and segmentation.
+// For more information, see the [vision service docs].
 //
 // DetectionsFromCamera example:
 //
@@ -122,6 +126,8 @@ func init() {
 //	detections := capture.Detections
 //	classifications := capture.Classifications
 //	objects := capture.Objects
+//
+// [vision service docs]: https://docs.viam.com/services/vision/
 type Service interface {
 	resource.Resource
 	// DetectionsFromCamera returns a list of detections from the next image from a specified camera using a configured detector.

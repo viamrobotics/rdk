@@ -1,4 +1,7 @@
 // Package base defines the base that a robot uses to move around.
+// For more information, see the [base component docs].
+//
+// [base component docs]: https://docs.viam.com/components/base/
 package base
 
 import (
@@ -34,6 +37,7 @@ func Named(name string) resource.Name {
 }
 
 // A Base represents a physical base of a robot.
+// For more information, see the [base component docs].
 //
 // MoveStraight example:
 //
@@ -93,6 +97,8 @@ func Named(name string) resource.Name {
 //
 //	// Get the wheel circumference
 //	myBaseWheelCircumference := properties.WheelCircumferenceMeters
+//
+// [base component docs]: https://docs.viam.com/components/base/
 type Base interface {
 	resource.Resource
 	resource.Actuator
