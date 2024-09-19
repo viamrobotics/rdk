@@ -16,6 +16,42 @@ import (
 	"go.viam.com/rdk/spatialmath"
 )
 
+// ToProto converts a MoveReq to a pb.MoveRequest
+// the name argument should correspond to the name of the motion service the request will be used with.
+func (r MoveReq) ToProto(name string) (*pb.MoveRequest, error) {
+	ext, err := vprotoutils.StructToStructPb(r.Extra)
+	if err != nil {
+		return nil, err
+	}
+	worldStateMsg, err := r.WorldState.ToProtobuf()
+	if err != nil {
+		return nil, err
+	}
+	return &pb.MoveRequest{
+		Name:          name,
+		ComponentName: rprotoutils.ResourceNameToProto(r.ComponentName),
+		Destination:   referenceframe.PoseInFrameToProtobuf(r.Destination),
+		WorldState:    worldStateMsg,
+		Constraints:   r.Constraints.ToProtobuf(),
+		Extra:         ext,
+	}, nil
+}
+
+// MoveReqFromProto converts a pb.MoveRequest to a MoveReq struct.
+func MoveReqFromProto(req *pb.MoveRequest) (MoveReq, error) {
+	worldState, err := referenceframe.WorldStateFromProtobuf(req.GetWorldState())
+	if err != nil {
+		return MoveReq{}, err
+	}
+	return MoveReq{
+		rprotoutils.ResourceNameFromProto(req.GetComponentName()),
+		referenceframe.ProtobufToPoseInFrame(req.GetDestination()),
+		worldState,
+		motionplan.ConstraintsFromProtobuf(req.GetConstraints()),
+		req.Extra.AsMap(),
+	}, nil
+}
+
 // planWithStatusFromProto converts a *pb.PlanWithStatus to a PlanWithStatus.
 func planWithStatusFromProto(pws *pb.PlanWithStatus) (PlanWithStatus, error) {
 	if pws == nil {
@@ -151,39 +187,6 @@ func planStateFromProto(ps pb.PlanState) PlanState {
 	default:
 		return PlanStateUnspecified
 	}
-}
-
-func (r MoveReq) ToProto(name string) (*pb.MoveRequest, error) {
-	ext, err := vprotoutils.StructToStructPb(r.Extra)
-	if err != nil {
-		return nil, err
-	}
-	worldStateMsg, err := r.WorldState.ToProtobuf()
-	if err != nil {
-		return nil, err
-	}
-	return &pb.MoveRequest{
-		Name:          name,
-		ComponentName: rprotoutils.ResourceNameToProto(r.ComponentName),
-		Destination:   referenceframe.PoseInFrameToProtobuf(r.Destination),
-		WorldState:    worldStateMsg,
-		Constraints:   r.Constraints.ToProtobuf(),
-		Extra:         ext,
-	}, nil
-}
-
-func MoveReqFromProto(req *pb.MoveRequest) (MoveReq, error) {
-	worldState, err := referenceframe.WorldStateFromProtobuf(req.GetWorldState())
-	if err != nil {
-		return MoveReq{}, err
-	}
-	return MoveReq{
-		rprotoutils.ResourceNameFromProto(req.GetComponentName()),
-		referenceframe.ProtobufToPoseInFrame(req.GetDestination()),
-		worldState,
-		motionplan.ConstraintsFromProtobuf(req.GetConstraints()),
-		req.Extra.AsMap(),
-	}, nil
 }
 
 // toProto converts a MoveOnGlobeRequest to a *pb.MoveOnGlobeRequest.

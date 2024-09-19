@@ -335,6 +335,15 @@ func (ms *builtIn) PlanHistory(
 	return ms.state.PlanHistory(req)
 }
 
+// DoCommand supports two commands which are specified through the command map
+//   - DoPlan generates and returns a Trajectory for a given motionpb.MoveRequest without executing it
+//     required key: DoPlan
+//     input value: a motionpb.MoveRequest which will be used to create a Trajectory
+//     output value: a motionplan.Trajectory specified as a map (the mapstructure.Decode function is useful for decoding this)
+//   - DoExecute takes a Trajectory and executes it
+//     required key: DoExecute
+//     input value: a motionplan.Trajectory
+//     output value: a bool
 func (ms *builtIn) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 	ms.mu.RLock()
 	defer ms.mu.RUnlock()

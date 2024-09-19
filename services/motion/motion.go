@@ -204,7 +204,7 @@ type PlanWithStatus struct {
 // A Service controls the flow of moving components.
 // For more information, see the [motion service docs].
 //
-// Move example: // this has to be changed
+// Move example:
 //
 //	motionService, err := motion.FromRobot(machine, "builtin")
 //
@@ -232,7 +232,12 @@ type PlanWithStatus struct {
 //	worldState, err := referenceframe.NewWorldState(obstacles, transforms)
 //
 //	// Move gripper component
-//	moved, err := motionService.Move(context.Background(), gripperName, destination, worldState, nil, nil)
+//
+//	moved, err := motionService.Move(context.Background(), motion.MoveReq{
+//		ComponentName: gripperName,
+//		Destination: destination,
+//		WorldState: WorldState
+//	})
 //
 // MoveOnMap example:
 //
@@ -346,10 +351,10 @@ type PlanWithStatus struct {
 type Service interface {
 	resource.Resource
 
-	// Move is the primary method to move multiple components or any object to a specified location. // TODO change comment
+	// Move is the primary method to move multiple components or any object to a specified location.
 	// Given a destination pose and a component, Move constructs a kinematic chain from goal to destination,
 	// solves it while adhering to constraints, and executes the movement to avoid collisions with the machine itself
-	// and other known objects.
+	// and other known objects. The above arguments are all grouped together in the MoveReq struct.
 	Move(ctx context.Context, req MoveReq) (bool, error)
 
 	// MoveOnMap moves a base component to a destination Pose on a SLAM map and returns a unique ExecutionID.
