@@ -888,18 +888,19 @@ type AuthHandlerConfig struct {
 // type for the RDK in the config is "api-key" currently. An auth handler for utils.CredentialsTypeRobotLocationSecret may be added
 // later by the RDK during processing.
 //
-//	"auth": {
-//			"handlers": [
-//				{
-//					"type": "api-key",
-//					"config": {
-//						"API_KEY_ID": "API_KEY",
-//						"API_KEY_ID_2": "API_KEY_2",
+//		"auth": {
+//				"handlers": [
+//					{
+//						"type": "api-key",
+//						"config": {
+//							"API_KEY_ID": "API_KEY",
+//							"API_KEY_ID_2": "API_KEY_2",
+//	                     "keys": ["API_KEY_ID", "API_KEY_ID_2"]
+//						}
 //					}
-//				}
-//			],
-//		"external_auth_config": {}
-//	}
+//				],
+//			"external_auth_config": {}
+//		}
 func (config *AuthConfig) Validate(path string) error {
 	seenTypes := make(map[string]struct{}, len(config.Handlers))
 	for idx, handler := range config.Handlers {
@@ -927,8 +928,8 @@ func (config *AuthHandlerConfig) Validate(path string) error {
 	}
 	switch config.Type {
 	case rpc.CredentialsTypeAPIKey:
-		if len(config.Config) == 0 || config.Config == nil {
-			return resource.NewConfigValidationError(fmt.Sprintf("%s.config", path), errors.New("At least 1 key required for API key handler"))
+		if len(config.Config.StringSlice("keys")) == 0 {
+			return resource.NewConfigValidationError(fmt.Sprintf("%s.config", path), errors.New("keys is required"))
 		}
 	case rpc.CredentialsTypeExternal:
 		return errors.New("robot cannot issue external auth tokens")
