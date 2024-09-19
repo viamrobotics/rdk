@@ -429,7 +429,7 @@ func TestConfigEnsure(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, `auth.handlers.0`)
 	test.That(t, err.Error(), test.ShouldContainSubstring, `required`)
-	test.That(t, err.Error(), test.ShouldContainSubstring, `key`)
+	test.That(t, err.Error(), test.ShouldContainSubstring, `keys`)
 
 	validAPIKeyHandler.Config = rutils.AttributeMap{
 		"keys": []string{"one", "two"},
@@ -648,7 +648,7 @@ func TestConfigEnsurePartialStart(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, `auth.handlers.0`)
 	test.That(t, err.Error(), test.ShouldContainSubstring, `required`)
-	test.That(t, err.Error(), test.ShouldContainSubstring, `key`)
+	test.That(t, err.Error(), test.ShouldContainSubstring, `keys`)
 
 	validAPIKeyHandler.Config = rutils.AttributeMap{
 		"keys": []string{"one", "two"},
