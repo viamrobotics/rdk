@@ -8,9 +8,9 @@ import (
 	"sync"
 	"time"
 
+	"github.com/go-viper/mapstructure/v2"
 	"github.com/golang/geo/r3"
 	"github.com/google/uuid"
-	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
 	pb "go.viam.com/api/service/motion/v1"
 
