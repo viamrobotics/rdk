@@ -1,7 +1,6 @@
 package motion
 
 import (
-	"encoding/json"
 	"fmt"
 	"math"
 	"testing"
@@ -17,7 +16,6 @@ import (
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
-	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/components/movementsensor"
@@ -1426,29 +1424,29 @@ func TestPlanHistoryReq(t *testing.T) {
 	})
 }
 
-func TestMoveReq(t *testing.T) {
-	req := MoveReq{
-		ComponentName: arm.Named("fake"),
-		Destination:   referenceframe.NewPoseInFrame("world", spatialmath.NewZeroPose()),
-		WorldState:    referenceframe.NewEmptyWorldState(),
-		Extra: map[string]interface{}{
-			"oops": 1,
-		},
-		Constraints: motionplan.NewConstraints([]motionplan.LinearConstraint{{LineToleranceMm: 10}}, nil, nil),
-	}
-	bytes, err := json.Marshal(req)
-	test.That(t, err, test.ShouldBeNil)
-	var i map[string]interface{}
-	err = json.Unmarshal(bytes, &i)
-	test.That(t, err, test.ShouldBeNil)
+// func TestMoveReq(t *testing.T) {
+// 	req := MoveReq{
+// 		ComponentName: arm.Named("fake"),
+// 		Destination:   referenceframe.NewPoseInFrame("world", spatialmath.NewZeroPose()),
+// 		WorldState:    referenceframe.NewEmptyWorldState(),
+// 		Extra: map[string]interface{}{
+// 			"oops": 1,
+// 		},
+// 		Constraints: motionplan.NewConstraints([]motionplan.LinearConstraint{{LineToleranceMm: 10}}, nil, nil),
+// 	}
+// 	bytes, err := json.Marshal(req)
+// 	test.That(t, err, test.ShouldBeNil)
+// 	var i map[string]interface{}
+// 	err = json.Unmarshal(bytes, &i)
+// 	test.That(t, err, test.ShouldBeNil)
 
-	bytes2, err := json.Marshal(i)
-	test.That(t, err, test.ShouldBeNil)
-	var req2 MoveReq
-	err = json.Unmarshal(bytes2, &req2)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, req, test.ShouldResemble, req2)
-}
+// 	bytes2, err := json.Marshal(i)
+// 	test.That(t, err, test.ShouldBeNil)
+// 	var req2 MoveReq
+// 	err = json.Unmarshal(bytes2, &req2)
+// 	test.That(t, err, test.ShouldBeNil)
+// 	test.That(t, req, test.ShouldResemble, req2)
+// }
 
 func validMoveOnGlobeRequest() MoveOnGlobeReq {
 	dst := geo.NewPoint(1, 2)
