@@ -610,7 +610,8 @@ func TestConfigEnsurePartialStart(t *testing.T) {
 	validAPIKeyHandler := config.AuthHandlerConfig{
 		Type: rpc.CredentialsTypeAPIKey,
 		Config: rutils.AttributeMap{
-			"key": "foo",
+			"key":  "foo",
+			"keys": []string{"key"},
 		},
 	}
 
