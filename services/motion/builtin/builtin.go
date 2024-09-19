@@ -414,7 +414,7 @@ func (ms *builtIn) plan(ctx context.Context, req motion.MoveReq) (motionplan.Pla
 	goalPose, _ := tf.(*referenceframe.PoseInFrame)
 
 	// the goal is to move the component to goalPose which is specified in coordinates of goalFrameName
-	plan, err := motionplan.PlanMotion(ctx, &motionplan.PlanRequest{
+	return motionplan.PlanMotion(ctx, &motionplan.PlanRequest{
 		Logger:             ms.logger,
 		Goal:               goalPose,
 		Frame:              movingFrame,
@@ -424,10 +424,6 @@ func (ms *builtIn) plan(ctx context.Context, req motion.MoveReq) (motionplan.Pla
 		Constraints:        req.Constraints,
 		Options:            req.Extra,
 	})
-	if err != nil {
-		return nil, err
-	}
-	return plan, nil
 }
 
 func (ms *builtIn) execute(ctx context.Context, trajectory motionplan.Trajectory) error {
