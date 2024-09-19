@@ -390,7 +390,8 @@ func TestConfigEnsure(t *testing.T) {
 	validAPIKeyHandler := config.AuthHandlerConfig{
 		Type: rpc.CredentialsTypeAPIKey,
 		Config: rutils.AttributeMap{
-			"key": "foo",
+			"key":  "foo",
+			"keys": []string{"key"},
 		},
 	}
 
@@ -928,8 +929,11 @@ func TestAuthConfigEnsure(t *testing.T) {
 			Auth: config.AuthConfig{
 				Handlers: []config.AuthHandlerConfig{
 					{
-						Type:   rpc.CredentialsTypeAPIKey,
-						Config: rutils.AttributeMap{"key": "abc123"},
+						Type: rpc.CredentialsTypeAPIKey,
+						Config: rutils.AttributeMap{
+							"abc123": "abc123",
+							"keys":   []string{"abc123"},
+						},
 					},
 				},
 			},

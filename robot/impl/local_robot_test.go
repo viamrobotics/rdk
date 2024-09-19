@@ -318,6 +318,7 @@ func TestConfigRemoteWithAuth(t *testing.T) {
 			options.Managed = tc.Managed
 			options.FQDN = tc.EntityName
 			options.LocalFQDN = primitive.NewObjectID().Hex()
+			apiKeyID := "sosecretID"
 			apiKey := "sosecret"
 			locationSecret := "locsosecret"
 
@@ -325,7 +326,8 @@ func TestConfigRemoteWithAuth(t *testing.T) {
 				{
 					Type: rpc.CredentialsTypeAPIKey,
 					Config: rutils.AttributeMap{
-						"key": apiKey,
+						apiKeyID: apiKey,
+						"keys":   []string{apiKey},
 					},
 				},
 				{
