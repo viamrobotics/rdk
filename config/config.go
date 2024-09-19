@@ -895,7 +895,7 @@ type AuthHandlerConfig struct {
 //						"config": {
 //							"API_KEY_ID": "API_KEY",
 //							"API_KEY_ID_2": "API_KEY_2",
-//	                     "keys": ["API_KEY_ID", "API_KEY_ID_2"]
+//	                        "keys": ["API_KEY_ID", "API_KEY_ID_2"],
 //						}
 //					}
 //				],
