@@ -131,8 +131,13 @@ func TestMoveFailures(t *testing.T) {
 	defer teardown()
 	ctx := context.Background()
 	t.Run("fail on not finding gripper", func(t *testing.T) {
-		grabPose := referenceframe.NewPoseInFrame("fakeCamera", spatialmath.NewPoseFromPoint(r3.Vector{X: 10.0, Y: 10.0, Z: 10.0}))
-		_, err = ms.Move(ctx, motion.MoveReq{ComponentName: camera.Named("fake"), Destination: grabPose})
+		grabPose := referenceframe.NewPoseInFrame("fakeGripper", spatialmath.NewPoseFromPoint(r3.Vector{X: 10.0, Y: 10.0, Z: 10.0}))
+		_, err = ms.Move(ctx, motion.MoveReq{ComponentName: gripper.Named("fake"), Destination: grabPose})
+		test.That(t, err, test.ShouldNotBeNil)
+	})
+
+	t.Run("fail on nil destination", func(t *testing.T) {
+		_, err = ms.Move(ctx, motion.MoveReq{ComponentName: arm.Named("arm1")})
 		test.That(t, err, test.ShouldNotBeNil)
 	})
 
