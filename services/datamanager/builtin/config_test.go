@@ -73,6 +73,18 @@ func TestConfig(t *testing.T) {
 				DeleteEveryNthWhenDiskFull: 5,
 				FileLastModifiedMillis:     10000,
 				MaximumNumSyncThreads:      runtime.NumCPU() / 2,
+				SyncIntervalMins:           0.1,
+			})
+		})
+
+		t.Run("returns a sync config with defaults when called on a config with SyncIntervalMins which is practically 0", func(t *testing.T) {
+			c := &Config{SyncIntervalMins: 0.000000000000000001}
+			test.That(t, c.syncConfig(nil, false), test.ShouldResemble, sync.Config{
+				CaptureDir:                 viamCaptureDotDir,
+				DeleteEveryNthWhenDiskFull: 5,
+				FileLastModifiedMillis:     10000,
+				MaximumNumSyncThreads:      runtime.NumCPU() / 2,
+				SyncIntervalMins:           0.1,
 			})
 		})
 		t.Run("returns a sync config with overridden defaults when called on a full config", func(t *testing.T) {

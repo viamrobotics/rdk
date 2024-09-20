@@ -98,8 +98,8 @@ func New(
 	connToConnectivityStateEnabled func(conn rpc.ClientConn) datasync.ConnectivityState,
 	logger logging.Logger,
 ) (datamanager.Service, error) {
-	logger.Debug("New START")
-	defer logger.Debug("New END")
+	logger.Info("New START")
+	defer logger.Info("New END")
 	capture := capture.New(
 		clk,
 		logger.Sublogger("capture"),
@@ -130,8 +130,8 @@ func New(
 
 // Close releases all resources managed by data_manager.
 func (b *builtIn) Close(_ context.Context) error {
-	b.logger.Debug("Close START")
-	defer b.logger.Debug("Close END")
+	b.logger.Info("Close START")
+	defer b.logger.Info("Close END")
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	b.diskSummaryLogger.close()
@@ -147,8 +147,8 @@ func (b *builtIn) Close(_ context.Context) error {
 // If automated sync is also enabled, calling Sync will upload the files,
 // regardless of whether or not is the scheduled time.
 func (b *builtIn) Sync(ctx context.Context, extra map[string]interface{}) error {
-	b.logger.Debug("Sync START")
-	defer b.logger.Debug("Sync END")
+	b.logger.Info("Sync START")
+	defer b.logger.Info("Sync END")
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	return b.sync.Sync(ctx, extra)
@@ -171,8 +171,8 @@ func (b *builtIn) Sync(ctx context.Context, extra map[string]interface{}) error 
 // If an error occurs after the first Reconfigure call, data capture & data sync will continue to function using the old config
 // until a successful Reconfigure call is made or Close is called.
 func (b *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
-	b.logger.Debug("Reconfigure START")
-	defer b.logger.Debug("Reconfigure END")
+	b.logger.Info("Reconfigure START")
+	defer b.logger.Info("Reconfigure END")
 	c, err := resource.NativeConfig[*Config](conf)
 	if err != nil {
 		// If this error occurs it is due to the builtin.Config not being a native config which is a

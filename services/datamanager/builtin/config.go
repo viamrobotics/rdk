@@ -1,12 +1,14 @@
 package builtin
 
 import (
+	"errors"
 	"runtime"
 
 	"go.viam.com/rdk/components/sensor"
 	"go.viam.com/rdk/internal/cloud"
 	"go.viam.com/rdk/services/datamanager/builtin/capture"
 	datasync "go.viam.com/rdk/services/datamanager/builtin/sync"
+	"go.viam.com/rdk/utils"
 )
 
 // Sync defaults.
@@ -18,6 +20,10 @@ const (
 	// which is evaluated if the file deletion threshold has been reached. If `captureFileIndex % N == 0`
 	// return true then the file will be deleted to free up space.
 	defaultDeleteEveryNth = 5
+	// defaultSyncIntervalMins is the sync interval that will be set if the config's sync_interval_mins is zero (including when it is unset)
+	defaultSyncIntervalMins = 0.1
+	// syncIntervalMinsEpsilon is the value below which SyncIntervalMins is considered zero
+	syncIntervalMinsEpsilon = 0.00001
 )
 
 // Capture Defaults
@@ -46,6 +52,18 @@ type Config struct {
 
 // Validate returns components which will be depended upon weakly due to the above matcher.
 func (c *Config) Validate(path string) ([]string, error) {
+	if c.SyncIntervalMins < 0 {
+		return nil, errors.New("sync_interval_mins can't be negative")
+	}
+	if c.FileLastModifiedMillis < 0 {
+		return nil, errors.New("file_last_modified_millis can't be negative")
+	}
+	if c.MaximumCaptureFileSizeBytes < 0 {
+		return nil, errors.New("maximum_capture_file_size_bytes can't be negative")
+	}
+	if c.DeleteEveryNthWhenDiskFull < 0 {
+		return nil, errors.New("delete_every_nth_when_disk_full can't be negative")
+	}
 	return []string{cloud.InternalServiceName.String()}, nil
 }
 
@@ -88,6 +106,12 @@ func (c *Config) syncConfig(syncSensor sensor.Sensor, syncSensorEnabled bool) da
 		fileLastModifiedMillis = defaultFileLastModifiedMillis
 	}
 	c.FileLastModifiedMillis = fileLastModifiedMillis
+
+	syncIntervalMins := c.SyncIntervalMins
+	if utils.Float64AlmostEqual(c.SyncIntervalMins, 0, syncIntervalMinsEpsilon) {
+		syncIntervalMins = defaultSyncIntervalMins
+	}
+
 	return datasync.Config{
 		AdditionalSyncPaths:        c.AdditionalSyncPaths,
 		Tags:                       c.Tags,
@@ -98,7 +122,7 @@ func (c *Config) syncConfig(syncSensor sensor.Sensor, syncSensorEnabled bool) da
 		MaximumNumSyncThreads:      c.MaximumNumSyncThreads,
 		ScheduledSyncDisabled:      c.ScheduledSyncDisabled,
 		SelectiveSyncerName:        c.SelectiveSyncerName,
-		SyncIntervalMins:           c.SyncIntervalMins,
+		SyncIntervalMins:           syncIntervalMins,
 		SelectiveSyncSensor:        syncSensor,
 		SelectiveSyncSensorEnabled: syncSensorEnabled,
 	}

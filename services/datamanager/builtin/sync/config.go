@@ -6,7 +6,6 @@ import (
 
 	"go.viam.com/rdk/components/sensor"
 	"go.viam.com/rdk/logging"
-	"go.viam.com/rdk/utils"
 )
 
 // Config is the sync config from builtin.
@@ -89,7 +88,7 @@ type Config struct {
 }
 
 func (c Config) schedulerEnabled() bool {
-	configDisabled := c.ScheduledSyncDisabled || utils.Float64AlmostEqual(c.SyncIntervalMins, 0.0, 0.00001)
+	configDisabled := c.ScheduledSyncDisabled
 	selectiveSyncerInvalid := c.SelectiveSyncSensorEnabled && c.SelectiveSyncSensor == nil
 	return !configDisabled && !selectiveSyncerInvalid
 }
@@ -135,7 +134,7 @@ func (c *Config) logDiff(o Config, logger logging.Logger) {
 	}
 
 	if c.FileLastModifiedMillis != o.FileLastModifiedMillis {
-		logger.Infof("file_last_modified_millis: old: %d, new: %Bd", c.FileLastModifiedMillis, o.FileLastModifiedMillis)
+		logger.Infof("file_last_modified_millis: old: %d, new: %d", c.FileLastModifiedMillis, o.FileLastModifiedMillis)
 	}
 
 	if c.MaximumNumSyncThreads != o.MaximumNumSyncThreads {
@@ -167,8 +166,9 @@ func (c *Config) logDiff(o Config, logger logging.Logger) {
 		if c.SelectiveSyncSensor != nil {
 			oldName = c.SelectiveSyncSensor.Name().String()
 		}
+
 		newName := ""
-		if c.SelectiveSyncSensor != nil {
+		if o.SelectiveSyncSensor != nil {
 			newName = o.SelectiveSyncSensor.Name().String()
 		}
 		logger.Infof("SelectiveSyncSensor: old: %s, new: %s", oldName, newName)
