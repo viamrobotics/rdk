@@ -2,6 +2,7 @@ package spatialmath
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math"
 	"sync"
@@ -378,7 +379,7 @@ func separatingAxisTest1D(positionDelta, capVec *r3.Vector, plane r3.Vector, hal
 // a list of points along the surface of the geometry at the points of intersection.
 // It returns an error if the geometry type is unsupported or if points cannot be computed.
 // The points returned are in order, in frame of the capsule's parent, and follow the right hand rule around the plane normal.
-func CapsuleIntersectionWithPlane(g Geometry, planeNormal r3.Vector, planePoint r3.Vector, numPoints int) ([]r3.Vector, error) {
+func CapsuleIntersectionWithPlane(g Geometry, planeNormal, planePoint r3.Vector, numPoints int) ([]r3.Vector, error) {
 	c, ok := g.(*capsule)
 	if !ok {
 		return nil, fmt.Errorf("unsupported geometry type: %T", g)
@@ -391,7 +392,7 @@ func CapsuleIntersectionWithPlane(g Geometry, planeNormal r3.Vector, planePoint 
 	centerToPlane := c.center.Sub(planePoint).Dot(planeNormal) * -1
 	// If the distance is greater than the capsule's half-length plus radius, there's no intersection
 	if math.Abs(centerToPlane) > c.length/2+c.radius {
-		return nil, fmt.Errorf("no intersection: plane is too far from capsule")
+		return nil, errors.New("no intersection: plane is too far from capsule")
 	}
 
 	capVecNormalized := c.capVec.Normalize()
@@ -448,7 +449,7 @@ func CapsuleIntersectionWithPlane(g Geometry, planeNormal r3.Vector, planePoint 
 
 		// At the end of the function, before returning the points:
 		if len(intersectionPoints) == 0 {
-			return nil, fmt.Errorf("no intersection points found")
+			return nil, errors.New("no intersection points found")
 		}
 
 		return intersectionPoints, nil
@@ -490,7 +491,6 @@ func CapsuleIntersectionWithPlane(g Geometry, planeNormal r3.Vector, planePoint 
 	for i := 0; i < numPoints; i++ {
 		angle := 2 * math.Pi * float64(i) / float64(numPoints)
 		pt := axisIntersection.Add(u.Mul(a * math.Cos(angle))).Add(v.Mul(b * math.Sin(angle)))
-		
 
 		// Check if the point is within the capsule's cylindrical length
 		projectedDist := pt.Sub(c.center).Dot(capVecNormalized)
@@ -506,7 +506,7 @@ func CapsuleIntersectionWithPlane(g Geometry, planeNormal r3.Vector, planePoint 
 	}
 	// At the end of the function, before returning the points:
 	if len(intersectionPoints) == 0 {
-		return nil, fmt.Errorf("no intersection points found")
+		return nil, errors.New("no intersection points found")
 	}
 
 	return intersectionPoints, nil

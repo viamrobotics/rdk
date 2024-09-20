@@ -55,7 +55,7 @@ func newPlanManager(
 }
 
 // PlanMultiWaypoint plans a motion through multiple waypoints, using identical constraints for each
-// Unlike PlanSingleWaypoint, this does not break up individual
+// Unlike PlanSingleWaypoint, this does not break up individual.
 func (pm *planManager) PlanMultiWaypoint(ctx context.Context, request *PlanRequest, goals []spatialmath.Pose) (Plan, error) {
 	if pm.useTPspace {
 		return nil, errors.New("TPspace does not support multi-waypoint planning")
@@ -119,6 +119,7 @@ func (pm *planManager) PlanMultiWaypoint(ctx context.Context, request *PlanReque
 		}
 		opt.SetGoal(goal)
 
+		//nolint: gosec
 		pathPlanner, err := opt.PlannerConstructor(
 			pm.frame,
 			rand.New(rand.NewSource(int64(pm.randseed.Int()))),
