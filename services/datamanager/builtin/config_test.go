@@ -1,6 +1,7 @@
 package builtin
 
 import (
+	"errors"
 	"runtime"
 	"testing"
 
@@ -27,11 +28,60 @@ var fullConfig = &Config{
 }
 
 func TestConfig(t *testing.T) {
-	t.Run("Validate returns the internal cloud service name", func(t *testing.T) {
-		c := &Config{}
-		deps, err := c.Validate("")
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, deps, test.ShouldResemble, []string{cloud.InternalServiceName.String()})
+	t.Run("Validate ", func(t *testing.T) {
+		type testCase struct {
+			name   string
+			config Config
+			deps   []string
+			err    error
+		}
+
+		tcs := []testCase{
+			{
+				name:   "returns the internal cloud service name when valid",
+				config: Config{},
+				deps:   []string{cloud.InternalServiceName.String()},
+			},
+			{
+				name:   "returns an error if SyncIntervalMins is negative",
+				config: Config{SyncIntervalMins: -1},
+				err:    errors.New("sync_interval_mins can't be negative"),
+			},
+			{
+				name:   "returns an error if MaximumNumSyncThreads is negative",
+				config: Config{MaximumNumSyncThreads: -1},
+				err:    errors.New("maximum_num_sync_threads can't be negative"),
+			},
+			{
+				name:   "returns an error if FileLastModifiedMillis is negative",
+				config: Config{FileLastModifiedMillis: -1},
+				err:    errors.New("file_last_modified_millis can't be negative"),
+			},
+			{
+				name:   "returns an error if MaximumCaptureFileSizeBytes is negative",
+				config: Config{MaximumCaptureFileSizeBytes: -1},
+				err:    errors.New("maximum_capture_file_size_bytes can't be negative"),
+			},
+			{
+				name:   "returns an error if DeleteEveryNthWhenDiskFull is negative",
+				config: Config{DeleteEveryNthWhenDiskFull: -1},
+				err:    errors.New("delete_every_nth_when_disk_full can't be negative"),
+			},
+		}
+
+		for _, tc := range tcs {
+			t.Run(tc.name, func(t *testing.T) {
+				deps, err := tc.config.Validate("")
+				if tc.err == nil {
+					test.That(t, err, test.ShouldBeNil)
+
+				} else {
+					test.That(t, err, test.ShouldBeError, tc.err)
+				}
+				test.That(t, deps, test.ShouldResemble, tc.deps)
+
+			})
+		}
 	})
 
 	t.Run("getCaptureDir", func(t *testing.T) {

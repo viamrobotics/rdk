@@ -55,6 +55,9 @@ func (c *Config) Validate(path string) ([]string, error) {
 	if c.SyncIntervalMins < 0 {
 		return nil, errors.New("sync_interval_mins can't be negative")
 	}
+	if c.MaximumNumSyncThreads < 0 {
+		return nil, errors.New("maximum_num_sync_threads can't be negative")
+	}
 	if c.FileLastModifiedMillis < 0 {
 		return nil, errors.New("file_last_modified_millis can't be negative")
 	}
