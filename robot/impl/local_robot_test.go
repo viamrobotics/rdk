@@ -410,6 +410,8 @@ func TestConfigRemoteWithAuth(t *testing.T) {
 
 				test.That(t, setupLocalRobot(t, context.Background(), remoteConfig, logger).Close(context.Background()), test.ShouldBeNil)
 
+				remoteConfig.Remotes[0].Auth.Entity = apiKeyID
+
 				ctx2 := context.Background()
 				remoteConfig.Remotes[0].Address = options.LocalFQDN
 				r2 = setupLocalRobot(t, ctx2, remoteConfig, logger)
