@@ -14,6 +14,7 @@ import (
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 
+	"go.viam.com/rdk/components/audioinput"
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/gostream"
 	"go.viam.com/rdk/logging"
@@ -137,7 +138,7 @@ func (server *Server) AddStream(ctx context.Context, req *streampb.AddStreamRequ
 
 	streamStateToAdd, ok := server.nameToStreamState[req.Name]
 
-	// return error if there is no stream for that camera
+	// return error if the stream name is not registered
 	if !ok {
 		var availableStreams string
 		for n := range server.nameToStreamState {
@@ -150,12 +151,15 @@ func (server *Server) AddStream(ctx context.Context, req *streampb.AddStreamRequ
 		server.logger.Error(err.Error())
 		return nil, err
 	}
-	// return error if camera is not in resource graph
-	if _, err := streamCamera.Camera(server.robot, streamStateToAdd.Stream); err != nil {
-		return nil, err
+
+	// return error if resource is neither a camera nor audioinput
+	_, isCamErr := streamCamera.Camera(server.robot, streamStateToAdd.Stream)
+	_, isAudioErr := audioinput.FromRobot(server.robot, resource.SDPTrackNameToShortName(streamStateToAdd.Stream.Name()))
+	if isCamErr != nil && isAudioErr != nil {
+		return nil, errors.Errorf("stream is neither a camera nor audioinput. streamName: %v", streamStateToAdd.Stream)
 	}
 
-	// return error if the caller's peer connection is already being sent video data
+	// return error if the caller's peer connection is already being sent stream data
 	if _, ok := server.activePeerStreams[pc][req.Name]; ok {
 		err := errors.New("stream already active")
 		server.logger.Error(err.Error())
@@ -363,6 +367,11 @@ func (server *Server) removeMissingStreams() {
 		// Stream names are slightly modified versions of the resource short name
 		camName := streamState.Stream.Name()
 		shortName := resource.SDPTrackNameToShortName(camName)
+		if _, err := audioinput.FromRobot(server.robot, shortName); err == nil {
+			// `nameToStreamState` can contain names for both camera and audio resources. Leave the
+			// stream in place if its an audio resource.
+			continue
+		}
 
 		_, err := camera.FromRobot(server.robot, shortName)
 		if !resource.IsNotFoundError(err) {
