@@ -639,6 +639,10 @@ func (c *monitoredWebcam) Properties(ctx context.Context) (camera.Properties, er
 			c.hasLoggedIntrinsicsInfo = true
 		}
 		props.IntrinsicParams = &cameraIntrinsics
+
+		if c.conf.FrameRate != 0 {
+			props.FrameRate = c.conf.FrameRate
+		}
 	}
 	return props, nil
 }

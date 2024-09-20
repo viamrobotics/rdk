@@ -119,4 +119,19 @@ func TestWebcamGetImage(t *testing.T) {
 
 	test.That(t, img.Bounds().Dx(), test.ShouldEqual, 1280)
 	test.That(t, img.Bounds().Dy(), test.ShouldEqual, 720)
+
+	// new camera for frame rate test
+	// fakeFrameRate = 10.0
+	var props camera.Properties
+	conf = newWebcamConfig("cam3", "video64")
+	cam3, err := videosource.NewWebcam(cancelCtx, nil, conf, logger)
+	props, err = cam3.Properties(cancelCtx)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, props.FrameRate, test.ShouldEqual, 0.0) //without setting frame rate
+	// test.That(t, props.FrameRate, test.ShouldBeNil) //without setting frame rate ?? not sure about this one
+	// props.FrameRate = fakeFrameRate
+	// test.That(t, props.FrameRate, test.ShouldNotBeNil)
+	// test.That(t, props.FrameRate, test.ShouldEqual, fakeFrameRate)
+	defer cam3.Close(cancelCtx)
+
 }
