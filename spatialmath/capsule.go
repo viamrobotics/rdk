@@ -388,7 +388,7 @@ func CapsuleIntersectionWithPlane(g Geometry, planeNormal r3.Vector, planePoint 
 	planeNormal = planeNormal.Normalize()
 
 	// Calculate the distance from the plane to the capsule's center
-	centerToPlane := c.center.Sub(planePoint).Dot(planeNormal)
+	centerToPlane := c.center.Sub(planePoint).Dot(planeNormal) * -1
 	// If the distance is greater than the capsule's half-length plus radius, there's no intersection
 	if math.Abs(centerToPlane) > c.length/2+c.radius {
 		return nil, fmt.Errorf("no intersection: plane is too far from capsule")
@@ -461,7 +461,7 @@ func CapsuleIntersectionWithPlane(g Geometry, planeNormal r3.Vector, planePoint 
 
 	// Calculate the axis intersection
 	// The capsule's axis is not perpendicular to the plane normal
-	axisIntersection := c.center.Add(capVecNormalized.Mul(centerToPlane / capVecDotNormalAbs))
+	axisIntersection := c.center.Add(capVecNormalized.Mul(centerToPlane / capVecNormalized.Dot(planeNormal)))
 
 	// Create two perpendicular vectors in the plane
 	u := planeNormal.Cross(capVecNormalized)

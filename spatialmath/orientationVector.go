@@ -4,6 +4,7 @@ import (
 	"errors"
 	"math"
 
+	"github.com/golang/geo/r3"
 	"github.com/go-gl/mathgl/mgl64"
 	"gonum.org/v1/gonum/num/quat"
 
@@ -104,6 +105,14 @@ func (ovd *OrientationVectorDegrees) computeNormal() float64 {
 
 func (ov *OrientationVector) computeNormal() float64 {
 	return math.Sqrt(ov.OX*ov.OX + ov.OY*ov.OY + ov.OZ*ov.OZ)
+}
+
+func (ovd *OrientationVectorDegrees) Vector() r3.Vector {
+	return r3.Vector{ovd.OX, ovd.OY, ovd.OZ}
+}
+
+func (ov *OrientationVector) Vector() r3.Vector {
+	return r3.Vector{ov.OX, ov.OY, ov.OZ}
 }
 
 // Normalize scales the x, y, and z components of an Orientation Vector to be on the unit sphere.
