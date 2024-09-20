@@ -20,9 +20,9 @@ const (
 	// which is evaluated if the file deletion threshold has been reached. If `captureFileIndex % N == 0`
 	// return true then the file will be deleted to free up space.
 	defaultDeleteEveryNth = 5
-	// defaultSyncIntervalMins is the sync interval that will be set if the config's sync_interval_mins is zero (including when it is unset)
+	// defaultSyncIntervalMins is the sync interval that will be set if the config's sync_interval_mins is zero (including when it is unset).
 	defaultSyncIntervalMins = 0.1
-	// syncIntervalMinsEpsilon is the value below which SyncIntervalMins is considered zero
+	// syncIntervalMinsEpsilon is the value below which SyncIntervalMins is considered zero.
 	syncIntervalMinsEpsilon = 0.00001
 )
 

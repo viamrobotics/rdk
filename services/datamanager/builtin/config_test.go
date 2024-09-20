@@ -74,12 +74,10 @@ func TestConfig(t *testing.T) {
 				deps, err := tc.config.Validate("")
 				if tc.err == nil {
 					test.That(t, err, test.ShouldBeNil)
-
 				} else {
 					test.That(t, err, test.ShouldBeError, tc.err)
 				}
 				test.That(t, deps, test.ShouldResemble, tc.deps)
-
 			})
 		}
 	})
