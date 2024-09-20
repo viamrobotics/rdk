@@ -141,7 +141,11 @@ func (c *Capture) Reconfigure(
 	}
 
 	if c.captureDir != config.CaptureDir {
-		c.logger.Infof("capture_dir set to: %s", config.CaptureDir)
+		c.logger.Infof("capture_dir old: %s, new: %s", c.captureDir, config.CaptureDir)
+	}
+
+	if c.maxCaptureFileSize != config.MaximumCaptureFileSizeBytes {
+		c.logger.Infof("maximum_capture_file_size_bytes old: %d, new: %d", c.maxCaptureFileSize, config.MaximumCaptureFileSizeBytes)
 	}
 
 	newCollectors := c.newCollectors(collectorConfigsByResource, config)
