@@ -242,6 +242,9 @@ func (x *xArm) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[s
 	if err = x.setGripperMode(ctx, false); err != nil {
 		return nil, err
 	}
+
+	resp := map[string]interface{}{}
+
 	if val, ok := cmd["move_gripper"]; ok {
 		position, ok := val.(float64)
 		if !ok || position < -10 || position > 850 {
@@ -251,10 +254,29 @@ func (x *xArm) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[s
 		if err != nil {
 			return nil, err
 		}
-		return map[string]interface{}{}, nil
 	}
 	if _, ok := cmd["load"]; ok {
-		return x.getLoad(ctx)
+		loadInformation, err := x.getLoad(ctx)
+		if err != nil {
+			return nil, err
+		}
+		loadInformationInterface, ok := loadInformation["loads"]
+		if !ok {
+			return nil, errors.New("could not read loadInformation")
+		}
+		loadInterfaceList, err := utils.AssertType[[]interface{}](loadInformationInterface)
+		if err != nil {
+			return nil, err
+		}
+		loads := make([]float64, len(loadInterfaceList))
+		for i, l := range loadInterfaceList {
+			loadValue, err := utils.AssertType[float64](l)
+			if err != nil {
+				return nil, err
+			}
+			loads[i] = loadValue
+		}
+		resp["load"] = loads
 	}
 	if val, ok := cmd["set_speed"]; ok {
 		speed, err := utils.AssertType[float64](val)
@@ -265,7 +287,6 @@ func (x *xArm) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[s
 			return nil, errors.New("speed cannot be less than or equal to zero")
 		}
 		x.speed = utils.DegToRad(speed)
-		return map[string]interface{}{}, nil
 	}
 	if val, ok := cmd["set_acceleration"]; ok {
 		acceleration, err := utils.AssertType[float64](val)
@@ -276,8 +297,7 @@ func (x *xArm) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[s
 			return nil, errors.New("acceleration cannot be less than or equal to zero")
 		}
 		x.acceleration = utils.DegToRad(acceleration)
-		return map[string]interface{}{}, nil
 	}
 
-	return nil, errors.New("command not found")
+	return resp, nil
 }
