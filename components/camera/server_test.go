@@ -430,8 +430,8 @@ func TestServer(t *testing.T) {
 
 		// test property when we don't set frame rate
 		resp2, err := cameraServer.GetProperties(context.Background(), &pb.GetPropertiesRequest{Name: depthCameraName})
+		test.That(t, err, test.ShouldBeNil)
 		test.That(t, resp2.FrameRate, test.ShouldBeNil)
-
 	})
 
 	t.Run("GetImage with extra", func(t *testing.T) {
