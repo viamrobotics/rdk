@@ -235,24 +235,24 @@ func (x *xArm) ModelFrame() referenceframe.Model {
 }
 
 func (x *xArm) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
-	err := x.enableGripper(ctx)
-	if err != nil {
-		return nil, err
-	}
-	if err = x.setGripperMode(ctx, false); err != nil {
-		return nil, err
-	}
-
 	resp := map[string]interface{}{}
 	validCommand := false
 
+	if _, ok := cmd["setup_gripper"]; ok {
+		if err := x.enableGripper(ctx); err != nil {
+			return nil, err
+		}
+		if err := x.setGripperMode(ctx, false); err != nil {
+			return nil, err
+		}
+		validCommand = true
+	}
 	if val, ok := cmd["move_gripper"]; ok {
 		position, ok := val.(float64)
 		if !ok || position < -10 || position > 850 {
 			return nil, fmt.Errorf("must move gripper to an int between 0 and 840 %v", val)
 		}
-		err = x.setGripperPosition(ctx, uint32(position))
-		if err != nil {
+		if err := x.setGripperPosition(ctx, uint32(position)); err != nil {
 			return nil, err
 		}
 		validCommand = true
