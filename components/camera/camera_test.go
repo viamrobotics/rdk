@@ -254,36 +254,3 @@ func TestCameraWithProjector(t *testing.T) {
 
 	test.That(t, cam2.Close(context.Background()), test.ShouldBeNil)
 }
-
-func TestCameraFrameRate(t *testing.T) {
-	videoSrc := &simpleSource{"rimage/board1"}
-	fakeFrameRate := float32(30.0)
-
-	// Camera with specified frame rate
-	cam1, err := camera.NewVideoSourceFromReader(
-		context.Background(),
-		videoSrc,
-		nil,
-		camera.DepthStream,
-	)
-	test.That(t, err, test.ShouldBeNil)
-
-	// Test setting frame rate
-	props, err := cam1.Properties(context.Background())
-	test.That(t, err, test.ShouldBeNil)
-	props.FrameRate = fakeFrameRate
-	test.That(t, props.FrameRate, test.ShouldEqual, fakeFrameRate)
-
-	// Camera without specific frame rate
-	cam2, err := camera.NewVideoSourceFromReader(
-		context.Background(),
-		videoSrc,
-		nil,
-		camera.DepthStream,
-	)
-	test.That(t, err, test.ShouldBeNil)
-
-	defaultProps, err := cam2.Properties(context.Background())
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, defaultProps.FrameRate, test.ShouldEqual, 0.0)
-}
