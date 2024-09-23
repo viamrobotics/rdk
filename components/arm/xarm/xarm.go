@@ -264,19 +264,7 @@ func (x *xArm) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[s
 		if !ok {
 			return nil, errors.New("could not read loadInformation")
 		}
-		loadInterfaceList, err := utils.AssertType[[]interface{}](loadInformationInterface)
-		if err != nil {
-			return nil, err
-		}
-		loads := make([]float64, len(loadInterfaceList))
-		for i, l := range loadInterfaceList {
-			loadValue, err := utils.AssertType[float64](l)
-			if err != nil {
-				return nil, err
-			}
-			loads[i] = loadValue
-		}
-		resp["load"] = loads
+		resp["load"] = loadInformationInterface
 	}
 	if val, ok := cmd["set_speed"]; ok {
 		speed, err := utils.AssertType[float64](val)
