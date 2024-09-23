@@ -257,7 +257,14 @@ func (x *xArm) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[s
 		return x.getLoad(ctx)
 	}
 	if val, ok := cmd["set_speed"]; ok {
-		speed, err := utils.AssertType[float64](val)
+		interfaceList, err := utils.AssertType[[]interface{}](val)
+		if err != nil {
+			return nil, err
+		}
+		if len(interfaceList) != 1 {
+			return nil, errors.New("set_speed is incorrectly formatted, expected a slice of length 1")
+		}
+		speed, err := utils.AssertType[float64](interfaceList[0])
 		if err != nil {
 			return nil, err
 		}
@@ -268,7 +275,14 @@ func (x *xArm) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[s
 		return map[string]interface{}{}, nil
 	}
 	if val, ok := cmd["set_acceleration"]; ok {
-		acceleration, err := utils.AssertType[float64](val)
+		interfaceList, err := utils.AssertType[[]interface{}](val)
+		if err != nil {
+			return nil, err
+		}
+		if len(interfaceList) != 1 {
+			return nil, errors.New("set_speed is incorrectly formatted, expected a slice of length 1")
+		}
+		acceleration, err := utils.AssertType[float64](interfaceList[0])
 		if err != nil {
 			return nil, err
 		}
