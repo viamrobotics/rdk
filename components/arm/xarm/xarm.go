@@ -255,5 +255,25 @@ func (x *xArm) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[s
 	if _, ok := cmd["load"]; ok {
 		return x.getLoad(ctx)
 	}
+	if val, ok := cmd["set"]; ok {
+		// The command expects a float64 slice of length 2, describing the desired speed and acceleration.
+		// We specify our values in degrees and here they are converted into radians.
+		interfaceList, err := utils.AssertType[[]interface{}](val)
+		if err != nil {
+			return nil, err
+		}
+		speed, ok := interfaceList[0].(float64)
+		if !ok {
+			return nil, errors.New("could not get float64 from interfaceList[0]")
+		}
+		acceleration, ok := interfaceList[1].(float64)
+		if !ok {
+			return nil, errors.New("could not get float64 from interfaceList[1]")
+		}
+		x.speed = utils.DegToRad(speed)
+		x.acceleration = utils.DegToRad(acceleration)
+		return map[string]interface{}{}, nil
+	}
+
 	return nil, errors.New("command not found")
 }
