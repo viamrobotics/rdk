@@ -927,7 +927,12 @@ func (svc *webService) initMux(options weboptions.Options) (*goji.Mux, error) {
 	return mux, nil
 }
 
+// foreignServiceHandler is a bidi-streaming RPC service handler to support custom APIs.
+// It is invoked instead of returning the "unimplemented" gRPC error whenever a request is received for
+// an unregistered service or method. These method could be registered on a remote viam-server or a module server
+// so this handler will attempt to route the request to the correct next node in the chain.
 func (svc *webService) foreignServiceHandler(srv interface{}, stream googlegrpc.ServerStream) error {
+	// method will be in the form of PackageName.ServiceName/MethodName
 	method, ok := googlegrpc.MethodFromServerStream(stream)
 	if !ok {
 		return grpc.UnimplementedError
@@ -939,10 +944,15 @@ func (svc *webService) foreignServiceHandler(srv interface{}, stream googlegrpc.
 
 	firstMsg := dynamic.NewMessage(methodDesc.GetInputType())
 
+	// The stream blocks until it receives a message and attempts to deserialize
+	// the message into firstMsg - it will error out if the received message cannot
+	// be marshalled into the expected type.
 	if err := stream.RecvMsg(firstMsg); err != nil {
 		return err
 	}
 
+	// We expect each message to contain a "name" argument which will allow us to route
+	// the message towards the correct destination.
 	resource, fqName, err := robot.ResourceFromProtoMessage(svc.r, firstMsg, subType.API)
 	if err != nil {
 		svc.logger.Errorw("unable to route foreign message", "error", err)

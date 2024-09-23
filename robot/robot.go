@@ -258,8 +258,8 @@ func TypeAndMethodDescFromMethod(r Robot, method string) (*resource.RPCAPI, *des
 	if len(methodParts) != 3 {
 		return nil, nil, grpc.UnimplementedError
 	}
-	protoSvc := methodParts[1]
-	protoMethod := methodParts[2]
+	protoSvc := methodParts[1]    // e.g. viam.component.arm.v1.ArmService
+	protoMethod := methodParts[2] // e.g. DoCommand
 
 	var foundType *resource.RPCAPI
 	for _, resAPI := range r.ResourceRPCAPIs() {
