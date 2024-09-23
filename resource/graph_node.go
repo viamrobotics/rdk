@@ -296,7 +296,9 @@ func (w *GraphNode) NeedsReconfigure() bool {
 
 	// A resource can only become unhealthy during (re)configuration, so we can
 	// assume that an unhealthy node always need to be reconfigured.
-	return w.state == NodeStateConfiguring || w.state == NodeStateUnhealthy
+	return w.state == NodeStateConfiguring ||
+		// TODO: add a method for this check.
+		(w.state == NodeStateUnhealthy && !errors.Is(w.lastErr, errDisconnected))
 }
 
 // hasUnresolvedDependencies returns whether or not this node has any
@@ -359,6 +361,14 @@ func (w *GraphNode) SetNewConfig(newConfig Config, dependencies []string) {
 func (w *GraphNode) SetNeedsUpdate() {
 	// doing two mutex ops here but we assume there's only one caller.
 	w.setNeedsReconfigure(w.Config(), false, w.UnresolvedDependencies())
+}
+
+var errDisconnected = errors.New("disconnected")
+
+// SetDisconnected is used to mark a remote node as disconnected.
+func (w *GraphNode) SetDisconnected() {
+	// TODO: add disconnected state?
+	w.LogAndSetLastError(errDisconnected)
 }
 
 // setUnresolvedDependencies sets names that are yet to be resolved as

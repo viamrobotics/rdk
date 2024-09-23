@@ -514,7 +514,8 @@ func (rc *RobotClient) checkConnection(ctx context.Context, checkEvery, reconnec
 	}
 }
 
-// Close closes the underlying client connections to the machine and stops any periodic tasks running in the client.
+// Close closes the underlying client connections to the machine and stops any
+// periodic tasks running in the client.
 //
 //	err := machine.Close(ctx.Background())
 func (rc *RobotClient) Close(ctx context.Context) error {
@@ -1069,7 +1070,9 @@ func (rc *RobotClient) Shutdown(ctx context.Context) error {
 // ErrDisconnected that a robot is disconnected.
 var ErrDisconnected = errors.New("disconnected")
 
-// MachineStatus returns the current status of the robot.
+// MachineStatus returns the current status of the robot. If the robot is
+// disconnected return it's cached resource statuses with state
+// [NodeStateDisconnected].
 func (rc *RobotClient) MachineStatus(ctx context.Context) (robot.MachineStatus, error) {
 	var err error
 	if rc.checkConnected() != nil {
@@ -1078,7 +1081,14 @@ func (rc *RobotClient) MachineStatus(ctx context.Context) (robot.MachineStatus, 
 
 	rc.mu.Lock()
 	defer rc.mu.Unlock()
-	return rc.cachedMachineStatus, err
+
+	ms := rc.cachedMachineStatus
+	if errors.Is(err, ErrDisconnected) {
+		for i := range rc.cachedMachineStatus.Resources {
+			ms.Resources[i].State = resource.NodeStateUnhealthy
+		}
+	}
+	return ms, err
 }
 
 func (rc *RobotClient) machineStatus(ctx context.Context) (robot.MachineStatus, error) {

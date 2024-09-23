@@ -135,7 +135,15 @@ func TestFrameSystemConfigWithRemote(t *testing.T) {
 		gripper.Named("myParentIsRemote"),
 	}
 	testutils.WaitForAssertionWithSleep(t, time.Millisecond*100, 300, func(tb testing.TB) {
-		rdktestutils.VerifySameResourceNames(tb, r2.ResourceNames(), finalSet)
+		ms, err := r2.MachineStatus(ctx)
+		test.That(t, err, test.ShouldBeNil)
+		var ready []resource.Name
+		for _, rs := range ms.Resources {
+			logger.Infow(">>> ms resource",
+				"name", rs.Name, "state", rs.State)
+			ready = append(ready, rs.Name)
+		}
+		rdktestutils.VerifySameResourceNames(tb, ready, finalSet)
 	})
 
 	fsCfg, err = r2.FrameSystemConfig(context.Background())

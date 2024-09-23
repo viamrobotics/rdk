@@ -184,15 +184,23 @@ func (manager *resourceManager) updateRemoteResourceNames(
 ) bool {
 	manager.logger.CDebugw(ctx, "updating remote resource names", "remote", remoteName, "recreateAllClients", recreateAllClients)
 	activeResourceNames := map[resource.Name]bool{}
-	mStatus, err := rr.MachineStatus(ctx)
+	ms, err := rr.MachineStatus(ctx)
 	if errors.Is(err, client.ErrDisconnected) {
 		// Our connection to the remote is broken, but the remote itself might be working
-		// fine. Return without changing any state in this case.
+		// fine. We mark each node as disconnected but report no changes.
+		for _, rs := range ms.Resources {
+			gNode, ok := manager.resources.Node(rs.Name)
+			if !ok {
+				continue
+			}
+			gNode.SetDisconnected()
+		}
 		return false
 	}
+
 	// TODO: handle other kinds of errors?
 
-	newResources := mStatus.Resources
+	newResources := ms.Resources
 
 	oldResources := manager.remoteResourceNames(remoteName)
 	for _, res := range oldResources {
@@ -385,6 +393,9 @@ func (manager *resourceManager) ResourceStatuses() []resource.Status {
 	for _, name := range manager.resources.Names() {
 		gNode, ok := manager.resources.Node(name)
 		if !ok || gNode.IsUninitialized() {
+			continue
+		}
+		if name.API.Type.Namespace == resource.APINamespaceRDKInternal {
 			continue
 		}
 		s := gNode.ResourceStatus()

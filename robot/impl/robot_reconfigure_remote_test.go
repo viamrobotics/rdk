@@ -16,6 +16,7 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
+
 	// TODO(RSDK-7884): change everything that depends on this import to a mock.
 	"go.viam.com/rdk/services/motion"
 	// TODO(RSDK-7884): change all referenced resources to mocks.
@@ -235,12 +236,17 @@ func TestRemoteRobotsUpdate(t *testing.T) {
 
 	// wait for local_robot to detect that the remote is now offline
 	testutils.WaitForAssertionWithSleep(t, time.Millisecond*100, 300, func(tb testing.TB) {
-		rdktestutils.VerifySameResourceNames(tb, r.ResourceNames(),
-			[]resource.Name{
-				motion.Named(resource.DefaultServiceName),
-				sensors.Named(resource.DefaultServiceName),
-			},
-		)
+		ms, err := r.MachineStatus(context.Background())
+		test.That(t, err, test.ShouldBeNil)
+		var ready []resource.Name
+		for _, rs := range rdktestutils.FilterByStatus(t, ms.Resources, resource.NodeStateReady) {
+			ready = append(ready, rs.Name)
+		}
+		expected := []resource.Name{
+			motion.Named(resource.DefaultServiceName),
+			sensors.Named(resource.DefaultServiceName),
+		}
+		rdktestutils.VerifySameResourceNames(tb, ready, expected)
 	})
 }
 
