@@ -36,7 +36,7 @@ const (
 
 	// NodeStateUnhealthy denotes a resource is unhealthy.
 	NodeStateUnhealthy
-	
+
 	// NodeStateDisconnected denotes a resource is disconnected.
 	NodeStateDisconnected
 )
