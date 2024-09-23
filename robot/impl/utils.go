@@ -8,7 +8,9 @@ import (
 
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
+	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
+	"go.viam.com/rdk/testutils"
 )
 
 func setupLocalRobot(
@@ -31,4 +33,19 @@ func setupLocalRobot(
 		lRobot.reconfigureWorkers.Wait()
 	})
 	return r
+}
+
+func verifyReadyResourceNames(tb testing.TB, r robot.LocalRobot, expected []resource.Name) {
+	tb.Helper()
+
+	ms, err := r.MachineStatus(context.Background())
+	test.That(tb, err, test.ShouldBeNil)
+
+	var ready []resource.Name
+	for _, rs := range ms.Resources {
+		if rs.State == resource.NodeStateReady {
+			ready = append(ready, rs.Name)
+		}
+	}
+	testutils.VerifySameResourceNames(tb, ready, expected)
 }

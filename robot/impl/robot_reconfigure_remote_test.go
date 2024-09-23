@@ -141,7 +141,7 @@ func TestRemoteRobotsGold(t *testing.T) {
 
 	// wait for local_robot to detect that the remote is now offline
 	testutils.WaitForAssertionWithSleep(t, time.Millisecond*100, 300, func(tb testing.TB) {
-		rdktestutils.VerifySameResourceNames(tb, r.ResourceNames(),
+		verifyReadyResourceNames(tb, r,
 			[]resource.Name{
 				motion.Named(resource.DefaultServiceName),
 				sensors.Named(resource.DefaultServiceName),
@@ -236,17 +236,12 @@ func TestRemoteRobotsUpdate(t *testing.T) {
 
 	// wait for local_robot to detect that the remote is now offline
 	testutils.WaitForAssertionWithSleep(t, time.Millisecond*100, 300, func(tb testing.TB) {
-		ms, err := r.MachineStatus(context.Background())
-		test.That(t, err, test.ShouldBeNil)
-		var ready []resource.Name
-		for _, rs := range rdktestutils.FilterByStatus(t, ms.Resources, resource.NodeStateReady) {
-			ready = append(ready, rs.Name)
-		}
-		expected := []resource.Name{
-			motion.Named(resource.DefaultServiceName),
-			sensors.Named(resource.DefaultServiceName),
-		}
-		rdktestutils.VerifySameResourceNames(tb, ready, expected)
+		verifyReadyResourceNames(tb, r,
+			[]resource.Name{
+				motion.Named(resource.DefaultServiceName),
+				sensors.Named(resource.DefaultServiceName),
+			},
+		)
 	})
 }
 
@@ -309,7 +304,7 @@ func TestInferRemoteRobotDependencyConnectAtStartup(t *testing.T) {
 
 	// wait for local_robot to detect that the remote is now offline
 	testutils.WaitForAssertionWithSleep(t, time.Millisecond*100, 300, func(tb testing.TB) {
-		rdktestutils.VerifySameResourceNames(tb, r.ResourceNames(),
+		verifyReadyResourceNames(tb, r,
 			[]resource.Name{
 				motion.Named(resource.DefaultServiceName),
 				sensors.Named(resource.DefaultServiceName),

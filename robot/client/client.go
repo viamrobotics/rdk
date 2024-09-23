@@ -1070,25 +1070,18 @@ func (rc *RobotClient) Shutdown(ctx context.Context) error {
 // ErrDisconnected that a robot is disconnected.
 var ErrDisconnected = errors.New("disconnected")
 
-// MachineStatus returns the current status of the robot. If the robot is
-// disconnected return it's cached resource statuses with state
-// [NodeStateDisconnected].
+// MachineStatus returns the current status of the robot.
 func (rc *RobotClient) MachineStatus(ctx context.Context) (robot.MachineStatus, error) {
-	var err error
 	if rc.checkConnected() != nil {
-		err = ErrDisconnected
+		return robot.MachineStatus{}, ErrDisconnected
 	}
 
 	rc.mu.Lock()
 	defer rc.mu.Unlock()
 
-	ms := rc.cachedMachineStatus
-	if errors.Is(err, ErrDisconnected) {
-		for i := range rc.cachedMachineStatus.Resources {
-			ms.Resources[i].State = resource.NodeStateDisconnected
-		}
-	}
-	return ms, err
+	// TODO: cache errors related to fetching cached machine status and
+	// return here?
+	return rc.cachedMachineStatus, nil
 }
 
 func (rc *RobotClient) machineStatus(ctx context.Context) (robot.MachineStatus, error) {

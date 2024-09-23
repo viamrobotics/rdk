@@ -22,7 +22,6 @@ import (
 	"go.viam.com/rdk/services/sensors"
 	_ "go.viam.com/rdk/services/sensors/builtin"
 	"go.viam.com/rdk/spatialmath"
-	rdktestutils "go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/robottestutils"
 	rutils "go.viam.com/rdk/utils"
 )
@@ -135,15 +134,7 @@ func TestFrameSystemConfigWithRemote(t *testing.T) {
 		gripper.Named("myParentIsRemote"),
 	}
 	testutils.WaitForAssertionWithSleep(t, time.Millisecond*100, 300, func(tb testing.TB) {
-		ms, err := r2.MachineStatus(ctx)
-		test.That(t, err, test.ShouldBeNil)
-		var ready []resource.Name
-		for _, rs := range ms.Resources {
-			logger.Infow(">>> ms resource",
-				"name", rs.Name, "state", rs.State)
-			ready = append(ready, rs.Name)
-		}
-		rdktestutils.VerifySameResourceNames(tb, ready, finalSet)
+		verifyReadyResourceNames(tb, r2, finalSet)
 	})
 
 	fsCfg, err = r2.FrameSystemConfig(context.Background())

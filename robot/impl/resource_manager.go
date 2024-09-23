@@ -187,10 +187,16 @@ func (manager *resourceManager) updateRemoteResourceNames(
 	activeResourceNames := map[resource.Name]bool{}
 	ms, err := rr.MachineStatus(ctx)
 	if errors.Is(err, client.ErrDisconnected) {
-		// Our connection to the remote is broken, but the remote itself might be working
-		// fine. We mark each node as disconnected but report no changes.
-		for _, rs := range ms.Resources {
-			gNode, ok := manager.resources.Node(rs.Name)
+		// The connection to the remote is broken, but the remote itself might be working
+		// fine. Mark each node as disconnected but report no changes.
+		remoteGraph, err := manager.resources.SubGraphFrom(remoteName)
+		if err != nil {
+			// TODO: handle error?
+			manager.logger.Error(err)
+			return false
+		}
+		for _, name := range remoteGraph.Names() {
+			gNode, ok := manager.resources.Node(name)
 			if !ok {
 				continue
 			}
