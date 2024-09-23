@@ -53,6 +53,7 @@ require (
 	github.com/jedib0t/go-pretty/v6 v6.4.6
 	github.com/jhump/protoreflect v1.15.1
 	github.com/kellydunn/golang-geo v0.7.0
+	github.com/kylelemons/godebug v1.1.0
 	github.com/lestrrat-go/jwx v1.2.29
 	github.com/lmittmann/ppm v1.0.2
 	github.com/lucasb-eyer/go-colorful v1.2.0
