@@ -36,6 +36,9 @@ const (
 
 	// NodeStateUnhealthy denotes a resource is unhealthy.
 	NodeStateUnhealthy
+	
+	// NodeStateDisconnected denotes a resource is disconnected.
+	NodeStateDisconnected
 )
 
 // A GraphNode contains the current state of a resource.
@@ -296,9 +299,7 @@ func (w *GraphNode) NeedsReconfigure() bool {
 
 	// A resource can only become unhealthy during (re)configuration, so we can
 	// assume that an unhealthy node always need to be reconfigured.
-	return w.state == NodeStateConfiguring ||
-		// TODO: add a method for this check.
-		(w.state == NodeStateUnhealthy && !errors.Is(w.lastErr, errDisconnected))
+	return w.state == NodeStateConfiguring || w.state == NodeStateUnhealthy
 }
 
 // hasUnresolvedDependencies returns whether or not this node has any
@@ -363,12 +364,11 @@ func (w *GraphNode) SetNeedsUpdate() {
 	w.setNeedsReconfigure(w.Config(), false, w.UnresolvedDependencies())
 }
 
-var errDisconnected = errors.New("disconnected")
-
 // SetDisconnected is used to mark a remote node as disconnected.
 func (w *GraphNode) SetDisconnected() {
-	// TODO: add disconnected state?
-	w.LogAndSetLastError(errDisconnected)
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	w.transitionTo(NodeStateDisconnected)
 }
 
 // setUnresolvedDependencies sets names that are yet to be resolved as

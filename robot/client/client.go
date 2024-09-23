@@ -1085,7 +1085,7 @@ func (rc *RobotClient) MachineStatus(ctx context.Context) (robot.MachineStatus, 
 	ms := rc.cachedMachineStatus
 	if errors.Is(err, ErrDisconnected) {
 		for i := range rc.cachedMachineStatus.Resources {
-			ms.Resources[i].State = resource.NodeStateUnhealthy
+			ms.Resources[i].State = resource.NodeStateDisconnected
 		}
 	}
 	return ms, err
