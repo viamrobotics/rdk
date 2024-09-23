@@ -13,6 +13,7 @@ import (
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
+	"go.viam.com/rdk/robot/framesystem"
 )
 
 func init() {
@@ -85,7 +86,7 @@ type Gantry interface {
 	resource.Resource
 	resource.Actuator
 	referenceframe.ModelFramer
-	referenceframe.InputEnabled
+	framesystem.InputEnabled
 
 	// Position returns the position in meters.
 	Position(ctx context.Context, extra map[string]interface{}) ([]float64, error)

@@ -78,7 +78,7 @@ type moveResponse struct {
 // move it. Input units are always in meters or radians.
 type inputEnabledActuator interface {
 	resource.Actuator
-	referenceframe.InputEnabled
+	framesystem.InputEnabled
 }
 
 // obstacleDetectorObject provides a map for matching vision services to any and all cameras names they use.
@@ -210,21 +210,14 @@ func (ms *explore) Close(ctx context.Context) error {
 
 // Move takes a goal location and will plan and execute a movement to move a component specified by its name
 // to that destination.
-func (ms *explore) Move(
-	ctx context.Context,
-	componentName resource.Name,
-	destination *referenceframe.PoseInFrame,
-	worldState *referenceframe.WorldState,
-	constraints *motionplan.Constraints,
-	extra map[string]interface{},
-) (bool, error) {
+func (ms *explore) Move(ctx context.Context, req motion.MoveReq) (bool, error) {
 	ms.resourceMutex.Lock()
 	defer ms.resourceMutex.Unlock()
 
 	operation.CancelOtherWithLabel(ctx, exploreOpLabel)
 
 	// Parse extras
-	motionCfg, err := parseMotionConfig(extra)
+	motionCfg, err := parseMotionConfig(req.Extra)
 	if err != nil {
 		return false, err
 	}
@@ -236,13 +229,13 @@ func (ms *explore) Move(
 	}
 
 	// Create kinematic base
-	kb, err := ms.createKinematicBase(ctx, componentName, motionCfg)
+	kb, err := ms.createKinematicBase(ctx, req.ComponentName, motionCfg)
 	if err != nil {
 		return false, err
 	}
 
 	// Create motionplan plan
-	plan, err := ms.createMotionPlan(ctx, kb, destination, extra)
+	plan, err := ms.createMotionPlan(ctx, kb, req.Destination, req.Extra)
 	if err != nil {
 		return false, err
 	}

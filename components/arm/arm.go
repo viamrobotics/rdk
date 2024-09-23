@@ -17,6 +17,7 @@ import (
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
+	"go.viam.com/rdk/robot/framesystem"
 	"go.viam.com/rdk/spatialmath"
 )
 
@@ -98,7 +99,7 @@ type Arm interface {
 	referenceframe.ModelFramer
 	resource.Shaped
 	resource.Actuator
-	referenceframe.InputEnabled
+	framesystem.InputEnabled
 
 	// EndPosition returns the current position of the arm.
 	EndPosition(ctx context.Context, extra map[string]interface{}) (spatialmath.Pose, error)
