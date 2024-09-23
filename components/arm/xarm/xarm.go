@@ -244,6 +244,7 @@ func (x *xArm) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[s
 	}
 
 	resp := map[string]interface{}{}
+	validCommand := false
 
 	if val, ok := cmd["move_gripper"]; ok {
 		position, ok := val.(float64)
@@ -254,6 +255,7 @@ func (x *xArm) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[s
 		if err != nil {
 			return nil, err
 		}
+		validCommand = true
 	}
 	if _, ok := cmd["load"]; ok {
 		loadInformation, err := x.getLoad(ctx)
@@ -265,6 +267,7 @@ func (x *xArm) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[s
 			return nil, errors.New("could not read loadInformation")
 		}
 		resp["load"] = loadInformationInterface
+		validCommand = true
 	}
 	if val, ok := cmd["set_speed"]; ok {
 		speed, err := utils.AssertType[float64](val)
@@ -275,6 +278,7 @@ func (x *xArm) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[s
 			return nil, errors.New("speed cannot be less than or equal to zero")
 		}
 		x.speed = utils.DegToRad(speed)
+		validCommand = true
 	}
 	if val, ok := cmd["set_acceleration"]; ok {
 		acceleration, err := utils.AssertType[float64](val)
@@ -285,7 +289,11 @@ func (x *xArm) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[s
 			return nil, errors.New("acceleration cannot be less than or equal to zero")
 		}
 		x.acceleration = utils.DegToRad(acceleration)
+		validCommand = true
 	}
 
+	if !validCommand {
+		return nil, errors.New("command not found")
+	}
 	return resp, nil
 }
