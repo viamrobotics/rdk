@@ -23,7 +23,6 @@ const (
 	depthCameraName   = "camera_depth"
 	failCameraName    = "camera2"
 	missingCameraName = "camera3"
-	noFrameRateName   = "camera4"
 )
 
 type simpleSource struct {
