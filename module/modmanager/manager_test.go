@@ -530,8 +530,8 @@ func TestModuleReloading(t *testing.T) {
 
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
-			test.That(tb, logs.FilterMessageSnippet("Error while restarting crashed module").Len(),
-				test.ShouldEqual, 3)
+			test.That(tb, logs.FilterMessageSnippet("Removed resources after failed module restart").Len(),
+				test.ShouldEqual, 1)
 		})
 
 		ok = mgr.IsModularResource(rNameMyHelper)
@@ -546,6 +546,8 @@ func TestModuleReloading(t *testing.T) {
 			test.ShouldEqual, 1)
 		test.That(t, logs.FilterMessageSnippet("Module successfully restarted").Len(),
 			test.ShouldEqual, 0)
+		test.That(t, logs.FilterMessageSnippet("Error while restarting crashed module").Len(),
+			test.ShouldEqual, 3)
 
 		// Assert that RemoveOrphanedResources was called once.
 		test.That(t, dummyRemoveOrphanedResourcesCallCount.Load(), test.ShouldEqual, 1)
@@ -587,7 +589,7 @@ func TestModuleReloading(t *testing.T) {
 
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
-			test.That(tb, logs.FilterMessageSnippet("Will not attempt to restart crashed module").Len(),
+			test.That(tb, logs.FilterMessageSnippet("Removed resources after failed module restart").Len(),
 				test.ShouldEqual, 1)
 		})
 
@@ -598,11 +600,13 @@ func TestModuleReloading(t *testing.T) {
 		test.That(t, err.Error(), test.ShouldContainSubstring, "not connected")
 
 		// Assert that logs reflect that test-module crashed and was not
-		// successfully restarted.
+		// restarted.
 		test.That(t, logs.FilterMessageSnippet("Module has unexpectedly exited").Len(),
 			test.ShouldEqual, 1)
 		test.That(t, logs.FilterMessageSnippet("Module successfully restarted").Len(),
 			test.ShouldEqual, 0)
+		test.That(t, logs.FilterMessageSnippet("Will not attempt to restart crashed module").Len(),
+			test.ShouldEqual, 1)
 
 		// Assert that RemoveOrphanedResources was called once.
 		test.That(t, dummyRemoveOrphanedResourcesCallCount.Load(), test.ShouldEqual, 1)
