@@ -9,9 +9,7 @@ import (
 	"github.com/pkg/errors"
 	"go.viam.com/test"
 
-	"go.viam.com/rdk/motionplan"
-	frame "go.viam.com/rdk/referenceframe"
-	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/services/motion"
 	"go.viam.com/rdk/testutils/inject"
 )
 
@@ -22,11 +20,8 @@ func TestExploreMode(t *testing.T) {
 
 	var points []r3.Vector
 	mockExploreMotionService := &inject.MotionService{}
-	mockExploreMotionService.MoveFunc = func(ctx context.Context, componentName resource.Name,
-		destination *frame.PoseInFrame, worldState *frame.WorldState, constraints *motionplan.Constraints,
-		extra map[string]interface{},
-	) (bool, error) {
-		points = append(points, destination.Pose().Point())
+	mockExploreMotionService.MoveFunc = func(ctx context.Context, req motion.MoveReq) (bool, error) {
+		points = append(points, req.Destination.Pose().Point())
 		return false, errors.New("expected error")
 	}
 
