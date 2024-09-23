@@ -45,7 +45,7 @@ func createFakeMotor() motor.Motor {
 		},
 		ResetZeroPositionFunc: func(ctx context.Context, offset float64, extra map[string]interface{}) error { return nil },
 		GoToFunc:              func(ctx context.Context, rpm, position float64, extra map[string]interface{}) error { return nil },
-		GoForFunc:             func(ctx context.Context, rpm, revolutions float64, extra map[string]interface{}) error { return nil },
+		SetRPMFunc:            func(ctx context.Context, rpm float64, extra map[string]interface{}) error { return nil },
 		StopFunc:              func(ctx context.Context, extra map[string]interface{}) error { return nil },
 		SetPowerFunc:          func(ctx context.Context, powerPct float64, extra map[string]interface{}) error { return nil },
 	}
@@ -287,7 +287,7 @@ func TestHome(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, homed, test.ShouldBeTrue)
 
-	goForErr := errors.New("GoFor failed")
+	setRPMErr := errors.New("SetRPM failed")
 	posErr := errors.New("Position fail")
 	fakeMotor := &inject.Motor{
 		PropertiesFunc: func(ctx context.Context, extra map[string]interface{}) (motor.Properties, error) {
@@ -295,8 +295,8 @@ func TestHome(t *testing.T) {
 				PositionReporting: false,
 			}, nil
 		},
-		GoForFunc: func(ctx context.Context, rpm, rotations float64, extra map[string]interface{}) error {
-			return goForErr
+		SetRPMFunc: func(ctx context.Context, rpm float64, extra map[string]interface{}) error {
+			return setRPMErr
 		},
 		StopFunc: func(ctx context.Context, extra map[string]interface{}) error {
 			return nil
@@ -368,7 +368,7 @@ func TestHomeLimitSwitch(t *testing.T) {
 
 	getPosErr := errors.New("failed to get position")
 	fakegantry.motor = &inject.Motor{
-		GoForFunc:    func(ctx context.Context, rpm, rotations float64, extra map[string]interface{}) error { return nil },
+		SetRPMFunc:   func(ctx context.Context, rpm float64, extra map[string]interface{}) error { return nil },
 		StopFunc:     func(ctx context.Context, extra map[string]interface{}) error { return nil },
 		PositionFunc: func(ctx context.Context, extra map[string]interface{}) (float64, error) { return 0, getPosErr },
 	}
@@ -381,7 +381,7 @@ func TestHomeLimitSwitch(t *testing.T) {
 				PositionReporting: true,
 			}, nil
 		},
-		GoForFunc: func(ctx context.Context, rpm, rotations float64, extra map[string]interface{}) error {
+		SetRPMFunc: func(ctx context.Context, rpm float64, extra map[string]interface{}) error {
 			return errors.New("err")
 		},
 		StopFunc: func(ctx context.Context, extra map[string]interface{}) error { return nil },
@@ -395,7 +395,7 @@ func TestHomeLimitSwitch(t *testing.T) {
 				PositionReporting: true,
 			}, nil
 		},
-		GoForFunc: func(ctx context.Context, rpm, rotations float64, extra map[string]interface{}) error {
+		SetRPMFunc: func(ctx context.Context, rpm float64, extra map[string]interface{}) error {
 			return nil
 		},
 		StopFunc: func(ctx context.Context, extra map[string]interface{}) error { return errors.New("err") },
@@ -409,7 +409,7 @@ func TestHomeLimitSwitch(t *testing.T) {
 				PositionReporting: true,
 			}, nil
 		},
-		GoForFunc: func(ctx context.Context, rpm, rotations float64, extra map[string]interface{}) error {
+		SetRPMFunc: func(ctx context.Context, rpm float64, extra map[string]interface{}) error {
 			return errors.New("err")
 		},
 		StopFunc: func(ctx context.Context, extra map[string]interface{}) error { return nil },
@@ -467,7 +467,7 @@ func TestHomeLimitSwitch2(t *testing.T) {
 
 	getPosErr := errors.New("failed to get position")
 	fakegantry.motor = &inject.Motor{
-		GoForFunc: func(ctx context.Context, rpm, rotations float64, extra map[string]interface{}) error {
+		SetRPMFunc: func(ctx context.Context, rpm float64, extra map[string]interface{}) error {
 			return nil
 		},
 		StopFunc: func(ctx context.Context, extra map[string]interface{}) error {
@@ -486,7 +486,7 @@ func TestHomeLimitSwitch2(t *testing.T) {
 				PositionReporting: true,
 			}, nil
 		},
-		GoForFunc: func(ctx context.Context, rpm, rotations float64, extra map[string]interface{}) error {
+		SetRPMFunc: func(ctx context.Context, rpm float64, extra map[string]interface{}) error {
 			return errors.New("not supported")
 		},
 		StopFunc: func(ctx context.Context, extra map[string]interface{}) error { return nil },
@@ -513,7 +513,7 @@ func TestHomeEncoder(t *testing.T) {
 
 	resetZeroErr := errors.New("failed to set zero")
 	injMotor := &inject.Motor{
-		GoForFunc:             func(ctx context.Context, rpm, rotations float64, extra map[string]interface{}) error { return nil },
+		SetRPMFunc:            func(ctx context.Context, rpm float64, extra map[string]interface{}) error { return nil },
 		StopFunc:              func(ctx context.Context, extra map[string]interface{}) error { return nil },
 		ResetZeroPositionFunc: func(ctx context.Context, offset float64, extra map[string]interface{}) error { return resetZeroErr },
 	}

@@ -295,7 +295,7 @@ func (g *singleAxis) moveAway(ctx context.Context, pin int) error {
 	if pin != 0 {
 		dir = -1.0
 	}
-	if err := g.motor.GoFor(ctx, dir*g.rpm, 0, nil); err != nil {
+	if err := g.motor.SetRPM(ctx, dir*g.rpm, nil); err != nil {
 		return err
 	}
 	defer utils.UncheckedErrorFunc(func() error {
@@ -420,7 +420,7 @@ func (g *singleAxis) testLimit(ctx context.Context, pin int) (float64, error) {
 		wrongPin = 0
 	}
 
-	err := g.motor.GoFor(ctx, d*g.rpm, 0, nil)
+	err := g.motor.SetRPM(ctx, d*g.rpm, nil)
 	if err != nil {
 		return 0, err
 	}
