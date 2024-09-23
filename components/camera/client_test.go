@@ -385,7 +385,8 @@ func TestClientProperties(t *testing.T) {
 				DistortionParams: fakeDistortion,
 				FrameRate:        fakeFrameRate,
 			},
-		}, {
+		},
+		{
 			name: "nil intrinsic params",
 			props: camera.Properties{
 				SupportsPCD:      true,
@@ -394,7 +395,8 @@ func TestClientProperties(t *testing.T) {
 				DistortionParams: fakeDistortion,
 				FrameRate:        fakeFrameRate,
 			},
-		}, {
+		},
+		{
 			name: "nil distortion parameters",
 			props: camera.Properties{
 				SupportsPCD:      true,
@@ -403,7 +405,8 @@ func TestClientProperties(t *testing.T) {
 				DistortionParams: nil,
 				FrameRate:        fakeFrameRate,
 			},
-		}, {
+		},
+		{
 			name: "no frame rate parameters",
 			props: camera.Properties{
 				SupportsPCD:      true,
@@ -431,7 +434,6 @@ func TestClientProperties(t *testing.T) {
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, actualProps, test.ShouldResemble, testCase.props)
 			test.That(t, conn.Close(), test.ShouldBeNil)
-
 		})
 	}
 }
@@ -872,7 +874,7 @@ func TestMultiplexOverMultiHopRemoteConnection(t *testing.T) {
 	test.That(t, cameraClient.(rtppassthrough.Source).Unsubscribe(mainCtx, sub.ID), test.ShouldBeNil)
 }
 
-// nolint
+//nolint
 // NOTE: These tests fail when this condition occurs:
 //
 //	logger.go:130: 2024-06-17T16:56:14.097-0400 DEBUG   TestGrandRemoteRebooting.remote-1.rdk:remote:/remote-2.webrtc   rpc/wrtc_client_channel.go:299  no stream for id; discarding    {"ch": 0, "id": 11}

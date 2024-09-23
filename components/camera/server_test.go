@@ -517,7 +517,7 @@ func TestServer(t *testing.T) {
 	})
 }
 
-// nolint
+//nolint
 func TestCameraClientIsReadImager(t *testing.T) {
 	// RSDK-8663: Enforce that a camera client always satisfies the optimized `ReadImager`
 	// interface.
