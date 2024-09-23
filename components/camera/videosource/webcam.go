@@ -401,7 +401,7 @@ type monitoredWebcam struct {
 
 	underlyingSource gostream.VideoSource
 	exposedSwapper   gostream.HotSwappableVideoSource
-	exposedProjector camera.VideoSource
+	exposedProjector camera.Camera
 
 	// this is returned to us as a label in mediadevices but our config
 	// treats it as a video path.

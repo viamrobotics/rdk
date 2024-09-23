@@ -93,7 +93,7 @@ func (writer stderrWriter) Write(p []byte) (n int, err error) {
 }
 
 // NewFFMPEGCamera instantiates a new camera which leverages ffmpeg to handle a variety of potential video types.
-func NewFFMPEGCamera(ctx context.Context, conf *Config, logger logging.Logger) (camera.VideoSource, error) {
+func NewFFMPEGCamera(ctx context.Context, conf *Config, logger logging.Logger) (camera.Camera, error) {
 	// make sure ffmpeg is in the path before doing anything else
 	if _, err := exec.LookPath("ffmpeg"); err != nil {
 		return nil, err

@@ -98,7 +98,7 @@ func TestFakeCameraParams(t *testing.T) {
 
 func cameraTest(
 	t *testing.T,
-	cam camera.VideoSource,
+	cam camera.Camera,
 	width, height, points int,
 	intrinsics *transform.PinholeCameraIntrinsics,
 	distortion transform.Distorter,

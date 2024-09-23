@@ -69,11 +69,6 @@ type NamedImage struct {
 	SourceName string
 }
 
-// A VideoSource is a resource that can capture frames.
-type VideoSource interface {
-	Camera
-}
-
 // A Camera represents anything that can capture frames.
 // For more information, see the [camera component docs].
 //
