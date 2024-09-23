@@ -69,6 +69,10 @@ type NamedImage struct {
 	SourceName string
 }
 
+type VideoSource struct {
+	Camera
+}
+
 // A Camera represents anything that can capture frames.
 // For more information, see the [camera component docs].
 //
