@@ -28,6 +28,7 @@ func newDiskSummaryLogger(logger logging.Logger) *diskSummaryLogger {
 func (poller *diskSummaryLogger) reconfigure(dirs []string, interval time.Duration) {
 	poller.worker.Stop()
 	poller.worker = goutils.NewBackgroundStoppableWorkers(func(ctx context.Context) {
+		poller.logger.Info("datamanager disk state summary logger starting...")
 		t := time.NewTicker(interval)
 		defer t.Stop()
 		for {

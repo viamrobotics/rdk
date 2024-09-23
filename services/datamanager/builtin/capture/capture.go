@@ -153,7 +153,7 @@ func (c *Capture) Reconfigure(
 	c.collectorsMu.Lock()
 	for md, collAndConfig := range c.collectors {
 		if _, present := newCollectors[md]; !present {
-			c.logger.Debugf("%s closing collector which is no longer in config", md.String())
+			c.logger.Infof("%s closing collector which is no longer in config", md.String())
 			collAndConfig.Collector.Close()
 		}
 	}
@@ -202,6 +202,14 @@ func (c *Capture) initializeOrUpdateCollector(
 		return nil, errors.Errorf("failed to find collector constructor for %s", md.MethodMetadata)
 	}
 
+	if collectorConfig.CaptureQueueSize < 0 {
+		return nil, errors.Errorf("capture_queue_size can't be less than 0, current value: %d", collectorConfig.CaptureQueueSize)
+	}
+
+	if collectorConfig.CaptureBufferSize < 0 {
+		return nil, errors.Errorf("capture_buffer_size can't be less than 0, current value: %d", collectorConfig.CaptureBufferSize)
+	}
+
 	metadataKey := generateMetadataKey(md.MethodMetadata.API.String(), md.MethodMetadata.MethodName)
 	additionalParamKey, ok := metadataToAdditionalParamFields[metadataKey]
 	if ok {
@@ -244,7 +252,7 @@ func (c *Capture) initializeOrUpdateCollector(
 			md, collectorConfigDescription(collectorConfig, targetDir, config.MaximumCaptureFileSizeBytes, queueSize, bufferSize))
 	}
 
-	c.logger.Debugf("collector initialized; collector: %s, config: %s",
+	c.logger.Infof("collector initialized; collector: %s, config: %s",
 		md, collectorConfigDescription(collectorConfig, targetDir, config.MaximumCaptureFileSizeBytes, queueSize, bufferSize))
 	collector.Collect()
 
