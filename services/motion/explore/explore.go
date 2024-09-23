@@ -78,7 +78,7 @@ type moveResponse struct {
 // move it. Input units are always in meters or radians.
 type inputEnabledActuator interface {
 	resource.Actuator
-	referenceframe.InputEnabled
+	framesystem.InputEnabled
 }
 
 // obstacleDetectorObject provides a map for matching vision services to any and all cameras names they use.

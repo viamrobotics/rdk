@@ -76,7 +76,7 @@ var (
 // move it. Input units are always in meters or radians.
 type inputEnabledActuator interface {
 	resource.Actuator
-	referenceframe.InputEnabled
+	framesystem.InputEnabled
 }
 
 // Config describes how to configure the service; currently only used for specifying dependency on framesystem service.

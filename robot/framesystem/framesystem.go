@@ -30,6 +30,14 @@ var API = resource.APINamespaceRDKInternal.WithServiceType(SubtypeName)
 // InternalServiceName is used to refer to/depend on this service internally.
 var InternalServiceName = resource.NewName(API, "builtin")
 
+// InputEnabled is a standard interface for all things that interact with the frame system
+// This allows us to figure out where they currently are, and then move them.
+// Input units are always in meters or radians.
+type InputEnabled interface {
+	CurrentInputs(ctx context.Context) ([]referenceframe.Input, error)
+	GoToInputs(context.Context, ...[]referenceframe.Input) error
+}
+
 // A Service that returns the frame system for a robot.
 //
 // TransformPose example:
@@ -73,7 +81,7 @@ type Service interface {
 
 	// CurrentInputs returns a map of the current inputs for each component of a machine's frame system
 	// and a map of statuses indicating which of the machine's components may be actuated through input values.
-	CurrentInputs(ctx context.Context) (map[string][]referenceframe.Input, map[string]referenceframe.InputEnabled, error)
+	CurrentInputs(ctx context.Context) (map[string][]referenceframe.Input, map[string]InputEnabled, error)
 
 	// FrameSystem returns the frame system of the machine and incorporates any specified additional transformations.
 	FrameSystem(ctx context.Context, additionalTransforms []*referenceframe.LinkInFrame) (referenceframe.FrameSystem, error)
@@ -222,7 +230,7 @@ func (svc *frameSystemService) TransformPose(
 		if !ok {
 			return nil, DependencyNotFoundError(name)
 		}
-		inputEnabled, ok := component.(referenceframe.InputEnabled)
+		inputEnabled, ok := component.(InputEnabled)
 		if !ok {
 			return nil, NotInputEnabledError(component)
 		}
@@ -247,7 +255,7 @@ func (svc *frameSystemService) TransformPose(
 // InputEnabled resources that those inputs came from.
 func (svc *frameSystemService) CurrentInputs(
 	ctx context.Context,
-) (map[string][]referenceframe.Input, map[string]referenceframe.InputEnabled, error) {
+) (map[string][]referenceframe.Input, map[string]InputEnabled, error) {
 	fs, err := svc.FrameSystem(ctx, []*referenceframe.LinkInFrame{})
 	if err != nil {
 		return nil, nil, err
@@ -255,7 +263,7 @@ func (svc *frameSystemService) CurrentInputs(
 	input := referenceframe.StartPositions(fs)
 
 	// build maps of relevant components and inputs from initial inputs
-	resources := map[string]referenceframe.InputEnabled{}
+	resources := map[string]InputEnabled{}
 	for name, original := range input {
 		// skip frames with no input
 		if len(original) == 0 {
@@ -267,7 +275,7 @@ func (svc *frameSystemService) CurrentInputs(
 		if !ok {
 			return nil, nil, DependencyNotFoundError(name)
 		}
-		inputEnabled, ok := component.(referenceframe.InputEnabled)
+		inputEnabled, ok := component.(InputEnabled)
 		if !ok {
 			return nil, nil, NotInputEnabledError(component)
 		}
