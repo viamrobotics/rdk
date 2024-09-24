@@ -3427,34 +3427,6 @@ func getExpectedDefaultStatuses(revision string) []resource.Status {
 	return []resource.Status{
 		{
 			Name: resource.Name{
-				API:  resource.APINamespaceRDKInternal.WithServiceType("frame_system"),
-				Name: "builtin",
-			},
-			State: resource.NodeStateReady,
-		},
-		{
-			Name: resource.Name{
-				API:  resource.APINamespaceRDKInternal.WithServiceType("cloud_connection"),
-				Name: "builtin",
-			},
-			State: resource.NodeStateReady,
-		},
-		{
-			Name: resource.Name{
-				API:  resource.APINamespaceRDKInternal.WithServiceType("packagemanager"),
-				Name: "builtin",
-			},
-			State: resource.NodeStateReady,
-		},
-		{
-			Name: resource.Name{
-				API:  resource.APINamespaceRDKInternal.WithServiceType("web"),
-				Name: "builtin",
-			},
-			State: resource.NodeStateReady,
-		},
-		{
-			Name: resource.Name{
 				API:  resource.APINamespaceRDK.WithServiceType("motion"),
 				Name: "builtin",
 			},
