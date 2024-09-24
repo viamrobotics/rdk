@@ -8,8 +8,8 @@ import {
   Client,
   robotApi,
   commonApi,
-  Credentials as SDKCredentials,
   type ServiceError,
+  type CredentialType,
 } from '@viamrobotics/sdk';
 import { notify } from '@viamrobotics/prime';
 import { StreamManager } from '@/lib/stream-manager';
@@ -442,9 +442,20 @@ const start = () => {
 const connect = async (creds?: Credentials, authEntity?: string) => {
   $connectionStatus = 'connecting';
 
+  let sdkCreds = undefined;
+  const c = creds ?? bakedAuth.creds;
+  const ae = authEntity ?? bakedAuth.authEntity;
+  if (c && ae) {
+    sdkCreds = {
+      type: c.type as CredentialType,
+      payload: c.payload,
+      authEntity: ae,
+    };
+  }
+
   await $robotClient.connect({
     authEntity: authEntity ?? bakedAuth.authEntity,
-    creds: { authEntity: authEntity ?? bakedAuth.authEntity, ...creds },
+    creds: sdkCreds,
     priority: 1,
   });
 
