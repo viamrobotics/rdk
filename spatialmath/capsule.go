@@ -2,6 +2,7 @@ package spatialmath
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math"
 	"sync"
@@ -372,4 +373,141 @@ func separatingAxisTest1D(positionDelta, capVec *r3.Vector, plane r3.Vector, hal
 	}
 	sum -= math.Abs(capVec.Dot(plane))
 	return sum
+}
+
+// CapsuleIntersectionWithPlane calculates the intersection of a geometry with a plane and returns
+// a list of points along the surface of the geometry at the points of intersection.
+// It returns an error if the geometry type is unsupported or if points cannot be computed.
+// The points returned are in order, in frame of the capsule's parent, and follow the right hand rule around the plane normal.
+func CapsuleIntersectionWithPlane(g Geometry, planeNormal, planePoint r3.Vector, numPoints int) ([]r3.Vector, error) {
+	c, ok := g.(*capsule)
+	if !ok {
+		return nil, fmt.Errorf("unsupported geometry type: %T", g)
+	}
+
+	// Normalize the plane normal
+	planeNormal = planeNormal.Normalize()
+
+	// Calculate the distance from the plane to the capsule's center
+	centerToPlane := c.center.Sub(planePoint).Dot(planeNormal) * -1
+	// If the distance is greater than the capsule's half-length plus radius, there's no intersection
+	if math.Abs(centerToPlane) > c.length/2+c.radius {
+		return nil, errors.New("no intersection: plane is too far from capsule")
+	}
+
+	capVecNormalized := c.capVec.Normalize()
+	capVecDotNormalAbs := math.Abs(capVecNormalized.Dot(planeNormal))
+
+	// Check if the plane is perpendicular to the capsule axis
+	if capVecDotNormalAbs < 1e-6 {
+		// The plane is perpendicular (or very close to perpendicular) to the capsule axis
+		// We'll generate points for two parallel lines and two semicircles
+
+		// Vector perpendicular to both capsule axis and plane normal
+		perpVector := planeNormal.Cross(capVecNormalized).Normalize()
+
+		numLinePoints := numPoints / 4   // Number of points for each parallel line
+		numCirclePoints := numPoints / 4 // Number of points for each semicircle (excluding endpoints)
+
+		intersectionPoints := make([]r3.Vector, 0, numPoints)
+
+		// Generate points for the first parallel line
+		for i := 0; i < numLinePoints; i++ {
+			t := float64(i) / float64(numLinePoints-1)
+			pt := c.center.Add(capVecNormalized.Mul((t - 0.5) * c.length))
+			leftPoint := pt.Add(perpVector.Mul(c.radius))
+			intersectionPoints = append(intersectionPoints, leftPoint)
+		}
+
+		// Generate points for the first semicircle
+		center := c.center.Add(capVecNormalized.Mul(0.5 * c.length))
+		for i := 0; i <= numCirclePoints; i++ {
+			angle := math.Pi * float64(i) / float64(numCirclePoints+1)
+			cosComponent := perpVector.Mul(c.radius * math.Cos(angle))
+			sinComponent := capVecNormalized.Mul(c.radius * math.Sin(angle))
+			pt := center.Add(cosComponent).Sub(sinComponent)
+			intersectionPoints = append(intersectionPoints, pt)
+		}
+
+		// Generate points for the second parallel line (in reverse order)
+		for i := numLinePoints - 1; i >= 0; i-- {
+			t := float64(i) / float64(numLinePoints-1)
+			pt := c.center.Add(capVecNormalized.Mul((t - 0.5) * c.length))
+			rightPoint := pt.Add(perpVector.Mul(-c.radius))
+			intersectionPoints = append(intersectionPoints, rightPoint)
+		}
+
+		// Generate points for the second semicircle
+		center = c.center.Add(capVecNormalized.Mul(-0.5 * c.length))
+		for i := 0; i <= numCirclePoints; i++ {
+			angle := math.Pi * float64(i) / float64(numCirclePoints+1)
+			cosComponent := perpVector.Mul(c.radius * math.Cos(angle))
+			sinComponent := capVecNormalized.Mul(c.radius * math.Sin(angle))
+			pt := center.Sub(cosComponent).Sub(sinComponent)
+			intersectionPoints = append(intersectionPoints, pt)
+		}
+
+		// At the end of the function, before returning the points:
+		if len(intersectionPoints) == 0 {
+			return nil, errors.New("no intersection points found")
+		}
+
+		return intersectionPoints, nil
+	}
+
+	// Calculate the semi-major and semi-minor axes of the ellipse
+	axisPlaneAngleCos := capVecDotNormalAbs // cosine of angle between capsule axis and plane normal
+	a := c.radius / axisPlaneAngleCos
+	b := c.radius
+
+	// Calculate the axis intersection
+	// The capsule's axis is not perpendicular to the plane normal
+	axisIntersection := c.center.Add(capVecNormalized.Mul(centerToPlane / capVecNormalized.Dot(planeNormal)))
+
+	// Create two perpendicular vectors in the plane
+	u := planeNormal.Cross(capVecNormalized)
+	if u.Norm() < 1e-6 {
+		// The capsule axis is parallel or nearly parallel to the plane normal
+		// Use Gram-Schmidt process to find a vector perpendicular to the plane normal
+		u = r3.Vector{1, 0, 0}
+		u = u.Sub(planeNormal.Mul(u.Dot(planeNormal)))
+		if u.Norm() < 1e-6 {
+			// If u is still too small, this will definitely work
+			u = r3.Vector{0, 1, 0}
+			u = u.Sub(planeNormal.Mul(u.Dot(planeNormal)))
+		}
+	}
+	u = u.Normalize()
+	v := planeNormal.Cross(u)
+
+	// Ensure u is aligned with the capsule's axis projection onto the plane
+	uDotCap := u.Dot(capVecNormalized)
+	if math.Abs(uDotCap) < math.Abs(v.Dot(capVecNormalized)) {
+		u, v = v, u.Mul(-1)
+	}
+	// Generate points along the intersection ellipse
+	intersectionPoints := make([]r3.Vector, 0, numPoints)
+
+	for i := 0; i < numPoints; i++ {
+		angle := 2 * math.Pi * float64(i) / float64(numPoints)
+		pt := axisIntersection.Add(u.Mul(a * math.Cos(angle))).Add(v.Mul(b * math.Sin(angle)))
+
+		// Check if the point is within the capsule's cylindrical length
+		projectedDist := pt.Sub(c.center).Dot(capVecNormalized)
+		if math.Abs(projectedDist) <= c.length/2 {
+			intersectionPoints = append(intersectionPoints, pt)
+		} else if math.Abs(projectedDist) <= c.length/2+c.radius {
+			// Project the point onto the hemisphere
+			closestEndpoint := c.center.Add(capVecNormalized.Mul(math.Copysign(c.length/2, projectedDist)))
+			sphereCenter := closestEndpoint
+			sphereIntersection := sphereCenter.Add(pt.Sub(sphereCenter).Normalize().Mul(c.radius))
+			intersectionPoints = append(intersectionPoints, sphereIntersection)
+		}
+	}
+	// At the end of the function, before returning the points:
+	if len(intersectionPoints) == 0 {
+		return nil, errors.New("no intersection points found")
+	}
+
+	return intersectionPoints, nil
 }
