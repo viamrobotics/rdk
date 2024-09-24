@@ -830,9 +830,9 @@ func (mgr *Manager) newOnUnexpectedExitHandler(mod *module) func(exitCode int) b
 		if orphanedResourceNames := mgr.attemptRestart(mgr.restartCtx, mod); orphanedResourceNames != nil {
 			if mgr.removeOrphanedResources != nil {
 				mgr.removeOrphanedResources(mgr.restartCtx, orphanedResourceNames)
-				rNames := make([]string, len(orphanedResourceNames))
-				for idx, rName := range orphanedResourceNames {
-					rNames[idx] = rName.String()
+				rNames := make([]string, 0, len(orphanedResourceNames))
+				for _, rName := range orphanedResourceNames {
+					rNames = append(rNames, rName.String())
 				}
 				mgr.logger.Debugw("Removed resources after failed module restart", "module", mod.cfg.Name, "resources", rNames)
 			}
