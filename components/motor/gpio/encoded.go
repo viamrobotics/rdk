@@ -174,7 +174,7 @@ func (m *EncodedMotor) makeAdjustments(ctx context.Context, goalRPM, goalPos, di
 		if deltaTime == 0.0 {
 			currentRPM = 0
 			zeroRPMTracker++
-			m.logger.Debug("zero time delta calculated between motor powe adjustments")
+			m.logger.Debug("zero time delta calculated between motor power adjustments")
 		} else {
 			currentRPM = deltaPos / deltaTime
 			if currentRPM == 0 {
