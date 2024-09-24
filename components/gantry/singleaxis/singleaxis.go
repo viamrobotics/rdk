@@ -442,20 +442,22 @@ func (g *singleAxis) testLimit(ctx context.Context, pin int) (float64, error) {
 			break
 		}
 
-		// check if the wrong limit switch was hit
-		wrongHit, err := g.limitHit(ctx, wrongPin)
-		if err != nil {
-			return 0, err
-		}
-		if wrongHit {
-			err = g.motor.Stop(ctx, nil)
+		if len(g.limitSwitchPins) > 1 {
+			// check if the wrong limit switch was hit
+			wrongHit, err := g.limitHit(ctx, wrongPin)
 			if err != nil {
 				return 0, err
 			}
-			return 0, errors.Errorf(
-				"expected limit switch %v but hit limit switch %v, try switching the order in the config",
-				pin,
-				wrongPin)
+			if wrongHit {
+				err = g.motor.Stop(ctx, nil)
+				if err != nil {
+					return 0, err
+				}
+				return 0, errors.Errorf(
+					"expected limit switch %v but hit limit switch %v, try switching the order in the config",
+					pin,
+					wrongPin)
+			}
 		}
 
 		elapsed := time.Since(start)
