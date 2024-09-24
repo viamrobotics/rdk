@@ -185,13 +185,22 @@ func (manager *resourceManager) updateRemoteResourceNames(
 	manager.logger.CDebugw(ctx, "updating remote resource names", "remote", remoteName, "recreateAllClients", recreateAllClients)
 	activeResourceNames := map[resource.Name]bool{}
 	ms, err := rr.MachineStatus(ctx)
-	if errors.Is(err, client.ErrDisconnected) {
-		// The connection to the remote is broken, but the remote itself might be working
-		// fine. Mark each node as disconnected but report no changes.
+
+	var newResources []resource.Status
+	switch {
+	case err == nil:
+		newResources = ms.Resources
+
+	// The connection to the remote is broken. In this case, we mark each resource node
+	// on this remote as disconnected but do not report any other changes.
+	case errors.Is(err, client.ErrDisconnected):
 		remoteGraph, err := manager.resources.SubGraphFrom(remoteName)
 		if err != nil {
-			// TODO: handle error?
-			manager.logger.Error(err)
+			manager.logger.Error(
+				"unable to lookup remote resources internally",
+				"remote", remoteName,
+				"error", err,
+			)
 			return false
 		}
 		for _, name := range remoteGraph.Names() {
@@ -202,11 +211,16 @@ func (manager *resourceManager) updateRemoteResourceNames(
 			gNode.SetDisconnected()
 		}
 		return false
+
+	// Failed to fetch resources for some other reason. In this case,
+	// proceed with remote resource update as if we have no resources.
+	default:
+		manager.logger.Errorw(
+			"failed to fetch resource",
+			"remote", remoteName,
+			"error", err,
+		)
 	}
-
-	// TODO: handle other kinds of errors?
-
-	newResources := ms.Resources
 
 	oldResources := manager.remoteResourceNames(remoteName)
 	for _, res := range oldResources {
