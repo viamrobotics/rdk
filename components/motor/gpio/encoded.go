@@ -182,7 +182,7 @@ func (m *EncodedMotor) makeAdjustments(ctx context.Context, goalRPM, goalPos, di
 			}
 		}
 		if zeroRPMTracker > 20 {
-			m.logger.Warnf("error running motor %v, current rpm is too low for stable motion: %v, asked to go at %v rpm",
+			m.logger.Warnf("motor running at too low an rpm %v for stable motion: %v, trying to run at %v rpm, check if stalled",
 				m.Name().Name, currentRPM, goalRPM)
 			zeroRPMTracker = 0
 		}
