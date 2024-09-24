@@ -76,7 +76,7 @@ jobs:
 
   test:
     needs: docker-cache
-    uses: viamrobotics/rdk/.github/workflows/test.yml@main
+    uses: ./.github/workflows/test.yml
     secrets:
       MONGODB_TEST_OUTPUT_URI: ${{ secrets.MONGODB_TEST_OUTPUT_URI }}
       DOCKER_PUBLIC_READONLY_PAT: ${{ secrets.DOCKER_PUBLIC_READONLY_PAT }}
