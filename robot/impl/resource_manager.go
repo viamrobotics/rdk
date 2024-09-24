@@ -398,13 +398,18 @@ func (manager *resourceManager) ResourceNames() []resource.Name {
 func (manager *resourceManager) ResourceStatuses() []resource.Status {
 	result := []resource.Status{}
 	for _, name := range manager.resources.Names() {
-		gNode, ok := manager.resources.Node(name)
-		if !ok || gNode.IsUninitialized() {
+		if name.API == client.RemoteAPI {
 			continue
 		}
 		if name.API.Type.Namespace == resource.APINamespaceRDKInternal {
 			continue
 		}
+
+		gNode, ok := manager.resources.Node(name)
+		if !ok || gNode.IsUninitialized() {
+			continue
+		}
+
 		s := gNode.ResourceStatus()
 		// replace with fully-qualified remote name
 		s.Name = name
