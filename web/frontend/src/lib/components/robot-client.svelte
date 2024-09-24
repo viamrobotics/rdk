@@ -8,6 +8,7 @@ import {
   Client,
   robotApi,
   commonApi,
+  Credentials as SDKCredentials,
   type ServiceError,
 } from '@viamrobotics/sdk';
 import { notify } from '@viamrobotics/prime';
@@ -443,7 +444,7 @@ const connect = async (creds?: Credentials, authEntity?: string) => {
 
   await $robotClient.connect({
     authEntity: authEntity ?? bakedAuth.authEntity,
-    creds: creds ?? bakedAuth.creds,
+    creds: { authEntity: authEntity ?? bakedAuth.authEntity, ...creds },
     priority: 1,
   });
 
