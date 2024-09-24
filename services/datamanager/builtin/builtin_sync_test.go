@@ -663,8 +663,19 @@ func TestArbitraryFileUpload(t *testing.T) {
 			// Call manual sync.
 			if tc.manualSync {
 				t.Log("calling manual sync")
-				err = b.Sync(context.Background(), nil)
-				test.That(t, err, test.ShouldBeNil)
+				timeoutCtx, timeoutFn := context.WithTimeout(context.Background(), time.Second*5)
+				defer timeoutFn()
+				for {
+					if err = b.Sync(context.Background(), nil); err == nil {
+						break
+					}
+
+					if timeoutCtx.Err() != nil {
+						t.Log("timed out waiting for mocked cloud connection")
+						t.FailNow()
+					}
+					time.Sleep(time.Millisecond * 50)
+				}
 			}
 
 			// Wait for upload requests.
