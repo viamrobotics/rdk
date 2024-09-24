@@ -370,6 +370,7 @@ func TestClientProperties(t *testing.T) {
 		TangentialP1: 1.0,
 		TangentialP2: 1.0,
 	}
+	fakeFrameRate := float32(10.0)
 
 	testCases := []struct {
 		name  string
@@ -382,24 +383,39 @@ func TestClientProperties(t *testing.T) {
 				ImageType:        camera.UnspecifiedStream,
 				IntrinsicParams:  fakeIntrinsics,
 				DistortionParams: fakeDistortion,
+				FrameRate:        fakeFrameRate,
 			},
-		}, {
+		},
+		{
 			name: "nil intrinsic params",
 			props: camera.Properties{
 				SupportsPCD:      true,
 				ImageType:        camera.UnspecifiedStream,
 				IntrinsicParams:  nil,
 				DistortionParams: fakeDistortion,
+				FrameRate:        fakeFrameRate,
 			},
-		}, {
+		},
+		{
 			name: "nil distortion parameters",
 			props: camera.Properties{
 				SupportsPCD:      true,
 				ImageType:        camera.UnspecifiedStream,
 				IntrinsicParams:  fakeIntrinsics,
 				DistortionParams: nil,
+				FrameRate:        fakeFrameRate,
 			},
-		}, {
+		},
+		{
+			name: "no frame rate parameters",
+			props: camera.Properties{
+				SupportsPCD:      true,
+				ImageType:        camera.UnspecifiedStream,
+				IntrinsicParams:  fakeIntrinsics,
+				DistortionParams: fakeDistortion,
+			},
+		},
+		{
 			name:  "empty properties",
 			props: camera.Properties{},
 		},
@@ -410,16 +426,13 @@ func TestClientProperties(t *testing.T) {
 			injectCamera.PropertiesFunc = func(ctx context.Context) (camera.Properties, error) {
 				return testCase.props, nil
 			}
-
 			conn, err := viamgrpc.Dial(context.Background(), listener.Addr().String(), logger)
 			test.That(t, err, test.ShouldBeNil)
-
 			client, err := camera.NewClientFromConn(context.Background(), conn, "", camera.Named(testCameraName), logger)
 			test.That(t, err, test.ShouldBeNil)
 			actualProps, err := client.Properties(context.Background())
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, actualProps, test.ShouldResemble, testCase.props)
-
 			test.That(t, conn.Close(), test.ShouldBeNil)
 		})
 	}

@@ -92,6 +92,7 @@ func TestNewCamera(t *testing.T) {
 	intrinsics2 := &transform.PinholeCameraIntrinsics{Width: 100, Height: 100}
 	videoSrc := &simpleSource{"rimage/board1_small"}
 	videoSrcPCD := &simpleSourceWithPCD{"rimage/board1_small"}
+	frameRate := float32(10.0)
 
 	// no camera
 	_, err := camera.NewVideoSourceFromReader(context.Background(), nil, nil, camera.UnspecifiedStream)
@@ -104,12 +105,16 @@ func TestNewCamera(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, props.SupportsPCD, test.ShouldBeFalse)
 	test.That(t, props.IntrinsicParams, test.ShouldBeNil)
+	test.That(t, props.FrameRate, test.ShouldEqual, 0.0) // test frame rate when it is not set
+
 	cam1, err = camera.NewVideoSourceFromReader(context.Background(), videoSrcPCD, nil, camera.UnspecifiedStream)
 	test.That(t, err, test.ShouldBeNil)
 	props, err = cam1.Properties(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, props.SupportsPCD, test.ShouldBeTrue)
 	test.That(t, props.IntrinsicParams, test.ShouldBeNil)
+	props.FrameRate = frameRate
+	test.That(t, props.FrameRate, test.ShouldEqual, 10.0) // test frame rate when it is set
 
 	// camera with camera parameters
 	cam2, err := camera.NewVideoSourceFromReader(
