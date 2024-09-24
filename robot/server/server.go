@@ -512,6 +512,7 @@ func (s *Server) GetMachineStatus(ctx context.Context, _ *pb.GetMachineStatusReq
 			Revision:    resStatus.Revision,
 		}
 
+		//nolint // TODO add NodeStateDisconnected if agreed to
 		switch resStatus.State {
 		case resource.NodeStateUnknown:
 			s.robot.Logger().CErrorw(ctx, "resource in an unknown state", "resource", resStatus.Name.String())

@@ -467,6 +467,7 @@ func (w *GraphNode) replace(other *GraphNode) error {
 }
 
 func (w *GraphNode) canTransitionTo(state NodeState) bool {
+	//nolint // TODO add NodeStateDisconnected if agreed to
 	switch w.state {
 	case NodeStateUnknown:
 	case NodeStateUnconfigured:
