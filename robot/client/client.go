@@ -1078,9 +1078,6 @@ func (rc *RobotClient) MachineStatus(ctx context.Context) (robot.MachineStatus, 
 
 	rc.mu.Lock()
 	defer rc.mu.Unlock()
-
-	// TODO: cache errors related to fetching cached machine status and
-	// return here?
 	return rc.cachedMachineStatus, nil
 }
 
