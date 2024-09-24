@@ -199,7 +199,7 @@ func (b *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies, c
 	}
 
 	syncSensor, syncSensorEnabled := syncSensorFromDeps(c.SelectiveSyncerName, deps, b.logger)
-	syncConfig := c.syncConfig(syncSensor, syncSensorEnabled)
+	syncConfig := c.syncConfig(syncSensor, syncSensorEnabled, b.logger)
 
 	b.mu.Lock()
 	defer b.mu.Unlock()

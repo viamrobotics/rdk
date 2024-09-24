@@ -131,10 +131,14 @@ func (s *Sync) Reconfigure(_ context.Context, config Config, cloudConnSvc cloud.
 		// to execute, don't stop workers
 		return
 	}
+	// config changed... stop workers
 	s.statsWorker.reconfigure(s.atomicUploadStats, syncStatsLogInterval)
 	s.config.logDiff(config, s.logger)
 
-	// config changed... stop workers
+	if s.config.schedulerEnabled() && !s.config.Equal(Config{}) {
+		// only log if the pool was previously started
+		s.logger.Info("stopping sync worker pool")
+	}
 	s.configCancelFunc()
 	s.FileDeletingWorkers.Stop()
 	s.Scheduler.Stop()
@@ -183,7 +187,7 @@ func (s *Sync) Reconfigure(_ context.Context, config Config, cloudConnSvc cloud.
 	}
 }
 
-// Close releases all resources managed by data_manager.
+// Close releases all resources managed by data sync.
 func (s *Sync) Close() {
 	s.configCancelFunc()
 	s.statsWorker.close()
@@ -309,6 +313,7 @@ func newCloudConn(
 func (s *Sync) startWorkers(config Config) {
 	numThreads := config.MaximumNumSyncThreads
 	s.MaxSyncThreads = numThreads
+	s.logger.Infof("starting sync worker pool of size: %d", numThreads)
 	for i := 0; i < numThreads; i++ {
 		s.workersWg.Add(1)
 		goutils.ManagedGo(func() { s.runWorker(config) }, s.workersWg.Done)

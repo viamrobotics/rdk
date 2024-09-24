@@ -6,6 +6,7 @@ import (
 
 	"go.viam.com/rdk/components/sensor"
 	"go.viam.com/rdk/internal/cloud"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/services/datamanager/builtin/capture"
 	datasync "go.viam.com/rdk/services/datamanager/builtin/sync"
 	"go.viam.com/rdk/utils"
@@ -23,7 +24,7 @@ const (
 	// defaultSyncIntervalMins is the sync interval that will be set if the config's sync_interval_mins is zero (including when it is unset).
 	defaultSyncIntervalMins = 0.1
 	// syncIntervalMinsEpsilon is the value below which SyncIntervalMins is considered zero.
-	syncIntervalMinsEpsilon = 0.00001
+	syncIntervalMinsEpsilon = 0.0001
 )
 
 // Capture Defaults
@@ -91,7 +92,7 @@ func (c *Config) captureConfig() capture.Config {
 	}
 }
 
-func (c *Config) syncConfig(syncSensor sensor.Sensor, syncSensorEnabled bool) datasync.Config {
+func (c *Config) syncConfig(syncSensor sensor.Sensor, syncSensorEnabled bool, logger logging.Logger) datasync.Config {
 	newMaxSyncThreadValue := runtime.NumCPU() / 2
 	if c.MaximumNumSyncThreads != 0 {
 		newMaxSyncThreadValue = c.MaximumNumSyncThreads
@@ -113,6 +114,8 @@ func (c *Config) syncConfig(syncSensor sensor.Sensor, syncSensorEnabled bool) da
 	syncIntervalMins := c.SyncIntervalMins
 	if utils.Float64AlmostEqual(c.SyncIntervalMins, 0, syncIntervalMinsEpsilon) {
 		syncIntervalMins = defaultSyncIntervalMins
+		logger.Infof("sync_interval_mins set to %f which is below allowed minimum of %f, setting to default of %f",
+			c.SyncIntervalMins, syncIntervalMinsEpsilon, defaultSyncIntervalMins)
 	}
 
 	return datasync.Config{
