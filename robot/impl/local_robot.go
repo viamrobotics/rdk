@@ -23,6 +23,7 @@ import (
 	"google.golang.org/grpc/status"
 
 	"go.viam.com/rdk/cloud"
+	"go.viam.com/rdk/components/sensor"
 	"go.viam.com/rdk/config"
 	icloud "go.viam.com/rdk/internal/cloud"
 	"go.viam.com/rdk/logging"
@@ -1183,12 +1184,19 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 
 	var allErrs error
 
+	canReconfigure, err := r.checkMaintenanceSensor(newConfig)
+	if err != nil {
+		r.logger.Info(err.Error() + ". using default reconfiguration behavior")
+	}
+	if !canReconfigure {
+		return
+	}
 	// Sync Packages before reconfiguring rest of robot and resolving references to any packages
 	// in the config.
 	// TODO(RSDK-1849): Make this non-blocking so other resources that do not require packages can run before package sync finishes.
 	// TODO(RSDK-2710) this should really use Reconfigure for the package and should allow itself to check
 	// if anything has changed.
-	err := r.packageManager.Sync(ctx, newConfig.Packages, newConfig.Modules)
+	err = r.packageManager.Sync(ctx, newConfig.Packages, newConfig.Modules)
 	if err != nil {
 		r.Logger().CErrorw(ctx, "reconfiguration aborted because cloud modules or packages download failed", "error", err)
 		return
@@ -1434,4 +1442,44 @@ func (r *localRobot) MachineStatus(ctx context.Context) (robot.MachineStatus, er
 // Version returns version information about the robot.
 func (r *localRobot) Version(ctx context.Context) (robot.VersionResponse, error) {
 	return robot.Version()
+}
+
+func (r *localRobot) checkMaintenanceSensor(newConfig *config.Config) (bool, error) {
+	if newConfig.MaintenanceConfig == nil {
+		return true, errors.New("maintenanceConfig undefined")
+	}
+	sensorFound := false
+	// Need to double check if this is needed
+	for _, component := range newConfig.Components {
+		if component.Name == newConfig.MaintenanceConfig.SensorName {
+			if sensorFound {
+				return true, errors.New("conflicting maintenance sensors found")
+			}
+			sensorFound = true
+		}
+	}
+	if !sensorFound {
+		return true, errors.Errorf("maintenance sensor %s not found", newConfig.MaintenanceConfig.SensorName)
+	}
+	sensorComponent, err := sensor.FromRobot(r, newConfig.MaintenanceConfig.SensorName)
+	if err != nil {
+		return true, errors.Errorf("maintenance sensor not found on local robot. %s", err.Error())
+	}
+	return r.checkMaintenanceSensorReadings(newConfig.MaintenanceConfig.MaintenanceAllowedKey, sensorComponent)
+}
+
+func (r *localRobot) checkMaintenanceSensorReadings(maintenanceAllowedKey string, sensor resource.Sensor) (bool, error) {
+	readings, err := sensor.Readings(context.Background(), map[string]interface{}{})
+	if err != nil {
+		return true, errors.Errorf("error reading maintenance sensor readings. %s", err.Error())
+	}
+	readingVal, ok := readings[maintenanceAllowedKey]
+	if !ok {
+		return true, errors.New("error getting MaintenanceAllowedKey from sensor reading")
+	}
+	canReconfigure, ok := readingVal.(bool)
+	if !ok {
+		return true, errors.New("maintenanceAllowedKey is not a bool value")
+	}
+	return canReconfigure, nil
 }

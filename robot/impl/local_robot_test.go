@@ -20,6 +20,7 @@ import (
 	"github.com/golang/geo/r3"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.uber.org/zap"
+
 	// registers all components.
 	commonpb "go.viam.com/api/common/v1"
 	armpb "go.viam.com/api/component/arm/v1"
@@ -48,6 +49,7 @@ import (
 	fakemotor "go.viam.com/rdk/components/motor/fake"
 	"go.viam.com/rdk/components/movementsensor"
 	_ "go.viam.com/rdk/components/register"
+	"go.viam.com/rdk/components/sensor"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/examples/customresources/apis/gizmoapi"
 	"go.viam.com/rdk/examples/customresources/apis/summationapi"
@@ -3954,4 +3956,170 @@ func TestLogPropagation(t *testing.T) {
 			test.That(t, observer.FilterMessageSnippet(debugLogLine).Len(), test.ShouldEqual, 1)
 		})
 	}
+}
+func TestCheckMaintenanceSensor(t *testing.T) {
+	t.Parallel()
+	logger := logging.NewTestLogger(t)
+	validMaintenanceConfig := config.MaintenanceConfig{
+		SensorName:            "Patrick",
+		MaintenanceAllowedKey: "Star",
+	}
+	tests := []struct {
+		canReconfigure bool
+		robotConfig    *config.Config
+		newConfig      *config.Config
+		errorMessage   string
+	}{
+		{
+			canReconfigure: true,
+			robotConfig:    &config.Config{},
+			newConfig:      &config.Config{},
+			errorMessage:   "maintenanceConfig undefined",
+		},
+		{
+			canReconfigure: true,
+			robotConfig:    &config.Config{},
+			newConfig: &config.Config{
+				MaintenanceConfig: &validMaintenanceConfig,
+				Components: []resource.Config{
+					{
+						Name: "Patrick",
+					},
+					{
+						Name: "Patrick",
+					},
+				},
+			},
+			errorMessage: "conflicting maintenance sensors found",
+		},
+		{
+			canReconfigure: true,
+			robotConfig:    &config.Config{},
+			newConfig: &config.Config{
+				MaintenanceConfig: &validMaintenanceConfig,
+				Components:        []resource.Config{},
+			},
+			errorMessage: "maintenance sensor Patrick not found",
+		},
+		{
+			canReconfigure: true,
+			robotConfig:    &config.Config{},
+			newConfig: &config.Config{
+				MaintenanceConfig: &validMaintenanceConfig,
+				Components: []resource.Config{
+					{
+						Name: "Patrick",
+					},
+				},
+			},
+			errorMessage: "maintenance sensor not found on local robot. resource \"rdk:component:sensor/Patrick\" not found",
+		},
+		{
+			canReconfigure: true,
+			robotConfig: &config.Config{Components: []resource.Config{
+				{
+					API:   sensor.API,
+					Name:  "Patrick",
+					Model: resource.DefaultModelFamily.WithModel("fake"),
+				},
+			}},
+			newConfig: &config.Config{
+				MaintenanceConfig: &validMaintenanceConfig,
+				Components: []resource.Config{
+					{
+						Name: "Patrick",
+					},
+				},
+			},
+			errorMessage: "error getting MaintenanceAllowedKey from sensor reading",
+		},
+	}
+	for _, tc := range tests {
+		t.Run("", func(t *testing.T) {
+			r := setupLocalRobot(t, context.Background(), tc.robotConfig, logger)
+			localRobot := r.(*localRobot)
+			canReconfigure, err := localRobot.checkMaintenanceSensor(tc.newConfig)
+
+			test.That(t, canReconfigure, test.ShouldEqual, tc.canReconfigure)
+			test.That(t, err.Error(), test.ShouldEqual, tc.errorMessage)
+		})
+	}
+}
+
+func TestCheckMaintenanceSensorReadings(t *testing.T) {
+	t.Parallel()
+	logger := logging.NewTestLogger(t)
+	tests := []struct {
+		canReconfigure        bool
+		maintenanceAllowedKey string
+		sensor                resource.Sensor
+		errorMessage          string
+	}{
+		{
+			canReconfigure:        true,
+			maintenanceAllowedKey: "",
+			sensor:                newErrorSensor(),
+			errorMessage:          "error reading maintenance sensor readings. Wallet not found",
+		},
+		{
+			canReconfigure:        true,
+			maintenanceAllowedKey: "UnknownKey",
+			sensor:                newSensor(),
+			errorMessage:          "error getting MaintenanceAllowedKey from sensor reading",
+		},
+	}
+	for _, tc := range tests {
+		t.Run("", func(t *testing.T) {
+			r := setupLocalRobot(t, context.Background(), &config.Config{}, logger)
+			localRobot := r.(*localRobot)
+			canReconfigure, err := localRobot.checkMaintenanceSensorReadings(tc.maintenanceAllowedKey, tc.sensor)
+
+			test.That(t, canReconfigure, test.ShouldEqual, tc.canReconfigure)
+			test.That(t, err.Error(), test.ShouldEqual, tc.errorMessage)
+		})
+	}
+	testsValid := []struct {
+		canReconfigure        bool
+		maintenanceAllowedKey string
+		sensor                resource.Sensor
+	}{
+		{
+			canReconfigure:        false,
+			maintenanceAllowedKey: "ThatsMyWallet",
+			sensor:                newSensor(),
+		},
+		{
+			canReconfigure:        true,
+			maintenanceAllowedKey: "ThatsNotMyWallet",
+			sensor:                newSensor(),
+		},
+	}
+	for _, tc := range testsValid {
+		t.Run("", func(t *testing.T) {
+			r := setupLocalRobot(t, context.Background(), &config.Config{}, logger)
+			localRobot := r.(*localRobot)
+			canReconfigure, err := localRobot.checkMaintenanceSensorReadings(tc.maintenanceAllowedKey, tc.sensor)
+
+			test.That(t, canReconfigure, test.ShouldEqual, tc.canReconfigure)
+			test.That(t, err, test.ShouldBeNil)
+		})
+	}
+}
+
+var readingMap = map[string]any{"ThatsMyWallet": false, "ThatsNotMyWallet": true}
+
+func newSensor() sensor.Sensor {
+	s := &inject.Sensor{}
+	s.ReadingsFunc = func(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
+		return readingMap, nil
+	}
+	return s
+}
+
+func newErrorSensor() sensor.Sensor {
+	s := &inject.Sensor{}
+	s.ReadingsFunc = func(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
+		return nil, errors.New("Wallet not found")
+	}
+	return s
 }
