@@ -1483,6 +1483,6 @@ func (r *localRobot) checkMaintenanceSensorReadings(maintenanceAllowedKey string
 		return true, errors.Errorf("maintenanceAllowedKey %s is not a bool value", maintenanceAllowedKey)
 	}
 
-	r.logger.Info("maintenanceAllowedKey found canReconfigure set to %v", canReconfigure)
+	r.logger.Info("maintenanceAllowedKey found canReconfigure set to %t", canReconfigure)
 	return canReconfigure, nil
 }

@@ -20,7 +20,6 @@ import (
 	"github.com/golang/geo/r3"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.uber.org/zap"
-
 	// registers all components.
 	commonpb "go.viam.com/api/common/v1"
 	armpb "go.viam.com/api/component/arm/v1"
@@ -3957,8 +3956,8 @@ func TestLogPropagation(t *testing.T) {
 		})
 	}
 }
+
 func TestCheckMaintenanceSensor(t *testing.T) {
-	t.Parallel()
 	logger := logging.NewTestLogger(t)
 	validMaintenanceConfig := config.MaintenanceConfig{
 		SensorName:            "Patrick",
@@ -4047,7 +4046,6 @@ func TestCheckMaintenanceSensor(t *testing.T) {
 }
 
 func TestCheckMaintenanceSensorReadings(t *testing.T) {
-	t.Parallel()
 	logger := logging.NewTestLogger(t)
 	tests := []struct {
 		canReconfigure        bool
