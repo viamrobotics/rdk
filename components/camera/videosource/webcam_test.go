@@ -84,7 +84,7 @@ func TestWebcamValidation(t *testing.T) {
 	webCfg.Width = -200
 	deps, err = webCfg.Validate("path")
 	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, deps, test.ShouldBeNil) //nil when there is an error?
+	test.That(t, deps, test.ShouldBeNil)
 
 	// error with a pos width and negative height
 	webCfg.Width = 200
@@ -92,12 +92,5 @@ func TestWebcamValidation(t *testing.T) {
 	deps, err = webCfg.Validate("path")
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, deps, test.ShouldBeNil)
-
-	// logger := logging.NewTestLogger(t)
-	// camera, err := videosource.NewWebcam(context.Background(), nil, cfg, logger)
-	// test.That(t, err, test.ShouldBeNil) //failed to find camera!!!! failed!!! NOT NILL!!!!!!
-	// test.That(t, camera, test.ShouldNotBeNil)
-	// // test.That(t, camera.Close(context.Background()), test.ShouldBeNil)
-	// defer camera.Close(context.Background())
 
 }
