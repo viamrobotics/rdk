@@ -742,23 +742,12 @@ func (svc *webService) initAuthHandlers(listenerTCPAddr *net.TCPAddr, options we
 			switch handler.Type {
 			case rpc.CredentialsTypeAPIKey:
 				apiKeys := parseAPIKeys(handler)
-				legacyAPIKeys := parseLegacyAPIKeys(handler, apiKeys)
-				hasAPIKeys := len(apiKeys) != 0
-				hasLegacyAPIKeys := len(legacyAPIKeys) != 0
 
-				switch {
-				case !hasLegacyAPIKeys && !hasAPIKeys:
-					return nil, errors.Errorf("%q handler requires non-empty API key or keys", handler.Type)
-				case hasLegacyAPIKeys && !hasAPIKeys:
-					rpcOpts = append(rpcOpts, rpc.WithAuthHandler(
-						handler.Type,
-						rpc.MakeSimpleMultiAuthHandler(authEntities, legacyAPIKeys),
-					))
-				case !hasLegacyAPIKeys && hasAPIKeys:
-					rpcOpts = append(rpcOpts, rpc.WithAuthHandler(handler.Type, rpc.MakeSimpleMultiAuthPairHandler(apiKeys)))
-				default:
-					rpcOpts = append(rpcOpts, rpc.WithAuthHandler(handler.Type, makeMultiStepAPIKeyAuthHandler(authEntities, legacyAPIKeys, apiKeys)))
+				if len(apiKeys) == 0 {
+					return nil, errors.Errorf("%q handler requires non-empty API keys", handler.Type)
 				}
+
+				rpcOpts = append(rpcOpts, rpc.WithAuthHandler(handler.Type, rpc.MakeSimpleMultiAuthPairHandler(apiKeys)))
 			case rutils.CredentialsTypeRobotLocationSecret:
 				locationSecrets := handler.Config.StringSlice("secrets")
 				if len(locationSecrets) == 0 {
@@ -789,28 +778,6 @@ func (svc *webService) initAuthHandlers(listenerTCPAddr *net.TCPAddr, options we
 	return rpcOpts, nil
 }
 
-func parseLegacyAPIKeys(handler config.AuthHandlerConfig, nonLegacyAPIKeys map[string]string) []string {
-	apiKeys := handler.Config.StringSlice("keys")
-	var filteredAPIKeys []string
-
-	// filter out new api keys from keys array to ensure we're left with only legacy keys
-	for _, apiKey := range apiKeys {
-		if _, ok := nonLegacyAPIKeys[apiKey]; !ok {
-			filteredAPIKeys = append(filteredAPIKeys, apiKey)
-		}
-	}
-
-	if len(filteredAPIKeys) == 0 {
-		apiKey := handler.Config.String("key")
-		if apiKey == "" {
-			return []string{}
-		}
-		filteredAPIKeys = []string{apiKey}
-	}
-
-	return filteredAPIKeys
-}
-
 func parseAPIKeys(handler config.AuthHandlerConfig) map[string]string {
 	apiKeys := map[string]string{}
 	for k := range handler.Config {
@@ -821,21 +788,6 @@ func parseAPIKeys(handler config.AuthHandlerConfig) map[string]string {
 		}
 	}
 	return apiKeys
-}
-
-// makeMultiStepAPIKeyAuthHandler supports auth handlers for both legacy and non-legacy api keys for backwards compatibility.
-func makeMultiStepAPIKeyAuthHandler(legacyEntities, legacyExpectedAPIKeys []string, apiKeys map[string]string) rpc.AuthHandler {
-	legacyAuthHandler := rpc.MakeSimpleMultiAuthHandler(legacyEntities, legacyExpectedAPIKeys)
-	currentAuthHandler := rpc.MakeSimpleMultiAuthPairHandler(apiKeys)
-	return rpc.AuthHandlerFunc(func(ctx context.Context, entity, payload string) (map[string]string, error) {
-		result, err := legacyAuthHandler.Authenticate(ctx, entity, payload)
-		if err == nil {
-			return result, nil
-		}
-
-		// if legacy API key authentication fails, try a new API key authentication
-		return currentAuthHandler.Authenticate(ctx, entity, payload)
-	})
 }
 
 // Register every API resource grpc service here.
