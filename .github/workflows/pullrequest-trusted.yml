@@ -16,7 +16,7 @@ on:
 jobs:
   test:
     if: (github.event.label.name == 'safe to test' || github.event.label.name == 'appimage')
-    uses: viamrobotics/rdk/.github/workflows/test.yml@main
+      uses: ./.github/workflows/test.yml
     secrets:
       MONGODB_TEST_OUTPUT_URI: ${{ secrets.MONGODB_TEST_OUTPUT_URI }}
       DOCKER_PUBLIC_READONLY_PAT: ${{ secrets.DOCKER_PUBLIC_READONLY_PAT }}
@@ -69,7 +69,7 @@ jobs:
 
   droid:
     needs: test
-    uses: uses: ./.github/workflows/test.yml
+    uses: viamrobotics/rdk/.github/workflows/droid.yml@main
     with:
       release_type: 'pr'
     secrets:
