@@ -1477,6 +1477,11 @@ After creation, use 'viam module update' to push your new module to app.viam.com
 					Action: CreateModuleAction,
 				},
 				{
+					Name:   "generate",
+					Usage:  "generate a new modular resource",
+					Action: GenerateModuleAction,
+				},
+				{
 					Name:  "update",
 					Usage: "update a module's metadata on app.viam.com",
 					Flags: []cli.Flag{
