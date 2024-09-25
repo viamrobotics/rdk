@@ -65,7 +65,7 @@ var (
 //	// This example shows using Close with an arm component.
 //	myArm, err := arm.FromRobot(machine, "my_arm")
 //
-//	err = myArm.Close(ctx)
+//	err = myArm.Close(context.Background())
 type Resource interface {
 	// Get the Name of the resource.
 	Name() Name
