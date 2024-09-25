@@ -1189,6 +1189,7 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 		r.logger.Info(err.Error() + ". using default reconfiguration behavior")
 	}
 	if !canReconfigure {
+		r.logger.Info("maintenance sensor determined it is not safe to reconfigure, disabling reconfigure")
 		return
 	}
 	// Sync Packages before reconfiguring rest of robot and resolving references to any packages
@@ -1475,11 +1476,13 @@ func (r *localRobot) checkMaintenanceSensorReadings(maintenanceAllowedKey string
 	}
 	readingVal, ok := readings[maintenanceAllowedKey]
 	if !ok {
-		return true, errors.New("error getting MaintenanceAllowedKey from sensor reading")
+		return true, errors.Errorf("error getting MaintenanceAllowedKey %s from sensor reading", maintenanceAllowedKey)
 	}
 	canReconfigure, ok := readingVal.(bool)
 	if !ok {
-		return true, errors.New("maintenanceAllowedKey is not a bool value")
+		return true, errors.Errorf("maintenanceAllowedKey %s is not a bool value", maintenanceAllowedKey)
 	}
+
+	r.logger.Info("maintenanceAllowedKey found canReconfigure set to %v", canReconfigure)
 	return canReconfigure, nil
 }
