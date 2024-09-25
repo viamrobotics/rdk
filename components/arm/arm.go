@@ -66,7 +66,7 @@ func Named(name string) resource.Name {
 //	// Create a Pose for the arm.
 //	examplePose := spatialmath.NewPose(
 //	        r3.Vector{X: 5, Y: 5, Z: 5},
-//	        &spatialmath.OrientationVectorDegrees{0X: 5, 0Y: 5, Theta: 20}
+//	        &spatialmath.OrientationVectorDegrees{OX: 5, OY: 5, Theta: 20},
 //	)
 //
 //	// Move your arm to the Pose.
