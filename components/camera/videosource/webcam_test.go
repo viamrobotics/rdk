@@ -2,19 +2,16 @@ package videosource_test
 
 import (
 	"context"
-	"image"
+
 	"testing"
 
 	"github.com/pion/mediadevices/pkg/driver"
 	"github.com/pion/mediadevices/pkg/prop"
 	"go.viam.com/test"
 
-	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/components/camera/videosource"
-	"go.viam.com/rdk/gostream"
+
 	"go.viam.com/rdk/logging"
-	"go.viam.com/rdk/pointcloud"
-	"go.viam.com/rdk/resource"
 )
 
 // fakeDriver is a driver has a label and media properties.
@@ -60,50 +57,47 @@ func TestDiscoveryWebcam(t *testing.T) {
 	test.That(t, respProps[0].FrameRate, test.ShouldResemble, float32(30))
 }
 
-// Testing FrameRate camera property
+func TestWebcamValidation(t *testing.T) {
 
-type mockVideoSource struct {
-	frameRate float32
-}
-
-func (m *mockVideoSource) Properties(context.Context) (camera.Properties, error) {
-	return camera.Properties{FrameRate: m.frameRate}, nil
-}
-func (m *mockVideoSource) Close(ctx context.Context) error {
-	return nil
-}
-func (m *mockVideoSource) Images(context.Context) ([]camera.NamedImage, resource.ResponseMetadata, error) {
-	return nil, resource.ResponseMetadata{}, nil
-}
-func (m *mockVideoSource) NextPointCloud(context.Context) (pointcloud.PointCloud, error) {
-	return nil, nil
-}
-func (m *mockVideoSource) Stream(context.Context, ...gostream.ErrorHandler) (gostream.MediaStream[image.Image], error) {
-	return nil, nil
-}
-
-type fakeMonitoredWebcam struct {
-	resource.Named
-	exposedProjector camera.VideoSource
-}
-
-func TestFrameRate(t *testing.T) {
-	mockCam := &mockVideoSource{frameRate: 0.0}
-
-	fakeCam := &fakeMonitoredWebcam{
-		exposedProjector: mockCam,
+	webCfg := &videosource.WebcamConfig{
+		Debug:     true,
+		Format:    "fakeFormat",
+		Path:      "fakePath",
+		Width:     1280,
+		Height:    640,
+		FrameRate: 10.0,
 	}
-	// Test without setting frame rate
-	props, err := fakeCam.exposedProjector.Properties(context.Background())
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, props.FrameRate, test.ShouldEqual, 0.0)
 
-	// Test with setting frame rate
-	fakeFrameRate := float32(30.0)
-	mockCam.frameRate = fakeFrameRate
-	props, err = fakeCam.exposedProjector.Properties(context.Background())
+	// no error with positive width and height and no other params
+	deps, err := webCfg.Validate("path")
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, props.FrameRate, test.ShouldEqual, fakeFrameRate)
+	test.That(t, deps, test.ShouldNotBeNil)
 
-	defer mockCam.Close(context.Background())
+	//no error with a 0 width and 0 height
+	webCfg.Width = 0
+	webCfg.Height = 0
+	deps, err = webCfg.Validate("path")
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, deps, test.ShouldNotBeNil)
+
+	// error with a negative width and pos height
+	webCfg.Width = -200
+	deps, err = webCfg.Validate("path")
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, deps, test.ShouldBeNil) //nil when there is an error?
+
+	// error with a pos width and negative height
+	webCfg.Width = 200
+	webCfg.Height = -200
+	deps, err = webCfg.Validate("path")
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, deps, test.ShouldBeNil)
+
+	// logger := logging.NewTestLogger(t)
+	// camera, err := videosource.NewWebcam(context.Background(), nil, cfg, logger)
+	// test.That(t, err, test.ShouldBeNil) //failed to find camera!!!! failed!!! NOT NILL!!!!!!
+	// test.That(t, camera, test.ShouldNotBeNil)
+	// // test.That(t, camera.Close(context.Background()), test.ShouldBeNil)
+	// defer camera.Close(context.Background())
+
 }
