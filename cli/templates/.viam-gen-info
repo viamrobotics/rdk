@@ -1,0 +1,11 @@
+{
+    "module_name": "{{.ModuleName}}",
+    "namespace": "{{.Namespace}}",
+    "language": "{{.Language}}",
+    "resource_type": "{{.ResourceType}}",
+    "resource_subtype": "{{.ResourceSubtype}}",
+    "model_name": "{{.ModelName}}",
+    "initialize_git": "{{.InitializeGit}}",
+    "generator_version": "{{.GeneratorVersion}}",
+    "generated_on": "{{.GeneratedOn}}"
+}

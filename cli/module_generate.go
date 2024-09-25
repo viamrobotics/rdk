@@ -20,9 +20,6 @@ import (
 	"github.com/charmbracelet/huh"
 )
 
-//go:embed script.py
-var pyScript []byte
-
 //go:embed templates/*
 var templates embed.FS
 
