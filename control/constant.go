@@ -27,6 +27,8 @@ func newConstant(config BlockConfig, logger logging.Logger) (Block, error) {
 }
 
 func (b *constant) Next(ctx context.Context, x []*Signal, dt time.Duration) ([]*Signal, bool) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
 	return b.y, true
 }
 
