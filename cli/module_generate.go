@@ -29,7 +29,7 @@ import (
 //go:embed module_generate/scripts
 var scripts embed.FS
 
-//go:embed all:module_generate/templates
+//go:embed all:module_generate/templates/*
 var templates embed.FS
 
 const (
@@ -84,28 +84,27 @@ func (c *viamClient) generateModuleAction(cCtx *cli.Context) error {
 	}
 	newModule.SDKVersion = version[1:]
 
-	err = setupDirectories(cCtx, newModule.ModuleName)
-	if err != nil {
+	if err = setupDirectories(cCtx, newModule.ModuleName); err != nil {
 		return err
 	}
 
-	err = renderCommonFiles(cCtx, newModule)
-	if err != nil {
+	if err = renderCommonFiles(cCtx, newModule); err != nil {
 		return err
 	}
 
-	err = copyLanguageTemplate(cCtx, newModule.Language, newModule.ModuleName)
-	if err != nil {
+	if err = copyLanguageTemplate(cCtx, newModule.Language, newModule.ModuleName); err != nil {
 		return err
 	}
 
-	err = renderTemplate(cCtx, newModule)
-	if err != nil {
+	if err = renderTemplate(cCtx, newModule); err != nil {
 		return err
 	}
 
-	err = generateStubs(cCtx, newModule)
-	if err != nil {
+	if err = generateStubs(cCtx, newModule); err != nil {
+		return err
+	}
+
+	if err = initializeGit(cCtx, newModule.ModuleName, newModule.InitializeGit); err != nil {
 		return err
 	}
 
@@ -266,7 +265,7 @@ func setupDirectories(c *cli.Context, moduleName string) error {
 func renderCommonFiles(c *cli.Context, module moduleInputs) error {
 	debugf(c.App.Writer, c.Bool(debugFlag), "Rendering common files")
 
-	// .viam-gen-info
+	// Render .viam-gen-info
 	infoBytes, err := json.MarshalIndent(module, "", "  ")
 	if err != nil {
 		return err
@@ -281,6 +280,60 @@ func renderCommonFiles(c *cli.Context, module moduleInputs) error {
 
 	if _, err := infoFile.Write(infoBytes); err != nil {
 		return errors.Wrapf(err, "failed to write generator info to %s", infoFilePath)
+	}
+
+	// Render workflows for cloud build
+	if module.EnableCloudBuild {
+		debugf(c.App.Writer, c.Bool(debugFlag), "\tCreating cloud build workflow")
+		destWorkflowPath := filepath.Join(module.ModuleName, ".github")
+		if err = os.Mkdir(destWorkflowPath, 0755); err != nil {
+			return errors.Wrap(err, "failed to create cloud build workflow")
+		}
+
+		workflowPath := filepath.Join(templatesPath, ".github")
+		workflowFS, err := fs.Sub(templates, workflowPath)
+		if err != nil {
+			return errors.Wrap(err, "failed to create cloud build workflow")
+		}
+
+		err = fs.WalkDir(workflowFS, ".", func(path string, d fs.DirEntry, err error) error {
+			if err != nil {
+				return err
+			}
+			if d.IsDir() {
+				if d.Name() != ".github" {
+					debugf(c.App.Writer, c.Bool(debugFlag), "\t\tCopying %s directory", d.Name())
+					err = os.Mkdir(filepath.Join(destWorkflowPath, path), 0755)
+					if err != nil {
+						return err
+					}
+				}
+			} else if !strings.HasPrefix(d.Name(), templatePrefix) {
+				debugf(c.App.Writer, c.Bool(debugFlag), "\t\tCopying file %s", path)
+				srcFile, err := templates.Open(filepath.Join(workflowPath, path))
+				if err != nil {
+					return errors.Wrapf(err, "error opening file %s", srcFile)
+				}
+				defer srcFile.Close()
+
+				destPath := filepath.Join(destWorkflowPath, path)
+				destFile, err := os.Create(destPath)
+				if err != nil {
+					return errors.Wrapf(err, "failed to create file %s", destPath)
+				}
+				defer destFile.Close()
+
+				_, err = io.Copy(destFile, srcFile)
+				if err != nil {
+					return errors.Wrapf(err, "error executing template for %s", destPath)
+				}
+			}
+			return nil
+		})
+		if err != nil {
+			return errors.Wrap(err, "failed to render all common files")
+		}
+		return nil
 	}
 
 	return nil
@@ -301,7 +354,7 @@ func copyLanguageTemplate(c *cli.Context, language string, moduleName string) er
 		if d.IsDir() {
 			if d.Name() != language {
 				debugf(c.App.Writer, c.Bool(debugFlag), "\tCopying %s directory", d.Name())
-				err = os.Mkdir(filepath.Join(moduleName, d.Name()), 0755)
+				err = os.Mkdir(filepath.Join(moduleName, path), 0755)
 				if err != nil {
 					return err
 				}
@@ -325,29 +378,26 @@ func copyLanguageTemplate(c *cli.Context, language string, moduleName string) er
 			if err != nil {
 				return errors.Wrapf(err, "error executing template for %s", destPath)
 			}
-			debugf(c.App.Writer, c.Bool(debugFlag), "\tSuccesfully created %v", destPath)
-
 		}
 		return nil
 	})
 	if err != nil {
-		debugf(c.App.Writer, c.Bool(debugFlag), "Failed to create all %s files", language)
-		return err
+		return errors.Wrapf(err, "failed to render all %s files", language)
 	}
 	return nil
 }
 
 // Render all the files in the new directory
-func renderTemplate(c *cli.Context, newModule moduleInputs) error {
+func renderTemplate(c *cli.Context, module moduleInputs) error {
 	debugf(c.App.Writer, c.Bool(debugFlag), "Rendering template files")
-	languagePath := filepath.Join(templatesPath, newModule.Language)
+	languagePath := filepath.Join(templatesPath, module.Language)
 	tempDir, err := fs.Sub(templates, languagePath)
 	if err != nil {
 		return err
 	}
 	err = fs.WalkDir(tempDir, ".", func(path string, d fs.DirEntry, err error) error {
 		if !d.IsDir() && strings.HasPrefix(d.Name(), templatePrefix) {
-			destPath := filepath.Join(newModule.ModuleName, strings.ReplaceAll(path, templatePrefix, ""))
+			destPath := filepath.Join(module.ModuleName, strings.ReplaceAll(path, templatePrefix, ""))
 			debugf(c.App.Writer, c.Bool(debugFlag), "\tRendering file %s", destPath)
 
 			tFile, err := templates.Open(filepath.Join(languagePath, path))
@@ -371,7 +421,7 @@ func renderTemplate(c *cli.Context, newModule moduleInputs) error {
 			}
 			defer destFile.Close()
 
-			err = tmpl.Execute(destFile, newModule)
+			err = tmpl.Execute(destFile, module)
 			if err != nil {
 				return err
 			}
@@ -412,8 +462,8 @@ func generatePythonStubs(module moduleInputs) error {
 	if err != nil {
 		return errors.Wrap(err, "cannot generate python stubs -- unable to create python virtual environment")
 	}
+	defer os.RemoveAll(venvName)
 
-	// script, err := scripts.ReadFile(filepath.Join(scriptsPath, "generate_stubs.py"))
 	script, err := scripts.ReadFile(filepath.Join(scriptsPath, "generate_stubs.py"))
 	if err != nil {
 		return errors.Wrap(err, "cannot generate python stubs -- unable to open generator script")
@@ -464,8 +514,23 @@ func getLatestSDKTag(c *cli.Context, language string) (string, error) {
 	}
 	latest := releases[0]
 	version := latest.(map[string]interface{})["tag_name"].(string)
-	debugf(c.App.Writer, c.Bool(debugFlag), "Latest release for %s: %s", repo, version)
+	debugf(c.App.Writer, c.Bool(debugFlag), "\tLatest release for %s: %s", repo, version)
 	return version, nil
+}
+
+func initializeGit(c *cli.Context, moduleName string, initializeGit bool) error {
+	if !initializeGit {
+		os.Remove(filepath.Join(moduleName, ".gitignore"))
+		return nil
+	}
+	debugf(c.App.Writer, c.Bool(debugFlag), "Initializing git repo")
+
+	cmd := exec.Command("git", "init", moduleName)
+	if err := cmd.Run(); err != nil {
+		return errors.Wrap(err, "cannot initialize git repo")
+	}
+
+	return nil
 }
 
 // Create the meta.json manifest
@@ -496,8 +561,10 @@ func renderManifest(c *cli.Context, moduleID string, module moduleInputs) error 
 				Arch:  []string{"linux/amd64", "linux/arm64", "darwin/arm64"},
 			}
 			manifest.Entrypoint = "dist/main"
+			os.Remove(filepath.Join(module.ModuleName, "run.sh"))
 		} else {
 			manifest.Entrypoint = "./run.sh"
+			os.Remove(filepath.Join(module.ModuleName, "build.sh"))
 		}
 	}
 
