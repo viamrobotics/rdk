@@ -322,10 +322,10 @@ func (svc *webService) StartModule(ctx context.Context) error {
 	if err := svc.modServer.RegisterServiceServer(ctx, &pb.RobotService_ServiceDesc, grpcserver.New(svc.r)); err != nil {
 		return err
 	}
-	if err := svc.refreshResources(); err != nil {
+	if err := svc.initAPIResourceCollections(ctx, true); err != nil {
 		return err
 	}
-	if err := svc.initAPIResourceCollections(ctx, true); err != nil {
+	if err := svc.refreshResources(); err != nil {
 		return err
 	}
 
@@ -519,10 +519,10 @@ func (svc *webService) runWeb(ctx context.Context, options weboptions.Options) (
 		return err
 	}
 
-	if err := svc.refreshResources(); err != nil {
+	if err := svc.initAPIResourceCollections(ctx, false); err != nil {
 		return err
 	}
-	if err := svc.initAPIResourceCollections(ctx, false); err != nil {
+	if err := svc.refreshResources(); err != nil {
 		return err
 	}
 
