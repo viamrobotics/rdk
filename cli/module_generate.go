@@ -78,50 +78,79 @@ func GenerateModuleAction(cCtx *cli.Context) error {
 func (c *viamClient) generateModuleAction(cCtx *cli.Context) error {
 	newModule := promptUser()
 
-	version, err := getLatestSDKTag(cCtx, newModule.Language)
-	if err != nil {
-		return err
+	s := spinner.New()
+	var actionErr error
+	action := func() {
+		s.Title("Getting latest release...")
+		version, err := getLatestSDKTag(cCtx, newModule.Language)
+		if err != nil {
+			actionErr = err
+			return
+		}
+		newModule.SDKVersion = version[1:]
+
+		s.Title("Setting up module directory...")
+		if err = setupDirectories(cCtx, newModule.ModuleName); err != nil {
+			actionErr = err
+			return
+		}
+
+		s.Title("Rendering common files...")
+		if err = renderCommonFiles(cCtx, newModule); err != nil {
+			actionErr = err
+			return
+		}
+
+		s.Title(fmt.Sprintf("Copying %s files...", newModule.Language))
+		if err = copyLanguageTemplate(cCtx, newModule.Language, newModule.ModuleName); err != nil {
+			actionErr = err
+			return
+		}
+
+		s.Title("Rendering template...")
+		if err = renderTemplate(cCtx, newModule); err != nil {
+			actionErr = err
+			return
+		}
+
+		s.Title(fmt.Sprintf("Generating %s stubs...", newModule.Language))
+		if err = generateStubs(cCtx, newModule); err != nil {
+			actionErr = err
+			return
+		}
+
+		s.Title("Initializing git repository...")
+		if err = initializeGit(cCtx, newModule.ModuleName, newModule.InitializeGit); err != nil {
+			actionErr = err
+			return
+		}
+
+		// Create module on app.viam and manifest
+		moduleResponse, err := c.createModule(newModule.ModuleName, newModule.Namespace)
+		if err != nil {
+			actionErr = errors.Wrap(err, "failed to register module")
+			return
+		}
+		moduleID, err := parseModuleID(moduleResponse.GetModuleId())
+		if err != nil {
+			actionErr = errors.Wrap(err, "failed to parse module identifier")
+			return
+		}
+		err = renderManifest(cCtx, moduleID.String(), newModule)
+		if err != nil {
+			actionErr = errors.Wrap(err, "failed to render manifest")
+			return
+		}
 	}
-	newModule.SDKVersion = version[1:]
 
-	if err = setupDirectories(cCtx, newModule.ModuleName); err != nil {
-		return err
+	s.Action(action)
+	s.Run()
+
+	if actionErr != nil {
+		return actionErr
 	}
 
-	if err = renderCommonFiles(cCtx, newModule); err != nil {
-		return err
-	}
-
-	if err = copyLanguageTemplate(cCtx, newModule.Language, newModule.ModuleName); err != nil {
-		return err
-	}
-
-	if err = renderTemplate(cCtx, newModule); err != nil {
-		return err
-	}
-
-	if err = generateStubs(cCtx, newModule); err != nil {
-		return err
-	}
-
-	if err = initializeGit(cCtx, newModule.ModuleName, newModule.InitializeGit); err != nil {
-		return err
-	}
-
-	// Create module on app.viam and manifest
-	// moduleResponse, err := c.createModule(newModule.ModuleName, newModule.Namespace)
-	// if err != nil {
-	// 	return err
-	// }
-	// moduleID, err := parseModuleID(moduleResponse.GetModuleId())
-	// if err != nil {
-	// 	return err
-	// }
-	// err = renderManifest(cCtx, moduleID.String(), &newModule)
-	// if err != nil {
-	// 	return err
-	// }
-
+	printf(cCtx.App.Writer, "Module successfully generated at %s", newModule.ModuleName)
 	return nil
 }
 
@@ -437,17 +466,12 @@ func renderTemplate(c *cli.Context, module moduleInputs) error {
 // Generate stubs for the resource
 func generateStubs(c *cli.Context, module moduleInputs) error {
 	debugf(c.App.Writer, c.Bool(debugFlag), "Generating %s stubs", module.Language)
-	var err error
-	action := func() {
-		switch module.Language {
-		case "python":
-			err = generatePythonStubs(module)
-		default:
-			err = errors.Errorf("cannot generate stubs for language %s", module.Language)
-		}
+	switch module.Language {
+	case "python":
+		return generatePythonStubs(module)
+	default:
+		return errors.Errorf("cannot generate stubs for language %s", module.Language)
 	}
-	spinner.New().Title(fmt.Sprintf("Generating %s stubs...", module.Language)).Action(action).Run()
-	return err
 }
 
 func generatePythonStubs(module moduleInputs) error {
@@ -568,7 +592,7 @@ func renderManifest(c *cli.Context, moduleID string, module moduleInputs) error 
 		}
 	}
 
-	if err := writeManifest(defaultManifestFilename, manifest); err != nil {
+	if err := writeManifest(filepath.Join(module.ModuleName, defaultManifestFilename), manifest); err != nil {
 		return err
 	}
 
