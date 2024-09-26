@@ -1478,7 +1478,7 @@ After creation, use 'viam module update' to push your new module to app.viam.com
 				},
 				{
 					Name:   "generate",
-					Usage:  "generate a new modular resource",
+					Usage:  "generate a new modular resource via prompts",
 					Action: GenerateModuleAction,
 				},
 				{
