@@ -364,7 +364,7 @@ func (svc *webService) updateResources(resources map[resource.Name]resource.Reso
 		groupedResources[n.API] = r
 	}
 
-	// All known APIs have pre-registered services, so loop through them. We want to empty out any services if
+	// All known APIs have pre-registered resource collections, so loop through them. We want to empty out any collections if
 	// there are no longer resources available in that API.
 	for api, coll := range svc.services {
 		group, ok := groupedResources[api]
@@ -379,9 +379,10 @@ func (svc *webService) updateResources(resources map[resource.Name]resource.Reso
 	}
 
 	// If there are any groupedResources remaining, check if they are registered/internal/remote.
-	//  * Custom APIs are registered and do not have a dedicated service as requests for them are routed through the foreignServiceHandler.
-	//  * Internal services do not have an associated API.
-	//  * Remote resources are possibly handled by the remote robot and requests would be routed through the foreignServiceHandler.
+	//  * Custom APIs are registered and do not have a dedicated gRPC service as requests for them are routed through the foreignServiceHandler.
+	//  * Internal services do not have an associated gRPC API and so can be safely ignored.
+	//  * Remote resources with unregistered APIs are possibly handled by the remote robot and requests would be routed through the
+	//    foreignServiceHandler.
 	for api, group := range groupedResources {
 		apiRegs := resource.RegisteredAPIs()
 		_, ok := apiRegs[api]
@@ -883,7 +884,6 @@ func (svc *webService) initMux(options weboptions.Options) (*goji.Mux, error) {
 // an unregistered service or method. These method could be registered on a remote viam-server or a module server
 // so this handler will attempt to route the request to the correct next node in the chain.
 func (svc *webService) foreignServiceHandler(srv interface{}, stream googlegrpc.ServerStream) error {
-	fmt.Printf("\"going here anyway\": %v\n", "going here anyway")
 	// method will be in the form of PackageName.ServiceName/MethodName
 	method, ok := googlegrpc.MethodFromServerStream(stream)
 	if !ok {
