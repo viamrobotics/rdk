@@ -157,6 +157,11 @@ func (c WebcamConfig) Validate(path string) ([]string, error) {
 			"got illegal negative dimensions for width_px and height_px (%d, %d) fields set for webcam camera",
 			c.Height, c.Width)
 	}
+	if c.FrameRate <= 0 {
+		return nil, fmt.Errorf(
+			"got illegal non-positive dimension for frame rate (%.2f) field set for webcam camera",
+			c.FrameRate)
+	}
 
 	return []string{}, nil
 }
@@ -640,7 +645,7 @@ func (c *monitoredWebcam) Properties(ctx context.Context) (camera.Properties, er
 		}
 		props.IntrinsicParams = &cameraIntrinsics
 
-		if c.conf.FrameRate != 0 {
+		if c.conf.FrameRate > 0 {
 			props.FrameRate = c.conf.FrameRate
 		}
 	}
