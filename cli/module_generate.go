@@ -24,6 +24,7 @@ import (
 	"github.com/charmbracelet/huh/spinner"
 )
 
+
 //go:embed module_generate/scripts/*
 var scripts embed.FS
 
