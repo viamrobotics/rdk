@@ -79,7 +79,10 @@ func (c *viamClient) generateModuleAction(cCtx *cli.Context) error {
 		return err
 	}
 
-	renderCommonFiles(cCtx, newModule)
+	err = renderCommonFiles(cCtx, newModule)
+	if err != nil {
+		return err
+	}
 
 	err = copyLanguageTemplate(cCtx, newModule.Language, newModule.ModuleName)
 	if err != nil {
@@ -293,7 +296,7 @@ func copyLanguageTemplate(c *cli.Context, language string, moduleName string) er
 					return err
 				}
 			}
-		} else if !strings.HasPrefix(d.Name(), "tmpl") {
+		} else if !strings.HasPrefix(d.Name(), templatePrefix) {
 			debugf(c.App.Writer, c.Bool(debugFlag), "\tCopying file %s", path)
 			srcFile, err := templates.Open(filepath.Join(languagePath, path))
 			if err != nil {
