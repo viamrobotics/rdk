@@ -67,9 +67,10 @@ func TestWebcamValidation(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, deps, test.ShouldResemble, []string{})
 
-	// no error with 0 width and 0 height
+	// no error with 0 width, 0 height and frame rate
 	webCfg.Width = 0
 	webCfg.Height = 0
+	webCfg.FrameRate = 0
 	deps, err = webCfg.Validate("path")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, deps, test.ShouldResemble, []string{})
@@ -95,12 +96,5 @@ func TestWebcamValidation(t *testing.T) {
 	deps, err = webCfg.Validate("path")
 	test.That(t, err.Error(), test.ShouldEqual,
 		"got illegal non-positive dimension for frame rate (-100.00) field set for webcam camera")
-	test.That(t, deps, test.ShouldBeNil)
-
-	// error with a 0 frame rate
-	webCfg.FrameRate = 0
-	deps, err = webCfg.Validate("path")
-	test.That(t, err.Error(), test.ShouldEqual,
-		"got illegal non-positive dimension for frame rate (0.00) field set for webcam camera")
 	test.That(t, deps, test.ShouldBeNil)
 }
