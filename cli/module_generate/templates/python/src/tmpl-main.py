@@ -14,7 +14,7 @@ class {{ .ModelPascal  }}({{ .ResourceSubtypePascal }}, EasyResource):
 
     @classmethod
     def new(cls, config: ComponentConfig, dependencies: Mapping[ResourceName, ResourceBase]) -> Self:
-        """This method creates a new instance of this vision service.
+        """This method creates a new instance of this {{ .ResourceSubtype }}.
         The default implementation sets the name from the `config` parameter and then calls `reconfigure`.
 
         Args:
