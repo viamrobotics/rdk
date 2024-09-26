@@ -354,7 +354,6 @@ func (svc *webService) refreshResources() error {
 }
 
 func (svc *webService) updateResources(resources map[resource.Name]resource.Resource) error {
-	// so group resources by API
 	groupedResources := make(map[resource.API]map[resource.Name]resource.Resource)
 	for n, v := range resources {
 		r, ok := groupedResources[n.API]
@@ -365,42 +364,42 @@ func (svc *webService) updateResources(resources map[resource.Name]resource.Reso
 		groupedResources[n.API] = r
 	}
 
-	apiRegs := resource.RegisteredAPIs()
-	for a, v := range groupedResources {
-		apiResColl, ok := svc.services[a]
-		// TODO(RSDK-144): register new service if it doesn't currently exist
+	// All known APIs have pre-registered services, so loop through them. We want to empty out any services if
+	// there are no longer resources available in that API.
+	for api, coll := range svc.services {
+		group, ok := groupedResources[api]
 		if !ok {
-			reg, ok := apiRegs[a]
-			var apiResColl resource.APIResourceCollection[resource.Resource]
-			if ok {
-				apiResColl = reg.MakeEmptyCollection()
-			} else {
-				// Log a warning here to remind users to register their APIs. Do not warn if the resource is internal to the RDK or
-				// the resource is handled by a remote with a possibly separate API registration. Modular resources will
-				// have API registrations already and should not reach this point in the method.
-				if a.Type.Namespace != resource.APINamespaceRDKInternal {
-					for n := range v {
-						if !n.ContainsRemoteNames() {
-							svc.logger.Warnw(
-								"missing registration for api, resources with this API will be unreachable through a client", "api", n.API)
-							break
-						}
-					}
-				}
-				continue
-			}
+			// create an empty map of resources if one does not exist
+			group = make(map[resource.Name]resource.Resource)
+		}
+		if err := coll.ReplaceAll(group); err != nil {
+			return err
+		}
+		delete(groupedResources, api)
+	}
 
-			if err := apiResColl.ReplaceAll(v); err != nil {
-				return err
-			}
-			svc.services[a] = apiResColl
-		} else {
-			if err := apiResColl.ReplaceAll(v); err != nil {
-				return err
+	// If there are any groupedResources remaining, check if they are registered/internal/remote.
+	//  * Custom APIs are registered and do not have a dedicated service as requests for them are routed through the foreignServiceHandler.
+	//  * Internal services do not have an associated API.
+	//  * Remote resources are possibly handled by the remote robot and requests would be routed through the foreignServiceHandler.
+	for api, group := range groupedResources {
+		apiRegs := resource.RegisteredAPIs()
+		_, ok := apiRegs[api]
+		if ok {
+			// If registered, the API is most likely a custom API registered through modular resources.
+			continue
+		}
+		// Log a warning here to remind users to register their APIs.
+		if api.Type.Namespace != resource.APINamespaceRDKInternal {
+			for n := range group {
+				if !n.ContainsRemoteNames() {
+					svc.logger.Warnw(
+						"missing registration for api, resources with this API will be unreachable through a client", "api", n.API)
+					break
+				}
 			}
 		}
 	}
-
 	return nil
 }
 
@@ -932,6 +931,7 @@ func (svc *webService) initMux(options weboptions.Options) (*goji.Mux, error) {
 // an unregistered service or method. These method could be registered on a remote viam-server or a module server
 // so this handler will attempt to route the request to the correct next node in the chain.
 func (svc *webService) foreignServiceHandler(srv interface{}, stream googlegrpc.ServerStream) error {
+	fmt.Printf("\"going here anyway\": %v\n", "going here anyway")
 	// method will be in the form of PackageName.ServiceName/MethodName
 	method, ok := googlegrpc.MethodFromServerStream(stream)
 	if !ok {
