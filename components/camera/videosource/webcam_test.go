@@ -2,7 +2,6 @@ package videosource_test
 
 import (
 	"context"
-
 	"testing"
 
 	"github.com/pion/mediadevices/pkg/driver"
@@ -10,7 +9,6 @@ import (
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/components/camera/videosource"
-
 	"go.viam.com/rdk/logging"
 )
 
@@ -58,39 +56,34 @@ func TestDiscoveryWebcam(t *testing.T) {
 }
 
 func TestWebcamValidation(t *testing.T) {
-
 	webCfg := &videosource.WebcamConfig{
-		Debug:     true,
-		Format:    "fakeFormat",
-		Path:      "fakePath",
-		Width:     1280,
-		Height:    640,
-		FrameRate: 10.0,
+		Width:  1280,
+		Height: 640,
 	}
 
-	// no error with positive width and height and no other params
+	// no error with positive width and height
 	deps, err := webCfg.Validate("path")
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, deps, test.ShouldNotBeNil)
+	test.That(t, deps, test.ShouldResemble, []string{})
 
-	//no error with a 0 width and 0 height
 	webCfg.Width = 0
 	webCfg.Height = 0
 	deps, err = webCfg.Validate("path")
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, deps, test.ShouldNotBeNil)
+	test.That(t, deps, test.ShouldResemble, []string{})
 
-	// error with a negative width and pos height
+	// error with a negative width and positive height
 	webCfg.Width = -200
 	deps, err = webCfg.Validate("path")
-	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldEqual,
+		"got illegal negative dimensions for width_px and height_px (0, -200) fields set for webcam camera")
 	test.That(t, deps, test.ShouldBeNil)
 
-	// error with a pos width and negative height
+	// error with a positive width and negative height
 	webCfg.Width = 200
 	webCfg.Height = -200
 	deps, err = webCfg.Validate("path")
-	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldEqual,
+		"got illegal negative dimensions for width_px and height_px (-200, 200) fields set for webcam camera")
 	test.That(t, deps, test.ShouldBeNil)
-
 }
