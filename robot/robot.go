@@ -43,7 +43,7 @@ const (
 //	qs := []resource.DiscoverQuery{q}
 //
 //	// Get component configurations with these queries.
-//	component_configs, err := machine.DiscoverComponents(ctx.Background(), qs)
+//	component_configs, err := machine.DiscoverComponents(context.Background(), []resource.DiscoveryQuery{qs})
 //
 // ResourceNames example:
 //
@@ -52,7 +52,7 @@ const (
 // FrameSystemConfig example:
 //
 //	// Print the frame system configuration
-//	frameSystem, err := machine.FrameSystemConfig(context.Background(), nil)
+//	frameSystem, err := machine.FrameSystemConfig(context.Background())
 //	fmt.Println(frameSystem)
 //
 // TransformPose example:
@@ -67,15 +67,15 @@ const (
 //
 // Status example:
 //
-//	status, err := machine.Status(ctx)
+//	status, err := machine.Status(ctx, nil)
 //
 // CloudMetadata example:
 //
-//	metadata, err := machine.CloudMetadata()
-//	machine_id = metadata.MachineID
-//	machine_part_id = metadata.MachinePartID
-//	primary_org_id = metadata.PrimaryOrgID
-//	location_id = metadata.LocationID
+//	metadata, err := machine.CloudMetadata(ctx)
+//	primary_org_id := metadata.PrimaryOrgID
+//	location_id := metadata.LocationID
+//	machine_id := metadata.MachineID
+//	machine_part_id := metadata.MachinePartID
 //
 // Close example:
 //
@@ -85,12 +85,12 @@ const (
 // StopAll example:
 //
 //	// Cancel all current and outstanding operations for the machine and stop all actuators and movement.
-//	err := machine.StopAll(ctx)
+//	err := machine.StopAll(ctx, nil)
 //
 // Shutdown example:
 //
 //	// Shut down the robot.
-//	err := machine.Shutdown()
+//	err := machine.Shutdown(ctx)
 type Robot interface {
 	// DiscoverComponents returns discovered component configurations.
 	DiscoverComponents(ctx context.Context, qs []resource.DiscoveryQuery) ([]resource.Discovery, error)
