@@ -379,7 +379,8 @@ func (svc *webService) updateResources(resources map[resource.Name]resource.Reso
 	}
 
 	// If there are any groupedResources remaining, check if they are registered/internal/remote.
-	//  * Custom APIs are registered and do not have a dedicated gRPC service as requests for them are routed through the foreignServiceHandler.
+	//  * Custom APIs are registered and do not have a dedicated gRPC service as requests for them are routed through the
+	//    foreignServiceHandler.
 	//  * Internal services do not have an associated gRPC API and so can be safely ignored.
 	//  * Remote resources with unregistered APIs are possibly handled by the remote robot and requests would be routed through the
 	//    foreignServiceHandler.
