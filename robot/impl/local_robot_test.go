@@ -318,6 +318,7 @@ func TestConfigRemoteWithAuth(t *testing.T) {
 			options.Managed = tc.Managed
 			options.FQDN = tc.EntityName
 			options.LocalFQDN = primitive.NewObjectID().Hex()
+			apiKeyID := "sosecretID"
 			apiKey := "sosecret"
 			locationSecret := "locsosecret"
 
@@ -325,7 +326,8 @@ func TestConfigRemoteWithAuth(t *testing.T) {
 				{
 					Type: rpc.CredentialsTypeAPIKey,
 					Config: rutils.AttributeMap{
-						"key": apiKey,
+						apiKeyID: apiKey,
+						"keys":   []string{apiKeyID},
 					},
 				},
 				{
@@ -391,7 +393,7 @@ func TestConfigRemoteWithAuth(t *testing.T) {
 				test.That(t, ok, test.ShouldBeFalse)
 				test.That(t, remoteBot, test.ShouldBeNil)
 
-				remoteConfig.Remotes[0].Auth.Entity = entityName
+				remoteConfig.Remotes[0].Auth.Entity = apiKeyID
 				remoteConfig.Remotes[1].Auth.Entity = entityName
 				test.That(t, setupLocalRobot(t, context.Background(), remoteConfig, logger).Close(context.Background()), test.ShouldBeNil)
 
@@ -407,6 +409,8 @@ func TestConfigRemoteWithAuth(t *testing.T) {
 				remoteConfig.AllowInsecureCreds = true
 
 				test.That(t, setupLocalRobot(t, context.Background(), remoteConfig, logger).Close(context.Background()), test.ShouldBeNil)
+
+				remoteConfig.Remotes[0].Auth.Entity = apiKeyID
 
 				ctx2 := context.Background()
 				remoteConfig.Remotes[0].Address = options.LocalFQDN
@@ -3517,7 +3521,7 @@ func TestMachineStatus(t *testing.T) {
 					Name:     mockNamed("m"),
 					State:    resource.NodeStateUnhealthy,
 					Revision: rev2,
-					Error:    errors.Join(expectedConfigError),
+					Error:    expectedConfigError,
 				},
 			},
 		)

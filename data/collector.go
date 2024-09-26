@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"reflect"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/benbjohnson/clock"
@@ -70,8 +69,6 @@ type collector struct {
 	cancelCtx        context.Context
 	cancel           context.CancelFunc
 	captureFunc      CaptureFunc
-	closeStarted     atomic.Bool
-	closeFinished    bool
 	target           CaptureBufferedWriter
 	lastLoggedErrors map[string]int64
 }
@@ -79,9 +76,9 @@ type collector struct {
 // Close closes the channels backing the Collector. It should always be called before disposing of a Collector to avoid
 // leaking goroutines.
 func (c *collector) Close() {
-	// Signal the start of closing. Specifically, this is used to signal to the error logging
-	// goroutine that it should ignore "context canceled" errors.
-	c.closeStarted.Store(true)
+	if c.cancelCtx.Err() != nil {
+		return
+	}
 
 	// Signal all `captureWorkers` to exit.
 	c.cancel()
@@ -89,21 +86,10 @@ func (c *collector) Close() {
 	// `Wait` on them before acquiring the lock to avoid deadlock.
 	c.captureWorkers.Wait()
 
-	c.lock.Lock()
-	defer c.lock.Unlock()
-	if c.closeFinished {
-		return
-	}
-
-	if err := c.target.Flush(); err != nil {
-		c.logger.Errorw("failed to flush capture data", "error", err)
-	}
+	c.Flush()
 
 	close(c.captureErrors)
 	c.logRoutine.Wait()
-
-	// Closing has completed. Set this to prevent a double-close from executing.
-	c.closeFinished = true
 }
 
 func (c *collector) Flush() {
@@ -122,22 +108,11 @@ func (c *collector) Collect() {
 
 	started := make(chan struct{})
 	c.captureWorkers.Add(1)
-	utils.PanicCapturingGo(func() {
-		defer c.captureWorkers.Done()
-		c.capture(started)
-	})
+	utils.ManagedGo(func() { c.capture(started) }, c.captureWorkers.Done)
 	c.captureWorkers.Add(1)
-	utils.PanicCapturingGo(func() {
-		defer c.captureWorkers.Done()
-		if err := c.writeCaptureResults(); err != nil {
-			c.captureErrors <- errors.Wrap(err, fmt.Sprintf("failed to write to collector %s", c.target.Path()))
-		}
-	})
+	utils.ManagedGo(c.writeCaptureResults, c.captureWorkers.Done)
 	c.logRoutine.Add(1)
-	utils.PanicCapturingGo(func() {
-		defer c.logRoutine.Done()
-		c.logCaptureErrs()
-	})
+	utils.ManagedGo(c.logCaptureErrs, c.logRoutine.Done)
 
 	// We must wait on `started` before returning. The sleep/ticker based captures rely on the clock
 	// advancing to do their first "tick". They must make an initial clock reading before unittests
@@ -160,30 +135,18 @@ func (c *collector) capture(started chan struct{}) {
 func (c *collector) sleepBasedCapture(started chan struct{}) {
 	next := c.clock.Now().Add(c.interval)
 	until := c.clock.Until(next)
-	var captureWorkers sync.WaitGroup
 
 	close(started)
 	for {
 		if err := c.cancelCtx.Err(); err != nil {
-			c.captureErrors <- errors.Wrap(err, "error in context")
-			captureWorkers.Wait()
-			close(c.captureResults)
 			return
 		}
 		c.clock.Sleep(until)
-
-		select {
-		case <-c.cancelCtx.Done():
-			captureWorkers.Wait()
-			close(c.captureResults)
+		if err := c.cancelCtx.Err(); err != nil {
 			return
-		default:
-			captureWorkers.Add(1)
-			utils.PanicCapturingGo(func() {
-				defer captureWorkers.Done()
-				c.getAndPushNextReading()
-			})
 		}
+
+		c.getAndPushNextReading()
 		next = next.Add(c.interval)
 		until = c.clock.Until(next)
 	}
@@ -192,27 +155,18 @@ func (c *collector) sleepBasedCapture(started chan struct{}) {
 func (c *collector) tickerBasedCapture(started chan struct{}) {
 	ticker := c.clock.Ticker(c.interval)
 	defer ticker.Stop()
-	var captureWorkers sync.WaitGroup
 
 	close(started)
 	for {
 		if err := c.cancelCtx.Err(); err != nil {
-			c.captureErrors <- errors.Wrap(err, "error in context")
-			captureWorkers.Wait()
-			close(c.captureResults)
 			return
 		}
+
 		select {
 		case <-c.cancelCtx.Done():
-			captureWorkers.Wait()
-			close(c.captureResults)
 			return
 		case <-ticker.C:
-			captureWorkers.Add(1)
-			utils.PanicCapturingGo(func() {
-				defer captureWorkers.Done()
-				c.getAndPushNextReading()
-			})
+			c.getAndPushNextReading()
 		}
 	}
 }
@@ -221,6 +175,11 @@ func (c *collector) getAndPushNextReading() {
 	timeRequested := timestamppb.New(c.clock.Now().UTC())
 	reading, err := c.captureFunc(c.cancelCtx, c.params)
 	timeReceived := timestamppb.New(c.clock.Now().UTC())
+
+	if c.cancelCtx.Err() != nil {
+		return
+	}
+
 	if err != nil {
 		if errors.Is(err, ErrNoCaptureToStore) {
 			c.logger.Debug("capture filtered out by modular resource")
@@ -312,19 +271,28 @@ func NewCollector(captureFunc CaptureFunc, params CollectorParams) (Collector, e
 	}, nil
 }
 
-func (c *collector) writeCaptureResults() error {
-	for msg := range c.captureResults {
-		if err := c.target.Write(msg); err != nil {
-			return err
+func (c *collector) writeCaptureResults() {
+	for {
+		if c.cancelCtx.Err() != nil {
+			return
+		}
+
+		select {
+		case <-c.cancelCtx.Done():
+			return
+		case msg := <-c.captureResults:
+			if err := c.target.Write(msg); err != nil {
+				c.logger.Error(errors.Wrap(err, fmt.Sprintf("failed to write to collector %s", c.target.Path())).Error())
+				return
+			}
 		}
 	}
-	return nil
 }
 
 func (c *collector) logCaptureErrs() {
 	for err := range c.captureErrors {
 		now := c.clock.Now().Unix()
-		if c.closeStarted.Load() {
+		if c.cancelCtx.Err() != nil {
 			// Don't log context cancellation errors if the collector has already been closed. This
 			// means the collector canceled the context, and the context cancellation error is
 			// expected.

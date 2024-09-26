@@ -202,7 +202,6 @@ func TestWebWithAuth(t *testing.T) {
 			options.Managed = tc.Managed
 			options.FQDN = tc.EntityName
 			options.LocalFQDN = primitive.NewObjectID().Hex()
-			legacyAPIKey := "sosecret"
 			apiKeyID1 := uuid.New().String()
 			apiKey1 := utils.RandomAlphaString(32)
 			apiKeyID2 := uuid.New().String()
@@ -212,7 +211,6 @@ func TestWebWithAuth(t *testing.T) {
 				{
 					Type: rpc.CredentialsTypeAPIKey,
 					Config: rutils.AttributeMap{
-						"key":     legacyAPIKey,
 						apiKeyID1: apiKey1,
 						apiKeyID2: apiKey2,
 						"keys":    []string{apiKeyID1, apiKeyID2},
@@ -244,7 +242,7 @@ func TestWebWithAuth(t *testing.T) {
 				_, err = rgrpc.Dial(context.Background(), addr, logger, rpc.WithAllowInsecureWithCredentialsDowngrade(),
 					rutils.WithEntityCredentials("wrong", rpc.Credentials{
 						Type:    rpc.CredentialsTypeAPIKey,
-						Payload: legacyAPIKey,
+						Payload: apiKey1,
 					}))
 				test.That(t, err, test.ShouldNotBeNil)
 				test.That(t, err.Error(), test.ShouldContainSubstring, "invalid credentials")
@@ -268,9 +266,9 @@ func TestWebWithAuth(t *testing.T) {
 				// WebRTC connections across unix sockets can create deadlock in CI.
 				conn, err := rgrpc.Dial(context.Background(), addr, logger,
 					rpc.WithAllowInsecureWithCredentialsDowngrade(),
-					rpc.WithEntityCredentials(entityName, rpc.Credentials{
+					rpc.WithEntityCredentials(apiKeyID1, rpc.Credentials{
 						Type:    rpc.CredentialsTypeAPIKey,
-						Payload: legacyAPIKey,
+						Payload: apiKey1,
 					}),
 					rpc.WithForceDirectGRPC(),
 				)
@@ -407,9 +405,9 @@ func TestWebWithAuth(t *testing.T) {
 				// WebRTC connections across unix sockets can create deadlock in CI.
 				conn, err := rgrpc.Dial(context.Background(), addr, logger,
 					rpc.WithAllowInsecureWithCredentialsDowngrade(),
-					rpc.WithCredentials(rpc.Credentials{
+					rpc.WithEntityCredentials(apiKeyID1, rpc.Credentials{
 						Type:    rpc.CredentialsTypeAPIKey,
-						Payload: legacyAPIKey,
+						Payload: apiKey1,
 					}),
 					rpc.WithForceDirectGRPC(),
 				)
