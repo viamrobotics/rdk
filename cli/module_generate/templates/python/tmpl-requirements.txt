@@ -1,1 +1,1 @@
-requirements
+viam-sdk=={{ .SDKVersion }}

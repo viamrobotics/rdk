@@ -1,7 +1,6 @@
 import ast
 import inspect
 import os
-import pathlib
 import re
 import subprocess
 import sys
@@ -135,8 +134,7 @@ if __name__ == '__main__':
     asyncio.run(Module.run_from_registry())
 
 '''
-
-    f_name = os.path.join(pathlib.Path(__file__).parent, "main.py")
+    f_name = os.path.join(mod_name, "src", "main.py")
     with open(f_name, "w+") as f:
         f.write(main_file)
         try:
@@ -146,6 +144,7 @@ if __name__ == '__main__':
             main_file = f.read()
         except subprocess.CalledProcessError:
             pass
+    os.remove(f_name)
     sorted_main = isort.code(main_file)
     return sorted_main
 

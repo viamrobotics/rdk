@@ -3,6 +3,8 @@ package cli
 import (
 	"embed"
 	"encoding/json"
+	"net/http"
+	"os/exec"
 	"regexp"
 
 	"github.com/pkg/errors"
@@ -24,10 +26,10 @@ import (
 	"github.com/charmbracelet/huh/spinner"
 )
 
-//go:embed module_generate/scripts/*
+//go:embed module_generate/scripts
 var scripts embed.FS
 
-//go:embed module_generate/templates/*
+//go:embed all:module_generate/templates
 var templates embed.FS
 
 const (
@@ -61,6 +63,8 @@ type moduleInputs struct {
 	ResourceSubtypePascal string `json:"-"`
 	ModelPascal           string `json:"-"`
 	ModelTriple           string `json:"-"`
+
+	SDKVersion string `json:"-"`
 }
 
 func GenerateModuleAction(cCtx *cli.Context) error {
@@ -74,7 +78,13 @@ func GenerateModuleAction(cCtx *cli.Context) error {
 func (c *viamClient) generateModuleAction(cCtx *cli.Context) error {
 	newModule := promptUser()
 
-	err := setupDirectories(cCtx, newModule.ModuleName)
+	version, err := getLatestSDKTag(cCtx, newModule.Language)
+	if err != nil {
+		return err
+	}
+	newModule.SDKVersion = version[1:]
+
+	err = setupDirectories(cCtx, newModule.ModuleName)
 	if err != nil {
 		return err
 	}
@@ -376,22 +386,86 @@ func renderTemplate(c *cli.Context, newModule moduleInputs) error {
 
 // Generate stubs for the resource
 func generateStubs(c *cli.Context, module moduleInputs) error {
+	debugf(c.App.Writer, c.Bool(debugFlag), "Generating %s stubs", module.Language)
 	var err error
 	action := func() {
 		switch module.Language {
 		case "python":
-			err = generatePythonStubs(c, module)
+			err = generatePythonStubs(module)
 		default:
-			err = errors.Errorf("Cannot generate stubs for language %s", module.Language)
+			err = errors.Errorf("cannot generate stubs for language %s", module.Language)
 		}
 	}
 	spinner.New().Title(fmt.Sprintf("Generating %s stubs...", module.Language)).Action(action).Run()
 	return err
 }
 
-func generatePythonStubs(c *cli.Context, module moduleInputs) error {
-	time.Sleep(5 * time.Second)
+func generatePythonStubs(module moduleInputs) error {
+	venvName := ".venv"
+	cmd := exec.Command("python3", "--version")
+	_, err := cmd.Output()
+	if err != nil {
+		return errors.Wrap(err, "cannot generate python stubs -- python runtime not found")
+	}
+	cmd = exec.Command("python3", "-m", "venv", venvName)
+	_, err = cmd.Output()
+	if err != nil {
+		return errors.Wrap(err, "cannot generate python stubs -- unable to create python virtual environment")
+	}
+
+	// script, err := scripts.ReadFile(filepath.Join(scriptsPath, "generate_stubs.py"))
+	script, err := scripts.ReadFile(filepath.Join(scriptsPath, "generate_stubs.py"))
+	if err != nil {
+		return errors.Wrap(err, "cannot generate python stubs -- unable to open generator script")
+	}
+	cmd = exec.Command(filepath.Join(venvName, "bin", "python3"), "-c", string(script), module.ResourceType, module.ResourceSubtype, module.Namespace, module.ModuleName, module.ModelName)
+	out, err := cmd.Output()
+	if err != nil {
+		return errors.Wrap(err, "cannot generate python stubs -- generator script encountered an error")
+	}
+
+	mainPath := filepath.Join(module.ModuleName, "src", "main.py")
+	mainFile, err := os.Create(mainPath)
+	if err != nil {
+		return errors.Wrap(err, "cannot generate python stubs -- unable to open file")
+	}
+	defer mainFile.Close()
+	_, err = mainFile.Write(out)
+	if err != nil {
+		return errors.Wrap(err, "cannot generate python stubs -- unable to write to file")
+	}
+
 	return nil
+}
+
+func getLatestSDKTag(c *cli.Context, language string) (string, error) {
+	var repo string
+	if language == "python" {
+		repo = "viam-python-sdk"
+	}
+	debugf(c.App.Writer, c.Bool(debugFlag), "Getting the latest release tag for %s", repo)
+	url := fmt.Sprintf("https://api.github.com/repos/viamrobotics/%s/releases", repo)
+	resp, err := http.Get(url)
+	if err != nil {
+		return "", errors.Wrapf(err, "cannot get latest %s release", repo)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return "", errors.Errorf("unexpected http GET status: %s", resp.Status)
+	}
+	var result interface{}
+	err = json.NewDecoder(resp.Body).Decode(&result)
+	if err != nil {
+		return "", errors.Wrap(err, "could not decode json")
+	}
+	releases := result.([]interface{})
+	if len(releases) == 0 {
+		return "", errors.Errorf("could not get latest %s release", repo)
+	}
+	latest := releases[0]
+	version := latest.(map[string]interface{})["tag_name"].(string)
+	debugf(c.App.Writer, c.Bool(debugFlag), "Latest release for %s: %s", repo, version)
+	return version, nil
 }
 
 // Create the meta.json manifest
