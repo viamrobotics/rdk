@@ -1,4 +1,7 @@
 // Package gripper defines a robotic gripper.
+// For more information, see the [gripper component docs].
+//
+// [gripper component docs]: https://docs.viam.com/components/gripper/
 package gripper
 
 import (
@@ -34,6 +37,7 @@ func Named(name string) resource.Name {
 }
 
 // A Gripper represents a physical robotic gripper.
+// For more information, see the [gripper component docs].
 //
 // Open example:
 //
@@ -44,6 +48,8 @@ func Named(name string) resource.Name {
 //
 //	// Grab with the gripper.
 //	grabbed, err := myGripper.Grab(context.Background(), nil)
+//
+// [gripper component docs]: https://docs.viam.com/components/gripper/
 type Gripper interface {
 	resource.Resource
 	resource.Shaped

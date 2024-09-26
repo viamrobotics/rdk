@@ -22,7 +22,8 @@ const (
 	numRetries      = 5
 )
 
-var floatList = []float64{1.0, 2.0, 3.0}
+// floatList is a lit of floats in units of millimeters.
+var floatList = []float64{1000, 2000, 3000}
 
 func TestGantryCollectors(t *testing.T) {
 	tests := []struct {
@@ -34,14 +35,14 @@ func TestGantryCollectors(t *testing.T) {
 			name:      "Length collector should write a lengths response",
 			collector: gantry.NewLengthsCollector,
 			expected: tu.ToProtoMapIgnoreOmitEmpty(pb.GetLengthsResponse{
-				LengthsMm: scaleMetersToMm(floatList),
+				LengthsMm: floatList,
 			}),
 		},
 		{
 			name:      "Position collector should write a list of positions",
 			collector: gantry.NewPositionCollector,
 			expected: tu.ToProtoMapIgnoreOmitEmpty(pb.GetPositionResponse{
-				PositionsMm: scaleMetersToMm(floatList),
+				PositionsMm: floatList,
 			}),
 		},
 	}
@@ -84,12 +85,4 @@ func newGantry() gantry.Gantry {
 		return floatList, nil
 	}
 	return g
-}
-
-func scaleMetersToMm(meters []float64) []float64 {
-	ret := make([]float64, len(meters))
-	for i := range ret {
-		ret[i] = meters[i] * 1000
-	}
-	return ret
 }

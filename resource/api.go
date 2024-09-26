@@ -125,18 +125,27 @@ func (a API) MarshalJSON() ([]byte, error) {
 	return json.Marshal(a.String())
 }
 
+// ParseAPIString builds an API{} struct from a colon-delimited triple.
+func ParseAPIString(apiStr string) (API, error) {
+	ret := API{}
+	matches := apiRegexValidator.FindStringSubmatch(apiStr)
+	if matches == nil {
+		return ret, fmt.Errorf("not a valid API config string. Input: `%v`", apiStr)
+	}
+	return APINamespace(matches[1]).WithType(matches[2]).WithSubtype(matches[3]), nil
+}
+
 // UnmarshalJSON parses either a string of the form namespace:type:subtype or a json object into an
 // API object.
 func (a *API) UnmarshalJSON(data []byte) error {
 	var apiStr string
 	if err := json.Unmarshal(data, &apiStr); err == nil {
-		// If the value is a string, regex match for a colon partitioned triplet.
-		if !apiRegexValidator.MatchString(apiStr) {
-			return fmt.Errorf("not a valid API config string. Input: `%v`", string(data))
+		// If the value is a string, parse it.
+		parsed, err := ParseAPIString(apiStr)
+		if err != nil {
+			return err
 		}
-
-		matches := apiRegexValidator.FindStringSubmatch(apiStr)
-		*a = APINamespace(matches[1]).WithType(matches[2]).WithSubtype(matches[3])
+		*a = parsed
 		return nil
 	}
 

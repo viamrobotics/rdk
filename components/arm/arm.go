@@ -1,6 +1,9 @@
 //go:build !no_cgo
 
 // Package arm defines the arm that a robot uses to manipulate objects.
+// For more information, see the [arm component docs].
+//
+// [arm component docs]: https://docs.viam.com/components/arm/
 package arm
 
 import (
@@ -14,6 +17,7 @@ import (
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
+	"go.viam.com/rdk/robot/framesystem"
 	"go.viam.com/rdk/spatialmath"
 )
 
@@ -48,6 +52,7 @@ func Named(name string) resource.Name {
 }
 
 // An Arm represents a physical robotic arm that exists in three-dimensional space.
+// For more information, see the [arm component docs].
 //
 // EndPosition example:
 //
@@ -61,7 +66,7 @@ func Named(name string) resource.Name {
 //	// Create a Pose for the arm.
 //	examplePose := spatialmath.NewPose(
 //	        r3.Vector{X: 5, Y: 5, Z: 5},
-//	        &spatialmath.OrientationVectorDegrees{0X: 5, 0Y: 5, Theta: 20}
+//	        &spatialmath.OrientationVectorDegrees{OX: 5, OY: 5, Theta: 20},
 //	)
 //
 //	// Move your arm to the Pose.
@@ -87,12 +92,14 @@ func Named(name string) resource.Name {
 //
 //	// Get the current position of each joint on the arm as JointPositions.
 //	pos, err := myArm.JointPositions(context.Background(), nil)
+//
+// [arm component docs]: https://docs.viam.com/components/arm/
 type Arm interface {
 	resource.Resource
 	referenceframe.ModelFramer
 	resource.Shaped
 	resource.Actuator
-	referenceframe.InputEnabled
+	framesystem.InputEnabled
 
 	// EndPosition returns the current position of the arm.
 	EndPosition(ctx context.Context, extra map[string]interface{}) (spatialmath.Pose, error)

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"testing"
+	"time"
 
 	"go.viam.com/test"
 	"go.viam.com/utils/testutils"
@@ -69,6 +70,9 @@ func TestGoFor(t *testing.T) {
 	allObs = obs.All()
 	latestLoggedEntry = allObs[1]
 	test.That(t, fmt.Sprint(latestLoggedEntry), test.ShouldContainSubstring, "nearly the max")
+
+	// zero revs error
+	test.That(t, m.GoFor(ctx, 10, 0, nil), test.ShouldBeError, motor.NewZeroRevsError())
 
 	testutils.WaitForAssertion(t, func(tb testing.TB) {
 		tb.Helper()
@@ -217,4 +221,38 @@ func TestPower(t *testing.T) {
 
 	powerPct = m.PowerPct()
 	test.That(t, powerPct, test.ShouldEqual, 0.0)
+}
+
+func TestGoForMath(t *testing.T) {
+	maxRPM := 100.0
+
+	// + rpm / + revolutions
+	pwrPct, waitDur, dir := goForMath(maxRPM, 10, 2)
+	test.That(t, pwrPct, test.ShouldEqual, 0.1)
+	test.That(t, waitDur, test.ShouldEqual, 12000*time.Millisecond)
+	test.That(t, dir, test.ShouldEqual, 1)
+
+	// - rpm / + revolutions
+	pwrPct, waitDur, dir = goForMath(maxRPM, -10, 2)
+	test.That(t, pwrPct, test.ShouldEqual, -0.1)
+	test.That(t, waitDur, test.ShouldEqual, 12000*time.Millisecond)
+	test.That(t, dir, test.ShouldEqual, -1)
+
+	// + rpm / - revolutions
+	pwrPct, waitDur, dir = goForMath(maxRPM, 10, -2)
+	test.That(t, pwrPct, test.ShouldEqual, -0.1)
+	test.That(t, waitDur, test.ShouldEqual, 12000*time.Millisecond)
+	test.That(t, dir, test.ShouldEqual, -1)
+
+	// - rpm / - revolutions
+	pwrPct, waitDur, dir = goForMath(maxRPM, 10, 2)
+	test.That(t, pwrPct, test.ShouldEqual, 0.1)
+	test.That(t, waitDur, test.ShouldEqual, 12000*time.Millisecond)
+	test.That(t, dir, test.ShouldEqual, 1)
+
+	// + rpm / 0 revolutions
+	pwrPct, waitDur, dir = goForMath(maxRPM, 10, 0)
+	test.That(t, pwrPct, test.ShouldEqual, 0)
+	test.That(t, waitDur, test.ShouldEqual, 0)
+	test.That(t, dir, test.ShouldEqual, 0)
 }

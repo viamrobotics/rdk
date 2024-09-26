@@ -13,6 +13,7 @@ import (
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/robot/framesystem"
 	"go.viam.com/rdk/services/motion"
 )
 
@@ -20,7 +21,7 @@ import (
 type KinematicBase interface {
 	base.Base
 	motion.Localizer
-	referenceframe.InputEnabled
+	framesystem.InputEnabled
 
 	Kinematics() referenceframe.Frame
 	LocalizationFrame() referenceframe.Frame

@@ -37,3 +37,54 @@ func TestBoxCapsuleCollision(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, dist, test.ShouldAlmostEqual, -29.69, 1e-3)
 }
+
+func TestCapsuleIntersectWithPlane(t *testing.T) {
+	c := makeTestCapsule(NewZeroOrientation(), r3.Vector{0, 0.1, 0.1}, 1, 16.75).(*capsule)
+	points, err := CapsuleIntersectionWithPlane(c, r3.Vector{0, 1, 0}, r3.Vector{1, 0, 0}, 32)
+	test.That(t, err, test.ShouldBeNil)
+
+	expectedPoints := []r3.Vector{
+		{1.00000, 0.1, -8.27500},
+		{1.00000, 0.1, -5.88214},
+		{1.00000, 0.1, -3.48928},
+		{1.00000, 0.1, -1.09642},
+		{1.00000, 0.1, 1.29642},
+		{1.00000, 0.1, 3.68928},
+		{1.00000, 0.1, 6.08214},
+		{1.00000, 0.1, 8.47499},
+		{1.00000, 0.1, 8.47499},
+		{0.93969, 0.1, 8.13297},
+		{0.76604, 0.1, 7.83221},
+		{0.50000, 0.1, 7.60897},
+		{0.17364, 0.1, 7.49019},
+		{-0.17364, 0.1, 7.49019},
+		{-0.49999, 0.1, 7.60897},
+		{-0.76604, 0.1, 7.83221},
+		{-0.93969, 0.1, 8.13297},
+		{-1.00000, 0.1, 8.47499},
+		{-1.00000, 0.1, 6.08214},
+		{-1.00000, 0.1, 3.68928},
+		{-1.00000, 0.1, 1.29642},
+		{-1.00000, 0.1, -1.09642},
+		{-1.00000, 0.1, -3.48928},
+		{-1.00000, 0.1, -5.88214},
+		{-1.00000, 0.1, -8.27500},
+		{-1.00000, 0.1, -8.27500},
+		{-0.93969, 0.1, -8.61702},
+		{-0.76604, 0.1, -8.91778},
+		{-0.50000, 0.1, -9.14102},
+		{-0.17364, 0.1, -9.25980},
+		{0.17364, 0.1, -9.25980},
+		{0.49999, 0.1, -9.14102},
+		{0.76604, 0.1, -8.91778},
+		{0.93969, 0.1, -8.61702},
+	}
+
+	test.That(t, len(points), test.ShouldEqual, len(expectedPoints))
+
+	for i, pt := range points {
+		test.That(t, pt.X, test.ShouldAlmostEqual, expectedPoints[i].X, 0.0001)
+		test.That(t, pt.Y, test.ShouldAlmostEqual, expectedPoints[i].Y, 0.0001)
+		test.That(t, pt.Z, test.ShouldAlmostEqual, expectedPoints[i].Z, 0.0001)
+	}
+}

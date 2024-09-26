@@ -132,7 +132,7 @@ func (app *robotWebApp) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	data.Host = app.options.FQDN
-	if app.options.WebRTC && r.Form.Get("grpc") != "true" {
+	if app.options.PreferWebRTC && r.Form.Get("grpc") != "true" {
 		data.WebRTCEnabled = true
 	}
 
@@ -501,7 +501,8 @@ func (svc *webService) runWeb(ctx context.Context, options weboptions.Options) (
 		return err
 	}
 
-	svc.rpcServer, err = rpc.NewServer(logging.GetOrNewLogger("rdk.networking"), rpcOpts...)
+	ioLogger := svc.logger.Sublogger("networking")
+	svc.rpcServer, err = rpc.NewServer(ioLogger, rpcOpts...)
 	if err != nil {
 		return err
 	}
@@ -604,27 +605,36 @@ func (svc *webService) runWeb(ctx context.Context, options weboptions.Options) (
 			svc.logger.Errorw("error serving http", "error", serveErr)
 		}
 	})
+
 	return err
 }
 
 // Initialize RPC Server options.
 func (svc *webService) initRPCOptions(listenerTCPAddr *net.TCPAddr, options weboptions.Options) ([]rpc.ServerOption, error) {
 	hosts := options.GetHosts(listenerTCPAddr)
+
+	webrtcOptions := rpc.WebRTCServerOptions{
+		Enable:                    true,
+		EnableInternalSignaling:   true,
+		ExternalSignalingDialOpts: options.SignalingDialOpts,
+		ExternalSignalingAddress:  options.SignalingAddress,
+		ExternalSignalingHosts:    hosts.External,
+		InternalSignalingHosts:    hosts.Internal,
+		Config:                    &grpc.DefaultWebRTCConfiguration,
+		OnPeerAdded:               options.WebRTCOnPeerAdded,
+		OnPeerRemoved:             options.WebRTCOnPeerRemoved,
+	}
+	if options.DisallowWebRTC {
+		webrtcOptions = rpc.WebRTCServerOptions{
+			Enable: false,
+		}
+	}
+
 	rpcOpts := []rpc.ServerOption{
 		rpc.WithAuthIssuer(options.FQDN),
 		rpc.WithAuthAudience(options.FQDN),
 		rpc.WithInstanceNames(hosts.Names...),
-		rpc.WithWebRTCServerOptions(rpc.WebRTCServerOptions{
-			Enable:                    true,
-			EnableInternalSignaling:   true,
-			ExternalSignalingDialOpts: options.SignalingDialOpts,
-			ExternalSignalingAddress:  options.SignalingAddress,
-			ExternalSignalingHosts:    hosts.External,
-			InternalSignalingHosts:    hosts.Internal,
-			Config:                    &grpc.DefaultWebRTCConfiguration,
-			OnPeerAdded:               options.WebRTCOnPeerAdded,
-			OnPeerRemoved:             options.WebRTCOnPeerRemoved,
-		}),
+		rpc.WithWebRTCServerOptions(webrtcOptions),
 	}
 	if options.DisableMulticastDNS {
 		rpcOpts = append(rpcOpts, rpc.WithDisableMulticastDNS())
@@ -732,23 +742,12 @@ func (svc *webService) initAuthHandlers(listenerTCPAddr *net.TCPAddr, options we
 			switch handler.Type {
 			case rpc.CredentialsTypeAPIKey:
 				apiKeys := parseAPIKeys(handler)
-				legacyAPIKeys := parseLegacyAPIKeys(handler, apiKeys)
-				hasAPIKeys := len(apiKeys) != 0
-				hasLegacyAPIKeys := len(legacyAPIKeys) != 0
 
-				switch {
-				case !hasLegacyAPIKeys && !hasAPIKeys:
-					return nil, errors.Errorf("%q handler requires non-empty API key or keys", handler.Type)
-				case hasLegacyAPIKeys && !hasAPIKeys:
-					rpcOpts = append(rpcOpts, rpc.WithAuthHandler(
-						handler.Type,
-						rpc.MakeSimpleMultiAuthHandler(authEntities, legacyAPIKeys),
-					))
-				case !hasLegacyAPIKeys && hasAPIKeys:
-					rpcOpts = append(rpcOpts, rpc.WithAuthHandler(handler.Type, rpc.MakeSimpleMultiAuthPairHandler(apiKeys)))
-				default:
-					rpcOpts = append(rpcOpts, rpc.WithAuthHandler(handler.Type, makeMultiStepAPIKeyAuthHandler(authEntities, legacyAPIKeys, apiKeys)))
+				if len(apiKeys) == 0 {
+					return nil, errors.Errorf("%q handler requires non-empty API keys", handler.Type)
 				}
+
+				rpcOpts = append(rpcOpts, rpc.WithAuthHandler(handler.Type, rpc.MakeSimpleMultiAuthPairHandler(apiKeys)))
 			case rutils.CredentialsTypeRobotLocationSecret:
 				locationSecrets := handler.Config.StringSlice("secrets")
 				if len(locationSecrets) == 0 {
@@ -779,28 +778,6 @@ func (svc *webService) initAuthHandlers(listenerTCPAddr *net.TCPAddr, options we
 	return rpcOpts, nil
 }
 
-func parseLegacyAPIKeys(handler config.AuthHandlerConfig, nonLegacyAPIKeys map[string]string) []string {
-	apiKeys := handler.Config.StringSlice("keys")
-	var filteredAPIKeys []string
-
-	// filter out new api keys from keys array to ensure we're left with only legacy keys
-	for _, apiKey := range apiKeys {
-		if _, ok := nonLegacyAPIKeys[apiKey]; !ok {
-			filteredAPIKeys = append(filteredAPIKeys, apiKey)
-		}
-	}
-
-	if len(filteredAPIKeys) == 0 {
-		apiKey := handler.Config.String("key")
-		if apiKey == "" {
-			return []string{}
-		}
-		filteredAPIKeys = []string{apiKey}
-	}
-
-	return filteredAPIKeys
-}
-
 func parseAPIKeys(handler config.AuthHandlerConfig) map[string]string {
 	apiKeys := map[string]string{}
 	for k := range handler.Config {
@@ -811,21 +788,6 @@ func parseAPIKeys(handler config.AuthHandlerConfig) map[string]string {
 		}
 	}
 	return apiKeys
-}
-
-// makeMultiStepAPIKeyAuthHandler supports auth handlers for both legacy and non-legacy api keys for backwards compatibility.
-func makeMultiStepAPIKeyAuthHandler(legacyEntities, legacyExpectedAPIKeys []string, apiKeys map[string]string) rpc.AuthHandler {
-	legacyAuthHandler := rpc.MakeSimpleMultiAuthHandler(legacyEntities, legacyExpectedAPIKeys)
-	currentAuthHandler := rpc.MakeSimpleMultiAuthPairHandler(apiKeys)
-	return rpc.AuthHandlerFunc(func(ctx context.Context, entity, payload string) (map[string]string, error) {
-		result, err := legacyAuthHandler.Authenticate(ctx, entity, payload)
-		if err == nil {
-			return result, nil
-		}
-
-		// if legacy API key authentication fails, try a new API key authentication
-		return currentAuthHandler.Authenticate(ctx, entity, payload)
-	})
 }
 
 // Register every API resource grpc service here.
@@ -917,7 +879,12 @@ func (svc *webService) initMux(options weboptions.Options) (*goji.Mux, error) {
 	return mux, nil
 }
 
+// foreignServiceHandler is a bidi-streaming RPC service handler to support custom APIs.
+// It is invoked instead of returning the "unimplemented" gRPC error whenever a request is received for
+// an unregistered service or method. These method could be registered on a remote viam-server or a module server
+// so this handler will attempt to route the request to the correct next node in the chain.
 func (svc *webService) foreignServiceHandler(srv interface{}, stream googlegrpc.ServerStream) error {
+	// method will be in the form of PackageName.ServiceName/MethodName
 	method, ok := googlegrpc.MethodFromServerStream(stream)
 	if !ok {
 		return grpc.UnimplementedError
@@ -929,10 +896,15 @@ func (svc *webService) foreignServiceHandler(srv interface{}, stream googlegrpc.
 
 	firstMsg := dynamic.NewMessage(methodDesc.GetInputType())
 
+	// The stream blocks until it receives a message and attempts to deserialize
+	// the message into firstMsg - it will error out if the received message cannot
+	// be marshalled into the expected type.
 	if err := stream.RecvMsg(firstMsg); err != nil {
 		return err
 	}
 
+	// We expect each message to contain a "name" argument which will allow us to route
+	// the message towards the correct destination.
 	resource, fqName, err := robot.ResourceFromProtoMessage(svc.r, firstMsg, subType.API)
 	if err != nil {
 		svc.logger.Errorw("unable to route foreign message", "error", err)

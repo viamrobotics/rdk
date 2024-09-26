@@ -50,7 +50,6 @@ import (
 	"go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/module/modmaninterface"
-	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/referenceframe"
@@ -463,16 +462,6 @@ func TestManagerAdd(t *testing.T) {
 	test.That(t, resource1, test.ShouldEqual, injectBoard)
 
 	injectMotionService := &inject.MotionService{}
-	injectMotionService.MoveFunc = func(
-		ctx context.Context,
-		componentName resource.Name,
-		grabPose *referenceframe.PoseInFrame,
-		worldState *referenceframe.WorldState,
-		constraints *motionplan.Constraints,
-		extra map[string]interface{},
-	) (bool, error) {
-		return false, nil
-	}
 	objectMResName := motion.Named("motion1")
 	manager.resources.AddNode(objectMResName, resource.NewConfiguredGraphNode(resource.Config{}, injectMotionService, unknownModel))
 	motionService, err := manager.ResourceByName(objectMResName)
@@ -1249,7 +1238,7 @@ func TestConfigRemoteAllowInsecureCreds(t *testing.T) {
 	}, logger)
 
 	gNode := resource.NewUninitializedNode()
-	gNode.InitializeLogger(logger, "remote", logger.GetLevel())
+	gNode.InitializeLogger(logger, "remote")
 	_, err = manager.processRemote(context.Background(), remote, gNode)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "authentication required")

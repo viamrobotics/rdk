@@ -167,13 +167,13 @@ func TestConfigWithLogDeclarations(t *testing.T) {
 	// log configure for builtin fake motors would apply for a log level of `warn`. This "overlayed"
 	// log level is not applied at config parsing time.
 	test.That(t, cfg.Components[2].Name, test.ShouldEqual, "right_motor")
-	test.That(t, cfg.Components[2].LogConfiguration.Level, test.ShouldEqual, logging.INFO)
+	test.That(t, cfg.Components[2].LogConfiguration, test.ShouldBeNil)
 
 	// The wheeled base is also left unconfigured. The global log configuration for things
 	// implementing the `base` API is `error`. This "overlayed" log level is not applied at config
 	// parsing time.
 	test.That(t, cfg.Components[3].Name, test.ShouldEqual, "wheeley")
-	test.That(t, cfg.Components[3].LogConfiguration.Level, test.ShouldEqual, logging.INFO)
+	test.That(t, cfg.Components[3].LogConfiguration, test.ShouldBeNil)
 
 	test.That(t, len(cfg.Services), test.ShouldEqual, 2)
 	// The slam service has a log level of `WARN`. Note the upper case.
@@ -182,7 +182,7 @@ func TestConfigWithLogDeclarations(t *testing.T) {
 
 	// The data manager service is left unconfigured.
 	test.That(t, cfg.Services[1].Name, test.ShouldEqual, "dm")
-	test.That(t, cfg.Services[1].LogConfiguration.Level, test.ShouldEqual, logging.INFO)
+	test.That(t, cfg.Services[1].LogConfiguration, test.ShouldBeNil)
 }
 
 func TestConfigEnsure(t *testing.T) {
@@ -390,7 +390,8 @@ func TestConfigEnsure(t *testing.T) {
 	validAPIKeyHandler := config.AuthHandlerConfig{
 		Type: rpc.CredentialsTypeAPIKey,
 		Config: rutils.AttributeMap{
-			"key": "foo",
+			"key":  "foo",
+			"keys": []string{"key"},
 		},
 	}
 
@@ -429,7 +430,7 @@ func TestConfigEnsure(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, `auth.handlers.0`)
 	test.That(t, err.Error(), test.ShouldContainSubstring, `required`)
-	test.That(t, err.Error(), test.ShouldContainSubstring, `key`)
+	test.That(t, err.Error(), test.ShouldContainSubstring, `keys`)
 
 	validAPIKeyHandler.Config = rutils.AttributeMap{
 		"keys": []string{"one", "two"},
@@ -609,7 +610,8 @@ func TestConfigEnsurePartialStart(t *testing.T) {
 	validAPIKeyHandler := config.AuthHandlerConfig{
 		Type: rpc.CredentialsTypeAPIKey,
 		Config: rutils.AttributeMap{
-			"key": "foo",
+			"key":  "foo",
+			"keys": []string{"key"},
 		},
 	}
 
@@ -648,7 +650,7 @@ func TestConfigEnsurePartialStart(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, `auth.handlers.0`)
 	test.That(t, err.Error(), test.ShouldContainSubstring, `required`)
-	test.That(t, err.Error(), test.ShouldContainSubstring, `key`)
+	test.That(t, err.Error(), test.ShouldContainSubstring, `keys`)
 
 	validAPIKeyHandler.Config = rutils.AttributeMap{
 		"keys": []string{"one", "two"},
@@ -928,8 +930,11 @@ func TestAuthConfigEnsure(t *testing.T) {
 			Auth: config.AuthConfig{
 				Handlers: []config.AuthHandlerConfig{
 					{
-						Type:   rpc.CredentialsTypeAPIKey,
-						Config: rutils.AttributeMap{"key": "abc123"},
+						Type: rpc.CredentialsTypeAPIKey,
+						Config: rutils.AttributeMap{
+							"abc123": "abc123",
+							"keys":   []string{"abc123"},
+						},
 					},
 				},
 			},

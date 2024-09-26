@@ -14,8 +14,6 @@ import (
 	"go.viam.com/rdk/resource"
 )
 
-// var txMu sync.Mutex
-
 var sabertoothModel = resource.DefaultModelFamily.WithModel("de-sabertooth")
 
 func checkTx(t *testing.T, resChan chan string, c chan []byte, expects []byte) {
@@ -124,6 +122,14 @@ func TestSabertoothMotor(t *testing.T) {
 		allObs = obs.All()
 		latestLoggedEntry = allObs[len(allObs)-1]
 		test.That(t, fmt.Sprint(latestLoggedEntry), test.ShouldContainSubstring, "nearly 0")
+	})
+
+	t.Run("motor GoFor testing", func(t *testing.T) {
+		// zero rpm error
+		test.That(t, motor1.GoFor(ctx, 0, 10, nil), test.ShouldBeError, motor.NewZeroRPMError())
+
+		// zero revolutions error
+		test.That(t, motor1.GoFor(ctx, 10, 0, nil), test.ShouldBeError, motor.NewZeroRevsError())
 	})
 
 	mc2 := dimensionengineering.Config{

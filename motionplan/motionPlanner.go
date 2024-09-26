@@ -5,6 +5,7 @@ package motionplan
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"math/rand"
 	"sort"
@@ -12,6 +13,7 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/logging"
@@ -161,7 +163,7 @@ func PlanFrameMotion(ctx context.Context,
 // Replan plans a motion from a provided plan request, and then will return that plan only if its cost is better than the cost of the
 // passed-in plan multiplied by `replanCostFactor`.
 func Replan(ctx context.Context, request *PlanRequest, currentPlan Plan, replanCostFactor float64) (Plan, error) {
-	// make sure request is well formed and not missing vital information
+	// Make sure request is well formed and not missing vital information
 	if err := request.validatePlanRequest(); err != nil {
 		return nil, err
 	}
@@ -185,6 +187,34 @@ func Replan(ctx context.Context, request *PlanRequest, currentPlan Plan, replanC
 	sfPlanner, err := newPlanManager(sf, request.Logger, rseed)
 	if err != nil {
 		return nil, err
+	}
+	// Check if the PlanRequest's options specify "complex"
+	// This is a list of poses in the same frame as the goal through which the robot must pass
+	if complexOption, ok := request.Options["complex"]; ok {
+		if complexPosesList, ok := complexOption.([]interface{}); ok {
+			// If "complex" is specified and is a list of PoseInFrame, use it for planning.
+			requestCopy := *request
+			delete(requestCopy.Options, "complex")
+			complexPoses := make([]spatialmath.Pose, 0, len(complexPosesList))
+			for _, iface := range complexPosesList {
+				complexPoseJSON, err := json.Marshal(iface)
+				if err != nil {
+					return nil, err
+				}
+				complexPosePb := &commonpb.Pose{}
+				err = json.Unmarshal(complexPoseJSON, complexPosePb)
+				if err != nil {
+					return nil, err
+				}
+				complexPoses = append(complexPoses, spatialmath.NewPoseFromProtobuf(complexPosePb))
+			}
+			multiGoalPlan, err := sfPlanner.PlanMultiWaypoint(ctx, &requestCopy, complexPoses)
+			if err != nil {
+				return nil, err
+			}
+			return multiGoalPlan, nil
+		}
+		return nil, errors.New("Invalid 'complex' option type. Expected a list of protobuf poses")
 	}
 
 	newPlan, err := sfPlanner.PlanSingleWaypoint(ctx, request, currentPlan)

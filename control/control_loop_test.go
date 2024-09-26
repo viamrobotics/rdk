@@ -327,6 +327,11 @@ func TestControlLoop(t *testing.T) {
 }
 
 func TestMultiSignalLoop(t *testing.T) {
+	expectedPIDVals := PIDConfig{
+		P: 10.0,
+		I: 0.2,
+		D: 0.5,
+	}
 	logger := logging.NewTestLogger(t)
 	cfg := Config{
 		Blocks: []BlockConfig{
@@ -342,9 +347,9 @@ func TestMultiSignalLoop(t *testing.T) {
 				Name: "pid_block",
 				Type: "PID",
 				Attribute: utils.AttributeMap{
-					"kP": 10.0, // random for now
-					"kD": 0.5,
-					"kI": 0.2,
+					"kP": expectedPIDVals.P, // random for now
+					"kD": expectedPIDVals.D,
+					"kI": expectedPIDVals.I,
 				},
 				DependsOn: []string{"gain_block"},
 			},
@@ -380,6 +385,9 @@ func TestMultiSignalLoop(t *testing.T) {
 	test.That(t, cLoop, test.ShouldNotBeNil)
 	cLoop.Start()
 	test.That(t, err, test.ShouldBeNil)
+
+	pidVals := cLoop.GetPIDVals(0)
+	test.That(t, pidVals, test.ShouldResemble, expectedPIDVals)
 
 	cLoop.Stop()
 }

@@ -1,3 +1,7 @@
+// Package servo supports “RC” or “hobby” servo motors.
+// For more information, see the [servo component docs].
+//
+// [servo component docs]: https://docs.viam.com/components/servo/
 package servo
 
 import (
@@ -31,6 +35,7 @@ const SubtypeName = "servo"
 var API = resource.APINamespaceRDK.WithComponentType(SubtypeName)
 
 // A Servo represents a physical servo connected to a board.
+// For more information, see the [servo component docs].
 //
 // Move example:
 //
@@ -50,6 +55,8 @@ var API = resource.APINamespaceRDK.WithComponentType(SubtypeName)
 //
 //	logger.Info("Position 1: ", pos1)
 //	logger.Info("Position 2: ", pos2)
+//
+// [servo component docs]: https://docs.viam.com/components/servo/
 type Servo interface {
 	resource.Resource
 	resource.Actuator

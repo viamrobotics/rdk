@@ -1,4 +1,7 @@
 // Package input provides human input, such as buttons, switches, knobs, gamepads, joysticks, keyboards, mice, etc.
+// For more information, see the [input controller component docs].
+//
+// [input controller component docs]: https://docs.viam.com/components/input-controller/
 package input
 
 import (
@@ -35,6 +38,7 @@ func Named(name string) resource.Name {
 
 // Controller is a logical "container" more than an actual device
 // Could be a single gamepad, or a collection of digitalInterrupts and analogReaders, a keyboard, etc.
+// For more information, see the [input controller component docs].
 //
 // Controls example:
 //
@@ -64,6 +68,8 @@ func Named(name string) resource.Name {
 //	    return errors.New("button `ButtonStart` not found; controller may be disconnected")
 //	}
 //	Mycontroller.RegisterControlCallback(context.Background(), input.ButtonStart, triggers, printStartTime, nil)
+//
+// [input controller component docs]: https://docs.viam.com/components/input-controller/
 type Controller interface {
 	resource.Resource
 

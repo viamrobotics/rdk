@@ -169,9 +169,8 @@ func (w *GraphNode) TransitionedAt() time.Time {
 }
 
 // InitializeLogger initializes the logger object associated with this resource node.
-func (w *GraphNode) InitializeLogger(parent logging.Logger, subname string, level logging.Level) {
+func (w *GraphNode) InitializeLogger(parent logging.Logger, subname string) {
 	logger := parent.Sublogger(subname)
-	logger.SetLevel(level)
 	w.logger = logger
 }
 
@@ -179,15 +178,6 @@ func (w *GraphNode) InitializeLogger(parent logging.Logger, subname string, leve
 // passed into the `Constructor` when registering resources.
 func (w *GraphNode) Logger() logging.Logger {
 	return w.logger
-}
-
-// SetLogLevel changes the log level of the logger (if available). Processing configs is the main
-// entry point for changing log levels. Which will affect whether models making log calls are
-// suppressed or not.
-func (w *GraphNode) SetLogLevel(level logging.Level) {
-	if w.logger != nil {
-		w.logger.SetLevel(level)
-	}
 }
 
 // UnsafeResource always returns the underlying resource, if
@@ -280,7 +270,7 @@ func (w *GraphNode) MarkedForRemoval() bool {
 // The additional `args` should come in key/value pairs for structured logging.
 func (w *GraphNode) LogAndSetLastError(err error, args ...any) {
 	w.mu.Lock()
-	w.lastErr = errors.Join(w.lastErr, err)
+	w.lastErr = err
 	w.transitionTo(NodeStateUnhealthy)
 	w.mu.Unlock()
 
@@ -539,15 +529,6 @@ func (w *GraphNode) ResourceStatus() Status {
 	return w.resourceStatus()
 }
 
-func (w *GraphNode) getLoggerOrGlobal() logging.Logger {
-	if w.logger == nil {
-		// This node has not yet been configured with a logger - use the global logger as
-		// a fall-back.
-		return logging.Global()
-	}
-	return w.logger
-}
-
 func (w *GraphNode) resourceStatus() Status {
 	var resName Name
 	if w.current == nil {
@@ -557,7 +538,7 @@ func (w *GraphNode) resourceStatus() Status {
 	}
 
 	err := w.lastErr
-	logger := w.getLoggerOrGlobal()
+	logger := w.Logger()
 
 	// check invariants between state and error
 	switch {

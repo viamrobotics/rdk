@@ -2,6 +2,7 @@
 package config
 
 import (
+	"bytes"
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
@@ -15,6 +16,7 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+	"go.viam.com/utils/artifact"
 	"go.viam.com/utils/jwks"
 	"go.viam.com/utils/pexec"
 	"go.viam.com/utils/rpc"
@@ -68,6 +70,11 @@ type Config struct {
 
 	// Revision contains the current revision of the config.
 	Revision string
+
+	// toCache stores the JSON marshalled version of the config to be cached. It should be a copy of
+	// the config pulled from cloud with minor changes.
+	// This version is kept because the config is changed as it moves through the system.
+	toCache []byte
 }
 
 // NOTE: This data must be maintained with what is in Config.
@@ -236,6 +243,29 @@ func (c Config) FindComponent(name string) *resource.Config {
 		}
 	}
 	return nil
+}
+
+// SetToCache sets toCache with a marshalled copy of the config passed in.
+func (c *Config) SetToCache(cfg *Config) error {
+	md, err := json.MarshalIndent(cfg, "", "  ")
+	if err != nil {
+		return err
+	}
+	c.toCache = md
+	return nil
+}
+
+// StoreToCache caches the toCache.
+func (c *Config) StoreToCache() error {
+	if c.toCache == nil {
+		return errors.New("no unprocessed config to cache")
+	}
+	if err := os.MkdirAll(ViamDotDir, 0o700); err != nil {
+		return err
+	}
+	reader := bytes.NewReader(c.toCache)
+	path := getCloudCacheFilePath(c.Cloud.ID)
+	return artifact.AtomicStore(path, reader, c.Cloud.ID)
 }
 
 // UnmarshalJSON unmarshals JSON into the config and adjusts some
@@ -869,7 +899,7 @@ type AuthHandlerConfig struct {
 //					}
 //				}
 //			],
-//		"external_auth_config": {}
+//		    "external_auth_config": {}
 //	}
 func (config *AuthConfig) Validate(path string) error {
 	seenTypes := make(map[string]struct{}, len(config.Handlers))
@@ -898,8 +928,8 @@ func (config *AuthHandlerConfig) Validate(path string) error {
 	}
 	switch config.Type {
 	case rpc.CredentialsTypeAPIKey:
-		if config.Config.String("key") == "" && len(config.Config.StringSlice("keys")) == 0 {
-			return resource.NewConfigValidationError(fmt.Sprintf("%s.config", path), errors.New("key or keys is required"))
+		if len(config.Config.StringSlice("keys")) == 0 {
+			return resource.NewConfigValidationError(fmt.Sprintf("%s.config", path), errors.New("keys is required"))
 		}
 	case rpc.CredentialsTypeExternal:
 		return errors.New("robot cannot issue external auth tokens")
@@ -1107,4 +1137,37 @@ func (p *PackageConfig) sanitizedVersion() string {
 type Revision struct {
 	Revision    string
 	LastUpdated time.Time
+}
+
+// UpdateLoggerRegistryFromConfig will update the passed in registry with all log patterns in
+// `cfg.LogConfig` and each resource's `LogConfiguration` field if present.
+func UpdateLoggerRegistryFromConfig(registry *logging.Registry, cfg *Config, warnLogger logging.Logger) {
+	var combinedLogCfg []logging.LoggerPatternConfig
+	if cfg.LogConfig != nil {
+		combinedLogCfg = append(combinedLogCfg, cfg.LogConfig...)
+	}
+
+	for _, serv := range cfg.Services {
+		if serv.LogConfiguration != nil {
+			resLogCfg := logging.LoggerPatternConfig{
+				Pattern: "rdk.resource_manager." + serv.ResourceName().String(),
+				Level:   serv.LogConfiguration.Level.String(),
+			}
+			combinedLogCfg = append(combinedLogCfg, resLogCfg)
+		}
+	}
+	for _, comp := range cfg.Components {
+		if comp.LogConfiguration != nil {
+			resLogCfg := logging.LoggerPatternConfig{
+				Pattern: "rdk.resource_manager." + comp.ResourceName().String(),
+				Level:   comp.LogConfiguration.Level.String(),
+			}
+			combinedLogCfg = append(combinedLogCfg, resLogCfg)
+		}
+	}
+
+	if err := registry.Update(combinedLogCfg, warnLogger); err != nil {
+		warnLogger.Warnw("Error processing log patterns",
+			"error", err)
+	}
 }
