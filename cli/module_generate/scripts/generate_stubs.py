@@ -75,21 +75,22 @@ def main(
     model_name_pascal = "".join(
         [word.capitalize() for word in slugify(model_name).split("-")]
     )
-    main_file = f'''
+    main_file = '''
 import asyncio
-from typing import ClassVar, Mapping, Sequence, Self
+from typing import ClassVar, Mapping, Sequence
+from typing_extensions import Self
 from viam.module.module import Module
 from viam.proto.app.robot import ComponentConfig
 from viam.proto.common import ResourceName
 from viam.resource.base import ResourceBase
 from viam.resource.easy_resource import EasyResource
 from viam.resource.types import Model, ModelFamily
-{"\n".join(list(set(imports)))}
-from viam.{resource_type}s.{resource_subtype} import *
+{0}
+from viam.{1}s.{2} import *
 
 
-class {model_name_pascal}({resource_name}, EasyResource):
-    MODEL: ClassVar[Model] = Model(ModelFamily("{namespace}", "{mod_name}"), "{model_name}")
+class {3}({4}, EasyResource):
+    MODEL: ClassVar[Model] = Model(ModelFamily("{5}", "{6}"), "{7}")
 
     @classmethod
     def new(cls, config: ComponentConfig, dependencies: Mapping[ResourceName, ResourceBase]) -> Self:
@@ -127,13 +128,23 @@ class {model_name_pascal}({resource_name}, EasyResource):
         """
         return super().reconfigure(config, dependencies)
 
-{'\n\n'.join([f'    async def {method}' for method in abstract_methods])}
+{8}
 
 
 if __name__ == '__main__':
     asyncio.run(Module.run_from_registry())
 
-'''
+'''.format(
+        "\n".join(list(set(imports))),
+        resource_type,
+        resource_subtype,
+        model_name_pascal,
+        resource_name,
+        namespace,
+        mod_name,
+        model_name,
+        '\n\n'.join([f'    async def {method}' for method in abstract_methods]),
+    )
     f_name = os.path.join(mod_name, "src", "main.py")
     with open(f_name, "w+") as f:
         f.write(main_file)
@@ -157,6 +168,7 @@ if __name__ == "__main__":
             "pip",
             "install",
             "viam-sdk",
+            "typing-extensions",
             "black",
             "isort",
             "python-slugify",

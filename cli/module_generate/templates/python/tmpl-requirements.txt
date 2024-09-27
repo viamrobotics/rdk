@@ -1,1 +1,2 @@
 viam-sdk=={{ .SDKVersion }}
+typing-extensions
