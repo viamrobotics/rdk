@@ -190,12 +190,7 @@ func promptUser() (*moduleInputs, error) {
 				Negative("Private").
 				Value(&newModule.IsPublic),
 			huh.NewInput().
-				TitleFunc(func() string {
-					if newModule.IsPublic {
-						return "Public namespace:"
-					}
-					return "Organization ID"
-				}, &newModule.IsPublic).
+				Title("Namespace/Organization ID").
 				Value(&newModule.Namespace).
 				Validate(func(s string) error {
 					if s == "" {
@@ -247,7 +242,7 @@ func promptUser() (*moduleInputs, error) {
 				}),
 			huh.NewConfirm().
 				Title("Enable cloud build").
-				Description("If enabled, Viam will build your module as executables for a variety of platforms.").
+				Description("If enabled, Viam will generate GitHub workflows to build your module.").
 				Value(&newModule.EnableCloudBuild),
 			huh.NewConfirm().
 				Title("Initialize git repository").
