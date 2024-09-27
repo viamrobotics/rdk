@@ -1186,7 +1186,7 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 
 	canReconfigure, err := r.checkMaintenanceSensor(newConfig)
 	if err != nil {
-		r.logger.Info(err.Error() + ". using default reconfiguration behavior")
+		r.logger.Info(err.Error() + ". using default reconfigure behavior")
 	}
 	if !canReconfigure {
 		r.logger.Info("maintenance sensor determined it is not safe to reconfigure, disabling reconfigure")
@@ -1447,10 +1447,9 @@ func (r *localRobot) Version(ctx context.Context) (robot.VersionResponse, error)
 
 func (r *localRobot) checkMaintenanceSensor(newConfig *config.Config) (bool, error) {
 	if newConfig.MaintenanceConfig == nil {
-		return true, errors.New("maintenanceConfig undefined")
+		return true, errors.New("maintenanceConfig undefined. Using default reconfigure")
 	}
 	sensorFound := false
-	// Need to double check if this is needed
 	for _, component := range newConfig.Components {
 		if component.Name == newConfig.MaintenanceConfig.SensorName {
 			if sensorFound {

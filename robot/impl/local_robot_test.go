@@ -20,6 +20,7 @@ import (
 	"github.com/golang/geo/r3"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.uber.org/zap"
+
 	// registers all components.
 	commonpb "go.viam.com/api/common/v1"
 	armpb "go.viam.com/api/component/arm/v1"
@@ -3973,7 +3974,7 @@ func TestCheckMaintenanceSensor(t *testing.T) {
 			canReconfigure: true,
 			robotConfig:    &config.Config{},
 			newConfig:      &config.Config{},
-			errorMessage:   "maintenanceConfig undefined",
+			errorMessage:   "maintenanceConfig undefined. Using default reconfigure",
 		},
 		{
 			canReconfigure: true,
@@ -4030,7 +4031,7 @@ func TestCheckMaintenanceSensor(t *testing.T) {
 					},
 				},
 			},
-			errorMessage: "error getting MaintenanceAllowedKey from sensor reading",
+			errorMessage: "error getting MaintenanceAllowedKey Star from sensor reading",
 		},
 	}
 	for _, tc := range tests {
@@ -4063,7 +4064,7 @@ func TestCheckMaintenanceSensorReadings(t *testing.T) {
 			canReconfigure:        true,
 			maintenanceAllowedKey: "UnknownKey",
 			sensor:                newSensor(),
-			errorMessage:          "error getting MaintenanceAllowedKey from sensor reading",
+			errorMessage:          "error getting MaintenanceAllowedKey UnknownKey from sensor reading",
 		},
 	}
 	for _, tc := range tests {
