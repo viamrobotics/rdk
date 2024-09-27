@@ -95,49 +95,55 @@ func (c *viamClient) generateModuleAction(cCtx *cli.Context) error {
 		s.Title("Setting up module directory...")
 		if err = setupDirectories(cCtx, newModule.ModuleName); err != nil {
 			actionErr = err
-			return
-		}
-
-		s.Title("Rendering common files...")
-		if err = renderCommonFiles(cCtx, *newModule); err != nil {
-			actionErr = err
-			return
-		}
-
-		s.Title(fmt.Sprintf("Copying %s files...", newModule.Language))
-		if err = copyLanguageTemplate(cCtx, newModule.Language, newModule.ModuleName); err != nil {
-			actionErr = err
-			return
-		}
-
-		s.Title("Rendering template...")
-		if err = renderTemplate(cCtx, *newModule); err != nil {
-			actionErr = err
-			return
-		}
-
-		s.Title(fmt.Sprintf("Generating %s stubs...", newModule.Language))
-		if err = generateStubs(cCtx, *newModule); err != nil {
-			actionErr = err
-			return
-		}
-
-		s.Title("Generating cloud build requirements...")
-		if err = generateCloudBuild(cCtx, *newModule); err != nil {
-			actionErr = err
-			return
-		}
-
-		s.Title("Initializing git repository...")
-		if err = initializeGit(cCtx, newModule.ModuleName, newModule.InitializeGit); err != nil {
-			actionErr = err
+			os.RemoveAll(newModule.ModuleName)
 			return
 		}
 
 		s.Title("Creating module and generating manifest...")
 		if err = createModuleAndManifest(cCtx, c, *newModule); err != nil {
 			actionErr = err
+			os.RemoveAll(newModule.ModuleName)
 			return
+		}
+
+		s.Title("Rendering common files...")
+		if err = renderCommonFiles(cCtx, *newModule); err != nil {
+			actionErr = err
+			os.RemoveAll(newModule.ModuleName)
+			return
+		}
+
+		s.Title(fmt.Sprintf("Copying %s files...", newModule.Language))
+		if err = copyLanguageTemplate(cCtx, newModule.Language, newModule.ModuleName); err != nil {
+			actionErr = err
+			os.RemoveAll(newModule.ModuleName)
+			return
+		}
+
+		s.Title("Rendering template...")
+		if err = renderTemplate(cCtx, *newModule); err != nil {
+			actionErr = err
+			os.RemoveAll(newModule.ModuleName)
+			return
+		}
+
+		s.Title(fmt.Sprintf("Generating %s stubs...", newModule.Language))
+		if err = generateStubs(cCtx, *newModule); err != nil {
+			actionErr = err
+		}
+
+		s.Title("Generating cloud build requirements...")
+		if err = generateCloudBuild(cCtx, *newModule); err != nil {
+			if actionErr == nil {
+				actionErr = err
+			}
+		}
+
+		s.Title("Initializing git repository...")
+		if err = initializeGit(cCtx, newModule.ModuleName, newModule.InitializeGit); err != nil {
+			if actionErr == nil {
+				actionErr = err
+			}
 		}
 	}
 
