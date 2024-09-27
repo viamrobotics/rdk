@@ -71,7 +71,7 @@ type RobotClient struct {
 	dialOptions []rpc.DialOption
 
 	mu                       sync.RWMutex
-	resourceNames            []resource.Name
+	cachedMachineStatus      robot.MachineStatus
 	resourceRPCAPIs          []resource.RPCAPI
 	resourceClients          map[resource.Name]resource.Resource
 	remoteNameMap            map[resource.Name]resource.Name
@@ -415,8 +415,8 @@ func (rc *RobotClient) connectWithLock(ctx context.Context) error {
 func (rc *RobotClient) updateResourceClients(ctx context.Context) error {
 	activeResources := make(map[resource.Name]bool)
 
-	for _, name := range rc.resourceNames {
-		activeResources[name] = true
+	for _, rs := range rc.cachedMachineStatus.Resources {
+		activeResources[rs.Name] = true
 	}
 
 	for resourceName, client := range rc.resourceClients {
@@ -464,7 +464,7 @@ func (rc *RobotClient) checkConnection(ctx context.Context, checkEvery, reconnec
 						return err
 					}
 				} else {
-					if _, _, err := rc.resources(ctx); err != nil {
+					if _, _, err := rc.machineStatusAndRPCAPIs(ctx); err != nil {
 						return err
 					}
 				}
@@ -586,8 +586,8 @@ func (rc *RobotClient) ResourceByName(name resource.Name) (resource.Resource, er
 	}
 
 	// finally, before adding a new resource, make sure this name exists and is known
-	for _, knownName := range rc.resourceNames {
-		if name == knownName {
+	for _, rs := range rc.cachedMachineStatus.Resources {
+		if name == rs.Name {
 			resourceClient, err := rc.createClient(name)
 			if err != nil {
 				return nil, err
@@ -608,7 +608,7 @@ func (rc *RobotClient) createClient(name resource.Name) (resource.Resource, erro
 	return apiInfo.RPCClient(rc.backgroundCtx, &rc.conn, rc.remoteName, name, logger)
 }
 
-func (rc *RobotClient) resources(ctx context.Context) ([]resource.Name, []resource.RPCAPI, error) {
+func (rc *RobotClient) machineStatusAndRPCAPIs(ctx context.Context) (robot.MachineStatus, []resource.RPCAPI, error) {
 	// RSDK-5356 If we are in a testing environment, never apply
 	// defaultResourcesTimeout. Tests run in parallel, and if execution of a test
 	// pauses for longer than 5s, below calls to ResourceNames or
@@ -620,22 +620,29 @@ func (rc *RobotClient) resources(ctx context.Context) ([]resource.Name, []resour
 		defer cancel()
 	}
 
-	resp, err := rc.client.ResourceNames(ctx, &pb.ResourceNamesRequest{})
+	resp, err := rc.machineStatus(ctx)
 	if err != nil {
-		return nil, nil, err
+		return robot.MachineStatus{}, nil, err
 	}
 
 	var resTypes []resource.RPCAPI
 
-	resources := make([]resource.Name, 0, len(resp.Resources))
-	for _, name := range resp.Resources {
-		newName := rprotoutils.ResourceNameFromProto(name)
-		resources = append(resources, newName)
+	mStatus := resp
+	resources := make([]resource.Status, 0, len(resp.Resources))
+	for _, rs := range resp.Resources {
+		if rs.Name.API == RemoteAPI {
+			continue
+		}
+		if rs.Name.API.Type.Namespace == resource.APINamespaceRDKInternal {
+			continue
+		}
+		resources = append(resources, rs)
 	}
+	mStatus.Resources = resources
 
 	// resource has previously returned an unimplemented response, skip rpc call
 	if rc.rpcSubtypesUnimplemented {
-		return resources, resTypes, nil
+		return mStatus, resTypes, nil
 	}
 
 	typesResp, err := rc.client.ResourceRPCSubtypes(ctx, &pb.ResourceRPCSubtypesRequest{})
@@ -656,7 +663,7 @@ func (rc *RobotClient) resources(ctx context.Context) ([]resource.Name, []resour
 			}
 			svcDesc, ok := symDesc.(*desc.ServiceDescriptor)
 			if !ok {
-				return nil, nil, fmt.Errorf("expected descriptor to be service descriptor but got %T", symDesc)
+				return robot.MachineStatus{}, nil, fmt.Errorf("expected descriptor to be service descriptor but got %T", symDesc)
 			}
 			resTypes = append(resTypes, resource.RPCAPI{
 				API:  rprotoutils.ResourceNameFromProto(resAPI.Subtype).API,
@@ -665,13 +672,13 @@ func (rc *RobotClient) resources(ctx context.Context) ([]resource.Name, []resour
 		}
 	} else {
 		if s, ok := status.FromError(err); !(ok && (s.Code() == codes.Unimplemented)) {
-			return nil, nil, err
+			return robot.MachineStatus{}, nil, err
 		}
 		// prevent future calls to ResourceRPCSubtypes
 		rc.rpcSubtypesUnimplemented = true
 	}
 
-	return resources, resTypes, nil
+	return mStatus, resTypes, nil
 }
 
 // Refresh manually updates the underlying parts of this machine.
@@ -686,13 +693,12 @@ func (rc *RobotClient) Refresh(ctx context.Context) (err error) {
 func (rc *RobotClient) updateResources(ctx context.Context) error {
 	// call metadata service.
 
-	names, rpcAPIs, err := rc.resources(ctx)
+	mStatus, rpcAPIs, err := rc.machineStatusAndRPCAPIs(ctx)
 	if err != nil && status.Code(err) != codes.Unimplemented {
 		return fmt.Errorf("error updating resources: %w", err)
 	}
 
-	rc.resourceNames = make([]resource.Name, 0, len(names))
-	rc.resourceNames = append(rc.resourceNames, names...)
+	rc.cachedMachineStatus = mStatus
 	rc.resourceRPCAPIs = rpcAPIs
 
 	rc.updateRemoteNameMap()
@@ -703,17 +709,17 @@ func (rc *RobotClient) updateResources(ctx context.Context) error {
 func (rc *RobotClient) updateRemoteNameMap() {
 	tempMap := make(map[resource.Name]resource.Name)
 	dupMap := make(map[resource.Name]bool)
-	for _, n := range rc.resourceNames {
-		if err := n.Validate(); err != nil {
+	for _, rs := range rc.cachedMachineStatus.Resources {
+		if err := rs.Name.Validate(); err != nil {
 			rc.Logger().Error(err)
 			continue
 		}
-		tempName := resource.RemoveRemoteName(n)
+		tempName := resource.RemoveRemoteName(rs.Name)
 		// If the short name already exists in the map then there is a collision and we make the long name empty.
 		if _, ok := tempMap[tempName]; ok {
 			dupMap[tempName] = true
 		} else {
-			tempMap[tempName] = n
+			tempMap[tempName] = rs.Name
 		}
 	}
 	for key := range dupMap {
@@ -759,8 +765,10 @@ func (rc *RobotClient) ResourceNames() []resource.Name {
 	}
 	rc.mu.RLock()
 	defer rc.mu.RUnlock()
-	names := make([]resource.Name, 0, len(rc.resourceNames))
-	names = append(names, rc.resourceNames...)
+	names := make([]resource.Name, 0, len(rc.cachedMachineStatus.Resources))
+	for _, rs := range rc.cachedMachineStatus.Resources {
+		names = append(names, rs.Name)
+	}
 	return names
 }
 
@@ -1058,8 +1066,21 @@ func (rc *RobotClient) Shutdown(ctx context.Context) error {
 	return nil
 }
 
+// ErrDisconnected that a robot is disconnected.
+var ErrDisconnected = errors.New("disconnected")
+
 // MachineStatus returns the current status of the robot.
 func (rc *RobotClient) MachineStatus(ctx context.Context) (robot.MachineStatus, error) {
+	if rc.checkConnected() != nil {
+		return robot.MachineStatus{}, ErrDisconnected
+	}
+
+	rc.mu.Lock()
+	defer rc.mu.Unlock()
+	return rc.cachedMachineStatus, nil
+}
+
+func (rc *RobotClient) machineStatus(ctx context.Context) (robot.MachineStatus, error) {
 	mStatus := robot.MachineStatus{}
 
 	req := &pb.GetMachineStatusRequest{}
