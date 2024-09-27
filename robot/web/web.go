@@ -353,6 +353,8 @@ func (svc *webService) refreshResources() error {
 	return svc.updateResources(resources)
 }
 
+// updateResources gets every existing resource on the robot's resource graph and updates ResourceAPICollection object
+// with the correct resources, include deleting ones which have been removed from the resource graph.
 func (svc *webService) updateResources(resources map[resource.Name]resource.Resource) error {
 	groupedResources := make(map[resource.API]map[resource.Name]resource.Resource)
 	for n, v := range resources {
@@ -364,8 +366,11 @@ func (svc *webService) updateResources(resources map[resource.Name]resource.Reso
 		groupedResources[n.API] = r
 	}
 
-	// All known APIs have pre-registered resource collections, so loop through them. We want to empty out any collections if
-	// there are no longer resources available in that API.
+	// For a given API that the web service has resources for, we get the new set of resources we should be updated with.
+	// If we find a set of resources, `coll.ReplaceAll` will do the work of adding any new resources and deleting old ones.
+	//
+	// If there are no input resources of the given API, we call `coll.ReplaceAll` with an empty input such that it will
+	// remove any existing resources.
 	for api, coll := range svc.services {
 		group, ok := groupedResources[api]
 		if !ok {
