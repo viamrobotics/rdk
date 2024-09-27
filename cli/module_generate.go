@@ -13,7 +13,6 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
-	"log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -23,7 +22,6 @@ import (
 	"github.com/charmbracelet/huh"
 	"github.com/charmbracelet/huh/spinner"
 )
-
 
 //go:embed module_generate/scripts/*
 var scripts embed.FS
@@ -73,9 +71,13 @@ func GenerateModuleAction(cCtx *cli.Context) error {
 }
 
 func (c *viamClient) generateModuleAction(cCtx *cli.Context) error {
-	newModule := promptUser()
+	newModule, form := promptUser()
+	err := form.Run()
+	if err != nil {
+		return err
+	}
 
-	err := setupDirectories(cCtx, newModule.ModuleName)
+	err = setupDirectories(cCtx, newModule.ModuleName)
 	if err != nil {
 		return err
 	}
@@ -117,9 +119,25 @@ func (c *viamClient) generateModuleAction(cCtx *cli.Context) error {
 	return nil
 }
 
+func fillAdditionalInfo(newModule *moduleInputs) *moduleInputs {
+	newModule.GeneratedOn = time.Now().UTC()
+	newModule.GeneratorVersion = version
+	newModule.ResourceSubtype = strings.Split(newModule.Resource, " ")[0]
+	newModule.ResourceType = strings.Split(newModule.Resource, " ")[1]
+
+	titleCaser := cases.Title(language.Und)
+	replacer := strings.NewReplacer("_", "", "-", "")
+	newModule.ModulePascal = replacer.Replace(titleCaser.String(newModule.ModuleName))
+	newModule.API = fmt.Sprintf("rdk:%s:%s", newModule.ResourceType, newModule.ResourceSubtype)
+	newModule.ResourceSubtypePascal = replacer.Replace(titleCaser.String(newModule.ResourceSubtype))
+	newModule.ModelPascal = replacer.Replace(titleCaser.String(newModule.ModelName))
+	newModule.ModelTriple = fmt.Sprintf("%s:%s:%s", newModule.Namespace, newModule.ModuleName, newModule.ModelName)
+	return newModule
+}
+
 // Prompt the user for information regarding the module they want to create
 // returns the moduleInputs struct that contains the information the user entered
-func promptUser() moduleInputs {
+func promptUser() (*moduleInputs, *huh.Form) {
 	var newModule moduleInputs
 	form := huh.NewForm(
 		huh.NewGroup(
@@ -127,7 +145,7 @@ func promptUser() moduleInputs {
 				Title("Set a module name:").
 				Description("The module name can contain only alphanumeric characters, dashes, and underscores.").
 				Value(&newModule.ModuleName).
-				Placeholder("my-module").
+				// Placeholder("my-module").
 				Suggestions([]string{"my-module"}).
 				Validate(func(s string) error {
 					if s == "" {
@@ -220,28 +238,9 @@ func promptUser() moduleInputs {
 				Value(&newModule.InitializeGit),
 		),
 	).WithHeight(25)
-	err := form.Run()
-	if err != nil {
-		log.Default()
-		fmt.Println("uh oh cli is having issues:", err)
-		os.Exit(1)
-	}
 
-	// Fill in additional info
-	newModule.GeneratedOn = time.Now().UTC()
-	newModule.GeneratorVersion = version
-	newModule.ResourceSubtype = strings.Split(newModule.Resource, " ")[0]
-	newModule.ResourceType = strings.Split(newModule.Resource, " ")[1]
-
-	titleCaser := cases.Title(language.Und)
-	replacer := strings.NewReplacer("_", "", "-", "")
-	newModule.ModulePascal = replacer.Replace(titleCaser.String(newModule.ModuleName))
-	newModule.API = fmt.Sprintf("rdk:%s:%s", newModule.ResourceType, newModule.ResourceSubtype)
-	newModule.ResourceSubtypePascal = replacer.Replace(titleCaser.String(newModule.ResourceSubtype))
-	newModule.ModelPascal = replacer.Replace(titleCaser.String(newModule.ModelName))
-	newModule.ModelTriple = fmt.Sprintf("%s:%s:%s", newModule.Namespace, newModule.ModuleName, newModule.ModelName)
-
-	return newModule
+	fillAdditionalInfo(&newModule)
+	return &newModule, form
 }
 
 // Creates a new directory with moduleName
@@ -254,7 +253,7 @@ func setupDirectories(c *cli.Context, moduleName string) error {
 	return nil
 }
 
-func renderCommonFiles(c *cli.Context, module moduleInputs) error {
+func renderCommonFiles(c *cli.Context, module *moduleInputs) error {
 	debugf(c.App.Writer, c.Bool(debugFlag), "Rendering common files")
 
 	// .viam-gen-info
@@ -329,7 +328,7 @@ func copyLanguageTemplate(c *cli.Context, language string, moduleName string) er
 }
 
 // Render all the files in the new directory
-func renderTemplate(c *cli.Context, newModule moduleInputs) error {
+func renderTemplate(c *cli.Context, newModule *moduleInputs) error {
 	debugf(c.App.Writer, c.Bool(debugFlag), "Rendering template files")
 	languagePath := filepath.Join(templatesPath, newModule.Language)
 	tempDir, err := fs.Sub(templates, languagePath)
@@ -376,12 +375,12 @@ func renderTemplate(c *cli.Context, newModule moduleInputs) error {
 }
 
 // Generate stubs for the resource
-func generateStubs(c *cli.Context, module moduleInputs) error {
+func generateStubs(c *cli.Context, module *moduleInputs) error {
 	var err error
 	action := func() {
 		switch module.Language {
 		case "python":
-			err = generatePythonStubs(c, module)
+			err = generatePythonStubs(c, *module)
 		default:
 			err = errors.Errorf("Cannot generate stubs for language %s", module.Language)
 		}
@@ -396,7 +395,7 @@ func generatePythonStubs(c *cli.Context, module moduleInputs) error {
 }
 
 // Create the meta.json manifest
-func renderManifest(c *cli.Context, moduleID string, module moduleInputs) error {
+func renderManifest(c *cli.Context, moduleID string, module *moduleInputs) error {
 	debugf(c.App.Writer, c.Bool(debugFlag), "Rendering module manifest")
 
 	visibility := moduleVisibilityPrivate
