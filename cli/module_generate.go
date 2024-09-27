@@ -15,7 +15,6 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
-	"log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -55,6 +54,7 @@ type moduleInputs struct {
 	ModelName        string    `json:"model_name"`
 	EnableCloudBuild bool      `json:"enable_cloud_build"`
 	InitializeGit    bool      `json:"initialize_git"`
+	RegisterOnApp    bool      `json:"-"`
 	GeneratorVersion string    `json:"generator_version"`
 	GeneratedOn      time.Time `json:"generated_on"`
 
@@ -76,7 +76,10 @@ func GenerateModuleAction(cCtx *cli.Context) error {
 }
 
 func (c *viamClient) generateModuleAction(cCtx *cli.Context) error {
-	newModule := promptUser()
+	newModule, err := promptUser()
+	if err != nil {
+		return err
+	}
 
 	s := spinner.New()
 	var actionErr error
@@ -96,7 +99,7 @@ func (c *viamClient) generateModuleAction(cCtx *cli.Context) error {
 		}
 
 		s.Title("Rendering common files...")
-		if err = renderCommonFiles(cCtx, newModule); err != nil {
+		if err = renderCommonFiles(cCtx, *newModule); err != nil {
 			actionErr = err
 			return
 		}
@@ -108,13 +111,19 @@ func (c *viamClient) generateModuleAction(cCtx *cli.Context) error {
 		}
 
 		s.Title("Rendering template...")
-		if err = renderTemplate(cCtx, newModule); err != nil {
+		if err = renderTemplate(cCtx, *newModule); err != nil {
 			actionErr = err
 			return
 		}
 
 		s.Title(fmt.Sprintf("Generating %s stubs...", newModule.Language))
-		if err = generateStubs(cCtx, newModule); err != nil {
+		if err = generateStubs(cCtx, *newModule); err != nil {
+			actionErr = err
+			return
+		}
+
+		s.Title("Generating cloud build requirements...")
+		if err = generateCloudBuild(cCtx, *newModule); err != nil {
 			actionErr = err
 			return
 		}
@@ -125,20 +134,9 @@ func (c *viamClient) generateModuleAction(cCtx *cli.Context) error {
 			return
 		}
 
-		// Create module on app.viam and manifest
-		moduleResponse, err := c.createModule(newModule.ModuleName, newModule.Namespace)
-		if err != nil {
-			actionErr = errors.Wrap(err, "failed to register module")
-			return
-		}
-		moduleID, err := parseModuleID(moduleResponse.GetModuleId())
-		if err != nil {
-			actionErr = errors.Wrap(err, "failed to parse module identifier")
-			return
-		}
-		err = renderManifest(cCtx, moduleID.String(), newModule)
-		if err != nil {
-			actionErr = errors.Wrap(err, "failed to render manifest")
+		s.Title("Creating module and generating manifest...")
+		if err = createModuleAndManifest(cCtx, c, *newModule); err != nil {
+			actionErr = err
 			return
 		}
 	}
@@ -156,7 +154,7 @@ func (c *viamClient) generateModuleAction(cCtx *cli.Context) error {
 
 // Prompt the user for information regarding the module they want to create
 // returns the moduleInputs struct that contains the information the user entered
-func promptUser() moduleInputs {
+func promptUser() (*moduleInputs, error) {
 	var newModule moduleInputs
 	form := huh.NewForm(
 		huh.NewGroup(
@@ -248,20 +246,21 @@ func promptUser() moduleInputs {
 					return nil
 				}),
 			huh.NewConfirm().
-				Title("Enable cloud build?").
+				Title("Enable cloud build").
 				Description("If enabled, Viam will build your module as executables for a variety of platforms.").
 				Value(&newModule.EnableCloudBuild),
 			huh.NewConfirm().
-				Title("Initialize git repository?").
-				Description("Create a git repository for this module.").
+				Title("Initialize git repository").
 				Value(&newModule.InitializeGit),
+			huh.NewConfirm().
+				Title("Register module").
+				Description("Register this module with Viam.\nIf selected, this will associate the module with your organization.\nOtherwise, this will be a local-only module.").
+				Value(&newModule.RegisterOnApp),
 		),
-	).WithHeight(25)
+	).WithHeight(25).WithWidth(88)
 	err := form.Run()
 	if err != nil {
-		log.Default()
-		fmt.Println("uh oh cli is having issues:", err)
-		os.Exit(1)
+		return nil, errors.Wrap(err, "encountered an error generating module")
 	}
 
 	// Fill in additional info
@@ -278,7 +277,7 @@ func promptUser() moduleInputs {
 	newModule.ModelPascal = replacer.Replace(titleCaser.String(newModule.ModelName))
 	newModule.ModelTriple = fmt.Sprintf("%s:%s:%s", newModule.Namespace, newModule.ModuleName, newModule.ModelName)
 
-	return newModule
+	return &newModule, nil
 }
 
 // Creates a new directory with moduleName
@@ -542,6 +541,19 @@ func getLatestSDKTag(c *cli.Context, language string) (string, error) {
 	return version, nil
 }
 
+func generateCloudBuild(c *cli.Context, module moduleInputs) error {
+	debugf(c.App.Writer, c.Bool(debugFlag), "Setting cloud build functionality to %s", module.EnableCloudBuild)
+	switch module.Language {
+	case "python":
+		if module.EnableCloudBuild {
+			os.Remove(filepath.Join(module.ModuleName, "run.sh"))
+		} else {
+			os.Remove(filepath.Join(module.ModuleName, "build.sh"))
+		}
+	}
+	return nil
+}
+
 func initializeGit(c *cli.Context, moduleName string, initializeGit bool) error {
 	if !initializeGit {
 		os.Remove(filepath.Join(moduleName, ".gitignore"))
@@ -554,6 +566,30 @@ func initializeGit(c *cli.Context, moduleName string, initializeGit bool) error 
 		return errors.Wrap(err, "cannot initialize git repo")
 	}
 
+	return nil
+}
+
+func createModuleAndManifest(cCtx *cli.Context, c *viamClient, module moduleInputs) error {
+	var moduleId moduleID
+	if module.RegisterOnApp {
+		debugf(cCtx.App.Writer, cCtx.Bool(debugFlag), "Registering module with Viam")
+		moduleResponse, err := c.createModule(module.ModuleName, module.Namespace)
+		if err != nil {
+			return errors.Wrap(err, "failed to register module")
+		}
+		moduleId, err = parseModuleID(moduleResponse.GetModuleId())
+		if err != nil {
+			return errors.Wrap(err, "failed to parse module identifier")
+		}
+	} else {
+		debugf(cCtx.App.Writer, cCtx.Bool(debugFlag), "Creating a local-only module")
+		moduleId.name = module.ModuleName
+		moduleId.prefix = module.Namespace
+	}
+	err := renderManifest(cCtx, moduleId.String(), module)
+	if err != nil {
+		return errors.Wrap(err, "failed to render manifest")
+	}
 	return nil
 }
 
@@ -585,10 +621,8 @@ func renderManifest(c *cli.Context, moduleID string, module moduleInputs) error 
 				Arch:  []string{"linux/amd64", "linux/arm64", "darwin/arm64"},
 			}
 			manifest.Entrypoint = "dist/main"
-			os.Remove(filepath.Join(module.ModuleName, "run.sh"))
 		} else {
 			manifest.Entrypoint = "./run.sh"
-			os.Remove(filepath.Join(module.ModuleName, "build.sh"))
 		}
 	}
 
