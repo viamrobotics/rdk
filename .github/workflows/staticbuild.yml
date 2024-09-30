@@ -35,10 +35,10 @@ jobs:
       matrix:
         include:
           - arch: ubuntu-latest
-            image: ghcr.io/viamrobotics/antique2:amd64-cache
+            image: ghcr.io/viamrobotics/antique2:amd64-go123
             platform: linux/amd64
           - arch: ubuntu-small-arm
-            image: ghcr.io/viamrobotics/antique2:arm64-cache
+            image: ghcr.io/viamrobotics/antique2:arm64-go123
             platform: linux/arm64
     runs-on: ${{ matrix.arch }}
     container:

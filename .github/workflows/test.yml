@@ -25,7 +25,7 @@ jobs:
             platform: linux/amd64
             platform_name: linux-amd64
           - arch: ubuntu-large-arm
-            image: ghcr.io/viamrobotics/rdk-devenv:arm64-cache
+            image: ghcr.io/viamrobotics/rdk-devenv:arm64-go123
             platform: linux/arm64
             platform_name: linux-arm64
     runs-on: ${{ matrix.arch }}
@@ -97,7 +97,7 @@ jobs:
             platform: linux/amd64
             platform_name: linux-amd64
           - arch: ubuntu-large-arm
-            image: ghcr.io/viamrobotics/rdk-devenv:arm64-cache
+            image: ghcr.io/viamrobotics/rdk-devenv:arm64-go123
             platform: linux/arm64
             platform_name: linux-arm64
     runs-on: ${{ matrix.arch }}
@@ -178,7 +178,7 @@ jobs:
         docker run \
           --platform linux/arm/v7 \
           -v `pwd`:/rdk \
-          ghcr.io/viamrobotics/rdk-devenv:armhf-cache \
+          ghcr.io/viamrobotics/rdk-devenv:armhf-go123 \
           sudo -Hu testbot bash -lc 'cd /rdk && go test -v -tags=no_tflite ./...'
 
   test_pi:

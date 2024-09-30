@@ -27,7 +27,7 @@ jobs:
             platform: linux/amd64
             label: amd64
           - arch: ubuntu-small-arm
-            image: ghcr.io/viamrobotics/rdk-devenv:arm64-cache
+            image: ghcr.io/viamrobotics/rdk-devenv:arm64-go123
             platform: linux/arm64
             label: arm64
     runs-on: ${{ matrix.arch }}
