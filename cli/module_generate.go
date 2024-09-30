@@ -7,6 +7,7 @@ import (
 	"os/exec"
 	"regexp"
 
+	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	"github.com/urfave/cli/v2"
 	"golang.org/x/text/cases"
@@ -580,7 +581,16 @@ func createModuleAndManifest(cCtx *cli.Context, c *viamClient, module moduleInpu
 	var moduleId moduleID
 	if module.RegisterOnApp {
 		debugf(cCtx.App.Writer, cCtx.Bool(debugFlag), "Registering module with Viam")
-		moduleResponse, err := c.createModule(module.ModuleName, module.Namespace)
+		orgID := module.Namespace
+		_, err := uuid.Parse(module.Namespace)
+		if err != nil {
+			org, err := resolveOrg(c, module.Namespace, "")
+			if err != nil {
+				return errors.Wrapf(err, "failed to resolve organization from namespace %s", module.Namespace)
+			}
+			orgID = org.GetId()
+		}
+		moduleResponse, err := c.createModule(module.ModuleName, orgID)
 		if err != nil {
 			return errors.Wrap(err, "failed to register module")
 		}
