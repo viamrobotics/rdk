@@ -82,76 +82,82 @@ func (c *viamClient) generateModuleAction(cCtx *cli.Context) error {
 	}
 
 	s := spinner.New()
-	var actionErr error
+	var fatalError error
+	var nonFatalError error
 	action := func() {
 		s.Title("Getting latest release...")
 		version, err := getLatestSDKTag(cCtx, newModule.Language)
 		if err != nil {
-			actionErr = err
+			fatalError = err
 			return
 		}
 		newModule.SDKVersion = version[1:]
 
 		s.Title("Setting up module directory...")
 		if err = setupDirectories(cCtx, newModule.ModuleName); err != nil {
-			actionErr = err
-			os.RemoveAll(newModule.ModuleName)
+			fatalError = err
 			return
 		}
 
 		s.Title("Creating module and generating manifest...")
 		if err = createModuleAndManifest(cCtx, c, *newModule); err != nil {
-			actionErr = err
-			os.RemoveAll(newModule.ModuleName)
+			fatalError = err
 			return
 		}
 
 		s.Title("Rendering common files...")
 		if err = renderCommonFiles(cCtx, *newModule); err != nil {
-			actionErr = err
-			os.RemoveAll(newModule.ModuleName)
+			fatalError = err
 			return
 		}
 
 		s.Title(fmt.Sprintf("Copying %s files...", newModule.Language))
 		if err = copyLanguageTemplate(cCtx, newModule.Language, newModule.ModuleName); err != nil {
-			actionErr = err
-			os.RemoveAll(newModule.ModuleName)
+			fatalError = err
 			return
 		}
 
 		s.Title("Rendering template...")
 		if err = renderTemplate(cCtx, *newModule); err != nil {
-			actionErr = err
+			fatalError = err
 			os.RemoveAll(newModule.ModuleName)
 			return
 		}
 
 		s.Title(fmt.Sprintf("Generating %s stubs...", newModule.Language))
 		if err = generateStubs(cCtx, *newModule); err != nil {
-			actionErr = err
+			nonFatalError = err
 		}
 
 		s.Title("Generating cloud build requirements...")
 		if err = generateCloudBuild(cCtx, *newModule); err != nil {
-			if actionErr == nil {
-				actionErr = err
+			if nonFatalError == nil {
+				nonFatalError = err
 			}
 		}
 
 		s.Title("Initializing git repository...")
 		if err = initializeGit(cCtx, newModule.ModuleName, newModule.InitializeGit); err != nil {
-			if actionErr == nil {
-				actionErr = err
+			if nonFatalError == nil {
+				nonFatalError = err
 			}
 		}
 	}
 
-	s.Action(action)
-	s.Run()
+	if cCtx.Bool(debugFlag) {
+		action()
+	} else {
+		s.Action(action)
+		s.Run()
+	}
 
-	if actionErr != nil {
-		return actionErr
+	if fatalError != nil {
+		os.RemoveAll(newModule.ModuleName)
+		return errors.Wrap(fatalError, "unable to generate module")
+	}
+
+	if nonFatalError != nil {
+		return errors.Wrapf(nonFatalError, "some steps of module generation failed, incomplete module located at %s", newModule.ModuleName)
 	}
 
 	printf(cCtx.App.Writer, "Module successfully generated at %s", newModule.ModuleName)
