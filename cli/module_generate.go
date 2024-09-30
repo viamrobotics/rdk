@@ -171,6 +171,9 @@ func promptUser() (*moduleInputs, error) {
 	var newModule moduleInputs
 	form := huh.NewForm(
 		huh.NewGroup(
+			huh.NewNote().
+				Title("Generate a new modular resource").
+				Description("For more details about modular resources, view the documentation at \nhttps://docs.viam.com/registry/"),
 			huh.NewInput().
 				Title("Set a module name:").
 				Description("The module name can contain only alphanumeric characters, dashes, and underscores.").
@@ -241,7 +244,7 @@ func promptUser() (*moduleInputs, error) {
 				Value(&newModule.Resource).WithHeight(25),
 			huh.NewInput().
 				Title("Set a model name of the resource:").
-				Description("The model name can contain only alphanumeric characters, dashes, and underscores.").
+				Description("This is the name of the new resource model that your module will provide.\nThe model name can contain only alphanumeric characters, dashes, and underscores.").
 				Value(&newModule.ModelName).
 				Validate(func(s string) error {
 					if s == "" {
@@ -255,7 +258,7 @@ func promptUser() (*moduleInputs, error) {
 				}),
 			huh.NewConfirm().
 				Title("Enable cloud build").
-				Description("If enabled, Viam will generate GitHub workflows to build your module.").
+				Description("If enabled, this will generate GitHub workflows to build your module.").
 				Value(&newModule.EnableCloudBuild),
 			huh.NewConfirm().
 				Title("Initialize git repository").
