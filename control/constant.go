@@ -64,5 +64,7 @@ func (b *constant) Output(ctx context.Context) []*Signal {
 }
 
 func (b *constant) Config(ctx context.Context) BlockConfig {
+	b.mu.Lock()
+	defer b.mu.Unlock()
 	return b.cfg
 }
