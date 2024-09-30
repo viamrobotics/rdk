@@ -1,6 +1,7 @@
 service:
   golangci-lint-version: 1.61.x
 run:
+  timeout: 10m
   deadline: 900s
   modules-download-mode: readonly
   skip-dirs-use-default: false
