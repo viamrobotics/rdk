@@ -369,7 +369,9 @@ func (manager *resourceManager) ResourceNames() []resource.Name {
 	return names
 }
 
-// ResourceStatuses returns the names of all resources in the manager.
+// ResourceStatuses returns the names of all resources in the manager, excluding the following types of resources:
+// - Resources that represent entire remote machines.
+// - Resources that are considered internal to viam-server that cannot be removed via configuration.
 func (manager *resourceManager) ResourceStatuses() []resource.Status {
 	result := []resource.Status{}
 	for _, name := range manager.resources.Names() {
