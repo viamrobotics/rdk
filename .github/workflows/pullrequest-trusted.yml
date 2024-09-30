@@ -6,7 +6,7 @@ concurrency:
 
 on:
   pull_request:
-    branches: [ main ]
+    # branches: [ main ]
     types: [ labeled ]
 
 # To test workflow updates you need to work in a branch directly on viamrobotics/rdk
