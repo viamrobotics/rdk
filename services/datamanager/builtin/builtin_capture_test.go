@@ -2,15 +2,12 @@ package builtin
 
 import (
 	"context"
-	"os"
 	"path/filepath"
-	"strings"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/golang/geo/r3"
-	"github.com/pkg/errors"
 	v1 "go.viam.com/api/app/datasync/v1"
 	"go.viam.com/test"
 
@@ -204,7 +201,7 @@ func TestDataCaptureEnabled(t *testing.T) {
 	}
 }
 
-func TestSwitchResource(t *testing.T) {
+func TestReconfigureResource(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 	captureDir := t.TempDir()
 
@@ -254,10 +251,11 @@ func TestSwitchResource(t *testing.T) {
 	err = b.Reconfigure(context.Background(), deps2, config)
 	test.That(t, err, test.ShouldBeNil)
 
-	// Test that sensor data is captured from the new collector.
+	// wait for all the files on disk to
 	waitForCaptureFilesToExceedNFiles(captureDir, len(getAllFileInfos(captureDir)), logger)
 	testFilesContainSensorData(t, captureDir)
 
+	// Test that sensor data is captured from the new collector.
 	var (
 		captureDataHasZeroReadings    bool
 		captureDataHasNonZeroReadings bool
@@ -273,11 +271,12 @@ func TestSwitchResource(t *testing.T) {
 		for _, d := range initialData {
 			// Each resource's mocked capture method outputs a different value.
 			// Assert that we see the expected data captured by the initial arm1 resource.
-			if d.GetStruct().GetFields()["pose"].GetStructValue().GetFields()["x"].GetNumberValue() == float64(0) {
+			pose := d.GetStruct().GetFields()["pose"].GetStructValue().GetFields()
+			if pose["x"].GetNumberValue() == 0 && pose["y"].GetNumberValue() == 0 && pose["z"].GetNumberValue() == 0 {
 				captureDataHasZeroReadings = true
 			}
 
-			if d.GetStruct().GetFields()["pose"].GetStructValue().GetFields()["x"].GetNumberValue() == float64(888) {
+			if pose["x"].GetNumberValue() == 888 && pose["y"].GetNumberValue() == 888 && pose["z"].GetNumberValue() == 888 {
 				captureDataHasNonZeroReadings = true
 			}
 		}
@@ -292,19 +291,13 @@ func getSensorData(dir string) ([]*v1.SensorData, error) {
 	var sd []*v1.SensorData
 	filePaths := getAllFilePaths(dir)
 	for _, path := range filePaths {
+		if filepath.Ext(path) == data.InProgressCaptureFileExt {
+			continue
+		}
 		d, err := data.SensorDataFromCaptureFilePath(path)
-		// It's possible a file was closed (and so its extension changed) in between the points where we gathered
-		// file names and here. So if the file does not exist, check if the extension has just been changed.
-		if errors.Is(err, os.ErrNotExist) {
-			path = strings.TrimSuffix(path, filepath.Ext(path)) + data.CompletedCaptureFileExt
-			d, err = data.SensorDataFromCaptureFilePath(path)
-			if err != nil {
-				return nil, err
-			}
-		} else if err != nil {
+		if err != nil {
 			return nil, err
 		}
-
 		sd = append(sd, d...)
 	}
 	return sd, nil
