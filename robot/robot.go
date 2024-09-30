@@ -37,13 +37,10 @@ const (
 // DiscoverComponents example:
 //
 //	// Define a new discovery query.
-//	q := resource.NewDiscoveryQuery(acme.API, resource.Model{Name: "some model"})
+//	q := resource.NewDiscoveryQuery(camera.API, resource.Model{Name: "webcam", Family: resource.DefaultModelFamily})
 //
-//	// Define a list of discovery queries.
-//	qs := []resource.DiscoverQuery{q}
-//
-//	// Get component configurations with these queries.
-//	component_configs, err := machine.DiscoverComponents(context.Background(), []resource.DiscoveryQuery{qs})
+//	// Define a list of discovery queries and get potential component configurations with these queries.
+//	out, err := machine.DiscoverComponents(context.Background(), []resource.DiscoveryQuery{q})
 //
 // ResourceNames example:
 //
@@ -92,7 +89,8 @@ const (
 //	// Shut down the robot.
 //	err := machine.Shutdown(ctx)
 type Robot interface {
-	// DiscoverComponents returns discovered component configurations.
+	// DiscoverComponents returns discovered potential component configurations.
+	// Only implemented for webcam cameras in builtin components.
 	DiscoverComponents(ctx context.Context, qs []resource.DiscoveryQuery) ([]resource.Discovery, error)
 
 	// RemoteByName returns a remote robot by name.
