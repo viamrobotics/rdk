@@ -84,7 +84,7 @@ func (c *viamClient) generateModuleAction(cCtx *cli.Context) error {
 
 	s := spinner.New()
 	var fatalError error
-	var nonFatalError error
+	nonFatalError := false
 	action := func() {
 		s.Title("Getting latest release...")
 		version, err := getLatestSDKTag(cCtx, newModule.Language)
@@ -121,27 +121,25 @@ func (c *viamClient) generateModuleAction(cCtx *cli.Context) error {
 		s.Title("Rendering template...")
 		if err = renderTemplate(cCtx, *newModule); err != nil {
 			fatalError = err
-			os.RemoveAll(newModule.ModuleName)
 			return
 		}
 
 		s.Title(fmt.Sprintf("Generating %s stubs...", newModule.Language))
 		if err = generateStubs(cCtx, *newModule); err != nil {
-			nonFatalError = err
+			warningf(cCtx.App.ErrWriter, err.Error())
+			nonFatalError = true
 		}
 
 		s.Title("Generating cloud build requirements...")
 		if err = generateCloudBuild(cCtx, *newModule); err != nil {
-			if nonFatalError == nil {
-				nonFatalError = err
-			}
+			warningf(cCtx.App.ErrWriter, err.Error())
+			nonFatalError = true
 		}
 
 		s.Title("Initializing git repository...")
 		if err = initializeGit(cCtx, newModule.ModuleName, newModule.InitializeGit); err != nil {
-			if nonFatalError == nil {
-				nonFatalError = err
-			}
+			warningf(cCtx.App.ErrWriter, err.Error())
+			nonFatalError = true
 		}
 	}
 
@@ -157,8 +155,8 @@ func (c *viamClient) generateModuleAction(cCtx *cli.Context) error {
 		return errors.Wrap(fatalError, "unable to generate module")
 	}
 
-	if nonFatalError != nil {
-		return errors.Wrapf(nonFatalError, "some steps of module generation failed, incomplete module located at %s", newModule.ModuleName)
+	if nonFatalError {
+		return errors.New(fmt.Sprintf("some steps of module generation failed, incomplete module located at %s", newModule.ModuleName))
 	}
 
 	printf(cCtx.App.Writer, "Module successfully generated at %s", newModule.ModuleName)
