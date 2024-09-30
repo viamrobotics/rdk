@@ -264,6 +264,10 @@ func TestSwitchResource(t *testing.T) {
 	)
 
 	for _, fp := range getAllFilePaths(captureDir) {
+		// ignore in progress files
+		if filepath.Ext(fp) == data.InProgressCaptureFileExt {
+			continue
+		}
 		initialData, err := data.SensorDataFromCaptureFilePath(fp)
 		test.That(t, err, test.ShouldBeNil)
 		for _, d := range initialData {
