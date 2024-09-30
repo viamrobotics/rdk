@@ -21,7 +21,7 @@ jobs:
       matrix:
         include:
           - arch: ubuntu-large
-            image: ghcr.io/viamrobotics/rdk-devenv:amd64-cache
+            image: ghcr.io/viamrobotics/rdk-devenv:amd64-go123
             platform: linux/amd64
             platform_name: linux-amd64
           - arch: ubuntu-large-arm
@@ -93,7 +93,7 @@ jobs:
       matrix:
         include:
           - arch: ubuntu-large
-            image: ghcr.io/viamrobotics/rdk-devenv:amd64-cache
+            image: ghcr.io/viamrobotics/rdk-devenv:amd64-go123
             platform: linux/amd64
             platform_name: linux-amd64
           - arch: ubuntu-large-arm
@@ -222,7 +222,7 @@ jobs:
   test_web_e2e:
     name: Test End-to-End and Web
     runs-on: ubuntu-latest
-    container: ghcr.io/viamrobotics/rdk-devenv:amd64-cache
+    container: ghcr.io/viamrobotics/rdk-devenv:amd64-go123
     timeout-minutes: 15
     steps:
     - uses: actions/checkout@v3
