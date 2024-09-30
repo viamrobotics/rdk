@@ -5,6 +5,7 @@ import (
 	"compress/gzip"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"io/fs"
@@ -13,7 +14,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 	"go.viam.com/utils"
 
@@ -66,7 +66,7 @@ func installPackage(
 	// unpack to temp directory to ensure we do an atomic rename once finished.
 	tmpDataPath, err := os.MkdirTemp(p.LocalDataParentDirectory(packagesDir), "*.tmp")
 	if err != nil {
-		return errors.Wrap(err, "failed to create temp data dir path")
+		return fmt.Errorf("failed to create temp data dir path %w", err)
 	}
 
 	defer func() {
@@ -155,7 +155,7 @@ func unpackFile(ctx context.Context, fromFile, toDir string) error {
 		}
 
 		if err != nil {
-			return errors.Wrap(err, "read tar")
+			return fmt.Errorf("read tar %w", err)
 		}
 
 		path := header.Name
@@ -173,7 +173,7 @@ func unpackFile(ctx context.Context, fromFile, toDir string) error {
 		switch header.Typeflag {
 		case tar.TypeDir:
 			if err := os.Mkdir(path, info.Mode()); err != nil {
-				return errors.Wrapf(err, "failed to create directory %s", path)
+				return fmt.Errorf("failed to create directory %q %w", path, err)
 			}
 
 		case tar.TypeReg:
@@ -182,18 +182,18 @@ func unpackFile(ctx context.Context, fromFile, toDir string) error {
 			// Ex: tar -czf package.tar.gz ./bin/module.exe
 			parent := filepath.Dir(path)
 			if err := os.MkdirAll(parent, 0o700); err != nil {
-				return errors.Wrapf(err, "failed to create directory %q", parent)
+				return fmt.Errorf("failed to create directory %q %w", parent, err)
 			}
 			//nolint:gosec // path sanitized with rutils.SafeJoin
 			outFile, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0o600|info.Mode().Perm())
 			if err != nil {
-				return errors.Wrapf(err, "failed to create file %s", path)
+				return fmt.Errorf("failed to create file %q %w", path, err)
 			}
 			if _, err := io.CopyN(outFile, tarReader, maxPackageSize); err != nil && !errors.Is(err, io.EOF) {
-				return errors.Wrapf(err, "failed to copy file %s", path)
+				return fmt.Errorf("failed to copy file %q %w", path, err)
 			}
 			if err := outFile.Sync(); err != nil {
-				return errors.Wrapf(err, "failed to sync %s", path)
+				return fmt.Errorf("failed to sync %q %w", path, err)
 			}
 			utils.UncheckedError(outFile.Close())
 
@@ -219,7 +219,7 @@ func unpackFile(ctx context.Context, fromFile, toDir string) error {
 			return err
 		}
 		if err := linkFile(links[i].Name, links[i].Path); err != nil {
-			return errors.Wrapf(err, "failed to create link %s", links[i].Path)
+			return fmt.Errorf("failed to create link %q %w", links[i].Path, err)
 		}
 	}
 
@@ -228,7 +228,7 @@ func unpackFile(ctx context.Context, fromFile, toDir string) error {
 			return err
 		}
 		if err := linkFile(symlinks[i].Name, symlinks[i].Path); err != nil {
-			return errors.Wrapf(err, "failed to create link %s", links[i].Path)
+			return fmt.Errorf("failed to create link %q %w", links[i].Path, err)
 		}
 	}
 
@@ -347,7 +347,7 @@ func readStatusFile(pkg config.PackageConfig, packagesDir string) (packageSyncFi
 	syncFileBytes, err := os.ReadFile(syncFileName)
 	if err != nil {
 		if errors.Is(err, fs.ErrNotExist) {
-			return packageSyncFile{}, errors.Wrapf(err, "cannot find %s", syncFileName)
+			return packageSyncFile{}, fmt.Errorf("cannot find %q %w", syncFileName, err)
 		}
 		return packageSyncFile{}, err
 	}
@@ -368,13 +368,13 @@ func writeStatusFile(pkg config.PackageConfig, statusFile packageSyncFile, packa
 	//nolint:gosec
 	syncFile, err := os.Create(syncFileName)
 	if err != nil {
-		return errors.Wrapf(err, "failed to create %s", syncFileName)
+		return fmt.Errorf("failed to create %q %w", syncFileName, err)
 	}
 	if _, err := syncFile.Write(statusFileBytes); err != nil {
-		return errors.Wrapf(err, "failed to write syncfile to %s", syncFileName)
+		return fmt.Errorf("failed to write syncfile to %q %w", syncFileName, err)
 	}
 	if err := syncFile.Sync(); err != nil {
-		return errors.Wrapf(err, "failed to sync %s", syncFileName)
+		return fmt.Errorf("failed to sync %q %w", syncFileName, err)
 	}
 
 	return nil
