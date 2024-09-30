@@ -851,7 +851,7 @@ func waitForCaptureFilesToEqualNFiles(ctx context.Context, captureDir string, n 
 			for _, f := range files {
 				fNames = append(fNames, f.Name())
 			}
-			logger.Errorf("target: %d, iterations: %d, nonEmptyFiles: %d, files: %v", n, i, captureFiles, fNames)
+			logger.Errorf("target: %d, iterations: %d, captureFiles: %d, files: %v", n, i, captureFiles, fNames)
 			return err
 		}
 		files = getAllFileInfos(captureDir)
