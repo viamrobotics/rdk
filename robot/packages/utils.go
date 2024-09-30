@@ -308,16 +308,24 @@ var statusFileExt = ".status.json"
 
 func packageIsSynced(pkg config.PackageConfig, packagesDir string, logger logging.Logger) bool {
 	syncFile, err := readStatusFile(pkg, packagesDir)
-	if err != nil {
-		utils.UncheckedError(err)
-	}
-	if syncFile.PackageID == pkg.Package && syncFile.Version == pkg.Version && syncFile.Status == syncStatusDone {
+	switch {
+	case errors.Is(err, fs.ErrNotExist):
+		logger.Infow("New package to download detected", "name", pkg.Name, "version", pkg.Version, "id", pkg.Package)
+		return false
+	case err != nil:
+		logger.Warnw("Error reading status file for package",
+			// We prefix log output with "package" to avoid ambiguity. E.g: `name` could mean
+			// filename given the log line context.
+			"packageName", pkg.Name, "packageVersion", pkg.Version, "packageId", pkg.Package, "packagesDir", packagesDir, "err", err)
+		return false
+	case syncFile.PackageID == pkg.Package && syncFile.Version == pkg.Version && syncFile.Status == syncStatusDone:
 		logger.Debugf("Package already downloaded at %s, skipping.", pkg.LocalDataDirectory(packagesDir))
 		return true
+	default:
+		logger.Infof("Package is not in sync for %s: status of '%s' (file) != '%s' (expected) and version of '%s' (file) != '%s' (expected)",
+			pkg.Package, syncFile.Status, syncStatusDone, syncFile.Version, pkg.Version)
+		return false
 	}
-	logger.Debugf("Package is not in sync for %s: status of '%s' (file) != '%s' (expected) and version of '%s' (file) != '%s' (expected)",
-		pkg.Package, syncFile.Status, syncStatusDone, syncFile.Version, pkg.Version)
-	return false
 }
 
 func packagesAreSynced(packages []config.PackageConfig, packagesDir string, logger logging.Logger) bool {
