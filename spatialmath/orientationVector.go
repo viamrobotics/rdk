@@ -68,37 +68,6 @@ func (ov *OrientationVector) Degrees() *OrientationVectorDegrees {
 	return &OrientationVectorDegrees{Theta: utils.RadToDeg(ov.Theta), OX: ov.OX, OY: ov.OY, OZ: ov.OZ}
 }
 
-// ToQuat converts an orientation vector to a quaternion.
-func (ov *OrientationVector) ToQuat() quat.Number {
-	// make sure OrientationVector is normalized first
-	ov.Normalize()
-
-	// acos(rz) ranges from 0 (north pole) to pi (south pole)
-	lat := math.Acos(ov.OZ)
-
-	// If we're pointing at the Z axis then lon is 0, theta is the OV theta
-	// Euler angles are gimbal locked here but OV allows us to have smooth(er) movement
-	// Since euler angles are used to represent a single orientation, but not to move between different ones, this is OK
-	lon := 0.0
-	theta := ov.Theta
-
-	if 1-math.Abs(ov.OZ) > defaultAngleEpsilon {
-		// If we are not at a pole, we need the longitude
-		// atan x/y removes some sign information so we use atan2 to do it properly
-		lon = math.Atan2(ov.OY, ov.OX)
-	}
-
-	var q quat.Number
-	// Since the "default" orientation is pointed at the Z axis, we use ZYZ rotation order to properly represent the OV
-	q1 := mgl64.AnglesToQuat(lon, lat, theta, mgl64.ZYZ)
-	q.Real = q1.W
-	q.Imag = q1.X()
-	q.Jmag = q1.Y()
-	q.Kmag = q1.Z()
-
-	return q
-}
-
 func (ovd *OrientationVectorDegrees) computeNormal() float64 {
 	return math.Sqrt(ovd.OX*ovd.OX + ovd.OY*ovd.OY + ovd.OZ*ovd.OZ)
 }
@@ -141,12 +110,38 @@ func (ov *OrientationVector) Normalize() {
 
 // EulerAngles returns orientation in Euler angle representation.
 func (ov *OrientationVector) EulerAngles() *EulerAngles {
-	return QuatToEulerAngles(ov.ToQuat())
+	return QuatToEulerAngles(ov.Quaternion())
 }
 
 // Quaternion returns orientation in quaternion representation.
 func (ov *OrientationVector) Quaternion() quat.Number {
-	return ov.ToQuat()
+	// make sure OrientationVector is normalized first
+	ov.Normalize()
+
+	// acos(rz) ranges from 0 (north pole) to pi (south pole)
+	lat := math.Acos(ov.OZ)
+
+	// If we're pointing at the Z axis then lon is 0, theta is the OV theta
+	// Euler angles are gimbal locked here but OV allows us to have smooth(er) movement
+	// Since euler angles are used to represent a single orientation, but not to move between different ones, this is OK
+	lon := 0.0
+	theta := ov.Theta
+
+	if 1-math.Abs(ov.OZ) > defaultAngleEpsilon {
+		// If we are not at a pole, we need the longitude
+		// atan x/y removes some sign information so we use atan2 to do it properly
+		lon = math.Atan2(ov.OY, ov.OX)
+	}
+
+	var q quat.Number
+	// Since the "default" orientation is pointed at the Z axis, we use ZYZ rotation order to properly represent the OV
+	q1 := mgl64.AnglesToQuat(lon, lat, theta, mgl64.ZYZ)
+	q.Real = q1.W
+	q.Imag = q1.X()
+	q.Jmag = q1.Y()
+	q.Kmag = q1.Z()
+
+	return q
 }
 
 // OrientationVectorRadians returns orientation as an orientation vector (in radians).
@@ -161,7 +156,7 @@ func (ov *OrientationVector) OrientationVectorDegrees() *OrientationVectorDegree
 
 // AxisAngles returns the orientation in axis angle representation.
 func (ov *OrientationVector) AxisAngles() *R4AA {
-	return QuatToR4AA(ov.ToQuat())
+	return QuatToR4AA(ov.Quaternion())
 }
 
 // RotationMatrix returns the orientation in rotation matrix representation.
@@ -179,19 +174,14 @@ func (ovd *OrientationVectorDegrees) Radians() *OrientationVector {
 	return &OrientationVector{Theta: utils.DegToRad(ovd.Theta), OX: ovd.OX, OY: ovd.OY, OZ: ovd.OZ}
 }
 
-// ToQuat converts an orientation vector in degrees to a quaternion.
-func (ovd *OrientationVectorDegrees) ToQuat() quat.Number {
-	return ovd.Radians().ToQuat()
-}
-
 // EulerAngles returns orientation in Euler angle representation.
 func (ovd *OrientationVectorDegrees) EulerAngles() *EulerAngles {
-	return QuatToEulerAngles(ovd.ToQuat())
+	return QuatToEulerAngles(ovd.Quaternion())
 }
 
 // Quaternion returns orientation in quaternion representation.
 func (ovd *OrientationVectorDegrees) Quaternion() quat.Number {
-	return ovd.ToQuat()
+	return ovd.Radians().Quaternion()
 }
 
 // OrientationVectorRadians returns orientation as an orientation vector (in radians).
@@ -206,7 +196,7 @@ func (ovd *OrientationVectorDegrees) OrientationVectorDegrees() *OrientationVect
 
 // AxisAngles returns the orientation in axis angle representation.
 func (ovd *OrientationVectorDegrees) AxisAngles() *R4AA {
-	return QuatToR4AA(ovd.ToQuat())
+	return QuatToR4AA(ovd.Quaternion())
 }
 
 // RotationMatrix returns the orientation in rotation matrix representation.

@@ -20,6 +20,7 @@ var flipPose = spatialmath.NewPoseFromOrientation(&spatialmath.OrientationVector
 
 // PTGSolver wraps a PTG with the ability to perform Inverse Kinematics.
 type PTGSolver interface {
+	referenceframe.Limited
 	// Solve will return the (alpha, dist) TP-space coordinates whose corresponding relative pose minimizes the given function
 	ik.InverseKinematics
 	PTG

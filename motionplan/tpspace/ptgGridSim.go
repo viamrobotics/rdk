@@ -54,7 +54,7 @@ func (ptg *ptgGridSim) Solve(
 	ctx context.Context,
 	solutionChan chan<- *ik.Solution,
 	seed []referenceframe.Input,
-	solveMetric ik.StateMetric,
+	solveMetric func([]float64)float64,
 	rseed int,
 ) error {
 	// Try to find a closest point to the paths:

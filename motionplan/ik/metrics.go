@@ -4,12 +4,15 @@ import (
 	"fmt"
 	"math"
 
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/referenceframe"
 	spatial "go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
 )
 
 const orientationDistanceScaling = 10.
+
+var globalLogger = logging.Global()
 
 // Segment contains all the information a constraint needs to determine validity for a movement.
 // It contains the starting inputs, the ending inputs, corresponding poses, and the frame it refers to.

@@ -2,7 +2,6 @@ package spatialmath
 
 import (
 	"math"
-
 	"github.com/go-gl/mathgl/mgl64"
 	"github.com/golang/geo/r3"
 	commonpb "go.viam.com/api/common/v1"
@@ -30,14 +29,8 @@ func newDualQuaternion() *dualQuaternion {
 // newDualQuaternionFromRotation returns a pointer to a new dualQuaternion object whose rotation
 // quaternion is set from a provided orientation.
 func newDualQuaternionFromRotation(o Orientation) *dualQuaternion {
-	ov := o.OrientationVectorRadians()
-	// Handle the zero case
-	if ov.OX == 0 && ov.OY == 0 && ov.OZ == 0 {
-		ov.OZ = 1
-	}
-	ov.Normalize()
 	return &dualQuaternion{dualquat.Number{
-		Real: ov.ToQuat(),
+		Real: o.Quaternion(),
 		Dual: quat.Number{},
 	}}
 }
@@ -72,7 +65,7 @@ func newDualQuaternionFromProtobuf(pos *commonpb.Pose) *dualQuaternion {
 // new one.
 func newDualQuaternionFromPose(p Pose) *dualQuaternion {
 	if q, ok := p.(*dualQuaternion); ok {
-		return q.Clone()
+		return &dualQuaternion{q.Number}
 	}
 	q := newDualQuaternionFromRotation(p.Orientation())
 	q.SetTranslation(p.Point())
@@ -103,12 +96,6 @@ func (q *dualQuaternion) ToProtobuf() *commonpb.Pose {
 	final.OY = poseOVD.OY
 	final.OZ = poseOVD.OZ
 	return final
-}
-
-// Clone returns a dualQuaternion object identical to this one.
-func (q *dualQuaternion) Clone() *dualQuaternion {
-	// No need for deep copies here, a dualquat.Number is primitives all the way down
-	return &dualQuaternion{q.Number}
 }
 
 // Point multiplies the dual quaternion by its own conjugate to give a dq where the real is the identity quat,
@@ -150,13 +137,7 @@ func (q *dualQuaternion) SetZ(z float64) {
 // Transformation multiplies the dual quat contained in this dualQuaternion by another dual quat.
 func (q *dualQuaternion) Transformation(by dualquat.Number) dualquat.Number {
 	var newReal quat.Number
-	var newDual quat.Number
-	if vecLen := 1 / quat.Abs(by.Real); vecLen != 1 {
-		by.Real.Real *= vecLen
-		by.Real.Imag *= vecLen
-		by.Real.Jmag *= vecLen
-		by.Real.Kmag *= vecLen
-	}
+
 	//nolint: gocritic
 	if q.Real.Real == 1 {
 		// Since we're working with unit quaternions, if either Real is 1, then that quat is an identity quat
@@ -164,21 +145,37 @@ func (q *dualQuaternion) Transformation(by dualquat.Number) dualquat.Number {
 	} else if by.Real.Real == 1 {
 		newReal = q.Real
 	} else {
-		// Ensure we are multiplying by a unit dual quaternion
 		newReal = quat.Mul(q.Real, by.Real)
+	}
+	if vecLen := quat.Abs(newReal); vecLen - 1 > 1e-10 || vecLen - 1 < -1e-10 {
+		newReal.Real /= vecLen
+		newReal.Imag /= vecLen
+		newReal.Jmag /= vecLen
+		newReal.Kmag /= vecLen
 	}
 
 	//nolint: gocritic
 	if q.Dual.Real == 0 && q.Dual.Imag == 0 && q.Dual.Jmag == 0 && q.Dual.Kmag == 0 {
-		newDual = quat.Mul(q.Real, by.Dual)
+		return dualquat.Number{
+			Real: newReal,
+			Dual: quat.Mul(q.Real, by.Dual),
+		}
 	} else if by.Dual.Real == 0 && by.Dual.Imag == 0 && by.Dual.Jmag == 0 && by.Dual.Kmag == 0 {
-		newDual = quat.Mul(q.Dual, by.Real)
-	} else {
-		newDual = quat.Add(quat.Mul(q.Real, by.Dual), quat.Mul(q.Dual, by.Real))
+		return dualquat.Number{
+			Real: newReal,
+			Dual: quat.Mul(q.Dual, by.Real),
+		}
 	}
+
 	return dualquat.Number{
 		Real: newReal,
-		Dual: newDual,
+		// Equivalent to but faster than quat.Add(quat.Mul(q.Real, by.Dual), quat.Mul(q.Dual, by.Real))
+		Dual: quat.Number{
+			Real: q.Real.Real*by.Dual.Real - q.Real.Imag*by.Dual.Imag - q.Real.Jmag*by.Dual.Jmag - q.Real.Kmag*by.Dual.Kmag + q.Dual.Real*by.Real.Real - q.Dual.Imag*by.Real.Imag - q.Dual.Jmag*by.Real.Jmag - q.Dual.Kmag*by.Real.Kmag,
+			Imag: q.Real.Real*by.Dual.Imag + q.Real.Imag*by.Dual.Real + q.Real.Jmag*by.Dual.Kmag - q.Real.Kmag*by.Dual.Jmag + q.Dual.Real*by.Real.Imag + q.Dual.Imag*by.Real.Real + q.Dual.Jmag*by.Real.Kmag - q.Dual.Kmag*by.Real.Jmag,
+			Jmag: q.Real.Real*by.Dual.Jmag - q.Real.Imag*by.Dual.Kmag + q.Real.Jmag*by.Dual.Real + q.Real.Kmag*by.Dual.Imag + q.Dual.Real*by.Real.Jmag - q.Dual.Imag*by.Real.Kmag + q.Dual.Jmag*by.Real.Real + q.Dual.Kmag*by.Real.Imag,
+			Kmag: q.Real.Real*by.Dual.Kmag + q.Real.Imag*by.Dual.Jmag - q.Real.Jmag*by.Dual.Imag + q.Real.Kmag*by.Dual.Real + q.Dual.Real*by.Real.Kmag + q.Dual.Imag*by.Real.Jmag - q.Dual.Jmag*by.Real.Imag + q.Dual.Kmag*by.Real.Real,
+		},
 	}
 }
 
