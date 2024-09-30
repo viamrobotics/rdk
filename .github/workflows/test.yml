@@ -21,11 +21,11 @@ jobs:
       matrix:
         include:
           - arch: ubuntu-large
-            image: ghcr.io/viamrobotics/rdk-devenv:amd64-go123
+            image: ghcr.io/viamrobotics/rdk-devenv:amd64-cache
             platform: linux/amd64
             platform_name: linux-amd64
           - arch: ubuntu-large-arm
-            image: ghcr.io/viamrobotics/rdk-devenv:arm64-go123
+            image: ghcr.io/viamrobotics/rdk-devenv:arm64-cache
             platform: linux/arm64
             platform_name: linux-arm64
     runs-on: ${{ matrix.arch }}
@@ -93,11 +93,11 @@ jobs:
       matrix:
         include:
           - arch: ubuntu-large
-            image: ghcr.io/viamrobotics/rdk-devenv:amd64-go123
+            image: ghcr.io/viamrobotics/rdk-devenv:amd64-cache
             platform: linux/amd64
             platform_name: linux-amd64
           - arch: ubuntu-large-arm
-            image: ghcr.io/viamrobotics/rdk-devenv:arm64-go123
+            image: ghcr.io/viamrobotics/rdk-devenv:arm64-cache
             platform: linux/arm64
             platform_name: linux-arm64
     runs-on: ${{ matrix.arch }}
@@ -178,7 +178,7 @@ jobs:
         docker run \
           --platform linux/arm/v7 \
           -v `pwd`:/rdk \
-          ghcr.io/viamrobotics/rdk-devenv:armhf-go123 \
+          ghcr.io/viamrobotics/rdk-devenv:armhf-cache \
           sudo -Hu testbot bash -lc 'cd /rdk && go test -v -tags=no_tflite ./...'
 
   test_pi:
@@ -222,7 +222,7 @@ jobs:
   test_web_e2e:
     name: Test End-to-End and Web
     runs-on: ubuntu-latest
-    container: ghcr.io/viamrobotics/rdk-devenv:amd64-go123
+    container: ghcr.io/viamrobotics/rdk-devenv:amd64-cache
     timeout-minutes: 15
     steps:
     - uses: actions/checkout@v3

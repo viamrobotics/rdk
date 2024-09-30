@@ -1,12 +1,12 @@
 name: Pull Request Update
 
 concurrency:
-  group: pullrequest-${{ github.head_ref }}-go123
+  group: pullrequest-${{ github.head_ref }}
   cancel-in-progress: true
 
 on:
-  pull_request:
-    # branches: [ main ]
+  pull_request_target:
+    branches: [ main ]
     types: [ labeled ]
 
 # To test workflow updates you need to work in a branch directly on viamrobotics/rdk
@@ -16,7 +16,7 @@ on:
 jobs:
   test:
     if: (github.event.label.name == 'safe to test' || github.event.label.name == 'appimage')
-    uses: ./.github/workflows/test.yml
+    uses: viamrobotics/rdk/.github/workflows/test.yml@main
     secrets:
       MONGODB_TEST_OUTPUT_URI: ${{ secrets.MONGODB_TEST_OUTPUT_URI }}
       DOCKER_PUBLIC_READONLY_PAT: ${{ secrets.DOCKER_PUBLIC_READONLY_PAT }}
@@ -28,7 +28,7 @@ jobs:
       always() && !cancelled() && contains(github.event.pull_request.labels.*.name, 'safe to test') &&
       !contains(github.event.pull_request.labels.*.name, 'appimage-ignore-tests') &&
       contains(github.event.pull_request.labels.*.name, 'appimage') && needs.test.result == 'success'
-    uses: ./.github/workflows/appimage.yml
+    uses: viamrobotics/rdk/.github/workflows/appimage.yml@main
     with:
       release_type: 'pr'
     secrets:
@@ -38,7 +38,7 @@ jobs:
     if: |
        always() && !cancelled() && contains(github.event.pull_request.labels.*.name, 'safe to test') &&
        contains(github.event.pull_request.labels.*.name, 'appimage-ignore-tests')
-    uses: ./.github/workflows/appimage.yml
+    uses: viamrobotics/rdk/.github/workflows/appimage.yml@main
     with:
       release_type: 'pr'
     secrets:
@@ -51,7 +51,7 @@ jobs:
       always() && !cancelled() && contains(github.event.pull_request.labels.*.name, 'safe to test') &&
       !contains(github.event.pull_request.labels.*.name, 'static-ignore-tests') &&
       contains(github.event.pull_request.labels.*.name, 'static-build') && needs.test.result == 'success'
-    uses: ./.github/workflows/staticbuild.yml
+    uses: viamrobotics/rdk/.github/workflows/staticbuild.yml@main
     with:
       release_type: 'pr'
     secrets:
@@ -61,7 +61,7 @@ jobs:
     if: |
        always() && !cancelled() && contains(github.event.pull_request.labels.*.name, 'safe to test') &&
        contains(github.event.pull_request.labels.*.name, 'static-ignore-tests')
-    uses: ./.github/workflows/staticbuild.yml
+    uses: viamrobotics/rdk/.github/workflows/staticbuild.yml@main
     with:
       release_type: 'pr'
     secrets:
@@ -69,14 +69,14 @@ jobs:
 
   droid:
     needs: test
-    uses: ./.github/workflows/droid.yml
+    uses: viamrobotics/rdk/.github/workflows/droid.yml@main
     with:
       release_type: 'pr'
     secrets:
       GCP_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS }}
 
   macos:
-    uses: ./.github/workflows/macos.yml
+    uses: viamrobotics/rdk/.github/workflows/macos.yml@main
 
   license_finder:
-    uses: ./.github/workflows/license_finder.yml
+    uses: viamrobotics/rdk/.github/workflows/license_finder.yml@main
