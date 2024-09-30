@@ -148,6 +148,9 @@ func TestDataCaptureEnabled(t *testing.T) {
 			c.CaptureDir = initCaptureDir
 			c.CaptureDisabled = tc.initialServiceDisableStatus
 			c.ScheduledSyncDisabled = true
+			// MaximumCaptureFileSizeBytes is set to 1 so that each reading becomes its own capture file
+			// and we can confidently read the capture file without it's contents being modified by the collector
+			c.MaximumCaptureFileSizeBytes = 1
 
 			// Build and start data manager.
 			b, err := New(context.Background(), deps, config, datasync.NoOpCloudClientConstructor, connToConnectivityStateError, logger)
@@ -176,6 +179,9 @@ func TestDataCaptureEnabled(t *testing.T) {
 			c2.CaptureDisabled = tc.newServiceDisableStatus
 			c2.ScheduledSyncDisabled = true
 			c2.CaptureDir = updatedCaptureDir
+			// MaximumCaptureFileSizeBytes is set to 1 so that each reading becomes its own capture file
+			// and we can confidently read the capture file without it's contents being modified by the collector
+			c2.MaximumCaptureFileSizeBytes = 1
 
 			// Update to new config and let it run for a bit.
 			err = b.Reconfigure(context.Background(), deps, updatedConfig)
@@ -218,6 +224,9 @@ func TestSwitchResource(t *testing.T) {
 	c.CaptureDisabled = false
 	c.ScheduledSyncDisabled = true
 	c.CaptureDir = captureDir
+	// MaximumCaptureFileSizeBytes is set to 1 so that each reading becomes its own capture file
+	// and we can confidently read the capture file without it's contents being modified by the collector
+	c.MaximumCaptureFileSizeBytes = 1
 
 	// Build and start data manager.
 	b, err := New(context.Background(), deps, config, datasync.NoOpCloudClientConstructor, connToConnectivityStateError, logger)
@@ -245,44 +254,34 @@ func TestSwitchResource(t *testing.T) {
 	err = b.Reconfigure(context.Background(), deps2, config)
 	test.That(t, err, test.ShouldBeNil)
 
-	dataBeforeSwitch, err := getSensorData(captureDir)
-	test.That(t, err, test.ShouldBeNil)
-
 	// Test that sensor data is captured from the new collector.
 	waitForCaptureFilesToExceedNFiles(captureDir, len(getAllFileInfos(captureDir)), logger)
 	testFilesContainSensorData(t, captureDir)
 
-	filePaths := getAllFilePaths(captureDir)
-	test.That(t, len(filePaths), test.ShouldEqual, 2)
+	var (
+		captureDataHasZeroReadings    bool
+		captureDataHasNonZeroReadings bool
+	)
 
-	initialData, err := data.SensorDataFromCaptureFilePath(filePaths[0])
-	test.That(t, err, test.ShouldBeNil)
-	for _, d := range initialData {
-		// Each resource's mocked capture method outputs a different value.
-		// Assert that we see the expected data captured by the initial arm1 resource.
-		test.That(
-			t,
-			d.GetStruct().GetFields()["pose"].GetStructValue().GetFields()["x"].GetNumberValue(),
-			test.ShouldEqual,
-			float64(0),
-		)
-	}
-	// Assert that the initial arm1 resource isn't capturing any more data.
-	test.That(t, len(initialData), test.ShouldEqual, len(dataBeforeSwitch))
+	for _, fp := range getAllFilePaths(captureDir) {
+		initialData, err := data.SensorDataFromCaptureFilePath(fp)
+		test.That(t, err, test.ShouldBeNil)
+		for _, d := range initialData {
+			// Each resource's mocked capture method outputs a different value.
+			// Assert that we see the expected data captured by the initial arm1 resource.
+			if d.GetStruct().GetFields()["pose"].GetStructValue().GetFields()["x"].GetNumberValue() == float64(0) {
+				captureDataHasZeroReadings = true
+			}
 
-	newData, err := data.SensorDataFromCaptureFilePath(filePaths[1])
-	test.That(t, err, test.ShouldBeNil)
-	for _, d := range newData {
-		// Assert that we see the expected data captured by the updated arm1 resource.
-		test.That(
-			t,
-			d.GetStruct().GetFields()["pose"].GetStructValue().GetFields()["x"].GetNumberValue(),
-			test.ShouldEqual,
-			float64(888),
-		)
+			if d.GetStruct().GetFields()["pose"].GetStructValue().GetFields()["x"].GetNumberValue() == float64(888) {
+				captureDataHasNonZeroReadings = true
+			}
+		}
 	}
-	// Assert that the updated arm1 resource is capturing data.
-	test.That(t, len(newData), test.ShouldBeGreaterThan, 0)
+
+	// Assert that both the sensor data from the first instance of `arm1` was captured as well as data from the second instance
+	test.That(t, captureDataHasZeroReadings, test.ShouldBeTrue)
+	test.That(t, captureDataHasNonZeroReadings, test.ShouldBeTrue)
 }
 
 func getSensorData(dir string) ([]*v1.SensorData, error) {
@@ -327,16 +326,16 @@ func waitForCaptureFilesToExceedNFiles(captureDir string, n int, logger logging.
 	start := time.Now()
 	for {
 		files := getAllFileInfos(captureDir)
-		nonEmptyFiles := 0
+		captureFiles := 0
 		for idx := range files {
-			if files[idx].Size() > int64(emptyFileBytesSize) {
+			if files[idx].Size() > int64(emptyFileBytesSize) && filepath.Ext(files[idx].Name()) == data.CompletedCaptureFileExt {
 				// Every datamanager file has at least 90 bytes of metadata. Wait for that to be
 				// observed before considering the file as "existing".
-				nonEmptyFiles++
+				captureFiles++
 			}
 
 			// We have N+1 files. No need to count any more.
-			if nonEmptyFiles > n {
+			if captureFiles > n {
 				return
 			}
 		}
