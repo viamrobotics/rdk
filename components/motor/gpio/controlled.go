@@ -37,6 +37,11 @@ func (cm *controlledMotor) State(ctx context.Context) ([]float64, error) {
 	return []float64{pos}, err
 }
 
+// GetType returns that the controllable type is motor
+func (cm *controlledMotor) GetType() string {
+	return "motor"
+}
+
 // updateControlBlockPosVel updates the trap profile and the constant set point for position and velocity control.
 func (cm *controlledMotor) updateControlBlock(ctx context.Context, setPoint, maxVel float64) error {
 	// Update the Trapezoidal Velocity Profile block with the given maxVel for velocity control

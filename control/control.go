@@ -12,6 +12,8 @@ type Controllable interface {
 	SetState(ctx context.Context, state []*Signal) error
 	// Position returns the current encoder count value
 	State(ctx context.Context) ([]float64, error)
+	// Type returns if the controllable is a base or a motor
+	GetType() string
 }
 
 // Config configuration of the control loop.

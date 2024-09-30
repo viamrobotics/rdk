@@ -161,5 +161,7 @@ func (s *trapezoidVelocityGenerator) Output(ctx context.Context) []*Signal {
 }
 
 func (s *trapezoidVelocityGenerator) Config(ctx context.Context) BlockConfig {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	return s.cfg
 }

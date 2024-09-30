@@ -150,3 +150,8 @@ func (sb *sensorBase) State(ctx context.Context) ([]float64, error) {
 	}
 	return []float64{linvel.Y, angvel.Z}, nil
 }
+
+// GetType returns that the controllable type is base
+func (cm *sensorBase) GetType() string {
+	return "base"
+}

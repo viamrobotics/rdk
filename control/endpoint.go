@@ -30,7 +30,7 @@ func (e *endpoint) Next(ctx context.Context, x []*Signal, dt time.Duration) ([]*
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	e.logger.CDebugf(ctx, "z length %v", len(x))
-	e.logger.CDebugf(ctx, "controllable is %v", e.ctr)
+	e.logger.CDebugf(ctx, "controllable type is %v", e.ctr.GetType())
 	switch len(x) {
 	case 1, 2:
 		if e.ctr != nil {
