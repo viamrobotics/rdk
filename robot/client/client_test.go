@@ -100,14 +100,7 @@ var pose1 = spatialmath.NewZeroPose()
 
 type mockRPCSubtypesUnimplemented struct {
 	pb.UnimplementedRobotServiceServer
-	ResourceNamesFunc    func(*pb.ResourceNamesRequest) (*pb.ResourceNamesResponse, error)
 	GetMachineStatusFunc func(*pb.GetMachineStatusRequest) (*pb.GetMachineStatusResponse, error)
-}
-
-func (ms *mockRPCSubtypesUnimplemented) ResourceNames(
-	ctx context.Context, req *pb.ResourceNamesRequest,
-) (*pb.ResourceNamesResponse, error) {
-	return ms.ResourceNamesFunc(req)
 }
 
 func (ms *mockRPCSubtypesUnimplemented) GetMachineStatus(
@@ -118,7 +111,6 @@ func (ms *mockRPCSubtypesUnimplemented) GetMachineStatus(
 
 type mockRPCSubtypesImplemented struct {
 	mockRPCSubtypesUnimplemented
-	ResourceNamesFunc    func(*pb.ResourceNamesRequest) (*pb.ResourceNamesResponse, error)
 	GetMachineStatusFunc func(*pb.GetMachineStatusRequest) (*pb.GetMachineStatusResponse, error)
 }
 
@@ -126,12 +118,6 @@ func (ms *mockRPCSubtypesImplemented) ResourceRPCSubtypes(
 	ctx context.Context, _ *pb.ResourceRPCSubtypesRequest,
 ) (*pb.ResourceRPCSubtypesResponse, error) {
 	return &pb.ResourceRPCSubtypesResponse{}, nil
-}
-
-func (ms *mockRPCSubtypesImplemented) ResourceNames(
-	ctx context.Context, req *pb.ResourceNamesRequest,
-) (*pb.ResourceNamesResponse, error) {
-	return ms.ResourceNamesFunc(req)
 }
 
 func (ms *mockRPCSubtypesImplemented) GetMachineStatus(
@@ -241,12 +227,10 @@ func TestUnimplementedRPCSubtypes(t *testing.T) {
 	}()
 
 	implementedService := mockRPCSubtypesImplemented{
-		ResourceNamesFunc:    resourceFunc1,
 		GetMachineStatusFunc: toMachineStatusFunc(resourceFunc1),
 	}
 
 	unimplementedService := mockRPCSubtypesUnimplemented{
-		ResourceNamesFunc:    resourceFunc1,
 		GetMachineStatusFunc: toMachineStatusFunc(resourceFunc1),
 	}
 
@@ -302,7 +286,6 @@ func TestUnimplementedRPCSubtypes(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	// still unimplemented, but with two resources
-	unimplementedService.ResourceNamesFunc = resourceFunc2
 	unimplementedService.GetMachineStatusFunc = toMachineStatusFunc(resourceFunc2)
 	err = client2.Refresh(ctx2)
 	test.That(t, err, test.ShouldBeNil)
@@ -345,13 +328,11 @@ func TestStatusClient(t *testing.T) {
 
 	injectRobot1 := &inject.Robot{
 		FrameSystemConfigFunc: frameSystemConfigFunc,
-		ResourceNamesFunc:     resourcesFunc,
 		ResourceRPCAPIsFunc:   func() []resource.RPCAPI { return nil },
 		MachineStatusFunc:     machineStatusFunc,
 	}
 	injectRobot2 := &inject.Robot{
 		FrameSystemConfigFunc: frameSystemConfigFunc,
-		ResourceNamesFunc:     resourcesFunc,
 		ResourceRPCAPIsFunc:   func() []resource.RPCAPI { return nil },
 		MachineStatusFunc:     machineStatusFunc,
 	}
@@ -711,12 +692,6 @@ func TestClientRefresh(t *testing.T) {
 			}
 			return nil
 		}
-		injectRobot.ResourceNamesFunc = func() []resource.Name {
-			mu.Lock()
-			defer mu.Unlock()
-			callCountNames++
-			return emptyResources
-		}
 		injectRobot.MachineStatusFunc = func(ctx context.Context) (robot.MachineStatus, error) {
 			mu.Lock()
 			defer mu.Unlock()
@@ -760,12 +735,6 @@ func TestClientRefresh(t *testing.T) {
 			}
 			return nil
 		}
-		injectRobot.ResourceNamesFunc = func() []resource.Name {
-			mu.Lock()
-			defer mu.Unlock()
-			callCountNames++
-			return emptyResources
-		}
 		injectRobot.MachineStatusFunc = func(ctx context.Context) (robot.MachineStatus, error) {
 			mu.Lock()
 			defer mu.Unlock()
@@ -797,7 +766,6 @@ func TestClientRefresh(t *testing.T) {
 	t.Run("refresh tests", func(t *testing.T) {
 		mu.Lock()
 		injectRobot.ResourceRPCAPIsFunc = func() []resource.RPCAPI { return nil }
-		injectRobot.ResourceNamesFunc = func() []resource.Name { return finalResources }
 		injectRobot.MachineStatusFunc = func(ctx context.Context) (robot.MachineStatus, error) {
 			return testutils.ResourcesToMachineStatus(finalResources), nil
 		}
@@ -821,7 +789,6 @@ func TestClientRefresh(t *testing.T) {
 
 		mu.Lock()
 		injectRobot.ResourceRPCAPIsFunc = func() []resource.RPCAPI { return nil }
-		injectRobot.ResourceNamesFunc = func() []resource.Name { return emptyResources }
 		injectRobot.MachineStatusFunc = func(ctx context.Context) (robot.MachineStatus, error) {
 			return testutils.ResourcesToMachineStatus(emptyResources), nil
 		}
@@ -844,7 +811,6 @@ func TestClientRefresh(t *testing.T) {
 
 		mu.Lock()
 		injectRobot.ResourceRPCAPIsFunc = func() []resource.RPCAPI { return nil }
-		injectRobot.ResourceNamesFunc = func() []resource.Name { return finalResources }
 		injectRobot.MachineStatusFunc = func(ctx context.Context) (robot.MachineStatus, error) {
 			return testutils.ResourcesToMachineStatus(finalResources), nil
 		}
@@ -873,9 +839,6 @@ func TestClientDisconnect(t *testing.T) {
 	pb.RegisterRobotServiceServer(gServer, server.New(injectRobot))
 	injectRobot.ResourceRPCAPIsFunc = func() []resource.RPCAPI { return nil }
 
-	injectRobot.ResourceNamesFunc = func() []resource.Name {
-		return []resource.Name{arm.Named("arm1")}
-	}
 	injectRobot.MachineStatusFunc = func(ctx context.Context) (robot.MachineStatus, error) {
 		return testutils.ResourcesToMachineStatus([]resource.Name{arm.Named("arm1")}), nil
 	}
@@ -1017,7 +980,6 @@ func TestClientStreamDisconnectHandler(t *testing.T) {
 
 	injectRobot := &inject.Robot{}
 	injectRobot.ResourceRPCAPIsFunc = func() []resource.RPCAPI { return nil }
-	injectRobot.ResourceNamesFunc = func() []resource.Name { return nil }
 	injectRobot.MachineStatusFunc = func(ctx context.Context) (robot.MachineStatus, error) {
 		return robot.MachineStatus{}, nil
 	}
@@ -1113,9 +1075,6 @@ func TestClientReconnect(t *testing.T) {
 	pb.RegisterRobotServiceServer(gServer, server.New(injectRobot))
 	injectRobot.ResourceRPCAPIsFunc = func() []resource.RPCAPI { return nil }
 	thing1Name := resource.NewName(someAPI, "thing1")
-	injectRobot.ResourceNamesFunc = func() []resource.Name {
-		return []resource.Name{arm.Named("arm1"), thing1Name}
-	}
 	injectRobot.MachineStatusFunc = func(ctx context.Context) (robot.MachineStatus, error) {
 		return testutils.ResourcesToMachineStatus(
 			[]resource.Name{arm.Named("arm1"), thing1Name},
@@ -1222,17 +1181,6 @@ func TestClientRefreshNoReconfigure(t *testing.T) {
 	calledEnough := make(chan struct{})
 
 	allow := make(chan struct{})
-	injectRobot.ResourceNamesFunc = func() []resource.Name {
-		if callCount == 1 {
-			<-allow
-		}
-		if callCount == 5 {
-			close(calledEnough)
-		}
-		callCount++
-
-		return []resource.Name{arm.Named("arm1"), thing1Name}
-	}
 	injectRobot.MachineStatusFunc = func(ctx context.Context) (robot.MachineStatus, error) {
 		if callCount == 1 {
 			<-allow
@@ -1317,7 +1265,6 @@ func TestClientResources(t *testing.T) {
 	}
 
 	injectRobot.ResourceRPCAPIsFunc = func() []resource.RPCAPI { return respWith }
-	injectRobot.ResourceNamesFunc = func() []resource.Name { return finalResources }
 	injectRobot.MachineStatusFunc = func(ctx context.Context) (robot.MachineStatus, error) {
 		return testutils.ResourcesToMachineStatus(finalResources), nil
 	}
@@ -1376,9 +1323,6 @@ func TestClientResources(t *testing.T) {
 func TestClientDiscovery(t *testing.T) {
 	injectRobot := &inject.Robot{}
 	injectRobot.ResourceRPCAPIsFunc = func() []resource.RPCAPI { return nil }
-	injectRobot.ResourceNamesFunc = func() []resource.Name {
-		return finalResources
-	}
 	injectRobot.MachineStatusFunc = func(ctx context.Context) (robot.MachineStatus, error) {
 		return testutils.ResourcesToMachineStatus(finalResources), nil
 	}
@@ -1450,17 +1394,15 @@ func TestClientConfig(t *testing.T) {
 	workingServer := grpc.NewServer()
 	failingServer := grpc.NewServer()
 
-	resourcesFunc := func() []resource.Name { return []resource.Name{} }
+	// resourcesFunc := func() []resource.Name { return []resource.Name{} }
 	machineStatusFunc := func(ctx context.Context) (robot.MachineStatus, error) {
 		return testutils.ResourcesToMachineStatus([]resource.Name{}), nil
 	}
 	workingRobot := &inject.Robot{
-		ResourceNamesFunc:   resourcesFunc,
 		MachineStatusFunc:   machineStatusFunc,
 		ResourceRPCAPIsFunc: func() []resource.RPCAPI { return nil },
 	}
 	failingRobot := &inject.Robot{
-		ResourceNamesFunc:   resourcesFunc,
 		MachineStatusFunc:   machineStatusFunc,
 		ResourceRPCAPIsFunc: func() []resource.RPCAPI { return nil },
 	}
@@ -1586,14 +1528,12 @@ func TestClientStatus(t *testing.T) {
 	gServer2 := grpc.NewServer()
 
 	injectRobot := &inject.Robot{
-		ResourceNamesFunc: func() []resource.Name { return []resource.Name{} },
 		MachineStatusFunc: func(ctx context.Context) (robot.MachineStatus, error) {
 			return robot.MachineStatus{}, nil
 		},
 		ResourceRPCAPIsFunc: func() []resource.RPCAPI { return nil },
 	}
 	injectRobot2 := &inject.Robot{
-		ResourceNamesFunc: func() []resource.Name { return []resource.Name{} },
 		MachineStatusFunc: func(ctx context.Context) (robot.MachineStatus, error) {
 			return robot.MachineStatus{}, nil
 		},
@@ -1729,7 +1669,6 @@ func TestForeignResource(t *testing.T) {
 	}
 
 	injectRobot.ResourceRPCAPIsFunc = func() []resource.RPCAPI { return respWith }
-	injectRobot.ResourceNamesFunc = func() []resource.Name { return respWithResources }
 	injectRobot.MachineStatusFunc = func(ctx context.Context) (robot.MachineStatus, error) {
 		return testutils.ResourcesToMachineStatus(respWithResources), nil
 	}
@@ -1778,10 +1717,6 @@ func TestNewRobotClientRefresh(t *testing.T) {
 	var callCount int
 
 	injectRobot.ResourceRPCAPIsFunc = func() []resource.RPCAPI { return nil }
-	injectRobot.ResourceNamesFunc = func() []resource.Name {
-		callCount++
-		return emptyResources
-	}
 	injectRobot.MachineStatusFunc = func(ctx context.Context) (robot.MachineStatus, error) {
 		callCount++
 		return testutils.ResourcesToMachineStatus(emptyResources), nil
@@ -1836,7 +1771,6 @@ func TestClientStopAll(t *testing.T) {
 	resourcesFunc := func() []resource.Name { return []resource.Name{} }
 	stopAllCalled := false
 	injectRobot1 := &inject.Robot{
-		ResourceNamesFunc: resourcesFunc,
 		MachineStatusFunc: func(ctx context.Context) (robot.MachineStatus, error) {
 			return testutils.ResourcesToMachineStatus(resourcesFunc()), nil
 		},
@@ -1869,7 +1803,6 @@ func TestRemoteClientMatch(t *testing.T) {
 	gServer1 := grpc.NewServer()
 	validResources := []resource.Name{arm.Named("remote:arm1")}
 	injectRobot1 := &inject.Robot{
-		ResourceNamesFunc: func() []resource.Name { return validResources },
 		MachineStatusFunc: func(ctx context.Context) (robot.MachineStatus, error) {
 			return testutils.ResourcesToMachineStatus(validResources), nil
 		},
@@ -1922,7 +1855,6 @@ func TestRemoteClientDuplicate(t *testing.T) {
 	gServer1 := grpc.NewServer()
 	validResources := []resource.Name{arm.Named("remote1:arm1"), arm.Named("remote2:arm1")}
 	injectRobot1 := &inject.Robot{
-		ResourceNamesFunc: func() []resource.Name { return validResources },
 		MachineStatusFunc: func(ctx context.Context) (robot.MachineStatus, error) {
 			return testutils.ResourcesToMachineStatus(validResources), nil
 		},
@@ -1968,7 +1900,6 @@ func TestClientOperationIntercept(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	injectRobot := &inject.Robot{
-		ResourceNamesFunc: func() []resource.Name { return []resource.Name{} },
 		MachineStatusFunc: func(ctx context.Context) (robot.MachineStatus, error) {
 			return testutils.ResourcesToMachineStatus([]resource.Name{}), nil
 		},
@@ -2016,7 +1947,6 @@ func TestGetUnknownResource(t *testing.T) {
 
 	injectResources := []resource.Name{arm.Named("myArm")}
 	injectRobot := &inject.Robot{
-		ResourceNamesFunc: func() []resource.Name { return injectResources },
 		MachineStatusFunc: func(ctx context.Context) (robot.MachineStatus, error) {
 			return testutils.ResourcesToMachineStatus(injectResources), nil
 		},
@@ -2060,7 +1990,6 @@ func TestLoggingInterceptor(t *testing.T) {
 	injectResources := []resource.Name{arm.Named("myArm")}
 	injectRobot := &inject.Robot{
 		// Needed for client connect. Not important to the test.
-		ResourceNamesFunc: func() []resource.Name { return injectResources },
 		MachineStatusFunc: func(ctx context.Context) (robot.MachineStatus, error) {
 			return testutils.ResourcesToMachineStatus(injectResources), nil
 		},
@@ -2124,7 +2053,6 @@ func TestCloudMetadata(t *testing.T) {
 		MachinePartID: "the-robot-part",
 	}
 	injectRobot := &inject.Robot{
-		ResourceNamesFunc: func() []resource.Name { return nil },
 		MachineStatusFunc: func(ctx context.Context) (robot.MachineStatus, error) {
 			return robot.MachineStatus{}, nil
 		},
@@ -2160,7 +2088,6 @@ func TestShutDown(t *testing.T) {
 
 	shutdownCalled := false
 	injectRobot := &inject.Robot{
-		ResourceNamesFunc: func() []resource.Name { return nil },
 		MachineStatusFunc: func(ctx context.Context) (robot.MachineStatus, error) {
 			return robot.MachineStatus{}, nil
 		},
@@ -2203,7 +2130,6 @@ func TestUnregisteredResourceByName(t *testing.T) {
 		testName2,
 	}
 	injectRobot := &inject.Robot{
-		ResourceNamesFunc: func() []resource.Name { return resourceList },
 		MachineStatusFunc: func(ctx context.Context) (robot.MachineStatus, error) {
 			return testutils.ResourcesToMachineStatus(resourceList), nil
 		},
@@ -2311,7 +2237,6 @@ func TestMachineStatus(t *testing.T) {
 
 			injectRobot := &inject.Robot{
 				LoggerFunc:          func() logging.Logger { return logger },
-				ResourceNamesFunc:   func() []resource.Name { return nil },
 				ResourceRPCAPIsFunc: func() []resource.RPCAPI { return nil },
 				MachineStatusFunc: func(ctx context.Context) (robot.MachineStatus, error) {
 					return tc.injectMachineStatus, nil
@@ -2346,7 +2271,6 @@ func TestVersion(t *testing.T) {
 	gServer := grpc.NewServer()
 
 	injectRobot := &inject.Robot{
-		ResourceNamesFunc: func() []resource.Name { return nil },
 		MachineStatusFunc: func(ctx context.Context) (robot.MachineStatus, error) {
 			return robot.MachineStatus{}, nil
 		},
