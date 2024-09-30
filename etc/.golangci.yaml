@@ -1,5 +1,5 @@
 service:
-  golangci-lint-version: 1.51.x
+  golangci-lint-version: 1.61.x
 run:
   deadline: 900s
   modules-download-mode: readonly
@@ -13,11 +13,14 @@ linters:
   enable-all: true
   disable:
     - asasalint
+    - canonicalheader
     - containedctx
     - contextcheck
+    - copyloopvar # TODO(go1.23): reenable in follow-up
     - cyclop
     - depguard
     - exhaustruct
+    - fatcontext # TODO(go1.23): reenable in follow-up
     - forcetypeassert
     - funlen
     - gocognit
@@ -30,21 +33,28 @@ linters:
     - goimports
     - gomnd
     - importas
+    - inamedparam
     - interfacebloat
+    - intrange # TODO(go1.23): reenable in follow-up
     - ireturn
     - maintidx
     - makezero
+    - mnd
     - musttag
     - nakedret
     - nestif
+    - nilnil # TODO(go1.23): low-pri to reenable
     - nlreturn
     - nonamedreturns
     - nosprintfhostport
     - paralleltest
     - perfsprint
     - prealloc
+    - predeclared # TODO(go1.23): reenable in follow-up
     - protogetter # TODO(go1.23): maybe reenable in the future but it's a big diff + buggy.
+    - spancheck # TODO(go1.23): reenable in follow-up
     - tagliatelle
+    - tenv # TODO(go1.23): reenable in follow-up
     - testpackage
     - thelper # false positives
     - varnamelen
@@ -59,7 +69,7 @@ linters-settings:
       - default
       - prefix(go.viam.com/rdk)
   gofumpt:
-    lang-version: "1.21"
+    lang-version: "1.23"
     extra-rules: true
   govet:
     enable-all: true
@@ -67,6 +77,9 @@ linters-settings:
       - fieldalignment
       - shadow
       - composites
+  gosec:
+    excludes:
+      - G115 # TODO(go1.23): maybe reenable
   revive:
     # Unfortunately configuring a single rules disables all other rules, even
     # if we set `enable-all: true`
