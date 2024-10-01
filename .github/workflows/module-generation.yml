@@ -1,0 +1,74 @@
+name: Test Template Generators
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  generate_and_run_module:
+    if: github.repository_owner == 'viamrobotics'
+    runs-on: ubuntu-latest
+    env:
+      MODULE_NAME: test
+    strategy:
+      fail-fast: true
+      matrix:
+        resource: [
+          "arm component", 
+          "audio_input component",
+          "base component",
+          "board component",
+          "camera component",
+          "encoder component",
+          "gantry component",
+          "generic component",
+          "gripper component",
+          "input component",
+          "motor component",
+          "movement_sensor component",
+          "pose_tracker component",
+          "power_sensor component",
+          "sensor component",
+          "servo component",
+      
+          "generic service",
+          "mlmodel service",
+          "motion service",
+          "navigation service",
+          "sensors service",
+          "slam service",
+          "vision service"
+          ]
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install cookiecutter
+        run: |
+          pip install cookiecutter
+
+      - name: Run module generator
+        run: |
+          cookiecutter module_generator/module --no-input module_name="${{ env.MODULE_NAME }}" resource="${{ matrix.resource }}"
+
+      - name: Run module
+        run: |
+          cd ${{env.MODULE_NAME}}
+          chmod +x run.sh
+          ./run.sh /tmp/viam.sock &
+          PID=$!
+          sleep 5
+          if ps -p $PID > /dev/null; then
+              echo "Module is running."
+              kill -SIGTERM $PID
+          else
+              echo "Module failed to start."
+              exit 1
+          fi
