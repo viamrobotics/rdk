@@ -55,11 +55,11 @@ jobs:
       - name: Run module generator
         run: |
           cd cli/viam
-          go run . module generate
+          go run . module generate --resource ${{ matrix.resource }}
 
       - name: Run module
         run: |
-          cd ${{env.MODULE_NAME}}
+          cd my-module
           chmod +x run.sh
           ./run.sh /tmp/viam.sock &
           PID=$!
