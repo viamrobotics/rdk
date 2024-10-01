@@ -94,7 +94,7 @@ class {3}({4}, EasyResource):
 
     @classmethod
     def new(cls, config: ComponentConfig, dependencies: Mapping[ResourceName, ResourceBase]) -> Self:
-        """This method creates a new instance of this vision service.
+        """This method creates a new instance of this {4} {1}.
         The default implementation sets the name from the `config` parameter and then calls `reconfigure`.
 
         Args:
