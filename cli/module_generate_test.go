@@ -1,12 +1,16 @@
 package cli
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"testing"
 	"time"
 
+	v1 "go.viam.com/api/app/build/v1"
+	"go.viam.com/rdk/testutils/inject"
 	"go.viam.com/test"
+	"google.golang.org/grpc"
 )
 
 func TestGenerateModuleAction(t *testing.T) {
@@ -29,98 +33,14 @@ func TestGenerateModuleAction(t *testing.T) {
 		ResourceSubtypePascal: "Arm",
 		ModelPascal:           "MyModel",
 		ModelTriple:           "my-org:my-module:my-model",
+
+		SDKVersion: "0.0.0",
 	}
 
 	cCtx := newTestContext(t, map[string]any{"local": true})
 
 	testDir := t.TempDir()
 	testChdir(t, testDir)
-
-	// t.Run("test prompt user", func(t *testing.T) {
-	// 	module, form := promptUser()
-	// 	tm := teatest.NewTestModel(t, form)
-
-	// 	//input module name
-	// 	teatest.WaitFor(t, tm.Output(), func(out []byte) bool {
-	// 		return bytes.Contains(out, []byte("alphanumeric characters"))
-	// 	}, teatest.WithDuration(5*time.Second), teatest.WithCheckInterval(time.Millisecond*10))
-	// 	tm.Type("my-module")
-	// 	tm.Send(tea.KeyMsg{
-	// 		Type: tea.KeyTab,
-	// 	})
-	// 	//language
-	// 	teatest.WaitFor(t, tm.Output(), func(out []byte) bool {
-	// 		return bytes.Contains(out, []byte("language"))
-	// 	}, teatest.WithDuration(5*time.Second), teatest.WithCheckInterval(time.Millisecond*10))
-	// 	tm.Send(tea.KeyMsg{
-	// 		Type: tea.KeyEnter,
-	// 	})
-	// 	//visibility
-	// 	teatest.WaitFor(t, tm.Output(), func(out []byte) bool {
-	// 		return bytes.Contains(out, []byte("Visibility"))
-	// 	}, teatest.WithDuration(5*time.Second), teatest.WithCheckInterval(time.Millisecond*10))
-
-	// 	tm.Send(tea.KeyMsg{
-	// 		Type: tea.KeyEnter,
-	// 	})
-
-	// 	//namespace/orgid
-	// 	teatest.WaitFor(t, tm.Output(), func(out []byte) bool {
-	// 		return bytes.Contains(out, []byte(" ID"))
-	// 	}, teatest.WithDuration(5*time.Second), teatest.WithCheckInterval(time.Millisecond*10))
-
-	// 	tm.Type("my-org")
-	// 	tm.Send(tea.KeyMsg{
-	// 		Type: tea.KeyEnter,
-	// 	})
-
-	// 	//choose resource
-	// 	teatest.WaitFor(t, tm.Output(), func(out []byte) bool {
-	// 		return bytes.Contains(out, []byte(" resource"))
-	// 	}, teatest.WithDuration(5*time.Second), teatest.WithCheckInterval(time.Millisecond*10))
-
-	// 	tm.Send(tea.KeyMsg{
-	// 		Type: tea.KeyEnter,
-	// 	})
-
-	// 	//input model name
-	// 	teatest.WaitFor(t, tm.Output(), func(out []byte) bool {
-	// 		return bytes.Contains(out, []byte("model name"))
-	// 	}, teatest.WithDuration(5*time.Second), teatest.WithCheckInterval(time.Millisecond*10))
-	// 	tm.Type("my-model")
-	// 	tm.Send(tea.KeyMsg{
-	// 		Type: tea.KeyEnter,
-	// 	})
-
-	// 	//cloud build
-	// 	teatest.WaitFor(t, tm.Output(), func(out []byte) bool {
-	// 		return bytes.Contains(out, []byte("cloud build"))
-	// 	}, teatest.WithDuration(5*time.Second), teatest.WithCheckInterval(time.Millisecond*10))
-	// 	tm.Send(tea.KeyMsg{
-	// 		Type: tea.KeyEnter,
-	// 	})
-
-	// 	//git repo
-	// 	teatest.WaitFor(t, tm.Output(), func(out []byte) bool {
-	// 		return bytes.Contains(out, []byte(" git repository"))
-	// 	}, teatest.WithDuration(5*time.Second), teatest.WithCheckInterval(time.Millisecond*10))
-	// 	tm.Send(tea.KeyMsg{
-	// 		Type: tea.KeyEnter,
-	// 	})
-
-	// 	err := tm.Quit()
-	// 	test.That(t, err, test.ShouldBeNil)
-
-	// 	fillAdditionalInfo(module)
-	// 	expectedPythonTestModule.GeneratedOn = module.GeneratedOn
-	// 	test.That(t, module.ModuleName, test.ShouldEqual, "my-module")
-	// 	test.That(t, module.Namespace, test.ShouldEqual, "my-org")
-	// 	test.That(t, module.ModelName, test.ShouldEqual, "my-model")
-	// 	test.That(t, *module, test.ShouldResemble, expectedPythonTestModule)
-	// 	time.Sleep(time.Second)
-	// 	syscall.Kill(os.Getpid(), syscall.SIGINT)
-
-	// })
 
 	t.Run("test setting up module directory", func(t *testing.T) {
 		_, err := os.Stat(filepath.Join(testDir, expectedPythonTestModule.ModuleName))
@@ -146,9 +66,51 @@ func TestGenerateModuleAction(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 	})
 
-	// t.Run("test generate stubs", func(t *testing.T) {
-	// 	err := generateStubs(cCtx, &expectedPythonTestModule)
-	// 	test.That(t, err, test.ShouldBeNil)
-	// })
+	t.Run("test generate stubs", func(t *testing.T) {
+		err := generateStubs(cCtx, expectedPythonTestModule)
+		test.That(t, err, test.ShouldBeNil)
+	})
 
+	t.Run("test generate python stubs", func(t *testing.T) {
+		err := generatePythonStubs(expectedPythonTestModule)
+		test.That(t, err, test.ShouldBeNil)
+	})
+
+	t.Run("test get latest sdk tag", func(t *testing.T) {
+		_, err := getLatestSDKTag(cCtx, expectedPythonTestModule.Language)
+		test.That(t, err, test.ShouldBeNil)
+	})
+	t.Run("test generate cloud build", func(t *testing.T) {
+		err := generateCloudBuild(cCtx, expectedPythonTestModule)
+		test.That(t, err, test.ShouldBeNil)
+	})
+
+	t.Run("test initialize git false", func(t *testing.T) {
+		err := initializeGit(cCtx, expectedPythonTestModule.ModuleName, expectedPythonTestModule.InitializeGit)
+		test.That(t, err, test.ShouldBeNil)
+	})
+	t.Run("test initialize git true", func(t *testing.T) {
+		err := initializeGit(cCtx, expectedPythonTestModule.ModuleName, true)
+		test.That(t, err, test.ShouldBeNil)
+		_, err = os.Stat(filepath.Join(testDir, expectedPythonTestModule.ModuleName, ".git"))
+		test.That(t, err, test.ShouldBeNil)
+	})
+
+	t.Run("test create module and manifest", func(t *testing.T) {
+		cCtx, ac, _, _ := setup(&inject.AppServiceClient{}, nil, &inject.BuildServiceClient{
+			StartBuildFunc: func(ctx context.Context, in *v1.StartBuildRequest, opts ...grpc.CallOption) (*v1.StartBuildResponse, error) {
+				return &v1.StartBuildResponse{BuildId: "xyz123"}, nil
+			},
+		}, nil, map[string]any{}, "token")
+		err := createModuleAndManifest(cCtx, ac, expectedPythonTestModule)
+		test.That(t, err, test.ShouldBeNil)
+	})
+
+	t.Run("test render manifest", func(t *testing.T) {
+		setupDirectories(cCtx, expectedPythonTestModule.ModuleName)
+		err := renderManifest(cCtx, "moduleId", expectedPythonTestModule)
+		test.That(t, err, test.ShouldBeNil)
+		_, err = os.Stat(filepath.Join(testDir, expectedPythonTestModule.ModuleName, "meta.json"))
+		test.That(t, err, test.ShouldBeNil)
+	})
 }
