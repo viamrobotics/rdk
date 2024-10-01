@@ -295,7 +295,7 @@ func (g *singleAxis) moveAway(ctx context.Context, pin int) error {
 	if pin != 0 {
 		dir = -1.0
 	}
-	if err := g.motor.GoFor(ctx, dir*g.rpm, 0, nil); err != nil {
+	if err := g.motor.SetRPM(ctx, dir*g.rpm, nil); err != nil {
 		return err
 	}
 	defer utils.UncheckedErrorFunc(func() error {
@@ -420,7 +420,7 @@ func (g *singleAxis) testLimit(ctx context.Context, pin int) (float64, error) {
 		wrongPin = 0
 	}
 
-	err := g.motor.GoFor(ctx, d*g.rpm, 0, nil)
+	err := g.motor.SetRPM(ctx, d*g.rpm, nil)
 	if err != nil {
 		return 0, err
 	}
@@ -442,20 +442,22 @@ func (g *singleAxis) testLimit(ctx context.Context, pin int) (float64, error) {
 			break
 		}
 
-		// check if the wrong limit switch was hit
-		wrongHit, err := g.limitHit(ctx, wrongPin)
-		if err != nil {
-			return 0, err
-		}
-		if wrongHit {
-			err = g.motor.Stop(ctx, nil)
+		if len(g.limitSwitchPins) > 1 {
+			// check if the wrong limit switch was hit
+			wrongHit, err := g.limitHit(ctx, wrongPin)
 			if err != nil {
 				return 0, err
 			}
-			return 0, errors.Errorf(
-				"expected limit switch %v but hit limit switch %v, try switching the order in the config",
-				pin,
-				wrongPin)
+			if wrongHit {
+				err = g.motor.Stop(ctx, nil)
+				if err != nil {
+					return 0, err
+				}
+				return 0, errors.Errorf(
+					"expected limit switch %v but hit limit switch %v, try switching the order in the config",
+					pin,
+					wrongPin)
+			}
 		}
 
 		elapsed := time.Since(start)

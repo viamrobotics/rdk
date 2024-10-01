@@ -9,30 +9,18 @@ import (
 	"testing"
 	"time"
 
-	clk "github.com/benbjohnson/clock"
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
 	v1 "go.viam.com/api/app/datasync/v1"
 	"go.viam.com/test"
 
+	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/robot"
+	datasync "go.viam.com/rdk/services/datamanager/builtin/sync"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils/inject"
-)
-
-var (
-	// Robot config which specifies data manager service.
-	enabledTabularCollectorConfigPath           = "services/datamanager/data/fake_robot_with_data_manager.json"
-	enabledTabularCollectorEmptyConfigPath      = "services/datamanager/data/fake_robot_with_data_manager_empty.json"
-	disabledTabularCollectorConfigPath          = "services/datamanager/data/fake_robot_with_disabled_collector.json"
-	enabledBinaryCollectorConfigPath            = "services/datamanager/data/robot_with_cam_capture.json"
-	infrequentCaptureTabularCollectorConfigPath = "services/datamanager/data/fake_robot_with_infrequent_capture.json"
-	remoteCollectorConfigPath                   = "services/datamanager/data/fake_robot_with_remote_and_data_manager.json"
-	emptyFileBytesSize                          = 90 // a "rounded down" size of leading metadata message
-	captureInterval                             = time.Millisecond * 10
 )
 
 func TestDataCaptureEnabled(t *testing.T) {
@@ -102,85 +90,100 @@ func TestDataCaptureEnabled(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
+			logger := logging.NewTestLogger(t)
 			// Set up capture directories.
 			initCaptureDir := t.TempDir()
 			updatedCaptureDir := t.TempDir()
-			mockClock := clk.NewMock()
-			// Make mockClock the package level clock used by the dmsvc so that we can simulate time's passage
-			clock = mockClock
 
 			// Set up robot config.
-			var initConfig *Config
-			var associations map[resource.Name]resource.AssociatedConfig
-			var deps []string
+			var config resource.Config
+			var deps resource.Dependencies
+			var r *inject.Robot
+
 			switch {
 			case tc.remoteCollector:
-				initConfig, associations, deps = setupConfig(t, remoteCollectorConfigPath)
+				injectedRemoteArm := &inject.Arm{}
+				injectedRemoteArm.EndPositionFunc = func(ctx context.Context, extra map[string]interface{}) (spatialmath.Pose, error) {
+					return spatialmath.NewZeroPose(), nil
+				}
+				r = setupRobot(nil, map[resource.Name]resource.Resource{
+					arm.Named("arm1"): &inject.Arm{
+						EndPositionFunc: func(
+							ctx context.Context,
+							extra map[string]interface{},
+						) (spatialmath.Pose, error) {
+							return spatialmath.NewZeroPose(), nil
+						},
+					},
+					arm.Named("remote1:remoteArm"): injectedRemoteArm,
+				})
+				config, deps = setupConfig(t, r, remoteCollectorConfigPath)
 			case tc.initialCollectorDisableStatus:
-				initConfig, associations, deps = setupConfig(t, disabledTabularCollectorConfigPath)
+				r = setupRobot(nil, map[resource.Name]resource.Resource{
+					arm.Named("arm1"): &inject.Arm{
+						EndPositionFunc: func(
+							ctx context.Context,
+							extra map[string]interface{},
+						) (spatialmath.Pose, error) {
+							return spatialmath.NewZeroPose(), nil
+						},
+					},
+				})
+				config, deps = setupConfig(t, r, disabledTabularCollectorConfigPath)
 			default:
-				initConfig, associations, deps = setupConfig(t, enabledTabularCollectorConfigPath)
+				r = setupRobot(nil, map[resource.Name]resource.Resource{
+					arm.Named("arm1"): &inject.Arm{
+						EndPositionFunc: func(
+							ctx context.Context,
+							extra map[string]interface{},
+						) (spatialmath.Pose, error) {
+							return spatialmath.NewZeroPose(), nil
+						},
+					},
+				})
+				config, deps = setupConfig(t, r, enabledTabularCollectorConfigPath)
 			}
-
+			c := config.ConvertedAttributes.(*Config)
 			// further set up service config.
-			initConfig.CaptureDisabled = tc.initialServiceDisableStatus
-			initConfig.ScheduledSyncDisabled = true
-			initConfig.CaptureDir = initCaptureDir
+			c.CaptureDir = initCaptureDir
+			c.CaptureDisabled = tc.initialServiceDisableStatus
+			c.ScheduledSyncDisabled = true
 
 			// Build and start data manager.
-			dmsvc, r := newTestDataManager(t)
-			defer func() {
-				test.That(t, dmsvc.Close(context.Background()), test.ShouldBeNil)
-			}()
-
-			resources := resourcesFromDeps(t, r, deps)
-			err := dmsvc.Reconfigure(context.Background(), resources, resource.Config{
-				ConvertedAttributes:  initConfig,
-				AssociatedAttributes: associations,
-			})
+			b, err := New(context.Background(), deps, config, datasync.NoOpCloudClientConstructor, connToConnectivityStateError, logger)
 			test.That(t, err, test.ShouldBeNil)
-			b := dmsvc.(*builtIn)
-			test.That(t, b.propagateDataSyncConfig(), test.ShouldBeNil)
-			passTimeCtx1, cancelPassTime1 := context.WithCancel(context.Background())
-			donePassingTime1 := passTime(passTimeCtx1, mockClock, captureInterval)
+			defer func() { test.That(t, b.Close(context.Background()), test.ShouldBeNil) }()
 
+			logger.Warnf("calling waitForCaptureFilesToExceedNFiles with dir: %s", initCaptureDir)
 			if !tc.initialServiceDisableStatus && !tc.initialCollectorDisableStatus {
-				waitForCaptureFilesToExceedNFiles(initCaptureDir, 0)
+				waitForCaptureFilesToExceedNFiles(initCaptureDir, 0, logger)
 				testFilesContainSensorData(t, initCaptureDir)
 			} else {
 				initialCaptureFiles := getAllFileInfos(initCaptureDir)
 				test.That(t, len(initialCaptureFiles), test.ShouldEqual, 0)
 			}
-			cancelPassTime1()
-			<-donePassingTime1
 
 			// Set up updated robot config.
-			var updatedConfig *Config
+			var updatedConfig resource.Config
 			if tc.newCollectorDisableStatus {
-				updatedConfig, associations, deps = setupConfig(t, disabledTabularCollectorConfigPath)
+				updatedConfig, deps = setupConfig(t, r, disabledTabularCollectorConfigPath)
 			} else {
-				updatedConfig, associations, deps = setupConfig(t, enabledTabularCollectorConfigPath)
+				updatedConfig, deps = setupConfig(t, r, enabledTabularCollectorConfigPath)
 			}
+			c2 := updatedConfig.ConvertedAttributes.(*Config)
 
 			// further set up updated service config.
-			updatedConfig.CaptureDisabled = tc.newServiceDisableStatus
-			updatedConfig.ScheduledSyncDisabled = true
-			updatedConfig.CaptureDir = updatedCaptureDir
+			c2.CaptureDisabled = tc.newServiceDisableStatus
+			c2.ScheduledSyncDisabled = true
+			c2.CaptureDir = updatedCaptureDir
 
 			// Update to new config and let it run for a bit.
-			resources = resourcesFromDeps(t, r, deps)
-			err = dmsvc.Reconfigure(context.Background(), resources, resource.Config{
-				ConvertedAttributes:  updatedConfig,
-				AssociatedAttributes: associations,
-			})
+			err = b.Reconfigure(context.Background(), deps, updatedConfig)
 			test.That(t, err, test.ShouldBeNil)
-			test.That(t, b.propagateDataSyncConfig(), test.ShouldBeNil)
 			oldCaptureDirFiles := getAllFileInfos(initCaptureDir)
-			passTimeCtx2, cancelPassTime2 := context.WithCancel(context.Background())
-			donePassingTime2 := passTime(passTimeCtx2, mockClock, captureInterval)
 
 			if !tc.newServiceDisableStatus && !tc.newCollectorDisableStatus {
-				waitForCaptureFilesToExceedNFiles(updatedCaptureDir, 0)
+				waitForCaptureFilesToExceedNFiles(updatedCaptureDir, 0, logger)
 				testFilesContainSensorData(t, updatedCaptureDir)
 			} else {
 				updatedCaptureFiles := getAllFileInfos(updatedCaptureDir)
@@ -191,74 +194,62 @@ func TestDataCaptureEnabled(t *testing.T) {
 					test.That(t, oldCaptureDirFiles[i].Size(), test.ShouldEqual, oldCaptureDirFilesAfterWait[i].Size())
 				}
 			}
-			cancelPassTime2()
-			<-donePassingTime2
 		})
 	}
 }
 
 func TestSwitchResource(t *testing.T) {
+	logger := logging.NewTestLogger(t)
 	captureDir := t.TempDir()
-	mockClock := clk.NewMock()
-	// Make mockClock the package level clock used by the dmsvc so that we can simulate time's passage
-	clock = mockClock
 
 	// Set up robot config.
-	config, associations, deps := setupConfig(t, enabledTabularCollectorConfigPath)
-	config.CaptureDisabled = false
-	config.ScheduledSyncDisabled = true
-	config.CaptureDir = captureDir
+	r := setupRobot(nil, map[resource.Name]resource.Resource{
+		arm.Named("arm1"): &inject.Arm{
+			EndPositionFunc: func(
+				ctx context.Context,
+				extra map[string]interface{},
+			) (spatialmath.Pose, error) {
+				return spatialmath.NewZeroPose(), nil
+			},
+		},
+	})
+	config, deps := setupConfig(t, r, enabledTabularCollectorConfigPath)
+	c := config.ConvertedAttributes.(*Config)
+	c.CaptureDisabled = false
+	c.ScheduledSyncDisabled = true
+	c.CaptureDir = captureDir
 
 	// Build and start data manager.
-	dmsvc, r := newTestDataManager(t)
+	b, err := New(context.Background(), deps, config, datasync.NoOpCloudClientConstructor, connToConnectivityStateError, logger)
+	test.That(t, err, test.ShouldBeNil)
 	defer func() {
-		test.That(t, dmsvc.Close(context.Background()), test.ShouldBeNil)
+		test.That(t, b.Close(context.Background()), test.ShouldBeNil)
 	}()
 
-	resources := resourcesFromDeps(t, r, deps)
-	err := dmsvc.Reconfigure(context.Background(), resources, resource.Config{
-		ConvertedAttributes:  config,
-		AssociatedAttributes: associations,
-	})
-	test.That(t, err, test.ShouldBeNil)
-	b := dmsvc.(*builtIn)
-	test.That(t, b.propagateDataSyncConfig(), test.ShouldBeNil)
-	passTimeCtx1, cancelPassTime1 := context.WithCancel(context.Background())
-	donePassingTime1 := passTime(passTimeCtx1, mockClock, captureInterval)
-
-	waitForCaptureFilesToExceedNFiles(captureDir, 0)
+	waitForCaptureFilesToExceedNFiles(captureDir, 0, logger)
 	testFilesContainSensorData(t, captureDir)
 
-	cancelPassTime1()
-	<-donePassingTime1
-
 	// Change the resource named arm1 to show that the data manager recognizes that the collector has changed with no other config changes.
-	for resource := range resources {
-		if resource.Name == "arm1" {
-			newResource := inject.NewArm(resource.Name)
-			newResource.EndPositionFunc = func(ctx context.Context, extra map[string]interface{}) (spatialmath.Pose, error) {
-				// Return a different value from the initial arm1 resource.
+	r2 := setupRobot(nil, map[resource.Name]resource.Resource{
+		arm.Named("arm1"): &inject.Arm{
+			EndPositionFunc: func(
+				ctx context.Context,
+				extra map[string]interface{},
+			) (spatialmath.Pose, error) {
 				return spatialmath.NewPoseFromPoint(r3.Vector{X: 888, Y: 888, Z: 888}), nil
-			}
-			resources[resource] = newResource
-		}
-	}
-
-	err = dmsvc.Reconfigure(context.Background(), resources, resource.Config{
-		ConvertedAttributes:  config,
-		AssociatedAttributes: associations,
+			},
+		},
 	})
+	_, deps2 := setupConfig(t, r2, enabledTabularCollectorConfigPath)
+
+	err = b.Reconfigure(context.Background(), deps2, config)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, b.propagateDataSyncConfig(), test.ShouldBeNil)
 
 	dataBeforeSwitch, err := getSensorData(captureDir)
 	test.That(t, err, test.ShouldBeNil)
 
-	passTimeCtx2, cancelPassTime2 := context.WithCancel(context.Background())
-	donePassingTime2 := passTime(passTimeCtx2, mockClock, captureInterval)
-
 	// Test that sensor data is captured from the new collector.
-	waitForCaptureFilesToExceedNFiles(captureDir, len(getAllFileInfos(captureDir)))
+	waitForCaptureFilesToExceedNFiles(captureDir, len(getAllFileInfos(captureDir)), logger)
 	testFilesContainSensorData(t, captureDir)
 
 	filePaths := getAllFilePaths(captureDir)
@@ -271,8 +262,9 @@ func TestSwitchResource(t *testing.T) {
 		// Assert that we see the expected data captured by the initial arm1 resource.
 		test.That(
 			t,
-			d.GetStruct().GetFields()["pose"].GetStructValue().GetFields()["o_z"].GetNumberValue(), test.ShouldEqual,
-			float64(1),
+			d.GetStruct().GetFields()["pose"].GetStructValue().GetFields()["x"].GetNumberValue(),
+			test.ShouldEqual,
+			float64(0),
 		)
 	}
 	// Assert that the initial arm1 resource isn't capturing any more data.
@@ -291,27 +283,6 @@ func TestSwitchResource(t *testing.T) {
 	}
 	// Assert that the updated arm1 resource is capturing data.
 	test.That(t, len(newData), test.ShouldBeGreaterThan, 0)
-
-	cancelPassTime2()
-	<-donePassingTime2
-}
-
-// passTime repeatedly increments mc by interval until the context is canceled.
-func passTime(ctx context.Context, mc *clk.Mock, interval time.Duration) chan struct{} {
-	done := make(chan struct{})
-	go func() {
-		for {
-			select {
-			case <-ctx.Done():
-				close(done)
-				return
-			default:
-				time.Sleep(10 * time.Millisecond)
-				mc.Add(interval)
-			}
-		}
-	}()
-	return done
 }
 
 func getSensorData(dir string) ([]*v1.SensorData, error) {
@@ -351,7 +322,9 @@ func testFilesContainSensorData(t *testing.T, dir string) {
 
 // waitForCaptureFilesToExceedNFiles returns once `captureDir` contains more than `n` files of at
 // least `emptyFileBytesSize` bytes. This is not suitable for waiting for file deletion to happen.
-func waitForCaptureFilesToExceedNFiles(captureDir string, n int) {
+func waitForCaptureFilesToExceedNFiles(captureDir string, n int, logger logging.Logger) {
+	var diagnostics sync.Once
+	start := time.Now()
 	for {
 		files := getAllFileInfos(captureDir)
 		nonEmptyFiles := 0
@@ -369,30 +342,6 @@ func waitForCaptureFilesToExceedNFiles(captureDir string, n int) {
 		}
 
 		time.Sleep(10 * time.Millisecond)
-	}
-}
-
-// waitForCaptureFilesToEqualNFiles returns once `captureDir` has exactly `n` files of at least
-// `emptyFileBytesSize` bytes.
-func waitForCaptureFilesToEqualNFiles(captureDir string, n int, logger logging.Logger) {
-	var diagnostics sync.Once
-	start := time.Now()
-	for {
-		files := getAllFileInfos(captureDir)
-		nonEmptyFiles := 0
-		for idx := range files {
-			if files[idx].Size() > int64(emptyFileBytesSize) {
-				// Every datamanager file has at least 90 bytes of metadata. Wait for that to be
-				// observed before considering the file as "existing".
-				nonEmptyFiles++
-			}
-		}
-
-		if nonEmptyFiles == n {
-			return
-		}
-
-		time.Sleep(10 * time.Millisecond)
 		if time.Since(start) > 10*time.Second {
 			diagnostics.Do(func() {
 				logger.Infow("waitForCaptureFilesToEqualNFiles diagnostics after 10 seconds of waiting", "numFiles", len(files), "expectedFiles", n)
@@ -402,19 +351,4 @@ func waitForCaptureFilesToEqualNFiles(captureDir string, n int, logger logging.L
 			})
 		}
 	}
-}
-
-func resourcesFromDeps(t *testing.T, r robot.Robot, deps []string) resource.Dependencies {
-	t.Helper()
-	resources := resource.Dependencies{}
-	for _, dep := range deps {
-		resName, err := resource.NewFromString(dep)
-		test.That(t, err, test.ShouldBeNil)
-		res, err := r.ResourceByName(resName)
-		if err == nil {
-			// some resources are weakly linked
-			resources[resName] = res
-		}
-	}
-	return resources
 }

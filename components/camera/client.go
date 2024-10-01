@@ -316,6 +316,11 @@ func (c *client) Properties(ctx context.Context) (Properties, error) {
 	}
 	result.MimeTypes = resp.MimeTypes
 	result.SupportsPCD = resp.SupportsPcd
+
+	// Check if the optional frame_rate is present and set it if it exists
+	if resp.FrameRate != nil {
+		result.FrameRate = *resp.FrameRate
+	}
 	// if no distortion model present, return result with no model
 	if resp.DistortionParameters == nil {
 		return result, nil

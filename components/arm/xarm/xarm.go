@@ -235,25 +235,65 @@ func (x *xArm) ModelFrame() referenceframe.Model {
 }
 
 func (x *xArm) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
-	err := x.enableGripper(ctx)
-	if err != nil {
-		return nil, err
-	}
-	if err = x.setGripperMode(ctx, false); err != nil {
-		return nil, err
+	resp := map[string]interface{}{}
+	validCommand := false
+
+	if _, ok := cmd["setup_gripper"]; ok {
+		if err := x.enableGripper(ctx); err != nil {
+			return nil, err
+		}
+		if err := x.setGripperMode(ctx, false); err != nil {
+			return nil, err
+		}
+		validCommand = true
 	}
 	if val, ok := cmd["move_gripper"]; ok {
 		position, ok := val.(float64)
 		if !ok || position < -10 || position > 850 {
 			return nil, fmt.Errorf("must move gripper to an int between 0 and 840 %v", val)
 		}
-		err = x.setGripperPosition(ctx, uint32(position))
+		if err := x.setGripperPosition(ctx, uint32(position)); err != nil {
+			return nil, err
+		}
+		validCommand = true
+	}
+	if _, ok := cmd["load"]; ok {
+		loadInformation, err := x.getLoad(ctx)
 		if err != nil {
 			return nil, err
 		}
+		loadInformationInterface, ok := loadInformation["loads"]
+		if !ok {
+			return nil, errors.New("could not read loadInformation")
+		}
+		resp["load"] = loadInformationInterface
+		validCommand = true
 	}
-	if _, ok := cmd["load"]; ok {
-		return x.getLoad(ctx)
+	if val, ok := cmd["set_speed"]; ok {
+		speed, err := utils.AssertType[float64](val)
+		if err != nil {
+			return nil, err
+		}
+		if speed <= 0 {
+			return nil, errors.New("speed cannot be less than or equal to zero")
+		}
+		x.speed = utils.DegToRad(speed)
+		validCommand = true
 	}
-	return nil, errors.New("command not found")
+	if val, ok := cmd["set_acceleration"]; ok {
+		acceleration, err := utils.AssertType[float64](val)
+		if err != nil {
+			return nil, err
+		}
+		if acceleration <= 0 {
+			return nil, errors.New("acceleration cannot be less than or equal to zero")
+		}
+		x.acceleration = utils.DegToRad(acceleration)
+		validCommand = true
+	}
+
+	if !validCommand {
+		return nil, errors.New("command not found")
+	}
+	return resp, nil
 }

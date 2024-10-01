@@ -202,7 +202,6 @@ func TestWebWithAuth(t *testing.T) {
 			options.Managed = tc.Managed
 			options.FQDN = tc.EntityName
 			options.LocalFQDN = primitive.NewObjectID().Hex()
-			legacyAPIKey := "sosecret"
 			apiKeyID1 := uuid.New().String()
 			apiKey1 := utils.RandomAlphaString(32)
 			apiKeyID2 := uuid.New().String()
@@ -212,7 +211,6 @@ func TestWebWithAuth(t *testing.T) {
 				{
 					Type: rpc.CredentialsTypeAPIKey,
 					Config: rutils.AttributeMap{
-						"key":     legacyAPIKey,
 						apiKeyID1: apiKey1,
 						apiKeyID2: apiKey2,
 						"keys":    []string{apiKeyID1, apiKeyID2},
@@ -244,7 +242,7 @@ func TestWebWithAuth(t *testing.T) {
 				_, err = rgrpc.Dial(context.Background(), addr, logger, rpc.WithAllowInsecureWithCredentialsDowngrade(),
 					rutils.WithEntityCredentials("wrong", rpc.Credentials{
 						Type:    rpc.CredentialsTypeAPIKey,
-						Payload: legacyAPIKey,
+						Payload: apiKey1,
 					}))
 				test.That(t, err, test.ShouldNotBeNil)
 				test.That(t, err.Error(), test.ShouldContainSubstring, "invalid credentials")
@@ -268,9 +266,9 @@ func TestWebWithAuth(t *testing.T) {
 				// WebRTC connections across unix sockets can create deadlock in CI.
 				conn, err := rgrpc.Dial(context.Background(), addr, logger,
 					rpc.WithAllowInsecureWithCredentialsDowngrade(),
-					rpc.WithEntityCredentials(entityName, rpc.Credentials{
+					rpc.WithEntityCredentials(apiKeyID1, rpc.Credentials{
 						Type:    rpc.CredentialsTypeAPIKey,
-						Payload: legacyAPIKey,
+						Payload: apiKey1,
 					}),
 					rpc.WithForceDirectGRPC(),
 				)
@@ -407,9 +405,9 @@ func TestWebWithAuth(t *testing.T) {
 				// WebRTC connections across unix sockets can create deadlock in CI.
 				conn, err := rgrpc.Dial(context.Background(), addr, logger,
 					rpc.WithAllowInsecureWithCredentialsDowngrade(),
-					rpc.WithCredentials(rpc.Credentials{
+					rpc.WithEntityCredentials(apiKeyID1, rpc.Credentials{
 						Type:    rpc.CredentialsTypeAPIKey,
-						Payload: legacyAPIKey,
+						Payload: apiKey1,
 					}),
 					rpc.WithForceDirectGRPC(),
 				)
@@ -737,6 +735,7 @@ func TestWebWithOnlyNewAPIKeyAuthHandlers(t *testing.T) {
 
 func TestWebReconfigure(t *testing.T) {
 	logger := logging.NewTestLogger(t)
+	// robot is configured with an arm
 	ctx, robot := setupRobotCtx(t)
 
 	svc := web.New(robot, logger)
@@ -744,21 +743,27 @@ func TestWebReconfigure(t *testing.T) {
 	options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
 	err := svc.Start(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
+	t.Cleanup(func() {
+		test.That(t, svc.Close(ctx), test.ShouldBeNil)
+	})
 
-	// TODO(RSDK-4473) Reenable WebRTC when we figure out why multiple
-	// WebRTC connections across unix sockets can create deadlock in CI.
-	conn, err := rgrpc.Dial(context.Background(), addr, logger, rpc.WithForceDirectGRPC())
+	conn, err := rgrpc.Dial(context.Background(), addr, logger)
 	test.That(t, err, test.ShouldBeNil)
+	t.Cleanup(func() {
+		test.That(t, conn.Close(), test.ShouldBeNil)
+	})
 
-	arm1, err := arm.NewClientFromConn(context.Background(), conn, "", arm.Named(arm1String), logger)
+	aClient, err := arm.NewClientFromConn(context.Background(), conn, "", arm.Named(arm1String), logger)
 	test.That(t, err, test.ShouldBeNil)
+	t.Cleanup(func() {
+		test.That(t, aClient.Close(ctx), test.ShouldBeNil)
+	})
 
-	arm1Position, err := arm1.EndPosition(ctx, nil)
+	arm1Position, err := aClient.EndPosition(ctx, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, arm1Position, test.ShouldResemble, pos)
-	test.That(t, conn.Close(), test.ShouldBeNil)
 
-	// add arm to robot and then update
+	// replace the arm in the robot and then reconfigure web service
 	injectArm := &inject.Arm{}
 	newPos := spatialmath.NewPoseFromPoint(r3.Vector{X: 1, Y: 3, Z: 6})
 	injectArm.EndPositionFunc = func(ctx context.Context, extra map[string]interface{}) (spatialmath.Pose, error) {
@@ -768,58 +773,9 @@ func TestWebReconfigure(t *testing.T) {
 	err = svc.Reconfigure(context.Background(), rs, resource.Config{})
 	test.That(t, err, test.ShouldBeNil)
 
-	// TODO(RSDK-4473) Reenable WebRTC when we figure out why multiple
-	// WebRTC connections across unix sockets can create deadlock in CI.
-	conn, err = rgrpc.Dial(context.Background(), addr, logger, rpc.WithForceDirectGRPC())
-	test.That(t, err, test.ShouldBeNil)
-	aClient, err := arm.NewClientFromConn(context.Background(), conn, "", arm.Named(arm1String), logger)
+	aClient, err = arm.NewClientFromConn(context.Background(), conn, "", arm.Named(arm1String), logger)
 	test.That(t, err, test.ShouldBeNil)
 	position, err := aClient.EndPosition(context.Background(), nil)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, position, test.ShouldResemble, newPos)
-
-	test.That(t, arm1.Close(context.Background()), test.ShouldBeNil)
-	test.That(t, svc.Close(context.Background()), test.ShouldBeNil)
-	test.That(t, aClient.Close(context.Background()), test.ShouldBeNil)
-
-	// now start it with the arm already in it
-	ctx, robot2 := setupRobotCtx(t)
-	robot2.(*inject.Robot).ResourceNamesFunc = func() []resource.Name { return resources }
-	robot2.(*inject.Robot).ResourceByNameFunc = func(name resource.Name) (resource.Resource, error) {
-		return injectArm, nil
-	}
-
-	svc2 := web.New(robot2, logger)
-
-	listener := testutils.ReserveRandomListener(t)
-	addr = listener.Addr().String()
-	options.Network.Listener = listener
-
-	err = svc2.Start(ctx, options)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, conn.Close(), test.ShouldBeNil)
-
-	// TODO(RSDK-4473) Reenable WebRTC when we figure out why multiple
-	// WebRTC connections across unix sockets can create deadlock in CI.
-	conn, err = rgrpc.Dial(context.Background(), addr, logger, rpc.WithForceDirectGRPC())
-	test.That(t, err, test.ShouldBeNil)
-
-	arm1, err = arm.NewClientFromConn(context.Background(), conn, "", arm.Named(arm1String), logger)
-	test.That(t, err, test.ShouldBeNil)
-
-	arm1Position, err = arm1.EndPosition(ctx, nil)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, arm1Position, test.ShouldResemble, newPos)
-	test.That(t, conn.Close(), test.ShouldBeNil)
-
-	// TODO(RSDK-4473) Reenable WebRTC when we figure out why multiple
-	// WebRTC connections across unix sockets can create deadlock in CI.
-	conn, err = rgrpc.Dial(context.Background(), addr, logger, rpc.WithForceDirectGRPC())
-	test.That(t, err, test.ShouldBeNil)
-	aClient2, err := arm.NewClientFromConn(context.Background(), conn, "", arm.Named(arm1String), logger)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, err, test.ShouldBeNil)
-	position, err = aClient2.EndPosition(context.Background(), nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, position, test.ShouldResemble, newPos)
 
@@ -831,23 +787,30 @@ func TestWebReconfigure(t *testing.T) {
 		return pos2, nil
 	}
 	rs[arm.Named(arm2)] = injectArm2
-	err = svc2.Reconfigure(context.Background(), rs, resource.Config{})
+	err = svc.Reconfigure(context.Background(), rs, resource.Config{})
 	test.That(t, err, test.ShouldBeNil)
+
+	aClient2, err := arm.NewClientFromConn(context.Background(), conn, "", arm.Named(arm2), logger)
+	test.That(t, err, test.ShouldBeNil)
+	t.Cleanup(func() {
+		test.That(t, aClient2.Close(ctx), test.ShouldBeNil)
+	})
 
 	position, err = aClient2.EndPosition(context.Background(), nil)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, position, test.ShouldResemble, newPos)
-
-	aClient3, err := arm.NewClientFromConn(context.Background(), conn, "", arm.Named(arm2), logger)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, err, test.ShouldBeNil)
-	position, err = aClient3.EndPosition(context.Background(), nil)
-	test.That(t, err, test.ShouldBeNil)
 	test.That(t, position, test.ShouldResemble, pos2)
 
-	test.That(t, arm1.Close(context.Background()), test.ShouldBeNil)
-	test.That(t, svc2.Close(context.Background()), test.ShouldBeNil)
-	test.That(t, conn.Close(), test.ShouldBeNil)
+	// check that removing both arms means that neither arms are accessible
+	err = svc.Reconfigure(context.Background(), make(map[resource.Name]resource.Resource), resource.Config{})
+	test.That(t, err, test.ShouldBeNil)
+
+	_, err = aClient.EndPosition(context.Background(), nil)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "resource \"rdk:component:arm/arm1\" not found")
+
+	_, err = aClient2.EndPosition(context.Background(), nil)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "resource \"rdk:component:arm/arm2\" not found")
 }
 
 func TestWebWithStreams(t *testing.T) {

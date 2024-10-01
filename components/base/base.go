@@ -73,7 +73,7 @@ func Named(name string) resource.Name {
 //
 //	// Make your wheeled base spin right. Set angular power to -75%.
 //	logger.Info("spin right")
-//	err = mybase.SetPower(context.Background(), r3.Vector{}, r3.Vector{Z: -.75}, nil)
+//	err = myBase.SetPower(context.Background(), r3.Vector{}, r3.Vector{Z: -.75}, nil)
 //
 // SetVelocity example:
 //

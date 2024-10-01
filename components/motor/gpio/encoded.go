@@ -173,14 +173,20 @@ func (m *EncodedMotor) makeAdjustments(ctx context.Context, goalRPM, goalPos, di
 		var currentRPM float64
 		if deltaTime == 0.0 {
 			currentRPM = 0
+			zeroRPMTracker++
+			m.logger.Debug("zero time delta calculated between motor power adjustments")
 		} else {
 			currentRPM = deltaPos / deltaTime
 			if currentRPM == 0 {
 				zeroRPMTracker++
 			}
 		}
-		if zeroRPMTracker > 10 {
-			m.logger.Errorf("error running motor %v, desired rpm is too low for stable motion: %v", m.Name().Name, goalRPM)
+		if zeroRPMTracker > 20 {
+			m.logger.Warnf(
+				"%v motor running at too low an rpm [%v] for stable motion:"+
+					"trying to run at %v rpm, check if stalled or try increasing the motor's rpm",
+				m.Name().Name, currentRPM, goalRPM)
+			zeroRPMTracker = 0
 		}
 
 		newPower, err := m.calcNewPowerPct(ctx, currentRPM, goalRPM, lastPowerPct, direction)

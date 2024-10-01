@@ -43,6 +43,19 @@ type PlanHistoryReq struct {
 	Extra       map[string]interface{}
 }
 
+// MoveReq describes the request to the Move interface method.
+type MoveReq struct {
+	// ComponentName of the component to move
+	ComponentName resource.Name
+	// Goal destination the component should be moved to
+	Destination *referenceframe.PoseInFrame
+	// The external environment to be considered for the duration of the move
+	WorldState *referenceframe.WorldState
+	// Constraints which need to be satisfied during the movement
+	Constraints *motionplan.Constraints
+	Extra       map[string]interface{}
+}
+
 // MoveOnGlobeReq describes the request to the MoveOnGlobe interface method.
 type MoveOnGlobeReq struct {
 	// ComponentName of the component to move
@@ -219,7 +232,12 @@ type PlanWithStatus struct {
 //	worldState, err := referenceframe.NewWorldState(obstacles, transforms)
 //
 //	// Move gripper component
-//	moved, err := motionService.Move(context.Background(), gripperName, destination, worldState, nil, nil)
+//
+//	moved, err := motionService.Move(context.Background(), motion.MoveReq{
+//		ComponentName: gripperName,
+//		Destination: destination,
+//		WorldState: WorldState
+//	})
 //
 // MoveOnMap example:
 //
@@ -335,33 +353,21 @@ type Service interface {
 
 	// Move is the primary method to move multiple components or any object to a specified location.
 	// Given a destination pose and a component, Move constructs a kinematic chain from goal to destination,
-	// solves it while adhering to constraints, and executes the movement to avoid collisions with the machine itself and other known objects.
-	Move(
-		ctx context.Context,
-		componentName resource.Name,
-		destination *referenceframe.PoseInFrame,
-		worldState *referenceframe.WorldState,
-		constraints *motionplan.Constraints,
-		extra map[string]interface{},
-	) (bool, error)
+	// solves it while adhering to constraints, and executes the movement to avoid collisions with the machine itself
+	// and other known objects. The above arguments are all grouped together in the MoveReq struct.
+	Move(ctx context.Context, req MoveReq) (bool, error)
 
 	// MoveOnMap moves a base component to a destination Pose on a SLAM map and returns a unique ExecutionID.
 	// If the machine is already within PlanDeviationM of the goal, an error is returned.
 	// Monitor progress with `GetPlan()` and `ListPlanStatuses()`, and check the machine's position via the SLAM service.
 	// Designed for autonomous indoor navigation of rover bases.
-	MoveOnMap(
-		ctx context.Context,
-		req MoveOnMapReq,
-	) (ExecutionID, error)
+	MoveOnMap(ctx context.Context, req MoveOnMapReq) (ExecutionID, error)
 
 	// MoveOnGlobe moves a base component to a destination GPS point(latitude, longitude and returns a unique ExecutionID.
 	// If the machine is already within PlanDeviationM of the goal, an error is returned.
 	// This non-blocking method uses a movement sensor to verify the location of the base.
 	// You can monitor progress with `GetPlan()` and `ListPlanStatuses()`. Designed for autonomous GPS navigation of rover bases.
-	MoveOnGlobe(
-		ctx context.Context,
-		req MoveOnGlobeReq,
-	) (ExecutionID, error)
+	MoveOnGlobe(ctx context.Context, req MoveOnGlobeReq) (ExecutionID, error)
 
 	// GetPose returns the location and orientation of a component within a frame system.
 	// It returns a `PoseInFrame` describing the pose of the specified component relative to the specified destination frame.
@@ -375,27 +381,18 @@ type Service interface {
 	) (*referenceframe.PoseInFrame, error)
 
 	// StopPlan stops a base component being moved by an in progress `MoveOnGlobe()` or `MoveOnMap()` call.
-	StopPlan(
-		ctx context.Context,
-		req StopPlanReq,
-	) error
+	StopPlan(ctx context.Context, req StopPlanReq) error
 
 	// ListPlanStatuses returns the statuses of plans created by `MoveOnGlobe()` or `MoveOnMap()` since the motion service initialized.
 	// It includes plans that are in progress or have changed state in the last 24 hours.
 	// All repeated fields are in chronological order.
-	ListPlanStatuses(
-		ctx context.Context,
-		req ListPlanStatusesReq,
-	) ([]PlanStatusWithID, error)
+	ListPlanStatuses(ctx context.Context, req ListPlanStatusesReq) ([]PlanStatusWithID, error)
 
 	// PlanHistory returns the plan history of the most recent `MoveOnGlobe()` or `MoveOnMap()` call by default.
 	// The history for earlier executions can be requested by providing an ExecutionID.
 	// It returns a result if the execution is active or has changed state in the last 24 hours and the machine has not reinitialized.
 	// Plans never change; replans always create new plans and replans share the ExecutionID of the previously executing plan.
-	PlanHistory(
-		ctx context.Context,
-		req PlanHistoryReq,
-	) ([]PlanWithStatus, error)
+	PlanHistory(ctx context.Context, req PlanHistoryReq) ([]PlanWithStatus, error)
 }
 
 // ObstacleDetectorName pairs a vision service name with a camera name.

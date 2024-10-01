@@ -600,7 +600,7 @@ func NewConstraints(
 // ConstraintsFromProtobuf converts a protobuf object to a Constraints object.
 func ConstraintsFromProtobuf(pbConstraint *motionpb.Constraints) *Constraints {
 	if pbConstraint == nil {
-		return nil
+		return NewEmptyConstraints()
 	}
 
 	// iterate through all motionpb.LinearConstraint and convert to RDK form

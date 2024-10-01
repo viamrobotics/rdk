@@ -17,6 +17,7 @@ import (
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
+	"go.viam.com/rdk/robot/framesystem"
 	"go.viam.com/rdk/spatialmath"
 )
 
@@ -65,7 +66,7 @@ func Named(name string) resource.Name {
 //	// Create a Pose for the arm.
 //	examplePose := spatialmath.NewPose(
 //	        r3.Vector{X: 5, Y: 5, Z: 5},
-//	        &spatialmath.OrientationVectorDegrees{0X: 5, 0Y: 5, Theta: 20}
+//	        &spatialmath.OrientationVectorDegrees{OX: 5, OY: 5, Theta: 20},
 //	)
 //
 //	// Move your arm to the Pose.
@@ -98,7 +99,7 @@ type Arm interface {
 	referenceframe.ModelFramer
 	resource.Shaped
 	resource.Actuator
-	referenceframe.InputEnabled
+	framesystem.InputEnabled
 
 	// EndPosition returns the current position of the arm.
 	EndPosition(ctx context.Context, extra map[string]interface{}) (spatialmath.Pose, error)

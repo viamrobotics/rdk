@@ -65,7 +65,7 @@ var (
 //	// This example shows using Close with an arm component.
 //	myArm, err := arm.FromRobot(machine, "my_arm")
 //
-//	err = myArm.Close(ctx)
+//	err = myArm.Close(context.Background())
 type Resource interface {
 	// Get the Name of the resource.
 	Name() Name
@@ -204,7 +204,7 @@ type Actuator interface {
 //	if len(geometries) > 0 {
 //	   // Get the center of the first geometry
 //	   elem := geometries[0]
-//	   fmt.Println("Pose of the first geometry's center point:", elem.center)
+//	   fmt.Println("Pose of the first geometry's center point:", elem.Pose())
 //	}
 type Shaped interface {
 	// Geometries returns the list of geometries associated with the resource, in any order. The poses of the geometries reflect their

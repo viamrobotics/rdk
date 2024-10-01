@@ -9,6 +9,7 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/services/motion"
 	"go.viam.com/rdk/spatialmath"
 )
 
@@ -37,8 +38,11 @@ func (svc *builtIn) startExploreMode(ctx context.Context) {
 					Z: 0.,
 				}.Normalize().Mul(defaultDistanceMM), spatialmath.NewOrientationVector()))
 
-			_, err := svc.exploreMotionService.Move(ctx, svc.base.Name(), destination, nil, nil, extra)
-			if err != nil {
+			if _, err := svc.exploreMotionService.Move(ctx, motion.MoveReq{
+				ComponentName: svc.base.Name(),
+				Destination:   destination,
+				Extra:         extra,
+			}); err != nil {
 				svc.logger.CDebugf(ctx, "error occurred when moving to point %v: %v", destination, err)
 			}
 		}

@@ -61,6 +61,7 @@ type Properties struct {
 	IntrinsicParams  *transform.PinholeCameraIntrinsics
 	DistortionParams transform.Distorter
 	MimeTypes        []string
+	FrameRate        float32
 }
 
 // NamedImage is a struct that associates the source from where the image came from to the Image.
@@ -99,14 +100,14 @@ type Camera interface {
 //
 //	myCamera, err := camera.FromRobot(machine, "my_camera")
 //
-//	// gets the properties from a camera
-//	properties, err := myCamera.Properties(context.Background())
+//	// gets the next point cloud from a camera
+//	pointCloud, err := myCamera.NextPointCloud(context.Background())
 //
 // Close example:
 //
 //	myCamera, err := camera.FromRobot(machine, "my_camera")
 //
-//	err = myCamera.Close(ctx)
+//	err = myCamera.Close(context.Background())
 //
 // [camera component docs]: https://docs.viam.com/components/camera/
 type VideoSource interface {

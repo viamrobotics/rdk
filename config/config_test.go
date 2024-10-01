@@ -390,7 +390,8 @@ func TestConfigEnsure(t *testing.T) {
 	validAPIKeyHandler := config.AuthHandlerConfig{
 		Type: rpc.CredentialsTypeAPIKey,
 		Config: rutils.AttributeMap{
-			"key": "foo",
+			"key":  "foo",
+			"keys": []string{"key"},
 		},
 	}
 
@@ -429,7 +430,7 @@ func TestConfigEnsure(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, `auth.handlers.0`)
 	test.That(t, err.Error(), test.ShouldContainSubstring, `required`)
-	test.That(t, err.Error(), test.ShouldContainSubstring, `key`)
+	test.That(t, err.Error(), test.ShouldContainSubstring, `keys`)
 
 	validAPIKeyHandler.Config = rutils.AttributeMap{
 		"keys": []string{"one", "two"},
@@ -609,7 +610,8 @@ func TestConfigEnsurePartialStart(t *testing.T) {
 	validAPIKeyHandler := config.AuthHandlerConfig{
 		Type: rpc.CredentialsTypeAPIKey,
 		Config: rutils.AttributeMap{
-			"key": "foo",
+			"key":  "foo",
+			"keys": []string{"key"},
 		},
 	}
 
@@ -648,7 +650,7 @@ func TestConfigEnsurePartialStart(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, `auth.handlers.0`)
 	test.That(t, err.Error(), test.ShouldContainSubstring, `required`)
-	test.That(t, err.Error(), test.ShouldContainSubstring, `key`)
+	test.That(t, err.Error(), test.ShouldContainSubstring, `keys`)
 
 	validAPIKeyHandler.Config = rutils.AttributeMap{
 		"keys": []string{"one", "two"},
@@ -928,8 +930,11 @@ func TestAuthConfigEnsure(t *testing.T) {
 			Auth: config.AuthConfig{
 				Handlers: []config.AuthHandlerConfig{
 					{
-						Type:   rpc.CredentialsTypeAPIKey,
-						Config: rutils.AttributeMap{"key": "abc123"},
+						Type: rpc.CredentialsTypeAPIKey,
+						Config: rutils.AttributeMap{
+							"abc123": "abc123",
+							"keys":   []string{"abc123"},
+						},
 					},
 				},
 			},

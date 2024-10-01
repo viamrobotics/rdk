@@ -27,6 +27,8 @@ func newEndpoint(config BlockConfig, logger logging.Logger, ctr Controllable) (B
 }
 
 func (e *endpoint) Next(ctx context.Context, x []*Signal, dt time.Duration) ([]*Signal, bool) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
 	e.logger.CDebugf(ctx, "z length %v", len(x))
 	e.logger.CDebugf(ctx, "controllable is %v", e.ctr)
 	switch len(x) {
