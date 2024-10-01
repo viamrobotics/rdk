@@ -30,8 +30,8 @@ var fakeFrame = &referenceframe.LinkConfig{
 
 var badFrame = &referenceframe.LinkConfig{}
 
-// alternate high and low to replicate the behavior of a gantry hitting and moving away from a limit switch
-var defaultPinValues = []int{1, 0, 1, 0, 1, 1, 0}
+// alternate high and low to replicate the behavior of a gantry hitting and moving away from a limit switch.
+var defaultPinValues = []int{1, 0, 1, 0, 1, 0, 1, 0}
 
 func createFakeMotor() motor.Motor {
 	return &inject.Motor{
