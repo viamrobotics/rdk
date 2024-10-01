@@ -135,12 +135,6 @@ func (c *viamClient) generateModuleAction(cCtx *cli.Context) error {
 			warningf(cCtx.App.ErrWriter, err.Error())
 			nonFatalError = true
 		}
-
-		s.Title("Initializing git repository...")
-		if err = initializeGit(cCtx, newModule.ModuleName, newModule.InitializeGit); err != nil {
-			warningf(cCtx.App.ErrWriter, err.Error())
-			nonFatalError = true
-		}
 	}
 
 	if cCtx.Bool(debugFlag) {
@@ -242,6 +236,7 @@ func promptUser() (*moduleInputs, error) {
 			huh.NewInput().
 				Title("Set a model name of the resource:").
 				Description("This is the name of the new resource model that your module will provide.\nThe model name can contain only alphanumeric characters, dashes, and underscores.").
+				Placeholder("my-model").
 				Value(&newModule.ModelName).
 				Validate(func(s string) error {
 					if s == "" {
@@ -257,9 +252,6 @@ func promptUser() (*moduleInputs, error) {
 				Title("Enable cloud build").
 				Description("If enabled, this will generate GitHub workflows to build your module.").
 				Value(&newModule.EnableCloudBuild),
-			huh.NewConfirm().
-				Title("Initialize git repository").
-				Value(&newModule.InitializeGit),
 			huh.NewConfirm().
 				Title("Register module").
 				Description("Register this module with Viam.\nIf selected, this will associate the module with your organization.\nOtherwise, this will be a local-only module.").
@@ -559,21 +551,6 @@ func generateCloudBuild(c *cli.Context, module moduleInputs) error {
 			os.Remove(filepath.Join(module.ModuleName, "build.sh"))
 		}
 	}
-	return nil
-}
-
-func initializeGit(c *cli.Context, moduleName string, initializeGit bool) error {
-	if !initializeGit {
-		os.Remove(filepath.Join(moduleName, ".gitignore"))
-		return nil
-	}
-	debugf(c.App.Writer, c.Bool(debugFlag), "Initializing git repo")
-
-	cmd := exec.Command("git", "init", moduleName)
-	if err := cmd.Run(); err != nil {
-		return errors.Wrap(err, "cannot initialize git repo")
-	}
-
 	return nil
 }
 
