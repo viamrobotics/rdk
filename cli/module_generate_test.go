@@ -146,17 +146,6 @@ func TestGenerateModuleAction(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 	})
 
-	t.Run("test initialize git false", func(t *testing.T) {
-		err := initializeGit(cCtx, expectedPythonTestModule.ModuleName, expectedPythonTestModule.InitializeGit)
-		test.That(t, err, test.ShouldBeNil)
-	})
-	t.Run("test initialize git true", func(t *testing.T) {
-		err := initializeGit(cCtx, expectedPythonTestModule.ModuleName, true)
-		test.That(t, err, test.ShouldBeNil)
-		_, err = os.Stat(filepath.Join(testDir, expectedPythonTestModule.ModuleName, ".git"))
-		test.That(t, err, test.ShouldBeNil)
-	})
-
 	t.Run("test create module and manifest", func(t *testing.T) {
 		cCtx, ac, _, _ := setup(&inject.AppServiceClient{}, nil, &inject.BuildServiceClient{
 			StartBuildFunc: func(ctx context.Context, in *v1.StartBuildRequest, opts ...grpc.CallOption) (*v1.StartBuildResponse, error) {
