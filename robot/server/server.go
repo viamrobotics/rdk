@@ -244,7 +244,10 @@ func (s *Server) TransformPose(ctx context.Context, req *pb.TransformPoseRequest
 		return nil, err
 	}
 	transformedPose, err := s.robot.TransformPose(ctx, referenceframe.ProtobufToPoseInFrame(req.Source), req.Destination, transforms)
-	return &pb.TransformPoseResponse{Pose: referenceframe.PoseInFrameToProtobuf(transformedPose)}, err
+	if err != nil {
+		return nil, err
+	}
+	return &pb.TransformPoseResponse{Pose: referenceframe.PoseInFrameToProtobuf(transformedPose)}, nil
 }
 
 // TransformPCD will transform the pointcloud to the desired frame in the robot's frame system.

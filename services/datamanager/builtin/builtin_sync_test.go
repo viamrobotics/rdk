@@ -168,6 +168,9 @@ func TestSyncEnabled(t *testing.T) {
 			c.ScheduledSyncDisabled = tc.syncStartDisabled
 			c.CaptureDir = tmpDir
 			c.SyncIntervalMins = syncIntervalMins
+			// MaximumCaptureFileSizeBytes is set to 1 so that each reading becomes its own capture file
+			// and we can confidently read the capture file without it's contents being modified by the collector
+			c.MaximumCaptureFileSizeBytes = 1
 
 			b, err := New(context.Background(), deps, config, dataSyncServiceClientConstructor, tc.connStateConstructor, logger)
 			test.That(t, err, test.ShouldBeNil)
@@ -771,6 +774,9 @@ func TestStreamingDCUpload(t *testing.T) {
 			c.ScheduledSyncDisabled = true
 			c.SyncIntervalMins = syncIntervalMins
 			c.CaptureDir = tmpDir
+			// MaximumCaptureFileSizeBytes is set to 1 so that each reading becomes its own capture file
+			// and we can confidently read the capture file without it's contents being modified by the collector
+			c.MaximumCaptureFileSizeBytes = 1
 			b, err := New(context.Background(), deps, config, datasync.NoOpCloudClientConstructor, ConnToConnectivityStateReady, logger)
 			test.That(t, err, test.ShouldBeNil)
 
