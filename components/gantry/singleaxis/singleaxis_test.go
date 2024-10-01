@@ -30,11 +30,8 @@ var fakeFrame = &referenceframe.LinkConfig{
 
 var badFrame = &referenceframe.LinkConfig{}
 
-var (
-	count            = 0
-	defaultPinValues = []int{1, 1, 0}
-	limitPinValues   = []int{1, 0, 1, 0, 1, 1, 0}
-)
+// alternate high and low to replicate the behavior of a gantry hitting and moving away from a limit switch
+var defaultPinValues = []int{1, 0, 1, 0, 1, 1, 0}
 
 func createFakeMotor() motor.Motor {
 	return &inject.Motor{
@@ -42,7 +39,7 @@ func createFakeMotor() motor.Motor {
 			return motor.Properties{PositionReporting: true}, nil
 		},
 		PositionFunc: func(ctx context.Context, extra map[string]interface{}) (float64, error) {
-			return float64(count + 1), nil
+			return 1.0, nil
 		},
 		ResetZeroPositionFunc: func(ctx context.Context, offset float64, extra map[string]interface{}) error { return nil },
 		GoToFunc:              func(ctx context.Context, rpm, position float64, extra map[string]interface{}) error { return nil },
@@ -270,7 +267,7 @@ func TestHome(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 	fakegantry := &singleAxis{
 		motor:           createFakeMotor(),
-		board:           createFakeBoard(limitPinValues),
+		board:           createFakeBoard(defaultPinValues),
 		limitHigh:       true,
 		logger:          logger,
 		rpm:             float64(300),
@@ -310,7 +307,7 @@ func TestHome(t *testing.T) {
 
 	fakegantry = &singleAxis{
 		motor:           createFakeMotor(),
-		board:           createFakeBoard(limitPinValues),
+		board:           createFakeBoard(defaultPinValues),
 		limitHigh:       true,
 		logger:          logger,
 		rpm:             float64(300),
@@ -331,7 +328,7 @@ func TestHome(t *testing.T) {
 
 	fakegantry = &singleAxis{
 		motor:           createFakeMotor(),
-		board:           createFakeBoard(limitPinValues),
+		board:           createFakeBoard(defaultPinValues),
 		limitHigh:       true,
 		logger:          logger,
 		rpm:             float64(300),
@@ -348,7 +345,7 @@ func TestHomeLimitSwitch(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 	fakegantry := &singleAxis{
 		motor:           createFakeMotor(),
-		board:           createFakeBoard(limitPinValues),
+		board:           createFakeBoard(defaultPinValues),
 		limitHigh:       true,
 		logger:          logger,
 		rpm:             float64(300),
@@ -445,7 +442,7 @@ func TestHomeLimitSwitch2(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 	fakegantry := &singleAxis{
 		motor:           createFakeMotor(),
-		board:           createFakeBoard(limitPinValues),
+		board:           createFakeBoard(defaultPinValues),
 		limitHigh:       true,
 		logger:          logger,
 		rpm:             float64(300),
@@ -530,7 +527,7 @@ func TestTestLimit(t *testing.T) {
 	fakegantry := &singleAxis{
 		limitSwitchPins: []string{"1", "2"},
 		motor:           createFakeMotor(),
-		board:           createFakeBoard(limitPinValues),
+		board:           createFakeBoard(defaultPinValues),
 		rpm:             float64(300),
 		limitHigh:       true,
 		opMgr:           operation.NewSingleOperationManager(),
