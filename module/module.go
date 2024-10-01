@@ -8,6 +8,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -38,6 +39,7 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot/client"
 	rutils "go.viam.com/rdk/utils"
+	vprotoutils "go.viam.com/utils/protoutils"
 )
 
 const (
@@ -191,6 +193,7 @@ type Module struct {
 	pcFailed                <-chan struct{}
 	pb.UnimplementedModuleServiceServer
 	streampb.UnimplementedStreamServiceServer
+	robotpb.UnimplementedRobotServiceServer
 }
 
 // NewModule returns the basic module framework/structure.
@@ -228,6 +231,11 @@ func NewModule(ctx context.Context, address string, logger logging.Logger) (*Mod
 		return nil, err
 	}
 	if err := m.server.RegisterServiceServer(ctx, &streampb.StreamService_ServiceDesc, m); err != nil {
+		return nil, err
+	}
+	// We register the RobotService API to supplement the ModuleService in order to serve select robot level methods from the module server
+	// such as the DiscoverComponents API
+	if err := m.server.RegisterServiceServer(ctx, &robotpb.RobotService_ServiceDesc, m); err != nil {
 		return nil, err
 	}
 
@@ -504,6 +512,61 @@ func (m *Module) AddResource(ctx context.Context, req *pb.AddResourceRequest) (*
 		m.streamSourceByName[res.Name()] = passthroughSource
 	}
 	return &pb.AddResourceResponse{}, nil
+}
+
+func (m *Module) DiscoverComponents(
+    ctx context.Context, 
+    req *robotpb.DiscoverComponentsRequest,
+) (*robotpb.DiscoverComponentsResponse, error) {
+    var discoveries []*robotpb.Discovery
+
+    for _, q := range req.Queries {
+        // Handle triplet edge case i.e. if the subtype doesn't contain ':', add the "rdk:component:" prefix
+        if !strings.ContainsRune(q.Subtype, ':') {
+            q.Subtype = "rdk:component:" + q.Subtype
+        }
+
+        api, err := resource.NewAPIFromString(q.Subtype)
+        if err != nil {
+            return nil, fmt.Errorf("invalid subtype: %s: %w", q.Subtype, err)
+        }
+        model, err := resource.NewModelFromString(q.Model)
+        if err != nil {
+            return nil, fmt.Errorf("invalid model: %s: %w", q.Model, err)
+        }
+
+        resInfo, ok := resource.LookupRegistration(api, model)
+        if !ok {
+            m.logger.Warnf("no registration found for API %s and model %s", api, model)
+        }
+
+        if resInfo.Discover == nil {
+            m.logger.Warnf("discovery not supported for API %s and model %s", api, model)
+        }
+
+        results, err := resInfo.Discover(ctx, m.logger)
+        if err != nil {
+            return nil, fmt.Errorf("error discovering components for API %s and model %s: %w", api, model, err)
+        }
+        if results == nil {
+            return nil, fmt.Errorf("error discovering components for API %s and model %s: results was nil", api, model)
+        }
+
+        pbResults, err := vprotoutils.StructToStructPb(results)
+        if err != nil {
+            return nil, fmt.Errorf("unable to convert discovery results to pb struct for query %v: %w", q, err)
+        }
+
+        pbDiscovery := &robotpb.Discovery{
+            Query:   q,
+            Results: pbResults,
+        }
+        discoveries = append(discoveries, pbDiscovery)
+    }
+
+    return &robotpb.DiscoverComponentsResponse{
+        Discovery: discoveries,
+    }, nil
 }
 
 // ReconfigureResource receives the component/service configuration from the parent.

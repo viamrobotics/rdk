@@ -23,6 +23,7 @@ import (
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/components/motor"
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/examples/customresources/apis/gizmoapi"
 	"go.viam.com/rdk/logging"
 	modlib "go.viam.com/rdk/module"
 	modmanageroptions "go.viam.com/rdk/module/modmanager/options"
@@ -1321,4 +1322,35 @@ func TestBadModuleFailsFast(t *testing.T) {
 	err := mgr.Add(ctx, modCfgs...)
 
 	test.That(t, err.Error(), test.ShouldContainSubstring, "module test-module exited too quickly after attempted startup")
+}
+
+func TestModuleDiscoverRegistered(t *testing.T) {
+    ctx := context.Background()
+    logger := logging.NewTestLogger(t)
+
+    // Precompile module to avoid timeout issues when building takes too long.
+    modPath := rtestutils.BuildTempModule(t, "examples/customresources/demos/complexmodule")
+
+    modCfg := config.Module{
+        Name:    "complex-module",
+        ExePath: modPath,
+    }
+
+    parentAddr := setupSocketWithRobot(t)
+
+    mgr := setupModManager(t, ctx, parentAddr, logger, modmanageroptions.Options{UntrustedEnv: false})
+
+    err := mgr.Add(ctx, modCfg)
+    test.That(t, err, test.ShouldBeNil)
+
+    // Retrieve the registration for the gizmo model.
+    api := gizmoapi.API
+    model := resource.NewModel("acme", "demo", "mygizmo")
+
+    reg, ok := resource.LookupRegistration(api, model)
+    test.That(t, ok, test.ShouldBeTrue)
+    test.That(t, reg, test.ShouldNotBeNil)
+
+    // Check that the Discover function is registered.
+    test.That(t, reg.Discover, test.ShouldNotBeNil)
 }

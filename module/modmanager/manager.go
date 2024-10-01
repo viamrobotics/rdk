@@ -18,6 +18,7 @@ import (
 	"go.uber.org/multierr"
 	"go.uber.org/zap/zapcore"
 	pb "go.viam.com/api/module/v1"
+	robotpb "go.viam.com/api/robot/v1"
 	"go.viam.com/utils"
 	"go.viam.com/utils/pexec"
 	"go.viam.com/utils/rpc"
@@ -75,6 +76,9 @@ type module struct {
 	handles    modlib.HandlerMap
 	sharedConn rdkgrpc.SharedConn
 	client     pb.ModuleServiceClient
+	// robotClient was added to supplement the ModuleServiceClient client to serve select robot level methods from the module server
+	// such as the DiscoverComponents API
+	robotClient robotpb.RobotServiceClient
 	addr       string
 	resources  map[resource.Name]*addedResource
 	// resourcesMu must be held if the `resources` field is accessed without
@@ -991,6 +995,7 @@ func (m *module) dial() error {
 	// out.
 	m.sharedConn.ResetConn(rpc.GrpcOverHTTPClientConn{ClientConn: conn}, m.logger)
 	m.client = pb.NewModuleServiceClient(m.sharedConn.GrpcConn())
+	m.robotClient = robotpb.NewRobotServiceClient(m.sharedConn.GrpcConn())
 	return nil
 }
 
@@ -1172,6 +1177,21 @@ func (m *module) registerResources(mgr modmaninterface.ModuleManager, logger log
 					) (resource.Resource, error) {
 						return mgr.AddResource(ctx, conf, DepsToNames(deps))
 					},
+					Discover: func(ctx context.Context, logger logging.Logger) (interface{}, error) {
+						req := &robotpb.DiscoverComponentsRequest{
+							Queries: []*robotpb.DiscoveryQuery{
+								{Subtype: api.API.String(), Model: model.String()},
+							},
+						}
+					
+						res, err := m.robotClient.DiscoverComponents(ctx, req)
+						if err != nil {
+							m.logger.Errorf("error in modular DiscoverComponents: %w", err)
+							return nil, err
+						}
+
+						return res, nil
+					},					
 				})
 			}
 		case api.API.IsService():
