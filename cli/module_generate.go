@@ -612,7 +612,7 @@ func renderManifest(c *cli.Context, moduleID string, module moduleInputs) error 
 				Setup: "./setup.sh",
 				Build: "./build.sh",
 				Path:  "dist/archive.tar.gz",
-				Arch:  []string{"linux/amd64", "linux/arm64", "darwin/arm64"},
+				Arch:  []string{"linux/amd64", "linux/arm64"},
 			}
 			manifest.Entrypoint = "dist/main"
 		} else {
