@@ -25,6 +25,7 @@ import (
 	robotpb "go.viam.com/api/robot/v1"
 	streampb "go.viam.com/api/stream/v1"
 	"go.viam.com/utils"
+	vprotoutils "go.viam.com/utils/protoutils"
 	"go.viam.com/utils/rpc"
 	"golang.org/x/exp/maps"
 	"google.golang.org/grpc"
@@ -39,7 +40,6 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot/client"
 	rutils "go.viam.com/rdk/utils"
-	vprotoutils "go.viam.com/utils/protoutils"
 )
 
 const (
@@ -517,58 +517,58 @@ func (m *Module) AddResource(ctx context.Context, req *pb.AddResourceRequest) (*
 // DiscoverComponents takes a list of discovery queries and returns corresponding
 // component configurations.
 func (m *Module) DiscoverComponents(
-    ctx context.Context, 
-    req *robotpb.DiscoverComponentsRequest,
+	ctx context.Context,
+	req *robotpb.DiscoverComponentsRequest,
 ) (*robotpb.DiscoverComponentsResponse, error) {
-    var discoveries []*robotpb.Discovery
+	var discoveries []*robotpb.Discovery
 
-    for _, q := range req.Queries {
-        // Handle triplet edge case i.e. if the subtype doesn't contain ':', add the "rdk:component:" prefix
-        if !strings.ContainsRune(q.Subtype, ':') {
-            q.Subtype = "rdk:component:" + q.Subtype
-        }
+	for _, q := range req.Queries {
+		// Handle triplet edge case i.e. if the subtype doesn't contain ':', add the "rdk:component:" prefix
+		if !strings.ContainsRune(q.Subtype, ':') {
+			q.Subtype = "rdk:component:" + q.Subtype
+		}
 
-        api, err := resource.NewAPIFromString(q.Subtype)
-        if err != nil {
-            return nil, fmt.Errorf("invalid subtype: %s: %w", q.Subtype, err)
-        }
-        model, err := resource.NewModelFromString(q.Model)
-        if err != nil {
-            return nil, fmt.Errorf("invalid model: %s: %w", q.Model, err)
-        }
+		api, err := resource.NewAPIFromString(q.Subtype)
+		if err != nil {
+			return nil, fmt.Errorf("invalid subtype: %s: %w", q.Subtype, err)
+		}
+		model, err := resource.NewModelFromString(q.Model)
+		if err != nil {
+			return nil, fmt.Errorf("invalid model: %s: %w", q.Model, err)
+		}
 
-        resInfo, ok := resource.LookupRegistration(api, model)
-        if !ok {
-            m.logger.Warnf("no registration found for API %s and model %s", api, model)
-        }
+		resInfo, ok := resource.LookupRegistration(api, model)
+		if !ok {
+			m.logger.Warnf("no registration found for API %s and model %s", api, model)
+		}
 
-        if resInfo.Discover == nil {
-            m.logger.Warnf("discovery not supported for API %s and model %s", api, model)
-        }
+		if resInfo.Discover == nil {
+			m.logger.Warnf("discovery not supported for API %s and model %s", api, model)
+		}
 
-        results, err := resInfo.Discover(ctx, m.logger)
-        if err != nil {
-            return nil, fmt.Errorf("error discovering components for API %s and model %s: %w", api, model, err)
-        }
-        if results == nil {
-            return nil, fmt.Errorf("error discovering components for API %s and model %s: results was nil", api, model)
-        }
+		results, err := resInfo.Discover(ctx, m.logger)
+		if err != nil {
+			return nil, fmt.Errorf("error discovering components for API %s and model %s: %w", api, model, err)
+		}
+		if results == nil {
+			return nil, fmt.Errorf("error discovering components for API %s and model %s: results was nil", api, model)
+		}
 
-        pbResults, err := vprotoutils.StructToStructPb(results)
-        if err != nil {
-            return nil, fmt.Errorf("unable to convert discovery results to pb struct for query %v: %w", q, err)
-        }
+		pbResults, err := vprotoutils.StructToStructPb(results)
+		if err != nil {
+			return nil, fmt.Errorf("unable to convert discovery results to pb struct for query %v: %w", q, err)
+		}
 
-        pbDiscovery := &robotpb.Discovery{
-            Query:   q,
-            Results: pbResults,
-        }
-        discoveries = append(discoveries, pbDiscovery)
-    }
+		pbDiscovery := &robotpb.Discovery{
+			Query:   q,
+			Results: pbResults,
+		}
+		discoveries = append(discoveries, pbDiscovery)
+	}
 
-    return &robotpb.DiscoverComponentsResponse{
-        Discovery: discoveries,
-    }, nil
+	return &robotpb.DiscoverComponentsResponse{
+		Discovery: discoveries,
+	}, nil
 }
 
 // ReconfigureResource receives the component/service configuration from the parent.

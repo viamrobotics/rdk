@@ -79,8 +79,8 @@ type module struct {
 	// robotClient was added to supplement the ModuleServiceClient client to serve select robot level methods from the module server
 	// such as the DiscoverComponents API
 	robotClient robotpb.RobotServiceClient
-	addr       string
-	resources  map[resource.Name]*addedResource
+	addr        string
+	resources   map[resource.Name]*addedResource
 	// resourcesMu must be held if the `resources` field is accessed without
 	// write-locking the module manager.
 	resourcesMu sync.Mutex
@@ -1183,7 +1183,7 @@ func (m *module) registerResources(mgr modmaninterface.ModuleManager, logger log
 								{Subtype: api.API.String(), Model: model.String()},
 							},
 						}
-					
+
 						res, err := m.robotClient.DiscoverComponents(ctx, req)
 						if err != nil {
 							m.logger.Errorf("error in modular DiscoverComponents: %w", err)
@@ -1191,7 +1191,7 @@ func (m *module) registerResources(mgr modmaninterface.ModuleManager, logger log
 						}
 
 						return res, nil
-					},					
+					},
 				})
 			}
 		case api.API.IsService():

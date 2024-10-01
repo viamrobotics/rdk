@@ -1325,32 +1325,32 @@ func TestBadModuleFailsFast(t *testing.T) {
 }
 
 func TestModuleDiscoverRegistered(t *testing.T) {
-    ctx := context.Background()
-    logger := logging.NewTestLogger(t)
+	ctx := context.Background()
+	logger := logging.NewTestLogger(t)
 
-    // Precompile module to avoid timeout issues when building takes too long.
-    modPath := rtestutils.BuildTempModule(t, "examples/customresources/demos/complexmodule")
+	// Precompile module to avoid timeout issues when building takes too long.
+	modPath := rtestutils.BuildTempModule(t, "examples/customresources/demos/complexmodule")
 
-    modCfg := config.Module{
-        Name:    "complex-module",
-        ExePath: modPath,
-    }
+	modCfg := config.Module{
+		Name:    "complex-module",
+		ExePath: modPath,
+	}
 
-    parentAddr := setupSocketWithRobot(t)
+	parentAddr := setupSocketWithRobot(t)
 
-    mgr := setupModManager(t, ctx, parentAddr, logger, modmanageroptions.Options{UntrustedEnv: false})
+	mgr := setupModManager(t, ctx, parentAddr, logger, modmanageroptions.Options{UntrustedEnv: false})
 
-    err := mgr.Add(ctx, modCfg)
-    test.That(t, err, test.ShouldBeNil)
+	err := mgr.Add(ctx, modCfg)
+	test.That(t, err, test.ShouldBeNil)
 
-    // Retrieve the registration for the gizmo model.
-    api := gizmoapi.API
-    model := resource.NewModel("acme", "demo", "mygizmo")
+	// Retrieve the registration for the gizmo model.
+	api := gizmoapi.API
+	model := resource.NewModel("acme", "demo", "mygizmo")
 
-    reg, ok := resource.LookupRegistration(api, model)
-    test.That(t, ok, test.ShouldBeTrue)
-    test.That(t, reg, test.ShouldNotBeNil)
+	reg, ok := resource.LookupRegistration(api, model)
+	test.That(t, ok, test.ShouldBeTrue)
+	test.That(t, reg, test.ShouldNotBeNil)
 
-    // Check that the Discover function is registered.
-    test.That(t, reg.Discover, test.ShouldNotBeNil)
+	// Check that the Discover function is registered.
+	test.That(t, reg.Discover, test.ShouldNotBeNil)
 }
