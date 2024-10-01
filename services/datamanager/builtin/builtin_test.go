@@ -266,6 +266,9 @@ func TestFileDeletion(t *testing.T) {
 	// create sync clock so we can control when a single iteration of file deltion happens
 	c := config.ConvertedAttributes.(*Config)
 	c.CaptureDir = tempDir
+	// MaximumCaptureFileSizeBytes is set to 1 so that each reading becomes its own capture file
+	// and we can confidently read the capture file without it's contents being modified by the collector
+	c.MaximumCaptureFileSizeBytes = 1
 	bSvc, err := New(ctx, deps, config, datasync.NoOpCloudClientConstructor, connToConnectivityStateError, logger)
 	test.That(t, err, test.ShouldBeNil)
 	b := bSvc.(*builtIn)
@@ -839,7 +842,7 @@ func getAllFiles(dir string) ([]os.FileInfo, []string) {
 func waitForCaptureFilesToEqualNFiles(ctx context.Context, captureDir string, n int, logger logging.Logger) error {
 	var diagnostics sync.Once
 	start := time.Now()
-	nonEmptyFiles := 0
+	captureFiles := 0
 	files := []fs.FileInfo{}
 	i := 0
 	for {
@@ -848,20 +851,20 @@ func waitForCaptureFilesToEqualNFiles(ctx context.Context, captureDir string, n 
 			for _, f := range files {
 				fNames = append(fNames, f.Name())
 			}
-			logger.Errorf("target: %d, iterations: %d, nonEmptyFiles: %d, files: %v", n, i, nonEmptyFiles, fNames)
+			logger.Errorf("target: %d, iterations: %d, captureFiles: %d, files: %v", n, i, captureFiles, fNames)
 			return err
 		}
 		files = getAllFileInfos(captureDir)
-		nonEmptyFiles = 0
+		captureFiles = 0
 		for idx := range files {
-			if files[idx].Size() > int64(emptyFileBytesSize) {
+			if files[idx].Size() > int64(emptyFileBytesSize) && filepath.Ext(files[idx].Name()) == data.CompletedCaptureFileExt {
 				// Every datamanager file has at least 90 bytes of metadata. Wait for that to be
 				// observed before considering the file as "existing".
-				nonEmptyFiles++
+				captureFiles++
 			}
 		}
 
-		if nonEmptyFiles == n {
+		if captureFiles == n {
 			return nil
 		}
 
