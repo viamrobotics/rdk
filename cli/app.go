@@ -52,6 +52,7 @@ const (
 	moduleFlagHomeDir         = "home"
 	moduleCreateLocalOnly     = "local-only"
 	moduleFlagID              = "id"
+	moduleFlagResource				= "resource"
 
 	moduleBuildFlagPath      = "module"
 	moduleBuildFlagRef       = "ref"
@@ -1479,6 +1480,12 @@ After creation, use 'viam module update' to push your new module to app.viam.com
 				{
 					Name:   "generate",
 					Usage:  "generate a new modular resource via prompts",
+					Flags: []cli.Flag{
+						&cli.StringFlag{
+							Name:		moduleFlagResource,
+							Usage:	"resource to use in module",
+						},
+					},
 					Action: GenerateModuleAction,
 				},
 				{
