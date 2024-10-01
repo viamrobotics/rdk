@@ -77,7 +77,37 @@ func GenerateModuleAction(cCtx *cli.Context) error {
 }
 
 func (c *viamClient) generateModuleAction(cCtx *cli.Context) error {
-	newModule, err := promptUser()
+	var newModule *moduleInputs
+	var err error
+	resource := cCtx.String(moduleFlagResource)
+	if resource != "" {
+		resourceSubtype := strings.Split(resource, " ")[0]
+		resourceType := strings.Split(resource, " ")[1]
+		newModule = &moduleInputs{
+			ModuleName:       "my-module",
+			IsPublic:         false,
+			Namespace:        "my-org",
+			Language:         "python",
+			Resource:         resource,
+			ResourceType:     resourceType,
+			ResourceSubtype:  resourceSubtype,
+			ModelName:        "my-model",
+			EnableCloudBuild: true,
+			InitializeGit:    false,
+			GeneratorVersion: "0.1.0",
+			GeneratedOn:      time.Now().UTC(),
+	
+			ModulePascal:          "MyModule",
+			API:                   fmt.Sprintf("rdk:%s:ss", resourceType, resourceSubtype),
+			ResourceSubtypePascal: strings.ToUpper(string(resourceSubtype[0])) + resourceSubtype[1:],
+			ModelPascal:           "MyModel",
+			ModelTriple:           "my-org:my-module:my-model",
+	
+			SDKVersion: "0.0.0",
+		}
+	} else {
+		newModule, err = promptUser()
+	}
 	if err != nil {
 		return err
 	}
