@@ -150,7 +150,7 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 				ID:         cfgFromDisk.Cloud.ID,
 				Secret:     cfgFromDisk.Cloud.Secret,
 			},
-			nil, false, logger.Sublogger("networking").Sublogger("netlogger"),
+			nil, false, logger.Sublogger("netlogger"),
 		)
 		if err != nil {
 			return err
