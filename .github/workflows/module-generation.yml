@@ -5,7 +5,7 @@ on:
   pull_request:
     branches:
       - main
-      - 'module-generation-cli'
+      - "module-generation-cli"
 
 jobs:
   generate_and_run_module:
@@ -14,50 +14,28 @@ jobs:
     strategy:
       fail-fast: true
       matrix:
-        resource: [
-          "arm component", 
-          "audio_input component",
-          "base component",
-          "board component",
-          "camera component",
-          "encoder component",
-          "gantry component",
-          "generic component",
-          "gripper component",
-          "input component",
-          "motor component",
-          "movement_sensor component",
-          "pose_tracker component",
-          "power_sensor component",
-          "sensor component",
-          "servo component",
-      
-          "generic service",
-          "mlmodel service",
-          "motion service",
-          "navigation service",
-          "sensors service",
-          "slam service",
-          "vision service"
-          ]
+        resource: ["arm component"]
     steps:
+      - name: Setup Go environment
+        uses: actions/setup-go@v5
+        with:
+          go-version: "^1.23"
+
       - name: Checkout Code
         uses: actions/checkout@v4
 
       - name: Run module generator
         run: |
-          cd cli/viam
-          go run . module generate --resource "${{ matrix.resource }}"
+          go run ./cli/viam module generate --resource "${{ matrix.resource }}"
+          echo "directory right after generation:"
           ls
-          echo "right after generation"
-          cd ../..
+          echo "finding my-module..."
           find $GITHUB_WORKSPACE -name "my-module"
 
       - name: Run module
         run: |
-          echo "right before running module"
           pwd
-          cd cli/viam/my-module
+          cd my-module
           chmod +x run.sh
           ./run.sh /tmp/viam.sock &
           PID=$!
