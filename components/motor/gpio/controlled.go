@@ -2,7 +2,6 @@ package gpio
 
 import (
 	"context"
-	"fmt"
 	"math"
 	"sync"
 	"time"
@@ -396,8 +395,7 @@ func (cm *controlledMotor) DoCommand(ctx context.Context, req map[string]interfa
 	if ok {
 		var respStr string
 		if !(*cm.tunedVals)[0].NeedsAutoTuning() {
-			respStr += fmt.Sprintf("{p: %v, i: %v, d: %v, type: %v} ",
-				(*cm.tunedVals)[0].P, (*cm.tunedVals)[0].I, (*cm.tunedVals)[0].D, (*cm.tunedVals)[0].Type)
+			respStr += (*cm.tunedVals)[0].String()
 		}
 		resp[getPID] = respStr
 	}

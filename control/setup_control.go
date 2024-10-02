@@ -491,10 +491,14 @@ func TunedPIDErr(name string, tunedVals []PIDConfig) error {
 	var tunedStr string
 	for _, pid := range tunedVals {
 		if !pid.NeedsAutoTuning() {
-			tunedStr += fmt.Sprintf(`{"p": %v, "i": %v, "d": %v, "type": "%v"} `, pid.P, pid.I, pid.D, pid.Type)
+			tunedStr += pid.String()
 		}
 	}
 	return fmt.Errorf(`%v has been tuned, please copy the following control values into your config: %v`, name, tunedStr)
+}
+
+func (pid PIDConfig) String() string {
+	return fmt.Sprintf(`{"p": %v, "i": %v, "d": %v, "type": "%v"} `, pid.P, pid.I, pid.D, pid.Type)
 }
 
 // TuningInProgressErr returns an error when the loop is actively tuning.
