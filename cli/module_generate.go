@@ -54,7 +54,6 @@ type moduleInputs struct {
 	ResourceSubtype  string    `json:"resource_subtype"`
 	ModelName        string    `json:"model_name"`
 	EnableCloudBuild bool      `json:"enable_cloud_build"`
-	InitializeGit    bool      `json:"initialize_git"`
 	RegisterOnApp    bool      `json:"-"`
 	GeneratorVersion string    `json:"generator_version"`
 	GeneratedOn      time.Time `json:"generated_on"`
@@ -542,7 +541,7 @@ func getLatestSDKTag(c *cli.Context, language string) (string, error) {
 }
 
 func generateCloudBuild(c *cli.Context, module moduleInputs) error {
-	debugf(c.App.Writer, c.Bool(debugFlag), "Setting cloud build functionality to %s", module.EnableCloudBuild)
+	debugf(c.App.Writer, c.Bool(debugFlag), "Setting cloud build functionality to %t", module.EnableCloudBuild)
 	switch module.Language {
 	case "python":
 		if module.EnableCloudBuild {
