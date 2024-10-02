@@ -52,7 +52,7 @@ const (
 	moduleFlagHomeDir         = "home"
 	moduleCreateLocalOnly     = "local-only"
 	moduleFlagID              = "id"
-	moduleFlagResource				= "resource"
+	moduleFlagResource        = "resource"
 
 	moduleBuildFlagPath      = "module"
 	moduleBuildFlagRef       = "ref"
