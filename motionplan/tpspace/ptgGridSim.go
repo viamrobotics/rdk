@@ -7,6 +7,7 @@ import (
 
 	"go.viam.com/rdk/motionplan/ik"
 	"go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/spatialmath"
 )
 
 const (
@@ -52,11 +53,9 @@ func NewPTGGridSim(simPTG PTG, arcs uint, simDist float64, endsOnly bool) (PTGSo
 
 func (ptg *ptgGridSim) Solve(
 	ctx context.Context,
-	solutionChan chan<- *ik.Solution,
 	seed []referenceframe.Input,
-	solveMetric func([]float64)float64,
-	rseed int,
-) error {
+	solveMetric func(spatialmath.Pose)float64,
+) (*ik.Solution, error) {
 	// Try to find a closest point to the paths:
 	bestDist := math.Inf(1)
 	var bestNode *TrajNode
@@ -65,7 +64,7 @@ func (ptg *ptgGridSim) Solve(
 		for k := 0; k < int(ptg.alphaCnt); k++ {
 			nMax := len(ptg.precomputeTraj[k]) - 1
 			for n := 0; n <= nMax; n++ {
-				distToPoint := solveMetric(&ik.State{Position: ptg.precomputeTraj[k][n].Pose})
+				distToPoint := solveMetric(ptg.precomputeTraj[k][n].Pose)
 				if distToPoint < bestDist {
 					bestDist = distToPoint
 
@@ -75,12 +74,11 @@ func (ptg *ptgGridSim) Solve(
 		}
 
 		if bestNode != nil {
-			solutionChan <- &ik.Solution{
+			return &ik.Solution{
 				Configuration: []referenceframe.Input{{bestNode.Alpha}, {bestNode.Dist}},
 				Score:         bestDist,
 				Exact:         false,
-			}
-			return nil
+			}, nil
 		}
 	}
 
@@ -89,7 +87,7 @@ func (ptg *ptgGridSim) Solve(
 	//  which can be normalized by "1/refDistance" to get TP-Space distances.
 	for k := 0; k < int(ptg.alphaCnt); k++ {
 		n := len(ptg.precomputeTraj[k]) - 1
-		distToPoint := solveMetric(&ik.State{Position: ptg.precomputeTraj[k][n].Pose})
+		distToPoint := solveMetric(ptg.precomputeTraj[k][n].Pose)
 
 		if distToPoint < bestDist {
 			bestDist = distToPoint
@@ -97,12 +95,11 @@ func (ptg *ptgGridSim) Solve(
 		}
 	}
 
-	solutionChan <- &ik.Solution{
+	return &ik.Solution{
 		Configuration: []referenceframe.Input{{bestNode.Alpha}, {bestNode.Dist}},
 		Score:         bestDist,
 		Exact:         false,
-	}
-	return nil
+	}, nil
 }
 
 func (ptg *ptgGridSim) MaxDistance() float64 {
