@@ -82,7 +82,8 @@ func (c *viamClient) generateModuleAction(cCtx *cli.Context) error {
 	resource := cCtx.String(moduleFlagResource)
 	if resource != "" {
 		resourceParts := strings.Fields(resource)
-		fmt.Errorf("%s", resourceParts)
+		fmt.Printf("%s", resource)
+		fmt.Printf("%s", resourceParts)
 		resourceSubtype := resourceParts[0]
 		resourceType := resourceParts[1]
 		newModule = &moduleInputs{
