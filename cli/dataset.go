@@ -3,6 +3,7 @@ package cli
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 
@@ -193,6 +194,14 @@ func (c *viamClient) downloadDataset(dst, datasetID string, includeJSONLines boo
 				Errorf(c.c.App.ErrWriter, "failed to close dataset file %q", datasetFile.Name())
 			}
 		}()
+	}
+	resp, err := c.datasetClient.ListDatasetsByIDs(context.Background(),
+		&datasetpb.ListDatasetsByIDsRequest{Ids: []string{datasetID}})
+	if err != nil {
+		return errors.Wrapf(err, "error getting dataset ID")
+	}
+	if len(resp.GetDatasets()) == 0 {
+		return errors.New(fmt.Sprintf("%s does not match any dataset IDs", datasetID))
 	}
 
 	return c.performActionOnBinaryDataFromFilter(
