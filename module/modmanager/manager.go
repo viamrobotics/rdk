@@ -76,7 +76,7 @@ type module struct {
 	handles    modlib.HandlerMap
 	sharedConn rdkgrpc.SharedConn
 	client     pb.ModuleServiceClient
-	// robotClient was added to supplement the ModuleServiceClient client to serve select robot level methods from the module server
+	// robotClient supplements the ModuleServiceClient client to serve select robot level methods from the module server
 	// such as the DiscoverComponents API
 	robotClient robotpb.RobotServiceClient
 	addr        string
