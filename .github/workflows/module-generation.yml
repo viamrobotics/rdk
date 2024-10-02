@@ -48,7 +48,12 @@ jobs:
         run: |
           cd cli/viam
           go run . module generate --resource "${{ matrix.resource }}"
-          cd my-module
+
+      - name: Run module
+        run: |
+          pwd
+          ls
+          cd ${{ github.workspace }}/my-module
           chmod +x run.sh
           ./run.sh /tmp/viam.sock &
           PID=$!
