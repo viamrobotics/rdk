@@ -51,7 +51,7 @@ jobs:
 
       - name: Run module
         run: |
-          cd my-module
+          cd cli/viam/my-module
           chmod +x run.sh
           ./run.sh /tmp/viam.sock &
           PID=$!
