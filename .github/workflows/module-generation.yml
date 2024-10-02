@@ -51,7 +51,7 @@ jobs:
           ls
           echo "right after generation"
           cd ../..
-          find . -name "my-module"
+          find $GITHUB_WORKSPACE -name "my-module"
 
       - name: Run module
         run: |
