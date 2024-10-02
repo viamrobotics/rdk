@@ -25,9 +25,7 @@ jobs:
           go-version-file: go.mod
 
       - name: Run module generator
-        run: |
-          go run ./cli/viam module generate --resource "${{ matrix.resource }}"
-          sleep 5
+        run: go run ./cli/viam --debug module generate --resource "${{ matrix.resource }}"
 
       - name: Run module
         run: |
