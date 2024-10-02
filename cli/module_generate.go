@@ -80,12 +80,9 @@ func (c *viamClient) generateModuleAction(cCtx *cli.Context) error {
 	var newModule *moduleInputs
 	var err error
 	resource := cCtx.String(moduleFlagResource)
-	fmt.Printf("%s", resource)
 	if resource != "" {
-		resourceParts := strings.Fields(resource)
-		fmt.Printf("%s", resourceParts)
-		resourceSubtype := resourceParts[0]
-		resourceType := resourceParts[1]
+		resourceSubtype := strings.Fields(resource)[0]
+		resourceType := strings.Fields(resource)[1]
 		newModule = &moduleInputs{
 			ModuleName:       "my-module",
 			IsPublic:         false,

@@ -47,7 +47,7 @@ jobs:
       - name: Run module generator
         run: |
           cd cli/viam
-          go run . module generate --resource ${{ matrix.resource }}
+          go run . module generate --resource "${{ matrix.resource }}"
 
       - name: Run module
         run: |
