@@ -30,7 +30,7 @@ func (svc *builtIn) startExploreMode(ctx context.Context) {
 			}
 
 			// Choose a new random point using a normal distribution centered on the position directly the robot
-			randAngle := rand.NormFloat64() + math.Pi
+			randAngle := rand.NormFloat64() + math.Pi //nolint:gosec
 			destination := referenceframe.NewPoseInFrame(svc.base.Name().Name, spatialmath.NewPose(
 				r3.Vector{
 					X: math.Sin(randAngle),

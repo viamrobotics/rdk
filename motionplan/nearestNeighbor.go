@@ -27,7 +27,6 @@ type neighbor struct {
 	node node
 }
 
-//nolint:revive
 func kNearestNeighbors(planOpts *plannerOptions, tree rrtMap, target node, neighborhoodSize int) []*neighbor {
 	kNeighbors := neighborhoodSize
 	if neighborhoodSize > len(tree) {

@@ -434,9 +434,9 @@ func (m *Motor) posToSteps(pos float64) int32 {
 	goal := int32(pos * float64(m.TicksPerRotation))
 
 	// Hard limits from controller
-	if goal > 2147483647 {
+	if goal > 2147483647 { //nolint:staticcheck
 		goal = 2147483647
-	} else if goal < -2147483648 {
+	} else if goal < -2147483648 { //nolint:staticcheck
 		goal = -2147483648
 	}
 	return goal

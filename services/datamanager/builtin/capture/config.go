@@ -1,4 +1,3 @@
-// Package capture implements datacapture for the builtin datamanger
 package capture
 
 // Config is the capture config.

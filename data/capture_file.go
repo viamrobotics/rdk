@@ -67,7 +67,7 @@ func ReadCaptureFile(f *os.File) (*CaptureFile, error) {
 	md := &v1.DataCaptureMetadata{}
 	initOffset, err := pbutil.ReadDelimited(f, md)
 	if err != nil {
-		return nil, errors.Wrapf(err, fmt.Sprintf("failed to read DataCaptureMetadata from %s", f.Name()))
+		return nil, errors.Wrapf(err, fmt.Sprintf("failed to read DataCaptureMetadata from %s", f.Name())) //nolint:govet
 	}
 
 	ret := CaptureFile{
@@ -124,7 +124,7 @@ func (f *CaptureFile) ReadNext() (*v1.SensorData, error) {
 		return nil, err
 	}
 
-	if _, err := f.file.Seek(f.readOffset, 0); err != nil {
+	if _, err := f.file.Seek(f.readOffset, io.SeekStart); err != nil {
 		return nil, err
 	}
 	r := v1.SensorData{}
@@ -284,6 +284,7 @@ func GetFileExt(dataType v1.DataType, methodName string, parameters map[string]s
 }
 
 // SensorDataFromCaptureFilePath returns all readings in the file at filePath.
+// NOTE: (Nick S) At time of writing this is only used in tests.
 func SensorDataFromCaptureFilePath(filePath string) ([]*v1.SensorData, error) {
 	//nolint:gosec
 	f, err := os.Open(filePath)
@@ -305,6 +306,8 @@ func SensorDataFromCaptureFile(f *CaptureFile) ([]*v1.SensorData, error) {
 	for {
 		next, err := f.ReadNext()
 		if err != nil {
+			// TODO: This swallows errors if the capture file has invalid proto in it
+			// https://viam.atlassian.net/browse/DATA-3068
 			if errors.Is(err, io.EOF) || errors.Is(err, io.ErrUnexpectedEOF) {
 				break
 			}
