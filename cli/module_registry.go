@@ -46,8 +46,9 @@ type moduleVisibility string
 
 // Permissions enumeration.
 const (
-	moduleVisibilityPrivate moduleVisibility = "private"
-	moduleVisibilityPublic  moduleVisibility = "public"
+	moduleVisibilityPrivate        moduleVisibility = "private"
+	moduleVisibilityPublic         moduleVisibility = "public"
+	moduleVisibilityPublicUnlisted moduleVisibility = "public_unlisted"
 )
 
 type unknownRdkAPITypeError struct {
@@ -584,9 +585,12 @@ func visibilityToProto(visibility moduleVisibility) (apppb.Visibility, error) {
 		return apppb.Visibility_VISIBILITY_PRIVATE, nil
 	case moduleVisibilityPublic:
 		return apppb.Visibility_VISIBILITY_PUBLIC, nil
+	case moduleVisibilityPublicUnlisted:
+		return apppb.Visibility_VISIBILITY_PUBLIC_UNLISTED, nil
 	default:
 		return apppb.Visibility_VISIBILITY_UNSPECIFIED,
-			errors.Errorf("invalid module visibility. must be either %q or %q", moduleVisibilityPublic, moduleVisibilityPrivate)
+			errors.Errorf("invalid module visibility. must be either %q, %q, or %q",
+				moduleVisibilityPublic, moduleVisibilityPrivate, moduleVisibilityPublicUnlisted)
 	}
 }
 
