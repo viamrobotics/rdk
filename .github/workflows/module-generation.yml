@@ -16,13 +16,13 @@ jobs:
       matrix:
         resource: ["arm component"]
     steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
       - name: Setup Go environment
         uses: actions/setup-go@v5
         with:
-          go-version: "^1.23"
-
-      - name: Checkout Code
-        uses: actions/checkout@v4
+          go-version-file: go.mod
 
       - name: Run module generator
         run: go run ./cli/viam --debug module generate --resource "${{ matrix.resource }}"
