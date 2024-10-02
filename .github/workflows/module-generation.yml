@@ -48,15 +48,16 @@ jobs:
         run: |
           cd cli/viam
           go run . module generate --resource "${{ matrix.resource }}"
-          ls -la
+          ls
           echo "right after generation"
           pwd
+          find . -name "my-module"
 
       - name: Run module
         run: |
           echo "right before running module"
           pwd
-          cd my-module
+          cd cli/viam/my-module
           chmod +x run.sh
           ./run.sh /tmp/viam.sock &
           PID=$!
