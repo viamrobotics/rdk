@@ -169,9 +169,9 @@ func (c *viamClient) moduleBuildListAction(cCtx *cli.Context) error {
 	// minwidth, tabwidth, padding int, padchar byte, flags uint
 	w := tabwriter.NewWriter(cCtx.App.Writer, 5, 4, 1, ' ', 0)
 	tableFormat := "%s\t%s\t%s\t%s\t%s\n"
-	fmt.Fprintf(w, tableFormat, "ID", "PLATFORM", "STATUS", "VERSION", "TIME")
+	fmt.Fprintf(w, tableFormat, "ID", "PLATFORM", "STATUS", "VERSION", "TIME") //nolint:errcheck
 	for _, job := range jobs.Jobs {
-		fmt.Fprintf(w,
+		fmt.Fprintf(w, //nolint:errcheck
 			tableFormat,
 			job.BuildId,
 			job.Platform,
@@ -359,7 +359,7 @@ func (c *viamClient) printModuleBuildLogs(buildID, platform string) error {
 			infof(c.c.App.Writer, log.BuildStep)
 			lastBuildStep = log.BuildStep
 		}
-		fmt.Fprint(c.c.App.Writer, log.Data) // data is already formatted with newlines
+		fmt.Fprint(c.c.App.Writer, log.Data) //nolint:errcheck // data is already formatted with newlines
 	}
 
 	return nil
