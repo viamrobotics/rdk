@@ -965,7 +965,7 @@ func (mgr *Manager) attemptRestart(ctx context.Context, mod *module) []resource.
 func (m *module) dial() error {
 	// TODO(PRODUCT-343): session support probably means interceptors here
 	var err error
-	conn, err := grpc.Dial(
+	conn, err := grpc.Dial( //nolint:staticcheck
 		"unix://"+m.addr,
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 		grpc.WithChainUnaryInterceptor(

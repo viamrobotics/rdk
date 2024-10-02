@@ -900,7 +900,7 @@ func sendUploadRequests(ctx context.Context, moduleStream apppb.AppService_Uploa
 
 		// Simple progress reading until we have a proper tui library
 		uploadPercent := int(math.Ceil(100 * float64(uploadedBytes) / float64(fileSize)))
-		fmt.Fprintf(stdout, "\rUploading... %d%% (%d/%d bytes)", uploadPercent, uploadedBytes, fileSize) // no newline
+		fmt.Fprintf(stdout, "\rUploading... %d%% (%d/%d bytes)", uploadPercent, uploadedBytes, fileSize) //nolint:errcheck // no newline
 	}
 }
 
