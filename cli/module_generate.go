@@ -92,7 +92,7 @@ func (c *viamClient) generateModuleAction(cCtx *cli.Context) error {
 			ResourceType:     resourceType,
 			ResourceSubtype:  resourceSubtype,
 			ModelName:        "my-model",
-			EnableCloudBuild: true,
+			EnableCloudBuild: false,
 			InitializeGit:    false,
 			GeneratorVersion: "0.1.0",
 			GeneratedOn:      time.Now().UTC(),
