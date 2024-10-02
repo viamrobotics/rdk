@@ -23,7 +23,6 @@ import (
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/components/motor"
 	"go.viam.com/rdk/config"
-	"go.viam.com/rdk/examples/customresources/apis/gizmoapi"
 	"go.viam.com/rdk/logging"
 	modlib "go.viam.com/rdk/module"
 	modmanageroptions "go.viam.com/rdk/module/modmanager/options"
@@ -1328,11 +1327,10 @@ func TestModuleDiscoverRegistered(t *testing.T) {
 	ctx := context.Background()
 	logger := logging.NewTestLogger(t)
 
-	// Precompile module to avoid timeout issues when building takes too long.
-	modPath := rtestutils.BuildTempModule(t, "examples/customresources/demos/complexmodule")
+	modPath := rtestutils.BuildTempModule(t, "module/testmodule")
 
 	modCfg := config.Module{
-		Name:    "complex-module",
+		Name:    "test-module",
 		ExePath: modPath,
 	}
 
@@ -1343,14 +1341,15 @@ func TestModuleDiscoverRegistered(t *testing.T) {
 	err := mgr.Add(ctx, modCfg)
 	test.That(t, err, test.ShouldBeNil)
 
-	// Retrieve the registration for the gizmo model.
-	api := gizmoapi.API
-	model := resource.NewModel("acme", "demo", "mygizmo")
-
-	reg, ok := resource.LookupRegistration(api, model)
+	// The helper model implements actual (foobar) discovery
+	reg, ok := resource.LookupRegistration(generic.API, resource.NewModel("rdk", "test", "helper"))
 	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, reg, test.ShouldNotBeNil)
 
 	// Check that the Discover function is registered.
 	test.That(t, reg.Discover, test.ShouldNotBeNil)
+
+	res, err := reg.Discover(ctx, logger)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, res, test.ShouldNotBeNil)
 }

@@ -1168,6 +1168,10 @@ func (m *module) registerResources(mgr modmaninterface.ModuleManager, logger log
 		case api.API.IsComponent():
 			for _, model := range models {
 				logger.Infow("Registering component API and model from module", "module", m.cfg.Name, "API", api.API, "model", model)
+				// We must copy because the Discover closure func relies on api and model, but they are iterators and mutate.
+				// Copying prevents mutation.
+				modelCopy := model
+				apiCopy := api
 				resource.RegisterComponent(api.API, model, resource.Registration[resource.Resource, resource.NoNativeConfig]{
 					Constructor: func(
 						ctx context.Context,
@@ -1180,13 +1184,13 @@ func (m *module) registerResources(mgr modmaninterface.ModuleManager, logger log
 					Discover: func(ctx context.Context, logger logging.Logger) (interface{}, error) {
 						req := &robotpb.DiscoverComponentsRequest{
 							Queries: []*robotpb.DiscoveryQuery{
-								{Subtype: api.API.String(), Model: model.String()},
+								{Subtype: apiCopy.API.String(), Model: modelCopy.String()},
 							},
 						}
 
 						res, err := m.robotClient.DiscoverComponents(ctx, req)
 						if err != nil {
-							m.logger.Errorf("error in modular DiscoverComponents: %w", err)
+							m.logger.Errorf("error in modular DiscoverComponents: %s", err)
 							return nil, err
 						}
 

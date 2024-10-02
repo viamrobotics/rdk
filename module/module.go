@@ -539,11 +539,11 @@ func (m *Module) DiscoverComponents(
 
 		resInfo, ok := resource.LookupRegistration(api, model)
 		if !ok {
-			m.logger.Warnf("no registration found for API %s and model %s", api, model)
+			return nil, fmt.Errorf("no registration found for API %s and model %s", api, model)
 		}
 
 		if resInfo.Discover == nil {
-			m.logger.Warnf("discovery not supported for API %s and model %s", api, model)
+			return nil, fmt.Errorf("discovery not supported for API %s and model %s", api, model)
 		}
 
 		results, err := resInfo.Discover(ctx, m.logger)
