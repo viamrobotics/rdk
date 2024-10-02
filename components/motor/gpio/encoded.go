@@ -299,7 +299,7 @@ func (m *EncodedMotor) GoFor(ctx context.Context, rpm, revolutions float64, extr
 	return nil
 }
 
-func (m *EncodedMotor) goForInternal(rpm, goalPos, direction float64) error {
+func (m *EncodedMotor) goForInternal(rpm, goalPos, direction float64) error { //nolint:unparam
 	// cancel makeAdjustments if it already exists
 	if m.makeAdjustmentsDone != nil {
 		m.makeAdjustmentsDone()

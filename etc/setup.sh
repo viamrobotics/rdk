@@ -160,7 +160,7 @@ do_brew(){
 	tap  "viamrobotics/brews"
 
 	# pinned
-	brew "go@1.21", link: true, conflicts_with: ["go"]
+	brew "go@1.23", link: true, conflicts_with: ["go"]
 	brew "node@18", link: true, conflicts_with: ["node"]
 
 	# unpinned
@@ -181,8 +181,8 @@ do_brew(){
 		exit 1
 	fi
 
-	# replace default go (currently 1.22, from canon build) with pinned go@1.21
-	brew link --overwrite go@1.21
+	# replace default go with pinned
+	brew link --overwrite go@1.23
 
 	# due to a missing bottle in homebrew, this has to be installed on its own
 	brew install upx
