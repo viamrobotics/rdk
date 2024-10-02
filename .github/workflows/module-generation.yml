@@ -25,7 +25,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Run module generator
-        run: go run ./cli/viam --debug module generate --resource "${{ matrix.resource }}"
+        run: go run ./cli/viam module generate --resource "${{ matrix.resource }}"
 
       - name: Run module
         run: |
