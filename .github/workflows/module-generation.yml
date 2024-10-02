@@ -48,11 +48,6 @@ jobs:
         run: |
           cd cli/viam
           go run . module generate --resource "${{ matrix.resource }}"
-
-      - name: Run module
-        run: |
-          cd cli/viam
-          ls
           cd my-module
           chmod +x run.sh
           ./run.sh /tmp/viam.sock &
