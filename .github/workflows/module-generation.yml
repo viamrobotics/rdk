@@ -25,14 +25,10 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Run module generator
-        run: |
-          go run ./cli/viam module generate --resource "${{ matrix.resource }}"
-          echo "finding my-module..."
-          find $GITHUB_WORKSPACE -name "my-module"
+        run: go run ./cli/viam --debug module generate --resource "${{ matrix.resource }}"
 
       - name: Run module
         run: |
-          pwd
           cd my-module
           chmod +x run.sh
           ./run.sh /tmp/viam.sock &
