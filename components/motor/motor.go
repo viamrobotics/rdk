@@ -63,7 +63,7 @@ var API = resource.APINamespaceRDK.WithComponentType(SubtypeName)
 // SetRPM example:
 //
 //	// Set the motor's RPM to 50
-//	myMotorComponent.SetRPM(context.Background(), 50)
+//	myMotorComponent.SetRPM(context.Background(), 50, nil)
 //
 // ResetZeroPosition example:
 //
