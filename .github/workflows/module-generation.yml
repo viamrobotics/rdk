@@ -50,7 +50,7 @@ jobs:
           go run . module generate --resource "${{ matrix.resource }}"
           ls
           echo "right after generation"
-          pwd
+          cd ../..
           find . -name "my-module"
 
       - name: Run module
