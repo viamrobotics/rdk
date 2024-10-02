@@ -201,7 +201,7 @@ func (c *viamClient) downloadDataset(dst, datasetID string, includeJSONLines boo
 		return errors.Wrapf(err, "error getting dataset ID")
 	}
 	if len(resp.GetDatasets()) == 0 {
-		return errors.New(fmt.Sprintf("%s does not match any dataset IDs", datasetID))
+		return fmt.Errorf("%s does not match any dataset IDs", datasetID)
 	}
 
 	return c.performActionOnBinaryDataFromFilter(
