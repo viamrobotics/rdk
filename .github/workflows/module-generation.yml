@@ -51,6 +51,9 @@ jobs:
 
       - name: Run module
         run: |
+          ls
+          cd cli/viam
+          ls
           cd cli/viam/my-module
           chmod +x run.sh
           ./run.sh /tmp/viam.sock &
