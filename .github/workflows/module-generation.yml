@@ -26,7 +26,7 @@ jobs:
 
       - name: Run module generator
         run: |
-          go run ./cli/viam --debug module generate --resource "${{ matrix.resource }}"
+          go run ./cli/viam module generate --resource "${{ matrix.resource }}"
           echo "finding my-module..."
           find $GITHUB_WORKSPACE -name "my-module"
 
