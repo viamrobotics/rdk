@@ -1,15 +1,15 @@
 import { formatObstacles } from '@/api/navigation';
-import { type ServiceError } from '@viamrobotics/sdk';
-import type { Obstacle } from '@viamrobotics/prime-blocks';
-import { writable } from 'svelte/store';
 import { useConnect } from '@/hooks/robot-client';
 import { setAsyncInterval } from '@/lib/schedule';
+import type { Obstacle } from '@viamrobotics/prime-blocks';
+import { ConnectError } from '@viamrobotics/sdk';
+import { writable } from 'svelte/store';
 import { useNavClient } from './use-nav-client';
 
 export const useObstacles = (name: string) => {
   const navClient = useNavClient(name);
   const obstacles = writable<Obstacle[]>([]);
-  const error = writable<ServiceError | undefined>(undefined);
+  const error = writable<ConnectError | undefined>(undefined);
 
   const updateObstacles = async () => {
     try {
@@ -17,7 +17,7 @@ export const useObstacles = (name: string) => {
       error.set(undefined);
       obstacles.set(formatObstacles(response));
     } catch (error_) {
-      error.set(error_ as ServiceError);
+      error.set(error_ as ConnectError);
       obstacles.set([]);
     }
   };

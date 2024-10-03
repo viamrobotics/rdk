@@ -1,9 +1,9 @@
 <script lang="ts">
-import { gantryApi } from '@viamrobotics/sdk';
+import { useRobotClient } from '@/hooks/robot-client';
+import Collapse from '@/lib/components/collapse.svelte';
 import { displayError } from '@/lib/error';
 import { rcLogConditionally } from '@/lib/log';
-import Collapse from '@/lib/components/collapse.svelte';
-import { useRobotClient } from '@/hooks/robot-client';
+import { gantryApi } from '@viamrobotics/sdk';
 
 export let name: string;
 export let status: {
@@ -50,35 +50,39 @@ const increment = (axis: number, amount: number) => {
     pos[i] = part.pos;
   }
 
+  if (pos[axis] == undefined) {
+    pos[axis] = 0;
+  }
   pos[axis] += amount;
 
-  const req = new gantryApi.MoveToPositionRequest();
-  req.setName(name);
-  req.setPositionsMmList(pos);
+  const req = new gantryApi.MoveToPositionRequest({
+    name,
+    positionsMm: pos,
+  });
 
   rcLogConditionally(req);
-  $robotClient.gantryService.moveToPosition(req, displayError);
+  $robotClient.gantryService.moveToPosition(req).catch(displayError);
 };
 
 const gantryModifyAllDoMoveToPosition = () => {
   const pieces = modifyAllStatus.pieces.map((piece) => piece.pos);
 
-  const req = new gantryApi.MoveToPositionRequest();
-  req.setName(name);
-  req.setPositionsMmList(pieces);
+  const req = new gantryApi.MoveToPositionRequest({
+    name,
+    positionsMm: pieces,
+  });
 
   rcLogConditionally(req);
-  $robotClient.gantryService.moveToPosition(req, displayError);
+  $robotClient.gantryService.moveToPosition(req).catch(displayError);
 
   modifyAll = false;
 };
 
 const gantryHome = () => {
-  const req = new gantryApi.HomeRequest();
-  req.setName(name);
+  const req = new gantryApi.HomeRequest({ name });
 
   rcLogConditionally(req);
-  $robotClient.gantryService.home(req, displayError);
+  $robotClient.gantryService.home(req).catch(displayError);
 };
 
 const gantryModifyAll = () => {
@@ -99,11 +103,10 @@ const gantryModifyAll = () => {
 };
 
 const stop = () => {
-  const req = new gantryApi.StopRequest();
-  req.setName(name);
+  const req = new gantryApi.StopRequest({ name });
 
   rcLogConditionally(req);
-  $robotClient.gantryService.stop(req, displayError);
+  $robotClient.gantryService.stop(req).catch(displayError);
 };
 </script>
 
