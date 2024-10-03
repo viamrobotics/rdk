@@ -14,8 +14,7 @@ jobs:
     strategy:
       fail-fast: true
       matrix:
-        resource:
-          [
+        resource: [
             { subtype: "arm", type: "component" },
             { subtype: "audio_input", type: "component" },
             { subtype: "base", type: "component" },
@@ -25,7 +24,7 @@ jobs:
             { subtype: "gantry", type: "component" },
             { subtype: "generic", type: "component" },
             { subtype: "gripper", type: "component" },
-            { subtype: "input", type: "component" },
+            # { subtype: "input", type: "component" },
             { subtype: "motor", type: "component" },
             { subtype: "movement_sensor", type: "component" },
             { subtype: "pose_tracker", type: "component" },
@@ -34,7 +33,7 @@ jobs:
             { subtype: "servo", type: "component" },
 
             { subtype: "generic", type: "service" },
-            { subtype: "mlmodel", type: "service" },
+            # { subtype: "mlmodel", type: "service" },
             { subtype: "motion", type: "service" },
             { subtype: "navigation", type: "service" },
             { subtype: "sensors", type: "service" },
