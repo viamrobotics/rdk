@@ -280,7 +280,7 @@ func (sb *sensorBase) DoCommand(ctx context.Context, req map[string]interface{})
 		var respStr string
 		for _, pidConf := range *sb.tunedVals {
 			if !pidConf.NeedsAutoTuning() {
-				respStr += fmt.Sprintf(`%s`, pidConf.String())
+				respStr += pidConf.String()
 			}
 		}
 		resp[getPID] = respStr
