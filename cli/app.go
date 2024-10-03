@@ -1487,7 +1487,7 @@ After creation, use 'viam module update' to push your new module to app.viam.com
 							Usage:  "resource type to use in module",
 						},
 						&cli.StringFlag{
-							Name:   moduleFlagSubtype,
+							Name:   moduleFlagResourceSubtype,
 							Usage:  "resource subtype to use in module",
 						},
 					},
