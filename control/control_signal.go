@@ -25,7 +25,7 @@ func makeSignal(name string, blockType controlBlockType) *Signal {
 	return &s
 }
 
-// Make Signals returns a Signal object where the length of its signal[] array is dependent
+// makeSignals returns a Signal object where the length of its signal[] array is dependent
 // on the number of PIDSets from the config.
 func makeSignals(name string, blockType controlBlockType, dimension int) *Signal {
 	var s Signal

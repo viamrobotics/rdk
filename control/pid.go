@@ -40,7 +40,7 @@ type basicPID struct {
 
 // GetTuning returns whether the PID block is currently tuning any signals.
 func (p *basicPID) GetTuning() bool {
-	// using locks so we do not check for tuning mid reconfigure or mid tune
+	// using locks to prevent reading from tuners while the object is being modified
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	return p.getTuning()
@@ -173,6 +173,8 @@ func (p *basicPID) reset() error {
 	}
 
 	for i := 0; i < len(p.PIDSets); i++ {
+		// Create a Tuner object for our PID set. Across all Tuner objects, they share global
+		// values (limUp, limLo, ssR, tuneMethod, stepPct). The only values that differ are P,I,D.
 		if p.PIDSets[i].NeedsAutoTuning() {
 			var ssrVal float64
 			if p.cfg.Attribute["tune_ssr_value"] != nil {
@@ -189,8 +191,6 @@ func (p *basicPID) reset() error {
 				tuneMethod = tuneCalcMethod(p.cfg.Attribute["tune_method"].(string))
 			}
 
-			// Create a Tuner object for our PID set. Across all Tuner objects, they share global
-			// values (limUp, limLo, ssR, tuneMethod, stepPct). The only values that differ are P,I,D.
 			p.tuners[i] = &pidTuner{
 				limUp:      p.limUp,
 				limLo:      p.limLo,
