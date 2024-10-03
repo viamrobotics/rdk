@@ -288,7 +288,7 @@ func (p *PIDLoop) basicControlConfig(endpointName string, pidVals PIDConfig, con
 					"kD":             pidVals.D,
 					"kI":             pidVals.I,
 					"kP":             pidVals.P,
-					// "PIDSets":        []*PIDConfig{&pidVals}, // commenting out until we use it
+					"PIDSets":        []*PIDConfig{&pidVals}, // commenting out until we use it
 					"limit_lo":       -255.0,
 					"limit_up":       255.0,
 					"tune_method":    "ziegerNicholsPI",
@@ -498,7 +498,7 @@ func TunedPIDErr(name string, tunedVals []PIDConfig) error {
 }
 
 func (conf PIDConfig) String() string {
-	return fmt.Sprintf(`{"p": %v, "i": %v, "d": %v, "type": "%v"} `, conf.P, conf.I, conf.D, conf.Type)
+	return fmt.Sprintf("{\"p\": %v, \"i\": %v, \"d\": %v, \"type\": \"%v\"} ", conf.P, conf.I, conf.D, conf.Type)
 }
 
 // TuningInProgressErr returns an error when the loop is actively tuning.
