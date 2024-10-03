@@ -179,19 +179,18 @@ var result Pose
 func BenchmarkCompose(b *testing.B) {
 	r := rand.New(rand.NewSource(517))
 	var x Pose
-	for n := 0; n < b.N; n++ {
-		x = Compose(randPose(r), randPose(r))
+	numIter := b.N
+	poses := [][]Pose{}
+	
+	for i := 0; i < numIter; i++ {
+		p1 := randPose(r)
+		p2 := randPose(r)
+		poses = append(poses, []Pose{p1, p2})
 	}
-	// Prevent compiler from interfering with benchmark
-	result = x
-}
-
-// Use this to measure the actual speed of Compose above.
-func BenchmarkRandPose(b *testing.B) {
-	r := rand.New(rand.NewSource(517))
-	var x Pose
+	
+	b.ResetTimer()
 	for n := 0; n < b.N; n++ {
-		x = randPose(r)
+		x = Compose(poses[n][0], poses[n][1])
 	}
 	// Prevent compiler from interfering with benchmark
 	result = x
