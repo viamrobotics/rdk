@@ -73,10 +73,11 @@ type moduleID struct {
 
 // manifestBuildInfo is the "build" section of meta.json.
 type manifestBuildInfo struct {
-	Build string   `json:"build"`
-	Setup string   `json:"setup"`
-	Path  string   `json:"path"`
-	Arch  []string `json:"arch"`
+	Build      string   `json:"build"`
+	Setup      string   `json:"setup"`
+	Path       string   `json:"path"`
+	Arch       []string `json:"arch"`
+	DarwinDeps []string `json:"darwin_deps,omitempty"`
 }
 
 // defaultBuildInfo has defaults for unset fields in "build".
@@ -87,6 +88,7 @@ var defaultBuildInfo = manifestBuildInfo{
 }
 
 // moduleManifest is used to create & parse manifest.json.
+// Detailed user-facing docs for this are in module.schema.json.
 type moduleManifest struct {
 	Schema      string            `json:"$schema"`
 	ModuleID    string            `json:"module_id"`
