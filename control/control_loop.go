@@ -209,12 +209,9 @@ func (l *Loop) BlockList(ctx context.Context) ([]string, error) {
 }
 
 // GetPIDVals returns the tuned PID values.
+// TODO: update this when MIMO fully supported
 func (l *Loop) GetPIDVals(pidIndex int) PIDConfig {
-	return PIDConfig{
-		P: l.pidBlocks[pidIndex].kP,
-		I: l.pidBlocks[pidIndex].kI,
-		D: l.pidBlocks[pidIndex].kD,
-	}
+	return *l.pidBlocks[pidIndex].PIDSets[0]
 }
 
 // Frequency returns the loop's frequency.
@@ -227,7 +224,7 @@ func (l *Loop) Start() error {
 	if len(l.ts) == 0 {
 		return errors.New("cannot start the control loop if there are no blocks depending on an impulse")
 	}
-	l.logger.Infof("Running loop on %1.4f %+v\r\n", l.cfg.Frequency, l.dt)
+	l.logger.Infof("Running control loop at %1.4f Hz, %+v\r\n", l.cfg.Frequency, l.dt)
 	l.ct = controlTicker{
 		ticker: time.NewTicker(l.dt),
 		stop:   make(chan bool, 1),

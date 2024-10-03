@@ -183,7 +183,7 @@ func (p *PIDLoop) TunePIDLoop(ctx context.Context, cancelFunc context.CancelFunc
 			// check if linear needs to be tuned
 			if p.PIDVals[0].NeedsAutoTuning() {
 				p.logger.Info("tuning linear PID")
-				if err := p.tuneSinglePID(ctx, angularPIDIndex, 0); err != nil {
+				if err := p.tuneSinglePIDBlock(ctx, angularPIDIndex, 0); err != nil {
 					errs = multierr.Combine(errs, err)
 				}
 			}
@@ -191,7 +191,7 @@ func (p *PIDLoop) TunePIDLoop(ctx context.Context, cancelFunc context.CancelFunc
 			// check if angular needs to be tuned
 			if p.PIDVals[1].NeedsAutoTuning() {
 				p.logger.Info("tuning angular PID")
-				if err := p.tuneSinglePID(ctx, linearPIDIndex, 1); err != nil {
+				if err := p.tuneSinglePIDBlock(ctx, linearPIDIndex, 1); err != nil {
 					errs = multierr.Combine(errs, err)
 				}
 			}
@@ -200,13 +200,16 @@ func (p *PIDLoop) TunePIDLoop(ctx context.Context, cancelFunc context.CancelFunc
 	return errs
 }
 
-func (p *PIDLoop) tuneSinglePID(ctx context.Context, blockIndex, pidIndex int) error {
+// tunes a single PID block assuming there are two PID blocks in the loop
+func (p *PIDLoop) tuneSinglePIDBlock(ctx context.Context, blockIndex, pidIndex int) error {
 	// preserve old values and set them to be non-zero
-	pOld := p.ControlConf.Blocks[blockIndex].Attribute["kP"]
-	iOld := p.ControlConf.Blocks[blockIndex].Attribute["kI"]
+	pidOld := p.ControlConf.Blocks[blockIndex].Attribute["PIDSets"].([]*PIDConfig)
 	// to tune one set of PID values, the other PI values must be non-zero
-	p.ControlConf.Blocks[blockIndex].Attribute["kP"] = 0.0001
-	p.ControlConf.Blocks[blockIndex].Attribute["kI"] = 0.0001
+	tempPIDConfigs := make([]*PIDConfig, len(pidOld))
+	for index, _ := range pidOld {
+		tempPIDConfigs[index] = &PIDConfig{P: .001, I: .001}
+	}
+	p.ControlConf.Blocks[blockIndex].Attribute["PIDSets"] = tempPIDConfigs
 	if err := p.StartControlLoop(); err != nil {
 		return err
 	}
@@ -220,8 +223,7 @@ func (p *PIDLoop) tuneSinglePID(ctx context.Context, blockIndex, pidIndex int) e
 	p.ControlLoop = nil
 
 	// reset PI values
-	p.ControlConf.Blocks[blockIndex].Attribute["kP"] = pOld
-	p.ControlConf.Blocks[blockIndex].Attribute["kI"] = iOld
+	p.ControlConf.Blocks[blockIndex].Attribute["PIDSets"] = pidOld
 
 	return nil
 }
@@ -285,10 +287,7 @@ func (p *PIDLoop) basicControlConfig(endpointName string, pidVals PIDConfig, con
 				Attribute: rdkutils.AttributeMap{
 					"int_sat_lim_lo": -255.0,
 					"int_sat_lim_up": 255.0,
-					"kD":             pidVals.D,
-					"kI":             pidVals.I,
-					"kP":             pidVals.P,
-					"PIDSets":        []*PIDConfig{&pidVals}, // commenting out until we use it
+					"PIDSets":        []*PIDConfig{&pidVals},
 					"limit_lo":       -255.0,
 					"limit_up":       255.0,
 					"tune_method":    "ziegerNicholsPI",
@@ -390,9 +389,7 @@ func (p *PIDLoop) addSensorFeedbackVelocityControl(angularPIDVals PIDConfig) {
 		Name: "angular_PID",
 		Type: blockPID,
 		Attribute: rdkutils.AttributeMap{
-			"kD":             angularPIDVals.D,
-			"kI":             angularPIDVals.I,
-			"kP":             angularPIDVals.P,
+			"PIDSets":        []*PIDConfig{&angularPIDVals},
 			"int_sat_lim_lo": -255.0,
 			"int_sat_lim_up": 255.0,
 			"limit_lo":       -255.0,

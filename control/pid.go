@@ -25,18 +25,10 @@ type basicPID struct {
 	mu     sync.Mutex
 	cfg    BlockConfig
 	logger logging.Logger
-	// used by the single input/output controller
-	error float64
-	kI    float64
-	kD    float64
-	kP    float64
-	int   float64
-	tuner pidTuner
 
 	// MIMO gains + state
-	PIDSets  []*PIDConfig
-	tuners   []*pidTuner
-	useMulti bool
+	PIDSets []*PIDConfig
+	tuners  []*pidTuner
 
 	// used by both
 	y        []*Signal
@@ -56,17 +48,13 @@ func (p *basicPID) GetTuning() bool {
 
 func (p *basicPID) getTuning() bool {
 	multiTune := false
-
-	if p.useMulti {
-		for _, tuner := range p.tuners {
-			// the tuners for MIMO are only initialized when we want to tune
-			if tuner != nil {
-				multiTune = tuner.tuning || multiTune
-			}
+	for _, tuner := range p.tuners {
+		// the tuners for MIMO are only initialized when we want to tune
+		if tuner != nil {
+			multiTune = tuner.tuning || multiTune
 		}
-		return multiTune
 	}
-	return p.tuner.tuning
+	return multiTune
 }
 
 // Output returns the discrete step of the PID controller, dt is the delta time between two subsequent call,
@@ -77,71 +65,33 @@ func (p *basicPID) Next(ctx context.Context, x []*Signal, dt time.Duration) ([]*
 	defer p.mu.Unlock()
 	if p.getTuning() {
 		// Multi Input/Output Implementation
-		if p.useMulti {
-			// For each PID Set and its respective Tuner Object, Step through an iteration of tuning until done.
-			for i := 0; i < len(p.PIDSets); i++ {
-				// if we do not need to tune this signal, skip to the next signal
-				if !p.tuners[i].tuning {
-					continue
-				}
-				out, done := p.tuners[i].pidTunerStep(math.Abs(x[0].GetSignalValueAt(i)), p.logger)
-				if done {
-					p.PIDSets[i].D = p.tuners[i].kD
-					p.PIDSets[i].I = p.tuners[i].kI
-					p.PIDSets[i].P = p.tuners[i].kP
-					p.logger.Info("\n\n-------- ***** PID GAINS CALCULATED **** --------")
-					p.logger.CInfof(ctx, "Calculated gains for signal %v are p: %1.6f, i: %1.6f, d: %1.6f",
-						i, p.PIDSets[i].P, p.PIDSets[i].I, p.PIDSets[i].D)
-					p.logger.CInfof(ctx, "You must MANUALLY ADD p, i and d gains to the robot config to use the values after tuning\n\n")
-					p.tuners[i].tuning = false
-				}
-				p.y[0].SetSignalValueAt(i, out)
-				// return early to only step this signal
-				return p.y, true
+
+		// For each PID Set and its respective Tuner Object, Step through an iteration of tuning until done.
+		for i := 0; i < len(p.PIDSets); i++ {
+			// if we do not need to tune this signal, skip to the next signal
+			if !p.tuners[i].tuning {
+				continue
 			}
-		} else {
-			// Single Input/Output Implementation
-			out, done := p.tuner.pidTunerStep(math.Abs(x[0].GetSignalValueAt(0)), p.logger)
+			out, done := p.tuners[i].pidTunerStep(math.Abs(x[0].GetSignalValueAt(i)), p.logger)
 			if done {
-				p.kD = p.tuner.kD
-				p.kI = p.tuner.kI
-				p.kP = p.tuner.kP
+				p.PIDSets[i].D = p.tuners[i].kD
+				p.PIDSets[i].I = p.tuners[i].kI
+				p.PIDSets[i].P = p.tuners[i].kP
 				p.logger.Info("\n\n-------- ***** PID GAINS CALCULATED **** --------")
-				p.logger.CInfof(ctx, "Calculated gains are p: %1.6f, i: %1.6f, d: %1.6f", p.kP, p.kI, p.kD)
+				p.logger.CInfof(ctx, "Calculated gains for signal %v are p: %1.6f, i: %1.6f, d: %1.6f",
+					i, p.PIDSets[i].P, p.PIDSets[i].I, p.PIDSets[i].D)
 				p.logger.CInfof(ctx, "You must MANUALLY ADD p, i and d gains to the robot config to use the values after tuning\n\n")
-				p.tuner.tuning = false
+				p.tuners[i].tuning = false
 			}
-			p.y[0].SetSignalValueAt(0, out)
+			p.y[0].SetSignalValueAt(i, out)
+			// return early to only step this signal
+			return p.y, true
+
 		}
 	} else {
-		// Multi Input/Output Implementation
-		if p.useMulti {
-			for i := 0; i < len(p.PIDSets); i++ {
-				output := calculateSignalValue(p, x, dt, i)
-				p.y[0].SetSignalValueAt(i, output)
-			}
-
-			// Single Input/Output Implementation
-		} else {
-			dtS := dt.Seconds()
-			pvError := x[0].GetSignalValueAt(0)
-			p.int += p.kI * pvError * dtS
-			switch {
-			case p.int >= p.satLimUp:
-				p.int = p.satLimUp
-			case p.int <= p.satLimLo:
-				p.int = p.satLimLo
-			default:
-			}
-			deriv := (pvError - p.error) / dtS
-			output := p.kP*pvError + p.int + p.kD*deriv
-			p.error = pvError
-			if output > p.limUp {
-				output = p.limUp
-			} else if output < p.limLo {
-				output = p.limLo
-			}
-			p.y[0].SetSignalValueAt(0, output)
+		for i := 0; i < len(p.PIDSets); i++ {
+			output := calculateSignalValue(p, x, dt, i)
+			p.y[0].SetSignalValueAt(i, output)
 		}
 	}
 	return p.y, true
@@ -174,8 +124,6 @@ func calculateSignalValue(p *basicPID, x []*Signal, dt time.Duration, sIndex int
 
 func (p *basicPID) reset() error {
 	var ok bool
-	p.int = 0
-	p.error = 0
 
 	// Each PIDSet is taken from the config, if the attribute exists (it's optional).
 	// If PID Sets was given as an attribute, we know we're in 'multi' mode. For each
@@ -186,26 +134,17 @@ func (p *basicPID) reset() error {
 			return errors.New("PIDSet did not initialize correctly")
 		}
 		if len(p.PIDSets) > 0 {
-			p.useMulti = true
 			p.tuners = make([]*pidTuner, len(p.PIDSets))
-
 			for i := 0; i < len(p.PIDSets); i++ {
 				p.PIDSets[i].int = 0
 				p.PIDSets[i].signalErr = 0
 			}
 		}
+	} else {
+		return errors.Errorf("pid block %s does not have a PID configured", p.cfg.Name)
 	}
 
-	if !p.cfg.Attribute.Has("kI") &&
-		!p.cfg.Attribute.Has("kD") &&
-		!p.cfg.Attribute.Has("kP") && !p.useMulti {
-		return errors.Errorf("pid block %s should have at least one kI, kP or kD field", p.cfg.Name)
-	}
-
-	if len(p.cfg.DependsOn) != 1 && !p.useMulti {
-		return errors.Errorf("pid block %s should have 1 input got %d", p.cfg.Name, len(p.cfg.DependsOn))
-	}
-	if len(p.cfg.DependsOn) != len(p.PIDSets) && p.useMulti {
+	if len(p.cfg.DependsOn) != len(p.PIDSets) {
 		return errors.Errorf("pid block %s should have %d inputs got %d", p.cfg.Name, len(p.PIDSets), len(p.cfg.DependsOn))
 	}
 
@@ -233,58 +172,8 @@ func (p *basicPID) reset() error {
 		p.limLo = p.cfg.Attribute["limit_lo"].(float64)
 	}
 
-	if p.useMulti {
-		for i := 0; i < len(p.PIDSets); i++ {
-			if p.PIDSets[i].NeedsAutoTuning() {
-				var ssrVal float64
-				if p.cfg.Attribute["tune_ssr_value"] != nil {
-					ssrVal = p.cfg.Attribute["tune_ssr_value"].(float64)
-				}
-
-				tuneStepPct := 0.35
-				if p.cfg.Attribute.Has("tune_step_pct") {
-					tuneStepPct = p.cfg.Attribute["tune_step_pct"].(float64)
-				}
-
-				tuneMethod := tuneMethodZiegerNicholsPID
-				if p.cfg.Attribute.Has("tune_method") {
-					tuneMethod = tuneCalcMethod(p.cfg.Attribute["tune_method"].(string))
-				}
-
-				// Create a Tuner object for our PID set. Across all Tuner objects, they share global
-				// values (limUp, limLo, ssR, tuneMethod, stepPct). The only values that differ are P,I,D.
-				p.tuners[i] = &pidTuner{
-					limUp:      p.limUp,
-					limLo:      p.limLo,
-					ssRValue:   ssrVal,
-					tuneMethod: tuneMethod,
-					stepPct:    tuneStepPct,
-					kP:         p.PIDSets[i].P,
-					kI:         p.PIDSets[i].I,
-					kD:         p.PIDSets[i].D,
-					tuning:     true,
-				}
-
-				err := p.tuners[i].reset()
-				if err != nil {
-					return err
-				}
-
-				if p.tuners[i].stepPct > 1 || p.tuners[i].stepPct < 0 {
-					return errors.Errorf("tuner pid block %s should have a percentage value between 0-1 for TuneStepPct", p.cfg.Name)
-				}
-			}
-		}
-		// Note: In our Signal[] array, we only have one element. For MIMO, within Signal[0],
-		// the length of the signal[] array is lengthened to accommodate multiple outputs.
-		p.y = make([]*Signal, 1)
-		p.y[0] = makeSignals(p.cfg.Name, p.cfg.Type, len(p.PIDSets))
-	} else {
-		p.kI = p.cfg.Attribute["kI"].(float64)
-		p.kD = p.cfg.Attribute["kD"].(float64)
-		p.kP = p.cfg.Attribute["kP"].(float64)
-
-		if p.kI == 0.0 && p.kD == 0.0 && p.kP == 0.0 {
+	for i := 0; i < len(p.PIDSets); i++ {
+		if p.PIDSets[i].NeedsAutoTuning() {
 			var ssrVal float64
 			if p.cfg.Attribute["tune_ssr_value"] != nil {
 				ssrVal = p.cfg.Attribute["tune_ssr_value"].(float64)
@@ -300,27 +189,34 @@ func (p *basicPID) reset() error {
 				tuneMethod = tuneCalcMethod(p.cfg.Attribute["tune_method"].(string))
 			}
 
-			p.tuner = pidTuner{
+			// Create a Tuner object for our PID set. Across all Tuner objects, they share global
+			// values (limUp, limLo, ssR, tuneMethod, stepPct). The only values that differ are P,I,D.
+			p.tuners[i] = &pidTuner{
 				limUp:      p.limUp,
 				limLo:      p.limLo,
 				ssRValue:   ssrVal,
 				tuneMethod: tuneMethod,
 				stepPct:    tuneStepPct,
+				kP:         p.PIDSets[i].P,
+				kI:         p.PIDSets[i].I,
+				kD:         p.PIDSets[i].D,
 				tuning:     true,
 			}
-			err := p.tuner.reset()
+
+			err := p.tuners[i].reset()
 			if err != nil {
 				return err
 			}
 
-			if p.tuner.stepPct > 1 || p.tuner.stepPct < 0 {
+			if p.tuners[i].stepPct > 1 || p.tuners[i].stepPct < 0 {
 				return errors.Errorf("tuner pid block %s should have a percentage value between 0-1 for TuneStepPct", p.cfg.Name)
 			}
 		}
-
-		p.y = make([]*Signal, 1)
-		p.y[0] = makeSignal(p.cfg.Name, p.cfg.Type)
 	}
+	// Note: In our Signal[] array, we only have one element. For MIMO, within Signal[0],
+	// the length of the signal[] array is lengthened to accommodate multiple outputs.
+	p.y = make([]*Signal, 1)
+	p.y[0] = makeSignals(p.cfg.Name, p.cfg.Type, len(p.PIDSets))
 
 	return nil
 }
