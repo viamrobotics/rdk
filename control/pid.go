@@ -86,7 +86,6 @@ func (p *basicPID) Next(ctx context.Context, x []*Signal, dt time.Duration) ([]*
 			p.y[0].SetSignalValueAt(i, out)
 			// return early to only step this signal
 			return p.y, true
-
 		}
 	} else {
 		for i := 0; i < len(p.PIDSets); i++ {

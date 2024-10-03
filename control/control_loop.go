@@ -209,7 +209,7 @@ func (l *Loop) BlockList(ctx context.Context) ([]string, error) {
 }
 
 // GetPIDVals returns the tuned PID values.
-// TODO: update this when MIMO fully supported
+// TODO: update this when MIMO fully supported.
 func (l *Loop) GetPIDVals(pidIndex int) PIDConfig {
 	return *l.pidBlocks[pidIndex].PIDSets[0]
 }

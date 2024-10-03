@@ -200,13 +200,13 @@ func (p *PIDLoop) TunePIDLoop(ctx context.Context, cancelFunc context.CancelFunc
 	return errs
 }
 
-// tunes a single PID block assuming there are two PID blocks in the loop
+// tunes a single PID block assuming there are two PID blocks in the loop.
 func (p *PIDLoop) tuneSinglePIDBlock(ctx context.Context, blockIndex, pidIndex int) error {
 	// preserve old values and set them to be non-zero
 	pidOld := p.ControlConf.Blocks[blockIndex].Attribute["PIDSets"].([]*PIDConfig)
 	// to tune one set of PID values, the other PI values must be non-zero
 	tempPIDConfigs := make([]*PIDConfig, len(pidOld))
-	for index, _ := range pidOld {
+	for index := range pidOld {
 		tempPIDConfigs[index] = &PIDConfig{P: .001, I: .001}
 	}
 	p.ControlConf.Blocks[blockIndex].Attribute["PIDSets"] = tempPIDConfigs
