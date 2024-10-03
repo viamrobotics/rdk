@@ -150,7 +150,10 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 				ID:         cfgFromDisk.Cloud.ID,
 				Secret:     cfgFromDisk.Cloud.Secret,
 			},
-			nil, false, logger.Sublogger("networking.netlogger"),
+			// Explicitly create a different logger here instead of making a
+			// sublogger of `rdk` to avoid `rdk.networking` never getting the actual
+			// net appender as an appender.
+			nil, false, logging.NewLogger("rdk.networking.netlogger"),
 		)
 		if err != nil {
 			return err
