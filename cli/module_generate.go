@@ -78,16 +78,15 @@ func GenerateModuleAction(cCtx *cli.Context) error {
 func (c *viamClient) generateModuleAction(cCtx *cli.Context) error {
 	var newModule *moduleInputs
 	var err error
-	resource := cCtx.String(moduleFlagResource)
-	if resource != "" {
-		resourceSubtype := strings.Fields(resource)[0]
-		resourceType := strings.Fields(resource)[1]
+	resourceSubtype := cCtx.String(moduleFlagResourceSubtype)
+	resourceType := cCtx.String(moduleFlagResourceType)
+	if resourceSubtype != "" {
 		newModule = &moduleInputs{
 			ModuleName:       "my-module",
 			IsPublic:         false,
 			Namespace:        "my-org",
 			Language:         "python",
-			Resource:         resource,
+			Resource:         resourceSubtype + resourceType,
 			ResourceType:     resourceType,
 			ResourceSubtype:  resourceSubtype,
 			ModelName:        "my-model",
