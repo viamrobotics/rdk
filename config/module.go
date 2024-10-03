@@ -163,6 +163,8 @@ func parseJSONFile[T any](path string) (*T, error) {
 // 2. if this is a local tarball and there's a meta.json next to the tarball, use that.
 // 3. otherwise use the exe path from config, or fail if this is a local tarball.
 // Note: the working directory must be the unpacked tarball directory or local exec directory.
+//
+// TODO: add a version of this for first_run
 func (m Module) EvaluateExePath(packagesDir string) (string, error) {
 	if !filepath.IsAbs(m.ExePath) {
 		return "", fmt.Errorf("expected ExePath to be absolute path, got %s", m.ExePath)

@@ -99,6 +99,9 @@ type moduleManifest struct {
 	// JsonManifest provides fields shared with RDK proper.
 	modconfig.JSONManifest
 	Build *manifestBuildInfo `json:"build,omitempty"`
+	// FirstRun contains a path to a setup script that is run before a newly downloaded
+	// module starts.
+	FirstRun string `json:"first_run"`
 }
 
 const (
