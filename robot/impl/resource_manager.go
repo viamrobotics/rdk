@@ -185,6 +185,29 @@ func (manager *resourceManager) updateRemoteResourceNames(
 	manager.logger.CDebugw(ctx, "updating remote resource names", "remote", remoteName, "recreateAllClients", recreateAllClients)
 	activeResourceNames := map[resource.Name]bool{}
 	newResources := rr.ResourceNames()
+
+	// The connection to the remote is broken. In this case, we mark each resource node
+	// on this remote as disconnected but do not report any other changes.
+	if newResources == nil {
+		remoteGraph, err := manager.resources.SubGraphFrom(remoteName)
+		if err != nil {
+			manager.logger.Error(
+				"unable to lookup remote resources internally",
+				"remote", remoteName,
+				"error", err,
+			)
+			return false
+		}
+		for _, name := range remoteGraph.Names() {
+			gNode, ok := manager.resources.Node(name)
+			if !ok {
+				continue
+			}
+			gNode.SetUnreachable()
+		}
+		return false
+	}
+
 	oldResources := manager.remoteResourceNames(remoteName)
 	for _, res := range oldResources {
 		activeResourceNames[res] = false
@@ -367,6 +390,48 @@ func (manager *resourceManager) ResourceNames() []resource.Name {
 		names = append(names, k)
 	}
 	return names
+}
+
+// reachableResourceNames returns the names of all reachable resources in the manager.
+func (manager *resourceManager) reachableResourceNames() []resource.Name {
+	names := []resource.Name{}
+	for _, name := range manager.resources.Names() {
+		node, ok := manager.resources.Node(name)
+		if !ok || !node.HasResource() {
+			continue
+		}
+		if node.Unreachable() {
+			continue
+		}
+		names = append(names, name)
+	}
+	return names
+}
+
+// ResourceStatuses returns the names of all resources in the manager, excluding the following types of resources:
+// - Resources that represent entire remote machines.
+// - Resources that are considered internal to viam-server that cannot be removed via configuration.
+func (manager *resourceManager) ResourceStatuses() []resource.Status {
+	result := []resource.Status{}
+	for _, name := range manager.resources.Names() {
+		if name.API == client.RemoteAPI {
+			continue
+		}
+		if name.API.Type.Namespace == resource.APINamespaceRDKInternal {
+			continue
+		}
+
+		gNode, ok := manager.resources.Node(name)
+		if !ok || gNode.IsUninitialized() {
+			continue
+		}
+
+		s := gNode.ResourceStatus()
+		// replace with fully-qualified remote name
+		s.Name = name
+		result = append(result, s)
+	}
+	return result
 }
 
 // ResourceRPCAPIs returns the types of all resource RPC APIs in use by the manager.

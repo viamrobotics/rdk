@@ -79,6 +79,10 @@ type GraphNode struct {
 	// stored the on the revision field.
 	pendingRevision string
 	revision        string
+
+	// unreachable is an informational field that indicates if a resource on a remote
+	// machine is disconnected.
+	unreachable bool
 }
 
 var (
@@ -359,6 +363,20 @@ func (w *GraphNode) SetNewConfig(newConfig Config, dependencies []string) {
 func (w *GraphNode) SetNeedsUpdate() {
 	// doing two mutex ops here but we assume there's only one caller.
 	w.setNeedsReconfigure(w.Config(), false, w.UnresolvedDependencies())
+}
+
+// SetUnreachable marks a remote resource node as disconnected.
+func (w *GraphNode) SetUnreachable() {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	w.unreachable = true
+}
+
+// Unreachable indicates if a remote resource node is disconnected.
+func (w *GraphNode) Unreachable() bool {
+	w.mu.RLock()
+	defer w.mu.RLock()
+	return w.unreachable
 }
 
 // setUnresolvedDependencies sets names that are yet to be resolved as
