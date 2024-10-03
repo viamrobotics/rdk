@@ -498,7 +498,7 @@ func TunedPIDErr(name string, tunedVals []PIDConfig) error {
 }
 
 func (conf PIDConfig) String() string {
-	return fmt.Sprintf("{\"p\": %v, \"i\": %v, \"d\": %v, \"type\": \"%v\"} ", conf.P, conf.I, conf.D, conf.Type)
+	return fmt.Sprintf(`{"p": %v, "i": %v, "d": %v, "type": "%v"} `, conf.P, conf.I, conf.D, conf.Type)
 }
 
 // TuningInProgressErr returns an error when the loop is actively tuning.
