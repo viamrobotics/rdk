@@ -23,7 +23,7 @@ def main(
     resource = getattr(module, resource_name)
     methods = inspect.getmembers(resource, predicate=inspect.isfunction)
 
-    imports = []
+    imports = ["import viam"]
     abstract_methods = []
     for name, method in methods:
         if getattr(method, "__isabstractmethod__", False):
