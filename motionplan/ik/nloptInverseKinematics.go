@@ -206,7 +206,7 @@ func (ik *NloptIK) Solve(ctx context.Context,
 			default:
 			}
 			solutionChan <- &Solution{
-				Configuration: referenceframe.FloatsToInputs(solutionRaw),
+				Configuration: solutionRaw,
 				Score:         result,
 				Exact:         result < ik.epsilon,
 			}

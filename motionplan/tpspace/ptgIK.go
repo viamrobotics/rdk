@@ -113,7 +113,7 @@ func (ptg *ptgIK) Solve(
 		// If nlopt failed to gradient descend, it will return the seed. If the seed is what was returned, we want to use our precomputed
 		// grid check instead.
 		for i, v := range solved.Configuration {
-			if v.Value != seed[i].Value {
+			if v != seed[i] {
 				seedOutput = false
 				break
 			}

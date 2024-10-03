@@ -54,7 +54,7 @@ func NewPTGGridSim(simPTG PTG, arcs uint, simDist float64, endsOnly bool) (PTGSo
 func (ptg *ptgGridSim) Solve(
 	ctx context.Context,
 	seed []referenceframe.Input,
-	solveMetric func(spatialmath.Pose)float64,
+	goal spatialmath.Pose,
 ) (*ik.Solution, error) {
 	// Try to find a closest point to the paths:
 	bestDist := math.Inf(1)
@@ -75,7 +75,7 @@ func (ptg *ptgGridSim) Solve(
 
 		if bestNode != nil {
 			return &ik.Solution{
-				Configuration: []referenceframe.Input{{bestNode.Alpha}, {bestNode.Dist}},
+				Configuration: []float64{bestNode.Alpha, bestNode.Dist},
 				Score:         bestDist,
 				Exact:         false,
 			}, nil
@@ -96,7 +96,7 @@ func (ptg *ptgGridSim) Solve(
 	}
 
 	return &ik.Solution{
-		Configuration: []referenceframe.Input{{bestNode.Alpha}, {bestNode.Dist}},
+		Configuration: []float64{bestNode.Alpha, bestNode.Dist},
 		Score:         bestDist,
 		Exact:         false,
 	}, nil

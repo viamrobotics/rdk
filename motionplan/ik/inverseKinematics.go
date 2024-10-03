@@ -30,7 +30,7 @@ type InverseKinematics interface {
 // Solution is the struct returned from an IK solver. It contains the solution configuration, the score of the solution, and a flag
 // indicating whether that configuration and score met the solution criteria requested by the caller.
 type Solution struct {
-	Configuration []referenceframe.Input
+	Configuration []float64
 	Score         float64
 	Exact         bool
 }
