@@ -77,7 +77,19 @@ func (c *viamClient) moduleBuildStartAction(cCtx *cli.Context) error {
 	}
 
 	gitRef := cCtx.String(moduleBuildFlagRef)
-	res, err := c.startBuild(manifest.URL, gitRef, manifest.ModuleID, platforms, version)
+	token := cCtx.String(moduleBuildFlagToken)
+	req := buildpb.StartBuildRequest{
+		Repo:          manifest.URL,
+		Ref:           &gitRef,
+		Platforms:     platforms,
+		ModuleId:      manifest.ModuleID,
+		ModuleVersion: version,
+		Token:         &token,
+	}
+	if err := c.ensureLoggedIn(); err != nil {
+		return err
+	}
+	res, err := c.buildClient.StartBuild(c.c.Context, &req)
 	if err != nil {
 		return err
 	}
@@ -313,20 +325,6 @@ func ModuleBuildLinkRepoAction(c *cli.Context) error {
 	}
 	infof(c.App.Writer, "Successfully created link with ID %s", res.RepoLinkId)
 	return nil
-}
-
-func (c *viamClient) startBuild(repo, ref, moduleID string, platforms []string, version string) (*buildpb.StartBuildResponse, error) {
-	if err := c.ensureLoggedIn(); err != nil {
-		return nil, err
-	}
-	req := buildpb.StartBuildRequest{
-		Repo:          repo,
-		Ref:           &ref,
-		Platforms:     platforms,
-		ModuleId:      moduleID,
-		ModuleVersion: version,
-	}
-	return c.buildClient.StartBuild(c.c.Context, &req)
 }
 
 func (c *viamClient) printModuleBuildLogs(buildID, platform string) error {
