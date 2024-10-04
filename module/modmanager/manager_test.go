@@ -2,6 +2,7 @@ package modmanager
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -31,6 +32,20 @@ import (
 	rtestutils "go.viam.com/rdk/testutils"
 	rutils "go.viam.com/rdk/utils"
 )
+
+type TestDiscoveryResult struct {
+	Discovery []TestDiscoveryItem `json:"discovery"`
+}
+
+type TestDiscoveryItem struct {
+	Query   TestDiscoveryQuery `json:"query"`
+	Results map[string]string  `json:"results"`
+}
+
+type TestDiscoveryQuery struct {
+	Subtype string `json:"subtype"`
+	Model   string `json:"model"`
+}
 
 func setupSocketWithRobot(t *testing.T) string {
 	t.Helper()
@@ -1323,7 +1338,7 @@ func TestBadModuleFailsFast(t *testing.T) {
 	test.That(t, err.Error(), test.ShouldContainSubstring, "module test-module exited too quickly after attempted startup")
 }
 
-func TestModuleDiscoverRegistered(t *testing.T) {
+func TestModularDiscovery(t *testing.T) {
 	ctx := context.Background()
 	logger := logging.NewTestLogger(t)
 
@@ -1346,10 +1361,28 @@ func TestModuleDiscoverRegistered(t *testing.T) {
 	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, reg, test.ShouldNotBeNil)
 
-	// Check that the Discover function is registered.
+	// Check that the Discover function is registered and make call
 	test.That(t, reg.Discover, test.ShouldNotBeNil)
-
-	res, err := reg.Discover(ctx, logger)
+	result, err := reg.Discover(ctx, logger)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, res, test.ShouldNotBeNil)
+	t.Log("Discovery result: ", result)
+
+	// Format result
+	jsonData, err := json.Marshal(result)
+	test.That(t, err, test.ShouldBeNil)
+	// Debug: print the JSON data
+	t.Logf("Raw JSON: %s", string(jsonData))
+
+	var discoveryResult TestDiscoveryResult
+	err = json.Unmarshal(jsonData, &discoveryResult)
+	test.That(t, err, test.ShouldBeNil)
+	// Debug: print the casted struct
+	t.Logf("Casted struct: %+v", discoveryResult)
+
+	// Test fields
+	test.That(t, len(discoveryResult.Discovery), test.ShouldEqual, 1)
+	discovery := discoveryResult.Discovery[0]
+	test.That(t, discovery.Query.Subtype, test.ShouldEqual, "rdk:component:generic")
+	test.That(t, discovery.Query.Model, test.ShouldEqual, "rdk:test:helper")
+	test.That(t, discovery.Results["foo"], test.ShouldEqual, "bar")
 }
