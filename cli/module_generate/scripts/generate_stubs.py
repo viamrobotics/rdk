@@ -83,6 +83,8 @@ def main(
                 for cstmt in stmt.body:
                     if isinstance(cstmt, ast.ClassDef):
                         nodes.append(cstmt.name)
+                    elif isinstance(cstmt, ast.AnnAssign):
+                        nodes.append(cstmt.target.id)
                     elif isinstance(cstmt, ast.AsyncFunctionDef):
                         for arg in cstmt.args.args:
                             if isinstance(arg.annotation, ast.Name) and arg.annotation.id in nodes:
