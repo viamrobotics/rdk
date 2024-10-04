@@ -365,13 +365,6 @@ func (w *GraphNode) SetNeedsUpdate() {
 	w.setNeedsReconfigure(w.Config(), false, w.UnresolvedDependencies())
 }
 
-// SetUnreachable marks a remote resource node as disconnected.
-func (w *GraphNode) SetUnreachable() {
-	w.mu.Lock()
-	defer w.mu.Unlock()
-	w.unreachable = true
-}
-
 // setUnresolvedDependencies sets names that are yet to be resolved as
 // dependencies for the node. Note that even an empty list will still
 // set needsDependencyResolution to true. If no resolution is needed,

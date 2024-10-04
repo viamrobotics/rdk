@@ -644,6 +644,11 @@ func (g *Graph) isNodeDependingOn(node, child Name) bool {
 func (g *Graph) SubGraphFrom(node Name) (*Graph, error) {
 	g.mu.Lock()
 	defer g.mu.Unlock()
+
+	return g.subGraphFrom(node)
+}
+
+func (g *Graph) subGraphFrom(node Name) (*Graph, error) {
 	if _, ok := g.nodes[node]; !ok {
 		return nil, errors.Errorf("cannot create sub-graph from non existing node %q ", node.Name)
 	}
@@ -655,6 +660,21 @@ func (g *Graph) SubGraphFrom(node Name) (*Graph, error) {
 		}
 	}
 	return subGraph, nil
+}
+
+// MarkReachability marks all nodes in the subgraph from the given [Name] node as either reachable [true] or unreachable [false].
+func (g *Graph) MarkReachability(node Name, reachable bool) error {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+
+	subGraph, err := g.subGraphFrom(node)
+	if err != nil {
+		return err
+	}
+	for _, node := range subGraph.nodes {
+		node.unreachable = !reachable
+	}
+	return nil
 }
 
 // Status returns a slice of all graph node statuses.

@@ -189,27 +189,26 @@ func (manager *resourceManager) updateRemoteResourceNames(
 	// The connection to the remote is broken. In this case, we mark each resource node
 	// on this remote as disconnected but do not report any other changes.
 	if newResources == nil {
-		remoteGraph, err := manager.resources.SubGraphFrom(remoteName)
+		err := manager.resources.MarkReachability(remoteName, false)
 		if err != nil {
 			manager.logger.Error(
-				"unable to lookup remote resources internally",
+				"unable to mark remote resources as unreachable",
 				"remote", remoteName,
 				"error", err,
 			)
-			return false
-		}
-		for _, name := range remoteGraph.Names() {
-			gNode, ok := manager.resources.Node(name)
-			if !ok {
-				continue
-			}
-			gNode.SetUnreachable()
 		}
 		return false
 	}
 
+	err := manager.resources.MarkReachability(remoteName, true)
+	if err != nil {
+		manager.logger.Error(
+			"unable to mark remote resources as reachable",
+			"remote", remoteName,
+			"error", err,
+		)
+	}
 	oldResources := manager.remoteResourceNames(remoteName)
-	// TODO: mark reachable
 	for _, res := range oldResources {
 		activeResourceNames[res] = false
 	}
