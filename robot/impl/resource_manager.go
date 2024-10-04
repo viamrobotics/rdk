@@ -216,15 +216,14 @@ func (manager *resourceManager) updateRemoteResourceNames(
 
 	for _, resName := range newResources {
 		remoteResName := resName
+		resLogger := logger.WithFields("resource", remoteResName)
 		res, err := rr.ResourceByName(remoteResName) // this returns a remote known OR foreign resource client
 		if err != nil {
 			if errors.Is(err, client.ErrMissingClientRegistration) {
-				logger.CDebugw(ctx, "couldn't obtain remote resource interface",
-					"resource", remoteResName,
+				resLogger.CDebugw(ctx, "couldn't obtain remote resource interface",
 					"reason", err)
 			} else {
-				logger.CErrorw(ctx, "couldn't obtain remote resource interface",
-					"resource", remoteResName,
+				resLogger.CErrorw(ctx, "couldn't obtain remote resource interface",
 					"reason", err)
 			}
 			continue
@@ -242,18 +241,16 @@ func (manager *resourceManager) updateRemoteResourceNames(
 					continue
 				}
 				// reconfiguration attempt, remote could have changed, so close all duplicate name remote resource clients and readd new ones later
-				logger.CDebugw(ctx, "attempting to remove remote resource", "name", resName)
+				resLogger.CDebugw(ctx, "attempting to remove remote resource")
 				if err := manager.markChildrenForUpdate(resName); err != nil {
-					logger.CErrorw(ctx,
+					resLogger.CErrorw(ctx,
 						"failed to mark children of remote resource for update",
-						"resource", resName,
 						"reason", err)
 					continue
 				}
 				if err := gNode.Close(ctx); err != nil {
-					logger.CErrorw(ctx,
+					resLogger.CErrorw(ctx,
 						"failed to close remote resource node",
-						"resource", resName,
 						"reason", err)
 				}
 			}
@@ -264,48 +261,45 @@ func (manager *resourceManager) updateRemoteResourceNames(
 		} else {
 			gNode = resource.NewConfiguredGraphNode(resource.Config{}, res, unknownModel)
 			if err := manager.resources.AddNode(resName, gNode); err != nil {
-				logger.CErrorw(ctx, "failed to add remote resource node", "resource", resName, "error", err)
+				resLogger.CErrorw(ctx, "failed to add remote resource node", "error", err)
 			}
 		}
 
 		err = manager.resources.AddChild(resName, remoteName)
 		if err != nil {
-			logger.CErrorw(ctx,
-				"error while trying add node as a dependency of remote",
-				"resource", resName)
+			resLogger.CErrorw(ctx,
+				"error while trying add node as a dependency of remote")
 		} else {
 			anythingChanged = true
 		}
-		if anythingChanged {
-			logger.CDebugw(ctx, "remote resource names update completed with changes to resource graph")
-		} else {
-			logger.CDebugw(ctx, "remote resource names update completed with no changes to resource graph")
-		}
+	}
+
+	if anythingChanged {
+		logger.CDebugw(ctx, "remote resource names update completed with changes to resource graph")
+	} else {
+		logger.CDebugw(ctx, "remote resource names update completed with no changes to resource graph")
 	}
 
 	for resName, isActive := range activeResourceNames {
 		if isActive {
 			continue
 		}
-		logger.CDebugw(ctx, "attempting to remove remote resource", "name", resName)
+		resLogger := logger.WithFields("resource", resName)
+		resLogger.CDebugw(ctx, "attempting to remove remote resource")
 		gNode, ok := manager.resources.Node(resName)
 		if !ok || gNode.IsUninitialized() {
-			logger.CDebugw(ctx,
-				"remote resource already removed",
-				"resource", resName)
+			resLogger.CDebugw(ctx, "remote resource already removed")
 			continue
 		}
 		if err := manager.markChildrenForUpdate(resName); err != nil {
-			logger.CErrorw(ctx,
+			resLogger.CErrorw(ctx,
 				"failed to mark children of remote resource for update",
-				"resource", resName,
 				"reason", err)
 			continue
 		}
 		if err := gNode.Close(ctx); err != nil {
-			logger.CErrorw(ctx,
+			resLogger.CErrorw(ctx,
 				"failed to close remote resource node",
-				"resource", resName,
 				"reason", err)
 		}
 		anythingChanged = true
