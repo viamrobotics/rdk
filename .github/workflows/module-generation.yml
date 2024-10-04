@@ -33,7 +33,7 @@ jobs:
             { subtype: "servo", type: "component" },
 
             { subtype: "generic", type: "service" },
-            { subtype: "mlmodel", type: "service" },
+            # { subtype: "mlmodel", type: "service" },
             # { subtype: "motion", type: "service" },
             { subtype: "navigation", type: "service" },
             { subtype: "sensors", type: "service" },
