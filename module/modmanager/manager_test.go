@@ -33,16 +33,16 @@ import (
 	rutils "go.viam.com/rdk/utils"
 )
 
-type TestDiscoveryResult struct {
-	Discovery []TestDiscoveryItem `json:"discovery"`
+type testDiscoveryResult struct {
+	Discovery []testDiscoveryItem `json:"discovery"`
 }
 
-type TestDiscoveryItem struct {
-	Query   TestDiscoveryQuery `json:"query"`
+type testDiscoveryItem struct {
+	Query   testDiscoveryQuery `json:"query"`
 	Results map[string]string  `json:"results"`
 }
 
-type TestDiscoveryQuery struct {
+type testDiscoveryQuery struct {
 	Subtype string `json:"subtype"`
 	Model   string `json:"model"`
 }
@@ -1373,7 +1373,7 @@ func TestModularDiscovery(t *testing.T) {
 	// Debug: print the JSON data
 	t.Logf("Raw JSON: %s", string(jsonData))
 
-	var discoveryResult TestDiscoveryResult
+	var discoveryResult testDiscoveryResult
 	err = json.Unmarshal(jsonData, &discoveryResult)
 	test.That(t, err, test.ShouldBeNil)
 	// Debug: print the casted struct
