@@ -1422,7 +1422,7 @@ func (r *localRobot) Shutdown(ctx context.Context) error {
 func (r *localRobot) MachineStatus(ctx context.Context) (robot.MachineStatus, error) {
 	var result robot.MachineStatus
 
-	result.Resources = r.manager.ResourceStatuses()
+	result.Resources = append(result.Resources, r.manager.resources.Status()...)
 
 	r.configRevisionMu.RLock()
 	result.Config = r.configRevision

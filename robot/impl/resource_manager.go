@@ -408,32 +408,6 @@ func (manager *resourceManager) reachableResourceNames() []resource.Name {
 	return names
 }
 
-// ResourceStatuses returns the names of all resources in the manager, excluding the following types of resources:
-// - Resources that represent entire remote machines.
-// - Resources that are considered internal to viam-server that cannot be removed via configuration.
-func (manager *resourceManager) ResourceStatuses() []resource.Status {
-	result := []resource.Status{}
-	for _, name := range manager.resources.Names() {
-		if name.API == client.RemoteAPI {
-			continue
-		}
-		if name.API.Type.Namespace == resource.APINamespaceRDKInternal {
-			continue
-		}
-
-		gNode, ok := manager.resources.Node(name)
-		if !ok || gNode.IsUninitialized() {
-			continue
-		}
-
-		s := gNode.ResourceStatus()
-		// replace with fully-qualified remote name
-		s.Name = name
-		result = append(result, s)
-	}
-	return result
-}
-
 // ResourceRPCAPIs returns the types of all resource RPC APIs in use by the manager.
 func (manager *resourceManager) ResourceRPCAPIs() []resource.RPCAPI {
 	resourceAPIs := resource.RegisteredAPIs()
