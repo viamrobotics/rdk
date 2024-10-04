@@ -18,7 +18,7 @@ jobs:
             { subtype: "arm", type: "component" },
             { subtype: "audio_input", type: "component" },
             { subtype: "base", type: "component" },
-            { subtype: "board", type: "component" },
+            # { subtype: "board", type: "component" },
             { subtype: "camera", type: "component" },
             # { subtype: "encoder", type: "component" },
             { subtype: "gantry", type: "component" },
