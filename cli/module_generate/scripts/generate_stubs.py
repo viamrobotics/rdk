@@ -23,9 +23,9 @@ def main(
     resource = getattr(module, resource_name)
     methods = inspect.getmembers(resource, predicate=inspect.isfunction)
 
-    imports = ["import viam"]
+    imports = []
     abstract_methods = []
-    for name, method in methods:
+    for _, method in methods:
         if getattr(method, "__isabstractmethod__", False):
             signature = inspect.signature(method)
 
@@ -35,9 +35,6 @@ def main(
                 f"from viam.gen import {match.split('.')[0]}" for match in proto_matches
             ]
             imports.extend(proto_imports)
-
-            final = f"{name}{signature}: raise NotImplementedError()"
-            abstract_methods.append(final)
 
     modules_to_ignore = [
         "abc",
@@ -71,6 +68,24 @@ def main(
                 )
                 i = f"from {stmt.module} import {i_strings}"
                 imports.append(i)
+            if isinstance(stmt, ast.ClassDef) and stmt.name == resource_name:
+                for cstmt in stmt.body:
+                    if isinstance(cstmt, ast.AsyncFunctionDef):
+                        cstmt.body = [
+                            ast.Raise(
+                                exc=ast.Call(
+                                    func=ast.Name(id='NotImplementedError', ctx=ast.Load()),
+                                    args=[],
+                                    keywords=[]),
+                                cause=None,
+                                )
+                        ]
+                        if cstmt.returns is not None and cstmt.returns.id == "Properties":
+                            cstmt.returns.id = f"{resource_name}.Properties"
+                            print(ast.dump(cstmt, indent=4))
+                        cstmt.decorator_list = []
+                        indented_code = '\n'.join(['    ' + line for line in ast.unparse(cstmt).splitlines()])
+                        abstract_methods.append(indented_code)
 
     model_name_pascal = "".join(
         [word.capitalize() for word in slugify(model_name).split("-")]
@@ -143,7 +158,7 @@ if __name__ == '__main__':
         namespace,
         mod_name,
         model_name,
-        '\n\n'.join([f'    async def {method}' for method in abstract_methods]),
+        '\n\n'.join([f'{method}' for method in abstract_methods]),
     )
     f_name = os.path.join(mod_name, "src", "main.py")
     with open(f_name, "w+") as f:
