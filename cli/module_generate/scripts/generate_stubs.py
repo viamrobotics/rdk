@@ -87,7 +87,7 @@ def main(
                                 value=ast.Name(id=resource_name, ctx=ast.Load()),
                                 attr="Properties",
                                 ctx=ast.Load())
-                        print(ast.dump(cstmt, indent=4))
+                        # print(ast.dump(cstmt, indent=4))
                         indented_code = '\n'.join(['    ' + line for line in ast.unparse(cstmt).splitlines()])
                         abstract_methods.append(indented_code)
 
