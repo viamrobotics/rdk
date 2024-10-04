@@ -209,6 +209,7 @@ func (manager *resourceManager) updateRemoteResourceNames(
 	}
 
 	oldResources := manager.remoteResourceNames(remoteName)
+	// TODO: mark reachable
 	for _, res := range oldResources {
 		activeResourceNames[res] = false
 	}
