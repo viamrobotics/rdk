@@ -16,6 +16,7 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
+
 	// TODO(RSDK-7884): change everything that depends on this import to a mock.
 	"go.viam.com/rdk/services/motion"
 	// TODO(RSDK-7884): change all referenced resources to mocks.
@@ -140,7 +141,7 @@ func TestRemoteRobotsGold(t *testing.T) {
 
 	// wait for local_robot to detect that the remote is now offline
 	testutils.WaitForAssertionWithSleep(t, time.Millisecond*100, 300, func(tb testing.TB) {
-		rdktestutils.VerifySameResourceNames(tb, r.ResourceNames(),
+		verifyReachableResourceNames(tb, r,
 			[]resource.Name{
 				motion.Named(resource.DefaultServiceName),
 				sensors.Named(resource.DefaultServiceName),
@@ -235,7 +236,7 @@ func TestRemoteRobotsUpdate(t *testing.T) {
 
 	// wait for local_robot to detect that the remote is now offline
 	testutils.WaitForAssertionWithSleep(t, time.Millisecond*100, 300, func(tb testing.TB) {
-		rdktestutils.VerifySameResourceNames(tb, r.ResourceNames(),
+		verifyReachableResourceNames(tb, r,
 			[]resource.Name{
 				motion.Named(resource.DefaultServiceName),
 				sensors.Named(resource.DefaultServiceName),
@@ -303,7 +304,7 @@ func TestInferRemoteRobotDependencyConnectAtStartup(t *testing.T) {
 
 	// wait for local_robot to detect that the remote is now offline
 	testutils.WaitForAssertionWithSleep(t, time.Millisecond*100, 300, func(tb testing.TB) {
-		rdktestutils.VerifySameResourceNames(tb, r.ResourceNames(),
+		verifyReachableResourceNames(tb, r,
 			[]resource.Name{
 				motion.Named(resource.DefaultServiceName),
 				sensors.Named(resource.DefaultServiceName),
@@ -395,7 +396,7 @@ func TestInferRemoteRobotDependencyConnectAfterStartup(t *testing.T) {
 
 	// wait for local_robot to detect that the remote is now offline
 	testutils.WaitForAssertionWithSleep(t, time.Millisecond*100, 300, func(tb testing.TB) {
-		rdktestutils.VerifySameResourceNames(tb, r.ResourceNames(),
+		verifyReachableResourceNames(tb, r,
 			[]resource.Name{
 				motion.Named(resource.DefaultServiceName),
 				sensors.Named(resource.DefaultServiceName),

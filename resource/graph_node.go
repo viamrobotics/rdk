@@ -372,13 +372,6 @@ func (w *GraphNode) SetUnreachable() {
 	w.unreachable = true
 }
 
-// Unreachable indicates if a remote resource node is disconnected.
-func (w *GraphNode) Unreachable() bool {
-	w.mu.RLock()
-	defer w.mu.RLock()
-	return w.unreachable
-}
-
 // setUnresolvedDependencies sets names that are yet to be resolved as
 // dependencies for the node. Note that even an empty list will still
 // set needsDependencyResolution to true. If no resolution is needed,

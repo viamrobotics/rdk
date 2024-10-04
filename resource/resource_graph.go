@@ -183,6 +183,22 @@ func (g *Graph) Names() []Name {
 	return names
 }
 
+// ReachableNames returns the all resource graph names, excluding remote resources that are unreached.
+func (g *Graph) ReachableNames() []Name {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	names := make([]Name, len(g.nodes))
+	i := 0
+	for k, node := range g.nodes {
+		if node.unreachable {
+			continue
+		}
+		names[i] = k
+		i++
+	}
+	return names
+}
+
 // FindNodesByShortNameAndAPI will look for resources matching both the API and the name.
 func (g *Graph) FindNodesByShortNameAndAPI(name Name) []Name {
 	g.mu.Lock()

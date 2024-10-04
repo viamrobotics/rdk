@@ -379,15 +379,9 @@ func (manager *resourceManager) internalResourceNames() []resource.Name {
 func (manager *resourceManager) ResourceNames() []resource.Name {
 	names := []resource.Name{}
 	for _, k := range manager.resources.Names() {
-		if k.API == client.RemoteAPI ||
-			k.API.Type.Namespace == resource.APINamespaceRDKInternal {
-			continue
+		if manager.includeResourceName(k) {
+			names = append(names, k)
 		}
-		gNode, ok := manager.resources.Node(k)
-		if !ok || !gNode.HasResource() {
-			continue
-		}
-		names = append(names, k)
 	}
 	return names
 }
@@ -395,17 +389,24 @@ func (manager *resourceManager) ResourceNames() []resource.Name {
 // reachableResourceNames returns the names of all reachable resources in the manager.
 func (manager *resourceManager) reachableResourceNames() []resource.Name {
 	names := []resource.Name{}
-	for _, name := range manager.resources.Names() {
-		node, ok := manager.resources.Node(name)
-		if !ok || !node.HasResource() {
-			continue
+	for _, k := range manager.resources.ReachableNames() {
+		if manager.includeResourceName(k) {
+			names = append(names, k)
 		}
-		if node.Unreachable() {
-			continue
-		}
-		names = append(names, name)
 	}
 	return names
+}
+
+func (manager *resourceManager) includeResourceName(k resource.Name) bool {
+	if k.API == client.RemoteAPI ||
+		k.API.Type.Namespace == resource.APINamespaceRDKInternal {
+		return false
+	}
+	gNode, ok := manager.resources.Node(k)
+	if !ok || !gNode.HasResource() {
+		return false
+	}
+	return true
 }
 
 // ResourceRPCAPIs returns the types of all resource RPC APIs in use by the manager.
