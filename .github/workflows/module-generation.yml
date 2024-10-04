@@ -20,7 +20,7 @@ jobs:
             { subtype: "base", type: "component" },
             { subtype: "board", type: "component" },
             { subtype: "camera", type: "component" },
-            { subtype: "encoder", type: "component" },
+            # { subtype: "encoder", type: "component" },
             { subtype: "gantry", type: "component" },
             { subtype: "generic", type: "component" },
             { subtype: "gripper", type: "component" },
