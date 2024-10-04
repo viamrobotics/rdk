@@ -24,7 +24,7 @@ jobs:
             { subtype: "gantry", type: "component" },
             { subtype: "generic", type: "component" },
             { subtype: "gripper", type: "component" },
-            { subtype: "input", type: "component" },
+            # { subtype: "input", type: "component" },
             { subtype: "motor", type: "component" },
             { subtype: "movement_sensor", type: "component" },
             { subtype: "pose_tracker", type: "component" },
