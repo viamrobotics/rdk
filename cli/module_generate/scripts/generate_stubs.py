@@ -68,6 +68,7 @@ def main(
                 )
                 i = f"from {stmt.module} import {i_strings}"
                 imports.append(i)
+
             if isinstance(stmt, ast.ClassDef) and stmt.name == resource_name:
                 for cstmt in stmt.body:
                     if isinstance(cstmt, ast.AsyncFunctionDef):
@@ -80,10 +81,13 @@ def main(
                                 cause=None,
                                 )
                         ]
-                        if cstmt.returns is not None and cstmt.returns.id == "Properties":
-                            cstmt.returns.id = f"{resource_name}.Properties"
-                            print(ast.dump(cstmt, indent=4))
                         cstmt.decorator_list = []
+                        if isinstance(cstmt.returns, ast.Name) and cstmt.returns.id == "Properties":
+                            cstmt.returns = ast.Attribute(
+                                value=ast.Name(id=resource_name, ctx=ast.Load()),
+                                attr="Properties",
+                                ctx=ast.Load())
+                        print(ast.dump(cstmt, indent=4))
                         indented_code = '\n'.join(['    ' + line for line in ast.unparse(cstmt).splitlines()])
                         abstract_methods.append(indented_code)
 
