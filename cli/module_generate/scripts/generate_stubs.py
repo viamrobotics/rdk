@@ -7,6 +7,13 @@ import sys
 from importlib import import_module
 
 
+def return_attribute(resource_name: str, attr: str) -> ast.Attribute:
+    return ast.Attribute(
+        value=ast.Name(id=resource_name, ctx=ast.Load()),
+        attr=attr,
+        ctx=ast.Load())
+
+
 def main(
     resource_type: str,
     resource_subtype: str,
@@ -53,7 +60,7 @@ def main(
                         imports.append(f"import {imp.name} as {imp.asname}")
                     else:
                         imports.append(f"import {imp.name}")
-            if isinstance(stmt, ast.ImportFrom):
+            elif isinstance(stmt, ast.ImportFrom):
                 if stmt.module in modules_to_ignore or stmt.module is None:
                     continue
                 i_strings = ", ".join(
@@ -68,10 +75,19 @@ def main(
                 )
                 i = f"from {stmt.module} import {i_strings}"
                 imports.append(i)
-
-            if isinstance(stmt, ast.ClassDef) and stmt.name == resource_name:
+            elif isinstance(stmt, ast.ClassDef) and stmt.name == resource_name:
+                subclasses = []
                 for cstmt in stmt.body:
-                    if isinstance(cstmt, ast.AsyncFunctionDef):
+                    if isinstance(cstmt, ast.ClassDef):
+                        subclasses.append(cstmt.name)
+                    elif isinstance(cstmt, ast.AsyncFunctionDef):
+                        print(ast.dump(cstmt, indent=4))
+                        for arg in cstmt.args.args:
+                            if isinstance(arg.annotation, ast.Name) and arg.annotation.id in subclasses:
+                                arg.annotation = return_attribute(resource_name, arg.annotation.id)
+                            elif isinstance(arg.annotation, ast.Subscript) and arg.annotation.slice.id in subclasses:
+                                arg.annotation.slice = return_attribute(resource_name, arg.annotation.slice.id)
+
                         cstmt.body = [
                             ast.Raise(
                                 exc=ast.Call(
@@ -82,12 +98,8 @@ def main(
                                 )
                         ]
                         cstmt.decorator_list = []
-                        if isinstance(cstmt.returns, ast.Name) and cstmt.returns.id == "Properties":
-                            cstmt.returns = ast.Attribute(
-                                value=ast.Name(id=resource_name, ctx=ast.Load()),
-                                attr="Properties",
-                                ctx=ast.Load())
-                        # print(ast.dump(cstmt, indent=4))
+                        if isinstance(cstmt.returns, ast.Name) and cstmt.returns.id in subclasses:
+                            cstmt.returns = return_attribute(resource_name, cstmt.returns.id)
                         indented_code = '\n'.join(['    ' + line for line in ast.unparse(cstmt).splitlines()])
                         abstract_methods.append(indented_code)
 
