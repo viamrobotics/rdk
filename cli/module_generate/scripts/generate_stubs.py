@@ -51,6 +51,7 @@ def main(
     ]
     with open(module.__file__, "r") as f:
         tree = ast.parse(f.read())
+        nodes = []
         for stmt in tree.body:
             if isinstance(stmt, ast.Import):
                 for imp in stmt.names:
@@ -75,17 +76,18 @@ def main(
                 )
                 i = f"from {stmt.module} import {i_strings}"
                 imports.append(i)
+            elif isinstance(stmt, ast.Assign):
+                for target in stmt.targets:
+                    nodes.append(target.id)
             elif isinstance(stmt, ast.ClassDef) and stmt.name == resource_name:
-                subclasses = []
                 for cstmt in stmt.body:
                     if isinstance(cstmt, ast.ClassDef):
-                        subclasses.append(cstmt.name)
+                        nodes.append(cstmt.name)
                     elif isinstance(cstmt, ast.AsyncFunctionDef):
-                        print(ast.dump(cstmt, indent=4))
                         for arg in cstmt.args.args:
-                            if isinstance(arg.annotation, ast.Name) and arg.annotation.id in subclasses:
+                            if isinstance(arg.annotation, ast.Name) and arg.annotation.id in nodes:
                                 arg.annotation = return_attribute(resource_name, arg.annotation.id)
-                            elif isinstance(arg.annotation, ast.Subscript) and arg.annotation.slice.id in subclasses:
+                            elif isinstance(arg.annotation, ast.Subscript) and arg.annotation.slice.id in nodes:
                                 arg.annotation.slice = return_attribute(resource_name, arg.annotation.slice.id)
 
                         cstmt.body = [
@@ -98,7 +100,7 @@ def main(
                                 )
                         ]
                         cstmt.decorator_list = []
-                        if isinstance(cstmt.returns, ast.Name) and cstmt.returns.id in subclasses:
+                        if isinstance(cstmt.returns, ast.Name) and cstmt.returns.id in nodes:
                             cstmt.returns = return_attribute(resource_name, cstmt.returns.id)
                         indented_code = '\n'.join(['    ' + line for line in ast.unparse(cstmt).splitlines()])
                         abstract_methods.append(indented_code)
