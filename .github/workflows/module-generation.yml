@@ -14,11 +14,12 @@ jobs:
     strategy:
       fail-fast: true
       matrix:
-        resource: [
+        resource:
+          [
             { subtype: "arm", type: "component" },
             { subtype: "audio_input", type: "component" },
             { subtype: "base", type: "component" },
-            # { subtype: "board", type: "component" },
+            { subtype: "board", type: "component" },
             { subtype: "camera", type: "component" },
             { subtype: "encoder", type: "component" },
             { subtype: "gantry", type: "component" },
@@ -34,7 +35,7 @@ jobs:
 
             { subtype: "generic", type: "service" },
             { subtype: "mlmodel", type: "service" },
-            # { subtype: "motion", type: "service" },
+            { subtype: "motion", type: "service" },
             { subtype: "navigation", type: "service" },
             { subtype: "slam", type: "service" },
             { subtype: "vision", type: "service" },
