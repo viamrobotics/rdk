@@ -186,7 +186,7 @@ type plannerOptions struct {
 	// profile is the string representing the motion profile
 	profile string
 
-	// profile is the string representing the motion profile
+	// planDeviationMM is a float representing how close we must be to the goal in order for planning to finish
 	planDeviationMM float64
 
 	PlannerConstructor plannerConstructor
