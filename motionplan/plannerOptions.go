@@ -180,11 +180,17 @@ type plannerOptions struct {
 	// DistanceFunc is the function that the planner will use to measure the degree of "closeness" between two states of the robot
 	DistanceFunc ik.SegmentMetric
 
+	// AtGoalMetric
+	AtGoalMetric func(startPose, goalPose spatialmath.Pose) bool
+
 	// ScoreFunc is the function that the planner will use to evaluate a plan for final cost comparisons.
 	ScoreFunc ik.SegmentMetric
 
 	// profile is the string representing the motion profile
 	profile string
+
+	// profile is the string representing the motion profile
+	planDeviationMM float64
 
 	PlannerConstructor plannerConstructor
 

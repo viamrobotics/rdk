@@ -306,6 +306,29 @@ func (mp *tpSpaceRRTMotionPlanner) rrtBackgroundRunner(
 			rrt.solutionChan <- &rrtSolution{err: fmt.Errorf("TP Space RRT timeout %w", ctx.Err()), maps: rrt.maps}
 			return
 		}
+
+		// Check to see if the startPose is already within some predefined delta of the goalPose
+		if iter == 0 {
+			if mp.planOpts.AtGoalMetric(startPose, goalPose) {
+				path := extractTPspacePath(rrt.maps.startMap, rrt.maps.goalMap,
+					&nodePair{
+						a: &basicNode{
+							q:      referenceframe.FloatsToInputs([]float64{0, 0, 0, 0}),
+							pose:   startPose,
+							corner: false,
+						},
+						b: &basicNode{
+							q:      referenceframe.FloatsToInputs([]float64{0, 0, 0, 0}),
+							pose:   goalPose,
+							corner: false,
+						},
+					},
+				)
+				publishFinishedPath(path)
+				return
+			}
+		}
+
 		utils.PanicCapturingGo(func() {
 			m1chan <- mp.attemptExtension(ctx, randPosNode, rrt.maps.startMap, false)
 		})

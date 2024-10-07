@@ -17,6 +17,7 @@ import (
 	"go.viam.com/rdk/components/movementsensor"
 	_ "go.viam.com/rdk/components/register"
 	"go.viam.com/rdk/pointcloud"
+	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/motion"
 	"go.viam.com/rdk/services/vision"
@@ -145,6 +146,11 @@ func TestMoveOnGlobe(t *testing.T) {
 		planResp, err := moveRequest.Plan(ctx)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, planResp, test.ShouldNotBeNil)
+		test.That(t, len(planResp.Trajectory()), test.ShouldEqual, 2)
+		expectedMap := map[string][]referenceframe.Input{"test-base": referenceframe.FloatsToInputs([]float64{0, 0, 0, 0})}
+		test.That(t, planResp.Trajectory()[0], test.ShouldResemble, expectedMap)
+		test.That(t, planResp.Trajectory()[1], test.ShouldResemble, expectedMap)
+		test.That(t, len(planResp.Path()), test.ShouldEqual, 2)
 
 		// test that nothing breaks in state when we return an empty plan
 		executionID, err := ms.MoveOnGlobe(ctx, req)

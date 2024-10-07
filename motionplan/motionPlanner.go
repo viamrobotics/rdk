@@ -108,6 +108,16 @@ func (req *PlanRequest) validatePlanRequest() error {
 		}
 	}
 
+	_, ok := req.Options["planDeviationMM"].(float64)
+	if !ok {
+		req.Logger.Info("no planDeviationMM value was provided so we will use the default value of 1e-4")
+		if req.Options == nil {
+			req.Options = map[string]interface{}{"planDeviationMM": 1e-4}
+		} else {
+			req.Options["planDeviationMM"] = 1e-4
+		}
+	}
+
 	frameDOF := len(req.Frame.DoF())
 	seedMap, ok := req.StartConfiguration[req.Frame.Name()]
 	if frameDOF > 0 {

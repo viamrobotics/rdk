@@ -19,6 +19,7 @@ import (
 	"go.viam.com/rdk/motionplan/tpspace"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
+	rutils "go.viam.com/rdk/utils"
 )
 
 const (
@@ -903,6 +904,20 @@ func (pm *planManager) planRelativeWaypoint(ctx context.Context, request *PlanRe
 	)
 	if err != nil {
 		return nil, err
+	}
+
+	planDevMM, err := rutils.AssertType[float64](request.Options["planDeviationMM"])
+	if err != nil {
+		return nil, err
+	}
+	opt.planDeviationMM = planDevMM
+
+	opt.AtGoalMetric = func(startPose, goalPose spatialmath.Pose) bool {
+		if opt.profile == PositionOnlyMotionProfile {
+			return spatialmath.PoseAlmostCoincidentEps(startPose, goalPose, opt.planDeviationMM)
+		}
+		return spatialmath.OrientationAlmostEqual(goalPose.Orientation(), startPose.Orientation()) &&
+			spatialmath.PoseAlmostCoincidentEps(goalPose, startPose, opt.planDeviationMM)
 	}
 
 	// re-root the frame system on the relative frame
