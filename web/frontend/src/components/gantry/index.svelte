@@ -50,7 +50,7 @@ const increment = (axis: number, amount: number) => {
     pos[i] = part.pos;
   }
 
-  if (pos[axis] == undefined) {
+  if (pos[axis] === undefined) {
     pos[axis] = 0;
   }
   pos[axis] += amount;

@@ -191,7 +191,8 @@ const refreshPaths = async () => {
       .map((plan) => plan.componentName)
       .find(
         (planComponentName) =>
-          planComponentName?.namespace === base.namespace &&
+          planComponentName !== undefined &&
+          planComponentName.namespace === base.namespace &&
           planComponentName.subtype === base.subtype &&
           planComponentName.type === base.type &&
           planComponentName.name === base.name
@@ -211,11 +212,9 @@ const refreshPaths = async () => {
       const pathsInMeters: number[] = [];
       for (const step of getPlanResponse.currentPlanWithStatus.plan?.steps ??
         []) {
-        for (const stepState of Object.entries(step)) {
-          const { pose: stepPose } = stepState[1] ?? {};
-          if (stepPose) {
-            pathsInMeters.push(stepPose.x / 1000, stepPose.y / 1000);
-          }
+        const { pose: stepPose } = step.step[1] ?? {};
+        if (stepPose) {
+          pathsInMeters.push(stepPose.x / 1000, stepPose.y / 1000);
         }
       }
 
