@@ -460,7 +460,7 @@ const connect = async (creds?: Credential) => {
       type: c.type as CredentialType,
       payload: c.payload,
       authEntity: c.authEntity ?? bakedAuth.authEntity,
-    } as Credential;
+    } satisfies Credential;
   }
 
   await $robotClient.connect({
