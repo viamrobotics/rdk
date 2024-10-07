@@ -269,7 +269,7 @@ const restartStatusStream = () => {
     } finally {
       $statusStream = null;
     }
-  })().catch(console.error);
+  })();
 };
 
 // query metadata service every 0.5s
