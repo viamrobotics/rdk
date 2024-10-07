@@ -640,15 +640,17 @@ func (g *Graph) isNodeDependingOn(node, child Name) bool {
 	return g.transitiveClosureMatrix[child][node] != 0
 }
 
-// SubGraphFrom returns a Sub-Graph containing all linked dependencies starting with node Name.
+// SubGraphFrom returns a Sub-Graph containing all linked dependencies starting with node [Name].
 func (g *Graph) SubGraphFrom(node Name) (*Graph, error) {
 	g.mu.Lock()
 	defer g.mu.Unlock()
 
-	return g.subGraphFrom(node)
+	return g.subGraphFromWithMutex(node)
 }
 
-func (g *Graph) subGraphFrom(node Name) (*Graph, error) {
+// subGraphFrom returns a Sub-Graph containing all linked dependencies starting with node [Name].
+// This method is NOT threadsafe: A client must hold [Graph.mu] while calling this method.
+func (g *Graph) subGraphFromWithMutex(node Name) (*Graph, error) {
 	if _, ok := g.nodes[node]; !ok {
 		return nil, errors.Errorf("cannot create sub-graph from non existing node %q ", node.Name)
 	}
@@ -667,7 +669,7 @@ func (g *Graph) MarkReachability(node Name, reachable bool) error {
 	g.mu.Lock()
 	defer g.mu.Unlock()
 
-	subGraph, err := g.subGraphFrom(node)
+	subGraph, err := g.subGraphFromWithMutex(node)
 	if err != nil {
 		return err
 	}
