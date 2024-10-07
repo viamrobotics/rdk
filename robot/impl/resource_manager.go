@@ -367,29 +367,39 @@ func (manager *resourceManager) internalResourceNames() []resource.Name {
 	return names
 }
 
-// ResourceNames returns the names of all resources in the manager.
+// ResourceNames returns the names of all resources in the manager, excluding the following types of resources:
+// - Resources that represent entire remote machines.
+// - Resources that are considered internal to viam-server that cannot be removed via configuration.
 func (manager *resourceManager) ResourceNames() []resource.Name {
 	names := []resource.Name{}
 	for _, k := range manager.resources.Names() {
-		if manager.includeResourceName(k) {
+		if manager.resourceName(k) {
 			names = append(names, k)
 		}
 	}
 	return names
 }
 
-// reachableResourceNames returns the names of all reachable resources in the manager.
+// reachableResourceNames returns the names of all resources in the manager, excluding the following types of resources:
+// - Resources that represent entire remote machines.
+// - Resources that are considered internal to viam-server that cannot be removed via configuration.
+// - Remote resources that are currently unreachable.
 func (manager *resourceManager) reachableResourceNames() []resource.Name {
 	names := []resource.Name{}
 	for _, k := range manager.resources.ReachableNames() {
-		if manager.includeResourceName(k) {
+		if manager.resourceName(k) {
 			names = append(names, k)
 		}
 	}
 	return names
 }
 
-func (manager *resourceManager) includeResourceName(k resource.Name) bool {
+// resourceName is a validation function that dictates if a given [resource.Name] should be returned by [ResourceNames].
+// A resource should NOT be returned by [ResourceNames] if any of the following conditions are true:
+// - The resource is not stored in the resource manager.
+// - The resource represents an entire remote machine.
+// - The resource is considered internal to viam-server, meaning it cannot be removed via configuration.
+func (manager *resourceManager) resourceName(k resource.Name) bool {
 	if k.API == client.RemoteAPI ||
 		k.API.Type.Namespace == resource.APINamespaceRDKInternal {
 		return false
