@@ -28,6 +28,8 @@ def main(
     module = import_module(module_name)
     if resource_subtype == "slam":
         resource_name = "SLAM"
+    elif resource_subtype == "input":
+        resource_name = "Controller"
     else:
         resource_name = "".join(word.capitalize() for word in resource_subtype.split("_"))
     resource = getattr(module, resource_name)
