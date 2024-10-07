@@ -1,10 +1,10 @@
 <script lang="ts">
-import { type ServiceError, servoApi } from '@viamrobotics/sdk';
-import { displayError } from '@/lib/error';
-import { rcLogConditionally } from '@/lib/log';
-import Collapse from '@/lib/components/collapse.svelte';
 import { move } from '@/api/servo';
 import { useRobotClient } from '@/hooks/robot-client';
+import Collapse from '@/lib/components/collapse.svelte';
+import { displayError } from '@/lib/error';
+import { rcLogConditionally } from '@/lib/log';
+import { ConnectError, servoApi } from '@viamrobotics/sdk';
 
 export let name: string;
 export let status: undefined | { position_deg: number };
@@ -12,11 +12,10 @@ export let status: undefined | { position_deg: number };
 const { robotClient } = useRobotClient();
 
 const stop = () => {
-  const req = new servoApi.StopRequest();
-  req.setName(name);
+  const req = new servoApi.StopRequest({ name });
 
   rcLogConditionally(req);
-  $robotClient.servoService.stop(req, displayError);
+  $robotClient.servoService.stop(req).catch(displayError);
 };
 
 const handleMove = async (amount: number) => {
@@ -29,7 +28,7 @@ const handleMove = async (amount: number) => {
     try {
       await move($robotClient, name, angle);
     } catch (error) {
-      displayError(error as ServiceError);
+      displayError(error as ConnectError);
     }
   }
 };
