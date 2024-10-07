@@ -37,7 +37,7 @@ jobs:
             # { subtype: "motion", type: "service" },
             { subtype: "navigation", type: "service" },
             # { subtype: "sensors", type: "service" },
-            # { subtype: "slam", type: "service" },
+            { subtype: "slam", type: "service" },
             { subtype: "vision", type: "service" },
           ]
     steps:
