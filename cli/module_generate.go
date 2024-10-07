@@ -240,6 +240,7 @@ func promptUser() (*moduleInputs, error) {
 					huh.NewOption("Arm Component", "arm component"),
 					huh.NewOption("Audio Input Component", "audio_input component"),
 					huh.NewOption("Base Component", "base component"),
+					huh.NewOption("Board Component", "board component"),
 					huh.NewOption("Camera Component", "camera component"),
 					huh.NewOption("Encoder Component", "encoder component"),
 					huh.NewOption("Gantry Component", "gantry component"),
@@ -256,7 +257,6 @@ func promptUser() (*moduleInputs, error) {
 					huh.NewOption("MLModel Service", "mlmodel service"),
 					huh.NewOption("Motion Service", "motion service"),
 					huh.NewOption("Navigation Service", "navigation service"),
-					huh.NewOption("Sensors Service", "sensors service"),
 					huh.NewOption("SLAM Service", "slam service"),
 					huh.NewOption("Vision Service", "vision service"),
 				).
