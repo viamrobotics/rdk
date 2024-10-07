@@ -349,6 +349,13 @@ func (w *GraphNode) UpdateRevision(revision string) {
 	}
 }
 
+func (w *GraphNode) markReachability(reachable bool) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+
+	w.unreachable = !reachable
+}
+
 // SetNewConfig is used to inform the node that it has been modified
 // and requires a reconfiguration. If the node was previously marked for removal,
 // this unmarks it.

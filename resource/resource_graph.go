@@ -672,7 +672,7 @@ func (g *Graph) MarkReachability(node Name, reachable bool) error {
 		return err
 	}
 	for _, node := range subGraph.nodes {
-		node.unreachable = !reachable
+		node.markReachability(reachable)
 	}
 	return nil
 }
