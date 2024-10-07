@@ -79,9 +79,6 @@ def main(
                 )
                 i = f"from {stmt.module} import {i_strings}"
                 imports.append(i)
-            elif isinstance(stmt, ast.Assign):
-                for target in stmt.targets:
-                    nodes.append(target.id)
             elif isinstance(stmt, ast.ClassDef) and stmt.name == resource_name:
                 for cstmt in stmt.body:
                     if isinstance(cstmt, ast.ClassDef):
