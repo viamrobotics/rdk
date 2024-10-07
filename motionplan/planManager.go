@@ -912,14 +912,6 @@ func (pm *planManager) planRelativeWaypoint(ctx context.Context, request *PlanRe
 	}
 	opt.planDeviationMM = planDevMM
 
-	opt.AtGoalMetric = func(startPose, goalPose spatialmath.Pose) bool {
-		if opt.profile == PositionOnlyMotionProfile {
-			return spatialmath.PoseAlmostCoincidentEps(startPose, goalPose, opt.planDeviationMM)
-		}
-		return spatialmath.OrientationAlmostEqual(goalPose.Orientation(), startPose.Orientation()) &&
-			spatialmath.PoseAlmostCoincidentEps(goalPose, startPose, opt.planDeviationMM)
-	}
-
 	// re-root the frame system on the relative frame
 	relativeOnlyFS, err := pm.frame.fss.FrameSystemSubset(request.Frame)
 	if err != nil {

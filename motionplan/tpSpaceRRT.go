@@ -309,7 +309,14 @@ func (mp *tpSpaceRRTMotionPlanner) rrtBackgroundRunner(
 
 		// Check to see if the startPose is already within some predefined delta of the goalPose
 		if iter == 0 {
-			if mp.planOpts.AtGoalMetric(startPose, goalPose) {
+			atGoal := func(startPose, goalPose spatialmath.Pose) bool {
+				if mp.planOpts.profile == PositionOnlyMotionProfile {
+					return spatialmath.PoseAlmostCoincidentEps(startPose, goalPose, mp.planOpts.planDeviationMM)
+				}
+				return spatialmath.OrientationAlmostEqual(goalPose.Orientation(), startPose.Orientation()) &&
+					spatialmath.PoseAlmostCoincidentEps(goalPose, startPose, mp.planOpts.planDeviationMM)
+			}
+			if atGoal(startPose, goalPose) {
 				path := extractTPspacePath(rrt.maps.startMap, rrt.maps.goalMap,
 					&nodePair{
 						a: &basicNode{
