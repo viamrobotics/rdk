@@ -26,7 +26,10 @@ def main(
 
     module_name = f"viam.{resource_type}s.{resource_subtype}.{resource_subtype}"
     module = import_module(module_name)
-    resource_name = "".join(word.capitalize() for word in resource_subtype.split("_"))
+    if resource_subtype == "slam":
+        resource_name = "SLAM"
+    else:
+        resource_name = "".join(word.capitalize() for word in resource_subtype.split("_"))
     resource = getattr(module, resource_name)
     methods = inspect.getmembers(resource, predicate=inspect.isfunction)
 
