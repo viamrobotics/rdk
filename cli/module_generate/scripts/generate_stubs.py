@@ -26,17 +26,18 @@ def main(
 
     module_name = f"viam.{resource_type}s.{resource_subtype}.{resource_subtype}"
     module = import_module(module_name)
-    if resource_subtype == "slam":
-        resource_name = "SLAM"
-    elif resource_subtype == "input":
+    if resource_subtype == "input":
         resource_name = "Controller"
+    elif resource_subtype == "slam":
+        resource_name = "SLAM"
+    elif resource_subtype == "mlmodel":
+        resource_name = "MLModel"
     else:
         resource_name = "".join(word.capitalize() for word in resource_subtype.split("_"))
     resource = getattr(module, resource_name)
     methods = inspect.getmembers(resource, predicate=inspect.isfunction)
 
     imports = []
-    abstract_methods = []
     for _, method in methods:
         if getattr(method, "__isabstractmethod__", False):
             signature = inspect.signature(method)
@@ -54,6 +55,7 @@ def main(
         "service_base",
         "viam.resource.types",
     ]
+    abstract_methods = []
     with open(module.__file__, "r") as f:
         tree = ast.parse(f.read())
         nodes = []
@@ -202,18 +204,16 @@ if __name__ == '__main__':
 
 
 if __name__ == "__main__":
+    packages = ["viam-sdk", "typing-extensions", "black", "isort", "python-slugify"]
+    if sys.argv[2] == "mlmodel":
+        packages.append("numpy")        
     install_res = subprocess.run(
         [
             sys.executable,
             "-m",
             "pip",
-            "install",
-            "viam-sdk",
-            "typing-extensions",
-            "black",
-            "isort",
-            "python-slugify",
-        ],
+            "install"
+        ] + packages,
         capture_output=True,
     )
     if install_res.returncode != 0:
