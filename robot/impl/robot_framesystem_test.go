@@ -19,7 +19,6 @@ import (
 	_ "go.viam.com/rdk/services/datamanager/builtin"
 	"go.viam.com/rdk/services/motion"
 	_ "go.viam.com/rdk/services/motion/builtin"
-	_ "go.viam.com/rdk/services/sensors/builtin"
 	"go.viam.com/rdk/spatialmath"
 	rdktestutils "go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/robottestutils"

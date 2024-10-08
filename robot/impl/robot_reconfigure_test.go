@@ -83,7 +83,7 @@ func registerMockComponent[R resource.Resource, CV resource.ConfigValidator](
 	return model
 }
 
-func TestRobotReconfigure(t *testing.T) {
+func (t *testing.T) {
 	test.That(t, len(resource.DefaultServices()), test.ShouldEqual, 2)
 
 	model1 := registerMockComponent(
