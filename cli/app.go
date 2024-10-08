@@ -62,6 +62,7 @@ const (
 	moduleBuildFlagBuildID   = "id"
 	moduleBuildFlagPlatform  = "platform"
 	moduleBuildFlagWait      = "wait"
+	moduleBuildFlagToken     = "token"
 	moduleBuildFlagGroupLogs = "group-logs"
 	moduleBuildRestartOnly   = "restart-only"
 	moduleBuildFlagNoBuild   = "no-build"
@@ -1640,6 +1641,10 @@ Example:
 									Name:  moduleBuildFlagRef,
 									Usage: "git ref to clone when building your module. This can be a branch name or a commit hash",
 									Value: "main",
+								},
+								&cli.StringFlag{
+									Name:  moduleBuildFlagToken,
+									Usage: "checkout token for private repos, not necessary for public repos",
 								},
 							},
 							Action: ModuleBuildStartAction,

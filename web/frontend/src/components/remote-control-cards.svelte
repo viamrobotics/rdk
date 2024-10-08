@@ -1,41 +1,44 @@
 <script lang="ts">
-import { type Credentials } from '@viamrobotics/rpc';
-import { commonApi } from '@viamrobotics/sdk';
-import {
-  resourceNameToString,
-  filterWithStatus,
-  filterSubtype,
-} from '@/lib/resource';
 import { useRobotClient } from '@/hooks/robot-client';
+import Client from '@/lib/components/robot-client.svelte';
+import {
+  filterSubtype,
+  filterWithStatus,
+  resourceNameToString,
+} from '@/lib/resource';
+import type { RCOverrides } from '@/types/overrides';
+import { ResourceName, type Credential } from '@viamrobotics/sdk';
 import Arm from './arm/index.svelte';
 import AudioInput from './audio-input/index.svelte';
 import Base from './base/index.svelte';
 import Board from './board/index.svelte';
 import CamerasList from './camera/index.svelte';
-import OperationsSessions from './operations-sessions/index.svelte';
 import DoCommand from './do-command/index.svelte';
 import Encoder from './encoder/index.svelte';
+import Gamepad from './gamepad/index.svelte';
 import Gantry from './gantry/index.svelte';
 import Gripper from './gripper/index.svelte';
-import Gamepad from './gamepad/index.svelte';
 import InputController from './input-controller/index.svelte';
 import Motor from './motor/index.svelte';
 import MovementSensor from './movement-sensor/index.svelte';
 import Navigation from './navigation/index.svelte';
+import OperationsSessions from './operations-sessions/index.svelte';
 import PowerSensor from './power-sensor/index.svelte';
-import Servo from './servo/index.svelte';
 import Sensors from './sensors/index.svelte';
+import Servo from './servo/index.svelte';
 import Slam from './slam/index.svelte';
 import Vision from './vision/index.svelte';
-import Client from '@/lib/components/robot-client.svelte';
-import type { RCOverrides } from '@/types/overrides';
 
 const { resources, components, services, statuses, sensorNames } =
   useRobotClient();
 
 export let host: string;
-export let bakedAuth: { authEntity?: string; creds?: Credentials } | undefined =
-  {};
+export let bakedAuth:
+  | {
+      authEntity?: string;
+      creds?: Credential;
+    }
+  | undefined = {};
 export let supportedAuthTypes: string[] | undefined = [];
 export let webrtcEnabled: boolean;
 export let signalingAddress: string;
@@ -47,7 +50,7 @@ export let hideOperationsSessions = false;
 
 $: hidden = new Set(hiddenSubtypes);
 
-const resourceStatusByName = (resource: commonApi.ResourceName.AsObject) => {
+const resourceStatusByName = (resource: ResourceName) => {
   return $statuses[resourceNameToString(resource)];
 };
 
@@ -77,7 +80,7 @@ $: filteredInputControllerList = $components.filter((component) => {
 
 const getStatus = (
   statusMap: Record<string, unknown>,
-  resource: commonApi.ResourceName.AsObject
+  resource: ResourceName
 ) => {
   const key = resourceNameToString(resource);
   // todo(mp) Find a way to fix this type error
