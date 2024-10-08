@@ -23,16 +23,14 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
+
 	// TODO(RSDK-7884): change everything that depends on this import to a mock.
 	_ "go.viam.com/rdk/services/datamanager/builtin"
 	// TODO(RSDK-7884): change everything that depends on this import to a mock.
 	"go.viam.com/rdk/services/motion"
 	// TODO(RSDK-7884): change everything that depends on this import to a mock.
 	_ "go.viam.com/rdk/services/motion/builtin"
-	// TODO(RSDK-7884): change everything that depends on this import to a mock.
-	"go.viam.com/rdk/services/sensors"
-	// TODO(RSDK-7884): change everything that depends on this import to a mock.
-	_ "go.viam.com/rdk/services/sensors/builtin"
+
 	rdktestutils "go.viam.com/rdk/testutils"
 	rutils "go.viam.com/rdk/utils"
 )
@@ -83,8 +81,8 @@ func registerMockComponent[R resource.Resource, CV resource.ConfigValidator](
 	return model
 }
 
-func (t *testing.T) {
-	test.That(t, len(resource.DefaultServices()), test.ShouldEqual, 2)
+func TestRobotReconfigure(t *testing.T) {
+	test.That(t, len(resource.DefaultServices()), test.ShouldEqual, 1)
 
 	model1 := registerMockComponent(
 		t,
@@ -227,7 +225,7 @@ func (t *testing.T) {
 		robot := setupLocalRobot(t, ctx, conf1, logger)
 
 		resources := robot.ResourceNames()
-		test.That(t, len(resources), test.ShouldEqual, 7)
+		test.That(t, len(resources), test.ShouldEqual, 6)
 
 		armNames := []resource.Name{mockNamed("arm1")}
 		baseNames := []resource.Name{mockNamed("base1")}
@@ -1658,7 +1656,7 @@ func (t *testing.T) {
 		robot := setupLocalRobot(t, ctx, cempty, logger)
 
 		resources := robot.ResourceNames()
-		test.That(t, len(resources), test.ShouldEqual, 2)
+		test.That(t, len(resources), test.ShouldEqual, 1)
 		test.That(t, robot.RemoteNames(), test.ShouldBeEmpty)
 		rdktestutils.VerifySameResourceNames(t, robot.ResourceNames(), resource.DefaultServices())
 		test.That(t, robot.ProcessManager().ProcessIDs(), test.ShouldBeEmpty)
@@ -3305,16 +3303,8 @@ func TestDefaultServiceReconfigure(t *testing.T) {
 			motion.Named(motionName),
 		},
 	)
-	sName := "sensors"
-	cfg2 := &config.Config{
-		Services: []resource.Config{
-			{
-				Name:  sName,
-				API:   sensors.API,
-				Model: resource.DefaultServiceModel,
-			},
-		},
-	}
+
+	cfg2 := &config.Config{}
 	robot.Reconfigure(context.Background(), cfg2)
 	rdktestutils.VerifySameResourceNames(
 		t,
