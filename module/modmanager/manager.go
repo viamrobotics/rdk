@@ -203,6 +203,21 @@ func (mgr *Manager) Handles() map[string]modlib.HandlerMap {
 	return res
 }
 
+// / this function
+func whiteListViamModules(confs ...config.Module) (
+	whitelisted bool, newConfs []config.Module,
+) {
+	for _, conf := range confs {
+		if strings.Contains(conf.ModuleID, "viam:raspberry-pi") {
+			// return
+			whitelisted = true
+			newConfs = append(newConfs, conf)
+		}
+		return whitelisted, newConfs
+	}
+	return whitelisted, newConfs
+}
+
 // Add adds and starts a new resource modules for each given module configuration.
 //
 // Each module configuration should have a unique name - if duplicate names are detected,
@@ -212,7 +227,12 @@ func (mgr *Manager) Add(ctx context.Context, confs ...config.Module) error {
 	defer mgr.mu.Unlock()
 
 	if mgr.untrustedEnv {
-		return errModularResourcesDisabled
+		whitelisted, newConfs := whiteListViamModules(confs...)
+		if !whitelisted {
+			return errModularResourcesDisabled
+		}
+		// overwrite with just the modules we've whitelisted
+		confs = newConfs
 	}
 
 	var (
