@@ -189,14 +189,15 @@ func (c *collector) getAndPushNextReading() {
 		return
 	}
 
+	md := &v1.SensorMetadata{
+		TimeRequested: timeRequested,
+		TimeReceived:  timeReceived,
+	}
 	var msg v1.SensorData
 	switch v := reading.(type) {
 	case []byte:
 		msg = v1.SensorData{
-			Metadata: &v1.SensorMetadata{
-				TimeRequested: timeRequested,
-				TimeReceived:  timeReceived,
-			},
+			Metadata: md,
 			Data: &v1.SensorData_Binary{
 				Binary: v,
 			},
@@ -204,7 +205,6 @@ func (c *collector) getAndPushNextReading() {
 	default:
 		// If it's not bytes, it's a struct.
 		var pbReading *structpb.Struct
-		var err error
 
 		if reflect.TypeOf(reading) == reflect.TypeOf(pb.GetReadingsResponse{}) {
 			// We special-case the GetReadingsResponse because it already contains
@@ -216,18 +216,16 @@ func (c *collector) getAndPushNextReading() {
 			)
 			pbReading = &structpb.Struct{Fields: topLevelMap}
 		} else {
-			pbReading, err = protoutils.StructToStructPbIgnoreOmitEmpty(reading)
+			tmp, err := protoutils.StructToStructPbIgnoreOmitEmpty(reading)
 			if err != nil {
 				c.captureErrors <- errors.Wrap(err, "error while converting reading to structpb.Struct")
 				return
 			}
+			pbReading = tmp
 		}
 
 		msg = v1.SensorData{
-			Metadata: &v1.SensorMetadata{
-				TimeRequested: timeRequested,
-				TimeReceived:  timeReceived,
-			},
+			Metadata: md,
 			Data: &v1.SensorData_Struct{
 				Struct: pbReading,
 			},

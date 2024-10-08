@@ -17,7 +17,7 @@ type CaptureBufferedWriter interface {
 type CaptureBuffer struct {
 	Directory          string
 	MetaData           *v1.DataCaptureMetadata
-	nextFile           *CaptureFile
+	nextFile           *ProgFile
 	lock               sync.Mutex
 	maxCaptureFileSize int64
 }
@@ -36,12 +36,23 @@ func NewCaptureBuffer(dir string, md *v1.DataCaptureMetadata, maxCaptureFileSize
 // are still being written to are indicated with the extension
 // InProgressFileExt. Files that have finished being written to are indicated by
 // FileExt.
+func isBinary(item *v1.SensorData) bool {
+	if item == nil {
+		return false
+	}
+	switch item.Data.(type) {
+	case *v1.SensorData_Binary:
+		return true
+	default:
+		return false
+	}
+}
 func (b *CaptureBuffer) Write(item *v1.SensorData) error {
 	b.lock.Lock()
 	defer b.lock.Unlock()
 
-	if item.GetBinary() != nil {
-		binFile, err := NewCaptureFile(b.Directory, b.MetaData)
+	if isBinary(item) {
+		binFile, err := NewProgFile(b.Directory, b.MetaData)
 		if err != nil {
 			return err
 		}
@@ -55,7 +66,7 @@ func (b *CaptureBuffer) Write(item *v1.SensorData) error {
 	}
 
 	if b.nextFile == nil {
-		nextFile, err := NewCaptureFile(b.Directory, b.MetaData)
+		nextFile, err := NewProgFile(b.Directory, b.MetaData)
 		if err != nil {
 			return err
 		}
@@ -67,7 +78,7 @@ func (b *CaptureBuffer) Write(item *v1.SensorData) error {
 		if err := b.nextFile.Close(); err != nil {
 			return err
 		}
-		nextFile, err := NewCaptureFile(b.Directory, b.MetaData)
+		nextFile, err := NewProgFile(b.Directory, b.MetaData)
 		if err != nil {
 			return err
 		}
