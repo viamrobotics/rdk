@@ -20,6 +20,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	"github.com/urfave/cli/v2"
+	"go.viam.com/utils"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
 )
@@ -85,7 +86,7 @@ func (c *viamClient) generateModuleAction(cCtx *cli.Context) error {
 			ModuleName:       "my-module",
 			IsPublic:         false,
 			Namespace:        "my-org",
-			Language:         "python",
+			Language:         python,
 			Resource:         resourceSubtype + " " + resourceType,
 			ResourceType:     resourceType,
 			ResourceSubtype:  resourceSubtype,
@@ -325,8 +326,7 @@ func promptUser() (*moduleInputs, error) {
 // Creates a new directory with moduleName.
 func setupDirectories(c *cli.Context, moduleName string) error {
 	debugf(c.App.Writer, c.Bool(debugFlag), "Setting up directories")
-	//nolint:gosec
-	err := os.Mkdir(moduleName, 0o755)
+	err := os.Mkdir(moduleName, 0o750)
 	if err != nil {
 		return err
 	}
@@ -348,8 +348,7 @@ func renderCommonFiles(c *cli.Context, module moduleInputs) error {
 	if err != nil {
 		return errors.Wrapf(err, "failed to create %s", infoFilePath)
 	}
-	//nolint:errcheck
-	defer infoFile.Close()
+	defer utils.UncheckedErrorFunc(infoFile.Close)
 
 	if _, err := infoFile.Write(infoBytes); err != nil {
 		return errors.Wrapf(err, "failed to write generator info to %s", infoFilePath)
@@ -359,8 +358,7 @@ func renderCommonFiles(c *cli.Context, module moduleInputs) error {
 	if module.EnableCloudBuild {
 		debugf(c.App.Writer, c.Bool(debugFlag), "\tCreating cloud build workflow")
 		destWorkflowPath := filepath.Join(module.ModuleName, ".github")
-		//nolint:gosec
-		if err = os.Mkdir(destWorkflowPath, 0o755); err != nil {
+		if err = os.Mkdir(destWorkflowPath, 0o750); err != nil {
 			return errors.Wrap(err, "failed to create cloud build workflow")
 		}
 
@@ -377,8 +375,7 @@ func renderCommonFiles(c *cli.Context, module moduleInputs) error {
 			if d.IsDir() {
 				if d.Name() != ".github" {
 					debugf(c.App.Writer, c.Bool(debugFlag), "\t\tCopying %s directory", d.Name())
-					//nolint:gosec
-					err = os.Mkdir(filepath.Join(destWorkflowPath, path), 0o755)
+					err = os.Mkdir(filepath.Join(destWorkflowPath, path), 0o750)
 					if err != nil {
 						return err
 					}
@@ -389,8 +386,7 @@ func renderCommonFiles(c *cli.Context, module moduleInputs) error {
 				if err != nil {
 					return errors.Wrapf(err, "error opening file %s", srcFile)
 				}
-				//nolint:errcheck
-				defer srcFile.Close()
+				defer utils.UncheckedErrorFunc(srcFile.Close)
 
 				destPath := filepath.Join(destWorkflowPath, path)
 				//nolint:gosec
@@ -398,8 +394,7 @@ func renderCommonFiles(c *cli.Context, module moduleInputs) error {
 				if err != nil {
 					return errors.Wrapf(err, "failed to create file %s", destPath)
 				}
-				//nolint:errcheck
-				defer destFile.Close()
+				defer utils.UncheckedErrorFunc(destFile.Close)
 
 				_, err = io.Copy(destFile, srcFile)
 				if err != nil {
@@ -432,8 +427,7 @@ func copyLanguageTemplate(c *cli.Context, language, moduleName string) error {
 		if d.IsDir() {
 			if d.Name() != language {
 				debugf(c.App.Writer, c.Bool(debugFlag), "\tCopying %s directory", d.Name())
-				//nolint:gosec
-				err = os.Mkdir(filepath.Join(moduleName, path), 0o755)
+				err = os.Mkdir(filepath.Join(moduleName, path), 0o750)
 				if err != nil {
 					return err
 				}
@@ -444,8 +438,7 @@ func copyLanguageTemplate(c *cli.Context, language, moduleName string) error {
 			if err != nil {
 				return errors.Wrapf(err, "error opening file %s", srcFile)
 			}
-			//nolint:errcheck
-			defer srcFile.Close()
+			defer utils.UncheckedErrorFunc(srcFile.Close)
 
 			destPath := filepath.Join(moduleName, path)
 			//nolint:gosec
@@ -453,8 +446,7 @@ func copyLanguageTemplate(c *cli.Context, language, moduleName string) error {
 			if err != nil {
 				return errors.Wrapf(err, "failed to create file %s", destPath)
 			}
-			//nolint:errcheck
-			defer destFile.Close()
+			defer utils.UncheckedErrorFunc(destFile.Close)
 
 			_, err = io.Copy(destFile, srcFile)
 			if err != nil {
@@ -486,8 +478,7 @@ func renderTemplate(c *cli.Context, module moduleInputs) error {
 			if err != nil {
 				return err
 			}
-			//nolint:errcheck
-			defer tFile.Close()
+			defer utils.UncheckedErrorFunc(tFile.Close)
 			tBytes, err := io.ReadAll(tFile)
 			if err != nil {
 				return err
@@ -503,8 +494,7 @@ func renderTemplate(c *cli.Context, module moduleInputs) error {
 			if err != nil {
 				return err
 			}
-			//nolint:errcheck
-			defer destFile.Close()
+			defer utils.UncheckedErrorFunc(destFile.Close)
 
 			err = tmpl.Execute(destFile, module)
 			if err != nil {
@@ -542,8 +532,7 @@ func generatePythonStubs(module moduleInputs) error {
 	if err != nil {
 		return errors.Wrap(err, "cannot generate python stubs -- unable to create python virtual environment")
 	}
-	//nolint:errcheck
-	defer os.RemoveAll(venvName)
+	defer utils.UncheckedError(os.RemoveAll(venvName))
 
 	script, err := scripts.ReadFile(filepath.Join(scriptsPath, "generate_stubs.py"))
 	if err != nil {
@@ -563,8 +552,7 @@ func generatePythonStubs(module moduleInputs) error {
 	if err != nil {
 		return errors.Wrap(err, "cannot generate python stubs -- unable to open file")
 	}
-	//nolint:errcheck
-	defer mainFile.Close()
+	defer utils.UncheckedErrorFunc(mainFile.Close)
 	_, err = mainFile.Write(out)
 	if err != nil {
 		return errors.Wrap(err, "cannot generate python stubs -- unable to write to file")
@@ -580,13 +568,12 @@ func getLatestSDKTag(c *cli.Context, language string) (string, error) {
 	}
 	debugf(c.App.Writer, c.Bool(debugFlag), "Getting the latest release tag for %s", repo)
 	url := fmt.Sprintf("https://api.github.com/repos/viamrobotics/%s/releases", repo)
-	//nolint:gosec,noctx
+	//nolint:gosec,bodyclose
 	resp, err := http.Get(url)
 	if err != nil {
 		return "", errors.Wrapf(err, "cannot get latest %s release", repo)
 	}
-	//nolint:errcheck
-	defer resp.Body.Close()
+	defer utils.UncheckedErrorFunc(resp.Body.Close)
 	if resp.StatusCode != http.StatusOK {
 		return "", errors.Errorf("unexpected http GET status: %s", resp.Status)
 	}
