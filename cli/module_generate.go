@@ -3,27 +3,25 @@ package cli
 import (
 	"embed"
 	"encoding/json"
-	"net/http"
-	"os/exec"
-	"regexp"
-
-	"github.com/google/uuid"
-	"github.com/pkg/errors"
-	"github.com/urfave/cli/v2"
-	"golang.org/x/text/cases"
-	"golang.org/x/text/language"
-
 	"fmt"
 	"io"
 	"io/fs"
+	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"text/template"
 	"time"
 
 	"github.com/charmbracelet/huh"
 	"github.com/charmbracelet/huh/spinner"
+	"github.com/google/uuid"
+	"github.com/pkg/errors"
+	"github.com/urfave/cli/v2"
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
 )
 
 //go:embed module_generate/scripts
@@ -36,6 +34,7 @@ const (
 	version        = "0.1.0"
 	basePath       = "module_generate"
 	templatePrefix = "tmpl-"
+	python         = "python"
 )
 
 var (
@@ -43,7 +42,7 @@ var (
 	templatesPath = filepath.Join(basePath, "templates")
 )
 
-// module contains the necessary information to fill out template files
+// module contains the necessary information to fill out template files.
 type moduleInputs struct {
 	ModuleName       string    `json:"module_name"`
 	IsPublic         bool      `json:"-"`
@@ -67,6 +66,7 @@ type moduleInputs struct {
 	SDKVersion string `json:"-"`
 }
 
+// GenerateModuleAction runs the module generate cli and generates necessary module templates based on user input.
 func GenerateModuleAction(cCtx *cli.Context) error {
 	c, err := newViamClient(cCtx)
 	if err != nil {
@@ -140,16 +140,23 @@ func (c *viamClient) generateModuleAction(cCtx *cli.Context) error {
 		action()
 	} else {
 		s.Action(action)
-		s.Run()
+		err := s.Run()
+		if err != nil {
+			return err
+		}
 	}
 
 	if fatalError != nil {
-		os.RemoveAll(newModule.ModuleName)
+		err := os.RemoveAll(newModule.ModuleName)
+		if err != nil {
+			return errors.Wrap(fatalError, fmt.Sprintf("some steps of module generation failed, "+
+				"incomplete module located at %s", newModule.ModuleName))
+		}
 		return errors.Wrap(fatalError, "unable to generate module")
 	}
 
 	if nonFatalError {
-		return errors.New(fmt.Sprintf("some steps of module generation failed, incomplete module located at %s", newModule.ModuleName))
+		return fmt.Errorf("some steps of module generation failed, incomplete module located at %s", newModule.ModuleName)
 	}
 
 	printf(cCtx.App.Writer, "Module successfully generated at %s", newModule.ModuleName)
@@ -157,7 +164,7 @@ func (c *viamClient) generateModuleAction(cCtx *cli.Context) error {
 }
 
 // Prompt the user for information regarding the module they want to create
-// returns the moduleInputs struct that contains the information the user entered
+// returns the moduleInputs struct that contains the information the user entered.
 func promptUser() (*moduleInputs, error) {
 	var newModule moduleInputs
 	form := huh.NewForm(
@@ -173,13 +180,16 @@ func promptUser() (*moduleInputs, error) {
 				Suggestions([]string{"my-module"}).
 				Validate(func(s string) error {
 					if s == "" {
+						//nolint:revive
 						return errors.New("Module name must not be empty!")
 					}
 					match, err := regexp.MatchString("^[a-z0-9]+(?:[_-][a-z0-9]+)*$", s)
 					if !match || err != nil {
+						//nolint:revive
 						return errors.New("Module names can only contain alphanumeric characters, dashes, and underscores!")
 					}
 					if _, err := os.Stat(s); err == nil {
+						//nolint:revive
 						return errors.New("This module directory already exists!")
 					}
 					return nil
@@ -187,7 +197,7 @@ func promptUser() (*moduleInputs, error) {
 			huh.NewSelect[string]().
 				Title("Specify the language for the module:").
 				Options(
-					huh.NewOption("Python", "python"),
+					huh.NewOption("Python", python),
 					// huh.NewOption("Go", "go"),
 				).
 				Value(&newModule.Language),
@@ -201,6 +211,7 @@ func promptUser() (*moduleInputs, error) {
 				Value(&newModule.Namespace).
 				Validate(func(s string) error {
 					if s == "" {
+						//nolint:revive
 						return errors.New("Namespace or org ID must not be empty!")
 					}
 					return nil
@@ -234,15 +245,18 @@ func promptUser() (*moduleInputs, error) {
 				Value(&newModule.Resource).WithHeight(25),
 			huh.NewInput().
 				Title("Set a model name of the resource:").
-				Description("This is the name of the new resource model that your module will provide.\nThe model name can contain only alphanumeric characters, dashes, and underscores.").
+				Description("This is the name of the new resource model that your module will provide.\n"+
+					"The model name can contain only alphanumeric characters, dashes, and underscores.").
 				Placeholder("my-model").
 				Value(&newModule.ModelName).
 				Validate(func(s string) error {
 					if s == "" {
+						//nolint:revive
 						return errors.New("Model name must not be empty!")
 					}
 					match, err := regexp.MatchString("^[a-z0-9]+(?:[_-][a-z0-9]+)*$", s)
 					if !match || err != nil {
+						//nolint:revive
 						return errors.New("Module names can only contain alphanumeric characters, dashes, and underscores!")
 					}
 					return nil
@@ -253,7 +267,8 @@ func promptUser() (*moduleInputs, error) {
 				Value(&newModule.EnableCloudBuild),
 			huh.NewConfirm().
 				Title("Register module").
-				Description("Register this module with Viam.\nIf selected, this will associate the module with your organization.\nOtherwise, this will be a local-only module.").
+				Description("Register this module with Viam.\nIf selected, "+
+					"this will associate the module with your organization.\nOtherwise, this will be a local-only module.").
 				Value(&newModule.RegisterOnApp),
 		),
 	).WithHeight(25).WithWidth(88)
@@ -279,10 +294,11 @@ func promptUser() (*moduleInputs, error) {
 	return &newModule, nil
 }
 
-// Creates a new directory with moduleName
+// Creates a new directory with moduleName.
 func setupDirectories(c *cli.Context, moduleName string) error {
 	debugf(c.App.Writer, c.Bool(debugFlag), "Setting up directories")
-	err := os.Mkdir(moduleName, 0755)
+	//nolint:gosec
+	err := os.Mkdir(moduleName, 0o755)
 	if err != nil {
 		return err
 	}
@@ -299,10 +315,12 @@ func renderCommonFiles(c *cli.Context, module moduleInputs) error {
 	}
 
 	infoFilePath := filepath.Join(module.ModuleName, ".viam-gen-info")
+	//nolint:gosec
 	infoFile, err := os.Create(infoFilePath)
 	if err != nil {
 		return errors.Wrapf(err, "failed to create %s", infoFilePath)
 	}
+	//nolint:errcheck
 	defer infoFile.Close()
 
 	if _, err := infoFile.Write(infoBytes); err != nil {
@@ -313,7 +331,8 @@ func renderCommonFiles(c *cli.Context, module moduleInputs) error {
 	if module.EnableCloudBuild {
 		debugf(c.App.Writer, c.Bool(debugFlag), "\tCreating cloud build workflow")
 		destWorkflowPath := filepath.Join(module.ModuleName, ".github")
-		if err = os.Mkdir(destWorkflowPath, 0755); err != nil {
+		//nolint:gosec
+		if err = os.Mkdir(destWorkflowPath, 0o755); err != nil {
 			return errors.Wrap(err, "failed to create cloud build workflow")
 		}
 
@@ -330,7 +349,8 @@ func renderCommonFiles(c *cli.Context, module moduleInputs) error {
 			if d.IsDir() {
 				if d.Name() != ".github" {
 					debugf(c.App.Writer, c.Bool(debugFlag), "\t\tCopying %s directory", d.Name())
-					err = os.Mkdir(filepath.Join(destWorkflowPath, path), 0755)
+					//nolint:gosec
+					err = os.Mkdir(filepath.Join(destWorkflowPath, path), 0o755)
 					if err != nil {
 						return err
 					}
@@ -341,13 +361,16 @@ func renderCommonFiles(c *cli.Context, module moduleInputs) error {
 				if err != nil {
 					return errors.Wrapf(err, "error opening file %s", srcFile)
 				}
+				//nolint:errcheck
 				defer srcFile.Close()
 
 				destPath := filepath.Join(destWorkflowPath, path)
+				//nolint:gosec
 				destFile, err := os.Create(destPath)
 				if err != nil {
 					return errors.Wrapf(err, "failed to create file %s", destPath)
 				}
+				//nolint:errcheck
 				defer destFile.Close()
 
 				_, err = io.Copy(destFile, srcFile)
@@ -366,8 +389,8 @@ func renderCommonFiles(c *cli.Context, module moduleInputs) error {
 	return nil
 }
 
-// copyLanguageTemplate copies the files from templates/language directory into the moduleName root directory
-func copyLanguageTemplate(c *cli.Context, language string, moduleName string) error {
+// copyLanguageTemplate copies the files from templates/language directory into the moduleName root directory.
+func copyLanguageTemplate(c *cli.Context, language, moduleName string) error {
 	debugf(c.App.Writer, c.Bool(debugFlag), "Creating %s template files", language)
 	languagePath := filepath.Join(templatesPath, language)
 	tempDir, err := fs.Sub(templates, languagePath)
@@ -381,7 +404,8 @@ func copyLanguageTemplate(c *cli.Context, language string, moduleName string) er
 		if d.IsDir() {
 			if d.Name() != language {
 				debugf(c.App.Writer, c.Bool(debugFlag), "\tCopying %s directory", d.Name())
-				err = os.Mkdir(filepath.Join(moduleName, path), 0755)
+				//nolint:gosec
+				err = os.Mkdir(filepath.Join(moduleName, path), 0o755)
 				if err != nil {
 					return err
 				}
@@ -392,13 +416,16 @@ func copyLanguageTemplate(c *cli.Context, language string, moduleName string) er
 			if err != nil {
 				return errors.Wrapf(err, "error opening file %s", srcFile)
 			}
+			//nolint:errcheck
 			defer srcFile.Close()
 
 			destPath := filepath.Join(moduleName, path)
+			//nolint:gosec
 			destFile, err := os.Create(destPath)
 			if err != nil {
 				return errors.Wrapf(err, "failed to create file %s", destPath)
 			}
+			//nolint:errcheck
 			defer destFile.Close()
 
 			_, err = io.Copy(destFile, srcFile)
@@ -414,7 +441,7 @@ func copyLanguageTemplate(c *cli.Context, language string, moduleName string) er
 	return nil
 }
 
-// Render all the files in the new directory
+// Render all the files in the new directory.
 func renderTemplate(c *cli.Context, module moduleInputs) error {
 	debugf(c.App.Writer, c.Bool(debugFlag), "Rendering template files")
 	languagePath := filepath.Join(templatesPath, module.Language)
@@ -431,6 +458,7 @@ func renderTemplate(c *cli.Context, module moduleInputs) error {
 			if err != nil {
 				return err
 			}
+			//nolint:errcheck
 			defer tFile.Close()
 			tBytes, err := io.ReadAll(tFile)
 			if err != nil {
@@ -442,10 +470,12 @@ func renderTemplate(c *cli.Context, module moduleInputs) error {
 				return err
 			}
 
+			//nolint:gosec
 			destFile, err := os.Create(destPath)
 			if err != nil {
 				return err
 			}
+			//nolint:errcheck
 			defer destFile.Close()
 
 			err = tmpl.Execute(destFile, module)
@@ -461,11 +491,11 @@ func renderTemplate(c *cli.Context, module moduleInputs) error {
 	return nil
 }
 
-// Generate stubs for the resource
+// Generate stubs for the resource.
 func generateStubs(c *cli.Context, module moduleInputs) error {
 	debugf(c.App.Writer, c.Bool(debugFlag), "Generating %s stubs", module.Language)
 	switch module.Language {
-	case "python":
+	case python:
 		return generatePythonStubs(module)
 	default:
 		return errors.Errorf("cannot generate stubs for language %s", module.Language)
@@ -484,23 +514,28 @@ func generatePythonStubs(module moduleInputs) error {
 	if err != nil {
 		return errors.Wrap(err, "cannot generate python stubs -- unable to create python virtual environment")
 	}
+	//nolint:errcheck
 	defer os.RemoveAll(venvName)
 
 	script, err := scripts.ReadFile(filepath.Join(scriptsPath, "generate_stubs.py"))
 	if err != nil {
 		return errors.Wrap(err, "cannot generate python stubs -- unable to open generator script")
 	}
-	cmd = exec.Command(filepath.Join(venvName, "bin", "python3"), "-c", string(script), module.ResourceType, module.ResourceSubtype, module.Namespace, module.ModuleName, module.ModelName)
+	//nolint:gosec
+	cmd = exec.Command(filepath.Join(venvName, "bin", "python3"), "-c", string(script), module.ResourceType,
+		module.ResourceSubtype, module.Namespace, module.ModuleName, module.ModelName)
 	out, err := cmd.Output()
 	if err != nil {
 		return errors.Wrap(err, "cannot generate python stubs -- generator script encountered an error")
 	}
 
 	mainPath := filepath.Join(module.ModuleName, "src", "main.py")
+	//nolint:gosec
 	mainFile, err := os.Create(mainPath)
 	if err != nil {
 		return errors.Wrap(err, "cannot generate python stubs -- unable to open file")
 	}
+	//nolint:errcheck
 	defer mainFile.Close()
 	_, err = mainFile.Write(out)
 	if err != nil {
@@ -512,15 +547,17 @@ func generatePythonStubs(module moduleInputs) error {
 
 func getLatestSDKTag(c *cli.Context, language string) (string, error) {
 	var repo string
-	if language == "python" {
+	if language == python {
 		repo = "viam-python-sdk"
 	}
 	debugf(c.App.Writer, c.Bool(debugFlag), "Getting the latest release tag for %s", repo)
 	url := fmt.Sprintf("https://api.github.com/repos/viamrobotics/%s/releases", repo)
+	//nolint:gosec,noctx
 	resp, err := http.Get(url)
 	if err != nil {
 		return "", errors.Wrapf(err, "cannot get latest %s release", repo)
 	}
+	//nolint:errcheck
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
 		return "", errors.Errorf("unexpected http GET status: %s", resp.Status)
@@ -542,19 +579,24 @@ func getLatestSDKTag(c *cli.Context, language string) (string, error) {
 
 func generateCloudBuild(c *cli.Context, module moduleInputs) error {
 	debugf(c.App.Writer, c.Bool(debugFlag), "Setting cloud build functionality to %t", module.EnableCloudBuild)
-	switch module.Language {
-	case "python":
+	if module.Language == python {
 		if module.EnableCloudBuild {
-			os.Remove(filepath.Join(module.ModuleName, "run.sh"))
+			err := os.Remove(filepath.Join(module.ModuleName, "run.sh"))
+			if err != nil {
+				return err
+			}
 		} else {
-			os.Remove(filepath.Join(module.ModuleName, "build.sh"))
+			err := os.Remove(filepath.Join(module.ModuleName, "build.sh"))
+			if err != nil {
+				return err
+			}
 		}
 	}
 	return nil
 }
 
 func createModuleAndManifest(cCtx *cli.Context, c *viamClient, module moduleInputs) error {
-	var moduleId moduleID
+	var moduleID moduleID
 	if module.RegisterOnApp {
 		debugf(cCtx.App.Writer, cCtx.Bool(debugFlag), "Registering module with Viam")
 		orgID := module.Namespace
@@ -570,23 +612,23 @@ func createModuleAndManifest(cCtx *cli.Context, c *viamClient, module moduleInpu
 		if err != nil {
 			return errors.Wrap(err, "failed to register module")
 		}
-		moduleId, err = parseModuleID(moduleResponse.GetModuleId())
+		moduleID, err = parseModuleID(moduleResponse.GetModuleId())
 		if err != nil {
 			return errors.Wrap(err, "failed to parse module identifier")
 		}
 	} else {
 		debugf(cCtx.App.Writer, cCtx.Bool(debugFlag), "Creating a local-only module")
-		moduleId.name = module.ModuleName
-		moduleId.prefix = module.Namespace
+		moduleID.name = module.ModuleName
+		moduleID.prefix = module.Namespace
 	}
-	err := renderManifest(cCtx, moduleId.String(), module)
+	err := renderManifest(cCtx, moduleID.String(), module)
 	if err != nil {
 		return errors.Wrap(err, "failed to render manifest")
 	}
 	return nil
 }
 
-// Create the meta.json manifest
+// Create the meta.json manifest.
 func renderManifest(c *cli.Context, moduleID string, module moduleInputs) error {
 	debugf(c.App.Writer, c.Bool(debugFlag), "Rendering module manifest")
 
@@ -605,7 +647,7 @@ func renderManifest(c *cli.Context, moduleID string, module moduleInputs) error 
 		},
 	}
 
-	if module.Language == "python" {
+	if module.Language == python {
 		if module.EnableCloudBuild {
 			manifest.Build = &manifestBuildInfo{
 				Setup: "./setup.sh",

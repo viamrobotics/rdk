@@ -10,9 +10,10 @@ import (
 	"time"
 
 	v1 "go.viam.com/api/app/build/v1"
-	"go.viam.com/rdk/testutils/inject"
 	"go.viam.com/test"
 	"google.golang.org/grpc"
+
+	"go.viam.com/rdk/testutils/inject"
 )
 
 func TestGenerateModuleAction(t *testing.T) {
@@ -26,7 +27,6 @@ func TestGenerateModuleAction(t *testing.T) {
 		ResourceSubtype:  "arm",
 		ModelName:        "my-model",
 		EnableCloudBuild: true,
-		InitializeGit:    false,
 		GeneratorVersion: "0.1.0",
 		GeneratedOn:      time.Now().UTC(),
 
@@ -51,7 +51,6 @@ func TestGenerateModuleAction(t *testing.T) {
 		test.That(t, setupDirectories(cCtx, expectedPythonTestModule.ModuleName), test.ShouldBeNil)
 		_, err = os.Stat(filepath.Join(testDir, expectedPythonTestModule.ModuleName))
 		test.That(t, err, test.ShouldBeNil)
-
 	})
 
 	t.Run("test render common files", func(t *testing.T) {
@@ -72,7 +71,7 @@ func TestGenerateModuleAction(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, module.ModuleName, test.ShouldEqual, expectedPythonTestModule.ModuleName)
 
-		//cloud build enabled
+		// cloud build enabled
 		_, err = os.Stat(filepath.Join(modulePath, ".github"))
 		test.That(t, err, test.ShouldBeNil)
 		_, err = os.Stat(filepath.Join(modulePath, ".github", "workflows"))
@@ -99,7 +98,7 @@ func TestGenerateModuleAction(t *testing.T) {
 
 	t.Run("test render template", func(t *testing.T) {
 		setupDirectories(cCtx, expectedPythonTestModule.ModuleName)
-		_ = os.Mkdir(filepath.Join(modulePath, "src"), 0755)
+		_ = os.Mkdir(filepath.Join(modulePath, "src"), 0o755)
 		_, err := os.Stat(filepath.Join(modulePath, "src"))
 		test.That(t, err, test.ShouldBeNil)
 
@@ -113,7 +112,7 @@ func TestGenerateModuleAction(t *testing.T) {
 
 	t.Run("test generate stubs", func(t *testing.T) {
 		setupDirectories(cCtx, expectedPythonTestModule.ModuleName)
-		_ = os.Mkdir(filepath.Join(modulePath, "src"), 0755)
+		_ = os.Mkdir(filepath.Join(modulePath, "src"), 0o755)
 		_, err := os.Stat(filepath.Join(modulePath, "src"))
 		test.That(t, err, test.ShouldBeNil)
 
@@ -123,7 +122,7 @@ func TestGenerateModuleAction(t *testing.T) {
 
 	t.Run("test generate python stubs", func(t *testing.T) {
 		setupDirectories(cCtx, expectedPythonTestModule.ModuleName)
-		_ = os.Mkdir(filepath.Join(modulePath, "src"), 0755)
+		_ = os.Mkdir(filepath.Join(modulePath, "src"), 0o755)
 		_, err := os.Stat(filepath.Join(modulePath, "src"))
 		test.That(t, err, test.ShouldBeNil)
 
