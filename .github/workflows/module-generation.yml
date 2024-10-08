@@ -2,6 +2,9 @@ name: Test Template Generators
 
 on:
   workflow_dispatch:
+  pull-request:
+    branches:
+      - "module-generation-cli"
 
 jobs:
   generate_and_run_module:
