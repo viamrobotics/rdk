@@ -60,15 +60,15 @@ const (
 //	)
 //
 //	baseOrigin := referenceframe.NewPoseInFrame("test-base", spatialmath.NewZeroPose())
-//	movementSensorToBase, err := machine.TransformPose(ctx, baseOrigin, "my-movement-sensor", nil)
+//	movementSensorToBase, err := machine.TransformPose(context.Background(), baseOrigin, "my-movement-sensor", nil)
 //
 // Status example:
 //
-//	status, err := machine.Status(ctx, nil)
+//	status, err := machine.Status(context.Background(), nil)
 //
 // CloudMetadata example:
 //
-//	metadata, err := machine.CloudMetadata(ctx)
+//	metadata, err := machine.CloudMetadata(context.Background())
 //	primary_org_id := metadata.PrimaryOrgID
 //	location_id := metadata.LocationID
 //	machine_id := metadata.MachineID
@@ -77,17 +77,17 @@ const (
 // Close example:
 //
 //	// Cleanly close the underlying connections and stop any periodic tasks,
-//	err := machine.Close(ctx)
+//	err := machine.Close(context.Background())
 //
 // StopAll example:
 //
 //	// Cancel all current and outstanding operations for the machine and stop all actuators and movement.
-//	err := machine.StopAll(ctx, nil)
+//	err := machine.StopAll(context.Background(), nil)
 //
 // Shutdown example:
 //
 //	// Shut down the robot.
-//	err := machine.Shutdown(ctx)
+//	err := machine.Shutdown(context.Background())
 type Robot interface {
 	// DiscoverComponents returns discovered potential component configurations.
 	// Only implemented for webcam cameras in builtin components.
