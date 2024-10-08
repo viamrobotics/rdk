@@ -19,7 +19,6 @@ import (
 	_ "go.viam.com/rdk/services/datamanager/builtin"
 	"go.viam.com/rdk/services/motion"
 	_ "go.viam.com/rdk/services/motion/builtin"
-	"go.viam.com/rdk/services/sensors"
 	_ "go.viam.com/rdk/services/sensors/builtin"
 	"go.viam.com/rdk/spatialmath"
 	rdktestutils "go.viam.com/rdk/testutils"
@@ -130,7 +129,6 @@ func TestFrameSystemConfigWithRemote(t *testing.T) {
 
 	finalSet := []resource.Name{
 		motion.Named(resource.DefaultServiceName),
-		sensors.Named(resource.DefaultServiceName),
 		base.Named("foo"),
 		gripper.Named("myParentIsRemote"),
 	}

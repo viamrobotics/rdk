@@ -182,7 +182,6 @@ func TestConfigRemote(t *testing.T) {
 
 	expected := []resource.Name{
 		motion.Named(resource.DefaultServiceName),
-		sensors.Named(resource.DefaultServiceName),
 		arm.Named("squee:pieceArm"),
 		arm.Named("foo:pieceArm"),
 		arm.Named("bar:pieceArm"),
@@ -204,11 +203,8 @@ func TestConfigRemote(t *testing.T) {
 		gripper.Named("foo:pieceGripper"),
 		gripper.Named("bar:pieceGripper"),
 		motion.Named("squee:builtin"),
-		sensors.Named("squee:builtin"),
 		motion.Named("foo:builtin"),
-		sensors.Named("foo:builtin"),
 		motion.Named("bar:builtin"),
-		sensors.Named("bar:builtin"),
 	}
 
 	resources2 := r2.ResourceNames()
@@ -424,7 +420,6 @@ func TestConfigRemoteWithAuth(t *testing.T) {
 
 			expected := []resource.Name{
 				motion.Named(resource.DefaultServiceName),
-				sensors.Named(resource.DefaultServiceName),
 				arm.Named("bar:pieceArm"),
 				arm.Named("foo:pieceArm"),
 				audioinput.Named("bar:mic1"),
@@ -438,9 +433,7 @@ func TestConfigRemoteWithAuth(t *testing.T) {
 				gripper.Named("bar:pieceGripper"),
 				gripper.Named("foo:pieceGripper"),
 				motion.Named("foo:builtin"),
-				sensors.Named("foo:builtin"),
 				motion.Named("bar:builtin"),
-				sensors.Named("bar:builtin"),
 			}
 
 			resources2 := r2.ResourceNames()
@@ -595,7 +588,6 @@ func TestConfigRemoteWithTLSAuth(t *testing.T) {
 
 	expected := []resource.Name{
 		motion.Named(resource.DefaultServiceName),
-		sensors.Named(resource.DefaultServiceName),
 		arm.Named("foo:pieceArm"),
 		audioinput.Named("foo:mic1"),
 		camera.Named("foo:cameraOver"),
@@ -603,7 +595,6 @@ func TestConfigRemoteWithTLSAuth(t *testing.T) {
 		movementsensor.Named("foo:movement_sensor2"),
 		gripper.Named("foo:pieceGripper"),
 		motion.Named("foo:builtin"),
-		sensors.Named("foo:builtin"),
 	}
 
 	resources2 := r2.ResourceNames()
@@ -847,7 +838,6 @@ func TestMetadataUpdate(t *testing.T) {
 		movementsensor.Named("movement_sensor1"),
 		movementsensor.Named("movement_sensor2"),
 		motion.Named(resource.DefaultServiceName),
-		sensors.Named(resource.DefaultServiceName),
 	}
 
 	resources = r.ResourceNames()
@@ -1178,7 +1168,6 @@ func TestStatusRemote(t *testing.T) {
 		r.ResourceNames(),
 		[]resource.Name{
 			motion.Named(resource.DefaultServiceName),
-			sensors.Named(resource.DefaultServiceName),
 			arm.Named("foo:arm1"),
 			arm.Named("foo:arm2"),
 			arm.Named("bar:arm1"),
@@ -1286,7 +1275,6 @@ func TestGetRemoteResourceAndGrandFather(t *testing.T) {
 		r.ResourceNames(),
 		[]resource.Name{
 			motion.Named(resource.DefaultServiceName),
-			sensors.Named(resource.DefaultServiceName),
 			arm.Named("remote:foo:arm1"), arm.Named("remote:foo:arm2"),
 			arm.Named("remote:pieceArm"),
 			arm.Named("remote:foo:pieceArm"),
@@ -1296,9 +1284,7 @@ func TestGetRemoteResourceAndGrandFather(t *testing.T) {
 			movementsensor.Named("remote:movement_sensor2"),
 			gripper.Named("remote:pieceGripper"),
 			motion.Named("remote:builtin"),
-			sensors.Named("remote:builtin"),
 			motion.Named("remote:foo:builtin"),
-			sensors.Named("remote:foo:builtin"),
 		},
 	)
 	arm1, err := r.ResourceByName(arm.Named("remote:foo:arm1"))

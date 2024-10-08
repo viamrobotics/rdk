@@ -3303,7 +3303,6 @@ func TestDefaultServiceReconfigure(t *testing.T) {
 	rdktestutils.VerifySameResourceNames(t, robot.ResourceNames(),
 		[]resource.Name{
 			motion.Named(motionName),
-			sensors.Named(resource.DefaultServiceName),
 		},
 	)
 	sName := "sensors"
@@ -3322,7 +3321,6 @@ func TestDefaultServiceReconfigure(t *testing.T) {
 		robot.ResourceNames(),
 		[]resource.Name{
 			motion.Named(resource.DefaultServiceName),
-			sensors.Named(sName),
 		},
 	)
 }
