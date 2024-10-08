@@ -44,6 +44,14 @@ def main(
     ]
     abstract_methods = []
     with open(module.__file__, "r") as f:
+        def update_annotation(annotation):
+            if isinstance(annotation, ast.Name) and annotation.id in nodes:
+                return return_attribute(resource_name, annotation.id)
+            elif isinstance(annotation, ast.Subscript):
+                annotation.slice = update_annotation(annotation.slice)
+                return annotation
+            return annotation
+
         tree = ast.parse(f.read())
         nodes = []
         for stmt in tree.body:
@@ -78,14 +86,7 @@ def main(
                         nodes.append(cstmt.target.id)
                     elif isinstance(cstmt, ast.AsyncFunctionDef):
                         for arg in cstmt.args.args:
-                            if isinstance(arg.annotation, ast.Name) and arg.annotation.id in nodes:
-                                arg.annotation = return_attribute(resource_name, arg.annotation.id)
-                            elif isinstance(arg.annotation, ast.Subscript):
-                                if isinstance(arg.annotation.slice, ast.Subscript):
-                                    if isinstance(arg.annotation.slice.slice, ast.Name) and arg.annotation.slice.slice.id in nodes:
-                                        arg.annotation.slice.slice = return_attribute(resource_name, arg.annotation.slice.slice.id)
-                                elif isinstance(arg.annotation.slice, ast.Name) and arg.annotation.slice.id in nodes:
-                                    arg.annotation.slice = return_attribute(resource_name, arg.annotation.slice.id)
+                            arg.annotation = update_annotation(arg.annotation)
 
                         cstmt.body = [
                             ast.Raise(
