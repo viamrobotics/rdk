@@ -1,11 +1,11 @@
 <script lang="ts">
-import { ArmClient, type Pose, type ServiceError } from '@viamrobotics/sdk';
+import { useRobotClient } from '@/hooks/robot-client';
+import Collapse from '@/lib/components/collapse.svelte';
 import { copyToClipboard } from '@/lib/copy-to-clipboard';
 import { displayError } from '@/lib/error';
-import { roundTo2Decimals } from '@/lib/math';
 import { rcLogConditionally } from '@/lib/log';
-import Collapse from '@/lib/components/collapse.svelte';
-import { useRobotClient } from '@/hooks/robot-client';
+import { roundTo2Decimals } from '@/lib/math';
+import { ArmClient, ConnectError, type Pose } from '@viamrobotics/sdk';
 
 interface ArmStatus {
   pos_pieces: {
@@ -95,7 +95,7 @@ const stop = async () => {
   try {
     await armClient.stop();
   } catch (error) {
-    displayError(error as ServiceError);
+    displayError(error as ConnectError);
   }
 };
 
@@ -121,7 +121,7 @@ const armModifyAllDoEndPosition = async () => {
   try {
     await armClient.moveToPosition(newPose);
   } catch (error) {
-    displayError(error as ServiceError);
+    displayError(error as ConnectError);
   }
 
   modifyAll = false;
@@ -139,7 +139,7 @@ const armModifyAllDoJoint = async () => {
   try {
     await armClient.moveToJointPositions(newList);
   } catch (error) {
-    displayError(error as ServiceError);
+    displayError(error as ConnectError);
   }
 
   modifyAll = false;
@@ -182,7 +182,7 @@ const armEndPositionInc = async (
   try {
     await armClient.moveToPosition(newPose);
   } catch (error) {
-    displayError(error as ServiceError);
+    displayError(error as ConnectError);
   }
 };
 
@@ -194,7 +194,7 @@ const armJointInc = async (field: number, amount: number) => {
   try {
     await armClient.moveToJointPositions(newList);
   } catch (error) {
-    displayError(error as ServiceError);
+    displayError(error as ConnectError);
   }
 };
 
@@ -209,7 +209,7 @@ const armHome = async () => {
   try {
     await armClient.moveToJointPositions(newList);
   } catch (error) {
-    displayError(error as ServiceError);
+    displayError(error as ConnectError);
   }
 };
 

@@ -1,15 +1,14 @@
-import type { Pose } from '@viamrobotics/sdk';
-import type { Timestamp } from 'google-protobuf/google/protobuf/timestamp_pb';
+import type { Pose, Timestamp } from '@viamrobotics/sdk';
 
 export interface MappingMetadata {
   id: string;
   orgId: string;
   locationId: string;
   robotId: string;
-  timeStartSubmitted?: Timestamp.AsObject;
-  timeCloudRunJobStarted?: Timestamp.AsObject;
-  timeEndSubmitted?: Timestamp.AsObject;
-  timeCloudRunJobEnded?: Timestamp.AsObject;
+  timeStartSubmitted?: Timestamp;
+  timeCloudRunJobStarted?: Timestamp;
+  timeEndSubmitted?: Timestamp;
+  timeCloudRunJobEnded?: Timestamp;
   endStatus: string;
   cloudRunJobId: string;
   viamServerVersion: string;

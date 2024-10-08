@@ -1,44 +1,57 @@
 import {
-  SensorClient,
-  type RobotClient,
+  ArmClient,
+  BaseClient,
+  BoardClient,
   CameraClient,
+  EncoderClient,
+  GantryClient,
+  GenericComponentClient,
+  GripperClient,
+  InputControllerClient,
+  MotionClient,
+  MotorClient,
+  MovementSensorClient,
+  NavigationClient,
+  PowerSensorClient,
+  SensorClient,
+  ServoClient,
+  SlamClient,
+  VisionClient,
+  type Resource,
+  type RobotClient,
 } from '@viamrobotics/sdk';
 
 const CLIENT_TYPES = {
-  arm: 'armService',
-  base: 'baseService',
-  board: 'boardService',
-  encoder: 'encoderService',
-  gantry: 'gantryService',
-  generic: 'genericService',
-  gripper: 'gripperService',
-  input_controller: 'inputControllerService',
-  motion: 'motionService',
-  motor: 'motorService',
-  movement_sensor: 'movementSensorService',
-  navigation: 'navigationService',
-  power_sensor: 'powerSensorService',
-  sensors: 'sensorsService',
-  servo: 'servoService',
-  slam: 'slamService',
-  vision: 'visionService',
+  arm: ArmClient,
+  base: BaseClient,
+  board: BoardClient,
+  camera: CameraClient,
+  encoder: EncoderClient,
+  gantry: GantryClient,
+  generic: GenericComponentClient,
+  gripper: GripperClient,
+  input_controller: InputControllerClient,
+  motion: MotionClient,
+  motor: MotorClient,
+  movement_sensor: MovementSensorClient,
+  navigation: NavigationClient,
+  power_sensor: PowerSensorClient,
+  sensor: SensorClient,
+  servo: ServoClient,
+  slam: SlamClient,
+  vision: VisionClient,
 } as const;
 
 export const getClientByType = (
   robotClient: RobotClient,
   type: string,
   name: string
-) => {
+): Resource | undefined => {
   if (Object.hasOwn(CLIENT_TYPES, type)) {
-    return robotClient[CLIENT_TYPES[type as keyof typeof CLIENT_TYPES]];
+    return new CLIENT_TYPES[type as keyof typeof CLIENT_TYPES](
+      robotClient,
+      name
+    );
   }
-
-  // TODO(RSDK-7272): Figure out long-term solution for DoCommand in RC
-  if (type === 'sensor') {
-    return new SensorClient(robotClient, name);
-  } else if (type === 'camera') {
-    return new CameraClient(robotClient, name);
-  }
-
-  return null;
+  return undefined;
 };

@@ -18,6 +18,7 @@ import (
 	"go.uber.org/multierr"
 	"go.uber.org/zap/zapcore"
 	pb "go.viam.com/api/module/v1"
+	robotpb "go.viam.com/api/robot/v1"
 	"go.viam.com/utils"
 	"go.viam.com/utils/pexec"
 	"go.viam.com/utils/rpc"
@@ -75,8 +76,11 @@ type module struct {
 	handles    modlib.HandlerMap
 	sharedConn rdkgrpc.SharedConn
 	client     pb.ModuleServiceClient
-	addr       string
-	resources  map[resource.Name]*addedResource
+	// robotClient supplements the ModuleServiceClient client to serve select robot level methods from the module server
+	// such as the DiscoverComponents API
+	robotClient robotpb.RobotServiceClient
+	addr        string
+	resources   map[resource.Name]*addedResource
 	// resourcesMu must be held if the `resources` field is accessed without
 	// write-locking the module manager.
 	resourcesMu sync.Mutex
@@ -991,6 +995,7 @@ func (m *module) dial() error {
 	// out.
 	m.sharedConn.ResetConn(rpc.GrpcOverHTTPClientConn{ClientConn: conn}, m.logger)
 	m.client = pb.NewModuleServiceClient(m.sharedConn.GrpcConn())
+	m.robotClient = robotpb.NewRobotServiceClient(m.sharedConn.GrpcConn())
 	return nil
 }
 
@@ -1163,6 +1168,10 @@ func (m *module) registerResources(mgr modmaninterface.ModuleManager, logger log
 		case api.API.IsComponent():
 			for _, model := range models {
 				logger.Infow("Registering component API and model from module", "module", m.cfg.Name, "API", api.API, "model", model)
+				// We must copy because the Discover closure func relies on api and model, but they are iterators and mutate.
+				// Copying prevents mutation.
+				modelCopy := model
+				apiCopy := api
 				resource.RegisterComponent(api.API, model, resource.Registration[resource.Resource, resource.NoNativeConfig]{
 					Constructor: func(
 						ctx context.Context,
@@ -1171,6 +1180,21 @@ func (m *module) registerResources(mgr modmaninterface.ModuleManager, logger log
 						logger logging.Logger,
 					) (resource.Resource, error) {
 						return mgr.AddResource(ctx, conf, DepsToNames(deps))
+					},
+					Discover: func(ctx context.Context, logger logging.Logger) (interface{}, error) {
+						req := &robotpb.DiscoverComponentsRequest{
+							Queries: []*robotpb.DiscoveryQuery{
+								{Subtype: apiCopy.API.String(), Model: modelCopy.String()},
+							},
+						}
+
+						res, err := m.robotClient.DiscoverComponents(ctx, req)
+						if err != nil {
+							m.logger.Errorf("error in modular DiscoverComponents: %s", err)
+							return nil, err
+						}
+
+						return res, nil
 					},
 				})
 			}

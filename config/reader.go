@@ -33,8 +33,9 @@ var (
 )
 
 const (
-	initialReadTimeout = 1 * time.Second
-	readTimeout        = 5 * time.Second
+	initialReadTimeout     = 1 * time.Second
+	readTimeout            = 5 * time.Second
+	readTimeoutBehindProxy = 15 * time.Second
 	// PackagesDirName is where packages go underneath viamDotDir.
 	PackagesDirName = "packages"
 	// LocalPackagesSuffix is used by the local package manager.
@@ -181,6 +182,11 @@ func isLocationSecretsEqual(prevCloud, cloud *Cloud) bool {
 
 func getTimeoutCtx(ctx context.Context, shouldReadFromCache bool, id string) (context.Context, func()) {
 	timeout := readTimeout
+	// When environment indicates we are behind a proxy, bump timeout. Network
+	// operations tend to take longer when behind a proxy.
+	if proxyAddr := os.Getenv(rpc.SocksProxyEnvVar); proxyAddr != "" {
+		timeout = readTimeoutBehindProxy
+	}
 
 	// use shouldReadFromCache to determine whether this is part of initial read or not, but only shorten timeout
 	// if cached config exists

@@ -46,8 +46,9 @@ type moduleVisibility string
 
 // Permissions enumeration.
 const (
-	moduleVisibilityPrivate moduleVisibility = "private"
-	moduleVisibilityPublic  moduleVisibility = "public"
+	moduleVisibilityPrivate        moduleVisibility = "private"
+	moduleVisibilityPublic         moduleVisibility = "public"
+	moduleVisibilityPublicUnlisted moduleVisibility = "public_unlisted"
 )
 
 type unknownRdkAPITypeError struct {
@@ -72,10 +73,11 @@ type moduleID struct {
 
 // manifestBuildInfo is the "build" section of meta.json.
 type manifestBuildInfo struct {
-	Build string   `json:"build"`
-	Setup string   `json:"setup"`
-	Path  string   `json:"path"`
-	Arch  []string `json:"arch"`
+	Build      string   `json:"build"`
+	Setup      string   `json:"setup"`
+	Path       string   `json:"path"`
+	Arch       []string `json:"arch"`
+	DarwinDeps []string `json:"darwin_deps,omitempty"`
 }
 
 // defaultBuildInfo has defaults for unset fields in "build".
@@ -86,6 +88,7 @@ var defaultBuildInfo = manifestBuildInfo{
 }
 
 // moduleManifest is used to create & parse manifest.json.
+// Detailed user-facing docs for this are in module.schema.json.
 type moduleManifest struct {
 	Schema      string            `json:"$schema"`
 	ModuleID    string            `json:"module_id"`
@@ -584,9 +587,12 @@ func visibilityToProto(visibility moduleVisibility) (apppb.Visibility, error) {
 		return apppb.Visibility_VISIBILITY_PRIVATE, nil
 	case moduleVisibilityPublic:
 		return apppb.Visibility_VISIBILITY_PUBLIC, nil
+	case moduleVisibilityPublicUnlisted:
+		return apppb.Visibility_VISIBILITY_PUBLIC_UNLISTED, nil
 	default:
 		return apppb.Visibility_VISIBILITY_UNSPECIFIED,
-			errors.Errorf("invalid module visibility. must be either %q or %q", moduleVisibilityPublic, moduleVisibilityPrivate)
+			errors.Errorf("invalid module visibility. must be either %q, %q, or %q",
+				moduleVisibilityPublic, moduleVisibilityPrivate, moduleVisibilityPublicUnlisted)
 	}
 }
 

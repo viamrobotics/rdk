@@ -1,36 +1,33 @@
 <script lang="ts">
+import { useRobotClient } from '@/hooks/robot-client';
+import Collapse from '@/lib/components/collapse.svelte';
 import { gripperApi } from '@viamrobotics/sdk';
 import { displayError } from '../../lib/error';
 import { rcLogConditionally } from '../../lib/log';
-import Collapse from '@/lib/components/collapse.svelte';
-import { useRobotClient } from '@/hooks/robot-client';
 
 export let name: string;
 
 const { robotClient } = useRobotClient();
 
 const stop = () => {
-  const request = new gripperApi.StopRequest();
-  request.setName(name);
+  const request = new gripperApi.StopRequest({ name });
 
   rcLogConditionally(request);
-  $robotClient.gripperService.stop(request, displayError);
+  $robotClient.gripperService.stop(request).catch(displayError);
 };
 
 const open = () => {
-  const request = new gripperApi.OpenRequest();
-  request.setName(name);
+  const request = new gripperApi.OpenRequest({ name });
 
   rcLogConditionally(request);
-  $robotClient.gripperService.open(request, displayError);
+  $robotClient.gripperService.open(request).catch(displayError);
 };
 
 const grab = () => {
-  const request = new gripperApi.GrabRequest();
-  request.setName(name);
+  const request = new gripperApi.GrabRequest({ name });
 
   rcLogConditionally(request);
-  $robotClient.gripperService.grab(request, displayError);
+  $robotClient.gripperService.grab(request).catch(displayError);
 };
 </script>
 
