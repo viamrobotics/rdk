@@ -76,7 +76,36 @@ func GenerateModuleAction(cCtx *cli.Context) error {
 }
 
 func (c *viamClient) generateModuleAction(cCtx *cli.Context) error {
-	newModule, err := promptUser()
+	var newModule *moduleInputs
+	var err error
+	resourceType := cCtx.String(moduleFlagResourceType)
+	resourceSubtype := cCtx.String(moduleFlagResourceSubtype)
+	if resourceSubtype != "" && resourceType != "" {
+		newModule = &moduleInputs{
+			ModuleName:       "my-module",
+			IsPublic:         false,
+			Namespace:        "my-org",
+			Language:         "python",
+			Resource:         resourceSubtype + " " + resourceType,
+			ResourceType:     resourceType,
+			ResourceSubtype:  resourceSubtype,
+			ModelName:        "my-model",
+			EnableCloudBuild: false,
+			RegisterOnApp:    false,
+			GeneratorVersion: "0.1.0",
+			GeneratedOn:      time.Now().UTC(),
+	
+			ModulePascal:          "MyModule",
+			API:                   fmt.Sprintf("rdk:%s:%s", resourceType, resourceSubtype),
+			ResourceSubtypePascal: strings.ToUpper(string(resourceSubtype[0])) + resourceSubtype[1:],
+			ModelPascal:           "MyModel",
+			ModelTriple:           "my-org:my-module:my-model",
+	
+			SDKVersion: "0.0.0",
+		}
+	} else {
+		newModule, err = promptUser()
+	}
 	if err != nil {
 		return err
 	}
@@ -227,7 +256,6 @@ func promptUser() (*moduleInputs, error) {
 					huh.NewOption("MLModel Service", "mlmodel service"),
 					huh.NewOption("Motion Service", "motion service"),
 					huh.NewOption("Navigation Service", "navigation service"),
-					huh.NewOption("Sensors Service", "sensors service"),
 					huh.NewOption("SLAM Service", "slam service"),
 					huh.NewOption("Vision Service", "vision service"),
 				).

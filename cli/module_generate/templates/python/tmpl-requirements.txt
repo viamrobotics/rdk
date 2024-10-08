@@ -1,2 +1,6 @@
+{{ if eq .ResourceSubtype "mlmodel" }}
+viam-sdk[mlmodel]
+{{ else }}
 viam-sdk=={{ .SDKVersion }}
+{{ end }}
 typing-extensions

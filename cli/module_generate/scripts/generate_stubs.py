@@ -7,6 +7,13 @@ import sys
 from importlib import import_module
 
 
+def return_attribute(resource_name: str, attr: str) -> ast.Attribute:
+    return ast.Attribute(
+        value=ast.Name(id=resource_name, ctx=ast.Load()),
+        attr=attr,
+        ctx=ast.Load())
+
+
 def main(
     resource_type: str,
     resource_subtype: str,
@@ -19,34 +26,34 @@ def main(
 
     module_name = f"viam.{resource_type}s.{resource_subtype}.{resource_subtype}"
     module = import_module(module_name)
-    resource_name = "".join(word.capitalize() for word in resource_subtype.split("_"))
-    resource = getattr(module, resource_name)
-    methods = inspect.getmembers(resource, predicate=inspect.isfunction)
+    if resource_subtype == "input":
+        resource_name = "Controller"
+    elif resource_subtype == "slam":
+        resource_name = "SLAM"
+    elif resource_subtype == "mlmodel":
+        resource_name = "MLModel"
+    else:
+        resource_name = "".join(word.capitalize() for word in resource_subtype.split("_"))
 
     imports = []
-    abstract_methods = []
-    for name, method in methods:
-        if getattr(method, "__isabstractmethod__", False):
-            signature = inspect.signature(method)
-
-            regex = r"([\w\.]+_pb2)"
-            proto_matches = re.findall(regex, str(signature))
-            proto_imports = [
-                f"from viam.gen import {match.split('.')[0]}" for match in proto_matches
-            ]
-            imports.extend(proto_imports)
-
-            final = f"{name}{signature}: raise NotImplementedError()"
-            abstract_methods.append(final)
-
     modules_to_ignore = [
         "abc",
         "component_base",
         "service_base",
         "viam.resource.types",
     ]
+    abstract_methods = []
     with open(module.__file__, "r") as f:
+        def update_annotation(annotation):
+            if isinstance(annotation, ast.Name) and annotation.id in nodes:
+                return return_attribute(resource_name, annotation.id)
+            elif isinstance(annotation, ast.Subscript):
+                annotation.slice = update_annotation(annotation.slice)
+                return annotation
+            return annotation
+
         tree = ast.parse(f.read())
+        nodes = []
         for stmt in tree.body:
             if isinstance(stmt, ast.Import):
                 for imp in stmt.names:
@@ -56,7 +63,7 @@ def main(
                         imports.append(f"import {imp.name} as {imp.asname}")
                     else:
                         imports.append(f"import {imp.name}")
-            if isinstance(stmt, ast.ImportFrom):
+            elif isinstance(stmt, ast.ImportFrom):
                 if stmt.module in modules_to_ignore or stmt.module is None:
                     continue
                 i_strings = ", ".join(
@@ -71,6 +78,30 @@ def main(
                 )
                 i = f"from {stmt.module} import {i_strings}"
                 imports.append(i)
+            elif isinstance(stmt, ast.ClassDef) and stmt.name == resource_name:
+                for cstmt in stmt.body:
+                    if isinstance(cstmt, ast.ClassDef):
+                        nodes.append(cstmt.name)
+                    elif isinstance(cstmt, ast.AnnAssign):
+                        nodes.append(cstmt.target.id)
+                    elif isinstance(cstmt, ast.AsyncFunctionDef):
+                        for arg in cstmt.args.args:
+                            arg.annotation = update_annotation(arg.annotation)
+
+                        cstmt.body = [
+                            ast.Raise(
+                                exc=ast.Call(
+                                    func=ast.Name(id='NotImplementedError', ctx=ast.Load()),
+                                    args=[],
+                                    keywords=[]),
+                                cause=None,
+                                )
+                        ]
+                        cstmt.decorator_list = []
+                        if isinstance(cstmt.returns, ast.Name) and cstmt.returns.id in nodes:
+                            cstmt.returns = return_attribute(resource_name, cstmt.returns.id)
+                        indented_code = '\n'.join(['    ' + line for line in ast.unparse(cstmt).splitlines()])
+                        abstract_methods.append(indented_code)
 
     model_name_pascal = "".join(
         [word.capitalize() for word in slugify(model_name).split("-")]
@@ -143,7 +174,7 @@ if __name__ == '__main__':
         namespace,
         mod_name,
         model_name,
-        '\n\n'.join([f'    async def {method}' for method in abstract_methods]),
+        '\n\n'.join([f'{method}' for method in abstract_methods]),
     )
     f_name = os.path.join(mod_name, "src", "main.py")
     with open(f_name, "w+") as f:
@@ -161,18 +192,16 @@ if __name__ == '__main__':
 
 
 if __name__ == "__main__":
+    packages = ["viam-sdk", "typing-extensions", "black", "isort", "python-slugify"]
+    if sys.argv[2] == "mlmodel":
+        packages.append("numpy")        
     install_res = subprocess.run(
         [
             sys.executable,
             "-m",
             "pip",
-            "install",
-            "viam-sdk",
-            "typing-extensions",
-            "black",
-            "isort",
-            "python-slugify",
-        ],
+            "install"
+        ] + packages,
         capture_output=True,
     )
     if install_res.returncode != 0:
