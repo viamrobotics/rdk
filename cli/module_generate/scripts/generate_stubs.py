@@ -34,21 +34,8 @@ def main(
         resource_name = "MLModel"
     else:
         resource_name = "".join(word.capitalize() for word in resource_subtype.split("_"))
-    resource = getattr(module, resource_name)
-    methods = inspect.getmembers(resource, predicate=inspect.isfunction)
 
     imports = []
-    for _, method in methods:
-        if getattr(method, "__isabstractmethod__", False):
-            signature = inspect.signature(method)
-
-            regex = r"([\w\.]+_pb2)"
-            proto_matches = re.findall(regex, str(signature))
-            proto_imports = [
-                f"from viam.gen import {match.split('.')[0]}" for match in proto_matches
-            ]
-            imports.extend(proto_imports)
-
     modules_to_ignore = [
         "abc",
         "component_base",
