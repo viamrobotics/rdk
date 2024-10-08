@@ -8,7 +8,7 @@ on:
 
 jobs:
   generate_and_run_module:
-    if: github.repository_owner == 'viamrobotics'
+    # if: github.repository_owner == 'viamrobotics'
     runs-on: ubuntu-latest
     strategy:
       fail-fast: true
