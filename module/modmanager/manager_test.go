@@ -941,6 +941,7 @@ func TestModuleMisc(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		// confirm only the raspberry-pi module was added
+		test.That(t, len(mgr.Configs()), test.ShouldEqual, 1)
 		for _, conf := range mgr.Configs() {
 			test.That(t, conf.ModuleID, test.ShouldContainSubstring, "viam")
 		}
