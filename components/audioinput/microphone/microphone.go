@@ -60,9 +60,22 @@ func newMicrophoneSource(conf *Config, logger logging.Logger) (audioinput.AudioS
 
 	debug := conf.Debug
 
-	if conf.Path != "" {
-		return tryMicrophoneOpen(conf.Path, gostream.DefaultConstraints, logger)
+	var constraints mediadevices.MediaTrackConstraints
+	audioConstraints := constraints.MediaConstraints.AudioConstraints
+
+	audioOption := func(trackConstraints *mediadevices.MediaTrackConstraints) {
+		trackConstraints.AudioConstraints = audioConstraints
 	}
+	audioStreamConstraints := mediadevices.MediaStreamConstraints{
+		Audio: audioOption,
+	}
+	if conf.Path != "" {
+		return tryMicrophoneOpen(conf.Path, audioStreamConstraints, logger)
+	}
+
+	// if conf.Path != "" {
+	// 	return tryMicrophoneOpen(conf.Path, gostream.DefaultConstraints, logger)
+	// }
 
 	var pattern *regexp.Regexp
 	if conf.PathPattern != "" {
@@ -91,7 +104,8 @@ func newMicrophoneSource(conf *Config, logger logging.Logger) (audioinput.AudioS
 					}
 					continue
 				}
-				s, err := tryMicrophoneOpen(label, gostream.DefaultConstraints, logger)
+				// s, err := tryMicrophoneOpen(label, gostream.DefaultConstraints, logger)
+				s, err := tryMicrophoneOpen(label, audioStreamConstraints, logger)
 				if err == nil {
 					if debug {
 						logger.Debug("\t USING")
