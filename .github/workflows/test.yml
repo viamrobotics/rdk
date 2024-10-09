@@ -72,6 +72,9 @@ jobs:
         python3 -m venv .venv
         .venv/bin/python --version
         echo $PATH
+        whoami
+        echo $HOME
+        go test ./cli -run TestGenerateModuleAction
         sudo --preserve-env=PATH -Hu testbot bash -lc 'go test ./cli -run TestGenerateModuleAction'
 
     - name: Upload test.json
