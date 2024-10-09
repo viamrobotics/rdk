@@ -47,7 +47,7 @@ type moduleInputs struct {
 	ModuleName       string    `json:"module_name"`
 	IsPublic         bool      `json:"-"`
 	Namespace        string    `json:"namespace"`
-	OrgId            string    `json:"-"`
+	OrgID            string    `json:"-"`
 	Language         string    `json:"language"`
 	Resource         string    `json:"-"`
 	ResourceType     string    `json:"resource_type"`
@@ -320,13 +320,13 @@ func promptUser(c *viamClient) (*moduleInputs, error) {
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to resolve organization from namespace %s", newModule.Namespace)
 		}
-		newModule.OrgId = org.GetId()
+		newModule.OrgID = org.GetId()
 	} else {
 		org, err := resolveOrg(c, "", newModule.Namespace)
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to resolve organization from ID %s", newModule.Namespace)
 		}
-		newModule.OrgId = newModule.Namespace
+		newModule.OrgID = newModule.Namespace
 		newModule.Namespace = org.GetPublicNamespace()
 	}
 
@@ -629,7 +629,7 @@ func createModuleAndManifest(cCtx *cli.Context, c *viamClient, module moduleInpu
 	var moduleID moduleID
 	if module.RegisterOnApp {
 		debugf(cCtx.App.Writer, cCtx.Bool(debugFlag), "Registering module with Viam")
-		moduleResponse, err := c.createModule(module.ModuleName, module.OrgId)
+		moduleResponse, err := c.createModule(module.ModuleName, module.OrgID)
 		if err != nil {
 			return errors.Wrap(err, "failed to register module")
 		}
