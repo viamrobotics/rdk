@@ -59,11 +59,8 @@ jobs:
       run: chown -R testbot:testbot .
 
     - name: Run go unit tests
-      env:
-        TEST_TARGET: './cli -run TestGenerateModuleAction'
       run: |
-        chmod -R a+rwx . # temporary fix for arm runners
-        sudo --preserve-env=MONGODB_TEST_OUTPUT_URI,GITHUB_SHA,GITHUB_RUN_ID,GITHUB_RUN_NUMBER,GITHUB_RUN_ATTEMPT,GITHUB_X_PR_BASE_SHA,GITHUB_X_PR_BASE_REF,GITHUB_X_HEAD_REF,GITHUB_X_HEAD_SHA,GITHUB_REPOSITORY -Hu testbot bash -lc 'make test-go'
+        go test ./cli -run TestGenerateModuleAction
 
     - name: Upload test.json
       if: always()
