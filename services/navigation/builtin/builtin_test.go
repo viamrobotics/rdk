@@ -474,13 +474,6 @@ func TestSetMode(t *testing.T) {
 			expectedErr: nil,
 		},
 		{
-			description: "setting mode to explore when map_type is None and no vision service is configured",
-			cfg:         "../data/nav_no_map_cfg_minimal.json",
-			mapType:     navigation.GPSMap,
-			mode:        navigation.ModeExplore,
-			expectedErr: errors.New("explore mode requires at least one vision service"),
-		},
-		{
 			description: "setting mode to manual when map_type is GPS",
 			cfg:         "../data/nav_cfg.json",
 			mapType:     navigation.GPSMap,

@@ -1,6 +1,6 @@
 import {
   CameraClient,
-  type ServiceError,
+  ConnectError,
   StreamClient,
   type Client,
 } from '@viamrobotics/sdk';
@@ -60,7 +60,7 @@ export class CameraManager {
     try {
       blob = await this.cameraClient.renderFrame('image/jpeg');
     } catch (error) {
-      displayError(error as ServiceError);
+      displayError(error as ConnectError);
       return;
     }
 

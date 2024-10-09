@@ -1,15 +1,15 @@
 import { type LngLat, formatWaypoints } from '@/api/navigation';
-import { type ServiceError } from '@viamrobotics/sdk';
-import { Waypoint } from '@viamrobotics/prime-blocks';
-import { writable } from 'svelte/store';
 import { useConnect } from '@/hooks/robot-client';
 import { setAsyncInterval } from '@/lib/schedule';
+import { Waypoint } from '@viamrobotics/prime-blocks';
+import { ConnectError } from '@viamrobotics/sdk';
+import { writable } from 'svelte/store';
 import { useNavClient } from './use-nav-client';
 
 export const useWaypoints = (name: string) => {
   const navClient = useNavClient(name);
   const waypoints = writable<Waypoint[]>([]);
-  const error = writable<ServiceError | undefined>(undefined);
+  const error = writable<ConnectError | undefined>(undefined);
 
   const updateWaypoints = async () => {
     try {
@@ -17,7 +17,7 @@ export const useWaypoints = (name: string) => {
       error.set(undefined);
       waypoints.set(formatWaypoints(response));
     } catch (error_) {
-      error.set(error_ as ServiceError);
+      error.set(error_ as ConnectError);
       waypoints.set([]);
     }
   };
@@ -33,7 +33,7 @@ export const useWaypoints = (name: string) => {
       });
       await navClient.addWayPoint(location);
     } catch (error_) {
-      error.set(error_ as ServiceError);
+      error.set(error_ as ConnectError);
       waypoints.update((value) => value.filter((item) => item.id !== temp.id));
     }
   };
@@ -43,7 +43,7 @@ export const useWaypoints = (name: string) => {
       waypoints.update((value) => value.filter((item) => item.id !== id));
       await navClient.removeWayPoint(id);
     } catch (error_) {
-      error.set(error_ as ServiceError);
+      error.set(error_ as ConnectError);
     }
   };
 

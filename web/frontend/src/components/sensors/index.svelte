@@ -1,20 +1,13 @@
 <script lang="ts">
-import { sensorsApi, commonApi, type ServiceError } from '@viamrobotics/sdk';
-import { notify } from '@viamrobotics/prime';
-import { resourceNameToString } from '@/lib/resource';
-import { rcLogConditionally } from '@/lib/log';
-import Collapse from '@/lib/components/collapse.svelte';
 import { useRobotClient } from '@/hooks/robot-client';
-
-interface SensorName {
-  name: string;
-  namespace: string;
-  type: string;
-  subtype: string;
-}
+import Collapse from '@/lib/components/collapse.svelte';
+import { rcLogConditionally } from '@/lib/log';
+import { resourceNameToString } from '@/lib/resource';
+import { notify } from '@viamrobotics/prime';
+import { ConnectError, ResourceName, sensorsApi } from '@viamrobotics/sdk';
 
 export let name: string;
-export let sensorNames: SensorName[];
+export let sensorNames: ResourceName[];
 
 const { robotClient } = useRobotClient();
 
@@ -26,50 +19,46 @@ interface Reading {
 
 const sensorReadings: Record<string, Record<string, Reading>> = {};
 
-const getReadings = (inputNames: SensorName[]) => {
+const getReadings = (inputNames: ResourceName[]) => {
   const req = new sensorsApi.GetReadingsRequest();
   const names = inputNames.map(
     ({ name: inputName, namespace, type, subtype }) => {
-      const resourceName = new commonApi.ResourceName();
-      resourceName.setNamespace(namespace);
-      resourceName.setType(type);
-      resourceName.setSubtype(subtype);
-      resourceName.setName(inputName);
-      return resourceName;
+      return new ResourceName({
+        namespace,
+        type,
+        subtype,
+        name: inputName,
+      });
     }
   );
-  req.setName(name);
-  req.setSensorNamesList(names);
+  req.name = name;
+  req.sensorNames = names;
 
   rcLogConditionally(req);
-  $robotClient.sensorsService.getReadings(
-    req,
-    (
-      error: ServiceError | null,
-      response: sensorsApi.GetReadingsResponse | null
-    ) => {
-      if (error) {
-        notify.danger(error.message);
-        return;
-      }
-
-      for (const item of response!.getReadingsList()) {
-        const readings = item.getReadingsMap();
+  $robotClient.sensorsService
+    .getReadings(req)
+    .then((resp) => {
+      for (const item of resp.readings) {
+        const { readings } = item;
         const rr: Record<string, Reading> = {};
 
-        for (const [key, value] of readings.entries()) {
-          rr[key] = value.toJavaScript() as Reading;
+        for (const [key, value] of Object.entries(readings)) {
+          rr[key] = value.toJson() as unknown as Reading;
         }
 
-        sensorReadings[resourceNameToString(item.getName()!.toObject())] = rr;
+        sensorReadings[resourceNameToString(item.name)] = rr;
       }
-    }
-  );
+    })
+    .catch((error) => {
+      if (error instanceof ConnectError) {
+        notify.danger(error.message);
+      }
+    });
 };
 
 const getData = (
   readings: Record<string, Record<string, Reading>>,
-  sensorName: SensorName
+  sensorName: ResourceName
 ) => {
   const data = readings[resourceNameToString(sensorName)];
   return data ? Object.entries(data) : [];

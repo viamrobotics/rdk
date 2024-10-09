@@ -179,7 +179,7 @@ func TestModuleFunctions(t *testing.T) {
 
 	test.That(t, m.Start(ctx), test.ShouldBeNil)
 
-	conn, err := grpc.Dial(
+	conn, err := grpc.Dial( //nolint:staticcheck
 		"unix://"+addr,
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 		grpc.WithStreamInterceptor(grpc_retry.StreamClientInterceptor()),
@@ -441,7 +441,7 @@ func TestAttributeConversion(t *testing.T) {
 		test.That(t, m.AddModelFromRegistry(ctx, shell.API, modelWithReconfigure), test.ShouldBeNil)
 
 		test.That(t, m.Start(ctx), test.ShouldBeNil)
-		conn, err := grpc.Dial(
+		conn, err := grpc.Dial( //nolint:staticcheck
 			"unix://"+addr,
 			grpc.WithTransportCredentials(insecure.NewCredentials()),
 			grpc.WithStreamInterceptor(grpc_retry.StreamClientInterceptor()),

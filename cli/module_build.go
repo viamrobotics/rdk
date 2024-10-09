@@ -77,7 +77,19 @@ func (c *viamClient) moduleBuildStartAction(cCtx *cli.Context) error {
 	}
 
 	gitRef := cCtx.String(moduleBuildFlagRef)
-	res, err := c.startBuild(manifest.URL, gitRef, manifest.ModuleID, platforms, version)
+	token := cCtx.String(moduleBuildFlagToken)
+	req := buildpb.StartBuildRequest{
+		Repo:          manifest.URL,
+		Ref:           &gitRef,
+		Platforms:     platforms,
+		ModuleId:      manifest.ModuleID,
+		ModuleVersion: version,
+		Token:         &token,
+	}
+	if err := c.ensureLoggedIn(); err != nil {
+		return err
+	}
+	res, err := c.buildClient.StartBuild(c.c.Context, &req)
 	if err != nil {
 		return err
 	}
@@ -169,9 +181,9 @@ func (c *viamClient) moduleBuildListAction(cCtx *cli.Context) error {
 	// minwidth, tabwidth, padding int, padchar byte, flags uint
 	w := tabwriter.NewWriter(cCtx.App.Writer, 5, 4, 1, ' ', 0)
 	tableFormat := "%s\t%s\t%s\t%s\t%s\n"
-	fmt.Fprintf(w, tableFormat, "ID", "PLATFORM", "STATUS", "VERSION", "TIME")
+	fmt.Fprintf(w, tableFormat, "ID", "PLATFORM", "STATUS", "VERSION", "TIME") //nolint:errcheck
 	for _, job := range jobs.Jobs {
-		fmt.Fprintf(w,
+		fmt.Fprintf(w, //nolint:errcheck
 			tableFormat,
 			job.BuildId,
 			job.Platform,
@@ -315,20 +327,6 @@ func ModuleBuildLinkRepoAction(c *cli.Context) error {
 	return nil
 }
 
-func (c *viamClient) startBuild(repo, ref, moduleID string, platforms []string, version string) (*buildpb.StartBuildResponse, error) {
-	if err := c.ensureLoggedIn(); err != nil {
-		return nil, err
-	}
-	req := buildpb.StartBuildRequest{
-		Repo:          repo,
-		Ref:           &ref,
-		Platforms:     platforms,
-		ModuleId:      moduleID,
-		ModuleVersion: version,
-	}
-	return c.buildClient.StartBuild(c.c.Context, &req)
-}
-
 func (c *viamClient) printModuleBuildLogs(buildID, platform string) error {
 	if err := c.ensureLoggedIn(); err != nil {
 		return err
@@ -359,7 +357,7 @@ func (c *viamClient) printModuleBuildLogs(buildID, platform string) error {
 			infof(c.c.App.Writer, log.BuildStep)
 			lastBuildStep = log.BuildStep
 		}
-		fmt.Fprint(c.c.App.Writer, log.Data) // data is already formatted with newlines
+		fmt.Fprint(c.c.App.Writer, log.Data) //nolint:errcheck // data is already formatted with newlines
 	}
 
 	return nil

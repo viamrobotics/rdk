@@ -1,7 +1,12 @@
-import { type Client, commonApi, motionApi } from '@viamrobotics/sdk';
-import { Struct } from 'google-protobuf/google/protobuf/struct_pb';
+import {
+  type Client,
+  commonApi,
+  motionApi,
+  MotionClient,
+  ResourceName,
+  Struct,
+} from '@viamrobotics/sdk';
 import { getPosition } from './slam';
-type ResourceName = commonApi.ResourceName.AsObject;
 
 export const moveOnMap = async (
   robotClient: Client,
@@ -10,64 +15,48 @@ export const moveOnMap = async (
   x: number,
   y: number
 ): Promise<string | undefined> => {
-  const request = new motionApi.MoveOnMapRequest();
-  /*
-   * here we set the name of the motion service the user is using
-   */
-  request.setName('builtin');
-
-  // set pose in frame
   const lastPose = await getPosition(robotClient, slamServiceName.name);
 
-  const destination = new commonApi.Pose();
-  destination.setX(x * 1000);
-  destination.setY(y * 1000);
-  destination.setZ(0);
-  destination.setOX(lastPose!.getOX());
-  destination.setOY(lastPose!.getOY());
-  destination.setOZ(lastPose!.getOZ());
-  destination.setTheta(lastPose!.getTheta());
-  request.setDestination(destination);
+  const destination = new commonApi.Pose({
+    x: x * 1000,
+    y: y * 1000,
+    z: 0,
+    oX: lastPose?.oX,
+    oY: lastPose?.oY,
+    oZ: lastPose?.oZ,
+    theta: lastPose?.theta,
+  });
 
-  // set SLAM resource name
-  const slamResourceName = new commonApi.ResourceName();
-  slamResourceName.setNamespace(slamServiceName.namespace);
-  slamResourceName.setType(slamServiceName.type);
-  slamResourceName.setSubtype(slamServiceName.subtype);
-  slamResourceName.setName(slamServiceName.name);
-  request.setSlamServiceName(slamResourceName);
+  const slamResourceName = new ResourceName({
+    namespace: slamServiceName.namespace,
+    type: slamServiceName.type,
+    subtype: slamServiceName.subtype,
+    name: slamServiceName.name,
+  });
 
-  // set the motion configuration
-  const motionCfg = new motionApi.MotionConfiguration();
-  motionCfg.setPlanDeviationM(0.5);
-  request.setMotionConfiguration(motionCfg);
+  const motionCfg = new motionApi.MotionConfiguration({
+    planDeviationM: 0.5,
+  });
 
-  // set component name
-  const baseResourceName = new commonApi.ResourceName();
-  baseResourceName.setNamespace(componentName.namespace);
-  baseResourceName.setType(componentName.type);
-  baseResourceName.setSubtype(componentName.subtype);
-  baseResourceName.setName(componentName.name);
-  request.setComponentName(baseResourceName);
+  const baseResourceName = new ResourceName({
+    namespace: componentName.namespace,
+    type: componentName.type,
+    subtype: componentName.subtype,
+    name: componentName.name,
+  });
 
   // set extra as position-only constraint
-  request.setExtra(
-    Struct.fromJavaScript({
-      motion_profile: 'position_only',
-    })
-  );
+  const extra = Struct.fromJson({
+    motion_profile: 'position_only',
+  });
 
-  const response = await new Promise<motionApi.MoveOnMapResponse | null>(
-    (resolve, reject) => {
-      robotClient.motionService.moveOnMap(request, (error, res) => {
-        if (error) {
-          reject(error);
-        } else {
-          resolve(res);
-        }
-      });
-    }
+  const client = new MotionClient(robotClient, 'builtin');
+  return client.moveOnMap(
+    destination,
+    baseResourceName,
+    slamResourceName,
+    motionCfg,
+    [],
+    extra
   );
-
-  return response?.getExecutionId();
 };

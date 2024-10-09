@@ -1,8 +1,8 @@
 <script lang="ts">
-import { CameraClient, type ServiceError } from '@viamrobotics/sdk';
-import { notify } from '@viamrobotics/prime';
-import PCD from './pcd-view.svelte';
 import { useRobotClient } from '@/hooks/robot-client';
+import { notify } from '@viamrobotics/prime';
+import { CameraClient, ConnectError } from '@viamrobotics/sdk';
+import PCD from './pcd-view.svelte';
 
 export let cameraName: string;
 
@@ -19,7 +19,7 @@ const renderPCD = async () => {
     ).getPointCloud();
   } catch (error) {
     notify.danger(
-      `Error getting point cloud: ${(error as ServiceError).message}`
+      `Error getting point cloud: ${(error as ConnectError).message}`
     );
   }
 };
