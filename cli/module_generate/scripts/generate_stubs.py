@@ -1,7 +1,5 @@
 import ast
-import inspect
 import os
-import re
 import subprocess
 import sys
 from importlib import import_module
@@ -194,7 +192,7 @@ if __name__ == '__main__':
 if __name__ == "__main__":
     packages = ["viam-sdk", "typing-extensions", "black", "isort", "python-slugify"]
     if sys.argv[2] == "mlmodel":
-        packages.append("numpy")        
+        packages.append("numpy")
     install_res = subprocess.run(
         [
             sys.executable,

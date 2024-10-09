@@ -17,7 +17,6 @@ import (
 
 	"github.com/charmbracelet/huh"
 	"github.com/charmbracelet/huh/spinner"
-	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	"github.com/urfave/cli/v2"
 	"go.viam.com/utils"
@@ -48,6 +47,7 @@ type moduleInputs struct {
 	ModuleName       string    `json:"module_name"`
 	IsPublic         bool      `json:"-"`
 	Namespace        string    `json:"namespace"`
+	OrgId            string    `json:"-"`
 	Language         string    `json:"language"`
 	Resource         string    `json:"-"`
 	ResourceType     string    `json:"resource_type"`
@@ -105,7 +105,7 @@ func (c *viamClient) generateModuleAction(cCtx *cli.Context) error {
 			SDKVersion: "0.0.0",
 		}
 	} else {
-		newModule, err = promptUser()
+		newModule, err = promptUser(c)
 	}
 	if err != nil {
 		return err
@@ -195,7 +195,7 @@ func (c *viamClient) generateModuleAction(cCtx *cli.Context) error {
 
 // Prompt the user for information regarding the module they want to create
 // returns the moduleInputs struct that contains the information the user entered.
-func promptUser() (*moduleInputs, error) {
+func promptUser(c *viamClient) (*moduleInputs, error) {
 	var newModule moduleInputs
 	form := huh.NewForm(
 		huh.NewGroup(
@@ -313,6 +313,22 @@ func promptUser() (*moduleInputs, error) {
 	newModule.ResourceSubtypePascal = replacer.Replace(titleCaser.String(newModule.ResourceSubtype))
 	newModule.ModelPascal = replacer.Replace(titleCaser.String(newModule.ModelName))
 	newModule.ModelTriple = fmt.Sprintf("%s:%s:%s", newModule.Namespace, newModule.ModuleName, newModule.ModelName)
+
+	match, err := regexp.MatchString("^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", newModule.Namespace)
+	if !match || err != nil {
+		org, err := resolveOrg(c, newModule.Namespace, "")
+		if err != nil {
+			return nil, errors.Wrapf(err, "failed to resolve organization from namespace %s", newModule.Namespace)
+		}
+		newModule.OrgId = org.GetId()
+	} else {
+		org, err := resolveOrg(c, "", newModule.Namespace)
+		if err != nil {
+			return nil, errors.Wrapf(err, "failed to resolve organization from ID %s", newModule.Namespace)
+		}
+		newModule.OrgId = newModule.Namespace
+		newModule.Namespace = org.GetPublicNamespace()
+	}
 
 	return &newModule, nil
 }
@@ -613,16 +629,7 @@ func createModuleAndManifest(cCtx *cli.Context, c *viamClient, module moduleInpu
 	var moduleID moduleID
 	if module.RegisterOnApp {
 		debugf(cCtx.App.Writer, cCtx.Bool(debugFlag), "Registering module with Viam")
-		orgID := module.Namespace
-		_, err := uuid.Parse(module.Namespace)
-		if err != nil {
-			org, err := resolveOrg(c, module.Namespace, "")
-			if err != nil {
-				return errors.Wrapf(err, "failed to resolve organization from namespace %s", module.Namespace)
-			}
-			orgID = org.GetId()
-		}
-		moduleResponse, err := c.createModule(module.ModuleName, orgID)
+		moduleResponse, err := c.createModule(module.ModuleName, module.OrgId)
 		if err != nil {
 			return errors.Wrap(err, "failed to register module")
 		}
