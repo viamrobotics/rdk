@@ -18,9 +18,8 @@ updates:
       - dependency-name: "github.com/blend/go-sdk" # indirect and missing version
       - dependency-name: "*"
         update-types: ["version-update:semver-major", "version-update:semver-minor", "version-update:semver-patch"]
-    assignees: #TODO: make list
-      - stevebriskin
-      - mcvella
+    assignees:
+      - joncha1
   - package-ecosystem: "npm"
     directory: "web/frontend"
     schedule:
@@ -41,5 +40,6 @@ updates:
     ignore:
       - dependency-name: "*"
         update-types: ["version-update:semver-major", "version-update:semver-minor", "version-update:semver-patch"]
-    assignees: #TODO: make list
+    assignees:
       - Otterverse
+      - joncha1
