@@ -203,13 +203,13 @@ func (mgr *Manager) Handles() map[string]modlib.HandlerMap {
 	return res
 }
 
-// an
+// an allowed list of specific viam namespace modules 
 var allowedModules = map[string]bool{
 	"viam:raspberry-pi": true,
 }
 
 // this function checks if the modules added in an intrusted environment are
-// viam modules
+// viam modules and alloweds them to be run within an untrusted envionment if so
 func checkIfAllowed(confs ...config.Module) (
 	allowed bool, newConfs []config.Module,
 ) {
