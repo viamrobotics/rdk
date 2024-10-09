@@ -60,7 +60,7 @@ jobs:
 
     - name: Run go unit tests
       run: |
-        pip install --upgrade pip
+        which -a python3
         python3 -m venv .venv
         .venv/bin/python --version
         sudo -Hu testbot bash -lc 'go test ./cli -run TestGenerateModuleAction'
