@@ -267,7 +267,7 @@ func TestCaptureBufferReader(t *testing.T) {
 				test.That(t, err, test.ShouldBeNil)
 				defer func() { utils.UncheckedError(f.Close()) }()
 
-				cf, err := ReadCaptureFile(f)
+				cf, err := NewCaptureFile(f)
 				test.That(t, err, test.ShouldBeNil)
 				test.That(t, cf.ReadMetadata(), test.ShouldResemble, readImageCaptureMetadata)
 
@@ -335,7 +335,7 @@ func TestCaptureBufferReader(t *testing.T) {
 				test.That(t, err, test.ShouldBeNil)
 				defer func() { utils.UncheckedError(f2.Close()) }()
 
-				cf2, err := ReadCaptureFile(f2)
+				cf2, err := NewCaptureFile(f2)
 				test.That(t, err, test.ShouldBeNil)
 				test.That(t, cf2.ReadMetadata(), test.ShouldResemble, readImageCaptureMetadata)
 
@@ -470,7 +470,7 @@ func TestCaptureBufferReader(t *testing.T) {
 				test.That(t, err, test.ShouldBeNil)
 				defer func() { utils.UncheckedError(f.Close()) }()
 
-				cf, err := ReadCaptureFile(f)
+				cf, err := NewCaptureFile(f)
 				test.That(t, err, test.ShouldBeNil)
 				test.That(t, cf.ReadMetadata(), test.ShouldResemble, readImageCaptureMetadata)
 
@@ -508,7 +508,7 @@ func TestCaptureBufferReader(t *testing.T) {
 				test.That(t, err, test.ShouldBeNil)
 				defer func() { utils.UncheckedError(f2.Close()) }()
 
-				cf2, err := ReadCaptureFile(f2)
+				cf2, err := NewCaptureFile(f2)
 				test.That(t, err, test.ShouldBeNil)
 				test.That(t, cf2.ReadMetadata(), test.ShouldResemble, readImageCaptureMetadata)
 
@@ -563,7 +563,7 @@ func TestCaptureBufferReader(t *testing.T) {
 				f3, err := os.Open(filepath.Join(b.Path(), newFileNames[0]))
 				test.That(t, err, test.ShouldBeNil)
 				defer func() { utils.UncheckedError(f3.Close()) }()
-				cf3, err := ReadCaptureFile(f3)
+				cf3, err := NewCaptureFile(f3)
 				test.That(t, err, test.ShouldBeNil)
 				test.That(t, cf3.ReadMetadata(), test.ShouldResemble, readImageCaptureMetadata)
 				sd3, err := cf3.ReadNext()
@@ -576,7 +576,7 @@ func TestCaptureBufferReader(t *testing.T) {
 				f4, err := os.Open(filepath.Join(b.Path(), newFileNames[1]))
 				test.That(t, err, test.ShouldBeNil)
 				defer func() { utils.UncheckedError(f4.Close()) }()
-				cf4, err := ReadCaptureFile(f4)
+				cf4, err := NewCaptureFile(f4)
 				test.That(t, err, test.ShouldBeNil)
 				test.That(t, cf4.ReadMetadata(), test.ShouldResemble, readImageCaptureMetadata)
 				sd4, err := cf4.ReadNext()
@@ -644,7 +644,7 @@ func TestCaptureBufferReader(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		defer func() { utils.UncheckedError(f.Close()) }()
 
-		cf2, err := ReadCaptureFile(f)
+		cf2, err := NewCaptureFile(f)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, cf2.ReadMetadata(), test.ShouldResemble, readImageCaptureMetadata)
 
@@ -657,7 +657,75 @@ func TestCaptureBufferReader(t *testing.T) {
 	})
 }
 
-//nolint
+func NickTest(t *testing.T) {
+	tmpDir := t.TempDir()
+	name := resource.NewName(resource.APINamespaceRDK.WithComponentType("camera"), "my-cam")
+	method := readImage
+	additionalParams := map[string]string{"mime_type": rutils.MimeTypeJPEG, "test": "1"}
+	tags := []string{"my", "tags"}
+	methodParams, err := rprotoutils.ConvertStringMapToAnyPBMap(additionalParams)
+	test.That(t, err, test.ShouldBeNil)
+
+	readImageCaptureMetadata := BuildCaptureMetadata(
+		name.API,
+		name.ShortName(),
+		method,
+		additionalParams,
+		methodParams,
+		tags,
+	)
+
+	test.That(t, readImageCaptureMetadata, test.ShouldResemble, &v1.DataCaptureMetadata{
+		ComponentName:    "my-cam",
+		ComponentType:    "rdk:component:camera",
+		MethodName:       readImage,
+		MethodParameters: methodParams,
+		Tags:             tags,
+		Type:             v1.DataType_DATA_TYPE_BINARY_SENSOR,
+		FileExtension:    ".jpeg",
+	})
+
+	b := NewCaptureBuffer(tmpDir, readImageCaptureMetadata, int64(4*1024))
+
+	// Path() is the same as the first paramenter passed to NewCaptureBuffer
+	test.That(t, b.Path(), test.ShouldResemble, tmpDir)
+	test.That(t, b.MetaData, test.ShouldResemble, readImageCaptureMetadata)
+
+	now := time.Now()
+	timeRequested := timestamppb.New(now.UTC())
+	timeReceived := timestamppb.New(now.Add(time.Millisecond).UTC())
+	msg := &v1.SensorData{
+		Metadata: &v1.SensorMetadata{
+			TimeRequested: timeRequested,
+			TimeReceived:  timeReceived,
+		},
+		Data: &v1.SensorData_Binary{
+			Binary: []byte("this is a fake image"),
+		},
+	}
+	test.That(t, b.Write(msg), test.ShouldBeNil)
+	test.That(t, b.Flush(), test.ShouldBeNil)
+	dirEntries, err := os.ReadDir(b.Path())
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(dirEntries), test.ShouldEqual, 1)
+	test.That(t, filepath.Ext(dirEntries[0].Name()), test.ShouldResemble, CompletedCaptureFileExt)
+	f, err := os.Open(filepath.Join(b.Path(), dirEntries[0].Name()))
+	test.That(t, err, test.ShouldBeNil)
+	defer func() { test.That(t, f.Close(), test.ShouldBeNil) }()
+
+	cf2, err := NewCaptureFile(f)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, cf2.ReadMetadata(), test.ShouldResemble, readImageCaptureMetadata)
+
+	sd2, err := cf2.ReadNext()
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, sd2, test.ShouldResemble, msg)
+
+	_, err = cf2.ReadNext()
+	test.That(t, err, test.ShouldBeError, io.EOF)
+}
+
+// nolint
 func getCaptureFiles(dir string) (dcFiles, progFiles []string) {
 	_ = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {

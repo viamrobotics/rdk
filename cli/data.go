@@ -602,7 +602,7 @@ func filenameForDownload(meta *datapb.BinaryMetadata) string {
 	}
 
 	// Replace reserved characters.
-	fileName = data.CaptureFilePathWithReplacedReservedChars(fileName)
+	fileName = data.FilePathWithReplacedReservedChars(fileName)
 
 	return fileName
 }

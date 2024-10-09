@@ -170,7 +170,7 @@ func TestReadCorruptedFile(t *testing.T) {
 	test.That(t, f.Close(), test.ShouldBeNil)
 
 	// Should still be able to successfully read all the successfully written data.
-	sd, err := SensorDataFromCaptureFilePath(captureFilePath(f.GetPath()))
+	sd, err := SensorDataFromCaptureFilePath(captureFilePath(f.path))
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(sd), test.ShouldEqual, numReadings)
 }

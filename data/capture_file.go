@@ -39,18 +39,18 @@ const (
 // length delimited protobuf messages, where the first message is the CaptureMetadata for the file, and ensuing
 // messages contain the captured data.
 type CaptureFile struct {
-	path     string
-	lock     sync.Mutex
-	file     *os.File
-	size     int64
-	metadata *v1.DataCaptureMetadata
-
+	Metadata          *v1.DataCaptureMetadata
+	path              string
+	size              int64
 	initialReadOffset int64
-	readOffset        int64
+
+	lock       sync.Mutex
+	file       *os.File
+	readOffset int64
 }
 
-// ReadCaptureFile creates a File struct from a passed os.File previously constructed using NewFile.
-func ReadCaptureFile(f *os.File) (*CaptureFile, error) {
+// NewCaptureFile creates a File struct from a passed os.File previously constructed using NewFile.
+func NewCaptureFile(f *os.File) (*CaptureFile, error) {
 	if !IsDataCaptureFile(f) {
 		return nil, errors.Errorf("%s is not a data capture file", f.Name())
 	}
@@ -69,7 +69,7 @@ func ReadCaptureFile(f *os.File) (*CaptureFile, error) {
 		path:              f.Name(),
 		file:              f,
 		size:              finfo.Size(),
-		metadata:          md,
+		Metadata:          md,
 		initialReadOffset: int64(initOffset),
 		readOffset:        int64(initOffset),
 	}
@@ -79,7 +79,7 @@ func ReadCaptureFile(f *os.File) (*CaptureFile, error) {
 
 // ReadMetadata reads and returns the metadata in f.
 func (f *CaptureFile) ReadMetadata() *v1.DataCaptureMetadata {
-	return f.metadata
+	return f.Metadata
 }
 
 // ReadNext returns the next SensorData reading.
@@ -109,8 +109,6 @@ func (f *CaptureFile) Reset() {
 
 // Size returns the size of the file.
 func (f *CaptureFile) Size() int64 {
-	f.lock.Lock()
-	defer f.lock.Unlock()
 	return f.size
 }
 
@@ -137,22 +135,6 @@ func (f *CaptureFile) Delete() error {
 // IsDataCaptureFile returns whether or not f is a data capture file.
 func IsDataCaptureFile(f *os.File) bool {
 	return filepath.Ext(f.Name()) == CompletedCaptureFileExt
-}
-
-// Create a filename based on the current time.
-func getFileTimestampName() string {
-	// RFC3339Nano is a standard time format e.g. 2006-01-02T15:04:05Z07:00.
-	return time.Now().Format(time.RFC3339Nano)
-}
-
-// TODO DATA-246: Implement this in some more robust, programmatic way.
-func getDataType(methodName string) v1.DataType {
-	switch methodName {
-	case nextPointCloud, readImage, pointCloudMap, GetImages:
-		return v1.DataType_DATA_TYPE_BINARY_SENSOR
-	default:
-		return v1.DataType_DATA_TYPE_TABULAR_SENSOR
-	}
 }
 
 // GetFileExt gets the file extension for a capture file.
@@ -188,21 +170,43 @@ func GetFileExt(dataType v1.DataType, methodName string, parameters map[string]s
 	return defaultFileExt
 }
 
+// FilePathWithReplacedReservedChars returns the filepath with substitutions
+// for reserved characters.
+func FilePathWithReplacedReservedChars(filepath string) string {
+	return strings.ReplaceAll(filepath, filePathReservedChars, "_")
+}
+
+// Create a filename based on the current time.
+func getFileTimestampName() string {
+	// RFC3339Nano is a standard time format e.g. 2006-01-02T15:04:05Z07:00.
+	return time.Now().Format(time.RFC3339Nano)
+}
+
+// TODO DATA-246: Implement this in some more robust, programmatic way.
+func getDataType(methodName string) v1.DataType {
+	switch methodName {
+	case nextPointCloud, readImage, pointCloudMap, GetImages:
+		return v1.DataType_DATA_TYPE_BINARY_SENSOR
+	default:
+		return v1.DataType_DATA_TYPE_TABULAR_SENSOR
+	}
+}
+
 // SensorDataFromCaptureFilePath returns all readings in the file at filePath.
 // NOTE: (Nick S) At time of writing this is only used in tests.
-func SensorDataFromCaptureFilePath(filePath string) ([]*v1.SensorData, error) {
-	//nolint:gosec
-	f, err := os.Open(filePath)
-	if err != nil {
-		return nil, err
-	}
-	dcFile, err := ReadCaptureFile(f)
-	if err != nil {
-		return nil, err
-	}
+//func SensorDataFromCaptureFilePath(filePath string) ([]*v1.SensorData, error) {
+//	//nolint:gosec
+//	f, err := os.Open(filePath)
+//	if err != nil {
+//		return nil, err
+//	}
+//	dcFile, err := NewCaptureFile(f)
+//	if err != nil {
+//		return nil, err
+//	}
 
-	return SensorDataFromCaptureFile(dcFile)
-}
+//	return SensorDataFromCaptureFile(dcFile)
+//}
 
 // SensorDataFromCaptureFile returns all readings in f.
 func SensorDataFromCaptureFile(f *CaptureFile) ([]*v1.SensorData, error) {
@@ -221,10 +225,4 @@ func SensorDataFromCaptureFile(f *CaptureFile) ([]*v1.SensorData, error) {
 		ret = append(ret, next)
 	}
 	return ret, nil
-}
-
-// CaptureFilePathWithReplacedReservedChars returns the filepath with substitutions
-// for reserved characters.
-func CaptureFilePathWithReplacedReservedChars(filepath string) string {
-	return strings.ReplaceAll(filepath, filePathReservedChars, "_")
 }
