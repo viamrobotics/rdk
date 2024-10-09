@@ -532,7 +532,7 @@ func generatePythonStubs(module moduleInputs) error {
 	if err != nil {
 		return errors.Wrap(err, "cannot generate python stubs -- unable to create python virtual environment")
 	}
-	defer utils.UncheckedError(os.RemoveAll(venvName))
+	defer utils.UncheckedErrorFunc(func() error { return os.RemoveAll(venvName) })
 
 	script, err := scripts.ReadFile(filepath.Join(scriptsPath, "generate_stubs.py"))
 	if err != nil {
@@ -568,8 +568,13 @@ func getLatestSDKTag(c *cli.Context, language string) (string, error) {
 	}
 	debugf(c.App.Writer, c.Bool(debugFlag), "Getting the latest release tag for %s", repo)
 	url := fmt.Sprintf("https://api.github.com/repos/viamrobotics/%s/releases", repo)
-	//nolint:gosec,bodyclose
-	resp, err := http.Get(url)
+
+	req, err := http.NewRequestWithContext(c.Context, http.MethodGet, url, nil)
+	if err != nil {
+		return "", errors.Wrapf(err, "cannot get latest %s release", repo)
+	}
+	//nolint:bodyclose
+	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return "", errors.Wrapf(err, "cannot get latest %s release", repo)
 	}
