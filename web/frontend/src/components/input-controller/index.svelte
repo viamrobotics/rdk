@@ -1,9 +1,9 @@
 <script lang="ts">
-import type { inputControllerApi } from '@viamrobotics/sdk';
 import Collapse from '@/lib/components/collapse.svelte';
+import type { inputControllerApi } from '@viamrobotics/sdk';
 
 // TODO (RSDK-4451): Figure out why value is not always defined
-type InputControllerEvent = Omit<inputControllerApi.Event.AsObject, 'value'> & {
+type InputControllerEvent = Omit<inputControllerApi.Event, 'value'> & {
   value?: number;
 };
 export let name: string;

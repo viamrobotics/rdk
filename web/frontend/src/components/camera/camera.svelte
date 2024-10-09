@@ -1,9 +1,9 @@
 <script lang="ts">
-import { displayError } from '@/lib/error';
-import { CameraClient, type ServiceError } from '@viamrobotics/sdk';
+import { useConnect, useRobotClient } from '@/hooks/robot-client';
 import { selectedMap } from '@/lib/camera-state';
+import { displayError } from '@/lib/error';
 import { setAsyncInterval } from '@/lib/schedule';
-import { useRobotClient, useConnect } from '@/hooks/robot-client';
+import { CameraClient, ConnectError } from '@viamrobotics/sdk';
 import { noop } from 'lodash-es';
 import LiveCamera from './live-camera.svelte';
 
@@ -47,7 +47,7 @@ const exportScreenshot = async () => {
       'image/jpeg'
     );
   } catch (error) {
-    displayError(error as ServiceError);
+    displayError(error as ConnectError);
     return;
   }
 

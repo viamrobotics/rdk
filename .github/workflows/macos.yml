@@ -13,7 +13,7 @@ jobs:
         ref: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.head.sha || github.ref }}
     - uses: actions/setup-go@v5
       with:
-        go-version: '1.21.x'
+        go-version-file: go.mod
     - name: brew
       run: |
         brew config

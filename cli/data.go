@@ -110,7 +110,7 @@ func DataTagActionByFilter(c *cli.Context) error {
 }
 
 // DataTagActionByIds is the corresponding action for 'data tag'.
-func DataTagActionByIds(c *cli.Context) error {
+func DataTagActionByIds(c *cli.Context) error { //nolint:var-naming,revive
 	client, err := newViamClient(c)
 	if err != nil {
 		return err
@@ -561,7 +561,7 @@ func (c *viamClient) downloadBinary(dst string, id *datapb.BinaryID) error {
 	dataFile, err := os.Create(dataPath)
 	if err != nil {
 		debugf(c.c.App.Writer, c.c.Bool(debugFlag), "Failed creating file %s: %s", id.FileId, err)
-		return errors.Wrapf(err, fmt.Sprintf("could not create file for datum %s", datum.GetMetadata().GetId()))
+		return errors.Wrapf(err, fmt.Sprintf("could not create file for datum %s", datum.GetMetadata().GetId())) //nolint:govet
 	}
 	//nolint:gosec
 	if _, err := io.Copy(dataFile, r); err != nil {
@@ -627,7 +627,7 @@ func (c *viamClient) tabularData(dst string, filter *datapb.Filter, limit uint) 
 	}
 	w := bufio.NewWriter(dataFile)
 
-	fmt.Fprintf(c.c.App.Writer, "Downloading..") // no newline
+	fmt.Fprintf(c.c.App.Writer, "Downloading..") //nolint:errcheck // no newline
 	var last string
 	mdIndexes := make(map[string]int)
 	mdIndex := 0
@@ -641,7 +641,7 @@ func (c *viamClient) tabularData(dst string, filter *datapb.Filter, limit uint) 
 				},
 				CountOnly: false,
 			})
-			fmt.Fprintf(c.c.App.Writer, ".") // no newline
+			fmt.Fprintf(c.c.App.Writer, ".") //nolint:errcheck // no newline
 			if err == nil {
 				break
 			}
@@ -673,7 +673,7 @@ func (c *viamClient) tabularData(dst string, filter *datapb.Filter, limit uint) 
 			//nolint:gosec
 			mdFile, err := os.Create(filepath.Join(dst, metadataDir, strconv.Itoa(mdIndex)+".json"))
 			if err != nil {
-				return errors.Wrapf(err, fmt.Sprintf("could not create metadata file for metadata index %d", mdIndex))
+				return errors.Wrapf(err, fmt.Sprintf("could not create metadata file for metadata index %d", mdIndex)) //nolint:govet
 			}
 			if _, err := mdFile.Write(mdJSONBytes); err != nil {
 				return errors.Wrapf(err, "could not write to metadata file %s", mdFile.Name())

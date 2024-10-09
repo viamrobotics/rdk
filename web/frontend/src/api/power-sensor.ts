@@ -1,65 +1,25 @@
-import { type Client, powerSensorApi } from '@viamrobotics/sdk';
 import { rcLogConditionally } from '@/lib/log';
+import { type Client, PowerSensorClient } from '@viamrobotics/sdk';
 
 export const getVoltage = async (robotClient: Client, name: string) => {
-  const req = new powerSensorApi.GetVoltageRequest();
-  req.setName(name);
-
-  rcLogConditionally(req);
-
-  const response = await new Promise<powerSensorApi.GetVoltageResponse | null>(
-    (resolve, reject) => {
-      robotClient.powerSensorService.getVoltage(req, (error, res) => {
-        if (error) {
-          reject(error);
-        } else {
-          resolve(res);
-        }
-      });
-    }
-  );
-
-  return response?.toObject().volts;
+  const client = new PowerSensorClient(robotClient, name, {
+    requestLogger: rcLogConditionally,
+  });
+  const resp = await client.getVoltage();
+  return resp[0];
 };
 
 export const getCurrent = async (robotClient: Client, name: string) => {
-  const req = new powerSensorApi.GetCurrentRequest();
-  req.setName(name);
-
-  rcLogConditionally(req);
-
-  const response = await new Promise<powerSensorApi.GetCurrentResponse | null>(
-    (resolve, reject) => {
-      robotClient.powerSensorService.getCurrent(req, (error, res) => {
-        if (error) {
-          reject(error);
-        } else {
-          resolve(res);
-        }
-      });
-    }
-  );
-
-  return response?.toObject().amperes;
+  const client = new PowerSensorClient(robotClient, name, {
+    requestLogger: rcLogConditionally,
+  });
+  const resp = await client.getCurrent();
+  return resp[0];
 };
 
 export const getPower = async (robotClient: Client, name: string) => {
-  const req = new powerSensorApi.GetPowerRequest();
-  req.setName(name);
-
-  rcLogConditionally(req);
-
-  const response = await new Promise<powerSensorApi.GetPowerResponse | null>(
-    (resolve, reject) => {
-      robotClient.powerSensorService.getPower(req, (error, res) => {
-        if (error) {
-          reject(error);
-        } else {
-          resolve(res);
-        }
-      });
-    }
-  );
-
-  return response?.toObject().watts;
+  const client = new PowerSensorClient(robotClient, name, {
+    requestLogger: rcLogConditionally,
+  });
+  return client.getPower();
 };

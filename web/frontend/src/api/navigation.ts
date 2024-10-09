@@ -1,23 +1,23 @@
 /* eslint-disable no-underscore-dangle */
 
-import * as THREE from 'three';
+import { notify } from '@viamrobotics/prime';
+import {
+  type BoxGeometry,
+  type CapsuleGeometry,
+  type Obstacle,
+  type Path,
+  type SphereGeometry,
+  Waypoint,
+} from '@viamrobotics/prime-blocks';
+import { theme } from '@viamrobotics/prime-core/theme';
 import type {
   GeoGeometry,
   Path as SDKPath,
   Waypoint as SDKWaypoint,
 } from '@viamrobotics/sdk';
 import { ViamObject3D } from '@viamrobotics/three';
-import { notify } from '@viamrobotics/prime';
-import { theme } from '@viamrobotics/prime-core/theme';
-import {
-  type Obstacle,
-  type BoxGeometry,
-  type CapsuleGeometry,
-  type SphereGeometry,
-  type Path,
-  Waypoint,
-} from '@viamrobotics/prime-blocks';
 import { LngLat } from 'maplibre-gl';
+import * as THREE from 'three';
 export * from './types/navigation';
 
 const STATIC_OBSTACLE_LABEL = 'static';
@@ -51,10 +51,10 @@ export const formatObstacles = (list: GeoGeometry[]): Obstacle[] => {
      * are multiple geometries.
      */
 
-    const [geo] = obstacle.geometriesList;
+    const [geo] = obstacle.geometries;
 
     let name = `Obstacle ${index + 1}`;
-    if (obstacle.geometriesList.length > 1) {
+    if (obstacle.geometries.length > 1) {
       name = `${geo?.label} & others`;
     } else if (geo?.label) {
       name = geo.label;
@@ -71,37 +71,39 @@ export const formatObstacles = (list: GeoGeometry[]): Obstacle[] => {
     return {
       name,
       location: new LngLat(location?.longitude ?? 0, location?.latitude ?? 0),
-      geometries: obstacle.geometriesList.map((geometry) => {
+      geometries: obstacle.geometries.map((geometry) => {
         const { center } = geometry;
         const pose = new ViamObject3D();
         const th = THREE.MathUtils.degToRad(center?.theta ?? 0);
         pose.orientationVector.set(center?.oX, center?.oY, center?.oZ, th);
 
-        if (geometry.box) {
-          const { dimsMm } = geometry.box;
+        switch (geometry.geometryType.case) {
+          case 'box': {
+            const { dimsMm } = geometry.geometryType.value;
 
-          return {
-            type: 'box',
-            length: (dimsMm?.x ?? 0) / 1000,
-            width: (dimsMm?.y ?? 0) / 1000,
-            height: (dimsMm?.z ?? 0) / 1000,
-            pose,
-          } satisfies BoxGeometry;
-        } else if (geometry.sphere) {
-          return {
-            type: 'sphere',
-            radius: geometry.sphere.radiusMm / 1000,
-            pose,
-          } satisfies SphereGeometry;
-        } else if (geometry.capsule) {
-          const { capsule } = geometry;
-
-          return {
-            type: 'capsule',
-            radius: capsule.radiusMm / 1000,
-            length: capsule.lengthMm / 1000,
-            pose,
-          } satisfies CapsuleGeometry;
+            return {
+              type: 'box',
+              length: (dimsMm?.x ?? 0) / 1000,
+              width: (dimsMm?.y ?? 0) / 1000,
+              height: (dimsMm?.z ?? 0) / 1000,
+              pose,
+            } satisfies BoxGeometry;
+          }
+          case 'sphere': {
+            return {
+              type: 'sphere',
+              radius: geometry.geometryType.value.radiusMm / 1000,
+              pose,
+            } satisfies SphereGeometry;
+          }
+          case 'capsule': {
+            return {
+              type: 'capsule',
+              radius: geometry.geometryType.value.radiusMm / 1000,
+              length: geometry.geometryType.value.lengthMm / 1000,
+              pose,
+            } satisfies CapsuleGeometry;
+          }
         }
 
         notify.danger(
@@ -121,7 +123,7 @@ export const formatObstacles = (list: GeoGeometry[]): Obstacle[] => {
 };
 
 export const formatPaths = (list: SDKPath[]): Path[] => {
-  return list.map(({ geopointsList }) =>
-    geopointsList.map((geo) => new LngLat(geo.longitude, geo.latitude))
+  return list.map(({ geopoints }) =>
+    geopoints.map((geo) => new LngLat(geo.longitude, geo.latitude))
   );
 };

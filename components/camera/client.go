@@ -729,17 +729,17 @@ func (c *client) bufAndCBToString() string {
 	if len(c.runningStreams) == 0 {
 		return "len: 0"
 	}
-	strIds := []string{}
-	strIdsToCB := map[string]bufAndCB{}
+	strIDs := []string{}
+	strIDsToCB := map[string]bufAndCB{}
 	for id, cb := range c.runningStreams {
 		strID := id.String()
-		strIds = append(strIds, strID)
-		strIdsToCB[strID] = cb
+		strIDs = append(strIDs, strID)
+		strIDsToCB[strID] = cb
 	}
-	slices.Sort(strIds)
+	slices.Sort(strIDs)
 	ret := fmt.Sprintf("len: %d, ", len(c.runningStreams))
-	for _, strID := range strIds {
-		ret += fmt.Sprintf("%s: %v, ", strID, strIdsToCB[strID])
+	for _, strID := range strIDs {
+		ret += fmt.Sprintf("%s: %v, ", strID, strIDsToCB[strID])
 	}
 	return ret
 }

@@ -18,7 +18,7 @@ declare global {
     host: string;
     bakedAuth: {
       authEntity: string;
-      creds: import('@viamrobotics/rpc/src/dial').Credentials;
+      creds: import('@viamrobotics/sdk').Credential;
     };
     rcDebug: boolean;
     supportedAuthTypes: string[];

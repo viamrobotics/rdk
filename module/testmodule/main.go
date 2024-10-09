@@ -46,7 +46,14 @@ func mainWithArgs(ctx context.Context, args []string, logger logging.Logger) err
 	resource.RegisterComponent(
 		generic.API,
 		helperModel,
-		resource.Registration[resource.Resource, resource.NoNativeConfig]{Constructor: newHelper})
+		resource.Registration[resource.Resource, resource.NoNativeConfig]{
+			Constructor: newHelper,
+			Discover: func(ctx context.Context, logger logging.Logger) (interface{}, error) {
+				return map[string]string{
+					"foo": "bar",
+				}, nil
+			},
+		})
 	err = myMod.AddModelFromRegistry(ctx, generic.API, helperModel)
 	if err != nil {
 		return err

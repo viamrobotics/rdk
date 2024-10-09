@@ -476,8 +476,14 @@ func (g *singleAxis) testLimit(ctx context.Context, pin int) (float64, error) {
 	}
 	// Short pause after stopping to increase the precision of the position of each limit switch
 	position, err := g.motor.Position(ctx, nil)
+	if err != nil {
+		return position, err
+	}
 	time.Sleep(250 * time.Millisecond)
-	return position, err
+	if err := g.moveAway(ctx, pin); err != nil {
+		return position, err
+	}
+	return position, nil
 }
 
 // this function may need to be run in the background upon initialisation of the ganty,

@@ -2,6 +2,7 @@ package data
 
 import (
 	"fmt"
+	"maps"
 	"time"
 
 	"github.com/benbjohnson/clock"
@@ -69,4 +70,10 @@ func RegisterCollector(method MethodMetadata, c CollectorConstructor) {
 // there is None.
 func CollectorLookup(method MethodMetadata) CollectorConstructor {
 	return collectorRegistry[method]
+}
+
+// DumpRegisteredCollectors returns all registered collectores
+// this is only intended for services/datamanager/builtin/builtin_test.go.
+func DumpRegisteredCollectors() map[MethodMetadata]CollectorConstructor {
+	return maps.Clone(collectorRegistry)
 }
