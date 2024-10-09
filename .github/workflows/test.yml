@@ -35,11 +35,9 @@ jobs:
       with:
         ref: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.head.sha || github.event.ref }}
 
-    - name: py version
-      run: |
-        python3 --version
-        which -a python3
-        sudo apt install -qy lsb-release
+    - name: lsb-release
+      # required for setup-python I guess
+      run: sudo apt install -qy lsb-release
 
     - uses: actions/setup-python@v5
       with:
@@ -66,17 +64,10 @@ jobs:
 
     - name: Run go unit tests
       run: |
-        which -a python3
-        which python3
-        python3 --version
-        python3 -m venv .venv
-        .venv/bin/python --version
-        echo $PATH
-        whoami
-        echo $HOME
         export PATH=$PATH
-        go test ./cli -run TestGenerateModuleAction
-        sudo --preserve-env=PATH -Hu testbot bash -lc 'go test ./cli -run TestGenerateModuleAction'
+        # go test ./cli -run TestGenerateModuleAction
+        # sudo --preserve-env=PATH -Hu testbot bash -lc 'go test ./cli -run TestGenerateModuleAction'
+        sudo -Hu testbot bash -lc 'go test ./cli -run TestGenerateModuleAction'
 
     - name: Upload test.json
       if: always()
