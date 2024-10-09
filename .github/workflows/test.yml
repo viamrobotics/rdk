@@ -60,7 +60,12 @@ jobs:
 
     - name: Run go unit tests
       run: |
-        go test ./cli -run TestGenerateModuleAction
+        which python
+        which python3
+        which pip
+        which pip3
+        python -m venv --help
+        sudo -Hu testbot bash -lc 'go test ./cli -run TestGenerateModuleAction'
 
     - name: Upload test.json
       if: always()
