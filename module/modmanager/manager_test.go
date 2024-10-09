@@ -918,6 +918,33 @@ func TestModuleMisc(t *testing.T) {
 		// i.e.  '/private/var/folders/p1/nl3sq7jn5nx8tfkdwpz2_g7r0000gn/T/TestModuleMisc1764175663/002'
 		test.That(t, modWorkingDirectory, test.ShouldEndWith, filepath.Dir(modPath))
 	})
+
+	t.Run("allowed viam modules only in untrusted environment", func(t *testing.T) {
+		logger := logging.NewTestLogger(t)
+		mgr := setupModManager(t, ctx, parentAddr, logger, modmanageroptions.Options{
+			UntrustedEnv: true,
+			ViamHomeDir:  testViamHomeDir,
+		})
+		// confirm that nothing is added when all modules are not in the allowedList
+		err := mgr.Add(ctx, modCfg)
+		test.That(t, err, test.ShouldBeError, errModularResourcesDisabled)
+
+		allowedCfg := config.Module{
+			Name:     "test-module",
+			ExePath:  modPath,
+			Type:     config.ModuleTypeLocal,
+			ModuleID: "viam:raspberry-pi",
+		}
+
+		// this currently logs and does not return an error
+		err = mgr.Add(ctx, allowedCfg, modCfg)
+		test.That(t, err, test.ShouldBeNil)
+
+		// confirm only the raspberry-pi module was added
+		for _, conf := range mgr.Configs() {
+			test.That(t, conf.ModuleID, test.ShouldContainSubstring, "viam")
+		}
+	})
 }
 
 func TestTwoModulesRestart(t *testing.T) {
@@ -1386,5 +1413,3 @@ func TestModularDiscovery(t *testing.T) {
 	test.That(t, discovery.Query.Model, test.ShouldEqual, "rdk:test:helper")
 	test.That(t, discovery.Results["foo"], test.ShouldEqual, "bar")
 }
-
-
