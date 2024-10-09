@@ -63,11 +63,11 @@ jobs:
       run: chown -R testbot:testbot .
 
     - name: Run go unit tests
+      env:
+        TEST_TARGET: "./cli -run TestGenerateModuleAction"
       run: |
         export PATH=$PATH
-        # go test ./cli -run TestGenerateModuleAction
-        # sudo --preserve-env=PATH -Hu testbot bash -lc 'go test ./cli -run TestGenerateModuleAction'
-        sudo -Hu testbot bash -lc 'go test ./cli -run TestGenerateModuleAction'
+        make test-go
 
     - name: Upload test.json
       if: always()
