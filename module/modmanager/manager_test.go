@@ -1386,3 +1386,5 @@ func TestModularDiscovery(t *testing.T) {
 	test.That(t, discovery.Query.Model, test.ShouldEqual, "rdk:test:helper")
 	test.That(t, discovery.Results["foo"], test.ShouldEqual, "bar")
 }
+
+
