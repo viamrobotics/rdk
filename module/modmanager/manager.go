@@ -203,19 +203,24 @@ func (mgr *Manager) Handles() map[string]modlib.HandlerMap {
 	return res
 }
 
-// / this function
-func whiteListViamModules(confs ...config.Module) (
-	whitelisted bool, newConfs []config.Module,
+// an
+var allowedModules = map[string]bool{
+	"viam:raspberry-pi": true,
+}
+
+// this function checks if the modules added in an intrusted environment are
+// viam modules
+func checkIfAllowed(confs ...config.Module) (
+	allowed bool, newConfs []config.Module,
 ) {
 	for _, conf := range confs {
-		if strings.Contains(conf.ModuleID, "viam:raspberry-pi") {
-			// return
-			whitelisted = true
+		if ok := allowedModules[conf.ModuleID]; ok {
+			allowed = true
 			newConfs = append(newConfs, conf)
 		}
-		return whitelisted, newConfs
+		return allowed, newConfs
 	}
-	return whitelisted, newConfs
+	return allowed, newConfs
 }
 
 // Add adds and starts a new resource modules for each given module configuration.
@@ -227,12 +232,15 @@ func (mgr *Manager) Add(ctx context.Context, confs ...config.Module) error {
 	defer mgr.mu.Unlock()
 
 	if mgr.untrustedEnv {
-		whitelisted, newConfs := whiteListViamModules(confs...)
-		if !whitelisted {
+		allowed, newConfs := checkIfAllowed(confs...)
+		if !allowed {
 			return errModularResourcesDisabled
 		}
-		// overwrite with just the modules we've whitelisted
+		// overwrite with just the modules we've allowed
 		confs = newConfs
+		mgr.logger.Warnf(
+			"in an untrusted environrment only specific modules can be used, running machine with only the following modules %v",
+			confs)
 	}
 
 	var (
