@@ -64,7 +64,7 @@ jobs:
         which python3 && echo yes || echo no
         which pip && echo yes || echo no
         which pip3 && echo yes || echo no
-        python -m venv --help
+        python3 -m venv --help
         sudo -Hu testbot bash -lc 'go test ./cli -run TestGenerateModuleAction'
 
     - name: Upload test.json
