@@ -60,11 +60,8 @@ jobs:
 
     - name: Run go unit tests
       run: |
-        which python && echo yes || echo no
-        which python3 && echo yes || echo no
-        which pip && echo yes || echo no
-        which pip3 && echo yes || echo no
-        python3 -m venv --help
+        python3 -m venv .venv
+        .venv/bin/python --version
         sudo -Hu testbot bash -lc 'go test ./cli -run TestGenerateModuleAction'
 
     - name: Upload test.json
