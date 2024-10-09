@@ -1184,8 +1184,19 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 
 	var allErrs error
 
+	// Maintenance config can be configured to block reconfigure based off of a sensor reading
+	// These sensors can be configured on the main robot, a fragment, or a remote
+	// In situations where there are conflicting sensor names the following behavior happens
+	// Main robot and remote share sensor name -> main robot sensor is chosen
+	// Only remote has the sensor name -> remote sensor is read
+	// Multiple remotes share a senor name -> conflict error is returned and reconfigure happens
+	// To specify a specific remote sensor use the name format remoteName:sensorName to specify a remote sensor
 	if newConfig.MaintenanceConfig != nil {
-		sensorComponent, err := sensor.FromRobot(r, newConfig.MaintenanceConfig.SensorName)
+		name,err:=resource.NewFromString(newConfig.MaintenanceConfig.SensorName)
+		if err!=nil {
+			r.logger.Infof("Sensor Name %s is not in a supported format",newConfig.MaintenanceConfig.SensorName )
+		} else {
+		sensorComponent, err := robot.ResourceFromRobot[sensor.Sensor](r, name)
 		if err != nil {
 			r.logger.Infof("%s, Starting reconfiguration", err.Error())
 		} else {
@@ -1202,6 +1213,7 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 			}
 		}
 		}
+	}
 	}
 
 	// Sync Packages before reconfiguring rest of robot and resolving references to any packages
@@ -1463,11 +1475,9 @@ func (r *localRobot) checkMaintenanceSensorReadings(maintenanceAllowedKey string
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
-	readings, timeoutOccurred, err := checkSensorReadingTimeout(ctx, sensor, timeout)
+	// Timeouts on this call should be handled grpc and return 
+	readings, err := sensor.Readings(ctx, map[string]interface{}{})
 	if err != nil {
-		if timeoutOccurred {
-			return false, err
-		}
 		return true, errors.Errorf("error reading maintenance sensor readings. %s", err.Error())
 	}
 	readingVal, ok := readings[maintenanceAllowedKey]
@@ -1479,25 +1489,4 @@ func (r *localRobot) checkMaintenanceSensorReadings(maintenanceAllowedKey string
 		return true, errors.Errorf("maintenanceAllowedKey %s is not a bool value", maintenanceAllowedKey)
 	}
 	return canReconfigure, nil
-}
-
-type Readings struct {
-	readings map[string]interface{}
-	err      error
-}
-
-// checkSensorReadingTimeout adds a timeout to Readings to ensure that the call returns after timeout seconds
-func checkSensorReadingTimeout(ctx context.Context, sensor resource.Sensor, timeout time.Duration) (map[string]interface{}, bool, error) {
-	c := make(chan Readings)
-
-	go func(ctx context.Context, c chan Readings) {
-		readings, err := sensor.Readings(ctx, map[string]interface{}{})
-		c <- Readings{readings: readings, err: err}
-	}(ctx, c)
-	select {
-	case readings := <-c:
-		return readings.readings, false, readings.err
-	case <-time.After(timeout):
-		return nil, true, errors.New("maintenance sensor timed out on reading")
-	}
 }
