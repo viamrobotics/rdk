@@ -20,6 +20,7 @@ import (
 	"github.com/golang/geo/r3"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.uber.org/zap"
+
 	// registers all components.
 	commonpb "go.viam.com/api/common/v1"
 	armpb "go.viam.com/api/component/arm/v1"
@@ -3957,139 +3958,70 @@ func TestLogPropagation(t *testing.T) {
 	}
 }
 
-func TestCheckMaintenanceSensor(t *testing.T) {
-	logger := logging.NewTestLogger(t)
-	validMaintenanceConfig := config.MaintenanceConfig{
-		SensorName:            "Patrick",
-		MaintenanceAllowedKey: "Star",
-	}
-	tests := []struct {
-		canReconfigure bool
-		robotConfig    *config.Config
-		newConfig      *config.Config
-		errorMessage   string
-	}{
-		{
-			canReconfigure: true,
-			robotConfig:    &config.Config{},
-			newConfig:      &config.Config{},
-			errorMessage:   "maintenanceConfig undefined. Using default reconfigure",
-		},
-		{
-			canReconfigure: true,
-			robotConfig:    &config.Config{},
-			newConfig: &config.Config{
-				MaintenanceConfig: &validMaintenanceConfig,
-				Components: []resource.Config{
-					{
-						Name: "Patrick",
-					},
-					{
-						Name: "Patrick",
-					},
-				},
-			},
-			errorMessage: "conflicting maintenance sensors found",
-		},
-		{
-			canReconfigure: true,
-			robotConfig:    &config.Config{},
-			newConfig: &config.Config{
-				MaintenanceConfig: &validMaintenanceConfig,
-				Components:        []resource.Config{},
-			},
-			errorMessage: "maintenance sensor Patrick not found",
-		},
-		{
-			canReconfigure: true,
-			robotConfig:    &config.Config{},
-			newConfig: &config.Config{
-				MaintenanceConfig: &validMaintenanceConfig,
-				Components: []resource.Config{
-					{
-						Name: "Patrick",
-					},
-				},
-			},
-			errorMessage: "maintenance sensor not found on local robot. resource \"rdk:component:sensor/Patrick\" not found",
-		},
-		{
-			canReconfigure: true,
-			robotConfig: &config.Config{Components: []resource.Config{
-				{
-					API:   sensor.API,
-					Name:  "Patrick",
-					Model: resource.DefaultModelFamily.WithModel("fake"),
-				},
-			}},
-			newConfig: &config.Config{
-				MaintenanceConfig: &validMaintenanceConfig,
-				Components: []resource.Config{
-					{
-						Name: "Patrick",
-					},
-				},
-			},
-			errorMessage: "error getting MaintenanceAllowedKey Star from sensor reading",
-		},
-	}
-	for _, tc := range tests {
-		t.Run("", func(t *testing.T) {
-			r := setupLocalRobot(t, context.Background(), tc.robotConfig, logger)
-			localRobot := r.(*localRobot)
-			canReconfigure, err := localRobot.checkMaintenanceSensor(tc.newConfig)
-
-			test.That(t, canReconfigure, test.ShouldEqual, tc.canReconfigure)
-			test.That(t, err.Error(), test.ShouldEqual, tc.errorMessage)
-		})
-	}
-}
-
 func TestCheckMaintenanceSensorReadings(t *testing.T) {
 	logger := logging.NewTestLogger(t)
-	tests := []struct {
-		canReconfigure        bool
-		maintenanceAllowedKey string
-		sensor                resource.Sensor
-		errorMessage          string
-	}{
-		{
-			canReconfigure:        true,
-			maintenanceAllowedKey: "",
-			sensor:                newErrorSensor(),
-			errorMessage:          "error reading maintenance sensor readings. Wallet not found",
-		},
-		{
-			canReconfigure:        true,
-			maintenanceAllowedKey: "UnknownKey",
-			sensor:                newSensor(),
-			errorMessage:          "error getting MaintenanceAllowedKey UnknownKey from sensor reading",
-		},
-	}
-	for _, tc := range tests {
-		t.Run("", func(t *testing.T) {
-			r := setupLocalRobot(t, context.Background(), &config.Config{}, logger)
-			localRobot := r.(*localRobot)
-			canReconfigure, err := localRobot.checkMaintenanceSensorReadings(tc.maintenanceAllowedKey, tc.sensor)
+	t.Run("Sensor reading errors out", func(t *testing.T) {
+		r := setupLocalRobot(t, context.Background(), &config.Config{}, logger)
+		localRobot := r.(*localRobot)
+		canReconfigure, err := localRobot.checkMaintenanceSensorReadings("", newErrorSensor())
 
-			test.That(t, canReconfigure, test.ShouldEqual, tc.canReconfigure)
-			test.That(t, err.Error(), test.ShouldEqual, tc.errorMessage)
-		})
-	}
+		test.That(t, canReconfigure, test.ShouldEqual, true)
+		test.That(t, err.Error(), test.ShouldEqual, "error reading maintenance sensor readings. Wallet not found")
+	})
+	t.Run("maintenanceAllowedKey does not exist", func(t *testing.T) {
+		r := setupLocalRobot(t, context.Background(), &config.Config{}, logger)
+		localRobot := r.(*localRobot)
+		canReconfigure, err := localRobot.checkMaintenanceSensorReadings("keyDoesNotExist", newValidSensor())
+
+		test.That(t, canReconfigure, test.ShouldEqual, true)
+		test.That(t, err.Error(), test.ShouldEqual, "error getting MaintenanceAllowedKey keyDoesNotExist from sensor reading")
+	})
+	t.Run("maintenanceAllowedKey is not a boolean", func(t *testing.T) {
+		r := setupLocalRobot(t, context.Background(), &config.Config{}, logger)
+		localRobot := r.(*localRobot)
+		canReconfigure, err := localRobot.checkMaintenanceSensorReadings("ThatIsNotAWallet", newValidSensor())
+
+		test.That(t, canReconfigure, test.ShouldEqual, true)
+		test.That(t, err.Error(), test.ShouldEqual, "maintenanceAllowedKey ThatIsNotAWallet is not a bool value")
+	})
+}
+
+func TestCheckSensorReadingTimeout(t *testing.T) {
+	t.Run("sensor reading errors", func(t *testing.T) {
+		retMap, timeoutOccurred, err := checkSensorReadingTimeout(context.Background(), newErrorSensor(), 2*time.Second)
+
+		test.That(t, retMap, test.ShouldBeNil)
+		test.That(t, timeoutOccurred, test.ShouldBeFalse)
+		test.That(t, err.Error(), test.ShouldEqual, "Wallet not found")
+	})
+	t.Run("sensor reading times out", func(t *testing.T) {
+		retMap, timeoutOccurred, err := checkSensorReadingTimeout(context.Background(), newTimeoutSensor(), 1*time.Millisecond)
+
+		test.That(t, retMap, test.ShouldBeNil)
+		test.That(t, timeoutOccurred, test.ShouldBeTrue)
+		test.That(t, err.Error(), test.ShouldEqual, "maintenance sensor timed out on reading")
+	})
+}
+
+func TestCheckMaintenanceSensorReadingsSuccess(t *testing.T) {
+	logger := logging.NewTestLogger(t)
 	testsValid := []struct {
+		testName              string
 		canReconfigure        bool
 		maintenanceAllowedKey string
 		sensor                resource.Sensor
 	}{
 		{
+			testName:              "Sensor returns reading false",
 			canReconfigure:        false,
 			maintenanceAllowedKey: "ThatsMyWallet",
-			sensor:                newSensor(),
+			sensor:                newValidSensor(),
 		},
 		{
+			testName:              "Sensor returns reading true",
 			canReconfigure:        true,
 			maintenanceAllowedKey: "ThatsNotMyWallet",
-			sensor:                newSensor(),
+			sensor:                newValidSensor(),
 		},
 	}
 	for _, tc := range testsValid {
@@ -4104,12 +4036,10 @@ func TestCheckMaintenanceSensorReadings(t *testing.T) {
 	}
 }
 
-var readingMap = map[string]any{"ThatsMyWallet": false, "ThatsNotMyWallet": true}
-
-func newSensor() sensor.Sensor {
+func newValidSensor() sensor.Sensor {
 	s := &inject.Sensor{}
 	s.ReadingsFunc = func(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
-		return readingMap, nil
+		return map[string]any{"ThatsMyWallet": false, "ThatsNotMyWallet": true, "ThatIsNotAWallet": 5}, nil
 	}
 	return s
 }
@@ -4120,4 +4050,171 @@ func newErrorSensor() sensor.Sensor {
 		return nil, errors.New("Wallet not found")
 	}
 	return s
+}
+
+func newTimeoutSensor() sensor.Sensor {
+	s := &inject.Sensor{}
+	s.ReadingsFunc = func(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
+		time.Sleep(2 * time.Millisecond)
+		return nil, errors.New("Wallet not found")
+	}
+	return s
+}
+
+
+func TestMaintenanceConfigWithRemotes(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+
+	r := setupLocalRobot(t, context.Background(), &config.Config{}, logger)
+}
+
+func TestConfigMethod(t *testing.T) {
+	ctx := context.Background()
+	logger := logging.NewTestLogger(t)
+
+	r := setupLocalRobot(t, context.Background(), &config.Config{}, logger)
+
+	// Use a remote with components and services to ensure none of its resources
+	// will be returned by Config.
+	remoteCfg, err := config.Read(context.Background(), "data/remote_fake.json", logger)
+	test.That(t, err, test.ShouldBeNil)
+	remoteRobot := setupLocalRobot(t, ctx, remoteCfg, logger)
+
+	options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
+	err = remoteRobot.StartWeb(ctx, options)
+	test.That(t, err, test.ShouldBeNil)
+
+	// Manually define mybase model, as importing it can cause double registration.
+	myBaseModel := resource.NewModel("acme", "demo", "mybase")
+
+	cfg := &config.Config{
+		Cloud: &config.Cloud{},
+		Modules: []config.Module{
+			{
+				Name:     "mod",
+				ExePath:  complexPath,
+				LogLevel: "info",
+			},
+		},
+		Remotes: []config.Remote{
+			{
+				Name:    "foo",
+				Address: addr,
+			},
+		},
+		Components: []resource.Config{
+			{
+				Name:  "myBase",
+				API:   base.API,
+				Model: myBaseModel,
+				Attributes: rutils.AttributeMap{
+					"motorL": "motor1",
+					"motorR": "motor2",
+				},
+			},
+			{
+				Name:                "motor1",
+				API:                 motor.API,
+				Model:               fakeModel,
+				ConvertedAttributes: &fakemotor.Config{},
+				ImplicitDependsOn:   []string{"builtin:sensors"},
+			},
+			{
+				Name:                "motor2",
+				API:                 motor.API,
+				Model:               fakeModel,
+				ConvertedAttributes: &fakemotor.Config{},
+			},
+		},
+		Processes: []pexec.ProcessConfig{
+			{
+				ID:      "1",
+				Name:    "bash",
+				Args:    []string{"-c", "echo heythere"},
+				Log:     true,
+				OneShot: true,
+			},
+		},
+		Services: []resource.Config{
+			{
+				Name:                "fake1",
+				API:                 datamanager.API,
+				Model:               resource.DefaultServiceModel,
+				ConvertedAttributes: &builtin.Config{},
+				ImplicitDependsOn:   []string{"foo:builtin:data_manager"},
+			},
+			{
+				Name:  "builtin",
+				API:   navigation.API,
+				Model: resource.DefaultServiceModel,
+			},
+		},
+		Packages: []config.PackageConfig{
+			{
+				Name:    "some-name-1",
+				Package: "package-1",
+				Version: "v1",
+			},
+		},
+		Network:             config.NetworkConfig{},
+		Auth:                config.AuthConfig{},
+		Debug:               true,
+		DisablePartialStart: true,
+	}
+
+	// Create copy of expectedCfg since Reconfigure modifies cfg.
+	expectedCfg := *cfg
+	r.Reconfigure(ctx, cfg)
+
+	// Assert that Config method returns expected value.
+	actualCfg = r.Config()
+
+	// Assert that default motion and sensor services are still present, but data
+	// manager default service has been replaced by the "fake1" data manager service.
+	defaultSvcs = removeDefaultServices(actualCfg)
+	test.That(t, len(defaultSvcs), test.ShouldEqual, 2)
+	for _, svc := range defaultSvcs {
+		test.That(t, svc.API.SubtypeName, test.ShouldBeIn, motion.API.SubtypeName,
+			sensors.API.SubtypeName)
+	}
+
+	// Manually inspect remaining service resources as ordering of config is
+	// non-deterministic within slices.
+	test.That(t, len(actualCfg.Services), test.ShouldEqual, 2)
+	for _, svc := range actualCfg.Services {
+		isFake1DM := svc.Equals(expectedCfg.Services[0])
+		isBuiltinNav := svc.Equals(expectedCfg.Services[1])
+		test.That(t, isFake1DM || isBuiltinNav, test.ShouldBeTrue)
+	}
+	actualCfg.Services = nil
+	expectedCfg.Services = nil
+
+	// Manually inspect component resources as ordering of config is
+	// non-deterministic within slices
+	test.That(t, len(actualCfg.Components), test.ShouldEqual, 3)
+	for _, comp := range actualCfg.Components {
+		isMyBase := comp.Equals(expectedCfg.Components[0])
+		isMotor1 := comp.Equals(expectedCfg.Components[1])
+		isMotor2 := comp.Equals(expectedCfg.Components[2])
+		test.That(t, isMyBase || isMotor1 || isMotor2, test.ShouldBeTrue)
+	}
+	actualCfg.Components = nil
+	expectedCfg.Components = nil
+
+	// Manually inspect remote resources, modules, and processes as Equals should be used
+	// (alreadyValidated will have been set to true).
+	test.That(t, len(actualCfg.Remotes), test.ShouldEqual, 1)
+	test.That(t, actualCfg.Remotes[0].Equals(expectedCfg.Remotes[0]), test.ShouldBeTrue)
+	actualCfg.Remotes = nil
+	expectedCfg.Remotes = nil
+	test.That(t, len(actualCfg.Processes), test.ShouldEqual, 1)
+	test.That(t, actualCfg.Processes[0].Equals(expectedCfg.Processes[0]), test.ShouldBeTrue)
+	actualCfg.Processes = nil
+	expectedCfg.Processes = nil
+	test.That(t, len(actualCfg.Modules), test.ShouldEqual, 1)
+	test.That(t, actualCfg.Modules[0].Equals(expectedCfg.Modules[0]), test.ShouldBeTrue)
+	actualCfg.Modules = nil
+	expectedCfg.Modules = nil
+
+	test.That(t, actualCfg, test.ShouldResemble, &expectedCfg)
 }

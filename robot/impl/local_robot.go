@@ -1184,20 +1184,32 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 
 	var allErrs error
 
-	canReconfigure, err := r.checkMaintenanceSensor(newConfig)
-	if err != nil {
-		r.logger.Info(err.Error() + ". using default reconfigure behavior")
+	if newConfig.MaintenanceConfig != nil {
+		sensorComponent, err := sensor.FromRobot(r, newConfig.MaintenanceConfig.SensorName)
+		if err != nil {
+			r.logger.Infof("%s, Starting reconfiguration", err.Error())
+		} else {
+			canReconfigure, err := r.checkMaintenanceSensorReadings(newConfig.MaintenanceConfig.MaintenanceAllowedKey, sensorComponent)
+			if err != nil {
+				r.logger.Info(err.Error() + ". Starting reconfiguration")
+			} else {
+			if !canReconfigure {
+				r.logger.Info("maintenanceAllowedKey found from readings on maintenance sensor. Reconfigure disabled")
+				return
+			} else {
+				r.logger.Info("maintenanceAllowedKey found from readings on maintenance sensor. Starting reconfiguration")
+
+			}
+		}
+		}
 	}
-	if !canReconfigure {
-		r.logger.Info("maintenance sensor determined it is not safe to reconfigure, disabling reconfigure")
-		return
-	}
+
 	// Sync Packages before reconfiguring rest of robot and resolving references to any packages
 	// in the config.
 	// TODO(RSDK-1849): Make this non-blocking so other resources that do not require packages can run before package sync finishes.
 	// TODO(RSDK-2710) this should really use Reconfigure for the package and should allow itself to check
 	// if anything has changed.
-	err = r.packageManager.Sync(ctx, newConfig.Packages, newConfig.Modules)
+	err := r.packageManager.Sync(ctx, newConfig.Packages, newConfig.Modules)
 	if err != nil {
 		r.Logger().CErrorw(ctx, "reconfiguration aborted because cloud modules or packages download failed", "error", err)
 		return
@@ -1445,32 +1457,17 @@ func (r *localRobot) Version(ctx context.Context) (robot.VersionResponse, error)
 	return robot.Version()
 }
 
-func (r *localRobot) checkMaintenanceSensor(newConfig *config.Config) (bool, error) {
-	if newConfig.MaintenanceConfig == nil {
-		return true, errors.New("maintenanceConfig undefined. Using default reconfigure")
-	}
-	sensorFound := false
-	for _, component := range newConfig.Components {
-		if component.Name == newConfig.MaintenanceConfig.SensorName {
-			if sensorFound {
-				return true, errors.New("conflicting maintenance sensors found")
-			}
-			sensorFound = true
-		}
-	}
-	if !sensorFound {
-		return true, errors.Errorf("maintenance sensor %s not found", newConfig.MaintenanceConfig.SensorName)
-	}
-	sensorComponent, err := sensor.FromRobot(r, newConfig.MaintenanceConfig.SensorName)
-	if err != nil {
-		return true, errors.Errorf("maintenance sensor not found on local robot. %s", err.Error())
-	}
-	return r.checkMaintenanceSensorReadings(newConfig.MaintenanceConfig.MaintenanceAllowedKey, sensorComponent)
-}
-
+// checkMaintenanceSensorReadings ensures that errors from reading a sensor are handled properly
 func (r *localRobot) checkMaintenanceSensorReadings(maintenanceAllowedKey string, sensor resource.Sensor) (bool, error) {
-	readings, err := sensor.Readings(context.Background(), map[string]interface{}{})
+	timeout := 5 * time.Second
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
+	readings, timeoutOccurred, err := checkSensorReadingTimeout(ctx, sensor, timeout)
 	if err != nil {
+		if timeoutOccurred {
+			return false, err
+		}
 		return true, errors.Errorf("error reading maintenance sensor readings. %s", err.Error())
 	}
 	readingVal, ok := readings[maintenanceAllowedKey]
@@ -1481,7 +1478,26 @@ func (r *localRobot) checkMaintenanceSensorReadings(maintenanceAllowedKey string
 	if !ok {
 		return true, errors.Errorf("maintenanceAllowedKey %s is not a bool value", maintenanceAllowedKey)
 	}
-
-	r.logger.Info("maintenanceAllowedKey found canReconfigure set to %t", canReconfigure)
 	return canReconfigure, nil
+}
+
+type Readings struct {
+	readings map[string]interface{}
+	err      error
+}
+
+// checkSensorReadingTimeout adds a timeout to Readings to ensure that the call returns after timeout seconds
+func checkSensorReadingTimeout(ctx context.Context, sensor resource.Sensor, timeout time.Duration) (map[string]interface{}, bool, error) {
+	c := make(chan Readings)
+
+	go func(ctx context.Context, c chan Readings) {
+		readings, err := sensor.Readings(ctx, map[string]interface{}{})
+		c <- Readings{readings: readings, err: err}
+	}(ctx, c)
+	select {
+	case readings := <-c:
+		return readings.readings, false, readings.err
+	case <-time.After(timeout):
+		return nil, true, errors.New("maintenance sensor timed out on reading")
+	}
 }

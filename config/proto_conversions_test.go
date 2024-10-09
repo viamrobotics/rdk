@@ -1005,3 +1005,46 @@ func TestPackageTypeConversion(t *testing.T) {
 	test.That(t, fmt.Sprint(err), test.ShouldContainSubstring, "invalid-package-type")
 	test.That(t, converted, test.ShouldResemble, packagespb.PackageType_PACKAGE_TYPE_UNSPECIFIED.Enum())
 }
+
+func TestMaintenanceConfigToProtoSuccess(t *testing.T) {
+	testMaintenanceConfig:= MaintenanceConfig{
+		SensorName: "car",
+		MaintenanceAllowedKey: "honk",
+	}
+
+	proto, err := MaintenanceConfigToProto(&testMaintenanceConfig)
+	test.That(t, err, test.ShouldBeNil)
+	out, err := MaintenanceConfigFromProto(proto)
+	test.That(t, err, test.ShouldBeNil)
+
+	test.That(t, *out, test.ShouldResemble, testMaintenanceConfig)
+}
+
+func TestMaintenanceConfigToProtoRemoteSuccess(t *testing.T) {
+	testMaintenanceConfig:= MaintenanceConfig{
+		SensorName: "car:go:store",
+		MaintenanceAllowedKey: "fast",
+	}
+
+	proto, err := MaintenanceConfigToProto(&testMaintenanceConfig)
+	test.That(t, err, test.ShouldBeNil)
+	out, err := MaintenanceConfigFromProto(proto)
+	test.That(t, err, test.ShouldBeNil)
+
+	test.That(t, *out, test.ShouldResemble, testMaintenanceConfig)
+}
+
+func TestMaintenanceConfigToProtoFailure(t *testing.T) {
+	testMaintenanceConfig:= MaintenanceConfig{
+		SensorName: "car:go",
+		MaintenanceAllowedKey: "slow",
+	}
+
+	proto, err := MaintenanceConfigToProto(&testMaintenanceConfig)
+	test.That(t, err, test.ShouldBeNil)
+	out, err := MaintenanceConfigFromProto(proto)
+	test.That(t, err, test.ShouldBeNil)
+
+	test.That(t, *out, test.ShouldResemble, testMaintenanceConfig)
+}
+
