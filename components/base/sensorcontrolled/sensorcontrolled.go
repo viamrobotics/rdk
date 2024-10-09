@@ -352,11 +352,25 @@ func (sb *sensorBase) determineHeadingFunc(ctx context.Context,
 // if loop is tuning, return an error
 // if loop has been tuned but the values haven't been added to the config, error with tuned values.
 func (sb *sensorBase) checkTuningStatus() error {
-	if sb.loop != nil && sb.loop.GetTuning(context.Background()) {
-		return control.TuningInProgressErr(sb.Name().ShortName())
-	} else if (sb.configPIDVals[0].NeedsAutoTuning() && !(*sb.tunedVals)[0].NeedsAutoTuning()) ||
-		(sb.configPIDVals[1].NeedsAutoTuning() && !(*sb.tunedVals)[1].NeedsAutoTuning()) {
-		return control.TunedPIDErr(sb.Name().ShortName(), *sb.tunedVals)
+	done := true
+	needsTuning := false
+
+	for i := range sb.configPIDVals {
+		// check if the current signal needed tuning
+		if sb.configPIDVals[i].NeedsAutoTuning() {
+			// return true if either signal needed tuning
+			needsTuning = needsTuning || true
+			// if the tunedVals have not been updated, then tuning is still in progress
+			done = done && !(*sb.tunedVals)[i].NeedsAutoTuning()
+		}
 	}
+
+	if needsTuning {
+		if done {
+			return control.TunedPIDErr(sb.Name().ShortName(), *sb.tunedVals)
+		}
+		return control.TuningInProgressErr(sb.Name().ShortName())
+	}
+
 	return nil
 }

@@ -488,6 +488,9 @@ func TunedPIDErr(name string, tunedVals []PIDConfig) error {
 	var tunedStr string
 	for _, pid := range tunedVals {
 		if !pid.NeedsAutoTuning() {
+			if tunedStr != "" {
+				tunedStr += ","
+			}
 			tunedStr += pid.String()
 		}
 	}

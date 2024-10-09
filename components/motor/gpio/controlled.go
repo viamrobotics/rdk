@@ -406,10 +406,25 @@ func (cm *controlledMotor) DoCommand(ctx context.Context, req map[string]interfa
 // if loop is tuning, return an error
 // if loop has been tuned but the values haven't been added to the config, error with tuned values.
 func (cm *controlledMotor) checkTuningStatus() error {
-	if cm.loop != nil && cm.loop.GetTuning(context.Background()) {
-		return control.TuningInProgressErr(cm.Name().ShortName())
-	} else if cm.configPIDVals[0].NeedsAutoTuning() && !(*cm.tunedVals)[0].NeedsAutoTuning() {
-		return control.TunedPIDErr(cm.Name().ShortName(), *cm.tunedVals)
+	done := true
+	needsTuning := false
+
+	for i := range cm.configPIDVals {
+		// check if the current signal needed tuning
+		if cm.configPIDVals[i].NeedsAutoTuning() {
+			// return true if either signal needed tuning
+			needsTuning = needsTuning || true
+			// if the tunedVals have not been updated, then tuning is still in progress
+			done = done && !(*cm.tunedVals)[i].NeedsAutoTuning()
+		}
 	}
+
+	if needsTuning {
+		if done {
+			return control.TunedPIDErr(cm.Name().ShortName(), *cm.tunedVals)
+		}
+		return control.TuningInProgressErr(cm.Name().ShortName())
+	}
+
 	return nil
 }
