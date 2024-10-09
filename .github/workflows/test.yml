@@ -39,6 +39,7 @@ jobs:
       run: |
         python3 --version
         which -a python3
+        sudo apt install -qy lsb-release
 
     - uses: actions/setup-python@v5
       with:
