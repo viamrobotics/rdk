@@ -1055,7 +1055,7 @@ func getCapturedData(filePaths []string) (int, []*v1.SensorData, error) {
 		if err != nil {
 			return 0, nil, err
 		}
-		dcFile, err := data.ReadCaptureFile(osFile)
+		dcFile, err := data.NewCaptureFile(osFile)
 		if err != nil {
 			return 0, nil, err
 		}

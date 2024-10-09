@@ -194,19 +194,19 @@ func getDataType(methodName string) v1.DataType {
 
 // SensorDataFromCaptureFilePath returns all readings in the file at filePath.
 // NOTE: (Nick S) At time of writing this is only used in tests.
-//func SensorDataFromCaptureFilePath(filePath string) ([]*v1.SensorData, error) {
-//	//nolint:gosec
-//	f, err := os.Open(filePath)
-//	if err != nil {
-//		return nil, err
-//	}
-//	dcFile, err := NewCaptureFile(f)
-//	if err != nil {
-//		return nil, err
-//	}
+func SensorDataFromCaptureFilePath(filePath string) ([]*v1.SensorData, error) {
+	//nolint:gosec
+	f, err := os.Open(filePath)
+	if err != nil {
+		return nil, err
+	}
+	dcFile, err := NewCaptureFile(f)
+	if err != nil {
+		return nil, err
+	}
 
-//	return SensorDataFromCaptureFile(dcFile)
-//}
+	return SensorDataFromCaptureFile(dcFile)
+}
 
 // SensorDataFromCaptureFile returns all readings in f.
 func SensorDataFromCaptureFile(f *CaptureFile) ([]*v1.SensorData, error) {

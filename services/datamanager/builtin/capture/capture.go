@@ -269,7 +269,7 @@ func collectorConfigDescription(
 }
 
 func targetDir(captureDir string, collectorConfig datamanager.DataCaptureConfig) string {
-	return data.CaptureFilePathWithReplacedReservedChars(
+	return data.FilePathWithReplacedReservedChars(
 		filepath.Join(captureDir, collectorConfig.Name.API.String(),
 			collectorConfig.Name.ShortName(), collectorConfig.Method))
 }

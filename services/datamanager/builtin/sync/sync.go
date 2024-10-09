@@ -367,7 +367,7 @@ func (s *Sync) syncFile(config Config, filePath string) {
 }
 
 func (s *Sync) syncDataCaptureFile(f *os.File, captureDir string, logger logging.Logger) {
-	captureFile, err := data.ReadCaptureFile(f)
+	captureFile, err := data.NewCaptureFile(f)
 	// if you can't read the capture file's metadata field, close & move it to the failed directory
 	if err != nil {
 		cause := errors.Wrap(err, "ReadCaptureFile failed")

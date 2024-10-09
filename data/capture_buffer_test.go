@@ -620,7 +620,7 @@ func TestCaptureBufferReader(t *testing.T) {
 
 		// Path() is the same as the first paramenter passed to NewCaptureBuffer
 		test.That(t, b.Path(), test.ShouldResemble, tmpDir)
-		test.That(t, b.MetaData, test.ShouldResemble, readImageCaptureMetadata)
+		test.That(t, b.metaData, test.ShouldResemble, readImageCaptureMetadata)
 
 		now := time.Now()
 		timeRequested := timestamppb.New(now.UTC())
@@ -689,7 +689,7 @@ func NickTest(t *testing.T) {
 
 	// Path() is the same as the first paramenter passed to NewCaptureBuffer
 	test.That(t, b.Path(), test.ShouldResemble, tmpDir)
-	test.That(t, b.MetaData, test.ShouldResemble, readImageCaptureMetadata)
+	test.That(t, b.metaData, test.ShouldResemble, readImageCaptureMetadata)
 
 	now := time.Now()
 	timeRequested := timestamppb.New(now.UTC())
@@ -725,7 +725,7 @@ func NickTest(t *testing.T) {
 	test.That(t, err, test.ShouldBeError, io.EOF)
 }
 
-// nolint
+//nolint
 func getCaptureFiles(dir string) (dcFiles, progFiles []string) {
 	_ = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
