@@ -60,10 +60,10 @@ jobs:
 
     - name: Run go unit tests
       run: |
-        which python
-        which python3
-        which pip
-        which pip3
+        which python && echo yes || echo no
+        which python3 && echo yes || echo no
+        which pip && echo yes || echo no
+        which pip3 && echo yes || echo no
         python -m venv --help
         sudo -Hu testbot bash -lc 'go test ./cli -run TestGenerateModuleAction'
 
