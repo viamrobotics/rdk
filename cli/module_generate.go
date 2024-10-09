@@ -527,6 +527,7 @@ func generatePythonStubs(module moduleInputs) error {
 	if err != nil {
 		return errors.Wrap(err, "cannot generate python stubs -- python runtime not found")
 	}
+	println("PATH", os.Getenv("PATH"))
 	looked, err := exec.LookPath("python3")
 	println("LOOKED", looked, err != nil)
 	cmd = exec.Command("python3", "-m", "venv", venvName)
