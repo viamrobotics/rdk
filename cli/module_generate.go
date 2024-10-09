@@ -210,17 +210,14 @@ func promptUser() (*moduleInputs, error) {
 				Suggestions([]string{"my-module"}).
 				Validate(func(s string) error {
 					if s == "" {
-						//nolint:revive
-						return errors.New("Module name must not be empty!")
+						return errors.New("module name must not be empty")
 					}
 					match, err := regexp.MatchString("^[a-z0-9]+(?:[_-][a-z0-9]+)*$", s)
 					if !match || err != nil {
-						//nolint:revive
-						return errors.New("Module names can only contain alphanumeric characters, dashes, and underscores!")
+						return errors.New("module names can only contain alphanumeric characters, dashes, and underscores")
 					}
 					if _, err := os.Stat(s); err == nil {
-						//nolint:revive
-						return errors.New("This module directory already exists!")
+						return errors.New("this module directory already exists")
 					}
 					return nil
 				}),
@@ -241,8 +238,7 @@ func promptUser() (*moduleInputs, error) {
 				Value(&newModule.Namespace).
 				Validate(func(s string) error {
 					if s == "" {
-						//nolint:revive
-						return errors.New("Namespace or org ID must not be empty!")
+						return errors.New("namespace or org ID must not be empty")
 					}
 					return nil
 				}),
@@ -280,13 +276,11 @@ func promptUser() (*moduleInputs, error) {
 				Value(&newModule.ModelName).
 				Validate(func(s string) error {
 					if s == "" {
-						//nolint:revive
-						return errors.New("Model name must not be empty!")
+						return errors.New("model name must not be empty")
 					}
 					match, err := regexp.MatchString("^[a-z0-9]+(?:[_-][a-z0-9]+)*$", s)
 					if !match || err != nil {
-						//nolint:revive
-						return errors.New("Module names can only contain alphanumeric characters, dashes, and underscores!")
+						return errors.New("module names can only contain alphanumeric characters, dashes, and underscores")
 					}
 					return nil
 				}),
