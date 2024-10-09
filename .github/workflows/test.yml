@@ -74,6 +74,7 @@ jobs:
         echo $PATH
         whoami
         echo $HOME
+        export PATH=$PATH
         go test ./cli -run TestGenerateModuleAction
         sudo --preserve-env=PATH -Hu testbot bash -lc 'go test ./cli -run TestGenerateModuleAction'
 
