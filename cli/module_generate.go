@@ -537,8 +537,11 @@ func generatePythonStubs(module moduleInputs) error {
 	if err != nil {
 		return errors.Wrap(err, "cannot generate python stubs -- python runtime not found")
 	}
+	looked, err := exec.LookPath("python3")
+	println("LOOKED", looked, err != nil)
 	cmd = exec.Command("python3", "-m", "venv", venvName)
-	_, err = cmd.Output()
+	output, err := cmd.Output()
+	println("OUTPUT", string(output))
 	if err != nil {
 		return errors.Wrap(err, "cannot generate python stubs -- unable to create python virtual environment")
 	}
