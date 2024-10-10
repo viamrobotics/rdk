@@ -97,6 +97,7 @@ const (
 	dataFlagParallelDownloads              = "parallel"
 	dataFlagTags                           = "tags"
 	dataFlagBboxLabels                     = "bbox-labels"
+	dataFlagDatasetIDFilter                = "dataset-filter-id"
 	dataFlagDeleteTabularDataOlderThanDays = "delete-older-than-days"
 	dataFlagDatabasePassword               = "password"
 	dataFlagFilterTags                     = "filter-tags"
@@ -831,6 +832,10 @@ var app = &cli.App{
 											Name: dataFlagBboxLabels,
 											Usage: "bbox labels filter. " +
 												"accepts string labels corresponding to bounding boxes within images",
+										},
+										&cli.StringFlag{
+											Name:  dataFlagDatasetIDFilter,
+											Usage: "dataset ID filter. filter for all images in a dataset",
 										},
 									},
 									Action: DataAddToDatasetByFilter,

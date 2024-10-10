@@ -203,6 +203,9 @@ func createDataFilter(c *cli.Context) (*datapb.Filter, error) {
 	if len(c.StringSlice(dataFlagMimeTypes)) != 0 {
 		filter.MimeType = c.StringSlice(dataFlagMimeTypes)
 	}
+	if c.String(dataFlagDatasetIDFilter) != "" {
+		filter.DatasetId = c.String(dataFlagDatasetIDFilter)
+	}
 	// We have some weirdness because the --tags flag can mean two completely different things.
 	// It could be either tags to filter by, or, if running 'viam data tag' it will mean the
 	// tags to add to the data. To account for this, we have to check if we're running the tag
