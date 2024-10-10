@@ -99,9 +99,6 @@ func wrapResolveOrg(cctx *cli.Context, c *viamClient, newModule *moduleInputs) e
 }
 
 func catchResolveOrgErr(cctx *cli.Context, c *viamClient, newModule *moduleInputs, caughtErr error) error {
-	if caughtErr == nil {
-		return nil
-	}
 	if caughtErr.Error() == "not logged in: run the following command to login:\n\tviam login" {
 		originalWriter := cctx.App.Writer
 		cctx.App.Writer = io.Discard
@@ -496,6 +493,12 @@ func copyLanguageTemplate(c *cli.Context, language, moduleName string) error {
 			_, err = io.Copy(destFile, srcFile)
 			if err != nil {
 				return errors.Wrapf(err, "error executing template for %s", destPath)
+			}
+			if filepath.Ext(destPath) == ".sh" {
+				err = os.Chmod(destPath, 0755)
+				if err != nil {
+					return errors.Wrapf(err, "error making file executable for %s", destPath)
+				}
 			}
 		}
 		return nil
