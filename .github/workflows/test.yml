@@ -64,6 +64,7 @@ jobs:
 
     - name: Run go unit tests
       run: |
+        export PATH=$PATH
         chmod -R a+rwx . # temporary fix for arm runners
         which -a python3
         which python3
