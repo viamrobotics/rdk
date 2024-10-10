@@ -155,7 +155,7 @@ func TestReadCorruptedFile(t *testing.T) {
 	md := &v1.DataCaptureMetadata{
 		Type: v1.DataType_DATA_TYPE_TABULAR_SENSOR,
 	}
-	f, err := NewCaptureFile(dir, md)
+	f, err := NewProgFile(dir, md)
 	test.That(t, err, test.ShouldBeNil)
 	numReadings := 100
 	for i := 0; i < numReadings; i++ {
@@ -167,10 +167,10 @@ func TestReadCorruptedFile(t *testing.T) {
 	}
 	_, err = f.writer.Write([]byte("invalid data"))
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, f.writer.Flush(), test.ShouldBeNil)
+	test.That(t, f.Close(), test.ShouldBeNil)
 
 	// Should still be able to successfully read all the successfully written data.
-	sd, err := SensorDataFromCaptureFilePath(f.GetPath())
+	sd, err := SensorDataFromCaptureFilePath(captureFilePath(f.GetPath()))
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(sd), test.ShouldEqual, numReadings)
 }
