@@ -209,8 +209,8 @@ var allowedModules = map[string]bool{
 	"viam:raspberry-pi": true,
 }
 
-// this function checks if the modules added in an intrusted environment are
-// viam modules and allowes them to be run within an untrusted envionment if so.
+// Checks if the modules added in an untrusted environment are Viam modules
+// and returns `true` and a list of their configs if any exist in the passed-in slice.
 func checkIfAllowed(confs ...config.Module) (
 	allowed bool /*false*/, newConfs []config.Module,
 ) {
