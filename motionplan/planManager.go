@@ -19,6 +19,7 @@ import (
 	"go.viam.com/rdk/motionplan/tpspace"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
+	rutils "go.viam.com/rdk/utils"
 )
 
 const (
@@ -904,6 +905,12 @@ func (pm *planManager) planRelativeWaypoint(ctx context.Context, request *PlanRe
 	if err != nil {
 		return nil, err
 	}
+
+	planDevMM, err := rutils.AssertType[float64](request.Options["planDeviationMM"])
+	if err != nil {
+		return nil, err
+	}
+	opt.planDeviationMM = planDevMM
 
 	// re-root the frame system on the relative frame
 	relativeOnlyFS, err := pm.frame.fss.FrameSystemSubset(request.Frame)

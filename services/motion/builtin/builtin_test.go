@@ -205,6 +205,23 @@ func TestMove(t *testing.T) {
 		_, err = ms.Move(context.Background(), moveReq)
 		test.That(t, err, test.ShouldBeNil)
 	})
+	t.Run("starting at the goal", func(t *testing.T) {
+		ms, teardown := setupMotionServiceFromConfig(t, "../data/moving_arm.json")
+		defer teardown()
+		planResp, err := ms.(*builtIn).plan(ctx, motion.MoveReq{
+			ComponentName: arm.Named("pieceArm"),
+			Destination:   referenceframe.NewPoseInFrame("pieceArm", spatialmath.NewZeroPose()),
+		})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, len(planResp.Trajectory()), test.ShouldEqual, 2)
+		expectedMap := map[string][]referenceframe.Input{
+			"pieceArm": referenceframe.FloatsToInputs([]float64{0, 0, 0, 0, 0, 0}),
+			"c":        {}, "c_origin": {}, "pieceGripper": {}, "pieceGripper_origin": {},
+		}
+		test.That(t, planResp.Trajectory()[0], test.ShouldResemble, expectedMap)
+		test.That(t, planResp.Trajectory()[1], test.ShouldResemble, expectedMap)
+		test.That(t, len(planResp.Path()), test.ShouldEqual, 2)
+	})
 }
 
 func TestMoveWithObstacles(t *testing.T) {
