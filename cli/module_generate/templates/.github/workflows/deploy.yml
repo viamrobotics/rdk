@@ -17,3 +17,4 @@ jobs:
           ref: ${{ github.sha }}
           key-id: ${{ secrets.viam_key_id }}
           key-value: ${{ secrets.viam_key_value }}
+          token: ${{ github.token }} # only required for private git repos
