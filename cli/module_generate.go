@@ -591,6 +591,7 @@ func getLatestSDKTag(c *cli.Context, language string) (string, error) {
 	if err != nil {
 		return "", errors.Wrapf(err, "cannot get latest %s release", repo)
 	}
+	fmt.Println("url " + url)
 	defer utils.UncheckedErrorFunc(resp.Body.Close)
 	if resp.StatusCode != http.StatusOK {
 		return "", errors.Errorf("unexpected http GET status: %s", resp.Status)
