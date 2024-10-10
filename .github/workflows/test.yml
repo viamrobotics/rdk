@@ -216,6 +216,8 @@ jobs:
     - run: |
         go run ./cli/viam/ module create --local-only --name schematest --public-namespace ns
         cat meta.json | jq '.models = [{"api": "x:y:z", "model": "x:y:z"}]' > meta2.json
+        python -m venv .venv
+        source .venv/bin/activate
         pip install -r cli/test-requirements.txt
         check-jsonschema --schemafile ./cli/module.schema.json meta2.json
 
