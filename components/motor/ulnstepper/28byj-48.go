@@ -378,6 +378,7 @@ func (m *uln28byj) SetRPM(ctx context.Context, rpm float64, extra map[string]int
 // Set the current position (+/- offset) to be the new zero (home) position.
 func (m *uln28byj) ResetZeroPosition(ctx context.Context, offset float64, extra map[string]interface{}) error {
 	newPosition := int64(-1 * offset * float64(m.ticksPerRotation))
+	// use Stop to set the target position to the current position again
 	if err := m.Stop(ctx, extra); err != nil {
 		return err
 	}
@@ -385,7 +386,6 @@ func (m *uln28byj) ResetZeroPosition(ctx context.Context, offset float64, extra 
 	defer m.lock.Unlock()
 	m.stepPosition = newPosition
 	m.targetStepPosition = newPosition
-	// use Stop to set the target position to the current position again
 	return nil
 }
 
