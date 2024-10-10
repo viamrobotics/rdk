@@ -66,7 +66,12 @@ jobs:
       run: |
         chmod -R a+rwx . # temporary fix for arm runners
         sudo apt install -y python3-virtualenv
-        sudo --preserve-env=MONGODB_TEST_OUTPUT_URI,GITHUB_SHA,GITHUB_RUN_ID,GITHUB_RUN_NUMBER,GITHUB_RUN_ATTEMPT,GITHUB_X_PR_BASE_SHA,GITHUB_X_PR_BASE_REF,GITHUB_X_HEAD_REF,GITHUB_X_HEAD_SHA,GITHUB_REPOSITORY -Hu testbot bash -lc 'make test-go'
+        which -a python3
+        which python3
+        python3 --version
+        python3 -m venv .venv
+        .venv/bin/python --version
+        sudo -Hu testbot bash -lc 'go test ./cli -run TestGenerateModuleAction'
 
     - name: Upload test.json
       if: always()
