@@ -595,11 +595,11 @@ func (g *Graph) ResolveDependencies(logger logging.Logger) error {
 				default:
 					allErrs = multierr.Combine(
 						allErrs,
-						errors.Errorf("conflicting names for resource %q: %v", nodeName, nodeNames))
+						errors.Errorf("conflicting names for resource %q: %v", nodeName, NamesToStrings(nodeNames)))
 					logger.Errorw(
 						"cannot resolve dependency for resource due to multiple matching names",
 						"name", nodeName,
-						"conflicts", nodeNames,
+						"conflicts", NamesToStrings(nodeNames),
 					)
 				}
 				return Name{}, false
