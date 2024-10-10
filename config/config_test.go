@@ -1236,7 +1236,7 @@ func TestConfigRobotRevision(t *testing.T) {
 func TestConfigMarshalUnMarshal(t *testing.T) {
 	c := config.Config{
 		MaintenanceConfig: &config.MaintenanceConfig{
-			SensorName:            "SensorNames",
+			SensorName:            "SensorName",
 			MaintenanceAllowedKey: "Key",
 		},
 	}
