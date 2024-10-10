@@ -44,14 +44,10 @@ func init() {
 	)
 }
 
-// export keys to be used with DoCommand so they can be referenced by clients.
-const (
-	DoPlan    = "plan"
-	DoExecute = "execute"
-)
-
 const (
 	builtinOpLabel                     = "motion-service"
+	doPlan                             = "plan"
+	doExecute                          = "execute"
 	maxTravelDistanceMM                = 5e6 // this is equivalent to 5km
 	lookAheadDistanceMM        float64 = 5e6
 	defaultSmoothIter                  = 30
@@ -336,11 +332,11 @@ func (ms *builtIn) PlanHistory(
 }
 
 // DoCommand supports two commands which are specified through the command map
-//   - DoPlan generates and returns a Trajectory for a given motionpb.MoveRequest without executing it
+//   - doPlan generates and returns a Trajectory for a given motionpb.MoveRequest without executing it
 //     required key: DoPlan
 //     input value: a motionpb.MoveRequest which will be used to create a Trajectory
 //     output value: a motionplan.Trajectory specified as a map (the mapstructure.Decode function is useful for decoding this)
-//   - DoExecute takes a Trajectory and executes it
+//   - doExecute takes a Trajectory and executes it
 //     required key: DoExecute
 //     input value: a motionplan.Trajectory
 //     output value: a bool
@@ -350,7 +346,7 @@ func (ms *builtIn) DoCommand(ctx context.Context, cmd map[string]interface{}) (m
 	operation.CancelOtherWithLabel(ctx, builtinOpLabel)
 
 	resp := make(map[string]interface{}, 0)
-	if req, ok := cmd[DoPlan]; ok {
+	if req, ok := cmd[doPlan]; ok {
 		bytes, err := json.Marshal(req)
 		if err != nil {
 			return nil, err
@@ -368,9 +364,9 @@ func (ms *builtIn) DoCommand(ctx context.Context, cmd map[string]interface{}) (m
 		if err != nil {
 			return nil, err
 		}
-		resp[DoPlan] = plan.Trajectory()
+		resp[doPlan] = plan.Trajectory()
 	}
-	if req, ok := cmd[DoExecute]; ok {
+	if req, ok := cmd[doExecute]; ok {
 		var trajectory motionplan.Trajectory
 		if err := mapstructure.Decode(req, &trajectory); err != nil {
 			return nil, err
@@ -378,7 +374,7 @@ func (ms *builtIn) DoCommand(ctx context.Context, cmd map[string]interface{}) (m
 		if err := ms.execute(ctx, trajectory); err != nil {
 			return nil, err
 		}
-		resp[DoExecute] = true
+		resp[doExecute] = true
 	}
 	return resp, nil
 }
@@ -511,4 +507,29 @@ func (ms *builtIn) execute(ctx context.Context, trajectory motionplan.Trajectory
 		}
 	}
 	return nil
+}
+
+// DoPlan is a helper function to wrap doPlan (a utility inside DoCommand) with types that are easier to work with.
+func DoPlan(ctx context.Context, ms motion.Service, req motion.MoveReq) (motionplan.Trajectory, error) {
+	proto, err := req.ToProto(ms.Name().Name)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := ms.DoCommand(ctx, map[string]interface{}{doPlan: proto})
+	if err != nil {
+		return nil, err
+	}
+	respMap, ok := resp[doPlan]
+	if !ok {
+		return nil, errors.New("could not find Trajectory in DoCommand response")
+	}
+	var trajectory motionplan.Trajectory
+	err = mapstructure.Decode(respMap, &trajectory)
+	return trajectory, err
+}
+
+// DoExecute is a helper function to wrap doExecute (a utility inside DoCommand) with types that are easier to work with.
+func DoExecute(ctx context.Context, ms motion.Service, traj motionplan.Trajectory) error {
+	_, err := ms.DoCommand(ctx, map[string]interface{}{doExecute: traj})
+	return err
 }
