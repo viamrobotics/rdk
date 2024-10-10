@@ -4036,8 +4036,11 @@ func newErrorSensor() sensor.Sensor {
 	return s
 }
 
-func TestMaintenanceConfigWithRemotes(t *testing.T) {
+func TestMaintenanceConfigWithRemotesAndFragments(t *testing.T) {
+	ctx := context.Background()
+	logger := logging.NewTestLogger(t)
 	model := resource.DefaultModelFamily.WithModel(utils.RandomAlphaString(8))
+	modelErrorSensor := resource.DefaultModelFamily.WithModel(utils.RandomAlphaString(8))
 	resource.RegisterComponent(
 		sensor.API,
 		model,
@@ -4049,16 +4052,21 @@ func TestMaintenanceConfigWithRemotes(t *testing.T) {
 		) (sensor.Sensor, error) {
 			return newValidSensor(), nil
 		}})
+		resource.RegisterComponent(
+			sensor.API,
+			modelErrorSensor,
+			resource.Registration[sensor.Sensor, resource.NoNativeConfig]{Constructor: func(
+				ctx context.Context,
+				deps resource.Dependencies,
+				conf resource.Config,
+				logger logging.Logger,
+			) (sensor.Sensor, error) {
+				return newErrorSensor(), nil
+			}})
 		defer func() {
 			resource.Deregister(sensor.API, model)
 		}()
-
-	t.Run("robot reconfigures with maintenanceConfig sensor and blocks reconfigure, reconfigure reenabled when maintenanceConfig removed", func(t *testing.T) {
-		ctx := context.Background()
-		logger := logging.NewTestLogger(t)
-		r := setupLocalRobot(t, context.Background(), &config.Config{}, logger)
-		cfg := &config.Config{
-			MaintenanceConfig: &config.MaintenanceConfig{SensorName: "rdk:component:sensor/sensor",MaintenanceAllowedKey:"ThatsMyWallet"},
+		remoteCfg := &config.Config{
 			Components: []resource.Config{
 				{
 					Name:                "sensor",
@@ -4067,69 +4075,187 @@ func TestMaintenanceConfigWithRemotes(t *testing.T) {
 				},
 			},
 		}
-		r.Reconfigure(ctx, cfg)
+		sensor1 := []resource.Config{
+			{
+				Name:                "sensor",
+				Model:               model,
+				API:                 sensor.API,
+			},
+		}
+		sensor2 := []resource.Config{
+			{
+				Name:                "sensor2",
+				API:                 sensor.API,
+				Model:               model,
+			},
+		}
+		// This needs to share a name with sensor so name colisions can be tested
+		errorSensor := []resource.Config {
+			{
+				Name: "sensor",
+				API:  sensor.API,
+				Model: modelErrorSensor,
+			},
+		}
+		cfgBlocked := &config.Config{
+			MaintenanceConfig: &config.MaintenanceConfig{SensorName:"rdk:component:sensor/sensor",MaintenanceAllowedKey:"ThatsMyWallet"},
+			Components: sensor2,
+		}
+
+
+	t.Run("robot reconfigures with maintenanceConfig sensor and blocks reconfigure, reconfigure reenabled when maintenanceConfig removed", func(t *testing.T) {
+		cfg := &config.Config{
+			MaintenanceConfig: &config.MaintenanceConfig{SensorName: "rdk:component:sensor/sensor",MaintenanceAllowedKey:"ThatsMyWallet"},
+			Components: sensor1,
+		}
+		cfgUnblock := &config.Config{
+			Components: sensor2,
+		}
+
+		r := setupLocalRobot(t, context.Background(), cfg, logger)
 		sensorResource, err:= r.ResourceByName(sensor.Named("sensor"))
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, sensorResource, test.ShouldNotBeNil)
 
-		// cfgBlocked := &config.Config{
-		// 	MaintenanceConfig: &config.MaintenanceConfig{SensorName:"sensor",MaintenanceAllowedKey:"ThatsMyWallet"},
-		// 	Components: []resource.Config{
-		// 		{
-		// 			Name:                "sensor2",
-		// 			API:                 sensor.API,
-		// 			Model:               model,
-		// 		},
-		// 	},
-		// }
-		// r.Reconfigure(ctx, cfgBlocked)
-		// sensorBlocked, err:= r.ResourceByName(sensor.Named("sensor2"))
-		// test.That(t, sensorBlocked, test.ShouldBeNil)
-		// test.That(t, err.Error(),test.ShouldEqual, "resource \"rdk:component:sensor/sensor2\" not found")
-		// cfgUnblock := &config.Config{
-		// 	Components: []resource.Config{
-		// 		{
-		// 			Name:                "sensor2",
-		// 			API:                 sensor.API,
-		// 			Model:               model,
-		// 		},
-		// 	},
-		// }
-		// r.Reconfigure(ctx, cfgUnblock)
-		// sensorBlocked, err = r.ResourceByName(sensor.Named("sensor2"))
-		// test.That(t, err,test.ShouldBeNil)
-		// test.That(t, sensorBlocked, test.ShouldNotBeNil)
+		// Maintenance sensor will block reconfig so sensor2 should not be added
+		r.Reconfigure(ctx, cfgBlocked)
+		sensorBlocked, err:= r.ResourceByName(sensor.Named("sensor2"))
+		test.That(t, sensorBlocked, test.ShouldBeNil)
+		test.That(t, err.Error(),test.ShouldEqual, "resource \"rdk:component:sensor/sensor2\" not found")
+
+		// removing maintenance config unblocks reconfig and allows sensor to be added
+		r.Reconfigure(ctx, cfgUnblock)
+		sensorBlocked, err = r.ResourceByName(sensor.Named("sensor2"))
+		test.That(t, err,test.ShouldBeNil)
+		test.That(t, sensorBlocked, test.ShouldNotBeNil)
+	})
+
+	t.Run("Remote sensor works when remote name is specified and not specified", func(t *testing.T) {
+		ctx := context.Background()
+		// Setup remote with maintenance sensor
+		remote := setupLocalRobot(t, context.Background(), remoteCfg, logger)
+		options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
+		err:= remote.StartWeb(ctx, options)
+		test.That(t,err,test.ShouldBeNil)
+		cfg := &config.Config{
+			MaintenanceConfig: &config.MaintenanceConfig{SensorName: "rdk:component:sensor/sensor",MaintenanceAllowedKey:"ThatsMyWallet"},
+			Remotes: []config.Remote{
+				{
+				Name:     "remote",
+				Insecure: true,
+				Address:  addr,
+			},
+		},
+		}
+		cfgBlocked := &config.Config{
+			MaintenanceConfig: &config.MaintenanceConfig{SensorName:"rdk:component:sensor/sensor",MaintenanceAllowedKey:"ThatsMyWallet"},
+			Components: sensor2,
+		}
+		cfgBlockedWithRemoteSpecified := &config.Config{
+			MaintenanceConfig: &config.MaintenanceConfig{SensorName:"rdk:component:sensor/remote:sensor",MaintenanceAllowedKey:"ThatsMyWallet"},
+			Components: sensor2,
+		}
+
+		// Setup robot pointing maintenanceConfig at the remote sensor
+		r := setupLocalRobot(t, context.Background(), cfg, logger)
+		
+		// reconfig should be blocked ensure new resource is not added
+		r.Reconfigure(ctx,cfgBlocked)
+		sensorBlocked, err:= r.ResourceByName(sensor.Named("sensor2"))
+		test.That(t, sensorBlocked, test.ShouldBeNil)
+		test.That(t, err.Error(),test.ShouldEqual, "resource \"rdk:component:sensor/sensor2\" not found")
+
+		// Attempt to reconfig again using remote:sensor name
+		// Reconfig should still be blocked
+		r.Reconfigure(ctx,cfgBlockedWithRemoteSpecified)
+		sensorBlocked, err = r.ResourceByName(sensor.Named("sensor2"))
+		test.That(t, sensorBlocked, test.ShouldBeNil)
+		test.That(t, err.Error(),test.ShouldEqual, "resource \"rdk:component:sensor/sensor2\" not found")
+	})
+
+	t.Run("conflicting remote and main sensors default to main", func(t *testing.T) {
+		ctx := context.Background()
+		// Setup remote with error maintenance sensor, if sensor is ever called it will error and reconfigure normally 
+		remoteErrConfig := &config.Config{
+			Components: errorSensor,
+		}
+		remote := setupLocalRobot(t, context.Background(), remoteErrConfig, logger)
+		options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
+		err:= remote.StartWeb(ctx, options)
+		test.That(t,err,test.ShouldBeNil)
+		cfg := &config.Config{
+			MaintenanceConfig: &config.MaintenanceConfig{SensorName: "rdk:component:sensor/sensor",MaintenanceAllowedKey:"ThatsMyWallet"},
+			Remotes: []config.Remote{
+				{
+				Name:     "remote",
+				Insecure: true,
+				Address:  addr,
+			},
+		},
+			Components:sensor1,
+		}
+		cfgRemoteUnblocked := &config.Config{
+			MaintenanceConfig: &config.MaintenanceConfig{SensorName:"rdk:component:sensor/remote:sensor",MaintenanceAllowedKey:"ThatsMyWallet"},
+			Components: sensor2,
+		}
+		
+		// Setup robot pointing maintenanceConfig with conflicting sensors
+		r := setupLocalRobot(t, context.Background(), cfg, logger)
+		
+		// reconfig should be blocked since the sensor on main if chosen instead of the remote
+		r.Reconfigure(ctx,cfgBlocked)
+		sensorBlocked, err:= r.ResourceByName(sensor.Named("sensor2"))
+		test.That(t, sensorBlocked, test.ShouldBeNil)
+		test.That(t, err.Error(),test.ShouldEqual, "resource \"rdk:component:sensor/sensor2\" not found")
+
+		
+		// robot should reconfigure since remote will return an error
+		r.Reconfigure(ctx, cfgRemoteUnblocked)
+		sensorBlocked, err = r.ResourceByName(sensor.Named("sensor2"))
+		test.That(t, err,test.ShouldBeNil)
+		test.That(t, sensorBlocked, test.ShouldNotBeNil)
 	})
 
 
-	// cfg := &config.Config{
-	// 	MaintenanceConfig: &config.MaintenanceConfig{SensorName:"",MaintenanceAllowedKey:""},
-	// 	Remotes: []config.Remote{
-	// 		{
-	// 			Name:    "foo",
-	// 			Address: addr,
-	// 		},
-	// 	},
-	// 	Components: []resource.Config{
-	// 		{
-	// 			Name:                "sensor",
-	// 			API:                 sensor.API,
-	// 			Model:               fakeModel,
-	// 		},
-	// 	},
-	// }
+	t.Run("multiple remotes with conflicting names errors out", func(t *testing.T) {
+		ctx := context.Background()
+		//  setup two identical remotes
+		remote := setupLocalRobot(t, context.Background(), remoteCfg, logger)
+		options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
+		err:= remote.StartWeb(ctx, options)
+		remote2 := setupLocalRobot(t, context.Background(), remoteCfg, logger)
+		options2, _, addr2 := robottestutils.CreateBaseOptionsAndListener(t)
+		err = remote2.StartWeb(ctx, options2)
+		test.That(t,err,test.ShouldBeNil)
+		cfg := &config.Config{
+			MaintenanceConfig: &config.MaintenanceConfig{SensorName: "rdk:component:sensor/sensor",MaintenanceAllowedKey:"ThatsMyWallet"},
+			Remotes: []config.Remote{
+				{
+				Name:     "remote",
+				Insecure: true,
+				Address:  addr,
+			},
+			{
+				Name:     "remote2",
+				Insecure: true,
+				Address:  addr2,
+			},
+		},
+		}
 
+		cfgUnblocked := &config.Config{
+			MaintenanceConfig: &config.MaintenanceConfig{SensorName:"rdk:component:sensor/sensor",MaintenanceAllowedKey:"ThatsMyWallet"},
+			Components: sensor2,
+		}
+	
+		// Setup robot pointing maintenanceConfig with conflicting remote sensors
+		r := setupLocalRobot(t, context.Background(), cfg, logger)
+		
+		// reconfig should not be blocked because the two remotes will have conflicting resources resulting in reconfiguring
+		r.Reconfigure(ctx, cfgUnblocked)
+		sensorUnBlocked, err := r.ResourceByName(sensor.Named("sensor2"))
+		test.That(t, err,test.ShouldBeNil)
+		test.That(t, sensorUnBlocked, test.ShouldNotBeNil)
 
+	})
 }
-
-
-
-// Test valid sensor honoring reconfig
-
-// Test remote sensor working
-
-// Test main and remote have conflicting names
-
-// Test conflicting names but specify remote name
-
-// Test conflicting multiple remotes with conflicting names

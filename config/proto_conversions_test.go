@@ -1007,8 +1007,8 @@ func TestPackageTypeConversion(t *testing.T) {
 }
 
 func TestMaintenanceConfigToProtoSuccess(t *testing.T) {
-	testMaintenanceConfig:= MaintenanceConfig{
-		SensorName: "car",
+	testMaintenanceConfig := MaintenanceConfig{
+		SensorName:            "rdk:component:sensor/car",
 		MaintenanceAllowedKey: "honk",
 	}
 
@@ -1021,8 +1021,8 @@ func TestMaintenanceConfigToProtoSuccess(t *testing.T) {
 }
 
 func TestMaintenanceConfigToProtoRemoteSuccess(t *testing.T) {
-	testMaintenanceConfig:= MaintenanceConfig{
-		SensorName: "car:go:store",
+	testMaintenanceConfig := MaintenanceConfig{
+		SensorName:            "rdk:component:sensor/go:store",
 		MaintenanceAllowedKey: "fast",
 	}
 
@@ -1035,16 +1035,11 @@ func TestMaintenanceConfigToProtoRemoteSuccess(t *testing.T) {
 }
 
 func TestMaintenanceConfigToProtoFailure(t *testing.T) {
-	testMaintenanceConfig:= MaintenanceConfig{
-		SensorName: "car:go",
+	testMaintenanceConfig := MaintenanceConfig{
+		SensorName:            "car:go",
 		MaintenanceAllowedKey: "slow",
 	}
 
-	proto, err := MaintenanceConfigToProto(&testMaintenanceConfig)
-	test.That(t, err, test.ShouldBeNil)
-	out, err := MaintenanceConfigFromProto(proto)
-	test.That(t, err, test.ShouldBeNil)
-
-	test.That(t, *out, test.ShouldResemble, testMaintenanceConfig)
+	_, err := MaintenanceConfigToProto(&testMaintenanceConfig)
+	test.That(t, err.Error(), test.ShouldEqual, "string \"car:go\" is not a fully qualified resource name")
 }
-

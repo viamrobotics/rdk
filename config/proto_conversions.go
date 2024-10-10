@@ -644,10 +644,14 @@ func NetworkConfigToProto(network *NetworkConfig) (*pb.NetworkConfig, error) {
 
 // MaintenanceConfigToProto converts MaintenanceConfig from the proto equivalent.
 func MaintenanceConfigToProto(maintenanceConfig *MaintenanceConfig) (*pb.MaintenanceConfig, error) {
-	name := resource.NewName(resource.APINamespaceRDK.WithComponentType("sensor"), maintenanceConfig.SensorName)
+	// convert from string to resource name
+	name, err := resource.NewFromString(maintenanceConfig.SensorName)
+	if err != nil {
+		return nil, err
+	}
 
 	proto := pb.MaintenanceConfig{
-		SensorName: protoRdkUtils.ResourceNameToProto(name),
+		SensorName:            protoRdkUtils.ResourceNameToProto(name),
 		MaintenanceAllowedKey: maintenanceConfig.MaintenanceAllowedKey,
 	}
 
@@ -668,10 +672,10 @@ func NetworkConfigFromProto(proto *pb.NetworkConfig) (*NetworkConfig, error) {
 
 	return &network, nil
 }
-// MaintenanceConfigFromProto creates a MaintenanceConfig from the proto equivalent
+// MaintenanceConfigFromProto creates a MaintenanceConfig from the proto equivalent.
 func MaintenanceConfigFromProto(proto *pb.MaintenanceConfig) (*MaintenanceConfig, error) {
 	MaintenanceConfig := MaintenanceConfig{
-		SensorName:protoRdkUtils.ResourceNameFromProto(proto.SensorName).ShortName(),
+		SensorName:            protoRdkUtils.ResourceNameFromProto(proto.SensorName).String(),
 		MaintenanceAllowedKey: proto.GetMaintenanceAllowedKey(),
 	}
 	return &MaintenanceConfig, nil
