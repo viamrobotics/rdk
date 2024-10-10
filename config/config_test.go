@@ -1232,3 +1232,23 @@ func TestConfigRobotRevision(t *testing.T) {
 
 	test.That(t, cfg.Revision, test.ShouldEqual, "rev1")
 }
+
+func TestConfigMarshalUnMarshal(t *testing.T) {
+	c := config.Config{
+		MaintenanceConfig: &config.MaintenanceConfig{
+			SensorName:            "SensorNames",
+			MaintenanceAllowedKey: "Key",
+		},
+	}
+	expectedVal := config.Config{
+		MaintenanceConfig: &config.MaintenanceConfig{
+			SensorName:            "SensorName",
+			MaintenanceAllowedKey: "Key",
+		},
+	}
+	val, err := c.MarshalJSON()
+	test.That(t, err, test.ShouldBeNil)
+
+	c.UnmarshalJSON(val)
+	test.That(t, c, test.ShouldResemble, expectedVal)
+}
