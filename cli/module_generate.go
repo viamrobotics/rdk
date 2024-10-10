@@ -76,6 +76,67 @@ func GenerateModuleAction(cCtx *cli.Context) error {
 	return c.generateModuleAction(cCtx)
 }
 
+func wrapResolveOrg(cctx *cli.Context, c *viamClient, newModule *moduleInputs) error {
+	match, err := regexp.MatchString("^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", newModule.Namespace)
+	if !match || err != nil {
+		org, err := resolveOrg(c, newModule.Namespace, "")
+		if err != nil {
+			return catchResolveOrgErr(cctx, c, newModule, err)
+			// return errors.Wrapf(err, "failed to resolve organization from namespace %s", newModule.Namespace)
+		}
+		newModule.OrgID = org.GetId()
+	} else {
+		org, err := resolveOrg(c, "", newModule.Namespace)
+		if err != nil {
+			return catchResolveOrgErr(cctx, c, newModule, err)
+			// return errors.Wrapf(err, "failed to resolve organization from ID %s", newModule.Namespace)
+		}
+		newModule.OrgID = newModule.Namespace
+		newModule.Namespace = org.GetPublicNamespace()
+	}
+	return nil
+
+}
+
+func catchResolveOrgErr(cctx *cli.Context, c *viamClient, newModule *moduleInputs, caughtErr error) error {
+	if caughtErr == nil {
+		return nil
+	}
+	if caughtErr.Error() == "not logged in: run the following command to login:\n\tviam login" {
+		originalWriter := cctx.App.Writer
+		cctx.App.Writer = io.Discard
+		err := c.loginAction(cctx)
+		cctx.App.Writer = originalWriter
+		if err != nil {
+			return err
+		}
+		return wrapResolveOrg(cctx, c, newModule)
+	}
+	if strings.Contains(caughtErr.Error(), "none of your organizations have a public namespace") || strings.Contains(caughtErr.Error(), "no organization found for") {
+		return errors.Wrapf(caughtErr, "trying to create module for organization you do not own")
+	}
+	return caughtErr
+
+}
+
+// populateAdditionalInfo fills in additional info in newModule
+func populateAdditionalInfo(newModule *moduleInputs) {
+
+	newModule.GeneratedOn = time.Now().UTC()
+	newModule.GeneratorVersion = version
+	newModule.ResourceSubtype = strings.Split(newModule.Resource, " ")[0]
+	newModule.ResourceType = strings.Split(newModule.Resource, " ")[1]
+
+	titleCaser := cases.Title(language.Und)
+	replacer := strings.NewReplacer("_", "", "-", "")
+	newModule.ModulePascal = replacer.Replace(titleCaser.String(newModule.ModuleName))
+	newModule.API = fmt.Sprintf("rdk:%s:%s", newModule.ResourceType, newModule.ResourceSubtype)
+	newModule.ResourceSubtypePascal = replacer.Replace(titleCaser.String(newModule.ResourceSubtype))
+	newModule.ModelPascal = replacer.Replace(titleCaser.String(newModule.ModelName))
+	newModule.ModelTriple = fmt.Sprintf("%s:%s:%s", newModule.Namespace, newModule.ModuleName, newModule.ModelName)
+
+}
+
 func (c *viamClient) generateModuleAction(cCtx *cli.Context) error {
 	var newModule *moduleInputs
 	var err error
@@ -106,9 +167,13 @@ func (c *viamClient) generateModuleAction(cCtx *cli.Context) error {
 		}
 	} else {
 		newModule, err = promptUser(c)
-	}
-	if err != nil {
-		return err
+		if err != nil {
+			return err
+		}
+		populateAdditionalInfo(newModule)
+		if err := wrapResolveOrg(cCtx, c, newModule); err != nil {
+			return err
+		}
 	}
 
 	s := spinner.New()
@@ -298,36 +363,6 @@ func promptUser(c *viamClient) (*moduleInputs, error) {
 	err := form.Run()
 	if err != nil {
 		return nil, errors.Wrap(err, "encountered an error generating module")
-	}
-
-	// Fill in additional info
-	newModule.GeneratedOn = time.Now().UTC()
-	newModule.GeneratorVersion = version
-	newModule.ResourceSubtype = strings.Split(newModule.Resource, " ")[0]
-	newModule.ResourceType = strings.Split(newModule.Resource, " ")[1]
-
-	titleCaser := cases.Title(language.Und)
-	replacer := strings.NewReplacer("_", "", "-", "")
-	newModule.ModulePascal = replacer.Replace(titleCaser.String(newModule.ModuleName))
-	newModule.API = fmt.Sprintf("rdk:%s:%s", newModule.ResourceType, newModule.ResourceSubtype)
-	newModule.ResourceSubtypePascal = replacer.Replace(titleCaser.String(newModule.ResourceSubtype))
-	newModule.ModelPascal = replacer.Replace(titleCaser.String(newModule.ModelName))
-	newModule.ModelTriple = fmt.Sprintf("%s:%s:%s", newModule.Namespace, newModule.ModuleName, newModule.ModelName)
-
-	match, err := regexp.MatchString("^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", newModule.Namespace)
-	if !match || err != nil {
-		org, err := resolveOrg(c, newModule.Namespace, "")
-		if err != nil {
-			return nil, errors.Wrapf(err, "failed to resolve organization from namespace %s", newModule.Namespace)
-		}
-		newModule.OrgID = org.GetId()
-	} else {
-		org, err := resolveOrg(c, "", newModule.Namespace)
-		if err != nil {
-			return nil, errors.Wrapf(err, "failed to resolve organization from ID %s", newModule.Namespace)
-		}
-		newModule.OrgID = newModule.Namespace
-		newModule.Namespace = org.GetPublicNamespace()
 	}
 
 	return &newModule, nil

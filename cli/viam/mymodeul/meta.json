@@ -1,0 +1,14 @@
+{
+  "$schema": "https://dl.viam.dev/module.schema.json",
+  "module_id": ":mymodeul",
+  "visibility": "private",
+  "url": "",
+  "description": "Modular arm component: myode",
+  "models": [
+    {
+      "api": "rdk:component:arm",
+      "model": "3531d2cd-ea2d-49e2-b526-975e21943ff6:mymodeul:myode"
+    }
+  ],
+  "entrypoint": "./run.sh"
+}

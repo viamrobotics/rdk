@@ -1,0 +1,11 @@
+{
+  "module_name": "mymodeul",
+  "namespace": "",
+  "language": "python",
+  "resource_type": "component",
+  "resource_subtype": "arm",
+  "model_name": "myode",
+  "enable_cloud_build": false,
+  "generator_version": "0.1.0",
+  "generated_on": "2024-10-10T19:43:49.171272Z"
+}

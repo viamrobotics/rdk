@@ -1,0 +1,4 @@
+
+viam-sdk==0.31.0
+
+typing-extensions
