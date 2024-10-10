@@ -39,6 +39,10 @@ jobs:
       with:
         ref: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.head.sha || github.event.ref }}
 
+    - uses: actions/setup-python@v5
+      with:
+        cache: 'pip'
+
     - name: Set main env vars
       if: github.event_name != 'pull_request_target'
       run: |
@@ -62,7 +66,6 @@ jobs:
       run: |
         sudo -Hu testbot bash -lc 'git init && git add . && make build-go lint-go generate-go'
         GEN_DIFF=$(git status -s)
-
         if [ -n "$GEN_DIFF" ]; then
             echo '"make build-go lint-go generate-go" resulted in the following untracked changes:' 1>&2
             git diff
@@ -74,6 +77,8 @@ jobs:
     - name: Run go unit tests
       run: |
         chmod -R a+rwx . # temporary fix for arm runners
+        sudo apt update 
+        sudo apt-get install -y python3-venv
         sudo --preserve-env=MONGODB_TEST_OUTPUT_URI,GITHUB_SHA,GITHUB_RUN_ID,GITHUB_RUN_NUMBER,GITHUB_RUN_ATTEMPT,GITHUB_X_PR_BASE_SHA,GITHUB_X_PR_BASE_REF,GITHUB_X_HEAD_REF,GITHUB_X_HEAD_SHA,GITHUB_REPOSITORY -Hu testbot bash -lc 'make test-go'
 
     - name: Upload test.json
@@ -179,7 +184,7 @@ jobs:
           --platform linux/arm/v7 \
           -v `pwd`:/rdk \
           ghcr.io/viamrobotics/rdk-devenv:armhf-cache \
-          sudo -Hu testbot bash -lc 'cd /rdk && go test -v -tags=no_tflite ./...'
+          sudo -Hu testbot bash -lc 'sudo apt update && sudo apt-get install -y python3-venv && cd /rdk && go test -v -tags=no_tflite ./...'
 
   test_pi:
     name: Test Raspberry Pi Code
