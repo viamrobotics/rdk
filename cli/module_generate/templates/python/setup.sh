@@ -32,6 +32,10 @@ fi
 # remove -U if viam-sdk should not be upgraded whenever possible
 # -qq suppresses extraneous output from pip
 echo "Virtualenv found/created. Installing/upgrading Python packages..."
-if ! $PYTHON -m pip install -r requirements.txt -Uqq; then
-    exit 1
+if ! [ -f .installed ]; then
+    if ! $PYTHON -m pip install -r requirements.txt -Uqq; then
+        exit 1
+    else
+        touch .installed
+    fi
 fi
