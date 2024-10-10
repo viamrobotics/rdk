@@ -203,7 +203,8 @@ func (mgr *Manager) Handles() map[string]modlib.HandlerMap {
 	return res
 }
 
-// an allowed list of specific viam namespace modules.
+// An allowed list of specific viam namespace modules. We want to allow running some of our official
+// modules even in an untrusted environment.
 var allowedModules = map[string]bool{
 	"viam:raspberry-pi": true,
 }
