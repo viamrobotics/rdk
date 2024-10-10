@@ -238,8 +238,8 @@ func (mgr *Manager) Add(ctx context.Context, confs ...config.Module) error {
 		}
 		// overwrite with just the modules we've allowed
 		confs = newConfs
-		mgr.logger.Warnf(
-			"viam server is running in an untrusted environment and will only add the following modules: %v",
+		mgr.logger.CWarnw(
+			ctx, "Running in an untrusted environment; will only add some modules", "modules",
 			confs)
 	}
 
