@@ -93,11 +93,6 @@ test-go-no-race: tool-install
 test-web:
 	npm run test:unit --prefix web/frontend
 
-# test.short skips tests requiring external hardware (motors/servos)
-test-pi:
-	go test -c -o $(BIN_OUTPUT_PATH)/test-pi go.viam.com/rdk/components/board/pi/impl
-	sudo $(BIN_OUTPUT_PATH)/test-pi -test.short -test.v
-
 test-e2e:
 	go build $(LDFLAGS) -o bin/test-e2e/server web/cmd/server/main.go
 	./etc/e2e.sh -o 'run' $(E2E_ARGS)
