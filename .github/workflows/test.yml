@@ -13,140 +13,140 @@ env:
   MONGODB_TEST_OUTPUT_URI: ${{ secrets.MONGODB_TEST_OUTPUT_URI }}
 
 jobs:
-  # test_go:
-  #   # note: we have automations that match on platform_name. be careful changing this.
-  #   name: ${{ matrix.platform_name }} Go Unit Tests
-  #   strategy:
-  #     fail-fast: false
-  #     matrix:
-  #       include:
-  #         - arch: ubuntu-large
-  #           image: ghcr.io/viamrobotics/rdk-devenv:amd64-cache
-  #           platform: linux/amd64
-  #           platform_name: linux-amd64
-  #         - arch: ubuntu-large-arm
-  #           image: ghcr.io/viamrobotics/rdk-devenv:arm64-cache
-  #           platform: linux/arm64
-  #           platform_name: linux-arm64
-  #   runs-on: ${{ matrix.arch }}
-  #   container:
-  #     image: ${{ matrix.image }}
-  #     options: --platform ${{ matrix.platform }}
-  #   timeout-minutes: 30
+  test_go:
+    # note: we have automations that match on platform_name. be careful changing this.
+    name: ${{ matrix.platform_name }} Go Unit Tests
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: ubuntu-large
+            image: ghcr.io/viamrobotics/rdk-devenv:amd64-cache
+            platform: linux/amd64
+            platform_name: linux-amd64
+          - arch: ubuntu-large-arm
+            image: ghcr.io/viamrobotics/rdk-devenv:arm64-cache
+            platform: linux/arm64
+            platform_name: linux-arm64
+    runs-on: ${{ matrix.arch }}
+    container:
+      image: ${{ matrix.image }}
+      options: --platform ${{ matrix.platform }}
+    timeout-minutes: 30
 
-  #   steps:
-  #   - uses: actions/checkout@v3
-  #     with:
-  #       ref: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.head.sha || github.event.ref }}
+    steps:
+    - uses: actions/checkout@v3
+      with:
+        ref: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.head.sha || github.event.ref }}
 
-  #   - uses: actions/setup-python@v5
-  #     with:
-  #       cache: 'pip'
+    - uses: actions/setup-python@v5
+      with:
+        cache: 'pip'
 
-  #   - name: Set main env vars
-  #     if: github.event_name != 'pull_request_target'
-  #     run: |
-  #       echo "GITHUB_X_HEAD_SHA=${GITHUB_SHA}" >> $GITHUB_ENV
-  #       echo "GITHUB_X_HEAD_REF=${GITHUB_REF_NAME}" >> $GITHUB_ENV
+    - name: Set main env vars
+      if: github.event_name != 'pull_request_target'
+      run: |
+        echo "GITHUB_X_HEAD_SHA=${GITHUB_SHA}" >> $GITHUB_ENV
+        echo "GITHUB_X_HEAD_REF=${GITHUB_REF_NAME}" >> $GITHUB_ENV
 
-  #   - name: Set PR env vars
-  #     if: github.event_name == 'pull_request_target'
-  #     env:
-  #       GITHUB_HEAD_REF_SAN: ${{ github.event.pull_request.head.label }}
-  #     run: |
-  #       echo "GITHUB_X_HEAD_SHA=${{ github.event.pull_request.head.sha }}" >> $GITHUB_ENV
-  #       echo "GITHUB_X_HEAD_REF=${GITHUB_HEAD_REF_SAN}" >> $GITHUB_ENV
-  #       echo "GITHUB_X_PR_BASE_SHA=${{ github.event.pull_request.base.sha }}" >> $GITHUB_ENV
-  #       echo "GITHUB_X_PR_BASE_REF=${{ github.event.pull_request.base.ref }}" >> $GITHUB_ENV
+    - name: Set PR env vars
+      if: github.event_name == 'pull_request_target'
+      env:
+        GITHUB_HEAD_REF_SAN: ${{ github.event.pull_request.head.label }}
+      run: |
+        echo "GITHUB_X_HEAD_SHA=${{ github.event.pull_request.head.sha }}" >> $GITHUB_ENV
+        echo "GITHUB_X_HEAD_REF=${GITHUB_HEAD_REF_SAN}" >> $GITHUB_ENV
+        echo "GITHUB_X_PR_BASE_SHA=${{ github.event.pull_request.base.sha }}" >> $GITHUB_ENV
+        echo "GITHUB_X_PR_BASE_REF=${{ github.event.pull_request.base.ref }}" >> $GITHUB_ENV
 
-  #   - name: Chown
-  #     run: chown -R testbot:testbot .
+    - name: Chown
+      run: chown -R testbot:testbot .
 
-  #   - name: Run go unit tests
-  #     run: |
-  #       chmod -R a+rwx . # temporary fix for arm runners
-  #       sudo apt update 
-  #       sudo apt install -y python3.11-venv
-  #       sudo --preserve-env=MONGODB_TEST_OUTPUT_URI,GITHUB_SHA,GITHUB_RUN_ID,GITHUB_RUN_NUMBER,GITHUB_RUN_ATTEMPT,GITHUB_X_PR_BASE_SHA,GITHUB_X_PR_BASE_REF,GITHUB_X_HEAD_REF,GITHUB_X_HEAD_SHA,GITHUB_REPOSITORY -Hu testbot bash -lc 'make test-go'
+    - name: Run go unit tests
+      run: |
+        chmod -R a+rwx . # temporary fix for arm runners
+        sudo apt update 
+        sudo apt-get install -y python3-venv
+        sudo --preserve-env=MONGODB_TEST_OUTPUT_URI,GITHUB_SHA,GITHUB_RUN_ID,GITHUB_RUN_NUMBER,GITHUB_RUN_ATTEMPT,GITHUB_X_PR_BASE_SHA,GITHUB_X_PR_BASE_REF,GITHUB_X_HEAD_REF,GITHUB_X_HEAD_SHA,GITHUB_REPOSITORY -Hu testbot bash -lc 'make test-go'
 
-  #   - name: Upload test.json
-  #     if: always()
-  #     uses: actions/upload-artifact@v3
-  #     with:
-  #       name: test-${{ matrix.platform_name }}.json
-  #       path: json.log
-  #       retention-days: 30
+    - name: Upload test.json
+      if: always()
+      uses: actions/upload-artifact@v3
+      with:
+        name: test-${{ matrix.platform_name }}.json
+        path: json.log
+        retention-days: 30
 
-  # test_coverage:
-  #   name: Go Coverage Tests
-  #   if: false # toggle this off, delete after 3/1/24 if nobody misses it
-  #   # note: we split 'test_go' and 'test_coverage' steps because running race-detection + covprofile simultaneously is slow enough to cause flakes
-  #   strategy:
-  #     fail-fast: false
-  #     matrix:
-  #       include:
-  #         - arch: ubuntu-large
-  #           image: ghcr.io/viamrobotics/rdk-devenv:amd64-cache
-  #           platform: linux/amd64
-  #           platform_name: linux-amd64
-  #         - arch: ubuntu-large-arm
-  #           image: ghcr.io/viamrobotics/rdk-devenv:arm64-cache
-  #           platform: linux/arm64
-  #           platform_name: linux-arm64
-  #   runs-on: ${{ matrix.arch }}
-  #   container:
-  #     image: ${{ matrix.image }}
-  #     options: --platform ${{ matrix.platform }}
-  #   timeout-minutes: 30
+  test_coverage:
+    name: Go Coverage Tests
+    if: false # toggle this off, delete after 3/1/24 if nobody misses it
+    # note: we split 'test_go' and 'test_coverage' steps because running race-detection + covprofile simultaneously is slow enough to cause flakes
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: ubuntu-large
+            image: ghcr.io/viamrobotics/rdk-devenv:amd64-cache
+            platform: linux/amd64
+            platform_name: linux-amd64
+          - arch: ubuntu-large-arm
+            image: ghcr.io/viamrobotics/rdk-devenv:arm64-cache
+            platform: linux/arm64
+            platform_name: linux-arm64
+    runs-on: ${{ matrix.arch }}
+    container:
+      image: ${{ matrix.image }}
+      options: --platform ${{ matrix.platform }}
+    timeout-minutes: 30
 
-  #   steps:
-  #   - uses: actions/checkout@v3
-  #     with:
-  #       ref: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.head.sha || github.event.ref }}
-  #       fetch-depth: ${{ github.event_name == 'pull_request_target' && '0' || '1' }} # 0 aka full history, so we can analyze history for coverage
+    steps:
+    - uses: actions/checkout@v3
+      with:
+        ref: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.head.sha || github.event.ref }}
+        fetch-depth: ${{ github.event_name == 'pull_request_target' && '0' || '1' }} # 0 aka full history, so we can analyze history for coverage
 
-  #   - name: Set main env vars
-  #     if: github.event_name != 'pull_request_target'
-  #     run: |
-  #       echo "GITHUB_X_HEAD_SHA=${GITHUB_SHA}" >> $GITHUB_ENV
-  #       echo "GITHUB_X_HEAD_REF=${GITHUB_REF_NAME}" >> $GITHUB_ENV
+    - name: Set main env vars
+      if: github.event_name != 'pull_request_target'
+      run: |
+        echo "GITHUB_X_HEAD_SHA=${GITHUB_SHA}" >> $GITHUB_ENV
+        echo "GITHUB_X_HEAD_REF=${GITHUB_REF_NAME}" >> $GITHUB_ENV
 
-  #   - name: Set PR env vars
-  #     if: github.event_name == 'pull_request_target'
-  #     env:
-  #       GITHUB_HEAD_REF_SAN: ${{ github.event.pull_request.head.label }}
-  #     run: |
-  #       echo "GITHUB_X_HEAD_SHA=${{ github.event.pull_request.head.sha }}" >> $GITHUB_ENV
-  #       echo "GITHUB_X_HEAD_REF=${GITHUB_HEAD_REF_SAN}" >> $GITHUB_ENV
-  #       echo "GITHUB_X_PR_BASE_SHA=${{ github.event.pull_request.base.sha }}" >> $GITHUB_ENV
-  #       echo "GITHUB_X_PR_BASE_REF=${{ github.event.pull_request.base.ref }}" >> $GITHUB_ENV
+    - name: Set PR env vars
+      if: github.event_name == 'pull_request_target'
+      env:
+        GITHUB_HEAD_REF_SAN: ${{ github.event.pull_request.head.label }}
+      run: |
+        echo "GITHUB_X_HEAD_SHA=${{ github.event.pull_request.head.sha }}" >> $GITHUB_ENV
+        echo "GITHUB_X_HEAD_REF=${GITHUB_HEAD_REF_SAN}" >> $GITHUB_ENV
+        echo "GITHUB_X_PR_BASE_SHA=${{ github.event.pull_request.base.sha }}" >> $GITHUB_ENV
+        echo "GITHUB_X_PR_BASE_REF=${{ github.event.pull_request.base.ref }}" >> $GITHUB_ENV
 
-  #   - name: chown
-  #     run: chown -R testbot:testbot .
+    - name: chown
+      run: chown -R testbot:testbot .
 
-  #   - name: Verify no uncommitted changes from "make build-go lint-go generate-go"
-  #     run: |
-  #       sudo -Hu testbot bash -lc 'git init && git add . && make build-go lint-go generate-go'
-  #       GEN_DIFF=$(git status -s)
+    - name: Verify no uncommitted changes from "make build-go lint-go generate-go"
+      run: |
+        sudo -Hu testbot bash -lc 'git init && git add . && make build-go lint-go generate-go'
+        GEN_DIFF=$(git status -s)
 
-  #       if [ -n "$GEN_DIFF" ]; then
-  #           echo '"make build-go lint-go generate-go" resulted in changes not in git' 1>&2
-  #           git status
-  #           exit 1
-  #       fi
+        if [ -n "$GEN_DIFF" ]; then
+            echo '"make build-go lint-go generate-go" resulted in changes not in git' 1>&2
+            git status
+            exit 1
+        fi
 
-  #   - name: Run go coverage tests
-  #     run: |
-  #       sudo --preserve-env=MONGODB_TEST_OUTPUT_URI,GITHUB_SHA,GITHUB_RUN_ID,GITHUB_RUN_NUMBER,GITHUB_RUN_ATTEMPT,GITHUB_X_PR_BASE_SHA,GITHUB_X_PR_BASE_REF,GITHUB_X_HEAD_REF,GITHUB_X_HEAD_SHA,GITHUB_REPOSITORY -Hu testbot bash -lc 'make cover-only'
+    - name: Run go coverage tests
+      run: |
+        sudo --preserve-env=MONGODB_TEST_OUTPUT_URI,GITHUB_SHA,GITHUB_RUN_ID,GITHUB_RUN_NUMBER,GITHUB_RUN_ATTEMPT,GITHUB_X_PR_BASE_SHA,GITHUB_X_PR_BASE_REF,GITHUB_X_HEAD_REF,GITHUB_X_HEAD_SHA,GITHUB_REPOSITORY -Hu testbot bash -lc 'make cover-only'
 
-  #   - name: Upload code coverage
-  #     uses: actions/upload-artifact@v3
-  #     with:
-  #       name: pr-code-coverage
-  #       path: |
-  #         pr.env
-  #         code-coverage-results.md
-  #       retention-days: 1
+    - name: Upload code coverage
+      uses: actions/upload-artifact@v3
+      with:
+        name: pr-code-coverage
+        path: |
+          pr.env
+          code-coverage-results.md
+        retention-days: 1
 
   test32:
     name: Go 32-bit Unit Tests
@@ -172,7 +172,7 @@ jobs:
           --platform linux/arm/v7 \
           -v `pwd`:/rdk \
           ghcr.io/viamrobotics/rdk-devenv:armhf-cache \
-          sudo -Hu testbot bash -lc 'sudo apt update && sudo apt install -y python3.11-venv && cd /rdk && go test -v -tags=no_tflite ./...'
+          sudo -Hu testbot bash -lc 'sudo apt update && sudo apt-get install -y python3-venv && cd /rdk && go test -v -tags=no_tflite ./...'
 
   # test_pi:
   #   name: Test Raspberry Pi Code
