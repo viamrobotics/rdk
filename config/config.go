@@ -29,17 +29,18 @@ import (
 
 // A Config describes the configuration of a robot.
 type Config struct {
-	Cloud      *Cloud
-	Modules    []Module
-	Remotes    []Remote
-	Components []resource.Config
-	Processes  []pexec.ProcessConfig
-	Services   []resource.Config
-	Packages   []PackageConfig
-	Network    NetworkConfig
-	Auth       AuthConfig
-	Debug      bool
-	LogConfig  []logging.LoggerPatternConfig
+	Cloud             *Cloud
+	Modules           []Module
+	Remotes           []Remote
+	Components        []resource.Config
+	Processes         []pexec.ProcessConfig
+	Services          []resource.Config
+	Packages          []PackageConfig
+	Network           NetworkConfig
+	Auth              AuthConfig
+	Debug             bool
+	LogConfig         []logging.LoggerPatternConfig
+	MaintenanceConfig *MaintenanceConfig
 
 	ConfigFilePath string
 
@@ -77,6 +78,13 @@ type Config struct {
 	toCache []byte
 }
 
+// MaintenanceConfig specifies a reconfigure sensor
+// When the sensor is read that value will be used to determine if it is safe to reconfigure.
+type MaintenanceConfig struct {
+	SensorName            string `json:"sensor_name"`
+	MaintenanceAllowedKey string `json:"maintenance_allowed_key"`
+}
+
 // NOTE: This data must be maintained with what is in Config.
 type configData struct {
 	Cloud               *Cloud                        `json:"cloud,omitempty"`
@@ -93,6 +101,7 @@ type configData struct {
 	EnableWebProfile    bool                          `json:"enable_web_profile"`
 	LogConfig           []logging.LoggerPatternConfig `json:"log,omitempty"`
 	Revision            string                        `json:"revision,omitempty"`
+	MaintenanceConfig   *MaintenanceConfig            `json:"maintenance,omitempty"`
 }
 
 // AppValidationStatus refers to the.
@@ -299,6 +308,7 @@ func (c *Config) UnmarshalJSON(data []byte) error {
 	c.EnableWebProfile = conf.EnableWebProfile
 	c.LogConfig = conf.LogConfig
 	c.Revision = conf.Revision
+	c.MaintenanceConfig = conf.MaintenanceConfig
 
 	return nil
 }
@@ -330,6 +340,7 @@ func (c Config) MarshalJSON() ([]byte, error) {
 		EnableWebProfile:    c.EnableWebProfile,
 		LogConfig:           c.LogConfig,
 		Revision:            c.Revision,
+		MaintenanceConfig:   c.MaintenanceConfig,
 	})
 }
 
