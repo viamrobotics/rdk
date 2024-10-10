@@ -60,8 +60,14 @@ func newMicrophoneSource(conf *Config, logger logging.Logger) (audioinput.AudioS
 
 	debug := conf.Debug
 
-	var audioStreamConstraints = mediadevices.MediaStreamConstraints{
-		Audio: func(constraint *mediadevices.MediaTrackConstraints) {},
+	constraints := mediadevices.MediaTrackConstraints{}
+	audioConstraints := constraints.MediaConstraints.AudioConstraints
+
+	audioOption := func(trackConstraints *mediadevices.MediaTrackConstraints) {
+		trackConstraints.AudioConstraints = audioConstraints
+	}
+	audioStreamConstraints := mediadevices.MediaStreamConstraints{
+		Audio: audioOption,
 	}
 
 	if conf.Path != "" {
