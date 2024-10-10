@@ -209,7 +209,7 @@ var allowedModules = map[string]bool{
 }
 
 // this function checks if the modules added in an intrusted environment are
-// viam modules and alloweds them to be run within an untrusted envionment if so.
+// viam modules and allowes them to be run within an untrusted envionment if so.
 func checkIfAllowed(confs ...config.Module) (
 	allowed bool /*false*/, newConfs []config.Module,
 ) {
@@ -238,7 +238,7 @@ func (mgr *Manager) Add(ctx context.Context, confs ...config.Module) error {
 		// overwrite with just the modules we've allowed
 		confs = newConfs
 		mgr.logger.Warnf(
-			"in an untrusted environrment only specific modules can be used, running machine with only the following modules %v",
+			"viam server is running in an untrusted environment and will only add the following modules: %v",
 			confs)
 	}
 
