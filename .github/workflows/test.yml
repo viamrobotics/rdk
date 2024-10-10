@@ -62,6 +62,18 @@ jobs:
     - name: Chown
       run: chown -R testbot:testbot .
 
+    - name: Verify no uncommitted changes from "make build-go lint-go generate-go"
+      run: |
+        sudo -Hu testbot bash -lc 'git init && git add . && make build-go lint-go generate-go'
+        GEN_DIFF=$(git status -s)
+        if [ -n "$GEN_DIFF" ]; then
+            echo '"make build-go lint-go generate-go" resulted in the following untracked changes:' 1>&2
+            git diff
+            echo '"make build-go lint-go generate-go" resulted in changes not in git' 1>&2
+            git status
+            exit 1
+        fi
+
     - name: Run go unit tests
       run: |
         chmod -R a+rwx . # temporary fix for arm runners
