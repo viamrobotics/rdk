@@ -95,7 +95,6 @@ func wrapResolveOrg(cctx *cli.Context, c *viamClient, newModule *moduleInputs) e
 		newModule.Namespace = org.GetPublicNamespace()
 	}
 	return nil
-
 }
 
 func catchResolveOrgErr(cctx *cli.Context, c *viamClient, newModule *moduleInputs, caughtErr error) error {
@@ -109,16 +108,15 @@ func catchResolveOrgErr(cctx *cli.Context, c *viamClient, newModule *moduleInput
 		}
 		return wrapResolveOrg(cctx, c, newModule)
 	}
-	if strings.Contains(caughtErr.Error(), "none of your organizations have a public namespace") || strings.Contains(caughtErr.Error(), "no organization found for") {
+	if strings.Contains(caughtErr.Error(), "none of your organizations have a public namespace") ||
+		strings.Contains(caughtErr.Error(), "no organization found for") {
 		return errors.Wrapf(caughtErr, "trying to create module for organization you do not own")
 	}
 	return caughtErr
-
 }
 
-// populateAdditionalInfo fills in additional info in newModule
+// populateAdditionalInfo fills in additional info in newModule.
 func populateAdditionalInfo(newModule *moduleInputs) {
-
 	newModule.GeneratedOn = time.Now().UTC()
 	newModule.GeneratorVersion = version
 	newModule.ResourceSubtype = strings.Split(newModule.Resource, " ")[0]
@@ -131,7 +129,6 @@ func populateAdditionalInfo(newModule *moduleInputs) {
 	newModule.ResourceSubtypePascal = replacer.Replace(titleCaser.String(newModule.ResourceSubtype))
 	newModule.ModelPascal = replacer.Replace(titleCaser.String(newModule.ModelName))
 	newModule.ModelTriple = fmt.Sprintf("%s:%s:%s", newModule.Namespace, newModule.ModuleName, newModule.ModelName)
-
 }
 
 func (c *viamClient) generateModuleAction(cCtx *cli.Context) error {
@@ -163,7 +160,7 @@ func (c *viamClient) generateModuleAction(cCtx *cli.Context) error {
 			SDKVersion: "0.0.0",
 		}
 	} else {
-		newModule, err = promptUser(c)
+		newModule, err = promptUser()
 		if err != nil {
 			return err
 		}
@@ -257,7 +254,7 @@ func (c *viamClient) generateModuleAction(cCtx *cli.Context) error {
 
 // Prompt the user for information regarding the module they want to create
 // returns the moduleInputs struct that contains the information the user entered.
-func promptUser(c *viamClient) (*moduleInputs, error) {
+func promptUser() (*moduleInputs, error) {
 	var newModule moduleInputs
 	form := huh.NewForm(
 		huh.NewGroup(
@@ -495,7 +492,8 @@ func copyLanguageTemplate(c *cli.Context, language, moduleName string) error {
 				return errors.Wrapf(err, "error executing template for %s", destPath)
 			}
 			if filepath.Ext(destPath) == ".sh" {
-				err = os.Chmod(destPath, 0755)
+				//nolint:gosec
+				err = os.Chmod(destPath, 0o750)
 				if err != nil {
 					return errors.Wrapf(err, "error making file executable for %s", destPath)
 				}
