@@ -537,11 +537,8 @@ func generatePythonStubs(module moduleInputs) error {
 	if err != nil {
 		return errors.Wrap(err, "cannot generate python stubs -- python runtime not found")
 	}
-	looked, err := exec.LookPath("python3")
-	println("LOOKED", looked, err != nil)
 	cmd = exec.Command("python3", "-m", "venv", venvName)
-	output, err := cmd.Output()
-	println("OUTPUT", string(output))
+	_, err = cmd.Output()
 	if err != nil {
 		return errors.Wrap(err, "cannot generate python stubs -- unable to create python virtual environment")
 	}
@@ -591,7 +588,6 @@ func getLatestSDKTag(c *cli.Context, language string) (string, error) {
 	if err != nil {
 		return "", errors.Wrapf(err, "cannot get latest %s release", repo)
 	}
-	fmt.Println("url " + url)
 	defer utils.UncheckedErrorFunc(resp.Body.Close)
 	if resp.StatusCode != http.StatusOK {
 		return "", errors.Errorf("unexpected http GET status: %s", resp.Status)
