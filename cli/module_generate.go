@@ -344,12 +344,10 @@ func catchResolveOrgErr(cCtx *cli.Context, c *viamClient, newModule *moduleInput
 		return errors.Wrapf(caughtErr, "cannot create module for an organization of which you are not a member")
 	}
 	return caughtErr
-
 }
 
 // populateAdditionalInfo fills in additional info in newModule.
 func populateAdditionalInfo(newModule *moduleInputs) {
-
 	newModule.GeneratedOn = time.Now().UTC()
 	newModule.GeneratorVersion = version
 	newModule.ResourceSubtype = strings.Split(newModule.Resource, " ")[0]
