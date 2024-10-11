@@ -24,12 +24,14 @@ import (
 
 var model = resource.DefaultModelFamily.WithModel("imu-vectornav")
 
+const DefaultBaudRate = 9600
+
 // Config is used for converting a vectornav IMU MovementSensor config attributes.
 type Config struct {
 	SPI      string `json:"spi_bus"`
 	BaudRate *int   `json:"spi_baud_rate,omitempty"`
 	Pfreq    *int   `json:"polling_freq_hz,omitempty"`
-	CSPin    string `json:"chip_select_pin"` // this is the gpio number that we plugged it into
+	GPIOPin  string `json:"chip_select_pin"` // this is the gpio number that we plugged it into
 }
 
 // Validate ensures all parts of the config are valid.
@@ -39,7 +41,7 @@ func (cfg *Config) Validate(path string) ([]string, error) {
 		return nil, resource.NewConfigValidationFieldRequiredError(path, "spi")
 	}
 
-	if cfg.CSPin == "" {
+	if cfg.GPIOPin == "" {
 		return nil, resource.NewConfigValidationFieldRequiredError(path, "cs_pin (chip select pin)")
 	}
 	return deps, nil
@@ -68,7 +70,7 @@ type vectornav struct {
 
 	workers   *goutils.StoppableWorkers
 	bus       buses.SPI
-	cs        string
+	gpioPin   string
 	baudRate  int
 	logger    logging.Logger
 	busClosed bool
@@ -114,35 +116,62 @@ func newVectorNav(
 		return nil, err
 	}
 
-	baudRate := *newConf.BaudRate
-	if baudRate == 0 {
-		baudRate = 9600
-	}
+	baudRate, pollFreq, gpioPin := configParsingAndSetup(ctx, logger, newConf)
 
-	smp := 200
-	if *newConf.Pfreq > 0 {
-		smp = *newConf.Pfreq
-	}
 	v := &vectornav{
 		Named:     conf.ResourceName().AsNamed(),
 		bus:       buses.NewSpiBus(newConf.SPI),
 		logger:    logger,
-		cs:        newConf.CSPin,
+		gpioPin:   gpioPin,
 		baudRate:  baudRate,
 		busClosed: false,
-		polling:   uint(smp),
+		polling:   uint(pollFreq),
 	}
-	mdl, err := v.readRegisterSPI(ctx, modelNumber, 24)
+
+	err = v.registerReading(ctx, logger)
 	if err != nil {
 		return nil, err
 	}
-	sn, err := v.readRegisterSPI(ctx, serialNumber, 4)
+
+	err = v.imuConfig(ctx)
 	if err != nil {
 		return nil, err
 	}
-	fwver, err := v.readRegisterSPI(ctx, firmwareVersion, 4)
+
+	err = v.biasCompensation(ctx, pollFreq)
+
+	go v.pollingSetup(ctx, logger, pollFreq)
+
+	return v, nil
+}
+
+func configParsingAndSetup(ctx context.Context, logger logging.Logger, cfg *Config) (int, int, string) {
+	baudRate := *cfg.BaudRate
+	if baudRate == 0 {
+		logger.CInfof(ctx, "we are setting the baudRate to %d since no value was passed in", DefaultBaudRate)
+		baudRate = DefaultBaudRate
+	}
+
+	pollFreq := 200
+	if *cfg.Pfreq > 0 {
+		pollFreq = *cfg.Pfreq
+	}
+
+	return baudRate, pollFreq, cfg.GPIOPin
+}
+
+func (vn *vectornav) registerReading(ctx context.Context, logger logging.Logger) error {
+	mdl, err := vn.readRegisterSPI(ctx, modelNumber, 24)
 	if err != nil {
-		return nil, err
+		return err
+	}
+	sn, err := vn.readRegisterSPI(ctx, serialNumber, 4)
+	if err != nil {
+		return err
+	}
+	fwver, err := vn.readRegisterSPI(ctx, firmwareVersion, 4)
+	if err != nil {
+		return err
 	}
 	logger.CDebugf(ctx,
 		"model detected %s sn %d %d.%d.%d.%d",
@@ -153,7 +182,10 @@ func newVectorNav(
 		fwver[2],
 		fwver[3],
 	)
+	return nil
+}
 
+func (vn *vectornav) imuConfig(ctx context.Context) error {
 	// set imu location to New York for the WGM model
 	refvec := []byte{1, 1, 0, 0}
 	refvec = append(refvec, utils.BytesFromUint32LE(1000)...)
@@ -162,9 +194,9 @@ func newVectorNav(
 	refvec = append(refvec, utils.BytesFromFloat64LE(40.730610)...)
 	refvec = append(refvec, utils.BytesFromFloat64LE(-73.935242)...)
 	refvec = append(refvec, utils.BytesFromFloat64LE(10.0)...)
-	err = v.writeRegisterSPI(ctx, referenceVectorConfiguration, refvec)
+	err := vn.writeRegisterSPI(ctx, referenceVectorConfiguration, refvec)
 	if err != nil {
-		return nil, errors.Wrap(err, "couldn't set reference vector")
+		return errors.Wrap(err, "couldn't set reference vector")
 	}
 	// enforce acceleration tuinning and reduce "trust" in acceleration data
 	accVpeTunning := []byte{}
@@ -178,36 +210,42 @@ func newVectorNav(
 	accVpeTunning = append(accVpeTunning, utils.BytesFromFloat32LE(10)...)
 	accVpeTunning = append(accVpeTunning, utils.BytesFromFloat32LE(10)...)
 
-	err = v.writeRegisterSPI(ctx, vpeAccTunning, accVpeTunning)
+	err = vn.writeRegisterSPI(ctx, vpeAccTunning, accVpeTunning)
 	if err != nil {
-		return nil, errors.Wrap(err, "couldn't set vpe adaptive tunning")
+		return errors.Wrap(err, "couldn't set vpe adaptive tunning")
 	}
-	err = v.writeRegisterSPI(ctx, deltaVDeltaThetaConfig, []byte{0, 0, 0, 0, 0, 0})
+	err = vn.writeRegisterSPI(ctx, deltaVDeltaThetaConfig, []byte{0, 0, 0, 0, 0, 0})
 	if err != nil {
-		return nil, errors.Wrap(err, "couldn't configure deltaV register")
+		return errors.Wrap(err, "couldn't configure deltaV register")
 	}
-	// tare the heading
-	err = v.vectornavTareSPI(ctx)
-	if err != nil {
-		return nil, err
-	}
+	return nil
+}
 
-	// compensate for acceleration bias due to misalignement
-	err = v.compensateAccelBias(ctx, uint(smp))
+func (vn *vectornav) biasCompensation(ctx context.Context, pollFreq int) error {
+	// tare the heading
+	err := vn.vectornavTareSPI(ctx)
 	if err != nil {
-		return nil, err
+		return err
+	}
+	// compensate for acceleration bias due to misalignement
+	err = vn.compensateAccelBias(ctx, uint(pollFreq))
+	if err != nil {
+		return err
 	}
 	// compensate for constant DV bias in mesurament
-	err = v.compensateDVBias(ctx, uint(smp))
+	err = vn.compensateDVBias(ctx, uint(pollFreq))
 	if err != nil {
-		return nil, err
+		return err
 	}
+	return nil
+}
 
-	logger.CDebugf(ctx, "vecnav: will poll at %d Hz", smp)
+func (vn *vectornav) pollingSetup(ctx context.Context, logger logging.Logger, pollFreq int) {
+	logger.CDebugf(ctx, "vecnav: will poll at %d Hz", pollFreq)
 	waitCh := make(chan struct{})
-	s := 1.0 / float64(smp)
-	v.workers = goutils.NewBackgroundStoppableWorkers(func(cancelCtx context.Context) {
-		timer := time.NewTicker(time.Duration(s * float64(time.Second)))
+	pollHertz := 1.0 / float64(pollFreq)
+	vn.workers = goutils.NewBackgroundStoppableWorkers(func(cancelCtx context.Context) {
+		timer := time.NewTicker(time.Duration(pollHertz * float64(time.Second)))
 		defer timer.Stop()
 		close(waitCh)
 		for {
@@ -220,7 +258,7 @@ func newVectorNav(
 			case <-cancelCtx.Done():
 				return
 			case <-timer.C:
-				err := v.getReadings(ctx)
+				err := vn.getReadings(ctx)
 				if err != nil {
 					return
 				}
@@ -228,8 +266,6 @@ func newVectorNav(
 		}
 	})
 	<-waitCh
-
-	return v, nil
 }
 
 func (vn *vectornav) AngularVelocity(ctx context.Context, extra map[string]interface{}) (spatialmath.AngularVelocity, error) {
@@ -338,13 +374,13 @@ func (vn *vectornav) readRegisterSPI(ctx context.Context, reg vectornavRegister,
 		return nil, err
 	}
 	cmd := []byte{byte(vectorNavSPIRead), byte(reg), 0, 0}
-	_, err = hnd.Xfer(ctx, uint(vn.baudRate), vn.cs, 3, cmd)
+	_, err = hnd.Xfer(ctx, uint(vn.baudRate), vn.gpioPin, 3, cmd)
 	if err != nil {
 		return nil, err
 	}
 	goutils.SelectContextOrWait(ctx, 110*time.Microsecond)
 	cmd = make([]byte, readLen+4)
-	out, err := hnd.Xfer(ctx, uint(vn.baudRate), vn.cs, 3, cmd)
+	out, err := hnd.Xfer(ctx, uint(vn.baudRate), vn.gpioPin, 3, cmd)
 	if err != nil {
 		return nil, err
 	}
@@ -371,13 +407,13 @@ func (vn *vectornav) writeRegisterSPI(ctx context.Context, reg vectornavRegister
 	}
 	cmd := []byte{byte(vectorNavSPIWrite), byte(reg), 0, 0}
 	cmd = append(cmd, data...)
-	_, err = hnd.Xfer(ctx, uint(vn.baudRate), vn.cs, 3, cmd)
+	_, err = hnd.Xfer(ctx, uint(vn.baudRate), vn.gpioPin, 3, cmd)
 	if err != nil {
 		return err
 	}
 	goutils.SelectContextOrWait(ctx, 110*time.Microsecond)
 	cmd = make([]byte, len(data)+4)
-	out, err := hnd.Xfer(ctx, uint(vn.baudRate), vn.cs, 3, cmd)
+	out, err := hnd.Xfer(ctx, uint(vn.baudRate), vn.gpioPin, 3, cmd)
 	if err != nil {
 		return err
 	}
@@ -403,13 +439,13 @@ func (vn *vectornav) vectornavTareSPI(ctx context.Context) error {
 		return err
 	}
 	cmd := []byte{byte(vectorNavSPITare), 0, 0, 0}
-	_, err = hnd.Xfer(ctx, uint(vn.baudRate), vn.cs, 3, cmd)
+	_, err = hnd.Xfer(ctx, uint(vn.baudRate), vn.gpioPin, 3, cmd)
 	if err != nil {
 		return err
 	}
 	goutils.SelectContextOrWait(ctx, 110*time.Microsecond)
 	cmd = []byte{0, 0, 0, 0}
-	out, err := hnd.Xfer(ctx, uint(vn.baudRate), vn.cs, 3, cmd)
+	out, err := hnd.Xfer(ctx, uint(vn.baudRate), vn.gpioPin, 3, cmd)
 	if err != nil {
 		return err
 	}
