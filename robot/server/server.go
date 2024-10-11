@@ -185,7 +185,7 @@ func (s *Server) DiscoverComponents(ctx context.Context, req *pb.DiscoverCompone
 		if err != nil {
 			return nil, err
 		}
-		queries = append(queries, resource.DiscoveryQuery{API: s, Model: m})
+		queries = append(queries, resource.DiscoveryQuery{API: s, Model: m, Extra: q.Extra})
 	}
 
 	discoveries, err := s.robot.DiscoverComponents(ctx, queries)
@@ -199,7 +199,11 @@ func (s *Server) DiscoverComponents(ctx context.Context, req *pb.DiscoverCompone
 		if err != nil {
 			return nil, errors.Wrapf(err, "unable to construct a structpb.Struct from discovery for %q", discovery.Query)
 		}
-		pbQuery := &pb.DiscoveryQuery{Subtype: discovery.Query.API.String(), Model: discovery.Query.Model.String()}
+		pbQuery := &pb.DiscoveryQuery{
+			Subtype: discovery.Query.API.String(),
+			Model:   discovery.Query.Model.String(),
+			Extra:   discovery.Query.Extra.(*structpb.Struct),
+		}
 		if nonTriplet {
 			pbQuery.Subtype = discovery.Query.API.SubtypeName
 			pbQuery.Model = discovery.Query.Model.Name

@@ -252,7 +252,7 @@ func TestServer(t *testing.T) {
 		injectRobot.ResourceNamesFunc = func() []resource.Name { return []resource.Name{} }
 		server := server.New(injectRobot)
 
-		q := resource.DiscoveryQuery{arm.Named("arm").API, resource.DefaultModelFamily.WithModel("some-arm")}
+		q := resource.DiscoveryQuery{arm.Named("arm").API, resource.DefaultModelFamily.WithModel("some-arm"), nil}
 		disc := resource.Discovery{Query: q, Results: struct{}{}}
 		discoveries := []resource.Discovery{disc}
 		injectRobot.DiscoverComponentsFunc = func(ctx context.Context, keys []resource.DiscoveryQuery) ([]resource.Discovery, error) {

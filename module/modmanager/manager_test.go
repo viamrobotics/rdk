@@ -1391,7 +1391,7 @@ func TestModularDiscovery(t *testing.T) {
 
 	// Check that the Discover function is registered and make call
 	test.That(t, reg.Discover, test.ShouldNotBeNil)
-	result, err := reg.Discover(ctx, logger)
+	result, err := reg.Discover(ctx, logger, nil)
 	test.That(t, err, test.ShouldBeNil)
 	t.Log("Discovery result: ", result)
 
