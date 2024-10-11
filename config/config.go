@@ -78,8 +78,7 @@ type Config struct {
 	toCache []byte
 }
 
-// MaintenanceConfig specifies a reconfigure sensor
-// When the sensor is read that value will be used to determine if it is safe to reconfigure.
+// MaintenanceConfig specifies a sensor that the machine will check to determine if the machine should reconfigure.
 // This Config is not validated during config processing but it will be validated during reconfiguration
 type MaintenanceConfig struct {
 	SensorName            string `json:"sensor_name"`
