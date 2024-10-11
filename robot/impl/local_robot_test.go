@@ -4036,7 +4036,7 @@ func newErrorSensor() sensor.Sensor {
 	return s
 }
 
-func TestMaintenanceConfigWithRemotesAndFragments(t *testing.T) {
+func TestMaintenanceConfig(t *testing.T) {
 	ctx := context.Background()
 	logger := logging.NewTestLogger(t)
 	model := resource.DefaultModelFamily.WithModel(utils.RandomAlphaString(8))
@@ -4102,8 +4102,7 @@ func TestMaintenanceConfigWithRemotesAndFragments(t *testing.T) {
 			Components: sensor2,
 		}
 
-
-	t.Run("robot reconfigures with maintenanceConfig sensor and blocks reconfigure, reconfigure reenabled when maintenanceConfig removed", func(t *testing.T) {
+	t.Run("maintenanceConfig sensor blocks reconfigure, reconfigure reenabled when maintenanceConfig removed", func(t *testing.T) {
 		cfg := &config.Config{
 			MaintenanceConfig: &config.MaintenanceConfig{SensorName: "rdk:component:sensor/sensor",MaintenanceAllowedKey:"ThatsMyWallet"},
 			Components: sensor1,
@@ -4130,7 +4129,7 @@ func TestMaintenanceConfigWithRemotesAndFragments(t *testing.T) {
 		test.That(t, sensorBlocked, test.ShouldNotBeNil)
 	})
 
-	t.Run("Remote sensor works when remote name is specified and not specified", func(t *testing.T) {
+	t.Run("remote sensor successfully blocks reconfigure when remote name is specified and not specified", func(t *testing.T) {
 		ctx := context.Background()
 		// Setup remote with maintenance sensor
 		remote := setupLocalRobot(t, context.Background(), remoteCfg, logger)

@@ -1188,6 +1188,7 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 	// These sensors can be configured on the main robot, a fragment, or a remote
 	// In situations where there are conflicting sensor names the following behavior happens
 	// Main robot and remote share sensor name -> main robot sensor is chosen
+	// Main robot and fragment share sensor name -> main robot sensor is chosen
 	// Only remote has the sensor name -> remote sensor is read
 	// Multiple remotes share a senor name -> conflict error is returned and reconfigure happens
 	// To specify a specific remote sensor use the name format remoteName:sensorName to specify a remote sensor
@@ -1196,21 +1197,20 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 		if err!=nil {
 			r.logger.Infof("Sensor Name %s is not in a supported format",newConfig.MaintenanceConfig.SensorName )
 		} else {
-		sensorComponent, err := robot.ResourceFromRobot[sensor.Sensor](r, name)
-		if err != nil {
-			r.logger.Infof("%s, Starting reconfiguration", err.Error())
-		} else {
-			canReconfigure, err := r.checkMaintenanceSensorReadings(newConfig.MaintenanceConfig.MaintenanceAllowedKey, sensorComponent)
+			sensorComponent, err := robot.ResourceFromRobot[sensor.Sensor](r, name)
 			if err != nil {
-				r.logger.Info(err.Error() + ". Starting reconfiguration")
+				r.logger.Infof("%s, Starting reconfiguration", err.Error())
 			} else {
-			if !canReconfigure {
-				r.logger.Info("maintenanceAllowedKey found from readings on maintenance sensor. Reconfigure disabled")
-				return
-			} else {
-				r.logger.Info("maintenanceAllowedKey found from readings on maintenance sensor. Starting reconfiguration")
-
-			}
+				canReconfigure, err := r.checkMaintenanceSensorReadings(newConfig.MaintenanceConfig.MaintenanceAllowedKey, sensorComponent)
+				if err != nil {
+					r.logger.Info(err.Error() + ". Starting reconfiguration")
+				} else {
+					if !canReconfigure {
+						r.logger.Info("maintenanceAllowedKey found from readings on maintenance sensor. Reconfigure disabled")
+						return
+					} else {
+						r.logger.Info("maintenanceAllowedKey found from readings on maintenance sensor. Starting reconfiguration")
+					}
 		}
 		}
 	}
@@ -1475,7 +1475,7 @@ func (r *localRobot) checkMaintenanceSensorReadings(maintenanceAllowedKey string
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
-	// Timeouts on this call should be handled grpc and return 
+	// Context timeouts on this call should be handled by grpc
 	readings, err := sensor.Readings(ctx, map[string]interface{}{})
 	if err != nil {
 		return true, errors.Errorf("error reading maintenance sensor readings. %s", err.Error())
