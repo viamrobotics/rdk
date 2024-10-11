@@ -85,7 +85,7 @@ require (
 	go.uber.org/zap v1.27.0
 	go.viam.com/api v0.1.347
 	go.viam.com/test v1.1.1-0.20220913152726-5da9916c08a2
-	go.viam.com/utils v0.1.105
+	go.viam.com/utils v0.1.106
 	goji.io v2.0.2+incompatible
 	golang.org/x/image v0.19.0
 	golang.org/x/mobile v0.0.0-20240112133503-c713f31d574b
